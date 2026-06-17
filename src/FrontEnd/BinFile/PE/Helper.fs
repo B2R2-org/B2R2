@@ -33,7 +33,7 @@ open B2R2.FrontEnd.BinFile.PE.PEUtils
 open B2R2.FrontEnd.BinLifter
 
 /// Main PE format representation.
-type PE =
+type internal PE =
   { /// PE headers.
     PEHeaders: PEHeaders
     /// Image base address.
@@ -103,14 +103,14 @@ let getImportTable pe =
   |> Map.fold (fun acc addr info ->
        match info with
        | ByOrdinal(ord, dllname) ->
-         { FuncName = $"[{ord.ToString()}]"
+         { Name = $"[{ord.ToString()}]"
            LibraryName = dllname
-           TrampolineAddress = 0UL
+           TrampolineAddress = None
            TableAddress = addrFromRVA pe.BaseAddr addr } :: acc
        | ByName(_, fname, dllname) ->
-         { FuncName = fname
+         { Name = fname
            LibraryName = dllname
-           TrampolineAddress = 0UL
+           TrampolineAddress = None
            TableAddress = addrFromRVA pe.BaseAddr addr } :: acc) []
   |> List.sortBy (fun entry -> entry.TableAddress)
   |> List.toArray

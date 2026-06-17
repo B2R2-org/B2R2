@@ -35,7 +35,7 @@ open B2R2.FrontEnd.BinLifter
 /// <summary>
 /// Represents the magic number for Mach-O binaries.
 /// </summary>
-type Magic =
+type internal Magic =
   /// The file is intended for use on a CPU with the same endianness as the
   /// computer on which the compiler is running (32-bit CPU).
   | MH_MAGIC = 0xFEEDFACEu

@@ -27,7 +27,7 @@ namespace B2R2.FrontEnd.BinFile.Mach
 open B2R2
 
 /// Represents a symbol in a Mach-O file.
-type Symbol =
+type internal Symbol =
   { /// Symbol name.
     SymName: string
     /// Symbol type (N_TYPE field of n_type).
@@ -62,7 +62,7 @@ with
        && (isReferrencedDynamically s |> not))
 
 /// Represents the symbol type (N_TYPE).
-and SymbolType =
+and internal SymbolType =
   /// The symbol is undefined.
   | N_UNDF = 0x0
   /// The symbol is absolute. The linker does not update the value of an

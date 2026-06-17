@@ -22,21 +22,18 @@ OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 SOFTWARE.
 *)
 
-namespace B2R2.FrontEnd.BinFile.ELF
+namespace B2R2.FrontEnd.BinFile.DWARF
 
-open System
 open B2R2
 open B2R2.FrontEnd.BinLifter
 
 /// Represents a map from the address of the LSDA to the LSDA itself. LSDATable
-/// is used to store the parsed LSDA entries from the `.gcc_except_table`
-/// section of the ELF file.
-type LSDATable = Map<Addr, LSDA>
+/// is used to store the parsed LSDA entries from the exception-table section
+/// (e.g., `.gcc_except_table` in ELF or `__gcc_except_tab` in Mach-O).
+type internal LSDATable = Map<Addr, LSDA>
 
 [<RequireQualifiedAccess>]
 module internal LSDATable =
-  let [<Literal>] SectionName = ".gcc_except_table"
-
   let findMinOrZero lst =
     match lst with
     | [] -> 0L
@@ -86,11 +83,3 @@ module internal LSDATable =
       let offset = skipDummyAlign span offset
       let lsdas = Map.add lsdaAddr lsda lsdas
       parseFromSection cls span reader sAddr offset lsdas
-
-  let parse toolBox cls shdrs =
-    match Array.tryFind (fun s -> s.SecName = SectionName) shdrs with
-    | Some sec ->
-      let offset, size = int sec.SecOffset, int sec.SecSize
-      let span = ReadOnlySpan(toolBox.Bytes, offset, size)
-      parseFromSection cls span toolBox.Reader sec.SecAddr 0 Map.empty
-    | None -> Map.empty

@@ -25,7 +25,7 @@
 namespace B2R2.FrontEnd.BinFile.Mach
 
 /// Represents the exact model of a CPU.
-type CPUSubType =
+type internal CPUSubType =
   | MIPSAll = 0
   | MIPSR2300 = 1
   | MIPSR2600 = 2

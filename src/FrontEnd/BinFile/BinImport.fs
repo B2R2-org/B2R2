@@ -26,17 +26,19 @@ namespace B2R2.FrontEnd.BinFile
 
 open B2R2
 
-/// Represents a linkage table, which basically refers to a PLT or an IAT.
-type LinkageTable = LinkageTableEntry[]
-
-/// Represents an entry of a linkage table.
-and LinkageTableEntry =
-  { /// Target function name for dynamic linking.
-    FuncName: string
-    /// Name of the library that provides the function.
+/// Represents an imported symbol resolved through dynamic linking, e.g., a
+/// PLT/GOT pair in ELF, an IAT entry in PE, a stub/pointer pair in Mach-O, or
+/// an imported entry in Wasm.
+type BinImport =
+  { /// Name of the imported symbol, which can be a function or a data object.
+    Name: string
+    /// Name of the library (module) that provides the symbol. Empty when the
+    /// providing library is unknown.
     LibraryName: string
-    /// Trampoline code address, e.g., PLT.
-    TrampolineAddress: Addr
-    /// The address of the table that stores the actual target address (e.g.,
-    /// GOT).
+    /// Address of the trampoline/stub that jumps to the import, e.g., a PLT
+    /// entry or a Mach-O symbol stub. None for formats with no trampoline,
+    /// such as PE (IAT-only) and Wasm.
+    TrampolineAddress: Addr option
+    /// Address of the slot that holds the resolved target address, e.g., a GOT
+    /// slot, an IAT slot, or a Mach-O pointer-table entry.
     TableAddress: Addr }

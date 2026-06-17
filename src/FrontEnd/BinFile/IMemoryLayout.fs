@@ -27,25 +27,16 @@ namespace B2R2.FrontEnd.BinFile
 open B2R2
 
 /// <summary>
-/// Represents the virtual-memory layout of a binary: the set of regions that
+/// Represents the virtual-memory layout of a binary: the set of segments that
 /// are mapped into the virtual memory when the binary is loaded. Binary formats
 /// without a native VM layout (e.g., bytecode containers) do not provide this
 /// interface.
 /// </summary>
 type IMemoryLayout =
   /// <summary>
-  /// Returns an array of memory-mapped regions. By a memory-mapped region, we
+  /// Returns an array of memory-mapped segments. By a memory-mapped segment, we
   /// mean a consecutive region that has a corresponding mapping in the virtual
   /// memory. For example, an entire segment with PT_LOAD type of a program
-  /// header in ELF files is considered a memory-mapped region.
+  /// header in ELF files is considered a memory-mapped segment.
   /// </summary>
-  abstract GetMemoryMappedRegions: unit -> AddrRange[]
-
-  /// <summary>
-  /// Returns an array of memory-mapped regions that have the given permission.
-  /// By a memory-mapped region, we mean a region that has a corresponding
-  /// mapping in the virtual memory. For example, an entire segment with PT_LOAD
-  /// type of a program header in ELF files is considered a memory-mapped
-  /// region.
-  /// </summary>
-  abstract GetMemoryMappedRegions: perm: Permission -> AddrRange[]
+  abstract Segments: BinSegment[]

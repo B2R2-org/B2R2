@@ -30,6 +30,7 @@ open B2R2.Collections
 open B2R2.Logging
 open B2R2.FrontEnd
 open B2R2.FrontEnd.BinFile
+open B2R2.FrontEnd.BinFile.DWARF
 open B2R2.FrontEnd.BinFile.ELF
 open B2R2.RearEnd.Utils
 
@@ -426,20 +427,21 @@ let dumpLinkageTableVerbose (elf: ELFBinFile) wordSize addrColumn =
   printDoubleHorizontalRule ()
   printsr <| makeLinkageTableHeaderVerbose ()
   printSingleHorizontalRule ()
-  for e in BinFileOps.getLinkageEntries elf do
+  for e in BinFileOps.getImports elf do
+    let trampoline = Option.defaultValue 0UL e.TrampolineAddress
     match elf.RelocationInfo.TryFind e.TableAddress with
     | Ok reloc ->
-      printsr [| Addr.toString wordSize e.TrampolineAddress
+      printsr [| Addr.toString wordSize trampoline
                  Addr.toString wordSize e.TableAddress
-                 normalizeEmpty e.FuncName
+                 normalizeEmpty e.Name
                  (toLibString >> normalizeEmpty) e.LibraryName
                  reloc.RelAddend.ToString()
                  reloc.RelSecNumber.ToString()
                  RelocationKind.ToString reloc.RelKind |]
     | _ ->
-      printsr [| Addr.toString wordSize e.TrampolineAddress
+      printsr [| Addr.toString wordSize trampoline
                  Addr.toString wordSize e.TableAddress
-                 normalizeEmpty e.FuncName
+                 normalizeEmpty e.Name
                  (toLibString >> normalizeEmpty) e.LibraryName
                  "(n/a)"
                  "(n/a)"
@@ -453,10 +455,11 @@ let dumpLinkageTableSimple (elf: ELFBinFile) wordSize addrColumn =
   printDoubleHorizontalRule ()
   printsr [| "PLT"; "GOT"; "FunctionName"; "Lib Name" |]
   printSingleHorizontalRule ()
-  for e in BinFileOps.getLinkageEntries elf do
-    printsr [| Addr.toString wordSize e.TrampolineAddress
+  for e in BinFileOps.getImports elf do
+    let trampoline = Option.defaultValue 0UL e.TrampolineAddress
+    printsr [| Addr.toString wordSize trampoline
                Addr.toString wordSize e.TableAddress
-               normalizeEmpty e.FuncName
+               normalizeEmpty e.Name
                (toLibString >> normalizeEmpty) e.LibraryName |]
   printDoubleHorizontalRule ()
   printsn ""

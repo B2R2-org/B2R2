@@ -41,32 +41,78 @@ let sliceByOffset (file: IBinFile) offset len =
   else raise InvalidAddrReadException
   bytes.Span.Slice(offset, len)
 
-/// Tries to find the symbolic name associated with the given address.
-[<CompiledName "TryFindName">]
-let tryFindName (file: IBinFile) addr =
+/// Tries to resolve the symbolic name associated with the given address.
+[<CompiledName "TryResolveName">]
+let tryResolveName (file: IBinFile) addr =
   match file.NameResolver with
-  | Some names -> names.TryFindName addr
+  | Some resolver -> resolver.TryResolveName addr
   | None -> Error ErrorCase.SymbolNotFound
 
 /// Checks whether the given binary lacks its non-essential symbol table.
 [<CompiledName "IsStripped">]
 let isStripped (file: IBinFile) =
-  file.SymbolMetadata
-  |> Option.map (fun metadata -> metadata.IsStripped)
+  file.SymbolTable
+  |> Option.map (fun symbolTable -> symbolTable.IsStripped)
   |> Option.defaultValue false
+
+/// Returns the high-level kind of the given binary file.
+[<CompiledName "GetFileKind">]
+let getFileKind (file: IBinFile) = file.Kind
+
+/// Returns the path to the dynamic loader/interpreter requested by the given
+/// binary file, if any.
+[<CompiledName "GetInterpreterPath">]
+let getInterpreterPath (file: IBinFile) = file.InterpreterPath
+
+/// Checks whether the given binary file is an executable program.
+[<CompiledName "IsExecutable">]
+let isExecutable (file: IBinFile) = file.Kind = BinFileKind.Executable
+
+/// Checks whether the given binary file is a shared library.
+[<CompiledName "IsSharedLibrary">]
+let isSharedLibrary (file: IBinFile) = file.Kind = BinFileKind.SharedLibrary
+
+/// Checks whether the given binary file is a relocatable object file.
+[<CompiledName "IsObjectFile">]
+let isObjectFile (file: IBinFile) = file.Kind = BinFileKind.Object
+
+/// Checks whether the given binary file is a core dump.
+[<CompiledName "IsCoreDump">]
+let isCoreDump (file: IBinFile) = file.Kind = BinFileKind.Core
+
+/// Returns all symbols in the given binary file.
+[<CompiledName "GetSymbols">]
+let getSymbols (file: IBinFile) =
+  match file.SymbolTable with
+  | Some symbolTable -> symbolTable.Symbols
+  | None -> [||]
+
+/// Tries to find the symbol located at the given address.
+[<CompiledName "TryFindSymbolByAddr">]
+let tryFindSymbolByAddr (file: IBinFile) addr =
+  match file.SymbolTable with
+  | Some symbolTable -> symbolTable.TryFindSymbolByAddr addr
+  | None -> Error ErrorCase.ItemNotFound
+
+/// Returns the instruction-set mode markers of the given binary file.
+[<CompiledName "GetCodeModeMarkers">]
+let getCodeModeMarkers (file: IBinFile) =
+  match file.SymbolTable with
+  | Some symbolTable -> symbolTable.CodeModeMarkers
+  | None -> [||]
 
 /// Returns a pointer to the code section of the given binary file.
 [<CompiledName "GetCodeSectionPointer">]
 let getCodeSectionPointer (file: IBinFile) =
   match file.Structure with
-  | Some org -> org.GetCodeSectionPointer()
+  | Some structure -> structure.CodeSectionPointer
   | None -> BinFilePointer.Null
 
 /// Returns the default code pointer for disassembling the given binary file.
 [<CompiledName "GetDefaultCodePointer">]
 let getDefaultCodePointer (file: IBinFile) =
   match file.Structure with
-  | Some org -> org.GetCodeSectionPointer()
+  | Some structure -> structure.CodeSectionPointer
   | None ->
     match file.EntryPoint with
     | Some entry -> file.GetBoundedPointer entry
@@ -76,35 +122,70 @@ let getDefaultCodePointer (file: IBinFile) =
 [<CompiledName "GetSectionPointer">]
 let getSectionPointer (file: IBinFile) name =
   match file.Structure with
-  | Some org -> org.GetSectionPointer name
+  | Some structure -> structure.GetSectionPointer name
   | None -> BinFilePointer.Null
+
+/// Returns all binary sections in the given binary file.
+[<CompiledName "GetSections">]
+let getSections (file: IBinFile) =
+  match file.Structure with
+  | Some structure -> structure.Sections
+  | None -> [||]
+
+/// Tries to find the section whose name matches the given name.
+[<CompiledName "TryFindSectionByName">]
+let tryFindSectionByName (file: IBinFile) name =
+  match file.Structure with
+  | Some structure -> structure.TryFindSectionByName name
+  | None -> Error ErrorCase.ItemNotFound
+
+/// Tries to find the section containing the given address.
+[<CompiledName "TryFindSectionByAddr">]
+let tryFindSectionByAddr (file: IBinFile) addr =
+  match file.Structure with
+  | Some structure -> structure.TryFindSectionByAddr addr
+  | None -> Error ErrorCase.ItemNotFound
+
+/// Tries to find the section containing the given file offset.
+[<CompiledName "TryFindSectionByOffset">]
+let tryFindSectionByOffset (file: IBinFile) offset =
+  match file.Structure with
+  | Some structure -> structure.TryFindSectionByOffset offset
+  | None -> Error ErrorCase.ItemNotFound
 
 /// Tries to find the section name containing the given address.
 [<CompiledName "TryFindSectionNameByAddr">]
 let tryFindSectionNameByAddr (file: IBinFile) addr =
   match file.Structure with
-  | Some org -> org.TryFindSectionNameByAddr addr
+  | Some structure -> structure.TryFindSectionNameByAddr addr
   | None -> Error ErrorCase.ItemNotFound
 
 /// Tries to find the section name containing the given file offset.
 [<CompiledName "TryFindSectionNameByOffset">]
 let tryFindSectionNameByOffset (file: IBinFile) offset =
   match file.Structure with
-  | Some org -> org.TryFindSectionNameByOffset offset
+  | Some structure -> structure.TryFindSectionNameByOffset offset
   | None -> Error ErrorCase.ItemNotFound
 
 /// Returns known function entry addresses from the given binary file.
 [<CompiledName "GetFunctionAddresses">]
 let getFunctionAddresses (file: IBinFile) =
   match file.Structure with
-  | Some org -> org.GetFunctionAddresses()
+  | Some structure -> structure.FunctionAddresses
+  | None -> [||]
+
+/// Returns all relocations in the given binary file.
+[<CompiledName "GetRelocations">]
+let getRelocations (file: IBinFile) =
+  match file.Relocations with
+  | Some relocs -> relocs.Relocations
   | None -> [||]
 
 /// Checks if the given address has relocation information.
-[<CompiledName "ContainsRelocation">]
-let containsRelocation (file: IBinFile) addr =
+[<CompiledName "IsRelocationAddr">]
+let isRelocationAddr (file: IBinFile) addr =
   match file.Relocations with
-  | Some relocs -> relocs.ContainsRelocation addr
+  | Some relocs -> relocs.IsRelocationAddr addr
   | None -> false
 
 /// Tries to find the relocated target address of the given address.
@@ -114,30 +195,54 @@ let tryGetRelocatedAddr (file: IBinFile) relocAddr =
   | Some relocs -> relocs.TryGetRelocatedAddr relocAddr
   | None -> Error ErrorCase.ItemNotFound
 
-/// Returns all linkage table entries from the given binary file.
-[<CompiledName "GetLinkageEntries">]
-let getLinkageEntries (file: IBinFile) =
-  match file.Linkage with
-  | Some linkage -> linkage.GetLinkageEntries()
+/// Tries to resolve the relocation at the given address to an internal
+/// function defined within the given binary file itself.
+[<CompiledName "TryGetInternalFunctionAddr">]
+let tryGetInternalFunctionAddr (file: IBinFile) relocAddr =
+  match file.Relocations with
+  | Some relocs -> relocs.TryGetInternalFunctionAddr relocAddr
+  | None -> Error ErrorCase.ItemNotFound
+
+/// Returns all per-function exception frames of the given binary file.
+[<CompiledName "GetExceptionFrames">]
+let getExceptionFrames (file: IBinFile) =
+  match file.ExceptionTable with
+  | Some exnTable -> exnTable.Frames
   | None -> [||]
 
-/// Checks if the given address falls within the linkage table.
-[<CompiledName "IsInLinkageTable">]
-let isInLinkageTable (file: IBinFile) addr =
-  match file.Linkage with
-  | Some linkage -> linkage.IsInLinkageTable addr
+/// Returns all imported symbols from the given binary file.
+[<CompiledName "GetImports">]
+let getImports (file: IBinFile) =
+  match file.ImportTable with
+  | Some importTable -> importTable.Imports
+  | None -> [||]
+
+/// Checks if the given address falls within the import table.
+[<CompiledName "IsInImportTable">]
+let isInImportTable (file: IBinFile) addr =
+  match file.ImportTable with
+  | Some importTable -> importTable.IsInImportTable addr
   | None -> false
+
+/// Returns all memory-mapped segments of the given binary file.
+[<CompiledName "GetSegments">]
+let getSegments (file: IBinFile) =
+  match file.MemoryLayout with
+  | Some layout -> layout.Segments
+  | None -> [||]
 
 /// Returns all memory-mapped regions of the given binary file.
 [<CompiledName "GetMemoryMappedRegions">]
 let getMemoryMappedRegions (file: IBinFile) =
-  match file.MemoryLayout with
-  | Some layout -> layout.GetMemoryMappedRegions()
-  | None -> [||]
+  getSegments file
+  |> Array.map (fun seg ->
+    AddrRange.create seg.Address (seg.Address + seg.Size - 1UL))
 
 /// Returns the memory-mapped regions that carry the given permission.
 [<CompiledName "GetMemoryMappedRegionsByPermission">]
 let getMemoryMappedRegionsByPermission (file: IBinFile) perm =
-  match file.MemoryLayout with
-  | Some layout -> layout.GetMemoryMappedRegions perm
-  | None -> [||]
+  getSegments file
+  |> Array.choose (fun seg ->
+    if seg.Permission.HasFlag perm then
+      AddrRange.create seg.Address (seg.Address + seg.Size - 1UL) |> Some
+    else None)

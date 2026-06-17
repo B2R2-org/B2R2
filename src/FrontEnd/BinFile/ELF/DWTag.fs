@@ -25,7 +25,7 @@
 namespace B2R2.FrontEnd.BinFile.ELF
 
 /// Represents a DWARF tag.
-type DWTag =
+type internal DWTag =
   | DW_TAG_array_type = 0x01us
   | DW_TAG_class_type = 0x02us
   | DW_TAG_entry_point = 0x03us

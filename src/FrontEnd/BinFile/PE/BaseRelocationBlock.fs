@@ -30,7 +30,7 @@ namespace B2R2.FrontEnd.BinFile.PE
 /// set of relocations that need to be applied to the image when it is loaded
 /// into memory.
 /// </summary>
-type BaseRelocationBlock =
+type internal BaseRelocationBlock =
   { /// The relative virtual address of the block.
     PageRVA: uint32
     /// The size of the block in bytes.
@@ -39,7 +39,7 @@ type BaseRelocationBlock =
     Entries: RelocBlockEntry[] }
 
 /// Represents an entry in the base relocation block.
-and RelocBlockEntry =
+and internal RelocBlockEntry =
   { /// The type of the base relocation.
     Type: BaseRelocType
     /// The offset from the starting address that was specified in the PageRVA
@@ -47,7 +47,7 @@ and RelocBlockEntry =
     Offset: uint16 }
 
 /// Represents the base relocation type.
-and BaseRelocType =
+and internal BaseRelocType =
   /// The base relocation is skipped. This type can be used to pad a block.
   | IMAGE_REL_BASED_ABSOLUTE = 0
   /// The base relocation adds the high 16 bits of the difference to the 16-bit

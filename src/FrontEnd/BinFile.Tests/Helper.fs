@@ -31,7 +31,7 @@ open type FileFormat
 [<AutoOpen>]
 module Helper =
   let assertFuncSymbolExistence (file: IBinFile) address (symbolName: string) =
-    match BinFileOps.tryFindName file address with
+    match BinFileOps.tryResolveName file address with
     | Ok n -> Assert.AreEqual<string>(n, symbolName)
     | Error _ -> Assert.Fail()
 
@@ -40,7 +40,7 @@ module Helper =
     ptr.Addr
 
   let getLinkageTableEntries (file: IBinFile) =
-    BinFileOps.getLinkageEntries file
+    BinFileOps.getImports file
 
   let assertExistenceOfPair pair pairSequence =
     Assert.AreEqual(true, Seq.exists ((=) pair) pairSequence)

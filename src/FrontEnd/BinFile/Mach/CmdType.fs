@@ -25,7 +25,7 @@
 namespace B2R2.FrontEnd.BinFile.Mach
 
 /// Represents the type of load commands in Mach-O files.
-type CmdType =
+type internal CmdType =
   /// Defines a segment of this file to be mapped into the address space of the
   /// process that loads this file. It also includes all the sections contained
   /// by the segment.

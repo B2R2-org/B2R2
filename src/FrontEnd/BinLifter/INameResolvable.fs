@@ -35,4 +35,4 @@ type INameResolvable =
   ///   Returns a name if the corresponding symbol exists, otherwise returns
   ///   an Error value.
   /// </returns>
-  abstract TryFindName: Addr -> Result<string, ErrorCase>
+  abstract TryResolveName: Addr -> Result<string, ErrorCase>

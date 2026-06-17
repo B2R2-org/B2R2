@@ -26,7 +26,7 @@ namespace B2R2.FrontEnd.BinFile.Mach
 
 /// Represents the location of an object file targeted at a specific
 /// architecture in a Mach-O FAT binary (fat_arch).
-type FatArch =
+type internal FatArch =
   { /// CPU family.
     CPUType: CPUType
     /// Specific CPU module.

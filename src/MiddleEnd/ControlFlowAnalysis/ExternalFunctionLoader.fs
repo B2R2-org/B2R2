@@ -25,30 +25,10 @@
 module B2R2.MiddleEnd.ControlFlowAnalysis.ExternalFunctionLoader
 
 open System.Collections.Generic
-open B2R2
-open B2R2.FrontEnd.BinFile
 open B2R2.MiddleEnd.ControlFlowGraph
 
 [<RequireQualifiedAccess>]
 module internal ELF = begin
-  open B2R2.FrontEnd.BinFile.ELF
-
-  let findInternalFuncReloc (elf: ELFBinFile) (entry: LinkageTableEntry) =
-    let reloc = elf.RelocationInfo.Find entry.TableAddress
-    match reloc.RelSymbol with
-    | Some relSym ->
-      if relSym.SymType = SymbolType.STT_FUNC then
-        match relSym.ParentSection with
-        | Some parent ->
-          if parent.SecName = Section.Text then Ok relSym.Addr
-          else Error ErrorCase.SymbolNotFound
-        | _ -> Error ErrorCase.SymbolNotFound
-      else Error ErrorCase.SymbolNotFound
-    | None ->
-      match reloc.RelKind with
-      | RelocationKindX64 RelocationX64.R_X86_64_IRELATIVE -> Ok reloc.RelAddend
-      | _ -> Error ErrorCase.SymbolNotFound
-
   /// Known non-returning function names.
   let private knownNoReturnFuncs =
     HashSet [| "__assert"

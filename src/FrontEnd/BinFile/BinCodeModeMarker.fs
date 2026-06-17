@@ -24,7 +24,24 @@
 
 namespace B2R2.FrontEnd.BinFile
 
-/// Represents symbol-table metadata of a binary file.
-type ISymbolMetadata =
-  /// Returns true if the binary lacks its non-essential symbol table.
-  abstract IsStripped: bool
+open B2R2
+
+/// Represents a marker indicating the instruction-set encoding (or data) that
+/// takes effect at a given address, for architectures that interleave
+/// encodings within a section (notably ARM and Thumb, marked by the ELF
+/// $a/$t/$d mapping symbols).
+type BinCodeModeMarker =
+  { /// Address at which the marked region begins.
+    Address: Addr
+    /// Encoding mode effective from this address onward.
+    Mode: BinCodeMode }
+
+/// Represents an instruction-set encoding mode, or a data region embedded in
+/// code.
+and BinCodeMode =
+  /// ARM (A32) instruction encoding.
+  | ArmMode
+  /// Thumb (T32) instruction encoding.
+  | ThumbMode
+  /// A data region embedded in code (not to be disassembled).
+  | DataMode

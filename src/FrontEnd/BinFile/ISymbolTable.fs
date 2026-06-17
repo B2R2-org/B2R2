@@ -26,22 +26,23 @@ namespace B2R2.FrontEnd.BinFile
 
 open B2R2
 
-/// <summary>
-/// Represents an interface for accessing the linkage table of a binary file.
-/// </summary>
-type ILinkageTable =
-  /// <summary>
-  /// Returns an array of all the linkage table entries from the binary.
-  /// </summary>
-  /// <returns>
-  /// An array of linkage table entries, e.g., PLT entries for ELF files.
-  /// </returns>
-  abstract GetLinkageEntries: unit -> LinkageTableEntry[]
+/// Represents the symbol table of a binary file.
+type ISymbolTable =
+  /// Returns true if the binary lacks its non-essential symbol table.
+  abstract IsStripped: bool
+
+  /// Returns an array of all the symbols in the binary.
+  abstract Symbols: BinSymbol[]
 
   /// <summary>
-  /// Returns whether the given address falls within the linkage table.
+  /// Finds the symbol located at the given address. If no symbol exists at the
+  /// address, then this function returns an error.
   /// </summary>
-  /// <returns>
-  /// True if the address is a linkage table address, false otherwise.
-  /// </returns>
-  abstract IsInLinkageTable: Addr -> bool
+  abstract TryFindSymbolByAddr: addr: Addr -> Result<BinSymbol, ErrorCase>
+
+  /// <summary>
+  /// Returns instruction-set mode markers derived from the symbol table (e.g.,
+  /// ELF ARM $a/$t/$d mapping symbols). Empty for architectures that do not
+  /// interleave encodings.
+  /// </summary>
+  abstract CodeModeMarkers: BinCodeModeMarker[]

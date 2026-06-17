@@ -25,7 +25,8 @@
 namespace B2R2.FrontEnd.BinFile.ELF
 
 /// Represents the relocation type of ELF.
-type RelocationKind = RelocationKind of arch: MachineType * relocValue: uint64
+type internal RelocationKind =
+  | RelocationKind of arch: MachineType * relocValue: uint64
 with
   /// Creates a generic RelocationKind from a relocation kind of x86
   /// architecture.
@@ -105,7 +106,7 @@ with
     | _ -> invalidArg (nameof arch) "Unsupported architecture for relocation."
 
 /// Represents a relocation type for x86.
-and RelocationX86 =
+and internal RelocationX86 =
   /// No relocation.
   | R_386_NONE = 0UL
   /// Direct 32-bit (S + A).
@@ -176,7 +177,7 @@ and RelocationX86 =
   | R_386_SUB32 = 46UL
 
 /// Represents a relocation type for x86-64.
-and RelocationX64 =
+and internal RelocationX64 =
   /// No relocation.
   | R_X86_64_None = 0UL
   /// Direct 64-bit.
@@ -233,7 +234,7 @@ and RelocationX64 =
   | R_X86_64_IRELATIVE = 37UL
 
 /// Represents a relocation type for ARMv7.
-and RelocationARMv7 =
+and internal RelocationARMv7 =
   /// No reloc.
   | R_ARM_None = 0UL
   /// PC-relative 26-bit branch.
@@ -268,7 +269,7 @@ and RelocationARMv7 =
   | R_ARM_PLT32 = 27UL
 
 /// Represents a relocation type for ARMv8.
-and RelocationARMv8 =
+and internal RelocationARMv8 =
   /// No reloc.
   | R_AARCH64_NONE = 0UL
   /// Direct 64 bit.
@@ -297,7 +298,7 @@ and RelocationARMv8 =
   | R_AARCH64_RELATIVE = 1027UL
 
 /// Represents a relocation type for MIPS.
-and RelocationMIPS =
+and internal RelocationMIPS =
   /// No reloc.
   | R_MIPS_NONE = 0UL
   /// Direct 16 bit.
@@ -401,7 +402,7 @@ and RelocationMIPS =
   | R_MIPS_PC32 = 248UL
 
 /// Represents a relocation type for S390.
-and RelocationS390 =
+and internal RelocationS390 =
   | R_S390_NONE = 0UL
   | R_390_8 = 1UL
   | R_390_12 = 2UL
@@ -423,7 +424,7 @@ and RelocationS390 =
   | R_390_PLT16DBL = 18UL
 
 /// Represents a relocation type for SH4.
-and RelocationSH4 =
+and internal RelocationSH4 =
   | R_SH_NONE = 0UL
   | R_SH_DIR32 = 1UL
   | R_SH_REL32 = 2UL
@@ -536,7 +537,7 @@ and RelocationSH4 =
   | R_SH_64_PCREL = 255UL
 
 /// Represents a relocation type for RISCV.
-and RelocationRISCV =
+and internal RelocationRISCV =
   | R_RISCV_NONE = 0UL
   | R_RISCV_32 = 1UL
   | R_RISCV_64 = 2UL
@@ -593,7 +594,7 @@ and RelocationRISCV =
   | R_RISCV_32_PCREL = 57UL
 
 /// Represents a relocation type for PPC.
-and RelocationPPC32 =
+and internal RelocationPPC32 =
   | R_PPC_NONE = 0UL
   | R_PPC_ADDR32 = 1UL
   | R_PPC_ADDR24 = 2UL
@@ -691,7 +692,7 @@ and RelocationPPC32 =
   | R_PPC_TOC16 = 255UL
 
 /// Represents a relocation type for PARISC.
-and RelocationPARISC =
+and internal RelocationPARISC =
   | R_PARISC_NONE = 0UL
   | R_PARISC_DIR32 = 1UL
   | R_PARISC_DIR21L = 2UL
@@ -743,7 +744,7 @@ and RelocationPARISC =
 /// Provides active patterns for matching against architecture-specific
 /// relocation kinds.
 [<AutoOpen>]
-module RelocationKind =
+module internal RelocationKind =
   [<return: Struct>]
   let (|RelocationKindX86|_|) (RelocationKind(arch, relocValue)) =
     match arch with

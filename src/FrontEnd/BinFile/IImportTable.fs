@@ -22,24 +22,28 @@
   SOFTWARE.
 *)
 
-namespace B2R2.FrontEnd.BinFile.ELF
+namespace B2R2.FrontEnd.BinFile
 
 open B2R2
-open B2R2.BinIR
-open B2R2.FrontEnd.BinLifter
 
-/// Represents the CFA, machine-independent representation of the current frame
-/// address. For example, (esp+8) on x86.
-type CanonicalFrameAddress =
-  | RegPlusOffset of RegisterID * int
-  | Expression of LowUIR.Expr
-  | UnknownCFA
-with
-  /// Returns a string representation of the CFA.
-  static member ToString(regFactory: IRegisterFactory, cfa) =
-    match cfa with
-    | RegPlusOffset(rid, offset) ->
-      regFactory.GetRegisterName rid + (offset.ToString("+0;-#"))
-    | Expression exp ->
-      PrettyPrinter.ToString exp
-    | UnknownCFA -> "unknown"
+/// <summary>
+/// Represents an interface for accessing the import table of a binary file,
+/// i.e., the linkage table (PLT/GOT, IAT, etc.) that resolves dynamically
+/// linked symbols.
+/// </summary>
+type IImportTable =
+  /// <summary>
+  /// Returns an array of all the imported symbols from the binary.
+  /// </summary>
+  /// <returns>
+  /// An array of imports, e.g., PLT entries for ELF files.
+  /// </returns>
+  abstract Imports: BinImport[]
+
+  /// <summary>
+  /// Returns whether the given address falls within the import table.
+  /// </summary>
+  /// <returns>
+  /// True if the address is an import table address, false otherwise.
+  /// </returns>
+  abstract IsInImportTable: Addr -> bool

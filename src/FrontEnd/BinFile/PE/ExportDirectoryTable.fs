@@ -28,7 +28,7 @@ namespace B2R2.FrontEnd.BinFile.PE
 /// symbol information begins with the EDT, which describes the remainder of the
 /// export symbol information. The EDT contains address information that is used
 /// to resolve imports to the entry points within this image.
-type ExportDirectoryTable =
+type internal ExportDirectoryTable =
   { /// The name of the DLL to export.
     ExportDLLName: string
     /// The starting ordinal number for exports in this image. This field

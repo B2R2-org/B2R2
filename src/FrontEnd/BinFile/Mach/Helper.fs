@@ -33,7 +33,7 @@ open B2R2.FrontEnd.BinFile.FileHelper
 /// Mach-specific virtual memory permission (for maxprot and initprot). Note
 /// that these values are different than the B2R2.Permission type.
 [<Flags>]
-type MachVMProt =
+type internal MachVMProt =
   /// File is readable.
   | Readable = 1
   /// File is writable.
@@ -100,10 +100,10 @@ let executableRanges segCmds =
     ) IntervalSet.empty
 
 let getPLT symInfo =
-  symInfo.LinkageTable
+  symInfo.Imports
   |> List.sortBy (fun entry -> entry.TrampolineAddress)
   |> List.toArray
 
 let isPLT symInfo addr =
-  symInfo.LinkageTable
-  |> List.exists (fun entry -> entry.TrampolineAddress = addr)
+  symInfo.Imports
+  |> List.exists (fun entry -> entry.TrampolineAddress = Some addr)

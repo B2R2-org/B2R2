@@ -25,7 +25,7 @@
 namespace B2R2.FrontEnd.BinFile.ELF
 
 /// Represents the ELF section header type.
-type SectionType =
+type internal SectionType =
   /// This section is inactive.
   | SHT_NULL = 0x00u
   /// This section holds information defined by the program, whose format and
@@ -103,7 +103,7 @@ type SectionType =
 
 /// Provides functions to convert section types to string representations.
 [<RequireQualifiedAccess>]
-module SectionType =
+module internal SectionType =
   open B2R2
 
   /// Returns the string representation of the section type.

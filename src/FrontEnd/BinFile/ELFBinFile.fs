@@ -28,6 +28,7 @@ open B2R2
 open B2R2.Collections
 open B2R2.FrontEnd.BinLifter
 open B2R2.FrontEnd.BinFile.FileHelper
+open B2R2.FrontEnd.BinFile.DWARF
 open B2R2.FrontEnd.BinFile.ELF
 open B2R2.FrontEnd.BinFile.ELF.Helper
 
@@ -48,24 +49,69 @@ type ELFBinFile(path, bytes: byte[], baseAddrOpt, rfOpt) =
   let dbginfo = lazy DebugInformation.parse toolBox rfOpt shdrs.Value
   let dynamicArray = lazy DynamicArray.parse toolBox shdrs.Value
 
-  let nameResolver =
-    Some { new INameResolvable with
-      member _.TryFindName addr =
-        symbs.Value.TryFindSymbol addr
-        |> Result.map (fun s -> s.SymName)
-        |> function
-          | Ok name -> Ok name
-          | Error e ->
-            match NoOverlapIntervalMap.tryFindByAddr addr plt.Value with
-            | Some entry when entry.TableAddress = addr -> Ok entry.FuncName
-            | _ -> Error e
-    }
+  let symKindOf (s: Symbol) =
+    match s.SymType with
+    | SymbolType.STT_FUNC
+    | SymbolType.STT_GNU_IFUNC -> FunctionSymbol
+    | SymbolType.STT_OBJECT
+    | SymbolType.STT_COMMON
+    | SymbolType.STT_TLS -> DataSymbol
+    | SymbolType.STT_SECTION -> SectionSymbol
+    | SymbolType.STT_FILE -> FileSymbol
+    | _ -> OtherSymbol
 
-  let symbolMetadata =
-    Some { new ISymbolMetadata with
-      member _.IsStripped with get() =
-        shdrs.Value |> Array.exists (fun s -> s.SecName = ".symtab") |> not
-    }
+  let symBindingOf (s: Symbol) =
+    match s.Bind with
+    | SymbolBind.STB_LOCAL -> LocalBinding
+    | SymbolBind.STB_GLOBAL -> GlobalBinding
+    | SymbolBind.STB_WEAK -> WeakBinding
+    | _ -> UnknownBinding
+
+  let toBinSymbol (s: Symbol) =
+    { Name = s.SymName
+      Address = s.Addr
+      Kind = symKindOf s
+      Binding = symBindingOf s
+      IsDefined = Symbol.IsDefined s
+      Size = Some s.Size
+      LibraryName = s.VerInfo |> Option.map (fun v -> v.VerName) }
+
+  let codeModeMarkers =
+    lazy
+      symbs.Value.StaticSymbols
+      |> Array.choose (fun s ->
+        match s.ARMLinkerSymbol with
+        | ARMLinkerSymbol.ARM -> Some { Address = s.Addr; Mode = ArmMode }
+        | ARMLinkerSymbol.Thumb -> Some { Address = s.Addr; Mode = ThumbMode }
+        | ARMLinkerSymbol.Data -> Some { Address = s.Addr; Mode = DataMode }
+        | _ -> None)
+
+  let symbolTableObj =
+    { new ISymbolTable with
+        member _.IsStripped with get() =
+          shdrs.Value |> Array.exists (fun s -> s.SecName = ".symtab") |> not
+
+        member _.Symbols with get() =
+          Array.append symbs.Value.StaticSymbols symbs.Value.DynamicSymbols
+          |> Array.map toBinSymbol
+
+        member _.TryFindSymbolByAddr addr =
+          symbs.Value.TryFindSymbol addr |> Result.map toBinSymbol
+
+        member _.CodeModeMarkers = codeModeMarkers.Value }
+
+  let symbolTable = Some symbolTableObj
+
+  let nameResolver =
+    let onSymbols = NameResolver.ofSymbolTable symbolTableObj
+    Some { new INameResolvable with
+      member _.TryResolveName addr =
+        match onSymbols.TryResolveName addr with
+        | Ok name -> Ok name
+        | Error e ->
+          match NoOverlapIntervalMap.tryFindByAddr addr plt.Value with
+          | Some entry when entry.TableAddress = addr -> Ok entry.Name
+          | _ -> Error e }
 
   let functionAddrs =
     lazy
@@ -83,9 +129,82 @@ type ELFBinFile(path, bytes: byte[], baseAddrOpt, rfOpt) =
       |> Set.ofArray
       |> Set.toArray
 
+  let secFileSize (sec: SectionHeader) =
+    if sec.SecType = SectionType.SHT_NOBITS then 0UL else sec.SecSize
+
+  let isDebugSection (sec: SectionHeader) =
+    sec.SecName.StartsWith Section.Debug
+    || sec.SecName.StartsWith Section.ZDebug
+
+  let secKind (sec: SectionHeader) =
+    if PLT.isPLTSectionName sec.SecName then
+      DynamicLinkageSection
+    elif sec.SecFlags.HasFlag SectionFlags.SHF_EXECINSTR then
+      CodeSection
+    elif sec.SecFlags.HasFlag SectionFlags.SHF_TLS then
+      ThreadLocalStorageSection
+    elif sec.SecType = SectionType.SHT_NOBITS then
+      UninitializedDataSection
+    elif isDebugSection sec then
+      DebugSection
+    else
+      match sec.SecType with
+      | SectionType.SHT_PROGBITS
+      | SectionType.SHT_INIT_ARRAY
+      | SectionType.SHT_FINI_ARRAY
+      | SectionType.SHT_PREINIT_ARRAY -> DataSection
+      | SectionType.SHT_SYMTAB
+      | SectionType.SHT_STRTAB
+      | SectionType.SHT_RELA
+      | SectionType.SHT_REL
+      | SectionType.SHT_HASH
+      | SectionType.SHT_DYNAMIC
+      | SectionType.SHT_DYNSYM
+      | SectionType.SHT_GROUP
+      | SectionType.SHT_SYMTAB_SHNDX
+      | SectionType.SHT_GNU_ATTRIBUTES
+      | SectionType.SHT_GNU_HASH
+      | SectionType.SHT_GNU_LIBLIST
+      | SectionType.SHT_GNU_verdef
+      | SectionType.SHT_GNU_verneed
+      | SectionType.SHT_GNU_versym -> MetadataSection
+      | _ -> UnknownSection
+
+  let secPermission (sec: SectionHeader) =
+    let r = if sec.SecFlags.HasFlag SectionFlags.SHF_ALLOC then 4 else 0
+    let w = if sec.SecFlags.HasFlag SectionFlags.SHF_WRITE then 2 else 0
+    let x = if sec.SecFlags.HasFlag SectionFlags.SHF_EXECINSTR then 1 else 0
+    r ||| w ||| x |> LanguagePrimitives.EnumOfValue
+
+  let toBinSection (sec: SectionHeader) =
+    { Name = sec.SecName
+      Address = sec.SecAddr
+      Size = sec.SecSize
+      (* ELF records a nominal file offset even for SHT_NOBITS sections, so we
+         keep it; FileSize = 0 indicates the section has no file-backed data. *)
+      Offset = Some sec.SecOffset
+      FileSize = secFileSize sec
+      Permission = secPermission sec
+      Kind = secKind sec }
+
+  let tryFindSectionByAddr addr =
+    shdrs.Value
+    |> Array.tryFind (fun sec ->
+      addr >= sec.SecAddr && addr < sec.SecAddr + sec.SecSize)
+
+  let tryFindSectionByOffset (offset: uint32) =
+    shdrs.Value
+    |> Array.tryFind (fun sec ->
+      let fileSize = secFileSize sec
+      fileSize > 0UL && uint64 offset >= sec.SecOffset
+      && uint64 offset < sec.SecOffset + fileSize)
+
   let structure =
     Some { new IBinStructure with
-      member _.GetCodeSectionPointer() =
+      member _.Sections with get() =
+        shdrs.Value |> Array.map toBinSection
+
+      member _.CodeSectionPointer =
         shdrs.Value
         |> Array.tryFind (fun sec -> sec.SecName = Section.Text)
         |> function
@@ -111,109 +230,191 @@ type ELFBinFile(path, bytes: byte[], baseAddrOpt, rfOpt) =
           | None ->
             BinFilePointer.Null
 
+      member _.TryFindSectionByName name =
+        shdrs.Value
+        |> Array.tryFind (fun sec -> sec.SecName = name)
+        |> function
+          | Some sec -> Ok(toBinSection sec)
+          | None -> Error ErrorCase.ItemNotFound
+
+      member _.TryFindSectionByAddr addr =
+        match tryFindSectionByAddr addr with
+        | Some sec -> Ok(toBinSection sec)
+        | None -> Error ErrorCase.ItemNotFound
+
+      member _.TryFindSectionByOffset offset =
+        match tryFindSectionByOffset offset with
+        | Some sec -> Ok(toBinSection sec)
+        | None -> Error ErrorCase.ItemNotFound
+
       member _.TryFindSectionNameByAddr addr =
-        shdrs.Value
-        |> Array.tryFind (fun sec ->
-          addr >= sec.SecAddr && addr < sec.SecAddr + sec.SecSize)
+        tryFindSectionByAddr addr
         |> function
           | Some sec -> Ok sec.SecName
           | None -> Error ErrorCase.ItemNotFound
 
-      member _.TryFindSectionNameByOffset(offset: uint32) =
-        let offset = uint64 offset
-        shdrs.Value
-        |> Array.tryFind (fun sec ->
-          sec.SecType <> SectionType.SHT_NOBITS
-          && offset >= sec.SecOffset
-          && offset < sec.SecOffset + sec.SecSize)
+      member _.TryFindSectionNameByOffset offset =
+        tryFindSectionByOffset offset
         |> function
           | Some sec -> Ok sec.SecName
           | None -> Error ErrorCase.ItemNotFound
 
-      member _.GetFunctionAddresses() =
+      member _.FunctionAddresses =
         functionAddrs.Value
     }
 
   let relocations =
     Some { new IRelocationTable with
-      member _.ContainsRelocation addr =
+      member _.Relocations =
+        relocs.Value.Entries
+        |> Seq.map (fun r ->
+          { Address = r.RelOffset
+            SymbolName = r.RelSymbol |> Option.map (fun s -> s.SymName)
+            Addend = Some(int64 r.RelAddend) })
+        |> Seq.toArray
+
+      member _.IsRelocationAddr addr =
         relocs.Value.Contains addr
 
       member _.TryGetRelocatedAddr relocAddr =
         getRelocatedAddr relocs.Value relocAddr
+
+      member _.TryGetInternalFunctionAddr relocAddr =
+        match relocs.Value.TryFind relocAddr with
+        | Ok reloc -> tryGetInternalFuncAddr reloc
+        | Error e -> Error e
     }
 
-  let linkageEntries =
+  let toExceptionHandlers (fde: FDE) =
+    match fde.LSDAPointer with
+    | None -> [||]
+    | Some p ->
+      match Map.tryFind p exn.Value.LSDATable with
+      | None -> [||]
+      | Some lsda ->
+        lsda.CallSiteTable
+        |> List.map (fun cs ->
+          { BlockStart = fde.PCBegin + cs.Position
+            BlockEnd = fde.PCBegin + cs.Position + cs.Length - 1UL
+            Handler =
+              if cs.LandingPad = 0UL then None
+              else Some(fde.PCBegin + cs.LandingPad) })
+        |> List.toArray
+
+  let exceptionFrames =
+    lazy
+      [| for cfi in exn.Value.ExceptionFrame do
+           for fde in cfi.FDEs do
+             { FunctionStart = fde.PCBegin
+               FunctionEnd = fde.PCEnd - 1UL
+               PersonalityRoutine = None
+               Handlers = toExceptionHandlers fde } |]
+
+  let exceptionTable =
+    Some { new IExceptionTable with
+      member _.Frames = exceptionFrames.Value
+    }
+
+  let importEntries =
     lazy
       plt.Value
       |> NoOverlapIntervalMap.fold (fun acc _ entry -> entry :: acc) []
       |> List.sortBy (fun entry -> entry.TrampolineAddress)
       |> List.toArray
 
-  let linkage =
-    Some { new ILinkageTable with
-      member _.GetLinkageEntries() =
-        linkageEntries.Value
+  let importTable =
+    Some { new IImportTable with
+      member _.Imports =
+        importEntries.Value
 
-      member _.IsInLinkageTable addr =
+      member _.IsInImportTable addr =
         NoOverlapIntervalMap.containsAddr addr plt.Value
     }
 
-  let memoryMappedRegions =
+  let segments =
     lazy
       phdrs.Value
       |> Array.filter (fun ph ->
         ph.PHType.HasFlag ProgramHeaderType.PT_LOAD && ph.PHMemSize > 0UL)
       |> Array.map (fun ph ->
-        let range = AddrRange.create ph.PHAddr (ph.PHAddr + ph.PHMemSize - 1UL)
-        range, ProgramHeader.FlagsToPerm ph.PHFlags)
+        { Name = None
+          Address = ph.PHAddr
+          Size = ph.PHMemSize
+          Offset = ph.PHOffset
+          FileSize = ph.PHFileSize
+          Permission = ProgramHeader.FlagsToPerm ph.PHFlags })
 
   let memoryLayout =
     Some { new IMemoryLayout with
-      member _.GetMemoryMappedRegions() =
-        memoryMappedRegions.Value |> Array.map fst
+      member _.Segments = segments.Value }
 
-      member _.GetMemoryMappedRegions(perm) =
-        memoryMappedRegions.Value
-        |> Array.choose (fun (range, p) ->
-          if p.HasFlag perm then Some range else None) }
+  let interpreterPath =
+    lazy
+      phdrs.Value
+      |> Array.tryFind (fun ph -> ph.PHType = ProgramHeaderType.PT_INTERP)
+      |> Option.map (fun ph ->
+        readCString (System.ReadOnlySpan bytes) (int ph.PHOffset))
+
+  let programHeaderTableAddr =
+    lazy
+      let phs = phdrs.Value
+      let isPhdr p = p.PHType = ProgramHeaderType.PT_PHDR
+      match Array.tryFind isPhdr phs with
+      | Some p ->
+        Some p.PHAddr
+      | None ->
+        let phoff = hdr.PHdrTblOffset
+        let covers p =
+          p.PHType = ProgramHeaderType.PT_LOAD
+          && phoff >= p.PHOffset && phoff < p.PHOffset + p.PHFileSize
+        Array.tryFind covers phs
+        |> Option.map (fun p -> p.PHAddr + (phoff - p.PHOffset))
+        |> Option.orElse (Some(toolBox.BaseAddress + phoff))
 
   /// ELF Header information.
-  member _.Header with get() = hdr
+  member internal _.Header with get() = hdr
 
   /// List of dynamic section entries.
-  member _.DynamicArrayEntries with get() = dynamicArray.Value
+  member internal _.DynamicArrayEntries with get() = dynamicArray.Value
 
   /// ELF program headers.
-  member _.ProgramHeaders with get() = phdrs.Value
+  member internal _.ProgramHeaders with get() = phdrs.Value
+
+  /// Virtual address of the program header table, i.e., the AT_PHDR value that
+  /// the kernel passes through the auxiliary vector. Taken from PT_PHDR when
+  /// present, otherwise derived from e_phoff and the enclosing PT_LOAD segment;
+  /// None when it maps into no loadable segment.
+  member _.ProgramHeaderTableAddress with get() =
+    programHeaderTableAddr.Value
+
+  /// Number of entries in the program header table (e_phnum), i.e., the
+  /// AT_PHNUM value passed through the auxiliary vector.
+  member _.ProgramHeaderCount with get() = int hdr.PHdrNum
 
   /// ELF section headers.
-  member _.SectionHeaders with get() = shdrs.Value
-
-  /// PLT.
-  member _.PLT with get() = plt.Value
+  member internal _.SectionHeaders with get() = shdrs.Value
 
   /// Exception information.
-  member _.ExceptionFrame with get() = exn.Value.ExceptionFrame
+  member internal _.ExceptionFrame with get() = exn.Value.ExceptionFrame
 
   /// LSDA table.
-  member _.LSDATable with get() = exn.Value.LSDATable
+  member internal _.LSDATable with get() = exn.Value.LSDATable
 
   /// Unwinding table.
-  member _.UnwindingTable with get() = exn.Value.UnwindingTbl
+  member internal _.UnwindingTable with get() = exn.Value.UnwindingTbl
 
   /// ELF symbol information.
-  member _.Symbols with get() = symbs.Value
+  member internal _.Symbols with get() = symbs.Value
 
   /// Relocation information.
-  member _.RelocationInfo with get() = relocs.Value
+  member internal _.RelocationInfo with get() = relocs.Value
 
   /// Debug information.
-  member _.DebugInfo with get() = dbginfo.Value
+  member internal _.DebugInfo with get() = dbginfo.Value
 
   /// Returns Global Pointer (GP) value when it is known. This is only available
   /// in MIPS binaries.
-  member _.GlobalPointer with get() =
+  member internal _.GlobalPointer with get() =
     match hdr.MachineType with
     | MachineType.EM_MIPS ->
       shdrs.Value
@@ -222,19 +423,11 @@ type ELFBinFile(path, bytes: byte[], baseAddrOpt, rfOpt) =
     | _ -> None
 
   /// Try to find a section by its name.
-  member _.TryFindSection(name: string) =
+  member internal _.TryFindSection(name: string) =
     shdrs.Value |> Array.tryFind (fun s -> s.SecName = name)
 
   /// Find a section by its index.
-  member _.FindSection(idx: int) = shdrs.Value[idx]
-
-  /// Is this a PLT section?
-  member _.IsPLT sec = PLT.isPLTSectionName sec.SecName
-
-  /// Is this section contains executable code?
-  member _.HasCode sec =
-    sec.SecFlags.HasFlag SectionFlags.SHF_EXECINSTR
-    && not (PLT.isPLTSectionName sec.SecName)
+  member internal _.FindSection(idx: int) = shdrs.Value[idx]
 
   interface IBinFile with
     member _.Reader with get() = toolBox.Reader
@@ -247,11 +440,24 @@ type ELFBinFile(path, bytes: byte[], baseAddrOpt, rfOpt) =
 
     member _.Format with get() = FileFormat.ELFBinary
 
+    member _.Kind with get() =
+      match hdr.ELFType with
+      | ELFType.ET_REL -> BinFileKind.Object
+      | ELFType.ET_EXEC -> BinFileKind.Executable
+      | ELFType.ET_CORE -> BinFileKind.Core
+      | ELFType.ET_DYN ->
+        let pred e = e.DTag = DTag.DT_DEBUG
+        if Array.exists pred dynamicArray.Value then BinFileKind.Executable
+        else BinFileKind.SharedLibrary
+      | _ -> BinFileKind.Unknown
+
     member _.ISA with get() = toolBox.ISA
 
     member _.EntryPoint with get() = Some hdr.EntryPoint
 
     member _.BaseAddress with get() = toolBox.BaseAddress
+
+    member _.InterpreterPath with get() = interpreterPath.Value
 
     member _.IsNXEnabled with get() =
       let predicate e = e.PHType = ProgramHeaderType.PT_GNU_STACK
@@ -272,13 +478,15 @@ type ELFBinFile(path, bytes: byte[], baseAddrOpt, rfOpt) =
 
     member _.NameResolver with get() = nameResolver
 
-    member _.SymbolMetadata with get() = symbolMetadata
+    member _.SymbolTable with get() = symbolTable
 
     member _.Structure with get() = structure
 
     member _.Relocations with get() = relocations
 
-    member _.Linkage with get() = linkage
+    member _.ExceptionTable with get() = exceptionTable
+
+    member _.ImportTable with get() = importTable
 
     member _.MemoryLayout with get() = memoryLayout
 

@@ -112,7 +112,7 @@ let dumpSectionDetails (secName: string) (file: WasmBinFile) =
       printsn ""
 
 let private resolvedName (file: IBinFile) addr =
-  match BinFileOps.tryFindName file addr with
+  match BinFileOps.tryResolveName file addr with
   | Ok name -> name
   | Error _ -> ""
 
@@ -124,10 +124,10 @@ let dumpSymbols _ (file: WasmBinFile) =
   printDoubleHorizontalRule ()
   printsr [| "Kind"; "Address"; "Name"; "Lib Name" |]
   printSingleHorizontalRule ()
-  for entry in BinFileOps.getLinkageEntries file do
+  for entry in BinFileOps.getImports file do
     printsr [| "import"
                Addr.toString file.ISA.WordSize entry.TableAddress
-               normalizeEmpty entry.FuncName
+               normalizeEmpty entry.Name
                normalizeEmpty entry.LibraryName |]
   printSingleHorizontalRule ()
   for addr in BinFileOps.getFunctionAddresses file do

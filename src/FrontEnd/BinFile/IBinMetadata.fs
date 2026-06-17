@@ -37,6 +37,10 @@ type IBinMetadata =
   /// The format of this file: ELF, PE, Mach-O, or etc.
   abstract Format: FileFormat
 
+  /// The high-level kind of this file: an executable, a shared library, an
+  /// object file, etc.
+  abstract Kind: BinFileKind
+
   /// The ISA that this file expects to run on.
   abstract ISA: ISA
 
@@ -48,3 +52,9 @@ type IBinMetadata =
   /// The base address of the associated binary at which it is preferred to be
   /// loaded in memory.
   abstract BaseAddress: Addr
+
+  /// The path to the dynamic loader/interpreter requested by this binary, if
+  /// any. ELF exposes it via the PT_INTERP program header and Mach-O via the
+  /// LC_LOAD_DYLINKER load command; formats that record no loader path (e.g.,
+  /// PE) return None.
+  abstract InterpreterPath: string option

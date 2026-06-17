@@ -30,12 +30,12 @@ open B2R2.FrontEnd.BinLifter
 
 /// Represents a relocation symbol, which can either be a symbol index or a
 /// section ordinal.
-type RelocSymbol =
+type internal RelocSymbol =
   | SymIndex of idx: int (* Symbol table index *)
   | SecOrdinal of num: int (* Section number *)
 
 /// Represents relocation information in a Mach-O binary file.
-type RelocationInfo =
+type internal RelocationInfo =
   { /// Offset in the section to what is being relocated.
     RelocAddr: int
     /// RelocSymbol
@@ -109,6 +109,19 @@ module internal Reloc =
     | 16<rt> -> int64 (reader.ReadInt16(bytes, offset))
     | 32<rt> -> int64 (reader.ReadInt32(bytes, offset))
     | _ -> reader.ReadInt64(bytes, offset)
+
+  /// Converts a Mach-O relocation entry into a format-agnostic BinRelocation.
+  let toBinRelocation toolBox (symbols: Symbol[]) reloc =
+    let addend = readAddend toolBox.Bytes toolBox.Reader reloc
+    let symName =
+      match reloc.RelocSymbol with
+      | SymIndex n -> Some symbols[n].SymName
+      | SecOrdinal _ -> None
+    let result: FrontEnd.BinFile.BinRelocation =
+      { Address = reloc.RelocSection.SecAddr + uint64 reloc.RelocAddr
+        SymbolName = symName
+        Addend = Some addend }
+    result
 
   /// Computes the relocated target address for the given virtual address. The
   /// semantics follow relocatable object files (MH_OBJECT): an external entry

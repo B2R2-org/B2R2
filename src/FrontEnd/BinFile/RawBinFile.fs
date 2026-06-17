@@ -37,13 +37,19 @@ type RawBinFile(path, bytes: byte[], isa: ISA, baseAddrOpt) =
   let baseAddr = defaultArg baseAddrOpt 0UL
   let reader = BinReader.Init isa.Endian
 
-  (* Raw files expose the whole image as a single rwx region, so we ignore the
-     requested permission. *)
+  (* Raw files expose the whole image as a single rwx segment. *)
   let memoryLayout =
-    let region = [| AddrRange.create baseAddr (baseAddr + uint64 size - 1UL) |]
+    let segments =
+      [| { Name = None
+           Address = baseAddr
+           Size = uint64 size
+           Offset = 0UL
+           FileSize = uint64 size
+           Permission =
+             Permission.Readable ||| Permission.Writable
+             ||| Permission.Executable } |]
     Some { new IMemoryLayout with
-      member _.GetMemoryMappedRegions() = region
-      member _.GetMemoryMappedRegions _perm = region }
+      member _.Segments = segments }
 
   interface IBinFile with
     member _.Reader with get() = reader
@@ -56,11 +62,15 @@ type RawBinFile(path, bytes: byte[], isa: ISA, baseAddrOpt) =
 
     member _.Format with get() = FileFormat.RawBinary
 
+    member _.Kind with get() = BinFileKind.Unknown
+
     member _.ISA with get() = isa
 
     member _.EntryPoint with get() = Some baseAddr
 
     member _.BaseAddress with get() = baseAddr
+
+    member _.InterpreterPath with get() = None
 
     member _.IsNXEnabled with get() = false
 
@@ -70,13 +80,15 @@ type RawBinFile(path, bytes: byte[], isa: ISA, baseAddrOpt) =
 
     member _.NameResolver with get() = None
 
-    member _.SymbolMetadata with get() = None
+    member _.SymbolTable with get() = None
 
     member _.Structure with get() = None
 
     member _.Relocations with get() = None
 
-    member _.Linkage with get() = None
+    member _.ExceptionTable with get() = None
+
+    member _.ImportTable with get() = None
 
     member _.MemoryLayout with get() = memoryLayout
 

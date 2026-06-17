@@ -27,7 +27,7 @@ namespace B2R2.FrontEnd.BinFile.ELF
 open B2R2
 
 /// Represents the symbol type of ELF.
-type Symbol =
+type internal Symbol =
   { /// Address of the symbol.
     Addr: Addr
     /// Symbol's name.
@@ -66,7 +66,7 @@ with
 
 /// Represents the relevant section header index of a symbol. Every symbol table
 /// entry is defined in relation to some section.
-and SectionHeaderIdx =
+and internal SectionHeaderIdx =
   /// The symbol is undefined. Linker should update references to this symbol
   /// with the actual definition from another file.
   | SHN_UNDEF
@@ -100,7 +100,7 @@ with
     | SectionIndex n -> $"{n}"
 
 /// Represents the version information of a symbol.
-and SymVerInfo =
+and internal SymVerInfo =
   { /// Is this a hidden symbol? This is a GNU-specific extension indicated as
     /// VERSYM_HIDDEN.
     IsHidden: bool
@@ -110,7 +110,8 @@ and SymVerInfo =
 /// Represents an ARM-specific symbol type for ELF binaries, which are used to
 /// distinguish between ARM and Thumb instructions. For other CPU architectures,
 /// this will be set to None.
-and ARMLinkerSymbol =
+and internal ARMLinkerSymbol =
   | ARM = 1
   | Thumb = 2
   | None = 3
+  | Data = 4

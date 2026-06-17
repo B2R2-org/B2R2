@@ -27,7 +27,7 @@ namespace B2R2.FrontEnd.BinFile.ELF
 open B2R2.BinIR
 
 /// Debugging Information Entry (DIE) in DWARF format.
-type DIE =
+type internal DIE =
   { Offset: uint64
     Tag: DWTag
     HasChildren: bool
@@ -35,14 +35,14 @@ type DIE =
     Attributes: DWParsedAttribute list }
 
 /// Represents a parsed DWARF attribute with its form and value.
-and DWParsedAttribute =
+and internal DWParsedAttribute =
   { Attribute: DWAttribute
     Form: DWForm
     Value: DWAttributeValue }
 
 /// Represents a DWARF attribute value, which can be of various types depending
 /// on the form.
-and DWAttributeValue =
+and internal DWAttributeValue =
   | DWAddr of uint64
   | DWUInt of uint64
   | DWSInt of int64

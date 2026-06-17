@@ -144,24 +144,16 @@ let private detailRow model label value =
         ]
     ]
 
-let private detailContent model (content: SectionContent) =
-  match content with
-  | ELF(sh, _) ->
-    let flags = ELF.SectionFlags.toList sh.SecFlags |> String.concat ", "
-    let offset = $"0x{sh.SecOffset:x}"
-    let size = $"0x{sh.SecSize:x}"
-    let entSize = $"0x{sh.SecEntrySize:x}"
-    let link = $"{sh.SecLink}"
-    let info = $"{sh.SecInfo}"
-    let align = $"0x{sh.SecAlignment:x}"
-    [ detailRow model "Offset" offset :> IView
-      detailRow model "Size" size
-      detailRow model "Entry Size" entSize
-      detailRow model "ELF Flags" flags
-      detailRow model "Link" link
-      detailRow model "Info" info
-      detailRow model "Alignment" align ]
-  | Empty -> []
+let private detailContent model (sec: BinSection) =
+  let offset =
+    match sec.Offset with
+    | Some o -> $"0x{o:x}"
+    | None -> "(none)"
+  [ detailRow model "Offset" offset :> IView
+    detailRow model "Size" $"0x{sec.Size:x}"
+    detailRow model "File Size" $"0x{sec.FileSize:x}"
+    detailRow model "Permission" (Permission.toString sec.Permission)
+    detailRow model "Kind" (string sec.Kind) ]
 
 let private sectionItemDetailView (model: Model) (section: SectionItem) =
   Border.create [
@@ -177,7 +169,7 @@ let private sectionItemDetailView (model: Model) (section: SectionItem) =
         StackPanel.children [
           detailRow model "Name" section.Name
           detailRow model "Address" (sectionAddressText section)
-          yield! detailContent model section.Content
+          yield! detailContent model section.Section
         ]
       ]
     )

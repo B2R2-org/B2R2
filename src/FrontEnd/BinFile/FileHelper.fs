@@ -78,6 +78,13 @@ let readCString (span: ByteSpan) offset =
   let bs = cstrLoop span [] offset
   ByteArray.extractCString bs 0
 
+/// Reads a C string from a fixed-width field of the given size, stopping at the
+/// NUL terminator or at the field boundary. Mach-O name fields (sectname,
+/// segname) fill the entire field without a terminator when the name is exactly
+/// as wide as the field, so an unbounded read would spill into the next field.
+let readCStringOfSize (span: ByteSpan) offset size =
+  ByteArray.extractCStringFromSpan (span.Slice(offset, size)) 0
+
 /// Reads LEB128 unsigned integer from the given byte span starting at the
 /// given offset.
 let readULEB128 (span: ByteSpan) offset =

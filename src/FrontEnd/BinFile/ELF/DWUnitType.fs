@@ -24,7 +24,7 @@
 
 namespace B2R2.FrontEnd.BinFile.ELF
 
-type DWUnitType =
+type internal DWUnitType =
   | DW_UT_compile = 0x01uy
   | DW_UT_type = 0x02uy
   | DW_UT_partial = 0x03uy

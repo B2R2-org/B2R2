@@ -28,7 +28,7 @@ open B2R2
 
 /// Represents the target of a dyld fixup, produced either by chained fixups
 /// (LC_DYLD_CHAINED_FIXUPS) or by the LC_DYLD_INFO bind/rebase opcodes.
-type FixupTarget =
+type internal FixupTarget =
   /// An internal pointer rebased to the given (unslid + base) address.
   | Rebase of target: Addr
   /// An imported symbol bound from another image, with its providing library
@@ -36,13 +36,13 @@ type FixupTarget =
   | Bind of symbol: string * library: string * addend: int64
 
 /// Represents a single dyld fixup located at a virtual address.
-type Fixup =
+type internal Fixup =
   { /// Virtual address of the fixed-up pointer slot.
     FixupAddr: Addr
     /// What the slot is fixed up to.
     FixupTarget: FixupTarget }
 
-module Fixup =
+module internal Fixup =
   /// Builds a map from a fixed-up virtual address to its fixup.
   let buildMap (fixups: Fixup[]) =
     fixups |> Array.fold (fun map f -> Map.add f.FixupAddr f map) Map.empty

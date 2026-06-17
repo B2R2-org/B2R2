@@ -38,15 +38,34 @@ type PEBinFile(path, bytes: byte[], baseAddrOpt, rawpdb) =
 
   let nameResolver =
     Some { new INameResolvable with
-      member _.TryFindName(addr) =
+      member _.TryResolveName(addr) =
         if pe.Symbols.SymbolArray.Length = 0 then
           tryFindSymbolFromBinary pe addr
         else tryFindSymbolFromPDB pe addr
     }
 
-  let symbolMetadata =
-    Some { new ISymbolMetadata with
+  let toBinSymbol (s: Symbol) =
+    { Name = s.Name
+      Address = s.Address
+      Kind = if s.IsFunction then FunctionSymbol else OtherSymbol
+      Binding = UnknownBinding
+      IsDefined = true
+      Size = None
+      LibraryName = None }
+
+  let symbolTable =
+    Some { new ISymbolTable with
       member _.IsStripped with get() = Array.isEmpty pe.Symbols.SymbolArray
+
+      member _.Symbols with get() =
+        pe.Symbols.SymbolArray |> Array.map toBinSymbol
+
+      member _.TryFindSymbolByAddr addr =
+        match Map.tryFind addr pe.Symbols.SymbolByAddr with
+        | Some s -> Ok(toBinSymbol s)
+        | None -> Error ErrorCase.SymbolNotFound
+
+      member _.CodeModeMarkers = [||]
     }
 
   let functionAddrs =
@@ -63,9 +82,67 @@ type PEBinFile(path, bytes: byte[], baseAddrOpt, rawpdb) =
       |> Set.ofArray
       |> Set.toArray
 
+  let isPEMetadataSection name =
+    name = Section.Reloc || name = Section.EData
+    || name = Section.PData || name = Section.XData
+    || name = Section.ResourceData
+
+  let secKind (sec: SectionHeader) =
+    let ch = sec.SectionCharacteristics
+    if sec.Name = Section.Resource then
+      ResourceSection
+    elif sec.Name.StartsWith Section.DebugPrefix then
+      DebugSection
+    elif sec.Name = Section.TLS then
+      ThreadLocalStorageSection
+    elif sec.Name = Section.IData then
+      DynamicLinkageSection
+    elif ch.HasFlag SectionCharacteristics.MemExecute
+      || ch.HasFlag SectionCharacteristics.ContainsCode then
+      CodeSection
+    elif ch.HasFlag SectionCharacteristics.ContainsUninitializedData then
+      UninitializedDataSection
+    elif ch.HasFlag SectionCharacteristics.ContainsInitializedData then
+      DataSection
+    elif isPEMetadataSection sec.Name then
+      MetadataSection
+    else
+      UnknownSection
+
+  let secFileOffset (sec: SectionHeader) =
+    if sec.SizeOfRawData = 0 then None
+    else Some(uint64 sec.PointerToRawData)
+
+  let toBinSection (sec: SectionHeader) =
+    { Name = sec.Name
+      Address = PEUtils.addrFromRVA pe.BaseAddr sec.VirtualAddress
+      Size = uint64 (getVirtualSectionSize sec)
+      Offset = secFileOffset sec
+      FileSize = uint64 sec.SizeOfRawData
+      Permission = getSecPermission sec.SectionCharacteristics
+      Kind = secKind sec }
+
+  let tryFindSectionByAddr addr =
+    let rva = int (addr - pe.BaseAddr)
+    match pe.FindSectionIdxFromRVA rva with
+    | -1 -> None
+    | idx -> Some pe.SectionHeaders[idx]
+
+  let tryFindSectionByOffset (offset: uint32) =
+    pe.SectionHeaders
+    |> Array.tryFind (fun sec ->
+      let secStart = uint64 sec.PointerToRawData
+      let secEnd = secStart + uint64 sec.SizeOfRawData
+      sec.SizeOfRawData > 0
+      && uint64 offset >= secStart
+      && uint64 offset < secEnd)
+
   let structure =
     Some { new IBinStructure with
-      member _.GetCodeSectionPointer() =
+      member _.Sections with get() =
+        pe.SectionHeaders |> Array.map toBinSection
+
+      member _.CodeSectionPointer =
         pe.SectionHeaders
         |> Array.tryFind (fun sec -> sec.Name = SecText)
         |> function
@@ -93,97 +170,125 @@ type PEBinFile(path, bytes: byte[], baseAddrOpt, rawpdb) =
               sec.PointerToRawData + size - 1)
           | None -> BinFilePointer.Null
 
-      member _.TryFindSectionNameByAddr(addr: Addr) =
-        let rva = int (addr - pe.BaseAddr)
-        match pe.FindSectionIdxFromRVA rva with
-        | -1 -> Error ErrorCase.ItemNotFound
-        | idx -> Ok pe.SectionHeaders[idx].Name
-
-      member _.TryFindSectionNameByOffset(offset: uint32) =
+      member _.TryFindSectionByName name =
         pe.SectionHeaders
-        |> Array.tryFind (fun sec ->
-          let secStart = uint32 sec.PointerToRawData
-          let secEnd = secStart + uint32 sec.SizeOfRawData
-          offset >= secStart && offset < secEnd)
+        |> Array.tryFind (fun sec -> sec.Name = name)
+        |> function
+          | Some sec -> Ok(toBinSection sec)
+          | None -> Error ErrorCase.ItemNotFound
+
+      member _.TryFindSectionByAddr addr =
+        match tryFindSectionByAddr addr with
+        | Some sec -> Ok(toBinSection sec)
+        | None -> Error ErrorCase.ItemNotFound
+
+      member _.TryFindSectionByOffset offset =
+        match tryFindSectionByOffset offset with
+        | Some sec -> Ok(toBinSection sec)
+        | None -> Error ErrorCase.ItemNotFound
+
+      member _.TryFindSectionNameByAddr(addr: Addr) =
+        match tryFindSectionByAddr addr with
+        | Some sec -> Ok sec.Name
+        | None -> Error ErrorCase.ItemNotFound
+
+      member _.TryFindSectionNameByOffset offset =
+        tryFindSectionByOffset offset
         |> function
           | Some sec -> Ok sec.Name
           | None -> Error ErrorCase.ItemNotFound
 
-      member _.GetFunctionAddresses() =
+      member _.FunctionAddresses =
         functionAddrs.Value
     }
 
   let relocations =
     Some { new IRelocationTable with
-      member _.ContainsRelocation addr = Relocation.contains pe addr
+      member _.Relocations = Relocation.getRelocations pe
+
+      member _.IsRelocationAddr addr = Relocation.contains pe addr
 
       member _.TryGetRelocatedAddr relocAddr =
         Relocation.tryGetRelocatedAddr bytes pe relocAddr
+
+      member _.TryGetInternalFunctionAddr _relocAddr =
+        Error ErrorCase.SymbolNotFound
     }
 
-  let linkageEntries =
+  let importEntries =
     lazy getImportTable pe
 
-  let linkage =
-    Some { new ILinkageTable with
-      member _.GetLinkageEntries() = linkageEntries.Value
+  let importTable =
+    Some { new IImportTable with
+      member _.Imports = importEntries.Value
 
-      member _.IsInLinkageTable addr = isImportTable pe addr
+      member _.IsInImportTable addr = isImportTable pe addr
     }
 
-  let memoryMappedRegions =
+  let segments =
     lazy
       pe.SectionHeaders
       |> Array.choose (fun sec ->
         let secSize = getVirtualSectionSize sec
         if secSize > 0 then
-          let addr = uint64 sec.VirtualAddress + pe.BaseAddr
-          let range = AddrRange.create addr (addr + uint64 secSize - 1UL)
-          Some(range, getSecPermission sec.SectionCharacteristics)
+          Some { Name = Some sec.Name
+                 Address = uint64 sec.VirtualAddress + pe.BaseAddr
+                 Size = uint64 secSize
+                 Offset = uint64 sec.PointerToRawData
+                 FileSize = uint64 sec.SizeOfRawData
+                 Permission = getSecPermission sec.SectionCharacteristics }
         else None)
 
   let memoryLayout =
     Some { new IMemoryLayout with
-      member _.GetMemoryMappedRegions() =
-        memoryMappedRegions.Value |> Array.map fst
+      member _.Segments = segments.Value }
 
-      member _.GetMemoryMappedRegions(perm) =
-        memoryMappedRegions.Value
-        |> Array.choose (fun (range, secPerm) ->
-          if secPerm &&& perm = perm then Some range else None) }
+  let exceptionFrames =
+    lazy
+      [| for f in ExceptionData.parse pe bytes do
+           { FunctionStart = f.FuncStart
+             FunctionEnd = f.FuncEnd - 1UL
+             PersonalityRoutine = f.Personality
+             Handlers =
+               f.Handlers
+               |> List.map (fun (s, e, h) ->
+                 { BlockStart = s; BlockEnd = e; Handler = h })
+               |> List.toArray } |]
+
+  let exceptionTable =
+    Some { new IExceptionTable with
+      member _.Frames = exceptionFrames.Value
+    }
 
   new(path, bytes) = PEBinFile(path, bytes, None, [||])
 
   new(path, bytes, rawpdb) = PEBinFile(path, bytes, None, rawpdb)
 
   /// Returns the base address.
-  member _.BaseAddress with get() = pe.BaseAddr
+  member internal _.BaseAddress with get() = pe.BaseAddr
 
   /// Returns the PEHeaders.
-  member _.PEHeaders with get() = pe.PEHeaders
+  member internal _.PEHeaders with get() = pe.PEHeaders
 
   /// Returns the section headers.
-  member _.SectionHeaders with get() = pe.SectionHeaders
+  member internal _.SectionHeaders with get() = pe.SectionHeaders
 
   /// Returns the list of relocation blocks.
-  member _.RelocBlocks with get() = pe.RelocBlocks
+  member internal _.RelocBlocks with get() = pe.RelocBlocks
 
   /// Returns the symbol store.
-  member _.Symbols with get() = pe.Symbols
+  member internal _.Symbols with get() = pe.Symbols
 
   /// Returns the imported symbols.
-  member _.ImportedSymbols with get() = pe.ImportedSymbols
+  member internal _.ImportedSymbols with get() = pe.ImportedSymbols
 
   /// Returns the exported symbols.
-  member _.ExportedSymbols with get() = pe.ExportedSymbols
+  member internal _.ExportedSymbols with get() = pe.ExportedSymbols
 
-  member _.RawPDB with get() = rawpdb
+  member internal _.RawPDB with get() = rawpdb
 
   /// Finds the section index from the given RVA.
-  member _.FindSectionIdxFromRVA rva = pe.FindSectionIdxFromRVA rva
-
-  member _.HasCode(sec: SectionHeader) =
-    sec.SectionCharacteristics.HasFlag SectionCharacteristics.MemExecute
+  member internal _.FindSectionIdxFromRVA rva = pe.FindSectionIdxFromRVA rva
 
   interface IBinFile with
     member _.Reader with get() = pe.BinReader
@@ -196,11 +301,20 @@ type PEBinFile(path, bytes: byte[], baseAddrOpt, rawpdb) =
 
     member _.Format with get() = FileFormat.PEBinary
 
+    member _.Kind with get() =
+      let chr = pe.PEHeaders.CoffHeader.Characteristics
+      if chr.HasFlag Characteristics.Dll then BinFileKind.SharedLibrary
+      elif chr.HasFlag Characteristics.ExecutableImage then
+        BinFileKind.Executable
+      else BinFileKind.Object
+
     member _.ISA with get() = isa
 
     member _.EntryPoint with get() = getEntryPoint pe
 
     member _.BaseAddress with get() = pe.BaseAddr
+
+    member _.InterpreterPath with get() = None
 
     member _.IsNXEnabled with get() = isNXEnabled pe
 
@@ -210,13 +324,15 @@ type PEBinFile(path, bytes: byte[], baseAddrOpt, rawpdb) =
 
     member _.NameResolver with get() = nameResolver
 
-    member _.SymbolMetadata with get() = symbolMetadata
+    member _.SymbolTable with get() = symbolTable
 
     member _.Structure with get() = structure
 
     member _.Relocations with get() = relocations
 
-    member _.Linkage with get() = linkage
+    member _.ExceptionTable with get() = exceptionTable
+
+    member _.ImportTable with get() = importTable
 
     member _.MemoryLayout with get() = memoryLayout
 

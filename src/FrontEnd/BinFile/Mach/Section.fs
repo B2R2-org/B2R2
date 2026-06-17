@@ -30,7 +30,7 @@ open B2R2.FrontEnd.BinLifter
 open B2R2.FrontEnd.BinFile.FileHelper
 
 /// Represents a Mach-O section.
-type Section =
+type internal Section =
   { /// Section name.
     SecName: string
     /// The name of the segment that should eventually contain this section.
@@ -56,18 +56,21 @@ type Section =
     /// Reserved field 2.
     SecReserved2: int }
 
+[<RequireQualifiedAccess>]
 module Section =
   let [<Literal>] Text = "__text"
 
   let [<Literal>] Const = "__const"
+
+  let [<Literal>] UnwindInfo = "__unwind_info"
 
   let private parseSection toolBox (span: ByteSpan) offset =
     let cls = toolBox.Header.Class
     let reader = toolBox.Reader
     let span = span.Slice offset
     let secFlag = reader.ReadInt32(span, selectByWordSize cls 56 64)
-    { SecName = readCString span 0
-      SegName = readCString span 16
+    { SecName = readCStringOfSize span 0 16
+      SegName = readCStringOfSize span 16 16
       SecAddr = readUIntByWordSize span reader cls 32 + toolBox.BaseAddress
       SecSize = readUIntByWordSizeAndOffset span reader cls 36 40
       SecOffset = reader.ReadUInt32(span, selectByWordSize cls 40 48)

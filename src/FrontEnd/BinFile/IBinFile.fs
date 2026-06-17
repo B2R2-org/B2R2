@@ -40,14 +40,14 @@ type IBinFile =
   /// Returns the raw file content as a read-only memory block.
   abstract RawBytes: System.ReadOnlyMemory<byte>
 
-  /// Returns the size of the associated binary file.
+  /// Returns the size of the associated binary file in bytes.
   abstract Length: int
 
   /// Returns a name resolver if this binary format provides names.
   abstract NameResolver: INameResolvable option
 
-  /// Returns symbol-table metadata if this binary format provides it.
-  abstract SymbolMetadata: ISymbolMetadata option
+  /// Returns the symbol table if this binary format provides one.
+  abstract SymbolTable: ISymbolTable option
 
   /// Returns a structural view if this binary format has one.
   abstract Structure: IBinStructure option
@@ -55,8 +55,12 @@ type IBinFile =
   /// Returns a relocation table if this binary format has relocations.
   abstract Relocations: IRelocationTable option
 
-  /// Returns a linkage table if this binary format has linkage entries.
-  abstract Linkage: ILinkageTable option
+  /// Returns an exception table if this binary format provides exception
+  /// (unwinding) information.
+  abstract ExceptionTable: IExceptionTable option
+
+  /// Returns an import table if this binary format has imported symbols.
+  abstract ImportTable: IImportTable option
 
   /// Returns a memory layout view if this binary format is memory-mapped.
   abstract MemoryLayout: IMemoryLayout option

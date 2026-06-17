@@ -33,7 +33,7 @@ open type FileFormat
 [<TestClass>]
 type PETests() =
   static let isStripped (file: IBinFile) =
-    file.SymbolMetadata.Value.IsStripped
+    file.SymbolTable.Value.IsStripped
 
   static let parseFile fileName (pdbFileName: string) =
     let zipFile = fileName + ".zip"
@@ -58,6 +58,14 @@ type PETests() =
   static let x86File = parseFile "pe_x86" "pe_x86.pdb"
 
   static let x64File = parseFile "pe_x64" "pe_x64.pdb"
+
+  /// A C++/SEH binary (try/catch plus __try/__except), so its UNWIND_INFO
+  /// carries exception handlers and the SEH frames carry a C scope table.
+  static let x64ExcFile = parseFile "pe_x64_exc" ""
+
+  /// Same source built with /d2FH4- so the C++ try/catch uses the classic
+  /// (FH3) FuncInfo format rather than the compressed FH4 one.
+  static let x64ExcFh3File = parseFile "pe_x64_exc_fh3" ""
 
   [<TestMethod>]
   member _.``[PE] X86 EntryPoint test``() =
@@ -119,10 +127,10 @@ type PETests() =
     assertExistenceOfRelocBlock x86File 4096u 320
 
   [<TestMethod>]
-  member _.``[PE] X86 ContainsRelocation test``() =
+  member _.``[PE] X86 IsRelocationAddr test``() =
     let relocs = (x86File :> IBinFile).Relocations.Value
-    Assert.AreEqual(true, relocs.ContainsRelocation 0x00401001UL)
-    Assert.AreEqual(false, relocs.ContainsRelocation 0x00401000UL)
+    Assert.AreEqual(true, relocs.IsRelocationAddr 0x00401001UL)
+    Assert.AreEqual(false, relocs.IsRelocationAddr 0x00401000UL)
 
   [<TestMethod>]
   member _.``[PE] X86 TryGetRelocatedAddr test``() =
@@ -208,10 +216,10 @@ type PETests() =
     assertExistenceOfRelocBlock x64File 8192u 28
 
   [<TestMethod>]
-  member _.``[PE] X64 ContainsRelocation test``() =
+  member _.``[PE] X64 IsRelocationAddr test``() =
     let relocs = (x64File :> IBinFile).Relocations.Value
-    Assert.AreEqual(true, relocs.ContainsRelocation 0x140002190UL)
-    Assert.AreEqual(false, relocs.ContainsRelocation 0x140002194UL)
+    Assert.AreEqual(true, relocs.IsRelocationAddr 0x140002190UL)
+    Assert.AreEqual(false, relocs.IsRelocationAddr 0x140002194UL)
 
   [<TestMethod>]
   member _.``[PE] X64 TryGetRelocatedAddr test``() =
@@ -244,3 +252,72 @@ type PETests() =
   [<TestMethod>]
   member _.``[PE] X64 section header test (6)``() =
     assertExistenceOfSectionHeader x64File 24576 ".reloc"
+
+  [<TestMethod>]
+  member _.``[PE] X64 exception table is parsed from .pdata``() =
+    let frames = (x64File :> IBinFile).ExceptionTable.Value.Frames
+    Assert.AreEqual<bool>(true, frames.Length > 0)
+
+  [<TestMethod>]
+  member _.``[PE] X64 exception frames have sane ranges``() =
+    let frames = (x64File :> IBinFile).ExceptionTable.Value.Frames
+    let sane =
+      frames |> Array.forall (fun f -> f.FunctionEnd >= f.FunctionStart)
+    Assert.AreEqual<bool>(true, sane)
+
+  [<TestMethod>]
+  member _.``[PE] X86 has no exception table entries``() =
+    let frames = (x86File :> IBinFile).ExceptionTable.Value.Frames
+    Assert.AreEqual<int>(0, frames.Length)
+
+  [<TestMethod>]
+  member _.``[PE] X64 exception frame has a personality routine``() =
+    let frames = (x64ExcFile :> IBinFile).ExceptionTable.Value.Frames
+    let hasPersonality =
+      frames |> Array.exists (fun f -> f.PersonalityRoutine.IsSome)
+    Assert.AreEqual<bool>(true, hasPersonality)
+
+  [<TestMethod>]
+  member _.``[PE] X64 SEH scope table handler is resolved``() =
+    let frames = (x64ExcFile :> IBinFile).ExceptionTable.Value.Frames
+    let hasHandler =
+      frames |> Array.exists (fun f ->
+        f.Handlers |> Array.exists (fun h -> h.Handler.IsSome))
+    Assert.AreEqual<bool>(true, hasHandler)
+
+  [<TestMethod>]
+  member _.``[PE] X64 FH3 C++ catch handlers are parsed``() =
+    let frames = (x64ExcFh3File :> IBinFile).ExceptionTable.Value.Frames
+    // A C++ try with multiple catch clauses yields several handlers sharing the
+    // same guarded range; SEH scope records never do, so this pins the FH3
+    // path.
+    let multiCatch =
+      frames
+      |> Array.collect (fun f -> f.Handlers)
+      |> Array.filter (fun h -> h.Handler.IsSome)
+      |> Array.groupBy (fun h -> h.BlockStart, h.BlockEnd)
+      |> Array.exists (fun (_, hs) -> hs.Length >= 2)
+    Assert.AreEqual<bool>(true, multiCatch)
+
+  [<TestMethod>]
+  member _.``[PE] X64 FH4 C++ catch handlers are parsed``() =
+    let frames = (x64ExcFile :> IBinFile).ExceptionTable.Value.Frames
+    let multiCatch =
+      frames
+      |> Array.collect (fun f -> f.Handlers)
+      |> Array.filter (fun h -> h.Handler.IsSome)
+      |> Array.groupBy (fun h -> h.BlockStart, h.BlockEnd)
+      |> Array.exists (fun (_, hs) -> hs.Length >= 2)
+    Assert.AreEqual<bool>(true, multiCatch)
+
+  [<TestMethod>]
+  member _.``[PE] X64 FH4 catch handler addresses match dumpbin``() =
+    // dumpbin /unwindinfo reports cppGuarded's two catch handlers at RVAs
+    // 0x91FE0 and 0x9200D (image base 0x140000000).
+    let frames = (x64ExcFile :> IBinFile).ExceptionTable.Value.Frames
+    let targets =
+      frames
+      |> Array.collect (fun f -> f.Handlers)
+      |> Array.choose (fun h -> h.Handler)
+    Assert.AreEqual<bool>(true, Array.contains 0x140091FE0UL targets)
+    Assert.AreEqual<bool>(true, Array.contains 0x14009200DUL targets)

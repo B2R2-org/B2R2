@@ -23,7 +23,7 @@
 *)
 
 [<RequireQualifiedAccess>]
-module internal B2R2.FrontEnd.BinFile.ELF.DWExpression
+module internal B2R2.FrontEnd.BinFile.DWARF.DWExpression
 
 open System.Buffers.Binary
 open System.Runtime.InteropServices

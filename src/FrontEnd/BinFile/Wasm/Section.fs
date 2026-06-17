@@ -30,6 +30,8 @@ open B2R2.FrontEnd.BinLifter
 open B2R2.FrontEnd.BinFile
 open B2R2.FrontEnd.BinFile.Wasm.Expression
 
+let [<Literal>] CustomName = "name"
+
 let peekVectorLen (bs: byte[]) (reader: IBinReader) offset =
   reader.ReadUInt32LEB128(bs, offset)
 
@@ -110,7 +112,7 @@ let parseCustomSec bs (reader: IBinReader) offset =
       let payloadOff = contOff + int rawLen
       let payloadEnd = contOff + int contSize
       let nameSec =
-        if name = "name" then
+        if name = CustomName then
           Some(parseNameSection bs reader payloadOff payloadEnd)
         else None
       Some { Name = name; Size = contSize; NameSection = nameSec }

@@ -84,17 +84,9 @@ let private dumpHex (opts: BinDisasmOpts) (hdl: BinHandle) ptr =
   HexDump.makeLines chunkSz hdl.File.ISA.WordSize opts.ShowColor ptr.Addr bytes
   |> Array.iter printon
 
-let private hasNoContent (file: IBinFile) secName =
-  match file with
-  | :? ELFBinFile as file ->
-    match file.TryFindSection secName with
-    | Some section -> section.SecType = ELF.SectionType.SHT_NOBITS
-    | None -> true
-  | _ -> false
-
-let private dumpData (hdl: BinHandle) (opts: BinDisasmOpts) ptr secName =
-  printSectionTitle <| String.wrapParen secName
-  if hasNoContent hdl.File secName then
+let private dumpData hdl (opts: BinDisasmOpts) ptr (sec: BinSection) =
+  printSectionTitle <| String.wrapParen sec.Name
+  if sec.Kind = UninitializedDataSection then
     resetToDefaultTwoColumnConfig ()
     printsr [| ""; "NOBITS section." |]
   else
@@ -115,62 +107,40 @@ let private dumpOneSection (dumper: IBinDumper) name ptr =
   dumper.Dump ptr
   printsn ""
 
-let private dumpELFSection hdl opts elf tableprn codeprn sec =
-  if (sec: ELF.SectionHeader).SecSize > 0UL then
-    let name = sec.SecName
-    let ptr = BinFileOps.getSectionPointer (hdl: BinHandle).File name
-    if (elf: ELFBinFile).IsPLT sec then dumpOneSection tableprn name ptr
-    elif elf.HasCode sec then dumpOneSection codeprn name ptr
-    elif (opts: BinDisasmOpts).OnlyDisasm then dumpOneSection codeprn name ptr
-    else dumpData hdl opts ptr name
+let private dumpSection hdl (opts: BinDisasmOpts) codeprn tableprn
+                        (sec: BinSection) =
+  if sec.Size > 0UL then
+    let ptr = BinFileOps.getSectionPointer (hdl: BinHandle).File sec.Name
+    match sec.Kind with
+    | DynamicLinkageSection -> dumpOneSection tableprn sec.Name ptr
+    | _ when sec.Permission.HasFlag Permission.Executable ->
+      dumpOneSection codeprn sec.Name ptr
+    | _ when opts.OnlyDisasm -> dumpOneSection codeprn sec.Name ptr
+    | _ -> dumpData hdl opts ptr sec
   else ()
 
-let private dumpPESection (hdl: BinHandle) opts pe _tableprn codeprn sec =
-  let name = (sec: Reflection.PortableExecutable.SectionHeader).Name
-  let ptr = BinFileOps.getSectionPointer hdl.File name
-  if (pe: PEBinFile).HasCode sec then dumpOneSection codeprn name ptr
-  elif (opts: BinDisasmOpts).OnlyDisasm then dumpOneSection codeprn name ptr
-  else dumpData hdl opts ptr name
-
-let private dumpMachSection (hdl: BinHandle) opts mach tableprn codeprn sec =
-  let name = (sec: Mach.Section).SecName
-  let ptr = BinFileOps.getSectionPointer hdl.File name
-  if (mach: MachBinFile).IsPLT sec then dumpOneSection tableprn name ptr
-  elif mach.HasCode sec then dumpOneSection codeprn name ptr
-  elif (opts: BinDisasmOpts).OnlyDisasm then dumpOneSection codeprn name ptr
-  else dumpData hdl opts ptr name
+/// Section dumping is supported only for formats that expose a section view.
+let private hasDumpableSections (hdl: BinHandle) =
+  match hdl.File.Format with
+  | FileFormat.ELFBinary
+  | FileFormat.PEBinary
+  | FileFormat.MachBinary -> true
+  | _ -> false
 
 let private dumpOneSectionOfName (hdl: BinHandle) opts codeprn tableprn name =
-  match hdl.File with
-  | :? ELFBinFile as elf ->
-    elf.TryFindSection name
+  if hasDumpableSections hdl then
+    BinFileOps.getSections hdl.File
+    |> Array.tryFind (fun sec -> sec.Name = name)
     |> function
-      | Some sec -> dumpELFSection hdl opts elf tableprn codeprn sec
+      | Some sec -> dumpSection hdl opts codeprn tableprn sec
       | None -> ()
-  | :? PEBinFile as pe ->
-    pe.SectionHeaders |> Array.tryFind (fun sec -> sec.Name = name)
-    |> function
-      | Some sec -> dumpPESection hdl opts pe tableprn codeprn sec
-      | None -> ()
-  | :? MachBinFile as mach ->
-    mach.Sections |> Array.tryFind (fun sec -> sec.SecName = name)
-    |> function
-      | Some sec -> dumpMachSection hdl opts mach tableprn codeprn sec
-      | None -> ()
-  | _ -> Terminator.futureFeature ()
+  else Terminator.futureFeature ()
 
 let private dumpAllSections (hdl: BinHandle) opts codeprn tableprn =
-  match hdl.File with
-  | :? ELFBinFile as elf ->
-    for sec in elf.SectionHeaders do
-      dumpELFSection hdl opts elf tableprn codeprn sec
-  | :? PEBinFile as pe ->
-    for sec in pe.SectionHeaders do
-      dumpPESection hdl opts pe tableprn codeprn sec
-  | :? MachBinFile as mach ->
-    for sec in mach.Sections do
-      dumpMachSection hdl opts mach tableprn codeprn sec
-  | _ -> Terminator.futureFeature ()
+  if hasDumpableSections hdl then
+    for sec in BinFileOps.getSections hdl.File do
+      dumpSection hdl opts codeprn tableprn sec
+  else Terminator.futureFeature ()
 
 let private dumpRegularFile (hdl: BinHandle) (opts: BinDisasmOpts) =
   let codeprn = makeCodeDumper hdl opts

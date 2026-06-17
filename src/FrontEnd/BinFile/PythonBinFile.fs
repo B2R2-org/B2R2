@@ -70,11 +70,15 @@ type PythonBinFile(path, bytes: byte[], baseAddrOpt) =
 
     member _.Format with get() = FileFormat.PythonBinary
 
+    member _.Kind with get() = BinFileKind.Unknown
+
     member _.ISA with get() = ISA(Architecture.Python, Endian.Little)
 
     member _.EntryPoint with get() = Some 0UL
 
     member _.BaseAddress with get() = 0UL
+
+    member _.InterpreterPath with get() = None
 
     member _.IsNXEnabled with get() = false
 
@@ -84,13 +88,15 @@ type PythonBinFile(path, bytes: byte[], baseAddrOpt) =
 
     member _.NameResolver with get() = None
 
-    member _.SymbolMetadata with get() = None
+    member _.SymbolTable with get() = None
 
     member _.Structure with get() = None
 
     member _.Relocations with get() = None
 
-    member _.Linkage with get() = None
+    member _.ExceptionTable with get() = None
+
+    member _.ImportTable with get() = None
 
     member _.MemoryLayout with get() = None
 

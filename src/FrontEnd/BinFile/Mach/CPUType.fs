@@ -27,7 +27,7 @@ namespace B2R2.FrontEnd.BinFile.Mach
 open B2R2
 
 /// Represents the CPU type.
-type CPUType =
+type internal CPUType =
   | Any = 0xFFFFFFFF
   | VAX = 0x00000001
   | ROMP = 0x00000002

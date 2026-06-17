@@ -41,15 +41,9 @@ type BinCodeDumper(hdl, isTable, showSymbol, showColor, dumpMode) =
   let liftingUnit = hdl.NewLiftingUnit()
 
   let archmodes =
-    let modes = Dictionary() (* Addr to ArchMode *)
-    match hdl.File.Format, hdl.File.ISA with
-    | FileFormat.ELFBinary, ARM32 ->
-      let elf = hdl.File :?> ELFBinFile
-      for s in elf.Symbols.StaticSymbols do
-        if s.ARMLinkerSymbol <> ELF.ARMLinkerSymbol.None then
-          modes[s.Addr] <- s.ARMLinkerSymbol
-        else ()
-    | _ -> ()
+    let modes = Dictionary() (* Addr to BinCodeMode *)
+    for m in BinFileOps.getCodeModeMarkers hdl.File do
+      modes[m.Address] <- m.Mode
     modes
 
   let modeSwitch =
@@ -118,8 +112,8 @@ type BinCodeDumper(hdl, isTable, showSymbol, showColor, dumpMode) =
     if hdl.File.ISA.Arch = Architecture.ARMv7 then
       fun addr ->
         match archmodes.TryGetValue addr with
-        | true, ELF.ARMLinkerSymbol.ARM -> modeSwitch.IsThumb <- false
-        | true, ELF.ARMLinkerSymbol.Thumb -> modeSwitch.IsThumb <- true
+        | true, ArmMode -> modeSwitch.IsThumb <- false
+        | true, ThumbMode -> modeSwitch.IsThumb <- true
         | _ -> ()
     else
       fun _addr -> ()

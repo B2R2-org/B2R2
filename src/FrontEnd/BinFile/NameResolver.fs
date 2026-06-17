@@ -22,35 +22,16 @@
   SOFTWARE.
 *)
 
-namespace B2R2.FrontEnd.BinFile.ELF
-
-/// Represents the application type of the value in the DWARF exception header
-/// encoded as the upper 4 bits of a byte.
-type ExceptionHeaderApplication =
-  /// Value is relative to the current program counter.
-  | DW_EH_PE_pcrel = 0x10
-  /// Value is relative to the beginning of the .text section.
-  | DW_EH_PE_textrel = 0x20
-  /// Value is relative to the beginning of the .eh_frame_hdr section.
-  | DW_EH_PE_datarel = 0x30
-  /// Value is relative to the beginning of the function.
-  | DW_EH_PE_funcrel = 0x40
-  /// No value is present.
-  | DW_EH_PE_omit = 0xff
-
+/// Provides helpers for building name resolvers on top of binary-file tables.
 [<RequireQualifiedAccess>]
-module internal ExceptionHeader =
-  open LanguagePrimitives
+module B2R2.FrontEnd.BinFile.NameResolver
 
-  /// Parses the encoding byte from the DWARF exception header.
-  let parseEncoding b =
-    if b = 0xFFuy then
-      let v = ExceptionHeaderValue.DW_EH_PE_omit
-      let app = ExceptionHeaderApplication.DW_EH_PE_omit
-      struct (v, app)
-    else
-      let v = int (b &&& 0x0Fuy)
-              |> EnumOfValue<int, ExceptionHeaderValue>
-      let app = int (b &&& 0xF0uy)
-                |> EnumOfValue<int, ExceptionHeaderApplication>
-      struct (v, app)
+open B2R2.FrontEnd.BinLifter
+open B2R2.FrontEnd.BinFile
+
+/// Builds a name resolver backed by the given symbol table: it resolves an
+/// address to the name of the symbol located at that address.
+let ofSymbolTable (symbolTable: ISymbolTable) =
+  { new INameResolvable with
+      member _.TryResolveName addr =
+        symbolTable.TryFindSymbolByAddr addr |> Result.map (fun s -> s.Name) }

@@ -27,7 +27,7 @@ namespace B2R2.FrontEnd.BinFile.PE
 open B2R2
 
 /// Represents the PE symbol.
-type Symbol =
+type internal Symbol =
   { /// Address of the symbol.
     Address: Addr
     /// Segment number of the symbol.

@@ -53,6 +53,36 @@ type WasmBinFile(path, bytes, baseAddrOpt) =
       offset >= uint32 sec.Offset
       && offset < uint32 sec.Offset + sec.HeaderSize + sec.ContentsSize)
 
+  let secKind (sec: SectionSummary) =
+    match sec.Id with
+    | SectionId.Code -> CodeSection
+    | SectionId.Data -> DataSection
+    | SectionId.Custom when sec.Name = Section.CustomName ->
+      DebugSection
+    | SectionId.Custom -> UnknownSection
+    | _ -> MetadataSection
+
+  let secPermission sec =
+    match secKind sec with
+    | CodeSection ->
+      int Permission.Readable ||| int Permission.Executable
+    | DataSection ->
+      int Permission.Readable ||| int Permission.Writable
+    | DebugSection
+    | MetadataSection
+    | UnknownSection -> int Permission.Readable
+    | _ -> 0
+    |> LanguagePrimitives.EnumOfValue
+
+  let toBinSection (sec: SectionSummary) =
+    { Name = sec.Name
+      Address = uint64 sec.Offset
+      Size = uint64 (sec.HeaderSize + sec.ContentsSize)
+      Offset = Some(uint64 sec.Offset)
+      FileSize = uint64 (sec.HeaderSize + sec.ContentsSize)
+      Permission = secPermission sec
+      Kind = secKind sec }
+
   let functionAddrs =
     lazy
       wm.IndexMap
@@ -66,7 +96,7 @@ type WasmBinFile(path, bytes, baseAddrOpt) =
           | _ -> None
         else None)
 
-  let linkageEntries =
+  let importEntries =
     lazy getImports wm
 
   let symbolMap =
@@ -74,7 +104,7 @@ type WasmBinFile(path, bytes, baseAddrOpt) =
 
   let nameResolver =
     Some { new INameResolvable with
-      member _.TryFindName addr =
+      member _.TryResolveName addr =
         match Map.tryFind addr symbolMap.Value with
         | Some name -> Ok name
         | None -> Error ErrorCase.SymbolNotFound
@@ -82,7 +112,10 @@ type WasmBinFile(path, bytes, baseAddrOpt) =
 
   let structure =
     Some { new IBinStructure with
-      member _.GetCodeSectionPointer() =
+      member _.Sections with get() =
+        wm.SectionsInfo.SecArray |> Array.map toBinSection
+
+      member _.CodeSectionPointer =
         match wm.CodeSection with
         | Some sec ->
           let headerSize =
@@ -105,6 +138,23 @@ type WasmBinFile(path, bytes, baseAddrOpt) =
         | Some sec -> sectionSummaryToPointer sec
         | None -> BinFilePointer.Null
 
+      member _.TryFindSectionByName name =
+        Map.tryFind name wm.SectionsInfo.SecByName
+        |> function
+          | Some sec -> Ok(toBinSection sec)
+          | None -> Error ErrorCase.ItemNotFound
+
+      member _.TryFindSectionByAddr addr =
+        NoOverlapIntervalMap.tryFindByAddr addr wm.SectionsInfo.SecByAddr
+        |> function
+          | Some sec -> Ok(toBinSection sec)
+          | None -> Error ErrorCase.ItemNotFound
+
+      member _.TryFindSectionByOffset offset =
+        match tryFindSectionByOffset offset with
+        | Some sec -> Ok(toBinSection sec)
+        | None -> Error ErrorCase.ItemNotFound
+
       member _.TryFindSectionNameByAddr addr =
         NoOverlapIntervalMap.tryFindByAddr addr wm.SectionsInfo.SecByAddr
         |> function
@@ -116,24 +166,24 @@ type WasmBinFile(path, bytes, baseAddrOpt) =
         | Some sec -> Ok sec.Name
         | None -> Error ErrorCase.ItemNotFound
 
-      member _.GetFunctionAddresses() =
+      member _.FunctionAddresses =
         functionAddrs.Value
     }
 
-  let linkage =
-    Some { new ILinkageTable with
-      member _.GetLinkageEntries() = linkageEntries.Value
+  let importTable =
+    Some { new IImportTable with
+      member _.Imports = importEntries.Value
 
-      member _.IsInLinkageTable addr =
-        linkageEntries.Value
+      member _.IsInImportTable addr =
+        importEntries.Value
         |> Array.exists (fun entry -> entry.TableAddress = addr)
     }
 
   new(path, bytes) = WasmBinFile(path, bytes, None)
 
-  member _.WASM with get() = wm
+  member internal _.WASM with get() = wm
 
-  member _.Sections with get() = wm.SectionsInfo.SecArray
+  member internal _.Sections with get() = wm.SectionsInfo.SecArray
 
   interface IBinFile with
     member _.Reader with get() = reader
@@ -146,11 +196,15 @@ type WasmBinFile(path, bytes, baseAddrOpt) =
 
     member _.Format with get() = FileFormat.WasmBinary
 
+    member _.Kind with get() = BinFileKind.Unknown
+
     member _.ISA with get() = isa
 
     member _.EntryPoint with get() = entryPointOf wm
 
     member _.BaseAddress with get() = baseAddr
+
+    member _.InterpreterPath with get() = None
 
     member _.IsNXEnabled with get() = true
 
@@ -160,13 +214,15 @@ type WasmBinFile(path, bytes, baseAddrOpt) =
 
     member _.NameResolver with get() = nameResolver
 
-    member _.SymbolMetadata with get() = None
+    member _.SymbolTable with get() = None
 
     member _.Structure with get() = structure
 
     member _.Relocations with get() = None
 
-    member _.Linkage with get() = linkage
+    member _.ExceptionTable with get() = None
+
+    member _.ImportTable with get() = importTable
 
     member _.MemoryLayout with get() = None
 

@@ -27,6 +27,7 @@ namespace B2R2.FrontEnd.BinFile.ELF
 open System
 open B2R2
 open B2R2.FrontEnd.BinLifter
+open B2R2.FrontEnd.BinFile.DWARF
 open B2R2.FrontEnd.BinFile.FileHelper
 
 /// Represents a DWARF compilation/type unit, which contains a list of DIEs.
@@ -59,7 +60,7 @@ and internal DWAbbrevAttributeSpec =
     ImplicitConst: int64 option }
 
 /// Represents the main DWARF sections needed for parsing debug information.
-and DebugSections =
+and internal DebugSections =
   { InfoSection: SectionHeader option
     AbbrevSection: SectionHeader option
     StringSection: SectionHeader option

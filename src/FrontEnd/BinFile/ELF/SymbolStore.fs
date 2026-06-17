@@ -115,6 +115,7 @@ module private SymbolTables =
     if hdr.MachineType = MachineType.EM_ARM then
       if symbolName = "$a" then ARMLinkerSymbol.ARM
       elif symbolName = "$t" then ARMLinkerSymbol.Thumb
+      elif symbolName = "$d" then ARMLinkerSymbol.Data
       else ARMLinkerSymbol.None
     else ARMLinkerSymbol.None
 
@@ -210,7 +211,7 @@ module private SymbolTables =
     map
 
 /// Represents the main data structure for storing ELF symbol information.
-type SymbolStore internal(toolBox, shdrs) =
+type internal SymbolStore internal(toolBox, shdrs) =
   let staticSymbSecs =
     shdrs |> Array.filter (fun s -> s.SecType = SectionType.SHT_SYMTAB)
 

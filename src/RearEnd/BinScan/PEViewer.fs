@@ -208,7 +208,7 @@ let dumpFunctions _ (pe: PEBinFile) =
   printsr [| "Address"; "Function" |]
   printSingleHorizontalRule ()
   for addr in BinFileOps.getFunctionAddresses pe do
-    match BinFileOps.tryFindName pe addr with
+    match BinFileOps.tryResolveName pe addr with
     | Ok name ->
       printsr [| Addr.toString (pe :> IBinFile).ISA.WordSize addr; name |]
     | Error _ ->
@@ -388,7 +388,7 @@ let dumpCLRHeader _ (pe: PEBinFile) =
     printsn ""
 
 let dumpDependencies _ (file: IBinFile) =
-  BinFileOps.getLinkageEntries file
+  BinFileOps.getImports file
   |> Array.map (fun e -> e.LibraryName)
   |> Set.ofArray
   |> Set.iter (fun s -> printsn $"- {s}")

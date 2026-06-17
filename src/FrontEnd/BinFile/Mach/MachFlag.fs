@@ -28,7 +28,7 @@ open System
 
 /// Represents optional features of the Mach-O file format.
 [<FlagsAttribute>]
-type MachFlag =
+type internal MachFlag =
   /// The object file has no undefined references.
   | MH_NOUNDEFS = 0x1
   /// The object file is the output of an incremental link against a base file

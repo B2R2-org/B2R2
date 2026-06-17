@@ -35,7 +35,7 @@ open B2R2.Collections
 /// <summary>
 /// Represents a vector of elements in WebAssembly.
 /// </summary>
-type Vector<'TElement> =
+type internal Vector<'TElement> =
   { /// Length of encoded elements
     Length: uint32
     /// The actual elements sequence
@@ -43,20 +43,20 @@ type Vector<'TElement> =
     /// Size of the vector in bytes
     Size: uint32 }
 
-type ValueType =
+type internal ValueType =
   | I32 = 0x7Fuy
   | I64 = 0x7Euy
   | F32 = 0x7Duy
   | F64 = 0x7Cuy
 
-type ConstExprValueType =
+type internal ConstExprValueType =
   | GlobalGet = 0x23uy
   | I32 = 0x41uy
   | I64 = 0x42uy
   | F32 = 0x43uy
   | F64 = 0x44uy
 
-type ConstExpr =
+type internal ConstExpr =
   | I32 of uint32
   | I64 of uint64
   | F32 of single
@@ -64,49 +64,49 @@ type ConstExpr =
   /// A reference to an immutable global through the global.get instruction.
   | GlobalGet of uint32
 
-type FuncTypeStart =
+type internal FuncTypeStart =
   | FunctionType = 0x60uy
 
-type FuncType =
+type internal FuncType =
   { ParameterTypes: Vector<ValueType>
     ResultTypes: Vector<ValueType> }
 
-type LimitsKind =
+type internal LimitsKind =
   | Min = 0x00uy
   | MinMax = 0x01uy
 
-type Limits =
+type internal Limits =
   | Min of uint32
   | MinMax of uint32 * uint32
 
-type TableElemType =
+type internal TableElemType =
   | FuncRef = 0x70uy
 
-type TableType =
+type internal TableType =
   { ElemType: TableElemType
     Limits: Limits }
 
-type Mutability =
+type internal Mutability =
   /// Constant
   | Immut = 0x00uy
   /// Variable
   | Mut = 0x01uy
 
-type GlobalType =
+type internal GlobalType =
   { ValueType: ValueType
     Mutable: Mutability }
 
-type TypeIdx = uint32
+type internal TypeIdx = uint32
 
-type FuncIdx = uint32
+type internal FuncIdx = uint32
 
-type TableIdx = uint32
+type internal TableIdx = uint32
 
-type MemIdx = uint32
+type internal MemIdx = uint32
 
-type GlobalIdx = uint32
+type internal GlobalIdx = uint32
 
-type SectionId =
+type internal SectionId =
   | Custom = 0uy
   | Type = 1uy
   | Import = 2uy
@@ -120,11 +120,11 @@ type SectionId =
   | Code = 10uy
   | Data = 11uy
 
-type ExpressionEnd =
+type internal ExpressionEnd =
   | ExprEnd = 0x0Buy
 
 /// Represents the summary of a section information.
-type SectionSummary =
+type internal SectionSummary =
   { /// Section Identifier.
     Id: SectionId
     /// Section Name.
@@ -136,7 +136,7 @@ type SectionSummary =
     /// Section contents size in bytes.
     ContentsSize: uint32 }
 
-type SectionsInfo =
+type internal SectionsInfo =
   { /// Section summary by address.
     SecByAddr: NoOverlapIntervalMap<SectionSummary>
     /// Section summary by name.
@@ -144,14 +144,14 @@ type SectionsInfo =
     /// Section summary by its number.
     SecArray: SectionSummary[] }
 
-type IndexKind =
+type internal IndexKind =
   | Type
   | Function
   | Table
   | Memory
   | Global
 
-type IndexInfo =
+type internal IndexInfo =
   { /// Element parent section offset.
     SecOffset: int
     /// Element index.
@@ -161,7 +161,7 @@ type IndexInfo =
     /// Element offset.
     ElemOffset: int }
 
-type Section<'TContents> =
+type internal Section<'TContents> =
   { Id: SectionId
     /// The Size of the contents in bytes
     Size: uint32
@@ -171,26 +171,26 @@ type Section<'TContents> =
     Contents: 'TContents option }
 
 /// Represents the subsection identifiers of the "name" custom section.
-type NameSubsectionId =
+type internal NameSubsectionId =
   | Module = 0x00uy
   | Function = 0x01uy
   | Local = 0x02uy
 
 /// Represents an index-to-name association in a name map.
-type NameAssoc =
+type internal NameAssoc =
   { /// The associated index (e.g., a function index).
     Index: uint32
     /// The name bound to the index.
     Name: string }
 
 /// Represents the parsed contents of the "name" custom section.
-type NameSection =
+type internal NameSection =
   { /// The module name, if the module-name subsection is present.
     ModuleName: string option
     /// The function names, from the function-name subsection.
     FunctionNames: NameAssoc[] }
 
-type CustomContents =
+type internal CustomContents =
   { /// Name of the custom section
     Name: string
     /// Size of the contents in bytes
@@ -198,94 +198,94 @@ type CustomContents =
     /// Parsed "name" custom section, present only for the "name" section.
     NameSection: NameSection option }
 
-type CustomSection = Section<CustomContents>
+type internal CustomSection = Section<CustomContents>
 
-type TypeSection = Section<Vector<FuncType>>
+type internal TypeSection = Section<Vector<FuncType>>
 
-type ImportDescKind =
+type internal ImportDescKind =
   | Func = 0x00uy
   | Table = 0x01uy
   | Mem = 0x02uy
   | Global = 0x03uy
 
-type ImportDesc =
+type internal ImportDesc =
   | ImpFunc of TypeIdx
   | ImpTable of TableType
   | ImpMem of Limits
   | ImpGlobal of GlobalType
 
-type Import =
+type internal Import =
   { Offset: int
     ModuleName: string
     Name: string
     Desc: ImportDesc }
 
-type ImportSection = Section<Vector<Import>>
+type internal ImportSection = Section<Vector<Import>>
 
-type FunctionSection = Section<Vector<TypeIdx>>
+type internal FunctionSection = Section<Vector<TypeIdx>>
 
-type TableSection = Section<Vector<TableType>>
+type internal TableSection = Section<Vector<TableType>>
 
-type MemorySection = Section<Vector<Limits>>
+type internal MemorySection = Section<Vector<Limits>>
 
-type Global =
+type internal Global =
   { Type: GlobalType
     InitExpr: ConstExpr }
 
-type GlobalSection = Section<Vector<Global>>
+type internal GlobalSection = Section<Vector<Global>>
 
-type ExportDescKind =
+type internal ExportDescKind =
   | Func = 0x00uy
   | Table = 0x01uy
   | Mem = 0x02uy
   | Global = 0x03uy
 
-type ExportDesc =
+type internal ExportDesc =
   | ExpFunc of TypeIdx
   | ExpTable of TableIdx
   | ExpMem of MemIdx
   | ExpGlobal of GlobalIdx
 
-type Export =
+type internal Export =
   { Offset: int
     Name: string
     Desc: ExportDesc }
 
-type ExportSection = Section<Vector<Export>>
+type internal ExportSection = Section<Vector<Export>>
 
-type StartSection = Section<FuncIdx>
+type internal StartSection = Section<FuncIdx>
 
-type Elem =
+type internal Elem =
   { TableIndex: TableIdx
     OffsetExpr: ConstExpr
     InitFuncs: Vector<FuncIdx> }
 
-type ElementSection = Section<Vector<Elem>>
+type internal ElementSection = Section<Vector<Elem>>
 
-type LocalDecl =
+type internal LocalDecl =
   { LocalDeclCount: uint32
     LocalDeclType: byte
     LocalDeclLen: int }
 
-type Code =
+type internal Code =
   { Offset: int
     LenFieldSize: int
     CodeSize: uint32
     Locals: LocalDecl list }
 
-type CodeSection = Section<Vector<Code>>
+type internal CodeSection = Section<Vector<Code>>
 
-type Data =
+type internal Data =
   { MemoryIndex: MemIdx
     OffsetExpr: ConstExpr
     InitBytes: Vector<byte> }
 
-type DataSection = Section<Vector<Data>>
+type internal DataSection = Section<Vector<Data>>
 
-type FormatVersion =
+type internal FormatVersion =
   | One = 0x00000001u
 
-type Module =
+type internal Module =
   { FormatVersion: FormatVersion
     CustomSections: CustomSection list
     TypeSection: TypeSection option

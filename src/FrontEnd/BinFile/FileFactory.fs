@@ -53,7 +53,7 @@ module FileFactory =
     | FileFormat.PEBinary ->
       PEBinFile(path, bytes, baseAddrOpt, [||]) :> IBinFile
     | FileFormat.MachBinary ->
-      MachBinFile(path, bytes, isa, baseAddrOpt) :> IBinFile
+      MachBinFile(path, bytes, isa, baseAddrOpt, Some regFactory) :> IBinFile
     | FileFormat.WasmBinary ->
       WasmBinFile(path, bytes, baseAddrOpt) :> IBinFile
     | FileFormat.PythonBinary ->
@@ -80,5 +80,5 @@ module FileFactory =
   /// <summary>
   /// Creates a Mach-O binary file object.
   /// </summary>
-  let loadMach path bytes isa baseAddrOpt =
-    MachBinFile(path, bytes, isa, baseAddrOpt)
+  let loadMach path bytes isa regFactory baseAddrOpt =
+    MachBinFile(path, bytes, isa, baseAddrOpt, Some regFactory)

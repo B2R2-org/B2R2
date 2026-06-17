@@ -49,7 +49,7 @@ type AsmWordDisasmBuilder(showAddr,
 
     member _.AccumulateSymbol(addr, prefix, suffix, noSymbolMapper) =
       if hasSymbolResolver && showSymb then
-        match symbolResolver.TryFindName addr with
+        match symbolResolver.TryResolveName addr with
         | Ok name when name.Length > 0 ->
           lst.Add prefix
           lst.Add { AsmWordKind = AsmWordKind.Value; AsmWordValue = name }

@@ -22,19 +22,34 @@
   SOFTWARE.
 *)
 
-namespace B2R2.FrontEnd.BinFile.ELF
+namespace B2R2.FrontEnd.BinFile.DWARF
 
 open System
+open B2R2
 open B2R2.FrontEnd.BinLifter
 
+/// Locates a DWARF section within an image, bundling the coordinates needed to
+/// read a `.eh_frame`-like section regardless of the container format: the raw
+/// bytes, the section's file offset and byte size, and the virtual address its
+/// first byte maps to.
+type internal DWARFSection =
+  { /// Raw bytes of the image the section lives in.
+    Image: byte[]
+    /// File offset to the start of the section.
+    Offset: int
+    /// Size of the section in bytes.
+    Size: int
+    /// Virtual address that the section's first byte maps to.
+    Address: Addr }
+
 /// Represents the exception frame, which is a list of CFI records.
-type ExceptionFrame = CFI list
+type internal ExceptionFrame = CFI list
 
 /// Represents the Call Frame Information (CFI), which is the main information
 /// block of .eh_frame. This exists roughly for every object file, although one
 /// object file may have multiple CFIs. Each CFI record contains a CIE record
 /// followed by 1 or more FDE records.
-and CFI =
+and internal CFI =
   { /// CIE record.
     CIE: CIE
     /// FDE records.
@@ -42,8 +57,6 @@ and CFI =
 
 [<RequireQualifiedAccess>]
 module internal ExceptionFrame =
-  let [<Literal>] Name = ".eh_frame"
-
   let computeNextOffset (span: ByteSpan) (reader: IBinReader) offset len =
     if len = -1 then
       let len = reader.ReadUInt64(span, offset)
@@ -58,40 +71,36 @@ module internal ExceptionFrame =
         FDEs = List.rev fdes |> List.toArray } :: cfis
     | None -> cfis
 
-  let private parseCFI toolBox cls isa reloc regs sec =
-    let secAddr, secOffset, secSize = sec.SecAddr, sec.SecOffset, sec.SecSize
-    let reader = toolBox.Reader
+  /// Parses CFI records (a list of CIEs each followed by their FDEs) from a
+  /// `.eh_frame`-equivalent section. The reloc callback supplies FDE
+  /// begin-address relocations for relocatable objects (None-returning for
+  /// other files).
+  let parseFromSection (reader: IBinReader) cls isa regs reloc sec =
     let rec parseLoop cie cies fdes offset cfis =
-      let secChunk = ReadOnlySpan(toolBox.Bytes, int secOffset, int secSize)
-      if offset >= secChunk.Length then
+      let span = ReadOnlySpan(sec.Image, sec.Offset, sec.Size)
+      if offset >= span.Length then
         accumulateCFIs cfis cie fdes
       else
         let originalOffset = offset
-        let len, offset = reader.ReadInt32(secChunk, offset), offset + 4
+        let len, offset = reader.ReadInt32(span, offset), offset + 4
         if len = 0 then accumulateCFIs cfis cie fdes
         else
-          let nextOfs, offset = computeNextOffset secChunk reader offset len
+          let nextOfs, offset = computeNextOffset span reader offset len
           let mybase = offset
-          let id, offset = reader.ReadInt32(secChunk, offset), offset + 4
+          let id, offset = reader.ReadInt32(span, offset), offset + 4
           if id = 0 then
             let cfis = accumulateCFIs cfis cie fdes
-            let cie = CIE.parse toolBox secChunk cls isa regs offset nextOfs
+            let cie = CIE.parse reader span cls isa regs offset nextOfs
             let cies = Map.add originalOffset cie cies
             let cie = Some cie
             parseLoop cie cies [] nextOfs cfis
           else
             let cieOffset = mybase - id (* id = a CIE pointer, when id <> 0 *)
+            let sAddr = sec.Address
+            let pcie = Map.tryFind cieOffset cies
             let fde =
-              FDE.parse
-                cls isa regs secChunk reader secAddr offset nextOfs reloc
-                (Map.tryFind cieOffset cies)
+              FDE.parse cls isa regs span reader sAddr offset nextOfs reloc pcie
             let fdes = fde :: fdes
             parseLoop cie cies fdes nextOfs cfis
     parseLoop None Map.empty [] 0 []
-
-  let parse toolBox cls shdrs isa regFactoryOpt reloc =
-    match Array.tryFind (fun s -> s.SecName = Name) shdrs, regFactoryOpt with
-    | Some sec, Some registerFactory ->
-      parseCFI toolBox cls isa reloc registerFactory sec
-      |> List.rev
-    | _ -> []
+    |> List.rev

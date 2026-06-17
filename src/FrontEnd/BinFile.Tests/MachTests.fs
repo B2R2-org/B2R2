@@ -26,6 +26,7 @@ namespace B2R2.FrontEnd.BinFile.Tests
 
 open Microsoft.VisualStudio.TestTools.UnitTesting
 open B2R2
+open B2R2.FrontEnd.BinLifter
 open B2R2.FrontEnd.BinFile
 open B2R2.FrontEnd.BinFile.Mach
 open type FileFormat
@@ -33,13 +34,13 @@ open type FileFormat
 [<TestClass>]
 type MachTests() =
   static let isStripped (file: IBinFile) =
-    file.SymbolMetadata.Value.IsStripped
+    file.SymbolTable.Value.IsStripped
 
   static let parseFile fileName arch wsz =
     let zipFile = fileName + ".zip"
     let bytes = ZIPReader.readBytes MachBinary zipFile fileName
     let isa = ISA(arch, Endian.Little, wsz)
-    MachBinFile(fileName, bytes, isa, None)
+    MachBinFile(fileName, bytes, isa, None, None)
 
   let assertExistenceOfFlag (file: IBinFile) flags =
     Assert.AreEqual
@@ -76,6 +77,21 @@ type MachTests() =
   static let arm64eChainedFile =
     parseFile "mach_arm64e_chained" Architecture.ARMv8 WordSize.Bit64
 
+  /// A C++ binary with try/catch, so it carries DWARF CFI in __eh_frame and an
+  /// LSDA table in __gcc_except_tab. Exception parsing needs a register
+  /// factory.
+  static let x64ExcFile =
+    let bytes = ZIPReader.readBytes MachBinary "mach_x64_exc.zip" "mach_x64_exc"
+    let isa = ISA(Architecture.Intel, Endian.Little, WordSize.Bit64)
+    let regFactory = FrontEnd.Intel.RegisterFactory isa :> IRegisterFactory
+    MachBinFile("mach_x64_exc", bytes, isa, None, Some regFactory)
+
+  /// An arm64 C++ binary built normally, so unwinding lives in Apple compact
+  /// unwind (__unwind_info) rather than __eh_frame, with the LSDA still in
+  /// __gcc_except_tab. Compact unwind needs no register factory.
+  static let arm64ExcFile =
+    parseFile "mach_arm64_exc" Architecture.ARMv8 WordSize.Bit64
+
   [<TestMethod>]
   member _.``[Mach] X86_Stripped EntryPoint test``() =
     Assert.AreEqual(Some 0x00002050UL, (x86File :> IBinFile).EntryPoint)
@@ -105,12 +121,12 @@ type MachTests() =
     Assert.AreEqual<int>(59, x86File.DynamicSymbols.Length)
 
   [<TestMethod>]
-  member _.``[Mach] X64 ContainsRelocation test``() =
+  member _.``[Mach] X64 IsRelocationAddr test``() =
     let reloc = (x64RelocFile :> IBinFile).Relocations.Value
-    Assert.AreEqual(true, reloc.ContainsRelocation 0x0UL)
-    Assert.AreEqual(true, reloc.ContainsRelocation 0x8UL)
-    Assert.AreEqual(true, reloc.ContainsRelocation 0x10UL)
-    Assert.AreEqual(false, reloc.ContainsRelocation 0x4UL)
+    Assert.AreEqual(true, reloc.IsRelocationAddr 0x0UL)
+    Assert.AreEqual(true, reloc.IsRelocationAddr 0x8UL)
+    Assert.AreEqual(true, reloc.IsRelocationAddr 0x10UL)
+    Assert.AreEqual(false, reloc.IsRelocationAddr 0x4UL)
 
   [<TestMethod>]
   member _.``[Mach] X64 TryGetRelocatedAddr external symbol test``() =
@@ -130,11 +146,11 @@ type MachTests() =
                     reloc.TryGetRelocatedAddr 0x4UL)
 
   [<TestMethod>]
-  member _.``[Mach] X64 chained fixups ContainsRelocation test``() =
+  member _.``[Mach] X64 chained fixups IsRelocationAddr test``() =
     let reloc = (x64ChainedFile :> IBinFile).Relocations.Value
-    Assert.AreEqual(true, reloc.ContainsRelocation 0x1000UL)
-    Assert.AreEqual(true, reloc.ContainsRelocation 0x1010UL)
-    Assert.AreEqual(false, reloc.ContainsRelocation 0x1008UL)
+    Assert.AreEqual(true, reloc.IsRelocationAddr 0x1000UL)
+    Assert.AreEqual(true, reloc.IsRelocationAddr 0x1010UL)
+    Assert.AreEqual(false, reloc.IsRelocationAddr 0x1008UL)
 
   [<TestMethod>]
   member _.``[Mach] X64 chained fixups rebase test``() =
@@ -149,24 +165,24 @@ type MachTests() =
 
   [<TestMethod>]
   member _.``[Mach] X64 chained fixups linkage entries test``() =
-    let linkage = (x64ChainedFile :> IBinFile).Linkage.Value
-    let entries = linkage.GetLinkageEntries()
+    let linkage = (x64ChainedFile :> IBinFile).ImportTable.Value
+    let entries = linkage.Imports
     Assert.AreEqual<int>(1, entries.Length)
-    Assert.AreEqual<string>("_ext_symbol", entries[0].FuncName)
+    Assert.AreEqual<string>("_ext_symbol", entries[0].Name)
     Assert.AreEqual(0x1000UL, entries[0].TableAddress)
 
   [<TestMethod>]
-  member _.``[Mach] X64 chained fixups IsInLinkageTable test``() =
-    let linkage = (x64ChainedFile :> IBinFile).Linkage.Value
-    Assert.AreEqual(true, linkage.IsInLinkageTable 0x1000UL)
-    Assert.AreEqual(false, linkage.IsInLinkageTable 0x1010UL)
+  member _.``[Mach] X64 chained fixups IsInImportTable test``() =
+    let linkage = (x64ChainedFile :> IBinFile).ImportTable.Value
+    Assert.AreEqual(true, linkage.IsInImportTable 0x1000UL)
+    Assert.AreEqual(false, linkage.IsInImportTable 0x1010UL)
 
   [<TestMethod>]
-  member _.``[Mach] X64 dyld info ContainsRelocation test``() =
+  member _.``[Mach] X64 dyld info IsRelocationAddr test``() =
     let reloc = (x64DyldInfoFile :> IBinFile).Relocations.Value
-    Assert.AreEqual(true, reloc.ContainsRelocation 0x1000UL)
-    Assert.AreEqual(true, reloc.ContainsRelocation 0x1010UL)
-    Assert.AreEqual(false, reloc.ContainsRelocation 0x1008UL)
+    Assert.AreEqual(true, reloc.IsRelocationAddr 0x1000UL)
+    Assert.AreEqual(true, reloc.IsRelocationAddr 0x1010UL)
+    Assert.AreEqual(false, reloc.IsRelocationAddr 0x1008UL)
 
   [<TestMethod>]
   member _.``[Mach] X64 dyld info rebase test``() =
@@ -175,45 +191,45 @@ type MachTests() =
 
   [<TestMethod>]
   member _.``[Mach] X64 dyld info bind linkage test``() =
-    let linkage = (x64DyldInfoFile :> IBinFile).Linkage.Value
-    let entries = linkage.GetLinkageEntries()
+    let linkage = (x64DyldInfoFile :> IBinFile).ImportTable.Value
+    let entries = linkage.Imports
     Assert.AreEqual<int>(1, entries.Length)
-    Assert.AreEqual<string>("_ext_symbol", entries[0].FuncName)
+    Assert.AreEqual<string>("_ext_symbol", entries[0].Name)
     Assert.AreEqual(0x1000UL, entries[0].TableAddress)
-    Assert.AreEqual(true, linkage.IsInLinkageTable 0x1000UL)
+    Assert.AreEqual(true, linkage.IsInImportTable 0x1000UL)
 
   [<TestMethod>]
   member _.``[Mach] X64 weak bind linkage test``() =
-    let linkage = (x64WeakBindFile :> IBinFile).Linkage.Value
-    let entries = linkage.GetLinkageEntries()
+    let linkage = (x64WeakBindFile :> IBinFile).ImportTable.Value
+    let entries = linkage.Imports
     Assert.AreEqual<int>(1, entries.Length)
-    Assert.AreEqual<string>("_weak_sym", entries[0].FuncName)
+    Assert.AreEqual<string>("_weak_sym", entries[0].Name)
     Assert.AreEqual(0x1008UL, entries[0].TableAddress)
-    Assert.AreEqual(true, linkage.IsInLinkageTable 0x1008UL)
+    Assert.AreEqual(true, linkage.IsInImportTable 0x1008UL)
 
   [<TestMethod>]
-  member _.``[Mach] X64 weak bind ContainsRelocation test``() =
+  member _.``[Mach] X64 weak bind IsRelocationAddr test``() =
     let reloc = (x64WeakBindFile :> IBinFile).Relocations.Value
-    Assert.AreEqual(true, reloc.ContainsRelocation 0x1008UL)
-    Assert.AreEqual(false, reloc.ContainsRelocation 0x1000UL)
+    Assert.AreEqual(true, reloc.IsRelocationAddr 0x1008UL)
+    Assert.AreEqual(false, reloc.IsRelocationAddr 0x1000UL)
 
   [<TestMethod>]
   member _.``[Mach] X64 two-level bind library name test``() =
-    let linkage = (x64TwoLevelFile :> IBinFile).Linkage.Value
-    let entries = linkage.GetLinkageEntries()
+    let linkage = (x64TwoLevelFile :> IBinFile).ImportTable.Value
+    let entries = linkage.Imports
     Assert.AreEqual<int>(1, entries.Length)
-    Assert.AreEqual<string>("_foo_data", entries[0].FuncName)
+    Assert.AreEqual<string>("_foo_data", entries[0].Name)
     Assert.AreEqual<string>("/usr/lib/libfoo.dylib", entries[0].LibraryName)
     Assert.AreEqual(0x1000UL, entries[0].TableAddress)
 
   [<TestMethod>]
-  member _.``[Mach] arm64e chained fixups ContainsRelocation test``() =
+  member _.``[Mach] arm64e chained fixups IsRelocationAddr test``() =
     let reloc = (arm64eChainedFile :> IBinFile).Relocations.Value
-    Assert.AreEqual(true, reloc.ContainsRelocation 0x4000UL)
-    Assert.AreEqual(true, reloc.ContainsRelocation 0x4008UL)
-    Assert.AreEqual(true, reloc.ContainsRelocation 0x4018UL)
-    Assert.AreEqual(true, reloc.ContainsRelocation 0x4020UL)
-    Assert.AreEqual(false, reloc.ContainsRelocation 0x4010UL)
+    Assert.AreEqual(true, reloc.IsRelocationAddr 0x4000UL)
+    Assert.AreEqual(true, reloc.IsRelocationAddr 0x4008UL)
+    Assert.AreEqual(true, reloc.IsRelocationAddr 0x4018UL)
+    Assert.AreEqual(true, reloc.IsRelocationAddr 0x4020UL)
+    Assert.AreEqual(false, reloc.IsRelocationAddr 0x4010UL)
 
   [<TestMethod>]
   member _.``[Mach] arm64e chained fixups rebase test``() =
@@ -223,12 +239,12 @@ type MachTests() =
 
   [<TestMethod>]
   member _.``[Mach] arm64e chained fixups bind linkage test``() =
-    let linkage = (arm64eChainedFile :> IBinFile).Linkage.Value
-    let entries = linkage.GetLinkageEntries()
+    let linkage = (arm64eChainedFile :> IBinFile).ImportTable.Value
+    let entries = linkage.Imports
     Assert.AreEqual<int>(2, entries.Length)
-    Assert.AreEqual<string>("_ext_func", entries[0].FuncName)
+    Assert.AreEqual<string>("_ext_func", entries[0].Name)
     Assert.AreEqual(0x4000UL, entries[0].TableAddress)
-    Assert.AreEqual<string>("_ext_data", entries[1].FuncName)
+    Assert.AreEqual<string>("_ext_data", entries[1].Name)
     Assert.AreEqual(0x4008UL, entries[1].TableAddress)
 
   [<TestMethod>]
@@ -281,6 +297,11 @@ type MachTests() =
   [<TestMethod>]
   member _.``[Mach] X64 IsNXEnabled test``() =
     Assert.AreEqual(true, (x64File :> IBinFile).IsNXEnabled)
+
+  [<TestMethod>]
+  member _.``[Mach] X64 InterpreterPath test``() =
+    let actual = (x64File :> IBinFile).InterpreterPath
+    Assert.AreEqual<string option>(Some "/usr/lib/dyld", actual)
 
   [<TestMethod>]
   member _.``[Mach] X64 sections length test``() =
@@ -389,3 +410,43 @@ type MachTests() =
   member _.``[Mach] X64_Stripped flags test``() =
     let flags = "MH_NOUNDEFS, MH_DYLDLINK, MH_TWOLEVEL, MH_PIE"
     assertExistenceOfFlag x64SFile flags
+
+  [<TestMethod>]
+  member _.``[Mach] X64 exception table is parsed``() =
+    let frames = (x64ExcFile :> IBinFile).ExceptionTable.Value.Frames
+    Assert.AreEqual<bool>(true, frames.Length > 0)
+
+  [<TestMethod>]
+  member _.``[Mach] X64 exception frames have sane ranges``() =
+    let frames = (x64ExcFile :> IBinFile).ExceptionTable.Value.Frames
+    let sane =
+      frames |> Array.forall (fun f -> f.FunctionEnd >= f.FunctionStart)
+    Assert.AreEqual<bool>(true, sane)
+
+  [<TestMethod>]
+  member _.``[Mach] X64 exception handler landing pad is resolved``() =
+    let frames = (x64ExcFile :> IBinFile).ExceptionTable.Value.Frames
+    let hasHandler =
+      frames |> Array.exists (fun f ->
+        f.Handlers |> Array.exists (fun h -> h.Handler.IsSome))
+    Assert.AreEqual<bool>(true, hasHandler)
+
+  [<TestMethod>]
+  member _.``[Mach] ARM64 compact unwind table is parsed``() =
+    let frames = (arm64ExcFile :> IBinFile).ExceptionTable.Value.Frames
+    Assert.AreEqual<bool>(true, frames.Length > 0)
+
+  [<TestMethod>]
+  member _.``[Mach] ARM64 compact unwind frames have sane ranges``() =
+    let frames = (arm64ExcFile :> IBinFile).ExceptionTable.Value.Frames
+    let sane =
+      frames |> Array.forall (fun f -> f.FunctionEnd >= f.FunctionStart)
+    Assert.AreEqual<bool>(true, sane)
+
+  [<TestMethod>]
+  member _.``[Mach] ARM64 compact unwind handler landing pad is resolved``() =
+    let frames = (arm64ExcFile :> IBinFile).ExceptionTable.Value.Frames
+    let hasHandler =
+      frames |> Array.exists (fun f ->
+        f.Handlers |> Array.exists (fun h -> h.Handler.IsSome))
+    Assert.AreEqual<bool>(true, hasHandler)

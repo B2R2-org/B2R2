@@ -24,7 +24,7 @@
 
 /// Provides functions to parse Mach-O FAT binary headers.
 [<RequireQualifiedAccess>]
-module B2R2.FrontEnd.BinFile.Mach.Fat
+module internal B2R2.FrontEnd.BinFile.Mach.Fat
 
 open System
 open B2R2

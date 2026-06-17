@@ -28,11 +28,12 @@ open B2R2
 open B2R2.Collections
 open B2R2.FrontEnd.BinLifter
 open B2R2.FrontEnd.BinFile.FileHelper
+open B2R2.FrontEnd.BinFile.DWARF
 open B2R2.FrontEnd.BinFile.Mach
 open B2R2.FrontEnd.BinFile.Mach.Helper
 
 /// Represents a Mach-O binary file.
-type MachBinFile(path, bytes: byte[], isa, baseAddrOpt) =
+type MachBinFile(path, bytes: byte[], isa, baseAddrOpt, regFactoryOpt) =
   let toolBox = Toolbox.Init(bytes, Header.parse bytes baseAddrOpt isa)
   let cmds = lazy LoadCommands.parse toolBox
   let segCmds = lazy Segment.extract cmds.Value
@@ -58,19 +59,51 @@ type MachBinFile(path, bytes: byte[], isa, baseAddrOpt) =
   let dynamicSymbols =
     lazy (enumSymbols.Value |> Array.filter (Symbol.IsStatic >> not))
   let entryPoint = lazy computeEntryPoint segCmds.Value cmds.Value
+  let interpreterPath =
+    lazy (cmds.Value
+          |> Array.tryPick (function
+            | DyLinker(_, _, path) -> Some path
+            | _ -> None))
 
-  let nameResolver =
-    Some { new INameResolvable with
-      member _.TryFindName(addr) =
-        match Map.tryFind addr syms.Value.SymbolMap with
-        | Some s -> Ok s.SymName
-        | None -> Error ErrorCase.SymbolNotFound
-    }
+  let machSymKind secText (s: Symbol) =
+    if Symbol.IsFunc(secText, s) then FunctionSymbol
+    elif s.SymType.HasFlag SymbolType.N_SECT then DataSymbol
+    else OtherSymbol
 
-  let symbolMetadata =
-    Some { new ISymbolMetadata with
-      member _.IsStripped with get() = isStripped secs.Value syms.Value
-    }
+  let machBinding (s: Symbol) =
+    if s.SymDesc &&& 0xC0s <> 0s then WeakBinding (* N_WEAK_REF|N_WEAK_DEF *)
+    elif s.IsExternal then GlobalBinding
+    else LocalBinding
+
+  let toBinSymbol secText (s: Symbol) =
+    { Name = s.SymName
+      Address = s.SymAddr
+      Kind = machSymKind secText s
+      Binding = machBinding s
+      IsDefined = s.SymType <> SymbolType.N_UNDF
+      Size = None
+      LibraryName = s.VerInfo |> Option.map (fun d -> d.DyLibName) }
+
+  let symbolTableObj =
+    { new ISymbolTable with
+        member _.IsStripped with get() = isStripped secs.Value syms.Value
+
+        member _.Symbols with get() =
+          let secText = Section.getTextSectionIndex secs.Value
+          syms.Value.SymbolArray |> Array.map (toBinSymbol secText)
+
+        member _.TryFindSymbolByAddr addr =
+          match Map.tryFind addr syms.Value.SymbolMap with
+          | Some s ->
+            let secText = Section.getTextSectionIndex secs.Value
+            Ok(toBinSymbol secText s)
+          | None -> Error ErrorCase.SymbolNotFound
+
+        member _.CodeModeMarkers = [||] }
+
+  let symbolTable = Some symbolTableObj
+
+  let nameResolver = Some(NameResolver.ofSymbolTable symbolTableObj)
 
   let functionAddrs =
     lazy
@@ -79,9 +112,78 @@ type MachBinFile(path, bytes: byte[], isa, baseAddrOpt) =
            if Symbol.IsFunc(secText, s) && s.SymAddr > 0UL then s.SymAddr
            else () |]
 
+  let isZeroFillSection (sec: Section) =
+    sec.SecType = SectionType.S_ZEROFILL
+    || sec.SecType = SectionType.S_GB_ZEROFILL
+    || sec.SecType = SectionType.S_THREAD_LOCAL_ZEROFILL
+
+  let isTLSSection (sec: Section) =
+    sec.SecType = SectionType.S_THREAD_LOCAL_REGULAR
+    || sec.SecType = SectionType.S_THREAD_LOCAL_ZEROFILL
+    || sec.SecType = SectionType.S_THREAD_LOCAL_VARIABLES
+    || sec.SecType = SectionType.S_THREAD_LOCAL_VARIABLE_POINTERS
+    || sec.SecType = SectionType.S_THREAD_LOCAL_INIT_FUNCTION_POINTERS
+
+  let isDynamicLinkageSection (sec: Section) =
+    sec.SecType = SectionType.S_NON_LAZY_SYMBOL_POINTERS
+    || sec.SecType = SectionType.S_LAZY_SYMBOL_POINTERS
+    || sec.SecType = SectionType.S_SYMBOL_STUBS
+
+  let isMetadataSection (sec: Section) =
+    sec.SecType = SectionType.S_MOD_INIT_FUNC_POINTERS
+    || sec.SecType = SectionType.S_MOD_TERM_FUNC_POINTERS
+    || sec.SecType = SectionType.S_INTERPOSING
+    || sec.SecType = SectionType.S_LAZY_DYLIB_SYMBOL_POINTERS
+
+  let secPermission (sec: Section) =
+    match NoOverlapIntervalMap.tryFindByAddr sec.SecAddr segMap.Value with
+    | Some seg -> LanguagePrimitives.EnumOfValue seg.InitProt
+    | None -> LanguagePrimitives.EnumOfValue 0
+
+  let secKind (sec: Section) =
+    if sec.SecAttrib.HasFlag SectionAttribute.S_ATTR_DEBUG then
+      DebugSection
+    elif isTLSSection sec then ThreadLocalStorageSection
+    elif isZeroFillSection sec then UninitializedDataSection
+    elif isDynamicLinkageSection sec then DynamicLinkageSection
+    elif sec.SecAttrib.HasFlag SectionAttribute.S_ATTR_PURE_INSTRUCTIONS then
+      CodeSection
+    elif sec.SecName = Section.Text then CodeSection
+    elif isMetadataSection sec then MetadataSection
+    elif sec.SecType = SectionType.S_REGULAR then DataSection
+    else UnknownSection
+
+  let toBinSection (sec: Section) =
+    { Name = sec.SecName
+      Address = sec.SecAddr
+      Size = sec.SecSize
+      Offset =
+        if isZeroFillSection sec then None
+        else Some(uint64 sec.SecOffset)
+      FileSize = if isZeroFillSection sec then 0UL else sec.SecSize
+      Permission = secPermission sec
+      Kind = secKind sec }
+
+  let tryFindSectionByAddr addr =
+    secs.Value
+    |> Array.tryFind (fun sec ->
+      addr >= sec.SecAddr && addr < sec.SecAddr + sec.SecSize)
+
+  let tryFindSectionByOffset (offset: uint32) =
+    secs.Value
+    |> Array.tryFind (fun sec ->
+      let fileSize = if isZeroFillSection sec then 0UL else sec.SecSize
+      let secOffset = uint64 sec.SecOffset
+      fileSize > 0UL
+      && uint64 offset >= secOffset
+      && uint64 offset < secOffset + fileSize)
+
   let structure =
     Some { new IBinStructure with
-      member _.GetCodeSectionPointer() =
+      member _.Sections with get() =
+        secs.Value |> Array.map toBinSection
+
+      member _.CodeSectionPointer =
         let secs = secs.Value
         let secText = Section.getTextSectionIndex secs
         let sec = secs[secText]
@@ -103,30 +205,58 @@ type MachBinFile(path, bytes: byte[], isa, baseAddrOpt) =
               int sec.SecOffset + int sec.SecSize - 1)
           | None -> BinFilePointer.Null
 
+      member _.TryFindSectionByName name =
+        secs.Value
+        |> Array.tryFind (fun sec -> sec.SecName = name)
+        |> function
+          | Some sec -> Ok(toBinSection sec)
+          | None -> Error ErrorCase.ItemNotFound
+
+      member _.TryFindSectionByAddr addr =
+        match tryFindSectionByAddr addr with
+        | Some sec -> Ok(toBinSection sec)
+        | None -> Error ErrorCase.ItemNotFound
+
+      member _.TryFindSectionByOffset offset =
+        match tryFindSectionByOffset offset with
+        | Some sec -> Ok(toBinSection sec)
+        | None -> Error ErrorCase.ItemNotFound
+
       member _.TryFindSectionNameByAddr(addr: Addr) =
-        secs.Value
-        |> Array.tryFind (fun sec ->
-          addr >= sec.SecAddr && addr < sec.SecAddr + sec.SecSize)
+        tryFindSectionByAddr addr
         |> function
           | Some sec -> Ok sec.SecName
           | None -> Error ErrorCase.ItemNotFound
 
-      member _.TryFindSectionNameByOffset(offset: uint32) =
-        secs.Value
-        |> Array.tryFind (fun sec ->
-          offset >= sec.SecOffset
-          && offset < sec.SecOffset + uint32 sec.SecSize)
+      member _.TryFindSectionNameByOffset offset =
+        tryFindSectionByOffset offset
         |> function
           | Some sec -> Ok sec.SecName
           | None -> Error ErrorCase.ItemNotFound
 
-      member _.GetFunctionAddresses() =
+      member _.FunctionAddresses =
         functionAddrs.Value
     }
 
   let relocations =
     Some { new IRelocationTable with
-      member _.ContainsRelocation addr =
+      member _.Relocations =
+        let classic =
+          relocMap.Value
+          |> Map.toArray
+          |> Array.map (fun (_, reloc) ->
+            Reloc.toBinRelocation toolBox syms.Value.SymbolArray reloc)
+        let fixupRelocs =
+          fixupMap.Value
+          |> Map.toArray
+          |> Array.map (fun (addr, fixup) ->
+            match fixup.FixupTarget with
+            | Rebase _ -> { Address = addr; SymbolName = None; Addend = None }
+            | Bind(sym, _, addend) ->
+              { Address = addr; SymbolName = Some sym; Addend = Some addend })
+        Array.append classic fixupRelocs
+
+      member _.IsRelocationAddr addr =
         Map.containsKey addr relocMap.Value
         || Map.containsKey addr fixupMap.Value
 
@@ -138,88 +268,104 @@ type MachBinFile(path, bytes: byte[], isa, baseAddrOpt) =
           | Bind _ -> Error ErrorCase.ItemNotFound
         | None ->
           Reloc.getRelocatedAddr toolBox relocMap.Value syms.Value relocAddr
+
+      member _.TryGetInternalFunctionAddr _relocAddr =
+        Error ErrorCase.SymbolNotFound
     }
 
-  let fixupLinkage =
+  let fixupImports =
     lazy
       fixups.Value
       |> Array.choose (fun fixup ->
         match fixup.FixupTarget with
         | Bind(name, library, _) ->
-          Some { FuncName = name
+          Some { Name = name
                  LibraryName = library
-                 TrampolineAddress = 0UL
+                 TrampolineAddress = None
                  TableAddress = fixup.FixupAddr }
         | Rebase _ -> None)
 
   (* Stub-based binaries already describe imports via the symbol store; only
-     fall back to dyld fixup binds when there is no classic linkage table (e.g.
+     fall back to dyld fixup binds when there is no classic import table (e.g.
      chained-fixups or dyld-info dylibs without __stubs). *)
-  let linkageEntries =
+  let importEntries =
     lazy
       let classic = getPLT syms.Value
-      if Array.isEmpty classic then fixupLinkage.Value else classic
+      if Array.isEmpty classic then fixupImports.Value else classic
 
-  let linkage =
-    Some { new ILinkageTable with
-      member _.GetLinkageEntries() = linkageEntries.Value
+  let importTable =
+    Some { new IImportTable with
+      member _.Imports = importEntries.Value
 
-      member _.IsInLinkageTable addr =
+      member _.IsInImportTable addr =
         isPLT syms.Value addr
-        || (List.isEmpty syms.Value.LinkageTable
+        || (List.isEmpty syms.Value.Imports
             && Fixup.isBindAt fixupMap.Value addr)
     }
 
-  let memoryMappedRegions =
+  let segments =
     lazy
       segCmds.Value
       |> Array.filter (fun seg -> seg.VMSize > 0UL)
       |> Array.map (fun seg ->
-        let range = AddrRange.create seg.VMAddr (seg.VMAddr + seg.VMSize - 1UL)
-        let perm: Permission = LanguagePrimitives.EnumOfValue seg.InitProt
-        range, perm)
+        { Name = Some seg.SegCmdName
+          Address = seg.VMAddr
+          Size = seg.VMSize
+          Offset = seg.FileOff
+          FileSize = seg.FileSize
+          Permission = LanguagePrimitives.EnumOfValue seg.InitProt })
 
   let memoryLayout =
     Some { new IMemoryLayout with
-      member _.GetMemoryMappedRegions() =
-        memoryMappedRegions.Value |> Array.map fst
+      member _.Segments = segments.Value }
 
-      member _.GetMemoryMappedRegions(perm) =
-        memoryMappedRegions.Value
-        |> Array.choose (fun (range, p) ->
-          if p.HasFlag perm then Some range else None) }
+  let exn =
+    lazy ExceptionData.parse toolBox segCmds.Value secs.Value regFactoryOpt
 
-  member _.Header with get() = toolBox.Header
+  let toExceptionHandlers (frame: FrameInfo) =
+    match frame.LSDAPointer with
+    | None -> [||]
+    | Some p ->
+      match Map.tryFind p exn.Value.LSDATable with
+      | None -> [||]
+      | Some lsda ->
+        lsda.CallSiteTable
+        |> List.map (fun cs ->
+          { BlockStart = frame.FuncStart + cs.Position
+            BlockEnd = frame.FuncStart + cs.Position + cs.Length - 1UL
+            Handler =
+              if cs.LandingPad = 0UL then None
+              else Some(frame.FuncStart + cs.LandingPad) })
+        |> List.toArray
 
-  member _.Commands with get() = cmds.Value
+  let exceptionFrames =
+    lazy
+      [| for frame in exn.Value.Frames do
+           { FunctionStart = frame.FuncStart
+             FunctionEnd = frame.FuncEnd - 1UL
+             PersonalityRoutine = None
+             Handlers = toExceptionHandlers frame } |]
 
-  member _.Sections with get() = secs.Value
+  let exceptionTable =
+    Some { new IExceptionTable with
+      member _.Frames = exceptionFrames.Value
+    }
 
-  member _.Symbols with get() = syms.Value
+  member internal _.Header with get() = toolBox.Header
 
-  member _.StaticSymbols with get() = staticSymbols.Value
+  member internal _.Commands with get() = cmds.Value
 
-  member _.DynamicSymbols with get() = dynamicSymbols.Value
+  member internal _.Sections with get() = secs.Value
 
-  member _.ExportedSymbols with get() = exports.Value
+  member internal _.Symbols with get() = syms.Value
 
-  member _.Relocations with get() = relocs.Value
+  member internal _.StaticSymbols with get() = staticSymbols.Value
 
-  member _.IsPLT(sec: Section) =
-    match sec.SecType with
-    | SectionType.S_NON_LAZY_SYMBOL_POINTERS
-    | SectionType.S_LAZY_SYMBOL_POINTERS
-    | SectionType.S_SYMBOL_STUBS -> true
-    | _ -> false
+  member internal _.DynamicSymbols with get() = dynamicSymbols.Value
 
-  member _.HasCode(sec: Section) =
-    match sec.SecType with
-    | SectionType.S_NON_LAZY_SYMBOL_POINTERS
-    | SectionType.S_LAZY_SYMBOL_POINTERS
-    | SectionType.S_SYMBOL_STUBS -> false
-    | _ ->
-      let seg = NoOverlapIntervalMap.findByAddr sec.SecAddr segMap.Value
-      seg.InitProt &&& int MachVMProt.Executable > 0
+  member internal _.ExportedSymbols with get() = exports.Value
+
+  member internal _.Relocations with get() = relocs.Value
 
   interface IBinFile with
     member _.Reader with get() = toolBox.Reader
@@ -232,11 +378,22 @@ type MachBinFile(path, bytes: byte[], isa, baseAddrOpt) =
 
     member _.Format with get() = FileFormat.MachBinary
 
+    member _.Kind with get() =
+      match toolBox.Header.FileType with
+      | FileType.MH_OBJECT -> BinFileKind.Object
+      | FileType.MH_EXECUTE | FileType.MH_PRELOAD -> BinFileKind.Executable
+      | FileType.MH_DYLIB | FileType.MH_FVMLIB
+      | FileType.MH_BUNDLE | FileType.MH_DYLIB_STUB -> BinFileKind.SharedLibrary
+      | FileType.MH_CORE -> BinFileKind.Core
+      | _ -> BinFileKind.Unknown
+
     member _.ISA with get() = toolBox.ISA
 
     member _.EntryPoint with get() = entryPoint.Value
 
     member _.BaseAddress with get() = toolBox.BaseAddress
+
+    member _.InterpreterPath with get() = interpreterPath.Value
 
     member _.IsNXEnabled with get() = isNXEnabled toolBox.Header
 
@@ -250,13 +407,15 @@ type MachBinFile(path, bytes: byte[], isa, baseAddrOpt) =
 
     member _.NameResolver with get() = nameResolver
 
-    member _.SymbolMetadata with get() = symbolMetadata
+    member _.SymbolTable with get() = symbolTable
 
     member _.Structure with get() = structure
 
     member _.Relocations with get() = relocations
 
-    member _.Linkage with get() = linkage
+    member _.ExceptionTable with get() = exceptionTable
+
+    member _.ImportTable with get() = importTable
 
     member _.MemoryLayout with get() = memoryLayout
 

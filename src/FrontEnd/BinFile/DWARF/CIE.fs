@@ -22,14 +22,14 @@
   SOFTWARE.
 *)
 
-namespace B2R2.FrontEnd.BinFile.ELF
+namespace B2R2.FrontEnd.BinFile.DWARF
 
 open System.Runtime.InteropServices
 open B2R2
 open B2R2.FrontEnd.BinLifter
 
 /// Represents the Common Information Entry (CIE).
-type CIE =
+type internal CIE =
   { /// Version assigned to the call frame information structure.
     Version: uint8
     /// This value is a NUL terminated string that identifies the augmentation
@@ -53,7 +53,7 @@ type CIE =
     Augmentations: Augmentation list }
 
 /// Represents the CIE augmetation data.
-and Augmentation =
+and internal Augmentation =
   { Format: char
     ValueEncoding: ExceptionHeaderValue
     ApplicationEncoding: ExceptionHeaderApplication
@@ -61,10 +61,11 @@ and Augmentation =
 
 [<RequireQualifiedAccess>]
 module internal CIE =
-  let parseReturnRegister toolBox (span: ByteSpan) version offset =
-    if version = 1uy then span[offset], offset + 1
+  let parseReturnRegister (reader: IBinReader) (span: ByteSpan) version offset =
+    if version = 1uy then
+      span[offset], offset + 1
     else
-      let r, cnt = toolBox.Reader.ReadUInt64LEB128(span, offset)
+      let r, cnt = reader.ReadUInt64LEB128(span, offset)
       byte r, offset + cnt
 
   let personalityRoutinePointerSize addrSize = function
@@ -97,9 +98,9 @@ module internal CIE =
     | 'S' -> data, offset (* This is a signal frame. *)
     | _ -> Terminator.futureFeature ()
 
-  let parseAugmentationData toolBox (span: ByteSpan) offset addrSize augstr =
+  let parseAugmentationData (reader: IBinReader) span offset addrSize augstr =
     if (augstr: string).StartsWith('z') then
-      let len, cnt = toolBox.Reader.ReadUInt64LEB128(span, offset)
+      let len, cnt = reader.ReadUInt64LEB128(span = span, offset = offset)
       let offset = offset + cnt
       let span = span.Slice(offset, int len)
       let arr = span.ToArray()
@@ -300,7 +301,7 @@ module internal CIE =
     | [ row ] -> row.Rule
     | _ -> Map.empty
 
-  let parse toolBox (secChunk: ByteSpan) cls isa regs offset nextOffset =
+  let parse reader (secChunk: ByteSpan) cls isa regs offset nextOffset =
     let version = secChunk[offset]
     let offset = offset + 1
     if version = 1uy || version = 3uy then
@@ -308,13 +309,13 @@ module internal CIE =
       let addrSize = WordSize.toByteWidth cls
       let offset = offset + augstr.Length + 1
       let offset = if augstr.Contains "eh" then offset + addrSize else offset
-      let cf, cnt = toolBox.Reader.ReadUInt64LEB128(secChunk, offset)
+      let cf, cnt = (reader: IBinReader).ReadUInt64LEB128(secChunk, offset)
       let offset = offset + cnt
-      let df, cnt = toolBox.Reader.ReadInt64LEB128(secChunk, offset)
+      let df, cnt = reader.ReadInt64LEB128(secChunk, offset)
       let offset = offset + cnt
-      let rr, offset = parseReturnRegister toolBox secChunk version offset
+      let rr, offset = parseReturnRegister reader secChunk version offset
       let augs, offset =
-        parseAugmentationData toolBox secChunk offset addrSize augstr
+        parseAugmentationData reader secChunk offset addrSize augstr
       let instrLen = nextOffset - offset
       if instrLen > 0 then
         let span = secChunk.Slice(offset, instrLen)

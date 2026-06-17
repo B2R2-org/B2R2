@@ -22,7 +22,7 @@
   SOFTWARE.
 *)
 
-module internal B2R2.FrontEnd.BinFile.ELF.DWRegister
+module internal B2R2.FrontEnd.BinFile.DWARF.DWRegister
 
 open LanguagePrimitives
 open B2R2

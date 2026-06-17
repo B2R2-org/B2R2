@@ -28,31 +28,16 @@ open System
 open B2R2
 open B2R2.FrontEnd.BinFile
 
-/// Represents a section entry in the UI.
+/// Represents a section entry in the UI, backed by a format-agnostic section.
 type SectionItem =
   { Address: Addr
     Name: string
-    Content: SectionContent }
-
-and SectionContent =
-  | ELF of ELF.SectionHeader * isLinkage: bool
-  | Empty
+    Section: BinSection }
 
 [<RequireQualifiedAccess>]
 module SectionItem =
-  /// Creates a SectionItem from address and name.
-  let make (item: {| Addr: Addr
-                     Name: string
-                     IsLinkage: bool
-                     ELFSectionHeader: ELF.SectionHeader option
-                     PESectionHeader: PE.SectionHeader option
-                     MachSectionHeader: Mach.Section option |}) =
-    match item.ELFSectionHeader with
-    | Some sh ->
-      { Address = item.Addr
-        Name = if String.IsNullOrEmpty item.Name then "(null)" else item.Name
-        Content = ELF(sh, item.IsLinkage) }
-    | None ->
-      { Address = item.Addr
-        Name = if String.IsNullOrEmpty item.Name then "(n/a)" else item.Name
-        Content = Empty }
+  /// Creates a SectionItem from a format-agnostic section.
+  let make (sec: BinSection) =
+    { Address = sec.Address
+      Name = if String.IsNullOrEmpty sec.Name then "(null)" else sec.Name
+      Section = sec }

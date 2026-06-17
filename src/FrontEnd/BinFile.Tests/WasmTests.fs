@@ -43,10 +43,10 @@ type WasmTests() =
     Assert.AreEqual(Some 0x15AUL, file.EntryPoint)
 
   [<TestMethod>]
-  member _.``[Wasm] SymbolMetadata test``() =
-    match file.SymbolMetadata with
+  member _.``[Wasm] SymbolTable test``() =
+    match file.SymbolTable with
     | None -> ()
-    | Some _ -> Assert.Fail "Wasm should not provide symbol metadata."
+    | Some _ -> Assert.Fail "Wasm should not provide a symbol table."
 
   [<TestMethod>]
   member _.``[Wasm] text section address test``() =
@@ -64,16 +64,16 @@ type WasmTests() =
   member _.``[Wasm] name section resolves the entry point name``() =
     let resolver = Option.get file.NameResolver
     Assert.AreEqual<Result<string, _>>(
-      Ok "__wasm_call_ctors", resolver.TryFindName file.EntryPoint.Value)
+      Ok "__wasm_call_ctors", resolver.TryResolveName file.EntryPoint.Value)
 
   [<TestMethod>]
   member _.``[Wasm] name section resolves an imported function name``() =
     let resolver = Option.get file.NameResolver
     Assert.AreEqual<Result<string, _>>(
-      Ok "putc_js", resolver.TryFindName 0x7AUL)
+      Ok "putc_js", resolver.TryResolveName 0x7AUL)
 
   [<TestMethod>]
   member _.``[Wasm] name section resolves a local function name``() =
     let resolver = Option.get file.NameResolver
     Assert.AreEqual<Result<string, _>>(
-      Ok "main", resolver.TryFindName 0x15EUL)
+      Ok "main", resolver.TryResolveName 0x15EUL)
