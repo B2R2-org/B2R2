@@ -127,6 +127,7 @@
     <Compile Include="PE\Helper.fs" />
     <Compile Include="PE\Relocation.fs" />
     <Compile Include="PE\Parser.fs" />
+    <Compile Include="PE\ExceptionData.fs" />
     <Compile Include="RawBinFile.fs" />
     <Compile Include="WasmBinFile.fs" />
     <Compile Include="ELFBinFile.fs" />

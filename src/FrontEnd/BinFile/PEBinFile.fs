@@ -241,6 +241,23 @@ type PEBinFile(path, bytes: byte[], baseAddrOpt, rawpdb) =
     Some { new IMemoryLayout with
       member _.GetSegments() = segments.Value }
 
+  let exceptionFrames =
+    lazy
+      [| for f in ExceptionData.parse pe bytes do
+           { FunctionStart = f.FuncStart
+             FunctionEnd = f.FuncEnd
+             PersonalityRoutine = f.Personality
+             Handlers =
+               f.Handlers
+               |> List.map (fun (s, e, h) ->
+                 { BlockStart = s; BlockEnd = e; Handler = h })
+               |> List.toArray } |]
+
+  let exceptionTable =
+    Some { new IExceptionTable with
+      member _.Frames = exceptionFrames.Value
+    }
+
   new(path, bytes) = PEBinFile(path, bytes, None, [||])
 
   new(path, bytes, rawpdb) = PEBinFile(path, bytes, None, rawpdb)
@@ -311,7 +328,7 @@ type PEBinFile(path, bytes: byte[], baseAddrOpt, rawpdb) =
 
     member _.Relocations with get() = relocations
 
-    member _.ExceptionTable with get() = None
+    member _.ExceptionTable with get() = exceptionTable
 
     member _.ImportTable with get() = importTable
 

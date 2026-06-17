@@ -244,3 +244,19 @@ type PETests() =
   [<TestMethod>]
   member _.``[PE] X64 section header test (6)``() =
     assertExistenceOfSectionHeader x64File 24576 ".reloc"
+
+  [<TestMethod>]
+  member _.``[PE] X64 exception table is parsed from .pdata``() =
+    let frames = (x64File :> IBinFile).ExceptionTable.Value.Frames
+    Assert.AreEqual<bool>(true, frames.Length > 0)
+
+  [<TestMethod>]
+  member _.``[PE] X64 exception frames have sane ranges``() =
+    let frames = (x64File :> IBinFile).ExceptionTable.Value.Frames
+    let sane = frames |> Array.forall (fun f -> f.FunctionEnd > f.FunctionStart)
+    Assert.AreEqual<bool>(true, sane)
+
+  [<TestMethod>]
+  member _.``[PE] X86 has no exception table entries``() =
+    let frames = (x86File :> IBinFile).ExceptionTable.Value.Frames
+    Assert.AreEqual<int>(0, frames.Length)
