@@ -135,10 +135,14 @@ package_macos() {
     codesign --force --deep --sign - "$app_dir"
   fi
 
-  if [[ "$PUBLISH_ARCHIVES" == "true" ]] && command -v ditto >/dev/null 2>&1; then
+  if [[ "$PUBLISH_ARCHIVES" == "true" ]]; then
     mkdir -p "$ARCHIVE_ROOT"
     rm -f "$archive_path"
-    ditto -c -k --keepParent "$app_dir" "$archive_path"
+    if command -v ditto >/dev/null 2>&1; then
+      ditto -c -k --keepParent "$app_dir" "$archive_path"
+    else
+      (cd "$package_root" && zip -qr "$archive_path" "$APP_NAME.app")
+    fi
   fi
 
   echo "Created $app_dir"
