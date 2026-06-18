@@ -99,9 +99,9 @@ type MachBinFile(path, bytes: byte[], isa, baseAddrOpt, regFactoryOpt) =
         member _.Symbols with get() = binSymbols.Value
 
         member _.TryFindSymbolByAddr addr =
-          match Map.tryFind addr syms.Value.SymbolMap with
-          | Some s -> Ok(toBinSymbol secText.Value s)
-          | None -> Error ErrorCase.SymbolNotFound
+          match syms.Value.SymbolMap.TryGetValue addr with
+          | true, s -> Ok(toBinSymbol secText.Value s)
+          | false, _ -> Error ErrorCase.SymbolNotFound
 
         member _.CodeModeMarkers = [||] }
 

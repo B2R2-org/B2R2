@@ -35,7 +35,7 @@ type internal SymbolStore =
   { /// All symbols in symbol-table order (indexable by relocation symbolnum).
     SymbolArray: Symbol[]
     /// Address to symbol mapping.
-    SymbolMap: Map<Addr, Symbol>
+    SymbolMap: Dictionary<Addr, Symbol>
     /// Imported symbols.
     Imports: BinImport list }
 
@@ -218,8 +218,11 @@ module internal SymbolStore =
     ptrtbls |> Map.fold (accumulateLinkageInfo nameMap) []
 
   let private buildSymbolMap stubs ptrtbls staticsymbs =
-    let map = Map.fold (fun map k v -> Map.add k v map) stubs ptrtbls
-    Array.fold (fun map s -> Map.add s.SymAddr s map) map staticsymbs
+    let dict = Dictionary<Addr, Symbol>()
+    Map.iter (fun k v -> dict[k] <- v) stubs
+    Map.iter (fun k v -> dict[k] <- v) ptrtbls
+    Array.iter (fun s -> dict[s.SymAddr] <- s) staticsymbs
+    dict
 
   let parse toolBox cmds secs =
     let secText = Section.getTextSectionIndex secs
