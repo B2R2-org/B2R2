@@ -132,12 +132,10 @@ let toPESymbol symb =
            IsFunction = true }
   | _ -> None
 
-let buildSymbolMaps arr =
-  arr
-  |> Array.fold (fun (byAddr, byName) symb ->
-    Map.add symb.Address symb byAddr,
-    Map.add symb.Name symb byName
-  ) (Map.empty, Map.empty)
+let buildSymbolMap arr =
+  let byAddr = Dictionary<Addr, Symbol>()
+  for symb in arr do byAddr[symb.Address] <- symb
+  byAddr
 
 let getSymbols (bytes: byte[]) reader (coff: CoffHeader) =
   let maxCnt = coff.NumberOfSymbols - 1
@@ -165,7 +163,5 @@ let getSymbols (bytes: byte[]) reader (coff: CoffHeader) =
   |> Seq.choose toPESymbol
   |> fun lst ->
     let arr = Array.ofSeq lst
-    let byAddr, byName = buildSymbolMaps arr
-    { SymbolByAddr = byAddr
-      SymbolByName = byName
+    { SymbolByAddr = buildSymbolMap arr
       SymbolArray = arr }

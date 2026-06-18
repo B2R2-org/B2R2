@@ -144,9 +144,9 @@ let tryFindSymbolFromBinary pe addr =
   | Some s -> Ok s
 
 let tryFindSymbolFromPDB pe addr =
-  match Map.tryFind addr pe.Symbols.SymbolByAddr with
-  | None -> Error ErrorCase.SymbolNotFound
-  | Some s -> Ok s.Name
+  match pe.Symbols.SymbolByAddr.TryGetValue addr with
+  | false, _ -> Error ErrorCase.SymbolNotFound
+  | true, s -> Ok s.Name
 
 let inline isValidAddr pe addr =
   IntervalSet.containsAddr addr pe.InvalidAddrRanges |> not

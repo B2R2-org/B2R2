@@ -25,6 +25,7 @@
 module internal B2R2.FrontEnd.BinFile.PE.Parser
 
 open System
+open System.Collections.Generic
 open System.Reflection.PortableExecutable
 open B2R2
 open B2R2.Collections
@@ -53,27 +54,23 @@ let getPDBSymbols reader (execpath: string) = function
     else []
   | rawpdb -> parsePDB reader rawpdb
 
-let updatePDBInfo baseAddr secs mAddr mName lst (sym: Symbol) =
+let updatePDBInfo baseAddr secs lst (sym: Symbol) =
   let secNum = int sym.Segment - 1
   match Array.tryItem secNum (secs: SectionHeader []) with
   | Some sec ->
     let addr = baseAddr + uint64 sec.VirtualAddress + uint64 sym.Address
-    let sym = { sym with Address = addr }
-    struct (Map.add addr sym mAddr, Map.add sym.Name sym mName, sym :: lst)
-  | None -> struct (mAddr, mName, lst)
+    { sym with Address = addr } :: lst
+  | None -> lst
 
 let buildPDBInfo baseAddr secs symbs =
-  let rec folder mAddr mName lst = function
-    | sym :: rest ->
-      let struct (mAddr, mName, lst) =
-        updatePDBInfo baseAddr secs mAddr mName lst sym
-      folder mAddr mName lst rest
-    | [] ->
-      { SymbolByAddr = mAddr
-        SymbolByName = mName
-        SymbolArray = List.rev lst |> List.toArray }
-  symbs
-  |> folder Map.empty Map.empty []
+  let rec folder lst = function
+    | sym :: rest -> folder (updatePDBInfo baseAddr secs lst sym) rest
+    | [] -> List.rev lst |> List.toArray
+  let arr = folder [] symbs
+  let byAddr = Dictionary<Addr, Symbol>()
+  for sym in arr do byAddr[sym.Address] <- sym
+  { SymbolByAddr = byAddr
+    SymbolArray = arr }
 
 let invRanges wordSize baseAddr secs getNextStartAddr =
   secs

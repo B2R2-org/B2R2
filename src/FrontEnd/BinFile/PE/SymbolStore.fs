@@ -24,11 +24,11 @@
 
 namespace B2R2.FrontEnd.BinFile.PE
 
+open System.Collections.Generic
 open B2R2
 
 /// Represents a storage of PE symbols obtained either from PDB or COFF symbol
 /// tables.
 type internal SymbolStore =
-  { SymbolByAddr: Map<Addr, Symbol>
-    SymbolByName: Map<string, Symbol>
+  { SymbolByAddr: Dictionary<Addr, Symbol>
     SymbolArray: Symbol[] }

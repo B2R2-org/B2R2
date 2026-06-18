@@ -61,9 +61,9 @@ type PEBinFile(path, bytes: byte[], baseAddrOpt, rawpdb) =
         pe.Symbols.SymbolArray |> Array.map toBinSymbol
 
       member _.TryFindSymbolByAddr addr =
-        match Map.tryFind addr pe.Symbols.SymbolByAddr with
-        | Some s -> Ok(toBinSymbol s)
-        | None -> Error ErrorCase.SymbolNotFound
+        match pe.Symbols.SymbolByAddr.TryGetValue addr with
+        | true, s -> Ok(toBinSymbol s)
+        | false, _ -> Error ErrorCase.SymbolNotFound
 
       member _.CodeModeMarkers = [||]
     }
