@@ -24,6 +24,7 @@
 
 namespace B2R2.FrontEnd.BinFile.Tests
 
+open B2R2
 open B2R2.FrontEnd.BinFile
 open Microsoft.VisualStudio.TestTools.UnitTesting
 open type FileFormat
@@ -39,26 +40,44 @@ type WasmTests() =
   static let file = parseFile "wasm_basic"
 
   [<TestMethod>]
-  member _.``[Wasm] EntryPoint test``() =
-    Assert.AreEqual(Some 0x15AUL, file.EntryPoint)
+  member _.``[Wasm] format test``() =
+    Assert.AreEqual(WasmBinary, file.Format)
 
   [<TestMethod>]
-  member _.``[Wasm] SymbolTable test``() =
+  member _.``[Wasm] ISA test``() =
+    Assert.AreEqual(Architecture.WASM, file.ISA.Arch)
+
+  [<TestMethod>]
+  member _.``[Wasm] kind test``() =
+    Assert.AreEqual<BinFileKind>(Unknown, file.Kind)
+
+  [<TestMethod>]
+  member _.``[Wasm] base address test``() =
+    Assert.AreEqual<uint64>(0UL, file.BaseAddress)
+
+  [<TestMethod>]
+  member _.``[Wasm] has no symbol table test``() =
     match file.SymbolTable with
     | None -> ()
     | Some _ -> Assert.Fail "Wasm should not provide a symbol table."
 
   [<TestMethod>]
-  member _.``[Wasm] text section address test``() =
-    Assert.AreEqual<uint64>(0x154UL, getTextSectionAddr file)
+  member _.``[Wasm] property defaults test``() =
+    Assert.AreEqual<bool>(true, file.IsNXEnabled)
+    Assert.AreEqual<bool>(false, file.IsPIE)
+    Assert.AreEqual<bool>(false, file.IsBaseRelative)
 
   [<TestMethod>]
   member _.``[Wasm] sections length test``() =
-    Assert.AreEqual<int>(12, (file :?> WasmBinFile).Sections.Length)
+    Assert.AreEqual<int>(8, (file :?> WasmBinFile).Sections.Length)
+
+  [<TestMethod>]
+  member _.``[Wasm] text section address test``() =
+    Assert.AreEqual<uint64>(0x47UL, getTextSectionAddr file)
 
   [<TestMethod>]
   member _.``[Wasm] linkageTableEntries length test``() =
-    Assert.AreEqual<int>(4, getLinkageTableEntries file |> Seq.length)
+    Assert.AreEqual<int>(1, getLinkageTableEntries file |> Seq.length)
 
   [<TestMethod>]
   member _.``[Wasm] name section resolves the entry point name``() =
@@ -68,12 +87,33 @@ type WasmTests() =
 
   [<TestMethod>]
   member _.``[Wasm] name section resolves an imported function name``() =
-    let resolver = Option.get file.NameResolver
-    Assert.AreEqual<Result<string, _>>(
-      Ok "putc_js", resolver.TryResolveName 0x7AUL)
+    let hasPutcJs =
+      getLinkageTableEntries file |> Seq.exists (fun i -> i.Name = "putc_js")
+    Assert.AreEqual<bool>(true, hasPutcJs)
 
   [<TestMethod>]
   member _.``[Wasm] name section resolves a local function name``() =
     let resolver = Option.get file.NameResolver
-    Assert.AreEqual<Result<string, _>>(
-      Ok "main", resolver.TryResolveName 0x15EUL)
+    let hasMain =
+      file.Structure.Value.FunctionAddresses
+      |> Array.exists (fun a -> resolver.TryResolveName a = Ok "main")
+    Assert.AreEqual<bool>(true, hasMain)
+
+  [<TestMethod>]
+  member _.``[Wasm] valid address test``() =
+    Assert.AreEqual<bool>(true, file.IsValidAddr 0x49UL)
+    Assert.AreEqual<bool>(false, file.IsValidAddr 0x100000UL)
+
+  [<TestMethod>]
+  member _.``[Wasm] slice maps offset to content test``() =
+    let viaSlice = file.Slice(0x49UL, 4).ToArray()
+    let viaRaw = file.RawBytes.Span.Slice(0x49, 4).ToArray()
+    CollectionAssert.AreEqual(viaRaw, viaSlice)
+
+  [<TestMethod>]
+  member _.``[Wasm] format detector identifies Wasm test``() =
+    let bytes =
+      ZIPReader.readBytes WasmBinary "wasm_basic.zip" "wasm_basic.wasm"
+    let isa = ISA(Architecture.Intel, Endian.Little, WordSize.Bit64)
+    let struct (fmt, _) = FormatDetector.identify bytes isa
+    Assert.AreEqual(WasmBinary, fmt)

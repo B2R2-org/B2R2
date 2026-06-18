@@ -11,6 +11,8 @@
     <Compile Include="PETests.fs" />
     <Compile Include="MachTests.fs" />
     <Compile Include="WasmTests.fs" />
+    <Compile Include="RawTests.fs" />
+    <Compile Include="PythonTests.fs" />
   </ItemGroup>
 
   <ItemGroup>

@@ -38,6 +38,7 @@ let private getFileDir = function
   | FileFormat.ELFBinary -> "ELF/"
   | FileFormat.MachBinary -> "Mach/"
   | FileFormat.WasmBinary -> "Wasm/"
+  | FileFormat.PythonBinary -> "Python/"
   | _ -> failwith "Invalid file format"
 
 let readBytes fileFormat zipFileName inZipFileName =
