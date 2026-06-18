@@ -67,6 +67,15 @@ type ELFBinFile(path, bytes: byte[], baseAddrOpt, rfOpt) =
     | SymbolBind.STB_WEAK -> WeakBinding
     | _ -> UnknownBinding
 
+  let isBindNow dynArr =
+    dynArr
+    |> Array.exists (fun e ->
+      match e.DTag with
+      | DTag.DT_BIND_NOW -> true
+      | DTag.DT_FLAGS -> e.DVal &&& 0x8UL <> 0UL (* DF_BIND_NOW *)
+      | DTag.DT_FLAGS_1 -> e.DVal &&& 0x1UL <> 0UL (* DF_1_NOW *)
+      | _ -> false)
+
   let toBinSymbol (s: Symbol) =
     { Name = s.SymName
       Address = s.Addr
@@ -479,6 +488,13 @@ type ELFBinFile(path, bytes: byte[], baseAddrOpt, rfOpt) =
     member _.IsBaseRelative with get() =
       let ty = toolBox.Header.ELFType
       ty = ELFType.ET_DYN || ty = ELFType.ET_REL
+
+    member _.Relro with get() =
+      let pred e = e.PHType = ProgramHeaderType.PT_GNU_RELRO
+      if phdrs.Value |> Array.exists pred then
+        if isBindNow dynamicArray.Value then Some FullRelro
+        else Some PartialRelro
+      else Some NoRelro
 
     member _.NameResolver with get() = nameResolver
 

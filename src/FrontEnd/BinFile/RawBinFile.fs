@@ -78,6 +78,8 @@ type RawBinFile(path, bytes: byte[], isa: ISA, baseAddrOpt) =
 
     member _.IsBaseRelative with get() = false
 
+    member _.Relro with get() = None
+
     member _.NameResolver with get() = None
 
     member _.SymbolTable with get() = None

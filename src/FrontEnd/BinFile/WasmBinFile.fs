@@ -212,6 +212,8 @@ type WasmBinFile(path, bytes, baseAddrOpt) =
 
     member _.IsBaseRelative with get() = false
 
+    member _.Relro with get() = None
+
     member _.NameResolver with get() = nameResolver
 
     member _.SymbolTable with get() = None

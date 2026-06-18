@@ -406,6 +406,8 @@ type MachBinFile(path, bytes: byte[], isa, baseAddrOpt, regFactoryOpt) =
       hdr.Flags.HasFlag MachFlag.MH_PIE
       || hdr.FileType <> FileType.MH_EXECUTE
 
+    member _.Relro with get() = None
+
     member _.NameResolver with get() = nameResolver
 
     member _.SymbolTable with get() = symbolTable

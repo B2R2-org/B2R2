@@ -122,6 +122,10 @@ type PETests() =
     Assert.AreEqual<bool>(true, (x64File :> IBinFile).IsBaseRelative)
 
   [<TestMethod>]
+  member _.``[PE] x64 has no Relro test``() =
+    Assert.AreEqual<Relro option>(None, (x64File :> IBinFile).Relro)
+
+  [<TestMethod>]
   member _.``[PE] x64 base address test``() =
     Assert.AreEqual<uint64>(0x140000000UL, (x64File :> IBinFile).BaseAddress)
 

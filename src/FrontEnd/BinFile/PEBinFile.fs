@@ -324,6 +324,8 @@ type PEBinFile(path, bytes: byte[], baseAddrOpt, rawpdb) =
 
     member _.IsBaseRelative with get() = isBaseRelative pe
 
+    member _.Relro with get() = None
+
     member _.NameResolver with get() = nameResolver
 
     member _.SymbolTable with get() = symbolTable

@@ -142,6 +142,11 @@ type ELFTests() =
     Assert.AreEqual<bool>(false, (x64ExecFile :> IBinFile).IsBaseRelative)
 
   [<TestMethod>]
+  member _.``[ELF] x64 exec Relro test``() =
+    Assert.AreEqual<Relro option>(Some PartialRelro,
+                                  (x64ExecFile :> IBinFile).Relro)
+
+  [<TestMethod>]
   member _.``[ELF] x64 exec base address test``() =
     Assert.AreEqual<uint64>(0UL, (x64ExecFile :> IBinFile).BaseAddress)
 
@@ -203,6 +208,11 @@ type ELFTests() =
     Assert.AreEqual<bool>(true, (x64PieFile :> IBinFile).IsBaseRelative)
 
   [<TestMethod>]
+  member _.``[ELF] x64 pie Relro test``() =
+    Assert.AreEqual<Relro option>(Some FullRelro,
+                                  (x64PieFile :> IBinFile).Relro)
+
+  [<TestMethod>]
   member _.``[ELF] x64 so file type test``() =
     Assert.AreEqual(ELF.ELFType.ET_DYN, x64SoFile.Header.ELFType)
 
@@ -242,6 +252,11 @@ type ELFTests() =
   [<TestMethod>]
   member _.``[ELF] x64 obj is not PIE test``() =
     Assert.AreEqual<bool>(false, (x64ObjFile :> IBinFile).IsPIE)
+
+  [<TestMethod>]
+  member _.``[ELF] x64 obj Relro test``() =
+    Assert.AreEqual<Relro option>(Some NoRelro,
+                                  (x64ObjFile :> IBinFile).Relro)
 
   [<TestMethod>]
   member _.``[ELF] x64 obj has no program headers test``() =

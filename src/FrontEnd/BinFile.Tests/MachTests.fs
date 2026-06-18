@@ -124,6 +124,10 @@ type MachTests() =
     Assert.AreEqual<bool>(true, (x64File :> IBinFile).IsBaseRelative)
 
   [<TestMethod>]
+  member _.``[Mach] X64 has no Relro test``() =
+    Assert.AreEqual<Relro option>(None, (x64File :> IBinFile).Relro)
+
+  [<TestMethod>]
   member _.``[Mach] X64 base address test``() =
     Assert.AreEqual<uint64>(0UL, (x64File :> IBinFile).BaseAddress)
 

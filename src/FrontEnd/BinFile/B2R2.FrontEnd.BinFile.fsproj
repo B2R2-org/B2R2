@@ -11,6 +11,7 @@
     <Compile Include="Exceptions.fs" />
     <Compile Include="FileFormat.fs" />
     <Compile Include="Permission.fs" />
+    <Compile Include="Relro.fs" />
     <Compile Include="BinFileKind.fs" />
     <Compile Include="BinFilePointer.fs" />
     <Compile Include="BinSection.fs" />

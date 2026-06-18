@@ -52,10 +52,13 @@ let private dumpSecurity (file: IBinFile) =
     file.SymbolTable
     |> Option.map (fun symbolTable -> symbolTable.IsStripped.ToString())
     |> Option.defaultValue "N/A"
+  let relro =
+    file.Relro |> Option.map Relro.toString |> Option.defaultValue "N/A"
   printSectionTitle "Security Information"
   printsr [| "Stripped binary:"; stripped |]
   printsr [| "DEP (NX) enabled:"; file.IsNXEnabled.ToString() |]
   printsr [| "PIE:"; file.IsPIE.ToString() |]
+  printsr [| "RELRO:"; relro |]
   printsn ""
 
 let private printBasic file =

@@ -86,6 +86,8 @@ type PythonBinFile(path, bytes: byte[], baseAddrOpt) =
 
     member _.IsBaseRelative with get() = false
 
+    member _.Relro with get() = None
+
     member _.NameResolver with get() = None
 
     member _.SymbolTable with get() = None
