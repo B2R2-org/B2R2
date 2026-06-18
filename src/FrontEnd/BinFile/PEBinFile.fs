@@ -53,12 +53,13 @@ type PEBinFile(path, bytes: byte[], baseAddrOpt, rawpdb) =
       Size = None
       LibraryName = None }
 
+  let binSymbols = lazy (pe.Symbols.SymbolArray |> Array.map toBinSymbol)
+
   let symbolTable =
     Some { new ISymbolTable with
       member _.IsStripped with get() = Array.isEmpty pe.Symbols.SymbolArray
 
-      member _.Symbols with get() =
-        pe.Symbols.SymbolArray |> Array.map toBinSymbol
+      member _.Symbols with get() = binSymbols.Value
 
       member _.TryFindSymbolByAddr addr =
         match pe.Symbols.SymbolByAddr.TryGetValue addr with
@@ -79,8 +80,8 @@ type PEBinFile(path, bytes: byte[], baseAddrOpt, rawpdb) =
              if idx <> -1 && isSectionExecutableByIndex pe idx then addr
              else () |]
       Array.concat [| staticAddrs; dynamicAddrs |]
-      |> Set.ofArray
-      |> Set.toArray
+      |> Array.distinct
+      |> Array.sort
 
   let isPEMetadataSection name =
     name = Section.Reloc || name = Section.EData
@@ -137,10 +138,11 @@ type PEBinFile(path, bytes: byte[], baseAddrOpt, rawpdb) =
       && uint64 offset >= secStart
       && uint64 offset < secEnd)
 
+  let binSections = lazy (pe.SectionHeaders |> Array.map toBinSection)
+
   let structure =
     Some { new IBinStructure with
-      member _.Sections with get() =
-        pe.SectionHeaders |> Array.map toBinSection
+      member _.Sections with get() = binSections.Value
 
       member _.CodeSectionPointer =
         pe.SectionHeaders

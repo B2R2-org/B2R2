@@ -99,21 +99,16 @@ let inline isSectionExecutableByIndex pe idx =
   <| SectionCharacteristics.MemExecute
 
 let getImportTable pe =
-  pe.ImportedSymbols
-  |> Map.fold (fun acc addr info ->
-       match info with
-       | ByOrdinal(ord, dllname) ->
-         { Name = $"[{ord.ToString()}]"
-           LibraryName = dllname
-           TrampolineAddress = None
-           TableAddress = addrFromRVA pe.BaseAddr addr } :: acc
-       | ByName(_, fname, dllname) ->
-         { Name = fname
-           LibraryName = dllname
-           TrampolineAddress = None
-           TableAddress = addrFromRVA pe.BaseAddr addr } :: acc) []
-  |> List.sortBy (fun entry -> entry.TableAddress)
-  |> List.toArray
+  [| for KeyValue(addr, info) in pe.ImportedSymbols do
+       let name, dllname =
+         match info with
+         | ByOrdinal(ord, dll) -> $"[{ord.ToString()}]", dll
+         | ByName(_, fname, dll) -> fname, dll
+       { Name = name
+         LibraryName = dllname
+         TrampolineAddress = None
+         TableAddress = addrFromRVA pe.BaseAddr addr } |]
+  |> Array.sortBy (fun entry -> entry.TableAddress)
 
 let isImportTable pe addr =
   let rva = int (addr - pe.BaseAddr)
