@@ -271,9 +271,9 @@ let dumpFunctions _ (mach: MachBinFile) =
   printsr [| "Address"; "Name"; "Kind" |]
   printSingleHorizontalRule ()
   for addr in BinFileOps.getFunctionAddresses mach do
-    match mach.Symbols.SymbolMap.TryFind addr with
-    | Some symb -> dumpFunction wordSize symb
-    | None -> ()
+    match mach.Symbols.SymbolMap.TryGetValue addr with
+    | true, symb -> dumpFunction wordSize symb
+    | false, _ -> ()
   printDoubleHorizontalRule ()
   printsn ""
 

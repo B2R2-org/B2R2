@@ -300,7 +300,7 @@ type MachBinFile(path, bytes: byte[], isa, baseAddrOpt, regFactoryOpt) =
 
       member _.IsInImportTable addr =
         isPLT syms.Value addr
-        || (List.isEmpty syms.Value.Imports
+        || (Array.isEmpty syms.Value.Imports
             && Fixup.isBindAt fixupMap.Value addr)
     }
 

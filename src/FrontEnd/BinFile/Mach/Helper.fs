@@ -101,9 +101,8 @@ let executableRanges segCmds =
 
 let getPLT symInfo =
   symInfo.Imports
-  |> List.sortBy (fun entry -> entry.TrampolineAddress)
-  |> List.toArray
+  |> Array.sortBy (fun entry -> entry.TrampolineAddress)
 
 let isPLT symInfo addr =
   symInfo.Imports
-  |> List.exists (fun entry -> entry.TrampolineAddress = Some addr)
+  |> Array.exists (fun entry -> entry.TrampolineAddress = Some addr)

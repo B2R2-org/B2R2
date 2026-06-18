@@ -37,7 +37,7 @@ type internal SymbolStore =
     /// Address to symbol mapping.
     SymbolMap: Dictionary<Addr, Symbol>
     /// Imported symbols.
-    Imports: BinImport list }
+    Imports: BinImport[] }
 
 module internal SymbolStore =
   let [<Literal>] private IndirectSymbolLocal = 0x80000000
@@ -203,19 +203,16 @@ module internal SymbolStore =
     | None -> ""
     | Some v -> v.DyLibName
 
-  let private accumulateLinkageInfo nameMap lst addr symbol =
-    match Map.tryFind symbol.SymName nameMap with
-    | None -> lst
-    | Some stubAddr ->
-      let lib = getSymbolLibName symbol
-      { Name = symbol.SymName
-        LibraryName = lib
-        TrampolineAddress = Some stubAddr
-        TableAddress = addr } :: lst
-
   let private createImports stubs ptrtbls =
     let nameMap = Map.fold (fun m a s -> Map.add s.SymName a m) Map.empty stubs
-    ptrtbls |> Map.fold (accumulateLinkageInfo nameMap) []
+    [| for KeyValue(addr, symbol) in ptrtbls do
+         match Map.tryFind symbol.SymName nameMap with
+         | Some stubAddr ->
+           { Name = symbol.SymName
+             LibraryName = getSymbolLibName symbol
+             TrampolineAddress = Some stubAddr
+             TableAddress = addr }
+         | None -> () |]
 
   let private buildSymbolMap stubs ptrtbls staticsymbs =
     let dict = Dictionary<Addr, Symbol>()
