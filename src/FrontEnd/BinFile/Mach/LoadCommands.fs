@@ -134,6 +134,8 @@ module internal LoadCommands =
         DyLib(cmdType, uint32 cmdSize, parseDyLibCmd toolBox cmdSize span)
       | CmdType.LC_LOAD_DYLINKER ->
         DyLinker(cmdType, uint32 cmdSize, readLCStr toolBox cmdSize span)
+      | CmdType.LC_RPATH ->
+        Rpath(cmdType, uint32 cmdSize, readLCStr toolBox cmdSize span)
       | CmdType.LC_DYLD_INFO
       | CmdType.LC_DYLD_INFO_ONLY ->
         DyLdInfo(cmdType, uint32 cmdSize, parseDyLdInfo toolBox span)

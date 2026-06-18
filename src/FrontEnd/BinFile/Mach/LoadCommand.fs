@@ -40,6 +40,8 @@ type internal LoadCommand =
   /// Dynamic linker command (LC_LOAD_DYLINKER), carrying the path to the
   /// dynamic linker requested by this binary.
   | DyLinker of cmd: CmdType * size: uint32 * path: string
+  /// Runpath command (LC_RPATH), carrying a runtime library search path.
+  | Rpath of cmd: CmdType * size: uint32 * path: string
   /// Dynamic linker information command (LC_DYLD_INFO or LC_DYLD_INFO_ONLY).
   | DyLdInfo of cmd: CmdType * size: uint32 * DyLdInfoCmd
   /// Function starts command (LC_FUNCTION_STARTS).

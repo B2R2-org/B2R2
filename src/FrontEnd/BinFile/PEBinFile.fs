@@ -318,6 +318,10 @@ type PEBinFile(path, bytes: byte[], baseAddrOpt, rawpdb) =
 
     member _.InterpreterPath with get() = None
 
+    member _.RPath with get() = [||]
+
+    member _.RunPath with get() = [||]
+
     member _.IsNXEnabled with get() = isNXEnabled pe
 
     member _.IsPIE with get() = isPIE pe

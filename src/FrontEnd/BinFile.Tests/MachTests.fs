@@ -63,6 +63,11 @@ type MachTests() =
   static let arm64File =
     parseFile "mach_arm64" Architecture.ARMv8 WordSize.Bit64
 
+  /// An x86-64 Mach-O executable carrying two LC_RPATH load commands, used to
+  /// exercise runtime search-path (@rpath) parsing.
+  static let x64RPathFile =
+    parseFile "mach_x64_rpath" Architecture.Intel WordSize.Bit64
+
   static let x64RelocFile =
     parseFile "mach_x64_reloc" Architecture.Intel WordSize.Bit64
 
@@ -126,6 +131,18 @@ type MachTests() =
   [<TestMethod>]
   member _.``[Mach] X64 has no Relro test``() =
     Assert.AreEqual<Relro option>(None, (x64File :> IBinFile).Relro)
+
+  [<TestMethod>]
+  member _.``[Mach] X64 has no rpath test``() =
+    let file = x64File :> IBinFile
+    CollectionAssert.AreEqual([||], file.RPath)
+    CollectionAssert.AreEqual([||], file.RunPath)
+
+  [<TestMethod>]
+  member _.``[Mach] X64 rpath test``() =
+    let file = x64RPathFile :> IBinFile
+    CollectionAssert.AreEqual([||], file.RPath)
+    CollectionAssert.AreEqual([| "/opt/lib"; "/usr/local/lib" |], file.RunPath)
 
   [<TestMethod>]
   member _.``[Mach] X64 base address test``() =

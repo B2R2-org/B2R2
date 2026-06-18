@@ -68,6 +68,14 @@ type ELFTests() =
   /// NX is reported as disabled.
   static let x64NonXFile = parseFile "elf_x64_nonx"
 
+  /// An x86-64 executable carrying a colon-separated DT_RUNPATH (the modern
+  /// runtime search-path tag, emitted with --enable-new-dtags).
+  static let x64RunPathFile = parseFile "elf_x64_runpath"
+
+  /// An x86-64 executable carrying a colon-separated legacy DT_RPATH instead of
+  /// DT_RUNPATH (emitted with --disable-new-dtags).
+  static let x64RPathFile = parseFile "elf_x64_rpath"
+
   /// A C++ binary with try/catch, so it carries DWARF CFI in .eh_frame and an
   /// LSDA table in .gcc_except_table. Exception parsing needs a register
   /// factory.
@@ -145,6 +153,24 @@ type ELFTests() =
   member _.``[ELF] x64 exec Relro test``() =
     Assert.AreEqual<Relro option>(Some PartialRelro,
                                   (x64ExecFile :> IBinFile).Relro)
+
+  [<TestMethod>]
+  member _.``[ELF] x64 exec has no rpath test``() =
+    let file = x64ExecFile :> IBinFile
+    CollectionAssert.AreEqual([||], file.RPath)
+    CollectionAssert.AreEqual([||], file.RunPath)
+
+  [<TestMethod>]
+  member _.``[ELF] x64 runpath test``() =
+    let file = x64RunPathFile :> IBinFile
+    CollectionAssert.AreEqual([| "/opt/lib"; "/usr/local/lib" |], file.RunPath)
+    CollectionAssert.AreEqual([||], file.RPath)
+
+  [<TestMethod>]
+  member _.``[ELF] x64 rpath test``() =
+    let file = x64RPathFile :> IBinFile
+    CollectionAssert.AreEqual([| "/opt/lib"; "/usr/local/lib" |], file.RPath)
+    CollectionAssert.AreEqual([||], file.RunPath)
 
   [<TestMethod>]
   member _.``[ELF] x64 exec base address test``() =

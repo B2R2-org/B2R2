@@ -58,3 +58,19 @@ type IBinMetadata =
   /// LC_LOAD_DYLINKER load command; formats that record no loader path (e.g.,
   /// PE) return None.
   abstract InterpreterPath: string option
+
+  /// <summary>
+  /// The legacy runtime library search paths of this binary, taken from the
+  /// ELF <c>DT_RPATH</c> dynamic entry (deprecated in favor of <see
+  /// cref="RunPath"/>). Returns an empty array for formats that have no such
+  /// notion (e.g., PE, Mach-O).
+  /// </summary>
+  abstract RPath: string[]
+
+  /// <summary>
+  /// The runtime library search paths of this binary, taken from the ELF
+  /// <c>DT_RUNPATH</c> dynamic entry and the Mach-O <c>LC_RPATH</c> load
+  /// commands. Returns an empty array for formats that have no such notion
+  /// (e.g., PE).
+  /// </summary>
+  abstract RunPath: string[]

@@ -70,6 +70,12 @@ type MachBinFile(path, bytes: byte[], isa, baseAddrOpt, regFactoryOpt) =
             | DyLinker(_, _, path) -> Some path
             | _ -> None))
 
+  let rpaths =
+    lazy (cmds.Value
+          |> Array.choose (function
+            | Rpath(_, _, path) -> Some path
+            | _ -> None))
+
   let machSymKind secText (s: Symbol) =
     if Symbol.IsFunc(secText, s) then FunctionSymbol
     elif s.SymType.HasFlag SymbolType.N_SECT then DataSymbol
@@ -395,6 +401,10 @@ type MachBinFile(path, bytes: byte[], isa, baseAddrOpt, regFactoryOpt) =
     member _.BaseAddress with get() = toolBox.BaseAddress
 
     member _.InterpreterPath with get() = interpreterPath.Value
+
+    member _.RPath with get() = [||]
+
+    member _.RunPath with get() = rpaths.Value
 
     member _.IsNXEnabled with get() = isNXEnabled toolBox.Header
 

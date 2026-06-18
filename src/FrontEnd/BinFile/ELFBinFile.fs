@@ -368,6 +368,22 @@ type ELFBinFile(path, bytes: byte[], baseAddrOpt, rfOpt) =
       |> Option.map (fun ph ->
         readCString (System.ReadOnlySpan bytes) (int ph.PHOffset))
 
+  let dynamicPaths tag =
+    let isDyn s = s.SecType = SectionType.SHT_DYNAMIC
+    match Array.tryFind isDyn shdrs.Value with
+    | None -> [||]
+    | Some sec ->
+      let strOff = int shdrs.Value[int sec.SecLink].SecOffset
+      let span = System.ReadOnlySpan bytes
+      let offsets =
+        dynamicArray.Value
+        |> Array.choose (fun e ->
+          if e.DTag = tag then Some(strOff + int e.DVal) else None)
+      let acc = ResizeArray()
+      for off in offsets do
+        acc.AddRange((readCString span off).Split(':'))
+      acc.ToArray() |> Array.filter (fun s -> s <> "")
+
   let programHeaderTableAddr =
     lazy
       let phs = phdrs.Value
@@ -471,6 +487,10 @@ type ELFBinFile(path, bytes: byte[], baseAddrOpt, rfOpt) =
     member _.BaseAddress with get() = toolBox.BaseAddress
 
     member _.InterpreterPath with get() = interpreterPath.Value
+
+    member _.RPath with get() = dynamicPaths DTag.DT_RPATH
+
+    member _.RunPath with get() = dynamicPaths DTag.DT_RUNPATH
 
     member _.IsNXEnabled with get() =
       let predicate e = e.PHType = ProgramHeaderType.PT_GNU_STACK

@@ -16,6 +16,7 @@ and the feature fixtures are hand-crafted to isolate one parser capability.
 | `mach_arm64e_chained` | arm64e chained fixups (authenticated pointers). |
 | `mach_x64_exc` | C++ try/catch: DWARF CFI in `__eh_frame` + LSDA in `__gcc_except_tab`. |
 | `mach_arm64_exc` | arm64 C++: Apple compact unwind (`__unwind_info`) + LSDA. |
+| `mach_x64_rpath` | Two `LC_RPATH` load commands: runtime search paths (`RunPath`). |
 
 The exception fixtures exercise the two Mach-O unwinding schemes: `__eh_frame`
 DWARF CFI (x64, needs a register factory) and Apple compact unwind (arm64).

@@ -54,11 +54,15 @@ let private dumpSecurity (file: IBinFile) =
     |> Option.defaultValue "N/A"
   let relro =
     file.Relro |> Option.map Relro.toString |> Option.defaultValue "N/A"
+  let pathsToStr paths =
+    if Array.isEmpty paths then "N/A" else String.concat ":" paths
   printSectionTitle "Security Information"
   printsr [| "Stripped binary:"; stripped |]
   printsr [| "DEP (NX) enabled:"; file.IsNXEnabled.ToString() |]
   printsr [| "PIE:"; file.IsPIE.ToString() |]
   printsr [| "RELRO:"; relro |]
+  printsr [| "RPATH:"; pathsToStr file.RPath |]
+  printsr [| "RUNPATH:"; pathsToStr file.RunPath |]
   printsn ""
 
 let private printBasic file =

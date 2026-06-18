@@ -126,6 +126,12 @@ type PETests() =
     Assert.AreEqual<Relro option>(None, (x64File :> IBinFile).Relro)
 
   [<TestMethod>]
+  member _.``[PE] x64 has no rpath test``() =
+    let file = x64File :> IBinFile
+    CollectionAssert.AreEqual([||], file.RPath)
+    CollectionAssert.AreEqual([||], file.RunPath)
+
+  [<TestMethod>]
   member _.``[PE] x64 base address test``() =
     Assert.AreEqual<uint64>(0x140000000UL, (x64File :> IBinFile).BaseAddress)
 
