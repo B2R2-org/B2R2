@@ -27,3 +27,7 @@ artifacts/
 
 b2r2.log
 .fake
+
+.claude
+.codex
+tmp/
