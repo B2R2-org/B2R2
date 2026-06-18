@@ -123,8 +123,7 @@ module internal SymbolStore =
     symbols
 
   let private addFuncs secText (starts: HashSet<Addr>) symbols =
-    let symbolAddrs = symbols |> Array.map (fun s -> s.SymAddr) |> HashSet
-    starts.ExceptWith symbolAddrs
+    starts.ExceptWith(symbols |> Seq.map (fun s -> s.SymAddr))
     starts
     |> Seq.toArray
     |> Array.map (fun addr ->

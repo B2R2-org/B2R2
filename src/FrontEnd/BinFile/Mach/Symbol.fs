@@ -58,7 +58,7 @@ with
        will not be stripped (thus, this symbol is dynamic). *)
     let isReferrencedDynamically s = s.SymDesc &&& 0x10s <> 0s
     isDebuggingInfo s
-    || (s.SecNum > 0 && s.SymAddr > 0UL && s.VerInfo = None
+    || (s.SecNum > 0 && s.SymAddr > 0UL && Option.isNone s.VerInfo
        && (isReferrencedDynamically s |> not))
 
 /// Represents the symbol type (N_TYPE).
