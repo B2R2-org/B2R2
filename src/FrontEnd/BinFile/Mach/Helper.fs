@@ -61,16 +61,6 @@ let computeEntryPoint segs cmds =
   if mainOffset = 0UL then None
   else Some(mainOffset + getTextSegOffset segs)
 
-let getStaticSymbols symInfo =
-  symInfo.SymbolArray
-  |> Array.filter Symbol.IsStatic
-
-let isStripped secs symInfo =
-  let secText = Section.getTextSectionIndex secs
-  getStaticSymbols symInfo
-  |> Array.exists (fun s -> Symbol.IsFunc(secText, s))
-  |> not
-
 let isNXEnabled hdr =
   not (hdr.Flags.HasFlag MachFlag.MH_ALLOW_STACK_EXECUTION)
   || hdr.Flags.HasFlag MachFlag.MH_NO_HEAP_EXECUTION

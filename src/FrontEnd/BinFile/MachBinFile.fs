@@ -39,6 +39,7 @@ type MachBinFile(path, bytes: byte[], isa, baseAddrOpt, regFactoryOpt) =
   let segCmds = lazy Segment.extract cmds.Value
   let segMap = lazy Segment.buildMap segCmds.Value
   let secs = lazy Section.parse toolBox segCmds.Value
+  let secText = lazy (Section.getTextSectionIndex secs.Value)
   let syms = lazy SymbolStore.parse toolBox cmds.Value secs.Value
   let exports = lazy ExportedSymbols.parse toolBox cmds.Value
   let relocs = lazy Reloc.parse toolBox secs.Value
@@ -58,6 +59,10 @@ type MachBinFile(path, bytes: byte[], isa, baseAddrOpt, regFactoryOpt) =
   let staticSymbols = lazy (enumSymbols.Value |> Array.filter Symbol.IsStatic)
   let dynamicSymbols =
     lazy (enumSymbols.Value |> Array.filter (Symbol.IsStatic >> not))
+  let stripped =
+    lazy (staticSymbols.Value
+          |> Array.exists (fun s -> Symbol.IsFunc(secText.Value, s))
+          |> not)
   let entryPoint = lazy computeEntryPoint segCmds.Value cmds.Value
   let interpreterPath =
     lazy (cmds.Value
@@ -84,19 +89,18 @@ type MachBinFile(path, bytes: byte[], isa, baseAddrOpt, regFactoryOpt) =
       Size = None
       LibraryName = s.VerInfo |> Option.map (fun d -> d.DyLibName) }
 
+  let binSymbols =
+    lazy (syms.Value.SymbolArray |> Array.map (toBinSymbol secText.Value))
+
   let symbolTableObj =
     { new ISymbolTable with
-        member _.IsStripped with get() = isStripped secs.Value syms.Value
+        member _.IsStripped with get() = stripped.Value
 
-        member _.Symbols with get() =
-          let secText = Section.getTextSectionIndex secs.Value
-          syms.Value.SymbolArray |> Array.map (toBinSymbol secText)
+        member _.Symbols with get() = binSymbols.Value
 
         member _.TryFindSymbolByAddr addr =
           match Map.tryFind addr syms.Value.SymbolMap with
-          | Some s ->
-            let secText = Section.getTextSectionIndex secs.Value
-            Ok(toBinSymbol secText s)
+          | Some s -> Ok(toBinSymbol secText.Value s)
           | None -> Error ErrorCase.SymbolNotFound
 
         member _.CodeModeMarkers = [||] }
@@ -107,9 +111,8 @@ type MachBinFile(path, bytes: byte[], isa, baseAddrOpt, regFactoryOpt) =
 
   let functionAddrs =
     lazy
-      let secText = Section.getTextSectionIndex secs.Value
       [| for s in syms.Value.SymbolArray do
-           if Symbol.IsFunc(secText, s) && s.SymAddr > 0UL then s.SymAddr
+           if Symbol.IsFunc(secText.Value, s) && s.SymAddr > 0UL then s.SymAddr
            else () |]
 
   let isZeroFillSection (sec: Section) =
@@ -184,9 +187,7 @@ type MachBinFile(path, bytes: byte[], isa, baseAddrOpt, regFactoryOpt) =
         secs.Value |> Array.map toBinSection
 
       member _.CodeSectionPointer =
-        let secs = secs.Value
-        let secText = Section.getTextSectionIndex secs
-        let sec = secs[secText]
+        let sec = secs.Value[secText.Value]
         BinFilePointer.CreateFileBacked(
           sec.SecAddr,
           sec.SecAddr + sec.SecSize - 1UL,
