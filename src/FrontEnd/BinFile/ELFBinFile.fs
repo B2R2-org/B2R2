@@ -86,14 +86,17 @@ type ELFBinFile(path, bytes: byte[], baseAddrOpt, rfOpt) =
         | ARMLinkerSymbol.Data -> Some { Address = s.Addr; Mode = DataMode }
         | _ -> None)
 
+  let binSymbols =
+    lazy
+      Array.append symbs.Value.StaticSymbols symbs.Value.DynamicSymbols
+      |> Array.map toBinSymbol
+
   let symbolTableObj =
     { new ISymbolTable with
         member _.IsStripped with get() =
           shdrs.Value |> Array.exists (fun s -> s.SecName = ".symtab") |> not
 
-        member _.Symbols with get() =
-          Array.append symbs.Value.StaticSymbols symbs.Value.DynamicSymbols
-          |> Array.map toBinSymbol
+        member _.Symbols with get() = binSymbols.Value
 
         member _.TryFindSymbolByAddr addr =
           symbs.Value.TryFindSymbol addr |> Result.map toBinSymbol
@@ -126,8 +129,8 @@ type ELFBinFile(path, bytes: byte[], baseAddrOpt, rfOpt) =
       let extraFuncs =
         findExtraFnAddrs toolBox shdrs.Value relocs.Value
       Array.concat [| staticFuncs; dynamicFuncs; extraFuncs |]
-      |> Set.ofArray
-      |> Set.toArray
+      |> Array.distinct
+      |> Array.sort
 
   let secFileSize (sec: SectionHeader) =
     if sec.SecType = SectionType.SHT_NOBITS then 0UL else sec.SecSize
@@ -199,10 +202,11 @@ type ELFBinFile(path, bytes: byte[], baseAddrOpt, rfOpt) =
       fileSize > 0UL && uint64 offset >= sec.SecOffset
       && uint64 offset < sec.SecOffset + fileSize)
 
+  let binSections = lazy (shdrs.Value |> Array.map toBinSection)
+
   let structure =
     Some { new IBinStructure with
-      member _.Sections with get() =
-        shdrs.Value |> Array.map toBinSection
+      member _.Sections with get() = binSections.Value
 
       member _.CodeSectionPointer =
         shdrs.Value

@@ -228,15 +228,17 @@ type internal SymbolStore internal(toolBox, shdrs) =
   /// Address to symbol mapping.
   let symbolMap = lazy SymbolTables.buildSymbolMap symbolTables
 
+  let staticSymbols =
+    lazy (staticSymbSecs |> Array.collect (fun s -> symbolTables[s.SecNum]))
+
+  let dynamicSymbols =
+    lazy (dynamicSymbSecs |> Array.collect (fun s -> symbolTables[s.SecNum]))
+
   /// Returns parsed static symbols.
-  member _.StaticSymbols with get() =
-    staticSymbSecs
-    |> Array.collect (fun s -> symbolTables[s.SecNum])
+  member _.StaticSymbols with get() = staticSymbols.Value
 
   /// Returns parsed dynamic symbols.
-  member _.DynamicSymbols with get() =
-    dynamicSymbSecs
-    |> Array.collect (fun s -> symbolTables[s.SecNum])
+  member _.DynamicSymbols with get() = dynamicSymbols.Value
 
   /// Adds a symbol to the symbol map. If the address already exists, it will
   /// be overwritten.
