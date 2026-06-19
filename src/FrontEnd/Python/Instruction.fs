@@ -54,17 +54,43 @@ type Instruction
 
     member _.IsBranch =
       match op with
+      | Op.JUMP_FORWARD | Op.JUMP_BACKWARD
+      | Op.JUMP_BACKWARD_NO_INTERRUPT
+      | Op.JUMP | Op.JUMP_NO_INTERRUPT
+      | Op.POP_JUMP_IF_FALSE | Op.POP_JUMP_IF_TRUE
+      | Op.POP_JUMP_IF_NONE | Op.POP_JUMP_IF_NOT_NONE
+      | Op.FOR_ITER | Op.SEND
+      | Op.INSTRUMENTED_JUMP_FORWARD | Op.INSTRUMENTED_JUMP_BACKWARD
+      | Op.INSTRUMENTED_FOR_ITER
+      | Op.INSTRUMENTED_POP_JUMP_IF_FALSE
+      | Op.INSTRUMENTED_POP_JUMP_IF_TRUE
+      | Op.INSTRUMENTED_POP_JUMP_IF_NONE
+      | Op.INSTRUMENTED_POP_JUMP_IF_NOT_NONE -> true
       | _ -> false
 
     member _.IsModeChanging = false
 
-    member _.IsDirectBranch = Terminator.futureFeature ()
+    member this.IsDirectBranch = (this :> IInstruction).IsBranch
 
-    member _.IsIndirectBranch = Terminator.futureFeature ()
+    member _.IsIndirectBranch = false
 
-    member _.IsCondBranch = Terminator.futureFeature ()
+    member _.IsCondBranch =
+      match op with
+      | Op.POP_JUMP_IF_FALSE | Op.POP_JUMP_IF_TRUE
+      | Op.POP_JUMP_IF_NONE | Op.POP_JUMP_IF_NOT_NONE
+      | Op.FOR_ITER | Op.SEND
+      | Op.INSTRUMENTED_FOR_ITER
+      | Op.INSTRUMENTED_POP_JUMP_IF_FALSE
+      | Op.INSTRUMENTED_POP_JUMP_IF_TRUE
+      | Op.INSTRUMENTED_POP_JUMP_IF_NONE
+      | Op.INSTRUMENTED_POP_JUMP_IF_NOT_NONE -> true
+      | _ -> false
 
-    member _.IsCJmpOnTrue = Terminator.futureFeature ()
+    member _.IsCJmpOnTrue =
+      match op with
+      | Op.POP_JUMP_IF_TRUE
+      | Op.INSTRUMENTED_POP_JUMP_IF_TRUE -> true
+      | _ -> false
 
     member _.IsCall = Terminator.futureFeature ()
 
@@ -74,15 +100,24 @@ type Instruction
 
     member _.IsPop = Terminator.futureFeature ()
 
-    member _.IsInterrupt = Terminator.futureFeature ()
+    member _.IsInterrupt = false
 
-    member _.IsExit = Terminator.futureFeature ()
+    member _.IsExit =
+      match op with
+      | Op.RETURN_VALUE | Op.RETURN_CONST
+      | Op.RAISE_VARARGS | Op.RERAISE
+      | Op.INTERPRETER_EXIT
+      | Op.INSTRUMENTED_RETURN_VALUE
+      | Op.INSTRUMENTED_RETURN_CONST -> true
+      | _ -> false
 
-    member _.IsNop = Terminator.futureFeature ()
+    member _.IsNop = op = Op.NOP
 
     member _.IsInlinedAssembly = false
 
-    member _.IsTerminator _ = Terminator.futureFeature ()
+    member this.IsTerminator _ =
+      let ins = this :> IInstruction
+      ins.IsBranch || ins.IsExit
 
     member _.DirectBranchTarget(_addr: byref<Addr>) =
       Terminator.futureFeature ()
