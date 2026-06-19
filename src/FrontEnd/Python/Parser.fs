@@ -27,6 +27,7 @@ namespace B2R2.FrontEnd.Python
 open B2R2
 open B2R2.FrontEnd.BinFile
 open B2R2.FrontEnd.BinLifter
+open B2R2.FrontEnd.Python.Parsing
 
 /// Represents a parser for Python instructions.
 type PythonParser(binFile: IBinFile, reader) =
@@ -38,11 +39,17 @@ type PythonParser(binFile: IBinFile, reader) =
         member _.Lift(ins, builder) = Lifter.translate ins ins.Length builder
         member _.Disasm(ins, builder) = Disasm.disasm ins builder; builder }
 
+  let parse span addr =
+    match binFile.Version with
+    | PythonVersion.Python312 ->
+      Parsing312.parse lifter span reader binFile addr
+    | v -> failwithf "Unsupported Python version for parsing: %A" v
+
   interface IInstructionParsable with
     member _.MaxInstructionSize = 4
 
     member _.Parse(span: ByteSpan, addr: Addr) =
-      ParsingMain.parse lifter span reader binFile addr :> IInstruction
+      parse span addr :> IInstruction
 
     member _.Parse(_bs: byte[], _addr: Addr) =
       Terminator.futureFeature () :> IInstruction

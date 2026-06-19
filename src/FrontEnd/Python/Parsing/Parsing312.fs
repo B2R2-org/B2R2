@@ -22,7 +22,7 @@
   SOFTWARE.
 *)
 
-module internal B2R2.FrontEnd.Python.ParsingMain
+module internal B2R2.FrontEnd.Python.Parsing.Parsing312
 
 open System
 open B2R2
