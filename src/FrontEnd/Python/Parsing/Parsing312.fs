@@ -22,6 +22,7 @@
   SOFTWARE.
 *)
 
+/// Implements parsing logic for Python 3.12.
 module internal B2R2.FrontEnd.Python.Parsing.Parsing312
 
 open System
@@ -30,16 +31,53 @@ open B2R2.FrontEnd.BinFile
 open B2R2.FrontEnd.BinLifter
 open B2R2.FrontEnd.Python
 
+(* LOAD_GLOBAL and LOAD_ATTR encode a flag in the low bit of arg;
+   the actual name index is arg >> 1. *)
+let private getIndex opcode (rawArg: int) =
+  match opcode with
+  | Op.LOAD_GLOBAL
+  | Op.LOAD_ATTR
+  | Op.LOAD_SUPER_ATTR
+  | Op.INSTRUMENTED_LOAD_SUPER_ATTR -> rawArg >>> 1
+  | _ -> rawArg
+
 let private getTable (binFile: PythonBinFile) = function
-  | Op.LOAD_CONST | Op.RETURN_CONST -> binFile.Consts
-  | Op.STORE_NAME | Op.IMPORT_NAME -> binFile.Names
-  | Op.STORE_FAST | Op.LOAD_FAST -> binFile.Varnames
-  | o -> printfn "Unsupported Opcode %A" o; [||]
+  | Op.LOAD_CONST
+  | Op.RETURN_CONST
+  | Op.KW_NAMES
+  | Op.INSTRUMENTED_RETURN_CONST -> binFile.Consts
+  | Op.LOAD_NAME
+  | Op.STORE_NAME
+  | Op.DELETE_NAME
+  | Op.STORE_ATTR
+  | Op.DELETE_ATTR
+  | Op.STORE_GLOBAL
+  | Op.DELETE_GLOBAL
+  | Op.LOAD_ATTR
+  | Op.IMPORT_NAME
+  | Op.IMPORT_FROM
+  | Op.LOAD_GLOBAL
+  | Op.LOAD_SUPER_ATTR
+  | Op.LOAD_FROM_DICT_OR_GLOBALS
+  | Op.INSTRUMENTED_LOAD_SUPER_ATTR -> binFile.Names
+  | Op.LOAD_FAST
+  | Op.STORE_FAST
+  | Op.DELETE_FAST
+  | Op.LOAD_FAST_CHECK
+  | Op.LOAD_FAST_AND_CLEAR
+  | Op.MAKE_CELL
+  | Op.LOAD_CLOSURE
+  | Op.LOAD_DEREF
+  | Op.STORE_DEREF
+  | Op.DELETE_DEREF
+  | Op.LOAD_FROM_DICT_OR_DEREF -> binFile.Varnames
+  | _ -> [||]
 
 let private parseOperand opcode (span: ReadOnlySpan<byte>) (reader: IBinReader)
   (binFile: PythonBinFile) addr instrLen =
   let tbl = getTable binFile opcode
-  let idx = reader.ReadUInt8(span, 1) |> int
+  let rawArg = reader.ReadUInt8(span, 1) |> int
+  let idx = getIndex opcode rawArg
   let cons =
     tbl
     |> Array.tryFind (fun (ar, _) -> ar.Min <= addr && ar.Max >= addr)
