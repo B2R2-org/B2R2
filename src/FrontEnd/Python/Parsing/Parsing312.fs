@@ -102,7 +102,7 @@ let private parseInstruction (span: ReadOnlySpan<byte>) reader bf addr extArg =
   | 0xCuy -> struct (Op.UNARY_NOT, NoOperand, 2u)
   | 0xFuy -> struct (Op.UNARY_INVERT, NoOperand, 2u)
   | 0x11uy -> struct (Op.RESERVED, NoOperand, 2u)
-  | 0x19uy -> struct (Op.BINARY_SUBSCR, NoOperand, 2u)
+  | 0x19uy -> struct (Op.BINARY_SUBSCR, NoOperand, 4u)
   | 0x1Auy -> struct (Op.BINARY_SLICE, NoOperand, 2u)
   | 0x1Buy -> struct (Op.STORE_SLICE, NoOperand, 2u)
   | 0x1Euy -> struct (Op.GET_LEN, NoOperand, 2u)
@@ -132,8 +132,8 @@ let private parseInstruction (span: ReadOnlySpan<byte>) reader bf addr extArg =
   | 0x59uy -> struct (Op.POP_EXCEPT, NoOperand, 2u)
   | 0x5Auy -> parseOperand Op.STORE_NAME span reader bf addr 2u extArg
   | 0x5Buy -> parseOperand Op.DELETE_NAME span reader bf addr 2u extArg
-  | 0x5Cuy -> parseOperand Op.UNPACK_SEQUENCE span reader bf addr 2u extArg
-  | 0x5Duy -> parseOperand Op.FOR_ITER span reader bf addr 2u extArg
+  | 0x5Cuy -> parseOperand Op.UNPACK_SEQUENCE span reader bf addr 4u extArg
+  | 0x5Duy -> parseOperand Op.FOR_ITER span reader bf addr 4u extArg
   | 0x5Euy -> parseOperand Op.UNPACK_EX span reader bf addr 2u extArg
   | 0x5Fuy -> parseOperand Op.STORE_ATTR span reader bf addr 10u extArg
   | 0x60uy -> parseOperand Op.DELETE_ATTR span reader bf addr 2u extArg
@@ -147,7 +147,7 @@ let private parseInstruction (span: ReadOnlySpan<byte>) reader bf addr extArg =
   | 0x68uy -> parseOperand Op.BUILD_SET span reader bf addr 2u extArg
   | 0x69uy -> parseOperand Op.BUILD_MAP span reader bf addr 2u extArg
   | 0x6Auy -> parseOperand Op.LOAD_ATTR span reader bf addr 20u extArg
-  | 0x6Buy -> parseOperand Op.COMPARE_OP span reader bf addr 2u extArg
+  | 0x6Buy -> parseOperand Op.COMPARE_OP span reader bf addr 4u extArg
   | 0x6Cuy -> parseOperand Op.IMPORT_NAME span reader bf addr 2u extArg
   | 0x6Duy -> parseOperand Op.IMPORT_FROM span reader bf addr 2u extArg
   | 0x6Euy -> parseOperand Op.JUMP_FORWARD span reader bf addr 2u extArg
@@ -160,7 +160,7 @@ let private parseInstruction (span: ReadOnlySpan<byte>) reader bf addr extArg =
   | 0x78uy -> parseOperand Op.COPY span reader bf addr 2u extArg
   | 0x79uy -> parseOperand Op.RETURN_CONST span reader bf addr 2u extArg
   | 0x7Auy -> parseOperand Op.BINARY_OP span reader bf addr 4u extArg
-  | 0x7Buy -> parseOperand Op.SEND span reader bf addr 2u extArg
+  | 0x7Buy -> parseOperand Op.SEND span reader bf addr 4u extArg
   | 0x7Cuy -> parseOperand Op.LOAD_FAST span reader bf addr 2u extArg
   | 0x7Duy -> parseOperand Op.STORE_FAST span reader bf addr 2u extArg
   | 0x7Euy -> parseOperand Op.DELETE_FAST span reader bf addr 2u extArg
@@ -180,7 +180,7 @@ let private parseInstruction (span: ReadOnlySpan<byte>) reader bf addr extArg =
   | 0x8Auy -> parseOperand Op.STORE_DEREF span reader bf addr 2u extArg
   | 0x8Buy -> parseOperand Op.DELETE_DEREF span reader bf addr 2u extArg
   | 0x8Cuy -> parseOperand Op.JUMP_BACKWARD span reader bf addr 2u extArg
-  | 0x8Duy -> parseOperand Op.LOAD_SUPER_ATTR span reader bf addr 2u extArg
+  | 0x8Duy -> parseOperand Op.LOAD_SUPER_ATTR span reader bf addr 20u extArg
   | 0x8Euy -> parseOperand Op.CALL_FUNCTION_EX span reader bf addr 2u extArg
   | 0x8Fuy ->
     parseOperand Op.LOAD_FAST_AND_CLEAR span reader bf addr 2u extArg
@@ -208,14 +208,14 @@ let private parseInstruction (span: ReadOnlySpan<byte>) reader bf addr extArg =
   | 0xB0uy ->
     parseOperand Op.LOAD_FROM_DICT_OR_DEREF span reader bf addr 2u extArg
   | 0xEDuy ->
-    parseOperand Op.INSTRUMENTED_LOAD_SUPER_ATTR span reader bf addr 2u extArg
+    parseOperand Op.INSTRUMENTED_LOAD_SUPER_ATTR span reader bf addr 20u extArg
   | 0xEEuy ->
     parseOperand Op.INSTRUMENTED_POP_JUMP_IF_NONE span reader bf addr 2u extArg
   | 0xEFuy ->
     parseOperand
       Op.INSTRUMENTED_POP_JUMP_IF_NOT_NONE span reader bf addr 2u extArg
   | 0xF0uy -> parseOperand Op.INSTRUMENTED_RESUME span reader bf addr 2u extArg
-  | 0xF1uy -> parseOperand Op.INSTRUMENTED_CALL span reader bf addr 2u extArg
+  | 0xF1uy -> parseOperand Op.INSTRUMENTED_CALL span reader bf addr 8u extArg
   | 0xF2uy ->
     parseOperand Op.INSTRUMENTED_RETURN_VALUE span reader bf addr 2u extArg
   | 0xF3uy ->
@@ -230,7 +230,7 @@ let private parseInstruction (span: ReadOnlySpan<byte>) reader bf addr extArg =
   | 0xF7uy ->
     parseOperand Op.INSTRUMENTED_RETURN_CONST span reader bf addr 2u extArg
   | 0xF8uy ->
-    parseOperand Op.INSTRUMENTED_FOR_ITER span reader bf addr 2u extArg
+    parseOperand Op.INSTRUMENTED_FOR_ITER span reader bf addr 4u extArg
   | 0xF9uy ->
     parseOperand
       Op.INSTRUMENTED_POP_JUMP_IF_FALSE span reader bf addr 2u extArg
