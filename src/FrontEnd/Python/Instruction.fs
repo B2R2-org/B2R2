@@ -29,7 +29,7 @@ open B2R2.FrontEnd.BinLifter
 
 /// Represents an instruction for Python.
 type Instruction
-  internal(addr, numBytes, op, opr, oprSize, lifter: ILiftable) =
+  internal(addr, numBytes, op, opr, oprSize, version, lifter: ILiftable) =
 
   /// Address of this instruction.
   member _.Address with get(): Addr = addr
@@ -45,6 +45,18 @@ type Instruction
 
   /// Operation Size.
   member _.OperationSize with get(): RegType = oprSize
+
+  /// Indicates whether this instruction has an additional flag enabled.
+  member _.Flag with get() =
+    match op with
+    | Op.LOAD_GLOBAL
+    | Op.LOAD_ATTR
+    | Op.LOAD_SUPER_ATTR
+    | Op.INSTRUMENTED_LOAD_SUPER_ATTR when PythonVersion.minor version >= 11 ->
+      match opr with
+      | OneOperand(idx, _) -> (idx &&& 1) = 1
+      | _ -> false
+    | _ -> false
 
   interface IInstruction with
 

@@ -258,7 +258,7 @@ let rec private doParse lifter (span: ReadOnlySpan<byte>) (reader: IBinReader)
   else
     let struct (opc, opr, len) = parseInstruction span reader bf c e
     let total = uint32 (c - s) + len
-    Instruction(s, total, opc, opr, 32<rt>, lifter)
+    Instruction(s, total, opc, opr, 32<rt>, bf.Version, lifter)
 
 let parse lifter (span: ByteSpan) (reader: IBinReader) binFile addr =
   doParse lifter span reader binFile addr addr 0
