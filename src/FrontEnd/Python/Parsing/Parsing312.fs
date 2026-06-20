@@ -31,16 +31,6 @@ open B2R2.FrontEnd.BinFile
 open B2R2.FrontEnd.BinLifter
 open B2R2.FrontEnd.Python
 
-(* LOAD_GLOBAL, LOAD_ATTR, and LOAD_SUPER_ATTR encode a flag in the low bit
-   of arg; the actual name index is arg >> 1. *)
-let private getIndex opcode (rawArg: int) =
-  match opcode with
-  | Op.LOAD_GLOBAL
-  | Op.LOAD_ATTR
-  | Op.LOAD_SUPER_ATTR
-  | Op.INSTRUMENTED_LOAD_SUPER_ATTR -> rawArg >>> 1
-  | _ -> rawArg
-
 let private getTable (binFile: PythonBinFile) = function
   | Op.LOAD_CONST
   | Op.RETURN_CONST
@@ -76,14 +66,25 @@ let private getTable (binFile: PythonBinFile) = function
 let private parseOperand opcode (span: ReadOnlySpan<byte>) (reader: IBinReader)
                          binFile addr instrLen extArg =
   let tbl = getTable binFile opcode
-  let rawArg = (reader.ReadUInt8(span, 1) |> int) ||| extArg
-  let idx = getIndex opcode rawArg
+  let idx = (reader.ReadUInt8(span, 1) |> int) ||| extArg
+  (* TODO: Optimize this using binary search. *)
   let cons =
     tbl
     |> Array.tryFind (fun (ar, _) -> ar.Min <= addr && ar.Max >= addr)
   let opr =
     match cons with
-    | Some(_, c) -> OneOperand(idx, Some <| c[idx])
+    | Some(_, c) ->
+      let minorVer = PythonVersion.minor binFile.Version
+      match opcode with
+      | Op.LOAD_GLOBAL
+      | Op.LOAD_ATTR
+      | Op.LOAD_SUPER_ATTR
+      | Op.INSTRUMENTED_LOAD_SUPER_ATTR when minorVer >= 11 ->
+        (* We truncate the LSB to correctly query the table while keeping the
+           original index for complete information. *)
+        OneOperand(idx, Some c[idx >>> 1])
+      | _ ->
+        OneOperand(idx, Some c[idx])
     | None -> OneOperand(idx, None)
   struct (opcode, opr, instrLen)
 
