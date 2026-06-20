@@ -439,6 +439,9 @@ and PythonVersion =
   /// Python 3.15.
   | Python315 = 315
 
+module PythonVersion =
+  let minor (ver: PythonVersion) = int ver % 100
+
 /// Provides active patterns for matching against specific ISAs.
 [<AutoOpen>]
 module ISA =
