@@ -130,6 +130,7 @@ and private evalBinOp st e1 e2 = function
   | BinOpType.FDIV -> evalBinOpConc st e1 e2 BitVector.FDiv
   | BinOpType.FPOW -> evalBinOpConc st e1 e2 BitVector.FPow
   | BinOpType.FLOG -> evalBinOpConc st e1 e2 BitVector.FLog
+  | BinOpType.APP -> Ok Undef
   | _ -> raise IllegalASTTypeException
 
 and private evalRelOp st e1 e2 = function
