@@ -7,6 +7,7 @@
   <ItemGroup>
     <Compile Include="RegisterSetTests.fs" />
     <Compile Include="NoOverlapIntervalMapTests.fs" />
+    <Compile Include="RingBufferTests.fs" />
     <Compile Include="LRUCacheTests.fs" />
     <Compile Include="WeakBucketTableTests.fs" />
     <Compile Include="FingerTreeTests.fs" />

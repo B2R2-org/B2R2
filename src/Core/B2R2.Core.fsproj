@@ -61,6 +61,7 @@
     <Compile Include="Collections\IntervalMap.fs" />
     <Compile Include="Collections\IntervalSet.fs" />
     <Compile Include="Collections\RandomAccessQueue.fs" />
+    <Compile Include="Collections\RingBuffer.fs" />
     <Compile Include="LoggingPrelude.fs" />
     <Compile Include="Meta.fs" />
     <None Include="..\..\LICENSE.md" Pack="true" PackagePath="" />
