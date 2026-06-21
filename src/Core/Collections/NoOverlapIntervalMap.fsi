@@ -256,6 +256,38 @@ module NoOverlapIntervalMap =
     -> 'V option
 
   /// <summary>
+  ///   Finds the nearest interval below the given address and returns an
+  ///   option-wrapped type. The returned interval does not include the given
+  ///   address.
+  /// </summary>
+  /// <param name="addr">The address.</param>
+  /// <param name="tree">The interval tree.</param>
+  /// <returns>
+  ///   The nearest lower interval and its associated value.
+  /// </returns>
+  [<CompiledName("TryFindPreviousByAddr")>]
+  val tryFindPreviousByAddr:
+       addr: Addr
+    -> tree: NoOverlapIntervalMap<'V>
+    -> (AddrRange * 'V) option
+
+  /// <summary>
+  ///   Finds the nearest interval above the given address and returns an
+  ///   option-wrapped type. The returned interval does not include the given
+  ///   address.
+  /// </summary>
+  /// <param name="addr">The address.</param>
+  /// <param name="tree">The interval tree.</param>
+  /// <returns>
+  ///   The nearest upper interval and its associated value.
+  /// </returns>
+  [<CompiledName("TryFindNextByAddr")>]
+  val tryFindNextByAddr:
+       addr: Addr
+    -> tree: NoOverlapIntervalMap<'V>
+    -> (AddrRange * 'V) option
+
+  /// <summary>
   ///   Returns the number of bindings in the interval map.
   /// </summary>
   /// <param name="tree">The interval tree.</param>

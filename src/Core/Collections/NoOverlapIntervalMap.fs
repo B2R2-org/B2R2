@@ -207,6 +207,26 @@ module NoOverlapIntervalMap =
     | Ok(_, v) -> Some v
     | _ -> None
 
+  let rec private findPreviousByAddrLoop addr candidate = function
+    | Leaf _ -> candidate
+    | Node(_, k, v, l, r) ->
+      if addr > k.Max then findPreviousByAddrLoop addr (Some(k, v)) r
+      else findPreviousByAddrLoop addr candidate l
+
+  [<CompiledName("TryFindPreviousByAddr")>]
+  let tryFindPreviousByAddr addr tree =
+    findPreviousByAddrLoop addr None tree
+
+  let rec private findNextByAddrLoop addr candidate = function
+    | Leaf _ -> candidate
+    | Node(_, k, v, l, r) ->
+      if addr < k.Min then findNextByAddrLoop addr (Some(k, v)) l
+      else findNextByAddrLoop addr candidate r
+
+  [<CompiledName("TryFindNextByAddr")>]
+  let tryFindNextByAddr addr tree =
+    findNextByAddrLoop addr None tree
+
   [<CompiledName("FindByAddr")>]
   let findByAddr addr tree =
     match findLoop false (AddrRange.singleton addr) tree with

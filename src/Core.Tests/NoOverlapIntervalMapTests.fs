@@ -119,6 +119,27 @@ type NoOverlapIntervalMapTests() =
     Assert.AreEqual<AddrRange>(r2, NoOverlapIntervalMap.findRangeByAddr 1UL m)
 
   [<TestMethod>]
+  member _.``Previous and Next By Address``() =
+    let r1 = AddrRange.create 100UL 199UL
+    let r2 = AddrRange.create 300UL 399UL
+    let r3 = AddrRange.create 500UL 599UL
+    let m =
+      NoOverlapIntervalMap.empty
+      |> NoOverlapIntervalMap.add r2 2
+      |> NoOverlapIntervalMap.add r1 1
+      |> NoOverlapIntervalMap.add r3 3
+    let prevRange, prevValue =
+      NoOverlapIntervalMap.tryFindPreviousByAddr 450UL m |> Option.get
+    let nextRange, nextValue =
+      NoOverlapIntervalMap.tryFindNextByAddr 450UL m |> Option.get
+    Assert.AreEqual<AddrRange>(r2, prevRange)
+    Assert.AreEqual<int>(2, prevValue)
+    Assert.AreEqual<AddrRange>(r3, nextRange)
+    Assert.AreEqual<int>(3, nextValue)
+    Assert.AreEqual(None, NoOverlapIntervalMap.tryFindPreviousByAddr 100UL m)
+    Assert.AreEqual(None, NoOverlapIntervalMap.tryFindNextByAddr 599UL m)
+
+  [<TestMethod>]
   member _.``Remove Last Binding``() =
     let r = AddrRange.create 100UL 199UL
     let m =
