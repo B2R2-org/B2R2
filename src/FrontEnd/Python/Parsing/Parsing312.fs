@@ -67,10 +67,8 @@ let private parseOperand opcode (span: ReadOnlySpan<byte>) (reader: IBinReader)
                          binFile addr instrLen extArg =
   let tbl = getTable binFile opcode
   let idx = (reader.ReadUInt8(span, 1) |> int) ||| extArg
-  (* TODO: Optimize this using binary search. *)
   let cons =
-    tbl
-    |> Array.tryFind (fun (ar, _) -> ar.Min <= addr && ar.Max >= addr)
+    tbl |> Array.tryFind (fun (ar, _) -> ar.Min <= addr && ar.Max >= addr)
   let opr =
     match cons with
     | Some(_, c) ->
@@ -85,6 +83,7 @@ let private parseOperand opcode (span: ReadOnlySpan<byte>) (reader: IBinReader)
         OneOperand(idx, Some c[idx >>> 1])
       | _ ->
         OneOperand(idx, Some c[idx])
+    (* This can happen when performing linear sweep on a non-code region. *)
     | None -> OneOperand(idx, None)
   struct (opcode, opr, instrLen)
 
@@ -259,7 +258,7 @@ let rec private doParse lifter (span: ReadOnlySpan<byte>) (reader: IBinReader)
   else
     let struct (opc, opr, len) = parseInstruction span reader bf c e
     let total = uint32 (c - s) + len
-    Instruction(s, total, opc, opr, 32<rt>, bf.Version, lifter)
+    Instruction(s, total, opc, opr, OperationSize.regType, bf.Version, lifter)
 
 let parse lifter (span: ByteSpan) (reader: IBinReader) binFile addr =
   doParse lifter span reader binFile addr addr 0

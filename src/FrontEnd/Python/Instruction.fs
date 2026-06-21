@@ -106,6 +106,7 @@ type Instruction
       | Op.JUMP_FORWARD | Op.JUMP_BACKWARD
       | Op.JUMP_BACKWARD_NO_INTERRUPT
       | Op.JUMP | Op.JUMP_NO_INTERRUPT
+      | Op.JUMP_ABSOLUTE | Op.POP_JUMP_IF_TRUE | Op.POP_JUMP_IF_FALSE
       | Op.POP_JUMP_IF_FALSE | Op.POP_JUMP_IF_TRUE
       | Op.POP_JUMP_IF_NONE | Op.POP_JUMP_IF_NOT_NONE
       | Op.FOR_ITER | Op.SEND
@@ -141,9 +142,15 @@ type Instruction
       | Op.INSTRUMENTED_POP_JUMP_IF_TRUE -> true
       | _ -> false
 
-    member _.IsCall = Terminator.futureFeature ()
+    member _.IsCall =
+      match op with
+      | Op.CALL | Op.INSTRUMENTED_CALL -> true
+      | _ -> false
 
-    member _.IsRET = Terminator.futureFeature ()
+    member _.IsRET =
+      match op with
+      | Op.RETURN_VALUE | Op.INSTRUMENTED_RETURN_VALUE | Op.RETURN_CONST -> true
+      | _ -> false
 
     member _.IsPush = Terminator.futureFeature ()
 
@@ -176,7 +183,7 @@ type Instruction
 
     member _.MemoryDereferences(_: byref<Addr[]>) = Terminator.futureFeature ()
 
-    member _.Immediate(_v: byref<int64>) = Terminator.futureFeature ()
+    member _.Immediate _ = false
 
     member this.GetNextInstrAddrs() =
       let ft = this.Address + uint64 this.Length

@@ -42,16 +42,21 @@ do ()
 /// Represents a factory for accessing various Python register variables.
 /// </summary>
 type RegisterFactory(isa: ISA) =
+  let pcRID = Register.PC |> Register.toRegID
+  let spRID = Register.SP |> Register.toRegID
+
   interface IRegisterFactory with
     member _.ISA = isa
 
-    member _.ProgramCounter = Terminator.futureFeature ()
+    member _.ProgramCounter = pcRID
 
-    member _.StackPointer = Terminator.futureFeature ()
+    member _.StackPointer = Some spRID
 
-    member _.FramePointer = Terminator.futureFeature ()
+    member _.FramePointer = None
 
-    member _.GetRegVar(_: RegisterID): Expr = Terminator.futureFeature ()
+    member _.GetRegVar(rid: RegisterID): Expr =
+      let r = Register.ofRegID rid
+      AST.var OperationSize.regType rid (Register.toString r)
 
     member _.GetRegVar(_: string): Expr = Terminator.futureFeature ()
 
@@ -67,14 +72,14 @@ type RegisterFactory(isa: ISA) =
 
     member _.GetRegisterIDAliases _ = Terminator.futureFeature ()
 
-    member _.GetRegisterName _rid = Terminator.futureFeature ()
+    member _.GetRegisterName rid = rid |> Register.ofRegID |> Register.toString
 
     member _.GetAllRegisterNames() = [||]
 
-    member _.GetRegType _rid = Terminator.futureFeature ()
+    member _.GetRegType _ = OperationSize.regType
 
-    member _.IsProgramCounter _regid = Terminator.futureFeature ()
+    member _.IsProgramCounter regid = regid = pcRID
 
-    member _.IsStackPointer _regid = Terminator.futureFeature ()
+    member _.IsStackPointer regid = regid = spRID
 
     member _.IsFramePointer _ = false

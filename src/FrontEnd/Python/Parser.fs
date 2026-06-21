@@ -36,7 +36,7 @@ type PythonParser(binFile: IBinFile, reader) =
 
   let lifter =
     { new ILiftable with
-        member _.Lift(ins, builder) = Lifter.translate ins ins.Length builder
+        member _.Lift(ins, builder) = Lifter.translate binFile ins builder
         member _.Disasm(ins, builder) = Disasm.disasm ins builder; builder }
 
   let parse span addr =
