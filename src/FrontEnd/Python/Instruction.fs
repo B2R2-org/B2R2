@@ -31,6 +31,43 @@ open B2R2.FrontEnd.BinLifter
 type Instruction
   internal(addr, numBytes, op, opr, oprSize, version, lifter: ILiftable) =
 
+  let computeBranchTargetAddr ftAddr n =
+    let minor = PythonVersion.minor version
+    let n = uint64 n
+    if minor <= 10 then (* Byte-offset, mostly absolute *)
+      match op with
+      | Op.JUMP_FORWARD | Op.FOR_ITER -> ftAddr + n
+      | Op.JUMP_ABSOLUTE | Op.POP_JUMP_IF_TRUE | Op.POP_JUMP_IF_FALSE
+      | Op.JUMP_IF_TRUE_OR_POP | Op.JUMP_IF_FALSE_OR_POP -> n
+      | _ -> failwith "Invalid opcode for branch target computation"
+    elif minor = 11 then (* Word-offset, relative *)
+      match op with
+      | Op.JUMP_FORWARD | Op.FOR_ITER | Op.SEND
+      | Op.POP_JUMP_IF_TRUE | Op.POP_JUMP_IF_FALSE
+      | Op.POP_JUMP_FORWARD_IF_NONE | Op.POP_JUMP_FORWARD_IF_NOT_NONE ->
+        ftAddr + 2UL * n
+      | Op.POP_JUMP_BACKWARD_IF_TRUE | Op.POP_JUMP_BACKWARD_IF_FALSE
+      | Op.POP_JUMP_BACKWARD_IF_NONE | Op.POP_JUMP_BACKWARD_IF_NOT_NONE ->
+        ftAddr - 2UL * n
+      | Op.JUMP_ABSOLUTE
+      | Op.JUMP_IF_TRUE_OR_POP | Op.JUMP_IF_FALSE_OR_POP -> 2UL * n
+      | _ -> failwith "Invalid opcode for branch target computation"
+    elif minor >= 12 then (* Word-offset, relative *)
+      match op with
+      | Op.JUMP_FORWARD
+      | Op.POP_JUMP_IF_TRUE | Op.POP_JUMP_IF_FALSE
+      | Op.POP_JUMP_IF_NONE | Op.POP_JUMP_IF_NOT_NONE
+      | Op.FOR_ITER | Op.SEND
+      | Op.INSTRUMENTED_JUMP_FORWARD | Op.INSTRUMENTED_FOR_ITER
+      | Op.INSTRUMENTED_POP_JUMP_IF_TRUE | Op.INSTRUMENTED_POP_JUMP_IF_FALSE
+      | Op.INSTRUMENTED_POP_JUMP_IF_NONE | Op.INSTRUMENTED_POP_JUMP_IF_NOT_NONE
+        -> ftAddr + 2UL * n
+      | Op.JUMP_BACKWARD | Op.JUMP_BACKWARD_NO_INTERRUPT
+      | Op.INSTRUMENTED_JUMP_BACKWARD -> ftAddr - 2UL * n
+      | _ -> failwith "Invalid opcode for branch target computation"
+    else
+      Terminator.futureFeature ()
+
   /// Address of this instruction.
   member _.Address with get(): Addr = addr
 
@@ -141,7 +178,23 @@ type Instruction
 
     member _.Immediate(_v: byref<int64>) = Terminator.futureFeature ()
 
-    member _.GetNextInstrAddrs() = Terminator.futureFeature ()
+    member this.GetNextInstrAddrs() =
+      let ft = this.Address + uint64 this.Length
+      if (this :> IInstruction).IsExit || (this :> IInstruction).IsRET then
+        [||]
+      elif (this :> IInstruction).IsBranch then
+        let target =
+          this.Operands
+          |> function
+            | OneOperand(n, _) -> n
+            | _ -> failwith "Python instruction can have at most one operand."
+          |> computeBranchTargetAddr ft
+        if (this :> IInstruction).IsCondBranch then
+          [| target; ft |]
+        else
+          [| target |]
+      else
+        [| ft |]
 
     member _.InterruptNum(_num: byref<int64>) = Terminator.futureFeature ()
 
