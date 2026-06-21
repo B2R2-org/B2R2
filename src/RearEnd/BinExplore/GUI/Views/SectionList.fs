@@ -31,6 +31,7 @@ open Avalonia.Media
 open Avalonia.FuncUI
 open Avalonia.FuncUI.DSL
 open Avalonia.FuncUI.Types
+open B2R2
 open B2R2.FrontEnd.BinFile
 
 let private panelHeaderView model =

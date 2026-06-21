@@ -22,33 +22,32 @@
   SOFTWARE.
 *)
 
-namespace B2R2.FrontEnd.BinFile
+namespace B2R2
 
 open System
 
-/// Represents a file permission. Each permission corresponds to a bit, and
+/// Represents access permissions. Each permission corresponds to a bit, and
 /// thus, multiple permissions can be OR-ed.
 [<Flags>]
 type Permission =
-  /// File is readable.
+  /// Readable.
   | Readable = 4
-  /// File is writable.
+  /// Writable.
   | Writable = 2
-  /// File is executable.
+  /// Executable.
   | Executable = 1
 
 /// <summary>
-/// Provides functions to work with <see
-/// cref='T:B2R2.FrontEnd.BinFile.Permission'/>.
+/// Provides functions to work with <see cref='T:B2R2.Permission'/>.
 /// </summary>
 [<RequireQualifiedAccess>]
 module Permission =
   /// <summary>
-  /// Converts a <see cref='T:B2R2.FrontEnd.BinFile.Permission'/> into a string
-  /// of the form "rwx", where each absent permission is shown as a dash, e.g.,
-  /// "r-x" for a readable and executable permission.
+  /// Converts a <see cref='T:B2R2.Permission'/> into a string of the form
+  /// "rwx", where each absent permission is shown as a dash, e.g., "r-x" for
+  /// a readable and executable permission.
   /// </summary>
-  [<CompiledName ("ToString")>]
+  [<CompiledName "ToString">]
   let toString (p: Permission) =
     let r = if p.HasFlag Permission.Readable then "r" else "-"
     let w = if p.HasFlag Permission.Writable then "w" else "-"
