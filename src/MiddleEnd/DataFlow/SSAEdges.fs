@@ -76,6 +76,8 @@ type SSAEdges(ssaCFG: IDiGraphAccessible<SSABasicBlock, CFGEdgeKind>) =
       computeUses loc e
     | SSA.Extract(e, _, _) ->
       computeUses loc e
+    | SSA.ExprList es ->
+      es |> List.iter (computeUses loc)
     | _ -> ()
 
   /// Computes SSA edge map (SSA Var -> a set of (VertexID, Stmt idx)). From a
