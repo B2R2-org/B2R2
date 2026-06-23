@@ -30,6 +30,8 @@ type SyscallConvention =
     NumberRegister: RegisterID
     /// Register holding the syscall return value.
     ReturnRegister: RegisterID
+    /// How the call reports failure.
+    Error: SyscallError
     /// Argument locations in order (index 0 is the first argument). A trailing
     /// Stack element, if present, is a rule that covers every argument beyond
     /// the array as well.
@@ -43,3 +45,16 @@ with
   /// index. Raises if the argument is not passed in a single register.
   member this.ArgRegister(i) =
     this.GetArgLocation(i) |> ArgLocation.toRegister
+
+/// Describes how a system call reports failure.
+and SyscallError =
+  /// The return register itself carries the error: on failure it holds a value
+  /// in the negative errno range (e.g. -4095..-1 on Linux), so negating it
+  /// yields the errno. The common convention on x86, x64, and ARM.
+  | NegatedErrno
+  /// A dedicated flag register reports the error: when it is non-zero, the
+  /// return register holds the (positive) errno. Used by MIPS ($a3).
+  | FlagRegister of RegisterID
+  /// The return register holds a self-describing status code whose sign encodes
+  /// success or failure (e.g. an NTSTATUS on Windows), with no separate errno.
+  | StatusCode

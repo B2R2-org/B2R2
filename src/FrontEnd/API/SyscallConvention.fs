@@ -45,6 +45,7 @@ let private reg r = ArgLocation.Reg r
 let private linuxX86 () =
   { NumberRegister = intel Intel.Register.EAX
     ReturnRegister = intel Intel.Register.EAX
+    Error = NegatedErrno
     Args =
       [| reg (intel Intel.Register.EBX)
          reg (intel Intel.Register.ECX)
@@ -56,6 +57,7 @@ let private linuxX86 () =
 let private linuxX64 () =
   { NumberRegister = intel Intel.Register.RAX
     ReturnRegister = intel Intel.Register.RAX
+    Error = NegatedErrno
     Args =
       [| reg (intel Intel.Register.RDI)
          reg (intel Intel.Register.RSI)
@@ -67,6 +69,7 @@ let private linuxX64 () =
 let private linuxARM32 () =
   { NumberRegister = arm32 ARM32.Register.R7
     ReturnRegister = arm32 ARM32.Register.R0
+    Error = NegatedErrno
     Args =
       [| reg (arm32 ARM32.Register.R0)
          reg (arm32 ARM32.Register.R1)
@@ -78,6 +81,7 @@ let private linuxARM32 () =
 let private linuxAArch64 () =
   { NumberRegister = arm64 ARM64.Register.X8
     ReturnRegister = arm64 ARM64.Register.X0
+    Error = NegatedErrno
     Args =
       [| reg (arm64 ARM64.Register.X0)
          reg (arm64 ARM64.Register.X1)
@@ -89,6 +93,7 @@ let private linuxAArch64 () =
 let private linuxMIPS () =
   { NumberRegister = mips MIPS.Register.R2
     ReturnRegister = mips MIPS.Register.R2
+    Error = FlagRegister(mips MIPS.Register.R7)
     Args =
       [| reg (mips MIPS.Register.R4)
          reg (mips MIPS.Register.R5)
@@ -100,11 +105,13 @@ let private linuxMIPS () =
 let private windowsX86 () = (* args on the stack via the stdcall Nt* stub *)
   { NumberRegister = intel Intel.Register.EAX
     ReturnRegister = intel Intel.Register.EAX
+    Error = StatusCode
     Args = [| ArgLocation.Stack { FirstOffset = 4; SlotSize = 4 } |] }
 
 let private windowsX64 () = (* first arg in R10, not RCX *)
   { NumberRegister = intel Intel.Register.RAX
     ReturnRegister = intel Intel.Register.RAX
+    Error = StatusCode
     Args =
       [| reg (intel Intel.Register.R10)
          reg (intel Intel.Register.RDX)

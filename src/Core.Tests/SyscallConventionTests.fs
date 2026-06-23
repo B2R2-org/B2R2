@@ -35,6 +35,7 @@ type SyscallConventionTests() =
   let sample =
     { NumberRegister = r 0
       ReturnRegister = r 0
+      Error = SyscallError.NegatedErrno
       Args =
         [| ArgLocation.Reg(r 1)
            ArgLocation.Reg(r 2)
