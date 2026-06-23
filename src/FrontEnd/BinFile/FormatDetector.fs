@@ -55,8 +55,8 @@ let private identifyWASM bytes isa =
 
 let private identifyPython bytes isa =
   let reader = BinReader.Init Endian.Little
-  if Python.Helper.isPython bytes reader then
-    Some struct (FileFormat.PythonBinary, isa)
+  if Python.Helper.isPythonBytecode bytes reader then
+    Some struct (FileFormat.PythonBinary, ISA Architecture.Python)
   else None
 
 let private identifyHexString (bytes: byte[]) isa =

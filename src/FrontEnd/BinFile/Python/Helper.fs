@@ -27,20 +27,32 @@ module internal B2R2.FrontEnd.BinFile.Python.Helper
 open B2R2
 open B2R2.FrontEnd.BinLifter
 
-/// Magic value.
-let [<Literal>] PyMagic = 0x0A0D0DCBu
+type private PyMagic =
+  | PyMagic306 = 0x0A0D0D33u (* 3.6: 3379 *)
+  | PyMagic307 = 0x0A0D0D42u (* 3.7: 3394 *)
+  | PyMagic308 = 0x0A0D0D55u (* 3.8: 3413 *)
+  | PyMagic309 = 0x0A0D0D61u (* 3.9: 3425 *)
+  | PyMagic310 = 0x0A0D0D6Fu (* 3.10: 3439 *)
+  | PyMagic311 = 0x0A0D0DA7u (* 3.11: 3495 *)
+  | PyMagic312 = 0x0A0D0DCBu (* 3.12: 3531 *)
+  | PyMagic313 = 0x0A0D0DF3u (* 3.13: 3571 *)
+  | PyMagic314 = 0x0A0D0E0Cu (* 3.14: 3596 *)
 
-let isPython (bytes: byte[]) (reader: IBinReader) =
-  if bytes.Length >= 4 then reader.ReadUInt32(bytes, 0) = PyMagic
-  else false
+let isPythonBytecode (bytes: byte[]) (reader: IBinReader) =
+  if bytes.Length >= 4 then
+    let m = reader.ReadUInt32(bytes, 0)
+    PyMagic.IsDefined(typeof<PyMagic>, m)
+  else
+    false
 
-let readFlagAndMarshalledType (bytes: byte[]) (reader: IBinReader) offset =
+let private readFlagAndMarshalledType (bytes: byte[]) (reader: IBinReader)
+                                      offset =
   let b = reader.ReadUInt8(bytes, offset) |> int
   let flag = b &&& 0x80
   let typ: MarshalledType = (b &&& (~~~0x80)) |> LanguagePrimitives.EnumOfValue
   struct (flag, typ, offset + 1)
 
-let rec pyObjToString = function
+let rec private pyObjToString = function
   | PyString s -> System.Text.Encoding.ASCII.GetString s
   | PyAscii str | PyShortAsciiInterned str | PyShortAscii str -> str
   | PyInt i -> i.ToString()
@@ -51,7 +63,7 @@ let rec pyObjToString = function
   | PyNone -> "None"
   | o -> failwithf "Error PyObjToString (%A)" o
 
-let readInt (bytes: byte[]) (reader: IBinReader) offset size =
+let private readInt (bytes: byte[]) (reader: IBinReader) offset size =
   match size with
   | 1 -> reader.ReadUInt8(bytes, offset) |> int, offset + size
   | 4 -> reader.ReadUInt32(bytes, offset) |> int, offset + size
@@ -194,3 +206,19 @@ let extractNames pyObj =
       | o -> failwithf "Invalid PyCodeObject(%A)" o
     | _ -> acc
   collect [] pyObj |> List.toArray
+
+let getVersionFromMagicNumber (magic: uint32) =
+  if System.Enum.IsDefined(typeof<PyMagic>, magic) then
+      match LanguagePrimitives.EnumOfValue magic with
+      | PyMagic.PyMagic306 -> PythonVersion.Python306
+      | PyMagic.PyMagic307 -> PythonVersion.Python307
+      | PyMagic.PyMagic308 -> PythonVersion.Python308
+      | PyMagic.PyMagic309 -> PythonVersion.Python309
+      | PyMagic.PyMagic310 -> PythonVersion.Python310
+      | PyMagic.PyMagic311 -> PythonVersion.Python311
+      | PyMagic.PyMagic312 -> PythonVersion.Python312
+      | PyMagic.PyMagic313 -> PythonVersion.Python313
+      | PyMagic.PyMagic314 -> PythonVersion.Python314
+      | _ -> failwithf "Unsupported magic number: 0x%X" magic
+    else
+      failwithf "Unknown Python bytecode magic-number: 0x%X" magic

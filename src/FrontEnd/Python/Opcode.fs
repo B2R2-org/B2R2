@@ -88,6 +88,9 @@ type Opcode =
   | IMPORT_NAME = 0x6C
   | IMPORT_FROM = 0x6D
   | JUMP_FORWARD = 0x6E
+  | JUMP_IF_FALSE_OR_POP = 0x6F (* Removed in 3.12 *)
+  | JUMP_IF_TRUE_OR_POP = 0x70 (* Removed in 3.12 *)
+  | JUMP_ABSOLUTE = 0x71 (* Removed in 3.12 *)
   | POP_JUMP_IF_FALSE = 0x72
   | POP_JUMP_IF_TRUE = 0x73
   | LOAD_GLOBAL = 0x74
@@ -168,5 +171,14 @@ type Opcode =
   | LOAD_ZERO_SUPER_METHOD = 0x108
   | LOAD_ZERO_SUPER_ATTR = 0x109
   | STORE_FAST_MAYBE_NULL = 0x10A
+  (* Python 3.11-specific: FORWARD/BACKWARD variants of
+     POP_JUMP_IF_NONE/NOT_NONE. We note that two opcodes overlap with Python
+     3.12's different opcodes, so we assign them to pseudo-opcodes here. *)
+  | POP_JUMP_FORWARD_IF_NONE = 0x10B
+  | POP_JUMP_FORWARD_IF_NOT_NONE = 0x10C
+  | POP_JUMP_BACKWARD_IF_FALSE = 0x10D
+  | POP_JUMP_BACKWARD_IF_TRUE = 0x10E
+  | POP_JUMP_BACKWARD_IF_NONE = 0x10F
+  | POP_JUMP_BACKWARD_IF_NOT_NONE = 0x110
 
 type internal Op = Opcode
