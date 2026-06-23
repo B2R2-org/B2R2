@@ -40,6 +40,18 @@ let inline private arm64 r = ARM64.Register.toRegID r
 
 let inline private mips r = MIPS.Register.toRegID r
 
+let inline private ppc r = PPC32.Register.toRegID r
+
+let inline private riscv r = RISCV64.Register.toRegID r
+
+let inline private sparc r = SPARC.Register.toRegID r
+
+let inline private s390 r = S390.Register.toRegID r
+
+let inline private sh4 r = SH4.Register.toRegID r
+
+let inline private parisc r = PARISC.Register.toRegID r
+
 let private linuxX86 () = (* cdecl: all integer arguments on the stack *)
   { Args = [| ArgLocation.Stack { FirstOffset = 4; SlotSize = 4 } |]
     ReturnLocation = ArgLocation.Reg(intel Intel.Register.EAX)
@@ -162,6 +174,224 @@ let private linuxMIPS () =
             mips MIPS.Register.R14
             mips MIPS.Register.R15 ] }
 
+let private linuxPPC32 () = (* System V PowerPC ABI *)
+  { Args =
+      [| ArgLocation.Reg(ppc PPC32.Register.R3)
+         ArgLocation.Reg(ppc PPC32.Register.R4)
+         ArgLocation.Reg(ppc PPC32.Register.R5)
+         ArgLocation.Reg(ppc PPC32.Register.R6)
+         ArgLocation.Reg(ppc PPC32.Register.R7)
+         ArgLocation.Reg(ppc PPC32.Register.R8)
+         ArgLocation.Reg(ppc PPC32.Register.R9)
+         ArgLocation.Reg(ppc PPC32.Register.R10) |]
+    ReturnLocation = ArgLocation.Reg(ppc PPC32.Register.R3)
+    CalleeSavedRegisters =
+      set [ ppc PPC32.Register.R1
+            ppc PPC32.Register.R14
+            ppc PPC32.Register.R15
+            ppc PPC32.Register.R16
+            ppc PPC32.Register.R17
+            ppc PPC32.Register.R18
+            ppc PPC32.Register.R19
+            ppc PPC32.Register.R20
+            ppc PPC32.Register.R21
+            ppc PPC32.Register.R22
+            ppc PPC32.Register.R23
+            ppc PPC32.Register.R24
+            ppc PPC32.Register.R25
+            ppc PPC32.Register.R26
+            ppc PPC32.Register.R27
+            ppc PPC32.Register.R28
+            ppc PPC32.Register.R29
+            ppc PPC32.Register.R30
+            ppc PPC32.Register.R31 ]
+    CallerSavedRegisters =
+      set [ ppc PPC32.Register.R0
+            ppc PPC32.Register.R3
+            ppc PPC32.Register.R4
+            ppc PPC32.Register.R5
+            ppc PPC32.Register.R6
+            ppc PPC32.Register.R7
+            ppc PPC32.Register.R8
+            ppc PPC32.Register.R9
+            ppc PPC32.Register.R10
+            ppc PPC32.Register.R11
+            ppc PPC32.Register.R12 ] }
+
+let private linuxRISCV64 () = (* RISC-V LP64 ABI *)
+  { Args =
+      [| ArgLocation.Reg(riscv RISCV64.Register.X10)
+         ArgLocation.Reg(riscv RISCV64.Register.X11)
+         ArgLocation.Reg(riscv RISCV64.Register.X12)
+         ArgLocation.Reg(riscv RISCV64.Register.X13)
+         ArgLocation.Reg(riscv RISCV64.Register.X14)
+         ArgLocation.Reg(riscv RISCV64.Register.X15)
+         ArgLocation.Reg(riscv RISCV64.Register.X16)
+         ArgLocation.Reg(riscv RISCV64.Register.X17) |]
+    ReturnLocation = ArgLocation.Reg(riscv RISCV64.Register.X10)
+    CalleeSavedRegisters =
+      set [ riscv RISCV64.Register.X2
+            riscv RISCV64.Register.X8
+            riscv RISCV64.Register.X9
+            riscv RISCV64.Register.X18
+            riscv RISCV64.Register.X19
+            riscv RISCV64.Register.X20
+            riscv RISCV64.Register.X21
+            riscv RISCV64.Register.X22
+            riscv RISCV64.Register.X23
+            riscv RISCV64.Register.X24
+            riscv RISCV64.Register.X25
+            riscv RISCV64.Register.X26
+            riscv RISCV64.Register.X27 ]
+    CallerSavedRegisters =
+      set [ riscv RISCV64.Register.X1
+            riscv RISCV64.Register.X5
+            riscv RISCV64.Register.X6
+            riscv RISCV64.Register.X7
+            riscv RISCV64.Register.X10
+            riscv RISCV64.Register.X11
+            riscv RISCV64.Register.X12
+            riscv RISCV64.Register.X13
+            riscv RISCV64.Register.X14
+            riscv RISCV64.Register.X15
+            riscv RISCV64.Register.X16
+            riscv RISCV64.Register.X17
+            riscv RISCV64.Register.X28
+            riscv RISCV64.Register.X29
+            riscv RISCV64.Register.X30
+            riscv RISCV64.Register.X31 ] }
+
+let private linuxSPARC () = (* SPARC: caller's outs become callee's ins *)
+  { Args =
+      [| ArgLocation.Reg(sparc SPARC.Register.O0)
+         ArgLocation.Reg(sparc SPARC.Register.O1)
+         ArgLocation.Reg(sparc SPARC.Register.O2)
+         ArgLocation.Reg(sparc SPARC.Register.O3)
+         ArgLocation.Reg(sparc SPARC.Register.O4)
+         ArgLocation.Reg(sparc SPARC.Register.O5) |]
+    ReturnLocation = ArgLocation.Reg(sparc SPARC.Register.O0)
+    CalleeSavedRegisters =
+      set [ sparc SPARC.Register.L0
+            sparc SPARC.Register.L1
+            sparc SPARC.Register.L2
+            sparc SPARC.Register.L3
+            sparc SPARC.Register.L4
+            sparc SPARC.Register.L5
+            sparc SPARC.Register.L6
+            sparc SPARC.Register.L7
+            sparc SPARC.Register.I0
+            sparc SPARC.Register.I1
+            sparc SPARC.Register.I2
+            sparc SPARC.Register.I3
+            sparc SPARC.Register.I4
+            sparc SPARC.Register.I5
+            sparc SPARC.Register.I6
+            sparc SPARC.Register.I7 ]
+    CallerSavedRegisters =
+      set [ sparc SPARC.Register.G1
+            sparc SPARC.Register.G2
+            sparc SPARC.Register.G3
+            sparc SPARC.Register.G4
+            sparc SPARC.Register.G5
+            sparc SPARC.Register.O0
+            sparc SPARC.Register.O1
+            sparc SPARC.Register.O2
+            sparc SPARC.Register.O3
+            sparc SPARC.Register.O4
+            sparc SPARC.Register.O5
+            sparc SPARC.Register.O7 ] }
+
+let private linuxS390 () = (* IBM Z (s390x) ELF ABI *)
+  { Args =
+      [| ArgLocation.Reg(s390 S390.Register.R2)
+         ArgLocation.Reg(s390 S390.Register.R3)
+         ArgLocation.Reg(s390 S390.Register.R4)
+         ArgLocation.Reg(s390 S390.Register.R5)
+         ArgLocation.Reg(s390 S390.Register.R6) |]
+    ReturnLocation = ArgLocation.Reg(s390 S390.Register.R2)
+    CalleeSavedRegisters =
+      set [ s390 S390.Register.R6
+            s390 S390.Register.R7
+            s390 S390.Register.R8
+            s390 S390.Register.R9
+            s390 S390.Register.R10
+            s390 S390.Register.R11
+            s390 S390.Register.R12
+            s390 S390.Register.R13
+            s390 S390.Register.R15 ]
+    CallerSavedRegisters =
+      set [ s390 S390.Register.R0
+            s390 S390.Register.R1
+            s390 S390.Register.R2
+            s390 S390.Register.R3
+            s390 S390.Register.R4
+            s390 S390.Register.R5
+            s390 S390.Register.R14 ] }
+
+let private linuxSH4 () = (* Renesas SH ABI *)
+  { Args =
+      [| ArgLocation.Reg(sh4 SH4.Register.R4)
+         ArgLocation.Reg(sh4 SH4.Register.R5)
+         ArgLocation.Reg(sh4 SH4.Register.R6)
+         ArgLocation.Reg(sh4 SH4.Register.R7) |]
+    ReturnLocation = ArgLocation.Reg(sh4 SH4.Register.R0)
+    CalleeSavedRegisters =
+      set [ sh4 SH4.Register.R8
+            sh4 SH4.Register.R9
+            sh4 SH4.Register.R10
+            sh4 SH4.Register.R11
+            sh4 SH4.Register.R12
+            sh4 SH4.Register.R13
+            sh4 SH4.Register.R14
+            sh4 SH4.Register.R15 ]
+    CallerSavedRegisters =
+      set [ sh4 SH4.Register.R0
+            sh4 SH4.Register.R1
+            sh4 SH4.Register.R2
+            sh4 SH4.Register.R3
+            sh4 SH4.Register.R4
+            sh4 SH4.Register.R5
+            sh4 SH4.Register.R6
+            sh4 SH4.Register.R7 ] }
+
+let private linuxPARISC () = (* PA-RISC: arguments in descending GRs *)
+  { Args =
+      [| ArgLocation.Reg(parisc PARISC.Register.GR26)
+         ArgLocation.Reg(parisc PARISC.Register.GR25)
+         ArgLocation.Reg(parisc PARISC.Register.GR24)
+         ArgLocation.Reg(parisc PARISC.Register.GR23) |]
+    ReturnLocation = ArgLocation.Reg(parisc PARISC.Register.GR28)
+    CalleeSavedRegisters =
+      set [ parisc PARISC.Register.GR3
+            parisc PARISC.Register.GR4
+            parisc PARISC.Register.GR5
+            parisc PARISC.Register.GR6
+            parisc PARISC.Register.GR7
+            parisc PARISC.Register.GR8
+            parisc PARISC.Register.GR9
+            parisc PARISC.Register.GR10
+            parisc PARISC.Register.GR11
+            parisc PARISC.Register.GR12
+            parisc PARISC.Register.GR13
+            parisc PARISC.Register.GR14
+            parisc PARISC.Register.GR15
+            parisc PARISC.Register.GR16
+            parisc PARISC.Register.GR17
+            parisc PARISC.Register.GR18 ]
+    CallerSavedRegisters =
+      set [ parisc PARISC.Register.GR1
+            parisc PARISC.Register.GR19
+            parisc PARISC.Register.GR20
+            parisc PARISC.Register.GR21
+            parisc PARISC.Register.GR22
+            parisc PARISC.Register.GR23
+            parisc PARISC.Register.GR24
+            parisc PARISC.Register.GR25
+            parisc PARISC.Register.GR26
+            parisc PARISC.Register.GR28
+            parisc PARISC.Register.GR29
+            parisc PARISC.Register.GR31 ] }
+
 let private windowsX86 () = (* fastcall: first two args in ECX, EDX *)
   { Args =
       [| ArgLocation.Reg(intel Intel.Register.ECX)
@@ -218,4 +448,10 @@ let create format isa =
   | _, ARM32 -> linuxARM32 ()
   | _, AArch64 -> linuxAArch64 ()
   | _, MIPS -> linuxMIPS ()
+  | _, PPC32 -> linuxPPC32 ()
+  | _, RISCV64 -> linuxRISCV64 ()
+  | _, SPARC -> linuxSPARC ()
+  | _, S390 -> linuxS390 ()
+  | _, SH4 -> linuxSH4 ()
+  | _, PARISC -> linuxPARISC ()
   | _ -> linuxX64 ()

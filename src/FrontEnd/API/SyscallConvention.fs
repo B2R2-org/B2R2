@@ -40,6 +40,18 @@ let inline private arm64 r = ARM64.Register.toRegID r
 
 let inline private mips r = MIPS.Register.toRegID r
 
+let inline private ppc r = PPC32.Register.toRegID r
+
+let inline private riscv r = RISCV64.Register.toRegID r
+
+let inline private sparc r = SPARC.Register.toRegID r
+
+let inline private s390 r = S390.Register.toRegID r
+
+let inline private sh4 r = SH4.Register.toRegID r
+
+let inline private parisc r = PARISC.Register.toRegID r
+
 let private reg r = ArgLocation.Reg r
 
 let private linuxX86 () =
@@ -102,6 +114,78 @@ let private linuxMIPS () =
          reg (mips MIPS.Register.R8)
          reg (mips MIPS.Register.R9) |] }
 
+let private linuxPPC32 () = (* error reported via the cr0.SO bit *)
+  { NumberRegister = ppc PPC32.Register.R0
+    ReturnRegister = ppc PPC32.Register.R3
+    Error = FlagRegister(ppc PPC32.Register.CR0)
+    Args =
+      [| reg (ppc PPC32.Register.R3)
+         reg (ppc PPC32.Register.R4)
+         reg (ppc PPC32.Register.R5)
+         reg (ppc PPC32.Register.R6)
+         reg (ppc PPC32.Register.R7)
+         reg (ppc PPC32.Register.R8) |] }
+
+let private linuxRISCV64 () =
+  { NumberRegister = riscv RISCV64.Register.X17
+    ReturnRegister = riscv RISCV64.Register.X10
+    Error = NegatedErrno
+    Args =
+      [| reg (riscv RISCV64.Register.X10)
+         reg (riscv RISCV64.Register.X11)
+         reg (riscv RISCV64.Register.X12)
+         reg (riscv RISCV64.Register.X13)
+         reg (riscv RISCV64.Register.X14)
+         reg (riscv RISCV64.Register.X15) |] }
+
+let private linuxSPARC () = (* error reported via the carry bit of CCR *)
+  { NumberRegister = sparc SPARC.Register.G1
+    ReturnRegister = sparc SPARC.Register.O0
+    Error = FlagRegister(sparc SPARC.Register.CCR)
+    Args =
+      [| reg (sparc SPARC.Register.O0)
+         reg (sparc SPARC.Register.O1)
+         reg (sparc SPARC.Register.O2)
+         reg (sparc SPARC.Register.O3)
+         reg (sparc SPARC.Register.O4)
+         reg (sparc SPARC.Register.O5) |] }
+
+let private linuxS390 () =
+  { NumberRegister = s390 S390.Register.R1
+    ReturnRegister = s390 S390.Register.R2
+    Error = NegatedErrno
+    Args =
+      [| reg (s390 S390.Register.R2)
+         reg (s390 S390.Register.R3)
+         reg (s390 S390.Register.R4)
+         reg (s390 S390.Register.R5)
+         reg (s390 S390.Register.R6)
+         reg (s390 S390.Register.R7) |] }
+
+let private linuxSH4 () =
+  { NumberRegister = sh4 SH4.Register.R3
+    ReturnRegister = sh4 SH4.Register.R0
+    Error = NegatedErrno
+    Args =
+      [| reg (sh4 SH4.Register.R4)
+         reg (sh4 SH4.Register.R5)
+         reg (sh4 SH4.Register.R6)
+         reg (sh4 SH4.Register.R7)
+         reg (sh4 SH4.Register.R0)
+         reg (sh4 SH4.Register.R1) |] }
+
+let private linuxPARISC () = (* arguments are placed in descending GRs *)
+  { NumberRegister = parisc PARISC.Register.GR20
+    ReturnRegister = parisc PARISC.Register.GR28
+    Error = NegatedErrno
+    Args =
+      [| reg (parisc PARISC.Register.GR26)
+         reg (parisc PARISC.Register.GR25)
+         reg (parisc PARISC.Register.GR24)
+         reg (parisc PARISC.Register.GR23)
+         reg (parisc PARISC.Register.GR22)
+         reg (parisc PARISC.Register.GR21) |] }
+
 let private windowsX86 () = (* args on the stack via the stdcall Nt* stub *)
   { NumberRegister = intel Intel.Register.EAX
     ReturnRegister = intel Intel.Register.EAX
@@ -125,9 +209,16 @@ let private windowsX64 () = (* first arg in R10, not RCX *)
 let create format isa =
   match format, isa with
   | FileFormat.ELFBinary, X86 -> linuxX86 ()
+  | FileFormat.ELFBinary, X64 -> linuxX64 ()
   | FileFormat.ELFBinary, ARM32 -> linuxARM32 ()
   | FileFormat.ELFBinary, AArch64 -> linuxAArch64 ()
   | FileFormat.ELFBinary, MIPS -> linuxMIPS ()
+  | FileFormat.ELFBinary, PPC32 -> linuxPPC32 ()
+  | FileFormat.ELFBinary, RISCV64 -> linuxRISCV64 ()
+  | FileFormat.ELFBinary, SPARC -> linuxSPARC ()
+  | FileFormat.ELFBinary, S390 -> linuxS390 ()
+  | FileFormat.ELFBinary, SH4 -> linuxSH4 ()
+  | FileFormat.ELFBinary, PARISC -> linuxPARISC ()
   | FileFormat.PEBinary, X86 -> windowsX86 ()
   | FileFormat.PEBinary, X64 -> windowsX64 ()
   | _ -> linuxX64 ()
