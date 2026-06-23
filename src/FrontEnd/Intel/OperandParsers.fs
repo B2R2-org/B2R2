@@ -247,13 +247,11 @@ let uncompressedDisp (phlp: ParsingHelper) disp =
   match tt, b, inputSz, w with
   (* Table 2-34. Compressed Displacement (DISP8*N) Affected by Embedded
      Broadcast. *)
-  | TupleType.Full, false, 32<rt>, false ->
-    disp * (int64 vl / 8L), memSz
-  | TupleType.Full, true, 32<rt>, false -> disp * 4L, inputSz
+  | TupleType.Full, false, 32<rt>, false
   | TupleType.Full, false, 64<rt>, true -> disp * (int64 vl / 8L), memSz
+  | TupleType.Full, true, 32<rt>, false -> disp * 4L, inputSz
   | TupleType.Full, true, 64<rt>, true -> disp * 8L, inputSz
-  | TupleType.Half, false, 32<rt>, false ->
-    disp * (int64 vl / 16L), memSz
+  | TupleType.Half, false, 32<rt>, false -> disp * (int64 vl / 16L), memSz
   | TupleType.Half, true, 32<rt>, false -> disp * 4L, inputSz
   (* Table 2-35. EVEX DISP8*N for Instructions Not Affected by Embedded
      Broadcast. *)
@@ -262,12 +260,11 @@ let uncompressedDisp (phlp: ParsingHelper) disp =
   | TupleType.Tuple1Scalar, false, 16<rt>, _ -> disp * 2L, memSz
   | TupleType.Tuple1Scalar, false, 32<rt>, false -> disp * 4L, memSz
   | TupleType.Tuple1Scalar, false, 64<rt>, true -> disp * 8L, memSz
-  | TupleType.Tuple1Fixed, false, 32<rt>, _ -> disp * 4L, memSz
-  | TupleType.Tuple1Fixed, false, 64<rt>, _ -> disp * 8L, memSz
+  | TupleType.Tuple1Fixed, false, _, _ -> disp * (int64 memSz / 8L), memSz
   | TupleType.Tuple2, false, 32<rt>, false -> disp * 8L, memSz
   | TupleType.Tuple2, false, 64<rt>, true when vl <> 128<rt> ->
     disp * 16L, memSz
-  | TupleType.Tuple4, false, 32<rt>, true when vl <> 128<rt> ->
+  | TupleType.Tuple4, false, 32<rt>, false when vl <> 128<rt> ->
     disp * 16L, memSz
   | TupleType.Tuple4, false, 64<rt>, true when vl = 512<rt> ->
     disp * 32L, memSz
@@ -277,7 +274,9 @@ let uncompressedDisp (phlp: ParsingHelper) disp =
   | TupleType.QuarterMem, false, _, _ -> disp * (int64 vl / 32L), memSz
   | TupleType.EighthMem, false, _, _ -> disp * (int64 vl / 64L), memSz
   | TupleType.Mem128, false, _, _ -> disp * 16L, memSz
-  | TupleType.MOVDDUP, false, _, _ -> disp * (int64 vl / 16L), memSz
+  | TupleType.MOVDDUP, false, _, _ when vl = 128<rt> -> disp * 8L, memSz
+  | TupleType.MOVDDUP, false, _, _ -> disp * (int64 vl / 8L), memSz
+  | TupleType.Tuple1_4X, false, _, _ -> disp * 16L, memSz
   | _ (* TupleType.NA *) -> disp, memSz
 
 let inline private isEVEX (phlp: ParsingHelper) =
@@ -432,12 +431,12 @@ let parseOprMemWithSIB span phlp modVal dispSz =
   let oprSize = phlp.MemEffOprSize
   if dispSz > 0 then sibWithDisp span phlp b si dispSz oprSize
   else
-    if (modVal = 0b00000000uy || modVal = 0b10000000uy)
-      && bgrp = int RegGrp.RG5 then
-      sibWithDisp span phlp b si 4 oprSize
-    elif modVal = 0b01000000uy && bgrp = int RegGrp.RG5 then
-      sibWithDisp span phlp b si 1 oprSize
-    else OprMem(b, si, None, oprSize)
+    let dispSz =
+      if (modVal = 0b00000000uy || modVal = 0b10000000uy)
+        && bgrp = int RegGrp.RG5 then 4
+      elif modVal = 0b01000000uy && bgrp = int RegGrp.RG5 then 1
+      else 0
+    sibWithDisp span phlp b si dispSz oprSize
 
 /// RIP-relative addressing (see Section 2.2.1.6. of Vol. 2A).
 let parseOprRIPRelativeMem span (phlp: ParsingHelper) disp =

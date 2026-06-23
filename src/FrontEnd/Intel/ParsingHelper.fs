@@ -216,7 +216,8 @@ and internal TupleType =
   | EighthMem = 10
   | Mem128 = 11
   | MOVDDUP = 12
-  | NA = 13 (* N/A *)
+  | Tuple1_4X = 13
+  | NA = 14 (* N/A *)
 
 and internal SizeKind =
   | Byte = 0
