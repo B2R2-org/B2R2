@@ -41,6 +41,8 @@ type PythonParser(binFile: IBinFile, reader) =
 
   let parse span addr =
     match binFile.Version with
+    | PythonVersion.Python310 ->
+      Parsing310.parse lifter span reader binFile addr
     | PythonVersion.Python312 ->
       Parsing312.parse lifter span reader binFile addr
     | v -> failwithf "Unsupported Python version for parsing: %A" v

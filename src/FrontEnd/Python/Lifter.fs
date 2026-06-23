@@ -24,6 +24,7 @@
 
 module internal B2R2.FrontEnd.Python.Lifter
 
+open System.Globalization
 open B2R2
 open B2R2.BinIR
 open B2R2.BinIR.LowUIR
@@ -96,26 +97,107 @@ let private namedEffect name ins bld =
 let private namedEffectWithArgs name args ins bld =
   effInstr (AST.app name args rt) ins bld
 
-let private resolveOperand isConst = function
+(* A unary operator (UNARY_NEGATIVE/INVERT/POSITIVE/NOT): pop the operand and
+   push the operator applied to it. Modeled as a named app (like `**`/`//`)
+   so the surface operator is preserved for decompilation, rather than as a
+   stack-ignoring effect that would silently drop the operand's sign. *)
+let private unaryOp name (ins: Instruction) bld =
+  bld <!-- (ins.Address, ins.Length)
+  let operand = popFromStack bld
+  pushToStack bld (AST.app name [ operand ] rt)
+  bld --!> ins.Length
+
+let private escapeByteForPyLiteral (b: byte) =
+  match char b with
+  | '\\' -> "\\\\"
+  | '"' -> "\\\""
+  | '\n' -> "\\n"
+  | '\r' -> "\\r"
+  | '\t' -> "\\t"
+  | c when b >= 0x20uy && b <= 0x7Euy -> string c
+  | _ -> sprintf "\\x%02x" b
+
+let private bytesToPyLiteral (bytes: byte[]) =
+  bytes
+  |> Array.map escapeByteForPyLiteral
+  |> String.concat ""
+  |> sprintf "b\"%s\""
+
+let rec private convertPyObjectToExpr isConst = function
   (* ASCII strings. *)
-  | OneOperand(_, Some(PyAscii n))
-  | OneOperand(_, Some(PyShortAscii n))
-  | OneOperand(_, Some(PyShortAsciiInterned n)) ->
-    if isConst then sprintf "\"%s\"" n
-    else n
-  (* Function reference. Used when calling a function. *)
-  | OneOperand(_, Some(PyREF(_, n))) -> n
-  (* Function name. Used when defining a function. *)
-  | OneOperand(_, Some(PyCode(codeObj))) -> codeObj.Name
+  | PyAscii n
+  | PyShortAscii n
+  | PyShortAsciiInterned n ->
+    AST.undef rt <| if isConst then sprintf "\"%s\"" n else n
+  (* Bytes literal, e.g. b"\\x00\\x01". *)
+  | PyString bytes -> AST.undef rt (bytesToPyLiteral bytes)
+  (* Interned reference ??resolve by delegating to the actual object. *)
+  | PyREF(_, obj) -> convertPyObjectToExpr isConst obj
+  (* A code object reference. Identified by address rather than name, since
+     names like "<lambda>" or "<listcomp>" collide across instances. *)
+  | PyCode(codeObj) -> AST.undef rt (sprintf "<%d>" (fst codeObj.Code))
   (* None *)
-  | OneOperand(_, Some(PyNone)) -> "None"
+  | PyNone -> AST.undef rt "None"
+  (* PyTrue *)
+  | PyTrue -> AST.undef rt "True"
   (* PyFalse *)
-  | OneOperand(_, Some(PyFalse)) -> "False"
+  | PyFalse -> AST.undef rt "False"
   (* PyInt *)
-  | OneOperand(_, Some(PyInt n)) -> sprintf "%d" n
+  | PyInt n -> AST.undef rt (sprintf "%d" n)
+  (* PyLong: already pre-rendered to its decimal repr string at parse
+     time (see PyLong's doc comment in Types.fs). *)
+  | PyLong s -> AST.undef rt s
+  (* PyFloat *)
+  | PyFloat f -> AST.undef rt f
+  (* PyBinaryFloat *)
+  | PyBinaryFloat f ->
+    let str = f.ToString("R", CultureInfo.InvariantCulture)
+    let str = if str.Contains "." || str.Contains "E" then str else str + ".0"
+    AST.undef rt str
+  (* PyComplex: reconstructed as Python's own `real+imagj` literal syntax
+     -- valid wherever a constant expression is, and the real part is
+     dropped entirely for a pure-imaginary value (e.g. `4j`), matching
+     how such a literal actually appears in source. *)
+  | PyComplex(real, imag) ->
+    let joined =
+      if real = "0.0" then sprintf "%sj" imag
+      elif imag.StartsWith "-" then sprintf "%s%sj" real imag
+      else sprintf "%s+%sj" real imag
+    AST.undef rt joined
+  (* PyBinaryComplex *)
+  | PyBinaryComplex(real, imag) ->
+    let fmt (f: double) =
+      let str = f.ToString("R", CultureInfo.InvariantCulture)
+      if str.Contains "." || str.Contains "E" then str else str + ".0"
+    let joined =
+      if real = 0.0 then sprintf "%sj" (fmt imag)
+      elif imag < 0.0 then sprintf "%s%sj" (fmt real) (fmt imag)
+      else sprintf "%s+%sj" (fmt real) (fmt imag)
+    AST.undef rt joined
+  (* PyTuple *)
+  | PyTuple objects ->
+    objects
+    |> Array.map (convertPyObjectToExpr isConst)
+    |> Array.toList
+    |> AST.exprList
+  (* A constant frozenset, e.g. from `x in {1, 2, 3}`. Tagged distinctly
+     from PyTuple so HIR translation reconstructs a set literal `{...}`
+     instead of a tuple `(...)`. *)
+  | PyFrozenSet objects ->
+    let items =
+      objects
+      |> Array.map (convertPyObjectToExpr isConst)
+      |> Array.toList
+      |> AST.exprList
+    AST.app "FROZENSET" [ items ] rt
+  (* PyEllipsis *)
+  | PyEllipsis -> AST.undef rt "..."
   (* Otherwise *)
-  | OneOperand(idx, _) -> sprintf "<%d>" idx
-  | _ -> "?"
+  | _ -> Terminator.futureFeature ()
+
+let rec private resolveOperand isConst = function
+  | OneOperand(_, Some(obj)) -> convertPyObjectToExpr isConst obj
+  | _ -> Terminator.futureFeature ()
 
 let private resolveName = resolveOperand false
 
@@ -126,14 +208,14 @@ let private translateLoad opname isConst (ins: Instruction) bld =
   let arg =
     if isConst then resolveConst ins.Operands
     else resolveName ins.Operands
-  let e = AST.app opname [ AST.undef rt arg ] rt
+  let e = AST.app opname [ arg ] rt
   pushToStack bld e
   bld --!> ins.Length
 
 let private translateLoadGlobal minor (ins: Instruction) bld =
   bld <!-- (ins.Address, ins.Length)
   let name = resolveName ins.Operands
-  let v = AST.app "LOAD_GLOBAL" [ AST.undef rt name ] rt
+  let v = AST.app "LOAD_GLOBAL" [ name ] rt
   if ins.Flag then
     let e = AST.undef rt "NULL"
     pushToStack bld e
@@ -143,8 +225,48 @@ let private translateLoadGlobal minor (ins: Instruction) bld =
   bld --!> ins.Length
 
 let private translateDelete opname (ins: Instruction) bld =
-  let args = [ AST.undef rt (resolveName ins.Operands) ]
+  let args = [ resolveName ins.Operands ]
   namedEffectWithArgs opname args ins bld
+
+(* DELETE_ATTR: pops the owner object and deletes the named attribute. *)
+let private deleteAttr (ins: Instruction) bld =
+  bld <!-- (ins.Address, ins.Length)
+  let owner = popFromStack bld
+  let args = [ owner; resolveName ins.Operands ]
+  bld <+ AST.extCall (AST.app "DELETE_ATTR" args rt)
+  bld --!> ins.Length
+
+(* IMPORT_NAME: pops fromlist (unused by our translation) and level (the
+   number of leading dots for a relative import, e.g. `from ..pkg import x`),
+   then pushes the imported module object. *)
+let private importName (ins: Instruction) bld =
+  bld <!-- (ins.Address, ins.Length)
+  let name = resolveName ins.Operands
+  let fromList = popFromStack bld
+  let level = popFromStack bld
+  pushToStack bld (AST.app "IMPORT_NAME" [ name; level; fromList ] rt)
+  bld --!> ins.Length
+
+(* IMPORT_FROM: peeks (does not pop) the module object left by IMPORT_NAME so
+   that later IMPORT_FROMs can reuse it, and pushes obj.name. *)
+let private importFrom (ins: Instruction) bld =
+  bld <!-- (ins.Address, ins.Length)
+  let name = resolveName ins.Operands
+  let moduleObj = peekFromStack bld 0
+  pushToStack bld (AST.app "IMPORT_FROM" [ moduleObj; name ] rt)
+  bld --!> ins.Length
+
+(* IMPORT_STAR: pops the module object and binds all its exported names. *)
+let private importStar (ins: Instruction) bld =
+  bld <!-- (ins.Address, ins.Length)
+  let moduleObj = popFromStack bld
+  bld <+ AST.extCall (AST.app "IMPORT_STAR" [ moduleObj ] rt)
+  bld --!> ins.Length
+
+let private callIntrinsic1 (ins: Instruction) bld =
+  match getIntArg ins with
+  | 2 -> importStar ins bld (* INTRINSIC_IMPORT_STAR in Python 3.12. *)
+  | _ -> namedEffect "CALL_INTRINSIC_1" ins bld
 
 let private popTop (ins: Instruction) bld =
   bld <!-- (ins.Address, ins.Length)
@@ -157,6 +279,18 @@ let private pushNull (ins: Instruction) bld =
   pushToStack bld (AST.undef rt "NULL")
   bld --!> ins.Length
 
+let private loadAssertionError (ins: Instruction) bld =
+  bld <!-- (ins.Address, ins.Length)
+  pushToStack bld (AST.undef rt "AssertionError")
+  bld --!> ins.Length
+
+(* LOAD_BUILD_CLASS: pushes the __build_class__ builtin used to construct a
+   class from its body function, name, and bases. *)
+let private loadBuildClass (ins: Instruction) bld =
+  bld <!-- (ins.Address, ins.Length)
+  pushToStack bld (AST.undef rt "__build_class__")
+  bld --!> ins.Length
+
 let private jumpByOffset (ins: Instruction) bld isForward =
   bld <!-- (ins.Address, ins.Length)
   let n = getIntArg ins
@@ -165,9 +299,252 @@ let private jumpByOffset (ins: Instruction) bld isForward =
   bld <+ AST.interjmp (AST.num (BitVector(dst, rt))) InterJmpKind.Base
   bld
 
+(* Pre-3.11 jump opcodes (JUMP_ABSOLUTE, POP_JUMP_IF_FALSE/TRUE,
+   JUMP_IF_FALSE/TRUE_OR_POP, JUMP_IF_NOT_EXC_MATCH) encode their target as
+   an ABSOLUTE word offset (`oparg * 2`) from the CONTAINING CODE OBJECT's
+   own start -- unlike 3.12's forward/backward opcodes, which are always
+   relative to the jump instruction itself. Since B2R2 assigns each code
+   object a real, distinct base address (not always 0), the actual target
+   is that base plus the absolute word offset. Reuses the same
+   (addrRange, _) lookup `binFile.Consts`/`Names`/`Varnames` already carry
+   per code object (confirmed identical range across all of them, since
+   they're all keyed off the same `code.Code` address/length) rather than
+   adding a new table just for this. *)
+let private codeObjectBase (binFile: PythonBinFile) (addr: Addr) =
+  binFile.Consts
+  |> Array.tryFind (fun (ar, _) -> ar.Min <= addr && ar.Max >= addr)
+  |> function
+    | Some(ar, _) -> ar.Min
+    | None ->
+      failwithf "Cannot find the code object containing address 0x%x" addr
+
+let private jumpAbsolute (binFile: PythonBinFile) (ins: Instruction) bld =
+  bld <!-- (ins.Address, ins.Length)
+  let n = getIntArg ins
+  let dst = codeObjectBase binFile ins.Address + uint64 (n * 2)
+  bld <+ AST.interjmp (AST.num (BitVector(dst, rt))) InterJmpKind.Base
+  bld
+
+(* Pre-3.11 counterpart to condJump: same "honest" jumpIfTrue-preserving
+   semantics (see condJump's own doc comment for why), but with an absolute
+   rather than relative target -- see codeObjectBase's doc comment. *)
+let private condJumpAbsolute (binFile: PythonBinFile) (ins: Instruction) bld
+                             jumpIfTrue =
+  bld <!-- (ins.Address, ins.Length)
+  let cond = popFromStack bld
+  let n = getIntArg ins
+  let jmpDst = codeObjectBase binFile ins.Address + uint64 (n * 2)
+  let fallDst = ins.Address + uint64 ins.Length
+  let tLbl = AST.num (BitVector(jmpDst, rt))
+  let fLbl = AST.num (BitVector(fallDst, rt))
+  let cond, tLbl, fLbl =
+    if jumpIfTrue then cond, tLbl, fLbl else cond, fLbl, tLbl
+  bld <+ AST.intercjmp cond tLbl fLbl
+  bld
+
+(* JUMP_IF_FALSE_OR_POP / JUMP_IF_TRUE_OR_POP: like POP_JUMP_IF_*, but only
+   pop TOS on the FALL-THROUGH side (short-circuit `and`/`or`) -- the
+   not-taken branch keeps TOS as the expression's own result. Modeled with
+   two explicit labels so each side gets its own stack effect, mirroring
+   forIter's own label-based branching just above.
+   (NOTE: an attempt to unify this with 3.12's COPY+POP_JUMP_IF_FALSE+
+   POP_TOP shape via a single Ite-computed SP write before one real
+   InterCJmp was tried and reverted -- it makes SP's value conditional on
+   a runtime cond instead of a per-edge CONSTANT, which breaks
+   StackPointerPropagation's ConstSP tracking that the whole StackVar
+   mechanism depends on (confirmed via a cascading crash in
+   processSSAStmt once several chained JUMP_IF_FALSE_OR_POPs' Ite
+   expressions failed to fold to a constant offset). SP must change by a
+   statically-known amount per CFG edge, which the label-based two-branch
+   split already provides -- the real bug is elsewhere, still open.) *)
+let private jumpOrPop (binFile: PythonBinFile) (ins: Instruction) bld
+                      jumpIfTrue =
+  bld <!-- (ins.Address, ins.Length)
+  let cond = peekFromStack bld 0
+  let n = getIntArg ins
+  let jmpDst = codeObjectBase binFile ins.Address + uint64 (n * 2)
+  let fallDst = ins.Address + uint64 ins.Length
+  let tLbl = AST.num (BitVector(jmpDst, rt))
+  let fLbl = AST.num (BitVector(fallDst, rt))
+  let lblLTrue = label bld "LTrue"
+  let lblLFalse = label bld "LFalse"
+  let cond = if jumpIfTrue then cond else AST.not cond
+  bld <+ AST.cjmp cond (AST.jmpDest lblLTrue) (AST.jmpDest lblLFalse)
+  bld <+ AST.lmark lblLTrue
+  bld <+ AST.interjmp tLbl InterJmpKind.Base
+  bld <+ AST.lmark lblLFalse
+  discardTOS bld
+  bld <+ AST.interjmp fLbl InterJmpKind.Base
+  bld
+
+let private jumpIfNotExcMatch (binFile: PythonBinFile) (ins: Instruction) bld =
+  bld <!-- (ins.Address, ins.Length)
+  let excType = popFromStack bld
+  let excValue = popFromStack bld
+  let n = getIntArg ins
+  let jmpDst = codeObjectBase binFile ins.Address + uint64 (n * 2)
+  let fallDst = ins.Address + uint64 ins.Length
+  let tLbl = AST.num (BitVector(jmpDst, rt))
+  let fLbl = AST.num (BitVector(fallDst, rt))
+  let matches = AST.app "CHECK_EXC_MATCH" [ excValue; excType ] rt
+  (* Jump (to the next handler) when it does NOT match. *)
+  bld <+ AST.intercjmp matches fLbl tLbl
+  bld
+
+(* ROT_TWO/THREE/FOUR/N: rotate the top `n` stack items by one slot,
+   moving TOS down to position `n` (the bottom of the rotated window) and
+   shifting everything above it up by one. Reads TOS first into a temp
+   (so it survives being overwritten), then shifts each of the remaining
+   n-1 items down into the slot below it in a single forward pass -- safe
+   because each slot is read before it is ever written (see this
+   function's own construction: iteration i reads slot i+1 and writes
+   slot i, so slot i+1 is never touched by an earlier iteration). *)
+let private rotateTopToBottom n (ins: Instruction) bld =
+  bld <!-- (ins.Address, ins.Length)
+  let spReg = regVar bld R.SP
+  let top = peekFromStack bld 0
+  for i in 0 .. n - 2 do
+    let v = peekFromStack bld (i + 1)
+    bld <+ (AST.store Endian.Little (spReg .+ (numI32 i rt)) v)
+  bld <+ (AST.store Endian.Little (spReg .+ (numI32 (n - 1) rt)) top)
+  bld --!> ins.Length
+
+let private dupTop (ins: Instruction) bld =
+  bld <!-- (ins.Address, ins.Length)
+  pushToStack bld (peekFromStack bld 0)
+  bld --!> ins.Length
+
+(* DUP_TOP_TWO: duplicates the top two items, keeping their relative
+   order (stack before, top-to-bottom: a, b -> after: a, b, a, b). *)
+let private dupTopTwo (ins: Instruction) bld =
+  bld <!-- (ins.Address, ins.Length)
+  let a = peekFromStack bld 0
+  let b = peekFromStack bld 1
+  pushToStack bld b
+  pushToStack bld a
+  bld --!> ins.Length
+
+(* A binary/inplace operator with no oparg of its own (3.10-and-earlier:
+   each operator is its own opcode, unlike 3.12's single BINARY_OP with an
+   operator-selecting oparg -- see binaryOp's own arg-index table just
+   below, whose named-app strings this mirrors so downstream HIR
+   translation (which pattern-matches on those exact names) recognizes
+   both versions' encodings identically). *)
+let private binaryOpDirect opExpr (ins: Instruction) bld =
+  bld <!-- (ins.Address, ins.Length)
+  let right = popFromStack bld
+  let left = popFromStack bld
+  pushToStack bld (opExpr left right)
+  bld --!> ins.Length
+
+let private copyDictWithoutKeys (ins: Instruction) bld =
+  bld <!-- (ins.Address, ins.Length)
+  let keys = popFromStack bld
+  let subject = peekFromStack bld 0
+  pushToStack bld (AST.app "COPY_DICT_WITHOUT_KEYS" [ subject; keys ] rt)
+  bld --!> ins.Length
+
+let private printExpr (ins: Instruction) bld =
+  bld <!-- (ins.Address, ins.Length)
+  let v = popFromStack bld
+  bld <+ AST.extCall (AST.app "PRINT_EXPR" [ v ] rt)
+  bld --!> ins.Length
+
+(* YIELD_FROM (pre-3.11 `yield from`/`await`): unlike 3.12's explicit
+   GET_AWAITABLE + SEND-loop decomposition (recognized and folded by
+   AwaitFolding.fs), YIELD_FROM is a single opcode that internally loops
+   in the interpreter itself -- it either completes (leaving the
+   sub-generator's final return value on the stack) or suspends (yielding
+   a value, then resuming with the very same PC on the next `.send()`).
+   Modeled as a single external-call step mirroring YIELD_VALUE's own
+   "unknown resumption value" sentinel below, since the actual multi-path
+   control flow (yield-and-loop vs completed) isn't something a single
+   linear IR sequence can express -- HIR-level reconstruction of the
+   pre-3.11 yield-from/await shape (an AwaitFolding.fs counterpart for
+   this encoding) is a separate, not-yet-attempted follow-up; this only
+   ensures the opcode lifts to something well-typed instead of crashing. *)
+let private yieldFrom (ins: Instruction) bld =
+  bld <!-- (ins.Address, ins.Length)
+  let sendVal = popFromStack bld
+  let subIter = peekFromStack bld 0
+  bld <+ AST.extCall (AST.app "YIELD_FROM" [ subIter; sendVal ] rt)
+  pushToStack bld (AST.undef rt "YIELD_RECEIVED")
+  bld --!> ins.Length
+
+let private callFunction (ins: Instruction) bld =
+  bld <!-- (ins.Address, ins.Length)
+  let argc = getIntArg ins
+  let args = List.init argc (fun _ -> popFromStack bld) |> List.rev
+  let func = popFromStack bld
+  (* Reuses "CALL"'s own named-app shape (maybeSelf :: func :: args @
+     [kwReg]), just with an explicit NULL self-slot and NULL kwnames in
+     place of 3.12's separate PUSH_NULL/KW_NAMES steps -- so the existing
+     HIR translation for "CALL" (TranslationHelper.fs) recognizes this
+     identically without needing its own separate pattern. *)
+  let result =
+    AST.app "CALL"
+      (AST.undef rt "NULL" :: func :: args @ [ AST.undef rt "NULL" ]) rt
+  pushToStack bld result
+  bld --!> ins.Length
+
+let private callFunctionKw (ins: Instruction) bld =
+  bld <!-- (ins.Address, ins.Length)
+  let argc = getIntArg ins
+  let kwNamesTuple = popFromStack bld
+  let args = List.init argc (fun _ -> popFromStack bld) |> List.rev
+  let func = popFromStack bld
+  let result =
+    AST.app "CALL" (AST.undef rt "NULL" :: func :: args @ [ kwNamesTuple ]) rt
+  pushToStack bld result
+  bld --!> ins.Length
+
+(* LOAD_METHOD: like 3.12's LOAD_ATTR with its method flag always set --
+   pushes NULL then the attribute, so a following CALL_METHOD (or CALL,
+   see callMethod below) sees (NULL, boundMethod, args...) and treats it
+   uniformly with the plain-attribute-then-call shape. Reuses "LOAD_ATTR"
+   as the named app (not a separate "LOAD_METHOD") so the existing
+   NULL-before-CALL method-call recognition in TranslationHelper.fs (built
+   for 3.12's LOAD_ATTR-with-flag) applies here for free. *)
+let private loadMethod (ins: Instruction) bld =
+  bld <!-- (ins.Address, ins.Length)
+  let name = resolveName ins.Operands
+  let obj = popFromStack bld
+  let attr = AST.app "LOAD_ATTR" [ obj; name ] rt
+  pushToStack bld (AST.undef rt "NULL")
+  pushToStack bld attr
+  bld --!> ins.Length
+
+(* CALL_METHOD: pops argc args, the method (or plain attr) below them, and
+   the self-or-NULL slot LOAD_METHOD left under that -- same three-part
+   shape CALL already expects, just without a KW_NAMES register (3.10's
+   LOAD_METHOD/CALL_METHOD pair is positional-only; a call needing keyword
+   arguments instead falls back to plain LOAD_ATTR + CALL_FUNCTION_KW), so
+   NULL fills that last slot. Reuses "CALL" for the same reason
+   callFunction above does. *)
+let private callMethod (ins: Instruction) bld =
+  bld <!-- (ins.Address, ins.Length)
+  let argc = getIntArg ins
+  let args = List.init argc (fun _ -> popFromStack bld) |> List.rev
+  let methodOrFunc = popFromStack bld
+  let selfOrNull = popFromStack bld
+  let result =
+    AST.app "CALL"
+      (selfOrNull :: methodOrFunc :: args @ [ AST.undef rt "NULL" ]) rt
+  pushToStack bld result
+  bld --!> ins.Length
+
 let private endFor (ins: Instruction) bld =
   bld <!-- (ins.Address, ins.Length)
   discardTOS bld
+  bld --!> ins.Length
+
+(* END_SEND: removes the second-from-top value (the exhausted generator
+   left by SEND), keeping the top (the awaited result) in place. *)
+let private endSend (ins: Instruction) bld =
+  bld <!-- (ins.Address, ins.Length)
+  let value = popFromStack bld
+  discardTOS bld
+  pushToStack bld value
   bld --!> ins.Length
 
 let private copy (ins: Instruction) bld =
@@ -192,21 +569,71 @@ let private storeFast (ins: Instruction) bld =
   bld <!-- (ins.Address, ins.Length)
   let name = resolveName ins.Operands
   let value = popFromStack bld
-  let eff = AST.app "STORE_FAST" [ AST.undef rt name; value ] rt
+  let eff = AST.app "STORE_FAST" [ name; value ] rt
   bld <+ AST.extCall eff
   bld --!> ins.Length
 
-(* Generic store for STORE_NAME / STORE_GLOBAL / STORE_ATTR / STORE_DEREF:
+(* Generic store for STORE_NAME / STORE_GLOBAL / STORE_DEREF:
    pop TOS and emit an external call recording the target name. *)
 let private storeNamed opname (ins: Instruction) bld =
   bld <!-- (ins.Address, ins.Length)
   let name = resolveName ins.Operands
   let value = popFromStack bld
-  let eff = AST.app opname [ AST.undef rt name; value ] rt
+  let eff = AST.app opname [ name; value ] rt
   bld <+ AST.extCall eff
   bld --!> ins.Length
 
-(* STORE_SUBSCR: TOS1[TOS] = TOS2 — pops three items. *)
+(* STORE_ATTR: TOS = value, TOS1 = obj => obj.attr = value *)
+let private storeAttr (ins: Instruction) bld =
+  bld <!-- (ins.Address, ins.Length)
+  let name = resolveName ins.Operands
+  let obj = popFromStack bld
+  let value = popFromStack bld
+  let eff = AST.app "STORE_ATTR" [ name; obj; value ] rt
+  bld <+ AST.extCall eff
+  bld --!> ins.Length
+
+(* LOAD_ATTR: pop TOS (obj), push obj.attr.
+   In Python >= 3.11, ins.Flag = true means method mode: push NULL then the
+   attr so that CALL sees (NULL, obj.attr, args) and treats obj as self. *)
+let private loadAttr (ins: Instruction) bld =
+  bld <!-- (ins.Address, ins.Length)
+  let name = resolveName ins.Operands
+  let obj = popFromStack bld
+  let attr = AST.app "LOAD_ATTR" [ obj; name ] rt
+  if ins.Flag then
+    pushToStack bld (AST.undef rt "NULL")
+  else
+    ()
+  pushToStack bld attr
+  bld --!> ins.Length
+
+(* LOAD_SUPER_ATTR: pops self, __class__, and the global `super` reference
+   (pushed by preceding LOAD_FAST self / LOAD_DEREF __class__ / LOAD_GLOBAL
+   super), and computes getattr(super(__class__, self), name). For the
+   common zero-arg `super()` form, __class__/self are compiler-generated,
+   so the HIR reconstruction just emits the literal `super().name` form and
+   the popped values only need to preserve stack balance. For an explicit
+   `super(cls, obj).attr`, __class__/self are real user expressions, so we
+   tag it differently to keep them. *)
+let private loadSuperAttr (ins: Instruction) bld =
+  bld <!-- (ins.Address, ins.Length)
+  let name = resolveName ins.Operands
+  let self = popFromStack bld
+  let cls = popFromStack bld
+  let superGlobal = popFromStack bld
+  let opname =
+    if ins.SuperHasExplicitArgs then "LOAD_SUPER_ATTR_EXPLICIT"
+    else "LOAD_SUPER_ATTR"
+  let attr = AST.app opname [ superGlobal; cls; self; name ] rt
+  if ins.Flag then
+    pushToStack bld (AST.undef rt "NULL")
+  else
+    ()
+  pushToStack bld attr
+  bld --!> ins.Length
+
+(* STORE_SUBSCR: TOS1[TOS] = TOS2 ??pops three items. *)
 let private storeSubscript (ins: Instruction) bld =
   bld <!-- (ins.Address, ins.Length)
   let sub = popFromStack bld
@@ -216,7 +643,7 @@ let private storeSubscript (ins: Instruction) bld =
   bld <+ AST.extCall eff
   bld --!> ins.Length
 
-(* STORE_SLICE: TOS2[TOS1:TOS] = TOS3 — pops four items. *)
+(* STORE_SLICE: TOS2[TOS1:TOS] = TOS3 ??pops four items. *)
 let private storeSlice (ins: Instruction) bld =
   bld <!-- (ins.Address, ins.Length)
   let stop = popFromStack bld
@@ -227,7 +654,16 @@ let private storeSlice (ins: Instruction) bld =
   bld <+ AST.extCall eff
   bld --!> ins.Length
 
-(* RETURN_VALUE / RETURN_GENERATOR: pop TOS and emit a RETURN call. *)
+(* DELETE_SUBSCR: del TOS1[TOS] ??pops two items. *)
+let private deleteSubscript (ins: Instruction) bld =
+  bld <!-- (ins.Address, ins.Length)
+  let sub = popFromStack bld
+  let obj = popFromStack bld
+  let eff = AST.app "DELETE_SUBSCR" [ obj; sub ] rt
+  bld <+ AST.extCall eff
+  bld --!> ins.Length
+
+(* RETURN_VALUE: pop TOS and emit a RETURN call. *)
 let private translateReturn (ins: Instruction) bld =
   bld <!-- (ins.Address, ins.Length)
   let value = popFromStack bld
@@ -240,23 +676,24 @@ let private translateReturn (ins: Instruction) bld =
 let private translateReturnConst (ins: Instruction) bld =
   bld <!-- (ins.Address, ins.Length)
   let name = resolveConst ins.Operands
-  let value = AST.app "LOAD_CONST" [ AST.undef rt name ] rt
+  let value = AST.app "LOAD_CONST" [ name ] rt
   let t = tmpVar bld rt
   bld <+ AST.extCall (AST.app "RETURN" [ value ] rt)
   bld <+ (AST.interjmp t InterJmpKind.IsRet)
   bld
 
-(* RAISE_VARARGS arg: pop arg items (0–2) and raise. *)
-let private translateRaise (ins: Instruction) bld =
+(* RAISE_VARARGS arg: pop arg items (0??) and raise. *)
+let private translateRaiseVarargs (ins: Instruction) bld =
   bld <!-- (ins.Address, ins.Length)
   let n = getIntArg ins
   let args = List.init n (fun _ -> popFromStack bld)
   bld <+ AST.extCall (AST.app "RAISE_VARARGS" args rt)
+  bld <+ AST.sideEffect SideEffect.Terminate
   bld --!> ins.Length
 
 (* Conditional jump shared by POP_JUMP_IF_FALSE and POP_JUMP_IF_TRUE.
-   jumpIfTrue=true  → jump when TOS is truthy.
-   jumpIfTrue=false → jump when TOS is falsy. *)
+   jumpIfTrue=true  ??jump when TOS is truthy.
+   jumpIfTrue=false ??jump when TOS is falsy. *)
 let private condJump (ins: Instruction) bld jumpIfTrue =
   bld <!-- (ins.Address, ins.Length)
   let cond = popFromStack bld
@@ -265,24 +702,54 @@ let private condJump (ins: Instruction) bld jumpIfTrue =
   let fallDst = ins.Address + uint64 ins.Length
   let tLbl = AST.num (BitVector(jmpDst, rt))
   let fLbl = AST.num (BitVector(fallDst, rt))
-  if jumpIfTrue then bld <+ AST.intercjmp cond tLbl fLbl
-  else bld <+ AST.intercjmp cond fLbl tLbl
+  (* EXPERIMENTAL (2026-07-27): previously, jumpIfTrue negated cond and
+     swapped tLbl/fLbl, canonicalizing every conditional jump to "fallthrough
+     = true edge" regardless of the original opcode. Execution-wise that is
+     equivalent (De Morgan), but it discards which branch was the real
+     jump-taken target -- e.g. `if x in y: body` (no else, body is the
+     loop's last statement) compiles via POP_JUMP_IF_TRUE, and after the old
+     swap, Translator.fs saw an artificially negated `not (x in y)` with the
+     body/continue roles exchanged, printing `if not (x in y): continue`
+     instead of the original `if x in y: body` -- same runtime behavior, but
+     failing bytecode-identity (`x not in y` compiles to a genuinely
+     different CONTAINS_OP arg + POP_JUMP_IF_FALSE, not just a `not` wrapper
+     -- confirmed by direct comparison). This "honest" version keeps cond
+     and the two labels exactly as they map onto POP_JUMP_IF_TRUE's real
+     semantics (jump to jmpDst when truthy), matching the FALSE case's
+     existing (unmodified) mapping in spirit -- to see, empirically, what in
+     the CFG-recovery/dominance/loop-detection pipeline actually depends on
+     the old canonicalization before deciding whether to keep this. *)
+  let cond, tLbl, fLbl =
+    if jumpIfTrue then
+      cond, tLbl, fLbl
+    else
+      cond, fLbl, tLbl
+  bld <+ AST.intercjmp cond tLbl fLbl
   bld
 
 (* Conditional jump for POP_JUMP_IF_NONE / POP_JUMP_IF_NOT_NONE.
-   jumpIfNone=true  → jump when TOS is None (modeled as IS_NONE(TOS) = 1).
-   jumpIfNone=false → jump when TOS is not None. *)
+   jumpIfNone=true  ??jump when TOS is None (modeled as IS_NONE(TOS) = 1).
+   jumpIfNone=false ??jump when TOS is not None. *)
 let private condJumpNone (ins: Instruction) bld jumpIfNone =
   bld <!-- (ins.Address, ins.Length)
   let value = popFromStack bld
-  let isNone = AST.app "IS_NONE" [ value ] rt
   let n = getIntArg ins
   let jmpDst = ins.Address + uint64 ins.Length + uint64 (n * 2)
   let fallDst = ins.Address + uint64 ins.Length
   let tLbl = AST.num (BitVector(jmpDst, rt))
   let fLbl = AST.num (BitVector(fallDst, rt))
-  if jumpIfNone then bld <+ AST.intercjmp isNone tLbl fLbl
-  else bld <+ AST.intercjmp isNone fLbl tLbl
+  (* EXPERIMENTAL (2026-07-27): honest counterpart to condJump's fix above
+     -- jump directly to jmpDst on the condition that actually matches the
+     opcode's own real semantics (IS_NONE for POP_JUMP_IF_NONE, IS_NOT_NONE
+     for POP_JUMP_IF_NOT_NONE), instead of negating to the contrapositive
+     and swapping tLbl/fLbl to fit the old "fallthrough = true edge"
+     canonicalization. *)
+  if jumpIfNone then
+    let isNone = AST.app "IS_NONE" [ value ] rt
+    bld <+ AST.intercjmp isNone tLbl fLbl
+  else
+    let isNotNone = AST.app "IS_NOT_NONE" [ value ] rt
+    bld <+ AST.intercjmp isNotNone tLbl fLbl
   bld
 
 let private forIter minor (ins: Instruction) bld =
@@ -307,6 +774,7 @@ let private forIter minor (ins: Instruction) bld =
   bld <+ AST.interjmp tLbl InterJmpKind.Base
   (* False branch: jump to the body and push the next value. *)
   bld <+ AST.lmark lblLFalse
+  let tos = peekFromStack bld 0
   pushToStack bld (AST.app "NEXT" [ tos ] rt)
   bld <+ AST.interjmp fLbl InterJmpKind.Base
   bld
@@ -318,22 +786,27 @@ let private getIter (ins: Instruction) bld =
   pushToStack bld iterNext
   bld --!> ins.Length
 
-(* SEND: pop TOS (sent value), peek TOS1 (generator), call send(gen, val).
-   Push result; jump on exhaustion, fall through otherwise. *)
+(* SEND: pop TOS (sent value), pop TOS1 (generator), call send(gen, val).
+   Per CPython's own bytecodes.c, the stack effect is
+   `(receiver, v -- receiver, retval)` on BOTH the exhausted and
+   not-exhausted paths -- receiver stays regardless; only END_SEND (via
+   the exhausted jump) later drops it. So push gen back unconditionally,
+   then push the result, then jump on exhaustion or fall through. *)
 let private send (ins: Instruction) bld =
   bld <!-- (ins.Address, ins.Length)
   let sentVal = popFromStack bld
-  let gen = peekFromStack bld 0
+  let gen = popFromStack bld
   let result = AST.app "SEND" [ gen; sentVal ] rt
   let n = getIntArg ins
   let jmpDst = ins.Address + uint64 ins.Length + uint64 (n * 2)
   let fallDst = ins.Address + uint64 ins.Length
-  pushToStack bld result
   let isExhausted = AST.app "IS_EXHAUSTED" [ result ] rt
+  pushToStack bld gen
+  pushToStack bld result
   bld <+ AST.intercjmp isExhausted
     (AST.num (BitVector(jmpDst, rt)))
     (AST.num (BitVector(fallDst, rt)))
-  bld --!> ins.Length
+  bld
 
 let private getYieldFromIter (ins: Instruction) bld =
   bld <!-- (ins.Address, ins.Length)
@@ -341,14 +814,23 @@ let private getYieldFromIter (ins: Instruction) bld =
   pushToStack bld (AST.app "GET_YIELD_FROM_ITER" [ tos ] rt)
   bld --!> ins.Length
 
+let private kwNames (ins: Instruction) bld =
+  bld <!-- (ins.Address, ins.Length)
+  let names = resolveConst ins.Operands
+  let kwReg = regVar bld R.KW_NAMES
+  bld <+ (kwReg := names)
+  bld --!> ins.Length
+
 let private call (ins: Instruction) bld =
   bld <!-- (ins.Address, ins.Length)
   let argc = getIntArg ins
-  let args = List.init argc (fun _ -> popFromStack bld)
+  let args = List.init argc (fun _ -> popFromStack bld) |> List.rev
   let func = popFromStack bld
   let maybeSelf = popFromStack bld
-  let result = AST.app "CALL" (maybeSelf :: func :: args) rt
+  let kwReg = regVar bld R.KW_NAMES
+  let result = AST.app "CALL" (maybeSelf :: func :: args @ [ kwReg ]) rt
   pushToStack bld result
+  bld <+ (kwReg := AST.undef rt "NULL")
   bld --!> ins.Length
 
 let private consumeAndPush name (ins: Instruction) bld =
@@ -356,6 +838,148 @@ let private consumeAndPush name (ins: Instruction) bld =
   let v = popFromStack bld
   let result = AST.app name [ v ] rt
   pushToStack bld result
+  bld --!> ins.Length
+
+let private makeFunction (ins: Instruction) bld =
+  bld <!-- (ins.Address, ins.Length)
+  let flags = getIntArg ins
+  let codeObj = popFromStack bld
+  if flags &&& 0x08 <> 0 then discardTOS bld else ()
+  let annotations =
+    if flags &&& 0x04 <> 0 then popFromStack bld
+    else AST.undef rt "NULL"
+  let kwDefs =
+    if flags &&& 0x02 <> 0 then popFromStack bld
+    else AST.undef rt "NULL"
+  let posDefs =
+    if flags &&& 0x01 <> 0 then popFromStack bld
+    else AST.undef rt "NULL"
+  let result =
+    AST.app "MAKE_FUNCTION" [ codeObj; posDefs; kwDefs; annotations ] rt
+  pushToStack bld result
+  bld --!> ins.Length
+
+(* Pre-3.11: MAKE_FUNCTION's stack order is different in two ways --
+   there's an explicit qualname STRING on top of the code object (3.11+
+   bakes qualname into the code object's own metadata instead, so this
+   slot doesn't exist there at all), and the flag-dependent extras
+   (closure/annotations/kwdefaults/posdefaults) sit BELOW the code object
+   rather than above it, popped in the OPPOSITE bit order (0x01 first,
+   not 0x08 first) -- reusing the 3.12 version's `makeFunction` verbatim
+   silently popped the qualname string as if it were the code object
+   itself, corrupting every nested function's own CodeRef into its own
+   qualname text instead of an address-based ref (confirmed via `10013`
+   in the CSN 3.10 sweep: `fillIncompleteFuncSigs` crashed looking up
+   codeRef `"get_bucket"` -- the qualname -- instead of `"<90>"`). *)
+let private makeFunctionLegacy (ins: Instruction) bld =
+  bld <!-- (ins.Address, ins.Length)
+  let flags = getIntArg ins
+  (* Neither popFromStack-and-ignore NOR discardTOS works here: either
+     way, the qualname's own LOAD_CONST push ends up as a dead SSA value
+     nothing ever reads, and a generic "unconsumed LOAD_CONST becomes its
+     own standalone statement" rule elsewhere (TranslationHelper.fs,
+     `processSSAStmt`'s `isDeadVar` LOAD_CONST case) then mistakes it for
+     a genuine bare-expression statement, printing the qualname as a
+     bogus leading module "docstring" (confirmed via a minimal `def
+     foo(x): return x + 1` repro under 3.10). That rule only fires on a
+     bare `Def`, not an external call -- wrapping the pop in one marks it
+     as genuinely consumed (no longer "dead") without needing a
+     recognized opcode name for `processSSAStmt`'s catch-all to actually
+     act on (an unrecognized ExternalCall name is silently ignored, same
+     as e.g. register-bookkeeping Defs are). *)
+  let qualname = popFromStack bld
+  bld <+ AST.extCall (AST.app "DISCARD" [ qualname ] rt)
+  let codeObj = popFromStack bld
+  let posDefs =
+    if flags &&& 0x01 <> 0 then popFromStack bld
+    else AST.undef rt "NULL"
+  let kwDefs =
+    if flags &&& 0x02 <> 0 then popFromStack bld
+    else AST.undef rt "NULL"
+  let annotations =
+    if flags &&& 0x04 <> 0 then popFromStack bld
+    else AST.undef rt "NULL"
+  if flags &&& 0x08 <> 0 then discardTOS bld else ()
+  let result =
+    AST.app "MAKE_FUNCTION" [ codeObj; posDefs; kwDefs; annotations ] rt
+  pushToStack bld result
+  bld --!> ins.Length
+
+(* Pre-3.11, the callable sits directly on TOS with no NULL/self slot
+   beneath it (that slot is a 3.11+ addition, matching CALL's own
+   NULL-or-self convention elsewhere in this file) -- popping it
+   unconditionally here consumed one stack slot too many under 3.10,
+   silently desynchronizing SP from the CPython-defined stack effect
+   (confirmed via `etc_4`/`async_callback` in datasets/examples/src/
+   regression.py: a `functools.partial(callback, *args, **kwargs)` call
+   whose two branches merge into a shared return, surfacing as an
+   untranslatable raw `Load(MemVar, ...)` once SSAStackPointerPropagation
+   lost ConstSP tracking after the phantom extra pop). *)
+let private callFunctionEx minor (ins: Instruction) bld =
+  bld <!-- (ins.Address, ins.Length)
+  let flags = getIntArg ins
+  let kwargs =
+    if flags &&& 0x01 <> 0 then popFromStack bld
+    else AST.undef rt "NULL"
+  let args = popFromStack bld
+  let func = popFromStack bld
+  let maybeSelf =
+    if minor >= 11 then popFromStack bld else AST.undef rt "NULL"
+  let result =
+    AST.app "CALL_FUNCTION_EX" [ maybeSelf; func; args; kwargs ] rt
+  pushToStack bld result
+  bld --!> ins.Length
+
+let private listAppend (ins: Instruction) bld =
+  bld <!-- (ins.Address, ins.Length)
+  let i = getIntArg ins
+  let item = popFromStack bld
+  let lst = peekFromStack bld (i - 1)
+  bld <+ AST.extCall (AST.app "LIST_APPEND" [ lst; item ] rt)
+  bld --!> ins.Length
+
+let private setAdd (ins: Instruction) bld =
+  bld <!-- (ins.Address, ins.Length)
+  let i = getIntArg ins
+  let item = popFromStack bld
+  let st = peekFromStack bld (i - 1)
+  bld <+ AST.extCall (AST.app "SET_ADD" [ st; item ] rt)
+  bld --!> ins.Length
+
+let private mapAdd (ins: Instruction) bld =
+  bld <!-- (ins.Address, ins.Length)
+  let i = getIntArg ins
+  let value = popFromStack bld
+  let key = popFromStack bld
+  let mp = peekFromStack bld (i - 1)
+  bld <+ AST.extCall (AST.app "MAP_ADD" [ mp; key; value ] rt)
+  bld --!> ins.Length
+
+(* DICT_MERGE/DICT_UPDATE replace the dict `i-1` slots below TOS with a new
+   merged value -- rather than popping it, updating in place, and leaving
+   everything else on the stack untouched, the original lifting peeked at
+   that slot and stored the merged result back via a raw memory write at a
+   computed offset. That store bypasses pushToStack/popFromStack, the only
+   stack effects SSAStackPointerPropagation's ConstSP tracking recognizes
+   (see its own `Load _ -> NotConstSP` catch-all) -- so any LATER access
+   built on an address derived from this slot no longer resolves to a
+   clean StackVar reference, and surfaces instead as a raw, untranslatable
+   `Load` (confirmed via real-world PyPI/CSN code using chained calls that
+   unpack several iterables and mappings at once). Popping down to the
+   dict (saving any
+   intervening values), then pushing the merged result followed by the
+   saved values back in their original order, keeps every stack slot's
+   value flowing through the same recognized push/pop primitives as
+   everywhere else. *)
+let private dictMerge name (ins: Instruction) bld =
+  bld <!-- (ins.Address, ins.Length)
+  let i = getIntArg ins
+  let update = popFromStack bld
+  let saved = [| for _ in 1 .. i - 1 -> popFromStack bld |]
+  let dict = popFromStack bld
+  let merged = AST.app name [ dict; update ] rt
+  pushToStack bld merged
+  for v in Array.rev saved do pushToStack bld v
   bld --!> ins.Length
 
 let private cmpOpType = function
@@ -384,6 +1008,30 @@ let private compareOP minor (ins: Instruction) bld =
   pushToStack bld b
   bld --!> ins.Length
 
+(* IS_OP: pop TOS (right) and TOS1 (left), push identity test.
+   operand=0 ??left is right; operand=1 ??left is not right. *)
+let private isOp (ins: Instruction) bld =
+  bld <!-- (ins.Address, ins.Length)
+  let invert = getIntArg ins
+  let right = popFromStack bld
+  let left = popFromStack bld
+  let fname = if invert = 0 then "IS_OP" else "NOT_IS_OP"
+  pushToStack bld (AST.app fname [ left; right ] rt)
+  bld --!> ins.Length
+
+(* CONTAINS_OP: pop TOS (container) and TOS1 (item), push membership test.
+   operand=0 ??item in container; operand=1 ??item not in container. *)
+let private containsOp (ins: Instruction) bld =
+  bld <!-- (ins.Address, ins.Length)
+  let invert = getIntArg ins
+  let container = popFromStack bld
+  let item = popFromStack bld
+  let fname =
+    if invert = 0 then "CONTAINS_OP" else "NOT_CONTAINS_OP"
+  let result = AST.app fname [ container; item ] rt
+  pushToStack bld result
+  bld --!> ins.Length
+
 (* BINARY_OP: pop right (TOS) and left (TOS1), apply operator, push result.
    arg directly indexes the operation; inplace variants (arg >= 13) share
    the same index offset as their non-inplace counterparts. *)
@@ -392,22 +1040,57 @@ let binaryOp (ins: Instruction) bld =
   let right = popFromStack bld
   let left = popFromStack bld
   let result =
+    (* CPython BINARY_OP arg: 0-12 are the plain ops, 13-25 the matching
+       in-place (`+=`, `-=`, ...) variants (regular + 13). The in-place ones
+       dispatch to `__iadd__` etc. and can mutate in place, so -- unlike a
+       generic binary lifter -- we must NOT fold them into the plain op; they
+       are lifted to distinct named apps that a store recovers as AugAssign
+       (see makeAssign). Matrix-multiply follows the same plain/in-place
+       split as every other operator here (`@` at 4, `@=` at 17 = 4 + 13). *)
     match getIntArg ins with
-    | 0  | 13 -> AST.binop BinOpType.ADD left right
-    | 1  | 14 -> AST.binop BinOpType.AND left right
-    | 2  | 15 -> AST.app "//" [ left; right ] rt
-    | 3  | 16 -> AST.binop BinOpType.SHL left right
-    | 4  | 17 -> AST.app "@" [ left; right ] rt
-    | 5  | 18 -> AST.binop BinOpType.MUL left right
-    | 6  | 19 -> AST.binop BinOpType.MOD left right
-    | 7  | 20 -> AST.binop BinOpType.OR left right
-    | 8  | 21 -> AST.app "**" [ left; right ] rt
-    | 9  | 22 -> AST.binop BinOpType.SAR left right
-    | 10 | 23 -> AST.binop BinOpType.SUB left right
-    | 11 | 24 -> AST.binop BinOpType.DIV left right
-    | 12 | 25 -> AST.binop BinOpType.XOR left right
+    | 0 -> AST.binop BinOpType.ADD left right
+    | 1 -> AST.binop BinOpType.AND left right
+    | 2 -> AST.app "//" [ left; right ] rt
+    | 3 -> AST.binop BinOpType.SHL left right
+    | 4 -> AST.app "@" [ left; right ] rt
+    | 5 -> AST.binop BinOpType.MUL left right
+    | 6 -> AST.binop BinOpType.MOD left right
+    | 7 -> AST.binop BinOpType.OR left right
+    | 8 -> AST.app "**" [ left; right ] rt
+    | 9 -> AST.binop BinOpType.SAR left right
+    | 10 -> AST.binop BinOpType.SUB left right
+    | 11 -> AST.binop BinOpType.DIV left right
+    | 12 -> AST.binop BinOpType.XOR left right
+    | 13 -> AST.app "IADD" [ left; right ] rt
+    | 14 -> AST.app "IBITAND" [ left; right ] rt
+    | 15 -> AST.app "IFLOORDIV" [ left; right ] rt
+    | 16 -> AST.app "ILSHIFT" [ left; right ] rt
+    | 17 -> AST.app "IMATMUL" [ left; right ] rt
+    | 18 -> AST.app "IMUL" [ left; right ] rt
+    | 19 -> AST.app "IMOD" [ left; right ] rt
+    | 20 -> AST.app "IBITOR" [ left; right ] rt
+    | 21 -> AST.app "IPOW" [ left; right ] rt
+    | 22 -> AST.app "IRSHIFT" [ left; right ] rt
+    | 23 -> AST.app "ISUB" [ left; right ] rt
+    | 24 -> AST.app "IDIV" [ left; right ] rt
+    | 25 -> AST.app "IBITXOR" [ left; right ] rt
     | n -> failwithf "Invalid BINARY_OP arg %d at %A" n ins.Address
   pushToStack bld result
+  bld --!> ins.Length
+
+let private binarySubscr (ins: Instruction) bld =
+  bld <!-- (ins.Address, ins.Length)
+  let idx = popFromStack bld
+  let obj = popFromStack bld
+  pushToStack bld (AST.app "BINARY_SUBSCR" [ obj; idx ] rt)
+  bld --!> ins.Length
+
+let private binarySlice (ins: Instruction) bld =
+  bld <!-- (ins.Address, ins.Length)
+  let stop = popFromStack bld
+  let start = popFromStack bld
+  let obj = popFromStack bld
+  pushToStack bld (AST.app "BINARY_SLICE" [ obj; start; stop ] rt)
   bld --!> ins.Length
 
 let unpackSequence (ins: Instruction) bld =
@@ -419,13 +1102,88 @@ let unpackSequence (ins: Instruction) bld =
     pushToStack bld elem
   bld --!> ins.Length
 
+(* Same fix as dictMerge above, and for the same reason: pop down to the
+   list (saving any intervening values), extend it, then push the result
+   back followed by the saved values, instead of peeking and writing the
+   new value back via a raw store SSAStackPointerPropagation's ConstSP
+   tracking cannot see through. *)
+let private listExtend (ins: Instruction) bld =
+  bld <!-- (ins.Address, ins.Length)
+  let n = getIntArg ins
+  let tos = popFromStack bld
+  let saved = [| for _ in 1 .. n - 1 -> popFromStack bld |]
+  let lst = popFromStack bld
+  let extended = AST.app "LIST_EXTEND" [ lst; tos ] rt
+  pushToStack bld extended
+  for v in Array.rev saved do pushToStack bld v
+  bld --!> ins.Length
+
+let buildCollection name (ins: Instruction) bld =
+  bld <!-- (ins.Address, ins.Length)
+  let n = getIntArg ins
+  let items =
+    [| for _ in 0 .. n - 1 do yield popFromStack bld |]
+    |> Array.rev
+    |> Array.toList
+  pushToStack bld (AST.app name items rt)
+  bld --!> ins.Length
+
+(* BUILD_MAP: pops n key-value pairs (key1 value1 ... keyN valueN from
+   bottom to top) and pushes the resulting dict. *)
+let private buildMap (ins: Instruction) bld =
+  bld <!-- (ins.Address, ins.Length)
+  let n = getIntArg ins
+  let items =
+    [| for _ in 0 .. (2 * n) - 1 do yield popFromStack bld |]
+    |> Array.rev
+    |> Array.toList
+  pushToStack bld (AST.app "BUILD_MAP" items rt)
+  bld --!> ins.Length
+
+(* BUILD_CONST_KEY_MAP: TOS = keys tuple, TOS1..TOS(n) = values.
+   Pops keys then n values; pushes the resulting dict. *)
+let private buildConstKeyMap (ins: Instruction) bld =
+  bld <!-- (ins.Address, ins.Length)
+  let n = getIntArg ins
+  let keys = popFromStack bld
+  let values =
+    [| for _ in 0 .. n - 1 do yield popFromStack bld |]
+    |> Array.rev
+    |> Array.toList
+  pushToStack bld (AST.app "BUILD_CONST_KEY_MAP" (keys :: values) rt)
+  bld --!> ins.Length
+
+(* FORMAT_VALUE: flags & 0x3 = conversion (0=none,1=str,2=repr,3=ascii);
+   flags & 0x4 = has_format_spec. Pops spec (if any) then value; pushes
+   the formatted string. *)
+let private formatValue (ins: Instruction) bld =
+  bld <!-- (ins.Address, ins.Length)
+  let flags = getIntArg ins
+  let spec = if flags &&& 0x4 <> 0 then [ popFromStack bld ] else []
+  let value = popFromStack bld
+  let convName =
+    match flags &&& 0x3 with
+    | 1 -> "str"
+    | 2 -> "repr"
+    | 3 -> "ascii"
+    | _ -> ""
+  let result =
+    AST.app "FORMAT_VALUE" (value :: AST.undef rt convName :: spec) rt
+  pushToStack bld result
+  bld --!> ins.Length
+
 /// Translate IR.
 let translate (binFile: PythonBinFile) (ins: Instruction) bld =
   let minor = extractMinorVersion binFile.Version
   match ins.Opcode with
   (* No-ops *)
-  | Opcode.NOP | Opcode.RESUME | Opcode.CACHE ->
+  | Opcode.RESUME | Opcode.CACHE ->
     nopInstr ins bld
+  (* NOP is the only no-op that can carry a genuine source-level `pass`
+     statement (see PruneEmptyIf.fs / Translator.fs for why this must stay
+     distinguishable from RESUME/CACHE, which never do). *)
+  | Opcode.NOP ->
+    namedEffect "NOP" ins bld
   (* Stack manipulation *)
   | Opcode.POP_TOP ->
     popTop ins bld
@@ -434,11 +1192,23 @@ let translate (binFile: PythonBinFile) (ins: Instruction) bld =
   | Opcode.END_FOR ->
     endFor ins bld
   | Opcode.END_SEND ->
-    namedEffect "END_SEND" ins bld
+    endSend ins bld
   | Opcode.COPY ->
     copy ins bld
   | Opcode.SWAP ->
     swap ins bld
+  | Opcode.ROT_TWO ->
+    rotateTopToBottom 2 ins bld
+  | Opcode.ROT_THREE ->
+    rotateTopToBottom 3 ins bld
+  | Opcode.ROT_FOUR ->
+    rotateTopToBottom 4 ins bld
+  | Opcode.ROT_N ->
+    rotateTopToBottom (getIntArg ins) ins bld
+  | Opcode.DUP_TOP ->
+    dupTop ins bld
+  | Opcode.DUP_TOP_TWO ->
+    dupTopTwo ins bld
   (* Load instructions *)
   | Opcode.LOAD_CONST ->
     translateLoad "LOAD_CONST" true ins bld
@@ -447,23 +1217,27 @@ let translate (binFile: PythonBinFile) (ins: Instruction) bld =
   | Opcode.LOAD_NAME ->
     translateLoad "LOAD_NAME" false ins bld
   | Opcode.LOAD_ATTR ->
-    translateLoad "LOAD_ATTR" false ins bld
+    loadAttr ins bld
   | Opcode.LOAD_GLOBAL ->
     translateLoadGlobal minor ins bld
   | Opcode.LOAD_DEREF ->
     translateLoad "LOAD_DEREF" false ins bld
   | Opcode.LOAD_CLOSURE ->
     translateLoad "LOAD_CLOSURE" false ins bld
+  | Opcode.LOAD_CLASSDEREF ->
+    translateLoad "LOAD_CLASSDEREF" false ins bld
+  | Opcode.LOAD_METHOD ->
+    loadMethod ins bld
   | Opcode.LOAD_SUPER_ATTR ->
-    translateLoad "LOAD_SUPER_ATTR" false ins bld
+    loadSuperAttr ins bld
   | Opcode.LOAD_FROM_DICT_OR_GLOBALS ->
     translateLoad "LOAD_FROM_DICT_OR_GLOBALS" false ins bld
   | Opcode.LOAD_FROM_DICT_OR_DEREF ->
     translateLoad "LOAD_FROM_DICT_OR_DEREF" false ins bld
   | Opcode.LOAD_BUILD_CLASS ->
-    namedEffect "LOAD_BUILD_CLASS" ins bld
+    loadBuildClass ins bld
   | Opcode.LOAD_ASSERTION_ERROR ->
-    namedEffect "LOAD_ASSERTION_ERROR" ins bld
+    loadAssertionError ins bld
   | Opcode.LOAD_LOCALS ->
     namedEffect "LOAD_LOCALS" ins bld
   (* Store instructions *)
@@ -474,7 +1248,7 @@ let translate (binFile: PythonBinFile) (ins: Instruction) bld =
   | Opcode.STORE_GLOBAL ->
     storeNamed "STORE_GLOBAL" ins bld
   | Opcode.STORE_ATTR ->
-    storeNamed "STORE_ATTR" ins bld
+    storeAttr ins bld
   | Opcode.STORE_DEREF ->
     storeNamed "STORE_DEREF" ins bld
   | Opcode.STORE_SUBSCR ->
@@ -489,95 +1263,217 @@ let translate (binFile: PythonBinFile) (ins: Instruction) bld =
   | Opcode.DELETE_GLOBAL ->
     translateDelete "DELETE_GLOBAL" ins bld
   | Opcode.DELETE_ATTR ->
-    translateDelete "DELETE_ATTR" ins bld
+    deleteAttr ins bld
   | Opcode.DELETE_DEREF ->
     translateDelete "DELETE_DEREF" ins bld
   | Opcode.DELETE_SUBSCR ->
-    namedEffect "DELETE_SUBSCR" ins bld
+    deleteSubscript ins bld
   (* Unary operations *)
   | Opcode.UNARY_NEGATIVE ->
-    namedEffect "UNARY_NEGATIVE" ins bld
+    unaryOp "UNARY_NEGATIVE" ins bld
   | Opcode.UNARY_NOT ->
-    namedEffect "UNARY_NOT" ins bld
+    unaryOp "UNARY_NOT" ins bld
   | Opcode.UNARY_INVERT ->
-    namedEffect "UNARY_INVERT" ins bld
+    unaryOp "UNARY_INVERT" ins bld
+  | Opcode.UNARY_POSITIVE ->
+    unaryOp "UNARY_POSITIVE" ins bld
   (* Binary / slice operations *)
   | Opcode.BINARY_OP ->
     binaryOp ins bld
   | Opcode.BINARY_SUBSCR ->
-    namedEffect "BINARY_SUBSCR" ins bld
+    binarySubscr ins bld
   | Opcode.BINARY_SLICE ->
-    namedEffect "BINARY_SLICE" ins bld
+    binarySlice ins bld
+  (* Pre-3.11: each binary/inplace operator is its own opcode (see
+     binaryOpDirect's own doc comment) -- the named-app strings mirror
+     binaryOp's arg-index table above exactly. *)
+  | Opcode.BINARY_ADD ->
+    binaryOpDirect (AST.binop BinOpType.ADD) ins bld
+  | Opcode.BINARY_SUBTRACT ->
+    binaryOpDirect (AST.binop BinOpType.SUB) ins bld
+  | Opcode.BINARY_MULTIPLY ->
+    binaryOpDirect (AST.binop BinOpType.MUL) ins bld
+  | Opcode.BINARY_MODULO ->
+    binaryOpDirect (AST.binop BinOpType.MOD) ins bld
+  | Opcode.BINARY_FLOOR_DIVIDE ->
+    binaryOpDirect (fun l r -> AST.app "//" [ l; r ] rt) ins bld
+  | Opcode.BINARY_TRUE_DIVIDE ->
+    binaryOpDirect (AST.binop BinOpType.DIV) ins bld
+  | Opcode.BINARY_POWER ->
+    binaryOpDirect (fun l r -> AST.app "**" [ l; r ] rt) ins bld
+  | Opcode.BINARY_MATRIX_MULTIPLY ->
+    binaryOpDirect (fun l r -> AST.app "@" [ l; r ] rt) ins bld
+  | Opcode.BINARY_LSHIFT ->
+    binaryOpDirect (AST.binop BinOpType.SHL) ins bld
+  | Opcode.BINARY_RSHIFT ->
+    binaryOpDirect (AST.binop BinOpType.SAR) ins bld
+  | Opcode.BINARY_AND ->
+    binaryOpDirect (AST.binop BinOpType.AND) ins bld
+  | Opcode.BINARY_OR ->
+    binaryOpDirect (AST.binop BinOpType.OR) ins bld
+  | Opcode.BINARY_XOR ->
+    binaryOpDirect (AST.binop BinOpType.XOR) ins bld
+  | Opcode.INPLACE_ADD ->
+    binaryOpDirect (fun l r -> AST.app "IADD" [ l; r ] rt) ins bld
+  | Opcode.INPLACE_SUBTRACT ->
+    binaryOpDirect (fun l r -> AST.app "ISUB" [ l; r ] rt) ins bld
+  | Opcode.INPLACE_MULTIPLY ->
+    binaryOpDirect (fun l r -> AST.app "IMUL" [ l; r ] rt) ins bld
+  | Opcode.INPLACE_MODULO ->
+    binaryOpDirect (fun l r -> AST.app "IMOD" [ l; r ] rt) ins bld
+  | Opcode.INPLACE_FLOOR_DIVIDE ->
+    binaryOpDirect (fun l r -> AST.app "IFLOORDIV" [ l; r ] rt) ins bld
+  | Opcode.INPLACE_TRUE_DIVIDE ->
+    binaryOpDirect (fun l r -> AST.app "IDIV" [ l; r ] rt) ins bld
+  | Opcode.INPLACE_POWER ->
+    binaryOpDirect (fun l r -> AST.app "IPOW" [ l; r ] rt) ins bld
+  | Opcode.INPLACE_MATRIX_MULTIPLY ->
+    binaryOpDirect (fun l r -> AST.app "IMATMUL" [ l; r ] rt) ins bld
+  | Opcode.INPLACE_LSHIFT ->
+    binaryOpDirect (fun l r -> AST.app "ILSHIFT" [ l; r ] rt) ins bld
+  | Opcode.INPLACE_RSHIFT ->
+    binaryOpDirect (fun l r -> AST.app "IRSHIFT" [ l; r ] rt) ins bld
+  | Opcode.INPLACE_AND ->
+    binaryOpDirect (fun l r -> AST.app "IBITAND" [ l; r ] rt) ins bld
+  | Opcode.INPLACE_OR ->
+    binaryOpDirect (fun l r -> AST.app "IBITOR" [ l; r ] rt) ins bld
+  | Opcode.INPLACE_XOR ->
+    binaryOpDirect (fun l r -> AST.app "IBITXOR" [ l; r ] rt) ins bld
   (* Compare / identity / membership *)
   | Opcode.COMPARE_OP ->
     compareOP minor ins bld
   | Opcode.IS_OP ->
-    namedEffect "IS_OP" ins bld
+    isOp ins bld
   | Opcode.CONTAINS_OP ->
-    namedEffect "CONTAINS_OP" ins bld
+    containsOp ins bld
   (* Build instructions *)
   | Opcode.BUILD_TUPLE ->
-    namedEffect "BUILD_TUPLE" ins bld
+    buildCollection "BUILD_TUPLE" ins bld
   | Opcode.BUILD_LIST ->
-    namedEffect "BUILD_LIST" ins bld
+    buildCollection "BUILD_LIST" ins bld
   | Opcode.BUILD_SET ->
-    namedEffect "BUILD_SET" ins bld
+    buildCollection "BUILD_SET" ins bld
   | Opcode.BUILD_MAP ->
-    namedEffect "BUILD_MAP" ins bld
+    buildMap ins bld
   | Opcode.BUILD_STRING ->
-    namedEffect "BUILD_STRING" ins bld
+    buildCollection "BUILD_STRING" ins bld
   | Opcode.BUILD_SLICE ->
-    namedEffect "BUILD_SLICE" ins bld
+    buildCollection "BUILD_SLICE" ins bld
   | Opcode.BUILD_CONST_KEY_MAP ->
-    namedEffect "BUILD_CONST_KEY_MAP" ins bld
+    buildConstKeyMap ins bld
   (* Function call instructions *)
   | Opcode.CALL ->
     call ins bld
+  | Opcode.CALL_FUNCTION ->
+    callFunction ins bld
+  | Opcode.CALL_FUNCTION_KW ->
+    callFunctionKw ins bld
+  | Opcode.CALL_METHOD ->
+    callMethod ins bld
   | Opcode.CALL_FUNCTION_EX ->
-    namedEffect "CALL_FUNCTION_EX" ins bld
+    callFunctionEx minor ins bld
   | Opcode.CALL_INTRINSIC_1 ->
-    namedEffect "CALL_INTRINSIC_1" ins bld
+    callIntrinsic1 ins bld
   | Opcode.CALL_INTRINSIC_2 ->
     namedEffect "CALL_INTRINSIC_2" ins bld
   | Opcode.KW_NAMES ->
-    namedEffect "KW_NAMES" ins bld
+    kwNames ins bld
   (* Return instructions *)
-  | Opcode.RETURN_VALUE | Opcode.RETURN_GENERATOR ->
+  | Opcode.INTERPRETER_EXIT
+  | Opcode.RETURN_VALUE ->
     translateReturn ins bld
+  | Opcode.RETURN_GENERATOR ->
+    bld <!-- (ins.Address, ins.Length)
+    pushToStack bld (AST.undef rt "None")
+    bld --!> ins.Length
   | Opcode.RETURN_CONST ->
     translateReturnConst ins bld
   (* Exception instructions *)
   | Opcode.RAISE_VARARGS ->
-    translateRaise ins bld
+    translateRaiseVarargs ins bld
   | Opcode.RERAISE ->
-    namedEffect "RERAISE" ins bld
+    bld <!-- (ins.Address, ins.Length)
+    let arg = getIntArg ins
+    let exc = popFromStack bld
+    if arg <> 0 then discardTOS bld else ()
+    bld <+ AST.extCall (AST.app "RERAISE" [ exc ] rt)
+    bld <+ AST.sideEffect SideEffect.Terminate
+    bld --!> ins.Length
   | Opcode.PUSH_EXC_INFO ->
-    namedEffect "PUSH_EXC_INFO" ins bld
+    bld <!-- (ins.Address, ins.Length)
+    let exc = popFromStack bld
+    pushToStack bld (AST.app "PREV_EXC_INFO" [] rt)
+    pushToStack bld exc
+    bld --!> ins.Length
   | Opcode.POP_EXCEPT ->
-    namedEffect "POP_EXCEPT" ins bld
+    bld <!-- (ins.Address, ins.Length)
+    let exc = popFromStack bld
+    bld <+ AST.extCall (AST.app "POP_EXCEPT" [ exc ] rt)
+    bld --!> ins.Length
   | Opcode.CHECK_EXC_MATCH ->
-    namedEffect "CHECK_EXC_MATCH" ins bld
+    bld <!-- (ins.Address, ins.Length)
+    let excType = popFromStack bld
+    let exc = peekFromStack bld 0
+    pushToStack bld (AST.app "CHECK_EXC_MATCH" [ exc; excType ] rt)
+    bld --!> ins.Length
   | Opcode.CHECK_EG_MATCH ->
     namedEffect "CHECK_EG_MATCH" ins bld
   | Opcode.WITH_EXCEPT_START ->
-    namedEffect "WITH_EXCEPT_START" ins bld
+    bld <!-- (ins.Address, ins.Length)
+    let exc = peekFromStack bld 0
+    let exitFunc = peekFromStack bld 3
+    pushToStack bld (AST.app "WITH_EXCEPT_START" [ exitFunc; exc ] rt)
+    bld --!> ins.Length
   | Opcode.CLEANUP_THROW ->
-    namedEffect "CLEANUP_THROW" ins bld
+    (* Per CPython's own bytecodes.c: (sub_iter, last_sent_val, exc_value
+       -- none, value). If TOS is a StopIteration, pops those 3 values
+       and pushes back TWO: a None placeholder, then the exception's
+       `value` attribute on top -- pop 3, push 2, net -1. We model only
+       this success path; the re-raise path doesn't change the value
+       stack (it unwinds via the exception mechanism instead). *)
+    bld <!-- (ins.Address, ins.Length)
+    let excValue = popFromStack bld
+    let sentVal = popFromStack bld
+    let gen = popFromStack bld
+    pushToStack bld (AST.undef rt "None")
+    pushToStack bld (AST.app "CLEANUP_THROW" [ gen; sentVal; excValue ] rt)
+    bld --!> ins.Length
   | Opcode.END_ASYNC_FOR ->
-    namedEffect "END_ASYNC_FOR" ins bld
+    bld <!-- (ins.Address, ins.Length)
+    let exc = popFromStack bld
+    let aiter = popFromStack bld
+    bld <+ AST.extCall (AST.app "END_ASYNC_FOR" [ aiter; exc ] rt)
+    bld --!> ins.Length
   (* Jump instructions *)
   | Opcode.JUMP_FORWARD ->
     jumpByOffset ins bld true
   | Opcode.JUMP_BACKWARD | Opcode.JUMP_BACKWARD_NO_INTERRUPT ->
     jumpByOffset ins bld false
+  (* POP_JUMP_IF_FALSE/TRUE's enum cases are shared across versions (see
+     Opcode.fs), but their target ENCODING isn't: 3.12+ uses a
+     forward-relative offset (condJump), while pre-3.11 uses an absolute
+     word offset from the code object's own start (condJumpAbsolute) --
+     see codeObjectBase's own doc comment. *)
   | Opcode.POP_JUMP_IF_FALSE ->
-    condJump ins bld false
+    if minor >= 11 then condJump ins bld false
+    else condJumpAbsolute binFile ins bld false
   | Opcode.POP_JUMP_IF_TRUE ->
-    condJump ins bld true
+    if minor >= 11 then condJump ins bld true
+    else condJumpAbsolute binFile ins bld true
   | Opcode.POP_JUMP_IF_NONE ->
     condJumpNone ins bld true
   | Opcode.POP_JUMP_IF_NOT_NONE ->
     condJumpNone ins bld false
+  (* Pre-3.11 only (both "removed in 3.12" per Opcode.fs -- absolute
+     targets, same as POP_JUMP_IF_FALSE/TRUE's own pre-3.11 encoding). *)
+  | Opcode.JUMP_ABSOLUTE ->
+    jumpAbsolute binFile ins bld
+  | Opcode.JUMP_IF_FALSE_OR_POP ->
+    jumpOrPop binFile ins bld false
+  | Opcode.JUMP_IF_TRUE_OR_POP ->
+    jumpOrPop binFile ins bld true
+  | Opcode.JUMP_IF_NOT_EXC_MATCH ->
+    jumpIfNotExcMatch binFile ins bld
   (* Iteration instructions *)
   | Opcode.FOR_ITER ->
     forIter minor ins bld
@@ -589,25 +1485,114 @@ let translate (binFile: PythonBinFile) (ins: Instruction) bld =
     getYieldFromIter ins bld
   (* Async instructions *)
   | Opcode.GET_AITER ->
-    namedEffect "GET_AITER" ins bld
+    unaryOp "GET_AITER" ins bld
   | Opcode.GET_ANEXT ->
-    namedEffect "GET_ANEXT" ins bld
+    bld <!-- (ins.Address, ins.Length)
+    let aiter = popFromStack bld
+    pushToStack bld aiter
+    pushToStack bld (AST.app "GET_ANEXT" [ aiter ] rt)
+    bld --!> ins.Length
   | Opcode.BEFORE_ASYNC_WITH ->
     namedEffect "BEFORE_ASYNC_WITH" ins bld
   | Opcode.BEFORE_WITH ->
-    namedEffect "BEFORE_WITH" ins bld
+    bld <!-- (ins.Address, ins.Length)
+    let mgr = popFromStack bld
+    pushToStack bld (AST.undef rt "__exit__")
+    (* Originally, `mgr.__enter__()`, but we simplify the expression here. *)
+    pushToStack bld (AST.app "__enter__" [ mgr ] rt)
+    bld --!> ins.Length
+  (* Pre-3.11 SETUP_FINALLY/SETUP_WITH/SETUP_ASYNC_WITH/POP_BLOCK: these
+     manage a runtime BLOCK STACK (a separate structure from the eval
+     stack), not exception-table entries -- 3.10 predates zero-cost
+     exceptions (introduced in 3.11) entirely, so there is no exception
+     table to consult for it in the first place. `ExceptionHelper.fs` and
+     `Translator.fs`'s try/except/with reconstruction are built entirely
+     around exception-table queries (`ExceptionTable.getHandlerChainByAddr`
+     etc.), which simply don't exist for 3.10 bytecode -- so even with
+     these opcodes correctly lifted to IR, HIR-level try/except/with
+     reconstruction for 3.10 does not work yet; that needs its own
+     block-stack-based mechanism as a separate follow-up. This only
+     lifts each opcode's own EVAL-STACK effect (SETUP_WITH mirrors
+     BEFORE_WITH's own mgr->__exit__+__enter__() shape exactly, since
+     3.10 folds what 3.12 splits into BEFORE_WITH+SETUP_WITH into one
+     opcode) faithfully, without emitting the block-stack's own implicit
+     exception-jump edge at all -- so CFG discovery will not see the
+     handler block as reachable via this edge (it may still be reached by
+     other means, e.g. a later fallthrough). *)
+  | Opcode.SETUP_WITH ->
+    bld <!-- (ins.Address, ins.Length)
+    let mgr = popFromStack bld
+    pushToStack bld (AST.undef rt "__exit__")
+    pushToStack bld (AST.app "__enter__" [ mgr ] rt)
+    bld --!> ins.Length
+  | Opcode.SETUP_ASYNC_WITH ->
+    (* The awaited `__aenter__()` result is already on the stack (from the
+       preceding GET_AWAITABLE + yield-from-loop) when this runs -- pop
+       and re-push it, since our model doesn't yet track the block-stack
+       target this opcode also records (see this case group's own doc
+       comment above). *)
+    bld <!-- (ins.Address, ins.Length)
+    let enterResult = popFromStack bld
+    pushToStack bld enterResult
+    bld --!> ins.Length
+  | Opcode.SETUP_FINALLY ->
+    bld <!-- (ins.Address, ins.Length)
+    let n = getIntArg ins
+    let target = codeObjectBase binFile ins.Address + uint64 (n * 2)
+    let targetExpr = AST.num (BitVector(target, rt))
+    bld <+ AST.extCall (AST.app "SETUP_FINALLY" [ targetExpr ] rt)
+    bld --!> ins.Length
+  | Opcode.POP_BLOCK ->
+    namedEffect "POP_BLOCK" ins bld
   | Opcode.GET_AWAITABLE ->
-    namedEffect "GET_AWAITABLE" ins bld
+    (* Stack-neutral: pops the object to await, pushes its awaitable
+       iterator (mirrors GET_ITER) -- previously a bare namedEffect with
+       no pop/push, which desynced the simulated stack from here on. *)
+    bld <!-- (ins.Address, ins.Length)
+    let tos = popFromStack bld
+    pushToStack bld (AST.app "GET_AWAITABLE" [ tos ] rt)
+    bld --!> ins.Length
   | Opcode.YIELD_VALUE ->
-    namedEffect "YIELD_VALUE" ins bld
+    (* Pops the yielded value. On resume, the value pushed back is
+       whatever the caller sends via `.send(x)` -- genuinely unknown at
+       decompile time, not necessarily None -- so this must NOT be a
+       plain `None` placeholder (that would be indistinguishable from a
+       real `None` constant and silently turn `v = yield x` into
+       `yield x; v = None`, discarding the received value entirely).
+       Tag it with its own distinct sentinel name instead, mirroring the
+       "NULL" self/callable-slot sentinel elsewhere, so
+       TranslationHelper can recognize a STORE right after this as `v =
+       yield x` rather than `v = None`. The following POP_TOP (if the
+       yield result is unused) discards it either way. *)
+    bld <!-- (ins.Address, ins.Length)
+    let item = popFromStack bld
+    bld <+ AST.extCall (AST.app "YIELD_VALUE" [ item ] rt)
+    pushToStack bld (AST.undef rt "YIELD_RECEIVED")
+    bld --!> ins.Length
+  | Opcode.YIELD_FROM ->
+    yieldFrom ins bld
+  (* GEN_START: pops and discards a debug-only marker distinguishing
+     generator/coroutine/async-generator kind -- purely an internal
+     assertion, no source-visible effect. *)
+  | Opcode.GEN_START ->
+    bld <!-- (ins.Address, ins.Length)
+    discardTOS bld
+    bld --!> ins.Length
+  | Opcode.PRINT_EXPR ->
+    printExpr ins bld
+  | Opcode.LIST_TO_TUPLE ->
+    consumeAndPush "LIST_TO_TUPLE" ins bld
   (* Import instructions *)
   | Opcode.IMPORT_NAME ->
-    translateLoad "IMPORT_NAME" false ins bld
+    importName ins bld
   | Opcode.IMPORT_FROM ->
-    translateLoad "IMPORT_FROM" false ins bld
+    importFrom ins bld
+  | Opcode.IMPORT_STAR ->
+    importStar ins bld
   (* Function / class definition *)
   | Opcode.MAKE_FUNCTION ->
-    consumeAndPush "MAKE_FUNCTION" ins bld
+    if minor >= 11 then makeFunction ins bld
+    else makeFunctionLegacy ins bld
   | Opcode.MAKE_CELL ->
     namedEffect "MAKE_CELL" ins bld
   | Opcode.COPY_FREE_VARS ->
@@ -615,7 +1600,7 @@ let translate (binFile: PythonBinFile) (ins: Instruction) bld =
   | Opcode.SETUP_ANNOTATIONS ->
     namedEffect "SETUP_ANNOTATIONS" ins bld
   | Opcode.FORMAT_VALUE ->
-    namedEffect "FORMAT_VALUE" ins bld
+    formatValue ins bld
   (* Unpack instructions *)
   | Opcode.UNPACK_SEQUENCE ->
     unpackSequence ins bld
@@ -623,28 +1608,50 @@ let translate (binFile: PythonBinFile) (ins: Instruction) bld =
     namedEffect "UNPACK_EX" ins bld
   (* Collection update instructions *)
   | Opcode.LIST_APPEND ->
-    namedEffect "LIST_APPEND" ins bld
+    listAppend ins bld
   | Opcode.SET_ADD ->
-    namedEffect "SET_ADD" ins bld
+    setAdd ins bld
   | Opcode.MAP_ADD ->
-    namedEffect "MAP_ADD" ins bld
+    mapAdd ins bld
   | Opcode.LIST_EXTEND ->
-    namedEffect "LIST_EXTEND" ins bld
+    listExtend ins bld
   | Opcode.SET_UPDATE ->
     namedEffect "SET_UPDATE" ins bld
   | Opcode.DICT_MERGE ->
-    namedEffect "DICT_MERGE" ins bld
+    dictMerge "DICT_MERGE" ins bld
   | Opcode.DICT_UPDATE ->
-    namedEffect "DICT_UPDATE" ins bld
+    dictMerge "DICT_UPDATE" ins bld
   (* Pattern matching instructions *)
+  | Opcode.COPY_DICT_WITHOUT_KEYS ->
+    copyDictWithoutKeys ins bld
   | Opcode.GET_LEN ->
-    namedEffect "GET_LEN" ins bld
+    bld <!-- (ins.Address, ins.Length)
+    let obj = peekFromStack bld 0
+    pushToStack bld (AST.app "GET_LEN" [ obj ] rt)
+    bld --!> ins.Length
   | Opcode.MATCH_MAPPING ->
-    namedEffect "MATCH_MAPPING" ins bld
+    bld <!-- (ins.Address, ins.Length)
+    let subject = peekFromStack bld 0
+    pushToStack bld (AST.app "MATCH_MAPPING" [ subject ] rt)
+    bld --!> ins.Length
   | Opcode.MATCH_SEQUENCE ->
-    namedEffect "MATCH_SEQUENCE" ins bld
+    bld <!-- (ins.Address, ins.Length)
+    let subject = peekFromStack bld 0
+    pushToStack bld (AST.app "MATCH_SEQUENCE" [ subject ] rt)
+    bld --!> ins.Length
   | Opcode.MATCH_KEYS ->
-    namedEffect "MATCH_KEYS" ins bld
+    bld <!-- (ins.Address, ins.Length)
+    let keys = peekFromStack bld 0
+    let subject = peekFromStack bld 1
+    pushToStack bld (AST.app "MATCH_KEYS_VALUES" [ subject; keys ] rt)
+    pushToStack bld (AST.app "MATCH_KEYS" [ subject; keys ] rt)
+    bld --!> ins.Length
   | Opcode.MATCH_CLASS ->
-    namedEffect "MATCH_CLASS" ins bld
+    bld <!-- (ins.Address, ins.Length)
+    let names = popFromStack bld
+    let cls = popFromStack bld
+    let subject = peekFromStack bld 0
+    pushToStack bld (AST.app "MATCH_CLASS_ATTRS" [ subject; cls; names ] rt)
+    pushToStack bld (AST.app "MATCH_CLASS" [ subject; cls; names ] rt)
+    bld --!> ins.Length
   | _ -> Terminator.futureFeature ()

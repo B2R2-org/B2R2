@@ -24,6 +24,7 @@
 
 module internal B2R2.FrontEnd.Python.Disasm
 
+open System.Globalization
 open B2R2.FrontEnd.BinLifter
 open B2R2.FrontEnd.Python
 open B2R2.FrontEnd.BinFile.Python
@@ -65,6 +66,7 @@ let opcodeToStrings = function
   | Op.LOAD_ASSERTION_ERROR -> "load_assertion_error"
   | Op.RETURN_GENERATOR -> "return_generator"
   | Op.RETURN_VALUE -> "return_value"
+  | Op.IMPORT_STAR -> "import_star"
   | Op.SETUP_ANNOTATIONS -> "setup_annotations"
   | Op.LOAD_LOCALS -> "load_locals"
   | Op.POP_EXCEPT -> "pop_except"
@@ -169,6 +171,53 @@ let opcodeToStrings = function
   | Op.LOAD_ZERO_SUPER_METHOD -> "load_zero_super_method"
   | Op.LOAD_ZERO_SUPER_ATTR -> "load_zero_super_attr"
   | Op.STORE_FAST_MAYBE_NULL -> "store_fast_maybe_null"
+  | Op.ROT_TWO -> "rot_two"
+  | Op.ROT_THREE -> "rot_three"
+  | Op.ROT_FOUR -> "rot_four"
+  | Op.DUP_TOP -> "dup_top"
+  | Op.DUP_TOP_TWO -> "dup_top_two"
+  | Op.UNARY_POSITIVE -> "unary_positive"
+  | Op.BINARY_MATRIX_MULTIPLY -> "binary_matrix_multiply"
+  | Op.INPLACE_MATRIX_MULTIPLY -> "inplace_matrix_multiply"
+  | Op.BINARY_POWER -> "binary_power"
+  | Op.BINARY_MULTIPLY -> "binary_multiply"
+  | Op.BINARY_MODULO -> "binary_modulo"
+  | Op.BINARY_ADD -> "binary_add"
+  | Op.BINARY_SUBTRACT -> "binary_subtract"
+  | Op.BINARY_FLOOR_DIVIDE -> "binary_floor_divide"
+  | Op.BINARY_TRUE_DIVIDE -> "binary_true_divide"
+  | Op.INPLACE_FLOOR_DIVIDE -> "inplace_floor_divide"
+  | Op.INPLACE_TRUE_DIVIDE -> "inplace_true_divide"
+  | Op.COPY_DICT_WITHOUT_KEYS -> "copy_dict_without_keys"
+  | Op.INPLACE_ADD -> "inplace_add"
+  | Op.INPLACE_SUBTRACT -> "inplace_subtract"
+  | Op.INPLACE_MULTIPLY -> "inplace_multiply"
+  | Op.INPLACE_MODULO -> "inplace_modulo"
+  | Op.BINARY_LSHIFT -> "binary_lshift"
+  | Op.BINARY_RSHIFT -> "binary_rshift"
+  | Op.BINARY_AND -> "binary_and"
+  | Op.BINARY_XOR -> "binary_xor"
+  | Op.BINARY_OR -> "binary_or"
+  | Op.INPLACE_POWER -> "inplace_power"
+  | Op.PRINT_EXPR -> "print_expr"
+  | Op.YIELD_FROM -> "yield_from"
+  | Op.INPLACE_LSHIFT -> "inplace_lshift"
+  | Op.INPLACE_RSHIFT -> "inplace_rshift"
+  | Op.INPLACE_AND -> "inplace_and"
+  | Op.INPLACE_XOR -> "inplace_xor"
+  | Op.INPLACE_OR -> "inplace_or"
+  | Op.LIST_TO_TUPLE -> "list_to_tuple"
+  | Op.ROT_N -> "rot_n"
+  | Op.JUMP_IF_NOT_EXC_MATCH -> "jump_if_not_exc_match"
+  | Op.GEN_START -> "gen_start"
+  | Op.CALL_FUNCTION -> "call_function"
+  | Op.CALL_FUNCTION_KW -> "call_function_kw"
+  | Op.LOAD_CLASSDEREF -> "load_classderef"
+  | Op.SETUP_ASYNC_WITH -> "setup_async_with"
+  | Op.CALL_METHOD -> "call_method"
+  | Op.JUMP_IF_FALSE_OR_POP -> "jump_if_false_or_pop"
+  | Op.JUMP_IF_TRUE_OR_POP -> "jump_if_true_or_pop"
+  | Op.JUMP_ABSOLUTE -> "jump_absolute"
   | _ -> raise InvalidOpcodeException
 
 let inline buildOpcode (ins: Instruction) (builder: IDisasmBuilder) =
@@ -178,14 +227,34 @@ let inline buildOpcode (ins: Instruction) (builder: IDisasmBuilder) =
 let rec toStringPyObj = function
   | PyNone -> "None"
   | PyInt i -> i.ToString()
-  | PyREF(_, str) -> str
+  | PyLong s -> s
+  | PyREF(_, obj) -> toStringPyObj obj
   | PyAscii str | PyShortAscii str | PyShortAsciiInterned str -> str
   | PyCode c ->
     $"<code object {c.Name}, file \"{c.FileName}\", line {c.FirstLineNo}>"
+  | PyFloat f -> f.ToString()
+  | PyBinaryFloat f ->
+    let s = f.ToString("R", CultureInfo.InvariantCulture)
+    let s = if s.Contains "E" || s.Contains "." then s else s + ".0"
+    s
+  | PyComplex(real, imag) ->
+    if real = "0.0" then $"{imag}j"
+    elif imag.StartsWith "-" then $"{real}{imag}j"
+    else $"{real}+{imag}j"
+  | PyBinaryComplex(real, imag) ->
+    let fmt (f: double) =
+      let s = f.ToString("R", CultureInfo.InvariantCulture)
+      if s.Contains "E" || s.Contains "." then s else s + ".0"
+    if real = 0.0 then $"{fmt imag}j"
+    elif imag < 0.0 then $"{fmt real}{fmt imag}j"
+    else $"{fmt real}+{fmt imag}j"
+  | PyEllipsis -> "..."
   | PyTuple t ->
     let t = Array.map toStringPyObj t
     String.concat ", " t
+  | PyTrue -> "True"
   | PyFalse -> "False"
+  | PyString s -> System.Text.Encoding.ASCII.GetString s
   | o -> failwithf "Invalid PyCodeObj %A" o
 
 let buildOprs (ins: Instruction) (builder: IDisasmBuilder) =

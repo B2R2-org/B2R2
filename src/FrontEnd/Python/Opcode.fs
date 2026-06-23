@@ -64,6 +64,7 @@ type Opcode =
   | LOAD_ASSERTION_ERROR = 0x4A
   | RETURN_GENERATOR = 0x4B
   | RETURN_VALUE = 0x53
+  | IMPORT_STAR = 0x54
   | SETUP_ANNOTATIONS = 0x55
   | LOAD_LOCALS = 0x57
   | POP_EXCEPT = 0x59
@@ -180,5 +181,54 @@ type Opcode =
   | POP_JUMP_BACKWARD_IF_TRUE = 0x10E
   | POP_JUMP_BACKWARD_IF_NONE = 0x10F
   | POP_JUMP_BACKWARD_IF_NOT_NONE = 0x110
+  (* Python 3.10-and-earlier-specific opcodes with no 3.12 equivalent, or
+     whose byte value collides with an unrelated 3.12 opcode -- assigned
+     pseudo-values here the same way the 3.11 POP_JUMP_* variants above
+     are, since Parsing310.fs matches raw byte values against these enum
+     cases directly rather than relying on the enum's underlying int. *)
+  | ROT_TWO = 0x111
+  | ROT_THREE = 0x112
+  | ROT_FOUR = 0x113
+  | DUP_TOP = 0x114
+  | DUP_TOP_TWO = 0x115
+  | UNARY_POSITIVE = 0x116
+  | BINARY_MATRIX_MULTIPLY = 0x117
+  | INPLACE_MATRIX_MULTIPLY = 0x118
+  | BINARY_POWER = 0x119
+  | BINARY_MULTIPLY = 0x11A
+  | BINARY_MODULO = 0x11B
+  | BINARY_ADD = 0x11C
+  | BINARY_SUBTRACT = 0x11D
+  | BINARY_FLOOR_DIVIDE = 0x11E
+  | BINARY_TRUE_DIVIDE = 0x11F
+  | INPLACE_FLOOR_DIVIDE = 0x120
+  | INPLACE_TRUE_DIVIDE = 0x121
+  | COPY_DICT_WITHOUT_KEYS = 0x122
+  | INPLACE_ADD = 0x123
+  | INPLACE_SUBTRACT = 0x124
+  | INPLACE_MULTIPLY = 0x125
+  | INPLACE_MODULO = 0x126
+  | BINARY_LSHIFT = 0x127
+  | BINARY_RSHIFT = 0x128
+  | BINARY_AND = 0x129
+  | BINARY_XOR = 0x12A
+  | BINARY_OR = 0x12B
+  | INPLACE_POWER = 0x12C
+  | PRINT_EXPR = 0x12D
+  | YIELD_FROM = 0x12E
+  | INPLACE_LSHIFT = 0x12F
+  | INPLACE_RSHIFT = 0x130
+  | INPLACE_AND = 0x131
+  | INPLACE_XOR = 0x132
+  | INPLACE_OR = 0x133
+  | LIST_TO_TUPLE = 0x134
+  | ROT_N = 0x135
+  | JUMP_IF_NOT_EXC_MATCH = 0x136
+  | GEN_START = 0x137
+  | CALL_FUNCTION = 0x138
+  | CALL_FUNCTION_KW = 0x139
+  | LOAD_CLASSDEREF = 0x13A
+  | SETUP_ASYNC_WITH = 0x13B
+  | CALL_METHOD = 0x13C
 
 type internal Op = Opcode

@@ -25,20 +25,38 @@
 namespace B2R2.FrontEnd.Python
 
 open B2R2
+open B2R2.FrontEnd.BinFile
 open B2R2.FrontEnd.BinLifter
 
 /// Represents an instruction for Python.
 type Instruction
-  internal(addr, numBytes, op, opr, oprSize, version, lifter: ILiftable) =
+  internal(addr, numBytes, op, opr, oprSize, version,
+            binFile: PythonBinFile, lifter: ILiftable) =
+
+  (* Pre-3.11 jump opcodes encode their target as a WORD offset (`oparg *
+     2`), not a byte offset: JUMP_FORWARD/FOR_ITER are relative to the next
+     instruction, while JUMP_ABSOLUTE/POP_JUMP_IF_*/JUMP_IF_*_OR_POP are
+     absolute from the CONTAINING CODE OBJECT's own start (B2R2 assigns each
+     code object a real, distinct base address, not always 0). See
+     Lifter.fs's `codeObjectBase` for the identical lookup used at lifting
+     time -- this one feeds CFG recovery via GetNextInstrAddrs instead. *)
+  let codeObjectBase (addr: Addr) =
+    binFile.Consts
+    |> Array.tryFind (fun (ar, _) -> ar.Min <= addr && ar.Max >= addr)
+    |> function
+      | Some(ar, _) -> ar.Min
+      | None ->
+        failwithf "Cannot find the code object containing address 0x%x" addr
 
   let computeBranchTargetAddr ftAddr n =
     let minor = PythonVersion.minor version
     let n = uint64 n
-    if minor <= 10 then (* Byte-offset, mostly absolute *)
+    if minor <= 10 then (* Word-offset: relative or absolute *)
       match op with
-      | Op.JUMP_FORWARD | Op.FOR_ITER -> ftAddr + n
+      | Op.JUMP_FORWARD | Op.FOR_ITER -> ftAddr + 2UL * n
       | Op.JUMP_ABSOLUTE | Op.POP_JUMP_IF_TRUE | Op.POP_JUMP_IF_FALSE
-      | Op.JUMP_IF_TRUE_OR_POP | Op.JUMP_IF_FALSE_OR_POP -> n
+      | Op.JUMP_IF_TRUE_OR_POP | Op.JUMP_IF_FALSE_OR_POP ->
+        codeObjectBase addr + 2UL * n
       | _ -> failwith "Invalid opcode for branch target computation"
     elif minor = 11 then (* Word-offset, relative *)
       match op with
@@ -68,6 +86,13 @@ type Instruction
     else
       Terminator.futureFeature ()
 
+  let isBlockStackInstruction ins =
+    match (ins: Instruction).Opcode with
+    | Opcode.SETUP_CLEANUP
+    | Opcode.SETUP_FINALLY
+    | Opcode.SETUP_WITH -> true
+    | _ -> false
+
   /// Address of this instruction.
   member _.Address with get(): Addr = addr
 
@@ -92,6 +117,18 @@ type Instruction
     | Op.INSTRUMENTED_LOAD_SUPER_ATTR when PythonVersion.minor version >= 11 ->
       match opr with
       | OneOperand(idx, _) -> (idx &&& 1) = 1
+      | _ -> false
+    | _ -> false
+
+  /// For LOAD_SUPER_ATTR: whether the super() call had explicit (class,
+  /// obj) arguments (namei bit 1), as opposed to the implicit zero-arg
+  /// `super()` form that the compiler fills in via __class__/self.
+  member _.SuperHasExplicitArgs with get() =
+    match op with
+    | Op.LOAD_SUPER_ATTR
+    | Op.INSTRUMENTED_LOAD_SUPER_ATTR when PythonVersion.minor version >= 11 ->
+      match opr with
+      | OneOperand(idx, _) -> (idx &&& 2) = 2
       | _ -> false
     | _ -> false
 
@@ -173,7 +210,9 @@ type Instruction
 
     member this.IsTerminator _ =
       let ins = this :> IInstruction
-      ins.IsBranch || ins.IsExit
+      ins.IsBranch
+      || ins.IsExit
+      // || (PythonVersion.minor version < 11 && isBlockStackInstruction this)
 
     member _.DirectBranchTarget(_addr: byref<Addr>) =
       Terminator.futureFeature ()

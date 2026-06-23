@@ -75,14 +75,19 @@ let private parseOperand opcode (span: ReadOnlySpan<byte>) (reader: IBinReader)
       let minorVer = PythonVersion.minor binFile.Version
       match opcode with
       | Op.LOAD_GLOBAL
-      | Op.LOAD_ATTR
-      | Op.LOAD_SUPER_ATTR
-      | Op.INSTRUMENTED_LOAD_SUPER_ATTR when minorVer >= 11 ->
+      | Op.LOAD_ATTR when minorVer >= 11 ->
         (* We truncate the LSB to correctly query the table while keeping the
            original index for complete information. *)
         OneOperand(idx, Some c[idx >>> 1])
+      | Op.LOAD_SUPER_ATTR
+      | Op.INSTRUMENTED_LOAD_SUPER_ATTR when minorVer >= 11 ->
+        (* namei here packs two low flag bits (is-method-call, is-two-arg-
+           super) ahead of the actual co_names index, unlike LOAD_ATTR/
+           LOAD_GLOBAL's single flag bit — so it needs a 2-bit shift. *)
+        OneOperand(idx, Some c[idx >>> 2])
       | _ ->
-        OneOperand(idx, Some c[idx])
+        if idx >= c.Length then failwith "Invalid instruction operand"
+        else OneOperand(idx, Some c[idx])
     (* This can happen when performing linear sweep on a non-code region. *)
     | None -> OneOperand(idx, None)
   struct (opcode, opr, instrLen)
@@ -127,6 +132,7 @@ let private parseInstruction (span: ReadOnlySpan<byte>) reader bf addr extArg =
   | 0x4Auy -> struct (Op.LOAD_ASSERTION_ERROR, NoOperand, 2u)
   | 0x4Buy -> struct (Op.RETURN_GENERATOR, NoOperand, 2u)
   | 0x53uy -> struct (Op.RETURN_VALUE, NoOperand, 2u)
+  | 0x54uy -> struct (Op.IMPORT_STAR, NoOperand, 2u)
   | 0x55uy -> struct (Op.SETUP_ANNOTATIONS, NoOperand, 2u)
   | 0x57uy -> struct (Op.LOAD_LOCALS, NoOperand, 2u)
   | 0x59uy -> struct (Op.POP_EXCEPT, NoOperand, 2u)
@@ -180,7 +186,7 @@ let private parseInstruction (span: ReadOnlySpan<byte>) reader bf addr extArg =
   | 0x8Auy -> parseOperand Op.STORE_DEREF span reader bf addr 2u extArg
   | 0x8Buy -> parseOperand Op.DELETE_DEREF span reader bf addr 2u extArg
   | 0x8Cuy -> parseOperand Op.JUMP_BACKWARD span reader bf addr 2u extArg
-  | 0x8Duy -> parseOperand Op.LOAD_SUPER_ATTR span reader bf addr 20u extArg
+  | 0x8Duy -> parseOperand Op.LOAD_SUPER_ATTR span reader bf addr 4u extArg
   | 0x8Euy -> parseOperand Op.CALL_FUNCTION_EX span reader bf addr 2u extArg
   | 0x8Fuy ->
     parseOperand Op.LOAD_FAST_AND_CLEAR span reader bf addr 2u extArg
@@ -208,7 +214,7 @@ let private parseInstruction (span: ReadOnlySpan<byte>) reader bf addr extArg =
   | 0xB0uy ->
     parseOperand Op.LOAD_FROM_DICT_OR_DEREF span reader bf addr 2u extArg
   | 0xEDuy ->
-    parseOperand Op.INSTRUMENTED_LOAD_SUPER_ATTR span reader bf addr 20u extArg
+    parseOperand Op.INSTRUMENTED_LOAD_SUPER_ATTR span reader bf addr 4u extArg
   | 0xEEuy ->
     parseOperand Op.INSTRUMENTED_POP_JUMP_IF_NONE span reader bf addr 2u extArg
   | 0xEFuy ->
@@ -258,7 +264,8 @@ let rec private doParse lifter (span: ReadOnlySpan<byte>) (reader: IBinReader)
   else
     let struct (opc, opr, len) = parseInstruction span reader bf c e
     let total = uint32 (c - s) + len
-    Instruction(s, total, opc, opr, OperationSize.regType, bf.Version, lifter)
+    Instruction(s, total, opc, opr, OperationSize.regType, bf.Version, bf,
+                lifter)
 
 let parse lifter (span: ByteSpan) (reader: IBinReader) binFile addr =
   doParse lifter span reader binFile addr addr 0
