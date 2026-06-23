@@ -568,14 +568,15 @@ type SymbExecutor(hdl: BinHandle) =
 
   let endian = hdl.File.ISA.Endian
 
+  let cc = hdl.CallingConvention
+
   let syncPC (addr: Addr) (st: SymbState) =
     st.SetReg(hdl.RegisterFactory.ProgramCounter,
               SymbExpr.Const(BitVector(addr, wordType)))
 
-  let getArgumentRegisters os =
-    [| 1 .. 6 |]
-    |> Array.map (fun idx ->
-      CallingConvention.FunctionArgRegister(hdl, os, idx))
+  let getArgumentRegisters () =
+    [| 0 .. 5 |]
+    |> Array.map (fun idx -> cc.ArgRegister idx)
 
   let mkCallContext callSite target returnAddress =
     { CallSite = callSite
@@ -583,16 +584,16 @@ type SymbExecutor(hdl: BinHandle) =
       ReturnAddress = returnAddress
       WordType = wordType
       Endian = endian
-      ArgumentRegisters = getArgumentRegisters OS.Linux
-      ReturnRegister = CallingConvention.ReturnRegister hdl }
+      ArgumentRegisters = getArgumentRegisters ()
+      ReturnRegister = cc.ReturnRegister }
 
   let pushReturnAddress returnAddress (st: SymbState) =
-    let accessor = SymbStateAccessor(hdl, st, OS.Linux)
+    let accessor = SymbStateAccessor(hdl, st)
     accessor.TryPushToStack(accessor.WordValue returnAddress)
     |> Result.map ignore
 
   let popReturnAddress (st: SymbState) =
-    let accessor = SymbStateAccessor(hdl, st, OS.Linux)
+    let accessor = SymbStateAccessor(hdl, st)
     match accessor.TryPopFromStack() with
     | Ok(Const ret) -> Ok(ret.ToUInt64())
     | Ok expr -> Error(UnsupportedSymbolicAddress expr)

@@ -43,9 +43,9 @@ type FunctionSummarizer<'FnCtx,
     | true, v -> int v
     | false, _ -> 0
 
-  let returnValueDef hdl =
+  let returnValueDef (hdl: BinHandle) =
     let retReg =
-      CallingConvention.ReturnRegister hdl
+      hdl.CallingConvention.ReturnRegister
       |> hdl.RegisterFactory.GetRegVar
     let rt = hdl.File.ISA.WordSize |> WordSize.toRegType
     let e = AST.undef rt "ret"

@@ -36,6 +36,10 @@ type BinHandle private(path, bytes, fmt, isa, baseAddrOpt) =
 
   let binFile = FileFactory.load path bytes fmt isa regFactory baseAddrOpt
 
+  let cc = CallingConvention.create binFile.Format binFile.ISA
+
+  let sc = SyscallConvention.create binFile.Format binFile.ISA
+
   let reader = binFile.Reader
 
   let tryReadIntBySize size (span: ByteSpan) =
@@ -137,6 +141,10 @@ type BinHandle private(path, bytes, fmt, isa, baseAddrOpt) =
   member _.File with get(): IBinFile = binFile
 
   member _.RegisterFactory with get() = regFactory
+
+  member _.CallingConvention with get() = cc
+
+  member _.SyscallConvention with get() = sc
 
   member _.NewLiftingUnit() =
     let parser = GroundWork.CreateParser binFile

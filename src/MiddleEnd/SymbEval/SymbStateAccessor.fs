@@ -47,7 +47,7 @@ with
     member this.QueryValues = this.Bytes
 
 /// Provides convenience helpers for a symbolic state.
-type SymbStateAccessor(hdl: BinHandle, state: SymbState, os: OS) as this =
+type SymbStateAccessor(hdl: BinHandle, state: SymbState) as this =
   static let defaultStringBound = 64
 
   static let defaultStackTop = 0x7fffffffe000UL
@@ -56,6 +56,7 @@ type SymbStateAccessor(hdl: BinHandle, state: SymbState, os: OS) as this =
   let endian = hdl.File.ISA.Endian
   let wordType = hdl.File.ISA.WordSize |> WordSize.toRegType
   let wordBytes = RegType.toByteWidth wordType
+  let cc = hdl.CallingConvention
 
   let wordValue (addr: Addr) = SymbExpr.Const(BitVector(addr, wordType))
 
@@ -113,7 +114,7 @@ type SymbStateAccessor(hdl: BinHandle, state: SymbState, os: OS) as this =
   let setArgument idx value =
     if idx < 0 then raise (ArgumentOutOfRangeException(nameof idx))
     else ()
-    let rid = CallingConvention.FunctionArgRegister(hdl, os, idx + 1)
+    let rid = cc.ArgRegister idx
     state.SetReg(rid, value)
 
   let allocateStackBuffer size =
@@ -190,8 +191,6 @@ type SymbStateAccessor(hdl: BinHandle, state: SymbState, os: OS) as this =
       Bytes = bytes
       NullTerminated = nullTerminate }
 
-  new(hdl, state) = SymbStateAccessor(hdl, state, OS.Linux)
-
   /// Default maximum symbolic C-string payload size.
   static member DefaultStringBound = defaultStringBound
 
@@ -252,7 +251,7 @@ type SymbStateAccessor(hdl: BinHandle, state: SymbState, os: OS) as this =
 
   /// Get the return value for the supported ABI.
   member _.GetReturnValue() =
-    CallingConvention.ReturnRegister hdl |> state.GetReg
+    cc.ReturnRegister |> state.GetReg
 
   /// Allocate a buffer from the current stack and return its address.
   member _.AllocateStackBuffer size = allocateStackBuffer size

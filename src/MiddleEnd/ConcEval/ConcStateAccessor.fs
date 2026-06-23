@@ -32,13 +32,14 @@ open B2R2.MiddleEnd.ConcEval.EvalUtils
 open B2R2.MiddleEnd.Executor
 
 /// Provides structured access to a concrete EvalState.
-type ConcStateAccessor(hdl: BinHandle, state: EvalState, os: OS) as this =
+type ConcStateAccessor(hdl: BinHandle, state: EvalState) as this =
   static let defaultStackTop = 0x7fffffffe000UL
 
   let regFactory = hdl.RegisterFactory
   let wordType = hdl.File.ISA.WordSize |> WordSize.toRegType
   let wordBytes = RegType.toByteWidth wordType
   let endian = hdl.File.ISA.Endian
+  let cc = hdl.CallingConvention
 
   let wordValue (value: uint64) = BitVector(value, wordType)
 
@@ -121,11 +122,11 @@ type ConcStateAccessor(hdl: BinHandle, state: EvalState, os: OS) as this =
   let setArgument idx value =
     if idx < 0 then raise (ArgumentOutOfRangeException(nameof idx))
     else ()
-    let rid = CallingConvention.FunctionArgRegister(hdl, os, idx + 1)
+    let rid = cc.ArgRegister idx
     state.SetReg(rid, value)
 
   let getReturnValue () =
-    CallingConvention.ReturnRegister hdl |> getDefinedReg
+    cc.ReturnRegister |> getDefinedReg
 
   let allocateStackBuffer size =
     if size < 0 then raise (ArgumentOutOfRangeException(nameof size))
@@ -133,8 +134,6 @@ type ConcStateAccessor(hdl: BinHandle, state: EvalState, os: OS) as this =
     let addr = getStackPointer () - uint64 size
     setStackPointer addr
     addr
-
-  new(hdl, state) = ConcStateAccessor(hdl, state, OS.Linux)
 
   /// Default stack top used by concrete states.
   static member DefaultStackTop = defaultStackTop

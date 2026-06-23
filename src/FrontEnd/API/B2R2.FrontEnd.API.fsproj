@@ -11,9 +11,10 @@
   <ItemGroup>
     <Compile Include="GroundWork.fs" />
     <Compile Include="LiftingUnit.fs" />
+    <Compile Include="CallingConvention.fs" />
+    <Compile Include="SyscallConvention.fs" />
     <Compile Include="BinHandle.fsi" />
     <Compile Include="BinHandle.fs" />
-    <Compile Include="CallingConvention.fs" />
     <Compile Include="InstructionCollection.fs" />
     <Compile Include="LinearSweepInstructionCollector.fs" />
     <Compile Include="ExceptionInfo.fs" />

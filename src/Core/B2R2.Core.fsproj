@@ -31,6 +31,9 @@
     <Compile Include="ProgramPoint.fs" />
     <Compile Include="BytePattern.fs" />
     <Compile Include="LinuxSyscall.fs" />
+    <Compile Include="ArgLocation.fs" />
+    <Compile Include="CallingConvention.fs" />
+    <Compile Include="SyscallConvention.fs" />
     <Compile Include="Agent.fs" />
     <Compile Include="Color.fs" />
     <Compile Include="ColoredSegment.fs" />

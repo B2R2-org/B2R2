@@ -72,6 +72,12 @@ type BinHandle =
   /// Register factory.
   member RegisterFactory: IRegisterFactory
 
+  /// Calling convention.
+  member CallingConvention: CallingConvention
+
+  /// System-call convention.
+  member SyscallConvention: SyscallConvention
+
   /// Get a new instance of lifting unit.
   member NewLiftingUnit: unit -> LiftingUnit
 
