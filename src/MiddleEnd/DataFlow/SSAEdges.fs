@@ -35,6 +35,7 @@ type private SSAStmtLocation = VertexID * int
 type SSAEdges(ssaCFG: IDiGraphAccessible<SSABasicBlock, CFGEdgeKind>) =
   let uses = Dictionary<SSA.Variable, Set<SSAStmtLocation>>()
   let defs = Dictionary<SSA.Variable, SSA.Stmt>()
+  let defSites = Dictionary<SSA.Variable, SSAStmtLocation>()
 
   let addUse var loc =
     match uses.TryGetValue var with
@@ -45,9 +46,9 @@ type SSAEdges(ssaCFG: IDiGraphAccessible<SSABasicBlock, CFGEdgeKind>) =
 
   let addUses vars loc = vars |> List.iter (fun v -> addUse v loc)
 
-  let addDef var stmt = defs[var] <- stmt
+  let addDef var stmt loc = defs[var] <- stmt; defSites[var] <- loc
 
-  let addDefs vars stmt = vars |> List.iter (fun v -> addDef v stmt)
+  let addDefs vars stmt loc = vars |> List.iter (fun v -> addDef v stmt loc)
 
   let rec computeUses loc expr =
     match expr with
@@ -92,7 +93,7 @@ type SSAEdges(ssaCFG: IDiGraphAccessible<SSABasicBlock, CFGEdgeKind>) =
         | SSA.ExternalCall(expr, inVars, outVars) ->
           let loc = vid, idx
           computeUses loc expr
-          addDefs outVars stmt
+          addDefs outVars stmt loc
           addUses inVars loc
         | SSA.SideEffect _ -> ()
         | SSA.Jmp(SSA.IntraJmp _) -> ()
@@ -107,11 +108,11 @@ type SSAEdges(ssaCFG: IDiGraphAccessible<SSABasicBlock, CFGEdgeKind>) =
           computeUses loc t2
         | SSA.Def(v, e) ->
           let loc = vid, idx
-          addDef v stmt
+          addDef v stmt loc
           computeUses loc e
         | SSA.Phi(v, ns) ->
           let loc = vid, idx
-          addDef v stmt
+          addDef v stmt loc
           ns
           |> Array.iter (fun n -> addUse { v with Identifier = n } loc)
     )
@@ -123,3 +124,6 @@ type SSAEdges(ssaCFG: IDiGraphAccessible<SSABasicBlock, CFGEdgeKind>) =
 
   /// Gets a mapping from an SSA var to its def stmt.
   member _.Defs with get() = defs
+
+  /// Gets a mapping from an SSA var to its def site (VertexID, Stmt idx).
+  member _.DefSites with get() = defSites
