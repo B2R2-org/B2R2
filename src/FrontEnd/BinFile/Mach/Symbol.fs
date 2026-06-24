@@ -44,10 +44,15 @@ type internal Symbol =
     /// Address of the symbol.
     SymAddr: Addr }
 with
+  /// Checks if this symbol is a section-defined, non-STAB symbol.
+  static member IsSection s =
+    int s.SymType &&& 0xe0 = 0
+    && int s.SymType &&& 0x0e = int SymbolType.N_SECT
+
   /// Checks if this symbol is a function symbol.
-  static member inline IsFunc(secText, s) =
+  static member IsFunc(secText, s) =
     (s.SymType = SymbolType.N_FUN && s.SymName.Length > 0) ||
-    (s.SymType.HasFlag SymbolType.N_SECT
+    (Symbol.IsSection s
       && s.SecNum = (secText + 1)
       && s.SymDesc = 0s)
 

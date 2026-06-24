@@ -178,6 +178,18 @@ type MachTests() =
     assertFuncSymbolExistence x64File 0x100000470UL "_helper"
 
   [<TestMethod>]
+  member _.``[Mach] STAB symbol is not section function test``() =
+    let sym =
+      { SymName = "stab"
+        SymType = SymbolType.N_BNSYM
+        IsExternal = false
+        SecNum = 1
+        SymDesc = 0s
+        VerInfo = None
+        SymAddr = 0x100000470UL }
+    Assert.AreEqual<bool>(false, Symbol.IsFunc(0, sym))
+
+  [<TestMethod>]
   member _.``[Mach] X64 section header test``() =
     assertExistenceOfSectionHeader x64File 0x100000470UL "__text"
 

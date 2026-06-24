@@ -78,7 +78,7 @@ type MachBinFile(path, bytes: byte[], isa, baseAddrOpt, regFactoryOpt) =
 
   let machSymKind secText (s: Symbol) =
     if Symbol.IsFunc(secText, s) then FunctionSymbol
-    elif s.SymType.HasFlag SymbolType.N_SECT then DataSymbol
+    elif Symbol.IsSection s then DataSymbol
     else OtherSymbol
 
   let machBinding (s: Symbol) =
