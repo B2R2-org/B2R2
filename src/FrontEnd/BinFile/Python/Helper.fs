@@ -53,15 +53,21 @@ let private readFlagAndMarshalledType (bytes: byte[]) (reader: IBinReader)
   struct (flag, typ, offset + 1)
 
 let rec private pyObjToString = function
-  | PyString s -> System.Text.Encoding.ASCII.GetString s
-  | PyAscii str | PyShortAsciiInterned str | PyShortAscii str -> str
-  | PyInt i -> i.ToString()
-  | PyREF(n, r) -> r.ToString() + "(" + (n.ToString()) + ")"
+  | PyString s ->
+    System.Text.Encoding.ASCII.GetString s
+  | PyAscii str | PyShortAsciiInterned str | PyShortAscii str ->
+    str
+  | PyInt i ->
+    i.ToString()
+  | PyREF(n, r) ->
+    r.ToString() + "(" + (n.ToString()) + ")"
   | PyTuple t ->
     let t = Array.map pyObjToString t
     String.concat ", " t
-  | PyNone -> "None"
-  | o -> failwithf "Error PyObjToString (%A)" o
+  | PyNone ->
+    "None"
+  | o ->
+    failwithf "Error PyObjToString (%A)" o
 
 let private readInt (bytes: byte[]) (reader: IBinReader) offset size =
   match size with
@@ -133,7 +139,8 @@ let rec parse (bytes: byte[]) (reader: IBinReader) refs offset =
     let refs = appendRefs flag refs str
     if size <> 0 then
       let rec loop acc refs offset =
-        if List.length acc = size then acc, refs, offset
+        if List.length acc = size then
+          acc, refs, offset
         else
           let contents, refs, offset = parse bytes reader refs offset
           loop (contents :: acc) refs offset
@@ -168,7 +175,8 @@ let extractConsts pyObj =
       match code.Consts with
       | PyTuple t -> Array.fold collect ((addrRange, t) :: acc) t
       | c -> collect acc c
-    | _ -> acc
+    | _ ->
+      acc
   collect [] pyObj |> List.toArray
 
 let extractVarNames pyObj =
@@ -186,7 +194,8 @@ let extractVarNames pyObj =
       | PyTuple t -> Array.fold collect acc t
       | PyREF _ as ref -> (addrRange, [| ref |]) :: acc
       | o -> failwithf "Invalid PyCodeObject(%A)" o
-    | _ -> acc
+    | _ ->
+      acc
   collect [] pyObj |> List.toArray
 
 let extractNames pyObj =
@@ -204,7 +213,8 @@ let extractNames pyObj =
       | PyTuple t -> Array.fold collect acc t
       | PyREF _ as ref -> (addrRange, [| ref |]) :: acc
       | o -> failwithf "Invalid PyCodeObject(%A)" o
-    | _ -> acc
+    | _ ->
+      acc
   collect [] pyObj |> List.toArray
 
 let getVersionFromMagicNumber (magic: uint32) =

@@ -207,7 +207,8 @@ module internal DynamicArray =
     let numEntries = int sec.SecSize / int sec.SecEntrySize
     let entries = Array.zeroCreate numEntries
     let rec parseLoop n offset =
-      if n = numEntries then entries
+      if n = numEntries then
+        entries
       else
         let span = ReadOnlySpan(bytes, offset, int sec.SecEntrySize)
         let ent = readDynamicEntry reader cls span

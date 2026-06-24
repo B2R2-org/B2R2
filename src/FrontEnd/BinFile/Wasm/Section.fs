@@ -85,7 +85,8 @@ let peekNameAssoc (bs: byte[]) (reader: IBinReader) offset =
 
 let parseNameSection (bs: byte[]) (reader: IBinReader) startOff endOff =
   let rec loop funcNames modName off =
-    if off >= endOff then { ModuleName = modName; FunctionNames = funcNames }
+    if off >= endOff then
+      { ModuleName = modName; FunctionNames = funcNames }
     else
       let subId: NameSubsectionId =
         reader.ReadUInt8(bs, off) |> LanguagePrimitives.EnumOfValue
@@ -106,7 +107,8 @@ let parseCustomSec bs (reader: IBinReader) offset =
   let _, contSize, len = peekSectionHeader bs reader offset
   let contOff = offset + len + 1
   let contents =
-    if contSize = 0u then None
+    if contSize = 0u then
+      None
     else
       let name, rawLen = peekName bs reader contOff
       let payloadOff = contOff + int rawLen
@@ -296,7 +298,8 @@ let parseElementSec bs reader offset =
   parseSection bs reader offset peekElementSecContents
 
 let rec parseLocalDecls (bs: byte[]) (reader: IBinReader) locals len pos =
-  if len = 0 then locals
+  if len = 0 then
+    locals
   else
     let localDeclCnt, rawLen = reader.ReadUInt32LEB128(bs, pos)
     let localDeclType = bs[pos + rawLen]

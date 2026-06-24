@@ -74,7 +74,8 @@ module internal LSDA =
     let offset = offset + 1
     let struct (lpv, lpapp) = ExceptionHeader.parseEncoding b
     let struct (lpstart, offset) =
-      if lpv = ExceptionHeaderValue.DW_EH_PE_omit then struct (None, offset)
+      if lpv = ExceptionHeaderValue.DW_EH_PE_omit then
+        struct (None, offset)
       else
         let struct (cv, offset) =
           ExceptionHeaderValue.read cls span reader lpv offset
@@ -83,7 +84,8 @@ module internal LSDA =
     let offset = offset + 1
     let struct (ttv, ttapp) = ExceptionHeader.parseEncoding b
     let struct (ttbase, offset) =
-      if ttv = ExceptionHeaderValue.DW_EH_PE_omit then struct (None, offset)
+      if ttv = ExceptionHeaderValue.DW_EH_PE_omit then
+        struct (None, offset)
       else
         let cv, offset = FileHelper.readULEB128 span offset
         struct (Some(sAddr + uint64 offset + cv), offset)

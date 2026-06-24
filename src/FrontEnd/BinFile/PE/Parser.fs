@@ -52,7 +52,8 @@ let getPDBSymbols reader (execpath: string) = function
     if IO.File.Exists pdbPath then
       IO.File.ReadAllBytes pdbPath |> parsePDB reader
     else []
-  | rawpdb -> parsePDB reader rawpdb
+  | rawpdb ->
+    parsePDB reader rawpdb
 
 let updatePDBInfo baseAddr secs lst (sym: Symbol) =
   let secNum = int sym.Segment - 1

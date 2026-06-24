@@ -89,7 +89,8 @@ module private RelocMap =
       match sec.SecType with
       | SectionType.SHT_REL
       | SectionType.SHT_RELA ->
-        if sec.SecSize = 0UL then ()
+        if sec.SecSize = 0UL then
+          ()
         else
           let offset, size = int sec.SecOffset, int sec.SecSize
           let span = ReadOnlySpan(toolBox.Bytes, offset, size)

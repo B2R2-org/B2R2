@@ -258,4 +258,5 @@ type WasmBinFile(path, bytes, baseAddrOpt) =
           let size = s.HeaderSize + s.ContentsSize
           let maxAddr = uint64 s.Offset + uint64 size - 1UL
           BinFilePointer.CreateFileBacked(addr, maxAddr, int addr, int maxAddr)
-        | None -> BinFilePointer.Null
+        | None ->
+          BinFilePointer.Null

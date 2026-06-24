@@ -44,7 +44,8 @@ and internal ImportedSymbol =
 
 module internal ImportedSymbolStore =
   let private parseImportDirectoryTblAux bs reader secs entrySize rva readFn =
-    if rva = 0 then [||]
+    if rva = 0 then
+      [||]
     else
       let rec loop acc offset =
         let tbl = readFn bs reader secs offset
@@ -93,7 +94,8 @@ module internal ImportedSymbolStore =
     let mask = computeRVAMaskForILT wordSize
     let rec loop map rvaOffset pos =
       let rva = readUIntByWordSize (ReadOnlySpan bytes) reader wordSize pos
-      if rva = 0UL then map
+      if rva = 0UL then
+        map
       else
         let entry = parseILTEntry bytes reader secs idt mask rva
         let map = Map.add (idt.ImportAddressTableRVA + rvaOffset) entry map

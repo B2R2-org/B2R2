@@ -59,7 +59,8 @@ let private toExceptionIndexValue myAddr v =
   else PointerToExceptionEntry(uint64 (prel31ToI32 v) + myAddr)
 
 let rec private readIndexTableEntry acc reader (span: ByteSpan) sAddr offset =
-  if offset >= (span: ByteSpan).Length then List.rev acc
+  if offset >= (span: ByteSpan).Length then
+    List.rev acc
   else
     let prel31FnAddr = (reader: IBinReader).ReadInt32(span, offset)
     let fnAddr = uint64 (prel31ToI32 prel31FnAddr) + sAddr
@@ -74,7 +75,8 @@ let private parseIndexTable toolBox indexTableSection =
   readIndexTableEntry [] toolBox.Reader span indexTableSection.SecAddr 0
 
 let private computeLSDAOffset currentOffset (n: int) =
-  if (n &&& 0xF0000000) = 0x80000000 then (* Compact format *) currentOffset + 4
+  if (n &&& 0xF0000000) = 0x80000000 then
+    (* Compact format *) currentOffset + 4
   else
     let msb = (n >>> 24) &&& 0xff (* This means the number of words to parse. *)
     currentOffset + 4 + msb * 4
@@ -91,8 +93,10 @@ let private readLSDAFromCustom reader cls span (sAddr: Addr) addr =
     let struct (lsda, _) = LSDA.parse cls span reader sAddr lsdaOffset
     let lsdaAddr = sAddr + uint64 lsdaOffset
     Some(lsda, lsdaAddr)
-  elif (n &&& 0xF0000000) = 0x80000000 then (* Compact model. *) None
-  else Terminator.impossible () (* Unknown format *)
+  elif (n &&& 0xF0000000) = 0x80000000 then
+    None (* Compact model. *)
+  else
+    Terminator.impossible () (* Unknown format *)
 
 let rec private readExnTableEntry (fdes, lsdas) reader cls span sAddr = function
   | entry :: tl ->
@@ -118,7 +122,8 @@ let rec private readExnTableEntry (fdes, lsdas) reader cls span sAddr = function
         readExnTableEntry (fdes, lsdas) reader cls span sAddr tl
     | CantUnwind | CompactEntry ->
       readExnTableEntry (fdes, lsdas) reader cls span sAddr tl
-  | [] -> (fdes, lsdas)
+  | [] ->
+    (fdes, lsdas)
 
 let private parseExnTable toolBox cls exnTblSection entries =
   let offset, size = int exnTblSection.SecOffset, int exnTblSection.SecSize

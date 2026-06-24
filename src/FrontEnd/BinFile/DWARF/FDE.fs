@@ -78,7 +78,8 @@ module internal FDE =
   let parseCallFrameInstrs cie isa registerFactory span offset nextOffset loc =
     let span = (span: ByteSpan).Slice(offset, nextOffset - offset)
     let insarr = span.ToArray()
-    if Array.forall (fun b -> b = 0uy) insarr then []
+    if Array.forall (fun b -> b = 0uy) insarr then
+      []
     else
       let cf = cie.CodeAlignmentFactor
       let df = cie.DataAlignmentFactor

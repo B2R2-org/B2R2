@@ -83,7 +83,8 @@ module internal ExceptionFrame =
       else
         let originalOffset = offset
         let len, offset = reader.ReadInt32(span, offset), offset + 4
-        if len = 0 then accumulateCFIs cfis cie fdes
+        if len = 0 then
+          accumulateCFIs cfis cie fdes
         else
           let nextOfs, offset = computeNextOffset span reader offset len
           let mybase = offset

@@ -100,7 +100,8 @@ module internal ChainedFixup =
       { FixupAddr = slotAddr; FixupTarget = Bind(name, lib, addend) }
     else
       let target =
-        if auth then entry &&& 0xFFFFFFFFUL
+        if auth then
+          entry &&& 0xFFFFFFFFUL
         else
           let low43 = entry &&& 0x7FFFFFFFFFFUL
           let high8 = (entry >>> 43) &&& 0xFFUL

@@ -52,7 +52,8 @@ module private VersionTable =
     else parseNeededVerFromSec span reader verTbl strTbl (offset + next)
 
   let parseNeededVersionTable toolBox verTbl strTbl = function
-    | None -> ()
+    | None ->
+      ()
     | Some { SecOffset = offset; SecSize = size } ->
       let span = ReadOnlySpan(toolBox.Bytes, int offset, int size)
       parseNeededVerFromSec span toolBox.Reader verTbl strTbl 0
@@ -68,7 +69,8 @@ module private VersionTable =
     else parseDefinedVerFromSec span reader verTbl strTbl (ofs + next)
 
   let parseDefinedVersionTable toolBox verTbl strTbl = function
-    | None -> ()
+    | None ->
+      ()
     | Some { SecOffset = offset; SecSize = size } ->
       let span = ReadOnlySpan(toolBox.Bytes, int offset, int size)
       parseDefinedVerFromSec span toolBox.Reader verTbl strTbl 0

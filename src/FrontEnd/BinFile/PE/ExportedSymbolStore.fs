@@ -74,13 +74,15 @@ module private ExportedSymbolStore =
   /// Parse Export Name Pointer Table (ENPT).
   let parseENPT (bytes: byte[]) (reader: IBinReader) secs edt =
     let rec loop acc cnt pos1 pos2 =
-      if cnt = 0 then acc
+      if cnt = 0 then
+        acc
       else
         let rva = reader.ReadInt32(bytes, pos1)
         let str = readStr secs bytes rva
         let ord = reader.ReadInt16(bytes, pos2)
         loop ((str, ord) :: acc) (cnt - 1) (pos1 + 4) (pos2 + 2)
-    if edt.NamePointerRVA = 0 then []
+    if edt.NamePointerRVA = 0 then
+      []
     else
       let offset1 = edt.NamePointerRVA |> getRawOffset secs
       let offset2 = edt.OrdinalTableRVA |> getRawOffset secs

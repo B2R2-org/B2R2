@@ -80,7 +80,8 @@ let isBaseRelative pe =
   else hdrs.PEHeader.DllCharacteristics.HasFlag DllCharacteristics.DynamicBase
 
 let getEntryPoint pe =
-  if pe.PEHeaders.IsCoffOnly then None
+  if pe.PEHeaders.IsCoffOnly then
+    None
   else
     let entry = pe.PEHeaders.PEHeader.AddressOfEntryPoint
     if entry = 0 then None
@@ -170,7 +171,8 @@ let peHeadersToISA (peHeaders: PEHeaders) =
   if isNull corHeader then
     peHeaders.CoffHeader.Machine |> peMachineToISA
   else
-    if corHeader.Flags = CorFlags.ILOnly then ISA CILKind.CILOnly
+    if corHeader.Flags = CorFlags.ILOnly then
+      ISA CILKind.CILOnly
     else
       match peHeaders.CoffHeader.Machine with
       | Machine.I386 -> ISA CILKind.CILx86

@@ -77,7 +77,8 @@ let private peekSecSummPair (secsSumm: SectionSummary list) =
 
 let validateSectionsOrder secsSummary =
   let rec validationLoop secsSumm isValid =
-    if List.isEmpty secsSumm then isValid
+    if List.isEmpty secsSumm then
+      isValid
     else
     let sec1, sec2, secsSumm' = peekSecSummPair secsSumm
     match sec2 with
@@ -279,8 +280,10 @@ let buildFuncIndexMap (wm: Module) =
           | ImpFunc _ -> true
           | _ -> false
         ), sec.Offset
-      | None -> [||], 0
-    | None -> [||], 0
+      | None ->
+        [||], 0
+    | None ->
+      [||], 0
   let importedCount = uint32 (Array.length importedFuncs)
   let impFuncsIdxMap =
     importedFuncs
@@ -295,8 +298,10 @@ let buildFuncIndexMap (wm: Module) =
         |> Array.mapi (fun i lfun ->
           let funBodyOff = lfun.Offset + lfun.LenFieldSize
           makeFuncIdxInfo sec.Offset (importedCount + uint32 i) funBodyOff)
-      | None -> [||]
-    | None -> [||]
+      | None ->
+        [||]
+    | None ->
+      [||]
   Array.append impFuncsIdxMap localFuncsIdxMap
 
 let private importSecOffset (wm: Module) =
@@ -319,7 +324,8 @@ let private localElemOffsets bs reader (sec: Section<Vector<'TElem>>) peekElem =
   let contOff = sec.Offset + len + 1
   let vecLen, lenLen = peekVectorLen bs reader contOff
   let rec loop acc count off =
-    if count = 0u then List.rev acc
+    if count = 0u then
+      List.rev acc
     else
       let _, nextOff = (peekElem: _ -> _ -> int -> 'TElem * int) bs reader off
       loop (off :: acc) (count - 1u) nextOff

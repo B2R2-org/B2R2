@@ -95,8 +95,10 @@ module internal CIE =
         ValueEncoding = v
         ApplicationEncoding = app
         PersonalityRoutionPointer = [||] } :: data, offset + 1
-    | 'S' -> data, offset (* This is a signal frame. *)
-    | _ -> Terminator.futureFeature ()
+    | 'S' ->
+      data, offset (* This is a signal frame. *)
+    | _ ->
+      Terminator.futureFeature ()
 
   let parseAugmentationData (reader: IBinReader) span offset addrSize augstr =
     if (augstr: string).StartsWith('z') then

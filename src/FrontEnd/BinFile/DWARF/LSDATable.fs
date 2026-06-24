@@ -40,7 +40,8 @@ module internal LSDATable =
     | _ -> List.min lst
 
   let findMinFilter callsites =
-    if List.isEmpty callsites then 0L
+    if List.isEmpty callsites then
+      0L
     else
       callsites
       |> List.map (fun cs -> cs.ActionTypeFilters |> findMinOrZero)
@@ -63,7 +64,8 @@ module internal LSDATable =
   /// this is nothing to do with the alignment. This is likely to be the
   /// compiler error, but we should safely ignore those dummy bytes.
   let rec skipDummyAlign (span: ByteSpan) offset =
-    if offset >= span.Length then offset
+    if offset >= span.Length then
+      offset
     else
       let b = span[offset]
       if b = 0uy then skipDummyAlign span (offset + 1)
@@ -71,7 +73,8 @@ module internal LSDATable =
 
   /// Parses LSDA records from the `.gcc_except_table` section.
   let rec parseFromSection cls (span: ByteSpan) reader sAddr offset lsdas =
-    if offset >= span.Length then lsdas
+    if offset >= span.Length then
+      lsdas
     else
       let lsdaAddr = sAddr + uint64 offset
       let struct (lsda, offset) = LSDA.parse cls span reader sAddr offset

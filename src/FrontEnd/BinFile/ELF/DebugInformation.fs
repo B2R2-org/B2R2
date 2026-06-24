@@ -129,7 +129,8 @@ module internal DebugInformation =
       LineStringSection = lineStrSec }
 
   let assertSupportedUnitType = function
-    | None -> ()
+    | None ->
+      ()
     | Some DWUnitType.DW_UT_compile
     | Some DWUnitType.DW_UT_partial ->
       ()
@@ -307,7 +308,8 @@ module internal DebugInformation =
       readDebugStringValue toolBox reader s span unit offset DWLineStringOffset
     | DWForm.DW_FORM_implicit_const ->
       match spec.ImplicitConst with
-      | Some value -> DWImplicitConst value, offset
+      | Some value ->
+        DWImplicitConst value, offset
       | None ->
         eprintsn "DW_FORM_implicit_const requires abbrev-side constant support."
         Terminator.impossible ()

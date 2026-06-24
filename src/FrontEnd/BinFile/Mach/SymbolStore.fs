@@ -164,7 +164,8 @@ module internal SymbolStore =
      entry = IndirectSymbolLocal || entry = IndirectSymbolABS
 
   let rec private parseSymbStub map symbols dynsymtbl sec idx len cnt =
-    if cnt = 0UL then map
+    if cnt = 0UL then
+      map
     else
       let entry = Array.get dynsymtbl (sec.SecReserved1 + idx)
       if isUndefinedEntry entry then

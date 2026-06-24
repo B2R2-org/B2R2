@@ -37,8 +37,10 @@ let entryPointOf wm =
           ii.Kind = IndexKind.Function
           && ii.Index = fi)
       Some(uint64 ii.ElemOffset)
-    | None -> None
-  | None -> None
+    | None ->
+      None
+  | None ->
+    None
 
 let importToBinImport (entry: Import) =
   { Name = entry.Name
@@ -63,8 +65,10 @@ let private exportFuncNames wm =
         match e.Desc with
         | ExpFunc idx -> Some(idx, e.Name)
         | _ -> None)
-    | None -> [||]
-  | None -> [||]
+    | None ->
+      [||]
+  | None ->
+    [||]
 
 let private nameSecFuncNames wm =
   match tryFindNameSection wm with
@@ -77,7 +81,8 @@ let private nameSecFuncNames wm =
 let getFunctionNameMap wm =
   let nameByIdx =
     Array.append (exportFuncNames wm) (nameSecFuncNames wm) |> Map.ofArray
-  if Map.isEmpty nameByIdx then Map.empty
+  if Map.isEmpty nameByIdx then
+    Map.empty
   else
     wm.IndexMap
     |> Array.choose (fun ii ->
@@ -99,5 +104,7 @@ let getImports wm =
           | ImpFunc _ -> true
           | _ -> false)
       |> Array.map importToBinImport
-    | None -> [||]
-  | None -> [||]
+    | None ->
+      [||]
+  | None ->
+    [||]

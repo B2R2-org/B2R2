@@ -300,10 +300,12 @@ type ELFBinFile(path, bytes: byte[], baseAddrOpt, rfOpt) =
 
   let toExceptionHandlers (fde: FDE) =
     match fde.LSDAPointer with
-    | None -> [||]
+    | None ->
+      [||]
     | Some p ->
       match Map.tryFind p exn.Value.LSDATable with
-      | None -> [||]
+      | None ->
+        [||]
       | Some lsda ->
         lsda.CallSiteTable
         |> List.map (fun cs ->
@@ -371,7 +373,8 @@ type ELFBinFile(path, bytes: byte[], baseAddrOpt, rfOpt) =
   let dynamicPaths tag =
     let isDyn s = s.SecType = SectionType.SHT_DYNAMIC
     match Array.tryFind isDyn shdrs.Value with
-    | None -> [||]
+    | None ->
+      [||]
     | Some sec ->
       let strOff = int shdrs.Value[int sec.SecLink].SecOffset
       let span = System.ReadOnlySpan bytes
@@ -403,7 +406,8 @@ type ELFBinFile(path, bytes: byte[], baseAddrOpt, rfOpt) =
 
   let programHeaderTable =
     lazy
-      if hdr.PHdrNum = 0us then None
+      if hdr.PHdrNum = 0us then
+        None
       else
         programHeaderTableAddr.Value
         |> Option.map (fun addr ->
@@ -471,14 +475,18 @@ type ELFBinFile(path, bytes: byte[], baseAddrOpt, rfOpt) =
 
     member _.Kind with get() =
       match hdr.ELFType with
-      | ELFType.ET_REL -> BinFileKind.Object
-      | ELFType.ET_EXEC -> BinFileKind.Executable
-      | ELFType.ET_CORE -> BinFileKind.Core
+      | ELFType.ET_REL ->
+        Object
+      | ELFType.ET_EXEC ->
+        Executable
+      | ELFType.ET_CORE ->
+        Core
       | ELFType.ET_DYN ->
         let pred e = e.DTag = DTag.DT_DEBUG
-        if Array.exists pred dynamicArray.Value then BinFileKind.Executable
-        else BinFileKind.SharedLibrary
-      | _ -> BinFileKind.Unknown
+        if Array.exists pred dynamicArray.Value then Executable
+        else SharedLibrary
+      | _ ->
+        Unknown
 
     member _.ISA with get() = toolBox.ISA
 
@@ -501,7 +509,8 @@ type ELFBinFile(path, bytes: byte[], baseAddrOpt, rfOpt) =
       | Some s ->
         let perm = ProgramHeader.FlagsToPerm s.PHFlags
         perm.HasFlag Permission.Executable |> not
-      | _ -> false
+      | _ ->
+        false
 
     member _.IsPIE with get() =
       let pred e = e.DTag = DTag.DT_DEBUG
@@ -517,7 +526,8 @@ type ELFBinFile(path, bytes: byte[], baseAddrOpt, rfOpt) =
       if phdrs.Value |> Array.exists pred then
         if isBindNow dynamicArray.Value then Some FullRelro
         else Some PartialRelro
-      else Some NoRelro
+      else
+        Some NoRelro
 
     member _.NameResolver with get() = nameResolver
 

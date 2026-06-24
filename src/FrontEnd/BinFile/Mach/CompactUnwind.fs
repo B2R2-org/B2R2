@@ -104,11 +104,13 @@ let private collectFuncOffsets span (reader: IBinReader) (index: _[]) =
 /// tuples with addresses resolved against the image base (the __TEXT vmaddr).
 let parse (bytes: byte[]) (reader: IBinReader) secOffset secSize imageBase =
   let span = ReadOnlySpan(bytes, secOffset, secSize)
-  if secSize < 28 || reader.ReadUInt32(span, 0) <> 1u then []
+  if secSize < 28 || reader.ReadUInt32(span, 0) <> 1u then
+    []
   else
     let indexOff = int (reader.ReadUInt32(span, 20))
     let indexCount = int (reader.ReadUInt32(span, 24))
-    if indexCount < 2 then []
+    if indexCount < 2 then
+      []
     else
       let index = readIndex span reader indexOff indexCount
       let lsdaMap = readLSDAMap span reader index

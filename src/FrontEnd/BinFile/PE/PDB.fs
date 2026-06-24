@@ -159,7 +159,8 @@ let inline getNumBlocks numBytes blockSize =
   (numBytes + blockSize - 1) / blockSize
 
 let rec readIntValues (span: ByteSpan) reader cnt acc pos =
-  if cnt = 0 then List.rev acc
+  if cnt = 0 then
+    List.rev acc
   else
     let v = (reader: IBinReader).ReadInt32(span, pos)
     readIntValues span reader (cnt - 1) (v :: acc) (pos + 4)
@@ -252,7 +253,8 @@ let rec parseSymbolRecord (bs: byte[]) reader offset modules streamMap =
 let parseSymRecordStream reader modules streamMap (stream: byte[], streamSize) =
   let rec loop acc cnt offset =
     let size = (reader: IBinReader).ReadUInt16(stream, offset) |> int
-    if offset >= streamSize || size = 0 then acc
+    if offset >= streamSize || size = 0 then
+      acc
     else
       match parseSymbolRecord stream reader offset modules streamMap with
       | Some sym -> loop (sym :: acc) (cnt + 1) (offset + size + 2)
@@ -274,7 +276,8 @@ let align offset n =
 let parseModuleInfo (reader: IBinReader) dbi (bs: byte[]) =
   let maxOffset = dbi.ModInfoSize + 64
   let rec loop acc pos =
-    if pos >= maxOffset then acc
+    if pos >= maxOffset then
+      acc
     else
       let modName, nextOffset = readStr bs (pos + 64)
       let objName, nextOffset = readStr bs nextOffset
@@ -288,7 +291,8 @@ let parseModuleInfo (reader: IBinReader) dbi (bs: byte[]) =
 
 let rec readHashRecords acc (span: ByteSpan) (reader: IBinReader)
                         offset numEntries =
-  if numEntries = 0u then List.rev acc
+  if numEntries = 0u then
+    List.rev acc
   else
     let r = { HROffset = reader.ReadInt32(span, offset)
               HRCRef = reader.ReadInt32(span, offset + 4) }

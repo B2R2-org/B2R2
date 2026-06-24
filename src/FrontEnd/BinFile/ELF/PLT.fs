@@ -165,7 +165,8 @@ let private makePLTEntry symbs addr relocAddr (r: RelocationEntry) =
       TableAddress = relocAddr }
 
 let rec parseEntryLoop p sec rdr span desc symbs rel map idx eAddr addr =
-  if addr >= eAddr then map
+  if addr >= eAddr then
+    map
   else
     let entry = (p: IPLTParsable).ParseEntry(addr, idx, sec, desc, rdr, span)
     let nextAddr = entry.NextEntryAddr
@@ -185,7 +186,8 @@ let rec private parseSections p toolBox map = function
   | sec :: rest ->
     let map = (p: IPLTParsable).ParseSection(toolBox, sec, map)
     parseSections p toolBox map rest
-  | [] -> map
+  | [] ->
+    map
 
 /// This uses relocation information to parse PLT entries. This can be a general
 /// parser, but it is rather slow compared to platform-specific parsers. RISCV64
@@ -402,7 +404,8 @@ type X86Parser(shdrs, relocInfo, symbs) =
         (* This section is an IBT PLT section and it uses lazy binding. This
           means we can safely ignore this section because the secondary PLT is
           the actual jump table. *)
-        if desc.LinkMethod = LazyBinding && desc.HasSecondary then map
+        if desc.LinkMethod = LazyBinding && desc.HasSecondary then
+          map
         else
           let sAddr, eAddr = sec.SecAddr, sec.SecAddr + sec.SecSize
           let r = toolBox.Reader
@@ -556,7 +559,8 @@ type X64Parser(shdrs, relocInfo, symbs) =
         (* This section is an IBT PLT section and it uses lazy binding. This
           means we can safely ignore this section because the secondary PLT is
           the actual jump table. *)
-        if desc.LinkMethod = LazyBinding && desc.HasSecondary then map
+        if desc.LinkMethod = LazyBinding && desc.HasSecondary then
+          map
         else
           let sAddr, eAddr = sec.SecAddr, sec.SecAddr + sec.SecSize
           let r = toolBox.Reader
@@ -676,7 +680,8 @@ type MIPSParser(shdrs, relocInfo, symbs: SymbolStore) =
     else 32UL
 
   let rec parseMIPSStubEntries map offset maxOffset tbl reader span =
-    if offset >= maxOffset then map
+    if offset >= maxOffset then
+      map
     else
       let fst = (reader: IBinReader).ReadInt32(span = span, offset = offset)
       let snd = reader.ReadInt32(span, offset = offset + 4)
@@ -714,8 +719,10 @@ type MIPSParser(shdrs, relocInfo, symbs: SymbolStore) =
         assert (tbl.Length > int tag.DVal)
         let map = NoOverlapIntervalMap.empty
         parseMIPSStubEntries map offset maxOffset tbl reader span
-      | None -> NoOverlapIntervalMap.empty
-    | None -> NoOverlapIntervalMap.empty
+      | None ->
+        NoOverlapIntervalMap.empty
+    | None ->
+      NoOverlapIntervalMap.empty
 
   interface IPLTParsable with
     member _.ParseEntry(addr, _idx, sec, _desc, reader, span) =
@@ -770,8 +777,10 @@ type PPCParser(shdrs, relocInfo: RelocationInfo, symbs) =
           gotAddr - gotSection.SecAddr + 4UL + gotSection.SecOffset
         let gotElemOne = reader.ReadUInt32(bytes, int gotElemOneOffset)
         if gotElemOne = 0u then None else Some(uint64 gotElemOne)
-      | None -> None
-    | None -> None
+      | None ->
+        None
+    | None ->
+      None
 
   let computeGLinkAddrWithPLT toolBox =
     match Array.tryFind (fun s -> s.SecName = Section.PLT) shdrs with
@@ -793,10 +802,12 @@ type PPCParser(shdrs, relocInfo: RelocationInfo, symbs) =
       && ((ins2 &&& 0xffff0000u) = 0x816b0000u) (* lwz r11, ... *)
       && (ins3 = 0x7d6903a6u) (* mtctr r11 *)
       && (ins4 = 0x4e800420u) (* bctr *)
-    if isNonPICGlinkStub then Some delta
+    if isNonPICGlinkStub then
+      Some delta
     elif delta < 32 then
       computePLTEntryDelta span reader stubOff (delta + 8)
-    else None
+    else
+      None
 
   let rec readEntryLoop relocs delta idx map addr =
     if idx >= 0 then

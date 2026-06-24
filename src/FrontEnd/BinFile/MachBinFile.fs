@@ -210,7 +210,8 @@ type MachBinFile(path, bytes: byte[], isa, baseAddrOpt, regFactoryOpt) =
               sec.SecAddr + sec.SecSize - 1UL,
               int sec.SecOffset,
               int sec.SecOffset + int sec.SecSize - 1)
-          | None -> BinFilePointer.Null
+          | None ->
+            BinFilePointer.Null
 
       member _.TryFindSectionByName name =
         secs.Value
@@ -331,10 +332,12 @@ type MachBinFile(path, bytes: byte[], isa, baseAddrOpt, regFactoryOpt) =
 
   let toExceptionHandlers (frame: FrameInfo) =
     match frame.LSDAPointer with
-    | None -> [||]
+    | None ->
+      [||]
     | Some p ->
       match Map.tryFind p exn.Value.LSDATable with
-      | None -> [||]
+      | None ->
+        [||]
       | Some lsda ->
         lsda.CallSiteTable
         |> List.map (fun cs ->

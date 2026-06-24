@@ -144,14 +144,17 @@ module internal Header =
     | c -> failwithf "invalid MIPS arch (%02x)" c
 
   let private toISA (span: ByteSpan) (reader: IBinReader) cls = function
-    | MachineType.EM_386 -> ISA(Architecture.Intel, WordSize.Bit32)
-    | MachineType.EM_X86_64 -> ISA(Architecture.Intel, WordSize.Bit64)
+    | MachineType.EM_386 ->
+      ISA(Architecture.Intel, WordSize.Bit32)
+    | MachineType.EM_X86_64 ->
+      ISA(Architecture.Intel, WordSize.Bit64)
     | MachineType.EM_ARM ->
       ISA(Architecture.ARMv7, reader.Endianness, WordSize.Bit32)
     | MachineType.EM_AARCH64 ->
       ISA(Architecture.ARMv8, reader.Endianness, WordSize.Bit64)
     | MachineType.EM_MIPS
-    | MachineType.EM_MIPS_RS3_LE -> getMIPSISA span reader cls
+    | MachineType.EM_MIPS_RS3_LE ->
+      getMIPSISA span reader cls
     | MachineType.EM_PPC ->
       ISA(Architecture.PPC, reader.Endianness, WordSize.Bit32)
     | MachineType.EM_PPC64 ->
@@ -168,14 +171,16 @@ module internal Header =
       ISA(Architecture.PARISC, cls)
     | MachineType.EM_AVR ->
       ISA Architecture.AVR
-    | _ -> raise InvalidISAException
+    | _ ->
+      raise InvalidISAException
 
   /// Parses the ELF header and return the parsed header information along with
   /// other data types to read the rest of the ELF file, such as BinReader, its
   /// base address, and the ISA.
   let parse baseAddrOpt (bytes: byte[]) =
     let span = ReadOnlySpan bytes
-    if not <| isELF span then raise InvalidFileFormatException
+    if not <| isELF span then
+      raise InvalidFileFormatException
     else
       let endian = getEndianness span
       let reader = BinReader.Init endian

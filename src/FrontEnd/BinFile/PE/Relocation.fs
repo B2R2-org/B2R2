@@ -44,7 +44,8 @@ let private tryFindEntry pe relocAddr =
 let private tryGetRawOffset pe relocAddr size =
   let rva = int (relocAddr - pe.BaseAddr)
   let idx = PEUtils.findMappedSectionIndex pe.SectionHeaders rva
-  if idx < 0 then None
+  if idx < 0 then
+    None
   else
     let sec = pe.SectionHeaders[idx]
     let offset = rva + sec.PointerToRawData - sec.VirtualAddress
@@ -82,5 +83,7 @@ let tryGetRelocatedAddr (bytes: byte[]) pe relocAddr =
       match tryGetRawOffset pe relocAddr 8 with
       | Some offset -> pe.BinReader.ReadUInt64(bytes, offset) |> Ok
       | None -> Error ErrorCase.ItemNotFound
-    | _ -> Error ErrorCase.ItemNotFound
-  | None -> Error ErrorCase.ItemNotFound
+    | _ ->
+      Error ErrorCase.ItemNotFound
+  | None ->
+    Error ErrorCase.ItemNotFound

@@ -65,7 +65,8 @@ module internal ExportedSymbols =
       buildExportEntry str (symbOffset + toolBox.BaseAddress) :: acc
 
   and private parseChildren toolBox span offset nChilds str acc =
-    if nChilds = 0UL then acc
+    if nChilds = 0UL then
+      acc
     else
       let pref, nextOffset = readStr span offset []
       let reader = toolBox.Reader

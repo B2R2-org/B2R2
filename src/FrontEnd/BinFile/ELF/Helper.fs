@@ -70,8 +70,10 @@ let getRelocatedAddr (relocInfo: RelocationInfo) relocAddr =
     | RelocationKindX86 RelocationX86.R_386_IRELATIVE
     | RelocationKindX64 RelocationX64.R_X86_64_IRELATIVE ->
       Ok rel.RelAddend
-    | _ -> Error ErrorCase.ItemNotFound
-  | _ -> Error ErrorCase.ItemNotFound
+    | _ ->
+      Error ErrorCase.ItemNotFound
+  | _ ->
+    Error ErrorCase.ItemNotFound
 
 let tryGetInternalFuncAddr (reloc: RelocationEntry) =
   match reloc.RelSymbol with
@@ -81,12 +83,15 @@ let tryGetInternalFuncAddr (reloc: RelocationEntry) =
       | Some parent ->
         if parent.SecName = Section.Text then Ok relSym.Addr
         else Error ErrorCase.SymbolNotFound
-      | _ -> Error ErrorCase.SymbolNotFound
+      | _ ->
+        Error ErrorCase.SymbolNotFound
     else Error ErrorCase.SymbolNotFound
   | None ->
     match reloc.RelKind with
-    | RelocationKindX64 RelocationX64.R_X86_64_IRELATIVE -> Ok reloc.RelAddend
-    | _ -> Error ErrorCase.SymbolNotFound
+    | RelocationKindX64 RelocationX64.R_X86_64_IRELATIVE ->
+      Ok reloc.RelAddend
+    | _ ->
+      Error ErrorCase.SymbolNotFound
 
 let getFuncAddrsFromLibcArr span toolBox relocInfo section =
   let readType = toolBox.Header.Class
@@ -196,7 +201,8 @@ let executableRanges shdrs loadables =
     match Array.tryFind (fun s -> s.SecName = Section.ROData) shdrs with
     | Some rodata when rodata.SecAddr <> 0UL -> Some rodata
     | _ -> None
-  if Array.isEmpty loadables then computeExecutableRangesFromSections shdrs
+  if Array.isEmpty loadables then
+    computeExecutableRangesFromSections shdrs
   else
     loadables
     |> Array.filter (fun seg ->

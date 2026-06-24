@@ -156,7 +156,8 @@ type PEBinFile(path, bytes: byte[], baseAddrOpt, rawpdb) =
               addr + uint64 size - 1UL,
               sec.PointerToRawData,
               sec.PointerToRawData + size - 1)
-          | None -> BinFilePointer.Null
+          | None ->
+            BinFilePointer.Null
 
       member _.GetSectionPointer name =
         pe.SectionHeaders
@@ -170,7 +171,8 @@ type PEBinFile(path, bytes: byte[], baseAddrOpt, rawpdb) =
               addr + uint64 size - 1UL,
               sec.PointerToRawData,
               sec.PointerToRawData + size - 1)
-          | None -> BinFilePointer.Null
+          | None ->
+            BinFilePointer.Null
 
       member _.TryFindSectionByName name =
         pe.SectionHeaders
@@ -305,10 +307,12 @@ type PEBinFile(path, bytes: byte[], baseAddrOpt, rawpdb) =
 
     member _.Kind with get() =
       let chr = pe.PEHeaders.CoffHeader.Characteristics
-      if chr.HasFlag Characteristics.Dll then BinFileKind.SharedLibrary
+      if chr.HasFlag Characteristics.Dll then
+        BinFileKind.SharedLibrary
       elif chr.HasFlag Characteristics.ExecutableImage then
         BinFileKind.Executable
-      else BinFileKind.Object
+      else
+        BinFileKind.Object
 
     member _.ISA with get() = isa
 
