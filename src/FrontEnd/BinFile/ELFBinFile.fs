@@ -348,7 +348,7 @@ type ELFBinFile(path, bytes: byte[], baseAddrOpt, rfOpt) =
     lazy
       phdrs.Value
       |> Array.filter (fun ph ->
-        ph.PHType.HasFlag ProgramHeaderType.PT_LOAD && ph.PHMemSize > 0UL)
+        ph.PHType = ProgramHeaderType.PT_LOAD && ph.PHMemSize > 0UL)
       |> Array.map (fun ph ->
         { Name = None
           Address = ph.PHAddr

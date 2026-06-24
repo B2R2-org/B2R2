@@ -289,6 +289,16 @@ type ELFTests() =
     Assert.AreEqual<int>(0, x64ObjFile.ProgramHeaders.Length)
 
   [<TestMethod>]
+  member _.``[ELF] x64 exec segments are loadable headers test``() =
+    let expected =
+      x64ExecFile.ProgramHeaders
+      |> Array.filter (fun ph ->
+        ph.PHType = ELF.ProgramHeaderType.PT_LOAD && ph.PHMemSize > 0UL)
+      |> Array.length
+    let actual = (x64ExecFile :> IBinFile).MemoryLayout.Value.Segments.Length
+    Assert.AreEqual<int>(expected, actual)
+
+  [<TestMethod>]
   member _.``[ELF] x64 obj relocation test``() =
     assertExistenceOfReloc x64ObjFile 0x6UL "ext"
 
