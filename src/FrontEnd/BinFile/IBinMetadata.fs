@@ -74,3 +74,8 @@ type IBinMetadata =
   /// (e.g., PE).
   /// </summary>
   abstract RunPath: string[]
+
+  /// Program header table information for SysV-style process initialization.
+  /// ELF exposes this through its program header table; formats without an
+  /// equivalent runtime contract (e.g., PE, Mach-O, Wasm) return None.
+  abstract ProgramHeaderTable: BinProgramHeaderTable option

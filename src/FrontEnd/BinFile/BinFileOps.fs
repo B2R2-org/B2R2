@@ -64,6 +64,11 @@ let getFileKind (file: IBinFile) = file.Kind
 [<CompiledName "GetInterpreterPath">]
 let getInterpreterPath (file: IBinFile) = file.InterpreterPath
 
+/// Returns the SysV-style program header table, if this format has it.
+[<CompiledName "GetProgramHeaderTable">]
+let getProgramHeaderTable (file: IBinFile) =
+  file.ProgramHeaderTable
+
 /// Checks whether the given binary file is an executable program.
 [<CompiledName "IsExecutable">]
 let isExecutable (file: IBinFile) = file.Kind = BinFileKind.Executable

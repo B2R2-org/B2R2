@@ -132,6 +132,11 @@ type PETests() =
     CollectionAssert.AreEqual([||], file.RunPath)
 
   [<TestMethod>]
+  member _.``[PE] x64 has no program header table info test``() =
+    let file = x64File :> IBinFile
+    Assert.AreEqual(None, file.ProgramHeaderTable)
+
+  [<TestMethod>]
   member _.``[PE] x64 base address test``() =
     Assert.AreEqual<uint64>(0x140000000UL, (x64File :> IBinFile).BaseAddress)
 

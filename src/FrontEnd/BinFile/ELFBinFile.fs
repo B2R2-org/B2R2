@@ -393,12 +393,23 @@ type ELFBinFile(path, bytes: byte[], baseAddrOpt, rfOpt) =
         Some p.PHAddr
       | None ->
         let phoff = hdr.PHdrTblOffset
+        let phsize = uint64 hdr.PHdrEntrySize * uint64 hdr.PHdrNum
+        let phend = phoff + phsize
         let covers p =
           p.PHType = ProgramHeaderType.PT_LOAD
-          && phoff >= p.PHOffset && phoff < p.PHOffset + p.PHFileSize
+          && phoff >= p.PHOffset && phend <= p.PHOffset + p.PHFileSize
         Array.tryFind covers phs
         |> Option.map (fun p -> p.PHAddr + (phoff - p.PHOffset))
-        |> Option.orElse (Some(toolBox.BaseAddress + phoff))
+
+  let programHeaderTable =
+    lazy
+      if hdr.PHdrNum = 0us then None
+      else
+        programHeaderTableAddr.Value
+        |> Option.map (fun addr ->
+          { Address = addr
+            EntrySize = int hdr.PHdrEntrySize
+            Count = int hdr.PHdrNum })
 
   /// ELF Header information.
   member internal _.Header with get() = hdr
@@ -408,17 +419,6 @@ type ELFBinFile(path, bytes: byte[], baseAddrOpt, rfOpt) =
 
   /// ELF program headers.
   member internal _.ProgramHeaders with get() = phdrs.Value
-
-  /// Virtual address of the program header table, i.e., the AT_PHDR value that
-  /// the kernel passes through the auxiliary vector. Taken from PT_PHDR when
-  /// present, otherwise derived from e_phoff and the enclosing PT_LOAD segment;
-  /// None when it maps into no loadable segment.
-  member _.ProgramHeaderTableAddress with get() =
-    programHeaderTableAddr.Value
-
-  /// Number of entries in the program header table (e_phnum), i.e., the
-  /// AT_PHNUM value passed through the auxiliary vector.
-  member _.ProgramHeaderCount with get() = int hdr.PHdrNum
 
   /// ELF section headers.
   member internal _.SectionHeaders with get() = shdrs.Value
@@ -491,6 +491,9 @@ type ELFBinFile(path, bytes: byte[], baseAddrOpt, rfOpt) =
     member _.RPath with get() = dynamicPaths DTag.DT_RPATH
 
     member _.RunPath with get() = dynamicPaths DTag.DT_RUNPATH
+
+    member _.ProgramHeaderTable with get() =
+      programHeaderTable.Value
 
     member _.IsNXEnabled with get() =
       let predicate e = e.PHType = ProgramHeaderType.PT_GNU_STACK

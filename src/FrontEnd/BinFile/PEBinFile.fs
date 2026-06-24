@@ -322,6 +322,8 @@ type PEBinFile(path, bytes: byte[], baseAddrOpt, rawpdb) =
 
     member _.RunPath with get() = [||]
 
+    member _.ProgramHeaderTable with get() = None
+
     member _.IsNXEnabled with get() = isNXEnabled pe
 
     member _.IsPIE with get() = isPIE pe

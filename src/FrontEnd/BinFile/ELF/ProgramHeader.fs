@@ -27,7 +27,6 @@ namespace B2R2.FrontEnd.BinFile.ELF
 open System
 open B2R2
 open B2R2.FrontEnd.BinLifter
-open B2R2.FrontEnd.BinFile
 open B2R2.FrontEnd.BinFile.FileHelper
 
 /// Represents a program header in ELF. A program header describes a segment of

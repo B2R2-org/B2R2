@@ -162,6 +162,11 @@ type MachTests() =
     Assert.AreEqual<string option>(Some "/usr/lib/dyld", actual)
 
   [<TestMethod>]
+  member _.``[Mach] X64 has no program header table info test``() =
+    let file = x64File :> IBinFile
+    Assert.AreEqual(None, file.ProgramHeaderTable)
+
+  [<TestMethod>]
   member _.``[Mach] X64 text section address test``() =
     Assert.AreEqual<uint64>(0x100000470UL, getTextSectionAddr x64File)
 

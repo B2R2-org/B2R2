@@ -406,6 +406,8 @@ type MachBinFile(path, bytes: byte[], isa, baseAddrOpt, regFactoryOpt) =
 
     member _.RunPath with get() = rpaths.Value
 
+    member _.ProgramHeaderTable with get() = None
+
     member _.IsNXEnabled with get() = isNXEnabled toolBox.Header
 
     member _.IsPIE with get() =

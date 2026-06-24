@@ -182,6 +182,20 @@ type ELFTests() =
     Assert.AreEqual<string option>(Some "/lib64/ld-linux-x86-64.so.2", actual)
 
   [<TestMethod>]
+  member _.``[ELF] x64 exec program header table info test``() =
+    let file = x64ExecFile :> IBinFile
+    let phdr =
+      x64ExecFile.ProgramHeaders
+      |> Array.find (fun ph -> ph.PHType = ELF.ProgramHeaderType.PT_PHDR)
+    match file.ProgramHeaderTable with
+    | Some info ->
+      Assert.AreEqual<Addr>(phdr.PHAddr, info.Address)
+      Assert.AreEqual<int>(int x64ExecFile.Header.PHdrEntrySize,
+                           info.EntrySize)
+      Assert.AreEqual<int>(x64ExecFile.ProgramHeaders.Length, info.Count)
+    | None -> Assert.Fail "Expected ELF program header table information."
+
+  [<TestMethod>]
   member _.``[ELF] x64 exec IsNXEnabled test``() =
     Assert.AreEqual<bool>(true, (x64ExecFile :> IBinFile).IsNXEnabled)
 
@@ -287,6 +301,11 @@ type ELFTests() =
   [<TestMethod>]
   member _.``[ELF] x64 obj has no program headers test``() =
     Assert.AreEqual<int>(0, x64ObjFile.ProgramHeaders.Length)
+
+  [<TestMethod>]
+  member _.``[ELF] x64 obj has no program header table info test``() =
+    let file = x64ObjFile :> IBinFile
+    Assert.AreEqual(None, file.ProgramHeaderTable)
 
   [<TestMethod>]
   member _.``[ELF] x64 exec segments are loadable headers test``() =

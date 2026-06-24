@@ -20,6 +20,7 @@
     <Compile Include="BinSymbol.fs" />
     <Compile Include="BinCodeModeMarker.fs" />
     <Compile Include="BinExceptionFrame.fs" />
+    <Compile Include="BinProgramHeaderTable.fs" />
     <Compile Include="IBinMetadata.fs" />
     <Compile Include="IBinProperty.fs" />
     <Compile Include="ISymbolTable.fs" />

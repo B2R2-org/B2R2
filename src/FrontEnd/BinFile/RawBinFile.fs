@@ -76,6 +76,8 @@ type RawBinFile(path, bytes: byte[], isa: ISA, baseAddrOpt) =
 
     member _.RunPath with get() = [||]
 
+    member _.ProgramHeaderTable with get() = None
+
     member _.IsNXEnabled with get() = false
 
     member _.IsPIE with get() = false

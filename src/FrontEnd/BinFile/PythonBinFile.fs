@@ -88,6 +88,8 @@ type PythonBinFile(path, bytes: byte[], baseAddrOpt) =
 
     member _.RunPath with get() = [||]
 
+    member _.ProgramHeaderTable with get() = None
+
     member _.IsNXEnabled with get() = false
 
     member _.IsPIE with get() = false
@@ -133,4 +135,3 @@ type PythonBinFile(path, bytes: byte[], baseAddrOpt) =
                                         size - 1)
       else
         BinFilePointer.Null
-

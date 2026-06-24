@@ -210,6 +210,8 @@ type WasmBinFile(path, bytes, baseAddrOpt) =
 
     member _.RunPath with get() = [||]
 
+    member _.ProgramHeaderTable with get() = None
+
     member _.IsNXEnabled with get() = true
 
     member _.IsPIE with get() = false
