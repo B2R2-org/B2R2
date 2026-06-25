@@ -11,6 +11,7 @@
     <RepositoryUrl>https://github.com/B2R2-org/B2R2</RepositoryUrl>
     <RepositoryType>git</RepositoryType>
     <EnableSourceLink Condition="'$(ContinuousIntegrationBuild)' != 'true'">false</EnableSourceLink>
+    <IncludeSourceRevisionInInformationalVersion Condition="'$(ContinuousIntegrationBuild)' != 'true'">false</IncludeSourceRevisionInInformationalVersion>
     <PackageProjectUrl>https://b2r2.org/B2R2</PackageProjectUrl>
     <PackageTags>Binary;Disassembly;Assembly;CFG;Reversing;Binary Analysis;x86;AARCH64;ARM;MIPS;AVR;PPC;EVM;ELF;Mach-O;PE</PackageTags>
     <FsDocsLogoSource>https://b2r2.org/images/b2r2-240x240.png</FsDocsLogoSource>
