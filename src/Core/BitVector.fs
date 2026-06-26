@@ -39,6 +39,15 @@ module private BitVector = begin
 
   let inline adaptBig (len: RegType) (n: bigint) = ((1I <<< int len) - 1I) &&& n
 
+  /// Converts an already-rounded float into a signed integer bit pattern of the
+  /// given (<= 64-bit) width. NaN or out-of-range inputs yield MIN_INT, as the
+  /// CastKind documentation and x86 integer-indefinite semantics require.
+  let ftoiToSmall (targetLen: RegType) (f: float) =
+    let minInt = 1UL <<< int targetLen - 1
+    let bound = float minInt
+    if Double.IsNaN f || f < -bound || f >= bound then minInt
+    else adaptSmall targetLen (uint64 (int64 f))
+
   let inline isSmallPositive (len: RegType) (n: uint64) =
     (n >>> (int len - 1)) &&& 1UL = 0UL
 
@@ -719,7 +728,7 @@ module private BitVector = begin
           | 64<rt> -> this.Value |> toFloat64 |> truncate
           | _ -> raise InvalidRegTypeException
         if targetLen <= 64<rt> then
-          BitVectorSmall(adaptSmall targetLen (uint64 f), targetLen)
+          BitVectorSmall(ftoiToSmall targetLen f, targetLen)
         else BitVectorBig(adaptBig targetLen (bigint f), targetLen)
 
       member this.FtoiRound targetLen =
@@ -729,7 +738,7 @@ module private BitVector = begin
           | 64<rt> -> this.Value |> toFloat64 |> round
           | _ -> raise InvalidRegTypeException
         if targetLen <= 64<rt> then
-          BitVectorSmall(adaptSmall targetLen (uint64 f), targetLen)
+          BitVectorSmall(ftoiToSmall targetLen f, targetLen)
         else BitVectorBig(adaptBig targetLen (bigint f), targetLen)
 
       member this.FtoiFloor targetLen =
@@ -739,7 +748,7 @@ module private BitVector = begin
           | 64<rt> -> this.Value |> toFloat64 |> floor
           | _ -> raise InvalidRegTypeException
         if targetLen <= 64<rt> then
-          BitVectorSmall(adaptSmall targetLen (uint64 f), targetLen)
+          BitVectorSmall(ftoiToSmall targetLen f, targetLen)
         else BitVectorBig(adaptBig targetLen (bigint f), targetLen)
 
       member this.FtoiCeil targetLen =
@@ -749,7 +758,7 @@ module private BitVector = begin
           | 64<rt> -> this.Value |> toFloat64 |> ceil
           | _ -> raise InvalidRegTypeException
         if targetLen <= 64<rt> then
-          BitVectorSmall(adaptSmall targetLen (uint64 f), targetLen)
+          BitVectorSmall(ftoiToSmall targetLen f, targetLen)
         else
           BitVectorBig(adaptBig targetLen (bigint f), targetLen)
 
@@ -1218,7 +1227,7 @@ module private BitVector = begin
           | 80<rt> -> this.Value |> toBigFloat |> truncate
           | _ -> raise InvalidRegTypeException
         if targetLen <= 64<rt> then
-          BitVectorSmall(adaptSmall targetLen (uint64 f), targetLen)
+          BitVectorSmall(ftoiToSmall targetLen f, targetLen)
         else
           BitVectorBig(adaptBig targetLen (bigint f), targetLen)
 
@@ -1228,7 +1237,7 @@ module private BitVector = begin
           | 80<rt> -> this.Value |> toBigFloat |> round
           | _ -> raise InvalidRegTypeException
         if targetLen <= 64<rt> then
-          BitVectorSmall(adaptSmall targetLen (uint64 f), targetLen)
+          BitVectorSmall(ftoiToSmall targetLen f, targetLen)
         else
           BitVectorBig(adaptBig targetLen (bigint f), targetLen)
 
@@ -1238,7 +1247,7 @@ module private BitVector = begin
           | 80<rt> -> this.Value |> toBigFloat |> floor
           | _ -> raise InvalidRegTypeException
         if targetLen <= 64<rt> then
-          BitVectorSmall(adaptSmall targetLen (uint64 f), targetLen)
+          BitVectorSmall(ftoiToSmall targetLen f, targetLen)
         else
           BitVectorBig(adaptBig targetLen (bigint f), targetLen)
 
@@ -1248,7 +1257,7 @@ module private BitVector = begin
           | 80<rt> -> this.Value |> toBigFloat |> ceil
           | _ -> raise InvalidRegTypeException
         if targetLen <= 64<rt> then
-          BitVectorSmall(adaptSmall targetLen (uint64 f), targetLen)
+          BitVectorSmall(ftoiToSmall targetLen f, targetLen)
         else
           BitVectorBig(adaptBig targetLen (bigint f), targetLen)
 

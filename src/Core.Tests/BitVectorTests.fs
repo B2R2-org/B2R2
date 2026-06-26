@@ -402,3 +402,22 @@ type BitVectorTests() =
     let t2 = BitVector(0x7FF8000000000000UL, 64<rt>)
     let e2 = Concat(t1, t2)
     Assert.AreEqual(T, Eq(e1, e2))
+
+  [<TestMethod>]
+  member _.``Ftoi negative and out-of-range``() =
+    let mk (d: float) = BitVector(BitConverter.DoubleToUInt64Bits d, 64<rt>)
+    let trunc d rt = (FtoiTrunc(mk d, rt)).ToUInt64()
+    Assert.AreEqual<uint64>(0xFFFFFFFFFFFFFFFFUL, trunc -1.5 64<rt>)
+    Assert.AreEqual<uint64>(0xFFFFUL, trunc -1.5 16<rt>)
+    Assert.AreEqual<uint64>(0xFEUL, trunc -2.0 8<rt>)
+    Assert.AreEqual<uint64>(0x8000UL, trunc -40000.0 16<rt>)
+    Assert.AreEqual<uint64>(0x8000UL, trunc 40000.0 16<rt>)
+    Assert.AreEqual<uint64>(0x8000000000000000UL, trunc 1e20 64<rt>)
+    Assert.AreEqual<uint64>(0x8000UL, trunc nan 16<rt>)
+    Assert.AreEqual<uint64>(0x3UL, trunc 3.9 16<rt>)
+    Assert.AreEqual<uint64>(0xFFFFFFFFFFFFFFFFUL,
+                            (FtoiRound(mk -1.4, 64<rt>)).ToUInt64())
+    Assert.AreEqual<uint64>(0xFFFFFFFFFFFFFFFEUL,
+                            (FtoiFloor(mk -1.5, 64<rt>)).ToUInt64())
+    Assert.AreEqual<uint64>(0xFFFFFFFFFFFFFFFFUL,
+                            (FtoiCeil(mk -1.5, 64<rt>)).ToUInt64())
