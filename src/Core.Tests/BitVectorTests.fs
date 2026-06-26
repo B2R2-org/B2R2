@@ -421,3 +421,27 @@ type BitVectorTests() =
                             (FtoiFloor(mk -1.5, 64<rt>)).ToUInt64())
     Assert.AreEqual<uint64>(0xFFFFFFFFFFFFFFFFUL,
                             (FtoiCeil(mk -1.5, 64<rt>)).ToUInt64())
+
+  [<TestMethod>]
+  member _.``Float32 results must not sign-extend the upper bits``() =
+    let mk64 (d: float) = BitVector(BitConverter.DoubleToUInt64Bits d, 64<rt>)
+    let mk32 (f: float32) =
+      BitVector(BitConverter.SingleToUInt32Bits f |> uint64, 32<rt>)
+    let bf800000 = BitConverter.SingleToUInt32Bits -1.0f |> uint64
+    Assert.AreEqual<uint64>(bf800000, (FCast(mk64 -1.0, 32<rt>)).ToUInt64())
+    let c0000000 = BitConverter.SingleToUInt32Bits -2.0f |> uint64
+    Assert.AreEqual<uint64>(c0000000,
+                            (FAdd(mk32 -1.0f, mk32 -1.0f)).ToUInt64())
+    Assert.AreEqual<uint64>(0UL, (FSin(mk32 3.5f)).ToUInt64() >>> 32)
+    Assert.AreEqual<uint64>(0UL, (FSqrt(mk32 2.0f)).ToUInt64() >>> 32)
+
+  [<TestMethod>]
+  member _.``Itof sign-extends narrow signed sources``() =
+    let neg1 = BitVector(-1L, 32<rt>)
+    let f64 = BitConverter.DoubleToUInt64Bits -1.0
+    Assert.AreEqual<uint64>(f64, (Itof(neg1, 64<rt>, true)).ToUInt64())
+    let f32 = BitConverter.SingleToUInt32Bits -1.0f |> uint64
+    Assert.AreEqual<uint64>(f32, (Itof(neg1, 32<rt>, true)).ToUInt64())
+    let big = BitVector(0xFFFFFFFFUL, 32<rt>)
+    Assert.AreEqual<uint64>(BitConverter.DoubleToUInt64Bits 4294967295.0,
+                            (Itof(big, 64<rt>, false)).ToUInt64())

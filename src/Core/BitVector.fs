@@ -51,6 +51,11 @@ module private BitVector = begin
   let inline isSmallPositive (len: RegType) (n: uint64) =
     (n >>> (int len - 1)) &&& 1UL = 0UL
 
+  /// Sign-extends a len-bit value held in a uint64 to a full signed int64.
+  let inline sExtSmall (len: RegType) (n: uint64) =
+    if len >= 64<rt> || isSmallPositive len n then int64 n
+    else int64 (n ||| (UInt64.MaxValue <<< int len))
+
   let inline isBigPositive (len: RegType) (n: bigint) =
     (n >>> (int len - 1)) &&& 1I = 0I
 
@@ -602,7 +607,7 @@ module private BitVector = begin
           let v1 = this.Value |> toFloat32
           let v2 = rhs.SmallValue |> toFloat32
           let bs = v1 + v2 |> BitConverter.GetBytes
-          BitVectorSmall(BitConverter.ToInt32(bs, 0) |> uint64, len)
+          BitVectorSmall(BitConverter.ToUInt32(bs, 0) |> uint64, len)
         | 64<rt> ->
           let v1 = this.Value |> toFloat64
           let v2 = rhs.SmallValue |> toFloat64
@@ -617,7 +622,7 @@ module private BitVector = begin
           let v1 = this.Value |> toFloat32
           let v2 = rhs.SmallValue |> toFloat32
           let bs = v1 - v2 |> BitConverter.GetBytes
-          BitVectorSmall(BitConverter.ToInt32(bs, 0) |> uint64, len)
+          BitVectorSmall(BitConverter.ToUInt32(bs, 0) |> uint64, len)
         | 64<rt> ->
           let v1 = this.Value |> toFloat64
           let v2 = rhs.SmallValue |> toFloat64
@@ -632,7 +637,7 @@ module private BitVector = begin
           let v1 = this.Value |> toFloat32
           let v2 = rhs.SmallValue |> toFloat32
           let bs = v1 * v2 |> BitConverter.GetBytes
-          BitVectorSmall(BitConverter.ToInt32(bs, 0) |> uint64, len)
+          BitVectorSmall(BitConverter.ToUInt32(bs, 0) |> uint64, len)
         | 64<rt> ->
           let v1 = this.Value |> toFloat64
           let v2 = rhs.SmallValue |> toFloat64
@@ -647,7 +652,7 @@ module private BitVector = begin
           let v1 = this.Value |> toFloat32
           let v2 = rhs.SmallValue |> toFloat32
           let bs = v1 / v2 |> BitConverter.GetBytes
-          BitVectorSmall(BitConverter.ToInt32(bs, 0) |> uint64, len)
+          BitVectorSmall(BitConverter.ToUInt32(bs, 0) |> uint64, len)
         | 64<rt> ->
           let v1 = this.Value |> toFloat64
           let v2 = rhs.SmallValue |> toFloat64
@@ -662,7 +667,7 @@ module private BitVector = begin
           let v1 = this.Value |> toFloat32
           let v2 = rhs.SmallValue |> toFloat32
           let bs = MathF.Log(v2, v1) |> BitConverter.GetBytes
-          BitVectorSmall(BitConverter.ToInt32(bs, 0) |> uint64, len)
+          BitVectorSmall(BitConverter.ToUInt32(bs, 0) |> uint64, len)
         | 64<rt> ->
           let v1 = this.Value |> toFloat64
           let v2 = rhs.SmallValue |> toFloat64
@@ -677,7 +682,7 @@ module private BitVector = begin
           let v1 = this.Value |> toFloat32
           let v2 = rhs.SmallValue |> toFloat32
           let bs = MathF.Pow(v1, v2) |> BitConverter.GetBytes
-          BitVectorSmall(BitConverter.ToInt32(bs, 0) |> uint64, len)
+          BitVectorSmall(BitConverter.ToUInt32(bs, 0) |> uint64, len)
         | 64<rt> ->
           let v1 = this.Value |> toFloat64
           let v2 = rhs.SmallValue |> toFloat64
@@ -698,7 +703,7 @@ module private BitVector = begin
           BitVectorBig(encodeBigFloat u64, targetLen)
         | 64<rt>, 32<rt> ->
           let f64 = this.Value |> toFloat64
-          let u64 = BitConverter.SingleToInt32Bits(float32 f64) |> uint64
+          let u64 = BitConverter.SingleToUInt32Bits(float32 f64) |> uint64
           BitVectorSmall(u64, targetLen)
         | 64<rt>, 64<rt> -> this
         | 64<rt>, 80<rt> ->
@@ -708,17 +713,17 @@ module private BitVector = begin
       member _.Itof(targetLen, isSigned) =
         match targetLen with
         | 32<rt> ->
-          let fpv = if isSigned then n |> int64 |> float32 else n |> float32
-          let u64 = BitConverter.SingleToInt32Bits fpv |> uint64
+          let fpv = if isSigned then sExtSmall len n |> float32 else float32 n
+          let u64 = BitConverter.SingleToUInt32Bits fpv |> uint64
           BitVectorSmall(u64, targetLen)
         | 64<rt> ->
-          let fpv = if isSigned then n |> int64 |> float else n |> float
+          let fpv = if isSigned then sExtSmall len n |> float else float n
           let u64 = BitConverter.DoubleToInt64Bits fpv |> uint64
           BitVectorSmall(u64, targetLen)
         | 80<rt> ->
-          let fpv = if isSigned then n |> int64 |> float else n |> float
+          let fpv = if isSigned then sExtSmall len n |> float else float n
           let u64 = BitConverter.DoubleToInt64Bits fpv |> uint64
-          BitVectorBig(bigint u64, targetLen)
+          BitVectorBig(encodeBigFloat u64, targetLen)
         | _ -> raise InvalidRegTypeException
 
       member this.FtoiTrunc targetLen =
@@ -766,7 +771,7 @@ module private BitVector = begin
         match len with
         | 32<rt> ->
           let r = this.Value |> toFloat32 |> sqrt
-          BitVectorSmall(BitConverter.SingleToInt32Bits r |> uint64, len)
+          BitVectorSmall(BitConverter.SingleToUInt32Bits r |> uint64, len)
         | 64<rt> ->
           let r = this.Value |> toFloat64 |> sqrt
           BitVectorSmall(BitConverter.DoubleToInt64Bits r |> uint64, len)
@@ -776,7 +781,7 @@ module private BitVector = begin
         match len with
         | 32<rt> ->
           let r = this.Value |> toFloat32 |> tan
-          BitVectorSmall(BitConverter.SingleToInt32Bits r |> uint64, len)
+          BitVectorSmall(BitConverter.SingleToUInt32Bits r |> uint64, len)
         | 64<rt> ->
           let r = this.Value |> toFloat64 |> tan
           BitVectorSmall(BitConverter.DoubleToInt64Bits r |> uint64, len)
@@ -786,7 +791,7 @@ module private BitVector = begin
         match len with
         | 32<rt> ->
           let r = this.Value |> toFloat32 |> atan
-          BitVectorSmall(BitConverter.SingleToInt32Bits r |> uint64, len)
+          BitVectorSmall(BitConverter.SingleToUInt32Bits r |> uint64, len)
         | 64<rt> ->
           let r = this.Value |> toFloat64 |> atan
           BitVectorSmall(BitConverter.DoubleToInt64Bits r |> uint64, len)
@@ -796,7 +801,7 @@ module private BitVector = begin
         match len with
         | 32<rt> ->
           let r = this.Value |> toFloat32 |> sin
-          BitVectorSmall(BitConverter.SingleToInt32Bits r |> uint64, len)
+          BitVectorSmall(BitConverter.SingleToUInt32Bits r |> uint64, len)
         | 64<rt> ->
           let r = this.Value |> toFloat64 |> sin
           BitVectorSmall(BitConverter.DoubleToInt64Bits r |> uint64, len)
@@ -806,7 +811,7 @@ module private BitVector = begin
         match len with
         | 32<rt> ->
           let r = this.Value |> toFloat32 |> cos
-          BitVectorSmall(BitConverter.SingleToInt32Bits r |> uint64, len)
+          BitVectorSmall(BitConverter.SingleToUInt32Bits r |> uint64, len)
         | 64<rt> ->
           let r = this.Value |> toFloat64 |> cos
           BitVectorSmall(BitConverter.DoubleToInt64Bits r |> uint64, len)
@@ -1200,25 +1205,27 @@ module private BitVector = begin
         match len, targetLen with
         | 80<rt>, 32<rt> ->
           let f32 = this.Value |> toBigFloat |> float32
-          BitVectorSmall(BitConverter.SingleToInt32Bits f32 |> uint64, 32<rt>)
+          BitVectorSmall(BitConverter.SingleToUInt32Bits f32 |> uint64, 32<rt>)
         | 80<rt>, 64<rt> ->
           let f64 = this.Value |> toBigFloat
           BitVectorSmall(BitConverter.DoubleToInt64Bits f64 |> uint64, 64<rt>)
         | 80<rt>, 80<rt> -> this
         | _ -> raise InvalidRegTypeException
 
-      member _.Itof(targetLen, _) =
-        let v = if isBigPositive len n then n else -n
+      member _.Itof(targetLen, isSigned) =
+        let v =
+          if isSigned && not (isBigPositive len n) then n - (1I <<< int len)
+          else n
         match targetLen with
         | 32<rt> ->
-          let u64 = BitConverter.SingleToInt32Bits(float32 v) |> uint64
+          let u64 = BitConverter.SingleToUInt32Bits(float32 v) |> uint64
           BitVectorSmall(u64, targetLen)
         | 64<rt> ->
           let u64 = BitConverter.DoubleToInt64Bits(float v) |> uint64
           BitVectorSmall(u64, targetLen)
         | 80<rt> ->
           let u64 = BitConverter.DoubleToInt64Bits(float v) |> uint64
-          BitVectorBig(bigint u64, targetLen)
+          BitVectorBig(encodeBigFloat u64, targetLen)
         | _ -> raise InvalidRegTypeException
 
       member this.FtoiTrunc targetLen =
