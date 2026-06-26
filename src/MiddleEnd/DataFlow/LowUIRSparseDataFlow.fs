@@ -321,7 +321,7 @@ type State<'Lattice when 'Lattice: equality>
     | SideEffect(sideEff, _) ->
       SSA.SideEffect sideEff
     | _ ->
-      SSA.SideEffect <| Exception "Invalid SSA stmt encountered"
+      SSA.SideEffect UndefinedInstr
 
   let convertDefsToIds defs =
     defs

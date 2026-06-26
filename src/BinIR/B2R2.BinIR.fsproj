@@ -15,6 +15,7 @@
     <Compile Include="BinOpType.fs" />
     <Compile Include="RelOpType.fs" />
     <Compile Include="CastKind.fs" />
+    <Compile Include="ExceptionKind.fs" />
     <Compile Include="SideEffect.fs" />
     <Compile Include="InterJmpKind.fs" />
     <Compile Include="HashConsingInfo.fs" />

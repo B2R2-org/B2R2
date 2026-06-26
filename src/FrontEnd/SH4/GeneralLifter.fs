@@ -110,7 +110,7 @@ let illSlot1 (ins: Instruction) bld len =
   bld <+ (regVar bld R.RB := AST.b1)
   bld <+ (regVar bld R.BL := AST.b1)
   bld <+ (regVar bld R.PC := regVar bld R.VBR .+ numI32PC 0x00000100)
-  bld <+ (AST.sideEffect (Exception("ILLSLOT")))
+  bld <+ (AST.sideEffect UndefinedInstr)
   bld --!> len
 
 let illSlot2 bld len =
@@ -122,7 +122,7 @@ let illSlot2 bld len =
   bld <+ (regVar bld R.RB := AST.b1)
   bld <+ (regVar bld R.BL := AST.b1)
   bld <+ (regVar bld R.PC := regVar bld R.VBR .+ numI32PC 0x00000100)
-  bld <+ (AST.sideEffect (Exception("ILLSLOT")))
+  bld <+ (AST.sideEffect UndefinedInstr)
   bld --!> len
 
 let fpudis bld =
@@ -134,7 +134,7 @@ let fpudis bld =
   bld <+ (regVar bld R.RB := AST.b1)
   bld <+ (regVar bld R.BL := AST.b1)
   bld <+ (regVar bld R.PC := regVar bld R.VBR .+ numI32PC 0x00000100)
-  bld <+ (AST.sideEffect (Exception("FPUDIS")))
+  bld <+ (AST.sideEffect (Exception FloatingPointException))
 
 let slotFpudis bld =
   bld <+ (regVar bld R.SPC := regVar bld R.PC .- numI32 2)
@@ -145,7 +145,7 @@ let slotFpudis bld =
   bld <+ (regVar bld R.RB := AST.b1)
   bld <+ (regVar bld R.BL := AST.b1)
   bld <+ (regVar bld R.PC := regVar bld R.VBR .+ numI32PC 0x00000100)
-  bld <+ (AST.sideEffect (Exception("SLOTFPUDIS")))
+  bld <+ (AST.sideEffect (Exception FloatingPointException))
 
 let fpuExc bld =
   bld <+ (regVar bld R.SPC := regVar bld R.PC)
@@ -156,7 +156,7 @@ let fpuExc bld =
   bld <+ (regVar bld R.RB := AST.b1)
   bld <+ (regVar bld R.BL := AST.b1)
   bld <+ (regVar bld R.PC := regVar bld R.VBR .+ numI32PC 0x00000100)
-  bld <+ (AST.sideEffect (Exception("FPUEXC")))
+  bld <+ (AST.sideEffect (Exception FloatingPointException))
 
 let trap bld imm =
   bld <+ (regVar bld R.SPC := regVar bld R.PC .+ numI32 2)
@@ -168,7 +168,7 @@ let trap bld imm =
   bld <+ (regVar bld R.RB := AST.b1)
   bld <+ (regVar bld R.BL := AST.b1)
   bld <+ (regVar bld R.PC := regVar bld R.VBR .+ numI32PC 0x00000100)
-  bld <+ (AST.sideEffect (Exception("TRAPA")))
+  bld <+ (AST.sideEffect (Exception TrapInstruction))
 
 let resinst bld =
   bld <+ (regVar bld R.SPC := regVar bld R.PC)
@@ -179,7 +179,7 @@ let resinst bld =
   bld <+ (regVar bld R.RB := AST.b1)
   bld <+ (regVar bld R.BL := AST.b1)
   bld <+ (regVar bld R.PC := regVar bld R.VBR .+ numI32PC 0x00000100)
-  bld <+ (AST.sideEffect (Exception("RESINST")))
+  bld <+ (AST.sideEffect UndefinedInstr)
 
 let fpuCheck fps n = bv1Check (AST.extract fps 1<rt> n)
 

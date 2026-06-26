@@ -1440,7 +1440,7 @@ let div (ins: Instruction) insLen bld =
   bld <+ (AST.cjmp (divisor == AST.num0 oprSize)
                  (AST.jmpDest lblErr) (AST.jmpDest lblChk))
   bld <+ (AST.lmark lblErr)
-  bld <+ (AST.sideEffect (Exception "DivErr"))
+  bld <+ (AST.sideEffect (Exception DivideError))
   bld <+ (AST.lmark lblChk)
   match oprSize with
   | 64<rt> ->
@@ -2490,7 +2490,7 @@ let rdpkru ins insLen bld =
   bld <+ (AST.cjmp (ecx == AST.num0 oprSize)
                  (AST.jmpDest lblSucc) (AST.jmpDest lblErr))
   bld <+ (AST.lmark lblErr)
-  bld <+ (AST.sideEffect (Exception "GP"))
+  bld <+ (AST.sideEffect (Exception ProtectionFault))
   bld <+ (AST.lmark lblSucc)
   bld <+ (eax := AST.zext bld.RegType (regVar bld R.PKRU))
   bld <+ (edx := AST.num0 bld.RegType)
@@ -3045,7 +3045,7 @@ let wrpkru ins insLen bld =
   bld <!-- (ins.Address, insLen)
   bld <+ (AST.cjmp cond (AST.jmpDest lblSucc) (AST.jmpDest lblErr))
   bld <+ (AST.lmark lblErr)
-  bld <+ (AST.sideEffect (Exception "GP"))
+  bld <+ (AST.sideEffect (Exception ProtectionFault))
   bld <+ (AST.lmark lblSucc)
   bld <+ (regVar bld R.PKRU := regVar bld R.EAX)
   bld --!> insLen

@@ -32,16 +32,14 @@ type SideEffect =
   | ClockCounter
   /// Memory fence operations, e.g., LFENCE/MFENCE/SFENCE on x86.
   | Fence
-  /// Delay the execution for a while, e.g. HLT, PAUSE on x86.
+  /// Delay the execution for a while, e.g. PAUSE on x86.
   | Delay
-  /// Terminate the execution.
+  /// Terminate the execution, e.g., HLT on x86.
   | Terminate
   /// Asynchronous event triggered by software (e.g. INT on x86) or hardware.
   | Interrupt of int
-  /// Synchronous event generated when the execution encounters an error
-  /// condition. The string describes the exception reason as reported by the
-  /// lifter.
-  | Exception of string
+  /// A synchronous CPU exception raised during execution.
+  | Exception of ExceptionKind
   /// Acquire the lock. `Lock` and `Unlock` is used to mark a sequence of IR
   /// statements that need to be evaluated atomically.
   | Lock
@@ -52,7 +50,7 @@ type SideEffect =
   | ProcessorID
   /// System call.
   | SysCall
-  /// Explicitly undefined instruction, e.g., UD2 on x86.
+  /// Explicitly undefined, illegal, or reserved instruction, e.g., UD2 on x86.
   | UndefinedInstr
   /// Unsupported floating point operations.
   | UnsupportedFP
@@ -85,7 +83,7 @@ module SideEffect =
     | Delay -> "Delay"
     | Terminate -> "Terminate"
     | Interrupt(n) -> "Int" + n.ToString()
-    | Exception s -> "Exception(" + s + ")"
+    | Exception k -> "Exception(" + ExceptionKind.toString k + ")"
     | Lock -> "Lock"
     | Unlock -> "Unlock"
     | ProcessorID -> "PID"

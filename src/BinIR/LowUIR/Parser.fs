@@ -324,9 +324,13 @@ type Parser(isa: ISA,
     |>> AST.extCall
 
   let pException =
+    let fromExceptionString (s: string) =
+      match ExceptionKind.tryOfString s with
+      | Some kind -> preturn <| Exception kind
+      | None -> fail "unknown exception kind"
     pstringCI "Exception"
     >>. ws >>. pchar '(' >>. manyCharsTill anyChar (pchar ')')
-    |>> Exception
+    >>= fromExceptionString
 
   let pSideEffectKind =
     attempt (pstringCI "breakpoint" >>% Breakpoint)

@@ -662,7 +662,7 @@ let fdivr (ins: Instruction) insLen bld doPop =
     bld <+ (AST.cjmp (isZero st0b st0a)
                      (AST.jmpDest lblErr) (AST.jmpDest lblChk))
     bld <+ (AST.lmark lblErr)
-    bld <+ (AST.sideEffect (Exception "DivErr"))
+    bld <+ (AST.sideEffect (Exception DivideError))
     bld <+ (AST.lmark lblChk)
     castFrom80Bit tmp0 64<rt> st0b st0a bld
     castFrom80Bit tmp1 64<rt> st1b st1a bld
@@ -675,7 +675,7 @@ let fdivr (ins: Instruction) insLen bld doPop =
     bld <+ (AST.cjmp (isZero st0b st0a)
                      (AST.jmpDest lblErr) (AST.jmpDest lblChk))
     bld <+ (AST.lmark lblErr)
-    bld <+ (AST.sideEffect (Exception "DivErr"))
+    bld <+ (AST.sideEffect (Exception DivideError))
     bld <+ (AST.lmark lblChk)
     castFrom80Bit tmp0 64<rt> st0b st0a bld
     if oprSize = 64<rt> then bld <+ (tmp1 := oprExpr)
@@ -687,7 +687,7 @@ let fdivr (ins: Instruction) insLen bld doPop =
     let struct (r1B, r1A) = getFPUPseudoRegVars bld reg1
     bld <+ (AST.cjmp (isZero r0B r0A) (AST.jmpDest lblErr) (AST.jmpDest lblChk))
     bld <+ (AST.lmark lblErr)
-    bld <+ (AST.sideEffect (Exception "DivErr"))
+    bld <+ (AST.sideEffect (Exception DivideError))
     bld <+ (AST.lmark lblChk)
     castFrom80Bit tmp0 64<rt> r0B r0A bld
     castFrom80Bit tmp1 64<rt> r1B r1A bld

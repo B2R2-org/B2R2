@@ -342,7 +342,7 @@ let dynamicRoundingFl bld rt res =
   bld <+ (tmpVar := AST.cast CastKind.FtoFCeil rt res)
   bld <+ (AST.jmp (AST.jmpDest lblDEnd))
   bld <+ (AST.lmark lblDException)
-  bld <+ (AST.sideEffect (Exception "illegal instruction"))
+  bld <+ (AST.sideEffect UndefinedInstr)
   bld <+ (AST.lmark lblDEnd)
   tmpVar
 
@@ -382,7 +382,7 @@ let dynamicRoundingInt bld rt res =
   bld <+ (tmpVar := AST.cast (CastKind.FtoICeil) rt res)
   bld <+ (AST.jmp (AST.jmpDest lblDEnd))
   bld <+ (AST.lmark lblDException)
-  bld <+ (AST.sideEffect (Exception "illegal instruction"))
+  bld <+ (AST.sideEffect UndefinedInstr)
   bld <+ (AST.lmark lblDEnd)
   tmpVar
 
@@ -1628,7 +1628,7 @@ let amod ins insLen bld op =
   bld <+ (AST.sideEffect Unlock)
   bld <+ (AST.jmp (AST.jmpDest lblEnd))
   bld <+ (AST.lmark lblL1)
-  bld <+ (AST.sideEffect (Exception "Address-misaligned exception"))
+  bld <+ (AST.sideEffect (Exception MisalignedAccess))
   bld <+ (AST.lmark lblEnd)
   bld --!> insLen
 
@@ -1650,7 +1650,7 @@ let amow ins insLen bld op =
   bld <+ (AST.sideEffect Unlock)
   bld <+ (AST.jmp (AST.jmpDest lblEnd))
   bld <+ (AST.lmark lblL1)
-  bld <+ (AST.sideEffect (Exception "Address-misaligned exception"))
+  bld <+ (AST.sideEffect (Exception MisalignedAccess))
   bld <+ (AST.lmark lblEnd)
   bld --!> insLen
 

@@ -3321,7 +3321,7 @@ let sdiv ins insLen bld =
     (AST.extract src 32<rt> 0))
   let cond = (divisor == AST.num0 32<rt>)
   if (divisor = AST.num0 32<rt> || src1 = regVar bld Register.G0) then
-    bld <+ (AST.sideEffect (Exception "Division by zero exception"))
+    bld <+ (AST.sideEffect (Exception DivideError))
   elif (isRegOpr ins insLen bld) then
     bld <+ (AST.cjmp (cond) (AST.jmpDest lblL0) (AST.jmpDest lblL1))
     bld <+ (AST.lmark lblL1)
@@ -3336,7 +3336,7 @@ let sdiv ins insLen bld =
       ((AST.extract quotient 32<rt> 32) == AST.num0 32<rt>) (AST.b0) (AST.b1))
     bld <+ (AST.jmp (AST.jmpDest lblEnd))
     bld <+ (AST.lmark lblL0)
-    bld <+ (AST.sideEffect (Exception "Division by zero exception"))
+    bld <+ (AST.sideEffect (Exception DivideError))
     bld <+ (AST.lmark lblEnd)
   else
     bld <+ (quotient := dividend ./ (AST.zext 64<rt> divisor))
@@ -3369,7 +3369,7 @@ let sdivcc ins insLen bld =
     (AST.extract src 32<rt> 0))
   let cond = (divisor == AST.num0 32<rt>)
   if (divisor = AST.num0 32<rt> || src1 = regVar bld Register.G0) then
-    bld <+ (AST.sideEffect (Exception "Division by zero exception"))
+    bld <+ (AST.sideEffect (Exception DivideError))
   elif (isRegOpr ins insLen bld) then
     bld <+ (AST.cjmp (cond) (AST.jmpDest lblL0) (AST.jmpDest lblL1))
     bld <+ (AST.lmark lblL1)
@@ -3384,7 +3384,7 @@ let sdivcc ins insLen bld =
       ((AST.extract quotient 32<rt> 32) == AST.num0 32<rt>) (AST.b0) (AST.b1))
     bld <+ (AST.jmp (AST.jmpDest lblEnd))
     bld <+ (AST.lmark lblL0)
-    bld <+ (AST.sideEffect (Exception "Division by zero exception"))
+    bld <+ (AST.sideEffect (Exception DivideError))
     bld <+ (AST.lmark lblEnd)
   else
     bld <+ (quotient := dividend ./ (AST.zext 64<rt> divisor))
@@ -3409,7 +3409,7 @@ let sdivx ins insLen bld =
   let lblEnd = label bld "End"
   bld <!-- (ins.Address, insLen)
   if (src1 = AST.num0 64<rt> || src1 = regVar bld Register.G0) then
-    bld <+ (AST.sideEffect (Exception "Division by zero exception"))
+    bld <+ (AST.sideEffect (Exception DivideError))
   elif (isRegOpr ins insLen bld) then
     bld <+ (AST.cjmp (cond) (AST.jmpDest lblL0) (AST.jmpDest lblL1))
     bld <+ (AST.lmark lblL1)
@@ -3419,7 +3419,7 @@ let sdivx ins insLen bld =
       bld <+ (dst := src ?/ src1)
     bld <+ (AST.jmp (AST.jmpDest lblEnd))
     bld <+ (AST.lmark lblL0)
-    bld <+ (AST.sideEffect (Exception "Division by zero exception"))
+    bld <+ (AST.sideEffect (Exception DivideError))
     bld <+ (AST.lmark lblEnd)
   else
     if (dst = regVar bld Register.G0) then
@@ -3679,7 +3679,7 @@ let udiv ins insLen bld =
     (AST.extract src 32<rt> 0))
   let cond = (divisor == AST.num0 32<rt>)
   if (divisor = AST.num0 32<rt> || src1 = regVar bld Register.G0) then
-    bld <+ (AST.sideEffect (Exception "Division by zero exception"))
+    bld <+ (AST.sideEffect (Exception DivideError))
   elif (isRegOpr ins insLen bld) then
     bld <+ (AST.cjmp (cond) (AST.jmpDest lblL0) (AST.jmpDest lblL1))
     bld <+ (AST.lmark lblL1)
@@ -3692,7 +3692,7 @@ let udiv ins insLen bld =
       (numU64 0x0000FFFFUL 64<rt>))
     bld <+ (AST.jmp (AST.jmpDest lblEnd))
     bld <+ (AST.lmark lblL0)
-    bld <+ (AST.sideEffect (Exception "Division by zero exception"))
+    bld <+ (AST.sideEffect (Exception DivideError))
     bld <+ (AST.lmark lblEnd)
   else
     bld <+ (quotient := dividend ./ (AST.zext 64<rt> divisor))
@@ -3717,7 +3717,7 @@ let udivcc ins insLen bld =
     (AST.extract src 32<rt> 0))
   let cond = (divisor == AST.num0 32<rt>)
   if (divisor = AST.num0 32<rt> || src1 = regVar bld Register.G0) then
-    bld <+ (AST.sideEffect (Exception "Division by zero exception"))
+    bld <+ (AST.sideEffect (Exception DivideError))
   elif (isRegOpr ins insLen bld) then
     bld <+ (AST.cjmp (cond) (AST.jmpDest lblL0) (AST.jmpDest lblL1))
     bld <+ (AST.lmark lblL1)
@@ -3732,7 +3732,7 @@ let udivcc ins insLen bld =
       ((AST.extract quotient 32<rt> 32) == AST.num0 32<rt>) (AST.b0) (AST.b1))
     bld <+ (AST.jmp (AST.jmpDest lblEnd))
     bld <+ (AST.lmark lblL0)
-    bld <+ (AST.sideEffect (Exception "Division by zero exception"))
+    bld <+ (AST.sideEffect (Exception DivideError))
     bld <+ (AST.lmark lblEnd)
   else
     bld <+ (quotient := dividend ./ (AST.zext 64<rt> divisor))
@@ -3757,7 +3757,7 @@ let udivx ins insLen bld =
   let lblEnd = label bld "End"
   bld <!-- (ins.Address, insLen)
   if (src1 = AST.num0 64<rt> || src1 = regVar bld Register.G0) then
-    bld <+ (AST.sideEffect (Exception "Division by zero exception"))
+    bld <+ (AST.sideEffect (Exception DivideError))
   elif (isRegOpr ins insLen bld) then
     bld <+ (AST.cjmp (cond) (AST.jmpDest lblL0) (AST.jmpDest lblL1))
     bld <+ (AST.lmark lblL1)
@@ -3767,7 +3767,7 @@ let udivx ins insLen bld =
       bld <+ (dst := src ./ src1)
     bld <+ (AST.jmp (AST.jmpDest lblEnd))
     bld <+ (AST.lmark lblL0)
-    bld <+ (AST.sideEffect (Exception "Division by zero exception"))
+    bld <+ (AST.sideEffect (Exception DivideError))
     bld <+ (AST.lmark lblEnd)
   else
     if (dst = regVar bld Register.G0) then

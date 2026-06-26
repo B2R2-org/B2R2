@@ -76,6 +76,20 @@ type ParserTests() =
 
   [<TestMethod>]
   member _.``[LowUIRParser] Test Exception SideEffect``() =
-    let result = p.Parse "!!Exception(int overflow)" |> get |> Array.head
-    let answer = AST.sideEffect (SideEffect.Exception "int overflow")
+    [ DivideError
+      IntegerOverflow
+      ProtectionFault
+      MisalignedAccess
+      FloatingPointException
+      TrapInstruction ]
+    |> List.iter (fun kind ->
+      let input = "!!Exception(" + ExceptionKind.toString kind + ")"
+      let result = p.Parse input |> get |> Array.head
+      let answer = AST.sideEffect (SideEffect.Exception kind)
+      Assert.AreEqual<Stmt>(answer, result))
+
+  [<TestMethod>]
+  member _.``[LowUIRParser] Test Undefined Instruction``() =
+    let result = p.Parse "!!Undef" |> get |> Array.head
+    let answer = AST.sideEffect SideEffect.UndefinedInstr
     Assert.AreEqual<Stmt>(answer, result)

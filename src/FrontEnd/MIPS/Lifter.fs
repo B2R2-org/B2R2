@@ -532,7 +532,7 @@ let add (ins: Instruction) insLen bld =
     let cond = checkOverfolwOnAdd rs rt result
     bld <+ (AST.cjmp cond (AST.jmpDest lblL0) (AST.jmpDest lblL1))
     bld <+ (AST.lmark lblL0)
-    bld <+ (AST.sideEffect (Exception "int overflow"))
+    bld <+ (AST.sideEffect (Exception IntegerOverflow))
     bld <+ (AST.jmp (AST.jmpDest lblEnd))
     bld <+ (AST.lmark lblL1)
     bld <+ (rd := result)
@@ -939,7 +939,7 @@ let dadd ins insLen bld =
   bld <!-- (ins.Address, insLen)
   bld <+ (AST.cjmp cond (AST.jmpDest lblL0) (AST.jmpDest lblL1))
   bld <+ (AST.lmark lblL0)
-  bld <+ (AST.sideEffect (Exception "int overflow"))
+  bld <+ (AST.sideEffect (Exception IntegerOverflow))
   bld <+ (AST.jmp (AST.jmpDest lblEnd))
   bld <+ (AST.lmark lblL1)
   bld <+ (rd := rs .+ rt)
