@@ -4057,7 +4057,7 @@ let translate (ins: Instruction) insLen bld =
   | Opcode.FDIV -> fdiv ins insLen bld addr
   | Opcode.FMADD -> fmadd ins insLen bld addr
   | Opcode.FMAX -> fmaxmin ins insLen bld addr AST.fgt
-  | Opcode.FMAXNM -> sideEffects ins.Address insLen bld UnsupportedFP
+  | Opcode.FMAXNM -> sideEffects ins.Address insLen bld UnsupportedInstruction
   | Opcode.FMIN -> fmaxmin ins insLen bld addr AST.flt
   | Opcode.FMLS -> fmls ins insLen bld addr
   | Opcode.FMOV -> fmov ins insLen bld addr

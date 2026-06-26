@@ -1959,7 +1959,7 @@ let teq ins insLen bld =
   bld <!-- (ins.Address, insLen)
   bld <+ (AST.cjmp (rs == rt) (AST.jmpDest lblL0) (AST.jmpDest lblEnd))
   bld <+ (AST.lmark lblL0)
-  bld <+ (AST.sideEffect UndefinedInstr) (* FIXME: Trap *)
+  bld <+ (AST.sideEffect UndefinedInstruction) (* FIXME: Trap *)
   bld <+ (AST.lmark lblEnd)
   advancePC bld insLen
 
@@ -1970,7 +1970,7 @@ let teqi ins insLen bld =
   bld <!-- (ins.Address, insLen)
   bld <+ (AST.cjmp (rs == imm) (AST.jmpDest lblL0) (AST.jmpDest lblEnd))
   bld <+ (AST.lmark lblL0)
-  bld <+ (AST.sideEffect UndefinedInstr)
+  bld <+ (AST.sideEffect UndefinedInstruction)
   bld <+ (AST.lmark lblEnd)
   advancePC bld insLen
 
@@ -2238,7 +2238,7 @@ let translate (ins: Instruction) insLen (bld: LowUIRBuilder) =
   | Op.ORI -> ori ins insLen bld
   | Op.PAUSE -> pause ins insLen bld
   | Op.PREF | Op.PREFE | Op.PREFX -> nop ins insLen bld
-  | Op.RDHWR -> sideEffects ins insLen bld ProcessorID
+  | Op.RDHWR -> sideEffects ins insLen bld ProcessorInfoRead
   | Op.ROTR -> rotr ins insLen bld
   | Op.ROTRV -> rotrv ins insLen bld
   | Op.RECIP -> recip ins insLen bld
@@ -2279,7 +2279,7 @@ let translate (ins: Instruction) insLen (bld: LowUIRBuilder) =
   | Op.XORI -> xori ins insLen bld
   | Op.WSBH -> wsbh ins insLen bld
   | Op.BC3F | Op.BC3FL | Op.BC3T | Op.BC3TL ->
-    sideEffects ins insLen bld UnsupportedExtension
+    sideEffects ins insLen bld UnsupportedInstruction
   | o ->
 #if DEBUG
          eprintfn "%A" o

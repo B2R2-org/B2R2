@@ -80,8 +80,7 @@ type ParserTests() =
       IntegerOverflow
       ProtectionFault
       MisalignedAccess
-      FloatingPointException
-      TrapInstruction ]
+      FloatingPointException ]
     |> List.iter (fun kind ->
       let input = "!!Exception(" + ExceptionKind.toString kind + ")"
       let result = p.Parse input |> get |> Array.head
@@ -90,6 +89,6 @@ type ParserTests() =
 
   [<TestMethod>]
   member _.``[LowUIRParser] Test Undefined Instruction``() =
-    let result = p.Parse "!!Undef" |> get |> Array.head
-    let answer = AST.sideEffect SideEffect.UndefinedInstr
+    let result = p.Parse "!!UndefinedInstruction" |> get |> Array.head
+    let answer = AST.sideEffect SideEffect.UndefinedInstruction
     Assert.AreEqual<Stmt>(answer, result)

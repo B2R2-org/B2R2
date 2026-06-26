@@ -675,24 +675,24 @@ let writeModeBits bld value isExcptReturn =
   let cond5 = (cpsrM == num11010) .& (valueM != num11010)
   bld <+ (AST.cjmp cond1 (AST.jmpDest lblL8) (AST.jmpDest lblL9))
   bld <+ (AST.lmark lblL8)
-  bld <+ (AST.sideEffect UndefinedInstr) // FIXME: (use UNPREDICTABLE)
+  bld <+ (AST.sideEffect UndefinedInstruction) // FIXME: (use UNPREDICTABLE)
   bld <+ (AST.lmark lblL9)
   bld <+ (AST.cjmp cond2 (AST.jmpDest lblL10) (AST.jmpDest lblL11))
   bld <+ (AST.lmark lblL10)
-  bld <+ (AST.sideEffect UndefinedInstr) // FIXME: (use UNPREDICTABLE)
+  bld <+ (AST.sideEffect UndefinedInstruction) // FIXME: (use UNPREDICTABLE)
   bld <+ (AST.lmark lblL11)
   bld <+ (AST.cjmp cond3 (AST.jmpDest lblL12) (AST.jmpDest lblL13))
   bld <+ (AST.lmark lblL12)
-  bld <+ (AST.sideEffect UndefinedInstr) // FIXME: (use UNPREDICTABLE)
+  bld <+ (AST.sideEffect UndefinedInstruction) // FIXME: (use UNPREDICTABLE)
   bld <+ (AST.lmark lblL13)
   bld <+ (AST.cjmp cond4 (AST.jmpDest lblL14) (AST.jmpDest lblL15))
   bld <+ (AST.lmark lblL14)
-  bld <+ (AST.sideEffect UndefinedInstr) // FIXME: (use UNPREDICTABLE)
+  bld <+ (AST.sideEffect UndefinedInstruction) // FIXME: (use UNPREDICTABLE)
   bld <+ (AST.lmark lblL15)
   bld <+ (AST.cjmp cond5 (AST.jmpDest lblL16) (AST.jmpDest lblL17))
   bld <+ (AST.lmark lblL16)
   if Operators.not isExcptReturn then
-    bld <+ (AST.sideEffect UndefinedInstr) // FIXME: (use UNPREDICTABLE)
+    bld <+ (AST.sideEffect UndefinedInstruction) // FIXME: (use UNPREDICTABLE)
   else ()
   bld <+ (AST.lmark lblL17)
   let mValue = value .& maskPSRForMbits
@@ -3259,7 +3259,7 @@ let parseOprOfVMOVFP (ins: Instruction) bld =
   | TwoOperands(OprSIMD _, OprImm _) ->
     let struct (dst, imm) = transTwoOprs ins bld
     bld <+ (dst := AST.zext ins.OprSize imm)
-  | _ -> bld <+ (AST.sideEffect UnsupportedFP)
+  | _ -> bld <+ (AST.sideEffect UnsupportedInstruction)
 
 let vmov (ins: Instruction) insLen bld =
   let isUnconditional = ParseUtils.isUnconditional ins.Condition
@@ -5173,14 +5173,14 @@ let translate (ins: Instruction) insLen bld =
   | Op.MCRR | Op.MCRR2 | Op.MRC | Op.MRC2 | Op.MRRC | Op.MRRC2 | Op.STC
   | Op.STC2 | Op.STC2L | Op.STCL ->
     (* coprocessor instructions *)
-    sideEffects ins insLen bld UnsupportedExtension
+    sideEffects ins insLen bld UnsupportedInstruction
   | Op.CLZ -> clz ins insLen bld
   | Op.CMN -> cmn ins insLen bld
   | Op.CMP -> cmp ins insLen bld
   | Op.DMB | Op.DSB | Op.ISB | Op.PLD -> nop ins insLen bld
   | Op.EOR -> eor false ins insLen bld
   | Op.EORS -> eors true ins insLen bld
-  | Op.ERET -> sideEffects ins insLen bld UnsupportedExtension
+  | Op.ERET -> sideEffects ins insLen bld UnsupportedInstruction
   | Op.IT | Op.ITT | Op.ITE | Op.ITTT | Op.ITET | Op.ITTE | Op.ITEE | Op.ITTTT
   | Op.ITETT | Op.ITTET | Op.ITEET | Op.ITTTE | Op.ITETE | Op.ITTEE
   | Op.ITEEE -> it ins insLen bld
@@ -5211,7 +5211,7 @@ let translate (ins: Instruction) insLen bld =
   | Op.MOV | Op.MOVW -> mov false ins insLen bld
   | Op.MOVS -> movs true ins insLen bld
   | Op.MOVT -> movt ins insLen bld
-  | Op.MSR | Op.MRS -> sideEffects ins insLen bld UndefinedInstr
+  | Op.MSR | Op.MRS -> sideEffects ins insLen bld UndefinedInstruction
   | Op.MUL -> mul false ins insLen bld
   | Op.MULS -> mul true ins insLen bld
   | Op.MVN -> mvn false ins insLen bld
@@ -5312,24 +5312,25 @@ let translate (ins: Instruction) insLen bld =
   | Op.UXTB16 -> uxtb16 ins insLen bld
   | Op.UXTH -> extend ins insLen bld AST.zext 16<rt>
   | Op.VABS when isF16orF32orF64 ins.SIMDTyp ->
-    sideEffects ins insLen bld UnsupportedFP
+    sideEffects ins insLen bld UnsupportedInstruction
   | Op.VABS -> vabs ins insLen bld
   | Op.VADD when isF16orF32orF64 ins.SIMDTyp -> vaddsub ins insLen bld AST.fadd
   | Op.VADD -> vaddsub ins insLen bld (.+)
   | Op.VADDL -> vaddl ins insLen bld
   | Op.VAND -> vand ins insLen bld
   | Op.VCEQ | Op.VCGE | Op.VCGT | Op.VCLE | Op.VCLT
-    when isF32orF64 ins.SIMDTyp -> sideEffects ins insLen bld UnsupportedFP
+    when isF32orF64 ins.SIMDTyp ->
+    sideEffects ins insLen bld UnsupportedInstruction
   | Op.VCEQ -> vceq ins insLen bld
   | Op.VCGE -> vcge ins insLen bld
   | Op.VCGT -> vcgt ins insLen bld
   | Op.VCLE -> vcle ins insLen bld
   | Op.VCLT -> vclt ins insLen bld
   | Op.VCLZ -> vclz ins insLen bld
-  | Op.VCMLA -> sideEffects ins insLen bld UnsupportedFP
+  | Op.VCMLA -> sideEffects ins insLen bld UnsupportedInstruction
   | Op.VCMP | Op.VCMPE | Op.VACGE | Op.VACGT | Op.VACLE | Op.VACLT | Op.VCVTR
   | Op.VFMA | Op.VFMS | Op.VFNMA | Op.VFNMS | Op.VMSR | Op.VNMLA | Op.VNMLS
-  | Op.VNMUL | Op.VSQRT -> sideEffects ins insLen bld UnsupportedFP
+  | Op.VNMUL | Op.VSQRT -> sideEffects ins insLen bld UnsupportedInstruction
   | Op.VCVT -> vcvt ins insLen bld
   | Op.VDIV -> vdiv ins insLen bld
   | Op.VDUP -> vdup ins insLen bld
@@ -5343,11 +5344,11 @@ let translate (ins: Instruction) insLen bld =
   | Op.VLDM | Op.VLDMIA | Op.VLDMDB -> vldm ins insLen bld
   | Op.VLDR -> vldr ins insLen bld
   | Op.VMAX | Op.VMIN when isF32orF64 ins.SIMDTyp ->
-    sideEffects ins insLen bld UnsupportedFP
+    sideEffects ins insLen bld UnsupportedInstruction
   | Op.VMAX -> vmaxmin ins insLen bld true
   | Op.VMIN -> vmaxmin ins insLen bld false
   | Op.VMLA | Op.VMLS when isF16orF32orF64 ins.SIMDTyp ->
-    sideEffects ins insLen bld UnsupportedFP
+    sideEffects ins insLen bld UnsupportedInstruction
   | Op.VMLA -> vmla ins insLen bld
   | Op.VMLAL -> vmlal ins insLen bld
   | Op.VMLS -> vmls ins insLen bld
@@ -5360,17 +5361,17 @@ let translate (ins: Instruction) insLen bld =
   | Op.VMUL -> vmul ins insLen bld (.*)
   | Op.VMULL -> vmull ins insLen bld
   | Op.VNEG when isF32orF64 ins.SIMDTyp ->
-    sideEffects ins insLen bld UnsupportedFP
+    sideEffects ins insLen bld UnsupportedInstruction
   | Op.VNEG -> vneg ins insLen bld
   | Op.VORN -> vorn ins insLen bld
   | Op.VORR -> vorr ins insLen bld
   | Op.VPADD when isF32orF64 ins.SIMDTyp ->
-    sideEffects ins insLen bld UnsupportedFP
+    sideEffects ins insLen bld UnsupportedInstruction
   | Op.VPADD -> vpadd ins insLen bld
   | Op.VPOP -> vpop ins insLen bld
   | Op.VPUSH -> vpush ins insLen bld
   | Op.VRHADD -> vrhadd ins insLen bld
-  | Op.VRINTP -> sideEffects ins insLen bld UnsupportedFP
+  | Op.VRINTP -> sideEffects ins insLen bld UnsupportedInstruction
   | Op.VRSHR -> vrshr ins insLen bld
   | Op.VRSHRN -> vrshrn ins insLen bld
   | Op.VSHL -> vshl ins insLen bld

@@ -110,7 +110,7 @@ let illSlot1 (ins: Instruction) bld len =
   bld <+ (regVar bld R.RB := AST.b1)
   bld <+ (regVar bld R.BL := AST.b1)
   bld <+ (regVar bld R.PC := regVar bld R.VBR .+ numI32PC 0x00000100)
-  bld <+ (AST.sideEffect UndefinedInstr)
+  bld <+ (AST.sideEffect UndefinedInstruction)
   bld --!> len
 
 let illSlot2 bld len =
@@ -122,7 +122,7 @@ let illSlot2 bld len =
   bld <+ (regVar bld R.RB := AST.b1)
   bld <+ (regVar bld R.BL := AST.b1)
   bld <+ (regVar bld R.PC := regVar bld R.VBR .+ numI32PC 0x00000100)
-  bld <+ (AST.sideEffect UndefinedInstr)
+  bld <+ (AST.sideEffect UndefinedInstruction)
   bld --!> len
 
 let fpudis bld =
@@ -158,7 +158,7 @@ let fpuExc bld =
   bld <+ (regVar bld R.PC := regVar bld R.VBR .+ numI32PC 0x00000100)
   bld <+ (AST.sideEffect (Exception FloatingPointException))
 
-let trap bld imm =
+let trap bld imm vec =
   bld <+ (regVar bld R.SPC := regVar bld R.PC .+ numI32 2)
   bld <+ (regVar bld R.SSR := regVar bld R.SR)
   bld <+ (regVar bld R.SGR := regVar bld R.R15)
@@ -168,7 +168,7 @@ let trap bld imm =
   bld <+ (regVar bld R.RB := AST.b1)
   bld <+ (regVar bld R.BL := AST.b1)
   bld <+ (regVar bld R.PC := regVar bld R.VBR .+ numI32PC 0x00000100)
-  bld <+ (AST.sideEffect (Exception TrapInstruction))
+  bld <+ (AST.sideEffect (Interrupt vec))
 
 let resinst bld =
   bld <+ (regVar bld R.SPC := regVar bld R.PC)
@@ -179,7 +179,7 @@ let resinst bld =
   bld <+ (regVar bld R.RB := AST.b1)
   bld <+ (regVar bld R.BL := AST.b1)
   bld <+ (regVar bld R.PC := regVar bld R.VBR .+ numI32PC 0x00000100)
-  bld <+ (AST.sideEffect UndefinedInstr)
+  bld <+ (AST.sideEffect UndefinedInstruction)
 
 let fpuCheck fps n = bv1Check (AST.extract fps 1<rt> n)
 
@@ -2488,13 +2488,15 @@ let tasb ins len bld =
   bld <+ (regVar bld R.T := AST.extract t 1<rt> 1)
   bld --!> len
 
-let trapa ins len bld =
-  let dst = trsOneOpr ins bld
-  let imm = tmpVar bld 8<rt>
-  bld <!-- (ins.Address, len)
-  bld <+ (imm := AST.zext 8<rt> dst)
-  trap bld imm
-  bld --!> len
+let trapa (ins: Instruction) len bld =
+  match ins.Operands with
+  | OneOperand(OpReg(Imm vec)) ->
+    let imm = tmpVar bld 8<rt>
+    bld <!-- (ins.Address, len)
+    bld <+ (imm := AST.zext 8<rt> (numI32PC vec))
+    trap bld imm vec
+    bld --!> len
+  | _ -> raise InvalidOperandException
 
 let tst ins len bld =
   let struct (src, dst) = trsTwoOpr ins bld

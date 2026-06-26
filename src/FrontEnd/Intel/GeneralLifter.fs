@@ -256,13 +256,21 @@ let adc (ins: Instruction) insLen bld =
 #endif
   bld --!> insLen
 
+let private atomicBeginIfLocked (ins: Instruction) bld =
+  if Prefix.hasLock ins.Prefixes then bld <+ (AST.sideEffect AtomicBegin)
+  else ()
+
+let private atomicEndIfLocked (ins: Instruction) bld =
+  if Prefix.hasLock ins.Prefixes then bld <+ (AST.sideEffect AtomicEnd)
+  else ()
+
 let add (ins: Instruction) insLen bld =
   bld <!-- (ins.Address, insLen)
   let oprSize = getOperationSize ins
   match ins.Operands with
   | TwoOperands(o1, o2) when o1 = o2 ->
     let dst = transOprToExpr bld false ins insLen o1
-    if Prefix.hasLock ins.Prefixes then bld <+ (AST.sideEffect Lock) else ()
+    atomicBeginIfLocked ins bld
 #if !EMULATION
     let struct (t1, t2) = tmpVars2 bld oprSize
     bld <+ (t1 := dst)
@@ -285,7 +293,7 @@ let add (ins: Instruction) insLen bld =
   | TwoOperands(o1, o2) ->
     let dst = transOprToExpr bld true ins insLen o1
     let src = transOprToExpr bld false ins insLen o2 |> transReg bld true
-    if Prefix.hasLock ins.Prefixes then bld <+ (AST.sideEffect Lock) else ()
+    atomicBeginIfLocked ins bld
 #if !EMULATION
     let isSrcConst = isConst src
     let t1 = tmpVar bld oprSize
@@ -314,7 +322,7 @@ let add (ins: Instruction) insLen bld =
     | _ -> raise InvalidRegTypeException
 #endif
   | _ -> raise InvalidOperandException
-  if Prefix.hasLock ins.Prefixes then bld <+ (AST.sideEffect Unlock) else ()
+  atomicEndIfLocked ins bld
   bld --!> insLen
 
 let adox (ins: Instruction) insLen bld =
@@ -355,7 +363,7 @@ let ``and`` (ins: Instruction) insLen bld =
   let struct (dst, src) = transTwoOprs bld true ins insLen
   let oprSize = getOperationSize ins
   let t = tmpVar bld oprSize
-  if Prefix.hasLock ins.Prefixes then bld <+ (AST.sideEffect Lock) else ()
+  atomicBeginIfLocked ins bld
   bld <+ (dstAssign oprSize dst (dst .& AST.sext oprSize src))
 #if EMULATION
   setCCDst bld dst
@@ -372,7 +380,7 @@ let ``and`` (ins: Instruction) insLen bld =
   enumSZPFlags bld dst oprSize sf
   bld <+ (regVar bld R.AF := undefAF)
 #endif
-  if Prefix.hasLock ins.Prefixes then bld <+ (AST.sideEffect Unlock) else ()
+  atomicEndIfLocked ins bld
   bld --!> insLen
 
 let andn (ins: Instruction) insLen bld =
@@ -642,7 +650,7 @@ let bitTest (ins: Instruction) insLen bld setValue =
   let struct (bitBase, bitOffset) = transTwoOprs bld true ins insLen
   let oprSize = getOperationSize ins
   let setValue = AST.zext oprSize setValue
-  if Prefix.hasLock ins.Prefixes then bld <+ (AST.sideEffect Lock) else ()
+  atomicBeginIfLocked ins bld
 #if EMULATION
   bld <+ (regVar bld R.ZF := getZFLazy bld)
 #endif
@@ -656,14 +664,14 @@ let bitTest (ins: Instruction) insLen bld setValue =
 #else
   bld.ConditionCodeOp <- ConditionCodeOp.EFlags
 #endif
-  if Prefix.hasLock ins.Prefixes then bld <+ (AST.sideEffect Unlock) else ()
+  atomicEndIfLocked ins bld
   bld --!> insLen
 
 let btc (ins: Instruction) insLen bld =
   bld <!-- (ins.Address, insLen)
   let struct (bitBase, bitOffset) = transTwoOprs bld true ins insLen
   let oprSize = getOperationSize ins
-  if Prefix.hasLock ins.Prefixes then bld <+ (AST.sideEffect Lock) else ()
+  atomicBeginIfLocked ins bld
 #if !EMULATION
   let setValue = AST.zext oprSize (regVar bld R.CF |> AST.not)
 #else
@@ -680,7 +688,7 @@ let btc (ins: Instruction) insLen bld =
 #else
   bld.ConditionCodeOp <- ConditionCodeOp.EFlags
 #endif
-  if Prefix.hasLock ins.Prefixes then bld <+ (AST.sideEffect Unlock) else ()
+  atomicEndIfLocked ins bld
   bld --!> insLen
 
 let btr ins insLen bld = bitTest ins insLen bld AST.b0
@@ -919,7 +927,7 @@ let cmpxchg (ins: Instruction) insLen bld =
   bld <!-- (ins.Address, insLen)
   let struct (dst, src) = transTwoOprs bld true ins insLen
   let oprSize = getOperationSize ins
-  if Prefix.hasLock ins.Prefixes then bld <+ (AST.sideEffect Lock) else ()
+  atomicBeginIfLocked ins bld
   let t = tmpVar bld oprSize
   let r = tmpVar bld oprSize
   let acc = getRegOfSize bld oprSize grpEAX
@@ -946,7 +954,7 @@ let cmpxchg (ins: Instruction) insLen bld =
   bld <+ (buildAF bld tAcc t r oprSize)
   buildPF bld r oprSize None
   bld <+ (regVar bld R.CF := cfOnSub tAcc t)
-  if Prefix.hasLock ins.Prefixes then bld <+ (AST.sideEffect Unlock) else ()
+  atomicEndIfLocked ins bld
 #if EMULATION
   bld.ConditionCodeOp <- ConditionCodeOp.EFlags
 #endif
@@ -1199,13 +1207,13 @@ let dec (ins: Instruction) insLen bld =
   let oprSize = getOperationSize ins
   let struct (t1, t2) = tmpVars2 bld oprSize
   let sf = AST.xthi 1<rt> t2
-  if Prefix.hasLock ins.Prefixes then bld <+ (AST.sideEffect Lock) else ()
+  atomicBeginIfLocked ins bld
   bld <+ (t1 := dst)
   bld <+ (t2 := (t1 .- AST.num1 oprSize))
   bld <+ (dstAssign oprSize dst t2)
   bld <+ (regVar bld R.OF := ofOnSub t1 (AST.num1 oprSize) t2)
   enumASZPFlags bld t1 (AST.num1 oprSize) t2 oprSize sf
-  if Prefix.hasLock ins.Prefixes then bld <+ (AST.sideEffect Unlock) else ()
+  atomicEndIfLocked ins bld
 #if EMULATION
   bld <+ (regVar bld R.CF := getCFLazy bld)
   setCCOperands2 bld (AST.num1 oprSize) t2
@@ -1627,7 +1635,7 @@ let inc (ins: Instruction) insLen bld =
   let dst = transOneOpr bld ins insLen
   let oprSize = getOperationSize ins
   let struct (t1, t2, t3) = tmpVars3 bld oprSize
-  if Prefix.hasLock ins.Prefixes then bld <+ (AST.sideEffect Lock) else ()
+  atomicBeginIfLocked ins bld
   bld <+ (t1 := dst)
   bld <+ (t2 := AST.num1 oprSize)
   bld <+ (t3 := (t1 .+ t2))
@@ -1635,7 +1643,7 @@ let inc (ins: Instruction) insLen bld =
   let struct (ofl, sf) = osfOnAdd t1 t2 t3 bld
   bld <+ (regVar bld R.OF := ofl)
   enumASZPFlags bld t1 t2 t3 oprSize sf
-  if Prefix.hasLock ins.Prefixes then bld <+ (AST.sideEffect Unlock) else ()
+  atomicEndIfLocked ins bld
 #if EMULATION
   bld <+ (regVar bld R.CF := getCFLazy bld)
   setCCOperands2 bld t1 t3
@@ -2179,7 +2187,7 @@ let logOr (ins: Instruction) insLen bld =
   bld <!-- (ins.Address, insLen)
   let struct (dst, src) = transTwoOprs bld true ins insLen
   let oprSize = getOperationSize ins
-  if Prefix.hasLock ins.Prefixes then bld <+ (AST.sideEffect Lock) else ()
+  atomicBeginIfLocked ins bld
   bld <+ (dstAssign oprSize dst (dst .| src))
 #if EMULATION
   setCCDst bld dst
@@ -2196,7 +2204,7 @@ let logOr (ins: Instruction) insLen bld =
   enumSZPFlags bld dst oprSize sf
   bld <+ (regVar bld R.AF := undefAF)
 #endif
-  if Prefix.hasLock ins.Prefixes then bld <+ (AST.sideEffect Unlock) else ()
+  atomicEndIfLocked ins bld
   bld --!> insLen
 
 let pdep (ins: Instruction) insLen bld =
@@ -2902,7 +2910,7 @@ let sub (ins: Instruction) insLen bld =
   bld <!-- (ins.Address, insLen)
   let struct (dst, src) = transTwoOprs bld true ins insLen
   let oprSize = getOperationSize ins
-  if Prefix.hasLock ins.Prefixes then bld <+ (AST.sideEffect Lock) else ()
+  atomicBeginIfLocked ins bld
 #if !EMULATION
   let isSrcConst = isConst src
   let t1 = tmpVar bld oprSize
@@ -2930,7 +2938,7 @@ let sub (ins: Instruction) insLen bld =
   | 64<rt> -> bld.ConditionCodeOp <- ConditionCodeOp.SUBQ
   | _ -> raise InvalidRegTypeException
 #endif
-  if Prefix.hasLock ins.Prefixes then bld <+ (AST.sideEffect Unlock) else ()
+  atomicEndIfLocked ins bld
   bld --!> insLen
 
 let test (ins: Instruction) insLen bld =
@@ -3056,7 +3064,7 @@ let xadd (ins: Instruction) insLen bld =
   let orgDst = saveOprMem bld dst
   let oprSize = getOperationSize ins
   let struct (t1, t2, t3) = tmpVars3 bld oprSize
-  if Prefix.hasLock ins.Prefixes then bld <+ (AST.sideEffect Lock) else ()
+  atomicBeginIfLocked ins bld
   bld <+ (t1 := dst)
   bld <+ (t2 := src)
   bld <+ (t3 := t1 .+ t2)
@@ -3074,7 +3082,7 @@ let xadd (ins: Instruction) insLen bld =
   let struct (ofl, sf) = osfOnAdd t1 t2 t3 bld
   enumEFLAGS bld t1 t2 t3 oprSize (cfOnAdd t1 t3) ofl sf
 #endif
-  if Prefix.hasLock ins.Prefixes then bld <+ (AST.sideEffect Unlock) else ()
+  atomicEndIfLocked ins bld
   bld --!> insLen
 
 let xchg (ins: Instruction) insLen bld =

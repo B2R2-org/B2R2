@@ -857,7 +857,7 @@ let sts ins len bld =
 let des ins len bld =
   let dst = transOneOpr ins bld
   bld <!-- (ins.Address, len)
-  bld <+ (AST.sideEffect UnsupportedExtension)
+  bld <+ (AST.sideEffect UnsupportedInstruction)
   bld --!> len
 
 let xch ins len bld =

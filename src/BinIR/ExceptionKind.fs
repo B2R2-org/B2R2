@@ -36,8 +36,6 @@ type ExceptionKind =
   | MisalignedAccess
   /// Floating-point exception.
   | FloatingPointException
-  /// Synchronous trap raised by an explicit trap instruction, e.g., SH4 TRAPA.
-  | TrapInstruction
 
 /// <summary>
 /// Provides functions to access <see cref='T:B2R2.BinIR.ExceptionKind'/>.
@@ -55,7 +53,6 @@ module ExceptionKind =
     | ProtectionFault -> "ProtectionFault"
     | MisalignedAccess -> "MisalignedAccess"
     | FloatingPointException -> "FloatingPointException"
-    | TrapInstruction -> "TrapInstruction"
 
   /// <summary>
   /// Tries to retrieve an exception kind from a LowUIR string representation.
@@ -68,7 +65,6 @@ module ExceptionKind =
     | "protectionfault" -> Some ProtectionFault
     | "misalignedaccess" -> Some MisalignedAccess
     | "floatingpointexception" -> Some FloatingPointException
-    | "trapinstruction" -> Some TrapInstruction
     | _ -> None
 
   /// <summary>

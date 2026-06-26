@@ -321,7 +321,7 @@ type State<'Lattice when 'Lattice: equality>
     | SideEffect(sideEff, _) ->
       SSA.SideEffect sideEff
     | _ ->
-      SSA.SideEffect UndefinedInstr
+      SSA.SideEffect UndefinedInstruction
 
   let convertDefsToIds defs =
     defs

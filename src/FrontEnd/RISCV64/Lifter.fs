@@ -342,7 +342,7 @@ let dynamicRoundingFl bld rt res =
   bld <+ (tmpVar := AST.cast CastKind.FtoFCeil rt res)
   bld <+ (AST.jmp (AST.jmpDest lblDEnd))
   bld <+ (AST.lmark lblDException)
-  bld <+ (AST.sideEffect UndefinedInstr)
+  bld <+ (AST.sideEffect UndefinedInstruction)
   bld <+ (AST.lmark lblDEnd)
   tmpVar
 
@@ -382,7 +382,7 @@ let dynamicRoundingInt bld rt res =
   bld <+ (tmpVar := AST.cast (CastKind.FtoICeil) rt res)
   bld <+ (AST.jmp (AST.jmpDest lblDEnd))
   bld <+ (AST.lmark lblDException)
-  bld <+ (AST.sideEffect UndefinedInstr)
+  bld <+ (AST.sideEffect UndefinedInstruction)
   bld <+ (AST.lmark lblDEnd)
   tmpVar
 
@@ -1104,9 +1104,9 @@ let fld ins insLen bld =
   bld <!-- (ins.Address, insLen)
   bld <+ (AST.cjmp condAlign (AST.jmpDest lblL0) (AST.jmpDest lblL1))
   bld <+ (AST.lmark lblL0)
-  bld <+ (AST.sideEffect Lock)
+  bld <+ (AST.sideEffect AtomicBegin)
   bld <+ (rd := AST.sext bld.RegType mem)
-  bld <+ (AST.sideEffect Unlock)
+  bld <+ (AST.sideEffect AtomicEnd)
   bld <+ (AST.jmp (AST.jmpDest lblEnd))
   bld <+ (AST.lmark lblL1)
   bld <+ (rd := AST.sext bld.RegType mem)
@@ -1122,9 +1122,9 @@ let fsd ins insLen bld =
   bld <!-- (ins.Address, insLen)
   bld <+ (AST.cjmp condAlign (AST.jmpDest lblL0) (AST.jmpDest lblL1))
   bld <+ (AST.lmark lblL0)
-  bld <+ (AST.sideEffect Lock)
+  bld <+ (AST.sideEffect AtomicBegin)
   bld <+ (mem := rd)
-  bld <+ (AST.sideEffect Unlock)
+  bld <+ (AST.sideEffect AtomicEnd)
   bld <+ (AST.jmp (AST.jmpDest lblEnd))
   bld <+ (AST.lmark lblL1)
   bld <+ (mem := rd)
@@ -1274,10 +1274,10 @@ let flw ins insLen bld =
   bld <!-- (ins.Address, insLen)
   bld <+ (AST.cjmp condAlign (AST.jmpDest lblL0) (AST.jmpDest lblL1))
   bld <+ (AST.lmark lblL0)
-  bld <+ (AST.sideEffect Lock)
+  bld <+ (AST.sideEffect AtomicBegin)
   bld <+ (tmp := mem)
   bld <+ (rd := getNanBoxed tmp)
-  bld <+ (AST.sideEffect Unlock)
+  bld <+ (AST.sideEffect AtomicEnd)
   bld <+ (AST.jmp (AST.jmpDest lblEnd))
   bld <+ (AST.lmark lblL1)
   bld <+ (tmp := mem)
@@ -1294,9 +1294,9 @@ let fsw ins insLen bld =
   bld <!-- (ins.Address, insLen)
   bld <+ (AST.cjmp condAlign (AST.jmpDest lblL0) (AST.jmpDest lblL1))
   bld <+ (AST.lmark lblL0)
-  bld <+ (AST.sideEffect Lock)
+  bld <+ (AST.sideEffect AtomicBegin)
   bld <+ (mem := AST.xtlo 32<rt> rd)
-  bld <+ (AST.sideEffect Unlock)
+  bld <+ (AST.sideEffect AtomicEnd)
   bld <+ (AST.jmp (AST.jmpDest lblEnd))
   bld <+ (AST.lmark lblL1)
   bld <+ (mem := AST.xtlo 32<rt> rd)
@@ -1621,11 +1621,11 @@ let amod ins insLen bld op =
   bld <!-- (ins.Address, insLen)
   bld <+ (AST.cjmp cond (AST.jmpDest lblL0) (AST.jmpDest lblL1))
   bld <+ (AST.lmark lblL0)
-  bld <+ (AST.sideEffect Lock)
+  bld <+ (AST.sideEffect AtomicBegin)
   bld <+ (tmp := mem)
   bld <+ (mem := op tmp rs2)
   bld <+ (rd := tmp)
-  bld <+ (AST.sideEffect Unlock)
+  bld <+ (AST.sideEffect AtomicEnd)
   bld <+ (AST.jmp (AST.jmpDest lblEnd))
   bld <+ (AST.lmark lblL1)
   bld <+ (AST.sideEffect (Exception MisalignedAccess))
@@ -1643,11 +1643,11 @@ let amow ins insLen bld op =
   bld <!-- (ins.Address, insLen)
   bld <+ (AST.cjmp cond (AST.jmpDest lblL0) (AST.jmpDest lblL1))
   bld <+ (AST.lmark lblL0)
-  bld <+ (AST.sideEffect Lock)
+  bld <+ (AST.sideEffect AtomicBegin)
   bld <+ (tmp := mem)
   bld <+ (mem := op tmp rs2)
   bld <+ (rd := AST.sext 64<rt> tmp)
-  bld <+ (AST.sideEffect Unlock)
+  bld <+ (AST.sideEffect AtomicEnd)
   bld <+ (AST.jmp (AST.jmpDest lblEnd))
   bld <+ (AST.lmark lblL1)
   bld <+ (AST.sideEffect (Exception MisalignedAccess))
@@ -1683,7 +1683,7 @@ let csrrw ins insLen bld =
   let rd, csr, src = getThreeOprs ins
   let csr, src = transTwoOprs ins bld (csr, src) |> maskForFCSR csr
   bld <!-- (ins.Address, insLen)
-  bld <+ (AST.sideEffect Lock)
+  bld <+ (AST.sideEffect AtomicBegin)
   match rd with
   | OpReg Register.X0 -> assignFCSR csr src bld
   | _ ->
@@ -1692,14 +1692,14 @@ let csrrw ins insLen bld =
     bld <+ (tmpVar := AST.zext 64<rt> csr)
     assignFCSR csr src bld
     bld <+ (rd := tmpVar)
-  bld <+ (AST.sideEffect Unlock)
+  bld <+ (AST.sideEffect AtomicEnd)
   bld --!> insLen
 
 let csrrs ins insLen bld =
   let rd, csr, src = getThreeOprs ins
   let rd = transOprToExpr ins bld rd
   bld <!-- (ins.Address, insLen)
-  bld <+ (AST.sideEffect Lock)
+  bld <+ (AST.sideEffect AtomicBegin)
   match src with
   | OpReg Register.X0 ->
     let csr = transOprToExpr ins bld csr
@@ -1710,14 +1710,14 @@ let csrrs ins insLen bld =
     bld <+ (tmpVar := AST.zext 64<rt> csr)
     assignFCSR csr (csr .| src) bld
     bld <+ (rd := tmpVar)
-  bld <+ (AST.sideEffect Unlock)
+  bld <+ (AST.sideEffect AtomicEnd)
   bld --!> insLen
 
 let csrrc ins insLen bld =
   let rd, csr, src = getThreeOprs ins
   let rd = transOprToExpr ins bld rd
   bld <!-- (ins.Address, insLen)
-  bld <+ (AST.sideEffect Lock)
+  bld <+ (AST.sideEffect AtomicBegin)
   match src with
   | OpReg Register.X0 ->
     let csr = transOprToExpr ins bld csr
@@ -1728,7 +1728,7 @@ let csrrc ins insLen bld =
     bld <+ (tmpVar := AST.zext 64<rt> csr)
     assignFCSR csr (csr .& AST.neg src) bld
     bld <+ (rd := tmpVar)
-  bld <+ (AST.sideEffect Unlock)
+  bld <+ (AST.sideEffect AtomicEnd)
   bld --!> insLen
 
 let fcvtdotldotd ins insLen bld =

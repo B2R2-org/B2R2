@@ -55,7 +55,7 @@ let translate (ins: Instruction) insLen bld =
   | OP.BTS -> GeneralLifter.bts ins insLen bld
   | OP.BZHI -> GeneralLifter.bzhi ins insLen bld
   | OP.CALL when ins.IsFar ->
-    LiftingUtils.sideEffects bld ins insLen UnsupportedFAR
+    LiftingUtils.sideEffects bld ins insLen UnsupportedInstruction
   | OP.CALL -> GeneralLifter.call ins insLen bld
   | OP.CBW | OP.CWDE | OP.CDQE ->
     GeneralLifter.convBWQ ins insLen bld
@@ -63,7 +63,8 @@ let translate (ins: Instruction) insLen bld =
   | OP.CLD -> GeneralLifter.clearFlag ins insLen bld R.DF
   | OP.CLI -> GeneralLifter.clearFlag ins insLen bld R.IF
   | OP.CLRSSBSY -> GeneralLifter.nop ins.Address insLen bld
-  | OP.CLTS -> LiftingUtils.sideEffects bld ins insLen UnsupportedPrivInstr
+  | OP.CLTS ->
+    LiftingUtils.sideEffects bld ins insLen UnsupportedInstruction
   | OP.CMC -> GeneralLifter.cmc ins insLen bld
   | OP.CMOVO | OP.CMOVNO | OP.CMOVB | OP.CMOVAE
   | OP.CMOVZ | OP.CMOVNZ | OP.CMOVBE | OP.CMOVA
@@ -76,7 +77,7 @@ let translate (ins: Instruction) insLen bld =
   | OP.CMPXCHG -> GeneralLifter.cmpxchg ins insLen bld
   | OP.CMPXCHG8B | OP.CMPXCHG16B ->
     GeneralLifter.compareExchangeBytes ins insLen bld
-  | OP.CPUID -> LiftingUtils.sideEffects bld ins insLen ProcessorID
+  | OP.CPUID -> LiftingUtils.sideEffects bld ins insLen ProcessorInfoRead
   | OP.CRC32 -> GeneralLifter.crc32 ins insLen bld
   | OP.CWD | OP.CDQ | OP.CQO ->
     GeneralLifter.convWDQ ins insLen bld
@@ -91,7 +92,7 @@ let translate (ins: Instruction) insLen bld =
   | OP.INC -> GeneralLifter.inc ins insLen bld
   | OP.INCSSPD | OP.INCSSPQ -> GeneralLifter.nop ins.Address insLen bld
   | OP.INSB | OP.INSW | OP.INSD ->
-    LiftingUtils.sideEffects bld ins insLen UnsupportedPrivInstr
+    LiftingUtils.sideEffects bld ins insLen UnsupportedInstruction
   | OP.INT | OP.INTO -> GeneralLifter.interrupt ins insLen bld
   | OP.INT3 -> LiftingUtils.sideEffects bld ins insLen Breakpoint
   | OP.JMP -> GeneralLifter.jmp ins insLen bld
@@ -109,7 +110,7 @@ let translate (ins: Instruction) insLen bld =
     GeneralLifter.loop ins insLen bld
   | OP.LZCNT -> GeneralLifter.lzcnt ins insLen bld
   | OP.LDS | OP.LES | OP.LFS | OP.LGS | OP.LSS ->
-    LiftingUtils.sideEffects bld ins insLen UnsupportedFAR
+    LiftingUtils.sideEffects bld ins insLen UnsupportedInstruction
   | OP.MOV -> GeneralLifter.mov ins insLen bld
   | OP.MOVBE -> GeneralLifter.movbe ins insLen bld
   | OP.MOVSB | OP.MOVSW | OP.MOVSQ ->
@@ -123,7 +124,7 @@ let translate (ins: Instruction) insLen bld =
   | OP.NOT -> GeneralLifter.not ins insLen bld
   | OP.OR -> GeneralLifter.logOr ins insLen bld
   | OP.OUTSB | OP.OUTSW | OP.OUTSD ->
-    LiftingUtils.sideEffects bld ins insLen UnsupportedPrivInstr
+    LiftingUtils.sideEffects bld ins insLen UnsupportedInstruction
   | OP.PDEP -> GeneralLifter.pdep ins insLen bld
   | OP.PEXT -> GeneralLifter.pext ins insLen bld
   | OP.POP -> GeneralLifter.pop ins insLen bld
@@ -140,15 +141,17 @@ let translate (ins: Instruction) insLen bld =
   | OP.RCL -> GeneralLifter.rcl ins insLen bld
   | OP.RCR -> GeneralLifter.rcr ins insLen bld
   | OP.RDMSR | OP.RSM ->
-    LiftingUtils.sideEffects bld ins insLen UnsupportedExtension
+    LiftingUtils.sideEffects bld ins insLen UnsupportedInstruction
   | OP.RDPKRU -> GeneralLifter.rdpkru ins insLen bld
-  | OP.RDPMC -> LiftingUtils.sideEffects bld ins insLen UnsupportedExtension
-  | OP.RDRAND -> LiftingUtils.sideEffects bld ins insLen UnsupportedExtension
+  | OP.RDPMC ->
+    LiftingUtils.sideEffects bld ins insLen UnsupportedInstruction
+  | OP.RDRAND ->
+    LiftingUtils.sideEffects bld ins insLen UnsupportedInstruction
   | OP.RDSSPD | OP.RDSSPQ -> GeneralLifter.nop ins.Address insLen bld
-  | OP.RDTSC -> LiftingUtils.sideEffects bld ins insLen ClockCounter
-  | OP.RDTSCP -> LiftingUtils.sideEffects bld ins insLen ClockCounter
+  | OP.RDTSC -> LiftingUtils.sideEffects bld ins insLen ClockCounterRead
+  | OP.RDTSCP -> LiftingUtils.sideEffects bld ins insLen ClockCounterRead
   | OP.RET when ins.IsFar ->
-    LiftingUtils.sideEffects bld ins insLen UnsupportedFAR
+    LiftingUtils.sideEffects bld ins insLen UnsupportedInstruction
   | OP.RET -> GeneralLifter.ret ins insLen bld
   | OP.ROL -> GeneralLifter.rol ins insLen bld
   | OP.ROR -> GeneralLifter.ror ins insLen bld
@@ -180,37 +183,44 @@ let translate (ins: Instruction) insLen bld =
   | OP.SUB -> GeneralLifter.sub ins insLen bld
   | OP.SYSCALL | OP.SYSENTER -> LiftingUtils.sideEffects bld ins insLen SysCall
   | OP.SYSEXIT | OP.SYSRET ->
-    LiftingUtils.sideEffects bld ins insLen UnsupportedPrivInstr
+    LiftingUtils.sideEffects bld ins insLen UnsupportedInstruction
   | OP.TEST -> GeneralLifter.test ins insLen bld
   | OP.TZCNT -> GeneralLifter.tzcnt ins insLen bld
-  | OP.UD2 -> LiftingUtils.sideEffects bld ins insLen UndefinedInstr
-  | OP.WBINVD -> LiftingUtils.sideEffects bld ins insLen UnsupportedPrivInstr
+  | OP.UD2 -> LiftingUtils.sideEffects bld ins insLen UndefinedInstruction
+  | OP.WBINVD ->
+    LiftingUtils.sideEffects bld ins insLen UnsupportedInstruction
   | OP.WRFSBASE -> GeneralLifter.wrfsbase ins insLen bld
   | OP.WRGSBASE -> GeneralLifter.wrgsbase ins insLen bld
   | OP.WRPKRU -> GeneralLifter.wrpkru ins insLen bld
-  | OP.WRMSR -> LiftingUtils.sideEffects bld ins insLen UnsupportedPrivInstr
+  | OP.WRMSR ->
+    LiftingUtils.sideEffects bld ins insLen UnsupportedInstruction
   | OP.WRSSD | OP.WRSSQ -> GeneralLifter.nop ins.Address insLen bld
   | OP.WRUSSD | OP.WRUSSQ -> GeneralLifter.nop ins.Address insLen bld
-  | OP.XABORT -> LiftingUtils.sideEffects bld ins insLen UnsupportedExtension
+  | OP.XABORT ->
+    LiftingUtils.sideEffects bld ins insLen UnsupportedInstruction
   | OP.XADD -> GeneralLifter.xadd ins insLen bld
-  | OP.XBEGIN -> LiftingUtils.sideEffects bld ins insLen UnsupportedExtension
+  | OP.XBEGIN ->
+    LiftingUtils.sideEffects bld ins insLen UnsupportedInstruction
   | OP.XCHG -> GeneralLifter.xchg ins insLen bld
-  | OP.XEND -> LiftingUtils.sideEffects bld ins insLen UnsupportedExtension
-  | OP.XGETBV -> LiftingUtils.sideEffects bld ins insLen UnsupportedExtension
+  | OP.XEND ->
+    LiftingUtils.sideEffects bld ins insLen UnsupportedInstruction
+  | OP.XGETBV ->
+    LiftingUtils.sideEffects bld ins insLen UnsupportedInstruction
   | OP.XLATB -> GeneralLifter.xlatb ins insLen bld
   | OP.XOR -> GeneralLifter.xor ins insLen bld
   | OP.XRSTOR | OP.XRSTORS | OP.XSAVE | OP.XSAVEC
   | OP.XSAVEC64 | OP.XSAVEOPT | OP.XSAVES | OP.XSAVES64 ->
-    LiftingUtils.sideEffects bld ins insLen UnsupportedExtension
-  | OP.XTEST -> LiftingUtils.sideEffects bld ins insLen UnsupportedExtension
+    LiftingUtils.sideEffects bld ins insLen UnsupportedInstruction
+  | OP.XTEST ->
+    LiftingUtils.sideEffects bld ins insLen UnsupportedInstruction
   | OP.IN | OP.INVD | OP.INVLPG | OP.IRET | OP.IRETQ | OP.IRETW | OP.IRETD
   | OP.LAR | OP.LGDT | OP.LIDT | OP.LLDT
   | OP.LMSW | OP.LSL | OP.LTR | OP.OUT | OP.SGDT
   | OP.SIDT | OP.SLDT | OP.SMSW | OP.STR | OP.VERR ->
-    LiftingUtils.sideEffects bld ins insLen UnsupportedPrivInstr
+    LiftingUtils.sideEffects bld ins insLen UnsupportedInstruction
   | OP.SHA1NEXTE | OP.SHA1MSG1 | OP.SHA1MSG2 | OP.SHA256RNDS2 | OP.SHA256MSG1
   | OP.SHA256MSG2 | OP.SHA1RNDS4 ->
-    LiftingUtils.sideEffects bld ins insLen UnsupportedExtension
+    LiftingUtils.sideEffects bld ins insLen UnsupportedInstruction
   | OP.MOVD -> MMXLifter.movd ins insLen bld
   | OP.MOVQ -> MMXLifter.movq ins insLen bld
   | OP.PACKSSDW -> MMXLifter.packssdw ins insLen bld
@@ -333,7 +343,8 @@ let translate (ins: Instruction) insLen bld =
   | OP.ORPD -> SSELifter.orpd ins insLen bld (* SSE2 *)
   | OP.XORPS -> SSELifter.xorps ins insLen bld
   | OP.XORPD -> SSELifter.xorpd ins insLen bld (* SSE2 *)
-  | OP.XSETBV -> LiftingUtils.sideEffects bld ins insLen UnsupportedPrivInstr
+  | OP.XSETBV ->
+    LiftingUtils.sideEffects bld ins insLen UnsupportedInstruction
   | OP.SHUFPS -> SSELifter.shufps ins insLen bld
   | OP.SHUFPD -> SSELifter.shufpd ins insLen bld (* SSE2 *)
   | OP.UNPCKHPS -> SSELifter.unpckhps ins insLen bld
@@ -530,7 +541,8 @@ let translate (ins: Instruction) insLen bld =
   | OP.VEXTRACTI64X4 -> AVXLifter.vextracti64x4 ins insLen bld
   | OP.VEXTRACTPS -> SSELifter.extractps ins insLen bld
   | OP.VINSERTI128 -> AVXLifter.vinserti128 ins insLen bld
-  | OP.VMPTRLD -> LiftingUtils.sideEffects bld ins insLen UnsupportedExtension
+  | OP.VMPTRLD ->
+    LiftingUtils.sideEffects bld ins insLen UnsupportedInstruction
   | OP.VPADDB -> AVXLifter.vpaddb ins insLen bld
   | OP.VPADDD -> AVXLifter.vpaddd ins insLen bld
   | OP.VPADDQ -> AVXLifter.vpaddq ins insLen bld
@@ -609,7 +621,8 @@ let translate (ins: Instruction) insLen bld =
   | OP.VPXORD -> AVXLifter.vpxord ins insLen bld
   | OP.VZEROUPPER -> AVXLifter.vzeroupper ins insLen bld
   | OP.VEXTRACTI32X8 -> AVXLifter.vextracti32x8 ins insLen bld
-  | OP.VERW -> LiftingUtils.sideEffects bld ins insLen UnsupportedPrivInstr
+  | OP.VERW ->
+    LiftingUtils.sideEffects bld ins insLen UnsupportedInstruction
   | OP.VFMADD132SD -> AVXLifter.vfmadd132sd ins insLen bld
   | OP.VFMADD213SD -> AVXLifter.vfmadd213sd ins insLen bld
   | OP.VFMADD231SD -> AVXLifter.vfmadd231sd ins insLen bld
@@ -708,4 +721,4 @@ let translate (ins: Instruction) insLen bld =
 #if DEBUG
          eprintfn $"Unsupported: {Opcode.toString o}"
 #endif
-         LiftingUtils.sideEffects bld ins insLen UnsupportedExtension
+         LiftingUtils.sideEffects bld ins insLen UnsupportedInstruction

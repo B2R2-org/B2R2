@@ -334,21 +334,18 @@ type Parser(isa: ISA,
 
   let pSideEffectKind =
     attempt (pstringCI "breakpoint" >>% Breakpoint)
-    <|> attempt (pstringCI "clk" >>% ClockCounter)
+    <|> attempt (pstringCI "clockcounterread" >>% ClockCounterRead)
     <|> attempt (pstringCI "fence" >>% Fence)
     <|> attempt (pstringCI "delay" >>% Delay)
     <|> attempt (pstringCI "terminate" >>% Terminate)
     <|> attempt (pstringCI "int" >>. pint32 |>> Interrupt)
     <|> attempt pException
-    <|> attempt (pstringCI "lock" >>% Lock)
-    <|> attempt (pstringCI "unlock" >>% Unlock)
-    <|> attempt (pstringCI "pid" >>% ProcessorID)
+    <|> attempt (pstringCI "atomicbegin" >>% AtomicBegin)
+    <|> attempt (pstringCI "atomicend" >>% AtomicEnd)
+    <|> attempt (pstringCI "processorinforead" >>% ProcessorInfoRead)
     <|> attempt (pstringCI "syscall" >>% SysCall)
-    <|> attempt (pstringCI "undef" >>% UndefinedInstr)
-    <|> attempt (pstringCI "fp" >>% UnsupportedFP)
-    <|> attempt (pstringCI "privinstr" >>% UnsupportedPrivInstr)
-    <|> attempt (pstringCI "far" >>% UnsupportedFAR)
-    <|> attempt (pstringCI "cpu extension" >>% UnsupportedExtension)
+    <|> attempt (pstringCI "undefinedinstruction" >>% UndefinedInstruction)
+    <|> attempt (pstringCI "unsupportedinstruction" >>% UnsupportedInstruction)
 
   let pSideEffect =
     ws

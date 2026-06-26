@@ -28,38 +28,34 @@ namespace B2R2.BinIR
 type SideEffect =
   /// Software breakpoint.
   | Breakpoint
-  /// CPU clock access, e.g., RDTSC on x86.
-  | ClockCounter
   /// Memory fence operations, e.g., LFENCE/MFENCE/SFENCE on x86.
   | Fence
   /// Delay the execution for a while, e.g. PAUSE on x86.
   | Delay
   /// Terminate the execution, e.g., HLT on x86.
   | Terminate
-  /// Asynchronous event triggered by software (e.g. INT on x86) or hardware.
+  /// System call.
+  | SysCall
+  /// Trap into a handler identified by a vector number. Covers explicit
+  /// software trap instructions (e.g. INT on x86, SVC on ARM, TRAPA on SH4)
+  /// as well as asynchronous hardware interrupts.
   | Interrupt of int
   /// A synchronous CPU exception raised during execution.
   | Exception of ExceptionKind
-  /// Acquire the lock. `Lock` and `Unlock` is used to mark a sequence of IR
-  /// statements that need to be evaluated atomically.
-  | Lock
-  /// Release the lock for IR evaluation. A sequence of IR statements in between
-  /// a `Lock` and `Unlock` should be evaluated atomically.
-  | Unlock
+  /// Marks the start of a sequence of IR statements that must be evaluated
+  /// atomically, e.g., an x86 LOCK-prefixed instruction.
+  | AtomicBegin
+  /// Marks the end of an atomic sequence of IR statements. See `AtomicBegin`.
+  | AtomicEnd
+  /// CPU clock access, e.g., RDTSC on x86.
+  | ClockCounterRead
   /// Access CPU details, e.g., CPUID on x86.
-  | ProcessorID
-  /// System call.
-  | SysCall
+  | ProcessorInfoRead
   /// Explicitly undefined, illegal, or reserved instruction, e.g., UD2 on x86.
-  | UndefinedInstr
-  /// Unsupported floating point operations.
-  | UnsupportedFP
-  /// Unsupported privileged instructions.
-  | UnsupportedPrivInstr
-  /// Unsupported FAR branching.
-  | UnsupportedFAR
-  /// Unsupported processor extension.
-  | UnsupportedExtension
+  | UndefinedInstruction
+  /// An instruction that is valid but not yet modeled by B2R2's lifter, e.g.,
+  /// an unsupported floating-point, privileged, or extension instruction.
+  | UnsupportedInstruction
 #if EMULATION
   /// EFLAGS lazy evaluation
   | FlagsUpdate
@@ -78,21 +74,18 @@ module SideEffect =
   let toString sideEffect =
     match sideEffect with
     | Breakpoint -> "Breakpoint"
-    | ClockCounter -> "CLK"
     | Fence -> "Fence"
     | Delay -> "Delay"
     | Terminate -> "Terminate"
+    | SysCall -> "SysCall"
     | Interrupt(n) -> "Int" + n.ToString()
     | Exception k -> "Exception(" + ExceptionKind.toString k + ")"
-    | Lock -> "Lock"
-    | Unlock -> "Unlock"
-    | ProcessorID -> "PID"
-    | SysCall -> "SysCall"
-    | UndefinedInstr -> "Undef"
-    | UnsupportedFP -> "FP"
-    | UnsupportedPrivInstr -> "PrivInstr"
-    | UnsupportedFAR -> "FAR"
-    | UnsupportedExtension -> "CPU extension"
+    | AtomicBegin -> "AtomicBegin"
+    | AtomicEnd -> "AtomicEnd"
+    | ClockCounterRead -> "ClockCounterRead"
+    | ProcessorInfoRead -> "ProcessorInfoRead"
+    | UndefinedInstruction -> "UndefinedInstruction"
+    | UnsupportedInstruction -> "UnsupportedInstruction"
 #if EMULATION
     | FlagsUpdate -> "FlagsUpdate"
 #endif

@@ -43,12 +43,12 @@ let translate (ins: Instruction) insLen builder =
   | Opcode.BRID| Opcode.BRIE| Opcode.BRLT| Opcode.BRMI| Opcode.BRNE| Opcode.BRPL
   | Opcode.BRTC| Opcode.BRTS| Opcode.BRVC| Opcode.BRVS ->
     branch ins insLen builder
-  | Opcode.BREAK -> sideEffects ins.Address insLen ProcessorID builder
+  | Opcode.BREAK -> sideEffects ins.Address insLen ProcessorInfoRead builder
   | Opcode.BST -> bst ins insLen builder
   | Opcode.CALL -> call ins insLen builder
   | Opcode.CBI| Opcode.IN | Opcode.OUT | Opcode.SBI | Opcode.SBIC | Opcode.SBIS
   | Opcode.ELPM | Opcode.SLEEP | Opcode.SPM ->
-    sideEffects ins.Address insLen UnsupportedExtension builder
+    sideEffects ins.Address insLen UnsupportedInstruction builder
   | Opcode.CLC -> clc ins insLen builder
   | Opcode.CLH -> clh ins insLen builder
   | Opcode.CLI -> cli ins insLen builder
@@ -105,7 +105,7 @@ let translate (ins: Instruction) insLen builder =
   | Opcode.STD -> std ins insLen builder
   | Opcode.STS -> sts ins insLen builder
   | Opcode.SWAP -> swap ins insLen builder
-  | Opcode.WDR -> sideEffects ins.Address insLen ClockCounter builder
+  | Opcode.WDR -> sideEffects ins.Address insLen ClockCounterRead builder
   | Opcode.XCH -> xch ins insLen builder
   | Opcode.InvalidOp -> raise InvalidOpcodeException
   | o ->
