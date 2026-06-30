@@ -899,6 +899,51 @@ module LinuxSyscall =
     | LinuxSyscall.PkeyFree -> 382
     | LinuxSyscall.Statx -> 383
     | LinuxSyscall.ArchPrctl -> 384
+    | LinuxSyscall.IoPgetevents -> 385
+    | LinuxSyscall.Rseq -> 386
+    | LinuxSyscall.Semget -> 393
+    | LinuxSyscall.Semctl -> 394
+    | LinuxSyscall.Shmget -> 395
+    | LinuxSyscall.Shmctl -> 396
+    | LinuxSyscall.Shmat -> 397
+    | LinuxSyscall.Shmdt -> 398
+    | LinuxSyscall.Msgget -> 399
+    | LinuxSyscall.Msgsnd -> 400
+    | LinuxSyscall.Msgrcv -> 401
+    | LinuxSyscall.Msgctl -> 402
+    | LinuxSyscall.ClockGettime64 -> 403
+    | LinuxSyscall.ClockSettime64 -> 404
+    | LinuxSyscall.ClockAdjtime64 -> 405
+    | LinuxSyscall.ClockGetres64 -> 406
+    | LinuxSyscall.ClockNanosleep64 -> 407
+    | LinuxSyscall.TimerGettime64 -> 408
+    | LinuxSyscall.TimerSettime64 -> 409
+    | LinuxSyscall.TimerfdGettime64 -> 410
+    | LinuxSyscall.TimerfdSettime64 -> 411
+    | LinuxSyscall.Utimensat64 -> 412
+    | LinuxSyscall.Pselect6_64 -> 413
+    | LinuxSyscall.Ppoll64 -> 414
+    | LinuxSyscall.IoPgetevents64 -> 416
+    | LinuxSyscall.Recvmmsg64 -> 417
+    | LinuxSyscall.MqTimedsend64 -> 418
+    | LinuxSyscall.MqTimedreceive64 -> 419
+    | LinuxSyscall.Semtimedop64 -> 420
+    | LinuxSyscall.RtSigtimedwait64 -> 421
+    | LinuxSyscall.Futex64 -> 422
+    | LinuxSyscall.SchedRrGetInterval64 -> 423
+    | LinuxSyscall.PidfdSendSignal -> 424
+    | LinuxSyscall.IoUringSetup -> 425
+    | LinuxSyscall.IoUringEnter -> 426
+    | LinuxSyscall.IoUringRegister -> 427
+    | LinuxSyscall.OpenTree -> 428
+    | LinuxSyscall.MoveMount -> 429
+    | LinuxSyscall.Fsopen -> 430
+    | LinuxSyscall.Fsconfig -> 431
+    | LinuxSyscall.Fsmount -> 432
+    | LinuxSyscall.Fspick -> 433
+    | LinuxSyscall.PidfdOpen -> 434
+    | LinuxSyscall.Clone3 -> 435
+    | LinuxSyscall.Faccessat2 -> 439
     | _ -> raise UnhandledSyscallException
 
   let private getX64Number = function
@@ -1229,6 +1274,7 @@ module LinuxSyscall =
     | LinuxSyscall.Statx -> 332
     | LinuxSyscall.IoPgetevents -> 333
     | LinuxSyscall.Rseq -> 334
+    | LinuxSyscall.Faccessat2 -> 439
     | _ -> raise UnhandledSyscallException
 
   let private getARMEABINumber = function
@@ -1611,6 +1657,7 @@ module LinuxSyscall =
     | LinuxSyscall.Clone3 -> 435
     | LinuxSyscall.Openat2 -> 437
     | LinuxSyscall.PidfdGetfd -> 438
+    | LinuxSyscall.Faccessat2 -> 439
     | LinuxSyscall.Breakpoint -> 0x0f0001 (* __ARM_NR_breakpoint *)
     | LinuxSyscall.CacheFlush -> 0x0f0002 (* __ARM_NR_cacheflush *)
     | LinuxSyscall.Usr26 -> 0x0f0003 (* __ARM_NR_usr26 *)
@@ -1933,6 +1980,7 @@ module LinuxSyscall =
     | LinuxSyscall.Clone3 -> 435
     | LinuxSyscall.Openat2 -> 437
     | LinuxSyscall.PidfdGetfd -> 438
+    | LinuxSyscall.Faccessat2 -> 439
     | _ -> raise UnhandledSyscallException
 
   let private getMIPSO32Number = function
@@ -2324,6 +2372,7 @@ module LinuxSyscall =
     | LinuxSyscall.Clone3 -> 4435
     | LinuxSyscall.Openat2 -> 4437
     | LinuxSyscall.PidfdGetfd -> 4438
+    | LinuxSyscall.Faccessat2 -> 4439
     | _ -> raise UnhandledSyscallException
 
   let private getMIPSN64Number = function
@@ -2665,6 +2714,7 @@ module LinuxSyscall =
     | LinuxSyscall.CloseRange -> 5436
     | LinuxSyscall.Openat2 -> 5437
     | LinuxSyscall.PidfdGetfd -> 5438
+    | LinuxSyscall.Faccessat2 -> 5439
     | _ -> raise UnhandledSyscallException
 
   let private getPPC32Number = function
@@ -3010,6 +3060,7 @@ module LinuxSyscall =
     | LinuxSyscall.SchedGetattr -> 356
     | LinuxSyscall.Renameat2 -> 357
     | LinuxSyscall.MemfdCreate -> 360
+    | LinuxSyscall.Faccessat2 -> 439
     | _ -> raise UnhandledSyscallException
 
   let private getRISCV64Number = function
@@ -3757,6 +3808,7 @@ module LinuxSyscall =
     | 433 -> LinuxSyscall.Fspick
     | 434 -> LinuxSyscall.PidfdOpen
     | 435 -> LinuxSyscall.Clone3
+    | 439 -> LinuxSyscall.Faccessat2
     | _ -> raise UnhandledSyscallException
 
   let private getX64Syscall = function
@@ -4087,6 +4139,7 @@ module LinuxSyscall =
     | 332 -> LinuxSyscall.Statx
     | 333 -> LinuxSyscall.IoPgetevents
     | 334 -> LinuxSyscall.Rseq
+    | 439 -> LinuxSyscall.Faccessat2
     | _ -> raise UnhandledSyscallException
 
   let private getARMEABISyscall = function
@@ -4479,6 +4532,7 @@ module LinuxSyscall =
     | 435 -> LinuxSyscall.Clone3
     | 437 -> LinuxSyscall.Openat2
     | 438 -> LinuxSyscall.PidfdGetfd
+    | 439 -> LinuxSyscall.Faccessat2
     | 0x0f0001 -> LinuxSyscall.Breakpoint (* __ARM_NR_breakpoint *)
     | 0x0f0002 -> LinuxSyscall.CacheFlush (* __ARM_NR_cacheflush *)
     | 0x0f0003 -> LinuxSyscall.Usr26 (* __ARM_NR_usr26 *)
@@ -4801,7 +4855,7 @@ module LinuxSyscall =
     | 435 -> LinuxSyscall.Clone3
     | 437 -> LinuxSyscall.Openat2
     | 438 -> LinuxSyscall.PidfdGetfd
-    | 439 -> LinuxSyscall.Faccessat
+    | 439 -> LinuxSyscall.Faccessat2
     | _ -> raise UnhandledSyscallException
 
   let private getMIPSO32Syscall = function
@@ -5193,6 +5247,7 @@ module LinuxSyscall =
     | 4435 -> LinuxSyscall.Clone3
     | 4437 -> LinuxSyscall.Openat2
     | 4438 -> LinuxSyscall.PidfdGetfd
+    | 4439 -> LinuxSyscall.Faccessat2
     | _ -> raise UnhandledSyscallException
 
   let private getMIPSN64Syscall = function
@@ -5534,6 +5589,7 @@ module LinuxSyscall =
     | 5436 -> LinuxSyscall.CloseRange
     | 5437 -> LinuxSyscall.Openat2
     | 5438 -> LinuxSyscall.PidfdGetfd
+    | 5439 -> LinuxSyscall.Faccessat2
     | _ -> raise UnhandledSyscallException
 
   let private getPPC32Syscall = function
@@ -5879,6 +5935,7 @@ module LinuxSyscall =
     | 356 -> LinuxSyscall.SchedGetattr
     | 357 -> LinuxSyscall.Renameat2
     | 360 -> LinuxSyscall.MemfdCreate
+    | 439 -> LinuxSyscall.Faccessat2
     | _ -> raise UnhandledSyscallException
 
   let private getRISCV64Syscall = function
