@@ -514,7 +514,9 @@ let bsf (ins: Instruction) insLen bld =
   bld <+ (AST.cjmp cond (AST.jmpDest lblL0) (AST.jmpDest lblL1))
   bld <+ (AST.lmark lblL0)
   bld <+ (zf := AST.b1)
+#if !EMULATION
   bld <+ (dst := AST.undef oprSize "DEST is undefined.")
+#endif
   bld <+ (AST.jmp (AST.jmpDest lblEnd))
   bld <+ (AST.lmark lblL1)
   bld <+ (zf := AST.b0)
@@ -558,7 +560,9 @@ let bsr (ins: Instruction) insLen bld =
   bld <+ (AST.cjmp cond (AST.jmpDest lblL0) (AST.jmpDest lblL1))
   bld <+ (AST.lmark lblL0)
   bld <+ (zf := AST.b1)
+#if !EMULATION
   bld <+ (dst := AST.undef oprSize "DEST is undefined.")
+#endif
   bld <+ (AST.jmp (AST.jmpDest lblEnd))
   bld <+ (AST.lmark lblL1)
   bld <+ (zf := AST.b0)
