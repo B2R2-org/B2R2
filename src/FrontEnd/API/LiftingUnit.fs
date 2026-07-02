@@ -99,6 +99,17 @@ type LiftingUnit(binFile: IBinFile,
   /// Parser of this lifting unit.
   member _.Parser with get() = parser
 
+#if EMULATION
+  /// The lazy condition-code op the IR builder currently carries: the last
+  /// flag-defining operation lifted, or TraceStart when none is pending.
+  /// Exposed so a block-at-a-time lifter can persist it across a fall-through
+  /// block boundary, where no control-flow instruction flushes it to the CCOP
+  /// pseudo-register.
+  member _.ConditionCodeOp
+    with get() = irBuilder.ConditionCodeOp
+    and set v = irBuilder.ConditionCodeOp <- v
+#endif
+
   /// The instruction alignment (in bytes) enforced by the CPU. For example, ARM
   /// requires instructions to be aligned to 4 bytes, while x86 does not have
   /// such a requirement (i.e., 1-byte alignment).
