@@ -134,6 +134,50 @@ type IPrinter =
   /// number of columns as the length of the given OutString array.
   abstract PrintRow: OutString[] -> unit
 
+  /// <summary>
+  /// Prints out the given string on the error channel, with no trailing
+  /// newline. Unlike <see cref='M:B2R2.Logging.IPrinter.Print'/>, this is never
+  /// gated by the current log level (errors are always shown). On a live
+  /// console the message is routed to standard error; serialized sinks (file,
+  /// cache) write it to their single stream in call order with an error prefix.
+  /// </summary>
+  abstract PrintError: s: string -> unit
+
+  /// <summary>
+  /// Prints out the given ColoredString on the error channel, with no trailing
+  /// newline. See <see cref='M:B2R2.Logging.IPrinter.PrintError'/> for the
+  /// channel semantics.
+  /// </summary>
+  abstract PrintError: cs: ColoredString -> unit
+
+  /// <summary>
+  /// Prints out the given OutString on the error channel, with no trailing
+  /// newline. See <see cref='M:B2R2.Logging.IPrinter.PrintError'/> for the
+  /// channel semantics.
+  /// </summary>
+  abstract PrintError: os: OutString -> unit
+
+  /// <summary>
+  /// Prints out the given string on the error channel, followed by a newline.
+  /// See <see cref='M:B2R2.Logging.IPrinter.PrintError'/> for the channel
+  /// semantics.
+  /// </summary>
+  abstract PrintErrorLine: s: string -> unit
+
+  /// <summary>
+  /// Prints out the given ColoredString on the error channel, followed by a
+  /// newline. See <see cref='M:B2R2.Logging.IPrinter.PrintError'/> for the
+  /// channel semantics.
+  /// </summary>
+  abstract PrintErrorLine: cs: ColoredString -> unit
+
+  /// <summary>
+  /// Prints out the given OutString on the error channel, followed by a
+  /// newline. See <see cref='M:B2R2.Logging.IPrinter.PrintError'/> for the
+  /// channel semantics.
+  /// </summary>
+  abstract PrintErrorLine: os: OutString -> unit
+
   /// Flushes out everything.
   abstract Flush: unit -> unit
 
@@ -206,12 +250,12 @@ type IPrinter =
 
   /// Prints out the given string as an error message.
   static member (<=?) (pr: IPrinter, s: string) =
-    pr.PrintLine(s, LogLevel.L1)
+    pr.PrintErrorLine s
 
   /// Prints out the given OutString as an error message.
   static member (<=?) (pr: IPrinter, os: OutString) =
-    pr.PrintLine(os, LogLevel.L1)
+    pr.PrintErrorLine os
 
   /// Prints out the given ColoredString as an error message.
   static member (<=?) (pr: IPrinter, cs: ColoredString) =
-    pr.PrintLine(cs, LogLevel.L1)
+    pr.PrintErrorLine cs

@@ -61,9 +61,7 @@ type ConsoleCachedPrinter(myLevel: LogLevel) =
     member _.Dispose() = ()
 
     member _.Print(s: string, lvl) =
-      if lvl = LogLevel.L1 then errorPrefix + s + Environment.NewLine |> add
-      elif lvl <= myLevel then add s
-      else ()
+      if lvl <= myLevel then add s else ()
 
     member this.Print(cs: ColoredString, lvl) =
       if lvl <= myLevel then (this :> IPrinter).Print(cs.ToString(), lvl)
@@ -74,22 +72,14 @@ type ConsoleCachedPrinter(myLevel: LogLevel) =
       else ()
 
     member _.PrintLine(s: string, lvl) =
-      if lvl = LogLevel.L1 then errorPrefix + s + Environment.NewLine |> add
-      elif lvl <= myLevel then s + Environment.NewLine |> add
-      else ()
+      if lvl <= myLevel then s + Environment.NewLine |> add else ()
 
     member _.PrintLine(cs: ColoredString, lvl) =
-      if lvl = LogLevel.L1 then
-        errorPrefix + cs.ToString() + Environment.NewLine |> add
-      elif lvl <= myLevel then
-        cs.ToString() + Environment.NewLine |> add
+      if lvl <= myLevel then cs.ToString() + Environment.NewLine |> add
       else ()
 
     member _.PrintLine(os: OutString, lvl) =
-      if lvl = LogLevel.L1 then
-        errorPrefix + os.ToString() + Environment.NewLine |> add
-      elif lvl <= myLevel then
-        os.ToString() + Environment.NewLine |> add
+      if lvl <= myLevel then os.ToString() + Environment.NewLine |> add
       else ()
 
     member _.PrintLine(lvl) =
@@ -113,6 +103,21 @@ type ConsoleCachedPrinter(myLevel: LogLevel) =
         mycfg.RenderRow(oss, renderer)
       else
         ()
+
+    member _.PrintError(s: string) = errorPrefix + s |> add
+
+    member _.PrintError(cs: ColoredString) = errorPrefix + cs.ToString() |> add
+
+    member _.PrintError(os: OutString) = errorPrefix + os.ToString() |> add
+
+    member _.PrintErrorLine(s: string) =
+      errorPrefix + s + Environment.NewLine |> add
+
+    member _.PrintErrorLine(cs: ColoredString) =
+      errorPrefix + cs.ToString() + Environment.NewLine |> add
+
+    member _.PrintErrorLine(os: OutString) =
+      errorPrefix + os.ToString() + Environment.NewLine |> add
 
     member _.Flush() = flush ()
 

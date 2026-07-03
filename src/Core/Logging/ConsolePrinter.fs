@@ -60,13 +60,20 @@ type ConsolePrinter(myLevel: LogLevel) =
       Console.ForegroundColor <- ConsoleColor.Black
       Console.BackgroundColor <- ConsoleColor.Green
 
-  let renderer (col: Color) (s: string) =
-    setColor col
-    Console.Write s
-
-  let renderToConsole (cs: ColoredString) =
-    cs.Render renderer
+  let render (w: IO.TextWriter) (cs: ColoredString) =
+    cs.Render(fun col s -> setColor col; w.Write s)
     Console.ResetColor()
+
+  let printOutString (w: IO.TextWriter) hasNewLineAtTheEnd (os: OutString) =
+    match os with
+    | OutputNormal s ->
+      if hasNewLineAtTheEnd then w.WriteLine s
+      else w.Write s
+    | OutputColored cs ->
+      render w cs
+      if hasNewLineAtTheEnd then w.WriteLine() else ()
+    | OutputNewLine ->
+      w.WriteLine()
 
   let printErrorPrefix () =
     ColoredString()
@@ -75,33 +82,7 @@ type ConsolePrinter(myLevel: LogLevel) =
       .Append(NoColor, "] ")
       .Append(Red, "Error")
       .Append(NoColor, ": ")
-    |> renderToConsole
-
-  let printErrorWithString (s: string) =
-    printErrorPrefix ()
-    Console.WriteLine s
-
-  let printErrorWithColoredString (cs: ColoredString) =
-    printErrorPrefix ()
-    cs |> renderToConsole
-
-  let printErrorWithOutString (os: OutString) =
-    printErrorPrefix ()
-    match os with
-    | OutputNormal s -> Console.WriteLine s
-    | OutputColored cs -> cs |> renderToConsole
-    | OutputNewLine -> Console.WriteLine()
-
-  let printOutString (os: OutString) hasNewLineAtTheEnd =
-    match os with
-    | OutputNormal s ->
-      if hasNewLineAtTheEnd then Console.WriteLine s
-      else Console.Write s
-    | OutputColored cs ->
-      cs |> renderToConsole
-      if hasNewLineAtTheEnd then Console.WriteLine() else ()
-    | OutputNewLine ->
-      Console.WriteLine()
+    |> render Console.Error
 
   new() = new ConsolePrinter(LogLevel.L2)
 
@@ -113,34 +94,26 @@ type ConsolePrinter(myLevel: LogLevel) =
     member _.Dispose() = ()
 
     member _.Print(s: string, lvl) =
-      if lvl = LogLevel.L1 then printErrorWithString s
-      elif lvl <= myLevel then Console.Write s
-      else ()
+      if lvl <= myLevel then Console.Out.Write s else ()
 
     member _.Print(cs: ColoredString, lvl) =
-      if lvl = LogLevel.L1 then printErrorWithColoredString cs
-      elif lvl <= myLevel then cs |> renderToConsole
-      else ()
+      if lvl <= myLevel then render Console.Out cs else ()
 
     member _.Print(os: OutString, lvl) =
-      if lvl = LogLevel.L1 then printErrorWithOutString os
-      elif lvl <= myLevel then printOutString os false
-      else ()
+      if lvl <= myLevel then printOutString Console.Out false os else ()
 
     member _.PrintLine(s: string, lvl) =
-      if lvl = LogLevel.L1 then printErrorWithString s
-      elif lvl <= myLevel then Console.WriteLine s
-      else ()
+      if lvl <= myLevel then Console.Out.WriteLine s else ()
 
     member _.PrintLine(cs: ColoredString, lvl) =
-      if lvl = LogLevel.L1 then printErrorWithColoredString cs
-      elif lvl <= myLevel then cs |> renderToConsole; Console.WriteLine()
-      else ()
+      if lvl <= myLevel then
+        render Console.Out cs
+        Console.Out.WriteLine()
+      else
+        ()
 
     member _.PrintLine(os: OutString, lvl) =
-      if lvl = LogLevel.L1 then printErrorWithOutString os
-      elif lvl <= myLevel then printOutString os true
-      else ()
+      if lvl <= myLevel then printOutString Console.Out true os else ()
 
     member _.PrintLine(lvl) =
       if lvl <= myLevel then Console.WriteLine()
@@ -155,7 +128,7 @@ type ConsolePrinter(myLevel: LogLevel) =
 
     member _.PrintRow(css: ColoredString[]) =
       if myLevel >= LogLevel.L2 then
-        let renderer (cs: ColoredString) = cs |> renderToConsole
+        let renderer (cs: ColoredString) = render Console.Out cs
         mycfg.RenderRow(css, renderer)
       else
         ()
@@ -163,11 +136,36 @@ type ConsolePrinter(myLevel: LogLevel) =
     member _.PrintRow(oss: OutString[]) =
       if myLevel >= LogLevel.L2 then
         let renderer (os: OutString) =
-          os.Render renderer
+          os.Render(fun col s -> setColor col; Console.Out.Write s)
           Console.ResetColor()
         mycfg.RenderRow(oss, renderer)
       else
         ()
+
+    member _.PrintError(s: string) =
+      printErrorPrefix ()
+      Console.Error.Write s
+
+    member _.PrintError(cs: ColoredString) =
+      printErrorPrefix ()
+      render Console.Error cs
+
+    member _.PrintError(os: OutString) =
+      printErrorPrefix ()
+      printOutString Console.Error false os
+
+    member _.PrintErrorLine(s: string) =
+      printErrorPrefix ()
+      Console.Error.WriteLine s
+
+    member _.PrintErrorLine(cs: ColoredString) =
+      printErrorPrefix ()
+      render Console.Error cs
+      Console.Error.WriteLine()
+
+    member _.PrintErrorLine(os: OutString) =
+      printErrorPrefix ()
+      printOutString Console.Error true os
 
     member _.Flush() =
       ()

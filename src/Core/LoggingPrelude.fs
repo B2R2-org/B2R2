@@ -32,38 +32,38 @@ module LoggingPrelude =
   /// Logs an error message.
   let inline eprintf fmt =
     Printf.kprintf (fun message ->
-      Log.Out.Print(message, LogLevel.L1)
+      Log.Out.PrintError message
     ) fmt
 
   /// Logs an error message with a newline.
   let inline eprintfn fmt =
     Printf.kprintf (fun message ->
-      Log.Out.PrintLine(message, LogLevel.L1)
+      Log.Out.PrintErrorLine message
     ) fmt
 
   /// Logs a colored error string without formatting.
   let inline eprintc (cs: ColoredString) =
-    Log.Out.Print(cs, LogLevel.L1)
+    Log.Out.PrintError cs
 
   /// Logs a colored error string with a newline without formatting.
   let inline eprintcn (cs: ColoredString) =
-    Log.Out.PrintLine(cs, LogLevel.L1)
+    Log.Out.PrintErrorLine cs
 
   /// Logs an error in OutString.
   let inline eprinto (os: OutString) =
-    Log.Out.Print(os, LogLevel.L1)
+    Log.Out.PrintError os
 
   /// Logs an error in OutString with a newline.
   let inline eprinton (os: OutString) =
-    Log.Out.PrintLine(os, LogLevel.L1)
+    Log.Out.PrintErrorLine os
 
   /// Logs an error string without formatting.
   let inline eprints (str: string) =
-    Log.Out.Print(str, LogLevel.L1)
+    Log.Out.PrintError str
 
   /// Logs an error string with a newline without formatting.
   let inline eprintsn (str: string) =
-    Log.Out.PrintLine(str, LogLevel.L1)
+    Log.Out.PrintErrorLine str
 
   /// Logs a normal message.
   let inline printf fmt =

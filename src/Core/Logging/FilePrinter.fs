@@ -40,8 +40,6 @@ type FilePrinter(filePath, myLevel: LogLevel) =
 
   let errorPrefix = "[*] Error: "
 
-  let printError s = fs.WriteLine(errorPrefix + s)
-
   new(filePath) = new FilePrinter(filePath, LogLevel.L2)
 
   interface IPrinter with
@@ -52,39 +50,25 @@ type FilePrinter(filePath, myLevel: LogLevel) =
     member _.Dispose() = fs.Dispose()
 
     member _.Print(s: string, lvl) =
-      if lvl = LogLevel.L1 then printError s
-      elif lvl <= myLevel then fs.Write s
-      else ()
+      if lvl <= myLevel then fs.Write s else ()
 
     member _.Print(cs: ColoredString, lvl: LogLevel) =
-      if lvl = LogLevel.L1 then printError (cs.ToString())
-      elif lvl <= myLevel then fs.Write(cs.ToString())
-      else ()
+      if lvl <= myLevel then fs.Write(cs.ToString()) else ()
 
     member _.Print(os: OutString, lvl: LogLevel) =
-      if lvl = LogLevel.L1 then printError (os.ToString())
-      elif lvl <= myLevel then fs.Write(os.ToString())
-      else ()
+      if lvl <= myLevel then fs.Write(os.ToString()) else ()
 
     member _.PrintLine(s: string, lvl) =
-      if lvl = LogLevel.L1 then printError s
-      elif lvl <= myLevel then fs.WriteLine s
-      else ()
+      if lvl <= myLevel then fs.WriteLine s else ()
 
     member _.PrintLine(cs: ColoredString, lvl) =
-      if lvl = LogLevel.L1 then printError (cs.ToString())
-      elif lvl <= myLevel then fs.WriteLine(cs.ToString())
-      else ()
+      if lvl <= myLevel then fs.WriteLine(cs.ToString()) else ()
 
     member _.PrintLine(os: OutString, lvl) =
-      if lvl = LogLevel.L1 then printError (os.ToString())
-      elif lvl <= myLevel then fs.WriteLine(os.ToString())
-      else ()
+      if lvl <= myLevel then fs.WriteLine(os.ToString()) else ()
 
     member _.PrintLine(lvl) =
-      if lvl = LogLevel.L1 then printError ""
-      elif lvl <= myLevel then fs.WriteLine()
-      else ()
+      if lvl <= myLevel then fs.WriteLine() else ()
 
     member _.PrintRow(strs: string[]) =
       if myLevel >= LogLevel.L2 then
@@ -106,6 +90,22 @@ type FilePrinter(filePath, myLevel: LogLevel) =
         mycfg.RenderRow(oss, renderer)
       else
         ()
+
+    member _.PrintError(s: string) = fs.Write(errorPrefix + s)
+
+    member _.PrintError(cs: ColoredString) =
+      fs.Write(errorPrefix + cs.ToString())
+
+    member _.PrintError(os: OutString) =
+      fs.Write(errorPrefix + os.ToString())
+
+    member _.PrintErrorLine(s: string) = fs.WriteLine(errorPrefix + s)
+
+    member _.PrintErrorLine(cs: ColoredString) =
+      fs.WriteLine(errorPrefix + cs.ToString())
+
+    member _.PrintErrorLine(os: OutString) =
+      fs.WriteLine(errorPrefix + os.ToString())
 
     member _.Flush() =
       ()

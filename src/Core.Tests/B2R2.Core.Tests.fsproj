@@ -20,6 +20,7 @@
     <Compile Include="SyscallConventionTests.fs" />
     <Compile Include="SortedListTests.fs" />
     <Compile Include="PersistentQueueTests.fs" />
+    <Compile Include="LoggingTests.fs" />
   </ItemGroup>
 
   <ItemGroup>
