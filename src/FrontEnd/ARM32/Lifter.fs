@@ -2276,15 +2276,18 @@ let ldm opcode ins insLen bld wbackop =
   bld <+ (t0 := rn)
   bld <+ (t1 := addr)
   let addr = popLoop bld numOfReg t1
-  if (numOfReg >>> 15 &&& 1u) = 1u then
-    AST.loadLE 32<rt> addr |> loadWritePC bld isUnconditional
-  else ()
   if wback && (numOfReg &&& numOfRn) = 0u then
     bld <+ (rn := wbackop t0 (numI32 stackWidth 32<rt>))
-  else ()
+  else
+    ()
   if wback && (numOfReg &&& numOfRn) = numOfRn then
     bld <+ (rn := (AST.undef 32<rt> "UNKNOWN"))
-  else ()
+  else
+    ()
+  if (numOfReg >>> 15 &&& 1u) = 1u then
+    AST.loadLE 32<rt> addr |> loadWritePC bld isUnconditional
+  else
+    ()
   putEndLabel bld lblIgnore
   bld --!> insLen
 
