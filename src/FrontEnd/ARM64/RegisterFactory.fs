@@ -393,9 +393,11 @@ type RegisterFactory(isa: ISA) =
   let s27c12c76 =
     AST.var 64<rt> (Register.toRegID S2_7_C12_C7_6) "S2_7_C12_C7_6"
 
-  (* Extra pseudo registers. *)
-  /// Pseudo register for passing a return value from an external call.
-  let eret = AST.var 64<rt> (Register.toRegID ERET) "ERET"
+  (* Extra pseudo registers for the value-based exclusive monitor. *)
+  /// The address a load-exclusive reserved.
+  let exMonAddr = AST.var 64<rt> (Register.toRegID ExMonAddr) "ExMonAddr"
+  /// The memory value at the reserved address when the load-exclusive ran.
+  let exMonVal = AST.var 64<rt> (Register.toRegID ExMonVal) "ExMonVal"
 
   interface IRegisterFactory with
     member _.ISA = isa
@@ -616,7 +618,8 @@ type RegisterFactory(isa: ISA) =
       | R.S3_7_C2_C2_7 -> s37c2c27
       | R.S0_0_C2_C9_3 -> s00c2c93
       | R.S2_7_C12_C7_6 -> s27c12c76
-      | R.ERET -> eret
+      | R.ExMonAddr -> exMonAddr
+      | R.ExMonVal -> exMonVal
       | _ -> raise InvalidRegisterException
 
     member _.GetRegVar name =

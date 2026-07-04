@@ -1521,7 +1521,6 @@ let ldar ins insLen bld addr =
   let address = tmpVar bld 64<rt>
   bld <!-- (ins.Address, insLen)
   bld <+ (address := bReg .+ offset)
-  mark bld address (memSizeToExpr ins.OprSize)
   dstAssign ins.OprSize dst (AST.loadLE ins.OprSize address) bld
   bld --!> insLen
 
@@ -1530,26 +1529,29 @@ let ldarb ins insLen bld addr =
   let address = tmpVar bld 64<rt>
   bld <!-- (ins.Address, insLen)
   bld <+ (address := bReg .+ offset)
-  mark bld address (memSizeToExpr 8<rt>)
   dstAssign ins.OprSize dst (AST.loadLE 8<rt> address) bld
   bld --!> insLen
 
 let ldax ins insLen bld addr size =
   let dst, (bReg, offset) = transTwoOprsSepMem ins bld addr
   let address = tmpVar bld 64<rt>
+  let value = tmpVar bld size
   bld <!-- (ins.Address, insLen)
   bld <+ (address := bReg .+ offset)
-  mark bld address (memSizeToExpr size)
-  dstAssign ins.OprSize dst (AST.loadLE size address) bld
+  bld <+ (value := AST.loadLE size address)
+  reserveExclusive bld address value
+  dstAssign ins.OprSize dst value bld
   bld --!> insLen
 
 let ldaxr ins insLen bld addr =
   let dst, (bReg, offset) = transTwoOprsSepMem ins bld addr
   let address = tmpVar bld 64<rt>
+  let value = tmpVar bld ins.OprSize
   bld <!-- (ins.Address, insLen)
   bld <+ (address := bReg .+ offset)
-  mark bld address (memSizeToExpr ins.OprSize)
-  dstAssign ins.OprSize dst (AST.loadLE ins.OprSize address) bld
+  bld <+ (value := AST.loadLE ins.OprSize address)
+  reserveExclusive bld address value
+  dstAssign ins.OprSize dst value bld
   bld --!> insLen
 
 let ldaxp ins insLen bld addr =
@@ -1557,7 +1559,7 @@ let ldaxp ins insLen bld addr =
   let address = tmpVar bld 64<rt>
   bld <!-- (ins.Address, insLen)
   bld <+ (address := bReg .+ offset)
-  mark bld address (memSizeToExpr ins.OprSize)
+  reserveExclusive bld address (AST.loadLE 64<rt> address)
   if ins.OprSize = 32<rt> then
     let src = AST.loadLE 64<rt> address
     dstAssign ins.OprSize dst1 (AST.xtlo 32<rt> src) bld
@@ -2560,7 +2562,7 @@ let stlx ins insLen bld addr size =
   bld <!-- (ins.Address, insLen)
   bld <+ (address := bReg .+ offset)
   bld <+ (data := AST.xtlo size src2)
-  let status = exclusiveMonitorsPass bld address size data
+  let status = storeExclusive bld address size data
   dstAssign 32<rt> src1 status bld
   bld --!> insLen
 
@@ -2571,7 +2573,7 @@ let stlxr ins insLen bld addr =
   bld <!-- (ins.Address, insLen)
   bld <+ (address := bReg .+ offset)
   bld <+ (data := AST.zext ins.OprSize src2)
-  let status = exclusiveMonitorsPass bld address ins.OprSize data
+  let status = storeExclusive bld address ins.OprSize data
   dstAssign 32<rt> src1 status bld
   bld --!> insLen
 
@@ -2583,10 +2585,10 @@ let stlxp ins insLen bld addr =
   if ins.OprSize = 32<rt> then
     let data = tmpVar bld 64<rt>
     bld <+ (data := AST.concat (AST.xtlo 32<rt> src3) (AST.xtlo 32<rt> src2))
-    let status = exclusiveMonitorsPass bld address 64<rt> data
+    let status = storeExclusive bld address 64<rt> data
     dstAssign 32<rt> src1 status bld
   else
-    let status = exclusiveMonitorsPassPair bld address 64<rt> src2 src3
+    let status = storeExclusivePair bld address 64<rt> src2 src3
     dstAssign 32<rt> src1 status bld
   bld --!> insLen
 
@@ -2603,7 +2605,6 @@ let stnp (ins: Instruction) insLen bld addr =
     let n8 = numI32 8 64<rt>
     bld <+ (address := bReg)
     bld <+ (address := address .+ offset)
-    unmark bld address (memSizeToExpr ins.OprSize)
     bld <+ (AST.loadLE 64<rt> address := src1A)
     bld <+ (AST.loadLE 64<rt> (address .+ n8) := src1B)
     bld <+ (AST.loadLE 64<rt> (address .+ dByte) := src2A)
@@ -2612,7 +2613,6 @@ let stnp (ins: Instruction) insLen bld addr =
     let src1, src2, (bReg, offset) = transThreeOprsSepMem ins bld addr
     bld <+ (address := bReg)
     bld <+ (address := address .+ offset)
-    unmark bld address (memSizeToExpr ins.OprSize)
     bld <+ (AST.loadLE ins.OprSize address := src1)
     bld <+ (AST.loadLE ins.OprSize (address .+ dByte) := src2)
   bld --!> insLen
@@ -2631,7 +2631,6 @@ let stp (ins: Instruction) insLen bld addr =
     let n8 = numI32 8 64<rt>
     bld <+ (address := bReg)
     bld <+ (address := if isPostIndex then address else address .+ offset)
-    unmark bld address (memSizeToExpr ins.OprSize)
     bld <+ (AST.loadLE 64<rt> address := src1A)
     bld <+ (AST.loadLE 64<rt> (address .+ n8) := src1B)
     bld <+ (AST.loadLE 64<rt> (address .+ dByte) := src2A)
@@ -2642,7 +2641,6 @@ let stp (ins: Instruction) insLen bld addr =
     let src1, src2, (bReg, offset) = transThreeOprsSepMem ins bld addr
     bld <+ (address := bReg)
     bld <+ (address := if isPostIndex then address else address .+ offset)
-    unmark bld address (memSizeToExpr ins.OprSize)
     bld <+ (AST.loadLE ins.OprSize address := src1)
     bld <+ (AST.loadLE ins.OprSize (address .+ dByte) := src2)
     if isWBack && isPostIndex then bld <+ (bReg := address .+ offset)
@@ -2660,7 +2658,6 @@ let str (ins: Instruction) insLen bld addr =
     let address = tmpVar bld 64<rt>
     bld <+ (address := bReg)
     bld <+ (address := if isPostIndex then address else address .+ offset)
-    unmark bld address (memSizeToExpr ins.OprSize)
     bld <+ (AST.loadLE 64<rt> address := srcA)
     bld <+ (AST.loadLE 64<rt> (address .+ (numI32 8 64<rt>)) := srcB)
     if isWBack && isPostIndex then bld <+ (bReg := address .+ offset)
@@ -2672,7 +2669,6 @@ let str (ins: Instruction) insLen bld addr =
     bld <+ (address := bReg)
     bld <+ (address := if isPostIndex then address else address .+ offset)
     bld <+ (data := src)
-    unmark bld address (memSizeToExpr ins.OprSize)
     bld <+ (AST.loadLE ins.OprSize address := data)
     if isWBack && isPostIndex then bld <+ (bReg := address .+ offset)
     elif isWBack then bld <+ (bReg := address) else ()
@@ -2687,7 +2683,6 @@ let strb ins insLen bld addr =
   bld <+ (address := bReg)
   bld <+ (address := if isPostIndex then address else address .+ offset)
   bld <+ (data := AST.xtlo 8<rt> src)
-  unmark bld address (memSizeToExpr ins.OprSize)
   bld <+ (AST.loadLE 8<rt> address := data)
   if isWBack && isPostIndex then bld <+ (bReg := address .+ offset)
   elif isWBack then bld <+ (bReg := address) else ()
@@ -2702,7 +2697,6 @@ let strh ins insLen bld addr =
   bld <+ (address := bReg)
   bld <+ (address := if isPostIndex then address else address .+ offset)
   bld <+ (data := AST.xtlo 16<rt> src)
-  unmark bld address (memSizeToExpr ins.OprSize)
   bld <+ (AST.loadLE 16<rt> address := data)
   if isWBack && isPostIndex then bld <+ (bReg := address .+ offset)
   elif isWBack then bld <+ (bReg := address) else ()
@@ -2716,7 +2710,6 @@ let sttrb ins insLen bld addr =
   bld <+ (address := bReg)
   bld <+ (address := address .+ offset)
   bld <+ (data := AST.xtlo 8<rt> src)
-  unmark bld address (memSizeToExpr ins.OprSize)
   bld <+ (AST.loadLE 8<rt> address := data)
   bld --!> insLen
 
@@ -2732,7 +2725,6 @@ let stur (ins: Instruction) insLen bld addr =
     let bReg, offset = transOprToExpr ins bld addr src2 |> separateMemExpr
     bld <+ (address := bReg)
     bld <+ (address := if isPostIndex then address else address .+ offset)
-    unmark bld address (memSizeToExpr ins.OprSize)
     bld <+ (AST.loadLE 64<rt> address := src1A)
     bld <+ (AST.loadLE 64<rt> (address .+ (numI32 8 64<rt>)) := src1B)
     if isWBack && isPostIndex then bld <+ (bReg := address .+ offset)
@@ -2742,7 +2734,6 @@ let stur (ins: Instruction) insLen bld addr =
     bld <+ (address := bReg)
     bld <+ (address := if isPostIndex then address else address .+ offset)
     bld <+ (data := src)
-    unmark bld address (memSizeToExpr ins.OprSize)
     bld <+ (AST.loadLE ins.OprSize address := data)
     if isWBack && isPostIndex then bld <+ (bReg := address .+ offset)
     elif isWBack then bld <+ (bReg := address) else ()
@@ -2756,7 +2747,6 @@ let sturb ins insLen bld addr =
   bld <+ (address := bReg)
   bld <+ (address := address .+ offset)
   bld <+ (data := AST.xtlo 8<rt> src)
-  unmark bld address (memSizeToExpr ins.OprSize)
   bld <+ (AST.loadLE 8<rt> address := data)
   bld --!> insLen
 
@@ -2768,7 +2758,6 @@ let sturh ins insLen bld addr =
   bld <+ (address := bReg)
   bld <+ (address := address .+ offset)
   bld <+ (data := AST.xtlo 16<rt> src)
-  unmark bld address (memSizeToExpr ins.OprSize)
   bld <+ (AST.loadLE 16<rt> address := data)
   bld --!> insLen
 

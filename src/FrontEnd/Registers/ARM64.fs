@@ -784,16 +784,19 @@ type Register =
   | FPCR = 0x174
   /// Floating-point Status Register.
   | FPSR = 0x175
-  /// Pseudo register for passing a return value from an external call. This is
-  /// used to handle instruction semantics for Exclusive Monitor (EM).
-  | ERET = 0x176
+  /// Pseudo register: the address a load-exclusive reserved, for the
+  /// value-based exclusive-monitor model. See ExMonVal.
+  | ExMonAddr = 0x176
+  /// Pseudo register: memory value at ExMonAddr when the load-exclusive
+  /// ran, so a store-exclusive can detect an intervening write.
+  | ExMonVal = 0x177
   /// Condition Flags.
-  | NZCV = 0x177
+  | NZCV = 0x178
   /// S<op0>_<op1>_<Cn>_<Cm>_<op2>.
-  | S3_5_C3_C2_0 = 0x178
-  | S3_7_C2_C2_7 = 0x179
-  | S0_0_C2_C9_3 = 0x180
-  | S2_7_C12_C7_6 = 0x181
+  | S3_5_C3_C2_0 = 0x179
+  | S3_7_C2_C2_7 = 0x17A
+  | S0_0_C2_C9_3 = 0x17B
+  | S2_7_C12_C7_6 = 0x17C
 
 /// Provides functions to handle ARM64 registers.
 [<RequireQualifiedAccess>]
@@ -1181,7 +1184,8 @@ module Register =
     | "midrel1" -> Register.MIDREL1
     | "fpcr" -> Register.FPCR
     | "fpsr" -> Register.FPSR
-    | "eret" -> Register.ERET
+    | "exmonaddr" -> Register.ExMonAddr
+    | "exmonval" -> Register.ExMonVal
     | "nzcv" -> Register.NZCV
     | "s3_5_c3_c2_0" -> Register.S3_5_C3_C2_0
     | "s3_7_c2_c2_7" -> Register.S3_7_C2_C2_7
@@ -1572,7 +1576,8 @@ module Register =
     | Register.MIDREL1 -> "midr_el1"
     | Register.FPCR -> "fpcr"
     | Register.FPSR -> "fpsr"
-    | Register.ERET -> "eret"
+    | Register.ExMonAddr -> "exmonaddr"
+    | Register.ExMonVal -> "exmonval"
     | Register.NZCV -> "nzcv"
     | Register.S3_5_C3_C2_0 -> "s3_5_c3_c2_0"
     | Register.S3_7_C2_C2_7 -> "s3_7_c2_c2_7"

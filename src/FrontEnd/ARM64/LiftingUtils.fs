@@ -48,8 +48,6 @@ let ror x amount width = (x >>> amount) ||| (x <<< (width - amount))
 
 let oprSzToExpr oprSize = numI32 (RegType.toBitWidth oprSize) oprSize
 
-let memSizeToExpr rt = numI32 (RegType.toByteWidth rt) 64<rt>
-
 let vectorToList vector esize =
   List.init (64 / int esize) (fun e -> AST.extract vector esize (e * int esize))
 
@@ -1337,44 +1335,41 @@ let dstAssignForSIMD dstA dstB result dataSize elements bld =
     bld <+ (dstA := AST.revConcat result)
     bld <+ (dstB := AST.num0 64<rt>)
 
-let mark bld addr size =
-  bld <+ (AST.extCall <| AST.app "Mark" [ addr; size ] bld.RegType)
+/// Records an exclusive reservation for a load-exclusive: the reserved address
+/// and the value read there. Under single-observer emulation this is all a
+/// later store-exclusive needs to tell whether the location was written in
+/// between, so no external call and no per-store instrumentation are required.
+let reserveExclusive bld address value =
+  bld <+ (regVar bld R.ExMonAddr := address)
+  bld <+ (regVar bld R.ExMonVal := AST.zext 64<rt> value)
 
-let unmark bld addr size =
-  bld <+ (AST.extCall <| AST.app "Unmark" [ addr; size ] bld.RegType)
-
-let isMarked bld addr size =
-  bld <+ (AST.extCall <| AST.app "IsMarked" [ addr; size ] bld.RegType)
-
-let exclusiveMonitorsPass bld address size data =
-  let lblPass = label bld "EMPass"
-  let lblEnd = label bld "End"
-  let emval = regVar bld R.ERET
+/// A store-exclusive (STXR/STLXR): stores and returns success (0) only if the
+/// reservation still holds -- the address matches and memory still holds the
+/// reserved value; otherwise memory is left unchanged and it returns failure
+/// (1). The conditional store is expressed as a store of ite(matched, data,
+/// old), as compareAndSwap does, so no branch or label is emitted.
+let storeExclusive bld address size data =
+  let cur = tmpVar bld size
+  let matched = tmpVar bld 1<rt>
   let status = tmpVar bld 32<rt>
-  bld <+ (status := AST.num1 32<rt>)
-  isMarked bld address (memSizeToExpr size)
-  let cond = emval == AST.num1 64<rt>
-  bld <+ (AST.cjmp cond (AST.jmpDest lblPass) (AST.jmpDest lblEnd))
-  bld <+ (AST.lmark lblPass)
-  unmark bld address (memSizeToExpr size)
-  bld <+ (AST.loadLE size address := data)
-  bld <+ (status := AST.num0 32<rt>)
-  bld <+ (AST.lmark lblEnd)
+  bld <+ (cur := AST.loadLE size address)
+  bld <+ (matched := (address == regVar bld R.ExMonAddr)
+                     .& (cur == AST.xtlo size (regVar bld R.ExMonVal)))
+  bld <+ (AST.loadLE size address := AST.ite matched data cur)
+  bld <+ (status := AST.ite matched (AST.num0 32<rt>) (AST.num1 32<rt>))
   status
 
-let exclusiveMonitorsPassPair bld address size data1 data2 =
-  let lblPass = label bld "EMPass"
-  let lblEnd = label bld "End"
-  let emval = regVar bld R.ERET
+/// A store-exclusive pair (STXP/STLXP): as storeExclusive, verifying the
+/// reserved low word; on success both words are stored.
+let storeExclusivePair bld address size data1 data2 =
+  let hi = address .+ numI32 8 64<rt>
+  let cur = tmpVar bld size
+  let matched = tmpVar bld 1<rt>
   let status = tmpVar bld 32<rt>
-  bld <+ (status := AST.num1 32<rt>)
-  isMarked bld address (memSizeToExpr size)
-  let cond = emval == AST.num1 64<rt>
-  bld <+ (AST.cjmp cond (AST.jmpDest lblPass) (AST.jmpDest lblEnd))
-  bld <+ (AST.lmark lblPass)
-  unmark bld address (memSizeToExpr size)
-  bld <+ (AST.loadLE size address := data1)
-  bld <+ (AST.loadLE size (address .+ numI32 8 64<rt>) := data2)
-  bld <+ (status := AST.num0 32<rt>)
-  bld <+ (AST.lmark lblEnd)
+  bld <+ (cur := AST.loadLE size address)
+  bld <+ (matched := (address == regVar bld R.ExMonAddr)
+                     .& (cur == AST.xtlo size (regVar bld R.ExMonVal)))
+  bld <+ (AST.loadLE size address := AST.ite matched data1 cur)
+  bld <+ (AST.loadLE size hi := AST.ite matched data2 (AST.loadLE size hi))
+  bld <+ (status := AST.ite matched (AST.num0 32<rt>) (AST.num1 32<rt>))
   status
