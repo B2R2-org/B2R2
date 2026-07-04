@@ -378,6 +378,8 @@ type Register =
   | NSACR = 0xA9
   /// FPSCR, Floating-point Status and Control Register, VMSA.
   | FPSCR = 0xAA
+  /// TPIDRURO, SW Thread ID Register, readable at PL0, writable only at PL1.
+  | TPIDRURO = 0xCB
   /// Q0A is the 1st 64-bit chunk of Q0A.
   | Q0A = 0xAB
   /// Q0B is the 2nd 64-bit chunk of Q0B.
@@ -658,6 +660,7 @@ module Register =
     | "sctlr" -> Register.SCTLR
     | "nsacr" -> Register.NSACR
     | "fpscr" -> Register.FPSCR
+    | "tpidruro" -> Register.TPIDRURO
     | _ -> Terminator.impossible ()
 
   /// Returns the register ID of an ARM32 register.
@@ -839,6 +842,7 @@ module Register =
     | Register.SCTLR -> "sctlr"
     | Register.NSACR -> "nsacr"
     | Register.FPSCR -> "fpscr"
+    | Register.TPIDRURO -> "tpidruro"
     | Register.R8usr -> "r8_usr"
     | Register.R9usr -> "r9_usr"
     | Register.R10usr -> "r10_usr"

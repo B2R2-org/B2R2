@@ -161,6 +161,9 @@ type RegisterFactory(isa: ISA) =
   (* Secure configuration register *)
   let nsacr = AST.var 32<rt> (Register.toRegID NSACR) "NSACR"
 
+  (* SW thread ID register *)
+  let tpidruro = AST.var 32<rt> (Register.toRegID TPIDRURO) "TPIDRURO"
+
   interface IRegisterFactory with
     member _.ISA = isa
 
@@ -259,6 +262,7 @@ type RegisterFactory(isa: ISA) =
       | R.SCTLR -> sctlr
       | R.NSACR -> nsacr
       | R.FPSCR -> fpscr
+      | R.TPIDRURO -> tpidruro
       | _ -> raise InvalidRegisterException
 
     member _.GetRegVar name =
@@ -382,6 +386,7 @@ type RegisterFactory(isa: ISA) =
       | "SCTLR" -> sctlr
       | "SCR" -> scr
       | "NSACR" -> nsacr
+      | "TPIDRURO" -> tpidruro
       | _ -> raise InvalidRegisterException
 
     member _.GetPseudoRegVar(rid, pos) =
@@ -539,7 +544,8 @@ type RegisterFactory(isa: ISA) =
          fpscr
          sctlr
          scr
-         nsacr |]
+         nsacr
+         tpidruro |]
 
     member _.GetGeneralRegVars() =
       [| r0

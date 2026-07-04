@@ -43,7 +43,8 @@ module internal Register =
     | R.S10 | R.S11 | R.S12 | R.S13 | R.S14 | R.S15 | R.S16 | R.S17
     | R.S18 | R.S19 | R.S20 | R.S21 | R.S22 | R.S23 | R.S24 | R.S25
     | R.S26 | R.S27 | R.S28 | R.S29 | R.S30 | R.S31
-    | R.APSR | R.CPSR | R.SPSR | R.SCR | R.SCTLR | R.NSACR | R.FPSCR -> 32<rt>
+    | R.APSR | R.CPSR | R.SPSR | R.SCR | R.SCTLR | R.NSACR | R.FPSCR
+    | R.TPIDRURO -> 32<rt>
     | R.D0 | R.D1 | R.D2 | R.D3 | R.D4 | R.D5 | R.D6 | R.D7 | R.D8 | R.D9
     | R.D10 | R.D11 | R.D12 | R.D13 | R.D14 | R.D15 | R.D16 | R.D17
     | R.D18 | R.D19 | R.D20 | R.D21 | R.D22 | R.D23 | R.D24 | R.D25

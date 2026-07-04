@@ -3131,6 +3131,23 @@ let vmrs ins insLen bld =
   putEndLabel bld lblIgnore
   bld --!> insLen
 
+let mrc (ins: Instruction) insLen bld =
+  match ins.Operands with
+  (* MRC p15, #0, <Rt>, c13, c0, #3 reads TPIDRURO, the PL0 read-only
+     software thread ID register -- the body of Linux's __kuser_get_tls.
+     Rt = PC is UNPREDICTABLE for this encoding, so it is excluded. Every
+     other system-register access stays unsupported. *)
+  | SixOperands(OprReg R.P15, OprImm 0L, OprReg rt, OprReg R.C13,
+                OprReg R.C0, OprImm 3L) when rt <> R.PC ->
+    let rt = regVar bld rt
+    let isUnconditional = ParseUtils.isUnconditional ins.Condition
+    bld <!-- (ins.Address, insLen)
+    let lblIgnore = checkCondition ins bld isUnconditional
+    bld <+ (rt := regVar bld R.TPIDRURO)
+    putEndLabel bld lblIgnore
+    bld --!> insLen
+  | _ -> sideEffects ins insLen bld UnsupportedInstruction
+
 type ParsingInfo =
   { EBytes: int
     ESize: int
@@ -5170,7 +5187,7 @@ let translate (ins: Instruction) insLen bld =
   | Op.CBNZ -> cbz true ins insLen bld
   | Op.CBZ -> cbz false ins insLen bld
   | Op.CDP | Op.CDP2 | Op.LDC | Op.LDC2 | Op.LDC2L | Op.LDCL | Op.MCR | Op.MCR2
-  | Op.MCRR | Op.MCRR2 | Op.MRC | Op.MRC2 | Op.MRRC | Op.MRRC2 | Op.STC
+  | Op.MCRR | Op.MCRR2 | Op.MRC2 | Op.MRRC | Op.MRRC2 | Op.STC
   | Op.STC2 | Op.STC2L | Op.STCL ->
     (* coprocessor instructions *)
     sideEffects ins insLen bld UnsupportedInstruction
@@ -5212,6 +5229,7 @@ let translate (ins: Instruction) insLen bld =
   | Op.MOVS -> movs true ins insLen bld
   | Op.MOVT -> movt ins insLen bld
   | Op.MSR | Op.MRS -> sideEffects ins insLen bld UndefinedInstruction
+  | Op.MRC -> mrc ins insLen bld
   | Op.MUL -> mul false ins insLen bld
   | Op.MULS -> mul true ins insLen bld
   | Op.MVN -> mvn false ins insLen bld
