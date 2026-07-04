@@ -3921,6 +3921,45 @@ let xtn2 (ins: Instruction) insLen bld addr =
   bld <+ (dstB := AST.revConcat src)
   bld --!> insLen
 
+/// SHRN/SHRN2: shift each wide source element right by the immediate and narrow
+/// it to the lower half width. SHRN writes the low 64-bit destination half (and
+/// zeroes the high half); SHRN2 writes the high half, preserving the low one.
+let shrn (ins: Instruction) insLen bld addr isPart2 =
+  bld <!-- (ins.Address, insLen)
+  let struct (dst, src, amt) = getThreeOprs ins
+  let struct (eSize, dataSize, elements) = getElemDataSzAndElems src
+  let struct (dstB, dstA) = transOprToExpr128 ins bld addr dst
+  let amt = transOprToExpr ins bld addr amt |> AST.xtlo eSize
+  let src = transSIMDOprToExpr bld eSize dataSize elements src
+            |> Array.map (fun e -> AST.xtlo (eSize / 2) (e >> amt))
+  if isPart2 then
+    bld <+ (dstB := AST.revConcat src)
+  else
+    bld <+ (dstA := AST.revConcat src)
+    bld <+ (dstB := AST.num0 64<rt>)
+  bld --!> insLen
+
+/// ADDHN/SUBHN (and their *2 forms): add or subtract two wide vectors and keep
+/// the high half of each result element, narrowing to half the width. The base
+/// form writes the low destination half (zeroing the high half); the *2 form
+/// writes the high half, preserving the low one.
+let addSubHN (ins: Instruction) insLen bld addr isPart2 op =
+  bld <!-- (ins.Address, insLen)
+  let struct (dst, src1, src2) = getThreeOprs ins
+  let struct (eSize, dataSize, elements) = getElemDataSzAndElems src1
+  let struct (dstB, dstA) = transOprToExpr128 ins bld addr dst
+  let s1 = transSIMDOprToExpr bld eSize dataSize elements src1
+  let s2 = transSIMDOprToExpr bld eSize dataSize elements src2
+  let shf = numI32 (RegType.toBitWidth (eSize / 2)) eSize
+  let result =
+    Array.map2 (fun a b -> AST.xtlo (eSize / 2) (op a b >> shf)) s1 s2
+  if isPart2 then
+    bld <+ (dstB := AST.revConcat result)
+  else
+    bld <+ (dstA := AST.revConcat result)
+    bld <+ (dstB := AST.num0 64<rt>)
+  bld --!> insLen
+
 let zip ins insLen bld addr isPart1 =
   let struct (dst, src1, src2) = getThreeOprs ins
   let struct (eSize, dataSize, elements) = getElemDataSzAndElems dst
@@ -3959,6 +3998,8 @@ let translate (ins: Instruction) insLen bld =
   | Opcode.ADC -> adc ins insLen bld addr
   | Opcode.ADCS -> adcs ins insLen bld addr
   | Opcode.ADD -> add ins insLen bld addr
+  | Opcode.ADDHN -> addSubHN ins insLen bld addr false (.+)
+  | Opcode.ADDHN2 -> addSubHN ins insLen bld addr true (.+)
   | Opcode.ADDP -> addp ins insLen bld addr
   | Opcode.ADDS -> adds ins insLen bld addr
   | Opcode.ADDV -> addv ins insLen bld addr
@@ -4132,6 +4173,8 @@ let translate (ins: Instruction) insLen bld =
   | Opcode.SCVTF -> icvtf ins insLen bld addr false
   | Opcode.SDIV -> sdiv ins insLen bld addr
   | Opcode.SHL -> shl ins insLen bld addr
+  | Opcode.SHRN -> shrn ins insLen bld addr false
+  | Opcode.SHRN2 -> shrn ins insLen bld addr true
   | Opcode.SMADDL -> smaddl ins insLen bld addr
   | Opcode.SMOV -> smov ins insLen bld addr
   | Opcode.SMSUBL | Opcode.SMNEGL -> smsubl ins insLen bld addr
@@ -4175,6 +4218,8 @@ let translate (ins: Instruction) insLen bld =
   | Opcode.STURB -> sturb ins insLen bld addr
   | Opcode.STURH -> sturh ins insLen bld addr
   | Opcode.SUB -> sub ins insLen bld addr
+  | Opcode.SUBHN -> addSubHN ins insLen bld addr false (.-)
+  | Opcode.SUBHN2 -> addSubHN ins insLen bld addr true (.-)
   | Opcode.SUBS -> subs ins insLen bld addr
   | Opcode.SVC -> svc ins insLen bld
   | Opcode.SXTB -> sxtb ins insLen bld addr
