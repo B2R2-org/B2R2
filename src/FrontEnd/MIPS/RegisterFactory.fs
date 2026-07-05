@@ -107,6 +107,7 @@ type RegisterFactory(isa: ISA) =
   let fir = AST.var 32<rt> (Register.toRegID FIR) "FIR"
   let exMonAddr = AST.var rt (Register.toRegID ExMonAddr) "ExMonAddr"
   let exMonVal = AST.var rt (Register.toRegID ExMonVal) "ExMonVal"
+  let ulr = AST.var rt (Register.toRegID ULR) "ULR"
 
   interface IRegisterFactory with
     member _.ISA = isa
@@ -191,6 +192,7 @@ type RegisterFactory(isa: ISA) =
       | R.FIR -> fir
       | R.ExMonAddr -> exMonAddr
       | R.ExMonVal -> exMonVal
+      | R.ULR -> ulr
       | _ -> raise InvalidRegisterException
 
     member this.GetRegVar name =

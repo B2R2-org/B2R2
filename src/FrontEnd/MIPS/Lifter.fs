@@ -1351,6 +1351,18 @@ let loadUnsigned ins insLen bld =
   bld <+ (rt := AST.zext bld.RegType mem)
   advancePC bld insLen
 
+let readHWR ins insLen bld =
+  let rtOpr, rdOpr, _ = getThreeOprs ins
+  let rt = transOprToExpr ins bld rtOpr
+  bld <!-- (ins.Address, insLen)
+  let value =
+    match rdOpr with
+    | OpReg R.R29 -> regVar bld R.ULR      (* HWR 29: TLS pointer *)
+    | OpReg R.R3 -> numI32 1 bld.RegType   (* CCRes: nonzero resolution *)
+    | _ -> numI32 0 bld.RegType            (* CPUNum, SYNCI_Step, CC *)
+  bld <+ (rt := value)
+  advancePC bld insLen
+
 let loadLinked ins insLen bld =
   let rtOpr, memOpr = getTwoOprs ins
   let rt = transOprToExpr ins bld rtOpr
@@ -2235,7 +2247,7 @@ let translate (ins: Instruction) insLen (bld: LowUIRBuilder) =
   | Op.ORI -> ori ins insLen bld
   | Op.PAUSE -> nop ins insLen bld
   | Op.PREF | Op.PREFE | Op.PREFX -> nop ins insLen bld
-  | Op.RDHWR -> sideEffects ins insLen bld ProcessorInfoRead
+  | Op.RDHWR -> readHWR ins insLen bld
   | Op.ROTR -> rotr ins insLen bld
   | Op.ROTRV -> rotrv ins insLen bld
   | Op.RECIP -> recip ins insLen bld

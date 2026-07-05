@@ -181,6 +181,10 @@ type Register =
   /// Pseudo register: memory value at ExMonAddr when the load-linked ran, so
   /// a store-conditional (SC/SCD) can detect an intervening write.
   | ExMonVal = 0x108
+  /// The User Local Register (HWR 29, backed by CP0 UserLocal): the
+  /// thread-local storage pointer set by set_thread_area and read by
+  /// "rdhwr rt, $29".
+  | ULR = 0x109
 
 /// Provides functions to handle MIPS registers.
 [<RequireQualifiedAccess>]
@@ -270,6 +274,7 @@ module Register =
     | "fir" -> Register.FIR
     | "exmonaddr" -> Register.ExMonAddr
     | "exmonval" -> Register.ExMonVal
+    | "ulr" -> Register.ULR
     | _ -> Terminator.impossible ()
 
   /// Returns the register ID of a MIPS register.
@@ -355,6 +360,7 @@ module Register =
       | Register.FIR -> "fir"
       | Register.ExMonAddr -> "exmonaddr"
       | Register.ExMonVal -> "exmonval"
+      | Register.ULR -> "ulr"
       | _ -> Terminator.impossible ()
     | WordSize.Bit64 ->
       match reg with
@@ -430,5 +436,6 @@ module Register =
       | Register.FIR -> "fir"
       | Register.ExMonAddr -> "exmonaddr"
       | Register.ExMonVal -> "exmonval"
+      | Register.ULR -> "ulr"
       | _ -> Terminator.impossible ()
     | _ -> Terminator.impossible ()
