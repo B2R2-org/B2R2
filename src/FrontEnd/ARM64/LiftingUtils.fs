@@ -1230,6 +1230,15 @@ let fpDiv bld dataSize src1 src2 =
 /// ======
 let fpToFixed dstSz src fbits unsigned round bld =
   let srcSz = src |> Expr.typeOf
+  (* fbits arrives sized to the destination register, but the fixed-point math
+     below works in the source's width, so normalize it to srcSz. Otherwise a
+     wider destination (e.g. fcvtzs Xd, Sn) leaves AST.zext srcSz fbits a zero-
+     extend to a narrower width, which raises InvalidRegTypeException. *)
+  let fbits =
+    let fbSz = Expr.typeOf fbits
+    if fbSz = srcSz then fbits
+    elif fbSz > srcSz then AST.xtlo srcSz fbits
+    else AST.zext srcSz fbits
   let sign = AST.xthi 1<rt> src
   let trunc = AST.cast CastKind.FtoFTrunc srcSz src
   let convertBit =
