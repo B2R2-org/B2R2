@@ -102,7 +102,18 @@ let private linuxAArch64 () =
          reg (arm64 ARM64.Register.X4)
          reg (arm64 ARM64.Register.X5) |] }
 
-let private linuxMIPS () =
+let private linuxMIPS32 () = (* o32: 4 args in a0-a3, the rest on the stack *)
+  { NumberRegister = mips MIPS.Register.R2
+    ReturnRegister = mips MIPS.Register.R2
+    Error = FlagRegister(mips MIPS.Register.R7)
+    Args =
+      [| reg (mips MIPS.Register.R4)
+         reg (mips MIPS.Register.R5)
+         reg (mips MIPS.Register.R6)
+         reg (mips MIPS.Register.R7)
+         ArgLocation.Stack { FirstOffset = 16; SlotSize = 4 } |] }
+
+let private linuxMIPS64 () = (* n32/n64: 6 syscall args in a0-a5, no stack *)
   { NumberRegister = mips MIPS.Register.R2
     ReturnRegister = mips MIPS.Register.R2
     Error = FlagRegister(mips MIPS.Register.R7)
@@ -212,7 +223,8 @@ let create format isa =
   | FileFormat.ELFBinary, X64 -> linuxX64 ()
   | FileFormat.ELFBinary, ARM32 -> linuxARM32 ()
   | FileFormat.ELFBinary, AArch64 -> linuxAArch64 ()
-  | FileFormat.ELFBinary, MIPS -> linuxMIPS ()
+  | FileFormat.ELFBinary, MIPS32 -> linuxMIPS32 ()
+  | FileFormat.ELFBinary, MIPS64 -> linuxMIPS64 ()
   | FileFormat.ELFBinary, PPC32 -> linuxPPC32 ()
   | FileFormat.ELFBinary, RISCV64 -> linuxRISCV64 ()
   | FileFormat.ELFBinary, SPARC -> linuxSPARC ()
