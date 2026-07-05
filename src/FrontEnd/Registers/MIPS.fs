@@ -171,13 +171,16 @@ type Register =
   | PC = 0x102
   /// Pseudo register for the next PC (nPC).
   | NPC = 0x103
-  /// Pseudo register for LLBit. This is used to store the actual LLBit value
-  /// from the CPU after an exception.
-  | LLBit = 0x104
   /// Floating Point Control and Status Register.
   | FCSR = 0x105
   /// Floating Point Implementation Register.
   | FIR = 0x106
+  /// Pseudo register: the address a load-linked (LL/LLD) reserved, for the
+  /// value-based exclusive-monitor model. See ExMonVal.
+  | ExMonAddr = 0x107
+  /// Pseudo register: memory value at ExMonAddr when the load-linked ran, so
+  /// a store-conditional (SC/SCD) can detect an intervening write.
+  | ExMonVal = 0x108
 
 /// Provides functions to handle MIPS registers.
 [<RequireQualifiedAccess>]
@@ -263,9 +266,10 @@ module Register =
     | "lo" -> Register.LO
     | "pc" -> Register.PC
     | "npc" -> Register.NPC
-    | "llbit" -> Register.LLBit
     | "fcsr" -> Register.FCSR
     | "fir" -> Register.FIR
+    | "exmonaddr" -> Register.ExMonAddr
+    | "exmonval" -> Register.ExMonVal
     | _ -> Terminator.impossible ()
 
   /// Returns the register ID of a MIPS register.
@@ -347,9 +351,10 @@ module Register =
       | Register.LO -> "lo"
       | Register.PC -> "pc"
       | Register.NPC -> "npc"
-      | Register.LLBit -> "LLBit"
       | Register.FCSR -> "fcsr"
       | Register.FIR -> "fir"
+      | Register.ExMonAddr -> "exmonaddr"
+      | Register.ExMonVal -> "exmonval"
       | _ -> Terminator.impossible ()
     | WordSize.Bit64 ->
       match reg with
@@ -421,8 +426,9 @@ module Register =
       | Register.LO -> "lo"
       | Register.PC -> "pc"
       | Register.NPC -> "npc"
-      | Register.LLBit -> "LLBit"
       | Register.FCSR -> "fcsr"
       | Register.FIR -> "fir"
+      | Register.ExMonAddr -> "exmonaddr"
+      | Register.ExMonVal -> "exmonval"
       | _ -> Terminator.impossible ()
     | _ -> Terminator.impossible ()

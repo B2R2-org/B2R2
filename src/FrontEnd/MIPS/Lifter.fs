@@ -1352,10 +1352,19 @@ let loadUnsigned ins insLen bld =
   advancePC bld insLen
 
 let loadLinked ins insLen bld =
-  let rt, mem = getTwoOprs ins |> transTwoOprs ins bld
+  let rtOpr, memOpr = getTwoOprs ins
+  let rt = transOprToExpr ins bld rtOpr
+  let mem = transOprToExpr ins bld memOpr
+  let addr = transOprToBaseOffset bld memOpr
+  let sz = match memOpr with
+           | OpMem(_, _, sz) -> sz
+           | _ -> raise InvalidOperandException
+  let v = tmpVar bld sz
   bld <!-- (ins.Address, insLen)
-  bld <+ (rt := AST.sext bld.RegType mem)
-  bld <+ (AST.extCall <| AST.app "SetLLBit" [] bld.RegType)
+  bld <+ (v := mem)
+  bld <+ (regVar bld R.ExMonAddr := addr)
+  bld <+ (regVar bld R.ExMonVal := AST.zext bld.RegType v)
+  bld <+ (rt := AST.sext bld.RegType v)
   advancePC bld insLen
 
 let sldc1 ins insLen bld stORld =
@@ -1743,17 +1752,6 @@ let ori ins insLen bld =
   bld <+ (rt := rs .| imm)
   advancePC bld insLen
 
-let pause (ins: Instruction) insLen bld =
-  let llbit = regVar bld R.LLBit
-  let lblSpin = label bld "Spin"
-  let lblEnd = label bld "End"
-  bld <!-- (ins.Address, insLen)
-  bld <+ (AST.lmark lblSpin)
-  bld <+ (AST.extCall <| AST.app "GetLLBit" [] bld.RegType)
-  bld <+ (AST.cjmp (llbit == AST.b1) (AST.jmpDest lblSpin) (AST.jmpDest lblEnd))
-  bld <+ (AST.lmark lblEnd)
-  advancePC bld insLen
-
 let rotr ins insLen bld =
   let rd, rt, sa = getThreeOprs ins
   let rd, rt = transTwoOprs ins bld (rd, rt)
@@ -1804,19 +1802,18 @@ let sqrt ins insLen bld =
   advancePC bld insLen
 
 let storeConditional ins insLen width bld =
-  let lblInRMW = label bld "InRMW"
-  let lblEnd = label bld "End"
-  let rt, mem = getTwoOprs ins |> transTwoOprs ins bld
-  let llbit = regVar bld R.LLBit
+  let rtOpr, memOpr = getTwoOprs ins
+  let rt = transOprToExpr ins bld rtOpr
+  let mem = transOprToExpr ins bld memOpr
+  let addr = transOprToBaseOffset bld memOpr
+  let cur = tmpVar bld width
+  let matched = tmpVar bld 1<rt>
   bld <!-- (ins.Address, insLen)
-  bld <+ (AST.extCall <| AST.app "GetLLBit" [] bld.RegType)
-  bld <+ (AST.cjmp (llbit == AST.b1)
-                   (AST.jmpDest lblInRMW) (AST.jmpDest lblEnd))
-  bld <+ (AST.lmark lblInRMW)
-  bld <+ (mem := AST.xtlo width rt)
-  bld <+ (AST.lmark lblEnd)
-  bld <+ (rt := AST.zext bld.RegType llbit)
-  bld <+ (AST.extCall <| AST.app "ClearLLBit" [] bld.RegType)
+  bld <+ (cur := mem)
+  bld <+ (matched := (addr == regVar bld R.ExMonAddr)
+                     .& (cur == AST.xtlo width (regVar bld R.ExMonVal)))
+  bld <+ (mem := AST.ite matched (AST.xtlo width rt) cur)
+  bld <+ (rt := AST.zext bld.RegType matched)
   advancePC bld insLen
 
 let storeLeftRight ins insLen bld memShf regShf amtOp oprSz =
@@ -2236,7 +2233,7 @@ let translate (ins: Instruction) insLen (bld: LowUIRBuilder) =
   | Op.NOR -> nor ins insLen bld
   | Op.OR -> logOr ins insLen bld
   | Op.ORI -> ori ins insLen bld
-  | Op.PAUSE -> pause ins insLen bld
+  | Op.PAUSE -> nop ins insLen bld
   | Op.PREF | Op.PREFE | Op.PREFX -> nop ins insLen bld
   | Op.RDHWR -> sideEffects ins insLen bld ProcessorInfoRead
   | Op.ROTR -> rotr ins insLen bld
