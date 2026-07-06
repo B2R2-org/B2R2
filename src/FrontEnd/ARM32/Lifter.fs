@@ -3151,9 +3151,12 @@ let vmrs ins insLen bld =
   let isUnconditional = ParseUtils.isUnconditional ins.Condition
   bld <!-- (ins.Address, insLen)
   let lblIgnore = checkCondition ins bld isUnconditional
-  if rt <> cpsr then bld <+ (rt := fpscr)
-  else bld <+ (cpsr := disablePSRBits bld R.CPSR PSR.Cond .|
-                           getPSR bld R.FPSCR PSR.Cond)
+  match ins.Operands with
+  | TwoOperands(OprReg R.APSR, _) | TwoOperands(OprReg R.CPSR, _) ->
+    bld <+ (cpsr := disablePSRBits bld R.CPSR PSR.Cond .|
+                        getPSR bld R.FPSCR PSR.Cond)
+  | _ ->
+    bld <+ (rt := fpscr)
   putEndLabel bld lblIgnore
   bld --!> insLen
 
