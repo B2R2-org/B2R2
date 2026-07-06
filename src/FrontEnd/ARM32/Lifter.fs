@@ -3412,9 +3412,20 @@ let vaddl (ins: Instruction) insLen bld =
   putEndLabel bld lblIgnore
   bld --!> insLen
 
-let isDoubleToSingle = function
-  | Some(TwoDT(SIMDTypF32, SIMDTypF64)) -> true
-  | Some(TwoDT(SIMDTypF64, SIMDTypF32)) -> false
+let vcvtCastKind = function
+  (* float <-> float *)
+  | Some(TwoDT(SIMDTypF32, SIMDTypF64)) -> struct (CastKind.FloatCast, 32<rt>)
+  | Some(TwoDT(SIMDTypF64, SIMDTypF32)) -> struct (CastKind.FloatCast, 64<rt>)
+  (* int -> float *)
+  | Some(TwoDT(SIMDTypF32, SIMDTypS32)) -> struct (CastKind.SIntToFloat, 32<rt>)
+  | Some(TwoDT(SIMDTypF64, SIMDTypS32)) -> struct (CastKind.SIntToFloat, 64<rt>)
+  | Some(TwoDT(SIMDTypF32, SIMDTypU32)) -> struct (CastKind.UIntToFloat, 32<rt>)
+  | Some(TwoDT(SIMDTypF64, SIMDTypU32)) -> struct (CastKind.UIntToFloat, 64<rt>)
+  (* float -> int (round toward zero) *)
+  | Some(TwoDT(SIMDTypS32, SIMDTypF32))
+  | Some(TwoDT(SIMDTypU32, SIMDTypF32)) -> struct (CastKind.FtoITrunc, 32<rt>)
+  | Some(TwoDT(SIMDTypS32, SIMDTypF64))
+  | Some(TwoDT(SIMDTypU32, SIMDTypF64)) -> struct (CastKind.FtoITrunc, 32<rt>)
   | _ -> raise InvalidOperandException
 
 let parseOprOfVCVT (ins: Instruction) bld =
@@ -3455,10 +3466,8 @@ let parseOprOfVCVT (ins: Instruction) bld =
     (* VCVT (between double-precision and single-precision) *)
     | _ ->
       let struct (dst, src) = transTwoOprs ins bld
-      let cast =
-        if isDoubleToSingle ins.SIMDTyp then AST.cast CastKind.FloatCast 32<rt>
-        else AST.cast CastKind.FloatCast 64<rt>
-      bld <+ (dst := cast src)
+      let struct (kind, size) = vcvtCastKind ins.SIMDTyp
+      bld <+ (dst := AST.cast kind size src)
   | _ -> raise InvalidOperandException
 
 let vcvt (ins: Instruction) insLen bld =
