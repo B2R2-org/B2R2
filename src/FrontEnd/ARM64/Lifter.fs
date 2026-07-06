@@ -2288,6 +2288,19 @@ let sbc ins insLen bld addr =
   dstAssign ins.OprSize dst result bld
   bld --!> insLen
 
+let sbcs ins insLen bld addr =
+  let dst, src1, src2 = transThreeOprs ins bld addr
+  bld <!-- (ins.Address, insLen)
+  let c = tmpVar bld ins.OprSize
+  bld <+ (c := AST.zext ins.OprSize (regVar bld R.C))
+  let result, (n, z, c, v) = addWithCarry src1 (AST.not src2) c ins.OprSize
+  bld <+ (regVar bld R.N := n)
+  bld <+ (regVar bld R.Z := z)
+  bld <+ (regVar bld R.C := c)
+  bld <+ (regVar bld R.V := v)
+  dstAssign ins.OprSize dst result bld
+  bld --!> insLen
+
 let sbfm (ins: Instruction) insLen bld addr dst src immr imms =
   let oprSz = ins.OprSize
   let width = oprSzToExpr oprSz
@@ -4168,6 +4181,7 @@ let translate (ins: Instruction) insLen bld =
   | Opcode.SADDLP -> saddlp ins insLen bld addr
   | Opcode.SADDLV -> saddlv ins insLen bld addr
   | Opcode.SBC -> sbc ins insLen bld addr
+  | Opcode.SBCS -> sbcs ins insLen bld addr
   | Opcode.SBFIZ -> sbfiz ins insLen bld addr
   | Opcode.SBFX -> sbfx ins insLen bld addr
   | Opcode.SCVTF -> icvtf ins insLen bld addr false
