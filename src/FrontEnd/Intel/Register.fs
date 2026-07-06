@@ -531,7 +531,7 @@ module internal RegGroup = begin
     | 128<rt> -> R.XMM0
     | 256<rt> -> R.YMM0
     | 512<rt> -> R.ZMM0
-    | _ -> Terminator.impossible ()
+    | _ -> raise ParsingFailureException
 
   /// Grp 1.
   let grpECX = function
@@ -542,7 +542,7 @@ module internal RegGroup = begin
     | 128<rt> -> R.XMM1
     | 256<rt> -> R.YMM1
     | 512<rt> -> R.ZMM1
-    | _ -> Terminator.impossible ()
+    | _ -> raise ParsingFailureException
 
   /// Grp 2.
   let grpEDX = function
@@ -553,7 +553,7 @@ module internal RegGroup = begin
     | 128<rt> -> R.XMM2
     | 256<rt> -> R.YMM2
     | 512<rt> -> R.ZMM2
-    | _ -> Terminator.impossible ()
+    | _ -> raise ParsingFailureException
 
   /// Grp 3.
   let grpEBX = function
@@ -564,5 +564,5 @@ module internal RegGroup = begin
     | 128<rt> -> R.XMM3
     | 256<rt> -> R.YMM3
     | 512<rt> -> R.ZMM3
-    | _ -> Terminator.impossible ()
+    | _ -> raise ParsingFailureException
 end

@@ -255,7 +255,7 @@ type XqX() =
       match vLen with
       | 128<rt> -> struct (64<rt>, effAddrSz, 128<rt>)
       | 256<rt> -> struct (vLen, effAddrSz, vLen)
-      | _ -> Terminator.futureFeature () (* EVEX *)
+      | _ -> raise ParsingFailureException
     phlp.MemEffOprSize <- mopr
     phlp.MemEffAddrSize <- maddr
     phlp.MemEffRegSize <- mreg
@@ -537,7 +537,7 @@ type DqqdqX() =
       match vLen with
       | 128<rt> -> struct (64<rt>, effAddrSz, 128<rt>)
       | 256<rt> -> struct (128<rt>, effAddrSz, 128<rt>)
-      | _ -> Terminator.futureFeature () (* EVEX *)
+      | _ -> raise ParsingFailureException
     phlp.MemEffOprSize <- mopr
     phlp.MemEffAddrSize <- maddr
     phlp.MemEffRegSize <- mreg
@@ -554,7 +554,7 @@ type DqddqX() =
       match vLen with
       | 128<rt> -> struct (32<rt>, effAddrSz, 128<rt>)
       | 256<rt> -> struct (64<rt>, effAddrSz, 128<rt>)
-      | _ -> Terminator.futureFeature () (* EVEX *)
+      | _ -> raise ParsingFailureException
     phlp.MemEffOprSize <- mopr
     phlp.MemEffAddrSize <- maddr
     phlp.MemEffRegSize <- mreg
@@ -908,7 +908,7 @@ type DqwdX() =
       match vLen with
       | 128<rt> -> struct (16<rt>, effAddrSz, 128<rt>)
       | 256<rt> -> struct (32<rt>, effAddrSz, 128<rt>)
-      | _ -> Terminator.futureFeature () (* EVEX *)
+      | _ -> raise ParsingFailureException
     phlp.MemEffOprSize <- mopr
     phlp.MemEffAddrSize <- maddr
     phlp.MemEffRegSize <- mreg
