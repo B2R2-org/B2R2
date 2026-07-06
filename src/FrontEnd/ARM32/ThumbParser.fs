@@ -6865,7 +6865,7 @@ let parseDataProcessingShiftReg phlp (itstate: byref<BL>) isInIT bin =
     chkPCRdSRnRm bin
 #endif
     let struct (q, oprs) =
-      if inITBlock itstate then struct (W, OD.OprRdRnRmT32)
+      if inITBlock itstate then struct (W, OD.OprRdRnRmShfT)
       else struct (N, OD.OprRdRnRmShfT)
     render phlp &itstate 0 isInIT bin Op.AND None q oprs
   | 0b00001u when i3i2st <> 0b11u && rd <> 0b1111u ->
@@ -6873,7 +6873,7 @@ let parseDataProcessingShiftReg phlp (itstate: byref<BL>) isInIT bin =
     chkPCRdSRnRm bin
 #endif
     let struct (q, oprs) =
-      if inITBlock itstate |> not then struct (W, OD.OprRdRnRmT32)
+      if inITBlock itstate |> not then struct (W, OD.OprRdRnRmShfT)
       else struct (N, OD.OprRdRnRmShfT)
     render phlp &itstate 0 isInIT bin Op.ANDS None q oprs
   | 0b00001u when i3i2st <> 0b11u && rd = 0b1111u ->
@@ -6902,7 +6902,7 @@ let parseDataProcessingShiftReg phlp (itstate: byref<BL>) isInIT bin =
     chkThumbPCRdRnRm bin
 #endif
     let struct (q, oprs) =
-      if inITBlock itstate then struct (W, OD.OprRdRnRmT32)
+      if inITBlock itstate then struct (W, OD.OprRdRnRmShfT)
       else struct (N, OD.OprRdRnRmShfT)
     render phlp &itstate 0 isInIT bin Op.BIC None q oprs
   | 0b00011u when i3i2st = 0b11u ->
@@ -6915,7 +6915,7 @@ let parseDataProcessingShiftReg phlp (itstate: byref<BL>) isInIT bin =
     chkThumbPCRdRnRm bin
 #endif
     let struct (q, oprs) =
-      if inITBlock itstate then struct (W, OD.OprRdRnRmT32)
+      if inITBlock itstate then struct (W, OD.OprRdRnRmShfT)
       else struct (N, OD.OprRdRnRmShfT)
     render phlp &itstate 0 isInIT bin Op.BICS None q oprs
   (* ORR (register) *)
@@ -6929,7 +6929,7 @@ let parseDataProcessingShiftReg phlp (itstate: byref<BL>) isInIT bin =
     chkThumbPCRdRm bin
 #endif
     let struct (q, oprs) =
-      if inITBlock itstate then struct (W, OD.OprRdRnRmT32)
+      if inITBlock itstate then struct (W, OD.OprRdRnRmShfT)
       else struct (N, OD.OprRdRnRmShfT)
     render phlp &itstate 0 isInIT bin Op.ORR None q oprs
   (* MOV (register) *)
@@ -6955,7 +6955,7 @@ let parseDataProcessingShiftReg phlp (itstate: byref<BL>) isInIT bin =
     chkThumbPCRdRm bin
 #endif
     let struct (q, oprs) =
-      if inITBlock itstate |> not then struct (W, OD.OprRdRnRmT32)
+      if inITBlock itstate |> not then struct (W, OD.OprRdRnRmShfT)
       else struct (N, OD.OprRdRnRmShfT)
     render phlp &itstate 0 isInIT bin Op.ORRS None q oprs
   (* MOVS (register) *)
@@ -6989,7 +6989,7 @@ let parseDataProcessingShiftReg phlp (itstate: byref<BL>) isInIT bin =
     chkThumbPCRdRm bin
 #endif
     let struct (q, oprs) =
-      if inITBlock itstate then struct (W, OD.OprRdRmT32)
+      if inITBlock itstate then struct (W, OD.OprRdRmShfT32)
       else struct (N, OD.OprRdRmShfT32)
     render phlp &itstate 0 isInIT bin Op.MVN None q oprs
   (* ORNS (register) *)
@@ -7009,7 +7009,7 @@ let parseDataProcessingShiftReg phlp (itstate: byref<BL>) isInIT bin =
     chkThumbPCRdRm bin
 #endif
     let struct (q, oprs) =
-      if inITBlock itstate |> not then struct (W, OD.OprRdRmT32)
+      if inITBlock itstate |> not then struct (W, OD.OprRdRmShfT32)
       else struct (N, OD.OprRdRmShfT32)
     render phlp &itstate 0 isInIT bin Op.MVNS None q oprs
   (* EOR (register) *)
@@ -7023,7 +7023,7 @@ let parseDataProcessingShiftReg phlp (itstate: byref<BL>) isInIT bin =
     chkPCRdSRnRm bin
 #endif
     let struct (q, oprs) =
-      if inITBlock itstate then struct (W, OD.OprRdRnRmT32)
+      if inITBlock itstate then struct (W, OD.OprRdRnRmShfT)
       else struct (N, OD.OprRdRnRmShfT)
     render phlp &itstate 0 isInIT bin Op.EOR None q oprs
   (* EORS (register) *)
@@ -7032,7 +7032,7 @@ let parseDataProcessingShiftReg phlp (itstate: byref<BL>) isInIT bin =
     chkPCRdSRnRm bin
 #endif
     let struct (q, oprs) =
-      if inITBlock itstate |> not then struct (W, OD.OprRdRnRmT32)
+      if inITBlock itstate |> not then struct (W, OD.OprRdRnRmShfT)
       else struct (N, OD.OprRdRnRmShfT)
     render phlp &itstate 0 isInIT bin Op.EORS None q oprs
   | 0b01001u when i3i2st <> 0b11u && rd = 0b1111u ->
@@ -7074,7 +7074,7 @@ let parseDataProcessingShiftReg phlp (itstate: byref<BL>) isInIT bin =
     chkPCRdSRnRm bin
 #endif
     let struct (q, oprs) =
-      if inITBlock itstate then struct (W, OD.OprRdRnRmT32)
+      if inITBlock itstate then struct (W, OD.OprRdRnRmShfT)
       else struct (N, OD.OprRdRnRmShfT)
     render phlp &itstate 0 isInIT bin Op.ADD None q oprs
   | 0b10000u when rn = 0b1101u ->
@@ -7113,7 +7113,7 @@ let parseDataProcessingShiftReg phlp (itstate: byref<BL>) isInIT bin =
     chkThumbPCRdRnRm bin
 #endif
     let struct (q, oprs) =
-      if inITBlock itstate then struct (W, OD.OprRdRnRmT32)
+      if inITBlock itstate then struct (W, OD.OprRdRnRmShfT)
       else struct (N, OD.OprRdRnRmShfT)
     render phlp &itstate 0 isInIT bin Op.ADC None q oprs
   | 0b10101u when i3i2st = 0b11u ->
@@ -7126,7 +7126,7 @@ let parseDataProcessingShiftReg phlp (itstate: byref<BL>) isInIT bin =
     chkThumbPCRdRnRm bin
 #endif
     let struct (q, oprs) =
-      if inITBlock itstate |> not then struct (W, OD.OprRdRnRmT32)
+      if inITBlock itstate |> not then struct (W, OD.OprRdRnRmShfT)
       else struct (N, OD.OprRdRnRmShfT)
     render phlp &itstate 0 isInIT bin Op.ADCS None q oprs
   | 0b10110u when i3i2st = 0b11u ->
@@ -7139,7 +7139,7 @@ let parseDataProcessingShiftReg phlp (itstate: byref<BL>) isInIT bin =
     chkThumbPCRdRnRm bin
 #endif
     let struct (q, oprs) =
-      if inITBlock itstate then struct (W, OD.OprRdRnRmT32)
+      if inITBlock itstate then struct (W, OD.OprRdRnRmShfT)
       else struct (N, OD.OprRdRnRmShfT)
     render phlp &itstate 0 isInIT bin Op.SBC None q oprs
   | 0b10111u when i3i2st = 0b11u ->
@@ -7152,7 +7152,7 @@ let parseDataProcessingShiftReg phlp (itstate: byref<BL>) isInIT bin =
     chkThumbPCRdRnRm bin
 #endif
     let struct (q, oprs) =
-      if inITBlock itstate |> not then struct (W, OD.OprRdRnRmT32)
+      if inITBlock itstate |> not then struct (W, OD.OprRdRnRmShfT)
       else struct (N, OD.OprRdRnRmShfT)
     render phlp &itstate 0 isInIT bin Op.SBCS None q oprs
   | 0b11000u | 0b11001u (* 1100x *) -> raise ParsingFailureException
@@ -7166,7 +7166,7 @@ let parseDataProcessingShiftReg phlp (itstate: byref<BL>) isInIT bin =
     chkPCRdSRnRm bin
 #endif
     let struct (q, oprs) =
-      if inITBlock itstate then struct (W, OD.OprRdRnRmT32)
+      if inITBlock itstate then struct (W, OD.OprRdRnRmShfT)
       else struct (N, OD.OprRdRnRmShfT)
     render phlp &itstate 0 isInIT bin Op.SUB None q oprs
   | 0b11010u when rn = 0b1101u && i3i2st = 0b11u ->
@@ -7189,7 +7189,7 @@ let parseDataProcessingShiftReg phlp (itstate: byref<BL>) isInIT bin =
     chkPCRdSRnRm bin
 #endif
     let struct (q, oprs) =
-      if inITBlock itstate |> not then struct (W, OD.OprRdRnRmT32)
+      if inITBlock itstate |> not then struct (W, OD.OprRdRnRmShfT)
       else struct (N, OD.OprRdRnRmShfT)
     render phlp &itstate 0 isInIT bin Op.SUBS None q oprs
   | 0b11011u when rn = 0b1101u && rd <> 0b1111u && i3i2st = 0b11u ->
@@ -7202,7 +7202,7 @@ let parseDataProcessingShiftReg phlp (itstate: byref<BL>) isInIT bin =
     chkPCRdSRnRm bin
 #endif
     let struct (q, oprs) =
-      if inITBlock itstate |> not then struct (W, OD.OprRdRnRmT32)
+      if inITBlock itstate |> not then struct (W, OD.OprRdRnRmShfT)
       else struct (N, OD.OprRdRnRmShfT)
     render phlp &itstate 0 isInIT bin Op.SUBS None q oprs
   | 0b11011u when rd = 0b1111u ->
@@ -7616,18 +7616,14 @@ let parseDataProcessingModImm phlp (itstate: byref<BL>) isInIT bin =
 #if !EMULATION
     chkThumbPCRdRn bin
 #endif
-    let struct (q, oprs) =
-      if inITBlock itstate then struct (W, OD.OprRdRn0T32)
-      else struct (N, OD.OprRdRnConstT)
-    render phlp &itstate 0 isInIT bin Op.RSB None q oprs
+    let q = if inITBlock itstate then W else N
+    render phlp &itstate 0 isInIT bin Op.RSB None q OD.OprRdRnConstT
   | 0b11101u ->
 #if !EMULATION
     chkThumbPCRdRn bin
 #endif
-    let struct (q, oprs) =
-      if inITBlock itstate then struct (W, OD.OprRdRn0T32)
-      else struct (N, OD.OprRdRnConstT)
-    render phlp &itstate 0 isInIT bin Op.RSBS None q oprs
+    let q = if inITBlock itstate then W else N
+    render phlp &itstate 0 isInIT bin Op.RSBS None q OD.OprRdRnConstT
   | _ (* 1111x *) -> raise ParsingFailureException
 
 /// Data-processing (simple immediate) on page F3-4196.
