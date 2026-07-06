@@ -3369,6 +3369,46 @@ let vabs (ins: Instruction) insLen bld =
   putEndLabel bld lblIgnore
   bld --!> insLen
 
+let vabsf (ins: Instruction) insLen bld =
+  let struct (dst, src) = transTwoOprs ins bld
+  let isUnconditional = ParseUtils.isUnconditional ins.Condition
+  bld <!-- (ins.Address, insLen)
+  let lblIgnore = checkCondition ins bld isUnconditional
+  match (getParsingInfo ins).ESize with
+  | 16 ->
+    bld <+ (dst :=
+      AST.zext 32<rt> (AST.xtlo 16<rt> src .& numU32 0x7fffu 16<rt>))
+  | 32 -> bld <+ (dst := src .& numU32 0x7fffffffu 32<rt>)
+  | _ -> bld <+ (dst := src .& numU64 0x7fffffffffffffffUL 64<rt>)
+  putEndLabel bld lblIgnore
+  bld --!> insLen
+
+let vnegf (ins: Instruction) insLen bld =
+  let struct (dst, src) = transTwoOprs ins bld
+  let isUnconditional = ParseUtils.isUnconditional ins.Condition
+  bld <!-- (ins.Address, insLen)
+  let lblIgnore = checkCondition ins bld isUnconditional
+  match (getParsingInfo ins).ESize with
+  | 16 ->
+    bld <+ (dst :=
+      AST.zext 32<rt> (AST.xtlo 16<rt> src <+> numU32 0x8000u 16<rt>))
+  | 32 -> bld <+ (dst := src <+> numU32 0x80000000u 32<rt>)
+  | _ -> bld <+ (dst := src <+> numU64 0x8000000000000000UL 64<rt>)
+  putEndLabel bld lblIgnore
+  bld --!> insLen
+
+let vsqrtf (ins: Instruction) insLen bld =
+  let struct (dst, src) = transTwoOprs ins bld
+  let isUnconditional = ParseUtils.isUnconditional ins.Condition
+  bld <!-- (ins.Address, insLen)
+  let lblIgnore = checkCondition ins bld isUnconditional
+  match (getParsingInfo ins).ESize with
+  | 16 ->
+    bld <+ (dst := AST.zext 32<rt> (AST.fsqrt (AST.xtlo 16<rt> src)))
+  | _ -> bld <+ (dst := AST.fsqrt src)
+  putEndLabel bld lblIgnore
+  bld --!> insLen
+
 let vaddsub (ins: Instruction) insLen bld opFn =
   let isUnconditional = ParseUtils.isUnconditional ins.Condition
   bld <!-- (ins.Address, insLen)
@@ -5386,8 +5426,7 @@ let translate (ins: Instruction) insLen bld =
   | Op.UXTB -> extend ins insLen bld AST.zext 8<rt>
   | Op.UXTB16 -> uxtb16 ins insLen bld
   | Op.UXTH -> extend ins insLen bld AST.zext 16<rt>
-  | Op.VABS when isF16orF32orF64 ins.SIMDTyp ->
-    sideEffects ins insLen bld UnsupportedInstruction
+  | Op.VABS when isF16orF32orF64 ins.SIMDTyp -> vabsf ins insLen bld
   | Op.VABS -> vabs ins insLen bld
   | Op.VADD when isF16orF32orF64 ins.SIMDTyp -> vaddsub ins insLen bld AST.fadd
   | Op.VADD -> vaddsub ins insLen bld (.+)
@@ -5405,7 +5444,8 @@ let translate (ins: Instruction) insLen bld =
   | Op.VCMLA -> sideEffects ins insLen bld UnsupportedInstruction
   | Op.VACGE | Op.VACGT | Op.VACLE | Op.VACLT | Op.VCVTR
   | Op.VFMA | Op.VFMS | Op.VFNMA | Op.VFNMS | Op.VMSR | Op.VNMLA | Op.VNMLS
-  | Op.VNMUL | Op.VSQRT -> sideEffects ins insLen bld UnsupportedInstruction
+  | Op.VNMUL -> sideEffects ins insLen bld UnsupportedInstruction
+  | Op.VSQRT -> vsqrtf ins insLen bld
   | Op.VCMP | Op.VCMPE -> vcmp ins insLen bld
   | Op.VCVT -> vcvt ins insLen bld
   | Op.VDIV -> vdiv ins insLen bld
@@ -5436,8 +5476,7 @@ let translate (ins: Instruction) insLen bld =
   | Op.VMUL when isF16orF32orF64 ins.SIMDTyp -> vmul ins insLen bld AST.fmul
   | Op.VMUL -> vmul ins insLen bld (.*)
   | Op.VMULL -> vmull ins insLen bld
-  | Op.VNEG when isF32orF64 ins.SIMDTyp ->
-    sideEffects ins insLen bld UnsupportedInstruction
+  | Op.VNEG when isF32orF64 ins.SIMDTyp -> vnegf ins insLen bld
   | Op.VNEG -> vneg ins insLen bld
   | Op.VORN -> vorn ins insLen bld
   | Op.VORR -> vorr ins insLen bld
