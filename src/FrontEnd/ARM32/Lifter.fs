@@ -3157,6 +3157,21 @@ let vmrs ins insLen bld =
   putEndLabel bld lblIgnore
   bld --!> insLen
 
+let vcmp ins insLen bld =
+  let struct (op1, op2) = transTwoOprs ins bld
+  let fpscr = regVar bld R.FPSCR
+  let isUnconditional = ParseUtils.isUnconditional ins.Condition
+  bld <!-- (ins.Address, insLen)
+  let lblIgnore = checkCondition ins bld isUnconditional
+  let unordered = AST.not (AST.feq op1 op1) .| AST.not (AST.feq op2 op2)
+  let lt = AST.flt op1 op2
+  bld <+ (fpscr := lt |> setPSR bld R.FPSCR PSR.N)
+  bld <+ (fpscr := AST.feq op1 op2 |> setPSR bld R.FPSCR PSR.Z)
+  bld <+ (fpscr := AST.not lt |> setPSR bld R.FPSCR PSR.C)
+  bld <+ (fpscr := unordered |> setPSR bld R.FPSCR PSR.V)
+  putEndLabel bld lblIgnore
+  bld --!> insLen
+
 let mrc (ins: Instruction) insLen bld =
   match ins.Operands with
   (* MRC p15, #0, <Rt>, c13, c0, #3 reads TPIDRURO, the PL0 read-only
@@ -5386,9 +5401,10 @@ let translate (ins: Instruction) insLen bld =
   | Op.VCLT -> vclt ins insLen bld
   | Op.VCLZ -> vclz ins insLen bld
   | Op.VCMLA -> sideEffects ins insLen bld UnsupportedInstruction
-  | Op.VCMP | Op.VCMPE | Op.VACGE | Op.VACGT | Op.VACLE | Op.VACLT | Op.VCVTR
+  | Op.VACGE | Op.VACGT | Op.VACLE | Op.VACLT | Op.VCVTR
   | Op.VFMA | Op.VFMS | Op.VFNMA | Op.VFNMS | Op.VMSR | Op.VNMLA | Op.VNMLS
   | Op.VNMUL | Op.VSQRT -> sideEffects ins insLen bld UnsupportedInstruction
+  | Op.VCMP | Op.VCMPE -> vcmp ins insLen bld
   | Op.VCVT -> vcvt ins insLen bld
   | Op.VDIV -> vdiv ins insLen bld
   | Op.VDUP -> vdup ins insLen bld
