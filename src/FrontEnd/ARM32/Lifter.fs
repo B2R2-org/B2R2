@@ -3409,6 +3409,31 @@ let vsqrtf (ins: Instruction) insLen bld =
   putEndLabel bld lblIgnore
   bld --!> insLen
 
+/// Flips the sign bit of a floating-point value of the given element size, the
+/// bitwise form of FPNeg used by the VFP negated multiply family.
+let private fpNegBits esize e =
+  match esize with
+  | 16 -> e <+> numU32 0x8000u 16<rt>
+  | 32 -> e <+> numU32 0x80000000u 32<rt>
+  | _ -> e <+> numU64 0x8000000000000000UL 64<rt>
+
+/// VFP scalar negated multiply family (VNMUL/VNMLA/VNMLS). combine receives the
+/// element size, the accumulator (dst) and the product, and yields the result.
+let vnegmul (ins: Instruction) insLen bld combine =
+  let struct (dst, src1, src2) = transThreeOprs ins bld
+  let isUnconditional = ParseUtils.isUnconditional ins.Condition
+  bld <!-- (ins.Address, insLen)
+  let lblIgnore = checkCondition ins bld isUnconditional
+  match (getParsingInfo ins).ESize with
+  | 16 ->
+    let d = AST.xtlo 16<rt> dst
+    let p = AST.fmul (AST.xtlo 16<rt> src1) (AST.xtlo 16<rt> src2)
+    bld <+ (dst := AST.zext 32<rt> (combine 16 d p))
+  | 32 -> bld <+ (dst := combine 32 dst (AST.fmul src1 src2))
+  | _ -> bld <+ (dst := combine 64 dst (AST.fmul src1 src2))
+  putEndLabel bld lblIgnore
+  bld --!> insLen
+
 let vaddsub (ins: Instruction) insLen bld opFn =
   let isUnconditional = ParseUtils.isUnconditional ins.Condition
   bld <!-- (ins.Address, insLen)
@@ -5443,8 +5468,12 @@ let translate (ins: Instruction) insLen bld =
   | Op.VCLZ -> vclz ins insLen bld
   | Op.VCMLA -> sideEffects ins insLen bld UnsupportedInstruction
   | Op.VACGE | Op.VACGT | Op.VACLE | Op.VACLT | Op.VCVTR
-  | Op.VFMA | Op.VFMS | Op.VFNMA | Op.VFNMS | Op.VMSR | Op.VNMLA | Op.VNMLS
-  | Op.VNMUL -> sideEffects ins insLen bld UnsupportedInstruction
+  | Op.VFMA | Op.VFMS | Op.VFNMA | Op.VFNMS | Op.VMSR ->
+    sideEffects ins insLen bld UnsupportedInstruction
+  | Op.VNMUL -> vnegmul ins insLen bld (fun sz _ p -> fpNegBits sz p)
+  | Op.VNMLA ->
+    vnegmul ins insLen bld (fun sz d p -> fpNegBits sz (AST.fadd d p))
+  | Op.VNMLS -> vnegmul ins insLen bld (fun _ d p -> AST.fsub p d)
   | Op.VSQRT -> vsqrtf ins insLen bld
   | Op.VCMP | Op.VCMPE -> vcmp ins insLen bld
   | Op.VCVT -> vcvt ins insLen bld
