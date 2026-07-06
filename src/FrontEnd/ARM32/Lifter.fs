@@ -3417,9 +3417,10 @@ let private fpNegBits esize e =
   | 32 -> e <+> numU32 0x80000000u 32<rt>
   | _ -> e <+> numU64 0x8000000000000000UL 64<rt>
 
-/// VFP scalar negated multiply family (VNMUL/VNMLA/VNMLS). combine receives the
-/// element size, the accumulator (dst) and the product, and yields the result.
-let vnegmul (ins: Instruction) insLen bld combine =
+/// VFP scalar multiply-accumulate family (VMLA/VMLS/VNMUL/VNMLA/VNMLS). combine
+/// receives the element size, the accumulator (dst) and the product of the two
+/// source operands, and yields the result written back to dst.
+let vfpMulAcc (ins: Instruction) insLen bld combine =
   let struct (dst, src1, src2) = transThreeOprs ins bld
   let isUnconditional = ParseUtils.isUnconditional ins.Condition
   bld <!-- (ins.Address, insLen)
@@ -5470,10 +5471,10 @@ let translate (ins: Instruction) insLen bld =
   | Op.VACGE | Op.VACGT | Op.VACLE | Op.VACLT | Op.VCVTR
   | Op.VFMA | Op.VFMS | Op.VFNMA | Op.VFNMS | Op.VMSR ->
     sideEffects ins insLen bld UnsupportedInstruction
-  | Op.VNMUL -> vnegmul ins insLen bld (fun sz _ p -> fpNegBits sz p)
+  | Op.VNMUL -> vfpMulAcc ins insLen bld (fun sz _ p -> fpNegBits sz p)
   | Op.VNMLA ->
-    vnegmul ins insLen bld (fun sz d p -> fpNegBits sz (AST.fadd d p))
-  | Op.VNMLS -> vnegmul ins insLen bld (fun _ d p -> AST.fsub p d)
+    vfpMulAcc ins insLen bld (fun sz d p -> fpNegBits sz (AST.fadd d p))
+  | Op.VNMLS -> vfpMulAcc ins insLen bld (fun _ d p -> AST.fsub p d)
   | Op.VSQRT -> vsqrtf ins insLen bld
   | Op.VCMP | Op.VCMPE -> vcmp ins insLen bld
   | Op.VCVT -> vcvt ins insLen bld
@@ -5492,8 +5493,10 @@ let translate (ins: Instruction) insLen bld =
     sideEffects ins insLen bld UnsupportedInstruction
   | Op.VMAX -> vmaxmin ins insLen bld true
   | Op.VMIN -> vmaxmin ins insLen bld false
-  | Op.VMLA | Op.VMLS when isF16orF32orF64 ins.SIMDTyp ->
-    sideEffects ins insLen bld UnsupportedInstruction
+  | Op.VMLA when isF16orF32orF64 ins.SIMDTyp ->
+    vfpMulAcc ins insLen bld (fun _ d p -> AST.fadd d p)
+  | Op.VMLS when isF16orF32orF64 ins.SIMDTyp ->
+    vfpMulAcc ins insLen bld (fun _ d p -> AST.fsub d p)
   | Op.VMLA -> vmla ins insLen bld
   | Op.VMLAL -> vmlal ins insLen bld
   | Op.VMLS -> vmls ins insLen bld
