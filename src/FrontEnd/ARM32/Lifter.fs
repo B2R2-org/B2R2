@@ -2562,13 +2562,36 @@ let str ins insLen bld size =
   putEndLabel bld lblIgnore
   bld --!> insLen
 
-let strex ins insLen bld =
+let strex ins insLen bld size =
   let struct (rd, rt, addr, writeback) = parseOprOfLDRD ins insLen bld
   let isUnconditional = ParseUtils.isUnconditional ins.Condition
   bld <!-- (ins.Address, insLen)
   let lblIgnore = checkCondition ins bld isUnconditional
   if rt = getPC bld then bld <+ (AST.loadLE 32<rt> addr := pcStoreValue bld)
-  else bld <+ (AST.loadLE 32<rt> addr := rt)
+  elif size = 32<rt> then bld <+ (AST.loadLE 32<rt> addr := rt)
+  else bld <+ (AST.loadLE size addr := AST.xtlo size rt)
+  match writeback with
+  | Some(basereg, Some newoffset) -> bld <+ (basereg := newoffset)
+  | Some(basereg, None) -> bld <+ (basereg := addr)
+  | None -> ()
+  bld <+ (rd := AST.num0 32<rt>) (* XXX: always succeeds for now *)
+  putEndLabel bld lblIgnore
+  bld --!> insLen
+
+let parseOprOfSTREXD (ins: Instruction) insLen bld =
+  match ins.Operands with
+  | FourOperands(OprReg rd, OprReg t, OprReg t2, (OprMemory _ as mem)) ->
+    let struct (addr, stmt) = parseMemOfLDRD ins insLen bld mem
+    struct (regVar bld rd, regVar bld t, regVar bld t2, addr, stmt)
+  | _ -> raise InvalidOperandException
+
+let strexd ins insLen bld =
+  let struct (rd, rt, rt2, addr, writeback) = parseOprOfSTREXD ins insLen bld
+  let isUnconditional = ParseUtils.isUnconditional ins.Condition
+  bld <!-- (ins.Address, insLen)
+  let lblIgnore = checkCondition ins bld isUnconditional
+  bld <+ (AST.loadLE 32<rt> addr := rt)
+  bld <+ (AST.loadLE 32<rt> (addr .+ (numI32 4 32<rt>)) := rt2)
   match writeback with
   | Some(basereg, Some newoffset) -> bld <+ (basereg := newoffset)
   | Some(basereg, None) -> bld <+ (basereg := addr)
@@ -5214,6 +5237,8 @@ let translate (ins: Instruction) insLen bld =
   | Op.LDRBT -> ldr ins insLen bld 8<rt> AST.zext
   | Op.LDRD -> ldrd ins insLen bld
   | Op.LDREX -> ldr ins insLen bld 32<rt> AST.zext
+  | Op.LDREXB -> ldr ins insLen bld 8<rt> AST.zext
+  | Op.LDREXH -> ldr ins insLen bld 16<rt> AST.zext
   | Op.LDRH -> ldr ins insLen bld 16<rt> AST.zext
   | Op.LDRHT -> ldr ins insLen bld 16<rt> AST.zext
   | Op.LDRSB -> ldr ins insLen bld 8<rt> AST.sext
@@ -5299,7 +5324,10 @@ let translate (ins: Instruction) insLen bld =
   | Op.STRB -> str ins insLen bld 8<rt>
   | Op.STRBT -> str ins insLen bld 8<rt>
   | Op.STRD -> strd ins insLen bld
-  | Op.STREX -> strex ins insLen bld
+  | Op.STREX -> strex ins insLen bld 32<rt>
+  | Op.STREXB -> strex ins insLen bld 8<rt>
+  | Op.STREXD -> strexd ins insLen bld
+  | Op.STREXH -> strex ins insLen bld 16<rt>
   | Op.STRH -> str ins insLen bld 16<rt>
   | Op.STRHT -> str ins insLen bld 16<rt>
   | Op.STRT -> str ins insLen bld 32<rt>
