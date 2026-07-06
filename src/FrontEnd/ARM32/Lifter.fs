@@ -2894,13 +2894,13 @@ let parseOprOfXTA (ins: Instruction) insLen bld =
     regVar bld rd, regVar bld rn, regVar bld rm, i
   | _ -> raise InvalidOperandException
 
-let extendAndAdd (ins: Instruction) insLen bld amount =
+let extendAndAdd (ins: Instruction) insLen bld extractfn amount =
   let rd, rn, rm, rotation = parseOprOfXTA ins insLen bld
   let rotated = shiftROR rm 32<rt> rotation
   let isUnconditional = ParseUtils.isUnconditional ins.Condition
   bld <!-- (ins.Address, insLen)
   let lblIgnore = checkCondition ins bld isUnconditional
-  bld <+ (rd := rn .+ AST.zext 32<rt> (AST.xtlo amount rotated))
+  bld <+ (rd := rn .+ extractfn 32<rt> (AST.xtlo amount rotated))
   putEndLabel bld lblIgnore
   bld --!> insLen
 
@@ -5358,6 +5358,8 @@ let translate (ins: Instruction) insLen bld =
   | Op.SUB | Op.SUBW -> sub false ins insLen bld
   | Op.SUBS -> subs true ins insLen bld
   | Op.SVC -> svc ins insLen bld
+  | Op.SXTAB -> extendAndAdd ins insLen bld AST.sext 8<rt>
+  | Op.SXTAH -> extendAndAdd ins insLen bld AST.sext 16<rt>
   | Op.SXTB -> extend ins insLen bld AST.sext 8<rt>
   | Op.SXTH -> extend ins insLen bld AST.sext 16<rt>
   | Op.TBH | Op.TBB -> tableBranch ins insLen bld
@@ -5379,8 +5381,8 @@ let translate (ins: Instruction) insLen bld =
   | Op.UQSUB16 -> uqopr ins insLen bld 16 (.-)
   | Op.UQSUB8 -> uqopr ins insLen bld 8 (.-)
   | Op.USAX -> usax ins insLen bld
-  | Op.UXTAB -> extendAndAdd ins insLen bld 8<rt>
-  | Op.UXTAH -> extendAndAdd ins insLen bld 16<rt>
+  | Op.UXTAB -> extendAndAdd ins insLen bld AST.zext 8<rt>
+  | Op.UXTAH -> extendAndAdd ins insLen bld AST.zext 16<rt>
   | Op.UXTB -> extend ins insLen bld AST.zext 8<rt>
   | Op.UXTB16 -> uxtb16 ins insLen bld
   | Op.UXTH -> extend ins insLen bld AST.zext 16<rt>
