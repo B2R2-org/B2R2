@@ -131,6 +131,8 @@ module internal CFGRecoveryCommon =
       else false
     else false
 
+  let isStaticallyLinked ctx = Option.isNone ctx.BinHandle.File.InterpreterPath
+
   let postponeActionOnCallee ctx calleeAddr action =
     let pendingCallActions = ctx.PendingCallActions
     let queue = ctx.ActionQueue
@@ -288,6 +290,14 @@ module internal CFGRecoveryCommon =
     elif isGetPCThunk ctx srcBBL calleeAddr then
       scanBBLsAndConnect ctx cfgRec srcVertex calleeAddr InterJmpEdge
       |> toCFGResult
+    (* If an address 0 is encountered (i.e., call 0) and the binary is
+       statically linked, it is likely that this block is unreachable but left
+       in the binary. *)
+    elif isStaticallyLinked ctx && calleeAddr = 0x0UL then
+      (* We treat this call as an indirect call to an unknown function. *)
+      addCallerVertex ctx callsite srcVertex
+      pushAction ctx <| MakeIndCall(callsite)
+      MoveOn
     elif isExecutableAddr ctx calleeAddr then
       let fnAddr = ctx.FunctionAddress
       let actionQueue = ctx.ActionQueue
