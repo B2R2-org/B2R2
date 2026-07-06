@@ -282,6 +282,9 @@ module private BitVector = begin
     /// Floating point less than or equal.
     abstract FLe: IBV -> IBV
 
+    /// Floating point equal.
+    abstract FEq: IBV -> IBV
+
     /// Returns the string representation of the BitVector value. Type is not
     /// appended to the output string.
     abstract ToValueString: unit -> string
@@ -869,6 +872,19 @@ module private BitVector = begin
           if v1 <= v2 then Value.T else Value.F
         | _ -> raise InvalidRegTypeException
 
+      member this.FEq rhs =
+        if len <> rhs.Length then raise RegTypeMismatchException else ()
+        match len with
+        | 32<rt> ->
+          let v1 = this.Value |> toFloat32
+          let v2 = rhs.SmallValue |> toFloat32
+          if v1 = v2 then Value.T else Value.F
+        | 64<rt> ->
+          let v1 = this.Value |> toFloat64
+          let v2 = rhs.SmallValue |> toFloat64
+          if v1 = v2 then Value.T else Value.F
+        | _ -> raise InvalidRegTypeException
+
       member _.ToValueString() = HexString.ofUInt64 n
 
       member _.IsPositive() = isSmallPositive len n
@@ -1344,6 +1360,15 @@ module private BitVector = begin
           if v1 <= v2 then Value.T else Value.F
         | _ -> raise InvalidRegTypeException
 
+      member this.FEq rhs =
+        if len <> rhs.Length then raise RegTypeMismatchException else ()
+        match len with
+        | 80<rt> ->
+          let v1 = this.Value |> toBigFloat
+          let v2 = rhs.BigValue |> toBigFloat
+          if v1 = v2 then Value.T else Value.F
+        | _ -> raise InvalidRegTypeException
+
       member _.ToValueString() =
         if n = 0I then "0x0"
         else "0x" + n.ToString("x").TrimStart('0')
@@ -1765,6 +1790,9 @@ type BitVector private(bv: IBV) =
 
   /// Compares two BitVectors as floating point numbers for less than or equal.
   static member FLe(v1: BitVector, v2: BitVector) = v1.V.FLe v2.V |> BitVector
+
+  /// Compares two BitVectors as floating point numbers for equality.
+  static member FEq(v1: BitVector, v2: BitVector) = v1.V.FEq v2.V |> BitVector
 
   /// Adds a BitVector and a uint64 value.
   static member (+) (v1: BitVector, v2: uint64) = v1.V.Add v2 |> BitVector

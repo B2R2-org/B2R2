@@ -78,6 +78,7 @@ module internal ValueOptimizer =
     | RelOpType.FLE -> BitVector.FLe(n1, n2)
     | RelOpType.FGT -> BitVector.FGt(n1, n2)
     | RelOpType.FGE -> BitVector.FGe(n1, n2)
+    | RelOpType.FEQ -> BitVector.FEq(n1, n2)
     | _ -> Terminator.impossible ()
 
   let inline cast t n = function
