@@ -3559,8 +3559,15 @@ let parseOprOfVCVT (ins: Instruction) bld =
     (* VCVT (between double-precision and single-precision) *)
     | _ ->
       let struct (dst, src) = transTwoOprs ins bld
-      let struct (kind, size) = vcvtCastKind ins.SIMDTyp
-      bld <+ (dst := AST.cast kind size src)
+      match ins.SIMDTyp with
+      | Some(TwoDT(SIMDTypU32, SIMDTypF32))
+      | Some(TwoDT(SIMDTypU32, SIMDTypF64)) ->
+        (* LowUIR has no unsigned float-to-int cast; widen to a signed 64-bit
+           integer (values in [0, 2^32) are exact) and keep the low 32 bits. *)
+        bld <+ (dst := AST.xtlo 32<rt> (AST.cast CastKind.FtoITrunc 64<rt> src))
+      | _ ->
+        let struct (kind, size) = vcvtCastKind ins.SIMDTyp
+        bld <+ (dst := AST.cast kind size src)
   | _ -> raise InvalidOperandException
 
 let vcvt (ins: Instruction) insLen bld =
