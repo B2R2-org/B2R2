@@ -424,7 +424,7 @@ module OperandParsingHelper =
       ((~~~(pickBit imm8 6) &&& 0b1u) |> int64 <<< ((e - 3) + 2)) +
       ((replicate (pickBit imm8 6 |> int64) 1 n) <<< 2) +
       ((extract imm8 5 4) |> int64)
-    let frac = (extract imm8 3 0) <<< (f - 4) |> int64
+    let frac = ((extract imm8 3 0) |> int64) <<< (f - 4)
     (sign <<< (e + f)) + (exp <<< f) + frac
 
   /// aarch32/functions/common/A32ExpandImm_C on page J1-7766.
