@@ -38,6 +38,41 @@ module private Parser =
   let parseThumb span phlp (itstate: byref<byte list>) =
     ThumbParser.parse span phlp &itstate
 
+  /// One ITAdvance step: shifts IT[4:0] left, returning 0 once the block ends
+  /// (IT[2:0] = 0 marks the last instruction).
+  let itAdvance (st: byte) =
+    if st &&& 0b111uy = 0uy then 0uy
+    else (st &&& 0b11100000uy) ||| ((st &&& 0b11111uy) <<< 1) &&& 0b11111uy
+
+  /// Walks ITAdvance from a packed ITSTATE byte, prepending IT[7:4] at each
+  /// step, until IT[3:0] = 0 marks the end of the block.
+  let rec unfoldITState st acc =
+    if st &&& 0b1111uy = 0uy then List.rev acc
+    else unfoldITState (itAdvance st) (((st >>> 4) &&& 0b1111uy) :: acc)
+
+  /// Reconstructs the remaining per-instruction condition list from a packed
+  /// ARM ITSTATE byte (IT[7:0]), the same encoding CPSR/APSR holds: it walks
+  /// ITAdvance, emitting IT[7:4] as each instruction's condition. An out-of-IT
+  /// value (IT[3:0] = 0) yields the empty list.
+  let unpackITState (it: byte) = unfoldITState it []
+
+  /// Packs the remaining per-instruction condition list back into IT[7:0]: the
+  /// head's high bits give IT[7:5], each condition's low bit gives IT[4],
+  /// IT[3], ... in turn, and a terminating 1 marks the block's remaining
+  /// length. Inverse of unpackITState; [] packs to 0 (not in an IT block).
+  let packITState (conds: byte list) =
+    match conds with
+    | [] -> 0uy
+    | c0 :: _ ->
+      let k = List.length conds
+      let hi = (c0 &&& 0b1110uy) <<< 4
+      let mutable m = 0uy
+      conds |> List.iteri (fun i c ->
+        if c &&& 1uy = 1uy then m <- m ||| (1uy <<< (4 - i))
+        else ()
+      )
+      hi ||| (m &&& 0b11111uy) ||| (1uy <<< (4 - k))
+
 /// Represents a parser for 32-bit ARM instructions.
 type ARM32Parser(isa: ISA, isThumb, reader) =
 
@@ -367,6 +402,9 @@ type ARM32Parser(isa: ISA, isThumb, reader) =
 
   interface IModeSwitchable with
     member _.IsThumb with get() = isThumb and set v = isThumb <- v
+    member _.ITState
+      with get() = Parser.packITState itstate
+      and set v = itstate <- Parser.unpackITState v
 
   interface IInstructionParsable with
     member _.MaxInstructionSize = 4
@@ -385,3 +423,8 @@ type ARM32Parser(isa: ISA, isThumb, reader) =
 and IModeSwitchable =
   /// Will this parser return Thumb instructions or ARM instructions?
   abstract IsThumb: bool with get, set
+
+  /// ITState is a byte that represents the current state of the IT (If-Then)
+  /// block in Thumb mode. It is used to determine how many instructions are
+  /// left in the IT block and what their conditions are.
+  abstract ITState: byte with get, set

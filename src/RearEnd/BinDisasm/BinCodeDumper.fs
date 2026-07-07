@@ -51,7 +51,8 @@ type BinCodeDumper(hdl, isTable, showSymbol, showColor, dumpMode) =
       liftingUnit.Parser :?> ARM32.IModeSwitchable
     else
       { new ARM32.IModeSwitchable with
-          member _.IsThumb with get() = false and set _ = () }
+          member _.IsThumb with get() = false and set _ = ()
+          member _.ITState with get() = 0uy and set _ = () }
 
   let fnSymbols =
     if isTable then FunctionSymbols.ofLinkageTable hdl
