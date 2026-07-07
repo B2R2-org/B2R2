@@ -3160,6 +3160,15 @@ let vmrs ins insLen bld =
   putEndLabel bld lblIgnore
   bld --!> insLen
 
+let vmsr ins insLen bld =
+  let struct (fpscr, rt) = transTwoOprs ins bld
+  let isUnconditional = ParseUtils.isUnconditional ins.Condition
+  bld <!-- (ins.Address, insLen)
+  let lblIgnore = checkCondition ins bld isUnconditional
+  bld <+ (fpscr := rt)
+  putEndLabel bld lblIgnore
+  bld --!> insLen
+
 let vcmp ins insLen bld =
   let struct (op1, op2) = transTwoOprs ins bld
   let fpscr = regVar bld R.FPSCR
@@ -5471,9 +5480,13 @@ let translate (ins: Instruction) insLen bld =
   | Op.VCLT -> vclt ins insLen bld
   | Op.VCLZ -> vclz ins insLen bld
   | Op.VCMLA -> sideEffects ins insLen bld UnsupportedInstruction
-  | Op.VACGE | Op.VACGT | Op.VACLE | Op.VACLT | Op.VCVTR
-  | Op.VFMA | Op.VFMS | Op.VFNMA | Op.VFNMS | Op.VMSR ->
+  | Op.VACGE | Op.VACGT | Op.VACLE | Op.VACLT | Op.VCVTR ->
     sideEffects ins insLen bld UnsupportedInstruction
+  | Op.VFMA -> vfpMulAcc ins insLen bld (fun _ d p -> AST.fadd d p)
+  | Op.VFMS -> vfpMulAcc ins insLen bld (fun _ d p -> AST.fsub d p)
+  | Op.VFNMA ->
+    vfpMulAcc ins insLen bld (fun sz d p -> fpNegBits sz (AST.fadd d p))
+  | Op.VFNMS -> vfpMulAcc ins insLen bld (fun _ d p -> AST.fsub p d)
   | Op.VNMUL -> vfpMulAcc ins insLen bld (fun sz _ p -> fpNegBits sz p)
   | Op.VNMLA ->
     vfpMulAcc ins insLen bld (fun sz d p -> fpNegBits sz (AST.fadd d p))
@@ -5508,6 +5521,7 @@ let translate (ins: Instruction) insLen bld =
   | Op.VMOV -> vmov ins insLen bld
   | Op.VMOVN -> vmovn ins insLen bld
   | Op.VMRS -> vmrs ins insLen bld
+  | Op.VMSR -> vmsr ins insLen bld
   | Op.VMUL when isF16orF32orF64 ins.SIMDTyp -> vmul ins insLen bld AST.fmul
   | Op.VMUL -> vmul ins insLen bld (.*)
   | Op.VMULL -> vmull ins insLen bld
