@@ -3145,7 +3145,7 @@ module LinuxSyscall =
     | LinuxSyscall.Splice -> 76
     | LinuxSyscall.Tee -> 77
     | LinuxSyscall.Readlinkat -> 78
-    | LinuxSyscall.Fstatat64 -> 79
+    | LinuxSyscall.Newfstatat -> 79
     | LinuxSyscall.Fstat -> 80
     | LinuxSyscall.Sync -> 81
     | LinuxSyscall.Fsync -> 82
@@ -6022,7 +6022,7 @@ module LinuxSyscall =
     | 76 -> LinuxSyscall.Splice
     | 77 -> LinuxSyscall.Tee
     | 78 -> LinuxSyscall.Readlinkat
-    | 79 -> LinuxSyscall.Fstatat64
+    | 79 -> LinuxSyscall.Newfstatat
     | 80 -> LinuxSyscall.Fstat
     | 81 -> LinuxSyscall.Sync
     | 82 -> LinuxSyscall.Fsync
