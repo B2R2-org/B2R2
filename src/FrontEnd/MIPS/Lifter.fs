@@ -2094,22 +2094,23 @@ let loadLeftRight ins insLen bld memShf regShf amtOp oprSz =
   let rt, mem = getTwoOprs ins
   let baseOffset = transOprToBaseOffset bld mem
   let rt = transOprToExpr ins bld rt
-  let rRt, baseOffset =
-    if oprSz = 32<rt> then
-      if is32Bit bld then rt, baseOffset
-      else AST.xtlo 32<rt> rt, AST.xtlo 32<rt> baseOffset
-    else rt, baseOffset
-  let struct (vaddr0To2, t1, t2, t3) = tmpVars4 bld oprSz
-  let mask = numI32 (((int oprSz) >>> 3) - 1) oprSz
-  let inline loadBaseAddr oprSz baseOffset =
-    let maskLoad = if oprSz = 64<rt> then 0xFFFFFFF8 else 0xFFFFFFFC
-    AST.loadLE oprSz (baseOffset .& numI32 maskLoad oprSz)
+  let rRt =
+    if oprSz = 32<rt> && not (is32Bit bld) then AST.xtlo 32<rt> rt else rt
+  let baseOff = tmpVar bld bld.RegType
+  let maskLd = if oprSz = 64<rt> then 0xFFFFFFF8 else 0xFFFFFFFC
+  let struct (t1, t2, t3) = tmpVars3 bld oprSz
+  let baseMask = tmpVar bld bld.RegType
+  let mask = numI32 (((int oprSz) >>> 3) - 1) bld.RegType
+  let mask32 = numI32 (((int oprSz) >>> 3) - 1) oprSz
+  let vaddr0To2 = (baseOff .& mask) <+> (transBigEndianCPU bld bld.RegType)
+  let baseAddress = AST.loadLE oprSz baseMask
   bld <!-- (ins.Address, insLen)
-  bld <+ (t1 := baseOffset)
-  bld <+ (vaddr0To2 := t1 .& mask <+> (transBigEndianCPU bld oprSz))
-  bld <+ (t2 := ((amtOp vaddr0To2 mask) .+ AST.num1 oprSz) .* numI32 8 oprSz)
-  bld <+ (t3 := (amtOp (mask .- vaddr0To2) mask) .* numI32 8 oprSz)
-  let result = shifterLoad memShf regShf rRt t2 t3 (loadBaseAddr oprSz t1)
+  bld <+ (baseOff := baseOffset)
+  bld <+ (baseMask := baseOff .& numI32 maskLd bld.RegType)
+  bld <+ (t1 := if is32Bit bld then vaddr0To2 else AST.xtlo oprSz vaddr0To2)
+  bld <+ (t2 := ((amtOp t1 mask32) .+ AST.num1 oprSz) .* numI32 8 oprSz)
+  bld <+ (t3 := (amtOp (mask32 .- t1) mask32) .* numI32 8 oprSz)
+  let result = shifterLoad memShf regShf rRt t2 t3 baseAddress
   bld <+ (rt := if is32Bit bld then result else result |> AST.sext 64<rt>)
   advancePC bld insLen
 
