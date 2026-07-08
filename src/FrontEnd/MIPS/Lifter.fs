@@ -814,6 +814,10 @@ let clz ins insLen bld =
   let lblEnd = label bld "End"
   let wordSz = bld.RegType
   let rd, rs = getTwoOprs ins |> transTwoOprs ins bld
+  (* CLZ counts leading zeros of the 32-bit word, so on a 64-bit machine it must
+     look at the low 32 bits only -- zero-extend them so upper bits (e.g. a
+     sign-extended negative word) do not skew the scan. *)
+  let rs = if is32Bit bld then rs else AST.zext wordSz (AST.xtlo 32<rt> rs)
   let t = tmpVar bld wordSz
   let n31 = numI32 31 wordSz
   bld <!-- (ins.Address, insLen)

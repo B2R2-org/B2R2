@@ -30,6 +30,7 @@ open B2R2.BinIR
 open B2R2.BinIR.LowUIR
 open B2R2.BinIR.LowUIR.AST.InfixOp
 open B2R2.FrontEnd.BinLifter
+open B2R2.FrontEnd.BinLifter.LiftingUtils
 open B2R2.FrontEnd.MIPS
 open type Register
 
@@ -73,6 +74,30 @@ type LifterTests() =
           AST.lmark lblL1
           !.R1 := AST.sext 64<rt> <| AST.xtlo 32<rt> (!.R1 .+ !.R2)
           AST.lmark lblEnd |]
+    |> test isa
+
+  [<TestMethod>]
+  member _.``[MIPS64] CLZ scans only the low 32-bit word``() =
+    let isa = ISA(Architecture.MIPS, Endian.Big, WordSize.Bit64)
+    let regFactory = RegisterFactory isa :> IRegisterFactory
+    let ( !. ) name = Register.toRegID name |> regFactory.GetRegVar
+    let stream = LowUIRStream()
+    let lblLoop = stream.NewLabel "Loop"
+    let lblCont = stream.NewLabel "Continue"
+    let lblEnd = stream.NewLabel "End"
+    let t = AST.tmpvar 64<rt> 1
+    let rs = AST.zext 64<rt> (AST.xtlo 32<rt> !.R1)
+    "70221020"
+    ++ [| t := numI32 31 64<rt>
+          AST.lmark lblLoop
+          AST.cjmp (rs >> t == AST.num1 64<rt>)
+                   (AST.jmpDest lblEnd) (AST.jmpDest lblCont)
+          AST.lmark lblCont
+          t := t .- AST.num1 64<rt>
+          AST.cjmp (t == numI32 -1 64<rt>)
+                   (AST.jmpDest lblEnd) (AST.jmpDest lblLoop)
+          AST.lmark lblEnd
+          !.R2 := numI32 31 64<rt> .- t |]
     |> test isa
 
   [<TestMethod>]
