@@ -2194,27 +2194,19 @@ let fcvtdotddots ins insLen bld =
 
 let lr ins insLen bld =
   let rd, mem, _ = getThreeOprs ins |> transThreeOprs ins bld
-  let addr, size = getAddrFromMemAndSize mem
   bld <!-- (ins.Address, insLen)
-  bld <+ (AST.extCall <| AST.app "Acquire" [ addr; size ] 64<rt>)
+  bld <+ (AST.sideEffect AtomicBegin)
   bld <+ (rd := AST.sext 64<rt> mem)
+  bld <+ (AST.sideEffect AtomicEnd)
   bld --!> insLen
 
 let sc ins insLen bld oprSz =
   let rd, rs2, mem, _ = getFourOprs ins |> transFourOprs ins bld
-  let addr, size = getAddrFromMemAndSize mem
-  let rc = regVar bld R.RC
-  let lblRelease = label bld "Release"
-  let lblEnd = label bld "End"
   bld <!-- (ins.Address, insLen)
-  bld <+ (rd := AST.num1 64<rt>)
-  bld <+ (AST.extCall <| AST.app "IsAcquired" [ addr; size ] 64<rt>)
-  bld <+ (AST.cjmp rc (AST.jmpDest lblRelease) (AST.jmpDest lblEnd))
-  bld <+ (AST.lmark lblRelease)
-  bld <+ (AST.extCall <| AST.app "Release" [ addr; size ] 64<rt>)
+  bld <+ (AST.sideEffect AtomicBegin)
   bld <+ (mem := AST.xtlo oprSz rs2)
-  bld <+ (rd := AST.num0 64<rt>)
-  bld <+ (AST.lmark lblEnd)
+  bld <+ (rd := AST.num0 64<rt>) (* single hart: reservation always holds *)
+  bld <+ (AST.sideEffect AtomicEnd)
   bld --!> insLen
 
 let translate (ins: Instruction) insLen bld =
