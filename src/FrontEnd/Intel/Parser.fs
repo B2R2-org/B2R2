@@ -401,6 +401,12 @@ type IntelParser(wordSz, reader) =
     | RMBcst(regSz, memSz, bcstSz) ->
       setupOprContextWithEffAddr phlp regSz memSz
       OperandParsers.parseMemOrReg modRM span phlp
+    | RMEr(regSz, memSz) | RMSae(regSz, memSz) ->
+      setupOprContextWithEffAddr phlp regSz memSz
+      OperandParsers.parseMemOrReg modRM span phlp
+    | RMBcstEr(regSz, memSz, _) | RMBcstSae(regSz, memSz, _) ->
+      setupOprContextWithEffAddr phlp regSz memSz
+      OperandParsers.parseMemOrReg modRM span phlp
     | Reg(sz, OprRegType.OpRd) -> (* Opcode[2:0] contains the operand. *)
       setupOprContextWithEffAddr phlp sz sz
       let regBit = Operands.getRM (uint8 ic.OpcodeByte)
@@ -422,6 +428,10 @@ type IntelParser(wordSz, reader) =
         let regBit = phlp.ReadByte span >>> 4 &&& 0b1111uy |> int
         OperandParsers.findRegRBits sz phlp.REXPrefix regBit |> OprReg
       | OprRegType.Unused -> failwith "Unused OprRegType." (* FixedReg *)
+    | RegSae sz ->
+      setupOprContextWithEffAddr phlp sz sz
+      OperandParsers.findRegRBits sz phlp.REXPrefix (Operands.getReg modRM)
+      |> OprReg
     | Mem 0<rt> when ic.Opcode = Opcode.LDDQU ->
       setupOprContextWithEffAddr phlp 128<rt> 128<rt>
       OperandParsers.parseMemory modRM span phlp
@@ -491,6 +501,11 @@ type IntelParser(wordSz, reader) =
     | Moffs sz ->
       setupOprContextWithEffAddr phlp sz sz
       OperandParsers.parseOprOnlyDisp span phlp
+    | CtrlReg ->
+      let r = Operands.getReg modRM
+      let r = if REXPrefix.hasR phlp.REXPrefix then r + 8 else r
+      OperandParsers.parseControlReg r
+    | DebugReg -> OperandParsers.parseDebugReg (Operands.getReg modRM)
     | Sreg -> OperandParsers.parseSegReg (Operands.getReg modRM)
     | Far sz -> // XXX
       let effAddrSz = ParsingHelper.GetEffAddrSize phlp
