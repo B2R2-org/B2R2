@@ -1444,9 +1444,10 @@ let mAddSub (ins: Instruction) insLen bld opFn =
       bld <+ (hi := AST.xthi 32<rt> result)
       bld <+ (lo := AST.xtlo 32<rt> result)
     else
-      let mask = numU32 0xFFFFu 64<rt>
       let hilo = AST.concat (AST.xtlo 32<rt> hi) (AST.xtlo 32<rt> lo)
-      bld <+ (result := op hilo ((rs .& mask) .* (rt .& mask)))
+      let rs = AST.sext 64<rt> (AST.xtlo 32<rt> rs)
+      let rt = AST.sext 64<rt> (AST.xtlo 32<rt> rt)
+      bld <+ (result := op hilo (rs .* rt))
       bld <+ (hi := signExtHi64 result)
       bld <+ (lo := signExtLo64 result)
   | Some Fmt.PS | Some Fmt.D ->
@@ -1476,9 +1477,10 @@ let mAdduSubu ins insLen bld opFn =
     bld <+ (hi := AST.xthi 32<rt> result)
     bld <+ (lo := AST.xtlo 32<rt> result)
   else
-    let mask = numU32 0xFFFFu 64<rt>
     let hilo = AST.concat (AST.xtlo 32<rt> hi) (AST.xtlo 32<rt> lo)
-    bld <+ (result := op hilo ((rs .& mask) .* (rt .& mask)))
+    let rs = AST.zext 64<rt> (AST.xtlo 32<rt> rs)
+    let rt = AST.zext 64<rt> (AST.xtlo 32<rt> rt)
+    bld <+ (result := op hilo (rs .* rt))
     bld <+ (hi := AST.xthi 32<rt> result |> AST.zext 64<rt>)
     bld <+ (lo := AST.xtlo 32<rt> result |> AST.zext 64<rt>)
   advancePC bld insLen
