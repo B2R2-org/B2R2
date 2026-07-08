@@ -42,7 +42,7 @@ module private Parser =
   /// (IT[2:0] = 0 marks the last instruction).
   let itAdvance (st: byte) =
     if st &&& 0b111uy = 0uy then 0uy
-    else (st &&& 0b11100000uy) ||| ((st &&& 0b11111uy) <<< 1) &&& 0b11111uy
+    else (st &&& 0b11100000uy) ||| (((st &&& 0b11111uy) <<< 1) &&& 0b11111uy)
 
   /// Walks ITAdvance from a packed ITSTATE byte, prepending IT[7:4] at each
   /// step, until IT[3:0] = 0 marks the end of the block.
