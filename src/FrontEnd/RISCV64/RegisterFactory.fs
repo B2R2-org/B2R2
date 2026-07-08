@@ -278,9 +278,9 @@ type RegisterFactory(isa: ISA) =
 
     member _.ProgramCounter = Register.PC |> Register.toRegID
 
-    member _.StackPointer = Register.X30 |> Register.toRegID |> Some
+    member _.StackPointer = Register.X2 |> Register.toRegID |> Some
 
-    member _.FramePointer = Register.X29 |> Register.toRegID |> Some
+    member _.FramePointer = Register.X8 |> Register.toRegID |> Some
 
     member _.GetRegVar rid =
       match Register.ofRegID rid with
