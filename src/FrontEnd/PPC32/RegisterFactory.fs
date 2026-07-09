@@ -139,11 +139,12 @@ type RegisterFactory(isa: ISA) =
   let ctr = AST.var rt (Register.toRegID CTR) "CTR"
   let pvr = AST.var 32<rt> (Register.toRegID PVR) "PVR"
   let res = AST.var 1<rt> (Register.toRegID RES) "RES"
+  let iar = AST.pcvar rt "IAR"
 
   interface IRegisterFactory with
     member _.ISA = isa
 
-    member _.ProgramCounter = Terminator.futureFeature ()
+    member _.ProgramCounter = IAR |> Register.toRegID
 
     member _.StackPointer = R1 |> Register.toRegID |> Some
 
@@ -253,6 +254,7 @@ type RegisterFactory(isa: ISA) =
       | Register.CTR -> ctr
       | Register.PVR -> pvr
       | Register.RES -> res
+      | Register.IAR -> iar
       | _ -> raise InvalidRegisterException
 
     member _.GetRegVar(name: string) =
@@ -353,6 +355,7 @@ type RegisterFactory(isa: ISA) =
       | "cr7_1" -> cr71
       | "cr7_2" -> cr72
       | "cr7_3" -> cr73
+      | "iar" -> iar
       | _ -> raise InvalidRegisterException
 
     member _.GetPseudoRegVar(_id, _idx) = Terminator.impossible ()
@@ -509,7 +512,8 @@ type RegisterFactory(isa: ISA) =
       if rid < 0x40<RegisterID.T> then WordSize.toRegType isa.WordSize
       else 4<rt>
 
-    member _.IsProgramCounter _ = false
+    member this.IsProgramCounter regid =
+      (this :> IRegisterFactory).ProgramCounter = regid
 
     member _.IsStackPointer rid = Register.toRegID R1 = rid
 

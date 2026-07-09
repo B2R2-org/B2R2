@@ -184,6 +184,8 @@ type Register =
   | PVR = 0x74
   /// Pseudo register for Reserve.
   | RES = 0x75
+  /// Instruction address register, i.e., the program counter (pseudo-register).
+  | IAR = 0x76
 
 /// Provides functions to handle PPC32 registers.
 module Register =
@@ -301,6 +303,7 @@ module Register =
     | "cr7_2" -> Register.CR7_2
     | "cr7_3" -> Register.CR7_3
     | "res" -> Register.RES
+    | "iar" -> Register.IAR
     | _ -> Terminator.impossible ()
 
   /// Returns the register ID of a PPC32 register.
@@ -417,4 +420,5 @@ module Register =
     | Register.CR7_2 -> "cr7_2"
     | Register.CR7_3 -> "cr7_3"
     | Register.RES -> "res"
+    | Register.IAR -> "iar"
     | _ -> Terminator.impossible ()
