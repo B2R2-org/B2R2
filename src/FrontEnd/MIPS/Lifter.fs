@@ -430,18 +430,24 @@ let private mul64BitReg src1 src2 bld isSign =
   let struct (hiSrc1, loSrc1, hiSrc2, loSrc2) = tmpVars4 bld 64<rt>
   let struct (tHigh, tLow) = tmpVars2 bld 64<rt>
   let struct (src1IsNeg, src2IsNeg, signBit) = tmpVars3 bld 1<rt>
+  (* Absolute values go into temporaries; writing them back to src1/src2
+     would clobber the source registers, which a later instruction reusing
+     the same register (e.g. a shared magic constant) then reads corrupted. *)
+  let struct (aSrc1, aSrc2) = tmpVars2 bld 64<rt>
   let n32 = numI32 32 64<rt>
   let mask32 = numI64 0xFFFFFFFFL 64<rt>
   if isSign then
     bld <+ (src1IsNeg := AST.xthi 1<rt> src1)
     bld <+ (src2IsNeg := AST.xthi 1<rt> src2)
-    bld <+ (src1 := AST.ite src1IsNeg (AST.neg src1) src1)
-    bld <+ (src2 := AST.ite src2IsNeg (AST.neg src2) src2)
-  else ()
-  bld <+ (hiSrc1 := (src1 >> n32) .& mask32) (* SRC1[63:32] *)
-  bld <+ (loSrc1 := src1 .& mask32) (* SRC1[31:0] *)
-  bld <+ (hiSrc2 := (src2 >> n32) .& mask32) (* SRC2[63:32] *)
-  bld <+ (loSrc2 := src2 .& mask32) (* SRC2[31:0] *)
+    bld <+ (aSrc1 := AST.ite src1IsNeg (AST.neg src1) src1)
+    bld <+ (aSrc2 := AST.ite src2IsNeg (AST.neg src2) src2)
+  else
+    bld <+ (aSrc1 := src1)
+    bld <+ (aSrc2 := src2)
+  bld <+ (hiSrc1 := (aSrc1 >> n32) .& mask32) (* SRC1[63:32] *)
+  bld <+ (loSrc1 := aSrc1 .& mask32) (* SRC1[31:0] *)
+  bld <+ (hiSrc2 := (aSrc2 >> n32) .& mask32) (* SRC2[63:32] *)
+  bld <+ (loSrc2 := aSrc2 .& mask32) (* SRC2[31:0] *)
   let pHigh = hiSrc1 .* hiSrc2
   let pMid = (hiSrc1 .* loSrc2) .+ (loSrc1 .* hiSrc2)
   let pLow = loSrc1 .* loSrc2
