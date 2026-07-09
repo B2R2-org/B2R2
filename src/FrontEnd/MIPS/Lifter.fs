@@ -486,6 +486,9 @@ let abs ins insLen bld =
     let resA = (AST.xtlo 32<rt> fs) .& mask
     let resB = (AST.xthi 32<rt> fs) .& mask
     bld <+ (fd := AST.concat resB resA)
+  | Some Fmt.S ->
+    let fd, fs = transTwoSingleFP bld (fd, fs)
+    bld <+ (fd := fs .& numU64 0x7FFFFFFFUL 32<rt>)
   | _ ->
     let fd, fs = transTwoOprs ins bld (fd, fs)
     let mask =
@@ -588,8 +591,9 @@ let andi ins insLen bld =
 let aui ins insLen bld =
   let rt, rs, imm = getThreeOprs ins |> transThreeOprs ins bld
   let imm = imm << numI32 16 bld.RegType
+  let result = if is32Bit bld then rs .+ imm else signExtLo64 (rs .+ imm)
   bld <!-- (ins.Address, insLen)
-  bld <+ (rt := rs .+ imm)
+  bld <+ (rt := result)
   advancePC bld insLen
 
 let b ins insLen (bld: LowUIRBuilder) =
@@ -1393,10 +1397,12 @@ let sldc1 ins insLen bld stORld =
   let memory = tmpVar bld 64<rt>
   bld <!-- (ins.Address, insLen)
   bld <+ (bOff := baseOffset)
-  bld <+ (memory := AST.loadLE 64<rt> bOff)
+  let loadMem =
+    if bld.Endianness = Endian.Little then AST.loadLE 64<rt> bOff
+    else AST.loadBE 64<rt> bOff
+  bld <+ (memory := loadMem)
   if stORld then
-    bld <+ (AST.loadLE 64<rt> bOff :=
-      if is32Bit bld then AST.concat ftB ftA else ftA)
+    bld <+ (loadMem := if is32Bit bld then AST.concat ftB ftA else ftA)
   else dstAssignForFP ftB ftA memory bld
   advancePC bld insLen
 
@@ -1717,6 +1723,9 @@ let neg ins insLen bld =
     let resA = (AST.xtlo 32<rt> fs) <+> mask
     let resB = (AST.xthi 32<rt> fs) <+> mask
     bld <+ (fd := AST.concat resB resA)
+  | Some Fmt.S ->
+    let fd, fs = transTwoSingleFP bld (fd, fs)
+    bld <+ (fd := fs <+> numU64 0x80000000UL 32<rt>)
   | _ ->
     let fd, fs = transTwoOprs ins bld (fd, fs)
     let mask =
