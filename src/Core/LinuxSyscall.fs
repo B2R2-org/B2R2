@@ -3060,7 +3060,70 @@ module LinuxSyscall =
     | LinuxSyscall.SchedSetattr -> 355
     | LinuxSyscall.SchedGetattr -> 356
     | LinuxSyscall.Renameat2 -> 357
+    | LinuxSyscall.Seccomp -> 358
+    | LinuxSyscall.Getrandom -> 359
     | LinuxSyscall.MemfdCreate -> 360
+    | LinuxSyscall.Bpf -> 361
+    | LinuxSyscall.Execveat -> 362
+    | LinuxSyscall.SwitchEndian -> 363
+    | LinuxSyscall.Userfaultfd -> 364
+    | LinuxSyscall.Membarrier -> 365
+    | LinuxSyscall.Mlock2 -> 378
+    | LinuxSyscall.CopyFileRange -> 379
+    | LinuxSyscall.Preadv2 -> 380
+    | LinuxSyscall.Pwritev2 -> 381
+    | LinuxSyscall.KexecFileLoad -> 382
+    | LinuxSyscall.Statx -> 383
+    | LinuxSyscall.PkeyAlloc -> 384
+    | LinuxSyscall.PkeyFree -> 385
+    | LinuxSyscall.PkeyMprotect -> 386
+    | LinuxSyscall.Rseq -> 387
+    | LinuxSyscall.IoPgetevents -> 388
+    | LinuxSyscall.Semget -> 393
+    | LinuxSyscall.Semctl -> 394
+    | LinuxSyscall.Shmget -> 395
+    | LinuxSyscall.Shmctl -> 396
+    | LinuxSyscall.Shmat -> 397
+    | LinuxSyscall.Shmdt -> 398
+    | LinuxSyscall.Msgget -> 399
+    | LinuxSyscall.Msgsnd -> 400
+    | LinuxSyscall.Msgrcv -> 401
+    | LinuxSyscall.Msgctl -> 402
+    | LinuxSyscall.ClockGettime64 -> 403
+    | LinuxSyscall.ClockSettime64 -> 404
+    | LinuxSyscall.ClockAdjtime64 -> 405
+    | LinuxSyscall.ClockGetres64 -> 406
+    | LinuxSyscall.ClockNanosleep64 -> 407
+    | LinuxSyscall.TimerGettime64 -> 408
+    | LinuxSyscall.TimerSettime64 -> 409
+    | LinuxSyscall.TimerfdGettime64 -> 410
+    | LinuxSyscall.TimerfdSettime64 -> 411
+    | LinuxSyscall.Utimensat64 -> 412
+    | LinuxSyscall.Pselect6_64 -> 413
+    | LinuxSyscall.Ppoll64 -> 414
+    | LinuxSyscall.IoPgetevents64 -> 416
+    | LinuxSyscall.Recvmmsg64 -> 417
+    | LinuxSyscall.MqTimedsend64 -> 418
+    | LinuxSyscall.MqTimedreceive64 -> 419
+    | LinuxSyscall.Semtimedop64 -> 420
+    | LinuxSyscall.RtSigtimedwait64 -> 421
+    | LinuxSyscall.Futex64 -> 422
+    | LinuxSyscall.SchedRrGetInterval64 -> 423
+    | LinuxSyscall.PidfdSendSignal -> 424
+    | LinuxSyscall.IoUringSetup -> 425
+    | LinuxSyscall.IoUringEnter -> 426
+    | LinuxSyscall.IoUringRegister -> 427
+    | LinuxSyscall.OpenTree -> 428
+    | LinuxSyscall.MoveMount -> 429
+    | LinuxSyscall.Fsopen -> 430
+    | LinuxSyscall.Fsconfig -> 431
+    | LinuxSyscall.Fsmount -> 432
+    | LinuxSyscall.Fspick -> 433
+    | LinuxSyscall.PidfdOpen -> 434
+    | LinuxSyscall.Clone3 -> 435
+    | LinuxSyscall.CloseRange -> 436
+    | LinuxSyscall.Openat2 -> 437
+    | LinuxSyscall.PidfdGetfd -> 438
     | LinuxSyscall.Faccessat2 -> 439
     | _ -> raise UnhandledSyscallException
 
@@ -5936,7 +5999,70 @@ module LinuxSyscall =
     | 355 -> LinuxSyscall.SchedSetattr
     | 356 -> LinuxSyscall.SchedGetattr
     | 357 -> LinuxSyscall.Renameat2
+    | 358 -> LinuxSyscall.Seccomp
+    | 359 -> LinuxSyscall.Getrandom
     | 360 -> LinuxSyscall.MemfdCreate
+    | 361 -> LinuxSyscall.Bpf
+    | 362 -> LinuxSyscall.Execveat
+    | 363 -> LinuxSyscall.SwitchEndian
+    | 364 -> LinuxSyscall.Userfaultfd
+    | 365 -> LinuxSyscall.Membarrier
+    | 378 -> LinuxSyscall.Mlock2
+    | 379 -> LinuxSyscall.CopyFileRange
+    | 380 -> LinuxSyscall.Preadv2
+    | 381 -> LinuxSyscall.Pwritev2
+    | 382 -> LinuxSyscall.KexecFileLoad
+    | 383 -> LinuxSyscall.Statx
+    | 384 -> LinuxSyscall.PkeyAlloc
+    | 385 -> LinuxSyscall.PkeyFree
+    | 386 -> LinuxSyscall.PkeyMprotect
+    | 387 -> LinuxSyscall.Rseq
+    | 388 -> LinuxSyscall.IoPgetevents
+    | 393 -> LinuxSyscall.Semget
+    | 394 -> LinuxSyscall.Semctl
+    | 395 -> LinuxSyscall.Shmget
+    | 396 -> LinuxSyscall.Shmctl
+    | 397 -> LinuxSyscall.Shmat
+    | 398 -> LinuxSyscall.Shmdt
+    | 399 -> LinuxSyscall.Msgget
+    | 400 -> LinuxSyscall.Msgsnd
+    | 401 -> LinuxSyscall.Msgrcv
+    | 402 -> LinuxSyscall.Msgctl
+    | 403 -> LinuxSyscall.ClockGettime64
+    | 404 -> LinuxSyscall.ClockSettime64
+    | 405 -> LinuxSyscall.ClockAdjtime64
+    | 406 -> LinuxSyscall.ClockGetres64
+    | 407 -> LinuxSyscall.ClockNanosleep64
+    | 408 -> LinuxSyscall.TimerGettime64
+    | 409 -> LinuxSyscall.TimerSettime64
+    | 410 -> LinuxSyscall.TimerfdGettime64
+    | 411 -> LinuxSyscall.TimerfdSettime64
+    | 412 -> LinuxSyscall.Utimensat64
+    | 413 -> LinuxSyscall.Pselect6_64
+    | 414 -> LinuxSyscall.Ppoll64
+    | 416 -> LinuxSyscall.IoPgetevents64
+    | 417 -> LinuxSyscall.Recvmmsg64
+    | 418 -> LinuxSyscall.MqTimedsend64
+    | 419 -> LinuxSyscall.MqTimedreceive64
+    | 420 -> LinuxSyscall.Semtimedop64
+    | 421 -> LinuxSyscall.RtSigtimedwait64
+    | 422 -> LinuxSyscall.Futex64
+    | 423 -> LinuxSyscall.SchedRrGetInterval64
+    | 424 -> LinuxSyscall.PidfdSendSignal
+    | 425 -> LinuxSyscall.IoUringSetup
+    | 426 -> LinuxSyscall.IoUringEnter
+    | 427 -> LinuxSyscall.IoUringRegister
+    | 428 -> LinuxSyscall.OpenTree
+    | 429 -> LinuxSyscall.MoveMount
+    | 430 -> LinuxSyscall.Fsopen
+    | 431 -> LinuxSyscall.Fsconfig
+    | 432 -> LinuxSyscall.Fsmount
+    | 433 -> LinuxSyscall.Fspick
+    | 434 -> LinuxSyscall.PidfdOpen
+    | 435 -> LinuxSyscall.Clone3
+    | 436 -> LinuxSyscall.CloseRange
+    | 437 -> LinuxSyscall.Openat2
+    | 438 -> LinuxSyscall.PidfdGetfd
     | 439 -> LinuxSyscall.Faccessat2
     | _ -> raise UnhandledSyscallException
 
