@@ -1150,11 +1150,8 @@ let div (ins: Instruction) insLen bld =
       bld <+ (hi :=
         (AST.sext 64<rt> rs ?% AST.sext 64<rt> rt) |> AST.xtlo 32<rt>)
     else
-      let mask = numI64 0xFFFFFFFFL 64<rt>
-      let q = (rs .& mask) ?/ (rt .& mask)
-      let r = (rs .& mask) ?% (rt .& mask)
-      bld <+ (lo := signExtLo64 q)
-      bld <+ (hi := signExtLo64 r)
+      bld <+ (lo := signExtLo64 (signExtLo64 rs ?/ signExtLo64 rt))
+      bld <+ (hi := signExtLo64 (signExtLo64 rs ?% signExtLo64 rt))
   | Some Fmt.D ->
     let fd, fs, ft = getThreeOprs ins
     let fdB, fdA = transOprToFPPair bld fd
@@ -1657,7 +1654,6 @@ let mult ins insLen bld =
   let rs, rt = getTwoOprs ins |> transTwoOprs ins bld
   let hi = regVar bld R.HI
   let lo = regVar bld R.LO
-  let mask = numI64 0xFFFFFFFFL 64<rt>
   let result = tmpVar bld 64<rt>
   bld <!-- (ins.Address, insLen)
   let struct (low, high) =
@@ -1665,7 +1661,7 @@ let mult ins insLen bld =
       bld <+ (result := AST.sext 64<rt> rs .* AST.sext 64<rt> rt)
       result |> AST.xtlo 32<rt>, result |> AST.xthi 32<rt>
     else
-      bld <+ (result := (rs .& mask) .* (rt .& mask))
+      bld <+ (result := signExtLo64 rs .* signExtLo64 rt)
       signExtLo64 result, signExtHi64 result
   bld <+ (lo := low)
   bld <+ (hi := high)
@@ -1850,7 +1846,9 @@ let storeLeftRight ins insLen bld memShf regShf amtOp oprSz =
   let mask = numI32 (((int oprSz) >>> 3) - 1) bld.RegType
   let mask32 = numI32 (((int oprSz) >>> 3) - 1) oprSz
   let vaddr0To2 = (baseOff .& mask) <+> (transBigEndianCPU bld bld.RegType)
-  let baseAddress = AST.loadLE oprSz baseMask
+  let baseAddress =
+    if bld.Endianness = Endian.Little then AST.loadLE oprSz baseMask
+    else AST.loadBE oprSz baseMask
   bld <!-- (ins.Address, insLen)
   bld <+ (baseOff := baseOffset)
   bld <+ (baseMask := baseOff .& numI32 maskLd bld.RegType)
@@ -2109,7 +2107,9 @@ let loadLeftRight ins insLen bld memShf regShf amtOp oprSz =
   let mask = numI32 (((int oprSz) >>> 3) - 1) bld.RegType
   let mask32 = numI32 (((int oprSz) >>> 3) - 1) oprSz
   let vaddr0To2 = (baseOff .& mask) <+> (transBigEndianCPU bld bld.RegType)
-  let baseAddress = AST.loadLE oprSz baseMask
+  let baseAddress =
+    if bld.Endianness = Endian.Little then AST.loadLE oprSz baseMask
+    else AST.loadBE oprSz baseMask
   bld <!-- (ins.Address, insLen)
   bld <+ (baseOff := baseOffset)
   bld <+ (baseMask := baseOff .& numI32 maskLd bld.RegType)

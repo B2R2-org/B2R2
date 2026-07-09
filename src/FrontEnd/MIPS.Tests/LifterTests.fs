@@ -101,6 +101,54 @@ type LifterTests() =
     |> test isa
 
   [<TestMethod>]
+  member _.``[MIPS64BE] LDL loads its base doubleword big-endian``() =
+    let isa = ISA(Architecture.MIPS, Endian.Big, WordSize.Bit64)
+    let regFactory = RegisterFactory isa :> IRegisterFactory
+    let ( !. ) name = Register.toRegID name |> regFactory.GetRegVar
+    let baseOff = AST.tmpvar 64<rt> 1
+    let vaddr = AST.tmpvar 64<rt> 2
+    let shR = AST.tmpvar 64<rt> 3
+    let shL = AST.tmpvar 64<rt> 4
+    let baseMask = AST.tmpvar 64<rt> 5
+    let n7 = numI32 7 64<rt>
+    let n8 = numI32 8 64<rt>
+    "68220000"
+    ++ [| baseOff := !.R1 .+ numI64 0L 64<rt>
+          baseMask := baseOff .& numI32 0xFFFFFFF8 64<rt>
+          vaddr := AST.xtlo 64<rt> ((baseOff .& n7) <+> n7)
+          shR := ((vaddr .& n7) .+ AST.num1 64<rt>) .* n8
+          shL := ((n7 .- vaddr) .& n7) .* n8
+          !.R2 := ((!.R2 << shR) >> shR)
+                  .| (AST.loadBE 64<rt> baseMask << shL) |]
+    |> test isa
+
+  [<TestMethod>]
+  member _.``[MIPS64] DIV sign-extends its operands``() =
+    let isa = ISA(Architecture.MIPS, Endian.Big, WordSize.Bit64)
+    let regFactory = RegisterFactory isa :> IRegisterFactory
+    let ( !. ) name = Register.toRegID name |> regFactory.GetRegVar
+    let sx e = AST.sext 64<rt> (AST.xtlo 32<rt> e)
+    "0022001a"
+    ++ [| !.R2 := AST.ite (!.R2 == numI64 0L 64<rt>)
+                          (AST.undef 64<rt> "UNPREDICTABLE") !.R2
+          !.LO := sx (sx !.R1 ?/ sx !.R2)
+          !.HI := sx (sx !.R1 ?% sx !.R2) |]
+    |> test isa
+
+  [<TestMethod>]
+  member _.``[MIPS64] MULT sign-extends its operands``() =
+    let isa = ISA(Architecture.MIPS, Endian.Big, WordSize.Bit64)
+    let regFactory = RegisterFactory isa :> IRegisterFactory
+    let ( !. ) name = Register.toRegID name |> regFactory.GetRegVar
+    let sx e = AST.sext 64<rt> (AST.xtlo 32<rt> e)
+    let t = AST.tmpvar 64<rt> 1
+    "00220018"
+    ++ [| t := sx !.R1 .* sx !.R2
+          !.LO := AST.sext 64<rt> (AST.xtlo 32<rt> t)
+          !.HI := AST.sext 64<rt> (AST.xthi 32<rt> t) |]
+    |> test isa
+
+  [<TestMethod>]
   member _.``[MIPS32] ADD lift test``() =
     let isa = ISA(Architecture.MIPS, Endian.Big, WordSize.Bit32)
     let regFactory = RegisterFactory isa :> IRegisterFactory
