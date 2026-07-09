@@ -186,6 +186,12 @@ type Register =
   | RES = 0x75
   /// Instruction address register, i.e., the program counter (pseudo-register).
   | IAR = 0x76
+  /// Pseudo register: the reserved address of a load-and-reserve (lwarx), for a
+  /// value-based exclusive-monitor model. See ExMonVal.
+  | ExMonAddr = 0x77
+  /// Pseudo register: the memory value at ExMonAddr when lwarx ran, so a later
+  /// stwcx. can tell whether the location was written in between.
+  | ExMonVal = 0x78
 
 /// Provides functions to handle PPC32 registers.
 module Register =
@@ -304,6 +310,8 @@ module Register =
     | "cr7_3" -> Register.CR7_3
     | "res" -> Register.RES
     | "iar" -> Register.IAR
+    | "exmonaddr" -> Register.ExMonAddr
+    | "exmonval" -> Register.ExMonVal
     | _ -> Terminator.impossible ()
 
   /// Returns the register ID of a PPC32 register.
@@ -421,4 +429,6 @@ module Register =
     | Register.CR7_3 -> "cr7_3"
     | Register.RES -> "res"
     | Register.IAR -> "iar"
+    | Register.ExMonAddr -> "exmonaddr"
+    | Register.ExMonVal -> "exmonval"
     | _ -> Terminator.impossible ()

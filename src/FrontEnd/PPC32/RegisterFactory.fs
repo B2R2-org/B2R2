@@ -140,6 +140,8 @@ type RegisterFactory(isa: ISA) =
   let pvr = AST.var 32<rt> (Register.toRegID PVR) "PVR"
   let res = AST.var 1<rt> (Register.toRegID RES) "RES"
   let iar = AST.pcvar rt "IAR"
+  let exMonAddr = AST.var rt (Register.toRegID ExMonAddr) "ExMonAddr"
+  let exMonVal = AST.var rt (Register.toRegID ExMonVal) "ExMonVal"
 
   interface IRegisterFactory with
     member _.ISA = isa
@@ -255,6 +257,8 @@ type RegisterFactory(isa: ISA) =
       | Register.PVR -> pvr
       | Register.RES -> res
       | Register.IAR -> iar
+      | Register.ExMonAddr -> exMonAddr
+      | Register.ExMonVal -> exMonVal
       | _ -> raise InvalidRegisterException
 
     member _.GetRegVar(name: string) =
@@ -356,6 +360,8 @@ type RegisterFactory(isa: ISA) =
       | "cr7_2" -> cr72
       | "cr7_3" -> cr73
       | "iar" -> iar
+      | "exmonaddr" -> exMonAddr
+      | "exmonval" -> exMonVal
       | _ -> raise InvalidRegisterException
 
     member _.GetPseudoRegVar(_id, _idx) = Terminator.impossible ()

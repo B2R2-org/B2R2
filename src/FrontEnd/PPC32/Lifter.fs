@@ -1216,10 +1216,13 @@ let lwarx ins insLen bld =
   let rd = transOpr bld o1
   let ea = transEAWithIndexReg o2 o3 bld
   let tmpEA = tmpVar bld 32<rt>
+  let tmpVal = tmpVar bld 32<rt>
   bld <!-- (ins.Address, insLen)
   bld <+ (tmpEA := ea)
-  bld <+ (AST.extCall <| AST.app "Reserve" [ tmpEA ] 32<rt>)
-  bld <+ (rd := loadNative bld 32<rt> tmpEA)
+  bld <+ (tmpVal := loadNative bld 32<rt> tmpEA)
+  bld <+ (regVar bld Register.ExMonAddr := tmpEA)
+  bld <+ (regVar bld Register.ExMonVal := tmpVal)
+  bld <+ (rd := tmpVal)
   bld --!> insLen
 
 let lwbrx ins insLen bld =
@@ -1850,28 +1853,21 @@ let stwcxdot ins insLen bld =
   let struct (o1, o2, o3) = getThreeOprs ins
   let rs = transOpr bld o1
   let ea = transEAWithIndexReg o2 o3 bld
-  let res = regVar bld Register.RES
   let xerSO = AST.xthi 1<rt> (regVar bld Register.XER)
   let cr0LT = regVar bld Register.CR0_0
   let cr0GT = regVar bld Register.CR0_1
   let cr0EQ = regVar bld Register.CR0_2
   let cr0SO = regVar bld Register.CR0_3
   bld <!-- (ins.Address, insLen)
-  let lblRes = label bld "Reserved"
-  let lblNoRes = label bld "NotReserved"
-  let lblEnd = label bld "End"
   let tmpEA = tmpVar bld 32<rt>
+  let cur = tmpVar bld 32<rt>
+  let matched = tmpVar bld 1<rt>
   bld <+ (tmpEA := ea)
-  bld <+ (AST.extCall <| AST.app "IsReserved" [ tmpEA ] 32<rt>)
-  bld <+ (AST.cjmp (res == AST.b1) (AST.jmpDest lblRes) (AST.jmpDest lblNoRes))
-  bld <+ (AST.lmark lblRes)
-  bld <+ (loadNative bld 32<rt> tmpEA := rs)
-  bld <+ (res := AST.b0)
-  bld <+ (cr0EQ := AST.b1)
-  bld <+ (AST.jmp (AST.jmpDest lblEnd))
-  bld <+ (AST.lmark lblNoRes)
-  bld <+ (cr0EQ := AST.b0)
-  bld <+ (AST.lmark lblEnd)
+  bld <+ (cur := loadNative bld 32<rt> tmpEA)
+  bld <+ (matched := (tmpEA == regVar bld Register.ExMonAddr)
+                     .& (cur == regVar bld Register.ExMonVal))
+  bld <+ (loadNative bld 32<rt> tmpEA := AST.ite matched rs cur)
+  bld <+ (cr0EQ := matched)
   bld <+ (cr0LT := AST.b0)
   bld <+ (cr0GT := AST.b0)
   bld <+ (cr0SO := xerSO)
