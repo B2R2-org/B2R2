@@ -4073,6 +4073,7 @@ let translate (ins: Instruction) insLen bld =
   | Opcode.CSINC | Opcode.CINC | Opcode.CSET -> csinc ins insLen bld addr
   | Opcode.CTZ -> ctz ins insLen bld addr
   | Opcode.DCZVA -> dczva ins insLen bld addr
+  | Opcode.CLREX
   | Opcode.DMB | Opcode.DSB | Opcode.ISB -> nop ins.Address insLen bld
   | Opcode.DUP -> dup ins insLen bld addr
   | Opcode.EOR | Opcode.EON -> eor ins insLen bld addr

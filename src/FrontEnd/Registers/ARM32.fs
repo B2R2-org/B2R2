@@ -444,6 +444,15 @@ type Register =
   | Q15A = 0xC9
   /// Q15B is the 2nd 64-bit chunk of Q15B.
   | Q15B = 0xCA
+  /// Pseudo register: the address a load-exclusive (LDREX) reserved, for the
+  /// value-based exclusive-monitor model. See ExMonVal.
+  | ExMonAddr = 0xCC
+  /// Pseudo register: the memory value at ExMonAddr when the load-exclusive
+  /// ran, so a later store-exclusive (STREX) can tell whether the location was
+  /// written in between. See ExMonAddr. CLREX is lifted as a no-op: under the
+  /// single-observer, per-thread reservation model a store-exclusive is already
+  /// governed by this value comparison, so there is no monitor to tear down.
+  | ExMonVal = 0xCD
 
 /// Provides functions to handle ARM32 registers.
 [<RequireQualifiedAccess>]
@@ -661,6 +670,8 @@ module Register =
     | "nsacr" -> Register.NSACR
     | "fpscr" -> Register.FPSCR
     | "tpidruro" -> Register.TPIDRURO
+    | "exmonaddr" -> Register.ExMonAddr
+    | "exmonval" -> Register.ExMonVal
     | _ -> Terminator.impossible ()
 
   /// Returns the register ID of an ARM32 register.
@@ -876,4 +887,6 @@ module Register =
     | Register.SPfiq -> "sp_fiq"
     | Register.LRfiq -> "lr_fiq"
     | Register.SPSRfiq -> "spsr_fiq"
+    | Register.ExMonAddr -> "exmonaddr"
+    | Register.ExMonVal -> "exmonval"
     | _ -> Terminator.impossible ()

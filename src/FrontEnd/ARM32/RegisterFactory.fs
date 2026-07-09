@@ -164,6 +164,10 @@ type RegisterFactory(isa: ISA) =
   (* SW thread ID register *)
   let tpidruro = AST.var 32<rt> (Register.toRegID TPIDRURO) "TPIDRURO"
 
+  (* Extra pseudo registers for the value-based exclusive monitor. *)
+  let exMonAddr = AST.var 32<rt> (Register.toRegID ExMonAddr) "ExMonAddr"
+  let exMonVal = AST.var 32<rt> (Register.toRegID ExMonVal) "ExMonVal"
+
   interface IRegisterFactory with
     member _.ISA = isa
 
@@ -263,6 +267,8 @@ type RegisterFactory(isa: ISA) =
       | R.NSACR -> nsacr
       | R.FPSCR -> fpscr
       | R.TPIDRURO -> tpidruro
+      | R.ExMonAddr -> exMonAddr
+      | R.ExMonVal -> exMonVal
       | _ -> raise InvalidRegisterException
 
     member _.GetRegVar name =

@@ -2191,20 +2191,43 @@ let fcvtdotddots ins insLen bld =
   bld <+ (rd := AST.cast CastKind.FloatCast 64<rt> rs1)
   bld --!> insLen
 
+/// Load-reserved (LR.W/LR.D): records an exclusive reservation -- the reserved
+/// address and the value read there -- so a later store-conditional can tell,
+/// by value comparison, whether the location was written in between.
 let lr ins insLen bld =
   let rd, mem, _ = getThreeOprs ins |> transThreeOprs ins bld
+  let addr = getAddrFromMem mem
+  let sz =
+    match mem with
+    | Load(_, sz, _, _) -> sz
+    | _ -> raise InvalidExprException
+  let v = tmpVar bld sz
   bld <!-- (ins.Address, insLen)
   bld <+ (AST.sideEffect AtomicBegin)
-  bld <+ (rd := AST.sext 64<rt> mem)
+  bld <+ (v := mem)
+  bld <+ (regVar bld R.ExMonAddr := addr)
+  bld <+ (regVar bld R.ExMonVal := AST.zext 64<rt> v)
+  bld <+ (rd := AST.sext 64<rt> v)
   bld <+ (AST.sideEffect AtomicEnd)
   bld --!> insLen
 
+/// Store-conditional (SC.W/SC.D): stores and reports success (rd = 0) only if
+/// the reservation still holds -- the address matches and memory still holds
+/// the reserved value; otherwise memory is left unchanged and it reports
+/// failure (rd = 1). The conditional store is a store of ite(matched, data,
+/// old), so no branch is emitted.
 let sc ins insLen bld oprSz =
   let rd, rs2, mem, _ = getFourOprs ins |> transFourOprs ins bld
+  let addr = getAddrFromMem mem
+  let cur = tmpVar bld oprSz
+  let matched = tmpVar bld 1<rt>
   bld <!-- (ins.Address, insLen)
   bld <+ (AST.sideEffect AtomicBegin)
-  bld <+ (mem := AST.xtlo oprSz rs2)
-  bld <+ (rd := AST.num0 64<rt>) (* single hart: reservation always holds *)
+  bld <+ (cur := mem)
+  bld <+ (matched := (addr == regVar bld R.ExMonAddr)
+                     .& (cur == AST.xtlo oprSz (regVar bld R.ExMonVal)))
+  bld <+ (mem := AST.ite matched (AST.xtlo oprSz rs2) cur)
+  bld <+ (rd := AST.ite matched (AST.num0 64<rt>) (AST.num1 64<rt>))
   bld <+ (AST.sideEffect AtomicEnd)
   bld --!> insLen
 

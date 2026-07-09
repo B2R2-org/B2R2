@@ -2562,19 +2562,65 @@ let str ins insLen bld size =
   putEndLabel bld lblIgnore
   bld --!> insLen
 
-let strex ins insLen bld size =
-  let struct (rd, rt, addr, writeback) = parseOprOfLDRD ins insLen bld
+/// Load-exclusive (LDREX/LDREXB/LDREXH, and the acquire forms LDAEX*): records
+/// an exclusive reservation -- the reserved address and the value read there --
+/// so a later store-exclusive can tell, by value comparison, whether the
+/// location was written in between. Under single-observer emulation this needs
+/// no external call and no per-store instrumentation.
+let ldrex ins insLen bld size =
+  let struct (rt, addr, _) = parseOprOfLDR ins insLen bld
   let isUnconditional = ParseUtils.isUnconditional ins.Condition
   bld <!-- (ins.Address, insLen)
   let lblIgnore = checkCondition ins bld isUnconditional
-  if rt = getPC bld then bld <+ (AST.loadLE 32<rt> addr := pcStoreValue bld)
-  elif size = 32<rt> then bld <+ (AST.loadLE 32<rt> addr := rt)
-  else bld <+ (AST.loadLE size addr := AST.xtlo size rt)
-  match writeback with
-  | Some(basereg, Some newoffset) -> bld <+ (basereg := newoffset)
-  | Some(basereg, None) -> bld <+ (basereg := addr)
-  | None -> ()
-  bld <+ (rd := AST.num0 32<rt>) (* XXX: always succeeds for now *)
+  let taddr = tmpVar bld 32<rt>
+  let raw = tmpVar bld size
+  bld <+ (taddr := addr)
+  bld <+ (raw := AST.loadLE size taddr)
+  bld <+ (regVar bld R.ExMonAddr := taddr)
+  bld <+ (regVar bld R.ExMonVal := AST.zext 32<rt> raw)
+  bld <+ (rt := AST.zext 32<rt> raw)
+  putEndLabel bld lblIgnore
+  bld --!> insLen
+
+/// Load-exclusive pair (LDREXD/LDAEXD): loads both words and reserves the
+/// block, recording the low word for a later store-exclusive pair to verify.
+let ldrexd ins insLen bld =
+  let struct (rt, rt2, addr, _) = parseOprOfLDRD ins insLen bld
+  let isUnconditional = ParseUtils.isUnconditional ins.Condition
+  bld <!-- (ins.Address, insLen)
+  let lblIgnore = checkCondition ins bld isUnconditional
+  let taddr = tmpVar bld 32<rt>
+  let lo = tmpVar bld 32<rt>
+  let hi = tmpVar bld 32<rt>
+  bld <+ (taddr := addr)
+  bld <+ (lo := AST.loadLE 32<rt> taddr)
+  bld <+ (hi := AST.loadLE 32<rt> (taddr .+ numI32 4 32<rt>))
+  bld <+ (regVar bld R.ExMonAddr := taddr)
+  bld <+ (regVar bld R.ExMonVal := lo)
+  bld <+ (rt := lo)
+  bld <+ (rt2 := hi)
+  putEndLabel bld lblIgnore
+  bld --!> insLen
+
+/// Store-exclusive (STREX/STREXB/STREXH, and the release forms STLEX*): stores
+/// and reports success (Rd = 0) only if the reservation still holds -- the
+/// address matches and memory still holds the reserved value; otherwise memory
+/// is left unchanged and it reports failure (Rd = 1). The conditional store is
+/// expressed as a store of ite(matched, data, old), so no branch is emitted.
+let strex ins insLen bld size =
+  let struct (rd, rt, addr, _) = parseOprOfLDRD ins insLen bld
+  let isUnconditional = ParseUtils.isUnconditional ins.Condition
+  bld <!-- (ins.Address, insLen)
+  let lblIgnore = checkCondition ins bld isUnconditional
+  let taddr = tmpVar bld 32<rt>
+  let cur = tmpVar bld size
+  let matched = tmpVar bld 1<rt>
+  bld <+ (taddr := addr)
+  bld <+ (cur := AST.loadLE size taddr)
+  bld <+ (matched := (taddr == regVar bld R.ExMonAddr)
+                     .& (cur == AST.xtlo size (regVar bld R.ExMonVal)))
+  bld <+ (AST.loadLE size taddr := AST.ite matched (AST.xtlo size rt) cur)
+  bld <+ (rd := AST.ite matched (AST.num0 32<rt>) (AST.num1 32<rt>))
   putEndLabel bld lblIgnore
   bld --!> insLen
 
@@ -2585,18 +2631,24 @@ let parseOprOfSTREXD (ins: Instruction) insLen bld =
     struct (regVar bld rd, regVar bld t, regVar bld t2, addr, stmt)
   | _ -> raise InvalidOperandException
 
+/// Store-exclusive pair (STREXD/STLEXD): as strex, verifying the reserved low
+/// word; on success both words are stored.
 let strexd ins insLen bld =
-  let struct (rd, rt, rt2, addr, writeback) = parseOprOfSTREXD ins insLen bld
+  let struct (rd, rt, rt2, addr, _) = parseOprOfSTREXD ins insLen bld
   let isUnconditional = ParseUtils.isUnconditional ins.Condition
   bld <!-- (ins.Address, insLen)
   let lblIgnore = checkCondition ins bld isUnconditional
-  bld <+ (AST.loadLE 32<rt> addr := rt)
-  bld <+ (AST.loadLE 32<rt> (addr .+ (numI32 4 32<rt>)) := rt2)
-  match writeback with
-  | Some(basereg, Some newoffset) -> bld <+ (basereg := newoffset)
-  | Some(basereg, None) -> bld <+ (basereg := addr)
-  | None -> ()
-  bld <+ (rd := AST.num0 32<rt>) (* XXX: always succeeds for now *)
+  let taddr = tmpVar bld 32<rt>
+  let cur = tmpVar bld 32<rt>
+  let matched = tmpVar bld 1<rt>
+  bld <+ (taddr := addr)
+  bld <+ (cur := AST.loadLE 32<rt> taddr)
+  bld <+ (matched := (taddr == regVar bld R.ExMonAddr)
+                     .& (cur == regVar bld R.ExMonVal))
+  bld <+ (AST.loadLE 32<rt> taddr := AST.ite matched rt cur)
+  bld <+ (AST.loadLE 32<rt> (taddr .+ numI32 4 32<rt>) :=
+            AST.ite matched rt2 (AST.loadLE 32<rt> (taddr .+ numI32 4 32<rt>)))
+  bld <+ (rd := AST.ite matched (AST.num0 32<rt>) (AST.num1 32<rt>))
   putEndLabel bld lblIgnore
   bld --!> insLen
 
@@ -5329,7 +5381,7 @@ let translate (ins: Instruction) insLen bld =
   | Op.CLZ -> clz ins insLen bld
   | Op.CMN -> cmn ins insLen bld
   | Op.CMP -> cmp ins insLen bld
-  | Op.DMB | Op.DSB | Op.ISB | Op.PLD -> nop ins insLen bld
+  | Op.CLREX | Op.DMB | Op.DSB | Op.ISB | Op.PLD -> nop ins insLen bld
   | Op.EOR -> eor false ins insLen bld
   | Op.EORS -> eors true ins insLen bld
   | Op.ERET -> sideEffects ins insLen bld UnsupportedInstruction
@@ -5345,9 +5397,10 @@ let translate (ins: Instruction) insLen bld =
   | Op.LDRB -> ldr ins insLen bld 8<rt> AST.zext
   | Op.LDRBT -> ldr ins insLen bld 8<rt> AST.zext
   | Op.LDRD -> ldrd ins insLen bld
-  | Op.LDREX -> ldr ins insLen bld 32<rt> AST.zext
-  | Op.LDREXB -> ldr ins insLen bld 8<rt> AST.zext
-  | Op.LDREXH -> ldr ins insLen bld 16<rt> AST.zext
+  | Op.LDREX | Op.LDAEX -> ldrex ins insLen bld 32<rt>
+  | Op.LDREXB | Op.LDAEXB -> ldrex ins insLen bld 8<rt>
+  | Op.LDREXH | Op.LDAEXH -> ldrex ins insLen bld 16<rt>
+  | Op.LDREXD | Op.LDAEXD -> ldrexd ins insLen bld
   | Op.LDRH -> ldr ins insLen bld 16<rt> AST.zext
   | Op.LDRHT -> ldr ins insLen bld 16<rt> AST.zext
   | Op.LDRSB -> ldr ins insLen bld 8<rt> AST.sext
@@ -5433,10 +5486,10 @@ let translate (ins: Instruction) insLen bld =
   | Op.STRB -> str ins insLen bld 8<rt>
   | Op.STRBT -> str ins insLen bld 8<rt>
   | Op.STRD -> strd ins insLen bld
-  | Op.STREX -> strex ins insLen bld 32<rt>
-  | Op.STREXB -> strex ins insLen bld 8<rt>
-  | Op.STREXD -> strexd ins insLen bld
-  | Op.STREXH -> strex ins insLen bld 16<rt>
+  | Op.STREX | Op.STLEX -> strex ins insLen bld 32<rt>
+  | Op.STREXB | Op.STLEXB -> strex ins insLen bld 8<rt>
+  | Op.STREXD | Op.STLEXD -> strexd ins insLen bld
+  | Op.STREXH | Op.STLEXH -> strex ins insLen bld 16<rt>
   | Op.STRH -> str ins insLen bld 16<rt>
   | Op.STRHT -> str ins insLen bld 16<rt>
   | Op.STRT -> str ins insLen bld 32<rt>

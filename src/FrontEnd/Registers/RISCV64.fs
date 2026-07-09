@@ -336,8 +336,13 @@ type Register =
   | CSR2945 = 0x146
   /// Floating-Point Dynamic Rounding Mode.
   | FRM = 0x147
-  /// Pseudo register for reservation check and follows the same format as ARM.
-  | RC = 0x148
+  /// Pseudo register: the address a load-reserved (LR) reserved, for the
+  /// value-based exclusive-monitor model. See ExMonVal.
+  | ExMonAddr = 0x148
+  /// Pseudo register: the memory value at ExMonAddr when the load-reserved ran,
+  /// so a later store-conditional (SC) can tell whether the location was
+  /// written in between. See ExMonAddr.
+  | ExMonVal = 0x149
 
 /// Provides functions to handle RISC-V registers.
 module Register =
@@ -418,7 +423,8 @@ module Register =
     | "fcsr" -> Register.FCSR
     | "fflags" -> Register.FFLAGS
     | "frm" -> Register.FRM
-    | "rc" -> Register.RC
+    | "exmonaddr" -> Register.ExMonAddr
+    | "exmonval" -> Register.ExMonVal
     | _ -> Terminator.impossible ()
 
   /// Returns the register ID of a RISC-V register.
@@ -497,5 +503,6 @@ module Register =
     | Register.FCSR -> "fcsr"
     | Register.FFLAGS -> "fflags"
     | Register.FRM -> "frm"
-    | Register.RC -> "rc"
+    | Register.ExMonAddr -> "exmonaddr"
+    | Register.ExMonVal -> "exmonval"
     | _ -> Terminator.impossible ()

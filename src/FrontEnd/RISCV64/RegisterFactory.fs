@@ -102,7 +102,11 @@ type RegisterFactory(isa: ISA) =
   let f31 = AST.var rt (Register.toRegID Register.F31) "F31"
 
   let pc = AST.pcvar rt "PC"
-  let rc = AST.var 1<rt> (Register.toRegID Register.RC) "RC"
+  (* Pseudo registers for the value-based exclusive monitor (LR/SC). *)
+  let exMonAddr =
+    AST.var 64<rt> (Register.toRegID Register.ExMonAddr) "ExMonAddr"
+  let exMonVal =
+    AST.var 64<rt> (Register.toRegID Register.ExMonVal) "ExMonVal"
   let fcsr =
     AST.``or`` (AST.``and`` fflags (numI32 0b11111 32<rt>))
                (AST.shl (AST.``and`` frm (numI32 0b111 32<rt>))
@@ -285,7 +289,8 @@ type RegisterFactory(isa: ISA) =
     member _.GetRegVar rid =
       match Register.ofRegID rid with
       | Register.PC -> pc
-      | Register.RC -> rc
+      | Register.ExMonAddr -> exMonAddr
+      | Register.ExMonVal -> exMonVal
       | Register.X0 -> x0
       | Register.X1 -> x1
       | Register.X2 -> x2

@@ -788,7 +788,10 @@ type Register =
   /// value-based exclusive-monitor model. See ExMonVal.
   | ExMonAddr = 0x176
   /// Pseudo register: memory value at ExMonAddr when the load-exclusive
-  /// ran, so a store-exclusive can detect an intervening write.
+  /// ran, so a store-exclusive can detect an intervening write. CLREX is
+  /// lifted as a no-op: under single-observer, per-thread reservation a
+  /// store-exclusive is already governed by this value comparison, so there is
+  /// no monitor to tear down.
   | ExMonVal = 0x177
   /// Condition Flags.
   | NZCV = 0x178
