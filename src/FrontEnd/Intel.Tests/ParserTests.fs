@@ -1926,6 +1926,30 @@ type ParserTests() =
     ++ VCVTPS2PH ** [ O.Reg R.YMM2; O.Reg R.ZMM1; O.Imm(0L, 8<rt>) ]
     ||> testX64NoPrefixNoSeg
 
+  [<TestMethod>]
+  member _.``Address-size-dependent register operand (1)``() =
+    "f30faef0"
+    ++ UMONITOR ** [ O.Reg R.RAX ]
+    ||> testX64NoPrefixNoSeg
+
+  [<TestMethod>]
+  member _.``Address-size-dependent register operand (2)``() =
+    "f20f38f808"
+    ++ ENQCMD ** [ O.Reg R.RCX; O.Mem(R.RAX, 512<rt>) ]
+    ||> testX64NoPrefixNoSeg
+
+  [<TestMethod>]
+  member _.``Address-size-dependent register operand (3)``() =
+    "f30f38f81a"
+    ++ ENQCMDS ** [ O.Reg R.RBX; O.Mem(R.RDX, 512<rt>) ]
+    ||> testX64NoPrefixNoSeg
+
+  [<TestMethod>]
+  member _.``Address-size-dependent register operand (4)``() =
+    "660f38f811"
+    ++ MOVDIR64B ** [ O.Reg R.RDX; O.Mem(R.RCX, 512<rt>) ]
+    ||> testX64NoPrefixNoSeg
+
 #if !EMULATION
   [<TestMethod>]
   member _.``Size cond ParsingFailure Test (1)``() =

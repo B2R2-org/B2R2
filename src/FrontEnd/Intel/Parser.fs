@@ -506,6 +506,15 @@ type IntelParser(wordSz, reader) =
       let r = if REXPrefix.hasR phlp.REXPrefix then r + 8 else r
       OperandParsers.parseControlReg r
     | DebugReg -> OperandParsers.parseDebugReg (Operands.getReg modRM)
+    | RegAddr ->
+      let sz = ParsingHelper.GetEffAddrSize phlp
+      setupOprContextWithEffAddr phlp sz sz
+      if isOpcodeGroupExtension ic.ModRM then
+        let rm = Operands.getRM modRM
+        OperandParsers.findRegRmAndSIBBase sz phlp.REXPrefix rm |> OprReg
+      else
+        let reg = Operands.getReg modRM
+        OperandParsers.findRegRBits sz phlp.REXPrefix reg |> OprReg
     | Sreg -> OperandParsers.parseSegReg (Operands.getReg modRM)
     | Far sz -> // XXX
       let effAddrSz = ParsingHelper.GetEffAddrSize phlp
