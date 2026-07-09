@@ -128,7 +128,7 @@ let private linuxMIPS64 () = (* n32/n64: 6 syscall args in a0-a5, no stack *)
 let private linuxPPC32 () = (* error reported via the cr0.SO bit *)
   { NumberRegister = ppc PPC32.Register.R0
     ReturnRegister = ppc PPC32.Register.R3
-    Error = FlagRegister(ppc PPC32.Register.CR0)
+    Error = FlagRegister(ppc PPC32.Register.CR0_3)
     Args =
       [| reg (ppc PPC32.Register.R3)
          reg (ppc PPC32.Register.R4)
