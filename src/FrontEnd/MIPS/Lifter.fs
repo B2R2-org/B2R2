@@ -2126,12 +2126,19 @@ let loadLeftRight ins insLen bld memShf regShf amtOp oprSz =
   advancePC bld insLen
 
 let recip ins insLen bld =
-  let fd, fs = getTwoOprs ins |> transTwoOprs ins bld
-  let sz = bld.RegType
-  let fnum = AST.cast CastKind.SIntToFloat sz (AST.num1 sz)
+  let fd, fs = getTwoOprs ins
   bld <!-- (ins.Address, insLen)
-  bld <+ (fd := AST.fdiv fnum fs)
-  bld --!> insLen
+  match ins.Fmt with
+  | Some Fmt.S ->
+    let fd, fs = transTwoSingleFP bld (fd, fs)
+    let fnum = AST.cast CastKind.SIntToFloat 32<rt> (AST.num1 32<rt>)
+    bld <+ (fd := AST.fdiv fnum fs)
+  | _ ->
+    let fdB, fdA = transOprToFPPair bld fd
+    let fs = transOprToFPPairConcat bld fs
+    let fnum = AST.cast CastKind.SIntToFloat 64<rt> (AST.num1 64<rt>)
+    dstAssignForFP fdB fdA (AST.fdiv fnum fs) bld
+  advancePC bld insLen
 
 let rsqrt ins insLen bld =
   let fd, fs = getTwoOprs ins
