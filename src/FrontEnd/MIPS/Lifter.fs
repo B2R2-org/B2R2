@@ -450,7 +450,12 @@ let private mul64BitReg src1 src2 bld isSign =
   let low = pLow .+ ((pMid .& mask32) << n32)
   if isSign then
     bld <+ (signBit := src1IsNeg <+> src2IsNeg)
-    bld <+ (tHigh := AST.ite signBit (AST.not high) high)
+    (* Negating a 128-bit value is ~(high:low) + 1. When low = 0 the carry
+       from the low limb propagates, so the high limb must be ~high + 1
+       (i.e. neg high), not just ~high. *)
+    let lowIsZero = low == AST.num0 64<rt>
+    let negHigh = AST.ite lowIsZero (AST.neg high) (AST.not high)
+    bld <+ (tHigh := AST.ite signBit negHigh high)
     bld <+ (tLow := AST.ite signBit (AST.neg low) low)
   else
     bld <+ (tHigh := high)
