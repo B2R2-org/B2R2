@@ -2038,8 +2038,8 @@ let translate (ins: Instruction) insLen bld =
   | Op.ADDOdot -> add ins insLen true true bld
   | Op.ADDC -> addc ins insLen false false bld
   | Op.ADDCdot -> addc ins insLen true false bld
-  | Op.ADDCO -> add ins insLen false true bld
-  | Op.ADDCOdot -> add ins insLen true true bld
+  | Op.ADDCO -> addc ins insLen false true bld
+  | Op.ADDCOdot -> addc ins insLen true true bld
   | Op.ADDE -> adde ins insLen false false bld
   | Op.ADDEdot -> adde ins insLen true false bld
   | Op.ADDEO -> adde ins insLen false true bld
@@ -2092,14 +2092,14 @@ let translate (ins: Instruction) insLen bld =
   | Op.CRNOT -> crnot ins insLen bld
   | Op.DCBT -> nop ins insLen bld
   | Op.DCBTST -> nop ins insLen bld
-  | Op.DIVW -> divw ins insLen false true bld
-  | Op.DIVWdot -> divw ins insLen false false bld
-  | Op.DIVWO -> divw ins insLen true true bld
-  | Op.DIVWOdot -> divw ins insLen true false bld
-  | Op.DIVWU -> divwu ins insLen false true bld
-  | Op.DIVWUdot -> divwu ins insLen false false bld
-  | Op.DIVWUO -> divwu ins insLen true true bld
-  | Op.DIVWUOdot -> divwu ins insLen true false bld
+  | Op.DIVW -> divw ins insLen false false bld
+  | Op.DIVWdot -> divw ins insLen true false bld
+  | Op.DIVWO -> divw ins insLen false true bld
+  | Op.DIVWOdot -> divw ins insLen true true bld
+  | Op.DIVWU -> divwu ins insLen false false bld
+  | Op.DIVWUdot -> divwu ins insLen true false bld
+  | Op.DIVWUO -> divwu ins insLen false true bld
+  | Op.DIVWUOdot -> divwu ins insLen true true bld
   | Op.EXTSB -> extsb ins insLen false bld
   | Op.EXTSBdot -> extsb ins insLen true bld
   | Op.EXTSH -> extsh ins insLen false bld
