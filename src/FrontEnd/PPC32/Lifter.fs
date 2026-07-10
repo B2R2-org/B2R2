@@ -355,18 +355,17 @@ let isSignedDivOV bld expA expB =
   let minValue = numI32 0x80000000 32<rt>
   let xerSO = AST.extract (regVar bld Register.XER) 1<rt> 31
   let xerOV = AST.extract (regVar bld Register.XER) 1<rt> 30
-  let cond = (expA == minValue) .& (expB == (numI32 0xFFFFFFFF 32<rt>))
-  bld <+ (checkOF := AST.ite (expB == AST.num0 32<rt>) AST.b0 cond)
+  let dz = expB == AST.num0 32<rt>
+  let ovf = (expA == minValue) .& (expB == (numI32 0xFFFFFFFF 32<rt>))
+  bld <+ (checkOF := dz .| ovf)
   bld <+ (xerOV := checkOF)
   bld <+ (xerSO := checkOF .| xerSO)
 
-let isUnsignedDivOV bld expA expB =
+let isUnsignedDivOV bld _expA expB =
   let checkOF = tmpVar bld 1<rt>
-  let maxValue = numU32 0xFFFFFFFFu 32<rt>
   let xerSO = AST.extract (regVar bld Register.XER) 1<rt> 31
   let xerOV = AST.extract (regVar bld Register.XER) 1<rt> 30
-  let cond = (expA ./ expB) .> maxValue
-  bld <+ (checkOF := AST.ite (expB == AST.num0 32<rt>) AST.b0 cond)
+  bld <+ (checkOF := expB == AST.num0 32<rt>)
   bld <+ (xerOV := checkOF)
   bld <+ (xerSO := checkOF .| xerSO)
 
