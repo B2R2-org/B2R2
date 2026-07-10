@@ -504,8 +504,11 @@ let b ins insLen bld lk =
   let addr = transOneOpr ins bld
   let lr = regVar bld Register.LR
   bld <!-- (ins.Address, insLen)
-  if lk then bld <+ (lr := numU64 ins.Address 32<rt> .+ numI32 4 32<rt>) else ()
-  bld <+ (AST.interjmp addr InterJmpKind.Base)
+  if lk then
+    bld <+ (lr := numU64 ins.Address 32<rt> .+ numI32 4 32<rt>)
+    bld <+ (AST.interjmp addr InterJmpKind.IsCall)
+  else
+    bld <+ (AST.interjmp addr InterJmpKind.Base)
   bld --!> insLen
 
 let bc ins insLen bld aa lk =
@@ -529,7 +532,8 @@ let bc ins insLen bld aa lk =
   bld <+ (condOk := bo0 .| (cr <+> AST.not bo1))
   if aa then bld <+ (temp := AST.ite (ctrOk .& condOk) addr nia)
   else bld <+ (temp := AST.ite (ctrOk .& condOk) (cia .+ addr) nia)
-  bld <+ (AST.interjmp temp InterJmpKind.Base)
+  let kind = if lk then InterJmpKind.IsCall else InterJmpKind.Base
+  bld <+ (AST.interjmp temp kind)
   bld --!> insLen
 
 let bclr ins insLen bld lk =
@@ -553,7 +557,8 @@ let bclr ins insLen bld lk =
   bld <+ (temp := AST.ite (ctrOk .& condOk)
                           (lr .& numI32 0xfffffffc 32<rt>) nia)
   if lk then bld <+ (lr := AST.ite (ctrOk .& condOk) nia lr) else ()
-  bld <+ (AST.interjmp temp InterJmpKind.Base)
+  let kind = if lk then InterJmpKind.IsCall else InterJmpKind.IsRet
+  bld <+ (AST.interjmp temp kind)
   bld --!> insLen
 
 let bcctr ins insLen bld lk =
@@ -570,7 +575,8 @@ let bcctr ins insLen bld lk =
   bld <+ (condOk := bo0 .| (cr <+> AST.not bo1))
   bld <+ (temp := AST.ite condOk (ctr .& numI32 0xfffffffc 32<rt>) nia)
   if lk then bld <+ (lr := AST.ite condOk nia lr) else ()
-  bld <+ (AST.interjmp temp InterJmpKind.Base)
+  let kind = if lk then InterJmpKind.IsCall else InterJmpKind.Base
+  bld <+ (AST.interjmp temp kind)
   bld --!> insLen
 
 let cmp ins insLen bld =
