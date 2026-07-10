@@ -341,14 +341,12 @@ let isAddSubOV bld expA expB result =
   bld <+ (xerSO := checkOF .| xerSO)
 
 let isMulOV bld expA expB =
+  let prod = tmpVar bld 64<rt>
   let checkOF = tmpVar bld 1<rt>
-  let maxValue = numI32 0x7FFFFFFF 32<rt>
-  let minValue = numI32 0x80000000 32<rt>
   let xerSO = AST.extract (regVar bld Register.XER) 1<rt> 31
   let xerOV = AST.extract (regVar bld Register.XER) 1<rt> 30
-  let cond1 = (expA ?> maxValue ?/ expB)
-  let cond2 = (expA ?< minValue ?/ expB)
-  bld <+ (checkOF := AST.ite (expB == AST.num0 32<rt>) AST.b0 (cond1 .| cond2))
+  bld <+ (prod := (AST.sext 64<rt> expA) .* (AST.sext 64<rt> expB))
+  bld <+ (checkOF := prod != AST.sext 64<rt> (AST.xtlo 32<rt> prod))
   bld <+ (xerOV := checkOF)
   bld <+ (xerSO := checkOF .| xerSO)
 
