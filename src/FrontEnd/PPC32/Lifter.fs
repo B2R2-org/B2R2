@@ -962,7 +962,7 @@ let fnmsub ins insLen updateCond isDouble bld =
     let fraS = AST.cast CastKind.FloatCast 32<rt> fra
     let frcS = AST.cast CastKind.FloatCast 32<rt> frc
     let frbS = AST.cast CastKind.FloatCast 32<rt> frb
-    bld <+ (res := (AST.fadd (AST.fmul fraS frcS) frbS))
+    bld <+ (res := (AST.fsub (AST.fmul fraS frcS) frbS))
     floatingNeg bld nres res 32<rt>
     bld <+ (frd := AST.cast CastKind.FloatCast 64<rt> nres)
   if updateCond then setCR1Reg bld else ()
@@ -1577,9 +1577,10 @@ let rlwimi ins insLen updateCond bld =
 
 let rlwnm ins insLen updateCond bld =
   let struct (ra, rs, rb, mb, me) = transFiveOprs ins bld
+  let n = rb .& numI32 0x1f 32<rt>
   let rol = tmpVar bld 32<rt>
   bld <!-- (ins.Address, insLen)
-  bld <+ (rol := rb .& numI32 0x1f 32<rt>)
+  bld <+ (rol := rotateLeft rs n)
   bld <+ (ra := rol .& (getExtMask mb me))
   if updateCond then setCR0Reg bld ra else ()
   bld --!> insLen
