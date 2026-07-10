@@ -334,7 +334,7 @@ type Parser(isa: ISA,
 
   let pSideEffectKind =
     attempt (pstringCI "breakpoint" >>% Breakpoint)
-    <|> attempt (pstringCI "clockcounterread" >>% ClockCounterRead)
+    <|> attempt (pstringCI "clockcounterread" >>% ClockCounterRead None)
     <|> attempt (pstringCI "fence" >>% Fence)
     <|> attempt (pstringCI "delay" >>% Delay)
     <|> attempt (pstringCI "terminate" >>% Terminate)

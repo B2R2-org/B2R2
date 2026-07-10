@@ -1697,19 +1697,27 @@ let csrrw ins insLen bld =
 
 let csrrs ins insLen bld =
   let rd, csr, src = getThreeOprs ins
-  let rd = transOprToExpr ins bld rd
   bld <!-- (ins.Address, insLen)
   bld <+ (AST.sideEffect AtomicBegin)
-  match src with
-  | OpReg Register.X0 ->
-    let csr = transOprToExpr ins bld csr
-    bld <+ (rd := AST.zext 64<rt> csr)
+  match rd, csr, src with
+  | OpReg rdReg, OpCSR(3072us | 3073us | 3074us), OpReg Register.X0 ->
+    (* rdcycle/rdtime/rdinstret (csrrs rd, cycle|time|instret, x0): the counter
+       has no real CSR to read, so leave the value to the emulator through a
+       ClockCounterRead side effect naming rd (a whole 64-bit read on RV64). *)
+    bld <+ (AST.sideEffect
+              (ClockCounterRead(Some(Register.toRegID rdReg, false))))
   | _ ->
-    let csr, src = transTwoOprs ins bld (csr, src) |> maskForFCSR csr
-    let tmpVar = tmpVar bld 64<rt>
-    bld <+ (tmpVar := AST.zext 64<rt> csr)
-    assignFCSR csr (csr .| src) bld
-    bld <+ (rd := tmpVar)
+    let rd = transOprToExpr ins bld rd
+    match src with
+    | OpReg Register.X0 ->
+      let csr = transOprToExpr ins bld csr
+      bld <+ (rd := AST.zext 64<rt> csr)
+    | _ ->
+      let csr, src = transTwoOprs ins bld (csr, src) |> maskForFCSR csr
+      let tmpVar = tmpVar bld 64<rt>
+      bld <+ (tmpVar := AST.zext 64<rt> csr)
+      assignFCSR csr (csr .| src) bld
+      bld <+ (rd := tmpVar)
   bld <+ (AST.sideEffect AtomicEnd)
   bld --!> insLen
 

@@ -1346,6 +1346,24 @@ let mfspr (ins: Instruction) insLen bld =
   bld <+ (dst := spr)
   bld --!> insLen
 
+(* mftb/mftbu read the 64-bit Time Base into rD. There is no real time base to
+   read, so the value is left to the emulator via a ClockCounterRead side effect
+   carrying the destination register and which 32-bit half (lower for mftb,
+   upper for mftbu). *)
+let mftb (ins: Instruction) insLen bld =
+  let rid =
+    match ins.Operands with
+    | TwoOperands(OprReg rd, _) -> Register.toRegID rd
+    | _ -> raise InvalidOperandException
+  sideEffects ins insLen bld (ClockCounterRead(Some(rid, false)))
+
+let mftbu (ins: Instruction) insLen bld =
+  let rid =
+    match ins.Operands with
+    | OneOperand(OprReg rd) -> Register.toRegID rd
+    | _ -> raise InvalidOperandException
+  sideEffects ins insLen bld (ClockCounterRead(Some(rid, true)))
+
 let mfxer ins insLen bld =
   let dst = transOneOpr ins bld
   let xer = regVar bld Register.XER
@@ -2197,6 +2215,8 @@ let translate (ins: Instruction) insLen bld =
   | Op.MCRXR -> mcrxr ins insLen bld
   | Op.MFCR -> mfcr ins insLen bld
   | Op.MFSPR -> mfspr ins insLen bld
+  | Op.MFTB -> mftb ins insLen bld
+  | Op.MFTBU -> mftbu ins insLen bld
   | Op.MFCTR -> mfctr ins insLen bld
   | Op.MFFS -> mffs ins insLen bld
   | Op.MFLR -> mflr ins insLen bld

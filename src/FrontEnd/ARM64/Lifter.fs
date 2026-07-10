@@ -2062,17 +2062,24 @@ let movz (ins: Instruction) insLen bld addr =
 let mrs (ins: Instruction) insLen bld addr =
   bld <!-- (ins.Address, insLen)
   let struct (dst, src) = getTwoOprs ins
-  let dst = transOprToExpr ins bld addr dst
-  let src =
-    match src with
-    | OprRegister R.NZCV ->
-      let n = (regVar bld R.N |> AST.zext 64<rt>) << numI32 31 64<rt>
-      let z = (regVar bld R.Z |> AST.zext 64<rt>) << numI32 30 64<rt>
-      let c = (regVar bld R.C |> AST.zext 64<rt>) << numI32 29 64<rt>
-      let v = (regVar bld R.V |> AST.zext 64<rt>) << numI32 28 64<rt>
-      n .| z .| c .| v
-    | _ -> transOprToExpr ins bld addr src
-  bld <+ (dst := src)
+  match dst, src with
+  | OprRegister rt, OprRegister R.CNTVCT_EL0 ->
+    (* CNTVCT_EL0 has no stored value to read; leave the 64-bit virtual count to
+       the emulator through a ClockCounterRead side effect naming rt. *)
+    bld <+ (AST.sideEffect
+              (ClockCounterRead(Some(Register.toRegID rt, false))))
+  | _ ->
+    let dst = transOprToExpr ins bld addr dst
+    let src =
+      match src with
+      | OprRegister R.NZCV ->
+        let n = (regVar bld R.N |> AST.zext 64<rt>) << numI32 31 64<rt>
+        let z = (regVar bld R.Z |> AST.zext 64<rt>) << numI32 30 64<rt>
+        let c = (regVar bld R.C |> AST.zext 64<rt>) << numI32 29 64<rt>
+        let v = (regVar bld R.V |> AST.zext 64<rt>) << numI32 28 64<rt>
+        n .| z .| c .| v
+      | _ -> transOprToExpr ins bld addr src
+    bld <+ (dst := src)
   bld --!> insLen
 
 let msr (ins: Instruction) insLen bld addr =

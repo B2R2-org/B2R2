@@ -148,8 +148,8 @@ let translate (ins: Instruction) insLen bld =
   | OP.RDRAND ->
     LiftingUtils.sideEffects bld ins insLen UnsupportedInstruction
   | OP.RDSSPD | OP.RDSSPQ -> GeneralLifter.nop ins.Address insLen bld
-  | OP.RDTSC -> LiftingUtils.sideEffects bld ins insLen ClockCounterRead
-  | OP.RDTSCP -> LiftingUtils.sideEffects bld ins insLen ClockCounterRead
+  | OP.RDTSC -> LiftingUtils.sideEffects bld ins insLen (ClockCounterRead None)
+  | OP.RDTSCP -> LiftingUtils.sideEffects bld ins insLen (ClockCounterRead None)
   | OP.RET when ins.IsFar ->
     LiftingUtils.sideEffects bld ins insLen UnsupportedInstruction
   | OP.RET -> GeneralLifter.ret ins insLen bld

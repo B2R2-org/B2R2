@@ -105,7 +105,7 @@ let translate (ins: Instruction) insLen builder =
   | Opcode.STD -> std ins insLen builder
   | Opcode.STS -> sts ins insLen builder
   | Opcode.SWAP -> swap ins insLen builder
-  | Opcode.WDR -> sideEffects ins.Address insLen ClockCounterRead builder
+  | Opcode.WDR -> sideEffects ins.Address insLen (ClockCounterRead None) builder
   | Opcode.XCH -> xch ins insLen builder
   | Opcode.InvalidOp -> raise InvalidOpcodeException
   | o ->
