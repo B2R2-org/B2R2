@@ -338,7 +338,7 @@ let isAddSubOV bld expA expB result =
   bld <+ (t2 := rHigh)
   bld <+ (checkOF := (t1 == e2High) .& (t1 <+> t2))
   bld <+ (xerOV := checkOF)
-  bld <+ (xerSO := checkOF .& xerSO)
+  bld <+ (xerSO := checkOF .| xerSO)
 
 let isMulOV bld expA expB =
   let checkOF = tmpVar bld 1<rt>
@@ -350,7 +350,7 @@ let isMulOV bld expA expB =
   let cond2 = (expA ?< minValue ?/ expB)
   bld <+ (checkOF := AST.ite (expB == AST.num0 32<rt>) AST.b0 (cond1 .| cond2))
   bld <+ (xerOV := checkOF)
-  bld <+ (xerSO := checkOF .& xerSO)
+  bld <+ (xerSO := checkOF .| xerSO)
 
 let isSignedDivOV bld expA expB =
   let checkOF = tmpVar bld 1<rt>
@@ -360,7 +360,7 @@ let isSignedDivOV bld expA expB =
   let cond = (expA == minValue) .& (expB == (numI32 0xFFFFFFFF 32<rt>))
   bld <+ (checkOF := AST.ite (expB == AST.num0 32<rt>) AST.b0 cond)
   bld <+ (xerOV := checkOF)
-  bld <+ (xerSO := checkOF .& xerSO)
+  bld <+ (xerSO := checkOF .| xerSO)
 
 let isUnsignedDivOV bld expA expB =
   let checkOF = tmpVar bld 1<rt>
@@ -370,7 +370,7 @@ let isUnsignedDivOV bld expA expB =
   let cond = (expA ./ expB) .> maxValue
   bld <+ (checkOF := AST.ite (expB == AST.num0 32<rt>) AST.b0 cond)
   bld <+ (xerOV := checkOF)
-  bld <+ (xerSO := checkOF .& xerSO)
+  bld <+ (xerSO := checkOF .| xerSO)
 
 let sideEffects (ins: Instruction) insLen bld name =
   bld <!-- (ins.Address, insLen)
