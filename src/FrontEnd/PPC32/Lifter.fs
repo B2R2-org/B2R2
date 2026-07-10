@@ -1728,12 +1728,11 @@ let stfdux ins insLen bld =
 let stfiwx ins insLen bld =
   let struct (o1, o2, o3) = getThreeOprs ins
   let frs = transOpr bld o1
-  let struct (ea, rA) = transEAWithIndexRegForUpdate o2 o3 bld
+  let ea = transEAWithIndexReg o2 o3 bld
   let tmpEA = tmpVar bld 32<rt>
   bld <!-- (ins.Address, insLen)
   bld <+ (tmpEA := ea)
   bld <+ (loadNative bld 32<rt> tmpEA := AST.xtlo 32<rt> frs)
-  bld <+ (rA := tmpEA)
   bld --!> insLen
 
 let stfs ins insLen bld =
