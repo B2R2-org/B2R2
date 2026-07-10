@@ -331,9 +331,9 @@ let isAddSubOV bld expA expB result =
   let struct (checkOF, t1, t2) = tmpVars3 bld 1<rt>
   let xerSO = AST.extract (regVar bld Register.XER) 1<rt> 31
   let xerOV = AST.extract (regVar bld Register.XER) 1<rt> 30
-  let e1High = AST.xthi 1<rt> expA
-  let e2High = AST.xthi 1<rt> expB
-  let rHigh = AST.xthi 1<rt> result
+  let e1High = AST.extract expA 1<rt> 31
+  let e2High = AST.extract expB 1<rt> 31
+  let rHigh = AST.extract result 1<rt> 31
   bld <+ (t1 := e1High)
   bld <+ (t2 := rHigh)
   bld <+ (checkOF := (t1 == e2High) .& (t1 <+> t2))
@@ -1453,8 +1453,10 @@ let mtfsf ins insLen bld =
   let frB = transOpr bld frB
   let fm = BitVector(getImmValue fm, 32<rt>) |> AST.num
   let fpscr = regVar bld Register.FPSCR
+  let mask = tmpVar bld 32<rt>
   bld <!-- (ins.Address, insLen)
-  bld <+ (fpscr := AST.xtlo 32<rt> frB .& fm)
+  bld <+ (mask := crmMask bld fm)
+  bld <+ (fpscr := (AST.xtlo 32<rt> frB .& mask) .| (fpscr .& AST.not mask))
   bld --!> insLen
 
 let mtxer ins insLen bld =
