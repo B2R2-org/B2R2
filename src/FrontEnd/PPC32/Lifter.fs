@@ -445,11 +445,12 @@ let addis ins insLen bld =
 let addme ins insLen updateCond ovCond bld =
   let struct (dst, src) = transTwoOprs ins bld
   let xerCA = AST.zext 64<rt> (AST.extract (regVar bld Register.XER) 1<rt> 29)
+  let minusone = AST.num (BitVector(0xffffffffu, 64<rt>))
   let struct (t1, t2, t3) = tmpVars3 bld 64<rt>
   bld <!-- (ins.Address, insLen)
   bld <+ (t1 := AST.zext 64<rt> src)
   bld <+ (t2 := xerCA)
-  bld <+ (t3 := t1 .+ t2 .- AST.num1 64<rt>)
+  bld <+ (t3 := t1 .+ t2 .+ minusone)
   bld <+ (dst := AST.xtlo 32<rt> t3)
   setCarryOut bld t3
   if ovCond then isAddSubOV bld t1 t2 dst else ()
