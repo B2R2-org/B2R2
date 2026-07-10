@@ -1614,7 +1614,10 @@ let sraw ins insLen updateCond bld =
   bld <+ (n := rb .& numI32 0x1f 32<rt>)
   bld <+ (ra := AST.ite cond1 (rs ?>> n) (rs ?>> numI32 31 32<rt>))
   let cond2 = ra ?< z
-  let cond3 = (rs .& ((AST.num1 32<rt> << n) .- AST.num1 32<rt>)) == z
+  let outMask =
+    AST.ite cond1 ((AST.num1 32<rt> << n) .- AST.num1 32<rt>)
+                  (numI32 0xFFFFFFFF 32<rt>)
+  let cond3 = (rs .& outMask) == z
   bld <+ (xerCA := AST.ite cond2 (AST.ite cond3 AST.b0 AST.b1) AST.b0)
   if updateCond then setCR0Reg bld ra else ()
   bld --!> insLen
