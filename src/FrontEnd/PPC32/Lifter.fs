@@ -688,6 +688,25 @@ let crxor ins insLen bld =
   bld <+ (crbD := crbA <+> crbB)
   bld --!> insLen
 
+let crand ins insLen bld =
+  let struct (crbD, crbA, crbB) = transThreeOprs ins bld
+  bld <!-- (ins.Address, insLen)
+  bld <+ (crbD := crbA .& crbB)
+  bld --!> insLen
+
+let crandc ins insLen bld =
+  let struct (crbD, crbA, crbB) = transThreeOprs ins bld
+  bld <!-- (ins.Address, insLen)
+  bld <+ (crbD := crbA .& (AST.not crbB))
+  bld --!> insLen
+
+(* crmove crbD, crbA = cror crbD, crbA, crbA: copies one CR bit to another. *)
+let crmove ins insLen bld =
+  let struct (crbD, crbA) = transTwoOprs ins bld
+  bld <!-- (ins.Address, insLen)
+  bld <+ (crbD := crbA)
+  bld --!> insLen
+
 let divw ins insLen updateCond ovCond bld =
   let struct (dst, src1, src2) = transThreeOprs ins bld
   bld <!-- (ins.Address, insLen)
@@ -2110,6 +2129,10 @@ let translate (ins: Instruction) insLen bld =
   | Op.CRSET -> crset ins insLen bld
   | Op.CRNOR -> crnor ins insLen bld
   | Op.CRNOT -> crnot ins insLen bld
+  | Op.CRAND -> crand ins insLen bld
+  | Op.CRANDC -> crandc ins insLen bld
+  | Op.CRNAND -> crnand ins insLen bld
+  | Op.CRMOVE -> crmove ins insLen bld
   | Op.DCBT -> nop ins insLen bld
   | Op.DCBTST -> nop ins insLen bld
   | Op.DIVW -> divw ins insLen false false bld
