@@ -102,3 +102,16 @@ type LifterTest() =
           !.G0 := !.G0
           AST.interjmp (t64 1) InterJmpKind.Base |]
     |> test
+
+  [<TestMethod>]
+  member _.``[SPARC] CALL lift Test``() =
+    "02000040"
+    ++ [| !.O7 := !.PC
+          AST.interjmp (!.PC .+ num 8L) InterJmpKind.IsCall |]
+    |> test
+
+  [<TestMethod>]
+  member _.``[SPARC] RETURN lift Test``() =
+    "08e0cf81"
+    ++ [| AST.interjmp (!.I7 .+ num 8L) InterJmpKind.IsRet |]
+    |> test

@@ -794,11 +794,11 @@ let branchpcc ins insLen bld =
 
 let call ins insLen bld =
   let dst = transOneOpr ins insLen bld
-  let sp = regVar bld Register.O7
+  let o7 = regVar bld Register.O7
   let pc = regVar bld Register.PC
   bld <!-- (ins.Address, insLen)
-  bld <+ (sp := pc)
-  bld <+ (pc := pc .+ dst)
+  bld <+ (o7 := pc)
+  bld <+ (AST.interjmp (pc .+ dst) InterJmpKind.IsCall)
   bld --!> insLen
 
 let casa ins insLen bld =
@@ -3283,7 +3283,7 @@ let restored (ins: Instruction) insLen bld =
 let ret ins insLen bld =
   let struct (src, src1) = transTwoOprs ins insLen bld
   bld <!-- (ins.Address, insLen)
-  bld <+ (regVar bld Register.PC := (src .+ src1))
+  bld <+ (AST.interjmp (src .+ src1) InterJmpKind.IsRet)
   bld --!> insLen
 
 let retry (ins: Instruction) insLen bld =
