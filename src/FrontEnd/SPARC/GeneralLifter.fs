@@ -31,6 +31,16 @@ open B2R2.BinIR.LowUIR.AST.InfixOp
 open B2R2.FrontEnd.BinLifter
 open B2R2.FrontEnd.BinLifter.LiftingUtils
 
+/// SPARC's %g0 reads as zero and discards writes. This shadows AST's := for
+/// every lifter below so an assignment to %g0 becomes a self-assign the
+/// optimizer drops; %g0 thus stays at its initial zero and reads back as zero,
+/// which is what mov/clr/cmp/tst and a jmpl (or ret) discarding its link into
+/// %g0 all rely on.
+let inline (:=) dst src =
+  match dst with
+  | Var(_, rid, _, _) when rid = Register.toRegID Register.G0 -> dst := dst
+  | _ -> dst := src
+
 let inline numI32PC (n: int) = BitVector(n, 64<rt>) |> AST.num
 
 let inline getCCVar (bld: ILowUIRBuilder) name =
@@ -2581,12 +2591,12 @@ let fitoq ins insLen bld =
   bld --!> insLen
 
 let jmpl ins insLen bld =
-  let struct (addr, dst) = transTwoOprs ins insLen bld
-  let oprSize = 64<rt>
-  let t1 = tmpVar bld oprSize
+  let struct (addr, dst) = transAddrThreeOprs ins insLen bld
+  let target = tmpVar bld 64<rt>
   bld <!-- (ins.Address, insLen)
-  bld <+ (AST.jmp addr)
+  bld <+ (target := addr)
   bld <+ (dst := regVar bld Register.PC)
+  bld <+ (AST.interjmp target InterJmpKind.Base)
   bld --!> insLen
 
 let ldf ins insLen bld =

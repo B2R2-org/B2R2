@@ -26,6 +26,7 @@ namespace B2R2.FrontEnd.SPARC.Tests
 
 open Microsoft.VisualStudio.TestTools.UnitTesting
 open B2R2
+open B2R2.BinIR
 open B2R2.BinIR.LowUIR
 open B2R2.BinIR.LowUIR.AST.InfixOp
 open B2R2.FrontEnd.BinLifter
@@ -84,4 +85,20 @@ type LifterTest() =
     "0d80429e"
     ++ [| t64 1 := !.O2 .+ !.O5 .+ AST.zext 64<rt> (AST.extract !.CCR 1<rt> 0)
           !.O7 := t64 1 |]
+    |> test
+
+  [<TestMethod>]
+  member _.``[SPARC] JMPL (three reg operands) lift Test``() =
+    "0600c09f"
+    ++ [| t64 1 := !.G0 .+ !.G6
+          !.O7 := !.PC
+          AST.interjmp (t64 1) InterJmpKind.Base |]
+    |> test
+
+  [<TestMethod>]
+  member _.``[SPARC] JMPL to %g0 discards the link (ret) lift Test``() =
+    "08e0c781"
+    ++ [| t64 1 := !.I7 .+ num 8L
+          !.G0 := !.G0
+          AST.interjmp (t64 1) InterJmpKind.Base |]
     |> test
