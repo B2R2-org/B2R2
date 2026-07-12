@@ -890,8 +890,11 @@ let casxa ins insLen bld =
 
 let ``done`` (ins: Instruction) insLen bld =
   bld <!-- (ins.Address, insLen)
-  bld <+ (regVar bld Register.PC := regVar bld Register.TNPC)
+  (* nPC before PC: %pc is a PCVar, so the interpreter treats its write as a
+     control transfer that ends the trace -- writing it last keeps the nPC
+     update from being skipped. *)
   bld <+ (regVar bld Register.NPC := regVar bld Register.TNPC .+ numI32PC 4)
+  bld <+ (regVar bld Register.PC := regVar bld Register.TNPC)
   bld --!> insLen
 
 let fabss ins insLen bld =
@@ -3351,8 +3354,9 @@ let ret ins insLen bld =
 
 let retry (ins: Instruction) insLen bld =
   bld <!-- (ins.Address, insLen)
-  bld <+ (regVar bld Register.PC := regVar bld Register.TPC)
+  (* nPC before PC: writing %pc (a PCVar) ends the trace, so it goes last. *)
   bld <+ (regVar bld Register.NPC := regVar bld Register.TNPC)
+  bld <+ (regVar bld Register.PC := regVar bld Register.TPC)
   bld --!> insLen
 
 let save ins insLen bld =

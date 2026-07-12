@@ -164,3 +164,4 @@ type LifterTest() =
     "0520d091"
     ++ [||]
     |> test
+
