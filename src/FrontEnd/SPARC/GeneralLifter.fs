@@ -3565,8 +3565,8 @@ let smul ins insLen bld =
   if (dst = regVar bld Register.G0) then
     bld <+ (dst := AST.num0 64<rt>)
   else
-    bld <+ (dst := AST.sext 64<rt> ((AST.extract src 32<rt> 0)
-      .* (AST.extract src1 32<rt> 0)))
+    bld <+ (dst := (AST.sext 64<rt> (AST.extract src 32<rt> 0))
+      .* (AST.sext 64<rt> (AST.extract src1 32<rt> 0)))
     bld <+ (AST.extract yreg 64<rt> 0 := AST.zext 64<rt>
       (AST.extract dst 32<rt> 32))
   bld --!> insLen
@@ -3580,8 +3580,8 @@ let smulcc ins insLen bld =
   if (dst = regVar bld Register.G0) then
     bld <+ (dst := AST.num0 64<rt>)
   else
-    bld <+ (dst := AST.sext 64<rt> ((AST.extract src 32<rt> 0)
-      .* (AST.extract src1 32<rt> 0)))
+    bld <+ (dst := (AST.sext 64<rt> (AST.extract src 32<rt> 0))
+      .* (AST.sext 64<rt> (AST.extract src1 32<rt> 0)))
     bld <+ (AST.extract yreg 64<rt> 0 := AST.zext 64<rt>
       (AST.extract dst 32<rt> 32))
     bld <+ (byte := (getConditionCodeMul dst src src1))
@@ -3642,7 +3642,10 @@ let st ins insLen bld =
 let sta ins insLen bld =
   let struct (src, src1, asi, dst) = transFourOprs ins insLen bld
   bld <!-- (ins.Address, insLen)
-  let addr = src .+ src1
+  (* operands are (Rd, Rs1, Rs2, ASI): src is the value to store, so the
+     effective address is Rs1 + Rs2 + ASI (src1 + asi + dst), matching lda and
+     stfa -- never the value register. *)
+  let addr = src1 .+ dst
   match ins.Opcode with
   | Opcode.STBA ->
     bld <+ ((AST.loadBE 8<rt> (addr .+ asi)) := (AST.extract src 8<rt> 0))
@@ -3904,8 +3907,8 @@ let umul ins insLen bld =
   if (dst = regVar bld Register.G0) then
     bld <+ (dst := AST.num0 64<rt>)
   else
-    bld <+ (dst := AST.zext 64<rt> ((AST.extract src 32<rt> 0)
-      .* (AST.extract src1 32<rt> 0)))
+    bld <+ (dst := (AST.zext 64<rt> (AST.extract src 32<rt> 0))
+      .* (AST.zext 64<rt> (AST.extract src1 32<rt> 0)))
     bld <+ (AST.extract yreg 64<rt> 0 :=
       AST.zext 64<rt> (AST.extract dst 32<rt> 32))
   bld --!> insLen
@@ -3919,8 +3922,8 @@ let umulcc ins insLen bld =
   if (dst = regVar bld Register.G0) then
     bld <+ (dst := AST.num0 64<rt>)
   else
-    bld <+ (dst := AST.zext 64<rt> ((AST.extract src 32<rt> 0)
-      .* (AST.extract src1 32<rt> 0)))
+    bld <+ (dst := (AST.zext 64<rt> (AST.extract src 32<rt> 0))
+      .* (AST.zext 64<rt> (AST.extract src1 32<rt> 0)))
     bld <+ (AST.extract yreg 64<rt> 0 :=
       AST.zext 64<rt> (AST.extract dst 32<rt> 32))
     bld <+ (byte := (getConditionCodeMul dst src src1))
