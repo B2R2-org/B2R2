@@ -3550,7 +3550,12 @@ let sll ins insLen bld =
   if (dst = regVar bld Register.G0) then
     bld <+ (dst := AST.num0 64<rt>)
   else
-    bld <+ (dst := src << src1)
+    match ins.Opcode with
+    | Opcode.SLL ->
+      bld <+ (dst := AST.zext 64<rt>
+        (AST.extract src 32<rt> 0 << AST.extract src1 32<rt> 0))
+    | _ ->
+      bld <+ (dst := src << src1)
   bld --!> insLen
 
 let smul ins insLen bld =
@@ -3589,7 +3594,12 @@ let sra ins insLen bld =
   if (dst = regVar bld Register.G0) then
     bld <+ (dst := AST.num0 64<rt>)
   else
-    bld <+ (dst := src ?>> src1)
+    match ins.Opcode with
+    | Opcode.SRA ->
+      bld <+ (dst := AST.sext 64<rt>
+        (AST.extract src 32<rt> 0 ?>> AST.extract src1 32<rt> 0))
+    | _ ->
+      bld <+ (dst := src ?>> src1)
   bld --!> insLen
 
 let srl ins insLen bld =
@@ -3598,7 +3608,12 @@ let srl ins insLen bld =
   if (dst = regVar bld Register.G0) then
     bld <+ (dst := AST.num0 64<rt>)
   else
-    bld <+ (dst := src >> src1)
+    match ins.Opcode with
+    | Opcode.SRL ->
+      bld <+ (dst := AST.zext 64<rt>
+        (AST.extract src 32<rt> 0 >> AST.extract src1 32<rt> 0))
+    | _ ->
+      bld <+ (dst := src >> src1)
   bld --!> insLen
 
 let st ins insLen bld =
