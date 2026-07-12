@@ -3564,12 +3564,15 @@ let sll ins insLen bld =
   if (dst = regVar bld Register.G0) then
     bld <+ (dst := AST.num0 64<rt>)
   else
+    (* the hardware masks the shift count -- 5 bits for the 32-bit form, 6 for
+       the 64-bit -- and code (e.g. glibc's GNU-hash bloom filter) relies on it
+       by passing an unmasked count, so mask here to match. *)
     match ins.Opcode with
     | Opcode.SLL ->
-      bld <+ (dst := AST.zext 64<rt>
-        (AST.extract src 32<rt> 0 << AST.extract src1 32<rt> 0))
+      bld <+ (dst := AST.zext 64<rt> (AST.extract src 32<rt> 0
+        << (AST.extract src1 32<rt> 0 .& numI32 0x1f 32<rt>)))
     | _ ->
-      bld <+ (dst := src << src1)
+      bld <+ (dst := src << (src1 .& numI64 0x3fL 64<rt>))
   bld --!> insLen
 
 let smul ins insLen bld =
@@ -3608,12 +3611,13 @@ let sra ins insLen bld =
   if (dst = regVar bld Register.G0) then
     bld <+ (dst := AST.num0 64<rt>)
   else
+    (* mask the shift count as the hardware does (5 bits / 6 bits). *)
     match ins.Opcode with
     | Opcode.SRA ->
-      bld <+ (dst := AST.sext 64<rt>
-        (AST.extract src 32<rt> 0 ?>> AST.extract src1 32<rt> 0))
+      bld <+ (dst := AST.sext 64<rt> (AST.extract src 32<rt> 0
+        ?>> (AST.extract src1 32<rt> 0 .& numI32 0x1f 32<rt>)))
     | _ ->
-      bld <+ (dst := src ?>> src1)
+      bld <+ (dst := src ?>> (src1 .& numI64 0x3fL 64<rt>))
   bld --!> insLen
 
 let srl ins insLen bld =
@@ -3622,12 +3626,13 @@ let srl ins insLen bld =
   if (dst = regVar bld Register.G0) then
     bld <+ (dst := AST.num0 64<rt>)
   else
+    (* mask the shift count as the hardware does (5 bits / 6 bits). *)
     match ins.Opcode with
     | Opcode.SRL ->
-      bld <+ (dst := AST.zext 64<rt>
-        (AST.extract src 32<rt> 0 >> AST.extract src1 32<rt> 0))
+      bld <+ (dst := AST.zext 64<rt> (AST.extract src 32<rt> 0
+        >> (AST.extract src1 32<rt> 0 .& numI32 0x1f 32<rt>)))
     | _ ->
-      bld <+ (dst := src >> src1)
+      bld <+ (dst := src >> (src1 .& numI64 0x3fL 64<rt>))
   bld --!> insLen
 
 let st ins insLen bld =
