@@ -222,7 +222,7 @@ let getConditionCodeAdd res src src1 =
   let iccc = (sign32 .& sign321) .| ((AST.not ressign32) .& (sign32 .| sign321))
   // AST.concat xccn (AST. concat xccz (AST.concat xccv (AST.concat xccc
     // (AST.concat iccn (AST.concat iccz (AST.concat iccv iccc))))))
-  AST.revConcat [| iccc; iccv; iccz; iccn; xccc; xccv; xccz; iccn |]
+  AST.revConcat [| iccc; iccv; iccz; iccn; xccc; xccv; xccz; xccn |]
 
 let getConditionCodeSub res src src1 =
   let sign = AST.extract src 1<rt> 63
@@ -246,7 +246,7 @@ let getConditionCodeSub res src src1 =
     (ressign32 .& ((AST.not sign32) .| sign321)))
   // AST.concat xccn (AST. concat xccz (AST.concat xccv (AST.concat xccc
     // (AST.concat iccn (AST.concat iccz (AST.concat iccv iccc))))))
-  AST.revConcat [| iccc; iccv; iccz; iccn; xccc; xccv; xccz; iccn |]
+  AST.revConcat [| iccc; iccv; iccz; iccn; xccc; xccv; xccz; xccn |]
 
 let getConditionCodeLog res src src1 =
   let sign = AST.extract src 1<rt> 63
@@ -266,7 +266,7 @@ let getConditionCodeLog res src src1 =
   let iccc = AST.num0 1<rt>
   // AST.concat xccn (AST. concat xccz (AST.concat xccv (AST.concat xccc
     // (AST.concat iccn (AST.concat iccz (AST.concat iccv iccc))))))
-  AST.revConcat [| iccc; iccv; iccz; iccn; xccc; xccv; xccz; iccn |]
+  AST.revConcat [| iccc; iccv; iccz; iccn; xccc; xccv; xccz; xccn |]
 
 let getConditionCodeMul res src src1 =
   let sign = AST.extract src 1<rt> 63
@@ -286,7 +286,7 @@ let getConditionCodeMul res src src1 =
   let iccc = AST.num0 1<rt>
   // AST.concat xccn (AST. concat xccz (AST.concat xccv (AST.concat xccc
     // (AST.concat iccn (AST.concat iccz (AST.concat iccv iccc))))))
-  AST.revConcat [| iccc; iccv; iccz; iccn; xccc; xccv; xccz; iccn |]
+  AST.revConcat [| iccc; iccv; iccz; iccn; xccc; xccv; xccz; xccn |]
 
 let getConditionCodeMulscc res src src1 =
   let res32 = AST.extract res 32<rt> 0
@@ -776,7 +776,7 @@ let branchpcc ins insLen bld =
       if (cc = getCCVar bld ConditionCode.Icc) then
         (AST.extract ccr 1<rt> 2 == AST.b0)
       else
-        (AST.extract ccr 1<rt> 4 == AST.b0)
+        (AST.extract ccr 1<rt> 6 == AST.b0)
     | Opcode.BPE ->
       if (cc = getCCVar bld ConditionCode.Icc) then
         (AST.extract ccr 1<rt> 2 == AST.b1)
