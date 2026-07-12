@@ -581,12 +581,13 @@ let addcc ins insLen bld =
   let byte = tmpVar bld 8<rt>
   bld <!-- (ins.Address, insLen)
   bld <+ (res := src .+ src1)
+  (* flags before dst: rd may alias an operand the V/C formula reads. *)
+  bld <+ (byte := getConditionCodeAdd res src src1)
+  bld <+ (AST.extract ccr 8<rt> 0 := byte)
   if (dst = regVar bld Register.G0) then
     bld <+ (dst := AST.num0 64<rt>)
   else
     bld <+ (dst := res)
-  bld <+ (byte := getConditionCodeAdd res src src1)
-  bld <+ (AST.extract ccr 8<rt> 0 := byte)
   bld --!> insLen
 
 let addC ins insLen bld =
@@ -610,12 +611,13 @@ let addCcc ins insLen bld =
   let byte = tmpVar bld 8<rt>
   bld <!-- (ins.Address, insLen)
   bld <+ (res := src .+ src1 .+ AST.zext 64<rt> (AST.extract ccr 1<rt> 0))
+  (* flags before dst: rd may alias an operand the V/C formula reads. *)
+  bld <+ (byte := (getConditionCodeAdd res src src1))
+  bld <+ (AST.extract ccr 8<rt> 0 := byte)
   if dst = regVar bld Register.G0 then
     bld <+ (dst := AST.num0 64<rt>)
   else
     bld <+ (dst := res)
-  bld <+ (byte := (getConditionCodeAdd res src src1))
-  bld <+ (AST.extract ccr 8<rt> 0 := byte)
   bld --!> insLen
 
 let ``and`` ins insLen bld =
@@ -3748,12 +3750,15 @@ let subcc ins insLen bld =
   let byte = tmpVar bld 8<rt>
   bld <!-- (ins.Address, insLen)
   bld <+ (res := src .- src1)
+  (* compute the flags from the original operands before writing dst: rd may
+     alias rs1/rs2, and the V/C flags read the operands' sign bits, so writing
+     dst first would feed the flag formula the result instead of the input. *)
+  bld <+ (byte := (getConditionCodeSub res src src1))
+  bld <+ (AST.extract ccr 8<rt> 0 := byte)
   if (dst = regVar bld Register.G0) then
     bld <+ (dst := AST.num0 64<rt>)
   else
     bld <+ (dst := res)
-  bld <+ (byte := (getConditionCodeSub res src src1))
-  bld <+ (AST.extract ccr 8<rt> 0 := byte)
   bld --!> insLen
 
 let subC ins insLen bld =
@@ -3777,12 +3782,13 @@ let subCcc ins insLen bld =
   let byte = tmpVar bld 8<rt>
   bld <!-- (ins.Address, insLen)
   bld <+ (res := src .- src1 .- AST.zext 64<rt> (AST.extract ccr 1<rt> 0))
+  (* flags before dst: rd may alias an operand the V/C formula reads. *)
+  bld <+ (byte := (getConditionCodeSub res src src1))
+  bld <+ (AST.extract ccr 8<rt> 0 := byte)
   if (dst = regVar bld Register.G0) then
     bld <+ (dst := AST.num0 64<rt>)
   else
     bld <+ (dst := res)
-  bld <+ (byte := (getConditionCodeSub res src src1))
-  bld <+ (AST.extract ccr 8<rt> 0 := byte)
   bld --!> insLen
 
 let swap ins insLen bld =
