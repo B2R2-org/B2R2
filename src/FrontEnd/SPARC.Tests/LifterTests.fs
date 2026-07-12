@@ -152,3 +152,15 @@ type LifterTest() =
     "00005881"
     ++ [| AST.sideEffect FlushWindows |]
     |> test
+
+  [<TestMethod>]
+  member _.``[SPARC] TA to the syscall trap becomes a SysCall lift Test``() =
+    "6d20d091"
+    ++ [| AST.sideEffect SysCall |]
+    |> test
+
+  [<TestMethod>]
+  member _.``[SPARC] TA to another trap number is a no-op lift Test``() =
+    "0520d091"
+    ++ [||]
+    |> test

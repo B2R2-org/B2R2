@@ -210,7 +210,8 @@ let translate (ins: Instruction) insLen bld =
   | Opcode.SWAPA -> swapa ins insLen bld
   | Opcode.TADDcc -> addcc ins insLen bld
   | Opcode.TADDccTV -> addcc ins insLen bld
-  | Opcode.TA | Opcode.TN | Opcode.TNE | Opcode.TE | Opcode.TG | Opcode.TLE
+  | Opcode.TA -> tcc ins insLen bld
+  | Opcode.TN | Opcode.TNE | Opcode.TE | Opcode.TG | Opcode.TLE
   | Opcode.TGE | Opcode.TL | Opcode.TGU | Opcode.TLEU | Opcode.TCC | Opcode.TCS
   | Opcode.TPOS | Opcode.TNEG | Opcode.TVC | Opcode.TVS -> nop ins insLen bld
   | Opcode.TSUBcc -> subcc ins insLen bld

@@ -331,6 +331,19 @@ let getTwoCCFcc (cc1: uint32) (cc0: uint32) =
   | 0b1u, 0b1u -> ConditionCode.Fcc3 |> OprCC
   | _ -> raise InvalidOperandException
 
+let getSwTrapNum b = extract b 7u 0u |> int32 |> OprImm
+
+/// Parses a Tcc (trap on condition) instruction's operands. Its cc field lives
+/// at bits [12:11] (unlike the branch instructions' [21:20]); the trap target
+/// is rs1 + rs2 for the register form (i=0) or rs1 + a software trap number for
+/// the immediate form (i=1). We surface the cc and the trap target so the
+/// lifter can recognize the Linux syscall gate (a TA to the well-known number).
+let parseTcc b =
+  let cc = getTwoCCix (get12cc1 b) (get11cc0 b)
+  match pickBit b 13u with
+  | 0b0u -> TwoOperands(cc, getAddrRs2 b)
+  | _ -> TwoOperands(cc, getSwTrapNum b)
+
 let getTwod16 (hi: uint32) (lo: uint32) =
   let d16 = (hi <<< 14 ||| lo) <<< 16 |> int32 >>> 16
   4 * d16 |> OprImm
@@ -3396,81 +3409,82 @@ let parse10 b32 =
       | 0b1000u ->
         struct (
           Opcode.TA,
-          parseOneCC (getTwoCCix (get21cc1 b32) (get20cc0 b32))
+          parseTcc b32
           )
       | 0b0000u ->
         struct (
           Opcode.TN,
-          parseOneCC (getTwoCCix (get21cc1 b32) (get20cc0 b32))
+          parseTcc b32
         )
       | 0b1001u ->
         struct (
           Opcode.TNE,
-          parseOneCC (getTwoCCix (get21cc1 b32) (get20cc0 b32))
+          parseTcc b32
         )
       | 0b0001u ->
         struct (
           Opcode.TE,
-          parseOneCC (getTwoCCix (get21cc1 b32) (get20cc0 b32))
+          parseTcc b32
         )
       | 0b1010u ->
         struct (
           Opcode.TG,
-          parseOneCC (getTwoCCix (get21cc1 b32) (get20cc0 b32))
+          parseTcc b32
         )
       | 0b0010u ->
         struct (
           Opcode.TLE,
-          parseOneCC (getTwoCCix (get21cc1 b32) (get20cc0 b32))
+          parseTcc b32
         )
       | 0b1011u ->
         struct (
           Opcode.TGE,
-          parseOneCC (getTwoCCix (get21cc1 b32) (get20cc0 b32))
+          parseTcc b32
         )
       | 0b0011u ->
         struct (
           Opcode.TL,
-          parseOneCC (getTwoCCix (get21cc1 b32) (get20cc0 b32))
+          parseTcc b32
         )
       | 0b1100u ->
         struct (
           Opcode.TGU,
-          parseOneCC (getTwoCCix (get21cc1 b32) (get20cc0 b32))
+          parseTcc b32
         )
       | 0b0100u ->
         struct (
           Opcode.TLEU,
-          parseOneCC (getTwoCCix (get21cc1 b32) (get20cc0 b32))
+          parseTcc b32
         )
       | 0b1101u ->
         struct (
           Opcode.TCC,
-          parseOneCC (getTwoCCix (get21cc1 b32) (get20cc0 b32))
+          parseTcc b32
         )
       | 0b0101u ->
         struct (
           Opcode.TCS,
-          parseOneCC (getTwoCCix (get21cc1 b32) (get20cc0 b32))
+          parseTcc b32
         )
       | 0b1110u ->
         struct (
           Opcode.TPOS,
-          parseOneCC (getTwoCCix (get21cc1 b32) (get20cc0 b32))
+          parseTcc b32
         )
       | 0b0110u ->
         struct (
           Opcode.TNEG,
-                parseOneCC (getTwoCCix (get21cc1 b32) (get20cc0 b32)))
+          parseTcc b32
+        )
       | 0b1111u ->
         struct (
           Opcode.TVC,
-          parseOneCC (getTwoCCix (get21cc1 b32) (get20cc0 b32))
+          parseTcc b32
         )
       | 0b0111u ->
         struct (
           Opcode.TVS,
-          parseOneCC (getTwoCCix (get21cc1 b32) (get20cc0 b32))
+          parseTcc b32
         )
       | _ -> struct (Opcode.InvalidOp, NoOperand)
     | 0b1u ->
@@ -3478,80 +3492,82 @@ let parse10 b32 =
       | 0b1000u ->
         struct (
           Opcode.TA,
-          parseOneCC (getTwoCCix (get21cc1 b32) (get20cc0 b32))
+          parseTcc b32
         )
       | 0b0000u ->
         struct (
           Opcode.TN,
-          parseOneCC (getTwoCCix (get21cc1 b32) (get20cc0 b32))
+          parseTcc b32
         )
       | 0b1001u ->
         struct (
           Opcode.TNE,
-          parseOneCC (getTwoCCix (get21cc1 b32) (get20cc0 b32))
+          parseTcc b32
         )
       | 0b0001u ->
         struct (
           Opcode.TE,
-          parseOneCC (getTwoCCix (get21cc1 b32) (get20cc0 b32))
+          parseTcc b32
         )
       | 0b1010u ->
         struct (
           Opcode.TG,
-          parseOneCC (getTwoCCix (get21cc1 b32) (get20cc0 b32))
+          parseTcc b32
         )
       | 0b0010u ->
         struct (
           Opcode.TLE,
-          parseOneCC (getTwoCCix (get21cc1 b32) (get20cc0 b32))
+          parseTcc b32
         )
       | 0b1011u ->
         struct (
           Opcode.TGE,
-          parseOneCC (getTwoCCix (get21cc1 b32) (get20cc0 b32))
+          parseTcc b32
         )
       | 0b0011u ->
         struct (
           Opcode.TL,
-          parseOneCC (getTwoCCix (get21cc1 b32) (get20cc0 b32))
+          parseTcc b32
         )
       | 0b1100u ->
         struct (
           Opcode.TGU,
-          parseOneCC (getTwoCCix (get21cc1 b32) (get20cc0 b32))
+          parseTcc b32
         )
       | 0b0100u ->
         struct (
           Opcode.TLEU,
-          parseOneCC (getTwoCCix (get21cc1 b32) (get20cc0 b32))
+          parseTcc b32
         )
       | 0b1101u ->
         struct (
           Opcode.TCC,
-          parseOneCC (getTwoCCix (get21cc1 b32) (get20cc0 b32))
+          parseTcc b32
         )
       | 0b0101u ->
         struct (
           Opcode.TCS,
-          parseOneCC (getTwoCCix (get21cc1 b32) (get20cc0 b32))
+          parseTcc b32
         )
       | 0b1110u ->
-        struct (Opcode.TPOS,
-                parseOneCC (getTwoCCix (get21cc1 b32) (get20cc0 b32)))
+        struct (
+          Opcode.TPOS,
+          parseTcc b32
+        )
       | 0b0110u ->
         struct (
           Opcode.TNEG,
-          parseOneCC (getTwoCCix (get21cc1 b32) (get20cc0 b32))
+          parseTcc b32
         )
       | 0b1111u ->
         struct (
           Opcode.TVC,
-          parseOneCC (getTwoCCix (get21cc1 b32) (get20cc0 b32))
+          parseTcc b32
         )
       | 0b0111u ->
         struct (
           Opcode.TVS,
-          parseOneCC (getTwoCCix (get21cc1 b32) (get20cc0 b32))
+          parseTcc b32
         )
       | _ -> struct (Opcode.InvalidOp, NoOperand)
     | _ -> struct (Opcode.InvalidOp, NoOperand)

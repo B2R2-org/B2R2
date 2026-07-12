@@ -3371,6 +3371,19 @@ let flushw (ins: Instruction) insLen bld =
   bld <+ (AST.sideEffect FlushWindows)
   bld --!> insLen
 
+/// A trap-always used as the Linux system-call gate: sparc64 traps to 0x6d,
+/// sparc32 to 0x10. Only that trap becomes a SysCall side effect; every other
+/// trap-on-condition is a no-op here (real traps are not modeled). The kernel
+/// reads the call number from %g1 and the arguments from %o0..%o5.
+let tcc (ins: Instruction) insLen bld =
+  bld <!-- (ins.Address, insLen)
+  match ins.Operands with
+  | TwoOperands(_, OprImm n) when n = 0x6d || n = 0x10 ->
+    bld <+ (AST.sideEffect SysCall)
+  | _ ->
+    ()
+  bld --!> insLen
+
 let saved (ins: Instruction) insLen bld =
   let cs = regVar bld Register.CANSAVE
   let cr = regVar bld Register.CANRESTORE
