@@ -863,29 +863,36 @@ let call ins insLen bld =
 
 let casa ins insLen bld =
   let struct (src, asi, src1, dst) = transFourOprs ins insLen bld
+  let old = tmpVar bld 32<rt>
   bld <!-- (ins.Address, insLen)
   let lblL0 = label bld "L0"
   let lblEnd = label bld "End"
-  let cond = ((AST.extract src1 32<rt> 0) == (AST.loadBE 32<rt> (src .+ asi)))
+  (* compare rs2 (src1) against the memory word; on a match store rd (dst, the
+     new value); rd always receives the old memory word. *)
+  bld <+ (old := AST.loadBE 32<rt> (src .+ asi))
+  let cond = ((AST.extract src1 32<rt> 0) == old)
   bld <+ (AST.cjmp (cond) (AST.jmpDest lblL0) (AST.jmpDest lblEnd))
   bld <+ (AST.lmark lblL0)
-  bld <+ (AST.loadBE 32<rt> (src .+ asi) := AST.extract src1 32<rt> 0)
+  bld <+ (AST.loadBE 32<rt> (src .+ asi) := AST.extract dst 32<rt> 0)
   bld <+ (AST.lmark lblEnd)
-  bld <+ (AST.extract dst 32<rt> 0 := AST.extract src1 32<rt> 0)
-  bld <+ (AST.extract dst 32<rt> 32 := AST.num0 32<rt>)
+  bld <+ (dst := AST.zext 64<rt> old)
   bld --!> insLen
 
 let casxa ins insLen bld =
   let struct (src, asi, src1, dst) = transFourOprs ins insLen bld
+  let old = tmpVar bld 64<rt>
   bld <!-- (ins.Address, insLen)
   let lblL0 = label bld "L0"
   let lblEnd = label bld "End"
-  let cond = (src1 == AST.loadBE 64<rt> (src .+ asi))
+  (* compare rs2 (src1) against the memory doubleword; on a match store rd
+     (dst); rd always receives the old memory doubleword. *)
+  bld <+ (old := AST.loadBE 64<rt> (src .+ asi))
+  let cond = (src1 == old)
   bld <+ (AST.cjmp (cond) (AST.jmpDest lblL0) (AST.jmpDest lblEnd))
   bld <+ (AST.lmark lblL0)
   bld <+ (AST.loadBE 64<rt> (src .+ asi) := dst)
   bld <+ (AST.lmark lblEnd)
-  bld <+ (dst := src1)
+  bld <+ (dst := old)
   bld --!> insLen
 
 let ``done`` (ins: Instruction) insLen bld =
@@ -3203,7 +3210,7 @@ let mulscc ins insLen bld =
   if (dst <> regVar bld Register.G0) then bld <+ (dst := res) else ()
   bld <+ ((AST.extract y 32<rt> 0) := AST.concat (AST.extract src 1<rt> 0)
     (AST.extract y 31<rt> 1))
-  bld <+ (hbyte := getConditionCodeMulscc res src src1)
+  bld <+ (hbyte := getConditionCodeMulscc res src32 src2)
   bld <+ (AST.extract ccr 4<rt> 0 := hbyte)
   bld --!> insLen
 
@@ -3333,14 +3340,18 @@ let restored (ins: Instruction) insLen bld =
   let cr = regVar bld Register.CANRESTORE
   let ow = regVar bld Register.OTHERWIN
   bld <!-- (ins.Address, insLen)
-  bld <+ (cs := (cs .+ AST.num1 64<rt>))
+  (* RESTORED: CANRESTORE += 1; then if OTHERWIN == 0 decrement CANSAVE, else
+     decrement OTHERWIN. *)
+  bld <+ (cr := (cr .+ AST.num1 64<rt>))
   let lblL0 = label bld "L0"
+  let lblL1 = label bld "L1"
   let lblEnd = label bld "End"
   let cond = (ow == AST.num0 64<rt>)
-  bld <+ (AST.cjmp (cond) (AST.jmpDest lblL0) (AST.jmpDest lblEnd))
+  bld <+ (AST.cjmp (cond) (AST.jmpDest lblL0) (AST.jmpDest lblL1))
   bld <+ (AST.lmark lblL0)
-  bld <+ (cr := (cs .- AST.num1 64<rt>))
+  bld <+ (cs := (cs .- AST.num1 64<rt>))
   bld <+ (AST.jmp (AST.jmpDest lblEnd))
+  bld <+ (AST.lmark lblL1)
   bld <+ (ow := (ow .- AST.num1 64<rt>))
   bld <+ (AST.lmark lblEnd)
   bld --!> insLen
@@ -3399,14 +3410,18 @@ let saved (ins: Instruction) insLen bld =
   let cr = regVar bld Register.CANRESTORE
   let ow = regVar bld Register.OTHERWIN
   bld <!-- (ins.Address, insLen)
+  (* SAVED: CANSAVE += 1; then if OTHERWIN == 0 decrement CANRESTORE, else
+     decrement OTHERWIN. *)
   bld <+ (cs := (cs .+ AST.num1 64<rt>))
   let lblL0 = label bld "L0"
+  let lblL1 = label bld "L1"
   let lblEnd = label bld "End"
   let cond = (ow == AST.num0 64<rt>)
-  bld <+ (AST.cjmp (cond) (AST.jmpDest lblL0) (AST.jmpDest lblEnd))
+  bld <+ (AST.cjmp (cond) (AST.jmpDest lblL0) (AST.jmpDest lblL1))
   bld <+ (AST.lmark lblL0)
   bld <+ (cr := (cr .- AST.num1 64<rt>))
   bld <+ (AST.jmp (AST.jmpDest lblEnd))
+  bld <+ (AST.lmark lblL1)
   bld <+ (ow := (ow .- AST.num1 64<rt>))
   bld <+ (AST.lmark lblEnd)
   bld --!> insLen
@@ -3420,7 +3435,14 @@ let sdiv ins insLen bld =
   let dividend = tmpVar bld 64<rt>
   let quotient = tmpVar bld 64<rt>
   let y = regVar bld Register.Y
-  let ccr = regVar bld Register.CCR
+  let lo = AST.extract quotient 32<rt> 0
+  (* Signed division with signed 32-bit saturation: the quotient is kept when
+     it fits a signed 32-bit value, else clamped to INT32_MIN/INT32_MAX by its
+     sign. SDIV (non-cc) leaves the condition codes untouched, like UDIV. *)
+  let saturated =
+    AST.ite ((AST.sext 64<rt> lo) == quotient) (AST.sext 64<rt> lo)
+      (AST.ite (AST.extract quotient 1<rt> 63 == AST.b1)
+        (numU64 0x80000000UL 64<rt>) (numU64 0x7fffffffUL 64<rt>))
   bld <!-- (ins.Address, insLen)
   bld <+ (divisor := AST.extract src1 32<rt> 0)
   bld <+ (dividend := AST.concat (AST.extract y 32<rt> 0)
@@ -3432,31 +3454,17 @@ let sdiv ins insLen bld =
     bld <+ (AST.cjmp (cond) (AST.jmpDest lblL0) (AST.jmpDest lblL1))
     bld <+ (AST.lmark lblL1)
     if (dst <> regVar bld Register.G0) then
-      bld <+ (quotient := dividend ./ (AST.zext 64<rt> divisor))
+      bld <+ (quotient := dividend ?/ (AST.sext 64<rt> divisor))
     else
       ()
-    bld <+ (dst := AST.ite ((AST.extract quotient 32<rt> 32) == AST.num0 32<rt>)
-      (AST.zext 64<rt> (AST.extract quotient 32<rt> 0))
-      (numU64 0x0000FFFFUL 64<rt>))
-    bld <+ (AST.extract ccr 1<rt> 1 := AST.ite
-      ((AST.extract quotient 32<rt> 32) == AST.num0 32<rt>) (AST.b0) (AST.b1))
+    bld <+ (dst := saturated)
     bld <+ (AST.jmp (AST.jmpDest lblEnd))
     bld <+ (AST.lmark lblL0)
     bld <+ (AST.sideEffect (Exception DivideError))
     bld <+ (AST.lmark lblEnd)
   else
-    bld <+ (quotient := dividend ./ (AST.zext 64<rt> divisor))
-    bld <+ (dst := AST.ite ((AST.extract quotient 32<rt> 32) == AST.num0 32<rt>)
-      (AST.zext 64<rt> (AST.extract quotient 32<rt> 0))
-      (numU64 0x0000FFFFUL 64<rt>))
-    bld <+ (AST.extract ccr 1<rt> 1 := AST.ite
-      ((AST.extract quotient 32<rt> 32) == AST.num0 32<rt>) (AST.b0) (AST.b1))
-  bld <+ (AST.extract ccr 4<rt> 4 := AST.num0 4<rt>)
-  bld <+ (AST.extract ccr 1<rt> 3 := AST.ite
-    ((AST.extract quotient 1<rt> 31) == AST.b1) (AST.b1) (AST.b0))
-  bld <+ (AST.extract ccr 1<rt> 2 := AST.ite
-    ((AST.extract quotient 32<rt> 0) == AST.num0 32<rt>) (AST.b1) (AST.b0))
-  bld <+ (AST.extract ccr 1<rt> 0 := AST.b0)
+    bld <+ (quotient := dividend ?/ (AST.sext 64<rt> divisor))
+    bld <+ (dst := saturated)
   bld --!> insLen
 
 let sdivcc ins insLen bld =
@@ -3469,6 +3477,14 @@ let sdivcc ins insLen bld =
   let quotient = tmpVar bld 64<rt>
   let y = regVar bld Register.Y
   let ccr = regVar bld Register.CCR
+  let lo = AST.extract quotient 32<rt> 0
+  (* signed division; overflow (V) when the quotient does not fit signed 32-bit,
+     in which case the result saturates to INT32_MIN/INT32_MAX by its sign. *)
+  let fits = (AST.sext 64<rt> lo) == quotient
+  let saturated =
+    AST.ite fits (AST.sext 64<rt> lo)
+      (AST.ite (AST.extract quotient 1<rt> 63 == AST.b1)
+        (numU64 0x80000000UL 64<rt>) (numU64 0x7fffffffUL 64<rt>))
   bld <!-- (ins.Address, insLen)
   bld <+ (divisor := AST.extract src1 32<rt> 0)
   bld <+ (dividend := AST.concat (AST.extract y 32<rt> 0)
@@ -3480,25 +3496,19 @@ let sdivcc ins insLen bld =
     bld <+ (AST.cjmp (cond) (AST.jmpDest lblL0) (AST.jmpDest lblL1))
     bld <+ (AST.lmark lblL1)
     if (dst <> regVar bld Register.G0) then
-      bld <+ (quotient := dividend ./ (AST.zext 64<rt> divisor))
+      bld <+ (quotient := dividend ?/ (AST.sext 64<rt> divisor))
     else
       ()
-    bld <+ (dst := AST.ite ((AST.extract quotient 32<rt> 32) == AST.num0 32<rt>)
-      (AST.zext 64<rt> (AST.extract quotient 32<rt> 0))
-      (numU64 0x0000FFFFUL 64<rt>))
-    bld <+ (AST.extract ccr 1<rt> 1 := AST.ite
-      ((AST.extract quotient 32<rt> 32) == AST.num0 32<rt>) (AST.b0) (AST.b1))
+    bld <+ (dst := saturated)
+    bld <+ (AST.extract ccr 1<rt> 1 := AST.ite fits (AST.b0) (AST.b1))
     bld <+ (AST.jmp (AST.jmpDest lblEnd))
     bld <+ (AST.lmark lblL0)
     bld <+ (AST.sideEffect (Exception DivideError))
     bld <+ (AST.lmark lblEnd)
   else
-    bld <+ (quotient := dividend ./ (AST.zext 64<rt> divisor))
-    bld <+ (dst := AST.ite ((AST.extract quotient 32<rt> 32) == AST.num0 32<rt>)
-      (AST.zext 64<rt> (AST.extract quotient 32<rt> 0))
-      (numU64 0x0000FFFFUL 64<rt>))
-    bld <+ (AST.extract ccr 1<rt> 1 := AST.ite
-      ((AST.extract quotient 32<rt> 32) == AST.num0 32<rt>) (AST.b0) (AST.b1))
+    bld <+ (quotient := dividend ?/ (AST.sext 64<rt> divisor))
+    bld <+ (dst := saturated)
+    bld <+ (AST.extract ccr 1<rt> 1 := AST.ite fits (AST.b0) (AST.b1))
   bld <+ (AST.extract ccr 4<rt> 4 := AST.num0 4<rt>)
   bld <+ (AST.extract ccr 1<rt> 3 := AST.ite
     ((AST.extract quotient 1<rt> 31) == AST.b1) (AST.b1) (AST.b0))
@@ -3822,7 +3832,7 @@ let udiv ins insLen bld =
       ()
     bld <+ (dst := AST.ite ((AST.extract quotient 32<rt> 32) == AST.num0 32<rt>)
       (AST.zext 64<rt> (AST.extract quotient 32<rt> 0))
-      (numU64 0x0000FFFFUL 64<rt>))
+      (numU64 0xFFFFFFFFUL 64<rt>))
     bld <+ (AST.jmp (AST.jmpDest lblEnd))
     bld <+ (AST.lmark lblL0)
     bld <+ (AST.sideEffect (Exception DivideError))
@@ -3831,7 +3841,7 @@ let udiv ins insLen bld =
     bld <+ (quotient := dividend ./ (AST.zext 64<rt> divisor))
     bld <+ (dst := AST.ite ((AST.extract quotient 32<rt> 32) == AST.num0 32<rt>)
       (AST.zext 64<rt> (AST.extract quotient 32<rt> 0))
-      (numU64 0x0000FFFFUL 64<rt>))
+      (numU64 0xFFFFFFFFUL 64<rt>))
   bld --!> insLen
 
 let udivcc ins insLen bld =
@@ -3860,7 +3870,7 @@ let udivcc ins insLen bld =
       ()
     bld <+ (dst := AST.ite ((AST.extract quotient 32<rt> 32) == AST.num0 32<rt>)
       (AST.zext 64<rt> (AST.extract quotient 32<rt> 0))
-      (numU64 0x0000FFFFUL 64<rt>))
+      (numU64 0xFFFFFFFFUL 64<rt>))
     bld <+ (AST.extract ccr 1<rt> 1 := AST.ite
       ((AST.extract quotient 32<rt> 32) == AST.num0 32<rt>) (AST.b0) (AST.b1))
     bld <+ (AST.jmp (AST.jmpDest lblEnd))
@@ -3871,7 +3881,7 @@ let udivcc ins insLen bld =
     bld <+ (quotient := dividend ./ (AST.zext 64<rt> divisor))
     bld <+ (dst := AST.ite ((AST.extract quotient 32<rt> 32) == AST.num0 32<rt>)
       (AST.zext 64<rt> (AST.extract quotient 32<rt> 0))
-      (numU64 0x0000FFFFUL 64<rt>))
+      (numU64 0xFFFFFFFFUL 64<rt>))
     bld <+ (AST.extract ccr 1<rt> 1 := AST.ite
       ((AST.extract quotient 32<rt> 32) == AST.num0 32<rt>) (AST.b0) (AST.b1))
   bld <+ (AST.extract ccr 4<rt> 4 := AST.num0 4<rt>)
@@ -3964,7 +3974,11 @@ let xorcc ins insLen bld =
   let ccr = regVar bld Register.CCR
   let byte = tmpVar bld 8<rt>
   bld <!-- (ins.Address, insLen)
-  bld <+ (dst := src <+> src1)
+  bld <+ (res := src <+> src1)
+  if (dst = regVar bld Register.G0) then
+    bld <+ (dst := AST.num0 64<rt>)
+  else
+    bld <+ (dst := res)
   bld <+ (byte := (getConditionCodeLog res src src1))
   bld <+ (AST.extract ccr 8<rt> 0 := byte)
   bld --!> insLen
