@@ -106,4 +106,5 @@ type GroundWork =
     match isa with
     | Intel -> Intel.LowUIRBuilder(isa, regFactory, stream) :> ILowUIRBuilder
     | MIPS -> MIPS.LowUIRBuilder(isa, regFactory, stream) :> ILowUIRBuilder
+    | SPARC -> SPARC.LowUIRBuilder(isa, regFactory, stream) :> ILowUIRBuilder
     | _ -> ILowUIRBuilder.Default(isa, regFactory, stream)

@@ -45,13 +45,14 @@ type LifterTest() =
 
   let regFactory = RegisterFactory isa :> IRegisterFactory
 
-  let builder = ILowUIRBuilder.Default(isa, regFactory, LowUIRStream())
-
   let ( !. ) reg = Register.toRegID reg |> regFactory.GetRegVar
 
   let unwrapStmts stmts = Array.sub stmts 1 (Array.length stmts - 2)
 
   let test (bytes: byte[], givenStmts) =
+    (* a fresh builder per test: the SPARC builder carries delayed-branch state
+       across instructions, which must not leak between independent tests *)
+    let builder = LowUIRBuilder(isa, regFactory, LowUIRStream())
     let parser = SPARCParser(reader) :> IInstructionParsable
     let ins = parser.Parse(bytes, 0UL)
     CollectionAssert.AreEqual(givenStmts, unwrapStmts <| ins.Translate builder)
@@ -88,32 +89,30 @@ type LifterTest() =
     |> test
 
   [<TestMethod>]
-  member _.``[SPARC] JMPL (three reg operands) lift Test``() =
+  member _.``[SPARC] JMPL arms a delayed jump via nPC lift Test``() =
     "0600c09f"
-    ++ [| t64 1 := !.G0 .+ !.G6
-          !.O7 := !.PC
-          AST.interjmp (t64 1) InterJmpKind.Base |]
+    ++ [| !.NPC := !.G0 .+ !.G6
+          !.O7 := !.PC |]
     |> test
 
   [<TestMethod>]
   member _.``[SPARC] JMPL to %g0 discards the link (ret) lift Test``() =
     "08e0c781"
-    ++ [| t64 1 := !.I7 .+ num 8L
-          !.G0 := !.G0
-          AST.interjmp (t64 1) InterJmpKind.Base |]
+    ++ [| !.NPC := !.I7 .+ num 8L
+          !.G0 := !.G0 |]
     |> test
 
   [<TestMethod>]
-  member _.``[SPARC] CALL lift Test``() =
+  member _.``[SPARC] CALL arms a delayed call via nPC lift Test``() =
     "02000040"
     ++ [| !.O7 := !.PC
-          AST.interjmp (!.PC .+ num 8L) InterJmpKind.IsCall |]
+          !.NPC := !.PC .+ num 8L |]
     |> test
 
   [<TestMethod>]
-  member _.``[SPARC] RETURN lift Test``() =
+  member _.``[SPARC] RETURN arms a delayed return via nPC lift Test``() =
     "08e0cf81"
-    ++ [| AST.interjmp (!.I7 .+ num 8L) InterJmpKind.IsRet |]
+    ++ [| !.NPC := !.I7 .+ num 8L |]
     |> test
 
   [<TestMethod>]

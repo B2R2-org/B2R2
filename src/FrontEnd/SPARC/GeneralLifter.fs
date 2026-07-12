@@ -41,6 +41,56 @@ let inline (:=) dst src =
   | Var(_, rid, _, _) when rid = Register.toRegID Register.G0 -> dst := dst
   | _ -> dst := src
 
+/// Marks the start of an instruction and, when it is the delay slot of an
+/// annulling conditional branch (AnnulCond set by that branch), wraps the body
+/// in a guard: it runs only if the branch was taken, else jumps past it to a
+/// skip label the matching --!> plants. Shadows LiftingUtils's <!-- below.
+let (<!--) (bld: ILowUIRBuilder) (addr, insLen) =
+  bld.Stream.MarkStart(addr, insLen)
+  match bld with
+  | :? LowUIRBuilder as sbld ->
+    match sbld.AnnulCond with
+    | ValueSome cond ->
+      let runLbl = label bld "AnnulRun"
+      let skipLbl = label bld "AnnulSkip"
+      bld <+ (AST.cjmp cond (AST.jmpDest runLbl) (AST.jmpDest skipLbl))
+      bld <+ (AST.lmark runLbl)
+      sbld.AnnulSkip <- ValueSome skipLbl
+      sbld.AnnulCond <- ValueNone
+    | ValueNone -> ()
+  | _ -> ()
+
+/// Finalizes an instruction: closes any annulled delay slot's skip label, then
+/// flushes a pending delayed branch. A SPARC control transfer arms the branch
+/// and stores its target in %nPC rather than jumping, so the delay-slot
+/// instruction that follows executes and then this emits the InterJmp. The
+/// transfer's own end (Armed) defers; the delay slot's end flushes. Shadows
+/// LiftingUtils's --!> below.
+let (--!>) (bld: ILowUIRBuilder) insLen =
+  match bld with
+  | :? LowUIRBuilder as sbld ->
+    match sbld.AnnulSkip with
+    | ValueSome lbl ->
+      bld <+ (AST.lmark lbl)
+      sbld.AnnulSkip <- ValueNone
+    | ValueNone -> ()
+    if sbld.DelayedBranch <> InterJmpKind.NotAJmp then
+      if sbld.Armed then sbld.Armed <- false
+      else
+        bld <+ (AST.interjmp (regVar bld Register.NPC) sbld.DelayedBranch)
+        sbld.Disarm()
+    else ()
+    bld.Stream.MarkEnd insLen
+    bld
+  | _ ->
+    bld.Stream.MarkEnd insLen
+    bld
+
+/// Arms a delayed control transfer of the given kind; its target must already
+/// have been stored into %nPC. The following --!> (after the delay slot) emits
+/// the InterJmp.
+let arm (bld: ILowUIRBuilder) kind = (bld :?> LowUIRBuilder).Arm kind
+
 let inline numI32PC (n: int) = BitVector(n, 64<rt>) |> AST.num
 
 let inline getCCVar (bld: ILowUIRBuilder) name =
@@ -624,9 +674,42 @@ let andncc ins insLen bld =
   bld <+ (AST.extract ccr 8<rt> 0 := byte)
   bld --!> insLen
 
+/// Sets %nPC to the taken target when cond holds, else to the not-taken
+/// continuation, for a delayed conditional branch: the following delay slot
+/// runs and then --!> emits the InterJmp to %nPC. The delay slot thus always
+/// executes (annulling branches are not yet modeled).
+let setNPCCond (bld: ILowUIRBuilder) cond taken notTaken =
+  let nPC = regVar bld Register.NPC
+  let lblTaken = label bld "Taken"
+  let lblNotTaken = label bld "NotTaken"
+  let lblEnd = label bld "End"
+  bld <+ (AST.cjmp cond (AST.jmpDest lblTaken) (AST.jmpDest lblNotTaken))
+  bld <+ (AST.lmark lblTaken)
+  bld <+ (nPC := taken)
+  bld <+ (AST.jmp (AST.jmpDest lblEnd))
+  bld <+ (AST.lmark lblNotTaken)
+  bld <+ (nPC := notTaken)
+  bld <+ (AST.lmark lblEnd)
+
+/// Arms a branch's delayed transfer, honoring the annul bit. Without annul the
+/// delay slot always runs (%nPC set conditionally, then armed). With annul: an
+/// always/never branch (cond is the constant b1/b0) jumps at once, annulling
+/// the delay slot; a conditional one arms but records AnnulCond so its delay
+/// slot runs only when taken.
+let branchTo (bld: ILowUIRBuilder) an cond taken notTaken =
+  let annul = (AST.extract an 1<rt> 0 = AST.b1)
+  if annul && cond = AST.b1 then bld <+ (AST.interjmp taken InterJmpKind.Base)
+  elif annul && cond = AST.b0 then
+    bld <+ (AST.interjmp notTaken InterJmpKind.Base)
+  else
+    setNPCCond bld cond taken notTaken
+    arm bld InterJmpKind.Base
+    if annul then (bld :?> LowUIRBuilder).AnnulCond <- ValueSome cond
+    else ()
+
 let branchpr ins insLen bld =
   let oprSize = 64<rt>
-  let struct (src, label, an, pr) = transFourOprs ins insLen bld
+  let struct (src, label, an, _) = transFourOprs ins insLen bld
   let pc = regVar bld Register.PC
   bld <!-- (ins.Address, insLen)
   let branchCond =
@@ -638,12 +721,8 @@ let branchpr ins insLen bld =
     | Opcode.BRGZ -> (src ?> AST.num0 oprSize)
     | Opcode.BRGEZ -> (src ?>= AST.num0 oprSize)
     | _ -> raise InvalidOpcodeException
-  let annoffset =
-    if AST.extract an 1<rt> 0 = AST.b1 then numI32PC 4
-    else numI32PC 0
-  let fallThrough = pc .+ numI32PC 4 .+ annoffset
   let jumpTarget = pc .+ AST.zext 64<rt> label
-  bld <+ (AST.intercjmp branchCond jumpTarget fallThrough)
+  branchTo bld an branchCond jumpTarget (pc .+ numI32PC 8)
   bld --!> insLen
 
 let branchicc ins insLen bld =
@@ -679,23 +758,13 @@ let branchicc ins insLen bld =
     | Opcode.BVC -> (AST.extract ccr 1<rt> 1 == AST.b0)
     | Opcode.BVS -> (AST.extract ccr 1<rt> 1 == AST.b1)
     | _ -> raise InvalidOpcodeException
-  let annoffset =
-    if (AST.extract an 1<rt> 0 = AST.b1) then numI32PC 4
-    else numI32PC 0
-  let fallThrough = pc .+ numI32PC 4 .+ annoffset
   let jumpTarget = pc .+ AST.zext 64<rt> label
-  if ins.Opcode = Opcode.BA then
-    bld <+ (AST.interjmp jumpTarget InterJmpKind.Base)
-    bld --!> insLen
-  elif ins.Opcode = Opcode.BN then
-    bld --!> insLen
-  else
-    bld <+ (AST.intercjmp branchCond jumpTarget fallThrough)
-    bld --!> insLen
+  branchTo bld an branchCond jumpTarget (pc .+ numI32PC 8)
+  bld --!> insLen
 
 let branchpcc ins insLen bld =
   let oprSize = 64<rt>
-  let struct (cc, label, an, pr) = transFourOprs ins insLen bld
+  let struct (cc, label, an, _) = transFourOprs ins insLen bld
   let pc = regVar bld Register.PC
   let ccr = regVar bld Register.CCR
   bld <!-- (ins.Address, insLen)
@@ -778,19 +847,9 @@ let branchpcc ins insLen bld =
       else
         (AST.extract ccr 1<rt> 5 == AST.b1)
     | _ -> raise InvalidOpcodeException
-  let annoffset =
-    if (AST.extract an 1<rt> 0 = AST.b1) then numI32PC 4
-    else numI32PC 0
-  let fallThrough = pc .+ numI32PC 4 .+ annoffset
   let jumpTarget = pc .+ AST.zext 64<rt> label
-  if (ins.Opcode = Opcode.BPA) then
-    bld <+ (AST.interjmp jumpTarget InterJmpKind.Base)
-    bld --!> insLen
-  elif (ins.Opcode = Opcode.BPN) then
-    bld --!> insLen
-  else
-    bld <+ (AST.intercjmp branchCond jumpTarget fallThrough)
-    bld --!> insLen
+  branchTo bld an branchCond jumpTarget (pc .+ numI32PC 8)
+  bld --!> insLen
 
 let call ins insLen bld =
   let dst = transOneOpr ins insLen bld
@@ -798,7 +857,8 @@ let call ins insLen bld =
   let pc = regVar bld Register.PC
   bld <!-- (ins.Address, insLen)
   bld <+ (o7 := pc)
-  bld <+ (AST.interjmp (pc .+ dst) InterJmpKind.IsCall)
+  bld <+ (regVar bld Register.NPC := pc .+ dst)
+  arm bld InterJmpKind.IsCall
   bld --!> insLen
 
 let casa ins insLen bld =
@@ -1088,23 +1148,12 @@ let fbranchfcc ins insLen bld =
     | Opcode.FBO -> (l .| e .| g)
     | _ -> raise InvalidOpcodeException
   bld <!-- (ins.Address, insLen)
-  if (ins.Opcode = Opcode.FBA) then
-    let jumpTarget = pc .+ AST.zext 64<rt> label
-    bld <+ (AST.interjmp jumpTarget InterJmpKind.Base)
-    bld --!> insLen
-  elif (ins.Opcode = Opcode.FBN) then
-    bld --!> insLen
-  else
-    let annoffset =
-      if (AST.extract an 1<rt> 0 = AST.b1) then numI32PC 4
-      else numI32PC 0
-    let fallThrough = pc .+ numI32PC 4 .+ annoffset
-    let jumpTarget = pc .+ AST.zext 64<rt> label
-    bld <+ (AST.intercjmp branchCond jumpTarget fallThrough)
-    bld --!> insLen
+  let jumpTarget = pc .+ AST.zext 64<rt> label
+  branchTo bld an branchCond jumpTarget (pc .+ numI32PC 8)
+  bld --!> insLen
 
 let fbranchpfcc ins insLen bld =
-  let struct (cc, label, an, pr) = transFourOprs ins insLen bld
+  let struct (cc, label, an, _) = transFourOprs ins insLen bld
   let pc = regVar bld Register.PC
   let fsr = regVar bld Register.FSR
   let fcc0 = getCCVar bld ConditionCode.Fcc0
@@ -1141,12 +1190,8 @@ let fbranchpfcc ins insLen bld =
     | Opcode.FBPO -> (l .| e .| g)
     | _ -> raise InvalidOpcodeException
   bld <!-- (ins.Address, insLen)
-  let annoffset =
-    if (AST.extract an 1<rt> 0 = AST.b1) then numI32PC 4
-    else numI32PC 0
-  let fallThrough = pc .+ numI32PC 4 .+ annoffset
   let jumpTarget = pc .+ AST.zext 64<rt> label
-  bld <+ (AST.intercjmp branchCond jumpTarget fallThrough)
+  branchTo bld an branchCond jumpTarget (pc .+ numI32PC 8)
   bld --!> insLen
 
 let fcmps ins insLen bld =
@@ -2592,11 +2637,10 @@ let fitoq ins insLen bld =
 
 let jmpl ins insLen bld =
   let struct (addr, dst) = transAddrThreeOprs ins insLen bld
-  let target = tmpVar bld 64<rt>
   bld <!-- (ins.Address, insLen)
-  bld <+ (target := addr)
+  bld <+ (regVar bld Register.NPC := addr)
   bld <+ (dst := regVar bld Register.PC)
-  bld <+ (AST.interjmp target InterJmpKind.Base)
+  arm bld InterJmpKind.Base
   bld --!> insLen
 
 let ldf ins insLen bld =
@@ -3301,7 +3345,8 @@ let restored (ins: Instruction) insLen bld =
 let ret ins insLen bld =
   let struct (src, src1) = transTwoOprs ins insLen bld
   bld <!-- (ins.Address, insLen)
-  bld <+ (AST.interjmp (src .+ src1) InterJmpKind.IsRet)
+  bld <+ (regVar bld Register.NPC := src .+ src1)
+  arm bld InterJmpKind.IsRet
   bld --!> insLen
 
 let retry (ins: Instruction) insLen bld =

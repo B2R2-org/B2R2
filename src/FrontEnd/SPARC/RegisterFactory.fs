@@ -188,6 +188,7 @@ type RegisterFactory(isa: ISA) =
       | Register.I6 -> i6
       | Register.I7 -> i7
       | Register.PC -> pc
+      | Register.NPC -> npc
       | Register.CCR -> ccr
       | Register.FSR -> fsr
       | Register.Y -> y
