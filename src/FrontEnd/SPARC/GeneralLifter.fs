@@ -3775,17 +3775,26 @@ let swap ins insLen bld =
   let struct (src, src1, dst) = transThreeOprs ins insLen bld
   let oprSize = 64<rt>
   let addr = tmpVar bld oprSize
+  let tmp = tmpVar bld 32<rt>
   bld <!-- (ins.Address, insLen)
+  (* atomic exchange: load the memory word, write the old rd there, then move
+     the loaded word into rd (rd read before it is overwritten). *)
   bld <+ (addr := (src .+ src1))
-  bld <+ (dst := (AST.zext oprSize (AST.loadBE 32<rt> addr)))
+  bld <+ (tmp := AST.loadBE 32<rt> addr)
+  bld <+ (AST.loadBE 32<rt> addr := AST.extract dst 32<rt> 0)
+  bld <+ (dst := AST.zext oprSize tmp)
   bld --!> insLen
 
 let swapa ins insLen bld =
   let struct (src, src1, asi, dst) = transFourOprs ins insLen bld
   let oprSize = 64<rt>
-  let struct (t1, t2) = tmpVars2 bld oprSize
+  let addr = tmpVar bld oprSize
+  let tmp = tmpVar bld 32<rt>
   bld <!-- (ins.Address, insLen)
-  bld <+ (dst := (AST.zext oprSize (AST.loadBE 32<rt> (src .+ src1 .+ asi))))
+  bld <+ (addr := (src .+ src1 .+ asi))
+  bld <+ (tmp := AST.loadBE 32<rt> addr)
+  bld <+ (AST.loadBE 32<rt> addr := AST.extract dst 32<rt> 0)
+  bld <+ (dst := AST.zext oprSize tmp)
   bld --!> insLen
 
 let udiv ins insLen bld =
