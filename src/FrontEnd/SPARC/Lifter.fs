@@ -228,7 +228,8 @@ let translate (ins: Instruction) insLen bld =
   | Opcode.SDIVcc -> sdivcc ins insLen bld
   | Opcode.UDIV -> udiv ins insLen bld
   | Opcode.UDIVcc -> udivcc ins insLen bld
-  | Opcode.FLUSH | Opcode.FLUSHW | Opcode.ILLTRAP -> nop ins insLen bld
+  | Opcode.FLUSH | Opcode.ILLTRAP -> nop ins insLen bld
+  | Opcode.FLUSHW -> flushw ins insLen bld
   | Opcode.InvalidOp -> raise InvalidOpcodeException
   | o ->
   #if DEBUG

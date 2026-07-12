@@ -115,3 +115,41 @@ type LifterTest() =
     "08e0cf81"
     ++ [| AST.interjmp (!.I7 .+ num 8L) InterJmpKind.IsRet |]
     |> test
+
+  [<TestMethod>]
+  member _.``[SPARC] SAVE rotates the window in lift Test``() =
+    "0240e091"
+    ++ [| t64 1 := !.G1 .+ !.G2
+          AST.sideEffect SaveWindow
+          !.I0 := !.O0
+          !.I1 := !.O1
+          !.I2 := !.O2
+          !.I3 := !.O3
+          !.I4 := !.O4
+          !.I5 := !.O5
+          !.I6 := !.O6
+          !.I7 := !.O7
+          !.O0 := t64 1 |]
+    |> test
+
+  [<TestMethod>]
+  member _.``[SPARC] RESTORE rotates the window out lift Test``() =
+    "0240e891"
+    ++ [| t64 1 := !.G1 .+ !.G2
+          !.O0 := !.I0
+          !.O1 := !.I1
+          !.O2 := !.I2
+          !.O3 := !.I3
+          !.O4 := !.I4
+          !.O5 := !.I5
+          !.O6 := !.I6
+          !.O7 := !.I7
+          AST.sideEffect RestoreWindow
+          !.O0 := t64 1 |]
+    |> test
+
+  [<TestMethod>]
+  member _.``[SPARC] FLUSHW flushes the windows lift Test``() =
+    "00005881"
+    ++ [| AST.sideEffect FlushWindows |]
+    |> test

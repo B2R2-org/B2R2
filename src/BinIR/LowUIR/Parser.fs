@@ -346,6 +346,9 @@ type Parser(isa: ISA,
     <|> attempt (pstringCI "syscall" >>% SysCall)
     <|> attempt (pstringCI "undefinedinstruction" >>% UndefinedInstruction)
     <|> attempt (pstringCI "unsupportedinstruction" >>% UnsupportedInstruction)
+    <|> attempt (pstringCI "savewindow" >>% SaveWindow)
+    <|> attempt (pstringCI "restorewindow" >>% RestoreWindow)
+    <|> attempt (pstringCI "flushwindows" >>% FlushWindows)
 
   let pSideEffect =
     ws

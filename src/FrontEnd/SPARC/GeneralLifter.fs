@@ -3257,10 +3257,28 @@ let rd ins insLen bld =
   bld <+ (dst := reg)
   bld --!> insLen
 
+/// The in/out register pairs the register window rotates: on SAVE the caller's
+/// %o becomes the callee's %i (so %i6 takes the caller %sp as the new %fp and
+/// %i7 the return address), and on RESTORE the %i rotates back to %o.
+let private inOutPairs =
+  [ Register.I0, Register.O0
+    Register.I1, Register.O1
+    Register.I2, Register.O2
+    Register.I3, Register.O3
+    Register.I4, Register.O4
+    Register.I5, Register.O5
+    Register.I6, Register.O6
+    Register.I7, Register.O7 ]
+
 let restore ins insLen bld =
   let struct (src, src1, dst) = transThreeOprs ins insLen bld
+  let result = tmpVar bld 64<rt>
   bld <!-- (ins.Address, insLen)
-  bld <+ (dst := src .+ src1)
+  bld <+ (result := src .+ src1)
+  for i, o in inOutPairs do
+    bld <+ (regVar bld o := regVar bld i)
+  bld <+ (AST.sideEffect RestoreWindow)
+  bld <+ (dst := result)
   bld --!> insLen
 
 let restored (ins: Instruction) insLen bld =
@@ -3294,8 +3312,18 @@ let retry (ins: Instruction) insLen bld =
 
 let save ins insLen bld =
   let struct (src, src1, dst) = transThreeOprs ins insLen bld
+  let result = tmpVar bld 64<rt>
   bld <!-- (ins.Address, insLen)
-  bld <+ (dst := src .+ src1)
+  bld <+ (result := src .+ src1)
+  bld <+ (AST.sideEffect SaveWindow)
+  for i, o in inOutPairs do
+    bld <+ (regVar bld i := regVar bld o)
+  bld <+ (dst := result)
+  bld --!> insLen
+
+let flushw (ins: Instruction) insLen bld =
+  bld <!-- (ins.Address, insLen)
+  bld <+ (AST.sideEffect FlushWindows)
   bld --!> insLen
 
 let saved (ins: Instruction) insLen bld =

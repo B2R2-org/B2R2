@@ -62,6 +62,19 @@ type SideEffect =
   /// An instruction that is valid but not yet modeled by B2R2's lifter, e.g.,
   /// an unsupported floating-point, privileged, or extension instruction.
   | UnsupportedInstruction
+  /// SPARC register-window save (the SAVE instruction): preserve the current
+  /// window's local and in registers so the rotated-in window can reuse those
+  /// slots. The emulator keeps the preserved window aside rather than spilling
+  /// it to the stack, restoring it on the matching RestoreWindow.
+  | SaveWindow
+  /// SPARC register-window restore (the RESTORE instruction): recover the local
+  /// and in registers preserved by the matching SaveWindow.
+  | RestoreWindow
+  /// SPARC register-window flush (the FLUSHW instruction): make every saved
+  /// window except the current one visible in its stack save area, as setjmp
+  /// and stack unwinders require. The emulator writes the windows it holds out
+  /// to the guest stack.
+  | FlushWindows
 #if EMULATION
   /// EFLAGS lazy evaluation
   | FlagsUpdate
@@ -95,6 +108,9 @@ module SideEffect =
     | ProcessorInfoRead -> "ProcessorInfoRead"
     | UndefinedInstruction -> "UndefinedInstruction"
     | UnsupportedInstruction -> "UnsupportedInstruction"
+    | SaveWindow -> "SaveWindow"
+    | RestoreWindow -> "RestoreWindow"
+    | FlushWindows -> "FlushWindows"
 #if EMULATION
     | FlagsUpdate -> "FlagsUpdate"
 #endif
