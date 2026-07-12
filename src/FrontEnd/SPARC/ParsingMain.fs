@@ -2353,11 +2353,23 @@ let parse10rd b32 =
       struct (Opcode.RESTORE, parseThrOpr b32 getRegRs1 getRegRs2 getRegRd)
     (* Shift *)
     | 0b100101u ->
-      struct (Opcode.SLL, parseThrOpr b32 getRegRs1 getRegRs2 getRegRd)
+      match pickBit b32 12u with
+      | 0b0u ->
+        struct (Opcode.SLL, parseThrOpr b32 getRegRs1 getRegRs2 getRegRd)
+      | _ ->
+        struct (Opcode.SLLX, parseThrOpr b32 getRegRs1 getRegRs2 getRegRd)
     | 0b100110u ->
-      struct (Opcode.SRL, parseThrOpr b32 getRegRs1 getRegRs2 getRegRd)
+      match pickBit b32 12u with
+      | 0b0u ->
+        struct (Opcode.SRL, parseThrOpr b32 getRegRs1 getRegRs2 getRegRd)
+      | _ ->
+        struct (Opcode.SRLX, parseThrOpr b32 getRegRs1 getRegRs2 getRegRd)
     | 0b100111u ->
-      struct (Opcode.SRA, parseThrOpr b32 getRegRs1 getRegRs2 getRegRd)
+      match pickBit b32 12u with
+      | 0b0u ->
+        struct (Opcode.SRA, parseThrOpr b32 getRegRs1 getRegRs2 getRegRd)
+      | _ ->
+        struct (Opcode.SRAX, parseThrOpr b32 getRegRs1 getRegRs2 getRegRd)
     (* Subtract *)
     | 0b000100u ->
       struct (Opcode.SUB, parseThrOpr b32 getRegRs1 getRegRs2 getRegRd)
