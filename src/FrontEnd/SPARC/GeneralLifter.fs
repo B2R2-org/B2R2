@@ -744,7 +744,7 @@ let branchicc ins insLen bld =
       (((AST.extract ccr 1<rt> 2) .| ((AST.extract ccr 1<rt> 1) <+>
         (AST.extract ccr 1<rt> 3))) == AST.b1)
     | Opcode.BGE ->
-      ((AST.extract ccr 1<rt> 1) <+> (AST.extract ccr 1<rt> 3) == AST.b1)
+      ((AST.extract ccr 1<rt> 1) <+> (AST.extract ccr 1<rt> 3) == AST.b0)
     | Opcode.BL ->
       ((AST.extract ccr 1<rt> 1) <+> (AST.extract ccr 1<rt> 3) == AST.b1)
     | Opcode.BGU ->
@@ -798,9 +798,9 @@ let branchpcc ins insLen bld =
           (AST.extract ccr 1<rt> 7))) == AST.b1)
     | Opcode.BPGE ->
       if (cc = getCCVar bld ConditionCode.Icc) then
-        ((AST.extract ccr 1<rt> 1) <+> (AST.extract ccr 1<rt> 3) == AST.b1)
+        ((AST.extract ccr 1<rt> 1) <+> (AST.extract ccr 1<rt> 3) == AST.b0)
       else
-        ((AST.extract ccr 1<rt> 5) <+> (AST.extract ccr 1<rt> 7) == AST.b1)
+        ((AST.extract ccr 1<rt> 5) <+> (AST.extract ccr 1<rt> 7) == AST.b0)
     | Opcode.BPL ->
       if (cc = getCCVar bld ConditionCode.Icc) then
         ((AST.extract ccr 1<rt> 1) <+> (AST.extract ccr 1<rt> 3) == AST.b1)
@@ -2703,13 +2703,13 @@ let ld ins insLen bld =
     if (dst = regVar bld Register.G0) then
       let nxt = regVar bld Register.G1
       bld <+ (nxt := (AST.zext oprSize (AST.extract
-        (AST.loadBE oprSize addr) 32<rt> 32)))
+        (AST.loadBE oprSize addr) 32<rt> 0)))
     else
       let nxt = regVar bld (getNextReg bld dst)
       bld <+ (dst := (AST.zext oprSize (AST.extract
-        (AST.loadBE oprSize addr) 32<rt> 0)))
-      bld <+ (nxt := (AST.zext oprSize (AST.extract
         (AST.loadBE oprSize addr) 32<rt> 32)))
+      bld <+ (nxt := (AST.zext oprSize (AST.extract
+        (AST.loadBE oprSize addr) 32<rt> 0)))
   | _ -> raise InvalidOpcodeException
   bld --!> insLen
 
@@ -2736,13 +2736,13 @@ let lda ins insLen bld =
     if (dst = regVar bld Register.G0) then
       let nxt = regVar bld Register.G1
       bld <+ (nxt := (AST.zext oprSize (AST.extract
-        (AST.loadBE oprSize (addr .+ asi)) 32<rt> 32)))
+        (AST.loadBE oprSize (addr .+ asi)) 32<rt> 0)))
     else
       let nxt = regVar bld (getNextReg bld dst)
       bld <+ (dst := (AST.zext oprSize (AST.extract
-        (AST.loadBE oprSize (addr .+ asi)) 32<rt> 0)))
-      bld <+ (nxt := (AST.zext oprSize (AST.extract
         (AST.loadBE oprSize (addr .+ asi)) 32<rt> 32)))
+      bld <+ (nxt := (AST.zext oprSize (AST.extract
+        (AST.loadBE oprSize (addr .+ asi)) 32<rt> 0)))
   | _ -> raise InvalidOpcodeException
   bld --!> insLen
 
