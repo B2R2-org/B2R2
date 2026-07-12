@@ -332,12 +332,14 @@ let getTwoCCFcc (cc1: uint32) (cc0: uint32) =
   | _ -> raise InvalidOperandException
 
 let getTwod16 (hi: uint32) (lo: uint32) =
-  (hi <<< 14 ||| lo) * 4u |> int32 |> OprImm
+  let d16 = (hi <<< 14 ||| lo) <<< 16 |> int32 >>> 16
+  4 * d16 |> OprImm
 
 let getd16 b =
   let hi = extract b 21u 20u
   let lo = extract b 13u 0u
-  (hi <<< 14 ||| lo) * 4u |> int32 |> OprAddr
+  let d16 = (hi <<< 14 ||| lo) <<< 16 |> int32 >>> 16
+  4 * d16 |> OprAddr
 
 let getPriReg b32 s e =
   match (extract b32 s e) |> byte with
