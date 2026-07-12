@@ -867,13 +867,14 @@ let casa ins insLen bld =
   bld <!-- (ins.Address, insLen)
   let lblL0 = label bld "L0"
   let lblEnd = label bld "End"
-  (* compare rs2 (src1) against the memory word; on a match store rd (dst, the
-     new value); rd always receives the old memory word. *)
-  bld <+ (old := AST.loadBE 32<rt> (src .+ asi))
+  (* operands (Rs1, ASI, Rs2, Rd): the address is [Rs1] alone -- the ASI only
+     selects the address space. Compare rs2 (src1) against the memory word; on a
+     match store rd (dst, the new value); rd always receives the old word. *)
+  bld <+ (old := AST.loadBE 32<rt> src)
   let cond = ((AST.extract src1 32<rt> 0) == old)
   bld <+ (AST.cjmp (cond) (AST.jmpDest lblL0) (AST.jmpDest lblEnd))
   bld <+ (AST.lmark lblL0)
-  bld <+ (AST.loadBE 32<rt> (src .+ asi) := AST.extract dst 32<rt> 0)
+  bld <+ (AST.loadBE 32<rt> src := AST.extract dst 32<rt> 0)
   bld <+ (AST.lmark lblEnd)
   bld <+ (dst := AST.zext 64<rt> old)
   bld --!> insLen
@@ -884,13 +885,14 @@ let casxa ins insLen bld =
   bld <!-- (ins.Address, insLen)
   let lblL0 = label bld "L0"
   let lblEnd = label bld "End"
-  (* compare rs2 (src1) against the memory doubleword; on a match store rd
-     (dst); rd always receives the old memory doubleword. *)
-  bld <+ (old := AST.loadBE 64<rt> (src .+ asi))
+  (* operands (Rs1, ASI, Rs2, Rd): the address is [Rs1] alone -- the ASI only
+     selects the address space. Compare rs2 (src1) against the memory
+     doubleword; on a match store rd (dst); rd always receives the old word. *)
+  bld <+ (old := AST.loadBE 64<rt> src)
   let cond = (src1 == old)
   bld <+ (AST.cjmp (cond) (AST.jmpDest lblL0) (AST.jmpDest lblEnd))
   bld <+ (AST.lmark lblL0)
-  bld <+ (AST.loadBE 64<rt> (src .+ asi) := dst)
+  bld <+ (AST.loadBE 64<rt> src := dst)
   bld <+ (AST.lmark lblEnd)
   bld <+ (dst := old)
   bld --!> insLen
@@ -2676,20 +2678,21 @@ let ldf ins insLen bld =
   bld --!> insLen
 
 let ldfa ins insLen bld =
-  let struct (addr, asi, dst) = transAddrFourOprs ins insLen bld
+  let struct (addr, _asi, dst) = transAddrFourOprs ins insLen bld
   let oprSize = 64<rt>
   bld <!-- (ins.Address, insLen)
+  (* address is Rs1 + Rs2; the ASI selects the address space only. *)
   match ins.Opcode with
-  | Opcode.LDFA -> bld <+ (dst := (AST.loadBE 32<rt> (addr .+ asi)))
+  | Opcode.LDFA -> bld <+ (dst := (AST.loadBE 32<rt> addr))
   | Opcode.LDDFA ->
     let op = tmpVar bld oprSize
-    bld <+ (op := (AST.loadBE oprSize (addr .+ asi)))
+    bld <+ (op := (AST.loadBE oprSize addr))
     setDFloatOp bld dst op
   | Opcode.LDQFA ->
     let op0 = tmpVar bld oprSize
     let op1 = tmpVar bld oprSize
-    bld <+ (op0 := (AST.loadBE oprSize (addr .+ asi)))
-    bld <+ (op1 := (AST.loadBE oprSize ((addr .+ asi) .+ numI64 8L 64<rt>)))
+    bld <+ (op0 := (AST.loadBE oprSize addr))
+    bld <+ (op1 := (AST.loadBE oprSize (addr .+ numI64 8L 64<rt>)))
     setQFloatOp bld dst op0 op1
   | _ -> raise InvalidOpcodeException
   bld --!> insLen
@@ -2721,35 +2724,32 @@ let ld ins insLen bld =
   bld --!> insLen
 
 let lda ins insLen bld =
-  let struct (src, src1, asi, dst) = transFourOprs ins insLen bld
+  let struct (src, src1, _asi, dst) = transFourOprs ins insLen bld
   let oprSize = 64<rt>
   bld <!-- (ins.Address, insLen)
+  (* operands are (Rs1, Rs2, ASI, Rd): the effective address is Rs1 + Rs2; the
+     ASI only selects the address space (all user ASIs map to primary memory
+     here), so it is never part of the address. *)
   let addr = src .+ src1
   match ins.Opcode with
-  | Opcode.LDSBA -> bld <+ (dst := (AST.sext oprSize
-                          (AST.loadBE 8<rt> (addr .+ asi))))
-  | Opcode.LDSHA -> bld <+ (dst := (AST.sext oprSize
-                          (AST.loadBE 16<rt> (addr .+ asi))))
-  | Opcode.LDSWA -> bld <+ (dst := (AST.sext oprSize
-                          (AST.loadBE 32<rt> (addr .+ asi))))
-  | Opcode.LDUBA -> bld <+ (dst := (AST.zext oprSize
-                          (AST.loadBE 8<rt> (addr .+ asi))))
-  | Opcode.LDUHA -> bld <+ (dst := (AST.zext oprSize
-                          (AST.loadBE 16<rt> (addr .+ asi))))
-  | Opcode.LDUWA -> bld <+ (dst := (AST.zext oprSize
-                          (AST.loadBE 32<rt> (addr .+ asi))))
-  | Opcode.LDXA -> bld <+ (dst := AST.loadBE oprSize (addr .+ asi))
+  | Opcode.LDSBA -> bld <+ (dst := (AST.sext oprSize (AST.loadBE 8<rt> addr)))
+  | Opcode.LDSHA -> bld <+ (dst := (AST.sext oprSize (AST.loadBE 16<rt> addr)))
+  | Opcode.LDSWA -> bld <+ (dst := (AST.sext oprSize (AST.loadBE 32<rt> addr)))
+  | Opcode.LDUBA -> bld <+ (dst := (AST.zext oprSize (AST.loadBE 8<rt> addr)))
+  | Opcode.LDUHA -> bld <+ (dst := (AST.zext oprSize (AST.loadBE 16<rt> addr)))
+  | Opcode.LDUWA -> bld <+ (dst := (AST.zext oprSize (AST.loadBE 32<rt> addr)))
+  | Opcode.LDXA -> bld <+ (dst := AST.loadBE oprSize addr)
   | Opcode.LDDA ->
     if (dst = regVar bld Register.G0) then
       let nxt = regVar bld Register.G1
       bld <+ (nxt := (AST.zext oprSize (AST.extract
-        (AST.loadBE oprSize (addr .+ asi)) 32<rt> 0)))
+        (AST.loadBE oprSize addr) 32<rt> 0)))
     else
       let nxt = regVar bld (getNextReg bld dst)
       bld <+ (dst := (AST.zext oprSize (AST.extract
-        (AST.loadBE oprSize (addr .+ asi)) 32<rt> 32)))
+        (AST.loadBE oprSize addr) 32<rt> 32)))
       bld <+ (nxt := (AST.zext oprSize (AST.extract
-        (AST.loadBE oprSize (addr .+ asi)) 32<rt> 0)))
+        (AST.loadBE oprSize addr) 32<rt> 0)))
   | _ -> raise InvalidOpcodeException
   bld --!> insLen
 
@@ -2762,12 +2762,14 @@ let ldstub ins insLen bld =
   bld --!> insLen
 
 let ldstuba ins insLen bld =
-  let struct (src, src1, asi, dst) = transFourOprs ins insLen bld
+  let struct (src, src1, _asi, dst) = transFourOprs ins insLen bld
   let oprSize = 64<rt>
   bld <!-- (ins.Address, insLen)
+  (* operands (Rs1, Rs2, ASI, Rd): address is Rs1 + Rs2; the ASI selects the
+     address space only, so it is not part of the address. *)
   let addr = src .+ src1
-  bld <+ (dst := (AST.zext oprSize (AST.loadBE 8<rt> (addr .+ asi))))
-  bld <+ ((AST.loadBE 8<rt> (addr .+ asi)) := (numI32 0xff 8<rt>))
+  bld <+ (dst := (AST.zext oprSize (AST.loadBE 8<rt> addr)))
+  bld <+ ((AST.loadBE 8<rt> addr) := (numI32 0xff 8<rt>))
   bld --!> insLen
 
 let membar ins insLen bld = (* FIXME *)
@@ -3650,28 +3652,28 @@ let st ins insLen bld =
   bld --!> insLen
 
 let sta ins insLen bld =
-  let struct (src, src1, asi, dst) = transFourOprs ins insLen bld
+  let struct (src, src1, asi, _dst) = transFourOprs ins insLen bld
   bld <!-- (ins.Address, insLen)
-  (* operands are (Rd, Rs1, Rs2, ASI): src is the value to store, so the
-     effective address is Rs1 + Rs2 + ASI (src1 + asi + dst), matching lda and
-     stfa -- never the value register. *)
-  let addr = src1 .+ dst
+  (* operands are (Rd, Rs1, Rs2, ASI): src is the value to store; the effective
+     address is Rs1 + Rs2 (src1 + asi), never the value register, and the ASI
+     only selects the address space -- it is not part of the address. *)
+  let addr = src1 .+ asi
   match ins.Opcode with
   | Opcode.STBA ->
-    bld <+ ((AST.loadBE 8<rt> (addr .+ asi)) := (AST.extract src 8<rt> 0))
+    bld <+ ((AST.loadBE 8<rt> addr) := (AST.extract src 8<rt> 0))
   | Opcode.STHA ->
-    bld <+ ((AST.loadBE 16<rt> (addr .+ asi)) := (AST.extract src 16<rt> 0))
+    bld <+ ((AST.loadBE 16<rt> addr) := (AST.extract src 16<rt> 0))
   | Opcode.STWA ->
-    bld <+ ((AST.loadBE 32<rt> (addr .+ asi)) := (AST.extract src 32<rt> 0))
+    bld <+ ((AST.loadBE 32<rt> addr) := (AST.extract src 32<rt> 0))
   | Opcode.STXA ->
-    bld <+ ((AST.loadBE 64<rt> (addr .+ asi)) := (AST.extract src 64<rt> 0))
+    bld <+ ((AST.loadBE 64<rt> addr) := (AST.extract src 64<rt> 0))
   | Opcode.STDA ->
     if (src = regVar bld Register.G0) then
-      bld <+ ((AST.loadBE 32<rt> (addr .+ asi)) := (AST.extract src 32<rt> 0))
+      bld <+ ((AST.loadBE 32<rt> addr) := (AST.extract src 32<rt> 0))
     else
       let nxt = regVar bld (getNextReg bld src)
-      bld <+ ((AST.loadBE 32<rt> (addr .+ asi)) := (AST.extract src 32<rt> 0))
-      bld <+ ((AST.loadBE 32<rt> ((addr .+ asi) .+ numI64 4L 64<rt>)) :=
+      bld <+ ((AST.loadBE 32<rt> addr) := (AST.extract src 32<rt> 0))
+      bld <+ ((AST.loadBE 32<rt> (addr .+ numI64 4L 64<rt>)) :=
         (AST.extract nxt 32<rt> 0))
   | _ -> raise InvalidOpcodeException
   bld --!> insLen
@@ -3702,10 +3704,12 @@ let stf ins insLen bld =
   bld --!> insLen
 
 let stfa ins insLen bld =
-  let struct (src, src1, asi, dst) = transFourOprs ins insLen bld
+  let struct (src, src1, asi, _dst) = transFourOprs ins insLen bld
   let oprSize = 64<rt>
   bld <!-- (ins.Address, insLen)
-  let addr = dst .+ src1 .+ asi
+  (* operands (FloatRd, Rs1, Rs2, ASI): src is the value; the address is
+     Rs1 + Rs2 (src1 + asi); the ASI selects the address space only. *)
+  let addr = src1 .+ asi
   match ins.Opcode with
   | Opcode.STFA -> bld <+ ((AST.loadBE 32<rt> (addr)) :=
                         (AST.extract src 32<rt> 0))
@@ -3796,12 +3800,14 @@ let swap ins insLen bld =
   bld --!> insLen
 
 let swapa ins insLen bld =
-  let struct (src, src1, asi, dst) = transFourOprs ins insLen bld
+  let struct (src, src1, _asi, dst) = transFourOprs ins insLen bld
   let oprSize = 64<rt>
   let addr = tmpVar bld oprSize
   let tmp = tmpVar bld 32<rt>
   bld <!-- (ins.Address, insLen)
-  bld <+ (addr := (src .+ src1 .+ asi))
+  (* operands (Rs1, Rs2, ASI, Rd): address is Rs1 + Rs2; the ASI selects the
+     address space only. *)
+  bld <+ (addr := (src .+ src1))
   bld <+ (tmp := AST.loadBE 32<rt> addr)
   bld <+ (AST.loadBE 32<rt> addr := AST.extract dst 32<rt> 0)
   bld <+ (dst := AST.zext oprSize tmp)
