@@ -3348,7 +3348,13 @@ let restored (ins: Instruction) insLen bld =
 let ret ins insLen bld =
   let struct (src, src1) = transTwoOprs ins insLen bld
   bld <!-- (ins.Address, insLen)
+  (* RETURN is jmpl + a register-window RESTORE: the target reads %i7 first,
+     then the window rotates out (%o := %i, matching the RESTORE instruction),
+     so the caller regains its %l/%i and receives the callee's %i as its %o. *)
   bld <+ (regVar bld Register.NPC := src .+ src1)
+  for i, o in inOutPairs do
+    bld <+ (regVar bld o := regVar bld i)
+  bld <+ (AST.sideEffect RestoreWindow)
   arm bld InterJmpKind.IsRet
   bld --!> insLen
 

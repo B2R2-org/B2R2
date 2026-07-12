@@ -110,9 +110,18 @@ type LifterTest() =
     |> test
 
   [<TestMethod>]
-  member _.``[SPARC] RETURN arms a delayed return via nPC lift Test``() =
+  member _.``[SPARC] RETURN restores the window and arms nPC lift Test``() =
     "08e0cf81"
-    ++ [| !.NPC := !.I7 .+ num 8L |]
+    ++ [| !.NPC := !.I7 .+ num 8L
+          !.O0 := !.I0
+          !.O1 := !.I1
+          !.O2 := !.I2
+          !.O3 := !.I3
+          !.O4 := !.I4
+          !.O5 := !.I5
+          !.O6 := !.I6
+          !.O7 := !.I7
+          AST.sideEffect RestoreWindow |]
     |> test
 
   [<TestMethod>]
