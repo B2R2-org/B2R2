@@ -3553,18 +3553,78 @@ let flushw (ins: Instruction) insLen bld =
   bld <+ (AST.sideEffect FlushWindows)
   bld --!> insLen
 
+/// The %g, %o, %l, and %i register for a window index (0-7).
+let private gReg i = enum<Register> i
+let private oReg i = enum<Register> (0x8 + i)
+let private lReg i = enum<Register> (0x10 + i)
+let private iReg i = enum<Register> (0x18 + i)
+
+/// GETCONTEXT (ta 0x6e): sparc64 Linux realizes setjmp and getcontext with
+/// this trap, saving the caller's context into the ucontext at %o0. Store the
+/// integer state at the mc_gregs offsets glibc uses (base %o0 + 0x20: PC 0x28,
+/// NPC 0x30, Y 0x38, %g1-7 0x40-0x70, %o0-7 0x78-0xb0) and spill the current
+/// window's %l/%i to the stack save area [%sp + bias], as the kernel flushes
+/// the trapped window. The saved PC/NPC resume just past the trap, so execution
+/// falls through and setjmp returns with %g1 as-is (0); _longjmp overwrites
+/// MC_G1 with the value the matching SETCONTEXT then loads.
+let getContext (ins: Instruction) insLen bld =
+  let buf = regVar bld Register.O0
+  let sp = regVar bld Register.O6
+  bld <!-- (ins.Address, insLen)
+  let gregs off = AST.loadBE 64<rt> (buf .+ numI64 off 64<rt>)
+  let slot k = AST.loadBE 64<rt> (sp .+ numI64 (2047L + int64 k * 8L) 64<rt>)
+  bld <+ (gregs 0x28L := numI64 (int64 (ins.Address + 4UL)) 64<rt>)
+  bld <+ (gregs 0x30L := numI64 (int64 (ins.Address + 8UL)) 64<rt>)
+  bld <+ (gregs 0x38L := regVar bld Register.Y)
+  for i in 1 .. 7 do
+    bld <+ (gregs (0x40L + int64 (i - 1) * 8L) := regVar bld (gReg i))
+  for i in 0 .. 7 do
+    bld <+ (gregs (0x78L + int64 i * 8L) := regVar bld (oReg i))
+  for i in 0 .. 7 do bld <+ (slot i := regVar bld (lReg i))
+  for i in 0 .. 7 do bld <+ (slot (8 + i) := regVar bld (iReg i))
+  bld --!> insLen
+
+/// SETCONTEXT (ta 0x6f): the restore half used by _longjmp and setcontext.
+/// Reload the integer state saved by GETCONTEXT from the ucontext at %o0 (%g1
+/// takes MC_G1, which _longjmp set to the longjmp value) and the window's %l/%i
+/// from the restored frame's save area, then resume at the saved PC/NPC the way
+/// RETRY does. Windows the skipped frames orphaned on the stack are dropped
+/// lazily by the next RESTORE.
+let setContext (ins: Instruction) insLen bld =
+  let buf = tmpVar bld 64<rt>
+  bld <!-- (ins.Address, insLen)
+  bld <+ (buf := regVar bld Register.O0)
+  let gregs off = AST.loadBE 64<rt> (buf .+ numI64 off 64<rt>)
+  for i in 1 .. 7 do
+    bld <+ (regVar bld (gReg i) := gregs (0x40L + int64 (i - 1) * 8L))
+  for i in 0 .. 7 do
+    bld <+ (regVar bld (oReg i) := gregs (0x78L + int64 i * 8L))
+  bld <+ (regVar bld Register.Y := gregs 0x38L)
+  let sp = regVar bld Register.O6
+  let slot k = AST.loadBE 64<rt> (sp .+ numI64 (2047L + int64 k * 8L) 64<rt>)
+  for i in 0 .. 7 do bld <+ (regVar bld (lReg i) := slot i)
+  for i in 0 .. 7 do bld <+ (regVar bld (iReg i) := slot (8 + i))
+  bld <+ (regVar bld Register.NPC := gregs 0x30L)
+  bld <+ (regVar bld Register.PC := gregs 0x28L)
+  bld --!> insLen
+
 /// A trap-always used as the Linux system-call gate: sparc64 traps to 0x6d,
-/// sparc32 to 0x10. Only that trap becomes a SysCall side effect; every other
+/// sparc32 to 0x10, and realizes setjmp/longjmp through the getcontext (0x6e)
+/// and setcontext (0x6f) traps. Only these are modeled; every other
 /// trap-on-condition is a no-op here (real traps are not modeled). The kernel
 /// reads the call number from %g1 and the arguments from %o0..%o5.
 let tcc (ins: Instruction) insLen bld =
-  bld <!-- (ins.Address, insLen)
   match ins.Operands with
-  | TwoOperands(_, OprImm n) when n = 0x6d || n = 0x10 ->
-    bld <+ (AST.sideEffect SysCall)
+  | TwoOperands(_, OprImm n) when n = 0x6e -> getContext ins insLen bld
+  | TwoOperands(_, OprImm n) when n = 0x6f -> setContext ins insLen bld
   | _ ->
-    ()
-  bld --!> insLen
+    bld <!-- (ins.Address, insLen)
+    match ins.Operands with
+    | TwoOperands(_, OprImm n) when n = 0x6d || n = 0x10 ->
+      bld <+ (AST.sideEffect SysCall)
+    | _ ->
+      ()
+    bld --!> insLen
 
 let saved (ins: Instruction) insLen bld =
   let cs = regVar bld Register.CANSAVE
