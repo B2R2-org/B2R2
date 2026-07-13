@@ -3408,6 +3408,36 @@ let parse00 b32 =
     | _ -> struct (Opcode.InvalidOp, NoOperand)
   | _ -> struct (Opcode.InvalidOp, NoOperand)
 
+/// IMPDEP1 (op=10, op3=0x36) is the VIS opcode space, sub-selected by the 9-bit
+/// opf field (bits 13:5). Decode the 64-bit logical/select VIS ops (fzerod,
+/// fsrc*d, for*d, ...) here; anything else stays a raw IMPDEP1.
+let private parseVISimpdep1 b32 =
+  let vis op = struct (op, parseThrOpr b32 getDPFloatRegRs1 getDPFloatRegRs2
+                            getDPFloatRegRd)
+  match extract b32 13u 5u with
+  | 0b001100000u -> vis Opcode.FZEROd
+  | 0b001111110u -> vis Opcode.FONEd
+  | 0b001110100u -> vis Opcode.FSRC1d
+  | 0b001111000u -> vis Opcode.FSRC2d
+  | 0b001101010u -> vis Opcode.FNOT1d
+  | 0b001100110u -> vis Opcode.FNOT2d
+  | 0b001111100u -> vis Opcode.FORd
+  | 0b001100010u -> vis Opcode.FNORd
+  | 0b001110000u -> vis Opcode.FANDd
+  | 0b001101110u -> vis Opcode.FNANDd
+  | 0b001101100u -> vis Opcode.FXORd
+  | 0b001110010u -> vis Opcode.FXNORd
+  | 0b001111010u -> vis Opcode.FORNOT1d
+  | 0b001110110u -> vis Opcode.FORNOT2d
+  | 0b001101000u -> vis Opcode.FANDNOT1d
+  | 0b001100100u -> vis Opcode.FANDNOT2d
+  | 0b001001000u -> vis Opcode.FALIGNDATAd
+  | 0b000011000u ->
+    struct (Opcode.ALIGNADDR, parseThrOpr b32 getRegRs1 getRegRs2 getRegRd)
+  | 0b000011010u ->
+    struct (Opcode.ALIGNADDRL, parseThrOpr b32 getRegRs1 getRegRs2 getRegRd)
+  | _ -> struct (Opcode.IMPDEP1, parseOneOpr b32 getImplDep)
+
 (*
   10-- ---- ---- ----
   ---- ---- ---- ----
@@ -3660,7 +3690,7 @@ let parse10 b32 =
     | 0b1u -> struct (Opcode.FLUSH, parseTwoOpr b32 getRegRs1 getSimm13)
     | _ -> struct (Opcode.InvalidOp, NoOperand)
   | 0b101011u -> struct (Opcode.FLUSHW, NoOperand)
-  | 0b110110u -> struct (Opcode.IMPDEP1, parseOneOpr b32 getImplDep)
+  | 0b110110u -> parseVISimpdep1 b32
   | 0b110111u -> struct (Opcode.IMPDEP2, parseOneOpr b32 getImplDep)
   | _ -> parse10rd b32
 

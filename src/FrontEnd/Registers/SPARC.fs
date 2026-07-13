@@ -140,6 +140,8 @@ type Register =
   | F58 = 0x66
   | F60 = 0x67
   | F62 = 0x68
+  /// Graphics Status Register (VIS): its align field drives faligndata.
+  | GSR = 0x69
 
 /// Provides functions to handle SPARC registers.
 module Register =
@@ -373,4 +375,5 @@ module Register =
     | Register.F58 -> "%f58"
     | Register.F60 -> "%f60"
     | Register.F62 -> "%f62"
+    | Register.GSR -> "%gsr"
     | _ -> Terminator.impossible ()

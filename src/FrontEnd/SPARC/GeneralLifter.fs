@@ -515,6 +515,76 @@ let setQFloatOp bld dst res1 res2 =
     bld <+ (dst1 := (AST.extract res2 64<rt> 0))
   | _ -> raise InvalidRegisterException
 
+/// VIS 64-bit logical/select ops (fzerod, fsrc*d, for*d, ...): read the two
+/// double-float sources as 64-bit values, apply the bitwise operation, and
+/// write the double-float destination. These are pure bit operations -- no FP
+/// rounding or exceptions -- so they need no FSR handling.
+let visLogic ins insLen bld =
+  let struct (src, src1, dst) = transThreeOprs ins insLen bld
+  let op1 = tmpVar bld 64<rt>
+  let op2 = tmpVar bld 64<rt>
+  let res = tmpVar bld 64<rt>
+  bld <!-- (ins.Address, insLen)
+  getDFloatOp bld src op1
+  getDFloatOp bld src1 op2
+  (match ins.Opcode with
+   | Opcode.FZEROd -> bld <+ (res := AST.num0 64<rt>)
+   | Opcode.FONEd -> bld <+ (res := numI64 -1L 64<rt>)
+   | Opcode.FSRC1d -> bld <+ (res := op1)
+   | Opcode.FSRC2d -> bld <+ (res := op2)
+   | Opcode.FNOT1d -> bld <+ (res := AST.not op1)
+   | Opcode.FNOT2d -> bld <+ (res := AST.not op2)
+   | Opcode.FORd -> bld <+ (res := op1 .| op2)
+   | Opcode.FNORd -> bld <+ (res := AST.not (op1 .| op2))
+   | Opcode.FANDd -> bld <+ (res := op1 .& op2)
+   | Opcode.FNANDd -> bld <+ (res := AST.not (op1 .& op2))
+   | Opcode.FXORd -> bld <+ (res := op1 <+> op2)
+   | Opcode.FXNORd -> bld <+ (res := AST.not (op1 <+> op2))
+   | Opcode.FORNOT1d -> bld <+ (res := (AST.not op1) .| op2)
+   | Opcode.FORNOT2d -> bld <+ (res := op1 .| (AST.not op2))
+   | Opcode.FANDNOT1d -> bld <+ (res := (AST.not op1) .& op2)
+   | Opcode.FANDNOT2d -> bld <+ (res := op1 .& (AST.not op2))
+   | _ -> raise InvalidOpcodeException)
+  setDFloatOp bld dst res
+  bld --!> insLen
+
+/// VIS alignaddr[l]: rd = (rs1 + rs2) with the low three bits cleared (an
+/// 8-byte-aligned address), and GSR.align (bits 2:0) records the byte offset
+/// that faligndata later realigns by -- rs1+rs2 for alignaddr, its negation for
+/// the little-endian alignaddrl.
+let alignaddr ins insLen bld =
+  let struct (src, src1, dst) = transThreeOprs ins insLen bld
+  let gsr = regVar bld Register.GSR
+  let sum = tmpVar bld 64<rt>
+  let off = tmpVar bld 64<rt>
+  bld <!-- (ins.Address, insLen)
+  bld <+ (sum := src .+ src1)
+  (match ins.Opcode with
+   | Opcode.ALIGNADDRL -> bld <+ (off := (AST.neg sum) .& numI64 7L 64<rt>)
+   | _ -> bld <+ (off := sum .& numI64 7L 64<rt>))
+  bld <+ (dst := sum .& numI64 -8L 64<rt>)
+  bld <+ (gsr := (gsr .& numI64 -8L 64<rt>) .| off)
+  bld --!> insLen
+
+/// VIS faligndata: concatenate the two double sources (fs1 high, fs2 low) and
+/// extract the 64-bit window starting GSR.align bytes in --
+/// (fs1 << align*8) | (fs2 >> (64 - align*8)). An align of 0 yields fs1 (the
+/// fs2 shift by 64 folds to 0), matching the hardware.
+let faligndata ins insLen bld =
+  let struct (src, src1, dst) = transThreeOprs ins insLen bld
+  let gsr = regVar bld Register.GSR
+  let op1 = tmpVar bld 64<rt>
+  let op2 = tmpVar bld 64<rt>
+  let shl = tmpVar bld 64<rt>
+  let res = tmpVar bld 64<rt>
+  bld <!-- (ins.Address, insLen)
+  getDFloatOp bld src op1
+  getDFloatOp bld src1 op2
+  bld <+ (shl := (gsr .& numI64 7L 64<rt>) .* numI64 8L 64<rt>)
+  bld <+ (res := (op1 << shl) .| (op2 >> (numI64 64L 64<rt> .- shl)))
+  setDFloatOp bld dst res
+  bld --!> insLen
+
 let cast64To128 bld src dst1 dst2 =
   let oprSize = 64<rt>
   let zero = AST.num0 64<rt>
@@ -3710,21 +3780,60 @@ let stf ins insLen bld =
   | _ -> raise InvalidOpcodeException
   bld --!> insLen
 
+/// The eight double-float registers of a 64-byte VIS block starting at base,
+/// used by the block-store/-load ASIs (0xe0/0xe1/0xf0/0xf1). A block is aligned
+/// to an eight-register group, so base is %f0, %f16, %f32, or %f48.
+let private blockDFloatRegs bld baseReg =
+  let r n = regVar bld n
+  let groups =
+    [ [ Register.F0; Register.F2; Register.F4; Register.F6
+        Register.F8; Register.F10; Register.F12; Register.F14 ]
+      [ Register.F16; Register.F18; Register.F20; Register.F22
+        Register.F24; Register.F26; Register.F28; Register.F30 ]
+      [ Register.F32; Register.F34; Register.F36; Register.F38
+        Register.F40; Register.F42; Register.F44; Register.F46 ]
+      [ Register.F48; Register.F50; Register.F52; Register.F54
+        Register.F56; Register.F58; Register.F60; Register.F62 ] ]
+  match groups |> List.tryFind (fun g -> baseReg = r (List.head g)) with
+  | Some g -> List.map r g
+  | None -> raise InvalidRegisterException
+
+/// Whether an ASI selects a 64-byte block transfer (ASI_BLK_*: 0xe0/0xe1
+/// commit, 0xf0/0xf1 primary/secondary), for which stda/ldda move a whole
+/// eight-register float block rather than a single doubleword.
+let private isBlockAsi asi =
+  (asi == numI64 0xf0L 64<rt>) .| (asi == numI64 0xf1L 64<rt>)
+  .| (asi == numI64 0xe0L 64<rt>) .| (asi == numI64 0xe1L 64<rt>)
+
 let stfa ins insLen bld =
-  let struct (src, src1, asi, _dst) = transFourOprs ins insLen bld
+  let struct (src, src1, asi, asiVal) = transFourOprs ins insLen bld
   let oprSize = 64<rt>
   bld <!-- (ins.Address, insLen)
-  (* operands (FloatRd, Rs1, Rs2, ASI): src is the value; the address is
-     Rs1 + Rs2 (src1 + asi); the ASI selects the address space only. *)
+  (* operands (FloatRd, Rs1, Rs2-or-simm13, ASI): src is the value; the address
+     is Rs1 + Rs2 (src1 + asi); asiVal selects the address space. *)
   let addr = src1 .+ asi
   match ins.Opcode with
   | Opcode.STFA -> bld <+ ((AST.loadBE 32<rt> (addr)) :=
                         (AST.extract src 32<rt> 0))
   | Opcode.STDFA ->
+    (* a block-transfer ASI stores the eight-register float block; any other
+       ASI stores src's single doubleword. *)
     let op = tmpVar bld oprSize
+    let lblBlk = label bld "Blk"
+    let lblReg = label bld "Reg"
+    let lblEnd = label bld "End"
+    bld <+ (AST.cjmp (isBlockAsi asiVal)
+              (AST.jmpDest lblBlk) (AST.jmpDest lblReg))
+    bld <+ (AST.lmark lblBlk)
+    blockDFloatRegs bld src
+    |> List.iteri (fun i reg ->
+      getDFloatOp bld reg op
+      bld <+ (AST.loadBE 64<rt> (addr .+ numI64 (int64 (8 * i)) 64<rt>) := op))
+    bld <+ (AST.jmp (AST.jmpDest lblEnd))
+    bld <+ (AST.lmark lblReg)
     getDFloatOp bld src op
-    bld <+ ((AST.loadBE 64<rt> (addr)) :=
-          (AST.extract op 64<rt> 0))
+    bld <+ (AST.loadBE 64<rt> addr := op)
+    bld <+ (AST.lmark lblEnd)
   | Opcode.STQFA ->
     let op0 = tmpVar bld oprSize
     let op1 = tmpVar bld oprSize

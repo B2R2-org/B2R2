@@ -229,6 +229,13 @@ let translate (ins: Instruction) insLen bld =
   | Opcode.SDIVcc -> sdivcc ins insLen bld
   | Opcode.UDIV -> udiv ins insLen bld
   | Opcode.UDIVcc -> udivcc ins insLen bld
+  | Opcode.FZEROd | Opcode.FONEd | Opcode.FSRC1d | Opcode.FSRC2d
+  | Opcode.FNOT1d | Opcode.FNOT2d | Opcode.FORd | Opcode.FNORd
+  | Opcode.FANDd | Opcode.FNANDd | Opcode.FXORd | Opcode.FXNORd
+  | Opcode.FORNOT1d | Opcode.FORNOT2d | Opcode.FANDNOT1d
+  | Opcode.FANDNOT2d -> visLogic ins insLen bld
+  | Opcode.ALIGNADDR | Opcode.ALIGNADDRL -> alignaddr ins insLen bld
+  | Opcode.FALIGNDATAd -> faligndata ins insLen bld
   | Opcode.FLUSH | Opcode.ILLTRAP -> nop ins insLen bld
   | Opcode.FLUSHW -> flushw ins insLen bld
   | Opcode.InvalidOp -> raise InvalidOpcodeException

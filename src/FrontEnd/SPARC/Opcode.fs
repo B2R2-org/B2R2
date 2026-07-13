@@ -753,4 +753,25 @@ type Opcode =
   | FMOVRqNZ = 464
   | FMOVRqGZ = 465
   | FMOVRqGEZ = 466
-  | InvalidOp = 467
+  /// VIS logical/select operations (64-bit, double float registers).
+  | FZEROd = 467
+  | FONEd = 468
+  | FSRC1d = 469
+  | FSRC2d = 470
+  | FNOT1d = 471
+  | FNOT2d = 472
+  | FORd = 473
+  | FNORd = 474
+  | FANDd = 475
+  | FNANDd = 476
+  | FXORd = 477
+  | FXNORd = 478
+  | FORNOT1d = 479
+  | FORNOT2d = 480
+  | FANDNOT1d = 481
+  | FANDNOT2d = 482
+  /// VIS alignment: set GSR.align and compute an aligned address / realign data.
+  | ALIGNADDR = 483
+  | ALIGNADDRL = 484
+  | FALIGNDATAd = 485
+  | InvalidOp = 486
