@@ -3780,22 +3780,20 @@ let stf ins insLen bld =
   | _ -> raise InvalidOpcodeException
   bld --!> insLen
 
-/// The eight double-float registers of a 64-byte VIS block starting at base,
-/// used by the block-store/-load ASIs (0xe0/0xe1/0xf0/0xf1). A block is aligned
-/// to an eight-register group, so base is %f0, %f16, %f32, or %f48.
+/// The eight double-float registers of the 64-byte VIS block whose first
+/// register is baseReg. Consecutive doubles are two register ids apart below
+/// %f32 (paired 32-bit registers) and one apart from %f32 up (64-bit
+/// registers), so the block is [baseReg, baseReg + 2 (or 1), ... x8].
+let private dfloatBlockOf (baseReg: Register) =
+  let baseId = int baseReg
+  let step = if baseId < int Register.F32 then 2 else 1
+  [ for i in 0..7 -> enum<Register> (baseId + step * i) ]
+
 let private blockDFloatRegs bld baseReg =
   let r n = regVar bld n
-  let groups =
-    [ [ Register.F0; Register.F2; Register.F4; Register.F6
-        Register.F8; Register.F10; Register.F12; Register.F14 ]
-      [ Register.F16; Register.F18; Register.F20; Register.F22
-        Register.F24; Register.F26; Register.F28; Register.F30 ]
-      [ Register.F32; Register.F34; Register.F36; Register.F38
-        Register.F40; Register.F42; Register.F44; Register.F46 ]
-      [ Register.F48; Register.F50; Register.F52; Register.F54
-        Register.F56; Register.F58; Register.F60; Register.F62 ] ]
-  match groups |> List.tryFind (fun g -> baseReg = r (List.head g)) with
-  | Some g -> List.map r g
+  let bases = [ Register.F0; Register.F16; Register.F32; Register.F48 ]
+  match bases |> List.tryFind (fun b -> baseReg = r b) with
+  | Some b -> dfloatBlockOf b |> List.map r
   | None -> raise InvalidRegisterException
 
 /// Whether an ASI selects a 64-byte block transfer (ASI_BLK_*: 0xe0/0xe1

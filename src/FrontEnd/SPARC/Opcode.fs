@@ -770,7 +770,7 @@ type Opcode =
   | FORNOT2d = 480
   | FANDNOT1d = 481
   | FANDNOT2d = 482
-  /// VIS alignment: set GSR.align and compute an aligned address / realign data.
+  /// VIS alignment: set GSR.align, form an aligned address, realign data.
   | ALIGNADDR = 483
   | ALIGNADDRL = 484
   | FALIGNDATAd = 485
