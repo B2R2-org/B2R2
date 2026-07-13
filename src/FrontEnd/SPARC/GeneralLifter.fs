@@ -2836,17 +2836,56 @@ let ldf ins insLen bld =
   | _ -> raise InvalidOpcodeException
   bld --!> insLen
 
+/// The eight double-float registers of the 64-byte VIS block whose first
+/// register is baseReg. Consecutive doubles are two register ids apart below
+/// %f32 (paired 32-bit registers) and one apart from %f32 up (64-bit
+/// registers), so the block is [baseReg, baseReg + 2 (or 1), ... x8].
+let private dfloatBlockOf (baseReg: Register) =
+  let baseId = int baseReg
+  let step = if baseId < int Register.F32 then 2 else 1
+  [ for i in 0..7 -> enum<Register> (baseId + step * i) ]
+
+let private blockDFloatRegs bld baseReg =
+  let r n = regVar bld n
+  let bases = [ Register.F0; Register.F16; Register.F32; Register.F48 ]
+  match bases |> List.tryFind (fun b -> baseReg = r b) with
+  | Some b -> dfloatBlockOf b |> List.map r
+  | None -> raise InvalidRegisterException
+
+/// Whether an ASI selects a 64-byte block transfer (ASI_BLK_*: 0xe0/0xe1
+/// commit, 0xf0/0xf1 primary/secondary), for which stda/ldda move a whole
+/// eight-register float block rather than a single doubleword.
+let private isBlockAsi asi =
+  (asi == numI64 0xf0L 64<rt>) .| (asi == numI64 0xf1L 64<rt>)
+  .| (asi == numI64 0xe0L 64<rt>) .| (asi == numI64 0xe1L 64<rt>)
+
 let ldfa ins insLen bld =
-  let struct (addr, _asi, dst) = transAddrFourOprs ins insLen bld
+  let struct (addr, asiVal, dst) = transAddrFourOprs ins insLen bld
   let oprSize = 64<rt>
   bld <!-- (ins.Address, insLen)
-  (* address is Rs1 + Rs2; the ASI selects the address space only. *)
+  (* address is Rs1 + Rs2; the ASI selects the address space (or a block
+     transfer). *)
   match ins.Opcode with
   | Opcode.LDFA -> bld <+ (dst := (AST.loadBE 32<rt> addr))
   | Opcode.LDDFA ->
+    (* a block-transfer ASI loads the eight-register float block; any other
+       ASI loads src's single doubleword. *)
     let op = tmpVar bld oprSize
+    let lblBlk = label bld "Blk"
+    let lblReg = label bld "Reg"
+    let lblEnd = label bld "End"
+    bld <+ (AST.cjmp (isBlockAsi asiVal)
+              (AST.jmpDest lblBlk) (AST.jmpDest lblReg))
+    bld <+ (AST.lmark lblBlk)
+    blockDFloatRegs bld dst
+    |> List.iteri (fun i reg ->
+      bld <+ (op := AST.loadBE 64<rt> (addr .+ numI64 (int64 (8 * i)) 64<rt>))
+      setDFloatOp bld reg op)
+    bld <+ (AST.jmp (AST.jmpDest lblEnd))
+    bld <+ (AST.lmark lblReg)
     bld <+ (op := (AST.loadBE oprSize addr))
     setDFloatOp bld dst op
+    bld <+ (AST.lmark lblEnd)
   | Opcode.LDQFA ->
     let op0 = tmpVar bld oprSize
     let op1 = tmpVar bld oprSize
@@ -3920,29 +3959,6 @@ let stf ins insLen bld =
     bld <+ ((AST.loadBE 64<rt> addr) := src)
   | _ -> raise InvalidOpcodeException
   bld --!> insLen
-
-/// The eight double-float registers of the 64-byte VIS block whose first
-/// register is baseReg. Consecutive doubles are two register ids apart below
-/// %f32 (paired 32-bit registers) and one apart from %f32 up (64-bit
-/// registers), so the block is [baseReg, baseReg + 2 (or 1), ... x8].
-let private dfloatBlockOf (baseReg: Register) =
-  let baseId = int baseReg
-  let step = if baseId < int Register.F32 then 2 else 1
-  [ for i in 0..7 -> enum<Register> (baseId + step * i) ]
-
-let private blockDFloatRegs bld baseReg =
-  let r n = regVar bld n
-  let bases = [ Register.F0; Register.F16; Register.F32; Register.F48 ]
-  match bases |> List.tryFind (fun b -> baseReg = r b) with
-  | Some b -> dfloatBlockOf b |> List.map r
-  | None -> raise InvalidRegisterException
-
-/// Whether an ASI selects a 64-byte block transfer (ASI_BLK_*: 0xe0/0xe1
-/// commit, 0xf0/0xf1 primary/secondary), for which stda/ldda move a whole
-/// eight-register float block rather than a single doubleword.
-let private isBlockAsi asi =
-  (asi == numI64 0xf0L 64<rt>) .| (asi == numI64 0xf1L 64<rt>)
-  .| (asi == numI64 0xe0L 64<rt>) .| (asi == numI64 0xe1L 64<rt>)
 
 let stfa ins insLen bld =
   let struct (src, src1, asi, asiVal) = transFourOprs ins insLen bld
