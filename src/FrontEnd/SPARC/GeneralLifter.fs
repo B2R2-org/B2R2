@@ -1587,13 +1587,13 @@ let fmovscc ins insLen bld =
     | Opcode.FMOVsPOS -> (n == AST.b0)
     | Opcode.FMOVsNEG -> (n == AST.b1)
     | Opcode.FMOVsVC -> (v == AST.b0)
-    | Opcode.FMOVsVS -> (n == AST.b1)
+    | Opcode.FMOVsVS -> (v == AST.b1)
     | _ -> raise InvalidOpcodeException
   bld <!-- (ins.Address, insLen)
   if (ins.Opcode = Opcode.FMOVsA) then
     bld <+ (fdst := fsrc)
     bld --!> insLen
-  elif (ins.Opcode = Opcode.FMOVsA) then
+  elif (ins.Opcode = Opcode.FMOVsN) then
     bld --!> insLen
   else
     bld <+ (fdst := AST.ite (cond) (fsrc) (fdst))
@@ -1626,7 +1626,7 @@ let fmovdcc ins insLen bld =
     | Opcode.FMOVdPOS -> (n == AST.b0)
     | Opcode.FMOVdNEG -> (n == AST.b1)
     | Opcode.FMOVdVC -> (v == AST.b0)
-    | Opcode.FMOVdVS -> (n == AST.b1)
+    | Opcode.FMOVdVS -> (v == AST.b1)
     | _ -> raise InvalidOpcodeException
   let lblL0 = label bld "L0"
   let lblEnd = label bld "End"
@@ -1670,7 +1670,7 @@ let fmovqcc ins insLen bld =
     | Opcode.FMOVqPOS -> (n == AST.b0)
     | Opcode.FMOVqNEG -> (n == AST.b1)
     | Opcode.FMOVqVC -> (v == AST.b0)
-    | Opcode.FMOVqVS -> (n == AST.b1)
+    | Opcode.FMOVqVS -> (v == AST.b1)
     | _ -> raise InvalidOpcodeException
   let lblL0 = label bld "L0"
   let lblEnd = label bld "End"
@@ -2410,22 +2410,109 @@ let fstoq ins insLen bld =
 
 let fdtos ins insLen bld =
   let struct (src, dst) = transTwoOprs ins insLen bld
+  let fsr = regVar bld Register.FSR
+  let fsr30 = AST.extract fsr 1<rt> 30
+  let fsr31 = AST.extract fsr 1<rt> 31
+  let regSize = 32<rt>
+  let op = tmpVar bld 64<rt>
+  let res = tmpVar bld regSize
+  let lblL0 = label bld "L0"
+  let lblL1 = label bld "L1"
+  let lblL2 = label bld "L2"
+  let lblL3 = label bld "L3"
+  let lblL4 = label bld "L4"
+  let lblL5 = label bld "L5"
+  let lblEnd = label bld "End"
+  let cond0 = (fsr31 == AST.b0) .& (fsr30 == AST.b0)
+  let cond1 = (fsr31 == AST.b0) .& (fsr30 == AST.b1)
+  let cond2 = (fsr31 == AST.b1) .& (fsr30 == AST.b0)
   bld <!-- (ins.Address, insLen)
+  getDFloatOp bld src op
+  bld <+ (res := AST.cast CastKind.FloatCast regSize op)
+  bld <+ (AST.cjmp cond0 (AST.jmpDest lblL0) (AST.jmpDest lblL1))
+  bld <+ (AST.lmark lblL0)
+  bld <+ (dst := AST.cast CastKind.FtoFRound regSize res)
+  bld <+ (AST.jmp (AST.jmpDest lblEnd))
+  bld <+ (AST.lmark lblL1)
+  bld <+ (AST.cjmp cond1 (AST.jmpDest lblL2) (AST.jmpDest lblL3))
+  bld <+ (AST.lmark lblL2)
+  bld <+ (dst := AST.cast CastKind.FtoFTrunc regSize res)
+  bld <+ (AST.jmp (AST.jmpDest lblEnd))
+  bld <+ (AST.lmark lblL3)
+  bld <+ (AST.cjmp cond2 (AST.jmpDest lblL4) (AST.jmpDest lblL5))
+  bld <+ (AST.lmark lblL4)
+  bld <+ (dst := AST.cast CastKind.FtoFCeil regSize res)
+  bld <+ (AST.jmp (AST.jmpDest lblEnd))
+  bld <+ (AST.lmark lblL5)
+  bld <+ (dst := AST.cast CastKind.FtoFFloor regSize res)
+  bld <+ (AST.lmark lblEnd)
   bld --!> insLen
 
 let fdtoq ins insLen bld =
   let struct (src, dst) = transTwoOprs ins insLen bld
+  let oprSize = 64<rt>
+  let op = tmpVar bld oprSize
+  let res1 = tmpVar bld oprSize
+  let res2 = tmpVar bld oprSize
   bld <!-- (ins.Address, insLen)
+  getDFloatOp bld src op
+  cast64To128 bld op res1 res2
+  setQFloatOp bld dst res1 res2
   bld --!> insLen
 
 let fqtos ins insLen bld =
   let struct (src, dst) = transTwoOprs ins insLen bld
+  let fsr = regVar bld Register.FSR
+  let fsr30 = AST.extract fsr 1<rt> 30
+  let fsr31 = AST.extract fsr 1<rt> 31
+  let regSize = 32<rt>
+  let op1 = tmpVar bld 64<rt>
+  let op2 = tmpVar bld 64<rt>
+  let op64 = tmpVar bld 64<rt>
+  let res = tmpVar bld regSize
+  let lblL0 = label bld "L0"
+  let lblL1 = label bld "L1"
+  let lblL2 = label bld "L2"
+  let lblL3 = label bld "L3"
+  let lblL4 = label bld "L4"
+  let lblL5 = label bld "L5"
+  let lblEnd = label bld "End"
+  let cond0 = (fsr31 == AST.b0) .& (fsr30 == AST.b0)
+  let cond1 = (fsr31 == AST.b0) .& (fsr30 == AST.b1)
+  let cond2 = (fsr31 == AST.b1) .& (fsr30 == AST.b0)
   bld <!-- (ins.Address, insLen)
+  getQFloatOp bld src op1 op2
+  cast128to64 bld op1 op2 op64
+  bld <+ (res := AST.cast CastKind.FloatCast regSize op64)
+  bld <+ (AST.cjmp cond0 (AST.jmpDest lblL0) (AST.jmpDest lblL1))
+  bld <+ (AST.lmark lblL0)
+  bld <+ (dst := AST.cast CastKind.FtoFRound regSize res)
+  bld <+ (AST.jmp (AST.jmpDest lblEnd))
+  bld <+ (AST.lmark lblL1)
+  bld <+ (AST.cjmp cond1 (AST.jmpDest lblL2) (AST.jmpDest lblL3))
+  bld <+ (AST.lmark lblL2)
+  bld <+ (dst := AST.cast CastKind.FtoFTrunc regSize res)
+  bld <+ (AST.jmp (AST.jmpDest lblEnd))
+  bld <+ (AST.lmark lblL3)
+  bld <+ (AST.cjmp cond2 (AST.jmpDest lblL4) (AST.jmpDest lblL5))
+  bld <+ (AST.lmark lblL4)
+  bld <+ (dst := AST.cast CastKind.FtoFCeil regSize res)
+  bld <+ (AST.jmp (AST.jmpDest lblEnd))
+  bld <+ (AST.lmark lblL5)
+  bld <+ (dst := AST.cast CastKind.FtoFFloor regSize res)
+  bld <+ (AST.lmark lblEnd)
   bld --!> insLen
 
 let fqtod ins insLen bld =
   let struct (src, dst) = transTwoOprs ins insLen bld
+  let regSize = 64<rt>
+  let op1 = tmpVar bld regSize
+  let op2 = tmpVar bld regSize
+  let op64 = tmpVar bld regSize
   bld <!-- (ins.Address, insLen)
+  getQFloatOp bld src op1 op2
+  cast128to64 bld op1 op2 op64
+  setDFloatOp bld dst op64
   bld --!> insLen
 
 let fsubs ins insLen bld =
@@ -2587,7 +2674,7 @@ let fxtos ins insLen bld =
   bld <+ (res := (AST.cast CastKind.SIntToFloat oprSize op))
   bld <+ (AST.cjmp cond0 (AST.jmpDest lblL0) (AST.jmpDest lblL1))
   bld <+ (AST.lmark lblL0)
-  bld <+ (dst := (AST.cast (CastKind.FtoFRound) oprSize op))
+  bld <+ (dst := (AST.cast (CastKind.FtoFRound) oprSize res))
   bld <+ (AST.jmp (AST.jmpDest lblEnd))
   bld <+ (AST.lmark lblL1)
   bld <+ (AST.cjmp cond1 (AST.jmpDest lblL2) (AST.jmpDest lblL3))
@@ -3718,13 +3805,10 @@ let st ins insLen bld =
   | Opcode.STX ->
     bld <+ ((AST.loadBE 64<rt> addr) := (AST.extract src 64<rt> 0))
   | Opcode.STD ->
-    if (src = regVar bld Register.G0) then
-      bld <+ ((AST.loadBE 32<rt> addr) := (AST.extract src 32<rt> 0))
-    else
-      let nxt = regVar bld (getNextReg bld src)
-      bld <+ ((AST.loadBE 32<rt> addr) := (AST.extract src 32<rt> 0))
-      bld <+ ((AST.loadBE 32<rt> (addr .+ numI64 4L 64<rt>)) :=
-        (AST.extract nxt 32<rt> 0))
+    let nxt = regVar bld (getNextReg bld src)
+    bld <+ ((AST.loadBE 32<rt> addr) := (AST.extract src 32<rt> 0))
+    bld <+ ((AST.loadBE 32<rt> (addr .+ numI64 4L 64<rt>)) :=
+      (AST.extract nxt 32<rt> 0))
   | _ -> raise InvalidOpcodeException
   bld --!> insLen
 
@@ -3745,13 +3829,10 @@ let sta ins insLen bld =
   | Opcode.STXA ->
     bld <+ ((AST.loadBE 64<rt> addr) := (AST.extract src 64<rt> 0))
   | Opcode.STDA ->
-    if (src = regVar bld Register.G0) then
-      bld <+ ((AST.loadBE 32<rt> addr) := (AST.extract src 32<rt> 0))
-    else
-      let nxt = regVar bld (getNextReg bld src)
-      bld <+ ((AST.loadBE 32<rt> addr) := (AST.extract src 32<rt> 0))
-      bld <+ ((AST.loadBE 32<rt> (addr .+ numI64 4L 64<rt>)) :=
-        (AST.extract nxt 32<rt> 0))
+    let nxt = regVar bld (getNextReg bld src)
+    bld <+ ((AST.loadBE 32<rt> addr) := (AST.extract src 32<rt> 0))
+    bld <+ ((AST.loadBE 32<rt> (addr .+ numI64 4L 64<rt>)) :=
+      (AST.extract nxt 32<rt> 0))
   | _ -> raise InvalidOpcodeException
   bld --!> insLen
 
