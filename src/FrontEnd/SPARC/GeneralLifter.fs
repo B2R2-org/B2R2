@@ -2749,6 +2749,7 @@ let fxtod ins insLen bld =
   let fsr = regVar bld Register.FSR
   let fsr30 = AST.extract fsr 1<rt> 30
   let fsr31 = AST.extract fsr 1<rt> 31
+  let op = tmpVar bld oprSize
   let res = tmpVar bld oprSize
   let rounded = tmpVar bld oprSize
   let regSize = 64<rt>
@@ -2763,7 +2764,12 @@ let fxtod ins insLen bld =
   let cond1 = (fsr31 == AST.b0) .& (fsr30 == AST.b1)
   let cond2 = (fsr31 == AST.b1) .& (fsr30 == AST.b0)
   bld <!-- (ins.Address, insLen)
-  bld <+ (res := AST.cast CastKind.SIntToFloat oprSize src)
+  (* The 64-bit source integer occupies a double register (an even/odd %f pair
+     on %f0-%f31), so assemble it with getDFloatOp; reading the operand register
+     directly takes only its high half -- zero for any value below 2^32 -- which
+     silently converts small integers to 0.0. *)
+  getDFloatOp bld src op
+  bld <+ (res := AST.cast CastKind.SIntToFloat oprSize op)
   bld <+ (AST.cjmp cond0 (AST.jmpDest lblL0) (AST.jmpDest lblL1))
   bld <+ (AST.lmark lblL0)
   bld <+ (rounded := AST.cast CastKind.FtoFRound regSize (res))
