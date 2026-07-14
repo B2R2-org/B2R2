@@ -49,6 +49,17 @@ let (<!--) (bld: ILowUIRBuilder) (addr, insLen) =
   bld.Stream.MarkStart(addr, insLen)
   match bld with
   | :? LowUIRBuilder as sbld ->
+    (* A branch deferred by a prior block's decode expects its delay slot at a
+       fixed address; reaching a different address instead means that state
+       leaked across the block boundary (the slot was never lifted here), so
+       drop it rather than flush this unrelated instruction as the slot. *)
+    match sbld.DelaySlotAddr with
+    | ValueSome expected when
+        sbld.DelayedBranch <> InterJmpKind.NotAJmp
+        && not sbld.Armed && addr <> expected ->
+      sbld.ResetDelayState()
+    | _ -> ()
+    sbld.CurAddr <- addr
     match sbld.AnnulCond with
     | ValueSome cond ->
       let runLbl = label bld "AnnulRun"
@@ -75,7 +86,9 @@ let (--!>) (bld: ILowUIRBuilder) insLen =
       sbld.AnnulSkip <- ValueNone
     | ValueNone -> ()
     if sbld.DelayedBranch <> InterJmpKind.NotAJmp then
-      if sbld.Armed then sbld.Armed <- false
+      if sbld.Armed then
+        sbld.Armed <- false
+        sbld.DelaySlotAddr <- ValueSome(sbld.CurAddr + uint64 insLen)
       else
         bld <+ (AST.interjmp (regVar bld Register.NPC) sbld.DelayedBranch)
         sbld.Disarm()

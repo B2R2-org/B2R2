@@ -44,6 +44,18 @@ type LowUIRBuilder(isa: ISA,
   let mutable armed = false
   let mutable annulCond: Expr voption = ValueNone
   let mutable annulSkip: Label voption = ValueNone
+  let mutable curAddr = 0UL
+  let mutable delaySlotAddr: Addr voption = ValueNone
+
+  /// The address of the instruction currently being lifted, so a deferred
+  /// branch can record where its delay slot must appear.
+  member _.CurAddr with get() = curAddr and set v = curAddr <- v
+
+  /// The address the pending deferred branch's delay slot must be lifted at.
+  /// A later instruction lifted at a different address means the branch is
+  /// stale state leaked from a prior block's decode, not this branch's slot.
+  member _.DelaySlotAddr
+    with get() = delaySlotAddr and set v = delaySlotAddr <- v
 
   /// The kind of a pending delayed branch, or NotAJmp when none is pending.
   member _.DelayedBranch with get() = delayedBranch
@@ -61,6 +73,16 @@ type LowUIRBuilder(isa: ISA,
   member _.AnnulSkip with get() = annulSkip and set v = annulSkip <- v
 
   member _.RegType with get() = regType
+
+  /// Drops all pending delayed-branch and annul state. Called when a leaked
+  /// deferred branch surfaces at the wrong delay-slot address so it does not
+  /// mis-flush against an unrelated instruction.
+  member _.ResetDelayState() =
+    delayedBranch <- InterJmpKind.NotAJmp
+    armed <- false
+    annulCond <- ValueNone
+    annulSkip <- ValueNone
+    delaySlotAddr <- ValueNone
 
   /// Arms a delayed branch of the given kind (the target lives in %nPC).
   member _.Arm kind =
