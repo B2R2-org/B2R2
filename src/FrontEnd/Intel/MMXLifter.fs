@@ -394,6 +394,23 @@ let opUnpackLowData oprSize src1 src2 =
     Array.append resALow resBLow
   | _ -> raise InvalidOperandSizeException
 
+/// A two-operand 128-bit packed op lowered as one SIMD intrinsic -- a
+/// BinOp(APP, ...) the evaluator runs on a single Vector128 op -- instead of
+/// the per-lane scalar decomposition: read dst/src as 128-bit, apply, and write
+/// the halves back. The 128-bit intermediate rides the evaluator's wide path.
+let private packedBinIntrinsic (ins: Instruction) insLen bld name =
+  bld <!-- (ins.Address, insLen)
+  let struct (dst, src) = getTwoOprs ins
+  let struct (dstB, dstA) = transOprToExpr128 bld false ins insLen dst
+  let struct (srcB, srcA) = transOprToExpr128 bld false ins insLen src
+  let t = tmpVar bld 128<rt>
+  let s1 = AST.concat dstB dstA
+  let s2 = AST.concat srcB srcA
+  bld <+ (t := AST.app name [ s1; s2 ] 128<rt>)
+  bld <+ (dstA := AST.xtlo 64<rt> t)
+  bld <+ (dstB := AST.xthi 64<rt> t)
+  bld --!> insLen
+
 let punpckhbw ins insLen bld =
   buildPackedInstr ins insLen bld false 8<rt> opUnpackHighData
 
@@ -410,7 +427,14 @@ let punpcklwd ins insLen bld =
   buildPackedInstr ins insLen bld false 16<rt> opUnpackLowData
 
 let punpckldq ins insLen bld =
+#if EMULATION
+  if getOperationSize ins = 128<rt> then
+    packedBinIntrinsic ins insLen bld "PUNPCKLDQ"
+  else
+    buildPackedInstr ins insLen bld false 32<rt> opUnpackLowData
+#else
   buildPackedInstr ins insLen bld false 32<rt> opUnpackLowData
+#endif
 
 let opP op _ = Array.map2 (op)
 
@@ -558,23 +582,6 @@ let opPcmp packSz cmpOp =
     AST.ite (cmpOp e1 e2) (getMask packSz) (AST.num0 packSz))
 
 let opPcmpeqb _ = opPcmp 8<rt> (==)
-
-/// A two-operand 128-bit packed op lowered as one SIMD intrinsic -- a
-/// BinOp(APP, ...) the evaluator runs on a single Vector128 op -- instead of
-/// the per-lane scalar decomposition: read dst/src as 128-bit, apply, and write
-/// the halves back. The 128-bit intermediate rides the evaluator's wide path.
-let private packedBinIntrinsic (ins: Instruction) insLen bld name =
-  bld <!-- (ins.Address, insLen)
-  let struct (dst, src) = getTwoOprs ins
-  let struct (dstB, dstA) = transOprToExpr128 bld false ins insLen dst
-  let struct (srcB, srcA) = transOprToExpr128 bld false ins insLen src
-  let t = tmpVar bld 128<rt>
-  let s1 = AST.concat dstB dstA
-  let s2 = AST.concat srcB srcA
-  bld <+ (t := AST.app name [ s1; s2 ] 128<rt>)
-  bld <+ (dstA := AST.xtlo 64<rt> t)
-  bld <+ (dstB := AST.xthi 64<rt> t)
-  bld --!> insLen
 
 let pcmpeqb ins insLen bld =
 #if EMULATION
