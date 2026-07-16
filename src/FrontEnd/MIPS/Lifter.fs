@@ -257,12 +257,6 @@ let checkOverfolwOnDadd e1 e2 r =
   let rHigh = AST.extract r 1<rt> 63
   (e1High == e2High) .& (e1High <+> rHigh)
 
-let private checkOverfolwOnDMul e1 e2 =
-  let mask64 = numI64 0xFFFFFFFFFFFFFFFFL 64<rt>
-  let bit32 = numI64 0x100000000L 64<rt>
-  let cond = mask64 .- e1 .< e2
-  AST.ite cond bit32 (AST.num0 64<rt>)
-
 let private getExponentFull src oprSz =
   if oprSz = 32<rt> then
     ((src >> numI32 23 32<rt>) .& numI32 0xff 32<rt>) == numI32 0xff 32<rt>
@@ -427,46 +421,13 @@ let private shifterStore fstShf sndShf rRt t1 t2 t3 =
   (fstShf (sndShf t3 t2) t2) .| (sndShf rRt t1)
 
 let private mul64BitReg src1 src2 bld isSign =
-  let struct (hiSrc1, loSrc1, hiSrc2, loSrc2) = tmpVars4 bld 64<rt>
-  let struct (tHigh, tLow) = tmpVars2 bld 64<rt>
-  let struct (src1IsNeg, src2IsNeg, signBit) = tmpVars3 bld 1<rt>
-  (* Absolute values go into temporaries; writing them back to src1/src2
-     would clobber the source registers, which a later instruction reusing
-     the same register (e.g. a shared magic constant) then reads corrupted. *)
-  let struct (aSrc1, aSrc2) = tmpVars2 bld 64<rt>
-  let n32 = numI32 32 64<rt>
-  let mask32 = numI64 0xFFFFFFFFL 64<rt>
-  if isSign then
-    bld <+ (src1IsNeg := AST.xthi 1<rt> src1)
-    bld <+ (src2IsNeg := AST.xthi 1<rt> src2)
-    bld <+ (aSrc1 := AST.ite src1IsNeg (AST.neg src1) src1)
-    bld <+ (aSrc2 := AST.ite src2IsNeg (AST.neg src2) src2)
-  else
-    bld <+ (aSrc1 := src1)
-    bld <+ (aSrc2 := src2)
-  bld <+ (hiSrc1 := (aSrc1 >> n32) .& mask32) (* SRC1[63:32] *)
-  bld <+ (loSrc1 := aSrc1 .& mask32) (* SRC1[31:0] *)
-  bld <+ (hiSrc2 := (aSrc2 >> n32) .& mask32) (* SRC2[63:32] *)
-  bld <+ (loSrc2 := aSrc2 .& mask32) (* SRC2[31:0] *)
-  let pHigh = hiSrc1 .* hiSrc2
-  let pMid = (hiSrc1 .* loSrc2) .+ (loSrc1 .* hiSrc2)
-  let pLow = loSrc1 .* loSrc2
-  let overFlowBit = checkOverfolwOnDMul (hiSrc1 .* loSrc2) (loSrc1 .* hiSrc2)
-  let high = pHigh .+ ((pMid .+ (pLow >> n32)) >> n32) .+ overFlowBit
-  let low = pLow .+ ((pMid .& mask32) << n32)
-  if isSign then
-    bld <+ (signBit := src1IsNeg <+> src2IsNeg)
-    (* Negating a 128-bit value is ~(high:low) + 1. When low = 0 the carry
-       from the low limb propagates, so the high limb must be ~high + 1
-       (i.e. neg high), not just ~high. *)
-    let lowIsZero = low == AST.num0 64<rt>
-    let negHigh = AST.ite lowIsZero (AST.neg high) (AST.not high)
-    bld <+ (tHigh := AST.ite signBit negHigh high)
-    bld <+ (tLow := AST.ite signBit (AST.neg low) low)
-  else
-    bld <+ (tHigh := high)
-    bld <+ (tLow := low)
-  struct (tHigh, tLow)
+  (* The full 64x64->128 product held in one wide temp, from which HI and LO
+     are the high and low halves. The evaluator holds the 128-bit value, so the
+     former hand-rolled 32-bit decomposition is unnecessary. *)
+  let prod = tmpVar bld 128<rt>
+  let ext = if isSign then AST.sext 128<rt> else AST.zext 128<rt>
+  bld <+ (prod := ext src1 .* ext src2)
+  struct (AST.xthi 64<rt> prod, AST.xtlo 64<rt> prod)
 
 let abs ins insLen bld =
   let fd, fs = getTwoOprs ins
