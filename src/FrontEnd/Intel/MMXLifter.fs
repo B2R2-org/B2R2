@@ -421,10 +421,24 @@ let punpckhdq ins insLen bld =
   buildPackedInstr ins insLen bld false 32<rt> opUnpackHighData
 
 let punpcklbw ins insLen bld =
+#if EMULATION
+  if getOperationSize ins = 128<rt> then
+    packedBinIntrinsic ins insLen bld "PUNPCKLBW"
+  else
+    buildPackedInstr ins insLen bld false 8<rt> opUnpackLowData
+#else
   buildPackedInstr ins insLen bld false 8<rt> opUnpackLowData
+#endif
 
 let punpcklwd ins insLen bld =
+#if EMULATION
+  if getOperationSize ins = 128<rt> then
+    packedBinIntrinsic ins insLen bld "PUNPCKLWD"
+  else
+    buildPackedInstr ins insLen bld false 16<rt> opUnpackLowData
+#else
   buildPackedInstr ins insLen bld false 16<rt> opUnpackLowData
+#endif
 
 let punpckldq ins insLen bld =
 #if EMULATION
@@ -507,7 +521,14 @@ let phaddw ins insLen bld = packedHorizon ins insLen bld 16<rt> (opP (.+))
 let phaddsw ins insLen bld = packedHorizon ins insLen bld 16<rt> opPaddsw
 
 let psubb ins insLen bld =
+#if EMULATION
+  if getOperationSize ins = 128<rt> then
+    packedBinIntrinsic ins insLen bld "PSUBB"
+  else
+    buildPackedInstr ins insLen bld false 8<rt> (opP (.-))
+#else
   buildPackedInstr ins insLen bld false 8<rt> (opP (.-))
+#endif
 
 let psubw ins insLen bld =
   buildPackedInstr ins insLen bld false 16<rt> (opP (.-))
