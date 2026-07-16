@@ -2438,51 +2438,13 @@ let smsubl ins insLen bld addr =
   bld <+ (dst := src3 .- (AST.sext 64<rt> src1 .* AST.sext 64<rt> src2))
   bld --!> insLen
 
-let private checkOverflowOnDMul e1 e2 =
-  let mask64 = numI64 0xFFFFFFFFFFFFFFFFL 64<rt>
-  let bit32 = numI64 0x100000000L 64<rt>
-  let cond = mask64 .- e1 .< e2
-  AST.ite cond bit32 (AST.num0 64<rt>)
-
-let private mul64BitReg src1 src2 bld =
-  let struct (hiSrc1, loSrc1, hiSrc2, loSrc2) = tmpVars4 bld 64<rt>
-  let struct (tHigh, tLow) = tmpVars2 bld 64<rt>
-  let struct (tSrc1, tSrc2) = tmpVars2 bld 64<rt>
-  let struct (src1IsNeg, src2IsNeg, signBit) = tmpVars3 bld 1<rt>
-  let struct (pHigh, pMid, pLow) = tmpVars3 bld 64<rt>
-  let struct (pMid1, pMid2) = tmpVars2 bld 64<rt>
-  let struct (high, low) = tmpVars2 bld 64<rt>
-  let n32 = numI32 32 64<rt>
-  let mask32 = numI64 0xFFFFFFFFL 64<rt>
-  let zero = numI32 0 64<rt>
-  let one = numI32 1 64<rt>
-  bld <+ (src1IsNeg := AST.xthi 1<rt> src1)
-  bld <+ (src2IsNeg := AST.xthi 1<rt> src2)
-  bld <+ (tSrc1 := AST.ite src1IsNeg (AST.neg src1) src1)
-  bld <+ (tSrc2 := AST.ite src2IsNeg (AST.neg src2) src2)
-  bld <+ (hiSrc1 := (tSrc1 >> n32) .& mask32) (* SRC1[63:32] *)
-  bld <+ (loSrc1 := tSrc1 .& mask32) (* SRC1[31:0] *)
-  bld <+ (hiSrc2 := (tSrc2 >> n32) .& mask32) (* SRC2[63:32] *)
-  bld <+ (loSrc2 := tSrc2 .& mask32) (* SRC2[31:0] *)
-  bld <+ (pHigh := hiSrc1 .* hiSrc2)
-  bld <+ (pMid1 := hiSrc1 .* loSrc2)
-  bld <+ (pMid2 := loSrc1 .* hiSrc2)
-  bld <+ (pMid := pMid1 .+ pMid2)
-  bld <+ (pLow := loSrc1 .* loSrc2)
-  let overFlowBit = checkOverflowOnDMul (hiSrc1 .* loSrc2) (loSrc1 .* hiSrc2)
-  bld <+ (high := pHigh .+ ((pMid .+ (pLow >> n32)) >> n32) .+ overFlowBit)
-  bld <+ (low := pLow .+ ((pMid .& mask32) << n32))
-  bld <+ (signBit := src1IsNeg <+> src2IsNeg)
-  bld <+ (tHigh := AST.ite signBit (AST.not high) high)
-  bld <+ (tLow := AST.ite signBit (AST.neg low) low)
-  let carry = AST.ite (signBit .& (tLow == zero)) one zero
-  bld <+ (tHigh := tHigh .+ carry)
-  tHigh
-
 let smulh ins insLen bld addr =
   let dst, src1, src2 = transThreeOprs ins bld addr
   bld <!-- (ins.Address, insLen)
-  bld <+ (dst := mul64BitReg src1 src2 bld)
+  (* The high 64 bits of the signed 64x64->128 product: the evaluator holds the
+     128-bit intermediate, so extract from it directly. *)
+  let prod = AST.sext 128<rt> src1 .* AST.sext 128<rt> src2
+  bld <+ (dst := AST.xthi 64<rt> prod)
   bld --!> insLen
 
 let smull (ins: Instruction) insLen bld addr =
@@ -3446,23 +3408,11 @@ let umsubl ins insLen bld addr =
 
 let umulh ins insLen bld addr =
   let dst, src1, src2 = transThreeOprs ins bld addr
-  let struct (hiSrc1, loSrc1, hiSrc2, loSrc2) = tmpVars4 bld 64<rt>
-  let struct (pMid, pLow) = tmpVars2 bld 64<rt>
-  let struct (hi1Lo2, lo1Hi2) = tmpVars2 bld 64<rt>
-  let n32 = numI32 32 64<rt>
-  let mask = numI64 0xFFFFFFFFL 64<rt>
   bld <!-- (ins.Address, insLen)
-  bld <+ (hiSrc1 := (src1 >> n32) .& mask) (* SRC1[63:32] *)
-  bld <+ (loSrc1 := src1 .& mask) (* SRC1[31:0] *)
-  bld <+ (hiSrc2 := (src2 >> n32) .& mask) (* SRC2[63:32] *)
-  bld <+ (loSrc2 := src2 .& mask) (* SRC2[31:0] *)
-  let pHigh = hiSrc1 .* hiSrc2
-  bld <+ (hi1Lo2 := hiSrc1 .* loSrc2)
-  bld <+ (lo1Hi2 := loSrc1 .* hiSrc2)
-  bld <+ (pMid := hi1Lo2 .+ lo1Hi2)
-  bld <+ (pLow := loSrc1 .* loSrc2)
-  let high = pHigh .+ ((pMid .+ (pLow >> n32)) >> n32)
-  bld <+ (dst := high .+ checkOverflowOnDMul hi1Lo2 lo1Hi2)
+  (* The high 64 bits of the unsigned 64x64->128 product, extracted from the
+     128-bit intermediate the evaluator holds. *)
+  let prod = AST.zext 128<rt> src1 .* AST.zext 128<rt> src2
+  bld <+ (dst := AST.xthi 64<rt> prod)
   bld --!> insLen
 
 let umull (ins: Instruction) insLen bld addr =
