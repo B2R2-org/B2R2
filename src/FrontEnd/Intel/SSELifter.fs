@@ -1147,12 +1147,20 @@ let pmovmskb (ins: Instruction) insLen bld =
   | Register.Kind.XMM ->
     let dst = transOprToExpr bld false ins insLen dst
     let struct (srcB, srcA) = transOprToExpr128 bld false ins insLen src
+#if EMULATION
+    (* One SIMD intrinsic (a BinOp(APP, ...) the evaluator runs as a single
+       pmovmskb) gathering the 16 byte MSBs, instead of extracting each by
+       hand; the 16-bit mask is then zero-extended into the destination GPR. *)
+    let mask = AST.app "PMOVMSKB" [ AST.concat srcB srcA ] 16<rt>
+    bld <+ (dstAssign oprSize dst (AST.zext oprSize mask))
+#else
     let srcSize = Expr.typeOf srcA
     let cnt = RegType.toByteWidth srcSize
     let tmpsA = mskArrayInit cnt srcA
     let tmpsB = mskArrayInit cnt srcB
     let tmps = AST.concat (concatBits tmpsB) (concatBits tmpsA)
     bld <+ (dstAssign oprSize dst <| AST.zext oprSize tmps)
+#endif
   | Register.Kind.YMM ->
     let dst = transOprToExpr bld false ins insLen dst
     let struct (srcD, srcC, srcB, srcA) =
