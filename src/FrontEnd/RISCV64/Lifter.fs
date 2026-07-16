@@ -535,67 +535,6 @@ let isSubnormal rt e =
     (e .& fullMantissa != AST.num0 64<rt>)
   | _ -> raise InvalidRegTypeException
 
-let private checkOverflowOnDMul e1 e2 =
-  let mask64 = numI64 0xFFFFFFFFFFFFFFFFL 64<rt>
-  let bit32 = numI64 0x100000000L 64<rt>
-  let cond = mask64 .- e1 .< e2
-  AST.ite cond bit32 (AST.num0 64<rt>)
-
-let private mulWithOverflow src1 src2 bld (isSign, isUnsign) isLow =
-  let src1IsNeg = tmpVar bld 1<rt>
-  let struct (tSrc1, tSrc2, hiSrc1, loSrc1) = tmpVars4 bld 64<rt>
-  let struct (hiSrc2, loSrc2, pMid1, pMid2) = tmpVars4 bld 64<rt>
-  let struct (pMid, pLow) = tmpVars2 bld 64<rt>
-  let struct (low, high) = tmpVars2 bld 64<rt>
-  let struct (src2IsNeg, signBit) = tmpVars2 bld 1<rt>
-  let struct (tLow, tHigh) = tmpVars2 bld 64<rt>
-  let n32 = numI32 32 64<rt>
-  let mask32 = numI64 0xFFFFFFFFL 64<rt>
-  let zero = numI32 0 64<rt>
-  let one = numI32 1 64<rt>
-  match isSign, isUnsign with
-  | true, true ->
-    bld <+ (src1IsNeg := AST.xthi 1<rt> src1)
-    bld <+ (src2IsNeg := AST.xthi 1<rt> src2)
-    bld <+ (tSrc1 := AST.ite src1IsNeg (AST.neg src1) src1)
-    bld <+ (tSrc2 := AST.ite src2IsNeg (AST.neg src2) src2)
-  | true, false ->
-    bld <+ (src1IsNeg := AST.xthi 1<rt> src1)
-    bld <+ (tSrc1 := AST.ite src1IsNeg (AST.neg src1) src1)
-    bld <+ (tSrc2 := src2)
-  | _ ->
-    bld <+ (tSrc1 := src1)
-    bld <+ (tSrc2 := src2)
-  bld <+ (hiSrc1 := (tSrc1 >> n32) .& mask32) (* SRC1[63:32] *)
-  bld <+ (loSrc1 := tSrc1 .& mask32) (* SRC1[31:0] *)
-  bld <+ (hiSrc2 := (tSrc2 >> n32) .& mask32) (* SRC2[63:32] *)
-  bld <+ (loSrc2 := tSrc2 .& mask32) (* SRC2[31:0] *)
-  bld <+ (pMid1 := hiSrc1 .* loSrc2)
-  bld <+ (pMid2 := loSrc1 .* hiSrc2)
-  bld <+ (pMid := pMid1 .+ pMid2)
-  bld <+ (pLow := loSrc1 .* loSrc2)
-  bld <+ (low := pLow .+ ((pMid .& mask32) << n32))
-  if not isLow then
-    let overFlowBit = checkOverflowOnDMul pMid1 pMid2
-    bld
-    <+ (high := hiSrc1 .* hiSrc2
-             .+ ((pMid .+ (pLow >> n32)) >> n32)
-             .+ overFlowBit)
-  else
-    ()
-  if isSign then
-    bld <+ (signBit := src1IsNeg <+> src2IsNeg)
-    bld <+ (tLow := AST.ite signBit (AST.neg low) low)
-    if not isLow then
-      let carry = AST.ite (AST.``and`` signBit (tLow == zero)) one zero
-      bld <+ (tHigh := AST.ite signBit (AST.not high) high .+ carry)
-    else
-      ()
-  else
-    if not isLow then bld <+ (tHigh := high) else ()
-    bld <+ (tLow := low)
-  if isLow then tLow else tHigh
-
 let add ins insLen bld =
   let rd, rs1, rs2 = getThreeOprs ins |> transThreeOprs ins bld
   bld <!-- (ins.Address, insLen)
@@ -901,18 +840,26 @@ let sraiw ins insLen bld =
   bld <+ (rd := AST.sext 64<rt> (lowBitsRs1 ?>> AST.xtlo 32<rt> shamt))
   bld --!> insLen
 
-let mul ins insLen bld (isSign, isUnsign) =
+let mul ins insLen bld =
   let rd, rs1, rs2 = getThreeOprs ins |> transThreeOprs ins bld
   bld <!-- (ins.Address, insLen)
-  let low = mulWithOverflow rs1 rs2 bld (isSign, isUnsign) true
-  bld <+ (rd := low)
+  (* The low 64 bits of the product are the same for signed and unsigned, so a
+     plain 64-bit multiply suffices -- no need to form the full 128-bit val. *)
+  bld <+ (rd := rs1 .* rs2)
   bld --!> insLen
 
 let mulhSignOrUnsign ins insLen bld (isSign, isUnsign) =
   let rd, rs1, rs2 = getThreeOprs ins |> transThreeOprs ins bld
   bld <!-- (ins.Address, insLen)
-  let high = mulWithOverflow rs1 rs2 bld (isSign, isUnsign) false
-  bld <+ (rd := high)
+  (* The high 64 bits of the 64x64->128 product, from the 128-bit intermediate
+     the evaluator holds: MULH signs both operands, MULHU neither, MULHSU only
+     rs1 -- so the extend picks sext/zext per operand's signedness. *)
+  let prod =
+    match isSign, isUnsign with
+    | true, true -> AST.sext 128<rt> rs1 .* AST.sext 128<rt> rs2
+    | true, false -> AST.sext 128<rt> rs1 .* AST.zext 128<rt> rs2
+    | _ -> AST.zext 128<rt> rs1 .* AST.zext 128<rt> rs2
+  bld <+ (rd := AST.xthi 64<rt> prod)
   bld --!> insLen
 
 let mulw ins insLen bld =
@@ -2324,7 +2271,7 @@ let translate (ins: Instruction) insLen bld =
   | Op.SLLIW -> slliw ins insLen bld
   | Op.SRLIW -> srliw ins insLen bld
   | Op.SRAIW -> sraiw ins insLen bld
-  | Op.MUL -> mul ins insLen bld (true, true)
+  | Op.MUL -> mul ins insLen bld
   | Op.MULH -> mulhSignOrUnsign ins insLen bld (true, true)
   | Op.MULHU -> mulhSignOrUnsign ins insLen bld (false, true)
   | Op.MULHSU -> mulhSignOrUnsign ins insLen bld (true, false)
