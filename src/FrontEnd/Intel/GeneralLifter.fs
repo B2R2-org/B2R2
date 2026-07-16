@@ -1230,174 +1230,11 @@ let dec (ins: Instruction) insLen bld =
 #endif
   bld --!> insLen
 
-let private mul64Bit src1 src2 bld =
-  let struct (hiSrc1, loSrc1, hiSrc2, loSrc2) = tmpVars4 bld 64<rt>
-  let struct (tSrc1, tSrc2) = tmpVars2 bld 64<rt>
-  let struct (tHigh, tLow) = tmpVars2 bld 64<rt>
-  let struct (pMid, pLow) = tmpVars2 bld 64<rt>
-  let struct (hi1Lo2, lo1Hi2) = tmpVars2 bld 64<rt>
-  let n32 = numI32 32 64<rt>
-  let mask = numI64 0xFFFFFFFFL 64<rt>
-  bld <+ (tSrc1 := src1)
-  bld <+ (tSrc2 := src2)
-  bld <+ (hiSrc1 := (tSrc1 >> n32) .& mask) (* SRC1[63:32] *)
-  bld <+ (loSrc1 := tSrc1 .& mask) (* SRC1[31:0] *)
-  bld <+ (hiSrc2 := (tSrc2 >> n32) .& mask) (* SRC2[63:32] *)
-  bld <+ (loSrc2 := tSrc2 .& mask) (* SRC2[31:0] *)
-  let pHigh = hiSrc1 .* hiSrc2
-  bld <+ (hi1Lo2 := hiSrc1 .* loSrc2)
-  bld <+ (lo1Hi2 := loSrc1 .* hiSrc2)
-  bld <+ (pMid := hi1Lo2 .+ lo1Hi2)
-  bld <+ (pLow := loSrc1 .* loSrc2)
-  let high = pHigh .+ ((pMid .+ (pLow >> n32)) >> n32)
-  let low = pLow .+ ((pMid .& mask) << n32)
-  let isOverflow = hi1Lo2 .> numI64 0xffffffff_ffffffffL 64<rt> .- lo1Hi2
-  bld <+ (tHigh :=
-    high .+ AST.ite isOverflow (numI64 0x100000000L 64<rt>) (AST.num0 64<rt>))
-  bld <+ (tLow := low)
-  struct (tHigh, tLow)
-
-let private helperRemSub remHi remLo srcHi srcLo bld =
-  let t = tmpVar bld 1<rt>
-  bld <+ (t := remLo .< srcLo)
-  bld <+ (remLo := remLo .- srcLo)
-  bld <+ (remHi := remHi .- srcHi)
-  bld <+ (remHi := remHi .- AST.ite t (AST.num1 64<rt>) (AST.num0 64<rt>))
-
-let helperRemAdd remHi remLo srcHi srcLo remMsb bld =
-  let r = tmpVar bld 64<rt>
-  let t = tmpVar bld 1<rt>
-  let cond = r .< remLo
-  bld <+ (r := remLo .+ srcLo)
-  bld <+ (t := cond)
-  bld <+ (remLo := AST.ite remMsb r remLo)
-  let toAdd = AST.ite t (AST.num1 64<rt>) (AST.num0 64<rt>)
-  bld <+ (remHi := AST.ite remMsb (remHi .+ srcHi .+ toAdd) remHi)
-
-let divideWithoutConcat opcode oprSize divisor lblAssign lblErr bld =
-  let struct (trdx, trax, tdivisor) = tmpVars3 bld oprSize
-  let rdx, rax = regVar bld R.RDX, regVar bld R.RAX
-  let struct (lz, y, t, nrmDvsr) = tmpVars4 bld oprSize
-  let struct (remHi, remLo) = tmpVars2 bld oprSize
-  let struct (qh, ql, q) = tmpVars3 bld oprSize
-  let remMsb = tmpVar bld 1<rt>
-  let n32 = numI32 32 64<rt>
-  let zero = AST.num0 64<rt>
-  let one = AST.num1 64<rt>
-  let numF = numI64 0xffffffffL oprSize
-  let struct (nrmDvsrShl32, nrmDvsrShr32) = tmpVars2 bld oprSize
-  let condGE = (remHi >> n32) .>= nrmDvsrShr32
-  let updateSign = tmpVar bld 1<rt>
-  let lblComputable = label bld "Computable"
-  let lblEasy = label bld "Easy"
-  let lblHard = label bld "Hard"
-  let isEasy = trdx == AST.num0 oprSize
-  let errChk = AST.gt divisor trdx
-  let quotient = tmpVar bld oprSize
-  let remainder = tmpVar bld oprSize
-  match opcode with
-  | Opcode.DIV ->
-    bld <+ (trdx := rdx)
-    bld <+ (trax := rax)
-    bld <+ (tdivisor := divisor)
-  | Opcode.IDIV ->
-    let struct (dividendIsNeg, divisorIsNeg) = tmpVars2 bld 1<rt>
-    bld <+ (dividendIsNeg := (AST.xthi 1<rt> rdx == AST.b1))
-    bld <+ (divisorIsNeg := (AST.xthi 1<rt> divisor == AST.b1))
-    bld <+ (trdx := AST.ite dividendIsNeg (AST.not rdx) rdx)
-    bld <+ (trax := AST.ite dividendIsNeg (AST.not rax .+ numI32 1 oprSize) rax)
-    let carry = AST.ite (AST.``and`` dividendIsNeg (AST.eq trax zero)) one zero
-    bld <+ (trdx := trdx .+ carry)
-    bld <+ (tdivisor := AST.ite divisorIsNeg (AST.neg divisor) divisor)
-    bld <+ (updateSign := dividendIsNeg <+> divisorIsNeg)
-  | _ -> raise InvalidOpcodeException
-  bld <+ (AST.cjmp errChk (AST.jmpDest lblComputable) (AST.jmpDest lblErr))
-  bld <+ (AST.lmark lblComputable)
-  bld <+ (AST.cjmp isEasy (AST.jmpDest lblEasy) (AST.jmpDest lblHard))
-  bld <+ (AST.lmark lblEasy)
-  bld <+ (quotient := trax ./ tdivisor)
-  bld <+ (remainder := trax .% tdivisor)
-  bld <+ (AST.jmp (AST.jmpDest lblAssign))
-  bld <+ (AST.lmark lblHard)
-  (* normalize divisor; adjust dividend
-     accordingly (initial partial remainder) *)
-  let z = tmpVar bld 1<rt>
-  bld <+ (lz := (numI64 64L oprSize))
-  bld <+ (t := tdivisor)
-  bld <+ (y := (t >> (numI64 32L oprSize)))
-  bld <+ (z := y != zero)
-  bld <+ (lz := (AST.ite z (lz .- numI64 32L oprSize) lz))
-  bld <+ (t := (AST.ite z y t))
-  bld <+ (y := (t >> (numI64 16L oprSize)))
-  bld <+ (z := y != zero)
-  bld <+ (lz := (AST.ite z (lz .- numI64 16L oprSize) lz))
-  bld <+ (t := (AST.ite z y t))
-  bld <+ (y := (t >> (numI64 8L oprSize)))
-  bld <+ (z := y != zero)
-  bld <+ (lz := (AST.ite z (lz .- numI64 8L oprSize) lz))
-  bld <+ (t := (AST.ite z y t))
-  bld <+ (y := (t >> (numI64 4L oprSize)))
-  bld <+ (z := y != zero)
-  bld <+ (lz := (AST.ite z (lz .- numI64 4L oprSize) lz))
-  bld <+ (t := (AST.ite z y t))
-  bld <+ (y := (t >> (numI64 2L oprSize)))
-  bld <+ (z := y != zero)
-  bld <+ (lz := (AST.ite z (lz .- numI64 2L oprSize) lz))
-  bld <+ (t := (AST.ite z y t))
-  bld <+ (y := (t >> (numI64 1L oprSize)))
-  bld <+ (z := y != zero)
-  bld <+ (lz := (AST.ite z (lz .- numI64 2L oprSize) (lz .- t)))
-  bld <+ (nrmDvsr := tdivisor << lz)
-  bld <+ (nrmDvsrShl32 := nrmDvsr << n32)
-  bld <+ (nrmDvsrShr32 := nrmDvsr >> n32)
-  bld <+ (t := AST.ite (lz != zero) (trax >> ((numI64 64L oprSize) .- lz)) zero)
-  bld <+ (remHi := (trdx << lz) .| t)
-  bld <+ (remLo := trax << lz)
-  bld <+ (qh := AST.ite condGE numF (remHi ./ nrmDvsrShr32))
-  (* compute remainder; correct quotient "digit" if remainder negative *)
-  let struct (prodHi, prodLo) = mul64Bit (qh << n32) nrmDvsr bld
-  helperRemSub remHi remLo prodHi prodLo bld
-  bld <+ (remMsb := (AST.xthi 1<rt> remHi))
-  bld <+ (qh := (AST.ite remMsb (qh .- one) (qh)))
-  helperRemAdd remHi remLo nrmDvsrShr32 (nrmDvsrShl32) remMsb bld
-  bld <+ (remMsb := (AST.xthi 1<rt> remHi))
-  bld <+ (qh := (AST.ite remMsb (qh .- one) (qh)))
-  helperRemAdd remHi remLo nrmDvsrShr32 (nrmDvsrShl32) remMsb bld
-  bld <+ (remHi := (remHi << n32) .| (remLo >> n32))
-  bld <+ (remLo := (remLo << n32))
-  (* compute least significant quotient "digit";
-     TAOCP: may be off by 0, +1, +2 *)
-  bld <+ (ql := AST.ite condGE numF (remHi ./ nrmDvsrShr32))
-  bld <+ (q := (qh << n32) .+ ql)
-  (* compute remainder; correct quotient "digit" if remainder negative *)
-  let struct (prodHi, prodLo) = mul64Bit q tdivisor bld
-  bld <+ (remLo := trax)
-  bld <+ (remHi := trdx)
-  helperRemSub remHi remLo prodHi prodLo bld
-  bld <+ (remMsb := (AST.xthi 1<rt> remHi))
-  bld <+ (q := (AST.ite remMsb (q .- one) q))
-  helperRemAdd remHi remLo zero tdivisor remMsb bld
-  bld <+ (remMsb := (AST.xthi 1<rt> remHi))
-  bld <+ (q := (AST.ite remMsb (q .- one) q))
-  let struct (prodHi, prodLo) = mul64Bit q tdivisor bld
-  helperRemSub trdx trax prodHi prodLo bld
-  bld <+ (quotient := q)
-  bld <+ (remainder := trax)
-  bld <+ (AST.lmark lblAssign)
-  match opcode with
-  | Opcode.DIV ->
-    bld <+ (dstAssign oprSize rax quotient)
-    bld <+ (dstAssign oprSize rdx remainder)
-  | Opcode.IDIV ->
-    let isDividendNeg = AST.xthi 1<rt> rdx == AST.b1
-    bld <+ (rax := (AST.ite updateSign (AST.neg quotient) quotient))
-    bld <+ (rdx := (AST.ite isDividendNeg (AST.neg remainder) remainder))
-  | _ -> raise InvalidOpcodeException
-
 let private getDividend bld = function
   | 8<rt> -> regVar bld R.AX
   | 16<rt> -> AST.concat (regVar bld R.DX) (regVar bld R.AX)
   | 32<rt> -> AST.concat (regVar bld R.EDX) (regVar bld R.EAX)
+  | 64<rt> -> AST.concat (regVar bld R.RDX) (regVar bld R.RAX)
   | _ -> raise InvalidOperandSizeException
 
 let private checkQuotientDIV oprSize lblAssign lblErr q =
@@ -1435,7 +1272,7 @@ let divideWithConcat opcode oprSize divisor lblAssign lblErr bld =
   | 8<rt> ->
     bld <+ (regVar bld R.AL := AST.xtlo oprSize quotient)
     bld <+ (regVar bld R.AH := AST.xtlo oprSize remainder)
-  | 16<rt> | 32<rt> ->
+  | 16<rt> | 32<rt> | 64<rt> ->
     let q = getRegOfSize bld oprSize grpEAX
     let r = getRegOfSize bld oprSize grpEDX
     bld <+ (dstAssign oprSize q (AST.xtlo oprSize quotient))
@@ -1454,11 +1291,7 @@ let div (ins: Instruction) insLen bld =
   bld <+ (AST.lmark lblErr)
   bld <+ (AST.sideEffect (Exception DivideError))
   bld <+ (AST.lmark lblChk)
-  match oprSize with
-  | 64<rt> ->
-    divideWithoutConcat ins.Opcode oprSize divisor lblAssign lblErr bld
-  | _ ->
-    divideWithConcat ins.Opcode oprSize divisor lblAssign lblErr bld
+  divideWithConcat ins.Opcode oprSize divisor lblAssign lblErr bld
 #if !EMULATION
   bld <+ (regVar bld R.CF := undefCF)
   bld <+ (regVar bld R.OF := undefOF)
@@ -1512,42 +1345,6 @@ let enter ins insLen bld =
   bld <+ (sp := sp .- AST.zext bld.RegType allocSize)
   bld --!> insLen
 
-let private imul64Bit src1 src2 bld =
-  let struct (hiSrc1, loSrc1, hiSrc2, loSrc2) = tmpVars4 bld 64<rt>
-  let struct (tSrc1, tSrc2) = tmpVars2 bld 64<rt>
-  let struct (tHigh, tLow) = tmpVars2 bld 64<rt>
-  let struct (pHigh, pMid, pLow) = tmpVars3 bld 64<rt>
-  let struct (pMid1, pMid2) = tmpVars2 bld 64<rt>
-  let struct (high, low) = tmpVars2 bld 64<rt>
-  let n32 = numI32 32 64<rt>
-  let zero = numI32 0 64<rt>
-  let one = numI32 1 64<rt>
-  let mask = numI64 0xFFFFFFFFL 64<rt>
-  let struct (src1IsNeg, src2IsNeg, isSign) = tmpVars3 bld 1<rt>
-  bld <+ (src1IsNeg := AST.xthi 1<rt> src1)
-  bld <+ (src2IsNeg := AST.xthi 1<rt> src2)
-  bld <+ (tSrc1 := AST.ite src1IsNeg (AST.neg src1) src1)
-  bld <+ (tSrc2 := AST.ite src2IsNeg (AST.neg src2) src2)
-  bld <+ (hiSrc1 := (tSrc1 >> n32) .& mask) (* SRC1[63:32] *)
-  bld <+ (loSrc1 := tSrc1 .& mask) (* SRC1[31:0] *)
-  bld <+ (hiSrc2 := (tSrc2 >> n32) .& mask) (* SRC2[63:32] *)
-  bld <+ (loSrc2 := tSrc2 .& mask) (* SRC2[31:0] *)
-  bld <+ (pHigh := hiSrc1 .* hiSrc2)
-  bld <+ (pMid1 := hiSrc1 .* loSrc2)
-  bld <+ (pMid2 := loSrc1 .* hiSrc2)
-  bld <+ (pMid := pMid1 .+ pMid2)
-  bld <+ (pLow := loSrc1 .* loSrc2)
-  let isOverflow = pMid1 .> numI64 0xffffffff_ffffffffL 64<rt> .- pMid2
-  let c = AST.ite isOverflow (numI64 0x100000000L 64<rt>) (AST.num0 64<rt>)
-  bld <+ (high := pHigh .+ ((pMid .+ (pLow >> n32)) >> n32) .+ c)
-  bld <+ (low := pLow .+ ((pMid .& mask) << n32))
-  bld <+ (isSign := src1IsNeg <+> src2IsNeg) // T11
-  bld <+ (tHigh := AST.ite isSign (AST.not high) high)
-  bld <+ (tLow := AST.ite isSign (AST.neg low) low)
-  let carry = AST.ite (AST.``and`` isSign (AST.eq tLow zero)) one zero
-  bld <+ (tHigh := tHigh .+ carry)
-  struct (tHigh, tLow)
-
 let private oneOperandImul bld oprSize src =
   match oprSize with
   | 8<rt> ->
@@ -1558,7 +1355,10 @@ let private oneOperandImul bld oprSize src =
     bld <+ (dstAssign oprSize (regVar bld R.AX) t)
     bld <+ (regVar bld R.CF := cond == AST.b0)
     bld <+ (regVar bld R.OF := cond == AST.b0)
-  | 16<rt> | 32<rt> ->
+  | 16<rt> | 32<rt> | 64<rt> ->
+    (* The double-width product now includes 64x64->128 (mulSize = 128<rt>),
+       which the evaluator holds directly, so a single sign-extended multiply
+       replaces the former hand-rolled 32-bit decomposition. *)
     let mulSize = oprSize * 2
     let t = tmpVar bld mulSize
     let cond = AST.sext mulSize (AST.xtlo oprSize t) == t
@@ -1569,37 +1369,18 @@ let private oneOperandImul bld oprSize src =
     bld <+ (dstAssign oprSize r2 (AST.xtlo oprSize t))
     bld <+ (regVar bld R.CF := cond == AST.b0)
     bld <+ (regVar bld R.OF := cond == AST.b0)
-  | 64<rt> ->
-    let r1 = getRegOfSize bld oprSize grpEDX
-    let r2 = getRegOfSize bld oprSize grpEAX
-    let struct (high, low) = imul64Bit r2 src bld
-    bld <+ (dstAssign oprSize r1 high)
-    bld <+ (dstAssign oprSize r2 low)
-    let num0 = AST.num0 64<rt>
-    let numF = numI64 0xFFFFFFFFFFFFFFFFL 64<rt>
-    let cond = tmpVar bld 1<rt>
-    bld <+ (cond := AST.ite (AST.xthi 1<rt> low) (high == numF) (high == num0))
-    bld <+ (regVar bld R.CF := cond == AST.b0)
-    bld <+ (regVar bld R.OF := cond == AST.b0)
   | _ -> raise InvalidOperandSizeException
 
 let private operandsImul bld oprSize dst src1 src2 =
   match oprSize with
-  | 8<rt> | 16<rt> | 32<rt> ->
+  | 8<rt> | 16<rt> | 32<rt> | 64<rt> ->
+    (* doubleWidth reaches 128<rt> for the 64-bit form, which the evaluator now
+       holds, so the one sign-extended multiply covers every operand size. *)
     let doubleWidth = oprSize * 2
     let t = tmpVar bld doubleWidth
     let cond = (AST.sext doubleWidth dst) != t
     bld <+ (t := AST.sext doubleWidth src1 .* AST.sext doubleWidth src2)
     bld <+ (dstAssign oprSize dst (AST.xtlo oprSize t))
-    bld <+ (regVar bld R.CF := cond)
-    bld <+ (regVar bld R.OF := cond)
-  | 64<rt> ->
-    let struct (high, low) = imul64Bit src1 src2 bld
-    bld <+ (dstAssign oprSize dst low)
-    let num0 = AST.num0 64<rt>
-    let numF = numI64 0xFFFFFFFFFFFFFFFFL 64<rt>
-    let cond = tmpVar bld 1<rt>
-    bld <+ (cond := AST.ite (AST.xthi 1<rt> low) (high != numF) (high != num0))
     bld <+ (regVar bld R.CF := cond)
     bld <+ (regVar bld R.OF := cond)
   | _ -> raise InvalidOperandSizeException
@@ -2052,7 +1833,10 @@ let mul ins insLen bld =
 #else
     bld.ConditionCodeOp <- ConditionCodeOp.EFlags
 #endif
-  | 16<rt> | 32<rt> ->
+  | 16<rt> | 32<rt> | 64<rt> ->
+    (* dblWidth reaches 128<rt> for the 64-bit form, which the evaluator holds
+       directly, so one zero-extended multiply replaces the former hand-rolled
+       32-bit decomposition. *)
     let dblWidth = oprSize * 2
     let edx = getRegOfSize bld oprSize grpEDX
     let eax = getRegOfSize bld oprSize grpEAX
@@ -2064,42 +1848,6 @@ let mul ins insLen bld =
     bld <+ (dstAssign oprSize edx (AST.xthi oprSize t))
     bld <+ (dstAssign oprSize eax (AST.xtlo oprSize t))
     bld <+ (cond := AST.xthi oprSize t != (AST.num0 oprSize))
-    bld <+ (regVar bld R.CF := cond)
-    bld <+ (regVar bld R.OF := cond)
-#if !EMULATION
-    bld <+ (regVar bld R.SF := undefSF)
-    bld <+ (regVar bld R.ZF := undefZF)
-    bld <+ (regVar bld R.AF := undefAF)
-    bld <+ (regVar bld R.PF := undefPF)
-#else
-    bld.ConditionCodeOp <- ConditionCodeOp.EFlags
-#endif
-  | 64<rt> ->
-    let rax = getRegOfSize bld oprSize grpEAX
-    let rdx = getRegOfSize bld oprSize grpEDX
-    let src = transOneOpr bld ins insLen
-    let struct (hiRAX, loRAX, hiSrc, loSrc) = tmpVars4 bld 64<rt>
-    let struct (tHigh, tLow) = tmpVars2 bld 64<rt>
-    let n32 = numI32 32 64<rt>
-    let mask = numI64 0xFFFFFFFFL 64<rt>
-    bld <+ (hiRAX := (rax >> n32) .& mask) (* RAX[63:32] *)
-    bld <+ (loRAX := rax .& mask) (* RAX[31:0] *)
-    bld <+ (hiSrc := (src >> n32) .& mask) (* SRC[63:32] *)
-    bld <+ (loSrc := src .& mask) (* SRC[31:0] *)
-    let pHigh = hiRAX .* hiSrc
-    let pMid = (hiRAX .* loSrc) .+ (loRAX .* hiSrc)
-    let pLow = (loRAX .* loSrc)
-    let high = pHigh .+ ((pMid .+ (pLow >> n32)) >> n32)
-    let low = pLow .+ ((pMid .& mask) << n32)
-    let isOverflow =
-      hiRAX .* loSrc .> numI64 0xffffffff_ffffffffL 64<rt> .- loRAX .* hiSrc
-    bld <+ (tHigh :=
-      high .+ AST.ite isOverflow (numI64 0x100000000L 64<rt>) (AST.num0 64<rt>))
-    bld <+ (tLow := low)
-    bld <+ (dstAssign oprSize rdx tHigh)
-    bld <+ (dstAssign oprSize rax tLow)
-    let cond = tmpVar bld 1<rt>
-    bld <+ (cond := tHigh != (AST.num0 oprSize))
     bld <+ (regVar bld R.CF := cond)
     bld <+ (regVar bld R.OF := cond)
 #if !EMULATION
