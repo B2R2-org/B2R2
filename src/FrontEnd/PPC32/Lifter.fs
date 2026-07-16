@@ -1880,6 +1880,38 @@ let stw ins insLen bld =
   bld <+ (loadNative bld 32<rt> tmpEA := src)
   bld --!> insLen
 
+let lmw ins insLen bld =
+  let struct (o1, o2) = getTwoOprs ins
+  let rd =
+    match o1 with
+    | OprReg r -> int r
+    | _ -> raise InvalidOperandException
+  let ea = transEAWithOffset o2 bld
+  let tmpEA = tmpVar bld 32<rt>
+  bld <!-- (ins.Address, insLen)
+  bld <+ (tmpEA := ea)
+  for r = rd to 31 do
+    let dst = regVar bld (getRegister (uint32 r))
+    let addr = tmpEA .+ numI32 ((r - rd) * 4) 32<rt>
+    bld <+ (dst := loadNative bld 32<rt> addr)
+  bld --!> insLen
+
+let stmw ins insLen bld =
+  let struct (o1, o2) = getTwoOprs ins
+  let rs =
+    match o1 with
+    | OprReg r -> int r
+    | _ -> raise InvalidOperandException
+  let ea = transEAWithOffset o2 bld
+  let tmpEA = tmpVar bld 32<rt>
+  bld <!-- (ins.Address, insLen)
+  bld <+ (tmpEA := ea)
+  for r = rs to 31 do
+    let src = regVar bld (getRegister (uint32 r))
+    let addr = tmpEA .+ numI32 ((r - rs) * 4) 32<rt>
+    bld <+ (loadNative bld 32<rt> addr := src)
+  bld --!> insLen
+
 let stwbrx ins insLen bld =
   let struct (o1, o2, o3) = getThreeOprs ins
   let rs = transOpr bld o1
@@ -2315,6 +2347,8 @@ let translate (ins: Instruction) insLen bld =
   | Op.STHX -> sthx ins insLen bld
   | Op.STHUX -> sthux ins insLen bld
   | Op.STW -> stw ins insLen bld
+  | Op.LMW -> lmw ins insLen bld
+  | Op.STMW -> stmw ins insLen bld
   | Op.STWBRX -> stwbrx ins insLen bld
   | Op.STWCXdot -> stwcxdot ins insLen bld
   | Op.STWU -> stwu ins insLen bld
