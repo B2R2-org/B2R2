@@ -52,7 +52,7 @@ type GroundWork =
     | S390 -> S390.RegisterFactory isa :> IRegisterFactory
     | SH4 -> SH4.RegisterFactory isa :> IRegisterFactory
     | PPC32 -> PPC32.RegisterFactory isa :> IRegisterFactory
-    | PPC -> PPC.RegisterFactory isa.WordSize :> IRegisterFactory
+    | PPC -> PPC.RegisterFactory isa :> IRegisterFactory
     | RISCV64 -> RISCV64.RegisterFactory isa :> IRegisterFactory
     | SPARC -> SPARC.RegisterFactory isa :> IRegisterFactory
     | PARISC -> PARISC.RegisterFactory isa :> IRegisterFactory

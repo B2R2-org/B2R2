@@ -600,7 +600,7 @@ let inline buildOperand (opr: Operand) (builder: IDisasmBuilder) =
   | OprImm imm ->
     builder.Accumulate(AsmWordKind.Value, HexString.ofUInt64 imm)
   | OprMem(disp, reg) ->
-    if disp < 0 then
+    if disp < 0L then
       builder.Accumulate(AsmWordKind.Value, "-" + HexString.ofInt64 (-disp))
     else
       builder.Accumulate(AsmWordKind.Value, HexString.ofInt64 disp)

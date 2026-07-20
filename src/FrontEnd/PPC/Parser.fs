@@ -25,10 +25,11 @@
 namespace B2R2.FrontEnd.PPC
 
 open System
+open B2R2
 open B2R2.FrontEnd.BinLifter
 
 /// Represents a parser for PPC instructions.
-type PPCParser(wordSize, reader) =
+type PPCParser(wordSize: WordSize, reader) =
   let lifter =
     { new ILiftable with
         member _.Lift(ins, builder) =
@@ -37,11 +38,11 @@ type PPCParser(wordSize, reader) =
           Disasm.disasm ins builder; builder }
 
   interface IInstructionParsable with
+    member _.MaxInstructionSize = 4
+
     member _.Parse(span: ByteSpan, addr) =
       ParsingMain.parse lifter span reader addr :> IInstruction
 
     member _.Parse(bs: byte[], addr) =
       let span = ReadOnlySpan bs
       ParsingMain.parse lifter span reader addr :> IInstruction
-
-    member _.MaxInstructionSize = 4
