@@ -407,6 +407,22 @@ type IntelParser(wordSz, reader) =
     | RMBcstEr(regSz, memSz, _) | RMBcstSae(regSz, memSz, _) ->
       setupOprContextWithEffAddr phlp regSz memSz
       OperandParsers.parseMemOrReg modRM span phlp
+    | MemVSIB elemSz ->
+      (* When the VSIB index size and the data size (governed by REX.W)
+         differ, the smaller-sized side's vector register is one length
+         class narrower than the vector length (floored at 128 bits): the
+         index register shrinks for D-index + 64-bit data (e.g.
+         VPGATHERDQ), while the data/memory side shrinks for Q-index +
+         32-bit data (e.g. VGATHERQPS). See Intel SDM Vol. 2C, VSIB memory
+         operand tables (vm32x/vm32y/vm32z, vm64x/vm64y/vm64z). *)
+      let vl = phlp.VEXInfo.Value.VectorLength
+      let dataSz = if REXPrefix.hasW phlp.REXPrefix then 64<rt> else 32<rt>
+      let narrowVl = max 128<rt> (vl / 2)
+      let idxVl = if elemSz < dataSz then narrowVl else vl
+      let memSz = if elemSz > dataSz then narrowVl else vl
+      setupOprContextWithEffAddr phlp memSz memSz
+      let modVal = modRM &&& 0b11000000uy
+      OperandParsers.parseOprMemVSIB span phlp modVal idxVl
     | Reg(sz, OprRegType.OpRd) -> (* Opcode[2:0] contains the operand. *)
       setupOprContextWithEffAddr phlp sz sz
       let regBit = Operands.getRM (uint8 ic.OpcodeByte)

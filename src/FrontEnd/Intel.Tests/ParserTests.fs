@@ -1950,6 +1950,73 @@ type ParserTests() =
     ++ MOVDIR64B ** [ O.Reg R.RDX; O.Mem(R.RCX, 512<rt>) ]
     ||> testX64NoPrefixNoSeg
 
+  [<TestMethod>]
+  member _.``VSIB gather, VEX, no displacement (1)``() =
+    "c4e269900408"
+    ++ VPGATHERDD **
+      [ O.Reg R.XMM0; O.Mem(R.RAX, R.XMM1, Scale.X1, 128<rt>); O.Reg R.XMM2 ]
+    ||> testX64NoPrefixNoSeg
+
+  [<TestMethod>]
+  member _.``VSIB gather, VEX, disp8 (1)``() =
+    "c4e251905c6110"
+    ++ VPGATHERDD **
+      [ O.Reg R.XMM3
+        O.Mem(R.RCX, R.XMM4, Scale.X2, 16L, 128<rt>)
+        O.Reg R.XMM5 ]
+    ||> testX64NoPrefixNoSeg
+
+  [<TestMethod>]
+  member _.``VSIB gather, VEX, no base (mod00/RBP slot) (1)``() =
+    "c4e26990041d11223344"
+    ++ VPGATHERDD **
+      [ O.Reg R.XMM0
+        OprMem(None, Some(R.XMM3, Scale.X1), Some 0x44332211L, 128<rt>)
+        O.Reg R.XMM2 ]
+    ||> testX64NoPrefixNoSeg
+
+  [<TestMethod>]
+  member _.``VSIB gather, VEX, narrower index (D+64-bit data) (1)``() =
+    "c4e2ed900408"
+    ++ VPGATHERDQ **
+      [ O.Reg R.YMM0; O.Mem(R.RAX, R.XMM1, Scale.X1, 256<rt>); O.Reg R.YMM2 ]
+    ||> testX64NoPrefixNoSeg
+
+  [<TestMethod>]
+  member _.``VSIB gather, EVEX, compressed disp8 (1)``() =
+    "62f27d0990440a02"
+    ++ VPGATHERDD **
+      [ O.Reg R.XMM0; O.Mem(R.RDX, R.XMM1, Scale.X1, 8L, 128<rt>) ]
+    ||> testX64NoPrefixNoSeg
+
+  [<TestMethod>]
+  member _.``VSIB scatter, EVEX, no displacement (1)``() =
+    "62f2fd09a20c13"
+    ++ VSCATTERDPD **
+      [ O.Mem(R.RBX, R.XMM2, Scale.X1, 128<rt>); O.Reg R.XMM1 ]
+    ||> testX64NoPrefixNoSeg
+
+  [<TestMethod>]
+  member _.``VSIB gather, EVEX, narrower index (D+64-bit data) (1)``() =
+    "62f2fd4990040a"
+    ++ VPGATHERDQ **
+      [ O.Reg R.ZMM0; O.Mem(R.RDX, R.YMM1, Scale.X1, 512<rt>) ]
+    ||> testX64NoPrefixNoSeg
+
+  [<TestMethod>]
+  member _.``VSIB gather, VEX, narrower memory (Q+32-bit data) (1)``() =
+    "c4e26d930408"
+    ++ VGATHERQPS **
+      [ O.Reg R.XMM0; O.Mem(R.RAX, R.YMM1, Scale.X1, 128<rt>); O.Reg R.XMM2 ]
+    ||> testX64NoPrefixNoSeg
+
+  [<TestMethod>]
+  member _.``VSIB prefetch, EVEX, narrower index (1)``() =
+    "62f2fd49c60c11"
+    ++ VGATHERPF0DPD **
+      [ O.Mem(R.RCX, R.YMM2, Scale.X1, 512<rt>) ]
+    ||> testX64NoPrefixNoSeg
+
 #if !EMULATION
   [<TestMethod>]
   member _.``Size cond ParsingFailure Test (1)``() =

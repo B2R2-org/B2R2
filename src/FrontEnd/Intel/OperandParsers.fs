@@ -438,6 +438,33 @@ let parseOprMemWithSIB span phlp modVal dispSz =
       else 0
     sibWithDisp span phlp b si dispSz oprSize
 
+/// Unlike a GPR SIB index, every SIB.index value denotes a real vector
+/// register in VSIB addressing (there is no "index=100 means no index"
+/// exception for ESP), so the index operand is always present.
+let getScaledIndexVSIB s i vl (phlp: ParsingHelper) =
+  let r = findRegSIBIdx vl phlp.REXPrefix i
+  Some(r, LanguagePrimitives.EnumOfValue<int, Scale>(1 <<< s))
+
+let parseSIBForVSIB span (phlp: ParsingHelper) modVal vl =
+  let struct (s, i, b) = phlp.ReadByte span |> int |> getSIB
+  let si = getScaledIndexVSIB s i vl phlp
+  let baseReg = getSIBBaseReg b phlp modVal
+  struct (si, baseReg, b)
+
+/// VSIB addressing always requires a SIB byte (ModRM.rm = 100b) with no
+/// non-SIB memory form, so this does not need the mod/rm dispatch table
+/// that parseMEM32 uses for general memory operands.
+let parseOprMemVSIB span (phlp: ParsingHelper) modVal vl =
+  let struct (si, b, bgrp) = parseSIBForVSIB span phlp modVal vl
+  let oprSize = phlp.MemEffOprSize
+  let dispSz =
+    match modVal with
+    | 0b00000000uy -> if bgrp = int RegGrp.RG5 then 4 else 0
+    | 0b01000000uy -> 1
+    | 0b10000000uy -> 4
+    | _ -> raise ParsingFailureException
+  sibWithDisp span phlp b si dispSz oprSize
+
 /// RIP-relative addressing (see Section 2.2.1.6. of Vol. 2A).
 let parseOprRIPRelativeMem span (phlp: ParsingHelper) disp =
   if phlp.WordSize = WordSize.Bit64 then
@@ -494,15 +521,18 @@ let parseMemOrReg modRM span (phlp: ParsingHelper) =
       (Operands.getRM modRM) |> OprReg
   else parseMemory modRM span phlp
 
+/// Sized by phlp.RegSize (set by the caller from the operand's declared
+/// size) rather than the instruction's nominal VectorLength: they differ
+/// for the VSIB gather/scatter forms whose mask register is narrower than
+/// VectorLength (e.g. VGATHERQPS/VPGATHERQD, Q-index + 32-bit data).
 let parseVVVVReg (phlp: ParsingHelper) =
   match phlp.VEXInfo with
   | None -> raise ParsingFailureException
-  | Some vInfo when vInfo.VectorLength = 512<rt> ->
-    Register.zmm (int vInfo.VVVV) |> OprReg
-  | Some vInfo when vInfo.VectorLength = 256<rt> ->
-    Register.ymm (int vInfo.VVVV) |> OprReg
   | Some vInfo ->
-    Register.xmm (int vInfo.VVVV) |> OprReg
+    match phlp.RegSize with
+    | 512<rt> -> Register.zmm (int vInfo.VVVV) |> OprReg
+    | 256<rt> -> Register.ymm (int vInfo.VVVV) |> OprReg
+    | _ -> Register.xmm (int vInfo.VVVV) |> OprReg
 
 /// FIXME
 let parseVVVVRegRC isReg (phlp: ParsingHelper) =
