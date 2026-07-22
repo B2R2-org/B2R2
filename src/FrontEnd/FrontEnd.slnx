@@ -25,7 +25,8 @@
   <Project Path="NameMangling/B2R2.FrontEnd.NameMangling.fsproj" />
   <Project Path="PARISC.Tests/B2R2.FrontEnd.PARISC.Tests.fsproj" />
   <Project Path="PARISC/B2R2.FrontEnd.PARISC.fsproj" />
-  <Project Path="PPC32/B2R2.FrontEnd.PPC32.fsproj" />
+  <Project Path="PPC.Tests/B2R2.FrontEnd.PPC.Tests.fsproj" />
+  <Project Path="PPC/B2R2.FrontEnd.PPC.fsproj" />
   <Project Path="Python/B2R2.FrontEnd.Python.fsproj" />
   <Project Path="Registers/B2R2.FrontEnd.Registers.fsproj" />
   <Project Path="RISCV64/B2R2.FrontEnd.RISCV64.fsproj" />

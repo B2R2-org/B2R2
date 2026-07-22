@@ -26,13 +26,363 @@ module internal B2R2.FrontEnd.PPC.Disasm
 
 open B2R2
 open B2R2.FrontEnd.BinLifter
+open B2R2.FrontEnd.BinLifter.ParsingUtils
+open B2R2.FrontEnd.PPC.OperandHelper
 
-let opCodeToString =
-  function
+type Condition =
+  /// Less than [LT].
+  | LT = 0x0
+  /// Less than or equal (equivalent to ng) [GT].
+  | LE = 0x1
+  /// Equal [EQ].
+  | EQ = 0x2
+  /// Greater than or equal (equivalent to nl) [LT].
+  | GE = 0x3
+  /// Greater than [GT].
+  | GT = 0x4
+  /// Not less than (equivalent to ge) [LT].
+  | NL = 0x5
+  /// Not equal [EQ].
+  | NE = 0x6
+  /// Not greater than (equivalent to le) [GT].
+  | NG = 0x7
+  /// Summary overflow [SO].
+  | SO = 0x8
+  /// Not summary overflow [SO].
+  | NS = 0x9
+  /// Unordered (after floating-point comparison) [SO].
+  | UN = 0xA
+  /// Not unordered (after floating-point comparison) [SO].
+  | NU = 0xB
+
+let opCodeToString = function
+  | Op.ADD -> "add"
+  | Op.ADDdot -> "add."
+  | Op.ADDO -> "addo"
+  | Op.ADDOdot -> "addo."
+  | Op.ADDC -> "addc"
+  | Op.ADDCdot -> "addc."
+  | Op.ADDCO -> "addco"
+  | Op.ADDCOdot -> "addco."
+  | Op.ADDE -> "adde"
+  | Op.ADDEdot -> "adde."
+  | Op.ADDEO -> "addeo"
+  | Op.ADDEOdot -> "addeo."
+  | Op.ADDME -> "addme"
+  | Op.ADDMEdot -> "addme."
+  | Op.ADDMEO -> "addmeo"
+  | Op.ADDMEOdot -> "addmeo."
+  | Op.ADDZE -> "addze"
+  | Op.ADDZEdot -> "addze."
+  | Op.ADDZEO -> "addzeo"
+  | Op.ADDZEOdot -> "addzeo."
+  | Op.DIVW -> "divw"
+  | Op.DIVWdot -> "divw."
+  | Op.DIVWO -> "divwo"
+  | Op.DIVWOdot -> "divwo."
+  | Op.DIVWU -> "divwu"
+  | Op.DIVWUdot -> "divwu."
+  | Op.DIVWUO -> "divwuo"
+  | Op.DIVWUOdot -> "divwuo."
+  | Op.MULLW -> "mullw"
+  | Op.MULLWdot -> "mullw."
+  | Op.MULLWO -> "mullwo"
+  | Op.MULLWOdot -> "mullwo."
+  | Op.NEG -> "neg"
+  | Op.NEGdot -> "neg."
+  | Op.NEGO -> "nego"
+  | Op.NEGOdot -> "nego."
+  | Op.SUBF -> "subf"
+  | Op.SUBFdot -> "subf."
+  | Op.SUBFO -> "subfo"
+  | Op.SUBFOdot -> "subfo."
+  | Op.SUBFC -> "subfc"
+  | Op.SUBFCdot -> "subfc."
+  | Op.SUBFCO -> "subfco"
+  | Op.SUBFCOdot -> "subfco."
+  | Op.SUBFE -> "subfe"
+  | Op.SUBFEdot -> "subfe."
+  | Op.SUBFEO -> "subfeo"
+  | Op.SUBFEOdot -> "subfeo."
+  | Op.SUBFME -> "subfme"
+  | Op.SUBFMEdot -> "subfme."
+  | Op.SUBFMEO -> "subfmeo"
+  | Op.SUBFMEOdot -> "subfmeo."
+  | Op.SUBFZE -> "subfze"
+  | Op.SUBFZEdot -> "subfze."
+  | Op.SUBFZEO -> "subfzeo"
+  | Op.SUBFZEOdot -> "subfzeo."
+  | Op.MULHW -> "mulhw"
+  | Op.MULHWdot -> "mulhw."
+  | Op.MULHWU -> "mulhwu"
+  | Op.MULHWUdot -> "mulhwu."
+  | Op.AND -> "and"
+  | Op.ANDdot -> "and."
+  | Op.ANDC -> "andc"
+  | Op.ANDCdot -> "andc."
+  | Op.CNTLZW -> "cntlzw"
+  | Op.CNTLZWdot -> "cntlzw."
+  | Op.DCBTST -> "dcbtst"
+  | Op.DCBA -> "dcba"
+  | Op.DCBF -> "dcbf"
+  | Op.DCBI -> "dcbi"
+  | Op.ICBI -> "icbi"
+  | Op.DCBST -> "dcbst"
+  | Op.DCBT -> "dcbt"
+  | Op.DCBZ -> "dcbz"
+  | Op.ECIWX -> "eciwx"
+  | Op.ECOWX -> "ecowx"
+  | Op.EIEIO -> "eieio"
+  | Op.EQV -> "eqv"
+  | Op.EQVdot -> "eqv."
+  | Op.EXTSB -> "extsb"
+  | Op.EXTSBdot -> "extsb."
+  | Op.EXTSH -> "extsh"
+  | Op.EXTSHdot -> "extsh."
+  | Op.LBZUX -> "lbzux"
+  | Op.LBZX -> "lbzx"
+  | Op.LFDUX -> "lfdux"
+  | Op.LFDX -> "lfdx"
+  | Op.LFSUX -> "lfsux"
+  | Op.LFSX -> "lfsx"
+  | Op.LHAUX -> "lhaux"
+  | Op.LHAX -> "lhax"
+  | Op.LHBRX -> "lhbrx"
+  | Op.LHZUX -> "lhzux"
+  | Op.LHZX -> "lhzx"
+  | Op.LSWI -> "lswi"
+  | Op.LSWX -> "lswx"
+  | Op.LWARX -> "lwarx"
+  | Op.LWBRX -> "lwbrx"
+  | Op.LWZUX -> "lwzux"
+  | Op.LWZX -> "lwzx"
+  | Op.CMP -> "cmp"
+  | Op.CMPL -> "cmpl"
+  | Op.MCRXR -> "mcrxr"
+  | Op.MFCR -> "mfcr"
+  | Op.MFMSR -> "mfmsr"
+  | Op.MFSRIN -> "mfsrin"
+  | Op.MTMSR -> "mtmsr"
+  | Op.MTSRIN -> "mtsrin"
+  | Op.NAND -> "nand"
+  | Op.NANDdot -> "nand."
+  | Op.NOR -> "nor"
+  | Op.NORdot -> "nor."
+  | Op.OR -> "or"
+  | Op.ORdot -> "or."
+  | Op.ORC -> "orc"
+  | Op.ORCdot -> "orc."
+  | Op.SLW -> "slw"
+  | Op.SLWdot -> "slw."
+  | Op.SRAW -> "sraw"
+  | Op.SRAWdot -> "sraw."
+  | Op.SRW -> "srw"
+  | Op.SRWdot -> "srw."
+  | Op.STBUX -> "stbux"
+  | Op.STBX -> "stbx"
+  | Op.STFDUX -> "stfdux"
+  | Op.STFDX -> "stfdx"
+  | Op.STFIWX -> "stfiwx"
+  | Op.STWUX -> "stwux"
+  | Op.STFSUX -> "stfsux"
+  | Op.STWX -> "stwx"
+  | Op.STFSX -> "stfsx"
+  | Op.STHBRX -> "sthbrx"
+  | Op.STHUX -> "sthux"
+  | Op.STHX -> "sthx"
+  | Op.STWBRX -> "stwbrx"
+  | Op.STWCXdot -> "stwcx."
+  | Op.SYNC -> "sync"
+  | Op.TLBIA -> "tlbia"
+  | Op.TLBIE -> "tlbie"
+  | Op.TLBSYNC -> "tlbsync"
+  | Op.XOR -> "xor"
+  | Op.XORdot -> "xor."
+  | Op.STSWX -> "stswx"
+  | Op.CMPW -> "cmpw"
+  | Op.CMPLW -> "cmplw"
+  | Op.TW -> "tw"
+  | Op.TWEQ -> "tweq"
+  | Op.TRAP -> "trap"
+  | Op.MTCRF -> "mtcrf"
+  | Op.MTSR -> "mtsr"
+  | Op.MFSPR -> "mfspr"
+  | Op.MFXER -> "mfxer"
+  | Op.MFLR -> "mflr"
+  | Op.MFCTR -> "mfctr"
+  | Op.MFTB -> "mftb"
+  | Op.MFTBU -> "mftbu"
+  | Op.MTSPR -> "mtspr"
+  | Op.MTXER -> "mtxer"
+  | Op.MTLR -> "mtlr"
+  | Op.MTCTR -> "mtctr"
+  | Op.MFSR -> "mfsr"
+  | Op.STSWI -> "stswi"
+  | Op.SRAWI -> "srawi"
+  | Op.SRAWIdot -> "srawi."
+  | Op.FCMPU -> "fcmpu"
+  | Op.FRSP -> "frsp"
+  | Op.FRSPdot -> "frsp."
+  | Op.FCTIW -> "fctiw"
+  | Op.FCTIWdot -> "fctiw."
+  | Op.FCTIWZ -> "fctiwz"
+  | Op.FCTIWZdot -> "fctiwz."
+  | Op.FDIV -> "fdiv"
+  | Op.FDIVdot -> "fdiv."
+  | Op.FSUB -> "fsub"
+  | Op.FSUBdot -> "fsub."
+  | Op.FADD -> "fadd"
+  | Op.FADDdot -> "fadd."
+  | Op.FSQRT -> "fsqrt"
+  | Op.FSQRTdot -> "fsqrt."
+  | Op.FSEL -> "fsel"
+  | Op.FSELdot -> "fsel."
+  | Op.FMUL -> "fmul"
+  | Op.FMULdot -> "fmul."
+  | Op.FRSQRTE -> "frsqrte"
+  | Op.FRSQRTEdot -> "frsqrte."
+  | Op.FMSUB -> "fmsub"
+  | Op.FMSUBdot -> "fmsub."
+  | Op.FMADD -> "fmadd"
+  | Op.FMADDdot -> "fmadd."
+  | Op.FNMSUB -> "fnmsub"
+  | Op.FNMSUBdot -> "fnmsub."
+  | Op.FNMADD -> "fnmadd"
+  | Op.FNMADDdot -> "fnmadd."
+  | Op.FCMPO -> "fcmpo"
+  | Op.MTFSB1 -> "mtfsb1"
+  | Op.MTFSB1dot -> "mtfsb1."
+  | Op.FNEG -> "fneg"
+  | Op.FNEGdot -> "fneg."
+  | Op.MCRFS -> "mcrfs"
+  | Op.MTFSB0 -> "mtfsb0"
+  | Op.MTFSB0dot -> "mtfsb0."
+  | Op.FMR -> "fmr"
+  | Op.FMRdot -> "fmr."
+  | Op.MTFSFI -> "mtfsfi"
+  | Op.MTFSFIdot -> "mtfsfi."
+  | Op.FNABS -> "fnabs"
+  | Op.FNABSdot -> "fnabs."
+  | Op.FABS -> "fabs"
+  | Op.FABSdot -> "fabs."
+  | Op.MFFS -> "mffs"
+  | Op.MFFSdot -> "mffs."
+  | Op.MTFSF -> "mtfsf"
+  | Op.MTFSFdot -> "mtfsf."
+  | Op.FDIVS -> "fdivs"
+  | Op.FDIVSdot -> "fdivs."
+  | Op.FSUBS -> "fsubs"
+  | Op.FSUBSdot -> "fsubs."
+  | Op.FADDS -> "fadds"
+  | Op.FADDSdot -> "fadds."
+  | Op.FSQRTS -> "fsqrts"
+  | Op.FSQRTSdot -> "fsqrts."
+  | Op.FRES -> "fres"
+  | Op.FRESdot -> "fres."
+  | Op.FMULS -> "fmuls"
+  | Op.FMULSdot -> "fmuls."
+  | Op.FMSUBS -> "fmsubs"
+  | Op.FMSUBSdot -> "fmsubs."
+  | Op.FMADDS -> "fmadds"
+  | Op.FMADDSdot -> "fmadds."
+  | Op.FNMSUBS -> "fnmsubs"
+  | Op.FNMSUBSdot -> "fnmsubs."
+  | Op.FNMADDS -> "fnmadds"
+  | Op.FNMADDSdot -> "fnmadds."
+  | Op.TWLGT -> "twlgt"
+  | Op.TWLLE -> "twlle"
+  | Op.TWGE -> "twge"
+  | Op.TWGT -> "twgt"
+  | Op.TWLE -> "twle"
+  | Op.TWLT -> "twlt"
+  | Op.TWLLT -> "twllt"
+  | Op.TWLNL -> "twlnl"
+  | Op.TWNE -> "twne"
+  | Op.TWI -> "twi"
+  | Op.TWLGTI -> "twlgti"
+  | Op.TWLLEI -> "twllei"
+  | Op.TWLLTI -> "twllti"
+  | Op.TWEQI -> "tweqi"
+  | Op.TWLNLI -> "twlnli"
+  | Op.TWGEI -> "twgei"
+  | Op.TWGTI -> "twgti"
+  | Op.TWLTI -> "twlti"
+  | Op.TWLEI -> "twlei"
+  | Op.TWNEI -> "twnei"
+  | Op.MULLI -> "mulli"
+  | Op.SUBFIC -> "subfic"
+  | Op.CMPLI -> "cmpli"
+  | Op.CMPLWI -> "cmplwi"
+  | Op.CMPI -> "cmpi"
+  | Op.CMPWI -> "cmpwi"
+  | Op.ADDIC -> "addic"
+  | Op.ADDICdot -> "addic."
+  | Op.LI -> "li"
+  | Op.ADDI -> "addi"
+  | Op.LIS -> "lis"
+  | Op.ADDIS -> "addis"
+  | Op.SC -> "sc"
   | Op.B -> "b"
-  | Op.BA -> "ba"
   | Op.BL -> "bl"
+  | Op.BA -> "ba"
   | Op.BLA -> "bla"
+  | Op.LWZ -> "lwz"
+  | Op.LWZU -> "lwzu"
+  | Op.LBZ -> "lbz"
+  | Op.LBZU -> "lbzu"
+  | Op.STW -> "stw"
+  | Op.STWU -> "stwu"
+  | Op.STB -> "stb"
+  | Op.STBU -> "stbu"
+  | Op.LHZ -> "lhz"
+  | Op.LHZU -> "lhzu"
+  | Op.LHA -> "lha"
+  | Op.LHAU -> "lhau"
+  | Op.STH -> "sth"
+  | Op.STHU -> "sthu"
+  | Op.LMW -> "lmw"
+  | Op.STMW -> "stmw"
+  | Op.LFS -> "lfs"
+  | Op.LFSU -> "lfsu"
+  | Op.LFD -> "lfd"
+  | Op.LFDU -> "lfdu"
+  | Op.STFS -> "stfs"
+  | Op.STFSU -> "stfsu"
+  | Op.STFD -> "stfd"
+  | Op.STFDU -> "stfdu"
+  | Op.ORI -> "ori"
+  | Op.NOP -> "nop"
+  | Op.ORIS -> "oris"
+  | Op.XORI -> "xori"
+  | Op.XORIS -> "xoris"
+  | Op.ANDIdot -> "andi."
+  | Op.ANDISdot -> "andis."
+  | Op.RLWNM -> "rlwnm"
+  | Op.ROTLW -> "rotlw"
+  | Op.RLWNMdot -> "rlwnm."
+  | Op.RLWIMI -> "rlwimi"
+  | Op.RLWIMIdot -> "rlwimi."
+  | Op.RLWINM -> "rlwinm"
+  | Op.RLWINMdot -> "rlwinm."
+  | Op.CLRLWI -> "clrlwi"
+  | Op.SLWI -> "slwi"
+  | Op.ROTLWI -> "rotlwi"
+  | Op.SRWI -> "srwi"
+  | Op.MCRF -> "mcrf"
+  | Op.CRNOR -> "crnor"
+  | Op.CRNOT -> "crnot"
+  | Op.RFI -> "rfi"
+  | Op.CRANDC -> "crandc"
+  | Op.ISYNC -> "isync"
+  | Op.CRXOR -> "crxor"
+  | Op.CRCLR -> "crclr"
+  | Op.CRAND -> "crand"
+  | Op.CRNAND -> "crnand"
+  | Op.CREQV -> "creqv"
+  | Op.CRSET -> "crset"
+  | Op.CRORC -> "crorc"
+  | Op.CROR -> "cror"
+  | Op.CRMOVE -> "crmove"
   | Op.BC -> "bc"
   | Op.BCA -> "bca"
   | Op.BCL -> "bcl"
@@ -41,637 +391,412 @@ let opCodeToString =
   | Op.BCLRL -> "bclrl"
   | Op.BCCTR -> "bcctr"
   | Op.BCCTRL -> "bcctrl"
-  | Op.BCTAR -> "bctar"
-  | Op.BCTARL -> "bctarl"
-  | Op.ADDI -> "addi"
-  | Op.ADDIS -> "addis"
-  | Op.ADDPCIS -> "addpcis"
-  | Op.ADD -> "add"
-  | Op.ADD_DOT -> "add."
-  | Op.ADDO -> "addo"
-  | Op.ADDO_DOT -> "addo."
-  | Op.ADDIC -> "addic"
-  | Op.SUBF -> "subf"
-  | Op.SUBF_DOT -> "subf."
-  | Op.SUBFO -> "subfo"
-  | Op.SUBFO_DOT -> "subfo."
-  | Op.ADDIC_DOT -> "addic."
-  | Op.SUBFIC -> "subfic"
-  | Op.ADDC -> "addc"
-  | Op.ADDC_DOT -> "addc."
-  | Op.ADDCO -> "addco"
-  | Op.ADDCO_DOT -> "addco."
-  | Op.SUBFC -> "subfc"
-  | Op.SUBFC_DOT -> "subfc."
-  | Op.SUBFCO -> "subfco"
-  | Op.SUBFCO_DOT -> "subfco."
-  | Op.ADDE -> "adde"
-  | Op.ADDE_DOT -> "adde."
-  | Op.ADDEO -> "addeo"
-  | Op.ADDEO_DOT -> "addeo."
-  | Op.ADDME -> "addme"
-  | Op.ADDME_DOT -> "addme."
-  | Op.ADDMEO -> "addmeo"
-  | Op.ADDMEO_DOT -> "addmeo."
-  | Op.SUBFE -> "subfe"
-  | Op.SUBFE_DOT -> "subfe."
-  | Op.SUBFEO -> "subfeo"
-  | Op.SUBFEO_DOT -> "subfeo."
-  | Op.SUBFME -> "subfme"
-  | Op.SUBFME_DOT -> "subfme."
-  | Op.SUBFMEO -> "subfmeo"
-  | Op.SUBFMEO_DOT -> "subfmeo."
-  | Op.ADDEX -> "addex"
-  | Op.ADDZE -> "addze"
-  | Op.ADDZE_DOT -> "addze."
-  | Op.ADDZEO -> "addzeo"
-  | Op.ADDZEO_DOT -> "addzeo."
-  | Op.SUBFZE -> "subfze"
-  | Op.SUBFZE_DOT -> "subfze."
-  | Op.SUBFZEO -> "subfzeo"
-  | Op.SUBFZEO_DOT -> "subfzeo."
-  | Op.NEG -> "neg"
-  | Op.NEG_DOT -> "neg."
-  | Op.NEGO -> "nego"
-  | Op.NEGO_DOT -> "nego."
-  | Op.MULLI -> "mulli"
-  | Op.MULLW -> "mullw"
-  | Op.MULLW_DOT -> "mullw."
-  | Op.MULLWO -> "mullwo"
-  | Op.MULLWO_DOT -> "mullwo."
-  | Op.MULHW -> "mulhw"
-  | Op.MULHW_DOT -> "mulhw."
-  | Op.MULHWU -> "mulhwu"
-  | Op.MULHWU_DOT -> "mulhwu."
-  | Op.DIVW -> "divw"
-  | Op.DIVW_DOT -> "divw."
-  | Op.DIVWO -> "divwo"
-  | Op.DIVWO_DOT -> "divwo."
-  | Op.DIVWU -> "divwu"
-  | Op.DIVWU_DOT -> "divwu."
-  | Op.DIVWUO -> "divwuo"
-  | Op.DIVWUO_DOT -> "divwuo."
-  | Op.DIVWE -> "divwe"
-  | Op.DIVWE_DOT -> "divwe."
-  | Op.DIVWEO -> "divweo"
-  | Op.DIVWEO_DOT -> "divweo."
-  | Op.DIVWEU -> "divweu"
-  | Op.DIVWEU_DOT -> "divweu."
-  | Op.DIVWEUO -> "divweuo"
-  | Op.DIVWEUO_DOT -> "divweuo."
-  | Op.MODSW -> "modsw"
-  | Op.MODUW -> "moduw"
-  | Op.DARN -> "darn"
-  | Op.LBZ -> "lbz"
-  | Op.LBZU -> "lbzu"
-  | Op.LBZX -> "lbzx"
-  | Op.LBZUX -> "lbzux"
-  | Op.LHZ -> "lhz"
-  | Op.LHZU -> "lhzu"
-  | Op.LHZX -> "lhzx"
-  | Op.LHZUX -> "lhzux"
-  | Op.LHA -> "lha"
-  | Op.LHAU -> "lhau"
-  | Op.LHAX -> "lhax"
-  | Op.LHAUX -> "lhaux"
-  | Op.LWZ -> "lwz"
-  | Op.LWZU -> "lwzu"
-  | Op.LWZX -> "lwzx"
-  | Op.LWZUX -> "lwzux"
-  | Op.LWA -> "lwa"
-  | Op.LWAX -> "lwax"
-  | Op.LWAUX -> "lwaux"
-  | Op.LD -> "ld"
-  | Op.LDU -> "ldu"
-  | Op.LDX -> "ldx"
-  | Op.LDUX -> "ldux"
-  | Op.STB -> "stb"
-  | Op.STBU -> "stbu"
-  | Op.STBX -> "stbx"
-  | Op.STBUX -> "stbux"
-  | Op.STH -> "sth"
-  | Op.STHU -> "sthu"
-  | Op.STHX -> "sthx"
-  | Op.STHUX -> "sthux"
-  | Op.STW -> "stw"
-  | Op.STWU -> "stwu"
-  | Op.STWX -> "stwx"
-  | Op.STWUX -> "stwux"
-  | Op.STD -> "std"
-  | Op.STDU -> "stdu"
-  | Op.STDX -> "stdx"
-  | Op.STDUX -> "stdux"
-  | Op.LQ -> "lq"
-  | Op.STQ -> "stq"
-  | Op.LHBRX -> "lhbrx"
-  | Op.LWBRX -> "lwbrx"
-  | Op.STHBRX -> "sthbrx"
-  | Op.STWBRX -> "stwbrx"
-  | Op.LDBRX -> "ldbrx"
-  | Op.STDBRX -> "stdbrx"
-  | Op.LMW -> "lmw"
-  | Op.STMW -> "stmw"
-  | Op.LSWI -> "lswi"
-  | Op.LSWX -> "lswx"
-  | Op.STSWI -> "stswi"
-  | Op.STSWX -> "stswx"
-  | Op.CMPI -> "cmpi"
-  | Op.CMP -> "cmp"
-  | Op.CMPLI -> "cmpli"
-  | Op.CMPL -> "cmpl"
-  | Op.CMPRB -> "cmprb"
-  | Op.CMPEQB -> "cmpeqb"
-  | Op.TWI -> "twi"
-  | Op.TW -> "tw"
-  | Op.TDI -> "tdi"
-  | Op.ISEL -> "isel"
-  | Op.TD -> "td"
-  | Op.ANDI_DOT -> "andi."
-  | Op.ANDIS_DOT -> "andis."
-  | Op.ORI -> "ori"
-  | Op.ORIS -> "oris"
-  | Op.XORI -> "xori"
-  | Op.XORIS -> "xoris"
-  | Op.AND -> "and"
-  | Op.AND_DOT -> "and."
-  | Op.XOR -> "xor"
-  | Op.XOR_DOT -> "xor."
-  | Op.NAND -> "nand"
-  | Op.NAND_DOT -> "nand."
-  | Op.OR -> "or"
-  | Op.OR_DOT -> "or."
-  | Op.NOR -> "nor"
-  | Op.NOR_DOT -> "nor."
-  | Op.ANDC -> "andc"
-  | Op.ANDC_DOT -> "andc."
-  | Op.EQV -> "eqv"
-  | Op.EQV_DOT -> "eqv."
-  | Op.ORC -> "orc"
-  | Op.ORC_DOT -> "orc."
-  | Op.EXTSB -> "extsb"
-  | Op.EXTSB_DOT -> "extsb."
-  | Op.CNTLZW -> "cntlzw"
-  | Op.CNTLZW_DOT -> "cntlzw."
-  | Op.EXTSH -> "extsh"
-  | Op.EXTSH_DOT -> "extsh."
-  | Op.CNTTZW -> "cnttzw"
-  | Op.CNTTZW_DOT -> "cnttzw."
-  | Op.CMPB -> "cmpb"
-  | Op.POPCNTB -> "popcntb"
-  | Op.POPCNTW -> "popcntw"
-  | Op.PRTYD -> "prtyd"
-  | Op.PRTYW -> "prtyw"
-  | Op.EXTSW -> "extsw"
-  | Op.EXTSW_DOT -> "extsw."
-  | Op.CNTLZD -> "cntlzd"
-  | Op.CNTLZD_DOT -> "cntlzd."
-  | Op.POPCNTD -> "popcntd"
-  | Op.CNTTZD -> "cnttzd"
-  | Op.CNTTZD_DOT -> "cnttzd."
-  | Op.BPERMD -> "bpermd"
-  | Op.MULLD -> "mulld"
-  | Op.MULLD_DOT -> "mulld."
-  | Op.MULLDO -> "mulldo"
-  | Op.MULLDO_DOT -> "mulldo."
-  | Op.MULHD -> "mulhd"
-  | Op.MULHD_DOT -> "mulhd."
-  | Op.MULHDU -> "mulhdu"
-  | Op.MULHDU_DOT -> "mulhdu."
-  | Op.MADDHD -> "maddhd"
-  | Op.MADDHDU -> "maddhdu"
-  | Op.MADDLD -> "maddld"
-  | Op.DIVD -> "divd"
-  | Op.DIVD_DOT -> "divd."
-  | Op.DIVDO -> "divdo"
-  | Op.DIVDO_DOT -> "divdo."
-  | Op.DIVDU -> "divdu"
-  | Op.DIVDU_DOT -> "divdu."
-  | Op.DIVDUO -> "divduo"
-  | Op.DIVDUO_DOT -> "divduo."
-  | Op.DIVDE -> "divde"
-  | Op.DIVDE_DOT -> "divde."
-  | Op.DIVDEO -> "divdeo"
-  | Op.DIVDEO_DOT -> "divdeo."
-  | Op.DIVDEU -> "divdeu"
-  | Op.DIVDEU_DOT -> "divdeu."
-  | Op.DIVDEUO -> "divdeuo"
-  | Op.DIVDEUO_DOT -> "divdeuo."
-  | Op.MODSD -> "modsd"
-  | Op.MODUD -> "modud"
-  | Op.RLWINM -> "rlwinm"
-  | Op.RLWINM_DOT -> "rlwinm."
-  | Op.RLWNM -> "rlwnm"
-  | Op.RLWNM_DOT -> "rlwnm."
-  | Op.RLWIMI -> "rlwimi"
-  | Op.RLWIMI_DOT -> "rlwimi."
-  | Op.RLDICL -> "rldicl"
-  | Op.RLDICL_DOT -> "rldicl."
-  | Op.RLDICR -> "rldicr"
-  | Op.RLDICR_DOT -> "rldicr."
-  | Op.RLDIC -> "rldic"
-  | Op.RLDIC_DOT -> "rldic."
-  | Op.RLDCL -> "rldcl"
-  | Op.RLDCL_DOT -> "rldcl."
-  | Op.RLDCR -> "rldcr"
-  | Op.RLDCR_DOT -> "rldcr."
-  | Op.RLDIMI -> "rldimi"
-  | Op.RLDIMI_DOT -> "rldimi."
-  | Op.SLW -> "slw"
-  | Op.SLW_DOT -> "slw."
-  | Op.SRW -> "srw"
-  | Op.SRW_DOT -> "srw."
-  | Op.SRAWI -> "srawi"
-  | Op.SRAWI_DOT -> "srawi."
-  | Op.SRAW -> "sraw"
-  | Op.SRAW_DOT -> "sraw."
-  | Op.SLD -> "sld"
-  | Op.SLD_DOT -> "sld."
-  | Op.SRD -> "srd"
-  | Op.SRD_DOT -> "srd."
-  | Op.SRADI -> "sradi"
-  | Op.SRADI_DOT -> "sradi."
-  | Op.SRAD -> "srad"
-  | Op.SRAD_DOT -> "srad."
-  | Op.EXTSWSLI -> "extswsli"
-  | Op.EXTSWSLI_DOT -> "extswsli."
-  | Op.CDTBCD -> "cdtbcd"
-  | Op.CBCDTD -> "cbcdtd"
-  | Op.ADDG6S -> "addg6s"
-  | Op.MFVSRD -> "mfvsrd"
-  | Op.MFVSRLD -> "mfvsrld"
-  | Op.MFVSRWZ -> "mfvsrwz"
-  | Op.MTVSRD -> "mtvsrd"
-  | Op.MTVSRWA -> "mtvsrwa"
-  | Op.MTVSRWZ -> "mtvsrwz"
-  | Op.MTVSRDD -> "mtvsrdd"
-  | Op.MTVSRWS -> "mtvsrws"
-  | Op.MTSPR -> "mtspr"
-  | Op.MFSPR -> "mfspr"
-  | Op.MCRXRX -> "mcrxrx"
-  | Op.MTOCRF -> "mtocrf"
-  | Op.MTCRF -> "mtcrf"
-  | Op.MFOCRF -> "mfocrf"
-  | Op.MFCR -> "mfcr"
-  | Op.SETB -> "setb"
-  | Op.LFS -> "lfs"
-  | Op.LFSX -> "lfsx"
-  | Op.LFSU -> "lfsu"
-  | Op.LFSUX -> "lfsux"
-  | Op.LFD -> "lfd"
-  | Op.LFDX -> "lfdx"
-  | Op.LFDU -> "lfdu"
-  | Op.LFDUX -> "lfdux"
-  | Op.LFIWAX -> "lfiwax"
-  | Op.LFIWZX -> "lfiwzx"
-  | Op.STFS -> "stfs"
-  | Op.STFSU -> "stfsu"
-  | Op.STFSX -> "stfsx"
-  | Op.STFSUX -> "stfsux"
-  | Op.STFD -> "stfd"
-  | Op.STFDU -> "stfdu"
-  | Op.STFDX -> "stfdx"
-  | Op.STFDUX -> "stfdux"
-  | Op.STFIWX -> "stfiwx"
-  | Op.LFDP -> "lfdp"
-  | Op.LFDPX -> "lfdpx"
-  | Op.STFDP -> "stfdp"
-  | Op.STFDPX -> "stfdpx"
-  | Op.FMR -> "fmr"
-  | Op.FMR_DOT -> "fmr."
-  | Op.FABS -> "fabs"
-  | Op.FABS_DOT -> "fabs."
-  | Op.FNABS -> "fnabs"
-  | Op.FNABS_DOT -> "fnabs."
-  | Op.FNEG -> "fneg"
-  | Op.FNEG_DOT -> "fneg."
-  | Op.FCPSGN -> "fcpsgn"
-  | Op.FCPSGN_DOT -> "fcpsgn."
-  | Op.FMRGEW -> "fmrgew"
-  | Op.FMRGOW -> "fmrgow"
-  | Op.FADD -> "fadd"
-  | Op.FADD_DOT -> "fadd."
-  | Op.FADDS -> "fadds"
-  | Op.FADDS_DOT -> "fadds."
-  | Op.FSUB -> "fsub"
-  | Op.FSUB_DOT -> "fsub."
-  | Op.FSUBS -> "fsubs"
-  | Op.FSUBS_DOT -> "fsubs."
-  | Op.FMUL -> "fmul"
-  | Op.FMUL_DOT -> "fmul."
-  | Op.FMULS -> "fmuls"
-  | Op.FMULS_DOT -> "fmuls."
-  | Op.FDIV -> "fdiv"
-  | Op.FDIV_DOT -> "fdiv."
-  | Op.FDIVS -> "fdivs"
-  | Op.FDIVS_DOT -> "fdivs."
-  | Op.FSQRT -> "fsqrt"
-  | Op.FSQRT_DOT -> "fsqrt."
-  | Op.FSQRTS -> "fsqrts"
-  | Op.FSQRTS_DOT -> "fsqrts."
-  | Op.FRE -> "fre"
-  | Op.FRE_DOT -> "fre."
-  | Op.FRES -> "fres"
-  | Op.FRES_DOT -> "fres."
-  | Op.FRSQRTE -> "frsqrte"
-  | Op.FRSQRTE_DOT -> "frsqrte."
-  | Op.FRSQRTES -> "frsqrtes"
-  | Op.FRSQRTES_DOT -> "frsqrtes."
-  | Op.FTDIV -> "ftdiv"
-  | Op.FTSQRT -> "ftsqrt"
-  | Op.FMADD -> "fmadd"
-  | Op.FMADD_DOT -> "fmadd."
-  | Op.FMADDS -> "fmadds"
-  | Op.FMADDS_DOT -> "fmadds."
-  | Op.FMSUB -> "fmsub"
-  | Op.FMSUB_DOT -> "fmsub."
-  | Op.FMSUBS -> "fmsubs"
-  | Op.FMSUBS_DOT -> "fmsubs."
-  | Op.FNMADD -> "fnmadd"
-  | Op.FNMADD_DOT -> "fnmadd."
-  | Op.FNMADDS -> "fnmadds"
-  | Op.FNMADDS_DOT -> "fnmadds."
-  | Op.FNMSUB -> "fnmsub"
-  | Op.FNMSUB_DOT -> "fnmsub."
-  | Op.FNMSUBS -> "fnmsubs"
-  | Op.FNMSUBS_DOT -> "fnmsubs."
-  | Op.FRSP -> "frsp"
-  | Op.FRSP_DOT -> "frsp."
-  | Op.FCTID -> "fctid"
-  | Op.FCTID_DOT -> "fctid."
-  | Op.FCTIDZ -> "fctidz"
-  | Op.FCTIDZ_DOT -> "fctidz."
-  | Op.FCTIDU -> "fctidu"
-  | Op.FCTIDU_DOT -> "fctidu."
-  | Op.FCTIDUZ -> "fctiduz"
-  | Op.FCTIDUZ_DOT -> "fctiduz."
-  | Op.FCTIW -> "fctiw"
-  | Op.FCTIW_DOT -> "fctiw."
-  | Op.FCTIWZ -> "fctiwz"
-  | Op.FCTIWZ_DOT -> "fctiwz."
-  | Op.FCTIWU -> "fctiwu"
-  | Op.FCTIWU_DOT -> "fctiwu."
-  | Op.FCTIWUZ -> "fctiwuz"
-  | Op.FCTIWUZ_DOT -> "fctiwuz."
-  | Op.FCFID -> "fcfid"
-  | Op.FCFID_DOT -> "fcfid."
-  | Op.FCFIDU -> "fcfidu"
-  | Op.FCFIDU_DOT -> "fcfidu."
-  | Op.FCFIDS -> "fcfids"
-  | Op.FCFIDS_DOT -> "fcfids."
-  | Op.FCFIDUS -> "fcfidus"
-  | Op.FCFIDUS_DOT -> "fcfidus."
-  | Op.FRIN -> "frin"
-  | Op.FRIN_DOT -> "frin."
-  | Op.FRIZ -> "friz"
-  | Op.FRIZ_DOT -> "friz."
-  | Op.FRIP -> "frip"
-  | Op.FRIP_DOT -> "frip."
-  | Op.FRIM -> "frim"
-  | Op.FRIM_DOT -> "frim."
-  | Op.FCMPU -> "fcmpu"
-  | Op.FCMPO -> "fcmpo"
-  | Op.FSEL -> "fsel"
-  | Op.FSEL_DOT -> "fsel."
-  | Op.MFFS -> "mffs"
-  | Op.MFFS_DOT -> "mffs."
-  | Op.MFFSCE -> "mffsce"
-  | Op.MFFSCDRN -> "mffscdrn"
-  | Op.MFFSCDRNI -> "mffscdrni"
-  | Op.MFFSCRN -> "mffscrn"
-  | Op.MFFSCRNI -> "mffscrni"
-  | Op.MFFSL -> "mffsl"
-  | Op.MCRFS -> "mcrfs"
-  | Op.MTFSFI -> "mtfsfi"
-  | Op.MTFSFI_DOT -> "mtfsfi."
-  | Op.MTFSF -> "mtfsf"
-  | Op.MTFSF_DOT -> "mtfsf."
-  | Op.MTFSB0 -> "mtfsb0"
-  | Op.MTFSB0_DOT -> "mtfsb0."
-  | Op.MTFSB1 -> "mtfsb1"
-  | Op.MTFSB1_DOT -> "mtfsb1."
-  | Op.DADD -> "dadd"
-  | Op.DADD_DOT -> "dadd."
-  | Op.DADDQ -> "daddq"
-  | Op.DADDQ_DOT -> "daddq."
-  | Op.DSUB -> "dsub"
-  | Op.DSUB_DOT -> "dsub."
-  | Op.DSUBQ -> "dsubq"
-  | Op.DSUBQ_DOT -> "dsubq."
-  | Op.DMUL -> "dmul"
-  | Op.DMUL_DOT -> "dmul."
-  | Op.DMULQ -> "dmulq"
-  | Op.DMULQ_DOT -> "dmulq."
-  | Op.DDIV -> "ddiv"
-  | Op.DDIV_DOT -> "ddiv."
-  | Op.DDIVQ -> "ddivq"
-  | Op.DDIVQ_DOT -> "ddivq."
-  | Op.DCMPU -> "dcmpu"
-  | Op.DCMPUQ -> "dcmpuq"
-  | Op.DCMPO -> "dcmpo"
-  | Op.DCMPOQ -> "dcmpoq"
-  | Op.DTSTDC -> "dtstdc"
-  | Op.DTSTDCQ -> "dtstdcq"
-  | Op.DTSTDG -> "dtstdg"
-  | Op.DTSTDGQ -> "dtstdgq"
-  | Op.DTSTEX -> "dtstex"
-  | Op.DTSTEXQ -> "dtstexq"
-  | Op.DTSTSF -> "dtstsf"
-  | Op.DTSTSFQ -> "dtstsfq"
-  | Op.DTSTSFI -> "dtstsfi"
-  | Op.DTSTSFIQ -> "dtstsfiq"
-  | Op.DQUAI -> "dquai"
-  | Op.DQUAI_DOT -> "dquai."
-  | Op.DQUAIQ -> "dquaiq"
-  | Op.DQUAIQ_DOT -> "dquaiq."
-  | Op.DQUA -> "dqua"
-  | Op.DQUA_DOT -> "dqua."
-  | Op.DQUAQ -> "dquaq"
-  | Op.DQUAQ_DOT -> "dquaq."
-  | Op.DRRND_DOT -> "drrnd."
-  | Op.DRRNDQ -> "drrndq"
-  | Op.DRRNDQ_DOT -> "drrndq."
-  | Op.DRINTX -> "drintx"
-  | Op.DRINTX_DOT -> "drintx."
-  | Op.DRINTXQ -> "drintxq"
-  | Op.DRINTXQ_DOT -> "drintxq."
-  | Op.DRINTN -> "drintn"
-  | Op.DRINTN_DOT -> "drintn."
-  | Op.DRINTNQ -> "drintnq"
-  | Op.DRINTNQ_DOT -> "drintnq."
-  | Op.DCTDP -> "dctdp"
-  | Op.DCTDP_DOT -> "dctdp."
-  | Op.DCTQPQ -> "dctqpq"
-  | Op.DCTQPQ_DOT -> "dctqpq."
-  | Op.DRSP -> "drsp"
-  | Op.DRSP_DOT -> "drsp."
-  | Op.DRDPQ -> "drdpq"
-  | Op.DRDPQ_DOT -> "drdpq."
-  | Op.DCFFIX -> "dcffix"
-  | Op.DCFFIX_DOT -> "dcffix."
-  | Op.DCFFIXQ -> "dcffixq"
-  | Op.DCFFIXQ_DOT -> "dcffixq."
-  | Op.DCTFIX -> "dctfix"
-  | Op.DCTFIX_DOT -> "dctfix."
-  | Op.DCTFIXQ -> "dctfixq"
-  | Op.DCTFIXQ_DOT -> "dctfixq."
-  | Op.DDEDPD -> "ddedpd"
-  | Op.DDEDPD_DOT -> "ddedpd."
-  | Op.DDEDPDQ -> "ddedpdq"
-  | Op.DDEDPDQ_DOT -> "ddedpdq."
-  | Op.DENBCD -> "denbcd"
-  | Op.DENBCD_DOT -> "denbcd."
-  | Op.DENBCDQ -> "denbcdq"
-  | Op.DENBCDQ_DOT -> "denbcdq."
-  | Op.DXEX -> "dxex"
-  | Op.DXEX_DOT -> "dxex."
-  | Op.DXEXQ -> "dxexq"
-  | Op.DXEXQ_DOT -> "dxexq."
-  | Op.DIEX -> "diex"
-  | Op.DIEX_DOT -> "diex."
-  | Op.DIEXQ -> "diexq"
-  | Op.DIEXQ_DOT -> "diexq."
-  | Op.DSCLI -> "dscli"
-  | Op.DSCLI_DOT -> "dscli."
-  | Op.DSCLIQ -> "dscliq"
-  | Op.DSCLIQ_DOT -> "dscliq."
-  | Op.DSCRI -> "dscri"
-  | Op.DSCRI_DOT -> "dscri."
-  | Op.DSCRIQ -> "dscriq"
-  | Op.DSCRIQ_DOT -> "dscriq."
-  | Op.LVEBX -> "lvebx"
-  | Op.LVEHX -> "lvehx"
-  | Op.LVEWX -> "lvewx"
-  | Op.LVX -> "lvx"
-  | Op.LVXL -> "lvxl"
-  | Op.STVEBX -> "stvebx"
-  | Op.STVEHX -> "stvehx"
-  | Op.STVEWX -> "stvewx"
-  | Op.STVX -> "stvx"
-  | Op.STVXL -> "stvxl"
-  | Op.LVSL -> "lvsl"
-  | Op.LVSR -> "lvsr"
-  | Op.CRAND -> "crand"
-  | Op.CROR -> "cror"
-  | Op.CRNAND -> "crnand"
-  | Op.CRXOR -> "crxor"
-  | Op.CRNOR -> "crnor"
-  | Op.CRANDC -> "crandc"
-  | Op.MCRF -> "mcrf"
-  | Op.CREQV -> "creqv"
-  | Op.CRORC -> "crorc"
-  | Op.LXVD2X -> "lxvd2x"
-  | Op.LXSIBZX -> "lxsibzx"
-  | Op.LXSIHZX -> "lxsihzx"
-  | Op.STXVD2X -> "stxvd2x"
-  | Op.XXPERMDI -> "xxpermdi"
-  | Op.XXSEL -> "xxsel"
-  | Op.VSPLTISB -> "vspltisb"
-  | Op.VSPLTISH -> "vspltish"
-  | Op.VSPLTISW -> "vspltisw"
-  | Op.VCMPEQUB -> "vcmpequb"
-  | Op.VCMPEQUB_DOT -> "vcmpequb."
-  | Op.VCMPEQUH -> "vcmpequh"
-  | Op.VCMPEQUH_DOT -> "vcmpequh."
-  | Op.XXLORC -> "xxlorc"
-  | Op.XXLNOR -> "xxlnor"
-  | Op.VGBBD -> "vgbbd"
-  | Op.VSLDOI -> "vsldoi"
-  | Op.XXLOR -> "xxlor"
-  | Op.XXLXOR -> "xxlxor"
-  | Op.LXSD -> "lxsd"
-  | Op.LXSDX -> "lxsdx"
-  | Op.XSCVUXDDP -> "xscvuxddp"
-  | Op.XSCVUXDSP -> "xscvuxdsp"
-  | Op.XSDIVDP -> "xsdivdp"
-  | Op.VADDSWS -> "vaddsws"
-  | Op.VADDUBM -> "vaddubm"
-  | Op.VADDUDM -> "vaddudm"
-  | Op.XSCVDPSXWS -> "xscvdpsxws"
-  | Op.STXSD -> "stxsd"
-  | Op.STXSDX -> "stxsdx"
-  | _ -> Terminator.futureFeature ()
+  | Op.BDNZF -> "bdnzf"
+  | Op.BDNZFA -> "bdnzfa"
+  | Op.BDNZFL -> "bdnzfl"
+  | Op.BDNZFLA -> "bdnzfla"
+  | Op.BDZF -> "bdzf"
+  | Op.BDZFA -> "bdzfa"
+  | Op.BDZFL -> "bdzfl"
+  | Op.BDZFLA -> "bdzfla"
+  | Op.BGE -> "bge"
+  | Op.BLE -> "ble"
+  | Op.BNE -> "bne"
+  | Op.BNS -> "bns"
+  | Op.BGEL -> "bgel"
+  | Op.BLEL -> "blel"
+  | Op.BNEL -> "bnel"
+  | Op.BNSL -> "bnsl"
+  | Op.BGEA -> "bgea"
+  | Op.BLEA -> "blea"
+  | Op.BNEA -> "bnea"
+  | Op.BNSA -> "bnsa"
+  | Op.BGELA -> "bgela"
+  | Op.BLELA -> "blela"
+  | Op.BNELA -> "bnela"
+  | Op.BNSLA -> "bnsla"
+  | Op.BDNZT -> "bdnzt"
+  | Op.BDNZTA -> "bdnzta"
+  | Op.BDNZTL -> "bdnztl"
+  | Op.BDNZTLA -> "bdnztla"
+  | Op.BDZT -> "bdzt"
+  | Op.BDZTL -> "bdztl"
+  | Op.BDZTA -> "bdzta"
+  | Op.BDZTLA -> "bdztla"
+  | Op.BLT -> "blt"
+  | Op.BGT -> "bgt"
+  | Op.BEQ -> "beq"
+  | Op.BSO -> "bso"
+  | Op.BLTL -> "bltl"
+  | Op.BGTL -> "bgtl"
+  | Op.BEQL -> "beql"
+  | Op.BSOL -> "bsol"
+  | Op.BLTA -> "blta"
+  | Op.BGTA -> "bgta"
+  | Op.BEQA -> "beqa"
+  | Op.BSOA -> "bsoa"
+  | Op.BLTLA -> "bltla"
+  | Op.BGTLA -> "bgtla"
+  | Op.BEQLA -> "beqla"
+  | Op.BSOLA -> "bsola"
+  | Op.BDNZ -> "bdnz"
+  | Op.BDNZL -> "bdnzl"
+  | Op.BDNZA -> "bdnza"
+  | Op.BDNZLA -> "bdnzla"
+  | Op.BDZ -> "bdz"
+  | Op.BDZL -> "bdzl"
+  | Op.BDZA -> "bdza"
+  | Op.BDZLA -> "bdzla"
+  | Op.BDNZFLR -> "bdnzflr"
+  | Op.BDNZFLRL -> "bdnzflrl"
+  | Op.BDZFLR -> "bdzflr"
+  | Op.BDZFLRL -> "bdzflrl"
+  | Op.BGELR -> "bgelr"
+  | Op.BLELR -> "blelr"
+  | Op.BNELR -> "bnelr"
+  | Op.BNSLR -> "bnslr"
+  | Op.BGELRL -> "bgelrl"
+  | Op.BLELRL -> "blelrl"
+  | Op.BNELRL -> "bnelrl"
+  | Op.BNSLRL -> "bnslrl"
+  | Op.BDNZTLR -> "bdnztlr"
+  | Op.BDNZTLRL -> "bdnztlrl"
+  | Op.BDZTLR -> "bdztlr"
+  | Op.BDZTLRL -> "bdztlrl"
+  | Op.BLTLR -> "bltlr"
+  | Op.BGTLR -> "bgtlr"
+  | Op.BEQLR -> "beqlr"
+  | Op.BSOLR -> "bsolr"
+  | Op.BLTLRL -> "bltlrl"
+  | Op.BGTLRL -> "bgtlrl"
+  | Op.BEQLRL -> "beqlrl"
+  | Op.BSOLRL -> "bsolrl"
+  | Op.BDNZLR -> "bdnzlr"
+  | Op.BDNZLRL -> "bdnzlrl"
+  | Op.BDZLR -> "bdzlr"
+  | Op.BDZLRL -> "bdzlrl"
+  | Op.BLR -> "blr"
+  | Op.BLRL -> "blrl"
+  | Op.BGECTR -> "bgectr"
+  | Op.BLECTR -> "blectr"
+  | Op.BNECTR -> "bnectr"
+  | Op.BNSCTR -> "bnsctr"
+  | Op.BGECTRL -> "bgectrl"
+  | Op.BLECTRL -> "blectrl"
+  | Op.BNECTRL -> "bnectrl"
+  | Op.BNSCTRL -> "bnsctrl"
+  | Op.BLTCTR -> "bltctr"
+  | Op.BGTCTR -> "bgtctr"
+  | Op.BEQCTR -> "beqctr"
+  | Op.BSOCTR -> "bsoctr"
+  | Op.BLTCTRL -> "bltctrl"
+  | Op.BGTCTRL -> "bgtctrl"
+  | Op.BEQCTRL -> "beqctrl"
+  | Op.BSOCTRL -> "bsoctrl"
+  | Op.BCTR -> "bctr"
+  | Op.BCTRL -> "bctrl"
+  | Op.MR -> "mr"
+  | Op.BTLRL -> "btlrl"
+  | Op.BFLRL -> "bflrl"
+  | Op.BTCTRL -> "btctrl"
+  | Op.CLRRWI -> "clrrwi"
+  | Op.LWSYNC -> "lwsync"
+  | _ -> Terminator.impossible ()
+
+let condToString = function
+  | Condition.LT -> "lt"
+  | Condition.LE -> "le"
+  | Condition.EQ -> "eq"
+  | Condition.GE -> "ge"
+  | Condition.GT -> "gt"
+  | Condition.NL -> "nl"
+  | Condition.NE -> "ne"
+  | Condition.NG -> "ng"
+  | Condition.SO -> "so"
+  | Condition.NS -> "ns"
+  | Condition.UN -> "un"
+  | Condition.NU -> "nu"
+  | _ -> raise ParsingFailureException
 
 let inline buildOpcode (ins: Instruction) (builder: IDisasmBuilder) =
   let str = opCodeToString ins.Opcode
   builder.Accumulate(AsmWordKind.Mnemonic, str)
 
-let inline buildOperand (opr: Operand) (builder: IDisasmBuilder) =
+let inline relToString pc offset (builder: IDisasmBuilder) =
+  let targetAddr = pc + uint64 offset
+  builder.Accumulate(AsmWordKind.Value, HexString.ofUInt64 targetAddr)
+
+let inline getCond bi =
+  match Bits.extract bi 1u 0u with
+  | 0b00u -> Condition.LT
+  | 0b01u -> Condition.GT
+  | 0b10u -> Condition.EQ
+  | _ (* 11 *) -> Condition.SO
+
+let oprToString (ins: Instruction) opr delim (builder: IDisasmBuilder) =
   match opr with
-  | OprImm imm ->
-    builder.Accumulate(AsmWordKind.Value, HexString.ofUInt64 imm)
-  | OprMem(disp, reg) ->
-    if disp < 0L then
-      builder.Accumulate(AsmWordKind.Value, "-" + HexString.ofInt64 (-disp))
-    else
-      builder.Accumulate(AsmWordKind.Value, HexString.ofInt64 disp)
+  | OprReg reg ->
+    builder.Accumulate(AsmWordKind.String, delim)
+    builder.Accumulate(AsmWordKind.Variable, Register.toString reg)
+  | OprMem(imm, reg) ->
+    builder.Accumulate(AsmWordKind.String, delim)
+    builder.Accumulate(AsmWordKind.Value, HexString.ofInt32 imm)
     builder.Accumulate(AsmWordKind.String, "(")
     builder.Accumulate(AsmWordKind.Variable, Register.toString reg)
     builder.Accumulate(AsmWordKind.String, ")")
-  | OprReg reg ->
-    builder.Accumulate(AsmWordKind.Variable, Register.toString reg)
-  | OprCY cy ->
-    builder.Accumulate(AsmWordKind.Value, HexString.ofUInt32 (uint32 cy))
-  | OprL l ->
-    builder.Accumulate(AsmWordKind.Value, HexString.ofUInt32 (uint32 l))
+  | OprImm imm ->
+    builder.Accumulate(AsmWordKind.String, delim)
+    builder.Accumulate(AsmWordKind.Value, HexString.ofUInt64 imm)
   | OprAddr addr ->
-    builder.Accumulate(AsmWordKind.Value, HexString.ofUInt64 addr)
-  | OprBO bo ->
-    builder.Accumulate(AsmWordKind.Value, HexString.ofUInt32 (uint32 bo))
-  | OprBH bh ->
-    builder.Accumulate(AsmWordKind.Value, HexString.ofUInt32 (uint32 bh))
-  | OprTO toValue ->
-    builder.Accumulate(AsmWordKind.Value, HexString.ofUInt32 (uint32 toValue))
-  | OprCRMask mask ->
-    builder.Accumulate(AsmWordKind.Value, HexString.ofUInt32 (uint32 mask))
-  | OprFPSCRMask mask ->
-    builder.Accumulate(AsmWordKind.Value, HexString.ofUInt32 (uint32 mask))
-  | OprW w ->
-    builder.Accumulate(AsmWordKind.Value, HexString.ofUInt32 (uint32 w))
-  | OprDCM dcm ->
-    builder.Accumulate(AsmWordKind.Value, HexString.ofUInt32 (uint32 dcm))
-  | OprDGM dgm ->
-    builder.Accumulate(AsmWordKind.Value, HexString.ofUInt32 (uint32 dgm))
+    builder.Accumulate(AsmWordKind.String, delim)
+    relToString ins.Address addr builder
+  | OprBI imm ->
+    let cr = Bits.extract imm 4u 2u |> getCondRegister
+    builder.Accumulate(AsmWordKind.String, delim)
+    builder.Accumulate(AsmWordKind.Value, HexString.ofUInt32 4u)
+    builder.Accumulate(AsmWordKind.String, " * ")
+    builder.Accumulate(AsmWordKind.Variable, Register.toString cr)
+    builder.Accumulate(AsmWordKind.String, " + ")
+    builder.Accumulate(AsmWordKind.String, condToString (getCond imm))
 
-let inline buildOperands (ins: Instruction) (builder: IDisasmBuilder) =
+let buildOprs (ins: Instruction) builder =
   match ins.Operands with
   | NoOperand -> ()
   | OneOperand opr ->
-    builder.Accumulate(AsmWordKind.String, " ")
-    buildOperand opr builder
+    oprToString ins opr " " builder
   | TwoOperands(opr1, opr2) ->
-    builder.Accumulate(AsmWordKind.String, " ")
-    buildOperand opr1 builder
-    builder.Accumulate(AsmWordKind.String, ", ")
-    buildOperand opr2 builder
+    oprToString ins opr1 " " builder
+    oprToString ins opr2 ", " builder
   | ThreeOperands(opr1, opr2, opr3) ->
-    builder.Accumulate(AsmWordKind.String, " ")
-    buildOperand opr1 builder
-    builder.Accumulate(AsmWordKind.String, ", ")
-    buildOperand opr2 builder
-    builder.Accumulate(AsmWordKind.String, ", ")
-    buildOperand opr3 builder
+    oprToString ins opr1 " " builder
+    oprToString ins opr2 ", " builder
+    oprToString ins opr3 ", " builder
   | FourOperands(opr1, opr2, opr3, opr4) ->
-    builder.Accumulate(AsmWordKind.String, " ")
-    buildOperand opr1 builder
-    builder.Accumulate(AsmWordKind.String, ", ")
-    buildOperand opr2 builder
-    builder.Accumulate(AsmWordKind.String, ", ")
-    buildOperand opr3 builder
-    builder.Accumulate(AsmWordKind.String, ", ")
-    buildOperand opr4 builder
+    oprToString ins opr1 " " builder
+    oprToString ins opr2 ", " builder
+    oprToString ins opr3 ", " builder
+    oprToString ins opr4 ", " builder
   | FiveOperands(opr1, opr2, opr3, opr4, opr5) ->
-    builder.Accumulate(AsmWordKind.String, " ")
-    buildOperand opr1 builder
-    builder.Accumulate(AsmWordKind.String, ", ")
-    buildOperand opr2 builder
-    builder.Accumulate(AsmWordKind.String, ", ")
-    buildOperand opr3 builder
-    builder.Accumulate(AsmWordKind.String, ", ")
-    buildOperand opr4 builder
-    builder.Accumulate(AsmWordKind.String, ", ")
-    buildOperand opr5 builder
+    oprToString ins opr1 " " builder
+    oprToString ins opr2 ", " builder
+    oprToString ins opr3 ", " builder
+    oprToString ins opr4 ", " builder
+    oprToString ins opr5 ", " builder
+
+let buildSimpleMnemonic opcode bi addr ins (builder: IDisasmBuilder) =
+  let cr = Bits.extract bi 4u 2u |> getCondRegister
+  builder.Accumulate(AsmWordKind.Mnemonic, opCodeToString opcode)
+  builder.Accumulate(AsmWordKind.String, " ")
+  builder.Accumulate(AsmWordKind.Variable, Register.toString cr)
+  builder.Accumulate(AsmWordKind.String, ", ")
+  relToString (ins: Instruction).Address addr builder
+
+let buildCrMnemonic opcode bi (builder: IDisasmBuilder) =
+  let cr = Bits.extract bi 4u 2u |> getCondRegister
+  builder.Accumulate(AsmWordKind.Mnemonic, opCodeToString opcode)
+  builder.Accumulate(AsmWordKind.String, " ")
+  builder.Accumulate(AsmWordKind.Variable, Register.toString cr)
+
+let buildTargetMnemonic opcode addr ins (builder: IDisasmBuilder) =
+  builder.Accumulate(AsmWordKind.Mnemonic, opCodeToString opcode)
+  builder.Accumulate(AsmWordKind.String, " ")
+  relToString (ins: Instruction).Address addr builder
+
+let buildRotateMnemonic opcode ra rs n (builder: IDisasmBuilder) =
+  builder.Accumulate(AsmWordKind.Mnemonic, opCodeToString opcode)
+  builder.Accumulate(AsmWordKind.String, " ")
+  builder.Accumulate(AsmWordKind.Variable, Register.toString ra)
+  builder.Accumulate(AsmWordKind.String, ", ")
+  builder.Accumulate(AsmWordKind.Variable, Register.toString rs)
+  builder.Accumulate(AsmWordKind.String, ", ")
+  builder.Accumulate(AsmWordKind.Value, HexString.ofUInt64 n)
+
+let buildBC (ins: Instruction) builder =
+  match ins.Operands with
+  | ThreeOperands(OprImm bo, OprBI bi, OprAddr addr) ->
+    let bibit = bi % 4u
+    match bo, bi, bibit with
+    | 16UL, 0u, _ -> buildTargetMnemonic Op.BDNZ addr ins builder
+    | 12UL, _, 0u -> buildTargetMnemonic Op.BLT addr ins builder
+    | 12UL, _, 1u -> buildSimpleMnemonic Op.BGT bi addr ins builder
+    | 12UL, _, 2u -> buildSimpleMnemonic Op.BEQ bi addr ins builder
+    | 12UL, _, 3u -> buildSimpleMnemonic Op.BSO bi addr ins builder
+    | 4UL, _, 0u -> buildSimpleMnemonic Op.BGE bi addr ins builder
+    | 4UL, _, 1u -> buildSimpleMnemonic Op.BLE bi addr ins builder
+    | 4UL, _, 2u -> buildSimpleMnemonic Op.BNE bi addr ins builder
+    | 4UL, _, 3u -> buildSimpleMnemonic Op.BNS bi addr ins builder
+    | _ ->
+      buildOpcode ins builder
+      buildOprs ins builder
+  | _ -> raise ParsingFailureException
+
+let buildBCA (ins: Instruction) builder =
+  match ins.Operands with
+  | ThreeOperands(OprImm bo, OprBI bi, OprAddr addr) ->
+    let bibit = bi % 4u
+    match bo, bibit with
+    | 12UL, 0u -> buildSimpleMnemonic Op.BLTA bi addr ins builder
+    | 12UL, 1u -> buildSimpleMnemonic Op.BGTA bi addr ins builder
+    | 12UL, 2u -> buildSimpleMnemonic Op.BEQA bi addr ins builder
+    | 12UL, 3u -> buildSimpleMnemonic Op.BSOA bi addr ins builder
+    | 4UL, 0u -> buildSimpleMnemonic Op.BGEA bi addr ins builder
+    | 4UL, 1u -> buildSimpleMnemonic Op.BLEA bi addr ins builder
+    | 4UL, 2u -> buildSimpleMnemonic Op.BNEA bi addr ins builder
+    | 4UL, 3u -> buildSimpleMnemonic Op.BNSA bi addr ins builder
+    | _ ->
+      buildOpcode ins builder
+      buildOprs ins builder
+  | _ -> raise ParsingFailureException
+
+let buildBCL (ins: Instruction) builder =
+  match ins.Operands with
+  | ThreeOperands(OprImm bo, OprBI bi, OprAddr addr) ->
+    let bibit = bi % 4u
+    match bo, bibit with
+    | 12UL, 0u -> buildSimpleMnemonic Op.BLTA bi addr ins builder
+    | 12UL, 1u -> buildSimpleMnemonic Op.BGTA bi addr ins builder
+    | 12UL, 2u -> buildSimpleMnemonic Op.BEQA bi addr ins builder
+    | 12UL, 3u -> buildSimpleMnemonic Op.BSOA bi addr ins builder
+    | 4UL, 0u -> buildSimpleMnemonic Op.BGEA bi addr ins builder
+    | 4UL, 1u -> buildSimpleMnemonic Op.BLEA bi addr ins builder
+    | 4UL, 2u -> buildSimpleMnemonic Op.BNEA bi addr ins builder
+    | 4UL, 3u -> buildSimpleMnemonic Op.BNSA bi addr ins builder
+    | _ ->
+      buildOpcode ins builder
+      buildOprs ins builder
+  | _ -> raise ParsingFailureException
+
+let buildBCLA (ins: Instruction) builder =
+  match ins.Operands with
+  | ThreeOperands(OprImm bo, OprBI bi, OprAddr addr) ->
+    let bibit = bi % 4u
+    match bo, bibit with
+    | 12uL, 0u -> buildSimpleMnemonic Op.BLTLA bi addr ins builder
+    | 12UL, 1u -> buildSimpleMnemonic Op.BGTLA bi addr ins builder
+    | 12UL, 2u -> buildSimpleMnemonic Op.BEQLA bi addr ins builder
+    | 12UL, 3u -> buildSimpleMnemonic Op.BSOLA bi addr ins builder
+    | 4UL, 0u -> buildSimpleMnemonic Op.BGELA bi addr ins builder
+    | 4UL, 1u -> buildSimpleMnemonic Op.BLELA bi addr ins builder
+    | 4UL, 2u -> buildSimpleMnemonic Op.BNELA bi addr ins builder
+    | 4UL, 3u -> buildSimpleMnemonic Op.BNSLA bi addr ins builder
+    | _ ->
+      buildOpcode ins builder
+      buildOprs ins builder
+  | _ -> raise ParsingFailureException
+
+let buildBCLR (ins: Instruction) (builder: IDisasmBuilder) =
+  match ins.Operands with
+  | TwoOperands(OprImm bo, OprBI bi) ->
+    let bibit = bi % 4u
+    match bo, bibit with
+    | 20uL, 0u ->
+      builder.Accumulate(AsmWordKind.Mnemonic, opCodeToString Op.BLR)
+    | 12UL, 0u -> buildCrMnemonic Op.BLTLR bi builder
+    | 12UL, 1u -> buildCrMnemonic Op.BGTLR bi builder
+    | 12UL, 2u -> buildCrMnemonic Op.BEQLR bi builder
+    | 12UL, 3u -> buildCrMnemonic Op.BSOLR bi builder
+    | 4UL, 0u -> buildCrMnemonic Op.BGELR bi builder
+    | 4UL, 1u -> buildCrMnemonic Op.BLELR bi builder
+    | 4UL, 2u -> buildCrMnemonic Op.BNELR bi builder
+    | 4UL, 3u -> buildCrMnemonic Op.BNSLR bi builder
+    | _ ->
+      buildOpcode ins builder
+      buildOprs ins builder
+  | _ -> raise ParsingFailureException
+
+let buildBCLRL (ins: Instruction) (builder: IDisasmBuilder) =
+  match ins.Operands with
+  | TwoOperands(OprImm bo, OprBI bi) ->
+    match bo, bi with
+    | 12UL, 0u -> buildCrMnemonic Op.BLTLRL bi builder
+    | 12UL, 1u -> buildCrMnemonic Op.BGTLRL bi builder
+    | 12UL, 2u -> buildCrMnemonic Op.BEQLRL bi builder
+    | 12UL, 3u -> buildCrMnemonic Op.BSOLRL bi builder
+    | 4UL, 0u -> buildCrMnemonic Op.BGELRL bi builder
+    | 4UL, 1u -> buildCrMnemonic Op.BLELRL bi builder
+    | 4UL, 2u -> buildCrMnemonic Op.BNELRL bi builder
+    | 4UL, 3u -> buildCrMnemonic Op.BNSLRL bi builder
+    | 20UL, 0u ->
+      builder.Accumulate(AsmWordKind.Mnemonic, opCodeToString Op.BLRL)
+    | 16UL, 0u ->
+      builder.Accumulate(AsmWordKind.Mnemonic, opCodeToString Op.BDNZLRL)
+    | 18UL, 0u ->
+      builder.Accumulate(AsmWordKind.Mnemonic, opCodeToString Op.BDZLRL)
+    | 8UL, _ -> buildCrMnemonic Op.BDNZTLRL bi builder
+    | 0UL, _ -> buildCrMnemonic Op.BDNZFLRL bi builder
+    | 10UL, _ -> buildCrMnemonic Op.BDZTLRL bi builder
+    | 2UL, _ -> buildCrMnemonic Op.BDZFLRL bi builder
+    | _ ->
+      buildOpcode ins builder
+      buildOprs ins builder
+  | _ -> raise ParsingFailureException
+
+let buildBCCTR (ins: Instruction) builder =
+  match ins.Operands with
+  | TwoOperands(OprImm bo, OprBI bi) ->
+    let bibit = bi % 4u
+    match bo, bibit with
+    | 12UL, 0u -> buildCrMnemonic Op.BLTCTR bi builder
+    | 12UL, 1u -> buildCrMnemonic Op.BGTCTR bi builder
+    | 12UL, 2u -> buildCrMnemonic Op.BEQCTR bi builder
+    | 12UL, 3u -> buildCrMnemonic Op.BSOCTR bi builder
+    | 4UL, 0u -> buildCrMnemonic Op.BGECTR bi builder
+    | 4UL, 1u -> buildCrMnemonic Op.BLECTR bi builder
+    | 4UL, 2u -> buildCrMnemonic Op.BNECTR bi builder
+    | 4UL, 3u -> buildCrMnemonic Op.BNSCTR bi builder
+    | _ ->
+      buildOpcode ins builder
+      buildOprs ins builder
+  | _ -> raise ParsingFailureException
+
+let buildBCCTRL (ins: Instruction) builder =
+  match ins.Operands with
+  | TwoOperands(OprImm bo, OprBI bi) ->
+    let bibit = bi % 4u
+    match bo, bibit with
+    | 12UL, 0u -> buildCrMnemonic Op.BLTCTRL bi builder
+    | 12UL, 1u -> buildCrMnemonic Op.BGTCTRL bi builder
+    | 12UL, 2u -> buildCrMnemonic Op.BEQCTRL bi builder
+    | 12UL, 3u -> buildCrMnemonic Op.BSOCTRL bi builder
+    | 4UL, 0u -> buildCrMnemonic Op.BGECTRL bi builder
+    | 4UL, 1u -> buildCrMnemonic Op.BLECTRL bi builder
+    | 4UL, 2u -> buildCrMnemonic Op.BNECTRL bi builder
+    | 4UL, 3u -> buildCrMnemonic Op.BNSCTRL bi builder
+    | 20UL, 0u ->
+      builder.Accumulate(AsmWordKind.Mnemonic, opCodeToString Op.BCTRL)
+    | _ ->
+      buildOpcode ins builder
+      buildOprs ins builder
+  | _ -> raise ParsingFailureException
+
+let buildRLWINM (ins: Instruction) builder =
+  match ins.Operands with
+  | FiveOperands(OprReg ra, OprReg rs, OprImm sh, OprImm mb, OprImm me) ->
+    match sh, mb, me with
+    | _, 0UL, 31UL -> buildRotateMnemonic Op.ROTLWI ra rs sh builder
+    | n1, 0UL, n2 when n2 = (31UL - n1) ->
+      buildRotateMnemonic Op.SLWI ra rs sh builder
+    | n1, n2, 31UL when n1 = (32UL - n2) ->
+      buildRotateMnemonic Op.SRWI ra rs mb builder
+    | 0UL, _, 31UL -> buildRotateMnemonic Op.CLRLWI ra rs mb builder
+    | 0UL, 0UL, n -> buildRotateMnemonic Op.CLRRWI ra rs (31UL - me) builder
+    | _ ->
+      buildOpcode ins builder
+      buildOprs ins builder
+  | _ -> raise ParsingFailureException
 
 let disasm (ins: Instruction) (builder: IDisasmBuilder) =
   builder.AccumulateAddrMarker ins.Address
-  buildOpcode ins builder
-  buildOperands ins builder
+  match ins.Opcode with
+  | Op.BC -> buildBC ins builder
+  | Op.BCA -> buildBCA ins builder
+  | Op.BCL -> buildBCL ins builder
+  | Op.BCLA -> buildBCLA ins builder
+  | Op.BCLR -> buildBCLR ins builder
+  | Op.BCLRL -> buildBCLRL ins builder
+  | Op.BCCTR -> buildBCCTR ins builder
+  | Op.BCCTRL -> buildBCCTRL ins builder
+  | Op.RLWINM -> buildRLWINM ins builder
+  | _ ->
+    buildOpcode ins builder
+    buildOprs ins builder

@@ -56,7 +56,6 @@ module ArchSupport =
     | AVR -> AVR.RegisterFactory isa :> IRegisterFactory
     | S390 -> S390.RegisterFactory isa :> IRegisterFactory
     | SH4 -> SH4.RegisterFactory isa :> IRegisterFactory
-    | PPC32 -> PPC32.RegisterFactory isa :> IRegisterFactory
     | PPC -> PPC.RegisterFactory isa :> IRegisterFactory
     | RISCV64 -> RISCV64.RegisterFactory isa :> IRegisterFactory
     | SPARC -> SPARC.RegisterFactory isa :> IRegisterFactory
@@ -89,8 +88,6 @@ module ArchSupport =
       S390.S390Parser(isa, reader) :> IInstructionParsable
     | SH4 ->
       SH4.SH4Parser(reader) :> IInstructionParsable
-    | PPC32 ->
-      PPC32.PPC32Parser(reader) :> IInstructionParsable
     | PPC ->
       PPC.PPCParser(isa.WordSize, reader) :> IInstructionParsable
     | RISCV64 ->
