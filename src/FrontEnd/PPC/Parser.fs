@@ -28,21 +28,28 @@ open System
 open B2R2
 open B2R2.FrontEnd.BinLifter
 
-/// Represents a parser for PPC instructions.
+/// Represents a parser for PPC instructions. The word size selects the PowerPC
+/// variant: 32-bit is supported, whereas 64-bit is not implemented yet and
+/// fails to parse.
 type PPCParser(wordSize: WordSize, reader) =
+
   let lifter =
     { new ILiftable with
-        member _.Lift(ins, builder) =
-          Lifter.translate ins ins.Length builder
-        member _.Disasm(ins, builder) =
-          Disasm.disasm ins builder; builder }
+        member _.Lift(ins, builder) = Lifter.translate ins ins.Length builder
+        member _.Disasm(ins, builder) = Disasm.disasm ins builder; builder }
 
   interface IInstructionParsable with
     member _.MaxInstructionSize = 4
 
     member _.Parse(span: ByteSpan, addr) =
-      ParsingMain.parse lifter span reader addr :> IInstruction
+      if wordSize = WordSize.Bit64 then
+        raise ParsingFailureException
+      else
+        ParsingMain.parse lifter span reader addr :> IInstruction
 
     member _.Parse(bs: byte[], addr) =
-      let span = ReadOnlySpan bs
-      ParsingMain.parse lifter span reader addr :> IInstruction
+      if wordSize = WordSize.Bit64 then
+        raise ParsingFailureException
+      else
+        let span = ReadOnlySpan bs
+        ParsingMain.parse lifter span reader addr :> IInstruction

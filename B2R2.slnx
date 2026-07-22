@@ -33,7 +33,6 @@
   <Project Path="src/FrontEnd/PARISC/B2R2.FrontEnd.PARISC.fsproj" />
   <Project Path="src/FrontEnd/PPC.Tests/B2R2.FrontEnd.PPC.Tests.fsproj" />
   <Project Path="src/FrontEnd/PPC/B2R2.FrontEnd.PPC.fsproj" />
-  <Project Path="src/FrontEnd/PPC32/B2R2.FrontEnd.PPC32.fsproj" />
   <Project Path="src/FrontEnd/Python/B2R2.FrontEnd.Python.fsproj" />
   <Project Path="src/FrontEnd/Registers/B2R2.FrontEnd.Registers.fsproj" />
   <Project Path="src/FrontEnd/RISCV64/B2R2.FrontEnd.RISCV64.fsproj" />

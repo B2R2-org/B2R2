@@ -33,25 +33,20 @@ type Operands =
   | FourOperands of Operand * Operand * Operand * Operand
   | FiveOperands of Operand * Operand * Operand * Operand * Operand
 
-/// Represents one operand in a PPC instruction.
+/// Represents an operand used in a PPC instruction.
 and Operand =
   | OprReg of Register
   | OprMem of Disp * Register
   | OprImm of Imm
-  | OprCY of uint8
-  | OprL of uint8
   | OprAddr of TargetAddr
-  | OprBO of uint8
-  | OprBH of uint8
-  | OprTO of uint8
-  | OprCRMask of uint8
-  | OprFPSCRMask of uint8
-  | OprW of uint8
-  | OprDCM of uint8
-  | OprDGM of uint8
+  | OprBI of uint32
 
-and Disp = int64
+/// Represents the displacement value used in memory operands of PPC
+/// instructions.
+and Disp = int32
 
+/// Represents an immediate value in PPC instructions.
 and Imm = uint64
 
+/// Represents a branch target address used in PPC instructions.
 and TargetAddr = uint64

@@ -69,26 +69,86 @@ type RegisterFactory(isa: ISA) =
   let r29 = AST.var rt (Register.toRegID R29) "R29"
   let r30 = AST.var rt (Register.toRegID R30) "R30"
   let r31 = AST.var rt (Register.toRegID R31) "R31"
-  let cr0 = AST.var 4<rt> (Register.toRegID CR0) "CR0"
-  let cr1 = AST.var 4<rt> (Register.toRegID CR1) "CR1"
-  let cr2 = AST.var 4<rt> (Register.toRegID CR2) "CR2"
-  let cr3 = AST.var 4<rt> (Register.toRegID CR3) "CR3"
-  let cr4 = AST.var 4<rt> (Register.toRegID CR4) "CR4"
-  let cr5 = AST.var 4<rt> (Register.toRegID CR5) "CR5"
-  let cr6 = AST.var 4<rt> (Register.toRegID CR6) "CR6"
-  let cr7 = AST.var 4<rt> (Register.toRegID CR7) "CR7"
-  let xer = AST.var 64<rt> (Register.toRegID XER) "XER"
-  let lr = AST.var 64<rt> (Register.toRegID LR) "LR"
-  let ctr = AST.var 64<rt> (Register.toRegID CTR) "CTR"
-  let tar = AST.var 64<rt> (Register.toRegID TAR) "TAR"
+  let f0 = AST.var 64<rt> (Register.toRegID F0) "F0"
+  let f1 = AST.var 64<rt> (Register.toRegID F1) "F1"
+  let f2 = AST.var 64<rt> (Register.toRegID F2) "F2"
+  let f3 = AST.var 64<rt> (Register.toRegID F3) "F3"
+  let f4 = AST.var 64<rt> (Register.toRegID F4) "F4"
+  let f5 = AST.var 64<rt> (Register.toRegID F5) "F5"
+  let f6 = AST.var 64<rt> (Register.toRegID F6) "F6"
+  let f7 = AST.var 64<rt> (Register.toRegID F7) "F7"
+  let f8 = AST.var 64<rt> (Register.toRegID F8) "F8"
+  let f9 = AST.var 64<rt> (Register.toRegID F9) "F9"
+  let f10 = AST.var 64<rt> (Register.toRegID F10) "F10"
+  let f11 = AST.var 64<rt> (Register.toRegID F11) "F11"
+  let f12 = AST.var 64<rt> (Register.toRegID F12) "F12"
+  let f13 = AST.var 64<rt> (Register.toRegID F13) "F13"
+  let f14 = AST.var 64<rt> (Register.toRegID F14) "F14"
+  let f15 = AST.var 64<rt> (Register.toRegID F15) "F15"
+  let f16 = AST.var 64<rt> (Register.toRegID F16) "F16"
+  let f17 = AST.var 64<rt> (Register.toRegID F17) "F17"
+  let f18 = AST.var 64<rt> (Register.toRegID F18) "F18"
+  let f19 = AST.var 64<rt> (Register.toRegID F19) "F19"
+  let f20 = AST.var 64<rt> (Register.toRegID F20) "F20"
+  let f21 = AST.var 64<rt> (Register.toRegID F21) "F21"
+  let f22 = AST.var 64<rt> (Register.toRegID F22) "F22"
+  let f23 = AST.var 64<rt> (Register.toRegID F23) "F23"
+  let f24 = AST.var 64<rt> (Register.toRegID F24) "F24"
+  let f25 = AST.var 64<rt> (Register.toRegID F25) "F25"
+  let f26 = AST.var 64<rt> (Register.toRegID F26) "F26"
+  let f27 = AST.var 64<rt> (Register.toRegID F27) "F27"
+  let f28 = AST.var 64<rt> (Register.toRegID F28) "F28"
+  let f29 = AST.var 64<rt> (Register.toRegID F29) "F29"
+  let f30 = AST.var 64<rt> (Register.toRegID F30) "F30"
+  let f31 = AST.var 64<rt> (Register.toRegID F31) "F31"
+  let cr00 = AST.var 1<rt> (Register.toRegID CR0_0) "CR0_0"
+  let cr01 = AST.var 1<rt> (Register.toRegID CR0_1) "CR0_1"
+  let cr02 = AST.var 1<rt> (Register.toRegID CR0_2) "CR0_2"
+  let cr03 = AST.var 1<rt> (Register.toRegID CR0_3) "CR0_3"
+  let cr10 = AST.var 1<rt> (Register.toRegID CR1_0) "CR1_0"
+  let cr11 = AST.var 1<rt> (Register.toRegID CR1_1) "CR1_1"
+  let cr12 = AST.var 1<rt> (Register.toRegID CR1_2) "CR1_2"
+  let cr13 = AST.var 1<rt> (Register.toRegID CR1_3) "CR1_3"
+  let cr20 = AST.var 1<rt> (Register.toRegID CR2_0) "CR2_0"
+  let cr21 = AST.var 1<rt> (Register.toRegID CR2_1) "CR2_1"
+  let cr22 = AST.var 1<rt> (Register.toRegID CR2_2) "CR2_2"
+  let cr23 = AST.var 1<rt> (Register.toRegID CR2_3) "CR2_3"
+  let cr30 = AST.var 1<rt> (Register.toRegID CR3_0) "CR3_0"
+  let cr31 = AST.var 1<rt> (Register.toRegID CR3_1) "CR3_1"
+  let cr32 = AST.var 1<rt> (Register.toRegID CR3_2) "CR3_2"
+  let cr33 = AST.var 1<rt> (Register.toRegID CR3_3) "CR3_3"
+  let cr40 = AST.var 1<rt> (Register.toRegID CR4_0) "CR4_0"
+  let cr41 = AST.var 1<rt> (Register.toRegID CR4_1) "CR4_1"
+  let cr42 = AST.var 1<rt> (Register.toRegID CR4_2) "CR4_2"
+  let cr43 = AST.var 1<rt> (Register.toRegID CR4_3) "CR4_3"
+  let cr50 = AST.var 1<rt> (Register.toRegID CR5_0) "CR5_0"
+  let cr51 = AST.var 1<rt> (Register.toRegID CR5_1) "CR5_1"
+  let cr52 = AST.var 1<rt> (Register.toRegID CR5_2) "CR5_2"
+  let cr53 = AST.var 1<rt> (Register.toRegID CR5_3) "CR5_3"
+  let cr60 = AST.var 1<rt> (Register.toRegID CR6_0) "CR6_0"
+  let cr61 = AST.var 1<rt> (Register.toRegID CR6_1) "CR6_1"
+  let cr62 = AST.var 1<rt> (Register.toRegID CR6_2) "CR6_2"
+  let cr63 = AST.var 1<rt> (Register.toRegID CR6_3) "CR6_3"
+  let cr70 = AST.var 1<rt> (Register.toRegID CR7_0) "CR7_0"
+  let cr71 = AST.var 1<rt> (Register.toRegID CR7_1) "CR7_1"
+  let cr72 = AST.var 1<rt> (Register.toRegID CR7_2) "CR7_2"
+  let cr73 = AST.var 1<rt> (Register.toRegID CR7_3) "CR7_3"
+  let fpscr = AST.var 32<rt> (Register.toRegID FPSCR) "FPSCR"
+  let xer = AST.var 32<rt> (Register.toRegID XER) "XER"
+  let lr = AST.var rt (Register.toRegID LR) "LR"
+  let ctr = AST.var rt (Register.toRegID CTR) "CTR"
+  let pvr = AST.var 32<rt> (Register.toRegID PVR) "PVR"
+  let res = AST.var 1<rt> (Register.toRegID RES) "RES"
+  let iar = AST.pcvar rt "IAR"
+  let exMonAddr = AST.var rt (Register.toRegID ExMonAddr) "ExMonAddr"
+  let exMonVal = AST.var rt (Register.toRegID ExMonVal) "ExMonVal"
 
   interface IRegisterFactory with
     member _.ISA = isa
 
-    member _.ProgramCounter = Terminator.futureFeature ()
+    member _.ProgramCounter = IAR |> Register.toRegID
 
-    member _.StackPointer =
-      R0 |> Register.toRegID |> Some
+    member _.StackPointer = R1 |> Register.toRegID |> Some
 
     member _.FramePointer = None
 
@@ -126,18 +186,79 @@ type RegisterFactory(isa: ISA) =
       | Register.R29 -> r29
       | Register.R30 -> r30
       | Register.R31 -> r31
-      | Register.CR0 -> cr0
-      | Register.CR1 -> cr1
-      | Register.CR2 -> cr2
-      | Register.CR3 -> cr3
-      | Register.CR4 -> cr4
-      | Register.CR5 -> cr5
-      | Register.CR6 -> cr6
-      | Register.CR7 -> cr7
+      | Register.F0 -> f0
+      | Register.F1 -> f1
+      | Register.F2 -> f2
+      | Register.F3 -> f3
+      | Register.F4 -> f4
+      | Register.F5 -> f5
+      | Register.F6 -> f6
+      | Register.F7 -> f7
+      | Register.F8 -> f8
+      | Register.F9 -> f9
+      | Register.F10 -> f10
+      | Register.F11 -> f11
+      | Register.F12 -> f12
+      | Register.F13 -> f13
+      | Register.F14 -> f14
+      | Register.F15 -> f15
+      | Register.F16 -> f16
+      | Register.F17 -> f17
+      | Register.F18 -> f18
+      | Register.F19 -> f19
+      | Register.F20 -> f20
+      | Register.F21 -> f21
+      | Register.F22 -> f22
+      | Register.F23 -> f23
+      | Register.F24 -> f24
+      | Register.F25 -> f25
+      | Register.F26 -> f26
+      | Register.F27 -> f27
+      | Register.F28 -> f28
+      | Register.F29 -> f29
+      | Register.F30 -> f30
+      | Register.F31 -> f31
+      | Register.CR0_0 -> cr00
+      | Register.CR0_1 -> cr01
+      | Register.CR0_2 -> cr02
+      | Register.CR0_3 -> cr03
+      | Register.CR1_0 -> cr10
+      | Register.CR1_1 -> cr11
+      | Register.CR1_2 -> cr12
+      | Register.CR1_3 -> cr13
+      | Register.CR2_0 -> cr20
+      | Register.CR2_1 -> cr21
+      | Register.CR2_2 -> cr22
+      | Register.CR2_3 -> cr23
+      | Register.CR3_0 -> cr30
+      | Register.CR3_1 -> cr31
+      | Register.CR3_2 -> cr32
+      | Register.CR3_3 -> cr33
+      | Register.CR4_0 -> cr40
+      | Register.CR4_1 -> cr41
+      | Register.CR4_2 -> cr42
+      | Register.CR4_3 -> cr43
+      | Register.CR5_0 -> cr50
+      | Register.CR5_1 -> cr51
+      | Register.CR5_2 -> cr52
+      | Register.CR5_3 -> cr53
+      | Register.CR6_0 -> cr60
+      | Register.CR6_1 -> cr61
+      | Register.CR6_2 -> cr62
+      | Register.CR6_3 -> cr63
+      | Register.CR7_0 -> cr70
+      | Register.CR7_1 -> cr71
+      | Register.CR7_2 -> cr72
+      | Register.CR7_3 -> cr73
+      | Register.FPSCR -> fpscr
       | Register.XER -> xer
       | Register.LR -> lr
       | Register.CTR -> ctr
-      | Register.TAR -> tar
+      | Register.PVR -> pvr
+      | Register.RES -> res
+      | Register.IAR -> iar
+      | Register.ExMonAddr -> exMonAddr
+      | Register.ExMonVal -> exMonVal
       | _ -> raise InvalidRegisterException
 
     member _.GetRegVar(name: string) =
@@ -174,18 +295,73 @@ type RegisterFactory(isa: ISA) =
       | "r29" -> r29
       | "r30" -> r30
       | "r31" -> r31
-      | "cr0" -> cr0
-      | "cr1" -> cr1
-      | "cr2" -> cr2
-      | "cr3" -> cr3
-      | "cr4" -> cr4
-      | "cr5" -> cr5
-      | "cr6" -> cr6
-      | "cr7" -> cr7
-      | "xer" -> xer
-      | "lr" -> lr
-      | "ctr" -> ctr
-      | "tar" -> tar
+      | "f0" -> f0
+      | "f1" -> f1
+      | "f2" -> f2
+      | "f3" -> f3
+      | "f4" -> f4
+      | "f5" -> f5
+      | "f6" -> f6
+      | "f7" -> f7
+      | "f8" -> f8
+      | "f9" -> f9
+      | "f10" -> f10
+      | "f11" -> f11
+      | "f12" -> f12
+      | "f13" -> f13
+      | "f14" -> f14
+      | "f15" -> f15
+      | "f16" -> f16
+      | "f17" -> f17
+      | "f18" -> f18
+      | "f19" -> f19
+      | "f20" -> f20
+      | "f21" -> f21
+      | "f22" -> f22
+      | "f23" -> f23
+      | "f24" -> f24
+      | "f25" -> f25
+      | "f26" -> f26
+      | "f27" -> f27
+      | "f28" -> f28
+      | "f29" -> f29
+      | "f30" -> f30
+      | "f31" -> f31
+      | "cr0_0" -> cr00
+      | "cr0_1" -> cr01
+      | "cr0_2" -> cr02
+      | "cr0_3" -> cr03
+      | "cr1_0" -> cr10
+      | "cr1_1" -> cr11
+      | "cr1_2" -> cr12
+      | "cr1_3" -> cr13
+      | "cr2_0" -> cr20
+      | "cr2_1" -> cr21
+      | "cr2_2" -> cr22
+      | "cr2_3" -> cr23
+      | "cr3_0" -> cr30
+      | "cr3_1" -> cr31
+      | "cr3_2" -> cr32
+      | "cr3_3" -> cr33
+      | "cr4_0" -> cr40
+      | "cr4_1" -> cr41
+      | "cr4_2" -> cr42
+      | "cr4_3" -> cr43
+      | "cr5_0" -> cr50
+      | "cr5_1" -> cr51
+      | "cr5_2" -> cr52
+      | "cr5_3" -> cr53
+      | "cr6_0" -> cr60
+      | "cr6_1" -> cr61
+      | "cr6_2" -> cr62
+      | "cr6_3" -> cr63
+      | "cr7_0" -> cr70
+      | "cr7_1" -> cr71
+      | "cr7_2" -> cr72
+      | "cr7_3" -> cr73
+      | "iar" -> iar
+      | "exmonaddr" -> exMonAddr
+      | "exmonval" -> exMonVal
       | _ -> raise InvalidRegisterException
 
     member _.GetPseudoRegVar(_id, _idx) = Terminator.impossible ()
@@ -223,18 +399,70 @@ type RegisterFactory(isa: ISA) =
          r29
          r30
          r31
-         cr0
-         cr1
-         cr2
-         cr3
-         cr4
-         cr5
-         cr6
-         cr7
-         xer
-         lr
-         ctr
-         tar |]
+         f0
+         f1
+         f2
+         f3
+         f4
+         f5
+         f6
+         f7
+         f8
+         f9
+         f10
+         f11
+         f12
+         f13
+         f14
+         f15
+         f16
+         f17
+         f18
+         f19
+         f20
+         f21
+         f22
+         f23
+         f24
+         f25
+         f26
+         f27
+         f28
+         f29
+         f30
+         f31
+         cr00
+         cr01
+         cr02
+         cr03
+         cr10
+         cr11
+         cr12
+         cr13
+         cr20
+         cr21
+         cr22
+         cr23
+         cr30
+         cr32
+         cr32
+         cr33
+         cr40
+         cr41
+         cr42
+         cr43
+         cr50
+         cr51
+         cr52
+         cr53
+         cr60
+         cr61
+         cr62
+         cr63
+         cr70
+         cr71
+         cr72
+         cr73 |]
 
     member _.GetGeneralRegVars() =
       [| r0
@@ -275,14 +503,11 @@ type RegisterFactory(isa: ISA) =
       | Var(_, id, _, _) -> id
       | _ -> raise InvalidRegisterException
 
-    member _.GetRegisterID name =
-      Register.ofString name |> Register.toRegID
+    member _.GetRegisterID name = Register.ofString name |> Register.toRegID
 
-    member _.GetRegisterIDAliases rid =
-      [| rid |]
+    member _.GetRegisterIDAliases rid = [| rid |]
 
-    member _.GetRegisterName rid =
-      Register.ofRegID rid |> Register.toString
+    member _.GetRegisterName rid = Register.ofRegID rid |> Register.toString
 
     member this.GetAllRegisterNames() =
       let regFactory = this :> IRegisterFactory
@@ -293,9 +518,9 @@ type RegisterFactory(isa: ISA) =
       if rid < 0x40<RegisterID.T> then WordSize.toRegType isa.WordSize
       else 4<rt>
 
-    member _.IsProgramCounter _ = false
+    member this.IsProgramCounter regid =
+      (this :> IRegisterFactory).ProgramCounter = regid
 
-    member _.IsStackPointer rid =
-      Register.toRegID R1 = rid
+    member _.IsStackPointer rid = Register.toRegID R1 = rid
 
     member _.IsFramePointer _ = false

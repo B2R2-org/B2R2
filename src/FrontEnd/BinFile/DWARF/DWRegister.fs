@@ -151,7 +151,7 @@ let private toRISCVRegister (n: byte) =
   RISCV64.Register.toRegID (EnumOfValue(int n))
 
 let private toPPC32Register (n: byte) =
-  PPC32.Register.toRegID (EnumOfValue(int n))
+  PPC.Register.toRegID (EnumOfValue(int n))
 
 let private toSH4Register (n: byte) = SH4.Register.toRegID (EnumOfValue(int n))
 
