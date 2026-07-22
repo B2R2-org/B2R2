@@ -1275,6 +1275,7 @@ module LinuxSyscall =
     | LinuxSyscall.Statx -> 332
     | LinuxSyscall.IoPgetevents -> 333
     | LinuxSyscall.Rseq -> 334
+    | LinuxSyscall.Clone3 -> 435
     | LinuxSyscall.Faccessat2 -> 439
     | _ -> raise UnhandledSyscallException
 
@@ -3814,6 +3815,7 @@ module LinuxSyscall =
     | LinuxSyscall.Fsmount -> 432
     | LinuxSyscall.Fspick -> 433
     | LinuxSyscall.PidfdOpen -> 434
+    | LinuxSyscall.Clone3 -> 435
     | LinuxSyscall.CloseRange -> 436
     | LinuxSyscall.Openat2 -> 437
     | LinuxSyscall.PidfdGetfd -> 438
@@ -4579,6 +4581,7 @@ module LinuxSyscall =
     | 332 -> LinuxSyscall.Statx
     | 333 -> LinuxSyscall.IoPgetevents
     | 334 -> LinuxSyscall.Rseq
+    | 435 -> LinuxSyscall.Clone3
     | 439 -> LinuxSyscall.Faccessat2
     | _ -> raise UnhandledSyscallException
 
@@ -7130,6 +7133,7 @@ module LinuxSyscall =
     | 432 -> LinuxSyscall.Fsmount
     | 433 -> LinuxSyscall.Fspick
     | 434 -> LinuxSyscall.PidfdOpen
+    | 435 -> LinuxSyscall.Clone3
     | 436 -> LinuxSyscall.CloseRange
     | 437 -> LinuxSyscall.Openat2
     | 438 -> LinuxSyscall.PidfdGetfd
