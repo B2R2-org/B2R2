@@ -944,6 +944,7 @@ module LinuxSyscall =
     | LinuxSyscall.Fspick -> 433
     | LinuxSyscall.PidfdOpen -> 434
     | LinuxSyscall.Clone3 -> 435
+    | LinuxSyscall.CloseRange -> 436
     | LinuxSyscall.Faccessat2 -> 439
     | _ -> raise UnhandledSyscallException
 
@@ -1276,6 +1277,7 @@ module LinuxSyscall =
     | LinuxSyscall.IoPgetevents -> 333
     | LinuxSyscall.Rseq -> 334
     | LinuxSyscall.Clone3 -> 435
+    | LinuxSyscall.CloseRange -> 436
     | LinuxSyscall.Faccessat2 -> 439
     | _ -> raise UnhandledSyscallException
 
@@ -1657,6 +1659,7 @@ module LinuxSyscall =
     | LinuxSyscall.Fspick -> 433
     | LinuxSyscall.PidfdOpen -> 434
     | LinuxSyscall.Clone3 -> 435
+    | LinuxSyscall.CloseRange -> 436
     | LinuxSyscall.Openat2 -> 437
     | LinuxSyscall.PidfdGetfd -> 438
     | LinuxSyscall.Faccessat2 -> 439
@@ -1980,6 +1983,7 @@ module LinuxSyscall =
     | LinuxSyscall.Fspick -> 433
     | LinuxSyscall.PidfdOpen -> 434
     | LinuxSyscall.Clone3 -> 435
+    | LinuxSyscall.CloseRange -> 436
     | LinuxSyscall.Openat2 -> 437
     | LinuxSyscall.PidfdGetfd -> 438
     | LinuxSyscall.Faccessat2 -> 439
@@ -2372,6 +2376,7 @@ module LinuxSyscall =
     | LinuxSyscall.Fspick -> 4433
     | LinuxSyscall.PidfdOpen -> 4434
     | LinuxSyscall.Clone3 -> 4435
+    | LinuxSyscall.CloseRange -> 4436
     | LinuxSyscall.Openat2 -> 4437
     | LinuxSyscall.PidfdGetfd -> 4438
     | LinuxSyscall.Faccessat2 -> 4439
@@ -4250,6 +4255,7 @@ module LinuxSyscall =
     | 433 -> LinuxSyscall.Fspick
     | 434 -> LinuxSyscall.PidfdOpen
     | 435 -> LinuxSyscall.Clone3
+    | 436 -> LinuxSyscall.CloseRange
     | 439 -> LinuxSyscall.Faccessat2
     | _ -> raise UnhandledSyscallException
 
@@ -4582,6 +4588,7 @@ module LinuxSyscall =
     | 333 -> LinuxSyscall.IoPgetevents
     | 334 -> LinuxSyscall.Rseq
     | 435 -> LinuxSyscall.Clone3
+    | 436 -> LinuxSyscall.CloseRange
     | 439 -> LinuxSyscall.Faccessat2
     | _ -> raise UnhandledSyscallException
 
@@ -4973,6 +4980,7 @@ module LinuxSyscall =
     | 433 -> LinuxSyscall.Fspick
     | 434 -> LinuxSyscall.PidfdOpen
     | 435 -> LinuxSyscall.Clone3
+    | 436 -> LinuxSyscall.CloseRange
     | 437 -> LinuxSyscall.Openat2
     | 438 -> LinuxSyscall.PidfdGetfd
     | 439 -> LinuxSyscall.Faccessat2
@@ -5296,6 +5304,7 @@ module LinuxSyscall =
     | 433 -> LinuxSyscall.Fspick
     | 434 -> LinuxSyscall.PidfdOpen
     | 435 -> LinuxSyscall.Clone3
+    | 436 -> LinuxSyscall.CloseRange
     | 437 -> LinuxSyscall.Openat2
     | 438 -> LinuxSyscall.PidfdGetfd
     | 439 -> LinuxSyscall.Faccessat2
@@ -5688,6 +5697,7 @@ module LinuxSyscall =
     | 4433 -> LinuxSyscall.Fspick
     | 4434 -> LinuxSyscall.PidfdOpen
     | 4435 -> LinuxSyscall.Clone3
+    | 4436 -> LinuxSyscall.CloseRange
     | 4437 -> LinuxSyscall.Openat2
     | 4438 -> LinuxSyscall.PidfdGetfd
     | 4439 -> LinuxSyscall.Faccessat2
