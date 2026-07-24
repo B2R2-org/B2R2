@@ -23,9 +23,8 @@
 *)
 
 /// Builds the system-call convention for a given binary. This is the front-end
-/// factory that turns a BinHandle into the architecture-independent
-/// SyscallConvention type defined in B2R2.Core. The target OS is derived from
-/// the binary's file format.
+/// factory that produces the architecture-independent SyscallConvention type
+/// defined in B2R2.Core from a target OS and ISA.
 [<RequireQualifiedAccess>]
 module B2R2.FrontEnd.SyscallConvention
 
@@ -214,23 +213,69 @@ let private windowsX64 () = (* first arg in R10, not RCX *)
          reg (intel Intel.Register.R9)
          ArgLocation.Stack { FirstOffset = 40; SlotSize = 8 } |] }
 
-/// Builds the system-call convention for the given handle. Combinations we do
-/// not model fall back to the Linux x64 syscall convention, so this never
-/// throws.
-let create format isa =
-  match format, isa with
-  | FileFormat.ELFBinary, X86 -> linuxX86 ()
-  | FileFormat.ELFBinary, X64 -> linuxX64 ()
-  | FileFormat.ELFBinary, ARM32 -> linuxARM32 ()
-  | FileFormat.ELFBinary, AArch64 -> linuxAArch64 ()
-  | FileFormat.ELFBinary, MIPS32 -> linuxMIPS32 ()
-  | FileFormat.ELFBinary, MIPS64 -> linuxMIPS64 ()
-  | FileFormat.ELFBinary, PPC32 -> linuxPPC32 ()
-  | FileFormat.ELFBinary, RISCV64 -> linuxRISCV64 ()
-  | FileFormat.ELFBinary, SPARC -> linuxSPARC ()
-  | FileFormat.ELFBinary, S390 -> linuxS390 ()
-  | FileFormat.ELFBinary, SH4 -> linuxSH4 ()
-  | FileFormat.ELFBinary, PARISC -> linuxPARISC ()
-  | FileFormat.PEBinary, X86 -> windowsX86 ()
-  | FileFormat.PEBinary, X64 -> windowsX64 ()
+let private macosX86 () = (* Darwin i386: args on the stack, error via carry *)
+  { NumberRegister = intel Intel.Register.EAX
+    ReturnRegister = intel Intel.Register.EAX
+    Error = FlagRegister(intel Intel.Register.CF)
+    Args = [| ArgLocation.Stack { FirstOffset = 4; SlotSize = 4 } |] }
+
+let private macosX64 () = (* R10 replaces RCX; error via the carry flag *)
+  { NumberRegister = intel Intel.Register.RAX
+    ReturnRegister = intel Intel.Register.RAX
+    Error = FlagRegister(intel Intel.Register.CF)
+    Args =
+      [| reg (intel Intel.Register.RDI)
+         reg (intel Intel.Register.RSI)
+         reg (intel Intel.Register.RDX)
+         reg (intel Intel.Register.R10)
+         reg (intel Intel.Register.R8)
+         reg (intel Intel.Register.R9) |] }
+
+let private macosARM32 () = (* iOS armv7: number in R12, error via carry *)
+  { NumberRegister = arm32 ARM32.Register.IP (* r12 *)
+    ReturnRegister = arm32 ARM32.Register.R0
+    Error = FlagRegister(arm32 ARM32.Register.APSR)
+    Args =
+      [| reg (arm32 ARM32.Register.R0)
+         reg (arm32 ARM32.Register.R1)
+         reg (arm32 ARM32.Register.R2)
+         reg (arm32 ARM32.Register.R3)
+         reg (arm32 ARM32.Register.R4)
+         reg (arm32 ARM32.Register.R5) |] }
+
+let private macosAArch64 () = (* number in X16, error via carry *)
+  { NumberRegister = arm64 ARM64.Register.X16
+    ReturnRegister = arm64 ARM64.Register.X0
+    Error = FlagRegister(arm64 ARM64.Register.C)
+    Args =
+      [| reg (arm64 ARM64.Register.X0)
+         reg (arm64 ARM64.Register.X1)
+         reg (arm64 ARM64.Register.X2)
+         reg (arm64 ARM64.Register.X3)
+         reg (arm64 ARM64.Register.X4)
+         reg (arm64 ARM64.Register.X5) |] }
+
+/// Builds the system-call convention for the given OS and ISA. Combinations we
+/// do not model (including an unknown OS, e.g. a raw shellcode image) fall back
+/// to the Linux x64 syscall convention, so this never throws.
+let create os isa =
+  match os, isa with
+  | OS.Linux, X86 -> linuxX86 ()
+  | OS.Linux, X64 -> linuxX64 ()
+  | OS.Linux, ARM32 -> linuxARM32 ()
+  | OS.Linux, AArch64 -> linuxAArch64 ()
+  | OS.Linux, MIPS32 -> linuxMIPS32 ()
+  | OS.Linux, MIPS64 -> linuxMIPS64 ()
+  | OS.Linux, PPC32 -> linuxPPC32 ()
+  | OS.Linux, RISCV64 -> linuxRISCV64 ()
+  | OS.Linux, SPARC -> linuxSPARC ()
+  | OS.Linux, S390 -> linuxS390 ()
+  | OS.Linux, SH4 -> linuxSH4 ()
+  | OS.Linux, PARISC -> linuxPARISC ()
+  | OS.Windows, X86 -> windowsX86 ()
+  | OS.Windows, X64 -> windowsX64 ()
+  | OS.MacOSX, X86 -> macosX86 ()
+  | OS.MacOSX, X64 -> macosX64 ()
+  | OS.MacOSX, ARM32 -> macosARM32 ()
+  | OS.MacOSX, AArch64 -> macosAArch64 ()
   | _ -> linuxX64 ()

@@ -31,14 +31,34 @@ open B2R2.FrontEnd.BinFile
 open B2R2.FrontEnd.BinLifter
 open type FileFormat
 
-type BinHandle private(path, bytes, fmt, isa, baseAddrOpt) =
+type BinHandle private(path, bytes, fmt, isa, baseAddrOpt, osOpt) =
   let regFactory = GroundWork.CreateRegisterFactory isa
 
   let binFile = FileFactory.load path bytes fmt isa regFactory baseAddrOpt
 
-  let cc = CallingConvention.create binFile.Format binFile.ISA
+  let os =
+    let implied =
+      match binFile.Format with
+      | FileFormat.ELFBinary -> Some OS.Linux
+      | FileFormat.PEBinary -> Some OS.Windows
+      | FileFormat.MachBinary -> Some OS.MacOSX
+      | _ -> None
+    match implied, osOpt with
+    | Some impliedOS, Some injected when injected <> impliedOS ->
+      let fmt = FileFormat.toString binFile.Format
+      let injected, expected = OS.toString injected, OS.toString impliedOS
+      invalidArg "os"
+      <| $"OS {injected} conflicts with {fmt} format (expects {expected})."
+    | Some impliedOS, _ ->
+      impliedOS
+    | None, Some injected ->
+      injected
+    | None, None ->
+      OS.UnknownOS
 
-  let sc = SyscallConvention.create binFile.Format binFile.ISA
+  let cc = CallingConvention.create os binFile.ISA
+
+  let sc = SyscallConvention.create os binFile.ISA
 
   let reader = binFile.Reader
 
@@ -119,7 +139,7 @@ type BinHandle private(path, bytes, fmt, isa, baseAddrOpt) =
   new(path, isa, baseAddrOpt) =
     let bytes = File.ReadAllBytes path
     let struct (fmt, isa) = FormatDetector.identify bytes isa
-    BinHandle(path, bytes, fmt, isa, baseAddrOpt)
+    BinHandle(path, bytes, fmt, isa, baseAddrOpt, None)
 
   new(path, isa) = BinHandle(path = path, isa = isa, baseAddrOpt = None)
 
@@ -130,17 +150,21 @@ type BinHandle private(path, bytes, fmt, isa, baseAddrOpt) =
   new(bytes, isa, baseAddrOpt, detectFormat) =
     if detectFormat then
       let struct (fmt, isa) = FormatDetector.identify bytes isa
-      BinHandle("", bytes, fmt, isa, baseAddrOpt)
+      BinHandle("", bytes, fmt, isa, baseAddrOpt, None)
     else
-      BinHandle("", bytes, RawBinary, isa, baseAddrOpt)
+      BinHandle("", bytes, RawBinary, isa, baseAddrOpt, None)
 
-  new(bytes, isa) = BinHandle("", bytes, RawBinary, isa, None)
+  new(bytes, isa) = BinHandle("", bytes, RawBinary, isa, None, None)
+
+  new(bytes, isa, os) = BinHandle("", bytes, RawBinary, isa, None, Some os)
 
   new(isa) = BinHandle([||], isa, None, false)
 
   member _.File with get(): IBinFile = binFile
 
   member _.RegisterFactory with get() = regFactory
+
+  member _.OS with get() = os
 
   member _.CallingConvention with get() = cc
 
@@ -209,9 +233,10 @@ type BinHandle private(path, bytes, fmt, isa, baseAddrOpt) =
     let bs = readAscii [] ptr
     ByteArray.extractCString bs 0
 
-  member _.MakeNew(bs: byte[]) = BinHandle(path, bs, fmt, isa, baseAddrOpt)
+  member _.MakeNew(bs: byte[]) =
+    BinHandle(path, bs, fmt, isa, baseAddrOpt, Some os)
 
   member _.MakeNew(bs: byte[], baseAddr) =
-    BinHandle(path, bs, fmt, isa, Some baseAddr)
+    BinHandle(path, bs, fmt, isa, Some baseAddr, Some os)
 
 // vim: set tw=80 sts=2 sw=2:

@@ -63,6 +63,12 @@ type BinHandle =
   /// set to 0UL, and file format detection is disabled.
   new: bytes: byte[] * isa: ISA -> BinHandle
 
+  /// Constructs a BinHandle from a given byte array, ISA, and target OS. The
+  /// format is treated as a raw image (no detection) and the OS is used to pick
+  /// the calling and system-call conventions. Useful for analyzing shellcode
+  /// whose OS cannot be inferred from a file format.
+  new: bytes: byte[] * isa: ISA * os: OS -> BinHandle
+
   /// Constructs an empty BinHandle.
   new: isa: ISA -> BinHandle
 
@@ -71,6 +77,11 @@ type BinHandle =
 
   /// Gets the register factory.
   member RegisterFactory: IRegisterFactory
+
+  /// Gets the target OS. For a recognized file format the OS is inferred from
+  /// the format; for a raw image it is the OS injected at construction (or
+  /// UnknownOS if none was given).
+  member OS: OS
 
   /// Gets the calling convention.
   member CallingConvention: CallingConvention

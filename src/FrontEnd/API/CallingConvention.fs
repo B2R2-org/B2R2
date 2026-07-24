@@ -23,9 +23,8 @@
 *)
 
 /// Builds the function-call calling convention for a given binary. This is the
-/// front-end factory that turns a BinHandle into the architecture-independent
-/// CallingConvention type defined in B2R2.Core. The target OS is derived from
-/// the binary's file format.
+/// front-end factory that produces the architecture-independent
+/// CallingConvention type defined in B2R2.Core from a target OS and ISA.
 [<RequireQualifiedAccess>]
 module B2R2.FrontEnd.CallingConvention
 
@@ -435,15 +434,22 @@ let private windowsX64 () = (* Microsoft x64: 32-byte shadow space *)
             intel Intel.Register.R10
             intel Intel.Register.R11 ] }
 
-/// Builds the function-call calling convention for the given handle. ISAs we
-/// do not model fall back to the System V x64 convention, so this never throws.
+/// Builds the function-call calling convention for the given OS and ISA. Only
+/// Windows diverges from the System V / AAPCS conventions; every other OS
+/// (Linux, macOS, or an unknown OS such as a raw image) shares them. ISAs we do
+/// not model fall back to the System V x64 convention, so this never throws.
 [<CompiledName "Create">]
-let create format isa =
-  match format, isa with
-  | FileFormat.PEBinary, X86 -> windowsX86 ()
-  | FileFormat.PEBinary, X64 -> windowsX64 ()
-  (* Non-PE formats (ELF, raw images, Mach-O) follow the System V conventions
-     that we model Linux-first. *)
+let create os isa =
+  match os, isa with
+  | OS.Windows, X86 -> windowsX86 ()
+  | OS.Windows, X64 -> windowsX64 ()
+  (* macOS shares the System V / AAPCS conventions for the architectures Mach-O
+     targets, so these reuse the builders we model Linux-first. *)
+  | OS.MacOSX, X86 -> linuxX86 ()
+  | OS.MacOSX, X64 -> linuxX64 ()
+  | OS.MacOSX, ARM32 -> linuxARM32 ()
+  | OS.MacOSX, AArch64 -> linuxAArch64 ()
+  (* Linux and any unknown OS (e.g. a raw image) also follow System V. *)
   | _, X86 -> linuxX86 ()
   | _, ARM32 -> linuxARM32 ()
   | _, AArch64 -> linuxAArch64 ()
