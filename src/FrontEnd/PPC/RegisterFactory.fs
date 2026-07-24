@@ -22,7 +22,7 @@
   SOFTWARE.
 *)
 
-namespace B2R2.FrontEnd.PPC32
+namespace B2R2.FrontEnd.PPC
 
 open System.Runtime.CompilerServices
 open B2R2
@@ -30,10 +30,10 @@ open B2R2.FrontEnd.BinLifter
 open B2R2.BinIR.LowUIR
 open type Register
 
-[<assembly: InternalsVisibleTo("B2R2.FrontEnd.PPC32.Tests")>]
+[<assembly: InternalsVisibleTo("B2R2.FrontEnd.PPC.Tests")>]
 do ()
 
-/// Represents a factory for accessing various PPC32 register variables.
+/// Represents a factory for accessing various PPC register variables.
 type RegisterFactory(isa: ISA) =
   let rt = WordSize.toRegType isa.WordSize
 

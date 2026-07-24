@@ -39,7 +39,7 @@ let inline private arm64 r = ARM64.Register.toRegID r
 
 let inline private mips r = MIPS.Register.toRegID r
 
-let inline private ppc r = PPC32.Register.toRegID r
+let inline private ppc r = PPC.Register.toRegID r
 
 let inline private riscv r = RISCV64.Register.toRegID r
 
@@ -175,47 +175,47 @@ let private linuxMIPS () =
 
 let private linuxPPC32 () = (* System V PowerPC ABI *)
   { Args =
-      [| ArgLocation.Reg(ppc PPC32.Register.R3)
-         ArgLocation.Reg(ppc PPC32.Register.R4)
-         ArgLocation.Reg(ppc PPC32.Register.R5)
-         ArgLocation.Reg(ppc PPC32.Register.R6)
-         ArgLocation.Reg(ppc PPC32.Register.R7)
-         ArgLocation.Reg(ppc PPC32.Register.R8)
-         ArgLocation.Reg(ppc PPC32.Register.R9)
-         ArgLocation.Reg(ppc PPC32.Register.R10) |]
-    ReturnLocation = ArgLocation.Reg(ppc PPC32.Register.R3)
+      [| ArgLocation.Reg(ppc PPC.Register.R3)
+         ArgLocation.Reg(ppc PPC.Register.R4)
+         ArgLocation.Reg(ppc PPC.Register.R5)
+         ArgLocation.Reg(ppc PPC.Register.R6)
+         ArgLocation.Reg(ppc PPC.Register.R7)
+         ArgLocation.Reg(ppc PPC.Register.R8)
+         ArgLocation.Reg(ppc PPC.Register.R9)
+         ArgLocation.Reg(ppc PPC.Register.R10) |]
+    ReturnLocation = ArgLocation.Reg(ppc PPC.Register.R3)
     CalleeSavedRegisters =
-      set [ ppc PPC32.Register.R1
-            ppc PPC32.Register.R14
-            ppc PPC32.Register.R15
-            ppc PPC32.Register.R16
-            ppc PPC32.Register.R17
-            ppc PPC32.Register.R18
-            ppc PPC32.Register.R19
-            ppc PPC32.Register.R20
-            ppc PPC32.Register.R21
-            ppc PPC32.Register.R22
-            ppc PPC32.Register.R23
-            ppc PPC32.Register.R24
-            ppc PPC32.Register.R25
-            ppc PPC32.Register.R26
-            ppc PPC32.Register.R27
-            ppc PPC32.Register.R28
-            ppc PPC32.Register.R29
-            ppc PPC32.Register.R30
-            ppc PPC32.Register.R31 ]
+      set [ ppc PPC.Register.R1
+            ppc PPC.Register.R14
+            ppc PPC.Register.R15
+            ppc PPC.Register.R16
+            ppc PPC.Register.R17
+            ppc PPC.Register.R18
+            ppc PPC.Register.R19
+            ppc PPC.Register.R20
+            ppc PPC.Register.R21
+            ppc PPC.Register.R22
+            ppc PPC.Register.R23
+            ppc PPC.Register.R24
+            ppc PPC.Register.R25
+            ppc PPC.Register.R26
+            ppc PPC.Register.R27
+            ppc PPC.Register.R28
+            ppc PPC.Register.R29
+            ppc PPC.Register.R30
+            ppc PPC.Register.R31 ]
     CallerSavedRegisters =
-      set [ ppc PPC32.Register.R0
-            ppc PPC32.Register.R3
-            ppc PPC32.Register.R4
-            ppc PPC32.Register.R5
-            ppc PPC32.Register.R6
-            ppc PPC32.Register.R7
-            ppc PPC32.Register.R8
-            ppc PPC32.Register.R9
-            ppc PPC32.Register.R10
-            ppc PPC32.Register.R11
-            ppc PPC32.Register.R12 ] }
+      set [ ppc PPC.Register.R0
+            ppc PPC.Register.R3
+            ppc PPC.Register.R4
+            ppc PPC.Register.R5
+            ppc PPC.Register.R6
+            ppc PPC.Register.R7
+            ppc PPC.Register.R8
+            ppc PPC.Register.R9
+            ppc PPC.Register.R10
+            ppc PPC.Register.R11
+            ppc PPC.Register.R12 ] }
 
 let private linuxRISCV64 () = (* RISC-V LP64 ABI *)
   { Args =

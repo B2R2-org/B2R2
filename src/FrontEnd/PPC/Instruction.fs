@@ -22,12 +22,12 @@
   SOFTWARE.
 *)
 
-namespace B2R2.FrontEnd.PPC32
+namespace B2R2.FrontEnd.PPC
 
 open B2R2
 open B2R2.FrontEnd.BinLifter
 
-/// Represents an instruction for PPC32.
+/// Represents an instruction for PPC.
 type Instruction
   internal(addr, numBytes, op, opr, oprSize, ea, lifter: ILiftable) =
 

@@ -22,25 +22,31 @@
   SOFTWARE.
 *)
 
-namespace B2R2.FrontEnd.PPC32
+namespace B2R2.FrontEnd.PPC
 
-open System
-open B2R2.FrontEnd.BinLifter
+/// Represents a set of operands in a PPC instruction.
+type Operands =
+  | NoOperand
+  | OneOperand of Operand
+  | TwoOperands of Operand * Operand
+  | ThreeOperands of Operand * Operand * Operand
+  | FourOperands of Operand * Operand * Operand * Operand
+  | FiveOperands of Operand * Operand * Operand * Operand * Operand
 
-/// Represents a parser for PPC32 instructions.
-type PPC32Parser(reader) =
+/// Represents an operand used in a PPC instruction.
+and Operand =
+  | OprReg of Register
+  | OprMem of Disp * Register
+  | OprImm of Imm
+  | OprAddr of TargetAddr
+  | OprBI of uint32
 
-  let lifter =
-    { new ILiftable with
-        member _.Lift(ins, builder) = Lifter.translate ins ins.Length builder
-        member _.Disasm(ins, builder) = Disasm.disasm ins builder; builder }
+/// Represents the displacement value used in memory operands of PPC
+/// instructions.
+and Disp = int32
 
-  interface IInstructionParsable with
-    member _.MaxInstructionSize = 4
+/// Represents an immediate value in PPC instructions.
+and Imm = uint64
 
-    member _.Parse(span: ByteSpan, addr) =
-      ParsingMain.parse lifter span reader addr :> IInstruction
-
-    member _.Parse(bs: byte[], addr) =
-      let span = ReadOnlySpan bs
-      ParsingMain.parse lifter span reader addr :> IInstruction
+/// Represents a branch target address used in PPC instructions.
+and TargetAddr = uint64

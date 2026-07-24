@@ -39,7 +39,7 @@ let inline private arm64 r = ARM64.Register.toRegID r
 
 let inline private mips r = MIPS.Register.toRegID r
 
-let inline private ppc r = PPC32.Register.toRegID r
+let inline private ppc r = PPC.Register.toRegID r
 
 let inline private riscv r = RISCV64.Register.toRegID r
 
@@ -125,16 +125,16 @@ let private linuxMIPS64 () = (* n32/n64: 6 syscall args in a0-a5, no stack *)
          reg (mips MIPS.Register.R9) |] }
 
 let private linuxPPC32 () = (* error reported via the cr0.SO bit *)
-  { NumberRegister = ppc PPC32.Register.R0
-    ReturnRegister = ppc PPC32.Register.R3
-    Error = FlagRegister(ppc PPC32.Register.CR0_3)
+  { NumberRegister = ppc PPC.Register.R0
+    ReturnRegister = ppc PPC.Register.R3
+    Error = FlagRegister(ppc PPC.Register.CR0_3)
     Args =
-      [| reg (ppc PPC32.Register.R3)
-         reg (ppc PPC32.Register.R4)
-         reg (ppc PPC32.Register.R5)
-         reg (ppc PPC32.Register.R6)
-         reg (ppc PPC32.Register.R7)
-         reg (ppc PPC32.Register.R8) |] }
+      [| reg (ppc PPC.Register.R3)
+         reg (ppc PPC.Register.R4)
+         reg (ppc PPC.Register.R5)
+         reg (ppc PPC.Register.R6)
+         reg (ppc PPC.Register.R7)
+         reg (ppc PPC.Register.R8) |] }
 
 let private linuxRISCV64 () =
   { NumberRegister = riscv RISCV64.Register.X17

@@ -1,4 +1,4 @@
-# B2R2.FrontEnd.PPC32
+# B2R2.FrontEnd.PPC
 
 ### B2R2?
 
@@ -6,6 +6,6 @@ B2R2 is a fully managed binary analysis framework written in F#. It provides a
 rich set of algorithms, functions, and tools for reverse engineering, program
 analysis, and binary-level inspection.
 
-### B2R2.FrontEnd.PPC32 Package?
+### B2R2.FrontEnd.PPC Package?
 
-`B2R2.FrontEnd.PPC32` includes PPC32 parsers and lifters.
+`B2R2.FrontEnd.PPC` includes PPC parsers and lifters.

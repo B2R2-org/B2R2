@@ -22,31 +22,34 @@
   SOFTWARE.
 *)
 
-namespace B2R2.FrontEnd.PPC32
+namespace B2R2.FrontEnd.PPC
 
-/// Represents a set of operands in a PPC32 instruction.
-type Operands =
-  | NoOperand
-  | OneOperand of Operand
-  | TwoOperands of Operand * Operand
-  | ThreeOperands of Operand * Operand * Operand
-  | FourOperands of Operand * Operand * Operand * Operand
-  | FiveOperands of Operand * Operand * Operand * Operand * Operand
+open System
+open B2R2
+open B2R2.FrontEnd.BinLifter
 
-/// Represents an operand used in a PPC32 instruction.
-and Operand =
-  | OprReg of Register
-  | OprMem of Disp * Register
-  | OprImm of Imm
-  | OprAddr of TargetAddr
-  | OprBI of uint32
+/// Represents a parser for PPC instructions. The word size selects the PowerPC
+/// variant: 32-bit is supported, whereas 64-bit is not implemented yet and
+/// fails to parse.
+type PPCParser(wordSize: WordSize, reader) =
 
-/// Represents the displacement value used in memory operands of PPC32
-/// instructions.
-and Disp = int32
+  let lifter =
+    { new ILiftable with
+        member _.Lift(ins, builder) = Lifter.translate ins ins.Length builder
+        member _.Disasm(ins, builder) = Disasm.disasm ins builder; builder }
 
-/// Represents an immediate value in PPC32 instructions.
-and Imm = uint64
+  interface IInstructionParsable with
+    member _.MaxInstructionSize = 4
 
-/// Represents a branch target address used in PPC32 instructions.
-and TargetAddr = uint64
+    member _.Parse(span: ByteSpan, addr) =
+      if wordSize = WordSize.Bit64 then
+        raise ParsingFailureException
+      else
+        ParsingMain.parse lifter span reader addr :> IInstruction
+
+    member _.Parse(bs: byte[], addr) =
+      if wordSize = WordSize.Bit64 then
+        raise ParsingFailureException
+      else
+        let span = ReadOnlySpan bs
+        ParsingMain.parse lifter span reader addr :> IInstruction

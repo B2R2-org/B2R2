@@ -51,7 +51,7 @@ type GroundWork =
     | AVR -> AVR.RegisterFactory isa
     | S390 -> S390.RegisterFactory isa :> IRegisterFactory
     | SH4 -> SH4.RegisterFactory isa :> IRegisterFactory
-    | PPC32 -> PPC32.RegisterFactory isa :> IRegisterFactory
+    | PPC -> PPC.RegisterFactory isa :> IRegisterFactory
     | RISCV64 -> RISCV64.RegisterFactory isa :> IRegisterFactory
     | SPARC -> SPARC.RegisterFactory isa :> IRegisterFactory
     | PARISC -> PARISC.RegisterFactory isa :> IRegisterFactory
@@ -81,8 +81,8 @@ type GroundWork =
       S390.S390Parser(isa, reader) :> IInstructionParsable
     | SH4 ->
       SH4.SH4Parser(reader) :> IInstructionParsable
-    | PPC32 ->
-      PPC32.PPC32Parser(reader) :> IInstructionParsable
+    | PPC ->
+      PPC.PPCParser(isa.WordSize, reader) :> IInstructionParsable
     | RISCV64 ->
       RISCV64.RISCV64Parser(isa, reader) :> IInstructionParsable
     | SPARC ->

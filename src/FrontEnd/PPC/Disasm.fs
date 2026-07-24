@@ -22,12 +22,12 @@
   SOFTWARE.
 *)
 
-module internal B2R2.FrontEnd.PPC32.Disasm
+module internal B2R2.FrontEnd.PPC.Disasm
 
 open B2R2
 open B2R2.FrontEnd.BinLifter
 open B2R2.FrontEnd.BinLifter.ParsingUtils
-open B2R2.FrontEnd.PPC32.OperandHelper
+open B2R2.FrontEnd.PPC.OperandHelper
 
 type Condition =
   /// Less than [LT].
