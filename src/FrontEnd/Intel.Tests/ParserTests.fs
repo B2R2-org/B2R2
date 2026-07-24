@@ -199,6 +199,18 @@ type ParserTests() =
     ||> testX86NoPrefixNoSeg
 
   [<TestMethod>]
+  member _.``5.1.6 Bit and Byte Instructions (2)``() =
+    "f30fbcf6"
+    ++ TZCNT ** [ O.Reg R.ESI; O.Reg R.ESI ]
+    ||> testX86NoPrefixNoSeg
+
+  [<TestMethod>]
+  member _.``5.1.6 Bit and Byte Instructions (3)``() =
+    "660fbcf6"
+    ++ BSF ** [ O.Reg R.SI; O.Reg R.SI ]
+    ||> testX86Prefix Prefix.OPSIZE
+
+  [<TestMethod>]
   member _.``5.1.7 Control Transfer Instructions (1)``() =
     "ffe4"
     ++ JMP ** [ O.Reg R.ESP ]
@@ -1840,6 +1852,102 @@ type ParserTests() =
   member _.``AVX (150)``() =
     "c4e26540c3"
     ++ VPMULLD ** [ O.Reg R.YMM0; O.Reg R.YMM3; O.Reg R.YMM3 ]
+    ||> testX64NoPrefixNoSeg
+
+  [<TestMethod>]
+  member _.``MOV to/from control registers (1)``() =
+    "0f20c0"
+    ++ MOV ** [ O.Reg R.EAX; O.Reg R.CR0 ]
+    ||> testX86NoPrefixNoSeg
+
+  [<TestMethod>]
+  member _.``MOV to/from control registers (2)``() =
+    "0f20c0"
+    ++ MOV ** [ O.Reg R.RAX; O.Reg R.CR0 ]
+    ||> testX64NoPrefixNoSeg
+
+  [<TestMethod>]
+  member _.``MOV to/from control registers (3)``() =
+    "440f20c0"
+    ++ MOV ** [ O.Reg R.RAX; O.Reg R.CR8 ]
+    ||> testX64NoPrefixNoSeg
+
+  [<TestMethod>]
+  member _.``MOV to/from control registers (4)``() =
+    "0f22d9"
+    ++ MOV ** [ O.Reg R.CR3; O.Reg R.RCX ]
+    ||> testX64NoPrefixNoSeg
+
+  [<TestMethod>]
+  member _.``MOV to/from debug registers (1)``() =
+    "0f21c0"
+    ++ MOV ** [ O.Reg R.RAX; O.Reg R.DR0 ]
+    ||> testX64NoPrefixNoSeg
+
+  [<TestMethod>]
+  member _.``MOV to/from debug registers (2)``() =
+    "0f21fa"
+    ++ MOV ** [ O.Reg R.RDX; O.Reg R.DR7 ]
+    ||> testX64NoPrefixNoSeg
+
+  [<TestMethod>]
+  member _.``MOV to/from debug registers (3)``() =
+    "0f23f6"
+    ++ MOV ** [ O.Reg R.DR6; O.Reg R.RSI ]
+    ||> testX64NoPrefixNoSeg
+
+  [<TestMethod>]
+  member _.``AVX512 embedded rounding (1)``() =
+    "62f17f082dc1"
+    ++ VCVTSD2SI ** [ O.Reg R.EAX; O.Reg R.XMM1 ]
+    ||> testX64NoPrefixNoSeg
+
+  [<TestMethod>]
+  member _.``AVX512 SAE on conversion (1)``() =
+    "62f17f082cc1"
+    ++ VCVTTSD2SI ** [ O.Reg R.EAX; O.Reg R.XMM1 ]
+    ||> testX64NoPrefixNoSeg
+
+  [<TestMethod>]
+  member _.``AVX512 broadcast with embedded rounding (1)``() =
+    "62f1f54858c2"
+    ++ VADDPD ** [ O.Reg R.ZMM0; O.Reg R.ZMM1; O.Reg R.ZMM2 ]
+    ||> testX64NoPrefixNoSeg
+
+  [<TestMethod>]
+  member _.``AVX512 broadcast with SAE (1)``() =
+    "62f1f548c2d300"
+    ++ VCMPPD ** [ O.Reg R.K2; O.Reg R.ZMM1; O.Reg R.ZMM3; O.Imm(0L, 8<rt>) ]
+    ||> testX64NoPrefixNoSeg
+
+  [<TestMethod>]
+  member _.``AVX512 register operand with SAE (1)``() =
+    "62f37d481dca00"
+    ++ VCVTPS2PH ** [ O.Reg R.YMM2; O.Reg R.ZMM1; O.Imm(0L, 8<rt>) ]
+    ||> testX64NoPrefixNoSeg
+
+  [<TestMethod>]
+  member _.``Address-size-dependent register operand (1)``() =
+    "f30faef0"
+    ++ UMONITOR ** [ O.Reg R.RAX ]
+    ||> testX64NoPrefixNoSeg
+
+  [<TestMethod>]
+  member _.``Address-size-dependent register operand (2)``() =
+    "f20f38f808"
+    ++ ENQCMD ** [ O.Reg R.RCX; O.Mem(R.RAX, 512<rt>) ]
+    ||> testX64NoPrefixNoSeg
+
+  [<TestMethod>]
+  member _.``Address-size-dependent register operand (3)``() =
+    "f30f38f81a"
+    ++ ENQCMDS ** [ O.Reg R.RBX; O.Mem(R.RDX, 512<rt>) ]
+    ||> testX64NoPrefixNoSeg
+
+  [<TestMethod>]
+  member _.``Address-size-dependent register operand (4)``() =
+    "660f38f811"
+    ++ MOVDIR64B ** [ O.Reg R.RDX; O.Mem(R.RCX, 512<rt>) ]
     ||> testX64NoPrefixNoSeg
 
 #if !EMULATION

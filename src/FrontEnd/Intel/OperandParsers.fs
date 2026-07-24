@@ -538,9 +538,28 @@ let parseBoundRegister n =
   if n < 4 then Register.bound n |> OprReg
   else raise ParsingFailureException
 
-let parseControlReg n = Register.control n |> OprReg
+/// n is the raw ModRM.reg value (extended by REX.R). CR1, CR5-CR7, and
+/// CR9-CR15 do not exist, so n is remapped to CR0/CR2/CR3/CR4/CR8's compact
+/// position in the Register enum.
+let parseControlReg n =
+  match n with
+  | 0 -> Register.control 0
+  | 2 -> Register.control 1
+  | 3 -> Register.control 2
+  | 4 -> Register.control 3
+  | 8 -> Register.control 4
+  | _ -> raise ParsingFailureException
+  |> OprReg
 
-let parseDebugReg n = Register.debug n |> OprReg
+/// n is the raw ModRM.reg value (extended by REX.R). DR4, DR5, and
+/// DR8-DR15 do not exist, so n is remapped to DR0-DR3/DR6/DR7's compact
+/// position in the Register enum.
+let parseDebugReg n =
+  match n with
+  | 0 | 1 | 2 | 3 -> Register.debug n
+  | 6 | 7 -> Register.debug (n - 2)
+  | _ -> raise ParsingFailureException
+  |> OprReg
 
 let parseOpMaskReg n = Register.opmask n |> OprReg
 
