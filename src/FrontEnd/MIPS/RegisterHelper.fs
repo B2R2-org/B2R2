@@ -35,7 +35,7 @@ type internal R = Register
 
 /// Provides several useful functions to handle MIPS registers.
 [<RequireQualifiedAccess>]
-module internal Register =
+module internal RegisterHelper =
   let getFPPairReg = function
     | R.F0 -> R.F1
     | R.F2 -> R.F3

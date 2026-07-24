@@ -6,7 +6,7 @@
     <Description>B2R2 SH4 frontend.</Description>
   </PropertyGroup>
   <ItemGroup>
-    <Compile Include="Register.fs" />
+    <Compile Include="RegisterHelper.fs" />
     <Compile Include="RegisterFactory.fs" />
     <Compile Include="Opcode.fs" />
     <Compile Include="Operands.fs" />

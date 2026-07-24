@@ -34,34 +34,34 @@ open B2R2.FrontEnd.Intel.LiftingUtils
 
 let private movdRegToReg ins bld r1 r2 =
   let tmp = tmpVar bld 32<rt>
-  match Register.getKind r1, Register.getKind r2 with
-  | Register.Kind.XMM, _ ->
+  match RegisterHelper.getKind r1, RegisterHelper.getKind r2 with
+  | RegisterHelper.Kind.XMM, _ ->
     bld <+ (pseudoRegVar bld r1 1 := AST.zext 64<rt> (regVar bld r2))
     bld <+ (pseudoRegVar bld r1 2 := AST.num0 64<rt>)
-  | _, Register.Kind.XMM ->
+  | _, RegisterHelper.Kind.XMM ->
     bld <+ (tmp := AST.xtlo 32<rt> (pseudoRegVar bld r2 1))
     bld <+ (dstAssign 32<rt> (regVar bld r1) tmp)
-  | Register.Kind.MMX, _ ->
+  | RegisterHelper.Kind.MMX, _ ->
     bld <+ (regVar bld r1 := AST.zext 64<rt> (regVar bld r2))
     fillOnesToMMXHigh16 bld ins
-  | _, Register.Kind.MMX ->
+  | _, RegisterHelper.Kind.MMX ->
     bld <+ (tmp := AST.xtlo 32<rt> (regVar bld r2))
     bld <+ (dstAssign 32<rt> (regVar bld r1) tmp)
   | _, _ -> Terminator.impossible ()
 
 let private movdRegToMem bld dst r =
-  match Register.getKind r with
-  | Register.Kind.XMM ->
+  match RegisterHelper.getKind r with
+  | RegisterHelper.Kind.XMM ->
     bld <+ (dst := AST.xtlo 32<rt> (pseudoRegVar bld r 1))
-  | Register.Kind.MMX -> bld <+ (dst := AST.xtlo 32<rt> (regVar bld r))
+  | RegisterHelper.Kind.MMX -> bld <+ (dst := AST.xtlo 32<rt> (regVar bld r))
   | _ -> Terminator.impossible ()
 
 let private movdMemToReg ins bld src r =
-  match Register.getKind r with
-  | Register.Kind.XMM ->
+  match RegisterHelper.getKind r with
+  | RegisterHelper.Kind.XMM ->
     bld <+ (pseudoRegVar bld r 1 := AST.zext 64<rt> src)
     bld <+ (pseudoRegVar bld r 2 := AST.num0 64<rt>)
-  | Register.Kind.MMX ->
+  | RegisterHelper.Kind.MMX ->
     bld <+ (regVar bld r := AST.zext 64<rt> src)
     fillOnesToMMXHigh16 bld ins
   | _ -> Terminator.impossible ()
@@ -81,35 +81,35 @@ let movd (ins: Instruction) insLen bld =
   bld --!> insLen
 
 let private movqRegToReg ins bld r1 r2 =
-  match Register.getKind r1, Register.getKind r2 with
-  | Register.Kind.XMM, Register.Kind.XMM ->
+  match RegisterHelper.getKind r1, RegisterHelper.getKind r2 with
+  | RegisterHelper.Kind.XMM, RegisterHelper.Kind.XMM ->
     bld <+ (pseudoRegVar bld r1 1 := pseudoRegVar bld r2 1)
     bld <+ (pseudoRegVar bld r1 2 := AST.num0 64<rt>)
-  | Register.Kind.XMM, _ ->
+  | RegisterHelper.Kind.XMM, _ ->
     bld <+ (pseudoRegVar bld r1 1 := regVar bld r2)
     bld <+ (pseudoRegVar bld r1 2 := AST.num0 64<rt>)
-  | Register.Kind.GP, Register.Kind.XMM ->
+  | RegisterHelper.Kind.GP, RegisterHelper.Kind.XMM ->
     bld <+ (regVar bld r1 := pseudoRegVar bld r2 1)
-  | Register.Kind.MMX, Register.Kind.MMX
-  | Register.Kind.MMX, Register.Kind.GP ->
+  | RegisterHelper.Kind.MMX, RegisterHelper.Kind.MMX
+  | RegisterHelper.Kind.MMX, RegisterHelper.Kind.GP ->
     bld <+ (regVar bld r1 := regVar bld r2)
     fillOnesToMMXHigh16 bld ins
-  | Register.Kind.GP, Register.Kind.MMX ->
+  | RegisterHelper.Kind.GP, RegisterHelper.Kind.MMX ->
     bld <+ (regVar bld r1 := regVar bld r2)
   | _ -> raise InvalidOperandException
 
 let private movqRegToMem bld dst r =
-  match Register.getKind r with
-  | Register.Kind.XMM -> bld <+ (dst := pseudoRegVar bld r 1)
-  | Register.Kind.MMX -> bld <+ (dst := regVar bld r)
+  match RegisterHelper.getKind r with
+  | RegisterHelper.Kind.XMM -> bld <+ (dst := pseudoRegVar bld r 1)
+  | RegisterHelper.Kind.MMX -> bld <+ (dst := regVar bld r)
   | _ -> raise InvalidOperandException
 
 let private movqMemToReg ins bld src r =
-  match Register.getKind r with
-  | Register.Kind.XMM ->
+  match RegisterHelper.getKind r with
+  | RegisterHelper.Kind.XMM ->
     bld <+ (pseudoRegVar bld r 1 := src)
     bld <+ (pseudoRegVar bld r 2 := AST.num0 64<rt>)
-  | Register.Kind.MMX ->
+  | RegisterHelper.Kind.MMX ->
     bld <+ (regVar bld r := src)
     fillOnesToMMXHigh16 bld ins
   | _ -> raise InvalidOperandException

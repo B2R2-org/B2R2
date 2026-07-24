@@ -188,7 +188,7 @@ let getElemDataSzAndElemsByVector = function
 /// esize, datasize, elements
 let rec getElemDataSzAndElems = function
   | OprSIMD(ScalarReg v) ->
-    struct (Register.toRegType v, Register.toRegType v, 1)
+    struct (RegisterHelper.toRegType v, RegisterHelper.toRegType v, 1)
   | OprSIMD(VecReg(_, v)) -> getElemDataSzAndElemsByVector v
   | OprSIMD(VecRegWithIdx(_, v, _)) -> getElemDataSzAndElemsByVector v
   | OprSIMDList simds -> getElemDataSzAndElems (OprSIMD simds[0])
@@ -1320,7 +1320,7 @@ let dstAssign oprSize dst src bld =
 let dstAssignScalar ins bld addr dst src eSize =
   match dst with
   | OprSIMD(ScalarReg reg) ->
-    let reg = OprSIMD(ScalarReg(Register.getOrgSIMDReg reg))
+    let reg = OprSIMD(ScalarReg(RegisterHelper.getOrgSIMDReg reg))
     let struct (dstB, dstA) = transOprToExpr128 ins bld addr reg
     dstAssign eSize dstA src bld
     bld <+ (dstB := AST.num0 64<rt>)

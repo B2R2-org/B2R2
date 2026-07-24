@@ -29,29 +29,29 @@ open B2R2.FrontEnd.Intel
 open B2R2.Assembly.Intel.ParserHelper
 
 let isReg8 (ctx: EncodingContext) reg =
-  Register.toRegType ctx.WordSize reg = 8<rt>
+  RegisterHelper.toRegType ctx.WordSize reg = 8<rt>
 
 let isReg16 (ctx: EncodingContext) reg =
-  Register.toRegType ctx.WordSize reg = 16<rt>
+  RegisterHelper.toRegType ctx.WordSize reg = 16<rt>
 
 let isReg32 (ctx: EncodingContext) reg =
-  Register.toRegType ctx.WordSize reg = 32<rt>
+  RegisterHelper.toRegType ctx.WordSize reg = 32<rt>
 
 let isReg64 (ctx: EncodingContext) reg =
-  Register.toRegType ctx.WordSize reg = 64<rt>
+  RegisterHelper.toRegType ctx.WordSize reg = 64<rt>
 
-let isMMXReg reg = Register.Kind.MMX = Register.getKind reg
+let isMMXReg reg = RegisterHelper.Kind.MMX = RegisterHelper.getKind reg
 
-let isXMMReg reg = Register.Kind.XMM = Register.getKind reg
+let isXMMReg reg = RegisterHelper.Kind.XMM = RegisterHelper.getKind reg
 
-let isYMMReg reg = Register.Kind.YMM = Register.getKind reg
+let isYMMReg reg = RegisterHelper.Kind.YMM = RegisterHelper.getKind reg
 
-let isSegReg reg = Register.Kind.Segment = Register.getKind reg
+let isSegReg reg = RegisterHelper.Kind.Segment = RegisterHelper.getKind reg
 
-let isFPUReg reg = Register.Kind.FPU = Register.getKind reg
+let isFPUReg reg = RegisterHelper.Kind.FPU = RegisterHelper.getKind reg
 
 let private isHalfSplit (ctx: EncodingContext) reg =
-  match ctx.WordSize, Register.toRegType ctx.WordSize reg with
+  match ctx.WordSize, RegisterHelper.toRegType ctx.WordSize reg with
   | WordSize.Bit64, 32<rt> -> true
   | WordSize.Bit32, 16<rt> -> true
   | _ -> false

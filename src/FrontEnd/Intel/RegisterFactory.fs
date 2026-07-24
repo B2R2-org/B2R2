@@ -2181,7 +2181,7 @@ type RegisterFactory(isa: ISA) =
 
     member _.GetRegisterIDAliases rid =
       Register.ofRegID rid
-      |> Register.getAliases
+      |> RegisterHelper.getAliases
       |> Array.map Register.toRegID
 
     member _.GetRegisterName rid = Register.ofRegID rid |> Register.toString
@@ -2192,7 +2192,7 @@ type RegisterFactory(isa: ISA) =
       |> Array.map (regFactory.GetRegisterID >> regFactory.GetRegisterName)
 
     member _.GetRegType rid =
-      Register.ofRegID rid |> Register.toRegType wordSize
+      Register.ofRegID rid |> RegisterHelper.toRegType wordSize
 
     member this.IsProgramCounter regid =
       (this :> IRegisterFactory).ProgramCounter = regid

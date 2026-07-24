@@ -90,14 +90,14 @@ let transTwoOprFPConvert ins bld (o1, o2) =
 let private transOprToFPPair bld = function
   | OpReg reg ->
     if is32Bit bld then
-      regVar bld (Register.getFPPairReg reg), regVar bld reg
+      regVar bld (RegisterHelper.getFPPairReg reg), regVar bld reg
     else AST.b0, regVar bld reg
   | _ -> raise InvalidOperandException
 
 let private transOprToFPPairConcat bld = function
   | OpReg reg ->
     if is32Bit bld then
-      AST.concat (regVar bld (Register.getFPPairReg reg)) (regVar bld reg)
+      AST.concat (regVar bld (RegisterHelper.getFPPairReg reg)) (regVar bld reg)
     else regVar bld reg
   | _ -> raise InvalidOperandException
 

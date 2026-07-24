@@ -106,7 +106,7 @@ let getCtxtByOprSz (ctx: EncodingContext) op8Byte opByte = function
 
 let inline encRL (ctx: EncodingContext) ins r op8Byte opByte =
   let pref, rex, opByte =
-    getCtxtByOprSz ctx op8Byte opByte (Register.toRegType ctx.WordSize r)
+    getCtxtByOprSz ctx op8Byte opByte (RegisterHelper.toRegType ctx.WordSize r)
   [| yield! prxRexOp ins ctx pref rex opByte
      yield modrmRL r |]
   |> Array.map normalToByte
@@ -123,7 +123,7 @@ let inline encLI (ctx: EncodingContext) ins regConstr i immSz op8Byte opByte =
 
 let inline encRLI (ctx: EncodingContext) ins r op i immSz =
   let pref, rex, opByte =
-    getCtxtByOprSz ctx [||] op (Register.toRegType ctx.WordSize r)
+    getCtxtByOprSz ctx [||] op (RegisterHelper.toRegType ctx.WordSize r)
   let op =
     [| yield! prxRexOp ins ctx pref rex opByte
        yield modrmRL r |] |> Array.map normalToByte
@@ -224,10 +224,10 @@ let private resolveMemSizeFromReg ins (ctx: EncodingContext) =
   let operands =
     match ins.Operands with
     | TwoOperands(OprMem(b, s, d, 0<rt>), OprReg r) ->
-      let mOSz = Register.toRegType ctx.WordSize r
+      let mOSz = RegisterHelper.toRegType ctx.WordSize r
       TwoOperands(OprReg r, OprMem(b, s, d, mOSz))
     | TwoOperands(OprReg r, OprMem(b, s, d, 0<rt>)) ->
-      let mOSz = Register.toRegType ctx.WordSize r
+      let mOSz = RegisterHelper.toRegType ctx.WordSize r
       TwoOperands(OprReg r, OprMem(b, s, d, mOSz))
     | _ -> ins.Operands
   { ins with Operands = operands }

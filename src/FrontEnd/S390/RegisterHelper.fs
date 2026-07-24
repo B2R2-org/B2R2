@@ -35,7 +35,7 @@ type internal R = Register
 
 /// Provides several useful functions for working with s390/s390x registers.
 [<RequireQualifiedAccess>]
-module internal Register =
+module internal RegisterHelper =
   let getRpairReg = function
     | R.R0 -> R.R1
     | R.R2 -> R.R3

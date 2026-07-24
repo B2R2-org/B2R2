@@ -147,14 +147,14 @@ let private getMemExprs expr =
   | _ -> raise InvalidOperandException
 
 let private pseudoRegVars bld r =
-  match Register.getKind r with
-  | Register.Kind.XMM -> [ pseudoRegVar bld r 1; pseudoRegVar bld r 2 ]
-  | Register.Kind.YMM ->
+  match RegisterHelper.getKind r with
+  | RegisterHelper.Kind.XMM -> [ pseudoRegVar bld r 1; pseudoRegVar bld r 2 ]
+  | RegisterHelper.Kind.YMM ->
     [ pseudoRegVar bld r 1
       pseudoRegVar bld r 2
       pseudoRegVar bld r 3
       pseudoRegVar bld r 4 ]
-  | Register.Kind.ZMM ->
+  | RegisterHelper.Kind.ZMM ->
     [ pseudoRegVar bld r 1
       pseudoRegVar bld r 2
       pseudoRegVar bld r 3
@@ -279,7 +279,7 @@ let transOprToExprVec bld useTmpVar ins insLen opr =
 
 let transOprToExpr16 (bld: ILowUIRBuilder) useTmpVar ins insLen opr =
   match opr with
-  | OprReg r when Register.toRegType bld.WordSize r > 64<rt> ->
+  | OprReg r when RegisterHelper.toRegType bld.WordSize r > 64<rt> ->
     pseudoRegVar bld r 1 |> AST.xtlo 16<rt>
   | OprReg r -> regVar bld r
   | OprMem(b, index, disp, 16<rt>) ->
@@ -288,7 +288,7 @@ let transOprToExpr16 (bld: ILowUIRBuilder) useTmpVar ins insLen opr =
 
 let transOprToExpr32 (bld: ILowUIRBuilder) useTmpVar ins insLen opr =
   match opr with
-  | OprReg r when Register.toRegType bld.WordSize r > 64<rt> ->
+  | OprReg r when RegisterHelper.toRegType bld.WordSize r > 64<rt> ->
     pseudoRegVar bld r 1 |> AST.xtlo 32<rt>
   | OprReg r -> regVar bld r
   | OprMem(b, index, disp, 32<rt>) ->
@@ -297,7 +297,7 @@ let transOprToExpr32 (bld: ILowUIRBuilder) useTmpVar ins insLen opr =
 
 let transOprToExpr64 (bld: ILowUIRBuilder) useTmpVar ins insLen opr =
   match opr with
-  | OprReg r when Register.toRegType bld.WordSize r > 64<rt> ->
+  | OprReg r when RegisterHelper.toRegType bld.WordSize r > 64<rt> ->
     pseudoRegVar bld r 1
   | OprReg r -> regVar bld r
   | OprMem(b, index, disp, 64<rt>) ->
@@ -433,7 +433,7 @@ let transOprToArr bld useTmpVars ins insLen packSz packNum oprSize opr =
   else exprArr
 
 let private isMMXReg = function
-  | OprReg r -> Register.getKind r = Register.Kind.MMX
+  | OprReg r -> RegisterHelper.getKind r = RegisterHelper.Kind.MMX
   | _ -> false
 
 let private convMMXToST = function

@@ -31,7 +31,7 @@ type internal R = Register
 
 /// Provides several useful functions for working with SH4 registers.
 [<RequireQualifiedAccess>]
-module internal Register =
+module internal RegisterHelper =
   let toRegType = function
     | R.MD | R.RB | R.BL | R.FD | R.M | R.Q | R.IMASK | R.S | R.T
     | R.FPSCR_RM | R.FPSCR_FLAG | R.FPSCR_ENABLE | R.FPSCR_CAUSE | R.FPSCR_DN

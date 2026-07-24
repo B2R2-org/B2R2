@@ -197,7 +197,7 @@ let private castTo80Bit bld tmpB tmpA srcExpr =
       bld <+ (tmpB := AST.loadLE 16<rt> (addrExpr .+ numI32 8 addrSize))
       bld <+ (tmpA := AST.loadLE 64<rt> addrExpr)
     | BinOp(_, _, Var(_, r, _, _), Var _, _) ->
-      let reg = Register.pseudoRegToReg (Register.ofRegID r)
+      let reg = RegisterHelper.pseudoRegToReg (Register.ofRegID r)
       let struct (srcB, srcA) = getFPUPseudoRegVars bld reg
       bld <+ (tmpB := srcB)
       bld <+ (tmpA := srcA)

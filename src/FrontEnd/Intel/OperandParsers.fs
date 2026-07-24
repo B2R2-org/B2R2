@@ -498,11 +498,11 @@ let parseVVVVReg (phlp: ParsingHelper) =
   match phlp.VEXInfo with
   | None -> raise ParsingFailureException
   | Some vInfo when vInfo.VectorLength = 512<rt> ->
-    Register.zmm (int vInfo.VVVV) |> OprReg
+    RegisterHelper.zmm (int vInfo.VVVV) |> OprReg
   | Some vInfo when vInfo.VectorLength = 256<rt> ->
-    Register.ymm (int vInfo.VVVV) |> OprReg
+    RegisterHelper.ymm (int vInfo.VVVV) |> OprReg
   | Some vInfo ->
-    Register.xmm (int vInfo.VVVV) |> OprReg
+    RegisterHelper.xmm (int vInfo.VVVV) |> OprReg
 
 /// FIXME
 let parseVVVVRegRC isReg (phlp: ParsingHelper) =
@@ -511,12 +511,12 @@ let parseVVVVRegRC isReg (phlp: ParsingHelper) =
   | Some vInfo ->
     match vInfo.EVEXPrx with
     | Some evex when evex.B = 1uy && isReg ->
-      Register.zmm (int vInfo.VVVV) |> OprReg
+      RegisterHelper.zmm (int vInfo.VVVV) |> OprReg
     | _ ->
       match vInfo.VectorLength with
-      | 512<rt> -> Register.zmm (int vInfo.VVVV) |> OprReg
-      | 256<rt> -> Register.ymm (int vInfo.VVVV) |> OprReg
-      | 128<rt> -> Register.xmm (int vInfo.VVVV) |> OprReg
+      | 512<rt> -> RegisterHelper.zmm (int vInfo.VVVV) |> OprReg
+      | 256<rt> -> RegisterHelper.ymm (int vInfo.VVVV) |> OprReg
+      | 128<rt> -> RegisterHelper.xmm (int vInfo.VVVV) |> OprReg
       | _ -> raise ParsingFailureException
 
 let parseVEXtoGPR (phlp: ParsingHelper) =
@@ -528,21 +528,21 @@ let parseVEXtoGPR (phlp: ParsingHelper) =
     |> LanguagePrimitives.EnumOfValue<int, Register>
     |> OprReg
 
-let parseMMXReg n = Register.mm n |> OprReg
+let parseMMXReg n = RegisterHelper.mm n |> OprReg
 
 let parseSegReg n =
-  if n < 6 then Register.seg n |> OprReg
+  if n < 6 then RegisterHelper.seg n |> OprReg
   else raise ParsingFailureException
 
 let parseBoundRegister n =
-  if n < 4 then Register.bound n |> OprReg
+  if n < 4 then RegisterHelper.bound n |> OprReg
   else raise ParsingFailureException
 
-let parseControlReg n = Register.control n |> OprReg
+let parseControlReg n = RegisterHelper.control n |> OprReg
 
-let parseDebugReg n = Register.debug n |> OprReg
+let parseDebugReg n = RegisterHelper.debug n |> OprReg
 
-let parseOpMaskReg n = Register.opmask n |> OprReg
+let parseOpMaskReg n = RegisterHelper.opmask n |> OprReg
 
 let parseOprOnlyDisp span (phlp: ParsingHelper) =
   let dispSz = RegType.toByteWidth phlp.MemEffAddrSize
@@ -1504,7 +1504,7 @@ type XmmVsXm() =
       findRegRBits phlp.RegSize phlp.REXPrefix (Operands.getReg modRM) |> OprReg
     let opr2 =
       match phlp.VEXInfo with
-      | Some vInfo -> Register.xmm (int vInfo.VVVV) |> OprReg
+      | Some vInfo -> RegisterHelper.xmm (int vInfo.VVVV) |> OprReg
       | None -> raise ParsingFailureException
     let opr3 = parseMemOrReg modRM span phlp
     ThreeOperands(opr1, opr2, opr3)
@@ -1516,7 +1516,7 @@ type XmVsXmm() =
     let opr1 = parseMemOrReg modRM span phlp
     let opr2 =
       match phlp.VEXInfo with
-      | Some vInfo -> Register.xmm (int vInfo.VVVV) |> OprReg
+      | Some vInfo -> RegisterHelper.xmm (int vInfo.VVVV) |> OprReg
       | None -> raise ParsingFailureException
     let opr3 =
       findRegRBits phlp.RegSize phlp.REXPrefix (Operands.getReg modRM) |> OprReg

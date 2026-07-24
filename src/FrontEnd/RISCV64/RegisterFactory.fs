@@ -716,7 +716,7 @@ type RegisterFactory(isa: ISA) =
       |> Array.map (regFactory.GetRegisterID >> regFactory.GetRegisterName)
 
     member _.GetRegType rid =
-      Register.ofRegID rid |> Register.toRegType isa.WordSize
+      Register.ofRegID rid |> RegisterHelper.toRegType isa.WordSize
 
     member _.IsProgramCounter rid = Register.toRegID Register.PC = rid
 

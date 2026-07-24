@@ -94,7 +94,7 @@ module internal Operands =
 
   let inline getRM (byte: byte) = (int byte) &&& 0b111
 
-  let inline getSTReg n = Register.streg n |> OprReg
+  let inline getSTReg n = RegisterHelper.streg n |> OprReg
 
   let inline modIsMemory b = (getMod b) <> 0b11
 

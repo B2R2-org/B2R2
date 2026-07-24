@@ -1464,7 +1464,7 @@ type RegisterFactory(isa: ISA) =
 
     member _.GetRegisterIDAliases rid =
       Register.ofRegID rid
-      |> Register.getAliases
+      |> RegisterHelper.getAliases
       |> Array.map Register.toRegID
 
     member _.GetRegisterName rid = Register.ofRegID rid |> Register.toString
@@ -1474,7 +1474,7 @@ type RegisterFactory(isa: ISA) =
       regFactory.GetAllRegVars()
       |> Array.map (regFactory.GetRegisterID >> regFactory.GetRegisterName)
 
-    member _.GetRegType rid = Register.ofRegID rid |> Register.toRegType
+    member _.GetRegType rid = Register.ofRegID rid |> RegisterHelper.toRegType
 
     member _.IsProgramCounter regid =
       let pcid = PC |> Register.toRegID

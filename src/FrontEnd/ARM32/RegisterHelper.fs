@@ -35,7 +35,7 @@ type internal R = Register
 
 /// Provides several useful functions for handling ARMv7 registers.
 [<RequireQualifiedAccess>]
-module internal Register =
+module internal RegisterHelper =
   let toRegType = function
     | R.R0 | R.R1 | R.R2 | R.R3 | R.R4 | R.R5 | R.R6 | R.R7 | R.R8
     | R.SB | R.SL | R.FP | R.IP | R.SP | R.LR | R.PC

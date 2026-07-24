@@ -1045,7 +1045,7 @@ let pextrw ins insLen bld =
   let packNum = 64<rt> / 16<rt>
   let srcSz =
     match src with
-    | OprReg reg -> Register.toRegType bld.WordSize reg
+    | OprReg reg -> RegisterHelper.toRegType bld.WordSize reg
     | _ -> raise InvalidOperandException
   let d = transOprToExpr bld false ins insLen dst
   let src = transOprToArr bld false ins insLen 16<rt> packNum srcSz src
@@ -1067,13 +1067,13 @@ let pinsrw (ins: Instruction) insLen bld =
   let src = transOprToExpr bld false ins insLen src |> AST.xtlo packSz
   match dst with
   | OprReg reg ->
-    match Register.getKind reg with
-    | Register.Kind.MMX ->
+    match RegisterHelper.getKind reg with
+    | RegisterHelper.Kind.MMX ->
       let index = getImmValue imm8 &&& 0b11L |> int
       let dst = transOprToArr bld false ins insLen packSz pNum 64<rt> dst
       bld <+ (dst[index] := src)
       fillOnesToMMXHigh16 bld ins
-    | Register.Kind.XMM ->
+    | RegisterHelper.Kind.XMM ->
       let index = getImmValue imm8 &&& 0b111L |> int
       let dst = transOprToArr bld false ins insLen packSz pNum 128<rt> dst
       bld <+ (dst[index] := src)
@@ -1137,14 +1137,14 @@ let pmovmskb (ins: Instruction) insLen bld =
     match src with
     | OprReg r -> r
     | _ -> raise InvalidOperandException
-  match Register.getKind r with
-  | Register.Kind.MMX ->
+  match RegisterHelper.getKind r with
+  | RegisterHelper.Kind.MMX ->
     let struct (dst, src) = transTwoOprs bld false ins insLen
     let srcSize = Expr.typeOf src
     let cnt = RegType.toByteWidth srcSize
     let tmps = mskArrayInit cnt src
     bld <+ (dstAssign oprSize dst <| AST.zext oprSize (concatBits tmps))
-  | Register.Kind.XMM ->
+  | RegisterHelper.Kind.XMM ->
     let dst = transOprToExpr bld false ins insLen dst
     let struct (srcB, srcA) = transOprToExpr128 bld false ins insLen src
 #if EMULATION
@@ -1161,7 +1161,7 @@ let pmovmskb (ins: Instruction) insLen bld =
     let tmps = AST.concat (concatBits tmpsB) (concatBits tmpsA)
     bld <+ (dstAssign oprSize dst <| AST.zext oprSize tmps)
 #endif
-  | Register.Kind.YMM ->
+  | RegisterHelper.Kind.YMM ->
     let dst = transOprToExpr bld false ins insLen dst
     let struct (srcD, srcC, srcB, srcA) =
       transOprToExpr256 bld false ins insLen src

@@ -479,7 +479,7 @@ type RegisterFactory(isa: ISA) =
 
     member _.GetRegisterIDAliases _rid =
       Register.ofRegID _rid
-      |> Register.getAliases
+      |> RegisterHelper.getAliases
       |> Array.map Register.toRegID
 
     member _.GetRegisterName rid = Register.ofRegID rid |> Register.toString
@@ -490,7 +490,7 @@ type RegisterFactory(isa: ISA) =
       |> Array.map (regFactory.GetRegisterID >> regFactory.GetRegisterName)
 
     member _.GetRegType rid =
-      Register.ofRegID rid |> Register.toRegType isa.WordSize
+      Register.ofRegID rid |> RegisterHelper.toRegType isa.WordSize
 
     member _.IsProgramCounter rid = Register.toRegID Register.PSW = rid
 

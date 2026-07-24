@@ -164,7 +164,7 @@ module IntelSyntax = begin
     else
       builder.Accumulate(AsmWordKind.String, "{")
       builder.Accumulate(AsmWordKind.Variable,
-        ePrx.AAA |> int |> Register.opmask |> Register.toString)
+        ePrx.AAA |> int |> RegisterHelper.opmask |> Register.toString)
       builder.Accumulate(AsmWordKind.String, "}")
 
   let buildMask (ins: Instruction) builder =
@@ -372,7 +372,7 @@ module ATTSyntax = begin
       else
         builder.Accumulate(AsmWordKind.String, "{%")
         builder.Accumulate(AsmWordKind.Variable,
-          ePrx.AAA |> int |> Register.opmask |> Register.toString)
+          ePrx.AAA |> int |> RegisterHelper.opmask |> Register.toString)
         builder.Accumulate(AsmWordKind.String, "}")
       buildEVEXZ ePrx builder
     | _ -> ()
@@ -428,13 +428,13 @@ module ATTSyntax = begin
     match operands with
     | TwoOperands(_, OprMem(_, _, _, sz)) -> addOpSuffix builder sz
     | TwoOperands(_, OprReg src) ->
-      Register.toRegType wordSize src |> addOpSuffix builder
+      RegisterHelper.toRegType wordSize src |> addOpSuffix builder
     | _ -> Terminator.impossible ()
 
   let buildDstSizeSuffix operands wordSize builder =
     match operands with
     | TwoOperands(OprReg dst, _) ->
-      Register.toRegType wordSize dst |> addOpSuffix builder
+      RegisterHelper.toRegType wordSize dst |> addOpSuffix builder
     | _ -> Terminator.impossible ()
 
   let buildOprs (ins: Instruction) (builder: IDisasmBuilder) =
