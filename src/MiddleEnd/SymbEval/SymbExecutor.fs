@@ -576,7 +576,7 @@ type SymbExecutor(hdl: BinHandle) =
 
   let getArgumentRegisters () =
     [| 0 .. 5 |]
-    |> Array.map (fun idx -> cc.ArgRegister idx)
+    |> Array.map (fun idx -> cc.IntArgRegister idx)
 
   let mkCallContext callSite target returnAddress =
     { CallSite = callSite
@@ -585,7 +585,7 @@ type SymbExecutor(hdl: BinHandle) =
       WordType = wordType
       Endian = endian
       ArgumentRegisters = getArgumentRegisters ()
-      ReturnRegister = cc.ReturnRegister }
+      ReturnRegister = cc.IntReturnRegister }
 
   let pushReturnAddress returnAddress (st: SymbState) =
     let accessor = SymbStateAccessor(hdl, st)

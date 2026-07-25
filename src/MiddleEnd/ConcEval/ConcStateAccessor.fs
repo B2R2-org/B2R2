@@ -122,11 +122,11 @@ type ConcStateAccessor(hdl: BinHandle, state: EvalState) as this =
   let setArgument idx value =
     if idx < 0 then raise (ArgumentOutOfRangeException(nameof idx))
     else ()
-    let rid = cc.ArgRegister idx
+    let rid = cc.IntArgRegister idx
     state.SetReg(rid, value)
 
   let getReturnValue () =
-    cc.ReturnRegister |> getDefinedReg
+    cc.IntReturnRegister |> getDefinedReg
 
   let allocateStackBuffer size =
     if size < 0 then raise (ArgumentOutOfRangeException(nameof size))

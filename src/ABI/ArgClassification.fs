@@ -22,25 +22,16 @@
   SOFTWARE.
 *)
 
-namespace B2R2.ABI.Tests
+namespace B2R2.ABI
 
-open Microsoft.VisualStudio.TestTools.UnitTesting
-open B2R2
-open B2R2.ABI
-
-[<TestClass>]
-type ConventionsTests() =
-
-  [<TestMethod>]
-  member _.``create bundles the per-OS/ISA conventions``() =
-    let isa = ISA(Architecture.Intel, WordSize.Bit64)
-    let conv = Conventions.create OS.Linux isa
-    Assert.AreEqual<RegisterID>(
-      (CallingConvention.create OS.Linux isa).IntReturnRegister,
-      conv.Calling.IntReturnRegister)
-    Assert.AreEqual<int>(
-      (StackConvention.create OS.Linux isa).RedZoneSize,
-      conv.Stack.RedZoneSize)
-    Assert.AreEqual<RegisterID>(
-      (SyscallConvention.create OS.Linux isa).NumberRegister,
-      conv.Syscall.NumberRegister)
+/// Describes how an ABI assigns integer and floating-point/vector arguments to
+/// their register pools.
+type ArgClassification =
+  /// Integer and floating-point arguments consume independent register
+  /// sequences, each with its own counter (System V, AAPCS, most RISC ABIs).
+  /// The Nth integer argument and the Nth float argument are thus unrelated.
+  | Independent
+  /// Each argument consumes the same positional slot in both pools: the Nth
+  /// argument goes to the Nth integer register or the Nth float register
+  /// depending on its type (the Microsoft x64 ABI).
+  | Positional

@@ -35,52 +35,69 @@ type CallingConventionTests() =
   let r n = RegisterID.create n
 
   let sampleCC =
-    { Args =
+    { IntArgs =
         [| ArgLocation.Reg(r 1)
            ArgLocation.Reg(r 2)
            ArgLocation.Stack { FirstOffset = 8; SlotSize = 8 } |]
-      ReturnValueLocation = ArgLocation.Reg(r 0)
+      FloatArgs = [| ArgLocation.Reg(r 5); ArgLocation.Reg(r 6) |]
+      IntReturnLocation = ArgLocation.Reg(r 0)
+      FloatReturnLocation = ArgLocation.Reg(r 7)
+      ArgClassification = Independent
       CalleeSavedRegisters = set [ r 10; r 11 ]
       CallerSavedRegisters = set [ r 1; r 2 ]
       ReturnAddressLocation = OnStack }
 
   [<TestMethod>]
-  member _.``GetArgLocation returns register arguments``() =
+  member _.``GetIntArgLocation returns register arguments``() =
     Assert.AreEqual<ArgLocation>(
-      ArgLocation.Reg(r 1), sampleCC.GetArgLocation(0))
+      ArgLocation.Reg(r 1), sampleCC.GetIntArgLocation(0))
     Assert.AreEqual<ArgLocation>(
-      ArgLocation.Reg(r 2), sampleCC.GetArgLocation(1))
+      ArgLocation.Reg(r 2), sampleCC.GetIntArgLocation(1))
 
   [<TestMethod>]
-  member _.``GetArgLocation resolves stack spill offsets``() =
+  member _.``GetIntArgLocation resolves stack spill offsets``() =
     Assert.AreEqual<ArgLocation>(
       ArgLocation.Stack { FirstOffset = 8; SlotSize = 8 },
-      sampleCC.GetArgLocation(2))
+      sampleCC.GetIntArgLocation(2))
     Assert.AreEqual<ArgLocation>(
       ArgLocation.Stack { FirstOffset = 16; SlotSize = 8 },
-      sampleCC.GetArgLocation(3))
+      sampleCC.GetIntArgLocation(3))
     Assert.AreEqual<ArgLocation>(
       ArgLocation.Stack { FirstOffset = 24; SlotSize = 8 },
-      sampleCC.GetArgLocation(4))
+      sampleCC.GetIntArgLocation(4))
 
   [<TestMethod>]
-  member _.``GetArgLocation handles all-stack ABI``() =
+  member _.``GetIntArgLocation handles all-stack ABI``() =
     let cc =
       { sampleCC with
-          Args = [| ArgLocation.Stack { FirstOffset = 4; SlotSize = 4 } |] }
+          IntArgs = [| ArgLocation.Stack { FirstOffset = 4; SlotSize = 4 } |] }
     Assert.AreEqual<ArgLocation>(
-      ArgLocation.Stack { FirstOffset = 4; SlotSize = 4 }, cc.GetArgLocation(0))
+      ArgLocation.Stack { FirstOffset = 4; SlotSize = 4 },
+      cc.GetIntArgLocation(0))
     Assert.AreEqual<ArgLocation>(
-      ArgLocation.Stack { FirstOffset = 8; SlotSize = 4 }, cc.GetArgLocation(1))
+      ArgLocation.Stack { FirstOffset = 8; SlotSize = 4 },
+      cc.GetIntArgLocation(1))
 
   [<TestMethod>]
-  member _.``ReturnRegister extracts the return register``() =
-    Assert.AreEqual<RegisterID>(r 0, sampleCC.ReturnRegister)
+  member _.``IntReturnRegister extracts the return register``() =
+    Assert.AreEqual<RegisterID>(r 0, sampleCC.IntReturnRegister)
 
   [<TestMethod>]
-  member _.``ArgRegister extracts register arguments``() =
-    Assert.AreEqual<RegisterID>(r 1, sampleCC.ArgRegister(0))
-    Assert.AreEqual<RegisterID>(r 2, sampleCC.ArgRegister(1))
+  member _.``IntArgRegister extracts register arguments``() =
+    Assert.AreEqual<RegisterID>(r 1, sampleCC.IntArgRegister(0))
+    Assert.AreEqual<RegisterID>(r 2, sampleCC.IntArgRegister(1))
+
+  [<TestMethod>]
+  member _.``GetFloatArgLocation returns float register arguments``() =
+    Assert.AreEqual<ArgLocation>(
+      ArgLocation.Reg(r 5), sampleCC.GetFloatArgLocation(0))
+    Assert.AreEqual<ArgLocation>(
+      ArgLocation.Reg(r 6), sampleCC.GetFloatArgLocation(1))
+
+  [<TestMethod>]
+  member _.``FloatArgRegister and FloatReturnRegister extract registers``() =
+    Assert.AreEqual<RegisterID>(r 5, sampleCC.FloatArgRegister(0))
+    Assert.AreEqual<RegisterID>(r 7, sampleCC.FloatReturnRegister)
 
   [<TestMethod>]
   member _.``IsCalleeSaved and IsCallerSaved membership``() =
@@ -90,9 +107,9 @@ type CallingConventionTests() =
     Assert.AreEqual<bool>(false, sampleCC.IsCallerSaved(r 10))
 
   [<TestMethod>]
-  member _.``GetArgLocation rejects negative index``() =
+  member _.``GetIntArgLocation rejects negative index``() =
     Assert.ThrowsExactly<System.ArgumentException>(fun () ->
-      sampleCC.GetArgLocation(-1) |> ignore) |> ignore
+      sampleCC.GetIntArgLocation(-1) |> ignore) |> ignore
 
   [<TestMethod>]
   member _.``x64 keeps the return address on the stack``() =
@@ -106,3 +123,20 @@ type CallingConventionTests() =
     let lr = ARM64.Register.toRegID ARM64.Register.X30
     Assert.AreEqual<ReturnAddressLocation>(
       InRegister lr, cc.ReturnAddressLocation)
+
+  [<TestMethod>]
+  member _.``x64 System V passes floats in XMM independently``() =
+    let isa = ISA(Architecture.Intel, WordSize.Bit64)
+    let cc = CallingConvention.create OS.Linux isa
+    let xmm0 = Intel.Register.toRegID Intel.Register.XMM0
+    Assert.AreEqual<RegisterID>(xmm0, cc.FloatArgRegister(0))
+    Assert.AreEqual<RegisterID>(xmm0, cc.FloatReturnRegister)
+    Assert.AreEqual<ArgClassification>(Independent, cc.ArgClassification)
+
+  [<TestMethod>]
+  member _.``Windows x64 classifies arguments positionally``() =
+    let isa = ISA(Architecture.Intel, WordSize.Bit64)
+    let cc = CallingConvention.create OS.Windows isa
+    let xmm0 = Intel.Register.toRegID Intel.Register.XMM0
+    Assert.AreEqual<ArgClassification>(Positional, cc.ArgClassification)
+    Assert.AreEqual<RegisterID>(xmm0, cc.FloatArgRegister(0))

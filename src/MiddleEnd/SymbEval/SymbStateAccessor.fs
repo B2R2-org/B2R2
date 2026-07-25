@@ -114,7 +114,7 @@ type SymbStateAccessor(hdl: BinHandle, state: SymbState) as this =
   let setArgument idx value =
     if idx < 0 then raise (ArgumentOutOfRangeException(nameof idx))
     else ()
-    let rid = cc.ArgRegister idx
+    let rid = cc.IntArgRegister idx
     state.SetReg(rid, value)
 
   let allocateStackBuffer size =
@@ -251,7 +251,7 @@ type SymbStateAccessor(hdl: BinHandle, state: SymbState) as this =
 
   /// Get the return value for the supported ABI.
   member _.GetReturnValue() =
-    cc.ReturnRegister |> state.GetReg
+    cc.IntReturnRegister |> state.GetReg
 
   /// Allocate a buffer from the current stack and return its address.
   member _.AllocateStackBuffer size = allocateStackBuffer size

@@ -10,6 +10,7 @@
   <ItemGroup>
     <Compile Include="ArgLocation.fs" />
     <Compile Include="ReturnAddressLocation.fs" />
+    <Compile Include="ArgClassification.fs" />
     <Compile Include="LinuxSyscall.fs" />
     <Compile Include="MacosSyscall.fs" />
     <Compile Include="CallingConvention.fs" />
