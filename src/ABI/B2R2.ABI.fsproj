@@ -9,9 +9,11 @@
 
   <ItemGroup>
     <Compile Include="ArgLocation.fs" />
+    <Compile Include="ReturnAddressLocation.fs" />
     <Compile Include="LinuxSyscall.fs" />
     <Compile Include="MacosSyscall.fs" />
     <Compile Include="CallingConvention.fs" />
+    <Compile Include="StackConvention.fs" />
     <Compile Include="SyscallConvention.fs" />
     <None Include="..\..\LICENSE.md" Pack="true" PackagePath="" />
     <None Include="..\..\assets\b2r2-240x240.png" Pack="true" PackagePath="" />

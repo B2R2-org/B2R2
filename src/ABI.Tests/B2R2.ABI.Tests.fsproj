@@ -6,6 +6,7 @@
 
   <ItemGroup>
     <Compile Include="CallingConventionTests.fs" />
+    <Compile Include="StackConventionTests.fs" />
     <Compile Include="SyscallConventionTests.fs" />
     <Compile Include="MacosSyscallTests.fs" />
   </ItemGroup>

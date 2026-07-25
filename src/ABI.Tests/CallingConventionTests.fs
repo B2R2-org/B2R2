@@ -27,6 +27,7 @@ namespace B2R2.ABI.Tests
 open Microsoft.VisualStudio.TestTools.UnitTesting
 open B2R2
 open B2R2.ABI
+open B2R2.FrontEnd
 
 [<TestClass>]
 type CallingConventionTests() =
@@ -38,9 +39,10 @@ type CallingConventionTests() =
         [| ArgLocation.Reg(r 1)
            ArgLocation.Reg(r 2)
            ArgLocation.Stack { FirstOffset = 8; SlotSize = 8 } |]
-      ReturnLocation = ArgLocation.Reg(r 0)
+      ReturnValueLocation = ArgLocation.Reg(r 0)
       CalleeSavedRegisters = set [ r 10; r 11 ]
-      CallerSavedRegisters = set [ r 1; r 2 ] }
+      CallerSavedRegisters = set [ r 1; r 2 ]
+      ReturnAddressLocation = OnStack }
 
   [<TestMethod>]
   member _.``GetArgLocation returns register arguments``() =
@@ -91,3 +93,16 @@ type CallingConventionTests() =
   member _.``GetArgLocation rejects negative index``() =
     Assert.ThrowsExactly<System.ArgumentException>(fun () ->
       sampleCC.GetArgLocation(-1) |> ignore) |> ignore
+
+  [<TestMethod>]
+  member _.``x64 keeps the return address on the stack``() =
+    let isa = ISA(Architecture.Intel, WordSize.Bit64)
+    let cc = CallingConvention.create OS.Linux isa
+    Assert.AreEqual<ReturnAddressLocation>(OnStack, cc.ReturnAddressLocation)
+
+  [<TestMethod>]
+  member _.``AArch64 holds the return address in the link register``() =
+    let cc = CallingConvention.create OS.Linux (ISA Architecture.ARMv8)
+    let lr = ARM64.Register.toRegID ARM64.Register.X30
+    Assert.AreEqual<ReturnAddressLocation>(
+      InRegister lr, cc.ReturnAddressLocation)

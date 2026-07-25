@@ -84,8 +84,21 @@ type BinHandle =
   /// UnknownOS if none was given).
   member OS: OS
 
-  /// Gets the calling convention.
+  /// <summary>
+  /// Gets the calling convention for this binary's OS and ISA: how function
+  /// arguments and the return value are passed, which registers are callee- or
+  /// caller-saved, and where the return address is found on callee entry. See
+  /// <see cref='T:B2R2.ABI.CallingConvention'/>.
+  /// </summary>
   member CallingConvention: CallingConvention
+
+  /// <summary>
+  /// Gets the stack-frame convention for this binary's OS and ISA: the
+  /// required stack alignment at a call site plus the red zone and shadow
+  /// (home) space sizes. Independent of how arguments are passed. See
+  /// <see cref='T:B2R2.ABI.StackConvention'/>.
+  /// </summary>
+  member StackConvention: StackConvention
 
   /// Gets the system-call convention.
   member SyscallConvention: SyscallConvention

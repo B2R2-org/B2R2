@@ -36,11 +36,13 @@ type CallingConvention =
     /// the array as well.
     Args: ArgLocation[]
     /// Location of the integer/pointer return value.
-    ReturnLocation: ArgLocation
+    ReturnValueLocation: ArgLocation
     /// Callee-saved (non-volatile) registers.
     CalleeSavedRegisters: Set<RegisterID>
     /// Caller-saved (volatile) registers.
-    CallerSavedRegisters: Set<RegisterID> }
+    CallerSavedRegisters: Set<RegisterID>
+    /// Where the return address is found at callee entry.
+    ReturnAddressLocation: ReturnAddressLocation }
 with
   /// Returns the location of the argument at the given zero-based index. For a
   /// stack argument, the returned Stack layout's FirstOffset is the offset of
@@ -49,7 +51,7 @@ with
 
   /// Returns the register holding the integer/pointer return value. Raises if
   /// the value is not returned in a single register under this convention.
-  member this.ReturnRegister = ArgLocation.toRegister this.ReturnLocation
+  member this.ReturnRegister = ArgLocation.toRegister this.ReturnValueLocation
 
   /// Returns the register holding the argument at the given zero-based index.
   /// Raises if the argument is not passed in a single register.
@@ -91,7 +93,7 @@ module CallingConvention =
 
   let private linuxX86 () = (* cdecl: all integer arguments on the stack *)
     { Args = [| ArgLocation.Stack { FirstOffset = 4; SlotSize = 4 } |]
-      ReturnLocation = ArgLocation.Reg(intel Intel.Register.EAX)
+      ReturnValueLocation = ArgLocation.Reg(intel Intel.Register.EAX)
       CalleeSavedRegisters =
         set [ intel Intel.Register.EBP
               intel Intel.Register.EBX
@@ -100,7 +102,8 @@ module CallingConvention =
       CallerSavedRegisters =
         set [ intel Intel.Register.EAX
               intel Intel.Register.ECX
-              intel Intel.Register.EDX ] }
+              intel Intel.Register.EDX ]
+      ReturnAddressLocation = OnStack }
 
   let private linuxX64 () = (* System V AMD64 ABI *)
     { Args =
@@ -111,7 +114,7 @@ module CallingConvention =
            ArgLocation.Reg(intel Intel.Register.R8)
            ArgLocation.Reg(intel Intel.Register.R9)
            ArgLocation.Stack { FirstOffset = 8; SlotSize = 8 } |]
-      ReturnLocation = ArgLocation.Reg(intel Intel.Register.RAX)
+      ReturnValueLocation = ArgLocation.Reg(intel Intel.Register.RAX)
       CalleeSavedRegisters =
         set [ intel Intel.Register.RBX
               intel Intel.Register.RSP
@@ -127,7 +130,8 @@ module CallingConvention =
               intel Intel.Register.R8
               intel Intel.Register.R9
               intel Intel.Register.R10
-              intel Intel.Register.R11 ] }
+              intel Intel.Register.R11 ]
+      ReturnAddressLocation = OnStack }
 
   let private linuxARM32 () = (* AAPCS (EABI) *)
     { Args =
@@ -137,7 +141,7 @@ module CallingConvention =
            ArgLocation.Reg(arm32 ARM32.Register.R3)
            ArgLocation.Reg(arm32 ARM32.Register.R4)
            ArgLocation.Reg(arm32 ARM32.Register.R5) |]
-      ReturnLocation = ArgLocation.Reg(arm32 ARM32.Register.R0)
+      ReturnValueLocation = ArgLocation.Reg(arm32 ARM32.Register.R0)
       CalleeSavedRegisters =
         set [ arm32 ARM32.Register.R4
               arm32 ARM32.Register.R5
@@ -150,7 +154,8 @@ module CallingConvention =
         set [ arm32 ARM32.Register.R0
               arm32 ARM32.Register.R1
               arm32 ARM32.Register.R2
-              arm32 ARM32.Register.R3 ] }
+              arm32 ARM32.Register.R3 ]
+      ReturnAddressLocation = InRegister(arm32 ARM32.Register.LR) }
 
   let private linuxAArch64 () = (* AAPCS64 *)
     { Args =
@@ -160,7 +165,7 @@ module CallingConvention =
            ArgLocation.Reg(arm64 ARM64.Register.X3)
            ArgLocation.Reg(arm64 ARM64.Register.X4)
            ArgLocation.Reg(arm64 ARM64.Register.X5) |]
-      ReturnLocation = ArgLocation.Reg(arm64 ARM64.Register.X0)
+      ReturnValueLocation = ArgLocation.Reg(arm64 ARM64.Register.X0)
       CalleeSavedRegisters =
         set [ arm64 ARM64.Register.X19
               arm64 ARM64.Register.X20
@@ -180,7 +185,8 @@ module CallingConvention =
               arm64 ARM64.Register.X12
               arm64 ARM64.Register.X13
               arm64 ARM64.Register.X14
-              arm64 ARM64.Register.X15 ] }
+              arm64 ARM64.Register.X15 ]
+      ReturnAddressLocation = InRegister(arm64 ARM64.Register.X30) }
 
   let private linuxMIPS () =
     { Args =
@@ -190,7 +196,7 @@ module CallingConvention =
            ArgLocation.Reg(mips MIPS.Register.R7)
            ArgLocation.Reg(mips MIPS.Register.R8)
            ArgLocation.Reg(mips MIPS.Register.R9) |]
-      ReturnLocation = ArgLocation.Reg(mips MIPS.Register.R2)
+      ReturnValueLocation = ArgLocation.Reg(mips MIPS.Register.R2)
       CalleeSavedRegisters =
         set [ mips MIPS.Register.R16
               mips MIPS.Register.R17
@@ -209,7 +215,8 @@ module CallingConvention =
               mips MIPS.Register.R12
               mips MIPS.Register.R13
               mips MIPS.Register.R14
-              mips MIPS.Register.R15 ] }
+              mips MIPS.Register.R15 ]
+      ReturnAddressLocation = InRegister(mips MIPS.Register.R31) }
 
   let private linuxPPC32 () = (* System V PowerPC ABI *)
     { Args =
@@ -221,7 +228,7 @@ module CallingConvention =
            ArgLocation.Reg(ppc PPC32.Register.R8)
            ArgLocation.Reg(ppc PPC32.Register.R9)
            ArgLocation.Reg(ppc PPC32.Register.R10) |]
-      ReturnLocation = ArgLocation.Reg(ppc PPC32.Register.R3)
+      ReturnValueLocation = ArgLocation.Reg(ppc PPC32.Register.R3)
       CalleeSavedRegisters =
         set [ ppc PPC32.Register.R1
               ppc PPC32.Register.R14
@@ -253,7 +260,8 @@ module CallingConvention =
               ppc PPC32.Register.R9
               ppc PPC32.Register.R10
               ppc PPC32.Register.R11
-              ppc PPC32.Register.R12 ] }
+              ppc PPC32.Register.R12 ]
+      ReturnAddressLocation = InRegister(ppc PPC32.Register.LR) }
 
   let private linuxRISCV64 () = (* RISC-V LP64 ABI *)
     { Args =
@@ -265,7 +273,7 @@ module CallingConvention =
            ArgLocation.Reg(riscv RISCV64.Register.X15)
            ArgLocation.Reg(riscv RISCV64.Register.X16)
            ArgLocation.Reg(riscv RISCV64.Register.X17) |]
-      ReturnLocation = ArgLocation.Reg(riscv RISCV64.Register.X10)
+      ReturnValueLocation = ArgLocation.Reg(riscv RISCV64.Register.X10)
       CalleeSavedRegisters =
         set [ riscv RISCV64.Register.X2
               riscv RISCV64.Register.X8
@@ -296,7 +304,8 @@ module CallingConvention =
               riscv RISCV64.Register.X28
               riscv RISCV64.Register.X29
               riscv RISCV64.Register.X30
-              riscv RISCV64.Register.X31 ] }
+              riscv RISCV64.Register.X31 ]
+      ReturnAddressLocation = InRegister(riscv RISCV64.Register.X1) }
 
   let private linuxSPARC () = (* SPARC: caller's outs become callee's ins *)
     { Args =
@@ -306,7 +315,7 @@ module CallingConvention =
            ArgLocation.Reg(sparc SPARC.Register.O3)
            ArgLocation.Reg(sparc SPARC.Register.O4)
            ArgLocation.Reg(sparc SPARC.Register.O5) |]
-      ReturnLocation = ArgLocation.Reg(sparc SPARC.Register.O0)
+      ReturnValueLocation = ArgLocation.Reg(sparc SPARC.Register.O0)
       CalleeSavedRegisters =
         set [ sparc SPARC.Register.L0
               sparc SPARC.Register.L1
@@ -336,7 +345,8 @@ module CallingConvention =
               sparc SPARC.Register.O3
               sparc SPARC.Register.O4
               sparc SPARC.Register.O5
-              sparc SPARC.Register.O7 ] }
+              sparc SPARC.Register.O7 ]
+      ReturnAddressLocation = InRegister(sparc SPARC.Register.O7) }
 
   let private linuxS390 () = (* IBM Z (s390x) ELF ABI *)
     { Args =
@@ -345,7 +355,7 @@ module CallingConvention =
            ArgLocation.Reg(s390 S390.Register.R4)
            ArgLocation.Reg(s390 S390.Register.R5)
            ArgLocation.Reg(s390 S390.Register.R6) |]
-      ReturnLocation = ArgLocation.Reg(s390 S390.Register.R2)
+      ReturnValueLocation = ArgLocation.Reg(s390 S390.Register.R2)
       CalleeSavedRegisters =
         set [ s390 S390.Register.R6
               s390 S390.Register.R7
@@ -363,7 +373,8 @@ module CallingConvention =
               s390 S390.Register.R3
               s390 S390.Register.R4
               s390 S390.Register.R5
-              s390 S390.Register.R14 ] }
+              s390 S390.Register.R14 ]
+      ReturnAddressLocation = InRegister(s390 S390.Register.R14) }
 
   let private linuxSH4 () = (* Renesas SH ABI *)
     { Args =
@@ -371,7 +382,7 @@ module CallingConvention =
            ArgLocation.Reg(sh4 SH4.Register.R5)
            ArgLocation.Reg(sh4 SH4.Register.R6)
            ArgLocation.Reg(sh4 SH4.Register.R7) |]
-      ReturnLocation = ArgLocation.Reg(sh4 SH4.Register.R0)
+      ReturnValueLocation = ArgLocation.Reg(sh4 SH4.Register.R0)
       CalleeSavedRegisters =
         set [ sh4 SH4.Register.R8
               sh4 SH4.Register.R9
@@ -389,7 +400,8 @@ module CallingConvention =
               sh4 SH4.Register.R4
               sh4 SH4.Register.R5
               sh4 SH4.Register.R6
-              sh4 SH4.Register.R7 ] }
+              sh4 SH4.Register.R7 ]
+      ReturnAddressLocation = InRegister(sh4 SH4.Register.PR) }
 
   let private linuxPARISC () = (* PA-RISC: arguments in descending GRs *)
     { Args =
@@ -397,7 +409,7 @@ module CallingConvention =
            ArgLocation.Reg(parisc PARISC.Register.GR25)
            ArgLocation.Reg(parisc PARISC.Register.GR24)
            ArgLocation.Reg(parisc PARISC.Register.GR23) |]
-      ReturnLocation = ArgLocation.Reg(parisc PARISC.Register.GR28)
+      ReturnValueLocation = ArgLocation.Reg(parisc PARISC.Register.GR28)
       CalleeSavedRegisters =
         set [ parisc PARISC.Register.GR3
               parisc PARISC.Register.GR4
@@ -427,14 +439,15 @@ module CallingConvention =
               parisc PARISC.Register.GR26
               parisc PARISC.Register.GR28
               parisc PARISC.Register.GR29
-              parisc PARISC.Register.GR31 ] }
+              parisc PARISC.Register.GR31 ]
+      ReturnAddressLocation = InRegister(parisc PARISC.Register.GR2) }
 
   let private windowsX86 () = (* fastcall: first two args in ECX, EDX *)
     { Args =
         [| ArgLocation.Reg(intel Intel.Register.ECX)
            ArgLocation.Reg(intel Intel.Register.EDX)
            ArgLocation.Stack { FirstOffset = 4; SlotSize = 4 } |]
-      ReturnLocation = ArgLocation.Reg(intel Intel.Register.EAX)
+      ReturnValueLocation = ArgLocation.Reg(intel Intel.Register.EAX)
       CalleeSavedRegisters =
         set [ intel Intel.Register.EBX
               intel Intel.Register.EBP
@@ -443,7 +456,8 @@ module CallingConvention =
       CallerSavedRegisters =
         set [ intel Intel.Register.EAX
               intel Intel.Register.ECX
-              intel Intel.Register.EDX ] }
+              intel Intel.Register.EDX ]
+      ReturnAddressLocation = OnStack }
 
   let private windowsX64 () = (* Microsoft x64: 32-byte shadow space *)
     { Args =
@@ -452,7 +466,7 @@ module CallingConvention =
            ArgLocation.Reg(intel Intel.Register.R8)
            ArgLocation.Reg(intel Intel.Register.R9)
            ArgLocation.Stack { FirstOffset = 40; SlotSize = 8 } |]
-      ReturnLocation = ArgLocation.Reg(intel Intel.Register.RAX)
+      ReturnValueLocation = ArgLocation.Reg(intel Intel.Register.RAX)
       CalleeSavedRegisters =
         set [ intel Intel.Register.RBX
               intel Intel.Register.RSP
@@ -470,7 +484,8 @@ module CallingConvention =
               intel Intel.Register.R8
               intel Intel.Register.R9
               intel Intel.Register.R10
-              intel Intel.Register.R11 ] }
+              intel Intel.Register.R11 ]
+      ReturnAddressLocation = OnStack }
 
   /// Builds the function-call calling convention for the given OS and ISA.
   /// Only Windows diverges from the System V / AAPCS conventions; every other
