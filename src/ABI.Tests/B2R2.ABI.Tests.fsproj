@@ -1,0 +1,21 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <IsPackable>false</IsPackable>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <Compile Include="CallingConventionTests.fs" />
+    <Compile Include="SyscallConventionTests.fs" />
+    <Compile Include="MacosSyscallTests.fs" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <PackageReference Include="MSTest" Version="4.0.2" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\ABI\B2R2.ABI.fsproj" />
+  </ItemGroup>
+
+</Project>

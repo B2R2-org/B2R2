@@ -11,8 +11,6 @@
   <ItemGroup>
     <Compile Include="GroundWork.fs" />
     <Compile Include="LiftingUnit.fs" />
-    <Compile Include="CallingConvention.fs" />
-    <Compile Include="SyscallConvention.fs" />
     <Compile Include="BinHandle.fsi" />
     <Compile Include="BinHandle.fs" />
     <Compile Include="InstructionCollection.fs" />
@@ -24,6 +22,7 @@
   </ItemGroup>
 
   <ItemGroup>
+    <ProjectReference Include="..\..\ABI\B2R2.ABI.fsproj" />
     <ProjectReference Include="..\..\Core\B2R2.Core.fsproj" />
     <ProjectReference Include="..\..\BinIR\B2R2.BinIR.fsproj" />
     <ProjectReference Include="..\BinFile\B2R2.FrontEnd.BinFile.fsproj" />

@@ -22,7 +22,9 @@
   SOFTWARE.
 *)
 
-namespace B2R2
+namespace B2R2.ABI
+
+open B2R2
 
 /// Represents macOS (Darwin/XNU) BSD system calls. The enum values are
 /// arbitrary indices; use MacosSyscall.toNumber to obtain the actual syscall

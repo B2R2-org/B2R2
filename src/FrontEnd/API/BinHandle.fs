@@ -27,6 +27,7 @@ namespace B2R2.FrontEnd
 open System
 open System.IO
 open B2R2
+open B2R2.ABI
 open B2R2.FrontEnd.BinFile
 open B2R2.FrontEnd.BinLifter
 open type FileFormat

@@ -25,6 +25,7 @@
 namespace B2R2.MiddleEnd.ControlFlowAnalysis.Strategies
 
 open B2R2
+open B2R2.ABI
 open B2R2.BinIR
 open B2R2.FrontEnd
 open B2R2.FrontEnd.BinFile

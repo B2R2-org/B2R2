@@ -22,7 +22,9 @@
   SOFTWARE.
 *)
 
-namespace B2R2
+namespace B2R2.ABI
+
+open B2R2
 
 /// Raised when unhandled syscall is encountered.
 exception UnhandledSyscallException

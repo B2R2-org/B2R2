@@ -22,7 +22,9 @@
   SOFTWARE.
 *)
 
-namespace B2R2
+namespace B2R2.ABI
+
+open B2R2
 
 /// Represents where a single function or syscall argument is located at the
 /// moment control reaches the callee.

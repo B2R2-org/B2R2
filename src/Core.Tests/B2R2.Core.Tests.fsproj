@@ -16,9 +16,6 @@
     <Compile Include="ByteArrayTests.fs" />
     <Compile Include="LEB128Tests.fs" />
     <Compile Include="PermissionTests.fs" />
-    <Compile Include="CallingConventionTests.fs" />
-    <Compile Include="SyscallConventionTests.fs" />
-    <Compile Include="MacosSyscallTests.fs" />
     <Compile Include="SortedListTests.fs" />
     <Compile Include="PersistentQueueTests.fs" />
     <Compile Include="LoggingTests.fs" />

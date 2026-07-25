@@ -1,4 +1,6 @@
 <Solution>
+  <Project Path="src/ABI.Tests/B2R2.ABI.Tests.fsproj" />
+  <Project Path="src/ABI/B2R2.ABI.fsproj" />
   <Project Path="src/Assembly.Tests/B2R2.Assembly.Tests.fsproj" />
   <Project Path="src/Assembly/API/B2R2.Assembly.API.fsproj" />
   <Project Path="src/Assembly/ARM32/B2R2.Assembly.ARM32.fsproj" />

@@ -1,0 +1,318 @@
+(*
+  B2R2 - the Next-Generation Reversing Platform
+
+  Copyright (c) SoftSec Lab. @ KAIST, since 2016
+
+  Permission is hereby granted, free of charge, to any person obtaining a copy
+  of this software and associated documentation files (the "Software"), to deal
+  in the Software without restriction, including without limitation the rights
+  to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
+  copies of the Software, and to permit persons to whom the Software is
+  furnished to do so, subject to the following conditions:
+
+  The above copyright notice and this permission notice shall be included in all
+  copies or substantial portions of the Software.
+
+  THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+  IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+  FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
+  AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+  LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
+  OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
+  SOFTWARE.
+*)
+
+namespace B2R2.ABI
+
+open B2R2
+open B2R2.FrontEnd
+
+/// Represents the system-call convention for a specific ISA and OS.
+type SyscallConvention =
+  { /// Register holding the syscall number on entry.
+    NumberRegister: RegisterID
+    /// Register holding the syscall return value.
+    ReturnRegister: RegisterID
+    /// How the call reports failure.
+    Error: SyscallError
+    /// Argument locations in order (index 0 is the first argument). A trailing
+    /// Stack element, if present, is a rule that covers every argument beyond
+    /// the array as well.
+    Args: ArgLocation[] }
+with
+  /// Returns the location of the syscall argument at the given zero-based
+  /// index.
+  member this.GetArgLocation(i) = ArgLocation.resolve this.Args i
+
+  /// Returns the register holding the syscall argument at the given zero-based
+  /// index. Raises if the argument is not passed in a single register.
+  member this.ArgRegister(i) =
+    this.GetArgLocation(i) |> ArgLocation.toRegister
+
+/// Describes how a system call reports failure.
+and SyscallError =
+  /// The return register itself carries the error: on failure it holds a value
+  /// in the negative errno range (e.g. -4095..-1 on Linux), so negating it
+  /// yields the errno. The common convention on x86, x64, and ARM.
+  | NegatedErrno
+  /// A dedicated flag register reports the error: when it is non-zero, the
+  /// return register holds the (positive) errno. Used by MIPS ($a3).
+  | FlagRegister of RegisterID
+  /// The return register holds a self-describing status code whose sign encodes
+  /// success or failure (e.g. an NTSTATUS on Windows), with no separate errno.
+  | StatusCode
+
+/// Builds the system-call convention for a given binary, producing the
+/// architecture-independent SyscallConvention type from a target OS and ISA.
+[<RequireQualifiedAccess>]
+module SyscallConvention =
+  let inline private intel r = Intel.Register.toRegID r
+
+  let inline private arm32 r = ARM32.Register.toRegID r
+
+  let inline private arm64 r = ARM64.Register.toRegID r
+
+  let inline private mips r = MIPS.Register.toRegID r
+
+  let inline private ppc r = PPC32.Register.toRegID r
+
+  let inline private riscv r = RISCV64.Register.toRegID r
+
+  let inline private sparc r = SPARC.Register.toRegID r
+
+  let inline private s390 r = S390.Register.toRegID r
+
+  let inline private sh4 r = SH4.Register.toRegID r
+
+  let inline private parisc r = PARISC.Register.toRegID r
+
+  let private reg r = ArgLocation.Reg r
+
+  let private linuxX86 () =
+    { NumberRegister = intel Intel.Register.EAX
+      ReturnRegister = intel Intel.Register.EAX
+      Error = NegatedErrno
+      Args =
+        [| reg (intel Intel.Register.EBX)
+           reg (intel Intel.Register.ECX)
+           reg (intel Intel.Register.EDX)
+           reg (intel Intel.Register.ESI)
+           reg (intel Intel.Register.EDI)
+           reg (intel Intel.Register.EBP) |] }
+
+  let private linuxX64 () =
+    { NumberRegister = intel Intel.Register.RAX
+      ReturnRegister = intel Intel.Register.RAX
+      Error = NegatedErrno
+      Args =
+        [| reg (intel Intel.Register.RDI)
+           reg (intel Intel.Register.RSI)
+           reg (intel Intel.Register.RDX)
+           reg (intel Intel.Register.R10)
+           reg (intel Intel.Register.R8)
+           reg (intel Intel.Register.R9) |] }
+
+  let private linuxARM32 () =
+    { NumberRegister = arm32 ARM32.Register.R7
+      ReturnRegister = arm32 ARM32.Register.R0
+      Error = NegatedErrno
+      Args =
+        [| reg (arm32 ARM32.Register.R0)
+           reg (arm32 ARM32.Register.R1)
+           reg (arm32 ARM32.Register.R2)
+           reg (arm32 ARM32.Register.R3)
+           reg (arm32 ARM32.Register.R4)
+           reg (arm32 ARM32.Register.R5) |] }
+
+  let private linuxAArch64 () =
+    { NumberRegister = arm64 ARM64.Register.X8
+      ReturnRegister = arm64 ARM64.Register.X0
+      Error = NegatedErrno
+      Args =
+        [| reg (arm64 ARM64.Register.X0)
+           reg (arm64 ARM64.Register.X1)
+           reg (arm64 ARM64.Register.X2)
+           reg (arm64 ARM64.Register.X3)
+           reg (arm64 ARM64.Register.X4)
+           reg (arm64 ARM64.Register.X5) |] }
+
+  let private linuxMIPS32 () = (* o32: 4 args in a0-a3, the rest on the stack *)
+    { NumberRegister = mips MIPS.Register.R2
+      ReturnRegister = mips MIPS.Register.R2
+      Error = FlagRegister(mips MIPS.Register.R7)
+      Args =
+        [| reg (mips MIPS.Register.R4)
+           reg (mips MIPS.Register.R5)
+           reg (mips MIPS.Register.R6)
+           reg (mips MIPS.Register.R7)
+           ArgLocation.Stack { FirstOffset = 16; SlotSize = 4 } |] }
+
+  let private linuxMIPS64 () = (* n32/n64: 6 syscall args in a0-a5, no stack *)
+    { NumberRegister = mips MIPS.Register.R2
+      ReturnRegister = mips MIPS.Register.R2
+      Error = FlagRegister(mips MIPS.Register.R7)
+      Args =
+        [| reg (mips MIPS.Register.R4)
+           reg (mips MIPS.Register.R5)
+           reg (mips MIPS.Register.R6)
+           reg (mips MIPS.Register.R7)
+           reg (mips MIPS.Register.R8)
+           reg (mips MIPS.Register.R9) |] }
+
+  let private linuxPPC32 () = (* error reported via the cr0.SO bit *)
+    { NumberRegister = ppc PPC32.Register.R0
+      ReturnRegister = ppc PPC32.Register.R3
+      Error = FlagRegister(ppc PPC32.Register.CR0_3)
+      Args =
+        [| reg (ppc PPC32.Register.R3)
+           reg (ppc PPC32.Register.R4)
+           reg (ppc PPC32.Register.R5)
+           reg (ppc PPC32.Register.R6)
+           reg (ppc PPC32.Register.R7)
+           reg (ppc PPC32.Register.R8) |] }
+
+  let private linuxRISCV64 () =
+    { NumberRegister = riscv RISCV64.Register.X17
+      ReturnRegister = riscv RISCV64.Register.X10
+      Error = NegatedErrno
+      Args =
+        [| reg (riscv RISCV64.Register.X10)
+           reg (riscv RISCV64.Register.X11)
+           reg (riscv RISCV64.Register.X12)
+           reg (riscv RISCV64.Register.X13)
+           reg (riscv RISCV64.Register.X14)
+           reg (riscv RISCV64.Register.X15) |] }
+
+  let private linuxSPARC () = (* error reported via the carry bit of CCR *)
+    { NumberRegister = sparc SPARC.Register.G1
+      ReturnRegister = sparc SPARC.Register.O0
+      Error = FlagRegister(sparc SPARC.Register.CCR)
+      Args =
+        [| reg (sparc SPARC.Register.O0)
+           reg (sparc SPARC.Register.O1)
+           reg (sparc SPARC.Register.O2)
+           reg (sparc SPARC.Register.O3)
+           reg (sparc SPARC.Register.O4)
+           reg (sparc SPARC.Register.O5) |] }
+
+  let private linuxS390 () =
+    { NumberRegister = s390 S390.Register.R1
+      ReturnRegister = s390 S390.Register.R2
+      Error = NegatedErrno
+      Args =
+        [| reg (s390 S390.Register.R2)
+           reg (s390 S390.Register.R3)
+           reg (s390 S390.Register.R4)
+           reg (s390 S390.Register.R5)
+           reg (s390 S390.Register.R6)
+           reg (s390 S390.Register.R7) |] }
+
+  let private linuxSH4 () =
+    { NumberRegister = sh4 SH4.Register.R3
+      ReturnRegister = sh4 SH4.Register.R0
+      Error = NegatedErrno
+      Args =
+        [| reg (sh4 SH4.Register.R4)
+           reg (sh4 SH4.Register.R5)
+           reg (sh4 SH4.Register.R6)
+           reg (sh4 SH4.Register.R7)
+           reg (sh4 SH4.Register.R0)
+           reg (sh4 SH4.Register.R1) |] }
+
+  let private linuxPARISC () = (* arguments are placed in descending GRs *)
+    { NumberRegister = parisc PARISC.Register.GR20
+      ReturnRegister = parisc PARISC.Register.GR28
+      Error = NegatedErrno
+      Args =
+        [| reg (parisc PARISC.Register.GR26)
+           reg (parisc PARISC.Register.GR25)
+           reg (parisc PARISC.Register.GR24)
+           reg (parisc PARISC.Register.GR23)
+           reg (parisc PARISC.Register.GR22)
+           reg (parisc PARISC.Register.GR21) |] }
+
+  let private windowsX86 () = (* args on the stack via the stdcall Nt* stub *)
+    { NumberRegister = intel Intel.Register.EAX
+      ReturnRegister = intel Intel.Register.EAX
+      Error = StatusCode
+      Args = [| ArgLocation.Stack { FirstOffset = 4; SlotSize = 4 } |] }
+
+  let private windowsX64 () = (* first arg in R10, not RCX *)
+    { NumberRegister = intel Intel.Register.RAX
+      ReturnRegister = intel Intel.Register.RAX
+      Error = StatusCode
+      Args =
+        [| reg (intel Intel.Register.R10)
+           reg (intel Intel.Register.RDX)
+           reg (intel Intel.Register.R8)
+           reg (intel Intel.Register.R9)
+           ArgLocation.Stack { FirstOffset = 40; SlotSize = 8 } |] }
+
+  let private macosX86 () = (* Darwin i386: args on stack, error via carry *)
+    { NumberRegister = intel Intel.Register.EAX
+      ReturnRegister = intel Intel.Register.EAX
+      Error = FlagRegister(intel Intel.Register.CF)
+      Args = [| ArgLocation.Stack { FirstOffset = 4; SlotSize = 4 } |] }
+
+  let private macosX64 () = (* R10 replaces RCX; error via the carry flag *)
+    { NumberRegister = intel Intel.Register.RAX
+      ReturnRegister = intel Intel.Register.RAX
+      Error = FlagRegister(intel Intel.Register.CF)
+      Args =
+        [| reg (intel Intel.Register.RDI)
+           reg (intel Intel.Register.RSI)
+           reg (intel Intel.Register.RDX)
+           reg (intel Intel.Register.R10)
+           reg (intel Intel.Register.R8)
+           reg (intel Intel.Register.R9) |] }
+
+  let private macosARM32 () = (* iOS armv7: number in R12, error via carry *)
+    { NumberRegister = arm32 ARM32.Register.IP (* r12 *)
+      ReturnRegister = arm32 ARM32.Register.R0
+      Error = FlagRegister(arm32 ARM32.Register.APSR)
+      Args =
+        [| reg (arm32 ARM32.Register.R0)
+           reg (arm32 ARM32.Register.R1)
+           reg (arm32 ARM32.Register.R2)
+           reg (arm32 ARM32.Register.R3)
+           reg (arm32 ARM32.Register.R4)
+           reg (arm32 ARM32.Register.R5) |] }
+
+  let private macosAArch64 () = (* number in X16, error via carry *)
+    { NumberRegister = arm64 ARM64.Register.X16
+      ReturnRegister = arm64 ARM64.Register.X0
+      Error = FlagRegister(arm64 ARM64.Register.C)
+      Args =
+        [| reg (arm64 ARM64.Register.X0)
+           reg (arm64 ARM64.Register.X1)
+           reg (arm64 ARM64.Register.X2)
+           reg (arm64 ARM64.Register.X3)
+           reg (arm64 ARM64.Register.X4)
+           reg (arm64 ARM64.Register.X5) |] }
+
+  /// Builds the system-call convention for the given OS and ISA.
+  /// Combinations we do not model (including an unknown OS, e.g. a raw
+  /// shellcode image) fall back to the Linux x64 syscall convention, so this
+  /// never throws.
+  [<CompiledName "Create">]
+  let create os isa =
+    match os, isa with
+    | OS.Linux, X86 -> linuxX86 ()
+    | OS.Linux, X64 -> linuxX64 ()
+    | OS.Linux, ARM32 -> linuxARM32 ()
+    | OS.Linux, AArch64 -> linuxAArch64 ()
+    | OS.Linux, MIPS32 -> linuxMIPS32 ()
+    | OS.Linux, MIPS64 -> linuxMIPS64 ()
+    | OS.Linux, PPC32 -> linuxPPC32 ()
+    | OS.Linux, RISCV64 -> linuxRISCV64 ()
+    | OS.Linux, SPARC -> linuxSPARC ()
+    | OS.Linux, S390 -> linuxS390 ()
+    | OS.Linux, SH4 -> linuxSH4 ()
+    | OS.Linux, PARISC -> linuxPARISC ()
+    | OS.Windows, X86 -> windowsX86 ()
+    | OS.Windows, X64 -> windowsX64 ()
+    | OS.MacOSX, X86 -> macosX86 ()
+    | OS.MacOSX, X64 -> macosX64 ()
+    | OS.MacOSX, ARM32 -> macosARM32 ()
+    | OS.MacOSX, AArch64 -> macosAArch64 ()
+    | _ -> linuxX64 ()
