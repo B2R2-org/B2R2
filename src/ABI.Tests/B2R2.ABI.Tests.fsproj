@@ -10,6 +10,7 @@
     <Compile Include="SyscallConventionTests.fs" />
     <Compile Include="ConventionsTests.fs" />
     <Compile Include="MacosSyscallTests.fs" />
+    <Compile Include="WindowsSyscallTests.fs" />
   </ItemGroup>
 
   <ItemGroup>

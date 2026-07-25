@@ -13,6 +13,8 @@
     <Compile Include="ArgClassification.fs" />
     <Compile Include="LinuxSyscall.fs" />
     <Compile Include="MacosSyscall.fs" />
+    <Compile Include="WindowsBuild.fs" />
+    <Compile Include="WindowsSyscall.fs" />
     <Compile Include="CallingConvention.fs" />
     <Compile Include="StackConvention.fs" />
     <Compile Include="SyscallConvention.fs" />
