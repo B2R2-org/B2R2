@@ -57,11 +57,7 @@ type BinHandle private(path, bytes, fmt, isa, baseAddrOpt, osOpt) =
     | None, None ->
       OS.UnknownOS
 
-  let cc = CallingConvention.create os binFile.ISA
-
-  let stackConv = StackConvention.create os binFile.ISA
-
-  let sc = SyscallConvention.create os binFile.ISA
+  let conv = Conventions.create os binFile.ISA
 
   let reader = binFile.Reader
 
@@ -169,11 +165,7 @@ type BinHandle private(path, bytes, fmt, isa, baseAddrOpt, osOpt) =
 
   member _.OS with get() = os
 
-  member _.CallingConvention with get() = cc
-
-  member _.StackConvention with get() = stackConv
-
-  member _.SyscallConvention with get() = sc
+  member _.Conventions with get() = conv
 
   member _.NewLiftingUnit() =
     let parser = GroundWork.CreateParser binFile

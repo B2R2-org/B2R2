@@ -60,8 +60,8 @@ type BinHandle =
      * detectFormat: bool
     -> BinHandle
 
-  /// Constructs a BinHandle from a given byte array and ISA. The base address is
-  /// set to 0UL, and file format detection is disabled.
+  /// Constructs a BinHandle from a given byte array and ISA. The base address
+  /// is set to 0UL, and file format detection is disabled.
   new: bytes: byte[] * isa: ISA -> BinHandle
 
   /// Constructs a BinHandle from a given byte array, ISA, and target OS. The
@@ -85,23 +85,11 @@ type BinHandle =
   member OS: OS
 
   /// <summary>
-  /// Gets the calling convention for this binary's OS and ISA: how function
-  /// arguments and the return value are passed, which registers are callee- or
-  /// caller-saved, and where the return address is found on callee entry. See
-  /// <see cref='T:B2R2.ABI.CallingConvention'/>.
+  /// Gets the ABI conventions for this binary's OS and ISA, bundling the
+  /// function-call calling convention, the stack-frame convention, and the
+  /// system-call convention. See <see cref='T:B2R2.ABI.Conventions'/>.
   /// </summary>
-  member CallingConvention: CallingConvention
-
-  /// <summary>
-  /// Gets the stack-frame convention for this binary's OS and ISA: the
-  /// required stack alignment at a call site plus the red zone and shadow
-  /// (home) space sizes. Independent of how arguments are passed. See
-  /// <see cref='T:B2R2.ABI.StackConvention'/>.
-  /// </summary>
-  member StackConvention: StackConvention
-
-  /// Gets the system-call convention.
-  member SyscallConvention: SyscallConvention
+  member Conventions: Conventions
 
   /// Gets a new instance of lifting unit.
   member NewLiftingUnit: unit -> LiftingUnit

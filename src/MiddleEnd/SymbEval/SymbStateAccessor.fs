@@ -56,7 +56,7 @@ type SymbStateAccessor(hdl: BinHandle, state: SymbState) as this =
   let endian = hdl.File.ISA.Endian
   let wordType = hdl.File.ISA.WordSize |> WordSize.toRegType
   let wordBytes = RegType.toByteWidth wordType
-  let cc = hdl.CallingConvention
+  let cc = hdl.Conventions.Calling
 
   let wordValue (addr: Addr) = SymbExpr.Const(BitVector(addr, wordType))
 

@@ -39,7 +39,7 @@ type ConcStateAccessor(hdl: BinHandle, state: EvalState) as this =
   let wordType = hdl.File.ISA.WordSize |> WordSize.toRegType
   let wordBytes = RegType.toByteWidth wordType
   let endian = hdl.File.ISA.Endian
-  let cc = hdl.CallingConvention
+  let cc = hdl.Conventions.Calling
 
   let wordValue (value: uint64) = BitVector(value, wordType)
 

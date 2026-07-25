@@ -8,6 +8,7 @@
     <Compile Include="CallingConventionTests.fs" />
     <Compile Include="StackConventionTests.fs" />
     <Compile Include="SyscallConventionTests.fs" />
+    <Compile Include="ConventionsTests.fs" />
     <Compile Include="MacosSyscallTests.fs" />
   </ItemGroup>
 

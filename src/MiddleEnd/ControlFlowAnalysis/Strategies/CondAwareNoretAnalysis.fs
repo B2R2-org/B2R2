@@ -79,10 +79,10 @@ type CondAwareNoretAnalysis([<Optional; DefaultParameterValue(true)>] strict) =
   let regIdToArgNumX64 (hdl: BinHandle) rid =
     [ 1 .. 6 ]
     |> List.tryFind (fun nth ->
-      rid = hdl.CallingConvention.ArgRegister(nth - 1))
+      rid = hdl.Conventions.Calling.ArgRegister(nth - 1))
 
   let untouchedArgIndexX64FromIRCFG (hdl: BinHandle) ctx pp state nth =
-    let argRegId = hdl.CallingConvention.ArgRegister(nth - 1)
+    let argRegId = hdl.Conventions.Calling.ArgRegister(nth - 1)
     let varKind = Regular argRegId
     let absV = ctx.Vertices[pp]
     match tryGetValue state absV varKind with
@@ -146,7 +146,7 @@ type CondAwareNoretAnalysis([<Optional; DefaultParameterValue(true)>] strict) =
       | _ -> None)
 
   let untouchedArgIndexX64FromSSACFG hdl (ssa: SSACFG) absV state nth =
-    let argReg = (hdl: BinHandle).CallingConvention.ArgRegister(nth - 1)
+    let argReg = (hdl: BinHandle).Conventions.Calling.ArgRegister(nth - 1)
     let name = hdl.RegisterFactory.GetRegisterName argReg
     let varKind = SSA.RegVar(64<rt>, argReg, name)
     match ssa.FindReachingDef(absV, varKind) with
@@ -350,7 +350,7 @@ module CondAwareNoretAnalysis =
     | _ -> false
 
   let private hasNonZeroOnX64 (hdl: BinHandle) st nth =
-    let reg = hdl.CallingConvention.ArgRegister(nth - 1)
+    let reg = hdl.Conventions.Calling.ArgRegister(nth - 1)
     match (st: EvalState).TryGetReg reg with
     | Def bv -> not bv.IsZero
     | _ -> false

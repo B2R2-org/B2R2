@@ -568,7 +568,7 @@ type SymbExecutor(hdl: BinHandle) =
 
   let endian = hdl.File.ISA.Endian
 
-  let cc = hdl.CallingConvention
+  let cc = hdl.Conventions.Calling
 
   let syncPC (addr: Addr) (st: SymbState) =
     st.SetReg(hdl.RegisterFactory.ProgramCounter,
