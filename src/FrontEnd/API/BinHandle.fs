@@ -100,34 +100,39 @@ type BinHandle private(path, bytes, fmt, isa, baseAddrOpt, osOpt) =
       let b = binFile.RawBytes.Span[ptr.Offset]
       if b = 0uy then List.rev (b :: acc) |> List.toArray
       else readAscii (b :: acc) (ptr.Advance 1)
-    else List.rev acc |> List.toArray
+    else
+      List.rev acc |> List.toArray
 
   let readOrPartialReadBytes (ptr: BinFilePointer) nBytes =
+    let available = ptr.MaxAddr - ptr.Addr + 1UL
+    let amount = if available >= uint64 nBytes then nBytes else int available
     let arr =
-      if ptr.IsVirtual then Array.zeroCreate nBytes
+      if ptr.IsVirtual then
+        Array.zeroCreate amount
       else
-        let len = ptr.ReadableAmount
-        let span = binFile.RawBytes.Span.Slice(ptr.Offset, len)
-        span.Slice(0, nBytes).ToArray()
-    if ptr.CanRead nBytes then Ok arr (* full result *)
+        let len = min ptr.ReadableAmount amount
+        binFile.RawBytes.Span.Slice(ptr.Offset, len).ToArray()
+    if arr.Length = nBytes then Ok arr (* full result *)
     else Error arr (* partial result *)
 
   let rec tryReadBytes (ptr: BinFilePointer) nBytes =
-    if ptr.CanRead nBytes then
+    if nBytes > 0 && ptr.CanRead 1 then
       match readOrPartialReadBytes ptr nBytes with
-      | Ok bs -> Ok bs
+      | Ok bs ->
+        Ok bs
       | Error bs ->
-        let rest = nBytes - bs.Length
         let nextPtr = binFile.GetBoundedPointer(ptr.MaxAddr + 1UL)
-        match tryReadBytes nextPtr rest with
+        match tryReadBytes nextPtr (nBytes - bs.Length) with
         | Ok restBytes -> Ok <| Array.append bs restBytes
         | Error e -> Error e
-    else Error ErrorCase.InvalidMemoryRead
+    else
+      Error ErrorCase.InvalidMemoryRead
 
   let rec readBytes (ptr: BinFilePointer) nBytes =
     if ptr.CanReadFileBytes then
       match readOrPartialReadBytes ptr nBytes with
-      | Ok bs -> bs
+      | Ok bs ->
+        bs
       | Error bs ->
         let rest = nBytes - bs.Length
         let nextPtr = binFile.GetBoundedPointer(ptr.MaxAddr + 1UL)

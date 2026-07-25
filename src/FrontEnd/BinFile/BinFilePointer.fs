@@ -97,12 +97,14 @@ with
 
   /// <summary>
   /// Checks if the pointer can read the given number of bytes within its
-  /// virtual address range. The check is purely address-based (it does not
-  /// consider the file offset), so a virtual pointer can still report
-  /// <c>true</c>. Returns <c>false</c> for a non-positive size.
+  /// virtual address range. The check does not bound the read by the file
+  /// offset range, so a virtual pointer can still report <c>true</c>. Returns
+  /// <c>false</c> for a non-positive size, and for a null pointer, which has
+  /// no valid file offset to read from.
   /// </summary>
   member inline this.CanRead(size: int) =
     size > 0
+    && this.Offset >= 0
     && this.Addr <= this.MaxAddr
     && uint64 (size - 1) <= this.MaxAddr - this.Addr
 

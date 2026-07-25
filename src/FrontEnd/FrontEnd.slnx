@@ -2,6 +2,7 @@
   <Project Path="../BinIR/B2R2.BinIR.fsproj" />
   <Project Path="../Core/B2R2.Core.fsproj" />
   <Project Path="../ABI/B2R2.ABI.fsproj" />
+  <Project Path="API.Tests/B2R2.FrontEnd.API.Tests.fsproj" />
   <Project Path="API/B2R2.FrontEnd.API.fsproj" />
   <Project Path="ARM32.Tests/B2R2.FrontEnd.ARM32.Tests.fsproj" />
   <Project Path="ARM32/B2R2.FrontEnd.ARM32.fsproj" />

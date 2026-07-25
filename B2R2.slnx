@@ -11,6 +11,7 @@
   <Project Path="src/BinIR/B2R2.BinIR.fsproj" />
   <Project Path="src/Core.Tests/B2R2.Core.Tests.fsproj" />
   <Project Path="src/Core/B2R2.Core.fsproj" />
+  <Project Path="src/FrontEnd/API.Tests/B2R2.FrontEnd.API.Tests.fsproj" />
   <Project Path="src/FrontEnd/API/B2R2.FrontEnd.API.fsproj" />
   <Project Path="src/FrontEnd/ARM32.Tests/B2R2.FrontEnd.ARM32.Tests.fsproj" />
   <Project Path="src/FrontEnd/ARM32/B2R2.FrontEnd.ARM32.fsproj" />
