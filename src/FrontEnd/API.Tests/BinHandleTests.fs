@@ -50,6 +50,10 @@ type BinHandleTests() =
   /// A pointer to a region mapped to VM only, as in a .bss section.
   static let vmOnly = BinFilePointer.CreateVirtual(0x1000UL, 0x1fffUL)
 
+  /// An image holding "hi", a NUL, and then an unterminated "ab".
+  static let strHdl =
+    BinHandle([| 0x68uy; 0x69uy; 0x00uy; 0x61uy; 0x62uy |], isa)
+
   [<TestMethod>]
   member _.``[BinHandle] raw image ISA and OS test``() =
     Assert.AreEqual<Architecture>(Architecture.Intel, hdl.File.ISA.Arch)
@@ -120,6 +124,33 @@ type BinHandleTests() =
     Assert.AreEqual(Error ErrorCase.InvalidMemoryRead,
                     hdl.TryReadInt(0UL, 3))
 
+  [<TestMethod>]
+  member _.``[BinHandle] read a NUL-terminated string test``() =
+    Assert.AreEqual<string>("hi", strHdl.ReadASCII 0UL)
+    Assert.AreEqual<string>("i", strHdl.ReadASCII 1UL)
+    Assert.AreEqual<string>("", strHdl.ReadASCII 2UL)
+    Assert.AreEqual(Ok "hi", strHdl.TryReadASCII 0UL)
+
+  (* A string that runs to the end of the pointed region without a NUL yields
+     what was read; only an unreadable start is an error. *)
+  [<TestMethod>]
+  member _.``[BinHandle] read an unterminated string test``() =
+    Assert.AreEqual<string>("ab", strHdl.ReadASCII 3UL)
+    Assert.AreEqual(Ok "ab", strHdl.TryReadASCII 3UL)
+
+  (* This used to hand back an empty string, making an unmapped address
+     indistinguishable from a genuinely empty one. *)
+  [<TestMethod>]
+  member _.``[BinHandle] try read a string at a bad pointer test``() =
+    Assert.AreEqual(Error ErrorCase.InvalidMemoryRead,
+                    hdl.TryReadASCII unmapped)
+    Assert.AreEqual(Error ErrorCase.InvalidMemoryRead,
+                    hdl.TryReadASCII BinFilePointer.Null)
+    Assert.AreEqual(Error ErrorCase.InvalidMemoryRead,
+                    hdl.TryReadASCII vmOnly)
+    Assert.AreEqual(Error ErrorCase.InvalidMemoryRead,
+                    emptyHdl.TryReadASCII 0UL)
+
   (* Every failing read must surface the same exception type. A span-level
      ArgumentOutOfRangeException would fail these, since it derives from
      ArgumentException and ThrowsExactly rejects derived types. *)
@@ -142,3 +173,12 @@ type BinHandleTests() =
   member _.``[BinHandle] read an integer of a bad size raises test``() =
     Assert.ThrowsExactly<System.ArgumentException>(fun () ->
       hdl.ReadInt(0UL, 3) |> ignore) |> ignore
+
+  [<TestMethod>]
+  member _.``[BinHandle] read a string at a bad pointer raises test``() =
+    Assert.ThrowsExactly<System.ArgumentException>(fun () ->
+      hdl.ReadASCII unmapped |> ignore) |> ignore
+    Assert.ThrowsExactly<System.ArgumentException>(fun () ->
+      hdl.ReadASCII BinFilePointer.Null |> ignore) |> ignore
+    Assert.ThrowsExactly<System.ArgumentException>(fun () ->
+      hdl.ReadASCII vmOnly |> ignore) |> ignore

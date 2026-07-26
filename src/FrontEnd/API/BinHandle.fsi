@@ -242,21 +242,48 @@ type BinHandle =
   member ReadUInt: ptr: BinFilePointer * size: int -> uint64
 
   /// <summary>
-  /// Returns the ASCII string at the addr from the given BinHandle.
+  /// Returns the NUL-terminated ASCII string starting at the address (addr).
+  /// When the pointed region ends before a NUL is found, the string read so far
+  /// is returned.
   /// </summary>
   /// <param name="addr">The address.</param>
   /// <returns>
-  /// Returns the corresponding ASCII string.
+  /// Returns the ASCII string if the address is backed by file bytes,
+  /// (ErrorCase) otherwise.
+  /// </returns>
+  member TryReadASCII: addr: Addr -> Result<string, ErrorCase>
+
+  /// <summary>
+  /// Returns the NUL-terminated ASCII string pointed to by the binary file
+  /// pointer (ptr). When the pointed region ends before a NUL is found, the
+  /// string read so far is returned.
+  /// </summary>
+  /// <param name="ptr">The binary pointer.</param>
+  /// <returns>
+  /// Returns the ASCII string if the pointer is backed by file bytes,
+  /// (ErrorCase) otherwise.
+  /// </returns>
+  member TryReadASCII: ptr: BinFilePointer -> Result<string, ErrorCase>
+
+  /// <summary>
+  /// Returns the NUL-terminated ASCII string starting at the address (addr).
+  /// When the pointed region ends before a NUL is found, the string read so far
+  /// is returned.
+  /// </summary>
+  /// <param name="addr">The address.</param>
+  /// <returns>
+  /// Returns the ASCII string if succeed. Otherwise, raise an exception.
   /// </returns>
   member ReadASCII: addr: Addr -> string
 
   /// <summary>
-  /// Returns the ASCII string pointed to by the binary file pointer from the
-  /// given BinHandle.
+  /// Returns the NUL-terminated ASCII string pointed to by the binary file
+  /// pointer (ptr). When the pointed region ends before a NUL is found, the
+  /// string read so far is returned.
   /// </summary>
-  /// <param name="ptr">BinFilePointer.</param>
+  /// <param name="ptr">The binary pointer.</param>
   /// <returns>
-  /// Returns the corresponding ASCII string.
+  /// Returns the ASCII string if succeed. Otherwise, raise an exception.
   /// </returns>
   member ReadASCII: ptr: BinFilePointer -> string
 

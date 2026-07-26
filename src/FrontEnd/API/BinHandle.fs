@@ -59,6 +59,8 @@ type BinHandle private(path, bytes, fmt, isa, baseAddrOpt, osOpt) =
 
   let conv = Conventions.create os binFile.ISA
 
+  let rawBytes = binFile.RawBytes
+
   let reader = binFile.Reader
 
   let tryReadIntBySize size (span: ByteSpan) =
@@ -95,13 +97,27 @@ type BinHandle private(path, bytes, fmt, isa, baseAddrOpt, osOpt) =
     | _ ->
       invalidArg (nameof size) (ErrorCase.toMessage ErrorCase.InvalidMemoryRead)
 
-  let rec readAscii acc (ptr: BinFilePointer) =
-    if ptr.CanReadFileBytes && not ptr.IsVirtual then
-      let b = binFile.RawBytes.Span[ptr.Offset]
-      if b = 0uy then List.rev (b :: acc) |> List.toArray
-      else readAscii (b :: acc) (ptr.Advance 1)
+  (* Walks forward from a pointer that is known to be file-backed, stopping at
+     the terminating NUL or at the end of the pointed region. *)
+  let rec readAsciiBytes acc (ptr: BinFilePointer) =
+    if ptr.CanReadFileBytes then
+      let b = rawBytes.Span[ptr.Offset]
+      if b = 0uy then List.rev acc |> List.toArray
+      else readAsciiBytes (b :: acc) (ptr.Advance 1)
     else
       List.rev acc |> List.toArray
+
+  let tryReadAscii (ptr: BinFilePointer) =
+    if ptr.CanReadFileBytes then
+      Ok(ByteArray.extractCString (readAsciiBytes [] ptr) 0)
+    else
+      Error ErrorCase.InvalidMemoryRead
+
+  let readAscii (ptr: BinFilePointer) =
+    if ptr.CanReadFileBytes then
+      ByteArray.extractCString (readAsciiBytes [] ptr) 0
+    else
+      invalidArg (nameof ptr) (ErrorCase.toMessage ErrorCase.InvalidMemoryRead)
 
   let readOrPartialReadBytes (ptr: BinFilePointer) nBytes =
     let available = ptr.MaxAddr - ptr.Addr + 1UL
@@ -111,7 +127,7 @@ type BinHandle private(path, bytes, fmt, isa, baseAddrOpt, osOpt) =
         Array.zeroCreate amount
       else
         let len = min ptr.ReadableAmount amount
-        binFile.RawBytes.Span.Slice(ptr.Offset, len).ToArray()
+        rawBytes.Span.Slice(ptr.Offset, len).ToArray()
     if arr.Length = nBytes then Ok arr (* full result *)
     else Error arr (* partial result *)
 
@@ -227,13 +243,15 @@ type BinHandle private(path, bytes, fmt, isa, baseAddrOpt, osOpt) =
     let ptr = binFile.GetBoundedPointer addr
     this.ReadUInt(ptr, size)
 
-  member _.ReadASCII(addr: Addr) =
-    let bs = binFile.GetBoundedPointer addr |> readAscii []
-    ByteArray.extractCString bs 0
+  member _.TryReadASCII(addr: Addr) =
+    binFile.GetBoundedPointer addr |> tryReadAscii
 
-  member _.ReadASCII(ptr: BinFilePointer) =
-    let bs = readAscii [] ptr
-    ByteArray.extractCString bs 0
+  member _.TryReadASCII(ptr: BinFilePointer) = tryReadAscii ptr
+
+  member _.ReadASCII(addr: Addr) =
+    binFile.GetBoundedPointer addr |> readAscii
+
+  member _.ReadASCII(ptr: BinFilePointer) = readAscii ptr
 
   member _.MakeNew(bs: byte[]) =
     BinHandle(path, bs, fmt, isa, baseAddrOpt, Some os)

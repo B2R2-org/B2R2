@@ -138,10 +138,10 @@ type Print() =
   let rec printStrings (hdl: BinHandle) addr cnt acc =
     if cnt <= 0 then List.rev acc |> List.toArray
     else
-      let s = try hdl.ReadASCII(addr = addr) |> Some with _ -> None
-      match s with
-      | None -> printStrings hdl addr 0 acc
-      | Some s ->
+      match hdl.TryReadASCII(addr = addr) with
+      | Error _ ->
+        printStrings hdl addr 0 acc
+      | Ok s ->
         let addrstr = getAddressPrefix hdl addr
         let len = String.length s |> uint64
         printStrings hdl (addr + len + 1UL) (cnt - 1) ((addrstr + s) :: acc)
