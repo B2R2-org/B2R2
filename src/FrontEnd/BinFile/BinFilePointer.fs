@@ -45,7 +45,7 @@ type BinFilePointer =
     /// <summary>
     /// The last (inclusive) file offset corresponding to <see cref="MaxAddr"/>.
     /// For a virtual (VM-only) region this is less than <see cref="Offset"/>,
-    /// and it is -1 for a null pointer.
+    /// and it is -2 for a null pointer.
     /// </summary>
     val MaxOffset: int
 
@@ -80,17 +80,21 @@ with
     this.Addr = 0UL
     && this.MaxAddr = 0UL
     && this.Offset = -1
-    && this.MaxOffset = -1
+    && this.MaxOffset = -2
 
   /// Checks if the pointer is virtual, meaning that it currently points to a
-  /// region that is mapped to VM but not to the file.
-  member inline this.IsVirtual with get() = this.Offset > this.MaxOffset
+  /// region that is mapped to VM but not to the file. A null pointer is not
+  /// virtual, as it points to no region at all.
+  member inline this.IsVirtual with get() =
+    this.Offset >= 0 && this.Offset > this.MaxOffset
 
   /// <summary>
   /// Returns the number of file bytes available from the current offset up to
-  /// (and including) the max offset. This is zero or negative when the pointer
-  /// is virtual (i.e., not backed by the file), so callers should guard with
-  /// <see cref="IsVirtual"/> before using this to slice file contents.
+  /// (and including) the max offset. This is zero when no file bytes are
+  /// available at the current position, i.e., for a virtual region, a null
+  /// pointer, or a pointer advanced past its file-backed region. Since a null
+  /// pointer has a negative offset, callers should guard with <see
+  /// cref="CanReadFileBytes"/> before using this to slice file contents.
   /// </summary>
   member inline this.ReadableAmount with get() =
     this.MaxOffset - this.Offset + 1
@@ -135,7 +139,7 @@ with
       this.MaxOffset)
 
   /// Returns a null pointer.
-  static member Null = BinFilePointer(0UL, 0UL, -1, -1)
+  static member Null = BinFilePointer(0UL, 0UL, -1, -2)
 
   /// <summary>
   /// Creates a pointer to a region backed by file bytes. Both address and file

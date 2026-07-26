@@ -52,20 +52,35 @@ type BinFilePointerTests() =
     Assert.AreEqual<bool>(false, vmOnly.IsNull)
     Assert.AreEqual<bool>(true, vmOnly.IsVirtual)
     Assert.AreEqual<bool>(false, vmOnly.CanReadFileBytes)
+    Assert.AreEqual<int>(0, vmOnly.ReadableAmount)
     Assert.AreEqual<bool>(true, vmOnly.CanRead 1)
     Assert.AreEqual<bool>(true, vmOnly.CanRead 0x1000)
     Assert.AreEqual<bool>(false, vmOnly.CanRead 0x1001)
 
   (* A null pointer carries no valid file offset, so it must refuse every read.
      Its degenerate address range [0, 0] would otherwise let a single-byte read
-     through and reach a negative offset. *)
+     through and reach a negative offset. It is not virtual either: its offset
+     range is empty because the sentinel puts MaxOffset one below Offset, not
+     because the region lives in VM only. *)
   [<TestMethod>]
   member _.``[BinFilePointer] null pointer read test``() =
     let nullPtr = BinFilePointer.Null
     Assert.AreEqual<bool>(true, nullPtr.IsNull)
+    Assert.AreEqual<bool>(false, nullPtr.IsVirtual)
     Assert.AreEqual<bool>(false, nullPtr.CanReadFileBytes)
+    Assert.AreEqual<int>(0, nullPtr.ReadableAmount)
     Assert.AreEqual<bool>(false, nullPtr.CanRead 1)
     Assert.AreEqual<bool>(false, nullPtr.CanRead 4)
+
+  (* The null sentinel must not collide with any pointer a constructor can
+     produce, or IsNull would misread a real region. A one-byte VM-only region
+     at address 0 is the closest such pointer. *)
+  [<TestMethod>]
+  member _.``[BinFilePointer] null sentinel is unique test``() =
+    let oneByteVmOnly = BinFilePointer.CreateVirtual(0UL, 0UL)
+    Assert.AreEqual<bool>(false, oneByteVmOnly.IsNull)
+    Assert.AreEqual<bool>(true, oneByteVmOnly.IsVirtual)
+    Assert.AreEqual<bool>(true, oneByteVmOnly.CanRead 1)
 
   [<TestMethod>]
   member _.``[BinFilePointer] non-positive size read test``() =
@@ -90,4 +105,16 @@ type BinFilePointerTests() =
     let ptr = fileBacked.Advance 16
     Assert.AreEqual<bool>(true, ptr.IsVirtual)
     Assert.AreEqual<bool>(false, ptr.CanReadFileBytes)
+    Assert.AreEqual<int>(0, ptr.ReadableAmount)
+    Assert.AreEqual<bool>(false, ptr.CanRead 1)
+
+  (* Advancing a null pointer must not resurrect it. The offset stays negative
+     because the clamp target, MaxOffset + 1, is itself negative. *)
+  [<TestMethod>]
+  member _.``[BinFilePointer] advanced null pointer read test``() =
+    let ptr = BinFilePointer.Null.Advance 1
+    Assert.AreEqual<int>(-1, ptr.Offset)
+    Assert.AreEqual<bool>(false, ptr.IsVirtual)
+    Assert.AreEqual<bool>(false, ptr.CanReadFileBytes)
+    Assert.AreEqual<int>(0, ptr.ReadableAmount)
     Assert.AreEqual<bool>(false, ptr.CanRead 1)
