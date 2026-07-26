@@ -6,6 +6,7 @@
 
   <ItemGroup>
     <Compile Include="BinHandleTests.fs" />
+    <Compile Include="LiftingUnitTests.fs" />
   </ItemGroup>
 
   <ItemGroup>

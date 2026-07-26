@@ -76,8 +76,11 @@ type LiftingUnit(binFile: IBinFile,
     let parsed =
       try
         let len = ptr.ReadableAmount
-        let span = binFile.RawBytes.Span.Slice(ptr.Offset, len)
-        Ok <| parser.Parse(span, ptr.Addr)
+        if len <= 0 then
+          Error ErrorCase.InvalidMemoryRead
+        else
+          let span = binFile.RawBytes.Span.Slice(ptr.Offset, len)
+          Ok <| parser.Parse(span, ptr.Addr)
       with _ ->
         Error ErrorCase.ParsingFailure
     match parsed with
@@ -92,6 +95,14 @@ type LiftingUnit(binFile: IBinFile,
           Error <| toReversedArray (cnt + 1) (ins :: acc)
     | Error _ ->
       Error <| toReversedArray cnt acc
+
+  let codeSpan (ptr: BinFilePointer) =
+    let len = ptr.ReadableAmount
+    if len > 0 then
+      ()
+    else
+      invalidArg (nameof ptr) (ErrorCase.toMessage ErrorCase.InvalidMemoryRead)
+    binFile.RawBytes.Span.Slice(ptr.Offset, len)
 
   /// Binary file to be lifted.
   member _.File with get() = binFile
@@ -130,8 +141,7 @@ type LiftingUnit(binFile: IBinFile,
   /// </returns>
   member _.ParseInstruction(addr: Addr) =
     let ptr = binFile.GetBoundedPointer addr
-    let len = ptr.ReadableAmount
-    parser.Parse(binFile.RawBytes.Span.Slice(ptr.Offset, len), addr)
+    parser.Parse(codeSpan ptr, addr)
 
   /// <summary>
   /// Parses one instruction pointed to by the binary file pointer (ptr), and
@@ -143,8 +153,7 @@ type LiftingUnit(binFile: IBinFile,
   /// Parsed instruction.
   /// </returns>
   member _.ParseInstruction(ptr: BinFilePointer) =
-    let len = ptr.ReadableAmount
-    parser.Parse(binFile.RawBytes.Span.Slice(ptr.Offset, len), ptr.Addr)
+    parser.Parse(codeSpan ptr, ptr.Addr)
 
   /// <summary>
   /// Tries to parse one instruction at the given address (addr), and return the
@@ -196,7 +205,8 @@ type LiftingUnit(binFile: IBinFile,
   /// <returns>
   /// Parsed basic block (i.e., an array of instructions).
   /// </returns>
-  member _.ParseBBlock(ptr: BinFilePointer) = parseBBLByPtr null ptr 0 []
+  member _.ParseBBlock(ptr: BinFilePointer) =
+    parseBBLByPtr null ptr 0 []
 
   /// <summary>
   /// Lifts an instruction at the given address (addr) and return the lifted IR
@@ -210,7 +220,8 @@ type LiftingUnit(binFile: IBinFile,
   /// <returns>
   /// Lifted IR statements.
   /// </returns>
-  member this.LiftInstruction(addr: Addr) = this.LiftInstruction(addr, false)
+  member this.LiftInstruction(addr: Addr) =
+    this.LiftInstruction(addr, false)
 
   /// <summary>
   /// Lifts an instruction at the given address (addr) and return the lifted IR
@@ -229,8 +240,7 @@ type LiftingUnit(binFile: IBinFile,
   /// </returns>
   member _.LiftInstruction(addr: Addr, optimize) =
     let ptr = binFile.GetBoundedPointer addr
-    let len = ptr.ReadableAmount
-    let span = binFile.RawBytes.Span.Slice(ptr.Offset, len)
+    let span = codeSpan ptr
     let ins = parser.Parse(span, addr)
     if optimize then ins.Translate irBuilder |> LocalOptimizer.Optimize
     else ins.Translate irBuilder
@@ -244,8 +254,7 @@ type LiftingUnit(binFile: IBinFile,
   /// Lifted IR statements.
   /// </returns>
   member _.LiftInstruction(ptr: BinFilePointer) =
-    let len = ptr.ReadableAmount
-    let span = binFile.RawBytes.Span.Slice(ptr.Offset, len)
+    let span = codeSpan ptr
     let ins = parser.Parse(span, ptr.Addr)
     ins.Translate irBuilder
 
@@ -261,8 +270,7 @@ type LiftingUnit(binFile: IBinFile,
   /// Lifted IR statements.
   /// </returns>
   member _.LiftInstruction(ptr: BinFilePointer, optimize) =
-    let len = ptr.ReadableAmount
-    let span = binFile.RawBytes.Span.Slice(ptr.Offset, len)
+    let span = codeSpan ptr
     let ins = parser.Parse(span, ptr.Addr)
     if optimize then ins.Translate irBuilder |> LocalOptimizer.Optimize
     else ins.Translate irBuilder
@@ -357,8 +365,7 @@ type LiftingUnit(binFile: IBinFile,
   /// </returns>
   member _.DisasmInstruction(addr: Addr) =
     let ptr = binFile.GetBoundedPointer addr
-    let len = ptr.ReadableAmount
-    let span = binFile.RawBytes.Span.Slice(ptr.Offset, len)
+    let span = codeSpan ptr
     let ins = parser.Parse(span, addr)
     ins.Disasm()
 
@@ -372,8 +379,7 @@ type LiftingUnit(binFile: IBinFile,
   /// Disassembled string.
   /// </returns>
   member _.DisasmInstruction(ptr: BinFilePointer) =
-    let len = ptr.ReadableAmount
-    let span = binFile.RawBytes.Span.Slice(ptr.Offset, len)
+    let span = codeSpan ptr
     let ins = parser.Parse(span, ptr.Addr)
     ins.Disasm()
 
@@ -397,8 +403,7 @@ type LiftingUnit(binFile: IBinFile,
   /// </returns>
   member _.DecomposeInstruction(addr: Addr) =
     let ptr = binFile.GetBoundedPointer addr
-    let len = ptr.ReadableAmount
-    let span = binFile.RawBytes.Span.Slice(ptr.Offset, len)
+    let span = codeSpan ptr
     let ins = parser.Parse(span, addr)
     ins.Decompose asmwordDisasm
 
@@ -411,8 +416,7 @@ type LiftingUnit(binFile: IBinFile,
   /// Decomposed AsmWords.
   /// </returns>
   member _.DecomposeInstruction(ptr: BinFilePointer) =
-    let len = ptr.ReadableAmount
-    let span = binFile.RawBytes.Span.Slice(ptr.Offset, len)
+    let span = codeSpan ptr
     let ins = parser.Parse(span, ptr.Addr)
     ins.Decompose asmwordDisasm
 
