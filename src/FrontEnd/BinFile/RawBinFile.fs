@@ -33,8 +33,12 @@ open B2R2.FrontEnd.BinFile.FileHelper
 /// file format).
 /// </summary>
 type RawBinFile(path, bytes: byte[], isa: ISA, baseAddrOpt) =
+  let rawBytes = System.ReadOnlyMemory bytes
+
   let size = bytes.Length
+
   let baseAddr = defaultArg baseAddrOpt 0UL
+
   let reader = BinReader.Init isa.Endian
 
   (* Raw files expose the whole image as a single rwx segment. *)
@@ -54,7 +58,7 @@ type RawBinFile(path, bytes: byte[], isa: ISA, baseAddrOpt) =
   interface IBinFile with
     member _.Reader with get() = reader
 
-    member _.RawBytes with get() = System.ReadOnlyMemory bytes
+    member _.RawBytes with get() = rawBytes
 
     member _.Length with get() = bytes.Length
 

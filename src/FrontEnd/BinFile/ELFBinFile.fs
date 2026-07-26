@@ -34,19 +34,34 @@ open B2R2.FrontEnd.BinFile.ELF.Helper
 
 /// Represents an ELF binary file.
 type ELFBinFile(path, bytes: byte[], baseAddrOpt, rfOpt) =
+  let rawBytes = System.ReadOnlyMemory bytes
+
   let toolBox = Toolbox.Init(bytes, Header.parse baseAddrOpt bytes)
+
   let hdr = toolBox.Header
+
   let phdrs = lazy ProgramHeaders.parse toolBox
+
   let shdrs = lazy SectionHeaders.parse toolBox
+
   let loadables = lazy ProgramHeaders.filterLoadables phdrs.Value
+
   let symbs = lazy SymbolStore(toolBox, shdrs.Value)
+
   let relocs = lazy RelocationInfo(toolBox, shdrs.Value, symbs.Value)
+
   let plt = lazy PLT.parse toolBox shdrs.Value symbs.Value relocs.Value
+
   let exn = lazy ExceptionData.parse toolBox shdrs.Value rfOpt relocs.Value
+
   let notInMemRanges = lazy invalidRangesByVM hdr loadables.Value
+
   let notInFileRanges = lazy invalidRangesByFileBounds hdr loadables.Value
+
   let executableRanges = lazy executableRanges shdrs.Value loadables.Value
+
   let dbginfo = lazy DebugInformation.parse toolBox rfOpt shdrs.Value
+
   let dynamicArray = lazy DynamicArray.parse toolBox shdrs.Value
 
   let symKindOf (s: Symbol) =
@@ -465,7 +480,7 @@ type ELFBinFile(path, bytes: byte[], baseAddrOpt, rfOpt) =
   interface IBinFile with
     member _.Reader with get() = toolBox.Reader
 
-    member _.RawBytes with get() = System.ReadOnlyMemory bytes
+    member _.RawBytes with get() = rawBytes
 
     member _.Length with get() = bytes.Length
 

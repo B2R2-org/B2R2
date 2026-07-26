@@ -34,36 +34,58 @@ open B2R2.FrontEnd.BinFile.Mach.Helper
 
 /// Represents a Mach-O binary file.
 type MachBinFile(path, bytes: byte[], isa, baseAddrOpt, regFactoryOpt) =
+  let rawBytes = System.ReadOnlyMemory bytes
+
   let toolBox = Toolbox.Init(bytes, Header.parse bytes baseAddrOpt isa)
+
   let cmds = lazy LoadCommands.parse toolBox
+
   let segCmds = lazy Segment.extract cmds.Value
+
   let segMap = lazy Segment.buildMap segCmds.Value
+
   let secs = lazy Section.parse toolBox segCmds.Value
+
   let secText = lazy (Section.getTextSectionIndex secs.Value)
+
   let syms = lazy SymbolStore.parse toolBox cmds.Value secs.Value
+
   let exports = lazy ExportedSymbols.parse toolBox cmds.Value
+
   let relocs = lazy Reloc.parse toolBox secs.Value
+
   let relocMap = lazy Reloc.buildMap relocs.Value
+
   let fixups =
     lazy
       Array.append
         (ChainedFixup.parse toolBox cmds.Value segCmds.Value)
         (DyldInfo.parse toolBox cmds.Value segCmds.Value)
+
   let fixupMap = lazy Fixup.buildMap fixups.Value
+
   let notInMemRanges = lazy invalidRangesByVM toolBox segCmds.Value
+
   let notInFileRanges = lazy invalidRangesByFileBounds toolBox segCmds.Value
+
   let executableRanges = lazy executableRanges segCmds.Value
+
   let enumSymbols =
     lazy (syms.Value.SymbolArray
           |> Array.filter (fun s -> s.SymType <> SymbolType.N_OPT))
+
   let staticSymbols = lazy (enumSymbols.Value |> Array.filter Symbol.IsStatic)
+
   let dynamicSymbols =
     lazy (enumSymbols.Value |> Array.filter (Symbol.IsStatic >> not))
+
   let stripped =
     lazy (staticSymbols.Value
           |> Array.exists (fun s -> Symbol.IsFunc(secText.Value, s))
           |> not)
+
   let entryPoint = lazy computeEntryPoint segCmds.Value cmds.Value
+
   let interpreterPath =
     lazy (cmds.Value
           |> Array.tryPick (function
@@ -380,7 +402,7 @@ type MachBinFile(path, bytes: byte[], isa, baseAddrOpt, regFactoryOpt) =
   interface IBinFile with
     member _.Reader with get() = toolBox.Reader
 
-    member _.RawBytes with get() = System.ReadOnlyMemory bytes
+    member _.RawBytes with get() = rawBytes
 
     member _.Length with get() = bytes.Length
 

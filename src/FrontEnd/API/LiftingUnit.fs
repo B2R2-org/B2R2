@@ -40,6 +40,8 @@ type LiftingUnit(binFile: IBinFile,
 
   let irBuilder = GroundWork.CreateBuilder(binFile.ISA, regFactory)
 
+  let rawBytes = binFile.RawBytes
+
   let getAlignment =
     match binFile.ISA with
     | Intel | EVM | WASM | Python -> fun () -> 1
@@ -79,7 +81,7 @@ type LiftingUnit(binFile: IBinFile,
         if len <= 0 then
           Error ErrorCase.InvalidMemoryRead
         else
-          let span = binFile.RawBytes.Span.Slice(ptr.Offset, len)
+          let span = rawBytes.Span.Slice(ptr.Offset, len)
           Ok <| parser.Parse(span, ptr.Addr)
       with _ ->
         Error ErrorCase.ParsingFailure
@@ -102,7 +104,7 @@ type LiftingUnit(binFile: IBinFile,
       ()
     else
       invalidArg (nameof ptr) (ErrorCase.toMessage ErrorCase.InvalidMemoryRead)
-    binFile.RawBytes.Span.Slice(ptr.Offset, len)
+    rawBytes.Span.Slice(ptr.Offset, len)
 
   /// Binary file to be lifted.
   member _.File with get() = binFile

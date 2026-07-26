@@ -31,15 +31,26 @@ open B2R2.FrontEnd.BinFile.Python.Helper
 
 /// Represents a Python binary file.
 type PythonBinFile(path, bytes: byte[], baseAddrOpt) =
+  let rawBytes = System.ReadOnlyMemory bytes
+
   let size = bytes.Length
+
   let baseAddr = defaultArg baseAddrOpt 0UL
+
   let reader = BinReader.Init Endian.Little
+
   let magic = reader.ReadUInt32(bytes, 0)
+
   let version = getVersionFromMagicNumber magic
+
   let codeObject, _, _ = parse bytes reader [||] 16
+
   let consts = extractConsts codeObject
+
   let names = extractNames codeObject
+
   let varnames = extractVarNames codeObject
+
   let operator = [||]
 
   /// Python magic
@@ -66,7 +77,7 @@ type PythonBinFile(path, bytes: byte[], baseAddrOpt) =
   interface IBinFile with
     member _.Reader with get() = reader
 
-    member _.RawBytes with get() = System.ReadOnlyMemory bytes
+    member _.RawBytes with get() = rawBytes
 
     member _.Length with get() = bytes.Length
 

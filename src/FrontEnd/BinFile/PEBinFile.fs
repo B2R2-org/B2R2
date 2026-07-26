@@ -33,7 +33,10 @@ open B2R2.FrontEnd.BinFile.PE.Helper
 
 /// Represents a PE binary file.
 type PEBinFile(path, bytes: byte[], baseAddrOpt, rawpdb) =
+  let rawBytes = System.ReadOnlyMemory bytes
+
   let pe = Parser.parse path bytes baseAddrOpt rawpdb
+
   let isa = peHeadersToISA pe.PEHeaders
 
   let nameResolver =
@@ -297,7 +300,7 @@ type PEBinFile(path, bytes: byte[], baseAddrOpt, rawpdb) =
   interface IBinFile with
     member _.Reader with get() = pe.BinReader
 
-    member _.RawBytes with get() = System.ReadOnlyMemory bytes
+    member _.RawBytes with get() = rawBytes
 
     member _.Length with get() = bytes.Length
 

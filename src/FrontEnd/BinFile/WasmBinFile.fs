@@ -32,10 +32,15 @@ open B2R2.FrontEnd.BinFile.Wasm
 open B2R2.FrontEnd.BinFile.Wasm.Helper
 
 /// Represents a Web Assembly (Wasm) binary file.
-type WasmBinFile(path, bytes, baseAddrOpt) =
+type WasmBinFile(path, bytes: byte[], baseAddrOpt) =
+  let rawBytes = System.ReadOnlyMemory bytes
+
   let wm = Parser.parse bytes
+
   let baseAddr = defaultArg baseAddrOpt 0UL
+
   let reader = BinReader.Init Endian.Little
+
   let isa = ISA Architecture.WASM
 
   let sectionSummaryToPointer (sec: SectionSummary) =
@@ -188,7 +193,7 @@ type WasmBinFile(path, bytes, baseAddrOpt) =
   interface IBinFile with
     member _.Reader with get() = reader
 
-    member _.RawBytes with get() = System.ReadOnlyMemory bytes
+    member _.RawBytes with get() = rawBytes
 
     member _.Length with get() = bytes.Length
 
