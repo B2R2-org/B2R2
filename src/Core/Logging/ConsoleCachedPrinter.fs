@@ -40,7 +40,7 @@ type ConsoleCachedPrinter(myLevel: LogLevel) =
 
   let cache = StringBuilder()
 
-  let errorPrefix = "[*] Error: "
+  let errorPrefix = Severity.toPrefix Severity.Error
 
   let flush () =
     cache.ToString() |> Console.Write
@@ -50,6 +50,25 @@ type ConsoleCachedPrinter(myLevel: LogLevel) =
     cache.Append(s) |> ignore
     if cache.Length <= PrinterConst.CacheLimit then ()
     else flush ()
+
+  (* Diagnostics go straight to stderr instead of into the cache, so that
+     redirecting stdout does not swallow them. Whatever is queued is flushed
+     first, or it would surface after the message it came before. *)
+  let addError (s: string) =
+    flush ()
+    Console.Error.Write s
+
+  let writeDiag severity (s: string) =
+    if Severity.isShownAt myLevel severity then
+      Severity.toPrefix severity + s |> addError
+    else
+      ()
+
+  let writeDiagLine severity (s: string) =
+    if Severity.isShownAt myLevel severity then
+      Severity.toPrefix severity + s + Environment.NewLine |> addError
+    else
+      ()
 
   new() = new ConsoleCachedPrinter(LogLevel.L2)
 
@@ -104,20 +123,25 @@ type ConsoleCachedPrinter(myLevel: LogLevel) =
       else
         ()
 
-    member _.PrintError(s: string) = errorPrefix + s |> add
+    member _.PrintWarn(s: string) = writeDiag Severity.Warning s
 
-    member _.PrintError(cs: ColoredString) = errorPrefix + cs.ToString() |> add
+    member _.PrintWarnLine(s: string) = writeDiagLine Severity.Warning s
 
-    member _.PrintError(os: OutString) = errorPrefix + os.ToString() |> add
+    member _.PrintError(s: string) = writeDiag Severity.Error s
 
-    member _.PrintErrorLine(s: string) =
-      errorPrefix + s + Environment.NewLine |> add
+    member _.PrintError(cs: ColoredString) =
+      errorPrefix + cs.ToString() |> addError
+
+    member _.PrintError(os: OutString) =
+      errorPrefix + os.ToString() |> addError
+
+    member _.PrintErrorLine(s: string) = writeDiagLine Severity.Error s
 
     member _.PrintErrorLine(cs: ColoredString) =
-      errorPrefix + cs.ToString() + Environment.NewLine |> add
+      errorPrefix + cs.ToString() + Environment.NewLine |> addError
 
     member _.PrintErrorLine(os: OutString) =
-      errorPrefix + os.ToString() + Environment.NewLine |> add
+      errorPrefix + os.ToString() + Environment.NewLine |> addError
 
     member _.Flush() = flush ()
 

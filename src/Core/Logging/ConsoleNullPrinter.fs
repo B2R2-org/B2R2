@@ -56,6 +56,10 @@ type ConsoleNullPrinter() =
 
     member _.PrintRow(_: OutString[]) = ()
 
+    member _.PrintWarn(_: string) = ()
+
+    member _.PrintWarnLine(_: string) = ()
+
     member _.PrintError(_: string) = ()
 
     member _.PrintError(_: ColoredString) = ()

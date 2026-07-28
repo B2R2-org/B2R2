@@ -132,7 +132,7 @@ type BinCodeDumper(hdl, isTable, showSymbol, showColor, dumpMode) =
          the architecture here. Saying nothing would print default syntax as
          though the requested one had been applied. *)
       if liftingUnit.DisassemblySyntax <> syntax then
-        eprintsn "AT&T syntax is available for Intel only; using the default."
+        wprintsn "AT&T syntax applies to Intel only; ignoring it."
       else
         ()
       liftingUnit.ConfigureDisassembly(false, showSymbol)

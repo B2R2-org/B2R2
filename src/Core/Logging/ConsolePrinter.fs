@@ -75,14 +75,34 @@ type ConsolePrinter(myLevel: LogLevel) =
     | OutputNewLine ->
       w.WriteLine()
 
-  let printErrorPrefix () =
+  let severityColor severity =
+    match severity with
+    | Severity.Warning -> Yellow
+    | _ -> Red
+
+  let printDiagPrefix severity =
+    let color = severityColor severity
     ColoredString()
       .Append(NoColor, "[")
-      .Append(Red, "*")
+      .Append(color, "*")
       .Append(NoColor, "] ")
-      .Append(Red, "Error")
+      .Append(color, Severity.toString severity)
       .Append(NoColor, ": ")
     |> render Console.Error
+
+  let writeDiag severity (s: string) =
+    if Severity.isShownAt myLevel severity then
+      printDiagPrefix severity
+      Console.Error.Write s
+    else
+      ()
+
+  let writeDiagLine severity (s: string) =
+    if Severity.isShownAt myLevel severity then
+      printDiagPrefix severity
+      Console.Error.WriteLine s
+    else
+      ()
 
   new() = new ConsolePrinter(LogLevel.L2)
 
@@ -142,29 +162,29 @@ type ConsolePrinter(myLevel: LogLevel) =
       else
         ()
 
-    member _.PrintError(s: string) =
-      printErrorPrefix ()
-      Console.Error.Write s
+    member _.PrintWarn(s: string) = writeDiag Severity.Warning s
+
+    member _.PrintWarnLine(s: string) = writeDiagLine Severity.Warning s
+
+    member _.PrintError(s: string) = writeDiag Severity.Error s
 
     member _.PrintError(cs: ColoredString) =
-      printErrorPrefix ()
+      printDiagPrefix Severity.Error
       render Console.Error cs
 
     member _.PrintError(os: OutString) =
-      printErrorPrefix ()
+      printDiagPrefix Severity.Error
       printOutString Console.Error false os
 
-    member _.PrintErrorLine(s: string) =
-      printErrorPrefix ()
-      Console.Error.WriteLine s
+    member _.PrintErrorLine(s: string) = writeDiagLine Severity.Error s
 
     member _.PrintErrorLine(cs: ColoredString) =
-      printErrorPrefix ()
+      printDiagPrefix Severity.Error
       render Console.Error cs
       Console.Error.WriteLine()
 
     member _.PrintErrorLine(os: OutString) =
-      printErrorPrefix ()
+      printDiagPrefix Severity.Error
       printOutString Console.Error true os
 
     member _.Flush() =

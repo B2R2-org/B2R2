@@ -38,7 +38,19 @@ type FilePrinter(filePath, myLevel: LogLevel) =
 
   let fs = File.CreateText(filePath, AutoFlush = true)
 
-  let errorPrefix = "[*] Error: "
+  let errorPrefix = Severity.toPrefix Severity.Error
+
+  let writeDiag severity (s: string) =
+    if Severity.isShownAt myLevel severity then
+      fs.Write(Severity.toPrefix severity + s)
+    else
+      ()
+
+  let writeDiagLine severity (s: string) =
+    if Severity.isShownAt myLevel severity then
+      fs.WriteLine(Severity.toPrefix severity + s)
+    else
+      ()
 
   new(filePath) = new FilePrinter(filePath, LogLevel.L2)
 
@@ -91,7 +103,11 @@ type FilePrinter(filePath, myLevel: LogLevel) =
       else
         ()
 
-    member _.PrintError(s: string) = fs.Write(errorPrefix + s)
+    member _.PrintWarn(s: string) = writeDiag Severity.Warning s
+
+    member _.PrintWarnLine(s: string) = writeDiagLine Severity.Warning s
+
+    member _.PrintError(s: string) = writeDiag Severity.Error s
 
     member _.PrintError(cs: ColoredString) =
       fs.Write(errorPrefix + cs.ToString())
@@ -99,7 +115,7 @@ type FilePrinter(filePath, myLevel: LogLevel) =
     member _.PrintError(os: OutString) =
       fs.Write(errorPrefix + os.ToString())
 
-    member _.PrintErrorLine(s: string) = fs.WriteLine(errorPrefix + s)
+    member _.PrintErrorLine(s: string) = writeDiagLine Severity.Error s
 
     member _.PrintErrorLine(cs: ColoredString) =
       fs.WriteLine(errorPrefix + cs.ToString())

@@ -34,6 +34,24 @@ type LoggingTests() =
 
   let nl = Environment.NewLine
 
+  /// Runs the body against a cached printer with both console streams
+  /// captured, then flushes it and returns what each stream received. The body
+  /// also gets the stdout writer, so that it can observe the cache mid-run.
+  let withCachedPrinter (body: IPrinter -> StringWriter -> unit) =
+    let origOut, origErr = Console.Out, Console.Error
+    let sbOut, sbErr = new StringWriter(), new StringWriter()
+    Console.SetOut sbOut
+    Console.SetError sbErr
+    try
+      let printer = new ConsoleCachedPrinter(LogLevel.L2) :> IPrinter
+      body printer sbOut
+      printer.Flush()
+      printer.Dispose()
+    finally
+      Console.SetOut origOut
+      Console.SetError origErr
+    sbOut.ToString(), sbErr.ToString()
+
   let withFilePrinter lvl (body: IPrinter -> unit) =
     let path = Path.GetTempFileName()
     let printer = new FilePrinter(path, lvl) :> IPrinter
@@ -93,3 +111,68 @@ type LoggingTests() =
       Console.SetError origErr
     Assert.AreEqual<string>("hello" + nl, sbOut.ToString())
     Assert.AreEqual<string>("[*] Error: bad" + nl, sbErr.ToString())
+
+  (* Caching used to put errors into the stdout cache along with everything
+     else, so redirecting stdout swallowed them. *)
+  [<TestMethod>]
+  member _.``ConsoleCachedPrinter routes error output to stderr``() =
+    let out, err =
+      withCachedPrinter (fun p _ ->
+        p.PrintLine("normal", LogLevel.L2)
+        p.PrintErrorLine "boom")
+    Assert.AreEqual<string>("normal" + nl, out)
+    Assert.AreEqual<string>("[*] Error: boom" + nl, err)
+
+  (* An error bypasses the cache, so whatever is queued has to be flushed first
+     or it would surface after the error it came before. *)
+  [<TestMethod>]
+  member _.``ConsoleCachedPrinter flushes the cache before an error``() =
+    let pending, flushed = ref "unset", ref "unset"
+    let out, _ =
+      withCachedPrinter (fun p sbOut ->
+        p.PrintLine("normal", LogLevel.L2)
+        pending.Value <- sbOut.ToString()
+        p.PrintErrorLine "boom"
+        flushed.Value <- sbOut.ToString())
+    Assert.AreEqual<string>("", pending.Value)
+    Assert.AreEqual<string>("normal" + nl, flushed.Value)
+    Assert.AreEqual<string>("normal" + nl, out)
+
+  [<TestMethod>]
+  member _.``Warnings carry their own prefix``() =
+    let content =
+      withFilePrinter LogLevel.L2 (fun p ->
+        p.PrintWarnLine "careful"
+        p.PrintErrorLine "broken")
+    let expected = "[*] Warning: careful" + nl + "[*] Error: broken" + nl
+    Assert.AreEqual<string>(expected, content)
+
+  (* L1 is documented as logging errors only, which until now made no
+     difference on this channel because errors were all it carried. *)
+  [<TestMethod>]
+  member _.``Warnings are suppressed when the log level is quiet``() =
+    let content =
+      withFilePrinter LogLevel.L1 (fun p ->
+        p.PrintWarnLine "careful"
+        p.PrintWarn "also careful"
+        p.PrintErrorLine "broken")
+    Assert.AreEqual<string>("[*] Error: broken" + nl, content)
+
+  [<TestMethod>]
+  member _.``PrintWarn does not append a trailing newline``() =
+    let content =
+      withFilePrinter LogLevel.L2 (fun p ->
+        p.PrintWarn "a"
+        p.PrintWarn "b")
+    Assert.AreEqual<string>("[*] Warning: a[*] Warning: b", content)
+
+  (* Warnings share the error channel, so they must not land in the stdout
+     cache where a stdout redirect would swallow them. *)
+  [<TestMethod>]
+  member _.``ConsoleCachedPrinter routes warnings to stderr``() =
+    let out, err =
+      withCachedPrinter (fun p _ ->
+        p.PrintLine("normal", LogLevel.L2)
+        p.PrintWarnLine "careful")
+    Assert.AreEqual<string>("normal" + nl, out)
+    Assert.AreEqual<string>("[*] Warning: careful" + nl, err)

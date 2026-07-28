@@ -65,6 +65,27 @@ module LoggingPrelude =
   let inline eprintsn (str: string) =
     Log.Out.PrintErrorLine str
 
+  /// Logs a warning message. Warnings go to the same channel as errors, but are
+  /// suppressed at L1.
+  let inline wprintf fmt =
+    Printf.kprintf (fun message ->
+      Log.Out.PrintWarn message
+    ) fmt
+
+  /// Logs a warning message with a newline.
+  let inline wprintfn fmt =
+    Printf.kprintf (fun message ->
+      Log.Out.PrintWarnLine message
+    ) fmt
+
+  /// Logs a warning string without formatting.
+  let inline wprints (str: string) =
+    Log.Out.PrintWarn str
+
+  /// Logs a warning string with a newline without formatting.
+  let inline wprintsn (str: string) =
+    Log.Out.PrintWarnLine str
+
   /// Logs a normal message.
   let inline printf fmt =
     Printf.kprintf (fun message ->

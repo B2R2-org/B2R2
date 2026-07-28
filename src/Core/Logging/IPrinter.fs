@@ -135,11 +135,25 @@ type IPrinter =
   abstract PrintRow: OutString[] -> unit
 
   /// <summary>
+  /// Prints out the given string as a warning, with no trailing newline. This
+  /// shares the channel with <see cref='M:B2R2.Logging.IPrinter.PrintError'/>
+  /// but carries a warning prefix, and unlike an error it is suppressed at L1.
+  /// </summary>
+  abstract PrintWarn: s: string -> unit
+
+  /// <summary>
+  /// Prints out the given string as a warning, followed by a newline. See <see
+  /// cref='M:B2R2.Logging.IPrinter.PrintWarn'/> for the channel semantics.
+  /// </summary>
+  abstract PrintWarnLine: s: string -> unit
+
+  /// <summary>
   /// Prints out the given string on the error channel, with no trailing
   /// newline. Unlike <see cref='M:B2R2.Logging.IPrinter.Print'/>, this is never
-  /// gated by the current log level (errors are always shown). On a live
-  /// console the message is routed to standard error; serialized sinks (file,
-  /// cache) write it to their single stream in call order with an error prefix.
+  /// gated by the current log level (errors are always shown). Console printers
+  /// route the message to standard error, flushing any pending normal output
+  /// first so that it stays in call order; a file printer has only one stream,
+  /// so it writes the message there with an error prefix.
   /// </summary>
   abstract PrintError: s: string -> unit
 
