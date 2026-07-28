@@ -173,6 +173,21 @@ type LiftingUnit(binFile: IBinFile,
     parser.Parse(codeSpan ptr, ptr.Addr)
 
   /// <summary>
+  /// Parses one instruction from the given byte span (span), pretending that it
+  /// is located at the given address (addr). The span need not come from the
+  /// file this unit was built for, and its bounds are not checked here, so the
+  /// caller is responsible for passing a span that holds a whole instruction.
+  /// This function raises an exception if the parsing process fails.
+  /// </summary>
+  /// <param name="span">The byte span holding the instruction.</param>
+  /// <param name="addr">The address to assign to the instruction.</param>
+  /// <returns>
+  /// Parsed instruction.
+  /// </returns>
+  member _.ParseInstruction(span: ByteSpan, addr: Addr) =
+    parser.Parse(span, addr)
+
+  /// <summary>
   /// Tries to parse one instruction at the given address (addr), and return the
   /// corresponding instruction.
   /// </summary>

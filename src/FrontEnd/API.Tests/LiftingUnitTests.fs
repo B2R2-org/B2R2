@@ -155,6 +155,17 @@ type LiftingUnitTests() =
     | Ok _ -> Assert.Fail()
     | Error stmts -> Assert.AreEqual<int>(0, stmts.Length)
 
+  (* The span overload parses bytes the caller supplies, which need not come
+     from the file at all: the address only tells the parser where to pretend
+     the instruction sits. Bounds are the caller's to get right. *)
+  [<TestMethod>]
+  member _.``[LiftingUnit] parse a caller-supplied span test``() =
+    let bytes = [| 0xc3uy |] (* ret *)
+    let ins = lu.ParseInstruction(System.ReadOnlySpan bytes, 0x400000UL)
+    Assert.AreEqual<string>("ret", ins.Disasm())
+    Assert.AreEqual<Addr>(0x400000UL, ins.Address)
+    Assert.AreEqual<uint32>(1u, ins.Length)
+
   [<TestMethod>]
   member _.``[LiftingUnit] instruction alignment test``() =
     Assert.AreEqual<int>(1, lu.InstructionAlignment)
