@@ -165,10 +165,27 @@ type LiftingUnitTests() =
       let unit = BinHandle(emptyCode, ISA arch).NewLiftingUnit()
       Assert.AreEqual<int>(expected, unit.InstructionAlignment)
 
-  (* ARM32 alignment follows the parser's current mode, so it cannot come from
-     a table keyed by ISA alone. An odd entry point selects Thumb mode. *)
+  (* An odd entry point selects Thumb mode. GroundWork builds an ARM32Parser
+     for every ISA the ARM32 pattern covers, AArch32 included, but BinHandle
+     used to test for ARMv7 alone and so left AArch32 in ARM mode. *)
   [<TestMethod>]
-  member _.``[LiftingUnit] thumb alignment test``() =
-    let isa = ISA Architecture.ARMv7
-    let hdl = BinHandle(emptyCode, isa, Some 0x1001UL, false)
-    Assert.AreEqual<int>(2, hdl.NewLiftingUnit().InstructionAlignment)
+  member _.``[LiftingUnit] thumb entry point test``() =
+    for arch in [| Architecture.ARMv7; Architecture.ARMv8 |] do
+      let isa = ISA(arch, WordSize.Bit32)
+      let lu = BinHandle(emptyCode, isa, Some 0x1001UL, false).NewLiftingUnit()
+      Assert.AreEqual<bool>(true, lu.IsThumb)
+      Assert.AreEqual<int>(2, lu.InstructionAlignment)
+
+  (* ARM32 alignment follows the mode, so it cannot come from a table keyed by
+     ISA alone. Setting the mode is inert where there is no Thumb to switch to,
+     which is what lets callers skip the architecture test. *)
+  [<TestMethod>]
+  member _.``[LiftingUnit] thumb mode toggling test``() =
+    let armUnit = BinHandle(emptyCode, ISA Architecture.ARMv7).NewLiftingUnit()
+    Assert.AreEqual<int>(4, armUnit.InstructionAlignment)
+    armUnit.IsThumb <- true
+    Assert.AreEqual<int>(2, armUnit.InstructionAlignment)
+    let x86Unit = BinHandle(emptyCode, isa).NewLiftingUnit()
+    x86Unit.IsThumb <- true
+    Assert.AreEqual<bool>(false, x86Unit.IsThumb)
+    Assert.AreEqual<int>(1, x86Unit.InstructionAlignment)

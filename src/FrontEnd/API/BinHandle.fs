@@ -190,12 +190,13 @@ type BinHandle private(path, bytes, fmt, isa, baseAddrOpt, osOpt) =
 
   member _.NewLiftingUnit() =
     let parser = GroundWork.CreateParser binFile
-    match binFile.ISA.Arch, binFile.EntryPoint with
-    | Architecture.ARMv7, Some entryPoint when entryPoint % 2UL <> 0UL ->
-      let armParser = parser :?> ARM32.IModeSwitchable
-      armParser.IsThumb <- true
+    let liftingUnit = LiftingUnit(binFile, regFactory, parser)
+    (* An odd entry point marks a Thumb entry. Setting the mode is inert where
+       there is no Thumb to switch to, so no architecture test is needed. *)
+    match binFile.EntryPoint with
+    | Some addr when addr % 2UL <> 0UL -> liftingUnit.IsThumb <- true
     | _ -> ()
-    LiftingUnit(binFile, regFactory, parser)
+    liftingUnit
 
   member _.TryReadBytes(ptr: BinFilePointer, nBytes) = tryReadBytes ptr nBytes
 

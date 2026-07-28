@@ -24,14 +24,13 @@
 
 namespace B2R2.RearEnd.BinDisasm
 
-open B2R2.FrontEnd
 open B2R2.FrontEnd.BinFile
 
 ///// Represents an interface for dumping binary contents.
 type IBinDumper =
-  /// The switch for changing the current mode (i.e., ARM/Thumb). For non-ARM32
-  /// architectures, this has no effect.
-  abstract ModeSwitch: ARM32.IModeSwitchable
+  /// Whether to dump Thumb instructions. For non-ARM32 architectures, setting
+  /// this has no effect.
+  abstract IsThumb: bool with get, set
 
   /// Dumps the contents at the specified file pointer location.
   abstract Dump: BinFilePointer -> unit

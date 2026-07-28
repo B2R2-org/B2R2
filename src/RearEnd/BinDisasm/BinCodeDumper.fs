@@ -46,14 +46,6 @@ type BinCodeDumper(hdl, isTable, showSymbol, showColor, dumpMode) =
       modes[m.Address] <- m.Mode
     modes
 
-  let modeSwitch =
-    if hdl.File.ISA.Arch = Architecture.ARMv7 then
-      liftingUnit.Parser :?> ARM32.IModeSwitchable
-    else
-      { new ARM32.IModeSwitchable with
-          member _.IsThumb with get() = false and set _ = ()
-          member _.ITState with get() = 0uy and set _ = () }
-
   let fnSymbols =
     if isTable then FunctionSymbols.ofLinkageTable hdl
     else FunctionSymbols.ofText hdl
@@ -109,15 +101,18 @@ type BinCodeDumper(hdl, isTable, showSymbol, showColor, dumpMode) =
     let bytes = hdl.ReadBytes(ptr = ptr, nBytes = int ins.Length)
     printColorDisasm words ptr.Addr bytes
 
+  (* Only ARM32 binaries carry mode markers, so an empty table means there is
+     nothing to look up per instruction. Testing the table rather than the
+     architecture keeps AArch32 covered, which an ARMv7 test missed. *)
   let checkAndUpdateArchMode =
-    if hdl.File.ISA.Arch = Architecture.ARMv7 then
+    if archmodes.Count = 0 then
+      fun _addr -> ()
+    else
       fun addr ->
         match archmodes.TryGetValue addr with
-        | true, ArmMode -> modeSwitch.IsThumb <- false
-        | true, ThumbMode -> modeSwitch.IsThumb <- true
+        | true, ArmMode -> liftingUnit.IsThumb <- false
+        | true, ThumbMode -> liftingUnit.IsThumb <- true
         | _ -> ()
-    else
-      fun _addr -> ()
 
   let printFuncSymbol isFirst addr =
     match fnSymbols.TryGetValue addr with
@@ -159,7 +154,9 @@ type BinCodeDumper(hdl, isTable, showSymbol, showColor, dumpMode) =
     else ()
 
   interface IBinDumper with
-    member _.ModeSwitch with get() = modeSwitch
+    member _.IsThumb
+      with get() = liftingUnit.IsThumb
+      and set v = liftingUnit.IsThumb <- v
 
     member _.Dump ptr =
       binDump true ptr

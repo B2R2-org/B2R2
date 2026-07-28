@@ -42,6 +42,19 @@ type LiftingUnit(binFile: IBinFile,
 
   let rawBytes = binFile.RawBytes
 
+  (* ARM32 is the only architecture with a parsing mode, and GroundWork builds
+     an ARM32Parser for every ISA the ARM32 pattern covers, AArch32 included.
+     Owning the test here is what lets callers set a mode without repeating it;
+     two of them used to test for ARMv7 alone and silently ignored AArch32. *)
+  let modeSwitch =
+    match binFile.ISA with
+    | ARM32 ->
+      parser :?> ARM32.IModeSwitchable
+    | _ ->
+      { new ARM32.IModeSwitchable with
+          member _.IsThumb with get() = false and set _ = ()
+          member _.ITState with get() = 0uy and set _ = () }
+
   let strDisasm =
     match binFile.NameResolver with
     | Some names ->
@@ -99,8 +112,19 @@ type LiftingUnit(binFile: IBinFile,
   /// Binary file to be lifted.
   member _.File with get() = binFile
 
-  /// Parser of this lifting unit.
-  member _.Parser with get() = parser
+  /// Whether this unit parses Thumb instructions. Reading this always yields
+  /// false, and setting it has no effect, on architectures that have no
+  /// ARM/Thumb distinction.
+  member _.IsThumb
+    with get() = modeSwitch.IsThumb
+    and set v = modeSwitch.IsThumb <- v
+
+  /// The state of the IT (If-Then) block the parser is currently inside, which
+  /// is meaningful only in Thumb mode and reads as zero elsewhere. Exposed so
+  /// that disassembly resuming mid-block can restore it.
+  member _.ITState
+    with get() = modeSwitch.ITState
+    and set v = modeSwitch.ITState <- v
 
 #if EMULATION
   /// The lazy condition-code op the IR builder currently carries: the last

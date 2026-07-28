@@ -172,8 +172,11 @@ let private dumpFiles files opts =
   | _, errs ->
     eprintsn <| "File(s) " + errs.ToString() + " not found!"
 
-let private validateHexStringLength (hdl: BinHandle) hexstr =
+let private validateHexStringLength (hdl: BinHandle) isThumb hexstr =
   let liftingUnit = hdl.NewLiftingUnit()
+  (* The mode has to be applied before reading the alignment, or a two-byte
+     Thumb instruction gets rejected for not being a multiple of four. *)
+  liftingUnit.IsThumb <- isThumb
   let alignment = liftingUnit.InstructionAlignment
   if (Array.length hexstr) % alignment = 0 then
     ()
@@ -185,7 +188,7 @@ let private prepareHexStringDump (opts: BinDisasmOpts) =
   let hex, isa = opts.InputHexStr, opts.ISA
   let hdl = BinHandle(hex, isa, opts.BaseAddress, detectFormat = false)
   initTableConfig hdl.File.ISA opts.ShowLowUIR
-  validateHexStringLength hdl opts.InputHexStr
+  validateHexStringLength hdl opts.ThumbMode opts.InputHexStr
   hdl
 
 let private dumpHexString (opts: BinDisasmOpts) =
@@ -196,7 +199,7 @@ let private dumpHexString (opts: BinDisasmOpts) =
   let ptr =
     BinFilePointer.CreateFileBacked(
       baseAddr, baseAddr + uint64 len - 1UL, 0, len - 1)
-  dumper.ModeSwitch.IsThumb <- opts.ThumbMode
+  dumper.IsThumb <- opts.ThumbMode
   dumper.Dump ptr
   printsn ""
 
