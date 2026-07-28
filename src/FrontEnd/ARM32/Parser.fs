@@ -409,6 +409,8 @@ type ARM32Parser(isa: ISA, isThumb, reader) =
   interface IInstructionParsable with
     member _.MaxInstructionSize = 4
 
+    member _.InstructionAlignment = if isThumb then 2 else 4
+
     member _.Parse(span: ByteSpan, addr) =
       phlp.IsThumb <- isThumb
       phlp.InsAddr <- addr

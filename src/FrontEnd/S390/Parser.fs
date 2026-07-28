@@ -40,6 +40,8 @@ type S390Parser(isa: ISA, reader) =
   interface IInstructionParsable with
     member _.MaxInstructionSize = 6
 
+    member _.InstructionAlignment = 2
+
     member _.Parse(span: ByteSpan, addr: Addr) =
       ParsingMain.parse lifter span reader wordSize addr :> IInstruction
 

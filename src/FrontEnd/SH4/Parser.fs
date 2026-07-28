@@ -38,6 +38,8 @@ type SH4Parser(reader) =
   interface IInstructionParsable with
     member _.MaxInstructionSize = 2
 
+    member _.InstructionAlignment = 2
+
     member _.Parse(bs: byte[], addr: Addr) =
       let span = ReadOnlySpan bs
       ParsingMain.parse lifter span reader addr :> IInstruction

@@ -33,6 +33,13 @@ type IInstructionParsable =
   /// Return the maximum possible size of an instruction.
   abstract MaxInstructionSize: int
 
+  /// The instruction alignment (in bytes) enforced by the CPU. For example, ARM
+  /// requires instructions to be aligned to 4 bytes, while x86 does not have
+  /// such a requirement (i.e., 1-byte alignment). This can depend on the
+  /// parser's current state, as it does for ARM32, where Thumb instructions are
+  /// aligned to 2 bytes and ARM instructions to 4.
+  abstract InstructionAlignment: int
+
   /// Parse one instruction from the given byte array assuming that the address
   /// of the instruction is `addr`.
   abstract Parse: bs: byte[] * addr: Addr -> IInstruction

@@ -42,16 +42,6 @@ type LiftingUnit(binFile: IBinFile,
 
   let rawBytes = binFile.RawBytes
 
-  let getAlignment =
-    match binFile.ISA with
-    | Intel | EVM | WASM | Python -> fun () -> 1
-    | ARM32 ->
-      let switch = parser :?> ARM32.IModeSwitchable
-      fun () -> if switch.IsThumb then 2 else 4
-    | AArch64 | MIPS | TMS320C6000 | PPC32 | PARISC -> fun () -> 4
-    | AVR | RISCV64 | SH4 | SPARC -> fun () -> 2
-    | _ -> Terminator.futureFeature ()
-
   let strDisasm =
     match binFile.NameResolver with
     | Some names ->
@@ -125,8 +115,9 @@ type LiftingUnit(binFile: IBinFile,
 
   /// The instruction alignment (in bytes) enforced by the CPU. For example, ARM
   /// requires instructions to be aligned to 4 bytes, while x86 does not have
-  /// such a requirement (i.e., 1-byte alignment).
-  member _.InstructionAlignment with get() = getAlignment ()
+  /// such a requirement (i.e., 1-byte alignment). For ARM32 this follows the
+  /// parser's current mode: 2 bytes in Thumb mode and 4 bytes otherwise.
+  member _.InstructionAlignment with get() = parser.InstructionAlignment
 
   /// <summary>
   /// Parses one instruction at the given address (addr), and return the

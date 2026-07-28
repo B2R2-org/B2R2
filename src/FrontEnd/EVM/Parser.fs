@@ -46,6 +46,8 @@ type EVMParser(isa: ISA) =
   interface IInstructionParsable with
     member _.MaxInstructionSize = 33
 
+    member _.InstructionAlignment = 1
+
     member _.Parse(bs: byte[], addr) =
       let span = ReadOnlySpan(bs)
       ParsingMain.parse lifter span codeOffset addr :> IInstruction

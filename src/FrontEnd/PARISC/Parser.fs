@@ -40,6 +40,8 @@ type PARISCParser(isa: ISA, reader) =
   interface IInstructionParsable with
     member _.MaxInstructionSize = 4
 
+    member _.InstructionAlignment = 4
+
     member _.Parse(span: ByteSpan, addr: Addr) =
       ParsingMain.parse lifter span reader wordSize addr :> IInstruction
 

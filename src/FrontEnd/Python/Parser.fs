@@ -48,6 +48,8 @@ type PythonParser(binFile: IBinFile, reader) =
   interface IInstructionParsable with
     member _.MaxInstructionSize = 4
 
+    member _.InstructionAlignment = 1
+
     member _.Parse(span: ByteSpan, addr: Addr) =
       parse span addr :> IInstruction
 

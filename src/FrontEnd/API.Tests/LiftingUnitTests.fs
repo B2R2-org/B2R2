@@ -50,6 +50,28 @@ type LiftingUnitTests() =
        BinFilePointer.CreateVirtual(0x1000UL, 0x1fffUL)
        (hdl.File.GetBoundedPointer 0UL).Advance 4 |]
 
+  static let emptyCode: byte[] = Array.zeroCreate 4
+
+  /// The alignment every architecture with a parser must report. This list is
+  /// deliberately kept next to the architectures GroundWork can build a parser
+  /// for: LiftingUnit used to reconstruct alignment from a separate table, and
+  /// S390 was missing from it, so NewLiftingUnit raised NotImplementedException
+  /// before it could return a unit.
+  static let alignments =
+    [| Architecture.Intel, 1
+       Architecture.ARMv7, 4
+       Architecture.ARMv8, 4
+       Architecture.MIPS, 4
+       Architecture.PPC, 4
+       Architecture.RISCV, 2
+       Architecture.SPARC, 2
+       Architecture.S390, 2
+       Architecture.SH4, 2
+       Architecture.PARISC, 4
+       Architecture.AVR, 2
+       Architecture.TMS320C6000, 4
+       Architecture.EVM, 1 |]
+
   static let assertRaises (f: unit -> unit) =
     Assert.ThrowsExactly<System.ArgumentException>(fun () -> f ()) |> ignore
 
@@ -136,3 +158,17 @@ type LiftingUnitTests() =
   [<TestMethod>]
   member _.``[LiftingUnit] instruction alignment test``() =
     Assert.AreEqual<int>(1, lu.InstructionAlignment)
+
+  [<TestMethod>]
+  member _.``[LiftingUnit] alignment of every architecture test``() =
+    for arch, expected in alignments do
+      let unit = BinHandle(emptyCode, ISA arch).NewLiftingUnit()
+      Assert.AreEqual<int>(expected, unit.InstructionAlignment)
+
+  (* ARM32 alignment follows the parser's current mode, so it cannot come from
+     a table keyed by ISA alone. An odd entry point selects Thumb mode. *)
+  [<TestMethod>]
+  member _.``[LiftingUnit] thumb alignment test``() =
+    let isa = ISA Architecture.ARMv7
+    let hdl = BinHandle(emptyCode, isa, Some 0x1001UL, false)
+    Assert.AreEqual<int>(2, hdl.NewLiftingUnit().InstructionAlignment)

@@ -32,6 +32,8 @@ type CILParser() =
   interface IInstructionParsable with
     member _.MaxInstructionSize = Terminator.futureFeature ()
 
+    member _.InstructionAlignment = Terminator.futureFeature ()
+
     member _.Parse(_: byte[], _: Addr): IInstruction =
       Terminator.futureFeature ()
 

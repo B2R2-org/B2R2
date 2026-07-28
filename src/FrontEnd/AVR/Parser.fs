@@ -37,6 +37,8 @@ type AVRParser(reader) =
   interface IInstructionParsable with
     member _.MaxInstructionSize = 4
 
+    member _.InstructionAlignment = 2
+
     member _.Parse(bs: byte[], addr) =
       let span = ReadOnlySpan bs
       ParsingMain.parse lifter span reader addr :> IInstruction

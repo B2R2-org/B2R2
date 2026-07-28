@@ -560,6 +560,8 @@ type IntelParser(wordSz, reader) =
   interface IInstructionParsable with
     member _.MaxInstructionSize = 15
 
+    member _.InstructionAlignment = 1
+
     member this.Parse(bs: byte[], addr) =
       (this :> IInstructionParsable).Parse(ReadOnlySpan bs, addr)
 
