@@ -26,6 +26,7 @@ namespace B2R2.FrontEnd.Tests
 
 open System.Collections.Generic
 open B2R2
+open B2R2.Collections
 open B2R2.FrontEnd
 open Microsoft.VisualStudio.TestTools.UnitTesting
 
@@ -51,6 +52,13 @@ type ExceptionInfoTests() =
   static let coverage pairs =
     ExceptionCoverage.compute winLo winHi (ranges pairs)
 
+  /// Builds a handler table from (blockStart, blockEnd, landingPad) triples.
+  static let handlers triples =
+    triples
+    |> List.fold (fun tbl (blkStart, blkEnd, pad) ->
+      HandlerTable.add (AddrRange.create blkStart blkEnd) pad tbl)
+      IntervalMap.empty
+
   (* The ratio used to divide by a zero-sized window and yield NaN, which no
      threshold check can catch: both "> 0.9" and "< 0.1" are false for NaN. *)
   [<TestMethod>]
@@ -73,6 +81,70 @@ type ExceptionInfoTests() =
     Assert.AreEqual<float>(0.5, coverage [ 0x1800UL, 0xffffUL ])
     Assert.AreEqual<float>(0.5, coverage [ 0x0UL, 0x17ffUL ])
     Assert.AreEqual<float>(0.0, coverage [ 0x8000UL, 0x9000UL ])
+
+  (* A try block inside another try block yields a range contained in an outer
+     one. The table used to forbid that, so building it raised
+     RangeOverlapException for ordinary C++ binaries. *)
+  [<TestMethod>]
+  member _.``[ExceptionInfo] nested handler blocks are kept test``() =
+    let tbl =
+      handlers
+        [ 0x1000UL, 0x2000UL, 0xaaUL
+          0x1500UL, 0x1600UL, 0xbbUL ]
+    Assert.AreEqual<int>(2, (HandlerTable.toArray tbl).Length)
+
+  (* At run time the innermost block catches first, so the narrowest range
+     covering the address is the one that decides the landing pad. *)
+  [<TestMethod>]
+  member _.``[ExceptionInfo] innermost handler block wins test``() =
+    let tbl =
+      handlers
+        [ 0x1000UL, 0x2000UL, 0xaaUL
+          0x1500UL, 0x1600UL, 0xbbUL ]
+    Assert.AreEqual(Some 0xbbUL, HandlerTable.tryFindTarget 0x1550UL tbl)
+    Assert.AreEqual(Some 0xaaUL, HandlerTable.tryFindTarget 0x1100UL tbl)
+    Assert.AreEqual(Some 0xaaUL, HandlerTable.tryFindTarget 0x2000UL tbl)
+    Assert.AreEqual(None, HandlerTable.tryFindTarget 0x2001UL tbl)
+
+  (* Nesting also shows up as two blocks sharing a start address, which no
+     comparison on the start alone can resolve. *)
+  [<TestMethod>]
+  member _.``[ExceptionInfo] handler blocks sharing a start test``() =
+    let tbl =
+      handlers
+        [ 0x1000UL, 0x9000UL, 0xaaUL
+          0x1000UL, 0x1010UL, 0xbbUL ]
+    Assert.AreEqual(Some 0xbbUL, HandlerTable.tryFindTarget 0x1005UL tbl)
+    Assert.AreEqual(Some 0xaaUL, HandlerTable.tryFindTarget 0x1011UL tbl)
+
+  (* An exact duplicate range must not raise either; the last pad wins. *)
+  [<TestMethod>]
+  member _.``[ExceptionInfo] duplicate handler blocks collapse test``() =
+    let tbl =
+      handlers
+        [ 0x1000UL, 0x2000UL, 0xaaUL
+          0x1000UL, 0x2000UL, 0xbbUL ]
+    Assert.AreEqual<int>(1, (HandlerTable.toArray tbl).Length)
+    Assert.AreEqual(Some 0xbbUL, HandlerTable.tryFindTarget 0x1500UL tbl)
+
+  [<TestMethod>]
+  member _.``[ExceptionInfo] handler ranges are ordered by start test``() =
+    let tbl =
+      handlers
+        [ 0x3000UL, 0x4000UL, 0xccUL
+          0x1000UL, 0x2000UL, 0xaaUL
+          0x1500UL, 0x1600UL, 0xbbUL ]
+    let starts =
+      HandlerTable.toArray tbl
+      |> Array.map (fun (r: AddrRange, _) -> $"{r.Min:x}")
+      |> String.concat ","
+    Assert.AreEqual<string>("1000,1500,3000", starts)
+
+  [<TestMethod>]
+  member _.``[ExceptionInfo] empty handler table test``() =
+    let tbl = handlers []
+    Assert.AreEqual<int>(0, (HandlerTable.toArray tbl).Length)
+    Assert.AreEqual(None, HandlerTable.tryFindTarget 0x1000UL tbl)
 
   [<TestMethod>]
   member _.``[ExceptionInfo] degenerate coverage inputs test``() =

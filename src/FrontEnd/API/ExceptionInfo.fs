@@ -54,9 +54,39 @@ module internal ExceptionCoverage =
         if s <= e then covered <- covered + (e - s + 1UL) else ()
       float covered / float (hi - lo + 1UL)
 
+/// Maps handler block ranges to the landing pads they dispatch to.
+[<RequireQualifiedAccess>]
+module internal HandlerTable =
+  /// Adds a handler block range. Handler blocks nest, since a try block inside
+  /// another try block yields a range contained in an outer one, so overlapping
+  /// ranges are kept rather than rejected. The last landing pad wins when the
+  /// exact same range shows up twice.
+  let add (range: AddrRange) landingPad tbl =
+    IntervalMap.addOrReplace range (range, landingPad) tbl
+
+  /// Returns the landing pad of the narrowest block covering the given address,
+  /// which is the innermost one and hence the one that catches first at run
+  /// time, or None when no block covers the address.
+  let tryFindTarget addr tbl =
+    match IntervalMap.findAll (AddrRange.singleton addr) tbl with
+    | [] ->
+      None
+    | candidates ->
+      candidates
+      |> List.minBy (fun (range: AddrRange, _) -> range.Max - range.Min)
+      |> snd
+      |> Some
+
+  /// Returns every block range with its landing pad, ordered by range start.
+  let toArray tbl =
+    IntervalMap.fold (fun acc _ pair -> pair :: acc) [] tbl
+    |> List.rev
+    |> List.toArray
+
 /// <summary>
-/// Represents parsed exception information of a binary code. We currently only
-/// support ELF binaries.
+/// Represents parsed exception information of a binary code. This works for the
+/// formats that expose an exception table, namely ELF, PE, and Mach-O; for the
+/// others every member reports an empty result.
 /// </summary>
 type ExceptionInfo(liftingUnit: LiftingUnit) =
   /// If a handler has a direct branch to another function, then we consider the
@@ -79,7 +109,7 @@ type ExceptionInfo(liftingUnit: LiftingUnit) =
       match handler.Handler with
       | Some landingPad ->
         let range = AddrRange.create handler.BlockStart handler.BlockEnd
-        let tbl = NoOverlapIntervalMap.add range landingPad tbl
+        let tbl = HandlerTable.add range landingPad tbl
         tbl, checkIfFrameIsFunction frame landingPad
       | None -> tbl, isFunc) (acc, true)
 
@@ -93,12 +123,16 @@ type ExceptionInfo(liftingUnit: LiftingUnit) =
 
   let exnTbl =
     BinFileOps.getExceptionFrames liftingUnit.File
-    |> Array.fold buildExceptionTable NoOverlapIntervalMap.empty
+    |> Array.fold buildExceptionTable IntervalMap.empty
 
   new(hdl: BinHandle) = ExceptionInfo(hdl.NewLiftingUnit())
 
-  /// Returns the exception handler mapping.
-  member _.ExceptionMap with get() = exnTbl
+  /// <summary>
+  /// Every handler block range paired with the landing pad it dispatches to,
+  /// ordered by range start. Blocks nest, so a range containing another comes
+  /// before the one nested inside it.
+  /// </summary>
+  member _.ExceptionRanges with get() = HandlerTable.toArray exnTbl
 
   /// Returns an array of function entry points identified by the exception
   /// table.
@@ -122,7 +156,11 @@ type ExceptionInfo(liftingUnit: LiftingUnit) =
   /// FDE records in the exception table.
   member _.ContainsFunctionEntryPoint addr = fnRanges.ContainsKey addr
 
-  /// Finds the exception target (landing pad) for a given instruction address.
-  /// If the address is not in the exception table, it returns None.
+  /// <summary>
+  /// Finds the exception target (landing pad) for a given instruction address,
+  /// or None when no handler block covers it. Handler blocks nest, so the
+  /// innermost block covering the address wins, matching the block that catches
+  /// first at run time.
+  /// </summary>
   member _.TryFindExceptionTarget insAddr =
-    NoOverlapIntervalMap.tryFindByAddr insAddr exnTbl
+    HandlerTable.tryFindTarget insAddr exnTbl

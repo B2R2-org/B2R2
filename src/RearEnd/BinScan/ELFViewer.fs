@@ -477,12 +477,12 @@ let dumpExceptionTable hdl (elf: ELFBinFile) =
   printDoubleHorizontalRule ()
   printsr [| "RangeStart"; "RangeEnd"; "CatchBlk" |]
   printSingleHorizontalRule ()
-  if NoOverlapIntervalMap.isEmpty exnInfo.ExceptionMap then
+  let ranges = exnInfo.ExceptionRanges
+  if Array.isEmpty ranges then
     printsn "n/a"
   else
-    exnInfo.ExceptionMap
-    |> NoOverlapIntervalMap.iter (fun range catchBlkAddr ->
-      printsr [| $"{range.Min:x}"; $"{range.Max:x}"; $"{catchBlkAddr:x}" |])
+    for range: AddrRange, catchBlkAddr in ranges do
+      printsr [| $"{range.Min:x}"; $"{range.Max:x}"; $"{catchBlkAddr:x}" |]
   printDoubleHorizontalRule ()
   printsn ""
 
