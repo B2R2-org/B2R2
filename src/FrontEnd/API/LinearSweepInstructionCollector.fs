@@ -24,33 +24,40 @@
 
 namespace B2R2.FrontEnd
 
+open System.Threading
 open B2R2
 open B2R2.FrontEnd.BinFile
 
 /// Represents a linear sweep instruction collector, which is the most basic
 /// instruction collector performing linear sweep disassembly.
 type LinearSweepInstructionCollector(hdl: BinHandle, liftingUnit: LiftingUnit) =
-  let rec update updateFn (ptr: BinFilePointer) =
-    if ptr.CanReadFileBytes then
+  (* On-demand parsing can run on any thread while the sweep is in flight, and a
+     LiftingUnit is not thread-safe, so each thread keeps its own instead of
+     building one per call. *)
+  let onDemandUnits =
+    new ThreadLocal<LiftingUnit>(fun () -> hdl.NewLiftingUnit())
+
+  let rec update updateFn (token: CancellationToken) (ptr: BinFilePointer) =
+    if ptr.CanReadFileBytes && not token.IsCancellationRequested then
       match liftingUnit.TryParseInstruction(ptr = ptr) with
       | Ok ins ->
-        updateFn (ptr.Addr, OnlyOne ins) |> ignore
-        update updateFn (ptr.Advance(ins.Length))
+        updateFn (ptr.Addr, OnlyOne ins)
+        update updateFn token (ptr.Advance ins.Length)
       | Error _ ->
         let shiftAmount = liftingUnit.InstructionAlignment
-        update updateFn (ptr.Advance(shiftAmount))
-    else ()
+        update updateFn token (ptr.Advance shiftAmount)
+    else
+      ()
 
   new(hdl: BinHandle) =
     LinearSweepInstructionCollector(hdl, hdl.NewLiftingUnit())
 
   interface IInstructionCollectable with
-    member _.Collect updateFn =
+    member _.Collect(updateFn, token) =
       let ptr = BinFileOps.getDefaultCodePointer liftingUnit.File
-      update updateFn ptr
+      update updateFn token ptr
 
     member _.ParseInstructionCandidate addr =
-      let liftingUnit = hdl.NewLiftingUnit() (* always create a new one! *)
-      match liftingUnit.TryParseInstruction(addr = addr) with
+      match onDemandUnits.Value.TryParseInstruction(addr = addr) with
       | Ok ins -> Ok(OnlyOne ins)
       | Error _ -> Error ErrorCase.ParsingFailure

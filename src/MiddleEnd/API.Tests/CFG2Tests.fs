@@ -106,6 +106,7 @@ type CFG2Tests() =
 
   [<TestMethod>]
   member _.``InstructionCollection Test 1``() =
+    instrs.Completion.Wait()
     Assert.AreEqual<int>(15, instrs.Count)
 
   [<TestMethod>]
