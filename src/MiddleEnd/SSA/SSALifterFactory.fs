@@ -343,7 +343,7 @@ module private SSALifterFactory =
       let offset = int (int64 Constants.InitialStackPointer - int64 addr)
       let v = { Kind = StackVar(rt, offset); Identifier = 0 }
       Some(pp, Def(v, src))
-    | _ -> Some stmtInfo
+    | _ -> None
 
   let loadToVar rt addr =
     match addr with
@@ -365,14 +365,22 @@ module private SSALifterFactory =
     | Extract(e, rt, sPos) ->
       replaceLoad state e
       |> Option.map (fun e -> Extract(e, rt, sPos))
+    | BinOp(op, rt, le, re) ->
+      let le' = replaceLoad state le |> Option.defaultValue le
+      let re' = replaceLoad state re |> Option.defaultValue re
+      if le' = le && re' = re then None
+      else Some(BinOp(op, rt, le', re'))
     | _ -> None
 
   let stmtChooser state ((pp, stmt) as stmtInfo) =
     match stmt with
     | Phi _ -> None
-    | Def({ Kind = MemVar }, Store(_, rt, addr, src)) ->
-      let addr = (state: SSASparseDataFlow.State<_>).EvalExpr addr
-      memStore stmtInfo rt addr src
+    | Def({ Kind = MemVar } as dstMemVar, Store(memVar, rt, addrExpr, src)) ->
+      let addr = (state: SSASparseDataFlow.State<_>).EvalExpr addrExpr
+      let src = replaceLoad state src |> Option.defaultValue src
+      match memStore stmtInfo rt addr src with
+      | Some stmtInfo -> Some stmtInfo
+      | None -> Some(pp, Def(dstMemVar, Store(memVar, rt, addrExpr, src)))
     | Def(dstVar, e) ->
       match replaceLoad state e with
       | Some e -> Some(pp, Def(dstVar, e))
