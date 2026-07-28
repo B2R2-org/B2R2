@@ -33,9 +33,10 @@ open B2R2.FrontEnd.BinLifter
 /// disassemble, and lift instructions. To lift a binary in parallel, one needs
 /// to create multiple lifting units.
 /// </summary>
-type LiftingUnit(binFile: IBinFile,
-                 regFactory: IRegisterFactory,
-                 parser: IInstructionParsable) =
+type LiftingUnit
+  internal(binFile: IBinFile,
+           regFactory: IRegisterFactory,
+           parser: IInstructionParsable) =
 
   let irBuilder = GroundWork.CreateBuilder(binFile.ISA, regFactory)
 
