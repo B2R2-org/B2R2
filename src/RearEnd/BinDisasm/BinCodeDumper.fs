@@ -127,7 +127,14 @@ type BinCodeDumper(hdl, isTable, showSymbol, showColor, dumpMode) =
     | LowUIR optimizer ->
       regularIRPrinter optimizer
     | Disassembly syntax ->
-      liftingUnit.SetDisassemblySyntax syntax
+      liftingUnit.DisassemblySyntax <- syntax
+      (* The unit drops a syntax it cannot honour, so compare rather than test
+         the architecture here. Saying nothing would print default syntax as
+         though the requested one had been applied. *)
+      if liftingUnit.DisassemblySyntax <> syntax then
+        eprintsn "AT&T syntax is available for Intel only; using the default."
+      else
+        ()
       liftingUnit.ConfigureDisassembly(false, showSymbol)
       if showColor then colorDisPrinter
       else regularDisPrinter

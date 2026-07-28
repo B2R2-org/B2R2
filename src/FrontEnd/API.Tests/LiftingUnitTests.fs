@@ -27,6 +27,7 @@ namespace B2R2.FrontEnd.Tests
 open B2R2
 open B2R2.FrontEnd
 open B2R2.FrontEnd.BinFile
+open B2R2.FrontEnd.BinLifter
 open Microsoft.VisualStudio.TestTools.UnitTesting
 
 [<TestClass>]
@@ -165,6 +166,28 @@ type LiftingUnitTests() =
     Assert.AreEqual<string>("ret", ins.Disasm())
     Assert.AreEqual<Addr>(0x400000UL, ins.Address)
     Assert.AreEqual<uint32>(1u, ins.Length)
+
+  [<TestMethod>]
+  member _.``[LiftingUnit] disassembly syntax test``() =
+    let addEax = [| 0x05uy; 0x00uy; 0x00uy; 0x01uy; 0x00uy |]
+    let x86 = ISA(Architecture.Intel, WordSize.Bit32)
+    let x86Unit = BinHandle(addEax, x86).NewLiftingUnit()
+    let disasm () =
+      x86Unit.DisasmInstruction(addr = 0UL).ToLowerInvariant()
+    Assert.AreEqual<DisasmSyntax>(DefaultSyntax, x86Unit.DisassemblySyntax)
+    Assert.AreEqual<string>("add eax, 0x10000", disasm ())
+    x86Unit.DisassemblySyntax <- ATTSyntax
+    Assert.AreEqual<DisasmSyntax>(ATTSyntax, x86Unit.DisassemblySyntax)
+    Assert.AreEqual<string>("add $0x10000, %eax", disasm ())
+
+  (* Assigning a syntax the architecture cannot honour leaves the property
+     unchanged, which is the only way a caller learns the request was dropped.
+     This used to be a write-only method with no such signal. *)
+  [<TestMethod>]
+  member _.``[LiftingUnit] unsupported syntax is observable test``() =
+    let armUnit = BinHandle(emptyCode, ISA Architecture.ARMv7).NewLiftingUnit()
+    armUnit.DisassemblySyntax <- ATTSyntax
+    Assert.AreEqual<DisasmSyntax>(DefaultSyntax, armUnit.DisassemblySyntax)
 
   [<TestMethod>]
   member _.``[LiftingUnit] instruction alignment test``() =

@@ -24,7 +24,6 @@
 
 namespace B2R2.FrontEnd
 
-open System
 open B2R2
 open B2R2.FrontEnd.BinFile
 open B2R2.FrontEnd.BinLifter
@@ -68,6 +67,8 @@ type LiftingUnit(binFile: IBinFile,
       AsmWordDisasmBuilder(false, names, binFile.ISA.WordSize) :> IDisasmBuilder
     | None ->
       AsmWordDisasmBuilder(false, null, binFile.ISA.WordSize) :> IDisasmBuilder
+
+  let mutable disasmSyntax = DefaultSyntax
 
   let toReversedArray cnt lst =
     let arr = Array.zeroCreate cnt
@@ -142,6 +143,21 @@ type LiftingUnit(binFile: IBinFile,
   /// such a requirement (i.e., 1-byte alignment). For ARM32 this follows the
   /// parser's current mode: 2 bytes in Thumb mode and 4 bytes otherwise.
   member _.InstructionAlignment with get() = parser.InstructionAlignment
+
+  /// <summary>
+  /// The disassembly syntax currently in effect. Only Intel supports a syntax
+  /// other than <c>DefaultSyntax</c>; assigning one that the architecture
+  /// cannot honour leaves this unchanged, so reading it back is how a caller
+  /// learns whether the request took effect.
+  /// </summary>
+  member _.DisassemblySyntax
+    with get() = disasmSyntax
+    and set syntax =
+      match binFile.ISA with
+      | Intel ->
+        (parser :?> Intel.IntelParser).SetDisassemblySyntax syntax
+        disasmSyntax <- syntax
+      | _ -> ()
 
   /// <summary>
   /// Parses one instruction at the given address (addr), and return the
@@ -451,12 +467,3 @@ type LiftingUnit(binFile: IBinFile,
     let span = codeSpan ptr
     let ins = parser.Parse(span, ptr.Addr)
     ins.Decompose asmwordDisasm
-
-  /// <summary>
-  /// Sets the disassembly syntax for the disassembler. Only Intel architecture
-  /// is affected by this setting.
-  /// </summary>
-  member _.SetDisassemblySyntax syntax =
-    match binFile.ISA with
-    | Intel -> (parser :?> Intel.IntelParser).SetDisassemblySyntax syntax
-    | _ -> ()
