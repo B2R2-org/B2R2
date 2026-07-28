@@ -8,6 +8,7 @@
     <Compile Include="BinHandleTests.fs" />
     <Compile Include="LiftingUnitTests.fs" />
     <Compile Include="InstructionCollectionTests.fs" />
+    <Compile Include="ExceptionInfoTests.fs" />
   </ItemGroup>
 
   <ItemGroup>

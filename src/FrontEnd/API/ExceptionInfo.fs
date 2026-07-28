@@ -25,9 +25,34 @@
 namespace B2R2.FrontEnd
 
 open System.Collections.Generic
+open System.Runtime.CompilerServices
 open B2R2
 open B2R2.Collections
 open B2R2.FrontEnd.BinFile
+
+[<assembly: InternalsVisibleTo("B2R2.FrontEnd.API.Tests")>]
+do ()
+
+/// Computes how much of an address window a set of ranges covers.
+[<RequireQualifiedAccess>]
+module internal ExceptionCoverage =
+  /// <summary>
+  /// Returns the fraction of the inclusive window [lo, hi] covered by the given
+  /// ranges, which map an inclusive range start to its inclusive end. Each one
+  /// is clamped to the window, so a range reaching outside it neither inflates
+  /// the result nor is dropped from it. The result is zero for an empty window.
+  /// Overlapping ranges are counted twice, so the caller is responsible for
+  /// passing disjoint ones.
+  /// </summary>
+  let compute lo hi (ranges: Dictionary<Addr, Addr>) =
+    if hi < lo then
+      0.0
+    else
+      let mutable covered = 0UL
+      for KeyValue(startAddr, endAddr) in ranges do
+        let s, e = max startAddr lo, min endAddr hi
+        if s <= e then covered <- covered + (e - s + 1UL) else ()
+      float covered / float (hi - lo + 1UL)
 
 /// <summary>
 /// Represents parsed exception information of a binary code. We currently only
@@ -79,17 +104,19 @@ type ExceptionInfo(liftingUnit: LiftingUnit) =
   /// table.
   member _.FunctionEntryPoints with get() = fnRanges.Keys |> Seq.toArray
 
-  /// Returns the coverage of the exception table, which is the ratio of
-  /// addresses in the .text section that are covered by the exception table.
+  /// <summary>
+  /// The fraction of the code section, in [0, 1], covered by the frames that
+  /// the exception table identifies as functions. This counts only the frames
+  /// judged to be functions, not every frame in the table. The result is zero
+  /// when the binary has no code section to measure against, which is the case
+  /// for formats that carry no section structure.
+  /// </summary>
   member _.ExceptionCoverage with get() =
     let ptr = BinFileOps.getCodeSectionPointer liftingUnit.File
-    let txtSize = float (ptr.MaxAddr - ptr.Addr)
-    let mutable covered = 0.0
-    for KeyValue(startAddr, endAddr) in fnRanges do
-      if ptr.Addr <= startAddr && startAddr <= ptr.MaxAddr then
-        covered <- covered + float (endAddr - startAddr + 1UL)
-      else ()
-    covered / txtSize
+    (* A null pointer would otherwise read as a one-byte window at address zero,
+       which reports full coverage for a frame that happens to start there. *)
+    if ptr.IsNull then 0.0
+    else ExceptionCoverage.compute ptr.Addr ptr.MaxAddr fnRanges
 
   /// Checks if the given address is a function entry point according to the
   /// FDE records in the exception table.
