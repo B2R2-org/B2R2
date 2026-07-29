@@ -32,6 +32,14 @@ open B2R2.FrontEnd.BinFile
 open B2R2.FrontEnd.BinLifter
 open type FileFormat
 
+/// <summary>
+/// Represents the main data structure for accessing a chunk of binary code.
+/// It provides ways to read raw data from the binary through addresses and to
+/// access binary file metadata through the <see
+/// cref='T:B2R2.FrontEnd.BinFile.IBinFile'/> interface. It also provides ways
+/// to parse/lift instructions from the binary through <see
+/// cref='T:B2R2.FrontEnd.LiftingUnit'/>.
+/// </summary>
 type BinHandle private(path, bytes, fmt, isa, baseAddrOpt, osOpt) =
   let regFactory = GroundWork.CreateRegisterFactory isa
 
@@ -156,17 +164,24 @@ type BinHandle private(path, bytes, fmt, isa, baseAddrOpt, osOpt) =
     else
       invalidArg (nameof ptr) (ErrorCase.toMessage ErrorCase.InvalidMemoryRead)
 
+  /// Constructs a BinHandle from a given file path, ISA, optional base address
+  /// (baseAddrOpt). File format will be automatically detected from the file.
   new(path, isa, baseAddrOpt) =
     let bytes = File.ReadAllBytes path
     let struct (fmt, isa) = FormatDetector.identify bytes isa
     BinHandle(path, bytes, fmt, isa, baseAddrOpt, None)
 
+  /// Constructs a BinHandle from a given file path and ISA.
   new(path, isa) = BinHandle(path = path, isa = isa, baseAddrOpt = None)
 
+  /// Constructs a BinHandle from a given file path. ISA is set to
+  /// `ISA.DefaultISA`.
   new(path) =
     let defaultISA = ISA(Architecture.Intel, WordSize.Bit64)
     BinHandle(path = path, isa = defaultISA, baseAddrOpt = None)
 
+  /// Constructs a BinHandle from a given byte array. File format detection is
+  /// performed only if detectFormat is set to true.
   new(bytes, isa, baseAddrOpt, detectFormat) =
     if detectFormat then
       let struct (fmt, isa) = FormatDetector.identify bytes isa
@@ -174,22 +189,44 @@ type BinHandle private(path, bytes, fmt, isa, baseAddrOpt, osOpt) =
     else
       BinHandle("", bytes, RawBinary, isa, baseAddrOpt, None)
 
+  /// Constructs a BinHandle from a given byte array and ISA. The base address
+  /// is set to 0UL, and file format detection is disabled.
   new(bytes, isa) = BinHandle("", bytes, RawBinary, isa, None, None)
 
+  /// Constructs a BinHandle from a given byte array, ISA, and target OS. The
+  /// format is treated as a raw image (no detection) and the OS is used to pick
+  /// the calling and system-call conventions. Useful for analyzing shellcode
+  /// whose OS cannot be inferred from a file format.
   new(bytes, isa, os) = BinHandle("", bytes, RawBinary, isa, None, Some os)
 
+  /// Constructs an empty BinHandle.
   new(isa) = BinHandle([||], isa, None, false)
 
+  /// Gets the file handle.
   member _.File with get(): IBinFile = binFile
 
+  /// Gets the ISA in effect for this binary, which is what the register factory
+  /// and the ABI conventions below are derived from. This is not always the ISA
+  /// passed to the constructor: for a recognized file format, format detection
+  /// resolves the ISA from the file itself.
   member _.ISA with get() = binFile.ISA
 
+  /// Gets the register factory.
   member _.RegisterFactory with get() = regFactory
 
+  /// Gets the target OS. For a recognized file format the OS is inferred from
+  /// the format; for a raw image it is the OS injected at construction (or
+  /// UnknownOS if none was given).
   member _.OS with get() = os
 
+  /// <summary>
+  /// Gets the ABI conventions for this binary's OS and ISA, bundling the
+  /// function-call calling convention, the stack-frame convention, and the
+  /// system-call convention. See <see cref='T:B2R2.ABI.Conventions'/>.
+  /// </summary>
   member _.Conventions with get() = conv
 
+  /// Gets a new instance of lifting unit.
   member _.NewLiftingUnit() =
     let parser = GroundWork.CreateParser binFile
     let liftingUnit = LiftingUnit(binFile, regFactory, parser)
@@ -200,65 +237,237 @@ type BinHandle private(path, bytes, fmt, isa, baseAddrOpt, osOpt) =
     | _ -> ()
     liftingUnit
 
+  /// <summary>
+  /// Returns the byte array of size (nBytes) pointed to by the pointer (ptr).
+  /// </summary>
+  /// <param name="ptr">The binary pointer.</param>
+  /// <param name="nBytes">The size of the byte array (in bytes).</param>
+  /// <returns>
+  /// Returns (byte[]) if succeeded, (ErrorCase) otherwise.
+  /// </returns>
   member _.TryReadBytes(ptr: BinFilePointer, nBytes) = tryReadBytes ptr nBytes
 
+  /// <summary>
+  /// Returns the byte array of size (nBytes) located at the address (addr).
+  /// </summary>
+  /// <param name="addr">The address</param>
+  /// <param name="nBytes">The size of the byte array (in bytes).</param>
+  /// <returns>
+  /// Returns (byte[]) if succeeded, (ErrorCase) otherwise.
+  /// </returns>
   member _.TryReadBytes(addr: Addr, nBytes) =
     let ptr = binFile.GetBoundedPointer addr
     tryReadBytes ptr nBytes
 
+  /// <summary>
+  /// Returns the byte array of size (nBytes) pointed to by the binary file
+  /// pointer (ptr).
+  /// </summary>
+  /// <param name="ptr">BInaryPointer.</param>
+  /// <param name="nBytes">The size of the byte array (in bytes).</param>
+  /// <returns>
+  /// Returns the byte array if succeed. Otherwise, raise an exception.
+  /// </returns>
   member _.ReadBytes(ptr: BinFilePointer, nBytes) = readBytes ptr nBytes
 
+  /// <summary>
+  /// Returns the byte array of size (nBytes) at the addr from the current
+  /// binary.
+  /// </summary>
+  /// <param name="addr">The address.</param>
+  /// <param name="nBytes">The size of the byte array (in bytes).</param>
+  /// <returns>
+  /// Returns the byte array if succeed. Otherwise, raise an exception.
+  /// </returns>
   member _.ReadBytes(addr: Addr, nBytes) =
     let ptr = binFile.GetBoundedPointer addr
     readBytes ptr nBytes
 
+  /// <summary>
+  /// Returns the corresponding integer of the size from the given address
+  /// pointed to by the binary pointer (ptr).
+  /// </summary>
+  /// <param name="ptr">BinFilePointer.</param>
+  /// <param name="size">The size of the integer in bytes. Maximum 8 bytes is
+  /// possible.</param>
+  /// <returns>
+  /// Returns the corresponding value (int64) if the address and the size is
+  /// valid. Otherwise ErrorCase.
+  /// </returns>
   member _.TryReadInt(ptr: BinFilePointer, size) =
     match tryReadBytes ptr size with
     | Ok bs -> tryReadIntBySize size (ReadOnlySpan bs)
     | _ -> Error ErrorCase.InvalidMemoryRead
 
+  /// <summary>
+  /// Returns the corresponding integer of the size from the given address.
+  /// </summary>
+  /// <param name="addr">The address.</param>
+  /// <param name="size">The size of the integer in bytes. Maximum 8 bytes is
+  /// possible.</param>
+  /// <returns>
+  /// Returns the corresponding value (int64) if the address and the size is
+  /// valid. Otherwise ErrorCase.
+  /// </returns>
   member this.TryReadInt(addr: Addr, size) =
     let ptr = binFile.GetBoundedPointer addr
     this.TryReadInt(ptr, size)
 
+  /// <summary>
+  /// Returns the corresponding integer value of the size from the current
+  /// binary, which is pointed to by the binary file pointer (ptr).
+  /// </summary>
+  /// <param name="ptr">The binary pointer.</param>
+  /// <param name="size">The size of the integer in bytes. Maximum 8 bytes is
+  /// possible.</param>
+  /// <returns>
+  /// Returns the corresponding integer (int64).
+  /// </returns>
   member _.ReadInt(ptr: BinFilePointer, size) =
     let bs = readBytes ptr size
     readIntBySize size (ReadOnlySpan bs)
 
+  /// <summary>
+  /// Returns the corresponding integer value at the addr of the size from the
+  /// current binary.
+  /// </summary>
+  /// <param name="addr">The address.</param>
+  /// <param name="size">The size of the integer in bytes. Maximum 8 bytes is
+  /// possible.</param>
+  /// <returns>
+  /// Returns the corresponding integer (int64).
+  /// </returns>
   member this.ReadInt(addr: Addr, size) =
     let ptr = binFile.GetBoundedPointer addr
     this.ReadInt(ptr, size)
 
+  /// <summary>
+  /// Returns the corresponding unsigned integer of the size from the address
+  /// pointed to by the binary file pointer (ptr).
+  /// </summary>
+  /// <param name="ptr">BinFilePointer.</param>
+  /// <param name="size">The size of the integer in bytes. Maximum 8 bytes is
+  /// possible.</param>
+  /// <returns>
+  /// Returns the corresponding unsigned integer (uint64) if the address and
+  /// the size is valid. Otherwise, ErrorCase.
+  /// </returns>
   member _.TryReadUInt(ptr: BinFilePointer, size) =
     match tryReadBytes ptr size with
     | Ok bs -> tryReadUIntBySize size (ReadOnlySpan bs)
     | _ -> Error ErrorCase.InvalidMemoryRead
 
+  /// <summary>
+  /// Returns the corresponding unsigned integer of the size from the given
+  /// address.
+  /// </summary>
+  /// <param name="addr">The address.</param>
+  /// <param name="size">The size of the integer in bytes. Maximum 8 bytes is
+  /// possible.</param>
+  /// <returns>
+  /// Returns the corresponding unsigned integer (uint64) if the address and
+  /// the size is valid. Otherwise, ErrorCase.
+  /// </returns>
   member this.TryReadUInt(addr: Addr, size) =
     let ptr = binFile.GetBoundedPointer addr
     this.TryReadUInt(ptr, size)
 
+  /// <summary>
+  /// Returns the corresponding unsigned integer value of the size from the
+  /// binary, which is pointed to by the binary file pointer (ptr).
+  /// </summary>
+  /// <param name="ptr">BinFilePointer.</param>
+  /// <param name="size">The size of the integer in bytes. Maximum 8 bytes is
+  /// possible.</param>
+  /// <returns>
+  /// Returns the corresponding unsigned integer (uint64).
+  /// </returns>
   member _.ReadUInt(ptr: BinFilePointer, size) =
     let bs = readBytes ptr size
     readUIntBySize size (ReadOnlySpan bs)
 
+  /// <summary>
+  /// Returns the corresponding unsigned integer value at the addr of the size
+  /// from the binary.
+  /// </summary>
+  /// <param name="addr">The address.</param>
+  /// <param name="size">The size of the integer in bytes. Maximum 8 bytes is
+  /// possible.</param>
+  /// <returns>
+  /// Returns the corresponding unsigned integer (uint64).
+  /// </returns>
   member this.ReadUInt(addr: Addr, size) =
     let ptr = binFile.GetBoundedPointer addr
     this.ReadUInt(ptr, size)
 
+  /// <summary>
+  /// Returns the NUL-terminated ASCII string starting at the address (addr).
+  /// When the pointed region ends before a NUL is found, the string read so far
+  /// is returned.
+  /// </summary>
+  /// <param name="addr">The address.</param>
+  /// <returns>
+  /// Returns the ASCII string if the address is backed by file bytes,
+  /// (ErrorCase) otherwise.
+  /// </returns>
   member _.TryReadASCII(addr: Addr) =
     binFile.GetBoundedPointer addr |> tryReadAscii
 
+  /// <summary>
+  /// Returns the NUL-terminated ASCII string pointed to by the binary file
+  /// pointer (ptr). When the pointed region ends before a NUL is found, the
+  /// string read so far is returned.
+  /// </summary>
+  /// <param name="ptr">The binary pointer.</param>
+  /// <returns>
+  /// Returns the ASCII string if the pointer is backed by file bytes,
+  /// (ErrorCase) otherwise.
+  /// </returns>
   member _.TryReadASCII(ptr: BinFilePointer) = tryReadAscii ptr
 
+  /// <summary>
+  /// Returns the NUL-terminated ASCII string starting at the address (addr).
+  /// When the pointed region ends before a NUL is found, the string read so far
+  /// is returned.
+  /// </summary>
+  /// <param name="addr">The address.</param>
+  /// <returns>
+  /// Returns the ASCII string if succeed. Otherwise, raise an exception.
+  /// </returns>
   member _.ReadASCII(addr: Addr) =
     binFile.GetBoundedPointer addr |> readAscii
 
+  /// <summary>
+  /// Returns the NUL-terminated ASCII string pointed to by the binary file
+  /// pointer (ptr). When the pointed region ends before a NUL is found, the
+  /// string read so far is returned.
+  /// </summary>
+  /// <param name="ptr">The binary pointer.</param>
+  /// <returns>
+  /// Returns the ASCII string if succeed. Otherwise, raise an exception.
+  /// </returns>
   member _.ReadASCII(ptr: BinFilePointer) = readAscii ptr
 
+  /// <summary>
+  /// Creates a new BinHandle from the given byte array while keeping the other
+  /// properties of the original BinHandle.
+  /// </summary>
+  /// <param name="bs">The byte array.</param>
+  /// <returns>
+  /// Returns a new BinHandle.
+  /// </returns>
   member _.MakeNew(bs: byte[]) =
     BinHandle(path, bs, fmt, isa, baseAddrOpt, Some os)
 
+  /// <summary>
+  /// Creates a new BinHandle from the given byte array while keeping the other
+  /// properties of the original BinHandle.
+  /// </summary>
+  /// <param name="bs">The byte array.</param>
+  /// <param name="baseAddr">The new base address.</param>
+  /// <returns>
+  /// Returns a new BinHandle.
+  /// </returns>
   member _.MakeNew(bs: byte[], baseAddr) =
     BinHandle(path, bs, fmt, isa, Some baseAddr, Some os)
 
