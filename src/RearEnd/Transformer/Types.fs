@@ -55,6 +55,28 @@ with
       if String.IsNullOrEmpty path then annot
       else $"{prefix}{path}"
 
+  /// <summary>
+  /// Derives a Binary holding the whole content of the given one, edited. The
+  /// file format is detected anew rather than carried over, since an edit can
+  /// change what the bytes are: a byte inserted ahead of an ELF header leaves
+  /// something that is no longer an ELF.
+  /// </summary>
+  static member OfEditedContent(prefix, bin, bs) =
+    let isa = (Binary.Handle bin).ISA
+    let edited = lazy BinHandle.LoadFileBytes(bs, isa)
+    Binary.Init(Binary.MakeAnnotation(prefix, bin), edited)
+
+  /// <summary>
+  /// Derives a Binary holding a fragment of the given one, taken as a raw image
+  /// based at the given address. No file format is carried over, since a
+  /// fragment of a structured file is not one itself; only the ISA and the OS
+  /// are, as those hold for any part of the same binary.
+  /// </summary>
+  static member OfFragment(prefix, bin, bs, baseAddr) =
+    let hdl = Binary.Handle bin
+    let fragment = lazy BinHandle(bs, hdl.ISA, baseAddr, hdl.OS)
+    Binary.Init(Binary.MakeAnnotation(prefix, bin), fragment)
+
   override this.ToString() =
     match this with
     | Binary(hdl, annot) when hdl.Value.File.Format = RawBinary ->

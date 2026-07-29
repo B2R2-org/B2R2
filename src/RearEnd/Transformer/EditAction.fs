@@ -30,11 +30,8 @@ open B2R2.FrontEnd
 
 /// The `edit` action.
 type EditAction() =
-  let makeBinary bin (hdl: BinHandle) newbs =
-    let hdl' = lazy hdl.MakeNew(newbs)
-    let annot = Binary.MakeAnnotation("Editted from ", bin)
-    Binary.Init(annot, hdl')
-    |> box
+  let makeBinary bin newbs =
+    Binary.OfEditedContent("Editted from ", bin, newbs) |> box
 
   let parseEndOffset soff (eoff: string) =
     if eoff.StartsWith "+" then soff + Convert.ToInt32 eoff[1..] - 1
@@ -53,7 +50,7 @@ type EditAction() =
       Array.blit bs 0 newbs 0 off
       Array.blit snip 0 newbs off snip.Length
       Array.blit bs off newbs (off + snip.Length) (bs.Length - off)
-    makeBinary bin hdl newbs
+    makeBinary bin newbs
 
   let delete soff eoff o =
     let bin = unbox<Binary> o
@@ -68,14 +65,16 @@ type EditAction() =
     else
       Array.blit bs 0 newbs 0 soff
       Array.blit bs (soff + rmlen) newbs soff (bs.Length - soff - rmlen)
-    makeBinary bin hdl newbs
+    makeBinary bin newbs
 
+  (* The edited whole content is bs, into which newbs has just been blitted;
+     newbs alone is only the replacement snippet. *)
   let replace soff eoff newbs o =
     let bin = unbox<Binary> o
     let hdl = Binary.Handle bin
     let bs = hdl.File.RawBytes.ToArray()
     Array.blit newbs 0 bs soff (eoff - soff + 1)
-    makeBinary bin hdl newbs
+    makeBinary bin bs
 
   interface IAction with
     member _.ActionID with get() = "edit"

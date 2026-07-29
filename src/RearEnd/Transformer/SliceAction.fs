@@ -37,10 +37,7 @@ type SliceAction() =
       invalidArg (nameof hdl) "Address out of range."
     else
       let slice = hdl.File.Slice(a1, int (a2 - a1 + 1UL))
-      let bs = slice.ToArray()
-      lazy hdl.MakeNew bs
-      |> fun newBs ->
-        Binary.Init(Binary.MakeAnnotation("Sliced from ", bin), newBs)
+      Binary.OfFragment("Sliced from ", bin, slice.ToArray(), a1)
 
   let sliceBySectionName bin secName = Terminator.futureFeature ()
 

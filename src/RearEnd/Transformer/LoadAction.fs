@@ -30,16 +30,23 @@ open B2R2.FrontEnd
 
 /// The `load` action.
 type LoadAction() =
+  (* Without format parsing the file is taken as a raw image, which is what the
+     "raw" argument asks for; the path is then not carried, as a raw image has
+     no file behind it. *)
+  let loadFile isa parseFileFormat path =
+    if parseFileFormat then BinHandle(path, isa, None)
+    else BinHandle(File.ReadAllBytes path, isa)
+
   let load isa parseFileFormat s =
     if File.Exists(path = s) then
-      lazy BinHandle(s, isa, None)
+      lazy loadFile isa parseFileFormat s
       |> Binary.PlainInit
       |> box
       |> Array.singleton
     elif Directory.Exists(path = s) then
       Directory.GetFiles s
       |> Array.map (fun f ->
-        lazy BinHandle(f, isa, None)
+        lazy loadFile isa parseFileFormat f
         |> Binary.PlainInit |> box)
     else
       lazy BinHandle(ByteArray.ofHexString s, isa)

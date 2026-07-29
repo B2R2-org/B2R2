@@ -94,25 +94,32 @@ type BinHandleTests() =
     Assert.AreEqual<int>(2, detected.File.Length)
     CollectionAssert.AreEqual([| 0x90uy; 0xc3uy |], detected.ReadBytes(0UL, 2))
 
-  (* A hex image is decoded on load, so the handle already holds decoded bytes
-     and hex is spent as an input notation. MakeNew used to reuse the detected
-     format rather than the one the loaded file reports, and so fed those
-     decoded bytes back through the hex parser, which threw. *)
+  (* A hex image is decoded on load, so the handle holds decoded bytes and hex
+     is spent as an input notation. Handing those bytes back to LoadFileBytes,
+     which is how an edited image is reloaded, must not decode them again. *)
   [<TestMethod>]
-  member _.``[BinHandle] MakeNew on a decoded hex image test``() =
+  member _.``[BinHandle] reloading a decoded hex image test``() =
     let hexText = System.Text.Encoding.ASCII.GetBytes "90c3"
     let hdl = BinHandle.LoadFileBytes(hexText, isa)
-    let again = hdl.MakeNew(hdl.File.RawBytes.ToArray())
+    let again = BinHandle.LoadFileBytes(hdl.File.RawBytes.ToArray(), isa)
     Assert.AreEqual<int>(2, again.File.Length)
     CollectionAssert.AreEqual([| 0x90uy; 0xc3uy |], again.ReadBytes(0UL, 2))
 
-  (* MakeNew is the only other path that feeds an OS back into construction, so
-     an injected one has to survive it. *)
+  (* A fragment of a structured file is not one itself, so it can only be taken
+     as a raw image, carrying over the ISA and the OS the file settled on. An
+     8-byte WASM header is the smallest structured file needing no fixture,
+     which is what makes this testable without one. *)
   [<TestMethod>]
-  member _.``[BinHandle] OS survives MakeNew test``() =
-    let hdl = BinHandle([| 0x90uy |], isa, OS.Linux)
-    Assert.AreEqual<OS>(OS.Linux, hdl.MakeNew([| 0x90uy; 0x90uy |]).OS)
-    Assert.AreEqual<OS>(OS.Linux, hdl.MakeNew([| 0x90uy |], 0x1000UL).OS)
+  member _.``[BinHandle] fragment of a structured file test``() =
+    let wasm =
+      [| 0x00uy; 0x61uy; 0x73uy; 0x6duy; 0x01uy; 0x00uy; 0x00uy; 0x00uy |]
+    let hdl = BinHandle.LoadFileBytes(wasm, isa)
+    Assert.AreEqual<FileFormat>(FileFormat.WasmBinary, hdl.File.Format)
+    let fragment = [| 0x90uy; 0xc3uy |]
+    let raw = BinHandle(fragment, hdl.ISA, 0x1000UL, hdl.OS)
+    Assert.AreEqual<FileFormat>(FileFormat.RawBinary, raw.File.Format)
+    Assert.AreEqual<Addr>(0x1000UL, raw.File.BaseAddress)
+    CollectionAssert.AreEqual(fragment, raw.ReadBytes(0x1000UL, 2))
 
   [<TestMethod>]
   member _.``[BinHandle] read bytes within the image test``() =

@@ -44,9 +44,7 @@ type GrepAction() =
       let eoff = i + len - 1
       let eoff = if (eoff + bytesAfter) >= bs.Length then bs.Length - 1
                  else eoff + bytesAfter
-      lazy hdl.MakeNew(bs[soff..eoff], uint64 soff)
-      |> fun newBs ->
-        Binary.Init(Binary.MakeAnnotation("Greped from ", bin), newBs))
+      Binary.OfFragment("Greped from ", bin, bs[soff..eoff], uint64 soff))
     |> box
 
   let grep pattern bytesBefore bytesAfter (input: obj) =
