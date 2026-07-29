@@ -47,16 +47,23 @@ type StringDisasmBuilder(showAddr,
     member _.Accumulate(_, value: string) = sb.Append value |> ignore
 
     member _.AccumulateSymbol(addr, prefix, suffix, noSymbolMapper) =
-      if hasSymbolResolver && showSymb then
-        match symbolResolver.TryResolveName addr with
-        | Ok name when name.Length > 0 ->
-          sb.Append prefix.AsmWordValue |> ignore
-          sb.Append name |> ignore
-          sb.Append suffix.AsmWordValue |> ignore
-        | _ ->
-          for asmWord in noSymbolMapper addr do
-            sb.Append asmWord.AsmWordValue |> ignore
-      else ()
+      (* An empty name stands for every way of having no symbol to show: no
+         resolver, symbols turned off, or an address the resolver does not know.
+         All of them owe the caller the mapped fallback, since the caller has
+         already committed to writing something here. *)
+      let name =
+        if hasSymbolResolver && showSymb then
+          match symbolResolver.TryResolveName addr with
+          | Ok name -> name
+          | Error _ -> ""
+        else ""
+      if name.Length > 0 then
+        sb.Append prefix.AsmWordValue |> ignore
+        sb.Append name |> ignore
+        sb.Append suffix.AsmWordValue |> ignore
+      else
+        for asmWord in noSymbolMapper addr do
+          sb.Append asmWord.AsmWordValue |> ignore
 
     member _.AccumulateAddrMarker addr =
       if showAddr then
