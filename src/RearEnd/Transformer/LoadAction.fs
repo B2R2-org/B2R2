@@ -42,7 +42,7 @@ type LoadAction() =
         lazy BinHandle(f, isa, None)
         |> Binary.PlainInit |> box)
     else
-      lazy BinHandle(ByteArray.ofHexString s, isa, None, false)
+      lazy BinHandle(ByteArray.ofHexString s, isa)
       |> Binary.PlainInit
       |> box
       |> Array.singleton

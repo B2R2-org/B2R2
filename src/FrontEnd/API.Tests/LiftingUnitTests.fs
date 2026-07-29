@@ -206,7 +206,8 @@ type LiftingUnitTests() =
   member _.``[LiftingUnit] thumb entry point test``() =
     for arch in [| Architecture.ARMv7; Architecture.ARMv8 |] do
       let isa = ISA(arch, WordSize.Bit32)
-      let lu = BinHandle(emptyCode, isa, Some 0x1001UL, false).NewLiftingUnit()
+      let hdl = BinHandle(emptyCode, isa, 0x1001UL, OS.UnknownOS)
+      let lu = hdl.NewLiftingUnit()
       Assert.AreEqual<bool>(true, lu.IsThumb)
       Assert.AreEqual<int>(2, lu.InstructionAlignment)
 

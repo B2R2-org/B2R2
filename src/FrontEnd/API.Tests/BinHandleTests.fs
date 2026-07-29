@@ -68,6 +68,32 @@ type BinHandleTests() =
     let hdl = BinHandle([| 0x90uy |], isa, OS.Linux)
     Assert.AreEqual<OS>(OS.Linux, hdl.OS)
 
+  (* Shellcode at a non-zero base on a known OS had no construction path: the
+     base-address overload pinned the OS to None and the OS overload pinned the
+     base to None, so such an image always fell back to UnknownOS. *)
+  [<TestMethod>]
+  member _.``[BinHandle] raw image with a base address and an OS test``() =
+    let hdl = BinHandle([| 0x90uy; 0xc3uy |], isa, 0x400000UL, OS.Linux)
+    Assert.AreEqual<OS>(OS.Linux, hdl.OS)
+    Assert.AreEqual<Addr>(0x400000UL, hdl.File.BaseAddress)
+    let read = hdl.ReadBytes(0x400000UL, 2)
+    CollectionAssert.AreEqual([| 0x90uy; 0xc3uy |], read)
+
+  (* The byte-array constructors take the array as a raw image; LoadFileBytes is
+     the path that runs format detection over it. Hex text is the one format
+     needing no fixture, so it is what pins the difference. The detection is not
+     visible through Format, since a hex image still loads as a RawBinFile and
+     so reports RawBinary; the parsed content is what tells the two apart. *)
+  [<TestMethod>]
+  member _.``[BinHandle] LoadFileBytes detects the format test``() =
+    let hexText = System.Text.Encoding.ASCII.GetBytes "90c3"
+    let raw = BinHandle(hexText, isa)
+    Assert.AreEqual<int>(4, raw.File.Length)
+    CollectionAssert.AreEqual(hexText, raw.ReadBytes(0UL, 4))
+    let detected = BinHandle.LoadFileBytes(hexText, isa)
+    Assert.AreEqual<int>(2, detected.File.Length)
+    CollectionAssert.AreEqual([| 0x90uy; 0xc3uy |], detected.ReadBytes(0UL, 2))
+
   (* MakeNew is the only other path that feeds an OS back into construction, so
      an injected one has to survive it. *)
   [<TestMethod>]

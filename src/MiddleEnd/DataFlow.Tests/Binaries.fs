@@ -33,7 +33,7 @@ type Binary = Binary of byte[] * Architecture * WordSize
 
 let loadOne (Binary(code, arch, wordSize)) =
   let isa = ISA(arch, wordSize)
-  let hdl = BinHandle(code, isa, None, false)
+  let hdl = BinHandle(code, isa)
   BinaryBrew hdl
 
 (*

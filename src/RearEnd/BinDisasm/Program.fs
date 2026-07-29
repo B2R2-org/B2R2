@@ -186,7 +186,8 @@ let private validateHexStringLength (hdl: BinHandle) isThumb hexstr =
 
 let private prepareHexStringDump (opts: BinDisasmOpts) =
   let hex, isa = opts.InputHexStr, opts.ISA
-  let hdl = BinHandle(hex, isa, opts.BaseAddress, detectFormat = false)
+  let baseAddr = defaultArg opts.BaseAddress 0UL
+  let hdl = BinHandle(hex, isa, baseAddr, OS.UnknownOS)
   initTableConfig hdl.ISA opts.ShowLowUIR
   validateHexStringLength hdl opts.ThumbMode opts.InputHexStr
   hdl

@@ -100,7 +100,7 @@ type CFG2Tests() =
         0xc3uy |]
 
   let isa = ISA(Architecture.Intel, WordSize.Bit32)
-  let hdl = BinHandle(binary, isa, None, false)
+  let hdl = BinHandle(binary, isa)
   let exnInfo = ExceptionInfo hdl
   let instrs = InstructionCollection(LinearSweepInstructionCollector hdl)
 
