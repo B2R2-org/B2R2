@@ -59,7 +59,10 @@ with
 
 [<RequireQualifiedAccess>]
 module internal Header =
+  (* Format detection runs this over anything, including arrays too short to
+     hold a magic, so the length has to be checked before slicing. *)
   let isMach (bytes: byte[]) offset =
+    if uint64 bytes.Length < offset + 4UL then false else
     let span = ReadOnlySpan(bytes, int offset, 4)
     let reader = BinReader.Init Endian.Little
     match Magic.read span reader with
