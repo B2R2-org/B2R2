@@ -5,6 +5,7 @@
   </PropertyGroup>
 
   <ItemGroup>
+    <Compile Include="DisasmTests.fs" />
     <Compile Include="ParserTests.fs" />
   </ItemGroup>
 

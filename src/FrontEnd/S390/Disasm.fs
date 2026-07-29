@@ -1269,16 +1269,19 @@ let inline buildOpcode (ins: Instruction) (builder: IDisasmBuilder) =
   let opcode = ins.Opcode
   builder.Accumulate(AsmWordKind.Mnemonic, opCodeToString opcode)
 
-let prefix = { AsmWordKind = AsmWordKind.String; AsmWordValue = " ; <" }
+let prefix = { AsmWordKind = AsmWordKind.String; AsmWordValue = "<" }
 
 let suffix = { AsmWordKind = AsmWordKind.String; AsmWordValue = ">" }
 
 let private mapNoSymbol addr =
-  [| { AsmWordKind = AsmWordKind.String; AsmWordValue = " ; " }
-     { AsmWordKind = AsmWordKind.Value
+  [| { AsmWordKind = AsmWordKind.Value
        AsmWordValue = HexString.ofUInt64 addr } |]
 
+(* The delimiter is written here rather than folded into the prefix and the
+   mapper, as Intel and ARM32 do, so that it is emitted once and carries the
+   kind that colouring expects. *)
 let private buildComment targetAddr (builder: IDisasmBuilder) =
+  builder.Accumulate(AsmWordKind.CommentDelimiter, " ; ")
   builder.AccumulateSymbol(targetAddr, prefix, suffix, mapNoSymbol)
 
 let oprToString (ins: Instruction) opr delim (builder: IDisasmBuilder) =
