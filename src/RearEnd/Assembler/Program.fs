@@ -49,7 +49,7 @@ let getAssemblyPrinter (opts: AssemblerOpts) =
   | GeneralMode(isa) ->
     let baseAddr = opts.BaseAddress
     let reader = BinReader.Init isa.Endian
-    let parser = GroundWork.CreateParser(reader, isa)
+    let parser = ArchSupport.createParser reader isa
     let asm = Assembler(isa, baseAddr)
     fun str ->
       asm.Lower str
@@ -57,7 +57,7 @@ let getAssemblyPrinter (opts: AssemblerOpts) =
         List.fold (printIns parser asm) baseAddr res
         |> ignore)
   | LowUIRMode(isa) ->
-    let regFactory = GroundWork.CreateRegisterFactory isa
+    let regFactory = ArchSupport.createRegisterFactory isa
     let parser = LowUIR.Parser(isa, regFactory, regFactory)
     fun str ->
       parser.Parse str

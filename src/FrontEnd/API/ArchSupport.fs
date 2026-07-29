@@ -35,13 +35,18 @@ open B2R2.FrontEnd.BinFile
 ///   </summary>
 /// </namespacedoc>
 /// <summary>
-/// Provides a set of functions to create fundamental components, such as
-/// parsers and IR builders, to use the B2R2 front-end.
+/// Provides functions to create the architecture-specific components of the
+/// B2R2 front-end, such as register factories, parsers, and IR builders. This
+/// is used by <see cref='T:B2R2.FrontEnd.BinHandle'/> internally, and hence, it
+/// is recommended to use <see cref='T:B2R2.FrontEnd.BinHandle'/> instead, in
+/// most cases.
 /// </summary>
-type GroundWork =
+[<RequireQualifiedAccess>]
+module ArchSupport =
   /// Creates a new architecture-specific register factory for the given
   /// architecture.
-  static member CreateRegisterFactory isa =
+  [<CompiledName "CreateRegisterFactory">]
+  let createRegisterFactory isa =
     match isa with
     | Intel -> Intel.RegisterFactory isa :> IRegisterFactory
     | ARM32 -> ARM32.RegisterFactory isa :> IRegisterFactory
@@ -61,7 +66,8 @@ type GroundWork =
     | _ -> Terminator.futureFeature ()
 
   /// Creates a new parser (IInstructionParsable) for the given architecture.
-  static member CreateParser(reader, isa: ISA) =
+  [<CompiledName "CreateParser">]
+  let createParser reader (isa: ISA) =
     match isa with
     | Intel ->
       Intel.IntelParser(isa.WordSize, reader) :> IInstructionParsable
@@ -92,16 +98,18 @@ type GroundWork =
     | _ ->
       Terminator.futureFeature ()
 
-  /// Create a new parser (IInstructionParsable) for the given file.
-  static member CreateParser(binFile: IBinFile) =
+  /// Creates a new parser (IInstructionParsable) for the given file.
+  [<CompiledName "CreateParser">]
+  let createParserForFile (binFile: IBinFile) =
     match binFile.ISA with
     | Python ->
       Python.PythonParser(binFile, binFile.Reader) :> IInstructionParsable
     | _ ->
-      GroundWork.CreateParser(binFile.Reader, binFile.ISA)
+      createParser binFile.Reader binFile.ISA
 
   /// Creates a new LowUIR builder for the given architecture.
-  static member CreateBuilder(isa, regFactory) =
+  [<CompiledName "CreateBuilder">]
+  let createBuilder isa regFactory =
     let stream = LowUIRStream()
     match isa with
     | Intel -> Intel.LowUIRBuilder(isa, regFactory, stream) :> ILowUIRBuilder

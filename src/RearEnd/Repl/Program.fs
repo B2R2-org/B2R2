@@ -82,8 +82,8 @@ let runRepl _args (opts: ReplOpts) =
   let hdl = BinHandle(opts.ISA)
   let state = ReplState(opts.ISA, hdl.RegisterFactory, not opts.Verbose)
   let asm = Assembler(opts.ISA, 0UL)
-  let builder = GroundWork.CreateBuilder(opts.ISA, hdl.RegisterFactory)
-  let binParser = GroundWork.CreateParser(hdl.File.Reader, opts.ISA)
+  let builder = ArchSupport.createBuilder opts.ISA hdl.RegisterFactory
+  let binParser = ArchSupport.createParser hdl.File.Reader opts.ISA
   let regFactory = hdl.RegisterFactory
   let uirParser = LowUIR.Parser(opts.ISA, regFactory, regFactory)
   Display.printBlue "Welcome to B2R2 REPL\n"

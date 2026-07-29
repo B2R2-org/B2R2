@@ -38,11 +38,11 @@ type LiftingUnit
            regFactory: IRegisterFactory,
            parser: IInstructionParsable) =
 
-  let irBuilder = GroundWork.CreateBuilder(binFile.ISA, regFactory)
+  let irBuilder = ArchSupport.createBuilder binFile.ISA regFactory
 
   let rawBytes = binFile.RawBytes
 
-  (* ARM32 is the only architecture with a parsing mode, and GroundWork builds
+  (* ARM32 is the only architecture with a parsing mode, and ArchSupport builds
      an ARM32Parser for every ISA the ARM32 pattern covers, AArch32 included.
      Owning the test here is what lets callers set a mode without repeating it;
      two of them used to test for ARMv7 alone and silently ignored AArch32. *)

@@ -54,7 +54,7 @@ type LiftingUnitTests() =
   static let emptyCode: byte[] = Array.zeroCreate 4
 
   /// The alignment every architecture with a parser must report. This list is
-  /// deliberately kept next to the architectures GroundWork can build a parser
+  /// deliberately kept next to the architectures ArchSupport can build a parser
   /// for: LiftingUnit used to reconstruct alignment from a separate table, and
   /// S390 was missing from it, so NewLiftingUnit raised NotImplementedException
   /// before it could return a unit.
@@ -199,7 +199,7 @@ type LiftingUnitTests() =
       let unit = BinHandle(emptyCode, ISA arch).NewLiftingUnit()
       Assert.AreEqual<int>(expected, unit.InstructionAlignment)
 
-  (* An odd entry point selects Thumb mode. GroundWork builds an ARM32Parser
+  (* An odd entry point selects Thumb mode. ArchSupport builds an ARM32Parser
      for every ISA the ARM32 pattern covers, AArch32 included, but BinHandle
      used to test for ARMv7 alone and so left AArch32 in ARM mode. *)
   [<TestMethod>]

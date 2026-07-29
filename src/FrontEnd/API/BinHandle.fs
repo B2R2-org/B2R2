@@ -41,7 +41,7 @@ open type FileFormat
 /// cref='T:B2R2.FrontEnd.LiftingUnit'/>.
 /// </summary>
 type BinHandle private(path, bytes, fmt, isa, baseAddrOpt, osOpt) =
-  let regFactory = GroundWork.CreateRegisterFactory isa
+  let regFactory = ArchSupport.createRegisterFactory isa
 
   let binFile = FileFactory.load path bytes fmt isa regFactory baseAddrOpt
 
@@ -218,7 +218,7 @@ type BinHandle private(path, bytes, fmt, isa, baseAddrOpt, osOpt) =
 
   /// Gets a new instance of lifting unit.
   member _.NewLiftingUnit() =
-    let parser = GroundWork.CreateParser binFile
+    let parser = ArchSupport.createParserForFile binFile
     let liftingUnit = LiftingUnit(binFile, regFactory, parser)
     (* An odd entry point marks a Thumb entry. Setting the mode is inert where
        there is no Thumb to switch to, so no architecture test is needed. *)

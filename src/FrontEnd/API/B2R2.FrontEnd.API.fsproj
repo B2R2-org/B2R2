@@ -9,7 +9,7 @@
   </PropertyGroup>
 
   <ItemGroup>
-    <Compile Include="GroundWork.fs" />
+    <Compile Include="ArchSupport.fs" />
     <Compile Include="LiftingUnit.fs" />
     <Compile Include="BinHandle.fs" />
     <Compile Include="InstructionCollection.fs" />
