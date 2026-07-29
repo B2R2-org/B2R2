@@ -45,25 +45,15 @@ type BinHandle private(path, bytes, fmt, isa, baseAddrOpt, osOpt) =
 
   let binFile = FileFactory.load path bytes fmt isa regFactory baseAddrOpt
 
+  (* A recognized file format decides the OS on its own, so an injected one only
+     has a say for a raw image, which is the only case that carries no format to
+     infer from. *)
   let os =
-    let implied =
-      match binFile.Format with
-      | FileFormat.ELFBinary -> Some OS.Linux
-      | FileFormat.PEBinary -> Some OS.Windows
-      | FileFormat.MachBinary -> Some OS.MacOSX
-      | _ -> None
-    match implied, osOpt with
-    | Some impliedOS, Some injected when injected <> impliedOS ->
-      let fmt = FileFormat.toString binFile.Format
-      let injected, expected = OS.toString injected, OS.toString impliedOS
-      invalidArg "os"
-      <| $"OS {injected} conflicts with {fmt} format (expects {expected})."
-    | Some impliedOS, _ ->
-      impliedOS
-    | None, Some injected ->
-      injected
-    | None, None ->
-      OS.UnknownOS
+    match binFile.Format with
+    | FileFormat.ELFBinary -> OS.Linux
+    | FileFormat.PEBinary -> OS.Windows
+    | FileFormat.MachBinary -> OS.MacOSX
+    | _ -> defaultArg osOpt OS.UnknownOS
 
   let conv = Conventions.create os binFile.ISA
 

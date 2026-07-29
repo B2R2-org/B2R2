@@ -68,6 +68,14 @@ type BinHandleTests() =
     let hdl = BinHandle([| 0x90uy |], isa, OS.Linux)
     Assert.AreEqual<OS>(OS.Linux, hdl.OS)
 
+  (* MakeNew is the only other path that feeds an OS back into construction, so
+     an injected one has to survive it. *)
+  [<TestMethod>]
+  member _.``[BinHandle] OS survives MakeNew test``() =
+    let hdl = BinHandle([| 0x90uy |], isa, OS.Linux)
+    Assert.AreEqual<OS>(OS.Linux, hdl.MakeNew([| 0x90uy; 0x90uy |]).OS)
+    Assert.AreEqual<OS>(OS.Linux, hdl.MakeNew([| 0x90uy |], 0x1000UL).OS)
+
   [<TestMethod>]
   member _.``[BinHandle] read bytes within the image test``() =
     CollectionAssert.AreEqual([| 4uy; 5uy; 6uy; 7uy |], hdl.ReadBytes(4UL, 4))
