@@ -75,7 +75,7 @@ type State<'Lattice when 'Lattice: equality>
     | MemVar -> true
     | _ -> false
 
-  let defaultRegType = WordSize.toRegType hdl.File.ISA.WordSize
+  let defaultRegType = WordSize.toRegType hdl.ISA.WordSize
 
   let isAligned rt addr =
     let align = RegType.toByteWidth rt |> uint64

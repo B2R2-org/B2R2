@@ -53,8 +53,8 @@ type SymbStateAccessor(hdl: BinHandle, state: SymbState) as this =
   static let defaultStackTop = 0x7fffffffe000UL
 
   let regFactory = hdl.RegisterFactory
-  let endian = hdl.File.ISA.Endian
-  let wordType = hdl.File.ISA.WordSize |> WordSize.toRegType
+  let endian = hdl.ISA.Endian
+  let wordType = hdl.ISA.WordSize |> WordSize.toRegType
   let wordBytes = RegType.toByteWidth wordType
   let cc = hdl.Conventions.Calling
 

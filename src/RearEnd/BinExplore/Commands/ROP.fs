@@ -112,7 +112,7 @@ type ROP() =
       match arbiter.GetBinaryBrew() with
       | Ok brew ->
         let hdl = brew.BinHandle
-        match hdl.File.ISA with
+        match hdl.ISA with
         | X86 ->
           let rop = ROPHandle.init hdl 0UL
           this.HandleSubCmd(rop, args)

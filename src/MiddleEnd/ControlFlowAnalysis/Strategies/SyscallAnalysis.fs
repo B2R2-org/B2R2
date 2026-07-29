@@ -43,7 +43,7 @@ type SyscallAnalysis() =
       | FileFormat.RawBinary
       | FileFormat.ELFBinary ->
         let st = CFGEvaluator.evalBlockFromScratch hdl v
-        let isa = hdl.File.ISA
+        let isa = hdl.ISA
         let exitSyscall = LinuxSyscall.toNumber isa LinuxSyscall.Exit
         let exitGrpSyscall = LinuxSyscall.toNumber isa LinuxSyscall.ExitGroup
         let sigretSyscall = LinuxSyscall.toNumber isa LinuxSyscall.RtSigreturn
@@ -62,7 +62,7 @@ type SyscallAnalysis() =
       match hdl.File.Format with
       | FileFormat.RawBinary
       | FileFormat.ELFBinary ->
-        let rt = hdl.File.ISA.WordSize |> WordSize.toRegType
+        let rt = hdl.ISA.WordSize |> WordSize.toRegType
         let rid = hdl.Conventions.Calling.IntReturnRegister
         let reg = hdl.RegisterFactory.GetRegVar rid
         let e = LowUIR.AST.undef rt "ret"

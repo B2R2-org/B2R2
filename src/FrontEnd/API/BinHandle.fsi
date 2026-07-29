@@ -76,6 +76,12 @@ type BinHandle =
   /// Gets the file handle.
   member File: IBinFile
 
+  /// Gets the ISA in effect for this binary, which is what the register factory
+  /// and the ABI conventions below are derived from. This is not necessarily the
+  /// ISA passed to the constructor: for a recognized file format, format
+  /// detection resolves the ISA from the file itself.
+  member ISA: ISA
+
   /// Gets the register factory.
   member RegisterFactory: IRegisterFactory
 

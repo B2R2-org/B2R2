@@ -123,7 +123,7 @@ type Print() =
     | _ -> failwith "This is impossible"
 
   let getAddressPrefix (hdl: BinHandle) (addr: uint64) =
-    let hexWidth = WordSize.toByteWidth hdl.File.ISA.WordSize * 2
+    let hexWidth = WordSize.toByteWidth hdl.ISA.WordSize * 2
     addr.ToString("x" + hexWidth.ToString()) + ": "
 
   let rec iter hdl sz fmt addr endAddr acc =

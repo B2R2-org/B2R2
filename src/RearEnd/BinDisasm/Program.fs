@@ -81,7 +81,7 @@ let private dumpRawBinary (hdl: BinHandle) (opts: BinDisasmOpts) =
 let private dumpHex (opts: BinDisasmOpts) (hdl: BinHandle) ptr =
   let bytes = hdl.ReadBytes(ptr = ptr, nBytes = ptr.ReadableAmount)
   let chunkSz = if opts.ShowWide then 32 else 16
-  HexDump.makeLines chunkSz hdl.File.ISA.WordSize opts.ShowColor ptr.Addr bytes
+  HexDump.makeLines chunkSz hdl.ISA.WordSize opts.ShowColor ptr.Addr bytes
   |> Array.iter printon
 
 let private dumpData hdl (opts: BinDisasmOpts) ptr (sec: BinSection) =
@@ -155,7 +155,7 @@ let private dumpRegularFile (hdl: BinHandle) (opts: BinDisasmOpts) =
 let private dumpFile (opts: BinDisasmOpts) filePath =
   let opts = { opts with ShowAddress = true }
   let hdl = BinHandle(filePath, opts.ISA, opts.BaseAddress)
-  initTableConfig hdl.File.ISA opts.ShowLowUIR
+  initTableConfig hdl.ISA opts.ShowLowUIR
   printFileName hdl.File.Path
   if isRawBinary hdl then dumpRawBinary hdl opts
   else dumpRegularFile hdl opts
@@ -187,7 +187,7 @@ let private validateHexStringLength (hdl: BinHandle) isThumb hexstr =
 let private prepareHexStringDump (opts: BinDisasmOpts) =
   let hex, isa = opts.InputHexStr, opts.ISA
   let hdl = BinHandle(hex, isa, opts.BaseAddress, detectFormat = false)
-  initTableConfig hdl.File.ISA opts.ShowLowUIR
+  initTableConfig hdl.ISA opts.ShowLowUIR
   validateHexStringLength hdl opts.ThumbMode opts.InputHexStr
   hdl
 

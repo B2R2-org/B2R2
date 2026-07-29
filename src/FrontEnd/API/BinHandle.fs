@@ -182,6 +182,8 @@ type BinHandle private(path, bytes, fmt, isa, baseAddrOpt, osOpt) =
 
   member _.File with get(): IBinFile = binFile
 
+  member _.ISA with get() = binFile.ISA
+
   member _.RegisterFactory with get() = regFactory
 
   member _.OS with get() = os

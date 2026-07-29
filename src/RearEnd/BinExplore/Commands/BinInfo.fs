@@ -57,7 +57,7 @@ type BinInfo() =
       match arbiter.GetBinaryBrew() with
       | Ok brew ->
         let file = brew.BinHandle.File
-        let isa = brew.BinHandle.File.ISA
+        let isa = brew.BinHandle.ISA
         let fmt = brew.BinHandle.File.Format |> FileFormat.toString
         let entry = file.EntryPoint |> String.ofEntryPointOpt
         let nx = if file.IsNXEnabled then "Enabled" else "Disabled"

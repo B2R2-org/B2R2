@@ -547,14 +547,14 @@ type SymbExecutor(hdl: BinHandle) =
     match tryGetDirectTargetAddr ins with
     | Some target -> Some target
     | None ->
-      match hdl.File.ISA with
+      match hdl.ISA with
       | MIPS ->
         let rid = MIPS.Register.R25 |> MIPS.Register.toRegID
         tryGetConcreteReg rid st
       | _ -> None
 
   let getCallFallThroughAddr addr (ins: IInstruction) =
-    match hdl.File.ISA with
+    match hdl.ISA with
     | MIPS ->
       let delaySlotAddr = addr + uint64 ins.Length
       match tryParseInstruction delaySlotAddr with
@@ -564,9 +564,9 @@ type SymbExecutor(hdl: BinHandle) =
 
   let isInternalTarget target = hdl.File.IsValidAddr target
 
-  let wordType = hdl.File.ISA.WordSize |> WordSize.toRegType
+  let wordType = hdl.ISA.WordSize |> WordSize.toRegType
 
-  let endian = hdl.File.ISA.Endian
+  let endian = hdl.ISA.Endian
 
   let cc = hdl.Conventions.Calling
 

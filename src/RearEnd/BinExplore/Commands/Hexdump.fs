@@ -72,7 +72,7 @@ type Hexdump() =
           |> Result.bind (readBytes brew)
         match result with
         | Ok(addr, bytes: byte[]) ->
-          let wordSize = brew.BinHandle.File.ISA.WordSize
+          let wordSize = brew.BinHandle.ISA.WordSize
           Logging.HexDump.makeLines 16 wordSize true addr bytes
         | Error e -> [| OutputColored(ColoredString(NoColor, e)) |]
       | _ ->

@@ -36,7 +36,7 @@ type BinCodeDumper(hdl, isTable, showSymbol, showColor, dumpMode) =
 
   let [<Literal>] IllegalStr = "(illegal)"
 
-  let wordSize = (hdl: BinHandle).File.ISA.WordSize
+  let wordSize = (hdl: BinHandle).ISA.WordSize
 
   let liftingUnit = hdl.NewLiftingUnit()
 

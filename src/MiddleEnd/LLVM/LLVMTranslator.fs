@@ -233,7 +233,7 @@ let private translateStmts (builder: LLVMIRBuilder) addr succs (stmts: Stmt[]) =
 
 let createBuilder (hdl: BinHandle) (addr: Addr) =
   let fname = addr.ToString("x16")
-  let ctxt = LLVMIRHelper.initializeContext hdl.File.ISA
+  let ctxt = LLVMIRHelper.initializeContext hdl.ISA
   LLVMIRBuilder(fname, addr, hdl, ctxt)
 
 let translate builder addr succs stmts = translateStmts builder addr succs stmts

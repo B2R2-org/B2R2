@@ -395,7 +395,7 @@ type CFG1Tests() =
     let expected =
       [ (0x00UL, 0x3eUL); (0x3fUL, 0x47UL); (0x48UL, 0x54UL); (0x55UL, 0x5eUL) ]
       |> List.toArray
-    let disasm = StringDisasmBuilder(false, null, hdl.File.ISA.WordSize)
+    let disasm = StringDisasmBuilder(false, null, hdl.ISA.WordSize)
     let actual = getDisasmVertexRanges disasm cfg
     CollectionAssert.AreEqual(expected, actual)
 
@@ -404,7 +404,7 @@ type CFG1Tests() =
     let brew = BinaryBrew hdl
     let cfg = brew.Functions[0x62UL].CFG
     let expected = [| (0x62UL, 0x70UL) |]
-    let disasm = StringDisasmBuilder(false, null, hdl.File.ISA.WordSize)
+    let disasm = StringDisasmBuilder(false, null, hdl.ISA.WordSize)
     let actual = getDisasmVertexRanges disasm cfg
     CollectionAssert.AreEqual(expected, actual)
 
@@ -413,7 +413,7 @@ type CFG1Tests() =
     let brew = BinaryBrew hdl
     let cfg = brew.Functions[0x71UL].CFG
     let expected = [| (0x71UL, 0x80UL) |]
-    let disasm = StringDisasmBuilder(false, null, hdl.File.ISA.WordSize)
+    let disasm = StringDisasmBuilder(false, null, hdl.ISA.WordSize)
     let actual = getDisasmVertexRanges disasm cfg
     CollectionAssert.AreEqual(expected, actual)
 

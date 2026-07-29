@@ -47,13 +47,13 @@ let private stackAddr t = BitVector(InitialStackPointer, t)
 
 let private obtainStackDef (hdl: BinHandle) =
   match hdl.RegisterFactory.StackPointer with
-  | Some r -> [| r, hdl.File.ISA.WordSize |> WordSize.toRegType |> stackAddr |]
+  | Some r -> [| r, hdl.ISA.WordSize |> WordSize.toRegType |> stackAddr |]
   | None -> [||]
 
 let private obtainFramePointerDef (hdl: BinHandle) =
   match hdl.RegisterFactory.FramePointer with
   | Some r ->
-    [| r, hdl.File.ISA.WordSize |> WordSize.toRegType |> BitVector.Zero |]
+    [| r, hdl.ISA.WordSize |> WordSize.toRegType |> BitVector.Zero |]
   | None -> [||]
 
 let private initState hdl pc =

@@ -298,7 +298,7 @@ type CFG2Tests() =
   member _.``DisasmCFG Test: _start``() =
     let brew = BinaryBrew hdl
     let cfg = brew.Functions[0x0UL].CFG
-    let disasm = StringDisasmBuilder(false, null, hdl.File.ISA.WordSize)
+    let disasm = StringDisasmBuilder(false, null, hdl.ISA.WordSize)
     let dcfg = DisasmCFG(disasm, cfg)
     Assert.AreEqual<int>(3, dcfg.Size)
     let vMap = dcfg.FoldVertex((fun m v ->

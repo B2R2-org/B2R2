@@ -47,7 +47,7 @@ type FunctionSummarizer<'FnCtx,
     let retReg =
       hdl.Conventions.Calling.IntReturnRegister
       |> hdl.RegisterFactory.GetRegVar
-    let rt = hdl.File.ISA.WordSize |> WordSize.toRegType
+    let rt = hdl.ISA.WordSize |> WordSize.toRegType
     let e = AST.undef rt "ret"
     [| (retReg, e) |]
 
@@ -79,13 +79,13 @@ type FunctionSummarizer<'FnCtx,
     | _ -> None
 
   let genFreshStackVarExpr hdl =
-    let rt = (hdl: BinHandle).File.ISA.WordSize |> WordSize.toRegType
+    let rt = (hdl: BinHandle).ISA.WordSize |> WordSize.toRegType
     let spId = hdl.RegisterFactory.StackPointer.Value
     let sp = hdl.RegisterFactory.GetRegVar spId
     AST.load Endian.Little rt sp (* [rsp] *)
 
   let initializeLiveVarMap hdl funcAddr =
-    match (hdl: BinHandle).File.ISA with
+    match (hdl: BinHandle).ISA with
     | X86 ->
       match tryFindLiveRegFromGetPCThunk hdl funcAddr with
       | Some var ->
@@ -138,7 +138,7 @@ type FunctionSummarizer<'FnCtx,
     let stmts = (* For abstraction, we check which var can be defined. *)
       computeLiveDefs ctx unwindingAmount
       |> Array.map (fun (dst, src) -> AST.put dst src)
-    let regType = ctx.BinHandle.File.ISA.WordSize |> WordSize.toRegType
+    let regType = ctx.BinHandle.ISA.WordSize |> WordSize.toRegType
     let fallThrough = AST.num <| BitVector(returnAddress, regType)
     let jmpToFallThrough = AST.interjmp fallThrough InterJmpKind.Base
     Array.append stmts [| jmpToFallThrough |]
@@ -153,7 +153,7 @@ type FunctionSummarizer<'FnCtx,
 
     member _.MakeUnknownFunctionAbstraction(hdl, callIns) =
       let returnAddress = callIns.Address + uint64 callIns.Length
-      let wordSize = hdl.File.ISA.WordSize
+      let wordSize = hdl.ISA.WordSize
       let regType = wordSize |> WordSize.toRegType
       let fallThrough = AST.num <| BitVector(returnAddress, regType)
       let jmpToFallThrough = AST.interjmp fallThrough InterJmpKind.Base

@@ -113,7 +113,7 @@ type CondAwareNoretAnalysis([<Optional; DefaultParameterValue(true)>] strict) =
 
   let tryGetConnectedArgumentFromIRCFG ctx state pp nth =
     let callSite = (pp: ProgramPoint).CallSite |> Option.get
-    let isa = (ctx: CFGBuildingContext<_, _>).BinHandle.File.ISA
+    let isa = (ctx: CFGBuildingContext<_, _>).BinHandle.ISA
     match ctx.IntraCallTable.TryGetFrameDistance callSite with
     | true, frameDist when isa.IsX86 ->
       untouchedArgIndexX86FromIRCFG ctx frameDist pp state nth
@@ -170,7 +170,7 @@ type CondAwareNoretAnalysis([<Optional; DefaultParameterValue(true)>] strict) =
     let callSiteAddr = callSite.CallSiteAddress
     let callerSSAV = findSSAVertexByAddr ssa callSiteAddr
     let absSSAV = ssa.GetSuccs callerSSAV |> Seq.exactlyOne
-    let isa = (ctx: CFGBuildingContext<_, _>).BinHandle.File.ISA
+    let isa = (ctx: CFGBuildingContext<_, _>).BinHandle.ISA
     match ctx.IntraCallTable.TryGetFrameDistance callSite with
     | true, frameDist when isa.IsX86 ->
       untouchedArgIndexX86FromSSACFG ssa frameDist absSSAV state nth
@@ -359,7 +359,7 @@ module CondAwareNoretAnalysis =
   /// (defined by the current ABI) is non-zero.
   let hasNonZero (hdl: BinHandle) caller nth =
     let st = CFGEvaluator.evalBlockFromScratch hdl caller
-    match hdl.File.ISA with
+    match hdl.ISA with
     | X86 -> hasNonZeroOnX86 st nth
     | X64 -> hasNonZeroOnX64 hdl st nth
     | _ -> false

@@ -54,9 +54,13 @@ type BinHandleTests() =
   static let strHdl =
     BinHandle([| 0x68uy; 0x69uy; 0x00uy; 0x61uy; 0x62uy |], isa)
 
+  (* The handle must report the ISA the file settled on, not a copy of the one
+     it was constructed with, since format detection can resolve a different
+     one. Holding the same instance is what pins that. *)
   [<TestMethod>]
   member _.``[BinHandle] raw image ISA and OS test``() =
-    Assert.AreEqual<Architecture>(Architecture.Intel, hdl.File.ISA.Arch)
+    Assert.AreEqual<Architecture>(Architecture.Intel, hdl.ISA.Arch)
+    Assert.AreSame(hdl.File.ISA, hdl.ISA)
     Assert.AreEqual<OS>(OS.UnknownOS, hdl.OS)
 
   [<TestMethod>]

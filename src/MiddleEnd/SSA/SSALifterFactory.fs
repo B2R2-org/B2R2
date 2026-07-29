@@ -447,7 +447,7 @@ module private SSALifterFactory =
 type SSALifterFactory =
   /// Create an SSA lifter with a binary handle.
   static member Create(hdl: BinHandle) =
-    let wordSize = hdl.File.ISA.WordSize
+    let wordSize = hdl.ISA.WordSize
     SSALifterFactory.create hdl
       { new IStmtPostProcessor with
           member _.WordSize with get() = wordSize
@@ -462,7 +462,7 @@ type SSALifterFactory =
   /// Create an SSA lifter with a binary handle and a callback for SSA vertex
   /// creation.
   static member Create(hdl: BinHandle, callback) =
-    let wordSize = hdl.File.ISA.WordSize
+    let wordSize = hdl.ISA.WordSize
     SSALifterFactory.create hdl
       { new IStmtPostProcessor with
           member _.WordSize with get() = wordSize

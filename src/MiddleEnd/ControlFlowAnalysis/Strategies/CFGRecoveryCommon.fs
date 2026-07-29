@@ -121,7 +121,7 @@ module internal CFGRecoveryCommon =
     |> ctx.Vertices.ContainsKey
 
   let isGetPCThunk (ctx: CFGBuildingContext<_, _>) srcBBL calleeAddr =
-    if ctx.BinHandle.File.ISA.IsX86 then
+    if ctx.BinHandle.ISA.IsX86 then
       let ins = (srcBBL: ILowUIRBasicBlock).LastInstruction
       let nextAddr = ins.Address + uint64 ins.Length
       if calleeAddr = nextAddr then
@@ -339,7 +339,7 @@ module internal CFGRecoveryCommon =
     | Error _ -> ()
 
   let maskedPPoint ctx targetAddr =
-    let rt = ctx.BinHandle.File.ISA.WordSize |> WordSize.toRegType
+    let rt = ctx.BinHandle.ISA.WordSize |> WordSize.toRegType
     let mask = (BitVector.UnsignedMax rt).ToUInt64()
     ProgramPoint(targetAddr &&& mask, 0)
 
@@ -511,7 +511,7 @@ module internal CFGRecoveryCommon =
     let rt = hdl.RegisterFactory.GetRegType(rid)
     let dst = LowUIR.AST.var rt rid rname
     let sp = LowUIR.AST.var rt rid rname
-    let wordSize = hdl.File.ISA.WordSize |> WordSize.toByteWidth
+    let wordSize = hdl.ISA.WordSize |> WordSize.toByteWidth
     let unwindingAmount = BitVector(wordSize, rt) |> LowUIR.AST.num
     let src = LowUIR.AST.binop BinOpType.ADD sp unwindingAmount
     let rundown = [| LowUIR.AST.assign dst src |]

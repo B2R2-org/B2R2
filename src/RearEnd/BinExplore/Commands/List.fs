@@ -36,7 +36,7 @@ type List() =
   let [<Literal>] Desc = "List the contents of the binary."
 
   let createFuncString (hdl: BinHandle) (addr, name) =
-    Addr.toString hdl.File.ISA.WordSize addr + ": " + name
+    Addr.toString hdl.ISA.WordSize addr + ": " + name
 
   let listFunctions (brew: BinaryBrew<_, _>) =
     brew.Functions.Sequence
@@ -54,7 +54,7 @@ type List() =
     + " (" + size.ToString() + ")"
 
   let listSegments (hdl: BinHandle) =
-    let wordSize = hdl.File.ISA.WordSize
+    let wordSize = hdl.ISA.WordSize
     BinFileOps.getMemoryMappedRegions hdl.File
     |> Seq.map (createRegionString wordSize)
     |> Seq.toArray
