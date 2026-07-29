@@ -94,6 +94,18 @@ type BinHandleTests() =
     Assert.AreEqual<int>(2, detected.File.Length)
     CollectionAssert.AreEqual([| 0x90uy; 0xc3uy |], detected.ReadBytes(0UL, 2))
 
+  (* A hex image is decoded on load, so the handle already holds decoded bytes
+     and hex is spent as an input notation. MakeNew used to reuse the detected
+     format rather than the one the loaded file reports, and so fed those
+     decoded bytes back through the hex parser, which threw. *)
+  [<TestMethod>]
+  member _.``[BinHandle] MakeNew on a decoded hex image test``() =
+    let hexText = System.Text.Encoding.ASCII.GetBytes "90c3"
+    let hdl = BinHandle.LoadFileBytes(hexText, isa)
+    let again = hdl.MakeNew(hdl.File.RawBytes.ToArray())
+    Assert.AreEqual<int>(2, again.File.Length)
+    CollectionAssert.AreEqual([| 0x90uy; 0xc3uy |], again.ReadBytes(0UL, 2))
+
   (* MakeNew is the only other path that feeds an OS back into construction, so
      an injected one has to survive it. *)
   [<TestMethod>]

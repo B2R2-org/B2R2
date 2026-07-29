@@ -482,7 +482,10 @@ type BinHandle private(path, bytes, fmt, isa, baseAddrOpt, osOpt) =
   /// Returns a new BinHandle.
   /// </returns>
   member _.MakeNew(bs: byte[]) =
-    BinHandle(path, bs, fmt, isa, baseAddrOpt, Some os)
+    (* The format the loaded file reports, not the detected one. The two differ
+       for a hex image: it is decoded at load time, so reusing the detected
+       HexBinary would run the hex parser over already decoded bytes. *)
+    BinHandle(path, bs, binFile.Format, isa, baseAddrOpt, Some os)
 
   /// <summary>
   /// Creates a new BinHandle from the given byte array while keeping the other
@@ -494,6 +497,6 @@ type BinHandle private(path, bytes, fmt, isa, baseAddrOpt, osOpt) =
   /// Returns a new BinHandle.
   /// </returns>
   member _.MakeNew(bs: byte[], baseAddr) =
-    BinHandle(path, bs, fmt, isa, Some baseAddr, Some os)
+    BinHandle(path, bs, binFile.Format, isa, Some baseAddr, Some os)
 
 // vim: set tw=80 sts=2 sw=2:
