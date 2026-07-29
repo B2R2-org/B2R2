@@ -36,7 +36,8 @@ type ExceptionInfoTests() =
 
   /// A raw image, which carries no section structure and therefore no code
   /// section for the coverage ratio to measure against.
-  static let rawHdl = BinHandle([| 0x90uy; 0x90uy; 0xc3uy; 0x90uy |], isa)
+  static let rawHdl =
+    BinHandle.LoadRawImage([| 0x90uy; 0x90uy; 0xc3uy; 0x90uy |], isa)
 
   /// A window of 0x1000 addresses, used to keep the expected ratios exact.
   static let winLo, winHi = 0x1000UL, 0x1fffUL

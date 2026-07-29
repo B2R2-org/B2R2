@@ -36,7 +36,7 @@ type InstructionCollectionTests() =
 
   /// An image of 0x2000 one-byte "nop"s, large enough that the sweep does not
   /// necessarily finish before the constructor returns.
-  static let hdl = BinHandle(Array.create 0x2000 0x90uy, isa)
+  static let hdl = BinHandle.LoadRawImage(Array.create 0x2000 0x90uy, isa)
 
   static let newCollection () =
     InstructionCollection(LinearSweepInstructionCollector hdl)

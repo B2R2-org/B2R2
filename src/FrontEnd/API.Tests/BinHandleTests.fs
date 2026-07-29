@@ -34,10 +34,10 @@ type BinHandleTests() =
   static let isa = ISA(Architecture.Intel, WordSize.Bit64)
 
   /// A 16-byte raw image whose byte at each address equals the address.
-  static let hdl = BinHandle([| for i in 0 .. 15 -> byte i |], isa)
+  static let hdl = BinHandle.LoadRawImage([| for i in 0 .. 15 -> byte i |], isa)
 
   /// An image with no content at all, which cannot serve any read.
-  static let emptyHdl = BinHandle isa
+  static let emptyHdl = BinHandle.Empty isa
 
   /// An address outside the image, for which the file hands out a null pointer.
   static let unmapped = 0x9999UL
@@ -52,7 +52,7 @@ type BinHandleTests() =
 
   /// An image holding "hi", a NUL, and then an unterminated "ab".
   static let strHdl =
-    BinHandle([| 0x68uy; 0x69uy; 0x00uy; 0x61uy; 0x62uy |], isa)
+    BinHandle.LoadRawImage([| 0x68uy; 0x69uy; 0x00uy; 0x61uy; 0x62uy |], isa)
 
   (* The handle must report the ISA the file settled on, not a copy of the one
      it was constructed with, since format detection can resolve a different
@@ -65,7 +65,7 @@ type BinHandleTests() =
 
   [<TestMethod>]
   member _.``[BinHandle] OS injected into a raw image test``() =
-    let hdl = BinHandle([| 0x90uy |], isa, OS.Linux)
+    let hdl = BinHandle.LoadRawImage([| 0x90uy |], isa, OS.Linux)
     Assert.AreEqual<OS>(OS.Linux, hdl.OS)
 
   (* Shellcode at a non-zero base on a known OS had no construction path: the
@@ -73,7 +73,8 @@ type BinHandleTests() =
      base to None, so such an image always fell back to UnknownOS. *)
   [<TestMethod>]
   member _.``[BinHandle] raw image with a base address and an OS test``() =
-    let hdl = BinHandle([| 0x90uy; 0xc3uy |], isa, 0x400000UL, OS.Linux)
+    let code = [| 0x90uy; 0xc3uy |]
+    let hdl = BinHandle.LoadRawImage(code, isa, 0x400000UL, OS.Linux)
     Assert.AreEqual<OS>(OS.Linux, hdl.OS)
     Assert.AreEqual<Addr>(0x400000UL, hdl.File.BaseAddress)
     let read = hdl.ReadBytes(0x400000UL, 2)
@@ -87,7 +88,7 @@ type BinHandleTests() =
   [<TestMethod>]
   member _.``[BinHandle] LoadFileBytes detects the format test``() =
     let hexText = System.Text.Encoding.ASCII.GetBytes "90c3"
-    let raw = BinHandle(hexText, isa)
+    let raw = BinHandle.LoadRawImage(hexText, isa)
     Assert.AreEqual<int>(4, raw.File.Length)
     CollectionAssert.AreEqual(hexText, raw.ReadBytes(0UL, 4))
     let detected = BinHandle.LoadFileBytes(hexText, isa)
@@ -116,7 +117,7 @@ type BinHandleTests() =
     let hdl = BinHandle.LoadFileBytes(wasm, isa)
     Assert.AreEqual<FileFormat>(FileFormat.WasmBinary, hdl.File.Format)
     let fragment = [| 0x90uy; 0xc3uy |]
-    let raw = BinHandle(fragment, hdl.ISA, 0x1000UL, hdl.OS)
+    let raw = BinHandle.LoadRawImage(fragment, hdl.ISA, 0x1000UL, hdl.OS)
     Assert.AreEqual<FileFormat>(FileFormat.RawBinary, raw.File.Format)
     Assert.AreEqual<Addr>(0x1000UL, raw.File.BaseAddress)
     CollectionAssert.AreEqual(fragment, raw.ReadBytes(0x1000UL, 2))

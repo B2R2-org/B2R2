@@ -34,8 +34,8 @@ type LoadAction() =
      "raw" argument asks for; the path is then not carried, as a raw image has
      no file behind it. *)
   let loadFile isa parseFileFormat path =
-    if parseFileFormat then BinHandle(path, isa, None)
-    else BinHandle(File.ReadAllBytes path, isa)
+    if parseFileFormat then BinHandle.LoadFile(path, isa, None)
+    else BinHandle.LoadRawImage(File.ReadAllBytes path, isa)
 
   let load isa parseFileFormat s =
     if File.Exists(path = s) then
@@ -49,7 +49,7 @@ type LoadAction() =
         lazy loadFile isa parseFileFormat f
         |> Binary.PlainInit |> box)
     else
-      lazy BinHandle(ByteArray.ofHexString s, isa)
+      lazy BinHandle.LoadRawImage(ByteArray.ofHexString s, isa)
       |> Binary.PlainInit
       |> box
       |> Array.singleton

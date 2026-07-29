@@ -202,7 +202,7 @@ type CFG1Tests() =
         0xc3uy |]
 
   let isa = ISA(Architecture.Intel, WordSize.Bit64)
-  let hdl = BinHandle(binary, isa)
+  let hdl = BinHandle.LoadRawImage(binary, isa)
   let instrs = InstructionCollection(LinearSweepInstructionCollector hdl)
 
   [<TestMethod>]

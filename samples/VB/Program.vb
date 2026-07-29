@@ -10,7 +10,7 @@ Module Program
     Sub Main(args As String())
         Dim i = New ISA("amd64")
         Dim bs = New Byte() { &H65, &Hff, &H15, &H10, &H00, &H00, &H00 }
-        Dim hdl = New BinHandle(bs, i)
+        Dim hdl = BinHandle.LoadRawImage(bs, i)
         Dim lifter = hdl.NewLiftingUnit()
         Dim ins = lifter.ParseInstruction(0)
         Dim s = lifter.DisasmInstruction(ins)

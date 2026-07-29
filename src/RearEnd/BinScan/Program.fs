@@ -249,7 +249,7 @@ let private printSelectively hdl opts file = function
   | DisplayMach MachSharedLibs -> dumpSharedLibs opts file
 
 let private dumpFile (opts: BinScanOpts) (filePath: string) =
-  let hdl = BinHandle(filePath, opts.ISA, opts.BaseAddress)
+  let hdl = BinHandle.LoadFile(filePath, opts.ISA, opts.BaseAddress)
   let file = hdl.File
   printFileName file.Path
   if opts.DisplayItems.Count = 0 then printBasic file

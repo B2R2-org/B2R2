@@ -74,7 +74,7 @@ with
   /// </summary>
   static member OfFragment(prefix, bin, bs, baseAddr) =
     let hdl = Binary.Handle bin
-    let fragment = lazy BinHandle(bs, hdl.ISA, baseAddr, hdl.OS)
+    let fragment = lazy BinHandle.LoadRawImage(bs, hdl.ISA, baseAddr, hdl.OS)
     Binary.Init(Binary.MakeAnnotation(prefix, bin), fragment)
 
   override this.ToString() =

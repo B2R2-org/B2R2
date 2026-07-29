@@ -36,7 +36,7 @@ type LiftingUnitTests() =
 
   /// A raw image holding "nop; nop; ret; nop".
   static let hdl =
-    BinHandle([| 0x90uy; 0x90uy; 0xc3uy; 0x90uy |], isa)
+    BinHandle.LoadRawImage([| 0x90uy; 0x90uy; 0xc3uy; 0x90uy |], isa)
 
   static let lu = hdl.NewLiftingUnit()
 
@@ -52,6 +52,10 @@ type LiftingUnitTests() =
        (hdl.File.GetBoundedPointer 0UL).Advance 4 |]
 
   static let emptyCode: byte[] = Array.zeroCreate 4
+
+  /// A lifting unit over the empty image for the given architecture.
+  static let unitFor (arch: Architecture) =
+    BinHandle.LoadRawImage(emptyCode, ISA arch).NewLiftingUnit()
 
   /// The alignment every architecture with a parser must report. This list is
   /// deliberately kept next to the architectures ArchSupport can build a parser
@@ -171,7 +175,7 @@ type LiftingUnitTests() =
   member _.``[LiftingUnit] disassembly syntax test``() =
     let addEax = [| 0x05uy; 0x00uy; 0x00uy; 0x01uy; 0x00uy |]
     let x86 = ISA(Architecture.Intel, WordSize.Bit32)
-    let x86Unit = BinHandle(addEax, x86).NewLiftingUnit()
+    let x86Unit = BinHandle.LoadRawImage(addEax, x86).NewLiftingUnit()
     let disasm () =
       x86Unit.DisasmInstruction(addr = 0UL).ToLowerInvariant()
     Assert.AreEqual<DisasmSyntax>(DefaultSyntax, x86Unit.DisassemblySyntax)
@@ -185,7 +189,7 @@ type LiftingUnitTests() =
      This used to be a write-only method with no such signal. *)
   [<TestMethod>]
   member _.``[LiftingUnit] unsupported syntax is observable test``() =
-    let armUnit = BinHandle(emptyCode, ISA Architecture.ARMv7).NewLiftingUnit()
+    let armUnit = unitFor Architecture.ARMv7
     armUnit.DisassemblySyntax <- ATTSyntax
     Assert.AreEqual<DisasmSyntax>(DefaultSyntax, armUnit.DisassemblySyntax)
 
@@ -196,7 +200,7 @@ type LiftingUnitTests() =
   [<TestMethod>]
   member _.``[LiftingUnit] alignment of every architecture test``() =
     for arch, expected in alignments do
-      let unit = BinHandle(emptyCode, ISA arch).NewLiftingUnit()
+      let unit = unitFor arch
       Assert.AreEqual<int>(expected, unit.InstructionAlignment)
 
   (* An odd entry point selects Thumb mode. ArchSupport builds an ARM32Parser
@@ -206,7 +210,7 @@ type LiftingUnitTests() =
   member _.``[LiftingUnit] thumb entry point test``() =
     for arch in [| Architecture.ARMv7; Architecture.ARMv8 |] do
       let isa = ISA(arch, WordSize.Bit32)
-      let hdl = BinHandle(emptyCode, isa, 0x1001UL, OS.UnknownOS)
+      let hdl = BinHandle.LoadRawImage(emptyCode, isa, 0x1001UL, OS.UnknownOS)
       let lu = hdl.NewLiftingUnit()
       Assert.AreEqual<bool>(true, lu.IsThumb)
       Assert.AreEqual<int>(2, lu.InstructionAlignment)
@@ -216,11 +220,11 @@ type LiftingUnitTests() =
      which is what lets callers skip the architecture test. *)
   [<TestMethod>]
   member _.``[LiftingUnit] thumb mode toggling test``() =
-    let armUnit = BinHandle(emptyCode, ISA Architecture.ARMv7).NewLiftingUnit()
+    let armUnit = unitFor Architecture.ARMv7
     Assert.AreEqual<int>(4, armUnit.InstructionAlignment)
     armUnit.IsThumb <- true
     Assert.AreEqual<int>(2, armUnit.InstructionAlignment)
-    let x86Unit = BinHandle(emptyCode, isa).NewLiftingUnit()
+    let x86Unit = BinHandle.LoadRawImage(emptyCode, isa).NewLiftingUnit()
     x86Unit.IsThumb <- true
     Assert.AreEqual<bool>(false, x86Unit.IsThumb)
     Assert.AreEqual<int>(1, x86Unit.InstructionAlignment)

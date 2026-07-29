@@ -154,7 +154,7 @@ let private dumpRegularFile (hdl: BinHandle) (opts: BinDisasmOpts) =
 
 let private dumpFile (opts: BinDisasmOpts) filePath =
   let opts = { opts with ShowAddress = true }
-  let hdl = BinHandle(filePath, opts.ISA, opts.BaseAddress)
+  let hdl = BinHandle.LoadFile(filePath, opts.ISA, opts.BaseAddress)
   initTableConfig hdl.ISA opts.ShowLowUIR
   printFileName hdl.File.Path
   if isRawBinary hdl then dumpRawBinary hdl opts
@@ -187,7 +187,7 @@ let private validateHexStringLength (hdl: BinHandle) isThumb hexstr =
 let private prepareHexStringDump (opts: BinDisasmOpts) =
   let hex, isa = opts.InputHexStr, opts.ISA
   let baseAddr = defaultArg opts.BaseAddress 0UL
-  let hdl = BinHandle(hex, isa, baseAddr, OS.UnknownOS)
+  let hdl = BinHandle.LoadRawImage(hex, isa, baseAddr, OS.UnknownOS)
   initTableConfig hdl.ISA opts.ShowLowUIR
   validateHexStringLength hdl opts.ThumbMode opts.InputHexStr
   hdl

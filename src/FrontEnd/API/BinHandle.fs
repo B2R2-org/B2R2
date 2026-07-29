@@ -154,47 +154,6 @@ type BinHandle private(path, bytes, fmt, isa, baseAddrOpt, osOpt) =
     else
       invalidArg (nameof ptr) (ErrorCase.toMessage ErrorCase.InvalidMemoryRead)
 
-  /// Constructs a BinHandle from a given file path, ISA, optional base address
-  /// (baseAddrOpt). File format will be automatically detected from the file.
-  new(path, isa, baseAddrOpt) =
-    let bytes = File.ReadAllBytes path
-    let struct (fmt, isa) = FormatDetector.identify bytes isa
-    BinHandle(path, bytes, fmt, isa, baseAddrOpt, None)
-
-  /// Constructs a BinHandle from a given file path and ISA.
-  new(path, isa) = BinHandle(path = path, isa = isa, baseAddrOpt = None)
-
-  /// Constructs a BinHandle from a given file path. ISA is set to
-  /// `ISA.DefaultISA`.
-  new(path) =
-    let defaultISA = ISA(Architecture.Intel, WordSize.Bit64)
-    BinHandle(path = path, isa = defaultISA, baseAddrOpt = None)
-
-  /// <summary>
-  /// Constructs a BinHandle from a given byte array and ISA. The array is taken
-  /// as a raw image: no format detection runs over it, the base address is 0UL,
-  /// and the OS is unknown. Use <c>LoadFileBytes</c> instead when the array
-  /// holds the whole content of a file whose format should be detected.
-  /// </summary>
-  new(bytes, isa) = BinHandle("", bytes, RawBinary, isa, None, None)
-
-  /// Constructs a BinHandle from a given byte array, ISA, and target OS. The
-  /// format is treated as a raw image (no detection) and the OS is used to pick
-  /// the calling and system-call conventions. Useful for analyzing shellcode
-  /// whose OS cannot be inferred from a file format.
-  new(bytes, isa, os) = BinHandle("", bytes, RawBinary, isa, None, Some os)
-
-  /// Constructs a BinHandle from a given byte array, ISA, base address, and
-  /// target OS. The format is treated as a raw image (no detection). A raw
-  /// image implies no OS, so the OS is spelled out here rather than defaulted,
-  /// which is what keeps a rebased image from silently taking UnknownOS
-  /// conventions.
-  new(bytes, isa, baseAddr: Addr, os: OS) =
-    BinHandle("", bytes, RawBinary, isa, Some baseAddr, Some os)
-
-  /// Constructs an empty BinHandle.
-  new(isa) = BinHandle("", [||], RawBinary, isa, None, None)
-
   /// Gets the file handle.
   member _.File with get(): IBinFile = binFile
 
@@ -219,12 +178,57 @@ type BinHandle private(path, bytes, fmt, isa, baseAddrOpt, osOpt) =
   /// </summary>
   member _.Conventions with get() = conv
 
+  (* Loading is exposed as named factories rather than constructors because the
+     same byte array means two different things depending on whether it is the
+     content of a file or a raw image, and a constructor cannot say which. A
+     name can, so every entry point below states it: Load*File* detects the
+     format, LoadRawImage does not. *)
+
   /// <summary>
-  /// Creates a BinHandle from a byte array holding the whole content of a
-  /// binary file, detecting its file format and rebasing it to the given base
-  /// address (baseAddrOpt) when one is given. This is the in-memory counterpart
-  /// of the path-based constructors; the byte-array constructors differ in that
-  /// they take the array as a raw image.
+  /// Reads the file at the given path and loads it, detecting its file format
+  /// and rebasing it to the given base address (baseAddrOpt) when one is given.
+  /// </summary>
+  /// <param name="path">The path of the binary file.</param>
+  /// <param name="isa">The ISA to fall back on when the format does not pin
+  /// one.</param>
+  /// <param name="baseAddrOpt">An optional base address to rebase to.</param>
+  /// <returns>
+  /// Returns a new BinHandle.
+  /// </returns>
+  static member LoadFile(path: string, isa, baseAddrOpt) =
+    let bytes = File.ReadAllBytes path
+    let struct (fmt, isa) = FormatDetector.identify bytes isa
+    BinHandle(path, bytes, fmt, isa, baseAddrOpt, None)
+
+  /// <summary>
+  /// Reads the file at the given path and loads it, detecting its file format.
+  /// </summary>
+  /// <param name="path">The path of the binary file.</param>
+  /// <param name="isa">The ISA to fall back on when the format does not pin
+  /// one.</param>
+  /// <returns>
+  /// Returns a new BinHandle.
+  /// </returns>
+  static member LoadFile(path: string, isa) =
+    BinHandle.LoadFile(path, isa, None)
+
+  /// <summary>
+  /// Reads the file at the given path and loads it, detecting its file format.
+  /// The ISA to fall back on is x86-64.
+  /// </summary>
+  /// <param name="path">The path of the binary file.</param>
+  /// <returns>
+  /// Returns a new BinHandle.
+  /// </returns>
+  static member LoadFile(path: string) =
+    let defaultISA = ISA(Architecture.Intel, WordSize.Bit64)
+    BinHandle.LoadFile(path, defaultISA, None)
+
+  /// <summary>
+  /// Loads a byte array holding the whole content of a binary file, detecting
+  /// its file format and rebasing it to the given base address (baseAddrOpt)
+  /// when one is given. This is the in-memory counterpart of <see
+  /// cref='M:B2R2.FrontEnd.BinHandle.LoadFile'/>.
   /// </summary>
   /// <param name="bytes">The whole content of a binary file.</param>
   /// <param name="isa">The ISA to fall back on when the format does not pin
@@ -233,14 +237,13 @@ type BinHandle private(path, bytes, fmt, isa, baseAddrOpt, osOpt) =
   /// <returns>
   /// Returns a new BinHandle.
   /// </returns>
-  static member LoadFileBytes(bytes, isa, baseAddrOpt) =
+  static member LoadFileBytes(bytes: byte[], isa, baseAddrOpt) =
     let struct (fmt, isa) = FormatDetector.identify bytes isa
     BinHandle("", bytes, fmt, isa, baseAddrOpt, None)
 
   /// <summary>
-  /// Creates a BinHandle from a byte array holding the whole content of a
-  /// binary file, detecting its file format. The OS follows from the detected
-  /// format.
+  /// Loads a byte array holding the whole content of a binary file, detecting
+  /// its file format. The OS follows from the detected format.
   /// </summary>
   /// <param name="bytes">The whole content of a binary file.</param>
   /// <param name="isa">The ISA to fall back on when the format does not pin
@@ -250,6 +253,62 @@ type BinHandle private(path, bytes, fmt, isa, baseAddrOpt, osOpt) =
   /// </returns>
   static member LoadFileBytes(bytes: byte[], isa) =
     BinHandle.LoadFileBytes(bytes, isa, None)
+
+  /// <summary>
+  /// Loads a byte array as a raw image located at the given base address. No
+  /// format detection runs over the array, so nothing implies an OS and it is
+  /// spelled out here rather than defaulted, which is what keeps a rebased
+  /// image from silently taking UnknownOS conventions.
+  /// </summary>
+  /// <param name="bytes">The raw image.</param>
+  /// <param name="isa">The ISA of the image.</param>
+  /// <param name="baseAddr">The address the image starts at.</param>
+  /// <param name="os">The target OS of the image.</param>
+  /// <returns>
+  /// Returns a new BinHandle.
+  /// </returns>
+  static member LoadRawImage(bytes: byte[], isa, baseAddr: Addr, os: OS) =
+    BinHandle("", bytes, RawBinary, isa, Some baseAddr, Some os)
+
+  /// <summary>
+  /// Loads a byte array as a raw image based at 0UL, for the given target OS.
+  /// No format detection runs over the array. Useful for shellcode, whose OS
+  /// cannot be inferred from a file format.
+  /// </summary>
+  /// <param name="bytes">The raw image.</param>
+  /// <param name="isa">The ISA of the image.</param>
+  /// <param name="os">The target OS of the image.</param>
+  /// <returns>
+  /// Returns a new BinHandle.
+  /// </returns>
+  static member LoadRawImage(bytes: byte[], isa, os: OS) =
+    BinHandle("", bytes, RawBinary, isa, None, Some os)
+
+  /// <summary>
+  /// Loads a byte array as a raw image based at 0UL, with no target OS. No
+  /// format detection runs over the array, so an array that happens to hold a
+  /// whole binary file is still taken as a plain block of code; use <see
+  /// cref='M:B2R2.FrontEnd.BinHandle.LoadFileBytes'/> for that.
+  /// </summary>
+  /// <param name="bytes">The raw image.</param>
+  /// <param name="isa">The ISA of the image.</param>
+  /// <returns>
+  /// Returns a new BinHandle.
+  /// </returns>
+  static member LoadRawImage(bytes: byte[], isa) =
+    BinHandle("", bytes, RawBinary, isa, None, None)
+
+  /// <summary>
+  /// Creates a handle over no content at all, which can serve no read. Useful
+  /// when only the ISA-derived facilities, such as the register factory, are
+  /// needed.
+  /// </summary>
+  /// <param name="isa">The ISA of the handle.</param>
+  /// <returns>
+  /// Returns a new BinHandle.
+  /// </returns>
+  static member Empty(isa) =
+    BinHandle("", [||], RawBinary, isa, None, None)
 
   /// Gets a new instance of lifting unit.
   member _.NewLiftingUnit() =
@@ -472,5 +531,3 @@ type BinHandle private(path, bytes, fmt, isa, baseAddrOpt, osOpt) =
   /// Returns the ASCII string if succeed. Otherwise, raise an exception.
   /// </returns>
   member _.ReadASCII(ptr: BinFilePointer) = readAscii ptr
-
-// vim: set tw=80 sts=2 sw=2:

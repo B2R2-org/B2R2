@@ -79,7 +79,7 @@ let rec run showTemporary state asm builder binParser uirParser =
       run showTemporary state asm builder binParser uirParser
 
 let runRepl _args (opts: ReplOpts) =
-  let hdl = BinHandle(opts.ISA)
+  let hdl = BinHandle.Empty opts.ISA
   let state = ReplState(opts.ISA, hdl.RegisterFactory, not opts.Verbose)
   let asm = Assembler(opts.ISA, 0UL)
   let builder = ArchSupport.createBuilder opts.ISA hdl.RegisterFactory
