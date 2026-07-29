@@ -27,9 +27,24 @@ namespace B2R2.Collections
 open System.Collections.Generic
 open B2R2
 
-exception InvalidWhiteningException
+/// <summary>
+/// Represents a non-overlapping interval map. By interval map, we mean a map
+/// based on an interval tree, which maps an interval (i.e., AddrRange) to a
+/// value. We currently implement this using a red-black tree, which follows the
+/// implementation of the paper written by Kimball Germane and Matthew Might:
+/// "Deletion: The Curse of the Red-Black Tree", Journal of Functional
+/// Programming, vol. 24, no. 4, 2014.
+/// </summary>
+type NoOverlapIntervalMap<'V> =
+  private
+  | RBLeaf of RBColor
+  | RBNode of RBColor
+            * AddrRange
+            * 'V
+            * NoOverlapIntervalMap<'V>
+            * NoOverlapIntervalMap<'V>
 
-type internal RBColor =
+and internal RBColor =
   /// Red
   | R
   /// Black
@@ -39,14 +54,8 @@ type internal RBColor =
   /// Negative Black
   | NB
 
-type NoOverlapIntervalMap<'V> =
-  | Leaf of RBColor
-  | Node of RBColor
-          * AddrRange
-          * 'V
-          * NoOverlapIntervalMap<'V>
-          * NoOverlapIntervalMap<'V>
-
+/// Provides functions for creating or manipulating non-overlapping interval
+/// maps.
 [<RequireQualifiedAccess>]
 module NoOverlapIntervalMap =
 
@@ -61,56 +70,93 @@ module NoOverlapIntervalMap =
     | DB -> B
     | B -> R
     | R -> NB
-    | NB -> raise InvalidWhiteningException
+    | NB -> Terminator.impossible ()
 
   let private toBlack = function
-    | Leaf DB -> Leaf B
-    | Node(R, k, v, l, r)
-    | Node(DB, k, v, l, r) -> Node(B, k, v, l, r)
+    | RBLeaf DB -> RBLeaf B
+    | RBNode(R, k, v, l, r)
+    | RBNode(DB, k, v, l, r) -> RBNode(B, k, v, l, r)
     | n -> n
 
   let rec private balance = function
-    | ((DB|B) as l, zk, zv, Node(R, yk, yv, Node(R, xk, xv, a, b), c), d)
-    | ((DB|B) as l, zk, zv, Node(R, xk, xv, a, Node(R, yk, yv, b, c)), d)
-    | ((DB|B) as l, xk, xv, a, Node(R, zk, zv, Node(R, yk, yv, b, c), d))
-    | ((DB|B) as l, xk, xv, a, Node(R, yk, yv, b, Node(R, zk, zv, c, d))) ->
-      Node(whiten l, yk, yv, Node(B, xk, xv, a, b), Node(B, zk, zv, c, d))
-    | (DB, zk, zv, Node(NB, xk, xv, Node(B, wk, wv, a, b),
-       Node(B, yk, yv, c, d)), e) ->
-      Node(B, yk, yv, balance (B, xk, xv, Node(R, wk, wv, a, b), c),
-        Node(B, zk, zv, d, e))
+    | ((DB|B) as l, zk, zv, RBNode(R, yk, yv, RBNode(R, xk, xv, a, b), c), d)
+    | ((DB|B) as l, zk, zv, RBNode(R, xk, xv, a, RBNode(R, yk, yv, b, c)), d)
+    | ((DB|B) as l, xk, xv, a, RBNode(R, zk, zv, RBNode(R, yk, yv, b, c), d))
+    | ((DB|B) as l, xk, xv, a, RBNode(R, yk, yv, b, RBNode(R, zk, zv, c, d))) ->
+      RBNode(whiten l, yk, yv, RBNode(B, xk, xv, a, b), RBNode(B, zk, zv, c, d))
+    | (DB, zk, zv, RBNode(NB, xk, xv, RBNode(B, wk, wv, a, b),
+       RBNode(B, yk, yv, c, d)), e) ->
+      RBNode(B, yk, yv, balance (B, xk, xv, RBNode(R, wk, wv, a, b), c),
+        RBNode(B, zk, zv, d, e))
     | (DB, xk, xv, a,
-       Node(NB, zk, zv, Node(B, yk, yv, b, c), Node(B, wk, wv, d, e))) ->
-      Node(B, yk, yv, Node(B, xk, xv, a, b),
-        balance (B, zk, zv, c, Node(R, wk, wv, d, e)))
-    | node -> Node(node)
+       RBNode(NB, zk, zv, RBNode(B, yk, yv, b, c), RBNode(B, wk, wv, d, e))) ->
+      RBNode(B, yk, yv, RBNode(B, xk, xv, a, b),
+        balance (B, zk, zv, c, RBNode(R, wk, wv, d, e)))
+    | node -> RBNode(node)
 
   let private fnAdd k v tree isReplace =
     let rec ins = function
-      | Leaf _ -> Node(R, k, v, Leaf B, Leaf B)
-      | Node(c, k', v', l, r) ->
+      | RBLeaf _ -> RBNode(R, k, v, RBLeaf B, RBLeaf B)
+      | RBNode(c, k', v', l, r) ->
         if k' = k then
-          if isReplace then Node(c, k', v, l, r)
+          if isReplace then RBNode(c, k', v, l, r)
           else raise RangeOverlapException
         elif k.Min < k'.Min && k.Max < k'.Min then balance (c, k', v', ins l, r)
         elif k.Min > k'.Max && k.Max > k'.Max then balance (c, k', v', l, ins r)
         else raise RangeOverlapException
     ins tree |> toBlack
 
+  /// <summary>
+  ///   Adds a mapping from an interval to the value in the interval tree.
+  /// </summary>
+  /// <param name="k">AddrRange as a key.</param>
+  /// <param name="v">The value to be added.</param>
+  /// <param name="tree">The interval tree.</param>
+  /// <returns>
+  ///   A new interval tree.
+  /// </returns>
+  /// <exception cref="T:B2R2.RangeOverlapException">
+  ///   Thrown when there is an existing (overlapping) interval in the tree.
+  /// </exception>
   [<CompiledName("Add")>]
   let add k v tree =
     fnAdd k v tree false
 
+  /// <summary>
+  ///   Adds a mapping from an interval to the value in the interval tree,
+  ///   taking separate min and max parameters instead of an AddrRange.
+  /// </summary>
+  /// <param name="min">The min value of the interval.</param>
+  /// <param name="max">The max value of the interval.</param>
+  /// <param name="v">The value to be added.</param>
+  /// <param name="tree">The interval tree.</param>
+  /// <returns>
+  ///   A new interval tree.
+  /// </returns>
+  /// <exception cref="T:B2R2.RangeOverlapException">
+  ///   Thrown when there is an existing (overlapping) interval in the tree.
+  /// </exception>
   [<CompiledName("AddByBounds")>]
   let addByBounds min max v tree =
     add (AddrRange.create min max) v tree
 
+  /// <summary>
+  ///   Replaces the value for an existing range if it exactly matches the
+  ///   given range. If ranges overlap, this function will still raise
+  ///   RangeOverlapException.
+  /// </summary>
+  /// <param name="k">AddrRange as a key.</param>
+  /// <param name="v">The value to be added.</param>
+  /// <param name="tree">The interval tree.</param>
+  /// <returns>
+  ///   A new interval tree.
+  /// </returns>
   [<CompiledName("Replace")>]
   let replace k v tree = fnAdd k v tree true
 
   let rec private findLoop isExact k = function
-    | Leaf _ -> Error ErrorCase.ItemNotFound
-    | Node(_, k', v', l, r) ->
+    | RBLeaf _ -> Error ErrorCase.ItemNotFound
+    | RBNode(_, k', v', l, r) ->
       if k = k' then Ok(k', v')
       elif k.Min < k'.Min && k.Max < k'.Min then findLoop isExact k l
       elif k.Min > k'.Max && k.Max > k'.Max then findLoop isExact k r
@@ -118,10 +164,11 @@ module NoOverlapIntervalMap =
       else Error ErrorCase.ItemNotFound
 
   let rec private del isExact k = function
-    | Leaf _ ->
+    | RBLeaf _ ->
       raise (KeyNotFoundException())
-    | Node(c, k', v', l, r) ->
-      if k = k' then delAndBalance isExact (c, l, r)
+    | RBNode(c, k', v', l, r) ->
+      if k = k' then
+        delAndBalance isExact (c, l, r)
       elif k.Min < k'.Min && k.Max < k'.Min then
         bubble (c, k', v', del isExact k l, r)
       elif k.Min > k'.Max && k.Max > k'.Max then
@@ -130,77 +177,164 @@ module NoOverlapIntervalMap =
         delAndBalance isExact (c, l, r)
       else raise RangeOverlapException
 
-  and delAndBalance isExact = function
-    | c, Leaf _, Leaf _ -> Leaf(B ++ c)
-    | B, Leaf _, Node(_, nk, nv, nl, nr)
-    | B, Node(_, nk, nv, nl, nr), Leaf _ -> Node(B, nk, nv, nl, nr)
+  and private delAndBalance isExact = function
+    | c, RBLeaf _, RBLeaf _ -> RBLeaf(B ++ c)
+    | B, RBLeaf _, RBNode(_, nk, nv, nl, nr)
+    | B, RBNode(_, nk, nv, nl, nr), RBLeaf _ -> RBNode(B, nk, nv, nl, nr)
     | c, l, r -> let k, v = findMax l in bubble (c, k, v, del isExact k l, r)
 
-  and findMax = function
-    | Leaf _ -> failwith "Max binding not found"
-    | Node(_, k, v, _, Leaf _) -> k, v
-    | Node(_, _, _, _, r) -> findMax r
+  and private findMax = function
+    | RBLeaf _ -> failwith "Max binding not found"
+    | RBNode(_, k, v, _, RBLeaf _) -> k, v
+    | RBNode(_, _, _, _, r) -> findMax r
 
-  and bubble = function
-    | (nc, nk, nv, Node(lc, lk, lv, a, b), Node(rc, rk, rv, c, d))
+  and private bubble = function
+    | (nc, nk, nv, RBNode(lc, lk, lv, a, b), RBNode(rc, rk, rv, c, d))
       when lc = DB || rc = DB ->
-      balance (B ++ nc, nk, nv, Node(whiten lc, lk, lv, a, b),
-        Node(whiten rc, rk, rv, c, d))
-    | (nc, nk, nv, Leaf DB, Node(rc, rk, rv, c, d)) ->
-      balance (B ++ nc, nk, nv, Leaf B, Node(whiten rc, rk, rv, c, d))
-    | (nc, nk, nv, Node(rc, rk, rv, c, d), Leaf DB) ->
-      balance (B ++ nc, nk, nv, Node(whiten rc, rk, rv, c, d), Leaf B)
-    | node -> Node node
+      balance (B ++ nc, nk, nv, RBNode(whiten lc, lk, lv, a, b),
+        RBNode(whiten rc, rk, rv, c, d))
+    | (nc, nk, nv, RBLeaf DB, RBNode(rc, rk, rv, c, d)) ->
+      balance (B ++ nc, nk, nv, RBLeaf B, RBNode(whiten rc, rk, rv, c, d))
+    | (nc, nk, nv, RBNode(rc, rk, rv, c, d), RBLeaf DB) ->
+      balance (B ++ nc, nk, nv, RBNode(whiten rc, rk, rv, c, d), RBLeaf B)
+    | node -> RBNode node
 
+  /// <summary>
+  ///   Removes a mapping that matches exactly with the given range. To remove a
+  ///   mapping that covers the given address, use removeByAddr.
+  /// </summary>
+  /// <param name="k">The interval to find.</param>
+  /// <param name="tree">The interval tree.</param>
+  /// <returns>
+  ///   A new interval tree.
+  /// </returns>
   [<CompiledName("Remove")>]
   let remove k tree =
     del true k tree |> toBlack
 
+  /// <summary>
+  ///   Removes a mapping that matches with the given address. Unlike remove,
+  ///   this function will remove an interval that includes the given address.
+  /// </summary>
+  /// <param name="addr">The address.</param>
+  /// <param name="tree">The interval tree.</param>
+  /// <returns>
+  ///   A new interval tree.
+  /// </returns>
   [<CompiledName("RemoveByAddr")>]
   let removeByAddr addr tree =
     del false (AddrRange.singleton addr) tree |> toBlack
 
+  /// Returns an empty map.
   [<CompiledName("Empty")>]
   let empty =
-    Leaf B
+    RBLeaf B
 
+  /// <summary>
+  ///   Checks if the given interval map is empty.
+  /// </summary>
+  /// <param name="tree">The interval tree.</param>
+  /// <returns>
+  ///   Returns true if the tree is empty, false otherwise.
+  /// </returns>
   [<CompiledName("IsEmpty")>]
   let isEmpty tree =
     match tree with
-    | Leaf B -> true
+    | RBLeaf B -> true
     | _ -> false
 
+  /// <summary>
+  ///   Checks whether a given Addr exists in any of the ranges in the map.
+  /// </summary>
+  /// <param name="addr">Address.</param>
+  /// <param name="tree">The interval tree.</param>
+  /// <returns>
+  ///   True if the interval tree contains an interval that includes the given
+  ///   address, false otherwise.
+  /// </returns>
   [<CompiledName("ContainsAddr")>]
   let containsAddr addr tree =
     findLoop false (AddrRange.singleton addr) tree |> Result.isOk
 
+  /// <summary>
+  ///   Checks whether the exact range exists in the interval map.
+  /// </summary>
+  /// <param name="range">The address range.</param>
+  /// <param name="tree">The interval tree.</param>
+  /// <returns>
+  ///   True if the interval tree contains the interval, false otherwise.
+  /// </returns>
   [<CompiledName("ContainsRange")>]
   let containsRange range tree = findLoop true range tree |> Result.isOk
 
+  /// <summary>
+  ///   Finds the mapping that exactly matches with the given range.
+  /// </summary>
+  /// <param name="range">The address range.</param>
+  /// <param name="tree">The interval tree.</param>
+  /// <returns>
+  ///   The value associated with the given interval.
+  /// </returns>
   [<CompiledName("Find")>]
   let find range tree =
     match findLoop true range tree with
     | Ok(_, v) -> v
     | _ -> raise (KeyNotFoundException())
 
+  /// <summary>
+  ///   Finds an interval stored in the interval tree map, which includes the
+  ///   given address.
+  /// </summary>
+  /// <param name="addr">The address.</param>
+  /// <param name="tree">The interval tree.</param>
+  /// <returns>
+  ///   The found interval.
+  /// </returns>
   [<CompiledName("FindRangeByAddr")>]
   let findRangeByAddr addr tree =
     match findLoop false (AddrRange.singleton addr) tree with
     | Ok(k, _) -> k
     | _ -> raise (KeyNotFoundException())
 
+  /// <summary>
+  ///   Finds an interval stored in the interval tree map, which includes the
+  ///   given address.
+  /// </summary>
+  /// <param name="addr">The address.</param>
+  /// <param name="tree">The interval tree.</param>
+  /// <returns>
+  ///   The found interval wrapped with option.
+  /// </returns>
   [<CompiledName("TryFindRangeByAddr")>]
   let tryFindRangeByAddr addr tree =
     match findLoop false (AddrRange.singleton addr) tree with
     | Ok(k, _) -> Some k
     | _ -> None
 
+  /// <summary>
+  ///   Finds the mapping that exactly matches with the given range and returns
+  ///   an option-wrapped type.
+  /// </summary>
+  /// <param name="range">The address range.</param>
+  /// <param name="tree">The interval tree.</param>
+  /// <returns>
+  ///   The value associated with the given interval.
+  /// </returns>
   [<CompiledName("TryFind")>]
   let tryFind range tree =
     match findLoop true range tree with
     | Ok(_, v) -> Some v
     | _ -> None
 
+  /// <summary>
+  ///   Finds the mapping that matches with the given address and returns an
+  ///   option-wrapped type.
+  /// </summary>
+  /// <param name="addr">The address.</param>
+  /// <param name="tree">The interval tree.</param>
+  /// <returns>
+  ///   The value associated with the given address.
+  /// </returns>
   [<CompiledName("TryFindByAddr")>]
   let tryFindByAddr addr tree =
     match findLoop false (AddrRange.singleton addr) tree with
@@ -208,25 +342,54 @@ module NoOverlapIntervalMap =
     | _ -> None
 
   let rec private findPreviousByAddrLoop addr candidate = function
-    | Leaf _ -> candidate
-    | Node(_, k, v, l, r) ->
+    | RBLeaf _ -> candidate
+    | RBNode(_, k, v, l, r) ->
       if addr > k.Max then findPreviousByAddrLoop addr (Some(k, v)) r
       else findPreviousByAddrLoop addr candidate l
 
+  /// <summary>
+  ///   Finds the nearest interval below the given address and returns an
+  ///   option-wrapped type. The returned interval does not include the given
+  ///   address.
+  /// </summary>
+  /// <param name="addr">The address.</param>
+  /// <param name="tree">The interval tree.</param>
+  /// <returns>
+  ///   The nearest lower interval and its associated value.
+  /// </returns>
   [<CompiledName("TryFindPreviousByAddr")>]
   let tryFindPreviousByAddr addr tree =
     findPreviousByAddrLoop addr None tree
 
   let rec private findNextByAddrLoop addr candidate = function
-    | Leaf _ -> candidate
-    | Node(_, k, v, l, r) ->
+    | RBLeaf _ -> candidate
+    | RBNode(_, k, v, l, r) ->
       if addr < k.Min then findNextByAddrLoop addr (Some(k, v)) l
       else findNextByAddrLoop addr candidate r
 
+  /// <summary>
+  ///   Finds the nearest interval above the given address and returns an
+  ///   option-wrapped type. The returned interval does not include the given
+  ///   address.
+  /// </summary>
+  /// <param name="addr">The address.</param>
+  /// <param name="tree">The interval tree.</param>
+  /// <returns>
+  ///   The nearest upper interval and its associated value.
+  /// </returns>
   [<CompiledName("TryFindNextByAddr")>]
   let tryFindNextByAddr addr tree =
     findNextByAddrLoop addr None tree
 
+  /// <summary>
+  ///   Finds the mapping that matches with the given address. Unlike find, this
+  ///   function can return a range that covers the given address.
+  /// </summary>
+  /// <param name="addr">The address.</param>
+  /// <param name="tree">The interval tree.</param>
+  /// <returns>
+  ///   The value associated with the given address.
+  /// </returns>
   [<CompiledName("FindByAddr")>]
   let findByAddr addr tree =
     match findLoop false (AddrRange.singleton addr) tree with
@@ -235,32 +398,61 @@ module NoOverlapIntervalMap =
 
   let rec private sizeAux acc tree =
     match tree with
-    | Leaf _ -> acc
-    | Node(_, _, _, l, r) -> sizeAux (sizeAux (acc + 1) l) r
+    | RBLeaf _ -> acc
+    | RBNode(_, _, _, l, r) -> sizeAux (sizeAux (acc + 1) l) r
 
+  /// <summary>
+  ///   Returns the number of bindings in the interval map.
+  /// </summary>
+  /// <param name="tree">The interval tree.</param>
+  /// <returns>
+  ///   The number of bindings.
+  /// </returns>
   [<CompiledName("Count")>]
   let count tree = sizeAux 0 tree
 
+  /// <summary>
+  ///   Iterates over the tree.
+  /// </summary>
+  /// <param name="fn">Iterator.</param>
+  /// <param name="tree">The interval tree.</param>
   [<CompiledName("Iter")>]
   let rec iter fn tree =
     match tree with
-    | Leaf _ -> ()
-    | Node(_, k, v, l, r) -> iter fn l; fn k v; iter fn r
+    | RBLeaf _ -> ()
+    | RBNode(_, k, v, l, r) -> iter fn l; fn k v; iter fn r
 
+  /// <summary>
+  ///   Folds over the tree.
+  /// </summary>
+  /// <param name="fn">Folder.</param>
+  /// <param name="acc">Accumulator.</param>
+  /// <param name="tree">The interval tree.</param>
+  /// <returns>
+  ///   Accumulated value.
+  /// </returns>
   [<CompiledName("Fold")>]
   let rec fold fn acc tree =
     match tree with
-    | Leaf _ -> acc
-    | Node(_, k, v, l, r) ->
+    | RBLeaf _ -> acc
+    | RBNode(_, k, v, l, r) ->
       let acc = fold fn acc l
       let acc = fn acc k v
       fold fn acc r
 
+  /// <summary>
+  ///   Returns a sequence of overlapping mappings of the given interval.
+  /// </summary>
+  /// <param name="k">The key interval.</param>
+  /// <param name="tree">The interval tree.</param>
+  /// <returns>
+  ///   A sequence of mappings.
+  /// </returns>
   [<CompiledName("FindOverlaps")>]
   let findOverlaps (k: AddrRange) tree =
     let rec loop acc = function
-      | Leaf _ -> acc
-      | Node(_, k', v', l, r) ->
+      | RBLeaf _ -> acc
+      | RBNode(_, k', v', l, r) ->
         let acc = if k.Min < k'.Min then loop acc l else acc
         let acc =
           if k.Max < k'.Min || k.Min > k'.Max then acc
