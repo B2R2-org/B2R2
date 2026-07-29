@@ -63,6 +63,7 @@ module ArchSupport =
     | EVM -> EVM.RegisterFactory isa :> IRegisterFactory
     | Python -> Python.RegisterFactory isa :> IRegisterFactory
     | CIL -> CIL.RegisterFactory isa :> IRegisterFactory
+    | WASM -> WASM.RegisterFactory() :> IRegisterFactory
     | _ -> Terminator.futureFeature ()
 
   /// Creates a new parser (IInstructionParsable) for the given architecture.
