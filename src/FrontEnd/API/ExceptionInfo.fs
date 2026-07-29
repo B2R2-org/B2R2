@@ -92,8 +92,9 @@ type ExceptionInfo(liftingUnit: LiftingUnit) =
   /// If a handler has a direct branch to another function, then we consider the
   /// frame containing the handler as a non-function frame.
   let checkIfFrameIsFunction (frame: BinExceptionFrame) handler =
-    match liftingUnit.ParseBBlock(addr = handler) with
-    | Ok(blk) ->
+    let parsed = liftingUnit.ParseBBlock(addr = handler)
+    if parsed.IsTerminated then
+      let blk = parsed.Instructions
       let last = blk[blk.Length - 1]
       if not last.IsCall then
         match last.DirectBranchTarget() with
@@ -101,7 +102,7 @@ type ExceptionInfo(liftingUnit: LiftingUnit) =
           frame.FunctionStart <= jmpTarget && jmpTarget <= frame.FunctionEnd
         | _ -> true
       else true
-    | _ -> true
+    else true
 
   let loopHandlers (frame: BinExceptionFrame) acc =
     frame.Handlers

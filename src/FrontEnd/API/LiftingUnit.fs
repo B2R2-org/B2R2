@@ -25,6 +25,7 @@
 namespace B2R2.FrontEnd
 
 open B2R2
+open B2R2.BinIR.LowUIR
 open B2R2.FrontEnd.BinFile
 open B2R2.FrontEnd.BinLifter
 
@@ -93,15 +94,17 @@ type LiftingUnit
     match parsed with
     | Ok ins ->
       if ins.IsTerminator prevIns then
-        Ok <| toReversedArray (cnt + 1) (ins :: acc)
+        { IsTerminated = true
+          Instructions = toReversedArray (cnt + 1) (ins :: acc) }
       else
         let ptr = ptr.Advance ins.Length
         if ptr.CanReadFileBytes then
           parseBBLByPtr ins ptr (cnt + 1) (ins :: acc)
         else
-          Error <| toReversedArray (cnt + 1) (ins :: acc)
+          { IsTerminated = false
+            Instructions = toReversedArray (cnt + 1) (ins :: acc) }
     | Error _ ->
-      Error <| toReversedArray cnt acc
+      { IsTerminated = false; Instructions = toReversedArray cnt acc }
 
   let codeSpan (ptr: BinFilePointer) =
     let len = ptr.ReadableAmount
@@ -110,6 +113,12 @@ type LiftingUnit
     else
       invalidArg (nameof ptr) (ErrorCase.toMessage ErrorCase.InvalidMemoryRead)
     rawBytes.Span.Slice(ptr.Offset, len)
+
+  let liftBBLByPtr ptr =
+    let parsed = parseBBLByPtr null ptr 0 []
+    let lift (i: IInstruction) = i.Translate irBuilder
+    { IsTerminated = parsed.IsTerminated
+      Statements = Array.map lift parsed.Instructions }
 
   /// Binary file to be lifted.
   member _.File with get() = binFile
@@ -229,9 +238,9 @@ type LiftingUnit
     with _ -> Error ErrorCase.ParsingFailure
 
   /// <summary>
-  /// Parses a basic block starting from the given address (addr), and return
-  /// the corresponding array of instructions. This function returns an
-  /// incomplete list of instructions if the parsing process fails.
+  /// Parses a basic block starting from the given address (addr), returning its
+  /// instructions. Parsing may stop before a terminator, so read
+  /// <c>IsTerminated</c> to tell a whole block from one cut short.
   /// <remarks>
   /// It is recommended to use the same method that takes in a pointer when
   /// the performance is a concern.
@@ -239,7 +248,7 @@ type LiftingUnit
   /// </summary>
   /// <param name="addr">The basic block address.</param>
   /// <returns>
-  /// Parsed basic block (i.e., an array of instructions).
+  /// Returns a <see cref='T:B2R2.FrontEnd.BBlockParseResult'/>.
   /// </returns>
   member _.ParseBBlock(addr: Addr) =
     let ptr = binFile.GetBoundedPointer addr
@@ -247,12 +256,12 @@ type LiftingUnit
 
   /// <summary>
   /// Parses a basic block pointed to by the given binary file pointer (ptr),
-  /// and return the corresponding array of instructions. This function returns
-  /// an incomplete list of instructions if the parsing process fails.
+  /// returning its instructions. Parsing may stop before a terminator, so read
+  /// <c>IsTerminated</c> to tell a whole block from one cut short.
   /// </summary>
   /// <param name="ptr">The binary file pointer.</param>
   /// <returns>
-  /// Parsed basic block (i.e., an array of instructions).
+  /// Returns a <see cref='T:B2R2.FrontEnd.BBlockParseResult'/>.
   /// </returns>
   member _.ParseBBlock(ptr: BinFilePointer) =
     parseBBLByPtr null ptr 0 []
@@ -348,37 +357,29 @@ type LiftingUnit
     else ins.Translate irBuilder
 
   /// <summary>
-  /// Lifts a basic block starting from the given address (addr) and return the
-  /// lifted IR statements, grouped by instructions. This function returns an
-  /// incomplete list of IR statements if the parsing process fails.
+  /// Lifts a basic block starting from the given address (addr), returning the
+  /// lifted IR statements grouped by instruction. Parsing may stop before a
+  /// terminator, so read <c>IsTerminated</c> to tell a whole block from one cut
+  /// short.
   /// </summary>
   /// <param name="addr">The start address.</param>
   /// <returns>
-  /// Array of lifted IR statements, grouped by instructions.
+  /// Returns a <see cref='T:B2R2.FrontEnd.BBlockLiftResult'/>.
   /// </returns>
   member _.LiftBBlock(addr: Addr) =
-    let ptr = binFile.GetBoundedPointer addr
-    match parseBBLByPtr null ptr 0 [] with
-    | Ok instrs ->
-      instrs |> Array.map (fun i -> i.Translate irBuilder) |> Ok
-    | Error instrs ->
-      instrs |> Array.map (fun i -> i.Translate irBuilder) |> Error
+    binFile.GetBoundedPointer addr |> liftBBLByPtr
 
   /// <summary>
-  /// Lift a basic block starting from the given pointer (ptr) and return the
-  /// lifted IR statements, grouped by instructions. This function returns an
-  /// incomplete list of IR statements if the parsing process fails.
+  /// Lifts a basic block starting from the given pointer (ptr), returning the
+  /// lifted IR statements grouped by instruction. Parsing may stop before a
+  /// terminator, so read <c>IsTerminated</c> to tell a whole block from one cut
+  /// short.
   /// </summary>
   /// <param name="ptr">The binary file pointer.</param>
   /// <returns>
-  /// Array of lifted IR statements, grouped by instructions.
+  /// Returns a <see cref='T:B2R2.FrontEnd.BBlockLiftResult'/>.
   /// </returns>
-  member _.LiftBBlock(ptr: BinFilePointer) =
-    match parseBBLByPtr null ptr 0 [] with
-    | Ok instrs ->
-      instrs |> Array.map (fun i -> i.Translate irBuilder) |> Ok
-    | Error instrs ->
-      instrs |> Array.map (fun i -> i.Translate irBuilder) |> Error
+  member _.LiftBBlock(ptr: BinFilePointer) = liftBBLByPtr ptr
 
   /// <summary>
   /// Configure the disassembly output format for each disassembled instruction
@@ -468,3 +469,33 @@ type LiftingUnit
     let span = codeSpan ptr
     let ins = parser.Parse(span, ptr.Addr)
     ins.Decompose asmwordDisasm
+
+/// <summary>
+/// Represents the result of parsing a basic block. Parsing walks instructions
+/// until one of them terminates the block, so it can also stop early, either
+/// because it ran out of readable bytes or because an instruction failed to
+/// decode. Both outcomes carry what was parsed, which is why they are told
+/// apart by <c>IsTerminated</c> rather than by the type of the payload.
+/// </summary>
+and [<Struct>] BBlockParseResult =
+  { /// Whether parsing reached an instruction that terminates the block. When
+    /// this is false the block was cut short, not rejected.
+    IsTerminated: bool
+    /// The whole block when IsTerminated holds; otherwise the instructions
+    /// parsed before parsing stopped, which may be empty.
+    Instructions: IInstruction[] }
+
+/// <summary>
+/// Represents the result of lifting a basic block. The block is parsed first,
+/// so this carries the same distinction as <see
+/// cref='T:B2R2.FrontEnd.BBlockParseResult'/>: parsing may stop before a
+/// terminator, and what was lifted up to that point is still given.
+/// </summary>
+and [<Struct>] BBlockLiftResult =
+  { /// Whether parsing reached an instruction that terminates the block. When
+    /// this is false the block was cut short, not rejected.
+    IsTerminated: bool
+    /// The whole block when IsTerminated holds; otherwise the statements lifted
+    /// from the instructions parsed before parsing stopped. Grouped by
+    /// instruction, and possibly empty.
+    Statements: Stmt[][] }

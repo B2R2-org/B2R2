@@ -88,15 +88,15 @@ type LiftingUnitTests() =
     Assert.AreEqual<string>("nop", lu.DisasmInstruction(addr = 0UL))
     Assert.AreEqual<uint32>(1u, lu.ParseInstruction(addr = 0UL).Length)
     Assert.AreEqual<int>(1, (lu.DecomposeInstruction(addr = 0UL)).Length)
-    match lu.ParseBBlock(addr = 0UL) with
-    | Ok instrs -> Assert.AreEqual<int>(3, instrs.Length)
-    | Error _ -> Assert.Fail()
+    let parsed = lu.ParseBBlock(addr = 0UL)
+    Assert.AreEqual<bool>(true, parsed.IsTerminated)
+    Assert.AreEqual<int>(3, parsed.Instructions.Length)
 
   [<TestMethod>]
   member _.``[LiftingUnit] lift a basic block within the image test``() =
-    match lu.LiftBBlock(addr = 0UL) with
-    | Ok stmts -> Assert.AreEqual<int>(3, stmts.Length)
-    | Error _ -> Assert.Fail()
+    let lifted = lu.LiftBBlock(addr = 0UL)
+    Assert.AreEqual<bool>(true, lifted.IsTerminated)
+    Assert.AreEqual<int>(3, lifted.Statements.Length)
 
   (* The four members below slice the file span themselves. Each must reject an
      unreadable pointer instead of letting a span-level exception escape, so
@@ -143,22 +143,22 @@ type LiftingUnitTests() =
   [<TestMethod>]
   member _.``[LiftingUnit] block APIs at an unreadable pointer test``() =
     for p in unreadable do
-      match lu.ParseBBlock(ptr = p) with
-      | Ok _ -> Assert.Fail()
-      | Error instrs -> Assert.AreEqual<int>(0, instrs.Length)
+      let parsed = lu.ParseBBlock(ptr = p)
+      Assert.AreEqual<bool>(false, parsed.IsTerminated)
+      Assert.AreEqual<int>(0, parsed.Instructions.Length)
     for p in unreadable do
-      match lu.LiftBBlock(ptr = p) with
-      | Ok _ -> Assert.Fail()
-      | Error stmts -> Assert.AreEqual<int>(0, stmts.Length)
+      let lifted = lu.LiftBBlock(ptr = p)
+      Assert.AreEqual<bool>(false, lifted.IsTerminated)
+      Assert.AreEqual<int>(0, lifted.Statements.Length)
 
   [<TestMethod>]
   member _.``[LiftingUnit] block APIs at an unmapped address test``() =
-    match lu.ParseBBlock(addr = unmapped) with
-    | Ok _ -> Assert.Fail()
-    | Error instrs -> Assert.AreEqual<int>(0, instrs.Length)
-    match lu.LiftBBlock(addr = unmapped) with
-    | Ok _ -> Assert.Fail()
-    | Error stmts -> Assert.AreEqual<int>(0, stmts.Length)
+    let parsed = lu.ParseBBlock(addr = unmapped)
+    Assert.AreEqual<bool>(false, parsed.IsTerminated)
+    Assert.AreEqual<int>(0, parsed.Instructions.Length)
+    let lifted = lu.LiftBBlock(addr = unmapped)
+    Assert.AreEqual<bool>(false, lifted.IsTerminated)
+    Assert.AreEqual<int>(0, lifted.Statements.Length)
 
   (* The span overload parses bytes the caller supplies, which need not come
      from the file at all: the address only tells the parser where to pretend
