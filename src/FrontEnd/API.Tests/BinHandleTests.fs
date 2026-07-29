@@ -37,7 +37,7 @@ type BinHandleTests() =
   static let hdl = BinHandle.LoadRawImage([| for i in 0 .. 15 -> byte i |], isa)
 
   /// An image with no content at all, which cannot serve any read.
-  static let emptyHdl = BinHandle.Empty isa
+  static let emptyHdl = BinHandle.LoadEmpty isa
 
   /// An address outside the image, for which the file hands out a null pointer.
   static let unmapped = 0x9999UL

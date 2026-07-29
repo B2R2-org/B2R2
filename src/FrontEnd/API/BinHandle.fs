@@ -299,15 +299,16 @@ type BinHandle private(path, bytes, fmt, isa, baseAddrOpt, osOpt) =
     BinHandle("", bytes, RawBinary, isa, None, None)
 
   /// <summary>
-  /// Creates a handle over no content at all, which can serve no read. Useful
-  /// when only the ISA-derived facilities, such as the register factory, are
-  /// needed.
+  /// Loads an empty image, over which no read can succeed. Useful when only the
+  /// ISA-derived facilities, such as the register factory, are needed. This is
+  /// the same as <see cref='M:B2R2.FrontEnd.BinHandle.LoadRawImage'/> over an
+  /// empty array, named so that the degenerate case reads as one.
   /// </summary>
   /// <param name="isa">The ISA of the handle.</param>
   /// <returns>
   /// Returns a new BinHandle.
   /// </returns>
-  static member Empty(isa) =
+  static member LoadEmpty(isa) =
     BinHandle("", [||], RawBinary, isa, None, None)
 
   /// Gets a new instance of lifting unit.
