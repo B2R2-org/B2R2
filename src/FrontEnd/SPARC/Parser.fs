@@ -37,7 +37,7 @@ type SPARCParser(reader) =
   interface IInstructionParsable with
     member _.MaxInstructionSize = 4
 
-    member _.InstructionAlignment = 2
+    member _.InstructionAlignment = 4
 
     member _.Parse(span: ByteSpan, addr) =
       ParsingMain.parse lifter span reader addr :> IInstruction

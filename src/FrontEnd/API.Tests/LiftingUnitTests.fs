@@ -75,7 +75,7 @@ type LiftingUnitTests() =
        Architecture.MIPS, 4
        Architecture.PPC, 4
        Architecture.RISCV, 2
-       Architecture.SPARC, 2
+       Architecture.SPARC, 4
        Architecture.S390, 2
        Architecture.SH4, 2
        Architecture.PARISC, 4

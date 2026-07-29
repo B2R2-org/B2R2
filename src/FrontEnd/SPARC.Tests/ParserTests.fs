@@ -269,3 +269,15 @@ type ParserTests() =
   member _.``[SPARC] Three Reg Op LDFSR Parse Test``() =
     "1d000dc1"
     ++ LDFSR ** [ O.Reg L4; O.Reg I5; O.Reg FSR ] ||> test
+
+  (* Every SPARC instruction is one 32-bit word, so the CPU requires word
+     alignment. The reported alignment used to be 2, which made a caller resume
+     halfway into a word after an undecodable one. Deriving the expectation from
+     the parsed length keeps the numbers from drifting apart again. *)
+  [<TestMethod>]
+  member _.``[SPARC] Instruction Alignment Test``() =
+    let span = System.ReadOnlySpan(ByteArray.ofHexString "1d000dc1")
+    let ins = parser.Parse(span, 0UL)
+    Assert.AreEqual<uint32>(4u, ins.Length)
+    Assert.AreEqual<int>(int ins.Length, parser.InstructionAlignment)
+    Assert.AreEqual<int>(int ins.Length, parser.MaxInstructionSize)
