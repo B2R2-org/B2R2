@@ -48,7 +48,7 @@ type GroundWork =
     | AArch64 -> ARM64.RegisterFactory isa :> IRegisterFactory
     | MIPS -> MIPS.RegisterFactory isa :> IRegisterFactory
     | TMS320C6000 -> TMS320C6000.RegisterFactory isa :> IRegisterFactory
-    | AVR -> AVR.RegisterFactory isa
+    | AVR -> AVR.RegisterFactory isa :> IRegisterFactory
     | S390 -> S390.RegisterFactory isa :> IRegisterFactory
     | SH4 -> SH4.RegisterFactory isa :> IRegisterFactory
     | PPC32 -> PPC32.RegisterFactory isa :> IRegisterFactory

@@ -164,10 +164,10 @@ type LiftingUnit
   /// Parses one instruction at the given address (addr), and return the
   /// corresponding instruction. This function raises an exception if the
   /// parsing process fails.
-  /// <remark>
+  /// <remarks>
   /// It is recommended to use the same method that takes in a pointer when
   /// the performance is a concern.
-  /// </remark>
+  /// </remarks>
   /// </summary>
   /// <param name="addr">The instruction address.</param>
   /// <returns>
@@ -182,7 +182,7 @@ type LiftingUnit
   /// return the corresponding instruction. This function raises an exception if
   /// the parsing process fails.
   /// </summary>
-  /// <param name="ptr">BinFilePointer.</param>
+  /// <param name="ptr">The binary file pointer.</param>
   /// <returns>
   /// Parsed instruction.
   /// </returns>
@@ -220,7 +220,7 @@ type LiftingUnit
   /// Tries to parse one instruction pointed to by the binary file pointer
   /// (ptr), and return the corresponding instruction.
   /// </summary>
-  /// <param name="ptr">BinFilePointer.</param>
+  /// <param name="ptr">The binary file pointer.</param>
   /// <returns>
   /// Parsed instruction if succeeded, ErrorCase if otherwise.
   /// </returns>
@@ -232,10 +232,10 @@ type LiftingUnit
   /// Parses a basic block starting from the given address (addr), and return
   /// the corresponding array of instructions. This function returns an
   /// incomplete list of instructions if the parsing process fails.
-  /// <remark>
+  /// <remarks>
   /// It is recommended to use the same method that takes in a pointer when
   /// the performance is a concern.
-  /// </remark>
+  /// </remarks>
   /// </summary>
   /// <param name="addr">The basic block address.</param>
   /// <returns>
@@ -260,10 +260,10 @@ type LiftingUnit
   /// <summary>
   /// Lifts an instruction at the given address (addr) and return the lifted IR
   /// statements without optimization.
-  /// <remark>
+  /// <remarks>
   /// It is recommended to use the same method that takes in a pointer when
   /// the performance is a concern.
-  /// </remark>
+  /// </remarks>
   /// </summary>
   /// <param name="addr">The instruction address.</param>
   /// <returns>
@@ -275,10 +275,10 @@ type LiftingUnit
   /// <summary>
   /// Lifts an instruction at the given address (addr) and return the lifted IR
   /// statements.
-  /// <remark>
+  /// <remarks>
   /// It is recommended to use the same method that takes in a pointer when
   /// the performance is a concern.
-  /// </remark>
+  /// </remarks>
   /// </summary>
   /// <param name="addr">The instruction address.</param>
   /// <param name="optimize">
@@ -350,7 +350,7 @@ type LiftingUnit
   /// <summary>
   /// Lifts a basic block starting from the given address (addr) and return the
   /// lifted IR statements, grouped by instructions. This function returns an
-  /// incomplete list of IR statments if the parsing process fails.
+  /// incomplete list of IR statements if the parsing process fails.
   /// </summary>
   /// <param name="addr">The start address.</param>
   /// <returns>
@@ -367,7 +367,7 @@ type LiftingUnit
   /// <summary>
   /// Lift a basic block starting from the given pointer (ptr) and return the
   /// lifted IR statements, grouped by instructions. This function returns an
-  /// incomplete list of IR statments if the parsing process fails.
+  /// incomplete list of IR statements if the parsing process fails.
   /// </summary>
   /// <param name="ptr">The binary file pointer.</param>
   /// <returns>

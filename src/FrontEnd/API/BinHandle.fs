@@ -230,7 +230,7 @@ type BinHandle private(path, bytes, fmt, isa, baseAddrOpt, osOpt) =
   /// <summary>
   /// Returns the byte array of size (nBytes) pointed to by the pointer (ptr).
   /// </summary>
-  /// <param name="ptr">The binary pointer.</param>
+  /// <param name="ptr">The binary file pointer.</param>
   /// <param name="nBytes">The size of the byte array (in bytes).</param>
   /// <returns>
   /// Returns (byte[]) if succeeded, (ErrorCase) otherwise.
@@ -253,7 +253,7 @@ type BinHandle private(path, bytes, fmt, isa, baseAddrOpt, osOpt) =
   /// Returns the byte array of size (nBytes) pointed to by the binary file
   /// pointer (ptr).
   /// </summary>
-  /// <param name="ptr">BInaryPointer.</param>
+  /// <param name="ptr">The binary file pointer.</param>
   /// <param name="nBytes">The size of the byte array (in bytes).</param>
   /// <returns>
   /// Returns the byte array if succeed. Otherwise, raise an exception.
@@ -277,7 +277,7 @@ type BinHandle private(path, bytes, fmt, isa, baseAddrOpt, osOpt) =
   /// Returns the corresponding integer of the size from the given address
   /// pointed to by the binary pointer (ptr).
   /// </summary>
-  /// <param name="ptr">BinFilePointer.</param>
+  /// <param name="ptr">The binary file pointer.</param>
   /// <param name="size">The size of the integer in bytes. Maximum 8 bytes is
   /// possible.</param>
   /// <returns>
@@ -307,7 +307,7 @@ type BinHandle private(path, bytes, fmt, isa, baseAddrOpt, osOpt) =
   /// Returns the corresponding integer value of the size from the current
   /// binary, which is pointed to by the binary file pointer (ptr).
   /// </summary>
-  /// <param name="ptr">The binary pointer.</param>
+  /// <param name="ptr">The binary file pointer.</param>
   /// <param name="size">The size of the integer in bytes. Maximum 8 bytes is
   /// possible.</param>
   /// <returns>
@@ -335,7 +335,7 @@ type BinHandle private(path, bytes, fmt, isa, baseAddrOpt, osOpt) =
   /// Returns the corresponding unsigned integer of the size from the address
   /// pointed to by the binary file pointer (ptr).
   /// </summary>
-  /// <param name="ptr">BinFilePointer.</param>
+  /// <param name="ptr">The binary file pointer.</param>
   /// <param name="size">The size of the integer in bytes. Maximum 8 bytes is
   /// possible.</param>
   /// <returns>
@@ -366,7 +366,7 @@ type BinHandle private(path, bytes, fmt, isa, baseAddrOpt, osOpt) =
   /// Returns the corresponding unsigned integer value of the size from the
   /// binary, which is pointed to by the binary file pointer (ptr).
   /// </summary>
-  /// <param name="ptr">BinFilePointer.</param>
+  /// <param name="ptr">The binary file pointer.</param>
   /// <param name="size">The size of the integer in bytes. Maximum 8 bytes is
   /// possible.</param>
   /// <returns>
@@ -408,7 +408,7 @@ type BinHandle private(path, bytes, fmt, isa, baseAddrOpt, osOpt) =
   /// pointer (ptr). When the pointed region ends before a NUL is found, the
   /// string read so far is returned.
   /// </summary>
-  /// <param name="ptr">The binary pointer.</param>
+  /// <param name="ptr">The binary file pointer.</param>
   /// <returns>
   /// Returns the ASCII string if the pointer is backed by file bytes,
   /// (ErrorCase) otherwise.
@@ -432,7 +432,7 @@ type BinHandle private(path, bytes, fmt, isa, baseAddrOpt, osOpt) =
   /// pointer (ptr). When the pointed region ends before a NUL is found, the
   /// string read so far is returned.
   /// </summary>
-  /// <param name="ptr">The binary pointer.</param>
+  /// <param name="ptr">The binary file pointer.</param>
   /// <returns>
   /// Returns the ASCII string if succeed. Otherwise, raise an exception.
   /// </returns>
