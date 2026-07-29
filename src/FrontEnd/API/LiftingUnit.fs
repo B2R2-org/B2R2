@@ -56,19 +56,16 @@ type LiftingUnit
           member _.IsThumb with get() = false and set _ = ()
           member _.ITState with get() = 0uy and set _ = () }
 
+  let names = Option.toObj binFile.NameResolver
+
+  (* Both builders start with the address off, so that the same instruction
+     reads the same way whichever member rendered it. Callers that want the
+     address ask for it through ConfigureDisassembly, which sets both. *)
   let strDisasm =
-    match binFile.NameResolver with
-    | Some names ->
-      StringDisasmBuilder(true, names, binFile.ISA.WordSize) :> IDisasmBuilder
-    | None ->
-      StringDisasmBuilder(true, null, binFile.ISA.WordSize) :> IDisasmBuilder
+    StringDisasmBuilder(false, names, binFile.ISA.WordSize) :> IDisasmBuilder
 
   let asmwordDisasm =
-    match binFile.NameResolver with
-    | Some names ->
-      AsmWordDisasmBuilder(false, names, binFile.ISA.WordSize) :> IDisasmBuilder
-    | None ->
-      AsmWordDisasmBuilder(false, null, binFile.ISA.WordSize) :> IDisasmBuilder
+    AsmWordDisasmBuilder(false, names, binFile.ISA.WordSize) :> IDisasmBuilder
 
   let mutable disasmSyntax = DefaultSyntax
 
@@ -383,20 +380,30 @@ type LiftingUnit
 
   /// <summary>
   /// Configure the disassembly output format for each disassembled instruction
-  /// to show the address of the instruction or not.
+  /// to show the address of the instruction or not. This applies to every
+  /// <c>Disasm*</c> and <c>Decompose*</c> member alike.
   /// </summary>
-  member _.ConfigureDisassembly(showAddr) = strDisasm.ShowAddress <- showAddr
+  member _.ConfigureDisassembly(showAddr) =
+    strDisasm.ShowAddress <- showAddr
+    asmwordDisasm.ShowAddress <- showAddr
 
   /// <summary>
   /// Configure the disassembly output format for each disassembled instruction.
-  /// Subsequent disassembly will use the configured format.
+  /// Subsequent disassembly will use the configured format. This applies to
+  /// every <c>Disasm*</c> and <c>Decompose*</c> member alike. Symbols are shown
+  /// only when the underlying file can resolve names, so asking for them has no
+  /// effect on a raw image.
   /// </summary>
   member _.ConfigureDisassembly(showAddr, showSymbol) =
     strDisasm.ShowAddress <- showAddr
     strDisasm.ShowSymbol <- showSymbol
+    asmwordDisasm.ShowAddress <- showAddr
+    asmwordDisasm.ShowSymbol <- showSymbol
 
   /// <summary>
-  /// Disassemble the given instruction and return the disassembled string.
+  /// Disassemble the given instruction and return the disassembled string,
+  /// using the format set by
+  /// <see cref='M:B2R2.FrontEnd.LiftingUnit.ConfigureDisassembly'/>.
   /// </summary>
   /// <param name="ins">The instruction to disassemble.</param>
   /// <returns>
@@ -406,8 +413,8 @@ type LiftingUnit
 
   /// <summary>
   /// Disassemble an instruction at the given address (addr) and return the
-  /// disassembled string. The output does not show the address of the
-  /// instruction nor resolve the symbols of references.
+  /// disassembled string, using the format set by
+  /// <see cref='M:B2R2.FrontEnd.LiftingUnit.ConfigureDisassembly'/>.
   /// </summary>
   /// <param name="addr">The instruction address.</param>
   /// <returns>
@@ -417,12 +424,12 @@ type LiftingUnit
     let ptr = binFile.GetBoundedPointer addr
     let span = codeSpan ptr
     let ins = parser.Parse(span, addr)
-    ins.Disasm()
+    ins.Disasm strDisasm
 
   /// <summary>
   /// Disassemble an instruction pointed to by the given pointer (ptr) and
-  /// return the disassembled string. The output does not show the address of
-  /// the instruction nor resolve the symbols of references.
+  /// return the disassembled string, using the format set by
+  /// <see cref='M:B2R2.FrontEnd.LiftingUnit.ConfigureDisassembly'/>.
   /// </summary>
   /// <param name="ptr">The binary file pointer.</param>
   /// <returns>
@@ -431,7 +438,7 @@ type LiftingUnit
   member _.DisasmInstruction(ptr: BinFilePointer) =
     let span = codeSpan ptr
     let ins = parser.Parse(span, ptr.Addr)
-    ins.Disasm()
+    ins.Disasm strDisasm
 
   /// <summary>
   /// Decompose the given instruction and return the disassembled sequence of

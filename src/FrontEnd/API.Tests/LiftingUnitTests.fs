@@ -34,11 +34,17 @@ open Microsoft.VisualStudio.TestTools.UnitTesting
 type LiftingUnitTests() =
   static let isa = ISA(Architecture.Intel, WordSize.Bit64)
 
-  /// A raw image holding "nop; nop; ret; nop".
-  static let hdl =
-    BinHandle.LoadRawImage([| 0x90uy; 0x90uy; 0xc3uy; 0x90uy |], isa)
+  /// "nop; nop; ret; nop".
+  static let code = [| 0x90uy; 0x90uy; 0xc3uy; 0x90uy |]
+
+  /// A raw image holding the code above.
+  static let hdl = BinHandle.LoadRawImage(code, isa)
 
   static let lu = hdl.NewLiftingUnit()
+
+  /// A unit over its own image, so that configuring the output format cannot
+  /// leak into the tests that share the one above.
+  static let freshUnit () = BinHandle.LoadRawImage(code, isa).NewLiftingUnit()
 
   /// An address outside the image, which resolves to a null pointer.
   static let unmapped = 0x9999UL
@@ -192,6 +198,54 @@ type LiftingUnitTests() =
     let armUnit = unitFor Architecture.ARMv7
     armUnit.DisassemblySyntax <- ATTSyntax
     Assert.AreEqual<DisasmSyntax>(DefaultSyntax, armUnit.DisassemblySyntax)
+
+  (* The three Disasm overloads differ only in how they locate the instruction,
+     so they must render it the same way. The addr and ptr ones used to call
+     ins.Disasm(), which builds a fresh default builder inside the architecture,
+     so ConfigureDisassembly reached the ins overload alone and the file's name
+     resolver went with it. *)
+  [<TestMethod>]
+  member _.``[LiftingUnit] disasm overloads agree test``() =
+    let unit = freshUnit ()
+    let ptr = hdl.File.GetBoundedPointer 0UL
+    let ins = unit.ParseInstruction(ptr = ptr)
+    let rendered () =
+      [| unit.DisasmInstruction(ins = ins)
+         unit.DisasmInstruction(addr = 0UL)
+         unit.DisasmInstruction(ptr = ptr) |]
+      |> Array.distinct
+      |> String.concat "|"
+    Assert.AreEqual<string>("nop", rendered ())
+    unit.ConfigureDisassembly true
+    Assert.AreEqual<string>("0000000000000000: nop", rendered ())
+
+  (* ConfigureDisassembly used to set the string builder alone, so an address
+     asked for here never reached Decompose*. *)
+  [<TestMethod>]
+  member _.``[LiftingUnit] configuration reaches decompose test``() =
+    let unit = freshUnit ()
+    let hasAddr () =
+      unit.DecomposeInstruction(addr = 0UL)
+      |> Array.exists (fun w -> w.AsmWordKind = AsmWordKind.Address)
+    Assert.AreEqual<bool>(false, hasAddr ())
+    unit.ConfigureDisassembly true
+    Assert.AreEqual<bool>(true, hasAddr ())
+
+  (* The two builders used to disagree out of the box, the string one showing
+     the address and the AsmWord one not, so the same instruction read
+     differently depending on which member produced it. *)
+  [<TestMethod>]
+  member _.``[LiftingUnit] disasm and decompose agree test``() =
+    let unit = freshUnit ()
+    let joined () =
+      unit.DecomposeInstruction(addr = 0UL)
+      |> Array.map (fun w -> w.AsmWordValue)
+      |> String.concat ""
+    Assert.AreEqual<string>("nop", joined ())
+    Assert.AreEqual<string>(unit.DisasmInstruction(addr = 0UL), joined ())
+    unit.ConfigureDisassembly true
+    Assert.AreEqual<string>("0000000000000000: nop", joined ())
+    Assert.AreEqual<string>(unit.DisasmInstruction(addr = 0UL), joined ())
 
   [<TestMethod>]
   member _.``[LiftingUnit] instruction alignment test``() =
