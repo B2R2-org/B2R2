@@ -123,9 +123,21 @@ type Instruction
 
     member _.IsPop = Terminator.futureFeature ()
 
-    member _.IsInterrupt = Terminator.futureFeature ()
+    member _.IsInterrupt =
+      match op with
+      (* SVC asks the supervisor, MC raises a monitor-event interruption, and
+         TRAP2 and TRAP4 a special-operation one. PC enters a service routine
+         the way SYSENTER does on Intel. *)
+      | Opcode.SVC | Opcode.MC | Opcode.TRAP2 | Opcode.TRAP4
+      | Opcode.PC -> true
+      | _ -> false
 
-    member _.IsExit = Terminator.futureFeature ()
+    member _.IsExit =
+      match op with
+      (* PR leaves the routine a PC entered, and loading the PSW replaces the
+         whole program state, which is how S390 returns from an interruption. *)
+      | Opcode.PR | Opcode.LPSW | Opcode.LPSWE -> true
+      | _ -> false
 
     member _.IsNop =
       match op with

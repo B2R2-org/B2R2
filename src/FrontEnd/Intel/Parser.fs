@@ -566,15 +566,17 @@ type IntelParser(wordSz, reader) =
       (this :> IInstructionParsable).Parse(ReadOnlySpan bs, addr)
 
     member this.Parse(span: ByteSpan, addr) =
-      let mutable rex = REXPrefix.NOREX
-      let prefEndPos = this.ParsePrefix span
-      let nextPos = this.ParseREX(span, prefEndPos, &rex)
-      phlp.VEXInfo <- None
-      phlp.IsFar <- false
-      phlp.InsAddr <- addr
-      phlp.REXPrefix <- rex
-      phlp.CurrPos <- nextPos
+      try
+        let mutable rex = REXPrefix.NOREX
+        let prefEndPos = this.ParsePrefix span
+        let nextPos = this.ParseREX(span, prefEndPos, &rex)
+        phlp.VEXInfo <- None
+        phlp.IsFar <- false
+        phlp.InsAddr <- addr
+        phlp.REXPrefix <- rex
+        phlp.CurrPos <- nextPos
 #if LCACHE
-      phlp.MarkPrefixEnd(prefEndPos)
+        phlp.MarkPrefixEnd(prefEndPos)
 #endif
-      oneByteParsers[int (phlp.ReadByte span)].Run(span, phlp) :> IInstruction
+        oneByteParsers[int (phlp.ReadByte span)].Run(span, phlp) :> IInstruction
+      with e when not (Terminator.isCritical e) -> raise ParsingFailureException

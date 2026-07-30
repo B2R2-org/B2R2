@@ -87,9 +87,17 @@ type LiftingUnitTests() =
   /// dispatch. Found by fuzzing; the file each one throws from is noted so a
   /// sample can be replaced if that dispatch is rewritten.
   static let undecodable =
-    [| Architecture.Intel, "c57da606b4c0d483"    (* ParsingFunctions.fs *)
-       Architecture.ARMv8, "523f5f4ecc7d4906"    (* ARM64/ParsingMain.fs *)
-       Architecture.SPARC, "3e775fa20b35409b" |] (* SPARC/ParsingMain.fs *)
+    [| Architecture.Intel, "c57da606b4c0d483"      (* Intel/ParsingFunctions *)
+       Architecture.ARMv8, "523f5f4ecc7d4906"      (* ARM64/ParsingMain *)
+       Architecture.ARMv8, "da2310d58e8c42b9"      (* ARM64/OperandHelper *)
+       Architecture.ARMv8, "077f1cf2f69240e8"      (* ARM64/Utils *)
+       Architecture.SPARC, "3e775fa20b35409b"      (* SPARC/ParsingMain *)
+       Architecture.SH4, "44f44ec52ee90c4e"        (* SH4/ParsingMain *)
+       Architecture.TMS320C6000, "714895b96fd44fd8" |] (* TMS/ParsingMain *)
+
+  /// Every architecture a parser can be built for, taken from the alignment
+  /// table above so the two cannot drift apart.
+  static let parsableArchs = alignments |> Array.map fst
 
   static let assertRaises (f: unit -> unit) =
     Assert.ThrowsExactly<System.ArgumentException>(fun () -> f ()) |> ignore
@@ -188,6 +196,39 @@ type LiftingUnitTests() =
       Assert.ThrowsExactly<ParsingFailureException>(fun () ->
         unit.ParseInstruction(System.ReadOnlySpan padded, 0x1000UL) |> ignore)
       |> ignore
+
+  (* IsTerminator decides where a block ends, and it is read outside the guard
+     that converts parse failures, so an architecture leaving it unimplemented
+     took every block-level API down with it however valid the input was. S390
+     did, so this walks a real block there: load, load, then a branch. *)
+  [<TestMethod>]
+  member _.``[LiftingUnit] a block over every architecture test``() =
+    let code = ByteArray.ofHexString "181218340a00"
+    let hdl = BinHandle.LoadRawImage(code, ISA Architecture.S390)
+    let parsed = hdl.NewLiftingUnit().ParseBBlock(addr = 0UL)
+    Assert.AreEqual<bool>(true, parsed.IsTerminated)
+    Assert.AreEqual<int>(3, parsed.Instructions.Length)
+
+  (* Parsing promises a single exception type for input it cannot decode. The
+     parsers reach that outcome by many routes -- an unhandled dispatch value, a
+     reserved encoding, a read past the end of the span -- and each used to
+     surface as whatever exception happened to be nearest, so a caller had no
+     type to catch. The span is far wider than any MaxInstructionSize, and both
+     ARM32 modes run, since Thumb is a separate decoder. *)
+  [<TestMethod>]
+  member _.``[LiftingUnit] a parse failure has one type test``() =
+    let rng = System.Random 4242
+    let bytes = Array.zeroCreate 64
+    for arch in parsableArchs do
+      for thumb in [| false; true |] do
+        let unit = BinHandle.LoadRawImage(bytes, ISA arch).NewLiftingUnit()
+        unit.IsThumb <- thumb
+        for _ = 1 to 2000 do
+          rng.NextBytes bytes
+          try unit.ParseInstruction(System.ReadOnlySpan bytes, 0UL) |> ignore
+          with
+          | ParsingFailureException -> ()
+          | e -> Assert.Fail $"{arch} thumb={thumb}: {e.GetType().Name}"
 
   (* The span overload parses bytes the caller supplies, which need not come
      from the file at all: the address only tells the parser where to pretend

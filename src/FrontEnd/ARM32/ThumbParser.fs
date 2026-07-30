@@ -4648,7 +4648,10 @@ let parseAdvSIMDTwoRegsAndShfAmt phlp (itstate: byref<BL>) isInIT bin =
 #endif
     let dt = getDTImm6WordT bin
     render phlp &itstate 0 isInIT bin Op.VQRSHRUN dt N OD.OprDdQmImm
-  | _ -> B2R2.Terminator.futureFeature ()
+  (* A gap in the Advanced SIMD tables above rather than an impossible state:
+     ordinary Thumb input reaches this, so it reports an undecodable encoding
+     instead of announcing a fatal error on stderr. *)
+  | _ -> raise ParsingFailureException
 
 /// Advanced SIMD shifts and immediate generation on page F3-4173.
 let parseAdvSIMDShfsAndImmGen phlp (itstate: byref<BL>) isInIT bin =

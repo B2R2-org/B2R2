@@ -95,7 +95,9 @@ let parseCond = function
   | 0xduy -> Condition.LE
   | 0xeuy -> Condition.AL
   | 0xfuy -> Condition.UN
-  | _ -> failwith "Invalid condition"
+  (* Callers pass a four-bit field, so nothing outside 0x0..0xf arrives. Reached
+     only if one forgets to mask, which is a defect rather than bad input. *)
+  | _ -> Terminator.impossible ()
 
 /// The function SignExtend() in the manual.
 let signExtend bitSize extSize (imm: uint64) =

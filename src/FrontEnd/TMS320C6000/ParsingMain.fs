@@ -249,7 +249,7 @@ let private parseAddrMode unit offset mode baseR =
   | 0b1101u -> baseR, PreIncrement, parseReg offset false unit |> OffsetR
   | 0b1110u -> baseR, PostDecrement, parseReg offset false unit |> OffsetR
   | 0b1111u -> baseR, PostIncrement, parseReg offset false unit |> OffsetR
-  | _ -> Terminator.impossible ()
+  | _ -> raise ParsingFailureException
 
 let private parseMem oprVal unit =
   parseReg (Bits.extract oprVal 13u 9u) false unit (* Base register *)
@@ -1305,7 +1305,7 @@ let getCtrlReg crHi crLo =
   | 0b00000u, 0b01011u -> Register.TSCH
   | 0b00000u, 0b01010u -> Register.TSCL
   | 0b00000u, 0b11010u -> Register.TSR
-  | _ -> Terminator.impossible ()
+  | _ -> raise ParsingFailureException
 
 /// Control Register to Register
 let parseCtrlRegToReg bin opcode unit =
@@ -1352,7 +1352,7 @@ let private parseDUnitSrcs bin =
   | 0b111011u -> parseSiUc5Si bin Op.SUBAW unit
   | 0b111100u -> parseSiSiSi bin Op.ADDAD unit
   | 0b111101u -> parseSiUc5Si bin Op.ADDAD unit
-  | _ -> Terminator.impossible ()
+  | _ -> raise ParsingFailureException
 
 /// Appendix C. page 724. Fig. C-2
 let private parseDUnitSrcsExt bin =
@@ -1372,7 +1372,7 @@ let private parseDUnitSrcsExt bin =
   | 0b1110u -> parseUiXUiUi bin Op.XOR unit
   | 0b1111u when isSrc111111 bin -> parseXUiUi bin Op.NOT unit
   | 0b1111u -> parseSc5XUiUi bin Op.XOR unit
-  | _ -> Terminator.impossible ()
+  | _ -> raise ParsingFailureException
 
 /// Appendix C. page 724. Fig. C-3
 let private parseDUnitADDLongImm bin =
@@ -1381,7 +1381,7 @@ let private parseDUnitADDLongImm bin =
   | 0b011u -> parseB14B15Uc15Si bin Op.ADDAB unit
   | 0b101u -> parseB14B15Uc15Si bin Op.ADDAH unit
   | 0b111u -> parseB14B15Uc15Si bin Op.ADDAW unit
-  | _ -> Terminator.impossible ()
+  | _ -> raise ParsingFailureException
 
 /// Appendix C. page 724. Fig. C-4
 let private parseDUnitLSBasic bin =
@@ -1444,7 +1444,7 @@ let private parseLUnitUnary bin =
   | 0b00011u -> parseXU4U2 bin Op.UNPKHU4 unit
   | 0b00100u -> parseXs2S2 bin Op.ABS2 unit
   | 0b00101u -> parseSc5Si1 bin Op.MVK unit
-  | _ -> Terminator.impossible ()
+  | _ -> raise ParsingFailureException
 
 /// Appendix D. page 735. Fig. D-3
 let private parseLUnitNonCond bin = struct (Op.InvalOP, NoUnit, NoOperand)
@@ -1486,7 +1486,7 @@ let private parseMUnitCompound bin =
   | 0b11100u -> parseXiIntInt bin Op.SSHVL unit
   | 0b11101u -> parseXUiUiUi bin Op.ROTL unit
   | 0b11110u -> parseXUiUc5Ui bin Op.ROTL unit
-  | _ -> Terminator.impossible ()
+  | _ -> raise ParsingFailureException
 
 /// Appendix E. page 743. Fig. E-2
 let private parseMUnitUnaryExt bin =
@@ -1499,7 +1499,7 @@ let private parseMUnitUnaryExt bin =
   | 0b11100u -> parseXUiUi bin Op.SHFL unit
   | 0b11110u -> parseXU4U4 bin Op.BITC4 unit
   | 0b11111u -> parseXUiUi bin Op.BITR unit
-  | _ -> Terminator.impossible ()
+  | _ -> raise ParsingFailureException
 
 /// Appendix E. page 743. Fig. E-3
 let private parseMUnitNonCond bin =
@@ -1517,7 +1517,7 @@ let private parseMUnitNonCond bin =
   | 0b11001u -> parseIntXiInt bin Op.SMPY32 unit
   | 0b11011u -> parseUiXUiUi bin Op.XORMPY unit
   | 0b11111u -> parseUiUiUi bin Op.GMPY unit
-  | _ -> Terminator.impossible ()
+  | _ -> raise ParsingFailureException
 
 /// Appendix E. page 743. Fig. E-4
 let private parseMUnitMPY bin =
@@ -1554,7 +1554,7 @@ let private parseMUnitMPY bin =
   | 0b11101u -> parseUlsb16XSlsb16Si bin Op.MPYUS unit
   | 0b11110u -> parseSc5XUlsb16Si bin Op.MPYSU unit
   | 0b11111u -> parseUlsb16XUlsb16Ui bin Op.MPYU unit
-  | _ -> Terminator.impossible ()
+  | _ -> raise ParsingFailureException
 
 /// Appendix F. page 747. Fig. F-1
 let private parseSUnitSrcs bin =
@@ -1619,7 +1619,7 @@ let private parseSUnitSrcs bin =
   | 0b111011u -> parseXUiUiUi bin Op.SET unit
   | 0b111110u -> parseXSpSp bin Op.RSQRSP unit
   | 0b111111u -> parseXUiUiUi bin Op.CLR unit
-  | _ -> Terminator.impossible ()
+  | _ -> raise ParsingFailureException
 
 /// Appendix F. page 747. Fig. F-2
 let private parseSUnitAddSubFloat bin = struct (Op.InvalOP, NoUnit, NoOperand)
@@ -1651,7 +1651,7 @@ let private parseSUnitSrcsExt bin =
   | 0b1100u -> parseS2XS2S2 bin Op.MIN2 unit
   | 0b1101u -> parseS2XS2S2 bin Op.MAX2 unit
   | 0b1111u -> parseI2Xi2I2 bin Op.PACK2 unit
-  | _ -> Terminator.impossible ()
+  | _ -> raise ParsingFailureException
 
 /// Appendix F. page 748. Fig. F-6
 let private parseSUnitBrDisp bin =
@@ -1694,7 +1694,7 @@ let private parseSUnitNonCond bin =
   let unit = getSUnit (sBit bin) (xBit bin)
   match Bits.extract bin 9u 6u with
   | 0b1011u -> parseSiXSiS2 bin Op.RPACK2 unit
-  | _ -> Terminator.impossible ()
+  | _ -> raise ParsingFailureException
 
 /// Appendix F. page 749. Fig. F-15
 let private parseSUnitUnary bin =
@@ -1703,7 +1703,7 @@ let private parseSUnitUnary bin =
   | 0b00000u -> parseXSpSp bin Op.ABSSP unit
   | 0b00010u -> parseXU4U2 bin Op.UNPKLU4 unit
   | 0b00011u -> parseXU4U2 bin Op.UNPKHU4 unit
-  | _ -> Terminator.impossible ()
+  | _ -> raise ParsingFailureException
 
 /// Appendix F. page 749. Fig. F-16
 let private parseSUnitFieldOps bin =
@@ -1721,7 +1721,7 @@ let private parseNoUnitDINT bin =
   | 0b0001u -> struct (Op.SWENR, NoUnit, NoOperand)
   | 0b0010u -> struct (Op.DINT, NoUnit, NoOperand)
   | 0b0011u -> struct (Op.RINT, NoUnit, NoOperand)
-  | _ -> Terminator.impossible ()
+  | _ -> raise ParsingFailureException
 
 /// Appendix H. page 765. Fig. H-2
 let private parseNoUnitIdleNop bin =
@@ -1739,7 +1739,7 @@ let private parseNoUnitCase0 bin =
   match Bits.extract bin 31u 28u with
   | 0b0000u -> parseNoUnitIdleNop bin
   | 0b0001u -> parseNoUnitDINT bin
-  | _ -> Terminator.impossible ()
+  | _ -> raise ParsingFailureException
 
 let private parseNoUnitCase1 bin =
   match Bits.extract bin 31u 28u with
@@ -1946,7 +1946,7 @@ let private parseCase110 bin =
   | 0b1110011u -> parseDpXDpDp bin Op.SUBDP (getSUnit s x)
   | 0b1110101u -> parseSpXSpSp bin Op.SUBSP (getSUnit s x) (* src2 - src1 *)
   | 0b1110111u -> parseDpXDpDp bin Op.SUBDP (getSUnit s x) (* src2 - src1 *)
-  | _ -> Terminator.impossible ()
+  | _ -> raise ParsingFailureException
 
 let private parseCase10 bin =
   match Bits.pick bin 4u with
@@ -1965,7 +1965,7 @@ let private parseDUnitDWord bin =
   (* parseDUnitLSNonalignDWord C-7 *)
   | 0b010u -> parseDUnitDWordOperands bin Op.LDNDW unit MemReg
   | 0b111u -> parseDUnitDWordOperands bin Op.STNDW unit RegMem
-  | _ -> Terminator.impossible ()
+  | _ -> raise ParsingFailureException
 
 let private parseDUnitLoadStore bin =
   match Bits.pick bin 8u with

@@ -24,6 +24,7 @@
 
 namespace B2R2.FrontEnd
 
+open System
 open B2R2
 open B2R2.BinIR.LowUIR
 open B2R2.FrontEnd.BinFile
@@ -33,6 +34,13 @@ open B2R2.FrontEnd.BinLifter
 /// Represents a basic unit for lifting binaries, which can be used to parse,
 /// disassemble, and lift instructions. To lift a binary in parallel, one needs
 /// to create multiple lifting units.
+/// <remarks>
+/// Every member that parses reports input it cannot decode as <see
+/// cref='T:B2R2.FrontEnd.BinLifter.ParsingFailureException'/>, and a location
+/// that reaches no readable bytes as <see cref='T:System.ArgumentException'/>.
+/// Anything else escaping these members is a defect rather than a property of
+/// the input.
+/// </remarks>
 /// </summary>
 type LiftingUnit
   internal(binFile: IBinFile,
@@ -69,6 +77,14 @@ type LiftingUnit
 
   let mutable disasmSyntax = DefaultSyntax
 
+  (* Every parse in this type goes through here. A parser already owes its
+     caller a single exception type, so this repeats the conversion only to keep
+     that promise from depending on each parser remembering it: a new one that
+     lets an assertion escape still cannot break the contract of this type. *)
+  let parse (span: ByteSpan) addr =
+    try parser.Parse(span, addr)
+    with e when not (Terminator.isCritical e) -> raise ParsingFailureException
+
   let toReversedArray cnt lst =
     let arr = Array.zeroCreate cnt
     let mutable idx = cnt - 1
@@ -85,9 +101,14 @@ type LiftingUnit
           Error ErrorCase.InvalidMemoryRead
         else
           let span = rawBytes.Span.Slice(ptr.Offset, len)
-          Ok <| parser.Parse(span, ptr.Addr)
-      with _ ->
+          Ok <| parse span ptr.Addr
+      with
+      | ParsingFailureException ->
         Error ErrorCase.ParsingFailure
+      (* A pointer can claim readable bytes past the end of the image, since
+         nothing validates its bound against the file length. *)
+      | :? ArgumentOutOfRangeException ->
+        Error ErrorCase.InvalidMemoryRead
     match parsed with
     | Ok ins ->
       if ins.IsTerminator prevIns then
@@ -168,8 +189,7 @@ type LiftingUnit
 
   /// <summary>
   /// Parses one instruction at the given address (addr), and return the
-  /// corresponding instruction. This function raises an exception if the
-  /// parsing process fails.
+  /// corresponding instruction.
   /// <remarks>
   /// It is recommended to use the same method that takes in a pointer when
   /// the performance is a concern.
@@ -179,36 +199,50 @@ type LiftingUnit
   /// <returns>
   /// Parsed instruction.
   /// </returns>
+  /// <exception cref='T:B2R2.FrontEnd.BinLifter.ParsingFailureException'>
+  /// Thrown when the bytes at the address do not decode.
+  /// </exception>
+  /// <exception cref='T:System.ArgumentException'>
+  /// Thrown when the address reaches no readable bytes.
+  /// </exception>
   member _.ParseInstruction(addr: Addr) =
     let ptr = binFile.GetBoundedPointer addr
-    parser.Parse(codeSpan ptr, addr)
+    parse (codeSpan ptr) addr
 
   /// <summary>
   /// Parses one instruction pointed to by the binary file pointer (ptr), and
-  /// return the corresponding instruction. This function raises an exception if
-  /// the parsing process fails.
+  /// return the corresponding instruction.
   /// </summary>
   /// <param name="ptr">The binary file pointer.</param>
   /// <returns>
   /// Parsed instruction.
   /// </returns>
+  /// <exception cref='T:B2R2.FrontEnd.BinLifter.ParsingFailureException'>
+  /// Thrown when the bytes at the pointer do not decode.
+  /// </exception>
+  /// <exception cref='T:System.ArgumentException'>
+  /// Thrown when the pointer reaches no readable bytes.
+  /// </exception>
   member _.ParseInstruction(ptr: BinFilePointer) =
-    parser.Parse(codeSpan ptr, ptr.Addr)
+    parse (codeSpan ptr) ptr.Addr
 
   /// <summary>
   /// Parses one instruction from the given byte span (span), pretending that it
   /// is located at the given address (addr). The span need not come from the
   /// file this unit was built for, and its bounds are not checked here, so the
   /// caller is responsible for passing a span that holds a whole instruction.
-  /// This function raises an exception if the parsing process fails.
   /// </summary>
   /// <param name="span">The byte span holding the instruction.</param>
   /// <param name="addr">The address to assign to the instruction.</param>
   /// <returns>
   /// Parsed instruction.
   /// </returns>
+  /// <exception cref='T:B2R2.FrontEnd.BinLifter.ParsingFailureException'>
+  /// Thrown when the bytes in the span do not decode, which includes the span
+  /// being too short to hold the instruction it starts.
+  /// </exception>
   member _.ParseInstruction(span: ByteSpan, addr: Addr) =
-    parser.Parse(span, addr)
+    parse span addr
 
   /// <summary>
   /// Tries to parse one instruction at the given address (addr), and return the
@@ -219,8 +253,12 @@ type LiftingUnit
   /// Parsed instruction if succeeded, ErrorCase if otherwise.
   /// </returns>
   member this.TryParseInstruction(addr: Addr) =
+    (* Naming both cases rather than catching everything is what keeps a defect
+       elsewhere from being reported as a property of the input. *)
     try this.ParseInstruction addr |> Ok
-    with _ -> Error ErrorCase.ParsingFailure
+    with
+    | ParsingFailureException -> Error ErrorCase.ParsingFailure
+    | :? ArgumentException -> Error ErrorCase.InvalidMemoryRead
 
   /// <summary>
   /// Tries to parse one instruction pointed to by the binary file pointer
@@ -232,7 +270,9 @@ type LiftingUnit
   /// </returns>
   member this.TryParseInstruction(ptr: BinFilePointer) =
     try this.ParseInstruction ptr |> Ok
-    with _ -> Error ErrorCase.ParsingFailure
+    with
+    | ParsingFailureException -> Error ErrorCase.ParsingFailure
+    | :? ArgumentException -> Error ErrorCase.InvalidMemoryRead
 
   /// <summary>
   /// Parses a basic block starting from the given address (addr), returning its
@@ -296,7 +336,7 @@ type LiftingUnit
   member _.LiftInstruction(addr: Addr, optimize) =
     let ptr = binFile.GetBoundedPointer addr
     let span = codeSpan ptr
-    let ins = parser.Parse(span, addr)
+    let ins = parse span addr
     if optimize then ins.Translate irBuilder |> LocalOptimizer.Optimize
     else ins.Translate irBuilder
 
@@ -310,7 +350,7 @@ type LiftingUnit
   /// </returns>
   member _.LiftInstruction(ptr: BinFilePointer) =
     let span = codeSpan ptr
-    let ins = parser.Parse(span, ptr.Addr)
+    let ins = parse span ptr.Addr
     ins.Translate irBuilder
 
   /// <summary>
@@ -326,7 +366,7 @@ type LiftingUnit
   /// </returns>
   member _.LiftInstruction(ptr: BinFilePointer, optimize) =
     let span = codeSpan ptr
-    let ins = parser.Parse(span, ptr.Addr)
+    let ins = parse span ptr.Addr
     if optimize then ins.Translate irBuilder |> LocalOptimizer.Optimize
     else ins.Translate irBuilder
 
@@ -423,7 +463,7 @@ type LiftingUnit
   member _.DisasmInstruction(addr: Addr) =
     let ptr = binFile.GetBoundedPointer addr
     let span = codeSpan ptr
-    let ins = parser.Parse(span, addr)
+    let ins = parse span addr
     ins.Disasm strDisasm
 
   /// <summary>
@@ -437,7 +477,7 @@ type LiftingUnit
   /// </returns>
   member _.DisasmInstruction(ptr: BinFilePointer) =
     let span = codeSpan ptr
-    let ins = parser.Parse(span, ptr.Addr)
+    let ins = parse span ptr.Addr
     ins.Disasm strDisasm
 
   /// <summary>
@@ -461,7 +501,7 @@ type LiftingUnit
   member _.DecomposeInstruction(addr: Addr) =
     let ptr = binFile.GetBoundedPointer addr
     let span = codeSpan ptr
-    let ins = parser.Parse(span, addr)
+    let ins = parse span addr
     ins.Decompose asmwordDisasm
 
   /// <summary>
@@ -474,7 +514,7 @@ type LiftingUnit
   /// </returns>
   member _.DecomposeInstruction(ptr: BinFilePointer) =
     let span = codeSpan ptr
-    let ins = parser.Parse(span, ptr.Addr)
+    let ins = parse span ptr.Addr
     ins.Decompose asmwordDisasm
 
 /// <summary>

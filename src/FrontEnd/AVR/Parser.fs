@@ -25,6 +25,7 @@
 namespace B2R2.FrontEnd.AVR
 
 open System
+open B2R2
 open B2R2.FrontEnd.BinLifter
 
 /// Represents a parser for AVR instructions.
@@ -39,9 +40,9 @@ type AVRParser(reader) =
 
     member _.InstructionAlignment = 2
 
-    member _.Parse(bs: byte[], addr) =
-      let span = ReadOnlySpan bs
-      ParsingMain.parse lifter span reader addr :> IInstruction
+    member this.Parse(bs: byte[], addr) =
+      (this :> IInstructionParsable).Parse(ReadOnlySpan bs, addr)
 
     member _.Parse(span: ByteSpan, addr) =
-      ParsingMain.parse lifter span reader addr :> IInstruction
+      try ParsingMain.parse lifter span reader addr :> IInstruction
+      with e when not (Terminator.isCritical e) -> raise ParsingFailureException

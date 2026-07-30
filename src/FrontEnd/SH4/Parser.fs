@@ -40,9 +40,9 @@ type SH4Parser(reader) =
 
     member _.InstructionAlignment = 2
 
-    member _.Parse(bs: byte[], addr: Addr) =
-      let span = ReadOnlySpan bs
-      ParsingMain.parse lifter span reader addr :> IInstruction
+    member this.Parse(bs: byte[], addr: Addr) =
+      (this :> IInstructionParsable).Parse(ReadOnlySpan bs, addr)
 
     member _.Parse(span: ByteSpan, addr: Addr) =
-      ParsingMain.parse lifter span reader addr :> IInstruction
+      try ParsingMain.parse lifter span reader addr :> IInstruction
+      with e when not (Terminator.isCritical e) -> raise ParsingFailureException

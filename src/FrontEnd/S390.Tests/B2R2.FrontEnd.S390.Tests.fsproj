@@ -6,6 +6,7 @@
 
   <ItemGroup>
     <Compile Include="DisasmTests.fs" />
+    <Compile Include="InstructionTests.fs" />
     <Compile Include="ParserTests.fs" />
   </ItemGroup>
 

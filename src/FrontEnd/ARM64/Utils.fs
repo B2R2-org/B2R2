@@ -25,6 +25,7 @@
 module internal B2R2.FrontEnd.ARM64.Utils
 
 open B2R2
+open B2R2.FrontEnd.BinLifter
 open B2R2.FrontEnd.ARM64
 
 type SystemOp =
@@ -89,7 +90,9 @@ let bfxPreferred sf uns imms immr =
 /// ===============
 let highestSetBit nBit imm =
   let rec loop idx =
-    if idx < 0 then failwith "There is no SeBit"
+    (* An immediate of zero has no set bit, which the encodings reaching here
+       are not allowed to hold, so the instruction does not decode. *)
+    if idx < 0 then raise ParsingFailureException
     elif imm &&& (1u <<< idx) <> 0u then idx else loop (idx - 1)
   loop (nBit - 1)
 
@@ -121,9 +124,12 @@ let replicate value bits oprSize =
 /// encoding structure
 let decodeBitMasks immN imms immr isImm oprSize =
   let len = highestSetBit 7 ((immN <<< 6) ||| (~~~imms &&& 0x3fu))
-  if len < 1 then failwith "reserve value" else ()
+  (* Both guards below reject what the ARM ARM calls a reserved encoding, which
+     is to say the bytes are not an instruction. *)
+  if len < 1 then raise ParsingFailureException else ()
   let levels = zeroExtendOnes len 6 |> uint32
-  if isImm && (imms &&& levels) = levels then failwith "reserved value" else ()
+  if isImm && (imms &&& levels) = levels then raise ParsingFailureException
+  else ()
   let eSize = 1 <<< len
   let s = imms &&& levels
   let r = immr &&& levels

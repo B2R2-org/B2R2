@@ -42,9 +42,9 @@ type TMS320C6000Parser(reader) =
 
     member _.InstructionAlignment = 4
 
-    member _.Parse(bs: byte[], addr) =
-      let span = ReadOnlySpan bs
-      ParsingMain.parse lifter span reader &inParallel addr :> IInstruction
+    member this.Parse(bs: byte[], addr) =
+      (this :> IInstructionParsable).Parse(ReadOnlySpan bs, addr)
 
     member _.Parse(span: ByteSpan, addr) =
-      ParsingMain.parse lifter span reader &inParallel addr :> IInstruction
+      try ParsingMain.parse lifter span reader &inParallel addr :> IInstruction
+      with e when not (Terminator.isCritical e) -> raise ParsingFailureException

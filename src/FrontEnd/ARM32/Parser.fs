@@ -412,14 +412,15 @@ type ARM32Parser(isa: ISA, isThumb, reader) =
     member _.InstructionAlignment = if isThumb then 2 else 4
 
     member _.Parse(span: ByteSpan, addr) =
-      phlp.IsThumb <- isThumb
-      phlp.InsAddr <- addr
-      if isThumb then Parser.parseThumb span phlp &itstate :> IInstruction
-      else Parser.parseARM span phlp :> IInstruction
+      try
+        phlp.IsThumb <- isThumb
+        phlp.InsAddr <- addr
+        if isThumb then Parser.parseThumb span phlp &itstate :> IInstruction
+        else Parser.parseARM span phlp :> IInstruction
+      with e when not (Terminator.isCritical e) -> raise ParsingFailureException
 
     member this.Parse(bs: byte[], addr) =
-      let span = ReadOnlySpan bs
-      (this :> IInstructionParsable).Parse(span, addr)
+      (this :> IInstructionParsable).Parse(ReadOnlySpan bs, addr)
 
 /// Represents a parsing mode switch between Thumb and ARM instructions.
 and IModeSwitchable =

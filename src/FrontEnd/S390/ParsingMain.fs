@@ -101,7 +101,7 @@ let parseInstLenOne bin =
     | 0x3Dus -> Op.DER, getFPR8FPR12 bin, Fmt.RR
     | 0x3Eus -> Op.AUR, getFPR8FPR12 bin, Fmt.RR
     | 0x3Fus -> Op.SUR, getFPR8FPR12 bin, Fmt.RR
-    | _ -> Op.InvalOp, NoOperand, Fmt.Invalid
+    | _ -> raise ParsingFailureException
 
 let parseInstLenTwo (bin: uint32) =
   let opcode1 = extract32 bin 0 7 |> uint16
@@ -722,7 +722,7 @@ let parseInstLenTwo (bin: uint32) =
       | 0xA7Dus -> Op.MGHI, getGR8SImmUpper bin, Fmt.RI
       | 0xA7Eus -> Op.CHI, getGR8SImmUpper bin, Fmt.RI
       | 0xA7Fus -> Op.CGHI, getGR8SImmUpper bin, Fmt.RI
-      | _ -> Op.InvalOp, NoOperand, Fmt.Invalid
+      | _ -> raise ParsingFailureException
 
 let parseInstLenThree (bin: uint64) =
   match extract48 bin 0 15 |> uint16 with
@@ -1340,7 +1340,7 @@ let parseInstLenThree (bin: uint64) =
         | 0xE635us -> Op.VLRL, getVR32QM16D20UImm8 bin, Fmt.VSI
         | 0xE63Cus -> Op.VUPKZ, getVR32QM16D20UImm8 bin, Fmt.VSI
         | 0xE63Dus -> Op.VSTRL, getVR32QM16D20UImm8 bin, Fmt.VSI
-        | _ -> Op.InvalOp, NoOperand, Fmt.Invalid
+        | _ -> raise ParsingFailureException
 
 let parseByFmt (span: ByteSpan) (reader: IBinReader) bin =
   match extract16 bin 0 1 with

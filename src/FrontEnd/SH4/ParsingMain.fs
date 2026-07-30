@@ -28,8 +28,10 @@ open B2R2
 open B2R2.FrontEnd.BinLifter
 open B2R2.FrontEnd.SH4.OperandHelper
 
-let getState = function
- | _ -> Terminator.futureFeature ()
+(* No state is decoded yet, so every encoding that needs one is undecodable
+   here. It reports a parsing failure rather than claiming a bug, since the
+   input is well formed and it is this parser that falls short. *)
+let getState _ = raise ParsingFailureException
 
 /// 0000 0000 ---- ---- with no operands
 let noOpParse0000 b16 =

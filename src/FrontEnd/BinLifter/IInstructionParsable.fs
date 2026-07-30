@@ -28,6 +28,15 @@ open B2R2
 
 /// <summary>
 /// Provides an interface for parsing binary instructions.
+/// <remarks>
+/// Input that does not decode is reported as <see
+/// cref='T:B2R2.FrontEnd.BinLifter.ParsingFailureException'/>, and that is the
+/// only exception an implementation may raise about its input: a span too short
+/// to hold the instruction it starts, an encoding the architecture reserves,
+/// and one this parser has yet to cover all arrive as the same type. An
+/// implementation converts at its <c>Parse</c> boundary, letting through only
+/// what says nothing about the input, such as running out of memory.
+/// </remarks>
 /// </summary>
 type IInstructionParsable =
   /// Return the maximum possible size of an instruction.
@@ -40,10 +49,21 @@ type IInstructionParsable =
   /// aligned to 2 bytes and ARM instructions to 4.
   abstract InstructionAlignment: int
 
+  /// <summary>
   /// Parse one instruction from the given byte array assuming that the address
   /// of the instruction is `addr`.
+  /// </summary>
+  /// <exception cref='T:B2R2.FrontEnd.BinLifter.ParsingFailureException'>
+  /// Thrown when the bytes do not decode.
+  /// </exception>
   abstract Parse: bs: byte[] * addr: Addr -> IInstruction
 
+  /// <summary>
   /// Parse one instruction from the given byte span assuming that the address
   /// of the instruction is `addr`.
+  /// </summary>
+  /// <exception cref='T:B2R2.FrontEnd.BinLifter.ParsingFailureException'>
+  /// Thrown when the bytes do not decode, which includes the span being too
+  /// short to hold the instruction it starts.
+  /// </exception>
   abstract Parse: span: ByteSpan * addr: Addr -> IInstruction

@@ -961,7 +961,9 @@ module OperandParsingHelper =
       | _, 0b1u, 0b0u, 0b0u -> getITOpcodeWithX cond x
       | _, _, 0b1u, 0b0u -> getITOpcodeWithXY cond x y
       | _, _, _, 0b1u -> getITOpcodeWithXYZ cond x y z
-      | _ -> failwith "Wrong opcode in IT instruction"
+      (* Only an all-zero mask is left, and the caller routes that to the hint
+         instructions before reaching here, so the input cannot produce it. *)
+      | _ -> Terminator.impossible ()
     opcode, itState
 
 type [<AbstractClass>] OperandParser() =

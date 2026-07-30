@@ -51,7 +51,8 @@ type PythonParser(binFile: IBinFile, reader) =
     member _.InstructionAlignment = 1
 
     member _.Parse(span: ByteSpan, addr: Addr) =
-      parse span addr :> IInstruction
+      try parse span addr :> IInstruction
+      with e when not (Terminator.isCritical e) -> raise ParsingFailureException
 
     member _.Parse(_bs: byte[], _addr: Addr) =
       Terminator.futureFeature () :> IInstruction

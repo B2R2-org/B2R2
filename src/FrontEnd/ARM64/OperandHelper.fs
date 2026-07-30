@@ -127,8 +127,10 @@ let getControlRegister = function (* 1:op0:op1:CRn:CRm:op2 *)
   | 0b1011111000111110u -> R.S2_7_C12_C7_6
   | 0b1101111100000010u -> R.CNTVCT_EL0 (* S3_3_C14_C0_2 *)
   | _ ->
-    (* D13.2 General system control registers *)
-    Terminator.futureFeature ()
+    (* D13.2 General system control registers. The table above covers only part
+       of them, so the encoding may well be valid and simply undecodable here.
+       That is a parsing failure, not a claim that this cannot happen. *)
+    raise ParsingFailureException
 
 let getCoprocCRegister = function
   | 0x00uy -> R.C0

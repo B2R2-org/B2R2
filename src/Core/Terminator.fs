@@ -55,6 +55,20 @@ let impossible () =
   Console.Error.WriteLine(trace.ToString())
   raise <| InvalidOperationException()
 
+/// <summary>
+/// Whether the given exception says nothing about the operation that raised it,
+/// because the process is out of memory or is being torn down. Code that turns
+/// exceptions into failure values must let these through: reporting one as an
+/// ordinary failure lets a process that cannot allocate carry on as though the
+/// input were merely bad.
+/// </summary>
+[<CompiledName "IsCritical">]
+let isCritical (e: exn) =
+  match e with
+  | :? OutOfMemoryException
+  | :? OperationCanceledException -> true
+  | _ -> false
+
 /// Exits the whole program including any child processes with a fatal error
 /// message. This function does not raise an exception, but directly exits the
 /// program.
