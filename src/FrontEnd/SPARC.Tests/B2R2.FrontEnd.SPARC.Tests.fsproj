@@ -5,6 +5,7 @@
   </PropertyGroup>
 
   <ItemGroup>
+    <Compile Include="UndecodableTests.fs" />
     <Compile Include="ExtractTests.fs" />
     <Compile Include="ParserTests.fs" />
     <Compile Include="LifterTests.fs" />

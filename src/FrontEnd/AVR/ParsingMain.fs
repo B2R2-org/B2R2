@@ -45,7 +45,7 @@ let parse1001000 b32 =
   | 0b1111u -> Opcode.POP, parseOneOpr b32 getRegD
   | 0b0101u | 0b0100u -> Opcode.LPM, parseTwoOpr b32 getRegD getMemLDD
   | 0b0110u | 0b0111u -> Opcode.ELPM, parseTwoOpr b32 getRegD getMemLDD
-  | _ -> Opcode.InvalidOp, NoOperand
+  | _ -> raise ParsingFailureException
 
 /// 1001 001- ---- ----
 let parse1001001 b32 =
@@ -57,7 +57,7 @@ let parse1001001 b32 =
   | 0b0101u -> Opcode.LAS, TwoOperands(OprReg Z, getRegD b32)
   | 0b0111u -> Opcode.LAT, TwoOperands(OprReg Z, getRegD b32)
   | 0b0100u -> Opcode.XCH, TwoOperands(OprReg Z, getRegD b32)
-  | _ -> Opcode.InvalidOp, NoOperand
+  | _ -> raise ParsingFailureException
 
 /// 0000 00-- ---- ----
 let parse000000 b32 =
@@ -70,9 +70,9 @@ let parse000000 b32 =
     | 0b10u -> Opcode.FMULS, parseTwoOpr b32 getReg3D getReg3DLast
     | 0b11u -> Opcode.FMULSU, parseTwoOpr b32 getReg3D getReg3DLast
     | 0b00u -> Opcode.MULSU, parseTwoOpr b32 getReg3D getReg3DLast
-    | _ -> Opcode.InvalidOp, NoOperand
+    | _ -> raise ParsingFailureException
   | 0b0u when b32 = 0u -> Opcode.NOP, NoOperand
-  | _ -> Opcode.InvalidOp, NoOperand
+  | _ -> raise ParsingFailureException
 
 /// 1001 010- ---- 1000 with no operands
 let parseNoOp1000 b32 =
@@ -101,7 +101,7 @@ let parseNoOp1000 b32 =
   | 0b11010u -> Opcode.WDR, NoOperand
   | 0b11100u -> Opcode.LPM, NoOperand
   | 0b11101u -> Opcode.ELPM, NoOperand
-  | _ -> Opcode.InvalidOp, NoOperand
+  | _ -> raise ParsingFailureException
 
 /// 1001 010- ---- 1001 with no operands
 let parseNoOp1001 b32 =
@@ -110,7 +110,7 @@ let parseNoOp1001 b32 =
   | 0b00001u -> Opcode.EIJMP, NoOperand
   | 0b10000u -> Opcode.ICALL, NoOperand
   | 0b00000u -> Opcode.IJMP, NoOperand
-  | _ -> Opcode.InvalidOp, NoOperand
+  | _ -> raise ParsingFailureException
 
 /// 1001 010- ---- ----
 let parse1001010 b32 =
@@ -133,8 +133,8 @@ let parse1001010 b32 =
       Opcode.BSET, parseOneOpr b32 getConst3bs *)
     | 0b1000u -> parseNoOp1000 b32
     | 0b1001u -> parseNoOp1001 b32
-    | _ -> Opcode.InvalidOp, NoOperand
-  | _ -> Opcode.InvalidOp, NoOperand
+    | _ -> raise ParsingFailureException
+  | _ -> raise ParsingFailureException
 
 /// 1111 1--d dddd 0bbb
 let parse11111 b32 =
@@ -143,7 +143,7 @@ let parse11111 b32 =
   | 0b010u -> Opcode.BST, parseTwoOpr b32 getRegD getConst3b
   | 0b100u -> Opcode.SBRC, parseTwoOpr b32 getRegD getConst3b
   | 0b110u -> Opcode.SBRS, parseTwoOpr b32 getRegD getConst3b
-  | _ -> Opcode.InvalidOp, NoOperand
+  | _ -> raise ParsingFailureException
 
 /// 1111 0- kk kkkk k---
 let parse11110 b32 =
@@ -159,7 +159,7 @@ let parse11110 b32 =
     | 0b010u -> Opcode.BRMI, parseOneOpr b32 getAddr7K
     | 0b110u -> Opcode.BRTS, parseOneOpr b32 getAddr7K
     | 0b011u -> Opcode.BRVS, parseOneOpr b32 getAddr7K
-    | _ -> Opcode.InvalidOp, NoOperand
+    | _ -> raise ParsingFailureException
   | 0b1u ->
     match b32 &&& 0b111u with
     | 0b000u -> Opcode.BRCC, parseOneOpr b32 getAddr7K
@@ -171,14 +171,14 @@ let parse11110 b32 =
     | 0b010u -> Opcode.BRPL, parseOneOpr b32 getAddr7K
     | 0b110u -> Opcode.BRTC, parseOneOpr b32 getAddr7K
     | 0b011u -> Opcode.BRVC, parseOneOpr b32 getAddr7K
-    | _ -> Opcode.InvalidOp, NoOperand
-  | _ -> Opcode.InvalidOp, NoOperand
+    | _ -> raise ParsingFailureException
+  | _ -> raise ParsingFailureException
 
 let parse1111 b32 =
   match pickBit b32 11u with
   | 0b0u -> parse11110 b32
   | 0b1u -> parse11111 b32
-  | _ -> Opcode.InvalidOp, NoOperand
+  | _ -> raise ParsingFailureException
 
 let parse1001 b32 =
   match extract b32 11u 8u with
@@ -193,7 +193,7 @@ let parse1001 b32 =
   | 0b0111u -> Opcode.SBIW, parseTwoOpr b32 getReg2D getConst6K
   | op when op &&& 0b1100u = 0b1100u ->
     Opcode.MUL, parseTwoOpr b32 getRegD getRegR
-  | _ -> Opcode.InvalidOp, NoOperand
+  | _ -> raise ParsingFailureException
 
 let parse1000 b32 =
   let isDispZero = getDisp b32 = 0
@@ -210,7 +210,7 @@ let parse1000 b32 =
   | 0b00u ->
     if isDispZero then Opcode.LD, parseTwoOpr b32 getRegD getMemLDD
     else Opcode.LDD, parseTwoOpr b32 getRegD getMemDispZ
-  | _ -> Opcode.InvalidOp, NoOperand
+  | _ -> raise ParsingFailureException
 
 let parse1010 b32 =
   match concat (pickBit b32 9u)(pickBit b32 3u) 1 with
@@ -218,7 +218,7 @@ let parse1010 b32 =
   | 0b01u -> Opcode.LDD, parseTwoOpr b32 getRegD getMemDispY
   | 0b10u -> Opcode.STD, parseTwoOpr b32 getMemDispZ getRegD
   | 0b11u -> Opcode.STD, parseTwoOpr b32 getMemDispY getRegD
-  | _ -> Opcode.InvalidOp, NoOperand
+  | _ -> raise ParsingFailureException
 
 /// Parse the instruction using only the first 6 bits
 let parseSixBits b32 =
@@ -241,7 +241,7 @@ let parseSixBits b32 =
   (* | 0b000111u -> Opcode.ROL // Rotate Left through Carry *)
   | 0b000010u -> Opcode.SBC, parseTwoOpr b32 getRegD getRegR
   (* | 0b001000u -> Opcode.TST *)
-  | _ -> Opcode.InvalidOp, NoOperand
+  | _ -> raise ParsingFailureException
 
 /// Parse the instruction using only the first 4 bits
 let parseFourBits b32 =
@@ -276,7 +276,7 @@ let parseFourBytes b1 =
   | 0b10010101100u | 0b10010101101u -> Opcode.JMP, parseOneOpr b1 getConst22
   | 0b10010000000u -> Opcode.LDS, parseTwoOpr b1 getRegD32 getConst16
   | 0b10010010000u -> Opcode.STS, parseTwoOpr b1 getConst16 getRegD32
-  | _ -> Opcode.InvalidOp, NoOperand
+  | _ -> raise ParsingFailureException
 
 let parse lifter (span: ByteSpan) (reader: IBinReader) addr =
   let bin = reader.ReadUInt16(span, 0)

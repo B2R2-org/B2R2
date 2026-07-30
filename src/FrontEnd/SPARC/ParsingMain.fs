@@ -604,7 +604,7 @@ let parseFP b32 =
       Opcode.FSQRTq,
       parseTwoOpr b32 getQPFloatRegRs2 getQPFloatRegRd
     )
-  | _ -> struct (Opcode.InvalidOp, NoOperand)
+  | _ -> raise ParsingFailureException
 
 let parse110101fmovr b32 =
   match extract b32 12u 10u with
@@ -625,7 +625,7 @@ let parse110101fmovr b32 =
         Opcode.FMOVRqZ,
         parseThrOpr b32 getRegRs1 getQPFloatRegRs2 getQPFloatRegRd
       )
-    | _ -> struct (Opcode.InvalidOp, NoOperand)
+    | _ -> raise ParsingFailureException
   | 0b010u ->
     match extract b32 9u 5u with
     | 0b00101u ->
@@ -642,7 +642,7 @@ let parse110101fmovr b32 =
         Opcode.FMOVRqLEZ,
         parseThrOpr b32 getRegRs1 getQPFloatRegRs2 getQPFloatRegRd
       )
-    | _ -> struct (Opcode.InvalidOp, NoOperand)
+    | _ -> raise ParsingFailureException
   | 0b011u ->
     match extract b32 9u 5u with
     | 0b00101u ->
@@ -660,7 +660,7 @@ let parse110101fmovr b32 =
         Opcode.FMOVRqLZ,
         parseThrOpr b32 getRegRs1 getQPFloatRegRs2 getQPFloatRegRd
       )
-    | _ -> struct (Opcode.InvalidOp, NoOperand)
+    | _ -> raise ParsingFailureException
   | 0b101u ->
     match extract b32 9u 5u with
     | 0b00101u ->
@@ -678,7 +678,7 @@ let parse110101fmovr b32 =
         Opcode.FMOVRqNZ,
         parseThrOpr b32 getRegRs1 getQPFloatRegRs2 getQPFloatRegRd
       )
-    | _ -> struct (Opcode.InvalidOp, NoOperand)
+    | _ -> raise ParsingFailureException
   | 0b110u ->
     match extract b32 9u 5u with
     | 0b00101u ->
@@ -696,7 +696,7 @@ let parse110101fmovr b32 =
         Opcode.FMOVRqGZ,
         parseThrOpr b32 getRegRs1 getQPFloatRegRs2 getQPFloatRegRd
       )
-    | _ -> struct (Opcode.InvalidOp, NoOperand)
+    | _ -> raise ParsingFailureException
   | 0b111u ->
     match extract b32 9u 5u with
     | 0b00101u ->
@@ -714,8 +714,8 @@ let parse110101fmovr b32 =
         Opcode.FMOVRqGEZ,
         parseThrOpr b32 getRegRs1 getQPFloatRegRs2 getQPFloatRegRd
       )
-    | _ -> struct (Opcode.InvalidOp, NoOperand)
-  | _ -> struct (Opcode.InvalidOp, NoOperand)
+    | _ -> raise ParsingFailureException
+  | _ -> raise ParsingFailureException
 
 (*
   10r_ __d1 1010 10--
@@ -1528,7 +1528,7 @@ let parse110101 b32 =
             getQPFloatRegRs2 getQPFloatRegRd
         )
       | _ -> parse110101fmovr b32
-    | _ -> struct (Opcode.InvalidOp, NoOperand)
+    | _ -> raise ParsingFailureException
   | _ -> parse110101fmovr b32
 
 (*
@@ -1574,7 +1574,7 @@ let parse101000 b32 =
   | 29u
   | 30u
   | 31u -> struct (Opcode.RDASR, parseTwoOpr b32 getRegRs1 getRegRd)
-  | _ -> struct (Opcode.InvalidOp, NoOperand)
+  | _ -> raise ParsingFailureException
 
 (*
   10r_ __d1 1000 0---
@@ -1618,7 +1618,7 @@ let parse110000 b32 =
     | 29u
     | 30u
     | 31u -> struct (Opcode.WRASR, parseTwoOpr b32 getRegRs1 getRegRs2)
-    | _ -> struct (Opcode.InvalidOp, NoOperand)
+    | _ -> raise ParsingFailureException
   | 0b1u ->
     match extract b32 29u 25u with
     | 0u ->
@@ -1662,8 +1662,8 @@ let parse110000 b32 =
     | 30u
     | 31u ->
       struct (Opcode.WRASR, parseThrOpr b32 getRegRs1 getSimm13 getRegRd)
-    | _ -> struct (Opcode.InvalidOp, NoOperand)
-  | _ -> struct (Opcode.InvalidOp, NoOperand)
+    | _ -> raise ParsingFailureException
+  | _ -> raise ParsingFailureException
 
 (*
   10r_ __d1 0110 0---
@@ -1809,7 +1809,7 @@ let parse101100 b32 =
             getRegRs2
             getRegRd
         )
-      | _ -> struct (Opcode.InvalidOp, NoOperand)
+      | _ -> raise ParsingFailureException
     | 0b1u ->
       match extract b32 17u 14u with
       | 0b1000u ->
@@ -1943,8 +1943,8 @@ let parse101100 b32 =
             getSimm11
             getRegRd
         )
-      | _ -> struct (Opcode.InvalidOp, NoOperand)
-    | _ -> struct (Opcode.InvalidOp, NoOperand)
+      | _ -> raise ParsingFailureException
+    | _ -> raise ParsingFailureException
   | 0b1u, 0b0u, 0b0u
   | 0b1u, 0b1u, 0b0u ->
     match pickBit b32 13u with
@@ -2081,7 +2081,7 @@ let parse101100 b32 =
             getRegRs2
             getRegRd
         )
-      | _ -> struct (Opcode.InvalidOp, NoOperand)
+      | _ -> raise ParsingFailureException
     | 0b1u ->
       match extract b32 17u 14u with
       | 0b1000u ->
@@ -2228,9 +2228,9 @@ let parse101100 b32 =
             getSimm11
             getRegRd
             )
-      | _ -> struct (Opcode.InvalidOp, NoOperand)
-    | _ -> struct (Opcode.InvalidOp, NoOperand)
-  | _ -> struct (Opcode.InvalidOp, NoOperand)
+      | _ -> raise ParsingFailureException
+    | _ -> raise ParsingFailureException
+  | _ -> raise ParsingFailureException
 
 (*
   10r_ __d1 0111 1---
@@ -2252,7 +2252,7 @@ let parse101111 b32 =
       struct (Opcode.MOVRGZ, parseThrOpr b32 getRegRs1 getRegRs2 getRegRd)
     | 0b111u ->
       struct (Opcode.MOVRGEZ, parseThrOpr b32 getRegRs1 getRegRs2 getRegRd)
-    | _ -> struct (Opcode.InvalidOp, NoOperand)
+    | _ -> raise ParsingFailureException
   | 0b1u ->
     match extract b32 12u 10u with
     | 0b001u ->
@@ -2267,8 +2267,8 @@ let parse101111 b32 =
       struct (Opcode.MOVRGZ, parseThrOpr b32 getRegRs1 getSimm10 getRegRd)
     | 0b111u ->
       struct (Opcode.MOVRGEZ, parseThrOpr b32 getRegRs1 getSimm10 getRegRd)
-    | _ -> struct (Opcode.InvalidOp, NoOperand)
-  | _ -> struct (Opcode.InvalidOp, NoOperand)
+    | _ -> raise ParsingFailureException
+  | _ -> raise ParsingFailureException
 
 (*
   10r_ __do ___p 3---
@@ -2405,7 +2405,7 @@ let parse10rd b32 =
     | 0b101100u -> parse101100 b32
     (* Move Integer Register on Register Condition *)
     | 0b101111u -> parse101111 b32
-    | _ -> Opcode.InvalidOp, NoOperand
+    | _ -> raise ParsingFailureException
   | 0b1u ->
     match extract b32 24u 19u with
     (* ADD *)
@@ -2487,21 +2487,21 @@ let parse10rd b32 =
         struct (Opcode.SLL, parseThrOpr b32 getRegRs1 getshcnt32 getRegRd)
       | 0b1u ->
         struct (Opcode.SLLX, parseThrOpr b32 getRegRs1 getshcnt64 getRegRd)
-      | _ -> struct (Opcode.InvalidOp, NoOperand)
+      | _ -> raise ParsingFailureException
     | 0b100110u ->
       match pickBit b32 12u with
       | 0b0u ->
         struct (Opcode.SRL, parseThrOpr b32 getRegRs1 getshcnt32 getRegRd)
       | 0b1u ->
         struct (Opcode.SRLX, parseThrOpr b32 getRegRs1 getshcnt64 getRegRd)
-      | _ -> struct (Opcode.InvalidOp, NoOperand)
+      | _ -> raise ParsingFailureException
     | 0b100111u ->
       match pickBit b32 12u with
       | 0b0u ->
         struct (Opcode.SRA, parseThrOpr b32 getRegRs1 getshcnt32 getRegRd)
       | 0b1u ->
         struct (Opcode.SRAX, parseThrOpr b32 getRegRs1 getshcnt64 getRegRd)
-      | _ -> struct (Opcode.InvalidOp, NoOperand)
+      | _ -> raise ParsingFailureException
     (* Subtract *)
     | 0b000100u ->
       struct (Opcode.SUB, parseThrOpr b32 getRegRs1 getSimm13 getRegRd)
@@ -2532,8 +2532,8 @@ let parse10rd b32 =
     | 0b101100u -> parse101100 b32
     (* Move Integer Register on Register Condition *)
     | 0b101111u -> parse101111 b32
-    | _ -> struct (Opcode.InvalidOp, NoOperand)
-  | _ -> struct (Opcode.InvalidOp, NoOperand)
+    | _ -> raise ParsingFailureException
+  | _ -> raise ParsingFailureException
 
 (*
   11r_ __d- ---- ----
@@ -2626,7 +2626,7 @@ let parse11rd b32 =
           Opcode.STXFSR,
           parseOneRegTwoOpr b32 (setPriReg FSR) getAddrRs1 getAddrRs2
         )
-      | _ -> struct (Opcode.InvalidOp, NoOperand)
+      | _ -> raise ParsingFailureException
     | 0b111100u ->
       struct (
         Opcode.CASA,
@@ -2664,7 +2664,7 @@ let parse11rd b32 =
           Opcode.LDXFSR,
           parseTwoOprOneReg b32 getAddrRs1 getAddrRs2 (setPriReg FSR)
         )
-      | _ -> struct (Opcode.InvalidOp, NoOperand)
+      | _ -> raise ParsingFailureException
     | 0b110000u ->
       struct (
         Opcode.LDFA,
@@ -2743,7 +2743,7 @@ let parse11rd b32 =
         Opcode.LDSTUBA,
         parseFourOpr b32 getAddrRs1 getAddrRs2 getImmAsi getRegRd
       )
-    | _ -> struct (Opcode.InvalidOp, NoOperand)
+    | _ -> raise ParsingFailureException
   | 0b1u ->
     match extract b32 24u 19u with
     | 0b011111u -> struct (Opcode.SWAPA, parseFourOpr b32 getRegRs1
@@ -2834,7 +2834,7 @@ let parse11rd b32 =
           Opcode.STXFSR,
           parseOneRegTwoOpr b32 (setPriReg FSR) getAddrRs1 getAddrSimm13
         )
-      | _ -> struct (Opcode.InvalidOp, NoOperand)
+      | _ -> raise ParsingFailureException
     | 0b111100u ->
       struct (
         Opcode.CASA,
@@ -2874,7 +2874,7 @@ let parse11rd b32 =
           parseTwoOprOneReg b32 getAddrRs1 getAddrSimm13
             (setPriReg FSR)
         )
-      | _ -> struct (Opcode.InvalidOp, NoOperand)
+      | _ -> raise ParsingFailureException
     | 0b110000u ->
       struct (
         Opcode.LDFA,
@@ -2964,8 +2964,8 @@ let parse11rd b32 =
         parseFourOpr b32 getAddrRs1 getAddrSimm13
           getRegAsi getRegRd
       )
-    | _ -> struct (Opcode.InvalidOp, NoOperand)
-  | _ -> struct (Opcode.InvalidOp, NoOperand)
+    | _ -> raise ParsingFailureException
+  | _ -> raise ParsingFailureException
 
 (*
   00-- ---- ---- ----
@@ -2996,7 +2996,7 @@ let parse00 b32 =
     | 0b1101u -> struct (Opcode.FBLE, parseTwoOpr b32 getAbit getdisp22)
     | 0b1110u -> struct (Opcode.FBULE, parseTwoOpr b32 getAbit getdisp22)
     | 0b1111u -> struct (Opcode.FBO, parseTwoOpr b32 getAbit getdisp22)
-    | _ -> struct (Opcode.InvalidOp, NoOperand)
+    | _ -> raise ParsingFailureException
   | 0b101u ->
     match extract b32 28u 25u with
     | 0b1000u ->
@@ -3159,7 +3159,7 @@ let parse00 b32 =
           getAbit
           getPbit
       )
-    | _ -> struct (Opcode.InvalidOp, NoOperand)
+    | _ -> raise ParsingFailureException
   | 0b010u ->
     match extract b32 28u 25u with
     | 0b1000u -> struct (Opcode.BA, parseTwoOpr b32 getAbit getdisp22)
@@ -3178,7 +3178,7 @@ let parse00 b32 =
     | 0b0110u -> struct (Opcode.BNEG, parseTwoOpr b32 getAbit getdisp22)
     | 0b1111u -> struct (Opcode.BVC, parseTwoOpr b32 getAbit getdisp22)
     | 0b0111u -> struct (Opcode.BVS, parseTwoOpr b32 getAbit getdisp22)
-    | _ -> struct (Opcode.InvalidOp, NoOperand)
+    | _ -> raise ParsingFailureException
   | 0b001u ->
     match extract b32 28u 25u with
     | 0b1000u ->
@@ -3341,7 +3341,7 @@ let parse00 b32 =
           getAbit
           getPbit
       )
-    | _ -> struct (Opcode.InvalidOp, NoOperand)
+    | _ -> raise ParsingFailureException
   | 0b011u ->
     match extract b32 27u 25u with
     | 0b001u ->
@@ -3404,8 +3404,8 @@ let parse00 b32 =
           getAbit
           getPbit
       )
-    | _ -> struct (Opcode.InvalidOp, NoOperand)
-  | _ -> struct (Opcode.InvalidOp, NoOperand)
+    | _ -> raise ParsingFailureException
+  | _ -> raise ParsingFailureException
 
 /// IMPDEP1 (op=10, op3=0x36) is the VIS opcode space, sub-selected by the 9-bit
 /// opf field (bits 13:5). Decode the 64-bit logical/select VIS ops (fzerod,
@@ -3527,7 +3527,7 @@ let parse10 b32 =
           Opcode.TVS,
           parseTcc b32
         )
-      | _ -> struct (Opcode.InvalidOp, NoOperand)
+      | _ -> raise ParsingFailureException
     | 0b1u ->
       match extract b32 28u 25u with
       | 0b1000u ->
@@ -3610,8 +3610,8 @@ let parse10 b32 =
           Opcode.TVS,
           parseTcc b32
         )
-      | _ -> struct (Opcode.InvalidOp, NoOperand)
-    | _ -> struct (Opcode.InvalidOp, NoOperand)
+      | _ -> raise ParsingFailureException
+    | _ -> raise ParsingFailureException
   | 0b101000u ->
     match pickBit b32 13u with
     | 0b0u -> parse101000 b32
@@ -3621,24 +3621,24 @@ let parse10 b32 =
         match pickBit b32 13u with
         | 0b0u -> struct (Opcode.STBAR, NoOperand)
         | 0b1u -> struct (Opcode.MEMBAR, parseOneOpr b32 getMembarMask)
-        | _ -> struct (Opcode.InvalidOp, NoOperand)
-      | _ -> struct (Opcode.InvalidOp, NoOperand)
+        | _ -> raise ParsingFailureException
+      | _ -> raise ParsingFailureException
   | 0b110000u -> parse110000 b32
   | 0b110001u ->
     match pickBit b32 25u with
     | 0u -> struct (Opcode.SAVED, NoOperand)
     | 1u -> struct (Opcode.RESTORED, NoOperand)
-    | _ -> struct (Opcode.InvalidOp, NoOperand)
+    | _ -> raise ParsingFailureException
   | 0b111001u ->
     match pickBit b32 13u with
     | 0b0u -> struct (Opcode.RETURN, parseTwoOpr b32 getRegRs1 getRegRs2)
     | 0b1u -> struct (Opcode.RETURN, parseTwoOpr b32 getRegRs1 getSimm13)
-    | _ -> struct (Opcode.InvalidOp, NoOperand)
+    | _ -> raise ParsingFailureException
   | 0b111110u ->
     match pickBit b32 25u with
     | 0u -> struct (Opcode.DONE, NoOperand)
     | 1u -> struct (Opcode.RETRY, NoOperand)
-    | _ -> struct (Opcode.InvalidOp, NoOperand)
+    | _ -> raise ParsingFailureException
   | 0b110101u ->
     match extract b32 13u 5u with
     | 0b001010001u ->
@@ -3687,7 +3687,7 @@ let parse10 b32 =
     match pickBit b32 13u with
     | 0b0u -> struct (Opcode.FLUSH, parseTwoOpr b32 getRegRs1 getRegRs2)
     | 0b1u -> struct (Opcode.FLUSH, parseTwoOpr b32 getRegRs1 getSimm13)
-    | _ -> struct (Opcode.InvalidOp, NoOperand)
+    | _ -> raise ParsingFailureException
   | 0b101011u -> struct (Opcode.FLUSHW, NoOperand)
   | 0b110110u -> parseVISimpdep1 b32
   | 0b110111u -> struct (Opcode.IMPDEP2, parseOneOpr b32 getImplDep)
@@ -3728,7 +3728,7 @@ let parseTwoBits bin =
   | 0b01u -> struct (Opcode.CALL, parseOneOpr bin getdisp30)
   | 0b10u -> parse10 bin
   | 0b11u -> parse11 bin
-  | _ -> struct (Opcode.InvalidOp, NoOperand)
+  | _ -> raise ParsingFailureException
 
 let parse lifter (span: ByteSpan) (reader: IBinReader) addr =
   let bin = reader.ReadInt32(span, 0)

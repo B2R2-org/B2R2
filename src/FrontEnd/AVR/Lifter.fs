@@ -107,7 +107,9 @@ let translate (ins: Instruction) insLen builder =
   | Opcode.SWAP -> swap ins insLen builder
   | Opcode.WDR -> sideEffects ins.Address insLen (ClockCounterRead None) builder
   | Opcode.XCH -> xch ins insLen builder
-  | Opcode.InvalidOp -> raise InvalidOpcodeException
+  (* No parser produces this opcode: an undecodable encoding is reported as a
+     parsing failure, so an instruction never carries it this far. *)
+  | Opcode.InvalidOp -> B2R2.Terminator.impossible ()
   | o ->
   #if DEBUG
            eprintfn "%A" o

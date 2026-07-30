@@ -47,14 +47,14 @@ let noOpParse0000 b16 =
   | 0b01011000us -> Opcode.SETS, NoOperand
   | 0b00011000us -> Opcode.SETT, NoOperand
   | 0b00011011us -> Opcode.SLEEP, NoOperand
-  | _ -> Opcode.InvalidOp, NoOperand
+  | _ -> raise ParsingFailureException
 
 /// 1111 ---- 1111 1101 with no operands.
 let noOpParse1111 b16 =
   match getBits b16 12 9 with
   | 0b1011us -> Opcode.FRCHG, NoOperand
   | 0b0011us -> Opcode.FSCHG, NoOperand
-  | _ -> Opcode.InvalidOp, NoOperand
+  | _ -> raise ParsingFailureException
 
 /// 0100 ---- ---- ---- with destination operand only.
 let oneOpParse0100 b16 =
@@ -67,7 +67,7 @@ let oneOpParse0100 b16 =
     | 0b0000us -> Opcode.SHAL, OneOperand(OpReg(Regdir(getReg1d b16)))
     | 0b0001us -> Opcode.SHAR, OneOperand(OpReg(Regdir(getReg1d b16)))
     | 0b1000us -> Opcode.SHLL16, OneOperand(OpReg(Regdir(getReg1d b16)))
-    | _ -> Opcode.InvalidOp, NoOperand
+    | _ -> raise ParsingFailureException
   | 0b0001us ->
     match getBits b16 4 1 with
     | 0b0001us -> Opcode.CMPPZ, OneOperand(OpReg(Regdir(getReg1d b16)))
@@ -75,7 +75,7 @@ let oneOpParse0100 b16 =
     | 0b0000us -> Opcode.DT, OneOperand(OpReg(Regdir(getReg1d b16)))
     | 0b1000us -> Opcode.SHLL8, OneOperand(OpReg(Regdir(getReg1d b16)))
     | 0b1001us -> Opcode.SHLR8, OneOperand(OpReg(Regdir(getReg1d b16)))
-    | _ -> Opcode.InvalidOp, NoOperand
+    | _ -> raise ParsingFailureException
   | 0b0000us ->
     match getBits b16 4 1 with
     | 0b0100us -> Opcode.ROTL, OneOperand(OpReg(Regdir(getReg1d b16)))
@@ -84,8 +84,8 @@ let oneOpParse0100 b16 =
     | 0b0001us -> Opcode.SHLR, OneOperand(OpReg(Regdir(getReg1d b16)))
     | 0b1000us -> Opcode.SHLL2, OneOperand(OpReg(Regdir(getReg1d b16)))
     | 0b1001us -> Opcode.SHLR2, OneOperand(OpReg(Regdir(getReg1d b16)))
-    | _ -> Opcode.InvalidOp, NoOperand
-  | _ -> Opcode.InvalidOp, NoOperand
+    | _ -> raise ParsingFailureException
+  | _ -> raise ParsingFailureException
 
 /// 1111 ---- ---- 1101 with destination operand only.
 let oneOpParse1111 b16 =
@@ -111,7 +111,7 @@ let oneOpParse1111 b16 =
       Opcode.FSQRT, OneOperand(OpReg(Regdir(getReg1dDR b16)))
     else
       Opcode.FSQRT, OneOperand(OpReg(Regdir(getReg1dFR b16)))
-  | _ -> Opcode.InvalidOp, NoOperand
+  | _ -> raise ParsingFailureException
 
 /// 0011 ---- ---- ---- with source and destination operands.
 let twoOpParse0011 b16 =
@@ -158,7 +158,7 @@ let twoOpParse0011 b16 =
   | 0b1011us ->
     Opcode.SUBV,
     TwoOperands(OpReg(Regdir(getReg1s b16)), OpReg(Regdir(getReg1d b16)))
-  | _ -> Opcode.InvalidOp, NoOperand
+  | _ -> raise ParsingFailureException
 
 /// 0110 ---- ---- ---- with source and destination operands.
 let twoOpParse0110 b16 =
@@ -193,7 +193,7 @@ let twoOpParse0110 b16 =
   | 0b0111us ->
     Opcode.NOT,
     TwoOperands(OpReg(Regdir(getReg1s b16)), OpReg(Regdir(getReg1d b16)))
-  | _ -> Opcode.InvalidOp, NoOperand
+  | _ -> raise ParsingFailureException
 
 /// 0010 ---- ---- ---- with source and destination operands.
 let twoOpParse0010 b16 =
@@ -225,7 +225,7 @@ let twoOpParse0010 b16 =
   | 0b1010us ->
     Opcode.XOR,
     TwoOperands(OpReg(Regdir(getReg1s b16)), OpReg(Regdir(getReg1d b16)))
-  | _ -> Opcode.InvalidOp, NoOperand
+  | _ -> raise ParsingFailureException
 
 /// 0100 ---- ---- ---- with source and destination operands.
 let twoOpParse0100 b16 =
@@ -285,7 +285,7 @@ let twoOpParse0100 b16 =
       Opcode.LDC,
       TwoOperands(OpReg(Regdir(getReg1d b16)),
         OpReg(Regdir(getReg1dBank b16)))
-    | _ -> Opcode.InvalidOp, NoOperand
+    | _ -> raise ParsingFailureException
   | 0b1010us ->
     match getBits b16 8 5 with
     | 0b1111us ->
@@ -306,8 +306,8 @@ let twoOpParse0100 b16 =
     | 0b0101us ->
       Opcode.LDS,
       TwoOperands(OpReg(Regdir(getReg1d b16)), OpReg(Regdir(R.FPUL)))
-    | _ -> Opcode.InvalidOp, NoOperand
-  | _ -> Opcode.InvalidOp, NoOperand
+    | _ -> raise ParsingFailureException
+  | _ -> raise ParsingFailureException
 
 /// 0000 ---- ---- ---- with source and destination operand.
 let twoOpParse0000 b16 =
@@ -364,7 +364,7 @@ let twoOpParse0000 b16 =
       Opcode.STC,
       TwoOperands(OpReg(Regdir(getReg1dBank b16)),
         OpReg(Regdir(getReg1d b16)))
-    | _ -> Opcode.InvalidOp, NoOperand
+    | _ -> raise ParsingFailureException
   | 0b1010us ->
     match getBits b16 8 5 with
     | 0b0011us ->
@@ -388,8 +388,8 @@ let twoOpParse0000 b16 =
     | 0b0101us ->
       Opcode.STS,
       TwoOperands(OpReg(Regdir(R.FPUL)), OpReg(Regdir(getReg1d b16)))
-    | _ -> Opcode.InvalidOp, NoOperand
-  | _ -> Opcode.InvalidOp, NoOperand
+    | _ -> raise ParsingFailureException
+  | _ -> raise ParsingFailureException
 
 /// 1111 ---- ---- ---- with source and destination operands.
 let twoOpParse1111 b16 =
@@ -554,8 +554,8 @@ let twoOpParse1111 b16 =
       else
         Opcode.FLOAT,
         TwoOperands(OpReg(Regdir(R.FPUL)), OpReg(Regdir(getReg1dFR b16)))
-    | _ -> Opcode.InvalidOp, NoOperand
-  | _ -> Opcode.InvalidOp, NoOperand
+    | _ -> raise ParsingFailureException
+  | _ -> raise ParsingFailureException
 
 /// Register Indirect 0100 ---- ---- ---- with destination operand only.
 let parseRegInd0100 b16 =
@@ -563,7 +563,7 @@ let parseRegInd0100 b16 =
   | 0b0001us -> Opcode.TASB, OneOperand(OpReg(RegIndir(getReg1d b16)))
   | 0b0010us -> Opcode.JMP, OneOperand(OpReg(RegIndir(getReg1d b16)))
   | 0b0000us -> Opcode.JSR, OneOperand(OpReg(RegIndir(getReg1d b16)))
-  | _ -> Opcode.InvalidOp, NoOperand
+  | _ -> raise ParsingFailureException
 
 /// Register Indirect 0000 ---- ---- ---- with destination operand only.
 let parseRegInd0000 b16 =
@@ -575,7 +575,7 @@ let parseRegInd0000 b16 =
   | 0b1100us ->
     Opcode.MOVCAL,
     TwoOperands(OpReg(Regdir(R.R0)), OpReg(RegIndir(getReg1d b16)))
-  | _ -> Opcode.InvalidOp, NoOperand
+  | _ -> raise ParsingFailureException
 
 /// Register Indirect 0010 ---- ---- ---- with source and destination operands.
 let parseRegInd0010 b16 =
@@ -589,7 +589,7 @@ let parseRegInd0010 b16 =
   | 0b0010us ->
     Opcode.MOVL,
     TwoOperands(OpReg(Regdir(getReg1s b16)), OpReg(RegIndir(getReg1d b16)))
-  | _ -> Opcode.InvalidOp, NoOperand
+  | _ -> raise ParsingFailureException
 
 /// Register Indirect 0110 ---- ---- ---- with source and destination operands.
 let parseRegInd0110 b16 =
@@ -603,7 +603,7 @@ let parseRegInd0110 b16 =
   | 0b0010us ->
     Opcode.MOVL,
     TwoOperands(OpReg(RegIndir(getReg1s b16)), OpReg(Regdir(getReg1d b16)))
-  | _ -> Opcode.InvalidOp, NoOperand
+  | _ -> raise ParsingFailureException
 
 /// Register Indirect 1111 ---- ---- ---- with source and destination operands.
 let parseRegInd1111 b16 =
@@ -636,7 +636,7 @@ let parseRegInd1111 b16 =
       Opcode.FMOVS,
       TwoOperands(OpReg(Regdir(getReg1sFR b16)),
       OpReg(RegIndir(getReg1d b16)))
-  | _ -> Opcode.InvalidOp, NoOperand
+  | _ -> raise ParsingFailureException
 
 /// Register Indirect (Post-Increment)
 /// 0000 ---- ---- ---- with source and destination operands.
@@ -646,7 +646,7 @@ let parsePostInc0000 b16 =
     Opcode.MACL,
     TwoOperands(OpReg(RegIndirPostInc(getReg1s b16)),
     OpReg(RegIndirPostInc(getReg1d b16)))
-  | _ -> Opcode.InvalidOp, NoOperand
+  | _ -> raise ParsingFailureException
 
 /// Register Indirect (Post-Increment)
 /// 0100 ---- ---- ---- with source and destination operands.
@@ -697,8 +697,8 @@ let parsePostInc0100 b16 =
     | 0b0101us ->
       Opcode.LDSL,
       TwoOperands(OpReg(RegIndirPostInc(getReg1d b16)), OpReg(Regdir(R.FPUL)))
-    | _ -> Opcode.InvalidOp, NoOperand
-  | _ -> Opcode.InvalidOp, NoOperand
+    | _ -> raise ParsingFailureException
+  | _ -> raise ParsingFailureException
 
 /// Register Indirect (Post-Increment)
 /// 0110 ---- ---- ---- with source and destination operands.
@@ -716,7 +716,7 @@ let parsePostInc0110 b16 =
     Opcode.MOVL,
     TwoOperands(OpReg(RegIndirPostInc(getReg1s b16)),
     OpReg(Regdir(getReg1d b16)))
-  | _ -> Opcode.InvalidOp, NoOperand
+  | _ -> raise ParsingFailureException
 
 /// Register Indirect (Post-Increment)
 /// 1111 ---- ---- ---- with source and destination operands.
@@ -736,7 +736,7 @@ let parsePostInc1111 b16 =
       Opcode.FMOVS,
       TwoOperands(OpReg(RegIndirPostInc(getReg1s b16)),
         OpReg(Regdir(getReg1dFR b16)))
-  | _ -> Opcode.InvalidOp, NoOperand
+  | _ -> raise ParsingFailureException
 
 /// Register Indirect (Pre-Decrement)
 /// 0000 ---- ---- ---- with source and destination operands.
@@ -754,7 +754,7 @@ let parsePreDec0010 b16 =
     Opcode.MOVL,
     TwoOperands(OpReg(Regdir(getReg1s b16)),
     OpReg(RegIndirPreDec(getReg1d b16)))
-  | _ -> Opcode.InvalidOp, NoOperand
+  | _ -> raise ParsingFailureException
 
 /// Register Indirect (Pre-Decrement)
 /// 1111 ---- ---- ---- with source and destination operands.
@@ -774,7 +774,7 @@ let parsePreDec1111 b16 =
       Opcode.FMOVS,
       TwoOperands(OpReg(Regdir(getReg1sFR b16)),
         OpReg(RegIndirPreDec(getReg1d b16)))
-  | _ -> Opcode.InvalidOp, NoOperand
+  | _ -> raise ParsingFailureException
 
 /// Register Indirect (Pre-Decrement)
 /// 0100 ---- ---- ---- with source and destination operands.
@@ -824,8 +824,8 @@ let parsePreDec0100 b16 =
     | 0b0101us ->
       Opcode.STSL,
       TwoOperands(OpReg(Regdir(R.FPUL)), OpReg(RegIndirPreDec(getReg1d b16)))
-    | _ -> Opcode.InvalidOp, NoOperand
-  | _ -> Opcode.InvalidOp, NoOperand
+    | _ -> raise ParsingFailureException
+  | _ -> raise ParsingFailureException
 
 /// Register Indirect with Displacement
 /// 1000 ---- ---- ---- with source and destination operands.
@@ -847,7 +847,7 @@ let parseIndDisp1000 b16 =
     Opcode.MOVW,
     TwoOperands(OpReg(RegIndirDisp(getDisp4b b16, getReg1s b16)),
     OpReg(Regdir(R.R0)))
-  | _ -> Opcode.InvalidOp, NoOperand
+  | _ -> raise ParsingFailureException
 
 /// Register Indirect with Displacement
 /// 0001 ---- ---- ---- with source and destination operands.
@@ -891,7 +891,7 @@ let parseIdxInd0000 b16 =
     Opcode.MOVL,
     TwoOperands(OpReg(IdxRegIndir(R.R0, getReg1s b16)),
     OpReg(Regdir(getReg1d b16)))
-  | _ -> Opcode.InvalidOp, NoOperand
+  | _ -> raise ParsingFailureException
 
 /// Indexed Register Indirect
 /// 1111 ---- ---- ---- with source and destination operands.
@@ -920,7 +920,7 @@ let parseIdxInd1111 b16 =
       Opcode.FMOVS,
       TwoOperands(OpReg(Regdir(getReg1sFR b16)),
       OpReg(IdxRegIndir(R.R0, getReg1d b16)))
-  | _ -> Opcode.InvalidOp, NoOperand
+  | _ -> raise ParsingFailureException
 
 /// GBR Indirect with Displacement
 /// 1100 ---- ---- ---- with source and destination operands.
@@ -944,7 +944,7 @@ let parseGBRIndDisp1100 b16 =
   | 0b0110us ->
     Opcode.MOVL,
     TwoOperands(OpReg(GBRIndirDisp(getDisp8b b16, R.GBR)), OpReg(Regdir(R.R0)))
-  | _ -> Opcode.InvalidOp, NoOperand
+  | _ -> raise ParsingFailureException
 
 /// Indexed GBR Indirect
 /// 1100 ---- ---- ---- with source and destination operands.
@@ -962,7 +962,7 @@ let parseIdxGBRInd1100 b16 =
   | 0b1110us ->
     Opcode.XORB,
     TwoOperands(OpReg(Imm(getDisp8b b16)), OpReg(IdxGBRIndir(R.R0, R.GBR)))
-  | _ -> Opcode.InvalidOp, NoOperand
+  | _ -> raise ParsingFailureException
 
 /// PC Relative with Displacement
 /// 1001 ---- ---- ---- with source and destination operands.
@@ -990,7 +990,7 @@ let parsePCReg0000 b16 =
   match getBits b16 8 5 with
   | 0b0010us -> Opcode.BRAF, OneOperand(OpReg(Regdir(getReg1d b16)))
   | 0b0000us -> Opcode.BSRF, OneOperand(OpReg(Regdir(getReg1d b16)))
-  | _ -> Opcode.InvalidOp, NoOperand
+  | _ -> raise ParsingFailureException
 
 /// PC Relative 1000 ---- ---- ---- destination operand only.
 let parsePC1000 b16 =
@@ -999,7 +999,7 @@ let parsePC1000 b16 =
   | 0b1111us -> Opcode.BFS, OneOperand(OpReg(PCRelative(getDisp8b b16)))
   | 0b1001us -> Opcode.BT, OneOperand(OpReg(PCRelative(getDisp8b b16)))
   | 0b1101us -> Opcode.BTS, OneOperand(OpReg(PCRelative(getDisp8b b16)))
-  | _ -> Opcode.InvalidOp, NoOperand
+  | _ -> raise ParsingFailureException
 
 /// PC Relative 1010 ---- ---- ---- destination operand only.
 let parsePC1010 b16 = Opcode.BRA, OneOperand(OpReg(PCRelative(getDisp12b b16)))
@@ -1012,7 +1012,7 @@ let parseImm1111 b16 =
   match getBits b16 8 5 with
   | 0b1000us -> Opcode.FLDI0, OneOperand(OpReg(Regdir(getReg1dFR b16)))
   | 0b1001us -> Opcode.FLDI1, OneOperand(OpReg(Regdir(getReg1dFR b16)))
-  | _ -> Opcode.InvalidOp, NoOperand
+  | _ -> raise ParsingFailureException
 
 /// Immediate
 let parseImm1110 b16 =
@@ -1042,7 +1042,7 @@ let parseImm1100 b16 =
     Opcode.XOR, TwoOperands(OpReg(Imm(getDisp8b b16)), OpReg(Regdir(R.R0)))
   | 0b0011us ->
     Opcode.TRAPA, OneOperand(OpReg(Imm(getDisp8b b16)))
-  | _ -> Opcode.InvalidOp, NoOperand
+  | _ -> raise ParsingFailureException
 
 let parseNow b16 =
   match getBits b16 16 13 with

@@ -154,5 +154,7 @@ let translate (ins: Instruction) insLen bld =
   | Opcode.XOR -> xor ins insLen bld
   | Opcode.XORB -> xorb ins insLen bld
   | Opcode.XTRCT -> xtrct ins insLen bld
-  | Opcode.InvalidOp -> raise InvalidOpcodeException
+  (* No parser produces this opcode: an undecodable encoding is reported as a
+     parsing failure, so an instruction never carries it this far. *)
+  | Opcode.InvalidOp -> B2R2.Terminator.impossible ()
   | _ -> raise InvalidOpcodeException

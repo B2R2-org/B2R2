@@ -238,7 +238,9 @@ let translate (ins: Instruction) insLen bld =
   | Opcode.FALIGNDATAd -> faligndata ins insLen bld
   | Opcode.FLUSH | Opcode.ILLTRAP -> nop ins insLen bld
   | Opcode.FLUSHW -> flushw ins insLen bld
-  | Opcode.InvalidOp -> raise InvalidOpcodeException
+  (* No parser produces this opcode: an undecodable encoding is reported as a
+     parsing failure, so an instruction never carries it this far. *)
+  | Opcode.InvalidOp -> B2R2.Terminator.impossible ()
   | o ->
   #if DEBUG
             eprintfn "%A" o
