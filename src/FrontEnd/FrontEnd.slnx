@@ -31,6 +31,7 @@
   <Project Path="RISCV64/B2R2.FrontEnd.RISCV64.fsproj" />
   <Project Path="S390.Tests/B2R2.FrontEnd.S390.Tests.fsproj" />
   <Project Path="S390/B2R2.FrontEnd.S390.fsproj" />
+  <Project Path="SH4.Tests/B2R2.FrontEnd.SH4.Tests.fsproj" />
   <Project Path="SH4/B2R2.FrontEnd.SH4.fsproj" />
   <Project Path="SPARC.Tests/B2R2.FrontEnd.SPARC.Tests.fsproj" />
   <Project Path="SPARC/B2R2.FrontEnd.SPARC.fsproj" />

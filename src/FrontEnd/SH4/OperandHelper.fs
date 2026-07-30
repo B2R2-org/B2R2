@@ -25,6 +25,7 @@
 module internal B2R2.FrontEnd.SH4.OperandHelper
 
 open B2R2
+open B2R2.FrontEnd.BinLifter.ParsingUtils
 
 let getReg = function
   | 0x0us -> R.R0
@@ -123,11 +124,19 @@ let getRegFV = function
   | 0xCus -> R.FV12
   | _ -> raise InvalidRegTypeException
 
-let getBits (binary: uint16) (start: int)  (fin: int) =
-  let s, e = if ((max start fin) = start) then start, fin else fin, start
-  if (s - e + 1) > 15 then failwith "Bits outside range" else ()
-  let mask = (pown 2 ((int) (s - e + 1))) - 1 |> uint16
-  (binary >>> (e - 1)) &&& mask
+/// Extracts the bits between the two given positions, which SH4 numbers from
+/// one as its manual does, unlike the rest of the front end. The shared
+/// extractor does the reading; only the numbering is bridged here.
+let getBits (binary: uint16) (start: int) (fin: int) =
+  let s, e = if max start fin = start then start, fin else fin, start
+  (* One-based positions over sixteen bits, so anything outside 1..16 names a
+     field this instruction set does not have. Bounding the width instead let a
+     pair like 20..10 through, which read bits the value cannot hold and quietly
+     yielded zero, and rejected a full-width read that is perfectly meaningful.
+     Either way the positions are literals at the call site, so getting one
+     wrong is a defect rather than anything about the input. *)
+  if e < 1 || s > 16 then Terminator.impossible () else ()
+  Bits.extract (uint32 binary) (uint32 s - 1u) (uint32 e - 1u) |> uint16
 
 let get1Bit (binary: uint16) (pos: int) = ((binary >>> (pos - 1)) &&& 1us) = 1us
 

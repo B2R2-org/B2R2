@@ -25,6 +25,10 @@
 namespace B2R2.FrontEnd.SH4
 
 open B2R2
+open System.Runtime.CompilerServices
+
+[<assembly: InternalsVisibleTo("B2R2.FrontEnd.SH4.Tests")>]
+do ()
 
 /// Shortcut for Register type.
 type internal R = Register
