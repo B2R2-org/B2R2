@@ -26,6 +26,7 @@ module internal B2R2.FrontEnd.ARM64.Utils
 
 open B2R2
 open B2R2.FrontEnd.BinLifter
+open B2R2.FrontEnd.BinLifter.ParsingUtils
 open B2R2.FrontEnd.ARM64
 
 type SystemOp =
@@ -35,12 +36,11 @@ type SystemOp =
   | SysTLBI
   | SysSYS
 
-let extract binary n1 n2 =
-  let m, n = if max n1 n2 = n1 then n1, n2 else n2, n1
-  let range = m - n + 1u
-  if range > 31u then failwith "invaild range" else ()
-  let mask = pown 2 (int range) - 1 |> uint32
-  binary >>> int n &&& mask
+(* The shared extractor, aliased so that the call sites across this
+   architecture read as they did. This file used to carry its own copy,
+   differing only in rejecting a bad offset range with a bare exception
+   instead of naming the mistake. *)
+let extract = Bits.extract
 
 let pickBit binary (pos: uint32) = binary >>> int pos &&& 0b1u
 

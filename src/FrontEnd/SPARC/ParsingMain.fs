@@ -25,6 +25,7 @@
 module internal B2R2.FrontEnd.SPARC.ParsingMain
 
 open B2R2.FrontEnd.BinLifter
+open B2R2.FrontEnd.BinLifter.ParsingUtils
 open type Register
 
 let getRegister = function
@@ -183,12 +184,10 @@ let parseThrOprOneReg b op1 op2 reg op3 = FourOperands(op1 b, op2 b, reg, op3 b)
 
 let parseSTXA b op1 op2 op3 reg = FourOperands(op1 b, op2 b, op3 b, reg)
 
-let extract binary n1 n2 =
-  let m, n = if max n1 n2 = n1 then n1, n2 else n2, n1
-  let range = m - n + 1u
-  if range > 31u then failwith "invalid range" else ()
-  let mask = pown 2 (int range) - 1 |> uint32
-  binary >>> int n &&& mask
+(* The shared extractor, aliased so that the hundred call sites below read as
+   they did. This file used to carry its own copy, differing only in rejecting a
+   bad offset range with a bare exception instead of naming the mistake. *)
+let extract = Bits.extract
 
 let getReg b s e = getRegister (extract b s e |> byte)
 
