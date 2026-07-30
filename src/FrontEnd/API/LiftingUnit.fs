@@ -40,6 +40,15 @@ open B2R2.FrontEnd.BinLifter
 /// that reaches no readable bytes as <see cref='T:System.ArgumentException'/>.
 /// Anything else escaping these members is a defect rather than a property of
 /// the input.
+///
+/// The members that lift deliberately do no such conversion. Parsing decides
+/// whether bytes are an instruction, so collapsing what a parser raises loses
+/// nothing; lifting runs on an instruction parsing already accepted, so a
+/// failure there always means B2R2 falls short rather than the input. Only <see
+/// cref='T:B2R2.FrontEnd.BinLifter.NotImplementedIRException'/> says which of
+/// the two it is, and a net here would answer for the rest -- reporting a
+/// lifter that builds an IR the builder rejects as an instruction merely
+/// awaiting implementation, and making the list of work left to do a lie.
 /// </remarks>
 /// </summary>
 type LiftingUnit

@@ -468,9 +468,13 @@ type SymbExecutor(hdl: BinHandle) =
     if hdl.File.IsValidAddr addr then lifter.TryParseInstruction addr
     else Error ErrorCase.ParsingFailure
 
+  (* Parsing already accepted the bytes, so a lifter that cannot express this
+     instruction is the one expected failure; naming it keeps a defect in a
+     lifter from being reported as a property of the input, which catching
+     everything did, and under the wrong error case at that. *)
   let tryLiftInstruction (ins: IInstruction) =
     try lifter.LiftInstruction ins |> Ok
-    with _ -> Error ErrorCase.ParsingFailure
+    with NotImplementedIRException _ -> Error ErrorCase.NotImplementedIR
 
   let cacheLiftResult addr result =
     liftCache[addr] <- result

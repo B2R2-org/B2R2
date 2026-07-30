@@ -252,10 +252,23 @@ type IInstruction =
   /// <summary>
   /// Lifts this instruction into a LowUIR statement array given a translation
   /// context.
+  /// <remarks>
+  /// Parsing already accepted the bytes this instruction came from, so failing
+  /// to lift it is never a property of the input: it says B2R2 cannot yet
+  /// express this instruction. That is reported as <see
+  /// cref='T:B2R2.FrontEnd.BinLifter.NotImplementedIRException'/>, carrying the
+  /// mnemonic, and it is the only failure a caller should expect. Any other
+  /// exception escaping a lifter is a defect in it -- typically an IR the
+  /// builder rejects -- and must not be converted into one, or the list of
+  /// instructions left to implement stops being true.
+  /// </remarks>
   /// </summary>
   /// <returns>
   /// Returns an array of LowUIR statements.
   /// </returns>
+  /// <exception cref='T:B2R2.FrontEnd.BinLifter.NotImplementedIRException'>
+  /// Thrown when this instruction has no IR yet.
+  /// </exception>
   abstract Translate: ILowUIRBuilder -> Stmt[]
 
   /// <summary>

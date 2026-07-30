@@ -380,9 +380,14 @@ type ConcExecutor(hdl: BinHandle) =
     if hdl.File.IsValidAddr addr then lifter.TryParseInstruction addr
     else Result.Error ErrorCase.ParsingFailure
 
+  (* Parsing already accepted the bytes, so a lifter that cannot express this
+     instruction is the one expected failure; naming it keeps a defect in a
+     lifter from being reported as a property of the input, which catching
+     everything did, and under the wrong error case at that. *)
   let tryLiftInstruction (ins: IInstruction) =
     try lifter.LiftInstruction ins |> Ok
-    with _ -> Result.Error ErrorCase.ParsingFailure
+    with NotImplementedIRException _ ->
+      Result.Error ErrorCase.NotImplementedIR
 
   let collectPreInstrStopReasons (st: EvalState) addr n
                                (opts: ConcRunOptions<EvalState>) =

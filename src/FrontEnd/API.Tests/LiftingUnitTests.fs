@@ -99,6 +99,17 @@ type LiftingUnitTests() =
   /// table above so the two cannot drift apart.
   static let parsableArchs = alignments |> Array.map fst
 
+  /// Instructions whose IR nobody has written yet, with the mnemonic each one
+  /// decodes to. Found by fuzzing; a sample stops serving once that instruction
+  /// is implemented, which is the point of the list.
+  static let unlifted =
+    [| Architecture.ARMv7, "730806b7", "smlsdx"
+       Architecture.ARMv7, "50ef2ba1", "qsub"
+       Architecture.ARMv8, "c0dddb48", "ldarh"
+       Architecture.ARMv8, "bdd94e0f", "sqrdmulh"
+       Architecture.AVR, "d1fe", "sbrs"
+       Architecture.AVR, "b5fc", "sbrc" |]
+
   static let assertRaises (f: unit -> unit) =
     Assert.ThrowsExactly<System.ArgumentException>(fun () -> f ()) |> ignore
 
@@ -196,6 +207,22 @@ type LiftingUnitTests() =
       Assert.ThrowsExactly<ParsingFailureException>(fun () ->
         unit.ParseInstruction(System.ReadOnlySpan padded, 0x1000UL) |> ignore)
       |> ignore
+
+  (* Lifting an instruction B2R2 cannot yet express reports it as such, and that
+     is the only failure a caller should expect: parsing already accepted the
+     bytes, so anything else escaping a lifter is a defect rather than a
+     property of the input. The message names the mnemonic, which is what makes
+     a sweep over a binary read as a list of work to do. *)
+  [<TestMethod>]
+  member _.``[LiftingUnit] an unlifted instruction says so test``() =
+    for arch, hex, mnemonic in unlifted do
+      let bytes = ByteArray.ofHexString hex
+      let unit = BinHandle.LoadRawImage(bytes, ISA arch).NewLiftingUnit()
+      let ins = unit.ParseInstruction(System.ReadOnlySpan bytes, 0UL)
+      let thrown =
+        Assert.ThrowsExactly<NotImplementedIRException>(fun () ->
+          unit.LiftInstruction(ins = ins) |> ignore)
+      Assert.AreEqual<string>(mnemonic, thrown.Data0)
 
   (* IsTerminator decides where a block ends, and it is read outside the guard
      that converts parse failures, so an architecture leaving it unimplemented
