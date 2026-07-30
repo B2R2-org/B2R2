@@ -45,6 +45,7 @@ module internal RegisterHelper =
     | R.R2_BANK | R.R3_BANK | R.R4_BANK | R.R5_BANK | R.R6_BANK | R.R7_BANK
     | R.SR | R.GBR | R.SSR
     | R.SPC | R.SGR | R.DBR | R.VBR | R.MACH | R.MACL | R.PR | R.FPUL | R.PC
+    | R.NPC
     | R.FPSCR | R.FPR0 | R.FPR1 | R.FPR2 | R.FPR3 | R.FPR4 | R.FPR5 | R.FPR6
     | R.FPR7 | R.FPR8 | R.FPR9 | R.FPR10 | R.FPR11 | R.FPR12 | R.FPR13
     | R.FPR14 | R.FPR15 | R.FR0 | R.FR1 | R.FR2 | R.FR3 | R.FR4 | R.FR5

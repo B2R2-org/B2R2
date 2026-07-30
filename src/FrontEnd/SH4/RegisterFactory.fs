@@ -30,143 +30,152 @@ open B2R2.BinIR.LowUIR
 
 /// Represents a factory for accessing various SH4 register variables.
 type RegisterFactory(isa: ISA) =
-  let rt = WordSize.toRegType isa.WordSize
+  (* Each variable takes the width RegisterHelper assigns it, so a register
+     variable and the GetRegType this factory reports for it agree: the T bit is
+     one bit wide, a double-precision pair is sixty-four. Building them all at
+     the word size instead made every flag a thirty-two-bit variable that the
+     same factory then described as one bit. *)
+  let var r =
+    let name = Register.toString r
+    let rt = RegisterHelper.toRegType r
+    AST.var rt (Register.toRegID r) (name.ToUpperInvariant())
 
-  let r0 = AST.var rt (Register.toRegID R.R0) "R0"
-  let r1 = AST.var rt (Register.toRegID R.R1) "R1"
-  let r2 = AST.var rt (Register.toRegID R.R2) "R2"
-  let r3 = AST.var rt (Register.toRegID R.R3) "R3"
-  let r4 = AST.var rt (Register.toRegID R.R4) "R4"
-  let r5 = AST.var rt (Register.toRegID R.R5) "R5"
-  let r6 = AST.var rt (Register.toRegID R.R6) "R6"
-  let r7 = AST.var rt (Register.toRegID R.R7) "R7"
-  let r8 = AST.var rt (Register.toRegID R.R8) "R8"
-  let r9 = AST.var rt (Register.toRegID R.R9) "R9"
-  let r10 = AST.var rt (Register.toRegID R.R10) "R10"
-  let r11 = AST.var rt (Register.toRegID R.R11) "R11"
-  let r12 = AST.var rt (Register.toRegID R.R12) "R12"
-  let r13 = AST.var rt (Register.toRegID R.R13) "R13"
-  let r14 = AST.var rt (Register.toRegID R.R14) "R14"
-  let r15 = AST.var rt (Register.toRegID R.R15) "R15"
-  let r0BANK = AST.var rt (Register.toRegID R.R0_BANK) "R0_BANK"
-  let r1BANK = AST.var rt (Register.toRegID R.R1_BANK) "R1_BANK"
-  let r2BANK = AST.var rt (Register.toRegID R.R2_BANK) "R2_BANK"
-  let r3BANK = AST.var rt (Register.toRegID R.R3_BANK) "R3_BANK"
-  let r4BANK = AST.var rt (Register.toRegID R.R4_BANK) "R4_BANK"
-  let r5BANK = AST.var rt (Register.toRegID R.R5_BANK) "R5_BANK"
-  let r6BANK = AST.var rt (Register.toRegID R.R6_BANK) "R6_BANK"
-  let r7BANK = AST.var rt (Register.toRegID R.R7_BANK) "R7_BANK"
-  let sr = AST.var rt (Register.toRegID R.SR) "SR"
-  let gbr = AST.var rt (Register.toRegID R.GBR) "GBR"
-  let ssr = AST.var rt (Register.toRegID R.SSR) "SSR"
-  let spc = AST.var rt (Register.toRegID R.SPC) "SPC"
-  let sgr = AST.var rt (Register.toRegID R.SGR) "SGR"
-  let dbr = AST.var rt (Register.toRegID R.DBR) "DBR"
-  let vbr = AST.var rt (Register.toRegID R.VBR) "VBR"
-  let mach = AST.var rt (Register.toRegID R.MACH) "MACH"
-  let macl = AST.var rt (Register.toRegID R.MACL) "MACL"
-  let pr = AST.var rt (Register.toRegID R.PR) "PR"
-  let fpul = AST.var rt (Register.toRegID R.FPUL) "FPUL"
-  let pc = AST.var rt (Register.toRegID R.PC) "PC"
-  let fpscr = AST.var rt (Register.toRegID R.FPSCR) "FPSCR"
-  let fpr0 = AST.var rt (Register.toRegID R.FPR0) "FPR0"
-  let fpr1 = AST.var rt (Register.toRegID R.FPR1) "FPR1"
-  let fpr2 = AST.var rt (Register.toRegID R.FPR2) "FPR2"
-  let fpr3 = AST.var rt (Register.toRegID R.FPR3) "FPR3"
-  let fpr4 = AST.var rt (Register.toRegID R.FPR4) "FPR4"
-  let fpr5 = AST.var rt (Register.toRegID R.FPR5) "FPR5"
-  let fpr6 = AST.var rt (Register.toRegID R.FPR6) "FPR6"
-  let fpr7 = AST.var rt (Register.toRegID R.FPR7) "FPR7"
-  let fpr8 = AST.var rt (Register.toRegID R.FPR8) "FPR8"
-  let fpr9 = AST.var rt (Register.toRegID R.FPR9) "FPR9"
-  let fpr10 = AST.var rt (Register.toRegID R.FPR10) "FPR10"
-  let fpr11 = AST.var rt (Register.toRegID R.FPR11) "FPR11"
-  let fpr12 = AST.var rt (Register.toRegID R.FPR12) "FPR12"
-  let fpr13 = AST.var rt (Register.toRegID R.FPR13) "FPR13"
-  let fpr14 = AST.var rt (Register.toRegID R.FPR14) "FPR14"
-  let fpr15 = AST.var rt (Register.toRegID R.FPR15) "FPR15"
-  let fr0 = AST.var rt (Register.toRegID R.FR0) "FR0"
-  let fr1 = AST.var rt (Register.toRegID R.FR1) "FR1"
-  let fr2 = AST.var rt (Register.toRegID R.FR2) "FR2"
-  let fr3 = AST.var rt (Register.toRegID R.FR3) "FR3"
-  let fr4 = AST.var rt (Register.toRegID R.FR4) "FR4"
-  let fr5 = AST.var rt (Register.toRegID R.FR5) "FR5"
-  let fr6 = AST.var rt (Register.toRegID R.FR6) "FR6"
-  let fr7 = AST.var rt (Register.toRegID R.FR7) "FR7"
-  let fr8 = AST.var rt (Register.toRegID R.FR8) "FR8"
-  let fr9 = AST.var rt (Register.toRegID R.FR9) "FR9"
-  let fr10 = AST.var rt (Register.toRegID R.FR10) "FR10"
-  let fr11 = AST.var rt (Register.toRegID R.FR11) "FR11"
-  let fr12 = AST.var rt (Register.toRegID R.FR12) "FR12"
-  let fr13 = AST.var rt (Register.toRegID R.FR13) "FR13"
-  let fr14 = AST.var rt (Register.toRegID R.FR14) "FR14"
-  let fr15 = AST.var rt (Register.toRegID R.FR15) "FR15"
-  let dr0 = AST.var rt (Register.toRegID R.DR0) "DR0"
-  let dr2 = AST.var rt (Register.toRegID R.DR2) "DR2"
-  let dr4 = AST.var rt (Register.toRegID R.DR4) "DR4"
-  let dr6 = AST.var rt (Register.toRegID R.DR6) "DR6"
-  let dr8 = AST.var rt (Register.toRegID R.DR8) "DR8"
-  let dr10 = AST.var rt (Register.toRegID R.DR10) "DR10"
-  let dr12 = AST.var rt (Register.toRegID R.DR12) "DR12"
-  let dr14 = AST.var rt (Register.toRegID R.DR14) "DR14"
-  let fv0 = AST.var rt (Register.toRegID R.FV0) "FV0"
-  let fv4 = AST.var rt (Register.toRegID R.FV4) "FV4"
-  let fv8 = AST.var rt (Register.toRegID R.FV8) "FV8"
-  let fv12 = AST.var rt (Register.toRegID R.FV12) "FV12"
-  let xd0 = AST.var rt (Register.toRegID R.XD0) "XD0"
-  let xd2 = AST.var rt (Register.toRegID R.XD2) "XD2"
-  let xd4 = AST.var rt (Register.toRegID R.XD4) "XD4"
-  let xd6 = AST.var rt (Register.toRegID R.XD6) "XD6"
-  let xd8 = AST.var rt (Register.toRegID R.XD8) "XD8"
-  let xd10 = AST.var rt (Register.toRegID R.XD10) "XD10"
-  let xd12 = AST.var rt (Register.toRegID R.XD12) "XD12"
-  let xd14 = AST.var rt (Register.toRegID R.XD14) "XD14"
-  let xf0 = AST.var rt (Register.toRegID R.XF0) "XF0"
-  let xf1 = AST.var rt (Register.toRegID R.XF1) "XF1"
-  let xf2 = AST.var rt (Register.toRegID R.XF2) "XF2"
-  let xf3 = AST.var rt (Register.toRegID R.XF3) "XF3"
-  let xf4 = AST.var rt (Register.toRegID R.XF4) "XF4"
-  let xf5 = AST.var rt (Register.toRegID R.XF5) "XF5"
-  let xf6 = AST.var rt (Register.toRegID R.XF6) "XF6"
-  let xf7 = AST.var rt (Register.toRegID R.XF7) "XF7"
-  let xf8 = AST.var rt (Register.toRegID R.XF8) "XF8"
-  let xf9 = AST.var rt (Register.toRegID R.XF9) "XF9"
-  let xf10 = AST.var rt (Register.toRegID R.XF10) "XF10"
-  let xf11 = AST.var rt (Register.toRegID R.XF11) "XF11"
-  let xf12 = AST.var rt (Register.toRegID R.XF12) "XF12"
-  let xf13 = AST.var rt (Register.toRegID R.XF13) "XF13"
-  let xf14 = AST.var rt (Register.toRegID R.XF14) "XF14"
-  let xf15 = AST.var rt (Register.toRegID R.XF15) "XF15"
-  let xmtrx = AST.var rt (Register.toRegID R.XMTRX) "XMTRX"
-  let pteh = AST.var rt (Register.toRegID R.PTEH) "PTEH"
-  let ptel = AST.var rt (Register.toRegID R.PTEL) "PTEL"
-  let ptea = AST.var rt (Register.toRegID R.PTEA) "PTEA"
-  let ttb = AST.var rt (Register.toRegID R.TTB) "TTB"
-  let tea = AST.var rt (Register.toRegID R.TEA) "TEA"
-  let mmucr = AST.var rt (Register.toRegID R.MMUCR) "MMUCR"
-  let ccr = AST.var rt (Register.toRegID R.CCR) "CCR"
-  let qACR0 = AST.var rt (Register.toRegID R.QACR0) "QACR0"
-  let qACR1 = AST.var rt (Register.toRegID R.QACR1) "QACR1"
-  let tra = AST.var rt (Register.toRegID R.TRA) "TRA"
-  let expevt = AST.var rt (Register.toRegID R.EXPEVT) "EXPEVT"
-  let intevt = AST.var rt (Register.toRegID R.INTEVT) "INTEVT"
-  let md = AST.var rt (Register.toRegID R.MD) "MD"
-  let rb = AST.var rt (Register.toRegID R.RB) "RB"
-  let bl = AST.var rt (Register.toRegID R.BL) "BL"
-  let fd = AST.var rt (Register.toRegID R.FD) "FD"
-  let m = AST.var rt (Register.toRegID R.M) "M"
-  let q = AST.var rt (Register.toRegID R.Q) "Q"
-  let iMASK = AST.var rt (Register.toRegID R.IMASK) "IMASK"
-  let s = AST.var rt (Register.toRegID R.S) "S"
-  let t = AST.var rt (Register.toRegID R.T) "T"
-  let fpscrRM = AST.var rt (Register.toRegID R.FPSCR_RM) "FPSCR_RM"
-  let fpscrFLAG = AST.var rt (Register.toRegID R.FPSCR_FLAG) "FPSCR_FLAG"
-  let fpscrENABLE = AST.var rt (Register.toRegID R.FPSCR_ENABLE) "FPSCR_ENABLE"
-  let fpscrCAUSE = AST.var rt (Register.toRegID R.FPSCR_CAUSE) "FPSCR_CAUSE"
-  let fpscrDN = AST.var rt (Register.toRegID R.FPSCR_DN) "FPSCR_DN"
-  let fpscrPR = AST.var rt (Register.toRegID R.FPSCR_PR) "FPSCR_PR"
-  let fpscrSZ = AST.var rt (Register.toRegID R.FPSCR_SZ) "FPSCR_SZ"
-  let fpscrFR = AST.var rt (Register.toRegID R.FPSCR_FR) "FPSCR_FR"
+  let r0 = var R.R0
+  let r1 = var R.R1
+  let r2 = var R.R2
+  let r3 = var R.R3
+  let r4 = var R.R4
+  let r5 = var R.R5
+  let r6 = var R.R6
+  let r7 = var R.R7
+  let r8 = var R.R8
+  let r9 = var R.R9
+  let r10 = var R.R10
+  let r11 = var R.R11
+  let r12 = var R.R12
+  let r13 = var R.R13
+  let r14 = var R.R14
+  let r15 = var R.R15
+  let r0BANK = var R.R0_BANK
+  let r1BANK = var R.R1_BANK
+  let r2BANK = var R.R2_BANK
+  let r3BANK = var R.R3_BANK
+  let r4BANK = var R.R4_BANK
+  let r5BANK = var R.R5_BANK
+  let r6BANK = var R.R6_BANK
+  let r7BANK = var R.R7_BANK
+  let sr = var R.SR
+  let gbr = var R.GBR
+  let ssr = var R.SSR
+  let spc = var R.SPC
+  let sgr = var R.SGR
+  let dbr = var R.DBR
+  let vbr = var R.VBR
+  let mach = var R.MACH
+  let macl = var R.MACL
+  let pr = var R.PR
+  let fpul = var R.FPUL
+  let pc = var R.PC
+  let npc = var R.NPC
+  let fpscr = var R.FPSCR
+  let fpr0 = var R.FPR0
+  let fpr1 = var R.FPR1
+  let fpr2 = var R.FPR2
+  let fpr3 = var R.FPR3
+  let fpr4 = var R.FPR4
+  let fpr5 = var R.FPR5
+  let fpr6 = var R.FPR6
+  let fpr7 = var R.FPR7
+  let fpr8 = var R.FPR8
+  let fpr9 = var R.FPR9
+  let fpr10 = var R.FPR10
+  let fpr11 = var R.FPR11
+  let fpr12 = var R.FPR12
+  let fpr13 = var R.FPR13
+  let fpr14 = var R.FPR14
+  let fpr15 = var R.FPR15
+  let fr0 = var R.FR0
+  let fr1 = var R.FR1
+  let fr2 = var R.FR2
+  let fr3 = var R.FR3
+  let fr4 = var R.FR4
+  let fr5 = var R.FR5
+  let fr6 = var R.FR6
+  let fr7 = var R.FR7
+  let fr8 = var R.FR8
+  let fr9 = var R.FR9
+  let fr10 = var R.FR10
+  let fr11 = var R.FR11
+  let fr12 = var R.FR12
+  let fr13 = var R.FR13
+  let fr14 = var R.FR14
+  let fr15 = var R.FR15
+  let dr0 = var R.DR0
+  let dr2 = var R.DR2
+  let dr4 = var R.DR4
+  let dr6 = var R.DR6
+  let dr8 = var R.DR8
+  let dr10 = var R.DR10
+  let dr12 = var R.DR12
+  let dr14 = var R.DR14
+  let fv0 = var R.FV0
+  let fv4 = var R.FV4
+  let fv8 = var R.FV8
+  let fv12 = var R.FV12
+  let xd0 = var R.XD0
+  let xd2 = var R.XD2
+  let xd4 = var R.XD4
+  let xd6 = var R.XD6
+  let xd8 = var R.XD8
+  let xd10 = var R.XD10
+  let xd12 = var R.XD12
+  let xd14 = var R.XD14
+  let xf0 = var R.XF0
+  let xf1 = var R.XF1
+  let xf2 = var R.XF2
+  let xf3 = var R.XF3
+  let xf4 = var R.XF4
+  let xf5 = var R.XF5
+  let xf6 = var R.XF6
+  let xf7 = var R.XF7
+  let xf8 = var R.XF8
+  let xf9 = var R.XF9
+  let xf10 = var R.XF10
+  let xf11 = var R.XF11
+  let xf12 = var R.XF12
+  let xf13 = var R.XF13
+  let xf14 = var R.XF14
+  let xf15 = var R.XF15
+  let xmtrx = var R.XMTRX
+  let pteh = var R.PTEH
+  let ptel = var R.PTEL
+  let ptea = var R.PTEA
+  let ttb = var R.TTB
+  let tea = var R.TEA
+  let mmucr = var R.MMUCR
+  let ccr = var R.CCR
+  let qACR0 = var R.QACR0
+  let qACR1 = var R.QACR1
+  let tra = var R.TRA
+  let expevt = var R.EXPEVT
+  let intevt = var R.INTEVT
+  let md = var R.MD
+  let rb = var R.RB
+  let bl = var R.BL
+  let fd = var R.FD
+  let m = var R.M
+  let q = var R.Q
+  let iMASK = var R.IMASK
+  let s = var R.S
+  let t = var R.T
+  let fpscrRM = var R.FPSCR_RM
+  let fpscrFLAG = var R.FPSCR_FLAG
+  let fpscrENABLE = var R.FPSCR_ENABLE
+  let fpscrCAUSE = var R.FPSCR_CAUSE
+  let fpscrDN = var R.FPSCR_DN
+  let fpscrPR = var R.FPSCR_PR
+  let fpscrSZ = var R.FPSCR_SZ
+  let fpscrFR = var R.FPSCR_FR
 
   interface IRegisterFactory with
     member _.ISA = isa
@@ -215,6 +224,7 @@ type RegisterFactory(isa: ISA) =
       | R.PR -> pr
       | R.FPUL -> fpul
       | R.PC -> pc
+      | R.NPC -> npc
       | R.FPSCR -> fpscr
       | R.FPR0 -> fpr0
       | R.FPR1 -> fpr1
@@ -335,6 +345,10 @@ type RegisterFactory(isa: ISA) =
       | "r14" -> r14
       | "r15" -> r15
       | "pc" -> pc
+      | "npc" -> npc
+      | "pr" -> pr
+      | "gbr" -> gbr
+      | "t" -> t
       | _ -> raise InvalidRegisterException
 
     member _.GetPseudoRegVar(_id, _idx) = Terminator.impossible ()
@@ -356,7 +370,13 @@ type RegisterFactory(isa: ISA) =
          r13
          r14
          r15
-         pc |]
+         pc
+         npc
+         pr
+         gbr
+         mach
+         macl
+         t |]
 
     member _.GetGeneralRegVars() =
       [| r0

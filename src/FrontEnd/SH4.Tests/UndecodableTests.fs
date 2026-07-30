@@ -41,7 +41,7 @@ type UndecodableTests() =
 
   [<TestMethod>]
   member _.``[SH4] Undecodable Bytes Do Not Parse Test``() =
-    for hex in [| "b44c"; "8046"; "4aca" |] do
+    for hex in [| "b44c"; "8046"; "3100" |] do
       let bytes = ByteArray.ofHexString hex
       Assert.ThrowsExactly<ParsingFailureException>(fun () ->
         parser.Parse(ReadOnlySpan bytes, 0UL) |> ignore) |> ignore

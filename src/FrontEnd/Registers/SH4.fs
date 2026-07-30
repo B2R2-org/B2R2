@@ -170,6 +170,9 @@ type Register =
   | FPSCR_PR = 0x84
   | FPSCR_SZ = 0x85
   | FPSCR_FR = 0x86
+  /// The address the pending delayed branch transfers to, so a branch can name
+  /// its target while its delay slot still runs.
+  | NPC = 0x87
 
 /// Provides functions to handle SH4 registers.
 module Register =
@@ -317,6 +320,7 @@ module Register =
     | "fpscr_pr" -> Register.FPSCR_PR
     | "fpscr_sz" -> Register.FPSCR_SZ
     | "fpscr_fr" -> Register.FPSCR_FR
+    | "npc" -> Register.NPC
     | _ -> Terminator.impossible ()
 
   /// Returns the register ID of a SH4 register.
@@ -463,4 +467,5 @@ module Register =
     | Register.FPSCR_PR -> "fpscr_pr"
     | Register.FPSCR_SZ -> "fpscr_sz"
     | Register.FPSCR_FR -> "fpscr_fr"
+    | Register.NPC -> "npc"
     | _ -> Terminator.impossible ()

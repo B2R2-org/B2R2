@@ -92,7 +92,7 @@ type LiftingUnitTests() =
        Architecture.ARMv8, "da2310d58e8c42b9"      (* ARM64/OperandHelper *)
        Architecture.ARMv8, "077f1cf2f69240e8"      (* ARM64/Utils *)
        Architecture.SPARC, "3e775fa20b35409b"      (* SPARC/ParsingMain *)
-       Architecture.SH4, "44f44ec52ee90c4e"        (* SH4/ParsingMain *)
+       Architecture.SH4, "31004ec52ee90c4e"        (* SH4/ParsingMain *)
        Architecture.TMS320C6000, "714895b96fd44fd8" |] (* TMS/ParsingMain *)
 
   /// Every architecture a parser can be built for, taken from the alignment

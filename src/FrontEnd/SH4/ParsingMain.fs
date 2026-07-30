@@ -28,10 +28,16 @@ open B2R2
 open B2R2.FrontEnd.BinLifter
 open B2R2.FrontEnd.SH4.OperandHelper
 
-(* No state is decoded yet, so every encoding that needs one is undecodable
-   here. It reports a parsing failure rather than claiming a bug, since the
-   input is well formed and it is this parser that falls short. *)
-let getState _ = raise ParsingFailureException
+/// Whether the FPU mode bit an encoding selects on is set: FPSCR.SZ for a
+/// transfer, FPSCR.PR for an arithmetic operation. A parser cannot know, as the
+/// bit lives in a register the program writes at run time while the two
+/// encodings it chooses between are identical. This answers for the cleared
+/// state -- single precision, thirty-two-bit transfers -- which is what a Linux
+/// userland runs in until it sets the bit itself; decoding the set state would
+/// mean deferring the choice into the lifter, and fschg and frchg stay unlifted
+/// so that a program which does set one stops here rather than running as if it
+/// had not.
+let getState _ = false
 
 /// 0000 0000 ---- ---- with no operands
 let noOpParse0000 b16 =
@@ -56,12 +62,20 @@ let noOpParse1111 b16 =
   | 0b0011us -> Opcode.FSCHG, NoOperand
   | _ -> raise ParsingFailureException
 
+/// 0000 ---- ---- 1001 with destination operand only. Only movt names a
+/// register here; nop and div0u share the low nibble but not the field above
+/// it, so they fall through to the no-operand table.
+let oneOpParse0000 b16 =
+  match getBits b16 8 5 with
+  | 0b0010us -> Opcode.MOVT, OneOperand(OpReg(Regdir(getReg1d b16)))
+  | _ -> noOpParse0000 b16
+
 /// 0100 ---- ---- ---- with destination operand only.
 let oneOpParse0100 b16 =
   match getBits b16 8 5 with
   | 0b0010us ->
     match getBits b16 4 1 with
-    | 0b1001us -> Opcode.MOVT, OneOperand(OpReg(Regdir(getReg1d b16)))
+    | 0b1001us -> Opcode.SHLR16, OneOperand(OpReg(Regdir(getReg1d b16)))
     | 0b0100us -> Opcode.ROTCL, OneOperand(OpReg(Regdir(getReg1d b16)))
     | 0b0101us -> Opcode.ROTCR, OneOperand(OpReg(Regdir(getReg1d b16)))
     | 0b0000us -> Opcode.SHAL, OneOperand(OpReg(Regdir(getReg1d b16)))
@@ -621,7 +635,7 @@ let parseRegInd1111 b16 =
     else
       Opcode.FMOVS,
       TwoOperands(OpReg(RegIndir(getReg1s b16)),
-      OpReg(Regdir(getReg1sFR b16)))
+      OpReg(Regdir(getReg1dFR b16)))
   | 0b1010us ->
     if getState () then
       if get1Bit b16 5 then
@@ -994,7 +1008,7 @@ let parsePCReg0000 b16 =
 
 /// PC Relative 1000 ---- ---- ---- destination operand only.
 let parsePC1000 b16 =
-  match getBits b16 8 5 with
+  match getBits b16 12 9 with
   | 0b1011us -> Opcode.BF, OneOperand(OpReg(PCRelative(getDisp8b b16)))
   | 0b1111us -> Opcode.BFS, OneOperand(OpReg(PCRelative(getDisp8b b16)))
   | 0b1001us -> Opcode.BT, OneOperand(OpReg(PCRelative(getDisp8b b16)))
@@ -1031,7 +1045,7 @@ let parseImm1000 b16 =
 
 /// Immmediate
 let parseImm1100 b16 =
-  match getBits b16 8 5 with
+  match getBits b16 12 9 with
   | 0b1001us ->
     Opcode.AND, TwoOperands(OpReg(Imm(getDisp8b b16)), OpReg(Regdir(R.R0)))
   | 0b1011us ->
@@ -1056,6 +1070,7 @@ let parseNow b16 =
     | 0b0100us | 0b0101us | 0b0110us | 0b1100us
     | 0b1101us | 0b1110us -> parseIdxInd0000 b16
     | 0b1111us -> parsePostInc0000 b16
+    | 0b1001us -> oneOpParse0000 b16
     | _ -> noOpParse0000 b16
   | 0b0100us ->
     match getBits b16 4 1 with
@@ -1071,12 +1086,12 @@ let parseNow b16 =
     | _ -> twoOpParse0010 b16
   | 0b0110us ->
     match getBits b16 4 1 with
-    | 0b0000us | 0b0001us | 0b0010us -> parseRegInd0010 b16
+    | 0b0000us | 0b0001us | 0b0010us -> parseRegInd0110 b16
     | 0b0100us | 0b0101us | 0b0110us -> parsePostInc0110 b16
     | _ -> twoOpParse0110 b16
   | 0b0011us -> twoOpParse0011 b16
   | 0b1000us ->
-    match getBits b16 8 5 with
+    match getBits b16 12 9 with
     | 0b1011us | 0b1111us | 0b1001us | 0b1101us -> parsePC1000 b16
     | 0b1000us -> parseImm1000 b16
     | _ -> parseIndDisp1000 b16
@@ -1092,27 +1107,33 @@ let parseNow b16 =
       | 0b1001us | 0b1011us | 0b1000us | 0b1010us -> parseImm1100 b16
       | _ -> parseIdxGBRInd1100 b16
     else
-      if getBits b16 8 5 = 0b0111us then parsePCDisp1100 b16
-      elif getBits b16 8 5 = 0b0011us then parseImm1100 b16
+      if getBits b16 12 9 = 0b0111us then parsePCDisp1100 b16
+      elif getBits b16 12 9 = 0b0011us then parseImm1100 b16
       else parseGBRIndDisp1100 b16
   | 0b0001us -> parseIndDisp0001 b16
   | 0b0101us -> parseIndDisp0101 b16
   | 0b1111us ->
-    if ((getBits b16 4 1 = 0b1101us) && (getBits b16 8 5 = 0b1111us)) then
-      match getBits b16 12 9 with
-      | 0b1011us | 0b0011us -> noOpParse1111 b16
-      | _ -> twoOpParse1111 b16
-    else
-      match getBits b16 4 1 with
-      | 0b1000us | 0b1010us -> parseRegInd1111 b16
-      | 0b0110us | 0b0111us -> parseIdxInd1111 b16
-      | 0b1001us -> parsePostInc1111 b16
-      | 0b1011us -> parsePreDec1111 b16
-      | 0b1101us -> parseImm1111 b16
-      | _ ->
-        match getBits b16 8 5 with
-        | 0b0101us | 0b0100us | 0b0110us -> oneOpParse1111 b16
+    match getBits b16 4 1 with
+    | 0b1000us | 0b1010us -> parseRegInd1111 b16
+    | 0b0110us | 0b0111us -> parseIdxInd1111 b16
+    | 0b1001us -> parsePostInc1111 b16
+    | 0b1011us -> parsePreDec1111 b16
+    | 0b1101us ->
+      (* A low nibble of 1101 heads a whole family -- the conversions, the
+         one-operand arithmetic, the immediate loads, and the vector
+         instructions -- which the field above it tells apart. Reading that
+         field only for the vector case left every other member of the family
+         undecodable, and sent the two-register arithmetic whose source
+         register happened to look like fabs's field to fabs. *)
+      match getBits b16 8 5 with
+      | 0b0100us | 0b0101us | 0b0110us -> oneOpParse1111 b16
+      | 0b1000us | 0b1001us -> parseImm1111 b16
+      | 0b1111us ->
+        match getBits b16 12 9 with
+        | 0b1011us | 0b0011us -> noOpParse1111 b16
         | _ -> twoOpParse1111 b16
+      | _ -> twoOpParse1111 b16
+    | _ -> twoOpParse1111 b16
   | _ -> Terminator.futureFeature ()
 
 let parse lifter (span: ByteSpan) (reader: IBinReader) addr =
