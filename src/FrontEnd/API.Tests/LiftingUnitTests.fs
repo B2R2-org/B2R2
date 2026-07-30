@@ -83,6 +83,14 @@ type LiftingUnitTests() =
        Architecture.TMS320C6000, 4
        Architecture.EVM, 1 |]
 
+  /// Inputs no parser can decode, each reaching a different architecture's
+  /// dispatch. Found by fuzzing; the file each one throws from is noted so a
+  /// sample can be replaced if that dispatch is rewritten.
+  static let undecodable =
+    [| Architecture.Intel, "c57da606b4c0d483"    (* ParsingFunctions.fs *)
+       Architecture.ARMv8, "523f5f4ecc7d4906"    (* ARM64/ParsingMain.fs *)
+       Architecture.SPARC, "3e775fa20b35409b" |] (* SPARC/ParsingMain.fs *)
+
   static let assertRaises (f: unit -> unit) =
     Assert.ThrowsExactly<System.ArgumentException>(fun () -> f ()) |> ignore
 
@@ -165,6 +173,21 @@ type LiftingUnitTests() =
     let lifted = lu.LiftBBlock(addr = unmapped)
     Assert.AreEqual<bool>(false, lifted.IsTerminated)
     Assert.AreEqual<int>(0, lifted.Statements.Length)
+
+  (* A parser that cannot decode its input reports a parsing failure. These used
+     to surface as an invalid-opcode or invalid-operand exception instead, which
+     left a caller no way to catch a parse failure without also catching every
+     bug. The span is padded past the longest instruction so that the failure is
+     the dispatch rather than a short read. *)
+  [<TestMethod>]
+  member _.``[LiftingUnit] undecodable input is a parsing failure test``() =
+    for arch, hex in undecodable do
+      let bytes = ByteArray.ofHexString hex
+      let padded = Array.append bytes (Array.zeroCreate 56)
+      let unit = BinHandle.LoadRawImage(padded, ISA arch).NewLiftingUnit()
+      Assert.ThrowsExactly<ParsingFailureException>(fun () ->
+        unit.ParseInstruction(System.ReadOnlySpan padded, 0x1000UL) |> ignore)
+      |> ignore
 
   (* The span overload parses bytes the caller supplies, which need not come
      from the file at all: the address only tells the parser where to pretend

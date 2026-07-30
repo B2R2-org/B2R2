@@ -258,7 +258,7 @@ let private parseMem oprVal unit =
 
 let private assertEvenNumber v =
 #if DEBUG
-  if v &&& 1u <> 0u then raise InvalidOperandException else ()
+  if v &&& 1u <> 0u then raise ParsingFailureException else ()
 #endif
   ()
 

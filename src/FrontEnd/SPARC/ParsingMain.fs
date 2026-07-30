@@ -315,13 +315,13 @@ let getThrCC (cc2: uint32) (cc1: uint32) (cc0: uint32) =
   | 0b0u, 0b1u, 0b1u -> ConditionCode.Fcc3 |> OprCC
   | 0b1u, 0b0u, 0b0u -> ConditionCode.Icc |> OprCC
   | 0b1u, 0b1u, 0b0u -> ConditionCode.Xcc |> OprCC
-  | _ -> raise InvalidOperandException
+  | _ -> raise ParsingFailureException
 
 let getTwoCCix (cc1: uint32) (cc0: uint32) =
   match cc1, cc0 with
   | 0b0u, 0b0u -> ConditionCode.Icc |> OprCC
   | 0b1u, 0b0u -> ConditionCode.Xcc |> OprCC
-  | _ -> raise InvalidOperandException
+  | _ -> raise ParsingFailureException
 
 let getTwoCCFcc (cc1: uint32) (cc0: uint32) =
   match cc1, cc0 with
@@ -329,7 +329,7 @@ let getTwoCCFcc (cc1: uint32) (cc0: uint32) =
   | 0b0u, 0b1u -> ConditionCode.Fcc1 |> OprCC
   | 0b1u, 0b0u -> ConditionCode.Fcc2 |> OprCC
   | 0b1u, 0b1u -> ConditionCode.Fcc3 |> OprCC
-  | _ -> raise InvalidOperandException
+  | _ -> raise ParsingFailureException
 
 let getSwTrapNum b = extract b 7u 0u |> int32 |> OprImm
 

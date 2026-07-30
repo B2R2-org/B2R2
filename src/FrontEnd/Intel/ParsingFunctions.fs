@@ -6651,7 +6651,7 @@ let parseCETInstr span (phlp: ParsingHelper) =
     | b when Operands.getReg b = 0b001 && Operands.getMod b = 0b11 ->
       let op = if REXPrefix.hasW phlp.REXPrefix then RDSSPQ else RDSSPD
       struct (op, OD.Gpr, SZ.Def, TT.NA)
-    | _ -> raise InvalidOpcodeException
+    | _ -> raise ParsingFailureException
   phlp.Prefixes <- Prefix.ClearGrp1PrefMask &&& phlp.Prefixes
   render span phlp op SzCond.Normal oidx sidx
 
@@ -6674,7 +6674,7 @@ let parsePadLockInstr1 span (phlp: ParsingHelper) =
       CCS_HASH
     | 0xF0uy -> phlp.IncPos(); MONTMUL2
     | 0xF8uy -> phlp.IncPos(); XMODEXP
-    | _ -> raise InvalidOpcodeException
+    | _ -> raise ParsingFailureException
   render span phlp opcode SzCond.Normal OD.No SZ.Def
 
 let parsePadLockInstr2 span (phlp: ParsingHelper) =
@@ -6691,7 +6691,7 @@ let parsePadLockInstr2 span (phlp: ParsingHelper) =
       phlp.Prefixes <- Prefix.ClearGrp1PrefMask &&& phlp.Prefixes
       CCS_ENCRYPT
     | 0xF8uy -> phlp.IncPos(); XRNG2
-    | _ -> raise InvalidOpcodeException
+    | _ -> raise ParsingFailureException
   render span phlp opcode SzCond.Normal OD.No SZ.Def
 
 /// When the first two bytes are 0F38.
@@ -7004,7 +7004,7 @@ let parseTwoByteOpcode span (phlp: ParsingHelper) =
   | 0x1Buy -> parseBND span phlp SzCond.Normal nor0F1B
   | 0x1Euy ->
     if Prefix.hasREPZ phlp.Prefixes then parseCETInstr span phlp
-    else raise InvalidOpcodeException
+    else raise ParsingFailureException
   | 0x1Fuy -> render span phlp NOP SzCond.Normal OD.Mem SZ.Def (* NOP /0 Ev *)
   | 0x20uy -> render span phlp MOV SzCond.F64 OD.GprCtrl SZ.DY
   | 0x21uy -> render span phlp MOV SzCond.Normal OD.GprDbg SZ.DY

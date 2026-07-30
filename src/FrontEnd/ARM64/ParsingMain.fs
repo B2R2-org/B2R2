@@ -665,7 +665,7 @@ let getOprSizeBySIMDReg reg =
   match reg with
   | VecReg(_, v) -> getOprSizeByVector v
   | VecRegWithIdx(_, v, _) -> getOprSizeByVector v
-  | _ -> raise InvalidOperandException
+  | _ -> raise ParsingFailureException
 
 let getFstOperand = function
   | OneOperand o -> o
@@ -673,11 +673,11 @@ let getFstOperand = function
   | ThreeOperands(o1, _, _) -> o1
   | FourOperands(o1, _, _, _) -> o1
   | FiveOperands(o1, _, _, _, _) -> o1
-  | _ -> raise InvalidOperandException
+  | _ -> raise ParsingFailureException
 
 let getSIMDOperand = function
   | OprSIMD simd -> simd
-  | _ -> raise InvalidOperandException
+  | _ -> raise ParsingFailureException
 
 let getSIMDVectorOprSize (op, oprs) =
   op, oprs, getFstOperand oprs |> getSIMDOperand |> getOprSizeBySIMDReg
@@ -686,7 +686,7 @@ let getSIMDScalarOprSize o size (op, oprs) =
   match o with
   | 0b00u | 0b01u | 0b10u -> op, oprs, getVectorWidthBySize1 size
   | 0b11u -> op, oprs, getVectorWidthBySize2 size
-  | _ -> raise InvalidOperandException
+  | _ -> raise ParsingFailureException
 
 let changeToAliasOfAddSubImm bin instr =
   let isImm12Zero = valImm12 bin = 0b000000000000u
@@ -715,7 +715,7 @@ let parseAddSubImm bin =
   | 0b101u -> Op.ADDS, getXdXSnImmShf bin, 64<rt>
   | 0b110u -> Op.SUB, getXSdXSnImmShf bin, 64<rt>
   | 0b111u -> Op.SUBS, getXdXSnImmShf bin, 64<rt>
-  | _ -> raise InvalidOperandException
+  | _ -> raise ParsingFailureException
   |> changeToAliasOfAddSubImm bin
 
 let changeToAliasOfBitfield bin instr =
@@ -796,7 +796,7 @@ let parseBitfield bin =
   | 0b1001u -> Op.SBFM, getXdXnImmrImms bin, 64<rt>
   | 0b1011u -> Op.BFM, getXdXnImmrImms bin, 64<rt>
   | 0b1101u -> Op.UBFM, getXdXnImmrImms bin, 64<rt>
-  | _ -> raise InvalidOperandException
+  | _ -> raise ParsingFailureException
   |> changeToAliasOfBitfield bin
 
 let changeToAliasOfExtract instr =
@@ -819,7 +819,7 @@ let parseExtract bin =
   | c when c &&& 0b11111000000u = 0b10010000000u ->
     Op.EXTR, getXdXnXmLsb bin, 64<rt>
   | c when c &&& 0b10010000000u = 0b10000000000u -> unallocated ()
-  | _ -> raise InvalidOperandException
+  | _ -> raise ParsingFailureException
   |> changeToAliasOfExtract
 
 let changeToAliasOfLogical bin instr =
@@ -843,7 +843,7 @@ let parseLogical bin =
   | c when c &&& 0b1110u = 0b1010u -> Op.ORR, getXSdXnImm bin, 64<rt>
   | c when c &&& 0b1110u = 0b1100u -> Op.EOR, getXSdXnImm bin, 64<rt>
   | c when c &&& 0b1110u = 0b1110u -> Op.ANDS, getXdXnImm bin, 64<rt>
-  | _ -> raise InvalidOperandException
+  | _ -> raise ParsingFailureException
   |> changeToAliasOfLogical bin
 
 let changeToAliasOfMoveWide bin instr =
@@ -877,7 +877,7 @@ let parseMoveWide bin =
   | c when c &&& 0b11100u = 0b10000u -> Op.MOVN, getXdImmLShf bin, 64<rt>
   | c when c &&& 0b11100u = 0b11000u -> Op.MOVZ, getXdImmLShf bin, 64<rt>
   | c when c &&& 0b11100u = 0b11100u -> Op.MOVK, getXdImmLShf bin, 64<rt>
-  | _ -> raise InvalidOperandException
+  | _ -> raise ParsingFailureException
   |> changeToAliasOfMoveWide bin
 
 let parsePCRel bin =
@@ -894,7 +894,7 @@ let parse64Group1 bin =
   | 0b101u -> parseMoveWide bin
   | 0b110u -> parseBitfield bin
   | 0b111u -> parseExtract bin
-  | _ -> raise InvalidOpcodeException
+  | _ -> raise ParsingFailureException
 
 let parseCompareAndBranchImm bin =
   let cond = concat (pickBit bin 31u) (pickBit bin 24u) 1 (* sf:op *)
@@ -903,7 +903,7 @@ let parseCompareAndBranchImm bin =
   | 0b01u -> Op.CBNZ, getWtLabel bin, 32<rt>
   | 0b10u -> Op.CBZ, getXtLabel bin, 64<rt>
   | 0b11u -> Op.CBNZ, getXtLabel bin, 64<rt>
-  | _ -> raise InvalidOpcodeException
+  | _ -> raise ParsingFailureException
 
 let parseCondBranchImm bin =
   let cond = concat (pickBit bin 24u) (pickBit bin 4u) 1 (* o1:o0 *)
@@ -912,7 +912,7 @@ let parseCondBranchImm bin =
     | 0b00u -> getConditionOpcode (extract bin 3u 0u |> byte)
     | 0b01u -> unallocated ()
     | 0b10u | 0b11u -> unallocated ()
-    | _ -> raise InvalidOpcodeException
+    | _ -> raise ParsingFailureException
   let offs = memLabel (signExtend 21 64 (valImm19 bin <<< 2 |> uint64) |> int64)
   opCode, OneOperand offs, 64<rt>
 
@@ -941,7 +941,7 @@ let parseExcepGen bin =
     | 0b10100010u -> Op.DCPS2
     | 0b10100011u -> Op.DCPS3
     | c when c &&& 0b11011100u = 0b11000000u -> unallocated ()
-    | _ -> raise InvalidOpcodeException
+    | _ -> raise ParsingFailureException
   opCode, OneOperand(OprImm(valImm16 bin |> int64)), 16<rt>
 
 let getISBOprs = function
@@ -959,7 +959,7 @@ let private getDCInstruction bin =
   | 0b01101111110001u -> Op.DCCIVAC
   | 0b00001111110010u -> Op.DCCISW
   (* C5.3 A64 system instructions for cache maintenance *)
-  | _ -> raise InvalidOpcodeException
+  | _ -> raise ParsingFailureException
 
 let changeToAliasOfSystem bin instr =
   match instr with
@@ -1018,7 +1018,7 @@ let parseSystem bin =
     Op.SYSL, getXtOp1cncmop2 bin, 0<rt>
   | c when c &&& 0b1000000000000u = 0b1000000000000u ->
     Op.MRS, getXtSysregOrctrl bin, 0<rt>
-  | _ -> raise InvalidOperandException
+  | _ -> raise ParsingFailureException
   |> changeToAliasOfSystem bin
 
 let parseTestBranchImm bin =
@@ -1064,7 +1064,7 @@ let parseUncondBranchReg bin =
     Op.DRPS, NoOperand, 0<rt>
   | o when o &&& 1110u = 0110u -> unallocated ()
   | o when o &&& 1000u = 1000u -> unallocated ()
-  | _ -> raise InvalidOpcodeException
+  | _ -> raise ParsingFailureException
 
 /// Branches, exception generating and system instructions
 let parse64Group2 bin =
@@ -1083,7 +1083,7 @@ let parse64Group2 bin =
   | ops when ops &&& 0b0111000u = 0b0010000u -> parseCompareAndBranchImm bin
   | ops when ops &&& 0b0111000u = 0b0011000u -> parseTestBranchImm bin
   | ops when ops &&& 0b0110000u = 0b0110000u -> unallocated ()
-  | _ -> raise InvalidOpcodeException
+  | _ -> raise ParsingFailureException
 
 /// Advanced SIMD load/store multiple structures on page C4-281.
 let parseAdvSIMDMul bin =
@@ -1116,7 +1116,7 @@ let parseAdvSIMDMul bin =
   | 0b11010u -> Op.LD1, getVt2tMXSn bin resNone, oprSize
   | 0b11011u -> unallocated ()
   | c when c &&& 0b11100u = 0b11100u -> unallocated ()
-  | _ -> raise InvalidOpcodeException
+  | _ -> raise ParsingFailureException
 
 /// Advanced SIMD load/store multiple structures (post-indexed) on page C4-282.
 let parseAdvSIMDMulPostIndexed bin =
@@ -1165,7 +1165,7 @@ let parseAdvSIMDMulPostIndexed bin =
   | 0b10111u when isRm11111 -> Op.LD1, getVt1tPoXSnImm1 bin resNone, oSz
   | 0b11000u when isRm11111 -> Op.LD2, getVt2tPoXSnImm1 bin sizeQ110b, oSz
   | 0b11010u when isRm11111 -> Op.LD1, getVt2tPoXSnImm1 bin resNone, oSz
-  | _ -> raise InvalidOpcodeException
+  | _ -> raise ParsingFailureException
 
 /// Advanced SIMD load/store single structure on page C4-283.
 let parseAdvSIMDSingle bin =
@@ -1271,7 +1271,7 @@ let parseAdvSIMDSingle bin =
   | c when c &&& 0b11111100u = 0b11111000u ->
     Op.LD4R, getVt4tMXSn bin resNone, oprSize
   | c when c &&& 0b11111100u = 0b11111100u -> unallocated ()
-  | _ -> raise InvalidOpcodeException
+  | _ -> raise ParsingFailureException
 
 /// Advanced SIMD load/store single structure (post-indexed) on page C4-286.
 let parseAdvSIMDSinglePostIndexed bin =
@@ -1458,7 +1458,7 @@ let parseAdvSIMDSinglePostIndexed bin =
     Op.LD2R, getVt2tPoXSnImm2 bin, oprSize
   | c when c &&& 0b11111100u = 0b11111000u && isRm11111 ->
     Op.LD4R, getVt4tPoXSnImm2 bin, oprSize
-  | _ -> raise InvalidOpcodeException
+  | _ -> raise ParsingFailureException
 
 /// Load register (literal) on page C4-293.
 let parseLoadRegLiteral bin =
@@ -1472,7 +1472,7 @@ let parseLoadRegLiteral bin =
   | 0b101u -> Op.LDR, getQtLabel bin, 128<rt>
   | 0b110u -> Op.PRFM, getPrfopImm5Label bin, 64<rt>
   | 0b111u -> unallocated ()
-  | _ -> raise InvalidOpcodeException
+  | _ -> raise ParsingFailureException
 
 let parseLoadStoreExclusive bin =
   let cond = concat (concat (extract bin 31u 30u) (extract bin 23u 21u) 3)
@@ -1522,7 +1522,7 @@ let parseLoadStoreExclusive bin =
   | 0b111101u -> Op.LDAR, getXtMXSn bin, 64<rt>
   | 0b111110u when rt2 = 0b11111u -> Op.CASA, getXsXtMXSn bin, 64<rt>
   | 0b111111u when rt2 = 0b11111u -> Op.CASAL, getXsXtMXSn bin, 64<rt>
-  | _ -> raise InvalidOpcodeException
+  | _ -> raise ParsingFailureException
 
 let parseLoadStoreNoAllocatePairOffset bin =
   let cond = concat (concat (extract bin 31u 30u) (pickBit bin 26u) 1)
@@ -1540,7 +1540,7 @@ let parseLoadStoreNoAllocatePairOffset bin =
   | 0b1010u -> Op.STNP, getQt1Qt2BIXSnimm bin 4, 128<rt>
   | 0b1011u -> Op.LDNP, getQt1Qt2BIXSnimm bin 4, 128<rt>
   | c when c &&& 0b1100u = 0b1100u -> unallocated ()
-  | _ -> raise InvalidOpcodeException
+  | _ -> raise ParsingFailureException
 
 let parseLoadStoreRegImmPostIndexed bin =
   let cond = concat (concat (extract bin 31u 30u) (pickBit bin 26u) 1)
@@ -1573,7 +1573,7 @@ let parseLoadStoreRegImmPostIndexed bin =
   | 0b11010u -> unallocated ()
   | 0b11100u -> Op.STR, getDtPoXSnsimm bin, 64<rt>
   | 0b11101u -> Op.LDR, getDtPoXSnsimm bin, 64<rt>
-  | _ -> raise InvalidOpcodeException
+  | _ -> raise ParsingFailureException
 
 let parseLoadStoreRegImmPreIndexed bin =
   let cond = concat (concat (extract bin 31u 30u) (pickBit bin 26u) 1)
@@ -1606,7 +1606,7 @@ let parseLoadStoreRegImmPreIndexed bin =
   | 0b11010u -> unallocated ()
   | 0b11000u -> Op.STR, getXtPrXSnsimm bin, 64<rt>
   | 0b11001u -> Op.LDR, getXtPrXSnsimm bin, 64<rt>
-  | _ -> raise InvalidOpcodeException
+  | _ -> raise ParsingFailureException
 
 /// Load/store register (register offset) on page C4-307.
 let parseLoadStoreRegOffset bin =
@@ -1651,7 +1651,7 @@ let parseLoadStoreRegOffset bin =
   | 0b11010u -> Op.PRFM, getPrfopimm5BEXSnrmamt bin, 64<rt>
   | 0b11100u -> Op.STR, getDtBEXSnrmamt bin, 64<rt>
   | 0b11101u -> Op.LDR, getDtBEXSnrmamt bin, 64<rt>
-  | _ -> raise InvalidOpcodeException
+  | _ -> raise ParsingFailureException
 
 let parseLoadStoreRegUnprivileged bin =
   let cond = concat (concat (extract bin 31u 30u) (pickBit bin 26u) 1)
@@ -1673,7 +1673,7 @@ let parseLoadStoreRegUnprivileged bin =
   | 0b11000u -> Op.STTR, getXtBIXSnsimm bin, 64<rt>
   | 0b11001u -> Op.LDTR, getXtBIXSnsimm bin, 64<rt>
   | 0b11010u -> unallocated ()
-  | _ -> raise InvalidOpcodeException
+  | _ -> raise ParsingFailureException
 
 /// Load/store register (unscaled immediate) on page C4-296.
 let parseLoadStoreRegUnscaledImm bin =
@@ -1707,7 +1707,7 @@ let parseLoadStoreRegUnscaledImm bin =
   | 0b11010u -> Op.PRFUM, getPrfopimm5BIXSnsimm bin, 64<rt>
   | 0b11100u -> Op.STUR, getDtBIXSnsimm bin, 64<rt>
   | 0b11101u -> Op.LDUR, getDtBIXSnsimm bin, 64<rt>
-  | _ -> raise InvalidOpcodeException
+  | _ -> raise ParsingFailureException
 
 let parseLoadStoreRegUnsignedImm bin =
   let cond = concat (concat (extract bin 31u 30u) (pickBit bin 26u) 1)
@@ -1740,7 +1740,7 @@ let parseLoadStoreRegUnsignedImm bin =
   | 0b11010u -> Op.PRFM, getPrfopimm5BIXSnpimm bin, 64<rt>
   | 0b11100u -> Op.STR, getDtBIXSnpimm bin, 64<rt>
   | 0b11101u -> Op.LDR, getDtBIXSnpimm bin, 64<rt>
-  | _ -> raise InvalidOpcodeException
+  | _ -> raise ParsingFailureException
 
 let parseLoadStoreRegPairOffset bin =
   let cond = concat (concat (extract bin 31u 30u) (pickBit bin 26u) 1)
@@ -1759,7 +1759,7 @@ let parseLoadStoreRegPairOffset bin =
   | 0b1010u -> Op.STP, getQt1Qt2BIXSnimm bin 4, 128<rt>
   | 0b1011u -> Op.LDP, getQt1Qt2BIXSnimm bin 4, 128<rt>
   | c when c &&& 0b1100u = 0b1100u -> unallocated ()
-  | _ -> raise InvalidOpcodeException
+  | _ -> raise ParsingFailureException
 
 let parseLoadStoreRegPairPostIndexed bin =
   let cond = concat (concat (extract bin 31u 30u) (pickBit bin 26u) 1)
@@ -1778,7 +1778,7 @@ let parseLoadStoreRegPairPostIndexed bin =
   | 0b1010u -> Op.STP, getQt1Qt2PoXSnimm bin, 128<rt>
   | 0b1011u -> Op.LDP, getQt1Qt2PoXSnimm bin, 128<rt>
   | c when c &&& 0b1100u = 0b1100u -> unallocated ()
-  | _ -> raise InvalidOpcodeException
+  | _ -> raise ParsingFailureException
 
 let parseLoadStoreRegPairPreIndexed bin =
   let cond = concat (concat (extract bin 31u 30u) (pickBit bin 26u) 1)
@@ -1797,7 +1797,7 @@ let parseLoadStoreRegPairPreIndexed bin =
   | 0b1010u -> Op.STP, getQt1Qt2PrXSnimm bin, 128<rt>
   | 0b1011u -> Op.LDP, getQt1Qt2PrXSnimm bin, 128<rt>
   | c when c &&& 0b1100u = 0b1100u -> unallocated ()
-  | _ -> raise InvalidOpcodeException
+  | _ -> raise ParsingFailureException
 
 /// Loads and stores
 let parse64Group3 bin =
@@ -1853,7 +1853,7 @@ let parse64Group3 bin =
   | c when c &&& 0b01101010000011u = 0b01100010000011u -> unallocated ()
   | c when c &&& 0b01101000000000u = 0b01101000000000u ->
     parseLoadStoreRegUnsignedImm bin
-  | _ -> raise InvalidOpcodeException
+  | _ -> raise ParsingFailureException
 
 /// The alias is always the preferred disassembly.
 let toAliasFromLSLV _ = Op.LSL
@@ -1895,7 +1895,7 @@ let parseDataProcessing2Src bin =
   | c when c &&& 0b11111010u = 0b10010000u -> unallocated ()
   | 0b10010011u -> Op.CRC32X, getWdWnXm bin, 32<rt>
   | 0b10010111u -> Op.CRC32CX, getWdWnXm bin, 32<rt>
-  | _ -> raise InvalidOpcodeException
+  | _ -> raise ParsingFailureException
 
 /// Data-processing (1 source) on page C4-312.
 /// Data-processing (1 source) on page 4554(ID121622).
@@ -1927,7 +1927,7 @@ let parseDataProcessing1Src bin =
   | 0b1000000000100u -> Op.CLZ, getXdXn bin, 64<rt>
   | 0b1000000000101u -> Op.CLS, getXdXn bin, 64<rt>
   | 0b1000000000110u -> Op.CTZ, getXdXn bin, 64<rt> (* FEAT_CSSC *)
-  | _ -> raise InvalidOpcodeException
+  | _ -> raise ParsingFailureException
 
 let changeToAliasOfShiftReg bin instr =
   let isShfZero = (valShift bin) = 0b00u
@@ -1965,7 +1965,7 @@ let parseLogicalShiftedReg bin =
   | 0b1101u -> Op.EON, getXdXnXmShfamt bin, 64<rt>
   | 0b1110u -> Op.ANDS, getXdXnXmShfamt bin, 64<rt>
   | 0b1111u -> Op.BICS, getXdXnXmShfamt bin, 64<rt>
-  | _ -> raise InvalidOpcodeException
+  | _ -> raise ParsingFailureException
   |> changeToAliasOfShiftReg bin
 
 let changeToAliasOfAddSubShiftReg bin instr =
@@ -1993,7 +1993,7 @@ let parseAddSubShiftReg bin =
   | 0b101u -> Op.ADDS, getXdXnXmShfamt bin, 64<rt>
   | 0b110u -> Op.SUB, getXdXnXmShfamt bin, 64<rt>
   | 0b111u -> Op.SUBS, getXdXnXmShfamt bin, 64<rt>
-  | _ -> raise InvalidOpcodeException
+  | _ -> raise ParsingFailureException
   |> changeToAliasOfAddSubShiftReg bin
 
 let changeToAliasOfExtReg bin = function
@@ -2019,7 +2019,7 @@ let parseAddSubExtReg bin =
   | 0b10100u -> Op.ADDS, getXSdXSnRmExtamt bin, 64<rt>
   | 0b11000u -> Op.SUB, getXSdXSnRmExtamt bin, 64<rt>
   | 0b11100u -> Op.SUBS, getXSdXSnRmExtamt bin, 64<rt>
-  | _ -> raise InvalidOpcodeException
+  | _ -> raise ParsingFailureException
   |> changeToAliasOfExtReg bin
 
 let changeToAliasOfWithCarry = function
@@ -2045,7 +2045,7 @@ let parseAddSubWithCarry bin =
     | 0b101000000u -> Op.ADCS, getXdXnXm bin, 64<rt>
     | 0b110000000u -> Op.SBC, getXdXnXm bin, 64<rt>
     | 0b111000000u -> Op.SBCS, getXdXnXm bin, 64<rt>
-    | _ -> raise InvalidOpcodeException
+    | _ -> raise ParsingFailureException
   if valN bin <> 0b11111u then instr else changeToAliasOfWithCarry instr
 
 let parseCondCmpReg bin =
@@ -2059,7 +2059,7 @@ let parseCondCmpReg bin =
   | 0b01100u -> Op.CCMP, getWnWmNzcvCond bin, 32<rt>
   | 0b10100u -> Op.CCMN, getXnXmNzcvCond bin, 64<rt>
   | 0b11100u -> Op.CCMP, getXnXmNzcvCond bin, 64<rt>
-  | _ -> raise InvalidOpcodeException
+  | _ -> raise ParsingFailureException
 
 let parseCondCmpImm bin =
   let cond = concat (concat (extract bin 31u 29u) (pickBit bin 10u) 1)
@@ -2072,7 +2072,7 @@ let parseCondCmpImm bin =
   | 0b01100u -> Op.CCMP, getWnImmNzcvCond bin, 32<rt>
   | 0b10100u -> Op.CCMN, getXnImmNzcvCond bin, 64<rt>
   | 0b11100u -> Op.CCMP, getXnImmNzcvCond bin, 64<rt>
-  | _ -> raise InvalidOpcodeException
+  | _ -> raise ParsingFailureException
 
 let changeToAliasOfCondSelect bin instr =
   let rm = valM bin
@@ -2110,7 +2110,7 @@ let parseCondSelect bin =
   | 0b10001u -> Op.CSINC, getXdXnXmCond bin, 64<rt>
   | 0b11000u -> Op.CSINV, getXdXnXmCond bin, 64<rt>
   | 0b11001u -> Op.CSNEG, getXdXnXmCond bin, 64<rt>
-  | _ -> raise InvalidOpcodeException
+  | _ -> raise ParsingFailureException
   |> changeToAliasOfCondSelect bin
 
 let changeToAliasOfDataProcessing3Src = function
@@ -2155,7 +2155,7 @@ let parseDataProcessing3Src bin =
   | 0b1001010u -> Op.UMADDL, getXdWnWmXa bin, 64<rt>
   | 0b1001011u -> Op.UMSUBL, getXdWnWmXa bin, 64<rt>
   | 0b1001100u -> Op.UMULH, getXdXnXm bin, 64<rt>
-  | _ -> raise InvalidOpcodeException
+  | _ -> raise ParsingFailureException
   |> fun instr -> if valA bin <> 0b11111u then instr
                   else changeToAliasOfDataProcessing3Src instr
 
@@ -2176,7 +2176,7 @@ let parse64Group4 bin =
   | 0b10100u -> parseCondSelect bin
   | c when c &&& 0b11001u = 0b10001u -> unallocated ()
   | c when c &&& 0b11000u = 0b11000u -> parseDataProcessing3Src bin
-  | _ -> raise InvalidOpcodeException
+  | _ -> raise ParsingFailureException
 
 /// Cryptographic AES on page C4-323.
 let parseCryptAES bin =
@@ -2191,7 +2191,7 @@ let parseCryptAES bin =
   | 0b0000110u -> Op.AESMC, getVd16BVn16B bin, 128<rt>
   | 0b0000111u -> Op.AESIMC, getVd16BVn16B bin, 128<rt>
   | c when c &&& 0b1000000u = 0b1000000u -> unallocated ()
-  | _ -> raise InvalidOpcodeException
+  | _ -> raise ParsingFailureException
 
 /// Advanced SIMD table lookup on page C4-336.
 let parseAdvSIMDTableLookup bin =
@@ -2208,7 +2208,7 @@ let parseAdvSIMDTableLookup bin =
   | 0b00110u -> Op.TBL, getVdtaVn416BVmta bin, oprSize
   | 0b00111u -> Op.TBX, getVdtaVn416BVmta bin, oprSize
   | c when c &&& 0b10000u = 0b10000u -> unallocated ()
-  | _ -> raise InvalidOpcodeException
+  | _ -> raise ParsingFailureException
 
 /// Advanced SIMD permute on page C4-337.
 let parseAdvSIMDPermute bin =
@@ -2222,7 +2222,7 @@ let parseAdvSIMDPermute bin =
   | 0b101u -> Op.UZP2, getVdtVntVmt bin sizeQ110, oprSize
   | 0b110u -> Op.TRN2, getVdtVntVmt bin sizeQ110, oprSize
   | 0b111u -> Op.ZIP2, getVdtVntVmt bin sizeQ110, oprSize
-  | _ -> raise InvalidOpcodeException
+  | _ -> raise ParsingFailureException
 
 /// Advanced SIMD extract on page C4-338.
 let parseAdvSIMDExtract bin =
@@ -2230,7 +2230,7 @@ let parseAdvSIMDExtract bin =
   | c when c &&& 0b01u = 0b01u -> unallocated ()
   | 0b00u -> Op.EXT, getVdtVntVmtIdx bin, getOprSizeByQ bin
   | c when c &&& 0b10u = 0b10u -> unallocated ()
-  | _ -> raise InvalidOpcodeException
+  | _ -> raise ParsingFailureException
 
 let changeToAliasOfAdvSIMDCopy bin =
   let imm5 = valImm5 bin in function
@@ -2267,7 +2267,7 @@ let parseAdvSIMDCopy bin =
     Op.UMOV, getXdVntsidx bin imm5notx1000, 64<rt>
   | c when c &&& 0b11000000000u = 0b11000000000u ->
     Op.INS, getVdtsidx1Vntsidx2 bin, 128<rt>
-  | _ -> raise InvalidOpcodeException
+  | _ -> raise ParsingFailureException
   |> changeToAliasOfAdvSIMDCopy bin
 
 let toAliasFromNOT _ = Op.MVN
@@ -2417,7 +2417,7 @@ let parseAdvSIMDTwoReg bin =
     Op.FRSQRTE, getVdtVnt2 bin szQ10, oprSize
   | c when c &&& 0b11011111u = 0b11011111u ->
     Op.FSQRT, getVdtVnt2 bin szQ10, oprSize
-  | _ -> raise InvalidOpcodeException
+  | _ -> raise ParsingFailureException
 
 /// Advanced SIMD across lanes on page C4-345.
 let parseAdvSIMDAcrossLanes bin =
@@ -2458,7 +2458,7 @@ let parseAdvSIMDAcrossLanes bin =
     Op.FMINNMV, getVdVnt3 bin szQx011, oprSize
   | c when c &&& 0b11011111u = 0b11001111u ->
     Op.FMINV, getVdVnt3 bin szQx011, oprSize
-  | _ -> raise InvalidOpcodeException
+  | _ -> raise ParsingFailureException
 
 /// Advanced SIMD three different on page C4-347.
 let parseAdvSIMDThreeDiff bin =
@@ -2521,7 +2521,7 @@ let parseAdvSIMDThreeDiff bin =
                 getVdtaVntbVmtb bin size11, 64<rt>
   | 0b11101u -> unallocated ()
   | 0b11110u -> unallocated ()
-  | _ -> raise InvalidOpcodeException
+  | _ -> raise ParsingFailureException
 
 let changeToAliasOfAdvSIMDThreeSame bin = function
   | Op.ORR, ThreeOperands(vdt, vnt, _) when valM bin = valN bin ->
@@ -2675,7 +2675,7 @@ let parseAdvSIMDThreeSame b =
   | c when c &&& 0b11011111u = 0b11011111u -> unallocated ()
   | c when c &&& 0b11111111u = 0b11000011u -> Op.BIT, getVdtVntVmt3 b
   | c when c &&& 0b11111111u = 0b11100011u -> Op.BIF, getVdtVntVmt3 b
-  | _ -> raise InvalidOpcodeException
+  | _ -> raise ParsingFailureException
   |> changeToAliasOfAdvSIMDThreeSame b
   |> getSIMDVectorOprSize
 
@@ -2712,7 +2712,7 @@ let parseAdvSIMDModImm bin =
   | c when c &&& 0b1111111u = 0b0111110u -> unallocated ()
   | c when c &&& 0b1111111u = 0b1111100u -> Op.MOVI, getVd2DImm bin, oprSize
   | c when c &&& 0b1111111u = 0b1111110u -> Op.FMOV, getVd2DFImm bin, oprSize
-  | _ -> raise InvalidOpcodeException
+  | _ -> raise ParsingFailureException
 
 /// Advanced SIMD shift by immediate on page C4-352.
 let getAdvSIMDShfByImm b =
@@ -2771,7 +2771,7 @@ let getAdvSIMDShfByImm b =
     getOpcodeByQ b Op.USHLL Op.USHLL2, getVdtaVntbShf b immh1xxx, 64<rt>
   | 0b111100u -> Op.UCVTF, getVdtVntFbits b immhQ1, oprSize
   | 0b111111u -> Op.FCVTZU, getVdtVntFbits b immhQ1, oprSize
-  | _ -> raise InvalidOpcodeException
+  | _ -> raise ParsingFailureException
 
 /// Advanced SIMD vector x indexed element on page C4-354.
 let parseAdvSIMDVecXIdxElem bin =
@@ -2827,7 +2827,7 @@ let parseAdvSIMDVecXIdxElem bin =
   | c when c &&& 0b1101111u = 0b1100101u -> unallocated ()
   | c when c &&& 0b1101111u = 0b1101001u ->
     Op.FMULX, getVdtVntVmtsidx2 bin szL11, getOprSizeByQ bin
-  | _ -> raise InvalidOpcodeException
+  | _ -> raise ParsingFailureException
 
 /// Data processing - SIMD and FP - 1
 let parse64Group5 bin =
@@ -2869,7 +2869,7 @@ let parse64Group5 bin =
   | c when c &&& 0b100110000000000001u = 0b000010000000000000u ->
     parseAdvSIMDVecXIdxElem bin
   | c when c &&& 0b100100000000000000u = 0b100000000000000000u -> unallocated ()
-  | _ -> raise InvalidOpcodeException
+  | _ -> raise ParsingFailureException
 
  /// Cryptographic three-register SHA on page C4-323.
 let parseCryptThreeRegSHA bin =
@@ -2884,7 +2884,7 @@ let parseCryptThreeRegSHA bin =
   | 0b00100u -> Op.SHA256H, getQdQnVm4S bin, 128<rt>
   | 0b00101u -> Op.SHA256H2, getQdQnVm4S bin, 128<rt>
   | 0b00110u -> Op.SHA256SU1, getVd4SVn4SVm4S bin, 128<rt>
-  | _ -> raise InvalidOpcodeException
+  | _ -> raise ParsingFailureException
 
 /// Cryptographic two-register SHA on page C4-324.
 let parseCryptTwoRegSHA bin =
@@ -2899,7 +2899,7 @@ let parseCryptTwoRegSHA bin =
   | 0b0000010u -> Op.SHA256SU0, getVd4SVn4S bin, 128<rt>
   | 0b0000011u -> unallocated ()
   | c when c &&& 0b1000000u = 0b1000000u -> unallocated ()
-  | _ -> raise InvalidOpcodeException
+  | _ -> raise ParsingFailureException
 
 /// This instruction is used by the alias MOV (scalar).
 /// The alias is always the preferred disassembly.
@@ -2918,7 +2918,7 @@ let parseAdvSIMDScalarCopy bin =
   | c when c &&& 0b1000001000u = 0b0000001000u -> unallocated ()
   | c when c &&& 0b1011111111u = 0b0000000000u -> unallocated ()
   | c when c &&& 0b1000000000u = 0b1000000000u -> unallocated ()
-  | _ -> raise InvalidOpcodeException
+  | _ -> raise ParsingFailureException
 
  /// Advanced SIMD scalar two-register miscellaneous on page C4-328.
 let parseAdvSIMDScalarTwoReg bin =
@@ -3015,7 +3015,7 @@ let parseAdvSIMDScalarTwoReg bin =
   | c when c &&& 0b11011111u = 0b11011101u ->
     Op.FRSQRTE, getVdVn2 bin, getOprSzBySz bin
   | c when c &&& 0b11011111u = 0b11011111u -> unallocated ()
-  | _ -> raise InvalidOpcodeException
+  | _ -> raise ParsingFailureException
 
 /// Advanced SIMD scalar pairwise on page C4-330.
 let parseAdvSIMDScalarPairwise bin =
@@ -3039,7 +3039,7 @@ let parseAdvSIMDScalarPairwise bin =
   | c when c &&& 0b11011111u = 0b10001111u -> Op.FMAXP, getVdVnt5 bin, 64<rt>
   | c when c &&& 0b11011111u = 0b11001100u -> Op.FMINNMP, getVdVnt5 bin, 64<rt>
   | c when c &&& 0b11011111u = 0b11001111u -> Op.FMINP, getVdVnt5 bin, 64<rt>
-  | _ -> raise InvalidOpcodeException
+  | _ -> raise ParsingFailureException
 
 let parseAdvSIMDScalarThreeDiff bin =
   let cond = concat (extract bin 29u 29u) (extract bin 15u 12u) 4
@@ -3059,7 +3059,7 @@ let parseAdvSIMDScalarThreeDiff bin =
   | c when c &&& 0b11111u = 0b11001u -> unallocated ()
   | c when c &&& 0b11111u = 0b11011u -> unallocated ()
   | c when c &&& 0b11111u = 0b11101u -> unallocated ()
-  | _ -> raise InvalidOpcodeException
+  | _ -> raise ParsingFailureException
 
 let parseAdvSIMDScalarThreeSame bin =
   let cond = concat (concat (extract bin 29u 29u) (extract bin 23u 22u) 2)
@@ -3151,7 +3151,7 @@ let parseAdvSIMDScalarThreeSame bin =
   | c when c &&& 0b11011111u = 0b11011101u -> Op.FACGT, getVdVnVm2 bin
   | c when c &&& 0b11011111u = 0b11011110u -> unallocated ()
   | c when c &&& 0b11011111u = 0b11011111u -> unallocated ()
-  | _ -> raise InvalidOpcodeException
+  | _ -> raise ParsingFailureException
   |> getSIMDScalarOprSize (extract bin 15u 14u) (valSize1 bin)
 
 /// Advanced SIMD scalar shift by immediate on page C4-333.
@@ -3201,7 +3201,7 @@ let parseAdvSIMDScalarShiftByImm bin =
   | 0b110011u -> Op.UQRSHRN, getVbdVanShf bin immh00001xxx, getOprSzByHSB bin
   | 0b111100u -> Op.UCVTF, getVdVnFbits bin immh00xx, getOprSzByImmh bin
   | 0b111111u -> Op.FCVTZU, getVdVnFbits bin immh00xx, getOprSzByImmh bin
-  | _ -> raise InvalidOpcodeException
+  | _ -> raise ParsingFailureException
 
 /// Advanced SIMD scalar x indexed element on page C4-335.
 let parseAdvSIMDScalarXIdxElem b =
@@ -3239,7 +3239,7 @@ let parseAdvSIMDScalarXIdxElem b =
   | c when c &&& 0b1101111u = 0b1100101u -> unallocated ()
   | c when c &&& 0b1101111u = 0b1101001u ->
     Op.FMULX, getVdVnVmtsidx2 b szL11, getOprSzBySize b
-  | _ -> raise InvalidOpcodeException
+  | _ -> raise ParsingFailureException
 
 let parseConvBetwFPAndFixedPt bin =
   let cond = (* sf:S:type:rmode:opcode *)
@@ -3273,7 +3273,7 @@ let parseConvBetwFPAndFixedPt bin =
   | 0b100111000u -> Op.FCVTZS, getXdDnFbits bin, 64<rt>
   | 0b100111001u -> Op.FCVTZU, getXdDnFbits bin, 64<rt>
   | 0b101100010u -> Opcode.SCVTF, getHdXnFbits bin, 64<rt> (* FEAT_FP16 *)
-  | _ -> raise InvalidOpcodeException
+  | _ -> raise ParsingFailureException
 
 /// Conversion between floating-point and integer on page C4-359.
 let parseConvBetwFPAndInt bin =
@@ -3353,7 +3353,7 @@ let parseConvBetwFPAndInt bin =
   | 0b101001111u -> Op.FMOV, getVdD1Xn bin, 128<rt>
   | c when c &&& 0b111110110u = 0b101010110u -> unallocated ()
   | 0b101100010u -> Op.SCVTF, getHdXn bin, 64<rt> (* FEAT_FP16 *)
-  | _ -> raise InvalidOpcodeException
+  | _ -> raise ParsingFailureException
 
 /// Floating-point data-processing (1 source) on page C4-362.
 let parseFPDP1Src bin =
@@ -3402,7 +3402,7 @@ let parseFPDP1Src bin =
   | c when c &&& 0b1111111110u = 0b0011000110u -> unallocated ()
   | 0b0011001101u -> unallocated ()
   | c when c &&& 0b1000000000u = 0b1000000000u -> unallocated ()
-  | _ -> raise InvalidOpcodeException
+  | _ -> raise ParsingFailureException
 
 /// Floating-point compare on page C4-365.
 let parseFPCompare bin =
@@ -3427,7 +3427,7 @@ let parseFPCompare bin =
   | 0b00010010000u -> Op.FCMPE, getDnDm bin, 64<rt>
   | 0b00010011000u -> Op.FCMPE, getDnP0 bin, 64<rt>
   | c when c &&& 0b10000000000u = 0b10000000000u -> unallocated ()
-  | _ -> raise InvalidOpcodeException
+  | _ -> raise ParsingFailureException
 
 /// Floating-point immediate on page C4-366.
 let parseFPImm bin =
@@ -3445,7 +3445,7 @@ let parseFPImm bin =
   | 0b000000000u -> Op.FMOV, getSdImm8 bin, 32<rt>
   | 0b000100000u -> Op.FMOV, getDdImm8 bin, 64<rt>
   | c when c &&& 0b100000000u = 0b100000000u -> unallocated ()
-  | _ -> raise InvalidOpcodeException
+  | _ -> raise ParsingFailureException
 
 /// Floating-point conditional compare on page C4-366.
 let parseFPCondComp bin =
@@ -3460,7 +3460,7 @@ let parseFPCondComp bin =
   | 0b00010u -> Op.FCCMP, getDnDmNZCVCond bin, 64<rt>
   | 0b00011u -> Op.FCCMPE, getDnDmNZCVCond bin, 64<rt>
   | c when c &&& 0b10000u = 0b10000u -> unallocated ()
-  | _ -> raise InvalidOpcodeException
+  | _ -> raise ParsingFailureException
 
 /// Floating-point data-processing (2 source) on page C4-367.
 let parseFPDP2Src bin =
@@ -3492,7 +3492,7 @@ let parseFPDP2Src bin =
   | 0b00010111u -> Op.FMINNM, getDdDnDm bin, 64<rt>
   | 0b00011000u -> Op.FNMUL, getDdDnDm bin, 64<rt>
   | c when c &&& 0b10000000u = 0b10000000u -> unallocated ()
-  | _ -> raise InvalidOpcodeException
+  | _ -> raise ParsingFailureException
 
 /// Floating-point conditional select on page C4-368.
 let parseFPCondSelect bin =
@@ -3504,7 +3504,7 @@ let parseFPCondSelect bin =
   | 0b0000u -> Op.FCSEL, getSdSnSmCond bin, 32<rt>
   | 0b0001u -> Op.FCSEL, getDdDnDmCond bin, 64<rt>
   | c when c &&& 0b1000u = 0b1000u -> unallocated ()
-  | _ -> raise InvalidOpcodeException
+  | _ -> raise ParsingFailureException
 
 /// Floating-point data-processing (3 source) on page C4-369.
 let parseFPDP3Src bin =
@@ -3523,7 +3523,7 @@ let parseFPDP3Src bin =
   | 0b000110u -> Op.FNMADD, getDdDnDmDa bin, 64<rt>
   | 0b000111u -> Op.FNMSUB, getDdDnDmDa bin, 64<rt>
   | c when c &&& 0b100000u = 0b100000u -> unallocated ()
-  | _ -> raise InvalidOpcodeException
+  | _ -> raise ParsingFailureException
 
 /// Data processing - SIMD and FP - 2
 let parse64Group6 bin =
@@ -3576,7 +3576,7 @@ let parse64Group6 bin =
     parseFPCondSelect bin
   | c when c &&& 0b010110000000000000u = 0b000110000000000000u ->
     parseFPDP3Src bin
-  | _ -> raise InvalidOpcodeException
+  | _ -> raise ParsingFailureException
 
 let parseByGroupOfB64 bin =
   let op0 = extract bin 28u 25u
@@ -3594,7 +3594,7 @@ let parseByGroupOfB64 bin =
   | op0 when op0 &&& 0b1111u = 0b0111u -> parse64Group5 bin
   (* Data processing - SIMD and floating point *)
   | op0 when op0 &&& 0b1111u = 0b1111u -> parse64Group6 bin
-  | _ -> raise InvalidOpcodeException
+  | _ -> raise ParsingFailureException
 
 let parse lifter (span: ByteSpan) (reader: IBinReader) addr =
   let bin = reader.ReadUInt32(span, 0)
