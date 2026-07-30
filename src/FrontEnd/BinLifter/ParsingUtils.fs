@@ -34,7 +34,12 @@ module Bits =
   let extract (binary: uint32) ofs1 ofs2 =
     let m, n = if max ofs1 ofs2 = ofs1 then ofs1, ofs2 else ofs2, ofs1
     let range = m - n + 1u
-    if range > 31u then invalidOp "Invalid range of offsets given." else ()
+    (* Offsets are literals at every call site, so a range this wide is a
+       mistake in the parser rather than anything about the input. Announcing it
+       is what keeps it visible: the guard each parser puts around Parse turns
+       every exception about the input into a parsing failure, and would bury
+       this one silently were it not for the trace printed here. *)
+    if range > 31u then B2R2.Terminator.impossible () else ()
     let mask = pown 2 (int range) - 1 |> uint32
     binary >>> int n &&& mask
 
