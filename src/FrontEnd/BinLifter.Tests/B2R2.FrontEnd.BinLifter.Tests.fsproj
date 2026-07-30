@@ -7,6 +7,7 @@
   <ItemGroup>
     <Compile Include="BinReaderTests.fs" />
     <Compile Include="DisasmBuilderTests.fs" />
+    <Compile Include="ParsingUtilsTests.fs" />
     <Compile Include="OptimizerTests.fs" />
   </ItemGroup>
 

@@ -40,7 +40,7 @@ module Bits =
        every exception about the input into a parsing failure, and would bury
        this one silently were it not for the trace printed here. *)
     if range > 31u then B2R2.Terminator.impossible () else ()
-    let mask = pown 2 (int range) - 1 |> uint32
+    let mask = (1u <<< int range) - 1u
     binary >>> int n &&& mask
 
   /// Pick a bit value at the given offset.
