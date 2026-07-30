@@ -40,27 +40,21 @@ type ErrorCase =
   | InvalidFormat = 5
   /// The IR is not implemented yet.
   | NotImplementedIR = 6
-  /// Invalid use of operand has been encountered.
-  | InvalidOperand = 7
-  /// Invalid operand size has been used.
-  | InvalidOperandSize = 8
-  /// Invalid opcode has been used.
-  | InvalidOpcode = 9
   /// Invalid register has been used.
-  | InvalidRegister = 10
+  | InvalidRegister = 7
   /// Encountered register expression that is not yet handled.
-  | UnhandledRegExpr = 11
+  | UnhandledRegExpr = 8
   /// Encountered a not executable address while parsing binaries.
-  | NotExecutableAddress = 12
+  | NotExecutableAddress = 9
   /// Invalid function address is encountered during a CFG analysis.
-  | InvalidFunctionAddress = 13
+  | InvalidFunctionAddress = 10
   /// Encountered an instruction address at the middle of an existing
   /// instruction while parsing binaries.
-  | IntrudingInstruction = 14
+  | IntrudingInstruction = 11
   /// Encountered fatal error while recovering CFG.
-  | FailedToRecoverCFG = 15
+  | FailedToRecoverCFG = 12
   /// Encountered unexpected error.
-  | UnexpectedError = 16
+  | UnexpectedError = 13
 
 /// <summary>
 /// Provides functions to work with <see cref='T:B2R2.ErrorCase'/>.
@@ -78,9 +72,6 @@ module ErrorCase =
     | ErrorCase.ItemNotFound -> "Item not found."
     | ErrorCase.InvalidFormat -> "Given invalid format."
     | ErrorCase.NotImplementedIR -> "Not implemented IR."
-    | ErrorCase.InvalidOperand -> "Invalid operand."
-    | ErrorCase.InvalidOperandSize -> "Invalid operand size."
-    | ErrorCase.InvalidOpcode -> "Invalid opcode."
     | ErrorCase.InvalidRegister -> "Invalid register."
     | ErrorCase.UnhandledRegExpr -> "Unhandled register expression."
     | ErrorCase.NotExecutableAddress -> "Not executable address."
