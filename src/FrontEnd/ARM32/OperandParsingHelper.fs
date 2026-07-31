@@ -1482,7 +1482,7 @@ type internal OprRt15Mem() =
     let mem = memOffsetImm (extract bin 19 16 |> getRegister, None, None)
     struct (TwoOperands(rt, mem), false, None, 32<rt>)
 
-(* <Rt>, [<Rn>] *)
+(* <Rt>, [<Rn>] (Rt below the field a load keeps it in) *)
 type internal OprRtMem() =
   inherit OperandParser()
   override _.Render bin =
@@ -2520,8 +2520,8 @@ type internal OprRtRt2MemReg() =
 type internal OprRtRt2MemA() =
   inherit OperandParser()
   override _.Render bin =
-    let rt = extract bin 3 0 |> getRegister |> OprReg
-    let rt2 = extract bin 3 0 + 1u |> getRegister |> OprReg
+    let rt = extract bin 15 12 |> getRegister |> OprReg
+    let rt2 = extract bin 15 12 + 1u |> getRegister |> OprReg
     let mem =
       memOffsetImm (extract bin 19 16 |> getRegister (* Rn *), None, None)
     struct (ThreeOperands(rt, rt2, mem), false, None, 32<rt>)

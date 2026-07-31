@@ -112,24 +112,32 @@ module private Shortcut =
 /// - A4.14 Floating-point data-processing instructions
 [<TestClass>]
 type ParserTests() =
-  let test cond op (wback: bool) simd (oprs: Operands) (bytes: byte[]) =
-    let isa = ISA(Architecture.ARMv7, Endian.Big)
+  let parse (isa: ISA) (bytes: byte[]) =
     let reader = BinReader.Init Endian.Big
     let parser = ARM32Parser(isa, false, reader) :> IInstructionParsable
-    let ins = parser.Parse(bytes, 0UL) :?> Instruction
-    let cond' = ins.Condition
-    let op' = ins.Opcode
-    let wback' = ins.WriteBack
-    let simd' = ins.SIMDTyp
-    let oprs' = ins.Operands
-    Assert.AreEqual<Condition>(cond, cond')
-    Assert.AreEqual<Opcode>(op, op')
-    Assert.AreEqual<bool>(wback, wback')
-    Assert.AreEqual<SIMDDataTypes option>(simd, simd')
-    Assert.AreEqual<Operands>(oprs, oprs')
+    parser.Parse(bytes, 0UL) :?> Instruction
+
+  let assertIns cond op wback simd oprs (ins: Instruction) =
+    Assert.AreEqual<Condition>(cond, ins.Condition)
+    Assert.AreEqual<Opcode>(op, ins.Opcode)
+    Assert.AreEqual<bool>(wback, ins.WriteBack)
+    Assert.AreEqual<SIMDDataTypes option>(simd, ins.SIMDTyp)
+    Assert.AreEqual<Operands>(oprs, ins.Operands)
+
+  let test cond op wback simd oprs bytes =
+    parse (ISA(Architecture.ARMv7, Endian.Big)) bytes
+    |> assertIns cond op wback simd oprs
+
+  /// Parses as AArch32, for the instructions ARMv8 added.
+  let testV8 cond op wback simd oprs bytes =
+    parse (ISA(Architecture.ARMv8, Endian.Big, WordSize.Bit32)) bytes
+    |> assertIns cond op wback simd oprs
 
   let testNoWbackNoQNoSimd pref (bytes: byte[]) (opcode, operands) =
     test pref opcode false None operands bytes
+
+  let testV8NoWbackNoQNoSimd pref (bytes: byte[]) (opcode, operands) =
+    testV8 pref opcode false None operands bytes
 
   let testNoWbackNoQ pref simd (bytes: byte[]) (opcode, operands) =
     test pref opcode false simd operands bytes
@@ -434,6 +442,26 @@ type ParserTests() =
     ++ LDREX ** [ O.Reg LR; O.MemOffsetImm(R0, None, None) ]
     ||> testNoWbackNoQNoSimd Condition.AL
 
+  /// The narrower exclusive loads keep the register they read above the field
+  /// the exclusive stores keep it in, and ones below.
+  [<TestMethod>]
+  member _.``[ARMv7] Load/store (Load-Exclusive) Parse test (2)``() =
+    "e1d12f9f"
+    ++ LDREXB ** [ O.Reg R2; O.MemOffsetImm(R1, None, None) ]
+    ||> testNoWbackNoQNoSimd Condition.AL
+
+  [<TestMethod>]
+  member _.``[ARMv7] Load/store (Load-Exclusive) Parse test (3)``() =
+    "e1f12f9f"
+    ++ LDREXH ** [ O.Reg R2; O.MemOffsetImm(R1, None, None) ]
+    ||> testNoWbackNoQNoSimd Condition.AL
+
+  [<TestMethod>]
+  member _.``[ARMv7] Load/store (Load-Exclusive) Parse test (4)``() =
+    "e1b12f9f"
+    ++ LDREXD ** [ O.Reg R2; O.Reg R3; O.MemOffsetImm(R1, None, None) ]
+    ||> testNoWbackNoQNoSimd Condition.AL
+
   [<TestMethod>]
   member _.``[ARMv7] Load/store (Store-Exclusive) Parse test (1)``() =
     "e1a01f92"
@@ -442,6 +470,58 @@ type ParserTests() =
                    O.Reg R3
                    O.MemOffsetImm(R0, None, None) ]
     ||> testNoWbackNoQNoSimd Condition.AL
+
+  /// A store that releases keeps the register it writes below the field a load
+  /// keeps it in, and ones above.
+  [<TestMethod>]
+  member _.``[ARMv8] Load/store (Store-Release) Parse test (1)``() =
+    "e181fc90"
+    ++ STL ** [ O.Reg R0; O.MemOffsetImm(R1, None, None) ]
+    ||> testV8NoWbackNoQNoSimd Condition.AL
+
+  [<TestMethod>]
+  member _.``[ARMv8] Load/store (Store-Release) Parse test (2)``() =
+    "e1c1fc90"
+    ++ STLB ** [ O.Reg R0; O.MemOffsetImm(R1, None, None) ]
+    ||> testV8NoWbackNoQNoSimd Condition.AL
+
+  [<TestMethod>]
+  member _.``[ARMv8] Load/store (Store-Release) Parse test (3)``() =
+    "e1e1fc90"
+    ++ STLH ** [ O.Reg R0; O.MemOffsetImm(R1, None, None) ]
+    ||> testV8NoWbackNoQNoSimd Condition.AL
+
+  /// A load that acquires keeps the register it reads where every other load
+  /// keeps it, whatever its width.
+  [<TestMethod>]
+  member _.``[ARMv8] Load/store (Load-Acquire) Parse test (1)``() =
+    "e1d12c9f"
+    ++ LDAB ** [ O.Reg R2; O.MemOffsetImm(R1, None, None) ]
+    ||> testV8NoWbackNoQNoSimd Condition.AL
+
+  [<TestMethod>]
+  member _.``[ARMv8] Load/store (Load-Acquire) Parse test (2)``() =
+    "e1f12c9f"
+    ++ LDAH ** [ O.Reg R2; O.MemOffsetImm(R1, None, None) ]
+    ||> testV8NoWbackNoQNoSimd Condition.AL
+
+  [<TestMethod>]
+  member _.``[ARMv8] Load/store (Load-Acquire) Parse test (3)``() =
+    "e1d12e9f"
+    ++ LDAEXB ** [ O.Reg R2; O.MemOffsetImm(R1, None, None) ]
+    ||> testV8NoWbackNoQNoSimd Condition.AL
+
+  [<TestMethod>]
+  member _.``[ARMv8] Load/store (Load-Acquire) Parse test (4)``() =
+    "e1f12e9f"
+    ++ LDAEXH ** [ O.Reg R2; O.MemOffsetImm(R1, None, None) ]
+    ||> testV8NoWbackNoQNoSimd Condition.AL
+
+  [<TestMethod>]
+  member _.``[ARMv8] Load/store (Load-Acquire) Parse test (5)``() =
+    "e1b12e9f"
+    ++ LDAEXD ** [ O.Reg R2; O.Reg R3; O.MemOffsetImm(R1, None, None) ]
+    ||> testV8NoWbackNoQNoSimd Condition.AL
 
   [<TestMethod>]
   member _.``[ARMv7] Load/store multiple Parse Test (1)``() =

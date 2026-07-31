@@ -402,7 +402,7 @@ let parseLdStExclAndLdAcqStRel (phlp: ParsingHelper) bin =
   match concat (pickThree bin 20) (pickTwo bin 8) 2 (* size:L:ex:ord *) with
   | 0b00000u ->
 #if !EMULATION
-    chkPCRtRn bin
+    chkPCRtBRn bin
 #endif
     render phlp bin Op.STL None OD.OprRtMem
   | 0b00001u -> raise ParsingFailureException
@@ -456,7 +456,7 @@ let parseLdStExclAndLdAcqStRel (phlp: ParsingHelper) bin =
     render phlp bin Op.LDREXD None OD.OprRtRt2MemA
   | 0b10000u ->
 #if !EMULATION
-    chkPCRtRn bin
+    chkPCRtBRn bin
 #endif
     render phlp bin Op.STLB None OD.OprRtMem
   | 0b10001u -> raise ParsingFailureException
@@ -474,21 +474,21 @@ let parseLdStExclAndLdAcqStRel (phlp: ParsingHelper) bin =
 #if !EMULATION
     chkPCRtRn bin
 #endif
-    render phlp bin Op.LDAB None OD.OprRtMem
+    render phlp bin Op.LDAB None OD.OprRt15Mem
   | 0b10101u -> raise ParsingFailureException
   | 0b10110u ->
 #if !EMULATION
     chkPCRtRn bin
 #endif
-    render phlp bin Op.LDAEXB None OD.OprRtMem
+    render phlp bin Op.LDAEXB None OD.OprRt15Mem
   | 0b10111u ->
 #if !EMULATION
     chkPCRtRn bin
 #endif
-    render phlp bin Op.LDREXB None OD.OprRtMem
+    render phlp bin Op.LDREXB None OD.OprRt15Mem
   | 0b11000u ->
 #if !EMULATION
-    chkPCRtRn bin
+    chkPCRtBRn bin
 #endif
     render phlp bin Op.STLH None OD.OprRtMem
   | 0b11001u -> raise ParsingFailureException
@@ -506,18 +506,18 @@ let parseLdStExclAndLdAcqStRel (phlp: ParsingHelper) bin =
 #if !EMULATION
     chkPCRtRn bin
 #endif
-    render phlp bin Op.LDAH None OD.OprRtMem
+    render phlp bin Op.LDAH None OD.OprRt15Mem
   | 0b11101u -> raise ParsingFailureException
   | 0b11110u ->
 #if !EMULATION
     chkPCRtRn bin
 #endif
-    render phlp bin Op.LDAEXH None OD.OprRtMem
+    render phlp bin Op.LDAEXH None OD.OprRt15Mem
   | _ -> (* 0b11111u *)
 #if !EMULATION
     chkPCRtRn bin
 #endif
-    render phlp bin Op.LDREXH None OD.OprRtMem
+    render phlp bin Op.LDREXH None OD.OprRt15Mem
 
 /// Synchronization primitives and Load-Acquire/Store-Release on page F4-4223.
 let parseSyncAndLoadAcqStoreRel (phlp: ParsingHelper) bin =

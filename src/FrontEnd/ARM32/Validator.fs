@@ -71,6 +71,10 @@ let chkPCRtRnEq bin =
 let chkPCRtRn bin =
   checkUnpred (extract bin 15 12 = 15u || extract bin 19 16 = 15u)
 
+(* if t == 15 || n == 15 then UNPREDICTABLE *)
+let chkPCRtBRn bin =
+  checkUnpred (extract bin 3 0 = 15u || extract bin 19 16 = 15u)
+
 (* if d == 15 || Rt<0> == '1' || t2 == 15 || n == 15 then UNPREDICTABLE
    if d == n || d == t || d == t2 then UNPREDICTABLE *)
 let chkPCRdRt2Rn bin =
@@ -82,7 +86,7 @@ let chkPCRdRt2Rn bin =
 
 (* if Rt<0> == '1' || t2 == 15 || n == 15 then UNPREDICTABLE *)
 let chkPCRt2Rn bin =
-  let t = extract bin 3 0
+  let t = extract bin 15 12
   checkUnpred (((pickBit t 0 = 1u) || (t + 1u = 15u) ||
                 (extract bin 19 16 = 15u)))
 
