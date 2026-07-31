@@ -63,7 +63,7 @@ let regTo3Bit = function
   | Register.XMM15 | Register.YMM15 | Register.ST7 -> 0b111uy
   | _ -> Terminator.impossible ()
 
-let private getModRMByte md reg rm = (md <<< 6) + (reg <<< 3) + rm |> Normal
+let private getModRMByte md reg rm = (md <<< 6) + (reg <<< 3) + rm
 
 let private getRMBySIB baseReg si =
   match si, baseReg with
@@ -114,19 +114,19 @@ let private getScaleBit = function
   | _ (* Scale.X8 *) -> 0b11uy
 
 let private encSIB sBit idxBit baseBit =
-  (sBit <<< 6) + (idxBit <<< 3) + baseBit |> Normal
+  (sBit <<< 6) + (idxBit <<< 3) + baseBit
 
 let modrmRel byteLen (rel: int64) relSz = // FIXME
   let comRel rel = rel - (byteLen + RegType.toByteWidth relSz |> int64)
   match relSz with
-  | 8<rt> -> [| Normal <| byte (comRel rel) |]
-  | 16<rt> -> BitConverter.GetBytes(comRel rel |> int16) |> Array.map Normal
-  | 32<rt> -> BitConverter.GetBytes(comRel rel |> int32) |> Array.map Normal
+  | 8<rt> -> [| byte (comRel rel) |]
+  | 16<rt> -> BitConverter.GetBytes(comRel rel |> int16)
+  | 32<rt> -> BitConverter.GetBytes(comRel rel |> int32)
   | _ -> Terminator.impossible ()
 
 let private encDisp disp = function
-  | 8<rt> -> [| byte disp |> Normal |]
-  | 32<rt> -> BitConverter.GetBytes(int32 disp) |> Array.map Normal
+  | 8<rt> -> [| byte disp |]
+  | 32<rt> -> BitConverter.GetBytes(int32 disp)
   | _ -> failwith "Invalid displacement"
 
 let private getDispSz disp = if isDisp8 disp then 8<rt> else 32<rt>
@@ -140,7 +140,7 @@ let private isRegFld4 = function
 /// SIB and Displacement.
 let mem b si d =
   match b, si, d with
-  | Some b, None, None -> if isRegFld4 b then [| Normal 0x24uy |] else [||]
+  | Some b, None, None -> if isRegFld4 b then [| 0x24uy |] else [||]
   | Some b, Some(i, s), None ->
     [| yield encSIB (getScaleBit s) (regTo3Bit i) (regTo3Bit b) |]
   | Some b, Some(i, s), Some d ->
@@ -154,15 +154,15 @@ let mem b si d =
        yield! encDisp d 32<rt> |]
   | None, None, Some d -> [| yield! encDisp d 32<rt> |]
   | Some b, None, Some d ->
-    [| yield! if isRegFld4 b then [| Normal 0x24uy |] else [||]
+    [| yield! if isRegFld4 b then [| 0x24uy |] else [||]
        yield! encDisp d (getDispSz d) |]
   | _ -> [||]
 
 let immediate (imm: int64) = function
-  | 8<rt> -> [| Normal <| byte imm |]
-  | 16<rt> -> BitConverter.GetBytes(int16 imm) |> Array.map Normal
-  | 32<rt> -> BitConverter.GetBytes(int32 imm) |> Array.map Normal
-  | 64<rt> -> BitConverter.GetBytes(imm) |> Array.map Normal
+  | 8<rt> -> [| byte imm |]
+  | 16<rt> -> BitConverter.GetBytes(int16 imm)
+  | 32<rt> -> BitConverter.GetBytes(int32 imm)
+  | 64<rt> -> BitConverter.GetBytes(imm)
   | _ -> Terminator.impossible ()
 
 // vim: set tw=80 sts=2 sw=2:

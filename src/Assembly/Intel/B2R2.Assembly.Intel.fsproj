@@ -8,8 +8,7 @@
   </PropertyGroup>
 
   <ItemGroup>
-    <Compile Include="EncodedByteCode.fs" />
-    <Compile Include="EncodingContext.fs" />
+    <Compile Include="Encoded.fs" />
     <Compile Include="ParserHelper.fs" />
     <Compile Include="AsmPrefix.fs" />
     <Compile Include="AsmOperands.fs" />

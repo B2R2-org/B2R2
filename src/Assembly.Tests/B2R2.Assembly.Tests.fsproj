@@ -6,6 +6,8 @@
 
   <ItemGroup>
     <Compile Include="IntelTests.fs" />
+    <Compile Include="IntelRoundTripTests.fs" />
+    <Compile Include="IntelEncodingTests.fs" />
   </ItemGroup>
 
   <ItemGroup>
@@ -16,6 +18,9 @@
   <ItemGroup>
     <ProjectReference Include="..\Assembly\Intel\B2R2.Assembly.Intel.fsproj" />
     <ProjectReference Include="..\Assembly\API\B2R2.Assembly.API.fsproj" />
+    <ProjectReference Include="..\FrontEnd\Intel\B2R2.FrontEnd.Intel.fsproj" />
+    <ProjectReference
+      Include="..\FrontEnd\BinLifter\B2R2.FrontEnd.BinLifter.fsproj" />
   </ItemGroup>
 
 </Project>

@@ -85,10 +85,17 @@ type Assembler(isa: ISA, baseAddr: Addr) =
   let check p condition =
     if condition p then preturn () else fail "conditioner checker failed"
 
+  /// Succeeds where a mnemonic may end, so that "mov" does not also match the
+  /// beginning of "movsd". Defined in terms of isWhitespace so that the two
+  /// cannot drift apart and reject, say, a tab-separated operand list.
+  let isMnemonicEnd c = isWhitespace c || c = '\n' || c = ';' || c = '.'
+
+  let endOfMnemonic = lookAhead (satisfy isMnemonicEnd |>> ignore) <|> eof
+
   let pOpcode =
     (Enum.GetNames typeof<Opcode>)
     |> Array.map (fun s ->
-      attempt (pstringCI s .>> (lookAhead (anyOf "\n;. " |>> ignore) <|> eof))
+      attempt (pstringCI s .>> endOfMnemonic)
       |>> fun name -> Enum.Parse(typeof<Opcode>, name.ToUpper()) :?> Opcode
     )
     |> choice
