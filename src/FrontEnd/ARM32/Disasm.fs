@@ -657,7 +657,7 @@ let specRegToString ins reg pFlag builder =
     buildReg ins false reg builder
     builder.Accumulate(AsmWordKind.String, flagToString f)
 
-let regListToString ins list (builder: IDisasmBuilder) =
+let regListToString (ins: Instruction) list (builder: IDisasmBuilder) =
   builder.Accumulate(AsmWordKind.String, "{")
   let len = List.length list
   list
@@ -667,6 +667,7 @@ let regListToString ins list (builder: IDisasmBuilder) =
     else builder.Accumulate(AsmWordKind.String, ", ")
   )
   builder.Accumulate(AsmWordKind.String, "}")
+  if ins.Caret then builder.Accumulate(AsmWordKind.String, "^") else ()
 
 let simdToString ins s builder =
   match s with

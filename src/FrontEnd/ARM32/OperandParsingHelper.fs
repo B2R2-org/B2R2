@@ -174,7 +174,7 @@ type OprDesc =
   | OprRnConstCF = 140
   | OprRnDreglist = 141
   | OprRnRegsA = 142
-  | OprRnRegsCaret = 143
+  | OprRnRegsUsr = 143
   | OprRnRmShfA = 144
   | OprRnRmShfRs = 145
   | OprRnSreglist = 146
@@ -1898,8 +1898,8 @@ type internal OprRnRegsA() =
     let regs = extract bin 15 0 |> getRegList |> OprRegList (* register_list *)
     struct (TwoOperands(rn, regs), wbackW bin, None, 32<rt>)
 
-(* <Rn>, <registers>^ *)
-type internal OprRnRegsCaret() =
+(* <Rn>, <registers> (the bit that would write the base back is zero here) *)
+type internal OprRnRegsUsr() =
   inherit OperandParser()
   override _.Render bin =
     let rn = extract bin 19 16 |> getRegister |> OprReg

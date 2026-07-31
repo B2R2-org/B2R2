@@ -29,7 +29,7 @@ open B2R2.FrontEnd.BinLifter
 
 /// Represents an ARM32 instruction.
 type Instruction
-  internal(addr, nb, cond, op, opr, its, wb, q, s, isThumb, cf, oSz,
+  internal(addr, nb, cond, op, opr, its, wb, caret, q, s, isThumb, cf, oSz,
            isAdd, lifter: ILiftable) =
 
   let hasConcJmpTarget () =
@@ -57,6 +57,10 @@ type Instruction
 
   /// Write back.
   member _.WriteBack with get(): bool = wb
+
+  /// Whether this block transfer names the registers of another mode, or
+  /// returns from an exception, which the manual writes with a trailing caret.
+  member _.Caret with get(): bool = caret
 
   /// Qualifier.
   member _.Qualifier with get(): Qualifier = q

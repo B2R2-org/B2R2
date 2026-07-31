@@ -220,7 +220,7 @@ type ARM32Parser(isa: ISA, isThumb, reader) =
        OprRnConstCF() :> OperandParser
        OprRnDreglist() :> OperandParser
        OprRnRegsA() :> OperandParser
-       OprRnRegsCaret() :> OperandParser
+       OprRnRegsUsr() :> OperandParser
        OprRnRmShfA() :> OperandParser
        OprRnRmShfRs() :> OperandParser
        OprRnSreglist() :> OperandParser

@@ -35,8 +35,18 @@ open B2R2.FrontEnd.ARM32.ARMValidator
 
 let render (phlp: ParsingHelper) bin opcode dt oidx =
   let struct (oprs, wback, cflags, oSz) = phlp.OprParsers.[int oidx].Render bin
-  Instruction(phlp.InsAddr, phlp.Len, phlp.Cond, opcode, oprs, 0uy, wback, N,
-              dt, phlp.IsThumb, cflags, oSz, phlp.IsAdd, phlp.Lifter)
+  Instruction(phlp.InsAddr, phlp.Len, phlp.Cond, opcode, oprs, 0uy, wback,
+              false, N, dt, phlp.IsThumb, cflags, oSz, phlp.IsAdd, phlp.Lifter)
+
+/// Renders a block transfer of the registers of another mode, or a return from
+/// an exception, which the manual writes with a trailing caret. The caret is
+/// what tells its disassembly from that of the ordinary transfer sharing its
+/// mnemonic.
+let renderCaret (phlp: ParsingHelper) bin opcode oidx =
+  let struct (oprs, wback, cflags, oSz) = phlp.OprParsers.[int oidx].Render bin
+  Instruction(phlp.InsAddr, phlp.Len, phlp.Cond, opcode, oprs, 0uy, wback,
+              true, N, None, phlp.IsThumb, cflags, oSz, phlp.IsAdd,
+              phlp.Lifter)
 
 /// Load/Store Dual, Half, Signed Byte (register) on page F4-4221.
 let parseLoadStoreReg (phlp: ParsingHelper) bin =
@@ -2027,22 +2037,22 @@ let parseLoadStoreMultiple (phlp: ParsingHelper) bin =
 #if !EMULATION
     chkPCRnRegs bin
 #endif
-    render phlp bin Op.STMDA None OD.OprRnRegsCaret
+    renderCaret phlp bin Op.STMDA OD.OprRnRegsUsr
   | 0b0110u ->
 #if !EMULATION
     chkPCRnRegs bin
 #endif
-    render phlp bin Op.STMIA None OD.OprRnRegsCaret
+    renderCaret phlp bin Op.STM OD.OprRnRegsUsr
   | 0b1010u ->
 #if !EMULATION
     chkPCRnRegs bin
 #endif
-    render phlp bin Op.STMDB None OD.OprRnRegsCaret
+    renderCaret phlp bin Op.STMDB OD.OprRnRegsUsr
   | 0b1110u ->
 #if !EMULATION
     chkPCRnRegs bin
 #endif
-    render phlp bin Op.STMIB None OD.OprRnRegsCaret
+    renderCaret phlp bin Op.STMIB OD.OprRnRegsUsr
   | 0b1000u ->
 #if !EMULATION
     chkPCRnRegs bin
@@ -2060,45 +2070,45 @@ let parseLoadStoreMultiple (phlp: ParsingHelper) bin =
 #if !EMULATION
       chkPCRnRegs bin
 #endif
-      render phlp bin Op.LDMDA None OD.OprRnRegsCaret
+      renderCaret phlp bin Op.LDMDA OD.OprRnRegsUsr
     else (* 1xxxxxxxxxxxxxxx LDM (exception return) *)
 #if !EMULATION
       chkWBRegs bin
 #endif
-      render phlp bin Op.LDMDA None OD.OprRnRegsCaret
+      renderCaret phlp bin Op.LDMDA OD.OprRnRegsA
   | 0b0111u ->
     if pickBit bin 15 = 0u then
 #if !EMULATION
       chkPCRnRegs bin
 #endif
-      render phlp bin Op.LDM None OD.OprRnRegsCaret
+      renderCaret phlp bin Op.LDM OD.OprRnRegsUsr
     else
 #if !EMULATION
       chkWBRegs bin
 #endif
-      render phlp bin Op.LDM None OD.OprRnRegsCaret
+      renderCaret phlp bin Op.LDM OD.OprRnRegsA
   | 0b1011u ->
     if pickBit bin 15 = 0u then
 #if !EMULATION
       chkPCRnRegs bin
 #endif
-      render phlp bin Op.LDMDB None OD.OprRnRegsCaret
+      renderCaret phlp bin Op.LDMDB OD.OprRnRegsUsr
     else
 #if !EMULATION
       chkWBRegs bin
 #endif
-      render phlp bin Op.LDMDB None OD.OprRnRegsCaret
+      renderCaret phlp bin Op.LDMDB OD.OprRnRegsA
   | 0b1111u ->
     if pickBit bin 15 = 0u then
 #if !EMULATION
       chkPCRnRegs bin
 #endif
-      render phlp bin Op.LDMIB None OD.OprRnRegsCaret
+      renderCaret phlp bin Op.LDMIB OD.OprRnRegsUsr
     else
 #if !EMULATION
       chkWBRegs bin
 #endif
-      render phlp bin Op.LDMIB None OD.OprRnRegsCaret
+      renderCaret phlp bin Op.LDMIB OD.OprRnRegsA
   | 0b1100u ->
 #if !EMULATION
     chkPCRnRegs bin

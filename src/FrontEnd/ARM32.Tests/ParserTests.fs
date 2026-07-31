@@ -142,6 +142,13 @@ type ParserTests() =
   let testNoWbackNoQ pref simd (bytes: byte[]) (opcode, operands) =
     test pref opcode false simd operands bytes
 
+  /// Checks the disassembly, for what no operand carries: the caret that tells
+  /// a transfer of another mode's registers from the ordinary one.
+  let testDisasm (byteString: string) (expected: string) =
+    let bytes = ByteArray.ofHexString byteString
+    let ins = parse (ISA(Architecture.ARMv7, Endian.Big)) bytes
+    Assert.AreEqual<string>(expected, (ins :> IInstruction).Disasm())
+
   let testNoQNoSimd pref wback (bytes: byte[]) (opcode, operands) =
     test pref opcode wback None operands bytes
 
@@ -570,8 +577,36 @@ type ParserTests() =
   [<TestMethod>]
   member _.``[ARMv7] Load/store multiple Parse Test (5)``() =
     "e8c9e000"
-    ++ STMIA ** [ O.Reg SB; O.RegList [ SP; LR; PC ] ]
+    ++ STM ** [ O.Reg SB; O.RegList [ SP; LR; PC ] ]
     ||> testNoWbackNoQNoSimd Condition.AL
+
+  /// A transfer of the registers of another mode ends in a caret, and shares
+  /// its mnemonic with the ordinary transfer that it is not.
+  [<TestMethod>]
+  member _.``[ARMv7] Load/store multiple Disasm test (1)``() =
+    testDisasm "e8912304" "ldm r1, {r2, r8, sb, sp}"
+
+  [<TestMethod>]
+  member _.``[ARMv7] Load/store multiple Disasm test (2)``() =
+    testDisasm "e8d12304" "ldm r1, {r2, r8, sb, sp}^"
+
+  [<TestMethod>]
+  member _.``[ARMv7] Load/store multiple Disasm test (3)``() =
+    testDisasm "e8812304" "stm r1, {r2, r8, sb, sp}"
+
+  [<TestMethod>]
+  member _.``[ARMv7] Load/store multiple Disasm test (4)``() =
+    testDisasm "e8c12304" "stm r1, {r2, r8, sb, sp}^"
+
+  /// A return from an exception writes its base back when its write-back bit
+  /// says so, which the transfer of another mode's registers has no room for.
+  [<TestMethod>]
+  member _.``[ARMv7] Load/store multiple Disasm test (5)``() =
+    testDisasm "e8d1a304" "ldm r1, {r2, r8, sb, sp, pc}^"
+
+  [<TestMethod>]
+  member _.``[ARMv7] Load/store multiple Disasm test (6)``() =
+    testDisasm "e8f1a304" "ldm r1!, {r2, r8, sb, sp, pc}^"
 
   [<TestMethod>]
   member _.``[ARMv7] Miscellaneous Parse test (1)``() =
