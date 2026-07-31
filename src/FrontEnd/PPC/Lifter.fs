@@ -22,7 +22,7 @@
   SOFTWARE.
 *)
 
-module internal B2R2.FrontEnd.PPC32.Lifter
+module internal B2R2.FrontEnd.PPC.Lifter
 
 open B2R2
 open B2R2.BinIR
@@ -30,8 +30,8 @@ open B2R2.BinIR.LowUIR
 open B2R2.BinIR.LowUIR.AST.InfixOp
 open B2R2.FrontEnd.BinLifter
 open B2R2.FrontEnd.BinLifter.LiftingUtils
-open B2R2.FrontEnd.PPC32
-open B2R2.FrontEnd.PPC32.OperandHelper
+open B2R2.FrontEnd.PPC
+open B2R2.FrontEnd.PPC.OperandHelper
 
 let getOneOpr (ins: Instruction) =
   match ins.Operands with

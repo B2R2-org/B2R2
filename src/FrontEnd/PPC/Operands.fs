@@ -22,9 +22,9 @@
   SOFTWARE.
 *)
 
-namespace B2R2.FrontEnd.PPC32
+namespace B2R2.FrontEnd.PPC
 
-/// Represents a set of operands in a PPC32 instruction.
+/// Represents a set of operands in a PPC instruction.
 type Operands =
   | NoOperand
   | OneOperand of Operand
@@ -33,7 +33,7 @@ type Operands =
   | FourOperands of Operand * Operand * Operand * Operand
   | FiveOperands of Operand * Operand * Operand * Operand * Operand
 
-/// Represents an operand used in a PPC32 instruction.
+/// Represents an operand used in a PPC instruction.
 and Operand =
   | OprReg of Register
   | OprMem of Disp * Register
@@ -41,12 +41,12 @@ and Operand =
   | OprAddr of TargetAddr
   | OprBI of uint32
 
-/// Represents the displacement value used in memory operands of PPC32
+/// Represents the displacement value used in memory operands of PPC
 /// instructions.
 and Disp = int32
 
-/// Represents an immediate value in PPC32 instructions.
+/// Represents an immediate value in PPC instructions.
 and Imm = uint64
 
-/// Represents a branch target address used in PPC32 instructions.
+/// Represents a branch target address used in PPC instructions.
 and TargetAddr = uint64

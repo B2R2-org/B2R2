@@ -22,7 +22,7 @@ OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 SOFTWARE.
 *)
 
-module internal B2R2.FrontEnd.PPC32.OperandHelper
+module internal B2R2.FrontEnd.PPC.OperandHelper
 
 let getRegister (n: uint32): Register =
   n |> int |> LanguagePrimitives.EnumOfValue

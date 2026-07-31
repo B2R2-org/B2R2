@@ -22,17 +22,17 @@
   SOFTWARE.
 *)
 
-namespace B2R2.FrontEnd.PPC32
+namespace B2R2.FrontEnd.PPC
 
 open B2R2
 
 /// <namespacedoc>
 ///   <summary>
-///   Contains types and functions for working with the PPC32 instructions.
+///   Contains types and functions for working with the PPC instructions.
 ///   </summary>
 /// </namespacedoc>
 /// <summary>
-/// Represents registers for PPC32.<para/>
+/// Represents registers for PPC.<para/>
 /// </summary>
 type Register =
   | R0 = 0x0
@@ -193,14 +193,14 @@ type Register =
   /// stwcx. can tell whether the location was written in between.
   | ExMonVal = 0x78
 
-/// Provides functions to handle PPC32 registers.
+/// Provides functions to handle PPC registers.
 module Register =
-  /// Returns the PPC32 register from a register ID.
+  /// Returns the PPC register from a register ID.
   [<CompiledName "OfRegID">]
   let inline ofRegID (rid: RegisterID): Register =
     int rid |> LanguagePrimitives.EnumOfValue
 
-  /// Returns the PPC32 register from a string representation.
+  /// Returns the PPC register from a string representation.
   [<CompiledName "OfString">]
   let ofString (str: string) =
     match str.ToLowerInvariant() with
@@ -314,12 +314,12 @@ module Register =
     | "exmonval" -> Register.ExMonVal
     | _ -> Terminator.impossible ()
 
-  /// Returns the register ID of a PPC32 register.
+  /// Returns the register ID of a PPC register.
   [<CompiledName "ToRegID">]
   let inline toRegID (reg: Register) =
     LanguagePrimitives.EnumToValue(reg) |> RegisterID.create
 
-  /// Returns the string representation of a PPC32 register.
+  /// Returns the string representation of a PPC register.
   [<CompiledName "ToString">]
   let toString reg =
     match reg with

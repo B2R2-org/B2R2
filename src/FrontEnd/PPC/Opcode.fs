@@ -22,10 +22,10 @@
   SOFTWARE.
 *)
 
-namespace B2R2.FrontEnd.PPC32
+namespace B2R2.FrontEnd.PPC
 
 /// <summary>
-/// Represents a PPC32 opcode.
+/// Represents a PPC opcode.
 /// </summary>
 type Opcode =
   | ADD = 0

@@ -22,12 +22,12 @@
   SOFTWARE.
 *)
 
-module internal B2R2.FrontEnd.PPC32.ParsingMain
+module internal B2R2.FrontEnd.PPC.ParsingMain
 
 open B2R2
 open B2R2.FrontEnd.BinLifter
 open B2R2.FrontEnd.BinLifter.ParsingUtils
-open B2R2.FrontEnd.PPC32.OperandHelper
+open B2R2.FrontEnd.PPC.OperandHelper
 
 let parseTWI bin =
   let ra = getRegister (Bits.extract bin 20u 16u) |> OprReg
