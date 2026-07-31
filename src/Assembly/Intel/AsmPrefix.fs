@@ -305,16 +305,30 @@ let encodeRexRXB wordSz isMR = function
   | TwoOperands(OprReg r1, OprReg r2) -> encodeRexRR wordSz isMR r1 r2
   | TwoOperands(OprReg r, OprMem(b, s, _, _))
   | TwoOperands(OprMem(b, s, _, _), OprReg r) -> encodeRexRM wordSz r b s
-  | TwoOperands(OprReg r, OprImm _) ->
+  (* IN and OUT name their port before the accumulator, which is the only place
+     a register follows an immediate. *)
+  | TwoOperands(OprReg r, OprImm _)
+  | TwoOperands(OprImm _, OprReg r) ->
     if isReg8 wordSz r then encodeRex r ||| encodeRexB r else encodeRexB r
+  (* ENTER is the one instruction naming two immediates, and neither can carry a
+     REX bit. *)
+  | TwoOperands(OprImm _, OprImm _) -> 0uy
   | TwoOperands(OprMem(Some bReg, None, _, _), OprImm _) -> encodeRexB bReg
   | TwoOperands(OprMem(Some bReg, Some(s, _), _, _), OprImm _) ->
     encodeRexX s ||| encodeRexB bReg
   | TwoOperands(OprReg r, Label _) | TwoOperands(Label _, OprReg r) ->
     encodeRexR r
-  | ThreeOperands(OprReg r1, OprReg r2, OprImm _) ->
+  (* The double-shift instructions name the shift amount as a third operand,
+     either an immediate or CL. Neither can be an extended register, so the
+     third operand never contributes a REX bit and the first two decide it
+     exactly as they would on their own. *)
+  | ThreeOperands(OprReg r1, OprReg r2, OprImm _)
+  | ThreeOperands(OprReg r1, OprReg r2, OprReg _) ->
     if isMR then encodeRexR r2 ||| encodeRexB r1
     else encodeRexR r1 ||| encodeRexB r2
+  | ThreeOperands(OprMem(b, s, _, _), OprReg r, OprImm _)
+  | ThreeOperands(OprMem(b, s, _, _), OprReg r, OprReg _) ->
+    encodeRexRM wordSz r b s
   | ThreeOperands(OprReg r, OprMem(Some bReg, Some(s, _), _, _), OprImm _) ->
     encodeRexR r ||| encodeRexX s ||| encodeRexB bReg
   | ThreeOperands(OprReg r, OprMem(Some bReg, None, _, _), OprImm _) ->
@@ -322,6 +336,11 @@ let encodeRexRXB wordSz isMR = function
   | ThreeOperands(OprReg r, OprMem(None, None, _, _), OprImm _) ->
     encodeRexR r
   | ThreeOperands(OprReg r, Label _, OprImm _) -> encodeRexR r
+  (* EXTRQ and INSERTQ give a field's position and length as two immediates, so
+     the register operands they do have are the only ones REX can reach. *)
+  | ThreeOperands(OprReg r, OprImm _, OprImm _) -> encodeRexB r
+  | FourOperands(OprReg r1, OprReg r2, OprImm _, OprImm _) ->
+    encodeRexR r1 ||| encodeRexB r2
   | o -> raise <| EncodingFailureException $"Cannot encode REX for {o}"
 
 let encodeREXPref ins (wordSz: WordSize) (rexPrx: EncREXPrefix) =

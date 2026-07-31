@@ -104,7 +104,32 @@ type IntelEncodingTests() =
       WordSize.Bit32, "shld ecx, eax, 0x5", "0fa4c105"
       WordSize.Bit32, "shld ecx, eax, cl", "0fa5c1"
       WordSize.Bit64, "shld rcx, rax, 0x5", "480fa4c105"
-      WordSize.Bit32, "shld dword ptr [ecx], eax, cl", "0fa501" ]
+      WordSize.Bit32, "shld dword ptr [ecx], eax, cl", "0fa501"
+      (* XCHG is commutative, so it may be written with the memory operand
+         either way round. Canonical disassembly only ever names the memory
+         operand first, which is why the register-first spelling is pinned
+         here instead of by the sweep. *)
+      WordSize.Bit32, "xchg eax, dword ptr [ecx]", "8701"
+      WordSize.Bit32, "xchg cl, byte ptr [ecx]", "8609"
+      WordSize.Bit64, "xchg rcx, qword ptr [rax]", "488708"
+      (* The store halves of MOVLPS and MOVHPS. Canonical disassembly cannot
+         reach them: a register ModRM byte is reserved at both opcode bytes and
+         the decoder renders it as a register-to-register move, so the sweep
+         leaves 0F 13 and 0F 17 alone. *)
+      WordSize.Bit32, "movlps qword ptr [ecx], xmm0", "0f1301"
+      WordSize.Bit32, "movhps qword ptr [ecx], xmm1", "0f1709"
+      WordSize.Bit64, "movlps qword ptr [rcx], xmm0", "0f1301"
+      (* MOVNTI only stores and PEXTRW only reads a register, so the forms the
+         decoder renders at those opcode bytes for a register ModRM byte do not
+         exist; the sweep leaves 0F C3 and 0F C5 alone and these stand in. *)
+      WordSize.Bit32, "movnti dword ptr [ecx], edx", "0fc311"
+      WordSize.Bit64, "movnti qword ptr [rcx], rdx", "480fc311"
+      WordSize.Bit32, "pextrw eax, mm1, 0x3", "0fc5c103"
+      WordSize.Bit32, "pextrw eax, xmm1, 0x3", "660fc5c103"
+      (* MOVNTPS and MOVNTPD only store, so the register form the decoder
+         renders at 0F 2B does not exist either. *)
+      WordSize.Bit32, "movntps xmmword ptr [ecx], xmm0", "0f2b01"
+      WordSize.Bit32, "movntpd xmmword ptr [ecx], xmm0", "660f2b01" ]
 
   /// Sources that must be refused rather than encoded. Before these were
   /// checked, an instruction whose encoder emits raw opcode bytes dropped a

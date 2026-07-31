@@ -32,7 +32,12 @@ type AsmInsInfo =
     REXPrefix: REXPrefix
     VEXInfo: VEXInfo option
     Opcode: Opcode
-    Operands: Operands }
+    Operands: Operands
+    /// Whether a memory operand was written as a far pointer. CALL and JMP
+    /// need this to choose between their near and far forms, because a 16:16
+    /// far pointer and a 32-bit near target are both four bytes wide and so
+    /// reach the encoders as the same operand.
+    IsFar: bool }
 
 /// AssemblyLine is either a label or an instruction.
 type AssemblyLine =
@@ -61,17 +66,25 @@ let getOperandsAsList operands =
   | ThreeOperands(op1, op2, op3) -> [ op1; op2; op3 ]
   | FourOperands(op1, op2, op3, op4) -> [ op1; op2; op3; op4 ]
 
+/// Maps a size directive to the width it stands for. The names accepted here
+/// are the ones B2R2's disassembler emits (see Disasm.ptrDirectiveString), so
+/// that disassembly can be handed straight back to the assembler; "tword ptr"
+/// and the "far" spellings are kept as aliases other assemblers use.
 let ptrStringToBitSize = function
   | "byte ptr" -> 1 * 8<rt>
   | "word ptr" -> 2 * 8<rt>
   | "word far ptr" | "dword ptr" -> 4 * 8<rt>
-  | "dword far ptr" -> 6 * 8<rt>
+  | "dword far ptr" | "fword ptr" -> 6 * 8<rt>
   | "qword ptr" -> 8 * 8<rt>
-  | "qword far ptr" | "tword ptr" -> 10 * 8<rt>
+  | "qword far ptr" | "tword ptr" | "tbyte ptr" -> 10 * 8<rt>
   | "xmmword ptr" -> 16 * 8<rt>
   | "ymmword ptr" -> 32 * 8<rt>
   | "zmmword ptr" -> 64 * 8<rt>
   | _ -> Terminator.impossible ()
+
+/// Whether a size directive names a far pointer. "fword ptr" is one even
+/// though it does not say so, being how the disassembler spells 16:32.
+let isFarPtrString (str: string) = str.Contains "far" || str = "fword ptr"
 
 let prefixFromRegString (str: string) =
   match str.ToLowerInvariant() with
@@ -83,9 +96,12 @@ let prefixFromRegString (str: string) =
   | "ss" -> Prefix.SS
   | _ -> Terminator.impossible ()
 
-let newInfo prfxs rexPrfx vexInfo opc operands =
+/// Builds one instruction as written. REX and VEX prefixes never appear in the
+/// source text, so the encoders derive them from the operands instead.
+let newInfo prfxs opc operands isFar =
   { Prefixes = prfxs
-    REXPrefix = rexPrfx
-    VEXInfo = vexInfo
+    REXPrefix = REXPrefix.NOREX
+    VEXInfo = None
     Opcode = opc
-    Operands = operands }
+    Operands = operands
+    IsFar = isFar }

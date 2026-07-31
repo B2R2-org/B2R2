@@ -61,3 +61,18 @@ done:
         [| 0x43uy |]
         [| 0xc3uy |] ]
     Assert.AreEqual(true, List.forall2 (=) result expectation)
+
+  /// An assembler is meant to be reused across sources. Until the parser state
+  /// was cleared at the start of every call, a source that failed to parse left
+  /// its segment prefix or far-pointer flag behind, and the next instruction
+  /// came out as a far jump, or carried a prefix it never asked for.
+  [<TestMethod>]
+  member _.``A source that fails to parse leaves nothing behind``() =
+    let hex (bytes: byte[]) =
+      bytes |> Array.map (sprintf "%02x") |> String.concat ""
+    for bad in [ "jmp fword ptr [ecx"; "mov eax, dword ptr [gs:"; "lock " ] do
+      (try asm.Lower bad |> ignore with _ -> ())
+      match (try asm.Lower "jmp dword ptr [ecx]" with _ -> Error "raised") with
+      | Ok(bytes :: _) ->
+        Assert.AreEqual<string>("ff21", hex bytes, $"after '{bad}'")
+      | Ok [] | Error _ -> Assert.Fail $"'{bad}' left the assembler unusable"

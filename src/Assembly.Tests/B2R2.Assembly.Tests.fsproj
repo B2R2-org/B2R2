@@ -6,6 +6,7 @@
 
   <ItemGroup>
     <Compile Include="IntelTests.fs" />
+    <Compile Include="IntelSweep.fs" />
     <Compile Include="IntelRoundTripTests.fs" />
     <Compile Include="IntelEncodingTests.fs" />
   </ItemGroup>

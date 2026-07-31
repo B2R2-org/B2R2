@@ -40,8 +40,13 @@ type UserState =
     /// instruction, but labels would not change this.
     CurIndex: int }
 
+/// The instructions whose memory operand has no width to write down. MOV takes
+/// its width from the other operand; the x87 state-saving instructions read or
+/// write a region whose size follows from the processor mode, which is why the
+/// disassembler prints no size directive for them either.
 let private isMemorySizeExceptionOpcode = function
-  | Opcode.MOV -> true
+  | Opcode.MOV
+  | Opcode.FLDENV | Opcode.FNSTENV | Opcode.FRSTOR | Opcode.FNSAVE -> true
   | _ -> false
 
 let private checkMissingMemoryOperandSize (ins: AsmInsInfo) =
@@ -71,9 +76,33 @@ let private checkAddressingMode wordSz (ins: AsmInsInfo) =
     | _ -> false
   if getOperandsAsList ins.Operands |> List.exists uses16BitAddress then
     raise <| EncodingFailureException "16-bit addressing is not supported"
-  else ()
+  else
+    ()
 
-let encodeInstruction ins wordSz =
+/// Builds the lookup for the instruction families whose members differ only in
+/// an opcode byte and a mandatory prefix, so that adding one is a row rather
+/// than a function. The dispatch below falls through to it, which leaves the
+/// explicit cases for the instructions that really do need an encoder of their
+/// own. Each assembler builds its own and lets it go with the assembler, rather
+/// than the rows living for as long as the process does.
+let buildEncoderTable () =
+  [ threeByte38Encoders ()
+    threeByte3AEncoders ()
+    packedIntegerEncoders ()
+    sseArithmeticEncoders ()
+    packedShiftEncoders ()
+    sseMoveEncoders ()
+    x87Encoders ()
+    noOperandEncoders ()
+    bitwiseEncoders ()
+    sseImmediateEncoders ()
+    digitGroupEncoders ()
+    miscellaneousEncoders ()
+    oneOffEncoders () ]
+  |> List.concat
+  |> Map.ofList
+
+let encodeInstruction encoders ins wordSz =
   checkMissingMemoryOperandSize ins
   checkGroup1Prefix ins
   checkAddressingMode wordSz ins
@@ -171,9 +200,9 @@ let encodeInstruction ins wordSz =
   | Opcode.JS -> jcc wordSz ins
   | Opcode.JZ -> jcc wordSz ins
   | Opcode.JMP -> jmp wordSz ins
-  | Opcode.LAHF -> lahf wordSz ins.Operands
+  | Opcode.LAHF -> lahf ins.Operands
   | Opcode.LEA -> lea wordSz ins
-  | Opcode.LEAVE -> leave wordSz ins.Operands
+  | Opcode.LEAVE -> leave ins.Operands
   | Opcode.MOV -> mov wordSz ins
   | Opcode.MOVAPS -> movaps wordSz ins
   | Opcode.MOVD -> movd wordSz ins
@@ -205,7 +234,7 @@ let encodeInstruction ins wordSz =
   | Opcode.ROL -> rol wordSz ins
   | Opcode.ROR -> ror wordSz ins
   | Opcode.SAR -> sar wordSz ins
-  | Opcode.SAHF -> sahf wordSz ins.Operands
+  | Opcode.SAHF -> sahf ins.Operands
   | Opcode.SBB -> sbb wordSz ins
   | Opcode.SCASB -> scasb wordSz ins
   | Opcode.SCASD -> scasd wordSz ins
@@ -248,7 +277,10 @@ let encodeInstruction ins wordSz =
   | Opcode.XOR -> xor wordSz ins
   | Opcode.XORPS -> xorps wordSz ins
   | Opcode.SYSCALL -> syscall ()
-  | op -> raise <| EncodingFailureException $"{op} is not supported yet"
+  | op ->
+    match Map.tryFind op encoders with
+    | Some encode -> encode wordSz ins
+    | None -> raise <| EncodingFailureException $"{op} is not supported yet"
 
 let computeIncompMaxLen op = (relBranch op).MaxLength
 
@@ -353,9 +385,9 @@ let finalize wordSz parserState realLenArr baseAddr myIdx encoded =
        yield! concretizeLabel fixup.Width displacement
        yield! fixup.Tail |]
 
-let assemble parserState wordSz (baseAddr: Addr) (instrs: AsmInsInfo list) =
+let assemble encoders parserState wordSz (baseAddr: Addr) instrs =
   let encodings =
-    instrs |> List.map (fun ins -> encodeInstruction ins wordSz)
+    instrs |> List.map (fun ins -> encodeInstruction encoders ins wordSz)
   let maxLenArr = computeMaxLen encodings
   let decided = encodings |> List.mapi (decideOp parserState maxLenArr)
   let realLenArr = computeRealLen decided

@@ -42,7 +42,13 @@ open System
 /// </summary>
 type Assembler(isa: ISA, baseAddr: Addr) =
 
+  /// The table-driven encoders, built here so that they are collected with the
+  /// assembler instead of living for as long as the process does.
+  let encoders = buildEncoderTable ()
+
   let mutable inferredPrefix = Prefix.None
+
+  let mutable inferredFar = false
 
   let defaultRegType = isa.WordSize |> WordSize.toRegType
 
@@ -58,7 +64,11 @@ type Assembler(isa: ISA, baseAddr: Addr) =
     updateUserState (fun us -> { us with CurIndex = us.CurIndex + 1 })
     >>. preturn ()
 
-  let resetPrefix = preturn () |>> (fun _ -> inferredPrefix <- Prefix.None)
+  let resetPrefix =
+    preturn ()
+    |>> fun _ ->
+      inferredPrefix <- Prefix.None
+      inferredFar <- false
 
   let isWhitespace c = [ ' '; '\t'; '\f' ] |> List.contains c
 
@@ -161,15 +171,19 @@ type Assembler(isa: ISA, baseAddr: Addr) =
       "word far ptr"
       "dword ptr"
       "dword far ptr"
+      "fword ptr"
       "qword ptr"
       "qword far ptr"
       "tword ptr"
+      "tbyte ptr"
       "xmmword ptr"
       "ymmword ptr"
       "zmmword ptr" ]
     |> Seq.map (pstringCI >> attempt)
     |> choice
-    |>> ptrStringToBitSize
+    |>> fun directive ->
+      if isFarPtrString directive then inferredFar <- true else ()
+      ptrStringToBitSize directive
 
   let pMemBaseReg = pReg .>> (notFollowedBy (spaces .>> pchar '*'))
 
@@ -185,8 +199,11 @@ type Assembler(isa: ISA, baseAddr: Addr) =
     |>> fun ((bReg, scaledInd), disp) -> OprMem(bReg, scaledInd, disp, sz)
     |> betweenSquareBraces
 
+  (* The disassembler writes a far target as selector:offset; the semicolon is
+     kept as an alias other assemblers use. *)
   let pAbsoluteAddress =
-    pImm |>> int16 .>> spaces .>> pchar ';' .>> spaces .>>. pAddr
+    pImm |>> int16 .>> spaces .>> (pchar ':' <|> pchar ';')
+    .>> spaces .>>. pAddr
     |>> (fun (sel, addr) -> Absolute(sel, addr, 0<rt> (* dummy *)))
 
   let pJumpTarget = attempt pAbsoluteAddress <|> (pImm |>> Relative)
@@ -225,7 +242,7 @@ type Assembler(isa: ISA, baseAddr: Addr) =
   let pInsInfo =
     opt pPrefix >>. spaces >>. (pOpcode >>= operands)
     |>> (fun (opcode, operands) ->
-          newInfo inferredPrefix REXPrefix.NOREX None opcode operands)
+          newInfo inferredPrefix opcode operands inferredFar)
 
   let pInstructionLine =
     incrementIndex >>. opt pLabelDef >>. spaces >>. pInsInfo .>> resetPrefix
@@ -240,11 +257,17 @@ type Assembler(isa: ISA, baseAddr: Addr) =
 
   interface ILowerable with
     override _.Lower assembly =
+      (* A source that fails to parse can leave a prefix or the far-pointer flag
+         set, because what clears them runs at the end of an instruction line
+         that was never reached. An assembler is meant to be reused, so the
+         state has to start clean here rather than only end clean there. *)
+      inferredPrefix <- Prefix.None
+      inferredFar <- false
       let st = { LabelMap = Map.empty; CurIndex = -1 }
       match runParserOnString statements st "" assembly with
       | Success(result, us, _) ->
         filterInstructionLines result
-        |> assemble us isa.WordSize baseAddr
+        |> assemble encoders us isa.WordSize baseAddr
         |> Result.Ok
       | Failure(str, _, _) ->
         Result.Error(str)
