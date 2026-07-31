@@ -79,6 +79,7 @@ let opCodeToString = function
   | Opcode.FLOAT -> "float"
   | Opcode.FMAC -> "fmac"
   | Opcode.FMOV -> "fmov"
+  | Opcode.FMOVS -> "fmovs"
   | Opcode.FMUL -> "fmul"
   | Opcode.FNEG -> "fneg"
   | Opcode.FRCHG -> "frchg"

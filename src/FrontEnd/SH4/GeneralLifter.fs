@@ -108,10 +108,13 @@ let private getTwoOprs (ins: Instruction) =
   | TwoOperands(o1, o2) -> struct (o1, o2)
   | _ -> raise InvalidOperandException
 
-/// The register variable a register-direct operand names.
-let private regOf bld = function
-  | OpReg(Regdir r) -> regVar bld r
+/// The register a register-direct operand names.
+let private regEnumOf = function
+  | OpReg(Regdir r) -> r
   | _ -> raise InvalidOperandException
+
+/// The register variable a register-direct operand names.
+let private regOf bld opr = regEnumOf opr |> regVar bld
 
 /// The source and destination registers of a two-register instruction, in the
 /// assembly's own order: SH4 writes the source first.
@@ -178,14 +181,13 @@ let private pcRelLongAddr (ins: Instruction) disp =
 let private pcRelWordAddr (ins: Instruction) disp =
   uint32 ins.Address + 4u + uint32 (disp * 2)
 
-/// Lifts one form of mov.b, mov.w, or mov.l, which differ only in the access
+/// Emits one form of mov.b, mov.w, or mov.l, which differ only in the access
 /// width -- what also scales a displacement and an auto-update step. The
-/// single-precision fmov.s takes the same operand forms, differing only in
-/// which register file its register operand names, so it shares this.
-let private movMem (ins: Instruction) len bld rt =
+/// thirty-two-bit fmov.s takes the same operand forms, differing only in which
+/// register file its register operand names, so it shares this.
+let private movMemBody (ins: Instruction) bld rt =
   let step = RegType.toByteWidth rt
   let struct (o1, o2) = getTwoOprs ins
-  bld <!-- (ins.Address, len)
   match o1, o2 with
   | OpReg(Regdir m), OpReg(RegIndir n) ->
     bld <+ (storeMem bld (regVar bld n) (storeVal rt (regVar bld m)))
@@ -226,6 +228,11 @@ let private movMem (ins: Instruction) len bld rt =
     bld <+ (regVar bld n := loadExt bld rt (numU32 addr 32<rt>))
   | _ ->
     raise InvalidOperandException
+
+/// Lifts one form of mov.b, mov.w, or mov.l.
+let private movMem (ins: Instruction) len bld rt =
+  bld <!-- (ins.Address, len)
+  movMemBody ins bld rt
   bld --!> len
 
 /// Moves one register into another, the shape ldc, lds, stc, sts, flds, and
@@ -524,43 +531,154 @@ let extuw (ins: Instruction) len bld =
   bld <+ (dst := AST.xtlo 16<rt> src |> AST.zext 32<rt>)
   bld --!> len
 
-/// The sign bit of a single-precision value, which fabs clears and fneg
-/// flips without rounding or raising anything.
-let [<Literal>] private SingleSign = 0x80000000
+/// The FPSCR bit that makes the arithmetic double-precision.
+let [<Literal>] private PrBit = 19
+
+/// The FPSCR bit that makes a floating-point transfer sixty-four bits wide.
+let [<Literal>] private SzBit = 20
+
+/// An FPSCR mode bit. The fields are read out of FPSCR itself rather than the
+/// separate one-bit registers the register file also defines, because an lds to
+/// FPSCR writes the whole word and would leave those behind.
+let private fpscrBit bld pos = AST.extract (regVar bld R.FPSCR) 1<rt> pos
+
+/// The number of a floating-point register operand. FR0 through FR15 count
+/// themselves; a double-precision register counts as the first of the two
+/// single-precision registers it spans.
+let private fpNum r =
+  if r >= R.FR0 && r <= R.FR15 then int r - int R.FR0
+  elif r >= R.DR0 && r <= R.DR14 then (int r - int R.DR0) * 2
+  else raise InvalidOperandException
+
+/// The single-precision register with the given number.
+let private frOfNum n: Register = LanguagePrimitives.EnumOfValue(int R.FR0 + n)
+
+/// Whether a floating-point operand names an odd-numbered register. A double
+/// occupies an even-numbered pair, so under a double-precision or wide-transfer
+/// mode an odd number either reaches the second register bank -- which nothing
+/// here models -- or names an encoding the architecture leaves undefined.
+let private isOddFpNum r = fpNum r % 2 = 1
+
+/// The two single-precision registers a double-precision operand spans: SH4
+/// pairs them with the even-numbered one holding the upper half.
+let private doubleHalves bld r =
+  let n = fpNum r
+  struct (regVar bld (frOfNum n), regVar bld (frOfNum (n + 1)))
+
+/// The sixty-four-bit value a double-precision operand holds, read out of the
+/// pair it spans.
+let private doubleOf bld r =
+  let struct (hi, lo) = doubleHalves bld r
+  ((AST.zext 64<rt> hi) << num64 32) .| (AST.zext 64<rt> lo)
+
+/// Writes a sixty-four-bit result into the pair a double-precision operand
+/// spans. The value must already sit in a temporary: writing the upper half
+/// first would otherwise change what an expression over the pair still reads.
+let private setDouble bld r v =
+  let struct (hi, lo) = doubleHalves bld r
+  bld <+ (hi := AST.xthi 32<rt> v)
+  bld <+ (lo := AST.xtlo 32<rt> v)
+
+/// Emits an instruction that an FPSCR mode bit gives two meanings: `off` runs
+/// when the bit is clear and `on` when it is set. The paths differ in which
+/// registers they write and in how wide their memory accesses are, so a single
+/// result selected by an ite cannot express them -- and a parser cannot choose
+/// between them at all, the bit being state the program writes at run time.
+let private byMode bld pos off on =
+  let lblOn = label bld "ModeOn"
+  let lblOff = label bld "ModeOff"
+  let lblEnd = label bld "ModeEnd"
+  bld <+ (AST.cjmp (fpscrBit bld pos)
+                   (AST.jmpDest lblOn)
+                   (AST.jmpDest lblOff))
+  bld <+ (AST.lmark lblOff)
+  off ()
+  bld <+ (AST.jmp (AST.jmpDest lblEnd))
+  bld <+ (AST.lmark lblOn)
+  on ()
+  bld <+ (AST.lmark lblEnd)
+
+/// Reports the wide path of an odd-numbered operand as unsupported: it names
+/// the second register bank, which nothing here models. Only a program that
+/// actually sets the mode bit runs into it.
+let private unsupportedBank bld = bld <+ AST.sideEffect UnsupportedInstruction
+
+/// The sign bit of a floating-point value, which fabs clears and fneg flips.
+/// Both work the same at either precision, since a double keeps its sign bit in
+/// the upper half -- the very register the operand names.
+let [<Literal>] private SignBit = 0x80000000
 
 let fabs (ins: Instruction) len bld =
   let dst = oneReg ins bld
   bld <!-- (ins.Address, len)
-  bld <+ (dst := dst .& num (~~~SingleSign))
+  bld <+ (dst := dst .& num (~~~SignBit))
   bld --!> len
 
-let fadd (ins: Instruction) len bld =
-  let struct (src, dst) = twoRegs ins bld
+/// Lifts a floating-point operation over two registers whose width FPSCR.PR
+/// picks, given how to combine two values of that width.
+let private fpBinary (ins: Instruction) len bld op =
+  let struct (o1, o2) = getTwoOprs ins
+  let m = regEnumOf o1
+  let n = regEnumOf o2
   bld <!-- (ins.Address, len)
-  bld <+ (dst := AST.fadd dst src)
+  byMode bld PrBit
+    (fun () -> bld <+ (regVar bld n := op (regVar bld n) (regVar bld m)))
+    (fun () ->
+      if isOddFpNum m || isOddFpNum n then
+        unsupportedBank bld
+      else
+        let res = tmpVar bld 64<rt>
+        bld <+ (res := op (doubleOf bld n) (doubleOf bld m))
+        setDouble bld n res)
   bld --!> len
 
-let fcmpeq (ins: Instruction) len bld =
-  let struct (src, dst) = twoRegs ins bld
+let fadd ins len bld = fpBinary ins len bld AST.fadd
+
+/// Lifts a floating-point comparison whose width FPSCR.PR picks; either width
+/// leaves the answer in T.
+let private fpCompare (ins: Instruction) len bld cmp =
+  let struct (o1, o2) = getTwoOprs ins
+  let m = regEnumOf o1
+  let n = regEnumOf o2
   bld <!-- (ins.Address, len)
-  bld <+ (regVar bld R.T := AST.feq dst src)
+  byMode bld PrBit
+    (fun () ->
+      bld <+ (regVar bld R.T := cmp (regVar bld n) (regVar bld m)))
+    (fun () ->
+      if isOddFpNum m || isOddFpNum n then
+        unsupportedBank bld
+      else
+        bld <+ (regVar bld R.T := cmp (doubleOf bld n) (doubleOf bld m)))
   bld --!> len
 
-let fcmpgt (ins: Instruction) len bld =
-  let struct (src, dst) = twoRegs ins bld
+let fcmpeq ins len bld = fpCompare ins len bld AST.feq
+
+let fcmpgt ins len bld = fpCompare ins len bld AST.fgt
+
+/// Converts the double-precision value a register pair holds to single
+/// precision in FPUL. The architecture defines it only while FPSCR.PR is set,
+/// so it takes no mode branch, and the operand names an even register by
+/// construction.
+let fcnvds (ins: Instruction) len bld =
+  let struct (o1, o2) = getTwoOprs ins
+  let src = doubleOf bld (regEnumOf o1)
+  let dst = regOf bld o2
   bld <!-- (ins.Address, len)
-  bld <+ (regVar bld R.T := AST.fgt dst src)
+  bld <+ (dst := AST.cast CastKind.FloatCast 32<rt> src)
   bld --!> len
 
-let fcnvds ins _len _bld = notLifted ins
-
-let fcnvsd ins _len _bld = notLifted ins
-
-let fdiv (ins: Instruction) len bld =
-  let struct (src, dst) = twoRegs ins bld
+/// Converts the single-precision value in FPUL to double precision in a
+/// register pair, the counterpart of fcnvds.
+let fcnvsd (ins: Instruction) len bld =
+  let struct (o1, o2) = getTwoOprs ins
+  let src = regOf bld o1
+  let res = tmpVar bld 64<rt>
   bld <!-- (ins.Address, len)
-  bld <+ (dst := AST.fdiv dst src)
+  bld <+ (res := AST.cast CastKind.FloatCast 64<rt> src)
+  setDouble bld (regEnumOf o2) res
   bld --!> len
+
+let fdiv ins len bld = fpBinary ins len bld AST.fdiv
 
 let fipr ins _len _bld = notLifted ins
 
@@ -585,9 +703,20 @@ let fldi1 (ins: Instruction) len bld =
 let flds ins len bld = moveReg ins len bld
 
 let ``float`` (ins: Instruction) len bld =
-  let struct (src, dst) = twoRegs ins bld
+  let struct (o1, o2) = getTwoOprs ins
+  let src = regOf bld o1
+  let n = regEnumOf o2
   bld <!-- (ins.Address, len)
-  bld <+ (dst := AST.cast CastKind.SIntToFloat 32<rt> src)
+  byMode bld PrBit
+    (fun () ->
+      bld <+ (regVar bld n := AST.cast CastKind.SIntToFloat 32<rt> src))
+    (fun () ->
+      if isOddFpNum n then
+        unsupportedBank bld
+      else
+        let res = tmpVar bld 64<rt>
+        bld <+ (res := AST.cast CastKind.SIntToFloat 64<rt> src)
+        setDouble bld n res)
   bld --!> len
 
 let fmac (ins: Instruction) len bld =
@@ -602,57 +731,124 @@ let fmac (ins: Instruction) len bld =
   bld <+ (dst := AST.fadd (AST.fmul fr0 src) dst)
   bld --!> len
 
-/// Lifts a single-precision floating-point move, which shifts thirty-two bits
-/// about without interpreting them: register to register, or between a register
-/// and memory through the same operand forms mov.l takes.
-let private fmovSingle (ins: Instruction) len bld =
-  match ins.Operands with
-  | TwoOperands(OpReg(Regdir _), OpReg(Regdir _)) ->
-    let struct (src, dst) = twoRegs ins bld
-    bld <!-- (ins.Address, len)
-    bld <+ (dst := src)
-    bld --!> len
-  | _ ->
-    movMem ins len bld 32<rt>
+/// The floating-point register a transfer between memory and the register file
+/// names: whichever side of the operand pair is a plain register, the other
+/// being the memory operand.
+let private fpMemReg o1 o2 =
+  match o1, o2 with
+  | OpReg(Regdir r), _ -> r
+  | _, OpReg(Regdir r) -> r
+  | _ -> raise InvalidOperandException
 
-let fmov ins len bld = fmovSingle ins len bld
+/// Emits a sixty-four-bit transfer between memory and the register pair a
+/// double-precision operand spans, the wide counterpart of what movMemBody
+/// emits at thirty-two bits.
+let private fpMemDouble (ins: Instruction) bld =
+  let struct (o1, o2) = getTwoOprs ins
+  if isOddFpNum (fpMemReg o1 o2) then
+    unsupportedBank bld
+  else
+    let value = tmpVar bld 64<rt>
+    match o1, o2 with
+    | OpReg(Regdir m), OpReg(RegIndir n) ->
+      bld <+ (storeMem bld (regVar bld n) (doubleOf bld m))
+    | OpReg(Regdir m), OpReg(RegIndirPreDec n) ->
+      let addr = tmpVar bld 32<rt>
+      bld <+ (addr := regVar bld n .- num 8)
+      bld <+ (storeMem bld addr (doubleOf bld m))
+      bld <+ (regVar bld n := addr)
+    | OpReg(Regdir m), OpReg(IdxRegIndir(idx, n)) ->
+      let addr = regVar bld idx .+ regVar bld n
+      bld <+ (storeMem bld addr (doubleOf bld m))
+    | OpReg(RegIndir m), OpReg(Regdir n) ->
+      bld <+ (value := loadMem bld 64<rt> (regVar bld m))
+      setDouble bld n value
+    | OpReg(RegIndirPostInc m), OpReg(Regdir n) ->
+      bld <+ (value := loadMem bld 64<rt> (regVar bld m))
+      bld <+ (regVar bld m := regVar bld m .+ num 8)
+      setDouble bld n value
+    | OpReg(IdxRegIndir(idx, m)), OpReg(Regdir n) ->
+      bld <+ (value := loadMem bld 64<rt> (regVar bld idx .+ regVar bld m))
+      setDouble bld n value
+    | _ ->
+      raise InvalidOperandException
 
-let fmovs ins len bld = fmovSingle ins len bld
-
-let fmul (ins: Instruction) len bld =
-  let struct (src, dst) = twoRegs ins bld
+/// Lifts a floating-point move, whose width FPSCR.SZ picks: thirty-two bits
+/// between single-precision registers, or sixty-four between the pairs they
+/// span -- which also changes how much memory a transfer touches and how far a
+/// post-increment or pre-decrement steps.
+let private fpMove (ins: Instruction) len bld =
   bld <!-- (ins.Address, len)
-  bld <+ (dst := AST.fmul dst src)
+  match ins.Operands with
+  | TwoOperands(OpReg(Regdir m), OpReg(Regdir n)) ->
+    byMode bld SzBit
+      (fun () -> bld <+ (regVar bld n := regVar bld m))
+      (fun () ->
+        if isOddFpNum m || isOddFpNum n then
+          unsupportedBank bld
+        else
+          let value = tmpVar bld 64<rt>
+          bld <+ (value := doubleOf bld m)
+          setDouble bld n value)
+  | _ ->
+    byMode bld SzBit
+      (fun () -> movMemBody ins bld 32<rt>)
+      (fun () -> fpMemDouble ins bld)
   bld --!> len
+
+let fmov ins len bld = fpMove ins len bld
+
+let fmovs ins len bld = fpMove ins len bld
+
+let fmul ins len bld = fpBinary ins len bld AST.fmul
 
 let fneg (ins: Instruction) len bld =
   let dst = oneReg ins bld
   bld <!-- (ins.Address, len)
-  bld <+ (dst := dst <+> num SingleSign)
+  bld <+ (dst := dst <+> num SignBit)
   bld --!> len
 
 let frchg ins _len _bld = notLifted ins
 
-let fschg ins _len _bld = notLifted ins
+/// Flips FPSCR.SZ, so that the transfers which read it move the other width
+/// from here on.
+let fschg (ins: Instruction) len bld =
+  let fpscr = regVar bld R.FPSCR
+  bld <!-- (ins.Address, len)
+  bld <+ (fpscr := fpscr <+> num (1 <<< SzBit))
+  bld --!> len
 
 let fsqrt (ins: Instruction) len bld =
-  let dst = oneReg ins bld
+  let n = getOneOpr ins |> regEnumOf
   bld <!-- (ins.Address, len)
-  bld <+ (dst := AST.fsqrt dst)
+  byMode bld PrBit
+    (fun () -> bld <+ (regVar bld n := AST.fsqrt (regVar bld n)))
+    (fun () ->
+      if isOddFpNum n then
+        unsupportedBank bld
+      else
+        let res = tmpVar bld 64<rt>
+        bld <+ (res := AST.fsqrt (doubleOf bld n))
+        setDouble bld n res)
   bld --!> len
 
 let fsts ins len bld = moveReg ins len bld
 
-let fsub (ins: Instruction) len bld =
-  let struct (src, dst) = twoRegs ins bld
-  bld <!-- (ins.Address, len)
-  bld <+ (dst := AST.fsub dst src)
-  bld --!> len
+let fsub ins len bld = fpBinary ins len bld AST.fsub
 
 let ftrc (ins: Instruction) len bld =
-  let struct (src, dst) = twoRegs ins bld
+  let struct (o1, o2) = getTwoOprs ins
+  let m = regEnumOf o1
+  let dst = regOf bld o2
   bld <!-- (ins.Address, len)
-  bld <+ (dst := AST.cast CastKind.FtoITrunc 32<rt> src)
+  byMode bld PrBit
+    (fun () ->
+      bld <+ (dst := AST.cast CastKind.FtoITrunc 32<rt> (regVar bld m)))
+    (fun () ->
+      if isOddFpNum m then
+        unsupportedBank bld
+      else
+        bld <+ (dst := AST.cast CastKind.FtoITrunc 32<rt> (doubleOf bld m)))
   bld --!> len
 
 let ftrv ins _len _bld = notLifted ins
