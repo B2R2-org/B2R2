@@ -57,7 +57,8 @@ module private Shortcut =
     let isa = ISA(Architecture.PPC, Endian.Big, wordSz)
     test isa opcode operands bytes
 
-  /// 64-bit PowerPC is not implemented yet, so parsing must fail gracefully.
+  /// The 64-bit-only forms must stay unrecognized on a 32-bit guest, whose
+  /// architecture does not define them.
   let testUnsupported wordSz (byteString: string) =
     let isa = ISA(Architecture.PPC, Endian.Big, wordSz)
     let reader = BinReader.Init isa.Endian
@@ -114,5 +115,53 @@ type ParserTests() =
     ||> testPPC WordSize.Bit32
 
   [<TestMethod>]
-  member _.``[PPC64] Unimplemented -> parse fails``() =
-    testUnsupported WordSize.Bit64 "7c642a14"
+  member _.``[PPC64] LD (load doubleword)``() =
+    "e8830008"
+    ++ (LD ** [ O.Reg R4; O.Mem(8, R3) ])
+    ||> testPPC WordSize.Bit64
+
+  [<TestMethod>]
+  member _.``[PPC64] STDU (store doubleword with update)``() =
+    "f821ff91"
+    ++ (STDU ** [ O.Reg R1; O.Mem(-112, R1) ])
+    ||> testPPC WordSize.Bit64
+
+  [<TestMethod>]
+  member _.``[PPC64] RLDICL (rotate left doubleword and clear left)``() =
+    "78840022"
+    ++ (RLDICL ** [ O.Reg R4; O.Reg R4; O.Imm 0x20UL; O.Imm 0x20UL ])
+    ||> testPPC WordSize.Bit64
+
+  [<TestMethod>]
+  member _.``[PPC64] SRADI (shift right algebraic doubleword immediate)``() =
+    "7c841e74"
+    ++ (SRADI ** [ O.Reg R4; O.Reg R4; O.Imm 0x3UL ])
+    ||> testPPC WordSize.Bit64
+
+  [<TestMethod>]
+  member _.``[PPC64] CMPDI (compare doubleword immediate)``() =
+    "2c230000"
+    ++ (CMPDI ** [ O.Reg CR0; O.Reg R3; O.Imm 0x0UL ])
+    ||> testPPC WordSize.Bit64
+
+  [<TestMethod>]
+  member _.``[PPC64] EXTSW (extend sign word)``() =
+    "7c8407b4"
+    ++ (EXTSW ** [ O.Reg R4; O.Reg R4 ])
+    ||> testPPC WordSize.Bit64
+
+  [<TestMethod>]
+  member _.``[PPC64] STXVD2X (store VSX vector doubleword pair)``() =
+    "7c004f98"
+    ++ (STXVD2X ** [ O.Reg F0; O.Reg R0; O.Reg R9 ])
+    ||> testPPC WordSize.Bit64
+
+  [<TestMethod>]
+  member _.``[PPC64] VXOR (vector logical xor)``() =
+    "100004c4"
+    ++ (VXOR ** [ O.Reg V0A; O.Reg V0A; O.Reg V0A ])
+    ||> testPPC WordSize.Bit64
+
+  [<TestMethod>]
+  member _.``[PPC64] LD is not a 32-bit form``() =
+    testUnsupported WordSize.Bit32 "e8830008"

@@ -30,6 +30,25 @@ let getRegister (n: uint32): Register =
 let getFPRegister (n: uint32): Register =
   n + 0x20u |> int |> LanguagePrimitives.EnumOfValue
 
+/// The vector register numbered n, named by its high 64-bit half; the low half
+/// is the next register. See the Register type on why they come in halves.
+let getVecRegister (n: uint32): Register =
+  n * 2u + 0x80u |> int |> LanguagePrimitives.EnumOfValue
+
+/// The low 64-bit half of a vector register given its high half.
+let getLowHalf (reg: Register): Register =
+  int reg + 1 |> LanguagePrimitives.EnumOfValue
+
+/// The low 64-bit half of the VSX register whose high half is the given
+/// floating-point register (VSR0-31 keep their high doubleword in an FPR).
+let getVsxLowHalf (reg: Register): Register =
+  int reg - 0x20 + 0xC0 |> LanguagePrimitives.EnumOfValue
+
+/// The high half of the VSX register the given number names: VSR0-31 alias the
+/// floating-point registers, VSR32-63 the vector ones.
+let getVsxRegister (n: uint32): Register =
+  if n < 32u then getFPRegister n else getVecRegister (n - 32u)
+
 let getCondRegister (n: uint32): Register =
   n + 0x40u |> int |> LanguagePrimitives.EnumOfValue
 
