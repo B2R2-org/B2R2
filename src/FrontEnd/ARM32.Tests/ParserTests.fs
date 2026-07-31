@@ -149,6 +149,14 @@ type ParserTests() =
     let ins = parse (ISA(Architecture.ARMv7, Endian.Big)) bytes
     Assert.AreEqual<string>(expected, (ins :> IInstruction).Disasm())
 
+  /// Checks that a word the manual calls UNPREDICTABLE is refused rather than
+  /// decoded into whatever its fields happen to say.
+  let testRefused (byteString: string) =
+    let bytes = ByteArray.ofHexString byteString
+    Assert.ThrowsExactly<ParsingFailureException>(fun () ->
+      parse (ISA(Architecture.ARMv7, Endian.Big)) bytes |> ignore)
+    |> ignore
+
   let testNoQNoSimd pref wback (bytes: byte[]) (opcode, operands) =
     test pref opcode wback None operands bytes
 
@@ -376,6 +384,16 @@ type ParserTests() =
     "e7a20e52"
     ++ SBFX ** [ O.Reg R0; O.Reg R2; O.Imm 28L; O.Imm 3L ]
     ||> testNoWbackNoQNoSimd Condition.AL
+
+  /// The width of a bitfield is how far its top bit sits above its bottom one,
+  /// so a top bit below the bottom one names no field at all.
+  [<TestMethod>]
+  member _.``[ARMv7] Miscellaneous data-processing Parse Test (5)``() =
+    testRefused "e7c12314" (* bfi, msb = 1, lsb = 6 *)
+
+  [<TestMethod>]
+  member _.``[ARMv7] Miscellaneous data-processing Parse Test (6)``() =
+    testRefused "e7c1231f" (* bfc, msb = 1, lsb = 6 *)
 
   [<TestMethod>]
   member _.``[ARMv7] Status register access Parse Test (1)``() =

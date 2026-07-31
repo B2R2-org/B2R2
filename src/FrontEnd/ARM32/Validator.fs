@@ -231,6 +231,11 @@ let chkPCRm bin = checkUnpred (extract bin 3 0 = 15u)
 (* if d == 15 then UNPREDICTABLE *)
 let chkPCRd bin = checkUnpred (extract bin 15 12 = 15u)
 
+(* if d == 15 then UNPREDICTABLE
+   if msb < lsb then UNPREDICTABLE *)
+let chkPCRdMsbLsb bin =
+  checkUnpred (extract bin 15 12 = 15u || extract bin 20 16 < extract bin 11 7)
+
 (* if mask == '0000' then UNPREDICTABLE
    if n == 15 then UNPREDICTABLE *)
 let chkMaskPCRn bin =
@@ -978,6 +983,18 @@ let chkPCRdS bin =
 
 (* if d == 15 then UNPREDICTABLE *)
 let chkThumbPCRd bin = checkUnpred (extract bin 11 8 = 15u)
+
+(* if n == 15 then UNPREDICTABLE
+   if msb < lsb then UNPREDICTABLE *)
+let chkThumbPCRnMsbLsb bin =
+  let lsb = concat (extract bin 14 12) (extract bin 7 6) 2 (* imm3:imm2 *)
+  checkUnpred (extract bin 19 16 = 15u || extract bin 4 0 < lsb)
+
+(* if d == 15 then UNPREDICTABLE
+   if msb < lsb then UNPREDICTABLE *)
+let chkThumbPCRdMsbLsb bin =
+  let lsb = concat (extract bin 14 12) (extract bin 7 6) 2 (* imm3:imm2 *)
+  checkUnpred (extract bin 11 8 = 15u || extract bin 4 0 < lsb)
 
 (* if d == 15 || m == 15 then UNPREDICTABLE *)
 let chkThumbPCRdRm bin =

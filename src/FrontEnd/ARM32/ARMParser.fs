@@ -1849,12 +1849,12 @@ let parseBitfieldInsert (phlp: ParsingHelper) bin =
   match pickFour bin 0 (* Rn *) with
   | 0b1111u ->
 #if !EMULATION
-    chkPCRd bin
+    chkPCRdMsbLsb bin
 #endif
     render phlp bin Op.BFC None OD.OprRdLsbWidthA
   | _ -> (* != 1111 *)
 #if !EMULATION
-    chkPCRd bin
+    chkPCRdMsbLsb bin
 #endif
     render phlp bin Op.BFI None OD.OprRdRnLsbWidthA
 

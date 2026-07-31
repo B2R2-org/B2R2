@@ -7709,12 +7709,12 @@ let parseSaturateBitfield phlp (itstate: byref<BL>) isInIT bin =
     render phlp &itstate 0 isInIT bin Op.SBFX None N OD.OprRdRnLsbWidthM1T
   | 0b011u when rn <> 0b1111u ->
 #if !EMULATION
-    chkPCRn bin
+    chkThumbPCRnMsbLsb bin
 #endif
     render phlp &itstate 0 isInIT bin Op.BFI None N OD.OprRdRnLsbWidthT
   | 0b011u ->
 #if !EMULATION
-    chkThumbPCRd bin
+    chkThumbPCRdMsbLsb bin
 #endif
     render phlp &itstate 0 isInIT bin Op.BFC None N OD.OprRdLsbWidthT
   | 0b100u ->

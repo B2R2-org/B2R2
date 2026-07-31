@@ -73,6 +73,17 @@ type ThumbParserTests() =
   let testNoSimd pref wback q (bytes: byte[]) (opcode, operands) =
     test pref opcode wback q None operands bytes
 
+  /// Checks that a word the manual calls UNPREDICTABLE is refused rather than
+  /// decoded into whatever its fields happen to say.
+  let testRefused (byteString: string) =
+    let bytes = ByteArray.ofHexString byteString
+    let isa = ISA(Architecture.ARMv7, Endian.Big)
+    let reader = BinReader.Init Endian.Big
+    let parser = ARM32Parser(isa, true, reader) :> IInstructionParsable
+    Assert.ThrowsExactly<ParsingFailureException>(fun () ->
+      parser.Parse(bs = bytes, addr = 0UL) |> ignore)
+    |> ignore
+
   let operandsFromArray oprList =
     let oprs = Array.ofList oprList
     match oprs.Length with
@@ -519,6 +530,16 @@ type ThumbParserTests() =
     "f34e0918"
     ++ SBFX ** [ O.Reg SB; O.Reg LR; O.Imm 0L; O.Imm 25L ]
     ||> testNoWbackNoQNoSimd Condition.AL
+
+  /// The width of a bitfield is how far its top bit sits above its bottom one,
+  /// so a top bit below the bottom one names no field at all.
+  [<TestMethod>]
+  member _.``[Thumb] Miscellaneous data-processing Parse test (5)``() =
+    testRefused "f3611081" (* bfi, msb = 1, lsb = 6 *)
+
+  [<TestMethod>]
+  member _.``[Thumb] Miscellaneous data-processing Parse test (6)``() =
+    testRefused "f36f1081" (* bfc, msb = 1, lsb = 6 *)
 
   [<TestMethod>]
   member _.``[Thumb] Status register access Parse test (1)``() =
