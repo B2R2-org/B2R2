@@ -296,6 +296,20 @@ type ParserTests() =
     ** [ O.Reg R0; O.Imm 29L; O.Reg R2; O.Shift(ShiftOp.ASR, 7u) ]
     ||> testNoWbackNoQNoSimd Condition.AL
 
+  /// The signed saturation counts the width it saturates to from one, and the
+  /// unsigned one holds it as it is.
+  [<TestMethod>]
+  member _.``[ARMv7] Saturating Parse Test (2)``() =
+    "e6a10f31"
+    ++ SSAT16 ** [ O.Reg R0; O.Imm 2L; O.Reg R1 ]
+    ||> testNoWbackNoQNoSimd Condition.AL
+
+  [<TestMethod>]
+  member _.``[ARMv7] Saturating Parse Test (3)``() =
+    "e6e10f31"
+    ++ USAT16 ** [ O.Reg R0; O.Imm 1L; O.Reg R1 ]
+    ||> testNoWbackNoQNoSimd Condition.AL
+
   /// A4.4.5 Saturating addition and subtraction instructions
   [<TestMethod>]
   member _.``[ARMv7] Saturating addition and subtraction Parse Test (1)``() =

@@ -1589,7 +1589,7 @@ let parseSaturate16bit (phlp: ParsingHelper) bin =
 #if !EMULATION
     chkPCRdRn bin
 #endif
-    render phlp bin Op.USAT16 None OD.OprRdImmRnA
+    render phlp bin Op.USAT16 None OD.OprRdImmRnUA
 
 /// Reverse Bit/Byte on page F4-4240.
 let parseReverseBitByte (phlp: ParsingHelper) bin =

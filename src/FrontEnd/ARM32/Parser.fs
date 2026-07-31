@@ -187,6 +187,7 @@ type ARM32Parser(isa: ISA, isThumb, reader) =
        OprRdImmRnA() :> OperandParser
        OprRdImmRnShfA() :> OperandParser
        OprRdImmRnShfUA() :> OperandParser
+       OprRdImmRnUA() :> OperandParser
        OprRdLabelA() :> OperandParser
        OprRdlRdhRnRmA() :> OperandParser
        OprRdLsbWidthA() :> OperandParser
