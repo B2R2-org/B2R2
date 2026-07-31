@@ -169,6 +169,15 @@ request, please make sure to read our [contribution guideline](CONTRIBUTING.md).
     <td align="center">:new_moon:</td>
   </tr>
   <tr>
+    <td><b>PPC64</b></td>
+    <td align="center">:full_moon:</td>
+    <td align="center">:full_moon:</td>
+    <td align="center">:full_moon:</td>
+    <td align="center">:full_moon:</td>
+    <td align="center">:first_quarter_moon:</td>
+    <td align="center">:new_moon:</td>
+  </tr>
+  <tr>
     <td><b>SPARC</b></td>
     <td align="center">:full_moon:</td>
     <td align="center">:full_moon:</td>
@@ -182,7 +191,7 @@ request, please make sure to read our [contribution guideline](CONTRIBUTING.md).
     <td align="center">:full_moon:</td>
     <td align="center">:full_moon:</td>
     <td align="center">:full_moon:</td>
-    <td align="center">:new_moon:</td>
+    <td align="center">:full_moon:</td>
     <td align="center">:first_quarter_moon:</td>
     <td align="center">:new_moon:</td>
   </tr>
