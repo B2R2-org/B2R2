@@ -159,7 +159,7 @@ module SyscallConvention =
            reg (mips MIPS.Register.R8)
            reg (mips MIPS.Register.R9) |] }
 
-  let private linuxPPC32 () = (* error reported via the cr0.SO bit *)
+  let private linuxPPC () = (* error reported via the cr0.SO bit *)
     { NumberRegister = ppc PPC.Register.R0
       ReturnRegister = ppc PPC.Register.R3
       Error = FlagRegister(ppc PPC.Register.CR0_3)
@@ -303,7 +303,7 @@ module SyscallConvention =
     | OS.Linux, AArch64 -> linuxAArch64 ()
     | OS.Linux, MIPS32 -> linuxMIPS32 ()
     | OS.Linux, MIPS64 -> linuxMIPS64 ()
-    | OS.Linux, PPC32 -> linuxPPC32 ()
+    | OS.Linux, PPC -> linuxPPC ()
     | OS.Linux, RISCV64 -> linuxRISCV64 ()
     | OS.Linux, SPARC -> linuxSPARC ()
     | OS.Linux, S390 -> linuxS390 ()

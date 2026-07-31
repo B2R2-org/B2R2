@@ -328,6 +328,68 @@ module CallingConvention =
               ppc PPC.Register.R12 ]
       ReturnAddressLocation = InRegister(ppc PPC.Register.LR) }
 
+  let private linuxPPC64 () = (* Power ELFv2 ABI *)
+    { IntArgs =
+        [| ArgLocation.Reg(ppc PPC.Register.R3)
+           ArgLocation.Reg(ppc PPC.Register.R4)
+           ArgLocation.Reg(ppc PPC.Register.R5)
+           ArgLocation.Reg(ppc PPC.Register.R6)
+           ArgLocation.Reg(ppc PPC.Register.R7)
+           ArgLocation.Reg(ppc PPC.Register.R8)
+           ArgLocation.Reg(ppc PPC.Register.R9)
+           ArgLocation.Reg(ppc PPC.Register.R10) |]
+      FloatArgs =
+        [| ArgLocation.Reg(ppc PPC.Register.F1)
+           ArgLocation.Reg(ppc PPC.Register.F2)
+           ArgLocation.Reg(ppc PPC.Register.F3)
+           ArgLocation.Reg(ppc PPC.Register.F4)
+           ArgLocation.Reg(ppc PPC.Register.F5)
+           ArgLocation.Reg(ppc PPC.Register.F6)
+           ArgLocation.Reg(ppc PPC.Register.F7)
+           ArgLocation.Reg(ppc PPC.Register.F8)
+           ArgLocation.Reg(ppc PPC.Register.F9)
+           ArgLocation.Reg(ppc PPC.Register.F10)
+           ArgLocation.Reg(ppc PPC.Register.F11)
+           ArgLocation.Reg(ppc PPC.Register.F12)
+           ArgLocation.Reg(ppc PPC.Register.F13) |]
+      IntReturnLocation = ArgLocation.Reg(ppc PPC.Register.R3)
+      FloatReturnLocation = ArgLocation.Reg(ppc PPC.Register.F1)
+      ArgClassification = Independent
+      CalleeSavedRegisters =
+        set [ ppc PPC.Register.R1
+              ppc PPC.Register.R2
+              ppc PPC.Register.R14
+              ppc PPC.Register.R15
+              ppc PPC.Register.R16
+              ppc PPC.Register.R17
+              ppc PPC.Register.R18
+              ppc PPC.Register.R19
+              ppc PPC.Register.R20
+              ppc PPC.Register.R21
+              ppc PPC.Register.R22
+              ppc PPC.Register.R23
+              ppc PPC.Register.R24
+              ppc PPC.Register.R25
+              ppc PPC.Register.R26
+              ppc PPC.Register.R27
+              ppc PPC.Register.R28
+              ppc PPC.Register.R29
+              ppc PPC.Register.R30
+              ppc PPC.Register.R31 ]
+      CallerSavedRegisters =
+        set [ ppc PPC.Register.R0
+              ppc PPC.Register.R3
+              ppc PPC.Register.R4
+              ppc PPC.Register.R5
+              ppc PPC.Register.R6
+              ppc PPC.Register.R7
+              ppc PPC.Register.R8
+              ppc PPC.Register.R9
+              ppc PPC.Register.R10
+              ppc PPC.Register.R11
+              ppc PPC.Register.R12 ]
+      ReturnAddressLocation = InRegister(ppc PPC.Register.LR) }
+
   let private linuxRISCV64 () = (* RISC-V LP64D ABI *)
     { IntArgs =
         [| ArgLocation.Reg(riscv RISCV64.Register.X10)
@@ -611,6 +673,7 @@ module CallingConvention =
     | _, AArch64 -> linuxAArch64 ()
     | _, MIPS -> linuxMIPS ()
     | _, PPC32 -> linuxPPC32 ()
+    | _, PPC64 -> linuxPPC64 ()
     | _, RISCV64 -> linuxRISCV64 ()
     | _, SPARC -> linuxSPARC ()
     | _, S390 -> linuxS390 ()
