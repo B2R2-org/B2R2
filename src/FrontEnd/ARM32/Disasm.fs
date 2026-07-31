@@ -756,17 +756,26 @@ let regShiftToString ins shift reg (builder: IDisasmBuilder) =
   builder.Accumulate(AsmWordKind.String, " ")
   buildReg ins false reg builder
 
-let delimPostIdx = function
-  | PostIdxMode _ -> "], "
-  | _ -> ", "
+let isPostIdx = function
+  | PostIdxMode _ -> true
+  | _ -> false
+
+let delimPostIdx addrMode = if isPostIdx addrMode then "], " else ", "
 
 let immOffsetToString ins addrMode offset builder =
   match offset with
-  | reg, _, None | reg, _, Some 0L -> buildReg ins false reg builder
-  | reg, s, Some imm ->
+  | reg, _, (None | Some 0L) when not (isPostIdx addrMode) ->
+    buildReg ins false reg builder
+  | reg, sign, imm ->
+    (* A post-indexed access has no way of its own to say that it writes its
+       base back, and the delimiter below is what closes its bracket, so it
+       keeps a zero offset that the others leave out. The sign of a zero
+       offset says nothing, so it is left out instead. *)
+    let imm = defaultArg imm 0L
+    let sign = if imm = 0L then None else sign
     buildReg ins false reg builder
     builder.Accumulate(AsmWordKind.String, delimPostIdx addrMode)
-    immToString imm s builder
+    immToString imm sign builder
 
 let regOffsetToString ins addrMode offset builder =
   match offset with

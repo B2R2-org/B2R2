@@ -457,6 +457,26 @@ type ParserTests() =
     ++ STRHT ** [ O.Reg R1; O.MemPostIdxReg(R0, Some Minus, R4) ]
     ||> testNoWbackNoQNoSimd Condition.AL
 
+  /// A post-indexed access keeps a zero offset, which the other addressing
+  /// modes leave out: it is what closes the bracket and says that the base is
+  /// written back. A zero offset has no sign, but one that is not zero keeps
+  /// its own.
+  [<TestMethod>]
+  member _.``[ARMv7] Load/store Disasm test (1)``() =
+    testDisasm "e4910000" "ldr r0, [r1], #0x0"
+
+  [<TestMethod>]
+  member _.``[ARMv7] Load/store Disasm test (2)``() =
+    testDisasm "e4810000" "str r0, [r1], #0x0"
+
+  [<TestMethod>]
+  member _.``[ARMv7] Load/store Disasm test (3)``() =
+    testDisasm "e5910000" "ldr r0, [r1]"
+
+  [<TestMethod>]
+  member _.``[ARMv7] Load/store Disasm test (4)``() =
+    testDisasm "e4110004" "ldr r0, [r1], #-0x4"
+
   [<TestMethod>]
   member _.``[ARMv7] Load/store (Load-Exclusive) Parse test (1)``() =
     "e190ef9f"
@@ -710,6 +730,11 @@ type ParserTests() =
     "ec905e80"
     ++ LDC ** [ O.Reg P14; O.Reg C5; O.MemUnIdx(R0, 128L) ]
     ||> testNoWbackNoQNoSimd Condition.AL
+
+  /// The coprocessor transfers reach the same post-indexed zero offset.
+  [<TestMethod>]
+  member _.``[ARMv7] Co-processor Disasm test (1)``() =
+    testDisasm "fc200000" "stc2 p0, c0, [r0], #0x0"
 
   /// A4.11.1 Element and structure load/store instructions
   [<TestMethod>]
