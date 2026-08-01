@@ -169,7 +169,7 @@ type IntelEncodingTests() =
       match asm.Lower source with
       | Ok encoded ->
         encoded
-        |> List.map (Array.map (sprintf "%02x") >> String.concat "")
+        |> List.map (snd >> Array.map (sprintf "%02x") >> String.concat "")
         |> String.concat " "
       | Error _ -> "<cannot parse>"
     with

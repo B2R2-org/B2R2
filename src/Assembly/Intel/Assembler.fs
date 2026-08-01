@@ -268,6 +268,7 @@ type Assembler(isa: ISA, baseAddr: Addr) =
       | Success(result, us, _) ->
         filterInstructionLines result
         |> assemble encoders us isa.WordSize baseAddr
+        |> List.map (fun bytes -> isa, bytes)
         |> Result.Ok
       | Failure(str, _, _) ->
         Result.Error(str)

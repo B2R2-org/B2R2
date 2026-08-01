@@ -50,7 +50,7 @@ done:
 """
     let result =
       match asm.Lower str with
-      | Ok v -> v
+      | Ok v -> List.map snd v
       | Error _ -> failwith "Bad value"
     let expectation =
       [ [| 0x3buy; 0xc9uy |]
@@ -73,6 +73,6 @@ done:
     for bad in [ "jmp fword ptr [ecx"; "mov eax, dword ptr [gs:"; "lock " ] do
       (try asm.Lower bad |> ignore with _ -> ())
       match (try asm.Lower "jmp dword ptr [ecx]" with _ -> Error "raised") with
-      | Ok(bytes :: _) ->
+      | Ok((_, bytes) :: _) ->
         Assert.AreEqual<string>("ff21", hex bytes, $"after '{bad}'")
       | Ok [] | Error _ -> Assert.Fail $"'{bad}' left the assembler unusable"

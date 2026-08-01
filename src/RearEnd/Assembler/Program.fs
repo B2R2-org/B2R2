@@ -25,6 +25,7 @@
 module B2R2.RearEnd.Assembler.Program
 
 open System
+open System.Collections.Generic
 open B2R2
 open B2R2.BinIR
 open B2R2.FrontEnd
@@ -34,9 +35,23 @@ open B2R2.Assembly
 
 let [<Literal>] private NormalPrompt = "> "
 
-let private printIns parser (asm: Assembler) addr bs =
-  let bCode = (BitConverter.ToString(bs)).Replace("-", "")
-  let ins = (parser: IInstructionParsable).Parse(bs, addr)
+/// The parser of the given ISA, made once and kept, since a single source may
+/// need more than one: an ARM32 source that switches instruction sets needs
+/// both of theirs.
+let private parserFor (parsers: Dictionary<_, _>) (isa: ISA) =
+  match parsers.TryGetValue(isa.ToString()) with
+  | true, parser -> parser
+  | false, _ ->
+    let parser = ArchSupport.createParser (BinReader.Init isa.Endian) isa
+    parsers[isa.ToString()] <- parser
+    parser
+
+/// Disassembles what was just assembled, with the parser of the ISA it was
+/// assembled for rather than the one the command line named, because the
+/// source may have said otherwise partway through.
+let private printIns parsers addr (isa, bs) =
+  let bCode = (BitConverter.ToString(bs: byte[])).Replace("-", "")
+  let ins = (parserFor parsers isa).Parse(bs, addr)
   printfn "%08x: %-20s     %s" addr bCode (ins.Disasm())
   addr + uint64 (Array.length bs)
 
@@ -48,13 +63,12 @@ let getAssemblyPrinter (opts: AssemblerOpts) =
   match opts.Mode with
   | GeneralMode(isa) ->
     let baseAddr = opts.BaseAddress
-    let reader = BinReader.Init isa.Endian
-    let parser = ArchSupport.createParser reader isa
+    let parsers = Dictionary()
     let asm = Assembler(isa, baseAddr)
     fun str ->
       asm.Lower str
       |> printResult (fun res ->
-        List.fold (printIns parser asm) baseAddr res
+        List.fold (printIns parsers) baseAddr res
         |> ignore)
   | LowUIRMode(isa) ->
     let regFactory = ArchSupport.createRegisterFactory isa

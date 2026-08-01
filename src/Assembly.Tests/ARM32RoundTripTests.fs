@@ -82,13 +82,14 @@ type ARM32RoundTripTests() =
   static let thumbParser =
     ARM32Parser(isa, true, BinReader.Init Endian.Little)
 
-  static let thumbAssembler = Assembler(isa, 0UL, true) :> ILowerable
+  static let thumbAssembler =
+    Assembler(ISA(Endian.Little, false, ARM32Mode.Thumb), 0UL) :> ILowerable
 
   static let disasm (bytes: byte[]) = (parser.Parse(bytes, 0UL)).Disasm()
 
   static let encodeFirst text =
     match assembler.Lower text with
-    | Ok(bytes :: _) -> Some bytes
+    | Ok((_, bytes) :: _) -> Some bytes
     | Ok [] | Error _ -> None
 
   /// Encodes the given source and disassembles the result, so that a source
@@ -108,7 +109,7 @@ type ARM32RoundTripTests() =
   static let thumbRoundTrip (source: string) =
     match (try thumbAssembler.Lower source with _ -> Error "raised") with
     | Error _ | Ok [] -> ARM32Unsupported
-    | Ok(bytes :: _) ->
+    | Ok((_, bytes) :: _) ->
       let actual = try thumbDisasm 0UL bytes with _ -> "<undecodable>"
       if actual = source then ARM32Preserved else ARM32Altered actual
 
@@ -447,7 +448,8 @@ type ARM32RoundTripTests() =
           | Error _ -> Some $"'{List.head lines}' does not assemble"
           | Ok encoded ->
             let read =
-              try thumbDisasmSequence encoded with _ -> [ "<undecodable>" ]
+              try thumbDisasmSequence (List.map snd encoded)
+              with _ -> [ "<undecodable>" ]
             let written = String.concat "; " lines
             let readBack = String.concat "; " read
             if read = lines then None
@@ -471,7 +473,7 @@ type ARM32RoundTripTests() =
           | Ok encoded ->
             let addr = uint64 (4 * index)
             let text =
-              try (parser.Parse(List.item index encoded, addr)).Disasm()
+              try (parser.Parse(snd (List.item index encoded), addr)).Disasm()
               with _ -> "<undecodable>"
             if text.StartsWith $"{opcode} 0x{target:x} " then None
             else Some $"'{opcode} L' at 0x{addr:x} became '{text}'"))

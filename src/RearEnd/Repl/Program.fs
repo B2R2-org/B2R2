@@ -24,6 +24,7 @@
 
 module B2R2.RearEnd.Repl.Program
 
+open System.Collections.Generic
 open B2R2
 open B2R2.BinIR
 open B2R2.FrontEnd
@@ -35,60 +36,71 @@ let cmds = [ "show"; "switch-parser"; "exit" ]
 
 let console = FsReadLine.Console("B2R2> ", cmds)
 
-let lift (asm: Assembler) builder (parser: IInstructionParsable) addr input =
+/// The parser of the given ISA, made once and kept, since a single source may
+/// need more than one: an ARM32 source that switches instruction sets needs
+/// both of theirs.
+let parserFor (parsers: Dictionary<_, _>) (isa: ISA) =
+  match parsers.TryGetValue(isa.ToString()) with
+  | true, parser -> parser
+  | false, _ ->
+    let parser = ArchSupport.createParser (BinReader.Init isa.Endian) isa
+    parsers[isa.ToString()] <- parser
+    parser
+
+let lift (asm: Assembler) builder parsers addr input =
   asm.Lower input
   |> Result.bind (fun bins ->
     bins
-    |> List.fold (fun acc bs ->
-      let ins = parser.Parse(bs, addr)
+    |> List.fold (fun acc (isa, bs) ->
+      let ins = (parserFor parsers isa).Parse(bs, addr)
       ins.Translate builder :: acc
     ) []
     |> List.rev
     |> Array.concat
     |> Ok)
 
-let assemble state asm builder binParser uirParser (input: string) =
+let assemble state asm builder parsers uirParser (input: string) =
   match (state: ReplState).CurrentParser with
   | LowUIRParser ->
     try (uirParser: LowUIR.Parser).Parse(input.Trim())
     with exc -> Error exc.Message
   | _ ->
-    try lift asm builder binParser asm.StartAddress (input.Trim())
+    try lift asm builder parsers asm.StartAddress (input.Trim())
     with exc -> Error exc.Message
 
-let rec run showTemporary state asm builder binParser uirParser =
+let rec run showTemporary state asm builder parsers uirParser =
   let input = console.ReadLine()
   match ReplCommand.fromString input with
   | Quit -> ()
-  | NoInput -> run showTemporary state asm builder binParser uirParser
+  | NoInput -> run showTemporary state asm builder parsers uirParser
   | SwitchParser ->
     (state: ReplState).SwitchParser()
     state.ConsolePrompt |> console.UpdatePrompt
-    run showTemporary state asm builder binParser uirParser
+    run showTemporary state asm builder parsers uirParser
   | Show ->
     Display.printRegisters showTemporary state []
-    run showTemporary state asm builder binParser uirParser
+    run showTemporary state asm builder parsers uirParser
   | StmtInput input ->
-    match assemble state asm builder binParser uirParser input with
+    match assemble state asm builder parsers uirParser input with
     | Error msg ->
       printfn "%s" msg
-      run showTemporary state asm builder binParser uirParser
+      run showTemporary state asm builder parsers uirParser
     | Ok stmts ->
       let regdelta = state.Update stmts
       Display.printRegisters showTemporary state regdelta
-      run showTemporary state asm builder binParser uirParser
+      run showTemporary state asm builder parsers uirParser
 
 let runRepl _args (opts: ReplOpts) =
   let hdl = BinHandle.LoadEmpty opts.ISA
   let state = ReplState(opts.ISA, hdl.RegisterFactory, not opts.Verbose)
   let asm = Assembler(opts.ISA, 0UL)
   let builder = ArchSupport.createBuilder opts.ISA hdl.RegisterFactory
-  let binParser = ArchSupport.createParser hdl.File.Reader opts.ISA
+  let parsers = Dictionary()
   let regFactory = hdl.RegisterFactory
   let uirParser = LowUIR.Parser(opts.ISA, regFactory, regFactory)
   Display.printBlue "Welcome to B2R2 REPL\n"
   state.ConsolePrompt |> console.UpdatePrompt
-  run opts.ShowTemp state asm builder binParser uirParser
+  run opts.ShowTemp state asm builder parsers uirParser
 
 [<EntryPoint>]
 let main args =

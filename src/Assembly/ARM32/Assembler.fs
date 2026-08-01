@@ -42,18 +42,33 @@ open B2R2.Assembly.ARM32.AsmMain
 /// B2R2's ARM32 disassembler writes, so a line of disassembly can be handed
 /// straight back to it.
 ///
-/// Which instruction set it assembles is settled when it is built, as it is for
-/// the decoder: A32 and T32 say the same things in different words, and nothing
-/// in a line of either says which of the two it is.
+/// Which instruction set a source starts in comes from the ISA it is built
+/// with, since nothing in a line of either says which of the two it is; the
+/// directives in the source switch between them from there.
 /// </summary>
-type Assembler(isa: ISA, baseAddr: Addr, isThumb: bool) =
+type Assembler(isa: ISA, baseAddr: Addr) =
+
+  /// The ISA of each instruction set, which is what the caller is told an
+  /// instruction was assembled for.
+  let isAArch32 = isa.Arch = Architecture.ARMv8
+
+  let armISA = ISA(isa.Endian, isAArch32, ARM32Mode.ARM)
+
+  let thumbISA = ISA(isa.Endian, isAArch32, ARM32Mode.Thumb)
+
+  let isThumb = isa.ARM32Mode = ARM32Mode.Thumb
 
   /// The table-driven encoders, built here so that they are collected with the
-  /// assembler instead of living for as long as the process does. Only the
-  /// table for the instruction set in use is built.
-  let armEncoders = if isThumb then Map.empty else buildEncoderTable ()
+  /// assembler instead of living for as long as the process does, and built
+  /// only if a source asks for them: one that never leaves the instruction set
+  /// it starts in never pays for the other's table.
+  let armEncoders = lazy (buildEncoderTable ())
 
-  let thumbEncoders = if isThumb then buildThumbEncoderTable () else Map.empty
+  let thumbEncoders = lazy (buildThumbEncoderTable ())
+
+  /// Which instruction set the line being parsed belongs to, which a directive
+  /// changes and nothing else does.
+  let mutable inThumbMode = isThumb
 
   /// Whether the instruction being parsed wrote a "!" after a register, which
   /// is how the forms that keep no offset in brackets spell writeback.
@@ -410,7 +425,15 @@ type Assembler(isa: ISA, baseAddr: Addr, isThumb: bool) =
   let pInsInfo =
     resetMarks >>. (pMnemonic >>= pOperands)
     |>> fun (opcode, cond, qualifier, dataTypes, operands) ->
-      newInfo opcode cond qualifier dataTypes operands (writeBack, caret)
+      let marks = writeBack, caret
+      let ins = newInfo opcode cond qualifier dataTypes operands marks
+      { ins with IsThumb = inThumbMode }
+
+  /// A directive that says which instruction set the lines after it belong to,
+  /// so that one source may hold both.
+  let pModeDirective =
+    pchar '.' >>. (pstringCI "arm" <|> pstringCI "thumb")
+    |>> fun name -> inThumbMode <- name.ToLowerInvariant() = "thumb"
 
   let pInstructionLine = pInsInfo .>> incrementIndex |>> InstructionLine
 
@@ -421,15 +444,12 @@ type Assembler(isa: ISA, baseAddr: Addr, isThumb: bool) =
     whitespace
     >>. ((attempt (pLabelDef .>> whitespace)
       >>. (pInstructionLine <|> preturn LabelDefLine))
+     <|> (pModeDirective |>> fun _ -> LabelDefLine)
      <|> pInstructionLine
      <|> preturn LabelDefLine)
     .>> restOfLine
 
   let statements = sepEndBy statement terminator .>> (eof <?> "")
-
-  /// Builds an assembler for the A32 instruction set, which is what a source
-  /// says unless something else says otherwise.
-  new(isa: ISA, baseAddr: Addr) = Assembler(isa, baseAddr, false)
 
   interface ILowerable with
     override _.Lower assembly =
@@ -439,14 +459,13 @@ type Assembler(isa: ISA, baseAddr: Addr, isThumb: bool) =
          rather than only end clean there. *)
       writeBack <- false
       caret <- false
+      inThumbMode <- isThumb
       let st = { LabelMap = Map.empty; CurIndex = 0 }
       match runParserOnString statements st "" assembly with
       | Success(result, us, _) ->
-        let instrs = filterInstructionLines result
-        let encoded =
-          if isThumb then
-            assembleThumb thumbEncoders us isa.Endian baseAddr instrs
-          else
-            assemble armEncoders us isa.Endian baseAddr instrs
-        Result.Ok encoded
+        filterInstructionLines result
+        |> assemble armEncoders thumbEncoders us isa.Endian baseAddr
+        |> List.map (fun (isThumb, bytes) ->
+          (if isThumb then thumbISA else armISA), bytes)
+        |> Result.Ok
       | Failure(str, _, _) -> Result.Error str

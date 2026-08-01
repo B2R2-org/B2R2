@@ -24,6 +24,8 @@
 
 namespace B2R2.Assembly.BinLowerer
 
+open B2R2
+
 /// <namespacedoc>
 ///   <summary>
 ///   Contains types and functions for lowering assembly code into binary code.
@@ -35,5 +37,8 @@ namespace B2R2.Assembly.BinLowerer
 type ILowerable =
   /// Assembles binary code from a given assembly string, returning a list of
   /// byte arrays, where each array corresponds to bytecode of a single
-  /// instruction.
-  abstract Lower: string -> Result<byte[] list, string>
+  /// instruction, paired with the ISA that instruction was assembled for.
+  /// Bytes alone do not say how to read them back, and an architecture whose
+  /// instruction set can change within a source, such as 32-bit ARM, does not
+  /// answer that with the ISA it was built with.
+  abstract Lower: string -> Result<(ISA * byte[]) list, string>

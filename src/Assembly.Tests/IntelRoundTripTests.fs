@@ -89,7 +89,7 @@ type IntelRoundTripTests() =
 
   static let encodeFirst (wordSize: WordSize) text =
     match assemblers[wordSize].Lower text with
-    | Ok(bytes :: _) -> Some bytes
+    | Ok((_, bytes) :: _) -> Some bytes
     | Ok [] | Error _ -> None
 
   /// Decides whether two disassemblies name the same two operands in the other
@@ -356,7 +356,7 @@ type IntelRoundTripTests() =
           | Result.Error _ -> [ $"'{source}' does not assemble" ]
           | Ok encoded ->
             encoded
-            |> List.choose (fun bytes ->
+            |> List.choose (fun (_, bytes) ->
               let hex =
                 bytes |> Array.map (sprintf "%02x") |> String.concat ""
               match decodedLength wordSize bytes with

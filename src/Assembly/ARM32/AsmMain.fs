@@ -143,20 +143,6 @@ let encodeInstruction encoders ins =
   | None ->
     raise <| EncodingFailureException $"{ins.Opcode} is not supported yet"
 
-/// The four bytes of an instruction word, in the order the given endianness
-/// stores them.
-let private toBytes endian (word: uint32) =
-  let bytes = System.BitConverter.GetBytes word
-  if endian = Endian.Big then Array.rev bytes else bytes
-
-let assemble encoders state endian baseAddr instrs =
-  let addresses = addressesOf baseAddr (instrs |> List.map (fun _ -> 4))
-  instrs
-  |> List.mapi (fun index ins ->
-    resolvePlaces false state addresses index ins
-    |> encodeInstruction encoders
-    |> toBytes endian)
-
 /// <summary>
 /// The conditions an IT instruction supplies to the instructions after it.
 ///
@@ -249,7 +235,10 @@ let private resolveConditions encoders instrs =
     match instrs, pending with
     | [], _ -> List.rev encoded
     | (ins: AsmInsInfo) :: rest, expected :: remaining ->
-      if not (fitsInBlock ins.Opcode) then
+      if not ins.IsThumb then
+        raise <| EncodingFailureException
+                   "an IT block cannot reach into ARM code"
+      elif not (fitsInBlock ins.Opcode) then
         raise <| EncodingFailureException
                    $"{ins.Opcode} cannot sit inside an IT block"
       elif ins.Condition <> Some expected then
@@ -263,13 +252,16 @@ let private resolveConditions encoders instrs =
         let ins = asFlagSetting encoders { ins with Condition = None }
         walk remaining (ins :: encoded) rest
     | ins :: rest, [] ->
-      (* Outside a block only a branch has a condition field of its own. *)
-      if Option.isSome ins.Condition && ins.Opcode <> Opcode.B then
+      (* Outside a block only a branch has a condition field of its own, and
+         only in Thumb: every A32 instruction has one. *)
+      if ins.IsThumb && Option.isSome ins.Condition
+         && ins.Opcode <> Opcode.B then
         raise <| EncodingFailureException
                    $"{ins.Opcode} takes no condition outside an IT block"
       else
         let opened =
-          if isITInstruction ins.Opcode then blockConditions ins else []
+          if ins.IsThumb && isITInstruction ins.Opcode then blockConditions ins
+          else []
         walk opened (ins :: encoded) rest
   walk [] [] instrs
 
@@ -279,28 +271,48 @@ let private encodeThumb encoders ins =
   | None ->
     raise <| EncodingFailureException $"{ins.Opcode} is not supported yet"
 
-/// The halfwords of an encoded Thumb instruction, in the order the given
-/// endianness stores them.
-let private toThumbBytes endian encoded =
+/// <summary>
+/// Encodes one instruction with the table its instruction set is written in.
+///
+/// Only the tables a source actually asks for are ever built, which is why they
+/// arrive here unforced.
+/// </summary>
+let private encodeOne (arm: Lazy<_>) (thumb: Lazy<_>) ins =
+  if ins.IsThumb then encodeThumb thumb.Value ins
+  else Word(encodeInstruction arm.Value ins)
+
+/// The bytes of an encoded instruction, in the order the given endianness
+/// stores them. A word keeps its bytes as one number; two halfwords keep theirs
+/// as two.
+let private toBytes endian encoded =
   let halfword (value: uint16) =
     let bytes = System.BitConverter.GetBytes value
     if endian = Endian.Big then Array.rev bytes else bytes
   match encoded with
   | Narrow value -> halfword value
   | Wide(first, second) -> Array.append (halfword first) (halfword second)
+  | Word value ->
+    let bytes = System.BitConverter.GetBytes value
+    if endian = Endian.Big then Array.rev bytes else bytes
 
 /// <summary>
-/// Assembles Thumb instructions, which are not all the same length.
+/// Assembles a source whose lines may belong to either instruction set, which
+/// the directives in it switch between.
 ///
-/// Which length one takes follows from how it is written rather than from how
-/// far away anything is, so encoding every instruction once with the distances
-/// left where they fall settles all the lengths, and encoding them again with
-/// the addresses those lengths give settles the distances.
+/// Which length an instruction takes follows from how it is written rather than
+/// from how far away anything is, so encoding every instruction once with the
+/// distances left where they fall settles all the lengths, and encoding them
+/// again with the addresses those lengths give settles the distances.
 /// </summary>
-let assembleThumb encoders state endian baseAddr instrs =
-  let instrs = resolveConditions encoders instrs
+let assemble arm thumb state endian baseAddr instrs =
+  let instrs = resolveConditions (thumb: Lazy<_>).Value instrs
   let encodeAt addresses index ins =
-    resolvePlaces true state addresses index ins |> encodeThumb encoders
+    let ins = resolvePlaces ins.IsThumb state addresses index ins
+    if not ins.IsThumb && Array.item index addresses % 4UL <> 0UL then
+      raise <| EncodingFailureException
+                 $"{ins.Opcode} is an ARM instruction and needs a word boundary"
+    else
+      encodeOne arm thumb ins
   let provisional = addressesOf baseAddr (instrs |> List.map (fun _ -> 4))
   let lengths =
     instrs
@@ -308,5 +320,5 @@ let assembleThumb encoders state endian baseAddr instrs =
     |> List.map encodedLength
   let addresses = addressesOf baseAddr lengths
   instrs
-  |> List.mapi (fun index ins -> encodeAt addresses index ins)
-  |> List.map (toThumbBytes endian)
+  |> List.mapi (fun index ins -> ins.IsThumb, encodeAt addresses index ins)
+  |> List.map (fun (isThumb, encoded) -> isThumb, toBytes endian encoded)

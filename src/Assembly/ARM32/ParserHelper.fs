@@ -50,7 +50,11 @@ type AsmInsInfo =
     /// Whether the register list carried a "^", which is how a block transfer
     /// says it names the registers of another mode or returns from an
     /// exception.
-    Caret: bool }
+    Caret: bool
+    /// Which instruction set this line belongs to. Nothing in a line says, so
+    /// it is whatever the last directive before it said, or how the assembler
+    /// was built if there was none.
+    IsThumb: bool }
 
 /// AssemblyLine is either a label definition or an instruction.
 type AssemblyLine =
@@ -61,15 +65,19 @@ type AssemblyLine =
 /// One encoded instruction. An A32 instruction is always one word, but a Thumb
 /// one is either a halfword or two of them, and which it is decides where the
 /// instruction after it sits.
+///
+/// The two are told apart rather than counted alike because a word and two
+/// halfwords do not hold their bytes in the same order.
 /// </summary>
 type Encoded =
   | Narrow of uint16
   | Wide of uint16 * uint16
+  | Word of uint32
 
 /// How many bytes an encoded instruction takes.
 let encodedLength = function
   | Narrow _ -> 2
-  | Wide _ -> 4
+  | Wide _ | Word _ -> 4
 
 /// What follows the closing bracket of a memory operand, which is what tells
 /// the addressing modes apart. A post-indexed offset carries how to build
@@ -315,7 +323,9 @@ let decomposeMnemonic (mnemonic: string) =
       Some(opcode, cond, qualifier, dataTypes)
     | _ -> None
 
-/// Builds one instruction as written. The marks a register may carry travel
+/// Builds one instruction as written, in the A32 instruction set: which set a
+/// line belongs to is settled by the directives around it rather than by the
+/// line, so the caller fills that in. The marks a register may carry travel
 /// beside the operands rather than in them, because what they change is the
 /// instruction rather than the register.
 let newInfo opcode cond qualifier dataTypes operands marks =
@@ -326,4 +336,5 @@ let newInfo opcode cond qualifier dataTypes operands marks =
     SIMDTyp = dataTypes
     Operands = operands
     WriteBack = writeBack
-    Caret = caret }
+    Caret = caret
+    IsThumb = false }

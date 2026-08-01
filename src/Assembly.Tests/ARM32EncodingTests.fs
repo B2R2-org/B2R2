@@ -157,6 +157,21 @@ type ARM32EncodingTests() =
       "it eq", "08bf"
       "ittee ne", "19bf" ]
 
+  /// <summary>
+  /// Sources that hold both instruction sets, which a directive switches
+  /// between: nothing in a line says which set it belongs to, so what says it
+  /// is the last directive before it.
+  /// </summary>
+  let mixedVectors =
+    [ ".thumb\n  mov r0, r1\n  nop", "0846 00bf"
+      ".thumb\n  mov r0, r1\n  nop\n.arm\n  mov r0, r1",
+      "0846 00bf 0100a0e1"
+      (* A label is reached from either set, each measuring from where its own
+         program counter reads: four bytes ahead in Thumb and eight in ARM. *)
+      ".thumb\n  b L\n  nop\n.arm\nL:\n  mov r0, r1",
+      "00e0 00bf 0100a0e1"
+      ".arm\n  b L\n.thumb\nL:\n  nop", "ffffffea 00bf" ]
+
   /// Sources that must be refused rather than encoded.
   let rejected =
     [ (* An immediate no rotation of a byte can reach. *)
@@ -180,7 +195,13 @@ type ARM32EncodingTests() =
       "push {r0}^"
       "bfi r0, r1, #0x6, #0x0"
       (* A label that was never defined. *)
-      "b L" ]
+      "b L"
+      (* An ARM instruction reads a whole word, so it cannot start halfway
+         through one however the source arrived there. *)
+      ".thumb\n  nop\n.arm\n  mov r0, r1"
+      (* A block says what the instructions after it run under, and an ARM
+         instruction says that for itself. *)
+      ".thumb\n  it eq\n.arm\n  moveq r0, r1" ]
 
   /// Runs the given action with stderr muted; see ARM32RoundTripTests.
   let mutingStderr action =
@@ -195,7 +216,7 @@ type ARM32EncodingTests() =
       match asm.Lower source with
       | Ok encoded ->
         encoded
-        |> List.map (Array.map (sprintf "%02x") >> String.concat "")
+        |> List.map (snd >> Array.map (sprintf "%02x") >> String.concat "")
         |> String.concat " "
       | Error _ -> "<cannot parse>"
     with
@@ -206,7 +227,18 @@ type ARM32EncodingTests() =
   let encode source = encodeWith (Assembler(isa, 0UL) :> ILowerable) source
 
   let encodeThumb source =
-    encodeWith (Assembler(isa, 0UL, true) :> ILowerable) source
+    let thumbISA = ISA(Endian.Little, false, ARM32Mode.Thumb)
+    encodeWith (Assembler(thumbISA, 0UL) :> ILowerable) source
+
+  /// The ISA each instruction of a source was assembled for, named as that ISA
+  /// names itself, so that what the assembler tells its caller can be read.
+  let setsOf source =
+    match (Assembler(isa, 0UL) :> ILowerable).Lower source with
+    | Ok encoded ->
+      encoded
+      |> List.map (fun (isa: ISA, _) -> isa.ToString())
+      |> String.concat " "
+    | Error _ -> "<cannot parse>"
 
   let brokenWith encode vectors =
     mutingStderr (fun () ->
@@ -225,6 +257,26 @@ type ARM32EncodingTests() =
       "",
       String.concat "\n" defects,
       "These vectors no longer encode as specified.")
+
+  [<TestMethod>]
+  member _.``A source may hold both instruction sets``() =
+    let defects = brokenVectors mixedVectors
+    Assert.AreEqual<string>(
+      "",
+      String.concat "\n" defects,
+      "These no longer encode as specified when the source switches sets.")
+
+  /// Two halfwords and one word look alike once they are bytes, so a caller
+  /// handed only bytes cannot tell which instruction set to read them with.
+  /// Saying it is the difference between disassembling what was assembled and
+  /// disassembling something else.
+  [<TestMethod>]
+  member _.``Each instruction says which set it was assembled for``() =
+    let source = ".thumb\n  nop\n  nop\n.arm\n  mov r0, r1\n.thumb\n  nop"
+    Assert.AreEqual<string>(
+      "thumb thumb armv7 thumb",
+      setsOf source,
+      "An instruction no longer says which instruction set it belongs to.")
 
   [<TestMethod>]
   member _.``Thumb vectors encode exactly as specified``() =
