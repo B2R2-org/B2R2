@@ -114,8 +114,8 @@ let opCodeToString = function
   | Op.AMOORdotW -> "amoor.w"
   | Op.AMOMINdotW -> "amomin.w"
   | Op.AMOMAXdotW -> "amomax.w"
-  | Op.AMOMINUdotW -> "amomin.w"
-  | Op.AMOMAXUdotW -> "amomax.w"
+  | Op.AMOMINUdotW -> "amominu.w"
+  | Op.AMOMAXUdotW -> "amomaxu.w"
   (* RV64A Standard Extension *)
   | Op.LRdotD -> "lr.d"
   | Op.SCdotD -> "sc.d"
@@ -152,7 +152,7 @@ let opCodeToString = function
   | Op.FLTdotS -> "flt.s"
   | Op.FLEdotS -> "fle.s"
   | Op.FCLASSdotS -> "fclass.s"
-  | Op.FCVTdotSdotW -> "fcvt.w.s"
+  | Op.FCVTdotSdotW -> "fcvt.s.w"
   | Op.FCVTdotSdotWU -> "fcvt.s.wu"
   | Op.FMVdotWdotX -> "fmv.w.x"
   (* RV64F Standard Extension *)
