@@ -9,6 +9,9 @@
     <Compile Include="IntelSweep.fs" />
     <Compile Include="IntelRoundTripTests.fs" />
     <Compile Include="IntelEncodingTests.fs" />
+    <Compile Include="ARM32Sweep.fs" />
+    <Compile Include="ARM32RoundTripTests.fs" />
+    <Compile Include="ARM32EncodingTests.fs" />
   </ItemGroup>
 
   <ItemGroup>
@@ -18,8 +21,10 @@
 
   <ItemGroup>
     <ProjectReference Include="..\Assembly\Intel\B2R2.Assembly.Intel.fsproj" />
+    <ProjectReference Include="..\Assembly\ARM32\B2R2.Assembly.ARM32.fsproj" />
     <ProjectReference Include="..\Assembly\API\B2R2.Assembly.API.fsproj" />
     <ProjectReference Include="..\FrontEnd\Intel\B2R2.FrontEnd.Intel.fsproj" />
+    <ProjectReference Include="..\FrontEnd\ARM32\B2R2.FrontEnd.ARM32.fsproj" />
     <ProjectReference
       Include="..\FrontEnd\BinLifter\B2R2.FrontEnd.BinLifter.fsproj" />
   </ItemGroup>

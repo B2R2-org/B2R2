@@ -42,6 +42,7 @@ type Assembler(isa: ISA, startAddress) =
   let assembler =
     match isa with
     | Intel -> Intel.Assembler(isa, startAddress) :> ILowerable
+    | ARM32 -> ARM32.Assembler(isa, startAddress) :> ILowerable
     | _ -> raise InvalidISAException
 
   /// The start address of the binary instructions.

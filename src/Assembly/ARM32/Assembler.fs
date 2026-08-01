@@ -28,7 +28,9 @@ open System
 open FParsec
 open B2R2
 open B2R2.FrontEnd.ARM32
+open B2R2.Assembly.BinLowerer
 open B2R2.Assembly.ARM32.ParserHelper
+open B2R2.Assembly.ARM32.AsmMain
 
 /// <namespacedoc>
 ///   <summary>
@@ -36,359 +38,415 @@ open B2R2.Assembly.ARM32.ParserHelper
 ///   </summary>
 /// </namespacedoc>
 /// <summary>
-/// Represents an assembler for ARM32 binaries.
+/// Represents an assembler for ARM32 binaries. The syntax it reads is the one
+/// B2R2's ARM32 disassembler writes, so a line of disassembly can be handed
+/// straight back to it.
+///
+/// Which instruction set it assembles is settled when it is built, as it is for
+/// the decoder: A32 and T32 say the same things in different words, and nothing
+/// in a line of either says which of the two it is.
 /// </summary>
-type Assembler(startAddress: Addr) =
+type Assembler(isa: ISA, baseAddr: Addr, isThumb: bool) =
 
-  let mutable address = startAddress
-  let mutable isThumb: bool = false
-  let mutable wBackFlag = false
+  /// The table-driven encoders, built here so that they are collected with the
+  /// assembler instead of living for as long as the process does. Only the
+  /// table for the instruction set in use is built.
+  let armEncoders = if isThumb then Map.empty else buildEncoderTable ()
 
-  (* Helper functions for updating the status of the parser. *)
+  let thumbEncoders = if isThumb then buildThumbEncoderTable () else Map.empty
 
-  /// Adds the parsed label to the label definition map.
-  let addLabeldef (lbl: string) =
-    updateUserState (fun (us: Map<string, Addr>) -> us.Add(lbl, address))
+  /// Whether the instruction being parsed wrote a "!" after a register, which
+  /// is how the forms that keep no offset in brackets spell writeback.
+  let mutable writeBack = false
+
+  /// Whether it wrote a "^" after a register list, which is how a block
+  /// transfer says it names the registers of another mode.
+  let mutable caret = false
+
+  let addLabeldef lbl =
+    updateUserState (fun us ->
+      if Map.containsKey lbl us.LabelMap then
+        raise <| EncodingFailureException $"Label '{lbl}' already defined"
+      else
+        { us with LabelMap = Map.add lbl us.CurIndex us.LabelMap })
     >>. preturn ()
 
-  let pOpModeSwitcher =
-    pchar '.' >>.
-    (pstringCI "arm" |>> (fun _ -> isThumb <- false) <|>
-      (pstringCI "thumb" |>> (fun _ -> isThumb <- true)))
-
-  let checkWrightBack =
-    opt (pchar '!') |>> fun x -> if x.IsNone then () else wBackFlag <- true
-
-  let setWBFlag = wBackFlag <- true; preturn ()
-
-  let clearWBackFlag = wBackFlag <- false; preturn ()
-
-  let getInsLength () = if isThumb then 2u else 4u
-
-  let incrementAddress =
-    preturn ()
-    |>> (fun _ ->
-          if not isThumb then address <- address + 4UL
-          else address <- address + 2UL)
+  let incrementIndex =
+    updateUserState (fun us -> { us with CurIndex = us.CurIndex + 1 })
+    >>. preturn ()
 
   let isWhitespace c = [ ' '; '\t'; '\f' ] |> List.contains c
 
   let whitespace = manySatisfy isWhitespace
 
-  let whitespace1 = many1Satisfy isWhitespace
-
   let skipWhitespaces s = whitespace >>? s .>>? whitespace
 
-  let terminator = (pchar ';' <|> newline) |> skipWhitespaces
+  /// A comment runs to the end of its line. The disassembler writes the symbol
+  /// a resolved branch target belongs to as one, so that a line it printed can
+  /// be read back as it stands.
+  let comment = pchar ';' >>. manySatisfy (fun c -> c <> '\n')
 
-  let operandSeps = (pchar ',' >>. whitespace) <|> whitespace1
+  /// Whatever may sit between the end of a statement and the end of its line.
+  let restOfLine = whitespace >>. optional comment
 
-  let betweenSquareBraces s =
-    s |> skipWhitespaces |> between (pchar '[') (pchar ']')
+  let terminator = newline |>> ignore <?> ""
 
-  let betweenCurlyBraces s =
-    s |> skipWhitespaces |> between (pchar '{') (pchar '}')
+  let operandSeps = pchar ',' >>. whitespace
 
-  let alphanumericWithUnderscore s = Char.IsLetterOrDigit s || s = '_'
+  let isIdentifierChar c = Char.IsLetterOrDigit c || c = '_'
 
-  let pId = many1Satisfy alphanumericWithUnderscore
+  let pIdentifier = many1Satisfy isIdentifierChar
 
-  let pLabelDef = pId .>>? pchar ':' >>= addLabeldef |> skipWhitespaces
-
-  let pSIMDDataType =
-    [ "8"
-      "16"
-      "32"
-      "64"
-      "s8"
-      "s16"
-      "s32"
-      "s64"
-      "u8"
-      "u16"
-      "u32"
-      "u64"
-      "i8"
-      "i16"
-      "i32"
-      "i64"
-      "f16"
-      "f32"
-      "f64"
-      "p8" ]
-    |> Seq.map pstringCI
-    |> choice
-    |>> getSIMDTypFromStr
-
-  let pPSRFlag =
-    [ "c"
-      "x"
-      "xc"
-      "s"
-      "sc"
-      "sx"
-      "sxc"
-      "f"
-      "fc"
-      "fx"
-      "fxc"
-      "fs"
-      "fsc"
-      "fsx"
-      "fsxc"
-      "nzcv"
-      "nzcvq"
-      "g"
-      "nzcvqg" ]
-    |> Seq.rev
-    |> Seq.map (pstringCI >> attempt)
-    |> choice
-    |>> getPSRFlagFromStr
-    |>> Some
-
-  let pOptionOpr =
-    [ "sy"
-      "ld"
-      "ishst"
-      "ishld"
-      "ish"
-      "nshst"
-      "nshld"
-      "nsh"
-      "oshst"
-      "oshld"
-      "osh" ]
-    |> Seq.map (pstringCI >> attempt)
-    |> choice
-    |>> optionOprFromStr
-
-  let pSRType =
-    [ "lsl"; "lsr"; "asr"; "ror"; "rrx" ]
-    |> Seq.map (pstringCI >> attempt)
-    |> choice
-    |>> getSRType
-
-  let pIflag =
-    [ "ai"; "af"; "if"; "aif"; "a"; "i" ]
-    |> Seq.map (pstringCI >> attempt)
-    |> choice
-    |>> iFlagFromStr
-
-  let pEndian =
-    pstringCI "le" >>. preturn Endian.Little
-    <|> (pstringCI "be" >>. preturn Endian.Big)
-
-  let pSIMDDataTypes =
-    many1 (pchar '.' >>. pSIMDDataType)
-    |>> (fun lst ->
-          match lst with
-          | [ smd ] -> OneDT smd
-          | [ smd1; smd2 ] -> TwoDT(smd1, smd2)
-          | _ -> failwith "Can not have more than two SIMDDataTypes")
-
-  let pQualifier =
-    pchar '.' >>.
-    ((anyOf "nN" >>. preturn Qualifier.N) <|>
-     (anyOf "wW" >>. preturn Qualifier.W))
-
-  let pOpcode =
-    (Enum.GetNames typeof<Opcode>)
-    |> Array.map (pstringCI)
-    |> Array.rev (* This is so that (eg. ADD does not get parsed for 'ADDS' *)
-    |> Array.map (fun p ->
-      attempt p
-      |>> (fun name -> Enum.Parse(typeof<Opcode>, name.ToUpper()) :?> Opcode))
-    |> choice
-
-  let pCondition =
-    ((Enum.GetNames typeof<Condition>)
-    |> Array.map
-      (fun s ->
-        pstringCI s
-        |>> (fun name ->
-          Enum.Parse(typeof<Condition>, name.ToUpper()) :?> Condition))
-    |> choice)
+  let pLabelDef = pIdentifier .>>? pchar ':' >>= addLabeldef <?> "label"
 
   let numberFormat =
     NumberLiteralOptions.AllowBinary
     ||| NumberLiteralOptions.AllowOctal
     ||| NumberLiteralOptions.AllowHexadecimal
     ||| NumberLiteralOptions.AllowMinusSign
+    ||| NumberLiteralOptions.AllowPlusSign
 
-  let regNumberFormat = NumberLiteralOptions.None
+  let pNumber =
+    numberLiteral numberFormat "number"
+    |>> fun n ->
+      if n.String.StartsWith "-" then -(int64 n.String[1..])
+      elif n.String.StartsWith "+" then int64 n.String[1..]
+      else int64 n.String
 
-  let pImm =
-    opt (pchar '#') >>.
-    numberLiteral numberFormat "number" |>> (fun x -> x.String |> int64)
+  let pFraction =
+    numberLiteral
+      (NumberLiteralOptions.AllowFraction
+       ||| NumberLiteralOptions.AllowMinusSign) "number"
+    >>= fun n ->
+      if n.IsInteger then fail "not a fraction" else preturn (float n.String)
 
-  let pAmount = opt (pchar '#') >>. pImm |>> uint32 |>> Imm
+  let pSign = (pchar '-' >>. preturn Minus) <|> (pchar '+' >>. preturn Plus)
 
-  let registersList =
-    Enum.GetNames typeof<Register>
-    |> Array.rev (* This is so that (eg. s1 does not get parsed for 's12' *)
-    |> Array.map pstringCI
+  /// An identifier as a name to look something up by, which is case-insensitive
+  /// wherever the vocabulary is the assembler's own rather than the source's.
+  let pName = pIdentifier |>> fun name -> name.ToLowerInvariant()
 
-  let pReg =
-    Array.map attempt registersList |> choice
-    |>> (fun regName ->
-          Enum.Parse(typeof<Register>, regName.ToUpper())
-          :?> Register)
+  let pRegisterName =
+    pName >>= fun name ->
+      match Map.tryFind name registers with
+      | Some reg -> preturn reg
+      | None -> fail $"'{name}' is not a register"
 
-  let operators = (pchar '+' |>> fun _ -> (+)) <|> (pchar '-' |>> fun _ -> (-))
+  /// Whether a register is one of the SIMD and floating-point registers, which
+  /// are written as an operand of their own kind rather than as a register.
+  let isSIMDRegister reg =
+    (int reg >= int Register.S0 && int reg <= int Register.D31)
+    || (int reg >= int Register.Q0 && int reg <= int Register.Q15)
 
-  let immWithOperators =
-    attempt (pipe3 pImm operators pImm (fun a op c -> op a c))
+  /// The element index a SIMD register may carry, which the disassembler writes
+  /// even when it does not know which element is meant.
+  let pElementIndex = between (pchar '[') (pchar ']') (opt puint8)
 
-  let pShiftedIndexRegister =
-    pOpcode .>> spaces .>>. pAmount
-    >>= (fun (opcode, amt) -> parseShiftOperation opcode amt)
+  let toSIMDRegister reg = function
+    | Some index -> Scalar(reg, index)
+    | None -> Vector reg
 
-  let pDummyRegImmOffset =
-    pImm |>> fun cons -> ImmOffset(Register.C0, None, Some cons)
+  /// A register, a status register with the fields it names written after an
+  /// underscore, or one of the SIMD registers with an element index.
+  let pRegisterOperand =
+    pName >>= fun name ->
+      match Map.tryFind name registers with
+      | Some reg when isSIMDRegister reg ->
+        opt pElementIndex
+        |>> fun index -> OprSIMD(SFReg(toSIMDRegister reg index))
+      | Some reg -> preturn (OprReg reg)
+      | None ->
+        match name.LastIndexOf '_' with
+        | -1 -> fail $"'{name}' is not a register"
+        | index ->
+          let regName = name[..index - 1]
+          let flagName = name[index + 1..]
+          match Map.tryFind regName registers,
+                Map.tryFind flagName psrFlags with
+          | Some reg, Some flag -> preturn (OprSpecReg(reg, Some flag))
+          | _ -> fail $"'{name}' is not a register"
 
-  let pDummyShiftedRegOffset =
-    opt (pchar '-' >>. preturn Minus) .>>. pReg .>> spaces .>> pchar ','
-    .>> spaces .>>. pShiftedIndexRegister
-    |>> fun ((sign, reg), shifter) ->
-      RegOffset(Register.C0, sign, reg, Some shifter)
+  let noteWriteBack = function
+    | Some _ -> writeBack <- true
+    | None -> ()
 
-  let pDummyRegRegOffset =
-    opt (pchar '-' >>. preturn Minus) .>>. pReg
-    |>> (fun (sOpt, reg) -> RegOffset(Register.C0, sOpt, reg, None))
-    .>> setWBFlag
+  let pOprRegister =
+    pRegisterOperand .>>. opt (pchar '!')
+    |>> fun (operand, bang) -> noteWriteBack bang; operand
 
-  let pDummyRegOffset =
-    pDummyRegImmOffset
-    <|> attempt pDummyShiftedRegOffset
-    <|> pDummyRegRegOffset
+  let pShiftName =
+    pName >>= fun name ->
+      match Map.tryFind name shiftOps with
+      | Some shift -> preturn shift
+      | None -> fail $"'{name}' is not a shift"
 
-  let pOffsetOrPreIndexedAddress =
-    pReg .>> spaces .>> pchar ',' .>> spaces .>>. pDummyRegOffset
-    |> betweenSquareBraces
-    |>> substituteParsedRegister
-    |> attempt
-    <|> (betweenSquareBraces pReg |>> (fun reg -> ImmOffset(reg, None, None)))
-    .>>. opt (pchar '!')
-    |>> (fun (offset, preIdxIdentifier) ->
-          if preIdxIdentifier.IsNone then OffsetMode offset
-          else PreIdxMode offset)
+  /// How much to shift by: an immediate, or a register holding the amount. RRX
+  /// shifts by exactly one place, which is the amount the disassembler writes
+  /// for it, so an absent amount stands for none.
+  let pShiftAmount =
+    (pchar '#' >>. pNumber |>> Choice1Of2)
+    <|> (pRegisterName |>> Choice2Of2)
 
-  let pPostIndexedAddress =
-    betweenSquareBraces pReg .>> skipWhitespaces (pchar ',')
-    .>>. pDummyRegOffset
-    |>> substituteParsedRegister
-    |>> PostIdxMode
+  let toShiftOperand shift = function
+    | Some(Choice1Of2 amount) -> OprShift(shift, Imm(uint32 amount))
+    | Some(Choice2Of2 reg) -> OprRegShift(shift, reg)
+    | None when shift = ShiftOp.RRX -> OprShift(shift, Imm 1u)
+    | None -> OprShift(shift, Imm 0u)
 
-  let pUnIdxMode =
-    betweenSquareBraces pReg .>> spaces
-    .>>. betweenCurlyBraces pImm
-    |>> UnIdxMode
+  let pOprShift =
+    pShiftName .>> whitespace .>>. opt pShiftAmount
+    |>> fun (shift, amount) -> toShiftOperand shift amount
 
-  let pAddressingMode =
-    attempt pPostIndexedAddress
-    <|> attempt pUnIdxMode
-    <|> pOffsetOrPreIndexedAddress
+  /// The shift written after a register offset, which is the same syntax
+  /// without a register amount: a memory offset shifts by an immediate only.
+  let pOffsetShift =
+    pShiftName .>> whitespace .>>. opt (pchar '#' >>. pNumber)
+    |>> fun (shift, amount) ->
+      match amount with
+      | Some amount -> shift, Imm(uint32 amount)
+      | None when shift = ShiftOp.RRX -> shift, Imm 1u
+      | None -> shift, Imm 0u
 
-  let pSIMDFPReg =
-    pReg .>>. opt (betweenCurlyBraces (opt puint8))
-    |>> (fun (reg, elementOpt) ->
-          if elementOpt.IsNone then Vector reg
-          else Scalar(reg, elementOpt.Value))
+  /// #{+/-}<imm>, which writes the sign of an offset apart from its size.
+  let pImmediateOffset =
+    pchar '#' >>. opt pSign .>>. pNumber
+    |>> fun (sign, value) ->
+      let negative = (sign = Some Minus) <> (value < 0L)
+      let sign = if negative then Some Minus else Some Plus
+      fun rn -> ImmOffset(rn, sign, Some(abs value))
 
-  (* Operand Parsers *)
-  let pOprReg = pReg |>> OprReg .>> checkWrightBack
+  /// {+/-}<Rm>{, <shift>}, the register offset form.
+  let pRegisterOffset =
+    opt pSign .>>. pRegisterName
+    .>>. opt (attempt (skipWhitespaces (pchar ',') >>. pOffsetShift))
+    |>> fun ((sign, rm), shift) ->
+      let sign = if sign = Some Minus then Some Minus else Some Plus
+      fun rn -> RegOffset(rn, sign, rm, shift)
 
-  let pOprSpecReg = pReg .>> pchar '_' .>>. pPSRFlag |>> OprSpecReg
+  let pOffset = pImmediateOffset <|> pRegisterOffset
 
-  let pOprRegList =
-    sepBy pReg (spaces >>. pchar ',' >>. spaces)
-    |> betweenCurlyBraces
-    |>> OprRegList
+  /// The option of an unindexed memory operand, which names something the
+  /// coprocessor reads rather than a place.
+  let pUnIdxOption =
+    between (pchar '{') (pchar '}') (skipWhitespaces pNumber)
 
-  let pOprSIMD opcode =
-    if isSIMDOpcode opcode then
-      sepBy pSIMDFPReg operandSeps |> betweenCurlyBraces |>> makeSIMDOperand
-      <|> (pSIMDFPReg |>> SFReg) |>> OprSIMD
-    else fail "not simd operand"
+  /// What may follow the closing bracket of a memory operand, which is what
+  /// tells the addressing modes apart.
+  let pMemorySuffix =
+    (pchar '!' >>. preturn WriteBackSuffix)
+    <|> attempt (operandSeps >>. pUnIdxOption |>> UnindexedSuffix)
+    <|> attempt (operandSeps >>. pOffset |>> PostIndexedSuffix)
+    <|> preturn PlainSuffix
 
-  let pOprImm = immWithOperators <|> pImm |>> Operand.OprImm
+  let toAddressingMode rn inner suffix =
+    match inner, suffix with
+    | Some makeOffset, PlainSuffix -> Some(OffsetMode(makeOffset rn))
+    | Some makeOffset, WriteBackSuffix -> Some(PreIdxMode(makeOffset rn))
+    | None, PlainSuffix -> Some(OffsetMode(ImmOffset(rn, None, None)))
+    | None, WriteBackSuffix -> Some(PreIdxMode(ImmOffset(rn, None, None)))
+    | None, PostIndexedSuffix makeOffset -> Some(PostIdxMode(makeOffset rn))
+    | None, UnindexedSuffix option -> Some(UnIdxMode(rn, option))
+    | _ -> None
 
-  let pOprFPImm = pfloat |>> OprFPImm
+  /// [<Rn>{, <offset>}]{!}, [<Rn>], <offset> and [<Rn>], {<option>}, which
+  /// differ only in where the bracket closes and in what follows it.
+  let pMemoryIndexed =
+    pchar '[' >>. skipWhitespaces pRegisterName
+    .>>. opt (operandSeps >>. pOffset) .>> pchar ']' .>>. pMemorySuffix
+    >>= fun ((rn, inner), suffix) ->
+      match toAddressingMode rn inner suffix with
+      | Some mode -> preturn mode
+      | None -> fail "an offset cannot sit both inside and after the brackets"
 
-  let pOprShift = pSRType .>> spaces1 .>>. pAmount |>> OprShift
+  /// Whether the opcode is one of the SIMD accesses that name whole structures.
+  /// Their memory operand may promise an alignment, and a register written
+  /// after it says how far to step the base afterwards rather than where to
+  /// read.
+  let isStructureAccess opcode =
+    match opcode with
+    | Opcode.VLD1 | Opcode.VLD2 | Opcode.VLD3 | Opcode.VLD4
+    | Opcode.VST1 | Opcode.VST2 | Opcode.VST3 | Opcode.VST4 -> true
+    | _ -> false
 
-  let pOprRegShift = pSRType .>> spaces1 .>>. pReg |>> OprRegShift
+  /// [<Rn>{:<align>}]{!} and [<Rn>{:<align>}], <Rm>.
+  let pAlignedMemory =
+    pchar '[' >>. skipWhitespaces pRegisterName
+    .>>. opt (pchar ':' >>. pNumber) .>> pchar ']' .>>. opt (pchar '!')
+    .>>. opt (attempt (operandSeps >>. pRegisterName))
+    |>> fun (((rn, align), bang), rm) ->
+      let offset = AlignOffset(rn, align, rm)
+      match bang, rm with
+      | Some _, _ -> OprMemory(PreIdxMode offset)
+      | None, Some _ -> OprMemory(PostIdxMode offset)
+      | None, None -> OprMemory(OffsetMode offset)
 
-  let pOprMemory = pAddressingMode |>> OprMemory
+  /// [<address>], which is how the disassembler writes a literal it resolved.
+  /// What the source names is where to read, so how far that is from here is
+  /// worked out once the instruction's own place is known.
+  let pMemoryLiteral =
+    pchar '[' >>. skipWhitespaces pNumber .>> pchar ']' |>> LiteralMode
 
-  let pOprOption opcode =
-    if opcode = Opcode.DMB || opcode = Opcode.DSB then pOptionOpr |>> OprOption
-    else fail "the opcode does not accept option operand"
+  let pOprMemory = attempt pMemoryLiteral <|> pMemoryIndexed |>> OprMemory
 
-  let pOprIflag = pIflag |>> OprIflag
+  /// A branch target, which the disassembler writes as the address it resolved
+  /// rather than as an offset from anywhere.
+  let pOprAddress = pNumber |>> (LiteralMode >> OprMemory)
 
-  let pOprEndian opr =
-    if opr = Opcode.SETEND then pEndian |>> OprEndian
-    else fail "not an endian setting operand"
+  let makeRegisterList elements =
+    if elements |> List.forall (fun (reg, index) ->
+         Option.isNone index && not (isSIMDRegister reg)) then
+      elements |> List.map fst |> OprRegList
+    else
+      elements
+      |> List.map (fun (reg, index) -> toSIMDRegister reg index)
+      |> makeSIMDOperand
+      |> OprSIMD
 
-  let pOprCond opcode =
-    if isITInstruction opcode then pCondition |>> OprCond
-    else fail "not an IT opcode"
+  let pRegisterListElement = pRegisterName .>>. opt pElementIndex
 
-  let pGotoLabel = pId |>> Operand.GoToLabel
+  let noteCaret = function
+    | Some _ -> caret <- true
+    | None -> ()
+
+  /// Whether a braced list names the registers a floating-point transfer moves.
+  /// Those are written the way a SIMD list is, but they stand for a run of
+  /// registers rather than for one operand each, and the run may be longer than
+  /// any SIMD operand.
+  let isRegisterListOpcode opcode =
+    match opcode with
+    | Opcode.VLDMIA | Opcode.VLDMDB | Opcode.VSTMIA | Opcode.VSTMDB
+    | Opcode.VPUSH | Opcode.VPOP
+    | Opcode.FLDMIAX | Opcode.FLDMDBX | Opcode.FSTMIAX | Opcode.FSTMDBX ->
+      true
+    | _ -> false
+
+  /// {<registers>}{^}, which holds either core registers or SIMD ones.
+  let pOprRegisterList opcode =
+    between (pchar '{') (pchar '}')
+      (sepBy (skipWhitespaces pRegisterListElement) (pchar ','))
+    .>>. opt (pchar '^')
+    |>> fun (elements, hat) ->
+      noteCaret hat
+      if isRegisterListOpcode opcode then
+        elements |> List.map fst |> OprRegList
+      else
+        makeRegisterList elements
+
+  let pOprImm =
+    attempt (pchar '#' >>. pFraction |>> OprFPImm)
+    <|> (pchar '#' >>. pNumber |>> OprImm)
+
+  /// The option a barrier names, which the disassembler writes as a number
+  /// when the option has no name of its own.
+  let pOprBarrierOption =
+    attempt (pName >>= fun name ->
+      match Map.tryFind name barrierOptions with
+      | Some option -> preturn (OprOption option)
+      | None -> fail $"'{name}' is not a barrier option")
+    <|> (pNumber |>> (barrierOptionOfValue >> OprOption))
+
+  let pOprEndian =
+    (pstringCI "le" >>. preturn (OprEndian Endian.Little))
+    <|> (pstringCI "be" >>. preturn (OprEndian Endian.Big))
+
+  let pOprIflag =
+    pName >>= fun name ->
+      match Map.tryFind name iflags with
+      | Some flag -> preturn (OprIflag flag)
+      | None -> fail $"'{name}' is not an interrupt flag"
+
+  let pOprCondition =
+    pName >>= fun name ->
+      match Map.tryFind name conditions with
+      | Some cond -> preturn (OprCond cond)
+      | None -> fail $"'{name}' is not a condition"
+
+  /// The operands only one family takes, and that would read as something else
+  /// anywhere else: a barrier option, an endianness, the interrupt flags, and
+  /// the condition an IT instruction names.
+  let pOpcodeSpecificOperand opcode =
+    match opcode with
+    | Opcode.DMB | Opcode.DSB | Opcode.ISB -> pOprBarrierOption
+    | Opcode.SETEND -> pOprEndian
+    | Opcode.CPS | Opcode.CPSIE | Opcode.CPSID -> pOprIflag
+    | opcode when isITInstruction opcode -> pOprCondition
+    | _ -> fail "not an operand of this instruction"
+
+  let pOprLabel = pIdentifier |>> GoToLabel
 
   let pOperand opcode =
-      attempt (pOprSIMD opcode)
-     <|> (pOprOption opcode)
-     <|> (pOprEndian opcode)
-     <|> (pOprCond opcode)
-     <|> attempt pOprShift
-     <|> attempt pOprRegShift
-     <|> attempt pOprFPImm
-     <|> attempt pOprSpecReg
-     <|> attempt pOprReg
-     <|> attempt pOprRegList
-     <|> attempt pOprImm
-     <|> attempt pOprMemory
-     <|> attempt pOprIflag
-     <|> attempt pGotoLabel
+    attempt (pOpcodeSpecificOperand opcode)
+    <|> attempt pOprShift
+    <|> (if isStructureAccess opcode then attempt pAlignedMemory
+         else attempt pOprMemory)
+    <|> attempt (pOprRegisterList opcode)
+    <|> attempt pOprImm
+    <|> attempt pOprRegister
+    <|> attempt pOprAddress
+    <|> pOprLabel
 
-  /// Parses the operands making use of the already parsed opcode and returns
-  /// a tuple of the previosly parsed information and the parsed operands.
-  /// This is necessary because some operands depend on the opcode.
-  let pOperands parsedInfo =
-    sepBy (pOperand (getOpCode parsedInfo)) operandSeps |>> extractOperands
-    |>> (fun operands -> parsedInfo, operands)
+  /// Reads the operands of an already-parsed opcode. Which operands an
+  /// instruction takes depends on which one it is, so the opcode has to be
+  /// known before they can be read.
+  let pOperands (opcode, cond, qualifier, dataTypes) =
+    sepBy (pOperand opcode) operandSeps |>> extractOperands
+    |>> (fun operands -> opcode, cond, qualifier, dataTypes, operands)
     |> skipWhitespaces
 
+  let pMnemonic =
+    many1Satisfy (fun c -> Char.IsLetterOrDigit c || c = '.')
+    >>= fun token ->
+      match decomposeMnemonic token with
+      | Some parts -> preturn parts
+      | None -> fail $"'{token}' is not an instruction"
+
+  /// Clears the marks a register may carry, which are read once the operands
+  /// they sit on have been.
+  let resetMarks =
+    preturn () |>> fun _ ->
+      writeBack <- false
+      caret <- false
+
   let pInsInfo =
-      pOpcode .>>. pCondition .>>. opt (attempt pSIMDDataTypes)
-      .>>. opt pQualifier >>= pOperands
-      |>> (fun ((((opcode, cond), simd), qual), operands) ->
-              let qual =
-                match qual with
-                | Some W -> W
-                | _ -> N
-              newInsInfo
-                 address opcode cond 0uy wBackFlag qual simd
-                 operands (getInsLength ()) isThumb None)
-      .>> clearWBackFlag
+    resetMarks >>. (pMnemonic >>= pOperands)
+    |>> fun (opcode, cond, qualifier, dataTypes, operands) ->
+      newInfo opcode cond qualifier dataTypes operands (writeBack, caret)
 
-  let pInstructionLine =
-    opt pLabelDef >>. spaces >>. pInsInfo .>> incrementAddress
-    |>> InstructionLine
+  let pInstructionLine = pInsInfo .>> incrementIndex |>> InstructionLine
 
+  /// A line holds a label definition, an instruction, both, or neither. A
+  /// label takes the index the next instruction will get, so that one written
+  /// on a line of its own marks the instruction below it.
   let statement =
-    attempt pInstructionLine <|>
-    (pLabelDef |>> fun _ -> LabelDefLine) <|>
-    (pOpModeSwitcher |>> fun _ -> LabelDefLine) <|>
-    preturn LabelDefLine
+    whitespace
+    >>. ((attempt (pLabelDef .>> whitespace)
+      >>. (pInstructionLine <|> preturn LabelDefLine))
+     <|> pInstructionLine
+     <|> preturn LabelDefLine)
+    .>> restOfLine
 
-  let statements = sepEndBy statement terminator .>> eof
+  let statements = sepEndBy statement terminator .>> (eof <?> "")
 
-  member _.Run assembly =
-    match runParserOnString statements Map.empty<string, Addr> "" assembly with
-    | Success(result, us, _) ->
-      SecondPass.updateInsInfos (filterInstructionLines result) us |> ignore
-      Terminator.futureFeature ()
-    | Failure(str, _, _) -> printfn "Parser failed!\n%s" str; []
+  /// Builds an assembler for the A32 instruction set, which is what a source
+  /// says unless something else says otherwise.
+  new(isa: ISA, baseAddr: Addr) = Assembler(isa, baseAddr, false)
+
+  interface ILowerable with
+    override _.Lower assembly =
+      (* A source that fails to parse can leave these set, because what clears
+         them runs at the start of an instruction that was never reached. An
+         assembler is meant to be reused, so the state has to start clean here
+         rather than only end clean there. *)
+      writeBack <- false
+      caret <- false
+      let st = { LabelMap = Map.empty; CurIndex = 0 }
+      match runParserOnString statements st "" assembly with
+      | Success(result, us, _) ->
+        let instrs = filterInstructionLines result
+        let encoded =
+          if isThumb then
+            assembleThumb thumbEncoders us isa.Endian baseAddr instrs
+          else
+            assemble armEncoders us isa.Endian baseAddr instrs
+        Result.Ok encoded
+      | Failure(str, _, _) -> Result.Error str
