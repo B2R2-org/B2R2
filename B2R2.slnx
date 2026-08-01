@@ -9,6 +9,7 @@
   <Project Path="src/Assembly/Intel/B2R2.Assembly.Intel.fsproj" />
   <Project Path="src/Assembly/MIPS/B2R2.Assembly.MIPS.fsproj" />
   <Project Path="src/Assembly/PPC/B2R2.Assembly.PPC.fsproj" />
+  <Project Path="src/Assembly/RISCV64/B2R2.Assembly.RISCV64.fsproj" />
   <Project Path="src/BinIR.Tests/B2R2.BinIR.Tests.fsproj" />
   <Project Path="src/BinIR/B2R2.BinIR.fsproj" />
   <Project Path="src/Core.Tests/B2R2.Core.Tests.fsproj" />
