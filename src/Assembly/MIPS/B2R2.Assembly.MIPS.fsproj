@@ -9,7 +9,10 @@
 
   <ItemGroup>
     <Compile Include="ParserHelper.fs" />
-    <Compile Include="SecondPass.fs" />
+    <Compile Include="AsmField.fs" />
+    <Compile Include="AsmOpcode.fs" />
+    <Compile Include="AsmFloat.fs" />
+    <Compile Include="AsmMain.fs" />
     <Compile Include="Assembler.fs" />
     <None Include="..\..\..\LICENSE.md" Pack="true" PackagePath="" />
     <None Include="..\..\..\assets\b2r2-240x240.png" Pack="true" PackagePath="" />
@@ -22,6 +25,7 @@
 
   <ItemGroup>
     <ProjectReference Include="..\..\FrontEnd\MIPS\B2R2.FrontEnd.MIPS.fsproj" />
+    <ProjectReference Include="..\BinLowerer\B2R2.Assembly.BinLowerer.fsproj" />
   </ItemGroup>
 
 </Project>
