@@ -788,9 +788,30 @@ let inline buildOpcode (ins: Instruction) (builder: IDisasmBuilder) =
   let str = opCodeToString ins.Opcode
   builder.Accumulate(AsmWordKind.Mnemonic, str)
 
-let inline relToString pc offset (builder: IDisasmBuilder) =
-  let targetAddr = pc + uint64 offset
-  builder.Accumulate(AsmWordKind.Value, HexString.ofUInt64 targetAddr)
+/// Whether the place a branch names is written into the branch outright rather
+/// than counted from where the branch itself sits.
+let private isAbsolute = function
+  | Op.BCA | Op.BCLA -> true
+  | _ -> false
+
+/// <summary>
+/// Where a branch goes.
+///
+/// A branch that counts the distance to its place reaches it by adding that
+/// distance to where the branch sits, and the sum is cut back to the width of a
+/// register because reaching past the end of the address space wraps round to
+/// the beginning of it rather than beyond. A branch that names its place
+/// outright already holds the address, and adding anything to it would name
+/// somewhere else.
+/// </summary>
+let relToString (ins: Instruction) offset (builder: IDisasmBuilder) =
+  let target =
+    if isAbsolute ins.Opcode then
+      uint64 offset
+    else
+      let mask = System.UInt64.MaxValue >>> (64 - int ins.OperationSize)
+      (ins.Address + uint64 offset) &&& mask
+  builder.Accumulate(AsmWordKind.Value, HexString.ofUInt64 target)
 
 let inline getCond bi =
   match Bits.extract bi 1u 0u with
@@ -823,7 +844,7 @@ let oprToString (ins: Instruction) opr delim (builder: IDisasmBuilder) =
     builder.Accumulate(AsmWordKind.Value, HexString.ofUInt64 imm)
   | OprAddr addr ->
     builder.Accumulate(AsmWordKind.String, delim)
-    relToString ins.Address addr builder
+    relToString ins addr builder
   | OprBI imm ->
     let cr = Bits.extract imm 4u 2u |> getCondRegister
     builder.Accumulate(AsmWordKind.String, delim)
@@ -863,7 +884,7 @@ let buildSimpleMnemonic opcode bi addr ins (builder: IDisasmBuilder) =
   builder.Accumulate(AsmWordKind.String, " ")
   builder.Accumulate(AsmWordKind.Variable, Register.toString cr)
   builder.Accumulate(AsmWordKind.String, ", ")
-  relToString (ins: Instruction).Address addr builder
+  relToString ins addr builder
 
 let buildCrMnemonic opcode bi (builder: IDisasmBuilder) =
   let cr = Bits.extract bi 4u 2u |> getCondRegister
@@ -874,7 +895,7 @@ let buildCrMnemonic opcode bi (builder: IDisasmBuilder) =
 let buildTargetMnemonic opcode addr ins (builder: IDisasmBuilder) =
   builder.Accumulate(AsmWordKind.Mnemonic, opCodeToString opcode)
   builder.Accumulate(AsmWordKind.String, " ")
-  relToString (ins: Instruction).Address addr builder
+  relToString ins addr builder
 
 let buildRotateMnemonic opcode ra rs n (builder: IDisasmBuilder) =
   builder.Accumulate(AsmWordKind.Mnemonic, opCodeToString opcode)
@@ -890,8 +911,10 @@ let buildBC (ins: Instruction) builder =
   | ThreeOperands(OprImm bo, OprBI bi, OprAddr addr) ->
     let bibit = bi % 4u
     match bo, bi, bibit with
+    (* bdnz reads no bit of the condition register, so it writes no field of
+       it either; every other name below tests one and says which field. *)
     | 16UL, 0u, _ -> buildTargetMnemonic Op.BDNZ addr ins builder
-    | 12UL, _, 0u -> buildTargetMnemonic Op.BLT addr ins builder
+    | 12UL, _, 0u -> buildSimpleMnemonic Op.BLT bi addr ins builder
     | 12UL, _, 1u -> buildSimpleMnemonic Op.BGT bi addr ins builder
     | 12UL, _, 2u -> buildSimpleMnemonic Op.BEQ bi addr ins builder
     | 12UL, _, 3u -> buildSimpleMnemonic Op.BSO bi addr ins builder
@@ -927,14 +950,14 @@ let buildBCL (ins: Instruction) builder =
   | ThreeOperands(OprImm bo, OprBI bi, OprAddr addr) ->
     let bibit = bi % 4u
     match bo, bibit with
-    | 12UL, 0u -> buildSimpleMnemonic Op.BLTA bi addr ins builder
-    | 12UL, 1u -> buildSimpleMnemonic Op.BGTA bi addr ins builder
-    | 12UL, 2u -> buildSimpleMnemonic Op.BEQA bi addr ins builder
-    | 12UL, 3u -> buildSimpleMnemonic Op.BSOA bi addr ins builder
-    | 4UL, 0u -> buildSimpleMnemonic Op.BGEA bi addr ins builder
-    | 4UL, 1u -> buildSimpleMnemonic Op.BLEA bi addr ins builder
-    | 4UL, 2u -> buildSimpleMnemonic Op.BNEA bi addr ins builder
-    | 4UL, 3u -> buildSimpleMnemonic Op.BNSA bi addr ins builder
+    | 12UL, 0u -> buildSimpleMnemonic Op.BLTL bi addr ins builder
+    | 12UL, 1u -> buildSimpleMnemonic Op.BGTL bi addr ins builder
+    | 12UL, 2u -> buildSimpleMnemonic Op.BEQL bi addr ins builder
+    | 12UL, 3u -> buildSimpleMnemonic Op.BSOL bi addr ins builder
+    | 4UL, 0u -> buildSimpleMnemonic Op.BGEL bi addr ins builder
+    | 4UL, 1u -> buildSimpleMnemonic Op.BLEL bi addr ins builder
+    | 4UL, 2u -> buildSimpleMnemonic Op.BNEL bi addr ins builder
+    | 4UL, 3u -> buildSimpleMnemonic Op.BNSL bi addr ins builder
     | _ ->
       buildOpcode ins builder
       buildOprs ins builder
