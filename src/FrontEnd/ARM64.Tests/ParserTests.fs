@@ -108,6 +108,11 @@ type ParserTests() =
     Assert.AreEqual<Opcode>(opcode, opcode')
     Assert.AreEqual<Operands>(oprs, oprs')
 
+  let testDisasm (byteString: string) (expected: string) =
+    let bytes = ByteArray.ofHexString byteString
+    let ins = parser.Parse(System.ReadOnlySpan bytes, 0UL)
+    Assert.AreEqual<string>(expected, ins.Disasm())
+
   let operandsFromArray oprList =
     let oprs = Array.ofList oprList
     match oprs.Length with
@@ -420,6 +425,26 @@ type ParserTests() =
     "d800802b"
     ++ PRFM ** [ O.Prefetch PLIL2STRM; O.MemLabel 0x1004L ]
     ||> test
+
+  /// A post-indexed access keeps a zero offset, which the other addressing
+  /// modes leave out: it is what closes the bracket and says that the base is
+  /// written back.
+  [<TestMethod>]
+  member _.``C4.4.5 Load/store Disasm test (1)``() =
+    testDisasm "f8400420" "ldr x0, [x1], #0x0"
+
+  [<TestMethod>]
+  member _.``C4.4.5 Load/store Disasm test (2)``() =
+    testDisasm "f9400020" "ldr x0, [x1]"
+
+  [<TestMethod>]
+  member _.``C4.4.5 Load/store Disasm test (3)``() =
+    testDisasm "f8408420" "ldr x0, [x1], #0x8"
+
+  /// The pair transfers reach the same post-indexed zero offset.
+  [<TestMethod>]
+  member _.``C4.4.5 Load/store Disasm test (4)``() =
+    testDisasm "a8c00440" "ldp x0, x1, [x2], #0x0"
 
   [<TestMethod>]
   member _.``C4.4.6 Load/store exclusive (1)``() =

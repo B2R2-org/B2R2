@@ -1687,9 +1687,11 @@ let regOffString regOff delim builder =
   | ShiftOffset regOff -> shiftToString regOff delim builder
   | ExtRegOffset regOff -> extRegToString regOff delim builder
 
-let delimPostIdx = function
-  | PostIdxMode _ -> "], "
-  | _ -> ", "
+let isPostIdx = function
+  | PostIdxMode _ -> true
+  | _ -> false
+
+let delimPostIdx addrMode = if isPostIdx addrMode then "], " else ", "
 
 let processAddrExn64 (ins: Instruction) addr =
   match ins.Opcode with
@@ -1698,12 +1700,15 @@ let processAddrExn64 (ins: Instruction) addr =
 
 let immOffsetToString i addr mode offset (builder: IDisasmBuilder) =
   match offset with
-  | BaseOffset(reg, None) | BaseOffset(reg, Some 0L) ->
+  | BaseOffset(reg, (None | Some 0L)) when not (isPostIdx mode) ->
     builder.Accumulate(AsmWordKind.Variable, Register.toString reg)
-  | BaseOffset(reg, Some imm) ->
+  | BaseOffset(reg, imm) ->
+    (* A post-indexed access has no way of its own to say that it writes its
+       base back, and the delimiter below is what closes its bracket, so it
+       keeps a zero offset that the other addressing modes leave out. *)
     builder.Accumulate(AsmWordKind.Variable, Register.toString reg)
     builder.Accumulate(AsmWordKind.String, delimPostIdx mode)
-    immToString imm builder
+    immToString (defaultArg imm 0L) builder
   | Lbl imm ->
     let addr = processAddrExn64 i addr
     builder.Accumulate(AsmWordKind.Value, HexString.ofInt64 (int64 addr + imm))
