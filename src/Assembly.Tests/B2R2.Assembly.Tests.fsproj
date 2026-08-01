@@ -16,6 +16,8 @@
     <Compile Include="ARM64RoundTripTests.fs" />
     <Compile Include="MIPSSweep.fs" />
     <Compile Include="MIPSRoundTripTests.fs" />
+    <Compile Include="PPCSweep.fs" />
+    <Compile Include="PPCRoundTripTests.fs" />
   </ItemGroup>
 
   <ItemGroup>
@@ -28,11 +30,13 @@
     <ProjectReference Include="..\Assembly\ARM32\B2R2.Assembly.ARM32.fsproj" />
     <ProjectReference Include="..\Assembly\ARM64\B2R2.Assembly.ARM64.fsproj" />
     <ProjectReference Include="..\Assembly\MIPS\B2R2.Assembly.MIPS.fsproj" />
+    <ProjectReference Include="..\Assembly\PPC\B2R2.Assembly.PPC.fsproj" />
     <ProjectReference Include="..\Assembly\API\B2R2.Assembly.API.fsproj" />
     <ProjectReference Include="..\FrontEnd\Intel\B2R2.FrontEnd.Intel.fsproj" />
     <ProjectReference Include="..\FrontEnd\ARM32\B2R2.FrontEnd.ARM32.fsproj" />
     <ProjectReference Include="..\FrontEnd\ARM64\B2R2.FrontEnd.ARM64.fsproj" />
     <ProjectReference Include="..\FrontEnd\MIPS\B2R2.FrontEnd.MIPS.fsproj" />
+    <ProjectReference Include="..\FrontEnd\PPC\B2R2.FrontEnd.PPC.fsproj" />
     <ProjectReference
       Include="..\FrontEnd\BinLifter\B2R2.FrontEnd.BinLifter.fsproj" />
   </ItemGroup>
