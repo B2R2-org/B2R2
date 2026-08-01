@@ -190,6 +190,14 @@ type ISA(arch, endian, wordSize, flags) =
     let flag = int pythonVer
     ISA(Architecture.Python, Endian.Little, WordSize.Bit64, flag)
 
+  /// Constructs a 32-bit ARM ISA meaning the given instruction set, which is
+  /// AArch32 if isAArch32 says so and ARMv7 otherwise. Only those two have the
+  /// instruction sets a mode chooses between, so this names neither an
+  /// architecture nor a word size that could be something else.
+  new(endian, isAArch32: bool, mode: ARM32Mode) =
+    let arch = if isAArch32 then Architecture.ARMv8 else Architecture.ARMv7
+    ISA(arch, endian, WordSize.Bit32, int mode)
+
   /// Constructs an ISA object from a canonical ISA name string such as "x86",
   /// "x86-64", "aarch64", "mips32le", etc. Raises <see
   /// cref='T:B2R2.InvalidISAException'/> if the string is not recognized.
@@ -199,14 +207,22 @@ type ISA(arch, endian, wordSize, flags) =
       ISA(Architecture.Intel, WordSize.Bit32)
     | "x64" | "x86-64" | "amd64" ->
       ISA(Architecture.Intel, WordSize.Bit64)
-    | "armv7" | "armv7le" | "armel" | "armhf" | "arm32" ->
+    | "armv7" | "armv7le" | "armel" | "armhf" | "arm32" | "arm" ->
       ISA Architecture.ARMv7
     | "armv7be" ->
       ISA(Architecture.ARMv7, Endian.Big)
+    | "thumb" | "t32" ->
+      ISA(Endian.Little, false, ARM32Mode.Thumb)
+    | "thumbbe" | "t32be" ->
+      ISA(Endian.Big, false, ARM32Mode.Thumb)
     | "armv8a32" | "aarch32" ->
       ISA(Architecture.ARMv8, WordSize.Bit32)
     | "armv8a32be" | "aarch32be" ->
       ISA(Architecture.ARMv8, Endian.Big, WordSize.Bit32)
+    | "aarch32t" ->
+      ISA(Endian.Little, true, ARM32Mode.Thumb)
+    | "aarch32tbe" ->
+      ISA(Endian.Big, true, ARM32Mode.Thumb)
     | "armv8a64" | "aarch64" | "arm64" ->
       ISA Architecture.ARMv8
     | "armv8a64be" | "aarch64be" ->
@@ -292,6 +308,12 @@ type ISA(arch, endian, wordSize, flags) =
   /// Architecture-specific flags. Not every architecture has this.
   member _.Flags with get(): int = flags
 
+  /// The instruction set a 32-bit ARM ISA means, which is A32 unless the flags
+  /// say otherwise. Only 32-bit ARM has two of them, so this says nothing about
+  /// any other architecture.
+  member _.ARM32Mode with get(): ARM32Mode =
+    LanguagePrimitives.EnumOfValue flags
+
   /// Returns true if this ISA is Intel x86.
   member _.IsX86 with get() =
     arch = Architecture.Intel && wordSize = WordSize.Bit32
@@ -364,14 +386,19 @@ type ISA(arch, endian, wordSize, flags) =
   /// Returns true if this ISA is Common Intermediate Language (CIL).
   member _.IsCIL with get() = arch = Architecture.CIL
 
-  override _.ToString() =
+  override this.ToString() =
+    let thumb = this.ARM32Mode = ARM32Mode.Thumb
     match arch, endian, wordSize with
     | Architecture.Intel, _, WordSize.Bit32 -> "x86"
     | Architecture.Intel, _, WordSize.Bit64 -> "x86-64"
-    | Architecture.ARMv7, Endian.Little, _ -> "armv7"
-    | Architecture.ARMv7, Endian.Big, _ -> "armv7be"
-    | Architecture.ARMv8, Endian.Little, WordSize.Bit32 -> "aarch32"
-    | Architecture.ARMv8, Endian.Big, WordSize.Bit32 -> "aarch32be"
+    | Architecture.ARMv7, Endian.Little, _ ->
+      if thumb then "thumb" else "armv7"
+    | Architecture.ARMv7, Endian.Big, _ ->
+      if thumb then "thumbbe" else "armv7be"
+    | Architecture.ARMv8, Endian.Little, WordSize.Bit32 ->
+      if thumb then "aarch32t" else "aarch32"
+    | Architecture.ARMv8, Endian.Big, WordSize.Bit32 ->
+      if thumb then "aarch32tbe" else "aarch32be"
     | Architecture.ARMv8, Endian.Little, WordSize.Bit64 -> "aarch64"
     | Architecture.ARMv8, Endian.Big, WordSize.Bit64 -> "aarch64be"
     | Architecture.MIPS, Endian.Little, WordSize.Bit32 -> "mips32le"
@@ -421,6 +448,15 @@ and CILKind =
   | CILx86 = 1
   /// CIL code for x86-64.
   | CILx64 = 2
+
+/// Represents which of the two instruction sets a 32-bit ARM ISA means. A
+/// 32-bit ARM processor runs both, and nothing but the mode it is in says
+/// which one a word belongs to.
+and ARM32Mode =
+  /// The A32 instruction set, whose instructions are one word each.
+  | ARM = 0
+  /// The T32 instruction set, whose instructions are one or two halfwords.
+  | Thumb = 1
 
 /// Represents the Python version.
 and PythonVersion =

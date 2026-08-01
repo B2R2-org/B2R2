@@ -73,7 +73,8 @@ module ArchSupport =
     | Intel ->
       Intel.IntelParser(isa.WordSize, reader) :> IInstructionParsable
     | ARM32 ->
-      ARM32.ARM32Parser(isa, false, reader) :> IInstructionParsable
+      let isThumb = isa.ARM32Mode = ARM32Mode.Thumb
+      ARM32.ARM32Parser(isa, isThumb, reader) :> IInstructionParsable
     | AArch64 ->
       ARM64.ARM64Parser(reader) :> IInstructionParsable
     | MIPS ->
