@@ -67,6 +67,9 @@ type ThumbParserTests() =
   let testNoWbackNoSimd pref q (bytes: byte[]) (opcode, operands) =
     test pref opcode false q None operands bytes
 
+  let testNoWbackNoQ pref simd (bytes: byte[]) (opcode, operands) =
+    test pref opcode false None simd operands bytes
+
   let testNoQNoSimd pref wback (bytes: byte[]) (opcode, operands) =
     test pref opcode wback None None operands bytes
 
@@ -988,3 +991,22 @@ type ThumbParserTests() =
     "f3bf8f2f"
     ++ CLREX ** []
     ||> testNoWbackNoQNoSimd Condition.AL
+
+  /// The destination of these is the bit above the field holding it followed by
+  /// that field, as it is for every other SIMD instruction: a D of one means
+  /// sixteen registers further up rather than two.
+  [<TestMethod>]
+  member _.``[Thumb] Advanced SIMD multiply accumulate Parse test (1)``() =
+    "fc61e834"
+    ++ VFMAL ** [ O.SimdVectorReg D30
+                  O.SimdVectorReg S2
+                  O.SimdVectorReg S9 ]
+    ||> testNoWbackNoQ Condition.AL (Some(OneDT SIMDTypF16))
+
+  [<TestMethod>]
+  member _.``[Thumb] Advanced SIMD multiply accumulate Parse test (2)``() =
+    "fca15834"
+    ++ VFMSL ** [ O.SimdVectorReg D5
+                  O.SimdVectorReg S2
+                  O.SimdVectorReg S9 ]
+    ||> testNoWbackNoQ Condition.AL (Some(OneDT SIMDTypF16))

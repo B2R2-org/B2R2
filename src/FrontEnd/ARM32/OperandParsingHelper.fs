@@ -2227,7 +2227,7 @@ type internal OprDdSnSm() =
   inherit OperandParser()
   override _.Render bin =
     let dd = (* D:Vd *)
-      concat (pickBit bin 22) (extract bin 15 12) 1 |> getVecDReg |> toSVReg
+      concat (pickBit bin 22) (extract bin 15 12) 4 |> getVecDReg |> toSVReg
     let sn = (* Vn:N *)
       concat (extract bin 19 16) (pickBit bin 7) 1 |> getVecSReg |> toSVReg
     let sm = (* Vm:M *)
@@ -2239,7 +2239,7 @@ type internal OprDdSnSmidx() =
   inherit OperandParser()
   override _.Render bin =
     let dd = (* D:Vd *)
-      concat (pickBit bin 22) (extract bin 15 12) 1 |> getVecDReg |> toSVReg
+      concat (pickBit bin 22) (extract bin 15 12) 4 |> getVecDReg |> toSVReg
     let sn = (* Vn:N *)
       concat (extract bin 19 16) (pickBit bin 7) 1 |> getVecSReg |> toSVReg
     let sm = concat (extract bin 2 0) (pickBit bin 5) 1 (* Vm<2:0>:M *)
