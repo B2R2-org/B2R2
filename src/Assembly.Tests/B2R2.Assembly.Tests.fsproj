@@ -16,6 +16,8 @@
     <Compile Include="ARM64RoundTripTests.fs" />
     <Compile Include="MIPSSweep.fs" />
     <Compile Include="MIPSRoundTripTests.fs" />
+    <Compile Include="PARISCSweep.fs" />
+    <Compile Include="PARISCRoundTripTests.fs" />
     <Compile Include="PPCSweep.fs" />
     <Compile Include="PPCRoundTripTests.fs" />
     <Compile Include="RISCV64Sweep.fs" />
@@ -38,6 +40,8 @@
     <ProjectReference Include="..\Assembly\ARM32\B2R2.Assembly.ARM32.fsproj" />
     <ProjectReference Include="..\Assembly\ARM64\B2R2.Assembly.ARM64.fsproj" />
     <ProjectReference Include="..\Assembly\MIPS\B2R2.Assembly.MIPS.fsproj" />
+    <ProjectReference
+      Include="..\Assembly\PARISC\B2R2.Assembly.PARISC.fsproj" />
     <ProjectReference Include="..\Assembly\PPC\B2R2.Assembly.PPC.fsproj" />
     <ProjectReference
       Include="..\Assembly\RISCV64\B2R2.Assembly.RISCV64.fsproj" />
@@ -49,6 +53,8 @@
     <ProjectReference Include="..\FrontEnd\ARM32\B2R2.FrontEnd.ARM32.fsproj" />
     <ProjectReference Include="..\FrontEnd\ARM64\B2R2.FrontEnd.ARM64.fsproj" />
     <ProjectReference Include="..\FrontEnd\MIPS\B2R2.FrontEnd.MIPS.fsproj" />
+    <ProjectReference
+      Include="..\FrontEnd\PARISC\B2R2.FrontEnd.PARISC.fsproj" />
     <ProjectReference Include="..\FrontEnd\PPC\B2R2.FrontEnd.PPC.fsproj" />
     <ProjectReference
       Include="..\FrontEnd\RISCV64\B2R2.FrontEnd.RISCV64.fsproj" />

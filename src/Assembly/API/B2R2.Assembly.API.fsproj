@@ -21,6 +21,8 @@
     <ProjectReference Include="..\ARM64\B2R2.Assembly.ARM64.fsproj" />
     <ProjectReference Include="..\AVR\B2R2.Assembly.AVR.fsproj" />
     <ProjectReference Include="..\MIPS\B2R2.Assembly.MIPS.fsproj" />
+    <ProjectReference
+      Include="..\PARISC\B2R2.Assembly.PARISC.fsproj" />
     <ProjectReference Include="..\PPC\B2R2.Assembly.PPC.fsproj" />
     <ProjectReference
       Include="..\RISCV64\B2R2.Assembly.RISCV64.fsproj" />
