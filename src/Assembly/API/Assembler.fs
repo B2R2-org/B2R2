@@ -47,6 +47,7 @@ type Assembler(isa: ISA, startAddress) =
     | MIPS -> MIPS.Assembler(isa, startAddress) :> ILowerable
     | PPC -> PPC.Assembler(isa, startAddress) :> ILowerable
     | RISCV64 -> RISCV64.Assembler(isa, startAddress) :> ILowerable
+    | SPARC -> SPARC.Assembler(isa, startAddress) :> ILowerable
     | _ -> raise InvalidISAException
 
   /// The start address of the binary instructions.
