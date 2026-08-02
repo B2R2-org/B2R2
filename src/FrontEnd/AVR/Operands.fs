@@ -34,7 +34,12 @@ type Operands =
 and Operand =
   | OprReg of Register
   | OprImm of Const
+  /// A distance from the address just past this instruction, which is how every
+  /// relative branch says where it goes.
   | OprAddr of Const
+  /// An address written out in full, which is how a long jump or call says
+  /// where it goes and how a direct load or store says which byte it reaches.
+  | OprAbsAddr of Const
   | OprMemory of AddressingMode
 
 /// Represents an immediate constant value used in AVR instructions.

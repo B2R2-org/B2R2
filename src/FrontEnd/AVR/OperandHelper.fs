@@ -107,6 +107,8 @@ let getReg3DLast b = getRegister (16u + (extract b 2u 0u) |> byte) |> OprReg
 
 let getReg4D b = getRegister (extract b 7u 4u + 16u |> byte) |> OprReg
 
+let getReg4DLast b = getRegister (extract b 3u 0u + 16u |> byte) |> OprReg
+
 let getRegEven4D b = getRegister (2u * (extract b 7u 4u) |> byte) |> OprReg
 
 let getRegEvenEnd4D b = getRegister (2u * (extract b 3u 0u) |> byte) |> OprReg
@@ -128,9 +130,11 @@ let getConst3b b = b &&& 0b111u |> int32 |> OprImm
 let getConst3bs b = extract b 6u 4u |> int32 |> OprImm
 
 let getConst22 b =
-  (2u * concat (extract b 24u 20u) (extract b 16u 0u) (17)) |> int32 |> OprAddr
+  (2u * concat (extract b 24u 20u) (extract b 16u 0u) (17))
+  |> int32
+  |> OprAbsAddr
 
-let getConst16 b = extract b 15u 0u |> int32 |> OprAddr
+let getConst16 b = extract b 15u 0u |> int32 |> OprAbsAddr
 
 let getIO5 b = extract b 7u 3u |> int32 |> OprImm
 

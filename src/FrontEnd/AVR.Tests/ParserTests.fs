@@ -41,10 +41,13 @@ module private Shortcut =
 
     static member Addr(v) = OprAddr v
 
+    static member AbsAddr(v) = OprAbsAddr v
+
     static member MemDisp(r, v) = OprMemory(DispMode(r, v))
 
     static member MemPostIdx(r) = OprMemory(PostIdxMode r)
 
+[<TestClass>]
 type ParserTests() =
   let test (bytes: byte[]) (opcode, oprs: Operands) =
     let reader = BinReader.Init Endian.Little
@@ -105,3 +108,52 @@ type ParserTests() =
   member _.``[AVR] Immediate Operand Insturction Parse Test (1)``() =
     "8fef"
     ++ LDI ** [ O.Reg R24; O.Imm 0xff ] ||> test
+
+  /// A signed multiplication reaches only the upper half of the register file,
+  /// where the four bits naming each of its registers are counted from r16.
+  [<TestMethod>]
+  member _.``[AVR] Signed Multiplication Parse Test``() =
+    "0102"
+    ++ MULS ** [ O.Reg R16; O.Reg R17 ] ||> test
+
+  /// Where a long call or jump goes is a word address written out in full, not
+  /// a distance counted from anywhere.
+  [<TestMethod>]
+  member _.``[AVR] Long Jump Parse Test``() =
+    "0c943412"
+    ++ JMP ** [ O.AbsAddr 0x2468 ] ||> test
+
+  /// <summary>
+  /// The highest bit of that address sits in the word naming the instruction
+  /// rather than in the word below it.
+  ///
+  /// Reading that word as one word wide leaves the address behind and the whole
+  /// instruction is then something else, or nothing at all.
+  /// </summary>
+  [<TestMethod>]
+  member _.``[AVR] Long Call Parse Test``() =
+    "0f943412"
+    ++ CALL ** [ O.AbsAddr 0x22468 ] ||> test
+
+  /// Nor is the byte a direct load or store reaches a distance from anywhere.
+  [<TestMethod>]
+  member _.``[AVR] Direct Load Parse Test``() =
+    "00903412"
+    ++ LDS ** [ O.Reg R0; O.AbsAddr 0x1234 ] ||> test
+
+  /// A subtraction with a written byte whose lowest bits happen to be spelt the
+  /// way a long call is, which is one word wide all the same.
+  [<TestMethod>]
+  member _.``[AVR] Immediate Subtraction Parse Test``() =
+    "074a"
+    ++ SBCI ** [ O.Reg R16; O.Imm 0xa7 ] ||> test
+
+  /// Every register an instruction names is read back under the name it is
+  /// written by, so that what reads a name cannot drift from what writes one.
+  [<TestMethod>]
+  member _.``[AVR] Register Name Round Trip Test``() =
+    let named =
+      [ for i in 0 .. 31 -> enum<Register>(int Register.R0 + i) ]
+      @ [ Register.X; Register.Y; Register.Z ]
+    for reg in named do
+      Assert.AreEqual<Register>(reg, Register.ofString (Register.toString reg))

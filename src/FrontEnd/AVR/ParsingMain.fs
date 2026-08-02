@@ -31,7 +31,7 @@ open type Register
 let isTwoBytes b1 =
   let b32 = b1 |> uint32
   match concat (b32 >>> 9) (b32 &&& 0b1111u) 4 with
-  | 0b10010101110u | 0b1001010111u -> false
+  | 0b10010101110u | 0b10010101111u -> false
   | 0b10010101100u | 0b10010101101u -> false
   | 0b10010000000u -> false
   | 0b10010010000u -> false
@@ -63,7 +63,7 @@ let parse1001001 b32 =
 let parse000000 b32 =
   match extract b32 9u 8u with
   | 0b01u -> Opcode.MOVW, parseTwoOpr b32 getRegEven4D getRegEvenEnd4D
-  | 0b10u -> Opcode.MULS, parseTwoOpr b32 getRegEven4D getRegEvenEnd4D
+  | 0b10u -> Opcode.MULS, parseTwoOpr b32 getReg4D getReg4DLast
   | 0b11u ->
     match concat (pickBit b32 7u) (pickBit b32 3u) 1 with
     | 0b01u -> Opcode.FMUL, parseTwoOpr b32 getReg3D getReg3DLast

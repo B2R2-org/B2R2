@@ -57,6 +57,7 @@ let transOprToExpr bld = function
 | OprReg reg -> regVar bld reg
 | OprImm imm -> numI32 imm
 | OprAddr addr -> numI32PC addr
+| OprAbsAddr addr -> numI32PC addr
 | _ -> Terminator.impossible ()
 
 let transMemOprToExpr (ins: Instruction) bld =

@@ -158,18 +158,20 @@ let prependDelimiter delimiter (builder: IDisasmBuilder) =
 let immToString imm  (builder: IDisasmBuilder) =
   builder.Accumulate(AsmWordKind.Value, HexString.ofInt32 imm)
 
+/// A distance a relative branch holds, written as the distance itself followed
+/// by where it lands. A distance below zero already carries its own sign, so
+/// only one above needs one put in front of it.
 let addrToString shift addr (builder: IDisasmBuilder) =
   let relAddr = int addr + shift + 2
-  if shift >= 0 then
-    builder.Accumulate(AsmWordKind.String, ".+")
-    builder.Accumulate(AsmWordKind.Value, string shift)
-    builder.Accumulate(AsmWordKind.String, "     ; ")
-    builder.Accumulate(AsmWordKind.Value, HexString.ofInt32 relAddr)
-    else
-      builder.Accumulate(AsmWordKind.String, ".")
-      builder.Accumulate(AsmWordKind.Value, string shift)
-      builder.Accumulate(AsmWordKind.String, "     ; ")
-      builder.Accumulate(AsmWordKind.Value, HexString.ofInt32 relAddr)
+  let mark = if shift >= 0 then ".+" else "."
+  builder.Accumulate(AsmWordKind.String, mark)
+  builder.Accumulate(AsmWordKind.Value, string shift)
+  builder.Accumulate(AsmWordKind.String, "     ; ")
+  builder.Accumulate(AsmWordKind.Value, HexString.ofInt32 relAddr)
+
+/// An address written out in full, which needs nothing counted from anywhere.
+let absAddrToString addr (builder: IDisasmBuilder) =
+  builder.Accumulate(AsmWordKind.Value, HexString.ofInt32 addr)
 
 let memToString addrMode (builder: IDisasmBuilder) =
   match addrMode with
@@ -205,6 +207,9 @@ let oprToString ins addr operand delim builder =
   | OprAddr shift ->
     prependDelimiter delim builder
     addrToString shift addr builder
+  | OprAbsAddr target ->
+    prependDelimiter delim builder
+    absAddrToString target builder
   | OprMemory addrMode ->
     prependDelimiter delim builder
     memToString addrMode builder
