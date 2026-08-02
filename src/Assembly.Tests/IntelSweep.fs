@@ -160,14 +160,6 @@ module internal IntelSweep =
        else
          List.contains opcodeByte reservedMemoryForm
 
-  /// The decoder reads the ModRM.reg field of these through a register table it
-  /// then runs off the end of: 0F 20 names DR0 to DR2 where CR5 to CR7 would
-  /// be, and 0F 21 names BND0 and BND1 where DR6 and DR7 would be. What it
-  /// prints therefore does not say which register the processor would select,
-  /// so there is no encoding that answers to it.
-  let private isControlRegisterMove map opcodeByte =
-    map = TwoByte && opcodeByte >= 0x20 && opcodeByte <= 0x23
-
   /// MOVNTI stores a doubleword or a quadword and has no 16-bit form, so the
   /// operand-size prefix names nothing at its opcode byte and the decoder
   /// renders a store no processor performs.
@@ -190,7 +182,6 @@ module internal IntelSweep =
             for modRM in modRMs do
               let worthProbing =
                 not (isReservedForm map opcodeByte modRM)
-                && not (isControlRegisterMove map opcodeByte)
                 && not (hasNoOperandSizeOverride map opcodeByte prefix)
               if worthProbing then
                 let head = Array.concat [ prefix; rex; escapeOf map ]

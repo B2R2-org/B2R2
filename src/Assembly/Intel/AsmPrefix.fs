@@ -122,6 +122,10 @@ let isYMMReg reg = RegisterHelper.Kind.YMM = RegisterHelper.getKind reg
 
 let isSegReg reg = RegisterHelper.Kind.Segment = RegisterHelper.getKind reg
 
+let isCtrlReg reg = RegisterHelper.Kind.Control = RegisterHelper.getKind reg
+
+let isDbgReg reg = RegisterHelper.Kind.Debug = RegisterHelper.getKind reg
+
 let isFPUReg reg = RegisterHelper.Kind.FPU = RegisterHelper.getKind reg
 
 let private isHalfSplit (wordSz: WordSize) reg =
@@ -246,7 +250,10 @@ let isExtendReg = function
   | Register.R14B | Register.R14W | Register.R14D | Register.R14
   | Register.R15B | Register.R15W | Register.R15D | Register.R15
   | Register.XMM8 | Register.XMM9 | Register.XMM10 | Register.XMM11
-  | Register.XMM12 | Register.XMM13 | Register.XMM14 | Register.XMM15 -> true
+  | Register.XMM12 | Register.XMM13 | Register.XMM14 | Register.XMM15
+  (* CR8 shares its ModRM.reg digit with CR0, and REX.R is what tells them
+     apart. *)
+  | Register.CR8 -> true
   | _ -> false
 
 let encodeRexR reg = if isExtendReg reg then 0x44uy else 0x0uy

@@ -129,7 +129,22 @@ type IntelEncodingTests() =
       (* MOVNTPS and MOVNTPD only store, so the register form the decoder
          renders at 0F 2B does not exist either. *)
       WordSize.Bit32, "movntps xmmword ptr [ecx], xmm0", "0f2b01"
-      WordSize.Bit32, "movntpd xmmword ptr [ecx], xmm0", "660f2b01" ]
+      WordSize.Bit32, "movntpd xmmword ptr [ecx], xmm0", "660f2b01"
+      (* The control and debug register moves take a 32-bit general register in
+         legacy mode and a 64-bit one in long mode, with the mode alone fixing
+         the operand size: no operand-size prefix and no REX.W. CR8 is the one
+         of them REX.R reaches, and the sweep probes no REX.R, so the long-mode
+         forms are pinned here. *)
+      WordSize.Bit32, "mov ecx, cr0", "0f20c1"
+      WordSize.Bit32, "mov cr0, ecx", "0f22c1"
+      WordSize.Bit32, "mov ecx, dr7", "0f21f9"
+      WordSize.Bit32, "mov dr7, ecx", "0f23f9"
+      WordSize.Bit64, "mov rcx, cr0", "0f20c1"
+      WordSize.Bit64, "mov rcx, cr8", "440f20c1"
+      WordSize.Bit64, "mov cr8, rcx", "440f22c1"
+      WordSize.Bit64, "mov r9, cr0", "410f20c1"
+      WordSize.Bit64, "mov cr0, r9", "410f22c1"
+      WordSize.Bit64, "mov r9, dr7", "410f21f9" ]
 
   /// Sources that must be refused rather than encoded. Before these were
   /// checked, an instruction whose encoder emits raw opcode bytes dropped a
@@ -148,10 +163,16 @@ type IntelEncodingTests() =
       WordSize.Bit32, "repz add eax, ebx"
       WordSize.Bit32, "repz movsd xmm0, xmm1"
       (* A register with no general-purpose width used to escape as a register
-         exception rather than a refusal. *)
-      WordSize.Bit32, "mov ecx, cr0"
-      WordSize.Bit32, "mov cr0, ecx"
-      WordSize.Bit32, "mov ecx, dr0"
+         exception rather than a refusal. MOV reaches the control and debug
+         registers, but no other instruction does, and CR8 is named by REX.R,
+         which legacy mode has no way to emit. *)
+      WordSize.Bit32, "add ecx, cr0"
+      WordSize.Bit32, "add cr0, ecx"
+      WordSize.Bit32, "add ecx, dr0"
+      WordSize.Bit32, "mov ecx, cr8"
+      WordSize.Bit32, "mov cr8, ecx"
+      WordSize.Bit32, "mov cx, cr0"
+      WordSize.Bit64, "mov ecx, cr0"
       (* 16-bit addressing needs a ModRM layout this assembler does not emit,
          and used to be encoded as though the registers were 32-bit. *)
       WordSize.Bit32, "adc dword ptr [bx+di], edx"
@@ -174,6 +195,9 @@ type IntelEncodingTests() =
       | Error _ -> "<cannot parse>"
     with
     | :? EncodingFailureException -> "<unsupported>"
+    (* A form belonging to the other word size, such as a long-mode-only
+       register named in legacy mode. *)
+    | :? InvalidISAException -> "<unsupported>"
     | :? NotImplementedException -> "<unsupported>"
     | :? InvalidOperationException -> "<invalid>"
     | :? Collections.Generic.KeyNotFoundException -> "<missing label>"

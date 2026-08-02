@@ -63,6 +63,7 @@ module private Shortcut =
 /// - 5.8 SUPPLEMENTAL STREAMING SIMD EXTENSIONS 3 (SSSE3) INSTRUCTIONS
 /// - 5.10 SSE4.1 INSTRUCTIONS
 /// - 5.11 SSE4.2 INSTRUCTION SET
+/// - 5.19 SYSTEM INSTRUCTIONS
 /// - 5.22 INTEL MEMORY PROTECTION EXTENSIONS
 /// - INTEL ADVANCED VECTOR EXTENSIONS (AVX)
 /// - Exception Test
@@ -935,6 +936,68 @@ type ParserTests() =
     "660f3837c2"
     ++ PCMPGTQ ** [ O.Reg R.XMM0; O.Reg R.XMM2 ]
     ||> testX64NoPrefixNoSeg
+
+  [<TestMethod>]
+  member _.``5.19 System Instructions (1)``() =
+    "0f20d1"
+    ++ MOV ** [ O.Reg R.ECX; O.Reg R.CR2 ]
+    ||> testX86NoPrefixNoSeg
+
+  [<TestMethod>]
+  member _.``5.19 System Instructions (2)``() =
+    "0f20e1"
+    ++ MOV ** [ O.Reg R.ECX; O.Reg R.CR4 ]
+    ||> testX86NoPrefixNoSeg
+
+  [<TestMethod>]
+  member _.``5.19 System Instructions (3)``() =
+    "0f22d1"
+    ++ MOV ** [ O.Reg R.CR2; O.Reg R.ECX ]
+    ||> testX86NoPrefixNoSeg
+
+  [<TestMethod>]
+  member _.``5.19 System Instructions (4)``() =
+    "440f20c1"
+    ++ MOV ** [ O.Reg R.RCX; O.Reg R.CR8 ]
+    ||> testX64NoPrefixNoSeg
+
+  [<TestMethod>]
+  member _.``5.19 System Instructions (5)``() =
+    "440f22c1"
+    ++ MOV ** [ O.Reg R.CR8; O.Reg R.RCX ]
+    ||> testX64NoPrefixNoSeg
+
+  [<TestMethod>]
+  member _.``5.19 System Instructions (6)``() =
+    "0f21c9"
+    ++ MOV ** [ O.Reg R.ECX; O.Reg R.DR1 ]
+    ||> testX86NoPrefixNoSeg
+
+  [<TestMethod>]
+  member _.``5.19 System Instructions (7)``() =
+    "0f21f1"
+    ++ MOV ** [ O.Reg R.ECX; O.Reg R.DR6 ]
+    ||> testX86NoPrefixNoSeg
+
+  [<TestMethod>]
+  member _.``5.19 System Instructions (8)``() =
+    "0f23f9"
+    ++ MOV ** [ O.Reg R.DR7; O.Reg R.ECX ]
+    ||> testX86NoPrefixNoSeg
+
+  (* DR4 and DR5 are aliases of DR6 and DR7 while CR4.DE is clear, which is the
+     register those accesses reach. *)
+  [<TestMethod>]
+  member _.``5.19 System Instructions (9)``() =
+    "0f21e1"
+    ++ MOV ** [ O.Reg R.ECX; O.Reg R.DR6 ]
+    ||> testX86NoPrefixNoSeg
+
+  [<TestMethod>]
+  member _.``5.19 System Instructions (10)``() =
+    "0f23e9"
+    ++ MOV ** [ O.Reg R.DR7; O.Reg R.ECX ]
+    ||> testX86NoPrefixNoSeg
 
   [<TestMethod>]
   member _.``Intel Memory Protection Extension Instruction (1)``() =
@@ -1877,5 +1940,33 @@ type ParserTests() =
   member _.``Size cond ParsingFailure Test (6)``() =
     "c511"
     ++ LDS ** [ O.Reg R.EDX; O.Mem(R.ECX, 48<rt>) ]
+    ||> testException testX64NoPrefixNoSeg
+
+  (* The control and debug register moves select their register with the
+     ModRM.reg field, and the indices the manual reserves name no register at
+     all: a processor raises #UD for them. The exception is DR4 and DR5, which
+     alias DR6 and DR7 and so do decode. *)
+  [<TestMethod>]
+  member _.``Reserved register ParsingFailure Test (1)``() = (* CR1 *)
+    "0f20c9"
+    ++ MOV ** [ O.Reg R.ECX; O.Reg R.CR0 ]
+    ||> testException testX86NoPrefixNoSeg
+
+  [<TestMethod>]
+  member _.``Reserved register ParsingFailure Test (2)``() = (* CR5 *)
+    "0f20e9"
+    ++ MOV ** [ O.Reg R.ECX; O.Reg R.CR0 ]
+    ||> testException testX86NoPrefixNoSeg
+
+  [<TestMethod>]
+  member _.``Reserved register ParsingFailure Test (3)``() = (* CR7 *)
+    "0f22f9"
+    ++ MOV ** [ O.Reg R.CR0; O.Reg R.ECX ]
+    ||> testException testX86NoPrefixNoSeg
+
+  [<TestMethod>]
+  member _.``Reserved register ParsingFailure Test (4)``() = (* DR8 *)
+    "440f21c1"
+    ++ MOV ** [ O.Reg R.RCX; O.Reg R.DR0 ]
     ||> testException testX64NoPrefixNoSeg
 #endif

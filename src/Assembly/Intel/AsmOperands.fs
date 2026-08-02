@@ -32,22 +32,27 @@ let regTo3Bit = function
   | Register.AL | Register.AX | Register.EAX | Register.RAX | Register.BND0
   | Register.MM0 | Register.XMM0 | Register.YMM0 | Register.ES
   | Register.R8B | Register.R8W | Register.R8D | Register.R8
+  | Register.CR0 | Register.CR8 | Register.DR0
   | Register.XMM8 | Register.YMM8 | Register.ST0 -> 0b000uy
   | Register.CL | Register.CX | Register.ECX | Register.RCX | Register.BND1
   | Register.MM1 | Register.XMM1 | Register.YMM1 | Register.CS
   | Register.R9B | Register.R9W | Register.R9D | Register.R9
+  | Register.DR1
   | Register.XMM9 | Register.YMM9 | Register.ST1 -> 0b001uy
   | Register.DL | Register.DX | Register.EDX | Register.RDX | Register.BND2
   | Register.MM2 | Register.XMM2 | Register.YMM2 | Register.SS
   | Register.R10B | Register.R10W | Register.R10D | Register.R10
+  | Register.CR2 | Register.DR2
   | Register.XMM10 | Register.YMM10 | Register.ST2 -> 0b010uy
   | Register.BL | Register.BX | Register.EBX | Register.RBX | Register.BND3
   | Register.MM3 | Register.XMM3 | Register.YMM3 | Register.DS
   | Register.R11B | Register.R11W | Register.R11D | Register.R11
+  | Register.CR3 | Register.DR3
   | Register.XMM11 | Register.YMM11 | Register.ST3 -> 0b011uy
   | Register.AH | Register.SP | Register.ESP | Register.RSP
   | Register.MM4 | Register.XMM4 | Register.YMM4 | Register.FS
   | Register.SPL | Register.R12B | Register.R12W | Register.R12D | Register.R12
+  | Register.CR4
   | Register.XMM12 | Register.YMM12 | Register.ST4 -> 0b100uy
   | Register.CH | Register.BP | Register.EBP | Register.RBP
   | Register.MM5 | Register.XMM5 | Register.YMM5 | Register.GS
@@ -56,10 +61,12 @@ let regTo3Bit = function
   | Register.DH | Register.SI | Register.ESI | Register.RSI
   | Register.MM6 | Register.XMM6 | Register.YMM6
   | Register.SIL | Register.R14B | Register.R14W | Register.R14D | Register.R14
+  | Register.DR6
   | Register.XMM14 | Register.YMM14 | Register.ST6 -> 0b110uy
   | Register.BH | Register.DI | Register.EDI | Register.RDI
   | Register.MM7 | Register.XMM7 | Register.YMM7
   | Register.DIL | Register.R15B | Register.R15W | Register.R15D | Register.R15
+  | Register.DR7
   | Register.XMM15 | Register.YMM15 | Register.ST7 -> 0b111uy
   | _ -> Terminator.impossible ()
 

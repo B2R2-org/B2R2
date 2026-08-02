@@ -538,9 +538,37 @@ let parseBoundRegister n =
   if n < 4 then RegisterHelper.bound n |> OprReg
   else raise ParsingFailureException
 
-let parseControlReg n = RegisterHelper.control n |> OprReg
+/// The index a control or debug register move selects its register with: the
+/// ModRM.reg field, which REX.R extends so that CR8 becomes reachable.
+let sysRegIndex modRM rex =
+  let n = Operands.getReg modRM
+  if (int rex &&& 0b100) > 0 then n + 8 else n
 
-let parseDebugReg n = RegisterHelper.debug n |> OprReg
+/// The control register of the given index. Every index left out here is one
+/// the manual reserves - CR1, CR5 to CR7, and CR9 upwards - and a processor
+/// raises #UD rather than selecting a register for it.
+let parseControlReg n =
+  match n with
+  | 0 -> OprReg R.CR0
+  | 2 -> OprReg R.CR2
+  | 3 -> OprReg R.CR3
+  | 4 -> OprReg R.CR4
+  | 8 -> OprReg R.CR8
+  | _ -> raise ParsingFailureException
+
+/// The debug register of the given index. Indices 4 and 5 name DR4 and DR5,
+/// which the processor aliases to DR6 and DR7 while CR4.DE is clear, so they
+/// select the register those accesses land on rather than failing. Index 8
+/// upwards, which only REX.R reaches, names nothing: a processor raises #UD.
+let parseDebugReg n =
+  match n with
+  | 0 -> OprReg R.DR0
+  | 1 -> OprReg R.DR1
+  | 2 -> OprReg R.DR2
+  | 3 -> OprReg R.DR3
+  | 4 | 6 -> OprReg R.DR6
+  | 5 | 7 -> OprReg R.DR7
+  | _ -> raise ParsingFailureException
 
 let parseOpMaskReg n = RegisterHelper.opmask n |> OprReg
 
@@ -590,7 +618,7 @@ type GprCtrl() =
     if Operands.modIsMemory modRM then raise ParsingFailureException
     else
       let opr1 = parseMemOrReg modRM span phlp
-      let opr2 = parseControlReg (Operands.getReg modRM)
+      let opr2 = parseControlReg (sysRegIndex modRM phlp.REXPrefix)
       TwoOperands(opr1, opr2)
 
 type GprDbg() =
@@ -600,7 +628,7 @@ type GprDbg() =
     if Operands.modIsMemory modRM then raise ParsingFailureException
     else
       let opr1 = parseMemOrReg modRM span phlp
-      let opr2 = parseDebugReg (Operands.getReg modRM)
+      let opr2 = parseDebugReg (sysRegIndex modRM phlp.REXPrefix)
       TwoOperands(opr1, opr2)
 
 type RMMmx() =
@@ -704,7 +732,7 @@ type CtrlGpr() =
     let modRM = phlp.ReadByte span
     if Operands.modIsMemory modRM then raise ParsingFailureException
     else
-      let opr1 = parseControlReg (Operands.getReg modRM)
+      let opr1 = parseControlReg (sysRegIndex modRM phlp.REXPrefix)
       let opr2 = parseMemOrReg modRM span phlp
       TwoOperands(opr1, opr2)
 
@@ -714,7 +742,7 @@ type DbgGpr() =
     let modRM = phlp.ReadByte span
     if Operands.modIsMemory modRM then raise ParsingFailureException
     else
-      let opr1 = parseDebugReg (Operands.getReg modRM)
+      let opr1 = parseDebugReg (sysRegIndex modRM phlp.REXPrefix)
       let opr2 = parseMemOrReg modRM span phlp
       TwoOperands(opr1, opr2)
 

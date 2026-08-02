@@ -129,16 +129,6 @@ module internal RegisterHelper = begin
     0xb4 + n
     |> LanguagePrimitives.EnumOfValue<int, Register>
 
-  /// Get the control register of the given index.
-  let control n =
-    0xa9 + n
-    |> LanguagePrimitives.EnumOfValue<int, Register>
-
-  /// Get the debug register of the given index.
-  let debug n =
-    0xae + n
-    |> LanguagePrimitives.EnumOfValue<int, Register>
-
   /// Get the OpMask register of the given index.
   let opmask n =
     0x15A + n

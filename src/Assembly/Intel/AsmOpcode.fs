@@ -1121,9 +1121,38 @@ let leave = function
   | NoOperand -> Resolved [| 0xC9uy |]
   | _ -> raise <| EncodingFailureException "Unsupported operand type"
 
+/// Whether the register is the general one a control or debug register move can
+/// name: the mode alone fixes that width, which is why these forms carry
+/// neither an operand-size prefix nor REX.W.
+let private isSysMovReg wordSz r =
+  if wordSz = WordSize.Bit64 then isReg64 wordSz r else isReg32 wordSz r
+
+/// CR8 is told from CR0 by REX.R alone, and legacy mode has no REX to emit, so
+/// naming CR8 there cannot be encoded.
+let private noCR8In32Bit wordSz r =
+  if r = Register.CR8 then no32Arch wordSz else ()
+
 let mov wordSz ins =
   let ins = resolveMemSizeFromReg ins wordSz
   match ins.Operands with
+  (* Reg - Ctrl/Dbg and the other way round. A control or debug register has no
+     general-purpose width, so these cases cannot be reached by the general
+     ones below, but they do have to precede them to keep the reading order the
+     operand pairs are tried in. *)
+  | TwoOperands(OprReg r1, OprReg r2)
+    when isCtrlReg r2 && isSysMovReg wordSz r1 ->
+    noCR8In32Bit wordSz r2
+    encRR ins wordSz prefNormal rexMR [| 0x0Fuy; 0x20uy |] r2 r1
+  | TwoOperands(OprReg r1, OprReg r2)
+    when isDbgReg r2 && isSysMovReg wordSz r1 ->
+    encRR ins wordSz prefNormal rexMR [| 0x0Fuy; 0x21uy |] r2 r1
+  | TwoOperands(OprReg r1, OprReg r2)
+    when isCtrlReg r1 && isSysMovReg wordSz r2 ->
+    noCR8In32Bit wordSz r1
+    encRR ins wordSz prefNormal rexNormal [| 0x0Fuy; 0x22uy |] r1 r2
+  | TwoOperands(OprReg r1, OprReg r2)
+    when isDbgReg r1 && isSysMovReg wordSz r2 ->
+    encRR ins wordSz prefNormal rexNormal [| 0x0Fuy; 0x23uy |] r1 r2
   (* Reg - Sreg *)
   | TwoOperands(OprReg r1, OprReg r2) when isReg16 wordSz r1 && isSegReg r2 ->
     encRR ins wordSz pref66 rexMR [| 0x8Cuy |] r2 r1

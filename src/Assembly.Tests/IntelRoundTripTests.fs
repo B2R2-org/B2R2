@@ -411,16 +411,23 @@ type IntelRoundTripTests() =
       String.concat "\n" wrong,
       "These SSE or string operand shapes no longer encode correctly.")
 
-  /// IntelSweep drops the control and debug register moves because the decoder
-  /// walks off the end of a register table when it names their operand: 0F 20
-  /// reports DR0 to DR2 where CR5 to CR7 would be. Nothing can be encoded to
-  /// answer to that, but the day the decoder is fixed the filter has to go, so
-  /// this pins the defect the filter stands on rather than the filter itself.
+  /// The control register moves select their register with the ModRM.reg field,
+  /// and the indices the manual reserves - CR1, and CR5 to CR7 - name no
+  /// register, so the decoder rejects them rather than reading past the end of
+  /// its register table. The sweep covers the forms that do exist; this pins
+  /// the ones that must not decode at all.
   [<TestMethod>]
-  member _.``The control register moves still name the wrong register``() =
-    let bytes = [| 0x0Fuy; 0x20uy; 0xE9uy |] (* 0F 20 /5, so CR5 *)
+  member _.``A reserved control register does not decode``() =
+    let reserved =
+      [ [| 0x0Fuy; 0x20uy; 0xC9uy |] (* 0F 20 /1, so CR1 *)
+        [| 0x0Fuy; 0x20uy; 0xE9uy |] (* 0F 20 /5, so CR5 *)
+        [| 0x0Fuy; 0x20uy; 0xF1uy |] (* 0F 20 /6, so CR6 *)
+        [| 0x0Fuy; 0x22uy; 0xF9uy |] (* 0F 22 /7, so CR7 *) ]
+    let decoded =
+      reserved
+      |> List.choose (fun bytes ->
+        try Some(disasm WordSize.Bit32 bytes) with _ -> None)
     Assert.AreEqual<string>(
-      "mov ecx, dr0",
-      disasm WordSize.Bit32 bytes,
-      "The decoder no longer misreads the register field here, so IntelSweep \
-       can stop dropping 0F 20 to 0F 23 and the assembler can encode them.")
+      "",
+      String.concat "\n" decoded,
+      "These name a register the manual reserves, so they must not decode.")
