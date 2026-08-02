@@ -32,6 +32,7 @@ open B2R2.FsOptParse
 type AssemblerOpts =
   { Mode: AssemblerMode
     BaseAddress: Addr
+    OutFile: string option
     Verbose: bool }
 with
   interface IVerboseOption with
@@ -40,11 +41,13 @@ with
   static member Default =
     { Mode = GeneralMode(ISA Architecture.Intel)
       BaseAddress = 0UL
+      OutFile = None
       Verbose = false }
 
   static member Spec =
     [ CmdOpt(descr = "Show this usage",
              help = true,
+             short = "-h",
              long = "--help")
       CmdOpt(descr = "Verbose mode",
              short = "-v",
@@ -62,6 +65,11 @@ with
              callback = fun opts arg ->
                { opts with
                    Mode = AssemblerMode.ChangeISA(ISA arg[0], opts.Mode) })
+      CmdOpt(descr = "Write the assembled raw binary to the given <file>",
+             short = "-o",
+             long = "--output",
+             extra = 1,
+             callback = fun opts arg -> { opts with OutFile = Some arg[0] })
       CmdOpt(descr = "Specify the base <address> in hex (default=0)",
              short = "-r",
              long = "--base-addr",

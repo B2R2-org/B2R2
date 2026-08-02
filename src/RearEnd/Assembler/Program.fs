@@ -55,11 +55,38 @@ let private printIns parsers addr (isa, bs) =
   printfn "%08x: %-20s     %s" addr bCode (ins.Disasm())
   addr + uint64 (Array.length bs)
 
-let inline private printResult fn = function
-  | Ok res -> fn res
-  | Error err -> eprintsn err
+/// Gathers the assembled bytes so that they can be dumped into a raw binary
+/// file, which is only requested when an output path is given.
+type BinDumper(path: string option) =
+  let buf = ResizeArray<byte>()
+  let mutable hasError = false
 
-let getAssemblyPrinter (opts: AssemblerOpts) =
+  /// Appends the bytes of a single assembled instruction.
+  member _.Add(bs: byte[]) =
+    if Option.isSome path then buf.AddRange bs else ()
+
+  /// Remembers that a part of the input failed to assemble, in which case
+  /// nothing is dumped at all.
+  member _.MarkError() = hasError <- true
+
+  /// Writes the gathered bytes out, unless there was an error.
+  member _.Dump() =
+    match path with
+    | Some path when hasError ->
+      eprintsn $"Failed to assemble; nothing is written to {path}."
+    | Some path ->
+      IO.File.WriteAllBytes(path, buf.ToArray())
+    | None ->
+      ()
+
+let inline private printResult (dumper: BinDumper) fn = function
+  | Ok res ->
+    fn res
+  | Error err ->
+    dumper.MarkError()
+    eprintsn err
+
+let getAssemblyPrinter (opts: AssemblerOpts) dumper =
   match opts.Mode with
   | GeneralMode(isa) ->
     let baseAddr = opts.BaseAddress
@@ -67,15 +94,15 @@ let getAssemblyPrinter (opts: AssemblerOpts) =
     let asm = Assembler(isa, baseAddr)
     fun str ->
       asm.Lower str
-      |> printResult (fun res ->
-        List.fold (printIns parsers) baseAddr res
-        |> ignore)
+      |> printResult dumper (fun res ->
+        List.fold (printIns parsers) baseAddr res |> ignore
+        res |> List.iter (snd >> (dumper: BinDumper).Add))
   | LowUIRMode(isa) ->
     let regFactory = ArchSupport.createRegisterFactory isa
     let parser = LowUIR.Parser(isa, regFactory, regFactory)
     fun str ->
       parser.Parse str
-      |> printResult (fun stmts ->
+      |> printResult dumper (fun stmts ->
         stmts |> Array.iter (PrettyPrinter.ToString >> printsn))
 
 let rec private asmFromStdin (console: FsReadLine.Console) printer str =
@@ -112,13 +139,26 @@ let private asmFromFiles files printer =
   files
   |> List.iter (IO.File.ReadAllText >> printer)
 
+/// The path to dump the assembled bytes to, which only makes sense in general
+/// mode as LowUIR mode produces no bytes at all.
+let private outFileOf (opts: AssemblerOpts) =
+  match opts.Mode, opts.OutFile with
+  | LowUIRMode _, Some _ ->
+    eprintsn "The output file option is ignored in LowUIR mode."
+    None
+  | _, path ->
+    path
+
 let asmMain files opts =
-  let printer = getAssemblyPrinter opts
+  let dumper = BinDumper(outFileOf opts)
+  let printer = getAssemblyPrinter opts dumper
   if List.isEmpty files then
     let console = FsReadLine.Console(NormalPrompt, [ "quit" ])
     showBasicInfo opts
     asmFromStdin console printer ""
-  else asmFromFiles files printer
+  else
+    asmFromFiles files printer
+  dumper.Dump()
 
 [<EntryPoint>]
 let main args =
