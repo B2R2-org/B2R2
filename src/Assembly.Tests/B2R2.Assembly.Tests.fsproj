@@ -5,6 +5,7 @@
   </PropertyGroup>
 
   <ItemGroup>
+    <Compile Include="MSTestSettings.fs" />
     <Compile Include="IntelTests.fs" />
     <Compile Include="IntelSweep.fs" />
     <Compile Include="IntelRoundTripTests.fs" />
