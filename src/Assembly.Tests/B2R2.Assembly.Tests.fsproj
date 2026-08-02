@@ -24,6 +24,8 @@
     <Compile Include="SPARCRoundTripTests.fs" />
     <Compile Include="SH4Sweep.fs" />
     <Compile Include="SH4RoundTripTests.fs" />
+    <Compile Include="AVRSweep.fs" />
+    <Compile Include="AVRRoundTripTests.fs" />
   </ItemGroup>
 
   <ItemGroup>
@@ -41,6 +43,7 @@
       Include="..\Assembly\RISCV64\B2R2.Assembly.RISCV64.fsproj" />
     <ProjectReference Include="..\Assembly\SPARC\B2R2.Assembly.SPARC.fsproj" />
     <ProjectReference Include="..\Assembly\SH4\B2R2.Assembly.SH4.fsproj" />
+    <ProjectReference Include="..\Assembly\AVR\B2R2.Assembly.AVR.fsproj" />
     <ProjectReference Include="..\Assembly\API\B2R2.Assembly.API.fsproj" />
     <ProjectReference Include="..\FrontEnd\Intel\B2R2.FrontEnd.Intel.fsproj" />
     <ProjectReference Include="..\FrontEnd\ARM32\B2R2.FrontEnd.ARM32.fsproj" />
@@ -51,6 +54,7 @@
       Include="..\FrontEnd\RISCV64\B2R2.FrontEnd.RISCV64.fsproj" />
     <ProjectReference Include="..\FrontEnd\SPARC\B2R2.FrontEnd.SPARC.fsproj" />
     <ProjectReference Include="..\FrontEnd\SH4\B2R2.FrontEnd.SH4.fsproj" />
+    <ProjectReference Include="..\FrontEnd\AVR\B2R2.FrontEnd.AVR.fsproj" />
     <ProjectReference
       Include="..\FrontEnd\BinLifter\B2R2.FrontEnd.BinLifter.fsproj" />
   </ItemGroup>
