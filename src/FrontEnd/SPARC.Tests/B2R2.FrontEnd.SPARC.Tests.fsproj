@@ -8,6 +8,7 @@
     <Compile Include="UndecodableTests.fs" />
     <Compile Include="ExtractTests.fs" />
     <Compile Include="ParserTests.fs" />
+    <Compile Include="DisasmTests.fs" />
     <Compile Include="LifterTests.fs" />
   </ItemGroup>
 
