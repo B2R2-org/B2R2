@@ -114,38 +114,70 @@ type RegisterFactory(isa: ISA) =
   let cr29 = AST.var rt (Register.toRegID CR29) "CR29"
   let cr30 = AST.var rt (Register.toRegID CR30) "CR30"
   let cr31 = AST.var rt (Register.toRegID CR31) "CR31"
-  let fpr0 = AST.var rt (Register.toRegID FPR0) "FPR0"
-  let fpr1 = AST.var rt (Register.toRegID FPR1) "FPR1"
-  let fpr2 = AST.var rt (Register.toRegID FPR2) "FPR2"
-  let fpr3 = AST.var rt (Register.toRegID FPR3) "FPR3"
-  let fpr4 = AST.var rt (Register.toRegID FPR4) "FPR4"
-  let fpr5 = AST.var rt (Register.toRegID FPR5) "FPR5"
-  let fpr6 = AST.var rt (Register.toRegID FPR6) "FPR6"
-  let fpr7 = AST.var rt (Register.toRegID FPR7) "FPR7"
-  let fpr8 = AST.var rt (Register.toRegID FPR8) "FPR8"
-  let fpr9 = AST.var rt (Register.toRegID FPR9) "FPR9"
-  let fpr10 = AST.var rt (Register.toRegID FPR10) "FPR10"
-  let fpr11 = AST.var rt (Register.toRegID FPR11) "FPR11"
-  let fpr12 = AST.var rt (Register.toRegID FPR12) "FPR12"
-  let fpr13 = AST.var rt (Register.toRegID FPR13) "FPR13"
-  let fpr14 = AST.var rt (Register.toRegID FPR14) "FPR14"
-  let fpr15 = AST.var rt (Register.toRegID FPR15) "FPR15"
-  let fpr16 = AST.var rt (Register.toRegID FPR16) "FPR16"
-  let fpr17 = AST.var rt (Register.toRegID FPR17) "FPR17"
-  let fpr18 = AST.var rt (Register.toRegID FPR18) "FPR18"
-  let fpr19 = AST.var rt (Register.toRegID FPR19) "FPR19"
-  let fpr20 = AST.var rt (Register.toRegID FPR20) "FPR20"
-  let fpr21 = AST.var rt (Register.toRegID FPR21) "FPR21"
-  let fpr22 = AST.var rt (Register.toRegID FPR22) "FPR22"
-  let fpr23 = AST.var rt (Register.toRegID FPR23) "FPR23"
-  let fpr24 = AST.var rt (Register.toRegID FPR24) "FPR24"
-  let fpr25 = AST.var rt (Register.toRegID FPR25) "FPR25"
-  let fpr26 = AST.var rt (Register.toRegID FPR26) "FPR26"
-  let fpr27 = AST.var rt (Register.toRegID FPR27) "FPR27"
-  let fpr28 = AST.var rt (Register.toRegID FPR28) "FPR28"
-  let fpr29 = AST.var rt (Register.toRegID FPR29) "FPR29"
-  let fpr30 = AST.var rt (Register.toRegID FPR30) "FPR30"
-  let fpr31 = AST.var rt (Register.toRegID FPR31) "FPR31"
+  let fpr0l = AST.var rt (Register.toRegID FPR0L) "FPR0L"
+  let fpr1l = AST.var rt (Register.toRegID FPR1L) "FPR1L"
+  let fpr2l = AST.var rt (Register.toRegID FPR2L) "FPR2L"
+  let fpr3l = AST.var rt (Register.toRegID FPR3L) "FPR3L"
+  let fpr4l = AST.var rt (Register.toRegID FPR4L) "FPR4L"
+  let fpr5l = AST.var rt (Register.toRegID FPR5L) "FPR5L"
+  let fpr6l = AST.var rt (Register.toRegID FPR6L) "FPR6L"
+  let fpr7l = AST.var rt (Register.toRegID FPR7L) "FPR7L"
+  let fpr8l = AST.var rt (Register.toRegID FPR8L) "FPR8L"
+  let fpr9l = AST.var rt (Register.toRegID FPR9L) "FPR9L"
+  let fpr10l = AST.var rt (Register.toRegID FPR10L) "FPR10L"
+  let fpr11l = AST.var rt (Register.toRegID FPR11L) "FPR11L"
+  let fpr12l = AST.var rt (Register.toRegID FPR12L) "FPR12L"
+  let fpr13l = AST.var rt (Register.toRegID FPR13L) "FPR13L"
+  let fpr14l = AST.var rt (Register.toRegID FPR14L) "FPR14L"
+  let fpr15l = AST.var rt (Register.toRegID FPR15L) "FPR15L"
+  let fpr16l = AST.var rt (Register.toRegID FPR16L) "FPR16L"
+  let fpr17l = AST.var rt (Register.toRegID FPR17L) "FPR17L"
+  let fpr18l = AST.var rt (Register.toRegID FPR18L) "FPR18L"
+  let fpr19l = AST.var rt (Register.toRegID FPR19L) "FPR19L"
+  let fpr20l = AST.var rt (Register.toRegID FPR20L) "FPR20L"
+  let fpr21l = AST.var rt (Register.toRegID FPR21L) "FPR21L"
+  let fpr22l = AST.var rt (Register.toRegID FPR22L) "FPR22L"
+  let fpr23l = AST.var rt (Register.toRegID FPR23L) "FPR23L"
+  let fpr24l = AST.var rt (Register.toRegID FPR24L) "FPR24L"
+  let fpr25l = AST.var rt (Register.toRegID FPR25L) "FPR25L"
+  let fpr26l = AST.var rt (Register.toRegID FPR26L) "FPR26L"
+  let fpr27l = AST.var rt (Register.toRegID FPR27L) "FPR27L"
+  let fpr28l = AST.var rt (Register.toRegID FPR28L) "FPR28L"
+  let fpr29l = AST.var rt (Register.toRegID FPR29L) "FPR29L"
+  let fpr30l = AST.var rt (Register.toRegID FPR30L) "FPR30L"
+  let fpr31l = AST.var rt (Register.toRegID FPR31L) "FPR31L"
+  let fpr0r = AST.var rt (Register.toRegID FPR0R) "FPR0R"
+  let fpr1r = AST.var rt (Register.toRegID FPR1R) "FPR1R"
+  let fpr2r = AST.var rt (Register.toRegID FPR2R) "FPR2R"
+  let fpr3r = AST.var rt (Register.toRegID FPR3R) "FPR3R"
+  let fpr4r = AST.var rt (Register.toRegID FPR4R) "FPR4R"
+  let fpr5r = AST.var rt (Register.toRegID FPR5R) "FPR5R"
+  let fpr6r = AST.var rt (Register.toRegID FPR6R) "FPR6R"
+  let fpr7r = AST.var rt (Register.toRegID FPR7R) "FPR7R"
+  let fpr8r = AST.var rt (Register.toRegID FPR8R) "FPR8R"
+  let fpr9r = AST.var rt (Register.toRegID FPR9R) "FPR9R"
+  let fpr10r = AST.var rt (Register.toRegID FPR10R) "FPR10R"
+  let fpr11r = AST.var rt (Register.toRegID FPR11R) "FPR11R"
+  let fpr12r = AST.var rt (Register.toRegID FPR12R) "FPR12R"
+  let fpr13r = AST.var rt (Register.toRegID FPR13R) "FPR13R"
+  let fpr14r = AST.var rt (Register.toRegID FPR14R) "FPR14R"
+  let fpr15r = AST.var rt (Register.toRegID FPR15R) "FPR15R"
+  let fpr16r = AST.var rt (Register.toRegID FPR16R) "FPR16R"
+  let fpr17r = AST.var rt (Register.toRegID FPR17R) "FPR17R"
+  let fpr18r = AST.var rt (Register.toRegID FPR18R) "FPR18R"
+  let fpr19r = AST.var rt (Register.toRegID FPR19R) "FPR19R"
+  let fpr20r = AST.var rt (Register.toRegID FPR20R) "FPR20R"
+  let fpr21r = AST.var rt (Register.toRegID FPR21R) "FPR21R"
+  let fpr22r = AST.var rt (Register.toRegID FPR22R) "FPR22R"
+  let fpr23r = AST.var rt (Register.toRegID FPR23R) "FPR23R"
+  let fpr24r = AST.var rt (Register.toRegID FPR24R) "FPR24R"
+  let fpr25r = AST.var rt (Register.toRegID FPR25R) "FPR25R"
+  let fpr26r = AST.var rt (Register.toRegID FPR26R) "FPR26R"
+  let fpr27r = AST.var rt (Register.toRegID FPR27R) "FPR27R"
+  let fpr28r = AST.var rt (Register.toRegID FPR28R) "FPR28R"
+  let fpr29r = AST.var rt (Register.toRegID FPR29R) "FPR29R"
+  let fpr30r = AST.var rt (Register.toRegID FPR30R) "FPR30R"
+  let fpr31r = AST.var rt (Register.toRegID FPR31R) "FPR31R"
 
   interface IRegisterFactory with
     member _.ISA = isa
@@ -235,38 +267,70 @@ type RegisterFactory(isa: ISA) =
       | Register.CR29 -> cr29
       | Register.CR30 -> cr30
       | Register.CR31 -> cr31
-      | Register.FPR0 -> fpr0
-      | Register.FPR1 -> fpr1
-      | Register.FPR2 -> fpr2
-      | Register.FPR3 -> fpr3
-      | Register.FPR4 -> fpr4
-      | Register.FPR5 -> fpr5
-      | Register.FPR6 -> fpr6
-      | Register.FPR7 -> fpr7
-      | Register.FPR8 -> fpr8
-      | Register.FPR9 -> fpr9
-      | Register.FPR10 -> fpr10
-      | Register.FPR11 -> fpr11
-      | Register.FPR12 -> fpr12
-      | Register.FPR13 -> fpr13
-      | Register.FPR14 -> fpr14
-      | Register.FPR15 -> fpr15
-      | Register.FPR16 -> fpr16
-      | Register.FPR17 -> fpr17
-      | Register.FPR18 -> fpr18
-      | Register.FPR19 -> fpr19
-      | Register.FPR20 -> fpr20
-      | Register.FPR21 -> fpr21
-      | Register.FPR22 -> fpr22
-      | Register.FPR23 -> fpr23
-      | Register.FPR24 -> fpr24
-      | Register.FPR25 -> fpr25
-      | Register.FPR26 -> fpr26
-      | Register.FPR27 -> fpr27
-      | Register.FPR28 -> fpr28
-      | Register.FPR29 -> fpr29
-      | Register.FPR30 -> fpr30
-      | Register.FPR31 -> fpr31
+      | Register.FPR0L -> fpr0l
+      | Register.FPR1L -> fpr1l
+      | Register.FPR2L -> fpr2l
+      | Register.FPR3L -> fpr3l
+      | Register.FPR4L -> fpr4l
+      | Register.FPR5L -> fpr5l
+      | Register.FPR6L -> fpr6l
+      | Register.FPR7L -> fpr7l
+      | Register.FPR8L -> fpr8l
+      | Register.FPR9L -> fpr9l
+      | Register.FPR10L -> fpr10l
+      | Register.FPR11L -> fpr11l
+      | Register.FPR12L -> fpr12l
+      | Register.FPR13L -> fpr13l
+      | Register.FPR14L -> fpr14l
+      | Register.FPR15L -> fpr15l
+      | Register.FPR16L -> fpr16l
+      | Register.FPR17L -> fpr17l
+      | Register.FPR18L -> fpr18l
+      | Register.FPR19L -> fpr19l
+      | Register.FPR20L -> fpr20l
+      | Register.FPR21L -> fpr21l
+      | Register.FPR22L -> fpr22l
+      | Register.FPR23L -> fpr23l
+      | Register.FPR24L -> fpr24l
+      | Register.FPR25L -> fpr25l
+      | Register.FPR26L -> fpr26l
+      | Register.FPR27L -> fpr27l
+      | Register.FPR28L -> fpr28l
+      | Register.FPR29L -> fpr29l
+      | Register.FPR30L -> fpr30l
+      | Register.FPR31L -> fpr31l
+      | Register.FPR0R -> fpr0r
+      | Register.FPR1R -> fpr1r
+      | Register.FPR2R -> fpr2r
+      | Register.FPR3R -> fpr3r
+      | Register.FPR4R -> fpr4r
+      | Register.FPR5R -> fpr5r
+      | Register.FPR6R -> fpr6r
+      | Register.FPR7R -> fpr7r
+      | Register.FPR8R -> fpr8r
+      | Register.FPR9R -> fpr9r
+      | Register.FPR10R -> fpr10r
+      | Register.FPR11R -> fpr11r
+      | Register.FPR12R -> fpr12r
+      | Register.FPR13R -> fpr13r
+      | Register.FPR14R -> fpr14r
+      | Register.FPR15R -> fpr15r
+      | Register.FPR16R -> fpr16r
+      | Register.FPR17R -> fpr17r
+      | Register.FPR18R -> fpr18r
+      | Register.FPR19R -> fpr19r
+      | Register.FPR20R -> fpr20r
+      | Register.FPR21R -> fpr21r
+      | Register.FPR22R -> fpr22r
+      | Register.FPR23R -> fpr23r
+      | Register.FPR24R -> fpr24r
+      | Register.FPR25R -> fpr25r
+      | Register.FPR26R -> fpr26r
+      | Register.FPR27R -> fpr27r
+      | Register.FPR28R -> fpr28r
+      | Register.FPR29R -> fpr29r
+      | Register.FPR30R -> fpr30r
+      | Register.FPR31R -> fpr31r
       | _ -> raise InvalidRegisterException
 
     member _.GetPseudoRegVar(_id, _idx) = Terminator.impossible ()
@@ -348,38 +412,70 @@ type RegisterFactory(isa: ISA) =
          cr29
          cr30
          cr31
-         fpr0
-         fpr1
-         fpr2
-         fpr3
-         fpr4
-         fpr5
-         fpr6
-         fpr7
-         fpr8
-         fpr9
-         fpr10
-         fpr11
-         fpr12
-         fpr13
-         fpr14
-         fpr15
-         fpr16
-         fpr17
-         fpr18
-         fpr19
-         fpr20
-         fpr21
-         fpr22
-         fpr23
-         fpr24
-         fpr25
-         fpr26
-         fpr27
-         fpr28
-         fpr29
-         fpr30
-         fpr31 |]
+         fpr0l
+         fpr1l
+         fpr2l
+         fpr3l
+         fpr4l
+         fpr5l
+         fpr6l
+         fpr7l
+         fpr8l
+         fpr9l
+         fpr10l
+         fpr11l
+         fpr12l
+         fpr13l
+         fpr14l
+         fpr15l
+         fpr16l
+         fpr17l
+         fpr18l
+         fpr19l
+         fpr20l
+         fpr21l
+         fpr22l
+         fpr23l
+         fpr24l
+         fpr25l
+         fpr26l
+         fpr27l
+         fpr28l
+         fpr29l
+         fpr30l
+         fpr31l
+         fpr0r
+         fpr1r
+         fpr2r
+         fpr3r
+         fpr4r
+         fpr5r
+         fpr6r
+         fpr7r
+         fpr8r
+         fpr9r
+         fpr10r
+         fpr11r
+         fpr12r
+         fpr13r
+         fpr14r
+         fpr15r
+         fpr16r
+         fpr17r
+         fpr18r
+         fpr19r
+         fpr20r
+         fpr21r
+         fpr22r
+         fpr23r
+         fpr24r
+         fpr25r
+         fpr26r
+         fpr27r
+         fpr28r
+         fpr29r
+         fpr30r
+         fpr31r |]
 
     member this.GetAllRegisterNames() =
       let regFactory = this :> IRegisterFactory

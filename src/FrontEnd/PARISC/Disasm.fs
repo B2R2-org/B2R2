@@ -170,6 +170,7 @@ let opCodeToString = function
   (* PUSH Instructions *)
   | Op.PUSHBTS -> "pushbts"
   | Op.PUSHNOM -> "pushnom"
+  | Op.POPBTS -> "popbts"
   | Op.CLRBTS -> "clrbts"
   (* Multiple-Operation Instructions *)
   | Op.FMPYADD -> "fmpyadd"
@@ -285,6 +286,7 @@ let condToString c =
   | Completer.BC -> "bc"
   | Completer.SL -> "sl"
   | Completer.PUSH -> "push"
+  | Completer.POP -> "pop"
   | Completer.FALSEQ -> "false?"
   | Completer.FALSE -> "false"
   | Completer.FQ -> "?"

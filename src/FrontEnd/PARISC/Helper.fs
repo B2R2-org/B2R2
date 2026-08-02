@@ -65,38 +65,38 @@ let getRegister = function
   | _ -> raise InvalidRegisterException
 
 let getFRegister = function
-  | 0x0u -> FPR0
-  | 0x1u -> FPR1
-  | 0x2u -> FPR2
-  | 0x3u -> FPR3
-  | 0x4u -> FPR4
-  | 0x5u -> FPR5
-  | 0x6u -> FPR6
-  | 0x7u -> FPR7
-  | 0x8u -> FPR8
-  | 0x9u -> FPR9
-  | 0xAu -> FPR10
-  | 0xBu -> FPR11
-  | 0xCu -> FPR12
-  | 0xDu -> FPR13
-  | 0xEu -> FPR14
-  | 0xFu -> FPR15
-  | 0x10u -> FPR16
-  | 0x11u -> FPR17
-  | 0x12u -> FPR18
-  | 0x13u -> FPR19
-  | 0x14u -> FPR20
-  | 0x15u -> FPR21
-  | 0x16u -> FPR22
-  | 0x17u -> FPR23
-  | 0x18u -> FPR24
-  | 0x19u -> FPR25
-  | 0x1Au -> FPR26
-  | 0x1Bu -> FPR27
-  | 0x1Cu -> FPR28
-  | 0x1Du -> FPR29
-  | 0x1Eu -> FPR30
-  | 0x1Fu -> FPR31
+  | 0x0u -> FPR0L
+  | 0x1u -> FPR1L
+  | 0x2u -> FPR2L
+  | 0x3u -> FPR3L
+  | 0x4u -> FPR4L
+  | 0x5u -> FPR5L
+  | 0x6u -> FPR6L
+  | 0x7u -> FPR7L
+  | 0x8u -> FPR8L
+  | 0x9u -> FPR9L
+  | 0xAu -> FPR10L
+  | 0xBu -> FPR11L
+  | 0xCu -> FPR12L
+  | 0xDu -> FPR13L
+  | 0xEu -> FPR14L
+  | 0xFu -> FPR15L
+  | 0x10u -> FPR16L
+  | 0x11u -> FPR17L
+  | 0x12u -> FPR18L
+  | 0x13u -> FPR19L
+  | 0x14u -> FPR20L
+  | 0x15u -> FPR21L
+  | 0x16u -> FPR22L
+  | 0x17u -> FPR23L
+  | 0x18u -> FPR24L
+  | 0x19u -> FPR25L
+  | 0x1Au -> FPR26L
+  | 0x1Bu -> FPR27L
+  | 0x1Cu -> FPR28L
+  | 0x1Du -> FPR29L
+  | 0x1Eu -> FPR30L
+  | 0x1Fu -> FPR31L
   | _ -> raise InvalidRegisterException
 
 let getSRegister = function
@@ -517,6 +517,27 @@ let frs1 b = getFRegFromRange b 20u 16u |> OpReg
 
 let frs2 b = getFRegFromRange b 25u 21u |> OpReg
 
+/// <summary>
+/// The half of a floating-point register a bit of the word picks out.
+///
+/// A floating-point register holds a doubleword, and an instruction working on
+/// a word alone reaches one half of one. Which half it reaches is said by a
+/// single bit lying nowhere near the five naming the register, so the two are
+/// put together here. The left half is the one whose name carries no mark.
+/// </summary>
+let fhalf b pos (reg: Register) =
+  if Bits.pick b pos = 1u then enum<Register> (int reg + 32) else reg
+
+/// The half of a floating-point register an instruction working on a word
+/// lands in.
+let frdWord b pos = getFRegFromRange b 4u 0u |> fhalf b pos |> OpReg
+
+/// The half it reads out of the register named where a second one would be.
+let frs1Word b pos = getFRegFromRange b 20u 16u |> fhalf b pos |> OpReg
+
+/// The same, out of the register named where a first one would be.
+let frs2Word b pos = getFRegFromRange b 25u 21u |> fhalf b pos |> OpReg
+
 let cr b = getCRegFromRange b 25u 21u |> OpReg
 
 let sa b spos size =
@@ -555,6 +576,20 @@ let getFrs2Frs1 b = TwoOperands(frs2 b, frs1 b)
 
 let getFrs2Frs1Frd b = ThreeOperands(frs2 b, frs1 b, frd b)
 
+/// The two halves an instruction computing from one word into another names.
+let getFrs2FrdWord b = TwoOperands(frs2Word b 7u, frdWord b 6u)
+
+/// The two an instruction comparing two words names.
+let getFrs2Frs1Word b = TwoOperands(frs2Word b 7u, frs1Word b 12u)
+
+/// The three an instruction computing from two words into a third names.
+let getFrs2Frs1FrdWord b =
+  ThreeOperands(frs2Word b 7u, frs1Word b 12u, frdWord b 6u)
+
+/// The same, where what is computed fills a whole register rather than half of
+/// one, which is what multiplying two words leaves.
+let getFrs2Frs1FrdWide b = ThreeOperands(frs2Word b 7u, frs1Word b 12u, frd b)
+
 let getRs1Rs2Imm b imm = ThreeOperands(rs1 b, rs2 b, OpImm imm)
 
 let getRs1Rs2Rd b = ThreeOperands(rs1 b, rs2 b, rd b)
@@ -588,7 +623,7 @@ let getImmAssemble3 bin = Bits.pick bin 13u <<< 2 ||| Bits.extract bin 15u 14u
 let srImm3 b = getImmAssemble3 b |> getSRegister
 
 let getImmAssemble6 (x: uint32) (clen: uint32) =
-  x <<< 5 ||| 32u - clen &&& 0x3fu |> uint64
+  64u - (((x ^^^ 1u) <<< 5) ||| clen) |> uint64
 
 let getImmAssembleExtDWord cl clen = (cl + 1u) * 32u - clen |> uint64
 
@@ -640,6 +675,10 @@ let getExtRs1Rs2Imm b imm wordSz =
   ThreeOperands(OpImm sign, rs2 b, OpImm imm)
 
 let getFrs2Frs1Imm b imm = ThreeOperands(frs2 b, frs1 b, OpImm imm)
+
+/// The same, where what is compared is a word rather than a doubleword.
+let getFrs2Frs1ImmWord b imm =
+  ThreeOperands(frs2Word b 7u, frs1Word b 12u, OpImm imm)
 
 let getRs1Rs2SarRd b = FourOperands(rs1 b, rs2 b, OpReg CR11, rd b)
 
@@ -714,8 +753,16 @@ let getRdMemSpaceOff b space offset wordSz =
 let getFrdMemSpaceOff b space offset wordSz =
   TwoOperands(frd b, OpMem(br b, Some space, Some(Imm offset), wordSz))
 
+/// The same, where what is stored is one half of a register.
+let getFrdWordMemSpaceOff b space offset wordSz =
+  TwoOperands(frdWord b 6u, OpMem(br b, Some space, Some(Imm offset), wordSz))
+
 let getMemSpaceOffFrd b space offset wordSz =
   TwoOperands(OpMem(br b, Some space, Some(Imm offset), wordSz), frd b)
+
+/// The same, where what is loaded lands in one half of a register.
+let getMemSpaceOffFrdWord b space offset wordSz =
+  TwoOperands(OpMem(br b, Some space, Some(Imm offset), wordSz), frdWord b 6u)
 
 let getRs1MemOff b offset wordSz =
   TwoOperands(rs1 b, OpMem(br b, None, Some(Imm offset), wordSz))
@@ -726,8 +773,17 @@ let getRs1MemSpaceOff b space offset wordSz =
 let getMemSpaceOffFrs1 b space offset wordSz =
   TwoOperands(OpMem(br b, Some space, Some(Imm offset), wordSz), frs1 b)
 
+/// The same, where what is loaded lands in one half of a register, which is
+/// said by the lowest bit of the word.
+let getMemSpaceOffFrs1Word b space offset wordSz =
+  TwoOperands(OpMem(br b, Some space, Some(Imm offset), wordSz), frs1Word b 1u)
+
 let getFrs1MemSpaceOff b space offset wordSz =
   TwoOperands(frs1 b, OpMem(br b, Some space, Some(Imm offset), wordSz))
+
+/// The same, where what is stored is one half of a register.
+let getFrs1WordMemSpaceOff b space offset wordSz =
+  TwoOperands(frs1Word b 1u, OpMem(br b, Some space, Some(Imm offset), wordSz))
 
 let getMemRegOffRd b offset wordSz =
   TwoOperands(OpMem(br b, None, Some(Reg offset), wordSz), rd b)
@@ -741,8 +797,16 @@ let getRdMemSpaceRegOff b space offset wordSz =
 let getFrdMemSpaceRegOff b space offset wordSz =
   TwoOperands(frd b, OpMem(br b, Some space, Some(Reg offset), wordSz))
 
+/// The same, where what is stored is one half of a register.
+let getFrdWordMemSpaceRegOff b space offset wordSz =
+  TwoOperands(frdWord b 6u, OpMem(br b, Some space, Some(Reg offset), wordSz))
+
 let getMemSpaceRegOffFrd b space offset wordSz =
   TwoOperands(OpMem(br b, Some space, Some(Reg offset), wordSz), frd b)
+
+/// The same, where what is loaded lands in one half of a register.
+let getMemSpaceRegOffFrdWord b space offset wordSz =
+  TwoOperands(OpMem(br b, Some space, Some(Reg offset), wordSz), frdWord b 6u)
 
 let getMemSpaceRs1Rd b space wordSz =
   ThreeOperands(OpMem(br b, Some space, None, wordSz), rs1 b, rd b)
@@ -766,5 +830,5 @@ let getFe2Fe1Cbit b cbit = ThreeOperands(frs2 b, frs1 b, OpImm cbit)
 
 let getFrs2Frs1FraFrd b =
   let ra = Bits.extract b 15u 13u <<< 2 ||| Bits.extract b 10u 9u
-  let fra = ra |> getFRegister |> OpReg
-  FourOperands(frs2 b, frs1 b, fra, frd b)
+  let fra = ra |> getFRegister |> fhalf b 8u |> OpReg
+  FourOperands(frs2Word b 7u, frs1Word b 12u, fra, frdWord b 6u)

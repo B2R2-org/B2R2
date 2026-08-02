@@ -290,5 +290,7 @@ type Opcode =
   | FMPYSUB = 129
   /// To perform unsigned fixed-point multiplication.
   | XMPYU = 130
+  /// To pop one or more entries off the branch target stack.
+  | POPBTS = 131
 
 type internal Op = Opcode

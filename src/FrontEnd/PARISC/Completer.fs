@@ -132,6 +132,7 @@ type Completer =
   | BC = 114
   | SL = 115
   | PUSH = 116
+  | POP = 117
   | FALSEQ = 164
   | FALSE = 165
   | FQ = 166

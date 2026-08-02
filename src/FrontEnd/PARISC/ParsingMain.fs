@@ -273,15 +273,28 @@ let parseIndexShortLoadStoreInstruction bin wordSz =
       Op.STDA, cmplt, cond, getRs1MemOff bin storeOff wordSz
     | _ -> raise ParsingFailureException
 
+(* The two bits just above the sign of a distance tell a load or a store of a
+   word from one of a floating-point number where the two share the six bits a
+   word begins with. The lower of the two is clear where the floating-point
+   unit is meant, and where it is set the other must be clear; both set says
+   nothing. Neither bit is part of the distance, which is why these reach only
+   every fourth byte. *)
 let parseLoadStoreWordInstruction bin wordSz =
-  let bit1to2 = Bits.extract bin 2u 1u
   let imm = getImmAssemble16 bin &&& -4L
-  if bit1to2 <> 0b010u then
+  if Bits.pick bin 2u = 0u then
     match Bits.extract bin 31u 26u with
-    | 0b010111u -> Op.FLDW, None, getMemSpaceOffFrs1 bin (sr bin) imm wordSz
-    | 0b011111u -> Op.FSTW, None, getFrs1MemSpaceOff bin (sr bin) imm wordSz
+    | 0b010111u ->
+      Op.FLDW, None, getMemSpaceOffFrs1Word bin (sr bin) imm wordSz
+    | 0b011111u ->
+      Op.FSTW, None, getFrs1WordMemSpaceOff bin (sr bin) imm wordSz
     | _ -> raise ParsingFailureException
+  elif Bits.pick bin 1u = 1u then
+    raise ParsingFailureException
   else
+    (* Where a word is loaded or stored at a long distance, opcode 13 covers
+       taking away before the reading and adding after it, and this one covers
+       the other two ways round, so the sign of the distance says the opposite
+       of what it says there. *)
     let cmplt = Some [| if int64 imm >= 0L then MB else MA |]
     match Bits.extract bin 31u 26u with
     | 0b010111u -> Op.LDW, cmplt, getMemSpaceOffRs1 bin (sr bin) imm wordSz
@@ -315,7 +328,7 @@ let parseVariableShiftExtractDepositInstruction bin wordSz =
   | 0b110100u, 0b0000u -> Op.SHRPW, None, cond false, getRs1Rs2SarRd bin
   | 0b110100u, (0b1001u | 0b1011u) ->
     let se = Bits.pick bin 10u
-    let clen = 32u - Bits.extract bin 4u 0u |> uint64
+    let clen = getImmAssemble6 (Bits.pick bin 8u) (Bits.extract bin 4u 0u)
     Op.EXTRD, getExtractCmplt se, cond true, getRs2SarLenRs1 bin clen
   | 0b110100u, (0b1000u | 0b1010u) ->
     let se = Bits.pick bin 10u
@@ -338,13 +351,13 @@ let parseVariableShiftExtractDepositInstruction bin wordSz =
   | 0b110101u, (0b0000u | 0b0010u) ->
     let nz = Bits.pick bin 10u
     let clen = getImmAssemble6 0u (Bits.extract bin 4u 0u)
-    Op.DEPW, getDepositCmplt nz, cond true,
+    Op.DEPW, getDepositCmplt nz, cond false,
     getRs1SarLenRs2 bin clen
   | 0b110101u, (0b1000u | 0b1010u) ->
     let nz = Bits.pick bin 10u
     let clen = getImmAssemble6 0u (Bits.extract bin 4u 0u)
     let imm = getImmLowSignExt bin 20u 16u wordSz |> uint64
-    Op.DEPWI, getDepositCmplt nz, cond true,
+    Op.DEPWI, getDepositCmplt nz, cond false,
     getImmSarLenRs2 bin imm clen
   | _ -> raise ParsingFailureException
 
@@ -428,33 +441,78 @@ let parseMultimediaInstruction bin =
     | 0b1001u -> Op.MIXH, Some [| R |], None, None, getRs1Rs2Rd bin
     | _ -> raise ParsingFailureException
 
+/// <summary>
+/// The instructions working on the stack of addresses the processor keeps for
+/// guessing where a program will go next.
+///
+/// All four have the lowest bit of their word set, which is what tells them
+/// from the branch to an address held in a register; the bit two above it says
+/// which pair of them a word is, and each pair is one instruction under two
+/// names, the second being what the first is called where what it carries is
+/// nothing.
+/// </summary>
+let private parseBranchTargetStack bin =
+  if Bits.pick bin 2u = 0u then
+    if Bits.extract bin 25u 21u <> 0u || Bits.extract bin 11u 1u <> 0u then
+      raise ParsingFailureException
+    elif Bits.extract bin 20u 16u = 0u then
+      Op.PUSHNOM, None, None, NoOperand
+    else
+      Op.PUSHBTS, None, None, getRs1 bin
+  elif Bits.extract bin 25u 16u <> 0u || Bits.pick bin 1u <> 0u then
+    raise ParsingFailureException
+  elif Bits.extract bin 11u 3u = 0u then
+    Op.CLRBTS, None, None, NoOperand
+  else
+    Op.POPBTS, None, None, getImm (Bits.extract bin 11u 3u |> uint64)
+
+/// <summary>
+/// The branch going to an address in another space held in a register.
+///
+/// It may say where it came from, and it may take an address off the stack the
+/// processor guesses from or put one on it; which of those two it does is
+/// settled by whether it says where it came from, so the one bit saying that
+/// it does either is enough.
+/// </summary>
+let private parseBranchExternal bin isLink wordSz =
+  let condN = if Bits.pick bin 1u = 1u then Some N else None
+  let onStack = Bits.pick bin 0u = 1u
+  if Bits.extract bin 20u 16u <> 0u then
+    raise ParsingFailureException
+  elif isLink then
+    let cmplt = if onStack then [| L; PUSH |] else [| L |]
+    Op.BVE, Some cmplt, condN, getMemBaseRP bin wordSz
+  else
+    let cmplt = if onStack then Some [| POP |] else None
+    Op.BVE, cmplt, condN, getMemBase bin wordSz
+
 let parseUnconditionalBranchInstuction bin wordSz =
-  match Bits.extract bin 25u 0u with
-  | 16389u -> Op.CLRBTS, None, None, NoOperand
-  | 16385u -> Op.PUSHNOM, None, None, NoOperand
-  | _ ->
-    let condN = if Bits.pick bin 1u = 1u then Some N else None
-    match Bits.extract bin 15u 13u, Bits.pick bin 12u with
-    | 0b000u, _ ->
-      Op.B, Some [| L |], condN, getImmRs2 bin (getImmAssemble17 bin + 8UL)
-    | 0b001u, _ ->
-      Op.B, Some [| GATE |], condN, getImmRs2 bin (getImmAssemble17 bin + 8UL)
-    | 0b100u, _ ->
-      Op.B, Some [| L; PUSH |], condN, getImmRs2 bin (getImmAssemble22 bin
-        + 8UL)
-    | 0b101u, _ ->
-      Op.B, Some [| L |], condN, getImmRs2 bin (getImmAssemble22 bin + 8UL)
-    | 0b010u, 0u ->
-      match Bits.extract bin 25u 21u, Bits.extract bin 11u 0u with
-      | 0u, 0u -> Op.PUSHBTS, None, None, getRs1 bin
-      | _ ->
-        Op.BLR, Some [| N |], None, getRs1Rs2 bin
-    | 0b110u, 0u ->
-      Op.BV, Some [| N |], None, getMemBaseRegOff bin (getRegFromRange bin 20u
-        16u) wordSz
-    | 0b110u, 1u -> Op.BVE, Some [| N |], None, getMemBase bin wordSz
-    | 0b111u, 1u -> Op.BVE, Some [| L |], condN, getMemBaseRP bin wordSz
-    | _ -> raise ParsingFailureException
+  let condN = if Bits.pick bin 1u = 1u then Some N else None
+  match Bits.extract bin 15u 13u, Bits.pick bin 12u with
+  | 0b000u, _ ->
+    Op.B, Some [| L |], condN, getImmRs2 bin (getImmAssemble17 bin + 8UL)
+  | 0b001u, _ ->
+    Op.B, Some [| GATE |], condN, getImmRs2 bin (getImmAssemble17 bin + 8UL)
+  | 0b100u, _ ->
+    Op.B, Some [| L; PUSH |], condN, getImmRs2 bin (getImmAssemble22 bin + 8UL)
+  | 0b101u, _ ->
+    Op.B, Some [| L |], condN, getImmRs2 bin (getImmAssemble22 bin + 8UL)
+  | 0b010u, 0u ->
+    if Bits.pick bin 0u = 1u then
+      parseBranchTargetStack bin
+    elif Bits.extract bin 12u 2u = 0u then
+      Op.BLR, None, condN, getRs1Rs2 bin
+    else
+      raise ParsingFailureException
+  | 0b110u, 0u ->
+    if Bits.extract bin 12u 2u <> 0u || Bits.pick bin 0u = 1u then
+      raise ParsingFailureException
+    else
+      let offset = getRegFromRange bin 20u 16u
+      Op.BV, None, condN, getMemBaseRegOff bin offset wordSz
+  | 0b110u, 1u -> parseBranchExternal bin false wordSz
+  | 0b111u, 1u -> parseBranchExternal bin true wordSz
+  | _ -> raise ParsingFailureException
 
 let parseCoprocessorLoadStoreInstruction bin wordSz =
   let bit18 = Bits.pick bin 13u
@@ -469,10 +527,12 @@ let parseCoprocessorLoadStoreInstruction bin wordSz =
     match Bits.concat (Bits.pick bin 12u) (Bits.pick bin 9u) 1, uid with
     | 0b00u, (0b0u | 0b1u) ->
       let offset = getRegFromRange bin 20u 16u
-      Op.FLDW, index, ldC, None, getMemSpaceRegOffFrd bin (sr bin) offset wordSz
+      Op.FLDW, index, ldC, None,
+      getMemSpaceRegOffFrdWord bin (sr bin) offset wordSz
     | 0b10u, (0b0u | 0b1u) ->
       let offset = getImmLowSignExt bin 20u 16u wordSz
-      Op.FLDW, short, ldC, None, getMemSpaceOffFrd bin (sr bin) offset wordSz
+      Op.FLDW, short, ldC, None,
+      getMemSpaceOffFrdWord bin (sr bin) offset wordSz
     | 0b00u, _ ->
       let offset = getRegFromRange bin 20u 16u
       let uid = [| getImmediate bin 8u 6u |] |> Some
@@ -483,10 +543,12 @@ let parseCoprocessorLoadStoreInstruction bin wordSz =
       Op.CLDW, short, ldC, uid, getMemSpaceOffRd bin (sr bin) offset wordSz
     | 0b01u, (0b0u | 0b1u) ->
       let offset = getRegFromRange bin 20u 16u
-      Op.FSTW, index, swC, None, getFrdMemSpaceRegOff bin (sr bin) offset wordSz
+      Op.FSTW, index, swC, None,
+      getFrdWordMemSpaceRegOff bin (sr bin) offset wordSz
     | 0b11u, (0b0u | 0b1u) ->
       let offset = getImmLowSignExt bin 20u 16u wordSz
-      Op.FSTW, short, swC, None, getFrdMemSpaceOff bin (sr bin) offset wordSz
+      Op.FSTW, short, swC, None,
+      getFrdWordMemSpaceOff bin (sr bin) offset wordSz
     | 0b01u, _ ->
       let offset = getRegFromRange bin 20u 16u
       let uid = [| getImmediate bin 8u 6u |] |> Some
@@ -591,48 +653,72 @@ let parseFloatingPointCoprocessorInstruction bin =
     | _ -> copr
   | _ -> copr
 
+(* Every register the floating-point unit names under this opcode is one half
+   of a doubleword one, and the bit saying which half lies apart from the five
+   naming the register: above the field naming what is computed for the second
+   register it reads, and below it for the first and for the one it lands in.
+   The one thing computed here that fills a whole register is the product of
+   two words, which therefore names no half where it lands. *)
 let parseFloatingPointInstruction bin =
   match Bits.extract bin 10u 9u with
   | 0b00u ->
     let subop = Bits.extract bin 15u 13u
-    let cmplt = getFloatFormat (Bits.extract bin 12u 11u)
-    match subop with
-    | 0b010u -> Op.FCPY, cmplt, None, getFrs2Frd bin
-    | 0b011u -> Op.FABS, cmplt, None, getFrs2Frd bin
-    | 0b100u -> Op.FSQRT, cmplt, None, getFrs2Frd bin
-    | 0b101u -> Op.FRND, cmplt, None, getFrs2Frd bin
-    | 0b110u -> Op.FNEG, cmplt, None, getFrs2Frd bin
-    | 0b111u -> Op.FNEGABS, cmplt, None, getFrs2Frd bin
-    | _ -> raise ParsingFailureException
+    let cmplt = getFloatFormat (Bits.pick bin 11u)
+    let oprs = getFrs2FrdWord bin
+    if Bits.extract bin 20u 16u <> 0u || Bits.pick bin 12u <> 0u
+       || Bits.pick bin 8u <> 0u || Bits.pick bin 5u <> 0u then
+      raise ParsingFailureException
+    else
+      match subop with
+      | 0b010u -> Op.FCPY, cmplt, None, oprs
+      | 0b011u -> Op.FABS, cmplt, None, oprs
+      | 0b100u -> Op.FSQRT, cmplt, None, oprs
+      | 0b101u -> Op.FRND, cmplt, None, oprs
+      | 0b110u -> Op.FNEG, cmplt, None, oprs
+      | 0b111u -> Op.FNEGABS, cmplt, None, oprs
+      | _ -> raise ParsingFailureException
   | 0b01u ->
     let subop = Bits.extract bin 17u 15u
-    let cmplt = Bits.extract bin 12u 11u <<< 2 ||| Bits.extract bin 14u 13u
-    match subop with
-    | 0b000u -> Op.FCNV, getFloatFloatFormat cmplt, None, getFrs2Frd bin
-    | 0b001u -> Op.FCNV, getFixedFloatFormat cmplt, None, getFrs2Frd bin
-    | 0b011u -> Op.FCNV, getFloatFixedFormat true cmplt, None, getFrs2Frd bin
-    | 0b111u -> Op.FCNV, getFloatUFixedFormat true cmplt, None, getFrs2Frd bin
-    | 0b010u -> Op.FCNV, getFloatFixedFormat false cmplt, None, getFrs2Frd bin
-    | 0b101u -> Op.FCNV, getUFixedFloatFormat cmplt, None, getFrs2Frd bin
-    | 0b110u -> Op.FCNV, getFloatUFixedFormat false cmplt, None, getFrs2Frd bin
-    | _ -> raise ParsingFailureException
+    let cmplt = (Bits.pick bin 11u <<< 2) ||| Bits.pick bin 13u
+    let oprs = getFrs2FrdWord bin
+    if Bits.extract bin 20u 18u <> 0u || Bits.pick bin 14u <> 0u
+       || Bits.pick bin 12u <> 0u || Bits.pick bin 5u <> 0u then
+      raise ParsingFailureException
+    else
+      match subop with
+      | 0b000u -> Op.FCNV, getFloatFloatFormat cmplt, None, oprs
+      | 0b001u -> Op.FCNV, getFixedFloatFormat cmplt, None, oprs
+      | 0b011u -> Op.FCNV, getFloatFixedFormat true cmplt, None, oprs
+      | 0b111u -> Op.FCNV, getFloatUFixedFormat true cmplt, None, oprs
+      | 0b010u -> Op.FCNV, getFloatFixedFormat false cmplt, None, oprs
+      | 0b101u -> Op.FCNV, getUFixedFloatFormat cmplt, None, oprs
+      | 0b110u -> Op.FCNV, getFloatUFixedFormat false cmplt, None, oprs
+      | _ -> raise ParsingFailureException
   | 0b10u ->
-    let cond = Bits.extract bin 4u 0u |> getFloatTestCondition
-    let oprs = getFrs2Frs1 bin
-    Op.FCMP, getFloatFormat (Bits.pick bin 11u), cond, oprs
+    let cond = Bits.extract bin 4u 0u |> getFloatCompareCondition
+    let oprs = getFrs2Frs1Word bin
+    if Bits.pick bin 8u <> 0u || Bits.pick bin 6u <> 0u
+       || Bits.pick bin 5u <> 0u then
+      raise ParsingFailureException
+    else
+      Op.FCMP, getFloatFormat (Bits.pick bin 11u), cond, oprs
   | 0b11u ->
     let subop = Bits.extract bin 15u 13u
     let fBit = Bits.pick bin 8u
-    if fBit = 0u then
+    if Bits.pick bin 5u <> 0u then
+      raise ParsingFailureException
+    elif fBit = 0u then
       let cmplt = Bits.pick bin 11u |> getFloatFormat
       match subop with
-      | 0b000u -> Op.FADD, cmplt, None, getFrs2Frs1Frd bin
-      | 0b001u -> Op.FSUB, cmplt, None, getFrs2Frs1Frd bin
-      | 0b010u -> Op.FMPY, cmplt, None, getFrs2Frs1Frd bin
-      | 0b011u -> Op.FDIV, cmplt, None, getFrs2Frs1Frd bin
+      | 0b000u -> Op.FADD, cmplt, None, getFrs2Frs1FrdWord bin
+      | 0b001u -> Op.FSUB, cmplt, None, getFrs2Frs1FrdWord bin
+      | 0b010u -> Op.FMPY, cmplt, None, getFrs2Frs1FrdWord bin
+      | 0b011u -> Op.FDIV, cmplt, None, getFrs2Frs1FrdWord bin
       | _ -> raise ParsingFailureException
-    elif subop = 0b010u then Op.XMPYU, None, None, getFrs2Frs1Frd bin
-    else raise ParsingFailureException
+    elif subop = 0b010u && Bits.pick bin 11u = 0u && Bits.pick bin 6u = 0u then
+      Op.XMPYU, None, None, getFrs2Frs1FrdWide bin
+    else
+      raise ParsingFailureException
   | _ -> raise ParsingFailureException
 
 let parseSpecialFunctionInstruction bin =
@@ -665,8 +751,8 @@ let parseFloatingPointLoadStoreInstruction bin wordSz =
   let cmplt = Some [| if Bits.pick bin 2u = 0u then MA else MB |]
   let imm = getImmAssemble16 bin &&& -4L
   if Bits.extract bin 31u 26u = 0b010110u then
-    Op.FLDW, cmplt, getMemSpaceOffFrs1 bin (sr bin) imm wordSz
-  else Op.FSTW, cmplt, getFrs1MemSpaceOff bin (sr bin) imm wordSz
+    Op.FLDW, cmplt, getMemSpaceOffFrs1Word bin (sr bin) imm wordSz
+  else Op.FSTW, cmplt, getFrs1WordMemSpaceOff bin (sr bin) imm wordSz
 
 let parseConditionalLocalBranchInstruction bin wordSz =
   let cBit = Bits.extract bin 15u 13u
@@ -719,12 +805,16 @@ let parseConditionalLocalBranchInstruction bin wordSz =
     else getRs1SarImm bin target
   | _ -> raise ParsingFailureException
 
+(* Where these work on words rather than doublewords they reach only the upper
+   half of the register file, so the bit saying which of the two they are is
+   also the uppermost bit of every register they name. *)
 let parseMultipleOperationInstruction bin =
-  let rm1 = Bits.extract bin 25u 21u
-  let rm2 = Bits.extract bin 20u 16u
-  let ta = Bits.extract bin 15u 11u
-  let ra = Bits.extract bin 10u 6u
-  let tm = Bits.extract bin 4u 0u
+  let upper = Bits.pick bin 5u <<< 4
+  let rm1 = Bits.extract bin 25u 21u ||| upper
+  let rm2 = Bits.extract bin 20u 16u ||| upper
+  let ta = Bits.extract bin 15u 11u ||| upper
+  let ra = Bits.extract bin 10u 6u ||| upper
+  let tm = Bits.extract bin 4u 0u ||| upper
   let oprs =
     let cmplt = if Bits.pick bin 5u = 0u then Some [| DBL |] else Some [| SGL |]
     cmplt,
@@ -770,16 +860,20 @@ let private parseInstruction bin wordSz =
       parseLoadStoreDoublewordInstruction bin wordSz
     opcode, completer, None, None, operands
   | 0b110100u | 0b110101u ->
-    let bits19to20 = Bits.extract bin 12u 11u
+    (* The two bits below the field naming what is read say whether where a
+       field starts is held in the register saying how far a shift goes or is
+       written out. Where they are clear, the instructions shifting a pair of
+       registers say which of the two they are in the bit below those, but the
+       instructions laying a field into a register spend that bit on saying
+       what becomes of whatever lies around the field. *)
+    let isFixed =
+      match Bits.extract bin 12u 11u with
+      | 0b00u -> opcode = 0b110100u && Bits.pick bin 10u = 1u
+      | 0b10u -> false
+      | _ -> true
     let opcode, completer, cond, operands =
-      match bits19to20 with
-      | 0b00u ->
-        let bit21 = Bits.pick bin 10u
-        if bit21 = 0u then
-          parseVariableShiftExtractDepositInstruction bin wordSz
-        else parseFixedShiftExtractDepositInstruction bin wordSz
-      | 0b10u -> parseVariableShiftExtractDepositInstruction bin wordSz
-      | _ -> parseFixedShiftExtractDepositInstruction bin wordSz
+      if isFixed then parseFixedShiftExtractDepositInstruction bin wordSz
+      else parseVariableShiftExtractDepositInstruction bin wordSz
     opcode, completer, cond, None, operands
   | 0b110110u | 0b111100u | 0b111101u ->
     let opcode, completer, cond, operands =
