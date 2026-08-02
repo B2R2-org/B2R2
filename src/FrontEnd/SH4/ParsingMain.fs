@@ -41,6 +41,12 @@ let getState _ = false
 
 /// 0000 0000 ---- ---- with no operands
 let noOpParse0000 b16 =
+  (* Every one of these is spelt out to the last bit, so the field that names a
+     register elsewhere in this family has to be zero here. Reading only the low
+     byte let a word carrying anything in that field pass as the instruction
+     below it, and a linear sweep then saw eleven spurious instructions at every
+     one of the fifteen nonzero values it can hold. *)
+  if getBits b16 12 9 <> 0b0000us then raise ParsingFailureException else ()
   match getBits b16 8 1 with
   | 0b00011001us -> Opcode.DIV0U, NoOperand
   | 0b00001011us -> Opcode.RTS, NoOperand
@@ -533,13 +539,18 @@ let twoOpParse1111 b16 =
       Opcode.FIPR,
       TwoOperands(OpReg(Regdir(getReg1sFV b16)),
         OpReg(Regdir(getReg1dFV b16)))
-    | 0b1111us ->
+    (* A vector is named by the two uppermost bits of the field, and the two
+       below them are spelt out. A pair is named by the three uppermost and the
+       one below them is spelt out likewise. Reading only the bits that name the
+       register let every value of the ones that do not pass as well, so each of
+       these decoded at three or seven words it does not belong to. *)
+    | 0b1111us when getBits b16 10 9 = 0b01us ->
       Opcode.FTRV,
       TwoOperands(OpReg(Regdir(R.XMTRX)), OpReg(Regdir(getReg1dFV b16)))
     | 0b0001us ->
       Opcode.FLDS,
       TwoOperands(OpReg(Regdir(getReg1dFR b16)), OpReg(Regdir(R.FPUL)))
-    | 0b1011us ->
+    | 0b1011us when not (get1Bit b16 9) ->
       Opcode.FCNVDS,
       TwoOperands(OpReg(Regdir(getReg1dDR b16)), OpReg(Regdir(R.FPUL)))
     | 0b0011us ->
@@ -555,7 +566,7 @@ let twoOpParse1111 b16 =
     | 0b0000us ->
       Opcode.FSTS,
       TwoOperands(OpReg(Regdir(R.FPUL)), OpReg(Regdir(getReg1dFR b16)))
-    | 0b1010us ->
+    | 0b1010us when not (get1Bit b16 9) ->
       Opcode.FCNVSD,
       TwoOperands(OpReg(Regdir(R.FPUL)), OpReg(Regdir(getReg1dDR b16)))
     | 0b0010us ->
@@ -687,10 +698,15 @@ let parsePostInc0100 b16 =
     | 0b0100us ->
       Opcode.LDCL,
       TwoOperands(OpReg(RegIndirPostInc(getReg1d b16)), OpReg(Regdir(R.SPC)))
-    | _ ->
+    (* A banked register is named by the three bits below the one saying that
+       this is a bank at all, so the values with that bit clear name nothing.
+       Falling through to the bank case on any value read the bit as part of the
+       number and gave three registers that cannot be loaded this way. *)
+    | field when field >= 0b1000us ->
       Opcode.LDCL,
       TwoOperands(OpReg(RegIndirPostInc(getReg1d b16)),
       OpReg(Regdir(getReg1dBank b16)))
+    | _ -> raise ParsingFailureException
   | 0b0110us ->
     match getBits b16 8 5 with
     | 0b1111us ->
@@ -811,10 +827,13 @@ let parsePreDec0100 b16 =
     | 0b0100us ->
       Opcode.STCL,
       TwoOperands(OpReg(Regdir(R.SPC)), OpReg(RegIndirPreDec(getReg1d b16)))
-    | _ ->
+    (* The same bit says whether a bank is named here, and the same three
+       registers appeared out of nowhere while it was read as a number. *)
+    | field when field >= 0b1000us ->
       Opcode.STCL,
       TwoOperands(OpReg(Regdir(getReg1dBank b16)),
         OpReg(RegIndirPreDec(getReg1d b16)))
+    | _ -> raise ParsingFailureException
   | 0b0010us ->
     match getBits b16 8 5 with
     | 0b0011us ->
