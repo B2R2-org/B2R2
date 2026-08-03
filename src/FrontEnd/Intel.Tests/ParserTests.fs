@@ -2017,6 +2017,60 @@ type ParserTests() =
       [ O.Mem(R.RCX, R.YMM2, Scale.X1, 512<rt>) ]
     ||> testX64NoPrefixNoSeg
 
+  [<TestMethod>]
+  member _.``Register-only ModRM form (1)``() =
+    "0f12ca"
+    ++ MOVHLPS ** [ O.Reg R.XMM1; O.Reg R.XMM2 ]
+    ||> testX64NoPrefixNoSeg
+
+  [<TestMethod>]
+  member _.``Memory-only ModRM form (1)``() =
+    "0f1208"
+    ++ MOVLPS ** [ O.Reg R.XMM1; O.Mem(R.RAX, 64<rt>) ]
+    ||> testX64NoPrefixNoSeg
+
+  [<TestMethod>]
+  member _.``Register-only ModRM form (2)``() =
+    "0f16ca"
+    ++ MOVLHPS ** [ O.Reg R.XMM1; O.Reg R.XMM2 ]
+    ||> testX64NoPrefixNoSeg
+
+  [<TestMethod>]
+  member _.``Memory-only ModRM form (2)``() =
+    "0f1608"
+    ++ MOVHPS ** [ O.Reg R.XMM1; O.Mem(R.RAX, 64<rt>) ]
+    ||> testX64NoPrefixNoSeg
+
+  [<TestMethod>]
+  member _.``Register-only ModRM form, VEX (1)``() =
+    "c5e812cb"
+    ++ VMOVHLPS ** [ O.Reg R.XMM1; O.Reg R.XMM2; O.Reg R.XMM3 ]
+    ||> testX64NoPrefixNoSeg
+
+  [<TestMethod>]
+  member _.``GPR operand from VEX.vvvv (1)``() =
+    "c4e270f2c2"
+    ++ ANDN ** [ O.Reg R.EAX; O.Reg R.ECX; O.Reg R.EDX ]
+    ||> testX64NoPrefixNoSeg
+
+  [<TestMethod>]
+  member _.``GPR operand from VEX.vvvv (2)``() =
+    "c4e268f5c1"
+    ++ BZHI ** [ O.Reg R.EAX; O.Reg R.ECX; O.Reg R.EDX ]
+    ||> testX64NoPrefixNoSeg
+
+  [<TestMethod>]
+  member _.``GPR operand from VEX.vvvv (3)``() =
+    "c4e273f6c2"
+    ++ MULX ** [ O.Reg R.EAX; O.Reg R.ECX; O.Reg R.EDX ]
+    ||> testX64NoPrefixNoSeg
+
+  [<TestMethod>]
+  member _.``GPR operand from VEX.vvvv (4)``() =
+    "c4e2e9f7c1"
+    ++ SHLX ** [ O.Reg R.RAX; O.Reg R.RCX; O.Reg R.RDX ]
+    ||> testX64NoPrefixNoSeg
+
 #if !EMULATION
   [<TestMethod>]
   member _.``Size cond ParsingFailure Test (1)``() =

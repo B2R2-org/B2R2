@@ -259,10 +259,15 @@ type IntelParser(wordSz, reader) =
     | _ -> reg = insReg
 
   /// Returns true when the ModRM byte satisfies all constraints in the
-  /// instruction core (fixed, STi, group digit, or unconstrained).
+  /// instruction core (fixed, STi, group digit, reg/mem form, or
+  /// unconstrained). A plain /r carries a reg-or-mem constraint too: the
+  /// mod field is what separates MOVHLPS (register only) from MOVLPS
+  /// (memory only), which share opcode 0F 12.
   let matchModRM (span: ByteSpan) (phlp: ParsingHelper)
     (i: InstructionCore) =
     match i.ModRM with
+    | ModRMType.ModRM OpReg -> Operands.modIsReg span[phlp.CurrPos]
+    | ModRMType.ModRM OpMem -> Operands.modIsMemory span[phlp.CurrPos]
     | ModRMType.ModRMOp0 o -> matchModRMRegConstraint span phlp i o 0
     | ModRMType.ModRMOp1 o -> matchModRMRegConstraint span phlp i o 1
     | ModRMType.ModRMOp2 o -> matchModRMRegConstraint span phlp i o 2
@@ -433,7 +438,10 @@ type IntelParser(wordSz, reader) =
       | OprRegType.OpRd ->
         let regBit = Operands.getRM (uint8 ic.OpcodeByte)
         OperandParsers.getOprFromRegGrpREX regBit phlp
-      | OprRegType.VVVV -> OperandParsers.parseVVVVReg phlp
+      | OprRegType.VVVV ->
+        (* BMI/CMPccXADD encode a GPR in vvvv, not a vector register. *)
+        if sz <= 64<rt> then OperandParsers.parseVEXtoGPR phlp
+        else OperandParsers.parseVVVVReg phlp
       | OprRegType.RMBit ->
         OperandParsers.findRegRmAndSIBBase phlp.MemEffRegSize phlp.REXPrefix
           (Operands.getRM modRM) |> OprReg
