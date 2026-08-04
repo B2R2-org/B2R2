@@ -49,6 +49,10 @@ with
   static member Create(reloc: RelocationMIPS) =
     RelocationKind(MachineType.EM_MIPS, uint64 reloc)
 
+  /// Creates a generic RelocationKind from a relocation kind of m68k
+  static member Create(reloc: RelocationM68K) =
+    RelocationKind(MachineType.EM_68K, uint64 reloc)
+
   /// Creates a generic RelocationKind from a relocation kind of S390
   static member Create(reloc: RelocationS390) =
     RelocationKind(MachineType.EM_S390, uint64 reloc)
@@ -87,6 +91,9 @@ with
     | MachineType.EM_MIPS
     | MachineType.EM_MIPS_RS3_LE ->
       let kind: RelocationMIPS = LanguagePrimitives.EnumOfValue relocValue
+      kind.ToString()
+    | MachineType.EM_68K ->
+      let kind: RelocationM68K = LanguagePrimitives.EnumOfValue relocValue
       kind.ToString()
     | MachineType.EM_S390 ->
       let kind: RelocationS390 = LanguagePrimitives.EnumOfValue relocValue
@@ -400,6 +407,90 @@ and internal RelocationMIPS =
   | R_MIPS_JUMP_SLOT = 127UL
   /// 32-bit PC-relative.
   | R_MIPS_PC32 = 248UL
+
+/// Represents a relocation type for m68k.
+and internal RelocationM68K =
+  | R_68K_NONE = 0UL
+  /// Direct 32-bit.
+  | R_68K_32 = 1UL
+  /// Direct 16-bit.
+  | R_68K_16 = 2UL
+  /// Direct 8-bit.
+  | R_68K_8 = 3UL
+  /// 32-bit PC-relative.
+  | R_68K_PC32 = 4UL
+  /// 16-bit PC-relative.
+  | R_68K_PC16 = 5UL
+  /// 8-bit PC-relative.
+  | R_68K_PC8 = 6UL
+  /// 32-bit PC-relative reference to the GOT entry.
+  | R_68K_GOT32 = 7UL
+  /// 16-bit PC-relative reference to the GOT entry.
+  | R_68K_GOT16 = 8UL
+  /// 8-bit PC-relative reference to the GOT entry.
+  | R_68K_GOT8 = 9UL
+  /// 32-bit offset of the GOT entry from the GOT base.
+  | R_68K_GOT32O = 10UL
+  /// 16-bit offset of the GOT entry from the GOT base.
+  | R_68K_GOT16O = 11UL
+  /// 8-bit offset of the GOT entry from the GOT base.
+  | R_68K_GOT8O = 12UL
+  /// 32-bit PC-relative reference to the PLT entry.
+  | R_68K_PLT32 = 13UL
+  /// 16-bit PC-relative reference to the PLT entry.
+  | R_68K_PLT16 = 14UL
+  /// 8-bit PC-relative reference to the PLT entry.
+  | R_68K_PLT8 = 15UL
+  /// 32-bit offset of the PLT entry from the GOT base.
+  | R_68K_PLT32O = 16UL
+  /// 16-bit offset of the PLT entry from the GOT base.
+  | R_68K_PLT16O = 17UL
+  /// 8-bit offset of the PLT entry from the GOT base.
+  | R_68K_PLT8O = 18UL
+  /// Copy symbol at run time.
+  | R_68K_COPY = 19UL
+  /// Create a GOT entry.
+  | R_68K_GLOB_DAT = 20UL
+  /// Create a PLT entry.
+  | R_68K_JMP_SLOT = 21UL
+  /// Adjust by program base.
+  | R_68K_RELATIVE = 22UL
+  /// 32-bit offset for the general dynamic thread-local model.
+  | R_68K_TLS_GD32 = 25UL
+  /// 16-bit offset for the general dynamic thread-local model.
+  | R_68K_TLS_GD16 = 26UL
+  /// 8-bit offset for the general dynamic thread-local model.
+  | R_68K_TLS_GD8 = 27UL
+  /// 32-bit offset for the local dynamic thread-local model.
+  | R_68K_TLS_LDM32 = 28UL
+  /// 16-bit offset for the local dynamic thread-local model.
+  | R_68K_TLS_LDM16 = 29UL
+  /// 8-bit offset for the local dynamic thread-local model.
+  | R_68K_TLS_LDM8 = 30UL
+  /// 32-bit offset within a local dynamic thread-local block.
+  | R_68K_TLS_LDO32 = 31UL
+  /// 16-bit offset within a local dynamic thread-local block.
+  | R_68K_TLS_LDO16 = 32UL
+  /// 8-bit offset within a local dynamic thread-local block.
+  | R_68K_TLS_LDO8 = 33UL
+  /// 32-bit offset for the initial exec thread-local model.
+  | R_68K_TLS_IE32 = 34UL
+  /// 16-bit offset for the initial exec thread-local model.
+  | R_68K_TLS_IE16 = 35UL
+  /// 8-bit offset for the initial exec thread-local model.
+  | R_68K_TLS_IE8 = 36UL
+  /// 32-bit offset for the local exec thread-local model.
+  | R_68K_TLS_LE32 = 37UL
+  /// 16-bit offset for the local exec thread-local model.
+  | R_68K_TLS_LE16 = 38UL
+  /// 8-bit offset for the local exec thread-local model.
+  | R_68K_TLS_LE8 = 39UL
+  /// Module index of the thread-local block.
+  | R_68K_TLS_DTPMOD32 = 40UL
+  /// Offset within the thread-local block.
+  | R_68K_TLS_DTPREL32 = 41UL
+  /// Offset from the thread pointer.
+  | R_68K_TLS_TPREL32 = 42UL
 
 /// Represents a relocation type for S390.
 and internal RelocationS390 =
@@ -782,6 +873,14 @@ module internal RelocationKind =
     match arch with
     | MachineType.EM_MIPS ->
       let reloc: RelocationMIPS = LanguagePrimitives.EnumOfValue relocValue
+      ValueSome reloc
+    | _ -> ValueNone
+
+  [<return: Struct>]
+  let (|RelocationKindM68K|_|) (RelocationKind(arch, relocValue)) =
+    match arch with
+    | MachineType.EM_68K ->
+      let reloc: RelocationM68K = LanguagePrimitives.EnumOfValue relocValue
       ValueSome reloc
     | _ -> ValueNone
 

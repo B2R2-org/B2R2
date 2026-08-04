@@ -73,6 +73,8 @@ type ISA(arch, endian, wordSize, flags) =
       ISA(arch, Endian.Little, WordSize.Bit32)
     | Architecture.PARISC ->
       ISA(arch, Endian.Big, WordSize.Bit32)
+    | Architecture.M68K ->
+      ISA(arch, Endian.Big, WordSize.Bit32, int M68KModel.M68020)
     | Architecture.AVR ->
       ISA(arch, Endian.Little, WordSize.Bit8)
     | Architecture.TMS320C6000 ->
@@ -114,6 +116,8 @@ type ISA(arch, endian, wordSize, flags) =
       ISA(arch, endian, WordSize.Bit32)
     | Architecture.PARISC when endian = Endian.Big ->
       ISA(arch, endian, WordSize.Bit32)
+    | Architecture.M68K when endian = Endian.Big ->
+      ISA(arch, endian, WordSize.Bit32, int M68KModel.M68020)
     | Architecture.AVR ->
       ISA(arch, endian, WordSize.Bit8)
     | Architecture.TMS320C6000 ->
@@ -165,6 +169,8 @@ type ISA(arch, endian, wordSize, flags) =
     | Architecture.PARISC when wordSize = WordSize.Bit32
                             || wordSize = WordSize.Bit64 ->
       ISA(arch, Endian.Big, wordSize)
+    | Architecture.M68K when wordSize = WordSize.Bit32 ->
+      ISA(arch, Endian.Big, wordSize, int M68KModel.M68020)
     | Architecture.AVR when wordSize = WordSize.Bit8 ->
       ISA(arch, Endian.Little, wordSize)
     | Architecture.TMS320C6000 when wordSize = WordSize.Bit32 ->
@@ -189,6 +195,11 @@ type ISA(arch, endian, wordSize, flags) =
   new(pythonVer: PythonVersion) =
     let flag = int pythonVer
     ISA(Architecture.Python, Endian.Little, WordSize.Bit64, flag)
+
+  /// Constructs an ISA object for the given member of the 68000 family.
+  new(m68kModel: M68KModel) =
+    let flag = int m68kModel
+    ISA(Architecture.M68K, Endian.Big, WordSize.Bit32, flag)
 
   /// Constructs a 32-bit ARM ISA meaning the given instruction set, which is
   /// AArch32 if isAArch32 says so and ARMv7 otherwise. Only those two have the
@@ -259,6 +270,20 @@ type ISA(arch, endian, wordSize, flags) =
       ISA(Architecture.PARISC, WordSize.Bit32)
     | "parisc64" | "hppa64" ->
       ISA(Architecture.PARISC, WordSize.Bit64)
+    | "m68k" | "68k" ->
+      ISA M68KModel.M68020
+    | "m68000" | "68000" ->
+      ISA M68KModel.M68000
+    | "m68010" | "68010" ->
+      ISA M68KModel.M68010
+    | "m68020" | "68020" ->
+      ISA M68KModel.M68020
+    | "m68030" | "68030" ->
+      ISA M68KModel.M68030
+    | "m68040" | "68040" ->
+      ISA M68KModel.M68040
+    | "m68060" | "68060" ->
+      ISA M68KModel.M68060
     | "avr" | "avr8" ->
       ISA Architecture.AVR
     | "tms320c6000" ->
@@ -312,6 +337,13 @@ type ISA(arch, endian, wordSize, flags) =
   /// say otherwise. Only 32-bit ARM has two of them, so this says nothing about
   /// any other architecture.
   member _.ARM32Mode with get(): ARM32Mode =
+    LanguagePrimitives.EnumOfValue flags
+
+  /// The member of the 68000 family an m68k ISA means, which is the 68020
+  /// unless the flags say otherwise. The family shares one encoding space and a
+  /// later model reads encodings an earlier one rejects, so nothing but this
+  /// says what a halfword of m68k code belongs to.
+  member _.M68KModel with get(): M68KModel =
     LanguagePrimitives.EnumOfValue flags
 
   /// Returns true if this ISA is Intel x86.
@@ -368,6 +400,9 @@ type ISA(arch, endian, wordSize, flags) =
   /// Returns true if this ISA is PA-RISC (any word size).
   member _.IsPARISC with get() = arch = Architecture.PARISC
 
+  /// Returns true if this ISA is Motorola 68000 series (any model).
+  member _.IsM68K with get() = arch = Architecture.M68K
+
   /// Returns true if this ISA is AVR.
   member _.IsAVR with get() = arch = Architecture.AVR
 
@@ -417,6 +452,15 @@ type ISA(arch, endian, wordSize, flags) =
     | Architecture.SH4, Endian.Big, WordSize.Bit32 -> "sh4be"
     | Architecture.PARISC, Endian.Big, WordSize.Bit32 -> "parisc"
     | Architecture.PARISC, Endian.Big, WordSize.Bit64 -> "parisc64"
+    | Architecture.M68K, _, _ ->
+      match LanguagePrimitives.EnumOfValue flags with
+      | M68KModel.M68000 -> "m68000"
+      | M68KModel.M68010 -> "m68010"
+      | M68KModel.M68020 -> "m68020"
+      | M68KModel.M68030 -> "m68030"
+      | M68KModel.M68040 -> "m68040"
+      | M68KModel.M68060 -> "m68060"
+      | _ -> raise InvalidISAException
     | Architecture.AVR, _, _ -> "avr"
     | Architecture.TMS320C6000, _, _ -> "tms320c6000"
     | Architecture.EVM, _, _ -> "evm"
@@ -457,6 +501,24 @@ and ARM32Mode =
   | ARM = 0
   /// The T32 instruction set, whose instructions are one or two halfwords.
   | Thumb = 1
+
+/// Represents which member of the 68000 family an m68k ISA means. The family
+/// shares one encoding space, and a later model reads encodings an earlier one
+/// rejects -- including addressing modes that change how long an instruction is
+/// -- so nothing but the model says what a halfword of code belongs to.
+and M68KModel =
+  /// MC68000, MC68008, MC68HC000, MC68HC001, and MC68EC000.
+  | M68000 = 0
+  /// MC68010.
+  | M68010 = 1
+  /// MC68020 and MC68EC020.
+  | M68020 = 2
+  /// MC68030 and MC68EC030.
+  | M68030 = 3
+  /// MC68040, MC68EC040, and MC68LC040.
+  | M68040 = 4
+  /// MC68060, MC68EC060, and MC68LC060.
+  | M68060 = 5
 
 /// Represents the Python version.
 and PythonVersion =
@@ -588,6 +650,12 @@ module ISA =
   let (|PARISC|_|) (isa: ISA) =
     match isa.Arch with
     | Architecture.PARISC -> ValueSome()
+    | _ -> ValueNone
+
+  [<return: Struct>]
+  let (|M68K|_|) (isa: ISA) =
+    match isa.Arch with
+    | Architecture.M68K -> ValueSome()
     | _ -> ValueNone
 
   [<return: Struct>]

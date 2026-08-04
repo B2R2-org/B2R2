@@ -48,6 +48,8 @@ type Architecture =
   | SH4 = 8
   /// PA-RISC.
   | PARISC = 9
+  /// Motorola 68000 series.
+  | M68K = 10
   /// Atmel AVR 8-bit microcontroller.
   | AVR = 20
   /// TMS320C64x, TMS320C67x, etc.
