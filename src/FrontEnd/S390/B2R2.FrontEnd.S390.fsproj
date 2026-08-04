@@ -11,6 +11,7 @@
     <Compile Include="RegisterHelper.fs" />
     <Compile Include="RegisterFactory.fs" />
     <Compile Include="Opcode.fs" />
+    <Compile Include="OpcodeInfo.fs" />
     <Compile Include="Operands.fs" />
     <Compile Include="InstructionFormat.fs" />
     <Compile Include="Instruction.fs" />

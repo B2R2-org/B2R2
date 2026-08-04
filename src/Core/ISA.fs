@@ -68,7 +68,7 @@ type ISA(arch, endian, wordSize, flags) =
     | Architecture.SPARC ->
       ISA(arch, Endian.Big, WordSize.Bit64)
     | Architecture.S390 ->
-      ISA(arch, Endian.Big, WordSize.Bit32)
+      ISA(arch, Endian.Big, WordSize.Bit64)
     | Architecture.SH4 ->
       ISA(arch, Endian.Little, WordSize.Bit32)
     | Architecture.PARISC ->
@@ -109,7 +109,7 @@ type ISA(arch, endian, wordSize, flags) =
     | Architecture.SPARC ->
       ISA(arch, endian, WordSize.Bit64)
     | Architecture.S390 ->
-      ISA(arch, endian, WordSize.Bit32)
+      ISA(arch, endian, WordSize.Bit64)
     | Architecture.SH4 ->
       ISA(arch, endian, WordSize.Bit32)
     | Architecture.PARISC when endian = Endian.Big ->

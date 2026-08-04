@@ -44,19 +44,32 @@ type O =
 
 [<TestClass>]
 type ParserTests() =
-  let test endian opcode (oprs: Operands) (bytes: byte[]) =
-    let isa = ISA(Architecture.S390, endian = endian)
-    let reader = BinReader.Init endian
+  let parseWith (isa: ISA) (bytes: byte[]) =
+    let reader = BinReader.Init isa.Endian
     let parser = S390Parser(isa, reader) :> IInstructionParsable
-    let span = System.ReadOnlySpan bytes
-    let ins = parser.Parse(span, 0UL) :?> Instruction
-    let opcode' = ins.Opcode
-    let oprs' = ins.Operands
-    Assert.AreEqual<Opcode>(opcode', opcode)
-    Assert.AreEqual<Operands>(oprs', oprs)
+    parser.Parse(System.ReadOnlySpan bytes, 0UL) :?> Instruction
+
+  let assertIns opcode (oprs: Operands) (ins: Instruction) =
+    Assert.AreEqual<Opcode>(ins.Opcode, opcode)
+    Assert.AreEqual<Operands>(ins.Operands, oprs)
+
+  let test endian opcode (oprs: Operands) (bytes: byte[]) =
+    parseWith (ISA(Architecture.S390, endian = endian)) bytes
+    |> assertIns opcode oprs
 
   let test32 (bytes: byte[]) (opcode, operands) =
     test Endian.Big opcode operands bytes
+
+  /// A 32-bit S390 target, which runs ESA/390 rather than z/Architecture.
+  let esa390 = ISA(Architecture.S390, Endian.Big, WordSize.Bit32)
+
+  let testEsa390 (bytes: byte[]) (opcode, oprs) =
+    parseWith esa390 bytes |> assertIns opcode oprs
+
+  let testNotEsa390 (bytes: byte[]) =
+    Assert.ThrowsExactly<ParsingFailureException>(fun () ->
+      parseWith esa390 bytes |> ignore)
+    |> ignore
 
   let operandsFromArray oprList =
     let oprArray = Array.ofList oprList
@@ -197,6 +210,60 @@ type ParserTests() =
     "E73210114F1A"
     ++ VSCEG **
     [ O.Reg VR19; O.Store(Some VR18, R1, DispU 0x11u); O.Mask 4us ]
+    ||> test32
+
+  (* A 32-bit S390 target runs ESA/390, so only the part of the instruction set
+     that predates z/Architecture may decode there. Appendix B of the
+     z/Architecture Principles of Operation is what says which part that is:
+     SAM31 carries the N3 mark and so was added back to ESA/390, while SAM64
+     carries a plain N and never existed outside z/Architecture. *)
+  [<TestMethod>]
+  member _.``[S390] an ESA/390 instruction parses in 32-bit mode test``() =
+    "010D" ++ SAM31 ** [] ||> testEsa390
+
+  [<TestMethod>]
+  member _.``[S390] a 32-bit RR instruction parses in 32-bit mode test``() =
+    "1A12" ++ AR ** [ O.Reg R1; O.Reg R2 ] ||> testEsa390
+
+  (* BRASL came with the immediate-and-relative-instruction facility, which
+     ESA/390 gained before z/Architecture existed, so its N3 mark keeps it
+     available to a 32-bit target even though it is a 6-byte RIL instruction. *)
+  [<TestMethod>]
+  member _.``[S390] an N3 relative branch parses in 32-bit mode test``() =
+    "C01500000002"
+    ++ BRASL **
+    [ O.Reg R1; OpRImm(ImmS32 2) ]
+    ||> testEsa390
+
+  [<TestMethod>]
+  member _.``[S390] SAM64 is rejected in 32-bit mode test``() =
+    testNotEsa390 (ByteArray.ofHexString "010E")
+
+  [<TestMethod>]
+  member _.``[S390] a 64-bit RRE instruction is rejected in 32-bit test``() =
+    testNotEsa390 (ByteArray.ofHexString "B9040012")
+
+  [<TestMethod>]
+  member _.``[S390] a 64-bit RXY load is rejected in 32-bit mode test``() =
+    testNotEsa390 (ByteArray.ofHexString "E31020000004")
+
+  [<TestMethod>]
+  member _.``[S390] a vector instruction is rejected in 32-bit mode test``() =
+    testNotEsa390 (ByteArray.ofHexString "E7312004083F")
+
+  [<TestMethod>]
+  member _.``[S390] SAM64 parses in 64-bit mode test``() =
+    "010E" ++ SAM64 ** [] ||> test32
+
+  [<TestMethod>]
+  member _.``[S390] a 64-bit RRE instruction parses in 64-bit mode test``() =
+    "B9040012" ++ LGR ** [ O.Reg R1; O.Reg R2 ] ||> test32
+
+  [<TestMethod>]
+  member _.``[S390] a 64-bit RXY load parses in 64-bit mode test``() =
+    "E31020000004"
+    ++ LG **
+    [ O.Reg R1; O.Store(Some R0, R2, DispS 0) ]
     ||> test32
 
   [<TestMethod>]

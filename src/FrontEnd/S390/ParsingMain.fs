@@ -1355,4 +1355,7 @@ let parseByFmt (span: ByteSpan) (reader: IBinReader) bin =
 let parse lifter (span: ByteSpan) (reader: IBinReader) wordSize addr =
   let bin = reader.ReadUInt16(span, 0)
   let (opcode, operand, fmt), numBytes = parseByFmt span reader bin
-  Instruction(addr, numBytes, fmt, opcode, operand, wordSize, lifter)
+  if not (OpcodeInfo.isAvailable wordSize opcode) then
+    raise ParsingFailureException
+  else
+    Instruction(addr, numBytes, fmt, opcode, operand, wordSize, lifter)

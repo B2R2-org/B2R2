@@ -40,10 +40,12 @@ type DisasmTests() =
   /// targets are checkable constants.
   static let baseAddr = 0x1000UL
 
-  static let disasm (bytes: byte[]) =
-    let ins = parser.Parse(System.ReadOnlySpan bytes, baseAddr)
-    let builder = StringDisasmBuilder(false, null, WordSize.Bit64)
+  static let disasmAt wordSize addr (bytes: byte[]) =
+    let ins = parser.Parse(System.ReadOnlySpan bytes, addr)
+    let builder = StringDisasmBuilder(false, null, wordSize)
     ins.Disasm builder
+
+  static let disasm bytes = disasmAt WordSize.Bit64 baseAddr bytes
 
   (* S390 folded the " ; " comment delimiter into the symbol prefix and into the
      no-symbol mapper, so when neither applied the whole comment vanished and a
@@ -63,3 +65,26 @@ type DisasmTests() =
   member _.``[S390] a backward branch shows its target test``() =
     let brc = [| 0xa7uy; 0xf4uy; 0xffuy; 0xf8uy |]
     Assert.AreEqual<string>("brc B'1111', -0x10 ; 0xff0", disasm brc)
+
+  (* ESA/390 forms a branch address in the 31-bit addressing mode, so a target
+     that runs past the first 2 GB comes back around to the bottom of it. A
+     64-bit target keeps carrying instead. *)
+  [<TestMethod>]
+  member _.``[S390] a 32-bit branch target wraps at 31 bits test``() =
+    let brc = [| 0xa7uy; 0xf4uy; 0x00uy; 0x08uy |]
+    let disasm = disasmAt WordSize.Bit32 0x7ffffff8UL brc
+    Assert.AreEqual<string>("brc B'1111', +0x10 ; 0x8", disasm)
+
+  [<TestMethod>]
+  member _.``[S390] a 64-bit branch target does not wrap test``() =
+    let brc = [| 0xa7uy; 0xf4uy; 0x00uy; 0x08uy |]
+    let disasm = disasmAt WordSize.Bit64 0x7ffffff8UL brc
+    Assert.AreEqual<string>("brc B'1111', +0x10 ; 0x80000008", disasm)
+
+  (* A backward branch from a low address underflows, which the 31-bit
+     addressing mode turns into a target near the top of the first 2 GB. *)
+  [<TestMethod>]
+  member _.``[S390] a 32-bit backward branch wraps at 31 bits test``() =
+    let brc = [| 0xa7uy; 0xf4uy; 0xffuy; 0xf8uy |]
+    let disasm = disasmAt WordSize.Bit32 0x8UL brc
+    Assert.AreEqual<string>("brc B'1111', -0x10 ; 0x7ffffff8", disasm)

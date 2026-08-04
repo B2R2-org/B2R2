@@ -58,9 +58,14 @@ module internal RegisterHelper =
     | R.FPR13 -> R.FPR15
     | _ -> Terminator.impossible ()
 
-  let toRegType wordSize = function
+  (* ESA/390 gives its general and control registers 32 bits, and z/Architecture
+     widened both to 64. The floating-point registers were 64 bits all along,
+     and the access registers stayed at 32. *)
+  let toRegType wordSize =
+    let archWidth = if wordSize = WordSize.Bit32 then 32<rt> else 64<rt>
+    function
     | R.R0 | R.R1 | R.R2 | R.R3 | R.R4 | R.R5 | R.R6 | R.R7 | R.R8 | R.R9
-    | R.R10 | R.R11 | R.R12 | R.R13 | R.R14 | R.R15 -> 64<rt>
+    | R.R10 | R.R11 | R.R12 | R.R13 | R.R14 | R.R15 -> archWidth
     | R.FPR0 | R.FPR1 | R.FPR2 | R.FPR3 | R.FPR4 | R.FPR5 | R.FPR6 | R.FPR7
     | R.FPR8 | R.FPR9 | R.FPR10 | R.FPR11 | R.FPR12 | R.FPR13 | R.FPR14
     | R.FPR15 -> 64<rt>
@@ -70,7 +75,7 @@ module internal RegisterHelper =
     | R.VR17 | R.VR18 | R.VR19 | R.VR20 | R.VR21 | R.VR22 | R.VR23 | R.VR24
     | R.VR25 | R.VR26 | R.VR27 | R.VR28 | R.VR29 | R.VR30 | R.VR31 -> 128<rt>
     | R.CR0 | R.CR1 | R.CR2 | R.CR3 | R.CR4 | R.CR5 | R.CR6 | R.CR7 | R.CR8
-    | R.CR9 | R.CR10 | R.CR11 | R.CR12 | R.CR13 | R.CR14 | R.CR15 -> 64<rt>
+    | R.CR9 | R.CR10 | R.CR11 | R.CR12 | R.CR13 | R.CR14 | R.CR15 -> archWidth
     | R.AR0 | R.AR1 | R.AR2 | R.AR3 | R.AR4 | R.AR5 | R.AR6 | R.AR7 | R.AR8
     | R.AR9 | R.AR10 | R.AR11 | R.AR12 | R.AR13 | R.AR14 | R.AR15 -> 32<rt>
     | R.BEAR -> 64<rt>

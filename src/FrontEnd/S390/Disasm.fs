@@ -1284,6 +1284,13 @@ let private buildComment targetAddr (builder: IDisasmBuilder) =
   builder.Accumulate(AsmWordKind.CommentDelimiter, " ; ")
   builder.AccumulateSymbol(targetAddr, prefix, suffix, mapNoSymbol)
 
+(* ESA/390 forms a branch address in the 31-bit addressing mode, where bit 32 of
+   the sum is set to zero and the bits to its left are ignored, so the target
+   wraps within the first 2 GB. z/Architecture keeps all 64 bits. *)
+let private branchTarget (builder: IDisasmBuilder) addr offset =
+  let target = int64 addr + offset |> uint64
+  if builder.WordSize = WordSize.Bit32 then target &&& 0x7FFFFFFFUL else target
+
 let oprToString (ins: Instruction) opr delim (builder: IDisasmBuilder) =
   match opr with
   | OpReg reg ->
@@ -1327,8 +1334,7 @@ let oprToString (ins: Instruction) opr delim (builder: IDisasmBuilder) =
       else
         builder.Accumulate(AsmWordKind.String, "+")
         builder.Accumulate(AsmWordKind.Value, HexString.ofInt64 offset)
-      let targetAddr = int64 ins.Address + offset |> uint64
-      buildComment targetAddr builder
+      buildComment (branchTarget builder ins.Address offset) builder
     | ImmS32 value ->
       builder.Accumulate(AsmWordKind.String, delim)
       let offset = 2L * int64 value
@@ -1338,8 +1344,7 @@ let oprToString (ins: Instruction) opr delim (builder: IDisasmBuilder) =
       else
         builder.Accumulate(AsmWordKind.String, "+")
         builder.Accumulate(AsmWordKind.Value, HexString.ofInt64 offset)
-      let targetAddr = int64 ins.Address + offset |> uint64
-      buildComment targetAddr builder
+      buildComment (branchTarget builder ins.Address offset) builder
     | _ -> printfn "%A" immTyp; failwith "Invalid immType"
   | OpMask mask ->
     builder.Accumulate(AsmWordKind.String, delim)
