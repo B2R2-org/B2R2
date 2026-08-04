@@ -170,6 +170,7 @@ type RISCV64RoundTripTests() =
       "fence ,w", "fence ,w" ]
 
   [<TestMethod>]
+  [<TestCategory("Sweep")>]
   member _.``Every instruction the decoder decodes, the assembler encodes``() =
     let broken =
       probes.Force()

@@ -189,6 +189,7 @@ type MIPSRoundTripTests() =
       "sync", "sync 0x0" ]
 
   [<TestMethod>]
+  [<TestCategory("Sweep")>]
   member _.``Every instruction the decoder decodes, the assembler encodes``() =
     let broken =
       sweepProbes.Force()
@@ -211,6 +212,7 @@ type MIPSRoundTripTests() =
   /// how wide the source is, so the two vocabularies meet within one source.
   /// </summary>
   [<TestMethod>]
+  [<TestCategory("Sweep")>]
   member _.``Every instruction encodes where the source is 64-bit``() =
     let broken =
       sweepProbes.Force()

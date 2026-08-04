@@ -367,6 +367,7 @@ type ARM32RoundTripTests() =
   let branchOpcodes = [ "b"; "bl"; "bne"; "bleq"; "blx" ]
 
   [<TestMethod>]
+  [<TestCategory("Sweep")>]
   member _.``Every instruction the decoder decodes, the assembler encodes``() =
     let broken =
       sweepOutcomes.Force()
@@ -408,6 +409,7 @@ type ARM32RoundTripTests() =
       "These memory operand shapes no longer encode correctly.")
 
   [<TestMethod>]
+  [<TestCategory("Sweep")>]
   member _.``Every Thumb instruction the decoder decodes encodes``() =
     let broken =
       thumbOutcomes.Force()

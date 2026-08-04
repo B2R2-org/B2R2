@@ -202,6 +202,7 @@ type PARISCRoundTripTests() =
       "or flags, flags, flags", "or flags, flags, flags" ]
 
   [<TestMethod>]
+  [<TestCategory("Sweep")>]
   member _.``Every instruction the decoder decodes, the assembler encodes``() =
     let broken =
       probes.Force()

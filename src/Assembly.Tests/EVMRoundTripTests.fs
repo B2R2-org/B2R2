@@ -193,10 +193,12 @@ type EVMRoundTripTests() =
   /// each push is tried holding several numbers besides.
   /// </summary>
   [<TestMethod>]
+  [<TestCategory("Sweep")>]
   member _.``The sweep reaches the whole of the encoding space``() =
     Assert.IsGreaterThan(300, List.length (probes.Force()))
 
   [<TestMethod>]
+  [<TestCategory("Sweep")>]
   member _.``Every instruction the decoder decodes, the assembler encodes``() =
     let broken =
       probes.Force()

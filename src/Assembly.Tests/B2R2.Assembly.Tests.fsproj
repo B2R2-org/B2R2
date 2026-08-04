@@ -4,6 +4,18 @@
     <IsPackable>false</IsPackable>
   </PropertyGroup>
 
+  <!-- The sweeps walk the encoding space of every architecture the assemblers
+       cover, which takes longer than the whole of the rest of the suite put
+       together, so they are left out unless they are asked for by name:
+
+         dotnet test -p:FullTest=true
+
+       Nothing else is left out, and the sweeps themselves are still reachable
+       on their own by filtering on "TestCategory=Sweep". -->
+  <PropertyGroup Condition="'$(FullTest)' != 'true'">
+    <VSTestTestCaseFilter>TestCategory!=Sweep</VSTestTestCaseFilter>
+  </PropertyGroup>
+
   <ItemGroup>
     <Compile Include="MSTestSettings.fs" />
     <Compile Include="IntelTests.fs" />

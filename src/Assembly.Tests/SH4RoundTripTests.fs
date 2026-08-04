@@ -192,10 +192,12 @@ type SH4RoundTripTests() =
   /// working rather than found the truth.
   /// </summary>
   [<TestMethod>]
+  [<TestCategory("Sweep")>]
   member _.``The sweep reaches most of the encoding space``() =
     Assert.IsGreaterThan(50000, List.length (probes.Force()))
 
   [<TestMethod>]
+  [<TestCategory("Sweep")>]
   member _.``Every instruction the decoder decodes, the assembler encodes``() =
     let broken =
       probes.Force()

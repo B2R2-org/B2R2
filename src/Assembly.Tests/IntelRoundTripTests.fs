@@ -301,6 +301,7 @@ type IntelRoundTripTests() =
       "OP st7, st0" ]
 
   [<TestMethod>]
+  [<TestCategory("Sweep")>]
   member _.``Every instruction the decoder decodes, the assembler encodes``() =
     let broken =
       sweepOutcomes.Force()

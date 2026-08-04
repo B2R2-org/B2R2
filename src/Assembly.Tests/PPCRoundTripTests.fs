@@ -190,6 +190,7 @@ type PPCRoundTripTests() =
       "bltlr", "bltlr cr0" ]
 
   [<TestMethod>]
+  [<TestCategory("Sweep")>]
   member _.``Every instruction the decoder decodes, the assembler encodes``() =
     let broken =
       probes32.Force()
@@ -213,6 +214,7 @@ type PPCRoundTripTests() =
   /// sizes share are written differently here.
   /// </summary>
   [<TestMethod>]
+  [<TestCategory("Sweep")>]
   member _.``Every instruction encodes where the source is 64-bit``() =
     let broken =
       probes64.Force()

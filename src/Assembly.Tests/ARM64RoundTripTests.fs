@@ -958,6 +958,7 @@ type ARM64RoundTripTests() =
       "prfm pldl1keep, L", "prfm pldl1keep," ]
 
   [<TestMethod>]
+  [<TestCategory("Sweep")>]
   member _.``Every instruction the decoder decodes, the assembler encodes``() =
     let broken =
       sweepOutcomes.Force()
@@ -1052,6 +1053,7 @@ type ARM64RoundTripTests() =
   /// out has to read back as itself.
   /// </summary>
   [<TestMethod>]
+  [<TestCategory("Sweep")>]
   member _.``An arrangement no instruction reads does not encode``() =
     let broken =
       mutingStderr (fun () ->

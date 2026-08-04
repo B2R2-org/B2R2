@@ -177,6 +177,7 @@ type SPARCRoundTripTests() =
       "nop", "nop" ]
 
   [<TestMethod>]
+  [<TestCategory("Sweep")>]
   member _.``Every instruction the decoder decodes, the assembler encodes``() =
     let broken =
       probes.Force()

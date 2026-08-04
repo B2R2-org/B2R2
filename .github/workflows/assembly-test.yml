@@ -1,0 +1,78 @@
+name: assembly-test
+
+# Runs the assembler sweeps, which debug-test and release-test leave out. Each
+# sweep walks the whole encoding space of one architecture with B2R2's own
+# decoder and round-trips everything the decoder reads, so one architecture
+# costs about as much as the rest of the suite put together. They are split one
+# job per architecture: the build happens once and every job reads its output,
+# so the pipeline costs one build plus the slowest single architecture rather
+# than the sum of all of them.
+
+on:
+  push:
+    branches: [ "*" ]
+  pull_request:
+    branches: [ "main" ]
+
+jobs:
+  build:
+
+    runs-on: ubuntu-latest
+
+    steps:
+    - uses: actions/checkout@v5
+    - name: Setup .NET
+      uses: actions/setup-dotnet@v5
+    - name: Restore dependencies
+      run: dotnet restore src/Assembly.Tests
+    - name: Build
+      # Only the assemblers, the decoders they are checked against and the test
+      # project itself; nothing under MiddleEnd or RearEnd is reachable from
+      # here, and the other workflows build those.
+      run: dotnet build src/Assembly.Tests --no-restore
+    - name: Upload the test binaries
+      uses: actions/upload-artifact@v4
+      with:
+        name: assembly-test-binaries
+        path: src/Assembly.Tests/bin/Debug/net10.0
+        retention-days: 1
+
+  sweep:
+
+    needs: build
+
+    runs-on: ubuntu-latest
+
+    strategy:
+      # Every architecture is reported, because which ones broke is the answer
+      # this workflow exists to give.
+      fail-fast: false
+      matrix:
+        arch:
+        - Intel
+        - ARM32
+        - ARM64
+        - MIPS
+        - PARISC
+        - PPC
+        - RISCV64
+        - SPARC
+        - SH4
+        - AVR
+        - EVM
+
+    steps:
+    - name: Setup .NET
+      uses: actions/setup-dotnet@v5
+    - name: Download the test binaries
+      uses: actions/download-artifact@v4
+      with:
+        name: assembly-test-binaries
+        path: bin
+    - name: Sweep ${{ matrix.arch }}
+      # The assembly is named rather than the project, so that this needs no
+      # checkout and no restore: the filter names the sweeps of one
+      # architecture, which overrides the exclusion the project file carries.
+      run: >
+        dotnet test bin/B2R2.Assembly.Tests.dll --verbosity normal
+        --filter "TestCategory=Sweep&FullyQualifiedName~${{ matrix.arch }}RoundTripTests"

@@ -32,6 +32,30 @@ Development proceeds test-first: add one unit test under the matching
 `src/<Project>` live in `src/<Project>.Tests`), then make it pass, re-running
 the three commands each time.
 
+### The assembler sweeps
+
+`src/Assembly.Tests` checks each assembler by walking the whole encoding space
+of its architecture with B2R2's own decoder and round-tripping everything the
+decoder reads. That covers far more than a written-out list could, and it costs
+more than the whole of the rest of the suite put together, so those tests are
+tagged `[<TestCategory("Sweep")>]` and are left out of a plain `dotnet test`.
+Ask for them by name:
+
+```bash
+dotnet test -p:FullTest=true
+```
+
+Use the plain form while iterating. Finish with the full form whenever the
+change touches an assembler under `src/Assembly` or a decoder under
+`src/FrontEnd`, because those are what the sweeps are about. CI runs them
+either way, in a workflow of its own that splits them one job per
+architecture, so a sweep the plain run never reached still has to pass.
+
+A test that reads a sweep must carry the category, or a plain run pays for the
+sweep and gains nothing. It must also live in the `<Arch>RoundTripTests` class
+of the architecture it sweeps, which is what the per-architecture CI jobs
+select on; a sweep in a class named anything else is run by no job at all.
+
 ## Coding style (strict — CI enforces it)
 
 The full rules are in [CONTRIBUTING.md](CONTRIBUTING.md); the non-negotiables:
