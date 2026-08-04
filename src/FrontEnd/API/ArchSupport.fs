@@ -121,4 +121,5 @@ module ArchSupport =
     | MIPS -> MIPS.LowUIRBuilder(isa, regFactory, stream) :> ILowUIRBuilder
     | SPARC -> SPARC.LowUIRBuilder(isa, regFactory, stream) :> ILowUIRBuilder
     | SH4 -> SH4.LowUIRBuilder(isa, regFactory, stream) :> ILowUIRBuilder
+    | PARISC -> PARISC.LowUIRBuilder(isa, regFactory, stream) :> ILowUIRBuilder
     | _ -> ILowUIRBuilder.Default(isa, regFactory, stream)

@@ -292,5 +292,13 @@ type Opcode =
   | XMPYU = 130
   /// To pop one or more entries off the branch target stack.
   | POPBTS = 131
+  /// To add the address portion of an entry to the instruction TLB.
+  | IITLBA = 132
+  /// To add the protection portion of an entry to the instruction TLB.
+  | IITLBP = 133
+  /// To add the address portion of an entry to the data TLB.
+  | IDTLBA = 134
+  /// To add the protection portion of an entry to the data TLB.
+  | IDTLBP = 135
 
 type internal Op = Opcode

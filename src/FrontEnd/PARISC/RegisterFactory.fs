@@ -178,6 +178,9 @@ type RegisterFactory(isa: ISA) =
   let fpr29r = AST.var rt (Register.toRegID FPR29R) "FPR29R"
   let fpr30r = AST.var rt (Register.toRegID FPR30R) "FPR30R"
   let fpr31r = AST.var rt (Register.toRegID FPR31R) "FPR31R"
+  let pswN = AST.var rt (Register.toRegID PSW_N) "PSW_N"
+  let pswV = AST.var rt (Register.toRegID PSW_V) "PSW_V"
+  let pswCB = AST.var rt (Register.toRegID PSW_CB) "PSW_CB"
 
   interface IRegisterFactory with
     member _.ISA = isa
@@ -331,6 +334,9 @@ type RegisterFactory(isa: ISA) =
       | Register.FPR29R -> fpr29r
       | Register.FPR30R -> fpr30r
       | Register.FPR31R -> fpr31r
+      | Register.PSW_N -> pswN
+      | Register.PSW_V -> pswV
+      | Register.PSW_CB -> pswCB
       | _ -> raise InvalidRegisterException
 
     member _.GetPseudoRegVar(_id, _idx) = Terminator.impossible ()
@@ -475,7 +481,10 @@ type RegisterFactory(isa: ISA) =
          fpr28r
          fpr29r
          fpr30r
-         fpr31r |]
+         fpr31r
+         pswN
+         pswV
+         pswCB |]
 
     member this.GetAllRegisterNames() =
       let regFactory = this :> IRegisterFactory

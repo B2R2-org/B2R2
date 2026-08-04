@@ -46,6 +46,10 @@ let opCodeToString = function
   | Op.DIAG -> "diag"
   (* Memory Management Instructions *)
   | Op.IITLBT -> "iitlbt"
+  | Op.IITLBA -> "iitlba"
+  | Op.IITLBP -> "iitlbp"
+  | Op.IDTLBA -> "idtlba"
+  | Op.IDTLBP -> "idtlbp"
   | Op.PITLB -> "pitlb"
   | Op.PITLBE -> "pitlbe"
   | Op.FIC -> "fic"

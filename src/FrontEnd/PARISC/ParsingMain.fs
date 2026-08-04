@@ -68,6 +68,12 @@ let parseMemoryManagementInstruction bin wordSz =
     let oprs = getMemSpaceRegOff bin (srImm3 bin) offset wordSz
     match bit20to25 with
     | 0b100000u -> Op.IITLBT, None, getRs1Rs2 bin
+    (* The pair of instructions the earlier architecture split a TLB entry's
+       address and protection between, which the later one merged into the one
+       above. They name the entry by a space and a base register rather than by
+       two general ones. *)
+    | 0b000000u -> Op.IITLBP, None, getRs1MemSpace bin (sr bin) wordSz
+    | 0b000001u -> Op.IITLBA, None, getRs1MemSpace bin (sr bin) wordSz
     | 0b001000u -> Op.PITLB, cmplt, oprs
     | 0b011000u -> Op.PITLB, cmpltLM, oprs
     | 0b001001u -> Op.PITLBE, cmplt, oprs
@@ -78,6 +84,8 @@ let parseMemoryManagementInstruction bin wordSz =
     let offset = getRegFromRange bin 20u 16u
     match bit20to25 with
     | 0b100000u -> Op.IDTLBT, None, getRs1Rs2 bin
+    | 0b000000u -> Op.IDTLBP, None, getRs1MemSpace bin (sr bin) wordSz
+    | 0b000001u -> Op.IDTLBA, None, getRs1MemSpace bin (sr bin) wordSz
     | 0b001000u -> Op.PDTLB, cmplt, getMemSpaceRegOff bin (sr bin) offset wordSz
     | 0b011000u ->
       Op.PDTLB, cmpltLM, getMemSpaceRegOff bin (sr bin) offset wordSz

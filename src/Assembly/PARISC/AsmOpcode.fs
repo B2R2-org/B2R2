@@ -259,6 +259,24 @@ let private tlbInsert side ins =
     mgmt 0b100000u ((gpr s2 <<< 21) ||| (gpr s1 <<< 16) ||| side)
   | _ -> wrongOperands ins
 
+/// <summary>
+/// An instruction adding one half of an entry to what the processor remembers
+/// about where something was found.
+///
+/// The earlier architecture split an entry into the address it holds and the
+/// protection that goes with it, and had one instruction for each half; the bit
+/// just above the field naming which instruction a word is says which half. The
+/// entry itself is named by a space and a register holding an address, so
+/// unlike the merged instruction that replaced these, they name memory.
+/// </summary>
+let private tlbInsertHalf side half space ins =
+  nothingLeft ins ins.Suffixes
+  match ins.Operands with
+  | [ Rg index; Mem(None, sp, baseReg) ] ->
+    mgmt half ((gpr baseReg <<< 21) ||| (gpr index <<< 16) ||| space sp
+               ||| side)
+  | _ -> wrongOperands ins
+
 /// The six bits saying which way a program asks whether it may reach an
 /// address, which every such instruction is written with.
 let private probeForm = function
@@ -307,6 +325,10 @@ let private lci ins =
 let memoryManagementEncoders () =
   [ "iitlbt", tlbInsert 0u
     "idtlbt", tlbInsert DataSide
+    "iitlbp", tlbInsertHalf 0u 0b000000u space3
+    "iitlba", tlbInsertHalf 0u 0b000001u space3
+    "idtlbp", tlbInsertHalf DataSide 0b000000u space2
+    "idtlba", tlbInsertHalf DataSide 0b000001u space2
     "pitlb", page 0u space3
     "pitlbe", insCache 0b001001u
     "fic", insCache 0b001010u

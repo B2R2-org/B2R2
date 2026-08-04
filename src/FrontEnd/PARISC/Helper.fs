@@ -602,11 +602,21 @@ let getCrRd b = TwoOperands(cr b, rd b)
 
 let getImmediate bin high low = Bits.extract bin high low |> uint64
 
+/// <summary>
+/// The number a field holding a small signed immediate stands for.
+///
+/// PA-RISC keeps the sign of such a number in the *lowest* bit of the field and
+/// the magnitude in the bits above it, so that those bits read as a count
+/// whichever way the sign goes. Moving the lowest bit up to the top is what
+/// turns the field back into a number, which is then widened to the machine
+/// word.
+/// </summary>
 let getImmLowSignExt bin high low wordSz =
+  let width = int (high - low) + 1
   let imm = Bits.extract bin high low |> uint64
-  let extended = (imm >>> 1) - (imm &&& 1UL <<< int (high - low))
-  Bits.signExtend (int (high - low + 1u)) (RegType.toBitWidth wordSz) extended
-  |> int64
+  let mask = (1UL <<< width) - 1UL
+  let moved = ((imm >>> 1) ||| ((imm &&& 1UL) <<< (width - 1))) &&& mask
+  Bits.signExtend width (RegType.toBitWidth wordSz) moved |> int64
 
 let internal signExtend32 originalSize targetSize value =
   let originalMask = (1UL <<< originalSize) - 1UL
@@ -807,6 +817,9 @@ let getMemSpaceRegOffFrd b space offset wordSz =
 /// The same, where what is loaded lands in one half of a register.
 let getMemSpaceRegOffFrdWord b space offset wordSz =
   TwoOperands(OpMem(br b, Some space, Some(Reg offset), wordSz), frdWord b 6u)
+
+let getRs1MemSpace b space wordSz =
+  TwoOperands(rs1 b, OpMem(br b, Some space, None, wordSz))
 
 let getMemSpaceRs1Rd b space wordSz =
   ThreeOperands(OpMem(br b, Some space, None, wordSz), rs1 b, rd b)

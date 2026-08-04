@@ -176,6 +176,18 @@ type Register =
   | FPR29R = 0x8A
   | FPR30R = 0x8B
   | FPR31R = 0x8C
+  /// The PSW nullify bit (PSW{N}): set when the instruction the front of the
+  /// instruction-address queue names is nullified, so it retires without any
+  /// effect. Modelled on its own rather than as a field of PSW because it is
+  /// the one PSW bit every instruction reads and writes.
+  | PSW_N = 0x8D
+  /// The PSW divide-step/overflow bit (PSW{V}), which DS reads to decide
+  /// whether its step adds or subtracts and which the trapping arithmetic
+  /// writes.
+  | PSW_V = 0x8E
+  /// The PSW carry/borrow bits (PSW{CB}), which the add-with-carry and
+  /// subtract-with-borrow forms and DS carry between instructions.
+  | PSW_CB = 0x8F
 
 /// Provides functions to handle PARISC registers.
 module Register =
@@ -361,6 +373,9 @@ module Register =
     | "fr29R" -> Register.FPR29R
     | "fr30R" -> Register.FPR30R
     | "fr31R" -> Register.FPR31R
+    | "psw_n" -> Register.PSW_N
+    | "psw_v" -> Register.PSW_V
+    | "psw_cb" -> Register.PSW_CB
     | _ -> Terminator.impossible ()
 
   /// Returns the register ID of a PARISC register.
@@ -513,4 +528,7 @@ module Register =
     | Register.FPR29R -> "fr29R"
     | Register.FPR30R -> "fr30R"
     | Register.FPR31R -> "fr31R"
+    | Register.PSW_N -> "psw_n"
+    | Register.PSW_V -> "psw_v"
+    | Register.PSW_CB -> "psw_cb"
     | _ -> Terminator.impossible ()
