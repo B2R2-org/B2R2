@@ -35,6 +35,8 @@
     <Compile Include="PPCRoundTripTests.fs" />
     <Compile Include="RISCV64Sweep.fs" />
     <Compile Include="RISCV64RoundTripTests.fs" />
+    <Compile Include="S390Sweep.fs" />
+    <Compile Include="S390RoundTripTests.fs" />
     <Compile Include="SPARCSweep.fs" />
     <Compile Include="SPARCRoundTripTests.fs" />
     <Compile Include="SH4Sweep.fs" />
@@ -60,6 +62,7 @@
     <ProjectReference Include="..\Assembly\PPC\B2R2.Assembly.PPC.fsproj" />
     <ProjectReference
       Include="..\Assembly\RISCV64\B2R2.Assembly.RISCV64.fsproj" />
+    <ProjectReference Include="..\Assembly\S390\B2R2.Assembly.S390.fsproj" />
     <ProjectReference Include="..\Assembly\SPARC\B2R2.Assembly.SPARC.fsproj" />
     <ProjectReference Include="..\Assembly\SH4\B2R2.Assembly.SH4.fsproj" />
     <ProjectReference Include="..\Assembly\AVR\B2R2.Assembly.AVR.fsproj" />
@@ -74,6 +77,7 @@
     <ProjectReference Include="..\FrontEnd\PPC\B2R2.FrontEnd.PPC.fsproj" />
     <ProjectReference
       Include="..\FrontEnd\RISCV64\B2R2.FrontEnd.RISCV64.fsproj" />
+    <ProjectReference Include="..\FrontEnd\S390\B2R2.FrontEnd.S390.fsproj" />
     <ProjectReference Include="..\FrontEnd\SPARC\B2R2.FrontEnd.SPARC.fsproj" />
     <ProjectReference Include="..\FrontEnd\SH4\B2R2.FrontEnd.SH4.fsproj" />
     <ProjectReference Include="..\FrontEnd\AVR\B2R2.FrontEnd.AVR.fsproj" />

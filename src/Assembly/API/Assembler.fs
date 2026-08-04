@@ -49,6 +49,7 @@ type Assembler(isa: ISA, startAddress) =
     | PPC -> PPC.Assembler(isa, startAddress) :> ILowerable
     | RISCV64 -> RISCV64.Assembler(isa, startAddress) :> ILowerable
     | SPARC -> SPARC.Assembler(isa, startAddress) :> ILowerable
+    | S390 -> S390.Assembler(isa, startAddress) :> ILowerable
     | SH4 -> SH4.Assembler(isa, startAddress) :> ILowerable
     | AVR -> AVR.Assembler(isa, startAddress) :> ILowerable
     | EVM -> EVM.Assembler(isa, startAddress) :> ILowerable

@@ -67,6 +67,7 @@ jobs:
         - PPC
         - RISCV64
         - SPARC
+        - S390
         - SH4
         - AVR
         - EVM

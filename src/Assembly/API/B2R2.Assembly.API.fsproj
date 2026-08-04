@@ -27,6 +27,7 @@
     <ProjectReference Include="..\PPC\B2R2.Assembly.PPC.fsproj" />
     <ProjectReference
       Include="..\RISCV64\B2R2.Assembly.RISCV64.fsproj" />
+    <ProjectReference Include="..\S390\B2R2.Assembly.S390.fsproj" />
     <ProjectReference Include="..\SPARC\B2R2.Assembly.SPARC.fsproj" />
     <ProjectReference Include="..\SH4\B2R2.Assembly.SH4.fsproj" />
   </ItemGroup>
