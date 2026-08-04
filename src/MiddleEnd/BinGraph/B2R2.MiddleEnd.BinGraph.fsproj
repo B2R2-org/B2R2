@@ -25,6 +25,7 @@
     <Compile Include="ISCCEnumerable.fs" />
     <Compile Include="SCC.fs" />
     <Compile Include="IDominance.fs" />
+    <Compile Include="Dominance\DominanceHelper.fs" />
     <Compile Include="Dominance\IterativeDominance.fs" />
     <Compile Include="Dominance\SimpleLengauerTarjanDominance.fs" />
     <Compile Include="Dominance\LengauerTarjanDominance.fs" />

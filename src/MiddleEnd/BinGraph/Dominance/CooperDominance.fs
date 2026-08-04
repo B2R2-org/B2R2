@@ -169,11 +169,13 @@ let private createDominance fwG (bwG: Lazy<IDiGraphAccessible<_, _>>) fwInfo
       GraphUtils.checkVertexInGraph bwG.Value v
 #endif
       domsAux [ v ] v bwInfo.Value
+      |> Seq.map (findOriginalVertex fwG)
     member _.ImmediatePostDominator v =
 #if DEBUG
       GraphUtils.checkVertexInGraph bwG.Value v
 #endif
       idomAux bwInfo.Value v
+      |> findOriginalVertex fwG
     member _.PostDominatorTree = bwDT.Value
     member this.PostDominanceFrontier v =
 #if DEBUG
@@ -182,7 +184,8 @@ let private createDominance fwG (bwG: Lazy<IDiGraphAccessible<_, _>>) fwInfo
       if isNull dfProvider then
         dfProvider <- dfp.CreateIDominanceFrontier(bwG.Value, this, true)
       else ()
-      dfProvider.DominanceFrontier v }
+      dfProvider.DominanceFrontier v
+      |> Seq.map (findOriginalVertex fwG) }
 
 let private computeDominance g (dfp: IDominanceFrontierProvider<_, _>) =
   let fwInfo = computeDomInfo g
