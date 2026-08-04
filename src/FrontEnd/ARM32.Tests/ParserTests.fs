@@ -385,6 +385,11 @@ type ParserTests() =
     ++ SBFX ** [ O.Reg R0; O.Reg R2; O.Imm 28L; O.Imm 3L ]
     ||> testNoWbackNoQNoSimd Condition.AL
 
+#if !EMULATION
+  (* Refusing a word the manual calls UNPREDICTABLE is one of the checks an
+     emulation build compiles out of the parser, so what follows is only true of
+     a build that compiles them in. *)
+
   /// The width of a bitfield is how far its top bit sits above its bottom one,
   /// so a top bit below the bottom one names no field at all.
   [<TestMethod>]
@@ -394,6 +399,7 @@ type ParserTests() =
   [<TestMethod>]
   member _.``[ARMv7] Miscellaneous data-processing Parse Test (6)``() =
     testRefused "e7c1231f" (* bfc, msb = 1, lsb = 6 *)
+#endif
 
   [<TestMethod>]
   member _.``[ARMv7] Status register access Parse Test (1)``() =

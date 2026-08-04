@@ -534,6 +534,11 @@ type ThumbParserTests() =
     ++ SBFX ** [ O.Reg SB; O.Reg LR; O.Imm 0L; O.Imm 25L ]
     ||> testNoWbackNoQNoSimd Condition.AL
 
+#if !EMULATION
+  (* Refusing a word the manual calls UNPREDICTABLE is one of the checks an
+     emulation build compiles out of the parser, so what follows is only true of
+     a build that compiles them in. *)
+
   /// The width of a bitfield is how far its top bit sits above its bottom one,
   /// so a top bit below the bottom one names no field at all.
   [<TestMethod>]
@@ -543,6 +548,7 @@ type ThumbParserTests() =
   [<TestMethod>]
   member _.``[Thumb] Miscellaneous data-processing Parse test (6)``() =
     testRefused "f36f1081" (* bfc, msb = 1, lsb = 6 *)
+#endif
 
   [<TestMethod>]
   member _.``[Thumb] Status register access Parse test (1)``() =
