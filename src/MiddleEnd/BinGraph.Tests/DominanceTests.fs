@@ -76,22 +76,31 @@ type DominanceTests() =
   let getDominators dom g i =
     (g: IDiGraph<_, _>).FindVertexByData i
     |> (dom: IDominance<_, _>).Dominators
-    |> Seq.map (fun v -> v.VData) |> Set.ofSeq
+    |> Set.ofSeq
 
   let getDominanceFrontier dom g i =
     (g: IDiGraph<_, _>).FindVertexByData i
     |> (dom: IDominance<_, _>).DominanceFrontier
-    |> Seq.map (fun v -> v.VData) |> Set.ofSeq
+    |> Set.ofSeq
 
   let getPostDominators dom g i =
     (g: IDiGraph<_, _>).FindVertexByData i
     |> (dom: IDominance<_, _>).PostDominators
-    |> Seq.map (fun v -> v.VData) |> Set.ofSeq
+    |> Set.ofSeq
 
   let getPostDominanceFrontier dom g i =
     (g: IDiGraph<_, _>).FindVertexByData i
     |> (dom: IDominance<_, _>).PostDominanceFrontier
-    |> Seq.map (fun v -> v.VData) |> Set.ofSeq
+    |> Set.ofSeq
+
+  let assertEqual (g: IDiGraphAccessible<_, _>) expectedValue v =
+    let expectedVertex = g.FindVertexByData expectedValue
+    Assert.AreEqual(expectedVertex, v)
+    Assert.AreEqual(expectedValue, v.VData)
+
+  let assertSetEqual (g: IDiGraphAccessible<_, _>) expectedValues vertices =
+    let expectedVertices = expectedValues |> Seq.map g.FindVertexByData
+    Assert.AreEqual(Set.ofSeq expectedVertices, Set.ofSeq vertices)
 
   static member TestData =
     [| [| box Persistent; box DomIterative; box DFCytron; box None |]
@@ -189,15 +198,15 @@ type DominanceTests() =
     let v = dom.ImmediateDominator <| g.FindVertexByData 1
     Assert.IsNull(v)
     let v = dom.ImmediateDominator <| g.FindVertexByData 2
-    Assert.AreEqual<int>(1, v.VData)
+    assertEqual g 1 v
     let v = dom.ImmediateDominator <| g.FindVertexByData 3
-    Assert.AreEqual<int>(2, v.VData)
+    assertEqual g 2 v
     let v = dom.ImmediateDominator <| g.FindVertexByData 4
-    Assert.AreEqual<int>(2, v.VData)
+    assertEqual g 2 v
     let v = dom.ImmediateDominator <| g.FindVertexByData 5
-    Assert.AreEqual<int>(2, v.VData)
+    assertEqual g 2 v
     let v = dom.ImmediateDominator <| g.FindVertexByData 6
-    Assert.AreEqual<int>(2, v.VData)
+    assertEqual g 2 v
 
   [<TestMethod>]
   [<DynamicData(nameof DominanceTests.TestData)>]
@@ -205,17 +214,17 @@ type DominanceTests() =
     let g, _ = digraph1 t
     let dom: IDominance<_, _> = instantiate g domAlgo dfAlgo sAlgo
     let ds = getDominators dom g 1
-    Assert.AreEqual<Set<int>>(Set.ofList [ 1 ], ds)
+    assertSetEqual g [ 1 ] ds
     let ds = getDominators dom g 2
-    Assert.AreEqual<Set<int>>(Set.ofList [ 1; 2 ], ds)
+    assertSetEqual g [ 1; 2 ] ds
     let ds = getDominators dom g 3
-    Assert.AreEqual<Set<int>>(Set.ofList [ 1; 2; 3 ], ds)
+    assertSetEqual g [ 1; 2; 3 ] ds
     let ds = getDominators dom g 4
-    Assert.AreEqual<Set<int>>(Set.ofList [ 1; 2; 4 ], ds)
+    assertSetEqual g [ 1; 2; 4 ] ds
     let ds = getDominators dom g 5
-    Assert.AreEqual<Set<int>>(Set.ofList [ 1; 2; 5 ], ds)
+    assertSetEqual g [ 1; 2; 5 ] ds
     let ds = getDominators dom g 6
-    Assert.AreEqual<Set<int>>(Set.ofList [ 1; 2; 6 ], ds)
+    assertSetEqual g [ 1; 2; 6 ] ds
 
   [<TestMethod>]
   [<DynamicData(nameof DominanceTests.TestData)>]
@@ -225,13 +234,13 @@ type DominanceTests() =
     let df = getDominanceFrontier dom g 1
     Assert.AreEqual<int>(0, Set.count df)
     let df = getDominanceFrontier dom g 2
-    Assert.AreEqual<Set<int>>(Set.ofList [ 2 ], df)
+    assertSetEqual g [ 2 ] df
     let df = getDominanceFrontier dom g 3
-    Assert.AreEqual<Set<int>>(Set.ofList [ 5 ], df)
+    assertSetEqual g [ 5 ] df
     let df = getDominanceFrontier dom g 4
-    Assert.AreEqual<Set<int>>(Set.ofList [ 5 ], df)
+    assertSetEqual g [ 5 ] df
     let df = getDominanceFrontier dom g 5
-    Assert.AreEqual<Set<int>>(Set.ofList [ 2 ], df)
+    assertSetEqual g [ 2 ] df
     let df = getDominanceFrontier dom g 6
     Assert.AreEqual<int>(0, Set.count df)
 
@@ -241,15 +250,15 @@ type DominanceTests() =
     let g, _ = digraph1 t
     let dom: IDominance<_, _> = instantiate g domAlgo dfAlgo sAlgo
     let v = dom.ImmediatePostDominator <| g.FindVertexByData 1
-    Assert.AreEqual<int>(2, v.VData)
+    assertEqual g 2 v
     let v = dom.ImmediatePostDominator <| g.FindVertexByData 2
-    Assert.AreEqual<int>(6, v.VData)
+    assertEqual g 6 v
     let v = dom.ImmediatePostDominator <| g.FindVertexByData 3
-    Assert.AreEqual<int>(5, v.VData)
+    assertEqual g 5 v
     let v = dom.ImmediatePostDominator <| g.FindVertexByData 4
-    Assert.AreEqual<int>(5, v.VData)
+    assertEqual g 5 v
     let v = dom.ImmediatePostDominator <| g.FindVertexByData 5
-    Assert.AreEqual<int>(2, v.VData)
+    assertEqual g 2 v
     let v = dom.ImmediatePostDominator <| g.FindVertexByData 6
     Assert.IsNull(v)
 
@@ -259,17 +268,17 @@ type DominanceTests() =
     let g, _ = digraph1 t
     let dom: IDominance<_, _> = instantiate g domAlgo dfAlgo sAlgo
     let pds = getPostDominators dom g 1
-    Assert.AreEqual<Set<int>>(Set.ofList [ 1; 2; 6 ], pds)
+    assertSetEqual g [ 1; 2; 6 ] pds
     let pds = getPostDominators dom g 2
-    Assert.AreEqual<Set<int>>(Set.ofList [ 2; 6 ], pds)
+    assertSetEqual g [ 2; 6 ] pds
     let pds = getPostDominators dom g 3
-    Assert.AreEqual<Set<int>>(Set.ofList [ 2; 3; 5; 6 ], pds)
+    assertSetEqual g [ 2; 3; 5; 6 ] pds
     let pds = getPostDominators dom g 4
-    Assert.AreEqual<Set<int>>(Set.ofList [ 2; 4; 5; 6 ], pds)
+    assertSetEqual g [ 2; 4; 5; 6 ] pds
     let pds = getPostDominators dom g 5
-    Assert.AreEqual<Set<int>>(Set.ofList [ 2; 5; 6 ], pds)
+    assertSetEqual g [ 2; 5; 6 ] pds
     let pds = getPostDominators dom g 6
-    Assert.AreEqual<Set<int>>(Set.ofList [ 6 ], pds)
+    assertSetEqual g [ 6 ] pds
 
   [<TestMethod>]
   [<DynamicData(nameof DominanceTests.TestData)>]
@@ -279,13 +288,13 @@ type DominanceTests() =
     let df = getPostDominanceFrontier dom g 1
     Assert.AreEqual<int>(0, Set.count df)
     let df = getPostDominanceFrontier dom g 2
-    Assert.AreEqual<Set<int>>(Set.ofList [ 2 ], df)
+    assertSetEqual g [ 2 ] df
     let df = getPostDominanceFrontier dom g 3
-    Assert.AreEqual<Set<int>>(Set.ofList [ 2 ], df)
+    assertSetEqual g [ 2 ] df
     let df = getPostDominanceFrontier dom g 4
-    Assert.AreEqual<Set<int>>(Set.ofList [ 2 ], df)
+    assertSetEqual g [ 2 ] df
     let df = getPostDominanceFrontier dom g 5
-    Assert.AreEqual<Set<int>>(Set.ofList [ 2 ], df)
+    assertSetEqual g [ 2 ] df
     let df = getPostDominanceFrontier dom g 6
     Assert.AreEqual<int>(0, Set.count df)
 
@@ -297,15 +306,15 @@ type DominanceTests() =
     let v = dom.ImmediateDominator <| g.FindVertexByData 1
     Assert.IsNull(v)
     let v = dom.ImmediateDominator <| g.FindVertexByData 2
-    Assert.AreEqual<int>(1, v.VData)
+    assertEqual g 1 v
     let v = dom.ImmediateDominator <| g.FindVertexByData 3
-    Assert.AreEqual<int>(1, v.VData)
+    assertEqual g 1 v
     let v = dom.ImmediateDominator <| g.FindVertexByData 4
-    Assert.AreEqual<int>(3, v.VData)
+    assertEqual g 3 v
     let v = dom.ImmediateDominator <| g.FindVertexByData 5
-    Assert.AreEqual<int>(4, v.VData)
+    assertEqual g 4 v
     let v = dom.ImmediateDominator <| g.FindVertexByData 6
-    Assert.AreEqual<int>(4, v.VData)
+    assertEqual g 4 v
 
   [<TestMethod>]
   [<DynamicData(nameof DominanceTests.TestData)>]
@@ -313,17 +322,17 @@ type DominanceTests() =
     let g, _ = digraph2 t
     let dom: IDominance<_, _> = instantiate g domAlgo dfAlgo sAlgo
     let ds = getDominators dom g 1
-    Assert.AreEqual<Set<int>>(Set.ofList [ 1 ], ds)
+    assertSetEqual g [ 1 ] ds
     let ds = getDominators dom g 2
-    Assert.AreEqual<Set<int>>(Set.ofList [ 1; 2 ], ds)
+    assertSetEqual g [ 1; 2 ] ds
     let ds = getDominators dom g 3
-    Assert.AreEqual<Set<int>>(Set.ofList [ 1; 3 ], ds)
+    assertSetEqual g [ 1; 3 ] ds
     let ds = getDominators dom g 4
-    Assert.AreEqual<Set<int>>(Set.ofList [ 1; 3; 4 ], ds)
+    assertSetEqual g [ 1; 3; 4 ] ds
     let ds = getDominators dom g 5
-    Assert.AreEqual<Set<int>>(Set.ofList [ 1; 3; 4; 5 ], ds)
+    assertSetEqual g [ 1; 3; 4; 5 ] ds
     let ds = getDominators dom g 6
-    Assert.AreEqual<Set<int>>(Set.ofList [ 1; 3; 4; 6 ], ds)
+    assertSetEqual g [ 1; 3; 4; 6 ] ds
 
   [<TestMethod>]
   [<DynamicData(nameof DominanceTests.TestData)>]
@@ -337,11 +346,11 @@ type DominanceTests() =
     let df = getDominanceFrontier dom g 3
     Assert.AreEqual<int>(0, Set.count df)
     let df = getDominanceFrontier dom g 4
-    Assert.AreEqual<Set<int>>(Set.ofList [ 4 ], df)
+    assertSetEqual g [ 4 ] df
     let df = getDominanceFrontier dom g 5
     Assert.AreEqual<int>(0, Set.count df)
     let df = getDominanceFrontier dom g 6
-    Assert.AreEqual<Set<int>>(Set.ofList [ 4 ], df)
+    assertSetEqual g [ 4 ] df
 
   [<TestMethod>]
   [<DynamicData(nameof DominanceTests.TestData)>]
@@ -353,13 +362,13 @@ type DominanceTests() =
     let v = dom.ImmediatePostDominator <| g.FindVertexByData 2
     Assert.IsNull(v)
     let v = dom.ImmediatePostDominator <| g.FindVertexByData 3
-    Assert.AreEqual<int>(4, v.VData)
+    assertEqual g 4 v
     let v = dom.ImmediatePostDominator <| g.FindVertexByData 4
-    Assert.AreEqual<int>(5, v.VData)
+    assertEqual g 5 v
     let v = dom.ImmediatePostDominator <| g.FindVertexByData 5
     Assert.IsNull(v)
     let v = dom.ImmediatePostDominator <| g.FindVertexByData 6
-    Assert.AreEqual<int>(4, v.VData)
+    assertEqual g 4 v
 
   [<TestMethod>]
   [<DynamicData(nameof DominanceTests.TestData)>]
@@ -367,17 +376,17 @@ type DominanceTests() =
     let g, _ = digraph2 t
     let dom: IDominance<_, _> = instantiate g domAlgo dfAlgo sAlgo
     let pds = getPostDominators dom g 1
-    Assert.AreEqual<Set<int>>(Set.ofList [ 1 ], pds)
+    assertSetEqual g [ 1 ] pds
     let pds = getPostDominators dom g 2
-    Assert.AreEqual<Set<int>>(Set.ofList [ 2 ], pds)
+    assertSetEqual g [ 2 ] pds
     let pds = getPostDominators dom g 3
-    Assert.AreEqual<Set<int>>(Set.ofList [ 3; 4; 5 ], pds)
+    assertSetEqual g [ 3; 4; 5 ] pds
     let pds = getPostDominators dom g 4
-    Assert.AreEqual<Set<int>>(Set.ofList [ 4; 5 ], pds)
+    assertSetEqual g [ 4; 5 ] pds
     let pds = getPostDominators dom g 5
-    Assert.AreEqual<Set<int>>(Set.ofList [ 5 ], pds)
+    assertSetEqual g [ 5 ] pds
     let pds = getPostDominators dom g 6
-    Assert.AreEqual<Set<int>>(Set.ofList [ 4; 5; 6 ], pds)
+    assertSetEqual g [ 4; 5; 6 ] pds
 
   [<TestMethod>]
   [<DynamicData(nameof DominanceTests.TestData)>]
@@ -387,15 +396,15 @@ type DominanceTests() =
     let df = getPostDominanceFrontier dom g 1
     Assert.AreEqual<int>(0, Set.count df)
     let df = getPostDominanceFrontier dom g 2
-    Assert.AreEqual<Set<int>>(Set.ofList [ 1 ], df)
+    assertSetEqual g [ 1 ] df
     let df = getPostDominanceFrontier dom g 3
-    Assert.AreEqual<Set<int>>(Set.ofList [ 1 ], df)
+    assertSetEqual g [ 1 ] df
     let df = getPostDominanceFrontier dom g 4
-    Assert.AreEqual<Set<int>>(Set.ofList [ 1; 4 ], df)
+    assertSetEqual g [ 1; 4 ] df
     let df = getPostDominanceFrontier dom g 5
-    Assert.AreEqual<Set<int>>(Set.ofList [ 1 ], df)
+    assertSetEqual g [ 1 ] df
     let df = getPostDominanceFrontier dom g 6
-    Assert.AreEqual<Set<int>>(Set.ofList [ 4 ], df)
+    assertSetEqual g [ 4 ] df
 
   [<TestMethod>]
   [<DynamicData(nameof DominanceTests.TestData)>]
@@ -405,13 +414,13 @@ type DominanceTests() =
     let v = dom.ImmediateDominator <| g.FindVertexByData 1
     Assert.IsNull(v)
     let v = dom.ImmediateDominator <| g.FindVertexByData 2
-    Assert.AreEqual<int>(1, v.VData)
+    assertEqual g 1 v
     let v = dom.ImmediateDominator <| g.FindVertexByData 3
-    Assert.AreEqual<int>(1, v.VData)
+    assertEqual g 1 v
     let v = dom.ImmediateDominator <| g.FindVertexByData 4
-    Assert.AreEqual<int>(1, v.VData)
+    assertEqual g 1 v
     let v = dom.ImmediateDominator <| g.FindVertexByData 5
-    Assert.AreEqual<int>(3, v.VData)
+    assertEqual g 3 v
 
   [<TestMethod>]
   [<DynamicData(nameof DominanceTests.TestData)>]
@@ -419,15 +428,15 @@ type DominanceTests() =
     let g, _ = digraph3 t
     let dom: IDominance<_, _> = instantiate g domAlgo dfAlgo sAlgo
     let ds = getDominators dom g 1
-    Assert.AreEqual<Set<int>>(Set.ofList [ 1 ], ds)
+    assertSetEqual g [ 1 ] ds
     let ds = getDominators dom g 2
-    Assert.AreEqual<Set<int>>(Set.ofList [ 1; 2 ], ds)
+    assertSetEqual g [ 1; 2 ] ds
     let ds = getDominators dom g 3
-    Assert.AreEqual<Set<int>>(Set.ofList [ 1; 3 ], ds)
+    assertSetEqual g [ 1; 3 ] ds
     let ds = getDominators dom g 4
-    Assert.AreEqual<Set<int>>(Set.ofList [ 1; 4 ], ds)
+    assertSetEqual g [ 1; 4 ] ds
     let ds = getDominators dom g 5
-    Assert.AreEqual<Set<int>>(Set.ofList [ 1; 3; 5 ], ds)
+    assertSetEqual g [ 1; 3; 5 ] ds
 
   [<TestMethod>]
   [<DynamicData(nameof DominanceTests.TestData)>]
@@ -437,9 +446,9 @@ type DominanceTests() =
     let df = getDominanceFrontier dom g 1
     Assert.AreEqual<int>(0, Set.count df)
     let df = getDominanceFrontier dom g 2
-    Assert.AreEqual<Set<int>>(Set.ofList [ 4 ], df)
+    assertSetEqual g [ 4 ] df
     let df = getDominanceFrontier dom g 3
-    Assert.AreEqual<Set<int>>(Set.ofList [ 4 ], df)
+    assertSetEqual g [ 4 ] df
     let df = getDominanceFrontier dom g 4
     Assert.AreEqual<int>(0, Set.count df)
     let df = getDominanceFrontier dom g 5
@@ -453,7 +462,7 @@ type DominanceTests() =
     let v = dom.ImmediatePostDominator <| g.FindVertexByData 1
     Assert.IsNull(v)
     let v = dom.ImmediatePostDominator <| g.FindVertexByData 2
-    Assert.AreEqual<int>(4, v.VData)
+    assertEqual g 4 v
     let v = dom.ImmediatePostDominator <| g.FindVertexByData 3
     Assert.IsNull(v)
     let v = dom.ImmediatePostDominator <| g.FindVertexByData 4
@@ -467,15 +476,15 @@ type DominanceTests() =
     let g, _ = digraph3 t
     let dom: IDominance<_, _> = instantiate g domAlgo dfAlgo sAlgo
     let pds = getPostDominators dom g 1
-    Assert.AreEqual<Set<int>>(Set.ofList [ 1 ], pds)
+    assertSetEqual g [ 1 ] pds
     let pds = getPostDominators dom g 2
-    Assert.AreEqual<Set<int>>(Set.ofList [ 2; 4 ], pds)
+    assertSetEqual g [ 2; 4 ] pds
     let pds = getPostDominators dom g 3
-    Assert.AreEqual<Set<int>>(Set.ofList [ 3 ], pds)
+    assertSetEqual g [ 3 ] pds
     let pds = getPostDominators dom g 4
-    Assert.AreEqual<Set<int>>(Set.ofList [ 4 ], pds)
+    assertSetEqual g [ 4 ] pds
     let pds = getPostDominators dom g 5
-    Assert.AreEqual<Set<int>>(Set.ofList [ 5 ], pds)
+    assertSetEqual g [ 5 ] pds
 
   [<TestMethod>]
   [<DynamicData(nameof DominanceTests.TestData)>]
@@ -485,13 +494,13 @@ type DominanceTests() =
     let df = getPostDominanceFrontier dom g 1
     Assert.AreEqual<int>(0, Set.count df)
     let df = getPostDominanceFrontier dom g 2
-    Assert.AreEqual<Set<int>>(Set.ofList [ 1 ], df)
+    assertSetEqual g [ 1 ] df
     let df = getPostDominanceFrontier dom g 3
-    Assert.AreEqual<Set<int>>(Set.ofList [ 1 ], df)
+    assertSetEqual g [ 1 ] df
     let df = getPostDominanceFrontier dom g 4
-    Assert.AreEqual<Set<int>>(Set.ofList [ 1; 3 ], df)
+    assertSetEqual g [ 1; 3 ] df
     let df = getPostDominanceFrontier dom g 5
-    Assert.AreEqual<Set<int>>(Set.ofList [ 3 ], df)
+    assertSetEqual g [ 3 ] df
 
   [<TestMethod>]
   [<DynamicData(nameof DominanceTests.TestData)>]
@@ -501,29 +510,29 @@ type DominanceTests() =
     let v = dom.ImmediateDominator <| g.FindVertexByData 1
     Assert.IsNull(v)
     let v = dom.ImmediateDominator <| g.FindVertexByData 2
-    Assert.AreEqual<int>(1, v.VData)
+    assertEqual g 1 v
     let v = dom.ImmediateDominator <| g.FindVertexByData 3
-    Assert.AreEqual<int>(2, v.VData)
+    assertEqual g 2 v
     let v = dom.ImmediateDominator <| g.FindVertexByData 4
-    Assert.AreEqual<int>(1, v.VData)
+    assertEqual g 1 v
     let v = dom.ImmediateDominator <| g.FindVertexByData 5
-    Assert.AreEqual<int>(1, v.VData)
+    assertEqual g 1 v
     let v = dom.ImmediateDominator <| g.FindVertexByData 6
-    Assert.AreEqual<int>(5, v.VData)
+    assertEqual g 5 v
     let v = dom.ImmediateDominator <| g.FindVertexByData 7
-    Assert.AreEqual<int>(5, v.VData)
+    assertEqual g 5 v
     let v = dom.ImmediateDominator <| g.FindVertexByData 8
-    Assert.AreEqual<int>(5, v.VData)
+    assertEqual g 5 v
     let v = dom.ImmediateDominator <| g.FindVertexByData 9
-    Assert.AreEqual<int>(1, v.VData)
+    assertEqual g 1 v
     let v = dom.ImmediateDominator <| g.FindVertexByData 10
-    Assert.AreEqual<int>(9, v.VData)
+    assertEqual g 9 v
     let v = dom.ImmediateDominator <| g.FindVertexByData 11
-    Assert.AreEqual<int>(9, v.VData)
+    assertEqual g 9 v
     let v = dom.ImmediateDominator <| g.FindVertexByData 12
-    Assert.AreEqual<int>(1, v.VData)
+    assertEqual g 1 v
     let v = dom.ImmediateDominator <| g.FindVertexByData 13
-    Assert.AreEqual<int>(1, v.VData)
+    assertEqual g 1 v
 
   [<TestMethod>]
   [<DynamicData(nameof DominanceTests.TestData)>]
@@ -531,31 +540,31 @@ type DominanceTests() =
     let g, _ = digraph4 t
     let dom: IDominance<_, _> = instantiate g domAlgo dfAlgo sAlgo
     let ds = getDominators dom g 1
-    Assert.AreEqual<Set<int>>(Set.ofList [ 1 ], ds)
+    assertSetEqual g [ 1 ] ds
     let ds = getDominators dom g 2
-    Assert.AreEqual<Set<int>>(Set.ofList [ 1; 2 ], ds)
+    assertSetEqual g [ 1; 2 ] ds
     let ds = getDominators dom g 3
-    Assert.AreEqual<Set<int>>(Set.ofList [ 1; 2; 3 ], ds)
+    assertSetEqual g [ 1; 2; 3 ] ds
     let ds = getDominators dom g 4
-    Assert.AreEqual<Set<int>>(Set.ofList [ 1; 4 ], ds)
+    assertSetEqual g [ 1; 4 ] ds
     let ds = getDominators dom g 5
-    Assert.AreEqual<Set<int>>(Set.ofList [ 1; 5 ], ds)
+    assertSetEqual g [ 1; 5 ] ds
     let ds = getDominators dom g 6
-    Assert.AreEqual<Set<int>>(Set.ofList [ 1; 5; 6 ], ds)
+    assertSetEqual g [ 1; 5; 6 ] ds
     let ds = getDominators dom g 7
-    Assert.AreEqual<Set<int>>(Set.ofList [ 1; 5; 7 ], ds)
+    assertSetEqual g [ 1; 5; 7 ] ds
     let ds = getDominators dom g 8
-    Assert.AreEqual<Set<int>>(Set.ofList [ 1; 5; 8 ], ds)
+    assertSetEqual g [ 1; 5; 8 ] ds
     let ds = getDominators dom g 9
-    Assert.AreEqual<Set<int>>(Set.ofList [ 1; 9 ], ds)
+    assertSetEqual g [ 1; 9 ] ds
     let ds = getDominators dom g 10
-    Assert.AreEqual<Set<int>>(Set.ofList [ 1; 9; 10 ], ds)
+    assertSetEqual g [ 1; 9; 10 ] ds
     let ds = getDominators dom g 11
-    Assert.AreEqual<Set<int>>(Set.ofList [ 1; 9; 11 ], ds)
+    assertSetEqual g [ 1; 9; 11 ] ds
     let ds = getDominators dom g 12
-    Assert.AreEqual<Set<int>>(Set.ofList [ 1; 12 ], ds)
+    assertSetEqual g [ 1; 12 ] ds
     let ds = getDominators dom g 13
-    Assert.AreEqual<Set<int>>(Set.ofList [ 1; 13 ], ds)
+    assertSetEqual g [ 1; 13 ] ds
 
   [<TestMethod>]
   [<DynamicData(nameof DominanceTests.TestData)>]
@@ -565,27 +574,27 @@ type DominanceTests() =
     let df = getDominanceFrontier dom g 1
     Assert.AreEqual<int>(0, Set.count df)
     let df = getDominanceFrontier dom g 2
-    Assert.AreEqual<Set<int>>(Set.ofList [ 4 ], df)
+    assertSetEqual g [ 4 ] df
     let df = getDominanceFrontier dom g 3
-    Assert.AreEqual<Set<int>>(Set.ofList [ 3; 4 ], df)
+    assertSetEqual g [ 3; 4 ] df
     let df = getDominanceFrontier dom g 4
-    Assert.AreEqual<Set<int>>(Set.ofList [ 13 ], df)
+    assertSetEqual g [ 13 ] df
     let df = getDominanceFrontier dom g 5
-    Assert.AreEqual<Set<int>>(Set.ofList [ 4; 5; 12; 13 ], df)
+    assertSetEqual g [ 4; 5; 12; 13 ] df
     let df = getDominanceFrontier dom g 6
-    Assert.AreEqual<Set<int>>(Set.ofList [ 4; 8 ], df)
+    assertSetEqual g [ 4; 8 ] df
     let df = getDominanceFrontier dom g 7
-    Assert.AreEqual<Set<int>>(Set.ofList [ 8; 12 ], df)
+    assertSetEqual g [ 8; 12 ] df
     let df = getDominanceFrontier dom g 8
-    Assert.AreEqual<Set<int>>(Set.ofList [ 5; 13 ], df)
+    assertSetEqual g [ 5; 13 ] df
     let df = getDominanceFrontier dom g 9
-    Assert.AreEqual<Set<int>>(Set.ofList [ 12 ], df)
+    assertSetEqual g [ 12 ] df
     let df = getDominanceFrontier dom g 10
-    Assert.AreEqual<Set<int>>(Set.ofList [ 12 ], df)
+    assertSetEqual g [ 12 ] df
     let df = getDominanceFrontier dom g 11
-    Assert.AreEqual<Set<int>>(Set.ofList [ 12 ], df)
+    assertSetEqual g [ 12 ] df
     let df = getDominanceFrontier dom g 12
-    Assert.AreEqual<Set<int>>(Set.ofList [ 13 ], df)
+    assertSetEqual g [ 13 ] df
     let df = getDominanceFrontier dom g 13
     Assert.AreEqual<int>(0, Set.count df)
 
@@ -595,29 +604,29 @@ type DominanceTests() =
     let g, _ = digraph4 t
     let dom: IDominance<_, _> = instantiate g domAlgo dfAlgo sAlgo
     let v = dom.ImmediatePostDominator <| g.FindVertexByData 1
-    Assert.AreEqual<int>(13, v.VData)
+    assertEqual g 13 v
     let v = dom.ImmediatePostDominator <| g.FindVertexByData 2
-    Assert.AreEqual<int>(3, v.VData)
+    assertEqual g 3 v
     let v = dom.ImmediatePostDominator <| g.FindVertexByData 3
-    Assert.AreEqual<int>(4, v.VData)
+    assertEqual g 4 v
     let v = dom.ImmediatePostDominator <| g.FindVertexByData 4
-    Assert.AreEqual<int>(13, v.VData)
+    assertEqual g 13 v
     let v = dom.ImmediatePostDominator <| g.FindVertexByData 5
-    Assert.AreEqual<int>(13, v.VData)
+    assertEqual g 13 v
     let v = dom.ImmediatePostDominator <| g.FindVertexByData 6
-    Assert.AreEqual<int>(13, v.VData)
+    assertEqual g 13 v
     let v = dom.ImmediatePostDominator <| g.FindVertexByData 7
-    Assert.AreEqual<int>(13, v.VData)
+    assertEqual g 13 v
     let v = dom.ImmediatePostDominator <| g.FindVertexByData 8
-    Assert.AreEqual<int>(13, v.VData)
+    assertEqual g 13 v
     let v = dom.ImmediatePostDominator <| g.FindVertexByData 9
-    Assert.AreEqual<int>(12, v.VData)
+    assertEqual g 12 v
     let v = dom.ImmediatePostDominator <| g.FindVertexByData 10
-    Assert.AreEqual<int>(12, v.VData)
+    assertEqual g 12 v
     let v = dom.ImmediatePostDominator <| g.FindVertexByData 11
-    Assert.AreEqual<int>(12, v.VData)
+    assertEqual g 12 v
     let v = dom.ImmediatePostDominator <| g.FindVertexByData 12
-    Assert.AreEqual<int>(13, v.VData)
+    assertEqual g 13 v
     let v = dom.ImmediatePostDominator <| g.FindVertexByData 13
     Assert.IsNull(v)
 
@@ -627,31 +636,31 @@ type DominanceTests() =
     let g, _ = digraph4 t
     let dom: IDominance<_, _> = instantiate g domAlgo dfAlgo sAlgo
     let pds = getPostDominators dom g 1
-    Assert.AreEqual<Set<int>>(Set.ofList [ 1; 13 ], pds)
+    assertSetEqual g [ 1; 13 ] pds
     let pds = getPostDominators dom g 2
-    Assert.AreEqual<Set<int>>(Set.ofList [ 2; 3; 4; 13 ], pds)
+    assertSetEqual g [ 2; 3; 4; 13 ] pds
     let pds = getPostDominators dom g 3
-    Assert.AreEqual<Set<int>>(Set.ofList [ 3; 4; 13 ], pds)
+    assertSetEqual g [ 3; 4; 13 ] pds
     let pds = getPostDominators dom g 4
-    Assert.AreEqual<Set<int>>(Set.ofList [ 4; 13 ], pds)
+    assertSetEqual g [ 4; 13 ] pds
     let pds = getPostDominators dom g 5
-    Assert.AreEqual<Set<int>>(Set.ofList [ 5; 13 ], pds)
+    assertSetEqual g [ 5; 13 ] pds
     let pds = getPostDominators dom g 6
-    Assert.AreEqual<Set<int>>(Set.ofList [ 6; 13 ], pds)
+    assertSetEqual g [ 6; 13 ] pds
     let pds = getPostDominators dom g 7
-    Assert.AreEqual<Set<int>>(Set.ofList [ 7; 13 ], pds)
+    assertSetEqual g [ 7; 13 ] pds
     let pds = getPostDominators dom g 8
-    Assert.AreEqual<Set<int>>(Set.ofList [ 8; 13 ], pds)
+    assertSetEqual g [ 8; 13 ] pds
     let pds = getPostDominators dom g 9
-    Assert.AreEqual<Set<int>>(Set.ofList [ 9; 12; 13 ], pds)
+    assertSetEqual g [ 9; 12; 13 ] pds
     let pds = getPostDominators dom g 10
-    Assert.AreEqual<Set<int>>(Set.ofList [ 10; 12; 13 ], pds)
+    assertSetEqual g [ 10; 12; 13 ] pds
     let pds = getPostDominators dom g 11
-    Assert.AreEqual<Set<int>>(Set.ofList [ 11; 12; 13 ], pds)
+    assertSetEqual g [ 11; 12; 13 ] pds
     let pds = getPostDominators dom g 12
-    Assert.AreEqual<Set<int>>(Set.ofList [ 12; 13 ], pds)
+    assertSetEqual g [ 12; 13 ] pds
     let pds = getPostDominators dom g 13
-    Assert.AreEqual<Set<int>>(Set.ofList [ 13 ], pds)
+    assertSetEqual g [ 13 ] pds
 
   [<TestMethod>]
   [<DynamicData(nameof DominanceTests.TestData)>]
@@ -661,27 +670,27 @@ type DominanceTests() =
     let df = getPostDominanceFrontier dom g 1
     Assert.AreEqual<int>(0, Set.count df)
     let df = getPostDominanceFrontier dom g 2
-    Assert.AreEqual<Set<int>>(Set.ofList [ 1 ], df)
+    assertSetEqual g [ 1 ] df
     let df = getPostDominanceFrontier dom g 3
-    Assert.AreEqual<Set<int>>(Set.ofList [ 1; 3 ], df)
+    assertSetEqual g [ 1; 3 ] df
     let df = getPostDominanceFrontier dom g 4
-    Assert.AreEqual<Set<int>>(Set.ofList [ 1; 6 ], df)
+    assertSetEqual g [ 1; 6 ] df
     let df = getPostDominanceFrontier dom g 5
-    Assert.AreEqual<Set<int>>(Set.ofList [ 1; 8 ], df)
+    assertSetEqual g [ 1; 8 ] df
     let df = getPostDominanceFrontier dom g 6
-    Assert.AreEqual<Set<int>>(Set.ofList [ 5 ], df)
+    assertSetEqual g [ 5 ] df
     let df = getPostDominanceFrontier dom g 7
-    Assert.AreEqual<Set<int>>(Set.ofList [ 5 ], df)
+    assertSetEqual g [ 5 ] df
     let df = getPostDominanceFrontier dom g 8
-    Assert.AreEqual<Set<int>>(Set.ofList [ 6; 7 ], df)
+    assertSetEqual g [ 6; 7 ] df
     let df = getPostDominanceFrontier dom g 9
-    Assert.AreEqual<Set<int>>(Set.ofList [ 1 ], df)
+    assertSetEqual g [ 1 ] df
     let df = getPostDominanceFrontier dom g 10
-    Assert.AreEqual<Set<int>>(Set.ofList [ 9 ], df)
+    assertSetEqual g [ 9 ] df
     let df = getPostDominanceFrontier dom g 11
-    Assert.AreEqual<Set<int>>(Set.ofList [ 9 ], df)
+    assertSetEqual g [ 9 ] df
     let df = getPostDominanceFrontier dom g 12
-    Assert.AreEqual<Set<int>>(Set.ofList [ 1; 7 ], df)
+    assertSetEqual g [ 1; 7 ] df
     let df = getPostDominanceFrontier dom g 13
     Assert.AreEqual<int>(0, Set.count df)
 
@@ -693,15 +702,15 @@ type DominanceTests() =
     let v = dom.ImmediateDominator <| g.FindVertexByData 1
     Assert.IsNull(v)
     let v = dom.ImmediateDominator <| g.FindVertexByData 2
-    Assert.AreEqual<int>(1, v.VData)
+    assertEqual g 1 v
     let v = dom.ImmediateDominator <| g.FindVertexByData 3
-    Assert.AreEqual<int>(1, v.VData)
+    assertEqual g 1 v
     let v = dom.ImmediateDominator <| g.FindVertexByData 4
-    Assert.AreEqual<int>(1, v.VData)
+    assertEqual g 1 v
     let v = dom.ImmediateDominator <| g.FindVertexByData 5
-    Assert.AreEqual<int>(3, v.VData)
+    assertEqual g 3 v
     let v = dom.ImmediateDominator <| g.FindVertexByData 6
-    Assert.AreEqual<int>(1, v.VData)
+    assertEqual g 1 v
 
   [<TestMethod>]
   [<DynamicData(nameof DominanceTests.TestData)>]
@@ -709,17 +718,17 @@ type DominanceTests() =
     let g, _ = digraph5 t
     let dom: IDominance<_, _> = instantiate g domAlgo dfAlgo sAlgo
     let ds = getDominators dom g 1
-    Assert.AreEqual<Set<int>>(Set.ofList [ 1 ], ds)
+    assertSetEqual g [ 1 ] ds
     let ds = getDominators dom g 2
-    Assert.AreEqual<Set<int>>(Set.ofList [ 1; 2 ], ds)
+    assertSetEqual g [ 1; 2 ] ds
     let ds = getDominators dom g 3
-    Assert.AreEqual<Set<int>>(Set.ofList [ 1; 3 ], ds)
+    assertSetEqual g [ 1; 3 ] ds
     let ds = getDominators dom g 4
-    Assert.AreEqual<Set<int>>(Set.ofList [ 1; 4 ], ds)
+    assertSetEqual g [ 1; 4 ] ds
     let ds = getDominators dom g 5
-    Assert.AreEqual<Set<int>>(Set.ofList [ 1; 3; 5 ], ds)
+    assertSetEqual g [ 1; 3; 5 ] ds
     let ds = getDominators dom g 6
-    Assert.AreEqual<Set<int>>(Set.ofList [ 1; 6 ], ds)
+    assertSetEqual g [ 1; 6 ] ds
 
   [<TestMethod>]
   [<DynamicData(nameof DominanceTests.TestData)>]
@@ -727,17 +736,17 @@ type DominanceTests() =
     let g, _ = digraph5 t
     let dom: IDominance<_, _> = instantiate g domAlgo dfAlgo sAlgo
     let df = getDominanceFrontier dom g 1
-    Assert.AreEqual<Set<int>>(Set.ofList [ 1 ], df)
+    assertSetEqual g [ 1 ] df
     let df = getDominanceFrontier dom g 2
-    Assert.AreEqual<Set<int>>(Set.ofList [ 4 ], df)
+    assertSetEqual g [ 4 ] df
     let df = getDominanceFrontier dom g 3
-    Assert.AreEqual<Set<int>>(Set.ofList [ 4; 6 ], df)
+    assertSetEqual g [ 4; 6 ] df
     let df = getDominanceFrontier dom g 4
-    Assert.AreEqual<Set<int>>(Set.ofList [ 6 ], df)
+    assertSetEqual g [ 6 ] df
     let df = getDominanceFrontier dom g 5
-    Assert.AreEqual<Set<int>>(Set.ofList [ 6 ], df)
+    assertSetEqual g [ 6 ] df
     let df = getDominanceFrontier dom g 6
-    Assert.AreEqual<Set<int>>(Set.ofList [ 1 ], df)
+    assertSetEqual g [ 1 ] df
 
   [<TestMethod>]
   [<DynamicData(nameof DominanceTests.TestData)>]
@@ -745,15 +754,15 @@ type DominanceTests() =
     let g, _ = digraph5 t
     let dom: IDominance<_, _> = instantiate g domAlgo dfAlgo sAlgo
     let v = dom.ImmediatePostDominator <| g.FindVertexByData 1
-    Assert.AreEqual<int>(6, v.VData)
+    assertEqual g 6 v
     let v = dom.ImmediatePostDominator <| g.FindVertexByData 2
-    Assert.AreEqual<int>(4, v.VData)
+    assertEqual g 4 v
     let v = dom.ImmediatePostDominator <| g.FindVertexByData 3
-    Assert.AreEqual<int>(6, v.VData)
+    assertEqual g 6 v
     let v = dom.ImmediatePostDominator <| g.FindVertexByData 4
-    Assert.AreEqual<int>(6, v.VData)
+    assertEqual g 6 v
     let v = dom.ImmediatePostDominator <| g.FindVertexByData 5
-    Assert.AreEqual<int>(6, v.VData)
+    assertEqual g 6 v
     let v = dom.ImmediatePostDominator <| g.FindVertexByData 6
     Assert.IsNull(v)
 
@@ -763,17 +772,17 @@ type DominanceTests() =
     let g, _ = digraph5 t
     let dom: IDominance<_, _> = instantiate g domAlgo dfAlgo sAlgo
     let pds = getPostDominators dom g 1
-    Assert.AreEqual<Set<int>>(Set.ofList [ 1; 6 ], pds)
+    assertSetEqual g [ 1; 6 ] pds
     let pds = getPostDominators dom g 2
-    Assert.AreEqual<Set<int>>(Set.ofList [ 2; 4; 6 ], pds)
+    assertSetEqual g [ 2; 4; 6 ] pds
     let pds = getPostDominators dom g 3
-    Assert.AreEqual<Set<int>>(Set.ofList [ 3; 6 ], pds)
+    assertSetEqual g [ 3; 6 ] pds
     let pds = getPostDominators dom g 4
-    Assert.AreEqual<Set<int>>(Set.ofList [ 4; 6 ], pds)
+    assertSetEqual g [ 4; 6 ] pds
     let pds = getPostDominators dom g 5
-    Assert.AreEqual<Set<int>>(Set.ofList [ 5; 6 ], pds)
+    assertSetEqual g [ 5; 6 ] pds
     let pds = getPostDominators dom g 6
-    Assert.AreEqual<Set<int>>(Set.ofList [ 6 ], pds)
+    assertSetEqual g [ 6 ] pds
 
   [<TestMethod>]
   [<DynamicData(nameof DominanceTests.TestData)>]
@@ -781,17 +790,17 @@ type DominanceTests() =
     let g, _ = digraph5 t
     let dom: IDominance<_, _> = instantiate g domAlgo dfAlgo sAlgo
     let df = getPostDominanceFrontier dom g 1
-    Assert.AreEqual<Set<int>>(Set.ofList [ 6 ], df)
+    assertSetEqual g [ 6 ] df
     let df = getPostDominanceFrontier dom g 2
-    Assert.AreEqual<Set<int>>(Set.ofList [ 1 ], df)
+    assertSetEqual g [ 1 ] df
     let df = getPostDominanceFrontier dom g 3
-    Assert.AreEqual<Set<int>>(Set.ofList [ 1 ], df)
+    assertSetEqual g [ 1 ] df
     let df = getPostDominanceFrontier dom g 4
-    Assert.AreEqual<Set<int>>(Set.ofList [ 1; 3 ], df)
+    assertSetEqual g [ 1; 3 ] df
     let df = getPostDominanceFrontier dom g 5
-    Assert.AreEqual<Set<int>>(Set.ofList [ 3 ], df)
+    assertSetEqual g [ 3 ] df
     let df = getPostDominanceFrontier dom g 6
-    Assert.AreEqual<Set<int>>(Set.ofList [ 6 ], df)
+    assertSetEqual g [ 6 ] df
 
   [<TestMethod>]
   [<DynamicData(nameof DominanceTests.TestData)>]
@@ -801,49 +810,49 @@ type DominanceTests() =
     let v = dom.ImmediateDominator <| g.FindVertexByData 1
     Assert.IsNull(v)
     let v = dom.ImmediateDominator <| g.FindVertexByData 2
-    Assert.AreEqual<int>(1, v.VData)
+    assertEqual g 1 v
     let v = dom.ImmediateDominator <| g.FindVertexByData 3
-    Assert.AreEqual<int>(1, v.VData)
+    assertEqual g 1 v
     let v = dom.ImmediateDominator <| g.FindVertexByData 4
-    Assert.AreEqual<int>(2, v.VData)
+    assertEqual g 2 v
     let v = dom.ImmediateDominator <| g.FindVertexByData 5
-    Assert.AreEqual<int>(3, v.VData)
+    assertEqual g 3 v
     let v = dom.ImmediateDominator <| g.FindVertexByData 6
-    Assert.AreEqual<int>(3, v.VData)
+    assertEqual g 3 v
     let v = dom.ImmediateDominator <| g.FindVertexByData 7
-    Assert.AreEqual<int>(2, v.VData)
+    assertEqual g 2 v
     let v = dom.ImmediateDominator <| g.FindVertexByData 8
-    Assert.AreEqual<int>(5, v.VData)
+    assertEqual g 5 v
     let v = dom.ImmediateDominator <| g.FindVertexByData 9
-    Assert.AreEqual<int>(7, v.VData)
+    assertEqual g 7 v
     let v = dom.ImmediateDominator <| g.FindVertexByData 10
-    Assert.AreEqual<int>(5, v.VData)
+    assertEqual g 5 v
     let v = dom.ImmediateDominator <| g.FindVertexByData 11
-    Assert.AreEqual<int>(7, v.VData)
+    assertEqual g 7 v
     let v = dom.ImmediateDominator <| g.FindVertexByData 12
-    Assert.AreEqual<int>(9, v.VData)
+    assertEqual g 9 v
     let v = dom.ImmediateDominator <| g.FindVertexByData 13
-    Assert.AreEqual<int>(9, v.VData)
+    assertEqual g 9 v
     let v = dom.ImmediateDominator <| g.FindVertexByData 14
-    Assert.AreEqual<int>(13, v.VData)
+    assertEqual g 13 v
     let v = dom.ImmediateDominator <| g.FindVertexByData 15
-    Assert.AreEqual<int>(13, v.VData)
+    assertEqual g 13 v
     let v = dom.ImmediateDominator <| g.FindVertexByData 16
-    Assert.AreEqual<int>(13, v.VData)
+    assertEqual g 13 v
     let v = dom.ImmediateDominator <| g.FindVertexByData 17
-    Assert.AreEqual<int>(16, v.VData)
+    assertEqual g 16 v
     let v = dom.ImmediateDominator <| g.FindVertexByData 18
-    Assert.AreEqual<int>(16, v.VData)
+    assertEqual g 16 v
     let v = dom.ImmediateDominator <| g.FindVertexByData 19
-    Assert.AreEqual<int>(1, v.VData)
+    assertEqual g 1 v
     let v = dom.ImmediateDominator <| g.FindVertexByData 20
-    Assert.AreEqual<int>(18, v.VData)
+    assertEqual g 18 v
     let v = dom.ImmediateDominator <| g.FindVertexByData 21
-    Assert.AreEqual<int>(19, v.VData)
+    assertEqual g 19 v
     let v = dom.ImmediateDominator <| g.FindVertexByData 22
-    Assert.AreEqual<int>(1, v.VData)
+    assertEqual g 1 v
     let v = dom.ImmediateDominator <| g.FindVertexByData 23
-    Assert.AreEqual<int>(19, v.VData)
+    assertEqual g 19 v
 
   [<TestMethod>]
   [<DynamicData(nameof DominanceTests.TestData)>]
@@ -851,51 +860,51 @@ type DominanceTests() =
     let g, _ = digraph6 t
     let dom: IDominance<_, _> = instantiate g domAlgo dfAlgo sAlgo
     let ds = getDominators dom g 1
-    Assert.AreEqual<Set<int>>(Set.ofList [ 1 ], ds)
+    assertSetEqual g [ 1 ] ds
     let ds = getDominators dom g 2
-    Assert.AreEqual<Set<int>>(Set.ofList [ 1; 2 ], ds)
+    assertSetEqual g [ 1; 2 ] ds
     let ds = getDominators dom g 3
-    Assert.AreEqual<Set<int>>(Set.ofList [ 1; 3 ], ds)
+    assertSetEqual g [ 1; 3 ] ds
     let ds = getDominators dom g 4
-    Assert.AreEqual<Set<int>>(Set.ofList [ 1; 2; 4 ], ds)
+    assertSetEqual g [ 1; 2; 4 ] ds
     let ds = getDominators dom g 5
-    Assert.AreEqual<Set<int>>(Set.ofList [ 1; 3; 5 ], ds)
+    assertSetEqual g [ 1; 3; 5 ] ds
     let ds = getDominators dom g 6
-    Assert.AreEqual<Set<int>>(Set.ofList [ 1; 3; 6 ], ds)
+    assertSetEqual g [ 1; 3; 6 ] ds
     let ds = getDominators dom g 7
-    Assert.AreEqual<Set<int>>(Set.ofList [ 1; 2; 7 ], ds)
+    assertSetEqual g [ 1; 2; 7 ] ds
     let ds = getDominators dom g 8
-    Assert.AreEqual<Set<int>>(Set.ofList [ 1; 3; 5; 8 ], ds)
+    assertSetEqual g [ 1; 3; 5; 8 ] ds
     let ds = getDominators dom g 9
-    Assert.AreEqual<Set<int>>(Set.ofList [ 1; 2; 7; 9 ], ds)
+    assertSetEqual g [ 1; 2; 7; 9 ] ds
     let ds = getDominators dom g 10
-    Assert.AreEqual<Set<int>>(Set.ofList [ 1; 3; 5; 10 ], ds)
+    assertSetEqual g [ 1; 3; 5; 10 ] ds
     let ds = getDominators dom g 11
-    Assert.AreEqual<Set<int>>(Set.ofList [ 1; 2; 7; 11 ], ds)
+    assertSetEqual g [ 1; 2; 7; 11 ] ds
     let ds = getDominators dom g 12
-    Assert.AreEqual<Set<int>>(Set.ofList [ 1; 2; 7; 9; 12 ], ds)
+    assertSetEqual g [ 1; 2; 7; 9; 12 ] ds
     let ds = getDominators dom g 13
-    Assert.AreEqual<Set<int>>(Set.ofList [ 1; 2; 7; 9; 13 ], ds)
+    assertSetEqual g [ 1; 2; 7; 9; 13 ] ds
     let ds = getDominators dom g 14
-    Assert.AreEqual<Set<int>>(Set.ofList [ 1; 2; 7; 9; 13; 14 ], ds)
+    assertSetEqual g [ 1; 2; 7; 9; 13; 14 ] ds
     let ds = getDominators dom g 15
-    Assert.AreEqual<Set<int>>(Set.ofList [ 1; 2; 7; 9; 13; 15 ], ds)
+    assertSetEqual g [ 1; 2; 7; 9; 13; 15 ] ds
     let ds = getDominators dom g 16
-    Assert.AreEqual<Set<int>>(Set.ofList [ 1; 2; 7; 9; 13; 16 ], ds)
+    assertSetEqual g [ 1; 2; 7; 9; 13; 16 ] ds
     let ds = getDominators dom g 17
-    Assert.AreEqual<Set<int>>(Set.ofList [ 1; 2; 7; 9; 13; 16; 17 ], ds)
+    assertSetEqual g [ 1; 2; 7; 9; 13; 16; 17 ] ds
     let ds = getDominators dom g 18
-    Assert.AreEqual<Set<int>>(Set.ofList [ 1; 2; 7; 9; 13; 16; 18 ], ds)
+    assertSetEqual g [ 1; 2; 7; 9; 13; 16; 18 ] ds
     let ds = getDominators dom g 19
-    Assert.AreEqual<Set<int>>(Set.ofList [ 1; 19 ], ds)
+    assertSetEqual g [ 1; 19 ] ds
     let ds = getDominators dom g 20
-    Assert.AreEqual<Set<int>>(Set.ofList [ 1; 2; 7; 9; 13; 16; 18; 20 ], ds)
+    assertSetEqual g [ 1; 2; 7; 9; 13; 16; 18; 20 ] ds
     let ds = getDominators dom g 21
-    Assert.AreEqual<Set<int>>(Set.ofList [ 1; 19; 21 ], ds)
+    assertSetEqual g [ 1; 19; 21 ] ds
     let ds = getDominators dom g 22
-    Assert.AreEqual<Set<int>>(Set.ofList [ 1; 22 ], ds)
+    assertSetEqual g [ 1; 22 ] ds
     let ds = getDominators dom g 23
-    Assert.AreEqual<Set<int>>(Set.ofList [ 1; 19; 23 ], ds)
+    assertSetEqual g [ 1; 19; 23 ] ds
 
   [<TestMethod>]
   [<DynamicData(nameof DominanceTests.TestData)>]
@@ -905,45 +914,45 @@ type DominanceTests() =
     let df = getDominanceFrontier dom g 1
     Assert.AreEqual<int>(0, Set.count df)
     let df = getDominanceFrontier dom g 2
-    Assert.AreEqual<Set<int>>(Set.ofList [ 19; 22 ], df)
+    assertSetEqual g [ 19; 22 ] df
     let df = getDominanceFrontier dom g 3
-    Assert.AreEqual<Set<int>>(Set.ofList [ 19 ], df)
+    assertSetEqual g [ 19 ] df
     let df = getDominanceFrontier dom g 4
-    Assert.AreEqual<Set<int>>(Set.ofList [ 7 ], df)
+    assertSetEqual g [ 7 ] df
     let df = getDominanceFrontier dom g 5
-    Assert.AreEqual<Set<int>>(Set.ofList [ 19 ], df)
+    assertSetEqual g [ 19 ] df
     let df = getDominanceFrontier dom g 6
     Assert.AreEqual<int>(0, Set.count df)
     let df = getDominanceFrontier dom g 7
-    Assert.AreEqual<Set<int>>(Set.ofList [ 19; 22 ], df)
+    assertSetEqual g [ 19; 22 ] df
     let df = getDominanceFrontier dom g 8
-    Assert.AreEqual<Set<int>>(Set.ofList [ 10 ], df)
+    assertSetEqual g [ 10 ] df
     let df = getDominanceFrontier dom g 9
-    Assert.AreEqual<Set<int>>(Set.ofList [ 19; 22 ], df)
+    assertSetEqual g [ 19; 22 ] df
     let df = getDominanceFrontier dom g 10
-    Assert.AreEqual<Set<int>>(Set.ofList [ 19 ], df)
+    assertSetEqual g [ 19 ] df
     let df = getDominanceFrontier dom g 11
-    Assert.AreEqual<Set<int>>(Set.ofList [ 22 ], df)
+    assertSetEqual g [ 22 ] df
     let df = getDominanceFrontier dom g 12
-    Assert.AreEqual<Set<int>>(Set.ofList [ 13 ], df)
+    assertSetEqual g [ 13 ] df
     let df = getDominanceFrontier dom g 13
-    Assert.AreEqual<Set<int>>(Set.ofList [ 19; 22 ], df)
+    assertSetEqual g [ 19; 22 ] df
     let df = getDominanceFrontier dom g 14
-    Assert.AreEqual<Set<int>>(Set.ofList [ 16 ], df)
+    assertSetEqual g [ 16 ] df
     let df = getDominanceFrontier dom g 15
-    Assert.AreEqual<Set<int>>(Set.ofList [ 16 ], df)
+    assertSetEqual g [ 16 ] df
     let df = getDominanceFrontier dom g 16
-    Assert.AreEqual<Set<int>>(Set.ofList [ 19; 22 ], df)
+    assertSetEqual g [ 19; 22 ] df
     let df = getDominanceFrontier dom g 17
-    Assert.AreEqual<Set<int>>(Set.ofList [ 18 ], df)
+    assertSetEqual g [ 18 ] df
     let df = getDominanceFrontier dom g 18
-    Assert.AreEqual<Set<int>>(Set.ofList [ 19; 22 ], df)
+    assertSetEqual g [ 19; 22 ] df
     let df = getDominanceFrontier dom g 19
-    Assert.AreEqual<Set<int>>(Set.ofList [ 22 ], df)
+    assertSetEqual g [ 22 ] df
     let df = getDominanceFrontier dom g 20
-    Assert.AreEqual<Set<int>>(Set.ofList [ 22 ], df)
+    assertSetEqual g [ 22 ] df
     let df = getDominanceFrontier dom g 21
-    Assert.AreEqual<Set<int>>(Set.ofList [ 22 ], df)
+    assertSetEqual g [ 22 ] df
     let df = getDominanceFrontier dom g 22
     Assert.AreEqual<int>(0, Set.count df)
     let df = getDominanceFrontier dom g 23
@@ -957,45 +966,45 @@ type DominanceTests() =
     let v = dom.ImmediatePostDominator <| g.FindVertexByData 1
     Assert.IsNull(v)
     let v = dom.ImmediatePostDominator <| g.FindVertexByData 2
-    Assert.AreEqual<int>(7, v.VData)
+    assertEqual g 7 v
     let v = dom.ImmediatePostDominator <| g.FindVertexByData 3
     Assert.IsNull(v)
     let v = dom.ImmediatePostDominator <| g.FindVertexByData 4
-    Assert.AreEqual<int>(7, v.VData)
+    assertEqual g 7 v
     let v = dom.ImmediatePostDominator <| g.FindVertexByData 5
-    Assert.AreEqual<int>(10, v.VData)
+    assertEqual g 10 v
     let v = dom.ImmediatePostDominator <| g.FindVertexByData 6
     Assert.IsNull(v)
     let v = dom.ImmediatePostDominator <| g.FindVertexByData 7
     Assert.IsNull(v)
     let v = dom.ImmediatePostDominator <| g.FindVertexByData 8
-    Assert.AreEqual<int>(10, v.VData)
+    assertEqual g 10 v
     let v = dom.ImmediatePostDominator <| g.FindVertexByData 9
-    Assert.AreEqual<int>(13, v.VData)
+    assertEqual g 13 v
     let v = dom.ImmediatePostDominator <| g.FindVertexByData 10
-    Assert.AreEqual<int>(19, v.VData)
+    assertEqual g 19 v
     let v = dom.ImmediatePostDominator <| g.FindVertexByData 11
-    Assert.AreEqual<int>(22, v.VData)
+    assertEqual g 22 v
     let v = dom.ImmediatePostDominator <| g.FindVertexByData 12
-    Assert.AreEqual<int>(13, v.VData)
+    assertEqual g 13 v
     let v = dom.ImmediatePostDominator <| g.FindVertexByData 13
-    Assert.AreEqual<int>(16, v.VData)
+    assertEqual g 16 v
     let v = dom.ImmediatePostDominator <| g.FindVertexByData 14
-    Assert.AreEqual<int>(16, v.VData)
+    assertEqual g 16 v
     let v = dom.ImmediatePostDominator <| g.FindVertexByData 15
-    Assert.AreEqual<int>(16, v.VData)
+    assertEqual g 16 v
     let v = dom.ImmediatePostDominator <| g.FindVertexByData 16
-    Assert.AreEqual<int>(18, v.VData)
+    assertEqual g 18 v
     let v = dom.ImmediatePostDominator <| g.FindVertexByData 17
-    Assert.AreEqual<int>(18, v.VData)
+    assertEqual g 18 v
     let v = dom.ImmediatePostDominator <| g.FindVertexByData 18
     Assert.IsNull(v)
     let v = dom.ImmediatePostDominator <| g.FindVertexByData 19
     Assert.IsNull(v)
     let v = dom.ImmediatePostDominator <| g.FindVertexByData 20
-    Assert.AreEqual<int>(22, v.VData)
+    assertEqual g 22 v
     let v = dom.ImmediatePostDominator <| g.FindVertexByData 21
-    Assert.AreEqual<int>(22, v.VData)
+    assertEqual g 22 v
     let v = dom.ImmediatePostDominator <| g.FindVertexByData 22
     Assert.IsNull(v)
     let v = dom.ImmediatePostDominator <| g.FindVertexByData 23
@@ -1007,51 +1016,51 @@ type DominanceTests() =
     let g, _ = digraph6 t
     let dom: IDominance<_, _> = instantiate g domAlgo dfAlgo sAlgo
     let pds = getPostDominators dom g 1
-    Assert.AreEqual<Set<int>>(Set.ofList [ 1 ], pds)
+    assertSetEqual g [ 1 ] pds
     let pds = getPostDominators dom g 2
-    Assert.AreEqual<Set<int>>(Set.ofList [ 2; 7 ], pds)
+    assertSetEqual g [ 2; 7 ] pds
     let pds = getPostDominators dom g 3
-    Assert.AreEqual<Set<int>>(Set.ofList [ 3 ], pds)
+    assertSetEqual g [ 3 ] pds
     let pds = getPostDominators dom g 4
-    Assert.AreEqual<Set<int>>(Set.ofList [ 4; 7 ], pds)
+    assertSetEqual g [ 4; 7 ] pds
     let pds = getPostDominators dom g 5
-    Assert.AreEqual<Set<int>>(Set.ofList [ 5; 10; 19 ], pds)
+    assertSetEqual g [ 5; 10; 19 ] pds
     let pds = getPostDominators dom g 6
-    Assert.AreEqual<Set<int>>(Set.ofList [ 6 ], pds)
+    assertSetEqual g [ 6 ] pds
     let pds = getPostDominators dom g 7
-    Assert.AreEqual<Set<int>>(Set.ofList [ 7 ], pds)
+    assertSetEqual g [ 7 ] pds
     let pds = getPostDominators dom g 8
-    Assert.AreEqual<Set<int>>(Set.ofList [ 8; 10; 19 ], pds)
+    assertSetEqual g [ 8; 10; 19 ] pds
     let pds = getPostDominators dom g 9
-    Assert.AreEqual<Set<int>>(Set.ofList [ 9; 13; 16; 18 ], pds)
+    assertSetEqual g [ 9; 13; 16; 18 ] pds
     let pds = getPostDominators dom g 10
-    Assert.AreEqual<Set<int>>(Set.ofList [ 10; 19 ], pds)
+    assertSetEqual g [ 10; 19 ] pds
     let pds = getPostDominators dom g 11
-    Assert.AreEqual<Set<int>>(Set.ofList [ 11; 22 ], pds)
+    assertSetEqual g [ 11; 22 ] pds
     let pds = getPostDominators dom g 12
-    Assert.AreEqual<Set<int>>(Set.ofList [ 12; 13; 16; 18 ], pds)
+    assertSetEqual g [ 12; 13; 16; 18 ] pds
     let pds = getPostDominators dom g 13
-    Assert.AreEqual<Set<int>>(Set.ofList [ 13; 16; 18 ], pds)
+    assertSetEqual g [ 13; 16; 18 ] pds
     let pds = getPostDominators dom g 14
-    Assert.AreEqual<Set<int>>(Set.ofList [ 14; 16; 18 ], pds)
+    assertSetEqual g [ 14; 16; 18 ] pds
     let pds = getPostDominators dom g 15
-    Assert.AreEqual<Set<int>>(Set.ofList [ 15; 16; 18 ], pds)
+    assertSetEqual g [ 15; 16; 18 ] pds
     let pds = getPostDominators dom g 16
-    Assert.AreEqual<Set<int>>(Set.ofList [ 16; 18 ], pds)
+    assertSetEqual g [ 16; 18 ] pds
     let pds = getPostDominators dom g 17
-    Assert.AreEqual<Set<int>>(Set.ofList [ 17; 18 ], pds)
+    assertSetEqual g [ 17; 18 ] pds
     let pds = getPostDominators dom g 18
-    Assert.AreEqual<Set<int>>(Set.ofList [ 18 ], pds)
+    assertSetEqual g [ 18 ] pds
     let pds = getPostDominators dom g 19
-    Assert.AreEqual<Set<int>>(Set.ofList [ 19 ], pds)
+    assertSetEqual g [ 19 ] pds
     let pds = getPostDominators dom g 20
-    Assert.AreEqual<Set<int>>(Set.ofList [ 20; 22 ], pds)
+    assertSetEqual g [ 20; 22 ] pds
     let pds = getPostDominators dom g 21
-    Assert.AreEqual<Set<int>>(Set.ofList [ 21; 22 ], pds)
+    assertSetEqual g [ 21; 22 ] pds
     let pds = getPostDominators dom g 22
-    Assert.AreEqual<Set<int>>(Set.ofList [ 22 ], pds)
+    assertSetEqual g [ 22 ] pds
     let pds = getPostDominators dom g 23
-    Assert.AreEqual<Set<int>>(Set.ofList [ 23 ], pds)
+    assertSetEqual g [ 23 ] pds
 
   [<TestMethod>]
   [<DynamicData(nameof DominanceTests.TestData)>]
@@ -1061,49 +1070,49 @@ type DominanceTests() =
     let df = getPostDominanceFrontier dom g 1
     Assert.AreEqual<int>(0, Set.count df)
     let df = getPostDominanceFrontier dom g 2
-    Assert.AreEqual<Set<int>>(Set.ofList [ 1 ], df)
+    assertSetEqual g [ 1 ] df
     let df = getPostDominanceFrontier dom g 3
-    Assert.AreEqual<Set<int>>(Set.ofList [ 1 ], df)
+    assertSetEqual g [ 1 ] df
     let df = getPostDominanceFrontier dom g 4
-    Assert.AreEqual<Set<int>>(Set.ofList [ 2 ], df)
+    assertSetEqual g [ 2 ] df
     let df = getPostDominanceFrontier dom g 5
-    Assert.AreEqual<Set<int>>(Set.ofList [ 3 ], df)
+    assertSetEqual g [ 3 ] df
     let df = getPostDominanceFrontier dom g 6
-    Assert.AreEqual<Set<int>>(Set.ofList [ 3 ], df)
+    assertSetEqual g [ 3 ] df
     let df = getPostDominanceFrontier dom g 7
-    Assert.AreEqual<Set<int>>(Set.ofList [ 1 ], df)
+    assertSetEqual g [ 1 ] df
     let df = getPostDominanceFrontier dom g 8
-    Assert.AreEqual<Set<int>>(Set.ofList [ 5 ], df)
+    assertSetEqual g [ 5 ] df
     let df = getPostDominanceFrontier dom g 9
-    Assert.AreEqual<Set<int>>(Set.ofList [ 7 ], df)
+    assertSetEqual g [ 7 ] df
     let df = getPostDominanceFrontier dom g 10
-    Assert.AreEqual<Set<int>>(Set.ofList [ 3 ], df)
+    assertSetEqual g [ 3 ] df
     let df = getPostDominanceFrontier dom g 11
-    Assert.AreEqual<Set<int>>(Set.ofList [ 7 ], df)
+    assertSetEqual g [ 7 ] df
     let df = getPostDominanceFrontier dom g 12
-    Assert.AreEqual<Set<int>>(Set.ofList [ 9 ], df)
+    assertSetEqual g [ 9 ] df
     let df = getPostDominanceFrontier dom g 13
-    Assert.AreEqual<Set<int>>(Set.ofList [ 7 ], df)
+    assertSetEqual g [ 7 ] df
     let df = getPostDominanceFrontier dom g 14
-    Assert.AreEqual<Set<int>>(Set.ofList [ 13 ], df)
+    assertSetEqual g [ 13 ] df
     let df = getPostDominanceFrontier dom g 15
-    Assert.AreEqual<Set<int>>(Set.ofList [ 13 ], df)
+    assertSetEqual g [ 13 ] df
     let df = getPostDominanceFrontier dom g 16
-    Assert.AreEqual<Set<int>>(Set.ofList [ 7 ], df)
+    assertSetEqual g [ 7 ] df
     let df = getPostDominanceFrontier dom g 17
-    Assert.AreEqual<Set<int>>(Set.ofList [ 16 ], df)
+    assertSetEqual g [ 16 ] df
     let df = getPostDominanceFrontier dom g 18
-    Assert.AreEqual<Set<int>>(Set.ofList [ 7 ], df)
+    assertSetEqual g [ 7 ] df
     let df = getPostDominanceFrontier dom g 19
-    Assert.AreEqual<Set<int>>(Set.ofList [ 3; 18 ], df)
+    assertSetEqual g [ 3; 18 ] df
     let df = getPostDominanceFrontier dom g 20
-    Assert.AreEqual<Set<int>>(Set.ofList [ 18 ], df)
+    assertSetEqual g [ 18 ] df
     let df = getPostDominanceFrontier dom g 21
-    Assert.AreEqual<Set<int>>(Set.ofList [ 19 ], df)
+    assertSetEqual g [ 19 ] df
     let df = getPostDominanceFrontier dom g 22
-    Assert.AreEqual<Set<int>>(Set.ofList [ 7; 18; 19 ], df)
+    assertSetEqual g [ 7; 18; 19 ] df
     let df = getPostDominanceFrontier dom g 23
-    Assert.AreEqual<Set<int>>(Set.ofList [ 19 ], df)
+    assertSetEqual g [ 19 ] df
 
   [<TestMethod>]
   [<DynamicData(nameof DominanceTests.TestData)>]
@@ -1113,13 +1122,13 @@ type DominanceTests() =
     let v = dom.ImmediateDominator <| g.FindVertexByData 1
     Assert.IsNull(v)
     let v = dom.ImmediateDominator <| g.FindVertexByData 2
-    Assert.AreEqual<int>(1, v.VData)
+    assertEqual g 1 v
     let v = dom.ImmediateDominator <| g.FindVertexByData 3
-    Assert.AreEqual<int>(1, v.VData)
+    assertEqual g 1 v
     let v = dom.ImmediateDominator <| g.FindVertexByData 4
-    Assert.AreEqual<int>(1, v.VData)
+    assertEqual g 1 v
     let v = dom.ImmediateDominator <| g.FindVertexByData 5
-    Assert.AreEqual<int>(3, v.VData)
+    assertEqual g 3 v
 
   [<TestMethod>]
   [<DynamicData(nameof DominanceTests.TestData)>]
@@ -1127,15 +1136,15 @@ type DominanceTests() =
     let g, _ = digraph7 t
     let dom: IDominance<_, _> = instantiate g domAlgo dfAlgo sAlgo
     let ds = getDominators dom g 1
-    Assert.AreEqual<Set<int>>(Set.ofList [ 1 ], ds)
+    assertSetEqual g [ 1 ] ds
     let ds = getDominators dom g 2
-    Assert.AreEqual<Set<int>>(Set.ofList [ 1; 2 ], ds)
+    assertSetEqual g [ 1; 2 ] ds
     let ds = getDominators dom g 3
-    Assert.AreEqual<Set<int>>(Set.ofList [ 1; 3 ], ds)
+    assertSetEqual g [ 1; 3 ] ds
     let ds = getDominators dom g 4
-    Assert.AreEqual<Set<int>>(Set.ofList [ 1; 4 ], ds)
+    assertSetEqual g [ 1; 4 ] ds
     let ds = getDominators dom g 5
-    Assert.AreEqual<Set<int>>(Set.ofList [ 1; 3; 5 ], ds)
+    assertSetEqual g [ 1; 3; 5 ] ds
 
   [<TestMethod>]
   [<DynamicData(nameof DominanceTests.TestData)>]
@@ -1145,9 +1154,9 @@ type DominanceTests() =
     let df = getDominanceFrontier dom g 1
     Assert.AreEqual<int>(0, Set.count df)
     let df = getDominanceFrontier dom g 2
-    Assert.AreEqual<Set<int>>(Set.ofList [ 4 ], df)
+    assertSetEqual g [ 4 ] df
     let df = getDominanceFrontier dom g 3
-    Assert.AreEqual<Set<int>>(Set.ofList [ 4 ], df)
+    assertSetEqual g [ 4 ] df
     let df = getDominanceFrontier dom g 4
     Assert.AreEqual<int>(0, Set.count df)
     let df = getDominanceFrontier dom g 5
@@ -1161,7 +1170,7 @@ type DominanceTests() =
     let v = dom.ImmediatePostDominator <| g.FindVertexByData 1
     Assert.IsNull(v)
     let v = dom.ImmediatePostDominator <| g.FindVertexByData 2
-    Assert.AreEqual<int>(4, v.VData)
+    assertEqual g 4 v
     let v = dom.ImmediatePostDominator <| g.FindVertexByData 3
     Assert.IsNull(v)
     let v = dom.ImmediatePostDominator <| g.FindVertexByData 4
@@ -1175,15 +1184,15 @@ type DominanceTests() =
     let g, _ = digraph7 t
     let dom: IDominance<_, _> = instantiate g domAlgo dfAlgo sAlgo
     let pds = getPostDominators dom g 1
-    Assert.AreEqual<Set<int>>(Set.ofList [ 1 ], pds)
+    assertSetEqual g [ 1 ] pds
     let pds = getPostDominators dom g 2
-    Assert.AreEqual<Set<int>>(Set.ofList [ 2; 4 ], pds)
+    assertSetEqual g [ 2; 4 ] pds
     let pds = getPostDominators dom g 3
-    Assert.AreEqual<Set<int>>(Set.ofList [ 3 ], pds)
+    assertSetEqual g [ 3 ] pds
     let pds = getPostDominators dom g 4
-    Assert.AreEqual<Set<int>>(Set.ofList [ 4 ], pds)
+    assertSetEqual g [ 4 ] pds
     let pds = getPostDominators dom g 5
-    Assert.AreEqual<Set<int>>(Set.ofList [ 5 ], pds)
+    assertSetEqual g [ 5 ] pds
 
   [<TestMethod>]
   [<DynamicData(nameof DominanceTests.TestData)>]
@@ -1193,13 +1202,13 @@ type DominanceTests() =
     let df = getPostDominanceFrontier dom g 1
     Assert.AreEqual<int>(0, Set.count df)
     let df = getPostDominanceFrontier dom g 2
-    Assert.AreEqual<Set<int>>(Set.ofList [ 1 ], df)
+    assertSetEqual g [ 1 ] df
     let df = getPostDominanceFrontier dom g 3
-    Assert.AreEqual<Set<int>>(Set.ofList [ 1 ], df)
+    assertSetEqual g [ 1 ] df
     let df = getPostDominanceFrontier dom g 4
-    Assert.AreEqual<Set<int>>(Set.ofList [ 3; 1 ], df)
+    assertSetEqual g [ 3; 1 ] df
     let df = getPostDominanceFrontier dom g 5
-    Assert.AreEqual<Set<int>>(Set.ofList [ 3 ], df)
+    assertSetEqual g [ 3 ] df
 
   [<TestMethod>]
   [<DynamicData(nameof DominanceTests.TestData)>]
@@ -1209,19 +1218,19 @@ type DominanceTests() =
     let v = dom.ImmediateDominator <| g.FindVertexByData 1
     Assert.IsNull(v)
     let v = dom.ImmediateDominator <| g.FindVertexByData 2
-    Assert.AreEqual<int>(1, v.VData)
+    assertEqual g 1 v
     let v = dom.ImmediateDominator <| g.FindVertexByData 3
-    Assert.AreEqual<int>(2, v.VData)
+    assertEqual g 2 v
     let v = dom.ImmediateDominator <| g.FindVertexByData 4
-    Assert.AreEqual<int>(3, v.VData)
+    assertEqual g 3 v
     let v = dom.ImmediateDominator <| g.FindVertexByData 5
-    Assert.AreEqual<int>(4, v.VData)
+    assertEqual g 4 v
     let v = dom.ImmediateDominator <| g.FindVertexByData 6
-    Assert.AreEqual<int>(5, v.VData)
+    assertEqual g 5 v
     let v = dom.ImmediateDominator <| g.FindVertexByData 7
-    Assert.AreEqual<int>(6, v.VData)
+    assertEqual g 6 v
     let v = dom.ImmediateDominator <| g.FindVertexByData 8
-    Assert.AreEqual<int>(7, v.VData)
+    assertEqual g 7 v
 
   [<TestMethod>]
   [<DynamicData(nameof DominanceTests.TestData)>]
@@ -1229,21 +1238,21 @@ type DominanceTests() =
     let g, _ = digraph8 t
     let dom: IDominance<_, _> = instantiate g domAlgo dfAlgo sAlgo
     let ds = getDominators dom g 1
-    Assert.AreEqual<Set<int>>(Set.ofList [ 1 ], ds)
+    assertSetEqual g [ 1 ] ds
     let ds = getDominators dom g 2
-    Assert.AreEqual<Set<int>>(Set.ofList [ 1; 2 ], ds)
+    assertSetEqual g [ 1; 2 ] ds
     let ds = getDominators dom g 3
-    Assert.AreEqual<Set<int>>(Set.ofList [ 1; 2; 3 ], ds)
+    assertSetEqual g [ 1; 2; 3 ] ds
     let ds = getDominators dom g 4
-    Assert.AreEqual<Set<int>>(Set.ofList [ 1; 2; 3; 4 ], ds)
+    assertSetEqual g [ 1; 2; 3; 4 ] ds
     let ds = getDominators dom g 5
-    Assert.AreEqual<Set<int>>(Set.ofList [ 1; 2; 3; 4; 5 ], ds)
+    assertSetEqual g [ 1; 2; 3; 4; 5 ] ds
     let ds = getDominators dom g 6
-    Assert.AreEqual<Set<int>>(Set.ofList [ 1; 2; 3; 4; 5; 6 ], ds)
+    assertSetEqual g [ 1; 2; 3; 4; 5; 6 ] ds
     let ds = getDominators dom g 7
-    Assert.AreEqual<Set<int>>(Set.ofList [ 1; 2; 3; 4; 5; 6; 7 ], ds)
+    assertSetEqual g [ 1; 2; 3; 4; 5; 6; 7 ] ds
     let ds = getDominators dom g 8
-    Assert.AreEqual<Set<int>>(Set.ofList [ 1; 2; 3; 4; 5; 6; 7; 8 ], ds)
+    assertSetEqual g [ 1; 2; 3; 4; 5; 6; 7; 8 ] ds
 
   [<TestMethod>]
   [<DynamicData(nameof DominanceTests.TestData)>]
@@ -1253,17 +1262,17 @@ type DominanceTests() =
     let df = getDominanceFrontier dom g 1
     Assert.AreEqual<int>(0, Set.count df)
     let df = getDominanceFrontier dom g 2
-    Assert.AreEqual<Set<int>>(Set.ofList [ 2 ], df)
+    assertSetEqual g [ 2 ] df
     let df = getDominanceFrontier dom g 3
-    Assert.AreEqual<Set<int>>(Set.ofList [ 2; 3 ], df)
+    assertSetEqual g [ 2; 3 ] df
     let df = getDominanceFrontier dom g 4
-    Assert.AreEqual<Set<int>>(Set.ofList [ 2; 3 ], df)
+    assertSetEqual g [ 2; 3 ] df
     let df = getDominanceFrontier dom g 5
-    Assert.AreEqual<Set<int>>(Set.ofList [ 2; 3 ], df)
+    assertSetEqual g [ 2; 3 ] df
     let df = getDominanceFrontier dom g 6
-    Assert.AreEqual<Set<int>>(Set.ofList [ 2; 3 ], df)
+    assertSetEqual g [ 2; 3 ] df
     let df = getDominanceFrontier dom g 7
-    Assert.AreEqual<Set<int>>(Set.ofList [ 2 ], df)
+    assertSetEqual g [ 2 ] df
     let df = getDominanceFrontier dom g 8
     Assert.AreEqual<int>(0, Set.count df)
 
@@ -1273,19 +1282,19 @@ type DominanceTests() =
     let g, _ = digraph8 t
     let dom: IDominance<_, _> = instantiate g domAlgo dfAlgo sAlgo
     let v = dom.ImmediatePostDominator <| g.FindVertexByData 1
-    Assert.AreEqual<int>(2, v.VData)
+    assertEqual g 2 v
     let v = dom.ImmediatePostDominator <| g.FindVertexByData 2
-    Assert.AreEqual<int>(3, v.VData)
+    assertEqual g 3 v
     let v = dom.ImmediatePostDominator <| g.FindVertexByData 3
-    Assert.AreEqual<int>(4, v.VData)
+    assertEqual g 4 v
     let v = dom.ImmediatePostDominator <| g.FindVertexByData 4
-    Assert.AreEqual<int>(5, v.VData)
+    assertEqual g 5 v
     let v = dom.ImmediatePostDominator <| g.FindVertexByData 5
-    Assert.AreEqual<int>(6, v.VData)
+    assertEqual g 6 v
     let v = dom.ImmediatePostDominator <| g.FindVertexByData 6
-    Assert.AreEqual<int>(7, v.VData)
+    assertEqual g 7 v
     let v = dom.ImmediatePostDominator <| g.FindVertexByData 7
-    Assert.AreEqual<int>(8, v.VData)
+    assertEqual g 8 v
     let v = dom.ImmediatePostDominator <| g.FindVertexByData 8
     Assert.IsNull(v)
 
@@ -1295,21 +1304,21 @@ type DominanceTests() =
     let g, _ = digraph8 t
     let dom: IDominance<_, _> = instantiate g domAlgo dfAlgo sAlgo
     let pds = getPostDominators dom g 1
-    Assert.AreEqual<Set<int>>(Set.ofList [ 1; 2; 3; 4; 5; 6; 7; 8 ], pds)
+    assertSetEqual g [ 1; 2; 3; 4; 5; 6; 7; 8 ] pds
     let pds = getPostDominators dom g 2
-    Assert.AreEqual<Set<int>>(Set.ofList [ 2; 3; 4; 5; 6; 7; 8 ], pds)
+    assertSetEqual g [ 2; 3; 4; 5; 6; 7; 8 ] pds
     let pds = getPostDominators dom g 3
-    Assert.AreEqual<Set<int>>(Set.ofList [ 3; 4; 5; 6; 7; 8 ], pds)
+    assertSetEqual g [ 3; 4; 5; 6; 7; 8 ] pds
     let pds = getPostDominators dom g 4
-    Assert.AreEqual<Set<int>>(Set.ofList [ 4; 5; 6; 7; 8 ], pds)
+    assertSetEqual g [ 4; 5; 6; 7; 8 ] pds
     let pds = getPostDominators dom g 5
-    Assert.AreEqual<Set<int>>(Set.ofList [ 5; 6; 7; 8 ], pds)
+    assertSetEqual g [ 5; 6; 7; 8 ] pds
     let pds = getPostDominators dom g 6
-    Assert.AreEqual<Set<int>>(Set.ofList [ 6; 7; 8 ], pds)
+    assertSetEqual g [ 6; 7; 8 ] pds
     let pds = getPostDominators dom g 7
-    Assert.AreEqual<Set<int>>(Set.ofList [ 7; 8 ], pds)
+    assertSetEqual g [ 7; 8 ] pds
     let pds = getPostDominators dom g 8
-    Assert.AreEqual<Set<int>>(Set.ofList [ 8 ], pds)
+    assertSetEqual g [ 8 ] pds
 
   [<TestMethod>]
   [<DynamicData(nameof DominanceTests.TestData)>]
@@ -1319,17 +1328,17 @@ type DominanceTests() =
     let df = getPostDominanceFrontier dom g 1
     Assert.AreEqual<int>(0, Set.count df)
     let df = getPostDominanceFrontier dom g 2
-    Assert.AreEqual<Set<int>>(Set.ofList [ 5; 7 ], df)
+    assertSetEqual g [ 5; 7 ] df
     let df = getPostDominanceFrontier dom g 3
-    Assert.AreEqual<Set<int>>(Set.ofList [ 5; 6; 7 ], df)
+    assertSetEqual g [ 5; 6; 7 ] df
     let df = getPostDominanceFrontier dom g 4
-    Assert.AreEqual<Set<int>>(Set.ofList [ 5; 6; 7 ], df)
+    assertSetEqual g [ 5; 6; 7 ] df
     let df = getPostDominanceFrontier dom g 5
-    Assert.AreEqual<Set<int>>(Set.ofList [ 5; 6; 7 ], df)
+    assertSetEqual g [ 5; 6; 7 ] df
     let df = getPostDominanceFrontier dom g 6
-    Assert.AreEqual<Set<int>>(Set.ofList [ 6; 7 ], df)
+    assertSetEqual g [ 6; 7 ] df
     let df = getPostDominanceFrontier dom g 7
-    Assert.AreEqual<Set<int>>(Set.ofList [ 7 ], df)
+    assertSetEqual g [ 7 ] df
     let df = getPostDominanceFrontier dom g 8
     Assert.AreEqual<int>(0, Set.count df)
 
@@ -1341,19 +1350,19 @@ type DominanceTests() =
     let v = dom.ImmediateDominator <| g.FindVertexByData 1
     Assert.IsNull(v)
     let v = dom.ImmediateDominator <| g.FindVertexByData 2
-    Assert.AreEqual<int>(1, v.VData)
+    assertEqual g 1 v
     let v = dom.ImmediateDominator <| g.FindVertexByData 3
-    Assert.AreEqual<int>(2, v.VData)
+    assertEqual g 2 v
     let v = dom.ImmediateDominator <| g.FindVertexByData 4
-    Assert.AreEqual<int>(3, v.VData)
+    assertEqual g 3 v
     let v = dom.ImmediateDominator <| g.FindVertexByData 5
-    Assert.AreEqual<int>(2, v.VData)
+    assertEqual g 2 v
     let v = dom.ImmediateDominator <| g.FindVertexByData 6
-    Assert.AreEqual<int>(2, v.VData)
+    assertEqual g 2 v
     let v = dom.ImmediateDominator <| g.FindVertexByData 7
-    Assert.AreEqual<int>(2, v.VData)
+    assertEqual g 2 v
     let v = dom.ImmediateDominator <| g.FindVertexByData 8
-    Assert.AreEqual<int>(4, v.VData)
+    assertEqual g 4 v
 
   [<TestMethod>]
   [<DynamicData(nameof DominanceTests.TestData)>]
@@ -1361,21 +1370,21 @@ type DominanceTests() =
     let g, _ = digraph9 t
     let dom: IDominance<_, _> = instantiate g domAlgo dfAlgo sAlgo
     let ds = getDominators dom g 1
-    Assert.AreEqual<Set<int>>(Set.ofList [ 1 ], ds)
+    assertSetEqual g [ 1 ] ds
     let ds = getDominators dom g 2
-    Assert.AreEqual<Set<int>>(Set.ofList [ 1; 2 ], ds)
+    assertSetEqual g [ 1; 2 ] ds
     let ds = getDominators dom g 3
-    Assert.AreEqual<Set<int>>(Set.ofList [ 1; 2; 3 ], ds)
+    assertSetEqual g [ 1; 2; 3 ] ds
     let ds = getDominators dom g 4
-    Assert.AreEqual<Set<int>>(Set.ofList [ 1; 2; 3; 4 ], ds)
+    assertSetEqual g [ 1; 2; 3; 4 ] ds
     let ds = getDominators dom g 5
-    Assert.AreEqual<Set<int>>(Set.ofList [ 1; 2; 5 ], ds)
+    assertSetEqual g [ 1; 2; 5 ] ds
     let ds = getDominators dom g 6
-    Assert.AreEqual<Set<int>>(Set.ofList [ 1; 2; 6 ], ds)
+    assertSetEqual g [ 1; 2; 6 ] ds
     let ds = getDominators dom g 7
-    Assert.AreEqual<Set<int>>(Set.ofList [ 1; 2; 7 ], ds)
+    assertSetEqual g [ 1; 2; 7 ] ds
     let ds = getDominators dom g 8
-    Assert.AreEqual<Set<int>>(Set.ofList [ 1; 2; 3; 4; 8 ], ds)
+    assertSetEqual g [ 1; 2; 3; 4; 8 ] ds
 
   [<TestMethod>]
   [<DynamicData(nameof DominanceTests.TestData)>]
@@ -1383,21 +1392,21 @@ type DominanceTests() =
     let g, _ = digraph9 t
     let dom: IDominance<_, _> = instantiate g domAlgo dfAlgo sAlgo
     let df = getDominanceFrontier dom g 1
-    Assert.AreEqual<Set<int>>(Set.ofList [ 1 ], df)
+    assertSetEqual g [ 1 ] df
     let df = getDominanceFrontier dom g 2
-    Assert.AreEqual<Set<int>>(Set.ofList [ 1 ], df)
+    assertSetEqual g [ 1 ] df
     let df = getDominanceFrontier dom g 3
-    Assert.AreEqual<Set<int>>(Set.ofList [ 3; 7 ], df)
+    assertSetEqual g [ 3; 7 ] df
     let df = getDominanceFrontier dom g 4
-    Assert.AreEqual<Set<int>>(Set.ofList [ 3; 4; 7 ], df)
+    assertSetEqual g [ 3; 4; 7 ] df
     let df = getDominanceFrontier dom g 5
-    Assert.AreEqual<Set<int>>(Set.ofList [ 1; 6 ], df)
+    assertSetEqual g [ 1; 6 ] df
     let df = getDominanceFrontier dom g 6
-    Assert.AreEqual<Set<int>>(Set.ofList [ 7 ], df)
+    assertSetEqual g [ 7 ] df
     let df = getDominanceFrontier dom g 7
-    Assert.AreEqual<Set<int>>(Set.ofList [ 6 ], df)
+    assertSetEqual g [ 6 ] df
     let df = getDominanceFrontier dom g 8
-    Assert.AreEqual<Set<int>>(Set.ofList [ 4; 7 ], df)
+    assertSetEqual g [ 4; 7 ] df
 
   [<TestMethod>]
   [<DynamicData(nameof DominanceTests.TestData)>]
@@ -1405,21 +1414,21 @@ type DominanceTests() =
     let g, _ = digraph9 t
     let dom: IDominance<_, _> = instantiate g domAlgo dfAlgo sAlgo
     let v = dom.ImmediatePostDominator <| g.FindVertexByData 1
-    Assert.AreEqual<int>(2, v.VData)
+    assertEqual g 2 v
     let v = dom.ImmediatePostDominator <| g.FindVertexByData 2
-    Assert.AreEqual<int>(6, v.VData)
+    assertEqual g 6 v
     let v = dom.ImmediatePostDominator <| g.FindVertexByData 3
-    Assert.AreEqual<int>(7, v.VData)
+    assertEqual g 7 v
     let v = dom.ImmediatePostDominator <| g.FindVertexByData 4
-    Assert.AreEqual<int>(7, v.VData)
+    assertEqual g 7 v
     let v = dom.ImmediatePostDominator <| g.FindVertexByData 5
-    Assert.AreEqual<int>(6, v.VData)
+    assertEqual g 6 v
     let v = dom.ImmediatePostDominator <| g.FindVertexByData 6
     Assert.IsNull(v)
     let v = dom.ImmediatePostDominator <| g.FindVertexByData 7
-    Assert.AreEqual<int>(6, v.VData)
+    assertEqual g 6 v
     let v = dom.ImmediatePostDominator <| g.FindVertexByData 8
-    Assert.AreEqual<int>(7, v.VData)
+    assertEqual g 7 v
 
   [<TestMethod>]
   [<DynamicData(nameof DominanceTests.TestData)>]
@@ -1427,21 +1436,21 @@ type DominanceTests() =
     let g, _ = digraph9 t
     let dom: IDominance<_, _> = instantiate g domAlgo dfAlgo sAlgo
     let pds = getPostDominators dom g 1
-    Assert.AreEqual<Set<int>>(Set.ofList [ 1; 2; 6 ], pds)
+    assertSetEqual g [ 1; 2; 6 ] pds
     let pds = getPostDominators dom g 2
-    Assert.AreEqual<Set<int>>(Set.ofList [ 2; 6 ], pds)
+    assertSetEqual g [ 2; 6 ] pds
     let pds = getPostDominators dom g 3
-    Assert.AreEqual<Set<int>>(Set.ofList [ 3; 6; 7 ], pds)
+    assertSetEqual g [ 3; 6; 7 ] pds
     let pds = getPostDominators dom g 4
-    Assert.AreEqual<Set<int>>(Set.ofList [ 4; 6; 7 ], pds)
+    assertSetEqual g [ 4; 6; 7 ] pds
     let pds = getPostDominators dom g 5
-    Assert.AreEqual<Set<int>>(Set.ofList [ 5; 6 ], pds)
+    assertSetEqual g [ 5; 6 ] pds
     let pds = getPostDominators dom g 6
-    Assert.AreEqual<Set<int>>(Set.ofList [ 6 ], pds)
+    assertSetEqual g [ 6 ] pds
     let pds = getPostDominators dom g 7
-    Assert.AreEqual<Set<int>>(Set.ofList [ 6; 7 ], pds)
+    assertSetEqual g [ 6; 7 ] pds
     let pds = getPostDominators dom g 8
-    Assert.AreEqual<Set<int>>(Set.ofList [ 6; 7; 8 ], pds)
+    assertSetEqual g [ 6; 7; 8 ] pds
 
   [<TestMethod>]
   [<DynamicData(nameof DominanceTests.TestData)>]
@@ -1449,21 +1458,21 @@ type DominanceTests() =
     let g, _ = digraph9 t
     let dom: IDominance<_, _> = instantiate g domAlgo dfAlgo sAlgo
     let df = getPostDominanceFrontier dom g 1
-    Assert.AreEqual<Set<int>>(Set.ofList [ 5 ], df)
+    assertSetEqual g [ 5 ] df
     let df = getPostDominanceFrontier dom g 2
-    Assert.AreEqual<Set<int>>(Set.ofList [ 5 ], df)
+    assertSetEqual g [ 5 ] df
     let df = getPostDominanceFrontier dom g 3
-    Assert.AreEqual<Set<int>>(Set.ofList [ 2; 4 ], df)
+    assertSetEqual g [ 2; 4 ] df
     let df = getPostDominanceFrontier dom g 4
-    Assert.AreEqual<Set<int>>(Set.ofList [ 3; 8 ], df)
+    assertSetEqual g [ 3; 8 ] df
     let df = getPostDominanceFrontier dom g 5
-    Assert.AreEqual<Set<int>>(Set.ofList [ 2 ], df)
+    assertSetEqual g [ 2 ] df
     let df = getPostDominanceFrontier dom g 6
-    Assert.AreEqual<Set<int>>(Set.ofList [ 6 ], df)
+    assertSetEqual g [ 6 ] df
     let df = getPostDominanceFrontier dom g 7
-    Assert.AreEqual<Set<int>>(Set.ofList [ 2; 6 ], df)
+    assertSetEqual g [ 2; 6 ] df
     let df = getPostDominanceFrontier dom g 8
-    Assert.AreEqual<Set<int>>(Set.ofList [ 4 ], df)
+    assertSetEqual g [ 4 ] df
 
   [<TestMethod>]
   [<DynamicData(nameof DominanceTests.TestData)>]
@@ -1473,9 +1482,9 @@ type DominanceTests() =
     let v = dom.ImmediateDominator <| g.FindVertexByData 1
     Assert.IsNull(v)
     let v = dom.ImmediateDominator <| g.FindVertexByData 2
-    Assert.AreEqual<int>(1, v.VData)
+    assertEqual g 1 v
     let v = dom.ImmediateDominator <| g.FindVertexByData 3
-    Assert.AreEqual<int>(2, v.VData)
+    assertEqual g 2 v
 
   [<TestMethod>]
   [<DynamicData(nameof DominanceTests.TestData)>]
@@ -1483,11 +1492,11 @@ type DominanceTests() =
     let g, _ = digraph10 t
     let dom: IDominance<_, _> = instantiate g domAlgo dfAlgo sAlgo
     let ds = getDominators dom g 1
-    Assert.AreEqual<Set<int>>(Set.ofList [ 1 ], ds)
+    assertSetEqual g [ 1 ] ds
     let ds = getDominators dom g 2
-    Assert.AreEqual<Set<int>>(Set.ofList [ 1; 2 ], ds)
+    assertSetEqual g [ 1; 2 ] ds
     let ds = getDominators dom g 3
-    Assert.AreEqual<Set<int>>(Set.ofList [ 1; 2; 3 ], ds)
+    assertSetEqual g [ 1; 2; 3 ] ds
 
   [<TestMethod>]
   [<DynamicData(nameof DominanceTests.TestData)>]
@@ -1495,11 +1504,11 @@ type DominanceTests() =
     let g, _ = digraph10 t
     let dom: IDominance<_, _> = instantiate g domAlgo dfAlgo sAlgo
     let df = getDominanceFrontier dom g 1
-    Assert.AreEqual<Set<int>>(Set.ofList [ 1 ], df)
+    assertSetEqual g [ 1 ] df
     let df = getDominanceFrontier dom g 2
-    Assert.AreEqual<Set<int>>(Set.ofList [ 1 ], df)
+    assertSetEqual g [ 1 ] df
     let df = getDominanceFrontier dom g 3
-    Assert.AreEqual<Set<int>>(Set.ofList [ 1 ], df)
+    assertSetEqual g [ 1 ] df
 
   [<TestMethod>]
   [<DynamicData(nameof DominanceTests.TestData)>]
@@ -1507,9 +1516,9 @@ type DominanceTests() =
     let g, _ = digraph10 t
     let dom: IDominance<_, _> = instantiate g domAlgo dfAlgo sAlgo
     let v = dom.ImmediatePostDominator <| g.FindVertexByData 1
-    Assert.AreEqual<int>(2, v.VData)
+    assertEqual g 2 v
     let v = dom.ImmediatePostDominator <| g.FindVertexByData 2
-    Assert.AreEqual<int>(3, v.VData)
+    assertEqual g 3 v
     let v = dom.ImmediatePostDominator <| g.FindVertexByData 3
     Assert.IsNull(v)
 
@@ -1519,11 +1528,11 @@ type DominanceTests() =
     let g, _ = digraph10 t
     let dom: IDominance<_, _> = instantiate g domAlgo dfAlgo sAlgo
     let pds = getPostDominators dom g 1
-    Assert.AreEqual<Set<int>>(Set.ofList [ 1; 2; 3 ], pds)
+    assertSetEqual g [ 1; 2; 3 ] pds
     let pds = getPostDominators dom g 2
-    Assert.AreEqual<Set<int>>(Set.ofList [ 2; 3 ], pds)
+    assertSetEqual g [ 2; 3 ] pds
     let pds = getPostDominators dom g 3
-    Assert.AreEqual<Set<int>>(Set.ofList [ 3 ], pds)
+    assertSetEqual g [ 3 ] pds
 
   [<TestMethod>]
   [<DynamicData(nameof DominanceTests.TestData)>]
@@ -1531,11 +1540,11 @@ type DominanceTests() =
     let g, _ = digraph10 t
     let dom: IDominance<_, _> = instantiate g domAlgo dfAlgo sAlgo
     let df = getPostDominanceFrontier dom g 1
-    Assert.AreEqual<Set<int>>(Set.ofList [ 3 ], df)
+    assertSetEqual g [ 3 ] df
     let df = getPostDominanceFrontier dom g 2
-    Assert.AreEqual<Set<int>>(Set.ofList [ 3 ], df)
+    assertSetEqual g [ 3 ] df
     let df = getPostDominanceFrontier dom g 3
-    Assert.AreEqual<Set<int>>(Set.ofList [ 3 ], df)
+    assertSetEqual g [ 3 ] df
 
   [<TestMethod>]
   [<DynamicData(nameof DominanceTests.TestData)>]
@@ -1545,23 +1554,23 @@ type DominanceTests() =
     let v = dom.ImmediateDominator <| g.FindVertexByData 1
     Assert.IsNull(v)
     let v = dom.ImmediateDominator <| g.FindVertexByData 2
-    Assert.AreEqual<int>(1, v.VData)
+    assertEqual g 1 v
     let v = dom.ImmediateDominator <| g.FindVertexByData 3
-    Assert.AreEqual<int>(1, v.VData)
+    assertEqual g 1 v
     let v = dom.ImmediateDominator <| g.FindVertexByData 4
-    Assert.AreEqual<int>(3, v.VData)
+    assertEqual g 3 v
     let v = dom.ImmediateDominator <| g.FindVertexByData 5
-    Assert.AreEqual<int>(4, v.VData)
+    assertEqual g 4 v
     let v = dom.ImmediateDominator <| g.FindVertexByData 6
-    Assert.AreEqual<int>(4, v.VData)
+    assertEqual g 4 v
     let v = dom.ImmediateDominator <| g.FindVertexByData 7
-    Assert.AreEqual<int>(4, v.VData)
+    assertEqual g 4 v
     let v = dom.ImmediateDominator <| g.FindVertexByData 8
-    Assert.AreEqual<int>(7, v.VData)
+    assertEqual g 7 v
     let v = dom.ImmediateDominator <| g.FindVertexByData 9
-    Assert.AreEqual<int>(8, v.VData)
+    assertEqual g 8 v
     let v = dom.ImmediateDominator <| g.FindVertexByData 10
-    Assert.AreEqual<int>(8, v.VData)
+    assertEqual g 8 v
 
   [<TestMethod>]
   [<DynamicData(nameof DominanceTests.TestData)>]
@@ -1569,25 +1578,25 @@ type DominanceTests() =
     let g, _ = digraph11 t
     let dom: IDominance<_, _> = instantiate g domAlgo dfAlgo sAlgo
     let ds = getDominators dom g 1
-    Assert.AreEqual<Set<int>>(Set.ofList [ 1 ], ds)
+    assertSetEqual g [ 1 ] ds
     let ds = getDominators dom g 2
-    Assert.AreEqual<Set<int>>(Set.ofList [ 1; 2 ], ds)
+    assertSetEqual g [ 1; 2 ] ds
     let ds = getDominators dom g 3
-    Assert.AreEqual<Set<int>>(Set.ofList [ 1; 3 ], ds)
+    assertSetEqual g [ 1; 3 ] ds
     let ds = getDominators dom g 4
-    Assert.AreEqual<Set<int>>(Set.ofList [ 1; 3; 4 ], ds)
+    assertSetEqual g [ 1; 3; 4 ] ds
     let ds = getDominators dom g 5
-    Assert.AreEqual<Set<int>>(Set.ofList [ 1; 3; 4; 5 ], ds)
+    assertSetEqual g [ 1; 3; 4; 5 ] ds
     let ds = getDominators dom g 6
-    Assert.AreEqual<Set<int>>(Set.ofList [ 1; 3; 4; 6 ], ds)
+    assertSetEqual g [ 1; 3; 4; 6 ] ds
     let ds = getDominators dom g 7
-    Assert.AreEqual<Set<int>>(Set.ofList [ 1; 3; 4; 7 ], ds)
+    assertSetEqual g [ 1; 3; 4; 7 ] ds
     let ds = getDominators dom g 8
-    Assert.AreEqual<Set<int>>(Set.ofList [ 1; 3; 4; 7; 8 ], ds)
+    assertSetEqual g [ 1; 3; 4; 7; 8 ] ds
     let ds = getDominators dom g 9
-    Assert.AreEqual<Set<int>>(Set.ofList [ 1; 3; 4; 7; 8; 9 ], ds)
+    assertSetEqual g [ 1; 3; 4; 7; 8; 9 ] ds
     let ds = getDominators dom g 10
-    Assert.AreEqual<Set<int>>(Set.ofList [ 1; 3; 4; 7; 8; 10 ], ds)
+    assertSetEqual g [ 1; 3; 4; 7; 8; 10 ] ds
 
   [<TestMethod>]
   [<DynamicData(nameof DominanceTests.TestData)>]
@@ -1595,25 +1604,25 @@ type DominanceTests() =
     let g, _ = digraph11 t
     let dom: IDominance<_, _> = instantiate g domAlgo dfAlgo sAlgo
     let df = getDominanceFrontier dom g 1
-    Assert.AreEqual<Set<int>>(Set.ofList [ 1 ], df)
+    assertSetEqual g [ 1 ] df
     let df = getDominanceFrontier dom g 2
-    Assert.AreEqual<Set<int>>(Set.ofList [ 3 ], df)
+    assertSetEqual g [ 3 ] df
     let df = getDominanceFrontier dom g 3
-    Assert.AreEqual<Set<int>>(Set.ofList [ 1; 3 ], df)
+    assertSetEqual g [ 1; 3 ] df
     let df = getDominanceFrontier dom g 4
-    Assert.AreEqual<Set<int>>(Set.ofList [ 1; 3; 4 ], df)
+    assertSetEqual g [ 1; 3; 4 ] df
     let df = getDominanceFrontier dom g 5
-    Assert.AreEqual<Set<int>>(Set.ofList [ 7 ], df)
+    assertSetEqual g [ 7 ] df
     let df = getDominanceFrontier dom g 6
-    Assert.AreEqual<Set<int>>(Set.ofList [ 7 ], df)
+    assertSetEqual g [ 7 ] df
     let df = getDominanceFrontier dom g 7
-    Assert.AreEqual<Set<int>>(Set.ofList [ 1; 3; 4; 7 ], df)
+    assertSetEqual g [ 1; 3; 4; 7 ] df
     let df = getDominanceFrontier dom g 8
-    Assert.AreEqual<Set<int>>(Set.ofList [ 1; 3; 7 ], df)
+    assertSetEqual g [ 1; 3; 7 ] df
     let df = getDominanceFrontier dom g 9
-    Assert.AreEqual<Set<int>>(Set.ofList [ 1 ], df)
+    assertSetEqual g [ 1 ] df
     let df = getDominanceFrontier dom g 10
-    Assert.AreEqual<Set<int>>(Set.ofList [ 7 ], df)
+    assertSetEqual g [ 7 ] df
 
   [<TestMethod>]
   [<DynamicData(nameof DominanceTests.TestData)>]
@@ -1621,19 +1630,19 @@ type DominanceTests() =
     let g, _ = digraph11 t
     let dom: IDominance<_, _> = instantiate g domAlgo dfAlgo sAlgo
     let v = dom.ImmediatePostDominator <| g.FindVertexByData 1
-    Assert.AreEqual<int>(3, v.VData)
+    assertEqual g 3 v
     let v = dom.ImmediatePostDominator <| g.FindVertexByData 2
-    Assert.AreEqual<int>(3, v.VData)
+    assertEqual g 3 v
     let v = dom.ImmediatePostDominator <| g.FindVertexByData 3
-    Assert.AreEqual<int>(4, v.VData)
+    assertEqual g 4 v
     let v = dom.ImmediatePostDominator <| g.FindVertexByData 4
-    Assert.AreEqual<int>(7, v.VData)
+    assertEqual g 7 v
     let v = dom.ImmediatePostDominator <| g.FindVertexByData 5
-    Assert.AreEqual<int>(7, v.VData)
+    assertEqual g 7 v
     let v = dom.ImmediatePostDominator <| g.FindVertexByData 6
-    Assert.AreEqual<int>(7, v.VData)
+    assertEqual g 7 v
     let v = dom.ImmediatePostDominator <| g.FindVertexByData 7
-    Assert.AreEqual<int>(8, v.VData)
+    assertEqual g 8 v
     let v = dom.ImmediatePostDominator <| g.FindVertexByData 8
     Assert.IsNull(v)
     let v = dom.ImmediatePostDominator <| g.FindVertexByData 9
@@ -1647,25 +1656,25 @@ type DominanceTests() =
     let g, _ = digraph11 t
     let dom: IDominance<_, _> = instantiate g domAlgo dfAlgo sAlgo
     let pds = getPostDominators dom g 1
-    Assert.AreEqual<Set<int>>(Set.ofList [ 1; 3; 4; 7; 8 ], pds)
+    assertSetEqual g [ 1; 3; 4; 7; 8 ] pds
     let pds = getPostDominators dom g 2
-    Assert.AreEqual<Set<int>>(Set.ofList [ 2; 3; 4; 7; 8 ], pds)
+    assertSetEqual g [ 2; 3; 4; 7; 8 ] pds
     let pds = getPostDominators dom g 3
-    Assert.AreEqual<Set<int>>(Set.ofList [ 3; 4; 7; 8 ], pds)
+    assertSetEqual g [ 3; 4; 7; 8 ] pds
     let pds = getPostDominators dom g 4
-    Assert.AreEqual<Set<int>>(Set.ofList [ 4; 7; 8 ], pds)
+    assertSetEqual g [ 4; 7; 8 ] pds
     let pds = getPostDominators dom g 5
-    Assert.AreEqual<Set<int>>(Set.ofList [ 5; 7; 8 ], pds)
+    assertSetEqual g [ 5; 7; 8 ] pds
     let pds = getPostDominators dom g 6
-    Assert.AreEqual<Set<int>>(Set.ofList [ 6; 7; 8 ], pds)
+    assertSetEqual g [ 6; 7; 8 ] pds
     let pds = getPostDominators dom g 7
-    Assert.AreEqual<Set<int>>(Set.ofList [ 7; 8 ], pds)
+    assertSetEqual g [ 7; 8 ] pds
     let pds = getPostDominators dom g 8
-    Assert.AreEqual<Set<int>>(Set.ofList [ 8 ], pds)
+    assertSetEqual g [ 8 ] pds
     let pds = getPostDominators dom g 9
-    Assert.AreEqual<Set<int>>(Set.ofList [ 9 ], pds)
+    assertSetEqual g [ 9 ] pds
     let pds = getPostDominators dom g 10
-    Assert.AreEqual<Set<int>>(Set.ofList [ 10 ], pds)
+    assertSetEqual g [ 10 ] pds
 
   [<TestMethod>]
   [<DynamicData(nameof DominanceTests.TestData)>]
@@ -1673,25 +1682,25 @@ type DominanceTests() =
     let g, _ = digraph11 t
     let dom: IDominance<_, _> = instantiate g domAlgo dfAlgo sAlgo
     let df = getPostDominanceFrontier dom g 1
-    Assert.AreEqual<Set<int>>(Set.ofList [ 9 ], df)
+    assertSetEqual g [ 9 ] df
     let df = getPostDominanceFrontier dom g 2
-    Assert.AreEqual<Set<int>>(Set.ofList [ 1 ], df)
+    assertSetEqual g [ 1 ] df
     let df = getPostDominanceFrontier dom g 3
-    Assert.AreEqual<Set<int>>(Set.ofList [ 4; 8; 9 ], df)
+    assertSetEqual g [ 4; 8; 9 ] df
     let df = getPostDominanceFrontier dom g 4
-    Assert.AreEqual<Set<int>>(Set.ofList [ 4; 7; 8; 9 ], df)
+    assertSetEqual g [ 4; 7; 8; 9 ] df
     let df = getPostDominanceFrontier dom g 5
-    Assert.AreEqual<Set<int>>(Set.ofList [ 4 ], df)
+    assertSetEqual g [ 4 ] df
     let df = getPostDominanceFrontier dom g 6
-    Assert.AreEqual<Set<int>>(Set.ofList [ 4 ], df)
+    assertSetEqual g [ 4 ] df
     let df = getPostDominanceFrontier dom g 7
-    Assert.AreEqual<Set<int>>(Set.ofList [ 7; 8; 9; 10 ], df)
+    assertSetEqual g [ 7; 8; 9; 10 ] df
     let df = getPostDominanceFrontier dom g 8
-    Assert.AreEqual<Set<int>>(Set.ofList [ 8; 9; 10 ], df)
+    assertSetEqual g [ 8; 9; 10 ] df
     let df = getPostDominanceFrontier dom g 9
-    Assert.AreEqual<Set<int>>(Set.ofList [ 8 ], df)
+    assertSetEqual g [ 8 ] df
     let df = getPostDominanceFrontier dom g 10
-    Assert.AreEqual<Set<int>>(Set.ofList [ 8 ], df)
+    assertSetEqual g [ 8 ] df
 
   [<TestMethod>]
   [<DynamicData(nameof DominanceTests.ComparisonData)>]

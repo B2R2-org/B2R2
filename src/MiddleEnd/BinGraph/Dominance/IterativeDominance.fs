@@ -129,6 +129,8 @@ type private IterativeDominance<'V, 'E when 'V: equality and 'E: equality>
 #endif
       let doms, _, _ = backward.Value
       doms.Value[v]
+      |> Set.map (findOriginalVertex g)
+      |> Set.toSeq
 
     member _.ImmediatePostDominator v =
 #if DEBUG
@@ -136,6 +138,7 @@ type private IterativeDominance<'V, 'E when 'V: equality and 'E: equality>
 #endif
       let _, idoms, _ = backward.Value
       idoms.Value[v]
+      |> findOriginalVertex g
 
     member this.PostDominanceFrontier v =
 #if DEBUG
@@ -146,6 +149,7 @@ type private IterativeDominance<'V, 'E when 'V: equality and 'E: equality>
           dfp.CreateIDominanceFrontier(backwardG.Value, this, true)
       else ()
       pdfProvider.DominanceFrontier v
+      |> Seq.map (findOriginalVertex g)
 
 /// Creates an IDominance instance that computes dominance information using a
 /// simplistic iterative algorithm.
