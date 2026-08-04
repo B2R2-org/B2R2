@@ -1,16 +1,15 @@
 name: push-notification
 on: push
 jobs:
-    notify-push-main:
+    notify-push:
         runs-on: ubuntu-latest
-        env:
-            COMMIT: "${{ github.event.head_commit.message }}"
+        if: github.event.head_commit != null
         steps:
-        - name: Main Branch Push
+        - name: Push Info
           run: |
             echo "Workflow initiated by event with name: ${{ github.event_name }}"
-            echo "Pushing commit to main: ${{ github.event.head_commit.id }}"
-            echo "Pushed by: ${{ github.event.pusher.name }}"
+            echo "Pushing commit: ${{ github.event.head_commit.id }}"
+            echo "Pushed by: ${{ github.actor }}"
 
         - uses: actions/checkout@v5
 
@@ -19,12 +18,18 @@ jobs:
 
         - name: Push Notification to Google Chat
           working-directory: .github
+          env:
+              WEBHOOK_URL: ${{ secrets.WEBHOOK_URL }}
+              COMMIT: ${{ github.event.head_commit.message }}
+              ACTOR: ${{ github.actor }}
+              BRANCH: ${{ github.ref_name }}
+              COMMIT_ID: ${{ github.event.head_commit.id }}
+              COMPARE_URL: ${{ github.event.compare }}
+              COMMIT_URL: ${{ github.event.head_commit.url }}
           run: |
-            cat << EOF > msg.txt
-            ${{ github.event.head_commit.message }}
-            EOF
-            dotnet fsi push.fsx "${{ secrets.WEBHOOK_URL }}" \
-                                "${{ github.actor }}" \
-                                "${{ github.head_ref || github.ref_name }}" \
-                                "${{ github.event.head_commit.id }}" \
-                                "${{ github.event.compare }}"
+            printf '%s' "$COMMIT" > msg.txt
+            dotnet fsi push.fsx "$ACTOR" \
+                                "$BRANCH" \
+                                "$COMMIT_ID" \
+                                "$COMPARE_URL" \
+                                "$COMMIT_URL"
