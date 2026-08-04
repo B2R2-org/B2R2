@@ -65,6 +65,7 @@ module StackConvention =
     | _, RISCV64 -> make 16 0 0
     | _, SPARC -> make 16 0 0
     | _, S390 -> make 8 0 0
+    | _, M68K -> make 4 0 0
     | _, SH4 -> make 4 0 0
     | _, PARISC -> make 8 0 0
     | _ -> make 16 128 0

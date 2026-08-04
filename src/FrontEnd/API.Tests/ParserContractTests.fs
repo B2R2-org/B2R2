@@ -48,6 +48,7 @@ type ParserContractTests() =
        Architecture.S390
        Architecture.SH4
        Architecture.PARISC
+       Architecture.M68K
        Architecture.AVR
        Architecture.TMS320C6000
        Architecture.EVM |]

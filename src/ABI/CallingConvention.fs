@@ -110,6 +110,8 @@ module CallingConvention =
 
   let inline private s390 r = S390.Register.toRegID r
 
+  let inline private m68k r = M68K.Register.toRegID r
+
   let inline private sh4 r = SH4.Register.toRegID r
 
   let inline private parisc r = PARISC.Register.toRegID r
@@ -524,6 +526,32 @@ module CallingConvention =
               s390 S390.Register.R14 ]
       ReturnAddressLocation = InRegister(s390 S390.Register.R14) }
 
+  let private linuxM68K () = (* System V m68k psABI: every argument on the
+                                stack, and a return value in D0 or FP0 *)
+    { IntArgs = [| ArgLocation.Stack { FirstOffset = 4; SlotSize = 4 } |]
+      FloatArgs = [||]
+      IntReturnLocation = ArgLocation.Reg(m68k M68K.Register.D0)
+      FloatReturnLocation = ArgLocation.Reg(m68k M68K.Register.FP0)
+      ArgClassification = Independent
+      CalleeSavedRegisters =
+        set [ m68k M68K.Register.D2
+              m68k M68K.Register.D3
+              m68k M68K.Register.D4
+              m68k M68K.Register.D5
+              m68k M68K.Register.D6
+              m68k M68K.Register.D7
+              m68k M68K.Register.A2
+              m68k M68K.Register.A3
+              m68k M68K.Register.A4
+              m68k M68K.Register.A5
+              m68k M68K.Register.A6 ]
+      CallerSavedRegisters =
+        set [ m68k M68K.Register.D0
+              m68k M68K.Register.D1
+              m68k M68K.Register.A0
+              m68k M68K.Register.A1 ]
+      ReturnAddressLocation = OnStack }
+
   let private linuxSH4 () = (* Renesas SH ABI; FP arg regs not modeled *)
     { IntArgs =
         [| ArgLocation.Reg(sh4 SH4.Register.R4)
@@ -677,6 +705,7 @@ module CallingConvention =
     | _, RISCV64 -> linuxRISCV64 ()
     | _, SPARC -> linuxSPARC ()
     | _, S390 -> linuxS390 ()
+    | _, M68K -> linuxM68K ()
     | _, SH4 -> linuxSH4 ()
     | _, PARISC -> linuxPARISC ()
     | _ -> linuxX64 ()

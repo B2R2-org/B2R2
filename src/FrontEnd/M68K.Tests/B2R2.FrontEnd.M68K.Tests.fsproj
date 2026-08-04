@@ -1,0 +1,23 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <IsPackable>false</IsPackable>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <Compile Include="DisasmTests.fs" />
+    <Compile Include="InstructionTests.fs" />
+    <Compile Include="RegisterFactoryTests.fs" />
+    <Compile Include="ParserTests.fs" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <PackageReference Include="Microsoft.NET.Test.Sdk" Version="18.0.1" />
+    <PackageReference Include="MSTest" Version="4.0.2" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\M68K\B2R2.FrontEnd.M68K.fsproj" />
+  </ItemGroup>
+
+</Project>

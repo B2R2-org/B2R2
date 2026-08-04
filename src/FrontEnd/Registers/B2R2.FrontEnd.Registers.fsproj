@@ -13,6 +13,7 @@
     <Compile Include="ARM64.fs" />
     <Compile Include="AVR.fs" />
     <Compile Include="Intel.fs" />
+    <Compile Include="M68K.fs" />
     <Compile Include="MIPS.fs" />
     <Compile Include="PARISC.fs" />
     <Compile Include="PPC.fs" />

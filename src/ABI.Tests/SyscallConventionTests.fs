@@ -27,6 +27,7 @@ namespace B2R2.ABI.Tests
 open Microsoft.VisualStudio.TestTools.UnitTesting
 open B2R2
 open B2R2.ABI
+open B2R2.FrontEnd
 
 [<TestClass>]
 type SyscallConventionTests() =
@@ -55,3 +56,17 @@ type SyscallConventionTests() =
     Assert.AreEqual<ArgLocation>(
       ArgLocation.Stack { FirstOffset = 16; SlotSize = 8 },
       sample.GetArgLocation(3))
+
+  (* Linux on m68k enters the kernel with a TRAP #0, taking the call number in
+     D0 and the arguments in D1 through D5 and then A0, which is the one place
+     the sequence leaves the data registers. *)
+  [<TestMethod>]
+  member _.``m68k takes its last syscall argument in an address register``() =
+    let conv = SyscallConvention.create OS.Linux (ISA Architecture.M68K)
+    let d0 = M68K.Register.toRegID M68K.Register.D0
+    Assert.AreEqual<RegisterID>(d0, conv.NumberRegister)
+    Assert.AreEqual<RegisterID>(d0, conv.ReturnRegister)
+    let d1 = M68K.Register.toRegID M68K.Register.D1
+    Assert.AreEqual<ArgLocation>(ArgLocation.Reg d1, conv.GetArgLocation 0)
+    let a0 = M68K.Register.toRegID M68K.Register.A0
+    Assert.AreEqual<ArgLocation>(ArgLocation.Reg a0, conv.GetArgLocation 5)

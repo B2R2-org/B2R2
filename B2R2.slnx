@@ -37,6 +37,8 @@
   <Project Path="src/FrontEnd/EVM/B2R2.FrontEnd.EVM.fsproj" />
   <Project Path="src/FrontEnd/Intel.Tests/B2R2.FrontEnd.Intel.Tests.fsproj" />
   <Project Path="src/FrontEnd/Intel/B2R2.FrontEnd.Intel.fsproj" />
+  <Project Path="src/FrontEnd/M68K.Tests/B2R2.FrontEnd.M68K.Tests.fsproj" />
+  <Project Path="src/FrontEnd/M68K/B2R2.FrontEnd.M68K.fsproj" />
   <Project Path="src/FrontEnd/MIPS.Tests/B2R2.FrontEnd.MIPS.Tests.fsproj" />
   <Project Path="src/FrontEnd/MIPS/B2R2.FrontEnd.MIPS.fsproj" />
   <Project Path="src/FrontEnd/NameMangling.Tests/B2R2.FrontEnd.NameMangling.Tests.fsproj" />

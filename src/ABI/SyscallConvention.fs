@@ -82,6 +82,8 @@ module SyscallConvention =
 
   let inline private s390 r = S390.Register.toRegID r
 
+  let inline private m68k r = M68K.Register.toRegID r
+
   let inline private sh4 r = SH4.Register.toRegID r
 
   let inline private parisc r = PARISC.Register.toRegID r
@@ -207,6 +209,18 @@ module SyscallConvention =
            reg (s390 S390.Register.R6)
            reg (s390 S390.Register.R7) |] }
 
+  let private linuxM68K () = (* the call is a TRAP #0 *)
+    { NumberRegister = m68k M68K.Register.D0
+      ReturnRegister = m68k M68K.Register.D0
+      Error = NegatedErrno
+      Args =
+        [| reg (m68k M68K.Register.D1)
+           reg (m68k M68K.Register.D2)
+           reg (m68k M68K.Register.D3)
+           reg (m68k M68K.Register.D4)
+           reg (m68k M68K.Register.D5)
+           reg (m68k M68K.Register.A0) |] }
+
   let private linuxSH4 () =
     { NumberRegister = sh4 SH4.Register.R3
       ReturnRegister = sh4 SH4.Register.R0
@@ -307,6 +321,7 @@ module SyscallConvention =
     | OS.Linux, RISCV64 -> linuxRISCV64 ()
     | OS.Linux, SPARC -> linuxSPARC ()
     | OS.Linux, S390 -> linuxS390 ()
+    | OS.Linux, M68K -> linuxM68K ()
     | OS.Linux, SH4 -> linuxSH4 ()
     | OS.Linux, PARISC -> linuxPARISC ()
     | OS.Windows, X86 -> windowsX86 ()

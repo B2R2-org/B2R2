@@ -140,3 +140,18 @@ type CallingConventionTests() =
     let xmm0 = Intel.Register.toRegID Intel.Register.XMM0
     Assert.AreEqual<ArgClassification>(Positional, cc.ArgClassification)
     Assert.AreEqual<RegisterID>(xmm0, cc.FloatArgRegister(0))
+
+  (* The System V m68k psABI passes every argument on the stack, so there is no
+     register argument to resolve and the return value alone comes back in one.
+     A6 is the frame pointer, which makes it callee-saved. *)
+  [<TestMethod>]
+  member _.``m68k passes every argument on the stack``() =
+    let cc = CallingConvention.create OS.Linux (ISA Architecture.M68K)
+    let d0 = M68K.Register.toRegID M68K.Register.D0
+    let slot = ArgLocation.Stack { FirstOffset = 4; SlotSize = 4 }
+    Assert.AreEqual<ArgLocation>(slot, cc.GetIntArgLocation 0)
+    Assert.AreEqual<ArgLocation>(ArgLocation.Reg d0, cc.IntReturnLocation)
+    Assert.AreEqual<ReturnAddressLocation>(OnStack, cc.ReturnAddressLocation)
+    let a6 = M68K.Register.toRegID M68K.Register.A6
+    Assert.AreEqual<bool>(true, cc.CalleeSavedRegisters.Contains a6)
+    Assert.AreEqual<bool>(true, cc.CallerSavedRegisters.Contains d0)
