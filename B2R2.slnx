@@ -9,6 +9,7 @@
   <Project Path="src/Assembly/BinLowerer/B2R2.Assembly.BinLowerer.fsproj" />
   <Project Path="src/Assembly/EVM/B2R2.Assembly.EVM.fsproj" />
   <Project Path="src/Assembly/Intel/B2R2.Assembly.Intel.fsproj" />
+  <Project Path="src/Assembly/M68K/B2R2.Assembly.M68K.fsproj" />
   <Project Path="src/Assembly/MIPS/B2R2.Assembly.MIPS.fsproj" />
   <Project Path="src/Assembly/PARISC/B2R2.Assembly.PARISC.fsproj" />
   <Project Path="src/Assembly/PPC/B2R2.Assembly.PPC.fsproj" />

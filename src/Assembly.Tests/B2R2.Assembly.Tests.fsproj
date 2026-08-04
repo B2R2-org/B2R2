@@ -27,6 +27,8 @@
     <Compile Include="ARM32EncodingTests.fs" />
     <Compile Include="ARM64Sweep.fs" />
     <Compile Include="ARM64RoundTripTests.fs" />
+    <Compile Include="M68KSweep.fs" />
+    <Compile Include="M68KRoundTripTests.fs" />
     <Compile Include="MIPSSweep.fs" />
     <Compile Include="MIPSRoundTripTests.fs" />
     <Compile Include="PARISCSweep.fs" />
@@ -56,6 +58,7 @@
     <ProjectReference Include="..\Assembly\Intel\B2R2.Assembly.Intel.fsproj" />
     <ProjectReference Include="..\Assembly\ARM32\B2R2.Assembly.ARM32.fsproj" />
     <ProjectReference Include="..\Assembly\ARM64\B2R2.Assembly.ARM64.fsproj" />
+    <ProjectReference Include="..\Assembly\M68K\B2R2.Assembly.M68K.fsproj" />
     <ProjectReference Include="..\Assembly\MIPS\B2R2.Assembly.MIPS.fsproj" />
     <ProjectReference
       Include="..\Assembly\PARISC\B2R2.Assembly.PARISC.fsproj" />
@@ -71,6 +74,7 @@
     <ProjectReference Include="..\FrontEnd\Intel\B2R2.FrontEnd.Intel.fsproj" />
     <ProjectReference Include="..\FrontEnd\ARM32\B2R2.FrontEnd.ARM32.fsproj" />
     <ProjectReference Include="..\FrontEnd\ARM64\B2R2.FrontEnd.ARM64.fsproj" />
+    <ProjectReference Include="..\FrontEnd\M68K\B2R2.FrontEnd.M68K.fsproj" />
     <ProjectReference Include="..\FrontEnd\MIPS\B2R2.FrontEnd.MIPS.fsproj" />
     <ProjectReference
       Include="..\FrontEnd\PARISC\B2R2.FrontEnd.PARISC.fsproj" />
