@@ -182,8 +182,6 @@ let getAR (bin: uint16) =
 
 let gr8to11UHWQ b = extract48 b 8 11 |> uint16
 
-let gr9to11UHWQ b = extract48 b 9 11 |> uint16
-
 let gr12to15UHWQ b = extract48 b 12 15 |> uint16
 
 let gr12to15UWQ b = extract48 b 12 15 |> uint32
@@ -198,11 +196,9 @@ let gr36to39UHWQ b = extract48 b 36 39 |> uint16
 
 let gr16to19UQ b = extract48 b 16 19 |> uint16 |> getR
 
-let gr9to11UQ b = extract48 b 9 11 |> uint16 |> getR
+let gr8to11UQ b = extract48 b 8 11 |> uint16 |> getR
 
 let gr16to19Q b = extract48 b 16 19 |> uint16 |> getR |> OpReg
-
-let gr9to11Q b = extract48 b 9 11 |> uint16 |> getR |> OpReg
 
 let gr8to11 b = extract16 b 8 11 |> getR |> OpReg
 
@@ -340,12 +336,6 @@ let mask32to35Q b = extract48 b 32 35 |> uint16 |> OpMask
 
 let mask36to39Q b = extract48 b 36 39 |> uint16 |> OpMask
 
-let gr16to31SImmBQ b = extract48 b 16 31 |> int8 |> ImmS8 |> OpImm
-
-let gr16to31SImmCQ b = extract48 b 16 31 |> int8 |> uint8 |> ImmU8 |> OpImm
-
-let gr16to31UImmCQ b = extract48 b 16 31 |> int16 |> uint8 |> ImmU8 |> OpImm
-
 let gr32to39UImmCQ b = extract48 b 32 39 |> int8 |> uint8 |> ImmU8 |> OpImm
 
 let gr8to15UImmB b = extract16 b 8 15 |> uint8 |> ImmU8 |> OpImm
@@ -364,8 +354,6 @@ let gr16to31SImmRQ b = extract48 b 16 31 |> int16 |> ImmS16 |> OpRImm
 
 let gr32to47UImmQ b = extract48 b 32 47 |> uint16 |> ImmU16 |> OpImm
 
-let gr32to47SImmBRQ b = extract48 b 32 47 |> int8 |> ImmS8 |> OpRImm
-
 let gr32to47SImmCQ b = extract48 b 32 47 |> uint16 |> int16 |> ImmS16 |> OpImm
 
 let getUImm8to15 b = OneOperand(gr8to15UImmB b)
@@ -381,7 +369,7 @@ let getVR12Q b = OneOperand(vr12Q b 2us)
 let getM16D20L b = OneOperand(OpStore(None, base16Q b, disp20to39SQ b))
 
 let getGRL8Q b =
-  OneOperand(OpStoreLen(gr8to11UHWQ b + 2us, gr16to19UQ b, disp20Q b))
+  OneOperand(OpStoreLen(gr8to11UHWQ b + 1us, gr16to19UQ b, disp20Q b))
 
 let getGR8GR12 b = TwoOperands(gr8to11 b, gr12to15 b)
 
@@ -408,9 +396,6 @@ let getGR8WIdx12M16D20 b =
 
 let getMask8WIdx12M16D20 b =
   TwoOperands(mask8to11W b, OpStore(idx12 b, base16 b, disp20 b))
-
-let getAR8WIdx12M16D20 b =
-  TwoOperands(ar8to11W b, OpStore(idx12 b, base16 b, disp20 b))
 
 let getGR8WNoneM16D20 b =
   TwoOperands(gr8to11W b, OpStore(None, base16 b, disp20 b))
@@ -441,9 +426,6 @@ let getGR8QSImm16to47RQ b = TwoOperands(gr8to11Q b, gr16to47SImmRQ b)
 
 let getGR8QIdx12M16D20 b =
   TwoOperands(gr8to11Q b, OpStore(idx12Q b, base16Q b, disp20to39SQ b))
-
-let getAR8QIdx12M16D20 b =
-  TwoOperands(ar8to11Q b, OpStore(idx12Q b, base16Q b, disp20to39SQ b))
 
 let getFPR8QIdx12MemBase16DispL20 b =
   TwoOperands(fpr8to11Q b, OpStore(idx12Q b, base16Q b, disp20to39SQ b))
@@ -480,8 +462,8 @@ let getM16D20M32D36 b =
 
 let getVR8QUImm16 b = TwoOperands(vr8Q b, gr16to31UImmQ b)
 
-let grl9QGRL12Q b =
-  TwoOperands(OpStoreLen(gr9to11UHWQ b + 1us, base16Q b, disp20Q b),
+let grl8QGRL12Q b =
+  TwoOperands(OpStoreLen(gr8to11UHWQ b + 1us, base16Q b, disp20Q b),
   OpStoreLen(gr12to15UHWQ b + 1us, base32Q b, disp36Q b))
 
 let getVR8QVR12Q b = TwoOperands(vr8Q b, vr12Q b 2us)
@@ -504,7 +486,8 @@ let getGR8SImmRUpperGR12 b =
 let getFPR16FPR28FPR24 b =
   ThreeOperands(fpr16to19W b, fpr28to31W b, fpr24to27W b)
 
-let getFPR24GR28FPR16 b = ThreeOperands(fpr16to19W b, gr28to31W b, fpr16to19W b)
+let getFPR24GR28FPR16 b =
+  ThreeOperands(fpr24to27W b, gr28to31W b, fpr16to19W b)
 
 let getGR24GR28Mask16 b = ThreeOperands(gr24to27W b, gr28to31W b, mask16to19W b)
 
@@ -528,17 +511,17 @@ let getFPR24FPR28FPR16 b =
 let getGR8QSImmUpperQGR12Q b =
   ThreeOperands(gr8to11Q b, gr16to31SImmQ b, gr12to15Q b)
 
+let getGR8QSImmUpperRQGR12Q b =
+  ThreeOperands(gr8to11Q b, gr16to31SImmRQ b, gr12to15Q b)
+
 let getGR8QSImmUpperQMask12Q b =
   ThreeOperands(gr8to11Q b, gr16to31SImmQ b, mask12to15Q b)
 
-let getGR8QUImmUpperCQGR12Q b =
-  ThreeOperands(gr8to11Q b, gr16to31UImmCQ b, gr12to15Q b)
+let getGR8QUImmUpperQMask32Q b =
+  ThreeOperands(gr8to11Q b, gr16to31UImmQ b, mask32to35Q b)
 
-let getGR8QUImmUpperCQMask32Q b =
-  ThreeOperands(gr8to11Q b, gr16to31SImmCQ b, mask32to35Q b)
-
-let getGR8QSImmUpperBQMask32Q b =
-  ThreeOperands(gr8to11Q b, gr16to31SImmBQ b, mask32to35Q b)
+let getGR8QSImmUpperQMask32Q b =
+  ThreeOperands(gr8to11Q b, gr16to31SImmQ b, mask32to35Q b)
 
 let getGR8QM16D20GR12Q b =
   ThreeOperands(gr8to11Q b, OpStore(None, base16Q b, disp20to39SQ b),
@@ -560,9 +543,9 @@ let getGR8QIdx12M16D20Mask32Q b =
   ThreeOperands(gr8to11Q b, OpStore(idx12Q b, base16Q b, disp20Q b),
     mask32to35Q b)
 
-let getMask8QSImm32RM16D20 b =
-  ThreeOperands(mask8to11Q b, gr32to47SImmBRQ b,
-    OpStore(None, base16Q b, disp20Q b))
+let getMask8QSImmRQM32D36 b =
+  ThreeOperands(mask8to11Q b, gr16to31SImmRQ b,
+    OpStore(None, base32Q b, disp36Q b))
 
 let getFPR32QIdx12M16D20FPR8Q b =
   ThreeOperands(fpr32to35Q b, OpStore(idx12Q b, base16Q b, disp20Q b),
@@ -611,15 +594,15 @@ let getVR8QM16D20GR12Q b =
 
 let getFPR32QGRL8QMask36 b =
   ThreeOperands(fpr32to35Q b,
-    OpStoreLen(gr8to15UHWQ b + 2us, gr16to19UQ b, disp20Q b), mask36to39Q b)
+    OpStoreLen(gr8to15UHWQ b + 1us, gr16to19UQ b, disp20Q b), mask36to39Q b)
 
-let getGRL9QM32D36UImm4 b =
-  ThreeOperands(OpStoreLen(gr9to11UHWQ b + 1us, base16Q b, disp20Q b),
+let getGRL8QM32D36UImm4 b =
+  ThreeOperands(OpStoreLen(gr8to11UHWQ b + 1us, base16Q b, disp20Q b),
     OpStore(None, base32Q b, disp36Q b),
     OpImm(BitVector(gr12to15UWQ b, 4<rt>) |> ImmU4))
 
-let getR9MemBase16to35Disp20to47GR12Q b =
-  ThreeOperands(OpStore(Some(gr9to11UQ b), base16Q b, disp20Q b),
+let getIdx8M16D20M32D36GR12Q b =
+  ThreeOperands(OpStore(Some(gr8to11UQ b), base16Q b, disp20Q b),
     OpStore(None, base32Q b, disp36Q b), gr12to15Q b)
 
 let getGR24GR28GR16Mask20 b =
@@ -661,8 +644,8 @@ let getGR8QGR12QMask32NBase16Disp20 b =
   FourOperands(gr8to11Q b, gr12to15Q b, mask32to35Q b,
     OpStore(None, base16Q b, disp20Q b))
 
-let getGR9QM16D20GR12QM32D36 b =
-  FourOperands(gr9to11Q b, OpStore(None, base16Q b, disp20Q b), gr12to15Q b,
+let getGR8QM16D20GR12QM32D36 b =
+  FourOperands(gr8to11Q b, OpStore(None, base16Q b, disp20Q b), gr12to15Q b,
     OpStore(None, base32Q b, disp36Q b))
 
 let getGR8QM16D20VR12QMask32 b =

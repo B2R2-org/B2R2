@@ -123,7 +123,7 @@ let parseInstLenTwo (bin: uint32) =
   | 0x4Eus -> Op.CVD, getGR8WIdx12M16D20 bin, Fmt.RX
   | 0x4Fus -> Op.CVB, getGR8WIdx12M16D20 bin, Fmt.RX
   | 0x50us -> Op.ST, getGR8WIdx12M16D20 bin, Fmt.RX
-  | 0x51us -> Op.LAE, getAR8WIdx12M16D20 bin, Fmt.RX
+  | 0x51us -> Op.LAE, getGR8WIdx12M16D20 bin, Fmt.RX
   | 0x54us -> Op.N, getGR8WIdx12M16D20 bin, Fmt.RX
   | 0x55us -> Op.CL, getGR8WIdx12M16D20 bin, Fmt.RX
   | 0x56us -> Op.O, getGR8WIdx12M16D20 bin, Fmt.RX
@@ -146,7 +146,7 @@ let parseInstLenTwo (bin: uint32) =
   | 0x6Dus -> Op.DD, getFPR8WIdx12M16D20 bin, Fmt.RX
   | 0x6Eus -> Op.AW, getFPR8WIdx12M16D20 bin, Fmt.RX
   | 0x6Fus -> Op.SW, getFPR8WIdx12M16D20 bin, Fmt.RX
-  | 0x70us -> Op.STE, getGR8WIdx12M16D20 bin, Fmt.RX
+  | 0x70us -> Op.STE, getFPR8WIdx12M16D20 bin, Fmt.RX
   | 0x71us -> Op.MS, getGR8WIdx12M16D20 bin, Fmt.RX
   | 0x78us -> Op.LE, getFPR8WIdx12M16D20 bin, Fmt.RX
   | 0x79us -> Op.CE, getFPR8WIdx12M16D20 bin, Fmt.RX
@@ -286,7 +286,7 @@ let parseInstLenTwo (bin: uint32) =
     | 0xB246us -> Op.STURA, getGR24GR28 bin, Fmt.RRE
     | 0xB247us -> Op.MSTA, getGR24to27 bin, Fmt.RRE
     | 0xB248us -> Op.PALB, NoOperand, Fmt.RRE
-    | 0xB249us -> Op.EREG, getAR24AR28 bin, Fmt.RRE
+    | 0xB249us -> Op.EREG, getGR24GR28 bin, Fmt.RRE
     | 0xB24Aus -> Op.ESTA, getGR24GR28 bin, Fmt.RRE
     | 0xB24Bus -> Op.LURA, getGR24GR28 bin, Fmt.RRE
     | 0xB24Cus -> Op.TAR, getAR24GR28 bin, Fmt.RRE
@@ -435,7 +435,7 @@ let parseInstLenTwo (bin: uint32) =
     | 0xB90Bus -> Op.SLGR, getGR24GR28 bin, Fmt.RRE
     | 0xB90Cus -> Op.MSGR, getGR24GR28 bin, Fmt.RRE
     | 0xB90Dus -> Op.DSGR, getGR24GR28 bin, Fmt.RRE
-    | 0xB90Eus -> Op.EREGG, getAR24AR28 bin, Fmt.RRE
+    | 0xB90Eus -> Op.EREGG, getGR24GR28 bin, Fmt.RRE
     | 0xB90Fus -> Op.LRVGR, getGR24GR28 bin, Fmt.RRE
     | 0xB910us -> Op.LPGFR, getGR24GR28 bin, Fmt.RRE
     | 0xB911us -> Op.LNGFR, getGR24GR28 bin, Fmt.RRE
@@ -746,7 +746,7 @@ let parseInstLenThree (bin: uint64) =
   | _ ->
     let opcode1 = extract48 bin 0 7 |> uint16
     match opcode1 with
-    | 0xC7us -> Op.BPP, getMask8QSImm32RM16D20 bin, Fmt.SMI
+    | 0xC7us -> Op.BPP, getMask8QSImmRQM32D36 bin, Fmt.SMI
     | 0xC5us ->
       let opr1 = extract48 bin 8 11 |> uint16
       let opr2 = BitVector(extract48 bin 12 23 |> int32, 12<rt>) |> ImmS12
@@ -760,9 +760,9 @@ let parseInstLenThree (bin: uint64) =
     | 0xD5us -> Op.CLC, getGRL8QM32D36 bin, Fmt.SS
     | 0xD6us -> Op.OC, getGRL8QM32D36 bin, Fmt.SS
     | 0xD7us -> Op.XC, getGRL8QM32D36 bin, Fmt.SS
-    | 0xD9us -> Op.MVCK, getR9MemBase16to35Disp20to47GR12Q bin, Fmt.SS
-    | 0xDAus -> Op.MVCP, getR9MemBase16to35Disp20to47GR12Q bin, Fmt.SS
-    | 0xDBus -> Op.MVCS, getR9MemBase16to35Disp20to47GR12Q bin, Fmt.SS
+    | 0xD9us -> Op.MVCK, getIdx8M16D20M32D36GR12Q bin, Fmt.SS
+    | 0xDAus -> Op.MVCP, getIdx8M16D20M32D36GR12Q bin, Fmt.SS
+    | 0xDBus -> Op.MVCS, getIdx8M16D20M32D36GR12Q bin, Fmt.SS
     | 0xDCus -> Op.TR, getGRL8QM32D36 bin, Fmt.SS
     | 0xDDus -> Op.TRT, getGRL8QM32D36 bin, Fmt.SS
     | 0xDEus -> Op.ED, getGRL8QM32D36 bin, Fmt.SS
@@ -772,18 +772,18 @@ let parseInstLenThree (bin: uint64) =
     | 0xE8us -> Op.MVCIN, getGRL8QM32D36 bin, Fmt.SS
     | 0xE9us -> Op.PKA, getM16D20GRL8Q bin, Fmt.SS
     | 0xEAus -> Op.UNPKA, getGRL8QM32D36 bin, Fmt.SS
-    | 0xEEus -> Op.PLO, getGR9QM16D20GR12QM32D36 bin, Fmt.SS
-    | 0xEFus -> Op.LMD, getGR9QM16D20GR12QM32D36 bin, Fmt.SS
-    | 0xF0us -> Op.SRP, getGRL9QM32D36UImm4 bin, Fmt.SS
-    | 0xF1us -> Op.MVO, grl9QGRL12Q bin, Fmt.SS
-    | 0xF2us -> Op.PACK, grl9QGRL12Q bin, Fmt.SS
-    | 0xF3us -> Op.UNPK, grl9QGRL12Q bin, Fmt.SS
-    | 0xF8us -> Op.ZAP, grl9QGRL12Q bin, Fmt.SS
-    | 0xF9us -> Op.CP, grl9QGRL12Q bin, Fmt.SS
-    | 0xFAus -> Op.AP, grl9QGRL12Q bin, Fmt.SS
-    | 0xFBus -> Op.SP, grl9QGRL12Q bin, Fmt.SS
-    | 0xFCus -> Op.MP, grl9QGRL12Q bin, Fmt.SS
-    | 0xFDus -> Op.DP, grl9QGRL12Q bin, Fmt.SS
+    | 0xEEus -> Op.PLO, getGR8QM16D20GR12QM32D36 bin, Fmt.SS
+    | 0xEFus -> Op.LMD, getGR8QM16D20GR12QM32D36 bin, Fmt.SS
+    | 0xF0us -> Op.SRP, getGRL8QM32D36UImm4 bin, Fmt.SS
+    | 0xF1us -> Op.MVO, grl8QGRL12Q bin, Fmt.SS
+    | 0xF2us -> Op.PACK, grl8QGRL12Q bin, Fmt.SS
+    | 0xF3us -> Op.UNPK, grl8QGRL12Q bin, Fmt.SS
+    | 0xF8us -> Op.ZAP, grl8QGRL12Q bin, Fmt.SS
+    | 0xF9us -> Op.CP, grl8QGRL12Q bin, Fmt.SS
+    | 0xFAus -> Op.AP, grl8QGRL12Q bin, Fmt.SS
+    | 0xFBus -> Op.SP, grl8QGRL12Q bin, Fmt.SS
+    | 0xFCus -> Op.MP, grl8QGRL12Q bin, Fmt.SS
+    | 0xFDus -> Op.DP, grl8QGRL12Q bin, Fmt.SS
     | _ ->
       match opcode1 <<< 4 ||| (extract48 bin 12 15 |> uint16) with
       | 0xC80us -> Op.MVCOS, getM16D20M32D36GR8Q bin, Fmt.SSF
@@ -849,8 +849,8 @@ let parseInstLenThree (bin: uint64) =
       | _ ->
         match opcode1 <<< 8 ||| (extract48 bin 40 47 |> uint16) with
         | 0xEC42us -> Op.LOCHI, getGR8QSImmUpperQMask12Q bin, Fmt.RIE
-        | 0xEC44us -> Op.BRXHG, getGR8QSImmUpperQGR12Q bin, Fmt.RIE
-        | 0xEC45us -> Op.BRXLG, getGR8QSImmUpperQGR12Q bin, Fmt.RIE
+        | 0xEC44us -> Op.BRXHG, getGR8QSImmUpperRQGR12Q bin, Fmt.RIE
+        | 0xEC45us -> Op.BRXLG, getGR8QSImmUpperRQGR12Q bin, Fmt.RIE
         | 0xEC46us -> Op.LOCGHI, getGR8QSImmUpperQMask12Q bin, Fmt.RIE
         | 0xEC4Eus -> Op.LOCHHI, getGR8QSImmUpperQMask12Q bin, Fmt.RIE
         | 0xEC51us -> Op.RISBLG, getGR8QGR12QUImmUpper24to32Q bin, Fmt.RIE
@@ -862,10 +862,10 @@ let parseInstLenThree (bin: uint64) =
         | 0xEC5Dus -> Op.RISBHG, getGR8QGR12QUImmUpper24to32Q bin, Fmt.RIE
         | 0xEC64us -> Op.CGRJ, getGR8QGR12QMask32SImmUpperRQ bin, Fmt.RIE
         | 0xEC65us -> Op.CLGRJ, getGR8QGR12QMask32SImmUpperRQ bin, Fmt.RIE
-        | 0xEC70us -> Op.CGIT, getGR8QSImmUpperBQMask32Q bin, Fmt.RIE
-        | 0xEC71us -> Op.CLGIT, getGR8QUImmUpperCQMask32Q bin, Fmt.RIE
-        | 0xEC72us -> Op.CIT, getGR8QSImmUpperBQMask32Q bin, Fmt.RIE
-        | 0xEC73us -> Op.CLFIT, getGR8QUImmUpperCQMask32Q bin, Fmt.RIE
+        | 0xEC70us -> Op.CGIT, getGR8QSImmUpperQMask32Q bin, Fmt.RIE
+        | 0xEC71us -> Op.CLGIT, getGR8QUImmUpperQMask32Q bin, Fmt.RIE
+        | 0xEC72us -> Op.CIT, getGR8QSImmUpperQMask32Q bin, Fmt.RIE
+        | 0xEC73us -> Op.CLFIT, getGR8QUImmUpperQMask32Q bin, Fmt.RIE
         | 0xEC76us -> Op.CRJ, getGR8QGR12QMask32SImmUpperRQ bin, Fmt.RIE
         | 0xEC77us -> Op.CLRJ, getGR8QGR12QMask32SImmUpperRQ bin, Fmt.RIE
         | 0xEC7Cus -> Op.CGIJ, getGR8QSImm32BQMask12SImmUpperRQ bin, Fmt.RIE
@@ -875,8 +875,8 @@ let parseInstLenThree (bin: uint64) =
         | 0xEC7Fus -> Op.CLIJ, getGR8QUImm32CQMask12SImmUpperRQ bin, Fmt.RIE
         | 0xECD8us -> Op.AHIK, getGR8QSImmUpperQGR12Q bin, Fmt.RIE
         | 0xECD9us -> Op.AGHIK, getGR8QSImmUpperQGR12Q bin, Fmt.RIE
-        | 0xECDAus -> Op.ALHSIK, getGR8QUImmUpperCQGR12Q bin, Fmt.RIE
-        | 0xECDBus -> Op.ALGHSIK, getGR8QUImmUpperCQGR12Q bin, Fmt.RIE
+        | 0xECDAus -> Op.ALHSIK, getGR8QSImmUpperQGR12Q bin, Fmt.RIE
+        | 0xECDBus -> Op.ALGHSIK, getGR8QSImmUpperQGR12Q bin, Fmt.RIE
         | 0xECFCus ->
           Op.CGIB, getGR8QSImm32BQMask12NBase16Disp20 bin, Fmt.RIS
         | 0xECFDus ->
@@ -1057,7 +1057,7 @@ let parseInstLenThree (bin: uint64) =
         | 0xE371us -> Op.LAY, getGR8QIdx12M16D20 bin, Fmt.RXY
         | 0xE372us -> Op.STCY, getGR8QIdx12M16D20 bin, Fmt.RXY
         | 0xE373us -> Op.ICY, getGR8QIdx12M16D20 bin, Fmt.RXY
-        | 0xE375us -> Op.LAEY, getAR8QIdx12M16D20 bin, Fmt.RXY
+        | 0xE375us -> Op.LAEY, getGR8QIdx12M16D20 bin, Fmt.RXY
         | 0xE376us -> Op.LB, getGR8QIdx12M16D20 bin, Fmt.RXY
         | 0xE377us -> Op.LGB, getGR8QIdx12M16D20 bin, Fmt.RXY
         | 0xE378us -> Op.LHY, getGR8QIdx12M16D20 bin, Fmt.RXY
