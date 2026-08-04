@@ -2071,6 +2071,103 @@ type ParserTests() =
     ++ SHLX ** [ O.Reg R.RAX; O.Reg R.RCX; O.Reg R.RDX ]
     ||> testX64NoPrefixNoSeg
 
+  [<TestMethod>]
+  member _.``Opcode E3 outside the one-byte map (1)``() =
+    "0fe3c1"
+    ++ PAVGW ** [ O.Reg R.MM0; O.Reg R.MM1 ]
+    ||> testX64NoPrefixNoSeg
+
+  [<TestMethod>]
+  member _.``Opcode E3 outside the one-byte map (2)``() =
+    "c5f1e3c2"
+    ++ VPAVGW ** [ O.Reg R.XMM0; O.Reg R.XMM1; O.Reg R.XMM2 ]
+    ||> testX64NoPrefixNoSeg
+
+  [<TestMethod>]
+  member _.``Opcode E3 outside the one-byte map (3)``() =
+    "c4e269e308"
+    ++ CMPNBXADD **
+      [ O.Mem(R.RAX, 32<rt>); O.Reg R.ECX; O.Reg R.EDX ]
+    ||> testX64NoPrefixNoSeg
+
+  [<TestMethod>]
+  member _.``JCXZ family still selected by address size (1)``() =
+    "e300"
+    ++ JRCXZ ** [ OprDirAddr(Relative 2L) ]
+    ||> testX64NoPrefixNoSeg
+
+  [<TestMethod>]
+  member _.``Sole 16-bit variant needs no 66h (1)``() =
+    "0f00c2"
+    ++ SLDT ** [ O.Reg R.DX ]
+    ||> testX64NoPrefixNoSeg
+
+  [<TestMethod>]
+  member _.``Sole 16-bit variant needs no 66h (2)``() =
+    "0f00e2"
+    ++ VERR ** [ O.Reg R.DX ]
+    ||> testX64NoPrefixNoSeg
+
+  [<TestMethod>]
+  member _.``Sole 16-bit variant needs no 66h (3)``() =
+    "0f01f2"
+    ++ LMSW ** [ O.Reg R.DX ]
+    ||> testX64NoPrefixNoSeg
+
+  [<TestMethod>]
+  member _.``Sole 16-bit variant needs no 66h (4)``() =
+    "c5f89108"
+    ++ KMOVW ** [ O.Mem(R.RAX, 16<rt>); O.Reg R.K1 ]
+    ||> testX64NoPrefixNoSeg
+
+  [<TestMethod>]
+  member _.``Widest 16-bit variant still needs 66h (1)``() =
+    "6601ca"
+    ++ ADD ** [ O.Reg R.DX; O.Reg R.CX ]
+    ||> testX86Prefix Prefix.OPSIZE
+
+  [<TestMethod>]
+  member _.``Widest 16-bit variant still needs 66h (2)``() =
+    "01ca"
+    ++ ADD ** [ O.Reg R.EDX; O.Reg R.ECX ]
+    ||> testX86NoPrefixNoSeg
+
+  [<TestMethod>]
+  member _.``Far pointer in memory (1)``() =
+    "ff18"
+    ++ CALL ** [ O.Mem(R.RAX, 48<rt>) ]
+    ||> testX64NoPrefixNoSeg
+
+  [<TestMethod>]
+  member _.``Far pointer in memory (2)``() =
+    "ff28"
+    ++ JMP ** [ O.Mem(R.RAX, 48<rt>) ]
+    ||> testX64NoPrefixNoSeg
+
+  [<TestMethod>]
+  member _.``Far pointer in memory (3)``() =
+    "48ff18"
+    ++ CALL ** [ O.Mem(R.RAX, 80<rt>) ]
+    ||> testX64NoPrefixNoSeg
+
+  [<TestMethod>]
+  member _.``Far pointer in memory (4)``() =
+    "66ff2e"
+    ++ JMP ** [ O.Mem(R.ESI, 32<rt>) ]
+    ||> testX86Prefix Prefix.OPSIZE
+
+  [<TestMethod>]
+  member _.``Far pointer as an immediate (1)``() =
+    "9a123456789000"
+    ++ CALL ** [ O.Addr(0x90s, 0x78563412UL, 32<rt>) ]
+    ||> testX86NoPrefixNoSeg
+
+  [<TestMethod>]
+  member _.``Far pointer as an immediate (2)``() =
+    "669a12349000"
+    ++ CALL ** [ O.Addr(0x90s, 0x3412UL, 16<rt>) ]
+    ||> testX86Prefix Prefix.OPSIZE
+
 #if !EMULATION
   [<TestMethod>]
   member _.``Size cond ParsingFailure Test (1)``() =

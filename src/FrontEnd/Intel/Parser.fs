@@ -76,7 +76,8 @@ type IntelParser(wordSz, reader) =
   let collectDistinctOpSizes operands =
     Array.map (fun o ->
       match o with
-      | RM sz | Reg(sz, _) | Mem sz | Imm sz | Rel sz | Moffs sz -> Some sz
+      | RM sz | Reg(sz, _) | Mem sz | Imm sz | Rel sz | Moffs sz
+      | Far sz -> Some sz
       | FixedReg(Register.AX) -> Some 16<rt>
       | _ -> None) operands
     |> Array.distinct
@@ -200,14 +201,50 @@ type IntelParser(wordSz, reader) =
     | [| None; Some 16<rt> |] (* Temp *) -> true
     | _ -> false
 
+  /// The width a fixed-register operand implies. Segment registers give
+  /// 0<rt>: an operand-size prefix never selects between them.
+  let fixedRegSize = function
+    | Register.AL | Register.CL -> 8<rt>
+    | Register.AX | Register.DX -> 16<rt>
+    | Register.EAX -> 32<rt>
+    | Register.RAX -> 64<rt>
+    | _ -> 0<rt>
+
+  /// The width an operand descriptor declares, or 0<rt> when it carries none.
+  /// A multi-size form reports its register width, which is the side an
+  /// operand-size prefix selects.
+  let oprWidth = function
+    | RM sz | Reg(sz, _) | RegSae sz | Mem sz | MemVSIB sz | Moffs sz
+    | Far sz | Imm sz | Rel sz | KM sz | MM sz | BM sz -> sz
+    | RMdiff(sz, _) | RMEr(sz, _) | RMSae(sz, _) -> sz
+    | RMBcst(sz, _, _) | RMBcstEr(sz, _, _) | RMBcstSae(sz, _, _) -> sz
+    | FixedReg r -> fixedRegSize r
+    | _ -> 0<rt>
+
+  /// Returns the widest declared operand size in the descriptors, or 0<rt>
+  /// when none of them carries one.
+  let maxOprSize (insCore: InstructionCore) =
+    insCore.Operands |> Array.fold (fun acc o -> max acc (oprWidth o)) 0<rt>
+
+  /// Returns true when 66h is what picks this variant out of its slot, i.e.
+  /// the slot also holds the same opcode with a wider operand. Opcodes whose
+  /// 16-bit form encodes no explicit size (MOVSW, PUSHF, ...) have nothing to
+  /// compare, and hasImplicit16BitOprSize already names them.
+  let is66hSelector (ins: InstructionCore[]) (insCore: InstructionCore) =
+    let sz = maxOprSize insCore
+    if sz = 0<rt> then true
+    else
+      ins
+      |> Array.exists (fun i ->
+        i.Opcode = insCore.Opcode && maxOprSize i > sz)
+
   /// Returns true when the current prefix is compatible with the operand size
   /// implied by the instruction's descriptors.
-  let matchOperandSize pref (insCore: InstructionCore) =
+  let matchOperandSize pref ins (insCore: InstructionCore) =
     if insCore.OpEn = OpEn.None then true
     else
       let oprSz = collectDistinctOpSizes insCore.Operands
-      if needs66hPrefix oprSz insCore.Opcode then
-        // FIXME: 16-bit operands do not always require a 66h prefix.
+      if needs66hPrefix oprSz insCore.Opcode && is66hSelector ins insCore then
         pref &&& Prefix.OPSIZE = Prefix.OPSIZE
       else true
 
@@ -215,9 +252,13 @@ type IntelParser(wordSz, reader) =
   /// Mode64/Compat flags.
   let matchCPUMode wordSize mode64 compat =
     match wordSize with
-    | WordSize.Bit64 when mode64 = Mode64.Invalid -> false
+    (* The manual spells the same verdict "Inv." in some tables and
+       "Invalid" in others. *)
+    | WordSize.Bit64 when mode64 = Mode64.Invalid || mode64 = Mode64.Inv ->
+      false
     | WordSize.Bit64 -> mode64 <> Mode64.NE && mode64 <> Mode64.NS // ??
-    | WordSize.Bit32 -> compat <> CompatLegMode.NE
+    | WordSize.Bit32 ->
+      compat <> CompatLegMode.NE && compat <> CompatLegMode.Invalid
     | _ -> failwith "Unsupported word size."
 
   /// Returns true when the ModRM type encodes an opcode group extension (/0–/7)
@@ -286,8 +327,11 @@ type IntelParser(wordSz, reader) =
   /// address size determined by the current mode and the 67h prefix:
   /// 32-bit mode  -> JECXZ, 67h -> JCXZ
   /// 64-bit mode  -> JRCXZ, 67h -> JECXZ
-  let matchJcxzAddrSize phlp (insCore: InstructionCore) =
-    if uint8 insCore.OpcodeByte <> 0xE3uy then true
+  /// Only the one-byte map is concerned: 0xE3 is PAVGW, VPAVGW or CMPccXADD
+  /// in the escape and VEX maps.
+  let matchJcxzAddrSize (phlp: ParsingHelper) (insCore: InstructionCore) =
+    if uint8 insCore.OpcodeByte <> 0xE3uy
+       || phlp.OpcodeClass <> OpcodeClass.Normal OneByte then true
     else
       match ParsingHelper.GetEffAddrSize phlp, insCore.Opcode with
       | 16<rt>, Opcode.JCXZ
@@ -309,7 +353,7 @@ type IntelParser(wordSz, reader) =
         let p =
           matchPrefix phlp (uint8 insCore.OpcodeByte)
             insCore.PrefixType
-        let s = matchOperandSize phlp.Prefixes insCore
+        let s = matchOperandSize phlp.Prefixes ins insCore
         let c = matchCPUMode phlp.WordSize insCore.Mode64 insCore.Compat
         let r = matchREX phlp insCore
         let v = matchVectorLength phlp.VEXInfo insCore.VectorLength
@@ -540,24 +584,26 @@ type IntelParser(wordSz, reader) =
         let reg = Operands.getReg modRM
         OperandParsers.findRegRBits sz phlp.REXPrefix reg |> OprReg
     | Sreg -> OperandParsers.parseSegReg (Operands.getReg modRM)
-    | Far sz -> // XXX
-      let effAddrSz = ParsingHelper.GetEffAddrSize phlp
-      let effOprSz = ParsingHelper.GetEffOprSize(phlp, SzCond.Normal)
-      let struct (regSz, oprSz) =
-        if sz = 16<rt> then struct (16<rt>, 32<rt>)
-        elif sz = 32<rt> then struct (32<rt>, 48<rt>)
-        else struct (64<rt>, 80<rt>)
+    | Far sz ->
+      (* sz is the offset width; a far pointer also carries a 16-bit segment
+         selector, so the whole thing is 16 bits wider. *)
+      let oprSz = sz + 16<rt>
       phlp.MemEffOprSize <- oprSz
-      phlp.MemEffAddrSize <- effAddrSz
-      phlp.MemEffRegSize <- regSz
-      phlp.RegSize <- effOprSz
-      (* Far ptr: OperationSize holds total ptr size *)
+      phlp.MemEffAddrSize <- ParsingHelper.GetEffAddrSize phlp
+      phlp.MemEffRegSize <- sz
+      phlp.RegSize <- sz
+      (* Far ptr: OperationSize holds the whole selector:offset width. *)
       phlp.OperationSize <- oprSz
-      let addrSz = RegType.toByteWidth phlp.MemEffAddrSize
-      let addrValue = OperandParsers.parseUnsignedImm span phlp addrSz
-      let selector = phlp.ReadInt16 span
-      let absAddr = Absolute(selector, addrValue, RegType.fromByteWidth addrSz)
-      OprDirAddr absAddr
+      if ic.ModRM = ModRMType.NoModRM then
+        (* ptr16:16 or ptr16:32, spelled out in the instruction (9A, EA). *)
+        let addrValue =
+          OperandParsers.parseUnsignedImm span phlp (RegType.toByteWidth sz)
+        let selector = phlp.ReadInt16 span
+        OprDirAddr(Absolute(selector, addrValue, sz))
+      else
+        (* m16:16, m16:32 or m16:64, read through ModRM (FF /3, FF /5). *)
+        phlp.IsFar <- true
+        OperandParsers.parseMemory modRM span phlp
     | Unknown s ->
       failwithf "Need unknown operand type handling logic: %s" s
     | o ->
