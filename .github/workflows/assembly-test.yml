@@ -23,6 +23,16 @@ jobs:
     - uses: actions/checkout@v5
     - name: Setup .NET
       uses: actions/setup-dotnet@v5
+    # The key is what the package versions are written in, and is shared with
+    # the other workflows, so whichever of them runs first warms it for the
+    # rest. A changed version falls back to the newest cache there is and
+    # downloads only what moved.
+    - name: Cache NuGet packages
+      uses: actions/cache@v4
+      with:
+        path: ~/.nuget/packages
+        key: nuget-${{ hashFiles('**/*.fsproj', '**/Directory.Build.props') }}
+        restore-keys: nuget-
     - name: Restore dependencies
       run: dotnet restore src/Assembly.Tests
     - name: Build

@@ -15,6 +15,12 @@ jobs:
     - uses: actions/checkout@v5
     - name: Setup .NET
       uses: actions/setup-dotnet@v5
+    - name: Cache NuGet packages
+      uses: actions/cache@v4
+      with:
+        path: ~/.nuget/packages
+        key: nuget-${{ hashFiles('**/*.fsproj', '**/Directory.Build.props') }}
+        restore-keys: nuget-
     - name: Restore dependencies
       run: dotnet restore
     - name: Build
