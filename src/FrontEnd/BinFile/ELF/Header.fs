@@ -143,6 +143,23 @@ module internal Header =
     | 0xa0000000u -> ISA(Architecture.MIPS, reader.Endianness, WordSize.Bit64)
     | c -> failwithf "invalid MIPS arch (%02x)" c
 
+  /// The part of an AVR image's processor-specific flags naming its core,
+  /// which binutils calls EF_AVR_MACH.
+  let [<Literal>] private AVRMachMask = 0x7Fu
+
+  /// The value that field takes on avr6.
+  let [<Literal>] private AVRMachAvr6 = 6u
+
+  /// The core an AVR image was built for, taken from the mach field of its
+  /// processor-specific flags. Only avr6 is told apart, that being the one core
+  /// whose call frame differs (see AVRCore); every other value is a core whose
+  /// program counter fits in two bytes.
+  let private getAVRISA span reader cls =
+    if getELFFlags span reader cls &&& AVRMachMask = AVRMachAvr6 then
+      ISA AVRCore.Avr6
+    else
+      ISA AVRCore.Classic
+
   let private toISA (span: ByteSpan) (reader: IBinReader) cls = function
     | MachineType.EM_386 ->
       ISA(Architecture.Intel, WordSize.Bit32)
@@ -175,7 +192,7 @@ module internal Header =
          rather than anything the file claims. *)
       ISA M68KModel.M68020
     | MachineType.EM_AVR ->
-      ISA Architecture.AVR
+      getAVRISA span reader cls
     | _ ->
       raise InvalidISAException
 

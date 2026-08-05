@@ -201,6 +201,20 @@ type ISA(arch, endian, wordSize, flags) =
     let flag = int m68kModel
     ISA(Architecture.M68K, Endian.Big, WordSize.Bit32, flag)
 
+  /// Constructs an ISA object for the given AVR core.
+  new(avrCore: AVRCore) =
+    let flag = int avrCore
+    ISA(Architecture.AVR, Endian.Little, WordSize.Bit8, flag)
+
+  /// Constructs an ISA object for the given AVR core and program memory size,
+  /// which must be a power of two. Only a loader that has read the part out of
+  /// an image knows the size; without it a relative branch cannot wrap.
+  new(avrCore: AVRCore, programSize: uint64) =
+    let mutable log2 = 0
+    while programSize >>> (log2 + 1) <> 0UL do log2 <- log2 + 1
+    let flag = int avrCore ||| (if programSize = 0UL then 0 else log2 <<< 8)
+    ISA(Architecture.AVR, Endian.Little, WordSize.Bit8, flag)
+
   /// Constructs a 32-bit ARM ISA meaning the given instruction set, which is
   /// AArch32 if isAArch32 says so and ARMv7 otherwise. Only those two have the
   /// instruction sets a mode chooses between, so this names neither an
@@ -286,6 +300,8 @@ type ISA(arch, endian, wordSize, flags) =
       ISA M68KModel.M68060
     | "avr" | "avr8" ->
       ISA Architecture.AVR
+    | "avr6" ->
+      ISA AVRCore.Avr6
     | "tms320c6000" ->
       ISA Architecture.TMS320C6000
     | "evm" ->
@@ -345,6 +361,22 @@ type ISA(arch, endian, wordSize, flags) =
   /// says what a halfword of m68k code belongs to.
   member _.M68KModel with get(): M68KModel =
     LanguagePrimitives.EnumOfValue flags
+
+  /// How wide the program counter of an AVR ISA's core is, which is two bytes
+  /// unless the flags say otherwise. Only AVR has cores that differ in this, so
+  /// this says nothing about any other architecture.
+  member _.AVRCore with get(): AVRCore =
+    LanguagePrimitives.EnumOfValue(flags &&& 0xff)
+
+  /// How many bytes of program memory an AVR part has, or zero when nothing
+  /// said. A relative branch on AVR wraps around the end of program memory --
+  /// which is how the reset vector reaches startup code sitting at the top of
+  /// it -- so this is what the wrap is taken modulo of. It is always a power of
+  /// two, and the flags hold its base-two logarithm.
+  member _.AVRProgramSize with get() =
+    match (flags >>> 8) &&& 0xff with
+    | 0 -> 0UL
+    | log2 -> 1UL <<< log2
 
   /// Returns true if this ISA is Intel x86.
   member _.IsX86 with get() =
@@ -519,6 +551,21 @@ and M68KModel =
   | M68040 = 4
   /// MC68060, MC68EC060, and MC68LC060.
   | M68060 = 5
+
+/// Represents how wide an AVR core's program counter is, which is the one way
+/// the AVR cores differ that an instruction's encoding does not already settle.
+/// avr6 -- the cores reaching more than 128 KiB of program memory -- needs
+/// three bytes of program counter, so a call there pushes three bytes of return
+/// address where every earlier core pushes two, and a frame laid out for the
+/// wrong one puts every saved register at the wrong offset. The finer core
+/// levels (avr2, avr25, avr51, ...) differ only in which instructions they
+/// have, which the decoder settles on its own, so nothing names them here.
+and AVRCore =
+  /// Every core up to avr51, whose program counter fits in two bytes. This is
+  /// also what a raw image reports, having nothing to say which core it is for.
+  | Classic = 0
+  /// avr6, whose program counter needs three bytes.
+  | Avr6 = 1
 
 /// Represents the Python version.
 and PythonVersion =

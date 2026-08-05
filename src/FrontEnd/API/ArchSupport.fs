@@ -85,7 +85,7 @@ module ArchSupport =
     | TMS320C6000 ->
       TMS320C6000.TMS320C6000Parser(reader) :> IInstructionParsable
     | AVR ->
-      AVR.AVRParser(reader) :> IInstructionParsable
+      AVR.AVRParser(isa, reader) :> IInstructionParsable
     | S390 ->
       S390.S390Parser(isa, reader) :> IInstructionParsable
     | SH4 ->
