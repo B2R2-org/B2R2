@@ -8,13 +8,23 @@
   <ItemGroup>
     <Compile Include="Register.fs" />
     <Compile Include="RegisterFactory.fs" />
-    <Compile Include="Opcode.fs" />
     <Compile Include="Operands.fs" />
     <Compile Include="Instruction.fs" />
     <Compile Include="Disasm.fs" />
-    <Compile Include="Lifter.fs" />
-    <Compile Include="Parsing\Parsing310.fs" />
-    <Compile Include="Parsing\Parsing312.fs" />
+    <Compile Include="LifterHelpers.fs" />
+    <!-- One directory per Python version. Everything that depends on a
+         version's own opcode numbering lives in exactly one of them, so two
+         people adding two versions never edit the same file. -->
+    <Compile Include="Python310\Opcode.fs" />
+    <Compile Include="Python310\Semantics.fs" />
+    <Compile Include="Python310\Disasm.fs" />
+    <Compile Include="Python310\Lifter.fs" />
+    <Compile Include="Python310\Parsing.fs" />
+    <Compile Include="Python312\Opcode.fs" />
+    <Compile Include="Python312\Semantics.fs" />
+    <Compile Include="Python312\Disasm.fs" />
+    <Compile Include="Python312\Lifter.fs" />
+    <Compile Include="Python312\Parsing.fs" />
     <Compile Include="Parser.fs" />
     <None Include="..\..\..\LICENSE.md" Pack="true" PackagePath="" />
     <None Include="..\..\..\assets\b2r2-240x240.png" Pack="true" PackagePath="" />
