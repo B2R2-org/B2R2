@@ -296,7 +296,8 @@ let dumpFunctions _ (elf: ELFBinFile) =
       printsr
       <| [| Addr.toString (elf: IBinFile).ISA.WordSize symb.Addr
             normalizeEmpty symb.SymName |]
-    | Error _ -> ()
+    | Error _ ->
+      ()
   printDoubleHorizontalRule ()
   printsn ""
 
@@ -496,7 +497,8 @@ let ruleToString (hdl: BinHandle) (rule: UnwindingRule) =
     rule
     |> Map.fold (fun s k v ->
       match k with
-      | ReturnAddress -> s + "(ra:" + UnwindingAction.ToString v + ")"
+      | ReturnAddress ->
+        s + "(ra:" + UnwindingAction.ToString v + ")"
       | NormalReg rid ->
         let reg = hdl.RegisterFactory.GetRegisterName rid
         s + "(" + reg + ":" + UnwindingAction.ToString v + ")") ""

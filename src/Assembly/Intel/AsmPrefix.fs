@@ -269,7 +269,8 @@ let encodeVEXRexRB wordSz r1 r2 =
   else convVEXRexByte (encodeRexR r1 ||| encodeRexB r2)
 
 let encodeVEXRexRXB wordSz reg rmOrSBase sIdx =
-  if wordSz = WordSize.Bit32 then 0b111uy
+  if wordSz = WordSize.Bit32 then
+    0b111uy
   else
     match rmOrSBase, sIdx with
     | Some r1, Some(r2, _) ->
@@ -278,7 +279,8 @@ let encodeVEXRexRXB wordSz reg rmOrSBase sIdx =
       convVEXRexByte (encodeRexR reg ||| encodeRexB r1)
     | None, Some(r2, _) ->
       convVEXRexByte (encodeRexR reg ||| encodeRexX r2)
-    | None, None -> convVEXRexByte (encodeRexR reg)
+    | None, None ->
+      convVEXRexByte (encodeRexR reg)
 
 let encodeRexRR wordSz isMR r1 r2 =
   let hasByteReg =
@@ -291,8 +293,7 @@ let encodeRexRR wordSz isMR r1 r2 =
 let encodeRexRM wordSz r b s =
   let rex = if isReg8 wordSz r then encodeRex r else 0uy
   match b, s with
-  | Some b, Some(s, _) ->
-    rex ||| encodeRexR r ||| encodeRexX s ||| encodeRexB b
+  | Some b, Some(s, _) -> rex ||| encodeRexR r ||| encodeRexX s ||| encodeRexB b
   | Some b, None -> rex ||| encodeRexR r ||| encodeRexB b
   | None, Some(s, _) -> rex ||| encodeRexR r ||| encodeRexX s
   | None, None -> rex ||| encodeRexR r
@@ -302,16 +303,21 @@ let encodeRexRXB wordSz isMR = function
   | OneOperand(Label _) | OneOperand(OprDirAddr _)
   | OneOperand(OprImm _)
   | TwoOperands(OprMem(None, None, Some _, _), OprImm _)
-  | TwoOperands(Label _, OprImm _) -> 0uy
+  | TwoOperands(Label _, OprImm _) ->
+    0uy
   | OneOperand(OprReg r) ->
     if isReg8 wordSz r then encodeRex r ||| encodeRexB r else encodeRexB r
   | OneOperand(OprMem(Some bReg, Some(s, _), _, _)) ->
     encodeRexX s ||| encodeRexB bReg
-  | OneOperand(OprMem(Some bReg, None, _, _)) -> encodeRexB bReg
-  | OneOperand(OprMem(None, Some(s, _), _, _)) -> encodeRexX s
-  | TwoOperands(OprReg r1, OprReg r2) -> encodeRexRR wordSz isMR r1 r2
+  | OneOperand(OprMem(Some bReg, None, _, _)) ->
+    encodeRexB bReg
+  | OneOperand(OprMem(None, Some(s, _), _, _)) ->
+    encodeRexX s
+  | TwoOperands(OprReg r1, OprReg r2) ->
+    encodeRexRR wordSz isMR r1 r2
   | TwoOperands(OprReg r, OprMem(b, s, _, _))
-  | TwoOperands(OprMem(b, s, _, _), OprReg r) -> encodeRexRM wordSz r b s
+  | TwoOperands(OprMem(b, s, _, _), OprReg r) ->
+    encodeRexRM wordSz r b s
   (* IN and OUT name their port before the accumulator, which is the only place
      a register follows an immediate. *)
   | TwoOperands(OprReg r, OprImm _)
@@ -319,8 +325,10 @@ let encodeRexRXB wordSz isMR = function
     if isReg8 wordSz r then encodeRex r ||| encodeRexB r else encodeRexB r
   (* ENTER is the one instruction naming two immediates, and neither can carry a
      REX bit. *)
-  | TwoOperands(OprImm _, OprImm _) -> 0uy
-  | TwoOperands(OprMem(Some bReg, None, _, _), OprImm _) -> encodeRexB bReg
+  | TwoOperands(OprImm _, OprImm _) ->
+    0uy
+  | TwoOperands(OprMem(Some bReg, None, _, _), OprImm _) ->
+    encodeRexB bReg
   | TwoOperands(OprMem(Some bReg, Some(s, _), _, _), OprImm _) ->
     encodeRexX s ||| encodeRexB bReg
   | TwoOperands(OprReg r, Label _) | TwoOperands(Label _, OprReg r) ->
@@ -342,16 +350,20 @@ let encodeRexRXB wordSz isMR = function
     encodeRexR r ||| encodeRexB bReg
   | ThreeOperands(OprReg r, OprMem(None, None, _, _), OprImm _) ->
     encodeRexR r
-  | ThreeOperands(OprReg r, Label _, OprImm _) -> encodeRexR r
+  | ThreeOperands(OprReg r, Label _, OprImm _) ->
+    encodeRexR r
   (* EXTRQ and INSERTQ give a field's position and length as two immediates, so
      the register operands they do have are the only ones REX can reach. *)
-  | ThreeOperands(OprReg r, OprImm _, OprImm _) -> encodeRexB r
+  | ThreeOperands(OprReg r, OprImm _, OprImm _) ->
+    encodeRexB r
   | FourOperands(OprReg r1, OprReg r2, OprImm _, OprImm _) ->
     encodeRexR r1 ||| encodeRexB r2
-  | o -> raise <| EncodingFailureException $"Cannot encode REX for {o}"
+  | o ->
+    raise <| EncodingFailureException $"Cannot encode REX for {o}"
 
 let encodeREXPref ins (wordSz: WordSize) (rexPrx: EncREXPrefix) =
-  if wordSz = WordSize.Bit32 then [||]
+  if wordSz = WordSize.Bit32 then
+    [||]
   else (* IntelX64 *)
     let rexW = if rexPrx.RexW then 0x48uy else 0uy
     let rxb = encodeRexRXB wordSz rexPrx.IsMemReg ins.Operands

@@ -100,7 +100,8 @@ let parseNameSection (bs: byte[]) (reader: IBinReader) startOff endOff =
       | NameSubsectionId.Function ->
         let vec = peekVector bs reader payloadOff peekNameAssoc
         loop vec.Elements modName next
-      | _ -> loop funcNames modName next
+      | _ ->
+        loop funcNames modName next
   loop [||] None startOff
 
 let parseCustomSec bs (reader: IBinReader) offset =
@@ -116,7 +117,8 @@ let parseCustomSec bs (reader: IBinReader) offset =
       let nameSec =
         if name = CustomName then
           Some(parseNameSection bs reader payloadOff payloadEnd)
-        else None
+        else
+          None
       Some { Name = name; Size = contSize; NameSection = nameSec }
   { Id = SectionId.Custom
     Size = contSize
@@ -157,7 +159,8 @@ let peekLimits (bs: byte[]) (reader: IBinReader) offset =
     let mn, mnLen = reader.ReadUInt32LEB128(bs, offset')
     let mx, mxLen = reader.ReadUInt32LEB128(bs, offset' + mnLen)
     MinMax(mn, mx), (offset' + mnLen + mxLen)
-  | _ -> raise InvalidFileFormatException
+  | _ ->
+    raise InvalidFileFormatException
 
 let peekTableType (bs: byte[]) (reader: IBinReader) offset =
   let elemType =
@@ -194,7 +197,8 @@ let peekImportDesc (bs: byte[]) (reader: IBinReader) offset =
   | ImportDescKind.Global ->
     let glob, size = peekGlobalType bs reader (offset + 1)
     ImpGlobal(glob), (offset + 1 + size)
-  | _ -> raise InvalidFileFormatException
+  | _ ->
+    raise InvalidFileFormatException
 
 let peekImportEntry bs reader offset =
   let modName, rawLen = peekName bs reader offset
@@ -259,7 +263,8 @@ let peekExportDesc (bs: byte[]) (reader: IBinReader) offset =
   | ExportDescKind.Global ->
     let globalIdx, len = reader.ReadUInt32LEB128(bs, offset + 1)
     ExpGlobal(globalIdx), offset + 1 + len
-  | _ -> raise InvalidFileFormatException
+  | _ ->
+    raise InvalidFileFormatException
 
 let peekExportEntry bs reader offset =
   let name, rawLen = peekName bs reader offset

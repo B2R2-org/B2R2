@@ -63,7 +63,8 @@ let private pcRelative isPage ins =
     let imm = signedImm 21 offset
     (if isPage then 1u <<< 31 else 0u) ||| ((imm &&& 0b11u) <<< 29)
     ||| (0b10000u <<< 24) ||| ((imm >>> 2) <<< 5) ||| coreReg rd
-  | _ -> wrongOperands ins
+  | _ ->
+    wrongOperands ins
 
 /// The bits an add or subtract of an immediate shares, given the destination
 /// field its own form supplies.
@@ -81,21 +82,24 @@ let private addSubImm op ins =
   match getOperandsAsList ins.Operands with
   | Rg rd :: Rg rn :: Im imm :: rest ->
     sfBit rd ||| addSubImmWith op 0u ins (coreRegSP rd) rn imm rest
-  | _ -> wrongOperands ins
+  | _ ->
+    wrongOperands ins
 
 /// <Rd>, <Rn|SP>, #<imm>{, LSL #12}, the form that sets the flags.
 let private addSubImmFlags op ins =
   match getOperandsAsList ins.Operands with
   | Rg rd :: Rg rn :: Im imm :: rest ->
     sfBit rd ||| addSubImmWith op 1u ins (coreReg rd) rn imm rest
-  | _ -> wrongOperands ins
+  | _ ->
+    wrongOperands ins
 
 /// <Rn|SP>, #<imm>{, LSL #12}, the form that only sets them.
 let private compareImm op ins =
   match getOperandsAsList ins.Operands with
   | Rg rn :: Im imm :: rest ->
     sfBit rn ||| addSubImmWith op 1u ins 31u rn imm rest
-  | _ -> wrongOperands ins
+  | _ ->
+    wrongOperands ins
 
 /// The bits a logical instruction that takes an immediate shares.
 let private logicalImmWith opc ins rd rn imm =
@@ -108,14 +112,16 @@ let private logicalImmediate opc ins =
   match ins.Operands with
   | ThreeOperands(Rg rd, Rg rn, Im imm) ->
     sfBit rd ||| logicalImmWith opc ins (coreRegSP rd) rn imm
-  | _ -> wrongOperands ins
+  | _ ->
+    wrongOperands ins
 
 /// <Rd>, <Rn>, #<imm>, the form that sets the flags.
 let private logicalImmediateFlags opc ins =
   match ins.Operands with
   | ThreeOperands(Rg rd, Rg rn, Im imm) ->
     sfBit rd ||| logicalImmWith opc ins (coreReg rd) rn imm
-  | _ -> wrongOperands ins
+  | _ ->
+    wrongOperands ins
 
 /// The hw field, which says which sixteen bits of the register an immediate
 /// lands in. A thirty-two bit move reaches only the lower half of the register,
@@ -135,7 +141,8 @@ let private moveWide opc ins =
     let hw = halfwordShift (is64Reg rd) (lslAmount ins rest)
     sfBit rd ||| (opc <<< 29) ||| (0b100101u <<< 23) ||| (hw <<< 21)
     ||| (unsignedImm 16 imm <<< 5) ||| coreReg rd
-  | _ -> wrongOperands ins
+  | _ ->
+    wrongOperands ins
 
 /// The bits a bitfield move shares. The N bit repeats what the width says,
 /// because the field it names is as wide as the register.
@@ -150,7 +157,8 @@ let private bitfield opc ins =
   match ins.Operands with
   | FourOperands(Rg rd, Rg rn, Im immr, Im imms) ->
     bitfieldWith opc rd rn immr imms
-  | _ -> wrongOperands ins
+  | _ ->
+    wrongOperands ins
 
 /// The bitfield move a "start here, this many bits" alias stands for, whose
 /// encoding says where the field ends rather than how long it is.
@@ -162,7 +170,8 @@ let private bitfieldInsert opc ins =
       fail $"a field of #{width} bits cannot start at #{lsb}"
     else
       bitfieldWith opc rd rn ((bits - lsb) % bits) (width - 1L)
-  | _ -> wrongOperands ins
+  | _ ->
+    wrongOperands ins
 
 /// The same for the aliases that take the field where it lies rather than
 /// moving it down to the bottom of the register.
@@ -174,7 +183,8 @@ let private bitfieldExtract opc ins =
       fail $"a field of #{width} bits cannot start at #{lsb}"
     else
       bitfieldWith opc rd rn lsb (lsb + width - 1L)
-  | _ -> wrongOperands ins
+  | _ ->
+    wrongOperands ins
 
 /// The extensions, which the manual defines as bitfield moves of the bottom
 /// byte, halfword or word of a register.
@@ -216,7 +226,8 @@ let private logicalShifted opc n ins =
   match getOperandsAsList ins.Operands with
   | Rg rd :: Rg rn :: Rg rm :: rest ->
     logicalShiftedWith opc n ins rd rn rm rest
-  | _ -> wrongOperands ins
+  | _ ->
+    wrongOperands ins
 
 /// The bits an addition or subtraction of a shifted register shares.
 let private addSubShiftedWith op s ins rd rn rm rest =
@@ -284,7 +295,8 @@ let private addSubReg op s ins =
       addSubExtendedWith op s ins rd rn rm rest ||| rdField
     else
       addSubShiftedWith op s ins rd rn rm rest
-  | _ -> wrongOperands ins
+  | _ ->
+    wrongOperands ins
 
 /// The zero register of the width the given one is written in, which is what
 /// the aliases naming one register fewer read or write in its place.
@@ -301,14 +313,16 @@ let private compareReg op ins =
           | _ -> false)
     if extended then addSubExtendedWith op 1u ins rn rn rm rest ||| 31u
     else addSubShiftedWith op 1u ins (zeroLike rn) rn rm rest
-  | _ -> wrongOperands ins
+  | _ ->
+    wrongOperands ins
 
 /// <Rd>, <Rm>{, <shift> #<amount>}, which subtracts from the zero register.
 let private negate s ins =
   match getOperandsAsList ins.Operands with
   | Rg rd :: Rg rm :: rest ->
     addSubShiftedWith 1u s ins rd (zeroLike rd) rm rest
-  | _ -> wrongOperands ins
+  | _ ->
+    wrongOperands ins
 
 /// The bits an addition or subtraction that reads the carry flag shares.
 let private addSubCarryWith op s rd rn rm =
@@ -340,7 +354,8 @@ let private condCompare op ins =
     condCompareWith op rn cond nzcv true (unsignedImm 5 imm)
   | FourOperands(Rg rn, Rg rm, Im nzcv, OprCond cond) ->
     condCompareWith op rn cond nzcv false (coreReg rm)
-  | _ -> wrongOperands ins
+  | _ ->
+    wrongOperands ins
 
 /// The bits a conditional select shares.
 let private condSelectWith op op2 rd rn rm cond =
@@ -352,7 +367,8 @@ let private condSelect op op2 ins =
   match ins.Operands with
   | FourOperands(Rg rd, Rg rn, Rg rm, OprCond cond) ->
     condSelectWith op op2 rd rn rm (condField cond)
-  | _ -> wrongOperands ins
+  | _ ->
+    wrongOperands ins
 
 /// <summary>
 /// The conditional selects written as one register and a condition, which read
@@ -367,7 +383,8 @@ let private condSelectAlias op op2 ins =
     condSelectWith op op2 rd rn rn (invertCondition cond)
   | TwoOperands(Rg rd, OprCond cond) ->
     condSelectWith op op2 rd (zeroLike rd) (zeroLike rd) (invertCondition cond)
-  | _ -> wrongOperands ins
+  | _ ->
+    wrongOperands ins
 
 /// The bits a three-source multiply shares.
 let private mulWith op31 o0 rd rn rm ra =
@@ -383,8 +400,7 @@ let private mulAccumulate op31 o0 ins =
 /// <Rd>, <Rn>, <Rm>, which accumulates into the zero register.
 let private multiply op31 o0 ins =
   match ins.Operands with
-  | ThreeOperands(Rg rd, Rg rn, Rg rm) ->
-    mulWith op31 o0 rd rn rm (zeroLike rd)
+  | ThreeOperands(Rg rd, Rg rn, Rg rm) -> mulWith op31 o0 rd rn rm (zeroLike rd)
   | _ -> wrongOperands ins
 
 /// The bits an instruction reading two registers into one shares.
@@ -406,7 +422,8 @@ let private crc32 opcode ins =
     (if is64Reg rm then 1u <<< 31 else 0u) ||| (0b11010110u <<< 21)
     ||| (coreReg rm <<< 16) ||| (opcode <<< 10) ||| (coreReg rn <<< 5)
     ||| coreReg rd
-  | _ -> wrongOperands ins
+  | _ ->
+    wrongOperands ins
 
 /// <Rd>, <Rn>, the instructions that read one register into another.
 let private dataProc1Src opcode ins =
@@ -414,7 +431,8 @@ let private dataProc1Src opcode ins =
   | TwoOperands(Rg rd, Rg rn) ->
     sfBit rd ||| (0b10u <<< 29) ||| (0b11010110u <<< 21) ||| (opcode <<< 10)
     ||| (coreReg rn <<< 5) ||| coreReg rd
-  | _ -> wrongOperands ins
+  | _ ->
+    wrongOperands ins
 
 /// <summary>
 /// REV, whose opcode says how wide a piece it leaves in place, and so differs
@@ -470,7 +488,8 @@ let private tryWideImm (value: uint64) =
     let half = (value >>> shift) &&& 0xffffUL
     if half <<< shift = value && (half <> 0UL || shift = 0) then
       Some(uint32 (shift / 16), int64 half)
-    else None)
+    else
+      None)
 
 /// <summary>
 /// A move of an immediate, which the manual writes as a wide move of the value,
@@ -491,10 +510,12 @@ let private moveImmediate rd (value: int64) =
   let inverseFits (hw, imm) =
     is64 || (imm <> 0xffffL && (imm <> 0L || hw = 0u))
   match tryWideImm value with
-  | Some fields -> wide 0b10u fields
+  | Some fields ->
+    wide 0b10u fields
   | None ->
     match tryWideImm inverse |> Option.filter inverseFits with
-    | Some fields -> wide 0b00u fields
+    | Some fields ->
+      wide 0b00u fields
     | None ->
       let n, immr, imms = logicalImm width (int64 value)
       if moveWidePreferred is64 (n, immr, imms) then
@@ -519,8 +540,10 @@ let private move ins =
     logicalShiftedWith 0b01u 0u ins rd (zeroLike rd) rm []
   | TwoOperands(Rg rd, Im imm) when isStackPointer rd ->
     sfBit rd ||| logicalImmWith 0b01u ins (coreRegSP rd) (zeroLike rd) imm
-  | TwoOperands(Rg rd, Im imm) -> moveImmediate rd imm
-  | _ -> wrongOperands ins
+  | TwoOperands(Rg rd, Im imm) ->
+    moveImmediate rd imm
+  | _ ->
+    wrongOperands ins
 
 /// MVN, which the manual defines as an inclusive or of the inverse of a
 /// register with the zero register.
@@ -528,16 +551,19 @@ let private moveNot ins =
   match getOperandsAsList ins.Operands with
   | Rg rd :: Rg rm :: rest ->
     logicalShiftedWith 0b01u 1u ins rd (zeroLike rd) rm rest
-  | _ -> wrongOperands ins
+  | _ ->
+    wrongOperands ins
 
 /// TST, which is an AND that keeps nothing but the flags, so it names no
 /// destination and reads either an immediate or a shifted register.
 let private test ins =
   match getOperandsAsList ins.Operands with
-  | [ Rg rn; Im imm ] -> sfBit rn ||| logicalImmWith 0b11u ins 31u rn imm
+  | [ Rg rn; Im imm ] ->
+    sfBit rn ||| logicalImmWith 0b11u ins 31u rn imm
   | Rg rn :: Rg rm :: rest ->
     logicalShiftedWith 0b11u 0u ins (zeroLike rn) rn rm rest
-  | _ -> wrongOperands ins
+  | _ ->
+    wrongOperands ins
 
 /// <summary>
 /// The arithmetic and logical instructions, which read either an immediate or a
@@ -565,8 +591,10 @@ let private logical opc n ins =
   match getOperandsAsList ins.Operands with
   | _ :: _ :: Im _ :: _ when n = 0u && opc = 0b11u ->
     logicalImmediateFlags opc ins
-  | _ :: _ :: Im _ :: _ when n = 0u -> logicalImmediate opc ins
-  | _ -> logicalShifted opc n ins
+  | _ :: _ :: Im _ :: _ when n = 0u ->
+    logicalImmediate opc ins
+  | _ ->
+    logicalShifted opc n ins
 
 (* Branches, exception generating and system instructions. *)
 /// A branch that runs under a condition, which spells that condition into its
@@ -575,14 +603,16 @@ let private conditionalBranch cond ins =
   match ins.Operands with
   | OneOperand(Place offset) ->
     (0b01010100u <<< 24) ||| (signedImm 19 (scaled 4 offset) <<< 5) ||| cond
-  | _ -> wrongOperands ins
+  | _ ->
+    wrongOperands ins
 
 /// B and BL, which reach the furthest of any branch.
 let private branchImm op ins =
   match ins.Operands with
   | OneOperand(Place offset) ->
     (op <<< 31) ||| (0b00101u <<< 26) ||| signedImm 26 (scaled 4 offset)
-  | _ -> wrongOperands ins
+  | _ ->
+    wrongOperands ins
 
 /// The branches that read where to go from a register.
 let private branchReg opc ins =
@@ -590,7 +620,8 @@ let private branchReg opc ins =
   | OneOperand(Rg rn) ->
     (0b1101011u <<< 25) ||| (opc <<< 21) ||| (0b11111u <<< 16)
     ||| (coreReg rn <<< 5)
-  | _ -> wrongOperands ins
+  | _ ->
+    wrongOperands ins
 
 /// RET, whose register the disassembler leaves out when it is the one a return
 /// reads by default.
@@ -599,14 +630,16 @@ let private returnBranch ins =
   | NoOperand ->
     (0b1101011u <<< 25) ||| (0b0010u <<< 21) ||| (0b11111u <<< 16)
     ||| (30u <<< 5)
-  | _ -> branchReg 0b0010u ins
+  | _ ->
+    branchReg 0b0010u ins
 
 /// ERET and DRPS, which read nowhere and so name nothing.
 let private branchNoReg opc ins =
   match ins.Operands with
   | NoOperand ->
     (0b1101011u <<< 25) ||| (opc <<< 21) ||| (0b11111u <<< 16) ||| (31u <<< 5)
-  | _ -> wrongOperands ins
+  | _ ->
+    wrongOperands ins
 
 /// CBZ and CBNZ, which branch on whether a register holds zero.
 let private compareBranch op ins =
@@ -614,7 +647,8 @@ let private compareBranch op ins =
   | TwoOperands(Rg rt, Place offset) ->
     sfBit rt ||| (0b011010u <<< 25) ||| (op <<< 24)
     ||| (signedImm 19 (scaled 4 offset) <<< 5) ||| coreReg rt
-  | _ -> wrongOperands ins
+  | _ ->
+    wrongOperands ins
 
 /// TBZ and TBNZ, which branch on one bit of a register. Which bit that is
 /// decides the width the instruction is written in, so its top bit sits where
@@ -626,14 +660,16 @@ let private testBranch op ins =
     ((bit >>> 5) <<< 31) ||| (0b011011u <<< 25) ||| (op <<< 24)
     ||| ((bit &&& 0b11111u) <<< 19) ||| (signedImm 14 (scaled 4 offset) <<< 5)
     ||| coreReg rt
-  | _ -> wrongOperands ins
+  | _ ->
+    wrongOperands ins
 
 /// The instructions that raise an exception, which name what to raise it with.
 let private exceptionGen opc ll ins =
   match ins.Operands with
   | OneOperand(Im imm) ->
     (0b11010100u <<< 24) ||| (opc <<< 21) ||| (unsignedImm 16 imm <<< 5) ||| ll
-  | _ -> wrongOperands ins
+  | _ ->
+    wrongOperands ins
 
 /// The bits every instruction in the system space shares.
 let private systemHead l = (0b1101010100u <<< 22) ||| (l <<< 21)
@@ -644,7 +680,8 @@ let private namedHint crm op2 ins =
   | NoOperand ->
     systemHead 0u ||| (0b011u <<< 16) ||| (0b0010u <<< 12) ||| (crm <<< 8)
     ||| (op2 <<< 5) ||| 0b11111u
-  | _ -> wrongOperands ins
+  | _ ->
+    wrongOperands ins
 
 /// HINT, which names by number the hint it gives.
 let private hint ins =
@@ -653,7 +690,8 @@ let private hint ins =
     let imm = unsignedImm 7 imm
     systemHead 0u ||| (0b011u <<< 16) ||| (0b0010u <<< 12)
     ||| ((imm >>> 3) <<< 8) ||| ((imm &&& 0b111u) <<< 5) ||| 0b11111u
-  | _ -> wrongOperands ins
+  | _ ->
+    wrongOperands ins
 
 /// The barriers and CLREX, which take an option written either by its name or
 /// as the number that names it.
@@ -680,7 +718,8 @@ let private systemInstruction l ins =
     fields op1 cn cm op2 31u
   | FiveOperands(Rg rt, Im op1, Rg cn, Rg cm, Im op2) ->
     fields op1 cn cm op2 (coreReg rt)
-  | _ -> wrongOperands ins
+  | _ ->
+    wrongOperands ins
 
 /// The cache maintenance instructions, which the manual defines as a system
 /// instruction whose numbers say which of them it is.
@@ -689,7 +728,8 @@ let private cacheInstruction op1 cn cm op2 ins =
   | OneOperand(Rg rt) ->
     systemHead 0u ||| (0b01u <<< 19) ||| (op1 <<< 16) ||| (cn <<< 12)
     ||| (cm <<< 8) ||| (op2 <<< 5) ||| coreReg rt
-  | _ -> wrongOperands ins
+  | _ ->
+    wrongOperands ins
 
 /// <summary>
 /// The sixteen bits that name a system register, which the encoding keeps in
@@ -755,14 +795,16 @@ let private moveToSystem ins =
     ||| (unsignedImm 4 imm <<< 8) ||| ((field &&& 0b111u) <<< 5) ||| 0b11111u
   | TwoOperands(Rg sreg, Rg rt) ->
     systemHead 0u ||| (systemRegister sreg <<< 5) ||| coreReg rt
-  | _ -> wrongOperands ins
+  | _ ->
+    wrongOperands ins
 
 /// MRS, which reads a system register into a general one.
 let private moveFromSystem ins =
   match ins.Operands with
   | TwoOperands(Rg rt, Rg sreg) ->
     systemHead 1u ||| (systemRegister sreg <<< 5) ||| coreReg rt
-  | _ -> wrongOperands ins
+  | _ ->
+    wrongOperands ins
 
 (* Loads and stores. *)
 /// What a load or store moves, which decides how wide the access is and so how
@@ -801,13 +843,16 @@ let private accessFields access ins operand =
     let size, v, extra, bytes = widthFields ins reg
     let field = if v = 1u then simdReg (bytes * 8) reg else coreReg reg
     size, v, extra ||| (if load then 1u else 0u), bytes, field
-  | Fixed(size, opc, bytes), Rg reg -> size, 0u, opc, bytes, coreReg reg
+  | Fixed(size, opc, bytes), Rg reg ->
+    size, 0u, opc, bytes, coreReg reg
   | Signed(size, bytes), Rg reg ->
     size, 0u, (if is64Reg reg then 0b10u else 0b11u), bytes, coreReg reg
   | Prefetch, OprPrfOp operation ->
     0b11u, 0u, 0b10u, 8, prefetchOperation operation
-  | Prefetch, Im imm -> 0b11u, 0u, 0b10u, 8, unsignedImm 5 imm
-  | _ -> wrongOperands ins
+  | Prefetch, Im imm ->
+    0b11u, 0u, 0b10u, 8, unsignedImm 5 imm
+  | _ ->
+    wrongOperands ins
 
 /// The bits every load and store of one register shares.
 let private loadStoreHead size v opc =
@@ -857,10 +902,14 @@ let private loadLiteral opc v ins rt offset =
     | Rg reg when v = 1u ->
       let _, _, _, bytes = widthFields ins reg
       simdReg (bytes * 8) reg
-    | Rg reg -> coreReg reg
-    | OprPrfOp operation -> prefetchOperation operation
-    | Im imm -> unsignedImm 5 imm
-    | _ -> wrongOperands ins
+    | Rg reg ->
+      coreReg reg
+    | OprPrfOp operation ->
+      prefetchOperation operation
+    | Im imm ->
+      unsignedImm 5 imm
+    | _ ->
+      wrongOperands ins
   (opc <<< 30) ||| (0b011u <<< 27) ||| (v <<< 26)
   ||| (signedImm 19 (scaled 4 offset) <<< 5) ||| field
 
@@ -873,7 +922,8 @@ let private literalFields ins = function
     | Some 128 -> 0b10u, 1u
     | Some _ -> wrongOperands ins
     | None -> (if is64Reg reg then 0b01u, 0u else 0b00u, 0u)
-  | _ -> wrongOperands ins
+  | _ ->
+    wrongOperands ins
 
 /// <summary>
 /// A load or store of one register, which is written the same way whichever of
@@ -896,7 +946,8 @@ let private loadStore access ins =
   | TwoOperands(rt, Place offset) ->
     let opc, v = literalFields ins rt
     loadLiteral opc v ins rt offset
-  | _ -> wrongOperands ins
+  | _ ->
+    wrongOperands ins
 
 /// The loads and stores whose offset the encoding holds as it stands, which
 /// reach half as far as a scaled one and both ways from where they start.
@@ -904,7 +955,8 @@ let private loadStoreUnscaled access kind ins =
   match ins.Operands with
   | TwoOperands(rt, OprMemory(BaseMode(ImmOffset(BaseOffset(rn, offset))))) ->
     simm9Offset access ins kind rt rn (defaultArg offset 0L)
-  | _ -> wrongOperands ins
+  | _ ->
+    wrongOperands ins
 
 /// LDRSW and PRFM, which read a literal as well as a place.
 let private loadStoreOrLiteral access opc v ins =
@@ -948,7 +1000,8 @@ let private loadStorePair l ins =
   | ThreeOperands(Rg rt1, Rg rt2,
                   OprMemory(PostIdxMode(ImmOffset(BaseOffset(rn, off))))) ->
     pairWith 0b001u l ins rt1 rt2 rn (defaultArg off 0L) (fields rt1)
-  | _ -> wrongOperands ins
+  | _ ->
+    wrongOperands ins
 
 /// The pair transfers that promise the memory will not be read again soon,
 /// which name a place one way only.
@@ -957,7 +1010,8 @@ let private loadStorePairNoAlloc l ins =
   | ThreeOperands(Rg rt1, Rg rt2,
                   OprMemory(BaseMode(ImmOffset(BaseOffset(rn, off))))) ->
     pairWith 0b000u l ins rt1 rt2 rn (defaultArg off 0L) (pairFields ins rt1)
-  | _ -> wrongOperands ins
+  | _ ->
+    wrongOperands ins
 
 /// LDPSW, whose pair is as wide as a word each and lands sign-extended.
 let private loadPairSigned ins =
@@ -972,7 +1026,8 @@ let private loadPairSigned ins =
   | ThreeOperands(Rg rt1, Rg rt2,
                   OprMemory(PostIdxMode(ImmOffset(BaseOffset(rn, off))))) ->
     pairWith 0b001u 1u ins rt1 rt2 rn (defaultArg off 0L) (fields rt1)
-  | _ -> wrongOperands ins
+  | _ ->
+    wrongOperands ins
 
 /// The base register of a memory operand that names nothing but one.
 let private plainBase ins = function
@@ -996,7 +1051,8 @@ let private exclusiveOne size o2 l o0 ins =
   | TwoOperands(Rg rt, mem) ->
     let size = defaultArg size (accessSize rt)
     exclusiveWith size o2 l 0u o0 31u 31u (plainBase ins mem) (coreReg rt)
-  | _ -> wrongOperands ins
+  | _ ->
+    wrongOperands ins
 
 /// <Ws>, <Rt>, [<Xn|SP>], the stores that say whether they succeeded.
 let private exclusiveStore size o0 ins =
@@ -1005,7 +1061,8 @@ let private exclusiveStore size o0 ins =
     let size = defaultArg size (accessSize rt)
     exclusiveWith size 0u 0u 0u o0 (coreReg rs) 31u (plainBase ins mem)
                   (coreReg rt)
-  | _ -> wrongOperands ins
+  | _ ->
+    wrongOperands ins
 
 /// <Rt1>, <Rt2>, [<Xn|SP>], the loads that read a pair at once.
 let private exclusivePairLoad o0 ins =
@@ -1013,7 +1070,8 @@ let private exclusivePairLoad o0 ins =
   | ThreeOperands(Rg rt1, Rg rt2, mem) ->
     exclusiveWith (accessSize rt1) 0u 1u 1u o0 31u (coreReg rt2)
                   (plainBase ins mem) (coreReg rt1)
-  | _ -> wrongOperands ins
+  | _ ->
+    wrongOperands ins
 
 /// <Ws>, <Rt1>, <Rt2>, [<Xn|SP>], the stores that write a pair at once.
 let private exclusivePairStore o0 ins =
@@ -1021,7 +1079,8 @@ let private exclusivePairStore o0 ins =
   | FourOperands(Rg rs, Rg rt1, Rg rt2, mem) ->
     exclusiveWith (accessSize rt1) 0u 0u 1u o0 (coreReg rs) (coreReg rt2)
                   (plainBase ins mem) (coreReg rt1)
-  | _ -> wrongOperands ins
+  | _ ->
+    wrongOperands ins
 
 /// <Rs>, <Rt>, [<Xn|SP>], the compare-and-swap accesses, whose size the
 /// registers say and whose mnemonic says only how ordered they are.
@@ -1030,7 +1089,8 @@ let private compareAndSwap l o0 ins =
   | ThreeOperands(Rg rs, Rg rt, mem) ->
     exclusiveWith (accessSize rs) 1u l 1u o0 (coreReg rs) 31u
                   (plainBase ins mem) (coreReg rt)
-  | _ -> wrongOperands ins
+  | _ ->
+    wrongOperands ins
 
 (* The accesses that move whole structures of vector registers. *)
 /// <summary>
@@ -1048,7 +1108,8 @@ let private simdList ins = function
         | VecRegWithIdx(reg, vec, index) -> vectorReg reg, vec, Some index
         | ScalarReg reg -> vectorReg reg, VecD, None)
     match parts with
-    | [] -> wrongOperands ins
+    | [] ->
+      wrongOperands ins
     | (first, vec, index) :: _ ->
       let consecutive =
         parts
@@ -1057,7 +1118,8 @@ let private simdList ins = function
       let alike = parts |> List.forall (fun (_, v, _) -> v = vec)
       if consecutive && alike then first, List.length parts, vec, index
       else fail "a list has to name a run of registers of one arrangement"
-  | _ -> wrongOperands ins
+  | _ ->
+    wrongOperands ins
 
 /// The opcode field, which says both how many registers a structure access
 /// moves and how far apart the elements it reads are: one instruction reads a
@@ -1093,7 +1155,8 @@ let private structureAccess l structures ins =
     else
       let head = structureWith l (structureOpcode ins listed structures) size q
       match mem with
-      | OprMemory(BaseMode(ImmOffset(BaseOffset(rn, None)))) -> head rn first
+      | OprMemory(BaseMode(ImmOffset(BaseOffset(rn, None)))) ->
+        head rn first
       | OprMemory(PostIdxMode(RegOffset(rn, rm, None))) ->
         head rn first ||| (1u <<< 23) ||| (coreReg rm <<< 16)
       | OprMemory(PostIdxMode(ImmOffset(BaseOffset(rn, Some offset)))) ->
@@ -1102,7 +1165,8 @@ let private structureAccess l structures ins =
           fail $"#{offset} is not how far {ins.Opcode} steps the base"
         else
           head rn first ||| (1u <<< 23) ||| (0b11111u <<< 16)
-      | _ -> wrongOperands ins
+      | _ ->
+        wrongOperands ins
   match ins.Operands with
   | TwoOperands(list, mem) -> encode list mem
   | _ -> wrongOperands ins
@@ -1151,7 +1215,8 @@ let private elementAccess l count ins =
   let encode list mem =
     let first, listed, vec, index = simdList ins list
     match index with
-    | None -> wrongOperands ins
+    | None ->
+      wrongOperands ins
     | Some _ when listed <> count ->
       fail $"{ins.Opcode} moves {count} registers rather than {listed}"
     | Some index ->
@@ -1162,7 +1227,8 @@ let private elementAccess l count ins =
         ||| (elementOpcode ins count vec <<< 13) ||| (s <<< 12)
         ||| (size <<< 10) ||| (coreRegSP rn <<< 5) ||| first
       match mem with
-      | OprMemory(BaseMode(ImmOffset(BaseOffset(rn, None)))) -> head rn
+      | OprMemory(BaseMode(ImmOffset(BaseOffset(rn, None)))) ->
+        head rn
       | OprMemory(PostIdxMode(RegOffset(rn, rm, None))) ->
         head rn ||| (1u <<< 23) ||| (coreReg rm <<< 16)
       | OprMemory(PostIdxMode(ImmOffset(BaseOffset(rn, Some offset)))) ->
@@ -1176,7 +1242,8 @@ let private elementAccess l count ins =
           fail $"#{offset} is not how far {ins.Opcode} steps the base"
         else
           head rn ||| (1u <<< 23) ||| (0b11111u <<< 16)
-      | _ -> wrongOperands ins
+      | _ ->
+        wrongOperands ins
   match ins.Operands with
   | TwoOperands(list, mem) -> encode list mem
   | _ -> wrongOperands ins
@@ -1196,7 +1263,8 @@ let private replicateAccess count ins =
         (q <<< 30) ||| (0b0011010u <<< 23) ||| (1u <<< 22) ||| (r <<< 21)
         ||| (opcode <<< 13) ||| (size <<< 10) ||| (coreRegSP rn <<< 5) ||| first
       match mem with
-      | OprMemory(BaseMode(ImmOffset(BaseOffset(rn, None)))) -> head rn
+      | OprMemory(BaseMode(ImmOffset(BaseOffset(rn, None)))) ->
+        head rn
       | OprMemory(PostIdxMode(RegOffset(rn, rm, None))) ->
         head rn ||| (1u <<< 23) ||| (coreReg rm <<< 16)
       | OprMemory(PostIdxMode(ImmOffset(BaseOffset(rn, Some offset)))) ->
@@ -1205,7 +1273,8 @@ let private replicateAccess count ins =
           fail $"#{offset} is not how far {ins.Opcode} steps the base"
         else
           head rn ||| (1u <<< 23) ||| (0b11111u <<< 16)
-      | _ -> wrongOperands ins
+      | _ ->
+        wrongOperands ins
   match ins.Operands with
   | TwoOperands(list, mem) -> encode list mem
   | _ -> wrongOperands ins
@@ -1218,7 +1287,8 @@ let private structureOrElement l count ins =
   match ins.Operands with
   | TwoOperands(OprSIMDList(VecRegWithIdx _ :: _), _) ->
     elementAccess l count ins
-  | _ -> structureAccess l count ins
+  | _ ->
+    structureAccess l count ins
 
 (* The tables. *)
 let dataProcImmEncoders () =

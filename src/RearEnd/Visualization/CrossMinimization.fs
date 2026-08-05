@@ -103,10 +103,8 @@ let private phase1 g layout isDown from maxLayer =
 /// maximum target index is enough.
 let private hasBilayerEdgeCrossing (g: IDiGraph<_, _>) layout isDown layerNum =
   let vertices =
-    if isDown then
-      (layout: _[][])[layerNum - 1]
-    else
-      layout[layerNum + 1]
+    if isDown then (layout: _[][])[layerNum - 1]
+    else layout[layerNum + 1]
   let fnGetNeighbors =
     if isDown then (g: IDiGraph<_, _>).GetSuccs
     else g.GetPreds
@@ -122,12 +120,9 @@ let private hasBilayerEdgeCrossing (g: IDiGraph<_, _>) layout isDown layerNum =
         let idx = getIndex neighbors[j]
         if idx < localMin then localMin <- idx else ()
         if idx > localMax then localMax <- idx else ()
-      if localMin < prefixMax then
-        found <- true
-      elif localMax > prefixMax then
-        prefixMax <- localMax
-      else
-        ()
+      if localMin < prefixMax then found <- true
+      elif localMax > prefixMax then prefixMax <- localMax
+      else ()
     else
       ()
     i <- i + 1
@@ -135,10 +130,8 @@ let private hasBilayerEdgeCrossing (g: IDiGraph<_, _>) layout isDown layerNum =
 
 let private countBilayerEdgeCrossings g (layout: _[][]) isDown layerNum =
   let vertices =
-    if isDown then
-      layout[layerNum - 1]
-    else
-      layout[layerNum + 1]
+    if isDown then layout[layerNum - 1]
+    else layout[layerNum + 1]
   let fnGetNeighbors =
     if isDown then (g: IDiGraph<_, _>).GetSuccs
     else g.GetPreds
@@ -201,12 +194,14 @@ let private reverseOneLayer g layout isDown maxLayer layerNum =
     let baryCenters = Array.map (computeBarycenter g isDown) layer
     baryCenters |> Array.sortInPlaceBy barycenterSortKey
     let hasTie, candidate = buildReversedTieLayer baryCenters
-    if not hasTie then false
+    if not hasTie then
+      false
     else
       let before = countBilayerEdgeCrossings g layout isDown layerNum
       let original = Array.copy layer
       let changed = writeVerticesToLayer layer candidate
-      if not changed then false
+      if not changed then
+        false
       else
         let after = countBilayerEdgeCrossings g layout isDown layerNum
         if after >= before then

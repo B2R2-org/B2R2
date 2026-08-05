@@ -454,4 +454,5 @@ let rec parse isa regs exprs (span: ByteSpan) i maxIdx =
       parse isa regs (pushRegExpr isa regs exprs 30uy) span (i + 1) maxIdx
     | DWOperation.DW_OP_reg31 ->
       parse isa regs (pushRegExpr isa regs exprs 31uy) span (i + 1) maxIdx
-    | op -> printfn "TODO: %A" op; Terminator.futureFeature ()
+    | op ->
+      printfn "TODO: %A" op; Terminator.futureFeature ()

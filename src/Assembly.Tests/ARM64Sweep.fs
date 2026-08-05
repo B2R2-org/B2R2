@@ -163,10 +163,8 @@ module internal ARM64Sweep =
       ARM64Parser(BinReader.Init Endian.Little) :> IInstructionParsable
     [ for word in words do
         match decode parser word with
-        | Some(opcode, text) ->
-          yield { Opcode = opcode; Text = text }
-        | None ->
-          () ]
+        | Some(opcode, text) -> yield { Opcode = opcode; Text = text }
+        | None -> () ]
     |> List.distinctBy (fun probe -> shapeOf probe.Text)
 
 // vim: set tw=80 sts=2 sw=2:

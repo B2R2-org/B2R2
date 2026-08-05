@@ -78,7 +78,8 @@ type AVRRoundTripTests() =
   /// text stands in for the words a probe was decoded from.
   static let roundTrip (source: string) =
     match (try encodeFirst assembler source with _ -> None) with
-    | None -> AVRUnsupported
+    | None ->
+      AVRUnsupported
     | Some encoded ->
       let actual = try disasm encoded with _ -> "<undecodable>"
       if actual = source then AVRPreserved else AVRAltered actual
@@ -97,7 +98,8 @@ type AVRRoundTripTests() =
     let source = probe.Text
     let where = $"0x{probe.Word:x4}{probe.Extra:x4}"
     match (try encodeFirst assembler source with _ -> None) with
-    | None -> Some $"{where} '{source}' is not encodable"
+    | None ->
+      Some $"{where} '{source}' is not encodable"
     | Some encoded when encoded.Length <> probe.Length ->
       Some $"{where} '{source}' encoded {encoded.Length} bytes wide"
     | Some _ ->
@@ -277,7 +279,8 @@ type AVRRoundTripTests() =
         let reference = Assembler(isa, addressOf index) :> ILowerable
         let expected = encodeFirst reference $"{name} {addressOf marks}"
         match (try assembler.Lower source with _ -> Error "raised") with
-        | Error _ | Ok [] -> Some $"'{name} L' does not assemble"
+        | Error _ | Ok [] ->
+          Some $"'{name} L' does not assemble"
         | Ok encoded ->
           let actual = snd (List.item index encoded)
           if Some actual = expected then None
@@ -302,7 +305,8 @@ type AVRRoundTripTests() =
       unencodableSources
       |> List.choose (fun source ->
         match (try encodeFirst assembler source with _ -> None) with
-        | None -> None
+        | None ->
+          None
         | Some bytes ->
           let text = try disasm bytes with _ -> "<undecodable>"
           Some $"'{source}' encoded as '{text}'")
@@ -349,7 +353,8 @@ type AVRRoundTripTests() =
       writtenSources
       |> List.choose (fun (source, expected) ->
         match (try encodeFirst assembler source with _ -> None) with
-        | None -> Some $"'{source}' does not assemble"
+        | None ->
+          Some $"'{source}' does not assemble"
         | Some bytes ->
           let text = try squashed (disasm bytes) with _ -> "<undecodable>"
           if text = expected then None

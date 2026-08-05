@@ -78,12 +78,9 @@ let private functionContextMenu model dispatch func =
 
 let private onFunctionPressed dispatch func (e: PointerPressedEventArgs) =
   let props = e.GetCurrentPoint(null).Properties
-  if props.IsLeftButtonPressed then
-    dispatch (OpenCFGTab func)
-  elif props.IsRightButtonPressed then
-    e.Handled <- true
-  else
-    ()
+  if props.IsLeftButtonPressed then dispatch (OpenCFGTab func)
+  elif props.IsRightButtonPressed then e.Handled <- true
+  else ()
 
 let private mkText model (color: string) isBold txt =
   TextBlock.create
@@ -104,7 +101,8 @@ let private functionLabelWithHighlight model func =
     else StringUtils.splitByMatch query label
   let rec build pos parts acc =
     match parts with
-    | [] -> List.rev acc
+    | [] ->
+      List.rev acc
     | (isMatch, segment) :: rest ->
       if isMatch then
         let view = mkText model model.Theme.Text.Highlight true segment
@@ -170,7 +168,8 @@ let private listBoxView model dispatch =
     | Some { Content = CFGContent(func, _) } ->
       if List.contains func filteredFunctions then box func
       else null
-    | _ -> null
+    | _ ->
+      null
   ListBox.create [
     ListBox.background model.Theme.Panel.Background
     ListBox.foreground model.Theme.Text.Primary

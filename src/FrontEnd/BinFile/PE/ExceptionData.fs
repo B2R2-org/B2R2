@@ -91,8 +91,10 @@ let rec private resolveHandlerData ctx (span: ByteSpan) unwindRva depth =
     if (flags &&& ChainInfo) <> 0uy then
       let chainedUnwind = ctx.Reader.ReadInt32(span, dataOff + 8)
       resolveHandlerData ctx span chainedUnwind (depth + 1)
-    elif (flags &&& (EHandler ||| UHandler)) <> 0uy then Some dataOff
-    else None
+    elif (flags &&& (EHandler ||| UHandler)) <> 0uy then
+      Some dataOff
+    else
+      None
 
 /// Parses a C scope table (used by __C_specific_handler and the SEH GS handler
 /// for `__try`/`__except`/`__finally`) at the given handler-data offset. Each
@@ -120,7 +122,8 @@ let private parseScopeTable ctx (span: ByteSpan) off funcBeginRva funcEndRva =
         records.Add(addrFromRVA ctx.BaseAddr blockBegin,
                     addrFromRVA ctx.BaseAddr blockEnd - 1UL,
                     handler)
-      else valid <- false
+      else
+        valid <- false
       i <- i + 1
     if valid then List.ofSeq records else []
 
@@ -145,7 +148,8 @@ let private deriveTryRange ctx (span: ByteSpan) funcEndRva mapRva nIP low high =
           else funcEndRva
         if ip < beginRva then beginRva <- ip else ()
         if next > endRva then endRva <- next else ()
-      else ()
+      else
+        ()
       i <- i + 1
     if beginRva = Int32.MaxValue then None else Some(beginRva, endRva)
 
@@ -162,7 +166,8 @@ let private readCatchHandlers ctx (span: ByteSpan) handlerArrayRva nCatch =
         if dispOfHandler = 0 then None
         else Some(addrFromRVA ctx.BaseAddr dispOfHandler))
       k <- k + 1
-  else ()
+  else
+    ()
   handlers
 
 /// Parses a classic (FH3) C++ FuncInfo, yielding one handler record per catch
@@ -252,7 +257,8 @@ let private rangeFromIp2State entries funcBeginRva funcEndRva low high =
         if j + 1 < entries.Count then fst entries[j + 1] else funcEndRva
       if ip < b then b <- ip else ()
       if next > e then e <- next else ()
-    else ()
+    else
+      ()
   if b = Int32.MaxValue then funcBeginRva, funcEndRva else b, e
 
 /// Decodes the FH4 IP-to-state map into (IP RVA, state) pairs. IPs are
@@ -269,7 +275,8 @@ let private decodeIP2State ctx (span: ByteSpan) funcBeginRva mapRva =
       let state = readUnsigned span &p
       entries.Add(funcBeginRva + ip, state)
       j <- j + 1
-  else ()
+  else
+    ()
   entries
 
 /// Reads the catch-handler code addresses of an FH4 HandlerMap4 (a compressed
@@ -298,7 +305,8 @@ let private parseHandlerMap4 ctx (span: ByteSpan) handlerArrayRva =
         if contIsRva then p <- p + 4 else readUnsigned span &p |> ignore
         c <- c + 1
       k <- k + 1
-  else ()
+  else
+    ()
   handlers
 
 /// Parses a compressed (FH4) C++ FuncInfo4, yielding one handler record per
@@ -377,12 +385,14 @@ let parse (pe: PE) (bytes: byte[]) =
                 | [] -> parseFuncInfo4 ctx span beginRva endRva fiRva
                 | fh3 -> fh3
             Some p, h
-          | None -> None, []
+          | None ->
+            None, []
         frames.Add
           { FuncStart = addrFromRVA ctx.BaseAddr beginRva
             FuncEnd = addrFromRVA ctx.BaseAddr endRva
             Personality = personality
             Handlers = handlers }
-      else ()
+      else
+        ()
       i <- i + 1
     frames

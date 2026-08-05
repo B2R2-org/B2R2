@@ -31,7 +31,8 @@ open B2R2
 type SliceAction() =
   let sliceByAddrRange bin a1 a2 =
     let hdl = Binary.Handle bin
-    if a1 > a2 then invalidArg (nameof bin) "Invalid address range."
+    if a1 > a2 then
+      invalidArg (nameof bin) "Invalid address range."
     elif not (hdl.File.IsAddrMappedToFile a1)
       || not (hdl.File.IsAddrMappedToFile a2) then
       invalidArg (nameof hdl) "Address out of range."
@@ -47,7 +48,8 @@ type SliceAction() =
       if a2.StartsWith '+' then
         let numBase = if a2.StartsWith "+0x" then 16 else 10
         a1 + Convert.ToUInt64(a2[1..], numBase) - 1UL
-      else Convert.ToUInt64(a2, 16)
+      else
+        Convert.ToUInt64(a2, 16)
     a1, a2
 
   let sliceBin args bin =
@@ -57,7 +59,8 @@ type SliceAction() =
       sliceByAddrRange bin a1 a2 |> box
     | secName :: [] ->
       sliceBySectionName bin secName |> box
-    | _ -> invalidArg (nameof args) "Invalid argument."
+    | _ ->
+      invalidArg (nameof args) "Invalid argument."
 
   let slice args (input: obj) =
     match input with

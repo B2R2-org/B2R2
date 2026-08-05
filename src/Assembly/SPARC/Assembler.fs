@@ -138,7 +138,8 @@ type Assembler(isa: ISA, baseAddr: Addr) =
         between (pchar '(') (pchar ')') (skipWhitespaces pNumber) |>> AsmHi
       else
         match Map.tryFind key registers with
-        | Some reg -> preturn (AsmReg reg)
+        | Some reg ->
+          preturn (AsmReg reg)
         | None ->
           match Map.tryFind key conditionCodes with
           | Some cc -> preturn (AsmCC cc)
@@ -212,7 +213,8 @@ type Assembler(isa: ISA, baseAddr: Addr) =
         let annul, predict =
           Array.fold (fun (a, p) s -> suffixOf a p s) (false, None) parts[1..]
         preturn (parts[0], annul, predict)
-      with EncodingFailureException msg -> fail msg
+      with EncodingFailureException msg ->
+        fail msg
 
   let pInstructionLine =
     pMnemonic >>= fun (name, annul, predict) ->
@@ -241,6 +243,7 @@ type Assembler(isa: ISA, baseAddr: Addr) =
         |> assemble encoders us isa.Endian baseAddr
         |> List.map (fun bytes -> isa, bytes)
         |> Result.Ok
-      | Failure(str, _, _) -> Result.Error str
+      | Failure(str, _, _) ->
+        Result.Error str
 
 // vim: set tw=80 sts=2 sw=2:

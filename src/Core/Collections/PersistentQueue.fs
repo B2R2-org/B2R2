@@ -58,8 +58,10 @@ module PersistentQueue =
   [<CompiledName ("Dequeue")>]
   let dequeue q =
     match q with
-    | PQ([], []) -> raise EmptyPersistentQueueException
-    | PQ(front, elt :: back) -> elt, PQ(front, back)
+    | PQ([], []) ->
+      raise EmptyPersistentQueueException
+    | PQ(front, elt :: back) ->
+      elt, PQ(front, back)
     | PQ(front, []) ->
       let back = List.rev front
       back.Head, PQ([], back.Tail)

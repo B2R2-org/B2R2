@@ -64,7 +64,8 @@ module internal SearchBox = begin
     | Some tb ->
       tb.Focus() |> ignore
       tb.SelectAll()
-    | None -> ()
+    | None ->
+      ()
 
   type SearchTarget =
     | CFGPoint of gx: float * gy: float
@@ -113,7 +114,8 @@ module internal SearchBox = begin
         trimmed.Substring 2
       else
         trimmed
-    if String.IsNullOrWhiteSpace digits then None
+    if String.IsNullOrWhiteSpace digits then
+      None
     elif digits |> Seq.forall Uri.IsHexDigit then
       match UInt64.TryParse(
         digits,
@@ -122,22 +124,26 @@ module internal SearchBox = begin
       ) with
       | true, addr -> Some addr
       | _ -> None
-    else None
+    else
+      None
 
   let tryParseHexBytes (input: string) =
     let digits = normalizeHexDigits input
-    if String.IsNullOrWhiteSpace digits || digits.Length % 2 <> 0 then None
+    if String.IsNullOrWhiteSpace digits || digits.Length % 2 <> 0 then
+      None
     elif digits |> Seq.forall Uri.IsHexDigit then
       let bytes =
         [| for i in 0 .. 2 .. digits.Length - 2 do
              Convert.ToByte(digits.Substring(i, 2), 16) |]
       Some bytes
-    else None
+    else
+      None
 
   let tryGetAsciiBytes (input: string) =
     if input |> Seq.forall (fun ch -> int ch <= 0x7F) then
       Some(input |> Seq.map byte |> Array.ofSeq)
-    else None
+    else
+      None
 
   let findBytePattern (haystack: ReadOnlyMemory<byte>) (needle: byte[]) =
     let haystack = haystack.Span
@@ -167,7 +173,8 @@ module internal SearchBox = begin
       appendResult results
       <| { Label = formatAddressLabel addr
            Target = FileRange(byteIndex, 1L) }
-    | _ -> ()
+    | _ ->
+      ()
 
   let formatHexLabel addr (matched: byte[]) =
     let hexText =
@@ -188,7 +195,8 @@ module internal SearchBox = begin
           { Label = formatHexLabel addr needle
             Target = FileRange(idx, int64 needle.Length) }
         appendResult results result
-    | None -> ()
+    | None ->
+      ()
 
   let appendAsciiPatternResults results input baseAddress bytes =
     match tryGetAsciiBytes input with
@@ -199,7 +207,8 @@ module internal SearchBox = begin
           { Label = formatAsciiLabel addr input
             Target = FileRange(idx, int64 asciiBytes.Length) }
         appendResult results result
-    | _ -> ()
+    | _ ->
+      ()
 
   let searchHexdump doc (input: string) =
     let input = input.Trim()
@@ -309,7 +318,8 @@ module internal SearchBox = begin
         sv.Offset <- Vector(0.0, itemBottom - sv.Viewport.Height)
       else
         ()
-    | _ -> ()
+    | _ ->
+      ()
 
   let onSearchItemSelect dispatch localState target _evt =
     match target with
@@ -355,7 +365,8 @@ module internal SearchBox = begin
       let result = results[localState.SelectedIdx.Current]
       onSearchItemSelect dispatch localState result.Target null
       e.Handled <- true
-    | _ -> ()
+    | _ ->
+      ()
 
   let searchInputView model dispatch localState (results: _[]) =
     let hasSearchText =
@@ -431,10 +442,8 @@ module internal SearchBox = begin
       StackPanel.orientation Orientation.Horizontal
       StackPanel.horizontalAlignment HorizontalAlignment.Right
       StackPanel.children [
-        if hasSearchText then
-          yield searchClearView model dispatch localState
-        else
-          ()
+        if hasSearchText then yield searchClearView model dispatch localState
+        else ()
         yield searchIconView model
       ]
     ]
@@ -533,10 +542,14 @@ module internal SearchBox = begin
     | Some { Content = HexContent } ->
       if Option.isSome model.Hexdump then "hex-ready"
       else "hex-none"
-    | Some { Content = CFGContent(_, Loaded _) } -> "cfg-ready"
-    | Some { Content = CFGContent _ } -> "cfg-loading"
-    | Some { Content = SectionContent } -> "section"
-    | None -> "none"
+    | Some { Content = CFGContent(_, Loaded _) } ->
+      "cfg-ready"
+    | Some { Content = CFGContent _ } ->
+      "cfg-loading"
+    | Some { Content = SectionContent } ->
+      "section"
+    | None ->
+      "none"
 
   let view model dispatch =
     let tabID = getTabID model

@@ -104,18 +104,25 @@ let private resolveOperand isConst = function
     if isConst then sprintf "\"%s\"" n
     else n
   (* Function reference. Used when calling a function. *)
-  | OneOperand(_, Some(PyREF(_, n))) -> n
+  | OneOperand(_, Some(PyREF(_, n))) ->
+    n
   (* Function name. Used when defining a function. *)
-  | OneOperand(_, Some(PyCode(codeObj))) -> codeObj.Name
+  | OneOperand(_, Some(PyCode(codeObj))) ->
+    codeObj.Name
   (* None *)
-  | OneOperand(_, Some(PyNone)) -> "None"
+  | OneOperand(_, Some(PyNone)) ->
+    "None"
   (* PyFalse *)
-  | OneOperand(_, Some(PyFalse)) -> "False"
+  | OneOperand(_, Some(PyFalse)) ->
+    "False"
   (* PyInt *)
-  | OneOperand(_, Some(PyInt n)) -> sprintf "%d" n
+  | OneOperand(_, Some(PyInt n)) ->
+    sprintf "%d" n
   (* Otherwise *)
-  | OneOperand(idx, _) -> sprintf "<%d>" idx
-  | _ -> "?"
+  | OneOperand(idx, _) ->
+    sprintf "<%d>" idx
+  | _ ->
+    "?"
 
 let private resolveName = resolveOperand false
 
@@ -299,11 +306,9 @@ let private forIter minor (ins: Instruction) bld =
   bld <+ AST.cjmp cond (AST.jmpDest lblLTrue) (AST.jmpDest lblLFalse)
   (* True branch: pop the exhausted iterator and jump to the loop exit. *)
   bld <+ AST.lmark lblLTrue
-  if minor < 12 then
-    discardTOS bld
+  if minor < 12 then discardTOS bld
   (* From 3.12, END_FOR is introduced and instead pops the iterator. *)
-  else
-    ()
+  else ()
   bld <+ AST.interjmp tLbl InterJmpKind.Base
   (* False branch: jump to the body and push the next value. *)
   bld <+ AST.lmark lblLFalse
@@ -373,10 +378,8 @@ let private compareOP minor (ins: Instruction) bld =
   bld <!-- (ins.Address, ins.Length)
   let n = getIntArg ins
   let opIdx =
-    if minor >= 12 then
-      n >>> 4
-    else
-      n
+    if minor >= 12 then n >>> 4
+    else n
   let right = popFromStack bld
   let left = popFromStack bld
   let b = AST.relop (cmpOpType opIdx) left right
@@ -647,4 +650,5 @@ let translate (binFile: PythonBinFile) (ins: Instruction) bld =
     namedEffect "MATCH_KEYS" ins bld
   | Opcode.MATCH_CLASS ->
     namedEffect "MATCH_CLASS" ins bld
-  | _ -> Terminator.futureFeature ()
+  | _ ->
+    Terminator.futureFeature ()

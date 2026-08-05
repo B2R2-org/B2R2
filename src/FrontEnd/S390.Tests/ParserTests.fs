@@ -74,18 +74,24 @@ type ParserTests() =
   let operandsFromArray oprList =
     let oprArray = Array.ofList oprList
     match oprArray.Length with
-    | 0 -> NoOperand
-    | 1 -> OneOperand oprArray[0]
-    | 2 -> TwoOperands(oprArray[0], oprArray[1])
-    | 3 -> ThreeOperands(oprArray[0], oprArray[1], oprArray[2])
-    | 4 -> FourOperands(oprArray[0], oprArray[1], oprArray[2], oprArray[3])
+    | 0 ->
+      NoOperand
+    | 1 ->
+      OneOperand oprArray[0]
+    | 2 ->
+      TwoOperands(oprArray[0], oprArray[1])
+    | 3 ->
+      ThreeOperands(oprArray[0], oprArray[1], oprArray[2])
+    | 4 ->
+      FourOperands(oprArray[0], oprArray[1], oprArray[2], oprArray[3])
     | 5 ->
       FiveOperands(oprArray[0], oprArray[1], oprArray[2], oprArray[3],
         oprArray[4])
     | 6 ->
       SixOperands(oprArray[0], oprArray[1], oprArray[2], oprArray[3],
         oprArray[4], oprArray[5])
-    | _ -> Terminator.impossible ()
+    | _ ->
+      Terminator.impossible ()
 
   let ( ** ) opcode oprList = opcode, operandsFromArray oprList
   let ( ++ ) byteString pair = ByteArray.ofHexString byteString, pair

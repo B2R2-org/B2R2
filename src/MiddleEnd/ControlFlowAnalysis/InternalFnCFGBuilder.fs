@@ -101,8 +101,10 @@ type InternalFnCFGBuilder<'FnCtx,
           manager.Post <| UpdateGlobalContext updater }
 
   let rec build (strategy: ICFGBuildingStrategy<_, _>) queue =
-    if (queue: CFGActionQueue).IsEmpty() then strategy.OnFinish ctx
-    elif state = Invalid then FailStop ErrorCase.UnexpectedError
+    if (queue: CFGActionQueue).IsEmpty() then
+      strategy.OnFinish ctx
+    elif state = Invalid then
+      FailStop ErrorCase.UnexpectedError
     else
       let action = queue.Pop()
       match strategy.OnAction(ctx, queue, action) with
@@ -114,12 +116,9 @@ type InternalFnCFGBuilder<'FnCtx,
 
   do ctx.ManagerChannel <- managerChannel
 
-  new(hdl: BinHandle,
-      exnInfo,
-      instrs,
-      entryPoint,
-      manager,
-      irBlkOptimizer) =
+  new(hdl: BinHandle, exnInfo,
+      instrs, entryPoint,
+      manager, irBlkOptimizer) =
     let name =
       match BinFileOps.tryResolveName hdl.File entryPoint with
       | Ok name -> name

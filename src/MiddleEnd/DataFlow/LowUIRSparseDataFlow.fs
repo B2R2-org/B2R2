@@ -47,7 +47,8 @@ type State<'Lattice when 'Lattice: equality>
   /// Initial stack pointer value in the stack pointer domain.
   let spInitial =
     match hdl.RegisterFactory.StackPointer with
-    | None -> None
+    | None ->
+      None
     | Some rid ->
       let rt = hdl.RegisterFactory.GetRegType rid
       let varKind = Regular rid
@@ -108,8 +109,7 @@ type State<'Lattice when 'Lattice: equality>
   let spGetAbsValue vp =
     match spAbsValues.TryGetValue vp with
     | true, c -> c
-    | false, _ when vp.ProgramPoint.IsFake ->
-      spGetInitialAbsValue vp.VarKind
+    | false, _ when vp.ProgramPoint.IsFake -> spGetInitialAbsValue vp.VarKind
     | false, _ -> StackPointerDomain.Undef
 
   let spEvaluateVar varKind pp =
@@ -120,14 +120,17 @@ type State<'Lattice when 'Lattice: equality>
 
   let rec spEvaluateExpr pp (e: Expr) =
     match e with
-    | Num(bv, _) -> StackPointerDomain.ConstSP bv
-    | Var _ | TempVar _ -> spEvaluateVar (VarKind.ofIRExpr e) pp
+    | Num(bv, _) ->
+      StackPointerDomain.ConstSP bv
+    | Var _ | TempVar _ ->
+      spEvaluateVar (VarKind.ofIRExpr e) pp
     | Load(_, _, addr, _) ->
       match spEvaluateExpr pp addr with
       | StackPointerDomain.ConstSP bv ->
         let offset = bv.ToUInt64() |> toFrameOffset
         spEvaluateVar (StackLocal offset) pp
-      | c -> c
+      | c ->
+        c
     | BinOp(binOpType, _, e1, e2, _) ->
       let v1 = spEvaluateExpr pp e1
       let v2 = spEvaluateExpr pp e2
@@ -136,7 +139,8 @@ type State<'Lattice when 'Lattice: equality>
       | BinOpType.SUB -> StackPointerDomain.sub v1 v2
       | BinOpType.AND -> StackPointerDomain.``and`` v1 v2
       | _ -> StackPointerDomain.NotConstSP
-    | _ -> StackPointerDomain.NotConstSP
+    | _ ->
+      StackPointerDomain.NotConstSP
 
   /// Updates the mapping from a program point to its corresponding statements.
   let updatePPToStmts stmts v =
@@ -144,7 +148,8 @@ type State<'Lattice when 'Lattice: equality>
 
   let rec getStatements (v: IVertex<LowUIRBasicBlock>) =
     match stmtInfoCache.TryGetValue v with
-    | true, stmts -> stmts
+    | true, stmts ->
+      stmts
     | false, _ ->
       let pp = v.VData.Internals.PPoint
       let stmts = getStatementsAux v pp
@@ -179,9 +184,12 @@ type State<'Lattice when 'Lattice: equality>
       let rt = hdl.RegisterFactory.GetRegType rid
       let rname = hdl.RegisterFactory.GetRegisterName rid
       SSA.RegVar(rt, rid, rname)
-    | Memory(Some _) -> SSA.MemVar
-    | Memory None -> SSA.MemVar
-    | StackLocal offset -> SSA.StackVar(0<rt>, offset)
+    | Memory(Some _) ->
+      SSA.MemVar
+    | Memory None ->
+      SSA.MemVar
+    | StackLocal offset ->
+      SSA.StackVar(0<rt>, offset)
     | Temporary n ->
       let rt = 0<rt>
       SSA.TempVar(rt, n)
@@ -192,7 +200,8 @@ type State<'Lattice when 'Lattice: equality>
   /// Returns an SSA variable for the given variable point.
   let getSSAVar vp =
     match vpToSSAVar.TryGetValue vp with
-    | true, v -> v
+    | true, v ->
+      v
     | false, _ when vp.ProgramPoint.IsFake ->
       mkEmptySSAVar vp.VarKind
     | false, _ ->
@@ -213,7 +222,8 @@ type State<'Lattice when 'Lattice: equality>
   /// Translates an IR expression to its SSA expression.
   let rec translateToSSAExpr (pp: ProgramPoint) e =
     match e with
-    | Num(bv, _) -> SSA.Num bv
+    | Num(bv, _) ->
+      SSA.Num bv
     | PCVar(rt, _, _) ->
       assert (Option.isNone pp.CallSite)
       SSA.Num <| BitVector(pp.Address, rt)
@@ -254,15 +264,18 @@ type State<'Lattice when 'Lattice: equality>
     | Cast(castKind, rt, e, _) ->
       let e = translateToSSAExpr pp e
       SSA.Cast(castKind, rt, e)
-    | FuncName(s, _) -> SSA.FuncName s
-    | Undefined(rt, s, _) -> SSA.Undefined(rt, s)
+    | FuncName(s, _) ->
+      SSA.FuncName s
+    | Undefined(rt, s, _) ->
+      SSA.Undefined(rt, s)
     | Ite(e1, e2, e3, _) ->
       let rt = Expr.typeOf e2
       let e1 = translateToSSAExpr pp e1
       let e2 = translateToSSAExpr pp e2
       let e3 = translateToSSAExpr pp e3
       SSA.Ite(e1, rt, e2, e3)
-    | _ -> Terminator.impossible ()
+    | _ ->
+      Terminator.impossible ()
 
   let translateLabel addr = function
     | JmpDest(lbl, _) -> lbl
@@ -472,7 +485,8 @@ type State<'Lattice when 'Lattice: equality>
 
   /// Try to get the definition of the given SSA variable in an SSA form.
   member _.TryGetSSADef v =
-    if not <| ssaVarToVp.ContainsKey v then None
+    if not <| ssaVarToVp.ContainsKey v then
+      None
     else
       let vp = ssaVarToVp[v]
       let pp = vp.ProgramPoint
@@ -483,7 +497,8 @@ type State<'Lattice when 'Lattice: equality>
         match translateToSSAStmt pp stmt with
         | SSA.SideEffect _ -> None
         | s -> Some s
-      else generatePhiSSAStmt vp |> Some
+      else
+        generatePhiSSAStmt vp |> Some
 
   member _.GetAbsValue v = domainGetAbsValue ssaVarToVp[v]
 
@@ -538,8 +553,10 @@ module internal AnalysisCore = begin
       state.PerVertexIncomingDefs.Remove v |> ignore
       state.PerVertexOutgoingDefs.Remove v |> ignore
       removeInvalidChains state
-    | true, _ -> removeInvalidChains state
-    | false, _ -> ()
+    | true, _ ->
+      removeInvalidChains state
+    | false, _ ->
+      ()
 
   let getStackValue (state: State<_>) pp e =
     match state.EvaluateStackPointerExpr(pp, e) with
@@ -562,7 +579,8 @@ module internal AnalysisCore = begin
   let collectPhiInsertionCandidates g state =
     let workset = HashSet()
     for v in (state: State<_>).PendingVertices do
-      if not <| (g: IDiGraph<_, _>).HasVertex v.ID then ()
+      if not <| (g: IDiGraph<_, _>).HasVertex v.ID then
+        ()
       else
         workset.Add v |> ignore
         for succ in g.GetSuccs v do
@@ -583,7 +601,8 @@ module internal AnalysisCore = begin
 
   let getDefinedVarKinds memo (state: State<_>) v =
     match (memo: Dictionary<_, _>).TryGetValue v with
-    | true, kinds -> kinds
+    | true, kinds ->
+      kinds
     | false, _ ->
       let varKinds = HashSet()
       for (stmt, pp) in state.GetStmtInfos v do
@@ -597,7 +616,8 @@ module internal AnalysisCore = begin
             let offset = toFrameOffset loc
             let vk = StackLocal offset
             varKinds.Add vk |> ignore)
-        | _ -> ()
+        | _ ->
+          ()
       memo[v] <- varKinds
       varKinds
 
@@ -613,7 +633,8 @@ module internal AnalysisCore = begin
 
   let updateIncomingDefsWithPhis state (v: IVertex<LowUIRBasicBlock>) ins =
     match (state: State<_>).PhiInfos.TryGetValue v with
-    | false, _ -> ins
+    | false, _ ->
+      ins
     | true, phiInfo ->
       let pp = v.VData.Internals.PPoint
       phiInfo.Keys
@@ -628,7 +649,8 @@ module internal AnalysisCore = begin
       state.DefUseMap[prevDef].Remove useVp |> ignore
       (* Erase the old use-def which will be overwritten by the new def. *)
       state.UseDefMap.Remove useVp |> ignore
-    | _ -> ()
+    | _ ->
+      ()
 
   let updateDefUseChain state useVp defVp =
     match (state: State<_>).DefUseMap.TryGetValue defVp with
@@ -654,9 +676,12 @@ module internal AnalysisCore = begin
   let rec updateWithExpr state defs (pp: ProgramPoint) = function
     | Num(_)
     | Undefined(_)
-    | FuncName(_) -> ()
-    | Var(_rt, rid, _rstr, _) -> updateChains state (Regular rid) defs pp
-    | TempVar(_, n, _) -> updateChains state (Temporary n) defs pp
+    | FuncName(_) ->
+      ()
+    | Var(_rt, rid, _rstr, _) ->
+      updateChains state (Regular rid) defs pp
+    | TempVar(_, n, _) ->
+      updateChains state (Temporary n) defs pp
     | ExprList(exprs, _) ->
       exprs |> List.iter (updateWithExpr state defs pp)
     | Load(_, _, expr, _) ->
@@ -682,7 +707,8 @@ module internal AnalysisCore = begin
       updateWithExpr state defs pp expr
     | Extract(expr, _, _, _) ->
       updateWithExpr state defs pp expr
-    | _ -> ()
+    | _ ->
+      ()
 
   let updateWithJmp state defs pp = function
     | Jmp(expr, _) ->
@@ -697,7 +723,8 @@ module internal AnalysisCore = begin
       updateWithExpr state defs pp cond
       updateWithExpr state defs pp target1
       updateWithExpr state defs pp target2
-    | _ -> Terminator.impossible ()
+    | _ ->
+      Terminator.impossible ()
 
   /// Update DU/UD chains stored in the state as well as the out variables by
   /// executing the given statement. The `defs` stores every definition
@@ -723,12 +750,15 @@ module internal AnalysisCore = begin
         defs <- Map.add kind vp defs
         if not (VarKind.isTemporary kind) then outs <- Map.add kind vp outs
         else ()
-      | _ -> ()
+      | _ ->
+        ()
     | Jmp _
     | CJmp _
     | InterJmp _
-    | InterCJmp _ -> updateWithJmp state defs pp stmt
-    | _ -> ()
+    | InterCJmp _ ->
+      updateWithJmp state defs pp stmt
+    | _ ->
+      ()
 
   let isIntraEdge lbl =
     match lbl with
@@ -773,7 +803,8 @@ module internal AnalysisCore = begin
 
   /// We only visit the vertices that have changed and update data-flow chains.
   let rec incrementalUpdate g state visited (dom: IDominance<_, _>) v =
-    if (visited: HashSet<_>).Contains v then ()
+    if (visited: HashSet<_>).Contains v then
+      ()
     elif (state: State<_>).IsVertexPending v
          && (g: IDiGraph<_, _>).HasVertex v.ID then
       let idom = dom.ImmediateDominator v
@@ -800,7 +831,8 @@ module internal AnalysisCore = begin
   let updatePhiWithPredecessor state inDefs pred incomingDef useSite =
     let incomingPP = getEndPP state pred
     match (inDefs: Dictionary<_, _>).TryGetValue incomingPP with
-    | true, oldDef when oldDef = incomingDef -> () (* already added *)
+    | true, oldDef when oldDef = incomingDef ->
+      () (* already added *)
     | true, oldDef ->
       state.DefUseMap[oldDef].Remove useSite |> ignore (* remove the old one *)
       inDefs[incomingPP] <- incomingDef
@@ -824,7 +856,8 @@ module internal AnalysisCore = begin
               Map.tryFind vk outDefs |> Option.defaultValue (getFakeVarPoint vk)
             { ProgramPoint = v.VData.Internals.PPoint; VarKind = vk }
             |> updatePhiWithPredecessor state inDefs pred def
-      | false, _ -> ()
+      | false, _ ->
+        ()
   #if DEBUG
       assert (hasProperPhiOperandNumbers state g v)
   #endif
@@ -845,11 +878,13 @@ module internal AnalysisCore = begin
     || hdl.RegisterFactory.IsFramePointer rid
 
   let updateAbsValue subState defUseMap vp prev curr =
-    if (subState: ISubstate<_>).Subsume(prev, curr) then ()
+    if (subState: ISubstate<_>).Subsume(prev, curr) then
+      ()
     else
       subState.SetAbsValue(vp, subState.Join(prev, curr))
       match (defUseMap: Dictionary<_, _>).TryGetValue vp with
-      | false, _ -> ()
+      | false, _ ->
+        ()
       | true, defs ->
         defs
         |> Seq.iter (fun vp -> subState.DefSiteQueue.Enqueue vp.ProgramPoint)
@@ -863,18 +898,23 @@ module internal AnalysisCore = begin
         | Regular rid when isStackRelatedRegister state.BinHandle rid ->
           state.EvaluateStackPointerExpr(pp, src)
           |> Some
-        | Regular _ -> StackPointerDomain.NotConstSP |> Some
-        | Temporary _ -> state.EvaluateStackPointerExpr(pp, src) |> Some
-        | _ -> None
+        | Regular _ ->
+          StackPointerDomain.NotConstSP |> Some
+        | Temporary _ ->
+          state.EvaluateStackPointerExpr(pp, src) |> Some
+        | _ ->
+          None
       match currConst with
-      | None -> ()
+      | None ->
+        ()
       | Some currConst ->
         let vp = { ProgramPoint = pp; VarKind = varKind }
         let subState = state.StackPointerSubState
         let prevConst = subState.GetAbsValue vp
         let defUseMap = state.DefUseMap
         updateAbsValue subState defUseMap vp prevConst currConst
-    | _ -> ()
+    | _ ->
+      ()
 
   let domainTransfer (state: State<_>) (stmt, pp) =
     match stmt with
@@ -898,8 +938,10 @@ module internal AnalysisCore = begin
         let curr = state.Scheme.EvalExpr(pp, value)
         let defUseMap = state.DefUseMap
         updateAbsValue subState defUseMap vp prev curr
-      | _ -> ()
-    | _ -> ()
+      | _ ->
+        ()
+    | _ ->
+      ()
 
   let transferPhi state subState phiInfo defPp =
     phiInfo
@@ -927,13 +969,15 @@ module internal AnalysisCore = begin
         let _, bbl = state.StmtOfBBLs[defPp]
         assert (state.PhiInfos.ContainsKey bbl)
         transferPhi state subState state.PhiInfos[bbl] defPp
-    | _ -> ()
+    | _ ->
+      ()
 
   let transferFlow state subState g v fnTransfer =
     (subState: ISubstate<_>).ExecutedVertices.Add v |> ignore
     (* Execute phis first. *)
     match (state: State<_>).PhiInfos.TryGetValue v with
-    | false, _ -> ()
+    | false, _ ->
+      ()
     | true, phiInfo ->
       transferPhi state subState phiInfo v.VData.Internals.PPoint
     for stmt in state.GetStmtInfos v do fnTransfer state stmt done
@@ -943,9 +987,11 @@ module internal AnalysisCore = begin
 
   let processFlow g state subState fnTransfer =
     match (subState: ISubstate<_>).FlowQueue.TryDequeue() with
-    | false, _ -> ()
+    | false, _ ->
+      ()
     | true, (src, dst) ->
-      if not <| subState.ExecutedFlows.Add(src, dst) then ()
+      if not <| subState.ExecutedFlows.Add(src, dst) then
+        ()
       else
         match (g: IDiGraph<_, _>).TryFindVertexByID dst.ID with
         | Some v -> transferFlow state subState g v fnTransfer

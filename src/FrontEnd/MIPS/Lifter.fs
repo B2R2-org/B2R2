@@ -40,38 +40,46 @@ let inline (:=) dst src =
     dst := src
 
 let transOprToExpr (ins: Instruction) bld = function
-  | OpReg reg -> regVar bld reg
+  | OpReg reg ->
+    regVar bld reg
   | OpImm imm
-  | OpShiftAmount imm -> numU64 imm bld.RegType
+  | OpShiftAmount imm ->
+    numU64 imm bld.RegType
   | OpMem(b, Imm o, sz) ->
     if bld.Endianness = Endian.Little then
       AST.loadLE sz (regVar bld b .+ numI64 o bld.RegType)
-    else AST.loadBE sz (regVar bld b .+ numI64 o bld.RegType)
+    else
+      AST.loadBE sz (regVar bld b .+ numI64 o bld.RegType)
   | OpMem(b, Reg o, sz) ->
     if bld.Endianness = Endian.Little then
       AST.loadLE sz (regVar bld b .+ regVar bld o)
-    else AST.loadBE sz (regVar bld b .+ regVar bld o)
+    else
+      AST.loadBE sz (regVar bld b .+ regVar bld o)
   | OpAddr(Relative o) ->
     numI64 (int64 ins.Address + o) bld.RegType
-  | GoToLabel _ -> raise InvalidOperandException
+  | GoToLabel _ ->
+    raise InvalidOperandException
 
 let inline private is32Bit (bld: ILowUIRBuilder) = bld.RegType = 32<rt>
 
 let private transOprToFPConvert (ins: Instruction) bld = function
   | OpReg reg ->
-    if is32Bit bld then regVar bld reg
+    if is32Bit bld then
+      regVar bld reg
     else
       match ins.Fmt with
       | Some Fmt.S | Some Fmt.W -> regVar bld reg |> AST.xtlo 32<rt>
       | Some Fmt.D | Some Fmt.L -> regVar bld reg
       | _ -> raise InvalidOperandException
-  | _ -> raise InvalidOperandException
+  | _ ->
+    raise InvalidOperandException
 
 let private transOprToSingleFP bld = function
   | OpReg reg ->
     if is32Bit bld then regVar bld reg
     else regVar bld reg |> AST.xtlo 32<rt>
-  | _ -> raise InvalidOperandException
+  | _ ->
+    raise InvalidOperandException
 
 let private transTwoSingleFP bld (o1, o2) =
   transOprToSingleFP bld o1, transOprToSingleFP bld o2
@@ -91,15 +99,19 @@ let private transOprToFPPair bld = function
   | OpReg reg ->
     if is32Bit bld then
       regVar bld (RegisterHelper.getFPPairReg reg), regVar bld reg
-    else AST.b0, regVar bld reg
-  | _ -> raise InvalidOperandException
+    else
+      AST.b0, regVar bld reg
+  | _ ->
+    raise InvalidOperandException
 
 let private transOprToFPPairConcat bld = function
   | OpReg reg ->
     if is32Bit bld then
       AST.concat (regVar bld (RegisterHelper.getFPPairReg reg)) (regVar bld reg)
-    else regVar bld reg
-  | _ -> raise InvalidOperandException
+    else
+      regVar bld reg
+  | _ ->
+    raise InvalidOperandException
 
 let private dstAssignForFP dstB dstA result bld =
   if is32Bit bld then
@@ -230,7 +242,8 @@ let private isZero oprSz baseExpr =
   | 64<rt> ->
     let mask = numU64 0x7fffffff_ffffffffUL 64<rt>
     AST.eq (baseExpr .& mask) (AST.num0 64<rt>)
-  | _ -> Terminator.impossible ()
+  | _ ->
+    Terminator.impossible ()
 
 let private transBigEndianCPU (bld: ILowUIRBuilder) opSz =
   match bld.Endianness, opSz with
@@ -583,7 +596,8 @@ let bal ins insLen (bld: LowUIRBuilder) =
 
 let private fpConditionCode cc bld =
   let fcsr = regVar bld R.FCSR
-  if cc = 0 then (fcsr .& numU32 0x800000u 32<rt>) == numU32 0x800000u 32<rt>
+  if cc = 0 then
+    (fcsr .& numU32 0x800000u 32<rt>) == numU32 0x800000u 32<rt>
   else
     let num = numU32 0x1000000u 32<rt> << numI32 cc 32<rt>
     (fcsr .& num) == num
@@ -720,7 +734,8 @@ let private getCCondOpr (ins: Instruction) bld =
       let cc = transOprToImmToInt cc
       let fs, ft = transTwoSingleFP bld (fs, ft)
       32<rt>, cc, fs, ft, sameReg
-  | _ -> raise InvalidOperandException
+  | _ ->
+    raise InvalidOperandException
 
 let cCond ins insLen bld =
   let oprSz, cc, fs, ft, sameReg = getCCondOpr ins bld
@@ -1010,7 +1025,8 @@ let checkDEXTPosSize pos size =
   if 0 <= pos && pos < 32 &&
      0 < size && size <= 32 &&
      0 < posSize && posSize <= 63 then ()
-  else raise InvalidOperandException
+  else
+    raise InvalidOperandException
 
 let dext ins insLen bld =
   let rt, rs, pos, size = getFourOprs ins
@@ -1030,14 +1046,16 @@ let checkDEXTMPosSize pos size =
   if 0 <= pos && pos < 32 &&
      32 < size && size <= 64 &&
      32 < posSize && posSize <= 64 then ()
-  else raise InvalidOperandException
+  else
+    raise InvalidOperandException
 
 let checkDEXTUPosSize pos size =
   let posSize = pos + size
   if 32 <= pos && pos < 64 &&
      0 < size && size <= 32 &&
      32 < posSize && posSize <= 64 then ()
-  else raise InvalidOperandException
+  else
+    raise InvalidOperandException
 
 let dextx ins insLen posSizeCheckFn bld =
   let rt, rs, pos, size = getFourOprs ins
@@ -1047,7 +1065,8 @@ let dextx ins insLen posSizeCheckFn bld =
   let sz = transOprToImm size |> int
   posSizeCheckFn pos sz
   bld <!-- (ins.Address, insLen)
-  if sz = 64 then if rt = rs then () else bld <+ (rt := rs)
+  if sz = 64 then
+    if rt = rs then () else bld <+ (rt := rs)
   else
     let rs = if pos = 0 then rs else rs >> numI32 pos bld.RegType
     let result = rs .& numI64 (getMask sz) bld.RegType
@@ -1059,7 +1078,8 @@ let checkINSorExtPosSize pos size =
   if 0 <= pos && pos < 32 &&
      0 < size && size <= 32 &&
      0 < posSize && posSize <= 32 then ()
-  else raise InvalidOperandException
+  else
+    raise InvalidOperandException
 
 let dins ins insLen bld =
   let rt, rs, pos, size = getFourOprs ins
@@ -1069,7 +1089,8 @@ let dins ins insLen bld =
   let size = int32 (transOprToImm size)
   checkINSorExtPosSize pos size
   bld <!-- (ins.Address, insLen)
-  if pos = 0 && rt = rs then ()
+  if pos = 0 && rt = rs then
+    ()
   else
     let posExpr = numI32 pos bld.RegType
     let mask = numI64 (getMask size) bld.RegType
@@ -1084,14 +1105,16 @@ let checkDINSMPosSize pos size =
   if 0 <= pos && pos < 32 &&
      2 < size && size <= 64 &&
      32 < posSize && posSize <= 64 then ()
-  else raise InvalidOperandException
+  else
+    raise InvalidOperandException
 
 let checkDINSUPosSize pos size =
   let posSize = pos + size
   if 32 <= pos && pos < 64 &&
      1 <= size && size <= 32 &&
      32 < posSize && posSize <= 64 then ()
-  else raise InvalidOperandException
+  else
+    raise InvalidOperandException
 
 let dinsx ins insLen posSizeCheckFn bld =
   let rt, rs, pos, size = getFourOprs ins
@@ -1101,7 +1124,8 @@ let dinsx ins insLen posSizeCheckFn bld =
   let size = int32 (transOprToImm size)
   posSizeCheckFn pos size
   bld <!-- (ins.Address, insLen)
-  if size = 64 then if rt = rs then () else bld <+ (rt := rs)
+  if size = 64 then
+    if rt = rs then () else bld <+ (rt := rs)
   else
     let posExpr = numI32 pos bld.RegType
     let mask = numI64 (getMask size) bld.RegType
@@ -1277,7 +1301,8 @@ let getJALROprs (ins: Instruction) bld =
     struct (regVar bld R.R31, transOprToExpr ins bld opr)
   | TwoOperands(o1, o2) ->
     struct (transOprToExpr ins bld o1, transOprToExpr ins bld o2)
-  | _ -> raise InvalidOperandException
+  | _ ->
+    raise InvalidOperandException
 
 let j ins insLen (bld: LowUIRBuilder) =
   let nPC = regVar bld R.NPC
@@ -1370,7 +1395,8 @@ let sldc1 ins insLen bld stORld =
   bld <+ (memory := loadMem)
   if stORld then
     bld <+ (loadMem := if is32Bit bld then AST.concat ftB ftA else ftA)
-  else dstAssignForFP ftB ftA memory bld
+  else
+    dstAssignForFP ftB ftA memory bld
   advancePC bld insLen
 
 let slwc1 ins insLen bld stORld =
@@ -1527,7 +1553,8 @@ let mov ins insLen bld =
     let result = tmpVar bld 64<rt>
     bld <+ (result := fs)
     dstAssignForFP fdB fdA result bld
-  | _ -> raise InvalidOperandException
+  | _ ->
+    raise InvalidOperandException
   advancePC bld insLen
 
 let movt ins insLen bld =
@@ -1606,7 +1633,8 @@ let mul ins insLen bld =
     let result =
       if is32Bit bld then
         (AST.sext 64<rt> src1 .* AST.sext 64<rt> src2) |> AST.xtlo 32<rt>
-      else signExtLo64 (src1 .* src2)
+      else
+        signExtLo64 (src1 .* src2)
     bld <+ (dst := result)
     bld <+ (hi := AST.undef bld.RegType "UNPREDICTABLE")
     bld <+ (lo := AST.undef bld.RegType "UNPREDICTABLE")
@@ -1625,7 +1653,8 @@ let mul ins insLen bld =
     bld <+ (result := AST.fmul tSrc1 tSrc2)
     normalizeValue 64<rt> result bld
     dstAssignForFP dstB dstA result bld
-  | _ -> raise InvalidOperandException
+  | _ ->
+    raise InvalidOperandException
   advancePC bld insLen
 
 let mult ins insLen bld =
@@ -1722,7 +1751,8 @@ let nmadd ins insLen bld =
       (AST.fadd tSrc1 <| AST.fmul tSrc2 tSrc3))
     normalizeValue 64<rt> result bld
     dstAssignForFP fdB fdA result bld
-  | _ -> raise InvalidOperandException
+  | _ ->
+    raise InvalidOperandException
   advancePC bld insLen
 
 let nop (ins: Instruction) insLen bld =
@@ -1819,7 +1849,8 @@ let storeLeftRight ins insLen bld memShf regShf amtOp oprSz =
     if oprSz = 32<rt> then
       if is32Bit bld then rt, baseOffset
       else AST.xtlo 32<rt> rt, baseOffset
-    else rt, baseOffset
+    else
+      rt, baseOffset
   let baseOff = tmpVar bld bld.RegType
   let maskLd = if oprSz = 64<rt> then 0xFFFFFFF8 else 0xFFFFFFFC
   let struct (t1, t2, t3) = tmpVars3 bld oprSz
@@ -1936,7 +1967,8 @@ let sub ins insLen bld =
     bld <+ (result := AST.fsub tSrc1 tSrc2)
     subNormal 64<rt> tSrc1 tSrc2 result bld
     dstAssignForFP dstB dstA result bld
-  | _ -> raise InvalidOperandException
+  | _ ->
+    raise InvalidOperandException
   advancePC bld insLen
 
 let subu ins insLen bld =
@@ -2134,154 +2166,302 @@ let rsqrt ins insLen bld =
 
 let translate (ins: Instruction) insLen (bld: LowUIRBuilder) =
   match ins.Opcode with
-  | Op.ABS -> abs ins insLen bld
-  | Op.ADD -> add ins insLen bld
-  | Op.ADDIU -> addiu ins insLen bld
-  | Op.ADDU -> addu ins insLen bld
-  | Op.AND -> logAnd ins insLen bld
-  | Op.ANDI -> andi ins insLen bld
-  | Op.AUI -> aui ins insLen bld
-  | Op.B -> b ins insLen bld
-  | Op.BAL -> bal ins insLen bld
-  | Op.BC1F -> bc1f ins insLen bld
-  | Op.BC1T -> bc1t ins insLen bld
-  | Op.BEQ | Op.BEQL -> beq ins insLen bld
-  | Op.BGEZ -> bgez ins insLen bld
-  | Op.BGEZAL -> bgezal ins insLen bld
-  | Op.BGTZ -> bgtz ins insLen bld
-  | Op.BLEZ -> blez ins insLen bld
-  | Op.BLTZ -> bltz ins insLen bld
-  | Op.BLTZAL -> bltzal ins insLen bld
-  | Op.BNE | Op.BNEL -> bne ins insLen bld
-  | Op.BREAK -> sideEffects ins insLen bld Breakpoint
-  | Op.C -> cCond ins insLen bld
-  | Op.CFC1 -> cfc1 ins insLen bld
-  | Op.CTC1 -> ctc1 ins insLen bld
-  | Op.CLZ -> clz ins insLen bld
-  | Op.CVTD -> cvtd ins insLen bld
-  | Op.CVTL -> cvtl ins insLen bld
-  | Op.CVTS -> cvts ins insLen bld
-  | Op.CVTW -> cvtw ins insLen bld
-  | Op.DADD -> dadd ins insLen bld
-  | Op.DADDU -> daddu ins insLen bld
-  | Op.DADDIU -> daddiu ins insLen bld
-  | Op.DCLZ -> dclz ins insLen bld
-  | Op.DDIV -> ddiv ins insLen bld
-  | Op.DMFC1 -> dmfc1 ins insLen bld
-  | Op.DMTC1 -> dmtc1 ins insLen bld
-  | Op.DEXT -> dext ins insLen bld
-  | Op.DEXTM -> dextx ins insLen checkDEXTMPosSize bld
-  | Op.DEXTU -> dextx ins insLen checkDEXTUPosSize bld
-  | Op.DINS -> dins ins insLen bld
-  | Op.DINSM -> dinsx ins insLen checkDINSMPosSize bld
-  | Op.DINSU -> dinsx ins insLen checkDINSUPosSize bld
-  | Op.DIV -> div ins insLen bld
-  | Op.DIVU -> divu ins insLen bld
-  | Op.DDIVU -> ddivu ins insLen bld
-  | Op.DMULT -> dmul ins insLen bld true
-  | Op.DMULTU -> dmul ins insLen bld false
-  | Op.DROTR -> drotr ins insLen bld
-  | Op.DROTR32 -> drotr32 ins insLen bld
-  | Op.DROTRV -> drotrv ins insLen bld
-  | Op.DSBH -> dsbh ins insLen bld
-  | Op.DSHD -> dshd ins insLen bld
-  | Op.DSLL -> dShiftLeftRight ins insLen bld (<<)
-  | Op.DSLL32 -> dShiftLeftRight32 ins insLen bld (<<)
-  | Op.DSLLV -> dShiftLeftRightVar ins insLen bld (<<)
-  | Op.DSRA -> dsra ins insLen bld
-  | Op.DSRAV -> dsrav ins insLen bld
-  | Op.DSRA32 -> dsra32 ins insLen bld
-  | Op.DSRL -> dShiftLeftRight ins insLen bld (>>)
-  | Op.DSRL32 -> dShiftLeftRight32 ins insLen bld (>>)
-  | Op.DSRLV -> dShiftLeftRightVar ins insLen bld (>>)
-  | Op.DSUBU -> dsubu ins insLen bld
-  | Op.EHB -> nop ins insLen bld
-  | Op.EXT -> ext ins insLen bld
-  | Op.INS -> insert ins insLen bld
-  | Op.J -> j ins insLen bld
-  | Op.JAL -> jal ins insLen bld
-  | Op.JALR | Op.JALRHB -> jalr ins insLen bld
-  | Op.JR | Op.JRHB -> jr ins insLen bld
-  | Op.LD | Op.LB | Op.LH | Op.LW -> loadSigned ins insLen bld
-  | Op.LBU | Op.LHU | Op.LWU -> loadUnsigned ins insLen bld
-  | Op.LL | Op.LLD -> loadLinked ins insLen bld
-  | Op.SDC1 | Op.SDXC1 -> sldc1 ins insLen bld true
-  | Op.LDC1 | Op.LDXC1 -> sldc1 ins insLen bld false
-  | Op.SWC1 | Op.SWXC1 -> slwc1 ins insLen bld true
-  | Op.LWC1 | Op.LWXC1 -> slwc1 ins insLen bld false
-  | Op.LUI -> lui ins insLen bld
-  | Op.LDL -> loadLeftRight ins insLen bld (<<) (>>) (.&) 64<rt>
-  | Op.LDR -> loadLeftRight ins insLen bld (>>) (<<) (<+>) 64<rt>
-  | Op.LWL -> loadLeftRight ins insLen bld (<<) (>>) (.&) 32<rt>
-  | Op.LWR -> loadLeftRight ins insLen bld (>>) (<<) (<+>) 32<rt>
-  | Op.MADD -> mAddSub ins insLen bld true
-  | Op.MADDU -> mAdduSubu ins insLen bld true
-  | Op.MFHI -> mfhi ins insLen bld
-  | Op.MFLO -> mflo ins insLen bld
-  | Op.MFHC1 -> mfhc1 ins insLen bld
-  | Op.MTHC1 -> mthc1 ins insLen bld
-  | Op.MTHI -> mthi ins insLen bld
-  | Op.MTLO -> mtlo ins insLen bld
-  | Op.MFC1 -> mfc1 ins insLen bld
-  | Op.MOV -> mov ins insLen bld
-  | Op.MOVT -> movt ins insLen bld
-  | Op.MOVF -> movf ins insLen bld
-  | Op.MOVZ -> movzOrn ins insLen bld (==)
-  | Op.MOVN -> movzOrn ins insLen bld (!=)
-  | Op.MSUB -> mAddSub ins insLen bld false
-  | Op.MSUBU -> mAdduSubu ins insLen bld false
-  | Op.MTC1 -> mtc1 ins insLen bld
-  | Op.MUL -> mul ins insLen bld
-  | Op.MULT -> mult ins insLen bld
-  | Op.MULTU -> multu ins insLen bld
-  | Op.NEG -> neg ins insLen bld
-  | Op.NMADD -> nmadd ins insLen bld
-  | Op.NOP -> nop ins insLen bld
-  | Op.NOR -> nor ins insLen bld
-  | Op.OR -> logOr ins insLen bld
-  | Op.ORI -> ori ins insLen bld
-  | Op.PAUSE -> nop ins insLen bld
-  | Op.PREF | Op.PREFE | Op.PREFX -> nop ins insLen bld
-  | Op.RDHWR -> readHWR ins insLen bld
-  | Op.ROTR -> rotr ins insLen bld
-  | Op.ROTRV -> rotrv ins insLen bld
-  | Op.RECIP -> recip ins insLen bld
-  | Op.RSQRT -> rsqrt ins insLen bld
-  | Op.SLL -> shiftLeftRight ins insLen bld (<<)
-  | Op.SLLV -> shiftLeftRightVar ins insLen bld (<<)
-  | Op.SLT -> sltAndU ins insLen bld (?<)
-  | Op.SLTU -> sltAndU ins insLen bld (.<)
-  | Op.SLTI -> sltiAndU ins insLen bld (?<)
-  | Op.SLTIU -> sltiAndU ins insLen bld (.<)
-  | Op.SSNOP -> nop ins insLen bld
-  | Op.SB -> store ins insLen 8<rt> bld
-  | Op.SC -> storeConditional ins insLen 32<rt> bld
-  | Op.SCD -> storeConditional ins insLen 64<rt> bld
-  | Op.SD -> store ins insLen 64<rt> bld
-  | Op.SEB -> seb ins insLen bld
-  | Op.SEH -> seh ins insLen bld
-  | Op.SH -> store ins insLen 16<rt> bld
-  | Op.SQRT -> sqrt ins insLen bld
-  | Op.SRA -> sra ins insLen bld
-  | Op.SRAV -> srav ins insLen bld
-  | Op.SRL -> shiftLeftRight ins insLen bld (>>)
-  | Op.SRLV -> shiftLeftRightVar ins insLen bld (>>)
-  | Op.SUB -> sub ins insLen bld
-  | Op.SUBU -> subu ins insLen bld
-  | Op.SW -> store ins insLen 32<rt> bld
-  | Op.SDL -> storeLeftRight ins insLen bld (<<) (>>) (.&) 64<rt>
-  | Op.SDR -> storeLeftRight ins insLen bld (>>) (<<) (<+>) 64<rt>
-  | Op.SWL -> storeLeftRight ins insLen bld (<<) (>>) (.&) 32<rt>
-  | Op.SWR -> storeLeftRight ins insLen bld (>>) (<<) (<+>) 32<rt>
-  | Op.SYNC | Op.SYNCI -> nop ins insLen bld
-  | Op.SYSCALL -> syscall ins insLen bld
-  | Op.TEQ -> teq ins insLen bld
-  | Op.TEQI -> teqi ins insLen bld
-  | Op.TRUNCW -> truncw ins insLen bld
-  | Op.TRUNCL -> truncl ins insLen bld
-  | Op.XOR -> logXor ins insLen bld
-  | Op.XORI -> xori ins insLen bld
-  | Op.WSBH -> wsbh ins insLen bld
+  | Op.ABS ->
+    abs ins insLen bld
+  | Op.ADD ->
+    add ins insLen bld
+  | Op.ADDIU ->
+    addiu ins insLen bld
+  | Op.ADDU ->
+    addu ins insLen bld
+  | Op.AND ->
+    logAnd ins insLen bld
+  | Op.ANDI ->
+    andi ins insLen bld
+  | Op.AUI ->
+    aui ins insLen bld
+  | Op.B ->
+    b ins insLen bld
+  | Op.BAL ->
+    bal ins insLen bld
+  | Op.BC1F ->
+    bc1f ins insLen bld
+  | Op.BC1T ->
+    bc1t ins insLen bld
+  | Op.BEQ | Op.BEQL ->
+    beq ins insLen bld
+  | Op.BGEZ ->
+    bgez ins insLen bld
+  | Op.BGEZAL ->
+    bgezal ins insLen bld
+  | Op.BGTZ ->
+    bgtz ins insLen bld
+  | Op.BLEZ ->
+    blez ins insLen bld
+  | Op.BLTZ ->
+    bltz ins insLen bld
+  | Op.BLTZAL ->
+    bltzal ins insLen bld
+  | Op.BNE | Op.BNEL ->
+    bne ins insLen bld
+  | Op.BREAK ->
+    sideEffects ins insLen bld Breakpoint
+  | Op.C ->
+    cCond ins insLen bld
+  | Op.CFC1 ->
+    cfc1 ins insLen bld
+  | Op.CTC1 ->
+    ctc1 ins insLen bld
+  | Op.CLZ ->
+    clz ins insLen bld
+  | Op.CVTD ->
+    cvtd ins insLen bld
+  | Op.CVTL ->
+    cvtl ins insLen bld
+  | Op.CVTS ->
+    cvts ins insLen bld
+  | Op.CVTW ->
+    cvtw ins insLen bld
+  | Op.DADD ->
+    dadd ins insLen bld
+  | Op.DADDU ->
+    daddu ins insLen bld
+  | Op.DADDIU ->
+    daddiu ins insLen bld
+  | Op.DCLZ ->
+    dclz ins insLen bld
+  | Op.DDIV ->
+    ddiv ins insLen bld
+  | Op.DMFC1 ->
+    dmfc1 ins insLen bld
+  | Op.DMTC1 ->
+    dmtc1 ins insLen bld
+  | Op.DEXT ->
+    dext ins insLen bld
+  | Op.DEXTM ->
+    dextx ins insLen checkDEXTMPosSize bld
+  | Op.DEXTU ->
+    dextx ins insLen checkDEXTUPosSize bld
+  | Op.DINS ->
+    dins ins insLen bld
+  | Op.DINSM ->
+    dinsx ins insLen checkDINSMPosSize bld
+  | Op.DINSU ->
+    dinsx ins insLen checkDINSUPosSize bld
+  | Op.DIV ->
+    div ins insLen bld
+  | Op.DIVU ->
+    divu ins insLen bld
+  | Op.DDIVU ->
+    ddivu ins insLen bld
+  | Op.DMULT ->
+    dmul ins insLen bld true
+  | Op.DMULTU ->
+    dmul ins insLen bld false
+  | Op.DROTR ->
+    drotr ins insLen bld
+  | Op.DROTR32 ->
+    drotr32 ins insLen bld
+  | Op.DROTRV ->
+    drotrv ins insLen bld
+  | Op.DSBH ->
+    dsbh ins insLen bld
+  | Op.DSHD ->
+    dshd ins insLen bld
+  | Op.DSLL ->
+    dShiftLeftRight ins insLen bld (<<)
+  | Op.DSLL32 ->
+    dShiftLeftRight32 ins insLen bld (<<)
+  | Op.DSLLV ->
+    dShiftLeftRightVar ins insLen bld (<<)
+  | Op.DSRA ->
+    dsra ins insLen bld
+  | Op.DSRAV ->
+    dsrav ins insLen bld
+  | Op.DSRA32 ->
+    dsra32 ins insLen bld
+  | Op.DSRL ->
+    dShiftLeftRight ins insLen bld (>>)
+  | Op.DSRL32 ->
+    dShiftLeftRight32 ins insLen bld (>>)
+  | Op.DSRLV ->
+    dShiftLeftRightVar ins insLen bld (>>)
+  | Op.DSUBU ->
+    dsubu ins insLen bld
+  | Op.EHB ->
+    nop ins insLen bld
+  | Op.EXT ->
+    ext ins insLen bld
+  | Op.INS ->
+    insert ins insLen bld
+  | Op.J ->
+    j ins insLen bld
+  | Op.JAL ->
+    jal ins insLen bld
+  | Op.JALR | Op.JALRHB ->
+    jalr ins insLen bld
+  | Op.JR | Op.JRHB ->
+    jr ins insLen bld
+  | Op.LD | Op.LB | Op.LH | Op.LW ->
+    loadSigned ins insLen bld
+  | Op.LBU | Op.LHU | Op.LWU ->
+    loadUnsigned ins insLen bld
+  | Op.LL | Op.LLD ->
+    loadLinked ins insLen bld
+  | Op.SDC1 | Op.SDXC1 ->
+    sldc1 ins insLen bld true
+  | Op.LDC1 | Op.LDXC1 ->
+    sldc1 ins insLen bld false
+  | Op.SWC1 | Op.SWXC1 ->
+    slwc1 ins insLen bld true
+  | Op.LWC1 | Op.LWXC1 ->
+    slwc1 ins insLen bld false
+  | Op.LUI ->
+    lui ins insLen bld
+  | Op.LDL ->
+    loadLeftRight ins insLen bld (<<) (>>) (.&) 64<rt>
+  | Op.LDR ->
+    loadLeftRight ins insLen bld (>>) (<<) (<+>) 64<rt>
+  | Op.LWL ->
+    loadLeftRight ins insLen bld (<<) (>>) (.&) 32<rt>
+  | Op.LWR ->
+    loadLeftRight ins insLen bld (>>) (<<) (<+>) 32<rt>
+  | Op.MADD ->
+    mAddSub ins insLen bld true
+  | Op.MADDU ->
+    mAdduSubu ins insLen bld true
+  | Op.MFHI ->
+    mfhi ins insLen bld
+  | Op.MFLO ->
+    mflo ins insLen bld
+  | Op.MFHC1 ->
+    mfhc1 ins insLen bld
+  | Op.MTHC1 ->
+    mthc1 ins insLen bld
+  | Op.MTHI ->
+    mthi ins insLen bld
+  | Op.MTLO ->
+    mtlo ins insLen bld
+  | Op.MFC1 ->
+    mfc1 ins insLen bld
+  | Op.MOV ->
+    mov ins insLen bld
+  | Op.MOVT ->
+    movt ins insLen bld
+  | Op.MOVF ->
+    movf ins insLen bld
+  | Op.MOVZ ->
+    movzOrn ins insLen bld (==)
+  | Op.MOVN ->
+    movzOrn ins insLen bld (!=)
+  | Op.MSUB ->
+    mAddSub ins insLen bld false
+  | Op.MSUBU ->
+    mAdduSubu ins insLen bld false
+  | Op.MTC1 ->
+    mtc1 ins insLen bld
+  | Op.MUL ->
+    mul ins insLen bld
+  | Op.MULT ->
+    mult ins insLen bld
+  | Op.MULTU ->
+    multu ins insLen bld
+  | Op.NEG ->
+    neg ins insLen bld
+  | Op.NMADD ->
+    nmadd ins insLen bld
+  | Op.NOP ->
+    nop ins insLen bld
+  | Op.NOR ->
+    nor ins insLen bld
+  | Op.OR ->
+    logOr ins insLen bld
+  | Op.ORI ->
+    ori ins insLen bld
+  | Op.PAUSE ->
+    nop ins insLen bld
+  | Op.PREF | Op.PREFE | Op.PREFX ->
+    nop ins insLen bld
+  | Op.RDHWR ->
+    readHWR ins insLen bld
+  | Op.ROTR ->
+    rotr ins insLen bld
+  | Op.ROTRV ->
+    rotrv ins insLen bld
+  | Op.RECIP ->
+    recip ins insLen bld
+  | Op.RSQRT ->
+    rsqrt ins insLen bld
+  | Op.SLL ->
+    shiftLeftRight ins insLen bld (<<)
+  | Op.SLLV ->
+    shiftLeftRightVar ins insLen bld (<<)
+  | Op.SLT ->
+    sltAndU ins insLen bld (?<)
+  | Op.SLTU ->
+    sltAndU ins insLen bld (.<)
+  | Op.SLTI ->
+    sltiAndU ins insLen bld (?<)
+  | Op.SLTIU ->
+    sltiAndU ins insLen bld (.<)
+  | Op.SSNOP ->
+    nop ins insLen bld
+  | Op.SB ->
+    store ins insLen 8<rt> bld
+  | Op.SC ->
+    storeConditional ins insLen 32<rt> bld
+  | Op.SCD ->
+    storeConditional ins insLen 64<rt> bld
+  | Op.SD ->
+    store ins insLen 64<rt> bld
+  | Op.SEB ->
+    seb ins insLen bld
+  | Op.SEH ->
+    seh ins insLen bld
+  | Op.SH ->
+    store ins insLen 16<rt> bld
+  | Op.SQRT ->
+    sqrt ins insLen bld
+  | Op.SRA ->
+    sra ins insLen bld
+  | Op.SRAV ->
+    srav ins insLen bld
+  | Op.SRL ->
+    shiftLeftRight ins insLen bld (>>)
+  | Op.SRLV ->
+    shiftLeftRightVar ins insLen bld (>>)
+  | Op.SUB ->
+    sub ins insLen bld
+  | Op.SUBU ->
+    subu ins insLen bld
+  | Op.SW ->
+    store ins insLen 32<rt> bld
+  | Op.SDL ->
+    storeLeftRight ins insLen bld (<<) (>>) (.&) 64<rt>
+  | Op.SDR ->
+    storeLeftRight ins insLen bld (>>) (<<) (<+>) 64<rt>
+  | Op.SWL ->
+    storeLeftRight ins insLen bld (<<) (>>) (.&) 32<rt>
+  | Op.SWR ->
+    storeLeftRight ins insLen bld (>>) (<<) (<+>) 32<rt>
+  | Op.SYNC | Op.SYNCI ->
+    nop ins insLen bld
+  | Op.SYSCALL ->
+    syscall ins insLen bld
+  | Op.TEQ ->
+    teq ins insLen bld
+  | Op.TEQI ->
+    teqi ins insLen bld
+  | Op.TRUNCW ->
+    truncw ins insLen bld
+  | Op.TRUNCL ->
+    truncl ins insLen bld
+  | Op.XOR ->
+    logXor ins insLen bld
+  | Op.XORI ->
+    xori ins insLen bld
+  | Op.WSBH ->
+    wsbh ins insLen bld
   | Op.BC3F | Op.BC3FL | Op.BC3T | Op.BC3TL ->
     sideEffects ins insLen bld UnsupportedInstruction
   | o ->

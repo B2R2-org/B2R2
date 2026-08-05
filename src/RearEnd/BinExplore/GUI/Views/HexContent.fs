@@ -417,10 +417,8 @@ let private onScrollChanged dispatch (args: ScrollChangedEventArgs) =
   let deltaY = args.OffsetDelta.Y
   let currentOffsetY =
     match args.Source with
-    | :? ScrollViewer as scrollViewer ->
-      scrollViewer.Offset.Y
-    | _ ->
-      Double.NaN
+    | :? ScrollViewer as scrollViewer -> scrollViewer.Offset.Y
+    | _ -> Double.NaN
   dispatch (HexdumpPaneMsg(HandleScrollChanged(currentOffsetY, deltaY)))
 
 let private formatAddress digits baseAddress offset =
@@ -459,7 +457,8 @@ let private brushOfColor =
   let cache = Dictionary<string, IBrush>()
   fun color ->
     match cache.TryGetValue color with
-    | true, brush -> brush
+    | true, brush ->
+      brush
     | _ ->
       let brush = Brush.Parse color
       cache[color] <- brush
@@ -667,11 +666,13 @@ type private HexdumpRenderLayer() =
     |> Array.iter (fun rowIdx ->
       if rowIdx < minKeep || rowIdx > maxKeep then
         rowCache.Remove rowIdx |> ignore
-      else ())
+      else
+        ())
 
   let getOrCreateRowVisual state theme layout typeface fontSize rowIdx =
     match rowCache.TryGetValue rowIdx with
-    | true, cached -> cached
+    | true, cached ->
+      cached
     | _ ->
       let offset = rowIdx * layout.BytesPerRow
       let address =
@@ -704,10 +705,12 @@ type private HexdumpRenderLayer() =
     let asciiWidth = float segment.Length * layout.CharWidth
     if hexWidth > 0.0 then
       ctx.FillRectangle(brush, Rect(hexX, txtTop, hexWidth, txtHeight))
-    else ()
+    else
+      ()
     if asciiWidth > 0.0 then
       ctx.FillRectangle(brush, Rect(asciiX, txtTop, asciiWidth, txtHeight))
-    else ()
+    else
+      ()
 
   let drawRow ctx state theme layout typeface fontSize startRow rowIdx segs =
     let rowTop = float (rowIdx - startRow) * layout.RowHeight
@@ -911,7 +914,5 @@ let private emptyStateView model =
 
 let view pane model dispatch =
   match pane.ActiveTab, model.Hexdump with
-  | Some { Content = HexContent }, Some state ->
-    bodyView model dispatch state
-  | _ ->
-    emptyStateView model
+  | Some { Content = HexContent }, Some state -> bodyView model dispatch state
+  | _ -> emptyStateView model

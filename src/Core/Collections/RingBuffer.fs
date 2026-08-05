@@ -30,10 +30,8 @@ open System
 /// Writing to a full buffer does not overwrite existing elements.
 type RingBuffer<'T>(capacity: int) =
   let checkCapacity capacity =
-    if capacity <= 0 then
-      raise (ArgumentOutOfRangeException(nameof capacity))
-    else
-      capacity
+    if capacity <= 0 then raise (ArgumentOutOfRangeException(nameof capacity))
+    else capacity
 
   let capacity = checkCapacity capacity
   let storage = Array.zeroCreate<'T> capacity
@@ -67,10 +65,8 @@ type RingBuffer<'T>(capacity: int) =
   /// Reads up to the requested number of elements, returning those available.
   /// An empty buffer returns an empty array.
   member _.Read(maxCount: int) =
-    if maxCount < 0 then
-      raise (ArgumentOutOfRangeException(nameof maxCount))
-    else
-      ()
+    if maxCount < 0 then raise (ArgumentOutOfRangeException(nameof maxCount))
+    else ()
     let n = min maxCount count
     let dst = Array.zeroCreate<'T> n
     for i in 0 .. n - 1 do

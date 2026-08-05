@@ -80,7 +80,8 @@ type RISCV64RoundTripTests() =
   /// text stands in for the word a probe was decoded from.
   static let roundTrip (source: string) =
     match (try encodeFirst assembler source with _ -> None) with
-    | None -> RISCV64Unsupported
+    | None ->
+      RISCV64Unsupported
     | Some encoded ->
       let actual = try disasm encoded with _ -> "<undecodable>"
       if actual = source then RISCV64Preserved else RISCV64Altered actual
@@ -191,7 +192,8 @@ type RISCV64RoundTripTests() =
             expected, source, index, target ]
       |> List.choose (fun (expected, source, index, target) ->
         match (try assembler.Lower source with _ -> Error "raised") with
-        | Error _ | Ok [] -> Some $"'{expected} L' does not assemble"
+        | Error _ | Ok [] ->
+          Some $"'{expected} L' does not assemble"
         | Ok encoded ->
           let addr = uint64 (4 * index)
           let text =
@@ -219,7 +221,8 @@ type RISCV64RoundTripTests() =
       unencodableSources
       |> List.choose (fun source ->
         match (try encodeFirst assembler source with _ -> None) with
-        | None -> None
+        | None ->
+          None
         | Some bytes ->
           let text = try disasm bytes with _ -> "<undecodable>"
           Some $"'{source}' encoded as '{text}'")
@@ -240,7 +243,8 @@ type RISCV64RoundTripTests() =
     match encodeFirst bigEndian source, encodeFirst assembler source with
     | Some big, Some little ->
       Assert.AreEqual<string>(hex (Array.rev little), hex big)
-    | _ -> Assert.Fail $"'{source}' does not assemble"
+    | _ ->
+      Assert.Fail $"'{source}' does not assemble"
 
   /// <summary>
   /// Checks that a source written the way a person writes one names the same
@@ -257,7 +261,8 @@ type RISCV64RoundTripTests() =
       writtenSources
       |> List.choose (fun (source, expected) ->
         match (try encodeFirst assembler source with _ -> None) with
-        | None -> Some $"'{source}' does not assemble"
+        | None ->
+          Some $"'{source}' does not assemble"
         | Some bytes ->
           let text = try disasm bytes with _ -> "<undecodable>"
           if text = expected then None

@@ -49,14 +49,16 @@ type Value(expr) =
 module Value =
   let toLinear (value: Value) =
     match value.GetExpr() with
-    | Var(32<rt>, _, reg, _) -> Some(reg, 0u)
+    | Var(32<rt>, _, reg, _) ->
+      Some(reg, 0u)
     | BinOp(BinOpType.ADD, _, Var(32<rt>, _, reg, _), Num(n, _), _)
     | BinOp(BinOpType.ADD, _, Num(n, _), Var(32<rt>, _, reg, _), _) ->
       Some(reg, n.ToUInt32())
     | BinOp(BinOpType.SUB, _, Var(32<rt>, _, reg, _), Num(n, _), _)
     | BinOp(BinOpType.SUB, _, Num(n, _), Var(32<rt>, _, reg, _), _) ->
       Some(reg, (BitVector.Neg n).ToUInt32())
-    | _ -> None
+    | _ ->
+      None
 
 type State =
   { Regs: Map<Reg, Value>
@@ -89,20 +91,25 @@ module State =
 
   let rec evalExpr state e =
     match e with
-    | Var(_, _, name, _) -> getReg state name e
-    | TempVar(_, name, _) -> getTempReg state name
-    | UnOp(op, expr, _) -> AST.unop op (getEvalExpr state expr) |> Value
+    | Var(_, _, name, _) ->
+      getReg state name e
+    | TempVar(_, name, _) ->
+      getTempReg state name
+    | UnOp(op, expr, _) ->
+      AST.unop op (getEvalExpr state expr) |> Value
     | BinOp(op, ty, lExpr, rExpr, _) ->
       AST.binop op (getEvalExpr state lExpr) (getEvalExpr state rExpr) |> Value
     | RelOp(op, lExpr, rExpr, _) ->
       AST.relop op (getEvalExpr state lExpr) (getEvalExpr state rExpr) |> Value
-    | Load(endian, ty, expr, _) -> evalLoad state endian ty expr
+    | Load(endian, ty, expr, _) ->
+      evalLoad state endian ty expr
     | Ite(cExpr, tExpr, fExpr, _) ->
       AST.ite (getEvalExpr state cExpr) (getEvalExpr state tExpr)
               (getEvalExpr state fExpr) |> Value
     | Cast(kind, ty, expr, _) ->
       AST.cast kind ty <| getEvalExpr state expr |> Value
-    | _ -> Value e // Num, Name, PCVar
+    | _ ->
+      Value e // Num, Name, PCVar
 
   and evalLoad state endian ty expr =
     let addr = evalExpr state expr
@@ -113,7 +120,8 @@ module State =
       if vType = ty then v
       elif vType > ty then AST.extract (v.GetExpr()) ty 0 |> Value
       else AST.load endian ty (addr.GetExpr()) |> Value
-    | None -> AST.load endian ty (addr.GetExpr()) |> Value
+    | None ->
+      AST.load endian ty (addr.GetExpr()) |> Value
 
   and getEvalExpr state expr =
     let value = evalExpr state expr
@@ -149,7 +157,8 @@ module State =
       { state with SysCall = state :: state.SysCall
                    SideEff = true
                    Regs = updateRegs "EAX" nEAX state.Regs }
-    | _ -> { state with SideEff = true }
+    | _ ->
+      { state with SideEff = true }
 
   let evalStmt state stmt =
     match stmt with

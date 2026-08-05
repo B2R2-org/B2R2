@@ -81,7 +81,8 @@ let private getRMBySIB baseReg si =
 let private isDisp8 disp = 0xFFFFFFFFFFFFFF80L <= disp && disp <= 0x7FL
 
 let private getMod baseReg = function
-  | None -> 0b00uy
+  | None ->
+    0b00uy
   | Some disp ->
     match baseReg with
     | Some Register.RIP | None -> 0b00uy
@@ -147,7 +148,8 @@ let private isRegFld4 = function
 /// SIB and Displacement.
 let mem b si d =
   match b, si, d with
-  | Some b, None, None -> if isRegFld4 b then [| 0x24uy |] else [||]
+  | Some b, None, None ->
+    if isRegFld4 b then [| 0x24uy |] else [||]
   | Some b, Some(i, s), None ->
     [| yield encSIB (getScaleBit s) (regTo3Bit i) (regTo3Bit b) |]
   | Some b, Some(i, s), Some d ->
@@ -159,11 +161,13 @@ let mem b si d =
   | None, Some(i, s), Some d ->
     [| yield encSIB (getScaleBit s) (regTo3Bit i) 0b101uy
        yield! encDisp d 32<rt> |]
-  | None, None, Some d -> [| yield! encDisp d 32<rt> |]
+  | None, None, Some d ->
+    [| yield! encDisp d 32<rt> |]
   | Some b, None, Some d ->
     [| yield! if isRegFld4 b then [| 0x24uy |] else [||]
        yield! encDisp d (getDispSz d) |]
-  | _ -> [||]
+  | _ ->
+    [||]
 
 let immediate (imm: int64) = function
   | 8<rt> -> [| byte imm |]

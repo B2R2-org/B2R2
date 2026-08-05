@@ -36,7 +36,8 @@ let numInsLen insLen (bld: ILowUIRBuilder) = numU32 insLen bld.RegType
 let numOprSize = function
   | 8<rt> | 16<rt> | 32<rt> | 64<rt> | 128<rt> | 256<rt> | 512<rt> as rt ->
     numI32 (int rt) rt
-  | _ -> raise InvalidOperandSizeException
+  | _ ->
+    raise InvalidOperandSizeException
 
 let inline is64bit (bld: ILowUIRBuilder) = bld.RegType = 64<rt>
 
@@ -73,7 +74,8 @@ let private getMemExpr128 expr =
   | Load(e, 128<rt>, expr, _) ->
     struct (AST.load e 64<rt> (expr .+ numI32 8 (Expr.typeOf expr)),
             AST.load e 64<rt> expr)
-  | _ -> raise InvalidOperandException
+  | _ ->
+    raise InvalidOperandException
 
 let private getMemExpr256 expr =
   match expr with
@@ -92,7 +94,8 @@ let private getMemExpr256 expr =
             AST.load e 64<rt> (expr .+ numI32 16 (Expr.typeOf expr)),
             AST.load e 64<rt> (expr .+ numI32 8 (Expr.typeOf expr)),
             AST.load e 64<rt> expr)
-  | _ -> raise InvalidOperandException
+  | _ ->
+    raise InvalidOperandException
 
 let private getMemExpr512 expr =
   match expr with
@@ -123,7 +126,8 @@ let private getMemExpr512 expr =
             AST.load e 64<rt> (expr .+ numI32 16 (Expr.typeOf expr)),
             AST.load e 64<rt> (expr .+ numI32 8 (Expr.typeOf expr)),
             AST.load e 64<rt> expr)
-  | _ -> raise InvalidOperandException
+  | _ ->
+    raise InvalidOperandException
 
 let private getMemExprs expr =
   match expr with
@@ -144,11 +148,13 @@ let private getMemExprs expr =
       AST.load e 64<rt> (expr .+ numI32 40 (Expr.typeOf expr))
       AST.load e 64<rt> (expr .+ numI32 48 (Expr.typeOf expr))
       AST.load e 64<rt> (expr .+ numI32 56 (Expr.typeOf expr)) ]
-  | _ -> raise InvalidOperandException
+  | _ ->
+    raise InvalidOperandException
 
 let private pseudoRegVars bld r =
   match RegisterHelper.getKind r with
-  | RegisterHelper.Kind.XMM -> [ pseudoRegVar bld r 1; pseudoRegVar bld r 2 ]
+  | RegisterHelper.Kind.XMM ->
+    [ pseudoRegVar bld r 1; pseudoRegVar bld r 2 ]
   | RegisterHelper.Kind.YMM ->
     [ pseudoRegVar bld r 1
       pseudoRegVar bld r 2
@@ -163,7 +169,8 @@ let private pseudoRegVars bld r =
       pseudoRegVar bld r 6
       pseudoRegVar bld r 7
       pseudoRegVar bld r 8 ]
-  | _ -> raise InvalidOperandException
+  | _ ->
+    raise InvalidOperandException
 
 let isSegReg = function
   | Register.CS
@@ -216,7 +223,8 @@ let private transMem bld useTmpVar ins insLen b index disp oprSize =
       numOfAddrSz ins bld d
     | None, Some i, Some d ->
       let e = (sIdx ins bld i) .+ (numOfAddrSz ins bld d)
-      if not useTmpVar then e
+      if not useTmpVar then
+        e
       else
         let tAddress = tmpVar bld bld.RegType
         bld <+ (tAddress := e)
@@ -231,99 +239,124 @@ let private transMem bld useTmpVar ins insLen b index disp oprSize =
         regVar bld R.RIP
 #endif
       let e = pc .+ numOfAddrSz ins bld (d + int64 (insLen: uint32))
-      if not useTmpVar then e
+      if not useTmpVar then
+        e
       else
         let tAddress = tmpVar bld bld.RegType
         bld <+ (tAddress := e)
         tAddress
     | Some b, None, Some d ->
       let e = regVar bld b .+ (numOfAddrSz ins bld d)
-      if not useTmpVar then e
+      if not useTmpVar then
+        e
       else
         let tAddress = tmpVar bld bld.RegType
         bld <+ (tAddress := e)
         tAddress
     | Some b, Some i, None ->
       let e = regVar bld b .+ (sIdx ins bld i)
-      if not useTmpVar then e
+      if not useTmpVar then
+        e
       else
         let tAddress = tmpVar bld bld.RegType
         bld <+ (tAddress := e)
         tAddress
     | Some b, Some i, Some d ->
       let e = regVar bld b .+ (sIdx ins bld i) .+ (numOfAddrSz ins bld d)
-      if not useTmpVar then e
+      if not useTmpVar then
+        e
       else
         let tAddress = tmpVar bld bld.RegType
         bld <+ (tAddress := e)
         tAddress
-    | _, _, _ -> raise InvalidOperandException
+    | _, _, _ ->
+      raise InvalidOperandException
   ldMem ins bld oprSize address
 
 let transOprToExpr bld useTmpVar ins insLen = function
-  | OprReg reg -> regVar bld reg
+  | OprReg reg ->
+    regVar bld reg
   | OprMem(b, index, disp, oprSize) ->
     transMem bld useTmpVar ins insLen b index disp oprSize
-  | OprImm(imm, _) -> numI64 imm (getOperationSize ins)
-  | OprDirAddr(Relative offset) -> numI64 offset bld.RegType
-  | OprDirAddr(Absolute(_, addr, _)) -> numU64 addr bld.RegType
-  | _ -> Terminator.impossible ()
+  | OprImm(imm, _) ->
+    numI64 imm (getOperationSize ins)
+  | OprDirAddr(Relative offset) ->
+    numI64 offset bld.RegType
+  | OprDirAddr(Absolute(_, addr, _)) ->
+    numU64 addr bld.RegType
+  | _ ->
+    Terminator.impossible ()
 
 let transOprToExprVec bld useTmpVar ins insLen opr =
   match opr with
-  | OprReg r -> pseudoRegVars bld r
+  | OprReg r ->
+    pseudoRegVars bld r
   | OprMem(b, index, disp, oprSize) ->
     transMem bld useTmpVar ins insLen b index disp oprSize |> getMemExprs
-  | OprImm(imm, _) -> [ numI64 imm (getOperationSize ins) ]
-  | _ -> raise InvalidOperandException
+  | OprImm(imm, _) ->
+    [ numI64 imm (getOperationSize ins) ]
+  | _ ->
+    raise InvalidOperandException
 
 let transOprToExpr16 (bld: ILowUIRBuilder) useTmpVar ins insLen opr =
   match opr with
   | OprReg r when RegisterHelper.toRegType bld.WordSize r > 64<rt> ->
     pseudoRegVar bld r 1 |> AST.xtlo 16<rt>
-  | OprReg r -> regVar bld r
+  | OprReg r ->
+    regVar bld r
   | OprMem(b, index, disp, 16<rt>) ->
     transMem bld useTmpVar ins insLen b index disp 16<rt>
-  | _ -> raise InvalidOperandException
+  | _ ->
+    raise InvalidOperandException
 
 let transOprToExpr32 (bld: ILowUIRBuilder) useTmpVar ins insLen opr =
   match opr with
   | OprReg r when RegisterHelper.toRegType bld.WordSize r > 64<rt> ->
     pseudoRegVar bld r 1 |> AST.xtlo 32<rt>
-  | OprReg r -> regVar bld r
+  | OprReg r ->
+    regVar bld r
   | OprMem(b, index, disp, 32<rt>) ->
     transMem bld useTmpVar ins insLen b index disp 32<rt>
-  | _ -> raise InvalidOperandException
+  | _ ->
+    raise InvalidOperandException
 
 let transOprToExpr64 (bld: ILowUIRBuilder) useTmpVar ins insLen opr =
   match opr with
   | OprReg r when RegisterHelper.toRegType bld.WordSize r > 64<rt> ->
     pseudoRegVar bld r 1
-  | OprReg r -> regVar bld r
+  | OprReg r ->
+    regVar bld r
   | OprMem(b, index, disp, 64<rt>) ->
     transMem bld useTmpVar ins insLen b index disp 64<rt>
-  | _ -> raise InvalidOperandException
+  | _ ->
+    raise InvalidOperandException
 
 let transOprToExpr128 bld useTmpVar ins insLen opr =
   match opr with
-  | OprReg r -> pseudoRegVar128 bld r
+  | OprReg r ->
+    pseudoRegVar128 bld r
   | OprMem(b, index, disp, oprSize) ->
     transMem bld useTmpVar ins insLen b index disp oprSize |> getMemExpr128
-  | _ -> raise InvalidOperandException
+  | _ ->
+    raise InvalidOperandException
 
 let transOprToExpr256 bld useTmpVar ins insLen opr =
   match opr with
-  | OprReg r -> pseudoRegVar256 bld r
+  | OprReg r ->
+    pseudoRegVar256 bld r
   | OprMem(b, index, disp, oprSize) ->
     transMem bld useTmpVar ins insLen b index disp oprSize |> getMemExpr256
-  | _ -> raise InvalidOperandException
+  | _ ->
+    raise InvalidOperandException
 
 let transOprToExpr512 bld useTmpVar ins insLen opr =
   match opr with
-  | OprReg r -> pseudoRegVar512 bld r
+  | OprReg r ->
+    pseudoRegVar512 bld r
   | OprMem(b, index, disp, oprSize) ->
     transMem bld useTmpVar ins insLen b index disp oprSize |> getMemExpr512
-  | _ -> raise InvalidOperandException
+  | _ ->
+    raise InvalidOperandException
 
 /// Return a tuple (jump target expr, is pc-relative?)
 let transJumpTargetOpr (bld: ILowUIRBuilder) useTmpVar ins pc insLen =
@@ -334,10 +367,12 @@ let transJumpTargetOpr (bld: ILowUIRBuilder) useTmpVar ins pc insLen =
     let wordSize = bld.RegType
     let offset = numI64 offset wordSize |> AST.sext wordSize
     struct (pc .+ offset, true)
-  | OneOperand(OprReg reg) -> struct (regVar bld reg, false)
+  | OneOperand(OprReg reg) ->
+    struct (regVar bld reg, false)
   | OneOperand(OprMem(b, index, disp, oprSize)) ->
     struct (transMem bld useTmpVar ins insLen b index disp oprSize, false)
-  | _ -> raise InvalidOperandException
+  | _ ->
+    raise InvalidOperandException
 
 let transOprToArr bld useTmpVars ins insLen packSz packNum oprSize opr =
   let pos = int packSz
@@ -395,7 +430,8 @@ let transOprToArr bld useTmpVars ins insLen packSz packNum oprSize opr =
         let oprG = Array.init packNum (fun i -> AST.extract mG packSz (i * pos))
         let oprH = Array.init packNum (fun i -> AST.extract mH packSz (i * pos))
         Array.concat [| oprA; oprB; oprC; oprD; oprE; oprF; oprG; oprH |]
-      | _ -> raise InvalidOperandSizeException
+      | _ ->
+        raise InvalidOperandSizeException
     | _ ->
       match oprSize with
       | 64<rt> ->
@@ -425,12 +461,14 @@ let transOprToArr bld useTmpVars ins insLen packSz packNum oprSize opr =
         let oprG = Array.init packNum (fun i -> AST.extract oG packSz (i * pos))
         let oprH = Array.init packNum (fun i -> AST.extract oH packSz (i * pos))
         Array.concat [| oprA; oprB; oprC; oprD; oprE; oprF; oprG; oprH |]
-      | _ -> raise InvalidOperandSizeException
+      | _ ->
+        raise InvalidOperandSizeException
   if useTmpVars then
     let tmps = Array.init (oprSize / packSz) (fun _ -> tmpVar bld packSz)
     Array.iter2 (fun e1 e2 -> bld <+ (e1 := e2)) tmps exprArr
     tmps
-  else exprArr
+  else
+    exprArr
 
 let private isMMXReg = function
   | OprReg r -> RegisterHelper.getKind r = RegisterHelper.Kind.MMX
@@ -452,7 +490,8 @@ let fillOnesToMMXHigh16 bld (ins: Instruction) =
   | TwoOperands(OprReg _ as o, _)
   | ThreeOperands(OprReg _ as o, _, _) ->
     bld <+ (pseudoRegVar bld (convMMXToST o) 2 := AST.num BitVector.MaxUInt16)
-  | _ -> ()
+  | _ ->
+    ()
 
 let assignPackedInstr bld useTmpVar ins insLen packNum oprSize dst result =
   match oprSize with
@@ -485,7 +524,8 @@ let assignPackedInstr bld useTmpVar ins insLen packNum oprSize dst result =
     bld <+ (dstF := Array.sub result (5 * packNum) packNum |> AST.revConcat)
     bld <+ (dstG := Array.sub result (6 * packNum) packNum |> AST.revConcat)
     bld <+ (dstH := Array.sub result (7 * packNum) packNum |> AST.revConcat)
-  | _ -> raise InvalidOperandSizeException
+  | _ ->
+    raise InvalidOperandSizeException
 
 let getTwoOprs (ins: Instruction) =
   match ins.Operands with
@@ -514,8 +554,10 @@ let transReg bld useTmpVar expr =
       let t = tmpVar bld rt
       bld <+ (t := expr)
       t
-    | _ -> expr
-  else expr
+    | _ ->
+      expr
+  else
+    expr
 
 let transTwoOprs bld useTmpVar (ins: Instruction) insLen =
   match ins.Operands with
@@ -523,7 +565,8 @@ let transTwoOprs bld useTmpVar (ins: Instruction) insLen =
     let o1 = transOprToExpr bld useTmpVar ins insLen o1
     let o2 = transOprToExpr bld false ins insLen o2 |> transReg bld useTmpVar
     struct (o1, o2)
-  | _ -> raise InvalidOperandException
+  | _ ->
+    raise InvalidOperandException
 
 let transThreeOprs bld useTmpVar (ins: Instruction) insLen =
   match ins.Operands with
@@ -531,7 +574,8 @@ let transThreeOprs bld useTmpVar (ins: Instruction) insLen =
     struct (transOprToExpr bld useTmpVar ins insLen o1,
             transOprToExpr bld useTmpVar ins insLen o2,
             transOprToExpr bld useTmpVar ins insLen o3)
-  | _ -> raise InvalidOperandException
+  | _ ->
+    raise InvalidOperandException
 
 /// This is an Intel-specific assignment to a destination operand.
 /// Unlike typical assignments, this function performs zero-padding when
@@ -564,7 +608,8 @@ let extractDstAssign e1 e2 =
              8<rt>, 0, _) when int rId = 0x4F (* FSW *)
                             || int rId = 0x50 (* FTW *) ->
     e1 := (e1 .& (AST.not mask)) .| (((AST.zext 16<rt> e2) << amt) .& mask)
-  | e -> printfn "%A" e; raise InvalidAssignmentException
+  | e ->
+    printfn "%A" e; raise InvalidAssignmentException
 
 let maxNum rt =
   match rt with

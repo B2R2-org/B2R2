@@ -120,7 +120,8 @@ let private strRepeat ins insLen bld body cond =
   bld.ConditionCodeOp <- ConditionCodeOp.TraceStart
 #endif
   match cond with
-  | None -> bld <+ (AST.interjmp pc InterJmpKind.Base)
+  | None ->
+    bld <+ (AST.interjmp pc InterJmpKind.Base)
   | Some cond ->
     bld <+ (AST.cjmp (cx == n0) (AST.jmpDest lblExit) (AST.jmpDest lblNext))
     bld <+ (AST.lmark lblNext)
@@ -321,7 +322,8 @@ let add (ins: Instruction) insLen bld =
     | 64<rt> -> bld.ConditionCodeOp <- ConditionCodeOp.ADDQ
     | _ -> raise InvalidRegTypeException
 #endif
-  | _ -> raise InvalidOperandException
+  | _ ->
+    raise InvalidOperandException
   atomicEndIfLocked ins bld
   bld --!> insLen
 
@@ -355,7 +357,8 @@ let adox (ins: Instruction) insLen bld =
     bld <+ (t3b := t1b .+ t2b .+ (t3a >> (numI32 32 64<rt>)))
     bld <+ (dstAssign oprSize dst (dst .+ src .+ (AST.zext 64<rt> oF)))
     bld <+ (oF := AST.extract t3b 1<rt> 32)
-  | _ -> raise InvalidOperandSizeException
+  | _ ->
+    raise InvalidOperandSizeException
   bld --!> insLen
 
 let ``and`` (ins: Instruction) insLen bld =
@@ -484,7 +487,8 @@ let private bndmov32Aux (ins: Instruction) insLen bld =
     let struct (src1, src2) = transOprToExpr128 bld false ins insLen src
     let dst = transOprToExpr bld false ins insLen dst
     bld <+ (dst := AST.concat (AST.xtlo 32<rt> src1) (AST.xtlo 32<rt> src2))
-  | _ -> raise InvalidOperandException
+  | _ ->
+    raise InvalidOperandException
 
 let bndmov32 (ins: Instruction) insLen bld =
   bld <!-- (ins.Address, insLen)
@@ -619,7 +623,8 @@ let private bit ins bitBase bitOffset oprSize =
   | _ ->
     if isVar bitBase then
       AST.xtlo 1<rt> (bitBase >> maskOffset bitOffset oprSize)
-    else raise InvalidExprException
+    else
+      raise InvalidExprException
 
 let bt (ins: Instruction) insLen bld =
   bld <!-- (ins.Address, insLen)
@@ -979,7 +984,8 @@ let private saveOprMem (bld: ILowUIRBuilder) expr =
   | Load(e, rt, expr, _) ->
     bld <+ (t := AST.zext sz expr)
     AST.load e rt t
-  | _ -> expr
+  | _ ->
+    expr
 
 let compareExchangeBytes ins insLen bld =
   let oprSize = getOperationSize ins
@@ -1031,7 +1037,8 @@ let compareExchangeBytes ins insLen bld =
     bld <+ (rdx := AST.ite cond rdx t2)
     bld <+ (orgDstAMem := AST.ite cond rbx t1)
     bld <+ (orgDstBMem := AST.ite cond rcx t2)
-  | _ -> raise InvalidOperandSizeException
+  | _ ->
+    raise InvalidOperandSizeException
   bld --!> insLen
 
 let convWDQ ins insLen bld =
@@ -1057,7 +1064,8 @@ let convWDQ ins insLen bld =
     let rax = regVar bld R.RAX
     let cond = AST.extract rax 1<rt> 63
     bld <+ (rdx := AST.ite cond (numI32 -1 64<rt>) (AST.num0 64<rt>))
-  | _, _ -> raise InvalidOperandSizeException
+  | _, _ ->
+    raise InvalidOperandSizeException
   bld --!> insLen
 
 let private bitReflect bld src =
@@ -1123,7 +1131,8 @@ let crc32 (ins: Instruction) insLen bld =
     bld <+ (t5a := AST.concat (AST.xtlo 32<rt> t6) (AST.xtlo 32<rt> t5a))
     bld <+ (t6 := mod2 bld t5a divisor 64)
     bld <+ (dstAssign 32<rt> dst (bitReflect bld t6))
-  | _ -> raise InvalidOperandSizeException
+  | _ ->
+    raise InvalidOperandSizeException
   bld --!> insLen
 
 let daa insAddr insLen bld =
@@ -1274,7 +1283,8 @@ let divideWithConcat opcode oprSize divisor lblAssign lblErr bld =
     bld <+ (quotient := dividend ?/ divisor)
     bld <+ (remainder := dividend ?% divisor)
     bld <+ (checkQuotientIDIV oprSize sz lblAssign lblErr quotient)
-  | _ -> raise InvalidOpcodeException
+  | _ ->
+    raise InvalidOpcodeException
   bld <+ (AST.lmark lblAssign)
   match oprSize with
   | 8<rt> ->
@@ -1285,7 +1295,8 @@ let divideWithConcat opcode oprSize divisor lblAssign lblErr bld =
     let r = getRegOfSize bld oprSize grpEDX
     bld <+ (dstAssign oprSize q (AST.xtlo oprSize quotient))
     bld <+ (dstAssign oprSize r (AST.xtlo oprSize remainder))
-  | _ -> raise InvalidOperandSizeException
+  | _ ->
+    raise InvalidOperandSizeException
 
 let div (ins: Instruction) insLen bld =
   bld <!-- (ins.Address, insLen)
@@ -1377,7 +1388,8 @@ let private oneOperandImul bld oprSize src =
     bld <+ (dstAssign oprSize r2 (AST.xtlo oprSize t))
     bld <+ (regVar bld R.CF := cond == AST.b0)
     bld <+ (regVar bld R.OF := cond == AST.b0)
-  | _ -> raise InvalidOperandSizeException
+  | _ ->
+    raise InvalidOperandSizeException
 
 let private operandsImul bld oprSize dst src1 src2 =
   match oprSize with
@@ -1391,7 +1403,8 @@ let private operandsImul bld oprSize dst src1 src2 =
     bld <+ (dstAssign oprSize dst (AST.xtlo oprSize t))
     bld <+ (regVar bld R.CF := cond)
     bld <+ (regVar bld R.OF := cond)
-  | _ -> raise InvalidOperandSizeException
+  | _ ->
+    raise InvalidOperandSizeException
 
 let private buildMulBody ins insLen bld =
   let oprSize = getOperationSize ins
@@ -1408,7 +1421,8 @@ let private buildMulBody ins insLen bld =
     let src1 = transOprToExpr bld false ins insLen o2
     let src2 = transOprToExpr bld false ins insLen o3
     operandsImul bld oprSize dst src1 src2
-  | _ -> raise InvalidOperandException
+  | _ ->
+    raise InvalidOperandException
 
 let imul (ins: Instruction) insLen bld =
   bld <!-- (ins.Address, insLen)
@@ -1454,7 +1468,8 @@ let interrupt ins insLen bld =
   | Num(n, _) ->
     Interrupt(n.ToInt32())
     |> sideEffects bld ins insLen
-  | _ -> raise InvalidOperandException
+  | _ ->
+    raise InvalidOperandException
 
 let private getCondOfJcc (ins: Instruction) (bld: ILowUIRBuilder) =
 #if DEBUG
@@ -1463,30 +1478,47 @@ let private getCondOfJcc (ins: Instruction) (bld: ILowUIRBuilder) =
   else ()
 #endif
   match ins.Opcode with
-  | Opcode.JO -> regVar bld R.OF
-  | Opcode.JNO -> regVar bld R.OF == AST.b0
-  | Opcode.JB -> regVar bld R.CF
-  | Opcode.JNB -> regVar bld R.CF == AST.b0
-  | Opcode.JZ -> regVar bld R.ZF
-  | Opcode.JNZ -> regVar bld R.ZF == AST.b0
-  | Opcode.JBE -> (regVar bld R.CF) .| (regVar bld R.ZF)
-  | Opcode.JA -> ((regVar bld R.CF) .| (regVar bld R.ZF)) == AST.b0
-  | Opcode.JS -> regVar bld R.SF
-  | Opcode.JNS -> regVar bld R.SF == AST.b0
-  | Opcode.JP -> regVar bld R.PF
-  | Opcode.JNP -> regVar bld R.PF == AST.b0
-  | Opcode.JL -> regVar bld R.SF != regVar bld R.OF
-  | Opcode.JNL -> regVar bld R.SF == regVar bld R.OF
+  | Opcode.JO ->
+    regVar bld R.OF
+  | Opcode.JNO ->
+    regVar bld R.OF == AST.b0
+  | Opcode.JB ->
+    regVar bld R.CF
+  | Opcode.JNB ->
+    regVar bld R.CF == AST.b0
+  | Opcode.JZ ->
+    regVar bld R.ZF
+  | Opcode.JNZ ->
+    regVar bld R.ZF == AST.b0
+  | Opcode.JBE ->
+    (regVar bld R.CF) .| (regVar bld R.ZF)
+  | Opcode.JA ->
+    ((regVar bld R.CF) .| (regVar bld R.ZF)) == AST.b0
+  | Opcode.JS ->
+    regVar bld R.SF
+  | Opcode.JNS ->
+    regVar bld R.SF == AST.b0
+  | Opcode.JP ->
+    regVar bld R.PF
+  | Opcode.JNP ->
+    regVar bld R.PF == AST.b0
+  | Opcode.JL ->
+    regVar bld R.SF != regVar bld R.OF
+  | Opcode.JNL ->
+    regVar bld R.SF == regVar bld R.OF
   | Opcode.JLE -> (regVar bld R.ZF) .|
                   (regVar bld R.SF != regVar bld R.OF)
   | Opcode.JG -> (regVar bld R.ZF == AST.b0) .&
                  (regVar bld R.SF == regVar bld R.OF)
-  | Opcode.JCXZ -> (regVar bld R.CX) == (AST.num0 bld.RegType)
+  | Opcode.JCXZ ->
+    (regVar bld R.CX) == (AST.num0 bld.RegType)
   | Opcode.JECXZ ->
     let sz = bld.RegType
     (AST.cast CastKind.ZeroExt sz (regVar bld R.ECX)) == (AST.num0 sz)
-  | Opcode.JRCXZ -> (regVar bld R.RCX) == (AST.num0 bld.RegType)
-  | _ -> raise InvalidOpcodeException
+  | Opcode.JRCXZ ->
+    (regVar bld R.RCX) == (AST.num0 bld.RegType)
+  | _ ->
+    raise InvalidOpcodeException
 
 #if EMULATION
 let private getCondOfJccLazy (ins: Instruction)
@@ -1633,10 +1665,14 @@ let lea (ins: Instruction) insLen bld =
        dstAssign oprSize dst src
      | 16<rt>, 32<rt> | 16<rt>, 64<rt> ->
        dstAssign oprSize dst (AST.xtlo 16<rt> src)
-     | 32<rt>, 16<rt> -> dstAssign oprSize dst (AST.zext 32<rt> src)
-     | 32<rt>, 64<rt> -> dstAssign oprSize dst (AST.xtlo 32<rt> src)
-     | 64<rt>, 32<rt> -> dstAssign oprSize dst (AST.zext 64<rt> src)
-     | _ -> raise InvalidOperandSizeException)
+     | 32<rt>, 16<rt> ->
+       dstAssign oprSize dst (AST.zext 32<rt> src)
+     | 32<rt>, 64<rt> ->
+       dstAssign oprSize dst (AST.xtlo 32<rt> src)
+     | 64<rt>, 32<rt> ->
+       dstAssign oprSize dst (AST.zext 64<rt> src)
+     | _ ->
+       raise InvalidOperandSizeException)
   bld --!> insLen
 
 let leave (ins: Instruction) insLen bld =
@@ -1750,7 +1786,8 @@ let lzcnt ins insLen bld =
     bld <+ (x := x .+ (x >> numI32 32 64<rt>))
     bld
     <+ (dstAssign oprSize dst (numI32 64 64<rt> .- (x .& numI32 127 64<rt>)))
-  | _ -> raise InvalidOperandSizeException
+  | _ ->
+    raise InvalidOperandSizeException
   let oprSize = numI32 (RegType.toBitWidth oprSize) oprSize
   bld <+ (regVar bld R.CF := dst == oprSize)
   bld <+ (regVar bld R.ZF := dst == n)
@@ -1866,7 +1903,8 @@ let mul ins insLen bld =
 #else
     bld.ConditionCodeOp <- ConditionCodeOp.EFlags
 #endif
-  | _ -> raise InvalidOperandSizeException
+  | _ ->
+    raise InvalidOperandSizeException
   bld --!> insLen
 
 let mulx ins insLen bld =
@@ -1905,7 +1943,8 @@ let mulx ins insLen bld =
     bld <+ (tLow := low)
     bld <+ (dstAssign oprSize dst2 tLow)
     bld <+ (dstAssign oprSize dst1 tHigh)
-  | _ -> raise InvalidOperandSizeException
+  | _ ->
+    raise InvalidOperandSizeException
   bld --!> insLen
 
 let neg (ins: Instruction) insLen bld =
@@ -2087,8 +2126,10 @@ let inline private padPushExpr oprSize opr =
   | Var(_, s, _, _) ->
     if isSegReg <| Register.ofRegID s then AST.zext oprSize opr
     else opr
-  | Num(_) -> AST.sext oprSize opr
-  | _ -> opr
+  | Num(_) ->
+    AST.sext oprSize opr
+  | _ ->
+    opr
 
 let push (ins: Instruction) insLen bld =
   bld <!-- (ins.Address, insLen)
@@ -2426,7 +2467,8 @@ let shift (ins: Instruction) insLen bld =
     bld <+ (cF := AST.ite cond2 cF (AST.xtlo 1<rt> (tDst ?>> tCnt)))
     bld <+ (oF := AST.ite cond1 AST.b0 (AST.ite cond2 oF undefOF))
 #endif
-  | _ -> raise InvalidOpcodeException
+  | _ ->
+    raise InvalidOpcodeException
 #if !EMULATION
   let aF = regVar bld R.AF
   bld <+ (aF := AST.ite cond2 aF undefAF)
@@ -2775,7 +2817,8 @@ let tzcnt ins insLen bld =
     bld <+ (t2 := t1 >> numI32 4 64<rt>)
     bld <+ (t1 := AST.ite (t2 != z) t2 t1)
     bld <+ (res := AST.ite (t2 != z) (res .+ numI32 4 64<rt>) res)
-  | _ -> raise InvalidOperandSizeException
+  | _ ->
+    raise InvalidOperandSizeException
   let v = (res .+ ((t1 >> numI32 1 oprSize) .- (t1 >> numI32 3 oprSize)))
   bld <+ (dstAssign oprSize dst v)
   bld <+ (AST.lmark lblEnd)
@@ -2903,7 +2946,8 @@ let xor (ins: Instruction) insLen bld =
     bld <+ (regVar bld R.ZF := dst == (AST.num0 oprSize))
     buildPF bld dst oprSize None
 #endif
-  | _ -> raise InvalidOperandException
+  | _ ->
+    raise InvalidOperandException
 #if !EMULATION
   bld <+ (regVar bld R.AF := undefAF)
 #endif

@@ -165,7 +165,8 @@ module internal S390Sweep =
   let private keyOf kind (text: string) =
     let marks = [| ' '; ','; '('; ')'; '+'; '-'; ';' |]
     match text.Split ' ' |> Array.toList with
-    | [] | [ _ ] -> text.Trim()
+    | [] | [ _ ] ->
+      text.Trim()
     | mnemonic :: rest ->
       let operands = String.concat " " rest
       operands.Split(marks, StringSplitOptions.RemoveEmptyEntries)

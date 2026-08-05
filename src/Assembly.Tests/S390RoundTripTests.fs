@@ -89,7 +89,8 @@ type S390RoundTripTests() =
   /// text stands in for the word a probe was decoded from.
   static let roundTripWith assembler parser (source: string) =
     match (try encodeFirst assembler source with _ -> None) with
-    | None -> S390Unsupported
+    | None ->
+      S390Unsupported
     | Some encoded ->
       let actual = try disasmWith parser encoded with _ -> "<undecodable>"
       if actual = source then S390Preserved else S390Altered actual
@@ -253,7 +254,8 @@ type S390RoundTripTests() =
             expected, source, index, labelIndex ]
       |> List.choose (fun (expected, source, index, labelIndex) ->
         match (try assembler.Lower source with _ -> Error "raised") with
-        | Error _ | Ok [] -> Some $"'{expected}' does not assemble"
+        | Error _ | Ok [] ->
+          Some $"'{expected}' does not assemble"
         | Ok encoded ->
           let lengths = encoded |> List.map (fun (_, bytes) -> bytes.Length)
           let addrOf upto = List.take upto lengths |> List.sumBy uint64
@@ -289,7 +291,8 @@ type S390RoundTripTests() =
       unencodableSources
       |> List.choose (fun source ->
         match (try encodeFirst assembler source with _ -> None) with
-        | None -> None
+        | None ->
+          None
         | Some bytes ->
           let text = try disasm bytes with _ -> "<undecodable>"
           Some $"'{source}' encoded as '{text}'")
@@ -337,7 +340,8 @@ type S390RoundTripTests() =
       writtenSources
       |> List.choose (fun (source, expected) ->
         match (try encodeFirst assembler source with _ -> None) with
-        | None -> Some $"'{source}' does not assemble"
+        | None ->
+          Some $"'{source}' does not assemble"
         | Some bytes ->
           let text = try disasm bytes with _ -> "<undecodable>"
           if text = expected then None
@@ -361,7 +365,8 @@ type S390RoundTripTests() =
       lengths
       |> List.choose (fun (source, expected) ->
         match (try encodeFirst assembler source with _ -> None) with
-        | None -> Some $"'{source}' does not assemble"
+        | None ->
+          Some $"'{source}' does not assemble"
         | Some bytes ->
           if bytes.Length = expected then None
           else Some $"'{source}' came out {bytes.Length} bytes long")

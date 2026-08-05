@@ -181,8 +181,7 @@ module LinearDocument =
                 Offset = i
                 ItemLength = int ins.Length }
             match BinFileOps.tryResolveName brew.BinHandle.File addr with
-            | Ok name ->
-              items.Add(LinkageTableHeader(location, name))
+            | Ok name -> items.Add(LinkageTableHeader(location, name))
             | _ -> ()
             let disasm = lifter.DisasmInstruction ins
             items.Add(LinkageTableEntry(location, disasm))
@@ -242,10 +241,8 @@ module LinearDocument =
       LiftingUnit = lifter }
 
   let tryGetItem doc index =
-    if index < 0 || index >= doc.LinearItems.Count then
-      None
-    else
-      Some doc.LinearItems[index]
+    if index < 0 || index >= doc.LinearItems.Count then None
+    else Some doc.LinearItems[index]
 
   let itemOffset doc index =
     match tryGetItem doc index with
@@ -254,10 +251,8 @@ module LinearDocument =
     | Some(Disassembly(loc, _))
     | Some(FunctionHeader(loc, _))
     | Some(LinkageTableHeader(loc, _))
-    | Some(LinkageTableEntry(loc, _)) ->
-      Some loc.Offset
-    | None ->
-      None
+    | Some(LinkageTableEntry(loc, _)) -> Some loc.Offset
+    | None -> None
 
 [<RequireQualifiedAccess>]
 module LinearItem =

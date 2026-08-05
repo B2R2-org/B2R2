@@ -38,13 +38,12 @@ type App<'FnCtx, 'GlCtx when 'FnCtx :> IResettable
 
   override this.Initialize() =
     this.Styles.Add(FluentTheme())
-    if useDarkTheme then
-      this.RequestedThemeVariant <- Styling.ThemeVariant.Dark
-    else
-      this.RequestedThemeVariant <- Styling.ThemeVariant.Light
+    if useDarkTheme then this.RequestedThemeVariant <- Styling.ThemeVariant.Dark
+    else this.RequestedThemeVariant <- Styling.ThemeVariant.Light
 
   override this.OnFrameworkInitializationCompleted() =
     match this.ApplicationLifetime with
     | :? IClassicDesktopStyleApplicationLifetime as desktopLifetime ->
       desktopLifetime.MainWindow <- MainWindow(arbiter, useDarkTheme)
-    | _ -> ()
+    | _ ->
+      ()

@@ -192,7 +192,8 @@ type IntelEncodingTests() =
         encoded
         |> List.map (snd >> Array.map (sprintf "%02x") >> String.concat "")
         |> String.concat " "
-      | Error _ -> "<cannot parse>"
+      | Error _ ->
+        "<cannot parse>"
     with
     | :? EncodingFailureException -> "<unsupported>"
     (* A form belonging to the other word size, such as a long-mode-only

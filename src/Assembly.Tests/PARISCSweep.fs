@@ -145,7 +145,8 @@ module internal PARISCSweep =
   let private shapeOfPart (part: string) =
     if isNumber part then
       (if isNegative part then "imm-" else "imm+") + string (part.Length - 2)
-    else part
+    else
+      part
 
   /// What an operand names and nothing else, which is the coarser of the two
   /// keys: one form is worth reaching once however many registers it is
@@ -175,7 +176,8 @@ module internal PARISCSweep =
   let private keyOf whole kind (text: string) =
     let marks = [| ' '; ','; '('; ')' |]
     match text.Split ' ' |> Array.toList with
-    | [] -> text
+    | [] ->
+      text
     | mnemonic :: rest ->
       let name = nameOf mnemonic
       let name = if whole then name else (name.Split ',')[0]

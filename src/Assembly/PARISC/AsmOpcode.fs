@@ -65,7 +65,8 @@ let private breakIns ins =
   match ins.Operands with
   | [ Im low; Im high ] ->
     system 0x00u ((unsigned 13 high <<< 13) ||| unsigned 5 low)
-  | _ -> wrongOperands ins
+  | _ ->
+    wrongOperands ins
 
 /// The instruction waiting until everything a device outside the processor was
 /// asked to do is done.
@@ -113,7 +114,8 @@ let private ldsid ins =
   match ins.Operands with
   | [ Mem(None, space, baseReg); Rg d ] ->
     system 0x85u ((gpr baseReg <<< 21) ||| space2 space ||| gpr d)
-  | _ -> wrongOperands ins
+  | _ ->
+    wrongOperands ins
 
 /// Moving what a general register holds into one of the eight space registers.
 let private mtsp ins =
@@ -150,7 +152,8 @@ let private mfctl ins =
   match ins.Operands with
   | [ Rg cr; Rg d ] when not (has "w" flags) || cr = Register.CR11 ->
     system 0x45u ((ctrl cr <<< 21) ||| (bit "w" flags <<< 14) ||| gpr d)
-  | _ -> wrongOperands ins
+  | _ ->
+    wrongOperands ins
 
 /// The instructions a program says something to the machine it runs on with.
 let systemEncoders () =
@@ -202,7 +205,8 @@ let private cache side space ext6 ins =
   | [ Mem(Some(Rg index), sp, baseReg) ] ->
     mgmt ext6 ((gpr baseReg <<< 21) ||| (gpr index <<< 16) ||| space sp
                ||| side ||| (m <<< 5))
-  | _ -> wrongOperands ins
+  | _ ->
+    wrongOperands ins
 
 /// The same, for the instructions the processor fetches, which lie in any of
 /// the eight spaces.
@@ -233,7 +237,8 @@ let private page side space ins =
   | [ Mem(Some(Rg index), sp, baseReg) ] ->
     mgmt ext6 ((gpr baseReg <<< 21) ||| (gpr index <<< 16) ||| space sp
                ||| side ||| (m <<< 5))
-  | _ -> wrongOperands ins
+  | _ ->
+    wrongOperands ins
 
 /// <summary>
 /// The instruction writing back and throwing away one line of what the
@@ -248,7 +253,8 @@ let private fdc ins =
   | [ Mem(Some(Im offset), sp, baseReg) ] ->
     mgmt 0b001010u ((gpr baseReg <<< 21) ||| (lowSignExt 5 offset <<< 16)
                     ||| space2 sp ||| Written ||| DataSide ||| (m <<< 5))
-  | _ -> dataCache 0b001010u ins
+  | _ ->
+    dataCache 0b001010u ins
 
 /// An instruction adding to what the processor remembers about where something
 /// was found, which names two registers and no memory.
@@ -257,7 +263,8 @@ let private tlbInsert side ins =
   match ins.Operands with
   | [ Rg s1; Rg s2 ] ->
     mgmt 0b100000u ((gpr s2 <<< 21) ||| (gpr s1 <<< 16) ||| side)
-  | _ -> wrongOperands ins
+  | _ ->
+    wrongOperands ins
 
 /// <summary>
 /// An instruction adding one half of an entry to what the processor remembers
@@ -275,7 +282,8 @@ let private tlbInsertHalf side half space ins =
   | [ Rg index; Mem(None, sp, baseReg) ] ->
     mgmt half ((gpr baseReg <<< 21) ||| (gpr index <<< 16) ||| space sp
                ||| side)
-  | _ -> wrongOperands ins
+  | _ ->
+    wrongOperands ins
 
 /// The six bits saying which way a program asks whether it may reach an
 /// address, which every such instruction is written with.
@@ -292,7 +300,8 @@ let private probe ins =
   | [ Mem(None, sp, baseReg); Rg s; Rg d ] ->
     mgmt ext6 ((gpr baseReg <<< 21) ||| (gpr s <<< 16) ||| space2 sp
                ||| DataSide ||| gpr d)
-  | _ -> wrongOperands ins
+  | _ ->
+    wrongOperands ins
 
 /// The same, at a level of trust written out.
 let private probei ins =
@@ -301,7 +310,8 @@ let private probei ins =
   | [ Mem(None, sp, baseReg); Im level; Rg d ] ->
     mgmt ext6 ((gpr baseReg <<< 21) ||| (unsigned 5 level <<< 16)
                ||| space2 sp ||| Written ||| DataSide ||| gpr d)
-  | _ -> wrongOperands ins
+  | _ ->
+    wrongOperands ins
 
 /// An instruction working out something about an address and leaving it in a
 /// general register.
@@ -310,7 +320,8 @@ let private lookup ext6 m ins =
   | [ Mem(Some(Rg index), sp, baseReg); Rg d ] ->
     mgmt ext6 ((gpr baseReg <<< 21) ||| (gpr index <<< 16) ||| space2 sp
                ||| DataSide ||| (m <<< 5) ||| gpr d)
-  | _ -> wrongOperands ins
+  | _ ->
+    wrongOperands ins
 
 /// The instruction working out where in memory itself an address really is,
 /// which may leave the register it counted from holding that address.
@@ -469,7 +480,8 @@ let private shiftAdd ext6 cf ins =
   match ins.Operands with
   | [ Rg s1; Im amount; Rg s2; Rg d ] when amount >= 1UL && amount <= 3UL ->
     compute (ext6 ||| uint32 amount) cf (gpr s2) (gpr s1) (gpr d)
-  | _ -> wrongOperands ins
+  | _ ->
+    wrongOperands ins
 
 /// The instruction shifting and adding, which may leave what it computes where
 /// the program cannot see it and may stop the program where it overflows.
@@ -526,7 +538,8 @@ let private immForm opcode carrying readCondition ins =
   match ins.Operands with
   | [ Im imm; Rg s2; Rg d ] ->
     computeImm opcode cond tsv (gpr s2) (gpr d) (lowSignExt 11 imm)
-  | _ -> wrongOperands ins
+  | _ ->
+    wrongOperands ins
 
 /// The instruction subtracting a register from a written number, which is the
 /// one of the two that never corrects a decimal number.
@@ -554,7 +567,8 @@ let private shrpVar wide low ins =
   match ins.Operands with
   | [ Rg s1; Rg s2; Rg sar; Rg d ] when sar = Register.CR11 ->
     field OpVarShift c (gpr s2) (gpr s1) (low ||| gpr d)
-  | _ -> wrongOperands ins
+  | _ ->
+    wrongOperands ins
 
 /// The same, where how far in the field starts is written out.
 let private shrpFixed wide position low ins =
@@ -564,7 +578,8 @@ let private shrpFixed wide position low ins =
     let cp, cpos = position pos
     field OpVarShift c (gpr s2) (gpr s1)
       ((cp <<< 11) ||| low ||| (cpos <<< 5) ||| gpr d)
-  | _ -> wrongOperands ins
+  | _ ->
+    wrongOperands ins
 
 /// Where in a word a field taken out of a pair of registers starts, which is
 /// always named as a place in the lower half of a doubleword.
@@ -596,7 +611,8 @@ let private extrVar wide low ins =
     let cl, clen = if wide = 1u then dwordLength len else (0u, wordLength len)
     field OpVarShift c (gpr s2) (gpr d)
       (0x1000u ||| se ||| low ||| (cl <<< 8) ||| clen)
-  | _ -> wrongOperands ins
+  | _ ->
+    wrongOperands ins
 
 /// The same, for a field of the lower half of a register whose place is
 /// written out.
@@ -608,7 +624,8 @@ let private extrwFixed ins =
   | [ Rg s2; Im pos; Im len; Rg d ] ->
     field OpVarShift c (gpr s2) (gpr d)
       (0x1800u ||| se ||| (unsigned 5 pos <<< 5) ||| wordLength len)
-  | _ -> wrongOperands ins
+  | _ ->
+    wrongOperands ins
 
 /// The same, for a field anywhere in a whole doubleword, which is the one form
 /// of these with six bits' room for where the field starts.
@@ -623,7 +640,8 @@ let private extrdFixed ins =
     field OpExtract c (gpr s2) (gpr d)
       ((cl <<< 12) ||| ((p >>> 5) <<< 11) ||| se ||| ((p &&& 0x1Fu) <<< 5)
        ||| clen)
-  | _ -> wrongOperands ins
+  | _ ->
+    wrongOperands ins
 
 /// The instruction taking a field out of the lower half of a register.
 let private extrw ins = orTry (extrVar 0u 0u) extrwFixed ins
@@ -660,7 +678,8 @@ let private depVar wide low source ins =
     let cl, clen = if wide = 1u then dwordLength len else (0u, wordLength len)
     field OpVarDeposit c (gpr d) (source head)
       (nz ||| low ||| (cl <<< 8) ||| clen)
-  | _ -> wrongOperands ins
+  | _ ->
+    wrongOperands ins
 
 /// The same, where where the field lands is written out.
 let private depFixed opcode wide position length source ins =
@@ -673,7 +692,8 @@ let private depFixed opcode wide position length source ins =
     let cl, clen = length len
     field opcode c (gpr d) (source head)
       ((cl <<< 12) ||| (cp <<< 11) ||| nz ||| (cpos <<< 5) ||| clen)
-  | _ -> wrongOperands ins
+  | _ ->
+    wrongOperands ins
 
 /// How long a field laid into the lower half of a register is, together with
 /// the bit that tells such a deposit from one laying in a written number.
@@ -729,7 +749,8 @@ let private permh ins =
       let places = [ 13; 10; 8; 6 ]
       List.map2 (fun digit place -> uint32 digit <<< place) digits places
       |> List.fold (|||) (OpMultimedia ||| (gpr s2 <<< 21) ||| gpr d)
-    | _ -> wrongOperands ins
+    | _ ->
+      wrongOperands ins
 
 /// One word of the kind working on several halves of a doubleword at once,
 /// given the four bits saying which of them it is, which the encoding keeps in
@@ -743,7 +764,8 @@ let private halfShift key first ins =
   match ins.Operands with
   | [ Rg s; Im amount; Rg d ] ->
     multimedia key ((gpr s <<< first) ||| (unsigned 4 amount <<< 6) ||| gpr d)
-  | _ -> wrongOperands ins
+  | _ ->
+    wrongOperands ins
 
 /// The instruction shifting every half of a doubleword to the left, which
 /// names the register it reads where the arithmetic names its first.
@@ -765,7 +787,8 @@ let private mix key ins =
   match ins.Operands with
   | [ Rg s1; Rg s2; Rg d ] ->
     multimedia key ((gpr s2 <<< 21) ||| (gpr s1 <<< 16) ||| gpr d)
-  | _ -> wrongOperands ins
+  | _ ->
+    wrongOperands ins
 
 /// The same, where a word after the name says which of each pair is taken.
 let private mixForm left right ins =

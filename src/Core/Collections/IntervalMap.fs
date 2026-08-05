@@ -73,12 +73,14 @@ module IntervalMap =
   let private rangeExists i tree =
     let rec loop tree =
       match Op.ViewL tree with
-      | Nil -> false
+      | Nil ->
+        false
       | Cons(x: IntervalMapElem<_>, xs) ->
         if x.Min = i.Min then
           if x.Max = i.Max then true
           else loop xs
-        else false
+        else
+          false
     loop tree
 
   /// Adds a mapping to the interval map. Overlapping intervals are allowed, but
@@ -97,7 +99,8 @@ module IntervalMap =
     let rec matches xs =
       let v = Op.DropUntil(dropMatcher, xs)
       match Op.ViewL v with
-      | Nil -> []
+      | Nil ->
+        []
       | Cons(x: IntervalMapElem<_>, xs) ->
         if pred x.Key then x.Val :: matches xs
         else matches xs
@@ -133,13 +136,15 @@ module IntervalMap =
       Op.Split((fun (e: InterMonoid<Addr>) -> Key addr <= e.Min), m)
     let rec loop found xs =
       match Op.ViewL xs with
-      | Nil -> found
+      | Nil ->
+        found
       | Cons(x: IntervalMapElem<'V>, xs) ->
         if x.Min = addr then
           match found with
           | None -> loop (Some x.Val) xs
           | Some _ -> None
-        else found
+        else
+          found
     loop None r
 
   /// Finds the value whose interval has the same low bound (Min) as the given
@@ -194,7 +199,8 @@ module IntervalMap =
         Op.SplitTree((fun (e: InterMonoid<Addr>) -> Prio il <= e.Max),
           z, m)
       x.Min <= ih
-    else false
+    else
+      false
 
   /// Checks whether the given address exists in the interval tree.
   [<CompiledName("ContainsAddr")>]
@@ -216,7 +222,8 @@ module IntervalMap =
       Op.Split((fun (e: InterMonoid<Addr>) -> Key i.Min <= e.Min), m)
     let rec replaceLoop l r =
       match Op.ViewL r with
-      | Nil -> raise InvalidAddrRangeException
+      | Nil ->
+        raise InvalidAddrRangeException
       | Cons(x: IntervalMapElem<'V>, xs)
         when x.Min = i.Min && x.Max = i.Max ->
         Op.Concat(l, Op.Cons(IntervalMapElem(i, v), xs))
@@ -241,7 +248,8 @@ module IntervalMap =
       Op.Split((fun (e: InterMonoid<Addr>) -> Key i.Min <= e.Min), m)
     let rec rmLoop l r =
       match Op.ViewL r with
-      | Nil -> raise InvalidAddrRangeException
+      | Nil ->
+        raise InvalidAddrRangeException
       | Cons(x: IntervalMapElem<'V>, xs)
         when x.Min = i.Min && x.Max = i.Max ->
         Op.Concat(l, xs)

@@ -70,7 +70,8 @@ module Helper =
 
   let collectInsBBLAddrPairs (fn: Function) =
     fn.CFG.FoldVertex((fun acc v ->
-      if v.VData.Internals.IsAbstract then acc
+      if v.VData.Internals.IsAbstract then
+        acc
       else
         v.VData.Internals.LiftedInstructions
         |> Array.map (fun li -> li.Original.Address, li.BBLAddr)

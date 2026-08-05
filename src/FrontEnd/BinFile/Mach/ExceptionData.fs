@@ -59,7 +59,8 @@ module internal ExceptionData =
       let offset, size = int sec.SecOffset, int sec.SecSize
       let span = ReadOnlySpan(toolBox.Bytes, offset, size)
       LSDATable.parseFromSection cls span toolBox.Reader sec.SecAddr 0 Map.empty
-    | None -> Map.empty
+    | None ->
+      Map.empty
 
   /// Parses frames from DWARF CFI in `__eh_frame`. Requires a register factory
   /// (for CIE decoding); returns [] when either is absent.
@@ -78,7 +79,8 @@ module internal ExceptionData =
             { FuncStart = fde.PCBegin
               FuncEnd = fde.PCEnd
               LSDAPointer = fde.LSDAPointer } ])
-    | _ -> []
+    | _ ->
+      []
 
   /// Parses frames from Apple compact unwind in `__unwind_info` (the common
   /// case on modern macOS, especially arm64). No register factory is needed.
@@ -91,7 +93,8 @@ module internal ExceptionData =
         imageBase
       |> List.map (fun (s, e, l) ->
         { FuncStart = s; FuncEnd = e; LSDAPointer = l })
-    | None -> []
+    | None ->
+      []
 
   let parse toolBox segCmds secs regFactory =
     let cls = toolBox.Header.Class

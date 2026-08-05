@@ -64,7 +64,8 @@ let buildEncoderTable bitLen =
 /// was never defined is a mistake in the source, not a lookup that failed.
 let private findLabel state (baseAddr: Addr) lbl count =
   match Map.tryFind lbl state.LabelMap with
-  | Some index when index <= count -> baseAddr + uint64 (index * 4)
+  | Some index when index <= count ->
+    baseAddr + uint64 (index * 4)
   | Some _ | None ->
     raise <| EncodingFailureException $"Undefined label '{lbl}'"
 
@@ -85,7 +86,8 @@ let private resolveLabels state baseAddr count pc ins =
 
 let private encodeInstruction (encoders: Map<_, _>) ins =
   match Map.tryFind ins.Opcode encoders with
-  | Some encode -> encode ins
+  | Some encode ->
+    encode ins
   | None ->
     raise <| EncodingFailureException $"{ins.Opcode} is not supported yet"
 

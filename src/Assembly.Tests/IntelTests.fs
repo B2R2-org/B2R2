@@ -75,4 +75,5 @@ done:
       match (try asm.Lower "jmp dword ptr [ecx]" with _ -> Error "raised") with
       | Ok((_, bytes) :: _) ->
         Assert.AreEqual<string>("ff21", hex bytes, $"after '{bad}'")
-      | Ok [] | Error _ -> Assert.Fail $"'{bad}' left the assembler unusable"
+      | Ok [] | Error _ ->
+        Assert.Fail $"'{bad}' left the assembler unusable"

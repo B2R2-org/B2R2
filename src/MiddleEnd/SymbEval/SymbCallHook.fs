@@ -128,15 +128,18 @@ module SymbCallHooks =
 
   let private collectStrlenStates maxScan ctx addr (st: SymbState) =
     let rec loop offset prefix acc =
-      if offset > maxScan then List.rev acc |> Ok
+      if offset > maxScan then
+        List.rev acc |> Ok
       else
         match readByte addr offset st with
-        | Error e -> Error e
+        | Error e ->
+          Error e
         | Ok byte ->
           let acc =
             if canBeNull byte then
               makeStrlenState ctx offset (List.rev prefix) byte st :: acc
-            else acc
+            else
+              acc
           if canBeNonNull byte then loop (offset + 1) (byte :: prefix) acc
           else List.rev acc |> Ok
     loop 0 [] []
@@ -144,18 +147,22 @@ module SymbCallHooks =
   /// Default maximum symbolic C-string payload size.
   /// Models strlen by generating possible null-terminator positions.
   let strlenBounded maxScan (ctx: SymbCallContext) (st: SymbState) =
-    if maxScan < 0 then Error(UnsupportedOperation "Negative strlen bound.")
+    if maxScan < 0 then
+      Error(UnsupportedOperation "Negative strlen bound.")
     elif Array.isEmpty ctx.ArgumentRegisters then
       Error(UnsupportedOperation "strlen requires one argument register.")
     else
       match getArgument ctx st with
-      | Error e -> Error e
+      | Error e ->
+        Error e
       | Ok addr ->
         match collectStrlenStates maxScan ctx addr st with
-        | Error e -> Error e
+        | Error e ->
+          Error e
         | Ok [] ->
           Error(UnsupportedOperation "strlen produced no feasible state.")
-        | Ok states -> Ok states
+        | Ok states ->
+          Ok states
 
   /// Models strlen using the default string bound.
   let strlen ctx st =

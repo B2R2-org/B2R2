@@ -1589,7 +1589,8 @@ let finalOprSIMD s (builder: IDisasmBuilder) =
     builder.Accumulate(AsmWordKind.String, "[")
     builder.Accumulate(AsmWordKind.String, string idx)
     builder.Accumulate(AsmWordKind.String, "]")
-  | _ -> ()
+  | _ ->
+    ()
 
 (* SIMD & FP register *)
 let simdToString simd builder =
@@ -1627,7 +1628,8 @@ let simdListToString simd (builder: IDisasmBuilder) =
     simdFPRegToString s4 builder
     builder.Accumulate(AsmWordKind.String, " }")
     finalOprSIMD s1 builder
-  | _ -> ()
+  | _ ->
+    ()
 
 let immToString imm (builder: IDisasmBuilder) =
   builder.Accumulate(AsmWordKind.String, "#")
@@ -1653,7 +1655,8 @@ let prependDelimiter delimiter (builder: IDisasmBuilder) =
 
 let shiftToString shift delim builder =
   match shift with
-  | _, Imm 0L -> ()
+  | _, Imm 0L ->
+    ()
   | s, amount ->
     prependDelimiter delim builder
     builder.Accumulate(AsmWordKind.String, shiftOperationToString s)
@@ -1800,7 +1803,8 @@ let isRET (ins: Instruction) = ins.Opcode = Opcode.RET
 
 let oprToString i addr opr delim builder =
   match opr with
-  | OprRegister reg when isRET i && reg = R.X30 -> ()
+  | OprRegister reg when isRET i && reg = R.X30 ->
+    ()
   | OprRegister reg ->
     prependDelimiter delim builder
     builder.Accumulate(AsmWordKind.Variable, Register.toString reg)
@@ -1819,9 +1823,12 @@ let oprToString i addr opr delim builder =
   | OprNZCV ui8 ->
     prependDelimiter delim builder
     nzcvToString ui8 builder
-  | OprShift s -> shiftToString s delim builder
-  | OprExtReg None -> ()
-  | OprExtReg(Some regOffset) -> regOffString regOffset delim builder
+  | OprShift s ->
+    shiftToString s delim builder
+  | OprExtReg None ->
+    ()
+  | OprExtReg(Some regOffset) ->
+    regOffString regOffset delim builder
   | OprMemory mode ->
     prependDelimiter delim builder
     memToString i addr mode builder
@@ -1850,7 +1857,8 @@ let inline buildOpcode (ins: Instruction) (builder: IDisasmBuilder) =
 
 let buildOprs (ins: Instruction) pc builder =
   match ins.Operands with
-  | NoOperand -> ()
+  | NoOperand ->
+    ()
   | OneOperand opr ->
     oprToString ins pc opr (Some " ") builder
   | TwoOperands(opr1, opr2) ->

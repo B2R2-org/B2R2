@@ -422,7 +422,8 @@ let private accumulateIndex (idx: IndexReg) (builder: IDisasmBuilder) =
   if idx.Scale > 1 then
     accumulateStr "*" builder
     builder.Accumulate(AsmWordKind.Value, string idx.Scale)
-  else ()
+  else
+    ()
 
 /// Writes the index of an indexed operand where it has one, preceded by the
 /// comma that separates it from whatever came before.
@@ -503,7 +504,8 @@ let private accumulateRegList (regs: Register[]) (builder: IDisasmBuilder) =
   if Array.isEmpty regs then
     accumulateStr "#" builder
     builder.Accumulate(AsmWordKind.Value, HexString.ofInt64 0L)
-  else ()
+  else
+    ()
   let runs =
     regs
     |> Array.fold (fun runs reg ->
@@ -521,19 +523,17 @@ let private accumulateRegList (regs: Register[]) (builder: IDisasmBuilder) =
     if first <> last then
       accumulateStr "-" builder
       accumulateReg last builder
-    else ())
+    else
+      ())
 
 /// Writes the offset or the width of a bit field, which is a literal or the
 /// data register holding one. Neither carries the hash an immediate operand
 /// does, there being nothing else either of them could be.
 let private accumulateField opr (builder: IDisasmBuilder) =
   match opr with
-  | OpReg reg ->
-    accumulateReg reg builder
-  | OpImm v ->
-    accumulateDisp v builder
-  | _ ->
-    Terminator.impossible ()
+  | OpReg reg -> accumulateReg reg builder
+  | OpImm v -> accumulateDisp v builder
+  | _ -> Terminator.impossible ()
 
 let rec oprToString (ins: Instruction) opr delim (builder: IDisasmBuilder) =
   accumulateStr delim builder
@@ -607,7 +607,8 @@ let inline buildOpcode (ins: Instruction) (builder: IDisasmBuilder) =
 
 let inline buildOprs (ins: Instruction) (builder: IDisasmBuilder) =
   match ins.Operands with
-  | NoOperand -> ()
+  | NoOperand ->
+    ()
   | OneOperand op1 ->
     oprToString ins op1 " " builder
   | TwoOperands(op1, op2) ->

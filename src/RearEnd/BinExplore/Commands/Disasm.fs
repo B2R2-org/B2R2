@@ -45,7 +45,8 @@ type Disasm() =
     with _ -> Error "[*] Invalid address is given."
 
   let rec disasmLoop acc bld (instrs: InstructionCollection) addr count =
-    if count <= 0 then List.rev acc |> List.toArray
+    if count <= 0 then
+      List.rev acc |> List.toArray
     else
       match instrs.TryFind addr with
       | Ok ins ->

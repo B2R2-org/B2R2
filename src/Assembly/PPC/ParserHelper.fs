@@ -113,10 +113,8 @@ let registers =
 /// </summary>
 let private nameOf (opcode: Opcode) =
   let name = string opcode
-  if name.EndsWith "dot" then
-    name[..name.Length - 4].ToLowerInvariant() + "."
-  else
-    name.ToLowerInvariant()
+  if name.EndsWith "dot" then name[..name.Length - 4].ToLowerInvariant() + "."
+  else name.ToLowerInvariant()
 
 /// Every mnemonic, paired with the opcode it names. Each opcode has exactly one
 /// name here, which is the one the disassembler writes it under.

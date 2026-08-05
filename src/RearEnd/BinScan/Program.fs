@@ -220,8 +220,10 @@ let private printAll opts hdl (file: IBinFile) =
   | :? MachBinFile as file ->
     dumpLoadCommands opts file
     dumpSharedLibs opts file
-  | :? WasmBinFile -> ()
-  | _ -> Terminator.futureFeature ()
+  | :? WasmBinFile ->
+    ()
+  | _ ->
+    Terminator.futureFeature ()
 
 let private printSelectively hdl opts file = function
   | DisplayAll -> Terminator.impossible ()

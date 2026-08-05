@@ -120,8 +120,10 @@ and private TaskWorker<'FnCtx,
     task {
       while doContinue do
         match! stream.Receive(token) with
-        | NotAvailable -> doContinue <- false
-        | AvailableButNotReceived -> ()
+        | NotAvailable ->
+          doContinue <- false
+        | AvailableButNotReceived ->
+          ()
         | Received(BuildCFG builder) ->
           builder.Context.ThreadID <- tid
           try

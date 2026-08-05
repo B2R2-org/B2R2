@@ -50,7 +50,8 @@ let private isMemorySizeExceptionOpcode = function
   | _ -> false
 
 let private checkMissingMemoryOperandSize (ins: AsmInsInfo) =
-  if isMemorySizeExceptionOpcode ins.Opcode then ()
+  if isMemorySizeExceptionOpcode ins.Opcode then
+    ()
   else
     match ins.Operands with
     | OneOperand(OprMem(_, _, _, 0<rt>))
@@ -61,7 +62,8 @@ let private checkMissingMemoryOperandSize (ins: AsmInsInfo) =
     | ThreeOperands(_, _, OprMem(_, _, _, 0<rt>))
     | FourOperands(_, _, OprMem(_, _, _, 0<rt>), _) ->
       raise <| EncodingFailureException "Memory operand size is required."
-    | _ -> ()
+    | _ ->
+      ()
 
 /// Rejects a memory operand addressed through 16-bit registers. That form
 /// needs the 16-bit ModRM layout, which this assembler does not emit; without
@@ -73,7 +75,8 @@ let private checkAddressingMode wordSz (ins: AsmInsInfo) =
     | OprMem(baseReg, scaledIdx, _, _) ->
       Option.exists isAddressable16 baseReg
       || Option.exists (fst >> isAddressable16) scaledIdx
-    | _ -> false
+    | _ ->
+      false
   if getOperandsAsList ins.Operands |> List.exists uses16BitAddress then
     raise <| EncodingFailureException "16-bit addressing is not supported"
   else
@@ -107,176 +110,346 @@ let encodeInstruction encoders ins wordSz =
   checkGroup1Prefix ins
   checkAddressingMode wordSz ins
   match ins.Opcode with
-  | Opcode.AAA -> aaa wordSz ins.Operands
-  | Opcode.AAD -> aad wordSz ins.Operands
-  | Opcode.AAM -> aam wordSz ins.Operands
-  | Opcode.AAS -> aas wordSz ins.Operands
-  | Opcode.ADC -> adc wordSz ins
-  | Opcode.ADD -> add wordSz ins
-  | Opcode.ADDPD -> addpd wordSz ins
-  | Opcode.ADDPS -> addps wordSz ins
-  | Opcode.ADDSD -> addsd wordSz ins
-  | Opcode.ADDSS -> addss wordSz ins
-  | Opcode.AND -> logAnd wordSz ins
-  | Opcode.ANDPD -> andpd wordSz ins
-  | Opcode.ANDPS -> andps wordSz ins
-  | Opcode.BSR -> bsr wordSz ins
-  | Opcode.BT -> bt wordSz ins
-  | Opcode.CALL -> call wordSz ins
-  | Opcode.CBW -> cbw wordSz ins.Operands
-  | Opcode.CDQ -> cdq wordSz ins.Operands
-  | Opcode.CDQE -> cdqe wordSz ins.Operands
-  | Opcode.CMOVA -> cmova wordSz ins
-  | Opcode.CMOVAE -> cmovae wordSz ins
-  | Opcode.CMOVB -> cmovb wordSz ins
-  | Opcode.CMOVBE -> cmovbe wordSz ins
-  | Opcode.CMOVG -> cmovg wordSz ins
-  | Opcode.CMOVGE -> cmovge wordSz ins
-  | Opcode.CMOVL -> cmovl wordSz ins
-  | Opcode.CMOVLE -> cmovle wordSz ins
-  | Opcode.CMOVNO -> cmovno wordSz ins
-  | Opcode.CMOVNP -> cmovnp wordSz ins
-  | Opcode.CMOVNS -> cmovns wordSz ins
-  | Opcode.CMOVNZ -> cmovnz wordSz ins
-  | Opcode.CMOVO -> cmovo wordSz ins
-  | Opcode.CMOVP -> cmovp wordSz ins
-  | Opcode.CMOVS -> cmovs wordSz ins
-  | Opcode.CMOVZ -> cmovz wordSz ins
-  | Opcode.CMP -> cmp wordSz ins
-  | Opcode.CMPSB -> cmpsb wordSz ins
-  | Opcode.CMPXCHG -> cmpxchg wordSz ins
-  | Opcode.CMPXCHG8B -> cmpxchg8b wordSz ins
-  | Opcode.CMPXCHG16B -> cmpxchg16b wordSz ins
-  | Opcode.CVTSD2SS -> cvtsd2ss wordSz ins
-  | Opcode.CVTSI2SD -> cvtsi2sd wordSz ins
-  | Opcode.CVTSI2SS -> cvtsi2ss wordSz ins
-  | Opcode.CVTSS2SI -> cvtss2si wordSz ins
-  | Opcode.CVTTSS2SI -> cvttss2si wordSz ins
-  | Opcode.CWDE -> cwde wordSz ins.Operands
-  | Opcode.DEC -> dec wordSz ins
-  | Opcode.DIV -> div wordSz ins
-  | Opcode.DIVSD -> divsd wordSz ins
-  | Opcode.DIVSS -> divss wordSz ins
-  | Opcode.FADD -> fadd wordSz ins
-  | Opcode.FCMOVB -> fcmovb wordSz ins
-  | Opcode.FDIV -> fdiv wordSz ins
-  | Opcode.FDIVP -> fdivp wordSz ins.Operands
-  | Opcode.FDIVRP -> fdivrp wordSz ins.Operands
-  | Opcode.FILD -> fild wordSz ins
-  | Opcode.FISTP -> fistp wordSz ins
-  | Opcode.FLD -> fld wordSz ins
-  | Opcode.FLD1 -> fld1 wordSz ins.Operands
-  | Opcode.FLDCW -> fldcw wordSz ins
-  | Opcode.FLDZ -> fldz wordSz ins.Operands
-  | Opcode.FMUL -> fmul wordSz ins
-  | Opcode.FMULP -> fmulp wordSz ins.Operands
-  | Opcode.FNSTCW -> fnstcw wordSz ins
-  | Opcode.FSTP -> fstp wordSz ins
-  | Opcode.FSUB -> fsub wordSz ins
-  | Opcode.FSUBR -> fsubr wordSz ins
-  | Opcode.FUCOMI -> fucomi wordSz ins.Operands
-  | Opcode.FUCOMIP -> fucomip wordSz ins.Operands
-  | Opcode.FXCH -> fxch wordSz ins.Operands
-  | Opcode.HLT -> hlt wordSz ins.Operands
-  | Opcode.IDIV -> idiv wordSz ins
-  | Opcode.IMUL -> imul wordSz ins
-  | Opcode.INC -> inc wordSz ins
-  | Opcode.INT -> interrupt ins
-  | Opcode.INT3 -> interrupt3 ()
-  | Opcode.JA -> jcc wordSz ins
-  | Opcode.JB -> jcc wordSz ins
-  | Opcode.JBE -> jcc wordSz ins
-  | Opcode.JG -> jcc wordSz ins
-  | Opcode.JL -> jcc wordSz ins
-  | Opcode.JLE -> jcc wordSz ins
-  | Opcode.JNB -> jcc wordSz ins
-  | Opcode.JNL -> jcc wordSz ins
-  | Opcode.JNO -> jcc wordSz ins
-  | Opcode.JNP -> jcc wordSz ins
-  | Opcode.JNS -> jcc wordSz ins
-  | Opcode.JNZ -> jcc wordSz ins
-  | Opcode.JO -> jcc wordSz ins
-  | Opcode.JP -> jcc wordSz ins
-  | Opcode.JS -> jcc wordSz ins
-  | Opcode.JZ -> jcc wordSz ins
-  | Opcode.JMP -> jmp wordSz ins
-  | Opcode.LAHF -> lahf ins.Operands
-  | Opcode.LEA -> lea wordSz ins
-  | Opcode.LEAVE -> leave ins.Operands
-  | Opcode.MOV -> mov wordSz ins
-  | Opcode.MOVAPS -> movaps wordSz ins
-  | Opcode.MOVD -> movd wordSz ins
-  | Opcode.MOVDQA -> movdqa wordSz ins
-  | Opcode.MOVDQU -> movdqu wordSz ins
-  | Opcode.MOVSD -> movsd wordSz ins
-  | Opcode.MOVSS -> movss wordSz ins
-  | Opcode.MOVSX -> movsx wordSz ins
-  | Opcode.MOVSXD -> movsxd wordSz ins
-  | Opcode.MOVUPS -> movups wordSz ins
-  | Opcode.MOVZX -> movzx wordSz ins
-  | Opcode.MUL -> mul wordSz ins
-  | Opcode.MULSD -> mulsd wordSz ins
-  | Opcode.MULSS -> mulss wordSz ins
-  | Opcode.NEG -> neg wordSz ins
-  | Opcode.NOP -> nop wordSz ins
-  | Opcode.NOT -> not wordSz ins
-  | Opcode.OR -> logOr wordSz ins
-  | Opcode.ORPD -> orpd wordSz ins
-  | Opcode.PADDD -> paddd wordSz ins
-  | Opcode.PALIGNR -> palignr wordSz ins
-  | Opcode.POP -> pop wordSz ins
-  | Opcode.PSHUFD -> pshufd wordSz ins
-  | Opcode.PUNPCKLDQ -> punpckldq wordSz ins
-  | Opcode.PUSH -> push wordSz ins
-  | Opcode.PXOR -> pxor wordSz ins
-  | Opcode.RCL -> rcl wordSz ins
-  | Opcode.RET -> ret wordSz ins
-  | Opcode.ROL -> rol wordSz ins
-  | Opcode.ROR -> ror wordSz ins
-  | Opcode.SAR -> sar wordSz ins
-  | Opcode.SAHF -> sahf ins.Operands
-  | Opcode.SBB -> sbb wordSz ins
-  | Opcode.SCASB -> scasb wordSz ins
-  | Opcode.SCASD -> scasd wordSz ins
-  | Opcode.SCASQ -> scasq wordSz ins
-  | Opcode.SCASW -> scasw wordSz ins
-  | Opcode.SETA -> seta wordSz ins
-  | Opcode.SETB -> setb wordSz ins
-  | Opcode.SETBE -> setbe wordSz ins
-  | Opcode.SETG -> setg wordSz ins
-  | Opcode.SETL -> setl wordSz ins
-  | Opcode.SETLE -> setle wordSz ins
-  | Opcode.SETNB -> setnb wordSz ins
-  | Opcode.SETNL -> setnl wordSz ins
-  | Opcode.SETNO -> setno wordSz ins
-  | Opcode.SETNP -> setnp wordSz ins
-  | Opcode.SETNS -> setns wordSz ins
-  | Opcode.SETNZ -> setnz wordSz ins
-  | Opcode.SETO -> seto wordSz ins
-  | Opcode.SETP -> setp wordSz ins
-  | Opcode.SETS -> sets wordSz ins
-  | Opcode.SETZ -> setz wordSz ins
-  | Opcode.SHL -> shl wordSz ins
-  | Opcode.SHLD -> shld wordSz ins
-  | Opcode.SHR -> shr wordSz ins
-  | Opcode.STOSB -> stosb wordSz ins
-  | Opcode.STOSD -> stosd wordSz ins
-  | Opcode.STOSQ -> stosq wordSz ins
-  | Opcode.STOSW -> stosw wordSz ins
-  | Opcode.SUB -> sub wordSz ins
-  | Opcode.SUBSD -> subsd wordSz ins
-  | Opcode.SUBSS -> subss wordSz ins
-  | Opcode.TEST -> test wordSz ins
-  | Opcode.UCOMISS -> ucomiss wordSz ins
-  | Opcode.VADDPD -> vaddpd wordSz ins
-  | Opcode.VADDPS -> vaddps wordSz ins
-  | Opcode.VADDSD -> vaddsd wordSz ins
-  | Opcode.VADDSS -> vaddss wordSz ins
-  | Opcode.VPALIGNR -> vpalignr wordSz ins
-  | Opcode.XCHG -> xchg wordSz ins
-  | Opcode.XOR -> xor wordSz ins
-  | Opcode.XORPS -> xorps wordSz ins
-  | Opcode.SYSCALL -> syscall ()
+  | Opcode.AAA ->
+    aaa wordSz ins.Operands
+  | Opcode.AAD ->
+    aad wordSz ins.Operands
+  | Opcode.AAM ->
+    aam wordSz ins.Operands
+  | Opcode.AAS ->
+    aas wordSz ins.Operands
+  | Opcode.ADC ->
+    adc wordSz ins
+  | Opcode.ADD ->
+    add wordSz ins
+  | Opcode.ADDPD ->
+    addpd wordSz ins
+  | Opcode.ADDPS ->
+    addps wordSz ins
+  | Opcode.ADDSD ->
+    addsd wordSz ins
+  | Opcode.ADDSS ->
+    addss wordSz ins
+  | Opcode.AND ->
+    logAnd wordSz ins
+  | Opcode.ANDPD ->
+    andpd wordSz ins
+  | Opcode.ANDPS ->
+    andps wordSz ins
+  | Opcode.BSR ->
+    bsr wordSz ins
+  | Opcode.BT ->
+    bt wordSz ins
+  | Opcode.CALL ->
+    call wordSz ins
+  | Opcode.CBW ->
+    cbw wordSz ins.Operands
+  | Opcode.CDQ ->
+    cdq wordSz ins.Operands
+  | Opcode.CDQE ->
+    cdqe wordSz ins.Operands
+  | Opcode.CMOVA ->
+    cmova wordSz ins
+  | Opcode.CMOVAE ->
+    cmovae wordSz ins
+  | Opcode.CMOVB ->
+    cmovb wordSz ins
+  | Opcode.CMOVBE ->
+    cmovbe wordSz ins
+  | Opcode.CMOVG ->
+    cmovg wordSz ins
+  | Opcode.CMOVGE ->
+    cmovge wordSz ins
+  | Opcode.CMOVL ->
+    cmovl wordSz ins
+  | Opcode.CMOVLE ->
+    cmovle wordSz ins
+  | Opcode.CMOVNO ->
+    cmovno wordSz ins
+  | Opcode.CMOVNP ->
+    cmovnp wordSz ins
+  | Opcode.CMOVNS ->
+    cmovns wordSz ins
+  | Opcode.CMOVNZ ->
+    cmovnz wordSz ins
+  | Opcode.CMOVO ->
+    cmovo wordSz ins
+  | Opcode.CMOVP ->
+    cmovp wordSz ins
+  | Opcode.CMOVS ->
+    cmovs wordSz ins
+  | Opcode.CMOVZ ->
+    cmovz wordSz ins
+  | Opcode.CMP ->
+    cmp wordSz ins
+  | Opcode.CMPSB ->
+    cmpsb wordSz ins
+  | Opcode.CMPXCHG ->
+    cmpxchg wordSz ins
+  | Opcode.CMPXCHG8B ->
+    cmpxchg8b wordSz ins
+  | Opcode.CMPXCHG16B ->
+    cmpxchg16b wordSz ins
+  | Opcode.CVTSD2SS ->
+    cvtsd2ss wordSz ins
+  | Opcode.CVTSI2SD ->
+    cvtsi2sd wordSz ins
+  | Opcode.CVTSI2SS ->
+    cvtsi2ss wordSz ins
+  | Opcode.CVTSS2SI ->
+    cvtss2si wordSz ins
+  | Opcode.CVTTSS2SI ->
+    cvttss2si wordSz ins
+  | Opcode.CWDE ->
+    cwde wordSz ins.Operands
+  | Opcode.DEC ->
+    dec wordSz ins
+  | Opcode.DIV ->
+    div wordSz ins
+  | Opcode.DIVSD ->
+    divsd wordSz ins
+  | Opcode.DIVSS ->
+    divss wordSz ins
+  | Opcode.FADD ->
+    fadd wordSz ins
+  | Opcode.FCMOVB ->
+    fcmovb wordSz ins
+  | Opcode.FDIV ->
+    fdiv wordSz ins
+  | Opcode.FDIVP ->
+    fdivp wordSz ins.Operands
+  | Opcode.FDIVRP ->
+    fdivrp wordSz ins.Operands
+  | Opcode.FILD ->
+    fild wordSz ins
+  | Opcode.FISTP ->
+    fistp wordSz ins
+  | Opcode.FLD ->
+    fld wordSz ins
+  | Opcode.FLD1 ->
+    fld1 wordSz ins.Operands
+  | Opcode.FLDCW ->
+    fldcw wordSz ins
+  | Opcode.FLDZ ->
+    fldz wordSz ins.Operands
+  | Opcode.FMUL ->
+    fmul wordSz ins
+  | Opcode.FMULP ->
+    fmulp wordSz ins.Operands
+  | Opcode.FNSTCW ->
+    fnstcw wordSz ins
+  | Opcode.FSTP ->
+    fstp wordSz ins
+  | Opcode.FSUB ->
+    fsub wordSz ins
+  | Opcode.FSUBR ->
+    fsubr wordSz ins
+  | Opcode.FUCOMI ->
+    fucomi wordSz ins.Operands
+  | Opcode.FUCOMIP ->
+    fucomip wordSz ins.Operands
+  | Opcode.FXCH ->
+    fxch wordSz ins.Operands
+  | Opcode.HLT ->
+    hlt wordSz ins.Operands
+  | Opcode.IDIV ->
+    idiv wordSz ins
+  | Opcode.IMUL ->
+    imul wordSz ins
+  | Opcode.INC ->
+    inc wordSz ins
+  | Opcode.INT ->
+    interrupt ins
+  | Opcode.INT3 ->
+    interrupt3 ()
+  | Opcode.JA ->
+    jcc wordSz ins
+  | Opcode.JB ->
+    jcc wordSz ins
+  | Opcode.JBE ->
+    jcc wordSz ins
+  | Opcode.JG ->
+    jcc wordSz ins
+  | Opcode.JL ->
+    jcc wordSz ins
+  | Opcode.JLE ->
+    jcc wordSz ins
+  | Opcode.JNB ->
+    jcc wordSz ins
+  | Opcode.JNL ->
+    jcc wordSz ins
+  | Opcode.JNO ->
+    jcc wordSz ins
+  | Opcode.JNP ->
+    jcc wordSz ins
+  | Opcode.JNS ->
+    jcc wordSz ins
+  | Opcode.JNZ ->
+    jcc wordSz ins
+  | Opcode.JO ->
+    jcc wordSz ins
+  | Opcode.JP ->
+    jcc wordSz ins
+  | Opcode.JS ->
+    jcc wordSz ins
+  | Opcode.JZ ->
+    jcc wordSz ins
+  | Opcode.JMP ->
+    jmp wordSz ins
+  | Opcode.LAHF ->
+    lahf ins.Operands
+  | Opcode.LEA ->
+    lea wordSz ins
+  | Opcode.LEAVE ->
+    leave ins.Operands
+  | Opcode.MOV ->
+    mov wordSz ins
+  | Opcode.MOVAPS ->
+    movaps wordSz ins
+  | Opcode.MOVD ->
+    movd wordSz ins
+  | Opcode.MOVDQA ->
+    movdqa wordSz ins
+  | Opcode.MOVDQU ->
+    movdqu wordSz ins
+  | Opcode.MOVSD ->
+    movsd wordSz ins
+  | Opcode.MOVSS ->
+    movss wordSz ins
+  | Opcode.MOVSX ->
+    movsx wordSz ins
+  | Opcode.MOVSXD ->
+    movsxd wordSz ins
+  | Opcode.MOVUPS ->
+    movups wordSz ins
+  | Opcode.MOVZX ->
+    movzx wordSz ins
+  | Opcode.MUL ->
+    mul wordSz ins
+  | Opcode.MULSD ->
+    mulsd wordSz ins
+  | Opcode.MULSS ->
+    mulss wordSz ins
+  | Opcode.NEG ->
+    neg wordSz ins
+  | Opcode.NOP ->
+    nop wordSz ins
+  | Opcode.NOT ->
+    not wordSz ins
+  | Opcode.OR ->
+    logOr wordSz ins
+  | Opcode.ORPD ->
+    orpd wordSz ins
+  | Opcode.PADDD ->
+    paddd wordSz ins
+  | Opcode.PALIGNR ->
+    palignr wordSz ins
+  | Opcode.POP ->
+    pop wordSz ins
+  | Opcode.PSHUFD ->
+    pshufd wordSz ins
+  | Opcode.PUNPCKLDQ ->
+    punpckldq wordSz ins
+  | Opcode.PUSH ->
+    push wordSz ins
+  | Opcode.PXOR ->
+    pxor wordSz ins
+  | Opcode.RCL ->
+    rcl wordSz ins
+  | Opcode.RET ->
+    ret wordSz ins
+  | Opcode.ROL ->
+    rol wordSz ins
+  | Opcode.ROR ->
+    ror wordSz ins
+  | Opcode.SAR ->
+    sar wordSz ins
+  | Opcode.SAHF ->
+    sahf ins.Operands
+  | Opcode.SBB ->
+    sbb wordSz ins
+  | Opcode.SCASB ->
+    scasb wordSz ins
+  | Opcode.SCASD ->
+    scasd wordSz ins
+  | Opcode.SCASQ ->
+    scasq wordSz ins
+  | Opcode.SCASW ->
+    scasw wordSz ins
+  | Opcode.SETA ->
+    seta wordSz ins
+  | Opcode.SETB ->
+    setb wordSz ins
+  | Opcode.SETBE ->
+    setbe wordSz ins
+  | Opcode.SETG ->
+    setg wordSz ins
+  | Opcode.SETL ->
+    setl wordSz ins
+  | Opcode.SETLE ->
+    setle wordSz ins
+  | Opcode.SETNB ->
+    setnb wordSz ins
+  | Opcode.SETNL ->
+    setnl wordSz ins
+  | Opcode.SETNO ->
+    setno wordSz ins
+  | Opcode.SETNP ->
+    setnp wordSz ins
+  | Opcode.SETNS ->
+    setns wordSz ins
+  | Opcode.SETNZ ->
+    setnz wordSz ins
+  | Opcode.SETO ->
+    seto wordSz ins
+  | Opcode.SETP ->
+    setp wordSz ins
+  | Opcode.SETS ->
+    sets wordSz ins
+  | Opcode.SETZ ->
+    setz wordSz ins
+  | Opcode.SHL ->
+    shl wordSz ins
+  | Opcode.SHLD ->
+    shld wordSz ins
+  | Opcode.SHR ->
+    shr wordSz ins
+  | Opcode.STOSB ->
+    stosb wordSz ins
+  | Opcode.STOSD ->
+    stosd wordSz ins
+  | Opcode.STOSQ ->
+    stosq wordSz ins
+  | Opcode.STOSW ->
+    stosw wordSz ins
+  | Opcode.SUB ->
+    sub wordSz ins
+  | Opcode.SUBSD ->
+    subsd wordSz ins
+  | Opcode.SUBSS ->
+    subss wordSz ins
+  | Opcode.TEST ->
+    test wordSz ins
+  | Opcode.UCOMISS ->
+    ucomiss wordSz ins
+  | Opcode.VADDPD ->
+    vaddpd wordSz ins
+  | Opcode.VADDPS ->
+    vaddps wordSz ins
+  | Opcode.VADDSD ->
+    vaddsd wordSz ins
+  | Opcode.VADDSS ->
+    vaddss wordSz ins
+  | Opcode.VPALIGNR ->
+    vpalignr wordSz ins
+  | Opcode.XCHG ->
+    xchg wordSz ins
+  | Opcode.XOR ->
+    xor wordSz ins
+  | Opcode.XORPS ->
+    xorps wordSz ins
+  | Opcode.SYSCALL ->
+    syscall ()
   | op ->
     match Map.tryFind op encoders with
     | Some encode -> encode wordSz ins
@@ -320,7 +493,8 @@ let getOpByteOfIncomp relSz op =
   let form = if relSz = 8<rt> then branch.ShortForm else branch.NearForm
   if Array.isEmpty form then
     raise <| EncodingFailureException $"{op} has no relative form to encode"
-  else form
+  else
+    form
 
 let computeDistance myIdx labelIdx maxLenArr =
   let sIdx, count, sign =
@@ -339,7 +513,8 @@ let computeAddr idx realLenArr =
 /// opcode bytes. Everything else is already as resolved as it is going to get.
 let decideOp parserState maxLenArr myIdx encoded =
   match encoded with
-  | Resolved _ | PendingFixup _ -> encoded
+  | Resolved _ | PendingFixup _ ->
+    encoded
   | PendingBranch(op, lbl) ->
     let labelIdx = findLabelIndex parserState lbl
     let width = computeDistance myIdx labelIdx maxLenArr |> computeFitType
@@ -370,8 +545,10 @@ let concretizeLabel sz (offset: int64) =
 
 let finalize wordSz parserState realLenArr baseAddr myIdx encoded =
   match encoded with
-  | Resolved bytes -> bytes
-  | PendingBranch _ -> Terminator.impossible () (* decideOp settled these *)
+  | Resolved bytes ->
+    bytes
+  | PendingBranch _ ->
+    Terminator.impossible () (* decideOp settled these *)
   | PendingFixup fixup ->
     let labelIdx = findLabelIndex parserState fixup.Label
     let displacement =

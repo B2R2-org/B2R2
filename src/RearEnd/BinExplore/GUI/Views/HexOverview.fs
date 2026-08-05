@@ -40,7 +40,8 @@ let private brushOfColor =
   let cache = Dictionary<string, IBrush>()
   fun color ->
     match cache.TryGetValue color with
-    | true, brush -> brush
+    | true, brush ->
+      brush
     | _ ->
       let brush = Brush.Parse color
       cache[color] <- brush
@@ -342,10 +343,8 @@ type private HexOverviewLayer() =
       if change.Property = stateProperty then
         match this.CurrentState with
         | Some state ->
-          if not (isStaticCacheReusable state) then
-            clearStaticCache ()
-          else
-            ()
+          if not (isStaticCacheReusable state) then clearStaticCache ()
+          else ()
         | None ->
           clearStaticCache ()
       else

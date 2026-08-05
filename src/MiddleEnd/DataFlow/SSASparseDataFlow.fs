@@ -109,7 +109,8 @@ type State<'Lattice when 'Lattice: equality>
     if not (regValues.ContainsKey var) then
       regValues[var] <- value
       ssaWorkList.Enqueue var
-    elif lattice.Subsume(regValues[var], value) then ()
+    elif lattice.Subsume(regValues[var], value) then
+      ()
     else
       regValues[var] <- lattice.Join(regValues[var], value)
       ssaWorkList.Enqueue var
@@ -122,7 +123,8 @@ type State<'Lattice when 'Lattice: equality>
       | true, map -> Map.tryFind addr map
       | false, _ -> None
       |> Option.defaultWith (fun () -> scheme.UpdateMemFromBinaryFile(rt, addr))
-    else lattice.Bottom
+    else
+      lattice.Bottom
 
   /// Gets the list of executed source vertices.
   member _.GetExecutedSources(ssaCFG, blk: IVertex<_>, srcIDs) =
@@ -151,7 +153,8 @@ type State<'Lattice when 'Lattice: equality>
   interface IAbsValProvider<SSAVarPoint, 'Lattice> with
     member this.GetAbsValue ssaVarPoint =
       match ssaVarPoint with
-      | RegularSSAVar v -> this.GetRegValue v
+      | RegularSSAVar v ->
+        this.GetRegValue v
       | MemorySSAVar(id, addr) ->
         match memValues.TryGetValue id with
         | true, map -> Map.find addr map
@@ -188,7 +191,8 @@ and private SSAMemID = int
 
 let processFlow (state: State<_>) ssaCFG =
   match state.FlowWorkList.TryDequeue() with
-  | false, _ -> ()
+  | false, _ ->
+    ()
   | true, (parentId, myId) ->
     state.ExecutedEdges.Add(parentId, myId) |> ignore
     let blk = (ssaCFG :> IDiGraph<SSABasicBlock, _>).FindVertexByID myId
@@ -196,24 +200,28 @@ let processFlow (state: State<_>) ssaCFG =
     |> Array.iter (fun (_, stmt) ->
       state.Scheme.Transfer(stmt, ssaCFG, blk))
     match blk.VData.Internals.LastStmt with
-    | Jmp _ -> ()
+    | Jmp _ ->
+      ()
     | _ -> (* Fall-through cases. *)
       ssaCFG.GetSuccs blk
       |> Seq.iter (fun succ -> state.MarkExecutable(myId, succ.ID))
 
 let processSSA (state: State<_>) ssaCFG =
   match state.SSAWorkList.TryDequeue() with
-  | false, _ -> ()
+  | false, _ ->
+    ()
   | true, def ->
     match state.SSAEdges.Uses.TryGetValue def with
-    | false, _ -> ()
+    | false, _ ->
+      ()
     | _, uses ->
       for (vid, idx) in uses do
         let v = (ssaCFG :> IDiGraph<SSABasicBlock, _>).FindVertexByID vid
         if state.GetNumIncomingExecutedEdges(ssaCFG, v) > 0 then
           let _, stmt = v.VData.Internals.Statements[idx]
           state.Scheme.Transfer(stmt, ssaCFG, v)
-        else ()
+        else
+          ()
 
 let compute cfg (state: State<_>) =
   state.SSAEdges <- SSAEdges cfg

@@ -184,7 +184,8 @@ open type RegGrp
 let inline private findReg sz rex bitmask (n: int) =
   let r = int (grpEAX sz) + n
   let r =
-    if rex = REXPrefix.NOREX then r
+    if rex = REXPrefix.NOREX then
+      r
     else
       if (int rex &&& bitmask) > 0 then r + 8
       elif sz > 8<rt> || ((n &&& 4) = 0) then r
@@ -208,7 +209,8 @@ let findRegRBits sz rex (n: int): Register = findReg sz rex 4 n
 let findRegNoREX sz rex (n: int): Register =
   let r = int (grpEAX sz) + n
   let r =
-    if rex = REXPrefix.NOREX then r
+    if rex = REXPrefix.NOREX then
+      r
     else
       if sz > 8<rt> || ((n &&& 4) = 0) then r
       else r + 12
@@ -248,20 +250,32 @@ let uncompressedDisp (phlp: ParsingHelper) disp =
   (* Table 2-34. Compressed Displacement (DISP8*N) Affected by Embedded
      Broadcast. *)
   | TupleType.Full, false, 32<rt>, false
-  | TupleType.Full, false, 64<rt>, true -> disp * (int64 vl / 8L), memSz
-  | TupleType.Full, true, 32<rt>, false -> disp * 4L, inputSz
-  | TupleType.Full, true, 64<rt>, true -> disp * 8L, inputSz
-  | TupleType.Half, false, 32<rt>, false -> disp * (int64 vl / 16L), memSz
-  | TupleType.Half, true, 32<rt>, false -> disp * 4L, inputSz
+  | TupleType.Full, false, 64<rt>, true ->
+    disp * (int64 vl / 8L), memSz
+  | TupleType.Full, true, 32<rt>, false ->
+    disp * 4L, inputSz
+  | TupleType.Full, true, 64<rt>, true ->
+    disp * 8L, inputSz
+  | TupleType.Half, false, 32<rt>, false ->
+    disp * (int64 vl / 16L), memSz
+  | TupleType.Half, true, 32<rt>, false ->
+    disp * 4L, inputSz
   (* Table 2-35. EVEX DISP8*N for Instructions Not Affected by Embedded
      Broadcast. *)
-  | TupleType.FullMem, false, _, _ -> disp * (int64 vl / 8L), memSz
-  | TupleType.Tuple1Scalar, false, 8<rt>, _ -> disp, memSz
-  | TupleType.Tuple1Scalar, false, 16<rt>, _ -> disp * 2L, memSz
-  | TupleType.Tuple1Scalar, false, 32<rt>, false -> disp * 4L, memSz
-  | TupleType.Tuple1Scalar, false, 64<rt>, true -> disp * 8L, memSz
-  | TupleType.Tuple1Fixed, false, _, _ -> disp * (int64 memSz / 8L), memSz
-  | TupleType.Tuple2, false, 32<rt>, false -> disp * 8L, memSz
+  | TupleType.FullMem, false, _, _ ->
+    disp * (int64 vl / 8L), memSz
+  | TupleType.Tuple1Scalar, false, 8<rt>, _ ->
+    disp, memSz
+  | TupleType.Tuple1Scalar, false, 16<rt>, _ ->
+    disp * 2L, memSz
+  | TupleType.Tuple1Scalar, false, 32<rt>, false ->
+    disp * 4L, memSz
+  | TupleType.Tuple1Scalar, false, 64<rt>, true ->
+    disp * 8L, memSz
+  | TupleType.Tuple1Fixed, false, _, _ ->
+    disp * (int64 memSz / 8L), memSz
+  | TupleType.Tuple2, false, 32<rt>, false ->
+    disp * 8L, memSz
   | TupleType.Tuple2, false, 64<rt>, true when vl <> 128<rt> ->
     disp * 16L, memSz
   | TupleType.Tuple4, false, 32<rt>, false when vl <> 128<rt> ->
@@ -270,14 +284,22 @@ let uncompressedDisp (phlp: ParsingHelper) disp =
     disp * 32L, memSz
   | TupleType.Tuple8, false, 32<rt>, false when vl = 512<rt> ->
     disp * 32L, memSz
-  | TupleType.HalfMem, false, _, _ -> disp * (int64 vl / 16L), memSz
-  | TupleType.QuarterMem, false, _, _ -> disp * (int64 vl / 32L), memSz
-  | TupleType.EighthMem, false, _, _ -> disp * (int64 vl / 64L), memSz
-  | TupleType.Mem128, false, _, _ -> disp * 16L, memSz
-  | TupleType.MOVDDUP, false, _, _ when vl = 128<rt> -> disp * 8L, memSz
-  | TupleType.MOVDDUP, false, _, _ -> disp * (int64 vl / 8L), memSz
-  | TupleType.Tuple1_4X, false, _, _ -> disp * 16L, memSz
-  | _ (* TupleType.NA *) -> disp, memSz
+  | TupleType.HalfMem, false, _, _ ->
+    disp * (int64 vl / 16L), memSz
+  | TupleType.QuarterMem, false, _, _ ->
+    disp * (int64 vl / 32L), memSz
+  | TupleType.EighthMem, false, _, _ ->
+    disp * (int64 vl / 64L), memSz
+  | TupleType.Mem128, false, _, _ ->
+    disp * 16L, memSz
+  | TupleType.MOVDDUP, false, _, _ when vl = 128<rt> ->
+    disp * 8L, memSz
+  | TupleType.MOVDDUP, false, _, _ ->
+    disp * (int64 vl / 8L), memSz
+  | TupleType.Tuple1_4X, false, _, _ ->
+    disp * 16L, memSz
+  | _ (* TupleType.NA *) ->
+    disp, memSz
 
 let inline private isEVEX (phlp: ParsingHelper) =
   match phlp.VEXInfo with
@@ -292,7 +314,8 @@ let parseOprMem span (phlp: ParsingHelper) b s dispSz =
   if isEVEX phlp then
     let isBcst = phlp.VEXInfo.Value.EVEXPrx.Value.B = 1uy
     match dispSz, isBcst with
-    | 0, false -> OprMem(b, s, None, memSz)
+    | 0, false ->
+      OprMem(b, s, None, memSz)
     | 0, true ->
       let w = phlp.REXPrefix &&& REXPrefix.REXW = REXPrefix.REXW
       let memSz = if w then 64<rt> else 32<rt>
@@ -311,7 +334,8 @@ let parseOprMem span (phlp: ParsingHelper) b s dispSz =
       OprMem(b, s, Some disp, memSz)
   else
     match dispSz with
-    | 0 -> OprMem(b, s, None, memSz)
+    | 0 ->
+      OprMem(b, s, None, memSz)
     | _ ->
       let disp = parseSignedImm span phlp dispSz
       OprMem(b, s, Some disp, memSz)
@@ -372,7 +396,8 @@ let inline hasREXX rexPref = rexPref &&& REXPrefix.REXX = REXPrefix.REXX
 let getScaledIndex s i (phlp: ParsingHelper) =
   let rexPref = phlp.REXPrefix
   (* Handling a special case with REXX and SIB index = 0b100 (ESP) *)
-  if i = 0b100 && (not <| hasREXX rexPref) then None
+  if i = 0b100 && (not <| hasREXX rexPref) then
+    None
   else
     let r = findRegSIBIdx phlp.MemEffAddrSize rexPref i
     Some(r, LanguagePrimitives.EnumOfValue<int, Scale>(1 <<< s))
@@ -402,7 +427,8 @@ let sibWithDisp span (phlp: ParsingHelper) b s dispSz memSz =
   if isEVEX phlp then
     let isBcst = phlp.VEXInfo.Value.EVEXPrx.Value.B = 1uy
     match dispSz, isBcst with
-    | 0, false -> OprMem(b, s, None, memSz)
+    | 0, false ->
+      OprMem(b, s, None, memSz)
     | 0, true ->
       let w = phlp.REXPrefix &&& REXPrefix.REXW = REXPrefix.REXW
       let memSz = if w then 64<rt> else 32<rt>
@@ -421,7 +447,8 @@ let sibWithDisp span (phlp: ParsingHelper) b s dispSz memSz =
       OprMem(b, s, Some disp, memSz)
   else
     match dispSz with
-    | 0 -> OprMem(b, s, None, memSz)
+    | 0 ->
+      OprMem(b, s, None, memSz)
     | _ ->
       let disp = parseSignedImm span phlp dispSz
       OprMem(b, s, Some disp, memSz)
@@ -429,13 +456,16 @@ let sibWithDisp span (phlp: ParsingHelper) b s dispSz memSz =
 let parseOprMemWithSIB span phlp modVal dispSz =
   let struct (si, b, bgrp) = parseSIB span phlp modVal
   let oprSize = phlp.MemEffOprSize
-  if dispSz > 0 then sibWithDisp span phlp b si dispSz oprSize
+  if dispSz > 0 then
+    sibWithDisp span phlp b si dispSz oprSize
   else
     let dispSz =
       if (modVal = 0b00000000uy || modVal = 0b10000000uy)
         && bgrp = int RegGrp.RG5 then 4
-      elif modVal = 0b01000000uy && bgrp = int RegGrp.RG5 then 1
-      else 0
+      elif modVal = 0b01000000uy && bgrp = int RegGrp.RG5 then
+        1
+      else
+        0
     sibWithDisp span phlp b si dispSz oprSize
 
 /// RIP-relative addressing (see Section 2.2.1.6. of Vol. 2A).
@@ -443,8 +473,10 @@ let parseOprRIPRelativeMem span (phlp: ParsingHelper) disp =
   if phlp.WordSize = WordSize.Bit64 then
     if Prefix.hasAddrSz phlp.Prefixes then
       parseOprMem span phlp (Some R.EIP) None disp
-    else parseOprMem span phlp (Some R.RIP) None disp
-  else parseOprMem span phlp None None disp
+    else
+      parseOprMem span phlp (Some R.RIP) None disp
+  else
+    parseOprMem span phlp None None disp
 
 /// The first 24 rows of Table 2-2. of the manual Vol. 2A. The index of this
 /// tbl is a number that is a concatenation of (mod) and (r/m) field of the
@@ -492,11 +524,13 @@ let parseMemOrReg modRM span (phlp: ParsingHelper) =
   if modRM &&& 0b11000000uy = 0b11000000uy then
     findRegRmAndSIBBase phlp.MemEffRegSize phlp.REXPrefix
       (Operands.getRM modRM) |> OprReg
-  else parseMemory modRM span phlp
+  else
+    parseMemory modRM span phlp
 
 let parseVVVVReg (phlp: ParsingHelper) =
   match phlp.VEXInfo with
-  | None -> raise ParsingFailureException
+  | None ->
+    raise ParsingFailureException
   | Some vInfo when vInfo.VectorLength = 512<rt> ->
     RegisterHelper.zmm (int vInfo.VVVV) |> OprReg
   | Some vInfo when vInfo.VectorLength = 256<rt> ->
@@ -507,7 +541,8 @@ let parseVVVVReg (phlp: ParsingHelper) =
 /// FIXME
 let parseVVVVRegRC isReg (phlp: ParsingHelper) =
   match phlp.VEXInfo with
-  | None -> raise ParsingFailureException
+  | None ->
+    raise ParsingFailureException
   | Some vInfo ->
     match vInfo.EVEXPrx with
     | Some evex when evex.B = 1uy && isReg ->
@@ -521,7 +556,8 @@ let parseVVVVRegRC isReg (phlp: ParsingHelper) =
 
 let parseVEXtoGPR (phlp: ParsingHelper) =
   match phlp.VEXInfo with
-  | None -> raise ParsingFailureException
+  | None ->
+    raise ParsingFailureException
   | Some vInfo ->
     let grp = (int vInfo.VVVV) &&& 0b1111
     int (grpEAX phlp.RegSize) + grp
@@ -615,7 +651,8 @@ type GprCtrl() =
   inherit OperandParser()
   override _.Render(span, phlp) =
     let modRM = phlp.ReadByte span
-    if Operands.modIsMemory modRM then raise ParsingFailureException
+    if Operands.modIsMemory modRM then
+      raise ParsingFailureException
     else
       let opr1 = parseMemOrReg modRM span phlp
       let opr2 = parseControlReg (sysRegIndex modRM phlp.REXPrefix)
@@ -625,7 +662,8 @@ type GprDbg() =
   inherit OperandParser()
   override _.Render(span, phlp) =
     let modRM = phlp.ReadByte span
-    if Operands.modIsMemory modRM then raise ParsingFailureException
+    if Operands.modIsMemory modRM then
+      raise ParsingFailureException
     else
       let opr1 = parseMemOrReg modRM span phlp
       let opr2 = parseDebugReg (sysRegIndex modRM phlp.REXPrefix)
@@ -686,7 +724,8 @@ type GprM() =
         |> OprReg
       let opr2 = parseMemory modRM span phlp
       TwoOperands(opr1, opr2)
-    else raise ParsingFailureException
+    else
+      raise ParsingFailureException
 
 type MGpr() =
   inherit OperandParser()
@@ -698,7 +737,8 @@ type MGpr() =
         findRegRBits phlp.RegSize phlp.REXPrefix (Operands.getReg modRM)
         |> OprReg
       TwoOperands(opr1, opr2)
-    else raise ParsingFailureException
+    else
+      raise ParsingFailureException
 
 type SegRm() =
   inherit OperandParser()
@@ -730,7 +770,8 @@ type CtrlGpr() =
   inherit OperandParser()
   override _.Render(span, phlp) =
     let modRM = phlp.ReadByte span
-    if Operands.modIsMemory modRM then raise ParsingFailureException
+    if Operands.modIsMemory modRM then
+      raise ParsingFailureException
     else
       let opr1 = parseControlReg (sysRegIndex modRM phlp.REXPrefix)
       let opr2 = parseMemOrReg modRM span phlp
@@ -740,7 +781,8 @@ type DbgGpr() =
   inherit OperandParser()
   override _.Render(span, phlp) =
     let modRM = phlp.ReadByte span
-    if Operands.modIsMemory modRM then raise ParsingFailureException
+    if Operands.modIsMemory modRM then
+      raise ParsingFailureException
     else
       let opr1 = parseDebugReg (sysRegIndex modRM phlp.REXPrefix)
       let opr2 = parseMemOrReg modRM span phlp

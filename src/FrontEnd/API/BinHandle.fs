@@ -71,10 +71,14 @@ type BinHandle private(path, bytes, fmt, isa, baseAddrOpt, osOpt) =
 
   let readIntBySize size (span: ByteSpan) =
     match size with
-    | 1 -> reader.ReadInt8(span, 0) |> int64
-    | 2 -> reader.ReadInt16(span, 0) |> int64
-    | 4 -> reader.ReadInt32(span, 0) |> int64
-    | 8 -> reader.ReadInt64(span, 0)
+    | 1 ->
+      reader.ReadInt8(span, 0) |> int64
+    | 2 ->
+      reader.ReadInt16(span, 0) |> int64
+    | 4 ->
+      reader.ReadInt32(span, 0) |> int64
+    | 8 ->
+      reader.ReadInt64(span, 0)
     | _ ->
       invalidArg (nameof size) (ErrorCase.toMessage ErrorCase.InvalidMemoryRead)
 
@@ -88,10 +92,14 @@ type BinHandle private(path, bytes, fmt, isa, baseAddrOpt, osOpt) =
 
   let readUIntBySize size (span: ByteSpan) =
     match size with
-    | 1 -> reader.ReadUInt8(span, 0) |> uint64
-    | 2 -> reader.ReadUInt16(span, 0) |> uint64
-    | 4 -> reader.ReadUInt32(span, 0) |> uint64
-    | 8 -> reader.ReadUInt64(span, 0)
+    | 1 ->
+      reader.ReadUInt8(span, 0) |> uint64
+    | 2 ->
+      reader.ReadUInt16(span, 0) |> uint64
+    | 4 ->
+      reader.ReadUInt32(span, 0) |> uint64
+    | 8 ->
+      reader.ReadUInt64(span, 0)
     | _ ->
       invalidArg (nameof size) (ErrorCase.toMessage ErrorCase.InvalidMemoryRead)
 

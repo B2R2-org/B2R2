@@ -37,7 +37,8 @@ module private Localizer =
         breakByMark (left :: acc) right 1
       | _ ->
         breakByMark acc stmts (idx + 1)
-    else List.rev (stmts :: acc) |> List.toArray
+    else
+      List.rev (stmts :: acc) |> List.toArray
 
   let breakIntoBlocks (stmts: Stmt[]) =
     if Array.isEmpty stmts then [| stmts |]
@@ -51,8 +52,7 @@ type LocalOptimizer =
     let secondLast = stmts[stmts.Length - 2]
     match secondLast, last with
     | InterJmp _, IEMark _
-    | InterCJmp _, IEMark _ ->
-      Array.sub stmts 0 (stmts.Length - 1)
+    | InterCJmp _, IEMark _ -> Array.sub stmts 0 (stmts.Length - 1)
     | _ -> stmts
 
   /// Run optimization on a flattened IR statements (an array of IR statements).

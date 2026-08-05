@@ -130,7 +130,8 @@ let rec parse (bytes: byte[]) (reader: IBinReader) refs offset =
   | MarshalledType.TYPE_INT ->
     let i, offset = readInt bytes reader offset 4
     PyInt i, appendRefs flag refs (i.ToString()), offset
-  | MarshalledType.TYPE_NONE -> PyNone, refs, offset
+  | MarshalledType.TYPE_NONE ->
+    PyNone, refs, offset
   | MarshalledType.TYPE_SMALL_TUPLE ->
     let size, offset = readInt bytes reader offset 1
     let str =
@@ -146,7 +147,8 @@ let rec parse (bytes: byte[]) (reader: IBinReader) refs offset =
           loop (contents :: acc) refs offset
       let tuples, refs, offset = loop [] refs offset
       PyTuple(tuples |> List.toArray |> Array.rev), refs, offset
-    else PyTuple [||], refs, offset
+    else
+      PyTuple [||], refs, offset
   | MarshalledType.TYPE_ASCII ->
     let n, offset = readInt bytes reader offset 4
     let str = Array.sub bytes offset n |> System.Text.Encoding.ASCII.GetString
@@ -159,8 +161,10 @@ let rec parse (bytes: byte[]) (reader: IBinReader) refs offset =
   | MarshalledType.TYPE_REF ->
     let n, offset = readInt bytes reader offset 4
     PyREF(n, refs[n]), refs, offset
-  | MarshalledType.TYPE_FALSE -> PyFalse, appendRefs flag refs "PyFalse", offset
-  | _ -> printf "%A " pyType; failwith "Invalid parse"
+  | MarshalledType.TYPE_FALSE ->
+    PyFalse, appendRefs flag refs "PyFalse", offset
+  | _ ->
+    printf "%A " pyType; failwith "Invalid parse"
 
 let private getCodeLen = function
   | PyString bytes -> Array.length bytes |> uint64

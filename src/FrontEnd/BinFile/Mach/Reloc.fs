@@ -135,4 +135,5 @@ module internal Reloc =
       match reloc.RelocSymbol with
       | SymIndex n -> int64 symbols[n].SymAddr + addend |> uint64 |> Ok
       | SecOrdinal _ -> uint64 addend |> Ok
-    | None -> Error ErrorCase.ItemNotFound
+    | None ->
+      Error ErrorCase.ItemNotFound

@@ -50,8 +50,10 @@ type Instruction
       | Op.POP_JUMP_BACKWARD_IF_NONE | Op.POP_JUMP_BACKWARD_IF_NOT_NONE ->
         ftAddr - 2UL * n
       | Op.JUMP_ABSOLUTE
-      | Op.JUMP_IF_TRUE_OR_POP | Op.JUMP_IF_FALSE_OR_POP -> 2UL * n
-      | _ -> failwith "Invalid opcode for branch target computation"
+      | Op.JUMP_IF_TRUE_OR_POP | Op.JUMP_IF_FALSE_OR_POP ->
+        2UL * n
+      | _ ->
+        failwith "Invalid opcode for branch target computation"
     elif minor >= 12 then (* Word-offset, relative *)
       match op with
       | Op.JUMP_FORWARD
@@ -93,7 +95,8 @@ type Instruction
       match opr with
       | OneOperand(idx, _) -> (idx &&& 1) = 1
       | _ -> false
-    | _ -> false
+    | _ ->
+      false
 
   interface IInstruction with
 
@@ -196,10 +199,8 @@ type Instruction
             | OneOperand(n, _) -> n
             | _ -> failwith "Python instruction can have at most one operand."
           |> computeBranchTargetAddr ft
-        if (this :> IInstruction).IsCondBranch then
-          [| target; ft |]
-        else
-          [| target |]
+        if (this :> IInstruction).IsCondBranch then [| target; ft |]
+        else [| target |]
       else
         [| ft |]
 

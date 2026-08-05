@@ -85,13 +85,12 @@ let tryGetInternalFuncAddr (reloc: RelocationEntry) =
         else Error ErrorCase.SymbolNotFound
       | _ ->
         Error ErrorCase.SymbolNotFound
-    else Error ErrorCase.SymbolNotFound
+    else
+      Error ErrorCase.SymbolNotFound
   | None ->
     match reloc.RelKind with
-    | RelocationKindX64 RelocationX64.R_X86_64_IRELATIVE ->
-      Ok reloc.RelAddend
-    | _ ->
-      Error ErrorCase.SymbolNotFound
+    | RelocationKindX64 RelocationX64.R_X86_64_IRELATIVE -> Ok reloc.RelAddend
+    | _ -> Error ErrorCase.SymbolNotFound
 
 let getFuncAddrsFromLibcArr span toolBox relocInfo section =
   let readType = toolBox.Header.Class
@@ -106,7 +105,8 @@ let getFuncAddrsFromLibcArr span toolBox relocInfo section =
         match getRelocatedAddr relocInfo (addr + uint64 ofs) with
         | Ok relocatedAddr -> lst.Add relocatedAddr
         | Error _ -> ()
-      else lst.Add fnAddr)
+      else
+        lst.Add fnAddr)
   lst.ToArray()
 
 let getAddrsFromInitArray toolBox shdrs relocInfo =
@@ -114,14 +114,16 @@ let getAddrsFromInitArray toolBox shdrs relocInfo =
   | Some s ->
     let span = ReadOnlySpan(toolBox.Bytes, int s.SecOffset, int s.SecSize)
     getFuncAddrsFromLibcArr span toolBox relocInfo s
-  | None -> [||]
+  | None ->
+    [||]
 
 let getAddrsFromFiniArray toolBox shdrs relocInfo =
   match Array.tryFind (fun s -> s.SecName = Section.FiniArray) shdrs with
   | Some s ->
     let span = ReadOnlySpan(toolBox.Bytes, int s.SecOffset, int s.SecSize)
     getFuncAddrsFromLibcArr span toolBox relocInfo s
-  | None -> [||]
+  | None ->
+    [||]
 
 let getAddrsFromSpecialSections shdrs =
   [| Section.Init; Section.Fini |]
@@ -164,7 +166,8 @@ let private computeExecutableRangesFromSections shdrs =
       let addr = sec.SecAddr + offset
       let range = AddrRange.create addr (addr + sec.SecSize - 1UL)
       IntervalSet.add range set
-    else set
+    else
+      set
   ) IntervalSet.empty
 
 let private addIntervalWithoutSection secS secE s e set =
@@ -185,7 +188,8 @@ let private addIntervalWithoutROSection rodata seg set =
   let segE = segS + seg.PHMemSize - 1UL
   if roE < segS || segE < roS then
     IntervalSet.add (AddrRange.create segS segE) set
-  else addIntervalWithoutSection roS roE segS segE set
+  else
+    addIntervalWithoutSection roS roE segS segE set
 
 let private addExecutableInterval excludingSection s set =
   match excludingSection with

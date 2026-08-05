@@ -96,7 +96,8 @@ type ARM32RoundTripTests() =
   /// text stands in for the word a probe was decoded from.
   static let sourceRoundTrip (source: string) =
     match (try encodeFirst source with _ -> None) with
-    | None -> ARM32Unsupported
+    | None ->
+      ARM32Unsupported
     | Some encoded ->
       let actual = try disasm encoded with _ -> "<undecodable>"
       if actual = source then ARM32Preserved else ARM32Altered actual
@@ -108,7 +109,8 @@ type ARM32RoundTripTests() =
 
   static let thumbRoundTrip (source: string) =
     match (try thumbAssembler.Lower source with _ -> Error "raised") with
-    | Error _ | Ok [] -> ARM32Unsupported
+    | Error _ | Ok [] ->
+      ARM32Unsupported
     | Ok((_, bytes) :: _) ->
       let actual = try thumbDisasm 0UL bytes with _ -> "<undecodable>"
       if actual = source then ARM32Preserved else ARM32Altered actual
@@ -447,7 +449,8 @@ type ARM32RoundTripTests() =
           let source = lines |> List.map (fun line -> "  " + line)
           let text = String.concat "\n" source
           match (try thumbAssembler.Lower text with _ -> Error "raised") with
-          | Error _ -> Some $"'{List.head lines}' does not assemble"
+          | Error _ ->
+            Some $"'{List.head lines}' does not assemble"
           | Ok encoded ->
             let read =
               try thumbDisasmSequence (List.map snd encoded)
@@ -471,7 +474,8 @@ type ARM32RoundTripTests() =
               opcode, source, index, target ]
         |> List.choose (fun (opcode, source, index, target) ->
           match (try assembler.Lower source with _ -> Error "raised") with
-          | Error _ -> Some $"'{opcode} L' does not assemble"
+          | Error _ ->
+            Some $"'{opcode} L' does not assemble"
           | Ok encoded ->
             let addr = uint64 (4 * index)
             let text =

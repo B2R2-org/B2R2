@@ -104,7 +104,8 @@ module internal CFGRecoveryCommon =
   /// etc.
   let getVertex ctx cfgRec ppoint =
     match ctx.Vertices.TryGetValue ppoint with
-    | true, v -> v
+    | true, v ->
+      v
     | false, _ ->
       let bbl = ctx.BBLFactory.Find ppoint
       makeVertex ctx cfgRec ppoint bbl
@@ -113,8 +114,7 @@ module internal CFGRecoveryCommon =
     let calleePPoint = getCalleePPoint callsiteAddr calleeAddrOpt
     match ctx.Vertices.TryGetValue calleePPoint with
     | true, v -> v
-    | false, _ ->
-      makeAbsVertex ctx cfgRec callsiteAddr calleeAddrOpt abs
+    | false, _ -> makeAbsVertex ctx cfgRec callsiteAddr calleeAddrOpt abs
 
   let doesAbsVertexExist ctx callsiteAddr calleeAddr =
     getCalleePPoint callsiteAddr (Some calleeAddr)
@@ -128,8 +128,10 @@ module internal CFGRecoveryCommon =
         match ctx.BBLFactory.PeekBBL calleeAddr with
         | Ok bbl -> bbl[0].IsPop (* Call to pop *)
         | Error _ -> false
-      else false
-    else false
+      else
+        false
+    else
+      false
 
   let isStaticallyLinked ctx = Option.isNone ctx.BinHandle.File.InterpreterPath
 
@@ -143,7 +145,8 @@ module internal CFGRecoveryCommon =
         pendingCallActions[calleeAddr] <- lst
         queue.Push(prioritizer, WaitForCallee calleeAddr)
         lst
-      | true, lst -> lst
+      | true, lst ->
+        lst
     lst.Add action
 
   /// Try to remove a vertex in the CFG whose program point is given as `ppoint`
@@ -171,7 +174,8 @@ module internal CFGRecoveryCommon =
     && not <| ctx.GapAnalysisVertices.Contains(dstPP)
 
   let connectEdge ctx cfgRec srcV dstV edgeKind =
-    if isFromUnreachablesToReachables ctx srcV dstV then ()
+    if isFromUnreachablesToReachables ctx srcV dstV then
+      ()
     else
       ctx.CFG.AddEdge(srcV, dstV, edgeKind)
       (cfgRec: ICFGRecovery<_, _>).OnAddEdge(ctx, srcV, dstV, edgeKind)
@@ -231,17 +235,17 @@ module internal CFGRecoveryCommon =
   /// guaranteed to be valid.
   let getValidVertex ctx cfgRec pp =
     match ctx.Vertices.TryGetValue pp with
-    | true, v -> Ok v
+    | true, v ->
+      Ok v
     | false, _ ->
       match ctx.BBLFactory.TryFind pp with
       | Ok bbl ->
         let fnAddr = ctx.FunctionAddress
         let max = bbl.Internals.Range.Max
-        if isWithinFunction ctx fnAddr max then
-          Ok(makeVertex ctx cfgRec pp bbl)
-        else
-          Error ErrorCase.ItemNotFound
-      | Error _ -> Error ErrorCase.ItemNotFound
+        if isWithinFunction ctx fnAddr max then Ok(makeVertex ctx cfgRec pp bbl)
+        else Error ErrorCase.ItemNotFound
+      | Error _ ->
+        Error ErrorCase.ItemNotFound
 
   /// Check if an edge that has the given address as a destination goes from
   /// unreachables to reachables.
@@ -270,8 +274,10 @@ module internal CFGRecoveryCommon =
         connectEdge ctx cfgRec src dstVertex edgeKind
         reconnectVertices ctx cfgRec dividedEdges
         addExpandCFGAction ctx dstPPoint
-      | Error e -> Error e
-    | Error e -> Error e
+      | Error e ->
+        Error e
+    | Error e ->
+      Error e
 
   let toCFGResult = function
     | Ok _ -> MoveOn
@@ -286,7 +292,8 @@ module internal CFGRecoveryCommon =
     let srcBBL: ILowUIRBasicBlock = (srcVertex: IVertex<_>).VData
     (* When a caller node is split into multiple nodes, we can detect the same
        abs-vertex multiple times. So we'd better check duplicates here. *)
-    if doesAbsVertexExist ctx callsite calleeAddr then MoveOn
+    if doesAbsVertexExist ctx callsite calleeAddr then
+      MoveOn
     elif isGetPCThunk ctx srcBBL calleeAddr then
       scanBBLsAndConnect ctx cfgRec srcVertex calleeAddr InterJmpEdge
       |> toCFGResult
@@ -309,7 +316,8 @@ module internal CFGRecoveryCommon =
         match ctx.ManagerChannel.AddDependency(fnAddr, calleeAddr) with
         (* Wait for the callee to finish *)
         | StillBuilding _
-        | FailedBuilding -> postponeActionOnCallee ctx calleeAddr action
+        | FailedBuilding ->
+          postponeActionOnCallee ctx calleeAddr action
         (* Directly push the given action into its action queue. *)
         | FinalCtx calleeCtx ->
           let calleeInfo = makeCalleeInfoFromCtx calleeCtx
@@ -319,12 +327,14 @@ module internal CFGRecoveryCommon =
           | _ -> action
           |> pushAction ctx
       MoveOn
-    else FailStop ErrorCase.FailedToRecoverCFG
+    else
+      FailStop ErrorCase.FailedToRecoverCFG
 
   /// Try to get a vertex (which is either cached or newly created).
   let tryGetVertex ctx cfgRec ppoint =
     match ctx.Vertices.TryGetValue ppoint with
-    | true, v -> Ok v
+    | true, v ->
+      Ok v
     | false, _ ->
       match ctx.BBLFactory.TryFind ppoint with
       | Ok bbl -> Ok(makeVertex ctx cfgRec ppoint bbl)
@@ -336,7 +346,8 @@ module internal CFGRecoveryCommon =
     | Ok dstVertex ->
       connectEdge ctx cfgRec srcVertex dstVertex edgeKind
       ppQueue.Enqueue dstPPoint
-    | Error _ -> ()
+    | Error _ ->
+      ()
 
   let maskedPPoint ctx targetAddr =
     let rt = ctx.BinHandle.ISA.WordSize |> WordSize.toRegType
@@ -349,14 +360,16 @@ module internal CFGRecoveryCommon =
     | Ok dstVertex ->
       connectEdge ctx cfgRec srcVertex dstVertex jmpKind
       ppQueue.Enqueue dstPPoint
-    | Error _ -> ()
+    | Error _ ->
+      ()
 
   let makeIntraFallThroughEdge ctx cfgRec (ppQueue: Queue<_>) srcVertex =
     match ppQueue.TryPeek() with
     | true, nextPPoint ->
       let dstVertex = getVertex ctx cfgRec nextPPoint
       connectEdge ctx cfgRec srcVertex dstVertex FallThroughEdge
-    | false, _ -> ()
+    | false, _ ->
+      ()
 
   let isFuncEntryPoint ctx addr =
     match ctx.ManagerChannel.GetBuildingContext addr with
@@ -370,7 +383,8 @@ module internal CFGRecoveryCommon =
     let mutable result = MoveOn
     while queue.Count > 0 && result = MoveOn do
       let ppoint = queue.Dequeue()
-      if not <| ctx.VisitedPPoints.Add ppoint then ()
+      if not <| ctx.VisitedPPoints.Add ppoint then
+        ()
       else
         let srcVertex = getVertex ctx cfgRec ppoint
         let srcBBL = srcVertex.VData
@@ -383,7 +397,8 @@ module internal CFGRecoveryCommon =
           | Ok dstVertex ->
             connectEdge ctx cfgRec srcVertex dstVertex FallThroughEdge
             queue.Enqueue nextPPoint
-          | Error _ -> () (* Ignore when a bad instruction follows *)
+          | Error _ ->
+            () (* Ignore when a bad instruction follows *)
         | Jmp(JmpDest(lbl, _), _) ->
           let dstPPoint = srcBBL.LabelMap[lbl]
           let dstVertex = getVertex ctx cfgRec dstPPoint
@@ -487,7 +502,8 @@ module internal CFGRecoveryCommon =
 #if DEBUG
         | ISMark _ | LMark _ -> Terminator.impossible ()
 #endif
-        | _ -> makeIntraFallThroughEdge ctx cfgRec queue srcVertex
+        | _ ->
+          makeIntraFallThroughEdge ctx cfgRec queue srcVertex
     done
     result
 
@@ -498,7 +514,8 @@ module internal CFGRecoveryCommon =
     | StillBuilding calleeCtx ->
       let retStatus, unwindingBytes = calleeInfo
       Ok <| summarizer.Summarize(calleeCtx, retStatus, unwindingBytes, callIns)
-    | FailedBuilding -> Error ErrorCase.FailedToRecoverCFG
+    | FailedBuilding ->
+      Error ErrorCase.FailedToRecoverCFG
 
   /// Create an exception abstraction. Without calculating CFA, we can compute
   /// how much stack pointer is adjusted before entering the landing pad, as we
@@ -545,7 +562,8 @@ module internal CFGRecoveryCommon =
       let caller = ctx.CallerVertices[callsite]
       connectEdge ctx cfgRec caller absV ExceptionFallThroughEdge
       scanBBLsAndConnect ctx cfgRec absV landingPad ExceptionFallThroughEdge
-    | None -> Ok()
+    | None ->
+      Ok()
 
   let connectCallWithFT ctx (cfgRec: ICFGRecovery<_, _>) caller calleeAddr
                         calleeInfo =
@@ -584,13 +602,17 @@ module internal CFGRecoveryCommon =
       |> toCFGResult
     else
       match calleeInfo with
-      | NoRet, _ -> connectCallWithoutFT ctx cfgRec caller callee calleeInfo
-      | NotNoRet, _ -> connectCallWithFT ctx cfgRec caller callee calleeInfo
+      | NoRet, _ ->
+        connectCallWithoutFT ctx cfgRec caller callee calleeInfo
+      | NotNoRet, _ ->
+        connectCallWithFT ctx cfgRec caller callee calleeInfo
       | ConditionalNoRet nth, _ ->
         if CondAwareNoretAnalysis.hasNonZero ctx.BinHandle caller nth then
           connectCallWithoutFT ctx cfgRec caller callee calleeInfo
-        else connectCallWithFT ctx cfgRec caller callee calleeInfo
-      | UnknownNoRet, _ -> Terminator.impossible ()
+        else
+          connectCallWithFT ctx cfgRec caller callee calleeInfo
+      | UnknownNoRet, _ ->
+        Terminator.impossible ()
 
   let connectIndirectCallEdge ctx cfgRec callsiteAddr =
     let caller = ctx.CallerVertices[callsiteAddr]
@@ -660,10 +682,8 @@ module internal CFGRecoveryCommon =
     let srcVertex = getVertex ctx cfgRec (ProgramPoint(srcAddr, 0))
     let fnAddr = ctx.FunctionAddress
     let isDstFuncEntry = isFuncEntryPoint ctx dstAddr
-    if idx = 0 && isDstFuncEntry then
-      jmptbl.IsFunctionPointerTable <- true
-    else
-      ()
+    if idx = 0 && isDstFuncEntry then jmptbl.IsFunctionPointerTable <- true
+    else ()
     if not (isExecutableAddr ctx dstAddr) then
       match ctx.JumpTableRecoveryStatus.TryPeek() with
       | true, (tblAddr, 0) ->
@@ -737,7 +757,8 @@ module internal CFGRecoveryCommon =
 #endif
         tryRemoveVertexAt ctx cfgRec absPp |> ignore
         ctx.ActionQueue.Push(prioritizer, action)
-      | _ -> ()
+      | _ ->
+        ()
     MoveOn
 
   let updateCallEdges ctx cfgRec calleeAddr calleeInfo =
@@ -781,8 +802,10 @@ module internal CFGRecoveryCommon =
         |> function
           | true -> StopAndReload
           | false -> finalizeRecovery ctx cfgRec postAnalysis
-      | None -> finalizeRecovery ctx cfgRec postAnalysis
-    | _ -> finalizeRecovery ctx cfgRec postAnalysis
+      | None ->
+        finalizeRecovery ctx cfgRec postAnalysis
+    | _ ->
+      finalizeRecovery ctx cfgRec postAnalysis
 
   let onCyclicDependency (deps: (Addr * ICFGBuildable<_, _>)[]) =
     let sorted = deps |> Array.sortBy fst
@@ -826,4 +849,5 @@ module internal CFGRecoveryCommon =
     match Array.tryExactlyOne <| g.GetSuccs(maybePred) with
     | Some(succOfMaybePred) when isNoReturnAbsVertex succOfMaybePred ->
       g.AddEdge(succOfMaybePred, v, NoReturnFallThroughEdge)
-    | _ -> ()
+    | _ ->
+      ()

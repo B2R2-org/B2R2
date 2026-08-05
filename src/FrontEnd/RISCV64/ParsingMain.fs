@@ -72,19 +72,27 @@ let parseStore bin wordSize =
 let parseOpImm bin wordSize =
   let opcode =
     match getFunc3 bin with
-    | 0b000u -> Op.ADDI
-    | 0b010u -> Op.SLTI
-    | 0b011u -> Op.SLTIU
-    | 0b100u -> Op.XORI
-    | 0b110u -> Op.ORI
-    | 0b111u -> Op.ANDI
+    | 0b000u ->
+      Op.ADDI
+    | 0b010u ->
+      Op.SLTI
+    | 0b011u ->
+      Op.SLTIU
+    | 0b100u ->
+      Op.XORI
+    | 0b110u ->
+      Op.ORI
+    | 0b111u ->
+      Op.ANDI
     (* Shifts *)
-    | 0b001u -> Op.SLLI
+    | 0b001u ->
+      Op.SLLI
     | 0b101u ->
       if Bits.extract bin 31u 26u = 0b000000u then Op.SRLI
       elif Bits.extract bin 31u 26u = 0b010000u then Op.SRAI
       else raise ParsingFailureException
-    | _ -> raise ParsingFailureException
+    | _ ->
+      raise ParsingFailureException
   match opcode with
   | Op.ADDI | Op.SLTI | Op.SLTIU | Op.XORI
   | Op.ORI | Op.ANDI -> struct (opcode, getRdRs1IImm bin wordSize)
@@ -135,7 +143,8 @@ let parseOp bin =
       | 0b0000001u -> Op.DIV
       | 0b0000000u -> Op.XOR
       | _ -> raise ParsingFailureException
-    | _ -> raise ParsingFailureException
+    | _ ->
+      raise ParsingFailureException
   struct (opcode, getRdRs1Rs2 bin)
 
 let parseEnvCall bin =
@@ -154,14 +163,19 @@ let parseFence bin =
 
 let parseFloatArith bin =
   match Bits.extract bin 31u 25u with
-  | 0b0000000u -> struct (Op.FADDdotS, getFRdRs1Rs2Rm bin)
-  | 0b0000100u -> struct (Op.FSUBdotS, getFRdRs1Rs2Rm bin)
-  | 0b0001000u -> struct (Op.FMULdotS, getFRdRs1Rs2Rm bin)
-  | 0b0001100u -> struct (Op.FDIVdotS, getFRdRs1Rs2Rm bin)
+  | 0b0000000u ->
+    struct (Op.FADDdotS, getFRdRs1Rs2Rm bin)
+  | 0b0000100u ->
+    struct (Op.FSUBdotS, getFRdRs1Rs2Rm bin)
+  | 0b0001000u ->
+    struct (Op.FMULdotS, getFRdRs1Rs2Rm bin)
+  | 0b0001100u ->
+    struct (Op.FDIVdotS, getFRdRs1Rs2Rm bin)
   | 0b0101100u ->
     if Bits.extract bin 24u 20u = 0u then
       struct (Op.FSQRTdotS, getFRdFRs1Rm bin)
-    else raise ParsingFailureException
+    else
+      raise ParsingFailureException
   | 0b0010000u ->
     match getFunc3 bin with
     | 0b000u -> struct (Op.FSGNJdotS, getFRdRs1Rs2 bin)
@@ -205,10 +219,14 @@ let parseFloatArith bin =
       struct (Op.FMVdotWdotX, getFRdRs1 bin)
     else
       raise ParsingFailureException
-  | 0b0000001u -> struct (Op.FADDdotD, getFRdRs1Rs2Rm bin)
-  | 0b0000101u -> struct (Op.FSUBdotD, getFRdRs1Rs2Rm bin)
-  | 0b0001001u -> struct (Op.FMULdotD, getFRdRs1Rs2Rm bin)
-  | 0b0001101u -> struct (Op.FDIVdotD, getFRdRs1Rs2Rm bin)
+  | 0b0000001u ->
+    struct (Op.FADDdotD, getFRdRs1Rs2Rm bin)
+  | 0b0000101u ->
+    struct (Op.FSUBdotD, getFRdRs1Rs2Rm bin)
+  | 0b0001001u ->
+    struct (Op.FMULdotD, getFRdRs1Rs2Rm bin)
+  | 0b0001101u ->
+    struct (Op.FDIVdotD, getFRdRs1Rs2Rm bin)
   | 0b0101101u ->
     if getRs2 bin = 0u then struct (Op.FSQRTdotD, getFRdFRs1Rm bin)
     else raise ParsingFailureException
@@ -260,7 +278,8 @@ let parseFloatArith bin =
       struct (Op.FMVdotDdotX, getFRdRs1 bin)
     else
       raise ParsingFailureException
-  | _ -> raise ParsingFailureException
+  | _ ->
+    raise ParsingFailureException
 
 let parseAtomic bin =
   if Bits.extract bin 14u 12u = 0b010u then
@@ -348,12 +367,15 @@ let parseOp32 bin =
     | 0b110u -> struct (Op.REMW, getRdRs1Rs2 bin)
     | 0b111u -> struct (Op.REMUW, getRdRs1Rs2 bin)
     | _ -> raise ParsingFailureException
-  | _ -> raise ParsingFailureException
+  | _ ->
+    raise ParsingFailureException
 
 let parseOpImm32 bin wordSize =
   match getFunc3 bin with
-  | 0b000u -> struct (Op.ADDIW, getRdRs1IImm bin wordSize)
-  | 0b001u -> struct (Op.SLLIW, getRdRs1Shamt bin)
+  | 0b000u ->
+    struct (Op.ADDIW, getRdRs1IImm bin wordSize)
+  | 0b001u ->
+    struct (Op.SLLIW, getRdRs1Shamt bin)
   | 0b101u ->
     if Bits.extract bin 31u 25u = 0b0000000u then
       struct (Op.SRLIW, getRdRs1Shamt bin)
@@ -361,7 +383,8 @@ let parseOpImm32 bin wordSize =
       struct (Op.SRAIW, getRdRs1Shamt bin)
     else
       raise ParsingFailureException
-  | _ -> raise ParsingFailureException
+  | _ ->
+    raise ParsingFailureException
 
 let parseCSR bin =
   match getFunc3 bin with
@@ -419,7 +442,8 @@ let parseRegisterBasedLoadStore bin =
     let from6to7 = Bits.extract bin 6u 5u <<< 6
     let imm = from3to5 ||| from6to7 |> int64 |> Imm |> Some
     struct (Op.CdotFSD, TwoOperands(src, OpMem(b, imm, 64<rt>)))
-  | _ -> Terminator.impossible ()
+  | _ ->
+    Terminator.impossible ()
 
 let parseStackBasedLoadStore bin =
   match Bits.extract bin 15u 13u with
@@ -466,7 +490,8 @@ let parseStackBasedLoadStore bin =
     let from6to8 = Bits.extract bin 9u 7u <<< 6
     let imm = from3to5 ||| from6to8 |> int64 |> Imm |> Some
     struct (Op.CdotFSDSP, TwoOperands(rs2, OpMem(R.X2, imm, 64<rt>)))
-  | _ -> Terminator.impossible ()
+  | _ ->
+    Terminator.impossible ()
 
 let parseCdotADDI4SPN bin =
   let from2to2 = Bits.pick bin 6u <<< 2
@@ -628,10 +653,14 @@ let parseQuadrant0 bin wordSize =
 
 let parseQuadrant1 bin wordSize =
   match Bits.extract bin 15u 13u with
-  | 0b000u -> parseCdotNOPADDI bin wordSize
-  | 0b001u -> parseCdotADDIW bin wordSize
-  | 0b010u -> parseCdotLI bin wordSize
-  | 0b011u -> parseCdotLUIADDI16SP bin wordSize
+  | 0b000u ->
+    parseCdotNOPADDI bin wordSize
+  | 0b001u ->
+    parseCdotADDIW bin wordSize
+  | 0b010u ->
+    parseCdotLI bin wordSize
+  | 0b011u ->
+    parseCdotLUIADDI16SP bin wordSize
   | 0b100u ->
     match Bits.extract bin 11u 10u with
     | 0b00u
@@ -639,10 +668,13 @@ let parseQuadrant1 bin wordSize =
     | 0b10u -> parseCdotANDI bin wordSize
     | 0b11u -> parseCdotArith bin
     | _ -> Terminator.impossible ()
-  | 0b101u -> parseCdotJ bin wordSize
+  | 0b101u ->
+    parseCdotJ bin wordSize
   | 0b110u
-  | 0b111u -> parseCdotBranch bin wordSize
-  | _ -> raise ParsingFailureException
+  | 0b111u ->
+    parseCdotBranch bin wordSize
+  | _ ->
+    raise ParsingFailureException
 
 let parseQuadrant2 bin wordSize =
   match Bits.extract bin 15u 13u with
@@ -665,30 +697,48 @@ let private parseCompressedInstruction wordSize bin =
 
 let private parseInstruction wordSize bin =
   match Bits.extract bin 6u 0u with
-  | 0b0110111u -> parseLUI bin wordSize
-  | 0b0010111u -> parseAUIPC bin wordSize
-  | 0b1101111u -> parseJAL bin wordSize
-  | 0b1100111u -> parseJALR bin wordSize
-  | 0b1100011u -> parseBranch bin wordSize
-  | 0b0000011u -> parseLoad bin wordSize
-  | 0b0100011u -> parseStore bin wordSize
-  | 0b0010011u -> parseOpImm bin wordSize
-  | 0b0110011u -> parseOp bin
-  | 0b0001111u -> parseFence bin
+  | 0b0110111u ->
+    parseLUI bin wordSize
+  | 0b0010111u ->
+    parseAUIPC bin wordSize
+  | 0b1101111u ->
+    parseJAL bin wordSize
+  | 0b1100111u ->
+    parseJALR bin wordSize
+  | 0b1100011u ->
+    parseBranch bin wordSize
+  | 0b0000011u ->
+    parseLoad bin wordSize
+  | 0b0100011u ->
+    parseStore bin wordSize
+  | 0b0010011u ->
+    parseOpImm bin wordSize
+  | 0b0110011u ->
+    parseOp bin
+  | 0b0001111u ->
+    parseFence bin
   | 0b1110011u ->
     if getFunc3 bin = 0u then parseEnvCall bin
     else parseCSR bin
-  | 0b0011011u -> parseOpImm32 bin wordSize
-  | 0b0111011u -> parseOp32 bin
-  | 0b0101111u -> parseAtomic bin
-  | 0b0000111u -> parseFloatLoad bin wordSize
-  | 0b0100111u -> parseFloatStore bin wordSize
+  | 0b0011011u ->
+    parseOpImm32 bin wordSize
+  | 0b0111011u ->
+    parseOp32 bin
+  | 0b0101111u ->
+    parseAtomic bin
+  | 0b0000111u ->
+    parseFloatLoad bin wordSize
+  | 0b0100111u ->
+    parseFloatStore bin wordSize
   | 0b1000011u
   | 0b1000111u
   | 0b1001011u
-  | 0b1001111u -> parseFused bin
-  | 0b1010011u -> parseFloatArith bin
-  | _ -> raise ParsingFailureException
+  | 0b1001111u ->
+    parseFused bin
+  | 0b1010011u ->
+    parseFloatArith bin
+  | _ ->
+    raise ParsingFailureException
 
 let parse lifter (span: ByteSpan) (reader: IBinReader) wordSize addr =
   let bin = reader.ReadUInt16(span, 0)

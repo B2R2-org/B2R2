@@ -158,7 +158,8 @@ type BinCodeDumper(hdl, isTable, showSymbol, showColor, dumpMode) =
       | Error _ ->
         let ptr' = handleInvalidIns ptr
         binDump false ptr'
-    else ()
+    else
+      ()
 
   interface IBinDumper with
     member _.IsThumb

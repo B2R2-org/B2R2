@@ -80,11 +80,13 @@ module ConstantDomain =
 
   let private divAux divop c1 c2 =
     match c1, c2 with
-    | Undef, _ | _, Undef -> Undef
+    | Undef, _ | _, Undef ->
+      Undef
     | Const bv1, Const bv2 ->
       if bv2.IsZero then NotAConst
       else Const(divop (bv1, bv2))
-    | _ -> NotAConst
+    | _ ->
+      NotAConst
 
   let div c1 c2 = divAux BitVector.Div c1 c2
 
@@ -102,7 +104,8 @@ module ConstantDomain =
       let isOkay = BitVector.Le(bv, upperBound).IsTrue
       if isOkay then c
       else NotAConst
-    | _ -> c
+    | _ ->
+      c
 
   let shl c1 c2 = binOp BitVector.Shl c1 (adjustShiftOperand c2)
 

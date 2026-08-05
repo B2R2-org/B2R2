@@ -136,14 +136,17 @@ module internal IntelSweep =
     let operand = operand.Trim()
     if operand.Contains "ptr" then
       "m:" + operand.Substring(0, operand.IndexOf "ptr").Trim()
-    elif operand.StartsWith "0x" then $"i{operand.Length - 2}"
-    else operand
+    elif operand.StartsWith "0x" then
+      $"i{operand.Length - 2}"
+    else
+      operand
 
   /// The key probes are deduplicated by, so that one operand shape is
   /// exercised once however many byte patterns reach it.
   let private shapeOf (text: string) =
     match text.Split(' ') |> Array.toList with
-    | [] -> text
+    | [] ->
+      text
     | mnemonic :: rest ->
       let kinds = (String.concat " " rest).Split(',') |> Array.map operandShape
       mnemonic + " " + String.concat "," kinds
@@ -203,7 +206,8 @@ module internal IntelSweep =
       let parsed = parser.Parse(Array.append bytes padding, 0UL)
       let ins = parsed :?> Instruction
       if int parsed.Length > bytes.Length + padding.Length
-         || isFarBranchOnRegister ins || isVexEncoded ins then
+         || isFarBranchOnRegister ins
+         || isVexEncoded ins then
         None
       else
         Some(ins.Opcode, (parsed.Disasm()).ToLowerInvariant())

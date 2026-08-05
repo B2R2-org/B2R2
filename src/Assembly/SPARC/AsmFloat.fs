@@ -48,7 +48,8 @@ let private unary opf source dest ins =
   match ins.Operands with
   | [ Rg s2; Rg d ] ->
     format3 2u OpCompute (dest d) 0u ((opf <<< 5) ||| source s2)
-  | _ -> wrongOperands ins
+  | _ ->
+    wrongOperands ins
 
 /// <summary>
 /// The instructions computing from one floating-point register into another:
@@ -97,7 +98,8 @@ let private binary op3 opf first second dest ins =
   match ins.Operands with
   | [ Rg s1; Rg s2; Rg d ] ->
     format3 2u op3 (dest d) (first s1) ((opf <<< 5) ||| second s2)
-  | _ -> wrongOperands ins
+  | _ ->
+    wrongOperands ins
 
 /// The instructions computing from two floating-point registers into a third.
 /// Two of them widen what they computed, so what they write is kept at twice
@@ -129,7 +131,8 @@ let private compare opf kind ins =
   match ins.Operands with
   | [ Cc cc; Rg s1; Rg s2 ] ->
     format3 2u OpDecide (floatCC cc) (kind s1) ((opf <<< 5) ||| kind s2)
-  | _ -> wrongOperands ins
+  | _ ->
+    wrongOperands ins
 
 /// The comparisons, at each of the three widths and in the two kinds that
 /// differ in what they do where one of the two is not a number at all.
@@ -154,7 +157,8 @@ let private moveOnCondition kind width name ins =
   | [ Cc cc; Rg s2; Rg d ] ->
     let low = (ccThree cc <<< 11) ||| (width <<< 5) ||| kind s2
     format3 2u OpDecide (kind d) (conditionOf name cc) low
-  | _ -> wrongOperands ins
+  | _ ->
+    wrongOperands ins
 
 /// A move that happens only where what a general register holds compares as the
 /// name says against zero.
@@ -163,7 +167,8 @@ let private moveOnRegister kind width rcond ins =
   | [ Rg s1; Rg s2; Rg d ] ->
     let low = (rcond <<< 10) ||| (width <<< 5) ||| kind s2
     format3 2u OpDecide (kind d) (gpr s1) low
-  | _ -> wrongOperands ins
+  | _ ->
+    wrongOperands ins
 
 /// <summary>
 /// The floating-point moves that happen only where something holds.

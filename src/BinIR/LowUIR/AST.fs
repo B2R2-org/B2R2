@@ -168,8 +168,7 @@ let private binopWithType op t e1 e2 =
   match e1, e2 with
   | Num(n1, _), Num(n2, _) -> ValueOptimizer.binop n1 n2 op |> num
 #if ! HASHCONS
-  | _ ->
-    BinOp(op, t, e1, e2, null)
+  | _ -> BinOp(op, t, e1, e2, null)
 #else
   | _ ->
     let hc = HashConsingInfo()
@@ -182,7 +181,8 @@ let private binopWithType op t e1 e2 =
 let binop op e1 e2 =
   let t =
     match op with
-    | BinOpType.CONCAT -> TypeCheck.concat e1 e2
+    | BinOpType.CONCAT ->
+      TypeCheck.concat e1 e2
     | _ ->
 #if DEBUG
       TypeCheck.binop e1 e2
@@ -237,8 +237,7 @@ let relop op e1 e2 =
   match e1, e2 with
   | Num(n1, _), Num(n2, _) -> ValueOptimizer.relop n1 n2 op |> num
 #if ! HASHCONS
-  | _ ->
-    RelOp(op, e1, e2, null)
+  | _ -> RelOp(op, e1, e2, null)
 #else
   | _ ->
     let hc = HashConsingInfo()
@@ -278,7 +277,8 @@ let ite cond e1 e2 =
   TypeCheck.checkEquivalence (Expr.typeOf e1) (Expr.typeOf e2)
 #endif
   match cond with
-  | Num(n, _) -> if n.IsZero then e2 else e1
+  | Num(n, _) ->
+    if n.IsZero then e2 else e1
   | _ ->
 #if ! HASHCONS
     Ite(cond, e1, e2, null)
@@ -292,7 +292,8 @@ let ite cond e1 e2 =
 [<CompiledName("Cast")>]
 let cast kind rt e =
   match e with
-  | Num(n, _) -> ValueOptimizer.cast rt n kind |> num
+  | Num(n, _) ->
+    ValueOptimizer.cast rt n kind |> num
   | _ ->
     if TypeCheck.canCast kind rt e then
 #if ! HASHCONS
@@ -302,7 +303,8 @@ let cast kind rt e =
       let e = Cast(kind, rt, e, hc)
       internExpr e hc (Expr.HashCast(kind, rt, e))
 #endif
-    else e (* Remove unnecessary casting . *)
+    else
+      e (* Remove unnecessary casting . *)
 
 /// <summary>
 /// Extract bits of the given size (<see cref='T:B2R2.RegType'/>) at the given
@@ -312,7 +314,8 @@ let cast kind rt e =
 let extract expr rt pos =
   TypeCheck.extract rt pos (Expr.typeOf expr)
   match expr with
-  | Num(n, _) -> ValueOptimizer.extract n rt pos |> num
+  | Num(n, _) ->
+    ValueOptimizer.extract n rt pos |> num
   | Extract(e, _, p, _) ->
     let pos = p + pos
 #if ! HASHCONS

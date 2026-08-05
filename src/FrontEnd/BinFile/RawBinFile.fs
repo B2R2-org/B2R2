@@ -128,4 +128,5 @@ type RawBinFile(path, bytes: byte[], isa: ISA, baseAddrOpt) =
         let maxAddr = baseAddr + uint64 size - 1UL
         let offset = addr - baseAddr
         BinFilePointer.CreateFileBacked(addr, maxAddr, int offset, size - 1)
-      else BinFilePointer.Null
+      else
+        BinFilePointer.Null

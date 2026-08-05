@@ -73,10 +73,12 @@ let inline updateGadgets curAddr nextAddr ins gadgets =
               Offset = curAddr
               NextOff = nextAddr }
     Map.add curAddr g gadgets |> Some
-  | _ -> None
+  | _ ->
+    None
 
 let rec buildBackward (liftingUnit: LiftingUnit) minAddr curAddr lastAddr map =
-  if curAddr < minAddr || (curAddr + 1UL) = 0UL then map
+  if curAddr < minAddr || (curAddr + 1UL) = 0UL then
+    map
   else
     match liftingUnit.TryParseInstruction curAddr with
     | Ok ins ->
@@ -89,8 +91,10 @@ let rec buildBackward (liftingUnit: LiftingUnit) minAddr curAddr lastAddr map =
         | Some map ->
           let minAddr' = curAddr - instrMaxLen liftingUnit
           buildBackward liftingUnit minAddr' (curAddr - 1UL) curAddr map
-        | None -> buildBackward liftingUnit minAddr (curAddr - 1UL) lastAddr map
-    | Error _ -> buildBackward liftingUnit minAddr (curAddr - 1UL) lastAddr map
+        | None ->
+          buildBackward liftingUnit minAddr (curAddr - 1UL) lastAddr map
+    | Error _ ->
+      buildBackward liftingUnit minAddr (curAddr - 1UL) lastAddr map
 
 let parseTail (liftingUnit: LiftingUnit) addr bytes =
   let lastAddr = (Array.length bytes |> uint64) + addr
@@ -98,7 +102,8 @@ let parseTail (liftingUnit: LiftingUnit) addr bytes =
     if lastAddr > addr then
       let ins = liftingUnit.ParseInstruction addr
       parseLoop (ins :: acc) (addr + uint64 ins.Length)
-    else List.rev acc
+    else
+      List.rev acc
   parseLoop [] addr
 
 let private buildGadgetMap hdl (liftingUnit: LiftingUnit) tail map vmRange =

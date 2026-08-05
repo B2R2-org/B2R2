@@ -169,10 +169,12 @@ type Assembler(isa: ISA, baseAddr: Addr) =
       | Some reg when isSIMDRegister reg ->
         opt pElementIndex
         |>> fun index -> OprSIMD(SFReg(toSIMDRegister reg index))
-      | Some reg -> preturn (OprReg reg)
+      | Some reg ->
+        preturn (OprReg reg)
       | None ->
         match name.LastIndexOf '_' with
-        | -1 -> fail $"'{name}' is not a register"
+        | -1 ->
+          fail $"'{name}' is not a register"
         | index ->
           let regName = name[..index - 1]
           let flagName = name[index + 1..]
@@ -331,8 +333,7 @@ type Assembler(isa: ISA, baseAddr: Addr) =
     match opcode with
     | Opcode.VLDMIA | Opcode.VLDMDB | Opcode.VSTMIA | Opcode.VSTMDB
     | Opcode.VPUSH | Opcode.VPOP
-    | Opcode.FLDMIAX | Opcode.FLDMDBX | Opcode.FSTMIAX | Opcode.FSTMDBX ->
-      true
+    | Opcode.FLDMIAX | Opcode.FLDMDBX | Opcode.FSTMIAX | Opcode.FSTMDBX -> true
     | _ -> false
 
   /// {<registers>}{^}, which holds either core registers or SIMD ones.
@@ -342,10 +343,8 @@ type Assembler(isa: ISA, baseAddr: Addr) =
     .>>. opt (pchar '^')
     |>> fun (elements, hat) ->
       noteCaret hat
-      if isRegisterListOpcode opcode then
-        elements |> List.map fst |> OprRegList
-      else
-        makeRegisterList elements
+      if isRegisterListOpcode opcode then elements |> List.map fst |> OprRegList
+      else makeRegisterList elements
 
   let pOprImm =
     attempt (pchar '#' >>. pFraction |>> OprFPImm)
@@ -468,4 +467,5 @@ type Assembler(isa: ISA, baseAddr: Addr) =
         |> List.map (fun (isThumb, bytes) ->
           (if isThumb then thumbISA else armISA), bytes)
         |> Result.Ok
-      | Failure(str, _, _) -> Result.Error str
+      | Failure(str, _, _) ->
+        Result.Error str

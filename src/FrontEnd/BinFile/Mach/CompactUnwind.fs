@@ -95,8 +95,10 @@ let private collectFuncOffsets span (reader: IBinReader) (index: _[]) =
           let v = reader.ReadUInt32(span, entryStart + e * 4)
           offs.Add(funcBase + (v &&& FuncOffsetMask))
           e <- e + 1
-      else ()
-    else ()
+      else
+        ()
+    else
+      ()
     i <- i + 1
   offs
 

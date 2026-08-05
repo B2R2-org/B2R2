@@ -148,7 +148,8 @@ let private floatBytes ins count opr =
     Array.append (Array.zeroCreate (count - bytes.Length)) bytes
   | AsmImm v when count >= 8 || (v >= -2147483648L && v <= 4294967295L) ->
     Array.init count (fun i -> uint8 (uint64 v >>> ((count - 1 - i) * 8)))
-  | _ -> fail $"{ins.Mnemonic} cannot hold this number"
+  | _ ->
+    fail $"{ins.Mnemonic} cannot hold this number"
 
 /// The words a run of bytes holds, the more significant byte of each first.
 let private wordsOfBytes (bytes: byte[]) =
@@ -238,12 +239,9 @@ let private indexBits ins (idx: AsmIndexReg) =
 /// which is null where it is zero, one word where it fits in one, and two words
 /// where it does not.
 let private dispSize v =
-  if v = 0L then
-    1us
-  elif v >= -32768L && v <= 32767L then
-    2us
-  else
-    3us
+  if v = 0L then 1us
+  elif v >= -32768L && v <= 32767L then 2us
+  else 3us
 
 /// The words a displacement of the given width occupies.
 let private dispWords size v =
@@ -329,20 +327,29 @@ let private dispEA ins v reg =
 /// </summary>
 let encodeEA ins size opr =
   match opr with
-  | AsmReg reg when isDataReg reg -> 0us, dataNum reg, []
-  | AsmReg reg when isAddrReg reg -> 1us, addrNum reg, []
-  | AsmMem(AsmDirect reg) -> 2us, addrNum reg, []
-  | AsmMem(AsmPostInc reg) -> 3us, addrNum reg, []
-  | AsmMem(AsmPreDec reg) -> 4us, addrNum reg, []
-  | AsmMem(AsmDisp(v, reg)) -> dispEA ins v reg
-  | AsmMem(AsmIndexed m) -> indexedEA ins m
+  | AsmReg reg when isDataReg reg ->
+    0us, dataNum reg, []
+  | AsmReg reg when isAddrReg reg ->
+    1us, addrNum reg, []
+  | AsmMem(AsmDirect reg) ->
+    2us, addrNum reg, []
+  | AsmMem(AsmPostInc reg) ->
+    3us, addrNum reg, []
+  | AsmMem(AsmPreDec reg) ->
+    4us, addrNum reg, []
+  | AsmMem(AsmDisp(v, reg)) ->
+    dispEA ins v reg
+  | AsmMem(AsmIndexed m) ->
+    indexedEA ins m
   | AsmAddr v ->
     let reg, words = addrWords v
     7us, reg, words
   | AsmTarget target ->
     7us, 1us, longWords (uint32 (defaultArg target 0UL))
-  | AsmImm _ | AsmWideImm _ -> 7us, 4us, immWords ins size opr
-  | _ -> fail "this operand names no address"
+  | AsmImm _ | AsmWideImm _ ->
+    7us, 4us, immWords ins size opr
+  | _ ->
+    fail "this operand names no address"
 
 /// The effective address an operand names, refused unless it belongs to the
 /// category the instruction requires of it.

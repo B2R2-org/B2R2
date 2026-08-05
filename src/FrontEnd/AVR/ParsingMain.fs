@@ -42,28 +42,40 @@ let parse1001000 b32 =
   match b32 &&& 0b1111u with
   | 0b1100u  | 0b1101u | 0b1110u | 0b1001u | 0b1010u | 0b0001u | 0b0010u ->
     Opcode.LD, parseTwoOpr b32 getRegD getMemLDD
-  | 0b1111u -> Opcode.POP, parseOneOpr b32 getRegD
-  | 0b0101u | 0b0100u -> Opcode.LPM, parseTwoOpr b32 getRegD getMemLDD
-  | 0b0110u | 0b0111u -> Opcode.ELPM, parseTwoOpr b32 getRegD getMemLDD
-  | _ -> raise ParsingFailureException
+  | 0b1111u ->
+    Opcode.POP, parseOneOpr b32 getRegD
+  | 0b0101u | 0b0100u ->
+    Opcode.LPM, parseTwoOpr b32 getRegD getMemLDD
+  | 0b0110u | 0b0111u ->
+    Opcode.ELPM, parseTwoOpr b32 getRegD getMemLDD
+  | _ ->
+    raise ParsingFailureException
 
 /// 1001 001- ---- ----
 let parse1001001 b32 =
   match b32 &&& 0b1111u with
   | 0b1100u | 0b1101u | 0b1110u | 0b1001u | 0b1010u | 0b0001u | 0b0010u ->
     Opcode.ST, parseTwoOpr b32 getMemST getRegD
-  | 0b1111u -> Opcode.PUSH, parseOneOpr b32 getRegD
-  | 0b0110u -> Opcode.LAC, TwoOperands(OprReg Z, getRegD b32)
-  | 0b0101u -> Opcode.LAS, TwoOperands(OprReg Z, getRegD b32)
-  | 0b0111u -> Opcode.LAT, TwoOperands(OprReg Z, getRegD b32)
-  | 0b0100u -> Opcode.XCH, TwoOperands(OprReg Z, getRegD b32)
-  | _ -> raise ParsingFailureException
+  | 0b1111u ->
+    Opcode.PUSH, parseOneOpr b32 getRegD
+  | 0b0110u ->
+    Opcode.LAC, TwoOperands(OprReg Z, getRegD b32)
+  | 0b0101u ->
+    Opcode.LAS, TwoOperands(OprReg Z, getRegD b32)
+  | 0b0111u ->
+    Opcode.LAT, TwoOperands(OprReg Z, getRegD b32)
+  | 0b0100u ->
+    Opcode.XCH, TwoOperands(OprReg Z, getRegD b32)
+  | _ ->
+    raise ParsingFailureException
 
 /// 0000 00-- ---- ----
 let parse000000 b32 =
   match extract b32 9u 8u with
-  | 0b01u -> Opcode.MOVW, parseTwoOpr b32 getRegEven4D getRegEvenEnd4D
-  | 0b10u -> Opcode.MULS, parseTwoOpr b32 getReg4D getReg4DLast
+  | 0b01u ->
+    Opcode.MOVW, parseTwoOpr b32 getRegEven4D getRegEvenEnd4D
+  | 0b10u ->
+    Opcode.MULS, parseTwoOpr b32 getReg4D getReg4DLast
   | 0b11u ->
     match concat (pickBit b32 7u) (pickBit b32 3u) 1 with
     | 0b01u -> Opcode.FMUL, parseTwoOpr b32 getReg3D getReg3DLast
@@ -71,8 +83,10 @@ let parse000000 b32 =
     | 0b11u -> Opcode.FMULSU, parseTwoOpr b32 getReg3D getReg3DLast
     | 0b00u -> Opcode.MULSU, parseTwoOpr b32 getReg3D getReg3DLast
     | _ -> raise ParsingFailureException
-  | 0b0u when b32 = 0u -> Opcode.NOP, NoOperand
-  | _ -> raise ParsingFailureException
+  | 0b0u when b32 = 0u ->
+    Opcode.NOP, NoOperand
+  | _ ->
+    raise ParsingFailureException
 
 /// 1001 010- ---- 1000 with no operands
 let parseNoOp1000 b32 =
@@ -117,24 +131,36 @@ let parse1001010 b32 =
   match b32 >>> 9 with
   | 0b1001010u ->
     match b32 &&& 0b1111u with
-    | 0b0101u -> Opcode.ASR, parseOneOpr b32 getRegD
-    | 0b0000u -> Opcode.COM, parseOneOpr b32 getRegD
-    | 0b1010u -> Opcode.DEC, parseOneOpr b32 getRegD
-    | 0b0011u -> Opcode.INC, parseOneOpr b32 getRegD
-    | 0b0110u -> Opcode.LSR, parseOneOpr b32 getRegD
-    | 0b0001u -> Opcode.NEG, parseOneOpr b32 getRegD
-    | 0b0111u -> Opcode.ROR, parseOneOpr b32 getRegD
-    | 0b0010u -> Opcode.SWAP, parseOneOpr b32 getRegD
+    | 0b0101u ->
+      Opcode.ASR, parseOneOpr b32 getRegD
+    | 0b0000u ->
+      Opcode.COM, parseOneOpr b32 getRegD
+    | 0b1010u ->
+      Opcode.DEC, parseOneOpr b32 getRegD
+    | 0b0011u ->
+      Opcode.INC, parseOneOpr b32 getRegD
+    | 0b0110u ->
+      Opcode.LSR, parseOneOpr b32 getRegD
+    | 0b0001u ->
+      Opcode.NEG, parseOneOpr b32 getRegD
+    | 0b0111u ->
+      Opcode.ROR, parseOneOpr b32 getRegD
+    | 0b0010u ->
+      Opcode.SWAP, parseOneOpr b32 getRegD
     | 0b1011u when pickBit b32 8u = 0b0u ->
       Opcode.DES, parseOneOpr b32 getConst4K
     (* | 0b1000u when extract b32 8u 7u = 0b01u ->
       Opcode.BCLR, parseOneOpr b32 getConst3bs
     | 0b1000u when extract b32 8u 7u = 0b00u ->
       Opcode.BSET, parseOneOpr b32 getConst3bs *)
-    | 0b1000u -> parseNoOp1000 b32
-    | 0b1001u -> parseNoOp1001 b32
-    | _ -> raise ParsingFailureException
-  | _ -> raise ParsingFailureException
+    | 0b1000u ->
+      parseNoOp1000 b32
+    | 0b1001u ->
+      parseNoOp1001 b32
+    | _ ->
+      raise ParsingFailureException
+  | _ ->
+    raise ParsingFailureException
 
 /// 1111 1--d dddd 0bbb
 let parse11111 b32 =
@@ -172,7 +198,8 @@ let parse11110 b32 =
     | 0b110u -> Opcode.BRTC, parseOneOpr b32 getAddr7K
     | 0b011u -> Opcode.BRVC, parseOneOpr b32 getAddr7K
     | _ -> raise ParsingFailureException
-  | _ -> raise ParsingFailureException
+  | _ ->
+    raise ParsingFailureException
 
 let parse1111 b32 =
   match pickBit b32 11u with
@@ -182,18 +209,28 @@ let parse1111 b32 =
 
 let parse1001 b32 =
   match extract b32 11u 8u with
-  | 0b0100u | 0b0101u -> parse1001010 b32
-  | 0b0010u | 0b0011u -> parse1001001 b32
-  | 0b0000u | 0b0001u -> parse1001000 b32
-  | 0b0110u -> Opcode.ADIW, parseTwoOpr b32 getReg2D getConst6K
-  | 0b1000u -> Opcode.CBI, parseTwoOpr b32 getIO5 getConst3b
-  | 0b1010u -> Opcode.SBI, parseTwoOpr b32 getIO5 getConst3b
-  | 0b1001u -> Opcode.SBIC, parseTwoOpr b32 getIO5 getConst3b
-  | 0b1011u -> Opcode.SBIS, parseTwoOpr b32 getIO5 getConst3b
-  | 0b0111u -> Opcode.SBIW, parseTwoOpr b32 getReg2D getConst6K
+  | 0b0100u | 0b0101u ->
+    parse1001010 b32
+  | 0b0010u | 0b0011u ->
+    parse1001001 b32
+  | 0b0000u | 0b0001u ->
+    parse1001000 b32
+  | 0b0110u ->
+    Opcode.ADIW, parseTwoOpr b32 getReg2D getConst6K
+  | 0b1000u ->
+    Opcode.CBI, parseTwoOpr b32 getIO5 getConst3b
+  | 0b1010u ->
+    Opcode.SBI, parseTwoOpr b32 getIO5 getConst3b
+  | 0b1001u ->
+    Opcode.SBIC, parseTwoOpr b32 getIO5 getConst3b
+  | 0b1011u ->
+    Opcode.SBIS, parseTwoOpr b32 getIO5 getConst3b
+  | 0b0111u ->
+    Opcode.SBIW, parseTwoOpr b32 getReg2D getConst6K
   | op when op &&& 0b1100u = 0b1100u ->
     Opcode.MUL, parseTwoOpr b32 getRegD getRegR
-  | _ -> raise ParsingFailureException
+  | _ ->
+    raise ParsingFailureException
 
 let parse1000 b32 =
   let isDispZero = getDisp b32 = 0
@@ -210,7 +247,8 @@ let parse1000 b32 =
   | 0b00u ->
     if isDispZero then Opcode.LD, parseTwoOpr b32 getRegD getMemLDD
     else Opcode.LDD, parseTwoOpr b32 getRegD getMemDispZ
-  | _ -> raise ParsingFailureException
+  | _ ->
+    raise ParsingFailureException
 
 let parse1010 b32 =
   match concat (pickBit b32 9u)(pickBit b32 3u) 1 with
@@ -246,20 +284,29 @@ let parseSixBits b32 =
 /// Parse the instruction using only the first 4 bits
 let parseFourBits b32 =
   match b32 >>> 12 with
-  | 0b0111u -> Opcode.ANDI, parseTwoOpr b32 getReg4D getConst8K
-  | 0b0011u -> Opcode.CPI, parseTwoOpr b32 getReg4D getConst8K
-  | 0b1110u -> Opcode.LDI, parseTwoOpr b32 getReg4D getConst8K
-  | 0b0110u -> Opcode.ORI, parseTwoOpr b32 getReg4D getConst8K
-  | 0b1101u -> Opcode.RCALL, parseOneOpr b32 getAddr12
-  | 0b1100u -> Opcode.RJMP, parseOneOpr b32 getAddr12
-  | 0b0100u -> Opcode.SBCI, parseTwoOpr b32 getReg4D getConst8K
+  | 0b0111u ->
+    Opcode.ANDI, parseTwoOpr b32 getReg4D getConst8K
+  | 0b0011u ->
+    Opcode.CPI, parseTwoOpr b32 getReg4D getConst8K
+  | 0b1110u ->
+    Opcode.LDI, parseTwoOpr b32 getReg4D getConst8K
+  | 0b0110u ->
+    Opcode.ORI, parseTwoOpr b32 getReg4D getConst8K
+  | 0b1101u ->
+    Opcode.RCALL, parseOneOpr b32 getAddr12
+  | 0b1100u ->
+    Opcode.RJMP, parseOneOpr b32 getAddr12
+  | 0b0100u ->
+    Opcode.SBCI, parseTwoOpr b32 getReg4D getConst8K
   (* | 0x0110u -> Opcode.SBR, parseTwoOpr b32 getReg4D getConst8K *)
-  | 0b0101u -> Opcode.SUBI, parseTwoOpr b32 getReg4D getConst8K
+  | 0b0101u ->
+    Opcode.SUBI, parseTwoOpr b32 getReg4D getConst8K
   | 0b1011u when (pickBit b32 11u) = 0b0u ->
     Opcode.IN, parseTwoOpr b32 getRegD getIO6
   | 0b1011u when (pickBit b32 11u) = 0b1u ->
     Opcode.OUT, parseTwoOpr b32 getIO6 getRegD
-  | _ -> parseSixBits b32
+  | _ ->
+    parseSixBits b32
 
 let parseTwoBytes bin =
   match bin >>> 12 with

@@ -167,10 +167,8 @@ let private parseImmediate (phlp: Phlp) span opcode sizeField mode reg =
 let private parseMovep (phlp: Phlp) span dn opmode reg =
   let size = if opmode &&& 0b01u = 0u then Sz.Word else Sz.Long
   let mem = OpMem(Disp(phlp.ReadInt16 span, RegisterHelper.toAddrReg reg))
-  if opmode &&& 0b10u = 0u then
-    Op.MOVEP, size, TwoOperands(mem, OpReg dn)
-  else
-    Op.MOVEP, size, TwoOperands(OpReg dn, mem)
+  if opmode &&& 0b10u = 0u then Op.MOVEP, size, TwoOperands(mem, OpReg dn)
+  else Op.MOVEP, size, TwoOperands(OpReg dn, mem)
 
 /// Parses one of the bit instructions whose bit number is in a register, or the
 /// MOVEP that shares those encodings and is told apart by naming the one
@@ -256,10 +254,8 @@ let private parseMoves (phlp: Phlp) span sizeField mode reg =
   require (ext &&& 0x7ffus = 0us)
   let ea = parseEA phlp span size mode reg
   let r = OpReg(regOfExt ext)
-  if ext &&& 0x800us = 0us then
-    Op.MOVES, size, TwoOperands(ea, r)
-  else
-    Op.MOVES, size, TwoOperands(r, ea)
+  if ext &&& 0x800us = 0us then Op.MOVES, size, TwoOperands(ea, r)
+  else Op.MOVES, size, TwoOperands(r, ea)
 
 /// Parses the group 0000 encodings that a size field of three sets aside: the
 /// two that check a register against a pair of bounds, the two that call and
@@ -293,7 +289,8 @@ let private checkMove size srcMode dstMode dstReg =
     raise ParsingFailureException
   elif dstMode = 0b111u && dstReg > 0b001u then
     raise ParsingFailureException
-  else ()
+  else
+    ()
 
 /// Parses the three MOVE groups, whose bits 15-12 give the size of the
 /// operation. The source extension words precede the destination's, so the
@@ -552,32 +549,56 @@ let private parseMisc (phlp: Phlp) span (bin: uint16) =
   let mode = Bits.extract (uint32 bin) 5u 3u
   let reg = Bits.extract (uint32 bin) 2u 0u
   match hi, opmode with
-  | _, 0b101u -> raise ParsingFailureException
-  | _, 0b100u -> parseChk phlp span Sz.Long bin mode reg
-  | _, 0b110u -> parseChk phlp span Sz.Word bin mode reg
+  | _, 0b101u ->
+    raise ParsingFailureException
+  | _, 0b100u ->
+    parseChk phlp span Sz.Long bin mode reg
+  | _, 0b110u ->
+    parseChk phlp span Sz.Word bin mode reg
   | 0b100u, 0b111u when mode = 0b000u ->
     Op.EXTB, Sz.Long, OneOperand(OpReg(RegisterHelper.toDataReg reg))
-  | _, 0b111u -> parseLea phlp span bin mode reg
-  | 0b000u, 0b011u -> parseMoveFrom phlp span R.SR mode reg
-  | 0b001u, 0b011u -> parseMoveFrom phlp span R.CCR mode reg
-  | 0b010u, 0b011u -> parseMoveTo phlp span R.CCR mode reg
-  | 0b011u, 0b011u -> parseMoveTo phlp span R.SR mode reg
-  | 0b000u, _ -> parseUnary phlp span Op.NEGX opmode mode reg
-  | 0b001u, _ -> parseUnary phlp span Op.CLR opmode mode reg
-  | 0b010u, _ -> parseUnary phlp span Op.NEG opmode mode reg
-  | 0b011u, _ -> parseUnary phlp span Op.NOT opmode mode reg
-  | 0b100u, 0b000u -> parseNbcdOrLink phlp span mode reg
-  | 0b100u, 0b001u -> parseSwapBkptPea phlp span mode reg
-  | 0b100u, _ -> parseExtOrMovem phlp span opmode mode reg
-  | 0b101u, 0b011u -> parseTasOrIllegal phlp span mode reg
-  | 0b101u, _ -> parseTst phlp span opmode mode reg
-  | 0b110u, 0b000u -> parseMulLong phlp span mode reg
-  | 0b110u, 0b001u -> parseDivLong phlp span mode reg
-  | 0b110u, _ -> parseMovemLoad phlp span opmode mode reg
-  | 0b111u, 0b001u -> parseSystem phlp span bin
-  | 0b111u, 0b010u -> parseJump phlp span Op.JSR mode reg
-  | 0b111u, 0b011u -> parseJump phlp span Op.JMP mode reg
-  | _ -> raise ParsingFailureException
+  | _, 0b111u ->
+    parseLea phlp span bin mode reg
+  | 0b000u, 0b011u ->
+    parseMoveFrom phlp span R.SR mode reg
+  | 0b001u, 0b011u ->
+    parseMoveFrom phlp span R.CCR mode reg
+  | 0b010u, 0b011u ->
+    parseMoveTo phlp span R.CCR mode reg
+  | 0b011u, 0b011u ->
+    parseMoveTo phlp span R.SR mode reg
+  | 0b000u, _ ->
+    parseUnary phlp span Op.NEGX opmode mode reg
+  | 0b001u, _ ->
+    parseUnary phlp span Op.CLR opmode mode reg
+  | 0b010u, _ ->
+    parseUnary phlp span Op.NEG opmode mode reg
+  | 0b011u, _ ->
+    parseUnary phlp span Op.NOT opmode mode reg
+  | 0b100u, 0b000u ->
+    parseNbcdOrLink phlp span mode reg
+  | 0b100u, 0b001u ->
+    parseSwapBkptPea phlp span mode reg
+  | 0b100u, _ ->
+    parseExtOrMovem phlp span opmode mode reg
+  | 0b101u, 0b011u ->
+    parseTasOrIllegal phlp span mode reg
+  | 0b101u, _ ->
+    parseTst phlp span opmode mode reg
+  | 0b110u, 0b000u ->
+    parseMulLong phlp span mode reg
+  | 0b110u, 0b001u ->
+    parseDivLong phlp span mode reg
+  | 0b110u, _ ->
+    parseMovemLoad phlp span opmode mode reg
+  | 0b111u, 0b001u ->
+    parseSystem phlp span bin
+  | 0b111u, 0b010u ->
+    parseJump phlp span Op.JSR mode reg
+  | 0b111u, 0b011u ->
+    parseJump phlp span Op.JMP mode reg
+  | _ ->
+    raise ParsingFailureException
 
 /// Parses an ADDQ or a SUBQ. A data field of zero means eight, there being no
 /// use for adding an immediate zero, and the destination has to be alterable.
@@ -780,11 +801,14 @@ let private parseGroup9 (phlp: Phlp) span (bin: uint16) =
   let opmode = Bits.extract (uint32 bin) 8u 6u
   let mode = Bits.extract (uint32 bin) 5u 3u
   match opmode with
-  | 0b011u -> parseArithAddr phlp span Op.SUBA Sz.Word bin
-  | 0b111u -> parseArithAddr phlp span Op.SUBA Sz.Long bin
+  | 0b011u ->
+    parseArithAddr phlp span Op.SUBA Sz.Word bin
+  | 0b111u ->
+    parseArithAddr phlp span Op.SUBA Sz.Long bin
   | _ when opmode > 0b011u && mode < 0b010u ->
     parsePairOp bin Op.SUBX (toSize (opmode &&& 0b011u))
-  | _ -> parseArith phlp span Op.SUB opmode bin
+  | _ ->
+    parseArith phlp span Op.SUB opmode bin
 
 /// Parses group 1011, which holds the comparisons alongside the exclusive OR.
 /// The direction bit that makes the others write back to memory makes this one
@@ -793,12 +817,16 @@ let private parseGroupB (phlp: Phlp) span (bin: uint16) =
   let opmode = Bits.extract (uint32 bin) 8u 6u
   let mode = Bits.extract (uint32 bin) 5u 3u
   match opmode with
-  | 0b011u -> parseArithAddr phlp span Op.CMPA Sz.Word bin
-  | 0b111u -> parseArithAddr phlp span Op.CMPA Sz.Long bin
+  | 0b011u ->
+    parseArithAddr phlp span Op.CMPA Sz.Word bin
+  | 0b111u ->
+    parseArithAddr phlp span Op.CMPA Sz.Long bin
   | _ when opmode > 0b011u && mode = 0b001u ->
     parseCmpm bin (toSize (opmode &&& 0b011u))
-  | _ when opmode > 0b011u -> parseEor phlp span opmode bin
-  | _ -> parseArith phlp span Op.CMP opmode bin
+  | _ when opmode > 0b011u ->
+    parseEor phlp span opmode bin
+  | _ ->
+    parseArith phlp span Op.CMP opmode bin
 
 /// Parses group 1100, which holds the logical AND alongside the word multiply,
 /// the decimal add, and the register exchange.
@@ -818,11 +846,14 @@ let private parseGroupD (phlp: Phlp) span (bin: uint16) =
   let opmode = Bits.extract (uint32 bin) 8u 6u
   let mode = Bits.extract (uint32 bin) 5u 3u
   match opmode with
-  | 0b011u -> parseArithAddr phlp span Op.ADDA Sz.Word bin
-  | 0b111u -> parseArithAddr phlp span Op.ADDA Sz.Long bin
+  | 0b011u ->
+    parseArithAddr phlp span Op.ADDA Sz.Word bin
+  | 0b111u ->
+    parseArithAddr phlp span Op.ADDA Sz.Long bin
   | _ when opmode > 0b011u && mode < 0b010u ->
     parsePairOp bin Op.ADDX (toSize (opmode &&& 0b011u))
-  | _ -> parseArith phlp span Op.ADD opmode bin
+  | _ ->
+    parseArith phlp span Op.ADD opmode bin
 
 /// The four families of shift and rotate, indexed by the type field and then by
 /// the bit that says which way it goes.
@@ -1118,10 +1149,8 @@ let private parseFloatCtrl (phlp: Phlp) span (cmd: uint16) mode reg =
   let opcode = if single then Op.FMOVE else Op.FMOVEM
   let list = if single then OpReg regs[0] else OpRegList regs
   let ea = parseEA phlp span Sz.Long mode reg
-  if cmd &&& 0x2000us = 0us then
-    opcode, Sz.Long, TwoOperands(ea, list)
-  else
-    opcode, Sz.Long, TwoOperands(list, ea)
+  if cmd &&& 0x2000us = 0us then opcode, Sz.Long, TwoOperands(ea, list)
+  else opcode, Sz.Long, TwoOperands(list, ea)
 
 /// Whether the addressing mode of an FMOVEM agrees with the mode field of its
 /// command word and with the direction it moves. A predecrement address walks
@@ -1149,10 +1178,8 @@ let private parseFmovem (phlp: Phlp) span (cmd: uint16) mode reg =
       let reversed = mmode = 0b00u
       OpRegList(maskToRegs (cmd &&& 0xffus) reversed R.FP0 8)
   let ea = parseFloatEA phlp span Sz.Extended mode reg
-  if cmd &&& 0x2000us = 0us then
-    Op.FMOVEM, Sz.Extended, TwoOperands(ea, list)
-  else
-    Op.FMOVEM, Sz.Extended, TwoOperands(list, ea)
+  if cmd &&& 0x2000us = 0us then Op.FMOVEM, Sz.Extended, TwoOperands(ea, list)
+  else Op.FMOVEM, Sz.Extended, TwoOperands(list, ea)
 
 /// Parses one of the instructions whose second word is the command word that
 /// the coprocessor rather than the processor reads. Which of them it is turns
@@ -1164,17 +1191,23 @@ let private parseFloatGeneral (phlp: Phlp) span mode reg =
      never asks the processor to evaluate the effective address field and
      nothing decodes it. Whatever it holds is therefore not a reason to refuse
      the instruction, and it costs no extension words either. *)
-  | 0b000u -> parseFloatArith phlp span cmd mode reg
+  | 0b000u ->
+    parseFloatArith phlp span cmd mode reg
   | 0b010u when Bits.extract (uint32 cmd) 12u 10u = 0b111u ->
     (* An FMOVECR names no address, and the manual encodes the whole of the
        effective address field as zero rather than leaving it a field. *)
     require (mode = 0u && reg = 0u)
     parseFmovecr cmd
-  | 0b010u -> parseFloatArith phlp span cmd mode reg
-  | 0b011u -> parseFloatToMem phlp span cmd mode reg
-  | 0b100u | 0b101u -> parseFloatCtrl phlp span cmd mode reg
-  | 0b110u | 0b111u -> parseFmovem phlp span cmd mode reg
-  | _ -> raise ParsingFailureException
+  | 0b010u ->
+    parseFloatArith phlp span cmd mode reg
+  | 0b011u ->
+    parseFloatToMem phlp span cmd mode reg
+  | 0b100u | 0b101u ->
+    parseFloatCtrl phlp span cmd mode reg
+  | 0b110u | 0b111u ->
+    parseFmovem phlp span cmd mode reg
+  | _ ->
+    raise ParsingFailureException
 
 /// Parses an FScc, an FDBcc, or an FTRAPcc, which share bits 8-6 and are told
 /// apart the way their integer counterparts are: by the addressing mode field.
@@ -1241,7 +1274,8 @@ let private parseCache (phlp: Phlp) (bin: uint16) =
   | 0b11u ->
     let opcode = if isPush then Op.CPUSHA else Op.CINVA
     opcode, Sz.NoSize, OneOperand caches
-  | _ -> raise ParsingFailureException
+  | _ ->
+    raise ParsingFailureException
 
 /// Parses a PFLUSH or a PTEST, the two translation cache instructions the 68040
 /// puts in this group. Both spell what they reach into the mnemonic.
@@ -1261,7 +1295,8 @@ let private parseMmu (phlp: Phlp) (bin: uint16) =
     require (opmode = 0b01u)
     let opcode = if bin &&& 0x20us = 0us then Op.PTESTW else Op.PTESTR
     opcode, Sz.NoSize, OneOperand an
-  | _ -> raise ParsingFailureException
+  | _ ->
+    raise ParsingFailureException
 
 /// Parses a MOVE16, which copies an aligned block of sixteen bytes. One form
 /// names two postincremented address registers and carries a second word for

@@ -54,7 +54,8 @@ type CFGBuilderTable<'FnCtx,
 
   let getOrCreateInternalBuilder managerMsgbox addr =
     match builders.TryGetValue addr with
-    | true, builder -> builder
+    | true, builder ->
+      builder
     | false, _ ->
       let builder =
         InternalFnCFGBuilder(hdl,

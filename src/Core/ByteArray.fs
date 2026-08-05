@@ -62,7 +62,8 @@ module ByteArray =
       Error ErrorCase.InvalidMemoryRead
 
   let rec private extractCStringFromSpanAux span (acc: StringBuilder) offset =
-    if offset >= (span: ReadOnlySpan<byte>).Length then acc.ToString()
+    if offset >= (span: ReadOnlySpan<byte>).Length then
+      acc.ToString()
     else
       match span[offset] with
       | 0uy -> acc.ToString()
@@ -99,7 +100,8 @@ module ByteArray =
     let rec loop idx =
       if idx < pos && pattern[pos - idx] = pattern[patlen - 1 - idx] then
         loop (idx + 1)
-      else idx
+      else
+        idx
     loop 0
 
   let private makeDelta2 (pattern: ByteArray) patlen =
@@ -129,7 +131,8 @@ module ByteArray =
       let struct (i, j) = getMatch pattern buf (i, pattern.Length - 1)
       if j < 0 then Some(i + 1)
       else searchOne (i + max d1[int buf[i]] d2[j]) buf pattern d1 d2
-    else None
+    else
+      None
 
   let private makeDeltas pattern =
     let patlen = Array.length pattern

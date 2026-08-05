@@ -66,7 +66,8 @@ module internal FDE =
     | Some addend ->
       let beginAddr = addr + addend
       struct (beginAddr, beginAddr + range, offset)
-    | None -> struct (beginAddr, endAddr, offset)
+    | None ->
+      struct (beginAddr, endAddr, offset)
 
   let parseLSDA cls span reader sAddr aug offset =
     let _, offset = FileHelper.readULEB128 span offset
@@ -110,4 +111,5 @@ module internal FDE =
         PCEnd = e
         LSDAPointer = lsdaPointer
         UnwindingInfo = info }
-    | None -> raise CIENotFoundByFDEException
+    | None ->
+      raise CIENotFoundByFDEException

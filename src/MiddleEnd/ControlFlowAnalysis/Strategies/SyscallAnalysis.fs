@@ -52,8 +52,10 @@ type SyscallAnalysis() =
         | Def v ->
           let n = v.ToInt32()
           n = exitSyscall || n = exitGrpSyscall || n = sigretSyscall
-        | Undef -> false
-      | _ -> false
+        | Undef ->
+          false
+      | _ ->
+        false
 
     member _.MakeAbstract(ctx, v, isExit) =
       let addr = ctx.FunctionAddress

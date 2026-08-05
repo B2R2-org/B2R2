@@ -120,7 +120,8 @@ module internal ChainedFixup =
       Some(decodeArm64e baseAddr imports 0xFFFFUL, nextArm64e, 8)
     | PtrFormatArm64eUserland24 ->
       Some(decodeArm64e baseAddr imports 0xFFFFFFUL, nextArm64e, 8)
-    | _ -> None
+    | _ ->
+      None
 
   /// Walks a single page chain, accumulating fixups until next is zero.
   let private walkChain toolBox seg pageOff start decode nextOf stride acc =
@@ -141,7 +142,8 @@ module internal ChainedFixup =
     let bytes, reader = toolBox.Bytes, toolBox.Reader
     let ptrFormat = reader.ReadUInt16(bytes, infoOff + 6)
     match selectDecoder baseAddr imports ptrFormat with
-    | None -> acc
+    | None ->
+      acc
     | Some(decode, nextOf, stride) ->
       let pageSize = int (reader.ReadUInt16(bytes, infoOff + 4))
       let pageCount = int (reader.ReadUInt16(bytes, infoOff + 20))
@@ -157,7 +159,8 @@ module internal ChainedFixup =
 
   let parse toolBox cmds (segCmds: SegCmd[]) =
     match Array.tryPick chooser cmds with
-    | None -> [||]
+    | None ->
+      [||]
     | Some cmd ->
       let bytes, reader = toolBox.Bytes, toolBox.Reader
       let dataOff = cmd.FixupsDataOffset

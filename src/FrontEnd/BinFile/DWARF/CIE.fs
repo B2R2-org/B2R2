@@ -111,7 +111,8 @@ module internal CIE =
         obtainAugData addrSize arr data idx ch) ([], 0)
       |> fst
       |> List.rev, offset + int len
-    else [], offset
+    else
+      [], offset
 
   let extractOldOffset = function
     | RegPlusOffset(_, o) -> o
@@ -296,7 +297,8 @@ module internal CIE =
         getUnwind acc cfa irule rst rule isa regs lr cf df rr span (i + cnt) loc
       | CFAInstruction.DW_CFA_nop ->
         getUnwind acc cfa irule rst rule isa regs lr cf df rr span i loc
-      | op -> printfn "%A" op; Terminator.futureFeature ()
+      | op ->
+        printfn "%A" op; Terminator.futureFeature ()
 
   let extractRule unwindingInfo =
     match unwindingInfo with

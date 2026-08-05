@@ -59,10 +59,12 @@ let orTry first second ins =
 /// enumeration keeps every other one of them and their names count by twos.
 /// </summary>
 let private numberOf (reg: Register) =
-  if reg >= Register.F0 && reg <= Register.F31 then int reg - int Register.F0
+  if reg >= Register.F0 && reg <= Register.F31 then
+    int reg - int Register.F0
   elif reg >= Register.F32 && reg <= Register.F62 then
     32 + 2 * (int reg - int Register.F32)
-  else -1
+  else
+    -1
 
 /// The five bits that name one of the general registers.
 let gpr (reg: Register) =
@@ -114,10 +116,8 @@ let quad (reg: Register) =
 let private signed width (value: uint64) =
   let v = int64 (int32 (uint32 value))
   let bound = 1L <<< (width - 1)
-  if v >= -bound && v < bound then
-    uint32 (uint64 v &&& ((1UL <<< width) - 1UL))
-  else
-    fail $"{v} does not fit in {width} signed bits"
+  if v >= -bound && v < bound then uint32 (uint64 v &&& ((1UL <<< width) - 1UL))
+  else fail $"{v} does not fit in {width} signed bits"
 
 /// The bits a field reads as a count, which is every field but the ones
 /// holding a distance or a signed number.
@@ -333,6 +333,7 @@ let alternateAddress mem asi =
     gpr baseReg, immAsi space <<< 5
   | AsmMem(baseReg, None), AsmReg Register.ASI ->
     gpr baseReg, 1u <<< 13
-  | _ -> fail "this does not name memory in an address space"
+  | _ ->
+    fail "this does not name memory in an address space"
 
 // vim: set tw=80 sts=2 sw=2:

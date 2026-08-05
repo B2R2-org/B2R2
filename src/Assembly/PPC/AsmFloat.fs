@@ -62,8 +62,7 @@ let private fpMultiply po xo rc ins =
 /// performed as one instruction take.
 let private fpMultiplyAdd po xo rc ins =
   match ins.Operands with
-  | [ Rg d; Rg a; Rg c; Rg b ] ->
-    aForm po (fpr d) (fpr a) (fpr b) (fpr c) xo rc
+  | [ Rg d; Rg a; Rg c; Rg b ] -> aForm po (fpr d) (fpr a) (fpr b) (fpr c) xo rc
   | _ -> wrongOperands ins
 
 /// An X-form comparison, whose answer goes into one field of the condition
@@ -92,7 +91,8 @@ let private fpSetStatusField rc ins =
   match ins.Operands with
   | [ Im f; Im v ] ->
     xForm 63u ((unsigned 3 f) <<< 2) 0u ((unsigned 4 v) <<< 1) 134u rc
-  | _ -> wrongOperands ins
+  | _ ->
+    wrongOperands ins
 
 /// mffs, which reads the whole of that register into a floating-point one.
 let private fpReadStatus rc ins =
@@ -114,7 +114,8 @@ let private fpWriteStatus rc ins =
   | [ Im m; Rg b ] ->
     let mask = unsigned 8 m
     word 63u (mask >>> 4) ((mask &&& 0xFu) <<< 1) (fpr b) ((711u <<< 1) ||| rc)
-  | _ -> wrongOperands ins
+  | _ ->
+    wrongOperands ins
 
 /// A D-form load or store of a floating-point register.
 let private fpMemory po ins =

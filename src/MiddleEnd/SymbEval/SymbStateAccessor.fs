@@ -67,20 +67,23 @@ type SymbStateAccessor(hdl: BinHandle, state: SymbState) as this =
 
   let getStackPointerRegister () =
     match regFactory.StackPointer with
-    | Some rid -> rid
+    | Some rid ->
+      rid
     | None ->
       raise (InvalidOperationException
         "Stack pointer register is unavailable.")
 
   let getFramePointerRegister () =
     match regFactory.FramePointer with
-    | Some rid -> rid
+    | Some rid ->
+      rid
     | None ->
       raise (InvalidOperationException
         "Frame pointer register is unavailable.")
 
   let getConcreteAddr = function
-    | SymbExpr.Const bv -> bv.ToUInt64()
+    | SymbExpr.Const bv ->
+      bv.ToUInt64()
     | expr ->
       raise (InvalidOperationException $"Expected concrete address: {expr}.")
 
@@ -132,7 +135,8 @@ type SymbStateAccessor(hdl: BinHandle, state: SymbState) as this =
 
   let tryPushToStack value =
     match tryGetStackPointer () with
-    | Error e -> Error e
+    | Error e ->
+      Error e
     | Ok sp ->
       let addr = sp - uint64 wordBytes
       trySetStackPointer addr
@@ -151,13 +155,15 @@ type SymbStateAccessor(hdl: BinHandle, state: SymbState) as this =
 
   let tryPopFromStack () =
     match tryGetStackPointer () with
-    | Error e -> Error e
+    | Error e ->
+      Error e
     | Ok addr ->
       match state.Memory.Load(addr, endian, wordType) with
       | Ok value ->
         trySetStackPointer (addr + uint64 wordBytes)
         |> Result.map (fun () -> value)
-      | Error e -> Error e
+      | Error e ->
+        Error e
 
   let checkBufferLength length =
     if length < 0 then raise (ArgumentOutOfRangeException(nameof length))

@@ -56,8 +56,7 @@ let (<!--) (bld: ILowUIRBuilder) (addr, insLen) =
     match sbld.DelaySlotAddr with
     | ValueSome expected when
         sbld.DelayedBranch <> InterJmpKind.NotAJmp
-        && not sbld.Armed && addr <> expected ->
-      sbld.ResetDelayState()
+        && not sbld.Armed && addr <> expected -> sbld.ResetDelayState()
     | _ -> ()
     sbld.CurAddr <- addr
     match sbld.AnnulCond with
@@ -68,8 +67,10 @@ let (<!--) (bld: ILowUIRBuilder) (addr, insLen) =
       bld <+ (AST.lmark runLbl)
       sbld.AnnulSkip <- ValueSome skipLbl
       sbld.AnnulCond <- ValueNone
-    | ValueNone -> ()
-  | _ -> ()
+    | ValueNone ->
+      ()
+  | _ ->
+    ()
 
 /// Finalizes an instruction: closes any annulled delay slot's skip label, then
 /// flushes a pending delayed branch. A SPARC control transfer arms the branch
@@ -84,7 +85,8 @@ let (--!>) (bld: ILowUIRBuilder) insLen =
     | ValueSome lbl ->
       bld <+ (AST.lmark lbl)
       sbld.AnnulSkip <- ValueNone
-    | ValueNone -> ()
+    | ValueNone ->
+      ()
     if sbld.DelayedBranch <> InterJmpKind.NotAJmp then
       if sbld.Armed then
         sbld.Armed <- false
@@ -92,7 +94,8 @@ let (--!>) (bld: ILowUIRBuilder) insLen =
       else
         bld <+ (AST.interjmp (regVar bld Register.NPC) sbld.DelayedBranch)
         sbld.Disarm()
-    else ()
+    else
+      ()
     bld.Stream.MarkEnd insLen
     bld
   | _ ->
@@ -111,7 +114,8 @@ let inline getCCVar (bld: ILowUIRBuilder) name =
 
 let dstAssign oprSize dst src =
   match oprSize with
-  | 8<rt> | 16<rt> -> dst := src (* No extension for 8- and 16-bit operands *)
+  | 8<rt> | 16<rt> ->
+    dst := src (* No extension for 8- and 16-bit operands *)
   | _ ->
     let dst = AST.unwrap dst
     let dstOrigSz = dst |> Expr.typeOf
@@ -135,7 +139,8 @@ let isRegOpr (ins: Instruction) insLen bld =
     match o2 with
     | OprReg reg -> true
     | _ -> false
-  | _ -> raise InvalidOperandException
+  | _ ->
+    raise InvalidOperandException
 
 let getOneOpr (ins: Instruction) =
   match ins.Operands with
@@ -162,7 +167,8 @@ let transTwoOprs (ins: Instruction) insLen bld =
   | TwoOperands(o1, o2) ->
     struct (transOprToExpr ins insLen bld o1,
             transOprToExpr ins insLen bld o2)
-  | _ -> raise InvalidOperandException
+  | _ ->
+    raise InvalidOperandException
 
 let transThreeOprs (ins: Instruction) insLen bld =
   match ins.Operands with
@@ -170,7 +176,8 @@ let transThreeOprs (ins: Instruction) insLen bld =
     struct (transOprToExpr ins insLen bld o1,
             transOprToExpr ins insLen bld o2,
             transOprToExpr ins insLen bld o3)
-  | _ -> raise InvalidOperandException
+  | _ ->
+    raise InvalidOperandException
 
 let transFourOprs (ins: Instruction) insLen bld =
   match ins.Operands with
@@ -179,7 +186,8 @@ let transFourOprs (ins: Instruction) insLen bld =
             transOprToExpr ins insLen bld o2,
             transOprToExpr ins insLen bld o3,
             transOprToExpr ins insLen bld o4)
-  | _ -> raise InvalidOperandException
+  | _ ->
+    raise InvalidOperandException
 
 let transAddrThreeOprs (ins: Instruction) insLen bld =
   match ins.Operands with
@@ -187,7 +195,8 @@ let transAddrThreeOprs (ins: Instruction) insLen bld =
     struct (transOprToExpr ins insLen bld o1 .+
             transOprToExpr ins insLen bld o2,
             transOprToExpr ins insLen bld o3)
-  | _ -> raise InvalidOperandException
+  | _ ->
+    raise InvalidOperandException
 
 let transAddrFourOprs (ins: Instruction) insLen bld =
   match ins.Operands with
@@ -196,7 +205,8 @@ let transAddrFourOprs (ins: Instruction) insLen bld =
             transOprToExpr ins insLen bld o2,
             transOprToExpr ins insLen bld o3,
             transOprToExpr ins insLen bld o4)
-  | _ -> raise InvalidOperandException
+  | _ ->
+    raise InvalidOperandException
 
 let transTwooprsAddr (ins: Instruction) insLen bld =
   match ins.Operands with
@@ -204,7 +214,8 @@ let transTwooprsAddr (ins: Instruction) insLen bld =
     struct (transOprToExpr ins insLen bld o1,
             transOprToExpr ins insLen bld o2 .+
             transOprToExpr ins insLen bld o3)
-  | _ -> raise InvalidOperandException
+  | _ ->
+    raise InvalidOperandException
 
 let transThroprsAddr (ins: Instruction) insLen bld =
   match ins.Operands with
@@ -213,7 +224,8 @@ let transThroprsAddr (ins: Instruction) insLen bld =
             transOprToExpr ins insLen bld o2 .+
             transOprToExpr ins insLen bld o3,
             transOprToExpr ins insLen bld o4)
-  | _ -> raise InvalidOperandException
+  | _ ->
+    raise InvalidOperandException
 
 let getConditionCodeAdd res src src1 =
   let sign = AST.extract src 1<rt> 63
@@ -342,7 +354,8 @@ let getFloatClass bld freg =
     || freg = regVar bld Register.F20 || freg = regVar bld Register.F22
     || freg = regVar bld Register.F24 || freg = regVar bld Register.F26
     || freg = regVar bld Register.F28 || freg = regVar bld Register.F30)
-  then 0
+  then
+    0
   elif (freg = regVar bld Register.F32 || freg = regVar bld Register.F34
     || freg = regVar bld Register.F36 || freg = regVar bld Register.F38
     || freg = regVar bld Register.F40 || freg = regVar bld Register.F42
@@ -351,8 +364,10 @@ let getFloatClass bld freg =
     || freg = regVar bld Register.F52 || freg = regVar bld Register.F54
     || freg = regVar bld Register.F56 || freg = regVar bld Register.F58
     || freg = regVar bld Register.F60 || freg = regVar bld Register.F62)
-  then 1
-  else raise InvalidRegisterException
+  then
+    1
+  else
+    raise InvalidRegisterException
 
 let getDFloatNext bld freg =
   if freg = regVar bld Register.F0 then Register.F1
@@ -392,7 +407,8 @@ let movFregD bld src dst =
     bld <+ (nextdst := AST.extract src 32<rt> 0)
   | 1, 1 ->
     bld <+ (dst := src)
-  | _ -> raise InvalidRegisterException
+  | _ ->
+    raise InvalidRegisterException
 
 let getQFloatNext0 bld freg =
   if (freg = regVar bld Register.F0) then
@@ -411,7 +427,8 @@ let getQFloatNext0 bld freg =
     struct (Register.F25, Register.F26, Register.F27)
   elif (freg = regVar bld Register.F28) then
     struct (Register.F29, Register.F30, Register.F31)
-  else raise InvalidRegisterException
+  else
+    raise InvalidRegisterException
 
 let getQFloatNext1 bld freg =
   if (freg = regVar bld Register.F32) then Register.F34
@@ -466,7 +483,8 @@ let movFregQ bld src dst =
     let nextdst = regVar bld (getQFloatNext1 bld dst)
     bld <+ (nextdst := nextsrc)
     bld <+ (dst := src)
-  | _ -> raise InvalidRegisterException
+  | _ ->
+    raise InvalidRegisterException
 
 let getDFloatOp bld src op =
   let regclass = getFloatClass bld src
@@ -477,7 +495,8 @@ let getDFloatOp bld src op =
     bld <+ ((AST.extract op 32<rt> 0) := nextreg)
   | 1 ->
     bld <+ (op := src)
-  | _ -> raise InvalidRegisterException
+  | _ ->
+    raise InvalidRegisterException
 
 let getQFloatOp bld src op1 op2 =
   let regclass = getFloatClass bld src
@@ -496,7 +515,8 @@ let getQFloatOp bld src op1 op2 =
     let src1 = regVar bld r1
     bld <+ ((AST.extract op1 64<rt> 0) := src)
     bld <+ ((AST.extract op2 64<rt> 0) := src1)
-  | _ -> raise InvalidRegisterException
+  | _ ->
+    raise InvalidRegisterException
 
 let setDFloatOp bld dst res =
   let regclass = getFloatClass bld dst
@@ -507,7 +527,8 @@ let setDFloatOp bld dst res =
     bld <+ (nextreg := (AST.extract res 32<rt> 0))
   | 1 ->
     bld <+ (dst := res)
-  | _ -> raise InvalidRegisterException
+  | _ ->
+    raise InvalidRegisterException
 
 let setQFloatOp bld dst res1 res2 =
   let regclass = getFloatClass bld dst
@@ -526,7 +547,8 @@ let setQFloatOp bld dst res1 res2 =
     let dst1 = regVar bld r1
     bld <+ (dst := (AST.extract res1 64<rt> 0))
     bld <+ (dst1 := (AST.extract res2 64<rt> 0))
-  | _ -> raise InvalidRegisterException
+  | _ ->
+    raise InvalidRegisterException
 
 /// VIS 64-bit logical/select ops (fzerod, fsrc*d, for*d, ...): read the two
 /// double-float sources as 64-bit values, apply the bitwise operation, and
@@ -650,10 +672,8 @@ let add ins insLen bld =
   let res = tmpVar bld oprSize
   bld <!-- (ins.Address, insLen)
   bld <+ (res := src .+ src1)
-  if dst = regVar bld Register.G0 then
-    bld <+ (dst := AST.num0 64<rt>)
-  else
-    bld <+ (dst := res)
+  if dst = regVar bld Register.G0 then bld <+ (dst := AST.num0 64<rt>)
+  else bld <+ (dst := res)
   bld --!> insLen
 
 let addcc ins insLen bld =
@@ -667,10 +687,8 @@ let addcc ins insLen bld =
   (* flags before dst: rd may alias an operand the V/C formula reads. *)
   bld <+ (byte := getConditionCodeAdd res src src1)
   bld <+ (AST.extract ccr 8<rt> 0 := byte)
-  if (dst = regVar bld Register.G0) then
-    bld <+ (dst := AST.num0 64<rt>)
-  else
-    bld <+ (dst := res)
+  if (dst = regVar bld Register.G0) then bld <+ (dst := AST.num0 64<rt>)
+  else bld <+ (dst := res)
   bld --!> insLen
 
 let addC ins insLen bld =
@@ -680,10 +698,8 @@ let addC ins insLen bld =
   let ccr = regVar bld Register.CCR
   bld <!-- (ins.Address, insLen)
   bld <+ (res := src .+ src1 .+ AST.zext 64<rt> (AST.extract ccr 1<rt> 0))
-  if dst = regVar bld Register.G0 then
-    bld <+ (dst := AST.num0 64<rt>)
-  else
-    bld <+ (dst := res)
+  if dst = regVar bld Register.G0 then bld <+ (dst := AST.num0 64<rt>)
+  else bld <+ (dst := res)
   bld --!> insLen
 
 let addCcc ins insLen bld =
@@ -697,10 +713,8 @@ let addCcc ins insLen bld =
   (* flags before dst: rd may alias an operand the V/C formula reads. *)
   bld <+ (byte := (getConditionCodeAdd res src src1))
   bld <+ (AST.extract ccr 8<rt> 0 := byte)
-  if dst = regVar bld Register.G0 then
-    bld <+ (dst := AST.num0 64<rt>)
-  else
-    bld <+ (dst := res)
+  if dst = regVar bld Register.G0 then bld <+ (dst := AST.num0 64<rt>)
+  else bld <+ (dst := res)
   bld --!> insLen
 
 let ``and`` ins insLen bld =
@@ -709,10 +723,8 @@ let ``and`` ins insLen bld =
   let res = tmpVar bld oprSize
   bld <!-- (ins.Address, insLen)
   bld <+ (res := src .& src1)
-  if dst = regVar bld Register.G0 then
-    bld <+ (dst := AST.num0 64<rt>)
-  else
-    bld <+ (dst := res)
+  if dst = regVar bld Register.G0 then bld <+ (dst := AST.num0 64<rt>)
+  else bld <+ (dst := res)
   bld --!> insLen
 
 let andcc ins insLen bld =
@@ -723,10 +735,8 @@ let andcc ins insLen bld =
   let byte = tmpVar bld 8<rt>
   bld <!-- (ins.Address, insLen)
   bld <+ (res := src .& src1)
-  if dst = regVar bld Register.G0 then
-    bld <+ (dst := AST.num0 64<rt>)
-  else
-    bld <+ (dst := res)
+  if dst = regVar bld Register.G0 then bld <+ (dst := AST.num0 64<rt>)
+  else bld <+ (dst := res)
   bld <+ (byte := (getConditionCodeLog res src src1))
   bld <+ (AST.extract ccr 8<rt> 0 := byte)
   bld --!> insLen
@@ -737,10 +747,8 @@ let andn ins insLen bld =
   let res = tmpVar bld oprSize
   bld <!-- (ins.Address, insLen)
   bld <+ (res := src .& (AST.not src1))
-  if dst = regVar bld Register.G0 then
-    bld <+ (dst := AST.num0 64<rt>)
-  else
-    bld <+ (dst := res)
+  if dst = regVar bld Register.G0 then bld <+ (dst := AST.num0 64<rt>)
+  else bld <+ (dst := res)
   bld --!> insLen
 
 let andncc ins insLen bld =
@@ -751,10 +759,8 @@ let andncc ins insLen bld =
   let byte = tmpVar bld 8<rt>
   bld <!-- (ins.Address, insLen)
   bld <+ (res := src .& (AST.not src1))
-  if dst = regVar bld Register.G0 then
-    bld <+ (dst := AST.num0 64<rt>)
-  else
-    bld <+ (dst := res)
+  if dst = regVar bld Register.G0 then bld <+ (dst := AST.num0 64<rt>)
+  else bld <+ (dst := res)
   bld <+ (byte := (getConditionCodeLog res src src1))
   bld <+ (AST.extract ccr 8<rt> 0 := byte)
   bld --!> insLen
@@ -783,7 +789,8 @@ let setNPCCond (bld: ILowUIRBuilder) cond taken notTaken =
 /// slot runs only when taken.
 let branchTo (bld: ILowUIRBuilder) an cond taken notTaken =
   let annul = (AST.extract an 1<rt> 0 = AST.b1)
-  if annul && cond = AST.b1 then bld <+ (AST.interjmp taken InterJmpKind.Base)
+  if annul && cond = AST.b1 then
+    bld <+ (AST.interjmp taken InterJmpKind.Base)
   elif annul && cond = AST.b0 then
     bld <+ (AST.interjmp notTaken InterJmpKind.Base)
   else
@@ -818,10 +825,14 @@ let branchicc ins insLen bld =
   bld <!-- (ins.Address, insLen)
   let branchCond =
     match ins.Opcode with
-    | Opcode.BA -> (AST.b1)
-    | Opcode.BN -> (AST.b0)
-    | Opcode.BNE -> (AST.extract ccr 1<rt> 2 == AST.b0)
-    | Opcode.BE -> (AST.extract ccr 1<rt> 2 == AST.b1)
+    | Opcode.BA ->
+      (AST.b1)
+    | Opcode.BN ->
+      (AST.b0)
+    | Opcode.BNE ->
+      (AST.extract ccr 1<rt> 2 == AST.b0)
+    | Opcode.BE ->
+      (AST.extract ccr 1<rt> 2 == AST.b1)
     | Opcode.BG ->
       (((AST.extract ccr 1<rt> 2) .| ((AST.extract ccr 1<rt> 1) <+>
         (AST.extract ccr 1<rt> 3))) == AST.b0)
@@ -836,13 +847,20 @@ let branchicc ins insLen bld =
       ((AST.extract ccr 1<rt> 0) .| (AST.extract ccr 1<rt> 2) == AST.b0)
     | Opcode.BLEU ->
       ((AST.extract ccr 1<rt> 0) .| (AST.extract ccr 1<rt> 2) == AST.b1)
-    | Opcode.BCC -> (AST.extract ccr 1<rt> 0 == AST.b0)
-    | Opcode.BCS -> (AST.extract ccr 1<rt> 0 == AST.b1)
-    | Opcode.BPOS -> (AST.extract ccr 1<rt> 3 == AST.b0)
-    | Opcode.BNEG -> (AST.extract ccr 1<rt> 3 == AST.b1)
-    | Opcode.BVC -> (AST.extract ccr 1<rt> 1 == AST.b0)
-    | Opcode.BVS -> (AST.extract ccr 1<rt> 1 == AST.b1)
-    | _ -> raise InvalidOpcodeException
+    | Opcode.BCC ->
+      (AST.extract ccr 1<rt> 0 == AST.b0)
+    | Opcode.BCS ->
+      (AST.extract ccr 1<rt> 0 == AST.b1)
+    | Opcode.BPOS ->
+      (AST.extract ccr 1<rt> 3 == AST.b0)
+    | Opcode.BNEG ->
+      (AST.extract ccr 1<rt> 3 == AST.b1)
+    | Opcode.BVC ->
+      (AST.extract ccr 1<rt> 1 == AST.b0)
+    | Opcode.BVS ->
+      (AST.extract ccr 1<rt> 1 == AST.b1)
+    | _ ->
+      raise InvalidOpcodeException
   let jumpTarget = pc .+ AST.zext 64<rt> label
   branchTo bld an branchCond jumpTarget (pc .+ numI32PC 8)
   bld --!> insLen
@@ -855,8 +873,10 @@ let branchpcc ins insLen bld =
   bld <!-- (ins.Address, insLen)
   let branchCond =
     match ins.Opcode with
-    | Opcode.BPA -> (AST.b1)
-    | Opcode.BPN -> (AST.b0)
+    | Opcode.BPA ->
+      (AST.b1)
+    | Opcode.BPN ->
+      (AST.b0)
     | Opcode.BPNE ->
       if (cc = getCCVar bld ConditionCode.Icc) then
         (AST.extract ccr 1<rt> 2 == AST.b0)
@@ -931,7 +951,8 @@ let branchpcc ins insLen bld =
         (AST.extract ccr 1<rt> 1 == AST.b1)
       else
         (AST.extract ccr 1<rt> 5 == AST.b1)
-    | _ -> raise InvalidOpcodeException
+    | _ ->
+      raise InvalidOpcodeException
   let jumpTarget = pc .+ AST.zext 64<rt> label
   branchTo bld an branchCond jumpTarget (pc .+ numI32PC 8)
   bld --!> insLen
@@ -1859,7 +1880,8 @@ let fmovrs ins insLen bld =
     bld <+ (fdst := AST.ite (src ?> AST.num0 oprSize) (fsrc) (fdst))
   | Opcode.FMOVRsGEZ ->
     bld <+ (fdst := AST.ite (src ?>= AST.num0 oprSize) (fsrc) (fdst))
-  | _ -> raise InvalidOpcodeException
+  | _ ->
+    raise InvalidOpcodeException
   bld --!> insLen
 
 let fmovrd ins insLen bld =
@@ -1867,18 +1889,12 @@ let fmovrd ins insLen bld =
   let oprSize = 64<rt>
   let cond =
     match ins.Opcode with
-    | Opcode.FMOVRdZ ->
-      src == AST.num0 oprSize
-    | Opcode.FMOVRdLEZ ->
-      src ?<= AST.num0 oprSize
-    | Opcode.FMOVRdLZ ->
-      src ?< AST.num0 oprSize
-    | Opcode.FMOVRdNZ ->
-      src != AST.num0 oprSize
-    | Opcode.FMOVRdGZ ->
-      src ?> AST.num0 oprSize
-    | Opcode.FMOVRdGEZ ->
-      src ?>= AST.num0 oprSize
+    | Opcode.FMOVRdZ -> src == AST.num0 oprSize
+    | Opcode.FMOVRdLEZ -> src ?<= AST.num0 oprSize
+    | Opcode.FMOVRdLZ -> src ?< AST.num0 oprSize
+    | Opcode.FMOVRdNZ -> src != AST.num0 oprSize
+    | Opcode.FMOVRdGZ -> src ?> AST.num0 oprSize
+    | Opcode.FMOVRdGEZ -> src ?>= AST.num0 oprSize
     | _ -> raise InvalidOpcodeException
   let lblL0 = label bld "L0"
   let lblEnd = label bld "End"
@@ -1894,18 +1910,12 @@ let fmovrq ins insLen bld =
   let oprSize = 64<rt>
   let cond =
     match ins.Opcode with
-    | Opcode.FMOVRqZ ->
-      src == AST.num0 oprSize
-    | Opcode.FMOVRqLEZ ->
-      src ?<= AST.num0 oprSize
-    | Opcode.FMOVRqLZ ->
-      src ?< AST.num0 oprSize
-    | Opcode.FMOVRqNZ ->
-      src != AST.num0 oprSize
-    | Opcode.FMOVRqGZ ->
-      src ?> AST.num0 oprSize
-    | Opcode.FMOVRqGEZ ->
-      src ?>= AST.num0 oprSize
+    | Opcode.FMOVRqZ -> src == AST.num0 oprSize
+    | Opcode.FMOVRqLEZ -> src ?<= AST.num0 oprSize
+    | Opcode.FMOVRqLZ -> src ?< AST.num0 oprSize
+    | Opcode.FMOVRqNZ -> src != AST.num0 oprSize
+    | Opcode.FMOVRqGZ -> src ?> AST.num0 oprSize
+    | Opcode.FMOVRqGEZ -> src ?>= AST.num0 oprSize
     | _ -> raise InvalidOpcodeException
   let lblL0 = label bld "L0"
   let lblEnd = label bld "End"
@@ -2838,7 +2848,8 @@ let ldf ins insLen bld =
   let oprSize = 64<rt>
   bld <!-- (ins.Address, insLen)
   match ins.Opcode with
-  | Opcode.LDF -> bld <+ (dst := (AST.loadBE 32<rt> addr))
+  | Opcode.LDF ->
+    bld <+ (dst := (AST.loadBE 32<rt> addr))
   | Opcode.LDDF ->
     let op = tmpVar bld oprSize
     bld <+ (op := (AST.loadBE oprSize addr))
@@ -2851,8 +2862,10 @@ let ldf ins insLen bld =
     setQFloatOp bld dst op0 op1
   | Opcode.LDFSR -> bld <+ ((AST.extract dst 32<rt> 0) :=
     (AST.loadBE 32<rt> addr))
-  | Opcode.LDXFSR -> bld <+ (dst := (AST.loadBE oprSize addr))
-  | _ -> raise InvalidOpcodeException
+  | Opcode.LDXFSR ->
+    bld <+ (dst := (AST.loadBE oprSize addr))
+  | _ ->
+    raise InvalidOpcodeException
   bld --!> insLen
 
 /// The eight double-float registers of the 64-byte VIS block whose first
@@ -2885,7 +2898,8 @@ let ldfa ins insLen bld =
   (* address is Rs1 + Rs2; the ASI selects the address space (or a block
      transfer). *)
   match ins.Opcode with
-  | Opcode.LDFA -> bld <+ (dst := (AST.loadBE 32<rt> addr))
+  | Opcode.LDFA ->
+    bld <+ (dst := (AST.loadBE 32<rt> addr))
   | Opcode.LDDFA ->
     (* a block-transfer ASI loads the eight-register float block; any other
        ASI loads src's single doubleword. *)
@@ -2911,7 +2925,8 @@ let ldfa ins insLen bld =
     bld <+ (op0 := (AST.loadBE oprSize addr))
     bld <+ (op1 := (AST.loadBE oprSize (addr .+ numI64 8L 64<rt>)))
     setQFloatOp bld dst op0 op1
-  | _ -> raise InvalidOpcodeException
+  | _ ->
+    raise InvalidOpcodeException
   bld --!> insLen
 
 let ld ins insLen bld =
@@ -2919,13 +2934,20 @@ let ld ins insLen bld =
   let oprSize = 64<rt>
   bld <!-- (ins.Address, insLen)
   match ins.Opcode with
-  | Opcode.LDSB -> bld <+ (dst := (AST.sext oprSize (AST.loadBE 8<rt> addr)))
-  | Opcode.LDSH -> bld <+ (dst := (AST.sext oprSize (AST.loadBE 16<rt> addr)))
-  | Opcode.LDSW -> bld <+ (dst := (AST.sext oprSize (AST.loadBE 32<rt> addr)))
-  | Opcode.LDUB -> bld <+ (dst := (AST.zext oprSize (AST.loadBE 8<rt> addr)))
-  | Opcode.LDUH -> bld <+ (dst := (AST.zext oprSize (AST.loadBE 16<rt> addr)))
-  | Opcode.LDUW -> bld <+ (dst := (AST.zext oprSize (AST.loadBE 32<rt> addr)))
-  | Opcode.LDX -> bld <+ (dst := AST.loadBE oprSize addr)
+  | Opcode.LDSB ->
+    bld <+ (dst := (AST.sext oprSize (AST.loadBE 8<rt> addr)))
+  | Opcode.LDSH ->
+    bld <+ (dst := (AST.sext oprSize (AST.loadBE 16<rt> addr)))
+  | Opcode.LDSW ->
+    bld <+ (dst := (AST.sext oprSize (AST.loadBE 32<rt> addr)))
+  | Opcode.LDUB ->
+    bld <+ (dst := (AST.zext oprSize (AST.loadBE 8<rt> addr)))
+  | Opcode.LDUH ->
+    bld <+ (dst := (AST.zext oprSize (AST.loadBE 16<rt> addr)))
+  | Opcode.LDUW ->
+    bld <+ (dst := (AST.zext oprSize (AST.loadBE 32<rt> addr)))
+  | Opcode.LDX ->
+    bld <+ (dst := AST.loadBE oprSize addr)
   | Opcode.LDD ->
     if (dst = regVar bld Register.G0) then
       let nxt = regVar bld Register.G1
@@ -2937,7 +2959,8 @@ let ld ins insLen bld =
         (AST.loadBE oprSize addr) 32<rt> 32)))
       bld <+ (nxt := (AST.zext oprSize (AST.extract
         (AST.loadBE oprSize addr) 32<rt> 0)))
-  | _ -> raise InvalidOpcodeException
+  | _ ->
+    raise InvalidOpcodeException
   bld --!> insLen
 
 let lda ins insLen bld =
@@ -2949,13 +2972,20 @@ let lda ins insLen bld =
      here), so it is never part of the address. *)
   let addr = src .+ src1
   match ins.Opcode with
-  | Opcode.LDSBA -> bld <+ (dst := (AST.sext oprSize (AST.loadBE 8<rt> addr)))
-  | Opcode.LDSHA -> bld <+ (dst := (AST.sext oprSize (AST.loadBE 16<rt> addr)))
-  | Opcode.LDSWA -> bld <+ (dst := (AST.sext oprSize (AST.loadBE 32<rt> addr)))
-  | Opcode.LDUBA -> bld <+ (dst := (AST.zext oprSize (AST.loadBE 8<rt> addr)))
-  | Opcode.LDUHA -> bld <+ (dst := (AST.zext oprSize (AST.loadBE 16<rt> addr)))
-  | Opcode.LDUWA -> bld <+ (dst := (AST.zext oprSize (AST.loadBE 32<rt> addr)))
-  | Opcode.LDXA -> bld <+ (dst := AST.loadBE oprSize addr)
+  | Opcode.LDSBA ->
+    bld <+ (dst := (AST.sext oprSize (AST.loadBE 8<rt> addr)))
+  | Opcode.LDSHA ->
+    bld <+ (dst := (AST.sext oprSize (AST.loadBE 16<rt> addr)))
+  | Opcode.LDSWA ->
+    bld <+ (dst := (AST.sext oprSize (AST.loadBE 32<rt> addr)))
+  | Opcode.LDUBA ->
+    bld <+ (dst := (AST.zext oprSize (AST.loadBE 8<rt> addr)))
+  | Opcode.LDUHA ->
+    bld <+ (dst := (AST.zext oprSize (AST.loadBE 16<rt> addr)))
+  | Opcode.LDUWA ->
+    bld <+ (dst := (AST.zext oprSize (AST.loadBE 32<rt> addr)))
+  | Opcode.LDXA ->
+    bld <+ (dst := AST.loadBE oprSize addr)
   | Opcode.LDDA ->
     if (dst = regVar bld Register.G0) then
       let nxt = regVar bld Register.G1
@@ -2967,7 +2997,8 @@ let lda ins insLen bld =
         (AST.loadBE oprSize addr) 32<rt> 32)))
       bld <+ (nxt := (AST.zext oprSize (AST.extract
         (AST.loadBE oprSize addr) 32<rt> 0)))
-  | _ -> raise InvalidOpcodeException
+  | _ ->
+    raise InvalidOpcodeException
   bld --!> insLen
 
 let ldstub ins insLen bld =
@@ -3408,7 +3439,8 @@ let movr ins insLen bld = (* TODO : check that destination is not g0*)
     bld <+ (dst := AST.ite (src ?> AST.num0 oprSize) (src1) (dst))
   | Opcode.MOVRGEZ ->
     bld <+ (dst := AST.ite (src ?>= AST.num0 oprSize) (src1) (dst))
-  | _ -> raise InvalidOpcodeException
+  | _ ->
+    raise InvalidOpcodeException
   bld --!> insLen
 
 let mulscc ins insLen bld =
@@ -3436,10 +3468,8 @@ let mulscc ins insLen bld =
 let mulx ins insLen bld =
   let struct (src, src1, dst) = transThreeOprs ins insLen bld
   bld <!-- (ins.Address, insLen)
-  if (dst = regVar bld Register.G0) then
-    bld <+ (dst := AST.num0 64<rt>)
-  else
-    bld <+ (dst := src .* src1)
+  if (dst = regVar bld Register.G0) then bld <+ (dst := AST.num0 64<rt>)
+  else bld <+ (dst := src .* src1)
   bld --!> insLen
 
 let nop (ins: Instruction) insLen bld =
@@ -3452,10 +3482,8 @@ let ``or`` ins insLen bld =
   let res = tmpVar bld oprSize
   bld <!-- (ins.Address, insLen)
   bld <+ (res := src .| src1)
-  if (dst = regVar bld Register.G0) then
-    bld <+ (dst := AST.num0 64<rt>)
-  else
-    bld <+ (dst := res)
+  if (dst = regVar bld Register.G0) then bld <+ (dst := AST.num0 64<rt>)
+  else bld <+ (dst := res)
   bld --!> insLen
 
 let orcc ins insLen bld =
@@ -3466,10 +3494,8 @@ let orcc ins insLen bld =
   let byte = tmpVar bld 8<rt>
   bld <!-- (ins.Address, insLen)
   bld <+ (res := src .| src1)
-  if (dst = regVar bld Register.G0) then
-    bld <+ (dst := AST.num0 64<rt>)
-  else
-    bld <+ (dst := res)
+  if (dst = regVar bld Register.G0) then bld <+ (dst := AST.num0 64<rt>)
+  else bld <+ (dst := res)
   bld <+ (byte := (getConditionCodeLog res src src1))
   bld <+ (AST.extract ccr 8<rt> 0 := byte)
   bld --!> insLen
@@ -3480,10 +3506,8 @@ let orn ins insLen bld =
   let res = tmpVar bld oprSize
   bld <!-- (ins.Address, insLen)
   bld <+ (res := (src .| AST.not (src1)))
-  if (dst = regVar bld Register.G0) then
-    bld <+ (dst := AST.num0 64<rt>)
-  else
-    bld <+ (dst := res)
+  if (dst = regVar bld Register.G0) then bld <+ (dst := AST.num0 64<rt>)
+  else bld <+ (dst := res)
   bld --!> insLen
 
 let orncc ins insLen bld =
@@ -3494,10 +3518,8 @@ let orncc ins insLen bld =
   let byte = tmpVar bld 8<rt>
   bld <!-- (ins.Address, insLen)
   bld <+ (res := (src .| AST.not (src1)))
-  if (dst = regVar bld Register.G0) then
-    bld <+ (dst := AST.num0 64<rt>)
-  else
-    bld <+ (dst := res)
+  if (dst = regVar bld Register.G0) then bld <+ (dst := AST.num0 64<rt>)
+  else bld <+ (dst := res)
   bld <+ (byte := (getConditionCodeLog res src src1))
   bld <+ (AST.extract ccr 8<rt> 0 := byte)
   bld --!> insLen
@@ -3673,8 +3695,10 @@ let setContext (ins: Instruction) insLen bld =
 /// reads the call number from %g1 and the arguments from %o0..%o5.
 let tcc (ins: Instruction) insLen bld =
   match ins.Operands with
-  | TwoOperands(_, OprImm n) when n = 0x6e -> getContext ins insLen bld
-  | TwoOperands(_, OprImm n) when n = 0x6f -> setContext ins insLen bld
+  | TwoOperands(_, OprImm n) when n = 0x6e ->
+    getContext ins insLen bld
+  | TwoOperands(_, OprImm n) when n = 0x6f ->
+    setContext ins insLen bld
   | _ ->
     bld <!-- (ins.Address, insLen)
     match ins.Operands with
@@ -3808,19 +3832,15 @@ let sdivx ins insLen bld =
   elif (isRegOpr ins insLen bld) then
     bld <+ (AST.cjmp (cond) (AST.jmpDest lblL0) (AST.jmpDest lblL1))
     bld <+ (AST.lmark lblL1)
-    if (dst = regVar bld Register.G0) then
-      bld <+ (dst := AST.num0 64<rt>)
-    else
-      bld <+ (dst := src ?/ src1)
+    if (dst = regVar bld Register.G0) then bld <+ (dst := AST.num0 64<rt>)
+    else bld <+ (dst := src ?/ src1)
     bld <+ (AST.jmp (AST.jmpDest lblEnd))
     bld <+ (AST.lmark lblL0)
     bld <+ (AST.sideEffect (Exception DivideError))
     bld <+ (AST.lmark lblEnd)
   else
-    if (dst = regVar bld Register.G0) then
-      bld <+ (dst := AST.num0 64<rt>)
-    else
-      bld <+ (dst := src ?/ src1)
+    if (dst = regVar bld Register.G0) then bld <+ (dst := AST.num0 64<rt>)
+    else bld <+ (dst := src ?/ src1)
   bld --!> insLen
 
 let sethi ins insLen bld =
@@ -3927,7 +3947,8 @@ let st ins insLen bld =
     bld <+ ((AST.loadBE 32<rt> addr) := (AST.extract src 32<rt> 0))
     bld <+ ((AST.loadBE 32<rt> (addr .+ numI64 4L 64<rt>)) :=
       (AST.extract nxt 32<rt> 0))
-  | _ -> raise InvalidOpcodeException
+  | _ ->
+    raise InvalidOpcodeException
   bld --!> insLen
 
 let sta ins insLen bld =
@@ -3951,7 +3972,8 @@ let sta ins insLen bld =
     bld <+ ((AST.loadBE 32<rt> addr) := (AST.extract src 32<rt> 0))
     bld <+ ((AST.loadBE 32<rt> (addr .+ numI64 4L 64<rt>)) :=
       (AST.extract nxt 32<rt> 0))
-  | _ -> raise InvalidOpcodeException
+  | _ ->
+    raise InvalidOpcodeException
   bld --!> insLen
 
 let stf ins insLen bld =
@@ -3976,7 +3998,8 @@ let stf ins insLen bld =
     bld <+ ((AST.loadBE 32<rt> addr) := (AST.extract src 32<rt> 0))
   | Opcode.STXFSR ->
     bld <+ ((AST.loadBE 64<rt> addr) := src)
-  | _ -> raise InvalidOpcodeException
+  | _ ->
+    raise InvalidOpcodeException
   bld --!> insLen
 
 let stfa ins insLen bld =
@@ -4015,7 +4038,8 @@ let stfa ins insLen bld =
     bld <+ ((AST.loadBE 64<rt> (addr)) := (AST.extract op0 64<rt> 0))
     bld <+ ((AST.loadBE 64<rt> ((addr) .+ numI64 8L 64<rt>)) :=
       (AST.extract op1 64<rt> 0))
-  | _ -> raise InvalidOpcodeException
+  | _ ->
+    raise InvalidOpcodeException
   bld --!> insLen
 
 let sub ins insLen bld =
@@ -4024,10 +4048,8 @@ let sub ins insLen bld =
   let res = tmpVar bld oprSize
   bld <!-- (ins.Address, insLen)
   bld <+ (res := src .- src1)
-  if (dst = regVar bld Register.G0) then
-    bld <+ (dst := AST.num0 64<rt>)
-  else
-    bld <+ (dst := res)
+  if (dst = regVar bld Register.G0) then bld <+ (dst := AST.num0 64<rt>)
+  else bld <+ (dst := res)
   bld --!> insLen
 
 let subcc ins insLen bld =
@@ -4043,10 +4065,8 @@ let subcc ins insLen bld =
      dst first would feed the flag formula the result instead of the input. *)
   bld <+ (byte := (getConditionCodeSub res src src1))
   bld <+ (AST.extract ccr 8<rt> 0 := byte)
-  if (dst = regVar bld Register.G0) then
-    bld <+ (dst := AST.num0 64<rt>)
-  else
-    bld <+ (dst := res)
+  if (dst = regVar bld Register.G0) then bld <+ (dst := AST.num0 64<rt>)
+  else bld <+ (dst := res)
   bld --!> insLen
 
 let subC ins insLen bld =
@@ -4056,10 +4076,8 @@ let subC ins insLen bld =
   let ccr = regVar bld Register.CCR
   bld <!-- (ins.Address, insLen)
   bld <+ (res := src .- src1 .- AST.zext 64<rt> (AST.extract ccr 1<rt> 0))
-  if (dst = regVar bld Register.G0) then
-    bld <+ (dst := AST.num0 64<rt>)
-  else
-    bld <+ (dst := res)
+  if (dst = regVar bld Register.G0) then bld <+ (dst := AST.num0 64<rt>)
+  else bld <+ (dst := res)
   bld --!> insLen
 
 let subCcc ins insLen bld =
@@ -4073,10 +4091,8 @@ let subCcc ins insLen bld =
   (* flags before dst: rd may alias an operand the V/C formula reads. *)
   bld <+ (byte := (getConditionCodeSub res src src1))
   bld <+ (AST.extract ccr 8<rt> 0 := byte)
-  if (dst = regVar bld Register.G0) then
-    bld <+ (dst := AST.num0 64<rt>)
-  else
-    bld <+ (dst := res)
+  if (dst = regVar bld Register.G0) then bld <+ (dst := AST.num0 64<rt>)
+  else bld <+ (dst := res)
   bld --!> insLen
 
 let swap ins insLen bld =
@@ -4204,19 +4220,15 @@ let udivx ins insLen bld =
   elif (isRegOpr ins insLen bld) then
     bld <+ (AST.cjmp (cond) (AST.jmpDest lblL0) (AST.jmpDest lblL1))
     bld <+ (AST.lmark lblL1)
-    if (dst = regVar bld Register.G0) then
-      bld <+ (dst := AST.num0 64<rt>)
-    else
-      bld <+ (dst := src ./ src1)
+    if (dst = regVar bld Register.G0) then bld <+ (dst := AST.num0 64<rt>)
+    else bld <+ (dst := src ./ src1)
     bld <+ (AST.jmp (AST.jmpDest lblEnd))
     bld <+ (AST.lmark lblL0)
     bld <+ (AST.sideEffect (Exception DivideError))
     bld <+ (AST.lmark lblEnd)
   else
-    if (dst = regVar bld Register.G0) then
-      bld <+ (dst := AST.num0 64<rt>)
-    else
-      bld <+ (dst := src ./ src1)
+    if (dst = regVar bld Register.G0) then bld <+ (dst := AST.num0 64<rt>)
+    else bld <+ (dst := src ./ src1)
   bld --!> insLen
 
 let umul ins insLen bld =
@@ -4261,10 +4273,8 @@ let xor ins insLen bld =
   let res = tmpVar bld oprSize
   bld <!-- (ins.Address, insLen)
   bld <+ (res := src <+> src1)
-  if (dst = regVar bld Register.G0) then
-    bld <+ (dst := AST.num0 64<rt>)
-  else
-    bld <+ (dst := res)
+  if (dst = regVar bld Register.G0) then bld <+ (dst := AST.num0 64<rt>)
+  else bld <+ (dst := res)
   bld --!> insLen
 
 let xorcc ins insLen bld =
@@ -4275,10 +4285,8 @@ let xorcc ins insLen bld =
   let byte = tmpVar bld 8<rt>
   bld <!-- (ins.Address, insLen)
   bld <+ (res := src <+> src1)
-  if (dst = regVar bld Register.G0) then
-    bld <+ (dst := AST.num0 64<rt>)
-  else
-    bld <+ (dst := res)
+  if (dst = regVar bld Register.G0) then bld <+ (dst := AST.num0 64<rt>)
+  else bld <+ (dst := res)
   bld <+ (byte := (getConditionCodeLog res src src1))
   bld <+ (AST.extract ccr 8<rt> 0 := byte)
   bld --!> insLen
@@ -4289,10 +4297,8 @@ let xnor ins insLen bld =
   let res = tmpVar bld oprSize
   bld <!-- (ins.Address, insLen)
   bld <+ (res := src <+> AST.not (src1))
-  if (dst = regVar bld Register.G0) then
-    bld <+ (dst := AST.num0 64<rt>)
-  else
-    bld <+ (dst := res)
+  if (dst = regVar bld Register.G0) then bld <+ (dst := AST.num0 64<rt>)
+  else bld <+ (dst := res)
   bld --!> insLen
 
 let xnorcc ins insLen bld =
@@ -4303,10 +4309,8 @@ let xnorcc ins insLen bld =
   let byte = tmpVar bld 8<rt>
   bld <!-- (ins.Address, insLen)
   bld <+ (res := src <+> AST.not (src1))
-  if (dst = regVar bld Register.G0) then
-    bld <+ (dst := AST.num0 64<rt>)
-  else
-    bld <+ (dst := res)
+  if (dst = regVar bld Register.G0) then bld <+ (dst := AST.num0 64<rt>)
+  else bld <+ (dst := res)
   bld <+ (byte := (getConditionCodeLog res src src1))
   bld <+ (AST.extract ccr 8<rt> 0 := byte)
   bld --!> insLen

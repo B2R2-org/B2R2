@@ -81,4 +81,5 @@ type LoadAction() =
       | s :: [] ->
         let isa = ISA Architecture.Intel
         { Values = load isa true s }
-      | _ -> invalidArg (nameof args) "Invalid arguments given."
+      | _ ->
+        invalidArg (nameof args) "Invalid arguments given."

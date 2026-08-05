@@ -616,7 +616,8 @@ module private BitVector = begin
           let v2 = rhs.SmallValue |> toFloat64
           let r = v1 + v2 |> BitConverter.DoubleToInt64Bits |> uint64
           BitVectorSmall(r, len)
-        | _ -> raise InvalidRegTypeException
+        | _ ->
+          raise InvalidRegTypeException
 
       member this.FSub rhs =
         if len <> rhs.Length then raise RegTypeMismatchException else ()
@@ -631,7 +632,8 @@ module private BitVector = begin
           let v2 = rhs.SmallValue |> toFloat64
           let r = v1 - v2 |> BitConverter.DoubleToInt64Bits |> uint64
           BitVectorSmall(r, len)
-        | _ -> raise InvalidRegTypeException
+        | _ ->
+          raise InvalidRegTypeException
 
       member this.FMul rhs =
         if len <> rhs.Length then raise RegTypeMismatchException else ()
@@ -646,7 +648,8 @@ module private BitVector = begin
           let v2 = rhs.SmallValue |> toFloat64
           let r = v1 * v2 |> BitConverter.DoubleToInt64Bits |> uint64
           BitVectorSmall(r, len)
-        | _ -> raise InvalidRegTypeException
+        | _ ->
+          raise InvalidRegTypeException
 
       member this.FDiv rhs =
         if len <> rhs.Length then raise RegTypeMismatchException else ()
@@ -661,7 +664,8 @@ module private BitVector = begin
           let v2 = rhs.SmallValue |> toFloat64
           let r = v1 / v2 |> BitConverter.DoubleToInt64Bits |> uint64
           BitVectorSmall(r, len)
-        | _ -> raise InvalidRegTypeException
+        | _ ->
+          raise InvalidRegTypeException
 
       member this.FLog rhs =
         if len <> rhs.Length then raise RegTypeMismatchException else ()
@@ -676,7 +680,8 @@ module private BitVector = begin
           let v2 = rhs.SmallValue |> toFloat64
           let r = Math.Log(v2, v1) |> BitConverter.DoubleToInt64Bits |> uint64
           BitVectorSmall(r, len)
-        | _ -> raise InvalidRegTypeException
+        | _ ->
+          raise InvalidRegTypeException
 
       member this.FPow rhs =
         if len <> rhs.Length then raise RegTypeMismatchException else ()
@@ -691,11 +696,13 @@ module private BitVector = begin
           let v2 = rhs.SmallValue |> toFloat64
           let r = Math.Pow(v1, v2) |> BitConverter.DoubleToInt64Bits |> uint64
           BitVectorSmall(r, len)
-        | _ -> raise InvalidRegTypeException
+        | _ ->
+          raise InvalidRegTypeException
 
       member this.FCast targetLen =
         match len, targetLen with
-        | 32<rt>, 32<rt> -> this
+        | 32<rt>, 32<rt> ->
+          this
         | 32<rt>, 64<rt> ->
           let f32 = this.Value |> toFloat32 |> float
           let u64 = BitConverter.DoubleToInt64Bits f32 |> uint64
@@ -708,10 +715,12 @@ module private BitVector = begin
           let f64 = this.Value |> toFloat64
           let u64 = BitConverter.SingleToUInt32Bits(float32 f64) |> uint64
           BitVectorSmall(u64, targetLen)
-        | 64<rt>, 64<rt> -> this
+        | 64<rt>, 64<rt> ->
+          this
         | 64<rt>, 80<rt> ->
           BitVectorBig(this.Value |> encodeBigFloat, targetLen)
-        | _ -> raise InvalidRegTypeException
+        | _ ->
+          raise InvalidRegTypeException
 
       member _.Itof(targetLen, isSigned) =
         match targetLen with
@@ -727,7 +736,8 @@ module private BitVector = begin
           let fpv = if isSigned then sExtSmall len n |> float else float n
           let u64 = BitConverter.DoubleToInt64Bits fpv |> uint64
           BitVectorBig(encodeBigFloat u64, targetLen)
-        | _ -> raise InvalidRegTypeException
+        | _ ->
+          raise InvalidRegTypeException
 
       member this.FtoiTrunc targetLen =
         let f =
@@ -737,7 +747,8 @@ module private BitVector = begin
           | _ -> raise InvalidRegTypeException
         if targetLen <= 64<rt> then
           BitVectorSmall(ftoiToSmall targetLen f, targetLen)
-        else BitVectorBig(adaptBig targetLen (bigint f), targetLen)
+        else
+          BitVectorBig(adaptBig targetLen (bigint f), targetLen)
 
       member this.FtoiRound targetLen =
         let f =
@@ -747,7 +758,8 @@ module private BitVector = begin
           | _ -> raise InvalidRegTypeException
         if targetLen <= 64<rt> then
           BitVectorSmall(ftoiToSmall targetLen f, targetLen)
-        else BitVectorBig(adaptBig targetLen (bigint f), targetLen)
+        else
+          BitVectorBig(adaptBig targetLen (bigint f), targetLen)
 
       member this.FtoiFloor targetLen =
         let f =
@@ -757,7 +769,8 @@ module private BitVector = begin
           | _ -> raise InvalidRegTypeException
         if targetLen <= 64<rt> then
           BitVectorSmall(ftoiToSmall targetLen f, targetLen)
-        else BitVectorBig(adaptBig targetLen (bigint f), targetLen)
+        else
+          BitVectorBig(adaptBig targetLen (bigint f), targetLen)
 
       member this.FtoiCeil targetLen =
         let f =
@@ -778,7 +791,8 @@ module private BitVector = begin
         | 64<rt> ->
           let r = this.Value |> toFloat64 |> sqrt
           BitVectorSmall(BitConverter.DoubleToInt64Bits r |> uint64, len)
-        | _ -> raise InvalidRegTypeException
+        | _ ->
+          raise InvalidRegTypeException
 
       member this.FTan() =
         match len with
@@ -788,7 +802,8 @@ module private BitVector = begin
         | 64<rt> ->
           let r = this.Value |> toFloat64 |> tan
           BitVectorSmall(BitConverter.DoubleToInt64Bits r |> uint64, len)
-        | _ -> raise InvalidRegTypeException
+        | _ ->
+          raise InvalidRegTypeException
 
       member this.FAtan() =
         match len with
@@ -798,7 +813,8 @@ module private BitVector = begin
         | 64<rt> ->
           let r = this.Value |> toFloat64 |> atan
           BitVectorSmall(BitConverter.DoubleToInt64Bits r |> uint64, len)
-        | _ -> raise InvalidRegTypeException
+        | _ ->
+          raise InvalidRegTypeException
 
       member this.FSin() =
         match len with
@@ -808,7 +824,8 @@ module private BitVector = begin
         | 64<rt> ->
           let r = this.Value |> toFloat64 |> sin
           BitVectorSmall(BitConverter.DoubleToInt64Bits r |> uint64, len)
-        | _ -> raise InvalidRegTypeException
+        | _ ->
+          raise InvalidRegTypeException
 
       member this.FCos() =
         match len with
@@ -818,7 +835,8 @@ module private BitVector = begin
         | 64<rt> ->
           let r = this.Value |> toFloat64 |> cos
           BitVectorSmall(BitConverter.DoubleToInt64Bits r |> uint64, len)
-        | _ -> raise InvalidRegTypeException
+        | _ ->
+          raise InvalidRegTypeException
 
       member this.FGt rhs =
         if len <> rhs.Length then raise RegTypeMismatchException else ()
@@ -831,7 +849,8 @@ module private BitVector = begin
           let v1 = this.Value |> toFloat64
           let v2 = rhs.SmallValue |> toFloat64
           if v1 > v2 then Value.T else Value.F
-        | _ -> raise InvalidRegTypeException
+        | _ ->
+          raise InvalidRegTypeException
 
       member this.FGe rhs =
         if len <> rhs.Length then raise RegTypeMismatchException else ()
@@ -844,7 +863,8 @@ module private BitVector = begin
           let v1 = this.Value |> toFloat64
           let v2 = rhs.SmallValue |> toFloat64
           if v1 >= v2 then Value.T else Value.F
-        | _ -> raise InvalidRegTypeException
+        | _ ->
+          raise InvalidRegTypeException
 
       member this.FLt rhs =
         if len <> rhs.Length then raise RegTypeMismatchException else ()
@@ -857,7 +877,8 @@ module private BitVector = begin
           let v1 = this.Value |> toFloat64
           let v2 = rhs.SmallValue |> toFloat64
           if v1 < v2 then Value.T else Value.F
-        | _ -> raise InvalidRegTypeException
+        | _ ->
+          raise InvalidRegTypeException
 
       member this.FLe rhs =
         if len <> rhs.Length then raise RegTypeMismatchException else ()
@@ -870,7 +891,8 @@ module private BitVector = begin
           let v1 = this.Value |> toFloat64
           let v2 = rhs.SmallValue |> toFloat64
           if v1 <= v2 then Value.T else Value.F
-        | _ -> raise InvalidRegTypeException
+        | _ ->
+          raise InvalidRegTypeException
 
       member this.FEq rhs =
         if len <> rhs.Length then raise RegTypeMismatchException else ()
@@ -883,7 +905,8 @@ module private BitVector = begin
           let v1 = this.Value |> toFloat64
           let v2 = rhs.SmallValue |> toFloat64
           if v1 = v2 then Value.T else Value.F
-        | _ -> raise InvalidRegTypeException
+        | _ ->
+          raise InvalidRegTypeException
 
       member _.ToValueString() = HexString.ofUInt64 n
 
@@ -1135,8 +1158,7 @@ module private BitVector = begin
         let isPos2 = isBigPositive len (rhs.BigValue)
         if isPos1 && not isPos2 then Value.F
         elif not isPos1 && isPos2 then Value.T
-        else
-          if n < rhs.BigValue then Value.T else Value.F
+        else if n < rhs.BigValue then Value.T else Value.F
 
       member _.SLe rhs =
         if len <> rhs.Length then raise RegTypeMismatchException else ()
@@ -1144,8 +1166,7 @@ module private BitVector = begin
         let isPos2 = isBigPositive len (rhs.BigValue)
         if isPos1 && not isPos2 then Value.F
         elif not isPos1 && isPos2 then Value.T
-        else
-          if n <= rhs.BigValue then Value.T else Value.F
+        else if n <= rhs.BigValue then Value.T else Value.F
 
       member this.Abs() =
         if isBigPositive len n then this
@@ -1160,7 +1181,8 @@ module private BitVector = begin
           let n = v1 + v2 |> BitConverter.DoubleToInt64Bits |> uint64
           if n = 0UL then Value.Zero len
           else BitVectorBig(encodeBigFloat n, len)
-        | _ -> raise InvalidRegTypeException
+        | _ ->
+          raise InvalidRegTypeException
 
       member this.FSub rhs =
         if len <> rhs.Length then raise RegTypeMismatchException else ()
@@ -1171,7 +1193,8 @@ module private BitVector = begin
           let n = v1 - v2 |> BitConverter.DoubleToInt64Bits |> uint64
           if n = 0UL then Value.Zero len
           else BitVectorBig(encodeBigFloat n, len)
-        | _ -> raise InvalidRegTypeException
+        | _ ->
+          raise InvalidRegTypeException
 
       member this.FMul rhs =
         if len <> rhs.Length then raise RegTypeMismatchException else ()
@@ -1182,7 +1205,8 @@ module private BitVector = begin
           let n = v1 * v2 |> BitConverter.DoubleToInt64Bits |> uint64
           if n = 0UL then Value.Zero len
           else BitVectorBig(encodeBigFloat n, len)
-        | _ -> raise InvalidRegTypeException
+        | _ ->
+          raise InvalidRegTypeException
 
       member this.FDiv rhs =
         if len <> rhs.Length then raise RegTypeMismatchException else ()
@@ -1193,7 +1217,8 @@ module private BitVector = begin
           let n = v1 / v2 |> BitConverter.DoubleToInt64Bits |> uint64
           if n = 0UL then Value.Zero len
           else BitVectorBig(encodeBigFloat n, len)
-        | _ -> raise InvalidRegTypeException
+        | _ ->
+          raise InvalidRegTypeException
 
       member this.FLog rhs =
         if len <> rhs.Length then raise RegTypeMismatchException else ()
@@ -1204,7 +1229,8 @@ module private BitVector = begin
           let n = Math.Log(v2, v1) |> BitConverter.DoubleToInt64Bits |> uint64
           if n = 0UL then Value.Zero len
           else BitVectorBig(encodeBigFloat n, len)
-        | _ -> raise InvalidRegTypeException
+        | _ ->
+          raise InvalidRegTypeException
 
       member this.FPow rhs =
         if len <> rhs.Length then raise RegTypeMismatchException else ()
@@ -1215,7 +1241,8 @@ module private BitVector = begin
           let n = Math.Pow(v1, v2) |> BitConverter.DoubleToInt64Bits |> uint64
           if n = 0UL then Value.Zero len
           else BitVectorBig(encodeBigFloat n, len)
-        | _ -> raise InvalidRegTypeException
+        | _ ->
+          raise InvalidRegTypeException
 
       member this.FCast targetLen =
         match len, targetLen with
@@ -1225,8 +1252,10 @@ module private BitVector = begin
         | 80<rt>, 64<rt> ->
           let f64 = this.Value |> toBigFloat
           BitVectorSmall(BitConverter.DoubleToInt64Bits f64 |> uint64, 64<rt>)
-        | 80<rt>, 80<rt> -> this
-        | _ -> raise InvalidRegTypeException
+        | 80<rt>, 80<rt> ->
+          this
+        | _ ->
+          raise InvalidRegTypeException
 
       member _.Itof(targetLen, isSigned) =
         let v =
@@ -1242,7 +1271,8 @@ module private BitVector = begin
         | 80<rt> ->
           let u64 = BitConverter.DoubleToInt64Bits(float v) |> uint64
           BitVectorBig(encodeBigFloat u64, targetLen)
-        | _ -> raise InvalidRegTypeException
+        | _ ->
+          raise InvalidRegTypeException
 
       member this.FtoiTrunc targetLen =
         let f =
@@ -1290,7 +1320,8 @@ module private BitVector = begin
           let r = this.Value |> toBigFloat |> sqrt
           let v = BitConverter.DoubleToInt64Bits r |> uint64 |> bigint
           BitVectorBig(v, len)
-        | _ -> raise InvalidRegTypeException
+        | _ ->
+          raise InvalidRegTypeException
 
       member this.FTan() =
         match len with
@@ -1298,7 +1329,8 @@ module private BitVector = begin
           let r = this.Value |> toBigFloat |> tan
           let v = BitConverter.DoubleToInt64Bits r |> uint64 |> bigint
           BitVectorBig(v, len)
-        | _ -> raise InvalidRegTypeException
+        | _ ->
+          raise InvalidRegTypeException
 
       member this.FAtan() =
         match len with
@@ -1306,7 +1338,8 @@ module private BitVector = begin
           let r = this.Value |> toBigFloat |> atan
           let v = BitConverter.DoubleToInt64Bits r |> uint64 |> bigint
           BitVectorBig(v, len)
-        | _ -> raise InvalidRegTypeException
+        | _ ->
+          raise InvalidRegTypeException
 
       member this.FSin() =
         match len with
@@ -1314,7 +1347,8 @@ module private BitVector = begin
           let r = this.Value |> toBigFloat |> sin
           let v = BitConverter.DoubleToInt64Bits r |> uint64 |> bigint
           BitVectorBig(v, len)
-        | _ -> raise InvalidRegTypeException
+        | _ ->
+          raise InvalidRegTypeException
 
       member this.FCos() =
         match len with
@@ -1322,7 +1356,8 @@ module private BitVector = begin
           let r = this.Value |> toBigFloat |> cos
           let v = BitConverter.DoubleToInt64Bits r |> uint64 |> bigint
           BitVectorBig(v, len)
-        | _ -> raise InvalidRegTypeException
+        | _ ->
+          raise InvalidRegTypeException
 
       member this.FGt rhs =
         if len <> rhs.Length then raise RegTypeMismatchException else ()
@@ -1331,7 +1366,8 @@ module private BitVector = begin
           let v1 = this.Value |> toBigFloat
           let v2 = rhs.BigValue |> toBigFloat
           if v1 > v2 then Value.T else Value.F
-        | _ -> raise InvalidRegTypeException
+        | _ ->
+          raise InvalidRegTypeException
 
       member this.FGe rhs =
         if len <> rhs.Length then raise RegTypeMismatchException else ()
@@ -1340,7 +1376,8 @@ module private BitVector = begin
           let v1 = this.Value |> toBigFloat
           let v2 = rhs.BigValue |> toBigFloat
           if v1 >= v2 then Value.T else Value.F
-        | _ -> raise InvalidRegTypeException
+        | _ ->
+          raise InvalidRegTypeException
 
       member this.FLt rhs =
         if len <> rhs.Length then raise RegTypeMismatchException else ()
@@ -1349,7 +1386,8 @@ module private BitVector = begin
           let v1 = this.Value |> toBigFloat
           let v2 = rhs.BigValue |> toBigFloat
           if v1 < v2 then Value.T else Value.F
-        | _ -> raise InvalidRegTypeException
+        | _ ->
+          raise InvalidRegTypeException
 
       member this.FLe rhs =
         if len <> rhs.Length then raise RegTypeMismatchException else ()
@@ -1358,7 +1396,8 @@ module private BitVector = begin
           let v1 = this.Value |> toBigFloat
           let v2 = rhs.BigValue |> toBigFloat
           if v1 <= v2 then Value.T else Value.F
-        | _ -> raise InvalidRegTypeException
+        | _ ->
+          raise InvalidRegTypeException
 
       member this.FEq rhs =
         if len <> rhs.Length then raise RegTypeMismatchException else ()
@@ -1367,7 +1406,8 @@ module private BitVector = begin
           let v1 = this.Value |> toBigFloat
           let v2 = rhs.BigValue |> toBigFloat
           if v1 = v2 then Value.T else Value.F
-        | _ -> raise InvalidRegTypeException
+        | _ ->
+          raise InvalidRegTypeException
 
       member _.ToValueString() =
         if n = 0I then "0x0"
@@ -1553,10 +1593,8 @@ type BitVector private(bv: IBV) =
   /// otherwise, <c>false</c>.
   /// </summary>
   member _.IsSignedMin with get() =
-    if bv.Length <= 64<rt> then
-      bv.SmallValue = (1UL <<< (int bv.Length - 1))
-    else
-      bv.BigValue = (1I <<< (int bv.Length - 1))
+    if bv.Length <= 64<rt> then bv.SmallValue = (1UL <<< (int bv.Length - 1))
+    else bv.BigValue = (1I <<< (int bv.Length - 1))
 
   /// <summary>
   /// Returns <c>true</c> if the BitVector is positive when interpreted as a

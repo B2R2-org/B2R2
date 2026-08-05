@@ -435,28 +435,17 @@ let dumpUnhandledCmd cmd size idx =
 let dumpLoadCommands _ (file: MachBinFile) =
   for i in 0 .. file.Commands.Length - 1 do
     match file.Commands[i] with
-    | Mach.Segment(cmd, size, seg) ->
-      dumpSegCmd file cmd size seg i
-    | Mach.SymTab(cmd, size, symtab) ->
-      dumpSymTabCmd cmd size symtab i
-    | Mach.DySymTab(cmd, size, dysym) ->
-      dumpDySymTabCmd cmd size dysym i
-    | Mach.DyLib(cmd, size, dylib) ->
-      dumpDyLibCmd cmd size dylib i
-    | Mach.DyLinker(cmd, size, _) ->
-      dumpUnhandledCmd cmd size i
-    | Mach.Rpath(cmd, size, _) ->
-      dumpUnhandledCmd cmd size i
-    | Mach.DyLdInfo(cmd, size, ldinfo) ->
-      dumpDyLdInfoCmd cmd size ldinfo i
-    | Mach.FuncStarts(_, _, fnstart) ->
-      dumpFuncStartsCmd fnstart i
-    | Mach.ChainedFixups(cmd, size, _) ->
-      dumpUnhandledCmd cmd size i
-    | Mach.Main(cmd, size, main) ->
-      dumpMainCmd cmd size main i
-    | Mach.Unhandled(cmd, size) ->
-      dumpUnhandledCmd cmd size i
+    | Mach.Segment(cmd, size, seg) -> dumpSegCmd file cmd size seg i
+    | Mach.SymTab(cmd, size, symtab) -> dumpSymTabCmd cmd size symtab i
+    | Mach.DySymTab(cmd, size, dysym) -> dumpDySymTabCmd cmd size dysym i
+    | Mach.DyLib(cmd, size, dylib) -> dumpDyLibCmd cmd size dylib i
+    | Mach.DyLinker(cmd, size, _) -> dumpUnhandledCmd cmd size i
+    | Mach.Rpath(cmd, size, _) -> dumpUnhandledCmd cmd size i
+    | Mach.DyLdInfo(cmd, size, ldinfo) -> dumpDyLdInfoCmd cmd size ldinfo i
+    | Mach.FuncStarts(_, _, fnstart) -> dumpFuncStartsCmd fnstart i
+    | Mach.ChainedFixups(cmd, size, _) -> dumpUnhandledCmd cmd size i
+    | Mach.Main(cmd, size, main) -> dumpMainCmd cmd size main i
+    | Mach.Unhandled(cmd, size) -> dumpUnhandledCmd cmd size i
 
 let dumpSharedLibs _ (file: MachBinFile) =
   setTableColumnFormats [| LeftAligned 35; LeftAligned 15; LeftAligned 15 |]
@@ -469,7 +458,8 @@ let dumpSharedLibs _ (file: MachBinFile) =
       printsr [| dyLibCmd.DyLibName
                  toVersionString dyLibCmd.DyLibCurVer
                  toVersionString dyLibCmd.DyLibCmpVer |]
-    | _ -> ()
+    | _ ->
+      ()
   printDoubleHorizontalRule ()
   printsn ""
 

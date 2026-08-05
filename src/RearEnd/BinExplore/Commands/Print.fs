@@ -114,12 +114,9 @@ type Print() =
 
   let print (hdl: BinHandle) sz fmt addr =
     match fmt with
-    | Hexadecimal ->
-      hdl.ReadUInt(addr = addr, size = sz) |> hexPrint sz
-    | UnsignedDecimal ->
-      hdl.ReadUInt(addr = addr, size = sz).ToString()
-    | Decimal ->
-      hdl.ReadInt(addr = addr, size = sz).ToString()
+    | Hexadecimal -> hdl.ReadUInt(addr = addr, size = sz) |> hexPrint sz
+    | UnsignedDecimal -> hdl.ReadUInt(addr = addr, size = sz).ToString()
+    | Decimal -> hdl.ReadInt(addr = addr, size = sz).ToString()
     | _ -> failwith "This is impossible"
 
   let getAddressPrefix (hdl: BinHandle) (addr: uint64) =
@@ -127,7 +124,8 @@ type Print() =
     addr.ToString("x" + hexWidth.ToString()) + ": "
 
   let rec iter hdl sz fmt addr endAddr acc =
-    if addr >= endAddr then List.rev acc |> List.toArray
+    if addr >= endAddr then
+      List.rev acc |> List.toArray
     else
       let addrstr = getAddressPrefix hdl addr
       let acc =
@@ -136,7 +134,8 @@ type Print() =
       iter hdl sz fmt (addr + uint64 sz) endAddr acc
 
   let rec printStrings (hdl: BinHandle) addr cnt acc =
-    if cnt <= 0 then List.rev acc |> List.toArray
+    if cnt <= 0 then
+      List.rev acc |> List.toArray
     else
       match hdl.TryReadASCII(addr = addr) with
       | Error _ ->
@@ -156,7 +155,8 @@ type Print() =
       let endAddr = addr + uint64 (sz * count)
       if addr > endAddr then [| "[*] Invalid address range given." |]
       else iter hdl sz fmt addr endAddr []
-    | Error str -> [| str |]
+    | Error str ->
+      [| str |]
 
   interface ICmd with
 

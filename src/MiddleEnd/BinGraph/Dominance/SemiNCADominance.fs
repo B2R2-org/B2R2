@@ -81,7 +81,8 @@ let rec private computePostorderAux g (post: Dictionary<_, _>) n = function
       computePostorderAux g post (n + 1) stack
     else
       computePostorderAux g post n stack
-  | [] -> ()
+  | [] ->
+    ()
 
 let private computePostorder (g: IDiGraphAccessible<_, _>) order =
   let stack = g.GetRoots() |> Array.toList
@@ -96,8 +97,10 @@ let rec private prepare (g: IDiGraphAccessible<_, _>) info n = function
     info.Parent[n] <- p
     let stack' = g.GetSuccs v |> Seq.fold (fun acc s -> (n, s) :: acc) stack
     prepare g info (n + 1) stack'
-  | _ :: stack -> prepare g info n stack
-  | [] -> n - 1
+  | _ :: stack ->
+    prepare g info n stack
+  | [] ->
+    n - 1
 
 let private prepareWithDummyRoot g info =
   info.DFPre.Add(info.DummyRoot.ID, 0)
@@ -106,7 +109,8 @@ let private prepareWithDummyRoot g info =
 let private getPreds g info v =
   if info.Roots |> Array.contains v then
     [| info.DummyRoot; yield! (g: IDiGraphAccessible<_, _>).GetPreds v |]
-  else g.GetPreds v
+  else
+    g.GetPreds v
 
 let rec private compress info v =
   let a = info.Ancestor[v]
@@ -121,7 +125,8 @@ let rec private compress info v =
     ()
 
 let private eval info v =
-  if info.Ancestor[v] = 0 then info.Label[v]
+  if info.Ancestor[v] = 0 then
+    info.Label[v]
   else
     compress info v
     if info.Semi[info.Label[info.Ancestor[v]]] >= info.Semi[info.Label[v]]
@@ -134,7 +139,8 @@ let rec private computeSemiDom info v = function
     let u = eval info pred
     if info.Semi[u] < info.Semi[v] then info.Semi[v] <- info.Semi[u] else ()
     computeSemiDom info v preds
-  | [] -> ()
+  | [] ->
+    ()
 
 let private link info v w =
   info.Ancestor[w] <- v
@@ -175,13 +181,15 @@ let rec private domsAux acc v info =
     let id = info.IDom[dfpre info v]
     if id > 0 then domsAux (info.Vertex[id] :: acc) info.Vertex[id] info
     else acc |> List.toArray
-  else acc |> List.toArray
+  else
+    acc |> List.toArray
 
 let private idomAux info v =
   if info.DFPre.ContainsKey((v: IVertex<'V>).ID) then
     let id = info.IDom[dfpre info v]
     if id >= 1 then info.Vertex[id] else null
-  else null
+  else
+    null
 
 let private createDominance fwG (bwG: Lazy<IDiGraphAccessible<_, _>>) fwInfo
                             (fwDT: Lazy<DominatorTree<_, _>>)
@@ -208,7 +216,8 @@ let private createDominance fwG (bwG: Lazy<IDiGraphAccessible<_, _>>) fwInfo
 #endif
       if isNull pdfProvider then
         pdfProvider <- dfp.CreateIDominanceFrontier(fwG, this, false)
-      else ()
+      else
+        ()
       pdfProvider.DominanceFrontier v
     member _.PostDominators v =
 #if DEBUG
@@ -229,7 +238,8 @@ let private createDominance fwG (bwG: Lazy<IDiGraphAccessible<_, _>>) fwInfo
 #endif
       if isNull dfProvider then
         dfProvider <- dfp.CreateIDominanceFrontier(bwG.Value, this, true)
-      else ()
+      else
+        ()
       dfProvider.DominanceFrontier v
       |> Seq.map (findOriginalVertex fwG) }
 

@@ -69,7 +69,8 @@ module private SSALifterFactory =
   let getVertex stmtProcessor vMap g (src: IVertex<LowUIRBasicBlock>) =
     let bbl = src.VData :> ILowUIRBasicBlock
     match (vMap: SSAVMap).TryGetValue src with
-    | true, v -> v
+    | true, v ->
+      v
     | false, _ ->
       let stmts = liftStmts stmtProcessor bbl.LiftedInstructions
       let lastAddr = bbl.LastInstruction.Address
@@ -81,7 +82,8 @@ module private SSALifterFactory =
       v
 
   let liftRundown stmtProcessor rundown =
-    if Array.isEmpty rundown then [||]
+    if Array.isEmpty rundown then
+      [||]
     else
       let memVar = { Kind = MemVar; Identifier = -1 }
       [| (* safe approximation: memory is always defined. (optional?) *)
@@ -94,7 +96,8 @@ module private SSALifterFactory =
     let calleePpoint = irData.PPoint
     let key = calleePpoint, ftPpoint
     match (avMap: AbstractVMap).TryGetValue key with
-    | true, v -> v
+    | true, v ->
+      v
     | false, _ ->
       let absContent = irData.AbstractContent
       let rundown = absContent.Rundown |> liftRundown stmtProcessor
@@ -150,7 +153,8 @@ module private SSALifterFactory =
     else globals.Add v |> ignore
 
   let rec updateGlobals (globals: HashSet<_>) (varKill: HashSet<_>) = function
-    | Num _ | Undefined _ | FuncName _ -> ()
+    | Num _ | Undefined _ | FuncName _ ->
+      ()
     | Var v ->
       updateGlobalName globals varKill v.Kind
     | ExprList exprs ->
@@ -186,7 +190,8 @@ module private SSALifterFactory =
           varKill.Add k |> ignore
           if defSites.ContainsKey k then defSites[k].Add v |> ignore
           else defSites[k] <- HashSet [v]
-        | _ -> ()
+        | _ ->
+          ()
     globals
 
   let placePhis g (defSites: DefSites) globals =
@@ -199,13 +204,15 @@ module private SSALifterFactory =
       while workList.Count <> 0 do
         let node = workList.Dequeue()
         for df in node.VData.DomFrontier do
-          if phiSites.Contains df then ()
+          if phiSites.Contains df then
+            ()
           else
             match variable with
             (* Temporary vars are only meaningful in an instruction boundary.
                Thus, a PhiSite for a TempVar should be an intra-instruction bbl,
                but not the start of an instruction. *)
-            | TempVar _ when df.VData.Internals.PPoint.Position = 0 -> ()
+            | TempVar _ when df.VData.Internals.PPoint.Position = 0 ->
+              ()
             | _ ->
               let preds = (g: IDiGraph<_, _>).GetPreds df
               df.VData.Internals.PrependPhi(variable, preds.Length)
@@ -224,8 +231,10 @@ module private SSALifterFactory =
   let rec renameExpr stack = function
     | Num(_)
     | Undefined(_)
-    | FuncName(_) -> ()
-    | Var v -> renameVar stack v
+    | FuncName(_) ->
+      ()
+    | Var v ->
+      renameVar stack v
     | ExprList exprs ->
       for expr in exprs do
         renameExpr stack expr
@@ -254,7 +263,8 @@ module private SSALifterFactory =
       renameExpr stack expr
 
   let renameJmp stack = function
-    | IntraJmp _ -> ()
+    | IntraJmp _ ->
+      ()
     | IntraCJmp(expr, _, _) ->
       renameExpr stack expr
     | InterJmp(expr) ->
@@ -281,13 +291,16 @@ module private SSALifterFactory =
 
   let renameStmt count stack stmt =
     match stmt with
-    | LMark _ -> ()
+    | LMark _ ->
+      ()
     | ExternalCall(e, inVars, outVars) ->
       renameExpr stack e
       renameVarList stack inVars
       introduceDefList count stack outVars
-    | SideEffect _ -> ()
-    | Jmp jmpTy -> renameJmp stack jmpTy
+    | SideEffect _ ->
+      ()
+    | Jmp jmpTy ->
+      renameJmp stack jmpTy
     | Def(def, e) ->
       renameExpr stack e
       introduceDef count stack def
@@ -301,7 +314,8 @@ module private SSALifterFactory =
         let preds = (g: IDiGraph<_, _>).GetPreds succ
         let idx = preds |> Array.findIndex (fun v -> v.VData = parent.VData)
         nums[idx] <- List.head stack[def.Kind]
-      | _ -> ()
+      | _ ->
+        ()
 
   let popStack (stack: IDStack) stmt =
     match stmt with
@@ -343,7 +357,8 @@ module private SSALifterFactory =
       let offset = int (int64 Constants.InitialStackPointer - int64 addr)
       let v = { Kind = StackVar(rt, offset); Identifier = 0 }
       Some(pp, Def(v, src))
-    | _ -> None
+    | _ ->
+      None
 
   let loadToVar rt addr =
     match addr with
@@ -352,14 +367,16 @@ module private SSALifterFactory =
       let offset = int (int64 Constants.InitialStackPointer - int64 addr)
       let v = { Kind = StackVar(rt, offset); Identifier = 0 }
       Some(Var v)
-    | _ -> None
+    | _ ->
+      None
 
   let rec replaceLoad (state: SSASparseDataFlow.State<_>) e =
     match e with
     | Load(memVar, rt, addr) ->
       let addrValue = state.EvalExpr addr
       match loadToVar rt addrValue with
-      | Some e -> Some e
+      | Some e ->
+        Some e
       | None ->
         match replaceLoad state addr with
         | Some addr -> Some(Load(memVar, rt, addr))
@@ -403,11 +420,13 @@ module private SSALifterFactory =
     | Extract(e, rt, sPos) ->
       replaceLoad state e
       |> Option.map (fun e -> Extract(e, rt, sPos))
-    | _ -> None
+    | _ ->
+      None
 
   let stmtChooser state ((pp, stmt) as stmtInfo) =
     match stmt with
-    | Phi _ -> None
+    | Phi _ ->
+      None
     | Def({ Kind = MemVar } as dstMemVar, Store(memVar, rt, addrExpr, src)) ->
       let addr = (state: SSASparseDataFlow.State<_>).EvalExpr addrExpr
       let src = replaceLoad state src |> Option.defaultValue src
@@ -418,7 +437,8 @@ module private SSALifterFactory =
       match replaceLoad state e with
       | Some e -> Some(pp, Def(dstVar, e))
       | None -> Some stmtInfo
-    | _ -> Some stmtInfo
+    | _ ->
+      Some stmtInfo
 
   let promote hdl ssaCFG (callback: ISSAVertexCallback) =
     let spp = SSAStackPointerPropagation hdl

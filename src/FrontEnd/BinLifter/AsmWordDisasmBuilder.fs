@@ -57,7 +57,8 @@ type AsmWordDisasmBuilder(showAddr,
           match symbolResolver.TryResolveName addr with
           | Ok name -> name
           | Error _ -> ""
-        else ""
+        else
+          ""
       if name.Length > 0 then
         lst.Add prefix
         lst.Add { AsmWordKind = AsmWordKind.Value; AsmWordValue = name }
@@ -71,7 +72,8 @@ type AsmWordDisasmBuilder(showAddr,
                   AsmWordValue = Addr.toString wordSz addr }
         lst.Add { AsmWordKind = AsmWordKind.InstructionDelimiter
                   AsmWordValue = ": " }
-      else ()
+      else
+        ()
 
     member this.ToString() =
       (this :> IDisasmBuilder).ToAsmWords()

@@ -78,15 +78,20 @@ module StaticValueFacts =
   let rec private evalExpr ctx = function
     | Num(bv, _) ->
       Some bv
-    | Var(_, rid, _, _) -> Map.tryFind rid ctx.Regs
-    | PCVar(rt, _, _) -> BitVector(ctx.PC, rt) |> Some
-    | TempVar(_, n, _) -> Map.tryFind n ctx.Temps
-    | ExprList _ -> None
+    | Var(_, rid, _, _) ->
+      Map.tryFind rid ctx.Regs
+    | PCVar(rt, _, _) ->
+      BitVector(ctx.PC, rt) |> Some
+    | TempVar(_, n, _) ->
+      Map.tryFind n ctx.Temps
+    | ExprList _ ->
+      None
     | UnOp(UnOpType.NEG, e, _) ->
       evalUnOp ctx e BitVector.Neg
     | UnOp(UnOpType.NOT, e, _) ->
       evalUnOp ctx e BitVector.Not
-    | UnOp _ -> None
+    | UnOp _ ->
+      None
     | BinOp(BinOpType.ADD, _, e1, e2, _) ->
       evalBinOp ctx e1 e2 BitVector.Add
     | BinOp(BinOpType.SUB, _, e1, e2, _) ->
@@ -115,7 +120,8 @@ module StaticValueFacts =
       evalBinOp ctx e1 e2 BitVector.Sar
     | BinOp(BinOpType.CONCAT, _, e1, e2, _) ->
       evalBinOp ctx e1 e2 BitVector.Concat
-    | _ -> None
+    | _ ->
+      None
 
   and private evalAddr ctx expr =
     evalExpr ctx expr
@@ -145,11 +151,13 @@ module StaticValueFacts =
       { ctx with Temps = Map.add n value ctx.Temps }
     | TempVar(_, n, _), None ->
       { ctx with Temps = Map.remove n ctx.Temps }
-    | _ -> ctx
+    | _ ->
+      ctx
 
   let rec private collectReadsFromExpr ctx reads writes = function
     | Num _ | Var _ | PCVar _ | TempVar _
-    | JmpDest _ | FuncName _ | Undefined _ -> reads, writes
+    | JmpDest _ | FuncName _ | Undefined _ ->
+      reads, writes
     | ExprList(exprs, _) ->
       List.fold (fun (reads, writes) e ->
         collectReadsFromExpr ctx reads writes e) (reads, writes) exprs
@@ -191,10 +199,8 @@ module StaticValueFacts =
     | InterJmp(target, _, _) ->
       let reads, writes = collectReadsFromExpr ctx reads writes target
       match evalAddr ctx target with
-      | Some addr ->
-        ctx, reads, writes, Set.singleton addr
-      | None ->
-        ctx, reads, writes, Set.empty
+      | Some addr -> ctx, reads, writes, Set.singleton addr
+      | None -> ctx, reads, writes, Set.empty
     | CJmp(cond, target1, target2, _)
     | InterCJmp(cond, target1, target2, _) ->
       let reads, writes = collectReadsFromExpr ctx reads writes cond
@@ -281,7 +287,8 @@ module StaticValueFacts =
 
   let rec private traverse addr stmts visited worklist reads writes defs pcs =
     match worklist with
-    | [] -> reads, writes, Option.defaultValue Map.empty defs, pcs
+    | [] ->
+      reads, writes, Option.defaultValue Map.empty defs, pcs
     | (idx, ctx) :: worklist ->
       let stmt = (stmts: Stmt[])[idx]
       let ctx, reads, writes, pcs = collectFromStmt addr ctx reads writes stmt
@@ -299,7 +306,8 @@ module StaticValueFacts =
   let private ofStmtsWithContext ctx addr (stmts: Stmt[]) =
     let reads, writes, defs, pcs =
       match Array.length stmts with
-      | 0 -> Set.empty, Set.empty, Map.empty, Set.empty
+      | 0 ->
+        Set.empty, Set.empty, Map.empty, Set.empty
       | _ ->
         let visited = Map.empty |> Map.add 0 ctx
         let worklist = [ 0, ctx ]

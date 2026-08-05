@@ -82,7 +82,8 @@ let private compareBranch table readCondition ins =
   | [ Rg s1; Rg s2; Im target ] ->
     branchOn opcode (cf >>> 2) (gpr s2) (gpr s1)
       (assemble12 (target - 8UL) ||| (n <<< 1))
-  | _ -> wrongOperands ins
+  | _ ->
+    wrongOperands ins
 
 /// The same, where what a register holds is compared against a written number.
 let private compareImmBranch table readCondition ins =
@@ -93,7 +94,8 @@ let private compareImmBranch table readCondition ins =
   | [ Im value; Rg s2; Im target ] ->
     branchOn opcode (cf >>> 2) (gpr s2) (lowSignExt 5 value)
       (assemble12 (target - 8UL) ||| (n <<< 1))
-  | _ -> wrongOperands ins
+  | _ ->
+    wrongOperands ins
 
 /// <summary>
 /// The branch comparing a whole doubleword against a written number, which is
@@ -111,7 +113,8 @@ let private cmpibWide ins =
   | [ Im value; Rg s2; Im target ] ->
     branchOn 0b111011u c (gpr s2) (lowSignExt 5 value)
       (assemble12 (target - 8UL) ||| (n <<< 1))
-  | _ -> wrongOperands ins
+  | _ ->
+    wrongOperands ins
 
 /// The branch copying one register into another, which goes on how much the
 /// first of them holds.
@@ -122,7 +125,8 @@ let private moveBranch opcode ins =
   | [ Rg s1; Rg s2; Im target ] ->
     branchOn opcode c (gpr s2) (gpr s1)
       (assemble12 (target - 8UL) ||| (n <<< 1))
-  | _ -> wrongOperands ins
+  | _ ->
+    wrongOperands ins
 
 /// The same, where what is copied is a written number.
 let private moveImmBranch opcode ins =
@@ -132,7 +136,8 @@ let private moveImmBranch opcode ins =
   | [ Im value; Rg s2; Im target ] ->
     branchOn opcode c (gpr s2) (lowSignExt 5 value)
       (assemble12 (target - 8UL) ||| (n <<< 1))
-  | _ -> wrongOperands ins
+  | _ ->
+    wrongOperands ins
 
 /// <summary>
 /// The branch going on one bit of a register.
@@ -152,7 +157,8 @@ let private bitBranch ins =
   | [ Rg s1; Im pos; Im target ] ->
     branchOn 0b110001u c (unsigned 5 pos) (gpr s1)
       (assemble12 (target - 8UL) ||| (n <<< 1))
-  | _ -> wrongOperands ins
+  | _ ->
+    wrongOperands ins
 
 /// One word of the kind that always goes somewhere else, given the three bits
 /// saying which of them it is.
@@ -166,7 +172,8 @@ let private nearBranch key ins =
   match ins.Operands with
   | [ Im target; Rg r ] ->
     goes key ((gpr r <<< 21) ||| assemble17 (target - 8UL) ||| (n <<< 1))
-  | _ -> wrongOperands ins
+  | _ ->
+    wrongOperands ins
 
 /// <summary>
 /// The same, reaching twenty-two bits' distance away.
@@ -185,7 +192,8 @@ let private farBranch key ins =
       fail "this branch does not say where it came from"
     else
       goes key (bits ||| (n <<< 1))
-  | _ -> wrongOperands ins
+  | _ ->
+    wrongOperands ins
 
 /// The branch that always goes, whose three forms differ in how far they
 /// reach and in what they leave behind.
@@ -206,7 +214,8 @@ let private blr ins =
   match ins.Operands with
   | [ Rg s1; Rg s2 ] ->
     goes 0b010u ((gpr s2 <<< 21) ||| (gpr s1 <<< 16) ||| (n <<< 1))
-  | _ -> wrongOperands ins
+  | _ ->
+    wrongOperands ins
 
 /// The branch going to an address counted from a register, which is how a
 /// program returns from where it was called.
@@ -216,7 +225,8 @@ let private bv ins =
   match ins.Operands with
   | [ Mem(Some(Rg index), None, baseReg) ] ->
     goes 0b110u ((gpr baseReg <<< 21) ||| (gpr index <<< 16) ||| (n <<< 1))
-  | _ -> wrongOperands ins
+  | _ ->
+    wrongOperands ins
 
 /// <summary>
 /// The same, where the address is the whole of what a register holds.
@@ -240,7 +250,8 @@ let private bve ins =
     goes 0b110u (0x1000u ||| (gpr baseReg <<< 21) ||| (n <<< 1) ||| onStack)
   | true, [ Mem(None, None, baseReg); Rg r ] when r = Register.GR2 ->
     goes 0b111u (0x1000u ||| (gpr baseReg <<< 21) ||| (n <<< 1) ||| onStack)
-  | _ -> wrongOperands ins
+  | _ ->
+    wrongOperands ins
 
 /// <summary>
 /// The instruction pushing an address onto the stack of addresses the
@@ -266,7 +277,8 @@ let private popbts ins =
   match ins.Operands with
   | [ Im count ] when count <> 0UL ->
     OpBranch ||| ClearStack ||| (unsigned 9 count <<< 3)
-  | _ -> wrongOperands ins
+  | _ ->
+    wrongOperands ins
 
 /// One of the two instructions working on that stack that carry nothing at
 /// all.
@@ -296,7 +308,8 @@ let private be ins =
       when space = Register.SR0 && back = Register.GR31 ->
     (0b111001u <<< 26) ||| (gpr baseReg <<< 21) ||| assemble17 offset
     ||| space3 sp ||| (n <<< 1)
-  | _ -> wrongOperands ins
+  | _ ->
+    wrongOperands ins
 
 /// The four branches comparing what two registers hold, paired with the two
 /// bits of the condition that tell them apart.
@@ -343,7 +356,8 @@ let private longImm opcode ins =
   match ins.Operands with
   | [ Im value; Rg r ] ->
     (opcode <<< 26) ||| (gpr r <<< 21) ||| assemble21 value
-  | _ -> wrongOperands ins
+  | _ ->
+    wrongOperands ins
 
 /// The instruction adding a written number to a register without ever saying
 /// anything about what came of it, which is how an address is built.
@@ -353,7 +367,8 @@ let private ldo ins =
   | [ Mem(Some(Im offset), None, baseReg); Rg d ] ->
     (0b001101u <<< 26) ||| (gpr baseReg <<< 21) ||| (gpr d <<< 16)
     ||| assemble16 offset
-  | _ -> wrongOperands ins
+  | _ ->
+    wrongOperands ins
 
 /// The instruction comparing a register against a written number and clearing
 /// a second register where the comparison holds.
@@ -363,7 +378,8 @@ let private cmpiclr ins =
   | [ Im value; Rg s2; Rg d ] ->
     (0b100100u <<< 26) ||| (gpr s2 <<< 21) ||| (gpr d <<< 16) ||| (cf <<< 11)
     ||| lowSignExt 11 value
-  | _ -> wrongOperands ins
+  | _ ->
+    wrongOperands ins
 
 /// The instruction left to the machine a program runs on to give a meaning to,
 /// which carries nothing but a number the whole width of the word below its

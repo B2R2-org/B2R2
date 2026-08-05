@@ -132,22 +132,26 @@ module internal MIPSSweep =
   /// keys: one form is worth reaching once however many registers it is
   /// written with.
   let private kindOfOperand (operand: string) =
-    if isNumber operand then "imm"
+    if isNumber operand then
+      "imm"
     elif operand.Length > 1 && operand[0] = 'f' && isNumber operand[1..] then
       "fpr"
-    else "gpr"
+    else
+      "gpr"
 
   /// The key a probe is kept once for, given how much of an operand it keeps.
   let private keyOf describe (text: string) =
     let describeOne (operand: string) =
       let operand = operand.Trim()
       match operand.IndexOf '(' with
-      | -1 -> describe operand
+      | -1 ->
+        describe operand
       | i ->
         let inner = operand[i + 1..operand.Length - 2]
         describe operand[..i - 1] + "(" + describe inner + ")"
     match text.Split ' ' |> Array.toList with
-    | [] | [ _ ] -> text
+    | [] | [ _ ] ->
+      text
     | mnemonic :: rest ->
       (String.concat " " rest).Split ','
       |> Array.map describeOne

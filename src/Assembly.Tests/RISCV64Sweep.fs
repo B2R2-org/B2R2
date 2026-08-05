@@ -150,7 +150,8 @@ module internal RISCV64Sweep =
   /// The key a probe is kept once for, given how much of an operand it keeps.
   let private keyOf kind (text: string) =
     match text.Split ' ' |> Array.toList with
-    | [] | [ _ ] -> text
+    | [] | [ _ ] ->
+      text
     | mnemonic :: rest ->
       (String.concat " " rest).Split ','
       |> Array.map (describe kind)

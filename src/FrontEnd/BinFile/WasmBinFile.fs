@@ -62,17 +62,14 @@ type WasmBinFile(path, bytes: byte[], baseAddrOpt) =
     match sec.Id with
     | SectionId.Code -> CodeSection
     | SectionId.Data -> DataSection
-    | SectionId.Custom when sec.Name = Section.CustomName ->
-      DebugSection
+    | SectionId.Custom when sec.Name = Section.CustomName -> DebugSection
     | SectionId.Custom -> UnknownSection
     | _ -> MetadataSection
 
   let secPermission sec =
     match secKind sec with
-    | CodeSection ->
-      int Permission.Readable ||| int Permission.Executable
-    | DataSection ->
-      int Permission.Readable ||| int Permission.Writable
+    | CodeSection -> int Permission.Readable ||| int Permission.Executable
+    | DataSection -> int Permission.Readable ||| int Permission.Writable
     | DebugSection
     | MetadataSection
     | UnknownSection -> int Permission.Readable
@@ -99,7 +96,8 @@ type WasmBinFile(path, bytes: byte[], baseAddrOpt) =
                   (uint64 idx.ElemOffset) wm.SectionsInfo.SecByAddr with
           | sec when sec.Id = SectionId.Code -> Some(uint64 idx.ElemOffset)
           | _ -> None
-        else None)
+        else
+          None)
 
   let importEntries =
     lazy getImports wm

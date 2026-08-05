@@ -150,10 +150,8 @@ let private expandLayerGap (edgeSet: EdgeSet) (layout: IVertex<VisBBlock>[][]) =
         (nextLayerTop + degreeShifts[bandIdx + 1])
         - (curLayerBottom + degreeShifts[bandIdx])
       let deficit = requiredGap - currentGap
-      if deficit > 0.0 then
-        cumulativeGapShift <- cumulativeGapShift + deficit
-      else
-        ()
+      if deficit > 0.0 then cumulativeGapShift <- cumulativeGapShift + deficit
+      else ()
     else
       ()
     gapShifts[bandIdx + 1] <- cumulativeGapShift
@@ -243,7 +241,8 @@ let private chooseBackwardEdgeBendPoints (edgeSet: EdgeSet) layout portMap =
         match src.VData.IsDummy, dst.VData.IsDummy with
         (* From dummy to dummy, no need to assign a bend point because the edge
            will be routed as a straight line. *)
-        | true, true -> ()
+        | true, true ->
+          ()
         (* From dummy to destination. The bend point is created in the upper
            layer. *)
         | true, false ->
@@ -342,7 +341,8 @@ let private routeForwardEdges (edgeSet: EdgeSet) layout portMap fwdArrivalTopY =
 
 let private findRealBwdDst (edgeSet: EdgeSet) (dst: IVertex<VisBBlock>) =
   let rec loop (v: IVertex<VisBBlock>) =
-    if not v.VData.IsDummy then v
+    if not v.VData.IsDummy then
+      v
     else
       match edgeSet.GetBwdOutEdges v with
       | (next, _) :: _ -> loop next
@@ -407,7 +407,8 @@ let private assignBwdInPorts (edgeSet: EdgeSet) portMap railX rDsts =
             let isDstLeft = getDstIsLeft bp
             let rx = getDefault railX edge cx
             Some(isDstLeft, rx, edge)
-          | _ -> None)
+          | _ ->
+            None)
       inEdges
       |> List.filter (fun (isDstLeft, _, _) -> isDstLeft)
       |> List.sortBy (fun (_, rx, _) -> rx)
@@ -481,7 +482,8 @@ let private assignBwdOutPorts (edgeSet: EdgeSet) portMap depIdx rSrcs =
             let isCross = isCrossAtDstSafeX realDst dstIsLeft src
             let dist = computeEdgeDistance edgeSet src dst
             Some(dst, edge, srcIsLeft, isCross, dist)
-          | _ -> None)
+          | _ ->
+            None)
       let leftEdges =
         edgesWithInfo
         |> List.filter (fun (_, _, srcIsLeft, _, _) -> srcIsLeft)
@@ -516,7 +518,8 @@ let private computeForwardArrivalTopY (edgeSet: EdgeSet) portMap realVertices =
           | true, bp ->
             let isLeft = getDstIsLeft bp
             Some(edge, isLeft)
-          | _ -> None)
+          | _ ->
+            None)
       let leftMaxIdx =
         bwdInEdges |> List.filter snd |> List.length
       let rightMaxIdx =
@@ -563,7 +566,8 @@ let private computeRailXForEdgeArriving (edgeSet: EdgeSet)
           | true, bp ->
             let dstIsLeft = getDstIsLeft bp
             Some(src, edge, dstIsLeft)
-          | _ -> None)
+          | _ ->
+            None)
       let leftArrivals =
         edgesWithInfo |> List.filter (fun (_, _, dstIsLeft) -> dstIsLeft)
       let leftCross =
@@ -729,7 +733,8 @@ let private collectBwdArrivalMargins edgeSet portMap aIdx crossYOffset v =
         | true, y when y > botY -> [ y - botY ]
         | _ -> []
       sideMargin :: topMargin :: bottomMargins
-    | _ -> [])
+    | _ ->
+      [])
 
 let private computeSelfCycleMargin edgeSet portMap aIdx crossYOffset v =
   match collectBwdArrivalMargins edgeSet portMap aIdx crossYOffset v with

@@ -83,7 +83,8 @@ module Tarjan =
         scc.Add w |> ignore
         doRepeat <- w <> v
       status.SCCs.Add scc
-    else ()
+    else
+      ()
 
   and private updateLowLink g status vNum (w: IVertex<_>) =
     if not (status.DFNums.ContainsKey w) then
@@ -93,7 +94,8 @@ module Tarjan =
       status.LowLinks[vNum] <- min vLowLink wLowLink
     elif status.OnStackStatus[status.DFNums[w]] then
       status.LowLinks[vNum] <- min status.LowLinks[vNum] status.DFNums[w]
-    else ()
+    else
+      ()
 
   /// Computes strongly connected components of the given directed graph.
   let compute (g: IDiGraphAccessible<_, _>) =

@@ -204,8 +204,10 @@ let private partsOf parts =
 /// otherwise.
 let plainAddress parts =
   match partsOf parts with
-  | None, Some reg, None -> AsmDirect reg
-  | Some v, Some reg, None -> AsmDisp(v, reg)
+  | None, Some reg, None ->
+    AsmDirect reg
+  | Some v, Some reg, None ->
+    AsmDisp(v, reg)
   | disp, bse, index ->
     AsmIndexed
       { Base = bse
@@ -247,7 +249,8 @@ let newInfo (name: string) operands =
   let name = name.ToLowerInvariant()
   let mnemonic, size =
     match name.LastIndexOf '.' with
-    | -1 -> name, Sz.NoSize
+    | -1 ->
+      name, Sz.NoSize
     | at ->
       match sizeOfSuffix name[at + 1..] with
       | Some size -> name[..at - 1], size

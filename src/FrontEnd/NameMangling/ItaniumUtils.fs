@@ -45,7 +45,8 @@ let addargumenttolist expr =
       let first = PointerArg("", Some value, a2)
       let second = expr
       { us with Namelist = second :: first :: us.Namelist }
-    | BuiltinType(_) -> us
+    | BuiltinType(_) ->
+      us
     | RefArg(ReferenceArg(v, Some value), TemplateSub(a, b)) ->
       let first = RefArg(ReferenceArg(Reference Empty, Some value), Specific b)
       let second = RefArg(ReferenceArg(v, Some value), Specific b)
@@ -113,8 +114,7 @@ let checkcarry expr =
     | NestedName(_, b) ->
       let len = List.length b
       match b[len - 1] with
-      | Template(_name, Arguments b) ->
-        { us with TemplateArgList = b }
+      | Template(_name, Arguments b) -> { us with TemplateArgList = b }
       | _ -> us
     | _ -> us)
   >>. preturn expr
@@ -158,8 +158,7 @@ let checkBeginning (a, b) =
 let rec addtoList refer alist res =
   match alist with
   | [] -> List.rev res
-  | head :: tail ->
-    addtoList refer tail (RefArg(refer, head) :: res)
+  | head :: tail -> addtoList refer tail (RefArg(refer, head) :: res)
 
  /// Adding arguments pack to substitution list.
 let addArgPack expr =
@@ -206,7 +205,8 @@ let argPackFlagOff = updateUserState (fun us -> { us with ArgPackFlag = 0 })
 /// templates each containing one argument from pack.
 let rec createTemplates name arglist res =
   match arglist with
-  | [] -> List.rev res
+  | [] ->
+    List.rev res
   | hd :: tail ->
     let add = Template(name, Arguments [ hd ])
     createTemplates name tail (add :: res)
@@ -221,15 +221,18 @@ let expandArgs expr =
              | Arguments arglist ->
                let newlist = createTemplates a arglist []
                preturn (Arguments newlist)
-             | _ -> preturn expr
-           | _ -> preturn expr
+             | _ ->
+               preturn expr
+           | _ ->
+             preturn expr
          else
            preturn expr
       )
 
 let rec createCLexprs data arglist res =
   match arglist with
-  | [] -> List.rev res
+  | [] ->
+    List.rev res
   | hd :: tail ->
     let newarg = hd :: data
     let newExpr = (CallExpr newarg)
@@ -241,14 +244,15 @@ let expandCL expr =
   match expr with
   | CallExpr a ->
     match a[0] with
-    | Arguments arglist ->
-      Arguments(createCLexprs a.Tail arglist []) |> preturn
+    | Arguments arglist -> Arguments(createCLexprs a.Tail arglist []) |> preturn
     | _ -> preturn expr
-  | _ -> preturn expr
+  | _ ->
+    preturn expr
 
 let rec createDTexprs data arglist res =
   match arglist with
-  | [] -> List.rev res
+  | [] ->
+    List.rev res
   | hd :: tail ->
     let newExpr = DotExpr(hd, data)
     createDTexprs data tail (newExpr :: res)
@@ -257,7 +261,7 @@ let expandDT expr =
   match expr with
   | DotExpr(a, b) ->
     match a with
-    | Arguments arglist ->
-      Arguments(createDTexprs b arglist []) |> preturn
+    | Arguments arglist -> Arguments(createDTexprs b arglist []) |> preturn
     | _ -> preturn expr
-  | _ -> preturn expr
+  | _ ->
+    preturn expr

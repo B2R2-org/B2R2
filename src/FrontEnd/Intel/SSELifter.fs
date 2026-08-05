@@ -93,7 +93,8 @@ let buildMove (ins: Instruction) insLen bld =
     let struct (dst, src) = getTwoOprs ins
     let src = transOprToArr bld false ins insLen 64<rt> packNum oprSize src
     assignPackedInstr bld false ins insLen packNum oprSize dst src
-  | _ -> raise InvalidOperandSizeException
+  | _ ->
+    raise InvalidOperandSizeException
   bld --!> insLen
 
 let movaps ins insLen bld = buildMove ins insLen bld
@@ -114,7 +115,8 @@ let movhps (ins: Instruction) insLen bld =
   | OprReg r, OprMem(_, _, _, 64<rt>) ->
     let src = transOprToExpr bld false ins insLen src
     bld <+ (pseudoRegVar bld r 2 := src)
-  | _ -> raise InvalidOperandException
+  | _ ->
+    raise InvalidOperandException
   bld --!> insLen
 
 let movhpd (ins: Instruction) insLen bld =
@@ -127,7 +129,8 @@ let movhpd (ins: Instruction) insLen bld =
   | OprMem _, OprReg r ->
     let dst = transOprToExpr bld false ins insLen dst
     bld <+ (dst := pseudoRegVar bld r 2)
-  | _ -> raise InvalidOperandException
+  | _ ->
+    raise InvalidOperandException
   bld --!> insLen
 
 let movhlps (ins: Instruction) insLen bld =
@@ -148,7 +151,8 @@ let movlpd (ins: Instruction) insLen bld =
   | OprMem _, OprReg r ->
     let dst = transOprToExpr bld false ins insLen dst
     bld <+ (dst := pseudoRegVar bld r 1)
-  | _ -> raise InvalidOperandException
+  | _ ->
+    raise InvalidOperandException
   bld --!> insLen
 
 let movlps ins insLen bld = movlpd ins insLen bld
@@ -202,7 +206,8 @@ let movss (ins: Instruction) insLen bld =
     let dst = transOprToExpr bld false ins insLen dst
     let src = pseudoRegVar bld r1 1 |> AST.xtlo 32<rt>
     bld <+ (dstAssign 32<rt> dst src)
-  | _ -> raise InvalidOperandException
+  | _ ->
+    raise InvalidOperandException
   bld --!> insLen
 
 let movsd (ins: Instruction) insLen bld =
@@ -225,7 +230,8 @@ let movsd (ins: Instruction) insLen bld =
       let dst = transOprToExpr bld false ins insLen dst
       let src = pseudoRegVar bld r1 1
       bld <+ (dstAssign 64<rt> dst src)
-    | _ -> raise InvalidOperandException
+    | _ ->
+      raise InvalidOperandException
     bld --!> insLen
 
 let addps ins insLen bld =
@@ -477,7 +483,8 @@ let private cmppCond bld ins insLen op3 isDbl c expr1 expr2 =
     | 6UL -> bld <+ (c := AST.fle expr1 expr2 |> AST.not)
     | 7UL -> bld <+ (c := (isNan isDbl expr1 .| isNan isDbl expr2) |> AST.not)
     | _ -> bld <+ (c := AST.b0)
-  | _ -> Terminator.impossible ()
+  | _ ->
+    Terminator.impossible ()
 
 let cmpps (ins: Instruction) insLen bld =
   bld <!-- (ins.Address, insLen)
@@ -522,7 +529,8 @@ let cmpss (ins: Instruction) insLen bld =
 
 let cmpsd (ins: Instruction) insLen bld =
   match ins.Operands with
-  | NoOperand -> GeneralLifter.cmps ins insLen bld
+  | NoOperand ->
+    GeneralLifter.cmps ins insLen bld
   | ThreeOperands(dst, src, imm) ->
     bld <!-- (ins.Address, insLen)
     let dst = transOprToExpr64 bld false ins insLen dst
@@ -532,7 +540,8 @@ let cmpsd (ins: Instruction) insLen bld =
     cmppCond bld ins insLen imm true cond dst src
     bld <+ (dst := AST.ite cond max64 (AST.num0 64<rt>))
     bld --!> insLen
-  | _ -> raise InvalidOperandException
+  | _ ->
+    raise InvalidOperandException
 
 let comiss (ins: Instruction) insLen bld =
   bld <!-- (ins.Address, insLen)
@@ -1013,9 +1022,11 @@ let pextrd (ins: Instruction) insLen bld =
     let result =
       if count < 64L then
         ((srcB << lAmt) .| (srcA >> rAmt)) .& numU32 0xFFFFFFFFu 64<rt>
-      else (srcB >> rAmt) .& numU32 0xFFFFFFFFu 64<rt>
+      else
+        (srcB >> rAmt) .& numU32 0xFFFFFFFFu 64<rt>
     bld <+ (dstAssign oprSize dst (AST.xtlo oprSize result))
-  | _ -> raise InvalidOperandException
+  | _ ->
+    raise InvalidOperandException
   bld --!> insLen
 
 let pextrq (ins: Instruction) insLen bld =
@@ -1031,11 +1042,11 @@ let pextrq (ins: Instruction) insLen bld =
     let lAmt = numI64 (64L - (count % 64L)) 64<rt> (* Left Shift *)
     let rAmt = numI64 (count % 64L) 64<rt> (* Right Shift *)
     let result =
-      if count < 64L then
-        ((srcB << lAmt) .| (srcA >> rAmt))
+      if count < 64L then ((srcB << lAmt) .| (srcA >> rAmt))
       else (srcB >> rAmt)
     bld <+ (dstAssign oprSize dst (AST.xtlo oprSize result))
-  | _ -> raise InvalidOperandException
+  | _ ->
+    raise InvalidOperandException
   bld --!> insLen
 
 let pextrw ins insLen bld =
@@ -1077,8 +1088,10 @@ let pinsrw (ins: Instruction) insLen bld =
       let index = getImmValue imm8 &&& 0b111L |> int
       let dst = transOprToArr bld false ins insLen packSz pNum 128<rt> dst
       bld <+ (dst[index] := src)
-    | _ -> raise InvalidOperandException
-  | _ -> raise InvalidOperandSizeException
+    | _ ->
+      raise InvalidOperandException
+  | _ ->
+    raise InvalidOperandSizeException
   bld --!> insLen
 
 let private opMaxMinPacked cmp =
@@ -1175,7 +1188,8 @@ let pmovmskb (ins: Instruction) insLen bld =
       AST.concat (AST.concat (concatBits tmpsD) (concatBits tmpsC))
         (AST.concat (concatBits tmpsB) (concatBits tmpsA))
     bld <+ (dstAssign oprSize dst <| AST.zext oprSize tmps)
-  | _ -> raise InvalidOperandException
+  | _ ->
+    raise InvalidOperandException
   bld --!> insLen
 
 let packedMove bld srcSz packSz dstA dstB src isSignExt =
@@ -1206,7 +1220,8 @@ let pmovbw (ins: Instruction) insLen bld packSz isSignExt =
     let struct (dstB, dstA) = transOprToExpr128 bld false ins insLen dst
     let src = transOprToExpr64 bld false ins insLen src
     packedMove bld 64<rt> packSz dstA dstB src isSignExt
-  | _ -> raise InvalidOperandException
+  | _ ->
+    raise InvalidOperandException
   bld --!> insLen
 
 let pmovbd (ins: Instruction) insLen bld packSz isSignExt =
@@ -1221,7 +1236,8 @@ let pmovbd (ins: Instruction) insLen bld packSz isSignExt =
     let struct (dstB, dstA) = transOprToExpr128 bld false ins insLen dst
     let src = transOprToExpr32 bld false ins insLen src
     packedMove bld 32<rt> packSz dstA dstB src isSignExt
-  | _ -> raise InvalidOperandException
+  | _ ->
+    raise InvalidOperandException
   bld --!> insLen
 
 let pmovbq (ins: Instruction) insLen bld packSz isSignExt =
@@ -1236,7 +1252,8 @@ let pmovbq (ins: Instruction) insLen bld packSz isSignExt =
     let struct (dstB, dstA) = transOprToExpr128 bld false ins insLen dst
     let src = transOprToExpr16 bld false ins insLen src
     packedMove bld 16<rt> packSz dstA dstB src isSignExt
-  | _ -> raise InvalidOperandException
+  | _ ->
+    raise InvalidOperandException
   bld --!> insLen
 
 let private opPmulhuw _ = opPmul AST.xthi AST.zext 32<rt> 16<rt>
@@ -1263,7 +1280,8 @@ let private opPsadbw oprSize e1 e2 =
     let res1 = Array.reduce sum (Array.sub temp 0 8)
     let res2 = Array.reduce sum (Array.sub temp 8 8)
     Array.concat [| [| res1 |]; zeros; [| res2 |]; zeros |]
-  | _ -> raise InvalidOperandSizeException
+  | _ ->
+    raise InvalidOperandSizeException
 
 let psadbw (ins: Instruction) insLen bld =
   bld <!-- (ins.Address, insLen)
@@ -1310,8 +1328,10 @@ let pshufd (ins: Instruction) insLen bld =
     let leftAmt = numI64 (64L - (amount % 64L)) 64<rt>
     if amount < 64L then
       AST.xtlo 32<rt> ((hiExpr << leftAmt) .| (lowExpr >> rightAmt))
-    elif amount < 128L then AST.xtlo 32<rt> (hiExpr >> rightAmt)
-    else AST.num0 32<rt>
+    elif amount < 128L then
+      AST.xtlo 32<rt> (hiExpr >> rightAmt)
+    else
+      AST.num0 32<rt>
   let amount idx = ((ord >>> (idx * 2)) &&& 0b11L) * 32L
   let struct (tSrcB, tSrcA) = tmpVars2 bld 64<rt>
   bld <+ (tSrcA := srcA)
@@ -1389,7 +1409,8 @@ let pshufb (ins: Instruction) insLen bld =
     let result = Array.map shuffle src
     bld <+ (dstA := Array.sub result 0 packNum |> AST.revConcat)
     bld <+ (dstB := Array.sub result packNum packNum |> AST.revConcat)
-  | _ -> raise InvalidOperandSizeException
+  | _ ->
+    raise InvalidOperandSizeException
   bld --!> insLen
 
 let movdqa ins insLen bld = buildMove ins insLen bld
@@ -1591,7 +1612,8 @@ let palignr (ins: Instruction) insLen bld =
     else
       bld <+ (dstA := AST.num0 64<rt>)
       bld <+ (dstB := AST.num0 64<rt>)
-  | _ -> raise InvalidOperandSizeException
+  | _ ->
+    raise InvalidOperandSizeException
   bld --!> insLen
 
 let roundsd (ins: Instruction) insLen bld =
@@ -1921,7 +1943,8 @@ let pcmpstr (ins: Instruction) insLen bld =
   let regSize, ax, dx =
     if REXPrefix.hasW ins.REXPrefix then
       64<rt>, regVar bld R.RAX, regVar bld R.RDX
-    else 32<rt>, regVar bld R.EAX, regVar bld R.EDX
+    else
+      32<rt>, regVar bld R.EAX, regVar bld R.EDX
   let struct (aInval, bInval) = tmpVars2 bld 1<rt>
   bld <+ (aInval := AST.b0)
   let (.<=), (.>=) =
@@ -1937,7 +1960,8 @@ let pcmpstr (ins: Instruction) insLen bld =
       if ctrl.Agg = Ranges then
         if i % 2 = 0 then bld <+ (boolRes[i, j] := src1[i] .<= src2[j])
         else bld <+ (boolRes[i, j] := src1[i] .>= src2[j])
-      else bld <+ (boolRes[i, j] := src1[i] == src2[j])
+      else
+        bld <+ (boolRes[i, j] := src1[i] == src2[j])
       (* invalidate characters after EOS. *)
       match ctrl.Len with
       | Implicit -> bld <+ (bInval := bInval .| (src2[j] == n0))
@@ -1984,8 +2008,10 @@ let pcmpstr (ins: Instruction) insLen bld =
   initIntRes AST.b0 intRes2
   for i in 0 .. upperBound do
     match ctrl.Polarity with
-    | PosPolarity | PosMasked -> bld <+ (intRes2[i] := intRes1[i])
-    | NegPolarity (* 0b01 *) -> bld <+ (intRes2[i] := AST.not intRes1[i])
+    | PosPolarity | PosMasked ->
+      bld <+ (intRes2[i] := intRes1[i])
+    | NegPolarity (* 0b01 *) ->
+      bld <+ (intRes2[i] := AST.not intRes1[i])
     | NegMasked (* 0b11 *) ->
       match ctrl.Len with
       | Implicit ->

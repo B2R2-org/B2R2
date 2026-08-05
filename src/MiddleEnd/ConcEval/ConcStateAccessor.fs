@@ -48,7 +48,8 @@ type ConcStateAccessor(hdl: BinHandle, state: EvalState) as this =
 
   let getDefinedReg rid =
     match state.TryGetReg rid with
-    | Def v -> v
+    | Def v ->
+      v
     | Undef ->
       let name = regFactory.GetRegisterName rid
       raise (InvalidOperationException $"Register {name} is not initialized.")
@@ -60,14 +61,16 @@ type ConcStateAccessor(hdl: BinHandle, state: EvalState) as this =
 
   let getStackPointerRegister () =
     match regFactory.StackPointer with
-    | Some rid -> rid
+    | Some rid ->
+      rid
     | None ->
       raise (InvalidOperationException
         "Stack pointer register is unavailable.")
 
   let getFramePointerRegister () =
     match regFactory.FramePointer with
-    | Some rid -> rid
+    | Some rid ->
+      rid
     | None ->
       raise (InvalidOperationException
         "Frame pointer register is unavailable.")
@@ -242,7 +245,8 @@ type ConcStateAccessor(hdl: BinHandle, state: EvalState) as this =
     let mutable finished = false
     while not finished && idx < maxLength do
       match readByte (addr + uint64 idx) with
-      | 0uy -> finished <- true
+      | 0uy ->
+        finished <- true
       | b ->
         bytes.Add b
         idx <- idx + 1

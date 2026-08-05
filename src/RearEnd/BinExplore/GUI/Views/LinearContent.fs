@@ -67,14 +67,20 @@ let private onNavigationKeyDown dispatch (state: LinearViewState) e =
   let lineHeight = max state.RowHeight 1.0
   let targetOffset =
     match (e: KeyEventArgs).Key with
-    | Key.Home -> Some 0.0
+    | Key.Home ->
+      Some 0.0
     | Key.End ->
       Some(max 0.0 (LinearViewState.totalHeight state - state.ViewportHeight))
-    | Key.Up -> Some(state.ScrollOffsetY - lineHeight)
-    | Key.Down -> Some(state.ScrollOffsetY + lineHeight)
-    | Key.PageUp -> Some(state.ScrollOffsetY - pageScrollDelta state)
-    | Key.PageDown -> Some(state.ScrollOffsetY + pageScrollDelta state)
-    | _ -> None
+    | Key.Up ->
+      Some(state.ScrollOffsetY - lineHeight)
+    | Key.Down ->
+      Some(state.ScrollOffsetY + lineHeight)
+    | Key.PageUp ->
+      Some(state.ScrollOffsetY - pageScrollDelta state)
+    | Key.PageDown ->
+      Some(state.ScrollOffsetY + pageScrollDelta state)
+    | _ ->
+      None
   match targetOffset with
   | Some offsetY ->
     scrollLinearTo dispatch offsetY
@@ -216,10 +222,14 @@ let private rowLayoutOf common rowKind cells =
     LinkageLayout(disasmX, max fixedSymbolX symbolX)
 
 let private cellX common rowLayout = function
-  | OffsetCell -> common.OffsetX
-  | AddressCell -> common.AddressX
-  | KindCell -> common.KindX
-  | ValueCell -> common.ValueX
+  | OffsetCell ->
+    common.OffsetX
+  | AddressCell ->
+    common.AddressX
+  | KindCell ->
+    common.KindX
+  | ValueCell ->
+    common.ValueX
   | DisasmCell ->
     match rowLayout with
     | DisassemblyLayout disasmX -> disasmX
@@ -390,7 +400,8 @@ type private LinearRenderLayer() =
     let fontFamily, fontSize, foreground, secondary =
       ensureCacheSignature state theme
     match textCache.TryGetValue index with
-    | true, txt -> txt
+    | true, txt ->
+      txt
     | _ ->
       let item = doc.LinearItems[index]
       let txt =

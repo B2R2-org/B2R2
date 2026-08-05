@@ -47,14 +47,17 @@ let private movdRegToReg ins bld r1 r2 =
   | _, RegisterHelper.Kind.MMX ->
     bld <+ (tmp := AST.xtlo 32<rt> (regVar bld r2))
     bld <+ (dstAssign 32<rt> (regVar bld r1) tmp)
-  | _, _ -> Terminator.impossible ()
+  | _, _ ->
+    Terminator.impossible ()
 
 let private movdRegToMem bld dst r =
   match RegisterHelper.getKind r with
   | RegisterHelper.Kind.XMM ->
     bld <+ (dst := AST.xtlo 32<rt> (pseudoRegVar bld r 1))
-  | RegisterHelper.Kind.MMX -> bld <+ (dst := AST.xtlo 32<rt> (regVar bld r))
-  | _ -> Terminator.impossible ()
+  | RegisterHelper.Kind.MMX ->
+    bld <+ (dst := AST.xtlo 32<rt> (regVar bld r))
+  | _ ->
+    Terminator.impossible ()
 
 let private movdMemToReg ins bld src r =
   match RegisterHelper.getKind r with
@@ -64,20 +67,23 @@ let private movdMemToReg ins bld src r =
   | RegisterHelper.Kind.MMX ->
     bld <+ (regVar bld r := AST.zext 64<rt> src)
     fillOnesToMMXHigh16 bld ins
-  | _ -> Terminator.impossible ()
+  | _ ->
+    Terminator.impossible ()
 
 let movd (ins: Instruction) insLen bld =
   bld <!-- (ins.Address, insLen)
   let struct (dst, src) = getTwoOprs ins
   match dst, src with
-  | OprReg r1, OprReg r2 -> movdRegToReg ins bld r1 r2
+  | OprReg r1, OprReg r2 ->
+    movdRegToReg ins bld r1 r2
   | OprMem _, OprReg r ->
     let dst = transOprToExpr bld false ins insLen dst
     movdRegToMem bld dst r
   | OprReg r, OprMem _ ->
     let src = transOprToExpr bld false ins insLen src
     movdMemToReg ins bld src r
-  | _, _ -> raise InvalidOperandException
+  | _, _ ->
+    raise InvalidOperandException
   bld --!> insLen
 
 let private movqRegToReg ins bld r1 r2 =
@@ -96,7 +102,8 @@ let private movqRegToReg ins bld r1 r2 =
     fillOnesToMMXHigh16 bld ins
   | RegisterHelper.Kind.GP, RegisterHelper.Kind.MMX ->
     bld <+ (regVar bld r1 := regVar bld r2)
-  | _ -> raise InvalidOperandException
+  | _ ->
+    raise InvalidOperandException
 
 let private movqRegToMem bld dst r =
   match RegisterHelper.getKind r with
@@ -112,20 +119,23 @@ let private movqMemToReg ins bld src r =
   | RegisterHelper.Kind.MMX ->
     bld <+ (regVar bld r := src)
     fillOnesToMMXHigh16 bld ins
-  | _ -> raise InvalidOperandException
+  | _ ->
+    raise InvalidOperandException
 
 let movq (ins: Instruction) insLen bld =
   bld <!-- (ins.Address, insLen)
   let struct (dst, src) = getTwoOprs ins
   match dst, src with
-  | OprReg r1, OprReg r2 -> movqRegToReg ins bld r1 r2
+  | OprReg r1, OprReg r2 ->
+    movqRegToReg ins bld r1 r2
   | OprMem _, OprReg r ->
     let dst = transOprToExpr bld false ins insLen dst
     movqRegToMem bld dst r
   | OprReg r, OprMem _ ->
     let src = transOprToExpr bld false ins insLen src
     movqMemToReg ins bld src r
-  | _, _ -> raise InvalidOperandException
+  | _, _ ->
+    raise InvalidOperandException
   bld --!> insLen
 
 let private saturateSignedDwordToSignedWord expr =
@@ -278,9 +288,12 @@ let fillZeroFromVLToMaxVL bld dst vl maxVl =
       bld <+ (dstF := n0)
       bld <+ (dstG := n0)
       bld <+ (dstH := n0)
-    | 512, 512<rt> -> ()
-    | _ -> raise InvalidOperandSizeException
-  | _ -> ()
+    | 512, 512<rt> ->
+      ()
+    | _ ->
+      raise InvalidOperandSizeException
+  | _ ->
+    ()
 
 let private buildPackedTwoOprs ins insLen bld isFillZero packSz opFn dst src =
   bld <!-- ((ins: Instruction).Address, insLen)
@@ -310,7 +323,8 @@ let buildPackedInstr (ins: Instruction) insLen bld isFillZero packSz opFn =
     buildPackedTwoOprs ins insLen bld isFillZero packSz opFn o1 o2
   | ThreeOperands(o1, o2, o3) ->
     buildPackedThreeOprs ins insLen bld isFillZero packSz opFn o1 o2 o3
-  | _ -> raise InvalidOperandException
+  | _ ->
+    raise InvalidOperandException
 
 let private packWithSaturation (ins: Instruction) insLen bld packSz opFn =
   bld <!-- (ins.Address, insLen)
@@ -367,9 +381,10 @@ let unpackLowHighData (ins: Instruction) insLen bld packSize isHigh =
     elif oprSz = 256<rt> then
       let resALow, resAHigh = Array.splitAt (allPackNum / 2) resultA
       let resBLow, resBHigh = Array.splitAt (allPackNum / 2) resultB
-      if isHigh then Array.append resAHigh resBHigh else
-      Array.append resALow resBLow
-    else raise InvalidOperandSizeException
+      if isHigh then
+        Array.append resAHigh resBHigh else Array.append resALow resBLow
+    else
+      raise InvalidOperandSizeException
   assignPackedInstr bld false ins insLen packNum oprSz dst result
   fillZeroFromVLToMaxVL bld dst oprSz 512
   bld --!> insLen
@@ -377,22 +392,26 @@ let unpackLowHighData (ins: Instruction) insLen bld packSize isHigh =
 let opUnpackHighData oprSize src1 src2 =
   let resultA, resultB = interleaveAndSplit src1 src2 (Array.length src1)
   match oprSize with
-  | 64<rt> | 128<rt> -> resultB
+  | 64<rt> | 128<rt> ->
+    resultB
   | 256<rt> ->
     let _, resAHigh = Array.splitAt (Array.length resultA / 2) resultA
     let _, resBHigh = Array.splitAt (Array.length resultB / 2) resultB
     Array.append resAHigh resBHigh
-  | _ -> raise InvalidOperandSizeException
+  | _ ->
+    raise InvalidOperandSizeException
 
 let opUnpackLowData oprSize src1 src2 =
   let resultA, resultB = interleaveAndSplit src1 src2 (Array.length src1)
   match oprSize with
-  | 64<rt> | 128<rt> -> resultA
+  | 64<rt> | 128<rt> ->
+    resultA
   | 256<rt> ->
     let resALow, _ = Array.splitAt (Array.length resultA / 2) resultA
     let resBLow, _ = Array.splitAt (Array.length resultB / 2) resultB
     Array.append resALow resBLow
-  | _ -> raise InvalidOperandSizeException
+  | _ ->
+    raise InvalidOperandSizeException
 
 /// A two-operand 128-bit packed op lowered as one SIMD intrinsic -- a
 /// BinOp(APP, ...) the evaluator runs on a single Vector128 op -- instead of
@@ -665,7 +684,8 @@ let pxor (ins: Instruction) insLen bld =
     let struct (srcB, srcA) = transOprToExpr128 bld false ins insLen src
     bld <+ (dstA := dstA <+> srcA)
     bld <+ (dstB := dstB <+> srcB)
-  | _ -> raise InvalidOperandSizeException
+  | _ ->
+    raise InvalidOperandSizeException
   bld --!> insLen
 
 let private opShiftPackedDataLogical oprSize packSz shift src1 src2 =
@@ -682,7 +702,8 @@ let private opShiftPackedDataLogical oprSize packSz shift src1 src2 =
     let cond = count .> (numI32 ((int packSz) - 1) 64<rt>)
     Array.map (fun e ->
       AST.ite cond z (AST.xtlo packSz (shift (AST.zext 64<rt> e) count))) src1
-  | _ -> raise InvalidOperandSizeException
+  | _ ->
+    raise InvalidOperandSizeException
 
 let private opPsllw oprSize = opShiftPackedDataLogical oprSize 16<rt> (<<)
 
@@ -721,7 +742,8 @@ let private opShiftPackedDataRightArith oprSize packSz src1 src2 =
     let cond = count .> (numI32 ((int packSz) - 1) 64<rt>)
     let count = AST.ite cond (numI32 (int packSz) 64<rt>) count
     Array.map (fun e -> AST.xtlo packSz ((AST.sext 64<rt> e) ?>> count)) src1
-  | _ -> raise InvalidOperandSizeException
+  | _ ->
+    raise InvalidOperandSizeException
 
 let private opPsraw oprSize = opShiftPackedDataRightArith oprSize 16<rt>
 

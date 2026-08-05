@@ -45,14 +45,16 @@ type IMemory =
 
 module private Memory =
   let rec readLE acc addr i (mem: IMemory) =
-    if i <= 0UL then Ok acc
+    if i <= 0UL then
+      Ok acc
     else
       match mem.ByteRead(addr + i - 1UL) with
       | Ok b -> readLE (b :: acc) addr (i - 1UL) mem
       | Error e -> Error e
 
   let rec readBE acc len addr i (mem: IMemory) =
-    if i >= len then Ok acc
+    if i >= len then
+      Ok acc
     else
       match mem.ByteRead(addr + i) with
       | Ok b -> readBE (b :: acc) len addr (i + 1UL) mem

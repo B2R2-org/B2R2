@@ -54,7 +54,8 @@ type ReplState(isa: ISA, regFactory: IRegisterFactory, doFiltering) =
     |> Set.ofArray
 
   let tryEvaluate stmt st =
-    try Evaluator.evalStmt st stmt
+    try
+      Evaluator.evalStmt st stmt
     with _ ->
       if st.IgnoreUndef then st.NextStmt()
       else failwith "Undefined expression encountered."
@@ -69,12 +70,14 @@ type ReplState(isa: ISA, regFactory: IRegisterFactory, doFiltering) =
         if st.NeedToEvaluateIEMark then
           let stmt = stmts[numStmts - 1]
           tryEvaluate stmt st
-        else ()
+        else
+          ()
       else
         let stmt = stmts[idx]
         tryEvaluate stmt st
         evalStmts stmts st
-    else ()
+    else
+      ()
 
   member _.CurrentParser with get() = parser
 
@@ -109,7 +112,8 @@ type ReplState(isa: ISA, regFactory: IRegisterFactory, doFiltering) =
     if doFiltering then
       regPairs
       |> List.filter (fun (r, _) -> Set.contains r generalRegs)
-    else regPairs
+    else
+      regPairs
 
   member this.GetAllRegValString delta =
     let set = Set.ofList delta

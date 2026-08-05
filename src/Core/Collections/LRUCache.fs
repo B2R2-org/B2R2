@@ -66,7 +66,8 @@ type LRUCache<'K, 'V when 'K: equality and 'V: equality>(capacity: int) =
       this.Remove v
       this.InsertBack v
       Ok v.Value
-    | false, _ -> Error ErrorCase.ItemNotFound
+    | false, _ ->
+      Error ErrorCase.ItemNotFound
 
   /// Tries to retrieve the value and reference count for the given key. When
   /// the key exists, the entry is promoted to the most recently used position.
@@ -77,7 +78,8 @@ type LRUCache<'K, 'V when 'K: equality and 'V: equality>(capacity: int) =
       this.InsertBack v
       refCount <- v.RefCount
       Ok v.Value
-    | false, _ -> Error ErrorCase.ItemNotFound
+    | false, _ ->
+      Error ErrorCase.ItemNotFound
 
   /// Adds or replaces a value in the cache. Replacing an existing key removes
   /// the old entry and inserts the new value as the most recently used entry.

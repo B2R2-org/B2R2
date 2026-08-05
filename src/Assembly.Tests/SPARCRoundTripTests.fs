@@ -80,7 +80,8 @@ type SPARCRoundTripTests() =
   /// text stands in for the word a probe was decoded from.
   static let roundTrip (source: string) =
     match (try encodeFirst assembler source with _ -> None) with
-    | None -> SPARCUnsupported
+    | None ->
+      SPARCUnsupported
     | Some encoded ->
       let actual = try disasm encoded with _ -> "<undecodable>"
       if actual = source then SPARCPreserved else SPARCAltered actual
@@ -198,7 +199,8 @@ type SPARCRoundTripTests() =
             expected, source, index, distance ]
       |> List.choose (fun (expected, source, index, distance) ->
         match (try assembler.Lower source with _ -> Error "raised") with
-        | Error _ | Ok [] -> Some $"'{expected} L' does not assemble"
+        | Error _ | Ok [] ->
+          Some $"'{expected} L' does not assemble"
         | Ok encoded ->
           let addr = uint64 (4 * index)
           let text =
@@ -226,7 +228,8 @@ type SPARCRoundTripTests() =
       unencodableSources
       |> List.choose (fun source ->
         match (try encodeFirst assembler source with _ -> None) with
-        | None -> None
+        | None ->
+          None
         | Some bytes ->
           let text = try disasm bytes with _ -> "<undecodable>"
           Some $"'{source}' encoded as '{text}'")
@@ -247,7 +250,8 @@ type SPARCRoundTripTests() =
     match encodeFirst littleEndian source, encodeFirst assembler source with
     | Some little, Some big ->
       Assert.AreEqual<string>(hex (Array.rev big), hex little)
-    | _ -> Assert.Fail $"'{source}' does not assemble"
+    | _ ->
+      Assert.Fail $"'{source}' does not assemble"
 
   /// <summary>
   /// Checks that a source written the way a person writes one names the same
@@ -265,7 +269,8 @@ type SPARCRoundTripTests() =
       writtenSources
       |> List.choose (fun (source, expected) ->
         match (try encodeFirst assembler source with _ -> None) with
-        | None -> Some $"'{source}' does not assemble"
+        | None ->
+          Some $"'{source}' does not assemble"
         | Some bytes ->
           let text = try disasm bytes with _ -> "<undecodable>"
           if text = expected then None

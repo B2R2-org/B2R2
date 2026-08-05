@@ -61,7 +61,8 @@ type Parser(isa: ISA,
       let bigInt =
         if s.StartsWith("0x") then
           BigInteger.Parse("0" + s.Substring(2), NumberStyles.AllowHexSpecifier)
-        else BigInteger.Parse(s)
+        else
+          BigInteger.Parse(s)
       fun rt -> BitVector(bigInt, rt)
 
   let pRegType = (anyOf "IiFf") >>. pint32 |>> RegType.fromBitWidth
@@ -189,8 +190,7 @@ type Parser(isa: ISA,
     pBetweenParen pOps .>>. opt pExtractPattern
     |>> (fun (e, extract) ->
       match extract with
-      | Some(n, pos) ->
-        AST.extract e (RegType.fromBitWidth (n + 1 - pos)) pos
+      | Some(n, pos) -> AST.extract e (RegType.fromBitWidth (n + 1 - pos)) pos
       | None -> e)
 
   let term =
@@ -381,7 +381,8 @@ type Parser(isa: ISA,
     | Failure(errStr, _, _) -> Result.Error(errStr)
 
   member private _.TryParseStmt line =
-    try runParserOnString pStatement 0<rt> "" line
+    try
+      runParserOnString pStatement 0<rt> "" line
     with e ->
       let dummyPos = Position("", 0L, 0L, 0L)
       let nl = Environment.NewLine
@@ -391,12 +392,14 @@ type Parser(isa: ISA,
   member private this.ParseLines(acc, lines) =
     match lines with
     | line :: rest ->
-      if String.length line = 0 then this.ParseLines(acc, rest)
+      if String.length line = 0 then
+        this.ParseLines(acc, rest)
       else (* A LowUIR stmt always occupies a single line. *)
         match this.TryParseStmt line with
         | Success(stmt, _, _pos) -> this.ParseLines(stmt :: acc, rest)
         | Failure(errStr, _, _) -> Result.Error(errStr)
-    | [] -> Result.Ok(List.rev acc |> List.toArray)
+    | [] ->
+      Result.Ok(List.rev acc |> List.toArray)
 
   member this.Parse str =
     this.SeparateLines str

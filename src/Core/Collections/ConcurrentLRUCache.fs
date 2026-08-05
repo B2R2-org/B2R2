@@ -77,7 +77,8 @@ type ConcurrentLRUCache<'K, 'V when 'K: equality and 'V: equality>
         this.Remove v
         this.InsertBack v |> ignore
         Some v.Value
-      | _ -> None
+      | _ ->
+        None
     finally
       this.ReleaseLock()
 
@@ -88,7 +89,8 @@ type ConcurrentLRUCache<'K, 'V when 'K: equality and 'V: equality>
   /// returns the already cached value if another thread inserted it first.
   member this.GetOrAdd(key: 'K, factory: ICacheValueFactory<_, 'V>, arg) =
     match this.TryGetCached key with
-    | Some value -> value
+    | Some value ->
+      value
     | None ->
       let value = factory.Create arg
       this.AcquireLock()

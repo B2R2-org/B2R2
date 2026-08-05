@@ -74,7 +74,8 @@ let internal canCast kind newType e =
   | CastKind.FloatCast ->
     if isValidFloatType oldType && isValidFloatType newType then true
     else raise InvalidFloatTypeException
-  | _ -> true
+  | _ ->
+    true
 
 let internal extract (t: RegType) pos (t2: RegType) =
   if (RegType.toBitWidth t + pos) <= RegType.toBitWidth t2 && pos >= 0 then ()
@@ -83,21 +84,26 @@ let internal extract (t: RegType) pos (t2: RegType) =
 /// Type-checks a LowUIR expression.
 let rec expr e =
   match e with
-  | UnOp(_, e, _) -> expr e
+  | UnOp(_, e, _) ->
+    expr e
   | BinOp(BinOpType.CONCAT, t, e1, e2, _) ->
     expr e1 && expr e2 && concat e1 e2 = t
-  | BinOp(_, t, e1, e2, _) -> expr e1 && expr e2 && binop e1 e2 = t
+  | BinOp(_, t, e1, e2, _) ->
+    expr e1 && expr e2 && binop e1 e2 = t
   | RelOp(_, e1, e2, _) ->
     expr e1 && expr e2 && Expr.typeOf e1 = Expr.typeOf e2
-  | Load(_, _, addr, _) -> expr addr
+  | Load(_, _, addr, _) ->
+    expr addr
   | Ite(cond, e1, e2, _) ->
     Expr.typeOf cond = 1<rt> && expr e1 && expr e2
     && Expr.typeOf e1 = Expr.typeOf e2
   | Cast(CastKind.SignExt, t, e, _)
-  | Cast(CastKind.ZeroExt, t, e, _) -> expr e && t >= Expr.typeOf e
+  | Cast(CastKind.ZeroExt, t, e, _) ->
+    expr e && t >= Expr.typeOf e
   | Extract(e, t, p, _) ->
     expr e && ((t + LanguagePrimitives.Int32WithMeasure p) <= Expr.typeOf e)
-  | _ -> true
+  | _ ->
+    true
 
 /// Type-checks a LowUIR statement.
 let stmt s =

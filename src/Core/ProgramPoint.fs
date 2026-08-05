@@ -74,7 +74,8 @@ type ProgramPoint private(addr, pos, callsite) =
       o.Address = this.Address
       && o.Position = this.Position
       && o.CallSite = this.CallSite
-    | _ -> false
+    | _ ->
+      false
 
   override this.GetHashCode() =
     let addrHash = int this.Address

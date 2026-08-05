@@ -46,7 +46,8 @@ type CytronDominanceFrontier<'V, 'E when 'V: equality and 'E: equality>() =
     let domTree, idom =
       if isPostDominance then
         (dom: IDominance<_, _>).PostDominatorTree, dom.ImmediatePostDominator
-      else dom.DominatorTree, dom.ImmediateDominator
+      else
+        dom.DominatorTree, dom.ImmediateDominator
     let frontiers = Dictionary<IVertex<_>, HashSet<IVertex<_>>>()
     let root = domTree.GetRoot()
     for v in traverseBottomUp domTree root do

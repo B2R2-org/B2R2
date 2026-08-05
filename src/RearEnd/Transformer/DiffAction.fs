@@ -53,7 +53,8 @@ type DiffData =
 /// The `diff` action.
 type DiffAction() =
   let rec findUniqId lineNum cnt lines (dict: Dictionary<_, int>) =
-    if lineNum = Array.length lines then dict
+    if lineNum = Array.length lines then
+      dict
     else
       let found, _ = dict.TryGetValue lines[lineNum]
       if not found then
@@ -89,10 +90,12 @@ type DiffAction() =
     else findDiffstart (n + 1) idA idB
 
   let rec findDiffend n idA idB =
-    if n >= min (Array.length idA) (Array.length idB) then 1
+    if n >= min (Array.length idA) (Array.length idB) then
+      1
     elif idA[(Array.length idA - 1) - n] <> idB[(Array.length idB - 1) - n] then
       n
-    else findDiffend (n + 1) idA idB
+    else
+      findDiffend (n + 1) idA idB
 
   let trim idA idB (lnumA: int[]) (lnumB: int[]) =
     let diffStart = findDiffstart 0 idA idB
@@ -149,15 +152,18 @@ type DiffAction() =
   let rec takeSnakeForward x y boundX boundY (idA: int[]) (idB: int[]) =
     if x < boundX && y < boundY && idA[x] = idB[y] then
       takeSnakeForward (x + 1) (y + 1) boundX boundY idA idB
-    else x
+    else
+      x
 
   let rec takeSnakeBackward x y boundX boundY (idA: int[]) (idB: int[]) =
     if x > boundX && y > boundY && idA[x - 1] = idB[y - 1] then
       takeSnakeBackward (x - 1) (y - 1) boundX boundY idA idB
-    else x
+    else
+      x
 
   let rec traverseForward d fmin kvd idA idB box bmin bmax isOdd =
-    if d < fmin then None
+    if d < fmin then
+      None
     else
       let x =
         if kvd.XOffsets[kvd.IdxForward + d - 1]
@@ -175,7 +181,8 @@ type DiffAction() =
         traverseForward (d - 2) fmin kvd idA idB box bmin bmax isOdd
 
   let rec traverseBackward d bmin kvd idA idB box fmin fmax isOdd =
-    if d < bmin then None
+    if d < bmin then
+      None
     else
       let x =
         if kvd.XOffsets[kvd.IdxBackward + d - 1]
@@ -224,7 +231,8 @@ type DiffAction() =
     if off < lim then
       dd.ChangedLineNumbers[dd.LineNo[off]] <- true
       markChangedLines dd (off + 1) lim
-    else ()
+    else
+      ()
 
   let shrinkBox idA idB box =
     let box' = walkThroughDiagonalSW idA idB box.XOff box.XLim box.YOff box.YLim
@@ -320,4 +328,5 @@ type DiffAction() =
         | [] ->
           let outstr = diff (unbox<Binary> bins[0]) (unbox<Binary> bins[1])
           { Values = [| box outstr |] }
-        | _ -> invalidArg (nameof DiffAction) "Invalid input to diff"
+        | _ ->
+          invalidArg (nameof DiffAction) "Invalid input to diff"

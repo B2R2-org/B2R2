@@ -38,11 +38,14 @@ type SSAConstantPropagation(hdl: BinHandle) =
     | ConstantDomain.Const addr ->
       let addr = addr.ToUInt64()
       state.GetMemValue(m, rt, addr)
-    | _ -> ConstantDomain.NotAConst
+    | _ ->
+      ConstantDomain.NotAConst
 
   let rec evalExpr (state: State<_>) = function
-    | Num bv -> ConstantDomain.Const bv
-    | Var v -> state.GetRegValue v
+    | Num bv ->
+      ConstantDomain.Const bv
+    | Var v ->
+      state.GetRegValue v
     | Load(m, rt, addr) ->
       evalExpr state addr |> evalLoad state m rt
     | UnOp(op, _, e) ->
@@ -66,8 +69,10 @@ type SSAConstantPropagation(hdl: BinHandle) =
     | Extract(e, rt, pos) ->
       let c = evalExpr state e
       ConstantDomain.extract c rt pos
-    | FuncName _ | ExprList _ | Undefined _ -> ConstantDomain.NotAConst
-    | _ -> Terminator.impossible ()
+    | FuncName _ | ExprList _ | Undefined _ ->
+      ConstantDomain.NotAConst
+    | _ ->
+      Terminator.impossible ()
 
   let evalDef (state: State<_>) var e =
     match var.Kind with
@@ -76,10 +81,12 @@ type SSAConstantPropagation(hdl: BinHandle) =
 
   let evalPhi (state: State<_>) cfg blk dst srcIDs =
     match state.GetExecutedSources(cfg, blk, srcIDs) with
-    | [||] -> ()
+    | [||] ->
+      ()
     | executedSrcIDs ->
       match dst.Kind with
-      | MemVar -> ()
+      | MemVar ->
+        ()
       | _ ->
         executedSrcIDs
         |> Array.map (fun i ->
@@ -118,7 +125,8 @@ type SSAConstantPropagation(hdl: BinHandle) =
         let spVal = BitVector(InitialStackPointer, rt)
         state.SetRegValueWithoutAdding(var, ConstantDomain.Const spVal)
         state
-      | None -> state
+      | None ->
+        state
 
   interface IDataFlowComputable<SSAVarPoint,
                                 ConstantDomain.Lattice,

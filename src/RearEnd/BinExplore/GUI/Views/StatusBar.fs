@@ -102,7 +102,8 @@ let private addressRangeViews model range =
 
 let private sectionRangeViews model sectionRange =
   match sectionRange with
-  | NoSection -> []
+  | NoSection ->
+    []
   | SingleSection name ->
     [ offsetTextView model model.Theme.StatusBar.MutedForeground " ("
       offsetTextView model model.Theme.StatusBar.PrimaryForeground name

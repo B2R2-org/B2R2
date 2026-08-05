@@ -89,7 +89,8 @@ module internal ARM32Sweep =
   /// exercised once however many words reach it.
   let private shapeOf (text: string) =
     match text.Split(' ') |> Array.toList with
-    | [] -> text
+    | [] ->
+      text
     | mnemonic :: rest ->
       let kinds = (String.concat " " rest).Split(',') |> Array.map operandShape
       mnemonic + " " + String.concat "," kinds
@@ -111,10 +112,8 @@ module internal ARM32Sweep =
       :> IInstructionParsable
     [ for word in words do
         match decode parser word with
-        | Some(opcode, text) ->
-          yield { Opcode = opcode; Text = text }
-        | None ->
-          () ]
+        | Some(opcode, text) -> yield { Opcode = opcode; Text = text }
+        | None -> () ]
     |> List.distinctBy (fun probe -> shapeOf probe.Text)
 
   /// <summary>

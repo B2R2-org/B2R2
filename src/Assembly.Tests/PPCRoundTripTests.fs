@@ -89,7 +89,8 @@ type PPCRoundTripTests() =
   /// text stands in for the word a probe was decoded from.
   static let roundTrip assembler parser (source: string) =
     match (try encodeFirst assembler source with _ -> None) with
-    | None -> PPCUnsupported
+    | None ->
+      PPCUnsupported
     | Some encoded ->
       let actual = try disasm parser encoded with _ -> "<undecodable>"
       if actual = source then PPCPreserved else PPCAltered actual
@@ -235,7 +236,8 @@ type PPCRoundTripTests() =
             expected, source, index, target ]
       |> List.choose (fun (expected, source, index, target) ->
         match (try assembler32.Lower source with _ -> Error "raised") with
-        | Error _ | Ok [] -> Some $"'{expected} L' does not assemble"
+        | Error _ | Ok [] ->
+          Some $"'{expected} L' does not assemble"
         | Ok encoded ->
           let addr = uint64 (4 * index)
           let text =
@@ -263,7 +265,8 @@ type PPCRoundTripTests() =
       unencodableSources
       |> List.choose (fun source ->
         match (try encodeFirst assembler32 source with _ -> None) with
-        | None -> None
+        | None ->
+          None
         | Some bytes ->
           let text = try disasm parser32 bytes with _ -> "<undecodable>"
           Some $"'{source}' encoded as '{text}'")
@@ -284,7 +287,8 @@ type PPCRoundTripTests() =
     match encodeFirst assembler source, encodeFirst assembler32 source with
     | Some big, Some little ->
       Assert.AreEqual<string>(hex (Array.rev little), hex big)
-    | _ -> Assert.Fail $"'{source}' does not assemble"
+    | _ ->
+      Assert.Fail $"'{source}' does not assemble"
 
   /// <summary>
   /// Checks that a source written the way a person writes one names the same
@@ -301,7 +305,8 @@ type PPCRoundTripTests() =
       writtenSources
       |> List.choose (fun (source, expected) ->
         match (try encodeFirst assembler32 source with _ -> None) with
-        | None -> Some $"'{source}' does not assemble"
+        | None ->
+          Some $"'{source}' does not assemble"
         | Some bytes ->
           let text = try disasm parser32 bytes with _ -> "<undecodable>"
           if text = expected then None

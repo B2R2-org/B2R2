@@ -34,27 +34,40 @@ open B2R2.MiddleEnd.ConcEval.EvalUtils
 /// state.
 let rec evalExpr (st: EvalState) e =
   match e with
-  | Num(n, _) -> n
-  | Var(_, n, _, _) -> st.GetReg n
-  | PCVar(t, _, _) -> BitVector(st.PC, t)
-  | TempVar(_, n, _) -> st.GetTmp n
-  | UnOp(t, e, _) -> evalUnOp st e t
-  | BinOp(t, _, e1, e2, _) -> evalBinOp st e1 e2 t
-  | RelOp(t, e1, e2, _) -> evalRelOp st e1 e2 t
-  | Load(endian, t, addr, _) -> evalLoad st endian t addr
+  | Num(n, _) ->
+    n
+  | Var(_, n, _, _) ->
+    st.GetReg n
+  | PCVar(t, _, _) ->
+    BitVector(st.PC, t)
+  | TempVar(_, n, _) ->
+    st.GetTmp n
+  | UnOp(t, e, _) ->
+    evalUnOp st e t
+  | BinOp(t, _, e1, e2, _) ->
+    evalBinOp st e1 e2 t
+  | RelOp(t, e1, e2, _) ->
+    evalRelOp st e1 e2 t
+  | Load(endian, t, addr, _) ->
+    evalLoad st endian t addr
   | Ite(cond, e1, e2, _) ->
     let cond = evalExpr st cond
     if cond = tr then evalExpr st e1 else evalExpr st e2
-  | Cast(kind, t, e, _) -> evalCast st t e kind
-  | Extract(e, t, p, _) -> BitVector.Extract(evalExpr st e, t, p)
-  | Undefined _ -> raise UndefExpException
-  | _ -> raise InvalidExprException
+  | Cast(kind, t, e, _) ->
+    evalCast st t e kind
+  | Extract(e, t, p, _) ->
+    BitVector.Extract(evalExpr st e, t, p)
+  | Undefined _ ->
+    raise UndefExpException
+  | _ ->
+    raise InvalidExprException
 
 and private evalLoad st endian t addr =
   let bv = evalExpr st addr
   let addr = bv.ToUInt64()
   match st.Memory.Read(addr, endian, t) with
-  | Ok v -> v
+  | Ok v ->
+    v
   | Error e ->
     match st.OnLoadFailure(st.PC, addr, t, e) with
     | Ok v -> v
@@ -169,28 +182,40 @@ let rec private concretizeArgs st acc = function
   | arg :: tl ->
     let v = evalExpr st arg
     concretizeArgs st (v :: acc) tl
-  | [] -> acc
+  | [] ->
+    acc
 
 let private evalArgs st args =
   match args with
   | BinOp(BinOpType.APP, _, _, ExprList(args, _), _) ->
     args |> concretizeArgs st []
-  | _ -> Terminator.impossible ()
+  | _ ->
+    Terminator.impossible ()
 
 /// Evaluates a single statement in the context of the given EvalState.
 let evalStmt (st: EvalState) stmt =
   match stmt with
-  | ISMark(len, _) -> st.CurrentInsLen <- len; st.NextStmt()
-  | IEMark(len, _) -> st.AdvancePC len; st.AbortInstr()
-  | LMark _ -> st.NextStmt()
-  | Put(_, Undefined _, _) -> st.NextStmt()
-  | Put(lhs, rhs, _) -> evalPut st lhs rhs |> st.NextStmt
-  | Store(e, addr, v, _) -> evalStore st e addr v |> st.NextStmt
-  | Jmp(target, _) -> evalJmp st target
-  | CJmp(cond, t, f, _) -> evalCJmp st cond t f
+  | ISMark(len, _) ->
+    st.CurrentInsLen <- len; st.NextStmt()
+  | IEMark(len, _) ->
+    st.AdvancePC len; st.AbortInstr()
+  | LMark _ ->
+    st.NextStmt()
+  | Put(_, Undefined _, _) ->
+    st.NextStmt()
+  | Put(lhs, rhs, _) ->
+    evalPut st lhs rhs |> st.NextStmt
+  | Store(e, addr, v, _) ->
+    evalStore st e addr v |> st.NextStmt
+  | Jmp(target, _) ->
+    evalJmp st target
+  | CJmp(cond, t, f, _) ->
+    evalCJmp st cond t f
   | InterJmp(target, _, _) ->
     evalPCUpdate st target |> st.AbortInstr
-  | InterCJmp(c, t, f, _) -> evalIntCJmp st c t f |> st.AbortInstr
+  | InterCJmp(c, t, f, _) ->
+    evalIntCJmp st c t f |> st.AbortInstr
   | ExternalCall(args, _) ->
     st.OnExternalCall(evalArgs st args, st) |> st.NextStmt
-  | SideEffect(eff, _) -> st.OnSideEffect(eff, st)
+  | SideEffect(eff, _) ->
+    st.OnSideEffect(eff, st)

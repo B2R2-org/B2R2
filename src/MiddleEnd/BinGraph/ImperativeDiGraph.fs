@@ -67,7 +67,8 @@ type ImperativeDiGraph<'V, 'E when 'V: equality and 'E: equality>() =
     checkVertexExistence dst
     let srcID = (src :> IVertex<_>).ID
     let dstID = (dst :> IVertex<_>).ID
-    if edges.ContainsKey(srcID, dstID) then ()
+    if edges.ContainsKey(srcID, dstID) then
+      ()
     else
       edges[(srcID, dstID)] <- Edge(src, dst, label)
       src.Succs.Add dst

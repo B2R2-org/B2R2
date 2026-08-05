@@ -51,7 +51,8 @@ type FunctionCollection<'FnCtx,
         let fns = List<Function>()
         fns.Add fn
         nameToFunction.Add(fn.Name, fns)
-      | true, fns -> fns.Add fn)
+      | true, fns ->
+        fns.Add fn)
 
   let findByAddr addr =
     match addrToFunction.TryGetValue addr with

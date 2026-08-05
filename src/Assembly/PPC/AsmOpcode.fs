@@ -180,7 +180,8 @@ let private mForm po rc ins =
   | [ Rg a; Rg s; Im sh; Im mb; Im me ] ->
     let rest = ((unsigned 5 mb) <<< 6) ||| ((unsigned 5 me) <<< 1) ||| rc
     word po (gpr s) (gpr a) (unsigned 5 sh) rest
-  | _ -> wrongOperands ins
+  | _ ->
+    wrongOperands ins
 
 /// An M-form "rA, rS, rB, MB, ME", which is a rotate by what a register holds.
 let private mFormReg rc ins =
@@ -188,7 +189,8 @@ let private mFormReg rc ins =
   | [ Rg a; Rg s; Rg b; Im mb; Im me ] ->
     let rest = ((unsigned 5 mb) <<< 6) ||| ((unsigned 5 me) <<< 1) ||| rc
     word 23u (gpr s) (gpr a) (gpr b) rest
-  | _ -> wrongOperands ins
+  | _ ->
+    wrongOperands ins
 
 /// rotlw, which is the rotate by a register that keeps everything it rotated.
 let private xRotate ins =
@@ -207,7 +209,8 @@ let private shorthandRotate fields ins =
   | [ Rg a; Rg s; Im n ] ->
     let struct (sh, mb, me) = fields (unsigned 5 n)
     word 21u (gpr s) (gpr a) sh ((mb <<< 6) ||| (me <<< 1))
-  | _ -> wrongOperands ins
+  | _ ->
+    wrongOperands ins
 
 /// rotlwi, which keeps all of what it rotated.
 let private rotateBy n = struct (n, 0u, 31u)
@@ -231,8 +234,7 @@ let private clearRightAt n = struct (0u, 0u, 31u - n)
 /// srawi, whose amount is written where a rotate keeps a register.
 let private xShiftImm xo rc ins =
   match ins.Operands with
-  | [ Rg a; Rg s; Im sh ] ->
-    xForm 31u (gpr s) (gpr a) (unsigned 5 sh) xo rc
+  | [ Rg a; Rg s; Im sh ] -> xForm 31u (gpr s) (gpr a) (unsigned 5 sh) xo rc
   | _ -> wrongOperands ins
 
 /// sradi, whose amount is six bits wide and keeps its highest one below the
@@ -243,7 +245,8 @@ let private xShiftImm64 rc ins =
     let sh = unsigned 6 shift
     let rest = (413u <<< 2) ||| ((sh >>> 5) <<< 1) ||| rc
     word 31u (gpr s) (gpr a) (sh &&& 0x1Fu) rest
-  | _ -> wrongOperands ins
+  | _ ->
+    wrongOperands ins
 
 /// <summary>
 /// An MD-form "rA, rS, SH, MB", which rotates a whole doubleword.
@@ -260,7 +263,8 @@ let private mdForm xo rc ins =
       ((mb &&& 0x1Fu) <<< 6) ||| ((mb >>> 5) <<< 5) ||| (xo <<< 2)
       ||| ((sh >>> 5) <<< 1) ||| rc
     word 30u (gpr s) (gpr a) (sh &&& 0x1Fu) rest
-  | _ -> wrongOperands ins
+  | _ ->
+    wrongOperands ins
 
 /// An MDS-form "rA, rS, rB, MB", which takes its amount from a register and so
 /// splits only the bound of its mask.
@@ -272,7 +276,8 @@ let private mdsForm which rc ins =
       ((mb &&& 0x1Fu) <<< 6) ||| ((mb >>> 5) <<< 5) ||| (4u <<< 2)
       ||| (which <<< 1) ||| rc
     word 30u (gpr s) (gpr a) (gpr b) rest
-  | _ -> wrongOperands ins
+  | _ ->
+    wrongOperands ins
 
 /// The rotates, and the shifts and maskings that are rotates under another
 /// name.
@@ -308,21 +313,24 @@ let private xCompare xo width ins =
   match ins.Operands with
   | [ Rg f; Rg a; Rg b ] ->
     xForm 31u (((crf f) <<< 2) ||| width) (gpr a) (gpr b) xo 0u
-  | _ -> wrongOperands ins
+  | _ ->
+    wrongOperands ins
 
 /// A D-form comparison "crfD, rA, value", read as signed.
 let private dCompare bitLen po width ins =
   match ins.Operands with
   | [ Rg f; Rg a; Im v ] ->
     dForm po (((crf f) <<< 2) ||| width) (gpr a) (immediate16 bitLen v)
-  | _ -> wrongOperands ins
+  | _ ->
+    wrongOperands ins
 
 /// A D-form comparison "crfD, rA, value", read as a count.
 let private dCompareUnsigned po width ins =
   match ins.Operands with
   | [ Rg f; Rg a; Im v ] ->
     dForm po (((crf f) <<< 2) ||| width) (gpr a) (uimmediate16 v)
-  | _ -> wrongOperands ins
+  | _ ->
+    wrongOperands ins
 
 /// A trap whose name says which comparisons fire it.
 let private xTrapNamed xo cond ins =
@@ -333,8 +341,7 @@ let private xTrapNamed xo cond ins =
 /// A trap that says beside its name which comparisons fire it.
 let private xTrap xo ins =
   match ins.Operands with
-  | [ Im cond; Rg a; Rg b ] ->
-    xForm 31u (unsigned 5 cond) (gpr a) (gpr b) xo 0u
+  | [ Im cond; Rg a; Rg b ] -> xForm 31u (unsigned 5 cond) (gpr a) (gpr b) xo 0u
   | _ -> wrongOperands ins
 
 /// A trap against a written number whose name says which comparisons fire it.
@@ -349,7 +356,8 @@ let private dTrap bitLen po ins =
   match ins.Operands with
   | [ Im cond; Rg a; Im v ] ->
     dForm po (unsigned 5 cond) (gpr a) (immediate16 bitLen v)
-  | _ -> wrongOperands ins
+  | _ ->
+    wrongOperands ins
 
 /// trap, which is the trap that fires on every comparison at once.
 let private xTrapAlways ins =
@@ -396,8 +404,7 @@ let comparisonEncoders bitLen =
 /// A D-form "rD, rA, value", read as signed.
 let private dSigned bitLen po ins =
   match ins.Operands with
-  | [ Rg d; Rg a; Im v ] ->
-    dForm po (gpr d) (gpr a) (immediate16 bitLen v)
+  | [ Rg d; Rg a; Im v ] -> dForm po (gpr d) (gpr a) (immediate16 bitLen v)
   | _ -> wrongOperands ins
 
 /// A D-form "rD, value", which is what an instruction adding to nothing at all
@@ -433,7 +440,8 @@ let private dsMemory po which ins =
   match ins.Operands with
   | [ Rg r; Mem(disp, b) ] ->
     dForm po (gpr r) (gpr b) ((wordDisplacement disp) ||| which)
-  | _ -> wrongOperands ins
+  | _ ->
+    wrongOperands ins
 
 /// An X-form access to memory at a distance another register holds.
 let private xMemory xo rc ins =
@@ -444,8 +452,7 @@ let private xMemory xo rc ins =
 /// An X-form access to as many bytes as are written beside it.
 let private xString xo ins =
   match ins.Operands with
-  | [ Rg r; Rg a; Im n ] ->
-    xForm 31u (gpr r) (gpr a) (unsigned 5 n) xo 0u
+  | [ Rg r; Rg a; Im n ] -> xForm 31u (gpr r) (gpr a) (unsigned 5 n) xo 0u
   | _ -> wrongOperands ins
 
 /// The instructions taking a written number and the ones reaching memory.
@@ -540,7 +547,8 @@ let private iBranch bitLen absolute link ins =
       if absolute = 0u then relativeTarget 26 bitLen ins.Address target
       else absoluteTarget 26 bitLen target
     (18u <<< 26) ||| (li &&& 0x03FFFFFCu) ||| (absolute <<< 1) ||| link
-  | _ -> wrongOperands ins
+  | _ ->
+    wrongOperands ins
 
 /// The sixteen bits a conditional branch holds, given the two bits below them
 /// that say whether it names its place outright and whether it leaves behind
@@ -556,7 +564,8 @@ let private bBranch bitLen aalk ins =
   | [ Im bo; Bit bi; Im target ] ->
     let bd = branchField bitLen aalk ins.Address target
     dForm 16u (unsigned 5 bo) bi ((bd &&& 0xFFFCu) ||| aalk)
-  | _ -> wrongOperands ins
+  | _ ->
+    wrongOperands ins
 
 /// <summary>
 /// A conditional branch written under a simplified name.
@@ -706,13 +715,13 @@ let private xSpecial xo ins =
     word 31u (gpr r) 0u 0u ((specialRegister spr) ||| (xo <<< 1))
   | [ Im spr; Rg r ] ->
     word 31u (gpr r) 0u 0u ((specialRegister spr) ||| (xo <<< 1))
-  | _ -> wrongOperands ins
+  | _ ->
+    wrongOperands ins
 
 /// The same, where which register it is is in the name rather than beside it.
 let private xSpecialNamed xo spr ins =
   match ins.Operands with
-  | [ Rg r ] ->
-    word 31u (gpr r) 0u 0u ((specialRegister spr) ||| (xo <<< 1))
+  | [ Rg r ] -> word 31u (gpr r) 0u 0u ((specialRegister spr) ||| (xo <<< 1))
   | _ -> wrongOperands ins
 
 /// An X-form that reads or writes one of the registers naming a segment, which
@@ -750,7 +759,8 @@ let private xWriteCondFields one ins =
     let mask = unsigned 8 crm
     let high = (one <<< 4) ||| (mask >>> 4)
     word 31u (gpr s) high ((mask &&& 0xFu) <<< 1) (144u <<< 1)
-  | _ -> wrongOperands ins
+  | _ ->
+    wrongOperands ins
 
 /// mcrxr, which moves the summary of what the arithmetic overflowed into one
 /// field of the condition register.
@@ -770,7 +780,8 @@ let private xSelect ins =
   match ins.Operands with
   | [ Rg d; Rg a; Rg b; Bit bi ] ->
     word 31u (gpr d) (gpr a) (gpr b) ((bi <<< 6) ||| (15u <<< 1))
-  | _ -> wrongOperands ins
+  | _ ->
+    wrongOperands ins
 
 /// One of the instructions that combines two bits of the condition register
 /// into a third.

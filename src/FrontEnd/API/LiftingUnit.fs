@@ -112,12 +112,10 @@ type LiftingUnit
           let span = rawBytes.Span.Slice(ptr.Offset, len)
           Ok <| parse span ptr.Addr
       with
-      | ParsingFailureException ->
-        Error ErrorCase.ParsingFailure
+      | ParsingFailureException -> Error ErrorCase.ParsingFailure
       (* A pointer can claim readable bytes past the end of the image, since
          nothing validates its bound against the file length. *)
-      | :? ArgumentOutOfRangeException ->
-        Error ErrorCase.InvalidMemoryRead
+      | :? ArgumentOutOfRangeException -> Error ErrorCase.InvalidMemoryRead
     match parsed with
     | Ok ins ->
       if ins.IsTerminator prevIns then
@@ -194,7 +192,8 @@ type LiftingUnit
       | Intel ->
         (parser :?> Intel.IntelParser).SetDisassemblySyntax syntax
         disasmSyntax <- syntax
-      | _ -> ()
+      | _ ->
+        ()
 
   /// <summary>
   /// Parses one instruction at the given address (addr), and return the
@@ -264,7 +263,8 @@ type LiftingUnit
   member this.TryParseInstruction(addr: Addr) =
     (* Naming both cases rather than catching everything is what keeps a defect
        elsewhere from being reported as a property of the input. *)
-    try this.ParseInstruction addr |> Ok
+    try
+      this.ParseInstruction addr |> Ok
     with
     | ParsingFailureException -> Error ErrorCase.ParsingFailure
     | :? ArgumentException -> Error ErrorCase.InvalidMemoryRead
@@ -278,7 +278,8 @@ type LiftingUnit
   /// Parsed instruction if succeeded, ErrorCase if otherwise.
   /// </returns>
   member this.TryParseInstruction(ptr: BinFilePointer) =
-    try this.ParseInstruction ptr |> Ok
+    try
+      this.ParseInstruction ptr |> Ok
     with
     | ParsingFailureException -> Error ErrorCase.ParsingFailure
     | :? ArgumentException -> Error ErrorCase.InvalidMemoryRead

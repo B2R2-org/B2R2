@@ -112,12 +112,16 @@ let private dumpSection hdl (opts: BinDisasmOpts) codeprn tableprn
   if sec.Size > 0UL then
     let ptr = BinFileOps.getSectionPointer (hdl: BinHandle).File sec.Name
     match sec.Kind with
-    | DynamicLinkageSection -> dumpOneSection tableprn sec.Name ptr
+    | DynamicLinkageSection ->
+      dumpOneSection tableprn sec.Name ptr
     | _ when sec.Permission.HasFlag Permission.Executable ->
       dumpOneSection codeprn sec.Name ptr
-    | _ when opts.OnlyDisasm -> dumpOneSection codeprn sec.Name ptr
-    | _ -> dumpData hdl opts ptr sec
-  else ()
+    | _ when opts.OnlyDisasm ->
+      dumpOneSection codeprn sec.Name ptr
+    | _ ->
+      dumpData hdl opts ptr sec
+  else
+    ()
 
 /// Section dumping is supported only for formats that expose a section view.
 let private hasDumpableSections (hdl: BinHandle) =
@@ -134,23 +138,23 @@ let private dumpOneSectionOfName (hdl: BinHandle) opts codeprn tableprn name =
     |> function
       | Some sec -> dumpSection hdl opts codeprn tableprn sec
       | None -> ()
-  else Terminator.futureFeature ()
+  else
+    Terminator.futureFeature ()
 
 let private dumpAllSections (hdl: BinHandle) opts codeprn tableprn =
   if hasDumpableSections hdl then
     for sec in BinFileOps.getSections hdl.File do
       dumpSection hdl opts codeprn tableprn sec
-  else Terminator.futureFeature ()
+  else
+    Terminator.futureFeature ()
 
 let private dumpRegularFile (hdl: BinHandle) (opts: BinDisasmOpts) =
   let codeprn = makeCodeDumper hdl opts
   let tableprn = makeTableDumper hdl opts
   let opts = { opts with ShowSymbols = true }
   match opts.InputSecName with
-  | Some secName ->
-    dumpOneSectionOfName hdl opts codeprn tableprn secName
-  | None ->
-    dumpAllSections hdl opts codeprn tableprn
+  | Some secName -> dumpOneSectionOfName hdl opts codeprn tableprn secName
+  | None -> dumpAllSections hdl opts codeprn tableprn
 
 let private dumpFile (opts: BinDisasmOpts) filePath =
   let opts = { opts with ShowAddress = true }

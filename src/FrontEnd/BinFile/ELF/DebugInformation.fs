@@ -79,7 +79,8 @@ module internal DWAbbrevTable =
         if form = DWForm.DW_FORM_implicit_const then
           let value, offset = readSLEB128 span offset
           Some value, offset
-        else None, offset
+        else
+          None, offset
       let spec =
         { Attribute = DWAttribute.parse (uint16 attr)
           Form = form
@@ -172,11 +173,16 @@ module internal DebugInformation =
 
   let readUIntBySize (reader: IBinReader) (span: ByteSpan) size offset =
     match size with
-    | 1 -> uint64 (reader.ReadUInt8(span, offset))
-    | 2 -> uint64 (reader.ReadUInt16(span, offset))
-    | 3 -> readUInt24 reader span offset
-    | 4 -> uint64 (reader.ReadUInt32(span, offset))
-    | 8 -> reader.ReadUInt64(span, offset)
+    | 1 ->
+      uint64 (reader.ReadUInt8(span, offset))
+    | 2 ->
+      uint64 (reader.ReadUInt16(span, offset))
+    | 3 ->
+      readUInt24 reader span offset
+    | 4 ->
+      uint64 (reader.ReadUInt32(span, offset))
+    | 8 ->
+      reader.ReadUInt64(span, offset)
     | n ->
       eprintsn $"Unsupported DWARF value size: {n}"
       Terminator.impossible ()
@@ -346,7 +352,8 @@ module internal DebugInformation =
 
   let rec readAttributeValuesLoop toolBox span regFactory unit offset acc =
     function
-    | [] -> List.rev acc, offset
+    | [] ->
+      List.rev acc, offset
     | spec :: rest ->
       let value, offset = readFormValue toolBox span regFactory unit spec offset
       let attr =

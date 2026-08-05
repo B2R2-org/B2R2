@@ -130,7 +130,8 @@ let toPESymbol symb =
            Segment = symb.SecNumber |> uint16
            Name = symb.SymbName
            IsFunction = true }
-  | _ -> None
+  | _ ->
+    None
 
 let buildSymbolMap arr =
   let byAddr = Dictionary<Addr, Symbol>()

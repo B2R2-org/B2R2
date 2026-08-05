@@ -74,7 +74,8 @@ let private floatArith opmode ins =
     regSourceWords src dst opmode
   | [ src; AsmReg dst ] when isFloatReg dst ->
     eaSourceWords ins src (floatNum dst) opmode
-  | _ -> wrongOperands ins
+  | _ ->
+    wrongOperands ins
 
 /// An FTST, which sets the condition bits from one number and keeps nothing, so
 /// that the field naming a register to keep it in holds nothing either.
@@ -85,7 +86,8 @@ let private floatTest ins =
     regSourceWords src Register.FP0 0x3aus
   | [ src ] ->
     eaSourceWords ins src 0us 0x3aus
-  | _ -> wrongOperands ins
+  | _ ->
+    wrongOperands ins
 
 /// An FSINCOS, which computes both at once and so names two of its own
 /// registers to keep the answers in, the second of them in the low bits of the
@@ -97,7 +99,8 @@ let private floatSinCos ins =
     regSourceWords src dst (0x30us ||| floatNum cos)
   | [ src; AsmReg cos; AsmReg dst ] ->
     eaSourceWords ins src (floatNum dst) (0x30us ||| floatNum cos)
-  | _ -> wrongOperands ins
+  | _ ->
+    wrongOperands ins
 
 /// An FMOVECR, which loads one of the constants the unit keeps in a table of
 /// its own and so names no address at all.
@@ -106,7 +109,8 @@ let private floatMoveCr ins =
   match ins.Operands with
   | [ AsmImm v; AsmReg dst ] when v >= 0L && v <= 127L ->
     [ 0xf200us; 0x5c00us ||| (floatNum dst <<< 7) ||| uint16 v ]
-  | _ -> wrongOperands ins
+  | _ ->
+    wrongOperands ins
 
 /// The seven bits holding a k-factor, which says how much of a packed decimal
 /// number to write and which is read as a number below zero.
@@ -140,7 +144,8 @@ let private floatToMem ins src dst rest =
     requireSize ins Sz.Packed
     let cmd = 0x7c00us ||| (floatNum src <<< 7) ||| (dataNum dk <<< 4)
     head :: (cmd :: exts)
-  | _ -> wrongOperands ins
+  | _ ->
+    wrongOperands ins
 
 /// The three bits selecting which of the registers the unit keeps for itself
 /// are moved.
@@ -182,7 +187,8 @@ let private floatCtrl single ins list ea toMem =
   if select = 0us then fail "this names no register of the unit" else ()
   if single <> (List.length regs = 1) then
     fail $"{ins.Mnemonic} does not name this many registers"
-  else ()
+  else
+    ()
   let allows = if toMem then isAlterable else isAny
   let allows = if single then allows else both allows isMemory
   let mode, reg, exts = eaOf allows ins Sz.Long ea
@@ -231,16 +237,21 @@ let private floatMovem ins list ea toMem =
 /// itself.
 let private floatMove ins =
   match ins.Operands with
-  | [ src; dst ] when isCtrlList dst -> floatCtrl true ins dst src false
-  | [ src; dst ] when isCtrlList src -> floatCtrl true ins src dst true
+  | [ src; dst ] when isCtrlList dst ->
+    floatCtrl true ins dst src false
+  | [ src; dst ] when isCtrlList src ->
+    floatCtrl true ins src dst true
   | [ AsmReg src; AsmReg dst ] when isFloatReg src && isFloatReg dst ->
     requireOnlySize ins Sz.Extended
     regSourceWords src dst 0us
   | [ src; AsmReg dst ] when isFloatReg dst ->
     eaSourceWords ins src (floatNum dst) 0us
-  | [ AsmReg src; dst ] when isFloatReg src -> floatToMem ins src dst []
-  | [ AsmReg src; dst; k ] when isFloatReg src -> floatToMem ins src dst [ k ]
-  | _ -> wrongOperands ins
+  | [ AsmReg src; dst ] when isFloatReg src ->
+    floatToMem ins src dst []
+  | [ AsmReg src; dst; k ] when isFloatReg src ->
+    floatToMem ins src dst [ k ]
+  | _ ->
+    wrongOperands ins
 
 /// An FMOVEM, which moves a list of the registers the unit computes with or two
 /// or three of the ones it keeps for itself.
@@ -263,7 +274,8 @@ let private floatBranch pred ins =
     else
       requireOnlySize ins Sz.Word
       (0xf280us ||| pred) :: relWord disp
-  | _ -> wrongOperands ins
+  | _ ->
+    wrongOperands ins
 
 /// An FScc, which writes one byte saying whether its predicate holds.
 let private floatSet pred ins =
@@ -272,7 +284,8 @@ let private floatSet pred ins =
   | [ dst ] ->
     let mode, reg, exts = eaOf (both isData isAlterable) ins Sz.Byte dst
     eaWord 0xf240us mode reg :: (pred :: exts)
-  | _ -> wrongOperands ins
+  | _ ->
+    wrongOperands ins
 
 /// An FDBcc, which counts a register down and branches while the count lasts
 /// and its predicate does not hold.
@@ -281,7 +294,8 @@ let private floatDbcc pred ins =
   match ins.Operands with
   | [ AsmReg dn; target ] ->
     (0xf248us ||| dataNum dn) :: pred :: relWord (relOf ins target)
-  | _ -> wrongOperands ins
+  | _ ->
+    wrongOperands ins
 
 /// An FTRAPcc, whose operand the low three bits of the opcode word name: one
 /// word of immediate data, two, or none at all.
@@ -295,7 +309,8 @@ let private floatTrapcc pred ins =
   | [ AsmImm v ] ->
     requireOnlySize ins Sz.Word
     [ 0xf27aus; pred; wordOf v ]
-  | _ -> wrongOperands ins
+  | _ ->
+    wrongOperands ins
 
 /// An FSAVE or an FRESTORE, which move the whole internal state of the unit and
 /// so name a control address and no format.
@@ -306,7 +321,8 @@ let private floatState isSave ins =
   | [ dst ] ->
     let mode, reg, exts = eaOf allows ins Sz.NoSize dst
     eaWord (if isSave then 0xf300us else 0xf340us) mode reg :: exts
-  | _ -> wrongOperands ins
+  | _ ->
+    wrongOperands ins
 
 /// The predicates the unit tests, in the order the field holding one counts
 /// them, which is Table 8-1 of the manual read down.

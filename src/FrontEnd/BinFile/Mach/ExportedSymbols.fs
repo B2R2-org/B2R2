@@ -47,7 +47,8 @@ module internal ExportedSymbols =
     match span[pos] with
     | 0uy ->
       List.rev acc |> List.toArray |> Text.Encoding.ASCII.GetString, pos + 1
-    | b -> readStr span (pos + 1) (b :: acc)
+    | b ->
+      readStr span (pos + 1) (b :: acc)
 
   let private buildExportEntry name addr =
     { ExportSymName = name; ExportAddr = addr }
@@ -80,7 +81,8 @@ module internal ExportedSymbols =
 
   let private parseExports toolBox dyldinfo =
     match Array.tryHead dyldinfo with
-    | None -> [||]
+    | None ->
+      [||]
     | Some info ->
       let exportSize = int info.ExportSize
       let exportSpan = ReadOnlySpan(toolBox.Bytes, info.ExportOff, exportSize)

@@ -146,7 +146,8 @@ type Instruction
       | OneOperand(OpAddr dst) when op = Op.JMP || op = Op.JSR ->
         target <- dst
         true
-      | _ -> false
+      | _ ->
+        false
 
     member _.IndirectTrampolineAddr(_addr: byref<Addr>) =
       Terminator.futureFeature ()

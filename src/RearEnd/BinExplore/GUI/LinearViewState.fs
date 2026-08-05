@@ -52,10 +52,8 @@ module LinearViewState =
     fontSize * SectionHeaderFontScale
 
   let private itemLineCount = function
-    | Disassembly(loc, _) when loc.ItemLength > ValueColumnByteCapacity ->
-      2.0
-    | _ ->
-      1.0
+    | Disassembly(loc, _) when loc.ItemLength > ValueColumnByteCapacity -> 2.0
+    | _ -> 1.0
 
   let private measureItemHeight defaultItemHeight item =
     match item with
@@ -110,7 +108,8 @@ module LinearViewState =
   let private findFirstIndexAtOrAfterY
       (tops: ResizeArray<float>) targetY =
     let rec loop low high =
-      if low >= high then low
+      if low >= high then
+        low
       else
         let mid = low + (high - low) / 2
         if tops[mid] < targetY then loop (mid + 1) high
@@ -121,7 +120,8 @@ module LinearViewState =
     let tops: ResizeArray<float> = state.Layout.ItemTops
     let heights: ResizeArray<float> = state.Layout.ItemHeights
     let rec loop low high =
-      if low >= high then low
+      if low >= high then
+        low
       else
         let mid = low + (high - low) / 2
         let bottom = tops[mid] + heights[mid]

@@ -65,8 +65,7 @@ type DbscanAction() =
   let findNeighbors (cache: float array2d) i eps =
     let neighbors = List<int>()
     for j = 0 to Array2D.length1 cache - 1 do
-      if dist cache i j <= eps then
-        neighbors.Add j |> ignore
+      if dist cache i j <= eps then neighbors.Add j |> ignore
       else ()
     neighbors
 
@@ -75,10 +74,12 @@ type DbscanAction() =
     let cache = buildDistanceCache elms
     let clusters = List<string[]>() (* List<List<string>> *)
     for i in 0 .. (elms.Length - 1) do
-      if elms[i].Status <> Unvisited then ()
+      if elms[i].Status <> Unvisited then
+        ()
       else
         let neighbors = findNeighbors cache i eps
-        if neighbors.Count < minpts then elms[i].Status <- Noise
+        if neighbors.Count < minpts then
+          elms[i].Status <- Noise
         else
           let cluster = List<string> () (* List<string> *)
           elms[i].Status <- Visited
@@ -90,14 +91,16 @@ type DbscanAction() =
             if elms[n].Status = Noise then
               elms[n].Status <- Visited
               cluster.Add elms[n].ElementName |> ignore
-            elif elms[n].Status <> Unvisited then ()
+            elif elms[n].Status <> Unvisited then
+              ()
             else
               elms[n].Status <- Visited
               cluster.Add elms[n].ElementName |> ignore
               let newNeighbors = findNeighbors cache n eps
               if newNeighbors.Count >= minpts then
                 neighbors.AddRange newNeighbors
-              else ()
+              else
+                ()
           clusters.Add(cluster.ToArray()) |> ignore
     [| box { Clusters = clusters.ToArray() } |]
 

@@ -48,7 +48,8 @@ let buildTable () =
 /// the family being written for could not read back.
 let private rowOf (table: Map<string, Row>) ins =
   match Map.tryFind ins.Mnemonic table with
-  | Some row when row.Since <= ins.Model && ins.Model <= row.Until -> row
+  | Some row when row.Since <= ins.Model && ins.Model <= row.Until ->
+    row
   | Some _ ->
     raise
     <| EncodingFailureException $"{ins.Mnemonic} is not read by this model"
@@ -70,7 +71,8 @@ let private resolveLabels resolve pc ins =
 /// was never defined is a mistake in the source, not a lookup that failed.
 let private findLabel state (addrs: Addr[]) lbl =
   match Map.tryFind lbl state.LabelMap with
-  | Some index when index < addrs.Length -> Some addrs[index]
+  | Some index when index < addrs.Length ->
+    Some addrs[index]
   | Some _ | None ->
     raise <| EncodingFailureException $"Undefined label '{lbl}'"
 

@@ -60,7 +60,8 @@ type SSALifter() =
 #if CFGDEBUG
       dbglog ctx.ThreadID "FrameDistance" $"{lastPP.Address:x}: {offset}"
 #endif
-    | _ -> ()
+    | _ ->
+      ()
 
   let updateFrameDistance ctx ssaCFG state (v: IVertex<SSABasicBlock>) =
     let hdl = (ctx: CFGBuildingContext<_, _>).BinHandle
@@ -72,14 +73,16 @@ type SSALifter() =
       match findLastStackDef ssaCFG v spRegKind with
       | Some sp -> updateIfStackValueIsConstant ctx ssaCFG state v sp
       | None -> ()
-    | None -> ()
+    | None ->
+      ()
 
   let createCallback ctx =
     { new ISSAVertexCallback with
         member _.OnVertexCreation(ssaCFG, state, v) =
           if (v.VData :> IAbstractable<_>).IsAbstract then
             updateFrameDistance ctx ssaCFG state v
-          else () }
+          else
+            () }
 
   interface ICFGAnalysis<unit -> SSACFG> with
     member _.Unwrap env =

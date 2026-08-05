@@ -86,7 +86,8 @@ let private addressesOf (baseAddr: Addr) lengths =
 /// was never defined is a mistake in the source, not a lookup that failed.
 let private findLabel state (addresses: Addr[]) lbl =
   match Map.tryFind lbl state.LabelMap with
-  | Some index when index < addresses.Length -> addresses[index]
+  | Some index when index < addresses.Length ->
+    addresses[index]
   | Some _ | None ->
     raise <| EncodingFailureException $"Undefined label '{lbl}'"
 
@@ -104,13 +105,15 @@ let private findLabel state (addresses: Addr[]) lbl =
 let private programCounter isThumb opcode (addr: Addr) =
   let ahead = if isThumb then 4UL else 8UL
   match opcode with
-  | Opcode.B | Opcode.BX | Opcode.CBZ | Opcode.CBNZ -> addr + ahead
+  | Opcode.B | Opcode.BX | Opcode.CBZ | Opcode.CBNZ ->
+    addr + ahead
   | Opcode.BL | Opcode.BLX | Opcode.ADR
   | Opcode.LDR | Opcode.LDRB | Opcode.LDRD | Opcode.LDRH | Opcode.LDRSB
   | Opcode.LDRSH | Opcode.PLD | Opcode.PLDW | Opcode.PLI | Opcode.VLDR ->
     let pc = addr + ahead
     pc - (pc % 4UL)
-  | _ -> addr
+  | _ ->
+    addr
 
 /// The distance from an instruction's program counter to the address given,
 /// which is what the encoding of a PC-relative operand holds. The subtraction
@@ -133,13 +136,15 @@ let private resolvePlaces isThumb state addresses index ins =
       OprMemory(LiteralMode(offsetTo pc target))
     | OprMemory(LiteralMode target) ->
       OprMemory(LiteralMode(offsetTo pc (uint64 target)))
-    | operand -> operand
+    | operand ->
+      operand
   let operands = getOperandsAsList ins.Operands |> List.map resolve
   { ins with Operands = extractOperands operands }
 
 let encodeInstruction encoders ins =
   match Map.tryFind ins.Opcode encoders with
-  | Some encode -> encode ins
+  | Some encode ->
+    encode ins
   | None ->
     raise <| EncodingFailureException $"{ins.Opcode} is not supported yet"
 
@@ -209,9 +214,11 @@ let private asFlagSetting encoders ins =
       match Map.tryFind setting encoders with
       | Some encode ->
         (try encodedLength (encode candidate) = 2 with _ -> false)
-      | None -> false
+      | None ->
+        false
     if fitsAHalfword then candidate else ins
-  | None -> ins
+  | None ->
+    ins
 
 /// Whether an instruction may sit inside an IT block. The ones that cannot are
 /// the ones that decide for themselves whether to branch, which is what the
@@ -233,7 +240,8 @@ let private fitsInBlock opcode =
 let private resolveConditions encoders instrs =
   let rec walk pending encoded instrs =
     match instrs, pending with
-    | [], _ -> List.rev encoded
+    | [], _ ->
+      List.rev encoded
     | (ins: AsmInsInfo) :: rest, expected :: remaining ->
       if not ins.IsThumb then
         raise <| EncodingFailureException
@@ -254,7 +262,8 @@ let private resolveConditions encoders instrs =
     | ins :: rest, [] ->
       (* Outside a block only a branch has a condition field of its own, and
          only in Thumb: every A32 instruction has one. *)
-      if ins.IsThumb && Option.isSome ins.Condition
+      if ins.IsThumb
+         && Option.isSome ins.Condition
          && ins.Opcode <> Opcode.B then
         raise <| EncodingFailureException
                    $"{ins.Opcode} takes no condition outside an IT block"
@@ -267,7 +276,8 @@ let private resolveConditions encoders instrs =
 
 let private encodeThumb encoders ins =
   match Map.tryFind ins.Opcode encoders with
-  | Some encode -> encode ins
+  | Some encode ->
+    encode ins
   | None ->
     raise <| EncodingFailureException $"{ins.Opcode} is not supported yet"
 
@@ -289,8 +299,10 @@ let private toBytes endian encoded =
     let bytes = System.BitConverter.GetBytes value
     if endian = Endian.Big then Array.rev bytes else bytes
   match encoded with
-  | Narrow value -> halfword value
-  | Wide(first, second) -> Array.append (halfword first) (halfword second)
+  | Narrow value ->
+    halfword value
+  | Wide(first, second) ->
+    Array.append (halfword first) (halfword second)
   | Word value ->
     let bytes = System.BitConverter.GetBytes value
     if endian = Endian.Big then Array.rev bytes else bytes

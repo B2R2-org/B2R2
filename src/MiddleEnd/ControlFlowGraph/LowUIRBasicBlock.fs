@@ -50,7 +50,8 @@ type LowUIRBasicBlock internal(pp, funcAbs, liftedInss, lblMap) =
       | ISMark _ | IEMark _ -> isSemanticallyNop stmts len (idx + 1)
       | Put(d, s, _) when d = s -> isSemanticallyNop stmts len (idx + 1)
       | _ -> false
-    else true
+    else
+      true
 
   /// Return the `ILowUIRBasicBlock` interface to access the internal
   /// representation of the basic block.
@@ -133,7 +134,8 @@ type LowUIRBasicBlock internal(pp, funcAbs, liftedInss, lblMap) =
         if Option.isNone funcAbs then
           let stmts = liftedInss[liftedInss.Length - 1].Stmts
           stmts[stmts.Length - 2..]
-        else funcAbs.Value.Rundown
+        else
+          funcAbs.Value.Rundown
       stmts
       |> Array.filter isTerminatingStmt
       |> Array.tryExactlyOne
@@ -166,7 +168,8 @@ type LowUIRBasicBlock internal(pp, funcAbs, liftedInss, lblMap) =
         |> Array.map (fun stmt ->
           [| { AsmWordKind = AsmWordKind.String
                AsmWordValue = PrettyPrinter.ToString stmt } |])
-      else [||]
+      else
+        [||]
 
   interface IEquatable<LowUIRBasicBlock> with
     member this.Equals(other: LowUIRBasicBlock) =

@@ -58,7 +58,8 @@ module internal LSDATable =
     if minFilter < 0L then
       let offset = ttbase - int minFilter - 1
       readUntilNull span offset (* Consume exception spec table. *)
-    else ttbase
+    else
+      ttbase
 
   /// Sometimes, we observe dummy zero bytes inserted by the compiler (icc);
   /// this is nothing to do with the alignment. This is likely to be the

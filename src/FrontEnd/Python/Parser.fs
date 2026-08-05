@@ -43,7 +43,8 @@ type PythonParser(binFile: IBinFile, reader) =
     match binFile.Version with
     | PythonVersion.Python312 ->
       Parsing312.parse lifter span reader binFile addr
-    | v -> failwithf "Unsupported Python version for parsing: %A" v
+    | v ->
+      failwithf "Unsupported Python version for parsing: %A" v
 
   interface IInstructionParsable with
     member _.MaxInstructionSize = 4

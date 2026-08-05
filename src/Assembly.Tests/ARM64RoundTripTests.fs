@@ -96,15 +96,19 @@ type ARM64RoundTripTests() =
     match expected.Split ' ' |> Array.toList with
     | [ "orr"; rd; "wzr,"; rm ] | [ "orr"; rd; "xzr,"; rm ] ->
       actual = $"mov {rd} {rm}"
-    | "mov" :: rest -> actual = "umov " + String.concat " " rest
-    | "umov" :: rest -> actual = "mov " + String.concat " " rest
-    | _ -> false
+    | "mov" :: rest ->
+      actual = "umov " + String.concat " " rest
+    | "umov" :: rest ->
+      actual = "mov " + String.concat " " rest
+    | _ ->
+      false
 
   /// Encodes the given source and disassembles the result, so that a source
   /// text stands in for the word a probe was decoded from.
   static let sourceRoundTrip (source: string) =
     match (try encodeFirst source with _ -> None) with
-    | None -> ARM64Unsupported
+    | None ->
+      ARM64Unsupported
     | Some encoded ->
       let actual = try disasm encoded with _ -> "<undecodable>"
       if actual = source || namesTheSame source actual then ARM64Preserved
@@ -151,7 +155,8 @@ type ARM64RoundTripTests() =
             text
             |> replaceAll (@"\b" + one + @"(\d+)\b") (w + "$1")
             |> replaceAll (@"\." + one + @"\[") ("." + w + "[") ]
-      | _ -> []
+      | _ ->
+        []
     arranged @ scaled
 
   /// The key one shape is kept once for, which is what the arrangements it is
@@ -1063,7 +1068,8 @@ type ARM64RoundTripTests() =
         |> List.collect variants
         |> List.choose (fun variant ->
           match (try encodeFirst variant with _ -> None) with
-          | None -> None
+          | None ->
+            None
           | Some encoded ->
             let actual = try disasm encoded with _ -> "<undecodable>"
             if actual = variant || namesTheSame variant actual then None
@@ -1085,7 +1091,8 @@ type ARM64RoundTripTests() =
               expected, source, index, target ]
         |> List.choose (fun (expected, source, index, target) ->
           match (try assembler.Lower source with _ -> Error "raised") with
-          | Error _ | Ok [] -> Some $"'{expected} L' does not assemble"
+          | Error _ | Ok [] ->
+            Some $"'{expected} L' does not assemble"
           | Ok encoded ->
             let addr = uint64 (4 * index)
             let text =

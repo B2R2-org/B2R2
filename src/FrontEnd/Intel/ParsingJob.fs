@@ -803,7 +803,8 @@ type internal OneOp60() =
 #endif
     if Prefix.hasOprSz phlp.Prefixes then
       render span phlp Opcode.PUSHA SzCond.Normal OD.No SZ.Def
-    else render span phlp Opcode.PUSHAD SzCond.Normal OD.No SZ.Def
+    else
+      render span phlp Opcode.PUSHAD SzCond.Normal OD.No SZ.Def
 
 type internal OneOp61() =
   inherit ParsingJob()
@@ -813,7 +814,8 @@ type internal OneOp61() =
 #endif
     if Prefix.hasOprSz phlp.Prefixes then
       render span phlp Opcode.POPA SzCond.Normal OD.No SZ.Def
-    else render span phlp Opcode.POPAD SzCond.Normal OD.No SZ.Def
+    else
+      render span phlp Opcode.POPAD SzCond.Normal OD.No SZ.Def
 
 type internal OneOp62() =
   inherit ParsingJob()
@@ -839,7 +841,8 @@ type internal OneOp63() =
   override _.Run(span, phlp) =
     if ParsingHelper.Is64bit phlp then
       render span phlp Opcode.MOVSXD SzCond.Normal OD.GprRm SZ.DV
-    else render span phlp Opcode.ARPL SzCond.Normal OD.RmGpr SZ.Word
+    else
+      render span phlp Opcode.ARPL SzCond.Normal OD.RmGpr SZ.Word
 
 type internal OneOp64() =
   inherit ParsingJob()
@@ -900,7 +903,8 @@ type internal OneOp6D() =
   override _.Run(span, phlp) =
     if Prefix.hasOprSz phlp.Prefixes then
       render span phlp Opcode.INSW SzCond.Normal OD.No SZ.Def
-    else render span phlp Opcode.INSD SzCond.Normal OD.No SZ.Def
+    else
+      render span phlp Opcode.INSD SzCond.Normal OD.No SZ.Def
 
 type internal OneOp6E() =
   inherit ParsingJob()
@@ -915,7 +919,8 @@ type internal OneOp6F() =
   override _.Run(span, phlp) =
     if Prefix.hasOprSz phlp.Prefixes then
       render span phlp Opcode.OUTSW SzCond.Normal OD.No SZ.Def
-    else render span phlp Opcode.OUTSD SzCond.Normal OD.No SZ.Def
+    else
+      render span phlp Opcode.OUTSD SzCond.Normal OD.No SZ.Def
 
 type internal OneOp70() =
   inherit ParsingJob()
@@ -1166,7 +1171,8 @@ type internal OneOp90() =
       phlp.SzComputers[int SZ.Def].Render(phlp, SzCond.Normal)
       let oprs = phlp.OprParsers[int OD.RaxRax].Render(span, phlp)
       newInstruction phlp Opcode.XCHG oprs
-    else render span phlp Opcode.NOP SzCond.Normal OD.No SZ.Def
+    else
+      render span phlp Opcode.NOP SzCond.Normal OD.No SZ.Def
 
 type internal OneOp91() =
   inherit ParsingJob()
@@ -1224,7 +1230,8 @@ type internal OneOp98() =
       render span phlp Opcode.CBW SzCond.Normal OD.No SZ.Def
     elif REXPrefix.hasW phlp.REXPrefix then
       render span phlp Opcode.CDQE SzCond.Normal OD.No SZ.Def
-    else render span phlp Opcode.CWDE SzCond.Normal OD.No SZ.Def
+    else
+      render span phlp Opcode.CWDE SzCond.Normal OD.No SZ.Def
 
 type internal OneOp99() =
   inherit ParsingJob()
@@ -1233,7 +1240,8 @@ type internal OneOp99() =
       render span phlp Opcode.CWD SzCond.Normal OD.No SZ.Def
     elif REXPrefix.hasW phlp.REXPrefix then
       render span phlp Opcode.CQO SzCond.Normal OD.No SZ.Def
-    else render span phlp Opcode.CDQ SzCond.Normal OD.No SZ.Def
+    else
+      render span phlp Opcode.CDQ SzCond.Normal OD.No SZ.Def
 
 type internal OneOp9A() =
   inherit ParsingJob()
@@ -1263,7 +1271,8 @@ type internal OneOp9C() =
       render span phlp Opcode.PUSHF szcond OD.No SZ.Def
     elif ParsingHelper.Is64bit phlp then
       render span phlp Opcode.PUSHFQ SzCond.D64 OD.No SZ.Def
-    else render span phlp Opcode.PUSHFD SzCond.Normal OD.No SZ.Def
+    else
+      render span phlp Opcode.PUSHFD SzCond.Normal OD.No SZ.Def
 
 type internal OneOp9D() =
   inherit ParsingJob()
@@ -1274,7 +1283,8 @@ type internal OneOp9D() =
       render span phlp Opcode.POPF szcond OD.No SZ.Def
     elif ParsingHelper.Is64bit phlp then
       render span phlp Opcode.POPFQ SzCond.D64 OD.No SZ.Def
-    else render span phlp Opcode.POPFD SzCond.Normal OD.No SZ.Def
+    else
+      render span phlp Opcode.POPFD SzCond.Normal OD.No SZ.Def
 
 type internal OneOp9E() =
   inherit ParsingJob()
@@ -1334,7 +1344,8 @@ type internal OneOpA5() =
       render span phlp Opcode.MOVSW SzCond.Normal OD.No SZ.Def
     elif REXPrefix.hasW phlp.REXPrefix then
       render span phlp Opcode.MOVSQ SzCond.Normal OD.No SZ.Def
-    else render span phlp Opcode.MOVSD SzCond.Normal OD.No SZ.Def
+    else
+      render span phlp Opcode.MOVSD SzCond.Normal OD.No SZ.Def
 
 type internal OneOpA6() =
   inherit ParsingJob()
@@ -1350,7 +1361,8 @@ type internal OneOpA7() =
       render span phlp Opcode.CMPSW SzCond.Normal OD.No SZ.Def
     elif REXPrefix.hasW phlp.REXPrefix then
       render span phlp Opcode.CMPSQ SzCond.Normal OD.No SZ.Def
-    else render span phlp Opcode.CMPSD SzCond.Normal OD.No SZ.Def
+    else
+      render span phlp Opcode.CMPSD SzCond.Normal OD.No SZ.Def
 
 type internal OneOpA8() =
   inherit ParsingJob()
@@ -1381,7 +1393,8 @@ type internal OneOpAB() =
       render span phlp Opcode.STOSW SzCond.Normal OD.No SZ.Def
     elif REXPrefix.hasW phlp.REXPrefix then
       render span phlp Opcode.STOSQ SzCond.Normal OD.No SZ.Def
-    else render span phlp Opcode.STOSD SzCond.Normal OD.No SZ.Def
+    else
+      render span phlp Opcode.STOSD SzCond.Normal OD.No SZ.Def
 
 type internal OneOpAC() =
   inherit ParsingJob()
@@ -1398,7 +1411,8 @@ type internal OneOpAD() =
       render span phlp Opcode.LODSW SzCond.Normal OD.No SZ.Def
     elif REXPrefix.hasW phlp.REXPrefix then
       render span phlp Opcode.LODSQ SzCond.Normal OD.No SZ.Def
-    else render span phlp Opcode.LODSD SzCond.Normal OD.No SZ.Def
+    else
+      render span phlp Opcode.LODSD SzCond.Normal OD.No SZ.Def
 
 type internal OneOpAE() =
   inherit ParsingJob()
@@ -1415,7 +1429,8 @@ type internal OneOpAF() =
       render span phlp Opcode.SCASW SzCond.Normal OD.No SZ.Def
     elif REXPrefix.hasW phlp.REXPrefix then
       render span phlp Opcode.SCASQ SzCond.Normal OD.No SZ.Def
-    else render span phlp Opcode.SCASD SzCond.Normal OD.No SZ.Def
+    else
+      render span phlp Opcode.SCASD SzCond.Normal OD.No SZ.Def
 
 type internal OneOpB0() =
   inherit ParsingJob()
@@ -1669,7 +1684,8 @@ type internal OneOpCF() =
       render span phlp Opcode.IRETW SzCond.Normal OD.No SZ.Def
     elif REXPrefix.hasW phlp.REXPrefix then
       render span phlp Opcode.IRETQ SzCond.Normal OD.No SZ.Def
-    else render span phlp Opcode.IRETD SzCond.Normal OD.No SZ.Def
+    else
+      render span phlp Opcode.IRETD SzCond.Normal OD.No SZ.Def
 
 type internal OneOpD0() =
   inherit ParsingJob()
@@ -1888,7 +1904,8 @@ type internal OneOpE3() =
       render span phlp opcode SzCond.F64 OD.Rel8 SZ.Byte
     elif ParsingHelper.Is64bit phlp then
       render span phlp Opcode.JRCXZ SzCond.F64 OD.Rel8 SZ.Byte
-    else render span phlp Opcode.JECXZ SzCond.F64 OD.Rel8 SZ.Byte
+    else
+      render span phlp Opcode.JECXZ SzCond.F64 OD.Rel8 SZ.Byte
 
 type internal OneOpE4() =
   inherit ParsingJob()

@@ -102,6 +102,7 @@ let rec sanitizeRestArgs args =
     if (arg: string).StartsWith('-') then
       eprintfn "Invalid argument (%s) is used" arg
       exit 1
-    else sanitizeRestArgs rest
+    else
+      sanitizeRestArgs rest
   | [] ->
     ()

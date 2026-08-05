@@ -61,30 +61,40 @@ type StackPointerPropagation(hdl: BinHandle, vs) =
   let evaluateVarPoint (state: StackPointerPropagationState) pp varKind =
     let vp = { ProgramPoint = pp; VarKind = varKind }
     match state.UseDefMap.TryGetValue vp with
-    | true, defVp when defVp.ProgramPoint.IsFake ->
-      getBaseCase varKind
-    | true, defVp ->
-      state.DomainSubState.GetAbsValue defVp
+    | true, defVp when defVp.ProgramPoint.IsFake -> getBaseCase varKind
+    | true, defVp -> state.DomainSubState.GetAbsValue defVp
     | false, _ -> StackPointerDomain.Undef
 
   let rec evaluateExpr (state: StackPointerPropagationState) pp e =
     match e with
-    | Num(bv, _) -> StackPointerDomain.ConstSP bv
-    | Var _ | TempVar _ -> evaluateVarPoint state pp (VarKind.ofIRExpr e)
-    | ExprList _ -> StackPointerDomain.NotConstSP
-    | Load _ -> StackPointerDomain.NotConstSP
-    | UnOp _ -> StackPointerDomain.NotConstSP
-    | FuncName _ -> StackPointerDomain.NotConstSP
+    | Num(bv, _) ->
+      StackPointerDomain.ConstSP bv
+    | Var _ | TempVar _ ->
+      evaluateVarPoint state pp (VarKind.ofIRExpr e)
+    | ExprList _ ->
+      StackPointerDomain.NotConstSP
+    | Load _ ->
+      StackPointerDomain.NotConstSP
+    | UnOp _ ->
+      StackPointerDomain.NotConstSP
+    | FuncName _ ->
+      StackPointerDomain.NotConstSP
     | BinOp(op, _, e1, e2, _) ->
       let c1 = evaluateExpr state pp e1
       let c2 = evaluateExpr state pp e2
       StackPointerPropagation.evalBinOp op c1 c2
-    | RelOp _ -> StackPointerDomain.NotConstSP
-    | Ite _ -> StackPointerDomain.NotConstSP
-    | Cast _ -> StackPointerDomain.NotConstSP
-    | Extract _ -> StackPointerDomain.NotConstSP
-    | Undefined _ -> StackPointerDomain.NotConstSP
-    | _ -> Terminator.impossible ()
+    | RelOp _ ->
+      StackPointerDomain.NotConstSP
+    | Ite _ ->
+      StackPointerDomain.NotConstSP
+    | Cast _ ->
+      StackPointerDomain.NotConstSP
+    | Extract _ ->
+      StackPointerDomain.NotConstSP
+    | Undefined _ ->
+      StackPointerDomain.NotConstSP
+    | _ ->
+      Terminator.impossible ()
 
   let lattice =
     { new ILattice<StackPointerDomain.Lattice> with

@@ -55,7 +55,8 @@ let private addEncoders claims table rows =
     | Some other ->
       let choose ins = if claims ins then encode ins else other ins
       Map.add opcode choose table
-    | None -> Map.add opcode encode table) table
+    | None ->
+      Map.add opcode encode table) table
 
 /// Builds the lookup from an opcode to the encoder for it. Each assembler
 /// builds its own and lets it go when it goes, rather than the rows living for
@@ -71,7 +72,8 @@ let buildEncoderTable () =
 /// was never defined is a mistake in the source, not a lookup that failed.
 let private findLabel state (baseAddr: Addr) lbl count =
   match Map.tryFind lbl state.LabelMap with
-  | Some index when index <= count -> baseAddr + uint64 (index * 4)
+  | Some index when index <= count ->
+    baseAddr + uint64 (index * 4)
   | Some _ | None ->
     raise <| EncodingFailureException $"Undefined label '{lbl}'"
 
@@ -90,13 +92,15 @@ let private resolveLabels state baseAddr count index ins =
       let target = findLabel state baseAddr lbl count
       if namesRegion ins.Opcode then OpImm(region pc target)
       else OpAddr(Relative(int64 (target - pc)))
-    | operand -> operand
+    | operand ->
+      operand
   let operands = getOperandsAsList ins.Operands |> List.map resolve
   { ins with Operands = extractOperands operands }
 
 let private encodeInstruction (encoders: Map<_, _>) ins =
   match Map.tryFind ins.Opcode encoders with
-  | Some encode -> encode ins
+  | Some encode ->
+    encode ins
   | None ->
     raise <| EncodingFailureException $"{ins.Opcode} is not supported yet"
 

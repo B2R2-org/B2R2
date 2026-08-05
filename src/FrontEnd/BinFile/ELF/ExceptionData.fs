@@ -58,7 +58,8 @@ module internal ExceptionData =
         match reloc.TryFind addr with
         | Ok rentry -> Some rentry.RelAddend
         | Error _ -> None
-    else fun _ -> None
+    else
+      fun _ -> None
 
   let private parseFrames toolBox cls isa shdrs regFactory resolveReloc =
     match Array.tryFind (fun s -> s.SecName = EHFrameSection) shdrs,
@@ -71,7 +72,8 @@ module internal ExceptionData =
           Address = sec.SecAddr }
       ExceptionFrame.parseFromSection
         toolBox.Reader cls isa rf resolveReloc dwSec
-    | _ -> []
+    | _ ->
+      []
 
   let private parseLSDAs toolBox cls shdrs =
     match Array.tryFind (fun s -> s.SecName = GccExceptTableSection) shdrs with
@@ -79,7 +81,8 @@ module internal ExceptionData =
       let offset, size = int sec.SecOffset, int sec.SecSize
       let span = ReadOnlySpan(toolBox.Bytes, offset, size)
       LSDATable.parseFromSection cls span toolBox.Reader sec.SecAddr 0 Map.empty
-    | None -> Map.empty
+    | None ->
+      Map.empty
 
   let parse toolBox shdrs regFactory reloc =
     let hdr = toolBox.Header

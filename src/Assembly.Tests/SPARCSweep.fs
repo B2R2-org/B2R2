@@ -166,7 +166,8 @@ module internal SPARCSweep =
     let text = (text.Split '!')[0]
     let marks = [| ' '; ','; '+'; '['; ']'; '('; ')' |]
     match text.Split ' ' |> Array.toList with
-    | [] | [ _ ] -> text.Trim()
+    | [] | [ _ ] ->
+      text.Trim()
     | mnemonic :: rest ->
       let operands = String.concat " " rest
       operands.Split(marks, StringSplitOptions.RemoveEmptyEntries)

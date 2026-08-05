@@ -41,7 +41,8 @@ type TaskWorkerCommandStream<'FnCtx,
     member _.Receive(ct) =
       task {
         match! stream.OutputAvailableAsync(ct) with
-        | false -> return NotAvailable
+        | false ->
+          return NotAvailable
         | true ->
           match stream.TryReceive() with
           | true, command -> return Received command

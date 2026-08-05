@@ -218,7 +218,8 @@ type ARM32EncodingTests() =
         encoded
         |> List.map (snd >> Array.map (sprintf "%02x") >> String.concat "")
         |> String.concat " "
-      | Error _ -> "<cannot parse>"
+      | Error _ ->
+        "<cannot parse>"
     with
     | :? EncodingFailureException -> "<unsupported>"
     | :? NotImplementedException -> "<unsupported>"
@@ -238,7 +239,8 @@ type ARM32EncodingTests() =
       encoded
       |> List.map (fun (isa: ISA, _) -> isa.ToString())
       |> String.concat " "
-    | Error _ -> "<cannot parse>"
+    | Error _ ->
+      "<cannot parse>"
 
   let brokenWith encode vectors =
     mutingStderr (fun () ->

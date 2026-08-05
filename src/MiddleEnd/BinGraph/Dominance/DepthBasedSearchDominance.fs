@@ -125,7 +125,8 @@ let private getNCA info v w =
   else bothUp v w
 
 let rec private computeTriggers g info visited nca trig state = function
-  | [] -> state
+  | [] ->
+    state
   | vID :: stack ->
     let affected, trigs = state
     (visited: HashSet<VertexID>).Add vID |> ignore
@@ -134,18 +135,21 @@ let rec private computeTriggers g info visited nca trig state = function
       g.GetSuccs v
       |> Array.fold (fun (affected, trigs, stack) w ->
         let wID = w.ID
-        if visited.Contains wID then affected, trigs, stack
+        if visited.Contains wID then
+          affected, trigs, stack
         else
           visited.Add wID |> ignore
           if info.Depth[wID] > info.Depth[trig] then
             affected, trigs, wID :: stack
           else if info.Depth[nca] + 1 < info.Depth[wID] then
             wID :: affected, wID :: trigs, stack
-          else affected, trigs, stack) (affected, trigs, stack)
+          else
+            affected, trigs, stack) (affected, trigs, stack)
     computeTriggers g info visited nca trig (newAffected, newTrigs) newStack
 
 let rec private computeAffectedAux g info visited nca = function
-  | affected, [] -> affected |> Array.ofList
+  | affected, [] ->
+    affected |> Array.ofList
   | affected, trig :: trigs ->
     let state =
       computeTriggers g info visited nca trig (affected, trigs) [ trig ]
@@ -163,8 +167,7 @@ let private updateIDom newIDom info v =
   info.Children[newIDom].Add v |> ignore
   match info.IDom.TryGetValue v with
   | false, _ -> ()
-  | true, oldIDom ->
-    info.Children[oldIDom].Remove v |> ignore
+  | true, oldIDom -> info.Children[oldIDom].Remove v |> ignore
   match info.Children.TryGetValue v with
   | false, _ -> info.Children.Add(v, HashSet()) |> ignore
   | true, _ -> ()
@@ -176,14 +179,16 @@ let private updateIDom newIDom info v =
 /// src and dst are both reachable from roots.
 let private updateDomTree g info srcID dstID =
   let nca = getNCA info srcID dstID
-  if nca = info.IDom[dstID] || nca = dstID then ()
+  if nca = info.IDom[dstID] || nca = dstID then
+    ()
   else
     let affected = computeAffected g info nca dstID
     affected
     |> Array.iter (updateIDom nca info)
 
 let rec private constructSubGraphAux g info visited (h, bEdges) = function
-  | [] -> h, bEdges |> Array.ofList
+  | [] ->
+    h, bEdges |> Array.ofList
   | edge: Edge<_, _> :: stack ->
     let w = edge.Second
     if (visited: HashSet<VertexID>).Contains w.ID then
@@ -223,7 +228,8 @@ let private computeStaticDom info g =
   | Cooper -> CooperDominance.create g dfp
 
 let rec private mergeDomTreeAux info subDomTree = function
-  | [] -> ()
+  | [] ->
+    ()
   | (parent: IVertex<_>, current: IVertex<_>) :: stack ->
     updateIDom parent.ID info current.ID
     let stack =
@@ -242,8 +248,10 @@ let private insert (g: IDiGraphAccessible<_, _>) info (edge: Edge<_, _>) =
   let src = edge.First
   let dst = edge.Second
   match info.Reachable.Contains src.ID, info.Reachable.Contains dst.ID with
-  | false, _ -> ()
-  | true, true -> updateDomTree g info src.ID dst.ID
+  | false, _ ->
+    ()
+  | true, true ->
+    updateDomTree g info src.ID dst.ID
   | true, false ->
     match g.GetSuccs dst with
     | [||] ->
@@ -270,15 +278,16 @@ let private idom (g: IDiGraphAccessible<_, _>) info (v: IVertex<'V>) =
     let idomID = info.IDom[v.ID]
     if idomID = info.DummyRootID then null
     else g.FindVertexByID idomID: IVertex<'V> | null
-  else null
+  else
+    null
 
 let rec private domsAux acc info vid =
   match info.IDom.TryGetValue vid with
-  | false, _ -> acc
+  | false, _ ->
+    acc
   | true, idomID ->
     if idomID = info.DummyRootID then acc
-    else
-      domsAux (idomID :: acc) info idomID
+    else domsAux (idomID :: acc) info idomID
 
 let private doms (g: IDiGraphAccessible<_, _>) info (v: IVertex<'V>) =
   domsAux [ v.ID ] info v.ID
@@ -293,25 +302,24 @@ let private computeDomInfo g dfp staticAlgo =
 let private copyDomTree g info immediateDominator =
   (g: IDiGraphAccessible<_, _>).Vertices
   |> Array.iter (fun v ->
-    if info.Reachable.Contains v.ID |> not then ()
+    if info.Reachable.Contains v.ID |> not then
+      ()
     else
       if info.Children.ContainsKey v.ID then ()
-      else
-        info.Children.Add(v.ID, HashSet()) |> ignore
+      else info.Children.Add(v.ID, HashSet()) |> ignore
       let idom: IVertex<_> | null = immediateDominator v
       let idomID =
         if isNull idom then info.DummyRootID
         else idom.ID
       info.IDom[v.ID] <- idomID
       match info.Children.ContainsKey idomID with
-      | false ->
-        info.Children.Add(idomID, HashSet [ v.ID ]) |> ignore
-      | true ->
-        info.Children.[idomID].Add v.ID |> ignore)
+      | false -> info.Children.Add(idomID, HashSet [ v.ID ]) |> ignore
+      | true -> info.Children.[idomID].Add v.ID |> ignore)
   updateDepth -1 info info.DummyRootID
 
 let rec private initReachableAux (g: IDiGraphAccessible<_, _>) info = function
-  | [] -> ()
+  | [] ->
+    ()
   | v: IVertex<_> :: stack ->
     if info.Reachable.Contains v.ID then
       initReachableAux g info stack

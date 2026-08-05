@@ -119,7 +119,8 @@ type Assembler(isa: ISA, baseAddr: Addr) =
         Convert.ToUInt64(text[2..], 2)
       elif text.StartsWith "0o" || text.StartsWith "0O" then
         Convert.ToUInt64(text[2..], 8)
-      else UInt64.Parse text
+      else
+        UInt64.Parse text
     if negative then -(int64 value) else int64 value
 
   let pNumber =
@@ -167,7 +168,8 @@ type Assembler(isa: ISA, baseAddr: Addr) =
   let pOprRegister =
     pName >>= fun name ->
       match Map.tryFind name registers with
-      | None -> fail $"'{name}' is not a register"
+      | None ->
+        fail $"'{name}' is not a register"
       | Some reg ->
         (pArrangement .>>. opt pElementIndex
          |>> fun (vec, index) -> OprSIMD(toVectorRegister reg vec index))
@@ -189,7 +191,8 @@ type Assembler(isa: ISA, baseAddr: Addr) =
     | [ ('-', (last, _)) ] ->
       let count = (int last - int first + 32) % 32 + 1
       runOfRegisters first count |> List.map (fun reg -> reg, vec)
-    | rest -> (first, vec) :: List.map snd rest
+    | rest ->
+      (first, vec) :: List.map snd rest
 
   let pListSeparator = skipWhitespaces (anyOf ",-")
 
@@ -419,4 +422,5 @@ type Assembler(isa: ISA, baseAddr: Addr) =
         |> assemble encoders us isa.Endian baseAddr
         |> List.map (fun bytes -> isa, bytes)
         |> Result.Ok
-      | Failure(str, _, _) -> Result.Error str
+      | Failure(str, _, _) ->
+        Result.Error str

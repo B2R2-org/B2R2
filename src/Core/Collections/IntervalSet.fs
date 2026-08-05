@@ -68,12 +68,14 @@ module IntervalSet =
   let private rangeExists i tree =
     let rec loop tree =
       match Op.ViewL tree with
-      | Nil -> false
+      | Nil ->
+        false
       | Cons(x: IntervalSetElem, xs) ->
         if x.Min = i.Min then
           if x.Max = i.Max then true
           else loop xs
-        else false
+        else
+          false
     loop tree
 
   /// Adds an interval to the interval set. Overlapping intervals are allowed,
@@ -97,7 +99,8 @@ module IntervalSet =
         Op.SplitTree((fun (e: InterMonoid<Addr>) -> Prio il <= e.Max),
           z, s)
       x.Min <= ih
-    else false
+    else
+      false
 
   /// Finds all intervals that overlap with the given range. The returned list
   /// follows the interval tree traversal order.
@@ -154,13 +157,15 @@ module IntervalSet =
       Op.Split((fun (e: InterMonoid<Addr>) -> Key addr <= e.Min), s)
     let rec loop found xs =
       match Op.ViewL xs with
-      | Nil -> found
+      | Nil ->
+        found
       | Cons(x: IntervalSetElem, xs) ->
         if x.Min = addr then
           match found with
           | None -> loop (Some x.Val) xs
           | Some _ -> None
-        else found
+        else
+          found
     loop None r
 
   /// Finds the interval whose low bound (Min) equals the given address when
@@ -183,8 +188,10 @@ module IntervalSet =
       Op.Split((fun (e: InterMonoid<Addr>) -> Key i.Min <= e.Min), s)
     let rec containLoop r =
       match Op.ViewL r with
-      | Nil -> false
-      | Cons(x: IntervalSetElem, _) when x.Min = i.Min && x.Max = i.Max -> true
+      | Nil ->
+        false
+      | Cons(x: IntervalSetElem, _) when x.Min = i.Min && x.Max = i.Max ->
+        true
       | Cons(x, xs) ->
         if i.Min = x.Min then containLoop xs
         else false
@@ -198,7 +205,8 @@ module IntervalSet =
       Op.Split((fun (e: InterMonoid<Addr>) -> Key range.Min <= e.Min), s)
     let rec rmLoop l r =
       match Op.ViewL r with
-      | Nil -> raise InvalidAddrRangeException
+      | Nil ->
+        raise InvalidAddrRangeException
       | Cons(x: IntervalSetElem, xs)
         when x.Min = range.Min && x.Max = range.Max ->
         Op.Concat(l, xs)

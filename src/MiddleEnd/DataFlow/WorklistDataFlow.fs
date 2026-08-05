@@ -40,7 +40,8 @@ type State<'WorkUnit,
   let workSet = HashSet<'WorkUnit>()
 
   let pushWork (work: 'WorkUnit) =
-    if workSet.Contains work then ()
+    if workSet.Contains work then
+      ()
     else
       workSet.Add work |> ignore
       workList.Enqueue work
@@ -85,7 +86,8 @@ let compute initialWorkList (lattice: ILattice<_>) (sch: IScheme<_, _>) state =
     let work = state.PopWork()
     let absValue = (state :> IAbsValProvider<_, _>).GetAbsValue work
     let transferedAbsValue = sch.Transfer work
-    if lattice.Subsume(absValue, transferedAbsValue) then ()
+    if lattice.Subsume(absValue, transferedAbsValue) then
+      ()
     else
       state.AbsValues[work] <- transferedAbsValue
       for work in sch.GetNextWorks work do state.PushWork work

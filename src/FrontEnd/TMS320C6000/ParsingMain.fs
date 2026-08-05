@@ -223,13 +223,16 @@ let private getRegisterB = function
   | _ -> Terminator.impossible ()
 
 let private parseReg bin isCrossPath = function
-  | L1Unit | S1Unit | M1Unit | D1Unit -> getRegisterA bin
-  | L2Unit | S2Unit | M2Unit | D2Unit -> getRegisterB bin
+  | L1Unit | S1Unit | M1Unit | D1Unit ->
+    getRegisterA bin
+  | L2Unit | S2Unit | M2Unit | D2Unit ->
+    getRegisterB bin
   | L1XUnit | S1XUnit | M1XUnit | D1XUnit ->
     if isCrossPath then getRegisterB bin else getRegisterA bin
   | L2XUnit | S2XUnit | M2XUnit | D2XUnit ->
     if isCrossPath then getRegisterA bin else getRegisterB bin
-  | _ -> Terminator.impossible ()
+  | _ ->
+    Terminator.impossible ()
 
 let private parseRegBySide bin = function
   | SideA -> getRegisterA bin
@@ -1827,126 +1830,239 @@ let private parseCase110 bin =
   let x, s = xBit bin, sBit bin
   let creg = Bits.extract bin 31u 29u
   match Bits.extract bin 11u 5u with
-  | 0b0011010u -> parseLUnitUnary bin
+  | 0b0011010u ->
+    parseLUnitUnary bin
   (* parseLUnitNonCond, D-3 *)
   | 0b0001110u when creg = 0b0001u ->
     parseSiXSiDi bin Op.SADDSUB (getLUnit s x)
   | 0b0001111u when creg = 0b0001u ->
     parseSiXSiDi bin Op.SADDSUB2 (getLUnit s x)
-  | 0b0110011u -> parseSiXSiDi bin Op.DPACKX2 (getLUnit s x)
-  | 0b0110100u -> parseSiXSiDi bin Op.DPACK2 (getLUnit s x)
-  | 0b0110110u -> parseSiXSiDi bin Op.SHFL3 (getLUnit s x)
+  | 0b0110011u ->
+    parseSiXSiDi bin Op.DPACKX2 (getLUnit s x)
+  | 0b0110100u ->
+    parseSiXSiDi bin Op.DPACK2 (getLUnit s x)
+  | 0b0110110u ->
+    parseSiXSiDi bin Op.SHFL3 (getLUnit s x)
   (* parseLUnitSrcs, D-1 *)
-  | 0b0000000u -> parseI2Xi2I2 bin Op.PACK2 (getLUnit s x)
-  | 0b0000001u -> parseDpSi bin Op.DPTRUNC (getLUnit s x)
-  | 0b0000011u -> parseSiXSiSi bin Op.ADD (getLUnit s x)
-  | 0b0000010u when isSrc1Zero bin -> parseXSiSi bin Op.MV (getLUnit s x)
-  | 0b0000010u -> parseSc5XSiSi bin Op.ADD (getLUnit s x)
-  | 0b0000100u -> parseI2Xi2I2 bin Op.SUB2 (getLUnit s x)
-  | 0b0000101u -> parseI2Xi2I2 bin Op.ADD2 (getLUnit s x)
-  | 0b0000110u when isSrc1Zero bin -> parseXSiSi bin Op.NEG (getLUnit s x)
-  | 0b0000110u -> parseSc5XSiSi bin Op.SUB (getLUnit s x)
-  | 0b0000111u when isEqualSrc1Src2 bin -> parseSi bin Op.ZERO (getLUnit s x)
-  | 0b0000111u -> parseSiXSiSi bin Op.SUB (getLUnit s x)
-  | 0b0001000u -> parseDpSi bin Op.DPINT (getLUnit s x)
-  | 0b0001001u -> parseDpSp bin Op.DPSP (getLUnit s x)
-  | 0b0001010u -> parseXSpSi bin Op.SPINT (getLUnit s x)
-  | 0b0001011u -> parseXSpSi bin Op.SPTRUNC (getLUnit s x)
-  | 0b0001100u -> parseSiXSiDi bin Op.ADDSUB (getLUnit s x)
-  | 0b0001101u -> parseSiXSiDi bin Op.ADDSUB2 (getLUnit s x)
-  | 0b0001110u -> parseSc5XSiSi bin Op.SSUB (getLUnit s x)
-  | 0b0001111u -> parseSiXSiSi bin Op.SSUB (getLUnit s x)
-  | 0b0010000u -> parseSpXSpSp bin Op.ADDSP (getLUnit s x)
-  | 0b0010001u -> parseSpXSpSp bin Op.SUBSP (getLUnit s x)
-  | 0b0010010u -> parseSc5XSiSi bin Op.SADD (getLUnit s x)
-  | 0b0010011u -> parseSiXSiSi bin Op.SADD (getLUnit s x)
-  | 0b0010101u -> parseXSpSpSp bin Op.SUBSP (getLUnit s x)
-  | 0b0010111u -> parseXSiSiSi1 bin Op.SUB (getLUnit s x)
-  | 0b0011000u -> parseDpXDpDp bin Op.ADDDP (getLUnit s x)
-  | 0b0011001u -> parseDpXDpDp bin Op.SUBDP (getLUnit s x)
-  | 0b0011011u when isSrc100010 bin -> parseS2S2 bin Op.SWAP2 (getLUnit s x)
-  | 0b0011011u -> parseI2Xi2I2 bin Op.PACKLH2 (getLUnit s x)
-  | 0b0011100u -> parseI2Xi2I2 bin Op.PACKHL2 (getLUnit s x)
-  | 0b0011101u -> parseXDpDpDp bin Op.SUBDP (getLUnit s x)
-  | 0b0011110u -> parseI2Xi2I2 bin Op.PACKH2 (getLUnit s x)
-  | 0b0011111u -> parseXSiSiSi1 bin Op.SSUB (getLUnit s x)
-  | 0b0100000u when isSrc1Zero bin -> parseSlSl bin Op.MV (getLUnit s 0u)
-  | 0b0100000u -> parseSc5SlSl bin Op.ADD (getLUnit s x)
-  | 0b0100001u -> parseXSiSlSl bin Op.ADD (getLUnit s x)
-  | 0b0100011u -> parseSiXSiSl bin Op.ADD (getLUnit s x)
-  | 0b0100100u when isSrc1Zero bin -> parseSlSl bin Op.NEG (getLUnit s x)
-  | 0b0100100u -> parseSc5SlSl bin Op.SUB (getLUnit s x)
-  | 0b0100111u when isEqualSrc1Src2 bin -> parseSl bin Op.ZERO (getLUnit s x)
-  | 0b0100111u -> parseSiXSiSl bin Op.SUB (getLUnit s x)
-  | 0b0101001u -> parseXUiUlUl bin Op.ADDU (getLUnit s x)
-  | 0b0101011u -> parseUiXUiUl bin Op.ADDU (getLUnit s x)
-  | 0b0101100u -> parseSc5SlSl bin Op.SSUB (getLUnit s x)
-  | 0b0101111u -> parseUiXUiUl bin Op.SUBU (getLUnit s x)
-  | 0b0110000u -> parseSc5SlSl bin Op.SADD (getLUnit s x)
-  | 0b0110001u -> parseXSiSlSl bin Op.SADD (getLUnit s x)
-  | 0b0110111u when isEqualSrc1Src2 bin -> parseSl bin Op.ZERO (getLUnit s x)
-  | 0b0110111u -> parseXSiSiSl bin Op.SUB (getLUnit s x)
-  | 0b0111000u -> parseSlSl bin Op.ABS (getLUnit s x)
-  | 0b0111001u -> parseXSiDp bin Op.INTDP (getLUnit s x)
-  | 0b0111011u -> parseXUiDp bin Op.INTDPU (getLUnit s x)
-  | 0b0111111u -> parseXUiUiUl1 bin Op.SUBU (getLUnit s x)
-  | 0b1000000u -> parseSlSi bin Op.SAT (getLUnit s x)
-  | 0b1000001u -> parseS2XS2S2 bin Op.MIN2 (getLUnit s x)
-  | 0b1000010u -> parseS2XS2S2 bin Op.MAX2 (getLUnit s x)
-  | 0b1000011u -> parseU4XU4U4 bin Op.MAXU4 (getLUnit s x)
-  | 0b1000100u -> parseSc5SlUi bin Op.CMPGT (getLUnit s x)
-  | 0b1000101u -> parseXSiSlUi bin Op.CMPGT (getLUnit s x)
-  | 0b1000110u -> parseSc5XSiUi bin Op.CMPGT (getLUnit s x)
-  | 0b1000111u -> parseSiXSiUi bin Op.CMPGT (getLUnit s x)
-  | 0b1001000u -> parseU4XU4U4 bin Op.MINU4 (getLUnit s x)
-  | 0b1001001u -> parseXUiSp bin Op.INTSPU (getLUnit s x)
-  | 0b1001010u -> parseXSiSp bin Op.INTSP (getLUnit s x)
-  | 0b1001011u -> parseUiXUiUi bin Op.SUBC (getLUnit s x)
-  | 0b1001100u -> parseUc4UlUi bin Op.CMPGTU (getLUnit s x)
-  | 0b1001101u -> parseXUiUlUi bin Op.CMPGTU (getLUnit s x)
-  | 0b1001110u -> parseUc4XUiUi bin Op.CMPGTU (getLUnit s x)
-  | 0b1001111u -> parseUiXUiUi bin Op.CMPGTU (getLUnit s x)
-  | 0b1010000u -> parseSc5SlUi bin Op.CMPEQ (getLUnit s x)
-  | 0b1010001u -> parseXSiSlUi bin Op.CMPEQ (getLUnit s x)
-  | 0b1010010u -> parseSc5XSiUi bin Op.CMPEQ (getLUnit s x)
-  | 0b1010011u -> parseSiXSiUi bin Op.CMPEQ (getLUnit s x)
-  | 0b1010100u -> parseSc5SlUi bin Op.CMPLT (getLUnit s x)
-  | 0b1010101u -> parseXSiSlUi bin Op.CMPLT (getLUnit s x)
-  | 0b1010110u -> parseSc5XSiUi bin Op.CMPLT (getLUnit s x)
-  | 0b1010111u -> parseSiXSiUi bin Op.CMPLT (getLUnit s x)
-  | 0b1011010u -> parseU4XU4U4 bin Op.SUBABS4 (getLUnit s x)
-  | 0b1011100u -> parseUc4UlUi bin Op.CMPGTU (getLUnit s x)
-  | 0b1011101u -> parseXUiUlUi bin Op.CMPGTU (getLUnit s x)
-  | 0b1011110u -> parseUc4XUiUi bin Op.CMPGTU (getLUnit s x)
-  | 0b1011111u -> parseUiXUiUi bin Op.CMPGTU (getLUnit s x)
-  | 0b1100000u -> parseSlUi bin Op.NORM (getLUnit s x)
-  | 0b1100001u -> parseU4XU4U4 bin Op.SHLMB (getLUnit s x)
-  | 0b1100010u -> parseU4XU4U4 bin Op.SHRMB (getLUnit s x)
-  | 0b1100011u -> parseXSiUi bin Op.NORM (getLUnit s x)
-  | 0b1100100u -> parseS2XS2S2 bin Op.SSUB2 (getLUnit s x)
-  | 0b1100101u -> parseI4Xi4I4 bin Op.ADD4 (getLUnit s x)
-  | 0b1100110u -> parseI4Xi4I4 bin Op.SUB4 (getLUnit s x)
-  | 0b1101000u -> parseI4Xi4I4 bin Op.PACKL4 (getLUnit s x)
-  | 0b1101001u -> parseI4Xi4I4 bin Op.PACKH4 (getLUnit s x)
-  | 0b1101010u -> parseC5XUiUi bin Op.LMBD (getLUnit s x)
-  | 0b1101011u -> parseUiXUiUi bin Op.LMBD (getLUnit s x)
-  | 0b1101110u when isSrc111111 bin -> parseXUiUi bin Op.NOT (getLUnit s x)
-  | 0b1101110u -> parseSc5XUiUi bin Op.XOR (getLUnit s x)
-  | 0b1101111u -> parseUiXUiUi bin Op.XOR (getLUnit s x)
-  | 0b1111010u -> parseSc5XUiUi bin Op.AND (getLUnit s x)
-  | 0b1111011u -> parseUiXUiUi bin Op.AND (getLUnit s x)
-  | 0b1111100u -> parseUiXUiUi bin Op.ANDN (getLUnit s x)
-  | 0b1111110u when isSrc1Zero bin -> parseXUiUi bin Op.MV (getLUnit s x)
-  | 0b1111110u -> parseSc5XUiUi bin Op.OR (getLUnit s x)
-  | 0b1111111u -> parseUiXUiUi bin Op.OR (getLUnit s x)
+  | 0b0000000u ->
+    parseI2Xi2I2 bin Op.PACK2 (getLUnit s x)
+  | 0b0000001u ->
+    parseDpSi bin Op.DPTRUNC (getLUnit s x)
+  | 0b0000011u ->
+    parseSiXSiSi bin Op.ADD (getLUnit s x)
+  | 0b0000010u when isSrc1Zero bin ->
+    parseXSiSi bin Op.MV (getLUnit s x)
+  | 0b0000010u ->
+    parseSc5XSiSi bin Op.ADD (getLUnit s x)
+  | 0b0000100u ->
+    parseI2Xi2I2 bin Op.SUB2 (getLUnit s x)
+  | 0b0000101u ->
+    parseI2Xi2I2 bin Op.ADD2 (getLUnit s x)
+  | 0b0000110u when isSrc1Zero bin ->
+    parseXSiSi bin Op.NEG (getLUnit s x)
+  | 0b0000110u ->
+    parseSc5XSiSi bin Op.SUB (getLUnit s x)
+  | 0b0000111u when isEqualSrc1Src2 bin ->
+    parseSi bin Op.ZERO (getLUnit s x)
+  | 0b0000111u ->
+    parseSiXSiSi bin Op.SUB (getLUnit s x)
+  | 0b0001000u ->
+    parseDpSi bin Op.DPINT (getLUnit s x)
+  | 0b0001001u ->
+    parseDpSp bin Op.DPSP (getLUnit s x)
+  | 0b0001010u ->
+    parseXSpSi bin Op.SPINT (getLUnit s x)
+  | 0b0001011u ->
+    parseXSpSi bin Op.SPTRUNC (getLUnit s x)
+  | 0b0001100u ->
+    parseSiXSiDi bin Op.ADDSUB (getLUnit s x)
+  | 0b0001101u ->
+    parseSiXSiDi bin Op.ADDSUB2 (getLUnit s x)
+  | 0b0001110u ->
+    parseSc5XSiSi bin Op.SSUB (getLUnit s x)
+  | 0b0001111u ->
+    parseSiXSiSi bin Op.SSUB (getLUnit s x)
+  | 0b0010000u ->
+    parseSpXSpSp bin Op.ADDSP (getLUnit s x)
+  | 0b0010001u ->
+    parseSpXSpSp bin Op.SUBSP (getLUnit s x)
+  | 0b0010010u ->
+    parseSc5XSiSi bin Op.SADD (getLUnit s x)
+  | 0b0010011u ->
+    parseSiXSiSi bin Op.SADD (getLUnit s x)
+  | 0b0010101u ->
+    parseXSpSpSp bin Op.SUBSP (getLUnit s x)
+  | 0b0010111u ->
+    parseXSiSiSi1 bin Op.SUB (getLUnit s x)
+  | 0b0011000u ->
+    parseDpXDpDp bin Op.ADDDP (getLUnit s x)
+  | 0b0011001u ->
+    parseDpXDpDp bin Op.SUBDP (getLUnit s x)
+  | 0b0011011u when isSrc100010 bin ->
+    parseS2S2 bin Op.SWAP2 (getLUnit s x)
+  | 0b0011011u ->
+    parseI2Xi2I2 bin Op.PACKLH2 (getLUnit s x)
+  | 0b0011100u ->
+    parseI2Xi2I2 bin Op.PACKHL2 (getLUnit s x)
+  | 0b0011101u ->
+    parseXDpDpDp bin Op.SUBDP (getLUnit s x)
+  | 0b0011110u ->
+    parseI2Xi2I2 bin Op.PACKH2 (getLUnit s x)
+  | 0b0011111u ->
+    parseXSiSiSi1 bin Op.SSUB (getLUnit s x)
+  | 0b0100000u when isSrc1Zero bin ->
+    parseSlSl bin Op.MV (getLUnit s 0u)
+  | 0b0100000u ->
+    parseSc5SlSl bin Op.ADD (getLUnit s x)
+  | 0b0100001u ->
+    parseXSiSlSl bin Op.ADD (getLUnit s x)
+  | 0b0100011u ->
+    parseSiXSiSl bin Op.ADD (getLUnit s x)
+  | 0b0100100u when isSrc1Zero bin ->
+    parseSlSl bin Op.NEG (getLUnit s x)
+  | 0b0100100u ->
+    parseSc5SlSl bin Op.SUB (getLUnit s x)
+  | 0b0100111u when isEqualSrc1Src2 bin ->
+    parseSl bin Op.ZERO (getLUnit s x)
+  | 0b0100111u ->
+    parseSiXSiSl bin Op.SUB (getLUnit s x)
+  | 0b0101001u ->
+    parseXUiUlUl bin Op.ADDU (getLUnit s x)
+  | 0b0101011u ->
+    parseUiXUiUl bin Op.ADDU (getLUnit s x)
+  | 0b0101100u ->
+    parseSc5SlSl bin Op.SSUB (getLUnit s x)
+  | 0b0101111u ->
+    parseUiXUiUl bin Op.SUBU (getLUnit s x)
+  | 0b0110000u ->
+    parseSc5SlSl bin Op.SADD (getLUnit s x)
+  | 0b0110001u ->
+    parseXSiSlSl bin Op.SADD (getLUnit s x)
+  | 0b0110111u when isEqualSrc1Src2 bin ->
+    parseSl bin Op.ZERO (getLUnit s x)
+  | 0b0110111u ->
+    parseXSiSiSl bin Op.SUB (getLUnit s x)
+  | 0b0111000u ->
+    parseSlSl bin Op.ABS (getLUnit s x)
+  | 0b0111001u ->
+    parseXSiDp bin Op.INTDP (getLUnit s x)
+  | 0b0111011u ->
+    parseXUiDp bin Op.INTDPU (getLUnit s x)
+  | 0b0111111u ->
+    parseXUiUiUl1 bin Op.SUBU (getLUnit s x)
+  | 0b1000000u ->
+    parseSlSi bin Op.SAT (getLUnit s x)
+  | 0b1000001u ->
+    parseS2XS2S2 bin Op.MIN2 (getLUnit s x)
+  | 0b1000010u ->
+    parseS2XS2S2 bin Op.MAX2 (getLUnit s x)
+  | 0b1000011u ->
+    parseU4XU4U4 bin Op.MAXU4 (getLUnit s x)
+  | 0b1000100u ->
+    parseSc5SlUi bin Op.CMPGT (getLUnit s x)
+  | 0b1000101u ->
+    parseXSiSlUi bin Op.CMPGT (getLUnit s x)
+  | 0b1000110u ->
+    parseSc5XSiUi bin Op.CMPGT (getLUnit s x)
+  | 0b1000111u ->
+    parseSiXSiUi bin Op.CMPGT (getLUnit s x)
+  | 0b1001000u ->
+    parseU4XU4U4 bin Op.MINU4 (getLUnit s x)
+  | 0b1001001u ->
+    parseXUiSp bin Op.INTSPU (getLUnit s x)
+  | 0b1001010u ->
+    parseXSiSp bin Op.INTSP (getLUnit s x)
+  | 0b1001011u ->
+    parseUiXUiUi bin Op.SUBC (getLUnit s x)
+  | 0b1001100u ->
+    parseUc4UlUi bin Op.CMPGTU (getLUnit s x)
+  | 0b1001101u ->
+    parseXUiUlUi bin Op.CMPGTU (getLUnit s x)
+  | 0b1001110u ->
+    parseUc4XUiUi bin Op.CMPGTU (getLUnit s x)
+  | 0b1001111u ->
+    parseUiXUiUi bin Op.CMPGTU (getLUnit s x)
+  | 0b1010000u ->
+    parseSc5SlUi bin Op.CMPEQ (getLUnit s x)
+  | 0b1010001u ->
+    parseXSiSlUi bin Op.CMPEQ (getLUnit s x)
+  | 0b1010010u ->
+    parseSc5XSiUi bin Op.CMPEQ (getLUnit s x)
+  | 0b1010011u ->
+    parseSiXSiUi bin Op.CMPEQ (getLUnit s x)
+  | 0b1010100u ->
+    parseSc5SlUi bin Op.CMPLT (getLUnit s x)
+  | 0b1010101u ->
+    parseXSiSlUi bin Op.CMPLT (getLUnit s x)
+  | 0b1010110u ->
+    parseSc5XSiUi bin Op.CMPLT (getLUnit s x)
+  | 0b1010111u ->
+    parseSiXSiUi bin Op.CMPLT (getLUnit s x)
+  | 0b1011010u ->
+    parseU4XU4U4 bin Op.SUBABS4 (getLUnit s x)
+  | 0b1011100u ->
+    parseUc4UlUi bin Op.CMPGTU (getLUnit s x)
+  | 0b1011101u ->
+    parseXUiUlUi bin Op.CMPGTU (getLUnit s x)
+  | 0b1011110u ->
+    parseUc4XUiUi bin Op.CMPGTU (getLUnit s x)
+  | 0b1011111u ->
+    parseUiXUiUi bin Op.CMPGTU (getLUnit s x)
+  | 0b1100000u ->
+    parseSlUi bin Op.NORM (getLUnit s x)
+  | 0b1100001u ->
+    parseU4XU4U4 bin Op.SHLMB (getLUnit s x)
+  | 0b1100010u ->
+    parseU4XU4U4 bin Op.SHRMB (getLUnit s x)
+  | 0b1100011u ->
+    parseXSiUi bin Op.NORM (getLUnit s x)
+  | 0b1100100u ->
+    parseS2XS2S2 bin Op.SSUB2 (getLUnit s x)
+  | 0b1100101u ->
+    parseI4Xi4I4 bin Op.ADD4 (getLUnit s x)
+  | 0b1100110u ->
+    parseI4Xi4I4 bin Op.SUB4 (getLUnit s x)
+  | 0b1101000u ->
+    parseI4Xi4I4 bin Op.PACKL4 (getLUnit s x)
+  | 0b1101001u ->
+    parseI4Xi4I4 bin Op.PACKH4 (getLUnit s x)
+  | 0b1101010u ->
+    parseC5XUiUi bin Op.LMBD (getLUnit s x)
+  | 0b1101011u ->
+    parseUiXUiUi bin Op.LMBD (getLUnit s x)
+  | 0b1101110u when isSrc111111 bin ->
+    parseXUiUi bin Op.NOT (getLUnit s x)
+  | 0b1101110u ->
+    parseSc5XUiUi bin Op.XOR (getLUnit s x)
+  | 0b1101111u ->
+    parseUiXUiUi bin Op.XOR (getLUnit s x)
+  | 0b1111010u ->
+    parseSc5XUiUi bin Op.AND (getLUnit s x)
+  | 0b1111011u ->
+    parseUiXUiUi bin Op.AND (getLUnit s x)
+  | 0b1111100u ->
+    parseUiXUiUi bin Op.ANDN (getLUnit s x)
+  | 0b1111110u when isSrc1Zero bin ->
+    parseXUiUi bin Op.MV (getLUnit s x)
+  | 0b1111110u ->
+    parseSc5XUiUi bin Op.OR (getLUnit s x)
+  | 0b1111111u ->
+    parseUiXUiUi bin Op.OR (getLUnit s x)
   (* parseSUnitAddSubFloat, F-2 *)
-  | 0b1110000u -> parseSpXSpSp bin Op.ADDSP (getSUnit s x)
-  | 0b1110001u -> parseSpXSpSp bin Op.SUBSP (getSUnit s x)
-  | 0b1110010u -> parseDpXDpDp bin Op.ADDDP (getSUnit s x)
-  | 0b1110011u -> parseDpXDpDp bin Op.SUBDP (getSUnit s x)
-  | 0b1110101u -> parseSpXSpSp bin Op.SUBSP (getSUnit s x) (* src2 - src1 *)
-  | 0b1110111u -> parseDpXDpDp bin Op.SUBDP (getSUnit s x) (* src2 - src1 *)
-  | _ -> raise ParsingFailureException
+  | 0b1110000u ->
+    parseSpXSpSp bin Op.ADDSP (getSUnit s x)
+  | 0b1110001u ->
+    parseSpXSpSp bin Op.SUBSP (getSUnit s x)
+  | 0b1110010u ->
+    parseDpXDpDp bin Op.ADDDP (getSUnit s x)
+  | 0b1110011u ->
+    parseDpXDpDp bin Op.SUBDP (getSUnit s x)
+  | 0b1110101u ->
+    parseSpXSpSp bin Op.SUBSP (getSUnit s x) (* src2 - src1 *)
+  | 0b1110111u ->
+    parseDpXDpDp bin Op.SUBDP (getSUnit s x) (* src2 - src1 *)
+  | _ ->
+    raise ParsingFailureException
 
 let private parseCase10 bin =
   match Bits.pick bin 4u with

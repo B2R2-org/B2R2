@@ -253,7 +253,8 @@ type LiftingUnitTests() =
         unit.IsThumb <- thumb
         for _ = 1 to 2000 do
           rng.NextBytes bytes
-          try unit.ParseInstruction(System.ReadOnlySpan bytes, 0UL) |> ignore
+          try
+            unit.ParseInstruction(System.ReadOnlySpan bytes, 0UL) |> ignore
           with
           | ParsingFailureException -> ()
           | e -> Assert.Fail $"{arch} thumb={thumb}: {e.GetType().Name}"

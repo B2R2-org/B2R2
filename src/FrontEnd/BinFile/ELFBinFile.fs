@@ -134,7 +134,8 @@ type ELFBinFile(path, bytes: byte[], baseAddrOpt, rfOpt) =
     Some { new INameResolvable with
       member _.TryResolveName addr =
         match onSymbols.TryResolveName addr with
-        | Ok name -> Ok name
+        | Ok name ->
+          Ok name
         | Error e ->
           match NoOverlapIntervalMap.tryFindByAddr addr plt.Value with
           | Some entry when entry.TableAddress = addr -> Ok entry.Name
@@ -468,7 +469,8 @@ type ELFBinFile(path, bytes: byte[], baseAddrOpt, rfOpt) =
       shdrs.Value
       |> Array.tryFind (fun s -> s.SecName = Section.GOT)
       |> Option.map (fun s -> s.SecAddr + 0x7ff0UL)
-    | _ -> None
+    | _ ->
+      None
 
   /// Try to find a section by its name.
   member internal _.TryFindSection(name: string) =
@@ -598,7 +600,8 @@ type ELFBinFile(path, bytes: byte[], baseAddrOpt, rfOpt) =
             else
               offset <- maxOffset + 1
               maxAddr <- ph.PHAddr + ph.PHMemSize - 1UL
-          else idx <- idx + 1
+          else
+            idx <- idx + 1
         if found then
           if offset > maxOffset then BinFilePointer.CreateVirtual(addr, maxAddr)
           else BinFilePointer.CreateFileBacked(addr, maxAddr, offset, maxOffset)

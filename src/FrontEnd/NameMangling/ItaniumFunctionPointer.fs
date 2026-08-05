@@ -52,10 +52,8 @@ let rec getArgs (input: string) index count res =
 
 /// Getting qualifiers.
 let getQualifier (input: string) index =
-  if input[index] = 'c' then
-    ("const", index + 5)
-  else
-    ("volatile", index + 8)
+  if input[index] = 'c' then ("const", index + 5)
+  else ("volatile", index + 8)
 
 /// Collecting seperated parts from previous function.
 let rec getList input index result =
@@ -80,7 +78,8 @@ let getReturnList input =
 /// Combining arguments list.
 let rec combine input cur res =
   match input with
-  | [] -> (res, cur)
+  | [] ->
+    (res, cur)
   | hd1 :: hd2 :: tail ->
     let hd1 = if (hd1 = "()") then "" else hd1
     if res = "" then
@@ -91,7 +90,8 @@ let rec combine input cur res =
       let otherLen = String.length res
       let result = res[0..cur] + hd1 + hd2 + res[(cur + 1)..(otherLen - 1)]
       combine tail (cur + len) result
-  | _ -> ("", 0)
+  | _ ->
+    ("", 0)
 
 /// Seperating pointers in start of beginning of function pointer for
 /// substitution.
@@ -99,7 +99,8 @@ let rec getPointers input cur res flag =
   match input with
   | FunctionPointer(FunctionBegin(Some _, Pointer d), k, b, c) ->
     match d with
-    | [] -> res
+    | [] ->
+      res
     | hd :: tail ->
       let newCur = hd :: cur
       let newBegin = FunctionBegin(Some [], Pointer newCur)
@@ -111,7 +112,8 @@ let rec getPointers input cur res flag =
         getPointers nextItem (newCur) (newItem :: help :: res) 0
       else
         getPointers nextItem (newCur) (newItem :: res) 0
-  | _ -> res
+  | _ ->
+    res
 
 /// Seperating pointers associated with qualifiers.
 let rec getQualifierandP input cur res =
@@ -119,7 +121,8 @@ let rec getQualifierandP input cur res =
   | FunctionPointer(FunctionBegin(Some(ConstVolatile(Pointer p, dis) :: tail1),
     d), k, b, c) ->
     match p with
-    | [] -> res
+    | [] ->
+      res
     | hd :: tail2 ->
       let newCur = hd :: cur
       let newValue = ConstVolatile(Pointer newCur, dis) :: tail1
@@ -129,7 +132,8 @@ let rec getQualifierandP input cur res =
       let nextBegin = FunctionBegin(Some nextValue, d)
       let nextItem = FunctionPointer(nextBegin, k, b, c)
       getQualifierandP (nextItem) (newCur) (newItem :: res)
-  | _ -> res
+  | _ ->
+    res
 
 /// Applying previous function for every element in the list part of
 /// FunctionBegin.
@@ -137,7 +141,8 @@ let rec merge input cur res =
   match input with
   | FunctionPointer(FunctionBegin(Some value, d), k, b, c) ->
     match List.rev value with
-    | [] -> res
+    | [] ->
+      res
     | ConstVolatile(Pointer p, dis) :: tail1 ->
       let newValue = ConstVolatile(Pointer [], dis) :: cur
       let newBegin = FunctionBegin(Some newValue, d)
@@ -149,8 +154,10 @@ let rec merge input cur res =
       let lastBegin = FunctionBegin(Some(List.rev tail1), d)
       let lastItem = FunctionPointer(lastBegin, k, b, c)
       merge lastItem newCur (result)
-    | _ -> res
-  | _ -> res
+    | _ ->
+      res
+  | _ ->
+    res
 
 let all input inputlist =
   match input with

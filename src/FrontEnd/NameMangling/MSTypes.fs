@@ -239,9 +239,12 @@ module internal PointerTypeIndicator =
       ""
     | VolatilePointer | VolatileReference | VolatileRValueReference ->
       " volatile"
-    | ConstantPointer -> " const"
-    | ConstantVolatilePointer -> " const volatile"
-    | UnknownPointer -> "?"
+    | ConstantPointer ->
+      " const"
+    | ConstantVolatilePointer ->
+      " const volatile"
+    | UnknownPointer ->
+      "?"
 
   let getPointerSymbol = function
     | EmptyPointer -> ""

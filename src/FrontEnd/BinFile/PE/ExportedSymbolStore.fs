@@ -61,7 +61,8 @@ module private ExportedSymbolStore =
 
   let parseEAT bytes (reader: IBinReader) secs range edt =
     match edt.ExportAddressTableRVA with
-    | 0 -> [||]
+    | 0 ->
+      [||]
     | rva ->
       let offset = getRawOffset secs rva
       let span = ReadOnlySpan(bytes, offset, edt.AddressTableEntries * 4)
@@ -123,7 +124,8 @@ module private ExportedSymbolStore =
 
   let parse baseAddr bytes reader (headers: PEHeaders) secs =
     match headers.PEHeader.ExportTableDirectory.RelativeVirtualAddress with
-    | 0 -> Map.empty, Map.empty
+    | 0 ->
+      Map.empty, Map.empty
     | rva ->
       let size = headers.PEHeader.ExportTableDirectory.Size
       let range = (rva, rva + size)

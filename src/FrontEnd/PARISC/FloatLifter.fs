@@ -58,7 +58,8 @@ let private low32 e = if Expr.typeOf e = 32<rt> then e else AST.xtlo 32<rt> e
 /// Reads a floating-point operand of the given width: one half of the named
 /// register for a single, both halves joined for a double.
 let private readFp (bld: ILowUIRBuilder) width reg =
-  if width = 32<rt> then low32 (regVar bld reg)
+  if width = 32<rt> then
+    low32 (regVar bld reg)
   else
     let l = leftHalf reg
     AST.concat (low32 (regVar bld l))
@@ -69,7 +70,8 @@ let private readFp (bld: ILowUIRBuilder) width reg =
 let private writeFp (bld: ILowUIRBuilder) width reg v =
   let rt = bld.RegType
   let widen e = if Expr.typeOf e = rt then e else AST.zext rt e
-  if width = 32<rt> then bld <+ (regVar bld reg := widen v)
+  if width = 32<rt> then
+    bld <+ (regVar bld reg := widen v)
   else
     let l = leftHalf reg
     bld <+ (regVar bld l := widen (AST.xthi 32<rt> v))
@@ -338,7 +340,8 @@ let fmpyadd (ins: Instruction) insLen bld =
     match ins.Operands with
     | FiveOperands(a, b, c, d, e) ->
       struct (getReg a, getReg b, getReg c, getReg d, getReg e)
-    | _ -> raise InvalidOperandException
+    | _ ->
+      raise InvalidOperandException
   let width = formatOf ins
   bld <!-- (ins.Address, insLen)
   let m1 = tmpVar bld width
@@ -350,8 +353,7 @@ let fmpyadd (ins: Instruction) insLen bld =
   bld <+ (addend := readFp bld width ra)
   bld <+ (target := readFp bld width ta)
   writeFp bld width tm (AST.fmul m1 m2)
-  if ins.Opcode = Op.FMPYSUB then
-    writeFp bld width ta (AST.fsub addend target)
+  if ins.Opcode = Op.FMPYSUB then writeFp bld width ta (AST.fsub addend target)
   else writeFp bld width ta (AST.fadd addend target)
   bld --!> insLen
 
@@ -362,7 +364,8 @@ let fmpyfadd (ins: Instruction) insLen bld =
     match ins.Operands with
     | FourOperands(a, b, c, d) ->
       struct (getReg a, getReg b, getReg c, getReg d)
-    | _ -> raise InvalidOperandException
+    | _ ->
+      raise InvalidOperandException
   let width = formatOf ins
   bld <!-- (ins.Address, insLen)
   let m1 = tmpVar bld width
@@ -373,7 +376,6 @@ let fmpyfadd (ins: Instruction) insLen bld =
   bld <+ (m2 := readFp bld width rm2)
   bld <+ (addend := readFp bld width ra)
   bld <+ (prod := AST.fmul m1 m2)
-  if ins.Opcode = Op.FMPYNFADD then
-    writeFp bld width dst (AST.fsub addend prod)
+  if ins.Opcode = Op.FMPYNFADD then writeFp bld width dst (AST.fsub addend prod)
   else writeFp bld width dst (AST.fadd prod addend)
   bld --!> insLen

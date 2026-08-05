@@ -67,25 +67,45 @@ and internal DWAttributeValue =
 with
   static member ToString(value: DWAttributeValue) =
     match value with
-    | DWAddr v -> $"0x{v:x}"
-    | DWUInt v -> $"{v}"
-    | DWSInt v -> $"{v}"
-    | DWBool v -> if v then "true" else "false"
-    | DWString s -> $"\"{s}\""
-    | DWStringOffset s -> $"\"{s}\""
-    | DWLineStringOffset s -> $"\"{s}\""
-    | DWBlock bytes -> $"{B2R2.ByteArray.toHexString bytes}"
-    | DWExprLoc expr -> $"{PrettyPrinter.ToString expr}"
-    | DWSectionOffset off -> $"(section offset: 0x{off:x})"
-    | DWUnitRef off -> $"(unit reference: 0x{off:x})"
-    | DWDebugInfoRef off -> $"(debug info reference: 0x{off:x})"
-    | DWTypeSignature sign -> $"(type signature: 0x{sign:x})"
-    | DWSupRef off -> $"(sup reference: 0x{off:x})"
-    | DWAddrIndex idx -> $"(address index: {idx})"
-    | DWStringIndex idx -> $"(string index: {idx})"
-    | DWLocListIndex idx -> $"(location list index: {idx})"
-    | DWRangeListIndex idx -> $"(range list index: {idx})"
-    | DWImplicitConst cst -> $"{cst}"
-    | DWBytes bytes -> $"{B2R2.ByteArray.toHexString bytes}"
+    | DWAddr v ->
+      $"0x{v:x}"
+    | DWUInt v ->
+      $"{v}"
+    | DWSInt v ->
+      $"{v}"
+    | DWBool v ->
+      if v then "true" else "false"
+    | DWString s ->
+      $"\"{s}\""
+    | DWStringOffset s ->
+      $"\"{s}\""
+    | DWLineStringOffset s ->
+      $"\"{s}\""
+    | DWBlock bytes ->
+      $"{B2R2.ByteArray.toHexString bytes}"
+    | DWExprLoc expr ->
+      $"{PrettyPrinter.ToString expr}"
+    | DWSectionOffset off ->
+      $"(section offset: 0x{off:x})"
+    | DWUnitRef off ->
+      $"(unit reference: 0x{off:x})"
+    | DWDebugInfoRef off ->
+      $"(debug info reference: 0x{off:x})"
+    | DWTypeSignature sign ->
+      $"(type signature: 0x{sign:x})"
+    | DWSupRef off ->
+      $"(sup reference: 0x{off:x})"
+    | DWAddrIndex idx ->
+      $"(address index: {idx})"
+    | DWStringIndex idx ->
+      $"(string index: {idx})"
+    | DWLocListIndex idx ->
+      $"(location list index: {idx})"
+    | DWRangeListIndex idx ->
+      $"(range list index: {idx})"
+    | DWImplicitConst cst ->
+      $"{cst}"
+    | DWBytes bytes ->
+      $"{B2R2.ByteArray.toHexString bytes}"
     | DWIndirect(form, v) ->
       $"indirect form: {form.ToString()}, value: {DWAttributeValue.ToString v}"

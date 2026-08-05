@@ -103,7 +103,8 @@ let private threeSame allowed u opcode ins =
     checkArrangement ins allowed t
     let size, q = arrangement t
     threeSameWith u size opcode q rd rn rm
-  | _ -> wrongOperands ins
+  | _ ->
+    wrongOperands ins
 
 /// The same, for the operations on floating-point elements: only one bit of
 /// the size field is theirs, and the other says which half of the family the
@@ -115,7 +116,8 @@ let private threeSameFP u hi opcode ins =
     sameArrangement ins t tm
     let sz, q = floatArrangement t
     threeSameWith u ((hi <<< 1) ||| sz) opcode q rd rn rm
-  | _ -> wrongOperands ins
+  | _ ->
+    wrongOperands ins
 
 /// The same, for the operations that read whole registers rather than
 /// elements: what would say how wide an element is says which of them it is.
@@ -130,7 +132,8 @@ let private threeSameLogical u size ins =
       | SixteenB -> 1u
       | vec -> fail $"{vec} is not an arrangement a logical operation takes"
     threeSameWith u size 0b00011u q rd rn rm
-  | _ -> wrongOperands ins
+  | _ ->
+    wrongOperands ins
 
 (* The operations that read two vectors and interleave them. *)
 /// <Vd>.<T>, <Vn>.<T>, <Vm>.<T>, which take the elements of their sources in
@@ -145,7 +148,8 @@ let private permute opcode ins =
     (q <<< 30) ||| (0b001110u <<< 24) ||| (size <<< 22)
     ||| (vectorReg rm <<< 16) ||| (opcode <<< 12) ||| (0b10u <<< 10)
     ||| (vectorReg rn <<< 5) ||| vectorReg rd
-  | _ -> wrongOperands ins
+  | _ ->
+    wrongOperands ins
 
 /// <Vd>.<T>, <Vn>.<T>, <Vm>.<T>, #<index>, which reads one run of elements
 /// spanning two registers.
@@ -165,7 +169,8 @@ let private extract ins =
     else
       (q <<< 30) ||| (0b101110u <<< 24) ||| (vectorReg rm <<< 16)
       ||| (unsignedImm 4 index <<< 11) ||| (vectorReg rn <<< 5) ||| vectorReg rd
-  | _ -> wrongOperands ins
+  | _ ->
+    wrongOperands ins
 
 /// <Vd>.<Ta>, { <Vn>.16B ... }, <Vm>.<Ta>, which reads its result out of a
 /// table of up to four registers.
@@ -193,7 +198,8 @@ let private tableLookup op ins =
       (q <<< 30) ||| (0b001110u <<< 24) ||| (vectorReg rm <<< 16)
       ||| (uint32 (List.length registers - 1) <<< 13) ||| (op <<< 12)
       ||| (first <<< 5) ||| vectorReg rd
-  | _ -> wrongOperands ins
+  | _ ->
+    wrongOperands ins
 
 (* The operations that move an element between a vector and somewhere else. *)
 /// How far up a field the index of an element sits, which is as many places as
@@ -209,7 +215,8 @@ let elementShift ins = function
 let checkIndex ins vec (index: uint8) =
   if uint32 index >= (16u >>> elementShift ins vec) then
     fail $"a vector of {vec} elements has no element #{index}"
-  else ()
+  else
+    ()
 
 /// <summary>
 /// The imm5 field, which says both how wide the element it names is and which
@@ -247,7 +254,8 @@ let private duplicate ins =
       let _, q = arrangement t
       copyWith q 0u (elementSelector ins vec 0uy) 0b0001u (coreReg rn)
                (vectorReg rd)
-  | _ -> wrongOperands ins
+  | _ ->
+    wrongOperands ins
 
 /// <summary>
 /// SMOV and UMOV, which read one element into a general register. How wide that
@@ -274,7 +282,8 @@ let private moveToGeneral extends imm4 ins =
     else
       copyWith (if is64 then 1u else 0u) 0u (elementSelector ins vec index) imm4
                (vectorReg rn) (coreReg rd)
-  | _ -> wrongOperands ins
+  | _ ->
+    wrongOperands ins
 
 /// INS, which writes one element, taking it either from a general register or
 /// from an element of another vector.
@@ -295,7 +304,8 @@ let private insert ins =
     else
       copyWith 1u 0u (elementSelector ins vec index) 0b0011u (coreReg rn)
                (vectorReg rd)
-  | _ -> wrongOperands ins
+  | _ ->
+    wrongOperands ins
 
 (* The operations that read one vector. *)
 /// The bits every one of them shares.
@@ -312,7 +322,8 @@ let private twoReg allowed u opcode ins =
     checkArrangement ins allowed t
     let size, q = arrangement t
     twoRegWith u size opcode q rd rn
-  | _ -> wrongOperands ins
+  | _ ->
+    wrongOperands ins
 
 /// The same, for the operations that read whole registers: what would say how
 /// wide an element is says which of them it is instead.
@@ -326,7 +337,8 @@ let private twoRegLogical u size opcode ins =
       | SixteenB -> 1u
       | vec -> fail $"{vec} is not an arrangement this operation takes"
     twoRegWith u size opcode q rd rn
-  | _ -> wrongOperands ins
+  | _ ->
+    wrongOperands ins
 
 /// The same, for floating-point elements.
 let private twoRegFP allowed u hi opcode ins =
@@ -336,7 +348,8 @@ let private twoRegFP allowed u hi opcode ins =
     checkArrangement ins allowed t
     let sz, q = floatArrangement t
     twoRegWith u ((hi <<< 1) ||| sz) opcode q rd rn
-  | _ -> wrongOperands ins
+  | _ ->
+    wrongOperands ins
 
 /// <Vd>.<T>, <Vn>.<T>, #0, the comparisons against nothing.
 let private compareZero u opcode ins =
@@ -346,7 +359,8 @@ let private compareZero u opcode ins =
     checkArrangement ins NotLone t
     let size, q = arrangement t
     twoRegWith u size opcode q rd rn
-  | _ -> wrongOperands ins
+  | _ ->
+    wrongOperands ins
 
 /// The same, for floating-point elements, whose nothing is written as one.
 let private compareZeroFP u hi opcode ins =
@@ -355,7 +369,8 @@ let private compareZeroFP u hi opcode ins =
     sameArrangement ins t tn
     let sz, q = floatArrangement t
     twoRegWith u ((hi <<< 1) ||| sz) opcode q rd rn
-  | _ -> wrongOperands ins
+  | _ ->
+    wrongOperands ins
 
 /// <Vd>.<Ta>, <Vn>.<Tb>, the operations that write elements twice as wide as
 /// the ones they read.
@@ -366,7 +381,8 @@ let private twoRegWidening u opcode ins =
     checkArrangement ins NotLong tn
     let size, q = arrangement tn
     twoRegWith u size opcode q rd rn
-  | _ -> wrongOperands ins
+  | _ ->
+    wrongOperands ins
 
 /// <Vd>.<Tb>, <Vn>.<Ta>, the operations that write elements half as wide as
 /// the ones they read, of which the second half writes the top of its
@@ -378,7 +394,8 @@ let private twoRegNarrowing u opcode ins =
     checkArrangement ins NotLong t
     let size, q = arrangement t
     twoRegWith u size opcode q rd rn
-  | _ -> wrongOperands ins
+  | _ ->
+    wrongOperands ins
 
 /// The same, for the conversions between floating-point widths, which say only
 /// whether the narrower of the two is a word.
@@ -389,7 +406,8 @@ let private convertNarrowing allowed u opcode ins =
     checkArrangement ins allowed t
     let size, q = arrangement t
     twoRegWith u (size >>> 1) opcode q rd rn
-  | _ -> wrongOperands ins
+  | _ ->
+    wrongOperands ins
 
 /// The same the other way round, which reads the narrower of the two.
 let private convertWidening u opcode ins =
@@ -398,7 +416,8 @@ let private convertWidening u opcode ins =
     sameArrangement ins t (widened tn)
     let size, q = arrangement tn
     twoRegWith u (size >>> 1) opcode q rd rn
-  | _ -> wrongOperands ins
+  | _ ->
+    wrongOperands ins
 
 /// SHLL, which widens every element by shifting it up by its own width, and so
 /// writes that width as the amount it shifts by.
@@ -410,8 +429,10 @@ let private shiftLong ins =
     let size, q = arrangement tn
     if amount <> (8L <<< int size) then
       fail $"#{amount} is not how far {ins.Opcode} shifts {tn}"
-    else twoRegWith 1u size 0b10011u q rd rn
-  | _ -> wrongOperands ins
+    else
+      twoRegWith 1u size 0b10011u q rd rn
+  | _ ->
+    wrongOperands ins
 
 (* The operations that read every lane of one vector into one element. *)
 /// The bits every one of them shares.
@@ -431,7 +452,8 @@ let private across u opcode ins =
     checkArrangement ins Across tn
     let size, q = arrangement tn
     acrossWith u size opcode q (simdReg (elementWidth tn) rd) rn
-  | _ -> wrongOperands ins
+  | _ ->
+    wrongOperands ins
 
 /// The same, for the ones whose destination is twice as wide as what they
 /// read.
@@ -441,7 +463,8 @@ let private acrossWidening u opcode ins =
     checkArrangement ins Across tn
     let size, q = arrangement tn
     acrossWith u size opcode q (simdReg (2 * elementWidth tn) rd) rn
-  | _ -> wrongOperands ins
+  | _ ->
+    wrongOperands ins
 
 /// The same, for floating-point elements, of which they read four words.
 let private acrossFP u hi opcode ins =
@@ -450,7 +473,8 @@ let private acrossFP u hi opcode ins =
     checkArrangement ins FloatFourS tn
     let sz, q = floatArrangement tn
     acrossWith u ((hi <<< 1) ||| sz) opcode q (simdReg 32 rd) rn
-  | _ -> wrongOperands ins
+  | _ ->
+    wrongOperands ins
 
 (* The operations that read and write elements of different widths. *)
 /// The bits every one of them shares.
@@ -469,7 +493,8 @@ let private threeDiffLong allowed u opcode ins =
     checkArrangement ins allowed tn
     let size, q = arrangement tn
     threeDiffWith u size opcode q rd rn rm
-  | _ -> wrongOperands ins
+  | _ ->
+    wrongOperands ins
 
 /// <Vd>.<Ta>, <Vn>.<Ta>, <Vm>.<Tb>, which reads one source at the width it
 /// writes and the other at half of it.
@@ -481,7 +506,8 @@ let private threeDiffWide u opcode ins =
     checkArrangement ins NotLong tm
     let size, q = arrangement tm
     threeDiffWith u size opcode q rd rn rm
-  | _ -> wrongOperands ins
+  | _ ->
+    wrongOperands ins
 
 /// <Vd>.<Tb>, <Vn>.<Ta>, <Vm>.<Ta>, which writes elements half as wide as the
 /// ones it reads.
@@ -493,7 +519,8 @@ let private threeDiffNarrow u opcode ins =
     checkArrangement ins NotLong t
     let size, q = arrangement t
     threeDiffWith u size opcode q rd rn rm
-  | _ -> wrongOperands ins
+  | _ ->
+    wrongOperands ins
 
 (* The operations that hold their second source as an immediate. *)
 /// <summary>
@@ -546,12 +573,15 @@ let private modImm allowed op logical ins =
     let _, q = arrangement t
     let cmode = modifiedImm ins t (immShift ins rest)
     let cmode =
-      if not logical then cmode
+      if not logical then
+        cmode
       elif cmode &&& 0b1001u = 0b0000u || cmode &&& 0b1101u = 0b1000u then
         cmode ||| 1u
-      else wrongOperands ins
+      else
+        wrongOperands ins
     modImmWith q op cmode (unsignedImm 8 imm) (vectorReg rd)
-  | _ -> wrongOperands ins
+  | _ ->
+    wrongOperands ins
 
 /// <summary>
 /// The byte a move of a long immediate holds, which stands for the whole of it
@@ -580,7 +610,8 @@ let private moveLongImm ins =
     modImmWith 1u 1u 0b1110u (replicatedByte imm) (vectorReg rd)
   | TwoOperands(Rg rd, Im imm) ->
     modImmWith 0u 1u 0b1110u (replicatedByte imm) (simdReg 64 rd)
-  | _ -> wrongOperands ins
+  | _ ->
+    wrongOperands ins
 
 /// <summary>
 /// The eight bits a floating-point immediate stands for, which hold a sign, a
@@ -609,7 +640,8 @@ let moveFloatImm ins =
     checkArrangement ins Float t
     let _, q = arrangement t
     modImmWith q 0u 0b1111u (floatImm value) (vectorReg rd)
-  | _ -> wrongOperands ins
+  | _ ->
+    wrongOperands ins
 
 (* The operations that shift by an immediate. *)
 /// The bits every one of them shares, whose immh and immb fields say both how
@@ -624,7 +656,8 @@ let rightShift ins vec amount =
   let width = int64 (elementWidth vec)
   if amount < 1L || amount > width then
     fail $"a vector of {vec} cannot be shifted right by #{amount}"
-  else uint32 (2L * width - amount)
+  else
+    uint32 (2L * width - amount)
 
 /// The same for a shift to the left, which holds the width and the shift added
 /// together.
@@ -632,7 +665,8 @@ let leftShift ins vec amount =
   let width = int64 (elementWidth vec)
   if amount < 0L || amount >= width then
     fail $"a vector of {vec} cannot be shifted left by #{amount}"
-  else uint32 (width + amount)
+  else
+    uint32 (width + amount)
 
 /// <Vd>.<T>, <Vn>.<T>, #<shift>
 let private shiftImm u opcode toField ins =
@@ -642,7 +676,8 @@ let private shiftImm u opcode toField ins =
     checkArrangement ins NotLone t
     let _, q = arrangement t
     shiftImmWith u opcode q (toField ins t amount) rd rn
-  | _ -> wrongOperands ins
+  | _ ->
+    wrongOperands ins
 
 /// <Vd>.<Tb>, <Vn>.<Ta>, #<shift>, which writes elements half as wide as the
 /// ones it reads and counts the shift in the narrower of the two.
@@ -653,7 +688,8 @@ let private shiftImmNarrow u opcode ins =
     checkArrangement ins NotLong t
     let _, q = arrangement t
     shiftImmWith u opcode q (rightShift ins t amount) rd rn
-  | _ -> wrongOperands ins
+  | _ ->
+    wrongOperands ins
 
 /// <Vd>.<Ta>, <Vn>.<Tb>, #<shift>, which writes elements twice as wide.
 let private shiftImmLong u opcode ins =
@@ -663,7 +699,8 @@ let private shiftImmLong u opcode ins =
     checkArrangement ins NotLong tn
     let _, q = arrangement tn
     shiftImmWith u opcode q (leftShift ins tn amount) rd rn
-  | _ -> wrongOperands ins
+  | _ ->
+    wrongOperands ins
 
 /// <Vd>.<T>, <Vn>.<T>, #<fbits>, the conversions between a floating-point
 /// element and one holding a fraction of that many bits.
@@ -674,7 +711,8 @@ let private convertFixed u opcode ins =
     checkArrangement ins Float t
     let _, q = arrangement t
     shiftImmWith u opcode q (rightShift ins t amount) rd rn
-  | _ -> wrongOperands ins
+  | _ ->
+    wrongOperands ins
 
 (* The operations that read one element of their second source. *)
 /// <summary>
@@ -695,8 +733,10 @@ let indexedSource ins vec (reg: Register) (index: uint8) =
   | VecS when index < 4u ->
     0b10u, ((index &&& 0b1u) <<< 21) ||| (number <<< 16)
            ||| ((index >>> 1) <<< 11)
-  | VecD when index < 2u -> 0b11u, (number <<< 16) ||| (index <<< 11)
-  | _ -> wrongOperands ins
+  | VecD when index < 2u ->
+    0b11u, (number <<< 16) ||| (index <<< 11)
+  | _ ->
+    wrongOperands ins
 
 /// The bits every one of them shares.
 let private indexedWith u opcode q size source rd rn =
@@ -713,7 +753,8 @@ let private indexed u opcode ins =
     let selected, source = indexedSource ins vec rm index
     if size <> selected then wrongOperands ins
     else indexedWith u opcode q size source rd rn
-  | _ -> wrongOperands ins
+  | _ ->
+    wrongOperands ins
 
 /// The same, for floating-point elements, whose size field says only whether
 /// they are doublewords.
@@ -725,7 +766,8 @@ let private indexedFP u opcode ins =
     let selected, source = indexedSource ins vec rm index
     if selected <> (0b10u ||| sz) then wrongOperands ins
     else indexedWith u opcode q (0b10u ||| sz) source rd rn
-  | _ -> wrongOperands ins
+  | _ ->
+    wrongOperands ins
 
 /// <Vd>.<Ta>, <Vn>.<Tb>, <Vm>.<Ts>[<index>], which writes elements twice as
 /// wide as the ones it reads.
@@ -738,7 +780,8 @@ let private indexedLong u opcode ins =
     let selected, source = indexedSource ins vec rm index
     if size <> selected then wrongOperands ins
     else indexedWith u opcode q size source rd rn
-  | _ -> wrongOperands ins
+  | _ ->
+    wrongOperands ins
 
 /// The instructions that scramble the bytes of one register, which name no
 /// element width of their own.
@@ -747,7 +790,8 @@ let private crypto opcode ins =
   | TwoOperands(Vec(rd, SixteenB), Vec(rn, SixteenB)) ->
     (0b01001110u <<< 24) ||| (0b10100u <<< 17) ||| (opcode <<< 12)
     ||| (0b10u <<< 10) ||| (vectorReg rn <<< 5) ||| vectorReg rd
-  | _ -> wrongOperands ins
+  | _ ->
+    wrongOperands ins
 
 /// <summary>
 /// The operations written under one name in more than one of these families,
@@ -813,7 +857,8 @@ let private moveImm ins =
   match ins.Operands with
   | TwoOperands(Vec(_, TwoD), _) | TwoOperands(OprSIMD(ScalarReg _), _) ->
     moveLongImm ins
-  | _ -> modImm Any 0u false ins
+  | _ ->
+    modImm Any 0u false ins
 
 /// <summary>
 /// MOV, which the manual defines as three instructions: an inclusive or of a
@@ -827,8 +872,10 @@ let move ins =
       { ins with Operands = ThreeOperands(OprSIMD(VecReg(rd, t)),
                                           OprSIMD(VecReg(rn, t)),
                                           OprSIMD(VecReg(rn, t))) }
-  | TwoOperands(Rg _, Elem _) -> moveToGeneral false 0b0111u ins
-  | _ -> insert ins
+  | TwoOperands(Rg _, Elem _) ->
+    moveToGeneral false 0b0111u ins
+  | _ ->
+    insert ins
 
 let vectorEncoders () =
   [ Opcode.SHADD, threeSame NotLong 0u 0b00000u

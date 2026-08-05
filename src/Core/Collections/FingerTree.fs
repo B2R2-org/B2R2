@@ -239,8 +239,10 @@ let rec foldr<'V, 'A, 'B when 'V :> IMonoid<'V>
                           and 'A :> IMeasured<'V>
              > (f: 'A -> 'B -> 'B) (t: FingerTree<'V, 'A>) (acc: 'B): 'B =
   match t with
-  | Empty -> acc
-  | Single x -> f x acc
+  | Empty ->
+    acc
+  | Single x ->
+    f x acc
   | Deep(_, pr, m, sf) ->
     let acc = Digit<'V, 'A>.Foldr(f, sf, acc)
     let acc = foldr (fun node acc -> Node<'V, 'A>.Foldr(f, node, acc)) m acc
@@ -252,8 +254,10 @@ let rec foldl<'V, 'A, 'B when 'V :> IMonoid<'V>
                           and 'A :> IMeasured<'V>
              > (fn: 'B -> 'A -> 'B) (acc: 'B) (t: FingerTree<'V, 'A>): 'B =
   match t with
-  | Empty -> acc
-  | Single x -> fn acc x
+  | Empty ->
+    acc
+  | Single x ->
+    fn acc x
   | Deep(_, pr, m, sf) ->
     let acc = Digit<'V, 'A>.Foldl(fn, acc, pr)
     let acc = foldl (fun acc node -> Node<'V, 'A>.Foldl(fn, acc, node)) acc m
@@ -309,8 +313,10 @@ type Op<'V, 'A when 'V :> IMonoid<'V>
   /// Prepend an element to the left end of a FingerTree.
   static member Cons(a: 'A, tree: FingerTree<'V, 'A>): FingerTree<'V, 'A> =
     match tree with
-    | Empty -> Single a
-    | Single b -> Deep(calib a ++ calib b, One a, Empty, One b)
+    | Empty ->
+      Single a
+    | Single b ->
+      Deep(calib a ++ calib b, One a, Empty, One b)
     | Deep(_, Four(b, c, d, e), m, suffix) ->
       Op.Deep(Two(a, b), Op.Cons(Op.Node3(c, d, e), m), suffix)
     | Deep(v, prefix, m, suffix) ->
@@ -319,8 +325,10 @@ type Op<'V, 'A when 'V :> IMonoid<'V>
   /// Append an element to the right end of a FingerTree.
   static member Snoc(tree: FingerTree<'V, 'A>, a: 'A): FingerTree<'V, 'A> =
     match tree with
-    | Empty -> Single a
-    | Single b -> Deep(calib b ++ calib a, One b, Empty, One a)
+    | Empty ->
+      Single a
+    | Single b ->
+      Deep(calib b ++ calib a, One b, Empty, One a)
     | Deep(_, prefix, m, Four(e, d, c, b)) ->
       Op.Deep(prefix, Op.Snoc(m, Op.Node3(e, d, c)), Two(b, a))
     | Deep(v, prefix, m, suffix) ->
@@ -336,9 +344,12 @@ type Op<'V, 'A when 'V :> IMonoid<'V>
 
   static member ViewL(tree: FingerTree<'V, 'A>): View<'A, FingerTree<'V, 'A>> =
     match tree with
-    | Empty -> Nil
-    | Single x -> Cons(x, Empty)
-    | Deep(_, One a, m, sf) -> Cons(a, Op.DeepL(m, sf))
+    | Empty ->
+      Nil
+    | Single x ->
+      Cons(x, Empty)
+    | Deep(_, One a, m, sf) ->
+      Cons(a, Op.DeepL(m, sf))
     | Deep(_, pr, m, sf) ->
       let hd, tl =
         match pr with
@@ -356,9 +367,12 @@ type Op<'V, 'A when 'V :> IMonoid<'V>
 
   static member ViewR(tree: FingerTree<'V, 'A>): View<'A, FingerTree<'V, 'A>> =
     match tree with
-    | Empty -> Nil
-    | Single x -> Cons(x, Empty)
-    | Deep(_, pr, m, One a) -> Cons(a, Op.DeepR(m, pr))
+    | Empty ->
+      Nil
+    | Single x ->
+      Cons(x, Empty)
+    | Deep(_, pr, m, One a) ->
+      Cons(a, Op.DeepR(m, pr))
     | Deep(_, pr, m, sf) ->
       let rest, l =
         match sf with
@@ -417,17 +431,21 @@ type Op<'V, 'A when 'V :> IMonoid<'V>
                              ts: 'A list,
                              t2: FingerTree<'V, 'A>): FingerTree<'V, 'A> =
     match t1, t2 with
-    | Empty, xs -> List.foldBack (fun t acc -> Op.Cons(t, acc)) ts xs
-    | xs, Empty -> List.fold (fun acc t -> Op.Snoc(acc, t)) xs ts
+    | Empty, xs ->
+      List.foldBack (fun t acc -> Op.Cons(t, acc)) ts xs
+    | xs, Empty ->
+      List.fold (fun acc t -> Op.Snoc(acc, t)) xs ts
     | Single x, xs ->
       Op.Cons(x, List.foldBack (fun t acc -> Op.Cons(t, acc)) ts xs)
-    | xs, Single x -> Op.Snoc(List.fold (fun acc t -> Op.Snoc(acc, t)) xs ts, x)
+    | xs, Single x ->
+      Op.Snoc(List.fold (fun acc t -> Op.Snoc(acc, t)) xs ts, x)
     | Deep(_, pr1, m1, sf1), Deep(_, pr2, m2, sf2) ->
       Op.Deep(pr1, Op.App3(m1, Op.Nodes(sf1, ts, pr2), m2), sf2)
 
   static member private SplitDigit(pred, i, digit: Digit<'V, 'A>) =
     match digit with
-    | One(a) -> [], a, []
+    | One(a) ->
+      [], a, []
     | Two(a, b) ->
       let i' = i ++ calib a
       if pred i' then [], a, [ b ] else [ a ], b, []
@@ -466,8 +484,10 @@ type Op<'V, 'A when 'V :> IMonoid<'V>
   static member SplitTree(p: 'V -> bool, i: 'V, tree: FingerTree<'V, 'A>)
                           : Split<FingerTree<'V, 'A>, 'A> =
     match tree with
-    | Empty -> raise EmptyTreeException
-    | Single x -> Empty, x, Empty
+    | Empty ->
+      raise EmptyTreeException
+    | Single x ->
+      Empty, x, Empty
     | Deep(_, pr, m, sf) ->
       let vpr = i ++ calib pr
       if p vpr then
@@ -496,11 +516,13 @@ type Op<'V, 'A when 'V :> IMonoid<'V>
   static member Split(p: 'V -> bool, tree: FingerTree<'V, 'A>)
                       : FingerTree<'V, 'A> * FingerTree<'V, 'A> =
     match tree with
-    | Empty -> Empty, Empty
+    | Empty ->
+      Empty, Empty
     | xs when p (calib xs) ->
       let l, x, r = Op.SplitTree(p, tree.Monoid.Zero, xs)
       l, Op.Cons(x, r)
-    | xs -> xs, Empty
+    | xs ->
+      xs, Empty
 
   /// Returns the prefix before the predicate (p) first holds.
   static member TakeUntil(p, tree: FingerTree<'V, 'A>) =

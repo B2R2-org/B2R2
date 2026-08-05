@@ -137,7 +137,5 @@ module HexdumpState =
       let startOffset = int64 startRow * int64 bytesPerRow
       let endOffset =
         min (docLength - 1L) (int64 endRowExclusive * int64 bytesPerRow - 1L)
-      if startOffset < 0L || endOffset < 0L || startOffset > endOffset then
-        None
-      else
-        Some(startOffset, endOffset)
+      if startOffset < 0L || endOffset < 0L || startOffset > endOffset then None
+      else Some(startOffset, endOffset)

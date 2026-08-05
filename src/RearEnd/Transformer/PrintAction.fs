@@ -31,12 +31,16 @@ open B2R2
 type PrintAction() =
   let rec print (o: obj) =
     let typ = o.GetType()
-    if typ = typeof<ObjCollection> then printObjCollection o
-    elif typ = typeof<ClusterResult> then printClusterResult o
-    elif typ.IsArray then printArray o
+    if typ = typeof<ObjCollection> then
+      printObjCollection o
+    elif typ = typeof<ClusterResult> then
+      printClusterResult o
+    elif typ.IsArray then
+      printArray o
     elif FSharpType.IsUnion typ
       && typ.BaseType = typeof<OutString> then printOutString o
-    else printsn (o.ToString())
+    else
+      printsn (o.ToString())
 
   and printObjCollection (o: obj) =
     let res = o :?> ObjCollection

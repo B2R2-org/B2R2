@@ -308,12 +308,12 @@ let private offsetToString (builder: IDisasmBuilder) offset =
   match offset with
   | UCst5 i -> builder.Accumulate(AsmWordKind.Value, i.ToString())
   | UCst15 i -> builder.Accumulate(AsmWordKind.Value, i.ToString())
-  | OffsetR r ->
-    builder.Accumulate(AsmWordKind.Variable, Register.toString r)
+  | OffsetR r -> builder.Accumulate(AsmWordKind.Variable, Register.toString r)
 
 let private buildMemOffset (builder: IDisasmBuilder) offset =
   match offset with
-  | UCst5 0UL -> ()
+  | UCst5 0UL ->
+    ()
   | offset ->
     builder.Accumulate(AsmWordKind.String, "[")
     offsetToString builder offset
@@ -343,7 +343,8 @@ let oprToString opr delim (builder: IDisasmBuilder) =
 
 let buildOprs (ins: Instruction) builder =
   match ins.Operands with
-  | NoOperand -> ()
+  | NoOperand ->
+    ()
   | OneOperand opr ->
     oprToString opr " " builder
   | TwoOperands(opr1, opr2) ->

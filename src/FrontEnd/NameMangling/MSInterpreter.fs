@@ -29,16 +29,20 @@ open B2R2.FrontEnd.NameMangling.MSUtils
 /// Main interpreter function that outputs the demangled string
 let rec interpret (sample: MSExpr) =
   match sample with
-  | Name str -> str
-  | Constructor name -> interpret (FullName [ name; name ])
+  | Name str ->
+    str
+  | Constructor name ->
+    interpret (FullName [ name; name ])
   | Destructor name ->
     let constName = interpret name
     sprintf "%s::~%s" constName constName
   | FullName lst ->
     List.map interpret lst
     |> List.reduce (fun x y -> y + "::" + x)
-  | SimpleBuiltInType t -> NormalBuiltInType.toString t
-  | ExtendedBuiltInType t -> UnderscoredBuiltInType.toString t
+  | SimpleBuiltInType t ->
+    NormalBuiltInType.toString t
+  | ExtendedBuiltInType t ->
+    UnderscoredBuiltInType.toString t
   | PointerT(ptrStrT, PointerT(ptrStrT2, pt2)) ->
     let pointerStr = interpret ptrStrT
     let mainType = interpret (PointerT(changeToNormalPointer ptrStrT2, pt2))
@@ -72,7 +76,8 @@ let rec interpret (sample: MSExpr) =
     let tList = List.filter (fun x -> x <> IgnoredType) tList
     let argStr = makeTemplateArgs (List.map interpret tList)
     name + argStr
-  | ComplexT(nm, comp) -> ComplexTypeKind.toString nm + interpret comp
+  | ComplexT(nm, comp) ->
+    ComplexTypeKind.toString nm + interpret comp
   | EnumType(c, name) ->
     let enumName = interpret name
     let enumType = EnumTypeKind.toString c
@@ -115,9 +120,12 @@ let rec interpret (sample: MSExpr) =
     let dimensionStr = String.replicate dimension "[]"
     let dataTString = interpret dataT
     dataTString.Trim() + dimensionStr
-  | RTTI0 t -> interpret t + " 'RTTI Type Descriptor'"
-  | NestedFunc f -> sprintf "`%s'" ((interpret f).Trim())
-  | MangledSymbolPtr c -> "&" + interpret c
+  | RTTI0 t ->
+    interpret t + " 'RTTI Type Descriptor'"
+  | NestedFunc f ->
+    sprintf "`%s'" ((interpret f).Trim())
+  | MangledSymbolPtr c ->
+    "&" + interpret c
   | ModifiedType(typeN, modInfo) ->
     let prefixes, modifier = modInfo
     let preStr, postStr = getPrefixModStr prefixes
@@ -140,4 +148,5 @@ let rec interpret (sample: MSExpr) =
   | ConcatT(compList) ->
     List.map interpret compList |>
     List.reduce (+)
-  | IgnoredType -> ""
+  | IgnoredType ->
+    ""

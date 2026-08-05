@@ -39,25 +39,35 @@ let parseTWI bitLen bin =
   let value = simm16 bitLen bin |> OprImm
   match Bits.extract bin 25u 21u with
   (* twlgti ra,value = twi 1,ra,value *)
-  | 1u -> struct (Op.TWLGTI, TwoOperands(ra, value))
+  | 1u ->
+    struct (Op.TWLGTI, TwoOperands(ra, value))
   (* twllti ra,value = twi 2,ra,value *)
-  | 2u -> struct (Op.TWLLTI, TwoOperands(ra, value))
+  | 2u ->
+    struct (Op.TWLLTI, TwoOperands(ra, value))
   (* tweqi ra,value = twi 4,ra,value *)
-  | 4u -> struct (Op.TWEQI, TwoOperands(ra, value))
+  | 4u ->
+    struct (Op.TWEQI, TwoOperands(ra, value))
   (* twlnli ra,value = twi 5,ra,value *)
-  | 5u -> struct (Op.TWLNLI, TwoOperands(ra, value))
+  | 5u ->
+    struct (Op.TWLNLI, TwoOperands(ra, value))
   (* twllei ra,value = twi 6,ra,value *)
-  | 6u -> struct (Op.TWLLEI, TwoOperands(ra, value))
+  | 6u ->
+    struct (Op.TWLLEI, TwoOperands(ra, value))
   (* twgti ra,value = twi 8,ra,value *)
-  | 8u -> struct (Op.TWGTI, TwoOperands(ra, value))
+  | 8u ->
+    struct (Op.TWGTI, TwoOperands(ra, value))
   (* twgei ra,value = twi 12,ra,value *)
-  | 12u -> struct (Op.TWGEI, TwoOperands(ra, value))
+  | 12u ->
+    struct (Op.TWGEI, TwoOperands(ra, value))
   (* twlti ra,value = twi 16,ra,value *)
-  | 16u -> struct (Op.TWLTI, TwoOperands(ra, value))
+  | 16u ->
+    struct (Op.TWLTI, TwoOperands(ra, value))
   (* twlei ra,value = twi 20,ra,value *)
-  | 20u -> struct (Op.TWLEI, TwoOperands(ra, value))
+  | 20u ->
+    struct (Op.TWLEI, TwoOperands(ra, value))
   (* twnei ra,value = twi 24,ra,value *)
-  | 24u -> struct (Op.TWNEI, TwoOperands(ra, value))
+  | 24u ->
+    struct (Op.TWNEI, TwoOperands(ra, value))
   (* twllei ra,value = twlngi ra, value = twi 6,ra,value
      twgei ra,value = twlgei ra, value = twnli ra, value = twi 12,ra,value
      twlei ra,value = twngi ra, value = twi 20,ra,value *)
@@ -88,7 +98,8 @@ let parseCMPLI bin =
     | 0b0u -> struct (Op.CMPLWI, ThreeOperands(crfd, ra, uimm))
     (* cmpldi crfd,ra,uimm = cmpli crfd,1,ra,uimm *)
     | _ -> struct (Op.CMPLDI, ThreeOperands(crfd, ra, uimm))
-  | _ (* 1 *) -> raise ParsingFailureException
+  | _ (* 1 *) ->
+    raise ParsingFailureException
 
 let parseCMPI bitLen bin =
   match Bits.pick bin 22u with
@@ -101,7 +112,8 @@ let parseCMPI bitLen bin =
     | 0b0u -> struct (Op.CMPWI, ThreeOperands(crfd, ra, value))
     (* cmpdi crfd,ra,simm = cmpi crfd,1,ra,simm *)
     | _ -> struct (Op.CMPDI, ThreeOperands(crfd, ra, value))
-  | _ (* 1 *) -> raise ParsingFailureException
+  | _ (* 1 *) ->
+    raise ParsingFailureException
 
 let parseADDIC bitLen bin =
   let rd = getRegister (Bits.extract bin 25u 21u) |> OprReg
@@ -121,7 +133,8 @@ let parseADDI bitLen bin =
   let rd = getRegister (Bits.extract bin 25u 21u) |> OprReg
   let value = simm16 bitLen bin |> OprImm
   match Bits.extract bin 20u 16u with
-  | 0b0u -> struct (Op.LI, TwoOperands(rd, value))
+  | 0b0u ->
+    struct (Op.LI, TwoOperands(rd, value))
   (* subi rd,ra,value = addi rd,ra,-value *)
   | _ ->
     let ra = getRegister (Bits.extract bin 20u 16u) |> OprReg
@@ -131,7 +144,8 @@ let parseADDIS bitLen bin =
   let rd = getRegister (Bits.extract bin 25u 21u) |> OprReg
   let value = simm16 bitLen bin |> OprImm
   match Bits.extract bin 20u 16u with
-  | 0b0u -> struct (Op.LIS, TwoOperands(rd, value))
+  | 0b0u ->
+    struct (Op.LIS, TwoOperands(rd, value))
   (* subis rd,ra,value = addis rd,ra,-value *)
   | _ ->
     let ra = getRegister (Bits.extract bin 20u 16u) |> OprReg
@@ -175,10 +189,12 @@ let parseMCRF bin =
     let crfd = getCondRegister (Bits.extract bin 25u 23u) |> OprReg
     let crfs = getCondRegister (Bits.extract bin 20u 18u) |> OprReg
     struct (Op.MCRF, TwoOperands(crfd, crfs))
-  | _ (* 1 *) -> raise ParsingFailureException
+  | _ (* 1 *) ->
+    raise ParsingFailureException
 
 let parseBCLRx bin =
-  if Bits.extract bin 15u 11u <> 0u then raise ParsingFailureException
+  if Bits.extract bin 15u 11u <> 0u then
+    raise ParsingFailureException
   else
     let idx = Bits.pick bin 0u |> int (* opcode *)
     let op = [| Op.BCLR; Op.BCLRL |].[idx]
@@ -196,12 +212,12 @@ let parseCRNOR bin =
     else
       let crbb = Bits.extract bin 15u 11u |> OprBI
       struct (Op.CRNOR, ThreeOperands(crbd, crba, crbb))
-  | _ (* 1 *) -> raise ParsingFailureException
+  | _ (* 1 *) ->
+    raise ParsingFailureException
 
 let parseRFI bin =
   match Bits.pick bin 0u with
-  | 0b0u when Bits.extract bin 25u 11u = 0u ->
-    struct (Op.RFI, NoOperand)
+  | 0b0u when Bits.extract bin 25u 11u = 0u -> struct (Op.RFI, NoOperand)
   | _ (* 1 *) -> raise ParsingFailureException
 
 let parseCRANDC bin =
@@ -211,12 +227,12 @@ let parseCRANDC bin =
     let crba = Bits.extract bin 20u 16u |> OprBI
     let crbb = Bits.extract bin 15u 11u |> OprBI
     struct (Op.CRANDC, ThreeOperands(crbd, crba, crbb))
-  | _ (* 1 *) -> raise ParsingFailureException
+  | _ (* 1 *) ->
+    raise ParsingFailureException
 
 let parseISYNC bin =
   match Bits.pick bin 0u with
-  | 0b0u when Bits.extract bin 25u 11u = 0u ->
-    struct (Op.ISYNC, NoOperand)
+  | 0b0u when Bits.extract bin 25u 11u = 0u -> struct (Op.ISYNC, NoOperand)
   | _ (* 1 *) -> raise ParsingFailureException
 
 let parseCRXOR bin =
@@ -225,11 +241,10 @@ let parseCRXOR bin =
     let crbd = Bits.extract bin 25u 21u |> OprBI
     let crba = Bits.extract bin 20u 16u |> OprBI
     let crbb = Bits.extract bin 15u 11u |> OprBI
-    if (crbd = crba) && (crbd = crbb) then
-      struct (Op.CRCLR, OneOperand crbd)
-    else
-      struct (Op.CRXOR, ThreeOperands(crbd, crba, crbb))
-  | _ (* 1 *) -> raise ParsingFailureException
+    if (crbd = crba) && (crbd = crbb) then struct (Op.CRCLR, OneOperand crbd)
+    else struct (Op.CRXOR, ThreeOperands(crbd, crba, crbb))
+  | _ (* 1 *) ->
+    raise ParsingFailureException
 
 let parseCRNAND bin =
   match Bits.pick bin 0u with
@@ -238,7 +253,8 @@ let parseCRNAND bin =
     let crba = Bits.extract bin 20u 16u |> OprBI
     let crbb = Bits.extract bin 15u 11u |> OprBI
     struct (Op.CRNAND, ThreeOperands(crbd, crba, crbb))
-  | _ (* 1 *) -> raise ParsingFailureException
+  | _ (* 1 *) ->
+    raise ParsingFailureException
 
 let parseCRAND bin =
   match Bits.pick bin 0u with
@@ -247,7 +263,8 @@ let parseCRAND bin =
     let crba = Bits.extract bin 20u 16u |> OprBI
     let crbb = Bits.extract bin 15u 11u |> OprBI
     struct (Op.CRAND, ThreeOperands(crbd, crba, crbb))
-  | _ (* 1 *) -> raise ParsingFailureException
+  | _ (* 1 *) ->
+    raise ParsingFailureException
 
 let parseCREQV bin =
   match Bits.pick bin 0u with
@@ -265,7 +282,8 @@ let parseCREQV bin =
       let crba = Bits.extract bin 20u 16u |> OprBI
       let crbb = Bits.extract bin 15u 11u |> OprBI
       struct (Op.CREQV, ThreeOperands(crbd, crba, crbb))
-  | _ (* 1 *) -> raise ParsingFailureException
+  | _ (* 1 *) ->
+    raise ParsingFailureException
 
 let parseCRORC bin =
   match Bits.pick bin 0u with
@@ -274,7 +292,8 @@ let parseCRORC bin =
     let crba = Bits.extract bin 20u 16u |> OprBI
     let crbb = Bits.extract bin 15u 11u |> OprBI
     struct (Op.CRORC, ThreeOperands(crbd, crba, crbb))
-  | _ (* 1 *) -> raise ParsingFailureException
+  | _ (* 1 *) ->
+    raise ParsingFailureException
 
 let parseCROR bin =
   match Bits.pick bin 0u with
@@ -287,7 +306,8 @@ let parseCROR bin =
     else
       let crbb = Bits.extract bin 15u 11u |> OprBI
       struct (Op.CROR, ThreeOperands(crbd, crba, crbb))
-  | _ (* 1 *) -> raise ParsingFailureException
+  | _ (* 1 *) ->
+    raise ParsingFailureException
 
 let parseBCCTRx bin =
   match Bits.pick bin 0u with
@@ -297,7 +317,8 @@ let parseBCCTRx bin =
   | 0b1u when Bits.extract bin 15u 11u = 0u ->
     let bo = Bits.extract bin 25u 21u |> uint64 |> OprImm
     struct (Op.BCCTRL, TwoOperands(bo, OprBI(Bits.extract bin 20u 16u)))
-  | _ -> raise ParsingFailureException
+  | _ ->
+    raise ParsingFailureException
 
 let parse13 bin =
   match Bits.extract bin 10u 1u with
@@ -351,7 +372,8 @@ let parseRLWNMx bin =
   | 0b0u ->
     match Bits.extract bin 10u 1u with
     (* rotlw ra,rs,rb = rlwnm ra,rs,rb,mb,me *)
-    | 0x1Fu -> struct (Op.ROTLW, ThreeOperands(ra, rs, rb))
+    | 0x1Fu ->
+      struct (Op.ROTLW, ThreeOperands(ra, rs, rb))
     | _ ->
       let mb = Bits.extract bin 10u 6u |> uint64 |> OprImm
       let me = Bits.extract bin 5u 1u |> uint64 |> OprImm
@@ -364,7 +386,8 @@ let parseRLWNMx bin =
 let parseORI bin =
   match Bits.extract bin 25u 0u with
   (* nop = ori 0,0,0 *)
-  | 0b0u -> struct (Op.NOP, NoOperand)
+  | 0b0u ->
+    struct (Op.NOP, NoOperand)
   | _ ->
     let rs = getRegister (Bits.extract bin 25u 21u) |> OprReg
     let ra = getRegister (Bits.extract bin 20u 16u) |> OprReg
@@ -415,7 +438,8 @@ let parseCMPandMCRXR bin =
   | 0b1u when Bits.extract bin 22u 11u = 0u ->
     let crfd = getCondRegister (Bits.extract bin 25u 23u) |> OprReg
     struct (Op.MCRXR, OneOperand(crfd))
-  | _ -> raise ParsingFailureException
+  | _ ->
+    raise ParsingFailureException
 
 let parseTW bin =
   match Bits.pick bin 10u with
@@ -424,30 +448,42 @@ let parseTW bin =
     let rb = getRegister (Bits.extract bin 15u 11u) |> OprReg
     match Bits.extract bin 25u 21u with
     (* twlgt ra,rb = tw 1,ra,rb *)
-    | 1u -> struct (Op.TWLGT, TwoOperands(ra, rb))
+    | 1u ->
+      struct (Op.TWLGT, TwoOperands(ra, rb))
     (* twllt ra,rb = tw 2,ra,rb *)
-    | 2u -> struct (Op.TWLLT, TwoOperands(ra, rb))
+    | 2u ->
+      struct (Op.TWLLT, TwoOperands(ra, rb))
     (* tweq ra,rb = tw 4,ra,rb *)
-    | 4u -> struct (Op.TWEQ, TwoOperands(ra, rb))
+    | 4u ->
+      struct (Op.TWEQ, TwoOperands(ra, rb))
     (* twlnl ra,rb = tw 5,ra,rb *)
-    | 5u -> struct (Op.TWLNL, TwoOperands(ra, rb))
+    | 5u ->
+      struct (Op.TWLNL, TwoOperands(ra, rb))
     (* twllel ra,rb = tw 6,ra,rb *)
-    | 6u -> struct (Op.TWLLE, TwoOperands(ra, rb))
+    | 6u ->
+      struct (Op.TWLLE, TwoOperands(ra, rb))
     (* twgt ra,rb = tw 8,ra,rb *)
-    | 8u -> struct (Op.TWGT, TwoOperands(ra, rb))
+    | 8u ->
+      struct (Op.TWGT, TwoOperands(ra, rb))
     (* twge ra,rb = tw 12,ra,rb *)
-    | 12u -> struct (Op.TWGE, TwoOperands(ra, rb))
+    | 12u ->
+      struct (Op.TWGE, TwoOperands(ra, rb))
     (* twlt ra,rb = tw 16,ra,rb *)
-    | 16u -> struct (Op.TWLT, TwoOperands(ra, rb))
+    | 16u ->
+      struct (Op.TWLT, TwoOperands(ra, rb))
     (* twle ra,rb = tw 20,ra,rb *)
-    | 20u -> struct (Op.TWLE, TwoOperands(ra, rb))
+    | 20u ->
+      struct (Op.TWLE, TwoOperands(ra, rb))
     (* twne ra,rb = tw 24,ra,rb *)
-    | 24u -> struct (Op.TWNE, TwoOperands(ra, rb))
-    | 31u when Bits.extract bin 20u 11u = 0u -> struct (Op.TRAP, NoOperand)
+    | 24u ->
+      struct (Op.TWNE, TwoOperands(ra, rb))
+    | 31u when Bits.extract bin 20u 11u = 0u ->
+      struct (Op.TRAP, NoOperand)
     | _ ->
       let tO = Bits.extract bin 25u 21u |> uint64 |> OprImm
       struct (Op.TW, ThreeOperands(tO, ra, rb))
-  | _ (* 1 *) -> raise ParsingFailureException
+  | _ (* 1 *) ->
+    raise ParsingFailureException
 
 let parseSUBFCx bin =
   let rd = getRegister (Bits.extract bin 25u 21u) |> OprReg
@@ -488,7 +524,8 @@ let parseMFCR bin =
   | 0b0u when Bits.pick bin 20u = 1u && Bits.pick bin 11u = 0u ->
     let rd = getRegister (Bits.extract bin 25u 21u) |> OprReg
     struct (Op.MFOCRF, OneOperand(rd))
-  | _ -> raise ParsingFailureException
+  | _ ->
+    raise ParsingFailureException
 
 /// lwarx, whose last bit is the EH hint rather than a reserved bit: it only
 /// tells the processor how the reservation is expected to be used, so both
@@ -500,7 +537,8 @@ let parseLWARX bin =
     let ra = getRegister (Bits.extract bin 20u 16u) |> OprReg
     let rb = getRegister (Bits.extract bin 15u 11u) |> OprReg
     struct (Op.LWARX, ThreeOperands(rd, ra, rb))
-  | _ (* 1 *) -> raise ParsingFailureException
+  | _ (* 1 *) ->
+    raise ParsingFailureException
 
 let parseLSWX bin =
   match Bits.pick bin 10u with
@@ -509,7 +547,8 @@ let parseLSWX bin =
     let ra = getRegister (Bits.extract bin 20u 16u) |> OprReg
     let rb = getRegister (Bits.extract bin 15u 11u) |> OprReg
     struct (Op.LSWX, ThreeOperands(rd, ra, rb))
-  | _ (* 0 *) -> raise ParsingFailureException
+  | _ (* 0 *) ->
+    raise ParsingFailureException
 
 let parseLWBRX bin =
   match Bits.pick bin 10u with
@@ -518,7 +557,8 @@ let parseLWBRX bin =
     let ra = getRegister (Bits.extract bin 20u 16u) |> OprReg
     let rb = getRegister (Bits.extract bin 15u 11u) |> OprReg
     struct (Op.LWBRX, ThreeOperands(rd, ra, rb))
-  | _ (* 0 *) -> raise ParsingFailureException
+  | _ (* 0 *) ->
+    raise ParsingFailureException
 
 let parseLWZXandLFSX bin =
   let ra = getRegister (Bits.extract bin 20u 16u) |> OprReg
@@ -549,7 +589,8 @@ let parseCNTLZWx bin =
     struct (Op.CNTLZW, TwoOperands(ra, rs))
   | 0b01u when Bits.extract bin 15u 11u = 0u ->
     struct (Op.CNTLZWdot, TwoOperands(ra, rs))
-  | _ (* 1x *) -> raise ParsingFailureException
+  | _ (* 1x *) ->
+    raise ParsingFailureException
 
 let parseANDx bin =
   let rs = getRegister (Bits.extract bin 25u 21u) |> OprReg
@@ -571,7 +612,8 @@ let parseCMPL bin =
     | 0b0u -> struct (Op.CMPLW, ThreeOperands(crfd, ra, rb))
     (* cmpld crfd,ra,rb = cmpl crfd,1,ra,rb *)
     | _ (* 1 *) -> struct (Op.CMPLD, ThreeOperands(crfd, ra, rb))
-  | _ (* 1 *) -> raise ParsingFailureException
+  | _ (* 1 *) ->
+    raise ParsingFailureException
 
 let parseSUBFx bin =
   let rd = getRegister (Bits.extract bin 25u 21u) |> OprReg
@@ -592,7 +634,8 @@ let parseDCBSTandTLBSYNC bin =
     struct (Op.DCBST, TwoOperands(ra, rb))
   | 0b1u when Bits.extract bin 25u 11u = 0u ->
     struct (Op.TLBSYNC, NoOperand)
-  | _ -> raise ParsingFailureException
+  | _ ->
+    raise ParsingFailureException
 
 let parseLWZUXandLFSUX bin =
   let ra = getRegister (Bits.extract bin 20u 16u) |> OprReg
@@ -633,7 +676,8 @@ let parseMFMSRandMFSR bin =
     (* FIXME: SegRegister *)
     let sr = getSegRegister (Bits.extract bin 19u 16u)
     struct (Op.MFSR, TwoOperands(rd, sr))
-  | _ -> raise ParsingFailureException
+  | _ ->
+    raise ParsingFailureException
 
 let parseLSWI bin =
   match Bits.pick bin 10u with
@@ -642,7 +686,8 @@ let parseLSWI bin =
     let ra = getRegister (Bits.extract bin 20u 16u) |> OprReg
     let nb = Bits.extract bin 15u 11u |> uint64 |> OprImm
     struct (Op.LSWI, ThreeOperands(rd, ra, nb))
-  | _ (* 0 *) -> raise ParsingFailureException
+  | _ (* 0 *) ->
+    raise ParsingFailureException
 
 let parseDCBFandSYNC bin =
   match Bits.pick bin 10u with
@@ -654,7 +699,8 @@ let parseDCBFandSYNC bin =
     struct (Op.SYNC, NoOperand)
   | 0b1u when Bits.extract bin 25u 21u = 1u ->
     struct (Op.LWSYNC, NoOperand)
-  | _ -> raise ParsingFailureException
+  | _ ->
+    raise ParsingFailureException
 
 let parseLBZXandLFDX bin =
   let ra = getRegister (Bits.extract bin 20u 16u) |> OprReg
@@ -681,7 +727,8 @@ let parseNEGx bin =
     struct (Op.NEGO, TwoOperands(rd, ra))
   | 0b11u when Bits.extract bin 15u 11u = 0u ->
     struct (Op.NEGOdot, TwoOperands(rd, ra))
-  | _ -> raise ParsingFailureException
+  | _ ->
+    raise ParsingFailureException
 
 let parseLBZUXandLFDUX bin =
   let ra = getRegister (Bits.extract bin 20u 16u) |> OprReg
@@ -693,7 +740,8 @@ let parseLBZUXandLFDUX bin =
   | 0b1u ->
     let frd = getFPRegister (Bits.extract bin 25u 21u) |> OprReg
     struct (Op.LFDUX, ThreeOperands(frd, ra, rb))
-  | _ -> raise ParsingFailureException
+  | _ ->
+    raise ParsingFailureException
 
 let parseNORx bin =
   let rs = getRegister (Bits.extract bin 25u 21u) |> OprReg
@@ -738,14 +786,16 @@ let parseMTCRF bin =
     let rs = getRegister (Bits.extract bin 25u 21u) |> OprReg
     let crm = Bits.extract bin 19u 12u |> uint64 |> OprImm
     struct (Op.MTOCRF, TwoOperands(crm, rs))
-  | _ -> raise ParsingFailureException
+  | _ ->
+    raise ParsingFailureException
 
 let parseMTMSR bin =
   match Bits.pick bin 10u with
   | 0b0u when Bits.extract bin 20u 11u = 0u ->
     let rs = getRegister (Bits.extract bin 25u 21u) |> OprReg
     struct (Op.MFMSR, OneOperand rs)
-  | _ (* 1 *) -> raise ParsingFailureException
+  | _ (* 1 *) ->
+    raise ParsingFailureException
 
 let parseMFSRIN bin =
   match Bits.concat (Bits.pick bin 10u) (Bits.pick bin 0u) 1 with
@@ -753,7 +803,8 @@ let parseMFSRIN bin =
     let rd = getRegister (Bits.extract bin 25u 21u) |> OprReg
     let rb = getRegister (Bits.extract bin 15u 11u) |> OprReg
     struct (Op.MFSRIN, TwoOperands(rd, rb))
-  | _ (* 11, 0x *) -> raise ParsingFailureException
+  | _ (* 11, 0x *) ->
+    raise ParsingFailureException
 
 let parseSTSWX bin =
   match Bits.pick bin 10u with
@@ -762,7 +813,8 @@ let parseSTSWX bin =
     let ra = getRegister (Bits.extract bin 20u 16u) |> OprReg
     let rb = getRegister (Bits.extract bin 15u 11u) |> OprReg
     struct (Op.STSWX, ThreeOperands(rs, ra, rb))
-  | _ (* 0 *) -> raise ParsingFailureException
+  | _ (* 0 *) ->
+    raise ParsingFailureException
 
 let parseSTWCXdotandSTWBRX bin =
   let rs = getRegister (Bits.extract bin 25u 21u) |> OprReg
@@ -807,7 +859,8 @@ let parseSUBFZEx bin =
     struct (Op.SUBFZEO, TwoOperands(rd, ra))
   | 0b11u when Bits.extract bin 15u 11u = 0u ->
     struct (Op.SUBFZEOdot, TwoOperands(rd, ra))
-  | _ -> raise ParsingFailureException
+  | _ ->
+    raise ParsingFailureException
 
 let parseADDZEx bin =
   let rd = getRegister (Bits.extract bin 25u 21u) |> OprReg
@@ -821,7 +874,8 @@ let parseADDZEx bin =
     struct (Op.ADDZEO, TwoOperands(rd, ra))
   | 0b11u when Bits.extract bin 15u 11u = 0u ->
     struct (Op.ADDZEOdot, TwoOperands(rd, ra))
-  | _ -> raise ParsingFailureException
+  | _ ->
+    raise ParsingFailureException
 
 let parseMTSR bin =
   match Bits.pick bin 10u with
@@ -831,7 +885,8 @@ let parseMTSR bin =
     (* FIXME: SegRegister *)
     let sr = getSegRegister (Bits.extract bin 19u 16u)
     struct (Op.MTSR, TwoOperands(sr, rs))
-  | _ (* 1 *) -> raise ParsingFailureException
+  | _ (* 1 *) ->
+    raise ParsingFailureException
 
 let parseSTSWI bin =
   match Bits.pick bin 10u with
@@ -840,7 +895,8 @@ let parseSTSWI bin =
     let ra = getRegister (Bits.extract bin 20u 16u) |> OprReg
     let nb = Bits.extract bin 15u 11u |> uint64 |> OprImm
     struct (Op.STSWI, ThreeOperands(rs, ra, nb))
-  | _ (* 0 *) -> raise ParsingFailureException
+  | _ (* 0 *) ->
+    raise ParsingFailureException
 
 let parseSTBXandSTFDX bin =
   let ra = getRegister (Bits.extract bin 20u 16u) |> OprReg
@@ -852,7 +908,8 @@ let parseSTBXandSTFDX bin =
   | 0b10u ->
     let frs = getFPRegister (Bits.extract bin 25u 21u) |> OprReg
     struct (Op.STFDX, ThreeOperands(frs, ra, rb))
-  | _ (* 01, 11 *) -> raise ParsingFailureException
+  | _ (* 01, 11 *) ->
+    raise ParsingFailureException
 
 let parseSUBFMEx bin =
   let rd = getRegister (Bits.extract bin 25u 21u) |> OprReg
@@ -866,7 +923,8 @@ let parseSUBFMEx bin =
     struct (Op.SUBFMEO, TwoOperands(rd, ra))
   | 0b11u when Bits.extract bin 15u 11u = 0u ->
     struct (Op.SUBFMEOdot, TwoOperands(rd, ra))
-  | _ -> raise ParsingFailureException
+  | _ ->
+    raise ParsingFailureException
 
 let parseADDMEx bin =
   let rd = getRegister (Bits.extract bin 25u 21u) |> OprReg
@@ -880,7 +938,8 @@ let parseADDMEx bin =
     struct (Op.ADDMEO, TwoOperands(rd, ra))
   | 0b11u when Bits.extract bin 15u 11u = 0u ->
     struct (Op.ADDMEOdot, TwoOperands(rd, ra))
-  | _ -> raise ParsingFailureException
+  | _ ->
+    raise ParsingFailureException
 
 let parseMULLWx bin =
   let rd = getRegister (Bits.extract bin 25u 21u) |> OprReg
@@ -898,7 +957,8 @@ let parseMTSRIN bin =
     let rs = getRegister (Bits.extract bin 25u 21u) |> OprReg
     let rb = getRegister (Bits.extract bin 15u 11u) |> OprReg
     struct (Op.MTSRIN, TwoOperands(rs, rb))
-  | _ (* 11, 0x *) -> raise ParsingFailureException
+  | _ (* 11, 0x *) ->
+    raise ParsingFailureException
 
 let parseDCBTSTandDCBA bin =
   let ra = getRegister (Bits.extract bin 20u 16u) |> OprReg
@@ -909,7 +969,8 @@ let parseDCBTSTandDCBA bin =
     struct (Op.DCBTST, TwoOperands(ra, rb))
   | 0b1u when Bits.extract bin 25u 21u = 0u ->
     struct (Op.DCBA, TwoOperands(ra, rb))
-  | _ -> raise ParsingFailureException
+  | _ ->
+    raise ParsingFailureException
 
 let parseSTBUXandSTFDUX bin =
   let ra = getRegister (Bits.extract bin 20u 16u) |> OprReg
@@ -921,7 +982,8 @@ let parseSTBUXandSTFDUX bin =
   | 0b10u ->
     let frs = getFPRegister (Bits.extract bin 25u 21u) |> OprReg
     struct (Op.STFDUX, ThreeOperands(frs, ra, rb))
-  | _ (* 01, 11 *) -> raise ParsingFailureException
+  | _ (* 01, 11 *) ->
+    raise ParsingFailureException
 
 let parseADDx bin =
   let rd = getRegister (Bits.extract bin 25u 21u) |> OprReg
@@ -943,7 +1005,8 @@ let parseDCBTandLHBRX bin =
   | 0b1u ->
     let rd = getRegister (Bits.extract bin 25u 21u) |> OprReg
     struct (Op.LHBRX, ThreeOperands(rd, ra, rb))
-  | _ -> raise ParsingFailureException
+  | _ ->
+    raise ParsingFailureException
 
 let parseLHZX bin =
   match Bits.pick bin 10u with
@@ -952,7 +1015,8 @@ let parseLHZX bin =
     let ra = getRegister (Bits.extract bin 20u 16u) |> OprReg
     let rb = getRegister (Bits.extract bin 15u 11u) |> OprReg
     struct (Op.LHZX, ThreeOperands(rd, ra, rb))
-  | _ (* 1 *) -> raise ParsingFailureException
+  | _ (* 1 *) ->
+    raise ParsingFailureException
 
 let parseSRAWx bin =
   let rs = getRegister (Bits.extract bin 25u 21u) |> OprReg
@@ -977,7 +1041,8 @@ let parseTLBIE bin =
   | 0b00u ->
     let rb = getRegister (Bits.extract bin 15u 11u) |> OprReg
     struct (Op.TLBIE, OneOperand rb)
-  | _ (* 01, 1x *) -> raise ParsingFailureException
+  | _ (* 01, 1x *) ->
+    raise ParsingFailureException
 
 let parseECIWX bin =
   match Bits.concat (Bits.pick bin 10u) (Bits.pick bin 0u) 1 with
@@ -986,7 +1051,8 @@ let parseECIWX bin =
     let ra = getRegister (Bits.extract bin 20u 16u) |> OprReg
     let rb = getRegister (Bits.extract bin 15u 11u) |> OprReg
     struct (Op.ECIWX, ThreeOperands(rd, ra, rb))
-  | _ (* 01, 1x *) -> raise ParsingFailureException
+  | _ (* 01, 1x *) ->
+    raise ParsingFailureException
 
 let parseLHZUX bin =
   match Bits.pick bin 10u with
@@ -995,7 +1061,8 @@ let parseLHZUX bin =
     let ra = getRegister (Bits.extract bin 20u 16u) |> OprReg
     let rb = getRegister (Bits.extract bin 15u 11u) |> OprReg
     struct (Op.LHZUX, ThreeOperands(rd, ra, rb))
-  | _ (* 1 *) -> raise ParsingFailureException
+  | _ (* 1 *) ->
+    raise ParsingFailureException
 
 let parseSRAWIx bin =
   let rs = getRegister (Bits.extract bin 25u 21u) |> OprReg
@@ -1021,17 +1088,23 @@ let parseMFSPR bin =
     match Bits.concat (Bits.extract bin 15u 11u)
                       (Bits.extract bin 20u 16u) 5 with
     (* mfxer rd = mfspr rd,1 *)
-    | 1u -> struct (Op.MFXER, OneOperand rd)
+    | 1u ->
+      struct (Op.MFXER, OneOperand rd)
     (* mflr rd = mfspr rd,8 *)
-    | 8u -> struct (Op.MFLR, OneOperand rd)
+    | 8u ->
+      struct (Op.MFLR, OneOperand rd)
     (* mfctr rd = mfspr rd,9 *)
-    | 9u -> struct (Op.MFCTR, OneOperand rd)
+    | 9u ->
+      struct (Op.MFCTR, OneOperand rd)
     (* On a 64-bit part the time base is read through mfspr, not mftb: SPR 268
        is the whole 64-bit counter and 269 its upper half. *)
-    | 268u -> struct (Op.MFTB, TwoOperands(rd, OprImm 268UL))
-    | 269u -> struct (Op.MFTBU, OneOperand rd)
+    | 268u ->
+      struct (Op.MFTB, TwoOperands(rd, OprImm 268UL))
+    | 269u ->
+      struct (Op.MFTBU, OneOperand rd)
     (* mfvrsave rd = mfspr rd,256 *)
-    | 256u -> struct (Op.MFSPR, TwoOperands(rd, OprImm 256UL))
+    | 256u ->
+      struct (Op.MFSPR, TwoOperands(rd, OprImm 256UL))
     | 18u | 19u | 22u | 25u | 26u | 27u | 272u | 273u | 274u | 275u | 282u
     | 287u | 528u | 529u | 530u | 531u | 532u | 533u | 534u | 535u | 536u
     | 537u | 538u | 539u | 540u | 541u | 542u | 543u | 1013u ->
@@ -1039,13 +1112,14 @@ let parseMFSPR bin =
         getSPRegister (Bits.concat (Bits.extract bin 15u 11u)
                                    (Bits.extract bin 20u 16u) 5)
       struct (Op.MFSPR, TwoOperands(rd, spr))
-    | _ -> raise ParsingFailureException
-  | _ (* 1 *) -> raise ParsingFailureException
+    | _ ->
+      raise ParsingFailureException
+  | _ (* 1 *) ->
+    raise ParsingFailureException
 
 let parseEIEIO bin =
   match Bits.concat (Bits.pick bin 10u) (Bits.pick bin 0u) 1 with
-  | 0b10u when Bits.extract bin 25u 11u = 0u ->
-    struct (Op.EIEIO, NoOperand)
+  | 0b10u when Bits.extract bin 25u 11u = 0u -> struct (Op.EIEIO, NoOperand)
   | _ (* 11, 0x *) -> raise ParsingFailureException
 
 let parseLHAX bin =
@@ -1055,12 +1129,12 @@ let parseLHAX bin =
     let ra = getRegister (Bits.extract bin 20u 16u) |> OprReg
     let rb = getRegister (Bits.extract bin 15u 11u) |> OprReg
     struct (Op.LHAX, ThreeOperands(rd, ra, rb))
-  | _ (* 1 *) -> raise ParsingFailureException
+  | _ (* 1 *) ->
+    raise ParsingFailureException
 
 let parseTLBIA bin =
   match Bits.concat (Bits.pick bin 10u) (Bits.pick bin 0u) 1 with
-  | 0b00u ->
-    struct (Op.TLBIA, NoOperand)
+  | 0b00u -> struct (Op.TLBIA, NoOperand)
   | _ (* 01, 1x *) -> raise ParsingFailureException
 
 let parseMFTB bin =
@@ -1077,7 +1151,8 @@ let parseMFTB bin =
     | 0x10du -> struct (Op.MFTBU, OneOperand rd)
     (* mftb rd = mftb rd,268 *)
     | _ -> struct (Op.MFTB, TwoOperands(rd, tbr))
-  | _ (* 1 *) -> raise ParsingFailureException
+  | _ (* 1 *) ->
+    raise ParsingFailureException
 
 let parseLHAUX bin =
   match Bits.pick bin 10u with
@@ -1086,7 +1161,8 @@ let parseLHAUX bin =
     let ra = getRegister (Bits.extract bin 20u 16u) |> OprReg
     let rb = getRegister (Bits.extract bin 15u 11u) |> OprReg
     struct (Op.LHAUX, ThreeOperands(rd, ra, rb))
-  | _ (* 1 *) -> raise ParsingFailureException
+  | _ (* 1 *) ->
+    raise ParsingFailureException
 
 let parseSTHBRX bin =
   match Bits.pick bin 10u with
@@ -1095,7 +1171,8 @@ let parseSTHBRX bin =
     let ra = getRegister (Bits.extract bin 20u 16u) |> OprReg
     let rb = getRegister (Bits.extract bin 15u 11u) |> OprReg
     struct (Op.STHBRX, ThreeOperands(rs, ra, rb))
-  | _ (* 0 *) -> raise ParsingFailureException
+  | _ (* 0 *) ->
+    raise ParsingFailureException
 
 let parseSTHX bin =
   match Bits.pick bin 10u with
@@ -1104,7 +1181,8 @@ let parseSTHX bin =
     let ra = getRegister (Bits.extract bin 20u 16u) |> OprReg
     let rb = getRegister (Bits.extract bin 15u 11u) |> OprReg
     struct (Op.STHX, ThreeOperands(rs, ra, rb))
-  | _ (* 1 *) -> raise ParsingFailureException
+  | _ (* 1 *) ->
+    raise ParsingFailureException
 
 let parseEXTSHx bin =
   let rs = getRegister (Bits.extract bin 25u 21u) |> OprReg
@@ -1114,7 +1192,8 @@ let parseEXTSHx bin =
     struct (Op.EXTSH, TwoOperands(ra, rs))
   | 0b11u when Bits.extract bin 15u 11u = 0u ->
     struct (Op.EXTSHdot, TwoOperands(ra, rs))
-  | _ (* 0x *) -> raise ParsingFailureException
+  | _ (* 0x *) ->
+    raise ParsingFailureException
 
 let parseORCx bin =
   let rs = getRegister (Bits.extract bin 25u 21u) |> OprReg
@@ -1132,7 +1211,8 @@ let parseECOWX bin =
     let ra = getRegister (Bits.extract bin 20u 16u) |> OprReg
     let rb = getRegister (Bits.extract bin 15u 11u) |> OprReg
     struct (Op.ECOWX, ThreeOperands(rs, ra, rb))
-  | _ (* 01, 1x *) -> raise ParsingFailureException
+  | _ (* 01, 1x *) ->
+    raise ParsingFailureException
 
 let parseSTHUX bin =
   match Bits.pick bin 10u with
@@ -1141,7 +1221,8 @@ let parseSTHUX bin =
     let ra = getRegister (Bits.extract bin 20u 16u) |> OprReg
     let rb = getRegister (Bits.extract bin 15u 11u) |> OprReg
     struct (Op.STHUX, ThreeOperands(rs, ra, rb))
-  | _ (* 1 *) -> raise ParsingFailureException
+  | _ (* 1 *) ->
+    raise ParsingFailureException
 
 let parseEXTSBx bin =
   let rs = getRegister (Bits.extract bin 25u 21u) |> OprReg
@@ -1151,7 +1232,8 @@ let parseEXTSBx bin =
     struct (Op.EXTSB, TwoOperands(ra, rs))
   | 0b11u when Bits.extract bin 15u 11u = 0u ->
     struct (Op.EXTSBdot, TwoOperands(ra, rs))
-  | _ (* 0x *) -> raise ParsingFailureException
+  | _ (* 0x *) ->
+    raise ParsingFailureException
 
 let parseORx bin =
   let rs = getRegister (Bits.extract bin 25u 21u) |> OprReg
@@ -1167,7 +1249,8 @@ let parseORx bin =
   | 0b01u ->
     let rb = getRegister (Bits.extract bin 15u 11u) |> OprReg
     struct (Op.ORdot, ThreeOperands(ra, rs, rb))
-  | _ (* 1x *) -> raise ParsingFailureException
+  | _ (* 1x *) ->
+    raise ParsingFailureException
 
 let parseDIVWUx bin =
   let rd = getRegister (Bits.extract bin 25u 21u) |> OprReg
@@ -1186,18 +1269,22 @@ let parseMTSPR bin =
     match Bits.concat (Bits.extract bin 15u 11u)
                       (Bits.extract bin 20u 16u) 5 with
     (* mtxer rd = mtspr rd,1 *)
-    | 0x1u -> struct (Op.MTXER, OneOperand rs)
+    | 0x1u ->
+      struct (Op.MTXER, OneOperand rs)
     (* mtlr rd = mtspr rd,8 *)
-    | 0x8u -> struct (Op.MTLR, OneOperand rs)
+    | 0x8u ->
+      struct (Op.MTLR, OneOperand rs)
     (* mtctr rd = mtspr rd,9 *)
-    | 0x9u -> struct (Op.MTCTR, OneOperand rs)
+    | 0x9u ->
+      struct (Op.MTCTR, OneOperand rs)
     | _ ->
       (* FIXME: SPRegister *)
       let spr =
         getSPRegister (Bits.concat (Bits.extract bin 15u 11u)
                                    (Bits.extract bin 20u 16u) 5)
       struct (Op.MTSPR, TwoOperands(spr, rs))
-  | _ (* 1 *) -> raise ParsingFailureException
+  | _ (* 1 *) ->
+    raise ParsingFailureException
 
 let parseDCBIandICBI bin =
   let ra = getRegister (Bits.extract bin 20u 16u) |> OprReg
@@ -1207,7 +1294,8 @@ let parseDCBIandICBI bin =
     struct (Op.DCBI, TwoOperands(ra, rb))
   | 0b1u when Bits.extract bin 25u 21u = 0u ->
     struct (Op.ICBI, TwoOperands(ra, rb))
-  | _ -> raise ParsingFailureException
+  | _ ->
+    raise ParsingFailureException
 
 let parseSTFIWX bin =
   match Bits.pick bin 10u with
@@ -1216,7 +1304,8 @@ let parseSTFIWX bin =
     let ra = getRegister (Bits.extract bin 20u 16u) |> OprReg
     let rb = getRegister (Bits.extract bin 15u 11u) |> OprReg
     struct (Op.STFIWX, ThreeOperands(frs, ra, rb))
-  | _ (* 0 *) -> raise ParsingFailureException
+  | _ (* 0 *) ->
+    raise ParsingFailureException
 
 let parseNANDx bin =
   let rs = getRegister (Bits.extract bin 25u 21u) |> OprReg
@@ -1243,7 +1332,8 @@ let parseDCBZ bin =
     let ra = getRegister (Bits.extract bin 20u 16u) |> OprReg
     let rb = getRegister (Bits.extract bin 15u 11u) |> OprReg
     struct (Op.DCBZ, TwoOperands(ra, rb))
-  | _ (* 0 *) -> raise ParsingFailureException
+  | _ (* 0 *) ->
+    raise ParsingFailureException
 
 (* The 64-bit forms all live in the same primary opcodes as their 32-bit
    siblings; only the extended opcode tells them apart. Because the word forms
@@ -1303,7 +1393,8 @@ let private parseXFormCount op bin =
   let ra = getRegister (Bits.extract bin 20u 16u) |> OprReg
   if Bits.extract bin 15u 11u <> 0u || Bits.pick bin 0u <> 0u then
     raise ParsingFailureException
-  else struct (op, TwoOperands(ra, rs))
+  else
+    struct (op, TwoOperands(ra, rs))
 
 /// An X-form "rA, rS, rB" whose Rc bit names two opcodes.
 let private parseXFormLogical op opDot bin =
@@ -1461,23 +1552,38 @@ let private parseXX3 op bin =
 /// plain eleven-bit field except in the VA and VC forms.
 let private parse04 bin =
   match Bits.extract bin 5u 0u with
-  | 42u -> parseVA Op.VSEL bin
-  | 43u -> parseVA Op.VPERM bin
-  | 44u -> parseVSLDOI bin
+  | 42u ->
+    parseVA Op.VSEL bin
+  | 43u ->
+    parseVA Op.VPERM bin
+  | 44u ->
+    parseVSLDOI bin
   | _ ->
     match Bits.extract bin 9u 0u with
-    | 6u -> parseVC Op.VCMPEQUB Op.VCMPEQUBdot bin
-    | 70u -> parseVC Op.VCMPEQUH Op.VCMPEQUHdot bin
-    | 134u -> parseVC Op.VCMPEQUW Op.VCMPEQUWdot bin
-    | 199u -> parseVC Op.VCMPEQUD Op.VCMPEQUDdot bin
-    | 518u -> parseVC Op.VCMPGTUB Op.VCMPGTUBdot bin
-    | 582u -> parseVC Op.VCMPGTUH Op.VCMPGTUHdot bin
-    | 646u -> parseVC Op.VCMPGTUW Op.VCMPGTUWdot bin
-    | 711u -> parseVC Op.VCMPGTUD Op.VCMPGTUDdot bin
-    | 774u -> parseVC Op.VCMPGTSB Op.VCMPGTSBdot bin
-    | 838u -> parseVC Op.VCMPGTSH Op.VCMPGTSHdot bin
-    | 902u -> parseVC Op.VCMPGTSW Op.VCMPGTSWdot bin
-    | 967u -> parseVC Op.VCMPGTSD Op.VCMPGTSDdot bin
+    | 6u ->
+      parseVC Op.VCMPEQUB Op.VCMPEQUBdot bin
+    | 70u ->
+      parseVC Op.VCMPEQUH Op.VCMPEQUHdot bin
+    | 134u ->
+      parseVC Op.VCMPEQUW Op.VCMPEQUWdot bin
+    | 199u ->
+      parseVC Op.VCMPEQUD Op.VCMPEQUDdot bin
+    | 518u ->
+      parseVC Op.VCMPGTUB Op.VCMPGTUBdot bin
+    | 582u ->
+      parseVC Op.VCMPGTUH Op.VCMPGTUHdot bin
+    | 646u ->
+      parseVC Op.VCMPGTUW Op.VCMPGTUWdot bin
+    | 711u ->
+      parseVC Op.VCMPGTUD Op.VCMPGTUDdot bin
+    | 774u ->
+      parseVC Op.VCMPGTSB Op.VCMPGTSBdot bin
+    | 838u ->
+      parseVC Op.VCMPGTSH Op.VCMPGTSHdot bin
+    | 902u ->
+      parseVC Op.VCMPGTSW Op.VCMPGTSWdot bin
+    | 967u ->
+      parseVC Op.VCMPGTSD Op.VCMPGTSDdot bin
     | _ ->
       match Bits.extract bin 10u 0u with
       | 0u -> parseVX Op.VADDUBM bin
@@ -1619,21 +1725,36 @@ let private parseXX3Compare op bin =
 /// nine, so the wider ones are matched first.
 let private parse3C bin =
   match Bits.extract bin 10u 3u with
-  | 32u -> parseXX3 Op.XSADDDP bin
-  | 35u -> parseXX3Compare Op.XSCMPUDP bin
-  | 40u -> parseXX3 Op.XSSUBDP bin
-  | 56u -> parseXX3 Op.XSDIVDP bin
-  | 130u -> parseXX3 Op.XXLAND bin
-  | 138u -> parseXX3 Op.XXLANDC bin
-  | 146u -> parseXX3 Op.XXLOR bin
-  | 154u -> parseXX3 Op.XXLXOR bin
-  | 162u -> parseXX3 Op.XXLNOR bin
-  | 170u -> parseXX3 Op.XXLORC bin
-  | 176u -> parseXX3 Op.XSCPSGNDP bin
-  | 178u -> parseXX3 Op.XXLNAND bin
-  | 186u -> parseXX3 Op.XXLEQV bin
-  | xo when xo &&& 0x9Fu = 0x0Au -> parseXXPERMDIx Op.XXPERMDI bin
-  | xo when xo &&& 0x9Fu = 0x02u -> parseXXPERMDIx Op.XXSLDWI bin
+  | 32u ->
+    parseXX3 Op.XSADDDP bin
+  | 35u ->
+    parseXX3Compare Op.XSCMPUDP bin
+  | 40u ->
+    parseXX3 Op.XSSUBDP bin
+  | 56u ->
+    parseXX3 Op.XSDIVDP bin
+  | 130u ->
+    parseXX3 Op.XXLAND bin
+  | 138u ->
+    parseXX3 Op.XXLANDC bin
+  | 146u ->
+    parseXX3 Op.XXLOR bin
+  | 154u ->
+    parseXX3 Op.XXLXOR bin
+  | 162u ->
+    parseXX3 Op.XXLNOR bin
+  | 170u ->
+    parseXX3 Op.XXLORC bin
+  | 176u ->
+    parseXX3 Op.XSCPSGNDP bin
+  | 178u ->
+    parseXX3 Op.XXLNAND bin
+  | 186u ->
+    parseXX3 Op.XXLEQV bin
+  | xo when xo &&& 0x9Fu = 0x0Au ->
+    parseXXPERMDIx Op.XXPERMDI bin
+  | xo when xo &&& 0x9Fu = 0x02u ->
+    parseXXPERMDIx Op.XXSLDWI bin
   | _ ->
     match Bits.extract bin 10u 2u with
     | 164u -> parseXXSPLTW bin
@@ -2061,7 +2182,8 @@ let parseFSQRTSx bin =
     struct (Op.FSQRTS, TwoOperands(frd, frb))
   | 0b1u when Bits.extract bin 20u 16u = 0u ->
     struct (Op.FSQRTSdot, TwoOperands(frd, frb))
-  | _ -> raise ParsingFailureException
+  | _ ->
+    raise ParsingFailureException
 
 let parseFRESx bin =
   let frd = getFPRegister (Bits.extract bin 25u 21u) |> OprReg
@@ -2071,7 +2193,8 @@ let parseFRESx bin =
     struct (Op.FRES, TwoOperands(frd, frb))
   | 0b1u when Bits.extract bin 20u 16u = 0u ->
     struct (Op.FRESdot, TwoOperands(frd, frb))
-  | _ -> raise ParsingFailureException
+  | _ ->
+    raise ParsingFailureException
 
 let parseFMULSx bin =
   let frd = getFPRegister (Bits.extract bin 25u 21u) |> OprReg
@@ -2082,7 +2205,8 @@ let parseFMULSx bin =
     struct (Op.FMULS, ThreeOperands(frd, fra, frc))
   | 0b1u when Bits.extract bin 15u 11u = 0u ->
     struct (Op.FMULSdot, ThreeOperands(frd, fra, frc))
-  | _ -> raise ParsingFailureException
+  | _ ->
+    raise ParsingFailureException
 
 let parseFMSUBSx bin =
   let frd = getFPRegister (Bits.extract bin 25u 21u) |> OprReg
@@ -2143,17 +2267,28 @@ let parse3B bin =
     | 0x1Au -> parseFPUnary Op.FCFIDS Op.FCFIDSdot bin
     | 0x1Eu -> parseFPUnary Op.FCFIDUS Op.FCFIDUSdot bin
     | _ -> raise ParsingFailureException
-  | 0x12u when Bits.extract bin 10u 6u = 0u -> parseFDIVSx bin
-  | 0x14u when Bits.extract bin 10u 6u = 0u -> parseFSUBSx bin
-  | 0x15u when Bits.extract bin 10u 6u = 0u -> parseFADDSx bin
-  | 0x16u when Bits.extract bin 10u 6u = 0u -> parseFSQRTSx bin
-  | 0x18u when Bits.extract bin 10u 6u = 0u -> parseFRESx bin
-  | 0x19u -> parseFMULSx bin
-  | 0x1Cu -> parseFMSUBSx bin
-  | 0x1Du -> parseFMADDSx bin
-  | 0x1Eu -> parseFNMSUBSx bin
-  | 0x1Fu -> parseFNMADDSx bin
-  | _ -> raise ParsingFailureException
+  | 0x12u when Bits.extract bin 10u 6u = 0u ->
+    parseFDIVSx bin
+  | 0x14u when Bits.extract bin 10u 6u = 0u ->
+    parseFSUBSx bin
+  | 0x15u when Bits.extract bin 10u 6u = 0u ->
+    parseFADDSx bin
+  | 0x16u when Bits.extract bin 10u 6u = 0u ->
+    parseFSQRTSx bin
+  | 0x18u when Bits.extract bin 10u 6u = 0u ->
+    parseFRESx bin
+  | 0x19u ->
+    parseFMULSx bin
+  | 0x1Cu ->
+    parseFMSUBSx bin
+  | 0x1Du ->
+    parseFMADDSx bin
+  | 0x1Eu ->
+    parseFNMSUBSx bin
+  | 0x1Fu ->
+    parseFNMADDSx bin
+  | _ ->
+    raise ParsingFailureException
 
 let parseFCMPU bin =
   match Bits.pick bin 0u with
@@ -2162,7 +2297,8 @@ let parseFCMPU bin =
     let fra = getFPRegister (Bits.extract bin 20u 16u) |> OprReg
     let frb = getFPRegister (Bits.extract bin 15u 11u) |> OprReg
     struct (Op.FCMPU, ThreeOperands(crfd, fra, frb))
-  | _ (* 1 *) -> raise ParsingFailureException
+  | _ (* 1 *) ->
+    raise ParsingFailureException
 
 let parseFRSPx bin =
   let frd = getFPRegister (Bits.extract bin 25u 21u) |> OprReg
@@ -2172,7 +2308,8 @@ let parseFRSPx bin =
     struct (Op.FRSP, TwoOperands(frd, frb))
   | 0b1u when Bits.extract bin 20u 16u = 0u ->
     struct (Op.FRSPdot, TwoOperands(frd, frb))
-  | _ -> raise ParsingFailureException
+  | _ ->
+    raise ParsingFailureException
 
 let parseFCTIWx bin =
   let frd = getFPRegister (Bits.extract bin 25u 21u) |> OprReg
@@ -2182,7 +2319,8 @@ let parseFCTIWx bin =
     struct (Op.FCTIW, TwoOperands(frd, frb))
   | 0b1u when Bits.extract bin 20u 16u = 0u ->
     struct (Op.FCTIWdot, TwoOperands(frd, frb))
-  | _ -> raise ParsingFailureException
+  | _ ->
+    raise ParsingFailureException
 
 let parseFCTIWZx bin =
   let frd = getFPRegister (Bits.extract bin 25u 21u) |> OprReg
@@ -2192,7 +2330,8 @@ let parseFCTIWZx bin =
     struct (Op.FCTIWZ, TwoOperands(frd, frb))
   | 0b1u when Bits.extract bin 20u 16u = 0u ->
     struct (Op.FCTIWZdot, TwoOperands(frd, frb))
-  | _ -> raise ParsingFailureException
+  | _ ->
+    raise ParsingFailureException
 
 let parseFDIVx bin =
   let frd = getFPRegister (Bits.extract bin 25u 21u) |> OprReg
@@ -2226,7 +2365,8 @@ let parseFSQRTx bin =
     struct (Op.FSQRT, TwoOperands(frd, frb))
   | 0b1u when Bits.extract bin 20u 16u = 0u ->
     struct (Op.FSQRTdot, TwoOperands(frd, frb))
-  | _ -> raise ParsingFailureException
+  | _ ->
+    raise ParsingFailureException
 
 let parseFSELx bin =
   let frd = getFPRegister (Bits.extract bin 25u 21u) |> OprReg
@@ -2246,7 +2386,8 @@ let parseFMULx bin =
     struct (Op.FMUL, ThreeOperands(frd, fra, frc))
   | 0b1u when Bits.extract bin 15u 11u = 0u ->
     struct (Op.FMULdot, ThreeOperands(frd, fra, frc))
-  | _ -> raise ParsingFailureException
+  | _ ->
+    raise ParsingFailureException
 
 let parseFRSQRTEx bin =
   let frd = getFPRegister (Bits.extract bin 25u 21u) |> OprReg
@@ -2257,7 +2398,8 @@ let parseFRSQRTEx bin =
     struct (Op.FRSQRTE, TwoOperands(frd, frb))
   | 0b1u when Bits.extract bin 15u 11u = 0u ->
     struct (Op.FRSQRTEdot, TwoOperands(frd, frb))
-  | _ -> raise ParsingFailureException
+  | _ ->
+    raise ParsingFailureException
 
 let parseFMSUBx bin =
   let frd = getFPRegister (Bits.extract bin 25u 21u) |> OprReg
@@ -2302,7 +2444,8 @@ let parseFCMPO bin =
     let fra = getFPRegister (Bits.extract bin 20u 16u) |> OprReg
     let frb = getFPRegister (Bits.extract bin 15u 11u) |> OprReg
     struct (Op.FCMPO, ThreeOperands(crfd, fra, frb))
-  | _ (* 1 *) -> raise ParsingFailureException
+  | _ (* 1 *) ->
+    raise ParsingFailureException
 
 let parseMTFSB1x bin =
   let crbd = getFPSCRBit (Bits.extract bin 25u 21u)
@@ -2313,7 +2456,8 @@ let parseMTFSB1x bin =
   | 0b1u when Bits.extract bin 20u 11u = 0u ->
     (* FIXME: FPSCRegister *)
     struct (Op.MTFSB1dot, OneOperand crbd)
-  | _ -> raise ParsingFailureException
+  | _ ->
+    raise ParsingFailureException
 
 let parseFNEGx bin =
   let frd = getFPRegister (Bits.extract bin 25u 21u) |> OprReg
@@ -2323,7 +2467,8 @@ let parseFNEGx bin =
     struct (Op.FNEG, TwoOperands(frd, frb))
   | 0b1u when Bits.extract bin 20u 16u = 0u ->
     struct (Op.FNEGdot, TwoOperands(frd, frb))
-  | _ -> raise ParsingFailureException
+  | _ ->
+    raise ParsingFailureException
 
 let parseMCRFS bin =
   match Bits.pick bin 0u with
@@ -2332,7 +2477,8 @@ let parseMCRFS bin =
     let crfd = getCondRegister (Bits.extract bin 25u 23u) |> OprReg
     let crfs = getCondRegister (Bits.extract bin 20u 18u) |> OprReg
     struct (Op.MCRFS, TwoOperands(crfd, crfs))
-  | _ (* 1 *) -> raise ParsingFailureException
+  | _ (* 1 *) ->
+    raise ParsingFailureException
 
 let parseMTFSB0x bin =
   let crbd = getFPSCRBit (Bits.extract bin 25u 21u)
@@ -2343,7 +2489,8 @@ let parseMTFSB0x bin =
   | 0b1u when Bits.extract bin 20u 11u = 0u ->
     (* FIXME: FPSCRegister *)
     struct (Op.MTFSB0dot, OneOperand crbd)
-  | _ -> raise ParsingFailureException
+  | _ ->
+    raise ParsingFailureException
 
 let parseFMRx bin =
   let frd = getFPRegister (Bits.extract bin 25u 21u) |> OprReg
@@ -2353,7 +2500,8 @@ let parseFMRx bin =
     struct (Op.FMR, TwoOperands(frd, frb))
   | 0b1u when Bits.extract bin 20u 16u = 0u ->
     struct (Op.FMRdot, TwoOperands(frd, frb))
-  | _ -> raise ParsingFailureException
+  | _ ->
+    raise ParsingFailureException
 
 let parseMTFSFIx bin =
   let crfd = Bits.extract bin 25u 23u |> uint64 |> OprImm
@@ -2365,7 +2513,8 @@ let parseMTFSFIx bin =
   | 0b1u when Bits.concat (Bits.extract bin 22u 16u)
                           (Bits.pick bin 11u) 7 = 0u ->
     struct (Op.MTFSFIdot, TwoOperands(crfd, imm))
-  | _ -> raise ParsingFailureException
+  | _ ->
+    raise ParsingFailureException
 
 let parseFNABSx bin =
   let frd = getFPRegister (Bits.extract bin 25u 21u) |> OprReg
@@ -2375,7 +2524,8 @@ let parseFNABSx bin =
     struct (Op.FNABS, TwoOperands(frd, frb))
   | 0b1u when Bits.extract bin 20u 16u = 0u ->
     struct (Op.FNABSdot, TwoOperands(frd, frb))
-  | _ -> raise ParsingFailureException
+  | _ ->
+    raise ParsingFailureException
 
 let parseFABSx bin =
   let frd = getFPRegister (Bits.extract bin 25u 21u) |> OprReg
@@ -2385,7 +2535,8 @@ let parseFABSx bin =
     struct (Op.FABS, TwoOperands(frd, frb))
   | 0b1u when Bits.extract bin 20u 16u = 0u ->
     struct (Op.FABSdot, TwoOperands(frd, frb))
-  | _ -> raise ParsingFailureException
+  | _ ->
+    raise ParsingFailureException
 
 let parseMFFSx bin =
   let frd = getFPRegister (Bits.extract bin 25u 21u) |> OprReg
@@ -2398,7 +2549,8 @@ let parseMFFSx bin =
      reading the whole register covers what it asks for. *)
   | 0b0u when Bits.extract bin 20u 16u = 24u && Bits.extract bin 15u 11u = 0u ->
     struct (Op.MFFSL, OneOperand frd)
-  | _ -> raise ParsingFailureException
+  | _ ->
+    raise ParsingFailureException
 
 let parseMTFSFx bin =
   let fm = Bits.extract bin 24u 17u |> uint64 |> OprImm
@@ -2442,7 +2594,8 @@ let parse3F bin =
     | 0xEu -> parseFPUnary Op.FRIP Op.FRIPdot bin
     | 0xFu -> parseFPUnary Op.FRIM Op.FRIMdot bin
     | _ -> raise ParsingFailureException
-  | 0xCu when Bits.extract bin 10u 6u = 0u -> parseFRSPx bin
+  | 0xCu when Bits.extract bin 10u 6u = 0u ->
+    parseFRSPx bin
   | 0xEu ->
     match Bits.extract bin 10u 6u with
     | 0x0u -> parseFCTIWx bin
@@ -2459,18 +2612,30 @@ let parse3F bin =
     | 0x19u -> parseFPUnary Op.FCTIDZ Op.FCTIDZdot bin
     | 0x1Du -> parseFPUnary Op.FCTIDUZ Op.FCTIDUZdot bin
     | _ -> raise ParsingFailureException
-  | 0x12u when Bits.extract bin 10u 6u = 0u -> parseFDIVx bin
-  | 0x14u when Bits.extract bin 10u 6u = 0u -> parseFSUBx bin
-  | 0x15u when Bits.extract bin 10u 6u = 0u -> parseFADDx bin
-  | 0x16u when Bits.extract bin 10u 6u = 0u -> parseFSQRTx bin
-  | 0x17u -> parseFSELx bin
-  | 0x19u -> parseFMULx bin
-  | 0x1Au -> parseFRSQRTEx bin
-  | 0x1Cu -> parseFMSUBx bin
-  | 0x1Du -> parseFMADDx bin
-  | 0x1Eu -> parseFNMSUBx bin
-  | 0x1Fu -> parseFNMADDx bin
-  | _ -> raise ParsingFailureException
+  | 0x12u when Bits.extract bin 10u 6u = 0u ->
+    parseFDIVx bin
+  | 0x14u when Bits.extract bin 10u 6u = 0u ->
+    parseFSUBx bin
+  | 0x15u when Bits.extract bin 10u 6u = 0u ->
+    parseFADDx bin
+  | 0x16u when Bits.extract bin 10u 6u = 0u ->
+    parseFSQRTx bin
+  | 0x17u ->
+    parseFSELx bin
+  | 0x19u ->
+    parseFMULx bin
+  | 0x1Au ->
+    parseFRSQRTEx bin
+  | 0x1Cu ->
+    parseFMSUBx bin
+  | 0x1Du ->
+    parseFMADDx bin
+  | 0x1Eu ->
+    parseFNMSUBx bin
+  | 0x1Fu ->
+    parseFNMADDx bin
+  | _ ->
+    raise ParsingFailureException
 
 /// tdi, whose TO field selects the comparison the same way twi's does.
 let private parseTDI bitLen bin =
@@ -2539,7 +2704,8 @@ let private parse1E bin =
   | 0b100u ->
     let op = if dot then Op.RLDCRdot else Op.RLDCR
     struct (op, FourOperands(ra, rs, rb, bound))
-  | _ -> raise ParsingFailureException
+  | _ ->
+    raise ParsingFailureException
 
 (* The primary opcodes below hold only 64-bit forms, so a 32-bit guest must not
    recognize them; the extended-opcode space of 0x1F is shared, and parse1F

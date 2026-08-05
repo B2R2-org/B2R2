@@ -50,7 +50,8 @@ type Agent<'Msg> private(ch: BufferBlock<'Msg>, task: Task) =
                 match ch.TryReceive() with
                 | true, msg -> return msg
                 | false, _ -> return raise <| InvalidOperationException()
-              else return raise <| OperationCanceledException()
+              else
+                return raise <| OperationCanceledException()
             } |> fun task -> task.Result
           member _.Complete() = ch.Complete()
           member _.IsCancelled with get() = token.IsCancellationRequested

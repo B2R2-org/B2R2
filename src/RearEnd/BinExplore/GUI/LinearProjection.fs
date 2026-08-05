@@ -32,14 +32,13 @@ module B2R2.RearEnd.BinExplore.GUI.LinearProjection
 
 let private findFirstIndexAtOrAfterOffset doc targetOffset =
   let rec loop low high =
-    if low >= high then low
+    if low >= high then
+      low
     else
       let mid = low + (high - low) / 2
       match LinearDocument.itemOffset doc mid with
-      | Some offset when offset < targetOffset ->
-        loop (mid + 1) high
-      | _ ->
-        loop low mid
+      | Some offset when offset < targetOffset -> loop (mid + 1) high
+      | _ -> loop low mid
   loop 0 doc.LinearItems.Count
 
 let findVisibleRange overscanPx doc state =

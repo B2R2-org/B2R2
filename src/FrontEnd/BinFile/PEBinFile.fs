@@ -44,7 +44,8 @@ type PEBinFile(path, bytes: byte[], baseAddrOpt, rawpdb) =
       member _.TryResolveName(addr) =
         if pe.Symbols.SymbolArray.Length = 0 then
           tryFindSymbolFromBinary pe addr
-        else tryFindSymbolFromPDB pe addr
+        else
+          tryFindSymbolFromPDB pe addr
     }
 
   let toBinSymbol (s: Symbol) =
@@ -244,7 +245,8 @@ type PEBinFile(path, bytes: byte[], baseAddrOpt, rawpdb) =
                  Offset = uint64 sec.PointerToRawData
                  FileSize = uint64 sec.SizeOfRawData
                  Permission = getSecPermission sec.SectionCharacteristics }
-        else None)
+        else
+          None)
 
   let memoryLayout =
     Some { new IMemoryLayout with
@@ -387,7 +389,8 @@ type PEBinFile(path, bytes: byte[], baseAddrOpt, rawpdb) =
           else
             offset <- maxOffset + 1
             maxAddr <- vma + uint64 vmaSize - 1UL
-        else idx <- idx + 1
+        else
+          idx <- idx + 1
       if found then
         if offset > maxOffset then BinFilePointer.CreateVirtual(addr, maxAddr)
         else BinFilePointer.CreateFileBacked(addr, maxAddr, offset, maxOffset)

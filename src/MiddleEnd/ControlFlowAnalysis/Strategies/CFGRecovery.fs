@@ -140,7 +140,8 @@ module private CFGRecovery =
           ctx.CFG.AddRoot(v)
           recoverNoReturnFallThroughEdge ctx v
           buildCFG ctx cfgRec syscallAnalysis useTCHeuristic queue [ pp ]
-        | Error e -> FailStop e
+        | Error e ->
+          FailStop e
       | EndGapAnalysis ->
         assert (ctx.GapToAnalyze.IsSome)
         ctx.GapToAnalyze <- None

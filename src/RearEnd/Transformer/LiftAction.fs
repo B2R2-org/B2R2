@@ -38,7 +38,8 @@ type LiftAction() =
         let s = lifter.LiftInstruction instr |> PrettyPrinter.ToString
         let ptr = ptr.Advance(instr.Length)
         lift (sb.Append s) lifter ptr
-      | Error _ -> "Bad instruction found"
+      | Error _ ->
+        "Bad instruction found"
     else
       sb.ToString()
 

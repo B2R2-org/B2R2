@@ -34,22 +34,34 @@ open B2R2.MiddleEnd.DataFlow.SSASparseDataFlow
 /// Performs stack pointer propagation analysis over an SSA CFG.
 type SSAStackPointerPropagation(hdl: BinHandle) =
   let rec evalExpr (state: State<_>) = function
-    | Num bv -> StackPointerDomain.ConstSP bv
-    | Var v -> state.GetRegValue v
-    | ExprList _ -> StackPointerDomain.NotConstSP
-    | Load _ -> StackPointerDomain.NotConstSP
-    | UnOp _ -> StackPointerDomain.NotConstSP
-    | FuncName _ -> StackPointerDomain.NotConstSP
+    | Num bv ->
+      StackPointerDomain.ConstSP bv
+    | Var v ->
+      state.GetRegValue v
+    | ExprList _ ->
+      StackPointerDomain.NotConstSP
+    | Load _ ->
+      StackPointerDomain.NotConstSP
+    | UnOp _ ->
+      StackPointerDomain.NotConstSP
+    | FuncName _ ->
+      StackPointerDomain.NotConstSP
     | BinOp(op, _, e1, e2) ->
       let c1 = evalExpr state e1
       let c2 = evalExpr state e2
       StackPointerPropagation.evalBinOp op c1 c2
-    | RelOp _ -> StackPointerDomain.NotConstSP
-    | Ite _ -> StackPointerDomain.NotConstSP
-    | Cast _ -> StackPointerDomain.NotConstSP
-    | Extract _ -> StackPointerDomain.NotConstSP
-    | Undefined _ -> StackPointerDomain.NotConstSP
-    | _ -> Terminator.impossible ()
+    | RelOp _ ->
+      StackPointerDomain.NotConstSP
+    | Ite _ ->
+      StackPointerDomain.NotConstSP
+    | Cast _ ->
+      StackPointerDomain.NotConstSP
+    | Extract _ ->
+      StackPointerDomain.NotConstSP
+    | Undefined _ ->
+      StackPointerDomain.NotConstSP
+    | _ ->
+      Terminator.impossible ()
 
   let isStackRelatedRegister regId =
     hdl.RegisterFactory.IsStackPointer regId
@@ -63,11 +75,13 @@ type SSAStackPointerPropagation(hdl: BinHandle) =
       state.SetRegValue(var, StackPointerDomain.NotConstSP)
     | TempVar _ ->
       state.SetRegValue(var, evalExpr state e)
-    | _ -> ()
+    | _ ->
+      ()
 
   let evalPhi (state: State<_>) ssaCFG blk dst srcIDs =
     match state.GetExecutedSources(ssaCFG, blk, srcIDs) with
-    | [||] -> ()
+    | [||] ->
+      ()
     | executedSrcIDs ->
       match dst.Kind with
       | RegVar _ | TempVar _ ->
@@ -76,7 +90,8 @@ type SSAStackPointerPropagation(hdl: BinHandle) =
           { dst with Identifier = i } |> state.GetRegValue)
         |> Array.reduce StackPointerDomain.join
         |> fun merged -> state.SetRegValue(dst, merged)
-      | _ -> ()
+      | _ ->
+        ()
 
   let evalJmp (state: State<_>) ssaCFG blk =
     state.MarkSuccessorsExecutable(ssaCFG, blk)
@@ -109,7 +124,8 @@ type SSAStackPointerPropagation(hdl: BinHandle) =
         let spVal = BitVector(InitialStackPointer, rt)
         state.SetRegValueWithoutAdding(var, StackPointerDomain.ConstSP spVal)
         state
-      | None -> state
+      | None ->
+        state
 
   interface IDataFlowComputable<SSAVarPoint,
                                 StackPointerDomain.Lattice,

@@ -46,4 +46,5 @@ type JaccardAction() =
         invalidArg (nameof args) "No arguments should be given."
       elif collection.Values.Length = 2 then
         { Values = [| jaccard collection.Values[0] collection.Values[1] |] }
-      else invalidArg (nameof collection) "Two fingerprints should be given."
+      else
+        invalidArg (nameof collection) "Two fingerprints should be given."

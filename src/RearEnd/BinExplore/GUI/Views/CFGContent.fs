@@ -68,7 +68,8 @@ let private brushOfColor =
   let cache = Dictionary<string, IBrush>()
   fun color ->
     match cache.TryGetValue color with
-    | true, brush -> brush
+    | true, brush ->
+      brush
     | _ ->
       let brush = Brush.Parse color
       cache[color] <- brush
@@ -375,7 +376,8 @@ let private addressTokenMenuItems fnAddr provider model dispatch word =
       () ]
 
 let private appendMenuSection title items model dispatch =
-  if Array.isEmpty items then []
+  if Array.isEmpty items then
+    []
   else
     [ Separator.create [] :> IView
       compactTitleMenuItem model dispatch title ""
@@ -598,7 +600,8 @@ let private pointerXY (e: PointerEventArgs) =
           if isNull root then e.GetPosition ctrl
           else e.GetPosition root
         struct (p.X, p.Y)
-      | _ -> struct (0.0, 0.0)
+      | _ ->
+        struct (0.0, 0.0)
 
 let private setPointerCapture shouldCapture (e: PointerEventArgs) =
   match tryFindGraphCanvas e.Source with
@@ -614,7 +617,8 @@ let private setPointerCapture shouldCapture (e: PointerEventArgs) =
         if shouldCapture then ctrl :> IInputElement
         else null
       e.Pointer.Capture target
-    | _ -> ()
+    | _ ->
+      ()
 
 let private capturePointer e =
   setPointerCapture true e
@@ -644,7 +648,8 @@ let private onMoved model dispatch (e: PointerEventArgs) =
       let dx = x - pressedX
       let dy = y - pressedY
       dx * dx + dy * dy >= CFGPanStartThresholdSquared
-    | _ -> false
+    | _ ->
+      false
   if shouldStartPan then capturePointer e else ()
   dispatch (CFGPaneMsg(MovePan(x, y, ViewportSpace)))
   if shouldStartPan || model.CFGIsPanning then e.Handled <- true else ()
@@ -693,7 +698,8 @@ let private onMinimapClick dispatch (minimap: MinimapStaticCache) viewState e =
     dispatch (CFGPaneMsg(StartPan(sx, sy)))
     e.Pointer.Capture ctrl
     e.Handled <- true
-  | _ -> ()
+  | _ ->
+    ()
 
 let private onRectMoved dispatch minimapScale e =
   let struct (x, y) = pointerXY e

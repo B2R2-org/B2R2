@@ -103,14 +103,16 @@ let rec private domsAux acc v info =
     if idom = -1 || idom = info.NumMap[info.DummyRoot.ID]
     then acc |> List.toArray
     else domsAux (info.Vertex[idom] :: acc) info.Vertex[idom] info
-  else acc |> List.toArray
+  else
+    acc |> List.toArray
 
 let private idomAux info v =
   if info.NumMap.ContainsKey((v: IVertex<'V>).ID) then
     let num = info.IDom[info.NumMap[v.ID]]
     if num <> -1 && num <> info.NumMap[info.DummyRoot.ID] then info.Vertex[num]
     else null
-  else null
+  else
+    null
 
 let private prepareDomInfo (g: IDiGraphAccessible<_, _>) =
   let info = initDomInfo g
@@ -162,7 +164,8 @@ let private createDominance fwG (bwG: Lazy<IDiGraphAccessible<_, _>>) fwInfo
 #endif
       if isNull pdfProvider then
         pdfProvider <- dfp.CreateIDominanceFrontier(fwG, this, false)
-      else ()
+      else
+        ()
       pdfProvider.DominanceFrontier v
     member _.PostDominators v =
 #if DEBUG
@@ -183,7 +186,8 @@ let private createDominance fwG (bwG: Lazy<IDiGraphAccessible<_, _>>) fwInfo
 #endif
       if isNull dfProvider then
         dfProvider <- dfp.CreateIDominanceFrontier(bwG.Value, this, true)
-      else ()
+      else
+        ()
       dfProvider.DominanceFrontier v
       |> Seq.map (findOriginalVertex fwG) }
 

@@ -47,11 +47,13 @@ module private LEB128Helper =
 
   let inline decode (bs: ReadOnlySpan<byte>) ([<InlineIfLambda>] cast) maxLen =
     let rec convLoop v offset = function
-      | [] -> v
+      | [] ->
+        v
       | b :: rest ->
         let v' = v ||| (cast (b &&& 0x7fuy) <<< (offset * 7))
         convLoop v' (offset + 1) rest
-    if bs.Length = 0 then invalidArg (nameof bs) "Invalid buffer length"
+    if bs.Length = 0 then
+      invalidArg (nameof bs) "Invalid buffer length"
     else
       let len = if bs.Length > maxLen then maxLen else bs.Length
       let bs, offset = decodeLoop [] bs 0 bs[0] len

@@ -129,7 +129,8 @@ type LLVMIRBuilder(fname: string, addr, hdl: BinHandle, ctxt: LLVMContext) =
 
   member this.EmitBranch(targets, succs) =
     let targets = targets |> List.filter (fun t -> List.contains t succs)
-    if List.isEmpty targets then ()
+    if List.isEmpty targets then
+      ()
     else
       let lbl = targets |> List.map (this.AddrToLabel >> Label) |> List.toArray
       Branch(None, lbl) |> this.EmitStmt
@@ -159,7 +160,8 @@ type LLVMIRBuilder(fname: string, addr, hdl: BinHandle, ctxt: LLVMContext) =
 
   member this.EmitInterCJmp(typ, cond, t, f, succs) =
     match t, f with
-    | Number(t, _), Number(f, _) -> this.EmitCondBranch(cond, t, f, succs)
+    | Number(t, _), Number(f, _) ->
+      this.EmitCondBranch(cond, t, f, succs)
     | _ ->
       let pc = newID <| this.GetLLVMType typ
       let addrType = this.GetLLVMType addrSize
@@ -189,7 +191,8 @@ type LLVMIRBuilder(fname: string, addr, hdl: BinHandle, ctxt: LLVMContext) =
       let var = newID sz
       this.EmitStmt <| LLVMStmt.mkBinop var "xor" sz exp (Token "-1")
       Ident var
-    | _ -> Terminator.futureFeature ()
+    | _ ->
+      Terminator.futureFeature ()
 
   member this.EmitBinOp(opstr, typ, lhs, rhs) =
     let sz = this.GetLLVMType typ
@@ -221,18 +224,24 @@ type LLVMIRBuilder(fname: string, addr, hdl: BinHandle, ctxt: LLVMContext) =
 
   member private this.ExprToString expr =
     match expr with
-    | Ident id -> $"%%{id.Num}"
-    | Opcode op -> op
-    | Label lbl -> $"label %%{lbl}"
+    | Ident id ->
+      $"%%{id.Num}"
+    | Opcode op ->
+      op
+    | Label lbl ->
+      $"label %%{lbl}"
     | PhiNode(id, lbl) ->
       let id = this.ExprToString id
       let lbl = this.ExprToString lbl
       $"[ {id}, {lbl} ]"
-    | Number(n, _) -> n.ToString()
+    | Number(n, _) ->
+      n.ToString()
     | ExprList exprs ->
       exprs |> List.map this.ExprToString |> String.concat ", "
-    | Token s -> s
-    | TypedExpr(typ, e) -> $"{typ} {this.ExprToString e}"
+    | Token s ->
+      s
+    | TypedExpr(typ, e) ->
+      $"{typ} {this.ExprToString e}"
 
   member private _.StoreStmtToString(v, addr, align, comment) =
     let addr = $"{addr.IDType} %%{addr.Num}"
@@ -250,7 +259,8 @@ type LLVMIRBuilder(fname: string, addr, hdl: BinHandle, ctxt: LLVMContext) =
     let mutable idCount = 1
     for stmt in stmts do
       match stmt with
-      | LMark lbl -> sb <+ $"{lbl}:"
+      | LMark lbl ->
+        sb <+ $"{lbl}:"
       | Branch(Some cond, lbls) ->
         let lbls = lbls |> Array.map this.ExprToString |> String.concat ", "
         sb <+ $"{Indent}br i1 {this.ExprToString cond}, {lbls}"
@@ -266,8 +276,10 @@ type LLVMIRBuilder(fname: string, addr, hdl: BinHandle, ctxt: LLVMContext) =
       | Store(Ident v, Ident addr, align, comment) ->
         let v = $"{v.IDType} %%{v.Num}"
         this.StoreStmtToString(v, addr, align, comment)
-      | Comment s -> sb <+ s
-      | _ -> printfn "%A" stmt; Terminator.futureFeature ()
+      | Comment s ->
+        sb <+ s
+      | _ ->
+        printfn "%A" stmt; Terminator.futureFeature ()
     done
 
   /// Emit the LLVM IR string and destroy the builder.

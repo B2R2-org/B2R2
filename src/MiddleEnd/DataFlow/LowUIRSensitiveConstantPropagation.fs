@@ -39,7 +39,8 @@ type LowUIRSensitiveConstantPropagation<'ExeCtx when 'ExeCtx: comparison>
   let evaluateVarPoint (state: State<_, _>) spp varKind =
     let svp = { SensitiveProgramPoint = spp; VarKind = varKind }
     match state.UseDefMap.TryGetValue svp with
-    | false, _ -> ConstantDomain.Undef
+    | false, _ ->
+      ConstantDomain.Undef
     | true, rds ->
       rds
       |> Seq.fold (fun acc defSvp ->
@@ -52,8 +53,10 @@ type LowUIRSensitiveConstantPropagation<'ExeCtx when 'ExeCtx: comparison>
       let addr = (spp: SensitiveProgramPoint<_>).ProgramPoint.Address
       let bv = BitVector(addr, rt)
       ConstantDomain.Const bv
-    | Num(bv, _) -> ConstantDomain.Const bv
-    | Var _ | TempVar _ -> evaluateVarPoint state spp (VarKind.ofIRExpr e)
+    | Num(bv, _) ->
+      ConstantDomain.Const bv
+    | Var _ | TempVar _ ->
+      evaluateVarPoint state spp (VarKind.ofIRExpr e)
     | Load(_m, rt, addr, _) ->
       match state.StackPointerSubState.EvalExpr(spp, addr) with
       | StackPointerDomain.ConstSP bv ->
@@ -65,9 +68,12 @@ type LowUIRSensitiveConstantPropagation<'ExeCtx when 'ExeCtx: comparison>
           ConstantDomain.Const <| BitVector.ZExt(bv, rt)
         | ConstantDomain.Const bv when bv.Length > rt ->
           ConstantDomain.Const <| BitVector.Extract(bv, rt, 0)
-        | _ -> c
-      | StackPointerDomain.NotConstSP -> ConstantDomain.NotAConst
-      | StackPointerDomain.Undef -> ConstantDomain.Undef
+        | _ ->
+          c
+      | StackPointerDomain.NotConstSP ->
+        ConstantDomain.NotAConst
+      | StackPointerDomain.Undef ->
+        ConstantDomain.Undef
     | UnOp(op, e, _) ->
       evaluateExpr state spp e
       |> ConstantPropagation.evalUnOp op
@@ -90,8 +96,10 @@ type LowUIRSensitiveConstantPropagation<'ExeCtx when 'ExeCtx: comparison>
     | Extract(e, rt, pos, _) ->
       let c = evaluateExpr state spp e
       ConstantDomain.extract c rt pos
-    | FuncName _ | ExprList _ | Undefined _ -> ConstantDomain.NotAConst
-    | _ -> Terminator.impossible ()
+    | FuncName _ | ExprList _ | Undefined _ ->
+      ConstantDomain.NotAConst
+    | _ ->
+      Terminator.impossible ()
 
   let lattice =
     { new ILattice<ConstantDomain.Lattice> with

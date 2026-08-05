@@ -87,13 +87,17 @@ module SymbExprTranslator =
 
   let rec private getMayOneBits expr =
     match expr with
-    | SymbExpr.Const bv -> valueMask bv
+    | SymbExpr.Const bv ->
+      valueMask bv
     | SymbExpr.Var(_, typ)
     | SymbExpr.Load(_, typ, _)
     | SymbExpr.FuncApp(_, typ, _)
-    | SymbExpr.Undef(typ, _) -> bitMask typ
-    | SymbExpr.UnOp(UnOpType.NOT, expr) -> bitMask expr.Type
-    | SymbExpr.UnOp(_, expr) -> bitMask expr.Type
+    | SymbExpr.Undef(typ, _) ->
+      bitMask typ
+    | SymbExpr.UnOp(UnOpType.NOT, expr) ->
+      bitMask expr.Type
+    | SymbExpr.UnOp(_, expr) ->
+      bitMask expr.Type
     | SymbExpr.BinOp(BinOpType.AND, typ, lhs, rhs) ->
         getMayOneBits lhs &&& getMayOneBits rhs &&& bitMask typ
     | SymbExpr.BinOp(BinOpType.OR, typ, lhs, rhs)
@@ -107,14 +111,17 @@ module SymbExprTranslator =
       let shift = rhs.ToUInt64()
       if shift >= uint64 (int typ) then 0I
       else getMayOneBits lhs >>> int shift &&& bitMask typ
-    | SymbExpr.BinOp(_, typ, _, _) -> bitMask typ
-    | SymbExpr.RelOp _ -> bitMask 1<rt>
+    | SymbExpr.BinOp(_, typ, _, _) ->
+      bitMask typ
+    | SymbExpr.RelOp _ ->
+      bitMask 1<rt>
     | SymbExpr.Ite(_, thenExpr, elseExpr) ->
       getMayOneBits thenExpr ||| getMayOneBits elseExpr
       &&& bitMask thenExpr.Type
     | SymbExpr.Cast(CastKind.ZeroExt, typ, expr) ->
       getMayOneBits expr &&& bitMask typ
-    | SymbExpr.Cast(_, typ, _) -> bitMask typ
+    | SymbExpr.Cast(_, typ, _) ->
+      bitMask typ
     | SymbExpr.Extract(expr, typ, pos) ->
       getMayOneBits expr >>> pos &&& bitMask typ
 
@@ -125,7 +132,8 @@ module SymbExprTranslator =
       let mask = valueMask mask
       if getMayOneBits expr &&& mask = 0I then Some(constZero typ)
       else None
-    | _ -> None
+    | _ ->
+      None
 
   let private foldUnOp op expr =
     match evalUnOp op with
@@ -133,19 +141,23 @@ module SymbExprTranslator =
       match expr with
       | Const bv -> SymbExpr.Const(fn bv) |> Ok
       | _ -> SymbExpr.unop op expr |> Ok
-    | None -> UnOpType.toString op |> unsupportedOp
+    | None ->
+      UnOpType.toString op |> unsupportedOp
 
   let private foldBinOp op typ lhs rhs =
     match evalBinOp op with
     | Some fn ->
       match lhs, rhs with
-      | Const lhs, Const rhs -> SymbExpr.Const(fn lhs rhs) |> Ok
+      | Const lhs, Const rhs ->
+        SymbExpr.Const(fn lhs rhs) |> Ok
       | _ when op = BinOpType.AND ->
         match tryFoldMaskedAndToZero typ lhs rhs with
         | Some expr -> Ok expr
         | None -> SymbExpr.binop op typ lhs rhs |> Ok
-      | _ -> SymbExpr.binop op typ lhs rhs |> Ok
-    | None -> BinOpType.toString op |> unsupportedOp
+      | _ ->
+        SymbExpr.binop op typ lhs rhs |> Ok
+    | None ->
+      BinOpType.toString op |> unsupportedOp
 
   let private foldRelOp op lhs rhs =
     match evalRelOp op with
@@ -153,7 +165,8 @@ module SymbExprTranslator =
       match lhs, rhs with
       | Const lhs, Const rhs -> SymbExpr.Const(fn lhs rhs) |> Ok
       | _ -> SymbExpr.relop op lhs rhs |> Ok
-    | None -> RelOpType.toString op |> unsupportedOp
+    | None ->
+      RelOpType.toString op |> unsupportedOp
 
   let private foldCast kind typ expr =
     match expr with
@@ -190,10 +203,14 @@ module SymbExprTranslator =
   /// state.
   let rec translate (state: SymbState) (expr: Expr) =
     match expr with
-    | Num(n, _) -> SymbExpr.Const n |> Ok
-    | Var(_, rid, _, _) -> evalRegister state rid
-    | PCVar(typ, _, _) -> SymbExpr.Const(BitVector(state.PC, typ)) |> Ok
-    | TempVar(_, idx, _) -> evalTemporary state idx
+    | Num(n, _) ->
+      SymbExpr.Const n |> Ok
+    | Var(_, rid, _, _) ->
+      evalRegister state rid
+    | PCVar(typ, _, _) ->
+      SymbExpr.Const(BitVector(state.PC, typ)) |> Ok
+    | TempVar(_, idx, _) ->
+      evalTemporary state idx
     | UnOp(op, expr, _) ->
       translate state expr |> Result.bind (foldUnOp op)
     | BinOp(op, typ, lhs, rhs, _) ->
@@ -207,8 +224,10 @@ module SymbExprTranslator =
       | Error e -> Error e
     | Ite(cond, thenExpr, elseExpr, _) ->
       match translate state cond with
-      | Ok(Const bv) when bv.IsTrue -> translate state thenExpr
-      | Ok(Const bv) when bv.IsFalse -> translate state elseExpr
+      | Ok(Const bv) when bv.IsTrue ->
+        translate state thenExpr
+      | Ok(Const bv) when bv.IsFalse ->
+        translate state elseExpr
       | Ok cond when SymbExpr.isCondition cond ->
         match translate state thenExpr, translate state elseExpr with
         | Ok thenExpr, Ok elseExpr -> SymbExpr.ite cond thenExpr elseExpr |> Ok
@@ -216,10 +235,13 @@ module SymbExprTranslator =
       | Ok cond ->
         $"Invalid Ite condition type: {RegType.toString cond.Type}"
         |> unsupportedOp
-      | Error e -> Error e
+      | Error e ->
+        Error e
     | Cast(kind, typ, expr, _) ->
       translate state expr |> Result.bind (foldCast kind typ)
     | Extract(expr, typ, pos, _) ->
       translate state expr |> Result.bind (foldExtract typ pos)
-    | Undefined(typ, reason, _) -> SymbExpr.undef typ reason |> Ok
-    | _ -> unsupportedExpr expr
+    | Undefined(typ, reason, _) ->
+      SymbExpr.undef typ reason |> Ok
+    | _ ->
+      unsupportedExpr expr

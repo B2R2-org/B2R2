@@ -63,7 +63,8 @@ let [<Literal>] private SingletonPullThreshold = 300.0
 let private findIncidentInnerSegmentNode vGraph (v: IVertex<VisBBlock>) =
   if v.VData.IsDummy then
     VisGraph.getPreds vGraph v |> Seq.tryFind (fun v -> v.VData.IsDummy)
-  else None
+  else
+    None
 
 let private pairID (u: IVertex<VisBBlock>) (v: IVertex<VisBBlock>) =
   if u.VData.Layer > v.VData.Layer then u, v
@@ -102,7 +103,8 @@ let private addTypeOneConflicts vGraph vLayout conflicts (layer, vertices) =
   if layer > 0 && layer < Array.length vLayout - 1 then
     let nUpperVertices = Array.length vLayout[layer - 1]
     scanConflicts vGraph nUpperVertices vertices conflicts 0 -1 0
-  else conflicts
+  else
+    conflicts
 
 /// Alg 1 of Brandes et al.
 let private findTypeOneConflicts vGraph vLayout =
@@ -144,7 +146,8 @@ let private vAlign (vGraph: VisGraph) vLayout maxLayer conflicts vDir hDir =
       | Rightmost -> Int32.MaxValue
     for v in vertices do
       let neighbors = neighborFn v
-      if neighbors.Length = 0 then ()
+      if neighbors.Length = 0 then
+        ()
       else
         let neighbors = Seq.toArray neighbors |> Array.sortBy VisGraph.getIndex
         let medians = getMedianNeighbors neighbors hDir
@@ -158,7 +161,8 @@ let private vAlign (vGraph: VisGraph) vLayout maxLayer conflicts vDir hDir =
             root[v] <- root[w]
             align[v] <- root[v]
             r <- VisGraph.getIndex w
-          else ()
+          else
+            ()
         done
     done)
   root, align
@@ -200,7 +204,8 @@ let adjustX (xs: FloatMap) u v delta = function
   | Rightmost -> xs[v] <- min xs[v] (xs[u] - delta)
 
 let rec placeBlock vLayout hDir root align sink shift (xs: FloatMap) maxW v =
-  if not (Double.IsNaN xs[v]) then ()
+  if not (Double.IsNaN xs[v]) then
+    ()
   else
     let mutable w = v
     xs[v] <- 0.0
@@ -221,7 +226,8 @@ and updateBlock vLayout hDir root (align: VertexMap) sink shift xs maxW v w =
     if (sink: VertexMap)[v] = v then sink[v] <- sink[u] else ()
     if sink[v] <> sink[u] then fixShift xs shift sink u v delta hDir
     else adjustX xs u v delta hDir
-  else ()
+  else
+    ()
 
 /// Alg 3 of Brandes et al.
 let hCompact vGraph vLayout root align hDir =
@@ -264,10 +270,8 @@ let getBound vLayout (xs: FloatMap, hDir) =
     let left = xs[first]
     let right = xs[last] + last.VData.Width
     let width = right - left
-    if width < minWidth then
-      minWidth, (if hDir = Leftmost then left else right)
-    else
-      minWidth, bound
+    if width < minWidth then minWidth, (if hDir = Leftmost then left else right)
+    else minWidth, bound
   ) (Double.PositiveInfinity, 0.0)
   |> fun (_, bound) -> bound, xs, hDir
 

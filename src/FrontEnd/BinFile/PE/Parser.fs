@@ -51,7 +51,8 @@ let getPDBSymbols reader (execpath: string) = function
     let pdbPath = IO.Path.ChangeExtension(execpath, "pdb")
     if IO.File.Exists pdbPath then
       IO.File.ReadAllBytes pdbPath |> parsePDB reader
-    else []
+    else
+      []
   | rawpdb ->
     parsePDB reader rawpdb
 
@@ -61,7 +62,8 @@ let updatePDBInfo baseAddr secs lst (sym: Symbol) =
   | Some sec ->
     let addr = baseAddr + uint64 sec.VirtualAddress + uint64 sym.Address
     { sym with Address = addr } :: lst
-  | None -> lst
+  | None ->
+    lst
 
 let buildPDBInfo baseAddr secs symbs =
   let rec folder lst = function

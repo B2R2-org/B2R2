@@ -193,7 +193,8 @@ type ELFTests() =
       Assert.AreEqual<int>(int x64ExecFile.Header.PHdrEntrySize,
                            info.EntrySize)
       Assert.AreEqual<int>(x64ExecFile.ProgramHeaders.Length, info.Count)
-    | None -> Assert.Fail "Expected ELF program header table information."
+    | None ->
+      Assert.Fail "Expected ELF program header table information."
 
   [<TestMethod>]
   member _.``[ELF] x64 exec IsNXEnabled test``() =

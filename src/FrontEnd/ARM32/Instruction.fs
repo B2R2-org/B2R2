@@ -95,7 +95,8 @@ type Instruction
       match this.Opcode with
       | Op.B | Op.BL | Op.BLX | Op.BX | Op.BXJ
       | Op.CBNZ | Op.CBZ
-      | Op.TBB | Op.TBH -> true
+      | Op.TBB | Op.TBH ->
+        true
       | Op.LDR ->
         match this.Operands with
         | TwoOperands(OprReg R.PC, _) -> true
@@ -108,7 +109,8 @@ type Instruction
         match this.Operands with
         | FourOperands(OprReg R.PC, _, _, _) -> true
         | _ -> false
-      | _ -> false
+      | _ ->
+        false
 
     member this.IsModeChanging =
       match this.Opcode with
@@ -167,8 +169,7 @@ type Instruction
 
     member this.IsRET =
       match this.Opcode, this.Operands with
-      | Op.POP, OneOperand(OprRegList regs) when List.contains R.PC regs ->
-        true
+      | Op.POP, OneOperand(OprRegList regs) when List.contains R.PC regs -> true
       | _ -> false
 
     member _.IsPush = Terminator.futureFeature ()
@@ -203,8 +204,10 @@ type Instruction
           let pc = (int64 this.Address + offset) / 4L * 4L (* Align by 4 *)
           addr <- ((pc + target) &&& 0xFFFFFFFFL) |> uint64
           true
-        | _ -> false
-      else false
+        | _ ->
+          false
+      else
+        false
 
     member _.IndirectTrampolineAddr(_: byref<Addr>) = false
 
@@ -220,7 +223,8 @@ type Instruction
         let pc = (int64 addr + offset) / 4L * 4L (* Align by 4 *)
         addrs <- [| ((pc + target) &&& 0xFFFFFFFFL) |> uint64 |]
         true
-      | _ -> false
+      | _ ->
+        false
 
     member _.Immediate(v: byref<int64>) =
       match opr with
@@ -250,12 +254,15 @@ type Instruction
     member this.GetNextInstrAddrs() =
       let acc = [| this.Address + uint64 this.Length |]
       let ins = this :> IInstruction
-      if ins.IsCall then acc |> this.AddBranchTargetIfExist
+      if ins.IsCall then
+        acc |> this.AddBranchTargetIfExist
       elif ins.IsBranch then
         if ins.IsCondBranch then acc |> this.AddBranchTargetIfExist
         else this.AddBranchTargetIfExist [||]
-      elif this.Opcode = Opcode.HLT then [||]
-      else acc
+      elif this.Opcode = Opcode.HLT then
+        [||]
+      else
+        acc
 
     member _.InterruptNum(_num: byref<int64>) = Terminator.futureFeature ()
 

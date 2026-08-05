@@ -113,22 +113,14 @@ let printMyVersion () =
 
 let handleCommands (cmd: string) (rest: string[]) =
   match cmd.ToLowerInvariant() with
-  | "help" | "--help" | "-h" ->
-    showUsage (); 0
-  | "version" | "--version" | "-v" ->
-    printMyVersion (); 0
-  | "binscan" | "scan" ->
-    BinScan.Program.main rest
-  | "bindisasm" | "disasm" ->
-    BinDisasm.Program.main rest
-  | "binexplore" | "explore" ->
-    BinExplore.Program.main rest
-  | "repl" ->
-    Repl.Program.main rest
-  | "assembler" | "asm" ->
-    Assembler.Program.main rest
-  | _ ->
-    Terminator.futureFeature ()
+  | "help" | "--help" | "-h" -> showUsage (); 0
+  | "version" | "--version" | "-v" -> printMyVersion (); 0
+  | "binscan" | "scan" -> BinScan.Program.main rest
+  | "bindisasm" | "disasm" -> BinDisasm.Program.main rest
+  | "binexplore" | "explore" -> BinExplore.Program.main rest
+  | "repl" -> Repl.Program.main rest
+  | "assembler" | "asm" -> Assembler.Program.main rest
+  | _ -> Terminator.futureFeature ()
 
 [<EntryPoint>]
 let main argv =

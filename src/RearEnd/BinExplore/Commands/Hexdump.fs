@@ -74,7 +74,8 @@ type Hexdump() =
         | Ok(addr, bytes: byte[]) ->
           let wordSize = brew.BinHandle.ISA.WordSize
           Logging.HexDump.makeLines 16 wordSize true addr bytes
-        | Error e -> [| OutputColored(ColoredString(NoColor, e)) |]
+        | Error e ->
+          [| OutputColored(ColoredString(NoColor, e)) |]
       | _ ->
         [| (this :> ICmd).CmdHelp |]
         |> Array.map OutputColored

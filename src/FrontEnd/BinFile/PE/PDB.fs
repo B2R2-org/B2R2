@@ -248,7 +248,8 @@ let rec parseSymbolRecord (bs: byte[]) reader offset modules streamMap =
     let m = Array.get modules (modnum - 1)
     let stream, _ = getStream streamMap m.SymStreamIndex
     parseSymbolRecord stream reader refOffset modules streamMap
-  | _ -> None
+  | _ ->
+    None
 
 let parseSymRecordStream reader modules streamMap (stream: byte[], streamSize) =
   let rec loop acc cnt offset =
@@ -307,8 +308,10 @@ let parseGSIHeader (span: ByteSpan) (reader: IBinReader) =
 let parseGSIHashRecord span reader gsiHeader =
   if gsiHeader.VersionSignature = 0xFFFFFFFFu
     && gsiHeader.VersionHeader = 0xF12F091Au
-  then readHashRecords [] span reader 16 (gsiHeader.HashRecordSize / 8u)
-  else []
+  then
+    readHashRecords [] span reader 16 (gsiHeader.HashRecordSize / 8u)
+  else
+    []
 
 let parseGlobalSymb reader (glStream: byte[], _glSize) =
   let span = ReadOnlySpan glStream

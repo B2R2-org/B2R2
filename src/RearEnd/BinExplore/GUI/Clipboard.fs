@@ -47,9 +47,7 @@ module Clipboard =
       reportError "Clipboard is unavailable."
     else
       Async.StartImmediate(async {
-        try
-          do! topLevel.Clipboard.SetTextAsync text |> Async.AwaitTask
-        with ex ->
-          reportError $"Failed to copy text: {ex.Message}"
+        try do! topLevel.Clipboard.SetTextAsync text |> Async.AwaitTask
+        with ex -> reportError $"Failed to copy text: {ex.Message}"
       })
 

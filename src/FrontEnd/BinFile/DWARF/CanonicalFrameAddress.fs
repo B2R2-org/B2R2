@@ -42,4 +42,5 @@ with
       regFactory.GetRegisterName rid + (offset.ToString("+0;-#"))
     | Expression exp ->
       PrettyPrinter.ToString exp
-    | UnknownCFA -> "unknown"
+    | UnknownCFA ->
+      "unknown"

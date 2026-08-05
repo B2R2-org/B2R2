@@ -43,7 +43,8 @@ let inline private getMask sz =
   | _ -> 0xFFFFFFFFFFFFFFFFL
 
 let inline private buildPref (prefs: Prefix) (builder: IDisasmBuilder) =
-  if prefs = Prefix.None then ()
+  if prefs = Prefix.None then
+    ()
   elif (prefs &&& Prefix.LOCK) <> Prefix.None then
     builder.Accumulate(AsmWordKind.String, "lock ")
   elif (prefs &&& Prefix.REPNZ) <> Prefix.None then
@@ -52,7 +53,8 @@ let inline private buildPref (prefs: Prefix) (builder: IDisasmBuilder) =
     builder.Accumulate(AsmWordKind.String, "repz ")
   elif (prefs &&& Prefix.BND) <> Prefix.None then
     builder.Accumulate(AsmWordKind.String, "bnd ")
-  else ()
+  else
+    ()
 
 let inline private buildOpcode opcode (builder: IDisasmBuilder) =
   builder.Accumulate(AsmWordKind.Mnemonic, Opcode.toString opcode)
@@ -103,14 +105,16 @@ module IntelSyntax = begin
     | Some d -> buildDisplacement showSign d wordSize builder
 
   let inline scaleToString (scale: Scale) (builder: IDisasmBuilder) =
-    if scale = Scale.X1 then ()
+    if scale = Scale.X1 then
+      ()
     else
       builder.Accumulate(AsmWordKind.String, "*")
       builder.Accumulate(AsmWordKind.Value, (int scale).ToString())
 
   let private memScaleDispToStr emptyBase si d wordSize builder =
     match si with
-    | None -> memDispToStr (not emptyBase) d wordSize builder
+    | None ->
+      memDispToStr (not emptyBase) d wordSize builder
     | Some(i, scale) ->
       if emptyBase then () else builder.Accumulate(AsmWordKind.String, "+")
       builder.Accumulate(AsmWordKind.Variable, Register.toString i)
@@ -119,7 +123,8 @@ module IntelSyntax = begin
 
   let private memAddrToStr b si disp wordSize builder =
     match b with
-    | None -> memScaleDispToStr true si disp wordSize builder
+    | None ->
+      memScaleDispToStr true si disp wordSize builder
     | Some b ->
       builder.Accumulate(AsmWordKind.Variable, Register.toString b)
       memScaleDispToStr false si disp wordSize builder
@@ -160,7 +165,8 @@ module IntelSyntax = begin
 
   /// Opmask register
   let buildOpMask ePrx (builder: IDisasmBuilder) =
-    if ePrx.AAA = 0uy then ()
+    if ePrx.AAA = 0uy then
+      ()
     else
       builder.Accumulate(AsmWordKind.String, "{")
       builder.Accumulate(AsmWordKind.Variable,
@@ -172,7 +178,8 @@ module IntelSyntax = begin
     | Some { EVEXPrx = Some ePrx } ->
       buildOpMask ePrx builder
       buildEVEXZ ePrx builder
-    | _ -> ()
+    | _ ->
+      ()
 
   let buildBroadcast (ins: Instruction) (builder: IDisasmBuilder) memSz =
     match ins.VEXInfo with
@@ -181,8 +188,10 @@ module IntelSyntax = begin
         builder.Accumulate(AsmWordKind.String, "{1to")
         builder.Accumulate(AsmWordKind.Value, (vl / memSz).ToString())
         builder.Accumulate(AsmWordKind.String, "}")
-      else ()
-    | _ -> ()
+      else
+        ()
+    | _ ->
+      ()
 
   let buildRoundingControl (ins: Instruction) (builder: IDisasmBuilder) =
     match ins.VEXInfo with
@@ -191,8 +200,10 @@ module IntelSyntax = begin
         builder.Accumulate(AsmWordKind.String, ", {")
         builder.Accumulate(AsmWordKind.String, ePrx.RC.ToString().ToLower())
         builder.Accumulate(AsmWordKind.String, "-sae}")
-      else ()
-    | _ -> ()
+      else
+        ()
+    | _ ->
+      ()
 
   let oprToString ins opr (builder: IDisasmBuilder) =
     match opr with
@@ -206,11 +217,13 @@ module IntelSyntax = begin
       buildAbsAddr sel offset builder
     | OprDirAddr(Relative(offset)) ->
       buildRelAddr offset builder ins.Address
-    | Label _ -> Terminator.impossible ()
+    | Label _ ->
+      Terminator.impossible ()
 
   let buildOprs (ins: Instruction) (builder: IDisasmBuilder) =
     match ins.Operands with
-    | NoOperand -> ()
+    | NoOperand ->
+      ()
     | OneOperand(OprMem(Some Register.RIP, None, Some off, 64<rt>)) ->
       builder.Accumulate(AsmWordKind.String, " ")
       mToString ins builder (Some Register.RIP) None (Some off) 64<rt>
@@ -308,7 +321,8 @@ module ATTSyntax = begin
 
   let buildScaledIndex si (builder: IDisasmBuilder) =
     match si with
-    | None -> ()
+    | None ->
+      ()
     | Some(i, Scale.X1) ->
       builder.Accumulate(AsmWordKind.String, ", %")
       builder.Accumulate(AsmWordKind.Variable, Register.toString i)
@@ -375,7 +389,8 @@ module ATTSyntax = begin
           ePrx.AAA |> int |> RegisterHelper.opmask |> Register.toString)
         builder.Accumulate(AsmWordKind.String, "}")
       buildEVEXZ ePrx builder
-    | _ -> ()
+    | _ ->
+      ()
 
   let buildOpr (ins: Instruction) wordSize isFst (builder: IDisasmBuilder) opr =
     match opr with
@@ -400,7 +415,8 @@ module ATTSyntax = begin
     | OprDirAddr(Relative(offset)) ->
       builder.Accumulate(AsmWordKind.String, " ")
       buildRelAddr offset builder ins.Address
-    | Label _ -> Terminator.impossible ()
+    | Label _ ->
+      Terminator.impossible ()
 
   let addOpSuffix (builder: IDisasmBuilder) = function
     | 8<rt> -> builder.Accumulate(AsmWordKind.Mnemonic, "b")
@@ -426,20 +442,24 @@ module ATTSyntax = begin
 
   let buildSrcSizeSuffix operands wordSize builder =
     match operands with
-    | TwoOperands(_, OprMem(_, _, _, sz)) -> addOpSuffix builder sz
+    | TwoOperands(_, OprMem(_, _, _, sz)) ->
+      addOpSuffix builder sz
     | TwoOperands(_, OprReg src) ->
       RegisterHelper.toRegType wordSize src |> addOpSuffix builder
-    | _ -> Terminator.impossible ()
+    | _ ->
+      Terminator.impossible ()
 
   let buildDstSizeSuffix operands wordSize builder =
     match operands with
     | TwoOperands(OprReg dst, _) ->
       RegisterHelper.toRegType wordSize dst |> addOpSuffix builder
-    | _ -> Terminator.impossible ()
+    | _ ->
+      Terminator.impossible ()
 
   let buildOprs (ins: Instruction) (builder: IDisasmBuilder) =
     match ins.Operands with
-    | NoOperand -> ()
+    | NoOperand ->
+      ()
     | OneOperand opr ->
       buildOpr ins builder.WordSize true builder opr
     | TwoOperands(opr1, opr2) ->

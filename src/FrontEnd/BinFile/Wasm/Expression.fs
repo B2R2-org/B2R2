@@ -49,4 +49,5 @@ let peekConstExpr (span: ByteSpan) (reader: IBinReader) offset =
   | ConstExprValueType.F64 ->
     let bits = reader.ReadUInt64(span, offset')
     F64(BitConverter.UInt64BitsToDouble bits), offset' + 8 + 1
-  | _ -> raise InvalidFileFormatException
+  | _ ->
+    raise InvalidFileFormatException

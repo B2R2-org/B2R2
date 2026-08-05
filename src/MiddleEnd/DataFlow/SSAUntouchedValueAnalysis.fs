@@ -53,21 +53,26 @@ type SSAUntouchedValueAnalysis(hdl: BinHandle) =
       let var = { Kind = RegVar(rt, sp, str); Identifier = 0 }
       state.SetRegValueWithoutAdding(var, UntouchedValueDomain.Touched)
       state
-    | None -> state
+    | None ->
+      state
 
   let evalVar (state: State<_>) v =
-    if state.IsRegSet v then state.GetRegValue v
+    if state.IsRegSet v then
+      state.GetRegValue v
     else
       if v.Identifier = 0 then
         let kind = VarKind.ofSSAVarKind v.Kind
         UntouchedValueDomain.Untouched(RegisterTag kind) (* Init here. *)
-      else UntouchedValueDomain.Touched
+      else
+        UntouchedValueDomain.Touched
 
   let rec evalExpr state = function
-    | Var v -> evalVar state v
+    | Var v ->
+      evalVar state v
     | Extract(e, _, _)
     | Cast(CastKind.ZeroExt, _, e)
-    | Cast(CastKind.SignExt, _, e) -> evalExpr state e
+    | Cast(CastKind.SignExt, _, e) ->
+      evalExpr state e
     | _ -> (* Any other operations will be considered "touched". *)
       UntouchedValueDomain.Touched
 
@@ -79,10 +84,12 @@ type SSAUntouchedValueAnalysis(hdl: BinHandle) =
 
   let evalPhi (state: State<_>) ssaCFG blk dst srcIDs =
     match state.GetExecutedSources(ssaCFG, blk, srcIDs) with
-    | [||] -> ()
+    | [||] ->
+      ()
     | executedSrcIDs ->
       match dst.Kind with
-      | MemVar | PCVar _ -> ()
+      | MemVar | PCVar _ ->
+        ()
       | _ ->
         executedSrcIDs
         |> Array.map (fun i ->

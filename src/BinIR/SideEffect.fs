@@ -92,25 +92,41 @@ module SideEffect =
   [<CompiledName "ToString">]
   let toString sideEffect =
     match sideEffect with
-    | Breakpoint -> "Breakpoint"
-    | Fence -> "Fence"
-    | Delay -> "Delay"
-    | Terminate -> "Terminate"
-    | SysCall -> "SysCall"
-    | Interrupt(n) -> "Int" + n.ToString()
-    | Exception k -> "Exception(" + ExceptionKind.toString k + ")"
-    | AtomicBegin -> "AtomicBegin"
-    | AtomicEnd -> "AtomicEnd"
-    | ClockCounterRead None -> "ClockCounterRead"
+    | Breakpoint ->
+      "Breakpoint"
+    | Fence ->
+      "Fence"
+    | Delay ->
+      "Delay"
+    | Terminate ->
+      "Terminate"
+    | SysCall ->
+      "SysCall"
+    | Interrupt(n) ->
+      "Int" + n.ToString()
+    | Exception k ->
+      "Exception(" + ExceptionKind.toString k + ")"
+    | AtomicBegin ->
+      "AtomicBegin"
+    | AtomicEnd ->
+      "AtomicEnd"
+    | ClockCounterRead None ->
+      "ClockCounterRead"
     | ClockCounterRead(Some(r, isUpper)) ->
       "ClockCounterRead(" + string (int r) + (if isUpper then ":hi" else ":lo")
       + ")"
-    | ProcessorInfoRead -> "ProcessorInfoRead"
-    | UndefinedInstruction -> "UndefinedInstruction"
-    | UnsupportedInstruction -> "UnsupportedInstruction"
-    | SaveWindow -> "SaveWindow"
-    | RestoreWindow -> "RestoreWindow"
-    | FlushWindows -> "FlushWindows"
+    | ProcessorInfoRead ->
+      "ProcessorInfoRead"
+    | UndefinedInstruction ->
+      "UndefinedInstruction"
+    | UnsupportedInstruction ->
+      "UnsupportedInstruction"
+    | SaveWindow ->
+      "SaveWindow"
+    | RestoreWindow ->
+      "RestoreWindow"
+    | FlushWindows ->
+      "FlushWindows"
 #if EMULATION
     | FlagsUpdate -> "FlagsUpdate"
 #endif

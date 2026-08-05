@@ -100,9 +100,12 @@ type ExceptionInfo(liftingUnit: LiftingUnit) =
         match last.DirectBranchTarget() with
         | true, jmpTarget ->
           frame.FunctionStart <= jmpTarget && jmpTarget <= frame.FunctionEnd
-        | _ -> true
-      else true
-    else true
+        | _ ->
+          true
+      else
+        true
+    else
+      true
 
   let loopHandlers (frame: BinExceptionFrame) acc =
     frame.Handlers
@@ -112,7 +115,8 @@ type ExceptionInfo(liftingUnit: LiftingUnit) =
         let range = AddrRange.create handler.BlockStart handler.BlockEnd
         let tbl = HandlerTable.add range landingPad tbl
         tbl, checkIfFrameIsFunction frame landingPad
-      | None -> tbl, isFunc) (acc, true)
+      | None ->
+        tbl, isFunc) (acc, true)
 
   let fnRanges = Dictionary<Addr, Addr>()
 

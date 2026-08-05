@@ -219,8 +219,7 @@ type Assembler(isa: ISA, baseAddr: Addr) =
     >>= fun (first, second) ->
       match first, second with
       | _, None -> preturn (AsmMem first)
-      | AsmDirect one, Some(AsmDirect other) ->
-        preturn (AsmMemPair(one, other))
+      | AsmDirect one, Some(AsmDirect other) -> preturn (AsmMemPair(one, other))
       | _, Some _ -> fail "a pair of places is written as two registers"
 
   /// An address written with the distance in front of the parentheses, which is
@@ -360,6 +359,7 @@ type Assembler(isa: ISA, baseAddr: Addr) =
         |> assemble table us isa.M68KModel baseAddr
         |> List.map (fun bytes -> isa, bytes)
         |> Result.Ok
-      | Failure(str, _, _) -> Result.Error str
+      | Failure(str, _, _) ->
+        Result.Error str
 
 // vim: set tw=80 sts=2 sw=2:

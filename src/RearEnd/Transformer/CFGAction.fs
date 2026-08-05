@@ -35,8 +35,10 @@ type CFGAction() =
         let hdl = Binary.Handle bin
         let brew = BinaryBrew hdl
         CFG.Init(0UL, brew.Functions[0UL].CFG) |> box
-      with e -> e.ToString() |> NoCFG |> box
-    | _ -> invalidArg (nameof input) "Invalid argument."
+      with e ->
+        e.ToString() |> NoCFG |> box
+    | _ ->
+      invalidArg (nameof input) "Invalid argument."
 
   interface IAction with
     member _.ActionID with get() = "cfg"

@@ -95,7 +95,8 @@ let private polySegments (pts: VisPosition array) =
 
 let private countBends (pts: VisPosition array) =
   let n = pts.Length
-  if n < 3 then 0
+  if n < 3 then
+    0
   else
     let mutable acc = 0
     for i in 0 .. n - 3 do
@@ -111,14 +112,17 @@ let private countBends (pts: VisPosition array) =
 /// in a single pass.
 let private dedupAndCollapse (points: VisPosition array) =
   let n = points.Length
-  if n = 0 then [||]
+  if n = 0 then
+    [||]
   else
     let out = ResizeArray<VisPosition>(n)
     for i in 0 .. n - 1 do
       let p = points[i]
       let k = out.Count
-      if k = 0 then out.Add p
-      elif samePos out[k - 1] p then ()
+      if k = 0 then
+        out.Add p
+      elif samePos out[k - 1] p then
+        ()
       elif k >= 2 then
         let a = out[k - 2]
         let b = out[k - 1]
@@ -126,7 +130,8 @@ let private dedupAndCollapse (points: VisPosition array) =
           (sameX a b && sameX b p) || (sameY a b && sameY b p)
         if collinear then out[k - 1] <- p
         else out.Add p
-      else out.Add p
+      else
+        out.Add p
     out.ToArray()
 
 let private orientation ax ay bx by cx cy =
@@ -162,7 +167,8 @@ let private onlyTouchesAtEndpoint a0 a1 b0 b1 =
   let shared =
     samePos a0 b0 || samePos a0 b1
     || samePos a1 b0 || samePos a1 b1
-  if not shared then false
+  if not shared then
+    false
   else
     let collinear =
       (sameX a0 a1 && sameX b0 b1 && sameX a0 b0)
@@ -184,9 +190,12 @@ let private clipLB p q (t0: byref<float>) (t1: byref<float>) (ok: byref<bool>) =
       if r > t1 then ok <- false
       elif r > t0 then t0 <- r
       else ()
-    elif r < t0 then ok <- false
-    elif r < t1 then t1 <- r
-    else ()
+    elif r < t0 then
+      ok <- false
+    elif r < t1 then
+      t1 <- r
+    else
+      ()
 
 let private segIntersectsRect ((l, r, t, b): Box) (x0, y0)
                               (x1: float, y1: float) =
@@ -196,7 +205,8 @@ let private segIntersectsRect ((l, r, t, b): Box) (x0, y0)
   let eB = b - CoordEpsilon
   let insideA = x0 > eL && x0 < eR && y0 > eT && y0 < eB
   let insideB = x1 > eL && x1 < eR && y1 > eT && y1 < eB
-  if insideA || insideB then true
+  if insideA || insideB then
+    true
   else
     let dx = x1 - x0
     let dy = y1 - y0
@@ -277,8 +287,10 @@ let private countCrossings (cache: SegCacheEntry array) (ignored: HashSet<_>)
             if not (aMaxY < bMinY - CoordEpsilon
               || bMaxY < aMinY - CoordEpsilon)
               && segmentsProperlyIntersect a0 a1 b0 b1
-            then n <- n + 1
-            else ()
+            then
+              n <- n + 1
+            else
+              ()
           else
             ()
     else
@@ -310,7 +322,8 @@ let private forwardEdgeAvoidNeighborBigBox (g: VisGraph) realVertices =
           if hit then
             let key = boxKey box
             match hitMap.TryGetValue key with
-            | true, xs -> xs.Add(src, edge)
+            | true, xs ->
+              xs.Add(src, edge)
             | _ ->
               let xs = ResizeArray()
               xs.Add(src, edge)
@@ -375,7 +388,8 @@ let private buildShortcutCandidate prefix middle suffix =
 
 let private tryAcceptShortcut
     cache safeBoxes src dst ignoredEdges isBackEdge oldCross cand =
-  if polylineViolatesSafeBox safeBoxes src dst cand then None
+  if polylineViolatesSafeBox safeBoxes src dst cand then
+    None
   else
     let segs = polySegments cand
     if countCrossings cache ignoredEdges isBackEdge dst segs <= oldCross
@@ -415,7 +429,8 @@ let private tryFindPointAtX targetX segStart segEnd pickFirst
     | Some y ->
       best <- Some(i, pos targetX y)
       if pickFirst then stop <- true else ()
-    | None -> ()
+    | None ->
+      ()
     i <- i + 1
   best
 
@@ -429,7 +444,8 @@ let private tryFindPointAtY targetY segStart segEnd pickFirst
     | Some x ->
       best <- Some(i, pos x targetY)
       if pickFirst then stop <- true else ()
-    | None -> ()
+    | None ->
+      ()
     i <- i + 1
   best
 
@@ -474,7 +490,8 @@ let private tryBackwardNearestDummyShortcut cache layerTopMap safeBoxes src dst
       | None -> None)
     |> List.sortByDescending fst
   match hits with
-  | [] -> None
+  | [] ->
+    None
   | _ ->
     let oldCross = countCrossings cache ignoredEdges true dst (polySegments pts)
     hits
@@ -498,13 +515,16 @@ let private tryBackwardInsertPointAtAdjustedY cache safeBoxes src dst
       let cand = buildShortcutCandidate prefix [| targetPt |] pts[segIdx + 1..]
       let oldBends = countBends pts
       let newBends = countBends cand
-      if newBends >= oldBends then None
-      elif polylineViolatesSafeBox safeBoxes src dst cand then None
+      if newBends >= oldBends then
+        None
+      elif polylineViolatesSafeBox safeBoxes src dst cand then
+        None
       else
         let old = countCrossings cache ignoredEdges true dst (polySegments pts)
         let neC = countCrossings cache ignoredEdges true dst (polySegments cand)
         if neC > old then None else Some cand
-    | _ -> None
+    | _ ->
+      None
 
 /// After stage-1 dummy shortcut, try to further straighten the departure and
 /// arrival legs by aligning them with the source/destination port x-coordinates
@@ -532,20 +552,24 @@ let private tryBackwardAlignPortX cache safeBox src dst ignoredEdges
       when si < di || (si = di && not (samePos sp dp)) ->
       let cand = buildShortcutCandidate prefix [| sp; dp |] pts[di + 1..]
       match tryShortcut cand with
-      | Some _ as result -> result
+      | Some _ as result ->
+        result
       | None ->
         match tryFindPointAtX sPortX 4 (n - 3) true pts with
         | Some(si2, sp2) ->
           buildShortcutCandidate prefix [| sp2 |] pts[si2 + 1..] |> tryShortcut
-        | None -> None
+        | None ->
+          None
     | Some(si, sp), None ->
       buildShortcutCandidate prefix [| sp |] pts[si + 1..] |> tryShortcut
-    | _ -> None
+    | _ ->
+      None
 
 let private optimizeBackwardStage1 cache layerTopMap safeBoxes src dst
   ignoredEdges dummies (merged: VisPosition array) =
   match tryExtractBackwardPrefix merged with
-  | None -> merged
+  | None ->
+    merged
   | Some prefix ->
     match tryBackwardNearestDummyShortcut cache layerTopMap safeBoxes src dst
       ignoredEdges prefix dummies merged with
@@ -663,7 +687,8 @@ let private runStage3 plans =
       plan
     else
       match Map.tryFind plan.Dst backGroupsMap with
-      | None | Some [] | Some [ _ ] -> plan
+      | None | Some [] | Some [ _ ] ->
+        plan
       | Some groupPlans ->
         let hasCrossing =
           groupPlans |> List.exists (fun other ->

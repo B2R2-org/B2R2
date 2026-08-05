@@ -68,8 +68,10 @@ module RandomAccessQueue =
   /// </summary>
   [<CompiledName ("SplitAt")>]
   let splitAt i ((RandomAccessQueue q) as queue) =
-    if i <= 0 then empty, queue
-    elif i >= length queue then queue, empty
+    if i <= 0 then
+      empty, queue
+    elif i >= length queue then
+      queue, empty
     else
       let i = uint32 i
       let l, r = Op.Split((fun (elt: Size) -> i < elt.Value), q)
@@ -138,7 +140,8 @@ module RandomAccessQueue =
   /// range.
   [<CompiledName ("TryGetAt")>]
   let tryGetAt i q =
-    if i < 0 || i >= length q then None
+    if i < 0 || i >= length q then
+      None
     else
       let _, rest = splitAt i q
       let elm, _ = viewHead rest
@@ -157,7 +160,8 @@ module RandomAccessQueue =
   let tryFindIndex pred (RandomAccessQueue q) =
     let rec loop cnt q =
       match Op.ViewL q with
-      | Nil -> None
+      | Nil ->
+        None
       | Cons(hd: RandomAccessQueueElem<_>, tl) ->
         if pred hd.Val then Some cnt else loop (cnt + 1) tl
     loop 0 q
@@ -166,7 +170,8 @@ module RandomAccessQueue =
   [<CompiledName ("TryFindIndexBack")>]
   let rec tryFindIndexBack pred (RandomAccessQueue q) =
     match Op.ViewR q with
-    | Nil -> None
+    | Nil ->
+      None
     | Cons(hd: RandomAccessQueueElem<_>, tl) ->
       let tl = RandomAccessQueue tl
       if pred hd.Val then length tl |> Some else tryFindIndexBack pred tl

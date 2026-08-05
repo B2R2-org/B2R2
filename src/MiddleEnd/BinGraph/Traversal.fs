@@ -47,7 +47,8 @@ module DFS =
     reversePrependTo lst succs (succs.Length - 1)
 
   let rec private foldPreorderLoop visited g fn acc = function
-    | [] -> acc
+    | [] ->
+      acc
     | v: IVertex<_> :: tovisit when (visited: HashSet<_>).Contains v.ID ->
       foldPreorderLoop visited g fn acc tovisit
     | v :: tovisit ->
@@ -55,7 +56,8 @@ module DFS =
       foldPreorderLoop visited g fn (fn acc v) (prependSuccessors g tovisit v)
 
   let rec internal foldPostorderLoop visited g fn acc vstack = function
-    | [] -> acc
+    | [] ->
+      acc
     | v: IVertex<_> :: tovisit when (visited: HashSet<_>).Contains v.ID ->
       foldPostorderLoop visited g fn acc vstack tovisit
     | v :: tovisit ->
@@ -64,7 +66,8 @@ module DFS =
       foldPostorderLoop visited g fn acc vstack (prependSuccessors g tovisit v)
 
   and private consume visited g fn acc = function
-    | [] -> struct (acc, [])
+    | [] ->
+      struct (acc, [])
     | v :: rest ->
       let allSuccsVisited =
         g.GetSuccs v

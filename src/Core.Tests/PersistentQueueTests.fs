@@ -31,7 +31,8 @@ open B2R2.Collections
 type PersistentQueueTests() =
 
   let rec toList q acc =
-    if PersistentQueue.isEmpty q then List.rev acc
+    if PersistentQueue.isEmpty q then
+      List.rev acc
     else
       let elt, q = PersistentQueue.dequeue q
       toList q (elt :: acc)

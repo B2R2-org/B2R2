@@ -51,7 +51,8 @@ let private tryGetRawOffset pe relocAddr size =
     let offset = rva + sec.PointerToRawData - sec.VirtualAddress
     if offset + size <= sec.PointerToRawData + sec.SizeOfRawData then
       Some offset
-    else None
+    else
+      None
 
 let getRelocations pe =
   pe.RelocBlocks

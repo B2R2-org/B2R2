@@ -135,13 +135,17 @@ and EVMFuncUserContext() =
       | BinOpType.ADD -> v1 + v2
       | BinOpType.SUB -> v1 - v2
       | _ -> Terminator.impossible ()
-    | Num(bv, _) -> bv
-    | Var(_, regId, _, _) when regId = spId -> offBV
-    | _ -> Terminator.impossible ()
+    | Num(bv, _) ->
+      bv
+    | Var(_, regId, _, _) when regId = spId ->
+      offBV
+    | _ ->
+      Terminator.impossible ()
 
   let getStackPointerDelta state v =
     match perVertexStackPointerDelta.TryGetValue v with
-    | true, delta -> delta
+    | true, delta ->
+      delta
     | false, _ ->
       let delta = computeStackPointerDelta state v
       perVertexStackPointerDelta[v] <- delta

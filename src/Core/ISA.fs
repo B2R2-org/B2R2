@@ -424,8 +424,10 @@ type ISA(arch, endian, wordSize, flags) =
   override this.ToString() =
     let thumb = this.ARM32Mode = ARM32Mode.Thumb
     match arch, endian, wordSize with
-    | Architecture.Intel, _, WordSize.Bit32 -> "x86"
-    | Architecture.Intel, _, WordSize.Bit64 -> "x86-64"
+    | Architecture.Intel, _, WordSize.Bit32 ->
+      "x86"
+    | Architecture.Intel, _, WordSize.Bit64 ->
+      "x86-64"
     | Architecture.ARMv7, Endian.Little, _ ->
       if thumb then "thumb" else "armv7"
     | Architecture.ARMv7, Endian.Big, _ ->
@@ -434,24 +436,42 @@ type ISA(arch, endian, wordSize, flags) =
       if thumb then "aarch32t" else "aarch32"
     | Architecture.ARMv8, Endian.Big, WordSize.Bit32 ->
       if thumb then "aarch32tbe" else "aarch32be"
-    | Architecture.ARMv8, Endian.Little, WordSize.Bit64 -> "aarch64"
-    | Architecture.ARMv8, Endian.Big, WordSize.Bit64 -> "aarch64be"
-    | Architecture.MIPS, Endian.Little, WordSize.Bit32 -> "mips32le"
-    | Architecture.MIPS, Endian.Big, WordSize.Bit32 -> "mips32"
-    | Architecture.MIPS, Endian.Little, WordSize.Bit64 -> "mips64le"
-    | Architecture.MIPS, Endian.Big, WordSize.Bit64 -> "mips64"
-    | Architecture.PPC, Endian.Little, WordSize.Bit32 -> "ppc32le"
-    | Architecture.PPC, Endian.Big, WordSize.Bit32 -> "ppc32"
-    | Architecture.PPC, Endian.Little, WordSize.Bit64 -> "ppc64le"
-    | Architecture.PPC, Endian.Big, WordSize.Bit64 -> "ppc64"
-    | Architecture.RISCV, Endian.Little, WordSize.Bit64 -> "riscv64"
-    | Architecture.SPARC, Endian.Big, WordSize.Bit64 -> "sparc64"
-    | Architecture.S390, Endian.Big, WordSize.Bit32 -> "s390"
-    | Architecture.S390, Endian.Big, WordSize.Bit64 -> "s390x"
-    | Architecture.SH4, Endian.Little, WordSize.Bit32 -> "sh4"
-    | Architecture.SH4, Endian.Big, WordSize.Bit32 -> "sh4be"
-    | Architecture.PARISC, Endian.Big, WordSize.Bit32 -> "parisc"
-    | Architecture.PARISC, Endian.Big, WordSize.Bit64 -> "parisc64"
+    | Architecture.ARMv8, Endian.Little, WordSize.Bit64 ->
+      "aarch64"
+    | Architecture.ARMv8, Endian.Big, WordSize.Bit64 ->
+      "aarch64be"
+    | Architecture.MIPS, Endian.Little, WordSize.Bit32 ->
+      "mips32le"
+    | Architecture.MIPS, Endian.Big, WordSize.Bit32 ->
+      "mips32"
+    | Architecture.MIPS, Endian.Little, WordSize.Bit64 ->
+      "mips64le"
+    | Architecture.MIPS, Endian.Big, WordSize.Bit64 ->
+      "mips64"
+    | Architecture.PPC, Endian.Little, WordSize.Bit32 ->
+      "ppc32le"
+    | Architecture.PPC, Endian.Big, WordSize.Bit32 ->
+      "ppc32"
+    | Architecture.PPC, Endian.Little, WordSize.Bit64 ->
+      "ppc64le"
+    | Architecture.PPC, Endian.Big, WordSize.Bit64 ->
+      "ppc64"
+    | Architecture.RISCV, Endian.Little, WordSize.Bit64 ->
+      "riscv64"
+    | Architecture.SPARC, Endian.Big, WordSize.Bit64 ->
+      "sparc64"
+    | Architecture.S390, Endian.Big, WordSize.Bit32 ->
+      "s390"
+    | Architecture.S390, Endian.Big, WordSize.Bit64 ->
+      "s390x"
+    | Architecture.SH4, Endian.Little, WordSize.Bit32 ->
+      "sh4"
+    | Architecture.SH4, Endian.Big, WordSize.Bit32 ->
+      "sh4be"
+    | Architecture.PARISC, Endian.Big, WordSize.Bit32 ->
+      "parisc"
+    | Architecture.PARISC, Endian.Big, WordSize.Bit64 ->
+      "parisc64"
     | Architecture.M68K, _, _ ->
       match LanguagePrimitives.EnumOfValue flags with
       | M68KModel.M68000 -> "m68000"
@@ -461,9 +481,12 @@ type ISA(arch, endian, wordSize, flags) =
       | M68KModel.M68040 -> "m68040"
       | M68KModel.M68060 -> "m68060"
       | _ -> raise InvalidISAException
-    | Architecture.AVR, _, _ -> "avr"
-    | Architecture.TMS320C6000, _, _ -> "tms320c6000"
-    | Architecture.EVM, _, _ -> "evm"
+    | Architecture.AVR, _, _ ->
+      "avr"
+    | Architecture.TMS320C6000, _, _ ->
+      "tms320c6000"
+    | Architecture.EVM, _, _ ->
+      "evm"
     | Architecture.Python, _, _ ->
       match LanguagePrimitives.EnumOfValue flags with
       | PythonVersion.Python308 -> "python3.8"
@@ -475,14 +498,16 @@ type ISA(arch, endian, wordSize, flags) =
       | PythonVersion.Python314 -> "python3.14"
       | PythonVersion.Python315 -> "python3.15"
       | _ -> raise InvalidISAException
-    | Architecture.WASM, _, _ -> "wasm"
+    | Architecture.WASM, _, _ ->
+      "wasm"
     | Architecture.CIL, _, _ ->
       match LanguagePrimitives.EnumOfValue flags with
       | CILKind.CILOnly -> "cil"
       | CILKind.CILx86 -> "cil-x86"
       | CILKind.CILx64 -> "cil-x64"
       | _ -> raise InvalidISAException
-    | _ -> raise InvalidISAException
+    | _ ->
+      raise InvalidISAException
 
 /// Represents the kind of CIL code: only CIL, CIL for x86, or CIL for x64.
 and CILKind =

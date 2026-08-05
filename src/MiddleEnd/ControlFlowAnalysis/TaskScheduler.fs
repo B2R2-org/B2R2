@@ -66,7 +66,8 @@ type TaskScheduler<'FnCtx,
       | Invalid -> FailedBuilding
       | ForceFinished | Finished -> FinalCtx builder.Context
       | _ -> StillBuilding builder.Context
-    | Error _ -> FailedBuilding
+    | Error _ ->
+      FailedBuilding
 
   let terminateWorkers () = taskStream.Close()
 
@@ -102,7 +103,8 @@ type TaskScheduler<'FnCtx,
   let rechargeActionQueue ctx callee calleeInfo =
     let callerPendingActions = ctx.PendingCallActions
     let callerActionQueue = ctx.ActionQueue
-    if not <| callerPendingActions.ContainsKey callee then false
+    if not <| callerPendingActions.ContainsKey callee then
+      false
     else
       callerPendingActions[callee]
       |> Seq.map (function
@@ -129,7 +131,8 @@ type TaskScheduler<'FnCtx,
     | _ ->
       if rechargeActionQueue callerBuilder.Context calleeAddr calleeInfo then
         assignCFGBuildingTaskNow callerBuilder
-      else ()
+      else
+        ()
 
   let rec rollback (builder: ICFGBuildable<_, _>) =
     if rollbackOnGapAnalysis builder || rollbackOnJumpTable builder then
@@ -146,7 +149,8 @@ type TaskScheduler<'FnCtx,
   /// add the gap address to the blacklist to avoid re-analyzing it.
   and rollbackOnGapAnalysis (builder: ICFGBuildable<_, _>) =
     match builder.Context.GapToAnalyze with
-    | None -> false
+    | None ->
+      false
     | Some(addr) ->
 #if CFGDEBUG
       dbglog ManagerTid "Rollback for gap completion"
@@ -159,7 +163,8 @@ type TaskScheduler<'FnCtx,
   /// and we adjust the jump table note accordingly.
   and rollbackOnJumpTable (builder: ICFGBuildable<_, _>) =
     match builder.Context.JumpTableRecoveryStatus.TryPeek() with
-    | false, _ -> false
+    | false, _ ->
+      false
     | true, (tblAddr, idx) ->
 #if CFGDEBUG
       dbglog ManagerTid "Rollback for jump table"
@@ -229,7 +234,8 @@ type TaskScheduler<'FnCtx,
       deps
       |> Seq.iter (fun cycleAddrs ->
         match getAllStoppedCycle cycleAddrs with
-        | Ok deps -> strategy.OnCyclicDependency deps |> forceFinish
+        | Ok deps ->
+          strategy.OnCyclicDependency deps |> forceFinish
         | Error _ ->
 #if CFGDEBUG
           dbglog ManagerTid "CyclicDependencies" "No stopped cycle found yet."
@@ -320,7 +326,8 @@ type TaskScheduler<'FnCtx,
       (* We restart the caller builder if it has a jump table as the
          under-approximated CFG can introduce a bogus edge in some rare cases
          as described in the `consumeUntilPendingReset` function. *)
-      if caller.HasJumpTable then restartBuilder caller
+      if caller.HasJumpTable then
+        restartBuilder caller
       else
         if isBuilderFinished caller then caller.ReInitialize() else ()
         caller.Context.ActionQueue.Push(strategy.ActionPrioritizer,
@@ -357,12 +364,14 @@ type TaskScheduler<'FnCtx,
         |> List.sort
         |> List.tryHead
         |> function
-          | None -> false
+          | None ->
+            false
           | Some(addr) ->
             startGapAnalysis builder addr
             scheduleCFGBuilding builder.EntryPoint
             true
-    else false (* Since there's no jmp table, no need to analyze gaps. *)
+    else
+      false (* Since there's no jmp table, no need to analyze gaps. *)
 
   /// This function is called when a callee has been successfully built. It
   /// propagates the success to its callers who are waiting for the builder.
@@ -508,7 +517,8 @@ type TaskScheduler<'FnCtx,
           let hostAddr = oldNote.HostFunctionAddr
           let builder = builders[hostAddr]
           restartBuilderIfNotInProgress builder
-        else ()
+        else
+          ()
         StopRecoveryButReload
 
   let handleBogusJumpTableEntry fnAddr tblAddr idx =
@@ -546,7 +556,8 @@ type TaskScheduler<'FnCtx,
         let nextBuilder = builders[nextFnAddr]
         isFPTab (* Since we are handling a function pointer table, we just go *)
         || (fnAddr < nextJumpTarget && nextJumpTarget < nextBuilder.EntryPoint)
-      | None -> false
+      | None ->
+        false
     else
       false
 
@@ -580,10 +591,8 @@ type TaskScheduler<'FnCtx,
       | ReportCFGResult(entryPoint, result) ->
         try handleResult entryPoint result
         with e -> Console.Error.WriteLine $"Failed to handle result:\n{e}"
-        if workingSet.Count = 0 then
-          terminateIfAllDone ()
-        else
-          ()
+        if workingSet.Count = 0 then terminateIfAllDone ()
+        else ()
       | GetNonReturningStatus(addr, ch) ->
         match builders.TryGetBuilder addr with
         | Ok builder -> ch.Reply builder.Context.NonReturningStatus

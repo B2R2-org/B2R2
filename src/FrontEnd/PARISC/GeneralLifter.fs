@@ -57,7 +57,8 @@ let private msb e = AST.xthi 1<rt> e
 let private baseCond (c: Completer) =
   if c >= Completer.DNEVER && c <= Completer.DSDC then
     enum<Completer> (int c - 34)
-  else c
+  else
+    c
 
 /// How a memory reference updates its base register.
 type private Modify =
@@ -113,7 +114,8 @@ let private guard (bld: LowUIRBuilder) addr =
                       (AST.jmpDest skipLbl) (AST.jmpDest runLbl))
     ibld <+ (AST.lmark runLbl)
     bld.NullifySkip <- ValueSome skipLbl
-  else ()
+  else
+    ()
   bld.PrevMayNullify <- false
 
 /// Marks the start of an instruction and plants its nullify guard. A transfer
@@ -137,14 +139,17 @@ let private markStart (bld: ILowUIRBuilder) addr insLen isTransfer =
        pbld.ResetPending()
      | ValueNone when pbld.PendingKind <> InterJmpKind.NotAJmp ->
        pbld.ResetPending()
-     | _ -> ())
+     | _ ->
+       ())
     pbld.CurAddr <- addr
     if isTransfer && pbld.PendingKind = InterJmpKind.NotAJmp then
       let back = regVar bld Register.IAOQ_Back
       bld <+ (back := numU64 (addr + uint64 insLen + 4UL) bld.RegType)
-    else ()
+    else
+      ()
     guard pbld addr
-  | _ -> ()
+  | _ ->
+    ()
 
 /// Marks the start of an ordinary instruction. Shadows LiftingUtils's <!--.
 let (<!--) (bld: ILowUIRBuilder) (addr, insLen) =
@@ -471,7 +476,8 @@ let private unitCond (bld: ILowUIRBuilder) cond res cb =
 /// never holds needs no statement, since the bit is already clear there.
 let nullifyOn (bld: ILowUIRBuilder) cond =
   match cond with
-  | None -> ()
+  | None ->
+    ()
   | Some c ->
     bld <+ (regVar bld Register.PSW_N := zextTo bld.RegType c)
     mayNullify bld
@@ -529,8 +535,7 @@ let effAddr (bld: ILowUIRBuilder) ins sh opr =
      | None -> bld <+ (ofs := bse)
      | Some(Imm i) -> bld <+ (ofs := bse .+ numI64 i rt)
      | Some(Reg x) when scale = 0 -> bld <+ (ofs := bse .+ regVar bld x)
-     | Some(Reg x) ->
-       bld <+ (ofs := bse .+ (regVar bld x << numI32 scale rt)))
+     | Some(Reg x) -> bld <+ (ofs := bse .+ (regVar bld x << numI32 scale rt)))
     match modifyOf ins with
     | NoModify ->
       ofs
@@ -542,7 +547,8 @@ let effAddr (bld: ILowUIRBuilder) ins sh opr =
       bld <+ (addr := bse)
       bld <+ (bse := ofs)
       addr
-  | _ -> raise InvalidOperandException
+  | _ ->
+    raise InvalidOperandException
 
 /// The width in bits a load or store transfers, and the number of places an
 /// indexed reference shifts its index register to scale it by that width.
@@ -561,7 +567,8 @@ let accessSize (ins: Instruction) =
 let private checkWidth (bld: ILowUIRBuilder) (ins: Instruction) sz =
   if sz > bld.RegType then
     raise (NotImplementedIRException(Disasm.opCodeToString ins.Opcode))
-  else ()
+  else
+    ()
 
 let load (ins: Instruction) insLen bld =
   let struct (mem, dst) = getTwoOprs ins
@@ -681,7 +688,8 @@ let private takesCarry (ins: Instruction) =
   | Some c ->
     Array.contains Completer.C c || Array.contains Completer.DC c
     || Array.contains Completer.B c || Array.contains Completer.DB c
-  | None -> false
+  | None ->
+    false
 
 /// Whether an arithmetic completer array marks the "logical" form, which is the
 /// one that leaves the recorded carries alone. That is the whole point of it:
@@ -710,8 +718,7 @@ let private addWith (ins: Instruction) insLen (bld: ILowUIRBuilder)
   bld <+ (addend := carry)
   bld <+ (res := in1 .+ addend)
   bld <+ (carries := carryOut in1 addend res)
-  if not (isLogical ins) then
-    bld <+ (regVar bld Register.PSW_CB := carries)
+  if not (isLogical ins) then bld <+ (regVar bld Register.PSW_CB := carries)
   else ()
   match ins.Condition with
   | Some c -> nullifyOn bld (addCond bld c in1 addend res carries)
@@ -889,11 +896,9 @@ let private shiftOfPos (bld: ILowUIRBuilder) pos =
   let width = RegType.toBitWidth rt
   let widthm1 = numI32 (width - 1) rt
   match pos with
-  | OpReg Register.CR11 ->
-    (regVar bld Register.CR11 .& widthm1) <+> widthm1
+  | OpReg Register.CR11 -> (regVar bld Register.CR11 .& widthm1) <+> widthm1
   | OpImm p
-  | OpShiftAmount p when p < uint64 width ->
-    numU64 (uint64 (width - 1) - p) rt
+  | OpShiftAmount p when p < uint64 width -> numU64 (uint64 (width - 1) - p) rt
   | _ -> raise (NotImplementedIRException "field position")
 
 /// Shift right a pair of registers: the first operand supplies the high half
@@ -962,7 +967,8 @@ let extr (ins: Instruction) insLen bld =
   let sh = shiftOfPos bld pos
   if signed then bld <+ (res := transOpr bld src ?>> sh)
   else bld <+ (res := transOpr bld src >> sh)
-  if n >= width then ()
+  if n >= width then
+    ()
   elif signed then
     let shift = numI32 (width - n) rt
     bld <+ (res := (res << shift) ?>> shift)
@@ -1070,7 +1076,8 @@ let private condTransfer bld (ins: Instruction) taken imm =
     let cond = if isForward imm then tk else AST.not tk
     bld <+ (regVar bld Register.PSW_N := zextTo rt cond)
     mayNullify bld
-  else ()
+  else
+    ()
   arm bld InterJmpKind.Base
 
 /// The displacement operand of a compare-and-branch instruction.
@@ -1087,11 +1094,13 @@ let b (ins: Instruction) insLen bld =
   markTransfer bld (ins.Address, insLen)
   let kind =
     match linkReg with
-    | OpReg Register.GR0 -> InterJmpKind.Base
+    | OpReg Register.GR0 ->
+      InterJmpKind.Base
     | OpReg r ->
       link bld ins.Address r
       InterJmpKind.IsCall
-    | _ -> raise InvalidOperandException
+    | _ ->
+      raise InvalidOperandException
   transfer bld ins kind (branchTarget bld ins (branchImm target))
   bld --!> insLen
 
@@ -1105,11 +1114,13 @@ let blr (ins: Instruction) insLen bld =
   let target = tmpVar bld rt
   let kind =
     match linkReg with
-    | OpReg Register.GR0 -> InterJmpKind.Base
+    | OpReg Register.GR0 ->
+      InterJmpKind.Base
     | OpReg r ->
       link bld ins.Address r
       InterJmpKind.IsCall
-    | _ -> raise InvalidOperandException
+    | _ ->
+      raise InvalidOperandException
   bld <+ (target := numU64 (ins.Address + 8UL) rt
                     .+ (transOpr bld idx << numI32 3 rt))
   transfer bld ins kind target
@@ -1133,7 +1144,8 @@ let bv (ins: Instruction) insLen bld =
       let kind =
         if b = Register.GR2 then InterJmpKind.IsRet else InterJmpKind.Base
       struct (scaled, kind)
-    | _ -> raise InvalidOperandException
+    | _ ->
+      raise InvalidOperandException
   bld <+ (target := stripPriv bld bse)
   transfer bld ins kind target
   bld --!> insLen
@@ -1159,8 +1171,10 @@ let bve (ins: Instruction) insLen bld =
     if links then
       link bld ins.Address Register.GR2
       InterJmpKind.IsCall
-    elif bse = Register.GR2 then InterJmpKind.IsRet
-    else InterJmpKind.Base
+    elif bse = Register.GR2 then
+      InterJmpKind.IsRet
+    else
+      InterJmpKind.Base
   transfer bld ins kind target
   bld --!> insLen
 
@@ -1321,7 +1335,8 @@ let mfctl (ins: Instruction) insLen bld =
      bld <+ (transOpr bld dst := numU64 (ins.Address ||| 3UL) bld.RegType)
    | _, TwoOperands(src, dst) ->
      bld <+ (transOpr bld dst := transOpr bld src)
-   | _ -> raise InvalidOperandException)
+   | _ ->
+     raise InvalidOperandException)
   bld --!> insLen
 
 /// Load space identifier: the space register number an address would be

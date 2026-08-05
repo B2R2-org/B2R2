@@ -155,8 +155,10 @@ with
       let _, v = (lst: SortedList<_, _ * IVertex<LowUIRBasicBlock>>).Values[idx]
       if v.VData.Internals.Range.Max >= nextFnAddr then
         this.FindFunctionOverlap(lst, nextFnAddr, idx - 1, Some v)
-      elif Option.isNone res then None
-      else res
+      elif Option.isNone res then
+        None
+      else
+        res
 
   /// Find the first overlapping vertex in the CFG. We consider two cases: (1)
   /// two vertices share the same address, or (2) a vertex is beyond the range
@@ -184,7 +186,8 @@ with
         let range = v.VData.Internals.Range
         this.UpdateDictionary(dict, range.Min, v, 1)
         this.UpdateDictionary(dict, range.Max + 1UL, v, -1)
-      else ()
+      else
+        ()
     let lst = SortedList dict
     let enumerator = lst.GetEnumerator()
     let mutable hasOverlap = false
@@ -196,13 +199,16 @@ with
       if sum > 1 then
         hasOverlap <- true
         overlapVertex <- v
-      else ()
-    if hasOverlap then Some overlapVertex
+      else
+        ()
+    if hasOverlap then
+      Some overlapVertex
     else
       match nextFnAddrOpt with
       | Some nextFnAddr ->
         this.FindFunctionOverlap(lst, nextFnAddr, lst.Count - 1, None)
-      | None -> None
+      | None ->
+        None
 
   member private this.AddOrIgnore(acc, gapStart, gapEnd) =
     match this.ScanBBLs [ gapStart ] with
@@ -210,7 +216,8 @@ with
       let bbl = this.BBLFactory.Find <| ProgramPoint(gapStart, 0)
       if bbl.Internals.Range.Max > gapEnd then acc
       else (AddrRange.create gapStart gapEnd) :: acc
-    | Error _ -> acc
+    | Error _ ->
+      acc
 
   [<TailCall>]
   member private this.FindGap(acc, fnEnd, gapAddr, ranges) =
@@ -224,7 +231,8 @@ with
         this.FindGap(acc, fnEnd, range.Max + 1UL, tl)
       elif gapAddr >= range.Min && gapAddr <= range.Max then
         this.FindGap(acc, fnEnd, range.Max + 1UL, tl)
-      else acc
+      else
+        acc
 
   /// Find a gap between the current function and the next function. This
   /// function finds every gap between the current function and the next
@@ -240,7 +248,8 @@ with
       |> List.sortBy (fun r -> r.Min)
       |> fun ranges -> this.FindGap([], endAddr, this.FunctionAddress, ranges)
       |> List.rev
-    | None -> []
+    | None ->
+      []
 
 /// Call edge from its callsite address to the callee's address. This is to
 /// uniquely identify call edges for abstracted vertices. We create an abstract

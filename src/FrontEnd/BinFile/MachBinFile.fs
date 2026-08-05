@@ -174,15 +174,22 @@ type MachBinFile(path, bytes: byte[], isa, baseAddrOpt, regFactoryOpt) =
   let secKind (sec: Section) =
     if sec.SecAttrib.HasFlag SectionAttribute.S_ATTR_DEBUG then
       DebugSection
-    elif isTLSSection sec then ThreadLocalStorageSection
-    elif isZeroFillSection sec then UninitializedDataSection
-    elif isDynamicLinkageSection sec then DynamicLinkageSection
+    elif isTLSSection sec then
+      ThreadLocalStorageSection
+    elif isZeroFillSection sec then
+      UninitializedDataSection
+    elif isDynamicLinkageSection sec then
+      DynamicLinkageSection
     elif sec.SecAttrib.HasFlag SectionAttribute.S_ATTR_PURE_INSTRUCTIONS then
       CodeSection
-    elif sec.SecName = Section.Text then CodeSection
-    elif isMetadataSection sec then MetadataSection
-    elif sec.SecType = SectionType.S_REGULAR then DataSection
-    else UnknownSection
+    elif sec.SecName = Section.Text then
+      CodeSection
+    elif isMetadataSection sec then
+      MetadataSection
+    elif sec.SecType = SectionType.S_REGULAR then
+      DataSection
+    else
+      UnknownSection
 
   let toBinSection (sec: Section) =
     { Name = sec.SecName
@@ -281,7 +288,8 @@ type MachBinFile(path, bytes: byte[], isa, baseAddrOpt, regFactoryOpt) =
           |> Map.toArray
           |> Array.map (fun (addr, fixup) ->
             match fixup.FixupTarget with
-            | Rebase _ -> { Address = addr; SymbolName = None; Addend = None }
+            | Rebase _ ->
+              { Address = addr; SymbolName = None; Addend = None }
             | Bind(sym, _, addend) ->
               { Address = addr; SymbolName = Some sym; Addend = Some addend })
         Array.append classic fixupRelocs
@@ -313,7 +321,8 @@ type MachBinFile(path, bytes: byte[], isa, baseAddrOpt, regFactoryOpt) =
                  LibraryName = library
                  TrampolineAddress = None
                  TableAddress = fixup.FixupAddr }
-        | Rebase _ -> None)
+        | Rebase _ ->
+          None)
 
   (* Stub-based binaries already describe imports via the symbol store; only
      fall back to dyld fixup binds when there is no classic import table (e.g.
@@ -496,7 +505,8 @@ type MachBinFile(path, bytes: byte[], isa, baseAddrOpt, regFactoryOpt) =
           else
             offset <- maxOffset + 1
             maxAddr <- seg.VMAddr + seg.VMSize - 1UL
-        else idx <- idx + 1
+        else
+          idx <- idx + 1
       if found then
         if offset > maxOffset then BinFilePointer.CreateVirtual(addr, maxAddr)
         else BinFilePointer.CreateFileBacked(addr, maxAddr, offset, maxOffset)

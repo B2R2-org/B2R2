@@ -91,7 +91,8 @@ let validateSectionsOrder secsSummary =
         else idLtId id1 id2
       if not isValid' then isValid'
       else validationLoop secsSumm' isValid'
-    | None -> isValid
+    | None ->
+      isValid
   validationLoop secsSummary true
 
 let updateSection bs reader wm id updateRec parseSec secsSumm =
@@ -104,7 +105,8 @@ let updateSection bs reader wm id updateRec parseSec secsSumm =
     let secsSummary' = secsSumm |> List.except [ sm ]
     let sec = parseSec bs reader sm.Offset
     (updateRec wm sec), secsSummary'
-  | None -> wm, secsSumm
+  | None ->
+    wm, secsSumm
 
 let updateCustomSection bs reader wasmModule secsSummary =
   let ur wm sec = { wm with CustomSections = wm.CustomSections @ [ sec ] }
@@ -169,8 +171,7 @@ let updateDataSection bs reader wasmModule secsSummary =
 let renameSecSumm (sm: SectionSummary) (secConts: CustomContents option) =
   let name =
     match secConts with
-    | Some conts ->
-      conts.Name
+    | Some conts -> conts.Name
     | None -> sm.Name
   { sm with Name = name }
 
@@ -191,7 +192,8 @@ let private parseWasmModule (bs: byte[]) (reader: IBinReader) offset =
   let contOff = offset + 8
   let secsSummary = summerizeSections bs reader contOff
   if not (validateSectionsOrder secsSummary)
-  then raise InvalidFileFormatException
+  then
+    raise InvalidFileFormatException
   else
   let rec parsingLoop wasmModule info (secsSummary: SectionSummary list) =
     if List.isEmpty secsSummary then
@@ -241,7 +243,8 @@ let private parseWasmModule (bs: byte[]) (reader: IBinReader) offset =
     | SectionId.Data ->
       let wm, sm = updateDataSection bs reader wasmModule secsSummary
       parsingLoop wm info' sm
-    | _ -> wasmModule
+    | _ ->
+      wasmModule
   let wasmModule =
     { FormatVersion = version
       CustomSections = []
@@ -315,7 +318,8 @@ let private importedEntriesOf (wm: Module) pred =
     match sec.Contents with
     | Some conts -> conts.Elements |> Array.filter (fun ie -> pred ie.Desc)
     | None -> [||]
-  | None -> [||]
+  | None ->
+    [||]
 
 /// Re-walks a section's vector to recover the file offset of each locally
 /// defined element, using the element parser to advance over each entry.
@@ -353,7 +357,8 @@ let private buildKindIndexMap bs reader wm kind importPred localSec peekElem =
       |> List.mapi (fun i off ->
         makeIdxInfo kind sec.Offset (baseIdx + uint32 i) off)
       |> List.toArray
-    | None -> [||]
+    | None ->
+      [||]
   Array.append impEntries localEntries
 
 let private isImpTable = function ImpTable _ -> true | _ -> false

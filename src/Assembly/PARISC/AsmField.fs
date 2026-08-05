@@ -112,11 +112,13 @@ let ctrl (reg: Register) =
 /// a source writing none of them means the first, which is the one the
 /// disassembler leaves unwritten.
 let private spaceOf count = function
-  | None -> 0u
+  | None ->
+    0u
   | Some(reg: Register) when
       reg >= Register.SR0 && int reg - int Register.SR0 < count ->
     uint32 (int reg - int Register.SR0)
-  | Some reg -> fail $"{Register.toString reg} is not one of these spaces"
+  | Some reg ->
+    fail $"{Register.toString reg} is not one of these spaces"
 
 /// The two bits naming one of the first four spaces, in the place the encoding
 /// keeps them.
@@ -552,8 +554,10 @@ let bit name suffixes = if has name suffixes then 1u else 0u
 /// field naming the condition is then the one standing for that.
 /// </summary>
 let condition = function
-  | [] -> ""
-  | [ token ] -> token
+  | [] ->
+    ""
+  | [ token ] ->
+    token
   | tokens ->
     let written = String.concat "," tokens
     fail $"'{written}' says too much"

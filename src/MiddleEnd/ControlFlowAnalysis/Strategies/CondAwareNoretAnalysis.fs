@@ -74,7 +74,8 @@ type CondAwareNoretAnalysis([<Optional; DefaultParameterValue(true)>] strict) =
     match tryGetValue state absV varKind with
     | Some(UntouchedValueDomain.Untouched(RegisterTag(StackLocal off))) ->
       Some(-off / 4)
-    | _ -> None
+    | _ ->
+      None
 
   let regIdToArgNumX64 (hdl: BinHandle) rid =
     [ 1 .. 6 ]
@@ -119,7 +120,8 @@ type CondAwareNoretAnalysis([<Optional; DefaultParameterValue(true)>] strict) =
       untouchedArgIndexX86FromIRCFG ctx frameDist pp state nth
     | true, _ when isa.IsX64 ->
       untouchedArgIndexX64FromIRCFG ctx.BinHandle ctx pp state nth
-    | _ -> None
+    | _ ->
+      None
 
   let collectConditionalNoRetCallsFromIRCFG ctx (cfg: LowUIRCFG) state =
     collectReturningAbsPPs ctx
@@ -129,9 +131,12 @@ type CondAwareNoretAnalysis([<Optional; DefaultParameterValue(true)>] strict) =
       | ConditionalNoRet nth ->
         tryGetConnectedArgumentFromIRCFG ctx (state: Lazy<_>).Value pp nth
         |> Option.bind (fun nth' -> Some(absV, nth'))
-      | NotNoRet | UnknownNoRet -> None
-      | NoRet when hasNoReturnFallThrough cfg absV -> None
-      | NoRet -> Terminator.impossible ())
+      | NotNoRet | UnknownNoRet ->
+        None
+      | NoRet when hasNoReturnFallThrough cfg absV ->
+        None
+      | NoRet ->
+        Terminator.impossible ())
 
   let untouchedArgIndexX86FromSSACFG (ssa: SSACFG) frameDist absV state nth =
     let argOff = frameDist - 4 * nth
@@ -142,8 +147,10 @@ type CondAwareNoretAnalysis([<Optional; DefaultParameterValue(true)>] strict) =
         match (state: SSASparseDataFlow.State<_>).GetRegValue var with
         | UntouchedValueDomain.Untouched(RegisterTag(StackLocal off)) ->
           Some(-off / 4)
-        | _ -> None
-      | _ -> None)
+        | _ ->
+          None
+      | _ ->
+        None)
 
   let untouchedArgIndexX64FromSSACFG hdl (ssa: SSACFG) absV state nth =
     let argReg = (hdl: BinHandle).Conventions.Calling.IntArgRegister(nth - 1)
@@ -154,7 +161,8 @@ type CondAwareNoretAnalysis([<Optional; DefaultParameterValue(true)>] strict) =
       match (state: SSASparseDataFlow.State<_>).GetRegValue var with
       | UntouchedValueDomain.Untouched(RegisterTag(Regular rid)) ->
         regIdToArgNumX64 hdl rid
-      | _ -> None
+      | _ ->
+        None
     | _ ->
       (* If no definition is found, this means the parameter register is
          untouched, thus conditional no return. *)
@@ -176,7 +184,8 @@ type CondAwareNoretAnalysis([<Optional; DefaultParameterValue(true)>] strict) =
       untouchedArgIndexX86FromSSACFG ssa frameDist absSSAV state nth
     | true, _ when isa.IsX64 ->
       untouchedArgIndexX64FromSSACFG ctx.BinHandle ssa absSSAV state nth
-    | _ -> None
+    | _ ->
+      None
 
   let getLazyDataFlowState g (dfa: IDataFlowComputable<_, _, _, _>) =
     lazy (dfa.Compute g)
@@ -191,14 +200,17 @@ type CondAwareNoretAnalysis([<Optional; DefaultParameterValue(true)>] strict) =
       | ConditionalNoRet nth ->
         tryGetConnectedArgumentFromSSACFG ctx ssaCFG state.Value pp nth
         |> Option.bind (fun nth' -> Some(absV, nth'))
-      | NotNoRet | UnknownNoRet -> None
-      | NoRet -> Terminator.impossible ())
+      | NotNoRet | UnknownNoRet ->
+        None
+      | NoRet ->
+        Terminator.impossible ())
 
   let tryFindCondNoRetDom (dom: IDominance<_, _>) absVSet v =
     dom.Dominators v
     |> Seq.filter (fun v -> Set.contains v absVSet)
     |> fun doms ->
-      if Seq.isEmpty doms then None
+      if Seq.isEmpty doms then
+        None
       else
         (* When there are two or more conditionally returning (and dominating)
            abstract vertices, we assume that they will be referring to the same
@@ -218,7 +230,8 @@ type CondAwareNoretAnalysis([<Optional; DefaultParameterValue(true)>] strict) =
     match dst with
     | LowUIR.Var(dstRT, dstId, dstName, _) ->
       dstRT = rt && dstId = rid && dstName = rname
-    | _ -> false
+    | _ ->
+      false
 
   /// Checks if the given exit vertex has a corrupted stack pointer value before
   /// executing the return instruction. This means we cannot statically decide
@@ -228,7 +241,8 @@ type CondAwareNoretAnalysis([<Optional; DefaultParameterValue(true)>] strict) =
     let st = CFGEvaluator.evalBlockFromScratch hdl v
     let rid = hdl.RegisterFactory.StackPointer.Value
     match st.TryGetReg(rid) with
-    | Def(_) -> false
+    | Def(_) ->
+      false
     | _ ->
 #if CFGDEBUG
       let blkAddr = v.VData.Internals.PPoint.Address
@@ -249,7 +263,8 @@ type CondAwareNoretAnalysis([<Optional; DefaultParameterValue(true)>] strict) =
         match v.VData.ImmDominator with
         | Some(idom) -> tryFindDef g varKind v
         | None -> None
-      | Some(_, defStmt) -> Some(defStmt)
+      | Some(_, defStmt) ->
+        Some(defStmt)
 
   /// SSACFG version of hasUndecidableReturnTarget.
   let hasUndecidableReturnTargetInSSACFG ctx hdl g state v =
@@ -263,10 +278,12 @@ type CondAwareNoretAnalysis([<Optional; DefaultParameterValue(true)>] strict) =
     let ssaV = (g: IDiGraph<SSABasicBlock, _>).FindVertexBy(fun v ->
       v.VData.Internals.PPoint = pp)
     match tryFindDef g varKind ssaV with
-    | None -> false (* There was no definition in the reachable pathes. *)
+    | None ->
+      false (* There was no definition in the reachable pathes. *)
     | Some(SSA.Def(var, _)) ->
       match state.Value.GetRegValue(var) with
-      | StackPointerDomain.ConstSP(_) -> false
+      | StackPointerDomain.ConstSP(_) ->
+        false
       | _ ->
 #if CFGDEBUG
         let blkAddr = v.VData.Internals.PPoint.Address
@@ -275,7 +292,8 @@ type CondAwareNoretAnalysis([<Optional; DefaultParameterValue(true)>] strict) =
         <| $"[*] Undecidable return: {blkAddr:x} @ {fnAddr}"
 #endif
         true
-    | _ -> Terminator.impossible ()
+    | _ ->
+      Terminator.impossible ()
 
   let analyze ctx condNoRetCalls =
     let df = Dominance.CooperDominanceFrontier()
@@ -296,13 +314,16 @@ type CondAwareNoretAnalysis([<Optional; DefaultParameterValue(true)>] strict) =
           else updateStatus (getStatusFromDominators dom absVSet argNumMap v)
         elif vData.LastInstruction.IsIndirectBranch then
           updateStatus NotNoRet
-        else ()
+        else
+          ()
       else
         match vData.AbstractContent.ReturningStatus with
-        | ConditionalNoRet _ -> updateStatus NoRet
+        | ConditionalNoRet _ ->
+          updateStatus NoRet
         | NotNoRet ->
           updateStatus (getStatusFromDominators dom absVSet argNumMap v)
-        | status -> updateStatus status
+        | status ->
+          updateStatus status
     status
 
   (* Non-returning function identification for IR-based CFG. *)
@@ -347,7 +368,8 @@ module CondAwareNoretAnalysis =
       match st.Memory.Read(p.ToUInt64(), endian, 32<rt>) with
       | Ok v -> not v.IsZero
       | _ -> false
-    | _ -> false
+    | _ ->
+      false
 
   let private hasNonZeroOnX64 (hdl: BinHandle) st nth =
     let reg = hdl.Conventions.Calling.IntArgRegister(nth - 1)

@@ -286,8 +286,10 @@ let private buildSpans (theme: Theme) (file: IBinFile) =
             Foreground = None
             Background = Some bg
             Priority = prio }
-        else ()
-      | _ -> () ]
+        else
+          ()
+      | _ ->
+        () ]
 
 let private buildHexAnnotations theme (file: IBinFile) (state: HexdumpState) =
   { state with AnnotationSpans = buildSpans theme file }
@@ -390,12 +392,9 @@ let private tryGetSelectedFileOffsetRange selection =
   let startOffset = min selection.Anchor selection.Caret
   let endOffset = max selection.Anchor selection.Caret
   let maxOffset = int64 UInt32.MaxValue
-  if startOffset < 0L || endOffset < 0L then
-    None
-  elif startOffset > maxOffset || endOffset > maxOffset then
-    None
-  else
-    Some(uint32 startOffset, uint32 endOffset)
+  if startOffset < 0L || endOffset < 0L then None
+  elif startOffset > maxOffset || endOffset > maxOffset then None
+  else Some(uint32 startOffset, uint32 endOffset)
 
 let private findSectionRange (f: IBinFile) (sOff: uint32) (eOff: uint32) =
   match BinFileOps.tryFindSectionNameByOffset f sOff,
@@ -420,10 +419,8 @@ let private tryGetVisibleFileOffsetRange hexdump =
   match HexdumpState.tryGetVisibleByteRange hexdump with
   | Some(startOffset, endOffset) ->
     let maxOffset = int64 UInt32.MaxValue
-    if startOffset > maxOffset then
-      None
-    else
-      Some(uint32 startOffset, uint32 (min maxOffset endOffset))
+    if startOffset > maxOffset then None
+    else Some(uint32 startOffset, uint32 (min maxOffset endOffset))
   | None ->
     None
 
@@ -576,10 +573,8 @@ let openLinearViewTab (arbiter: Arbiter<_, _>) (model: Model) =
 
 let private mapCFGTabState newState (tab: Tab) =
   match tab.Content with
-  | CFGContent(func, _) ->
-    { tab with Content = CFGContent(func, newState) }
-  | _ ->
-    tab
+  | CFGContent(func, _) -> { tab with Content = CFGContent(func, newState) }
+  | _ -> tab
 
 let private createMinimapCache (model: Model) viewState cfg =
   MinimapStaticCache.create model.ContentViewportSize viewState cfg
@@ -729,8 +724,7 @@ let private resizeOpenedLinearTab arbiter (model: Model) paneID width height =
   | Some pane when containsLinearTab pane ->
     updateLinearViewState arbiter model (fun doc linearViewState ->
       let fontSize =
-        if linearViewState.FontSize > 0.0 then
-          linearViewState.FontSize
+        if linearViewState.FontSize > 0.0 then linearViewState.FontSize
         else model.Theme.Font.Monospace.FontSize
       let charWidth, rowHeight =
         measureMaxCharSizeWithFontSize model fontSize
@@ -772,10 +766,8 @@ let private computeJumpedHexdump theme hexdump byteIndex length =
         ScrollOffsetY = targetOffsetY
         ScrollRow = targetScrollRow
         ScrollGuard =
-          if abs pendingDelta > 0.5 then
-            IgnoreNextProgrammatic pendingDelta
-          else
-            NoScrollGuard }
+          if abs pendingDelta > 0.5 then IgnoreNextProgrammatic pendingDelta
+          else NoScrollGuard }
   { hexdump with
       HighlightSpans =
         [ { Start = byteIndex
@@ -1028,8 +1020,7 @@ let updateHexdump arbiter (model: Model) msg =
     updateHexViewState arbiter model (fun viewState ->
       let hovered =
         match model.Hexdump with
-        | Some hexdump ->
-          byteIndex |> Option.bind (clampHexByteIndex hexdump)
+        | Some hexdump -> byteIndex |> Option.bind (clampHexByteIndex hexdump)
         | _ -> None
       { viewState with HoveredByte = hovered })
   | _ ->
@@ -1257,7 +1248,8 @@ let startTabDrag (model: Model) paneID tabID =
   | Some tab ->
     { model with DraggingTab = Some { SourcePaneID = paneID; Tab = tab } },
     Elmish.Cmd.none
-  | None -> model, Elmish.Cmd.none
+  | None ->
+    model, Elmish.Cmd.none
 
 let private findTwoTabs (model: Model) paneID tabID1 tabID2 =
   let tabs =
@@ -1280,7 +1272,8 @@ let private reorderOpenTabs (model: Model) paneID draggedTabID targetTabID =
         Some(filtered |> List.insertAt targetIdx draggedTab, draggedTab)
       | _ ->
         None
-  | _ -> None
+  | _ ->
+    None
 
 let reorderTab (model: Model) paneID draggedTabID targetTabID =
   let model = { model with FocusedPaneID = Some paneID }
@@ -1434,7 +1427,8 @@ let private updateCFGViewState target update =
     let viewState = update loaded.ViewState
     let loaded = { loaded with ViewState = viewState }
     { target with Content = CFGContent(fn, Loaded loaded) }
-  | _ -> target
+  | _ ->
+    target
 
 let private clampPanToGraphBounds panX panY viewState (model: Model) =
   let viewportWidth, viewportHeight = model.ContentViewportSize
@@ -1799,32 +1793,34 @@ let private tryResolveAdjacentPaneIDs model = function
     | Some(Split(_, LeftRight, left, Leaf(id, _))) when id = srcID ->
       tryFindEdgeLeafID (fun _ r -> r) left
       |> Option.map (fun dstID -> srcID, dstID)
-    | _ -> None
+    | _ ->
+      None
   | RightOf srcID ->
     match tryFindParentSplitOfLeaf srcID model.RootPane with
     | Some(Split(_, LeftRight, Leaf(id, _), right)) when id = srcID ->
       tryFindEdgeLeafID (fun l _ -> l) right
       |> Option.map (fun dstID -> srcID, dstID)
-    | _ -> None
+    | _ ->
+      None
   | Above srcID ->
     match tryFindParentSplitOfLeaf srcID model.RootPane with
     | Some(Split(_, TopBottom, above, Leaf(id, _))) when id = srcID ->
       tryFindEdgeLeafID (fun _ r -> r) above
       |> Option.map (fun dstID -> srcID, dstID)
-    | _ -> None
+    | _ ->
+      None
   | Below srcID ->
     match tryFindParentSplitOfLeaf srcID model.RootPane with
     | Some(Split(_, TopBottom, Leaf(id, _), below)) when id = srcID ->
       tryFindEdgeLeafID (fun l _ -> l) below
       |> Option.map (fun dstID -> srcID, dstID)
-    | _ -> None
+    | _ ->
+      None
 
 let moveTabRelative arbiter model placement tabID =
   match tryResolveAdjacentPaneIDs model placement with
-  | Some(srcID, dstID) ->
-    moveTabBetweenPanes arbiter model srcID dstID tabID
-  | _ ->
-    moveTabToNewSibling arbiter model placement tabID
+  | Some(srcID, dstID) -> moveTabBetweenPanes arbiter model srcID dstID tabID
+  | _ -> moveTabToNewSibling arbiter model placement tabID
 
 let updateViewportSize arbiter (model: Model) paneID width height =
   updateCFGViewportSize arbiter model paneID width height
@@ -1838,26 +1834,16 @@ let updateCFGLoad arbiter (model: Model) msg =
 
 let updateCFG arbiter (model: Model) msg =
   match msg with
-  | SetZoom(delta, mouseX, mouseY) ->
-    setCFGZoom model delta mouseX mouseY
-  | StartPan(x, y) ->
-    startCFGPan model x y
-  | MovePan(x, y, space) ->
-    moveCFGPan model x y space
-  | EndPan ->
-    endCFGPan model
-  | JumpPan(gx, gy) ->
-    jumpCFGPan model gx gy
-  | JumpPanToAddr addr ->
-    jumpCFGPanToAddr model addr
-  | SetSelectedToken token ->
-    setCFGSelectedToken arbiter model token
-  | SetHoveredEdge edgeID ->
-    setHoveredCFGEdge model edgeID
-  | ChangeKind kind ->
-    changeCFGKind arbiter model kind
-  | ToggleMinimap(tabID, activate) ->
-    toggleMinimap model tabID activate
+  | SetZoom(delta, mouseX, mouseY) -> setCFGZoom model delta mouseX mouseY
+  | StartPan(x, y) -> startCFGPan model x y
+  | MovePan(x, y, space) -> moveCFGPan model x y space
+  | EndPan -> endCFGPan model
+  | JumpPan(gx, gy) -> jumpCFGPan model gx gy
+  | JumpPanToAddr addr -> jumpCFGPanToAddr model addr
+  | SetSelectedToken token -> setCFGSelectedToken arbiter model token
+  | SetHoveredEdge edgeID -> setHoveredCFGEdge model edgeID
+  | ChangeKind kind -> changeCFGKind arbiter model kind
+  | ToggleMinimap(tabID, activate) -> toggleMinimap model tabID activate
 
 let updateStatusMsg (model: Model) msg =
   { model with StatusBarState = MessageOnly msg }, Elmish.Cmd.none

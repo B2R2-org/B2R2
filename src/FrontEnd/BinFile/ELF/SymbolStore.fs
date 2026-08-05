@@ -102,7 +102,8 @@ module private SymbolTables =
   let readSymAddr baseAddr span reader cls parent txtOffset =
     let symAddr = readUIntByWordSize span reader cls (selectByWordSize cls 4 8)
     match (parent: SectionHeader option) with
-    | None -> symAddr
+    | None ->
+      symAddr
     | Some sec ->
       (* This is to give a meaningful address to static symbols in a relocatable
          object. We let .text section's address to be zero, and assume that the
@@ -119,7 +120,8 @@ module private SymbolTables =
       elif symbolName = "$t" then ARMLinkerSymbol.Thumb
       elif symbolName = "$d" then ARMLinkerSymbol.Data
       else ARMLinkerSymbol.None
-    else ARMLinkerSymbol.None
+    else
+      ARMLinkerSymbol.None
 
   let parseVersData (reader: IBinReader) symIdx verInfoTbl =
     let pos = symIdx * 2
@@ -140,7 +142,8 @@ module private SymbolTables =
       let span = ReadOnlySpan(toolBox.Bytes, offset, size)
       parseVersData toolBox.Reader symIdx span
       |> Option.bind (retrieveVer verTbl)
-    | None -> None
+    | None ->
+      None
 
   /// For STT_SECTION symbols, the symbol name is actually the section name.
   /// This function adjusts the symbol name for such symbols.
@@ -209,7 +212,8 @@ module private SymbolTables =
       for sym in tbl do
         if sym.Addr > 0UL || sym.SymType = SymbolType.STT_FUNC then
           map[sym.Addr] <- sym
-        else ()
+        else
+          ()
     map
 
 /// Represents the main data structure for storing ELF symbol information.
