@@ -110,10 +110,36 @@ let immValue = function
   | ImmU32 v -> int64 v
   | ImmS32 v -> int64 v
 
+/// Whether the guest addresses storage the way ESA/390 does. z/Architecture
+/// forms a whole 64-bit address; its predecessor forms one of 31 bits and
+/// ignores everything above, which is why the C library there is free to keep
+/// flag bits in the top bit of a pointer. Linux runs its 31-bit processes in
+/// that mode and never leaves it, so the mode follows the word size here rather
+/// than being tracked as state a program could change.
+let inline esaMode (bld: ILowUIRBuilder) = bld.WordSize = WordSize.Bit32
+
+/// The bits an address keeps in the guest's addressing mode. Only the address
+/// an instruction forms is narrowed; a storage-to-storage operation walking a
+/// field does not re-narrow every step, so a field that ran off the end of a
+/// 31-bit space would carry on rather than wrap, which no program does.
+let addrMask (bld: ILowUIRBuilder) = if esaMode bld then 0x7fffffffL else -1L
+
+/// Narrows an address the way the addressing mode does. On z/Architecture that
+/// is nothing at all, so the expression is handed back untouched rather than
+/// masked with all ones.
+let maskAddr (bld: ILowUIRBuilder) e =
+  if esaMode bld then e .& numI64 0x7fffffffL GRSize else e
+
+/// The same for an address settled at lifting time -- a relative branch's
+/// target, or the address an instruction returns to.
+let codeAddr (bld: ILowUIRBuilder) (a: Addr) =
+  if esaMode bld then a &&& 0x7fffffffUL else a
+
 /// The address a D(X,B) or D(B) reference names: the sum of the index and base
-/// registers and the displacement. A register field of zero means "no register"
-/// rather than R0, so R0's contents never take part in address arithmetic.
-let transAddr bld idx b disp =
+/// registers and the displacement, narrowed to what the addressing mode keeps.
+/// A register field of zero means "no register" rather than R0, so R0's
+/// contents never take part in address arithmetic.
+let transAddr (bld: ILowUIRBuilder) idx b disp =
   let d = dispValue disp
   let acc =
     match idx with
@@ -126,12 +152,12 @@ let transAddr bld idx b disp =
       | None -> Some(reg bld b)
     else acc
   match acc with
-  | Some e when d = 0L -> e
-  | Some e -> e .+ numG d
-  | None -> numG d
+  | Some e when d = 0L -> maskAddr bld e
+  | Some e -> maskAddr bld (e .+ numG d)
+  | None -> numG (d &&& addrMask bld)
 
 /// The address the sole memory operand of an instruction names.
-let transMem bld = function
+let transMem (bld: ILowUIRBuilder) = function
   | OpStore(idx, b, disp) -> transAddr bld idx b disp
   | OpStoreLen(_, b, disp) -> transAddr bld None b disp
   | _ -> raise InvalidOperandException

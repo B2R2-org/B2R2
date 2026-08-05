@@ -197,8 +197,8 @@ type S390RoundTripTests() =
       "a R1, R2"
       "a R1, 0x0(R2)"
       "vl VR1, 0x0(R2, R3)"
-      "fixbra FPR1, FPR2, B'0011', B'0101'"
-      "ledbra FPR1, FPR2, B'0011', B'0000'"
+      "fixbra FPR1, FPR2, B'0011', B'0000'"
+      "ledbra FPR1, FPR2, B'0000', B'0000'"
       "frobnicate R1, R2" ]
 
   /// Sources written the way a person writes one rather than the way the

@@ -47,69 +47,35 @@ type Row =
     Esa390: bool }
 
 /// <summary>
-/// Represents what the four bits from the twentieth on are for.
+/// Represents what the mask bits an instruction shares with its near namesake
+/// are for.
 ///
 /// A handful of instructions are told from another one written almost the same
-/// way by nothing more than whether those four bits hold anything, so an
-/// encoder that left them at nothing would encode the other instruction.
+/// way by nothing more than whether those bits hold anything, so an encoder
+/// that left them at nothing would encode the other instruction.
 /// </summary>
 and Bits20 =
   /// Nothing in particular: the instruction is not one of those.
   | Bits20Free
-  /// They have to hold something, and the instruction does not name them, so
-  /// they are set to one.
+  /// The four bits from the twentieth on have to hold something, and the
+  /// instruction does not name them, so they are set to one.
   | Bits20Filled
-  /// They have to hold something, and it is the instruction that says what, so
-  /// naming nothing there is refused.
+  /// Those four have to hold something, and it is the instruction that says
+  /// what, so naming nothing there is refused.
   | Bits20Named
-  /// They have to hold nothing, and it is the instruction that says so, so
-  /// naming anything there is refused.
-  | Bits20Zeroed
+  /// The eight bits from the sixteenth on -- both masks together -- may not
+  /// all be nothing, which is what would name the two-operand form instead.
+  | Bits16Named
 
 /// The instructions that do not name the four bits from the twentieth on but
 /// are told from another instruction by whether those bits hold something.
 let private filled20 =
-  set [ "adtr"
-        "axtr"
-        "cfdbr"
-        "cfebr"
-        "cfxbr"
-        "cgdbr"
-        "cgdtr"
-        "cgebr"
-        "cgxbr"
-        "cgxtr"
-        "cu12"
-        "cu21"
-        "ddtr"
-        "dxtr"
-        "fidbr"
-        "fiebr"
-        "fixbr"
-        "mdtr"
-        "mxtr"
-        "sdtr"
-        "sxtr" ]
+  set [ "cu12"
+        "cu21" ]
 
-/// The instructions that name those four bits themselves and so may not be
-/// written with nothing there.
+/// The instructions whose own name for those four bits is what tells them from
+/// the plainer instruction the same word holds when they are nothing.
 let private named20 =
-  set [ "cdfbra"
-        "cdgbra"
-        "cdgtra"
-        "cefbra"
-        "cegbra"
-        "csxtr"
-        "cxfbra"
-        "cxgbra"
-        "cxgtra"
-        "ldxbra"
-        "ledbra"
-        "lexbra" ]
-
-/// The instructions that name those four bits themselves and, the other way
-/// round, are told from another instruction by their holding nothing.
-let private zeroed20 =
   set [ "adtra"
         "axtra"
         "cfdbra"
@@ -129,6 +95,21 @@ let private zeroed20 =
         "mxtra"
         "sdtra"
         "sxtra" ]
+
+/// The instructions told from a two-operand namesake by the two masks together:
+/// writing nothing in either would name that other instruction.
+let private named16 =
+  set [ "cdfbra"
+        "cdgbra"
+        "cdgtra"
+        "cefbra"
+        "cegbra"
+        "cxfbra"
+        "cxgbra"
+        "cxgtra"
+        "ldxbra"
+        "ledbra"
+        "lexbra" ]
 
 /// The instructions ESA/390 already had, which are the only ones a 32-bit
 /// target can be given. The names are read off the list B2R2's own S390 decoder
@@ -562,7 +543,7 @@ let private esa390 =
 let private bits20Of name =
   if Set.contains name filled20 then Bits20Filled
   elif Set.contains name named20 then Bits20Named
-  elif Set.contains name zeroed20 then Bits20Zeroed
+  elif Set.contains name named16 then Bits16Named
   else Bits20Free
 
 /// <summary>

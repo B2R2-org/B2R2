@@ -50,15 +50,6 @@ let private fpSrc bld rt o =
   | OpStore _ | OpStoreLen _ -> loadMem rt (transMem bld o)
   | _ -> raise InvalidOperandException
 
-/// A two-operand floating-point operation, whose result replaces the first
-/// operand.
-let arith ins insLen bld rt f =
-  let struct (o1, o2) = getTwoOprs ins
-  let d = oprRegVar bld o1
-  bld <!-- ((ins: Instruction).Address, insLen)
-  bld <+ (fpPart rt d := f (fpPart rt d) (fpSrc bld rt o2))
-  bld --!> insLen
-
 /// The condition code a floating-point comparison reports: the three a fixed
 /// comparison gives, and a fourth for a pair no ordering relates -- which is
 /// what a NaN operand leaves.
@@ -66,6 +57,19 @@ let private setCCFloat bld a b =
   let unordered = AST.ite (AST.fgt a b) (numCC 2) (numCC 3)
   let hi = AST.ite (AST.flt a b) (numCC 1) unordered
   bld <+ (ccVar bld := AST.ite (AST.feq a b) (numCC 0) hi)
+
+/// A two-operand floating-point operation, whose result replaces the first
+/// operand. Addition and subtraction go on to report how the result stands
+/// against zero; multiplication and division leave the code alone.
+let arith ins insLen bld rt f setsCC =
+  let struct (o1, o2) = getTwoOprs ins
+  let d = oprRegVar bld o1
+  let t = tmpVar bld rt
+  bld <!-- ((ins: Instruction).Address, insLen)
+  bld <+ (t := f (fpPart rt d) (fpSrc bld rt o2))
+  if setsCC then setCCFloat bld t (AST.num0 rt) else ()
+  bld <+ (fpPart rt d := t)
+  bld --!> insLen
 
 /// COMPARE, which reports how the operands stand and changes nothing else.
 let compare ins insLen bld rt =
@@ -461,6 +465,25 @@ let extTestDataClass ins insLen bld =
                                  (numCC 0) (numCC 1))
     bld --!> insLen
 
+/// Where a fraction of the given width sits in an extended value's two words:
+/// forty-eight of its bits fit in the even register and the rest spill into
+/// its partner, left-aligned there.
+let private extSplitFrac frac fbits =
+  if fbits <= 48 then
+    struct (frac << numI64 (48L - int64 fbits) 64<rt>, AST.num0 64<rt>)
+  else
+    struct (frac >> numI64 (int64 fbits - 48L) 64<rt>,
+            frac << numI64 (112L - int64 fbits) 64<rt>)
+
+/// The reverse: the fraction of the given width the two words hold, cut rather
+/// than rounded when the width asked for is the narrower.
+let private extJoinFrac hi lo fbits =
+  let top = hi .& numI64 0x0000ffffffffffffL 64<rt>
+  if fbits <= 48 then top >> numI64 (48L - int64 fbits) 64<rt>
+  else
+    (top << numI64 (int64 fbits - 48L) 64<rt>)
+    .| (lo >> numI64 (112L - int64 fbits) 64<rt>)
+
 /// A widening to the extended format, which loses nothing: a longer fraction
 /// holds a shorter one exactly, so this is a matter of moving the fields.
 let extFromNarrow ins insLen bld fromRt =
@@ -486,13 +509,14 @@ let extFromNarrow ins insLen bld fromRt =
                     .& numI64 ((1L <<< (width - 1 - fbits)) - 1L) 64<rt>)
     bld <+ (frac := src .& numI64 ((1L <<< fbits) - 1L) 64<rt>)
     let newExp = expo .- numI64 bias 64<rt> .+ numI64 16383L 64<rt>
+    let struct (hiFrac, loFrac) = extSplitFrac frac fbits
     let hi =
       (sign << numI64 63L 64<rt>)
       .| ((newExp .& numI64 0x7fffL 64<rt>) << numI64 48L 64<rt>)
-      .| (frac << numI64 (48L - int64 fbits) 64<rt>)
+      .| hiFrac
     let zero = expo == AST.num0 64<rt>
     bld <+ (dhi := AST.ite zero (sign << numI64 63L 64<rt>) hi)
-    bld <+ (dlo := AST.num0 64<rt>)
+    bld <+ (dlo := AST.ite zero (AST.num0 64<rt>) loFrac)
     bld --!> insLen
 
 /// A narrowing from the extended format, which cannot keep every bit: the
@@ -514,8 +538,7 @@ let extToNarrow ins insLen bld toRt =
     bld <+ (hi := shi)
     bld <+ (expo := (hi >> numI64 48L 64<rt>) .& numI64 0x7fffL 64<rt>)
     let sign = (hi >> numI64 63L 64<rt>) .& AST.num1 64<rt>
-    let frac = (hi .& numI64 0x0000ffffffffffffL 64<rt>)
-               >> numI64 (48L - int64 fbits) 64<rt>
+    let frac = extJoinFrac hi slo fbits
     let newExp = expo .- numI64 16383L 64<rt> .+ numI64 bias 64<rt>
     let value =
       (sign << numI64 (int64 width - 1L) 64<rt>)
@@ -614,16 +637,105 @@ let extToInt ins insLen bld intW =
     else bld <+ (low d := AST.xtlo intW out)
     bld --!> insLen
 
-/// An extended-format operation this lifter does not carry out: the four
-/// arithmetic ones and the square root, whose 112-bit fraction no type the IR
-/// has can hold. Working in double precision instead would answer a program
-/// that asked for extra precision with less of it and no sign that it had
-/// happened, so these raise the unsupported-instruction trap rather than
-/// quietly rounding.
-let extUnsupported ins insLen bld =
-  bld <!-- ((ins: Instruction).Address, insLen)
-  bld <+ AST.sideEffect UnsupportedInstruction
-  bld --!> insLen
+/// The double an extended value comes nearest to, as the bits of one. Fifty-two
+/// of the 112 fraction bits survive -- the even register's forty-eight and four
+/// more from its partner -- and the rest are cut away.
+let private extAsDouble hi lo =
+  let sign = (hi >> numI64 63L 64<rt>) .& AST.num1 64<rt>
+  let expo = (hi >> numI64 48L 64<rt>) .& numI64 0x7fffL 64<rt>
+  let frac = extJoinFrac hi lo 52
+  let value =
+    (sign << numI64 63L 64<rt>)
+    .| (((expo .- numI64 16383L 64<rt> .+ numI64 1023L 64<rt>)
+         .& numI64 0x7ffL 64<rt>) << numI64 52L 64<rt>)
+    .| frac
+  AST.ite (extIsZero hi lo) (sign << numI64 63L 64<rt>) value
+
+/// The extended value a double widens to, which loses nothing: the wider
+/// fraction holds the narrower one exactly.
+let private extOfDouble src =
+  let sign = (src >> numI64 63L 64<rt>) .& AST.num1 64<rt>
+  let expo = (src >> numI64 52L 64<rt>) .& numI64 0x7ffL 64<rt>
+  let frac = src .& numI64 0xfffffffffffffL 64<rt>
+  let struct (hiFrac, loFrac) = extSplitFrac frac 52
+  let hi =
+    (sign << numI64 63L 64<rt>)
+    .| (((expo .- numI64 1023L 64<rt> .+ numI64 16383L 64<rt>)
+         .& numI64 0x7fffL 64<rt>) << numI64 48L 64<rt>)
+    .| hiFrac
+  let zero = expo == AST.num0 64<rt>
+  struct (AST.ite zero (sign << numI64 63L 64<rt>) hi,
+          AST.ite zero (AST.num0 64<rt>) loFrac)
+
+/// Writes a double back to an extended register pair, which is where every
+/// operation below lands.
+let private extPutDouble bld dhi dlo src =
+  let struct (hi, lo) = extOfDouble src
+  bld <+ (dhi := hi)
+  bld <+ (dlo := lo)
+
+/// The arithmetic of the extended format, carried out in double precision. No
+/// type the IR has holds a 112-bit fraction, so each operand is rounded to the
+/// nearest double, the operation is done there, and the result is widened
+/// back: a program that asked for the extra precision gets an answer good to
+/// 53 bits rather than 113. Addition and subtraction report how the result
+/// stands against zero, as their narrower kin do.
+let extArith ins insLen bld f setsCC =
+  let struct (o1, o2) = getTwoOprs ins
+  if not (startsPair (oprReg o1) && startsPair (oprReg o2)) then
+    specException ins insLen bld
+  else
+    let struct (dhi, dlo) = extPair bld (oprReg o1)
+    let struct (shi, slo) = extPair bld (oprReg o2)
+    let r = tmpVar bld 64<rt>
+    bld <!-- ((ins: Instruction).Address, insLen)
+    bld <+ (r := f (extAsDouble dhi dlo) (extAsDouble shi slo))
+    if setsCC then setCCFloat bld r (AST.num0 64<rt>) else ()
+    extPutDouble bld dhi dlo r
+    bld --!> insLen
+
+/// SQUARE ROOT of an extended value, in the same double precision.
+let extSqrt ins insLen bld =
+  let struct (o1, o2) = getTwoOprs ins
+  if not (startsPair (oprReg o1) && startsPair (oprReg o2)) then
+    specException ins insLen bld
+  else
+    let struct (dhi, dlo) = extPair bld (oprReg o1)
+    let struct (shi, slo) = extPair bld (oprReg o2)
+    let r = tmpVar bld 64<rt>
+    bld <!-- ((ins: Instruction).Address, insLen)
+    bld <+ (r := AST.unop UnOpType.FSQRT (extAsDouble shi slo))
+    extPutDouble bld dhi dlo r
+    bld --!> insLen
+
+/// MULTIPLY (long to extended), whose operands are two long values and whose
+/// product fills a register pair. The first of them is the long value in the
+/// pair's even register.
+let extMulLong ins insLen bld =
+  let struct (o1, o2) = getTwoOprs ins
+  if not (startsPair (oprReg o1)) then
+    specException ins insLen bld
+  else
+    let struct (dhi, dlo) = extPair bld (oprReg o1)
+    let r = tmpVar bld 64<rt>
+    bld <!-- ((ins: Instruction).Address, insLen)
+    bld <+ (r := AST.fmul dhi (fpSrc bld LongFP o2))
+    extPutDouble bld dhi dlo r
+    bld --!> insLen
+
+/// LOAD FP INTEGER of an extended value, rounded in double precision.
+let extRoundToInt ins insLen bld =
+  let struct (o1, o2, m) = convOprs ins
+  if not (startsPair (oprReg o1) && startsPair (oprReg o2)) then
+    specException ins insLen bld
+  else
+    let struct (dhi, dlo) = extPair bld (oprReg o1)
+    let struct (shi, slo) = extPair bld (oprReg o2)
+    let r = tmpVar bld 64<rt>
+    bld <!-- ((ins: Instruction).Address, insLen)
+    bld <+ (r := AST.cast (floatRounding m) 64<rt> (extAsDouble shi slo))
+    extPutDouble bld dhi dlo r
+    bld --!> insLen
 
 /// SET and EXTRACT of the floating-point control register, which a program
 /// reads and writes to choose a rounding mode and to see which exceptions it

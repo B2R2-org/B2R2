@@ -513,42 +513,36 @@ let parseInstLenTwo (bin: uint32) =
     | 0xB2A6us -> Op.CU21, getGR24GR28Mask16 bin, Fmt.RRF
     | 0xB2A7us -> Op.CU12, getGR24GR28Mask16 bin, Fmt.RRF
     | 0xB2E8us -> Op.PPA, getGR24GR28Mask16 bin, Fmt.RRF
-    | 0xB344us when extract32 bin 20 23 <> 0u ->
-      Op.LEDBRA, getFPR24FPR28Mask16Mask20 bin, Fmt.RRF
-    | 0xB345us when extract32 bin 20 23 <> 0u ->
-      Op.LDXBRA, getFPR24FPR28Mask16Mask20 bin, Fmt.RRF
-    | 0xB346us when extract32 bin 20 23 <> 0u ->
-      Op.LEXBRA, getFPR24FPR28Mask16Mask20 bin, Fmt.RRF
-    | 0xB347us when extract32 bin 20 23 <> 0u ->
+    | 0xB344us -> Op.LEDBRA, getFPR24FPR28Mask16Mask20 bin, Fmt.RRF
+    | 0xB345us -> Op.LDXBRA, getFPR24FPR28Mask16Mask20 bin, Fmt.RRF
+    | 0xB346us -> Op.LEXBRA, getFPR24FPR28Mask16Mask20 bin, Fmt.RRF
+    | 0xB347us when extract32 bin 20 23 = 0u ->
       Op.FIXBR, getFPR24FPR28Mask16 bin, Fmt.RRF
     | 0xB347us -> Op.FIXBRA, getFPR24FPR28Mask16Mask20 bin, Fmt.RRF
     | 0xB350us -> Op.TBEDR, getFPR24FPR28Mask16 bin, Fmt.RRF
     | 0xB351us -> Op.TBDR, getFPR24FPR28Mask16 bin, Fmt.RRF
     | 0xB353us -> Op.DIEBR, getFPR24FPR28FPR16Mask20 bin, Fmt.RRF
-    | 0xB357us when extract32 bin 20 23 <> 0u ->
+    | 0xB357us when extract32 bin 20 23 = 0u ->
       Op.FIEBR, getFPR24FPR28Mask16 bin, Fmt.RRF
     | 0xB357us -> Op.FIEBRA, getFPR24FPR28Mask16Mask20 bin, Fmt.RRF
     | 0xB35Bus -> Op.DIDBR, getFPR24FPR28FPR16Mask20 bin, Fmt.RRF
-    | 0xB35Fus when extract32 bin 20 23 <> 0u ->
+    | 0xB35Fus when extract32 bin 20 23 = 0u ->
       Op.FIDBR, getFPR24FPR28Mask16 bin, Fmt.RRF
     | 0xB35Fus -> Op.FIDBRA, getFPR24FPR28Mask16Mask20 bin, Fmt.RRF
     | 0xB372us -> Op.CPSDR, getFPR24FPR28FPR16 bin, Fmt.RRF
     | 0xB390us -> Op.CELFBR, getFPR24GR28Mask16Mask20 bin, Fmt.RRF
     | 0xB391us -> Op.CDLFBR, getFPR24GR28Mask16Mask20 bin, Fmt.RRF
     | 0xB392us -> Op.CXLFBR, getFPR24GR28Mask16Mask20 bin, Fmt.RRF
-    | 0xB394us when extract32 bin 20 23 <> 0u ->
-      Op.CEFBRA, getFPR24GR28Mask16Mask20 bin, Fmt.RRF
-    | 0xB395us when extract32 bin 20 23 <> 0u ->
-      Op.CDFBRA, getFPR24GR28Mask16Mask20 bin, Fmt.RRF
-    | 0xB396us when extract32 bin 20 23 <> 0u ->
-      Op.CXFBRA, getFPR24GR28Mask16Mask20 bin, Fmt.RRF
-    | 0xB398us when extract32 bin 20 23 <> 0u ->
+    | 0xB394us -> Op.CEFBRA, getFPR24GR28Mask16Mask20 bin, Fmt.RRF
+    | 0xB395us -> Op.CDFBRA, getFPR24GR28Mask16Mask20 bin, Fmt.RRF
+    | 0xB396us -> Op.CXFBRA, getFPR24GR28Mask16Mask20 bin, Fmt.RRF
+    | 0xB398us when extract32 bin 20 23 = 0u ->
       Op.CFEBR, getGR24FPR28Mask16 bin, Fmt.RRF
     | 0xB398us -> Op.CFEBRA, getGR24FPR28Mask16Mask20 bin, Fmt.RRF
-    | 0xB399us when extract32 bin 20 23 <> 0u ->
+    | 0xB399us when extract32 bin 20 23 = 0u ->
       Op.CFDBR, getGR24FPR28Mask16 bin, Fmt.RRF
     | 0xB399us -> Op.CFDBRA, getGR24FPR28Mask16Mask20 bin, Fmt.RRF
-    | 0xB39Aus when extract32 bin 20 23 <> 0u ->
+    | 0xB39Aus when extract32 bin 20 23 = 0u ->
       Op.CFXBR, getGR24FPR28Mask16 bin, Fmt.RRF
     | 0xB39Aus -> Op.CFXBRA, getGR24FPR28Mask16Mask20 bin, Fmt.RRF
     | 0xB39Cus -> Op.CLFEBR, getGR24FPR28Mask16Mask20 bin, Fmt.RRF
@@ -557,19 +551,16 @@ let parseInstLenTwo (bin: uint32) =
     | 0xB3A0us -> Op.CELGBR, getFPR24GR28Mask16Mask20 bin, Fmt.RRF
     | 0xB3A1us -> Op.CDLGBR, getFPR24GR28Mask16Mask20 bin, Fmt.RRF
     | 0xB3A2us -> Op.CXLGBR, getFPR24GR28Mask16Mask20 bin, Fmt.RRF
-    | 0xB3A4us when extract32 bin 20 23 <> 0u ->
-      Op.CEGBRA, getFPR24GR28Mask16Mask20 bin, Fmt.RRF
-    | 0xB3A5us when extract32 bin 20 23 <> 0u ->
-      Op.CDGBRA, getFPR24GR28Mask16Mask20 bin, Fmt.RRF
-    | 0xB3A6us when extract32 bin 20 23 <> 0u ->
-      Op.CXGBRA, getFPR24GR28Mask16Mask20 bin, Fmt.RRF
-    | 0xB3A8us when extract32 bin 20 23 <> 0u ->
+    | 0xB3A4us -> Op.CEGBRA, getFPR24GR28Mask16Mask20 bin, Fmt.RRF
+    | 0xB3A5us -> Op.CDGBRA, getFPR24GR28Mask16Mask20 bin, Fmt.RRF
+    | 0xB3A6us -> Op.CXGBRA, getFPR24GR28Mask16Mask20 bin, Fmt.RRF
+    | 0xB3A8us when extract32 bin 20 23 = 0u ->
       Op.CGEBR, getGR24FPR28Mask16 bin, Fmt.RRF
     | 0xB3A8us -> Op.CGEBRA, getGR24FPR28Mask16Mask20 bin, Fmt.RRF
-    | 0xB3A9us when extract32 bin 20 23 <> 0u ->
+    | 0xB3A9us when extract32 bin 20 23 = 0u ->
       Op.CGDBR, getGR24FPR28Mask16 bin, Fmt.RRF
     | 0xB3A9us -> Op.CGDBRA, getGR24FPR28Mask16Mask20 bin, Fmt.RRF
-    | 0xB3AAus when extract32 bin 20 23 <> 0u ->
+    | 0xB3AAus when extract32 bin 20 23 = 0u ->
       Op.CGXBR, getGR24FPR28Mask16 bin, Fmt.RRF
     | 0xB3AAus -> Op.CGXBRA, getGR24FPR28Mask16Mask20 bin, Fmt.RRF
     | 0xB3ACus -> Op.CLGEBR, getGR24FPR28Mask16Mask20 bin, Fmt.RRF
@@ -581,52 +572,49 @@ let parseInstLenTwo (bin: uint32) =
     | 0xB3C8us -> Op.CGER, getGR24FPR28Mask16 bin, Fmt.RRF
     | 0xB3C9us -> Op.CGDR, getGR24FPR28Mask16 bin, Fmt.RRF
     | 0xB3CAus -> Op.CGXR, getGR24FPR28Mask16 bin, Fmt.RRF
-    | 0xB3D0us when extract32 bin 20 23 <> 0u ->
+    | 0xB3D0us when extract32 bin 20 23 = 0u ->
       Op.MDTR, getFPR24FPR28FPR16 bin, Fmt.RRF
     | 0xB3D0us -> Op.MDTRA, getFPR24FPR28FPR16Mask20 bin, Fmt.RRF
-    | 0xB3D1us when extract32 bin 20 23 <> 0u ->
+    | 0xB3D1us when extract32 bin 20 23 = 0u ->
       Op.DDTR, getFPR24FPR28FPR16 bin, Fmt.RRF
     | 0xB3D1us -> Op.DDTRA, getFPR24FPR28FPR16Mask20 bin, Fmt.RRF
-    | 0xB3D2us when extract32 bin 20 23 <> 0u ->
+    | 0xB3D2us when extract32 bin 20 23 = 0u ->
       Op.ADTR, getFPR24FPR28FPR16 bin, Fmt.RRF
     | 0xB3D2us -> Op.ADTRA, getFPR24FPR28FPR16Mask20 bin, Fmt.RRF
-    | 0xB3D3us when extract32 bin 20 23 <> 0u ->
+    | 0xB3D3us when extract32 bin 20 23 = 0u ->
       Op.SDTR, getFPR24FPR28FPR16 bin, Fmt.RRF
     | 0xB3D3us -> Op.SDTRA, getFPR24FPR28FPR16Mask20 bin, Fmt.RRF
     | 0xB3D4us -> Op.LDETR, getFPR24FPR28Mask20 bin, Fmt.RRF
     | 0xB3D5us -> Op.LEDTR, getFPR24FPR28Mask16Mask20 bin, Fmt.RRF
     | 0xB3D7us -> Op.FIDTR, getFPR24FPR28Mask16Mask20 bin, Fmt.RRF
-    | 0xB3D8us when extract32 bin 20 23 <> 0u ->
+    | 0xB3D8us when extract32 bin 20 23 = 0u ->
       Op.MXTR, getFPR24FPR28FPR16 bin, Fmt.RRF
     | 0xB3D8us -> Op.MXTRA, getFPR24FPR28FPR16Mask20 bin, Fmt.RRF
-    | 0xB3D9us when extract32 bin 20 23 <> 0u ->
+    | 0xB3D9us when extract32 bin 20 23 = 0u ->
       Op.DXTR, getFPR24FPR28FPR16 bin, Fmt.RRF
     | 0xB3D9us -> Op.DXTRA, getFPR24FPR28FPR16Mask20 bin, Fmt.RRF
-    | 0xB3DAus when extract32 bin 20 23 <> 0u ->
+    | 0xB3DAus when extract32 bin 20 23 = 0u ->
       Op.AXTR, getFPR24FPR28FPR16 bin, Fmt.RRF
     | 0xB3DAus -> Op.AXTRA, getFPR24FPR28FPR16Mask20 bin, Fmt.RRF
-    | 0xB3DBus when extract32 bin 20 23 <> 0u ->
+    | 0xB3DBus when extract32 bin 20 23 = 0u ->
       Op.SXTR, getFPR24FPR28FPR16 bin, Fmt.RRF
     | 0xB3DBus -> Op.SXTRA, getFPR24FPR28FPR16Mask20 bin, Fmt.RRF
     | 0xB3DCus -> Op.LXDTR, getFPR24FPR28Mask20 bin, Fmt.RRF
     | 0xB3DDus -> Op.LDXTR, getFPR24FPR28Mask16Mask20 bin, Fmt.RRF
     | 0xB3DFus -> Op.FIXTR, getFPR24FPR28Mask16Mask20 bin, Fmt.RRF
-    | 0xB3E1us when extract32 bin 20 23 <> 0u ->
+    | 0xB3E1us when extract32 bin 20 23 = 0u ->
       Op.CGDTR, getGR24FPR28Mask16 bin, Fmt.RRF
     | 0xB3E1us -> Op.CGDTRA, getGR24FPR28Mask16Mask20 bin, Fmt.RRF
     | 0xB3E3us -> Op.CSDTR, getGR24FPR28Mask20 bin, Fmt.RRF
-    | 0xB3E9us when extract32 bin 20 23 <> 0u ->
+    | 0xB3E9us when extract32 bin 20 23 = 0u ->
       Op.CGXTR, getGR24FPR28Mask16 bin, Fmt.RRF
     | 0xB3E9us -> Op.CGXTRA, getGR24FPR28Mask16Mask20 bin, Fmt.RRF
-    | 0xB3EBus when extract32 bin 20 23 <> 0u ->
-      Op.CSXTR, getGR24FPR28Mask20 bin, Fmt.RRF
-    | 0xB3F1us when extract32 bin 20 23 <> 0u ->
-      Op.CDGTRA, getFPR24GR28Mask16Mask20 bin, Fmt.RRF
+    | 0xB3EBus -> Op.CSXTR, getGR24FPR28Mask20 bin, Fmt.RRF
+    | 0xB3F1us -> Op.CDGTRA, getFPR24GR28Mask16Mask20 bin, Fmt.RRF
     | 0xB3F5us -> Op.QADTR, getFPR24FPR28FPR16Mask20 bin, Fmt.RRF
     | 0xB3F6us -> Op.IEDTR, getFPR24GR28FPR16 bin, Fmt.RRF
     | 0xB3F7us -> Op.RRDTR, getFPR24GR28FPR16Mask20 bin, Fmt.RRF
-    | 0xB3F9us when extract32 bin 20 23 <> 0u ->
-      Op.CXGTRA, getFPR24GR28Mask16Mask20 bin, Fmt.RRF
+    | 0xB3F9us -> Op.CXGTRA, getFPR24GR28Mask16Mask20 bin, Fmt.RRF
     | 0xB3FDus -> Op.QAXTR, getFPR24FPR28FPR16Mask20 bin, Fmt.RRF
     | 0xB3FEus -> Op.IEXTR, getFPR24GR28FPR16 bin, Fmt.RRF
     | 0xB3FFus -> Op.RRXTR, getFPR24GR28FPR16Mask20 bin, Fmt.RRF

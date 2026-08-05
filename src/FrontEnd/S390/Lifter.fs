@@ -372,21 +372,21 @@ let private liftFloat ins insLen bld opcode =
   | Opcode.STD | Opcode.STDY -> store ins insLen bld 64<rt>
   | Opcode.STE | Opcode.STEY -> storeHigh ins insLen bld
   | Opcode.ADBR | Opcode.ADB ->
-    FloatLifter.arith ins insLen bld 64<rt> AST.fadd
+    FloatLifter.arith ins insLen bld 64<rt> AST.fadd true
   | Opcode.AEBR | Opcode.AEB ->
-    FloatLifter.arith ins insLen bld 32<rt> AST.fadd
+    FloatLifter.arith ins insLen bld 32<rt> AST.fadd true
   | Opcode.SDBR | Opcode.SDB ->
-    FloatLifter.arith ins insLen bld 64<rt> AST.fsub
+    FloatLifter.arith ins insLen bld 64<rt> AST.fsub true
   | Opcode.SEBR | Opcode.SEB ->
-    FloatLifter.arith ins insLen bld 32<rt> AST.fsub
+    FloatLifter.arith ins insLen bld 32<rt> AST.fsub true
   | Opcode.MDBR | Opcode.MDB ->
-    FloatLifter.arith ins insLen bld 64<rt> AST.fmul
+    FloatLifter.arith ins insLen bld 64<rt> AST.fmul false
   | Opcode.MEEBR | Opcode.MEEB ->
-    FloatLifter.arith ins insLen bld 32<rt> AST.fmul
+    FloatLifter.arith ins insLen bld 32<rt> AST.fmul false
   | Opcode.DDBR | Opcode.DDB ->
-    FloatLifter.arith ins insLen bld 64<rt> AST.fdiv
+    FloatLifter.arith ins insLen bld 64<rt> AST.fdiv false
   | Opcode.DEBR | Opcode.DEB ->
-    FloatLifter.arith ins insLen bld 32<rt> AST.fdiv
+    FloatLifter.arith ins insLen bld 32<rt> AST.fdiv false
   | Opcode.CDBR | Opcode.CDB | Opcode.KDBR | Opcode.KDB ->
     FloatLifter.compare ins insLen bld 64<rt>
   | Opcode.CEBR | Opcode.CEB | Opcode.KEBR | Opcode.KEB ->
@@ -592,7 +592,10 @@ let private liftWide ins insLen bld opcode =
   | Opcode.STCKE -> storeClockExtended ins insLen bld
   | Opcode.LMD -> loadMultipleDisjoint ins insLen bld
   | Opcode.CUSE -> compareUntilEqual ins insLen bld
-  | Opcode.SAM64 | Opcode.NIAI | Opcode.MC -> nop ins insLen bld
+  | Opcode.SAM24 -> setAddressMode ins insLen bld 24
+  | Opcode.SAM31 -> setAddressMode ins insLen bld 31
+  | Opcode.SAM64 -> setAddressMode ins insLen bld 64
+  | Opcode.NIAI | Opcode.MC -> nop ins insLen bld
   | Opcode.TABORT -> illegal ins insLen bld
   | _ -> raise ParsingFailureException
 
@@ -637,8 +640,8 @@ let private liftOther ins insLen bld opcode =
 /// The extended binary floating-point format, whose 128 bits live in a pair of
 /// registers. Everything that is a matter of moving or reading the bits is done
 /// exactly; the four arithmetic operations and the square root, which would
-/// need a 112-bit fraction the IR has no type for, raise the unsupported trap
-/// instead of answering with less precision than was asked for.
+/// need a 112-bit fraction the IR has no type for, are carried out in double
+/// precision instead and so answer to 53 bits rather than 113.
 let private liftExtFloat ins insLen bld opcode =
   match opcode with
   | Opcode.LXR -> FloatLifter.extLoadSign ins insLen bld (fun v _ -> v) false
@@ -669,7 +672,14 @@ let private liftExtFloat ins insLen bld opcode =
     FloatLifter.extToInt ins insLen bld WSize
   | Opcode.CGXBR | Opcode.CGXBRA | Opcode.CLGXBR ->
     FloatLifter.extToInt ins insLen bld GRSize
-  | _ -> FloatLifter.extUnsupported ins insLen bld
+  | Opcode.AXBR -> FloatLifter.extArith ins insLen bld AST.fadd true
+  | Opcode.SXBR -> FloatLifter.extArith ins insLen bld AST.fsub true
+  | Opcode.MXBR -> FloatLifter.extArith ins insLen bld AST.fmul false
+  | Opcode.DXBR -> FloatLifter.extArith ins insLen bld AST.fdiv false
+  | Opcode.SQXBR -> FloatLifter.extSqrt ins insLen bld
+  | Opcode.MXDBR | Opcode.MXDB -> FloatLifter.extMulLong ins insLen bld
+  | Opcode.FIXBR | Opcode.FIXBRA -> FloatLifter.extRoundToInt ins insLen bld
+  | _ -> unsupported ins insLen bld
 
 /// The instructions this lifter models, grouped by what they do so that the
 /// dispatch stays a few wide matches rather than one enormous one.
@@ -886,8 +896,7 @@ let private groupOf opcode =
   | Opcode.FIXR | Opcode.SQXR | Opcode.CEFR | Opcode.CDFR | Opcode.CEGR
   | Opcode.CDGR | Opcode.CFER | Opcode.CFDR | Opcode.CFXR | Opcode.CGER
   | Opcode.CGDR | Opcode.CGXR | Opcode.CXFR | Opcode.CXGR | Opcode.THDR
-  | Opcode.THDER | Opcode.TBDR | Opcode.TBEDR | Opcode.AXR | Opcode.SXR
-  | Opcode.LXR | Opcode.LZXR -> 13
+  | Opcode.THDER | Opcode.TBDR | Opcode.TBEDR | Opcode.AXR | Opcode.SXR -> 13
   | Opcode.LXR | Opcode.LZXR | Opcode.LTXBR | Opcode.LCXBR | Opcode.LPXBR
   | Opcode.LNXBR | Opcode.CXBR | Opcode.KXBR | Opcode.TCXB | Opcode.LXDBR
   | Opcode.LXDB | Opcode.LXEBR | Opcode.LXEB | Opcode.LDXBR | Opcode.LDXBRA
@@ -902,9 +911,9 @@ let private groupOf opcode =
   | Opcode.DIDBR | Opcode.DIEBR | Opcode.SRNM | Opcode.SRNMB | Opcode.SRNMT
   | Opcode.LFAS | Opcode.SFASR -> 7
   | Opcode.EPSW | Opcode.LCBB | Opcode.STCKE | Opcode.LMD | Opcode.CUSE
-  | Opcode.SAM64 | Opcode.TABORT -> 10
-  | Opcode.SAM24 | Opcode.SAM31 | Opcode.BSM | Opcode.CSST | Opcode.WFC
-  | Opcode.WFK | Opcode.LGG | Opcode.LLGFSG | Opcode.STRAG -> 15
+  | Opcode.SAM24 | Opcode.SAM31 | Opcode.SAM64 | Opcode.TABORT -> 10
+  | Opcode.BSM | Opcode.CSST | Opcode.WFC | Opcode.WFK | Opcode.LGG
+  | Opcode.LLGFSG | Opcode.STRAG -> 15
   | _ -> -1
 
 /// Translates one instruction into LowUIR. What is left over -- and so raises

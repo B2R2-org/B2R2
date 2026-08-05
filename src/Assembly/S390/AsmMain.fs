@@ -41,6 +41,8 @@ type UserState =
 /// almost the same way by.
 let private bits20 = { Pos = 20; Width = 4 }
 
+let private bits16 = { Pos = 16; Width = 8 }
+
 /// What an instruction of the given name encodes as. A name the table does not
 /// hold is one the decoder does not read either.
 let private rowOf (table: Map<string, Row>) name =
@@ -106,9 +108,9 @@ let private settleBits20 row word =
       raise <| EncodingFailureException "this instruction needs a mask here"
     else
       word
-  | Bits20Zeroed ->
-    if peek row.Length bits20 word <> 0UL then
-      raise <| EncodingFailureException "this instruction takes no mask here"
+  | Bits16Named ->
+    if peek row.Length bits16 word = 0UL then
+      raise <| EncodingFailureException "this instruction needs a mask here"
     else
       word
 

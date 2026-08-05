@@ -139,8 +139,8 @@ let wordOf bld o = srcOf bld WSize o
 let branchOnCount ins insLen bld =
   let struct (o1, o2) = getTwoOprs ins
   let d = oprRegVar bld o1
-  let target = numG (int64 (relTarget (ins: Instruction).Address (oprImm o2)))
-  let next = numG (int64 (nextAddr ins.Address insLen))
+  let target = numG (int64 (codeAddr bld (relTarget ins.Address (oprImm o2))))
+  let next = numG (int64 (codeAddr bld (nextAddr ins.Address insLen)))
   let t = tmpVar bld WSize
   bld <!-- (ins.Address, insLen)
   bld <+ (t := high d .- AST.num1 WSize)

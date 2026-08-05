@@ -128,7 +128,7 @@ let loadTest ins insLen bld rt accW ext =
 let loadRel ins insLen bld rt accW ext =
   let struct (o1, o2) = getTwoOprs ins
   let d = oprRegVar bld o1
-  let addr = numG (int64 (relTarget (ins: Instruction).Address (oprImm o2)))
+  let addr = numG (int64 (codeAddr bld (relTarget ins.Address (oprImm o2))))
   bld <!-- (ins.Address, insLen)
   bld <+ (dst rt d := ext rt (loadMem accW addr))
   bld --!> insLen
@@ -148,7 +148,7 @@ let larl ins insLen bld =
   let struct (o1, o2) = getTwoOprs ins
   let d = oprRegVar bld o1
   bld <!-- ((ins: Instruction).Address, insLen)
-  bld <+ (d := numG (int64 (relTarget ins.Address (oprImm o2))))
+  bld <+ (d := numG (int64 (codeAddr bld (relTarget ins.Address (oprImm o2)))))
   bld --!> insLen
 
 /// A plain store of the first operand's low bits.
@@ -196,7 +196,7 @@ let storeHigh ins insLen bld =
 /// A store to storage the instruction names relative to itself.
 let storeRel ins insLen bld accW =
   let struct (o1, o2) = getTwoOprs ins
-  let addr = numG (int64 (relTarget (ins: Instruction).Address (oprImm o2)))
+  let addr = numG (int64 (codeAddr bld (relTarget ins.Address (oprImm o2))))
   bld <!-- (ins.Address, insLen)
   bld <+ storeMem addr (narrowTo accW (oprRegVar bld o1))
   bld --!> insLen
@@ -695,7 +695,7 @@ let compare ins insLen bld rt accW ext signed =
 /// A comparison against storage the instruction names relative to itself.
 let compareRel ins insLen bld rt accW ext signed =
   let struct (o1, o2) = getTwoOprs ins
-  let addr = numG (int64 (relTarget (ins: Instruction).Address (oprImm o2)))
+  let addr = numG (int64 (codeAddr bld (relTarget ins.Address (oprImm o2))))
   let a = tmpVar bld rt
   let b = tmpVar bld rt
   bld <!-- (ins.Address, insLen)
@@ -747,20 +747,30 @@ let testMaskReg ins insLen bld pos =
 /// The address of the instruction after the one being lifted, as an
 /// expression, which is where a branch not taken carries on and where a call
 /// leaves its return address.
-let private fallThrough (ins: Instruction) insLen =
-  numG (int64 (nextAddr ins.Address insLen))
+let private fallThrough bld (ins: Instruction) insLen =
+  numG (int64 (codeAddr bld (nextAddr ins.Address insLen)))
+
+/// The value a call leaves in its link register. On z/Architecture that is the
+/// return address and nothing else. ESA/390 has the addressing mode to record
+/// as well, and puts it in the bit above the 31 an address occupies -- which is
+/// why the branch back has to mask that bit off again.
+let private linkValue bld (ins: Instruction) insLen =
+  let next = codeAddr bld (nextAddr ins.Address insLen)
+  if esaMode bld then numG (int64 (next ||| 0x80000000UL))
+  else numG (int64 next)
 
 /// A branch a condition-code mask decides, whose target the instruction names
 /// relative to itself.
 let branchRelative ins insLen bld =
   let struct (o1, o2) = getTwoOprs ins
   let m = oprMask o1
-  let target = numG (int64 (relTarget (ins: Instruction).Address (oprImm o2)))
+  let target = numG (int64 (codeAddr bld (relTarget ins.Address (oprImm o2))))
   bld <!-- (ins.Address, insLen)
   if isNever m then ()
   elif isAlways m then bld <+ AST.interjmp target InterJmpKind.Base
   else
-    bld <+ AST.intercjmp (condOfMask bld m) target (fallThrough ins insLen)
+    let next = fallThrough bld ins insLen
+    bld <+ AST.intercjmp (condOfMask bld m) target next
   bld --!> insLen
 
 /// A branch a mask decides, whose target is the address its base, index, and
@@ -774,7 +784,8 @@ let branchOnCondition ins insLen bld =
     let target = transMem bld o2
     if isAlways m then bld <+ AST.interjmp target InterJmpKind.Base
     else
-      bld <+ AST.intercjmp (condOfMask bld m) target (fallThrough ins insLen)
+      let next = fallThrough bld ins insLen
+      bld <+ AST.intercjmp (condOfMask bld m) target next
   bld --!> insLen
 
 /// A branch a mask decides, to the address a register holds. A second operand
@@ -788,12 +799,13 @@ let branchOnConditionReg ins insLen bld =
   bld <!-- ((ins: Instruction).Address, insLen)
   if isNever m || r2 = Register.R0 then ()
   else
-    let target = reg bld r2
+    let target = maskAddr bld (reg bld r2)
     let kind =
       if r2 = Register.R14 then InterJmpKind.IsRet else InterJmpKind.Base
     if isAlways m then bld <+ AST.interjmp target kind
     else
-      bld <+ AST.intercjmp (condOfMask bld m) target (fallThrough ins insLen)
+      let next = fallThrough bld ins insLen
+      bld <+ AST.intercjmp (condOfMask bld m) target next
   bld --!> insLen
 
 /// BRANCH AND SAVE, in the relative form the compiler uses for every call: the
@@ -801,9 +813,9 @@ let branchOnConditionReg ins insLen bld =
 let branchAndSaveRel ins insLen bld =
   let struct (o1, o2) = getTwoOprs ins
   let d = oprRegVar bld o1
-  let target = numG (int64 (relTarget (ins: Instruction).Address (oprImm o2)))
+  let target = numG (int64 (codeAddr bld (relTarget ins.Address (oprImm o2))))
   bld <!-- (ins.Address, insLen)
-  bld <+ (d := fallThrough ins insLen)
+  bld <+ (d := linkValue bld ins insLen)
   bld <+ AST.interjmp target InterJmpKind.IsCall
   bld --!> insLen
 
@@ -814,7 +826,7 @@ let branchAndSave ins insLen bld =
   let t = tmpVar bld GRSize
   bld <!-- ((ins: Instruction).Address, insLen)
   bld <+ (t := transMem bld o2)
-  bld <+ (d := fallThrough ins insLen)
+  bld <+ (d := linkValue bld ins insLen)
   bld <+ AST.interjmp t InterJmpKind.IsCall
   bld --!> insLen
 
@@ -826,10 +838,10 @@ let branchAndSaveReg ins insLen bld =
   let r2 = oprReg o2
   let t = tmpVar bld GRSize
   bld <!-- ((ins: Instruction).Address, insLen)
-  if r2 = Register.R0 then bld <+ (d := fallThrough ins insLen)
+  if r2 = Register.R0 then bld <+ (d := linkValue bld ins insLen)
   else
-    bld <+ (t := reg bld r2)
-    bld <+ (d := fallThrough ins insLen)
+    bld <+ (t := maskAddr bld (reg bld r2))
+    bld <+ (d := linkValue bld ins insLen)
     bld <+ AST.interjmp t InterJmpKind.IsCall
   bld --!> insLen
 
@@ -838,12 +850,12 @@ let branchAndSaveReg ins insLen bld =
 let branchOnCountRel ins insLen bld rt =
   let struct (o1, o2) = getTwoOprs ins
   let d = oprRegVar bld o1
-  let target = numG (int64 (relTarget (ins: Instruction).Address (oprImm o2)))
+  let target = numG (int64 (codeAddr bld (relTarget ins.Address (oprImm o2))))
   let t = tmpVar bld rt
   bld <!-- (ins.Address, insLen)
   bld <+ (t := srcReg rt d .- AST.num1 rt)
   bld <+ (dst rt d := t)
-  bld <+ AST.intercjmp (t != AST.num0 rt) target (fallThrough ins insLen)
+  bld <+ AST.intercjmp (t != AST.num0 rt) target (fallThrough bld ins insLen)
   bld --!> insLen
 
 /// BRANCH ON COUNT, to the address the second operand names.
@@ -856,7 +868,7 @@ let branchOnCount ins insLen bld rt =
   bld <+ (target := transMem bld o2)
   bld <+ (t := srcReg rt d .- AST.num1 rt)
   bld <+ (dst rt d := t)
-  bld <+ AST.intercjmp (t != AST.num0 rt) target (fallThrough ins insLen)
+  bld <+ AST.intercjmp (t != AST.num0 rt) target (fallThrough bld ins insLen)
   bld --!> insLen
 
 /// BRANCH ON COUNT to a register's address, which counts down whether or not
@@ -872,10 +884,10 @@ let branchOnCountReg ins insLen bld rt =
     bld <+ (t := srcReg rt d .- AST.num1 rt)
     bld <+ (dst rt d := t)
   else
-    bld <+ (target := reg bld r2)
+    bld <+ (target := maskAddr bld (reg bld r2))
     bld <+ (t := srcReg rt d .- AST.num1 rt)
     bld <+ (dst rt d := t)
-    bld <+ AST.intercjmp (t != AST.num0 rt) target (fallThrough ins insLen)
+    bld <+ AST.intercjmp (t != AST.num0 rt) target (fallThrough bld ins insLen)
   bld --!> insLen
 
 /// BRANCH ON INDEX: the first operand takes an increment from the third, and
@@ -886,7 +898,7 @@ let branchOnIndexRel ins insLen bld rt high =
   let d = oprRegVar bld o1
   let r3 = oprReg o3
   let cmp = if int r3 % 2 = 1 then r3 else pairOf r3
-  let target = numG (int64 (relTarget (ins: Instruction).Address (oprImm o2)))
+  let target = numG (int64 (codeAddr bld (relTarget ins.Address (oprImm o2))))
   let t = tmpVar bld rt
   let limit = tmpVar bld rt
   bld <!-- (ins.Address, insLen)
@@ -894,7 +906,7 @@ let branchOnIndexRel ins insLen bld rt high =
   bld <+ (t := srcReg rt d .+ srcReg rt (reg bld r3))
   bld <+ (dst rt d := t)
   let cond = if high then t ?> limit else t ?<= limit
-  bld <+ AST.intercjmp cond target (fallThrough ins insLen)
+  bld <+ AST.intercjmp cond target (fallThrough bld ins insLen)
   bld --!> insLen
 
 /// BRANCH ON INDEX to the address the second operand names.
@@ -912,7 +924,7 @@ let branchOnIndex ins insLen bld rt high =
   bld <+ (t := srcReg rt d .+ srcReg rt (reg bld r3))
   bld <+ (dst rt d := t)
   let cond = if high then t ?> limit else t ?<= limit
-  bld <+ AST.intercjmp cond target (fallThrough ins insLen)
+  bld <+ AST.intercjmp cond target (fallThrough bld ins insLen)
   bld --!> insLen
 
 /// The condition a compare-and-branch mask names, taken straight from the
@@ -933,7 +945,7 @@ let private cmpCond (m: Mask) signed a b =
 let compareAndBranchRel ins insLen bld rt signed =
   let struct (o1, o2, o3, o4) = getFourOprs ins
   let m = oprMask o3
-  let target = numG (int64 (relTarget (ins: Instruction).Address (oprImm o4)))
+  let target = numG (int64 (codeAddr bld (relTarget ins.Address (oprImm o4))))
   bld <!-- (ins.Address, insLen)
   if m &&& 0xeus = 0us then ()
   else
@@ -946,7 +958,7 @@ let compareAndBranchRel ins insLen bld rt signed =
       bld <+ AST.interjmp target InterJmpKind.Base
     else
       let cond = cmpCond m signed a b
-      bld <+ AST.intercjmp cond target (fallThrough ins insLen)
+      bld <+ AST.intercjmp cond target (fallThrough bld ins insLen)
   bld --!> insLen
 
 /// COMPARE AND BRANCH to the address the last operand names.
@@ -966,7 +978,7 @@ let compareAndBranch ins insLen bld rt signed =
       bld <+ AST.interjmp target InterJmpKind.Base
     else
       let cond = cmpCond m signed a b
-      bld <+ AST.intercjmp cond target (fallThrough ins insLen)
+      bld <+ AST.intercjmp cond target (fallThrough bld ins insLen)
   bld --!> insLen
 
 /// COMPARE AND TRAP, which a compiler plants where a check must not be allowed
@@ -1190,15 +1202,64 @@ let private fieldAddress bld tgt k =
   bld <+ (b := hi >> numG 4L)
   regOfField bld b .+ (((hi .& numG 0xfL) << numG 8L) .| lo)
 
+/// The loop TRANSLATE runs: each of the first operand's bytes is replaced by
+/// the table byte it indexes.
+let private emitTransLoop bld len d table =
+  let i = tmpVar bld GRSize
+  let body = label bld "TrBody"
+  let out = label bld "TrOut"
+  bld <+ (i := AST.num0 GRSize)
+  bld <+ (AST.lmark body)
+  let at = d .+ i
+  bld <+ storeMem at (loadMem 8<rt> (table .+ zextTo GRSize (loadMem 8<rt> at)))
+  bld <+ (i := i .+ AST.num1 GRSize)
+  bld <+ (AST.cjmp (i == len) (AST.jmpDest out) (AST.jmpDest body))
+  bld <+ (AST.lmark out)
+
+/// The loop TRANSLATE AND TEST runs: the same indexing, but the first non-zero
+/// table byte stops the scan and is reported instead of stored.
+let private emitTransTestLoop bld len d table backwards =
+  let i = tmpVar bld GRSize
+  let fn = tmpVar bld 8<rt>
+  let body = label bld "TrtBody"
+  let step = label bld "TrtStep"
+  let found = label bld "TrtFound"
+  let out = label bld "TrtOut"
+  bld <+ (i := AST.num0 GRSize)
+  setCC bld 0
+  bld <+ (AST.lmark body)
+  let at = if backwards then d .- i else d .+ i
+  bld <+ (fn := loadMem 8<rt> (table .+ zextTo GRSize (loadMem 8<rt> at)))
+  bld <+ (AST.cjmp (fn == AST.num0 8<rt>)
+                   (AST.jmpDest step) (AST.jmpDest found))
+  bld <+ (AST.lmark step)
+  bld <+ (i := i .+ AST.num1 GRSize)
+  bld <+ (AST.cjmp (i == len) (AST.jmpDest out) (AST.jmpDest body))
+  bld <+ (AST.lmark found)
+  bld <+ (reg bld Register.R1 := at)
+  bld <+ (AST.xtlo 8<rt> (reg bld Register.R2) := fn)
+  bld <+ (ccVar bld := AST.ite (i == len .- AST.num1 GRSize)
+                               (numCC 2) (numCC 1))
+  bld <+ (AST.lmark out)
+
+/// The half-byte move EXECUTE reaches through MOVE NUMERICS and MOVE ZONES,
+/// which take one nibble of each byte from the source and leave the other as
+/// it was.
+let private halfByte keep take d s =
+  (d .& numI32 keep 8<rt>) .| (s .& numI32 take 8<rt>)
+
 /// EXECUTE: the instruction at the target address runs as if it stood here,
 /// with its second byte -- the length, in every form a compiler uses this for
 /// -- ORed with the rightmost byte of the first operand. That is how a program
 /// gives a storage-to-storage operation a length it only knows at run time,
 /// and it is why the target has to be read as data rather than lifted with the
-/// code around it.
+/// code around it. A supervisor call is the one target that is not such an
+/// operation: there the same byte is the call number, which is how a program
+/// asks for a call it only names at run time.
 let private executeAt ins insLen bld r1 target =
   let tgt = tmpVar bld GRSize
   let op = tmpVar bld 8<rt>
+  let modified = tmpVar bld 8<rt>
   let len = tmpVar bld GRSize
   let a1 = tmpVar bld GRSize
   let a2 = tmpVar bld GRSize
@@ -1208,8 +1269,8 @@ let private executeAt ins insLen bld r1 target =
   let modifier =
     if (r1: Register) = Register.R0 then AST.num0 8<rt>
     else AST.xtlo 8<rt> (reg bld r1)
-  let raw = loadMem 8<rt> (tgt .+ AST.num1 GRSize) .| modifier
-  bld <+ (len := zextTo GRSize raw .+ AST.num1 GRSize)
+  bld <+ (modified := loadMem 8<rt> (tgt .+ AST.num1 GRSize) .| modifier)
+  bld <+ (len := zextTo GRSize modified .+ AST.num1 GRSize)
   bld <+ (a1 := fieldAddress bld tgt 2)
   bld <+ (a2 := fieldAddress bld tgt 4)
   let arm code body =
@@ -1221,11 +1282,18 @@ let private executeAt ins insLen bld r1 target =
     body ()
     bld <+ (AST.jmp (AST.jmpDest lblOut))
     bld <+ (AST.lmark miss)
+  arm 0x0a (fun () ->
+    bld <+ (regVar bld Register.SVCCODE := modified)
+    bld <+ AST.sideEffect SysCall)
+  arm 0xd1 (fun () -> emitByteLoop bld len a1 a2 (halfByte 0xf0 0x0f))
   arm 0xd2 (fun () -> emitByteLoop bld len a1 a2 (fun _ s -> s))
+  arm 0xd3 (fun () -> emitByteLoop bld len a1 a2 (halfByte 0x0f 0xf0))
   arm 0xd4 (fun () -> emitLogicLoop bld len a1 a2 (.&))
   arm 0xd5 (fun () -> emitCompareLoop bld len a1 a2)
   arm 0xd6 (fun () -> emitLogicLoop bld len a1 a2 (.|))
   arm 0xd7 (fun () -> emitLogicLoop bld len a1 a2 (<+>))
+  arm 0xdc (fun () -> emitTransLoop bld len a1 a2)
+  arm 0xdd (fun () -> emitTransTestLoop bld len a1 a2 false)
   bld <+ AST.sideEffect UnsupportedInstruction
   bld <+ (AST.lmark lblOut)
 
@@ -1240,7 +1308,7 @@ let execute ins insLen bld =
 /// distance from it, which is the form position-independent code uses.
 let executeRel ins insLen bld =
   let struct (o1, o2) = getTwoOprs ins
-  let target = numG (int64 (relTarget (ins: Instruction).Address (oprImm o2)))
+  let target = numG (int64 (codeAddr bld (relTarget ins.Address (oprImm o2))))
   bld <!-- (ins.Address, insLen)
   executeAt ins insLen bld (oprReg o1) target
   bld --!> insLen
@@ -1374,8 +1442,7 @@ let ssNibble ins insLen bld numerics =
   bld <!-- ((ins: Instruction).Address, insLen)
   bld <+ (d := transMem bld o1)
   bld <+ (s := transMem bld o2)
-  emitByteLoop bld len d s (fun dv sv ->
-    (dv .& numI32 keep 8<rt>) .| (sv .& numI32 take 8<rt>))
+  emitByteLoop bld len d s (halfByte keep take)
   bld --!> insLen
 
 /// MOVE INVERSE, which copies the second operand's bytes into the first in the
@@ -1685,24 +1752,12 @@ let testAndSet ins insLen bld =
 /// the second operand names holds at that byte's own value.
 let translate ins insLen bld =
   let struct (o1, o2) = getTwoOprs ins
-  let len = lenOfMem o1
   let d = tmpVar bld GRSize
   let table = tmpVar bld GRSize
-  let i = tmpVar bld GRSize
-  let body = label bld "TrBody"
-  let out = label bld "TrOut"
   bld <!-- ((ins: Instruction).Address, insLen)
   bld <+ (d := transMem bld o1)
   bld <+ (table := transMem bld o2)
-  bld <+ (i := AST.num0 GRSize)
-  bld <+ (AST.lmark body)
-  let at = d .+ i
-  let entry = table .+ zextTo GRSize (loadMem 8<rt> at)
-  bld <+ storeMem at (loadMem 8<rt> entry)
-  bld <+ (i := i .+ AST.num1 GRSize)
-  bld <+ (AST.cjmp (i == numG (int64 len))
-                   (AST.jmpDest out) (AST.jmpDest body))
-  bld <+ (AST.lmark out)
+  emitTransLoop bld (numG (int64 (lenOfMem o1))) d table
   bld --!> insLen
 
 /// TRANSLATE AND TEST: the first operand's bytes index the same kind of table,
@@ -1711,35 +1766,12 @@ let translate ins insLen bld =
 /// first byte of a field that belongs to a given class.
 let translateAndTest ins insLen bld backwards =
   let struct (o1, o2) = getTwoOprs ins
-  let len = lenOfMem o1
   let d = tmpVar bld GRSize
   let table = tmpVar bld GRSize
-  let i = tmpVar bld GRSize
-  let fn = tmpVar bld 8<rt>
-  let body = label bld "TrtBody"
-  let step = label bld "TrtStep"
-  let found = label bld "TrtFound"
-  let out = label bld "TrtOut"
   bld <!-- ((ins: Instruction).Address, insLen)
   bld <+ (d := transMem bld o1)
   bld <+ (table := transMem bld o2)
-  bld <+ (i := AST.num0 GRSize)
-  setCC bld 0
-  bld <+ (AST.lmark body)
-  let at = if backwards then d .- i else d .+ i
-  bld <+ (fn := loadMem 8<rt> (table .+ zextTo GRSize (loadMem 8<rt> at)))
-  bld <+ (AST.cjmp (fn == AST.num0 8<rt>)
-                   (AST.jmpDest step) (AST.jmpDest found))
-  bld <+ (AST.lmark step)
-  bld <+ (i := i .+ AST.num1 GRSize)
-  bld <+ (AST.cjmp (i == numG (int64 len))
-                   (AST.jmpDest out) (AST.jmpDest body))
-  bld <+ (AST.lmark found)
-  bld <+ (reg bld Register.R1 := at)
-  bld <+ (AST.xtlo 8<rt> (reg bld Register.R2) := fn)
-  bld <+ (ccVar bld := AST.ite (i == numG (int64 len - 1L))
-                               (numCC 2) (numCC 1))
-  bld <+ (AST.lmark out)
+  emitTransTestLoop bld (numG (int64 (lenOfMem o1))) d table backwards
   bld --!> insLen
 
 /// ADD LOGICAL WITH SIGNED IMMEDIATE to storage. The immediate field is a
@@ -2022,11 +2054,12 @@ let testAccess ins insLen bld =
   setCC bld 0
   bld --!> insLen
 
-/// TEST ADDRESSING MODE, whose condition code names the mode: the third one
-/// means 64-bit addressing, which is the only mode this port runs in.
+/// TEST ADDRESSING MODE, whose condition code names the mode a program is
+/// running in: none for 24-bit addressing, the first for 31-bit, the third for
+/// 64-bit.
 let testAddressingMode ins insLen bld =
   bld <!-- ((ins: Instruction).Address, insLen)
-  setCC bld 3
+  setCC bld (if esaMode bld then 1 else 3)
   bld --!> insLen
 
 /// CHECKSUM, which adds the second operand's words into the first with the
@@ -2098,7 +2131,7 @@ let branchIndirect ins insLen bld =
     bld <+ (target := loadMem GRSize (transMem bld o2))
     if isAlways m then bld <+ AST.interjmp target InterJmpKind.Base
     else
-      let next = numG (int64 (nextAddr (ins: Instruction).Address insLen))
+      let next = numG (int64 (codeAddr bld (nextAddr ins.Address insLen)))
       bld <+ AST.intercjmp (condOfMask bld m) target next
   bld --!> insLen
 
@@ -2480,6 +2513,15 @@ let unsupported ins insLen bld =
   bld <!-- ((ins: Instruction).Address, insLen)
   bld <+ AST.sideEffect UnsupportedInstruction
   bld --!> insLen
+
+/// SET ADDRESSING MODE, which moves a program between the 24-, 31-, and 64-bit
+/// modes. Only the one the guest already runs in is modelled -- a Linux process
+/// is put in its mode by the kernel and never leaves it -- so asking for that
+/// one does nothing and asking for another raises the unsupported trap rather
+/// than carrying on with addresses of the wrong width.
+let setAddressMode ins insLen bld bits =
+  let current = if esaMode bld then 31 else 64
+  if bits = current then nop ins insLen bld else unsupported ins insLen bld
 
 /// TRANSACTION BEGIN, which this lifter always reports as having failed for a
 /// reason that will persist: no transactional execution happens here, so a
