@@ -129,11 +129,62 @@ type RegisterFactory(isa: ISA) =
   let ar15 = AST.var 32<rt> (Register.toRegID Register.AR15) "AR15"
   let bear = AST.var 64<rt> (Register.toRegID Register.BEAR) "BEAR"
   let psw = AST.var 128<rt> (Register.toRegID Register.PSW) "PSW"
+  let pc = AST.var 64<rt> (Register.toRegID Register.PC) "PC"
+  let cc = AST.var 8<rt> (Register.toRegID Register.CC) "CC"
+  let svccode = AST.var 8<rt> (Register.toRegID Register.SVCCODE) "SVCCODE"
+  let vr0l = AST.var 64<rt> (Register.toRegID Register.VR0L) "VR0L"
+  let vr1l = AST.var 64<rt> (Register.toRegID Register.VR1L) "VR1L"
+  let vr2l = AST.var 64<rt> (Register.toRegID Register.VR2L) "VR2L"
+  let vr3l = AST.var 64<rt> (Register.toRegID Register.VR3L) "VR3L"
+  let vr4l = AST.var 64<rt> (Register.toRegID Register.VR4L) "VR4L"
+  let vr5l = AST.var 64<rt> (Register.toRegID Register.VR5L) "VR5L"
+  let vr6l = AST.var 64<rt> (Register.toRegID Register.VR6L) "VR6L"
+  let vr7l = AST.var 64<rt> (Register.toRegID Register.VR7L) "VR7L"
+  let vr8l = AST.var 64<rt> (Register.toRegID Register.VR8L) "VR8L"
+  let vr9l = AST.var 64<rt> (Register.toRegID Register.VR9L) "VR9L"
+  let vr10l = AST.var 64<rt> (Register.toRegID Register.VR10L) "VR10L"
+  let vr11l = AST.var 64<rt> (Register.toRegID Register.VR11L) "VR11L"
+  let vr12l = AST.var 64<rt> (Register.toRegID Register.VR12L) "VR12L"
+  let vr13l = AST.var 64<rt> (Register.toRegID Register.VR13L) "VR13L"
+  let vr14l = AST.var 64<rt> (Register.toRegID Register.VR14L) "VR14L"
+  let vr15l = AST.var 64<rt> (Register.toRegID Register.VR15L) "VR15L"
+  let vr16h = AST.var 64<rt> (Register.toRegID Register.VR16H) "VR16H"
+  let vr16l = AST.var 64<rt> (Register.toRegID Register.VR16L) "VR16L"
+  let vr17h = AST.var 64<rt> (Register.toRegID Register.VR17H) "VR17H"
+  let vr17l = AST.var 64<rt> (Register.toRegID Register.VR17L) "VR17L"
+  let vr18h = AST.var 64<rt> (Register.toRegID Register.VR18H) "VR18H"
+  let vr18l = AST.var 64<rt> (Register.toRegID Register.VR18L) "VR18L"
+  let vr19h = AST.var 64<rt> (Register.toRegID Register.VR19H) "VR19H"
+  let vr19l = AST.var 64<rt> (Register.toRegID Register.VR19L) "VR19L"
+  let vr20h = AST.var 64<rt> (Register.toRegID Register.VR20H) "VR20H"
+  let vr20l = AST.var 64<rt> (Register.toRegID Register.VR20L) "VR20L"
+  let vr21h = AST.var 64<rt> (Register.toRegID Register.VR21H) "VR21H"
+  let vr21l = AST.var 64<rt> (Register.toRegID Register.VR21L) "VR21L"
+  let vr22h = AST.var 64<rt> (Register.toRegID Register.VR22H) "VR22H"
+  let vr22l = AST.var 64<rt> (Register.toRegID Register.VR22L) "VR22L"
+  let vr23h = AST.var 64<rt> (Register.toRegID Register.VR23H) "VR23H"
+  let vr23l = AST.var 64<rt> (Register.toRegID Register.VR23L) "VR23L"
+  let vr24h = AST.var 64<rt> (Register.toRegID Register.VR24H) "VR24H"
+  let vr24l = AST.var 64<rt> (Register.toRegID Register.VR24L) "VR24L"
+  let vr25h = AST.var 64<rt> (Register.toRegID Register.VR25H) "VR25H"
+  let vr25l = AST.var 64<rt> (Register.toRegID Register.VR25L) "VR25L"
+  let vr26h = AST.var 64<rt> (Register.toRegID Register.VR26H) "VR26H"
+  let vr26l = AST.var 64<rt> (Register.toRegID Register.VR26L) "VR26L"
+  let vr27h = AST.var 64<rt> (Register.toRegID Register.VR27H) "VR27H"
+  let vr27l = AST.var 64<rt> (Register.toRegID Register.VR27L) "VR27L"
+  let vr28h = AST.var 64<rt> (Register.toRegID Register.VR28H) "VR28H"
+  let vr28l = AST.var 64<rt> (Register.toRegID Register.VR28L) "VR28L"
+  let vr29h = AST.var 64<rt> (Register.toRegID Register.VR29H) "VR29H"
+  let vr29l = AST.var 64<rt> (Register.toRegID Register.VR29L) "VR29L"
+  let vr30h = AST.var 64<rt> (Register.toRegID Register.VR30H) "VR30H"
+  let vr30l = AST.var 64<rt> (Register.toRegID Register.VR30L) "VR30L"
+  let vr31h = AST.var 64<rt> (Register.toRegID Register.VR31H) "VR31H"
+  let vr31l = AST.var 64<rt> (Register.toRegID Register.VR31L) "VR31L"
 
   interface IRegisterFactory with
     member _.ISA = isa
 
-    member _.ProgramCounter = Register.PSW |> Register.toRegID
+    member _.ProgramCounter = Register.PC |> Register.toRegID
 
     member _.StackPointer =
       Register.R15
@@ -243,6 +294,57 @@ type RegisterFactory(isa: ISA) =
       | R.AR15 -> ar15
       | R.BEAR -> bear
       | R.PSW -> psw
+      | R.PC -> pc
+      | R.CC -> cc
+      | R.SVCCODE -> svccode
+      | R.VR0L -> vr0l
+      | R.VR1L -> vr1l
+      | R.VR2L -> vr2l
+      | R.VR3L -> vr3l
+      | R.VR4L -> vr4l
+      | R.VR5L -> vr5l
+      | R.VR6L -> vr6l
+      | R.VR7L -> vr7l
+      | R.VR8L -> vr8l
+      | R.VR9L -> vr9l
+      | R.VR10L -> vr10l
+      | R.VR11L -> vr11l
+      | R.VR12L -> vr12l
+      | R.VR13L -> vr13l
+      | R.VR14L -> vr14l
+      | R.VR15L -> vr15l
+      | R.VR16H -> vr16h
+      | R.VR16L -> vr16l
+      | R.VR17H -> vr17h
+      | R.VR17L -> vr17l
+      | R.VR18H -> vr18h
+      | R.VR18L -> vr18l
+      | R.VR19H -> vr19h
+      | R.VR19L -> vr19l
+      | R.VR20H -> vr20h
+      | R.VR20L -> vr20l
+      | R.VR21H -> vr21h
+      | R.VR21L -> vr21l
+      | R.VR22H -> vr22h
+      | R.VR22L -> vr22l
+      | R.VR23H -> vr23h
+      | R.VR23L -> vr23l
+      | R.VR24H -> vr24h
+      | R.VR24L -> vr24l
+      | R.VR25H -> vr25h
+      | R.VR25L -> vr25l
+      | R.VR26H -> vr26h
+      | R.VR26L -> vr26l
+      | R.VR27H -> vr27h
+      | R.VR27L -> vr27l
+      | R.VR28H -> vr28h
+      | R.VR28L -> vr28l
+      | R.VR29H -> vr29h
+      | R.VR29L -> vr29l
+      | R.VR30H -> vr30h
+      | R.VR30L -> vr30l
+      | R.VR31H -> vr31h
+      | R.VR31L -> vr31l
       | _ -> raise InvalidRegisterException
 
     member _.GetRegVar(name: string) =
@@ -346,9 +448,132 @@ type RegisterFactory(isa: ISA) =
       | "AR15" -> ar15
       | "BEAR" -> bear
       | "PSW" -> psw
+      | "PC" -> pc
+      | "CC" -> cc
+      | "SVCCODE" -> svccode
+      | "VR0L" -> vr0l
+      | "VR1L" -> vr1l
+      | "VR2L" -> vr2l
+      | "VR3L" -> vr3l
+      | "VR4L" -> vr4l
+      | "VR5L" -> vr5l
+      | "VR6L" -> vr6l
+      | "VR7L" -> vr7l
+      | "VR8L" -> vr8l
+      | "VR9L" -> vr9l
+      | "VR10L" -> vr10l
+      | "VR11L" -> vr11l
+      | "VR12L" -> vr12l
+      | "VR13L" -> vr13l
+      | "VR14L" -> vr14l
+      | "VR15L" -> vr15l
+      | "VR16H" -> vr16h
+      | "VR16L" -> vr16l
+      | "VR17H" -> vr17h
+      | "VR17L" -> vr17l
+      | "VR18H" -> vr18h
+      | "VR18L" -> vr18l
+      | "VR19H" -> vr19h
+      | "VR19L" -> vr19l
+      | "VR20H" -> vr20h
+      | "VR20L" -> vr20l
+      | "VR21H" -> vr21h
+      | "VR21L" -> vr21l
+      | "VR22H" -> vr22h
+      | "VR22L" -> vr22l
+      | "VR23H" -> vr23h
+      | "VR23L" -> vr23l
+      | "VR24H" -> vr24h
+      | "VR24L" -> vr24l
+      | "VR25H" -> vr25h
+      | "VR25L" -> vr25l
+      | "VR26H" -> vr26h
+      | "VR26L" -> vr26l
+      | "VR27H" -> vr27h
+      | "VR27L" -> vr27l
+      | "VR28H" -> vr28h
+      | "VR28L" -> vr28l
+      | "VR29H" -> vr29h
+      | "VR29L" -> vr29l
+      | "VR30H" -> vr30h
+      | "VR30L" -> vr30l
+      | "VR31H" -> vr31h
+      | "VR31L" -> vr31l
       | _ -> raise InvalidRegisterException
 
-    member _.GetPseudoRegVar(_id, _idx) = Terminator.impossible ()
+    /// A vector register is wider than an expression can name, so it is reached
+    /// as two halves: the left one is index 2 and the right one index 1. For
+    /// the first sixteen the left half is not a register of its own -- the
+    /// architecture makes it the matching floating-point register -- so a
+    /// floating-point write and a vector read of the same number see the same
+    /// bits, exactly as they do on the machine.
+    member _.GetPseudoRegVar(rid, pos) =
+      match Register.ofRegID rid, pos with
+      | R.VR0, 2 -> fpr0
+      | R.VR0, 1 -> vr0l
+      | R.VR1, 2 -> fpr1
+      | R.VR1, 1 -> vr1l
+      | R.VR2, 2 -> fpr2
+      | R.VR2, 1 -> vr2l
+      | R.VR3, 2 -> fpr3
+      | R.VR3, 1 -> vr3l
+      | R.VR4, 2 -> fpr4
+      | R.VR4, 1 -> vr4l
+      | R.VR5, 2 -> fpr5
+      | R.VR5, 1 -> vr5l
+      | R.VR6, 2 -> fpr6
+      | R.VR6, 1 -> vr6l
+      | R.VR7, 2 -> fpr7
+      | R.VR7, 1 -> vr7l
+      | R.VR8, 2 -> fpr8
+      | R.VR8, 1 -> vr8l
+      | R.VR9, 2 -> fpr9
+      | R.VR9, 1 -> vr9l
+      | R.VR10, 2 -> fpr10
+      | R.VR10, 1 -> vr10l
+      | R.VR11, 2 -> fpr11
+      | R.VR11, 1 -> vr11l
+      | R.VR12, 2 -> fpr12
+      | R.VR12, 1 -> vr12l
+      | R.VR13, 2 -> fpr13
+      | R.VR13, 1 -> vr13l
+      | R.VR14, 2 -> fpr14
+      | R.VR14, 1 -> vr14l
+      | R.VR15, 2 -> fpr15
+      | R.VR15, 1 -> vr15l
+      | R.VR16, 2 -> vr16h
+      | R.VR16, 1 -> vr16l
+      | R.VR17, 2 -> vr17h
+      | R.VR17, 1 -> vr17l
+      | R.VR18, 2 -> vr18h
+      | R.VR18, 1 -> vr18l
+      | R.VR19, 2 -> vr19h
+      | R.VR19, 1 -> vr19l
+      | R.VR20, 2 -> vr20h
+      | R.VR20, 1 -> vr20l
+      | R.VR21, 2 -> vr21h
+      | R.VR21, 1 -> vr21l
+      | R.VR22, 2 -> vr22h
+      | R.VR22, 1 -> vr22l
+      | R.VR23, 2 -> vr23h
+      | R.VR23, 1 -> vr23l
+      | R.VR24, 2 -> vr24h
+      | R.VR24, 1 -> vr24l
+      | R.VR25, 2 -> vr25h
+      | R.VR25, 1 -> vr25l
+      | R.VR26, 2 -> vr26h
+      | R.VR26, 1 -> vr26l
+      | R.VR27, 2 -> vr27h
+      | R.VR27, 1 -> vr27l
+      | R.VR28, 2 -> vr28h
+      | R.VR28, 1 -> vr28l
+      | R.VR29, 2 -> vr29h
+      | R.VR29, 1 -> vr29l
+      | R.VR30, 2 -> vr30h
+      | R.VR30, 1 -> vr30l
+      | R.VR31, 2 -> vr31h
+      | R.VR31, 1 -> vr31l
+      | _ -> raise InvalidRegisterException
 
     member _.GetAllRegVars() =
       [| r0
@@ -449,7 +674,10 @@ type RegisterFactory(isa: ISA) =
          ar14
          ar15
          bear
-         psw |]
+         psw
+         pc
+         cc
+         svccode |]
 
     member _.GetGeneralRegVars() =
       [| r0
@@ -472,7 +700,7 @@ type RegisterFactory(isa: ISA) =
     member _.GetRegisterID expr =
       match expr with
       | Var(_, id, _, _) -> id
-      | PCVar _ -> Register.toRegID Register.PSW
+      | PCVar _ -> Register.toRegID Register.PC
       | _ -> raise InvalidRegisterException
 
     member _.GetRegisterID name = Register.ofString name |> Register.toRegID
@@ -492,7 +720,7 @@ type RegisterFactory(isa: ISA) =
     member _.GetRegType rid =
       Register.ofRegID rid |> RegisterHelper.toRegType isa.WordSize
 
-    member _.IsProgramCounter rid = Register.toRegID Register.PSW = rid
+    member _.IsProgramCounter rid = Register.toRegID Register.PC = rid
 
     member _.IsStackPointer rid = Register.toRegID Register.R15 = rid
 

@@ -134,6 +134,124 @@ type Register =
   | AR15 = 96
   | BEAR = 97
   | PSW = 98
+  /// The instruction address the PSW carries. Modelled on its own, rather than
+  /// as the second doubleword of PSW, because it is what every control transfer
+  /// writes and what an emulator reads as the program counter, and because the
+  /// PSW as a whole is wider than a machine word.
+  | PC = 99
+  /// The PSW condition code (PSW{CC}), a value of 0 to 3 that nearly every
+  /// arithmetic, compare, and test instruction sets and every branch-on-
+  /// condition mask selects on. Modelled on its own for the same reason.
+  | CC = 100
+  /// The interruption code an SVC hands the supervisor: the instruction's own
+  /// immediate, which names the system call whenever it is not zero (a zero
+  /// immediate means the number is in R1 instead). Real hardware leaves it in
+  /// the low-storage area the kernel reads; there is no such storage here, so
+  /// it is kept as a register of its own rather than in one the guest owns.
+  | SVCCODE = 101
+  (* The vector registers are 128 bits wide, which is wider than a register a
+     LowUIR expression can name, so each is modelled as two halves. The left
+     half of the first sixteen is not a register of its own: the architecture
+     makes FPR0 to FPR15 exactly those halves, and a program that writes a
+     floating-point register and reads the vector one must see the same bits.
+     Only the right halves of those sixteen, and both halves of the upper
+     sixteen, need names here. *)
+  /// The right half of VR0, whose left half is FPR0.
+  | VR0L = 102
+  /// The right half of VR1, whose left half is FPR1.
+  | VR1L = 103
+  /// The right half of VR2, whose left half is FPR2.
+  | VR2L = 104
+  /// The right half of VR3, whose left half is FPR3.
+  | VR3L = 105
+  /// The right half of VR4, whose left half is FPR4.
+  | VR4L = 106
+  /// The right half of VR5, whose left half is FPR5.
+  | VR5L = 107
+  /// The right half of VR6, whose left half is FPR6.
+  | VR6L = 108
+  /// The right half of VR7, whose left half is FPR7.
+  | VR7L = 109
+  /// The right half of VR8, whose left half is FPR8.
+  | VR8L = 110
+  /// The right half of VR9, whose left half is FPR9.
+  | VR9L = 111
+  /// The right half of VR10, whose left half is FPR10.
+  | VR10L = 112
+  /// The right half of VR11, whose left half is FPR11.
+  | VR11L = 113
+  /// The right half of VR12, whose left half is FPR12.
+  | VR12L = 114
+  /// The right half of VR13, whose left half is FPR13.
+  | VR13L = 115
+  /// The right half of VR14, whose left half is FPR14.
+  | VR14L = 116
+  /// The right half of VR15, whose left half is FPR15.
+  | VR15L = 117
+  /// The left half of VR16.
+  | VR16H = 118
+  /// The right half of VR16.
+  | VR16L = 119
+  /// The left half of VR17.
+  | VR17H = 120
+  /// The right half of VR17.
+  | VR17L = 121
+  /// The left half of VR18.
+  | VR18H = 122
+  /// The right half of VR18.
+  | VR18L = 123
+  /// The left half of VR19.
+  | VR19H = 124
+  /// The right half of VR19.
+  | VR19L = 125
+  /// The left half of VR20.
+  | VR20H = 126
+  /// The right half of VR20.
+  | VR20L = 127
+  /// The left half of VR21.
+  | VR21H = 128
+  /// The right half of VR21.
+  | VR21L = 129
+  /// The left half of VR22.
+  | VR22H = 130
+  /// The right half of VR22.
+  | VR22L = 131
+  /// The left half of VR23.
+  | VR23H = 132
+  /// The right half of VR23.
+  | VR23L = 133
+  /// The left half of VR24.
+  | VR24H = 134
+  /// The right half of VR24.
+  | VR24L = 135
+  /// The left half of VR25.
+  | VR25H = 136
+  /// The right half of VR25.
+  | VR25L = 137
+  /// The left half of VR26.
+  | VR26H = 138
+  /// The right half of VR26.
+  | VR26L = 139
+  /// The left half of VR27.
+  | VR27H = 140
+  /// The right half of VR27.
+  | VR27L = 141
+  /// The left half of VR28.
+  | VR28H = 142
+  /// The right half of VR28.
+  | VR28L = 143
+  /// The left half of VR29.
+  | VR29H = 144
+  /// The right half of VR29.
+  | VR29L = 145
+  /// The left half of VR30.
+  | VR30H = 146
+  /// The right half of VR30.
+  | VR30L = 147
+  /// The left half of VR31.
+  | VR31H = 148
+  /// The right half of VR31.
+  | VR31L = 149
 
 /// Provides functions to handle S390 registers.
 module Register =
@@ -245,6 +363,57 @@ module Register =
     | "ar15" -> Register.AR15
     | "bear" -> Register.BEAR
     | "psw" -> Register.PSW
+    | "pc" -> Register.PC
+    | "cc" -> Register.CC
+    | "svccode" -> Register.SVCCODE
+    | "vr0l" -> Register.VR0L
+    | "vr1l" -> Register.VR1L
+    | "vr2l" -> Register.VR2L
+    | "vr3l" -> Register.VR3L
+    | "vr4l" -> Register.VR4L
+    | "vr5l" -> Register.VR5L
+    | "vr6l" -> Register.VR6L
+    | "vr7l" -> Register.VR7L
+    | "vr8l" -> Register.VR8L
+    | "vr9l" -> Register.VR9L
+    | "vr10l" -> Register.VR10L
+    | "vr11l" -> Register.VR11L
+    | "vr12l" -> Register.VR12L
+    | "vr13l" -> Register.VR13L
+    | "vr14l" -> Register.VR14L
+    | "vr15l" -> Register.VR15L
+    | "vr16h" -> Register.VR16H
+    | "vr16l" -> Register.VR16L
+    | "vr17h" -> Register.VR17H
+    | "vr17l" -> Register.VR17L
+    | "vr18h" -> Register.VR18H
+    | "vr18l" -> Register.VR18L
+    | "vr19h" -> Register.VR19H
+    | "vr19l" -> Register.VR19L
+    | "vr20h" -> Register.VR20H
+    | "vr20l" -> Register.VR20L
+    | "vr21h" -> Register.VR21H
+    | "vr21l" -> Register.VR21L
+    | "vr22h" -> Register.VR22H
+    | "vr22l" -> Register.VR22L
+    | "vr23h" -> Register.VR23H
+    | "vr23l" -> Register.VR23L
+    | "vr24h" -> Register.VR24H
+    | "vr24l" -> Register.VR24L
+    | "vr25h" -> Register.VR25H
+    | "vr25l" -> Register.VR25L
+    | "vr26h" -> Register.VR26H
+    | "vr26l" -> Register.VR26L
+    | "vr27h" -> Register.VR27H
+    | "vr27l" -> Register.VR27L
+    | "vr28h" -> Register.VR28H
+    | "vr28l" -> Register.VR28L
+    | "vr29h" -> Register.VR29H
+    | "vr29l" -> Register.VR29L
+    | "vr30h" -> Register.VR30H
+    | "vr30l" -> Register.VR30L
+    | "vr31h" -> Register.VR31H
+    | "vr31l" -> Register.VR31L
     | _ -> Terminator.impossible ()
 
   /// Returns the register ID of a S390 register.
@@ -355,4 +524,55 @@ module Register =
     | Register.AR15 -> "AR15"
     | Register.BEAR -> "BEAR"
     | Register.PSW -> "PSW"
+    | Register.PC -> "PC"
+    | Register.CC -> "CC"
+    | Register.SVCCODE -> "SVCCODE"
+    | Register.VR0L -> "VR0L"
+    | Register.VR1L -> "VR1L"
+    | Register.VR2L -> "VR2L"
+    | Register.VR3L -> "VR3L"
+    | Register.VR4L -> "VR4L"
+    | Register.VR5L -> "VR5L"
+    | Register.VR6L -> "VR6L"
+    | Register.VR7L -> "VR7L"
+    | Register.VR8L -> "VR8L"
+    | Register.VR9L -> "VR9L"
+    | Register.VR10L -> "VR10L"
+    | Register.VR11L -> "VR11L"
+    | Register.VR12L -> "VR12L"
+    | Register.VR13L -> "VR13L"
+    | Register.VR14L -> "VR14L"
+    | Register.VR15L -> "VR15L"
+    | Register.VR16H -> "VR16H"
+    | Register.VR16L -> "VR16L"
+    | Register.VR17H -> "VR17H"
+    | Register.VR17L -> "VR17L"
+    | Register.VR18H -> "VR18H"
+    | Register.VR18L -> "VR18L"
+    | Register.VR19H -> "VR19H"
+    | Register.VR19L -> "VR19L"
+    | Register.VR20H -> "VR20H"
+    | Register.VR20L -> "VR20L"
+    | Register.VR21H -> "VR21H"
+    | Register.VR21L -> "VR21L"
+    | Register.VR22H -> "VR22H"
+    | Register.VR22L -> "VR22L"
+    | Register.VR23H -> "VR23H"
+    | Register.VR23L -> "VR23L"
+    | Register.VR24H -> "VR24H"
+    | Register.VR24L -> "VR24L"
+    | Register.VR25H -> "VR25H"
+    | Register.VR25L -> "VR25L"
+    | Register.VR26H -> "VR26H"
+    | Register.VR26L -> "VR26L"
+    | Register.VR27H -> "VR27H"
+    | Register.VR27L -> "VR27L"
+    | Register.VR28H -> "VR28H"
+    | Register.VR28L -> "VR28L"
+    | Register.VR29H -> "VR29H"
+    | Register.VR29L -> "VR29L"
+    | Register.VR30H -> "VR30H"
+    | Register.VR30L -> "VR30L"
+    | Register.VR31H -> "VR31H"
+    | Register.VR31L -> "VR31L"
     | _ -> Terminator.impossible ()

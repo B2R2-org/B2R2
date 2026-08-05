@@ -81,6 +81,8 @@ module internal RegisterHelper =
     | R.BEAR -> 64<rt>
     | R.PSW when wordSize = WordSize.Bit32 -> 64<rt>
     | R.PSW when wordSize = WordSize.Bit64 -> 128<rt>
+    | R.PC -> archWidth
+    | R.CC | R.SVCCODE -> 8<rt>
     | _ -> Terminator.impossible ()
 
   let getAliases =
