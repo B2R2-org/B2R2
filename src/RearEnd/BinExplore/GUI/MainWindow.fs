@@ -71,6 +71,10 @@ type MainWindow<'FnCtx, 'GlCtx when 'FnCtx :> IResettable
     match msg with
     | OpenBinary filePath ->
       Update.openBinary arbiter model filePath
+    | DropBinary filePath ->
+      Update.dropBinary this arbiter model filePath
+    | ConfirmDroppedBinary filePath ->
+      Update.replaceBinary arbiter model filePath
     | OpenBinaryCompleted filePath ->
       Update.openBinaryCompleted arbiter model filePath
     | OpenBinaryFailed(filePath, reason) ->

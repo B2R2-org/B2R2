@@ -48,6 +48,7 @@
     <Compile Include="GUI\Message.fs" />
     <Compile Include="GUI\Views\IconAssets.fs" />
     <Compile Include="GUI\Views\StringUtils.fs" />
+    <Compile Include="GUI\Views\FileDrop.fs" />
     <Compile Include="GUI\Views\Welcome.fs" />
     <Compile Include="GUI\Views\MenuBar.fs" />
     <Compile Include="GUI\Views\StatusBar.fs" />
@@ -60,6 +61,7 @@
     <Compile Include="GUI\Views\LinearContent.fs" />
     <Compile Include="GUI\Views\HexContent.fs" />
     <Compile Include="GUI\Views\MainView.fs" />
+    <Compile Include="GUI\Dialogs.fs" />
     <Compile Include="GUI\Update.fs" />
     <Compile Include="GUI\MainWindow.fs" />
     <Compile Include="GUI\App.fs" />

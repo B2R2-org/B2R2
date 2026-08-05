@@ -86,6 +86,17 @@ let private startLoadWorkflowCmd (arbiter: Arbiter<_, _>) (filePath: string) =
         dispatchOnUi dispatch (OpenBinaryFailed(filePath, ex.Message))
     }))
 
+let private confirmDroppedBinaryCmd (owner: Window) currentPath droppedPath =
+  cmdOfSub (fun dispatch ->
+    let currentName = Path.GetFileName(currentPath: string)
+    let droppedName = Path.GetFileName(droppedPath: string)
+    let text =
+      [ $"{owner.Title} has already loaded a binary ({currentName})."
+        $"Do you still want to load a new binary ({droppedName})?" ]
+      |> String.concat " "
+    Dialogs.confirm owner text "Load" "Cancel"
+      (fun _ -> dispatch (ConfirmDroppedBinary droppedPath)))
+
 let private startLinearAnalysisCmd arbiter filePath sections fontSize =
   cmdOfSub (fun dispatch ->
     Async.Start(async {
@@ -385,6 +396,17 @@ let closeWorkspace (arbiter: Arbiter<_, _>) (model: Model) =
         OffsetSnapshot = OffsetSnapshot.empty
         StatusBarState = EmptyStatus },
   Elmish.Cmd.none
+
+let replaceBinary arbiter model filePath =
+  let model, _ = closeWorkspace arbiter model
+  openBinary arbiter model filePath
+
+let dropBinary owner arbiter model filePath =
+  match model.LoadedBinary with
+  | None ->
+    openBinary arbiter model filePath
+  | Some currentPath ->
+    model, confirmDroppedBinaryCmd owner currentPath filePath
 
 let private tryGetSelectedFileOffsetRange selection =
   let startOffset = min selection.Anchor selection.Caret

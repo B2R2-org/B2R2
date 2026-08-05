@@ -213,6 +213,9 @@ let private workspaceView tokenContextProvider model dispatch =
   columnDefs[1].MinWidth <- MinSidePanelWidth
   Grid.create [
     Grid.columnDefinitions columnDefs
+    Control.allowDrop true
+    Control.onDragOver FileDrop.onDragOver
+    Control.onDrop (FileDrop.onDrop dispatch)
     Grid.children [
       sideMenuView model dispatch
       Grid.create [
