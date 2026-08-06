@@ -41,7 +41,9 @@ let confirm (owner: Window) text yesStr noStr fnOnYes =
     dialog.WindowStartupLocation <- WindowStartupLocation.CenterOwner
     let message =
       TextBlock(
-        Text = text, TextWrapping = TextWrapping.Wrap, Margin = Thickness 16.0
+        Text = text,
+        TextWrapping = TextWrapping.Wrap,
+        Margin = Thickness 16.0
       )
     let yesButton =
       Button(Content = yesStr, Width = 90.0, Margin = Thickness 4.0,
