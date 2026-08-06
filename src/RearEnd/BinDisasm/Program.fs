@@ -107,6 +107,38 @@ let private dumpOneSection (dumper: IBinDumper) name ptr =
   dumper.Dump ptr
   printsn ""
 
+(* A .pyc has no sections: it is a marshalled tree of code objects, and the
+   thing that corresponds to a section is one code object's own co_code. Walk
+   the tree so each is dumped under its own qualified name, in address order.
+   B2R2 addresses a code object by the file offset of those bytes, so address
+   and offset are the same number here. *)
+let private pythonCodeObjects (file: PythonBinFile) =
+  let acc = ResizeArray<string * Addr * uint64>()
+  let rec collect obj =
+    match obj with
+    | Python.PyREF(_, o) -> collect o
+    | Python.PyCode co ->
+      let addr, code = co.Code
+      match code with
+      | Python.PyString bs when bs.Length > 0 ->
+        acc.Add(co.QualName, addr, uint64 bs.Length)
+      | _ -> ()
+      match co.Consts with
+      | Python.PyTuple objs
+      | Python.PyREF(_, Python.PyTuple objs) -> Array.iter collect objs
+      | _ -> ()
+    | _ -> ()
+  collect file.CodeObj
+  acc |> Seq.sortBy (fun (_, addr, _) -> addr) |> Seq.toArray
+
+let private dumpPythonCodeObjects (hdl: BinHandle) (codeprn: IBinDumper) =
+  let file = hdl.File :?> PythonBinFile
+  for name, addr, len in pythonCodeObjects file do
+    let ptr =
+      BinFilePointer.CreateFileBacked(addr, addr + len - 1UL,
+                                      int addr, int (addr + len) - 1)
+    dumpOneSection codeprn $"code object {name}" ptr
+
 let private dumpSection hdl (opts: BinDisasmOpts) codeprn tableprn
                         (sec: BinSection) =
   if sec.Size > 0UL then
@@ -128,7 +160,15 @@ let private hasDumpableSections (hdl: BinHandle) =
   | _ -> false
 
 let private dumpOneSectionOfName (hdl: BinHandle) opts codeprn tableprn name =
-  if hasDumpableSections hdl then
+  if hdl.File.Format = FileFormat.PythonBinary then
+    pythonCodeObjects (hdl.File :?> PythonBinFile)
+    |> Array.filter (fun (n, _, _) -> n = name)
+    |> Array.iter (fun (n, addr, len) ->
+      let ptr =
+        BinFilePointer.CreateFileBacked(addr, addr + len - 1UL,
+                                        int addr, int (addr + len) - 1)
+      dumpOneSection codeprn $"code object {n}" ptr)
+  elif hasDumpableSections hdl then
     BinFileOps.getSections hdl.File
     |> Array.tryFind (fun sec -> sec.Name = name)
     |> function
@@ -137,7 +177,9 @@ let private dumpOneSectionOfName (hdl: BinHandle) opts codeprn tableprn name =
   else Terminator.futureFeature ()
 
 let private dumpAllSections (hdl: BinHandle) opts codeprn tableprn =
-  if hasDumpableSections hdl then
+  if hdl.File.Format = FileFormat.PythonBinary then
+    dumpPythonCodeObjects hdl codeprn
+  elif hasDumpableSections hdl then
     for sec in BinFileOps.getSections hdl.File do
       dumpSection hdl opts codeprn tableprn sec
   else Terminator.futureFeature ()
