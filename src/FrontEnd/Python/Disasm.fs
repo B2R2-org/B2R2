@@ -82,14 +82,24 @@ let rec toStringPyObj = function
   | PyTuple t ->
     let t = Array.map toStringPyObj t
     String.concat ", " t
+  (* Rendered the way CPython's own repr does, so `load_const` of a frozenset
+     reads the same on both sides. Without this the renderer threw part-way
+     through the operand, taking the rest of the code object with it. *)
+  | PySlice(start, stop, step) ->
+    let f = toStringPyObj
+    $"slice({f start}, {f stop}, {f step})"
+  | PyFrozenSet items ->
+    if Array.isEmpty items then
+      "frozenset()"
+    else
+      let items = Array.map toStringPyObj items
+      "frozenset({" + String.concat ", " items + "})"
   | PyTrue ->
     "True"
   | PyFalse ->
     "False"
   | PyString s ->
     System.Text.Encoding.ASCII.GetString s
-  | o ->
-    failwithf "Invalid PyCodeObj %A" o
 
 let buildOprs (ins: Instruction) (builder: IDisasmBuilder) =
   match ins.Operands with

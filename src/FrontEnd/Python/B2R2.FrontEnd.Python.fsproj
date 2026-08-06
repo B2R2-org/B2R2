@@ -25,6 +25,11 @@
     <Compile Include="Python312\Disasm.fs" />
     <Compile Include="Python312\Lifter.fs" />
     <Compile Include="Python312\Parsing.fs" />
+    <Compile Include="Python315\Opcode.fs" />
+    <Compile Include="Python315\Semantics.fs" />
+    <Compile Include="Python315\Disasm.fs" />
+    <Compile Include="Python315\Lifter.fs" />
+    <Compile Include="Python315\Parsing.fs" />
     <Compile Include="Parser.fs" />
     <None Include="..\..\..\LICENSE.md" Pack="true" PackagePath="" />
     <None Include="..\..\..\assets\b2r2-240x240.png" Pack="true" PackagePath="" />

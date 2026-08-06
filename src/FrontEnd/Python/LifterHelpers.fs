@@ -192,6 +192,10 @@ let rec convertPyObjectToExpr isConst = function
   (* A constant frozenset, e.g. from `x in {1, 2, 3}`. Tagged distinctly
      from PyTuple so HIR translation reconstructs a set literal `{...}`
      instead of a tuple `(...)`. *)
+  (* A marshalled slice constant, e.g. the `1:2` folded out of `a[1:2]`. *)
+  | PySlice(start, stop, step) ->
+    let f = convertPyObjectToExpr isConst
+    AST.app "SLICE" [ f start; f stop; f step ] rt
   | PyFrozenSet objects ->
     let items =
       objects
@@ -214,8 +218,7 @@ let resolveConst = resolveOperand true
 let translateLoad opname isConst (ins: Instruction) bld =
   bld <!-- (ins.Address, ins.Length)
   let arg =
-    if isConst then resolveConst ins.Operands
-    else resolveName ins.Operands
+    if isConst then resolveConst ins.Operands else resolveName ins.Operands
   let e = AST.app opname [ arg ] rt
   pushToStack bld e
   bld --!> ins.Length
@@ -227,8 +230,7 @@ let translateLoadGlobal minor (ins: Instruction) bld =
   if ins.Flag then
     let e = AST.undef rt "NULL"
     pushToStack bld e
-  else
-    ()
+  else ()
   pushToStack bld v
   bld --!> ins.Length
 
@@ -611,8 +613,7 @@ let loadAttr (ins: Instruction) bld =
   let name = resolveName ins.Operands
   let obj = popFromStack bld
   let attr = AST.app "LOAD_ATTR" [ obj; name ] rt
-  if ins.Flag then pushToStack bld (AST.undef rt "NULL")
-  else ()
+  if ins.Flag then pushToStack bld (AST.undef rt "NULL") else ()
   pushToStack bld attr
   bld --!> ins.Length
 
@@ -634,8 +635,7 @@ let loadSuperAttr (ins: Instruction) bld =
     if ins.SuperHasExplicitArgs then "LOAD_SUPER_ATTR_EXPLICIT"
     else "LOAD_SUPER_ATTR"
   let attr = AST.app opname [ superGlobal; cls; self; name ] rt
-  if ins.Flag then pushToStack bld (AST.undef rt "NULL")
-  else ()
+  if ins.Flag then pushToStack bld (AST.undef rt "NULL") else ()
   pushToStack bld attr
   bld --!> ins.Length
 
@@ -847,14 +847,11 @@ let makeFunction (ins: Instruction) bld =
   let codeObj = popFromStack bld
   if flags &&& 0x08 <> 0 then discardTOS bld else ()
   let annotations =
-    if flags &&& 0x04 <> 0 then popFromStack bld
-    else AST.undef rt "NULL"
+    if flags &&& 0x04 <> 0 then popFromStack bld else AST.undef rt "NULL"
   let kwDefs =
-    if flags &&& 0x02 <> 0 then popFromStack bld
-    else AST.undef rt "NULL"
+    if flags &&& 0x02 <> 0 then popFromStack bld else AST.undef rt "NULL"
   let posDefs =
-    if flags &&& 0x01 <> 0 then popFromStack bld
-    else AST.undef rt "NULL"
+    if flags &&& 0x01 <> 0 then popFromStack bld else AST.undef rt "NULL"
   let result =
     AST.app "MAKE_FUNCTION" [ codeObj; posDefs; kwDefs; annotations ] rt
   pushToStack bld result
@@ -892,14 +889,11 @@ let makeFunctionLegacy (ins: Instruction) bld =
   bld <+ AST.extCall (AST.app "DISCARD" [ qualname ] rt)
   let codeObj = popFromStack bld
   let posDefs =
-    if flags &&& 0x01 <> 0 then popFromStack bld
-    else AST.undef rt "NULL"
+    if flags &&& 0x01 <> 0 then popFromStack bld else AST.undef rt "NULL"
   let kwDefs =
-    if flags &&& 0x02 <> 0 then popFromStack bld
-    else AST.undef rt "NULL"
+    if flags &&& 0x02 <> 0 then popFromStack bld else AST.undef rt "NULL"
   let annotations =
-    if flags &&& 0x04 <> 0 then popFromStack bld
-    else AST.undef rt "NULL"
+    if flags &&& 0x04 <> 0 then popFromStack bld else AST.undef rt "NULL"
   if flags &&& 0x08 <> 0 then discardTOS bld else ()
   let result =
     AST.app "MAKE_FUNCTION" [ codeObj; posDefs; kwDefs; annotations ] rt
@@ -920,8 +914,7 @@ let callFunctionEx minor (ins: Instruction) bld =
   bld <!-- (ins.Address, ins.Length)
   let flags = getIntArg ins
   let kwargs =
-    if flags &&& 0x01 <> 0 then popFromStack bld
-    else AST.undef rt "NULL"
+    if flags &&& 0x01 <> 0 then popFromStack bld else AST.undef rt "NULL"
   let args = popFromStack bld
   let func = popFromStack bld
   let maybeSelf =

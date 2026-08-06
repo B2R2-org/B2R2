@@ -22,45 +22,155 @@
   SOFTWARE.
 *)
 
-module internal B2R2.FrontEnd.Python.Python310.Lifter
+module internal B2R2.FrontEnd.Python.Python315.Lifter
 
 open B2R2
 open B2R2.BinIR
 open B2R2.BinIR.LowUIR
 open B2R2.FrontEnd.BinFile
 open B2R2.FrontEnd.BinLifter.LiftingUtils
+open B2R2.FrontEnd.BinFile.Python
 open B2R2.FrontEnd.Python
 open B2R2.FrontEnd.Python.LifterHelpers
 
 (* Every arm dispatches to a helper shared with the other
    versions; only which opcodes exist, and what they mean,
-   is specific to 3.10. *)
-let private minor = 10
+   is specific to 3.15. *)
+let private minor = 15
+(* Opcodes 3.15 introduced have no 3.12 counterpart in LifterHelpers to
+   borrow, so they are modeled here rather than in the shared file: this
+   directory is the only thing a 3.15 change should have to touch. *)
+
+/// The two co_varnames entries a paired local opcode packs into one oparg.
+let private pairedNames (ins: Instruction) =
+  match ins.Operands with
+  | OneOperand(_, Some(PyTuple [| a; b |])) ->
+    convertPyObjectToExpr false a, convertPyObjectToExpr false b
+  | _ ->
+    failwith "A paired local opcode must carry two resolved names."
+
+/// LOAD_FAST_LOAD_FAST, LOAD_FAST_BORROW_LOAD_FAST_BORROW: one oparg, two
+/// locals pushed in order.
+let private loadPair (ins: Instruction) bld =
+  bld <!-- (ins.Address, ins.Length)
+  let a, b = pairedNames ins
+  pushToStack bld (AST.app "LOAD_FAST" [ a ] rt)
+  pushToStack bld (AST.app "LOAD_FAST" [ b ] rt)
+  bld --!> ins.Length
+
+/// STORE_FAST_LOAD_FAST: store into the first local, then load the second.
+let private storeLoadPair (ins: Instruction) bld =
+  bld <!-- (ins.Address, ins.Length)
+  let a, b = pairedNames ins
+  let v = popFromStack bld
+  bld <+ AST.extCall (AST.app "STORE_FAST" [ a; v ] rt)
+  pushToStack bld (AST.app "LOAD_FAST" [ b ] rt)
+  bld --!> ins.Length
+
+/// STORE_FAST_STORE_FAST: two stores, the first taking the top of stack.
+let private storePair (ins: Instruction) bld =
+  bld <!-- (ins.Address, ins.Length)
+  let a, b = pairedNames ins
+  let first = popFromStack bld
+  let second = popFromStack bld
+  bld <+ AST.extCall (AST.app "STORE_FAST" [ a; first ] rt)
+  bld <+ AST.extCall (AST.app "STORE_FAST" [ b; second ] rt)
+  bld --!> ins.Length
+
+/// LOAD_SMALL_INT: the oparg IS the value, not an index into anything.
+let private loadSmallInt (ins: Instruction) bld =
+  bld <!-- (ins.Address, ins.Length)
+  pushToStack bld (numI32 (getIntArg ins) rt)
+  bld --!> ins.Length
+
+/// LOAD_COMMON_CONSTANT and LOAD_SPECIAL index a table built into the
+/// interpreter, not a co_* table, so the raw index is all there is.
+let private loadIndexed name (ins: Instruction) bld =
+  bld <!-- (ins.Address, ins.Length)
+  pushToStack bld (AST.app name [ numI32 (getIntArg ins) rt ] rt)
+  bld --!> ins.Length
+
+/// TO_BOOL: 3.15 gives the truthiness test its own instruction, where 3.12
+/// left it implicit inside the conditional jump.
+let private toBool (ins: Instruction) bld =
+  bld <!-- (ins.Address, ins.Length)
+  let v = popFromStack bld
+  pushToStack bld (AST.app "TO_BOOL" [ v ] rt)
+  bld --!> ins.Length
+
+/// CONVERT_VALUE, FORMAT_SIMPLE and FORMAT_WITH_SPEC are 3.12's FORMAT_VALUE
+/// split into three, each doing one part of what formatValue did.
+let private convertValue (ins: Instruction) bld =
+  bld <!-- (ins.Address, ins.Length)
+  let conv =
+    match getIntArg ins with
+    | 1 -> "str"
+    | 2 -> "repr"
+    | 3 -> "ascii"
+    | _ -> ""
+  let v = popFromStack bld
+  pushToStack bld (AST.app "CONVERT_VALUE" [ v; AST.undef rt conv ] rt)
+  bld --!> ins.Length
+
+let private formatSimple (ins: Instruction) bld =
+  bld <!-- (ins.Address, ins.Length)
+  let v = popFromStack bld
+  pushToStack bld (AST.app "FORMAT_SIMPLE" [ v ] rt)
+  bld --!> ins.Length
+
+let private formatWithSpec (ins: Instruction) bld =
+  bld <!-- (ins.Address, ins.Length)
+  let spec = popFromStack bld
+  let v = popFromStack bld
+  pushToStack bld (AST.app "FORMAT_WITH_SPEC" [ v; spec ] rt)
+  bld --!> ins.Length
+
+/// SET_FUNCTION_ATTRIBUTE pops the attribute value, sets it on the function
+/// beneath it, and leaves that function on the stack.
+let private setFunctionAttribute (ins: Instruction) bld =
+  bld <!-- (ins.Address, ins.Length)
+  let attr = popFromStack bld
+  let func = popFromStack bld
+  let which = numI32 (getIntArg ins) rt
+  pushToStack bld (AST.app "SET_FUNCTION_ATTRIBUTE" [ func; which; attr ] rt)
+  bld --!> ins.Length
+
+/// BUILD_TEMPLATE and BUILD_INTERPOLATION build a t-string (PEP 750).
+let private buildFromStack name count (ins: Instruction) bld =
+  bld <!-- (ins.Address, ins.Length)
+  let items = List.init count (fun _ -> popFromStack bld) |> List.rev
+  pushToStack bld (AST.app name items rt)
+  bld --!> ins.Length
 
 let translate (binFile: PythonBinFile) (ins: Instruction) bld =
   let opcode: Opcode = LanguagePrimitives.EnumOfValue ins.Opcode
   match opcode with
+  | Opcode.RESUME
+  | Opcode.CACHE ->
+    nopInstr ins bld
+  (* NOP is the only no-op that can carry a genuine source-level `pass`
+     statement (see PruneEmptyIf.fs / Translator.fs for why this must stay
+     distinguishable from RESUME/CACHE, which never do). *)
   | Opcode.NOP ->
     namedEffect "NOP" ins bld
   (* Stack manipulation *)
   | Opcode.POP_TOP ->
     popTop ins bld
-  | Opcode.ROT_TWO ->
-    rotateTopToBottom 2 ins bld
-  | Opcode.ROT_THREE ->
-    rotateTopToBottom 3 ins bld
-  | Opcode.ROT_FOUR ->
-    rotateTopToBottom 4 ins bld
-  | Opcode.ROT_N ->
-    rotateTopToBottom (getIntArg ins) ins bld
-  | Opcode.DUP_TOP ->
-    dupTop ins bld
-  | Opcode.DUP_TOP_TWO ->
-    dupTopTwo ins bld
-  (* Load instructions *)
+  | Opcode.PUSH_NULL ->
+    pushNull ins bld
+  | Opcode.END_FOR ->
+    endFor ins bld
+  | Opcode.END_SEND ->
+    endSend ins bld
+  | Opcode.COPY ->
+    copy ins bld
+  | Opcode.SWAP ->
+    swap ins bld
   | Opcode.LOAD_CONST ->
     translateLoad "LOAD_CONST" true ins bld
-  | Opcode.LOAD_FAST ->
+  | Opcode.LOAD_FAST
+  | Opcode.LOAD_FAST_CHECK
+  | Opcode.LOAD_FAST_AND_CLEAR ->
     translateLoad "LOAD_FAST" false ins bld
   | Opcode.LOAD_NAME ->
     translateLoad "LOAD_NAME" false ins bld
@@ -72,14 +182,17 @@ let translate (binFile: PythonBinFile) (ins: Instruction) bld =
     translateLoad "LOAD_DEREF" false ins bld
   | Opcode.LOAD_CLOSURE ->
     translateLoad "LOAD_CLOSURE" false ins bld
-  | Opcode.LOAD_CLASSDEREF ->
-    translateLoad "LOAD_CLASSDEREF" false ins bld
-  | Opcode.LOAD_METHOD ->
-    loadMethod ins bld
+  | Opcode.LOAD_SUPER_ATTR ->
+    loadSuperAttr ins bld
+  | Opcode.LOAD_FROM_DICT_OR_GLOBALS ->
+    translateLoad "LOAD_FROM_DICT_OR_GLOBALS" false ins bld
+  | Opcode.LOAD_FROM_DICT_OR_DEREF ->
+    translateLoad "LOAD_FROM_DICT_OR_DEREF" false ins bld
   | Opcode.LOAD_BUILD_CLASS ->
     loadBuildClass ins bld
-  | Opcode.LOAD_ASSERTION_ERROR ->
-    loadAssertionError ins bld
+  | Opcode.LOAD_LOCALS ->
+    namedEffect "LOAD_LOCALS" ins bld
+  (* Store instructions *)
   | Opcode.STORE_FAST ->
     storeFast ins bld
   | Opcode.STORE_NAME ->
@@ -92,6 +205,9 @@ let translate (binFile: PythonBinFile) (ins: Instruction) bld =
     storeNamed "STORE_DEREF" ins bld
   | Opcode.STORE_SUBSCR ->
     storeSubscript ins bld
+  | Opcode.STORE_SLICE ->
+    storeSlice ins bld
+  (* Delete instructions *)
   | Opcode.DELETE_FAST ->
     translateDelete "DELETE_FAST" ins bld
   | Opcode.DELETE_NAME ->
@@ -111,64 +227,13 @@ let translate (binFile: PythonBinFile) (ins: Instruction) bld =
     unaryOp "UNARY_NOT" ins bld
   | Opcode.UNARY_INVERT ->
     unaryOp "UNARY_INVERT" ins bld
-  | Opcode.UNARY_POSITIVE ->
-    unaryOp "UNARY_POSITIVE" ins bld
-  (* Binary / slice operations *)
-  | Opcode.BINARY_SUBSCR ->
-    binarySubscr ins bld
-  | Opcode.BINARY_ADD ->
-    binaryOpDirect (AST.binop BinOpType.ADD) ins bld
-  | Opcode.BINARY_SUBTRACT ->
-    binaryOpDirect (AST.binop BinOpType.SUB) ins bld
-  | Opcode.BINARY_MULTIPLY ->
-    binaryOpDirect (AST.binop BinOpType.MUL) ins bld
-  | Opcode.BINARY_MODULO ->
-    binaryOpDirect (AST.binop BinOpType.MOD) ins bld
-  | Opcode.BINARY_FLOOR_DIVIDE ->
-    binaryOpDirect (fun l r -> AST.app "//" [ l; r ] rt) ins bld
-  | Opcode.BINARY_TRUE_DIVIDE ->
-    binaryOpDirect (AST.binop BinOpType.DIV) ins bld
-  | Opcode.BINARY_POWER ->
-    binaryOpDirect (fun l r -> AST.app "**" [ l; r ] rt) ins bld
-  | Opcode.BINARY_MATRIX_MULTIPLY ->
-    binaryOpDirect (fun l r -> AST.app "@" [ l; r ] rt) ins bld
-  | Opcode.BINARY_LSHIFT ->
-    binaryOpDirect (AST.binop BinOpType.SHL) ins bld
-  | Opcode.BINARY_RSHIFT ->
-    binaryOpDirect (AST.binop BinOpType.SAR) ins bld
-  | Opcode.BINARY_AND ->
-    binaryOpDirect (AST.binop BinOpType.AND) ins bld
-  | Opcode.BINARY_OR ->
-    binaryOpDirect (AST.binop BinOpType.OR) ins bld
-  | Opcode.BINARY_XOR ->
-    binaryOpDirect (AST.binop BinOpType.XOR) ins bld
-  | Opcode.INPLACE_ADD ->
-    binaryOpDirect (fun l r -> AST.app "IADD" [ l; r ] rt) ins bld
-  | Opcode.INPLACE_SUBTRACT ->
-    binaryOpDirect (fun l r -> AST.app "ISUB" [ l; r ] rt) ins bld
-  | Opcode.INPLACE_MULTIPLY ->
-    binaryOpDirect (fun l r -> AST.app "IMUL" [ l; r ] rt) ins bld
-  | Opcode.INPLACE_MODULO ->
-    binaryOpDirect (fun l r -> AST.app "IMOD" [ l; r ] rt) ins bld
-  | Opcode.INPLACE_FLOOR_DIVIDE ->
-    binaryOpDirect (fun l r -> AST.app "IFLOORDIV" [ l; r ] rt) ins bld
-  | Opcode.INPLACE_TRUE_DIVIDE ->
-    binaryOpDirect (fun l r -> AST.app "IDIV" [ l; r ] rt) ins bld
-  | Opcode.INPLACE_POWER ->
-    binaryOpDirect (fun l r -> AST.app "IPOW" [ l; r ] rt) ins bld
-  | Opcode.INPLACE_MATRIX_MULTIPLY ->
-    binaryOpDirect (fun l r -> AST.app "IMATMUL" [ l; r ] rt) ins bld
-  | Opcode.INPLACE_LSHIFT ->
-    binaryOpDirect (fun l r -> AST.app "ILSHIFT" [ l; r ] rt) ins bld
-  | Opcode.INPLACE_RSHIFT ->
-    binaryOpDirect (fun l r -> AST.app "IRSHIFT" [ l; r ] rt) ins bld
-  | Opcode.INPLACE_AND ->
-    binaryOpDirect (fun l r -> AST.app "IBITAND" [ l; r ] rt) ins bld
-  | Opcode.INPLACE_OR ->
-    binaryOpDirect (fun l r -> AST.app "IBITOR" [ l; r ] rt) ins bld
-  | Opcode.INPLACE_XOR ->
-    binaryOpDirect (fun l r -> AST.app "IBITXOR" [ l; r ] rt) ins bld
-  (* Compare / identity / membership *)
+  | Opcode.BINARY_OP ->
+    binaryOp ins bld
+  | Opcode.BINARY_SLICE ->
+    binarySlice ins bld
+  (* Pre-3.11: each binary/inplace operator is its own opcode (see
+     binaryOpDirect's own doc comment) -- the named-app strings mirror
+     binaryOp's arg-index table above exactly. *)
   | Opcode.COMPARE_OP ->
     compareOP minor ins bld
   | Opcode.IS_OP ->
@@ -188,19 +253,21 @@ let translate (binFile: PythonBinFile) (ins: Instruction) bld =
     buildCollection "BUILD_STRING" ins bld
   | Opcode.BUILD_SLICE ->
     buildCollection "BUILD_SLICE" ins bld
-  | Opcode.BUILD_CONST_KEY_MAP ->
-    buildConstKeyMap ins bld
-  (* Function call instructions *)
-  | Opcode.CALL_FUNCTION ->
-    callFunction ins bld
-  | Opcode.CALL_FUNCTION_KW ->
-    callFunctionKw ins bld
-  | Opcode.CALL_METHOD ->
-    callMethod ins bld
+  | Opcode.CALL ->
+    call ins bld
   | Opcode.CALL_FUNCTION_EX ->
     callFunctionEx minor ins bld
+  | Opcode.CALL_INTRINSIC_1 ->
+    callIntrinsic1 ins bld
+  | Opcode.CALL_INTRINSIC_2 ->
+    namedEffect "CALL_INTRINSIC_2" ins bld
+  | Opcode.INTERPRETER_EXIT
   | Opcode.RETURN_VALUE ->
     translateReturn ins bld
+  | Opcode.RETURN_GENERATOR ->
+    bld <!-- (ins.Address, ins.Length)
+    pushToStack bld (AST.undef rt "None")
+    bld --!> ins.Length
   | Opcode.RAISE_VARARGS ->
     translateRaiseVarargs ins bld
   | Opcode.RERAISE ->
@@ -211,16 +278,44 @@ let translate (binFile: PythonBinFile) (ins: Instruction) bld =
     bld <+ AST.extCall (AST.app "RERAISE" [ exc ] rt)
     bld <+ AST.sideEffect SideEffect.Terminate
     bld --!> ins.Length
+  | Opcode.PUSH_EXC_INFO ->
+    bld <!-- (ins.Address, ins.Length)
+    let exc = popFromStack bld
+    pushToStack bld (AST.app "PREV_EXC_INFO" [] rt)
+    pushToStack bld exc
+    bld --!> ins.Length
   | Opcode.POP_EXCEPT ->
     bld <!-- (ins.Address, ins.Length)
     let exc = popFromStack bld
     bld <+ AST.extCall (AST.app "POP_EXCEPT" [ exc ] rt)
     bld --!> ins.Length
+  | Opcode.CHECK_EXC_MATCH ->
+    bld <!-- (ins.Address, ins.Length)
+    let excType = popFromStack bld
+    let exc = peekFromStack bld 0
+    pushToStack bld (AST.app "CHECK_EXC_MATCH" [ exc; excType ] rt)
+    bld --!> ins.Length
+  | Opcode.CHECK_EG_MATCH ->
+    namedEffect "CHECK_EG_MATCH" ins bld
   | Opcode.WITH_EXCEPT_START ->
     bld <!-- (ins.Address, ins.Length)
     let exc = peekFromStack bld 0
     let exitFunc = peekFromStack bld 3
     pushToStack bld (AST.app "WITH_EXCEPT_START" [ exitFunc; exc ] rt)
+    bld --!> ins.Length
+  | Opcode.CLEANUP_THROW ->
+    (* Per CPython's own bytecodes.c: (sub_iter, last_sent_val, exc_value
+       -- none, value). If TOS is a StopIteration, pops those 3 values
+       and pushes back TWO: a None placeholder, then the exception's
+       `value` attribute on top -- pop 3, push 2, net -1. We model only
+       this success path; the re-raise path doesn't change the value
+       stack (it unwinds via the exception mechanism instead). *)
+    bld <!-- (ins.Address, ins.Length)
+    let excValue = popFromStack bld
+    let sentVal = popFromStack bld
+    let gen = popFromStack bld
+    pushToStack bld (AST.undef rt "None")
+    pushToStack bld (AST.app "CLEANUP_THROW" [ gen; sentVal; excValue ] rt)
     bld --!> ins.Length
   | Opcode.END_ASYNC_FOR ->
     bld <!-- (ins.Address, ins.Length)
@@ -231,28 +326,32 @@ let translate (binFile: PythonBinFile) (ins: Instruction) bld =
   (* Jump instructions *)
   | Opcode.JUMP_FORWARD ->
     jumpByOffset ins bld true
+  | Opcode.JUMP_BACKWARD
+  | Opcode.JUMP_BACKWARD_NO_INTERRUPT ->
+    jumpByOffset ins bld false
+  (* POP_JUMP_IF_FALSE/TRUE's enum cases are shared across versions (see
+     Opcode.fs), but their target ENCODING isn't: 3.12+ uses a
+     forward-relative offset (condJump), while pre-3.11 uses an absolute
+     word offset from the code object's own start (condJumpAbsolute) --
+     see codeObjectBase's own doc comment. *)
   | Opcode.POP_JUMP_IF_FALSE ->
     if minor >= 11 then condJump ins bld false
     else condJumpAbsolute binFile ins bld false
   | Opcode.POP_JUMP_IF_TRUE ->
     if minor >= 11 then condJump ins bld true
     else condJumpAbsolute binFile ins bld true
-  | Opcode.JUMP_ABSOLUTE ->
-    jumpAbsolute binFile ins bld
-  | Opcode.JUMP_IF_FALSE_OR_POP ->
-    jumpOrPop binFile ins bld false
-  | Opcode.JUMP_IF_TRUE_OR_POP ->
-    jumpOrPop binFile ins bld true
-  | Opcode.JUMP_IF_NOT_EXC_MATCH ->
-    jumpIfNotExcMatch binFile ins bld
-  (* Iteration instructions *)
+  | Opcode.POP_JUMP_IF_NONE ->
+    condJumpNone ins bld true
+  | Opcode.POP_JUMP_IF_NOT_NONE ->
+    condJumpNone ins bld false
+  (* Pre-3.11 only (both "removed in 3.12" per Opcode.fs -- absolute
+     targets, same as POP_JUMP_IF_FALSE/TRUE's own pre-3.11 encoding). *)
   | Opcode.FOR_ITER ->
     forIter minor ins bld
+  | Opcode.SEND ->
+    send ins bld
   | Opcode.GET_ITER ->
     getIter ins bld
-  | Opcode.GET_YIELD_FROM_ITER ->
-    getYieldFromIter ins bld
-  (* Async instructions *)
   | Opcode.GET_AITER ->
     unaryOp "GET_AITER" ins bld
   | Opcode.GET_ANEXT ->
@@ -261,23 +360,11 @@ let translate (binFile: PythonBinFile) (ins: Instruction) bld =
     pushToStack bld aiter
     pushToStack bld (AST.app "GET_ANEXT" [ aiter ] rt)
     bld --!> ins.Length
-  | Opcode.BEFORE_ASYNC_WITH ->
-    namedEffect "BEFORE_ASYNC_WITH" ins bld
   | Opcode.SETUP_WITH ->
     bld <!-- (ins.Address, ins.Length)
     let mgr = popFromStack bld
     pushToStack bld (AST.undef rt "__exit__")
     pushToStack bld (AST.app "__enter__" [ mgr ] rt)
-    bld --!> ins.Length
-  | Opcode.SETUP_ASYNC_WITH ->
-    (* The awaited `__aenter__()` result is already on the stack (from the
-       preceding GET_AWAITABLE + yield-from-loop) when this runs -- pop
-       and re-push it, since our model doesn't yet track the block-stack
-       target this opcode also records (see this case group's own doc
-       comment above). *)
-    bld <!-- (ins.Address, ins.Length)
-    let enterResult = popFromStack bld
-    pushToStack bld enterResult
     bld --!> ins.Length
   | Opcode.SETUP_FINALLY ->
     bld <!-- (ins.Address, ins.Length)
@@ -313,34 +400,18 @@ let translate (binFile: PythonBinFile) (ins: Instruction) bld =
     bld <+ AST.extCall (AST.app "YIELD_VALUE" [ item ] rt)
     pushToStack bld (AST.undef rt "YIELD_RECEIVED")
     bld --!> ins.Length
-  | Opcode.YIELD_FROM ->
-    yieldFrom ins bld
-  (* GEN_START: pops and discards a debug-only marker distinguishing
-     generator/coroutine/async-generator kind -- purely an internal
-     assertion, no source-visible effect. *)
-  | Opcode.GEN_START ->
-    bld <!-- (ins.Address, ins.Length)
-    discardTOS bld
-    bld --!> ins.Length
-  | Opcode.PRINT_EXPR ->
-    printExpr ins bld
-  | Opcode.LIST_TO_TUPLE ->
-    consumeAndPush "LIST_TO_TUPLE" ins bld
-  (* Import instructions *)
   | Opcode.IMPORT_NAME ->
     importName ins bld
   | Opcode.IMPORT_FROM ->
     importFrom ins bld
-  | Opcode.IMPORT_STAR ->
-    importStar ins bld
-  (* Function / class definition *)
   | Opcode.MAKE_FUNCTION ->
     if minor >= 11 then makeFunction ins bld else makeFunctionLegacy ins bld
+  | Opcode.MAKE_CELL ->
+    namedEffect "MAKE_CELL" ins bld
+  | Opcode.COPY_FREE_VARS ->
+    namedEffect "COPY_FREE_VARS" ins bld
   | Opcode.SETUP_ANNOTATIONS ->
     namedEffect "SETUP_ANNOTATIONS" ins bld
-  | Opcode.FORMAT_VALUE ->
-    formatValue ins bld
-  (* Unpack instructions *)
   | Opcode.UNPACK_SEQUENCE ->
     unpackSequence ins bld
   | Opcode.UNPACK_EX ->
@@ -361,8 +432,6 @@ let translate (binFile: PythonBinFile) (ins: Instruction) bld =
   | Opcode.DICT_UPDATE ->
     dictMerge "DICT_UPDATE" ins bld
   (* Pattern matching instructions *)
-  | Opcode.COPY_DICT_WITHOUT_KEYS ->
-    copyDictWithoutKeys ins bld
   | Opcode.GET_LEN ->
     bld <!-- (ins.Address, ins.Length)
     let obj = peekFromStack bld 0
@@ -393,5 +462,46 @@ let translate (binFile: PythonBinFile) (ins: Instruction) bld =
     pushToStack bld (AST.app "MATCH_CLASS_ATTRS" [ subject; cls; names ] rt)
     pushToStack bld (AST.app "MATCH_CLASS" [ subject; cls; names ] rt)
     bld --!> ins.Length
+  (* --- opcodes 3.15 introduced --- *)
+  | Opcode.LOAD_FAST_BORROW ->
+    (* A borrowed reference: same value, one fewer refcount bump. *)
+    translateLoad "LOAD_FAST" false ins bld
+  | Opcode.LOAD_FAST_LOAD_FAST
+  | Opcode.LOAD_FAST_BORROW_LOAD_FAST_BORROW ->
+    loadPair ins bld
+  | Opcode.STORE_FAST_LOAD_FAST ->
+    storeLoadPair ins bld
+  | Opcode.STORE_FAST_STORE_FAST ->
+    storePair ins bld
+  | Opcode.LOAD_SMALL_INT ->
+    loadSmallInt ins bld
+  | Opcode.LOAD_COMMON_CONSTANT ->
+    loadIndexed "LOAD_COMMON_CONSTANT" ins bld
+  | Opcode.LOAD_SPECIAL ->
+    loadIndexed "LOAD_SPECIAL" ins bld
+  | Opcode.TO_BOOL ->
+    toBool ins bld
+  | Opcode.CALL_KW ->
+    (* 3.15 folds 3.12's separate KW_NAMES into the call itself. *)
+    call ins bld
+  | Opcode.POP_ITER ->
+    popTop ins bld
+  | Opcode.NOT_TAKEN ->
+    (* A branch-prediction marker with no runtime effect. *)
+    namedEffect "NOT_TAKEN" ins bld
+  | Opcode.SET_FUNCTION_ATTRIBUTE ->
+    setFunctionAttribute ins bld
+  | Opcode.CONVERT_VALUE ->
+    convertValue ins bld
+  | Opcode.FORMAT_SIMPLE ->
+    formatSimple ins bld
+  | Opcode.FORMAT_WITH_SPEC ->
+    formatWithSpec ins bld
+  | Opcode.BUILD_INTERPOLATION ->
+    buildFromStack "BUILD_INTERPOLATION" (getIntArg ins) ins bld
+  | Opcode.BUILD_TEMPLATE ->
+    buildFromStack "BUILD_TEMPLATE" 2 ins bld
+  | Opcode.EXIT_INIT_CHECK ->
+    namedEffect "EXIT_INIT_CHECK" ins bld
   | _ ->
     Terminator.futureFeature ()

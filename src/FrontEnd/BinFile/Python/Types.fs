@@ -59,6 +59,9 @@ type MarshalledType =
   | TYPE_CODE = 0x63 (* 'c' *)
   | TYPE_UNICODE = 0x75 (* 'u' *)
   | TYPE_UNKNOWN = 0x3F (* '?' *)
+  /// A slice constant, marshalled since 3.14: `a[1:2]` folds the slice
+  /// itself into co_consts rather than building it at run time.
+  | TYPE_SLICE = 0x3A (* ':' *)
   | TYPE_SET = 0x3C (* '<' *)
   | TYPE_FROZENSET = 0x3E (* '>' *)
   | FLAG_REF = 0x80 (* '\x80' *)
@@ -122,6 +125,8 @@ and PyObject =
   | PyCode of PyCodeObject
   | PyTuple of PyObject[]
   | PyFrozenSet of PyObject[]
+  /// start, stop and step of a marshalled slice constant.
+  | PySlice of PyObject * PyObject * PyObject
   | PyInt of int
   (* Arbitrary-precision int (TYPE_LONG) -- stored pre-rendered as its
      decimal repr string, mirroring PyFloat's own string-based storage,

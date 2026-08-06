@@ -68,6 +68,23 @@ type PythonParser(binFile: IBinFile, reader) =
         member _.BranchTarget(ins, ft, n) =
           Python312.Semantics.branchTarget ins ft n }
 
+  let semantics315 =
+    { new IInstructionSemantics with
+        member _.Lift(ins, bld) = Python315.Lifter.translate binFile ins bld
+        member _.Disasm(ins, bld) = Python315.Disasm.disasm ins bld; bld
+        member _.IsBranch ins = Python315.Semantics.isBranch ins
+        member _.IsCondBranch ins = Python315.Semantics.isCondBranch ins
+        member _.IsCJmpOnTrue ins = Python315.Semantics.isCJmpOnTrue ins
+        member _.IsCall ins = Python315.Semantics.isCall ins
+        member _.IsRET ins = Python315.Semantics.isRET ins
+        member _.IsExit ins = Python315.Semantics.isExit ins
+        member _.IsNop ins = ins.Opcode = int Python315.Opcode.NOP
+        member _.HasFlag ins = Python315.Semantics.hasFlag ins
+        member _.SuperHasExplicitArgs ins =
+          Python315.Semantics.superHasExplicitArgs ins
+        member _.BranchTarget(ins, ft, n) =
+          Python315.Semantics.branchTarget ins ft n }
+
   (* Adding a version means adding its directory and one entry here, and
      touching nothing another version's author also edits. *)
   let parse span addr =
@@ -76,6 +93,8 @@ type PythonParser(binFile: IBinFile, reader) =
       Python310.Parsing.parse semantics310 span reader binFile addr
     | PythonVersion.Python312 ->
       Python312.Parsing.parse semantics312 span reader binFile addr
+    | PythonVersion.Python315 ->
+      Python315.Parsing.parse semantics315 span reader binFile addr
     | v ->
       failwithf "Unsupported Python version for parsing: %A" v
 
