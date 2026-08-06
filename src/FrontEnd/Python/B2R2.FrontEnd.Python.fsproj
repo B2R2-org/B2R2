@@ -15,6 +15,11 @@
     <!-- One directory per Python version. Everything that depends on a
          version's own opcode numbering lives in exactly one of them, so two
          people adding two versions never edit the same file. -->
+    <Compile Include="Python307\Opcode.fs" />
+    <Compile Include="Python307\Semantics.fs" />
+    <Compile Include="Python307\Disasm.fs" />
+    <Compile Include="Python307\Lifter.fs" />
+    <Compile Include="Python307\Parsing.fs" />
     <Compile Include="Python310\Opcode.fs" />
     <Compile Include="Python310\Semantics.fs" />
     <Compile Include="Python310\Disasm.fs" />
