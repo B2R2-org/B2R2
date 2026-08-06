@@ -85,6 +85,23 @@ type PythonParser(binFile: IBinFile, reader) =
         member _.BranchTarget(ins, ft, n) =
           Python307.Semantics.branchTarget ins ft n }
 
+  let semantics308 =
+    { new IInstructionSemantics with
+        member _.Lift(ins, bld) = Python308.Lifter.translate binFile ins bld
+        member _.Disasm(ins, bld) = Python308.Disasm.disasm ins bld; bld
+        member _.IsBranch ins = Python308.Semantics.isBranch ins
+        member _.IsCondBranch ins = Python308.Semantics.isCondBranch ins
+        member _.IsCJmpOnTrue ins = Python308.Semantics.isCJmpOnTrue ins
+        member _.IsCall ins = Python308.Semantics.isCall ins
+        member _.IsRET ins = Python308.Semantics.isRET ins
+        member _.IsExit ins = Python308.Semantics.isExit ins
+        member _.IsNop ins = ins.Opcode = int Python308.Opcode.NOP
+        member _.HasFlag ins = Python308.Semantics.hasFlag ins
+        member _.SuperHasExplicitArgs ins =
+          Python308.Semantics.superHasExplicitArgs ins
+        member _.BranchTarget(ins, ft, n) =
+          Python308.Semantics.branchTarget ins ft n }
+
   let semantics310 =
     { new IInstructionSemantics with
         member _.Lift(ins, bld) = Python310.Lifter.translate binFile ins bld
@@ -146,6 +163,8 @@ type PythonParser(binFile: IBinFile, reader) =
       Python306.Parsing.parse semantics306 span reader binFile addr
     | PythonVersion.Python307 ->
       Python307.Parsing.parse semantics307 span reader binFile addr
+    | PythonVersion.Python308 ->
+      Python308.Parsing.parse semantics308 span reader binFile addr
     | PythonVersion.Python310 ->
       Python310.Parsing.parse semantics310 span reader binFile addr
     | PythonVersion.Python312 ->
