@@ -22,7 +22,7 @@
   SOFTWARE.
 *)
 
-module internal B2R2.FrontEnd.Python.Python315.Semantics
+module internal B2R2.FrontEnd.Python.Python311.Semantics
 
 open B2R2
 open B2R2.FrontEnd.Python
@@ -32,118 +32,99 @@ let inline private opcodeOf (ins: Instruction): Opcode =
 
 let isBranch (ins: Instruction) =
   match opcodeOf ins with
-  | Opcode.JUMP_IF_TRUE
-  | Opcode.JUMP_IF_FALSE
   | Opcode.JUMP_FORWARD
   | Opcode.JUMP_BACKWARD
   | Opcode.JUMP_BACKWARD_NO_INTERRUPT
-  | Opcode.JUMP
-  | Opcode.JUMP_NO_INTERRUPT
-  | Opcode.POP_JUMP_IF_TRUE
-  | Opcode.POP_JUMP_IF_FALSE
-  | Opcode.POP_JUMP_IF_NONE
-  | Opcode.POP_JUMP_IF_NOT_NONE
+  | Opcode.POP_JUMP_FORWARD_IF_TRUE
+  | Opcode.POP_JUMP_FORWARD_IF_FALSE
+  | Opcode.POP_JUMP_FORWARD_IF_NONE
+  | Opcode.POP_JUMP_FORWARD_IF_NOT_NONE
+  | Opcode.POP_JUMP_BACKWARD_IF_TRUE
+  | Opcode.POP_JUMP_BACKWARD_IF_FALSE
+  | Opcode.POP_JUMP_BACKWARD_IF_NONE
+  | Opcode.POP_JUMP_BACKWARD_IF_NOT_NONE
+  | Opcode.JUMP_IF_TRUE_OR_POP
+  | Opcode.JUMP_IF_FALSE_OR_POP
   | Opcode.FOR_ITER
-  | Opcode.SEND
-  | Opcode.INSTRUMENTED_JUMP_FORWARD
-  | Opcode.INSTRUMENTED_JUMP_BACKWARD
-  | Opcode.INSTRUMENTED_FOR_ITER
-  | Opcode.INSTRUMENTED_POP_JUMP_IF_FALSE
-  | Opcode.INSTRUMENTED_POP_JUMP_IF_TRUE
-  | Opcode.INSTRUMENTED_POP_JUMP_IF_NONE
-  | Opcode.INSTRUMENTED_POP_JUMP_IF_NOT_NONE -> true
+  | Opcode.SEND -> true
   | _ -> false
 
 let isCondBranch (ins: Instruction) =
   match opcodeOf ins with
-  | Opcode.JUMP_IF_TRUE
-  | Opcode.JUMP_IF_FALSE
-  | Opcode.POP_JUMP_IF_FALSE
-  | Opcode.POP_JUMP_IF_TRUE
-  | Opcode.POP_JUMP_IF_NONE
-  | Opcode.POP_JUMP_IF_NOT_NONE
+  | Opcode.POP_JUMP_FORWARD_IF_TRUE
+  | Opcode.POP_JUMP_FORWARD_IF_FALSE
+  | Opcode.POP_JUMP_FORWARD_IF_NONE
+  | Opcode.POP_JUMP_FORWARD_IF_NOT_NONE
+  | Opcode.POP_JUMP_BACKWARD_IF_TRUE
+  | Opcode.POP_JUMP_BACKWARD_IF_FALSE
+  | Opcode.POP_JUMP_BACKWARD_IF_NONE
+  | Opcode.POP_JUMP_BACKWARD_IF_NOT_NONE
+  | Opcode.JUMP_IF_TRUE_OR_POP
+  | Opcode.JUMP_IF_FALSE_OR_POP
   | Opcode.FOR_ITER
-  | Opcode.SEND
-  | Opcode.INSTRUMENTED_FOR_ITER
-  | Opcode.INSTRUMENTED_POP_JUMP_IF_FALSE
-  | Opcode.INSTRUMENTED_POP_JUMP_IF_TRUE
-  | Opcode.INSTRUMENTED_POP_JUMP_IF_NONE
-  | Opcode.INSTRUMENTED_POP_JUMP_IF_NOT_NONE -> true
+  | Opcode.SEND -> true
   | _ -> false
 
 let isCJmpOnTrue (ins: Instruction) =
   match opcodeOf ins with
-  | Opcode.JUMP_IF_TRUE
-  | Opcode.POP_JUMP_IF_TRUE
-  | Opcode.INSTRUMENTED_POP_JUMP_IF_TRUE -> true
+  | Opcode.POP_JUMP_FORWARD_IF_TRUE
+  | Opcode.POP_JUMP_BACKWARD_IF_TRUE
+  | Opcode.JUMP_IF_TRUE_OR_POP -> true
   | _ -> false
 
 let isCall (ins: Instruction) =
   match opcodeOf ins with
   | Opcode.CALL
-  | Opcode.INSTRUMENTED_CALL -> true
+  | Opcode.CALL_FUNCTION_EX -> true
   | _ -> false
 
 let isRET (ins: Instruction) =
   match opcodeOf ins with
-  | Opcode.RETURN_VALUE
-  | Opcode.INSTRUMENTED_RETURN_VALUE
+  | Opcode.RETURN_VALUE -> true
   | _ -> false
 
 let isExit (ins: Instruction) =
   match opcodeOf ins with
   | Opcode.RETURN_VALUE
   | Opcode.RAISE_VARARGS
-  | Opcode.RERAISE
-  | Opcode.INTERPRETER_EXIT
-  | Opcode.INSTRUMENTED_RETURN_VALUE
+  | Opcode.RERAISE -> true
   | _ -> false
 
 (* namei's low bit is a push-NULL / is-method flag from 3.11 on. *)
 let hasFlag (ins: Instruction) =
   match opcodeOf ins with
-  | Opcode.LOAD_GLOBAL
-  | Opcode.LOAD_ATTR
-  | Opcode.LOAD_SUPER_ATTR
-  | Opcode.INSTRUMENTED_LOAD_SUPER_ATTR ->
+  | Opcode.LOAD_GLOBAL ->
+    (* LOAD_ATTR only gains the same flag in 3.12, so it is not listed. *)
     match ins.Operands with
     | OneOperand(idx, _) -> (idx &&& 1) = 1
     | _ -> false
-  | Opcode.IMPORT_NAME ->
-    match ins.Operands with
-    | OneOperand(idx, _) -> (idx &&& 3) <> 0
-    | _ -> false
   | _ ->
     false
 
-let superHasExplicitArgs (ins: Instruction) =
-  match opcodeOf ins with
-  | Opcode.LOAD_SUPER_ATTR
-  | Opcode.INSTRUMENTED_LOAD_SUPER_ATTR ->
-    match ins.Operands with
-    | OneOperand(idx, _) -> (idx &&& 2) = 2
-    | _ -> false
-  | _ ->
-    false
+(* LOAD_SUPER_ATTR arrives in 3.12; 3.11 has no opcode carrying this flag. *)
+let superHasExplicitArgs (_: Instruction) = false
 
-(* Jump opcodes encode their target as a WORD offset (oparg * 2). *)
+(* Jump opcodes encode their target as a WORD offset (oparg * 2). 3.11 is the
+   one version that names the direction in the opcode rather than the sign of
+   the operand, and the only one where JUMP_IF_*_OR_POP is absolute from the
+   containing code object's start rather than relative to the next
+   instruction. *)
 let branchTarget (ins: Instruction) (ftAddr: Addr) (n: int) =
   let n = uint64 n
   match opcodeOf ins with
   | Opcode.JUMP_FORWARD
-  | Opcode.POP_JUMP_IF_TRUE
-  | Opcode.POP_JUMP_IF_FALSE
-  | Opcode.POP_JUMP_IF_NONE
-  | Opcode.POP_JUMP_IF_NOT_NONE
   | Opcode.FOR_ITER
   | Opcode.SEND
-  | Opcode.INSTRUMENTED_JUMP_FORWARD
-  | Opcode.INSTRUMENTED_FOR_ITER
-  | Opcode.INSTRUMENTED_POP_JUMP_IF_TRUE
-  | Opcode.INSTRUMENTED_POP_JUMP_IF_FALSE
-  | Opcode.INSTRUMENTED_POP_JUMP_IF_NONE
-  | Opcode.INSTRUMENTED_POP_JUMP_IF_NOT_NONE -> ftAddr + 2UL * n
+  | Opcode.POP_JUMP_FORWARD_IF_TRUE
+  | Opcode.POP_JUMP_FORWARD_IF_FALSE
+  | Opcode.POP_JUMP_FORWARD_IF_NONE
+  | Opcode.POP_JUMP_FORWARD_IF_NOT_NONE -> ftAddr + 2UL * n
   | Opcode.JUMP_BACKWARD
   | Opcode.JUMP_BACKWARD_NO_INTERRUPT
-  | Opcode.INSTRUMENTED_JUMP_BACKWARD -> ftAddr - 2UL * n
+  | Opcode.POP_JUMP_BACKWARD_IF_TRUE
+  | Opcode.POP_JUMP_BACKWARD_IF_FALSE
+  | Opcode.POP_JUMP_BACKWARD_IF_NONE
+  | Opcode.POP_JUMP_BACKWARD_IF_NOT_NONE -> ftAddr - 2UL * n
+  | Opcode.JUMP_IF_TRUE_OR_POP
+  | Opcode.JUMP_IF_FALSE_OR_POP -> 2UL * n
   | op -> failwithf "Invalid opcode for branch target: %A" op

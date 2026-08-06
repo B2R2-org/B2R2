@@ -21,7 +21,8 @@
   OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
   SOFTWARE.
 *)
-module internal B2R2.FrontEnd.Python.Python312.Disasm
+
+module internal B2R2.FrontEnd.Python.Python314.Disasm
 
 open B2R2.FrontEnd.BinLifter
 open B2R2.FrontEnd.Python
@@ -55,6 +56,7 @@ let private binaryOps =
     "-="
     "/="
     "^="
+    "[]"
   |]
 /// COMPARE_OP comparisons, in dis.cmp_op order.
 let private cmpOps =
@@ -90,6 +92,25 @@ let private intrinsic2 =
     "INTRINSIC_TYPEVAR_WITH_BOUND"
     "INTRINSIC_TYPEVAR_WITH_CONSTRAINTS"
     "INTRINSIC_SET_FUNCTION_TYPE_PARAMS"
+    "INTRINSIC_SET_TYPEPARAM_DEFAULT"
+  |]
+/// LOAD_SPECIAL methods.
+let private specialMethods =
+  [|
+    "__enter__"
+    "__exit__"
+    "__aenter__"
+    "__aexit__"
+  |]
+/// LOAD_COMMON_CONSTANT values, rendered the way dis renders them: a
+/// type by its bare name, anything else by its repr.
+let private commonConstants =
+  [|
+    "AssertionError"
+    "NotImplementedError"
+    "tuple"
+    "<built-in function all>"
+    "<built-in function any>"
   |]
 
 let private at (tbl: string[]) i =
@@ -102,7 +123,15 @@ let private operandNote (opcode: Opcode) (arg: int) =
   | Opcode.BINARY_OP ->
     at binaryOps arg
   | Opcode.COMPARE_OP ->
-    at cmpOps (arg >>> 4)
+    (* 3.13 moved the comparison into the high bits and
+       added a bit forcing the result to bool. *)
+    let name = at cmpOps ((arg >>> 5) &&& 0xF)
+    if name = "" then
+      ""
+    elif (arg &&& 0x10) <> 0 then
+      "bool(" + name + ")"
+    else
+      name
   | Opcode.IS_OP ->
     if arg = 0 then "is" else "is not"
   | Opcode.CONTAINS_OP ->
@@ -111,23 +140,21 @@ let private operandNote (opcode: Opcode) (arg: int) =
     at intrinsic1 arg
   | Opcode.CALL_INTRINSIC_2 ->
     at intrinsic2 arg
-  | Opcode.FORMAT_VALUE ->
-    (* Low two bits pick the conversion; bit 2 says a format spec
-       travels with it. *)
-    let conv =
-      match arg &&& 0x3 with
-      | 1 -> "str"
-      | 2 -> "repr"
-      | 3 -> "ascii"
-      | _ -> ""
-    let spec = if (arg &&& 0x4) <> 0 then "with format" else ""
-    if conv <> "" && spec <> "" then conv + ", " + spec
-    elif conv <> "" then conv
-    else spec
-  | Opcode.MAKE_FUNCTION ->
+  | Opcode.LOAD_SPECIAL ->
+    at specialMethods arg
+  | Opcode.LOAD_COMMON_CONSTANT ->
+    at commonConstants arg
+  | Opcode.CONVERT_VALUE ->
+    match arg with
+    | 1 -> "str"
+    | 2 -> "repr"
+    | 3 -> "ascii"
+    | _ -> ""
+  | Opcode.SET_FUNCTION_ATTRIBUTE ->
     (* A bit field: CPython names every bit that is set, in
        ascending order, comma separated. *)
-    [| "defaults"; "kwdefaults"; "annotations"; "closure" |]
+    (* Bit 2 (annotations) was retired in 3.14; bit 4 is `annotate`. *)
+    [| "defaults"; "kwdefaults"; ""; "closure"; "annotate" |]
     |> Array.mapi (fun i n -> if (arg >>> i) &&& 1 = 1 then n
                               else "")
     |> Array.filter (fun n -> n <> "")
@@ -139,10 +166,7 @@ let private operandNote (opcode: Opcode) (arg: int) =
 /// have to be told apart here, where the enum is known.
 let private isConstOperand (opcode: Opcode) =
   match opcode with
-  | Opcode.LOAD_CONST
-  | Opcode.RETURN_CONST
-  | Opcode.KW_NAMES
-  | Opcode.INSTRUMENTED_RETURN_CONST -> true
+  | Opcode.LOAD_CONST -> true
   | _ -> false
 
 /// The word CPython prints for the flag bit an opcode packs beside its
@@ -165,7 +189,7 @@ let private buildOperand (ins: Instruction) (opcode: Opcode) =
       let name =
         if isConstOperand opcode then Disasm.reprPyObj var
         else Disasm.toStringPyObj var
-      Some(Disasm.withFlag true (flagWord ins opcode) name)
+      Some(Disasm.withFlag false (flagWord ins opcode) name)
     | None ->
       (* An argument that indexes no table the code object carries -- a
          comparison, a bit field -- reads from the version's own table. *)

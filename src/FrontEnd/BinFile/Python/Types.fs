@@ -143,6 +143,11 @@ and PyObject =
   (* real, imag -- mirroring PyBinaryFloat (see TYPE_BINARY_COMPLEX). *)
   | PyBinaryComplex of double * double
   | PyAscii of string
+  (* A str CPython marshalled with surrogatepass, with the positions of the
+     lone surrogates in it. Kept apart from PyAscii because UTF-16 cannot
+     tell two adjacent lone surrogates from the one astral character they
+     spell, and repr writes those two differently. *)
+  | PySurrogateText of string * int[]
   | PyShortAsciiInterned of string
   | PyShortAscii of string
   | PyREF of int * PyObject

@@ -38,7 +38,7 @@ type private PyMagic =
   | PyMagic311 = 0x0A0D0DA7u (* 3.11: 3495 *)
   | PyMagic312 = 0x0A0D0DCBu (* 3.12: 3531 *)
   | PyMagic313 = 0x0A0D0DF3u (* 3.13: 3571 *)
-  | PyMagic314 = 0x0A0D0E0Cu (* 3.14: 3596 *)
+  | PyMagic314 = 0x0A0D0E2Bu (* 3.14: 3627 *)
   | PyMagic315 = 0x0A0D0E52u (* 3.15: 3666 *)
 
 let isPythonBytecode (bytes: byte[]) (reader: IBinReader) =
@@ -58,7 +58,8 @@ let private readFlagAndMarshalledType (bytes: byte[]) (reader: IBinReader)
 let rec private pyObjToString = function
   | PyString s ->
     System.Text.Encoding.ASCII.GetString s
-  | PyAscii str | PyShortAsciiInterned str | PyShortAscii str ->
+  | PyAscii str | PySurrogateText(str, _)
+  | PyShortAsciiInterned str | PyShortAscii str ->
     str
   | PyInt i ->
     i.ToString()
@@ -109,8 +110,12 @@ let private appendRefs flag refs obj =
 /// .NET's UTF8 decoder rejects those and substitutes U+FFFD, which destroys
 /// the code point: the constant then reads as replacement characters and no
 /// consumer can recover what the file said. Decoding by hand keeps it.
+/// Reports where the lone surrogates ended up as well, since that is the one
+/// thing the decoded string can no longer be asked: two of them side by side
+/// are indistinguishable from the one astral character they spell.
 let private decodeMarshalledUtf8 (bs: byte[]) =
   let sb = System.Text.StringBuilder(bs.Length)
+  let lone = ResizeArray()
   let mutable i = 0
   while i < bs.Length do
     let b0 = int bs[i]
@@ -128,6 +133,7 @@ let private decodeMarshalledUtf8 (bs: byte[]) =
         ((b0 &&& 0x0F) <<< 12)
         ||| ((int bs[i + 1] &&& 0x3F) <<< 6)
         ||| (int bs[i + 2] &&& 0x3F)
+      if cp >= 0xD800 && cp <= 0xDFFF then lone.Add sb.Length else ()
       sb.Append(char cp) |> ignore
       i <- i + 3
     elif b0 &&& 0xF8 = 0xF0 && i + 3 < bs.Length then
@@ -141,7 +147,7 @@ let private decodeMarshalledUtf8 (bs: byte[]) =
     else
       sb.Append '�' |> ignore
       i <- i + 1
-  sb.ToString()
+  sb.ToString(), lone.ToArray()
 
 /// Returns the number of bytes before the marshalled code object. 3.3 added
 /// a source-size field and 3.7 added PEP 552's bit field, so this is not one
@@ -349,14 +355,20 @@ let rec parse version (bytes: byte[]) (reader: IBinReader) refs offset
     let imag, offset = readFloat bytes reader offset 8
     let obj = PyBinaryComplex(real, imag)
     obj, appendRefs flag refs obj, offset
-  (* Three sub-objects in order, mirroring r_object's TYPE_SLICE case. *)
+  (* Three sub-objects in order, mirroring r_object's TYPE_SLICE case. Like a
+     tuple it reserves its own slot before reading them, so the children take
+     the indices after it rather than before -- appending afterwards shifts
+     every later reference by one. *)
   | MarshalledType.TYPE_SLICE ->
+    let refIdx = Array.length refs
+    let refs = appendRefs flag refs PyNone
     let start, refs, offset =
       parse version bytes reader refs offset refPositions
     let stop, refs, offset = parse version bytes reader refs offset refPositions
     let step, refs, offset = parse version bytes reader refs offset refPositions
     let obj = PySlice(start, stop, step)
-    obj, appendRefs flag refs obj, offset
+    if flag <> 0 then refs[refIdx] <- obj else ()
+    obj, refs, offset
   | MarshalledType.TYPE_NONE -> PyNone, refs, offset
   | MarshalledType.TYPE_ELLIPSIS -> PyEllipsis, refs, offset
   | MarshalledType.TYPE_SMALL_TUPLE ->
@@ -429,8 +441,10 @@ let rec parse version (bytes: byte[]) (reader: IBinReader) refs offset
   | MarshalledType.TYPE_UNICODE
   | MarshalledType.TYPE_INTERNED ->
     let n, offset = readInt bytes reader offset 4
-    let str = Array.sub bytes offset n |> decodeMarshalledUtf8
-    PyAscii str, appendRefs flag refs (PyAscii str), offset + n
+    let str, lone = Array.sub bytes offset n |> decodeMarshalledUtf8
+    let obj =
+      if Array.isEmpty lone then PyAscii str else PySurrogateText(str, lone)
+    obj, appendRefs flag refs obj, offset + n
   | MarshalledType.TYPE_SHORT_ASCII
   | MarshalledType.TYPE_SHORT_ASCII_INTERNED ->
     let n, offset = readInt bytes reader offset 1
