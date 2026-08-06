@@ -38,6 +38,7 @@ type private PyMagic =
   | PyMagic312 = 0x0A0D0DCBu (* 3.12: 3531 *)
   | PyMagic313 = 0x0A0D0DF3u (* 3.13: 3571 *)
   | PyMagic314 = 0x0A0D0E0Cu (* 3.14: 3596 *)
+  | PyMagic315 = 0x0A0D0E52u (* 3.15: 3666 *)
 
 let isPythonBytecode (bytes: byte[]) (reader: IBinReader) =
   if bytes.Length >= 4 then
@@ -291,6 +292,14 @@ let rec parse version (bytes: byte[]) (reader: IBinReader) refs offset
     let imag, offset = readFloat bytes reader offset 8
     let obj = PyBinaryComplex(real, imag)
     obj, appendRefs flag refs obj, offset
+  (* Three sub-objects in order, mirroring r_object's TYPE_SLICE case. *)
+  | MarshalledType.TYPE_SLICE ->
+    let start, refs, offset =
+      parse version bytes reader refs offset refPositions
+    let stop, refs, offset = parse version bytes reader refs offset refPositions
+    let step, refs, offset = parse version bytes reader refs offset refPositions
+    let obj = PySlice(start, stop, step)
+    obj, appendRefs flag refs obj, offset
   | MarshalledType.TYPE_NONE -> PyNone, refs, offset
   | MarshalledType.TYPE_ELLIPSIS -> PyEllipsis, refs, offset
   | MarshalledType.TYPE_SMALL_TUPLE ->
@@ -349,13 +358,19 @@ let rec parse version (bytes: byte[]) (reader: IBinReader) refs offset
       let arr = items |> List.toArray |> Array.rev
       if flag <> 0 then refs[refIdx] <- PyFrozenSet arr else ()
       PyFrozenSet arr, refs, offset
-  | MarshalledType.TYPE_ASCII ->
+  (* TYPE_ASCII_INTERNED differs from TYPE_ASCII only in that the reader is
+     asked to intern the result, which is a runtime concern with no bearing
+     on the encoding -- see r_object in CPython's marshal.c, where the two
+     share a case. Same for TYPE_INTERNED against TYPE_UNICODE below. *)
+  | MarshalledType.TYPE_ASCII
+  | MarshalledType.TYPE_ASCII_INTERNED ->
     let n, offset = readInt bytes reader offset 4
     let str = Array.sub bytes offset n |> System.Text.Encoding.ASCII.GetString
     PyAscii str, appendRefs flag refs (PyAscii str), offset + n
   (* Same layout as TYPE_ASCII, but the payload may contain non-ASCII text,
      so it must be decoded as UTF-8 instead. *)
-  | MarshalledType.TYPE_UNICODE ->
+  | MarshalledType.TYPE_UNICODE
+  | MarshalledType.TYPE_INTERNED ->
     let n, offset = readInt bytes reader offset 4
     let str = Array.sub bytes offset n |> System.Text.Encoding.UTF8.GetString
     PyAscii str, appendRefs flag refs (PyAscii str), offset + n
@@ -545,6 +560,7 @@ let getVersionFromMagicNumber (magic: uint32) =
       | PyMagic.PyMagic312 -> PythonVersion.Python312
       | PyMagic.PyMagic313 -> PythonVersion.Python313
       | PyMagic.PyMagic314 -> PythonVersion.Python314
+      | PyMagic.PyMagic315 -> PythonVersion.Python315
       | _ -> failwithf "Unsupported magic number: 0x%X" magic
     else
       failwithf "Unknown Python bytecode magic-number: 0x%X" magic

@@ -335,8 +335,7 @@ let translate (binFile: PythonBinFile) (ins: Instruction) bld =
     importStar ins bld
   (* Function / class definition *)
   | Opcode.MAKE_FUNCTION ->
-    if minor >= 11 then makeFunction ins bld
-    else makeFunctionLegacy ins bld
+    if minor >= 11 then makeFunction ins bld else makeFunctionLegacy ins bld
   | Opcode.SETUP_ANNOTATIONS ->
     namedEffect "SETUP_ANNOTATIONS" ins bld
   | Opcode.FORMAT_VALUE ->

@@ -101,21 +101,15 @@ let private parseOperand opcode
    numbering, so decoding is a cast, and the encoded length comes from
    CPython's inline-cache table rather than a hand-maintained size per case.
    That is what the 200-line byte->opcode match here used to do by hand. *)
-let rec private doParse semantics
-                        (span: ReadOnlySpan<byte>)
-                        (reader: IBinReader)
-                        bf
-                        s
-                        c
-                        e =
+let rec private doParse semantics (span: ReadOnlySpan<byte>)
+                        (reader: IBinReader) bf s c e =
   let b = reader.ReadUInt8(span, 0) |> int
   let a = reader.ReadUInt8(span, 1) |> int
   if b = int Opcode.EXTENDED_ARG then
     doParse semantics (span.Slice 2) reader bf s (c + 2UL) ((e ||| a) <<< 8)
   else
     let opcode: Opcode = LanguagePrimitives.EnumOfValue b
-    if not (Enum.IsDefined opcode) then raise ParsingFailureException
-    else ()
+    if not (Enum.IsDefined opcode) then raise ParsingFailureException else ()
     let opr =
       if Opcode.hasOperand opcode then parseOperand opcode span reader bf c e
       else NoOperand
