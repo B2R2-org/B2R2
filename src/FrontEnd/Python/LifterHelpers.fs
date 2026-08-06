@@ -299,10 +299,19 @@ let loadBuildClass (ins: Instruction) bld =
   pushToStack bld (AST.undef rt "__build_class__")
   bld --!> ins.Length
 
+/// Bytes each unit of a jump's argument stands for. Jump arguments counted
+/// bytes up to and including 3.9; 3.10 made them instruction offsets, so the
+/// same argument denotes twice the distance from there on (bpo-27129).
+/// Deriving it from the instruction keeps the arithmetic below shared: a
+/// version supplies its number by being that version, not by passing a
+/// scale down through every helper.
+let jumpArgScale (ins: Instruction) =
+  if int ins.Version >= 310 then 2 else 1
+
 let jumpByOffset (ins: Instruction) bld isForward =
   bld <!-- (ins.Address, ins.Length)
-  let n = getIntArg ins
-  let offset = n * 2 * (if isForward then 1 else -1)
+  let n = getIntArg ins * jumpArgScale ins
+  let offset = n * (if isForward then 1 else -1)
   let dst = ins.Address + uint64 ins.Length + uint64 offset
   bld <+ AST.interjmp (AST.num (BitVector(dst, rt))) InterJmpKind.Base
   bld
@@ -330,7 +339,7 @@ let codeObjectBase (binFile: PythonBinFile) (addr: Addr) =
 let jumpAbsolute (binFile: PythonBinFile) (ins: Instruction) bld =
   bld <!-- (ins.Address, ins.Length)
   let n = getIntArg ins
-  let dst = codeObjectBase binFile ins.Address + uint64 (n * 2)
+  let dst = codeObjectBase binFile ins.Address + uint64 (n * jumpArgScale ins)
   bld <+ AST.interjmp (AST.num (BitVector(dst, rt))) InterJmpKind.Base
   bld
 
@@ -344,7 +353,8 @@ let condJumpAbsolute (binFile: PythonBinFile)
   bld <!-- (ins.Address, ins.Length)
   let cond = popFromStack bld
   let n = getIntArg ins
-  let jmpDst = codeObjectBase binFile ins.Address + uint64 (n * 2)
+  let jmpDst =
+    codeObjectBase binFile ins.Address + uint64 (n * jumpArgScale ins)
   let fallDst = ins.Address + uint64 ins.Length
   let tLbl = AST.num (BitVector(jmpDst, rt))
   let fLbl = AST.num (BitVector(fallDst, rt))
@@ -372,7 +382,8 @@ let jumpOrPop (binFile: PythonBinFile) (ins: Instruction) bld jumpIfTrue =
   bld <!-- (ins.Address, ins.Length)
   let cond = peekFromStack bld 0
   let n = getIntArg ins
-  let jmpDst = codeObjectBase binFile ins.Address + uint64 (n * 2)
+  let jmpDst =
+    codeObjectBase binFile ins.Address + uint64 (n * jumpArgScale ins)
   let fallDst = ins.Address + uint64 ins.Length
   let tLbl = AST.num (BitVector(jmpDst, rt))
   let fLbl = AST.num (BitVector(fallDst, rt))
@@ -392,7 +403,8 @@ let jumpIfNotExcMatch (binFile: PythonBinFile) (ins: Instruction) bld =
   let excType = popFromStack bld
   let excValue = popFromStack bld
   let n = getIntArg ins
-  let jmpDst = codeObjectBase binFile ins.Address + uint64 (n * 2)
+  let jmpDst =
+    codeObjectBase binFile ins.Address + uint64 (n * jumpArgScale ins)
   let fallDst = ins.Address + uint64 ins.Length
   let tLbl = AST.num (BitVector(jmpDst, rt))
   let fLbl = AST.num (BitVector(fallDst, rt))
@@ -704,7 +716,7 @@ let condJump (ins: Instruction) bld jumpIfTrue =
   bld <!-- (ins.Address, ins.Length)
   let cond = popFromStack bld
   let n = getIntArg ins
-  let jmpDst = ins.Address + uint64 ins.Length + uint64 (n * 2)
+  let jmpDst = ins.Address + uint64 ins.Length + uint64 (n * jumpArgScale ins)
   let fallDst = ins.Address + uint64 ins.Length
   let tLbl = AST.num (BitVector(jmpDst, rt))
   let fLbl = AST.num (BitVector(fallDst, rt))
@@ -737,7 +749,7 @@ let condJumpNone (ins: Instruction) bld jumpIfNone =
   bld <!-- (ins.Address, ins.Length)
   let value = popFromStack bld
   let n = getIntArg ins
-  let jmpDst = ins.Address + uint64 ins.Length + uint64 (n * 2)
+  let jmpDst = ins.Address + uint64 ins.Length + uint64 (n * jumpArgScale ins)
   let fallDst = ins.Address + uint64 ins.Length
   let tLbl = AST.num (BitVector(jmpDst, rt))
   let fLbl = AST.num (BitVector(fallDst, rt))
@@ -759,7 +771,7 @@ let forIter minor (ins: Instruction) bld =
   bld <!-- (ins.Address, ins.Length)
   let tos = peekFromStack bld 0
   let n = getIntArg ins
-  let jmpDst = ins.Address + uint64 ins.Length + uint64 (n * 2)
+  let jmpDst = ins.Address + uint64 ins.Length + uint64 (n * jumpArgScale ins)
   let fallDst = ins.Address + uint64 ins.Length
   let tLbl = AST.num (BitVector(jmpDst, rt))
   let fLbl = AST.num (BitVector(fallDst, rt))
@@ -799,7 +811,7 @@ let send (ins: Instruction) bld =
   let gen = popFromStack bld
   let result = AST.app "SEND" [ gen; sentVal ] rt
   let n = getIntArg ins
-  let jmpDst = ins.Address + uint64 ins.Length + uint64 (n * 2)
+  let jmpDst = ins.Address + uint64 ins.Length + uint64 (n * jumpArgScale ins)
   let fallDst = ins.Address + uint64 ins.Length
   let isExhausted = AST.app "IS_EXHAUSTED" [ result ] rt
   pushToStack bld gen
