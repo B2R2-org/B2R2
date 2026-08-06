@@ -46,9 +46,13 @@ let confirm (owner: Window) text yesStr noStr fnOnYes =
         Margin = Thickness 16.0
       )
     let yesButton =
-      Button(Content = yesStr, Width = 90.0, Margin = Thickness 4.0,
-             HorizontalContentAlignment = HorizontalAlignment.Center,
-             VerticalContentAlignment = VerticalAlignment.Center)
+      Button(
+        Content = yesStr,
+        Width = 90.0,
+        Margin = Thickness 4.0,
+        HorizontalContentAlignment = HorizontalAlignment.Center,
+        VerticalContentAlignment = VerticalAlignment.Center
+      )
     let noButton =
       Button(Content = noStr, Width = 90.0, Margin = Thickness 4.0,
              HorizontalContentAlignment = HorizontalAlignment.Center,
