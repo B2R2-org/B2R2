@@ -29,6 +29,7 @@ open B2R2
 open B2R2.FrontEnd.BinLifter
 
 type private PyMagic =
+  | PyMagic305 = 0x0A0D0D17u (* 3.5: 3351 *)
   | PyMagic306 = 0x0A0D0D33u (* 3.6: 3379 *)
   | PyMagic307 = 0x0A0D0D42u (* 3.7: 3394 *)
   | PyMagic308 = 0x0A0D0D55u (* 3.8: 3413 *)
@@ -101,13 +102,27 @@ let private appendRefs flag refs obj =
   if flag <> 0 then Array.append refs [| obj |]
   else refs
 
+/// Returns the number of bytes before the marshalled code object. 3.3 added
+/// a source-size field and 3.7 added PEP 552's bit field, so this is not one
+/// constant: reading a pre-3.7 file at 16 lands four bytes inside the code
+/// object, and marshal then reports bad data rather than a bad offset.
+let headerSize (version: PythonVersion) =
+  if int version >= 307 then 16
+  elif int version >= 303 then 12
+  else 8
+
 let private isLegacyCodeObjectVersion = function
+  | PythonVersion.Python305
   | PythonVersion.Python306
   | PythonVersion.Python307
   | PythonVersion.Python308
   | PythonVersion.Python309
   | PythonVersion.Python310 -> true
   | _ -> false
+
+(* co_posonlyargcount only exists from 3.8 (PEP 570). Reading it
+   unconditionally shifts every later field by four bytes on 3.5-3.7. *)
+let private hasPosOnlyArgCount (version: PythonVersion) = int version >= 308
 
 let private unwrapRef = function
   | PyREF(_, o) -> o
@@ -145,7 +160,9 @@ let rec parse version (bytes: byte[]) (reader: IBinReader) refs offset
   | MarshalledType.TYPE_CODE ->
     let refs = appendRefs flag refs PyNone (* Reserve *)
     let argCnt, offset = readInt bytes reader offset 4
-    let posonlyArgCnt, offset = readInt bytes reader offset 4
+    let posonlyArgCnt, offset =
+      if hasPosOnlyArgCount version then readInt bytes reader offset 4
+      else 0, offset
     let kwonposonlyArgCnt, offset = readInt bytes reader offset 4
     if isLegacyCodeObjectVersion version then
       let _, offset = readInt bytes reader offset 4 (* nlocals *)
@@ -536,6 +553,7 @@ let extractNames pyObj =
 let getVersionFromMagicNumber (magic: uint32) =
   if System.Enum.IsDefined(typeof<PyMagic>, magic) then
       match LanguagePrimitives.EnumOfValue magic with
+      | PyMagic.PyMagic305 -> PythonVersion.Python305
       | PyMagic.PyMagic306 -> PythonVersion.Python306
       | PyMagic.PyMagic307 -> PythonVersion.Python307
       | PyMagic.PyMagic308 -> PythonVersion.Python308

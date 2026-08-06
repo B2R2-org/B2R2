@@ -41,7 +41,8 @@ type PythonBinFile(path, inputBytes: byte[], baseAddrOpt) =
   let version = getVersionFromMagicNumber magic
 
   let parsedCodeObject, _, _ =
-    parse version inputBytes reader [||] 16 (Dictionary<int, uint64>())
+    let hdr = headerSize version
+    parse version inputBytes reader [||] hdr (Dictionary<int, uint64>())
 
   (* Pre-3.11 only: two distinct functions can share one `co_code` file
      offset via marshal's own byte-identity dedup -- see
