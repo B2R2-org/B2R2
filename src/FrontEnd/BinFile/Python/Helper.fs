@@ -103,6 +103,46 @@ let private appendRefs flag refs obj =
   if flag <> 0 then Array.append refs [| obj |]
   else refs
 
+/// Decodes marshal's UTF-8. CPython writes str with the `surrogatepass`
+/// error handler, so a lone surrogate -- legal in a Python str, and present
+/// in CPython's own test data -- is stored as the three bytes that encode it.
+/// .NET's UTF8 decoder rejects those and substitutes U+FFFD, which destroys
+/// the code point: the constant then reads as replacement characters and no
+/// consumer can recover what the file said. Decoding by hand keeps it.
+let private decodeMarshalledUtf8 (bs: byte[]) =
+  let sb = System.Text.StringBuilder(bs.Length)
+  let mutable i = 0
+  while i < bs.Length do
+    let b0 = int bs[i]
+    if b0 < 0x80 then
+      sb.Append(char b0) |> ignore
+      i <- i + 1
+    elif b0 &&& 0xE0 = 0xC0 && i + 1 < bs.Length then
+      sb.Append(char (((b0 &&& 0x1F) <<< 6) ||| (int bs[i + 1] &&& 0x3F)))
+      |> ignore
+      i <- i + 2
+    elif b0 &&& 0xF0 = 0xE0 && i + 2 < bs.Length then
+      (* This is the case that matters: a code point in D800-DFFF lands here
+         and stays a lone surrogate, which a .NET string can hold. *)
+      let cp =
+        ((b0 &&& 0x0F) <<< 12)
+        ||| ((int bs[i + 1] &&& 0x3F) <<< 6)
+        ||| (int bs[i + 2] &&& 0x3F)
+      sb.Append(char cp) |> ignore
+      i <- i + 3
+    elif b0 &&& 0xF8 = 0xF0 && i + 3 < bs.Length then
+      let cp =
+        ((b0 &&& 0x07) <<< 18)
+        ||| ((int bs[i + 1] &&& 0x3F) <<< 12)
+        ||| ((int bs[i + 2] &&& 0x3F) <<< 6)
+        ||| (int bs[i + 3] &&& 0x3F)
+      sb.Append(System.Char.ConvertFromUtf32 cp) |> ignore
+      i <- i + 4
+    else
+      sb.Append '�' |> ignore
+      i <- i + 1
+  sb.ToString()
+
 /// Returns the number of bytes before the marshalled code object. 3.3 added
 /// a source-size field and 3.7 added PEP 552's bit field, so this is not one
 /// constant: reading a pre-3.7 file at 16 lands four bytes inside the code
@@ -389,7 +429,7 @@ let rec parse version (bytes: byte[]) (reader: IBinReader) refs offset
   | MarshalledType.TYPE_UNICODE
   | MarshalledType.TYPE_INTERNED ->
     let n, offset = readInt bytes reader offset 4
-    let str = Array.sub bytes offset n |> System.Text.Encoding.UTF8.GetString
+    let str = Array.sub bytes offset n |> decodeMarshalledUtf8
     PyAscii str, appendRefs flag refs (PyAscii str), offset + n
   | MarshalledType.TYPE_SHORT_ASCII
   | MarshalledType.TYPE_SHORT_ASCII_INTERNED ->
