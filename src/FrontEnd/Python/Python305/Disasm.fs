@@ -27,6 +27,49 @@ module internal B2R2.FrontEnd.Python.Python305.Disasm
 open B2R2.FrontEnd.BinLifter
 open B2R2.FrontEnd.Python
 
+(* dis names the comparison rather than showing its index, and this
+   table is CPython 3.5's own cmp_op. *)
+let private cmpOp =
+  [| "<"
+     "<="
+     "=="
+     "!="
+     ">"
+     ">="
+     "in"
+     "not in"
+     "is"
+     "is not"
+     "exception match"
+     "BAD" |]
+
+/// Spells the operand the way dis does, or None to leave the raw
+/// argument to speak for itself.
+let private buildOperand (ins: Instruction) (opcode: Opcode) =
+  match ins.Operands with
+  | NoOperand | TwoOperands _ ->
+    None
+  | OneOperand(arg, resolved) ->
+    match opcode with
+    | Opcode.LOAD_CONST ->
+      resolved |> Option.map Disasm.reprPyObj
+    | Opcode.COMPARE_OP ->
+      if arg < cmpOp.Length then Some cmpOp[arg] else None
+    (* 3.5 spells a call's argument as the two counts packed
+       into it: the low byte is positional, the high byte keyword
+       pairs. 3.6 split these into separate opcodes. *)
+    | Opcode.CALL_FUNCTION
+    | Opcode.CALL_FUNCTION_VAR
+    | Opcode.CALL_FUNCTION_KW
+    | Opcode.CALL_FUNCTION_VAR_KW ->
+      Some(sprintf "%d positional, %d keyword pair"
+                   (arg % 256) (arg / 256))
+    | _ ->
+      (* A name, local or free variable reads as it stands. *)
+      resolved |> Option.map Disasm.toStringPyObj
+
 let disasm (ins: Instruction) (builder: IDisasmBuilder) =
   let opcode: Opcode = LanguagePrimitives.EnumOfValue ins.Opcode
-  Disasm.disasm ins (Disasm.opcodeToString opcode) builder
+  let operand = buildOperand ins opcode
+  Disasm.disasmWithOperand ins (Disasm.opcodeToString opcode) operand
+                           builder
