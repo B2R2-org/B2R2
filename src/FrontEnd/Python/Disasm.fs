@@ -56,7 +56,8 @@ let rec toStringPyObj = function
     s
   | PyREF(_, obj) ->
     toStringPyObj obj
-  | PyAscii str | PyShortAscii str | PyShortAsciiInterned str ->
+  | PyAscii str | PySurrogateText(str, _)
+  | PyShortAscii str | PyShortAsciiInterned str ->
     str
   | PyCode c ->
     $"<code object {c.Name}, file \"{c.FileName}\", line {c.FirstLineNo}>"
@@ -135,29 +136,33 @@ let private escapeCodePoint cp =
   elif cp < 0x10000 then sprintf "\\u%04x" cp
   else sprintf "\\U%08x" cp
 
-let private pyStrRepr (s: string) =
+/// `lone` holds the positions the marshal reader saw a surrogate arrive on
+/// its own, which is the one thing the decoded string can no longer be asked.
+let private pyStrRepr (lone: Set<int>) (s: string) =
   let quote = if s.Contains "'" && not (s.Contains "\"") then '"' else '\''
   let sb = System.Text.StringBuilder()
   sb.Append quote |> ignore
   let mutable i = 0
   while i < s.Length do
     (* A surrogate PAIR is one code point, so it must be measured as a pair
-       rather than as the two unprintable halves it is made of. Reading it
-       that way is a choice, and it is not always right: a Python str is a
-       sequence of code POINTS, so `'𐏿'` is two lone surrogates
-       there, while a .NET string is UTF-16 code UNITS, where those same two
-       values are one astral character. Nothing after decoding can tell the
-       two apart -- four UTF-8 bytes and three-plus-three arrive identical --
-       so one reading has to lose. Pairing loses less: across CPython 3.8's
-       own test suite, 30 files hold an astral character in a constant and 3
-       hold adjacent lone surrogates. Undoing this needs PyAscii to carry
-       code points rather than a .NET string. *)
+       rather than as the two unprintable halves it is made of. Which of the
+       two it is cannot be seen here: a Python str is a sequence of code
+       POINTS, where `'🐍'` is two lone surrogates, while a .NET
+       string is UTF-16 code UNITS, where those same two values are one
+       astral character -- four UTF-8 bytes and three-plus-three arrive
+       identical. So the reader passes on where it saw the halves arrive
+       separately, and everything else pairs. *)
     let paired =
-      System.Char.IsHighSurrogate s[i] && i + 1 < s.Length
-      && System.Char.IsLowSurrogate s[i + 1]
+      not (lone.Contains i) && System.Char.IsHighSurrogate s[i]
+      && i + 1 < s.Length && System.Char.IsLowSurrogate s[i + 1]
     let cp = if paired then System.Char.ConvertToUtf32(s[i], s[i + 1])
              else int s[i]
-    let cat = CharUnicodeInfo.GetUnicodeCategory(s, i)
+    (* Asked with an index, .NET reads the pair and answers for the character
+       it spells -- which is the wrong answer for a surrogate standing on its
+       own, and would let it through unescaped. *)
+    let cat =
+      if paired then CharUnicodeInfo.GetUnicodeCategory(s, i)
+      else CharUnicodeInfo.GetUnicodeCategory s[i]
     match s[i] with
     | '\\' -> sb.Append "\\\\" |> ignore
     | '\n' -> sb.Append "\\n" |> ignore
@@ -194,24 +199,82 @@ let private pyBytesRepr (bs: byte[]) =
   sb.Append quote |> ignore
   sb.ToString()
 
-/// And for a float, where .NET and Python agree on the digits but not on the
-/// spelling around them: .NET writes the exponent marker upper case and names
-/// the specials `Infinity` / `NaN`.
-let private pyFloatRepr (f: double) =
-  if System.Double.IsNaN f then "nan"
-  elif System.Double.IsPositiveInfinity f then "inf"
-  elif System.Double.IsNegativeInfinity f then "-inf"
+/// The seventeen significant digits that tell a double from every other one,
+/// with where the decimal point falls among them -- the value is 0.digits
+/// times ten to the decpt, which is the decomposition CPython chooses its
+/// notation on.
+let private exactDigits (f: double) =
+  let s = abs(f).ToString("E16", CultureInfo.InvariantCulture)
+  let i = s.IndexOf 'E'
+  s.Substring(0, i).Replace(".", ""), int (s.Substring(i + 1)) + 1
+
+/// Rounds a digit string to `n` places, half away from zero. Also reports
+/// whether the carry ran off the front, which moves the point one place.
+let private roundTo (digits: string) n =
+  if digits[n] < '5' then digits.Substring(0, n), 0
   else
-    let s = f.ToString("R", CultureInfo.InvariantCulture).Replace("E", "e")
-    if s.Contains "e" || s.Contains "." then s else s + ".0"
+    let arr = digits.Substring(0, n).ToCharArray()
+    let mutable i = n - 1
+    let mutable carry = true
+    while carry && i >= 0 do
+      if arr[i] = '9' then
+        arr[i] <- '0'
+      else
+        arr[i] <- char (int arr[i] + 1)
+        carry <- false
+      i <- i - 1
+    if carry then "1" + System.String(arr[0..n - 2]), 1
+    else System.String arr, 0
+
+/// The fewest digits that still read back as the same double, which is what
+/// Python's repr prints. Shortens the exact decimal a digit at a time rather
+/// than trusting one of .NET's fixed precisions: "R" keeps digits a subnormal
+/// has no need of, and on an exact tie rounds the last one the way repr does
+/// not -- 2**-25 reads `5.960464477539063e-08` in Python and one digit longer
+/// from .NET.
+let private shortestDigits (f: double) =
+  let inv = CultureInfo.InvariantCulture
+  let all, decpt = exactDigits f
+  let rec search n =
+    if n >= all.Length then all.TrimEnd '0', decpt
+    else
+      let digits, shift = roundTo all n
+      let s = "0." + digits + "E" + string (decpt + shift)
+      if System.Double.Parse(s, NumberStyles.Float, inv) = abs f then
+        digits.TrimEnd '0', decpt + shift
+      else search (n + 1)
+  search 1
 
 /// The float spelling repr uses inside a complex, which unlike a bare float
-/// does not gain a trailing `.0` -- `complex(3, 0)` reads `(3+0j)`.
+/// does not gain a trailing `.0` -- `complex(3, 0)` reads `(3+0j)`. Turns to
+/// the exponent by where the point falls rather than by magnitude, which is
+/// the rule CPython applies and not the one .NET does.
 let private complexPart (f: double) =
   if System.Double.IsNaN f then "nan"
   elif System.Double.IsPositiveInfinity f then "inf"
   elif System.Double.IsNegativeInfinity f then "-inf"
-  else f.ToString("R", CultureInfo.InvariantCulture).Replace("E", "e")
+  elif f = 0.0 then if System.Double.IsNegative f then "-0" else "0"
+  else
+    let sign = if System.Double.IsNegative f then "-" else ""
+    let digits, decpt = shortestDigits f
+    if decpt <= -4 || decpt > 16 then
+      let tail = digits.Substring 1
+      let body =
+        if tail = "" then digits else digits.Substring(0, 1) + "." + tail
+      sign + body + (decpt - 1).ToString("'e'+00;'e'-00")
+    elif decpt <= 0 then
+      sign + "0." + System.String('0', -decpt) + digits
+    elif decpt >= digits.Length then
+      sign + digits + System.String('0', decpt - digits.Length)
+    else
+      sign + digits.Substring(0, decpt) + "." + digits.Substring decpt
+
+/// And for a float on its own, where a whole number keeps the trailing `.0`
+/// that tells it from an int.
+let private pyFloatRepr (f: double) =
+  let s = complexPart f
+  if s |> Seq.exists (fun c -> c = '.' || c = 'e' || c = 'n') then s
+  else s + ".0"
 
 /// repr for a complex. A real part of positive zero is dropped along with the
 /// parentheses, which is how CPython spells a pure imaginary (`2j`), and the
@@ -227,7 +290,9 @@ let private pyComplexRepr (real: double) (imag: double) =
 let rec reprPyObj obj =
   match obj with
   | PyAscii s | PyShortAscii s | PyShortAsciiInterned s ->
-    pyStrRepr s
+    pyStrRepr Set.empty s
+  | PySurrogateText(s, lone) ->
+    pyStrRepr (Set.ofArray lone) s
   | PyString bs ->
     pyBytesRepr bs
   | PyBinaryFloat f ->
@@ -275,6 +340,16 @@ let disasm (ins: Instruction) mnemonic (builder: IDisasmBuilder) =
   builder.AccumulateAddrMarker ins.Address
   builder.Accumulate(AsmWordKind.Mnemonic, mnemonic)
   buildOprs ins builder
+
+/// Joins an operand to the flag bits its opcode packs alongside the index.
+/// Both the word and the side it goes on belong to the version -- the same
+/// bit means different things across them, and CPython printed the flag
+/// ahead of the name up to 3.12 and after it from 3.13 -- so the version
+/// passes them in and only the joining is shared.
+let withFlag precedes (flag: string) (name: string) =
+  if flag = "" then name
+  elif precedes then flag + " + " + name
+  else name + " + " + flag
 
 /// Renders one instruction with the version supplying the operand text.
 /// Needed because some arguments index no table the code object carries --

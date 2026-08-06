@@ -124,8 +124,9 @@ let bytesToPyLiteral (bytes: byte[]) =
   |> sprintf "b\"%s\""
 
 let rec convertPyObjectToExpr isConst = function
-  (* ASCII strings. *)
+  (* Text, whatever the marshal format it arrived in. *)
   | PyAscii n
+  | PySurrogateText(n, _)
   | PyShortAscii n
   | PyShortAsciiInterned n ->
     AST.undef rt <| if isConst then sprintf "\"%s\"" n else n

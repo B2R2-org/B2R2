@@ -22,7 +22,7 @@
   SOFTWARE.
 *)
 
-module internal B2R2.FrontEnd.Python.Python315.Semantics
+module internal B2R2.FrontEnd.Python.Python313.Semantics
 
 open B2R2
 open B2R2.FrontEnd.Python
@@ -32,8 +32,6 @@ let inline private opcodeOf (ins: Instruction): Opcode =
 
 let isBranch (ins: Instruction) =
   match opcodeOf ins with
-  | Opcode.JUMP_IF_TRUE
-  | Opcode.JUMP_IF_FALSE
   | Opcode.JUMP_FORWARD
   | Opcode.JUMP_BACKWARD
   | Opcode.JUMP_BACKWARD_NO_INTERRUPT
@@ -56,8 +54,6 @@ let isBranch (ins: Instruction) =
 
 let isCondBranch (ins: Instruction) =
   match opcodeOf ins with
-  | Opcode.JUMP_IF_TRUE
-  | Opcode.JUMP_IF_FALSE
   | Opcode.POP_JUMP_IF_FALSE
   | Opcode.POP_JUMP_IF_TRUE
   | Opcode.POP_JUMP_IF_NONE
@@ -73,7 +69,6 @@ let isCondBranch (ins: Instruction) =
 
 let isCJmpOnTrue (ins: Instruction) =
   match opcodeOf ins with
-  | Opcode.JUMP_IF_TRUE
   | Opcode.POP_JUMP_IF_TRUE
   | Opcode.INSTRUMENTED_POP_JUMP_IF_TRUE -> true
   | _ -> false
@@ -88,15 +83,19 @@ let isRET (ins: Instruction) =
   match opcodeOf ins with
   | Opcode.RETURN_VALUE
   | Opcode.INSTRUMENTED_RETURN_VALUE
+  | Opcode.RETURN_CONST
+  | Opcode.INSTRUMENTED_RETURN_CONST -> true
   | _ -> false
 
 let isExit (ins: Instruction) =
   match opcodeOf ins with
   | Opcode.RETURN_VALUE
+  | Opcode.RETURN_CONST
   | Opcode.RAISE_VARARGS
   | Opcode.RERAISE
   | Opcode.INTERPRETER_EXIT
   | Opcode.INSTRUMENTED_RETURN_VALUE
+  | Opcode.INSTRUMENTED_RETURN_CONST -> true
   | _ -> false
 
 (* namei's low bit is a push-NULL / is-method flag from 3.11 on. *)
@@ -108,10 +107,6 @@ let hasFlag (ins: Instruction) =
   | Opcode.INSTRUMENTED_LOAD_SUPER_ATTR ->
     match ins.Operands with
     | OneOperand(idx, _) -> (idx &&& 1) = 1
-    | _ -> false
-  | Opcode.IMPORT_NAME ->
-    match ins.Operands with
-    | OneOperand(idx, _) -> (idx &&& 3) <> 0
     | _ -> false
   | _ ->
     false
