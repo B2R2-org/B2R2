@@ -88,8 +88,12 @@ let rec toStringPyObj = function
     "False"
   | PyString s ->
     System.Text.Encoding.ASCII.GetString s
-  | o ->
-    failwithf "Invalid PyCodeObj %A" o
+  (* A constant frozenset, which the compiler builds for membership tests
+     against a set literal. Rendered the way CPython's own dis renders it,
+     since that is what this string is compared against. *)
+  | PyFrozenSet objects ->
+    let items = objects |> Array.map toStringPyObj |> String.concat ", "
+    $"frozenset({{{items}}})"
 
 let buildOprs (ins: Instruction) (builder: IDisasmBuilder) =
   match ins.Operands with
