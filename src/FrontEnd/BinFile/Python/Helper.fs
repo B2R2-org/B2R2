@@ -366,13 +366,21 @@ let rec parse version (bytes: byte[]) (reader: IBinReader) refs offset
       let arr = items |> List.toArray |> Array.rev
       if flag <> 0 then refs[refIdx] <- PyFrozenSet arr else ()
       PyFrozenSet arr, refs, offset
-  | MarshalledType.TYPE_ASCII ->
+  (* Interning is a property of the string CPython builds, not of how the
+     bytes are laid out: marshal reads the INTERNED forms exactly like their
+     plain twins and only interns afterwards, which is why they pair up here
+     the same way TYPE_SHORT_ASCII_INTERNED does below. Names -- the bulk of
+     what a code object marshals -- take these forms, so missing them fails
+     the whole file rather than one constant. *)
+  | MarshalledType.TYPE_ASCII
+  | MarshalledType.TYPE_ASCII_INTERNED ->
     let n, offset = readInt bytes reader offset 4
     let str = Array.sub bytes offset n |> System.Text.Encoding.ASCII.GetString
     PyAscii str, appendRefs flag refs (PyAscii str), offset + n
   (* Same layout as TYPE_ASCII, but the payload may contain non-ASCII text,
      so it must be decoded as UTF-8 instead. *)
-  | MarshalledType.TYPE_UNICODE ->
+  | MarshalledType.TYPE_UNICODE
+  | MarshalledType.TYPE_INTERNED ->
     let n, offset = readInt bytes reader offset 4
     let str = Array.sub bytes offset n |> System.Text.Encoding.UTF8.GetString
     PyAscii str, appendRefs flag refs (PyAscii str), offset + n
