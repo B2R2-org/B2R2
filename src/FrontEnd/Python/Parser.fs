@@ -34,6 +34,23 @@ type PythonParser(binFile: IBinFile, reader) =
   (* One object per version, bundling everything that depends on which
      version's Opcode enum the raw opcode value belongs to. Instruction holds
      one of these instead of matching on opcodes itself. *)
+  let semantics305 =
+    { new IInstructionSemantics with
+        member _.Lift(ins, bld) = Python305.Lifter.translate binFile ins bld
+        member _.Disasm(ins, bld) = Python305.Disasm.disasm ins bld; bld
+        member _.IsBranch ins = Python305.Semantics.isBranch ins
+        member _.IsCondBranch ins = Python305.Semantics.isCondBranch ins
+        member _.IsCJmpOnTrue ins = Python305.Semantics.isCJmpOnTrue ins
+        member _.IsCall ins = Python305.Semantics.isCall ins
+        member _.IsRET ins = Python305.Semantics.isRET ins
+        member _.IsExit ins = Python305.Semantics.isExit ins
+        member _.IsNop ins = ins.Opcode = int Python305.Opcode.NOP
+        member _.HasFlag ins = Python305.Semantics.hasFlag ins
+        member _.SuperHasExplicitArgs ins =
+          Python305.Semantics.superHasExplicitArgs ins
+        member _.BranchTarget(ins, ft, n) =
+          Python305.Semantics.branchTarget ins ft n }
+
   let semantics306 =
     { new IInstructionSemantics with
         member _.Lift(ins, bld) = Python306.Lifter.translate binFile ins bld
@@ -106,6 +123,8 @@ type PythonParser(binFile: IBinFile, reader) =
      touching nothing another version's author also edits. *)
   let parse span addr =
     match binFile.Version with
+    | PythonVersion.Python305 ->
+      Python305.Parsing.parse semantics305 span reader binFile addr
     | PythonVersion.Python306 ->
       Python306.Parsing.parse semantics306 span reader binFile addr
     | PythonVersion.Python307 ->
