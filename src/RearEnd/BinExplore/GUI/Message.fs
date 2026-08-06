@@ -32,6 +32,11 @@ open B2R2.RearEnd.BinExplore
 type Message =
   /// Message to open a binary file, carrying the file path.
   | OpenBinary of string
+  /// Message emitted when a binary file is dropped onto the window.
+  | DropBinary of string
+  /// Message emitted when replacing the current binary with a dropped file is
+  /// confirmed.
+  | ConfirmDroppedBinary of string
   /// Message emitted when binary loading has finished.
   | OpenBinaryCompleted of string
   /// Message emitted when binary loading failed.
