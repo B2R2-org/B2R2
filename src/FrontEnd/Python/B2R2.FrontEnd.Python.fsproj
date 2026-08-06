@@ -35,6 +35,11 @@
     <Compile Include="Python308\Disasm.fs" />
     <Compile Include="Python308\Lifter.fs" />
     <Compile Include="Python308\Parsing.fs" />
+    <Compile Include="Python309\Opcode.fs" />
+    <Compile Include="Python309\Semantics.fs" />
+    <Compile Include="Python309\Disasm.fs" />
+    <Compile Include="Python309\Lifter.fs" />
+    <Compile Include="Python309\Parsing.fs" />
     <Compile Include="Python310\Opcode.fs" />
     <Compile Include="Python310\Semantics.fs" />
     <Compile Include="Python310\Disasm.fs" />
