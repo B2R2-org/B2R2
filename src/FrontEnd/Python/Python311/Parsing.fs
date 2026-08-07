@@ -28,6 +28,7 @@ module internal B2R2.FrontEnd.Python.Python311.Parsing
 open System
 open B2R2
 open B2R2.FrontEnd.BinFile
+open B2R2.FrontEnd.BinFile.Python
 open B2R2.FrontEnd.BinLifter
 open B2R2.FrontEnd.Python
 
@@ -57,58 +58,27 @@ let private getTable (binFile: PythonBinFile) = function
   | Opcode.DELETE_DEREF -> binFile.Varnames
   | _ -> [||]
 
-let private parseOperand opcode
-                         (span: ReadOnlySpan<byte>)
-                         (reader: IBinReader)
-                         binFile
-                         addr
-                         extArg =
-  let tbl = getTable binFile opcode
-  let idx = (reader.ReadUInt8(span, 1) |> int) ||| extArg
-  let cons =
-    tbl |> Array.tryFind (fun (ar, _) -> ar.Min <= addr && ar.Max >= addr)
-  let opr =
-    match cons with
-    | Some(_, c) ->
-      let minorVer = PythonVersion.minor binFile.Version
-      match opcode with
-      | Opcode.LOAD_GLOBAL when minorVer >= 11 ->
-        (* namei's low bit is a push-NULL flag, so the co_names index sits one
-           bit up. LOAD_ATTR only gains the same flag in 3.12, which is why it
-           is not listed here. *)
-        OneOperand(idx, Some c[idx >>> 1])
-      | _ ->
-        if idx >= c.Length then failwith "Invalid instruction operand"
-        else OneOperand(idx, Some c[idx])
-    (* This can happen when performing linear sweep on a non-code region. *)
-    | None ->
-      OneOperand(idx, None)
-  opr
+/// What an argument names, once the table it indexes is in hand.
+let private resolveOperand (opcode: Opcode) (c: PyObject[]) idx =
+  match opcode with
+  (* namei's low bit is a push-NULL flag, so the co_names index sits one bit
+     up. LOAD_ATTR only gains the same flag in 3.12, which is why it is not
+     listed here. *)
+  | Opcode.LOAD_GLOBAL ->
+    OneOperand(idx, Some c[idx >>> 1])
+  | _ ->
+    if idx >= c.Length then failwith "Invalid instruction operand"
+    else OneOperand(idx, Some c[idx])
 
-(* The byte IS the opcode: each version's Opcode enum carries CPython's own
-   numbering, so decoding is a cast, and the encoded length comes from
-   CPython's inline-cache table rather than a hand-maintained size per case.
-   That is what the 200-line byte->opcode match here used to do by hand. *)
-let rec private doParse semantics
-                        (span: ReadOnlySpan<byte>)
-                        (reader: IBinReader)
-                        bf
-                        s
-                        c
-                        e =
-  let b = reader.ReadUInt8(span, 0) |> int
-  let a = reader.ReadUInt8(span, 1) |> int
-  if b = int Opcode.EXTENDED_ARG then
-    doParse semantics (span.Slice 2) reader bf s (c + 2UL) ((e ||| a) <<< 8)
-  else
-    let opcode: Opcode = LanguagePrimitives.EnumOfValue b
-    if not (Enum.IsDefined opcode) then raise ParsingFailureException else ()
-    let opr =
-      if Opcode.hasOperand opcode then parseOperand opcode span reader bf c e
-      else NoOperand
-    let total = uint32 (c - s) + Opcode.length opcode
-    Instruction(s, total, b, opr, OperationSize.regType, bf.Version, bf,
-                semantics)
+/// What this version says about decoding; the loop itself is shared.
+let spec =
+  { Table = fun bf op -> getTable bf (enum<Opcode> op)
+    Resolve = fun op entries idx -> resolveOperand (enum<Opcode> op) entries idx
+    HasOperand = fun op -> Opcode.hasOperand (enum<Opcode> op)
+    Length = fun op -> Opcode.length (enum<Opcode> op)
+    IsDefined = fun op -> Enum.IsDefined(enum<Opcode> op)
+    ExtendedArg = int Opcode.EXTENDED_ARG
+    IsWordcode = true }
 
 let parse semantics (span: ByteSpan) (reader: IBinReader) binFile addr =
-  doParse semantics span reader binFile addr addr 0
+  ParsingHelpers.parse spec semantics span reader binFile addr
