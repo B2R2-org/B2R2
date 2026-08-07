@@ -35,6 +35,8 @@
     <Compile Include="PARISCRoundTripTests.fs" />
     <Compile Include="PPCSweep.fs" />
     <Compile Include="PPCRoundTripTests.fs" />
+    <Compile Include="PythonSweep.fs" />
+    <Compile Include="PythonRoundTripTests.fs" />
     <Compile Include="RISCV64Sweep.fs" />
     <Compile Include="RISCV64RoundTripTests.fs" />
     <Compile Include="S390Sweep.fs" />
@@ -63,6 +65,7 @@
     <ProjectReference
       Include="..\Assembly\PARISC\B2R2.Assembly.PARISC.fsproj" />
     <ProjectReference Include="..\Assembly\PPC\B2R2.Assembly.PPC.fsproj" />
+    <ProjectReference Include="..\Assembly\Python\B2R2.Assembly.Python.fsproj" />
     <ProjectReference
       Include="..\Assembly\RISCV64\B2R2.Assembly.RISCV64.fsproj" />
     <ProjectReference Include="..\Assembly\S390\B2R2.Assembly.S390.fsproj" />
@@ -79,6 +82,8 @@
     <ProjectReference
       Include="..\FrontEnd\PARISC\B2R2.FrontEnd.PARISC.fsproj" />
     <ProjectReference Include="..\FrontEnd\PPC\B2R2.FrontEnd.PPC.fsproj" />
+    <ProjectReference Include="..\FrontEnd\BinFile\B2R2.FrontEnd.BinFile.fsproj" />
+    <ProjectReference Include="..\FrontEnd\Python\B2R2.FrontEnd.Python.fsproj" />
     <ProjectReference
       Include="..\FrontEnd\RISCV64\B2R2.FrontEnd.RISCV64.fsproj" />
     <ProjectReference Include="..\FrontEnd\S390\B2R2.FrontEnd.S390.fsproj" />
