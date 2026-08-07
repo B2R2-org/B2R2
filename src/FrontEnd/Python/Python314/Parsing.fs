@@ -103,8 +103,7 @@ let private parseOperand opcode
         OneOperand(idx, Some c[idx >>> 2])
       | _ when isPairedLocal opcode ->
         let at i =
-          if i >= c.Length then failwith "Invalid instruction operand"
-          else c[i]
+          if i >= c.Length then failwith "Invalid instruction operand" else c[i]
         OneOperand(idx, Some(PyTuple [| at (idx >>> 4); at (idx &&& 0xF) |]))
       | _ ->
         if idx >= c.Length then failwith "Invalid instruction operand"
@@ -118,8 +117,13 @@ let private parseOperand opcode
    numbering, so decoding is a cast, and the encoded length comes from
    CPython's inline-cache table rather than a hand-maintained size per case.
    That is what the 200-line byte->opcode match here used to do by hand. *)
-let rec private doParse semantics (span: ReadOnlySpan<byte>)
-                        (reader: IBinReader) bf s c e =
+let rec private doParse semantics
+                        (span: ReadOnlySpan<byte>)
+                        (reader: IBinReader)
+                        bf
+                        s
+                        c
+                        e =
   let b = reader.ReadUInt8(span, 0) |> int
   let a = reader.ReadUInt8(span, 1) |> int
   if b = int Opcode.EXTENDED_ARG then

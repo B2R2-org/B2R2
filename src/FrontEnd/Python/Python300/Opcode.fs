@@ -22,26 +22,27 @@
   SOFTWARE.
 *)
 
-namespace B2R2.FrontEnd.Python.Python305
+namespace B2R2.FrontEnd.Python.Python300
 
 /// <summary>
-/// Represents a Python 3.5 opcode. Values are CPython 3.5's own
+/// Represents a Python 3.0 opcode. Values are CPython 3.0's own
 /// opcode numbers, so a byte decodes to a case by a plain cast and
 /// this table is checkable directly against CPython's opcode module.
 /// </summary>
 type Opcode =
+  | STOP_CODE = 0x0
   | POP_TOP = 0x1
   | ROT_TWO = 0x2
   | ROT_THREE = 0x3
   | DUP_TOP = 0x4
-  | DUP_TOP_TWO = 0x5
+  | ROT_FOUR = 0x5
   | NOP = 0x9
   | UNARY_POSITIVE = 0xA
   | UNARY_NEGATIVE = 0xB
   | UNARY_NOT = 0xC
   | UNARY_INVERT = 0xF
-  | BINARY_MATRIX_MULTIPLY = 0x10
-  | INPLACE_MATRIX_MULTIPLY = 0x11
+  | SET_ADD = 0x11
+  | LIST_APPEND = 0x12
   | BINARY_POWER = 0x13
   | BINARY_MULTIPLY = 0x14
   | BINARY_MODULO = 0x16
@@ -52,9 +53,7 @@ type Opcode =
   | BINARY_TRUE_DIVIDE = 0x1B
   | INPLACE_FLOOR_DIVIDE = 0x1C
   | INPLACE_TRUE_DIVIDE = 0x1D
-  | GET_AITER = 0x32
-  | GET_ANEXT = 0x33
-  | BEFORE_ASYNC_WITH = 0x34
+  | STORE_MAP = 0x36
   | INPLACE_ADD = 0x37
   | INPLACE_SUBTRACT = 0x38
   | INPLACE_MULTIPLY = 0x39
@@ -68,19 +67,16 @@ type Opcode =
   | BINARY_OR = 0x42
   | INPLACE_POWER = 0x43
   | GET_ITER = 0x44
-  | GET_YIELD_FROM_ITER = 0x45
+  | STORE_LOCALS = 0x45
   | PRINT_EXPR = 0x46
   | LOAD_BUILD_CLASS = 0x47
-  | YIELD_FROM = 0x48
-  | GET_AWAITABLE = 0x49
   | INPLACE_LSHIFT = 0x4B
   | INPLACE_RSHIFT = 0x4C
   | INPLACE_AND = 0x4D
   | INPLACE_XOR = 0x4E
   | INPLACE_OR = 0x4F
   | BREAK_LOOP = 0x50
-  | WITH_CLEANUP_START = 0x51
-  | WITH_CLEANUP_FINISH = 0x52
+  | WITH_CLEANUP = 0x51
   | RETURN_VALUE = 0x53
   | IMPORT_STAR = 0x54
   | YIELD_VALUE = 0x56
@@ -96,6 +92,7 @@ type Opcode =
   | DELETE_ATTR = 0x60
   | STORE_GLOBAL = 0x61
   | DELETE_GLOBAL = 0x62
+  | DUP_TOPX = 0x63
   | LOAD_CONST = 0x64
   | LOAD_NAME = 0x65
   | BUILD_TUPLE = 0x66
@@ -107,11 +104,9 @@ type Opcode =
   | IMPORT_NAME = 0x6C
   | IMPORT_FROM = 0x6D
   | JUMP_FORWARD = 0x6E
-  | JUMP_IF_FALSE_OR_POP = 0x6F
-  | JUMP_IF_TRUE_OR_POP = 0x70
+  | JUMP_IF_FALSE = 0x6F
+  | JUMP_IF_TRUE = 0x70
   | JUMP_ABSOLUTE = 0x71
-  | POP_JUMP_IF_FALSE = 0x72
-  | POP_JUMP_IF_TRUE = 0x73
   | LOAD_GLOBAL = 0x74
   | CONTINUE_LOOP = 0x77
   | SETUP_LOOP = 0x78
@@ -128,25 +123,13 @@ type Opcode =
   | LOAD_CLOSURE = 0x87
   | LOAD_DEREF = 0x88
   | STORE_DEREF = 0x89
-  | DELETE_DEREF = 0x8A
   | CALL_FUNCTION_VAR = 0x8C
   | CALL_FUNCTION_KW = 0x8D
   | CALL_FUNCTION_VAR_KW = 0x8E
-  | SETUP_WITH = 0x8F
-  | EXTENDED_ARG = 0x90
-  | LIST_APPEND = 0x91
-  | SET_ADD = 0x92
-  | MAP_ADD = 0x93
-  | LOAD_CLASSDEREF = 0x94
-  | BUILD_LIST_UNPACK = 0x95
-  | BUILD_MAP_UNPACK = 0x96
-  | BUILD_MAP_UNPACK_WITH_CALL = 0x97
-  | BUILD_TUPLE_UNPACK = 0x98
-  | BUILD_SET_UNPACK = 0x99
-  | SETUP_ASYNC_WITH = 0x9A
+  | EXTENDED_ARG = 0x8F
 
 /// Provides per-opcode facts that come straight from CPython's own
-/// tables for 3.5.
+/// tables for 3.0.
 module Opcode =
   /// Encoded size in bytes. This version predates wordcode: an
   /// opcode stands alone unless it takes an argument, in which case
@@ -157,15 +140,10 @@ module Opcode =
   /// Whether the opcode takes an operand.
   let hasOperand = function
     | Opcode.BUILD_LIST
-    | Opcode.BUILD_LIST_UNPACK
     | Opcode.BUILD_MAP
-    | Opcode.BUILD_MAP_UNPACK
-    | Opcode.BUILD_MAP_UNPACK_WITH_CALL
     | Opcode.BUILD_SET
-    | Opcode.BUILD_SET_UNPACK
     | Opcode.BUILD_SLICE
     | Opcode.BUILD_TUPLE
-    | Opcode.BUILD_TUPLE_UNPACK
     | Opcode.CALL_FUNCTION
     | Opcode.CALL_FUNCTION_KW
     | Opcode.CALL_FUNCTION_VAR
@@ -173,21 +151,19 @@ module Opcode =
     | Opcode.COMPARE_OP
     | Opcode.CONTINUE_LOOP
     | Opcode.DELETE_ATTR
-    | Opcode.DELETE_DEREF
     | Opcode.DELETE_FAST
     | Opcode.DELETE_GLOBAL
     | Opcode.DELETE_NAME
+    | Opcode.DUP_TOPX
     | Opcode.EXTENDED_ARG
     | Opcode.FOR_ITER
     | Opcode.IMPORT_FROM
     | Opcode.IMPORT_NAME
     | Opcode.JUMP_ABSOLUTE
     | Opcode.JUMP_FORWARD
-    | Opcode.JUMP_IF_FALSE_OR_POP
-    | Opcode.JUMP_IF_TRUE_OR_POP
-    | Opcode.LIST_APPEND
+    | Opcode.JUMP_IF_FALSE
+    | Opcode.JUMP_IF_TRUE
     | Opcode.LOAD_ATTR
-    | Opcode.LOAD_CLASSDEREF
     | Opcode.LOAD_CLOSURE
     | Opcode.LOAD_CONST
     | Opcode.LOAD_DEREF
@@ -196,16 +172,10 @@ module Opcode =
     | Opcode.LOAD_NAME
     | Opcode.MAKE_CLOSURE
     | Opcode.MAKE_FUNCTION
-    | Opcode.MAP_ADD
-    | Opcode.POP_JUMP_IF_FALSE
-    | Opcode.POP_JUMP_IF_TRUE
     | Opcode.RAISE_VARARGS
-    | Opcode.SETUP_ASYNC_WITH
     | Opcode.SETUP_EXCEPT
     | Opcode.SETUP_FINALLY
     | Opcode.SETUP_LOOP
-    | Opcode.SETUP_WITH
-    | Opcode.SET_ADD
     | Opcode.STORE_ATTR
     | Opcode.STORE_DEREF
     | Opcode.STORE_FAST

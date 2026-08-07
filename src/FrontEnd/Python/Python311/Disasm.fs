@@ -100,8 +100,7 @@ let private operandNote (opcode: Opcode) (arg: int) =
     (* A bit field: CPython names every bit that is set, in
        ascending order, comma separated. *)
     [| "defaults"; "kwdefaults"; "annotations"; "closure" |]
-    |> Array.mapi (fun i n -> if (arg >>> i) &&& 1 = 1 then n
-                              else "")
+    |> Array.mapi (fun i n -> if (arg >>> i) &&& 1 = 1 then n else "")
     |> Array.filter (fun n -> n <> "")
     |> String.concat ", "
   | _ ->

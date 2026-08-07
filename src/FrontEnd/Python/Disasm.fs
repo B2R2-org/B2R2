@@ -169,10 +169,8 @@ let private pyStrRepr (lone: Set<int>) (s: string) =
     | '\r' -> sb.Append "\\r" |> ignore
     | '\t' -> sb.Append "\\t" |> ignore
     | c when c = quote -> sb.Append('\\').Append c |> ignore
-    | _ when not (isPrintable cat cp) ->
-      sb.Append(escapeCodePoint cp) |> ignore
-    | _ ->
-      sb.Append(s.Substring(i, if paired then 2 else 1)) |> ignore
+    | _ when not (isPrintable cat cp) -> sb.Append(escapeCodePoint cp) |> ignore
+    | _ -> sb.Append(s.Substring(i, if paired then 2 else 1)) |> ignore
     i <- i + (if paired then 2 else 1)
   sb.Append quote |> ignore
   sb.ToString()
@@ -211,7 +209,8 @@ let private exactDigits (f: double) =
 /// Rounds a digit string to `n` places, half away from zero. Also reports
 /// whether the carry ran off the front, which moves the point one place.
 let private roundTo (digits: string) n =
-  if digits[n] < '5' then digits.Substring(0, n), 0
+  if digits[n] < '5' then
+    digits.Substring(0, n), 0
   else
     let arr = digits.Substring(0, n).ToCharArray()
     let mutable i = n - 1
@@ -236,28 +235,45 @@ let private shortestDigits (f: double) =
   let inv = CultureInfo.InvariantCulture
   let all, decpt = exactDigits f
   let rec search n =
-    if n >= all.Length then all.TrimEnd '0', decpt
+    if n >= all.Length then
+      all.TrimEnd '0', decpt
     else
       let digits, shift = roundTo all n
       let s = "0." + digits + "E" + string (decpt + shift)
       if System.Double.Parse(s, NumberStyles.Float, inv) = abs f then
         digits.TrimEnd '0', decpt + shift
-      else search (n + 1)
+      else
+        search (n + 1)
   search 1
 
 /// The float spelling repr uses inside a complex, which unlike a bare float
 /// does not gain a trailing `.0` -- `complex(3, 0)` reads `(3+0j)`. Turns to
 /// the exponent by where the point falls rather than by magnitude, which is
 /// the rule CPython applies and not the one .NET does.
-let private complexPart (f: double) =
-  if System.Double.IsNaN f then "nan"
-  elif System.Double.IsPositiveInfinity f then "inf"
-  elif System.Double.IsNegativeInfinity f then "-inf"
-  elif f = 0.0 then if System.Double.IsNegative f then "-0" else "0"
+///
+/// `legacy` picks 3.0's spelling. `sys.float_repr_style` reads `legacy` there
+/// and `short` from 3.1 on: before the shortest-representation work landed,
+/// repr was plain `%.17g`, so 3.0 writes `3.1415926535897931` where every
+/// later version writes `3.141592653589793`, and turns to the exponent one
+/// place later because `%g` does so at its own precision.
+let private complexPartWith legacy (f: double) =
+  if System.Double.IsNaN f then
+    "nan"
+  elif System.Double.IsPositiveInfinity f then
+    "inf"
+  elif System.Double.IsNegativeInfinity f then
+    "-inf"
+  elif f = 0.0 then
+    if System.Double.IsNegative f then "-0" else "0"
   else
     let sign = if System.Double.IsNegative f then "-" else ""
-    let digits, decpt = shortestDigits f
-    if decpt <= -4 || decpt > 16 then
+    let digits, decpt =
+      if legacy then
+        let all, decpt = exactDigits f
+        all.TrimEnd '0', decpt
+      else
+        shortestDigits f
+    if decpt <= -4 || decpt > (if legacy then 17 else 16) then
       let tail = digits.Substring 1
       let body =
         if tail = "" then digits else digits.Substring(0, 1) + "." + tail
@@ -271,8 +287,8 @@ let private complexPart (f: double) =
 
 /// And for a float on its own, where a whole number keeps the trailing `.0`
 /// that tells it from an int.
-let private pyFloatRepr (f: double) =
-  let s = complexPart f
+let private pyFloatReprWith legacy (f: double) =
+  let s = complexPartWith legacy f
   if s |> Seq.exists (fun c -> c = '.' || c = 'e' || c = 'n') then s
   else s + ".0"
 
@@ -280,14 +296,17 @@ let private pyFloatRepr (f: double) =
 /// parentheses, which is how CPython spells a pure imaginary (`2j`), and the
 /// sign between the parts comes from the imaginary part's own sign bit, so
 /// negative zero still reads as `-0j`.
-let private pyComplexRepr (real: double) (imag: double) =
+let private pyComplexReprWith legacy (real: double) (imag: double) =
+  let part = complexPartWith legacy
   if real = 0.0 && not (System.Double.IsNegative real) then
-    complexPart imag + "j"
+    part imag + "j"
   else
     let sign = if System.Double.IsNegative imag then "-" else "+"
-    "(" + complexPart real + sign + complexPart (abs imag) + "j)"
+    "(" + part real + sign + part (abs imag) + "j)"
 
-let rec reprPyObj obj =
+/// `legacy` travels the whole walk rather than stopping at a leaf, because a
+/// float can sit inside the tuple a single LOAD_CONST names.
+let rec reprPyObjWith legacy obj =
   match obj with
   | PyAscii s | PyShortAscii s | PyShortAsciiInterned s ->
     pyStrRepr Set.empty s
@@ -296,27 +315,33 @@ let rec reprPyObj obj =
   | PyString bs ->
     pyBytesRepr bs
   | PyBinaryFloat f ->
-    pyFloatRepr f
+    pyFloatReprWith legacy f
   | PyBinaryComplex(real, imag) ->
-    pyComplexRepr real imag
+    pyComplexReprWith legacy real imag
   (* `...` is how the ellipsis is written in source; repr names the object. *)
   | PyEllipsis ->
     "Ellipsis"
   | PyREF(_, o) ->
-    reprPyObj o
+    reprPyObjWith legacy o
   | PyTuple [||] ->
     "()"
   | PyTuple [| single |] ->
-    "(" + reprPyObj single + ",)"
+    "(" + reprPyObjWith legacy single + ",)"
   | PyTuple t ->
-    "(" + (t |> Array.map reprPyObj |> String.concat ", ") + ")"
+    "(" + (t |> Array.map (reprPyObjWith legacy) |> String.concat ", ") + ")"
   | PyFrozenSet [||] ->
     "frozenset()"
   | PyFrozenSet items ->
-    let items = items |> Array.map reprPyObj |> String.concat ", "
+    let items = items |> Array.map (reprPyObjWith legacy) |> String.concat ", "
     "frozenset({" + items + "})"
   | o ->
     toStringPyObj o
+
+/// What every version from 3.1 on prints.
+let reprPyObj obj = reprPyObjWith false obj
+
+/// What 3.0 prints, whose repr predates the shortest-float work.
+let reprPyObjLegacyFloat obj = reprPyObjWith true obj
 
 let buildOprs (ins: Instruction) (builder: IDisasmBuilder) =
   match ins.Operands with
