@@ -111,6 +111,7 @@
     <Compile Include="Mach\ExceptionData.fs" />
     <Compile Include="Python\Types.fs" />
     <Compile Include="Python\Helper.fs" />
+    <Compile Include="Python\Builder.fs" />
     <Compile Include="PE\PETypes.fs" />
     <Compile Include="PE\PEUtils.fs" />
     <Compile Include="PE\BaseRelocationBlock.fs" />

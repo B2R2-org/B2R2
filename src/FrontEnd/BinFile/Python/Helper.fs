@@ -53,6 +53,15 @@ let isPythonBytecode (bytes: byte[]) (reader: IBinReader) =
   else
     false
 
+/// The magic number a version's files start with. The reverse of
+/// getVersionFromMagicNumber, for anything that writes a .pyc rather than
+/// reads one; the case names carry the version, so there is no second table
+/// here to fall out of step with the first.
+let magicNumberOf (version: PythonVersion) =
+  match System.Enum.TryParse<PyMagic>("PyMagic" + string (int version)) with
+  | true, m -> Some(LanguagePrimitives.EnumToValue m)
+  | _ -> None
+
 let private readFlagAndMarshalledType (bytes: byte[])
                                       (reader: IBinReader)
                                       offset =
@@ -159,7 +168,12 @@ let private decodeMarshalledUtf8 (bs: byte[]) =
 /// constant: reading a pre-3.7 file at 16 lands four bytes inside the code
 /// object, and marshal then reports bad data rather than a bad offset.
 let headerSize (version: PythonVersion) =
-  if int version >= 307 then 16 elif int version >= 303 then 12 else 8
+  if int version >= 307 then
+    16
+  elif int version >= 303 then
+    12
+  else
+    8
 
 let private isLegacyCodeObjectVersion = function
   | PythonVersion.Python300
