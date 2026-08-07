@@ -27,6 +27,7 @@ module internal B2R2.FrontEnd.Python.Python307.Parsing
 
 open System
 open B2R2.FrontEnd.BinFile
+open B2R2.FrontEnd.BinFile.Python
 open B2R2.FrontEnd.BinLifter
 open B2R2.FrontEnd.Python
 
@@ -57,53 +58,20 @@ let private getTable (binFile: PythonBinFile) = function
   | Opcode.LOAD_CLASSDEREF -> binFile.FreeVars
   | _ -> [||]
 
-(* Every 3.7 instruction is a fixed 2 bytes (opcode + one oparg byte): 3.6
-   introduced this wordcode encoding, and the inline CACHE padding that makes
-   some 3.11+ instructions longer is still years away. *)
-let private parseOperand opcode
-                         (span: ReadOnlySpan<byte>)
-                         (reader: IBinReader)
-                         binFile
-                         addr
-                         extArg =
-  let tbl = getTable binFile opcode
-  let idx = (reader.ReadUInt8(span, 1) |> int) ||| extArg
-  let cons =
-    tbl |> Array.tryFind (fun (ar, _) -> ar.Min <= addr && ar.Max >= addr)
-  let opr =
-    match cons with
-    | Some(_, c) ->
-      if idx >= c.Length then failwith "Invalid instruction operand"
-      else OneOperand(idx, Some c[idx])
-    (* This can happen when performing linear sweep on a non-code region,
-       or the opcode's arg is just a plain integer (e.g. UNPACK_SEQUENCE,
-       COMPARE_OP), which getTable already reports via an empty table. *)
-    | None ->
-      OneOperand(idx, None)
-  opr
+/// What an argument names, once the table it indexes is in hand.
+let private resolveOperand (_: Opcode) (c: PyObject[]) idx =
+  if idx >= c.Length then failwith "Invalid instruction operand"
+  else OneOperand(idx, Some c[idx])
 
-(* The byte IS the opcode: each version's Opcode enum carries CPython's own
-   numbering, so decoding is a cast. *)
-let rec private doParse semantics
-                        (span: ReadOnlySpan<byte>)
-                        (reader: IBinReader)
-                        bf
-                        s
-                        c
-                        e =
-  let b = reader.ReadUInt8(span, 0) |> int
-  let a = reader.ReadUInt8(span, 1) |> int
-  if b = int Opcode.EXTENDED_ARG then
-    doParse semantics (span.Slice 2) reader bf s (c + 2UL) ((e ||| a) <<< 8)
-  else
-    let opcode: Opcode = LanguagePrimitives.EnumOfValue b
-    if not (Enum.IsDefined opcode) then raise ParsingFailureException else ()
-    let opr =
-      if Opcode.hasOperand opcode then parseOperand opcode span reader bf c e
-      else NoOperand
-    let total = uint32 (c - s) + Opcode.length opcode
-    Instruction(s, total, b, opr, OperationSize.regType, bf.Version, bf,
-                semantics)
+/// What this version says about decoding; the loop itself is shared.
+let spec =
+  { Table = fun bf op -> getTable bf (enum<Opcode> op)
+    Resolve = fun op entries idx -> resolveOperand (enum<Opcode> op) entries idx
+    HasOperand = fun op -> Opcode.hasOperand (enum<Opcode> op)
+    Length = fun op -> Opcode.length (enum<Opcode> op)
+    IsDefined = fun op -> Enum.IsDefined(enum<Opcode> op)
+    ExtendedArg = int Opcode.EXTENDED_ARG
+    IsWordcode = true }
 
 let parse semantics (span: ByteSpan) (reader: IBinReader) binFile addr =
-  doParse semantics span reader binFile addr addr 0
+  ParsingHelpers.parse spec semantics span reader binFile addr

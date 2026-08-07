@@ -11,6 +11,7 @@
     <Compile Include="Operands.fs" />
     <Compile Include="Instruction.fs" />
     <Compile Include="Disasm.fs" />
+    <Compile Include="ParsingHelpers.fs" />
     <Compile Include="LifterHelpers.fs" />
     <!-- One directory per Python version. Everything that depends on a
          version's own opcode numbering lives in exactly one of them, so two
