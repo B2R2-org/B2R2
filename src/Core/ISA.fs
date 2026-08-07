@@ -296,6 +296,18 @@ type ISA(arch, endian, wordSize, flags) =
       ISA CILKind.CILx86
     | "cil-x64" ->
       ISA CILKind.CILx64
+    | "python3.0" ->
+      ISA PythonVersion.Python300
+    | "python3.1" ->
+      ISA PythonVersion.Python301
+    | "python3.2" ->
+      ISA PythonVersion.Python302
+    | "python3.3" ->
+      ISA PythonVersion.Python303
+    | "python3.4" ->
+      ISA PythonVersion.Python304
+    | "python3.5" ->
+      ISA PythonVersion.Python305
     | "python3.6" ->
       ISA PythonVersion.Python306
     | "python3.7" ->
