@@ -296,6 +296,11 @@ type ISA(arch, endian, wordSize, flags) =
       ISA CILKind.CILx86
     | "cil-x64" ->
       ISA CILKind.CILx64
+    (* The bare name takes the default version, the way "m68k" takes a default
+       model, so that an input whose version is not the point does not have to
+       name one. *)
+    | "python" ->
+      ISA Architecture.Python
     | "python3.0" ->
       ISA PythonVersion.Python300
     | "python3.1" ->
@@ -478,6 +483,14 @@ type ISA(arch, endian, wordSize, flags) =
     | Architecture.EVM, _, _ -> "evm"
     | Architecture.Python, _, _ ->
       match LanguagePrimitives.EnumOfValue flags with
+      | PythonVersion.Python300 -> "python3.0"
+      | PythonVersion.Python301 -> "python3.1"
+      | PythonVersion.Python302 -> "python3.2"
+      | PythonVersion.Python303 -> "python3.3"
+      | PythonVersion.Python304 -> "python3.4"
+      | PythonVersion.Python305 -> "python3.5"
+      | PythonVersion.Python306 -> "python3.6"
+      | PythonVersion.Python307 -> "python3.7"
       | PythonVersion.Python308 -> "python3.8"
       | PythonVersion.Python309 -> "python3.9"
       | PythonVersion.Python310 -> "python3.10"

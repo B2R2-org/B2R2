@@ -87,16 +87,21 @@ type CodeObject =
 /// everything a single wordcode instruction can name without EXTENDED_ARG.
 let tableWidth = 256
 
-/// A code object holding the given bytecode, with tables wide enough that any
-/// single-byte argument resolves to something.
-let codeOf code =
+/// A code object holding the given bytecode, with tables of the given width.
+/// Wider costs a bigger file for every table entry, so ask for what an
+/// argument will actually reach and no more.
+let codeWith width code =
   { Code = code
-    Consts = Array.replicate tableWidth (tagged MarshalledType.TYPE_NONE [||])
-    Names = Array.init tableWidth (sprintf "n%d")
-    Varnames = Array.init tableWidth (sprintf "v%d")
+    Consts = Array.replicate width (tagged MarshalledType.TYPE_NONE [||])
+    Names = Array.init width (sprintf "n%d")
+    Varnames = Array.init width (sprintf "v%d")
     Name = "<module>"
     FileName = "<synthetic>"
     FirstLineNo = 1 }
+
+/// A code object holding the given bytecode, with tables wide enough that any
+/// single-byte argument resolves to something.
+let codeOf code = codeWith tableWidth code
 
 let private constTuple (consts: byte[][]) =
   consts

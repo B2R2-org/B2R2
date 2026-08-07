@@ -100,6 +100,8 @@ module ArchSupport =
       PARISC.PARISCParser(isa, reader) :> IInstructionParsable
     | M68K ->
       M68K.M68KParser(isa, reader) :> IInstructionParsable
+    | Python ->
+      Python.PythonRawParser(isa, reader) :> IInstructionParsable
     | _ ->
       Terminator.futureFeature ()
 
