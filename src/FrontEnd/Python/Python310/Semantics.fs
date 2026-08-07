@@ -78,11 +78,9 @@ let isExit (ins: Instruction) =
   | _ -> false
 
 (* namei's low bit is a push-NULL / is-method flag from 3.11 on. *)
-let hasFlag (ins: Instruction) =
-  false
+let hasFlag (ins: Instruction) = false
 
-let superHasExplicitArgs (ins: Instruction) =
-  false
+let superHasExplicitArgs (ins: Instruction) = false
 
 (* Jump opcodes encode their target as a WORD offset (oparg * 2). *)
 let branchTarget (ins: Instruction) (ftAddr: Addr) (n: int) =

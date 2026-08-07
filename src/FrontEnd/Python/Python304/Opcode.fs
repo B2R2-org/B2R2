@@ -22,10 +22,10 @@
   SOFTWARE.
 *)
 
-namespace B2R2.FrontEnd.Python.Python305
+namespace B2R2.FrontEnd.Python.Python304
 
 /// <summary>
-/// Represents a Python 3.5 opcode. Values are CPython 3.5's own
+/// Represents a Python 3.4 opcode. Values are CPython 3.4's own
 /// opcode numbers, so a byte decodes to a case by a plain cast and
 /// this table is checkable directly against CPython's opcode module.
 /// </summary>
@@ -40,8 +40,6 @@ type Opcode =
   | UNARY_NEGATIVE = 0xB
   | UNARY_NOT = 0xC
   | UNARY_INVERT = 0xF
-  | BINARY_MATRIX_MULTIPLY = 0x10
-  | INPLACE_MATRIX_MULTIPLY = 0x11
   | BINARY_POWER = 0x13
   | BINARY_MULTIPLY = 0x14
   | BINARY_MODULO = 0x16
@@ -52,9 +50,7 @@ type Opcode =
   | BINARY_TRUE_DIVIDE = 0x1B
   | INPLACE_FLOOR_DIVIDE = 0x1C
   | INPLACE_TRUE_DIVIDE = 0x1D
-  | GET_AITER = 0x32
-  | GET_ANEXT = 0x33
-  | BEFORE_ASYNC_WITH = 0x34
+  | STORE_MAP = 0x36
   | INPLACE_ADD = 0x37
   | INPLACE_SUBTRACT = 0x38
   | INPLACE_MULTIPLY = 0x39
@@ -68,19 +64,16 @@ type Opcode =
   | BINARY_OR = 0x42
   | INPLACE_POWER = 0x43
   | GET_ITER = 0x44
-  | GET_YIELD_FROM_ITER = 0x45
   | PRINT_EXPR = 0x46
   | LOAD_BUILD_CLASS = 0x47
   | YIELD_FROM = 0x48
-  | GET_AWAITABLE = 0x49
   | INPLACE_LSHIFT = 0x4B
   | INPLACE_RSHIFT = 0x4C
   | INPLACE_AND = 0x4D
   | INPLACE_XOR = 0x4E
   | INPLACE_OR = 0x4F
   | BREAK_LOOP = 0x50
-  | WITH_CLEANUP_START = 0x51
-  | WITH_CLEANUP_FINISH = 0x52
+  | WITH_CLEANUP = 0x51
   | RETURN_VALUE = 0x53
   | IMPORT_STAR = 0x54
   | YIELD_VALUE = 0x56
@@ -138,15 +131,9 @@ type Opcode =
   | SET_ADD = 0x92
   | MAP_ADD = 0x93
   | LOAD_CLASSDEREF = 0x94
-  | BUILD_LIST_UNPACK = 0x95
-  | BUILD_MAP_UNPACK = 0x96
-  | BUILD_MAP_UNPACK_WITH_CALL = 0x97
-  | BUILD_TUPLE_UNPACK = 0x98
-  | BUILD_SET_UNPACK = 0x99
-  | SETUP_ASYNC_WITH = 0x9A
 
 /// Provides per-opcode facts that come straight from CPython's own
-/// tables for 3.5.
+/// tables for 3.4.
 module Opcode =
   /// Encoded size in bytes. This version predates wordcode: an
   /// opcode stands alone unless it takes an argument, in which case
@@ -157,15 +144,10 @@ module Opcode =
   /// Whether the opcode takes an operand.
   let hasOperand = function
     | Opcode.BUILD_LIST
-    | Opcode.BUILD_LIST_UNPACK
     | Opcode.BUILD_MAP
-    | Opcode.BUILD_MAP_UNPACK
-    | Opcode.BUILD_MAP_UNPACK_WITH_CALL
     | Opcode.BUILD_SET
-    | Opcode.BUILD_SET_UNPACK
     | Opcode.BUILD_SLICE
     | Opcode.BUILD_TUPLE
-    | Opcode.BUILD_TUPLE_UNPACK
     | Opcode.CALL_FUNCTION
     | Opcode.CALL_FUNCTION_KW
     | Opcode.CALL_FUNCTION_VAR
@@ -200,7 +182,6 @@ module Opcode =
     | Opcode.POP_JUMP_IF_FALSE
     | Opcode.POP_JUMP_IF_TRUE
     | Opcode.RAISE_VARARGS
-    | Opcode.SETUP_ASYNC_WITH
     | Opcode.SETUP_EXCEPT
     | Opcode.SETUP_FINALLY
     | Opcode.SETUP_LOOP

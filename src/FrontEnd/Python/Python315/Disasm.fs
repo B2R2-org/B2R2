@@ -132,12 +132,9 @@ let private operandNote (opcode: Opcode) (arg: int) =
     (* 3.13 moved the comparison into the high bits and
        added a bit forcing the result to bool. *)
     let name = at cmpOps ((arg >>> 5) &&& 0xF)
-    if name = "" then
-      ""
-    elif (arg &&& 0x10) <> 0 then
-      "bool(" + name + ")"
-    else
-      name
+    if name = "" then ""
+    elif (arg &&& 0x10) <> 0 then "bool(" + name + ")"
+    else name
   | Opcode.IS_OP ->
     if arg = 0 then "is" else "is not"
   | Opcode.CONTAINS_OP ->
@@ -161,8 +158,7 @@ let private operandNote (opcode: Opcode) (arg: int) =
        ascending order, comma separated. *)
     (* Bit 2 (annotations) was retired in 3.14; bit 4 is `annotate`. *)
     [| "defaults"; "kwdefaults"; ""; "closure"; "annotate" |]
-    |> Array.mapi (fun i n -> if (arg >>> i) &&& 1 = 1 then n
-                              else "")
+    |> Array.mapi (fun i n -> if (arg >>> i) &&& 1 = 1 then n else "")
     |> Array.filter (fun n -> n <> "")
     |> String.concat ", "
   | _ ->
@@ -179,15 +175,18 @@ let private isConstOperand (opcode: Opcode) =
 /// index: a bare pushed NULL for a global, the NULL|self pair a method
 /// lookup leaves on the stack. Empty when the opcode carries no flag.
 let private flagWord (ins: Instruction) (opcode: Opcode) =
-  if not ins.Flag then ""
-  elif opcode = Opcode.LOAD_GLOBAL then "NULL"
+  if not ins.Flag then
+    ""
+  elif opcode = Opcode.LOAD_GLOBAL then
+    "NULL"
   (* IMPORT_NAME spends its two low bits on how eagerly the module is bound,
      and the lazy bit wins when both are set. *)
   elif opcode = Opcode.IMPORT_NAME then
     match ins.Operands with
     | OneOperand(arg, _) when (arg &&& 1) = 1 -> "lazy"
     | _ -> "eager"
-  else "NULL|self"
+  else
+    "NULL|self"
 
 /// Spells the operand the way dis does, or None to leave the raw
 /// argument to speak for itself.

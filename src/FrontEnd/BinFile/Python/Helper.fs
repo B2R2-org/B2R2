@@ -29,6 +29,11 @@ open B2R2
 open B2R2.FrontEnd.BinLifter
 
 type private PyMagic =
+  | PyMagic300 = 0x0A0D0C3Bu (* 3.0: 3131 *)
+  | PyMagic301 = 0x0A0D0C4Fu (* 3.1: 3151 *)
+  | PyMagic302 = 0x0A0D0C6Cu (* 3.2: 3180 *)
+  | PyMagic303 = 0x0A0D0C9Eu (* 3.3: 3230 *)
+  | PyMagic304 = 0x0A0D0CEEu (* 3.4: 3310 *)
   | PyMagic305 = 0x0A0D0D17u (* 3.5: 3351 *)
   | PyMagic306 = 0x0A0D0D33u (* 3.6: 3379 *)
   | PyMagic307 = 0x0A0D0D42u (* 3.7: 3394 *)
@@ -48,7 +53,8 @@ let isPythonBytecode (bytes: byte[]) (reader: IBinReader) =
   else
     false
 
-let private readFlagAndMarshalledType (bytes: byte[]) (reader: IBinReader)
+let private readFlagAndMarshalledType (bytes: byte[])
+                                      (reader: IBinReader)
                                       offset =
   let b = reader.ReadUInt8(bytes, offset) |> int
   let flag = b &&& 0x80
@@ -101,8 +107,7 @@ let private readFloat (bytes: byte[]) (reader: IBinReader) offset size =
     failwithf "Invalid size %d" size
 
 let private appendRefs flag refs obj =
-  if flag <> 0 then Array.append refs [| obj |]
-  else refs
+  if flag <> 0 then Array.append refs [| obj |] else refs
 
 /// Decodes marshal's UTF-8. CPython writes str with the `surrogatepass`
 /// error handler, so a lone surrogate -- legal in a Python str, and present
@@ -154,11 +159,14 @@ let private decodeMarshalledUtf8 (bs: byte[]) =
 /// constant: reading a pre-3.7 file at 16 lands four bytes inside the code
 /// object, and marshal then reports bad data rather than a bad offset.
 let headerSize (version: PythonVersion) =
-  if int version >= 307 then 16
-  elif int version >= 303 then 12
-  else 8
+  if int version >= 307 then 16 elif int version >= 303 then 12 else 8
 
 let private isLegacyCodeObjectVersion = function
+  | PythonVersion.Python300
+  | PythonVersion.Python301
+  | PythonVersion.Python302
+  | PythonVersion.Python303
+  | PythonVersion.Python304
   | PythonVersion.Python305
   | PythonVersion.Python306
   | PythonVersion.Python307
@@ -187,7 +195,9 @@ let private unwrapRef = function
    (without consuming) lets the two shapes resolve to the correct address
    either way, instead of pointing 5 bytes into an unrelated TYPE_REF's own
    encoding when the backreference case hits. *)
-let private peekCodeOffset (bytes: byte[]) (reader: IBinReader) offset
+let private peekCodeOffset (bytes: byte[])
+                           (reader: IBinReader)
+                           offset
                            (refPositions: Dictionary<int, uint64>) =
   let b = reader.ReadUInt8(bytes, offset) |> int
   let typ: MarshalledType = (b &&& (~~~0x80)) |> LanguagePrimitives.EnumOfValue
@@ -197,7 +207,11 @@ let private peekCodeOffset (bytes: byte[]) (reader: IBinReader) offset
   else
     offset + 5 |> uint64
 
-let rec parse version (bytes: byte[]) (reader: IBinReader) refs offset
+let rec parse version
+              (bytes: byte[])
+              (reader: IBinReader)
+              refs
+              offset
               (refPositions: Dictionary<int, uint64>) =
   let parseNext refs offset =
     parse version bytes reader refs offset refPositions
@@ -369,8 +383,10 @@ let rec parse version (bytes: byte[]) (reader: IBinReader) refs offset
     let obj = PySlice(start, stop, step)
     if flag <> 0 then refs[refIdx] <- obj else ()
     obj, refs, offset
-  | MarshalledType.TYPE_NONE -> PyNone, refs, offset
-  | MarshalledType.TYPE_ELLIPSIS -> PyEllipsis, refs, offset
+  | MarshalledType.TYPE_NONE ->
+    PyNone, refs, offset
+  | MarshalledType.TYPE_ELLIPSIS ->
+    PyEllipsis, refs, offset
   | MarshalledType.TYPE_SMALL_TUPLE ->
     let size, offset = readInt bytes reader offset 1
     if size = 0 then
@@ -400,7 +416,8 @@ let rec parse version (bytes: byte[]) (reader: IBinReader) refs offset
       let refIdx = Array.length refs
       let refs = appendRefs flag refs PyNone
       let rec loop acc refs offset =
-        if List.length acc = size then acc, refs, offset
+        if List.length acc = size then
+          acc, refs, offset
         else
           let contents, refs, offset = parseNext refs offset
           loop (contents :: acc) refs offset
@@ -419,7 +436,8 @@ let rec parse version (bytes: byte[]) (reader: IBinReader) refs offset
       let refIdx = Array.length refs
       let refs = appendRefs flag refs PyNone
       let rec loop acc refs offset =
-        if List.length acc = size then acc, refs, offset
+        if List.length acc = size then
+          acc, refs, offset
         else
           let contents, refs, offset = parseNext refs offset
           loop (contents :: acc) refs offset
@@ -454,9 +472,12 @@ let rec parse version (bytes: byte[]) (reader: IBinReader) refs offset
   | MarshalledType.TYPE_REF ->
     let n, offset = readInt bytes reader offset 4
     refs[n], refs, offset
-  | MarshalledType.TYPE_TRUE -> PyTrue, appendRefs flag refs PyTrue, offset
-  | MarshalledType.TYPE_FALSE -> PyFalse, appendRefs flag refs PyFalse, offset
-  | _ -> printf "%A " pyType; failwith "Invalid parse"
+  | MarshalledType.TYPE_TRUE ->
+    PyTrue, appendRefs flag refs PyTrue, offset
+  | MarshalledType.TYPE_FALSE ->
+    PyFalse, appendRefs flag refs PyFalse, offset
+  | _ ->
+    printf "%A " pyType; failwith "Invalid parse"
 
 let private getCodeLen = function
   | PyString bytes -> Array.length bytes |> uint64
@@ -552,7 +573,8 @@ let extractConsts pyObj =
       | PyREF(_, PyTuple t) ->
         let t' = Array.map unwrapRef t
         Array.fold collect ((addrRange, t') :: acc) t'
-      | c -> collect acc c
+      | c ->
+        collect acc c
     | _ ->
       acc
   collect [] pyObj |> List.toArray
@@ -573,7 +595,8 @@ let extractVarNames pyObj =
       | PyTuple t -> Array.fold collect acc t
       | PyREF _ as ref -> (addrRange, [| ref |]) :: acc
       | o -> failwithf "Invalid PyCodeObject(%A)" o
-    | _ -> acc
+    | _ ->
+      acc
   collect [] pyObj |> List.toArray
 
 /// Pre-3.11 code objects only -- see FreeVars' own doc comment on
@@ -622,6 +645,11 @@ let extractNames pyObj =
 let getVersionFromMagicNumber (magic: uint32) =
   if System.Enum.IsDefined(typeof<PyMagic>, magic) then
       match LanguagePrimitives.EnumOfValue magic with
+      | PyMagic.PyMagic300 -> PythonVersion.Python300
+      | PyMagic.PyMagic301 -> PythonVersion.Python301
+      | PyMagic.PyMagic302 -> PythonVersion.Python302
+      | PyMagic.PyMagic303 -> PythonVersion.Python303
+      | PyMagic.PyMagic304 -> PythonVersion.Python304
       | PyMagic.PyMagic305 -> PythonVersion.Python305
       | PyMagic.PyMagic306 -> PythonVersion.Python306
       | PyMagic.PyMagic307 -> PythonVersion.Python307

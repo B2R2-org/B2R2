@@ -57,7 +57,8 @@ type PythonBinFile(path, inputBytes: byte[], baseAddrOpt) =
     | Python.PyCode co ->
       let bytes, co = deduplicateCodeOffsets inputBytes co
       bytes, Python.PyCode co
-    | other -> inputBytes, other
+    | other ->
+      inputBytes, other
 
   (* Deliberately the post-dedup buffer, not `inputBytes`: dedup extends
      the buffer, and that extension is the file's own address space from
@@ -164,8 +165,7 @@ type PythonBinFile(path, inputBytes: byte[], baseAddrOpt) =
     member this.IsRangeMappedToFile range =
       (this :> IAddressSpace).IsValidRange range
 
-    member this.IsExecutableAddr addr =
-      (this :> IAddressSpace).IsValidAddr addr
+    member this.IsExecutableAddr addr = (this :> IAddressSpace).IsValidAddr addr
 
     member _.GetBoundedPointer(addr) =
       if addr < uint64 size then

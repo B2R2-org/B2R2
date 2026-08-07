@@ -22,8 +22,8 @@
   SOFTWARE.
 *)
 
-/// Implements parsing logic for Python 3.7.
-module internal B2R2.FrontEnd.Python.Python307.Parsing
+/// Implements parsing logic for Python 3.1.
+module internal B2R2.FrontEnd.Python.Python301.Parsing
 
 open System
 open B2R2.FrontEnd.BinFile
@@ -42,8 +42,7 @@ let private getTable (binFile: PythonBinFile) = function
   | Opcode.LOAD_ATTR
   | Opcode.IMPORT_NAME
   | Opcode.IMPORT_FROM
-  | Opcode.LOAD_GLOBAL
-  | Opcode.LOAD_METHOD -> binFile.Names
+  | Opcode.LOAD_GLOBAL -> binFile.Names
   | Opcode.LOAD_FAST
   | Opcode.STORE_FAST
   | Opcode.DELETE_FAST -> binFile.Varnames
@@ -52,14 +51,12 @@ let private getTable (binFile: PythonBinFile) = function
      from co_varnames -- see FreeVars' own doc comment on PyCodeObject. *)
   | Opcode.LOAD_CLOSURE
   | Opcode.LOAD_DEREF
-  | Opcode.STORE_DEREF
-  | Opcode.DELETE_DEREF
-  | Opcode.LOAD_CLASSDEREF -> binFile.FreeVars
+  | Opcode.STORE_DEREF -> binFile.FreeVars
   | _ -> [||]
 
-(* Every 3.7 instruction is a fixed 2 bytes (opcode + one oparg byte): 3.6
-   introduced this wordcode encoding, and the inline CACHE padding that makes
-   some 3.11+ instructions longer is still years away. *)
+(* 3.1 predates wordcode: the argument is a 16-bit little-endian value
+   following the opcode, not a single byte, so an instruction is 1 or 3 bytes
+   rather than a fixed 2. *)
 let private parseOperand opcode
                          (span: ReadOnlySpan<byte>)
                          (reader: IBinReader)
@@ -67,7 +64,7 @@ let private parseOperand opcode
                          addr
                          extArg =
   let tbl = getTable binFile opcode
-  let idx = (reader.ReadUInt8(span, 1) |> int) ||| extArg
+  let idx = (reader.ReadUInt16(span, 1) |> int) ||| extArg
   let cons =
     tbl |> Array.tryFind (fun (ar, _) -> ar.Min <= addr && ar.Max >= addr)
   let opr =
@@ -83,7 +80,9 @@ let private parseOperand opcode
   opr
 
 (* The byte IS the opcode: each version's Opcode enum carries CPython's own
-   numbering, so decoding is a cast. *)
+   numbering, so decoding is a cast. EXTENDED_ARG supplies the HIGH 16 bits
+   here, since the instruction's own argument already occupies the low 16 --
+   the 8-bit shift wordcode versions use would land it inside that field. *)
 let rec private doParse semantics
                         (span: ReadOnlySpan<byte>)
                         (reader: IBinReader)
@@ -92,9 +91,9 @@ let rec private doParse semantics
                         c
                         e =
   let b = reader.ReadUInt8(span, 0) |> int
-  let a = reader.ReadUInt8(span, 1) |> int
   if b = int Opcode.EXTENDED_ARG then
-    doParse semantics (span.Slice 2) reader bf s (c + 2UL) ((e ||| a) <<< 8)
+    let a = reader.ReadUInt16(span, 1) |> int
+    doParse semantics (span.Slice 3) reader bf s (c + 3UL) ((e ||| a) <<< 16)
   else
     let opcode: Opcode = LanguagePrimitives.EnumOfValue b
     if not (Enum.IsDefined opcode) then raise ParsingFailureException else ()

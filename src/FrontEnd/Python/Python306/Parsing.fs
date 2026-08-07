@@ -97,8 +97,7 @@ let rec private doParse semantics
     doParse semantics (span.Slice 2) reader bf s (c + 2UL) ((e ||| a) <<< 8)
   else
     let opcode: Opcode = LanguagePrimitives.EnumOfValue b
-    if not (Enum.IsDefined opcode) then raise ParsingFailureException
-    else ()
+    if not (Enum.IsDefined opcode) then raise ParsingFailureException else ()
     let opr =
       if Opcode.hasOperand opcode then parseOperand opcode span reader bf c e
       else NoOperand

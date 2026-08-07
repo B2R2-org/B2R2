@@ -107,12 +107,9 @@ let private operandNote (opcode: Opcode) (arg: int) =
     (* 3.13 moved the comparison into the high bits and
        added a bit forcing the result to bool. *)
     let name = at cmpOps ((arg >>> 5) &&& 0xF)
-    if name = "" then
-      ""
-    elif (arg &&& 0x10) <> 0 then
-      "bool(" + name + ")"
-    else
-      name
+    if name = "" then ""
+    elif (arg &&& 0x10) <> 0 then "bool(" + name + ")"
+    else name
   | Opcode.IS_OP ->
     if arg = 0 then "is" else "is not"
   | Opcode.CONTAINS_OP ->
@@ -131,8 +128,7 @@ let private operandNote (opcode: Opcode) (arg: int) =
     (* A bit field: CPython names every bit that is set, in
        ascending order, comma separated. *)
     [| "defaults"; "kwdefaults"; "annotations"; "closure" |]
-    |> Array.mapi (fun i n -> if (arg >>> i) &&& 1 = 1 then n
-                              else "")
+    |> Array.mapi (fun i n -> if (arg >>> i) &&& 1 = 1 then n else "")
     |> Array.filter (fun n -> n <> "")
     |> String.concat ", "
   | _ ->

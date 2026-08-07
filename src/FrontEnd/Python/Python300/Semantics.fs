@@ -22,7 +22,7 @@
   SOFTWARE.
 *)
 
-module internal B2R2.FrontEnd.Python.Python306.Semantics
+module internal B2R2.FrontEnd.Python.Python300.Semantics
 
 open B2R2
 open B2R2.FrontEnd.Python
@@ -34,34 +34,25 @@ let isBranch (ins: Instruction) =
   match opcodeOf ins with
   | Opcode.JUMP_FORWARD
   | Opcode.JUMP_ABSOLUTE
-  | Opcode.POP_JUMP_IF_TRUE
-  | Opcode.POP_JUMP_IF_FALSE
   | Opcode.FOR_ITER
-  | Opcode.JUMP_IF_TRUE_OR_POP
-  | Opcode.JUMP_IF_FALSE_OR_POP
   | Opcode.CONTINUE_LOOP -> true
   | _ -> false
 
 let isCondBranch (ins: Instruction) =
   match opcodeOf ins with
-  | Opcode.POP_JUMP_IF_FALSE
-  | Opcode.POP_JUMP_IF_TRUE
-  | Opcode.FOR_ITER
-  | Opcode.JUMP_IF_TRUE_OR_POP
-  | Opcode.JUMP_IF_FALSE_OR_POP -> true
+  | Opcode.FOR_ITER -> true
   | _ -> false
 
 let isCJmpOnTrue (ins: Instruction) =
   match opcodeOf ins with
-  | Opcode.POP_JUMP_IF_TRUE
-  | Opcode.JUMP_IF_TRUE_OR_POP -> true
   | _ -> false
 
 let isCall (ins: Instruction) =
   match opcodeOf ins with
   | Opcode.CALL_FUNCTION
   | Opcode.CALL_FUNCTION_KW
-  | Opcode.CALL_FUNCTION_EX -> true
+  | Opcode.CALL_FUNCTION_VAR
+  | Opcode.CALL_FUNCTION_VAR_KW -> true
   | _ -> false
 
 let isRET (ins: Instruction) =
@@ -98,9 +89,5 @@ let branchTarget (ins: Instruction) (ftAddr: Addr) (n: int) =
   | Opcode.JUMP_FORWARD
   | Opcode.FOR_ITER -> ftAddr + n
   | Opcode.JUMP_ABSOLUTE
-  | Opcode.POP_JUMP_IF_TRUE
-  | Opcode.POP_JUMP_IF_FALSE
-  | Opcode.JUMP_IF_TRUE_OR_POP
-  | Opcode.JUMP_IF_FALSE_OR_POP
   | Opcode.CONTINUE_LOOP -> codeObjectBase ins.Address + n
   | op -> failwithf "Invalid opcode for branch target: %A" op

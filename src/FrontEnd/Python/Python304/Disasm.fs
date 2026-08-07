@@ -22,33 +22,26 @@
   SOFTWARE.
 *)
 
-module internal B2R2.FrontEnd.Python.Python309.Disasm
+module internal B2R2.FrontEnd.Python.Python304.Disasm
 
 open B2R2.FrontEnd.BinLifter
 open B2R2.FrontEnd.Python
 
 (* dis names the comparison rather than showing its index, and this
-   table is CPython 3.9's own cmp_op. *)
-let private cmpOp = [| "<"; "<="; "=="; "!="; ">"; ">=" |]
-
-(* The low two bits pick the conversion, bit 2 says a format spec
-   follows, and dis joins the two with a comma only when the
-   conversion is not the empty default. *)
-let private formatValueConv = [| ""; "str"; "repr"; "ascii" |]
-
-let private formatValueFlags arg =
-  let conv = formatValueConv[arg &&& 0x3]
-  if arg &&& 0x4 = 0 then conv
-  elif conv = "" then "with format"
-  else conv + ", with format"
-
-(* One name per set bit, in bit order. *)
-let private makeFunctionFlags arg =
-  [| "defaults"; "kwdefaults"; "annotations"; "closure" |]
-  |> Array.indexed
-  |> Array.filter (fun (i, _) -> arg &&& (1 <<< i) <> 0)
-  |> Array.map snd
-  |> String.concat ", "
+   table is CPython 3.4's own cmp_op. *)
+let private cmpOp =
+  [| "<"
+     "<="
+     "=="
+     "!="
+     ">"
+     ">="
+     "in"
+     "not in"
+     "is"
+     "is not"
+     "exception match"
+     "BAD" |]
 
 /// Spells the operand the way dis does, or None to leave the raw
 /// argument to speak for itself.
@@ -62,10 +55,15 @@ let private buildOperand (ins: Instruction) (opcode: Opcode) =
       resolved |> Option.map Disasm.reprPyObj
     | Opcode.COMPARE_OP ->
       if arg < cmpOp.Length then Some cmpOp[arg] else None
-    | Opcode.FORMAT_VALUE ->
-      Some(formatValueFlags arg)
-    | Opcode.MAKE_FUNCTION ->
-      Some(makeFunctionFlags arg)
+    (* 3.4 spells a call's argument as the two counts packed
+       into it: the low byte is positional, the high byte keyword
+       pairs. 3.6 split these into separate opcodes. *)
+    | Opcode.CALL_FUNCTION
+    | Opcode.CALL_FUNCTION_VAR
+    | Opcode.CALL_FUNCTION_KW
+    | Opcode.CALL_FUNCTION_VAR_KW ->
+      Some(sprintf "%d positional, %d keyword pair"
+                   (arg % 256) (arg / 256))
     | _ ->
       (* A name, local or free variable reads as it stands. *)
       resolved |> Option.map Disasm.toStringPyObj

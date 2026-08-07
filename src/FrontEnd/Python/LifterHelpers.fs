@@ -91,8 +91,7 @@ let effInstr eff (ins: Instruction) bld =
   bld <+ AST.extCall eff
   bld --!> ins.Length
 
-let namedEffect name ins bld =
-  effInstr (AST.app name [] rt) ins bld
+let namedEffect name ins bld = effInstr (AST.app name [] rt) ins bld
 
 let namedEffectWithArgs name args ins bld =
   effInstr (AST.app name args rt) ins bld
@@ -231,7 +230,8 @@ let translateLoadGlobal minor (ins: Instruction) bld =
   if ins.Flag then
     let e = AST.undef rt "NULL"
     pushToStack bld e
-  else ()
+  else
+    ()
   pushToStack bld v
   bld --!> ins.Length
 
@@ -308,8 +308,7 @@ let loadBuildClass (ins: Instruction) bld =
 /// Deriving it from the instruction keeps the arithmetic below shared: a
 /// version supplies its number by being that version, not by passing a
 /// scale down through every helper.
-let jumpArgScale (ins: Instruction) =
-  if int ins.Version >= 310 then 2 else 1
+let jumpArgScale (ins: Instruction) = if int ins.Version >= 310 then 2 else 1
 
 let jumpByOffset (ins: Instruction) bld isForward =
   bld <!-- (ins.Address, ins.Length)
@@ -930,10 +929,8 @@ let callFunctionEx minor (ins: Instruction) bld =
     if flags &&& 0x01 <> 0 then popFromStack bld else AST.undef rt "NULL"
   let args = popFromStack bld
   let func = popFromStack bld
-  let maybeSelf =
-    if minor >= 11 then popFromStack bld else AST.undef rt "NULL"
-  let result =
-    AST.app "CALL_FUNCTION_EX" [ maybeSelf; func; args; kwargs ] rt
+  let maybeSelf = if minor >= 11 then popFromStack bld else AST.undef rt "NULL"
+  let result = AST.app "CALL_FUNCTION_EX" [ maybeSelf; func; args; kwargs ] rt
   pushToStack bld result
   bld --!> ins.Length
 
@@ -1029,8 +1026,7 @@ let containsOp (ins: Instruction) bld =
   let invert = getIntArg ins
   let container = popFromStack bld
   let item = popFromStack bld
-  let fname =
-    if invert = 0 then "CONTAINS_OP" else "NOT_CONTAINS_OP"
+  let fname = if invert = 0 then "CONTAINS_OP" else "NOT_CONTAINS_OP"
   let result = AST.app fname [ container; item ] rt
   pushToStack bld result
   bld --!> ins.Length

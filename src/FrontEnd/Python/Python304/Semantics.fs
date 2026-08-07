@@ -22,7 +22,7 @@
   SOFTWARE.
 *)
 
-module internal B2R2.FrontEnd.Python.Python306.Semantics
+module internal B2R2.FrontEnd.Python.Python304.Semantics
 
 open B2R2
 open B2R2.FrontEnd.Python
@@ -61,7 +61,8 @@ let isCall (ins: Instruction) =
   match opcodeOf ins with
   | Opcode.CALL_FUNCTION
   | Opcode.CALL_FUNCTION_KW
-  | Opcode.CALL_FUNCTION_EX -> true
+  | Opcode.CALL_FUNCTION_VAR
+  | Opcode.CALL_FUNCTION_VAR_KW -> true
   | _ -> false
 
 let isRET (ins: Instruction) =

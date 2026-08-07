@@ -34,6 +34,91 @@ type PythonParser(binFile: IBinFile, reader) =
   (* One object per version, bundling everything that depends on which
      version's Opcode enum the raw opcode value belongs to. Instruction holds
      one of these instead of matching on opcodes itself. *)
+  let semantics300 =
+    { new IInstructionSemantics with
+        member _.Lift(ins, bld) = Python300.Lifter.translate binFile ins bld
+        member _.Disasm(ins, bld) = Python300.Disasm.disasm ins bld; bld
+        member _.IsBranch ins = Python300.Semantics.isBranch ins
+        member _.IsCondBranch ins = Python300.Semantics.isCondBranch ins
+        member _.IsCJmpOnTrue ins = Python300.Semantics.isCJmpOnTrue ins
+        member _.IsCall ins = Python300.Semantics.isCall ins
+        member _.IsRET ins = Python300.Semantics.isRET ins
+        member _.IsExit ins = Python300.Semantics.isExit ins
+        member _.IsNop ins = ins.Opcode = int Python300.Opcode.NOP
+        member _.HasFlag ins = Python300.Semantics.hasFlag ins
+        member _.SuperHasExplicitArgs ins =
+          Python300.Semantics.superHasExplicitArgs ins
+        member _.BranchTarget(ins, ft, n) =
+          Python300.Semantics.branchTarget ins ft n }
+
+  let semantics301 =
+    { new IInstructionSemantics with
+        member _.Lift(ins, bld) = Python301.Lifter.translate binFile ins bld
+        member _.Disasm(ins, bld) = Python301.Disasm.disasm ins bld; bld
+        member _.IsBranch ins = Python301.Semantics.isBranch ins
+        member _.IsCondBranch ins = Python301.Semantics.isCondBranch ins
+        member _.IsCJmpOnTrue ins = Python301.Semantics.isCJmpOnTrue ins
+        member _.IsCall ins = Python301.Semantics.isCall ins
+        member _.IsRET ins = Python301.Semantics.isRET ins
+        member _.IsExit ins = Python301.Semantics.isExit ins
+        member _.IsNop ins = ins.Opcode = int Python301.Opcode.NOP
+        member _.HasFlag ins = Python301.Semantics.hasFlag ins
+        member _.SuperHasExplicitArgs ins =
+          Python301.Semantics.superHasExplicitArgs ins
+        member _.BranchTarget(ins, ft, n) =
+          Python301.Semantics.branchTarget ins ft n }
+
+  let semantics302 =
+    { new IInstructionSemantics with
+        member _.Lift(ins, bld) = Python302.Lifter.translate binFile ins bld
+        member _.Disasm(ins, bld) = Python302.Disasm.disasm ins bld; bld
+        member _.IsBranch ins = Python302.Semantics.isBranch ins
+        member _.IsCondBranch ins = Python302.Semantics.isCondBranch ins
+        member _.IsCJmpOnTrue ins = Python302.Semantics.isCJmpOnTrue ins
+        member _.IsCall ins = Python302.Semantics.isCall ins
+        member _.IsRET ins = Python302.Semantics.isRET ins
+        member _.IsExit ins = Python302.Semantics.isExit ins
+        member _.IsNop ins = ins.Opcode = int Python302.Opcode.NOP
+        member _.HasFlag ins = Python302.Semantics.hasFlag ins
+        member _.SuperHasExplicitArgs ins =
+          Python302.Semantics.superHasExplicitArgs ins
+        member _.BranchTarget(ins, ft, n) =
+          Python302.Semantics.branchTarget ins ft n }
+
+  let semantics303 =
+    { new IInstructionSemantics with
+        member _.Lift(ins, bld) = Python303.Lifter.translate binFile ins bld
+        member _.Disasm(ins, bld) = Python303.Disasm.disasm ins bld; bld
+        member _.IsBranch ins = Python303.Semantics.isBranch ins
+        member _.IsCondBranch ins = Python303.Semantics.isCondBranch ins
+        member _.IsCJmpOnTrue ins = Python303.Semantics.isCJmpOnTrue ins
+        member _.IsCall ins = Python303.Semantics.isCall ins
+        member _.IsRET ins = Python303.Semantics.isRET ins
+        member _.IsExit ins = Python303.Semantics.isExit ins
+        member _.IsNop ins = ins.Opcode = int Python303.Opcode.NOP
+        member _.HasFlag ins = Python303.Semantics.hasFlag ins
+        member _.SuperHasExplicitArgs ins =
+          Python303.Semantics.superHasExplicitArgs ins
+        member _.BranchTarget(ins, ft, n) =
+          Python303.Semantics.branchTarget ins ft n }
+
+  let semantics304 =
+    { new IInstructionSemantics with
+        member _.Lift(ins, bld) = Python304.Lifter.translate binFile ins bld
+        member _.Disasm(ins, bld) = Python304.Disasm.disasm ins bld; bld
+        member _.IsBranch ins = Python304.Semantics.isBranch ins
+        member _.IsCondBranch ins = Python304.Semantics.isCondBranch ins
+        member _.IsCJmpOnTrue ins = Python304.Semantics.isCJmpOnTrue ins
+        member _.IsCall ins = Python304.Semantics.isCall ins
+        member _.IsRET ins = Python304.Semantics.isRET ins
+        member _.IsExit ins = Python304.Semantics.isExit ins
+        member _.IsNop ins = ins.Opcode = int Python304.Opcode.NOP
+        member _.HasFlag ins = Python304.Semantics.hasFlag ins
+        member _.SuperHasExplicitArgs ins =
+          Python304.Semantics.superHasExplicitArgs ins
+        member _.BranchTarget(ins, ft, n) =
+          Python304.Semantics.branchTarget ins ft n }
+
   let semantics305 =
     { new IInstructionSemantics with
         member _.Lift(ins, bld) = Python305.Lifter.translate binFile ins bld
@@ -225,6 +310,16 @@ type PythonParser(binFile: IBinFile, reader) =
      touching nothing another version's author also edits. *)
   let parse span addr =
     match binFile.Version with
+    | PythonVersion.Python300 ->
+      Python300.Parsing.parse semantics300 span reader binFile addr
+    | PythonVersion.Python301 ->
+      Python301.Parsing.parse semantics301 span reader binFile addr
+    | PythonVersion.Python302 ->
+      Python302.Parsing.parse semantics302 span reader binFile addr
+    | PythonVersion.Python303 ->
+      Python303.Parsing.parse semantics303 span reader binFile addr
+    | PythonVersion.Python304 ->
+      Python304.Parsing.parse semantics304 span reader binFile addr
     | PythonVersion.Python305 ->
       Python305.Parsing.parse semantics305 span reader binFile addr
     | PythonVersion.Python306 ->

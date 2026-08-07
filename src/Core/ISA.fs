@@ -522,6 +522,16 @@ and M68KModel =
 
 /// Represents the Python version.
 and PythonVersion =
+  /// Python 3.0.
+  | Python300 = 300
+  /// Python 3.1.
+  | Python301 = 301
+  /// Python 3.2.
+  | Python302 = 302
+  /// Python 3.3.
+  | Python303 = 303
+  /// Python 3.4.
+  | Python304 = 304
   /// Python 3.5.
   | Python305 = 305
   /// Python 3.6
