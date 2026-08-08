@@ -369,6 +369,7 @@ type ELFBinFile(path, bytes: byte[], baseAddrOpt, rfOpt) =
       |> Array.map (fun ph ->
         { Name = None
           Address = ph.PHAddr
+          PhysAddr = ph.PHPhyAddr
           Size = ph.PHMemSize
           Offset = ph.PHOffset
           FileSize = ph.PHFileSize

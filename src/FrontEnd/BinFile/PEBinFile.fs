@@ -240,6 +240,7 @@ type PEBinFile(path, bytes: byte[], baseAddrOpt, rawpdb) =
         if secSize > 0 then
           Some { Name = Some sec.Name
                  Address = uint64 sec.VirtualAddress + pe.BaseAddr
+                 PhysAddr = uint64 sec.VirtualAddress + pe.BaseAddr
                  Size = uint64 secSize
                  Offset = uint64 sec.PointerToRawData
                  FileSize = uint64 sec.SizeOfRawData

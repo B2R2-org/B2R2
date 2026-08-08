@@ -46,6 +46,7 @@ type RawBinFile(path, bytes: byte[], isa: ISA, baseAddrOpt) =
     let segments =
       [| { Name = None
            Address = baseAddr
+           PhysAddr = baseAddr
            Size = uint64 size
            Offset = 0UL
            FileSize = uint64 size

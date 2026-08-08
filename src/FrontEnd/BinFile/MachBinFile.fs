@@ -340,6 +340,7 @@ type MachBinFile(path, bytes: byte[], isa, baseAddrOpt, regFactoryOpt) =
       |> Array.map (fun seg ->
         { Name = Some seg.SegCmdName
           Address = seg.VMAddr
+          PhysAddr = seg.VMAddr
           Size = seg.VMSize
           Offset = seg.FileOff
           FileSize = seg.FileSize

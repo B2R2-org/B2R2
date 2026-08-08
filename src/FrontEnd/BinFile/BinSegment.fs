@@ -37,6 +37,15 @@ type BinSegment =
     Name: string option
     /// Virtual address at which the segment is mapped.
     Address: Addr
+    /// The address the segment's contents are *stored* at, which differs from
+    /// Address only where a format separates the two: an ELF program header's
+    /// physical address. It is the same as Address on the hosted targets that
+    /// leave it unused, and equally on formats that have no notion of it. Where
+    /// it differs it matters -- on a Harvard machine like AVR, initialized data
+    /// is stored in program memory and copied to its data-space address by the
+    /// startup code, so a loader that placed such a segment at Address would
+    /// leave program memory holding nothing to copy.
+    PhysAddr: Addr
     /// Size of the segment in the virtual memory.
     Size: uint64
     /// File offset of the segment's contents.
