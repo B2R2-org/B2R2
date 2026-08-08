@@ -35,14 +35,190 @@ open type Register
 
 let inline numI32 n = numI32 n 8<rt>
 
-let inline numI32PC n = LiftingUtils.numI32 n 16<rt>
+/// The width of the program counter. AVR's own is 16 or 22 bits wide depending
+/// on the core, and it counts words rather than bytes; B2R2 addresses code by
+/// the byte, so this is wide enough to hold the largest AVR program address
+/// doubled, on every core, without a case for each.
+let private pcSize = 32<rt>
 
-let inline numI22 n = LiftingUtils.numI32 n 22<rt>
+/// Creates a constant at the width of the program counter.
+let inline numI32PC n = LiftingUtils.numI32 n pcSize
+
+/// Creates a constant at the width of one of AVR's own data addresses -- a
+/// pointer pair, the stack pointer, or an I/O address.
+let inline private numAddr n = LiftingUtils.numI32 n 16<rt>
+
+/// AVR is a Harvard machine: its data space and its program space are separate
+/// address spaces that both start at zero. The two are folded into the one
+/// address space an emulator gives the guest by leaving program addresses where
+/// they are and biasing data addresses by this, which is the layout avr-gcc,
+/// GDB, and the AVR ELF format already agree on (a linked image places .data at
+/// 0x800000 + its data address). LD, ST, LDS, STS, PUSH, POP, and the I/O space
+/// take the bias; LPM and the program counter do not.
+let [<Literal>] private DataSpaceBase = 0x800000
+
+/// The width the folded space needs, wider than either of AVR's own 16-bit
+/// spaces because of the bias above.
+let private foldedAddrSize = 32<rt>
+
+/// Returns a byte of the guest's data space at a 16-bit data address.
+let private dataMem addr =
+  AST.zext foldedAddrSize addr
+  .+ LiftingUtils.numI32 DataSpaceBase foldedAddrSize
+  |> AST.loadLE 8<rt>
+
+/// Returns a byte of the guest's program space at a program address, already at
+/// the program counter's width. This is what LPM and ELPM reach, and the one
+/// load that takes no bias.
+let private codeMem addr = AST.loadLE 8<rt> addr
+
+/// The data address the I/O space starts at, the 32 bytes of the register file
+/// being what precedes it, so an `in` of I/O address A reads A plus this.
+let [<Literal>] private IoSpaceBase = 0x20
+
+/// The I/O addresses whose reads and writes are register state rather than
+/// memory: the two halves of the stack pointer and the status register.
+/// Everything else in the I/O space belongs to a peripheral, which the platform
+/// maps into data memory.
+let [<Literal>] private IoSpl = 0x3D
+
+let [<Literal>] private IoSph = 0x3E
+
+let [<Literal>] private IoSreg = 0x3F
+
+/// The data addresses of the two registers that extend an address past the 16
+/// bits a pointer pair holds: RAMPZ, which supplies bits 23:16 of the program
+/// address ELPM reads, and EIND, which supplies bits 23:16 of the one EIJMP and
+/// EICALL go to. Both are ordinary I/O registers -- an `out` reaches them
+/// through the generic path above -- so the instructions that consume them read
+/// them straight out of data memory, exactly as the hardware does.
+let [<Literal>] private AddrRampz = 0x3B + IoSpaceBase
+
+let [<Literal>] private AddrEind = 0x3C + IoSpaceBase
+
+/// Returns the 24-bit program address formed by putting one of the extension
+/// registers above the 16 bits of Z.
+let private farAddr bld ext =
+  AST.zext pcSize (dataMem (numAddr ext)) << numI32PC 16
+  .| AST.zext pcSize (regVar bld Z)
+
+/// Returns SREG as the one byte `in` and `out` see, its bits being I T H S V N
+/// Z C from bit 7 down. Each status bit is held apart rather than as a byte, so
+/// reading the register means assembling it.
+let private sregByte bld =
+  let hi =
+    AST.concat (AST.concat (regVar bld IF) (regVar bld TF))
+               (AST.concat (regVar bld HF) (regVar bld SF))
+  let lo =
+    AST.concat (AST.concat (regVar bld VF) (regVar bld NF))
+               (AST.concat (regVar bld ZF) (regVar bld CF))
+  AST.concat hi lo
+
+/// Spreads a byte written to SREG back over the status bits it is composed of.
+let private setSregByte bld v =
+  bld <+ (regVar bld CF := AST.extract v 1<rt> 0)
+  bld <+ (regVar bld ZF := AST.extract v 1<rt> 1)
+  bld <+ (regVar bld NF := AST.extract v 1<rt> 2)
+  bld <+ (regVar bld VF := AST.extract v 1<rt> 3)
+  bld <+ (regVar bld SF := AST.extract v 1<rt> 4)
+  bld <+ (regVar bld HF := AST.extract v 1<rt> 5)
+  bld <+ (regVar bld TF := AST.extract v 1<rt> 6)
+  bld <+ (regVar bld IF := AST.extract v 1<rt> 7)
+
+/// Returns what an I/O address reads as.
+let private ioRead bld a =
+  match a with
+  | IoSpl -> AST.extract (regVar bld SP) 8<rt> 0
+  | IoSph -> AST.extract (regVar bld SP) 8<rt> 8
+  | IoSreg -> sregByte bld
+  | _ -> dataMem (numAddr (a + IoSpaceBase))
+
+/// Emits a write of one byte to an I/O address.
+let private ioWrite bld a v =
+  match a with
+  | IoSpl -> bld <+ (AST.extract (regVar bld SP) 8<rt> 0 := v)
+  | IoSph -> bld <+ (AST.extract (regVar bld SP) 8<rt> 8 := v)
+  | IoSreg -> setSregByte bld v
+  | _ -> bld <+ (dataMem (numAddr (a + IoSpaceBase)) := v)
+
+/// Returns the I/O address and bit number of a CBI, SBI, SBIC, or SBIS.
+let private transIoBit (ins: Instruction) =
+  match ins.Operands with
+  | TwoOperands(OprImm a, OprImm b) -> struct (a, b)
+  | _ -> raise InvalidOperandException
+
+/// Emits a skip instruction: CPSE, SBRC/SBRS, and SBIC/SBIS all jump over the
+/// instruction that follows when their condition holds. How far that is depends
+/// on how long the instruction after it is, which the decoder reads ahead for
+/// (see Instruction.SkipBytes) -- exactly as the hardware does. avr-libc's
+/// isspace, for one, skips over a jump, which is four bytes on any part with
+/// more than 8 KiB of program memory and two on the rest.
+///
+/// A decode that ran out of bytes before the successor reports nothing, and the
+/// skip is then taken to clear a two-byte instruction: the alternative would be
+/// to refuse an instruction that is perfectly valid.
+let private skipOn cond (ins: Instruction) len bld =
+  let pc = regVar bld PC
+  let over = if ins.SkipBytes = 0u then 4 else int ins.SkipBytes
+  bld <!-- (ins.Address, len)
+  bld <+ (AST.intercjmp cond (pc .+ numI32PC over) (pc .+ numI32PC 2))
+  bld --!> len
+
+/// Returns the two 8-bit halves of one of the R26-R31 pointer pairs, which is
+/// how a pointer write-back reaches the registers behind the pair.
+let private ptrHalves ptr =
+  match ptr with
+  | BinOp(BinOpType.CONCAT, _, hi, lo, _) -> struct (hi, lo)
+  | _ -> Terminator.impossible ()
+
+/// Emits the pointer write-back of a post-increment or pre-decrement access.
+let private setPtr bld ptr v =
+  let struct (hi, lo) = ptrHalves ptr
+  bld <+ (hi := AST.extract v 8<rt> 8)
+  bld <+ (lo := AST.extract v 8<rt> 0)
+
+/// How many bytes of return address a call frame holds on the given core.
+let private retBytes (core: AVRCore) =
+  if core = AVRCore.Avr6 then 3 else 2
+
+/// Emits the return-address push of CALL, RCALL, ICALL, and EICALL. Like the
+/// hardware, the value pushed is the *word* address of the instruction after
+/// this one -- every AVR code address a program handles is a word address --
+/// and its bytes are laid out most significant first, so they occupy the bytes
+/// just below the stack pointer and it ends that many lower. RET reads them
+/// back the same way, and libgcc's frame helpers count on the size matching
+/// the core.
+let private pushRet core (ins: Instruction) len bld =
+  let sp = regVar bld SP
+  let n = retBytes core
+  let ret = int ((ins.Address + uint64 len) >>> 1)
+  let below i = if i = 0 then sp else sp .- numAddr i
+  for i = 0 to n - 1 do
+    bld <+ (dataMem (below i) := numI32 ((ret >>> (8 * i)) &&& 0xff))
+  bld <+ (sp := sp .- numAddr n)
+
+/// Wraps a relative branch's target around the end of program memory, which is
+/// what the hardware does and what lets a reset vector reach startup code
+/// sitting at the top of a small part's flash. A zero mask means nothing said
+/// how big program memory is, so the target is left alone and a branch that
+/// relied on the wrap runs off the end instead of landing somewhere plausible.
+let private wrapPC (pcMask: uint64) target =
+  if pcMask = 0UL then target
+  else target .& LiftingUtils.numU64 pcMask pcSize
+
+/// Returns the byte address IJMP and ICALL go to, which Z alone names. Every
+/// AVR code address a program handles counts words, so the byte address is
+/// twice it.
+let private indTarget bld = AST.zext pcSize (regVar bld Z) << numI32PC 1
+
+/// Returns the byte address EIJMP and EICALL go to, which EIND extends Z to
+/// name -- the cores with more program memory than Z alone can reach.
+let private farTarget bld = farAddr bld AddrEind << numI32PC 1
 
 let private cfOnAdd e1 e2 r =
   let e1High = AST.xthi 1<rt> e1
   let e2High = AST.xthi 1<rt> e2
-  let rHighComp = AST.neg (AST.xthi 1<rt> r)
+  let rHighComp = AST.not (AST.xthi 1<rt> r)
   (e1High .& e2High) .| (e1High .& rHighComp) .| (e2High .& rHighComp)
 
 /// OF on add.
@@ -50,8 +226,8 @@ let private ofOnAdd e1 e2 r =
   let e1High = AST.xthi 1<rt> e1
   let e2High = AST.xthi 1<rt> e2
   let rHigh = AST.xthi 1<rt> r
-  (e1High .& e2High .& (AST.neg rHigh))
-    .| ((AST.neg e1High) .& (AST.neg e2High) .& rHigh)
+  (e1High .& e2High .& (AST.not rHigh))
+    .| ((AST.not e1High) .& (AST.not e2High) .& rHigh)
 
 let transOprToExpr bld = function
 | OprReg reg -> regVar bld reg
@@ -83,13 +259,13 @@ let transMemOprToExpr2 (ins: Instruction) bld =
 let transMemOprToExpr1 (ins: Instruction) bld =
   match ins.Operands with
   | TwoOperands(OprReg reg, OprMemory(DispMode(reg1, imm))) ->
-    regVar bld reg, regVar bld reg1, numI32PC imm
+    regVar bld reg, regVar bld reg1, numAddr imm
   | _ -> Terminator.impossible ()
 
 let transMemOprToExpr3 (ins: Instruction) bld =
   match ins.Operands with
   | TwoOperands(OprMemory(DispMode(reg1, imm)), OprReg reg) ->
-    regVar bld reg1, regVar bld reg, numI32PC imm
+    regVar bld reg1, regVar bld reg, numAddr imm
   | _ -> Terminator.impossible ()
 
 let transOneOpr (ins: Instruction) bld =
@@ -175,9 +351,9 @@ let adiw (ins: Instruction) len bld =
   bld <+ (dst1 := AST.extract t3 8<rt> 8)
   bld <+ (dst := AST.extract t3 8<rt> 0)
   bld <+ (regVar bld NF := AST.xthi 1<rt> dst1)
-  bld <+ (regVar bld VF := (AST.neg (AST.xthi 1<rt> t1)) .& AST.xthi 1<rt> dst1)
+  bld <+ (regVar bld VF := (AST.not (AST.xthi 1<rt> t1)) .& AST.xthi 1<rt> dst1)
   bld <+ (regVar bld ZF := t3 == (AST.num0 16<rt>))
-  bld <+ (regVar bld CF := (AST.neg (AST.xthi 1<rt> dst1)) .& AST.xthi 1<rt> t1)
+  bld <+ (regVar bld CF := (AST.not (AST.xthi 1<rt> dst1)) .& AST.xthi 1<rt> t1)
   bld <+ (regVar bld SF := regVar bld NF <+> regVar bld VF)
   bld --!> len
 
@@ -242,14 +418,11 @@ let bst ins len bld =
   bld <+ (regVar bld TF := (AST.extract dst 1<rt> imm))
   bld --!> len
 
-let call ins len bld =
+let call core ins len bld =
   let dst = transOneOpr ins bld
-  let sp = regVar bld SP
-  let pc = regVar bld PC
   bld <!-- (ins.Address, len)
-  bld <+ (pc := dst)
-  bld <+ (AST.loadLE 16<rt> sp := pc .+ numI32PC 2)
-  bld <+ (sp := sp .- numI32PC 2)
+  pushRet core ins len bld
+  bld <+ (AST.interjmp dst InterJmpKind.IsCall)
   bld --!> len
 
 let clc (ins: Instruction) len bld =
@@ -322,7 +495,6 @@ let cp ins len bld =
   bld <+ (t1 := dst)
   bld <+ (t2 := src)
   bld <+ (t3 := t1 .- t2)
-  bld <+ (dst := t3)
   bld <+ (regVar bld HF := cfOnAdd t3 t2 t1)
   bld <+ (regVar bld CF := cfOnAdd t3 t2 t1)
   bld <+ (regVar bld VF := ofOnAdd t3 t2 t1)
@@ -339,7 +511,6 @@ let cpc ins len bld =
   bld <+ (t1 := dst)
   bld <+ (t2 := src)
   bld <+ (t3 := t1 .- t2 .- AST.zext 8<rt> (regVar bld CF))
-  bld <+ (dst := t3)
   bld <+ (regVar bld HF := cfOnAdd t3 t2 t1)
   bld <+ (regVar bld CF := cfOnAdd t3 t2 t1)
   bld <+ (regVar bld VF := ofOnAdd t3 t2 t1)
@@ -356,7 +527,6 @@ let cpi ins len bld =
   bld <+ (t1 := dst)
   bld <+ (t2 := src)
   bld <+ (t3 := t1 .- t2)
-  bld <+ (dst := t3)
   bld <+ (regVar bld HF := cfOnAdd t3 t2 t1)
   bld <+ (regVar bld CF := cfOnAdd t3 t2 t1)
   bld <+ (regVar bld VF := ofOnAdd t3 t2 t1)
@@ -366,12 +536,67 @@ let cpi ins len bld =
   bld --!> len
 
 let cpse ins len bld =
-  let struct(dst, src) = transTwoOprs ins bld
-  let pc = regVar bld PC
+  let struct (dst, src) = transTwoOprs ins bld
+  skipOn (dst == src) ins len bld
+
+let sbrc ins len bld =
+  let struct (dst, _) = transTwoOprs ins bld
+  let b =
+    match ins.Operands with
+    | TwoOperands(_, OprImm b) -> b
+    | _ -> raise InvalidOperandException
+  skipOn (AST.extract dst 1<rt> b == AST.b0) ins len bld
+
+let sbrs ins len bld =
+  let struct (dst, _) = transTwoOprs ins bld
+  let b =
+    match ins.Operands with
+    | TwoOperands(_, OprImm b) -> b
+    | _ -> raise InvalidOperandException
+  skipOn (AST.extract dst 1<rt> b == AST.b1) ins len bld
+
+let sbic ins len bld =
+  let struct (a, b) = transIoBit ins
+  skipOn (AST.extract (ioRead bld a) 1<rt> b == AST.b0) ins len bld
+
+let sbis ins len bld =
+  let struct (a, b) = transIoBit ins
+  skipOn (AST.extract (ioRead bld a) 1<rt> b == AST.b1) ins len bld
+
+let cbi (ins: Instruction) len bld =
+  let struct (a, b) = transIoBit ins
+  let t = tmpVar bld 8<rt>
   bld <!-- (ins.Address, len)
-  let fallThrough = pc .+ numI32PC 2
-  let jumpTarget = pc .+ numI32PC 4
-  bld <+ (AST.intercjmp (dst == src) jumpTarget fallThrough)
+  bld <+ (t := ioRead bld a)
+  bld <+ (AST.extract t 1<rt> b := AST.b0)
+  ioWrite bld a t
+  bld --!> len
+
+let sbi (ins: Instruction) len bld =
+  let struct (a, b) = transIoBit ins
+  let t = tmpVar bld 8<rt>
+  bld <!-- (ins.Address, len)
+  bld <+ (t := ioRead bld a)
+  bld <+ (AST.extract t 1<rt> b := AST.b1)
+  ioWrite bld a t
+  bld --!> len
+
+let ``in`` (ins: Instruction) len bld =
+  let struct (dst, a) =
+    match ins.Operands with
+    | TwoOperands(OprReg reg, OprImm a) -> struct (regVar bld reg, a)
+    | _ -> raise InvalidOperandException
+  bld <!-- (ins.Address, len)
+  bld <+ (dst := ioRead bld a)
+  bld --!> len
+
+let out (ins: Instruction) len bld =
+  let struct (a, src) =
+    match ins.Operands with
+    | TwoOperands(OprImm a, OprReg reg) -> struct (a, regVar bld reg)
+    | _ -> raise InvalidOperandException
+  bld <!-- (ins.Address, len)
+  ioWrite bld a src
   bld --!> len
 
 let dec ins len bld =
@@ -397,10 +622,10 @@ let fmul ins len bld =
   bld <+ (t2 := AST.zext oprSize src)
   bld <+ (t3 := t1 .* t2)
   bld <+ (t4 := t3 << AST.num1 oprSize)
-  bld <+ (regVar bld R1 := (AST.extract t1 8<rt> 8))
-  bld <+ (regVar bld R0 := (AST.extract t1 8<rt> 0))
+  bld <+ (regVar bld R1 := AST.extract t4 8<rt> 8)
+  bld <+ (regVar bld R0 := AST.extract t4 8<rt> 0)
   bld <+ (regVar bld CF := AST.extract t3 1<rt> 15)
-  bld <+ (regVar bld ZF := t4 == (AST.num0 oprSize))
+  bld <+ (regVar bld ZF := t4 == AST.num0 oprSize)
   bld --!> len
 
 let fmuls ins len bld =
@@ -413,10 +638,10 @@ let fmuls ins len bld =
   bld <+ (t2 := AST.sext oprSize src)
   bld <+ (t3 := t1 .* t2)
   bld <+ (t4 := t3 << AST.num1 oprSize)
-  bld <+ (regVar bld R1 := (AST.extract t1 8<rt> 8))
-  bld <+ (regVar bld R0 := (AST.extract t1 8<rt> 0))
+  bld <+ (regVar bld R1 := AST.extract t4 8<rt> 8)
+  bld <+ (regVar bld R0 := AST.extract t4 8<rt> 0)
   bld <+ (regVar bld CF := AST.extract t3 1<rt> 15)
-  bld <+ (regVar bld ZF := t4 == (AST.num0 oprSize))
+  bld <+ (regVar bld ZF := t4 == AST.num0 oprSize)
   bld --!> len
 
 let fmulsu ins len bld =
@@ -429,18 +654,10 @@ let fmulsu ins len bld =
   bld <+ (t2 := AST.zext oprSize src)
   bld <+ (t3 := t1 .* t2)
   bld <+ (t4 := t3 << AST.num1 oprSize)
-  bld <+ (regVar bld R1 := (AST.extract t1 8<rt> 8))
-  bld <+ (regVar bld R0 := (AST.extract t1 8<rt> 0))
+  bld <+ (regVar bld R1 := AST.extract t4 8<rt> 8)
+  bld <+ (regVar bld R0 := AST.extract t4 8<rt> 0)
   bld <+ (regVar bld CF := AST.extract t3 1<rt> 15)
-  bld <+ (regVar bld ZF := t4 == (AST.num0 oprSize))
-  bld --!> len
-
-let eicall (ins: Instruction) len bld = (* FIXME *)
-  bld <!-- (ins.Address, len)
-  bld --!> len
-
-let eijmp (ins: Instruction) len bld = (* FIXME *)
-  bld <!-- (ins.Address, len)
+  bld <+ (regVar bld ZF := t4 == AST.num0 oprSize)
   bld --!> len
 
 let eor ins len bld =
@@ -454,19 +671,28 @@ let eor ins len bld =
   bld <+ (regVar bld SF := regVar bld NF <+> regVar bld VF)
   bld --!> len
 
-let icall (ins: Instruction) len bld =  (* ADD 22bit PC *)
-  let pc = regVar bld PC
-  let sp = regVar bld SP
+let icall core (ins: Instruction) len bld =
   bld <!-- (ins.Address, len)
-  bld <+ (pc := regVar bld Z)
-  bld <+ (AST.loadLE 16<rt> sp := pc .+ numI32PC 2)
-  bld <+ (sp := sp .- numI32PC 2)
+  pushRet core ins len bld
+  bld <+ (AST.interjmp (indTarget bld) InterJmpKind.IsCall)
   bld --!> len
 
-let ijmp (ins: Instruction) len bld =   (* ADD 22bit PC *)
-  let pc = regVar bld PC
+let ijmp (ins: Instruction) len bld =
   bld <!-- (ins.Address, len)
-  bld <+ (pc := regVar bld Z)
+  bld <+ (AST.interjmp (indTarget bld) InterJmpKind.Base)
+  bld --!> len
+
+/// EICALL and EIJMP reach the program memory past what Z alone addresses, EIND
+/// carrying the bits above it.
+let eicall core (ins: Instruction) len bld =
+  bld <!-- (ins.Address, len)
+  pushRet core ins len bld
+  bld <+ (AST.interjmp (farTarget bld) InterJmpKind.IsCall)
+  bld --!> len
+
+let eijmp (ins: Instruction) len bld =
+  bld <!-- (ins.Address, len)
+  bld <+ (AST.interjmp (farTarget bld) InterJmpKind.Base)
   bld --!> len
 
 let inc ins len bld =
@@ -492,11 +718,11 @@ let ``lsr`` ins len bld =
   bld <+ (regVar bld ZF := dst == (AST.num0 oprSize))
   bld <+ (regVar bld NF := AST.b0)
   bld <+ (regVar bld CF := AST.xtlo 1<rt> t1)
-  bld <+ (regVar bld SF := regVar bld NF <+> regVar bld VF)
   bld <+ (regVar bld VF := regVar bld NF <+> regVar bld CF)
+  bld <+ (regVar bld SF := regVar bld NF <+> regVar bld VF)
   bld --!> len
 
-let branch ins len bld =
+let branch pcMask ins len bld =
   let dst = transOneOpr ins bld
   let pc = regVar bld PC
   let branchCond =
@@ -520,7 +746,7 @@ let branch ins len bld =
     | _ -> raise InvalidOpcodeException
   bld <!-- (ins.Address, len)
   let fallThrough = pc .+ numI32PC 2
-  let jumpTarget = pc .+ AST.zext 16<rt> dst .+ numI32PC 2
+  let jumpTarget = wrapPC pcMask (pc .+ dst .+ numI32PC 2)
   bld <+ (AST.intercjmp branchCond jumpTarget fallThrough)
   bld --!> len
 
@@ -555,6 +781,23 @@ let movw (ins: Instruction) len bld =
   bld <+ (dst1 := src1)
   bld --!> len
 
+let neg ins len bld =
+  let dst = transOneOpr ins bld
+  let oprSize = 8<rt>
+  let t1 = tmpVar bld oprSize
+  bld <!-- (ins.Address, len)
+  bld <+ (t1 := AST.num0 oprSize .- dst)
+  (* H is set from bit 3 of the result or of the operand, so it has to be read
+     before the result lands in the destination. *)
+  bld <+ (regVar bld HF := AST.extract t1 1<rt> 3 .| AST.extract dst 1<rt> 3)
+  bld <+ (dst := t1)
+  bld <+ (regVar bld CF := t1 != AST.num0 oprSize)
+  bld <+ (regVar bld VF := t1 == numI32 0x80)
+  bld <+ (regVar bld NF := AST.xthi 1<rt> t1)
+  bld <+ (regVar bld ZF := t1 == AST.num0 oprSize)
+  bld <+ (regVar bld SF := regVar bld NF <+> regVar bld VF)
+  bld --!> len
+
 let nop insAddr len bld =
   bld <!-- (insAddr, len)
   bld --!> len
@@ -570,11 +813,11 @@ let ``or`` ins len bld =
   bld <+ (regVar bld SF := regVar bld NF <+> regVar bld VF)
   bld --!> len
 
-let rjmp ins len bld =
+let rjmp pcMask ins len bld =
   let dst = transOneOpr ins bld
+  let target = wrapPC pcMask (regVar bld PC .+ dst .+ numI32PC 2)
   bld <!-- (ins.Address, len)
-  bld <+ (AST.interjmp (regVar bld PC .+ dst .+ numI32PC 2)
-                      InterJmpKind.Base)
+  bld <+ (AST.interjmp target InterJmpKind.Base)
   bld --!> len
 
 let ror ins len bld =
@@ -587,7 +830,7 @@ let ror ins len bld =
   bld <+ ((AST.extract dst 1<rt> 7) := regVar bld CF)
   bld <+ (regVar bld ZF := dst == (AST.num0 oprSize))
   bld <+ (regVar bld CF := AST.xtlo 1<rt> t1)
-  bld <+ (regVar bld NF := AST.xtlo 1<rt> dst)
+  bld <+ (regVar bld NF := AST.xthi 1<rt> dst)
   bld <+ (regVar bld VF := regVar bld NF <+> regVar bld CF)
   bld <+ (regVar bld SF := regVar bld NF <+> regVar bld VF)
   bld --!> len
@@ -600,13 +843,16 @@ let sbc ins len bld =
   bld <+ (t1 := dst)
   bld <+ (t2 := src)
   bld <+ (t3 := t1 .- t2 .- AST.zext 8<rt> (regVar bld CF))
+  bld <+ (dst := t3)
   bld <+ (regVar bld HF := cfOnAdd (AST.extract t3 1<rt> 3)
                                  (AST.extract t2 1<rt> 3)
                                  (AST.extract t1 1<rt> 3))
   bld <+ (regVar bld CF := cfOnAdd t3 t2 t1)
   bld <+ (regVar bld VF := ofOnAdd t3 t2 t1)
-  bld <+ (regVar bld ZF := (dst == AST.num0 oprSize .& regVar bld ZF))
-  bld <+ (regVar bld NF := AST.xtlo 1<rt> t3)
+  (* Z is cleared, never set, by a subtract-with-carry: it says the whole
+     multi-byte result is zero, not just this byte of it. *)
+  bld <+ (regVar bld ZF := (t3 == AST.num0 oprSize) .& regVar bld ZF)
+  bld <+ (regVar bld NF := AST.xthi 1<rt> t3)
   bld <+ (regVar bld SF := regVar bld NF <+> regVar bld VF)
   bld --!> len
 
@@ -630,9 +876,11 @@ let sbiw (ins: Instruction) len bld =
   bld <+ (dst1 := AST.extract t3 8<rt> 8)
   bld <+ (dst := AST.extract t3 8<rt> 0)
   bld <+ (regVar bld NF := AST.xthi 1<rt> dst1)
-  bld <+ (regVar bld VF := (AST.neg (AST.xthi 1<rt> t1)) .& AST.xthi 1<rt> dst1)
+  (* Subtracting a word overflows when the high bit was set and is not any
+     more, and borrows the other way round -- the mirror of ADIW above. *)
+  bld <+ (regVar bld VF := AST.xthi 1<rt> t1 .& AST.not (AST.xthi 1<rt> dst1))
   bld <+ (regVar bld ZF := t3 == (AST.num0 16<rt>))
-  bld <+ (regVar bld CF := (AST.neg (AST.xthi 1<rt> dst1)) .& AST.xthi 1<rt> t1)
+  bld <+ (regVar bld CF := AST.xthi 1<rt> dst1 .& AST.not (AST.xthi 1<rt> t1))
   bld <+ (regVar bld SF := regVar bld NF <+> regVar bld VF)
   bld --!> len
 
@@ -685,8 +933,8 @@ let lac ins len bld =
   let struct (dst, src) = transTwoOprs ins bld
   let t1 = tmpVar bld 8<rt>
   bld <!-- (ins.Address, len)
-  bld <+ (t1 := AST.loadLE 8<rt> dst)
-  bld <+ (AST.loadLE 8<rt> dst := (numI32 0xff .- src) .& AST.loadLE 8<rt> dst)
+  bld <+ (t1 := dataMem dst)
+  bld <+ (dataMem dst := (numI32 0xff .- src) .& t1)
   bld <+ (src := t1)
   bld --!> len
 
@@ -694,8 +942,8 @@ let las ins len bld =
   let struct (dst, src) = transTwoOprs ins bld
   let t1 = tmpVar bld 8<rt>
   bld <!-- (ins.Address, len)
-  bld <+ (t1 := AST.loadLE 8<rt> dst)
-  bld <+ (AST.loadLE 8<rt> dst := src .| AST.loadLE 8<rt> dst)
+  bld <+ (t1 := dataMem dst)
+  bld <+ (dataMem dst := src .| t1)
   bld <+ (src := t1)
   bld --!> len
 
@@ -703,53 +951,98 @@ let lat ins len bld =
   let struct (dst, src) = transTwoOprs ins bld
   let t1 = tmpVar bld 8<rt>
   bld <!-- (ins.Address, len)
-  bld <+ (t1 := AST.loadLE 8<rt> dst)
-  bld <+ (AST.loadLE 8<rt> dst := src <+> AST.loadLE 8<rt> dst)
+  bld <+ (t1 := dataMem dst)
+  bld <+ (dataMem dst := src <+> t1)
   bld <+ (src := t1)
   bld --!> len
 
 let ld ins len bld =
-  let (dst, src, mode) = transMemOprToExpr ins bld
+  let (dst, ptr, mode) = transMemOprToExpr ins bld
+  let t = tmpVar bld 16<rt>
   bld <!-- (ins.Address, len)
   match mode with
-  | 0 -> bld <+ (dst := AST.loadLE 8<rt> src)
+  | 0 ->
+    bld <+ (dst := dataMem ptr)
   | 1 ->
-    bld <+ (dst := AST.loadLE 8<rt> src)
-    match src with
-    | BinOp(BinOpType.CONCAT, _, exp1, exp2, _) ->
-      bld <+ (exp1 := AST.extract (src .+ numI32PC 1) 8<rt> 8)
-      bld <+ (exp2 := AST.extract (src .+ numI32PC 1) 8<rt> 0)
-    | _ -> Terminator.impossible ()
+    bld <+ (t := ptr .+ numAddr 1)
+    bld <+ (dst := dataMem ptr)
+    setPtr bld ptr t
   | -1 ->
-    match src with
-    | BinOp(BinOpType.CONCAT, _, exp1, exp2, _) ->
-      bld <+ (exp1 := AST.extract (src .- numI32PC 1) 8<rt> 8)
-      bld <+ (exp2 := AST.extract (src .- numI32PC 1) 8<rt> 0)
-    | _ -> Terminator.impossible ()
-    bld <+ (dst := AST.loadLE 8<rt> src)
-  | _ -> Terminator.impossible ()
+    bld <+ (t := ptr .- numAddr 1)
+    setPtr bld ptr t
+    bld <+ (dst := dataMem ptr)
+  | _ ->
+    Terminator.impossible ()
   bld --!> len
 
 let ldd ins len bld =
   let (dst, src, src1) = transMemOprToExpr1 ins bld
   bld <!-- (ins.Address, len)
-  bld <+ (dst := AST.loadLE 8<rt> (src .+ src1))
+  bld <+ (dst := dataMem (src .+ src1))
   bld --!> len
 
+/// LPM reads the program space, so unlike every other load it takes no data
+/// bias. Z is a byte address here, its low bit picking the half of the word.
+let lpm (ins: Instruction) len bld =
+  let z = regVar bld Z
+  let at = AST.zext pcSize z
+  let t = tmpVar bld 16<rt>
+  bld <!-- (ins.Address, len)
+  match ins.Operands with
+  | NoOperand ->
+    bld <+ (regVar bld R0 := codeMem at)
+  | TwoOperands(OprReg reg, OprMemory(UnchMode _)) ->
+    bld <+ (regVar bld reg := codeMem at)
+  | TwoOperands(OprReg reg, OprMemory(PostIdxMode _)) ->
+    bld <+ (t := z .+ numAddr 1)
+    bld <+ (regVar bld reg := codeMem at)
+    setPtr bld z t
+  | _ ->
+    raise InvalidOperandException
+  bld --!> len
+
+/// ELPM is LPM over an address RAMPZ extends past the 64 KiB Z alone reaches,
+/// which is how a program on a larger core reads its far constants. Its
+/// post-increment carries into RAMPZ, so walking a table across the boundary
+/// works without the program touching RAMPZ itself.
+let elpm (ins: Instruction) len bld =
+  let addr = farAddr bld AddrRampz
+  let t = tmpVar bld pcSize
+  bld <!-- (ins.Address, len)
+  match ins.Operands with
+  | NoOperand ->
+    bld <+ (regVar bld R0 := codeMem addr)
+  | TwoOperands(OprReg reg, OprMemory(UnchMode _)) ->
+    bld <+ (regVar bld reg := codeMem addr)
+  | TwoOperands(OprReg reg, OprMemory(PostIdxMode _)) ->
+    bld <+ (t := addr .+ numI32PC 1)
+    bld <+ (regVar bld reg := codeMem addr)
+    setPtr bld (regVar bld Z) (AST.xtlo 16<rt> t)
+    bld <+ (dataMem (numAddr AddrRampz) := AST.extract t 8<rt> 16)
+  | _ ->
+    raise InvalidOperandException
+  bld --!> len
+
+/// POP raises the stack pointer first and reads the byte it then points at,
+/// which is the reverse of PUSH below.
 let pop ins len bld =
   let dst = transOneOpr ins bld
   let sp = regVar bld SP
+  let t = tmpVar bld 16<rt>
   bld <!-- (ins.Address, len)
-  bld <+ (sp := sp .+ AST.num1 16<rt>)
-  bld <+ (AST.loadLE 8<rt> sp := dst)
+  bld <+ (t := sp .+ numAddr 1)
+  bld <+ (dst := dataMem t)
+  bld <+ (sp := t)
   bld --!> len
 
+/// PUSH writes the byte where the stack pointer already points and lowers it
+/// after, so the pointer always rests one below the newest entry.
 let push ins len bld =
-  let dst = transOneOpr ins bld
+  let src = transOneOpr ins bld
   let sp = regVar bld SP
   bld <!-- (ins.Address, len)
-  bld <+ (AST.loadLE 8<rt> sp := dst)
-  bld <+ (sp := sp .- AST.num1 16<rt>)
+  bld <+ (dataMem sp := src)
+  bld <+ (sp := sp .- numAddr 1)
   bld --!> len
 
 let ldi ins len bld =
@@ -759,9 +1052,9 @@ let ldi ins len bld =
   bld --!> len
 
 let lds ins len bld =
-  let struct(dst, src) = transTwoOprs ins bld
+  let struct (dst, src) = transTwoOprs ins bld
   bld <!-- (ins.Address, len)
-  bld <+ (dst := AST.loadLE 8<rt> src)
+  bld <+ (dst := dataMem src)
   bld --!> len
 
 let mul ins len bld =
@@ -803,69 +1096,74 @@ let mulsu ins len bld =
   bld <+ (regVar bld ZF := t3 == AST.num0 16<rt>)
   bld --!> len
 
-let ret insAddr len opr bld =
+/// RET raises the stack pointer by the bytes a call left and reads the word
+/// address back from them, most significant byte first (see pushRet).
+let ret core insAddr len opr bld =
   let sp = regVar bld SP
+  let n = retBytes core
+  let t = tmpVar bld 16<rt>
+  let word = tmpVar bld pcSize
   bld <!-- (insAddr, len)
-  bld <+ (sp := sp .+ numI32PC 2)
-  bld <+ (regVar bld PC := AST.loadLE 16<rt> sp)
+  let below i = if i = 0 then t else t .- numAddr i
+  bld <+ (t := sp .+ numAddr n)
+  bld <+ (word := AST.zext pcSize (dataMem t))
+  for i = 1 to n - 1 do
+    let byteAt = AST.zext pcSize (dataMem (below i))
+    bld <+ (word := word .| (byteAt << numI32PC (8 * i)))
+  bld <+ (sp := t)
   if opr = Opcode.RETI then bld <+ (regVar bld IF := AST.b1) else ()
+  bld <+ (AST.interjmp (word << numI32PC 1) InterJmpKind.IsRet)
   bld --!> len
 
-let rcall ins len bld = (* ADD 22bit PC *)
+let rcall core pcMask ins len bld =
   let dst = transOneOpr ins bld
-  let sp = regVar bld SP
-  let pc = regVar bld PC
+  let target = wrapPC pcMask (regVar bld PC .+ dst .+ numI32PC 2)
   bld <!-- (ins.Address, len)
-  bld <+ (pc := pc .+ dst .+ numI32PC 2)
-  bld <+ (AST.loadLE 16<rt> sp := pc .+ numI32PC 2)
-  bld <+ (sp := sp .- numI32PC 2)
+  pushRet core ins len bld
+  bld <+ (AST.interjmp target InterJmpKind.IsCall)
   bld --!> len
 
 let st ins len bld =
-  let (dst, src, mode) = transMemOprToExpr2 ins bld
+  let (ptr, src, mode) = transMemOprToExpr2 ins bld
+  let t = tmpVar bld 16<rt>
   bld <!-- (ins.Address, len)
   match mode with
-  | 0 -> bld <+ (AST.loadLE 8<rt> dst := src)
+  | 0 ->
+    bld <+ (dataMem ptr := src)
   | 1 ->
-    bld <+ (AST.loadLE 8<rt> dst := src)
-    match dst with
-    | BinOp(BinOpType.CONCAT, _, exp1, exp2, _) ->
-      bld <+ (exp1 := AST.extract (dst .+ numI32PC 1) 8<rt> 8)
-      bld <+ (exp2 := AST.extract (dst .+ numI32PC 1) 8<rt> 0)
-    | _ -> Terminator.impossible ()
+    bld <+ (t := ptr .+ numAddr 1)
+    bld <+ (dataMem ptr := src)
+    setPtr bld ptr t
   | -1 ->
-    match dst with
-    | BinOp(BinOpType.CONCAT, _, exp1, exp2, _) ->
-      bld <+ (exp1 := AST.extract (dst .- numI32PC 1) 8<rt> 8)
-      bld <+ (exp2 := AST.extract (dst .- numI32PC 1) 8<rt> 0)
-    | _ -> Terminator.impossible ()
-    bld <+ (AST.loadLE 8<rt> dst := src)
-  | _ -> Terminator.impossible ()
+    bld <+ (t := ptr .- numAddr 1)
+    setPtr bld ptr t
+    bld <+ (dataMem ptr := src)
+  | _ ->
+    Terminator.impossible ()
   bld --!> len
 
 let std ins len bld =
   let (dst, src, disp) = transMemOprToExpr3 ins bld
   bld <!-- (ins.Address, len)
-  bld <+ (AST.loadLE 8<rt> (dst .+ disp) := src)
+  bld <+ (dataMem (dst .+ disp) := src)
   bld --!> len
 
 let sts ins len bld =
-  let struct(dst, src) = transTwoOprs ins bld
+  let struct (dst, src) = transTwoOprs ins bld
   bld <!-- (ins.Address, len)
-  bld <+ (AST.loadLE 8<rt> (dst) := src)
+  bld <+ (dataMem dst := src)
   bld --!> len
 
-let des ins len bld =
-  let dst = transOneOpr ins bld
+let des (ins: Instruction) len bld =
   bld <!-- (ins.Address, len)
   bld <+ (AST.sideEffect UnsupportedInstruction)
   bld --!> len
 
 let xch ins len bld =
-  let struct(dst, src) = transTwoOprs ins bld
+  let struct (dst, src) = transTwoOprs ins bld
   let t1 = tmpVar bld 8<rt>
   bld <!-- (ins.Address, len)
-  bld <+ (t1 := AST.loadLE 8<rt> dst)
-  bld <+ (AST.loadLE 8<rt> dst := src)
+  bld <+ (t1 := dataMem dst)
+  bld <+ (dataMem dst := src)
   bld <+ (src := t1)
   bld --!> len

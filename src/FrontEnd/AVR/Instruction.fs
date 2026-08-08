@@ -29,10 +29,18 @@ open B2R2.FrontEnd.BinLifter
 
 /// Represents an AVR instruction.
 type Instruction
-  internal(addr, numBytes, opcode, operands, lifter: ILiftable) =
+  internal(addr, numBytes, opcode, operands, skipBytes, lifter: ILiftable) =
 
   /// Address of this instruction.
   member _.Address with get(): Addr = addr
+
+  /// How far past this instruction a skip lands: over this instruction and the
+  /// one after it. CPSE, SBRC/SBRS and SBIC/SBIS jump over whatever follows,
+  /// and what follows is two bytes or four, so the decoder reads its opcode to
+  /// find out -- which is what the hardware does too. Zero on every other
+  /// instruction, and on a skip whose successor was past the end of the bytes
+  /// handed to the decoder.
+  member _.SkipBytes with get(): uint32 = skipBytes
 
   /// Length of this instruction in bytes.
   member _.Length with get(): uint32 = numBytes

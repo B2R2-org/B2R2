@@ -28,12 +28,30 @@ open System
 open B2R2
 open B2R2.FrontEnd.BinLifter
 
-/// Represents a parser for AVR instructions.
-type AVRParser(reader) =
+/// Represents a parser for AVR instructions. The ISA names the core, which the
+/// lifter needs even though decoding does not: a call frame on avr6 holds three
+/// bytes of return address where every earlier core holds two.
+type AVRParser(isa: ISA, reader) =
+  let core = isa.AVRCore
+
+  (* A relative branch wraps around the end of program memory, so its target is
+     taken modulo the part's program size; zero when nothing said how big that
+     is, in which case no wrap is applied and a branch that relied on one runs
+     off the end rather than quietly landing somewhere plausible. *)
+  let pcMask =
+    match isa.AVRProgramSize with
+    | 0UL -> 0UL
+    | size -> size - 1UL
+
   let lifter =
     { new ILiftable with
-        member _.Lift(ins, builder) = Lifter.translate ins ins.Length builder
+        member _.Lift(ins, builder) =
+          Lifter.translate core pcMask ins ins.Length builder
         member _.Disasm(ins, builder) = Disasm.disasm ins builder; builder }
+
+  /// Constructs a parser for a core whose program counter fits in two bytes,
+  /// which is every AVR core up to avr51.
+  new(reader) = AVRParser(ISA AVRCore.Classic, reader)
 
   interface IInstructionParsable with
     member _.MaxInstructionSize = 4
