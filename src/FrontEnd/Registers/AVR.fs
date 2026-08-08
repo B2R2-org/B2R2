@@ -184,6 +184,30 @@ module Register =
     | Register.X -> "X"
     | Register.Y -> "Y"
     | Register.Z -> "Z"
+    | Register.IF -> "if"
+    | Register.TF -> "tf"
+    | Register.HF -> "hf"
+    | Register.SF -> "sf"
+    | Register.VF -> "vf"
+    | Register.NF -> "nf"
+    | Register.ZF -> "zf"
+    | Register.CF -> "cf"
     | Register.PC -> "pc"
     | Register.SP -> "sp"
     | _ -> Terminator.impossible ()
+
+  /// Returns the register type (bit width) of an AVR register. The general
+  /// registers are the 8-bit register file; X, Y, and Z are the 16-bit pointer
+  /// pairs formed from R26-R31; the status bits are single flags held apart
+  /// rather than as one SREG byte; and the stack pointer is 16-bit. The program
+  /// counter is wider than AVR's own, which is 16 or 22 bits depending on the
+  /// core and counts words: it holds a byte address on every core.
+  [<CompiledName "ToRegType">]
+  let toRegType reg =
+    match reg with
+    | Register.PC -> 32<rt>
+    | Register.X | Register.Y | Register.Z
+    | Register.SP -> 16<rt>
+    | Register.IF | Register.TF | Register.HF | Register.SF
+    | Register.VF | Register.NF | Register.ZF | Register.CF -> 1<rt>
+    | _ -> 8<rt>
