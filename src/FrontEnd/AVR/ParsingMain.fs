@@ -278,6 +278,24 @@ let parseFourBytes b1 =
   | 0b10010010000u -> Opcode.STS, parseTwoOpr b1 getConst16 getRegD32
   | _ -> raise ParsingFailureException
 
+/// The opcodes that jump over the instruction after them when their condition
+/// holds, and so need to know how long that instruction is.
+let private isSkip op =
+  match op with
+  | Opcode.CPSE | Opcode.SBRC | Opcode.SBRS | Opcode.SBIC | Opcode.SBIS -> true
+  | _ -> false
+
+/// How far past a skip instruction the skip lands, which is over it and over
+/// whatever follows -- two bytes or four, as that instruction's opcode says.
+/// Zero when the bytes handed to the decoder stop before the successor, so a
+/// lifter can tell "not read" from a real distance rather than assume one.
+let private skipDistance (span: ByteSpan) (reader: IBinReader) instrLen =
+  let next = int instrLen
+  if next + 2 > span.Length then 0u
+  else
+    let follower = reader.ReadUInt16(span, next)
+    instrLen + (if isTwoBytes follower then 2u else 4u)
+
 let parse lifter (span: ByteSpan) (reader: IBinReader) addr =
   let bin = reader.ReadUInt16(span, 0)
   let struct ((op, operands), instrLen) =
@@ -289,4 +307,6 @@ let parse lifter (span: ByteSpan) (reader: IBinReader) addr =
       let b2 = reader.ReadUInt16(span, 2)
       let bin = ((uint32 bin) <<< 16) + (uint32 b2)
       struct (bin |> parseFourBytes, 4u)
-  Instruction(addr, instrLen, op, operands, lifter)
+  let skipBytes =
+    if isSkip op then skipDistance span reader instrLen else 0u
+  Instruction(addr, instrLen, op, operands, skipBytes, lifter)

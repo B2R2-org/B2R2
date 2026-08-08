@@ -85,17 +85,23 @@ type RegisterFactory(isa: ISA) =
   let nF = AST.var 1<rt> (Register.toRegID NF) "NF"
   let zF = AST.var 1<rt> (Register.toRegID ZF) "ZF"
   let cF = AST.var 1<rt> (Register.toRegID CF) "CF"
-  let pc = AST.pcvar 16<rt> "PC"
+  (* Wider than AVR's own program counter, which is 16 or 22 bits depending on
+     the core and counts words rather than bytes. B2R2 addresses code by the
+     byte, so this holds the largest AVR program address doubled, on every core,
+     and the lifter needs no case for each. *)
+  let pc = AST.pcvar 32<rt> "PC"
   let sp = AST.var 16<rt> (Register.toRegID SP) "SP"
 
   interface IRegisterFactory with
     member _.ISA = ISA Architecture.AVR
 
-    member _.ProgramCounter = Terminator.futureFeature ()
+    member _.ProgramCounter = Register.toRegID PC
 
-    member _.StackPointer = Terminator.futureFeature ()
+    member _.StackPointer = Register.toRegID SP |> Some
 
-    member _.FramePointer = Terminator.futureFeature ()
+    (* Y (R29:R28) is the frame pointer the ABI assigns, so a routine with a
+       frame keeps its base there. *)
+    member _.FramePointer = Register.toRegID Y |> Some
 
     member _.GetRegVar id =
       match Register.ofRegID id with
@@ -146,31 +152,116 @@ type RegisterFactory(isa: ISA) =
       | Register.SP -> sp
       | _ -> raise InvalidRegisterException
 
-    member _.GetRegVar(_: string): Expr = Terminator.futureFeature ()
+    member this.GetRegVar(name: string): Expr =
+      Register.ofString name
+      |> Register.toRegID
+      |> (this :> IRegisterFactory).GetRegVar
 
     member _.GetPseudoRegVar(_id, _idx) = Terminator.impossible ()
 
-    member _.GetAllRegVars() = Terminator.futureFeature ()
+    (* X, Y, and Z are left out: they are not registers of their own but the
+       R26-R31 pairs viewed as 16 bits, so listing them would report the same
+       state twice. The status bits are listed, since each is held apart. *)
+    member _.GetAllRegVars() =
+      [| r0
+         r1
+         r2
+         r3
+         r4
+         r5
+         r6
+         r7
+         r8
+         r9
+         r10
+         r11
+         r12
+         r13
+         r14
+         r15
+         r16
+         r17
+         r18
+         r19
+         r20
+         r21
+         r22
+         r23
+         r24
+         r25
+         r26
+         r27
+         r28
+         r29
+         r30
+         r31
+         iF
+         tF
+         hF
+         sF
+         vF
+         nF
+         zF
+         cF
+         pc
+         sp |]
 
-    member _.GetGeneralRegVars() = Terminator.futureFeature ()
+    member _.GetGeneralRegVars() =
+      [| r0
+         r1
+         r2
+         r3
+         r4
+         r5
+         r6
+         r7
+         r8
+         r9
+         r10
+         r11
+         r12
+         r13
+         r14
+         r15
+         r16
+         r17
+         r18
+         r19
+         r20
+         r21
+         r22
+         r23
+         r24
+         r25
+         r26
+         r27
+         r28
+         r29
+         r30
+         r31 |]
 
     member _.GetRegisterID expr =
       match expr with
-      | Var(_, id, _, _) -> id (* TODO *)
+      | Var(_, id, _, _) -> id
+      | PCVar _ -> Register.toRegID PC
       | _ -> raise InvalidRegisterException
 
-    member _.GetRegisterID(_: string): RegisterID = Terminator.futureFeature ()
+    member _.GetRegisterID(name: string): RegisterID =
+      Register.ofString name |> Register.toRegID
 
-    member _.GetRegisterIDAliases _ = Terminator.futureFeature ()
+    member _.GetRegisterIDAliases rid = [| rid |]
 
-    member _.GetRegisterName _ = Terminator.futureFeature ()
+    member _.GetRegisterName rid = Register.ofRegID rid |> Register.toString
 
-    member _.GetAllRegisterNames() = Terminator.futureFeature ()
+    member this.GetAllRegisterNames() =
+      let factory = this :> IRegisterFactory
+      factory.GetAllRegVars()
+      |> Array.map (factory.GetRegisterID >> factory.GetRegisterName)
 
-    member _.GetRegType _ = Terminator.futureFeature ()
+    member _.GetRegType rid = Register.ofRegID rid |> Register.toRegType
 
-    member _.IsProgramCounter _ = Terminator.futureFeature ()
+    member _.IsProgramCounter rid = Register.toRegID PC = rid
 
-    member _.IsStackPointer _ = Terminator.futureFeature ()
+    member _.IsStackPointer rid = Register.toRegID SP = rid
 
-    member _.IsFramePointer _ = Terminator.futureFeature ()
+    member _.IsFramePointer rid = Register.toRegID Y = rid

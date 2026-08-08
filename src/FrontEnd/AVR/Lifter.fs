@@ -24,13 +24,16 @@
 
 module internal B2R2.FrontEnd.AVR.Lifter
 
+open B2R2
 open B2R2.BinIR
 open B2R2.FrontEnd.BinLifter
 open B2R2.FrontEnd.AVR
 open B2R2.FrontEnd.AVR.GeneralLifter
 
-/// Translate IR.
-let translate (ins: Instruction) insLen builder =
+/// Translate IR. The core is only read by the instructions that lay out a call
+/// frame, avr6 holding three bytes of return address where the earlier cores
+/// hold two; everything else is settled by the encoding alone.
+let translate (core: AVRCore) pcMask (ins: Instruction) insLen builder =
   match ins.Opcode with
   | Opcode.ADC -> adc ins insLen builder
   | Opcode.ADD -> add ins insLen builder
@@ -42,12 +45,29 @@ let translate (ins: Instruction) insLen builder =
   | Opcode.BRCC| Opcode.BRCS| Opcode.BREQ| Opcode.BRGE| Opcode.BRHC| Opcode.BRHS
   | Opcode.BRID| Opcode.BRIE| Opcode.BRLT| Opcode.BRMI| Opcode.BRNE| Opcode.BRPL
   | Opcode.BRTC| Opcode.BRTS| Opcode.BRVC| Opcode.BRVS ->
-    branch ins insLen builder
-  | Opcode.BREAK -> sideEffects ins.Address insLen ProcessorInfoRead builder
+    branch pcMask ins insLen builder
+  (* A BREAK is what a debugger plants, so it stops the run rather than
+     reporting anything about the processor. *)
+  | Opcode.BREAK -> sideEffects ins.Address insLen Breakpoint builder
   | Opcode.BST -> bst ins insLen builder
-  | Opcode.CALL -> call ins insLen builder
-  | Opcode.CBI| Opcode.IN | Opcode.OUT | Opcode.SBI | Opcode.SBIC | Opcode.SBIS
-  | Opcode.ELPM | Opcode.SLEEP | Opcode.SPM ->
+  | Opcode.CALL -> call core ins insLen builder
+  | Opcode.CBI -> cbi ins insLen builder
+  | Opcode.IN -> ``in`` ins insLen builder
+  | Opcode.OUT -> out ins insLen builder
+  | Opcode.SBI -> sbi ins insLen builder
+  | Opcode.SBIC -> sbic ins insLen builder
+  | Opcode.SBIS -> sbis ins insLen builder
+  | Opcode.SBRC -> sbrc ins insLen builder
+  | Opcode.SBRS -> sbrs ins insLen builder
+  | Opcode.LPM -> lpm ins insLen builder
+  | Opcode.NEG -> neg ins insLen builder
+  | Opcode.ELPM -> elpm ins insLen builder
+  | Opcode.EICALL -> eicall core ins insLen builder
+  | Opcode.EIJMP -> eijmp ins insLen builder
+  (* Still to do: SPM writes program memory, and SLEEP needs a platform that can
+     wake the guest again. Reporting them rather than letting them pass keeps a
+     program that reaches one from running on silently. *)
+  | Opcode.SPM | Opcode.SLEEP ->
     sideEffects ins.Address insLen UnsupportedInstruction builder
   | Opcode.CLC -> clc ins insLen builder
   | Opcode.CLH -> clh ins insLen builder
@@ -65,13 +85,11 @@ let translate (ins: Instruction) insLen builder =
   | Opcode.CPSE -> cpse ins insLen builder
   | Opcode.DEC -> dec ins insLen builder
   | Opcode.DES -> des ins insLen builder
-  | Opcode.EICALL -> eicall ins insLen builder
-  | Opcode.EIJMP -> eijmp ins insLen builder
   | Opcode.EOR -> eor ins insLen builder
   | Opcode.FMUL -> fmul ins insLen builder
   | Opcode.FMULS -> fmuls ins insLen builder
   | Opcode.FMULSU -> fmulsu ins insLen builder
-  | Opcode.ICALL -> icall ins insLen builder
+  | Opcode.ICALL -> icall core ins insLen builder
   | Opcode.IJMP -> ijmp ins insLen builder
   | Opcode.INC -> inc ins insLen builder
   | Opcode.JMP -> jmp ins insLen builder
@@ -92,9 +110,10 @@ let translate (ins: Instruction) insLen builder =
   | Opcode.OR | Opcode.ORI -> ``or`` ins insLen builder
   | Opcode.POP -> pop ins insLen builder
   | Opcode.PUSH -> push ins insLen builder
-  | Opcode.RCALL -> rcall ins insLen builder
-  | Opcode.RET | Opcode.RETI as opr -> ret ins.Address insLen opr builder
-  | Opcode.RJMP -> rjmp ins insLen builder
+  | Opcode.RCALL -> rcall core pcMask ins insLen builder
+  | Opcode.RET | Opcode.RETI as opr ->
+    ret core ins.Address insLen opr builder
+  | Opcode.RJMP -> rjmp pcMask ins insLen builder
   | Opcode.ROR -> ror ins insLen builder
   | Opcode.SBC | Opcode.SBCI -> sbc ins insLen builder
   | Opcode.SBIW -> sbiw ins insLen builder
@@ -105,7 +124,10 @@ let translate (ins: Instruction) insLen builder =
   | Opcode.STD -> std ins insLen builder
   | Opcode.STS -> sts ins insLen builder
   | Opcode.SWAP -> swap ins insLen builder
-  | Opcode.WDR -> sideEffects ins.Address insLen (ClockCounterRead None) builder
+  (* A watchdog reset needs a watchdog to reset. Reporting it is what keeps a
+     guest that relies on one from looking like it ran correctly. *)
+  | Opcode.WDR ->
+    sideEffects ins.Address insLen UnsupportedInstruction builder
   | Opcode.XCH -> xch ins insLen builder
   (* No parser produces this opcode: an undecodable encoding is reported as a
      parsing failure, so an instruction never carries it this far. *)
