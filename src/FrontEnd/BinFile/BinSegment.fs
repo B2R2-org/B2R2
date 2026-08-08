@@ -37,6 +37,10 @@ type BinSegment =
     Name: string option
     /// Virtual address at which the segment is mapped.
     Address: Addr
+    /// The address the segment's contents are *stored* at, which differs from
+    /// Address only where a format separates the two: an ELF program header's
+    /// physical address.
+    PhysAddr: Addr
     /// Size of the segment in the virtual memory.
     Size: uint64
     /// File offset of the segment's contents.
