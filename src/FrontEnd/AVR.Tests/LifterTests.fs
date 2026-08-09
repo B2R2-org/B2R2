@@ -276,3 +276,13 @@ type LifterTests() =
     ++ [| AST.intercjmp (AST.extract !.R24 1<rt> 1 == AST.b1)
             (!.PC .+ numPC 4) (!.PC .+ numPC 2) |]
     |> test
+
+  (* SLEEP stops the core until something outside it intervenes. What that is,
+     and whether anything can, belongs to the platform running the program --
+     all this translation says is that the core stops, which is what Terminate
+     means and what HLT lifts to elsewhere. *)
+  [<TestMethod>]
+  member _.``SLEEP stops the core test``() =
+    "8895"                                        (* sleep *)
+    ++ [| AST.sideEffect Terminate |]
+    |> test

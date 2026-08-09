@@ -64,10 +64,13 @@ let translate (core: AVRCore) pcMask (ins: Instruction) insLen builder =
   | Opcode.ELPM -> elpm ins insLen builder
   | Opcode.EICALL -> eicall core ins insLen builder
   | Opcode.EIJMP -> eijmp ins insLen builder
-  (* Still to do: SPM writes program memory, and SLEEP needs a platform that can
-     wake the guest again. Reporting them rather than letting them pass keeps a
-     program that reaches one from running on silently. *)
-  | Opcode.SPM | Opcode.SLEEP ->
+  (* SLEEP stops the core until something outside it intervenes, which is all
+     this translation can say: whether anything can wake the core again, and
+     what does, is the platform's to answer. *)
+  | Opcode.SLEEP -> sideEffects ins.Address insLen Terminate builder
+  (* Still to do: SPM writes program memory. Reporting it rather than letting it
+     pass keeps a program that reaches one from running on silently. *)
+  | Opcode.SPM ->
     sideEffects ins.Address insLen UnsupportedInstruction builder
   | Opcode.CLC -> clc ins insLen builder
   | Opcode.CLH -> clh ins insLen builder
