@@ -124,6 +124,15 @@ let unaryOp name (ins: Instruction) bld =
   pushToStack bld (AST.app name [ operand ] rt)
   bld --!> ins.Length
 
+/// The truth of an object, which is what a conditional jump branches on.
+/// Every type answers it and most of them say something the reference itself
+/// cannot: zero, the empty string, the empty list and None are all false while
+/// being perfectly good objects. So the question goes to whoever knows the
+/// object model, exactly as 3.13's own TO_BOOL opcode hands it over -- testing
+/// the lifted value's bits would instead ask whether the guest is holding
+/// anything at all, which it always is.
+let truthOf value = AST.app "IS_TRUTHY" [ value ] rt
+
 /// A binary operator as a named call, which every one of them is: Python's
 /// operators dispatch on their operands' types (`__add__` and friends), so
 /// `+` may add, concatenate, or run a user's own method, and comparisons
@@ -316,15 +325,14 @@ let condJumpAbsolute (binFile: PythonBinFile)
                      bld
                      jumpIfTrue =
   bld <!-- (ins.Address, ins.Length)
-  let cond = popFromStack bld
+  let cond = truthOf (popFromStack bld)
   let n = getIntArg ins
   let jmpDst =
     codeObjectBase binFile ins.Address + uint64 (n * jumpArgScale ins)
   let fallDst = ins.Address + uint64 ins.Length
   let tLbl = AST.num (BitVector(jmpDst, rt))
   let fLbl = AST.num (BitVector(fallDst, rt))
-  let cond, tLbl, fLbl =
-    if jumpIfTrue then cond, tLbl, fLbl else cond, fLbl, tLbl
+  let tLbl, fLbl = if jumpIfTrue then tLbl, fLbl else fLbl, tLbl
   bld <+ AST.intercjmp cond tLbl fLbl
   bld
 
@@ -354,8 +362,12 @@ let jumpOrPop (binFile: PythonBinFile) (ins: Instruction) bld jumpIfTrue =
   let fLbl = AST.num (BitVector(fallDst, rt))
   let lblLTrue = label bld "LTrue"
   let lblLFalse = label bld "LFalse"
-  let cond = if jumpIfTrue then cond else AST.not cond
-  bld <+ AST.cjmp cond (AST.jmpDest lblLTrue) (AST.jmpDest lblLFalse)
+  (* The truth test cannot be negated for the FALSE variant -- an object's
+     truth is not a bit to flip -- so the two destinations swap instead. *)
+  let taken, notTaken =
+    if jumpIfTrue then AST.jmpDest lblLTrue, AST.jmpDest lblLFalse
+    else AST.jmpDest lblLFalse, AST.jmpDest lblLTrue
+  bld <+ AST.cjmp (truthOf cond) taken notTaken
   bld <+ AST.lmark lblLTrue
   bld <+ AST.interjmp tLbl InterJmpKind.Base
   bld <+ AST.lmark lblLFalse
@@ -686,9 +698,8 @@ let condJump (ins: Instruction) bld jumpIfTrue =
      existing (unmodified) mapping in spirit -- to see, empirically, what in
      the CFG-recovery/dominance/loop-detection pipeline actually depends on
      the old canonicalization before deciding whether to keep this. *)
-  let cond, tLbl, fLbl =
-    if jumpIfTrue then cond, tLbl, fLbl else cond, fLbl, tLbl
-  bld <+ AST.intercjmp cond tLbl fLbl
+  let tLbl, fLbl = if jumpIfTrue then tLbl, fLbl else fLbl, tLbl
+  bld <+ AST.intercjmp (truthOf cond) tLbl fLbl
   bld
 
 (* Conditional jump for POP_JUMP_IF_NONE / POP_JUMP_IF_NOT_NONE.
