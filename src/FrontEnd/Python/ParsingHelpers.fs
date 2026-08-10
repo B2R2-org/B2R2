@@ -105,7 +105,7 @@ module internal ParsingHelpers =
           parseOperand spec b span reader bf c e
         else NoOperand
       let total = uint32 (c - s) + spec.Length b
-      Instruction(s, total, b, opr, OperationSize.regType, bf.Version, bf,
+      Instruction(s, total, b, opr, OperationSize.RegType, bf.Version, bf,
                   semantics)
 
   /// Decodes the instruction at the given address.

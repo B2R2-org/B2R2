@@ -32,7 +32,10 @@ open B2R2.FrontEnd.BinFile
 open B2R2.FrontEnd.BinFile.Python
 open B2R2.FrontEnd.BinLifter.LiftingUtils
 
-let rt = OperationSize.regType
+/// A shorthand for the one width every Python operand and register has. The
+/// constant itself is OperationSize.RegType, a literal that folds into each
+/// use of this alias.
+let rt = OperationSize.RegType
 
 let extractMinorVersion = function
   | PythonVersion.Python306 -> 6
@@ -51,7 +54,23 @@ let getIntArg (ins: Instruction) =
   | OneOperand(arg, _) -> arg
   | _ -> failwith "Expected one operand with an integer argument."
 
-let stackSlotSize = numI32 1 rt
+/// How far apart two evaluation-stack slots sit. A slot holds one rt-wide
+/// value and LowUIR's stores are byte-addressed, so the distance is rt's
+/// width in bytes -- exactly as a native architecture's push moves its stack
+/// pointer by the width it stores. Spacing slots one apart (a slot *index*)
+/// would leave the IR contradicting itself: consecutive rt-wide stores would
+/// overlap by all but one byte, so every push would corrupt the slot beneath
+/// it. Derived from the width rather than spelled out, so a change to it
+/// carries here on its own; both are literals, so the division folds away at
+/// compile time.
+let [<Literal>] SlotSize = OperationSize.RegType / 8<rt>
+
+/// SlotSize as an expression, built once. Unlike the literals it is a LowUIR
+/// node -- a reference type -- so it cannot be one itself.
+let stackSlotSize = numI32 SlotSize rt
+
+/// The address of the slot n above the stack pointer; n = 0 is TOS.
+let slotAddr spReg n = spReg .+ (numI32 (n * SlotSize) rt)
 
 /// Pushes an element onto the evaluation stack.
 let pushToStack bld expr =
@@ -77,7 +96,7 @@ let discardTOS bld =
 let peekFromStack bld offset =
   let spReg = regVar bld R.SP
   let tmp = tmpVar bld rt
-  bld <+ (tmp := AST.loadLE rt (spReg .+ (numI32 offset rt)))
+  bld <+ (tmp := AST.loadLE rt (slotAddr spReg offset))
   tmp
 
 (* Emit ISMark + IEMark only; used for no-op instructions. *)
@@ -362,8 +381,8 @@ let rotateTopToBottom n (ins: Instruction) bld =
   let top = peekFromStack bld 0
   for i in 0 .. n - 2 do
     let v = peekFromStack bld (i + 1)
-    bld <+ (AST.store Endian.Little (spReg .+ (numI32 i rt)) v)
-  bld <+ (AST.store Endian.Little (spReg .+ (numI32 (n - 1) rt)) top)
+    bld <+ (AST.store Endian.Little (slotAddr spReg i) v)
+  bld <+ (AST.store Endian.Little (slotAddr spReg (n - 1)) top)
   bld --!> ins.Length
 
 let dupTop (ins: Instruction) bld =
@@ -515,7 +534,7 @@ let swap (ins: Instruction) bld =
   let tmp = tmpVar bld rt
   bld <+ (tmp := top)
   bld <+ (AST.store Endian.Little spReg nth)
-  bld <+ (AST.store Endian.Little (spReg .+ (numI32 (n - 1) rt)) tmp)
+  bld <+ (AST.store Endian.Little (slotAddr spReg (n - 1)) tmp)
   bld --!> ins.Length
 
 (* Generic store for STORE_FAST / STORE_NAME / STORE_GLOBAL / STORE_DEREF:

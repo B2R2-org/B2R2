@@ -56,7 +56,7 @@ type RegisterFactory(isa: ISA) =
 
     member _.GetRegVar(rid: RegisterID): Expr =
       let r = Register.ofRegID rid
-      AST.var OperationSize.regType rid (Register.toString r)
+      AST.var OperationSize.RegType rid (Register.toString r)
 
     member _.GetRegVar(_: string): Expr = Terminator.futureFeature ()
 
@@ -76,7 +76,7 @@ type RegisterFactory(isa: ISA) =
 
     member _.GetAllRegisterNames() = [||]
 
-    member _.GetRegType _ = OperationSize.regType
+    member _.GetRegType _ = OperationSize.RegType
 
     member _.IsProgramCounter regid = regid = pcRID
 
