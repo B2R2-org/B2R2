@@ -140,10 +140,18 @@ let exitMethod mgr = AST.app "__exit__" [ mgr ] rt
 
 /// The value a suspended yield receives when it is resumed. Unlike every
 /// marker above, this one genuinely is not determined by the bytecode -- it
-/// is whatever the caller later sends in -- so it stays an Undefined, which
-/// is precisely what that node means. It is the only Undefined this lifter
-/// emits.
+/// is whatever the caller later sends in -- so it is an Undefined, which is
+/// precisely what that node means.
 let yieldReceived = AST.undef rt "YIELD_RECEIVED"
+
+/// Where a return lands. Python's return address lives in the interpreter's
+/// own frame object, which the bytecode can neither name nor address -- so,
+/// unlike a native architecture whose return address sits in a register or
+/// on the stack, no expression here can name it. Undefined for the same
+/// reason yieldReceived is; the two are the only ones this lifter emits. The
+/// jump itself stays an InterJmp of kind IsRet, so CFG recovery still sees a
+/// return edge -- only its target is unknown.
+let returnTarget = AST.undef rt "RETURN_TARGET"
 
 let translateLoad opname (ins: Instruction) bld =
   bld <!-- (ins.Address, ins.Length)
@@ -598,9 +606,8 @@ let deleteSubscript (ins: Instruction) bld =
 let translateReturn (ins: Instruction) bld =
   bld <!-- (ins.Address, ins.Length)
   let value = popFromStack bld
-  let t = tmpVar bld rt
   bld <+ AST.extCall (AST.app "RETURN" [ value ] rt)
-  bld <+ (AST.interjmp t InterJmpKind.IsRet)
+  bld <+ (AST.interjmp returnTarget InterJmpKind.IsRet)
   bld
 
 (* RETURN_CONST: load constant directly without a stack round-trip. *)
@@ -608,9 +615,8 @@ let translateReturnConst (ins: Instruction) bld =
   bld <!-- (ins.Address, ins.Length)
   let name = operandIndex ins
   let value = AST.app "LOAD_CONST" [ name ] rt
-  let t = tmpVar bld rt
   bld <+ AST.extCall (AST.app "RETURN" [ value ] rt)
-  bld <+ (AST.interjmp t InterJmpKind.IsRet)
+  bld <+ (AST.interjmp returnTarget InterJmpKind.IsRet)
   bld
 
 (* RAISE_VARARGS arg: pop arg items (0??) and raise. *)
