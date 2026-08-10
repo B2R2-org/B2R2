@@ -157,6 +157,25 @@ let opApp name l r = AST.app name [ l; r ] rt
 /// binary.
 let operandIndex (ins: Instruction) = numI32 (getIntArg ins) rt
 
+/// The same, with the flag bits some opcodes pack below the index removed:
+/// LOAD_GLOBAL's push-NULL bit from 3.11, LOAD_ATTR's is-method bit from 3.12,
+/// and LOAD_SUPER_ATTR's two bits from 3.12. What travels has to be the index
+/// that actually selects the entry -- the flag is already available on its own
+/// through ins.Flag, and nothing downstream could tell from the IR alone how
+/// far to shift. The shifts mirror each version's own Parsing.resolveOperand,
+/// which reads the same operand for the disassembler.
+let private shiftedIndex bits (ins: Instruction) =
+  numI32 (getIntArg ins >>> bits) rt
+
+let globalIndex (ins: Instruction) =
+  if int ins.Version >= 311 then shiftedIndex 1 ins else operandIndex ins
+
+let attrIndex (ins: Instruction) =
+  if int ins.Version >= 312 then shiftedIndex 1 ins else operandIndex ins
+
+let superAttrIndex (ins: Instruction) =
+  if int ins.Version >= 312 then shiftedIndex 2 ins else operandIndex ins
+
 /// The interpreter's NULL: the empty self-or-kwnames slot a call's shape
 /// reserves, and what a flag-carrying attribute load pushes ahead of the
 /// attribute. It is a marker rather than a Python value, and the opcode
@@ -199,7 +218,7 @@ let translateLoad opname (ins: Instruction) bld =
 
 let translateLoadGlobal (ins: Instruction) bld =
   bld <!-- (ins.Address, ins.Length)
-  let v = AST.app "LOAD_GLOBAL" [ operandIndex ins ] rt
+  let v = AST.app "LOAD_GLOBAL" [ globalIndex ins ] rt
   if ins.Flag then pushToStack bld nullSlot else ()
   pushToStack bld v
   bld --!> ins.Length
@@ -242,10 +261,21 @@ let importStar (ins: Instruction) bld =
   bld <+ AST.extCall (AST.app "IMPORT_STAR" [ moduleObj ] rt)
   bld --!> ins.Length
 
+(* CALL_INTRINSIC_1 took over several standalone opcodes in 3.12, import star
+   among them, and folded them into one shape: an intrinsic takes a single
+   operand and leaves a single result, which the compiler discards with its own
+   POP_TOP. So this pushes even though nothing reads what it pushed -- lifting
+   it the way its predecessor worked, consuming the module and leaving nothing,
+   loses a slot on every import star and walks the stack pointer off its own
+   region a few statements later. *)
 let callIntrinsic1 (ins: Instruction) bld =
-  match getIntArg ins with
-  | 2 -> importStar ins bld (* INTRINSIC_IMPORT_STAR in Python 3.12. *)
-  | _ -> namedEffect "CALL_INTRINSIC_1" ins bld
+  bld <!-- (ins.Address, ins.Length)
+  let operand = popFromStack bld
+  let intrinsic =
+    if getIntArg ins = 2 then "IMPORT_STAR" else "CALL_INTRINSIC_1"
+  bld <+ AST.extCall (AST.app intrinsic [ operand ] rt)
+  pushToStack bld noneValue
+  bld --!> ins.Length
 
 let popTop (ins: Instruction) bld =
   bld <!-- (ins.Address, ins.Length)
@@ -585,7 +615,7 @@ let storeAttr (ins: Instruction) bld =
    attr so that CALL sees (NULL, obj.attr, args) and treats obj as self. *)
 let loadAttr (ins: Instruction) bld =
   bld <!-- (ins.Address, ins.Length)
-  let name = operandIndex ins
+  let name = attrIndex ins
   let obj = popFromStack bld
   let attr = AST.app "LOAD_ATTR" [ obj; name ] rt
   if ins.Flag then pushToStack bld nullSlot else ()
@@ -602,7 +632,7 @@ let loadAttr (ins: Instruction) bld =
    tag it differently to keep them. *)
 let loadSuperAttr (ins: Instruction) bld =
   bld <!-- (ins.Address, ins.Length)
-  let name = operandIndex ins
+  let name = superAttrIndex ins
   let self = popFromStack bld
   let cls = popFromStack bld
   let superGlobal = popFromStack bld
