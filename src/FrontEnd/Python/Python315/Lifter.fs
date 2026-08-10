@@ -29,7 +29,6 @@ open B2R2.BinIR
 open B2R2.BinIR.LowUIR
 open B2R2.FrontEnd.BinFile
 open B2R2.FrontEnd.BinLifter.LiftingUtils
-open B2R2.FrontEnd.BinFile.Python
 open B2R2.FrontEnd.Python
 open B2R2.FrontEnd.Python.LifterHelpers
 
@@ -41,19 +40,18 @@ let private minor = 15
    borrow, so they are modeled here rather than in the shared file: this
    directory is the only thing a 3.15 change should have to touch. *)
 
-/// The two co_varnames entries a paired local opcode packs into one oparg.
-let private pairedNames (ins: Instruction) =
-  match ins.Operands with
-  | OneOperand(_, Some(PyTuple [| a; b |])) ->
-    convertPyObjectToExpr false a, convertPyObjectToExpr false b
-  | _ ->
-    failwith "A paired local opcode must carry two resolved names."
+/// The two co_varnames indices a paired local opcode packs into one oparg,
+/// the high nibble first -- the same split this version's own
+/// Parsing.resolveOperand makes to look the two names up.
+let private pairedIndices (ins: Instruction) =
+  let arg = getIntArg ins
+  numI32 (arg >>> 4) rt, numI32 (arg &&& 0xF) rt
 
 /// LOAD_FAST_LOAD_FAST, LOAD_FAST_BORROW_LOAD_FAST_BORROW: one oparg, two
 /// locals pushed in order.
 let private loadPair (ins: Instruction) bld =
   bld <!-- (ins.Address, ins.Length)
-  let a, b = pairedNames ins
+  let a, b = pairedIndices ins
   pushToStack bld (AST.app "LOAD_FAST" [ a ] rt)
   pushToStack bld (AST.app "LOAD_FAST" [ b ] rt)
   bld --!> ins.Length
@@ -61,7 +59,7 @@ let private loadPair (ins: Instruction) bld =
 /// STORE_FAST_LOAD_FAST: store into the first local, then load the second.
 let private storeLoadPair (ins: Instruction) bld =
   bld <!-- (ins.Address, ins.Length)
-  let a, b = pairedNames ins
+  let a, b = pairedIndices ins
   let v = popFromStack bld
   bld <+ AST.extCall (AST.app "STORE_FAST" [ a; v ] rt)
   pushToStack bld (AST.app "LOAD_FAST" [ b ] rt)
@@ -70,7 +68,7 @@ let private storeLoadPair (ins: Instruction) bld =
 /// STORE_FAST_STORE_FAST: two stores, the first taking the top of stack.
 let private storePair (ins: Instruction) bld =
   bld <!-- (ins.Address, ins.Length)
-  let a, b = pairedNames ins
+  let a, b = pairedIndices ins
   let first = popFromStack bld
   let second = popFromStack bld
   bld <+ AST.extCall (AST.app "STORE_FAST" [ a; first ] rt)
@@ -102,14 +100,9 @@ let private toBool (ins: Instruction) bld =
 /// split into three, each doing one part of what formatValue did.
 let private convertValue (ins: Instruction) bld =
   bld <!-- (ins.Address, ins.Length)
-  let conv =
-    match getIntArg ins with
-    | 1 -> "str"
-    | 2 -> "repr"
-    | 3 -> "ascii"
-    | _ -> ""
+  let conv = numI32 (getIntArg ins) rt
   let v = popFromStack bld
-  pushToStack bld (AST.app "CONVERT_VALUE" [ v; AST.undef rt conv ] rt)
+  pushToStack bld (AST.app "CONVERT_VALUE" [ v; conv ] rt)
   bld --!> ins.Length
 
 let private formatSimple (ins: Instruction) bld =
@@ -167,34 +160,34 @@ let translate (binFile: PythonBinFile) (ins: Instruction) bld =
   | Opcode.SWAP ->
     swap ins bld
   | Opcode.LOAD_CONST ->
-    translateLoad "LOAD_CONST" true ins bld
+    translateLoad "LOAD_CONST" ins bld
   | Opcode.LOAD_FAST
   | Opcode.LOAD_FAST_CHECK
   | Opcode.LOAD_FAST_AND_CLEAR ->
-    translateLoad "LOAD_FAST" false ins bld
+    translateLoad "LOAD_FAST" ins bld
   | Opcode.LOAD_NAME ->
-    translateLoad "LOAD_NAME" false ins bld
+    translateLoad "LOAD_NAME" ins bld
   | Opcode.LOAD_ATTR ->
     loadAttr ins bld
   | Opcode.LOAD_GLOBAL ->
-    translateLoadGlobal minor ins bld
+    translateLoadGlobal ins bld
   | Opcode.LOAD_DEREF ->
-    translateLoad "LOAD_DEREF" false ins bld
+    translateLoad "LOAD_DEREF" ins bld
   | Opcode.LOAD_CLOSURE ->
-    translateLoad "LOAD_CLOSURE" false ins bld
+    translateLoad "LOAD_CLOSURE" ins bld
   | Opcode.LOAD_SUPER_ATTR ->
     loadSuperAttr ins bld
   | Opcode.LOAD_FROM_DICT_OR_GLOBALS ->
-    translateLoad "LOAD_FROM_DICT_OR_GLOBALS" false ins bld
+    translateLoad "LOAD_FROM_DICT_OR_GLOBALS" ins bld
   | Opcode.LOAD_FROM_DICT_OR_DEREF ->
-    translateLoad "LOAD_FROM_DICT_OR_DEREF" false ins bld
+    translateLoad "LOAD_FROM_DICT_OR_DEREF" ins bld
   | Opcode.LOAD_BUILD_CLASS ->
     loadBuildClass ins bld
   | Opcode.LOAD_LOCALS ->
     namedEffect "LOAD_LOCALS" ins bld
   (* Store instructions *)
   | Opcode.STORE_FAST ->
-    storeFast ins bld
+    storeNamed "STORE_FAST" ins bld
   | Opcode.STORE_NAME ->
     storeNamed "STORE_NAME" ins bld
   | Opcode.STORE_GLOBAL ->
@@ -266,7 +259,7 @@ let translate (binFile: PythonBinFile) (ins: Instruction) bld =
     translateReturn ins bld
   | Opcode.RETURN_GENERATOR ->
     bld <!-- (ins.Address, ins.Length)
-    pushToStack bld (AST.undef rt "None")
+    pushToStack bld noneValue
     bld --!> ins.Length
   | Opcode.RAISE_VARARGS ->
     translateRaiseVarargs ins bld
@@ -314,7 +307,7 @@ let translate (binFile: PythonBinFile) (ins: Instruction) bld =
     let excValue = popFromStack bld
     let sentVal = popFromStack bld
     let gen = popFromStack bld
-    pushToStack bld (AST.undef rt "None")
+    pushToStack bld noneValue
     pushToStack bld (AST.app "CLEANUP_THROW" [ gen; sentVal; excValue ] rt)
     bld --!> ins.Length
   | Opcode.END_ASYNC_FOR ->
@@ -363,7 +356,7 @@ let translate (binFile: PythonBinFile) (ins: Instruction) bld =
   | Opcode.SETUP_WITH ->
     bld <!-- (ins.Address, ins.Length)
     let mgr = popFromStack bld
-    pushToStack bld (AST.undef rt "__exit__")
+    pushToStack bld (exitMethod mgr)
     pushToStack bld (AST.app "__enter__" [ mgr ] rt)
     bld --!> ins.Length
   | Opcode.SETUP_FINALLY ->
@@ -398,7 +391,7 @@ let translate (binFile: PythonBinFile) (ins: Instruction) bld =
     bld <!-- (ins.Address, ins.Length)
     let item = popFromStack bld
     bld <+ AST.extCall (AST.app "YIELD_VALUE" [ item ] rt)
-    pushToStack bld (AST.undef rt "YIELD_RECEIVED")
+    pushToStack bld yieldReceived
     bld --!> ins.Length
   | Opcode.IMPORT_NAME ->
     importName ins bld
@@ -465,7 +458,7 @@ let translate (binFile: PythonBinFile) (ins: Instruction) bld =
   (* --- opcodes 3.15 introduced --- *)
   | Opcode.LOAD_FAST_BORROW ->
     (* A borrowed reference: same value, one fewer refcount bump. *)
-    translateLoad "LOAD_FAST" false ins bld
+    translateLoad "LOAD_FAST" ins bld
   | Opcode.LOAD_FAST_LOAD_FAST
   | Opcode.LOAD_FAST_BORROW_LOAD_FAST_BORROW ->
     loadPair ins bld

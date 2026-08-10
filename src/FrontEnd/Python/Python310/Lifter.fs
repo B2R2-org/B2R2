@@ -59,21 +59,21 @@ let translate (binFile: PythonBinFile) (ins: Instruction) bld =
     dupTopTwo ins bld
   (* Load instructions *)
   | Opcode.LOAD_CONST ->
-    translateLoad "LOAD_CONST" true ins bld
+    translateLoad "LOAD_CONST" ins bld
   | Opcode.LOAD_FAST ->
-    translateLoad "LOAD_FAST" false ins bld
+    translateLoad "LOAD_FAST" ins bld
   | Opcode.LOAD_NAME ->
-    translateLoad "LOAD_NAME" false ins bld
+    translateLoad "LOAD_NAME" ins bld
   | Opcode.LOAD_ATTR ->
     loadAttr ins bld
   | Opcode.LOAD_GLOBAL ->
-    translateLoadGlobal minor ins bld
+    translateLoadGlobal ins bld
   | Opcode.LOAD_DEREF ->
-    translateLoad "LOAD_DEREF" false ins bld
+    translateLoad "LOAD_DEREF" ins bld
   | Opcode.LOAD_CLOSURE ->
-    translateLoad "LOAD_CLOSURE" false ins bld
+    translateLoad "LOAD_CLOSURE" ins bld
   | Opcode.LOAD_CLASSDEREF ->
-    translateLoad "LOAD_CLASSDEREF" false ins bld
+    translateLoad "LOAD_CLASSDEREF" ins bld
   | Opcode.LOAD_METHOD ->
     loadMethod ins bld
   | Opcode.LOAD_BUILD_CLASS ->
@@ -81,7 +81,7 @@ let translate (binFile: PythonBinFile) (ins: Instruction) bld =
   | Opcode.LOAD_ASSERTION_ERROR ->
     loadAssertionError ins bld
   | Opcode.STORE_FAST ->
-    storeFast ins bld
+    storeNamed "STORE_FAST" ins bld
   | Opcode.STORE_NAME ->
     storeNamed "STORE_NAME" ins bld
   | Opcode.STORE_GLOBAL ->
@@ -266,7 +266,7 @@ let translate (binFile: PythonBinFile) (ins: Instruction) bld =
   | Opcode.SETUP_WITH ->
     bld <!-- (ins.Address, ins.Length)
     let mgr = popFromStack bld
-    pushToStack bld (AST.undef rt "__exit__")
+    pushToStack bld (exitMethod mgr)
     pushToStack bld (AST.app "__enter__" [ mgr ] rt)
     bld --!> ins.Length
   | Opcode.SETUP_ASYNC_WITH ->
@@ -311,7 +311,7 @@ let translate (binFile: PythonBinFile) (ins: Instruction) bld =
     bld <!-- (ins.Address, ins.Length)
     let item = popFromStack bld
     bld <+ AST.extCall (AST.app "YIELD_VALUE" [ item ] rt)
-    pushToStack bld (AST.undef rt "YIELD_RECEIVED")
+    pushToStack bld yieldReceived
     bld --!> ins.Length
   | Opcode.YIELD_FROM ->
     yieldFrom ins bld

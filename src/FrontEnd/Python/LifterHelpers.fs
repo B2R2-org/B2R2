@@ -24,7 +24,6 @@
 
 module internal B2R2.FrontEnd.Python.LifterHelpers
 
-open System.Globalization
 open B2R2
 open B2R2.BinIR
 open B2R2.BinIR.LowUIR
@@ -106,144 +105,66 @@ let unaryOp name (ins: Instruction) bld =
   pushToStack bld (AST.app name [ operand ] rt)
   bld --!> ins.Length
 
-let escapeByteForPyLiteral (b: byte) =
-  match char b with
-  | '\\' -> "\\\\"
-  | '"' -> "\\\""
-  | '\n' -> "\\n"
-  | '\r' -> "\\r"
-  | '\t' -> "\\t"
-  | c when b >= 0x20uy && b <= 0x7Euy -> string c
-  | _ -> sprintf "\\x%02x" b
+/// The instruction's argument as an operand index -- the raw oparg, which
+/// indexes the containing code object's own constant, name, or local table.
+/// Which of the three it indexes is fixed by the opcode, so the named app the
+/// index rides in already says which table to read (see each version's own
+/// Parsing.getTable), and the code object is the one containing the
+/// instruction's own address. Emitting the index rather than a rendering of
+/// the object it selects keeps the lifted IR lossless -- the object's type,
+/// its interned identity, and the int/long distinction all survive -- and
+/// leaves the lookup to a consumer holding the PythonBinFile, exactly as a
+/// native architecture's IR leaves a Load's target to whoever holds the
+/// binary.
+let operandIndex (ins: Instruction) = numI32 (getIntArg ins) rt
 
-let bytesToPyLiteral (bytes: byte[]) =
-  bytes
-  |> Array.map escapeByteForPyLiteral
-  |> String.concat ""
-  |> sprintf "b\"%s\""
+/// The interpreter's NULL: the empty self-or-kwnames slot a call's shape
+/// reserves, and what a flag-carrying attribute load pushes ahead of the
+/// attribute. It is a marker rather than a Python value, and the opcode
+/// determines it completely, so it is a nullary named app -- not an
+/// Undefined, which would claim the bytecode leaves it unspecified.
+let nullSlot = AST.app "NULL" [] rt
 
-let rec convertPyObjectToExpr isConst = function
-  (* Text, whatever the marshal format it arrived in. *)
-  | PyAscii n
-  | PySurrogateText(n, _)
-  | PyShortAscii n
-  | PyShortAsciiInterned n ->
-    AST.undef rt <| if isConst then sprintf "\"%s\"" n else n
-  (* Bytes literal, e.g. b"\\x00\\x01". *)
-  | PyString bytes ->
-    AST.undef rt (bytesToPyLiteral bytes)
-  (* Interned reference ??resolve by delegating to the actual object. *)
-  | PyREF(_, obj) ->
-    convertPyObjectToExpr isConst obj
-  (* A code object reference. Identified by address rather than name, since
-     names like "<lambda>" or "<listcomp>" collide across instances. *)
-  | PyCode(codeObj) ->
-    AST.undef rt (sprintf "<%d>" (fst codeObj.Code))
-  (* None *)
-  | PyNone ->
-    AST.undef rt "None"
-  (* PyTrue *)
-  | PyTrue ->
-    AST.undef rt "True"
-  (* PyFalse *)
-  | PyFalse ->
-    AST.undef rt "False"
-  (* PyInt *)
-  | PyInt n ->
-    AST.undef rt (sprintf "%d" n)
-  (* PyLong: already pre-rendered to its decimal repr string at parse
-     time (see PyLong's doc comment in Types.fs). *)
-  | PyLong s ->
-    AST.undef rt s
-  (* PyFloat *)
-  | PyFloat f ->
-    AST.undef rt f
-  (* PyBinaryFloat *)
-  | PyBinaryFloat f ->
-    let str = f.ToString("R", CultureInfo.InvariantCulture)
-    let str = if str.Contains "." || str.Contains "E" then str else str + ".0"
-    AST.undef rt str
-  (* PyComplex: reconstructed as Python's own `real+imagj` literal syntax
-     -- valid wherever a constant expression is, and the real part is
-     dropped entirely for a pure-imaginary value (e.g. `4j`), matching
-     how such a literal actually appears in source. *)
-  | PyComplex(real, imag) ->
-    let joined =
-      if real = "0.0" then sprintf "%sj" imag
-      elif imag.StartsWith "-" then sprintf "%s%sj" real imag
-      else sprintf "%s+%sj" real imag
-    AST.undef rt joined
-  (* PyBinaryComplex *)
-  | PyBinaryComplex(real, imag) ->
-    let fmt (f: double) =
-      let str = f.ToString("R", CultureInfo.InvariantCulture)
-      if str.Contains "." || str.Contains "E" then str else str + ".0"
-    let joined =
-      if real = 0.0 then sprintf "%sj" (fmt imag)
-      elif imag < 0.0 then sprintf "%s%sj" (fmt real) (fmt imag)
-      else sprintf "%s+%sj" (fmt real) (fmt imag)
-    AST.undef rt joined
-  (* PyTuple *)
-  | PyTuple objects ->
-    objects
-    |> Array.map (convertPyObjectToExpr isConst)
-    |> Array.toList
-    |> AST.exprList
-  (* A constant frozenset, e.g. from `x in {1, 2, 3}`. Tagged distinctly
-     from PyTuple so HIR translation reconstructs a set literal `{...}`
-     instead of a tuple `(...)`. *)
-  (* A marshalled slice constant, e.g. the `1:2` folded out of `a[1:2]`. *)
-  | PySlice(start, stop, step) ->
-    let f = convertPyObjectToExpr isConst
-    AST.app "SLICE" [ f start; f stop; f step ] rt
-  | PyFrozenSet objects ->
-    let items =
-      objects
-      |> Array.map (convertPyObjectToExpr isConst)
-      |> Array.toList
-      |> AST.exprList
-    AST.app "FROZENSET" [ items ] rt
-  (* PyEllipsis *)
-  | PyEllipsis ->
-    AST.undef rt "..."
+/// The None singleton, for the opcodes that push it without naming a constant
+/// (RETURN_GENERATOR, CLEANUP_THROW). A named app for the same reason
+/// nullSlot is one.
+let noneValue = AST.app "None" [] rt
 
-let rec resolveOperand isConst = function
-  | OneOperand(_, Some(obj)) -> convertPyObjectToExpr isConst obj
-  | _ -> Terminator.futureFeature ()
+/// The context manager's __exit__ bound method, which BEFORE_WITH and
+/// SETUP_WITH push beneath the __enter__ result so both exit paths -- the
+/// normal one and WITH_EXCEPT_START's -- can call it. It takes the manager
+/// for the same reason __enter__ does: both are attribute lookups on that
+/// one object, so dropping it would leave the IR unable to say whose
+/// __exit__ this is.
+let exitMethod mgr = AST.app "__exit__" [ mgr ] rt
 
-let resolveName = resolveOperand false
+/// The value a suspended yield receives when it is resumed. Unlike every
+/// marker above, this one genuinely is not determined by the bytecode -- it
+/// is whatever the caller later sends in -- so it stays an Undefined, which
+/// is precisely what that node means. It is the only Undefined this lifter
+/// emits.
+let yieldReceived = AST.undef rt "YIELD_RECEIVED"
 
-let resolveConst = resolveOperand true
-
-let translateLoad opname isConst (ins: Instruction) bld =
+let translateLoad opname (ins: Instruction) bld =
   bld <!-- (ins.Address, ins.Length)
-  let arg =
-    if isConst then resolveConst ins.Operands else resolveName ins.Operands
-  let e = AST.app opname [ arg ] rt
-  pushToStack bld e
+  pushToStack bld (AST.app opname [ operandIndex ins ] rt)
   bld --!> ins.Length
 
-let translateLoadGlobal minor (ins: Instruction) bld =
+let translateLoadGlobal (ins: Instruction) bld =
   bld <!-- (ins.Address, ins.Length)
-  let name = resolveName ins.Operands
-  let v = AST.app "LOAD_GLOBAL" [ name ] rt
-  if ins.Flag then
-    let e = AST.undef rt "NULL"
-    pushToStack bld e
-  else
-    ()
+  let v = AST.app "LOAD_GLOBAL" [ operandIndex ins ] rt
+  if ins.Flag then pushToStack bld nullSlot else ()
   pushToStack bld v
   bld --!> ins.Length
 
 let translateDelete opname (ins: Instruction) bld =
-  let args = [ resolveName ins.Operands ]
-  namedEffectWithArgs opname args ins bld
+  namedEffectWithArgs opname [ operandIndex ins ] ins bld
 
 (* DELETE_ATTR: pops the owner object and deletes the named attribute. *)
 let deleteAttr (ins: Instruction) bld =
   bld <!-- (ins.Address, ins.Length)
   let owner = popFromStack bld
-  let args = [ owner; resolveName ins.Operands ]
+  let args = [ owner; operandIndex ins ]
   bld <+ AST.extCall (AST.app "DELETE_ATTR" args rt)
   bld --!> ins.Length
 
@@ -252,7 +173,7 @@ let deleteAttr (ins: Instruction) bld =
    then pushes the imported module object. *)
 let importName (ins: Instruction) bld =
   bld <!-- (ins.Address, ins.Length)
-  let name = resolveName ins.Operands
+  let name = operandIndex ins
   let fromList = popFromStack bld
   let level = popFromStack bld
   pushToStack bld (AST.app "IMPORT_NAME" [ name; level; fromList ] rt)
@@ -262,7 +183,7 @@ let importName (ins: Instruction) bld =
    that later IMPORT_FROMs can reuse it, and pushes obj.name. *)
 let importFrom (ins: Instruction) bld =
   bld <!-- (ins.Address, ins.Length)
-  let name = resolveName ins.Operands
+  let name = operandIndex ins
   let moduleObj = peekFromStack bld 0
   pushToStack bld (AST.app "IMPORT_FROM" [ moduleObj; name ] rt)
   bld --!> ins.Length
@@ -284,22 +205,26 @@ let popTop (ins: Instruction) bld =
   discardTOS bld
   bld --!> ins.Length
 
-/// NULL is a special value implemented in Python internally.
+/// PUSH_NULL: NULL is a special value implemented in Python internally.
 let pushNull (ins: Instruction) bld =
   bld <!-- (ins.Address, ins.Length)
-  pushToStack bld (AST.undef rt "NULL")
+  pushToStack bld nullSlot
   bld --!> ins.Length
 
+(* LOAD_ASSERTION_ERROR: pushes the AssertionError builtin a failing assert
+   raises. The opcode names it outright -- it takes no argument -- so it is a
+   nullary named app. *)
 let loadAssertionError (ins: Instruction) bld =
   bld <!-- (ins.Address, ins.Length)
-  pushToStack bld (AST.undef rt "AssertionError")
+  pushToStack bld (AST.app "LOAD_ASSERTION_ERROR" [] rt)
   bld --!> ins.Length
 
 (* LOAD_BUILD_CLASS: pushes the __build_class__ builtin used to construct a
-   class from its body function, name, and bases. *)
+   class from its body function, name, and bases. Nullary for the same reason
+   loadAssertionError is. *)
 let loadBuildClass (ins: Instruction) bld =
   bld <!-- (ins.Address, ins.Length)
-  pushToStack bld (AST.undef rt "__build_class__")
+  pushToStack bld (AST.app "LOAD_BUILD_CLASS" [] rt)
   bld --!> ins.Length
 
 /// Bytes each unit of a jump's argument stands for. Jump arguments counted
@@ -492,7 +417,7 @@ let yieldFrom (ins: Instruction) bld =
   let sendVal = popFromStack bld
   let subIter = peekFromStack bld 0
   bld <+ AST.extCall (AST.app "YIELD_FROM" [ subIter; sendVal ] rt)
-  pushToStack bld (AST.undef rt "YIELD_RECEIVED")
+  pushToStack bld yieldReceived
   bld --!> ins.Length
 
 let callFunction (ins: Instruction) bld =
@@ -505,9 +430,7 @@ let callFunction (ins: Instruction) bld =
      place of 3.12's separate PUSH_NULL/KW_NAMES steps -- so the existing
      HIR translation for "CALL" (TranslationHelper.fs) recognizes this
      identically without needing its own separate pattern. *)
-  let result =
-    AST.app "CALL"
-      (AST.undef rt "NULL" :: func :: args @ [ AST.undef rt "NULL" ]) rt
+  let result = AST.app "CALL" (nullSlot :: func :: args @ [ nullSlot ]) rt
   pushToStack bld result
   bld --!> ins.Length
 
@@ -517,8 +440,7 @@ let callFunctionKw (ins: Instruction) bld =
   let kwNamesTuple = popFromStack bld
   let args = List.init argc (fun _ -> popFromStack bld) |> List.rev
   let func = popFromStack bld
-  let result =
-    AST.app "CALL" (AST.undef rt "NULL" :: func :: args @ [ kwNamesTuple ]) rt
+  let result = AST.app "CALL" (nullSlot :: func :: args @ [ kwNamesTuple ]) rt
   pushToStack bld result
   bld --!> ins.Length
 
@@ -531,10 +453,10 @@ let callFunctionKw (ins: Instruction) bld =
    for 3.12's LOAD_ATTR-with-flag) applies here for free. *)
 let loadMethod (ins: Instruction) bld =
   bld <!-- (ins.Address, ins.Length)
-  let name = resolveName ins.Operands
+  let name = operandIndex ins
   let obj = popFromStack bld
   let attr = AST.app "LOAD_ATTR" [ obj; name ] rt
-  pushToStack bld (AST.undef rt "NULL")
+  pushToStack bld nullSlot
   pushToStack bld attr
   bld --!> ins.Length
 
@@ -552,8 +474,7 @@ let callMethod (ins: Instruction) bld =
   let methodOrFunc = popFromStack bld
   let selfOrNull = popFromStack bld
   let result =
-    AST.app "CALL"
-      (selfOrNull :: methodOrFunc :: args @ [ AST.undef rt "NULL" ]) rt
+    AST.app "CALL" (selfOrNull :: methodOrFunc :: args @ [ nullSlot ]) rt
   pushToStack bld result
   bld --!> ins.Length
 
@@ -589,19 +510,11 @@ let swap (ins: Instruction) bld =
   bld <+ (AST.store Endian.Little (spReg .+ (numI32 (n - 1) rt)) tmp)
   bld --!> ins.Length
 
-let storeFast (ins: Instruction) bld =
-  bld <!-- (ins.Address, ins.Length)
-  let name = resolveName ins.Operands
-  let value = popFromStack bld
-  let eff = AST.app "STORE_FAST" [ name; value ] rt
-  bld <+ AST.extCall eff
-  bld --!> ins.Length
-
-(* Generic store for STORE_NAME / STORE_GLOBAL / STORE_DEREF:
+(* Generic store for STORE_FAST / STORE_NAME / STORE_GLOBAL / STORE_DEREF:
    pop TOS and emit an external call recording the target name. *)
 let storeNamed opname (ins: Instruction) bld =
   bld <!-- (ins.Address, ins.Length)
-  let name = resolveName ins.Operands
+  let name = operandIndex ins
   let value = popFromStack bld
   let eff = AST.app opname [ name; value ] rt
   bld <+ AST.extCall eff
@@ -610,7 +523,7 @@ let storeNamed opname (ins: Instruction) bld =
 (* STORE_ATTR: TOS = value, TOS1 = obj => obj.attr = value *)
 let storeAttr (ins: Instruction) bld =
   bld <!-- (ins.Address, ins.Length)
-  let name = resolveName ins.Operands
+  let name = operandIndex ins
   let obj = popFromStack bld
   let value = popFromStack bld
   let eff = AST.app "STORE_ATTR" [ name; obj; value ] rt
@@ -622,10 +535,10 @@ let storeAttr (ins: Instruction) bld =
    attr so that CALL sees (NULL, obj.attr, args) and treats obj as self. *)
 let loadAttr (ins: Instruction) bld =
   bld <!-- (ins.Address, ins.Length)
-  let name = resolveName ins.Operands
+  let name = operandIndex ins
   let obj = popFromStack bld
   let attr = AST.app "LOAD_ATTR" [ obj; name ] rt
-  if ins.Flag then pushToStack bld (AST.undef rt "NULL") else ()
+  if ins.Flag then pushToStack bld nullSlot else ()
   pushToStack bld attr
   bld --!> ins.Length
 
@@ -639,7 +552,7 @@ let loadAttr (ins: Instruction) bld =
    tag it differently to keep them. *)
 let loadSuperAttr (ins: Instruction) bld =
   bld <!-- (ins.Address, ins.Length)
-  let name = resolveName ins.Operands
+  let name = operandIndex ins
   let self = popFromStack bld
   let cls = popFromStack bld
   let superGlobal = popFromStack bld
@@ -647,7 +560,7 @@ let loadSuperAttr (ins: Instruction) bld =
     if ins.SuperHasExplicitArgs then "LOAD_SUPER_ATTR_EXPLICIT"
     else "LOAD_SUPER_ATTR"
   let attr = AST.app opname [ superGlobal; cls; self; name ] rt
-  if ins.Flag then pushToStack bld (AST.undef rt "NULL") else ()
+  if ins.Flag then pushToStack bld nullSlot else ()
   pushToStack bld attr
   bld --!> ins.Length
 
@@ -693,7 +606,7 @@ let translateReturn (ins: Instruction) bld =
 (* RETURN_CONST: load constant directly without a stack round-trip. *)
 let translateReturnConst (ins: Instruction) bld =
   bld <!-- (ins.Address, ins.Length)
-  let name = resolveConst ins.Operands
+  let name = operandIndex ins
   let value = AST.app "LOAD_CONST" [ name ] rt
   let t = tmpVar bld rt
   bld <+ AST.extCall (AST.app "RETURN" [ value ] rt)
@@ -829,7 +742,7 @@ let getYieldFromIter (ins: Instruction) bld =
 
 let kwNames (ins: Instruction) bld =
   bld <!-- (ins.Address, ins.Length)
-  let names = resolveConst ins.Operands
+  let names = operandIndex ins
   let kwReg = regVar bld R.KW_NAMES
   bld <+ (kwReg := names)
   bld --!> ins.Length
@@ -843,7 +756,7 @@ let call (ins: Instruction) bld =
   let kwReg = regVar bld R.KW_NAMES
   let result = AST.app "CALL" (maybeSelf :: func :: args @ [ kwReg ]) rt
   pushToStack bld result
-  bld <+ (kwReg := AST.undef rt "NULL")
+  bld <+ (kwReg := nullSlot)
   bld --!> ins.Length
 
 let consumeAndPush name (ins: Instruction) bld =
@@ -859,11 +772,11 @@ let makeFunction (ins: Instruction) bld =
   let codeObj = popFromStack bld
   if flags &&& 0x08 <> 0 then discardTOS bld else ()
   let annotations =
-    if flags &&& 0x04 <> 0 then popFromStack bld else AST.undef rt "NULL"
+    if flags &&& 0x04 <> 0 then popFromStack bld else nullSlot
   let kwDefs =
-    if flags &&& 0x02 <> 0 then popFromStack bld else AST.undef rt "NULL"
+    if flags &&& 0x02 <> 0 then popFromStack bld else nullSlot
   let posDefs =
-    if flags &&& 0x01 <> 0 then popFromStack bld else AST.undef rt "NULL"
+    if flags &&& 0x01 <> 0 then popFromStack bld else nullSlot
   let result =
     AST.app "MAKE_FUNCTION" [ codeObj; posDefs; kwDefs; annotations ] rt
   pushToStack bld result
@@ -901,11 +814,11 @@ let makeFunctionLegacy (ins: Instruction) bld =
   bld <+ AST.extCall (AST.app "DISCARD" [ qualname ] rt)
   let codeObj = popFromStack bld
   let posDefs =
-    if flags &&& 0x01 <> 0 then popFromStack bld else AST.undef rt "NULL"
+    if flags &&& 0x01 <> 0 then popFromStack bld else nullSlot
   let kwDefs =
-    if flags &&& 0x02 <> 0 then popFromStack bld else AST.undef rt "NULL"
+    if flags &&& 0x02 <> 0 then popFromStack bld else nullSlot
   let annotations =
-    if flags &&& 0x04 <> 0 then popFromStack bld else AST.undef rt "NULL"
+    if flags &&& 0x04 <> 0 then popFromStack bld else nullSlot
   if flags &&& 0x08 <> 0 then discardTOS bld else ()
   let result =
     AST.app "MAKE_FUNCTION" [ codeObj; posDefs; kwDefs; annotations ] rt
@@ -926,10 +839,10 @@ let callFunctionEx minor (ins: Instruction) bld =
   bld <!-- (ins.Address, ins.Length)
   let flags = getIntArg ins
   let kwargs =
-    if flags &&& 0x01 <> 0 then popFromStack bld else AST.undef rt "NULL"
+    if flags &&& 0x01 <> 0 then popFromStack bld else nullSlot
   let args = popFromStack bld
   let func = popFromStack bld
-  let maybeSelf = if minor >= 11 then popFromStack bld else AST.undef rt "NULL"
+  let maybeSelf = if minor >= 11 then popFromStack bld else nullSlot
   let result = AST.app "CALL_FUNCTION_EX" [ maybeSelf; func; args; kwargs ] rt
   pushToStack bld result
   bld --!> ins.Length
@@ -1154,19 +1067,15 @@ let buildConstKeyMap (ins: Instruction) bld =
 
 (* FORMAT_VALUE: flags & 0x3 = conversion (0=none,1=str,2=repr,3=ascii);
    flags & 0x4 = has_format_spec. Pops spec (if any) then value; pushes
-   the formatted string. *)
+   the formatted string. The conversion travels as the two-bit selector the
+   oparg already holds rather than a rendering of it, so the operand stays a
+   number the IR can actually reason about. *)
 let formatValue (ins: Instruction) bld =
   bld <!-- (ins.Address, ins.Length)
   let flags = getIntArg ins
   let spec = if flags &&& 0x4 <> 0 then [ popFromStack bld ] else []
   let value = popFromStack bld
-  let convName =
-    match flags &&& 0x3 with
-    | 1 -> "str"
-    | 2 -> "repr"
-    | 3 -> "ascii"
-    | _ -> ""
-  let result =
-    AST.app "FORMAT_VALUE" (value :: AST.undef rt convName :: spec) rt
+  let conv = numI32 (flags &&& 0x3) rt
+  let result = AST.app "FORMAT_VALUE" (value :: conv :: spec) rt
   pushToStack bld result
   bld --!> ins.Length

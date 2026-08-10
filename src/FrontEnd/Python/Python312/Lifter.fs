@@ -62,29 +62,29 @@ let translate (binFile: PythonBinFile) (ins: Instruction) bld =
   | Opcode.SWAP ->
     swap ins bld
   | Opcode.LOAD_CONST ->
-    translateLoad "LOAD_CONST" true ins bld
+    translateLoad "LOAD_CONST" ins bld
   | Opcode.LOAD_FAST
   | Opcode.LOAD_FAST_CHECK
   | Opcode.LOAD_FAST_AND_CLEAR ->
-    translateLoad "LOAD_FAST" false ins bld
+    translateLoad "LOAD_FAST" ins bld
   | Opcode.LOAD_NAME ->
-    translateLoad "LOAD_NAME" false ins bld
+    translateLoad "LOAD_NAME" ins bld
   | Opcode.LOAD_ATTR ->
     loadAttr ins bld
   | Opcode.LOAD_GLOBAL ->
-    translateLoadGlobal minor ins bld
+    translateLoadGlobal ins bld
   | Opcode.LOAD_DEREF ->
-    translateLoad "LOAD_DEREF" false ins bld
+    translateLoad "LOAD_DEREF" ins bld
   | Opcode.LOAD_CLOSURE ->
-    translateLoad "LOAD_CLOSURE" false ins bld
+    translateLoad "LOAD_CLOSURE" ins bld
   | Opcode.LOAD_METHOD ->
     loadMethod ins bld
   | Opcode.LOAD_SUPER_ATTR ->
     loadSuperAttr ins bld
   | Opcode.LOAD_FROM_DICT_OR_GLOBALS ->
-    translateLoad "LOAD_FROM_DICT_OR_GLOBALS" false ins bld
+    translateLoad "LOAD_FROM_DICT_OR_GLOBALS" ins bld
   | Opcode.LOAD_FROM_DICT_OR_DEREF ->
-    translateLoad "LOAD_FROM_DICT_OR_DEREF" false ins bld
+    translateLoad "LOAD_FROM_DICT_OR_DEREF" ins bld
   | Opcode.LOAD_BUILD_CLASS ->
     loadBuildClass ins bld
   | Opcode.LOAD_ASSERTION_ERROR ->
@@ -93,7 +93,7 @@ let translate (binFile: PythonBinFile) (ins: Instruction) bld =
     namedEffect "LOAD_LOCALS" ins bld
   (* Store instructions *)
   | Opcode.STORE_FAST ->
-    storeFast ins bld
+    storeNamed "STORE_FAST" ins bld
   | Opcode.STORE_NAME ->
     storeNamed "STORE_NAME" ins bld
   | Opcode.STORE_GLOBAL ->
@@ -173,7 +173,7 @@ let translate (binFile: PythonBinFile) (ins: Instruction) bld =
     translateReturn ins bld
   | Opcode.RETURN_GENERATOR ->
     bld <!-- (ins.Address, ins.Length)
-    pushToStack bld (AST.undef rt "None")
+    pushToStack bld noneValue
     bld --!> ins.Length
   | Opcode.RETURN_CONST ->
     translateReturnConst ins bld
@@ -224,7 +224,7 @@ let translate (binFile: PythonBinFile) (ins: Instruction) bld =
     let excValue = popFromStack bld
     let sentVal = popFromStack bld
     let gen = popFromStack bld
-    pushToStack bld (AST.undef rt "None")
+    pushToStack bld noneValue
     pushToStack bld (AST.app "CLEANUP_THROW" [ gen; sentVal; excValue ] rt)
     bld --!> ins.Length
   | Opcode.END_ASYNC_FOR ->
@@ -278,7 +278,7 @@ let translate (binFile: PythonBinFile) (ins: Instruction) bld =
   | Opcode.BEFORE_WITH ->
     bld <!-- (ins.Address, ins.Length)
     let mgr = popFromStack bld
-    pushToStack bld (AST.undef rt "__exit__")
+    pushToStack bld (exitMethod mgr)
     (* Originally, `mgr.__enter__()`, but we simplify the expression here. *)
     pushToStack bld (AST.app "__enter__" [ mgr ] rt)
     bld --!> ins.Length
@@ -303,7 +303,7 @@ let translate (binFile: PythonBinFile) (ins: Instruction) bld =
   | Opcode.SETUP_WITH ->
     bld <!-- (ins.Address, ins.Length)
     let mgr = popFromStack bld
-    pushToStack bld (AST.undef rt "__exit__")
+    pushToStack bld (exitMethod mgr)
     pushToStack bld (AST.app "__enter__" [ mgr ] rt)
     bld --!> ins.Length
   | Opcode.SETUP_FINALLY ->
@@ -338,7 +338,7 @@ let translate (binFile: PythonBinFile) (ins: Instruction) bld =
     bld <!-- (ins.Address, ins.Length)
     let item = popFromStack bld
     bld <+ AST.extCall (AST.app "YIELD_VALUE" [ item ] rt)
-    pushToStack bld (AST.undef rt "YIELD_RECEIVED")
+    pushToStack bld yieldReceived
     bld --!> ins.Length
   | Opcode.IMPORT_NAME ->
     importName ins bld
