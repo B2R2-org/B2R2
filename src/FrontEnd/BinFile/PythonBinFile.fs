@@ -24,32 +24,56 @@
 
 namespace B2R2.FrontEnd.BinFile
 
+open System.Collections.Generic
 open B2R2
 open B2R2.FrontEnd.BinLifter
 open B2R2.FrontEnd.BinFile.FileHelper
 open B2R2.FrontEnd.BinFile.Python.Helper
 
 /// Represents a Python binary file.
-type PythonBinFile(path, bytes: byte[], baseAddrOpt) =
-  let rawBytes = System.ReadOnlyMemory bytes
-
-  let size = bytes.Length
-
+type PythonBinFile(path, inputBytes: byte[], baseAddrOpt) =
   let baseAddr = defaultArg baseAddrOpt 0UL
 
   let reader = BinReader.Init Endian.Little
 
-  let magic = reader.ReadUInt32(bytes, 0)
+  let magic = reader.ReadUInt32(inputBytes, 0)
 
   let version = getVersionFromMagicNumber magic
 
-  let codeObject, _, _ = parse bytes reader [||] 16
+  let parsedCodeObject, _, _ =
+    let hdr = headerSize version
+    parse version inputBytes reader [||] hdr (Dictionary<int, uint64>())
+
+  (* Pre-3.11 only: two distinct functions can share one `co_code` file
+     offset via marshal's own byte-identity dedup -- see
+     deduplicateCodeOffsets's own doc comment. Giving each its own real,
+     distinct address here, before anything else (function
+     identification, CFG recovery, lifting) ever runs, restores the
+     address<->function invariant every one of those already assumes,
+     instead of every downstream consumer having to special-case the
+     collision (or worse, silently picking one of the two at random). *)
+  let bytes, codeObject =
+    match parsedCodeObject with
+    | Python.PyCode co ->
+      let bytes, co = deduplicateCodeOffsets inputBytes co
+      bytes, Python.PyCode co
+    | other ->
+      inputBytes, other
+
+  (* Deliberately the post-dedup buffer, not `inputBytes`: dedup extends
+     the buffer, and that extension is the file's own address space from
+     here on, so `RawBytes` must expose it too. *)
+  let rawBytes = System.ReadOnlyMemory bytes
+
+  let size = bytes.Length
 
   let consts = extractConsts codeObject
 
   let names = extractNames codeObject
 
   let varnames = extractVarNames codeObject
+
+  let freevars = extractFreeVars codeObject
 
   let operator = [||]
 
@@ -67,6 +91,10 @@ type PythonBinFile(path, bytes: byte[], baseAddrOpt) =
 
   /// Varnames.
   member _.Varnames with get() = varnames
+
+  /// Pre-3.11 `co_cellvars ++ co_freevars` -- see FreeVars' own doc comment
+  /// on PyCodeObject.
+  member _.FreeVars with get() = freevars
 
   /// Names.
   member _.Names with get() = names
@@ -137,8 +165,7 @@ type PythonBinFile(path, bytes: byte[], baseAddrOpt) =
     member this.IsRangeMappedToFile range =
       (this :> IAddressSpace).IsValidRange range
 
-    member this.IsExecutableAddr addr =
-      (this :> IAddressSpace).IsValidAddr addr
+    member this.IsExecutableAddr addr = (this :> IAddressSpace).IsValidAddr addr
 
     member _.GetBoundedPointer(addr) =
       if addr < uint64 size then

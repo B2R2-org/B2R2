@@ -38,14 +38,6 @@ type SSAVertex = IVertex<SSABasicBlock>
 /// A mapping from an IRCFG vertex to an SSACFG vertex.
 type SSAVMap = Dictionary<IVertex<LowUIRBasicBlock>, SSAVertex>
 
-/// This is a mapping from an edge to an abstract vertex (for external function
-/// calls). We first separately create abstract vertices even if they are
-/// associated with the same external function (address) in order to compute
-/// dominance relationships without introducing incorrect paths or cycles. For
-/// convenience, we will always consider as a key "a return edge" from an
-/// abstract vertex to a fall-through vertex.
-type AbstractVMap = Dictionary<ProgramPoint * ProgramPoint, SSAVertex>
-
 /// Mapping from a variable to a set of defining SSA basic blocks.
 type DefSites = Dictionary<VariableKind, HashSet<IVertex<SSABasicBlock>>>
 
@@ -66,19 +58,13 @@ module private SSALifterFactory =
       AST.translateStmts wordSize address stmtProcessor stmts)
     |> Array.map (fun s -> ProgramPoint.Fake, s)
 
-  let getVertex stmtProcessor vMap g (src: IVertex<LowUIRBasicBlock>) =
-    let bbl = src.VData :> ILowUIRBasicBlock
-    match (vMap: SSAVMap).TryGetValue src with
-    | true, v -> v
-    | false, _ ->
-      let stmts = liftStmts stmtProcessor bbl.LiftedInstructions
-      let lastAddr = bbl.LastInstruction.Address
-      let endPoint = lastAddr + uint64 bbl.LastInstruction.Length - 1UL
-      let ppoint = bbl.PPoint
-      let blk = SSABasicBlock.CreateRegular(stmts, ppoint, endPoint)
-      let v = (g: SSACFG).AddVertex(blk)
-      vMap.Add(src, v)
-      v
+  let translateRegularBlock stmtProcessor (bbl: ILowUIRBasicBlock) =
+    let stmts = liftStmts stmtProcessor bbl.LiftedInstructions
+    let lastAddr = bbl.LastInstruction.Address
+    let endPoint = lastAddr + uint64 bbl.LastInstruction.Length - 1UL
+    let ppoint = bbl.PPoint
+    let blk = SSABasicBlock.CreateRegular(stmts, ppoint, endPoint)
+    blk
 
   let liftRundown stmtProcessor rundown =
     if Array.isEmpty rundown then [||]
@@ -89,28 +75,35 @@ module private SSALifterFactory =
          (* addr should not matter*)
          yield! AST.translateStmts 64<rt> 0UL stmtProcessor rundown |]
 
-  let getAbsVertex stmtProcessor avMap (g: SSACFG) irBBL ftPpoint =
-    let irData = (irBBL: IVertex<_>).VData :> ILowUIRBasicBlock
-    let calleePpoint = irData.PPoint
-    let key = calleePpoint, ftPpoint
-    match (avMap: AbstractVMap).TryGetValue key with
+  let translateAbstractBlock stmtProcessor (bbl: ILowUIRBasicBlock) =
+    let calleePpoint = bbl.PPoint
+    let absContent = bbl.AbstractContent
+    let rundown = absContent.Rundown |> liftRundown stmtProcessor
+    let absContent = FunctionAbstraction<Stmt>(absContent.EntryPoint,
+                                               absContent.UnwindingBytes,
+                                               rundown,
+                                               absContent.IsExternal,
+                                               absContent.ReturningStatus)
+    let blk = SSABasicBlock.CreateAbstract(calleePpoint, absContent)
+    blk
+
+  let translateBlock stmtProcessor irBlk =
+    if (irBlk: ILowUIRBasicBlock).IsAbstract then
+      translateAbstractBlock stmtProcessor irBlk
+    else
+      translateRegularBlock stmtProcessor irBlk
+
+  let getVertex stmtProcessor vMap g (irV: IVertex<LowUIRBasicBlock>) =
+    match (vMap: SSAVMap).TryGetValue irV with
     | true, v -> v
     | false, _ ->
-      let absContent = irData.AbstractContent
-      let rundown = absContent.Rundown |> liftRundown stmtProcessor
-      let absContent = FunctionAbstraction<Stmt>(absContent.EntryPoint,
-                                                 absContent.UnwindingBytes,
-                                                 rundown,
-                                                 absContent.IsExternal,
-                                                 absContent.ReturningStatus)
-      let blk = SSABasicBlock.CreateAbstract(calleePpoint, absContent)
-      let v = g.AddVertex blk
-      avMap.Add(key, v)
-      v
+      let blk = translateBlock stmtProcessor irV.VData
+      let ssaV = (g: SSACFG).AddVertex(blk)
+      vMap[irV] <- ssaV
+      ssaV
 
   let convertToSSA stmtProcessor (cfg: LowUIRCFG) (ssaCFG: SSACFG) =
     let vMap = SSAVMap()
-    let avMap = AbstractVMap()
 #if DEBUG
     getVertex stmtProcessor vMap ssaCFG cfg.SingleRoot |> ignore
 #else
@@ -118,22 +111,9 @@ module private SSALifterFactory =
 #endif
     cfg.IterEdge(fun e ->
       let src, dst = e.First, e.Second
-      (* If a node is abstract, then it is a call target. *)
-      if dst.VData.Internals.IsAbstract then
-        let last = src.VData.Internals.LastInstruction
-        let fallPp = ProgramPoint(last.Address + uint64 last.Length, 0)
-        let srcV = getVertex stmtProcessor vMap ssaCFG src
-        let dstV = getAbsVertex stmtProcessor avMap ssaCFG dst fallPp
-        ssaCFG.AddEdge(srcV, dstV, e.Label)
-      elif src.VData.Internals.IsAbstract then
-        let dstPp = dst.VData.Internals.PPoint
-        let srcV = getAbsVertex stmtProcessor avMap ssaCFG src dstPp
-        let dstV = getVertex stmtProcessor vMap ssaCFG dst
-        ssaCFG.AddEdge(srcV, dstV, e.Label)
-      else
-        let srcV = getVertex stmtProcessor vMap ssaCFG src
-        let dstV = getVertex stmtProcessor vMap ssaCFG dst
-        ssaCFG.AddEdge(srcV, dstV, e.Label)
+      let srcV = getVertex stmtProcessor vMap ssaCFG src
+      let dstV = getVertex stmtProcessor vMap ssaCFG dst
+      ssaCFG.AddEdge(srcV, dstV, e.Label)
     )
 
   let computeDominatorInfo g =

@@ -22,10 +22,12 @@
   SOFTWARE.
 *)
 
-namespace B2R2.FrontEnd.Python
+namespace B2R2.FrontEnd.Python.Python312
 
 /// <summary>
-/// Represents a Python opcode(Python 3.12).
+/// Represents a Python 3.12 opcode. Values are CPython 3.12's own
+/// opcode numbers, so a byte decodes to a case by a plain cast and
+/// this table is checkable directly against CPython's opcode module.
 /// </summary>
 type Opcode =
   | CACHE = 0x0
@@ -88,9 +90,6 @@ type Opcode =
   | IMPORT_NAME = 0x6C
   | IMPORT_FROM = 0x6D
   | JUMP_FORWARD = 0x6E
-  | JUMP_IF_FALSE_OR_POP = 0x6F (* Removed in 3.12 *)
-  | JUMP_IF_TRUE_OR_POP = 0x70 (* Removed in 3.12 *)
-  | JUMP_ABSOLUTE = 0x71 (* Removed in 3.12 *)
   | POP_JUMP_IF_FALSE = 0x72
   | POP_JUMP_IF_TRUE = 0x73
   | LOAD_GLOBAL = 0x74
@@ -171,14 +170,129 @@ type Opcode =
   | LOAD_ZERO_SUPER_METHOD = 0x108
   | LOAD_ZERO_SUPER_ATTR = 0x109
   | STORE_FAST_MAYBE_NULL = 0x10A
-  (* Python 3.11-specific: FORWARD/BACKWARD variants of
-     POP_JUMP_IF_NONE/NOT_NONE. We note that two opcodes overlap with Python
-     3.12's different opcodes, so we assign them to pseudo-opcodes here. *)
-  | POP_JUMP_FORWARD_IF_NONE = 0x10B
-  | POP_JUMP_FORWARD_IF_NOT_NONE = 0x10C
-  | POP_JUMP_BACKWARD_IF_FALSE = 0x10D
-  | POP_JUMP_BACKWARD_IF_TRUE = 0x10E
-  | POP_JUMP_BACKWARD_IF_NONE = 0x10F
-  | POP_JUMP_BACKWARD_IF_NOT_NONE = 0x110
 
-type internal Op = Opcode
+/// Provides per-opcode facts that come straight from CPython's own
+/// tables for 3.12.
+module Opcode =
+  /// Number of inline cache entries following the opcode. Each one
+  /// occupies two bytes, so an instruction is 2 + 2 * this.
+  let inlineCacheCount = function
+    | Opcode.BINARY_OP -> 1
+    | Opcode.BINARY_SUBSCR -> 1
+    | Opcode.CALL -> 3
+    | Opcode.COMPARE_OP -> 1
+    | Opcode.FOR_ITER -> 1
+    | Opcode.LOAD_ATTR -> 9
+    | Opcode.LOAD_GLOBAL -> 4
+    | Opcode.LOAD_SUPER_ATTR -> 1
+    | Opcode.SEND -> 1
+    | Opcode.STORE_ATTR -> 4
+    | Opcode.STORE_SUBSCR -> 1
+    | Opcode.UNPACK_SEQUENCE -> 1
+    | _ -> 0
+
+  /// Total encoded size of the opcode in bytes, inline caches
+  /// included. EXTENDED_ARG prefixes are counted by the caller.
+  let length opcode = 2u + 2u * uint32 (inlineCacheCount opcode)
+
+  /// Whether the opcode takes an operand.
+  let hasOperand = function
+    | Opcode.BINARY_OP
+    | Opcode.BUILD_CONST_KEY_MAP
+    | Opcode.BUILD_LIST
+    | Opcode.BUILD_MAP
+    | Opcode.BUILD_SET
+    | Opcode.BUILD_SLICE
+    | Opcode.BUILD_STRING
+    | Opcode.BUILD_TUPLE
+    | Opcode.CALL
+    | Opcode.CALL_FUNCTION_EX
+    | Opcode.CALL_INTRINSIC_1
+    | Opcode.CALL_INTRINSIC_2
+    | Opcode.COMPARE_OP
+    | Opcode.CONTAINS_OP
+    | Opcode.COPY
+    | Opcode.COPY_FREE_VARS
+    | Opcode.DELETE_ATTR
+    | Opcode.DELETE_DEREF
+    | Opcode.DELETE_FAST
+    | Opcode.DELETE_GLOBAL
+    | Opcode.DELETE_NAME
+    | Opcode.DICT_MERGE
+    | Opcode.DICT_UPDATE
+    | Opcode.EXTENDED_ARG
+    | Opcode.FORMAT_VALUE
+    | Opcode.FOR_ITER
+    | Opcode.GET_AWAITABLE
+    | Opcode.IMPORT_FROM
+    | Opcode.IMPORT_NAME
+    | Opcode.INSTRUMENTED_CALL
+    | Opcode.INSTRUMENTED_CALL_FUNCTION_EX
+    | Opcode.INSTRUMENTED_END_FOR
+    | Opcode.INSTRUMENTED_END_SEND
+    | Opcode.INSTRUMENTED_FOR_ITER
+    | Opcode.INSTRUMENTED_INSTRUCTION
+    | Opcode.INSTRUMENTED_JUMP_BACKWARD
+    | Opcode.INSTRUMENTED_JUMP_FORWARD
+    | Opcode.INSTRUMENTED_LINE
+    | Opcode.INSTRUMENTED_LOAD_SUPER_ATTR
+    | Opcode.INSTRUMENTED_POP_JUMP_IF_FALSE
+    | Opcode.INSTRUMENTED_POP_JUMP_IF_NONE
+    | Opcode.INSTRUMENTED_POP_JUMP_IF_NOT_NONE
+    | Opcode.INSTRUMENTED_POP_JUMP_IF_TRUE
+    | Opcode.INSTRUMENTED_RESUME
+    | Opcode.INSTRUMENTED_RETURN_CONST
+    | Opcode.INSTRUMENTED_RETURN_VALUE
+    | Opcode.INSTRUMENTED_YIELD_VALUE
+    | Opcode.IS_OP
+    | Opcode.JUMP
+    | Opcode.JUMP_BACKWARD
+    | Opcode.JUMP_BACKWARD_NO_INTERRUPT
+    | Opcode.JUMP_FORWARD
+    | Opcode.JUMP_NO_INTERRUPT
+    | Opcode.KW_NAMES
+    | Opcode.LIST_APPEND
+    | Opcode.LIST_EXTEND
+    | Opcode.LOAD_ATTR
+    | Opcode.LOAD_CLOSURE
+    | Opcode.LOAD_CONST
+    | Opcode.LOAD_DEREF
+    | Opcode.LOAD_FAST
+    | Opcode.LOAD_FAST_AND_CLEAR
+    | Opcode.LOAD_FAST_CHECK
+    | Opcode.LOAD_FROM_DICT_OR_DEREF
+    | Opcode.LOAD_FROM_DICT_OR_GLOBALS
+    | Opcode.LOAD_GLOBAL
+    | Opcode.LOAD_METHOD
+    | Opcode.LOAD_NAME
+    | Opcode.LOAD_SUPER_ATTR
+    | Opcode.LOAD_SUPER_METHOD
+    | Opcode.LOAD_ZERO_SUPER_ATTR
+    | Opcode.LOAD_ZERO_SUPER_METHOD
+    | Opcode.MAKE_CELL
+    | Opcode.MAKE_FUNCTION
+    | Opcode.MAP_ADD
+    | Opcode.MATCH_CLASS
+    | Opcode.POP_JUMP_IF_FALSE
+    | Opcode.POP_JUMP_IF_NONE
+    | Opcode.POP_JUMP_IF_NOT_NONE
+    | Opcode.POP_JUMP_IF_TRUE
+    | Opcode.RAISE_VARARGS
+    | Opcode.RERAISE
+    | Opcode.RESUME
+    | Opcode.RETURN_CONST
+    | Opcode.SEND
+    | Opcode.SET_ADD
+    | Opcode.SET_UPDATE
+    | Opcode.STORE_ATTR
+    | Opcode.STORE_DEREF
+    | Opcode.STORE_FAST
+    | Opcode.STORE_FAST_MAYBE_NULL
+    | Opcode.STORE_GLOBAL
+    | Opcode.STORE_NAME
+    | Opcode.SWAP
+    | Opcode.UNPACK_EX
+    | Opcode.UNPACK_SEQUENCE
+    | Opcode.YIELD_VALUE
+      -> true
+    | _ -> false

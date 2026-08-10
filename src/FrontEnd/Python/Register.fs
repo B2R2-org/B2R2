@@ -43,6 +43,8 @@ type Register =
   | PC = 0x1
   /// Stack pointer.
   | SP = 0x2
+  /// Keyword argument names set by KW_NAMES, consumed by CALL.
+  | KW_NAMES = 0x3
 
 /// Shortcut for Register type.
 type internal R = Register
@@ -66,14 +68,17 @@ module Register =
     match str.ToUpperInvariant() with
     | "PC" -> R.PC
     | "SP" -> R.SP
+    | "KW_NAMES" -> R.KW_NAMES
     | _ -> Terminator.impossible ()
 
   let toString = function
     | R.PC -> "PC"
     | R.SP -> "SP"
+    | R.KW_NAMES -> "KW_NAMES"
     | _ -> Terminator.impossible ()
 
   let toRegType = function
     | R.PC
-    | R.SP -> OperationSize.regType
+    | R.SP
+    | R.KW_NAMES -> OperationSize.regType
     | _ -> Terminator.impossible ()

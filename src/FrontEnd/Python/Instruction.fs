@@ -21,52 +21,28 @@
   OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
   SOFTWARE.
 *)
-
 namespace B2R2.FrontEnd.Python
 
 open B2R2
+open B2R2.FrontEnd.BinFile
 open B2R2.FrontEnd.BinLifter
 
 /// Represents an instruction for Python.
+///
+/// The opcode is held as its raw numeric value in the *containing version's*
+/// numbering, because every version has an Opcode enum of its own (whose
+/// values are CPython's own opcode numbers) and no single type could hold
+/// all of them. Everything that depends on what an opcode *means* therefore
+/// comes from `semantics`, which each version's own module implements.
 type Instruction
-  internal(addr, numBytes, op, opr, oprSize, version, lifter: ILiftable) =
-
-  let computeBranchTargetAddr ftAddr n =
-    let minor = PythonVersion.minor version
-    let n = uint64 n
-    if minor <= 10 then (* Byte-offset, mostly absolute *)
-      match op with
-      | Op.JUMP_FORWARD | Op.FOR_ITER -> ftAddr + n
-      | Op.JUMP_ABSOLUTE | Op.POP_JUMP_IF_TRUE | Op.POP_JUMP_IF_FALSE
-      | Op.JUMP_IF_TRUE_OR_POP | Op.JUMP_IF_FALSE_OR_POP -> n
-      | _ -> failwith "Invalid opcode for branch target computation"
-    elif minor = 11 then (* Word-offset, relative *)
-      match op with
-      | Op.JUMP_FORWARD | Op.FOR_ITER | Op.SEND
-      | Op.POP_JUMP_IF_TRUE | Op.POP_JUMP_IF_FALSE
-      | Op.POP_JUMP_FORWARD_IF_NONE | Op.POP_JUMP_FORWARD_IF_NOT_NONE ->
-        ftAddr + 2UL * n
-      | Op.POP_JUMP_BACKWARD_IF_TRUE | Op.POP_JUMP_BACKWARD_IF_FALSE
-      | Op.POP_JUMP_BACKWARD_IF_NONE | Op.POP_JUMP_BACKWARD_IF_NOT_NONE ->
-        ftAddr - 2UL * n
-      | Op.JUMP_ABSOLUTE
-      | Op.JUMP_IF_TRUE_OR_POP | Op.JUMP_IF_FALSE_OR_POP -> 2UL * n
-      | _ -> failwith "Invalid opcode for branch target computation"
-    elif minor >= 12 then (* Word-offset, relative *)
-      match op with
-      | Op.JUMP_FORWARD
-      | Op.POP_JUMP_IF_TRUE | Op.POP_JUMP_IF_FALSE
-      | Op.POP_JUMP_IF_NONE | Op.POP_JUMP_IF_NOT_NONE
-      | Op.FOR_ITER | Op.SEND
-      | Op.INSTRUMENTED_JUMP_FORWARD | Op.INSTRUMENTED_FOR_ITER
-      | Op.INSTRUMENTED_POP_JUMP_IF_TRUE | Op.INSTRUMENTED_POP_JUMP_IF_FALSE
-      | Op.INSTRUMENTED_POP_JUMP_IF_NONE | Op.INSTRUMENTED_POP_JUMP_IF_NOT_NONE
-        -> ftAddr + 2UL * n
-      | Op.JUMP_BACKWARD | Op.JUMP_BACKWARD_NO_INTERRUPT
-      | Op.INSTRUMENTED_JUMP_BACKWARD -> ftAddr - 2UL * n
-      | _ -> failwith "Invalid opcode for branch target computation"
-    else
-      Terminator.futureFeature ()
+  internal(addr,
+           numBytes,
+           opcode: int,
+           opr,
+           oprSize,
+           version,
+           binFile: PythonBinFile,
+           semantics: IInstructionSemantics) =
 
   /// Address of this instruction.
   member _.Address with get(): Addr = addr
@@ -74,8 +50,9 @@ type Instruction
   /// Length of this instruction in bytes.
   member _.Length with get(): uint32 = numBytes
 
-  /// Opcode.
-  member _.Opcode with get(): Opcode = op
+  /// Opcode, as its raw value in this instruction's own Python version.
+  /// Cast it to that version's Opcode enum to match on it.
+  member _.Opcode with get(): int = opcode
 
   /// Operands.
   member _.Operands with get(): Operands = opr
@@ -83,17 +60,20 @@ type Instruction
   /// Operation Size.
   member _.OperationSize with get(): RegType = oprSize
 
+  /// The Python version this instruction was decoded as.
+  member _.Version with get(): PythonVersion = version
+
+  /// The file this instruction was decoded from.
+  member _.BinFile with get(): PythonBinFile = binFile
+
   /// Indicates whether this instruction has an additional flag enabled.
-  member _.Flag with get() =
-    match op with
-    | Op.LOAD_GLOBAL
-    | Op.LOAD_ATTR
-    | Op.LOAD_SUPER_ATTR
-    | Op.INSTRUMENTED_LOAD_SUPER_ATTR when PythonVersion.minor version >= 11 ->
-      match opr with
-      | OneOperand(idx, _) -> (idx &&& 1) = 1
-      | _ -> false
-    | _ -> false
+  member this.Flag with get() = semantics.HasFlag this
+
+  /// For LOAD_SUPER_ATTR: whether the super() call had explicit (class,
+  /// obj) arguments (namei bit 1), as opposed to the implicit zero-arg
+  /// `super()` form that the compiler fills in via __class__/self.
+  member this.SuperHasExplicitArgs with get() =
+    semantics.SuperHasExplicitArgs this
 
   interface IInstruction with
 
@@ -101,56 +81,21 @@ type Instruction
 
     member this.Length with get() = this.Length
 
-    member _.IsBranch =
-      match op with
-      | Op.JUMP_FORWARD | Op.JUMP_BACKWARD
-      | Op.JUMP_BACKWARD_NO_INTERRUPT
-      | Op.JUMP | Op.JUMP_NO_INTERRUPT
-      | Op.JUMP_ABSOLUTE | Op.POP_JUMP_IF_TRUE | Op.POP_JUMP_IF_FALSE
-      | Op.POP_JUMP_IF_FALSE | Op.POP_JUMP_IF_TRUE
-      | Op.POP_JUMP_IF_NONE | Op.POP_JUMP_IF_NOT_NONE
-      | Op.FOR_ITER | Op.SEND
-      | Op.INSTRUMENTED_JUMP_FORWARD | Op.INSTRUMENTED_JUMP_BACKWARD
-      | Op.INSTRUMENTED_FOR_ITER
-      | Op.INSTRUMENTED_POP_JUMP_IF_FALSE
-      | Op.INSTRUMENTED_POP_JUMP_IF_TRUE
-      | Op.INSTRUMENTED_POP_JUMP_IF_NONE
-      | Op.INSTRUMENTED_POP_JUMP_IF_NOT_NONE -> true
-      | _ -> false
+    member this.IsBranch = semantics.IsBranch this
 
     member _.IsModeChanging = false
 
-    member this.IsDirectBranch = (this :> IInstruction).IsBranch
+    member this.IsDirectBranch = semantics.IsBranch this
 
     member _.IsIndirectBranch = false
 
-    member _.IsCondBranch =
-      match op with
-      | Op.POP_JUMP_IF_FALSE | Op.POP_JUMP_IF_TRUE
-      | Op.POP_JUMP_IF_NONE | Op.POP_JUMP_IF_NOT_NONE
-      | Op.FOR_ITER | Op.SEND
-      | Op.INSTRUMENTED_FOR_ITER
-      | Op.INSTRUMENTED_POP_JUMP_IF_FALSE
-      | Op.INSTRUMENTED_POP_JUMP_IF_TRUE
-      | Op.INSTRUMENTED_POP_JUMP_IF_NONE
-      | Op.INSTRUMENTED_POP_JUMP_IF_NOT_NONE -> true
-      | _ -> false
+    member this.IsCondBranch = semantics.IsCondBranch this
 
-    member _.IsCJmpOnTrue =
-      match op with
-      | Op.POP_JUMP_IF_TRUE
-      | Op.INSTRUMENTED_POP_JUMP_IF_TRUE -> true
-      | _ -> false
+    member this.IsCJmpOnTrue = semantics.IsCJmpOnTrue this
 
-    member _.IsCall =
-      match op with
-      | Op.CALL | Op.INSTRUMENTED_CALL -> true
-      | _ -> false
+    member this.IsCall = semantics.IsCall this
 
-    member _.IsRET =
-      match op with
-      | Op.RETURN_VALUE | Op.INSTRUMENTED_RETURN_VALUE | Op.RETURN_CONST -> true
-      | _ -> false
+    member this.IsRET = semantics.IsRET this
 
     member _.IsPush = Terminator.futureFeature ()
 
@@ -158,22 +103,14 @@ type Instruction
 
     member _.IsInterrupt = false
 
-    member _.IsExit =
-      match op with
-      | Op.RETURN_VALUE | Op.RETURN_CONST
-      | Op.RAISE_VARARGS | Op.RERAISE
-      | Op.INTERPRETER_EXIT
-      | Op.INSTRUMENTED_RETURN_VALUE
-      | Op.INSTRUMENTED_RETURN_CONST -> true
-      | _ -> false
+    member this.IsExit = semantics.IsExit this
 
-    member _.IsNop = op = Op.NOP
+    member this.IsNop = semantics.IsNop this
 
     member _.IsInlinedAssembly = false
 
     member this.IsTerminator _ =
-      let ins = this :> IInstruction
-      ins.IsBranch || ins.IsExit
+      semantics.IsBranch this || semantics.IsExit this
 
     member _.DirectBranchTarget(_addr: byref<Addr>) =
       Terminator.futureFeature ()
@@ -187,36 +124,48 @@ type Instruction
 
     member this.GetNextInstrAddrs() =
       let ft = this.Address + uint64 this.Length
-      if (this :> IInstruction).IsExit || (this :> IInstruction).IsRET then
+      if semantics.IsExit this || semantics.IsRET this then
         [||]
-      elif (this :> IInstruction).IsBranch then
-        let target =
-          this.Operands
-          |> function
-            | OneOperand(n, _) -> n
-            | _ -> failwith "Python instruction can have at most one operand."
-          |> computeBranchTargetAddr ft
-        if (this :> IInstruction).IsCondBranch then
-          [| target; ft |]
-        else
-          [| target |]
+      elif semantics.IsBranch this then
+        let n =
+          match this.Operands with
+          | OneOperand(n, _) -> n
+          | _ -> failwith "Python instruction can have at most one operand."
+        let target = semantics.BranchTarget(this, ft, n)
+        if semantics.IsCondBranch this then [| target; ft |] else [| target |]
       else
         [| ft |]
 
     member _.InterruptNum(_num: byref<int64>) = Terminator.futureFeature ()
 
-    member this.Translate builder = lifter.Lift(this, builder).Stream.ToStmts()
+    member this.Translate builder =
+      semantics.Lift(this, builder).Stream.ToStmts()
 
-    member this.TranslateToList builder = lifter.Lift(this, builder).Stream
+    member this.TranslateToList builder = semantics.Lift(this, builder).Stream
 
-    member this.Disasm builder = lifter.Disasm(this, builder).ToString()
+    member this.Disasm builder = semantics.Disasm(this, builder).ToString()
 
     member this.Disasm() =
       let builder = StringDisasmBuilder(false, null, WordSize.Bit32)
-      lifter.Disasm(this, builder).ToString()
+      semantics.Disasm(this, builder).ToString()
 
-    member this.Decompose builder = lifter.Disasm(this, builder).ToAsmWords()
+    member this.Decompose builder = semantics.Disasm(this, builder).ToAsmWords()
 
-and internal ILiftable =
+/// Supplies everything about an instruction that depends on which Python
+/// version it was decoded as. Each version implements this over its own
+/// Opcode enum, which is why none of it can live on Instruction itself.
+and internal IInstructionSemantics =
   abstract Lift: Instruction * ILowUIRBuilder -> ILowUIRBuilder
   abstract Disasm: Instruction * IDisasmBuilder -> IDisasmBuilder
+  abstract IsBranch: Instruction -> bool
+  abstract IsCondBranch: Instruction -> bool
+  abstract IsCJmpOnTrue: Instruction -> bool
+  abstract IsCall: Instruction -> bool
+  abstract IsRET: Instruction -> bool
+  abstract IsExit: Instruction -> bool
+  abstract IsNop: Instruction -> bool
+  abstract HasFlag: Instruction -> bool
+  abstract SuperHasExplicitArgs: Instruction -> bool
+
+  /// Branch target, given the fall-through address and the raw oparg.
+  abstract BranchTarget: Instruction * Addr * int -> Addr

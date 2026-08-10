@@ -107,6 +107,38 @@ let private dumpOneSection (dumper: IBinDumper) name ptr =
   dumper.Dump ptr
   printsn ""
 
+(* A .pyc has no sections: it is a marshalled tree of code objects, and the
+   thing that corresponds to a section is one code object's own co_code. Walk
+   the tree so each is dumped under its own qualified name, in address order.
+   B2R2 addresses a code object by the file offset of those bytes, so address
+   and offset are the same number here. *)
+let private pythonCodeObjects (file: PythonBinFile) =
+  let acc = ResizeArray<string * Addr * uint64>()
+  let rec collect obj =
+    match obj with
+    | Python.PyREF(_, o) -> collect o
+    | Python.PyCode co ->
+      let addr, code = co.Code
+      match code with
+      | Python.PyString bs when bs.Length > 0 ->
+        acc.Add(co.QualName, addr, uint64 bs.Length)
+      | _ -> ()
+      match co.Consts with
+      | Python.PyTuple objs
+      | Python.PyREF(_, Python.PyTuple objs) -> Array.iter collect objs
+      | _ -> ()
+    | _ -> ()
+  collect file.CodeObj
+  acc |> Seq.sortBy (fun (_, addr, _) -> addr) |> Seq.toArray
+
+let private dumpPythonCodeObjects (hdl: BinHandle) (codeprn: IBinDumper) =
+  let file = hdl.File :?> PythonBinFile
+  for name, addr, len in pythonCodeObjects file do
+    let ptr =
+      BinFilePointer.CreateFileBacked(addr, addr + len - 1UL,
+                                      int addr, int (addr + len) - 1)
+    dumpOneSection codeprn $"code object {name}" ptr
+
 let private dumpSection hdl (opts: BinDisasmOpts) codeprn tableprn
                         (sec: BinSection) =
   if sec.Size > 0UL then
@@ -128,7 +160,15 @@ let private hasDumpableSections (hdl: BinHandle) =
   | _ -> false
 
 let private dumpOneSectionOfName (hdl: BinHandle) opts codeprn tableprn name =
-  if hasDumpableSections hdl then
+  if hdl.File.Format = FileFormat.PythonBinary then
+    pythonCodeObjects (hdl.File :?> PythonBinFile)
+    |> Array.filter (fun (n, _, _) -> n = name)
+    |> Array.iter (fun (n, addr, len) ->
+      let ptr =
+        BinFilePointer.CreateFileBacked(addr, addr + len - 1UL,
+                                        int addr, int (addr + len) - 1)
+      dumpOneSection codeprn $"code object {n}" ptr)
+  elif hasDumpableSections hdl then
     BinFileOps.getSections hdl.File
     |> Array.tryFind (fun sec -> sec.Name = name)
     |> function
@@ -137,7 +177,9 @@ let private dumpOneSectionOfName (hdl: BinHandle) opts codeprn tableprn name =
   else Terminator.futureFeature ()
 
 let private dumpAllSections (hdl: BinHandle) opts codeprn tableprn =
-  if hasDumpableSections hdl then
+  if hdl.File.Format = FileFormat.PythonBinary then
+    dumpPythonCodeObjects hdl codeprn
+  elif hasDumpableSections hdl then
     for sec in BinFileOps.getSections hdl.File do
       dumpSection hdl opts codeprn tableprn sec
   else Terminator.futureFeature ()
@@ -184,22 +226,44 @@ let private validateHexStringLength (hdl: BinHandle) isThumb hexstr =
     eprintsn $"The hex string length must be multiple of {alignment}"
     exit 1
 
-let private prepareHexStringDump (opts: BinDisasmOpts) =
+/// <summary>
+/// Loads a hex string as a flat image, and says where in it the code sits.
+///
+/// Python cannot be read flat. An argument there indexes a table the code
+/// object carries, so the parser wants a `.pyc` around the bytes rather than
+/// the bytes alone -- which is why a hex string used to be the one input this
+/// architecture had no answer for. The smallest file that can hold the given
+/// bytecode is built around it here, so `-i python -s <hexstring>` reads the
+/// same way every other architecture's does; the code then starts wherever
+/// that file put it rather than at zero.
+/// </summary>
+let private loadHexString (opts: BinDisasmOpts) baseAddr =
   let hex, isa = opts.InputHexStr, opts.ISA
-  let baseAddr = defaultArg opts.BaseAddress 0UL
-  let hdl = BinHandle.LoadRawImage(hex, isa, baseAddr, OS.UnknownOS)
-  initTableConfig hdl.ISA opts.ShowLowUIR
-  validateHexStringLength hdl opts.ThumbMode opts.InputHexStr
-  hdl
+  if isa.Arch = Architecture.Python then
+    let version = enum<PythonVersion> isa.Flags
+    let magic = Python.Builder.magicOf version
+    let pyc = Python.Builder.build version magic (Python.Builder.codeOf hex)
+    let hdl = BinHandle.LoadFileBytes(pyc, isa)
+    let bf = hdl.File :?> PythonBinFile
+    let addr =
+      match bf.CodeObj with
+      | Python.PyCode co -> fst co.Code
+      | _ -> 0UL
+    hdl, int addr
+  else
+    BinHandle.LoadRawImage(hex, isa, baseAddr, OS.UnknownOS), 0
 
 let private dumpHexString (opts: BinDisasmOpts) =
-  let hdl = prepareHexStringDump opts
-  let dumper = makeCodeDumper hdl { opts with ShowColor = true }
   let baseAddr = defaultArg opts.BaseAddress 0UL
+  let hdl, offset = loadHexString opts baseAddr
+  initTableConfig hdl.ISA opts.ShowLowUIR
+  validateHexStringLength hdl opts.ThumbMode opts.InputHexStr
+  let dumper = makeCodeDumper hdl { opts with ShowColor = true }
   let len = opts.InputHexStr.Length
   let ptr =
     BinFilePointer.CreateFileBacked(
-      baseAddr, baseAddr + uint64 len - 1UL, 0, len - 1)
+      uint64 offset + baseAddr, uint64 offset + baseAddr + uint64 len - 1UL,
+      offset, offset + len - 1)
   dumper.IsThumb <- opts.ThumbMode
   dumper.Dump ptr
   printsn ""

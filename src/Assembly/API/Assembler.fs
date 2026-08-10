@@ -54,6 +54,7 @@ type Assembler(isa: ISA, startAddress) =
     | SH4 -> SH4.Assembler(isa, startAddress) :> ILowerable
     | AVR -> AVR.Assembler(isa, startAddress) :> ILowerable
     | EVM -> EVM.Assembler(isa, startAddress) :> ILowerable
+    | Python -> Python.Assembler(isa, startAddress) :> ILowerable
     | _ -> raise InvalidISAException
 
   /// The start address of the binary instructions.
