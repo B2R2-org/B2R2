@@ -125,57 +125,57 @@ let translate (binFile: PythonBinFile) (ins: Instruction) bld =
   | Opcode.BINARY_SUBSCR ->
     binarySubscr ins bld
   | Opcode.BINARY_ADD ->
-    binaryOpDirect (AST.binop BinOpType.ADD) ins bld
+    binaryOpDirect (opApp "+") ins bld
   | Opcode.BINARY_SUBTRACT ->
-    binaryOpDirect (AST.binop BinOpType.SUB) ins bld
+    binaryOpDirect (opApp "-") ins bld
   | Opcode.BINARY_MULTIPLY ->
-    binaryOpDirect (AST.binop BinOpType.MUL) ins bld
+    binaryOpDirect (opApp "*") ins bld
   | Opcode.BINARY_MODULO ->
-    binaryOpDirect (AST.binop BinOpType.MOD) ins bld
+    binaryOpDirect (opApp "%") ins bld
   | Opcode.BINARY_FLOOR_DIVIDE ->
-    binaryOpDirect (fun l r -> AST.app "//" [ l; r ] rt) ins bld
+    binaryOpDirect (opApp "//") ins bld
   | Opcode.BINARY_TRUE_DIVIDE ->
-    binaryOpDirect (AST.binop BinOpType.DIV) ins bld
+    binaryOpDirect (opApp "/") ins bld
   | Opcode.BINARY_POWER ->
-    binaryOpDirect (fun l r -> AST.app "**" [ l; r ] rt) ins bld
+    binaryOpDirect (opApp "**") ins bld
   | Opcode.BINARY_MATRIX_MULTIPLY ->
-    binaryOpDirect (fun l r -> AST.app "@" [ l; r ] rt) ins bld
+    binaryOpDirect (opApp "@") ins bld
   | Opcode.BINARY_LSHIFT ->
-    binaryOpDirect (AST.binop BinOpType.SHL) ins bld
+    binaryOpDirect (opApp "<<") ins bld
   | Opcode.BINARY_RSHIFT ->
-    binaryOpDirect (AST.binop BinOpType.SAR) ins bld
+    binaryOpDirect (opApp ">>") ins bld
   | Opcode.BINARY_AND ->
-    binaryOpDirect (AST.binop BinOpType.AND) ins bld
+    binaryOpDirect (opApp "&") ins bld
   | Opcode.BINARY_OR ->
-    binaryOpDirect (AST.binop BinOpType.OR) ins bld
+    binaryOpDirect (opApp "|") ins bld
   | Opcode.BINARY_XOR ->
-    binaryOpDirect (AST.binop BinOpType.XOR) ins bld
+    binaryOpDirect (opApp "^") ins bld
   | Opcode.INPLACE_ADD ->
-    binaryOpDirect (fun l r -> AST.app "IADD" [ l; r ] rt) ins bld
+    binaryOpDirect (opApp "IADD") ins bld
   | Opcode.INPLACE_SUBTRACT ->
-    binaryOpDirect (fun l r -> AST.app "ISUB" [ l; r ] rt) ins bld
+    binaryOpDirect (opApp "ISUB") ins bld
   | Opcode.INPLACE_MULTIPLY ->
-    binaryOpDirect (fun l r -> AST.app "IMUL" [ l; r ] rt) ins bld
+    binaryOpDirect (opApp "IMUL") ins bld
   | Opcode.INPLACE_MODULO ->
-    binaryOpDirect (fun l r -> AST.app "IMOD" [ l; r ] rt) ins bld
+    binaryOpDirect (opApp "IMOD") ins bld
   | Opcode.INPLACE_FLOOR_DIVIDE ->
-    binaryOpDirect (fun l r -> AST.app "IFLOORDIV" [ l; r ] rt) ins bld
+    binaryOpDirect (opApp "IFLOORDIV") ins bld
   | Opcode.INPLACE_TRUE_DIVIDE ->
-    binaryOpDirect (fun l r -> AST.app "IDIV" [ l; r ] rt) ins bld
+    binaryOpDirect (opApp "IDIV") ins bld
   | Opcode.INPLACE_POWER ->
-    binaryOpDirect (fun l r -> AST.app "IPOW" [ l; r ] rt) ins bld
+    binaryOpDirect (opApp "IPOW") ins bld
   | Opcode.INPLACE_MATRIX_MULTIPLY ->
-    binaryOpDirect (fun l r -> AST.app "IMATMUL" [ l; r ] rt) ins bld
+    binaryOpDirect (opApp "IMATMUL") ins bld
   | Opcode.INPLACE_LSHIFT ->
-    binaryOpDirect (fun l r -> AST.app "ILSHIFT" [ l; r ] rt) ins bld
+    binaryOpDirect (opApp "ILSHIFT") ins bld
   | Opcode.INPLACE_RSHIFT ->
-    binaryOpDirect (fun l r -> AST.app "IRSHIFT" [ l; r ] rt) ins bld
+    binaryOpDirect (opApp "IRSHIFT") ins bld
   | Opcode.INPLACE_AND ->
-    binaryOpDirect (fun l r -> AST.app "IBITAND" [ l; r ] rt) ins bld
+    binaryOpDirect (opApp "IBITAND") ins bld
   | Opcode.INPLACE_OR ->
-    binaryOpDirect (fun l r -> AST.app "IBITOR" [ l; r ] rt) ins bld
+    binaryOpDirect (opApp "IBITOR") ins bld
   | Opcode.INPLACE_XOR ->
-    binaryOpDirect (fun l r -> AST.app "IBITXOR" [ l; r ] rt) ins bld
+    binaryOpDirect (opApp "IBITXOR") ins bld
   (* Compare *)
   | Opcode.COMPARE_OP ->
     compareOP minor ins bld

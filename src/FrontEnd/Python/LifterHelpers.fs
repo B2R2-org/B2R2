@@ -124,6 +124,17 @@ let unaryOp name (ins: Instruction) bld =
   pushToStack bld (AST.app name [ operand ] rt)
   bld --!> ins.Length
 
+/// A binary operator as a named call, which every one of them is: Python's
+/// operators dispatch on their operands' types (`__add__` and friends), so
+/// `+` may add, concatenate, or run a user's own method, and comparisons
+/// answer with whatever `__lt__` returns rather than a bit. A lifted value is
+/// also a reference to an object, not the object's own bits, so an IR
+/// operator applied to two of them would compute on the references -- a
+/// silently wrong result rather than a refused one. Naming the operator hands
+/// both problems to a consumer that knows the object model, which is what //,
+/// @ and ** have always done here.
+let opApp name l r = AST.app name [ l; r ] rt
+
 /// The instruction's argument as an operand index -- the raw oparg, which
 /// indexes the containing code object's own constant, name, or local table.
 /// Which of the three it indexes is fixed by the opcode, so the named app the
@@ -924,13 +935,13 @@ let dictMerge name (ins: Instruction) bld =
   for v in Array.rev saved do pushToStack bld v
   bld --!> ins.Length
 
-let cmpOpType = function
-  | 0 -> RelOpType.LT
-  | 1 -> RelOpType.LE
-  | 2 -> RelOpType.EQ
-  | 3 -> RelOpType.NEQ
-  | 4 -> RelOpType.GT
-  | 5 -> RelOpType.GE
+let cmpOpName = function
+  | 0 -> "<"
+  | 1 -> "<="
+  | 2 -> "=="
+  | 3 -> "!="
+  | 4 -> ">"
+  | 5 -> ">="
   | _ -> Terminator.futureFeature ()
 
 (* COMPARE_OP: pop right (TOS) then left (TOS1), push bool result.
@@ -941,9 +952,7 @@ let compareOP minor (ins: Instruction) bld =
   let opIdx = if minor >= 12 then n >>> 4 else n
   let right = popFromStack bld
   let left = popFromStack bld
-  let b = AST.relop (cmpOpType opIdx) left right
-  let b = AST.zext rt b
-  pushToStack bld b
+  pushToStack bld (opApp (cmpOpName opIdx) left right)
   bld --!> ins.Length
 
 (* IS_OP: pop TOS (right) and TOS1 (left), push identity test.
@@ -985,32 +994,32 @@ let binaryOp (ins: Instruction) bld =
        (see makeAssign). Matrix-multiply follows the same plain/in-place
        split as every other operator here (`@` at 4, `@=` at 17 = 4 + 13). *)
     match getIntArg ins with
-    | 0 -> AST.binop BinOpType.ADD left right
-    | 1 -> AST.binop BinOpType.AND left right
-    | 2 -> AST.app "//" [ left; right ] rt
-    | 3 -> AST.binop BinOpType.SHL left right
-    | 4 -> AST.app "@" [ left; right ] rt
-    | 5 -> AST.binop BinOpType.MUL left right
-    | 6 -> AST.binop BinOpType.MOD left right
-    | 7 -> AST.binop BinOpType.OR left right
-    | 8 -> AST.app "**" [ left; right ] rt
-    | 9 -> AST.binop BinOpType.SAR left right
-    | 10 -> AST.binop BinOpType.SUB left right
-    | 11 -> AST.binop BinOpType.DIV left right
-    | 12 -> AST.binop BinOpType.XOR left right
-    | 13 -> AST.app "IADD" [ left; right ] rt
-    | 14 -> AST.app "IBITAND" [ left; right ] rt
-    | 15 -> AST.app "IFLOORDIV" [ left; right ] rt
-    | 16 -> AST.app "ILSHIFT" [ left; right ] rt
-    | 17 -> AST.app "IMATMUL" [ left; right ] rt
-    | 18 -> AST.app "IMUL" [ left; right ] rt
-    | 19 -> AST.app "IMOD" [ left; right ] rt
-    | 20 -> AST.app "IBITOR" [ left; right ] rt
-    | 21 -> AST.app "IPOW" [ left; right ] rt
-    | 22 -> AST.app "IRSHIFT" [ left; right ] rt
-    | 23 -> AST.app "ISUB" [ left; right ] rt
-    | 24 -> AST.app "IDIV" [ left; right ] rt
-    | 25 -> AST.app "IBITXOR" [ left; right ] rt
+    | 0 -> opApp "+" left right
+    | 1 -> opApp "&" left right
+    | 2 -> opApp "//" left right
+    | 3 -> opApp "<<" left right
+    | 4 -> opApp "@" left right
+    | 5 -> opApp "*" left right
+    | 6 -> opApp "%" left right
+    | 7 -> opApp "|" left right
+    | 8 -> opApp "**" left right
+    | 9 -> opApp ">>" left right
+    | 10 -> opApp "-" left right
+    | 11 -> opApp "/" left right
+    | 12 -> opApp "^" left right
+    | 13 -> opApp "IADD" left right
+    | 14 -> opApp "IBITAND" left right
+    | 15 -> opApp "IFLOORDIV" left right
+    | 16 -> opApp "ILSHIFT" left right
+    | 17 -> opApp "IMATMUL" left right
+    | 18 -> opApp "IMUL" left right
+    | 19 -> opApp "IMOD" left right
+    | 20 -> opApp "IBITOR" left right
+    | 21 -> opApp "IPOW" left right
+    | 22 -> opApp "IRSHIFT" left right
+    | 23 -> opApp "ISUB" left right
+    | 24 -> opApp "IDIV" left right
+    | 25 -> opApp "IBITXOR" left right
     | n -> failwithf "Invalid BINARY_OP arg %d at %A" n ins.Address
   pushToStack bld result
   bld --!> ins.Length
