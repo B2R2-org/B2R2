@@ -138,9 +138,13 @@ let translate (binFile: PythonBinFile) (ins: Instruction) bld =
   | Opcode.LOAD_CONST ->
     translateLoad "LOAD_CONST" ins bld
   | Opcode.LOAD_FAST
-  | Opcode.LOAD_FAST_CHECK
-  | Opcode.LOAD_FAST_AND_CLEAR ->
+  | Opcode.LOAD_FAST_CHECK ->
     translateLoad "LOAD_FAST" ins bld
+  (* Its own name, not LOAD_FAST's: an inlined comprehension reads the slot it
+     is about to borrow, and that slot is very often unset -- which for a plain
+     LOAD_FAST is an unbound local and an error worth reporting. *)
+  | Opcode.LOAD_FAST_AND_CLEAR ->
+    translateLoad "LOAD_FAST_AND_CLEAR" ins bld
   | Opcode.LOAD_NAME ->
     translateLoad "LOAD_NAME" ins bld
   | Opcode.LOAD_ATTR ->

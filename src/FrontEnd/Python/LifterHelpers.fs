@@ -1091,11 +1091,17 @@ let binarySlice (ins: Instruction) bld =
   pushToStack bld (AST.app "BINARY_SLICE" [ obj; start; stop ] rt)
   bld --!> ins.Length
 
+/// UNPACK_SEQUENCE: the elements go on the stack so that the *first* one ends
+/// up on top, because the stores that follow take them off in the order the
+/// target list writes them -- `a, b = pair` stores a first. Pushing them in
+/// index order would put the last on top and hand every target the wrong
+/// element, which is a swap rather than a failure and so shows up as a wrong
+/// answer far from here.
 let unpackSequence (ins: Instruction) bld =
   bld <!-- (ins.Address, ins.Length)
   let n = getIntArg ins
   let seq = popFromStack bld
-  for i in 0 .. n - 1 do
+  for i in n - 1 .. -1 .. 0 do
     let elem = AST.app "UNPACK" [ seq; AST.num (BitVector(i, rt)) ] rt
     pushToStack bld elem
   bld --!> ins.Length
