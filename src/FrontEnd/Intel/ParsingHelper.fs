@@ -34,8 +34,6 @@ type internal ParsingHelper(reader: IBinReader,
                             rex,
                             vex,
                             wordSz,
-                            ops,
-                            szs,
                             lifter) =
   let mutable addr: Addr = addr
   let mutable cpos: int = cpos (* current position *)
@@ -49,19 +47,13 @@ type internal ParsingHelper(reader: IBinReader,
   let mutable regSz = 0<rt>
   let mutable operationSz = 0<rt>
   let mutable tupleType = TupleType.NA
+  let mutable bcstSz = 0<rt>
+  let mutable opcodeClass = OpcodeClass.Normal OpcodeMap.OneByte
   let mutable isFar = false
 
-  new(reader, wordSz, oparsers, szcomputers, lifter) =
-    ParsingHelper(reader,
-                  0UL,
-                  0,
-                  Prefix.None,
-                  REXPrefix.NOREX,
-                  None,
-                  wordSz,
-                  oparsers,
-                  szcomputers,
-                  lifter)
+  new(reader, wordSz, lifter) =
+    ParsingHelper(reader, 0UL, 0, Prefix.None, REXPrefix.NOREX, None,
+                  wordSz, lifter)
 
   member _.InsAddr with get(): Addr = addr and set a = addr <- a
   member _.CurrPos with get() = cpos and set p = cpos <- p
@@ -69,8 +61,6 @@ type internal ParsingHelper(reader: IBinReader,
   member _.REXPrefix with get(): REXPrefix = rex and set r = rex <- r
   member _.VEXInfo with get(): VEXInfo option = vex and set v = vex <- v
   member _.WordSize with get(): WordSize = wordSize and set w = wordSize <- w
-  member _.OprParsers with get(): OperandParser[] = ops
-  member _.SzComputers with get(): InsSizeComputer[] = szs
   member _.MemEffOprSize with get() = memOprSz and set s = memOprSz <- s
   member _.MemEffAddrSize with get() = memAddrSz and set s = memAddrSz <- s
   member _.MemEffRegSize with get() = memRegSz and set s = memRegSz <- s
@@ -78,6 +68,13 @@ type internal ParsingHelper(reader: IBinReader,
   member _.OperationSize with get() = operationSz and set s = operationSz <- s
   member _.TupleType
     with get(): TupleType = tupleType and set t = tupleType <- t
+  /// The width of one broadcast element, as declared by the operand being
+  /// parsed; 0<rt> when that operand does not support embedded broadcast.
+  /// REX.W cannot stand in for this: an FP16 element is 16 bits wide with
+  /// either setting of W.
+  member _.BroadcastSize with get() = bcstSz and set s = bcstSz <- s
+  member _.OpcodeClass
+    with get(): OpcodeClass = opcodeClass and set c = opcodeClass <- c
   member _.Lifter with get(): ILiftable = lifter
   member _.IsFar with get() = isFar and set f = isFar <- f
 
@@ -121,8 +118,7 @@ type internal ParsingHelper(reader: IBinReader,
     if Prefix.hasAddrSz prefs then 16<rt> else 32<rt>
 
   static member inline GetEffOprSize64(prefs, rexPref, sizeCond) =
-    if REXPrefix.hasW rexPref then
-      64<rt>
+    if REXPrefix.hasW rexPref then 64<rt>
     else
       if Prefix.hasOprSz prefs then ParsingHelper.GetOprSize(16<rt>, sizeCond)
       else ParsingHelper.GetOprSize(32<rt>, sizeCond)
@@ -133,14 +129,12 @@ type internal ParsingHelper(reader: IBinReader,
   static member inline GetEffAddrSize(phlp: ParsingHelper) =
     if phlp.WordSize = WordSize.Bit32 then
       ParsingHelper.GetEffAddrSize32 phlp.Prefixes
-    else
-      ParsingHelper.GetEffAddrSize64 phlp.Prefixes
+    else ParsingHelper.GetEffAddrSize64 phlp.Prefixes
 
   static member inline GetEffOprSize(phlp: ParsingHelper, sizeCond) =
     if phlp.WordSize = WordSize.Bit32 then
       ParsingHelper.GetEffOprSize32 phlp.Prefixes
-    else
-      ParsingHelper.GetEffOprSize64(phlp.Prefixes, phlp.REXPrefix, sizeCond)
+    else ParsingHelper.GetEffOprSize64(phlp.Prefixes, phlp.REXPrefix, sizeCond)
 
   member _.IncPos() = cpos <- cpos + 1
 
@@ -207,28 +201,6 @@ and internal SzCond =
   | F64 = 1
   /// Normal conditions. This includes all other size conditions in Table A-1.
   | Normal = 2
-
-/// The tupletype will be referenced in the instruction operand encoding table
-/// in the reference page of each instruction, providing the cross reference for
-/// the scaling factor N to encoding memory addressing operand.
-and internal TupleType =
-  /// Compressed Displacement (DISP8*N) Affected by Embedded Broadcast.
-  | Full = 0
-  | Half = 1
-  /// EVEX DISP8*N for Instructions Not Affected by Embedded Broadcast.
-  | FullMem = 2
-  | Tuple1Scalar = 3
-  | Tuple1Fixed = 4
-  | Tuple2 = 5
-  | Tuple4 = 6
-  | Tuple8 = 7
-  | HalfMem = 8
-  | QuarterMem = 9
-  | EighthMem = 10
-  | Mem128 = 11
-  | MOVDDUP = 12
-  | Tuple1_4X = 13
-  | NA = 14 (* N/A *)
 
 and internal SizeKind =
   | Byte = 0

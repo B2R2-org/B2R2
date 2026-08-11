@@ -159,7 +159,7 @@ type Instruction
       | Opcode.HLT
       | Opcode.UD2
       | Opcode.SYSEXIT | Opcode.SYSRET
-      | Opcode.IRET | Opcode.IRETW | Opcode.IRETD | Opcode.IRETQ -> true
+      | Opcode.IRET | Opcode.IRETD | Opcode.IRETQ -> true
       | _ -> false
 
     member _.IsNop =

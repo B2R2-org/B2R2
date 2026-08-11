@@ -42,8 +42,13 @@ and VEXType =
   | ThreeByteOpOne = 0x2
   /// Original VEX that refers to three-byte opcode map #2.
   | ThreeByteOpTwo = 0x4
+  /// EVEX that refers to map 5, the AVX512-FP16 counterpart of the two-byte
+  /// map.
+  | Map5 = 0x8
   /// EVEX Mask
   | EVEX = 0x10
+  /// EVEX that refers to map 6, the AVX512-FP16 counterpart of the 0F38 map.
+  | Map6 = 0x20
 
 /// Represents the zeroing or merging behavior of the destination result
 /// (P[23] in EVEX encoding).
