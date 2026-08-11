@@ -24,29 +24,47 @@
 
 module internal B2R2.FrontEnd.Python.Disasm
 
+open System
 open System.Collections.Concurrent
 open System.Globalization
+open System.Text
 open B2R2.FrontEnd.BinLifter
 open B2R2.FrontEnd.BinFile.Python
 
-(* Every mnemonic is its Opcode case name in lower case, and has been for
-   every opcode of every version. Generic over the version's own Opcode
-   enum so each version reuses this rather than carrying a name table of
-   its own. Cached because Enum.GetName allocates and Disasm runs per
-   instruction. *)
-let private mnemonics = ConcurrentDictionary<struct (System.Type * int),
-                                             string>()
+/// Every mnemonic is its Opcode case name in lower case, and has been for
+/// every opcode of every version, so nothing here needs a name table of its
+/// own. Cached because Enum.GetName allocates and disassembly runs once per
+/// instruction.
+let private mnemonics = ConcurrentDictionary<Opcode, string>()
 
-let inline opcodeToString (opcode: 'Op when 'Op: enum<int>) =
-  let key = struct (typeof<'Op>, LanguagePrimitives.EnumToValue opcode)
-  match mnemonics.TryGetValue key with
+let opcodeToString (opcode: Opcode) =
+  match mnemonics.TryGetValue opcode with
   | true, s ->
     s
   | _ ->
-    match System.Enum.GetName opcode with
+    match Enum.GetName opcode with
     | null -> raise InvalidOpcodeException
-    | name -> mnemonics.GetOrAdd(key, name.ToLowerInvariant())
+    | name -> mnemonics.GetOrAdd(opcode, name.ToLowerInvariant())
 
+/// The comparisons COMPARE_OP names, in dis.cmp_op order. Every version since
+/// 3.9 has had these six and no others; which bits of the argument index them
+/// is the version's own business.
+let cmpOps = [| "<"; "<="; "=="; "!="; ">"; ">=" |]
+
+/// The entry at `i`, or the empty string when the table does not reach that
+/// far -- which is how an argument no table explains reads back as its own
+/// raw number.
+let at (tbl: string[]) i = if i >= 0 && i < tbl.Length then tbl[i] else ""
+
+/// A double spelled so that it reads back as itself, with the trailing `.0`
+/// that tells a whole number from an int.
+let private roundTripFloat (f: double) =
+  let s = f.ToString("R", CultureInfo.InvariantCulture)
+  if s.Contains "E" || s.Contains "." then s else s + ".0"
+
+/// Renders a value as a *name*, which is what `dis` prints for anything the
+/// operand indexes out of co_names or co_varnames: no quotes on a string, no
+/// parentheses on a tuple. See reprPyObjWith below for the other rendering.
 let rec toStringPyObj = function
   | PyNone ->
     "None"
@@ -64,28 +82,22 @@ let rec toStringPyObj = function
   | PyFloat f ->
     f.ToString()
   | PyBinaryFloat f ->
-    let s = f.ToString("R", CultureInfo.InvariantCulture)
-    let s = if s.Contains "E" || s.Contains "." then s else s + ".0"
-    s
+    roundTripFloat f
   | PyComplex(real, imag) ->
     if real = "0.0" then $"{imag}j"
     elif imag.StartsWith "-" then $"{real}{imag}j"
     else $"{real}+{imag}j"
   | PyBinaryComplex(real, imag) ->
-    let fmt (f: double) =
-      let s = f.ToString("R", CultureInfo.InvariantCulture)
-      if s.Contains "E" || s.Contains "." then s else s + ".0"
-    if real = 0.0 then $"{fmt imag}j"
-    elif imag < 0.0 then $"{fmt real}{fmt imag}j"
-    else $"{fmt real}+{fmt imag}j"
+    let re, im = roundTripFloat real, roundTripFloat imag
+    if real = 0.0 then $"{im}j"
+    elif imag < 0.0 then $"{re}{im}j"
+    else $"{re}+{im}j"
   | PyEllipsis ->
     "..."
   | PyTuple t ->
-    let t = Array.map toStringPyObj t
-    String.concat ", " t
-  (* Rendered the way CPython's own repr does, so `load_const` of a frozenset
-     reads the same on both sides. Without this the renderer threw part-way
-     through the operand, taking the rest of the code object with it. *)
+    Array.map toStringPyObj t |> String.concat ", "
+  (* A slice and a frozenset are spelled the way CPython's own repr does, so
+     that `load_const` of one reads the same on both sides. *)
   | PySlice(start, stop, step) ->
     let f = toStringPyObj
     $"slice({f start}, {f stop}, {f step})"
@@ -100,20 +112,8 @@ let rec toStringPyObj = function
   | PyFalse ->
     "False"
   | PyString s ->
-    System.Text.Encoding.ASCII.GetString s
+    Encoding.ASCII.GetString s
 
-/// Renders a value the way CPython's `repr` does, which is what `dis` shows
-/// for a *constant*. This is not the same as toStringPyObj above, which
-/// renders a *name*: a string constant carries quotes and a tuple carries its
-/// parentheses -- including the trailing comma that tells a one-element tuple
-/// apart from a parenthesised value -- whereas a name carries neither. Only
-/// the operand's own opcode says which of the two it is, so the version's
-/// module chooses; see buildOperand in each Python3XX/Disasm.fs.
-/// Escapes a string the way Python's own repr does: control characters are
-/// spelled rather than emitted, and the quote is single unless that would
-/// need escaping while a double quote would not -- which is the rule CPython
-/// applies, so following it keeps the two renderings comparable without
-/// having to know which quote it picked.
 /// Whether repr leaves a character alone, which is str.isprintable(): every
 /// category CPython calls unprintable, plus space being the one separator it
 /// keeps. A lone surrogate lands in Surrogate and so gets spelled -- which is
@@ -136,11 +136,14 @@ let private escapeCodePoint cp =
   elif cp < 0x10000 then sprintf "\\u%04x" cp
   else sprintf "\\U%08x" cp
 
+/// Escapes a string the way repr does: control characters are spelled rather
+/// than emitted, and the quote is single unless that would need escaping
+/// while a double quote would not, which is the rule CPython applies.
 /// `lone` holds the positions the marshal reader saw a surrogate arrive on
 /// its own, which is the one thing the decoded string can no longer be asked.
 let private pyStrRepr (lone: Set<int>) (s: string) =
   let quote = if s.Contains "'" && not (s.Contains "\"") then '"' else '\''
-  let sb = System.Text.StringBuilder()
+  let sb = StringBuilder()
   sb.Append quote |> ignore
   let mutable i = 0
   while i < s.Length do
@@ -153,10 +156,10 @@ let private pyStrRepr (lone: Set<int>) (s: string) =
        identical. So the reader passes on where it saw the halves arrive
        separately, and everything else pairs. *)
     let paired =
-      not (lone.Contains i) && System.Char.IsHighSurrogate s[i]
-      && i + 1 < s.Length && System.Char.IsLowSurrogate s[i + 1]
-    let cp = if paired then System.Char.ConvertToUtf32(s[i], s[i + 1])
-             else int s[i]
+      not (lone.Contains i) && Char.IsHighSurrogate s[i]
+      && i + 1 < s.Length && Char.IsLowSurrogate s[i + 1]
+    let cp =
+      if paired then Char.ConvertToUtf32(s[i], s[i + 1]) else int s[i]
     (* Asked with an index, .NET reads the pair and answers for the character
        it spells -- which is the wrong answer for a surrogate standing on its
        own, and would let it through unescaped. *)
@@ -183,7 +186,7 @@ let private pyBytesRepr (bs: byte[]) =
   let hasSingle = Array.contains (byte '\'') bs
   let hasDouble = Array.contains (byte '"') bs
   let quote = if hasSingle && not hasDouble then '"' else '\''
-  let sb = System.Text.StringBuilder()
+  let sb = StringBuilder()
   sb.Append('b').Append quote |> ignore
   for b in bs do
     match char b with
@@ -222,8 +225,8 @@ let private roundTo (digits: string) n =
         arr[i] <- char (int arr[i] + 1)
         carry <- false
       i <- i - 1
-    if carry then "1" + System.String(arr[0..n - 2]), 1
-    else System.String arr, 0
+    if carry then "1" + String(arr[0..n - 2]), 1
+    else String arr, 0
 
 /// The fewest digits that still read back as the same double, which is what
 /// Python's repr prints. Shortens the exact decimal a digit at a time rather
@@ -240,7 +243,7 @@ let private shortestDigits (f: double) =
     else
       let digits, shift = roundTo all n
       let s = "0." + digits + "E" + string (decpt + shift)
-      if System.Double.Parse(s, NumberStyles.Float, inv) = abs f then
+      if Double.Parse(s, NumberStyles.Float, inv) = abs f then
         digits.TrimEnd '0', decpt + shift
       else
         search (n + 1)
@@ -257,16 +260,16 @@ let private shortestDigits (f: double) =
 /// later version writes `3.141592653589793`, and turns to the exponent one
 /// place later because `%g` does so at its own precision.
 let private complexPartWith legacy (f: double) =
-  if System.Double.IsNaN f then
+  if Double.IsNaN f then
     "nan"
-  elif System.Double.IsPositiveInfinity f then
+  elif Double.IsPositiveInfinity f then
     "inf"
-  elif System.Double.IsNegativeInfinity f then
+  elif Double.IsNegativeInfinity f then
     "-inf"
   elif f = 0.0 then
-    if System.Double.IsNegative f then "-0" else "0"
+    if Double.IsNegative f then "-0" else "0"
   else
-    let sign = if System.Double.IsNegative f then "-" else ""
+    let sign = if Double.IsNegative f then "-" else ""
     let digits, decpt =
       if legacy then
         let all, decpt = exactDigits f
@@ -279,9 +282,9 @@ let private complexPartWith legacy (f: double) =
         if tail = "" then digits else digits.Substring(0, 1) + "." + tail
       sign + body + (decpt - 1).ToString("'e'+00;'e'-00")
     elif decpt <= 0 then
-      sign + "0." + System.String('0', -decpt) + digits
+      sign + "0." + String('0', -decpt) + digits
     elif decpt >= digits.Length then
-      sign + digits + System.String('0', decpt - digits.Length)
+      sign + digits + String('0', decpt - digits.Length)
     else
       sign + digits.Substring(0, decpt) + "." + digits.Substring decpt
 
@@ -298,14 +301,20 @@ let private pyFloatReprWith legacy (f: double) =
 /// negative zero still reads as `-0j`.
 let private pyComplexReprWith legacy (real: double) (imag: double) =
   let part = complexPartWith legacy
-  if real = 0.0 && not (System.Double.IsNegative real) then
+  if real = 0.0 && not (Double.IsNegative real) then
     part imag + "j"
   else
-    let sign = if System.Double.IsNegative imag then "-" else "+"
+    let sign = if Double.IsNegative imag then "-" else "+"
     "(" + part real + sign + part (abs imag) + "j)"
 
-/// `legacy` travels the whole walk rather than stopping at a leaf, because a
-/// float can sit inside the tuple a single LOAD_CONST names.
+/// Renders a value as a *constant*, which is what `dis` prints for anything
+/// the operand indexes out of co_consts: a string carries its quotes and a
+/// tuple its parentheses, down to the trailing comma that tells a one-element
+/// tuple from a parenthesised value. Only the operand's own opcode says which
+/// of the two renderings applies, so the version's module chooses; see
+/// buildOperand in each Python3XX/Disasm.fs. `legacy` travels the whole walk
+/// rather than stopping at a leaf, because a float can sit inside the tuple a
+/// single LOAD_CONST names.
 let rec reprPyObjWith legacy obj =
   match obj with
   | PyAscii s | PyShortAscii s | PyShortAsciiInterned s ->
@@ -343,60 +352,275 @@ let reprPyObj obj = reprPyObjWith false obj
 /// What 3.0 prints, whose repr predates the shortest-float work.
 let reprPyObjLegacyFloat obj = reprPyObjWith true obj
 
-let buildOprs (ins: Instruction) (builder: IDisasmBuilder) =
+/// BINARY_OP operators, in CPython's _nb_ops order. 3.14 gave subscription
+/// its own entry at the end. Which words a table like this holds is a
+/// version's own business; how the operand reads around it is not.
+let private binaryOps13 =
+  [|
+    "+"
+    "&"
+    "//"
+    "<<"
+    "@"
+    "*"
+    "%"
+    "|"
+    "**"
+    ">>"
+    "-"
+    "/"
+    "^"
+    "+="
+    "&="
+    "//="
+    "<<="
+    "@="
+    "*="
+    "%="
+    "|="
+    "**="
+    ">>="
+    "-="
+    "/="
+    "^="
+  |]
+
+let private binaryOps14 = Array.append binaryOps13 [| "[]" |]
+
+/// cmp_op up to 3.8, which still spelled the comparisons 3.9 split out into
+/// IS_OP, CONTAINS_OP and JUMP_IF_NOT_EXC_MATCH.
+let private cmpOpsLegacy =
+  [|
+    "<"
+    "<="
+    "=="
+    "!="
+    ">"
+    ">="
+    "in"
+    "not in"
+    "is"
+    "is not"
+    "exception match"
+    "BAD"
+  |]
+
+/// CALL_INTRINSIC_1 functions.
+let private intrinsic1 =
+  [|
+    "INTRINSIC_1_INVALID"
+    "INTRINSIC_PRINT"
+    "INTRINSIC_IMPORT_STAR"
+    "INTRINSIC_STOPITERATION_ERROR"
+    "INTRINSIC_ASYNC_GEN_WRAP"
+    "INTRINSIC_UNARY_POSITIVE"
+    "INTRINSIC_LIST_TO_TUPLE"
+    "INTRINSIC_TYPEVAR"
+    "INTRINSIC_PARAMSPEC"
+    "INTRINSIC_TYPEVARTUPLE"
+    "INTRINSIC_SUBSCRIPT_GENERIC"
+    "INTRINSIC_TYPEALIAS"
+  |]
+
+/// CALL_INTRINSIC_2 functions. 3.13 added the last of them.
+let private intrinsic2 =
+  [|
+    "INTRINSIC_2_INVALID"
+    "INTRINSIC_PREP_RERAISE_STAR"
+    "INTRINSIC_TYPEVAR_WITH_BOUND"
+    "INTRINSIC_TYPEVAR_WITH_CONSTRAINTS"
+    "INTRINSIC_SET_FUNCTION_TYPE_PARAMS"
+  |]
+
+let private intrinsic2From13 =
+  Array.append intrinsic2 [| "INTRINSIC_SET_TYPEPARAM_DEFAULT" |]
+
+/// LOAD_SPECIAL methods.
+let private specialMethods =
+  [|
+    "__enter__"
+    "__exit__"
+    "__aenter__"
+    "__aexit__"
+  |]
+
+/// LOAD_COMMON_CONSTANT values, rendered the way dis renders them: a type by
+/// its bare name, anything else by its repr. 3.15 added the last four.
+let private commonConstants14 =
+  [|
+    "AssertionError"
+    "NotImplementedError"
+    "tuple"
+    "<built-in function all>"
+    "<built-in function any>"
+    "list"
+    "set"
+    "None"
+  |]
+
+let private commonConstants15 =
+  Array.append commonConstants14 [| "''"; "True"; "False"; "-1" |]
+
+/// The bits SET_FUNCTION_ATTRIBUTE and MAKE_FUNCTION name, lowest first. 3.14
+/// retired the annotations bit and put `annotate` above closure.
+let private functionAttrs13 =
+  [|
+    "defaults"
+    "kwdefaults"
+    "annotations"
+    "closure"
+  |]
+
+let private functionAttrs14 =
+  [|
+    "defaults"
+    "kwdefaults"
+    ""
+    "closure"
+    "annotate"
+  |]
+
+/// Every name whose bit the argument sets, in ascending order.
+let private bitNames (names: string[]) arg =
+  names
+  |> Array.mapi (fun i n -> if (arg >>> i) &&& 1 = 1 then n else "")
+  |> Array.filter (fun n -> n <> "")
+  |> String.concat ", "
+
+/// The conversion FORMAT_VALUE and CONVERT_VALUE name by number.
+let private conversions =
+  [|
+    ""
+    "str"
+    "repr"
+    "ascii"
+  |]
+
+/// FORMAT_VALUE's low two bits pick the conversion and bit two says a format
+/// spec travels with it, which dis joins to the conversion with a comma.
+let private formatValueFlags arg =
+  let conv = conversions[arg &&& 0x3]
+  if arg &&& 0x4 = 0 then conv
+  elif conv = "" then "with format"
+  else conv + ", with format"
+
+/// COMPARE_OP's argument is the bare index up to 3.11, and up to 3.8 it
+/// indexes a cmp_op that still holds the identity and membership tests. 3.12
+/// moved the index four bits up to make room for cache flags, 3.13 five, and
+/// 3.13 added one below it saying the result is forced to bool.
+let private compareNote minor arg =
+  if minor <= 8 then at cmpOpsLegacy arg
+  elif minor <= 11 then at cmpOps arg
+  elif minor = 12 then at cmpOps (arg >>> 4)
+  else
+    match at cmpOps ((arg >>> 5) &&& 0xF) with
+    | "" -> ""
+    | name when (arg &&& 0x10) <> 0 -> "bool(" + name + ")"
+    | name -> name
+
+/// What dis prints next to an argument that indexes no table the code object
+/// carries -- a comparison, a bit field, an interpreter-internal table.
+/// Empty means the argument speaks for itself.
+let private operandNote minor opcode arg =
+  match opcode with
+  | Opcode.COMPARE_OP -> compareNote minor arg
+  | Opcode.IS_OP -> if arg = 0 then "is" else "is not"
+  | Opcode.CONTAINS_OP -> if arg = 0 then "in" else "not in"
+  | Opcode.FORMAT_VALUE -> formatValueFlags arg
+  | Opcode.BINARY_OP ->
+    at (if minor >= 14 then binaryOps14 else binaryOps13) arg
+  | Opcode.CALL_INTRINSIC_1 -> at intrinsic1 arg
+  | Opcode.CALL_INTRINSIC_2 ->
+    at (if minor >= 13 then intrinsic2From13 else intrinsic2) arg
+  | Opcode.LOAD_SPECIAL -> at specialMethods arg
+  | Opcode.LOAD_COMMON_CONSTANT ->
+    at (if minor >= 15 then commonConstants15 else commonConstants14) arg
+  | Opcode.CONVERT_VALUE -> at conversions arg
+  | Opcode.MAKE_FUNCTION -> bitNames functionAttrs13 arg
+  | Opcode.SET_FUNCTION_ATTRIBUTE ->
+    bitNames (if minor >= 14 then functionAttrs14 else functionAttrs13) arg
+  (* 3.0 to 3.5 pack two counts into a call's argument: the low byte counts
+     positional arguments and the high byte keyword pairs. 3.6 split them. *)
+  | Opcode.CALL_FUNCTION
+  | Opcode.CALL_FUNCTION_VAR
+  | Opcode.CALL_FUNCTION_KW
+  | Opcode.CALL_FUNCTION_VAR_KW when minor <= 5 ->
+    sprintf "%d positional, %d keyword pair" (arg % 256) (arg / 256)
+  | _ -> ""
+
+/// dis prints a constant with repr and a name bare, so the two have to be
+/// told apart, and only the opcode says which of them it is. An opcode a
+/// version does not have cannot reach this, so nothing here needs a version.
+let private isConstOperand opcode =
+  match opcode with
+  | Opcode.LOAD_CONST
+  | Opcode.KW_NAMES
+  | Opcode.RETURN_CONST
+  | Opcode.INSTRUMENTED_RETURN_CONST -> true
+  | _ -> false
+
+/// The word CPython prints for the flag bit an opcode packs beside its index:
+/// a bare pushed NULL for a global, the NULL|self pair a method lookup leaves
+/// on the stack, and from 3.15 how eagerly an import binds. Empty when the
+/// opcode carries no flag, which is every opcode before 3.11.
+let private flagWord (ins: Instruction) opcode =
+  if not ins.Flag then
+    ""
+  elif opcode = Opcode.LOAD_GLOBAL then
+    "NULL"
+  (* IMPORT_NAME spends its two low bits on how eagerly the module is bound,
+     and the lazy bit wins when both are set. *)
+  elif opcode = Opcode.IMPORT_NAME then
+    match ins.Operands with
+    | OneOperand(arg, _) when (arg &&& 1) = 1 -> "lazy"
+    | _ -> "eager"
+  else
+    "NULL|self"
+
+/// Joins an operand to the flag its opcode packs alongside the index. CPython
+/// printed the flag ahead of the name up to 3.12 and after it from 3.13.
+let private withFlag (ins: Instruction) opcode (name: string) =
+  match flagWord ins opcode with
+  | "" -> name
+  | flag when ins.Minor <= 12 -> flag + " + " + name
+  | flag -> name + " + " + flag
+
+/// Spells the operand the way dis does, or None to leave the raw argument to
+/// speak for itself.
+let private buildOperand (ins: Instruction) opcode =
   match ins.Operands with
   | NoOperand ->
-    ()
-  | OneOperand(idx, None) ->
-    builder.Accumulate(AsmWordKind.String, "\t\t")
-    builder.Accumulate(AsmWordKind.Value, string idx)
-  | OneOperand(idx, Some var) ->
-    builder.Accumulate(AsmWordKind.String, "\t\t")
-    builder.Accumulate(AsmWordKind.Value, string idx)
-    builder.Accumulate(AsmWordKind.String, " (")
-    builder.Accumulate(AsmWordKind.Value, toStringPyObj var)
-    builder.Accumulate(AsmWordKind.String, ")")
-  | TwoOperands _ ->
-    ()
+    None
+  | OneOperand(arg, resolved) ->
+    match resolved with
+    | Some var ->
+      (* 3.0's repr predates the shortest-float work, so it spells a float
+         differently from every version after it. *)
+      let name =
+        if not (isConstOperand opcode) then toStringPyObj var
+        elif ins.Minor = 0 then reprPyObjLegacyFloat var
+        else reprPyObj var
+      Some(withFlag ins opcode name)
+    | None ->
+      match operandNote ins.Minor opcode arg with
+      | "" -> None
+      | note -> Some note
 
-/// Renders one instruction. `mnemonic` comes from the caller because only
-/// the version's own module knows which Opcode enum the raw value belongs to.
-let disasm (ins: Instruction) mnemonic (builder: IDisasmBuilder) =
+/// Renders one instruction the way CPython's own dis does.
+let disasm (ins: Instruction) (builder: IDisasmBuilder) =
   builder.AccumulateAddrMarker ins.Address
-  builder.Accumulate(AsmWordKind.Mnemonic, mnemonic)
-  buildOprs ins builder
-
-/// Joins an operand to the flag bits its opcode packs alongside the index.
-/// Both the word and the side it goes on belong to the version -- the same
-/// bit means different things across them, and CPython printed the flag
-/// ahead of the name up to 3.12 and after it from 3.13 -- so the version
-/// passes them in and only the joining is shared.
-let withFlag precedes (flag: string) (name: string) =
-  if flag = "" then name
-  elif precedes then flag + " + " + name
-  else name + " + " + flag
-
-/// Renders one instruction with the version supplying the operand text.
-/// Needed because some arguments index no table the code object carries --
-/// a comparison operator, a flag set -- so only the version knows how to
-/// spell them, and because whether a resolved value is a constant or a name
-/// likewise follows from the opcode. `None` means "nothing to add beyond the
-/// raw argument".
-let disasmWithOperand (ins: Instruction) mnemonic operand builder =
-  let builder = (builder: IDisasmBuilder)
-  builder.AccumulateAddrMarker ins.Address
-  builder.Accumulate(AsmWordKind.Mnemonic, mnemonic)
+  builder.Accumulate(AsmWordKind.Mnemonic, opcodeToString ins.Opcode)
   match ins.Operands with
-  | NoOperand
-  | TwoOperands _ ->
+  | NoOperand ->
     ()
   | OneOperand(idx, _) ->
     builder.Accumulate(AsmWordKind.String, "\t\t")
     builder.Accumulate(AsmWordKind.Value, string idx)
-    match operand with
+    match buildOperand ins ins.Opcode with
     | Some text ->
       builder.Accumulate(AsmWordKind.String, " (")
       builder.Accumulate(AsmWordKind.Value, text)
       builder.Accumulate(AsmWordKind.String, ")")
     | None ->
       ()
+  builder

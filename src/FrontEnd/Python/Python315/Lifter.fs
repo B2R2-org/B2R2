@@ -136,7 +136,7 @@ let private buildFromStack name count (ins: Instruction) bld =
   bld --!> ins.Length
 
 let translate (binFile: PythonBinFile) (ins: Instruction) bld =
-  let opcode: Opcode = LanguagePrimitives.EnumOfValue ins.Opcode
+  let opcode = ins.Opcode
   match opcode with
   | Opcode.RESUME
   | Opcode.CACHE ->

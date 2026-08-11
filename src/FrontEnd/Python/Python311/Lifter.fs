@@ -38,7 +38,7 @@ open B2R2.FrontEnd.Python.LifterHelpers
 let private minor = 11
 
 let translate (binFile: PythonBinFile) (ins: Instruction) bld =
-  let opcode: Opcode = LanguagePrimitives.EnumOfValue ins.Opcode
+  let opcode = ins.Opcode
   match opcode with
   | Opcode.RESUME
   | Opcode.CACHE ->
