@@ -27,475 +27,13 @@ namespace B2R2.FrontEnd.Intel
 open System
 open B2R2
 open B2R2.FrontEnd.BinLifter
+(* Shadows B2R2's own OneByte, which the opcode-map cases need. *)
 open B2R2.FrontEnd.Intel
+open B2R2.FrontEnd.Intel.ParsingFunctions
 open LanguagePrimitives
 
 /// Represents a parser for Intel (x86 or x86-64) instructions.
 type IntelParser(wordSz, reader) =
-  let oparsers =
-    [| OperandParsers.RmGpr() :> OperandParser
-       OperandParsers.RmSeg()
-       OperandParsers.GprCtrl()
-       OperandParsers.GprDbg()
-       OperandParsers.RMMmx()
-       OperandParsers.MmMmx()
-       OperandParsers.BmBnd()
-       OperandParsers.RmBnd()
-       OperandParsers.GprRm()
-       OperandParsers.GprM()
-       OperandParsers.MGpr()
-       OperandParsers.SegRm()
-       OperandParsers.BndBm()
-       OperandParsers.BndRm()
-       OperandParsers.CtrlGpr()
-       OperandParsers.DbgGpr()
-       OperandParsers.MmxRm()
-       OperandParsers.MmxMm()
-       OperandParsers.MxMx()
-       OperandParsers.GprRMm()
-       OperandParsers.RegImm8()
-       OperandParsers.Imm8Reg()
-       OperandParsers.Imm8()
-       OperandParsers.Imm16()
-       OperandParsers.RegImm()
-       OperandParsers.SImm8()
-       OperandParsers.Imm()
-       OperandParsers.Es()
-       OperandParsers.Cs()
-       OperandParsers.Ss()
-       OperandParsers.Ds()
-       OperandParsers.Fs()
-       OperandParsers.Gs()
-       OperandParsers.ALDx()
-       OperandParsers.EaxDx()
-       OperandParsers.DxEax()
-       OperandParsers.DxAL()
-       OperandParsers.No()
-       OperandParsers.Eax()
-       OperandParsers.Ecx()
-       OperandParsers.Edx()
-       OperandParsers.Ebx()
-       OperandParsers.Esp()
-       OperandParsers.Ebp()
-       OperandParsers.Esi()
-       OperandParsers.Edi()
-       OperandParsers.Rax()
-       OperandParsers.Rcx()
-       OperandParsers.Rdx()
-       OperandParsers.Rbx()
-       OperandParsers.Rsp()
-       OperandParsers.Rbp()
-       OperandParsers.Rsi()
-       OperandParsers.Rdi()
-       OperandParsers.RaxRax()
-       OperandParsers.RaxRcx()
-       OperandParsers.RaxRdx()
-       OperandParsers.RaxRbx()
-       OperandParsers.RaxRsp()
-       OperandParsers.RaxRbp()
-       OperandParsers.RaxRsi()
-       OperandParsers.RaxRdi()
-       OperandParsers.GprRmImm8()
-       OperandParsers.GprRmImm()
-       OperandParsers.Rel8()
-       OperandParsers.Rel()
-       OperandParsers.Dir()
-       OperandParsers.RaxFar()
-       OperandParsers.FarRax()
-       OperandParsers.ALImm8()
-       OperandParsers.CLImm8()
-       OperandParsers.DLImm8()
-       OperandParsers.BLImm8()
-       OperandParsers.AhImm8()
-       OperandParsers.ChImm8()
-       OperandParsers.DhImm8()
-       OperandParsers.BhImm8()
-       OperandParsers.RaxImm()
-       OperandParsers.RcxImm()
-       OperandParsers.RdxImm()
-       OperandParsers.RbxImm()
-       OperandParsers.RspImm()
-       OperandParsers.RbpImm()
-       OperandParsers.RsiImm()
-       OperandParsers.RdiImm()
-       OperandParsers.ImmImm()
-       OperandParsers.RmImm()
-       OperandParsers.RmImm8()
-       OperandParsers.RmSImm8()
-       OperandParsers.MmxImm8()
-       OperandParsers.Mem()
-       OperandParsers.M1()
-       OperandParsers.RmCL()
-       OperandParsers.XmmVvXm()
-       OperandParsers.GprVvRm()
-       OperandParsers.XmVvXmm()
-       OperandParsers.Gpr()
-       OperandParsers.RmXmmImm8()
-       OperandParsers.XmmRmImm8()
-       OperandParsers.MmxMmImm8()
-       OperandParsers.MmxRmImm8()
-       OperandParsers.GprMmxImm8()
-       OperandParsers.XmmVvXmImm8()
-       OperandParsers.XmmVvXmXmm()
-       OperandParsers.XmRegImm8()
-       OperandParsers.GprRmVv()
-       OperandParsers.VvRmImm8()
-       OperandParsers.RmGprCL()
-       OperandParsers.XmmXmXmm0()
-       OperandParsers.XmmXmVv()
-       OperandParsers.VvRm()
-       OperandParsers.GprRmImm8Imm8()
-       OperandParsers.RmImm8Imm8()
-       OperandParsers.KnVvXm()
-       OperandParsers.GprKn()
-       OperandParsers.KnVvXmImm8()
-       OperandParsers.KnGpr()
-       OperandParsers.XmmVvXmmXm()
-       OperandParsers.KnKm()
-       OperandParsers.MKn()
-       OperandParsers.KKn()
-       OperandParsers.KnKmImm8()
-       OperandParsers.XmmVsXm()
-       OperandParsers.XmVsXmm() |]
-
-  let szcomputers =
-    [| InsSizeComputers.Byte() :> InsSizeComputer
-       InsSizeComputers.Word()
-       InsSizeComputers.Def()
-       InsSizeComputers.VecDef()
-       InsSizeComputers.DV()
-       InsSizeComputers.D()
-       InsSizeComputers.MemW()
-       InsSizeComputers.RegW()
-       InsSizeComputers.WV()
-       InsSizeComputers.D64()
-       InsSizeComputers.PZ()
-       InsSizeComputers.DDq()
-       InsSizeComputers.DqDq()
-       InsSizeComputers.DqdDq()
-       InsSizeComputers.DqdDqMR()
-       InsSizeComputers.DqqDq()
-       InsSizeComputers.DqqDqMR()
-       InsSizeComputers.XqX()
-       InsSizeComputers.DqqDqWS()
-       InsSizeComputers.VyDq()
-       InsSizeComputers.VyDqMR()
-       InsSizeComputers.DY()
-       InsSizeComputers.QDq()
-       InsSizeComputers.DqqQ()
-       InsSizeComputers.DqQ()
-       InsSizeComputers.DqdY()
-       InsSizeComputers.DqqY()
-       InsSizeComputers.DqY()
-       InsSizeComputers.Dq()
-       InsSizeComputers.DQ()
-       InsSizeComputers.QQ()
-       InsSizeComputers.YQ()
-       InsSizeComputers.YQRM()
-       InsSizeComputers.DwQ()
-       InsSizeComputers.DwDq()
-       InsSizeComputers.DwDqMR()
-       InsSizeComputers.QD()
-       InsSizeComputers.Dqd()
-       InsSizeComputers.XDq()
-       InsSizeComputers.DqX()
-       InsSizeComputers.XD()
-       InsSizeComputers.DqqdqX()
-       InsSizeComputers.DqddqX()
-       InsSizeComputers.DqwDq()
-       InsSizeComputers.DqwX()
-       InsSizeComputers.DqQqq()
-       InsSizeComputers.DqbX()
-       InsSizeComputers.DbDq()
-       InsSizeComputers.BV()
-       InsSizeComputers.Q()
-       InsSizeComputers.S()
-       InsSizeComputers.DX()
-       InsSizeComputers.DqdXz()
-       InsSizeComputers.DqqX()
-       InsSizeComputers.P()
-       InsSizeComputers.PRM()
-       InsSizeComputers.XqXz()
-       InsSizeComputers.XXz()
-       InsSizeComputers.XzX()
-       InsSizeComputers.XzXz()
-       InsSizeComputers.DqqQq()
-       InsSizeComputers.DqqXz()
-       InsSizeComputers.QqXz()
-       InsSizeComputers.QqXzRM()
-       InsSizeComputers.DqdX()
-       InsSizeComputers.DXz()
-       InsSizeComputers.QXz()
-       InsSizeComputers.DqQq()
-       InsSizeComputers.DqXz()
-       InsSizeComputers.YDq()
-       InsSizeComputers.Qq()
-       InsSizeComputers.DqwdX()
-       InsSizeComputers.Y()
-       InsSizeComputers.QQb()
-       InsSizeComputers.QQd()
-       InsSizeComputers.QQw()
-       InsSizeComputers.VecDefRC()
-       InsSizeComputers.YP() |]
-
-  let oneByteParsers =
-    [| OneOp00() :> ParsingJob
-       OneOp01() :> ParsingJob
-       OneOp02() :> ParsingJob
-       OneOp03() :> ParsingJob
-       OneOp04() :> ParsingJob
-       OneOp05() :> ParsingJob
-       OneOp06() :> ParsingJob
-       OneOp07() :> ParsingJob
-       OneOp08() :> ParsingJob
-       OneOp09() :> ParsingJob
-       OneOp0A() :> ParsingJob
-       OneOp0B() :> ParsingJob
-       OneOp0C() :> ParsingJob
-       OneOp0D() :> ParsingJob
-       OneOp0E() :> ParsingJob
-       OneOp0F() :> ParsingJob
-       OneOp10() :> ParsingJob
-       OneOp11() :> ParsingJob
-       OneOp12() :> ParsingJob
-       OneOp13() :> ParsingJob
-       OneOp14() :> ParsingJob
-       OneOp15() :> ParsingJob
-       OneOp16() :> ParsingJob
-       OneOp17() :> ParsingJob
-       OneOp18() :> ParsingJob
-       OneOp19() :> ParsingJob
-       OneOp1A() :> ParsingJob
-       OneOp1B() :> ParsingJob
-       OneOp1C() :> ParsingJob
-       OneOp1D() :> ParsingJob
-       OneOp1E() :> ParsingJob
-       OneOp1F() :> ParsingJob
-       OneOp20() :> ParsingJob
-       OneOp21() :> ParsingJob
-       OneOp22() :> ParsingJob
-       OneOp23() :> ParsingJob
-       OneOp24() :> ParsingJob
-       OneOp25() :> ParsingJob
-       OneOp26() :> ParsingJob
-       OneOp27() :> ParsingJob
-       OneOp28() :> ParsingJob
-       OneOp29() :> ParsingJob
-       OneOp2A() :> ParsingJob
-       OneOp2B() :> ParsingJob
-       OneOp2C() :> ParsingJob
-       OneOp2D() :> ParsingJob
-       OneOp2E() :> ParsingJob
-       OneOp2F() :> ParsingJob
-       OneOp30() :> ParsingJob
-       OneOp31() :> ParsingJob
-       OneOp32() :> ParsingJob
-       OneOp33() :> ParsingJob
-       OneOp34() :> ParsingJob
-       OneOp35() :> ParsingJob
-       OneOp36() :> ParsingJob
-       OneOp37() :> ParsingJob
-       OneOp38() :> ParsingJob
-       OneOp39() :> ParsingJob
-       OneOp3A() :> ParsingJob
-       OneOp3B() :> ParsingJob
-       OneOp3C() :> ParsingJob
-       OneOp3D() :> ParsingJob
-       OneOp3E() :> ParsingJob
-       OneOp3F() :> ParsingJob
-       OneOp40() :> ParsingJob
-       OneOp41() :> ParsingJob
-       OneOp42() :> ParsingJob
-       OneOp43() :> ParsingJob
-       OneOp44() :> ParsingJob
-       OneOp45() :> ParsingJob
-       OneOp46() :> ParsingJob
-       OneOp47() :> ParsingJob
-       OneOp48() :> ParsingJob
-       OneOp49() :> ParsingJob
-       OneOp4A() :> ParsingJob
-       OneOp4B() :> ParsingJob
-       OneOp4C() :> ParsingJob
-       OneOp4D() :> ParsingJob
-       OneOp4E() :> ParsingJob
-       OneOp4F() :> ParsingJob
-       OneOp50() :> ParsingJob
-       OneOp51() :> ParsingJob
-       OneOp52() :> ParsingJob
-       OneOp53() :> ParsingJob
-       OneOp54() :> ParsingJob
-       OneOp55() :> ParsingJob
-       OneOp56() :> ParsingJob
-       OneOp57() :> ParsingJob
-       OneOp58() :> ParsingJob
-       OneOp59() :> ParsingJob
-       OneOp5A() :> ParsingJob
-       OneOp5B() :> ParsingJob
-       OneOp5C() :> ParsingJob
-       OneOp5D() :> ParsingJob
-       OneOp5E() :> ParsingJob
-       OneOp5F() :> ParsingJob
-       OneOp60() :> ParsingJob
-       OneOp61() :> ParsingJob
-       OneOp62() :> ParsingJob
-       OneOp63() :> ParsingJob
-       OneOp64() :> ParsingJob
-       OneOp65() :> ParsingJob
-       OneOp66() :> ParsingJob
-       OneOp67() :> ParsingJob
-       OneOp68() :> ParsingJob
-       OneOp69() :> ParsingJob
-       OneOp6A() :> ParsingJob
-       OneOp6B() :> ParsingJob
-       OneOp6C() :> ParsingJob
-       OneOp6D() :> ParsingJob
-       OneOp6E() :> ParsingJob
-       OneOp6F() :> ParsingJob
-       OneOp70() :> ParsingJob
-       OneOp71() :> ParsingJob
-       OneOp72() :> ParsingJob
-       OneOp73() :> ParsingJob
-       OneOp74() :> ParsingJob
-       OneOp75() :> ParsingJob
-       OneOp76() :> ParsingJob
-       OneOp77() :> ParsingJob
-       OneOp78() :> ParsingJob
-       OneOp79() :> ParsingJob
-       OneOp7A() :> ParsingJob
-       OneOp7B() :> ParsingJob
-       OneOp7C() :> ParsingJob
-       OneOp7D() :> ParsingJob
-       OneOp7E() :> ParsingJob
-       OneOp7F() :> ParsingJob
-       OneOp80() :> ParsingJob
-       OneOp81() :> ParsingJob
-       OneOp82() :> ParsingJob
-       OneOp83() :> ParsingJob
-       OneOp84() :> ParsingJob
-       OneOp85() :> ParsingJob
-       OneOp86() :> ParsingJob
-       OneOp87() :> ParsingJob
-       OneOp88() :> ParsingJob
-       OneOp89() :> ParsingJob
-       OneOp8A() :> ParsingJob
-       OneOp8B() :> ParsingJob
-       OneOp8C() :> ParsingJob
-       OneOp8D() :> ParsingJob
-       OneOp8E() :> ParsingJob
-       OneOp8F() :> ParsingJob
-       OneOp90() :> ParsingJob
-       OneOp91() :> ParsingJob
-       OneOp92() :> ParsingJob
-       OneOp93() :> ParsingJob
-       OneOp94() :> ParsingJob
-       OneOp95() :> ParsingJob
-       OneOp96() :> ParsingJob
-       OneOp97() :> ParsingJob
-       OneOp98() :> ParsingJob
-       OneOp99() :> ParsingJob
-       OneOp9A() :> ParsingJob
-       OneOp9B() :> ParsingJob
-       OneOp9C() :> ParsingJob
-       OneOp9D() :> ParsingJob
-       OneOp9E() :> ParsingJob
-       OneOp9F() :> ParsingJob
-       OneOpA0() :> ParsingJob
-       OneOpA1() :> ParsingJob
-       OneOpA2() :> ParsingJob
-       OneOpA3() :> ParsingJob
-       OneOpA4() :> ParsingJob
-       OneOpA5() :> ParsingJob
-       OneOpA6() :> ParsingJob
-       OneOpA7() :> ParsingJob
-       OneOpA8() :> ParsingJob
-       OneOpA9() :> ParsingJob
-       OneOpAA() :> ParsingJob
-       OneOpAB() :> ParsingJob
-       OneOpAC() :> ParsingJob
-       OneOpAD() :> ParsingJob
-       OneOpAE() :> ParsingJob
-       OneOpAF() :> ParsingJob
-       OneOpB0() :> ParsingJob
-       OneOpB1() :> ParsingJob
-       OneOpB2() :> ParsingJob
-       OneOpB3() :> ParsingJob
-       OneOpB4() :> ParsingJob
-       OneOpB5() :> ParsingJob
-       OneOpB6() :> ParsingJob
-       OneOpB7() :> ParsingJob
-       OneOpB8() :> ParsingJob
-       OneOpB9() :> ParsingJob
-       OneOpBA() :> ParsingJob
-       OneOpBB() :> ParsingJob
-       OneOpBC() :> ParsingJob
-       OneOpBD() :> ParsingJob
-       OneOpBE() :> ParsingJob
-       OneOpBF() :> ParsingJob
-       OneOpC0() :> ParsingJob
-       OneOpC1() :> ParsingJob
-       OneOpC2() :> ParsingJob
-       OneOpC3() :> ParsingJob
-       OneOpC4() :> ParsingJob
-       OneOpC5() :> ParsingJob
-       OneOpC6() :> ParsingJob
-       OneOpC7() :> ParsingJob
-       OneOpC8() :> ParsingJob
-       OneOpC9() :> ParsingJob
-       OneOpCA() :> ParsingJob
-       OneOpCB() :> ParsingJob
-       OneOpCC() :> ParsingJob
-       OneOpCD() :> ParsingJob
-       OneOpCE() :> ParsingJob
-       OneOpCF() :> ParsingJob
-       OneOpD0() :> ParsingJob
-       OneOpD1() :> ParsingJob
-       OneOpD2() :> ParsingJob
-       OneOpD3() :> ParsingJob
-       OneOpD4() :> ParsingJob
-       OneOpD5() :> ParsingJob
-       OneOpD6() :> ParsingJob
-       OneOpD7() :> ParsingJob
-       OneOpD8() :> ParsingJob
-       OneOpD9() :> ParsingJob
-       OneOpDA() :> ParsingJob
-       OneOpDB() :> ParsingJob
-       OneOpDC() :> ParsingJob
-       OneOpDD() :> ParsingJob
-       OneOpDE() :> ParsingJob
-       OneOpDF() :> ParsingJob
-       OneOpE0() :> ParsingJob
-       OneOpE1() :> ParsingJob
-       OneOpE2() :> ParsingJob
-       OneOpE3() :> ParsingJob
-       OneOpE4() :> ParsingJob
-       OneOpE5() :> ParsingJob
-       OneOpE6() :> ParsingJob
-       OneOpE7() :> ParsingJob
-       OneOpE8() :> ParsingJob
-       OneOpE9() :> ParsingJob
-       OneOpEA() :> ParsingJob
-       OneOpEB() :> ParsingJob
-       OneOpEC() :> ParsingJob
-       OneOpED() :> ParsingJob
-       OneOpEE() :> ParsingJob
-       OneOpEF() :> ParsingJob
-       OneOpF0() :> ParsingJob
-       OneOpF1() :> ParsingJob
-       OneOpF2() :> ParsingJob
-       OneOpF3() :> ParsingJob
-       OneOpF4() :> ParsingJob
-       OneOpF5() :> ParsingJob
-       OneOpF6() :> ParsingJob
-       OneOpF7() :> ParsingJob
-       OneOpF8() :> ParsingJob
-       OneOpF9() :> ParsingJob
-       OneOpFA() :> ParsingJob
-       OneOpFB() :> ParsingJob
-       OneOpFC() :> ParsingJob
-       OneOpFD() :> ParsingJob
-       OneOpFE() :> ParsingJob
-       OneOpFF() :> ParsingJob |]
-
   /// Split a byte value into two fileds (high 3 bits; low 5 bits), and
   /// categorize prefix values into 8 groups based on the high 3 bits (= 2^3).
   /// The below array is a collection of bitmaps that maps the low 5-bit value
@@ -518,7 +56,596 @@ type IntelParser(wordSz, reader) =
         member _.Lift(ins, builder) = Lifter.translate ins ins.Length builder
         member _.Disasm(ins, builder) = disasm.Invoke(builder, ins); builder }
 
-  let phlp = ParsingHelper(reader, wordSz, oparsers, szcomputers, lifter)
+  let phlp = ParsingHelper(reader, wordSz, lifter)
+
+  /// Returns true when the instruction offers embedded rounding, which is what
+  /// gives EVEX.b its {er} meaning. {sae} alone does not: it leaves L'L as the
+  /// vector length.
+  let declaresStaticRounding (insCore: InstructionCore) =
+    insCore.Operands
+    |> Array.exists (function
+      | RMEr _ | RMBcstEr _ -> true
+      | _ -> false)
+
+  /// Returns true when EVEX.b on a register form selects a rounding mode. L'L
+  /// then holds that mode rather than the vector length, so only the variant
+  /// offering {er} can match. See Intel SDM Vol. 2A, Section 2.6.7.
+  let usesStaticRounding (span: ByteSpan) (phlp: ParsingHelper) ins =
+    match phlp.VEXInfo with
+    | Some { EVEXPrx = Some evex } when evex.B = 1uy ->
+      Operands.modIsReg span[phlp.CurrPos]
+      && Array.exists declaresStaticRounding ins
+    | _ -> false
+
+  /// Returns true when the VEX/EVEX vector length satisfies the instruction's
+  /// vector-length constraint (or the constraint is absent).
+  let matchVectorLength isRounding (vex: VEXInfo option) (i: InstructionCore) =
+    if i.VectorLength = VectorLength.None then true
+    elif isRounding then declaresStaticRounding i
+    else
+      match vex with
+      | Some v ->
+        match v.VectorLength with
+        | 128<rt> -> i.VectorLength = VectorLength.V128
+        | 256<rt> -> i.VectorLength = VectorLength.V256
+        | 512<rt> -> i.VectorLength = VectorLength.V512
+        | _ -> false
+      | _ -> true
+
+  /// Returns the distinct operand sizes from an instruction's descriptors.
+  /// None entries represent operands with no explicit size.
+  let collectDistinctOpSizes operands =
+    Array.map (fun o ->
+      match o with
+      | RM sz | Reg(sz, _) | Mem sz | Imm sz | Rel sz | Moffs sz
+      | Far sz -> Some sz
+      | FixedReg(Register.AX) -> Some 16<rt>
+      | _ -> None) operands
+    |> Array.distinct
+
+  /// Returns true when every operand is 8-bit, meaning REX semantics do not
+  /// apply to this instruction.
+  let isAllOprSize8 oprSz =
+    match oprSz with
+    | [| Some 8<rt> |] -> true
+    | _ -> false
+
+  /// Returns true when the observed REX prefix satisfies the constraint
+  /// declared in the instruction core (NOREX / W0 / W1 / WIG / REXW).
+  let matchREX (phlp: ParsingHelper) (insCore: InstructionCore) =
+    let insREX = insCore.REXPrefixType
+    match phlp.REXPrefix with
+    | _ when isAllOprSize8 (collectDistinctOpSizes insCore.Operands) -> true
+    | REXPrefix.NOREX ->
+      (insREX = REXPrefixType.WIG) || (insREX = REXPrefixType.W0) ||
+      (insREX = REXPrefixType.NOREX)
+    | r when (r &&& REXPrefix.REXW) = REXPrefix.REXW ->
+      (insREX = REXPrefixType.WIG) || (insREX = REXPrefixType.W1) ||
+      (insREX = REXPrefixType.REXW)
+    | _ -> true
+
+  /// Returns true when pref satisfies insPref, treating Legacy NP as a fallback
+  /// for Mandatory NP.
+  let matchPrefixType pref insPref =
+    match pref with
+    | Mandatory NP -> insPref = Mandatory NP || insPref = Legacy NP
+    | Mandatory _ ->
+      if insPref = Legacy NP then false
+      else pref = insPref
+    | _ -> true
+
+  /// Returns true when the current prefix state satisfies insPref, with Legacy
+  /// NP as a fallback for Mandatory NP.
+  let matchPrefixWithLegacyFallback (phlp: ParsingHelper) insPref =
+    let pref =
+      match phlp.VEXInfo with
+      | Some v -> v.VPrefixes
+      | _ -> phlp.Prefixes
+    let mPref = pref &&& (Prefix.OPSIZE ||| Prefix.REPZ ||| Prefix.REPNZ)
+    if Prefix.hasOprSz mPref then insPref = Mandatory P66 || insPref = Legacy NP
+    elif Prefix.hasREPZ mPref then insPref = Mandatory F3 || insPref = Legacy NP
+    elif Prefix.hasREPNZ mPref then
+      insPref = Mandatory F2 || insPref = Legacy NP
+    elif mPref = Prefix.None then
+      insPref = Legacy NP || insPref = Mandatory NP
+    else false
+
+  /// Returns the effective PrefixType for opcodes that deviate from standard
+  /// mandatory-prefix rules; None for all other opcodes.
+  let tryResolveSpecialPrefix (phlp: ParsingHelper) opByte =
+    if phlp.VEXInfo.IsSome then None
+    else
+      match phlp.OpcodeClass with
+      | OpcodeClass.Normal OneByte
+        when opByte = 0x90uy && Prefix.hasREPZ phlp.Prefixes ->
+        Some(Mandatory F3) // F3 90 = PAUSE
+      | OpcodeClass.Normal TwoBytes when opByte = 0xBCuy || opByte = 0xBDuy ->
+        // 0F BC/BD use F3 as an opcode selector (TZCNT/LZCNT), while 66 still
+        // acts as the ordinary operand-size prefix for BSF/BSR.
+        if Prefix.hasREPZ phlp.Prefixes then Some(Mandatory F3)
+        else Some(Mandatory NP)
+      | _ -> None
+
+  /// Returns true when the current prefix satisfies the instruction's
+  /// requirement, applying special-case resolution where needed.
+  let matchPrefix (phlp: ParsingHelper) opByte insPref =
+    match tryResolveSpecialPrefix phlp opByte with
+    | Some pref -> matchPrefixType pref insPref
+    | None -> matchPrefixWithLegacyFallback phlp insPref
+
+  /// Returns true when the special-case prefix acted as an opcode selector and
+  /// should be stripped after matching.
+  let shouldConsumeSpecialPrefix pref =
+    match pref with
+    | Mandatory NP -> false
+    | Mandatory _ -> true
+    | _ -> false
+
+  /// Returns true when the matched prefix should be removed after parsing
+  /// (VEX always; legacy mandatory only when used as an opcode selector).
+  let shouldConsumePrefix (phlp: ParsingHelper) (insCore: InstructionCore) =
+    match phlp.VEXInfo with
+    | Some _ -> true
+    | None ->
+      match tryResolveSpecialPrefix phlp (uint8 insCore.OpcodeByte) with
+      | Some pref -> shouldConsumeSpecialPrefix pref
+      | None ->
+        match insCore.PrefixType with
+        | Mandatory _ -> true
+        | _ -> false
+
+  /// Returns true for opcodes that implicitly operate on 16-bit operands
+  /// without encoding an explicit size (e.g., MOVSW, PUSHF, IRET).
+  let hasImplicit16BitOprSize = function
+    | Opcode.CBW | Opcode.CWD
+    | Opcode.PUSHF | Opcode.PUSHA
+    | Opcode.POPF | Opcode.POPA
+    | Opcode.MOVSW | Opcode.CMPSW | Opcode.SCASW | Opcode.LODSW | Opcode.STOSW
+    | Opcode.INSW | Opcode.OUTSW
+    | Opcode.IRET -> true
+    | _ -> false
+
+  /// Returns true when this instruction variant requires the 66h prefix. Some
+  /// opcodes are excluded because their 16-bit form omits it.
+  let needs66hPrefix oprSz op =
+    match oprSz with
+    | [| Some 16<rt> |] when op = Opcode.RET -> false
+    | [| Some 16<rt>; _ |] when op = Opcode.ENTER -> false
+    | [| None; Some 16<rt> |] when op = Opcode.MOV -> false
+    | [| Some 8<rt>; Some 16<rt> |] when op = Opcode.OUT -> true
+    | [| None |] when hasImplicit16BitOprSize op -> true
+    | [| Some 16<rt> |]
+    | [| Some 16<rt>; _ |]
+    | [| None; Some 16<rt> |] (* Temp *) -> true
+    | _ -> false
+
+  /// The width a fixed-register operand implies. Segment registers give
+  /// 0<rt>: an operand-size prefix never selects between them.
+  let fixedRegSize = function
+    | Register.AL | Register.CL -> 8<rt>
+    | Register.AX | Register.DX -> 16<rt>
+    | Register.EAX -> 32<rt>
+    | Register.RAX -> 64<rt>
+    | _ -> 0<rt>
+
+  /// The width an operand descriptor declares, or 0<rt> when it carries none.
+  /// A multi-size form reports its register width, which is the side an
+  /// operand-size prefix selects.
+  let oprWidth = function
+    | RM sz | Reg(sz, _) | RegSae sz | Mem sz | MemVSIB sz | Moffs sz
+    | Far sz | Imm sz | Rel sz | KM sz | MM sz | BM sz -> sz
+    | RMdiff(sz, _) | RMEr(sz, _) | RMSae(sz, _) -> sz
+    | RMBcst(sz, _, _) | RMBcstEr(sz, _, _) | RMBcstSae(sz, _, _) -> sz
+    | FixedReg r -> fixedRegSize r
+    | _ -> 0<rt>
+
+  /// Returns the widest declared operand size in the descriptors, or 0<rt>
+  /// when none of them carries one.
+  let maxOprSize (insCore: InstructionCore) =
+    insCore.Operands |> Array.fold (fun acc o -> max acc (oprWidth o)) 0<rt>
+
+  /// Returns true when 66h is what picks this variant out of its slot, i.e.
+  /// the slot also holds the same opcode with a wider operand. Opcodes whose
+  /// 16-bit form encodes no explicit size (MOVSW, PUSHF, ...) have nothing to
+  /// compare, and hasImplicit16BitOprSize already names them.
+  let is66hSelector (ins: InstructionCore[]) (insCore: InstructionCore) =
+    let sz = maxOprSize insCore
+    if sz = 0<rt> then true
+    else
+      ins
+      |> Array.exists (fun i ->
+        i.Opcode = insCore.Opcode && maxOprSize i > sz)
+
+  /// Returns true when the current prefix is compatible with the operand size
+  /// implied by the instruction's descriptors.
+  let matchOperandSize pref ins (insCore: InstructionCore) =
+    if insCore.OpEn = OpEn.None then true
+    else
+      let oprSz = collectDistinctOpSizes insCore.Operands
+      if needs66hPrefix oprSz insCore.Opcode && is66hSelector ins insCore then
+        pref &&& Prefix.OPSIZE = Prefix.OPSIZE
+      else true
+
+  /// Returns true when the CPU word size is compatible with the instruction's
+  /// Mode64/Compat flags.
+  let matchCPUMode wordSize mode64 compat =
+    match wordSize with
+    (* The manual spells the same verdict "Inv." in some tables and
+       "Invalid" in others. *)
+    | WordSize.Bit64 when mode64 = Mode64.Invalid || mode64 = Mode64.Inv ->
+      false
+    | WordSize.Bit64 -> mode64 <> Mode64.NE && mode64 <> Mode64.NS // ??
+    | WordSize.Bit32 ->
+      compat <> CompatLegMode.NE && compat <> CompatLegMode.Invalid
+    | _ -> failwith "Unsupported word size."
+
+  /// Returns true when the ModRM type encodes an opcode group extension (/0–/7)
+  /// that further disambiguates the instruction.
+  let isOpcodeGroupExtension = function
+    | ModRMType.ModRMOp0 _ | ModRMType.ModRMOp1 _ | ModRMType.ModRMOp2 _
+    | ModRMType.ModRMOp3 _ | ModRMType.ModRMOp4 _ | ModRMType.ModRMOp5 _
+    | ModRMType.ModRMOp6 _ | ModRMType.ModRMOp7 _ -> true
+    | _ -> false
+
+  /// Returns true when the ModRM reg field satisfies the operand type and
+  /// expected register index constraints.
+  let matchModRMRegConstraint (span: ByteSpan) (phlp: ParsingHelper)
+    oprType insReg =
+    let modRM = span[phlp.CurrPos]
+    let reg = Operands.getReg modRM
+    match oprType with
+    | OpReg -> Operands.modIsReg modRM && reg = insReg
+    | OpMem -> Operands.modIsMemory modRM && reg = insReg
+    | _ -> reg = insReg
+
+  /// Returns true when the ModRM byte satisfies all constraints in the
+  /// instruction core (fixed, STi, group digit, reg/mem form, or
+  /// unconstrained). A plain /r carries a reg-or-mem constraint too: the
+  /// mod field is what separates MOVHLPS (register only) from MOVLPS
+  /// (memory only), which share opcode 0F 12.
+  let matchModRM (span: ByteSpan) (phlp: ParsingHelper)
+    (i: InstructionCore) =
+    match i.ModRM with
+    | ModRMType.ModRM OpReg -> Operands.modIsReg span[phlp.CurrPos]
+    | ModRMType.ModRM OpMem -> Operands.modIsMemory span[phlp.CurrPos]
+    | ModRMType.ModRMOp0 o -> matchModRMRegConstraint span phlp o 0
+    | ModRMType.ModRMOp1 o -> matchModRMRegConstraint span phlp o 1
+    | ModRMType.ModRMOp2 o -> matchModRMRegConstraint span phlp o 2
+    | ModRMType.ModRMOp3 o -> matchModRMRegConstraint span phlp o 3
+    | ModRMType.ModRMOp4 o -> matchModRMRegConstraint span phlp o 4
+    | ModRMType.ModRMOp5 o -> matchModRMRegConstraint span phlp o 5
+    | ModRMType.ModRMOp6 o -> matchModRMRegConstraint span phlp o 6
+    | ModRMType.ModRMOp7 o -> matchModRMRegConstraint span phlp o 7
+    | ModRMType.FixedModRM v -> span[phlp.CurrPos] = v
+    | ModRMType.STiModRM v ->
+      let modRM = span[phlp.CurrPos]
+      v <= modRM && modRM <= v + 7uy
+    | _ -> true
+
+  /// JCXZ/JECXZ/JRCXZ share opcode 0xE3 and are selected by the effective
+  /// address size determined by the current mode and the 67h prefix:
+  /// 32-bit mode  -> JECXZ, 67h -> JCXZ
+  /// 64-bit mode  -> JRCXZ, 67h -> JECXZ
+  /// Only the one-byte map is concerned: 0xE3 is PAVGW, VPAVGW or CMPccXADD
+  /// in the escape and VEX maps.
+  let matchJcxzAddrSize (phlp: ParsingHelper) (insCore: InstructionCore) =
+    if uint8 insCore.OpcodeByte <> 0xE3uy
+       || phlp.OpcodeClass <> OpcodeClass.Normal OneByte then true
+    else
+      match ParsingHelper.GetEffAddrSize phlp, insCore.Opcode with
+      | 16<rt>, Opcode.JCXZ
+      | 32<rt>, Opcode.JECXZ
+      | 64<rt>, Opcode.JRCXZ -> true
+      | _ -> false
+
+  /// Returns true when every constraint the instruction core declares holds
+  /// for the bytes at hand.
+  let matchesInstrCore span (phlp: ParsingHelper) ins isRounding insCore =
+    matchPrefix phlp (uint8 insCore.OpcodeByte) insCore.PrefixType
+    && matchCPUMode phlp.WordSize insCore.Mode64 insCore.Compat
+    && matchOperandSize phlp.Prefixes ins insCore
+    && matchREX phlp insCore
+    && matchVectorLength isRounding phlp.VEXInfo insCore
+    && matchModRM span phlp insCore
+    && matchJcxzAddrSize phlp insCore
+
+#if DEBUG
+  /// Reports each constraint's verdict on one entry. matchesInstrCore stops
+  /// at the first failure, so this runs them all again to show which ones
+  /// rejected an entry, or which entry won and why.
+  let traceInstrCore span (phlp: ParsingHelper) ins isRounding i insCore =
+    printfn
+      "[%d] %A pref=%b mode=%b size=%b rex=%b vlen=%b modrm=%b addrsz=%b"
+      i insCore.Opcode
+      (matchPrefix phlp (uint8 insCore.OpcodeByte) insCore.PrefixType)
+      (matchCPUMode phlp.WordSize insCore.Mode64 insCore.Compat)
+      (matchOperandSize phlp.Prefixes ins insCore)
+      (matchREX phlp insCore)
+      (matchVectorLength isRounding phlp.VEXInfo insCore)
+      (matchModRM span phlp insCore)
+      (matchJcxzAddrSize phlp insCore)
+#endif
+
+  /// Returns the index of the first instruction-core entry that satisfies
+  /// all matching constraints; raises if no variant matches.
+  let selectInstrVariant (span: ByteSpan) (phlp: ParsingHelper)
+    (ins: InstructionCore[]) =
+    if Array.isEmpty ins then
+      failwith "Error: Instruction core array is empty."
+    else
+      let isRounding = usesStaticRounding span phlp ins
+      (* A span cannot be captured by a closure, so this cannot be a
+         tryFindIndex. *)
+      let mutable idx = -1
+      let mutable i = 0
+      while idx < 0 && i < ins.Length do
+#if DEBUG
+        traceInstrCore span phlp ins isRounding i ins[i]
+#endif
+        if matchesInstrCore span phlp ins isRounding ins[i] then idx <- i
+        else i <- i + 1
+#if DEBUG
+      printfn "maps: %A, pref: %A, rex: %A, vex: %A -> selected %d"
+        phlp.OpcodeClass phlp.Prefixes phlp.REXPrefix phlp.VEXInfo idx
+#endif
+      if idx < 0 then failwith "No matching instruction format."
+      else idx
+
+  /// Returns the RegType size for a FixedImm operand inferred from the
+  /// surrounding operand size array.
+  let getFixedImmSize = function
+    | [| Some 8<rt>; None |] -> 8<rt>
+    | [| Some 16<rt>; None |] -> 16<rt>
+    | [| Some 32<rt>; None |] -> 32<rt>
+    | [| Some 64<rt>; None |] -> 64<rt>
+    | _ -> 0<rt> // Temp
+
+  /// Writes addrSz, regSz, and memSz into the parsing-helper context for use by
+  /// subsequent operand parsers.
+  let setupOprContext (phlp: ParsingHelper) addrSz regSz memSz =
+    phlp.MemEffOprSize <- memSz
+    phlp.MemEffAddrSize <- addrSz
+    phlp.MemEffRegSize <- regSz
+    phlp.RegSize <- regSz
+    phlp.OperationSize <- regSz
+    (* Cleared here so a broadcast width never outlives its operand; the
+       RMBcst cases set it again right after this call. *)
+    phlp.BroadcastSize <- 0<rt>
+
+  /// Calls setupOprContext with the effective address size derived from the
+  /// current prefix/mode state.
+  let setupOprContextWithEffAddr (phlp: ParsingHelper) regSz memSz =
+    let effAddrSz = ParsingHelper.GetEffAddrSize phlp
+    setupOprContext phlp effAddrSz regSz memSz
+
+  /// Sizes an operand that carries no width of its own from the prefixes and
+  /// the CPU mode, under the given size condition.
+  let setupOprContextFromPrefixes (phlp: ParsingHelper) szCond =
+    let effOprSz = ParsingHelper.GetEffOprSize(phlp, szCond)
+    setupOprContextWithEffAddr phlp effOprSz effOprSz
+
+  /// Returns the size condition an opcode's operand width follows. The stack
+  /// operations default to 64 bits in 64-bit mode rather than to 32.
+  let getSzCond = function
+    | Opcode.POP | Opcode.PUSH | Opcode.RET | Opcode.LEAVE
+    | Opcode.POPF | Opcode.PUSHF -> SzCond.D64
+    | _ -> SzCond.Normal
+
+  /// Returns true when the opcode has a sign-extending immediate encoding.
+  let supportsSignExtendedImmediate = function
+    | Opcode.ADC | Opcode.ADD | Opcode.AND | Opcode.CMP | Opcode.IMUL
+    | Opcode.MOV | Opcode.OR | Opcode.SBB | Opcode.SUB | Opcode.TEST
+    | Opcode.XOR | Opcode.PUSH -> true
+    | _ -> false
+
+  /// Returns true when the immediate is narrower than the effective operand
+  /// width and must be sign-extended (includes PUSH imm8).
+  let hasSignExtendedImmediateSizeMismatch opcode szs =
+    match szs with
+    (* Implicit accumulator + imm8; no widening. *)
+    | [| None; Some 8<rt> |] -> false
+    (* PUSH imm8 is sign-extended to the stack operand width. *)
+    | [| Some _ |] when opcode = Opcode.PUSH -> true
+    (* Single-size operand shape; no sign-extension case. *)
+    | [| None |] | [| Some _ |] -> false
+    | _ -> true
+
+  /// The register index a mask or MMX operand names. These registers have no
+  /// extension bit, so the raw three-bit field is the whole index.
+  let shortRegIndex (phlp: ParsingHelper) modRM = function
+    | RegBit -> Operands.getReg modRM
+    | RMBit -> Operands.getRM modRM
+    | VVVV ->
+      match phlp.VEXInfo with
+      | Some v -> int v.VVVV
+      | None -> failwith "VEXInfo is required to get VVVV bits."
+    | ort -> failwithf "Invalid OprRegType for a short register: %A" ort
+
+  /// Parses one operand descriptor into a concrete Operand value and updates
+  /// the context so subsequent operands derive the correct width.
+  let parseOperand span (phlp: ParsingHelper) szs modRM ic o =
+    match o with
+    (* {er} and {sae} decorate the operand without changing how it is read;
+       the variant they select was already settled by matchVectorLength. *)
+    | RM sz ->
+      setupOprContextWithEffAddr phlp sz sz
+      OperandParsers.parseMemOrReg modRM span phlp
+    | RMdiff(regSz, memSz)
+    | RMEr(regSz, memSz)
+    | RMSae(regSz, memSz) ->
+      setupOprContextWithEffAddr phlp regSz memSz
+      OperandParsers.parseMemOrReg modRM span phlp
+    | RMBcst(regSz, memSz, bcstSz)
+    | RMBcstEr(regSz, memSz, bcstSz)
+    | RMBcstSae(regSz, memSz, bcstSz) ->
+      setupOprContextWithEffAddr phlp regSz memSz
+      phlp.BroadcastSize <- bcstSz
+      OperandParsers.parseMemOrReg modRM span phlp
+    | MemVSIB elemSz ->
+      (* A gathered element occupies max(index, data) bits, so the vector
+         length says how many of them there are. The index register then
+         holds that many indices, never narrower than an XMM, and the memory
+         access covers that many data elements. See Intel SDM Vol. 2C, the
+         vm32x/vm32y/vm32z and vm64x/vm64y/vm64z operand tables. *)
+      let vl = phlp.VEXInfo.Value.VectorLength
+      let dataSz = if REXPrefix.hasW phlp.REXPrefix then 64<rt> else 32<rt>
+      let count = vl / max elemSz dataSz
+      let idxVl = max 128<rt> (count * elemSz)
+      let memSz = count * dataSz
+      setupOprContextWithEffAddr phlp memSz memSz
+      let modVal = modRM &&& 0b11000000uy
+      OperandParsers.parseOprMemVSIB span phlp modVal idxVl
+    | Reg(sz, oprRegType) ->
+      setupOprContextWithEffAddr phlp sz sz
+      match oprRegType with
+      | OprRegType.OpRd -> (* Opcode[2:0] holds the register. *)
+        OperandParsers.getOprFromRegGrpREX
+          (Operands.getRM(uint8 (ic: InstructionCore).OpcodeByte)) phlp
+      | OprRegType.VVVV ->
+        (* BMI/CMPccXADD encode a GPR in vvvv, not a vector register. *)
+        if sz <= 64<rt> then OperandParsers.parseVEXtoGPR phlp
+        else OperandParsers.parseVVVVReg phlp
+      | OprRegType.RMBit -> OperandParsers.findRegRM modRM phlp |> OprReg
+      | OprRegType.RegBit ->
+        OperandParsers.findRegReg sz modRM phlp |> OprReg
+      | OprRegType.IS4 -> (* imm8[7:4] holds the register. *)
+        let regBit = phlp.ReadByte span >>> 4 &&& 0b1111uy |> int
+        OperandParsers.findRegRBits sz phlp.REXPrefix regBit |> OprReg
+      | OprRegType.Unused -> failwith "Unused OprRegType." (* FixedReg *)
+    | RegSae sz ->
+      setupOprContextWithEffAddr phlp sz sz
+      OperandParsers.findRegReg sz modRM phlp |> OprReg
+    | Mem 0<rt> when ic.Opcode = Opcode.LDDQU ->
+      setupOprContextWithEffAddr phlp 128<rt> 128<rt>
+      OperandParsers.parseMemory modRM span phlp
+    | Mem 0<rt> -> (* No declared width: the prefixes decide. *)
+      setupOprContextFromPrefixes phlp SzCond.Normal
+      OperandParsers.parseMemory modRM span phlp
+    | Mem sz ->
+      setupOprContextWithEffAddr phlp sz sz
+      OperandParsers.parseMemory modRM span phlp
+    | Imm sz ->
+      setupOprContextFromPrefixes phlp (getSzCond ic.Opcode)
+      if supportsSignExtendedImmediate ic.Opcode
+         && hasSignExtendedImmediateSizeMismatch ic.Opcode szs then
+        OperandParsers.parseOprSImm span phlp sz
+      else OperandParsers.parseOprImm span phlp sz
+    | Rel sz ->
+      setupOprContextFromPrefixes phlp SzCond.F64
+      OperandParsers.parseOprForRelJmp span phlp sz
+    | FixedReg reg ->
+      let sz = RegisterHelper.toRegType phlp.WordSize reg
+      setupOprContextWithEffAddr phlp sz sz
+      OprReg reg
+    | STReg None -> Operands.getRM modRM |> Operands.getSTReg
+    | STReg(Some reg) -> OprReg reg
+    | BM sz ->
+      if Operands.modIsReg modRM then
+        OperandParsers.parseBoundRegister (Operands.getRM modRM)
+      else
+        setupOprContextWithEffAddr phlp sz sz
+        OperandParsers.parseMemory modRM span phlp
+    | BndReg -> OperandParsers.parseBoundRegister (Operands.getReg modRM)
+    | OpMaskReg oprRegType ->
+      shortRegIndex phlp modRM oprRegType |> OperandParsers.parseOpMaskReg
+    | KM sz ->
+      setupOprContextWithEffAddr phlp sz sz
+      if Operands.modIsReg modRM then
+        OperandParsers.parseOpMaskReg (Operands.getRM modRM)
+      else
+        OperandParsers.parseMemory modRM span phlp
+    | MMXReg oprRegType ->
+      shortRegIndex phlp modRM oprRegType |> OperandParsers.parseMMXReg
+    | MM sz ->
+      if Operands.modIsReg modRM then
+        OperandParsers.parseMMXReg (Operands.getRM modRM)
+      else
+        setupOprContextWithEffAddr phlp sz sz
+        OperandParsers.parseMemory modRM span phlp
+    | FixedImm imm -> OprImm(int64 imm, getFixedImmSize szs)
+    | Moffs sz ->
+      setupOprContextWithEffAddr phlp sz sz
+      OperandParsers.parseOprOnlyDisp span phlp
+    | CtrlReg ->
+      OperandParsers.sysRegIndex modRM phlp.REXPrefix
+      |> OperandParsers.parseControlReg
+    | DebugReg ->
+      OperandParsers.sysRegIndex modRM phlp.REXPrefix
+      |> OperandParsers.parseDebugReg
+    | RegAddr ->
+      let sz = ParsingHelper.GetEffAddrSize phlp
+      setupOprContextWithEffAddr phlp sz sz
+      if isOpcodeGroupExtension ic.ModRM then
+        let rm = Operands.getRM modRM
+        OperandParsers.findRegRmAndSIBBase sz phlp.REXPrefix rm |> OprReg
+      else
+        let reg = Operands.getReg modRM
+        OperandParsers.findRegRBits sz phlp.REXPrefix reg |> OprReg
+    | Sreg -> OperandParsers.parseSegReg (Operands.getReg modRM)
+    | Far sz ->
+      (* sz is the offset width; a far pointer also carries a 16-bit segment
+         selector, so the whole thing is 16 bits wider. OperationSize holds
+         that whole width rather than the register width. *)
+      let oprSz = sz + 16<rt>
+      setupOprContextWithEffAddr phlp sz oprSz
+      phlp.OperationSize <- oprSz
+      if ic.ModRM = ModRMType.NoModRM then
+        (* ptr16:16 or ptr16:32, spelled out in the instruction (9A, EA). *)
+        let addrValue =
+          OperandParsers.parseUnsignedImm span phlp (RegType.toByteWidth sz)
+        let selector = phlp.ReadInt16 span
+        OprDirAddr(Absolute(selector, addrValue, sz))
+      else
+        (* m16:16, m16:32 or m16:64, read through ModRM (FF /3, FF /5). *)
+        phlp.IsFar <- true
+        OperandParsers.parseMemory modRM span phlp
+    (* NoOpr among other operands, or an Unknown the extractor could not
+       classify. Neither occurs in the generated tables today. *)
+    | o -> failwithf "Unsupported operand type: %A" o
+
+  /// Wraps a concrete operand array into the Operands discriminated union
+  /// (NoOperand / OneOperand / … / FourOperands).
+  let buildOperands = function
+    | [||] -> Operands.NoOperand
+    | [| op1 |] -> Operands.OneOperand(op1)
+    | [| op1; op2 |] -> Operands.TwoOperands(op1, op2)
+    | [| op1; op2; op3 |] -> Operands.ThreeOperands(op1, op2, op3)
+    | [| op1; op2; op3; op4 |] -> Operands.FourOperands(op1, op2, op3, op4)
+    | _ -> failwith "Invalid number of operands."
+
+  /// Reads the ModRM byte where one follows the opcode. FIXME: SETcc and the
+  /// x87 escapes carry a ModRM byte the table records as NoModRM, so they are
+  /// named here until the extractor gets them right.
+  let readModRM span (phlp: ParsingHelper) (ic: InstructionCore) =
+    match ic.ModRM with
+    | ModRMType.NoModRM when ic.OpEn = OpEn.M || ic.OpEn = OpEn.None ->
+      phlp.ReadByte span
+    | ModRMType.NoModRM -> 0uy
+    | _ -> phlp.ReadByte span (* every other kind, FixedModRM included *)
+
+  /// Reads the ModRM byte if required, then parses all operand descriptors
+  /// and returns the assembled Operands value.
+  let parseAllOperands span (phlp: ParsingHelper) (ic: InstructionCore) =
+    let modRM = readModRM span phlp ic
+    match ic.Operands with
+    | [| NoOpr |] ->
+      (* Nothing else sizes an operand-less instruction, yet the lifter still
+         reads OperationSize: auxPop needs it for RET and LEAVE. *)
+      setupOprContextFromPrefixes phlp (getSzCond ic.Opcode)
+      Operands.NoOperand
+    | operandTypes ->
+      let szs = collectDistinctOpSizes operandTypes
+      let operands = Array.zeroCreate operandTypes.Length
+      for i = 0 to operandTypes.Length - 1 do
+        operands[i] <- parseOperand span phlp szs modRM ic operandTypes[i]
+      buildOperands operands
+
+  /// Removes the prefix from the set when the matched instruction consumed
+  /// it as an opcode selector rather than a plain prefix.
+  let consumePrefixIfNeeded phlp insCore =
+    if shouldConsumePrefix phlp insCore then
+      phlp.Prefixes <- filterPrefs phlp.Prefixes
+    else ()
 
   member _.SetDisassemblySyntax syntax =
     match syntax with
@@ -557,6 +684,41 @@ type IntelParser(wordSz, reader) =
         pos + 1
       else pos
 
+  member inline private _.ParseVEX(bs: ByteSpan, pos, rex: REXPrefix byref,
+    vex: VEXInfo option byref) =
+    match bs[pos] with
+    | 0xC5uy when bs[pos + 1] < 0xC0uy && wordSz <> WordSize.Bit64 ->
+      pos
+    | 0xC5uy ->
+      vex <- Some(getTwoVEXInfo bs &rex (pos + 1))
+      pos + 2
+    | 0xC4uy when bs[pos + 1] < 0xC0uy && wordSz <> WordSize.Bit64 ->
+      pos
+    | 0xC4uy ->
+      vex <- Some(getThreeVEXInfo bs &rex (pos + 1))
+      pos + 3
+    (* Outside 64-bit mode 0x62 is BOUND unless the ModRM that follows names
+       a register, exactly as 0xC4 and 0xC5 are LES and LDS. *)
+    | 0x62uy when bs[pos + 1] < 0xC0uy && wordSz <> WordSize.Bit64 ->
+      pos
+    | 0x62uy ->
+      vex <- Some(getEVEXInfo bs &rex (pos + 1))
+      pos + 4
+    | 0x0Fuy ->
+      match bs[pos + 1] with
+      | 0x38uy ->
+        phlp.OpcodeClass <- OpcodeClass.Normal ThreeBytes38
+        pos + 2
+      | 0x3Auy ->
+        phlp.OpcodeClass <- OpcodeClass.Normal ThreeBytes3A
+        pos + 2
+      | _ ->
+        phlp.OpcodeClass <- OpcodeClass.Normal TwoBytes
+        pos + 1
+    | _ ->
+      phlp.OpcodeClass <- OpcodeClass.Normal OneByte
+      pos
+
   interface IInstructionParsable with
     member _.MaxInstructionSize = 15
 
@@ -568,15 +730,69 @@ type IntelParser(wordSz, reader) =
     member this.Parse(span: ByteSpan, addr) =
       try
         let mutable rex = REXPrefix.NOREX
+        let mutable vex = None
         let prefEndPos = this.ParsePrefix span
-        let nextPos = this.ParseREX(span, prefEndPos, &rex)
+        let rexEndPos = this.ParseREX(span, prefEndPos, &rex)
+        let nextPos = this.ParseVEX(span, rexEndPos, &rex, &vex)
         phlp.VEXInfo <- None
         phlp.IsFar <- false
         phlp.InsAddr <- addr
         phlp.REXPrefix <- rex
+        phlp.VEXInfo <- vex
         phlp.CurrPos <- nextPos
 #if LCACHE
         phlp.MarkPrefixEnd(prefEndPos)
 #endif
-        oneByteParsers[int (phlp.ReadByte span)].Run(span, phlp) :> IInstruction
-      with e when not (Terminator.isCritical e) -> raise ParsingFailureException
+        let insCores =
+          match phlp.VEXInfo with
+          | Some vInfo ->
+            match vInfo.VEXType with
+            | v when v &&& VEXType.EVEX = VEXType.EVEX ->
+              match vInfo.VEXType &&& (~~~VEXType.EVEX) with
+              | VEXType.TwoByteOp ->
+                phlp.OpcodeClass <- OpcodeClass.EVEX TwoBytes
+                InstructionArrays.evexTwo[int (phlp.ReadByte span)]
+              | VEXType.ThreeByteOpOne ->
+                phlp.OpcodeClass <- OpcodeClass.EVEX ThreeBytes38
+                InstructionArrays.evexThree38[int (phlp.ReadByte span)]
+              | VEXType.ThreeByteOpTwo ->
+                phlp.OpcodeClass <- OpcodeClass.EVEX ThreeBytes3A
+                InstructionArrays.evexThree3A[int (phlp.ReadByte span)]
+              | VEXType.Map5 ->
+                phlp.OpcodeClass <- OpcodeClass.EVEX MAP5
+                InstructionArrays.evexMap5[int (phlp.ReadByte span)]
+              | VEXType.Map6 ->
+                phlp.OpcodeClass <- OpcodeClass.EVEX MAP6
+                InstructionArrays.evexMap6[int (phlp.ReadByte span)]
+              | _ -> raise ParsingFailureException
+            | VEXType.TwoByteOp ->
+              phlp.OpcodeClass <- OpcodeClass.VEX TwoBytes
+              InstructionArrays.vexTwo[int (phlp.ReadByte span)]
+            | VEXType.ThreeByteOpOne ->
+              phlp.OpcodeClass <- OpcodeClass.VEX ThreeBytes38
+              InstructionArrays.vexThree38[int (phlp.ReadByte span)]
+            | VEXType.ThreeByteOpTwo ->
+              phlp.OpcodeClass <- OpcodeClass.VEX ThreeBytes3A
+              InstructionArrays.vexThree3A[int (phlp.ReadByte span)]
+            | _ -> raise ParsingFailureException
+          | None ->
+            match phlp.OpcodeClass with
+            | OpcodeClass.Normal ThreeBytes38 ->
+              InstructionArrays.norThree38[int (phlp.ReadByte span)]
+            | OpcodeClass.Normal ThreeBytes3A ->
+              InstructionArrays.norThree3A[int (phlp.ReadByte span)]
+            | OpcodeClass.Normal TwoBytes ->
+              InstructionArrays.norTwo[int (phlp.ReadByte span)]
+            | _ -> InstructionArrays.norOne[int (phlp.ReadByte span)]
+        let subIdx = selectInstrVariant span phlp insCores
+#if DEBUG
+        //printfn "\nSelected InstructionCore(%d)\n%A\nOpcode Class: %A"
+        //  subIdx insCores[subIdx] phlp.OpcodeClass
+#endif
+        let insCore = insCores[subIdx]
+        phlp.TupleType <- insCore.TupleType
+        let operands = parseAllOperands span phlp insCore
+        consumePrefixIfNeeded phlp insCore
+        newInstruction phlp insCore.Opcode operands :> IInstruction
+      with e when not (Terminator.isCritical e) ->
+        raise ParsingFailureException

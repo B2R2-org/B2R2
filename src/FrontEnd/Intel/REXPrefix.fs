@@ -62,6 +62,10 @@ type REXPrefix =
   | REXWRX = 0b1001110
   /// REX.RXB + Operand 64bit.
   | REXWRXB = 0b1001111
+  /// EVEX R': fifth bit of the ModR/M reg field.
+  | EVEXR = 0b0010000
+  /// EVEX V': fifth bit of the vvvv and VSIB index fields.
+  | EVEXV = 0b0100000
 
 /// Provides a set of functions to manipulate REX prefixes.
 [<RequireQualifiedAccess>]
@@ -71,6 +75,17 @@ module internal REXPrefix =
   let inline hasR rexPref = rexPref &&& REXPrefix.REXR = REXPrefix.REXR
 
   let inline hasB rexPref = rexPref &&& REXPrefix.REXB = REXPrefix.REXB
+
+  let inline hasX rexPref = rexPref &&& REXPrefix.REXX = REXPrefix.REXX
+
+  let inline hasEVEXR rexPref =
+    rexPref &&& REXPrefix.EVEXR = REXPrefix.EVEXR
+
+  let inline hasEVEXV rexPref =
+    rexPref &&& REXPrefix.EVEXV = REXPrefix.EVEXV
+
+  /// The 16 a set EVEX high bit adds to a register field, or 0.
+  let inline highBit isSet = if isSet then 16 else 0
 
   /// Filter out REXW (0x8).
   let [<Literal>] ClearREXWPrefMask: REXPrefix = EnumOfValue 0xFFF7

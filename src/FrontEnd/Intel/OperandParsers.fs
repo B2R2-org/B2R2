@@ -181,15 +181,21 @@ open type RegGrp
 
 /// Find a specific reg. The bitmask will be used to extract a specific REX
 /// bit (R/X/B).
+/// The register of the given width at the given index. Vector registers go
+/// through the helpers because 16 to 31 sit outside the 0 to 15 run.
+let inline private regOfIndex sz (n: int) =
+  match sz with
+  | 128<rt> -> RegisterHelper.xmm n
+  | 256<rt> -> RegisterHelper.ymm n
+  | 512<rt> -> RegisterHelper.zmm n
+  | _ -> int (grpEAX sz) + n |> LanguagePrimitives.EnumOfValue<int, Register>
+
 let inline private findReg sz rex bitmask (n: int) =
-  let r = int (grpEAX sz) + n
-  let r =
-    if rex = REXPrefix.NOREX then r
-    else
-      if (int rex &&& bitmask) > 0 then r + 8
-      elif sz > 8<rt> || ((n &&& 4) = 0) then r
-      else r + 12
-  LanguagePrimitives.EnumOfValue<int, Register> r
+  if rex = REXPrefix.NOREX then regOfIndex sz n
+  elif (int rex &&& bitmask) > 0 then regOfIndex sz (n + 8)
+  elif sz > 8<rt> || ((n &&& 4) = 0) then regOfIndex sz n
+  (* SPL/BPL/SIL/DIL displace AH/CH/DH/BH once a REX byte is present. *)
+  else regOfIndex sz (n + 12)
 
 /// Registers defined by the SIB index field.
 let findRegSIBIdx sz rex (n: int) = findReg sz rex 2 n
@@ -234,6 +240,14 @@ let parseUnsignedImm span (phlp: ParsingHelper) = function
   | 8 -> phlp.ReadUInt64 span
   | _ -> raise ParsingFailureException
 
+/// The width of one element an embedded broadcast reads. The operand knows it
+/// (an FP16 element is 16 bits either way), and REX.W is only the fallback for
+/// operands that did not declare one.
+let broadcastElemSize (phlp: ParsingHelper) =
+  if phlp.BroadcastSize <> 0<rt> then phlp.BroadcastSize
+  elif phlp.REXPrefix &&& REXPrefix.REXW = REXPrefix.REXW then 64<rt>
+  else 32<rt>
+
 /// EVEX uses compressed displacement. See the manual Chap. 15 of Vol. 1.
 let uncompressedDisp (phlp: ParsingHelper) disp =
   let vInfo = phlp.VEXInfo.Value
@@ -241,23 +255,23 @@ let uncompressedDisp (phlp: ParsingHelper) disp =
   let tt = phlp.TupleType
   let b = evex.B = 1uy
   let w = phlp.REXPrefix &&& REXPrefix.REXW = REXPrefix.REXW
-  let inputSz = if w then 64<rt> else 32<rt>
+  let inputSz = broadcastElemSize phlp
   let memSz = phlp.MemEffOprSize
   let vl = vInfo.VectorLength
   match tt, b, inputSz, w with
   (* Table 2-34. Compressed Displacement (DISP8*N) Affected by Embedded
      Broadcast. *)
-  | TupleType.Full, false, 32<rt>, false
-  | TupleType.Full, false, 64<rt>, true -> disp * (int64 vl / 8L), memSz
-  | TupleType.Full, true, 32<rt>, false -> disp * 4L, inputSz
-  | TupleType.Full, true, 64<rt>, true -> disp * 8L, inputSz
-  | TupleType.Half, false, 32<rt>, false -> disp * (int64 vl / 16L), memSz
-  | TupleType.Half, true, 32<rt>, false -> disp * 4L, inputSz
+  (* Without broadcast N follows the vector length, with it N is one element
+     wide, so neither case needs to consult REX.W. *)
+  | TupleType.Full, false, _, _ -> disp * (int64 vl / 8L), memSz
+  | TupleType.Full, true, _, _ -> disp * (int64 inputSz / 8L), inputSz
+  | TupleType.Half, false, _, _ -> disp * (int64 vl / 16L), memSz
+  | TupleType.Half, true, _, _ -> disp * (int64 inputSz / 8L), inputSz
   (* Table 2-35. EVEX DISP8*N for Instructions Not Affected by Embedded
      Broadcast. *)
   | TupleType.FullMem, false, _, _ -> disp * (int64 vl / 8L), memSz
-  | TupleType.Tuple1Scalar, false, 8<rt>, _ -> disp, memSz
-  | TupleType.Tuple1Scalar, false, 16<rt>, _ -> disp * 2L, memSz
+  (* MemEffOprSize is the whole vector for a VSIB operand, so the element
+     width has to come from REX.W here rather than from memSz. *)
   | TupleType.Tuple1Scalar, false, 32<rt>, false -> disp * 4L, memSz
   | TupleType.Tuple1Scalar, false, 64<rt>, true -> disp * 8L, memSz
   | TupleType.Tuple1Fixed, false, _, _ -> disp * (int64 memSz / 8L), memSz
@@ -277,6 +291,10 @@ let uncompressedDisp (phlp: ParsingHelper) disp =
   | TupleType.MOVDDUP, false, _, _ when vl = 128<rt> -> disp * 8L, memSz
   | TupleType.MOVDDUP, false, _, _ -> disp * (int64 vl / 8L), memSz
   | TupleType.Tuple1_4X, false, _, _ -> disp * 16L, memSz
+  (* AVX512-FP16 tuple types, whose element is 2 bytes wide. *)
+  | TupleType.Scalar, _, _, _ -> disp * (int64 memSz / 8L), memSz
+  | TupleType.Quarter, false, _, _ -> disp * (int64 vl / 32L), memSz
+  | TupleType.Quarter, true, _, _ -> disp * (int64 inputSz / 8L), inputSz
   | _ (* TupleType.NA *) -> disp, memSz
 
 let inline private isEVEX (phlp: ParsingHelper) =
@@ -294,8 +312,7 @@ let parseOprMem span (phlp: ParsingHelper) b s dispSz =
     match dispSz, isBcst with
     | 0, false -> OprMem(b, s, None, memSz)
     | 0, true ->
-      let w = phlp.REXPrefix &&& REXPrefix.REXW = REXPrefix.REXW
-      let memSz = if w then 64<rt> else 32<rt>
+      let memSz = broadcastElemSize phlp
       OprMem(b, s, None, memSz)
     | 1, _ ->
       let disp = parseSignedImm span phlp dispSz
@@ -303,8 +320,7 @@ let parseOprMem span (phlp: ParsingHelper) b s dispSz =
       OprMem(b, s, Some disp, memSz)
     | 4, true ->
       let disp = parseSignedImm span phlp dispSz
-      let w = phlp.REXPrefix &&& REXPrefix.REXW = REXPrefix.REXW
-      let memSz = if w then 64<rt> else 32<rt>
+      let memSz = broadcastElemSize phlp
       OprMem(b, s, Some disp, memSz)
     | _, _ ->
       let disp = parseSignedImm span phlp dispSz
@@ -404,8 +420,7 @@ let sibWithDisp span (phlp: ParsingHelper) b s dispSz memSz =
     match dispSz, isBcst with
     | 0, false -> OprMem(b, s, None, memSz)
     | 0, true ->
-      let w = phlp.REXPrefix &&& REXPrefix.REXW = REXPrefix.REXW
-      let memSz = if w then 64<rt> else 32<rt>
+      let memSz = broadcastElemSize phlp
       OprMem(b, s, None, memSz)
     | 1, _ ->
       let disp = parseSignedImm span phlp dispSz
@@ -413,8 +428,7 @@ let sibWithDisp span (phlp: ParsingHelper) b s dispSz memSz =
       OprMem(b, s, Some disp, memSz)
     | 4, true ->
       let disp = parseSignedImm span phlp dispSz
-      let w = phlp.REXPrefix &&& REXPrefix.REXW = REXPrefix.REXW
-      let memSz = if w then 64<rt> else 32<rt>
+      let memSz = broadcastElemSize phlp
       OprMem(b, s, Some disp, memSz)
     | _, _ ->
       let disp = parseSignedImm span phlp dispSz
@@ -437,6 +451,34 @@ let parseOprMemWithSIB span phlp modVal dispSz =
       elif modVal = 0b01000000uy && bgrp = int RegGrp.RG5 then 1
       else 0
     sibWithDisp span phlp b si dispSz oprSize
+
+/// Unlike a GPR SIB index, every SIB.index value denotes a real vector
+/// register in VSIB addressing (there is no "index=100 means no index"
+/// exception for ESP), so the index operand is always present.
+let getScaledIndexVSIB s i vl (phlp: ParsingHelper) =
+  let i = i + REXPrefix.highBit (REXPrefix.hasEVEXV phlp.REXPrefix)
+  let r = findRegSIBIdx vl phlp.REXPrefix i
+  Some(r, LanguagePrimitives.EnumOfValue<int, Scale>(1 <<< s))
+
+let parseSIBForVSIB span (phlp: ParsingHelper) modVal vl =
+  let struct (s, i, b) = phlp.ReadByte span |> int |> getSIB
+  let si = getScaledIndexVSIB s i vl phlp
+  let baseReg = getSIBBaseReg b phlp modVal
+  struct (si, baseReg, b)
+
+/// VSIB addressing always requires a SIB byte (ModRM.rm = 100b) with no
+/// non-SIB memory form, so this does not need the mod/rm dispatch table
+/// that parseMEM32 uses for general memory operands.
+let parseOprMemVSIB span (phlp: ParsingHelper) modVal vl =
+  let struct (si, b, bgrp) = parseSIBForVSIB span phlp modVal vl
+  let oprSize = phlp.MemEffOprSize
+  let dispSz =
+    match modVal with
+    | 0b00000000uy -> if bgrp = int RegGrp.RG5 then 4 else 0
+    | 0b01000000uy -> 1
+    | 0b10000000uy -> 4
+    | _ -> raise ParsingFailureException
+  sibWithDisp span phlp b si dispSz oprSize
 
 /// RIP-relative addressing (see Section 2.2.1.6. of Vol. 2A).
 let parseOprRIPRelativeMem span (phlp: ParsingHelper) disp =
@@ -488,21 +530,39 @@ let parseMemory modRM span (phlp: ParsingHelper) =
   if phlp.MemEffAddrSize = 16<rt> then parseMEM16 span phlp modRM
   else parseMEM32 span phlp modRM
 
+/// The ModRM.reg register, widened by EVEX.R' where the prefix carries one.
+let findRegReg sz modRM (phlp: ParsingHelper) =
+  let hi = REXPrefix.highBit (REXPrefix.hasEVEXR phlp.REXPrefix)
+  findRegRBits sz phlp.REXPrefix (Operands.getReg modRM + hi)
+
+/// The ModRM.rm register. In a register form EVEX spends X on the fifth bit
+/// of rm; in a memory form the same bit extends the SIB index instead.
+let findRegRM modRM (phlp: ParsingHelper) =
+  let hi =
+    REXPrefix.highBit (isEVEX phlp && REXPrefix.hasX phlp.REXPrefix)
+  findRegRmAndSIBBase phlp.MemEffRegSize phlp.REXPrefix
+    (Operands.getRM modRM + hi)
+
 let parseMemOrReg modRM span (phlp: ParsingHelper) =
   if modRM &&& 0b11000000uy = 0b11000000uy then
-    findRegRmAndSIBBase phlp.MemEffRegSize phlp.REXPrefix
-      (Operands.getRM modRM) |> OprReg
+    findRegRM modRM phlp |> OprReg
   else parseMemory modRM span phlp
 
+/// Sized by phlp.RegSize (set by the caller from the operand's declared
+/// size) rather than the instruction's nominal VectorLength: they differ
+/// for the VSIB gather/scatter forms whose mask register is narrower than
+/// VectorLength (e.g. VGATHERQPS/VPGATHERQD, Q-index + 32-bit data).
 let parseVVVVReg (phlp: ParsingHelper) =
   match phlp.VEXInfo with
   | None -> raise ParsingFailureException
-  | Some vInfo when vInfo.VectorLength = 512<rt> ->
-    RegisterHelper.zmm (int vInfo.VVVV) |> OprReg
-  | Some vInfo when vInfo.VectorLength = 256<rt> ->
-    RegisterHelper.ymm (int vInfo.VVVV) |> OprReg
   | Some vInfo ->
-    RegisterHelper.xmm (int vInfo.VVVV) |> OprReg
+    let n =
+      int vInfo.VVVV
+      + REXPrefix.highBit (REXPrefix.hasEVEXV phlp.REXPrefix)
+    match phlp.RegSize with
+    | 512<rt> -> RegisterHelper.zmm n |> OprReg
+    | 256<rt> -> RegisterHelper.ymm n |> OprReg
+    | _ -> RegisterHelper.xmm n |> OprReg
 
 /// FIXME
 let parseVVVVRegRC isReg (phlp: ParsingHelper) =
