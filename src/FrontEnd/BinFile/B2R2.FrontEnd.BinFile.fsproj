@@ -110,6 +110,8 @@
     <Compile Include="Mach\CompactUnwind.fs" />
     <Compile Include="Mach\ExceptionData.fs" />
     <Compile Include="Python\Types.fs" />
+    <Compile Include="Python\PyExceptionEntry.fs" />
+    <Compile Include="Python\PyExceptionTable.fs" />
     <Compile Include="Python\Helper.fs" />
     <Compile Include="Python\Builder.fs" />
     <Compile Include="PE\PETypes.fs" />
