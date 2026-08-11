@@ -1116,6 +1116,22 @@ let listExtend (ins: Instruction) bld =
   for v in Array.rev saved do pushToStack bld v
   bld --!> ins.Length
 
+/// SET_UPDATE, which is LIST_EXTEND's counterpart for a set: the iterable on
+/// top is folded into the set n slots below it. A set display whose elements
+/// are all constants compiles to exactly this -- BUILD_SET 0, then the folded
+/// frozen set, then SET_UPDATE -- so it stands between a program and every
+/// `{1, 2, 3}` it writes, not just an unpacking one.
+let setUpdate (ins: Instruction) bld =
+  bld <!-- (ins.Address, ins.Length)
+  let n = getIntArg ins
+  let tos = popFromStack bld
+  let saved = [| for _ in 1 .. n - 1 -> popFromStack bld |]
+  let st = popFromStack bld
+  let updated = AST.app "SET_UPDATE" [ st; tos ] rt
+  pushToStack bld updated
+  for v in Array.rev saved do pushToStack bld v
+  bld --!> ins.Length
+
 let buildCollection name (ins: Instruction) bld =
   bld <!-- (ins.Address, ins.Length)
   let n = getIntArg ins

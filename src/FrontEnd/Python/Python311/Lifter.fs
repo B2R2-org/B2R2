@@ -296,7 +296,7 @@ let translate (binFile: PythonBinFile) (ins: Instruction) bld =
   | Opcode.LIST_EXTEND ->
     listExtend ins bld
   | Opcode.SET_UPDATE ->
-    namedEffect "SET_UPDATE" ins bld
+    setUpdate ins bld
   | Opcode.DICT_MERGE ->
     dictMerge "DICT_MERGE" ins bld
   | Opcode.DICT_UPDATE ->
