@@ -27,17 +27,13 @@ open B2R2
 open B2R2.FrontEnd.BinFile
 open B2R2.FrontEnd.BinLifter
 
-/// Represents an instruction for Python.
-///
-/// The opcode is held as its raw numeric value in the *containing version's*
-/// numbering, because every version has an Opcode enum of its own (whose
-/// values are CPython's own opcode numbers) and no single type could hold
-/// all of them. Everything that depends on what an opcode *means* therefore
-/// comes from `semantics`, which each version's own module implements.
+/// Represents an instruction for Python. The opcode has already been read
+/// through the table of the version this was decoded as, so it says what the
+/// instruction is rather than which byte spelled it.
 type Instruction
   internal(addr,
            numBytes,
-           opcode: int,
+           opcode: Opcode,
            opr,
            oprSize,
            version,
@@ -50,9 +46,8 @@ type Instruction
   /// Length of this instruction in bytes.
   member _.Length with get(): uint32 = numBytes
 
-  /// Opcode, as its raw value in this instruction's own Python version.
-  /// Cast it to that version's Opcode enum to match on it.
-  member _.Opcode with get(): int = opcode
+  /// Opcode.
+  member _.Opcode with get(): Opcode = opcode
 
   /// Operands.
   member _.Operands with get(): Operands = opr
@@ -62,6 +57,10 @@ type Instruction
 
   /// The Python version this instruction was decoded as.
   member _.Version with get(): PythonVersion = version
+
+  /// The minor of that version, which is what every version-dependent choice
+  /// in the front end turns on.
+  member _.Minor with get() = PythonVersion.minor version
 
   /// The file this instruction was decoded from.
   member _.BinFile with get(): PythonBinFile = binFile
@@ -151,9 +150,10 @@ type Instruction
 
     member this.Decompose builder = semantics.Disasm(this, builder).ToAsmWords()
 
-/// Supplies everything about an instruction that depends on which Python
-/// version it was decoded as. Each version implements this over its own
-/// Opcode enum, which is why none of it can live on Instruction itself.
+/// Breaks the knot between an instruction and what it means: Semantics,
+/// Disasm and Lifter all read an Instruction, so none of them can be compiled
+/// before it. One implementation is built in Parsing once every one of them
+/// is in hand.
 and internal IInstructionSemantics =
   abstract Lift: Instruction * ILowUIRBuilder -> ILowUIRBuilder
   abstract Disasm: Instruction * IDisasmBuilder -> IDisasmBuilder
