@@ -261,20 +261,40 @@ let importStar (ins: Instruction) bld =
   bld <+ AST.extCall (AST.app "IMPORT_STAR" [ moduleObj ] rt)
   bld --!> ins.Length
 
+(* Which intrinsic CALL_INTRINSIC_1's argument selects. They are not alike
+   enough to share a name: the list-to-tuple one is what every call written
+   with a `*` spread ends with, and lifting it under the same name as the rest
+   leaves such a call no arguments to make. *)
+let private intrinsic1Name arg =
+  match arg with
+  | 1 -> "INTRINSIC_PRINT"
+  | 3 -> "INTRINSIC_STOPITERATION_ERROR"
+  | 4 -> "INTRINSIC_ASYNC_GEN_WRAP"
+  | 5 -> "UNARY_POSITIVE"
+  | 6 -> "LIST_TO_TUPLE"
+  | 7 -> "INTRINSIC_TYPEVAR"
+  | 8 -> "INTRINSIC_PARAMSPEC"
+  | 9 -> "INTRINSIC_TYPEVARTUPLE"
+  | 10 -> "INTRINSIC_SUBSCRIPT_GENERIC"
+  | 11 -> "INTRINSIC_TYPEALIAS"
+  | _ -> "CALL_INTRINSIC_1"
+
 (* CALL_INTRINSIC_1 took over several standalone opcodes in 3.12, import star
    among them, and folded them into one shape: an intrinsic takes a single
-   operand and leaves a single result, which the compiler discards with its own
-   POP_TOP. So this pushes even though nothing reads what it pushed -- lifting
-   it the way its predecessor worked, consuming the module and leaving nothing,
-   loses a slot on every import star and walks the stack pointer off its own
-   region a few statements later. *)
+   operand and leaves a single result. Import star is the one whose result is
+   worth nothing -- it binds names, and the compiler discards what it left with
+   its own POP_TOP -- but the slot is still there, and consuming without
+   leaving walks the stack pointer off its own region a few statements later.
+   Every other one leaves the value the instruction is for. *)
 let callIntrinsic1 (ins: Instruction) bld =
   bld <!-- (ins.Address, ins.Length)
   let operand = popFromStack bld
-  let intrinsic =
-    if getIntArg ins = 2 then "IMPORT_STAR" else "CALL_INTRINSIC_1"
-  bld <+ AST.extCall (AST.app intrinsic [ operand ] rt)
-  pushToStack bld noneValue
+  let arg = getIntArg ins
+  if arg = 2 then
+    bld <+ AST.extCall (AST.app "IMPORT_STAR" [ operand ] rt)
+    pushToStack bld noneValue
+  else
+    pushToStack bld (AST.app (intrinsic1Name arg) [ operand ] rt)
   bld --!> ins.Length
 
 let popTop (ins: Instruction) bld =
@@ -1101,8 +1121,15 @@ let unpackSequence (ins: Instruction) bld =
   bld <!-- (ins.Address, ins.Length)
   let n = getIntArg ins
   let seq = popFromStack bld
+  (* Walked once, into a tuple the elements are then taken from. Asking for
+     each element against the sequence itself would walk it once per element,
+     and walking a generator consumes it -- so `a, b = (x for x in xs)` would
+     take the first element and then find nothing left, which is a wrong
+     answer rather than a failure. *)
+  let items = tmpVar bld rt
+  bld <+ (items := AST.app "LIST_TO_TUPLE" [ seq ] rt)
   for i in n - 1 .. -1 .. 0 do
-    let elem = AST.app "UNPACK" [ seq; AST.num (BitVector(i, rt)) ] rt
+    let elem = AST.app "UNPACK" [ items; AST.num (BitVector(i, rt)) ] rt
     pushToStack bld elem
   bld --!> ins.Length
 
