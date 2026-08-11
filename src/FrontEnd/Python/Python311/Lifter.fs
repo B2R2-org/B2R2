@@ -274,9 +274,9 @@ let translate (binFile: PythonBinFile) (ins: Instruction) bld =
   | Opcode.MAKE_FUNCTION ->
     if minor >= 11 then makeFunction ins bld else makeFunctionLegacy ins bld
   | Opcode.MAKE_CELL ->
-    namedEffect "MAKE_CELL" ins bld
+    namedEffectWithArgs "MAKE_CELL" [ operandIndex ins ] ins bld
   | Opcode.COPY_FREE_VARS ->
-    namedEffect "COPY_FREE_VARS" ins bld
+    namedEffectWithArgs "COPY_FREE_VARS" [ operandIndex ins ] ins bld
   | Opcode.SETUP_ANNOTATIONS ->
     namedEffect "SETUP_ANNOTATIONS" ins bld
   | Opcode.FORMAT_VALUE ->

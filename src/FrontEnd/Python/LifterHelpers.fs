@@ -817,9 +817,16 @@ let getYieldFromIter (ins: Instruction) bld =
   pushToStack bld (AST.app "GET_YIELD_FROM_ITER" [ tos ] rt)
   bld --!> ins.Length
 
+(* KW_NAMES: the tuple of names the following call's last arguments were given
+   by, which the call reads out of the register this leaves it in. What travels
+   is the constant itself rather than the index selecting it -- the same
+   LOAD_CONST every other constant reaches its consumer through. The index alone
+   would be indistinguishable from the NULL a call with no keywords finds in the
+   register, since a kwnames tuple can genuinely be a code object's constant
+   zero (`g(a=x)` at module level compiles to exactly that). *)
 let kwNames (ins: Instruction) bld =
   bld <!-- (ins.Address, ins.Length)
-  let names = operandIndex ins
+  let names = AST.app "LOAD_CONST" [ operandIndex ins ] rt
   let kwReg = regVar bld R.KW_NAMES
   bld <+ (kwReg := names)
   bld --!> ins.Length
@@ -843,20 +850,24 @@ let consumeAndPush name (ins: Instruction) bld =
   pushToStack bld result
   bld --!> ins.Length
 
+(* The closure travels with the other three rather than being discarded: it is
+   the tuple of cells LOAD_CLOSURE built, and the function it is being attached
+   to is the only thing that says which cells a nested body reads. Dropping it
+   left every closure's free variables coming from nowhere. *)
 let makeFunction (ins: Instruction) bld =
   bld <!-- (ins.Address, ins.Length)
   let flags = getIntArg ins
   let codeObj = popFromStack bld
-  if flags &&& 0x08 <> 0 then discardTOS bld else ()
+  let closure =
+    if flags &&& 0x08 <> 0 then popFromStack bld else nullSlot
   let annotations =
     if flags &&& 0x04 <> 0 then popFromStack bld else nullSlot
   let kwDefs =
     if flags &&& 0x02 <> 0 then popFromStack bld else nullSlot
   let posDefs =
     if flags &&& 0x01 <> 0 then popFromStack bld else nullSlot
-  let result =
-    AST.app "MAKE_FUNCTION" [ codeObj; posDefs; kwDefs; annotations ] rt
-  pushToStack bld result
+  let args = [ codeObj; posDefs; kwDefs; annotations; closure ]
+  pushToStack bld (AST.app "MAKE_FUNCTION" args rt)
   bld --!> ins.Length
 
 (* Pre-3.11: MAKE_FUNCTION's stack order is different in two ways --
@@ -896,10 +907,10 @@ let makeFunctionLegacy (ins: Instruction) bld =
     if flags &&& 0x02 <> 0 then popFromStack bld else nullSlot
   let annotations =
     if flags &&& 0x04 <> 0 then popFromStack bld else nullSlot
-  if flags &&& 0x08 <> 0 then discardTOS bld else ()
-  let result =
-    AST.app "MAKE_FUNCTION" [ codeObj; posDefs; kwDefs; annotations ] rt
-  pushToStack bld result
+  let closure =
+    if flags &&& 0x08 <> 0 then popFromStack bld else nullSlot
+  let args = [ codeObj; posDefs; kwDefs; annotations; closure ]
+  pushToStack bld (AST.app "MAKE_FUNCTION" args rt)
   bld --!> ins.Length
 
 (* Pre-3.11, the callable sits directly on TOS with no NULL/self slot
