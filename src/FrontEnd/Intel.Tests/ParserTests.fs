@@ -200,6 +200,18 @@ type ParserTests() =
     ||> testX86NoPrefixNoSeg
 
   [<TestMethod>]
+  member _.``5.1.6 Bit and Byte Instructions (2)``() =
+    "f30fbcf6"
+    ++ TZCNT ** [ O.Reg R.ESI; O.Reg R.ESI ]
+    ||> testX86NoPrefixNoSeg
+
+  [<TestMethod>]
+  member _.``5.1.6 Bit and Byte Instructions (3)``() =
+    "660fbcf6"
+    ++ BSF ** [ O.Reg R.SI; O.Reg R.SI ]
+    ||> testX86Prefix Prefix.OPSIZE
+
+  [<TestMethod>]
   member _.``5.1.7 Control Transfer Instructions (1)``() =
     "ffe4"
     ++ JMP ** [ O.Reg R.ESP ]
@@ -1903,6 +1915,484 @@ type ParserTests() =
   member _.``AVX (150)``() =
     "c4e26540c3"
     ++ VPMULLD ** [ O.Reg R.YMM0; O.Reg R.YMM3; O.Reg R.YMM3 ]
+    ||> testX64NoPrefixNoSeg
+
+  [<TestMethod>]
+  member _.``MOV to/from control registers (1)``() =
+    "0f20c0"
+    ++ MOV ** [ O.Reg R.EAX; O.Reg R.CR0 ]
+    ||> testX86NoPrefixNoSeg
+
+  [<TestMethod>]
+  member _.``MOV to/from control registers (2)``() =
+    "0f20c0"
+    ++ MOV ** [ O.Reg R.RAX; O.Reg R.CR0 ]
+    ||> testX64NoPrefixNoSeg
+
+  [<TestMethod>]
+  member _.``MOV to/from control registers (3)``() =
+    "440f20c0"
+    ++ MOV ** [ O.Reg R.RAX; O.Reg R.CR8 ]
+    ||> testX64NoPrefixNoSeg
+
+  [<TestMethod>]
+  member _.``MOV to/from control registers (4)``() =
+    "0f22d9"
+    ++ MOV ** [ O.Reg R.CR3; O.Reg R.RCX ]
+    ||> testX64NoPrefixNoSeg
+
+  [<TestMethod>]
+  member _.``MOV to/from debug registers (1)``() =
+    "0f21c0"
+    ++ MOV ** [ O.Reg R.RAX; O.Reg R.DR0 ]
+    ||> testX64NoPrefixNoSeg
+
+  [<TestMethod>]
+  member _.``MOV to/from debug registers (2)``() =
+    "0f21fa"
+    ++ MOV ** [ O.Reg R.RDX; O.Reg R.DR7 ]
+    ||> testX64NoPrefixNoSeg
+
+  [<TestMethod>]
+  member _.``MOV to/from debug registers (3)``() =
+    "0f23f6"
+    ++ MOV ** [ O.Reg R.DR6; O.Reg R.RSI ]
+    ||> testX64NoPrefixNoSeg
+
+  [<TestMethod>]
+  member _.``AVX512 embedded rounding (1)``() =
+    "62f17f082dc1"
+    ++ VCVTSD2SI ** [ O.Reg R.EAX; O.Reg R.XMM1 ]
+    ||> testX64NoPrefixNoSeg
+
+  [<TestMethod>]
+  member _.``AVX512 SAE on conversion (1)``() =
+    "62f17f082cc1"
+    ++ VCVTTSD2SI ** [ O.Reg R.EAX; O.Reg R.XMM1 ]
+    ||> testX64NoPrefixNoSeg
+
+  [<TestMethod>]
+  member _.``AVX512 broadcast with embedded rounding (1)``() =
+    "62f1f54858c2"
+    ++ VADDPD ** [ O.Reg R.ZMM0; O.Reg R.ZMM1; O.Reg R.ZMM2 ]
+    ||> testX64NoPrefixNoSeg
+
+  [<TestMethod>]
+  member _.``AVX512 broadcast with SAE (1)``() =
+    "62f1f548c2d300"
+    ++ VCMPPD ** [ O.Reg R.K2; O.Reg R.ZMM1; O.Reg R.ZMM3; O.Imm(0L, 8<rt>) ]
+    ||> testX64NoPrefixNoSeg
+
+  [<TestMethod>]
+  member _.``AVX512 register operand with SAE (1)``() =
+    "62f37d481dca00"
+    ++ VCVTPS2PH ** [ O.Reg R.YMM2; O.Reg R.ZMM1; O.Imm(0L, 8<rt>) ]
+    ||> testX64NoPrefixNoSeg
+
+  [<TestMethod>]
+  member _.``Address-size-dependent register operand (1)``() =
+    "f30faef0"
+    ++ UMONITOR ** [ O.Reg R.RAX ]
+    ||> testX64NoPrefixNoSeg
+
+  [<TestMethod>]
+  member _.``Address-size-dependent register operand (2)``() =
+    "f20f38f808"
+    ++ ENQCMD ** [ O.Reg R.RCX; O.Mem(R.RAX, 512<rt>) ]
+    ||> testX64NoPrefixNoSeg
+
+  [<TestMethod>]
+  member _.``Address-size-dependent register operand (3)``() =
+    "f30f38f81a"
+    ++ ENQCMDS ** [ O.Reg R.RBX; O.Mem(R.RDX, 512<rt>) ]
+    ||> testX64NoPrefixNoSeg
+
+  [<TestMethod>]
+  member _.``Address-size-dependent register operand (4)``() =
+    "660f38f811"
+    ++ MOVDIR64B ** [ O.Reg R.RDX; O.Mem(R.RCX, 512<rt>) ]
+    ||> testX64NoPrefixNoSeg
+
+  [<TestMethod>]
+  member _.``VSIB gather, VEX, no displacement (1)``() =
+    "c4e269900408"
+    ++ VPGATHERDD **
+      [ O.Reg R.XMM0; O.Mem(R.RAX, R.XMM1, Scale.X1, 128<rt>); O.Reg R.XMM2 ]
+    ||> testX64NoPrefixNoSeg
+
+  [<TestMethod>]
+  member _.``VSIB gather, VEX, disp8 (1)``() =
+    "c4e251905c6110"
+    ++ VPGATHERDD **
+      [ O.Reg R.XMM3
+        O.Mem(R.RCX, R.XMM4, Scale.X2, 16L, 128<rt>)
+        O.Reg R.XMM5 ]
+    ||> testX64NoPrefixNoSeg
+
+  [<TestMethod>]
+  member _.``VSIB gather, VEX, no base (mod00/RBP slot) (1)``() =
+    "c4e26990041d11223344"
+    ++ VPGATHERDD **
+      [ O.Reg R.XMM0
+        OprMem(None, Some(R.XMM3, Scale.X1), Some 0x44332211L, 128<rt>)
+        O.Reg R.XMM2 ]
+    ||> testX64NoPrefixNoSeg
+
+  [<TestMethod>]
+  member _.``VSIB gather, VEX, narrower index (D+64-bit data) (1)``() =
+    "c4e2ed900408"
+    ++ VPGATHERDQ **
+      [ O.Reg R.YMM0; O.Mem(R.RAX, R.XMM1, Scale.X1, 256<rt>); O.Reg R.YMM2 ]
+    ||> testX64NoPrefixNoSeg
+
+  [<TestMethod>]
+  member _.``VSIB gather, EVEX, compressed disp8 (1)``() =
+    "62f27d0990440a02"
+    ++ VPGATHERDD **
+      [ O.Reg R.XMM0; O.Mem(R.RDX, R.XMM1, Scale.X1, 8L, 128<rt>) ]
+    ||> testX64NoPrefixNoSeg
+
+  [<TestMethod>]
+  member _.``VSIB scatter, EVEX, no displacement (1)``() =
+    "62f2fd09a20c13"
+    ++ VSCATTERDPD **
+      [ O.Mem(R.RBX, R.XMM2, Scale.X1, 128<rt>); O.Reg R.XMM1 ]
+    ||> testX64NoPrefixNoSeg
+
+  [<TestMethod>]
+  member _.``VSIB gather, EVEX, narrower index (D+64-bit data) (1)``() =
+    "62f2fd4990040a"
+    ++ VPGATHERDQ **
+      [ O.Reg R.ZMM0; O.Mem(R.RDX, R.YMM1, Scale.X1, 512<rt>) ]
+    ||> testX64NoPrefixNoSeg
+
+  [<TestMethod>]
+  member _.``VSIB gather, VEX, narrower memory (Q+32-bit data) (1)``() =
+    "c4e26d930408"
+    ++ VGATHERQPS **
+      [ O.Reg R.XMM0; O.Mem(R.RAX, R.YMM1, Scale.X1, 128<rt>); O.Reg R.XMM2 ]
+    ||> testX64NoPrefixNoSeg
+
+  [<TestMethod>]
+  member _.``VSIB prefetch, EVEX, narrower index (1)``() =
+    "62f2fd49c60c11"
+    ++ VGATHERPF0DPD **
+      [ O.Mem(R.RCX, R.YMM2, Scale.X1, 512<rt>) ]
+    ||> testX64NoPrefixNoSeg
+
+  [<TestMethod>]
+  member _.``VSIB gather below one full vector, VEX (1)``() =
+    "c4e269910408"
+    ++ VPGATHERQD **
+      [ O.Reg R.XMM0; O.Mem(R.RAX, R.XMM1, Scale.X1, 64<rt>); O.Reg R.XMM2 ]
+    ||> testX64NoPrefixNoSeg
+
+  [<TestMethod>]
+  member _.``VSIB gather below one full vector, EVEX (1)``() =
+    "62f27d09910c0a"
+    ++ VPGATHERQD **
+      [ O.Reg R.XMM1; O.Mem(R.RDX, R.XMM1, Scale.X1, 64<rt>) ]
+    ||> testX64NoPrefixNoSeg
+
+  [<TestMethod>]
+  member _.``AVX512-FP16 map 5 (1)``() =
+    "62f56c4858cb"
+    ++ VADDPH ** [ O.Reg R.ZMM1; O.Reg R.ZMM2; O.Reg R.ZMM3 ]
+    ||> testX64NoPrefixNoSeg
+
+  [<TestMethod>]
+  member _.``AVX512-FP16 map 5 (2)``() =
+    "62f56e0858cb"
+    ++ VADDSH ** [ O.Reg R.XMM1; O.Reg R.XMM2; O.Reg R.XMM3 ]
+    ||> testX64NoPrefixNoSeg
+
+  [<TestMethod>]
+  member _.``AVX512-FP16 map 5, memory operand (1)``() =
+    "62f56c485e08"
+    ++ VDIVPH ** [ O.Reg R.ZMM1; O.Reg R.ZMM2; O.Mem(R.RAX, 512<rt>) ]
+    ||> testX64NoPrefixNoSeg
+
+  [<TestMethod>]
+  member _.``AVX512-FP16 map 6 (1)``() =
+    "62f66d4898cb"
+    ++ VFMADD132PH ** [ O.Reg R.ZMM1; O.Reg R.ZMM2; O.Reg R.ZMM3 ]
+    ||> testX64NoPrefixNoSeg
+
+  [<TestMethod>]
+  member _.``EVEX R' extends ModRM reg (1)``() =
+    "62e1744858c2"
+    ++ VADDPS ** [ O.Reg R.ZMM16; O.Reg R.ZMM1; O.Reg R.ZMM2 ]
+    ||> testX64NoPrefixNoSeg
+
+  [<TestMethod>]
+  member _.``EVEX X extends a register-form ModRM rm (1)``() =
+    "62b17c4858c0"
+    ++ VADDPS ** [ O.Reg R.ZMM0; O.Reg R.ZMM0; O.Reg R.ZMM16 ]
+    ||> testX64NoPrefixNoSeg
+
+  [<TestMethod>]
+  member _.``EVEX V' extends vvvv (1)``() =
+    "62f17c4058c1"
+    ++ VADDPS ** [ O.Reg R.ZMM0; O.Reg R.ZMM16; O.Reg R.ZMM1 ]
+    ||> testX64NoPrefixNoSeg
+
+  [<TestMethod>]
+  member _.``EVEX V' extends the VSIB index (1)``() =
+    "62f27d41900c02"
+    ++ VPGATHERDD **
+      [ O.Reg R.ZMM1; O.Mem(R.RDX, R.ZMM16, Scale.X1, 512<rt>) ]
+    ||> testX64NoPrefixNoSeg
+
+  [<TestMethod>]
+  member _.``EVEX high registers, all four fields (1)``() =
+    "62010c4058ff"
+    ++ VADDPS ** [ O.Reg R.ZMM31; O.Reg R.ZMM30; O.Reg R.ZMM31 ]
+    ||> testX64NoPrefixNoSeg
+
+  [<TestMethod>]
+  member _.``BOUND is not an EVEX prefix in 32-bit mode (1)``() =
+    "6201"
+    ++ BOUND ** [ O.Reg R.EAX; O.Mem(R.ECX, 32<rt>) ]
+    ||> testX86NoPrefixNoSeg
+
+  [<TestMethod>]
+  member _.``ModRM byte spelled out after a VEX opcode (1)``() =
+    "c4e27849c0"
+    ++ TILERELEASE ** []
+    ||> testX64NoPrefixNoSeg
+
+  [<TestMethod>]
+  member _.``Register-only bit pattern 11:rrr:bbb (1)``() =
+    "f30f38dcc1"
+    ++ LOADIWKEY ** [ O.Reg R.XMM0; O.Reg R.XMM1 ]
+    ||> testX64NoPrefixNoSeg
+
+  [<TestMethod>]
+  member _.``Group entry pinned to a register form (1)``() =
+    "f30faef1"
+    ++ UMONITOR ** [ O.Reg R.RCX ]
+    ||> testX64NoPrefixNoSeg
+
+  [<TestMethod>]
+  member _.``Register-only ModRM form (1)``() =
+    "0f12ca"
+    ++ MOVHLPS ** [ O.Reg R.XMM1; O.Reg R.XMM2 ]
+    ||> testX64NoPrefixNoSeg
+
+  [<TestMethod>]
+  member _.``Memory-only ModRM form (1)``() =
+    "0f1208"
+    ++ MOVLPS ** [ O.Reg R.XMM1; O.Mem(R.RAX, 64<rt>) ]
+    ||> testX64NoPrefixNoSeg
+
+  [<TestMethod>]
+  member _.``Register-only ModRM form (2)``() =
+    "0f16ca"
+    ++ MOVLHPS ** [ O.Reg R.XMM1; O.Reg R.XMM2 ]
+    ||> testX64NoPrefixNoSeg
+
+  [<TestMethod>]
+  member _.``Memory-only ModRM form (2)``() =
+    "0f1608"
+    ++ MOVHPS ** [ O.Reg R.XMM1; O.Mem(R.RAX, 64<rt>) ]
+    ||> testX64NoPrefixNoSeg
+
+  [<TestMethod>]
+  member _.``Register-only ModRM form, VEX (1)``() =
+    "c5e812cb"
+    ++ VMOVHLPS ** [ O.Reg R.XMM1; O.Reg R.XMM2; O.Reg R.XMM3 ]
+    ||> testX64NoPrefixNoSeg
+
+  [<TestMethod>]
+  member _.``GPR operand from VEX.vvvv (1)``() =
+    "c4e270f2c2"
+    ++ ANDN ** [ O.Reg R.EAX; O.Reg R.ECX; O.Reg R.EDX ]
+    ||> testX64NoPrefixNoSeg
+
+  [<TestMethod>]
+  member _.``GPR operand from VEX.vvvv (2)``() =
+    "c4e268f5c1"
+    ++ BZHI ** [ O.Reg R.EAX; O.Reg R.ECX; O.Reg R.EDX ]
+    ||> testX64NoPrefixNoSeg
+
+  [<TestMethod>]
+  member _.``GPR operand from VEX.vvvv (3)``() =
+    "c4e273f6c2"
+    ++ MULX ** [ O.Reg R.EAX; O.Reg R.ECX; O.Reg R.EDX ]
+    ||> testX64NoPrefixNoSeg
+
+  [<TestMethod>]
+  member _.``GPR operand from VEX.vvvv (4)``() =
+    "c4e2e9f7c1"
+    ++ SHLX ** [ O.Reg R.RAX; O.Reg R.RCX; O.Reg R.RDX ]
+    ||> testX64NoPrefixNoSeg
+
+  [<TestMethod>]
+  member _.``Opcode E3 outside the one-byte map (1)``() =
+    "0fe3c1"
+    ++ PAVGW ** [ O.Reg R.MM0; O.Reg R.MM1 ]
+    ||> testX64NoPrefixNoSeg
+
+  [<TestMethod>]
+  member _.``Opcode E3 outside the one-byte map (2)``() =
+    "c5f1e3c2"
+    ++ VPAVGW ** [ O.Reg R.XMM0; O.Reg R.XMM1; O.Reg R.XMM2 ]
+    ||> testX64NoPrefixNoSeg
+
+  [<TestMethod>]
+  member _.``Opcode E3 outside the one-byte map (3)``() =
+    "c4e269e308"
+    ++ CMPNBXADD **
+      [ O.Mem(R.RAX, 32<rt>); O.Reg R.ECX; O.Reg R.EDX ]
+    ||> testX64NoPrefixNoSeg
+
+  [<TestMethod>]
+  member _.``JCXZ family still selected by address size (1)``() =
+    "e300"
+    ++ JRCXZ ** [ OprDirAddr(Relative 2L) ]
+    ||> testX64NoPrefixNoSeg
+
+  [<TestMethod>]
+  member _.``Sole 16-bit variant needs no 66h (1)``() =
+    "0f00c2"
+    ++ SLDT ** [ O.Reg R.DX ]
+    ||> testX64NoPrefixNoSeg
+
+  [<TestMethod>]
+  member _.``Sole 16-bit variant needs no 66h (2)``() =
+    "0f00e2"
+    ++ VERR ** [ O.Reg R.DX ]
+    ||> testX64NoPrefixNoSeg
+
+  [<TestMethod>]
+  member _.``Sole 16-bit variant needs no 66h (3)``() =
+    "0f01f2"
+    ++ LMSW ** [ O.Reg R.DX ]
+    ||> testX64NoPrefixNoSeg
+
+  [<TestMethod>]
+  member _.``Sole 16-bit variant needs no 66h (4)``() =
+    "c5f89108"
+    ++ KMOVW ** [ O.Mem(R.RAX, 16<rt>); O.Reg R.K1 ]
+    ||> testX64NoPrefixNoSeg
+
+  [<TestMethod>]
+  member _.``Widest 16-bit variant still needs 66h (1)``() =
+    "6601ca"
+    ++ ADD ** [ O.Reg R.DX; O.Reg R.CX ]
+    ||> testX86Prefix Prefix.OPSIZE
+
+  [<TestMethod>]
+  member _.``Widest 16-bit variant still needs 66h (2)``() =
+    "01ca"
+    ++ ADD ** [ O.Reg R.EDX; O.Reg R.ECX ]
+    ||> testX86NoPrefixNoSeg
+
+  [<TestMethod>]
+  member _.``Far pointer in memory (1)``() =
+    "ff18"
+    ++ CALL ** [ O.Mem(R.RAX, 48<rt>) ]
+    ||> testX64NoPrefixNoSeg
+
+  [<TestMethod>]
+  member _.``Far pointer in memory (2)``() =
+    "ff28"
+    ++ JMP ** [ O.Mem(R.RAX, 48<rt>) ]
+    ||> testX64NoPrefixNoSeg
+
+  [<TestMethod>]
+  member _.``Far pointer in memory (3)``() =
+    "48ff18"
+    ++ CALL ** [ O.Mem(R.RAX, 80<rt>) ]
+    ||> testX64NoPrefixNoSeg
+
+  [<TestMethod>]
+  member _.``Far pointer in memory (4)``() =
+    "66ff2e"
+    ++ JMP ** [ O.Mem(R.ESI, 32<rt>) ]
+    ||> testX86Prefix Prefix.OPSIZE
+
+  [<TestMethod>]
+  member _.``Far pointer as an immediate (1)``() =
+    "9a123456789000"
+    ++ CALL ** [ O.Addr(0x90s, 0x78563412UL, 32<rt>) ]
+    ||> testX86NoPrefixNoSeg
+
+  [<TestMethod>]
+  member _.``Far pointer as an immediate (2)``() =
+    "669a12349000"
+    ++ CALL ** [ O.Addr(0x90s, 0x3412UL, 16<rt>) ]
+    ||> testX86Prefix Prefix.OPSIZE
+
+  [<TestMethod>]
+  member _.``EVEX static rounding, L'L is the mode (1)``() =
+    "62f1ed1858cb"
+    ++ VADDPD ** [ O.Reg R.ZMM1; O.Reg R.ZMM2; O.Reg R.ZMM3 ]
+    ||> testX64NoPrefixNoSeg
+
+  [<TestMethod>]
+  member _.``EVEX static rounding, L'L is the mode (2)``() =
+    "62f1ed7858cb"
+    ++ VADDPD ** [ O.Reg R.ZMM1; O.Reg R.ZMM2; O.Reg R.ZMM3 ]
+    ||> testX64NoPrefixNoSeg
+
+  [<TestMethod>]
+  member _.``EVEX static rounding, L'L is the mode (3)``() =
+    "62f1ed5858cb"
+    ++ VADDPD ** [ O.Reg R.ZMM1; O.Reg R.ZMM2; O.Reg R.ZMM3 ]
+    ||> testX64NoPrefixNoSeg
+
+  [<TestMethod>]
+  member _.``EVEX static rounding on a scalar form (1)``() =
+    "62f1ef1858cb"
+    ++ VADDSD ** [ O.Reg R.XMM1; O.Reg R.XMM2; O.Reg R.XMM3 ]
+    ||> testX64NoPrefixNoSeg
+
+  [<TestMethod>]
+  member _.``EVEX vector length without rounding (1)``() =
+    "62f1ed0858cb"
+    ++ VADDPD ** [ O.Reg R.XMM1; O.Reg R.XMM2; O.Reg R.XMM3 ]
+    ||> testX64NoPrefixNoSeg
+
+  [<TestMethod>]
+  member _.``EVEX sae leaves the vector length alone (1)``() =
+    "62f1ed58c2cb00"
+    ++ VCMPPD **
+      [ O.Reg R.K1; O.Reg R.ZMM2; O.Reg R.ZMM3; O.Imm(0L, 8<rt>) ]
+    ||> testX64NoPrefixNoSeg
+
+  [<TestMethod>]
+  member _.``FP16 scalar tuple scales disp8 by two (1)``() =
+    "62f36e09c2480200"
+    ++ VCMPSH **
+      [ O.Reg R.K1
+        O.Reg R.XMM2
+        O.Mem(R.RAX, 4L, 16<rt>)
+        O.Imm(0L, 8<rt>) ]
+    ||> testX64NoPrefixNoSeg
+
+  [<TestMethod>]
+  member _.``FP16 broadcast element is 16 bits (1)``() =
+    "62f36c59c2480200"
+    ++ VCMPPH **
+      [ O.Reg R.K1
+        O.Reg R.ZMM2
+        O.Mem(R.RAX, 4L, 16<rt>)
+        O.Imm(0L, 8<rt>) ]
+    ||> testX64NoPrefixNoSeg
+
+  [<TestMethod>]
+  member _.``Broadcast element size from the table (1)``() =
+    "62f16c58584802"
+    ++ VADDPS **
+      [ O.Reg R.ZMM1; O.Reg R.ZMM2; O.Mem(R.RAX, 8L, 32<rt>) ]
+    ||> testX64NoPrefixNoSeg
+
+  [<TestMethod>]
+  member _.``Broadcast element size from the table (2)``() =
+    "62f1ed58584802"
+    ++ VADDPD **
+      [ O.Reg R.ZMM1; O.Reg R.ZMM2; O.Mem(R.RAX, 16L, 64<rt>) ]
     ||> testX64NoPrefixNoSeg
 
 #if !EMULATION
