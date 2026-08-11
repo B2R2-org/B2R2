@@ -106,17 +106,17 @@ module internal RegisterHelper = begin
 
   /// Get the XMM(n) register from the given index.
   let xmm n =
-    0x6d + n
+    (if n < 16 then 0x6d + n else 0x170 + n - 16)
     |> LanguagePrimitives.EnumOfValue<int, Register>
 
   /// Get the YMM(n) register from the given index.
   let ymm n =
-    0x7d + n
+    (if n < 16 then 0x7d + n else 0x180 + n - 16)
     |> LanguagePrimitives.EnumOfValue<int, Register>
 
   /// Get the ZMM(n) register from the given index.
   let zmm n =
-    0x8d + n
+    (if n < 16 then 0x8d + n else 0x190 + n - 16)
     |> LanguagePrimitives.EnumOfValue<int, Register>
 
   /// Get the segment register of the given index.
@@ -171,6 +171,38 @@ module internal RegisterHelper = begin
     | R.ZMM4H | R.ZMM5H | R.ZMM6H | R.ZMM7H
     | R.ZMM8H | R.ZMM9H | R.ZMM10H | R.ZMM11H
     | R.ZMM12H | R.ZMM13H | R.ZMM14H | R.ZMM15H
+    | R.ZMM16A | R.ZMM17A | R.ZMM18A | R.ZMM19A
+    | R.ZMM20A | R.ZMM21A | R.ZMM22A | R.ZMM23A
+    | R.ZMM24A | R.ZMM25A | R.ZMM26A | R.ZMM27A
+    | R.ZMM28A | R.ZMM29A | R.ZMM30A | R.ZMM31A
+    | R.ZMM16B | R.ZMM17B | R.ZMM18B | R.ZMM19B
+    | R.ZMM20B | R.ZMM21B | R.ZMM22B | R.ZMM23B
+    | R.ZMM24B | R.ZMM25B | R.ZMM26B | R.ZMM27B
+    | R.ZMM28B | R.ZMM29B | R.ZMM30B | R.ZMM31B
+    | R.ZMM16C | R.ZMM17C | R.ZMM18C | R.ZMM19C
+    | R.ZMM20C | R.ZMM21C | R.ZMM22C | R.ZMM23C
+    | R.ZMM24C | R.ZMM25C | R.ZMM26C | R.ZMM27C
+    | R.ZMM28C | R.ZMM29C | R.ZMM30C | R.ZMM31C
+    | R.ZMM16D | R.ZMM17D | R.ZMM18D | R.ZMM19D
+    | R.ZMM20D | R.ZMM21D | R.ZMM22D | R.ZMM23D
+    | R.ZMM24D | R.ZMM25D | R.ZMM26D | R.ZMM27D
+    | R.ZMM28D | R.ZMM29D | R.ZMM30D | R.ZMM31D
+    | R.ZMM16E | R.ZMM17E | R.ZMM18E | R.ZMM19E
+    | R.ZMM20E | R.ZMM21E | R.ZMM22E | R.ZMM23E
+    | R.ZMM24E | R.ZMM25E | R.ZMM26E | R.ZMM27E
+    | R.ZMM28E | R.ZMM29E | R.ZMM30E | R.ZMM31E
+    | R.ZMM16F | R.ZMM17F | R.ZMM18F | R.ZMM19F
+    | R.ZMM20F | R.ZMM21F | R.ZMM22F | R.ZMM23F
+    | R.ZMM24F | R.ZMM25F | R.ZMM26F | R.ZMM27F
+    | R.ZMM28F | R.ZMM29F | R.ZMM30F | R.ZMM31F
+    | R.ZMM16G | R.ZMM17G | R.ZMM18G | R.ZMM19G
+    | R.ZMM20G | R.ZMM21G | R.ZMM22G | R.ZMM23G
+    | R.ZMM24G | R.ZMM25G | R.ZMM26G | R.ZMM27G
+    | R.ZMM28G | R.ZMM29G | R.ZMM30G | R.ZMM31G
+    | R.ZMM16H | R.ZMM17H | R.ZMM18H | R.ZMM19H
+    | R.ZMM20H | R.ZMM21H | R.ZMM22H | R.ZMM23H
+    | R.ZMM24H | R.ZMM25H | R.ZMM26H | R.ZMM27H
+    | R.ZMM28H | R.ZMM29H | R.ZMM30H | R.ZMM31H
     | R.FIP | R.FDP
     | R.K0 | R.K1 | R.K2 | R.K3 | R.K4 | R.K5 | R.K6 | R.K7 -> 64<rt>
     | R.R8D | R.R9D | R.R10D | R.R11D
@@ -193,15 +225,29 @@ module internal RegisterHelper = begin
     | R.XMM4 | R.XMM5 | R.XMM6 | R.XMM7
     | R.XMM8 | R.XMM9 | R.XMM10 | R.XMM11
     | R.XMM12 | R.XMM13 | R.XMM14 | R.XMM15
+    | R.XMM16 | R.XMM17 | R.XMM18 | R.XMM19
+    | R.XMM20 | R.XMM21 | R.XMM22 | R.XMM23
+    | R.XMM24 | R.XMM25 | R.XMM26 | R.XMM27
+    | R.XMM28 | R.XMM29 | R.XMM30 | R.XMM31
     | R.BND0 | R.BND1 | R.BND2 | R.BND3 -> 128<rt>
     | R.YMM0 | R.YMM1 | R.YMM2 | R.YMM3
     | R.YMM4 | R.YMM5 | R.YMM6 | R.YMM7
     | R.YMM8 | R.YMM9 | R.YMM10 | R.YMM11
-    | R.YMM12 | R.YMM13 | R.YMM14 | R.YMM15 -> 256<rt>
+    | R.YMM12 | R.YMM13 | R.YMM14 | R.YMM15
+    | R.YMM16 | R.YMM17 | R.YMM18 | R.YMM19
+    | R.YMM20 | R.YMM21 | R.YMM22 | R.YMM23
+    | R.YMM24 | R.YMM25 | R.YMM26 | R.YMM27
+    | R.YMM28 | R.YMM29 | R.YMM30
+    | R.YMM31 -> 256<rt>
     | R.ZMM0 | R.ZMM1 | R.ZMM2 | R.ZMM3
     | R.ZMM4 | R.ZMM5 | R.ZMM6 | R.ZMM7
     | R.ZMM8 | R.ZMM9 | R.ZMM10 | R.ZMM11
-    | R.ZMM12 | R.ZMM13 | R.ZMM14 | R.ZMM15 -> 512<rt>
+    | R.ZMM12 | R.ZMM13 | R.ZMM14 | R.ZMM15
+    | R.ZMM16 | R.ZMM17 | R.ZMM18 | R.ZMM19
+    | R.ZMM20 | R.ZMM21 | R.ZMM22 | R.ZMM23
+    | R.ZMM24 | R.ZMM25 | R.ZMM26 | R.ZMM27
+    | R.ZMM28 | R.ZMM29 | R.ZMM30
+    | R.ZMM31 -> 512<rt>
     | R.ST0 | R.ST1 | R.ST2 | R.ST3 | R.ST4 | R.ST5 | R.ST6 | R.ST7 -> 80<rt>
     | R.DF | R.CF | R.PF | R.AF | R.ZF | R.SF | R.OF | R.IF | R.TF
     | R.FSWC0 | R.FSWC1 | R.FSWC2 | R.FSWC3 -> 1<rt>
@@ -273,6 +319,22 @@ module internal RegisterHelper = begin
     | R.XMM13 | R.YMM13 | R.ZMM13 -> R.YMM13
     | R.XMM14 | R.YMM14 | R.ZMM14 -> R.YMM14
     | R.XMM15 | R.YMM15 | R.ZMM15 -> R.YMM15
+    | R.XMM16 | R.YMM16 | R.ZMM16 -> R.YMM16
+    | R.XMM17 | R.YMM17 | R.ZMM17 -> R.YMM17
+    | R.XMM18 | R.YMM18 | R.ZMM18 -> R.YMM18
+    | R.XMM19 | R.YMM19 | R.ZMM19 -> R.YMM19
+    | R.XMM20 | R.YMM20 | R.ZMM20 -> R.YMM20
+    | R.XMM21 | R.YMM21 | R.ZMM21 -> R.YMM21
+    | R.XMM22 | R.YMM22 | R.ZMM22 -> R.YMM22
+    | R.XMM23 | R.YMM23 | R.ZMM23 -> R.YMM23
+    | R.XMM24 | R.YMM24 | R.ZMM24 -> R.YMM24
+    | R.XMM25 | R.YMM25 | R.ZMM25 -> R.YMM25
+    | R.XMM26 | R.YMM26 | R.ZMM26 -> R.YMM26
+    | R.XMM27 | R.YMM27 | R.ZMM27 -> R.YMM27
+    | R.XMM28 | R.YMM28 | R.ZMM28 -> R.YMM28
+    | R.XMM29 | R.YMM29 | R.ZMM29 -> R.YMM29
+    | R.XMM30 | R.YMM30 | R.ZMM30 -> R.YMM30
+    | R.XMM31 | R.YMM31 | R.ZMM31 -> R.YMM31
     | R.DF | R.CF | R.PF | R.AF | R.ZF | R.SF | R.OF
     | R.BND0 | R.BND1 | R.BND2 | R.BND3 as e -> e
     | R.ESBase | R.ES -> R.ESBase
@@ -317,6 +379,38 @@ module internal RegisterHelper = begin
     | R.XMM13 | R.YMM13 | R.ZMM13 -> [| R.XMM13; R.YMM13; R.ZMM13 |]
     | R.XMM14 | R.YMM14 | R.ZMM14 -> [| R.XMM14; R.YMM14; R.ZMM14 |]
     | R.XMM15 | R.YMM15 | R.ZMM15 -> [| R.XMM15; R.YMM15; R.ZMM15 |]
+    | R.XMM16 | R.YMM16 | R.ZMM16 ->
+      [| R.XMM16; R.YMM16; R.ZMM16 |]
+    | R.XMM17 | R.YMM17 | R.ZMM17 ->
+      [| R.XMM17; R.YMM17; R.ZMM17 |]
+    | R.XMM18 | R.YMM18 | R.ZMM18 ->
+      [| R.XMM18; R.YMM18; R.ZMM18 |]
+    | R.XMM19 | R.YMM19 | R.ZMM19 ->
+      [| R.XMM19; R.YMM19; R.ZMM19 |]
+    | R.XMM20 | R.YMM20 | R.ZMM20 ->
+      [| R.XMM20; R.YMM20; R.ZMM20 |]
+    | R.XMM21 | R.YMM21 | R.ZMM21 ->
+      [| R.XMM21; R.YMM21; R.ZMM21 |]
+    | R.XMM22 | R.YMM22 | R.ZMM22 ->
+      [| R.XMM22; R.YMM22; R.ZMM22 |]
+    | R.XMM23 | R.YMM23 | R.ZMM23 ->
+      [| R.XMM23; R.YMM23; R.ZMM23 |]
+    | R.XMM24 | R.YMM24 | R.ZMM24 ->
+      [| R.XMM24; R.YMM24; R.ZMM24 |]
+    | R.XMM25 | R.YMM25 | R.ZMM25 ->
+      [| R.XMM25; R.YMM25; R.ZMM25 |]
+    | R.XMM26 | R.YMM26 | R.ZMM26 ->
+      [| R.XMM26; R.YMM26; R.ZMM26 |]
+    | R.XMM27 | R.YMM27 | R.ZMM27 ->
+      [| R.XMM27; R.YMM27; R.ZMM27 |]
+    | R.XMM28 | R.YMM28 | R.ZMM28 ->
+      [| R.XMM28; R.YMM28; R.ZMM28 |]
+    | R.XMM29 | R.YMM29 | R.ZMM29 ->
+      [| R.XMM29; R.YMM29; R.ZMM29 |]
+    | R.XMM30 | R.YMM30 | R.ZMM30 ->
+      [| R.XMM30; R.YMM30; R.ZMM30 |]
+    | R.XMM31 | R.YMM31 | R.ZMM31 ->
+      [| R.XMM31; R.YMM31; R.ZMM31 |]
     | R.EIP | R.RIP -> [| R.EIP; R.RIP |]
     | r -> [| r |]
 
@@ -337,6 +431,22 @@ module internal RegisterHelper = begin
     | R.XMM13 -> [ R.ZMM13B; R.ZMM13A ]
     | R.XMM14 -> [ R.ZMM14B; R.ZMM14A ]
     | R.XMM15 -> [ R.ZMM15B; R.ZMM15A ]
+    | R.XMM16 -> [ R.ZMM16B; R.ZMM16A ]
+    | R.XMM17 -> [ R.ZMM17B; R.ZMM17A ]
+    | R.XMM18 -> [ R.ZMM18B; R.ZMM18A ]
+    | R.XMM19 -> [ R.ZMM19B; R.ZMM19A ]
+    | R.XMM20 -> [ R.ZMM20B; R.ZMM20A ]
+    | R.XMM21 -> [ R.ZMM21B; R.ZMM21A ]
+    | R.XMM22 -> [ R.ZMM22B; R.ZMM22A ]
+    | R.XMM23 -> [ R.ZMM23B; R.ZMM23A ]
+    | R.XMM24 -> [ R.ZMM24B; R.ZMM24A ]
+    | R.XMM25 -> [ R.ZMM25B; R.ZMM25A ]
+    | R.XMM26 -> [ R.ZMM26B; R.ZMM26A ]
+    | R.XMM27 -> [ R.ZMM27B; R.ZMM27A ]
+    | R.XMM28 -> [ R.ZMM28B; R.ZMM28A ]
+    | R.XMM29 -> [ R.ZMM29B; R.ZMM29A ]
+    | R.XMM30 -> [ R.ZMM30B; R.ZMM30A ]
+    | R.XMM31 -> [ R.ZMM31B; R.ZMM31A ]
     | R.YMM0 -> [ R.ZMM0D; R.ZMM0C; R.ZMM0B; R.ZMM0A ]
     | R.YMM1 -> [ R.ZMM1D; R.ZMM1C; R.ZMM1B; R.ZMM1A ]
     | R.YMM2 -> [ R.ZMM2D; R.ZMM2C; R.ZMM2B; R.ZMM2A ]
@@ -353,6 +463,22 @@ module internal RegisterHelper = begin
     | R.YMM13 -> [ R.ZMM13D; R.ZMM13C; R.ZMM13B; R.ZMM13A ]
     | R.YMM14 -> [ R.ZMM14D; R.ZMM14C; R.ZMM14B; R.ZMM14A ]
     | R.YMM15 -> [ R.ZMM15D; R.ZMM15C; R.ZMM15B; R.ZMM15A ]
+    | R.YMM16 -> [ R.ZMM16D; R.ZMM16C; R.ZMM16B; R.ZMM16A ]
+    | R.YMM17 -> [ R.ZMM17D; R.ZMM17C; R.ZMM17B; R.ZMM17A ]
+    | R.YMM18 -> [ R.ZMM18D; R.ZMM18C; R.ZMM18B; R.ZMM18A ]
+    | R.YMM19 -> [ R.ZMM19D; R.ZMM19C; R.ZMM19B; R.ZMM19A ]
+    | R.YMM20 -> [ R.ZMM20D; R.ZMM20C; R.ZMM20B; R.ZMM20A ]
+    | R.YMM21 -> [ R.ZMM21D; R.ZMM21C; R.ZMM21B; R.ZMM21A ]
+    | R.YMM22 -> [ R.ZMM22D; R.ZMM22C; R.ZMM22B; R.ZMM22A ]
+    | R.YMM23 -> [ R.ZMM23D; R.ZMM23C; R.ZMM23B; R.ZMM23A ]
+    | R.YMM24 -> [ R.ZMM24D; R.ZMM24C; R.ZMM24B; R.ZMM24A ]
+    | R.YMM25 -> [ R.ZMM25D; R.ZMM25C; R.ZMM25B; R.ZMM25A ]
+    | R.YMM26 -> [ R.ZMM26D; R.ZMM26C; R.ZMM26B; R.ZMM26A ]
+    | R.YMM27 -> [ R.ZMM27D; R.ZMM27C; R.ZMM27B; R.ZMM27A ]
+    | R.YMM28 -> [ R.ZMM28D; R.ZMM28C; R.ZMM28B; R.ZMM28A ]
+    | R.YMM29 -> [ R.ZMM29D; R.ZMM29C; R.ZMM29B; R.ZMM29A ]
+    | R.YMM30 -> [ R.ZMM30D; R.ZMM30C; R.ZMM30B; R.ZMM30A ]
+    | R.YMM31 -> [ R.ZMM31D; R.ZMM31C; R.ZMM31B; R.ZMM31A ]
     | R.ST0 -> [ R.ST0B; R.ST0A ]
     | R.ST1 -> [ R.ST1B; R.ST1A ]
     | R.ST2 -> [ R.ST2B; R.ST2A ]
@@ -500,6 +626,134 @@ module internal RegisterHelper = begin
     | R.ZMM15F
     | R.ZMM15G
     | R.ZMM15H -> R.ZMM15
+    | R.ZMM16A
+    | R.ZMM16B
+    | R.ZMM16C
+    | R.ZMM16D
+    | R.ZMM16E
+    | R.ZMM16F
+    | R.ZMM16G
+    | R.ZMM16H -> R.ZMM16
+    | R.ZMM17A
+    | R.ZMM17B
+    | R.ZMM17C
+    | R.ZMM17D
+    | R.ZMM17E
+    | R.ZMM17F
+    | R.ZMM17G
+    | R.ZMM17H -> R.ZMM17
+    | R.ZMM18A
+    | R.ZMM18B
+    | R.ZMM18C
+    | R.ZMM18D
+    | R.ZMM18E
+    | R.ZMM18F
+    | R.ZMM18G
+    | R.ZMM18H -> R.ZMM18
+    | R.ZMM19A
+    | R.ZMM19B
+    | R.ZMM19C
+    | R.ZMM19D
+    | R.ZMM19E
+    | R.ZMM19F
+    | R.ZMM19G
+    | R.ZMM19H -> R.ZMM19
+    | R.ZMM20A
+    | R.ZMM20B
+    | R.ZMM20C
+    | R.ZMM20D
+    | R.ZMM20E
+    | R.ZMM20F
+    | R.ZMM20G
+    | R.ZMM20H -> R.ZMM20
+    | R.ZMM21A
+    | R.ZMM21B
+    | R.ZMM21C
+    | R.ZMM21D
+    | R.ZMM21E
+    | R.ZMM21F
+    | R.ZMM21G
+    | R.ZMM21H -> R.ZMM21
+    | R.ZMM22A
+    | R.ZMM22B
+    | R.ZMM22C
+    | R.ZMM22D
+    | R.ZMM22E
+    | R.ZMM22F
+    | R.ZMM22G
+    | R.ZMM22H -> R.ZMM22
+    | R.ZMM23A
+    | R.ZMM23B
+    | R.ZMM23C
+    | R.ZMM23D
+    | R.ZMM23E
+    | R.ZMM23F
+    | R.ZMM23G
+    | R.ZMM23H -> R.ZMM23
+    | R.ZMM24A
+    | R.ZMM24B
+    | R.ZMM24C
+    | R.ZMM24D
+    | R.ZMM24E
+    | R.ZMM24F
+    | R.ZMM24G
+    | R.ZMM24H -> R.ZMM24
+    | R.ZMM25A
+    | R.ZMM25B
+    | R.ZMM25C
+    | R.ZMM25D
+    | R.ZMM25E
+    | R.ZMM25F
+    | R.ZMM25G
+    | R.ZMM25H -> R.ZMM25
+    | R.ZMM26A
+    | R.ZMM26B
+    | R.ZMM26C
+    | R.ZMM26D
+    | R.ZMM26E
+    | R.ZMM26F
+    | R.ZMM26G
+    | R.ZMM26H -> R.ZMM26
+    | R.ZMM27A
+    | R.ZMM27B
+    | R.ZMM27C
+    | R.ZMM27D
+    | R.ZMM27E
+    | R.ZMM27F
+    | R.ZMM27G
+    | R.ZMM27H -> R.ZMM27
+    | R.ZMM28A
+    | R.ZMM28B
+    | R.ZMM28C
+    | R.ZMM28D
+    | R.ZMM28E
+    | R.ZMM28F
+    | R.ZMM28G
+    | R.ZMM28H -> R.ZMM28
+    | R.ZMM29A
+    | R.ZMM29B
+    | R.ZMM29C
+    | R.ZMM29D
+    | R.ZMM29E
+    | R.ZMM29F
+    | R.ZMM29G
+    | R.ZMM29H -> R.ZMM29
+    | R.ZMM30A
+    | R.ZMM30B
+    | R.ZMM30C
+    | R.ZMM30D
+    | R.ZMM30E
+    | R.ZMM30F
+    | R.ZMM30G
+    | R.ZMM30H -> R.ZMM30
+    | R.ZMM31A
+    | R.ZMM31B
+    | R.ZMM31C
+    | R.ZMM31D
+    | R.ZMM31E
+    | R.ZMM31F
+    | R.ZMM31G
+    | R.ZMM31H -> R.ZMM31
     | R.ST0A | R.ST0B -> R.ST0
     | R.ST1A | R.ST1B -> R.ST1
     | R.ST2A | R.ST2B -> R.ST2

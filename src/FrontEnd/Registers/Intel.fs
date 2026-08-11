@@ -728,6 +728,358 @@ type Register =
   | ZMM15G = 0x158
   /// ZMM15H is the 8th 64-bit chunk of ZMM15.
   | ZMM15H = 0x159
+  /// XMM registers.
+  | XMM16 = 0x170
+  /// XMM registers.
+  | XMM17 = 0x171
+  /// XMM registers.
+  | XMM18 = 0x172
+  /// XMM registers.
+  | XMM19 = 0x173
+  /// XMM registers.
+  | XMM20 = 0x174
+  /// XMM registers.
+  | XMM21 = 0x175
+  /// XMM registers.
+  | XMM22 = 0x176
+  /// XMM registers.
+  | XMM23 = 0x177
+  /// XMM registers.
+  | XMM24 = 0x178
+  /// XMM registers.
+  | XMM25 = 0x179
+  /// XMM registers.
+  | XMM26 = 0x17A
+  /// XMM registers.
+  | XMM27 = 0x17B
+  /// XMM registers.
+  | XMM28 = 0x17C
+  /// XMM registers.
+  | XMM29 = 0x17D
+  /// XMM registers.
+  | XMM30 = 0x17E
+  /// XMM registers.
+  | XMM31 = 0x17F
+  /// 256-bit vector registers.
+  | YMM16 = 0x180
+  /// 256-bit vector registers.
+  | YMM17 = 0x181
+  /// 256-bit vector registers.
+  | YMM18 = 0x182
+  /// 256-bit vector registers.
+  | YMM19 = 0x183
+  /// 256-bit vector registers.
+  | YMM20 = 0x184
+  /// 256-bit vector registers.
+  | YMM21 = 0x185
+  /// 256-bit vector registers.
+  | YMM22 = 0x186
+  /// 256-bit vector registers.
+  | YMM23 = 0x187
+  /// 256-bit vector registers.
+  | YMM24 = 0x188
+  /// 256-bit vector registers.
+  | YMM25 = 0x189
+  /// 256-bit vector registers.
+  | YMM26 = 0x18A
+  /// 256-bit vector registers.
+  | YMM27 = 0x18B
+  /// 256-bit vector registers.
+  | YMM28 = 0x18C
+  /// 256-bit vector registers.
+  | YMM29 = 0x18D
+  /// 256-bit vector registers.
+  | YMM30 = 0x18E
+  /// 256-bit vector registers.
+  | YMM31 = 0x18F
+  /// 512-bit vector registers.
+  | ZMM16 = 0x190
+  /// 512-bit vector registers.
+  | ZMM17 = 0x191
+  /// 512-bit vector registers.
+  | ZMM18 = 0x192
+  /// 512-bit vector registers.
+  | ZMM19 = 0x193
+  /// 512-bit vector registers.
+  | ZMM20 = 0x194
+  /// 512-bit vector registers.
+  | ZMM21 = 0x195
+  /// 512-bit vector registers.
+  | ZMM22 = 0x196
+  /// 512-bit vector registers.
+  | ZMM23 = 0x197
+  /// 512-bit vector registers.
+  | ZMM24 = 0x198
+  /// 512-bit vector registers.
+  | ZMM25 = 0x199
+  /// 512-bit vector registers.
+  | ZMM26 = 0x19A
+  /// 512-bit vector registers.
+  | ZMM27 = 0x19B
+  /// 512-bit vector registers.
+  | ZMM28 = 0x19C
+  /// 512-bit vector registers.
+  | ZMM29 = 0x19D
+  /// 512-bit vector registers.
+  | ZMM30 = 0x19E
+  /// 512-bit vector registers.
+  | ZMM31 = 0x19F
+  /// ZMM16A is the 1st 64-bit chunk of ZMM16.
+  | ZMM16A = 0x1A0
+  /// ZMM16B is the 2nd 64-bit chunk of ZMM16.
+  | ZMM16B = 0x1A1
+  /// ZMM16C is the 3rd 64-bit chunk of ZMM16.
+  | ZMM16C = 0x1A2
+  /// ZMM16D is the 4th 64-bit chunk of ZMM16.
+  | ZMM16D = 0x1A3
+  /// ZMM16E is the 5th 64-bit chunk of ZMM16.
+  | ZMM16E = 0x1A4
+  /// ZMM16F is the 6th 64-bit chunk of ZMM16.
+  | ZMM16F = 0x1A5
+  /// ZMM16G is the 7th 64-bit chunk of ZMM16.
+  | ZMM16G = 0x1A6
+  /// ZMM16H is the 8th 64-bit chunk of ZMM16.
+  | ZMM16H = 0x1A7
+  /// ZMM17A is the 1st 64-bit chunk of ZMM17.
+  | ZMM17A = 0x1A8
+  /// ZMM17B is the 2nd 64-bit chunk of ZMM17.
+  | ZMM17B = 0x1A9
+  /// ZMM17C is the 3rd 64-bit chunk of ZMM17.
+  | ZMM17C = 0x1AA
+  /// ZMM17D is the 4th 64-bit chunk of ZMM17.
+  | ZMM17D = 0x1AB
+  /// ZMM17E is the 5th 64-bit chunk of ZMM17.
+  | ZMM17E = 0x1AC
+  /// ZMM17F is the 6th 64-bit chunk of ZMM17.
+  | ZMM17F = 0x1AD
+  /// ZMM17G is the 7th 64-bit chunk of ZMM17.
+  | ZMM17G = 0x1AE
+  /// ZMM17H is the 8th 64-bit chunk of ZMM17.
+  | ZMM17H = 0x1AF
+  /// ZMM18A is the 1st 64-bit chunk of ZMM18.
+  | ZMM18A = 0x1B0
+  /// ZMM18B is the 2nd 64-bit chunk of ZMM18.
+  | ZMM18B = 0x1B1
+  /// ZMM18C is the 3rd 64-bit chunk of ZMM18.
+  | ZMM18C = 0x1B2
+  /// ZMM18D is the 4th 64-bit chunk of ZMM18.
+  | ZMM18D = 0x1B3
+  /// ZMM18E is the 5th 64-bit chunk of ZMM18.
+  | ZMM18E = 0x1B4
+  /// ZMM18F is the 6th 64-bit chunk of ZMM18.
+  | ZMM18F = 0x1B5
+  /// ZMM18G is the 7th 64-bit chunk of ZMM18.
+  | ZMM18G = 0x1B6
+  /// ZMM18H is the 8th 64-bit chunk of ZMM18.
+  | ZMM18H = 0x1B7
+  /// ZMM19A is the 1st 64-bit chunk of ZMM19.
+  | ZMM19A = 0x1B8
+  /// ZMM19B is the 2nd 64-bit chunk of ZMM19.
+  | ZMM19B = 0x1B9
+  /// ZMM19C is the 3rd 64-bit chunk of ZMM19.
+  | ZMM19C = 0x1BA
+  /// ZMM19D is the 4th 64-bit chunk of ZMM19.
+  | ZMM19D = 0x1BB
+  /// ZMM19E is the 5th 64-bit chunk of ZMM19.
+  | ZMM19E = 0x1BC
+  /// ZMM19F is the 6th 64-bit chunk of ZMM19.
+  | ZMM19F = 0x1BD
+  /// ZMM19G is the 7th 64-bit chunk of ZMM19.
+  | ZMM19G = 0x1BE
+  /// ZMM19H is the 8th 64-bit chunk of ZMM19.
+  | ZMM19H = 0x1BF
+  /// ZMM20A is the 1st 64-bit chunk of ZMM20.
+  | ZMM20A = 0x1C0
+  /// ZMM20B is the 2nd 64-bit chunk of ZMM20.
+  | ZMM20B = 0x1C1
+  /// ZMM20C is the 3rd 64-bit chunk of ZMM20.
+  | ZMM20C = 0x1C2
+  /// ZMM20D is the 4th 64-bit chunk of ZMM20.
+  | ZMM20D = 0x1C3
+  /// ZMM20E is the 5th 64-bit chunk of ZMM20.
+  | ZMM20E = 0x1C4
+  /// ZMM20F is the 6th 64-bit chunk of ZMM20.
+  | ZMM20F = 0x1C5
+  /// ZMM20G is the 7th 64-bit chunk of ZMM20.
+  | ZMM20G = 0x1C6
+  /// ZMM20H is the 8th 64-bit chunk of ZMM20.
+  | ZMM20H = 0x1C7
+  /// ZMM21A is the 1st 64-bit chunk of ZMM21.
+  | ZMM21A = 0x1C8
+  /// ZMM21B is the 2nd 64-bit chunk of ZMM21.
+  | ZMM21B = 0x1C9
+  /// ZMM21C is the 3rd 64-bit chunk of ZMM21.
+  | ZMM21C = 0x1CA
+  /// ZMM21D is the 4th 64-bit chunk of ZMM21.
+  | ZMM21D = 0x1CB
+  /// ZMM21E is the 5th 64-bit chunk of ZMM21.
+  | ZMM21E = 0x1CC
+  /// ZMM21F is the 6th 64-bit chunk of ZMM21.
+  | ZMM21F = 0x1CD
+  /// ZMM21G is the 7th 64-bit chunk of ZMM21.
+  | ZMM21G = 0x1CE
+  /// ZMM21H is the 8th 64-bit chunk of ZMM21.
+  | ZMM21H = 0x1CF
+  /// ZMM22A is the 1st 64-bit chunk of ZMM22.
+  | ZMM22A = 0x1D0
+  /// ZMM22B is the 2nd 64-bit chunk of ZMM22.
+  | ZMM22B = 0x1D1
+  /// ZMM22C is the 3rd 64-bit chunk of ZMM22.
+  | ZMM22C = 0x1D2
+  /// ZMM22D is the 4th 64-bit chunk of ZMM22.
+  | ZMM22D = 0x1D3
+  /// ZMM22E is the 5th 64-bit chunk of ZMM22.
+  | ZMM22E = 0x1D4
+  /// ZMM22F is the 6th 64-bit chunk of ZMM22.
+  | ZMM22F = 0x1D5
+  /// ZMM22G is the 7th 64-bit chunk of ZMM22.
+  | ZMM22G = 0x1D6
+  /// ZMM22H is the 8th 64-bit chunk of ZMM22.
+  | ZMM22H = 0x1D7
+  /// ZMM23A is the 1st 64-bit chunk of ZMM23.
+  | ZMM23A = 0x1D8
+  /// ZMM23B is the 2nd 64-bit chunk of ZMM23.
+  | ZMM23B = 0x1D9
+  /// ZMM23C is the 3rd 64-bit chunk of ZMM23.
+  | ZMM23C = 0x1DA
+  /// ZMM23D is the 4th 64-bit chunk of ZMM23.
+  | ZMM23D = 0x1DB
+  /// ZMM23E is the 5th 64-bit chunk of ZMM23.
+  | ZMM23E = 0x1DC
+  /// ZMM23F is the 6th 64-bit chunk of ZMM23.
+  | ZMM23F = 0x1DD
+  /// ZMM23G is the 7th 64-bit chunk of ZMM23.
+  | ZMM23G = 0x1DE
+  /// ZMM23H is the 8th 64-bit chunk of ZMM23.
+  | ZMM23H = 0x1DF
+  /// ZMM24A is the 1st 64-bit chunk of ZMM24.
+  | ZMM24A = 0x1E0
+  /// ZMM24B is the 2nd 64-bit chunk of ZMM24.
+  | ZMM24B = 0x1E1
+  /// ZMM24C is the 3rd 64-bit chunk of ZMM24.
+  | ZMM24C = 0x1E2
+  /// ZMM24D is the 4th 64-bit chunk of ZMM24.
+  | ZMM24D = 0x1E3
+  /// ZMM24E is the 5th 64-bit chunk of ZMM24.
+  | ZMM24E = 0x1E4
+  /// ZMM24F is the 6th 64-bit chunk of ZMM24.
+  | ZMM24F = 0x1E5
+  /// ZMM24G is the 7th 64-bit chunk of ZMM24.
+  | ZMM24G = 0x1E6
+  /// ZMM24H is the 8th 64-bit chunk of ZMM24.
+  | ZMM24H = 0x1E7
+  /// ZMM25A is the 1st 64-bit chunk of ZMM25.
+  | ZMM25A = 0x1E8
+  /// ZMM25B is the 2nd 64-bit chunk of ZMM25.
+  | ZMM25B = 0x1E9
+  /// ZMM25C is the 3rd 64-bit chunk of ZMM25.
+  | ZMM25C = 0x1EA
+  /// ZMM25D is the 4th 64-bit chunk of ZMM25.
+  | ZMM25D = 0x1EB
+  /// ZMM25E is the 5th 64-bit chunk of ZMM25.
+  | ZMM25E = 0x1EC
+  /// ZMM25F is the 6th 64-bit chunk of ZMM25.
+  | ZMM25F = 0x1ED
+  /// ZMM25G is the 7th 64-bit chunk of ZMM25.
+  | ZMM25G = 0x1EE
+  /// ZMM25H is the 8th 64-bit chunk of ZMM25.
+  | ZMM25H = 0x1EF
+  /// ZMM26A is the 1st 64-bit chunk of ZMM26.
+  | ZMM26A = 0x1F0
+  /// ZMM26B is the 2nd 64-bit chunk of ZMM26.
+  | ZMM26B = 0x1F1
+  /// ZMM26C is the 3rd 64-bit chunk of ZMM26.
+  | ZMM26C = 0x1F2
+  /// ZMM26D is the 4th 64-bit chunk of ZMM26.
+  | ZMM26D = 0x1F3
+  /// ZMM26E is the 5th 64-bit chunk of ZMM26.
+  | ZMM26E = 0x1F4
+  /// ZMM26F is the 6th 64-bit chunk of ZMM26.
+  | ZMM26F = 0x1F5
+  /// ZMM26G is the 7th 64-bit chunk of ZMM26.
+  | ZMM26G = 0x1F6
+  /// ZMM26H is the 8th 64-bit chunk of ZMM26.
+  | ZMM26H = 0x1F7
+  /// ZMM27A is the 1st 64-bit chunk of ZMM27.
+  | ZMM27A = 0x1F8
+  /// ZMM27B is the 2nd 64-bit chunk of ZMM27.
+  | ZMM27B = 0x1F9
+  /// ZMM27C is the 3rd 64-bit chunk of ZMM27.
+  | ZMM27C = 0x1FA
+  /// ZMM27D is the 4th 64-bit chunk of ZMM27.
+  | ZMM27D = 0x1FB
+  /// ZMM27E is the 5th 64-bit chunk of ZMM27.
+  | ZMM27E = 0x1FC
+  /// ZMM27F is the 6th 64-bit chunk of ZMM27.
+  | ZMM27F = 0x1FD
+  /// ZMM27G is the 7th 64-bit chunk of ZMM27.
+  | ZMM27G = 0x1FE
+  /// ZMM27H is the 8th 64-bit chunk of ZMM27.
+  | ZMM27H = 0x1FF
+  /// ZMM28A is the 1st 64-bit chunk of ZMM28.
+  | ZMM28A = 0x200
+  /// ZMM28B is the 2nd 64-bit chunk of ZMM28.
+  | ZMM28B = 0x201
+  /// ZMM28C is the 3rd 64-bit chunk of ZMM28.
+  | ZMM28C = 0x202
+  /// ZMM28D is the 4th 64-bit chunk of ZMM28.
+  | ZMM28D = 0x203
+  /// ZMM28E is the 5th 64-bit chunk of ZMM28.
+  | ZMM28E = 0x204
+  /// ZMM28F is the 6th 64-bit chunk of ZMM28.
+  | ZMM28F = 0x205
+  /// ZMM28G is the 7th 64-bit chunk of ZMM28.
+  | ZMM28G = 0x206
+  /// ZMM28H is the 8th 64-bit chunk of ZMM28.
+  | ZMM28H = 0x207
+  /// ZMM29A is the 1st 64-bit chunk of ZMM29.
+  | ZMM29A = 0x208
+  /// ZMM29B is the 2nd 64-bit chunk of ZMM29.
+  | ZMM29B = 0x209
+  /// ZMM29C is the 3rd 64-bit chunk of ZMM29.
+  | ZMM29C = 0x20A
+  /// ZMM29D is the 4th 64-bit chunk of ZMM29.
+  | ZMM29D = 0x20B
+  /// ZMM29E is the 5th 64-bit chunk of ZMM29.
+  | ZMM29E = 0x20C
+  /// ZMM29F is the 6th 64-bit chunk of ZMM29.
+  | ZMM29F = 0x20D
+  /// ZMM29G is the 7th 64-bit chunk of ZMM29.
+  | ZMM29G = 0x20E
+  /// ZMM29H is the 8th 64-bit chunk of ZMM29.
+  | ZMM29H = 0x20F
+  /// ZMM30A is the 1st 64-bit chunk of ZMM30.
+  | ZMM30A = 0x210
+  /// ZMM30B is the 2nd 64-bit chunk of ZMM30.
+  | ZMM30B = 0x211
+  /// ZMM30C is the 3rd 64-bit chunk of ZMM30.
+  | ZMM30C = 0x212
+  /// ZMM30D is the 4th 64-bit chunk of ZMM30.
+  | ZMM30D = 0x213
+  /// ZMM30E is the 5th 64-bit chunk of ZMM30.
+  | ZMM30E = 0x214
+  /// ZMM30F is the 6th 64-bit chunk of ZMM30.
+  | ZMM30F = 0x215
+  /// ZMM30G is the 7th 64-bit chunk of ZMM30.
+  | ZMM30G = 0x216
+  /// ZMM30H is the 8th 64-bit chunk of ZMM30.
+  | ZMM30H = 0x217
+  /// ZMM31A is the 1st 64-bit chunk of ZMM31.
+  | ZMM31A = 0x218
+  /// ZMM31B is the 2nd 64-bit chunk of ZMM31.
+  | ZMM31B = 0x219
+  /// ZMM31C is the 3rd 64-bit chunk of ZMM31.
+  | ZMM31C = 0x21A
+  /// ZMM31D is the 4th 64-bit chunk of ZMM31.
+  | ZMM31D = 0x21B
+  /// ZMM31E is the 5th 64-bit chunk of ZMM31.
+  | ZMM31E = 0x21C
+  /// ZMM31F is the 6th 64-bit chunk of ZMM31.
+  | ZMM31F = 0x21D
+  /// ZMM31G is the 7th 64-bit chunk of ZMM31.
+  | ZMM31G = 0x21E
+  /// ZMM31H is the 8th 64-bit chunk of ZMM31.
+  | ZMM31H = 0x21F
   /// Opmask registers. For EVEX.
   | K0 = 0x15A
   /// Opmask registers. For EVEX.
@@ -912,6 +1264,54 @@ module Register =
     | "zmm13" -> Register.ZMM13
     | "zmm14" -> Register.ZMM14
     | "zmm15" -> Register.ZMM15
+    | "xmm16" -> Register.XMM16
+    | "xmm17" -> Register.XMM17
+    | "xmm18" -> Register.XMM18
+    | "xmm19" -> Register.XMM19
+    | "xmm20" -> Register.XMM20
+    | "xmm21" -> Register.XMM21
+    | "xmm22" -> Register.XMM22
+    | "xmm23" -> Register.XMM23
+    | "xmm24" -> Register.XMM24
+    | "xmm25" -> Register.XMM25
+    | "xmm26" -> Register.XMM26
+    | "xmm27" -> Register.XMM27
+    | "xmm28" -> Register.XMM28
+    | "xmm29" -> Register.XMM29
+    | "xmm30" -> Register.XMM30
+    | "xmm31" -> Register.XMM31
+    | "ymm16" -> Register.YMM16
+    | "ymm17" -> Register.YMM17
+    | "ymm18" -> Register.YMM18
+    | "ymm19" -> Register.YMM19
+    | "ymm20" -> Register.YMM20
+    | "ymm21" -> Register.YMM21
+    | "ymm22" -> Register.YMM22
+    | "ymm23" -> Register.YMM23
+    | "ymm24" -> Register.YMM24
+    | "ymm25" -> Register.YMM25
+    | "ymm26" -> Register.YMM26
+    | "ymm27" -> Register.YMM27
+    | "ymm28" -> Register.YMM28
+    | "ymm29" -> Register.YMM29
+    | "ymm30" -> Register.YMM30
+    | "ymm31" -> Register.YMM31
+    | "zmm16" -> Register.ZMM16
+    | "zmm17" -> Register.ZMM17
+    | "zmm18" -> Register.ZMM18
+    | "zmm19" -> Register.ZMM19
+    | "zmm20" -> Register.ZMM20
+    | "zmm21" -> Register.ZMM21
+    | "zmm22" -> Register.ZMM22
+    | "zmm23" -> Register.ZMM23
+    | "zmm24" -> Register.ZMM24
+    | "zmm25" -> Register.ZMM25
+    | "zmm26" -> Register.ZMM26
+    | "zmm27" -> Register.ZMM27
+    | "zmm28" -> Register.ZMM28
+    | "zmm29" -> Register.ZMM29
+    | "zmm30" -> Register.ZMM30
+    | "zmm31" -> Register.ZMM31
     | "es" -> Register.ES
     | "cs" -> Register.CS
     | "ss" -> Register.SS
@@ -1480,6 +1880,182 @@ module Register =
     | Register.ZMM15F -> "ZMM15F"
     | Register.ZMM15G -> "ZMM15G"
     | Register.ZMM15H -> "ZMM15H"
+    | Register.XMM16 -> "XMM16"
+    | Register.XMM17 -> "XMM17"
+    | Register.XMM18 -> "XMM18"
+    | Register.XMM19 -> "XMM19"
+    | Register.XMM20 -> "XMM20"
+    | Register.XMM21 -> "XMM21"
+    | Register.XMM22 -> "XMM22"
+    | Register.XMM23 -> "XMM23"
+    | Register.XMM24 -> "XMM24"
+    | Register.XMM25 -> "XMM25"
+    | Register.XMM26 -> "XMM26"
+    | Register.XMM27 -> "XMM27"
+    | Register.XMM28 -> "XMM28"
+    | Register.XMM29 -> "XMM29"
+    | Register.XMM30 -> "XMM30"
+    | Register.XMM31 -> "XMM31"
+    | Register.YMM16 -> "YMM16"
+    | Register.YMM17 -> "YMM17"
+    | Register.YMM18 -> "YMM18"
+    | Register.YMM19 -> "YMM19"
+    | Register.YMM20 -> "YMM20"
+    | Register.YMM21 -> "YMM21"
+    | Register.YMM22 -> "YMM22"
+    | Register.YMM23 -> "YMM23"
+    | Register.YMM24 -> "YMM24"
+    | Register.YMM25 -> "YMM25"
+    | Register.YMM26 -> "YMM26"
+    | Register.YMM27 -> "YMM27"
+    | Register.YMM28 -> "YMM28"
+    | Register.YMM29 -> "YMM29"
+    | Register.YMM30 -> "YMM30"
+    | Register.YMM31 -> "YMM31"
+    | Register.ZMM16 -> "ZMM16"
+    | Register.ZMM17 -> "ZMM17"
+    | Register.ZMM18 -> "ZMM18"
+    | Register.ZMM19 -> "ZMM19"
+    | Register.ZMM20 -> "ZMM20"
+    | Register.ZMM21 -> "ZMM21"
+    | Register.ZMM22 -> "ZMM22"
+    | Register.ZMM23 -> "ZMM23"
+    | Register.ZMM24 -> "ZMM24"
+    | Register.ZMM25 -> "ZMM25"
+    | Register.ZMM26 -> "ZMM26"
+    | Register.ZMM27 -> "ZMM27"
+    | Register.ZMM28 -> "ZMM28"
+    | Register.ZMM29 -> "ZMM29"
+    | Register.ZMM30 -> "ZMM30"
+    | Register.ZMM31 -> "ZMM31"
+    | Register.ZMM16A -> "ZMM16A"
+    | Register.ZMM16B -> "ZMM16B"
+    | Register.ZMM16C -> "ZMM16C"
+    | Register.ZMM16D -> "ZMM16D"
+    | Register.ZMM16E -> "ZMM16E"
+    | Register.ZMM16F -> "ZMM16F"
+    | Register.ZMM16G -> "ZMM16G"
+    | Register.ZMM16H -> "ZMM16H"
+    | Register.ZMM17A -> "ZMM17A"
+    | Register.ZMM17B -> "ZMM17B"
+    | Register.ZMM17C -> "ZMM17C"
+    | Register.ZMM17D -> "ZMM17D"
+    | Register.ZMM17E -> "ZMM17E"
+    | Register.ZMM17F -> "ZMM17F"
+    | Register.ZMM17G -> "ZMM17G"
+    | Register.ZMM17H -> "ZMM17H"
+    | Register.ZMM18A -> "ZMM18A"
+    | Register.ZMM18B -> "ZMM18B"
+    | Register.ZMM18C -> "ZMM18C"
+    | Register.ZMM18D -> "ZMM18D"
+    | Register.ZMM18E -> "ZMM18E"
+    | Register.ZMM18F -> "ZMM18F"
+    | Register.ZMM18G -> "ZMM18G"
+    | Register.ZMM18H -> "ZMM18H"
+    | Register.ZMM19A -> "ZMM19A"
+    | Register.ZMM19B -> "ZMM19B"
+    | Register.ZMM19C -> "ZMM19C"
+    | Register.ZMM19D -> "ZMM19D"
+    | Register.ZMM19E -> "ZMM19E"
+    | Register.ZMM19F -> "ZMM19F"
+    | Register.ZMM19G -> "ZMM19G"
+    | Register.ZMM19H -> "ZMM19H"
+    | Register.ZMM20A -> "ZMM20A"
+    | Register.ZMM20B -> "ZMM20B"
+    | Register.ZMM20C -> "ZMM20C"
+    | Register.ZMM20D -> "ZMM20D"
+    | Register.ZMM20E -> "ZMM20E"
+    | Register.ZMM20F -> "ZMM20F"
+    | Register.ZMM20G -> "ZMM20G"
+    | Register.ZMM20H -> "ZMM20H"
+    | Register.ZMM21A -> "ZMM21A"
+    | Register.ZMM21B -> "ZMM21B"
+    | Register.ZMM21C -> "ZMM21C"
+    | Register.ZMM21D -> "ZMM21D"
+    | Register.ZMM21E -> "ZMM21E"
+    | Register.ZMM21F -> "ZMM21F"
+    | Register.ZMM21G -> "ZMM21G"
+    | Register.ZMM21H -> "ZMM21H"
+    | Register.ZMM22A -> "ZMM22A"
+    | Register.ZMM22B -> "ZMM22B"
+    | Register.ZMM22C -> "ZMM22C"
+    | Register.ZMM22D -> "ZMM22D"
+    | Register.ZMM22E -> "ZMM22E"
+    | Register.ZMM22F -> "ZMM22F"
+    | Register.ZMM22G -> "ZMM22G"
+    | Register.ZMM22H -> "ZMM22H"
+    | Register.ZMM23A -> "ZMM23A"
+    | Register.ZMM23B -> "ZMM23B"
+    | Register.ZMM23C -> "ZMM23C"
+    | Register.ZMM23D -> "ZMM23D"
+    | Register.ZMM23E -> "ZMM23E"
+    | Register.ZMM23F -> "ZMM23F"
+    | Register.ZMM23G -> "ZMM23G"
+    | Register.ZMM23H -> "ZMM23H"
+    | Register.ZMM24A -> "ZMM24A"
+    | Register.ZMM24B -> "ZMM24B"
+    | Register.ZMM24C -> "ZMM24C"
+    | Register.ZMM24D -> "ZMM24D"
+    | Register.ZMM24E -> "ZMM24E"
+    | Register.ZMM24F -> "ZMM24F"
+    | Register.ZMM24G -> "ZMM24G"
+    | Register.ZMM24H -> "ZMM24H"
+    | Register.ZMM25A -> "ZMM25A"
+    | Register.ZMM25B -> "ZMM25B"
+    | Register.ZMM25C -> "ZMM25C"
+    | Register.ZMM25D -> "ZMM25D"
+    | Register.ZMM25E -> "ZMM25E"
+    | Register.ZMM25F -> "ZMM25F"
+    | Register.ZMM25G -> "ZMM25G"
+    | Register.ZMM25H -> "ZMM25H"
+    | Register.ZMM26A -> "ZMM26A"
+    | Register.ZMM26B -> "ZMM26B"
+    | Register.ZMM26C -> "ZMM26C"
+    | Register.ZMM26D -> "ZMM26D"
+    | Register.ZMM26E -> "ZMM26E"
+    | Register.ZMM26F -> "ZMM26F"
+    | Register.ZMM26G -> "ZMM26G"
+    | Register.ZMM26H -> "ZMM26H"
+    | Register.ZMM27A -> "ZMM27A"
+    | Register.ZMM27B -> "ZMM27B"
+    | Register.ZMM27C -> "ZMM27C"
+    | Register.ZMM27D -> "ZMM27D"
+    | Register.ZMM27E -> "ZMM27E"
+    | Register.ZMM27F -> "ZMM27F"
+    | Register.ZMM27G -> "ZMM27G"
+    | Register.ZMM27H -> "ZMM27H"
+    | Register.ZMM28A -> "ZMM28A"
+    | Register.ZMM28B -> "ZMM28B"
+    | Register.ZMM28C -> "ZMM28C"
+    | Register.ZMM28D -> "ZMM28D"
+    | Register.ZMM28E -> "ZMM28E"
+    | Register.ZMM28F -> "ZMM28F"
+    | Register.ZMM28G -> "ZMM28G"
+    | Register.ZMM28H -> "ZMM28H"
+    | Register.ZMM29A -> "ZMM29A"
+    | Register.ZMM29B -> "ZMM29B"
+    | Register.ZMM29C -> "ZMM29C"
+    | Register.ZMM29D -> "ZMM29D"
+    | Register.ZMM29E -> "ZMM29E"
+    | Register.ZMM29F -> "ZMM29F"
+    | Register.ZMM29G -> "ZMM29G"
+    | Register.ZMM29H -> "ZMM29H"
+    | Register.ZMM30A -> "ZMM30A"
+    | Register.ZMM30B -> "ZMM30B"
+    | Register.ZMM30C -> "ZMM30C"
+    | Register.ZMM30D -> "ZMM30D"
+    | Register.ZMM30E -> "ZMM30E"
+    | Register.ZMM30F -> "ZMM30F"
+    | Register.ZMM30G -> "ZMM30G"
+    | Register.ZMM30H -> "ZMM30H"
+    | Register.ZMM31A -> "ZMM31A"
+    | Register.ZMM31B -> "ZMM31B"
+    | Register.ZMM31C -> "ZMM31C"
+    | Register.ZMM31D -> "ZMM31D"
+    | Register.ZMM31E -> "ZMM31E"
+    | Register.ZMM31F -> "ZMM31F"
+    | Register.ZMM31G -> "ZMM31G"
+    | Register.ZMM31H -> "ZMM31H"
     | Register.K0 -> "K0"
     | Register.K1 -> "K1"
     | Register.K2 -> "K2"
