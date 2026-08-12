@@ -2184,10 +2184,12 @@ type ParserTests() =
     ++ TILERELEASE ** []
     ||> testX64NoPrefixNoSeg
 
+  (* The manual writes EAX and XMM0 in angle brackets here: the encoding has
+     no field to name them, but the instruction reads them all the same. *)
   [<TestMethod>]
   member _.``Register-only bit pattern 11:rrr:bbb (1)``() =
     "f30f38dcc1"
-    ++ LOADIWKEY ** [ O.Reg R.XMM0; O.Reg R.XMM1 ]
+    ++ LOADIWKEY ** [ O.Reg R.XMM0; O.Reg R.XMM1; O.Reg R.EAX; O.Reg R.XMM0 ]
     ||> testX64NoPrefixNoSeg
 
   [<TestMethod>]
