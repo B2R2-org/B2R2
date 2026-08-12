@@ -2226,6 +2226,14 @@ type ParserTests() =
     ++ VMOVHLPS ** [ O.Reg R.XMM1; O.Reg R.XMM2; O.Reg R.XMM3 ]
     ||> testX64NoPrefixNoSeg
 
+  (* The 256-bit half of the vector length pair below: this is the length the
+     manual gives VEXTRACTF128, and the only one it decodes at. *)
+  [<TestMethod>]
+  member _.``Register-only ModRM form, VEX (2)``() =
+    "c4e37d19c100"
+    ++ VEXTRACTF128 ** [ O.Reg R.XMM1; O.Reg R.YMM0; O.Imm(0L, 8<rt>) ]
+    ||> testX64NoPrefixNoSeg
+
   [<TestMethod>]
   member _.``GPR operand from VEX.vvvv (1)``() =
     "c4e270f2c2"
@@ -2481,5 +2489,35 @@ type ParserTests() =
   member _.``Reserved register ParsingFailure Test (4)``() = (* DR8 *)
     "440f21c1"
     ++ MOV ** [ O.Reg R.RCX; O.Reg R.DR0 ]
+    ||> testException testX64NoPrefixNoSeg
+
+  (* An instruction the manual gives one vector length raises #UD at any other,
+     which VEX.L or EVEX.L'L selects (Vol. 2A Table 2-17). The table records
+     that length per entry, so the check reaches every such instruction rather
+     than the handful a list would name; these pin both directions of it. *)
+  [<TestMethod>]
+  member _.``Vector length ParsingFailure Test (1)``() = (* VMOVHLPS, L=1 *)
+    "c5fc12c1"
+    ++ VMOVHLPS ** [ O.Reg R.XMM0; O.Reg R.XMM0; O.Reg R.XMM1 ]
+    ||> testException testX64NoPrefixNoSeg
+
+  [<TestMethod>]
+  member _.``Vector length ParsingFailure Test (2)``() = (* VMOVLPD, L=1 *)
+    "c5fd1201"
+    ++ VMOVLPD ** [ O.Reg R.XMM0; O.Reg R.XMM0; O.Mem(R.RCX, 64<rt>) ]
+    ||> testException testX64NoPrefixNoSeg
+
+  [<TestMethod>]
+  member _.``Vector length ParsingFailure Test (3)``() = (* VDPPD, L=1 *)
+    "c4e37541c200"
+    ++ VDPPD ** [ O.Reg R.XMM0; O.Reg R.XMM1; O.Reg R.XMM2; O.Imm(0L, 8<rt>) ]
+    ||> testException testX64NoPrefixNoSeg
+
+  (* The other direction: VEXTRACTF128 exists only at 256 bits, so VEX.L=0
+     names nothing. No list ever covered this one. *)
+  [<TestMethod>]
+  member _.``Vector length ParsingFailure Test (4)``() =
+    "c4e37919c100"
+    ++ VEXTRACTF128 ** [ O.Reg R.XMM1; O.Reg R.YMM0; O.Imm(0L, 8<rt>) ]
     ||> testException testX64NoPrefixNoSeg
 #endif
