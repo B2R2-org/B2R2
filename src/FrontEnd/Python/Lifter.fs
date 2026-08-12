@@ -176,6 +176,56 @@ let private setupBlock name (ins: Instruction) bld =
   bld <+ AST.extCall (AST.app name [ AST.num (BitVector(target, rt)) ] rt)
   bld --!> ins.Length
 
+/// Up to 3.10 an exception travels the value stack as the three values the
+/// interpreter's own unwinding pushes -- traceback, exception, type, type
+/// topmost -- where 3.11 leaves the one object. So every opcode that consumes
+/// a raised exception consumes three slots there and one here, and a handler's
+/// own prologue takes the difference apart: `except E as e` is POP_TOP (the
+/// type), STORE_FAST (the exception, which is what carries the message), then
+/// POP_TOP again (the traceback).
+let private popExcTriple bld =
+  let excType = popFromStack bld
+  let exc = popFromStack bld
+  let traceback = popFromStack bld
+  [ excType; exc; traceback ]
+
+/// POP_EXCEPT up to 3.10: the three values it takes are the ones the unwind
+/// saved beneath the handler's own, so this both ends the handler and puts
+/// back whatever was being handled around it.
+let private popExceptLegacy (ins: Instruction) bld =
+  bld <!-- (ins.Address, ins.Length)
+  bld <+ AST.extCall (AST.app "POP_EXCEPT" (popExcTriple bld) rt)
+  bld --!> ins.Length
+
+/// RERAISE up to 3.10, which is how a handler that did not match, and a
+/// `finally` an exception passed through, give it back. The oparg 3.10 added
+/// says only where the re-raise is to be reported from, so it changes nothing
+/// about the three values taken.
+let private reraiseLegacy (ins: Instruction) bld =
+  bld <!-- (ins.Address, ins.Length)
+  bld <+ AST.extCall (AST.app "RERAISE" (popExcTriple bld) rt)
+  bld <+ AST.sideEffect SideEffect.Terminate
+  bld --!> ins.Length
+
+/// SETUP_WITH: up to 3.10 one opcode does what 3.11 splits between BEFORE_WITH
+/// and an entry in the exception table. The manager's __exit__ and the result
+/// of its __enter__ go on the stack, and a block records where an exception
+/// raised inside the body is to be cleaned up -- as a SETUP_FINALLY block,
+/// which is literally what the interpreter registers. It goes on BETWEEN the
+/// two pushes because its depth is what an unwind cuts the stack back to, and
+/// the handler expects to find __exit__ still there with the __enter__ result
+/// already gone.
+let private setupWith (ins: Instruction) bld =
+  bld <!-- (ins.Address, ins.Length)
+  let n = getIntArg ins * jumpArgScale ins
+  let target = AST.num (BitVector(ins.Address + uint64 ins.Length + uint64 n,
+                                  rt))
+  let mgr = popFromStack bld
+  pushToStack bld (exitMethod mgr)
+  bld <+ AST.extCall (AST.app "SETUP_FINALLY" [ target ] rt)
+  pushToStack bld (AST.app "__enter__" [ mgr ] rt)
+  bld --!> ins.Length
+
 /// CONVERT_VALUE, FORMAT_SIMPLE and FORMAT_WITH_SPEC are 3.12's FORMAT_VALUE
 /// split into three, each doing one part of what formatValue did.
 let private convertValue (ins: Instruction) bld =
@@ -532,10 +582,12 @@ let translate (binFile: PythonBinFile) (ins: Instruction) bld =
   (* Exception instructions *)
   | Opcode.RAISE_VARARGS ->
     translateRaiseVarargs ins bld
+  | Opcode.RERAISE when minor <= 10 ->
+    reraiseLegacy ins bld
   | Opcode.RERAISE ->
     bld <!-- (ins.Address, ins.Length)
-    (* 3.10 gave RERAISE an oparg: a nonzero one says the original
-       instruction offset sits beneath the exception, to be discarded. *)
+    (* From 3.11 a nonzero oparg says the original instruction offset sits
+       beneath the exception, to be discarded. *)
     let arg = getIntArgOr 0 ins
     let exc = popFromStack bld
     if arg <> 0 then discardTOS bld else ()
@@ -556,6 +608,8 @@ let translate (binFile: PythonBinFile) (ins: Instruction) bld =
     pushToStack bld (AST.app "PREV_EXC_INFO" [] rt)
     pushToStack bld exc
     bld --!> ins.Length
+  | Opcode.POP_EXCEPT when minor <= 10 ->
+    popExceptLegacy ins bld
   | Opcode.POP_EXCEPT ->
     bld <!-- (ins.Address, ins.Length)
     let exc = popFromStack bld
@@ -573,8 +627,13 @@ let translate (binFile: PythonBinFile) (ins: Instruction) bld =
     jumpIfNotExcMatch binFile ins bld
   | Opcode.WITH_EXCEPT_START ->
     bld <!-- (ins.Address, ins.Length)
-    let exc = peekFromStack bld 0
-    let exitFunc = peekFromStack bld 3
+    (* The exception occupies three slots up to 3.10 and one from 3.11, and
+       the three an unwind saved sit beneath it either way -- so __exit__,
+       which went on before the block, is six slots down there and three here.
+       What it is called with is the exception itself, which up to 3.10 is the
+       middle of the three rather than the type on top. *)
+    let exc = peekFromStack bld (if minor <= 10 then 1 else 0)
+    let exitFunc = peekFromStack bld (if minor <= 10 then 6 else 3)
     pushToStack bld (AST.app "WITH_EXCEPT_START" [ exitFunc; exc ] rt)
     bld --!> ins.Length
   | Opcode.WITH_CLEANUP_START ->
@@ -743,11 +802,7 @@ let translate (binFile: PythonBinFile) (ins: Instruction) bld =
      handler block as reachable via this edge (it may still be reached by
      other means, e.g. a later fallthrough). *)
   | Opcode.SETUP_WITH ->
-    bld <!-- (ins.Address, ins.Length)
-    let mgr = popFromStack bld
-    pushToStack bld (exitMethod mgr)
-    pushToStack bld (AST.app "__enter__" [ mgr ] rt)
-    bld --!> ins.Length
+    setupWith ins bld
   | Opcode.SETUP_ASYNC_WITH ->
     (* The awaited `__aenter__()` result is already on the stack (from the
        preceding GET_AWAITABLE + yield-from-loop) when this runs -- pop

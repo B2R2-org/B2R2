@@ -454,7 +454,13 @@ let jumpIfNotExcMatch (binFile: PythonBinFile) (ins: Instruction) bld =
   let fallDst = ins.Address + uint64 ins.Length
   let tLbl = AST.num (BitVector(jmpDst, rt))
   let fLbl = AST.num (BitVector(fallDst, rt))
-  let matches = AST.app "CHECK_EXC_MATCH" [ excValue; excType ] rt
+  (* Through truthOf rather than on the answer itself: CHECK_EXC_MATCH gives
+     back a Python bool, and a lifted value is a reference to an object, so
+     branching on it directly asks whether the runtime answered at all --
+     which it always does, False included. That is how 3.11's own
+     CHECK_EXC_MATCH reaches its jump too, by way of the POP_JUMP_IF_* that
+     follows it. *)
+  let matches = truthOf (AST.app "CHECK_EXC_MATCH" [ excValue; excType ] rt)
   (* Jump (to the next handler) when it does NOT match. *)
   bld <+ AST.intercjmp matches fLbl tLbl
   bld
