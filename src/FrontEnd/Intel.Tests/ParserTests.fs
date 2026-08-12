@@ -241,6 +241,21 @@ type ParserTests() =
     ++ INT ** [ O.Imm(1L, 8<rt>) ]
     ||> testX86NoPrefixNoSeg
 
+  (* The SDM writes the SETcc opcode column as "0F 94", leaving out the "/r"
+     that every other ModRM instruction carries, so the r/m8 operand is the
+     only thing saying a ModRM byte follows. *)
+  [<TestMethod>]
+  member _.``5.1.8 Bit and Byte Instructions (1)``() =
+    "0f94c1"
+    ++ SETE ** [ O.Reg R.CL ]
+    ||> testX86NoPrefixNoSeg
+
+  [<TestMethod>]
+  member _.``5.1.8 Bit and Byte Instructions (2)``() =
+    "0f9701"
+    ++ SETA ** [ O.Mem(R.ECX, 8<rt>) ]
+    ||> testX86NoPrefixNoSeg
+
   [<TestMethod>]
   member _.``5.1.9 I/O Instructions (1)``() =
     "ed"
@@ -1009,6 +1024,14 @@ type ParserTests() =
   member _.``5.19 System Instructions (10)``() =
     "0f23e9"
     ++ MOV ** [ O.Reg R.DR7; O.Reg R.ECX ]
+    ||> testX86NoPrefixNoSeg
+
+  (* Carries no ModRM byte, so the length is the opcode's own two bytes. A
+     third would swallow whatever instruction follows. *)
+  [<TestMethod>]
+  member _.``5.19 System Instructions (11)``() =
+    "0f37"
+    ++ GETSEC ** []
     ||> testX86NoPrefixNoSeg
 
   [<TestMethod>]

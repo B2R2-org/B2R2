@@ -613,13 +613,11 @@ type IntelParser(wordSz, reader) =
     | [| op1; op2; op3; op4 |] -> Operands.FourOperands(op1, op2, op3, op4)
     | _ -> failwith "Invalid number of operands."
 
-  /// Reads the ModRM byte where one follows the opcode. FIXME: SETcc and the
-  /// x87 escapes carry a ModRM byte the table records as NoModRM, so they are
-  /// named here until the extractor gets them right.
+  /// Reads the ModRM byte where one follows the opcode. The table is the only
+  /// authority on whether it does: reading one that is not there overstates
+  /// the length and swallows the instruction after it, as GETSEC showed.
   let readModRM span (phlp: ParsingHelper) (ic: InstructionCore) =
     match ic.ModRM with
-    | ModRMType.NoModRM when ic.OpEn = OpEn.M || ic.OpEn = OpEn.None ->
-      phlp.ReadByte span
     | ModRMType.NoModRM -> 0uy
     | _ -> phlp.ReadByte span (* every other kind, FixedModRM included *)
 
