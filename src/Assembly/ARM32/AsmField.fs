@@ -393,8 +393,7 @@ let signedImm width (value: int64) =
 
 /// Rotates a word left, which is how a modified immediate is taken apart.
 let private rotateLeft (value: uint32) amount =
-  if amount = 0 then value
-  else (value <<< amount) ||| (value >>> (32 - amount))
+  if amount = 0 then value else (value <<< amount) ||| (value >>> (32 - amount))
 
 /// <summary>
 /// The imm12 field of a data-processing instruction, which holds an eight-bit
@@ -419,8 +418,10 @@ let modifiedImm (value: int64) =
 /// or ASR by 32 shares its bit pattern with a shift by 0, and a ROR by 0 is
 /// RRX, which is why the amounts accepted differ per shift.
 let immShift = function
-  | ShiftOp.LSL, Imm 0u -> 0u
-  | ShiftOp.LSL, Imm amount when amount < 32u -> amount <<< 7
+  | ShiftOp.LSL, Imm 0u ->
+    0u
+  | ShiftOp.LSL, Imm amount when amount < 32u ->
+    amount <<< 7
   | ShiftOp.LSR, Imm amount when amount >= 1u && amount <= 32u ->
     ((amount % 32u) <<< 7) ||| (0b01u <<< 5)
   | ShiftOp.ASR, Imm amount when amount >= 1u && amount <= 32u ->
@@ -429,8 +430,10 @@ let immShift = function
     (amount <<< 7) ||| (0b11u <<< 5)
   (* RRX is a rotate right through carry by one place, and the disassembler
      writes that one as its amount; there is no other amount to encode. *)
-  | ShiftOp.RRX, _ -> 0b11u <<< 5
-  | shift, Imm amount -> fail $"{shift} by #{amount} is not encodable"
+  | ShiftOp.RRX, _ ->
+    0b11u <<< 5
+  | shift, Imm amount ->
+    fail $"{shift} by #{amount} is not encodable"
 
 /// <summary>
 /// The shift a MOV alias carries, whose amount is written differently from the

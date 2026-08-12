@@ -91,13 +91,13 @@ let private immediate hi ins =
     let mode, reg, exts = eaOf allows ins ins.Size dst
     let head = (hi <<< 9) ||| (sizeField ins <<< 6)
     eaWord head mode reg :: (immWords ins ins.Size imm @ exts)
-  | _ -> wrongOperands ins
+  | _ ->
+    wrongOperands ins
 
 /// The word holding a written bit number, whose low byte is all of it the
 /// processor reads.
 let private bitNumber v =
-  if v >= 0L && v <= 255L then uint16 v
-  else fail $"{v} is not a bit number"
+  if v >= 0L && v <= 255L then uint16 v else fail $"{v} is not a bit number"
 
 /// <summary>
 /// One of the instructions testing or changing one bit, whose number is either
@@ -121,7 +121,8 @@ let private bitOp code ins =
     let mode, reg, exts = eaOf allows ins ins.Size dst
     requireSize ins (if mode = 0us then Sz.Long else Sz.Byte)
     eaWord (0x0800us ||| (code <<< 6)) mode reg :: (bitNumber v :: exts)
-  | _ -> wrongOperands ins
+  | _ ->
+    wrongOperands ins
 
 /// A MOVEP, which moves alternating bytes between a data register and a
 /// peripheral, and so names its memory operand by a distance from an address
@@ -136,7 +137,8 @@ let private movep ins =
   | [ AsmMem(AsmDisp(v, an)); AsmReg dn ] ->
     let head = 0x0108us ||| (dataNum dn <<< 9) ||| (code <<< 6)
     [ head ||| addrNum an; wordOf v ]
-  | _ -> wrongOperands ins
+  | _ ->
+    wrongOperands ins
 
 /// A CMP2 or a CHK2, which check a register against a pair of bounds. They
 /// share every bit of the opcode word, one bit of the extension word telling
@@ -148,7 +150,8 @@ let private compareBounds isCheck ins =
     let head = 0x00c0us ||| (sizeField ins <<< 9)
     let ext = (if isCheck then 0x800us else 0us) ||| (generalNum rn <<< 12)
     eaWord head mode reg :: (ext :: exts)
-  | _ -> wrongOperands ins
+  | _ ->
+    wrongOperands ins
 
 /// A CALLM, which calls a module whose descriptor a control address names.
 let private callm ins =
@@ -157,7 +160,8 @@ let private callm ins =
   | [ AsmImm v; dst ] ->
     let mode, reg, exts = eaOf isControl ins Sz.NoSize dst
     eaWord 0x06c0us mode reg :: (bitNumber v :: exts)
-  | _ -> wrongOperands ins
+  | _ ->
+    wrongOperands ins
 
 /// An RTM, which shares its bits 11-6 with CALLM and is told apart by naming a
 /// register where CALLM names a control address.
@@ -180,7 +184,8 @@ let private cas ins =
     let mode, reg, exts = eaOf (both isMemory isAlterable) ins ins.Size dst
     let ext = (dataNum du <<< 6) ||| dataNum dc
     eaWord (casHead ins) mode reg :: (ext :: exts)
-  | _ -> wrongOperands ins
+  | _ ->
+    wrongOperands ins
 
 /// A CAS2, which compares and swaps two places at once, and so carries two
 /// extension words and names three pairs of registers.
@@ -190,7 +195,8 @@ let private cas2 ins =
     let ext1 = (generalNum rn1 <<< 12) ||| (dataNum du1 <<< 6) ||| dataNum dc1
     let ext2 = (generalNum rn2 <<< 12) ||| (dataNum du2 <<< 6) ||| dataNum dc2
     [ casHead ins ||| 0x3cus; ext1; ext2 ]
-  | _ -> wrongOperands ins
+  | _ ->
+    wrongOperands ins
 
 /// A MOVES, which moves between a register and the address space that a
 /// function code register selects.
@@ -205,7 +211,8 @@ let private moves ins =
   | [ src; AsmReg rn ] ->
     let mode, reg, exts = eaOf allows ins ins.Size src
     eaWord head mode reg :: ((generalNum rn <<< 12) :: exts)
-  | _ -> wrongOperands ins
+  | _ ->
+    wrongOperands ins
 
 /// The four bits naming which of the three groups a MOVE belongs to, which is
 /// how it says how wide it is.
@@ -236,10 +243,14 @@ let private moveToStatus ins hi src =
 /// the encoding space and only share the name.
 let private move ins =
   match ins.Operands with
-  | [ AsmReg Register.SR; dst ] -> moveFromStatus ins 0us dst
-  | [ AsmReg Register.CCR; dst ] -> moveFromStatus ins 1us dst
-  | [ src; AsmReg Register.CCR ] -> moveToStatus ins 2us src
-  | [ src; AsmReg Register.SR ] -> moveToStatus ins 3us src
+  | [ AsmReg Register.SR; dst ] ->
+    moveFromStatus ins 0us dst
+  | [ AsmReg Register.CCR; dst ] ->
+    moveFromStatus ins 1us dst
+  | [ src; AsmReg Register.CCR ] ->
+    moveToStatus ins 2us src
+  | [ src; AsmReg Register.SR ] ->
+    moveToStatus ins 3us src
   | [ AsmReg an; AsmReg Register.USP ] ->
     requireOnlySize ins Sz.Long
     [ 0x4e60us ||| addrNum an ]
@@ -251,10 +262,12 @@ let private move ins =
     let sm, sr, se = eaOf isAny ins ins.Size src
     if ins.Size = Sz.Byte && sm = 1us then
       fail "there is no byte of an address register"
-    else ()
+    else
+      ()
     let dm, dr, de = eaOf (both isData isAlterable) ins ins.Size dst
     (group ||| (dr <<< 9) ||| (dm <<< 6) ||| (sm <<< 3) ||| sr) :: (se @ de)
-  | _ -> wrongOperands ins
+  | _ ->
+    wrongOperands ins
 
 /// A MOVEA, which is a MOVE whose destination is an address register taken
 /// whole, there being no byte of one to move.
@@ -265,7 +278,8 @@ let private movea ins =
     let sm, sr, se = eaOf isAny ins ins.Size src
     let head = moveGroup ins ||| (addrNum an <<< 9) ||| 0x40us
     (head ||| (sm <<< 3) ||| sr) :: se
-  | _ -> wrongOperands ins
+  | _ ->
+    wrongOperands ins
 
 /// A MOVEQ, whose data is a byte the processor widens to the whole of the
 /// register it lands in.
@@ -289,7 +303,8 @@ let private chk ins =
     let mode, reg, exts = eaOf isData ins ins.Size src
     let head = 0x4000us ||| (dataNum dn <<< 9) ||| (opmode <<< 6)
     eaWord head mode reg :: exts
-  | _ -> wrongOperands ins
+  | _ ->
+    wrongOperands ins
 
 /// A LEA, whose source has to be a control address, there being no address to
 /// load otherwise.
@@ -299,7 +314,8 @@ let private lea ins =
   | [ src; AsmReg an ] ->
     let mode, reg, exts = eaOf isControl ins Sz.Long src
     eaWord (0x41c0us ||| (addrNum an <<< 9)) mode reg :: exts
-  | _ -> wrongOperands ins
+  | _ ->
+    wrongOperands ins
 
 /// One of the instructions that write their result back where they found it, so
 /// that their operand has to be data alterable.
@@ -309,7 +325,8 @@ let private unary hi ins =
     let mode, reg, exts = eaOf (both isData isAlterable) ins ins.Size dst
     let head = 0x4000us ||| (hi <<< 9) ||| (sizeField ins <<< 6)
     eaWord head mode reg :: exts
-  | _ -> wrongOperands ins
+  | _ ->
+    wrongOperands ins
 
 /// An NBCD, which negates the two decimal digits one byte holds.
 let private nbcd ins =
@@ -318,7 +335,8 @@ let private nbcd ins =
   | [ dst ] ->
     let mode, reg, exts = eaOf (both isData isAlterable) ins Sz.Byte dst
     eaWord 0x4800us mode reg :: exts
-  | _ -> wrongOperands ins
+  | _ ->
+    wrongOperands ins
 
 /// A LINK, which sets up a frame of the size it names. The long form is a 68020
 /// addition and sits where an NBCD naming an address register would.
@@ -330,7 +348,8 @@ let private link ins =
   | [ AsmReg an; AsmImm v ] ->
     requireOnlySize ins Sz.Word
     [ 0x4e50us ||| addrNum an; wordOf v ]
-  | _ -> wrongOperands ins
+  | _ ->
+    wrongOperands ins
 
 /// A SWAP, which exchanges the two halves of a data register.
 let private swap ins =
@@ -353,7 +372,8 @@ let private pea ins =
   | [ src ] ->
     let mode, reg, exts = eaOf isControl ins Sz.Long src
     eaWord 0x4840us mode reg :: exts
-  | _ -> wrongOperands ins
+  | _ ->
+    wrongOperands ins
 
 /// An EXT, which widens the low half of a data register to the whole of it.
 let private ext ins =
@@ -391,7 +411,8 @@ let private movem ins =
     let mode, reg, exts = eaOf isReadableRun ins ins.Size src
     let mask = regMask Register.D0 16 false (regsOf ins list)
     eaWord (0x4c00us ||| (opmode <<< 6)) mode reg :: (mask :: exts)
-  | _ -> wrongOperands ins
+  | _ ->
+    wrongOperands ins
 
 /// A TAS, which tests one byte and sets its topmost bit without letting
 /// anything else at it in between.
@@ -401,7 +422,8 @@ let private tas ins =
   | [ dst ] ->
     let mode, reg, exts = eaOf (both isData isAlterable) ins Sz.Byte dst
     eaWord 0x4ac0us mode reg :: exts
-  | _ -> wrongOperands ins
+  | _ ->
+    wrongOperands ins
 
 /// A TST, whose operand the 68020 widened to any addressing mode at all, there
 /// being nothing to write back. An address register is still no operand at byte
@@ -414,9 +436,11 @@ let private tst ins =
     let mode, reg, exts = eaOf allows ins ins.Size dst
     if ins.Size = Sz.Byte && mode = 1us then
       fail "there is no byte of an address register"
-    else ()
+    else
+      ()
     eaWord (0x4a00us ||| (sizeField ins <<< 6)) mode reg :: exts
-  | _ -> wrongOperands ins
+  | _ ->
+    wrongOperands ins
 
 /// One of the word-wide divides or multiplies, whose source is any data
 /// addressing mode and whose destination is a data register.
@@ -425,7 +449,8 @@ let private divMulWord head ins =
   | [ src; AsmReg dn ] ->
     let mode, reg, exts = eaOf isData ins Sz.Word src
     eaWord (head ||| (dataNum dn <<< 9)) mode reg :: exts
-  | _ -> wrongOperands ins
+  | _ ->
+    wrongOperands ins
 
 /// The long form of a multiply, a 68020 addition whose extension word says
 /// whether it is signed and whether the product fills one register or two.
@@ -437,12 +462,15 @@ let private mulLong signed ins =
     let mode, reg, exts = eaOf isData ins Sz.Long src
     let ext =
       match dst with
-      | AsmReg dl -> (dataNum dl <<< 12) ||| signBit
+      | AsmReg dl ->
+        (dataNum dl <<< 12) ||| signBit
       | AsmRegPair(dh, dl) ->
         (dataNum dl <<< 12) ||| signBit ||| 0x400us ||| dataNum dh
-      | _ -> wrongOperands ins
+      | _ ->
+        wrongOperands ins
     eaWord 0x4c00us mode reg :: (ext :: exts)
-  | _ -> wrongOperands ins
+  | _ ->
+    wrongOperands ins
 
 /// The long form of a divide, whose extension word says whether it is signed
 /// and whether the dividend fills one register or two.
@@ -453,7 +481,8 @@ let private divLong code ins =
     let mode, reg, exts = eaOf isData ins Sz.Long src
     let ext = (dataNum dq <<< 12) ||| code ||| dataNum dr
     eaWord 0x4c40us mode reg :: (ext :: exts)
-  | _ -> wrongOperands ins
+  | _ ->
+    wrongOperands ins
 
 /// A multiply, which is one instruction at word width and another at long
 /// width.
@@ -487,7 +516,8 @@ let private jump head ins =
   | [ dst ] ->
     let mode, reg, exts = eaOf isControl ins Sz.NoSize dst
     eaWord head mode reg :: exts
-  | _ -> wrongOperands ins
+  | _ ->
+    wrongOperands ins
 
 /// A code the given member of the family and every later one reads.
 let private laterCode ins model code =
@@ -526,7 +556,8 @@ let private movec ins =
     [ 0x4e7bus; (generalNum rn <<< 12) ||| controlCode ins rc ]
   | [ AsmReg rc; AsmReg rn ] ->
     [ 0x4e7aus; (generalNum rn <<< 12) ||| controlCode ins rc ]
-  | _ -> wrongOperands ins
+  | _ ->
+    wrongOperands ins
 
 /// An instruction naming nothing at all, and therefore one word spelt out to
 /// the last bit.
@@ -565,13 +596,14 @@ let private quick isSub ins =
     let mode, reg, exts = eaOf isAlterable ins ins.Size dst
     if ins.Size = Sz.Byte && mode = 1us then
       fail "there is no byte of an address register"
-    else ()
+    else
+      ()
     let data = if v = 8L then 0us else uint16 v
     let subBit = if isSub then 0x100us else 0us
-    let head =
-      0x5000us ||| subBit ||| (data <<< 9) ||| (sizeField ins <<< 6)
+    let head = 0x5000us ||| subBit ||| (data <<< 9) ||| (sizeField ins <<< 6)
     eaWord head mode reg :: exts
-  | _ -> wrongOperands ins
+  | _ ->
+    wrongOperands ins
 
 /// An Scc, which writes one byte saying whether its condition holds.
 let private setcc cc ins =
@@ -580,7 +612,8 @@ let private setcc cc ins =
   | [ dst ] ->
     let mode, reg, exts = eaOf (both isData isAlterable) ins Sz.Byte dst
     eaWord (0x50c0us ||| (cc <<< 8)) mode reg :: exts
-  | _ -> wrongOperands ins
+  | _ ->
+    wrongOperands ins
 
 /// A DBcc, which counts a register down and branches while the count lasts and
 /// its condition does not hold.
@@ -590,7 +623,8 @@ let private dbcc cc ins =
   | [ AsmReg dn; target ] ->
     let head = 0x50c8us ||| (cc <<< 8) ||| dataNum dn
     head :: relWord (relOf ins target)
-  | _ -> wrongOperands ins
+  | _ ->
+    wrongOperands ins
 
 /// A TRAPcc, whose operand the low three bits of the opcode word name: one word
 /// of immediate data, two, or none at all.
@@ -605,7 +639,8 @@ let private trapcc cc ins =
   | [ AsmImm v ] ->
     requireOnlySize ins Sz.Word
     [ head ||| 2us; wordOf v ]
-  | _ -> wrongOperands ins
+  | _ ->
+    wrongOperands ins
 
 /// <summary>
 /// The byte of the opcode word that holds a short branch's displacement.
@@ -641,7 +676,8 @@ let private branch cc ins =
     | _ ->
       requireOnlySize ins Sz.Word
       head :: relWord disp
-  | _ -> wrongOperands ins
+  | _ ->
+    wrongOperands ins
 
 /// The bits naming the pair of operands that the decimal and the extended
 /// arithmetic work on, which is either two data registers or two predecremented
@@ -652,7 +688,8 @@ let private pairFields ins =
     (dataNum dst <<< 9) ||| dataNum src
   | AsmMem(AsmPreDec src) :: AsmMem(AsmPreDec dst) :: _ ->
     (addrNum dst <<< 9) ||| 8us ||| addrNum src
-  | _ -> wrongOperands ins
+  | _ ->
+    wrongOperands ins
 
 /// A decimal addition or subtraction, which works on one byte holding two
 /// digits.
@@ -677,7 +714,8 @@ let private packing head ins =
   | [ src; dst; AsmImm adj ] ->
     let fields = pairFields { ins with Operands = [ src; dst ] }
     [ head ||| fields; wordOf adj ]
-  | _ -> wrongOperands ins
+  | _ ->
+    wrongOperands ins
 
 /// One of the logical instructions, whose source is any data addressing mode
 /// where the result goes to the register, and whose destination is alterable
@@ -693,7 +731,8 @@ let private logical head ins =
     let mode, reg, exts = eaOf (both isMemory isAlterable) ins ins.Size dst
     let head = head ||| (dataNum dn <<< 9) ||| ((size ||| 4us) <<< 6)
     eaWord head mode reg :: exts
-  | _ -> wrongOperands ins
+  | _ ->
+    wrongOperands ins
 
 /// An ADD or a SUB. Its source may be an address register at word and long
 /// width, there being no byte of one, and where the result goes back to memory
@@ -710,7 +749,8 @@ let private arith head ins =
     let mode, reg, exts = eaOf (both isMemory isAlterable) ins ins.Size dst
     let head = head ||| (dataNum dn <<< 9) ||| ((size ||| 4us) <<< 6)
     eaWord head mode reg :: exts
-  | _ -> wrongOperands ins
+  | _ ->
+    wrongOperands ins
 
 /// A CMP, which has only the one direction, there being nothing to write back.
 let private compare ins =
@@ -720,7 +760,8 @@ let private compare ins =
     let mode, reg, exts = eaOf allows ins ins.Size src
     let head = 0xb000us ||| (dataNum dn <<< 9) ||| (sizeField ins <<< 6)
     eaWord head mode reg :: exts
-  | _ -> wrongOperands ins
+  | _ ->
+    wrongOperands ins
 
 /// An EOR, whose destination is data alterable rather than the alterable memory
 /// the OR and the AND require of theirs, a data register being something one
@@ -732,7 +773,8 @@ let private exclusiveOr ins =
     let size = sizeField ins ||| 4us
     let head = 0xb000us ||| (dataNum dn <<< 9) ||| (size <<< 6)
     eaWord head mode reg :: exts
-  | _ -> wrongOperands ins
+  | _ ->
+    wrongOperands ins
 
 /// An ADDA, a SUBA, or a CMPA, whose source is any addressing mode at all and
 /// whose destination is an address register taken whole.
@@ -744,7 +786,8 @@ let private arithAddr head ins =
     let mode, reg, exts = eaOf isAny ins ins.Size src
     let head = head ||| (addrNum an <<< 9) ||| (opmode <<< 6)
     eaWord head mode reg :: exts
-  | _ -> wrongOperands ins
+  | _ ->
+    wrongOperands ins
 
 /// A CMPM, which walks two blocks of memory a postincrement at a time.
 let private cmpm ins =
@@ -752,7 +795,8 @@ let private cmpm ins =
   | [ AsmMem(AsmPostInc src); AsmMem(AsmPostInc dst) ] ->
     let head = 0xb108us ||| (addrNum dst <<< 9) ||| (sizeField ins <<< 6)
     [ head ||| addrNum src ]
-  | _ -> wrongOperands ins
+  | _ ->
+    wrongOperands ins
 
 /// An EXG, whose two registers the width field and the addressing mode between
 /// them say the kind of. There is no exchange of an address register with a
@@ -767,7 +811,8 @@ let private exg ins =
     [ 0xc148us ||| (addrNum x <<< 9) ||| addrNum y ]
   | [ AsmReg x; AsmReg y ] ->
     [ 0xc188us ||| (dataNum x <<< 9) ||| addrNum y ]
-  | _ -> wrongOperands ins
+  | _ ->
+    wrongOperands ins
 
 /// A shift or a rotate, which moves a data register by a written number of
 /// places or by what another register holds, or one word of memory by one
@@ -786,7 +831,8 @@ let private shift kind isLeft ins =
     requireOnlySize ins Sz.Word
     let mode, reg, exts = eaOf (both isMemory isAlterable) ins Sz.Word dst
     eaWord (0xe0c0us ||| (kind <<< 9) ||| dir) mode reg :: exts
-  | _ -> wrongOperands ins
+  | _ ->
+    wrongOperands ins
 
 /// The bits of a bit field extension word saying where the field starts and how
 /// many bits it holds, each of which is either written out or held in a data
@@ -825,7 +871,8 @@ let private fieldOnly code ins =
       if writes then both isRegOrControl isAlterable else isRegOrControl
     let mode, reg, exts = eaOf allows ins Sz.NoSize ea
     eaWord head mode reg :: (fieldBits offset width :: exts)
-  | _ -> wrongOperands ins
+  | _ ->
+    wrongOperands ins
 
 /// One of the bit field instructions moving the field to a register, which the
 /// extension word names.
@@ -836,7 +883,8 @@ let private fieldExtract code ins =
     let mode, reg, exts = eaOf isRegOrControl ins Sz.NoSize ea
     let ext = (dataNum dn <<< 12) ||| fieldBits offset width
     eaWord head mode reg :: (ext :: exts)
-  | _ -> wrongOperands ins
+  | _ ->
+    wrongOperands ins
 
 /// A BFINS, which moves a register into the field, and so needs the field to be
 /// alterable.
@@ -848,7 +896,8 @@ let private fieldInsert ins =
     let mode, reg, exts = eaOf allows ins Sz.NoSize ea
     let ext = (dataNum dn <<< 12) ||| fieldBits offset width
     eaWord head mode reg :: (ext :: exts)
-  | _ -> wrongOperands ins
+  | _ ->
+    wrongOperands ins
 
 /// A CINV or a CPUSH, whose scope the mnemonic spells out and whose caches it
 /// names as an operand.
@@ -858,10 +907,12 @@ let private cache isPush scope ins =
   let pushBit = if isPush then 0x20us else 0us
   let head = 0xf400us ||| pushBit ||| (scope <<< 3)
   match ins.Operands with
-  | [ AsmCaches c ] when scope = 3us -> [ head ||| (uint16 c <<< 6) ]
+  | [ AsmCaches c ] when scope = 3us ->
+    [ head ||| (uint16 c <<< 6) ]
   | [ AsmCaches c; AsmMem(AsmDirect an) ] when scope <> 3us ->
     [ head ||| (uint16 c <<< 6) ||| addrNum an ]
-  | _ -> wrongOperands ins
+  | _ ->
+    wrongOperands ins
 
 /// A PFLUSH, which throws away what the translation cache holds, either of one
 /// page or of the whole of it.
@@ -900,7 +951,8 @@ let private move16 ins =
     (0xf610us ||| addrNum ay) :: absLongWords ins dst
   | [ src; AsmMem(AsmDirect ay) ] ->
     (0xf618us ||| addrNum ay) :: absLongWords ins src
-  | _ -> wrongOperands ins
+  | _ ->
+    wrongOperands ins
 
 /// The instructions computing from a written number, testing or changing one
 /// bit, and the handful the 68020 fitted in beside them.

@@ -145,8 +145,10 @@ let roundingOf = function
 let orderingOf = function
   | [ AsmOrder(aq, rl) ] ->
     ((if aq then 1u else 0u) <<< 1) ||| (if rl then 1u else 0u)
-  | [] -> 0u
-  | _ -> fail "this does not say how an atomic instruction is ordered"
+  | [] ->
+    0u
+  | _ ->
+    fail "this does not say how an atomic instruction is ordered"
 
 (* The seven bits every RISCV64 word ends in, which are the coarsest thing
    saying what an instruction is. Every one of them stands for a whole family,

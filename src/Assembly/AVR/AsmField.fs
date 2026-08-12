@@ -217,8 +217,7 @@ let wordImmWord (head: uint16) (d: uint16) (value: uint16) =
   head ||| ((value >>> 4) <<< 6) ||| (d <<< 4) ||| (value &&& 0xFus)
 
 /// One word naming a place in the space of the peripherals and a bit of it.
-let ioBitWord (head: uint16) (a: uint16) (b: uint16) =
-  head ||| (a <<< 3) ||| b
+let ioBitWord (head: uint16) (a: uint16) (b: uint16) = head ||| (a <<< 3) ||| b
 
 /// <summary>
 /// One word holding how far from an index register the memory it reaches lies.

@@ -123,8 +123,7 @@ module internal PPCSweep =
 
   /// What an operand names, keeping which register it was: a number keeps only
   /// that it is one, because its value is not what an encoder gets wrong.
-  let private shapeOfPart (part: string) =
-    if isNumber part then "imm" else part
+  let private shapeOfPart (part: string) = if isNumber part then "imm" else part
 
   /// What an operand names and nothing else, which is the coarser of the two
   /// keys: one form is worth reaching once however many registers it is
@@ -154,7 +153,8 @@ module internal PPCSweep =
   /// The key a probe is kept once for, given how much of an operand it keeps.
   let private keyOf kind (text: string) =
     match text.Split ' ' |> Array.toList with
-    | [] | [ _ ] -> text
+    | [] | [ _ ] ->
+      text
     | mnemonic :: rest ->
       (String.concat " " rest).Split ','
       |> Array.map (describe kind)

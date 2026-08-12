@@ -43,8 +43,7 @@ let [<Literal>] private OpFloatOnly = 0x38000000u
 
 /// One word of the kind the floating-point unit computes with, given the two
 /// bits saying which family of them it is.
-let private floating family rest =
-  OpCoprocessor ||| (family <<< 9) ||| rest
+let private floating family rest = OpCoprocessor ||| (family <<< 9) ||| rest
 
 /// <summary>
 /// One word of the kind the floating-point unit alone answers for.
@@ -75,14 +74,14 @@ let private wideUnary subop ins =
   match ins.Operands with
   | [ Rg s; Rg d ] ->
     floating 0u ((fpr s <<< 21) ||| (subop <<< 13) ||| (fmt <<< 11) ||| fpr d)
-  | _ -> wrongOperands ins
+  | _ ->
+    wrongOperands ins
 
 /// The same, where what it computes from and what it lands in are halves.
 let private halfUnary subop ins =
   let fmt = narrowFormat ins.Suffixes
   match ins.Operands with
-  | [ Rg s; Rg d ] ->
-    halved 0u subop fmt (atHalf 21 7 s ||| atHalf 0 6 d)
+  | [ Rg s; Rg d ] -> halved 0u subop fmt (atHalf 21 7 s ||| atHalf 0 6 d)
   | _ -> wrongOperands ins
 
 /// An instruction computing from one floating-point register into another,
@@ -97,7 +96,8 @@ let private wideBinary subop ins =
   | [ Rg s2; Rg s1; Rg d ] ->
     floating 3u ((fpr s2 <<< 21) ||| (fpr s1 <<< 16) ||| (subop <<< 13)
                  ||| (fmt <<< 11) ||| fpr d)
-  | _ -> wrongOperands ins
+  | _ ->
+    wrongOperands ins
 
 /// The same, where all three are halves.
 let private halfBinary subop ins =
@@ -105,7 +105,8 @@ let private halfBinary subop ins =
   match ins.Operands with
   | [ Rg s2; Rg s1; Rg d ] ->
     halved 3u subop fmt (atHalf 21 7 s2 ||| atHalf 16 12 s1 ||| atHalf 0 6 d)
-  | _ -> wrongOperands ins
+  | _ ->
+    wrongOperands ins
 
 /// An instruction computing from two floating-point registers into a third.
 let private binary subop ins = orTry (wideBinary subop) (halfBinary subop) ins
@@ -165,13 +166,15 @@ let private conversionForms () =
 /// which is the one floating-point instruction whose name says which two.
 let private wideFcnv forms ins =
   match List.tryFind (fst >> (=) ins.Suffixes) forms with
-  | None -> fail "no conversion is written this way"
+  | None ->
+    fail "no conversion is written this way"
   | Some(_, (subop, bits)) ->
     match ins.Operands with
     | [ Rg s; Rg d ] ->
       floating 1u ((fpr s <<< 21) ||| (subop <<< 15) ||| ((bits &&& 3u) <<< 13)
                    ||| ((bits >>> 2) <<< 11) ||| fpr d)
-    | _ -> wrongOperands ins
+    | _ ->
+      wrongOperands ins
 
 /// <summary>
 /// The same, where what is converted and where it lands are halves.
@@ -182,15 +185,18 @@ let private wideFcnv forms ins =
 /// </summary>
 let private halfFcnv forms ins =
   match List.tryFind (fst >> (=) ins.Suffixes) forms with
-  | None -> fail "no conversion is written this way"
+  | None ->
+    fail "no conversion is written this way"
   | Some(_, (subop, bits)) when bits &&& 0b1010u = 0u ->
     match ins.Operands with
     | [ Rg s; Rg d ] ->
       halved 1u 0u 0u ((subop <<< 15) ||| ((bits &&& 1u) <<< 13)
                        ||| (((bits >>> 2) &&& 1u) <<< 11) ||| atHalf 21 7 s
                        ||| atHalf 0 6 d)
-    | _ -> wrongOperands ins
-  | Some _ -> fail "no conversion of a half register is written this way"
+    | _ ->
+      wrongOperands ins
+  | Some _ ->
+    fail "no conversion of a half register is written this way"
 
 /// The instruction turning a number of one width into a number of another.
 let private fcnv forms ins = orTry (wideFcnv forms) (halfFcnv forms) ins
@@ -212,11 +218,12 @@ let private wideFcmp ins =
   let fmt = floatFormat flags
   let c = floatCompareCondition (condition rest)
   match ins.Operands with
-  | [ Rg s2; Rg s1 ] -> decide 0u fmt 0u c ((fpr s2 <<< 21) ||| (fpr s1 <<< 16))
+  | [ Rg s2; Rg s1 ] ->
+    decide 0u fmt 0u c ((fpr s2 <<< 21) ||| (fpr s1 <<< 16))
   | [ Rg s2; Rg s1; Im which ] when which < 7UL ->
-    decide (uint32 which + 1u) fmt 0u c
-      ((fpr s2 <<< 21) ||| (fpr s1 <<< 16))
-  | _ -> wrongOperands ins
+    decide (uint32 which + 1u) fmt 0u c ((fpr s2 <<< 21) ||| (fpr s1 <<< 16))
+  | _ ->
+    wrongOperands ins
 
 /// The same, where what is compared are halves, which leaves no room for
 /// saying which of several answers the comparison is to leave behind.
@@ -227,7 +234,8 @@ let private halfFcmp ins =
   match ins.Operands with
   | [ Rg s2; Rg s1 ] ->
     halved 2u 0u fmt (atHalf 21 7 s2 ||| atHalf 16 12 s1 ||| c)
-  | _ -> wrongOperands ins
+  | _ ->
+    wrongOperands ins
 
 /// The comparison of two floating-point numbers.
 let private fcmp ins = orTry wideFcmp halfFcmp ins
@@ -241,12 +249,16 @@ let private fcmp ins = orTry wideFcmp halfFcmp ins
 /// </summary>
 let private ftest ins =
   match ins.Suffixes, ins.Operands with
-  | [], [] -> decide 1u 0u 1u 0u 0u
-  | [ token ], [] -> decide 1u 0u 1u (floatTestCondition token) 0u
+  | [], [] ->
+    decide 1u 0u 1u 0u 0u
+  | [ token ], [] ->
+    decide 1u 0u 1u (floatTestCondition token) 0u
   | [], [ Im which ] when which < 7UL ->
     decide ((uint32 which + 1u) ^^^ 1u) 0u 1u 0u 0u
-  | _, [] -> wrongSuffixes ins
-  | _ -> wrongOperands ins
+  | _, [] ->
+    wrongSuffixes ins
+  | _ ->
+    wrongOperands ins
 
 /// One word of the kind turning on or off the coprocessor watching how a
 /// program runs, which names that coprocessor rather than the floating-point
@@ -285,8 +297,10 @@ let private copr ins =
     let sop = unsigned 22 sop
     OpCoprocessor ||| ((sop >>> 5) <<< 9) ||| (unsigned 3 uid <<< 6)
     ||| (bit "n" flags <<< 5) ||| (sop &&& 0x1Fu)
-  | _, [] -> fail "this names no unit and nothing for it to do"
-  | _ -> wrongOperands ins
+  | _, [] ->
+    fail "this names no unit and nothing for it to do"
+  | _ ->
+    wrongOperands ins
 
 /// The instruction multiplying two whole numbers held in floating-point
 /// registers, which the floating-point unit alone is asked for.
@@ -294,9 +308,12 @@ let private xmpyu ins =
   nothingLeft ins ins.Suffixes
   match ins.Operands with
   | [ Rg s2; Rg s1; Rg d ] ->
-    halved 3u 2u 0u
+    halved 3u
+      2u
+      0u
       (atHalf 21 7 s2 ||| atHalf 16 12 s1 ||| (1u <<< 8) ||| fpr d)
-  | _ -> wrongOperands ins
+  | _ ->
+    wrongOperands ins
 
 /// <summary>
 /// The instruction multiplying and then adding without rounding in between.
@@ -317,7 +334,8 @@ let private fused negated ins =
     OpFused ||| atHalf 21 7 s2 ||| atHalf 16 12 s1 ||| ((n >>> 2) <<< 13)
     ||| (fmt <<< 11) ||| ((n &&& 3u) <<< 9) ||| (right <<< 8)
     ||| (negated <<< 5) ||| atHalf 0 6 d
-  | _ -> wrongOperands ins
+  | _ ->
+    wrongOperands ins
 
 /// The instructions doing a multiplication and an addition or a subtraction at
 /// once, which name five registers because the two share nothing.
@@ -337,7 +355,8 @@ let private twoAtOnce opcode ins =
   | [ Rg m1; Rg m2; Rg tm; Rg a; Rg ta ] ->
     (opcode <<< 26) ||| (upper m1 <<< 21) ||| (upper m2 <<< 16)
     ||| (upper ta <<< 11) ||| (upper a <<< 6) ||| (sgl <<< 5) ||| upper tm
-  | _ -> wrongOperands ins
+  | _ ->
+    wrongOperands ins
 
 /// <summary>
 /// An instruction left to a unit outside the processor that is not the
@@ -358,7 +377,8 @@ let private spop family high shift build ins =
     let upper = if shift then sop >>> 5 else sop
     OpSpecial ||| (upper <<< 11) ||| (family <<< 9) ||| (unsigned 3 sfu <<< 6)
     ||| (bit "n" flags <<< 5) ||| low ||| build ins
-  | _ -> fail "this names no unit and nothing for it to do"
+  | _ ->
+    fail "this names no unit and nothing for it to do"
 
 /// What an instruction left to a unit outside the processor names besides the
 /// unit itself, which for two of the four is nothing.

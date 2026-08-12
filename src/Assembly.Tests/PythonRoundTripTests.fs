@@ -90,7 +90,8 @@ type PythonRoundTripTests() =
     | PyCode co ->
       let ins = unit.ParseInstruction(fst co.Code)
       Some(ins.Disasm(), int ins.Length)
-    | _ -> None
+    | _ ->
+      None
 
   /// <summary>
   /// Encodes the given source and disassembles the result.
@@ -106,7 +107,8 @@ type PythonRoundTripTests() =
   /// </summary>
   static let roundTrip ver (source: string) =
     match encodeFirst ver source with
-    | None -> PythonUnsupported
+    | None ->
+      PythonUnsupported
     | Some encoded ->
       match (try disasmFirst ver encoded with _ -> None) with
       | Some(actual, length) when actual = source ->
@@ -115,8 +117,10 @@ type PythonRoundTripTests() =
            instruction would start in the middle of. *)
         if length = encoded.Length then PythonPreserved
         else PythonAltered $"{length} of {encoded.Length} bytes"
-      | Some(actual, _) -> PythonAltered actual
-      | None -> PythonUnsupported
+      | Some(actual, _) ->
+        PythonAltered actual
+      | None ->
+        PythonUnsupported
 
   static let brokenProbe (probe: PythonProbe) =
     let where = $"{probe.Version}"
@@ -157,14 +161,16 @@ type PythonRoundTripTests() =
   static let split (text: string) =
     let sep = [| ' '; '\t' |]
     match text.Split(sep, System.StringSplitOptions.RemoveEmptyEntries) with
-    | [||] -> None
+    | [||] ->
+      None
     | parts ->
       let arg =
         if parts.Length > 1 then
           match System.Int32.TryParse parts[1] with
           | true, n -> Some n
           | _ -> None
-        else None
+        else
+          None
       Some(parts[0], arg)
 
   /// <summary>
@@ -190,9 +196,11 @@ type PythonRoundTripTests() =
            | Some bs ->
              yield! bs
              yield! Array.zeroCreate (stride - bs.Length)
-           | None -> yield! Array.zeroCreate stride |]
+           | None ->
+             yield! Array.zeroCreate stride |]
     let path = Path.Combine(dir, $"widths-{int version}.pyc")
-    let pyc = Builder.build version (Builder.magicOf version)
+    let pyc = Builder.build version
+                            (Builder.magicOf version)
                             (Builder.codeWith width laid)
     File.WriteAllBytes(path, pyc)
     let hdl = BinHandle.LoadFile path
@@ -201,14 +209,16 @@ type PythonRoundTripTests() =
     | PyCode co ->
       [ for i, (source, bytes) in List.indexed encoded do
           match bytes with
-          | None -> yield $"{version} '{source}' is not encodable"
+          | None ->
+            yield $"{version} '{source}' is not encodable"
           | Some bs ->
             let at = fst co.Code + uint64 (i * stride)
             let read =
               try
                 let ins = unit.ParseInstruction at
                 Some(ins.Disasm(), int ins.Length)
-              with _ -> None
+              with _ ->
+                None
             match read with
             | None ->
               yield $"{version} '{source}' did not decode"
@@ -217,8 +227,10 @@ type PythonRoundTripTests() =
                 yield $"{version} '{source}' wrote {bs.Length}, read {len}"
               elif split text <> split source then
                 yield $"{version} '{source}' read back as '{text}'"
-              else () ]
-    | _ -> [ $"{version} produced no code object" ]
+              else
+                () ]
+    | _ ->
+      [ $"{version} produced no code object" ]
 
   /// <summary>
   /// Every test below it says that nothing among the instructions it found is
@@ -234,8 +246,7 @@ type PythonRoundTripTests() =
   [<TestMethod>]
   [<TestCategory("Sweep")>]
   member _.``Every version the front end reads is swept``() =
-    let seen =
-      probes.Force() |> List.map (fun p -> p.Version) |> List.distinct
+    let seen = probes.Force() |> List.map (fun p -> p.Version) |> List.distinct
     Assert.AreEqual<int>(List.length PythonSweep.versions, List.length seen)
 
   [<TestMethod>]
@@ -249,7 +260,8 @@ type PythonRoundTripTests() =
     Assert.AreEqual<string>(
       "",
       String.concat "\n" broken,
-      $"{List.length broken} instruction(s) the assembler gets wrong")
+      $"{List.length broken} instruction(s) the assembler gets wrong"
+    )
 
   [<TestMethod>]
   [<TestCategory("Sweep")>]
@@ -263,7 +275,8 @@ type PythonRoundTripTests() =
     Assert.AreEqual<string>(
       "",
       String.concat "\n" broken,
-      $"{List.length broken} argument(s) the assembler gets wrong")
+      $"{List.length broken} argument(s) the assembler gets wrong"
+    )
 
   [<TestMethod>]
   member _.``A name no version knows is refused rather than encoded``() =

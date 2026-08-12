@@ -189,7 +189,8 @@ let private moveByte ins =
     nmWord 0x8us 0x0us (gpr n) (disp4 d)
   | [ Disp(d, m); Rg Register.R0 ] when isGeneral m ->
     nmWord 0x8us 0x4us (gpr m) (disp4 d)
-  | _ -> movShared 0x0us ins
+  | _ ->
+    movShared 0x0us ins
 
 /// A move of one word, which reaches the same way, and reads besides what lies
 /// a written distance from where the instruction itself sits.
@@ -199,8 +200,10 @@ let private moveWord ins =
     nmWord 0x8us 0x1us (gpr n) (disp4 d)
   | [ Disp(d, m); Rg Register.R0 ] when isGeneral m ->
     nmWord 0x8us 0x5us (gpr m) (disp4 d)
-  | [ Disp(d, Register.PC); Rg n ] -> nWord 0x9us (gpr n) (disp8 d)
-  | _ -> movShared 0x1us ins
+  | [ Disp(d, Register.PC); Rg n ] ->
+    nWord 0x9us (gpr n) (disp8 d)
+  | _ ->
+    movShared 0x1us ins
 
 /// A move of one longword, which reaches a written distance out of and into any
 /// register at all, because it has both of its register fields free where the
@@ -211,8 +214,10 @@ let private moveLong ins =
     nmWord 0x1us (gpr n) (gpr m) (disp4 d)
   | [ Disp(d, m); Rg n ] when isGeneral m ->
     nmWord 0x5us (gpr n) (gpr m) (disp4 d)
-  | [ Disp(d, Register.PC); Rg n ] -> nWord 0xDus (gpr n) (disp8 d)
-  | _ -> movShared 0x2us ins
+  | [ Disp(d, Register.PC); Rg n ] ->
+    nWord 0xDus (gpr n) (disp8 d)
+  | _ ->
+    movShared 0x2us ins
 
 /// A move between two registers, or of a written number into one.
 let private move ins =
@@ -300,14 +305,20 @@ let branchEncoders () =
 /// </summary>
 let private controlIndex reg =
   match reg with
-  | Register.SR -> 0x00us
-  | Register.GBR -> 0x10us
-  | Register.VBR -> 0x20us
-  | Register.SSR -> 0x30us
-  | Register.SPC -> 0x40us
+  | Register.SR ->
+    0x00us
+  | Register.GBR ->
+    0x10us
+  | Register.VBR ->
+    0x20us
+  | Register.SSR ->
+    0x30us
+  | Register.SPC ->
+    0x40us
   | _ when reg >= Register.R0_BANK && reg <= Register.R7_BANK ->
     (0x8us ||| bank reg) <<< 4
-  | _ -> fail $"{Register.toString reg} is not a control register"
+  | _ ->
+    fail $"{Register.toString reg} is not a control register"
 
 /// The same, for the registers the multiplier and the floating-point unit keep.
 let private systemIndex reg =

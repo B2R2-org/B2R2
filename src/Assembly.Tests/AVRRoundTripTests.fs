@@ -78,7 +78,8 @@ type AVRRoundTripTests() =
   /// text stands in for the words a probe was decoded from.
   static let roundTrip (source: string) =
     match (try encodeFirst assembler source with _ -> None) with
-    | None -> AVRUnsupported
+    | None ->
+      AVRUnsupported
     | Some encoded ->
       let actual = try disasm encoded with _ -> "<undecodable>"
       if actual = source then AVRPreserved else AVRAltered actual
@@ -97,7 +98,8 @@ type AVRRoundTripTests() =
     let source = probe.Text
     let where = $"0x{probe.Word:x4}{probe.Extra:x4}"
     match (try encodeFirst assembler source with _ -> None) with
-    | None -> Some $"{where} '{source}' is not encodable"
+    | None ->
+      Some $"{where} '{source}' is not encodable"
     | Some encoded when encoded.Length <> probe.Length ->
       Some $"{where} '{source}' encoded {encoded.Length} bytes wide"
     | Some _ ->
@@ -251,7 +253,8 @@ type AVRRoundTripTests() =
       "",
       String.concat "\n" broken,
       "These instructions decode but no longer encode, or encode to an \
-       instruction that means something else.")
+       instruction that means something else."
+    )
 
   /// <summary>
   /// Checks that a branch naming a label lands on the instruction that label
@@ -277,7 +280,8 @@ type AVRRoundTripTests() =
         let reference = Assembler(isa, addressOf index) :> ILowerable
         let expected = encodeFirst reference $"{name} {addressOf marks}"
         match (try assembler.Lower source with _ -> Error "raised") with
-        | Error _ | Ok [] -> Some $"'{name} L' does not assemble"
+        | Error _ | Ok [] ->
+          Some $"'{name} L' does not assemble"
         | Ok encoded ->
           let actual = snd (List.item index encoded)
           if Some actual = expected then None
@@ -287,7 +291,8 @@ type AVRRoundTripTests() =
     Assert.AreEqual<string>(
       "",
       String.concat "\n" wrong,
-      "These branches no longer reach the instruction their label marks.")
+      "These branches no longer reach the instruction their label marks."
+    )
 
   /// <summary>
   /// Checks that a source asking for what no encoding can say is refused rather
@@ -302,7 +307,8 @@ type AVRRoundTripTests() =
       unencodableSources
       |> List.choose (fun source ->
         match (try encodeFirst assembler source with _ -> None) with
-        | None -> None
+        | None ->
+          None
         | Some bytes ->
           let text = try disasm bytes with _ -> "<undecodable>"
           Some $"'{source}' encoded as '{text}'")
@@ -310,7 +316,8 @@ type AVRRoundTripTests() =
     Assert.AreEqual<string>(
       "",
       String.concat "\n" encoded,
-      "These ask for something no AVR encoding can say.")
+      "These ask for something no AVR encoding can say."
+    )
 
   /// <summary>
   /// Checks that the words of an instruction come out in the order the machine
@@ -337,7 +344,8 @@ type AVRRoundTripTests() =
     Assert.AreEqual<string>(
       "",
       String.concat "\n" wrong,
-      "These no longer come out in the order the machine reads them.")
+      "These no longer come out in the order the machine reads them."
+    )
 
   /// <summary>
   /// Checks that a source written the way a person writes one names the same
@@ -349,7 +357,8 @@ type AVRRoundTripTests() =
       writtenSources
       |> List.choose (fun (source, expected) ->
         match (try encodeFirst assembler source with _ -> None) with
-        | None -> Some $"'{source}' does not assemble"
+        | None ->
+          Some $"'{source}' does not assemble"
         | Some bytes ->
           let text = try squashed (disasm bytes) with _ -> "<undecodable>"
           if text = expected then None
@@ -358,7 +367,8 @@ type AVRRoundTripTests() =
     Assert.AreEqual<string>(
       "",
       String.concat "\n" wrong,
-      "These are no longer read as the instruction they name.")
+      "These are no longer read as the instruction they name."
+    )
 
   /// Checks that a source the assembler refuses leaves it able to read the next
   /// one, which a parser keeping state across a failure would not.

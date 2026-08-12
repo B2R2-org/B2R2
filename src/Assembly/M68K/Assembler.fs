@@ -219,8 +219,7 @@ type Assembler(isa: ISA, baseAddr: Addr) =
     >>= fun (first, second) ->
       match first, second with
       | _, None -> preturn (AsmMem first)
-      | AsmDirect one, Some(AsmDirect other) ->
-        preturn (AsmMemPair(one, other))
+      | AsmDirect one, Some(AsmDirect other) -> preturn (AsmMemPair(one, other))
       | _, Some _ -> fail "a pair of places is written as two registers"
 
   /// An address written with the distance in front of the parentheses, which is
@@ -303,7 +302,8 @@ type Assembler(isa: ISA, baseAddr: Addr) =
   /// The bit field that a BFxxx instruction names within the operand it
   /// follows.
   let pBitField =
-    between (pchar '{') (pchar '}')
+    between (pchar '{')
+      (pchar '}')
       (skipWhitespaces pFieldPart .>> pchar ':' .>>. skipWhitespaces pFieldPart)
 
   let pOperand =
@@ -330,8 +330,7 @@ type Assembler(isa: ISA, baseAddr: Addr) =
   /// The name of an instruction, which says at its end how wide the operation
   /// is, that being a thing an m68k mnemonic names separately from the
   /// operation itself.
-  let pMnemonic =
-    many1Satisfy (fun c -> Char.IsLetterOrDigit c || c = '.')
+  let pMnemonic = many1Satisfy (fun c -> Char.IsLetterOrDigit c || c = '.')
 
   let pInstructionLine =
     pMnemonic >>= fun name ->
@@ -360,6 +359,7 @@ type Assembler(isa: ISA, baseAddr: Addr) =
         |> assemble table us isa.M68KModel baseAddr
         |> List.map (fun bytes -> isa, bytes)
         |> Result.Ok
-      | Failure(str, _, _) -> Result.Error str
+      | Failure(str, _, _) ->
+        Result.Error str
 
 // vim: set tw=80 sts=2 sw=2:

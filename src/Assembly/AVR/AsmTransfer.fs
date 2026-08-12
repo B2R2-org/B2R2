@@ -104,18 +104,14 @@ let private storeDisp ins =
 /// data space.
 let private loadDirect ins =
   match ins.Operands with
-  | [ Rg d; operand ] ->
-    [ regWord 0x9000us (gpr d); dataAddress ins operand ]
-  | _ ->
-    wrongOperands ins
+  | [ Rg d; operand ] -> [ regWord 0x9000us (gpr d); dataAddress ins operand ]
+  | _ -> wrongOperands ins
 
 /// A store naming the byte it writes outright.
 let private storeDirect ins =
   match ins.Operands with
-  | [ operand; Rg r ] ->
-    [ regWord 0x9200us (gpr r); dataAddress ins operand ]
-  | _ ->
-    wrongOperands ins
+  | [ operand; Rg r ] -> [ regWord 0x9200us (gpr r); dataAddress ins operand ]
+  | _ -> wrongOperands ins
 
 /// <summary>
 /// A read of the code space.

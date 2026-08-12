@@ -76,7 +76,8 @@ type EVMRoundTripTests() =
   /// text stands in for the bytes a probe was decoded from.
   static let roundTrip (source: string) =
     match (try encodeFirst assembler source with _ -> None) with
-    | None -> EVMUnsupported
+    | None ->
+      EVMUnsupported
     | Some encoded ->
       let actual = try disasm encoded with _ -> "<undecodable>"
       if actual = source then EVMPreserved else EVMAltered actual
@@ -96,7 +97,8 @@ type EVMRoundTripTests() =
     let source = probe.Text
     let where = Convert.ToHexString probe.Bytes
     match (try encodeFirst assembler source with _ -> None) with
-    | None -> Some $"{where} '{source}' is not encodable"
+    | None ->
+      Some $"{where} '{source}' is not encodable"
     | Some encoded when encoded.Length <> probe.Length ->
       Some $"{where} '{source}' encoded {encoded.Length} bytes wide"
     | Some _ ->
@@ -209,7 +211,8 @@ type EVMRoundTripTests() =
       "",
       String.concat "\n" broken,
       "These instructions decode but no longer encode, or encode to an \
-       instruction that means something else.")
+       instruction that means something else."
+    )
 
   /// <summary>
   /// Checks that a push naming a label holds the address of the instruction
@@ -231,7 +234,8 @@ type EVMRoundTripTests() =
         let addressOf i = i + (if i > index then width else 0)
         let expected = encodeFirst assembler $"push{width} {addressOf marks}"
         match (try assembler.Lower source with _ -> Error "raised") with
-        | Error _ | Ok [] -> Some $"'push{width} L' does not assemble"
+        | Error _ | Ok [] ->
+          Some $"'push{width} L' does not assemble"
         | Ok encoded ->
           let actual = snd (List.item index encoded)
           if Some actual = expected then None
@@ -241,7 +245,8 @@ type EVMRoundTripTests() =
     Assert.AreEqual<string>(
       "",
       String.concat "\n" wrong,
-      "These pushes no longer hold the address their label marks.")
+      "These pushes no longer hold the address their label marks."
+    )
 
   /// <summary>
   /// Checks that a label is counted from the address the source was assembled
@@ -292,7 +297,8 @@ type EVMRoundTripTests() =
       unencodableSources
       |> List.choose (fun source ->
         match (try encodeFirst assembler source with _ -> None) with
-        | None -> None
+        | None ->
+          None
         | Some bytes ->
           let text = try disasm bytes with _ -> "<undecodable>"
           Some $"'{source}' encoded as '{text}'")
@@ -300,7 +306,8 @@ type EVMRoundTripTests() =
     Assert.AreEqual<string>(
       "",
       String.concat "\n" encoded,
-      "These ask for something no EVM encoding can say.")
+      "These ask for something no EVM encoding can say."
+    )
 
   /// <summary>
   /// Checks that the bytes of an instruction come out in the order the machine
@@ -338,7 +345,8 @@ type EVMRoundTripTests() =
       Assert.AreEqual<string>(
         "",
         wrong,
-        "These no longer come out in the order the machine reads them.")
+        "These no longer come out in the order the machine reads them."
+      )
 
   /// <summary>
   /// Checks that a source written the way a person writes one names the same
@@ -350,7 +358,8 @@ type EVMRoundTripTests() =
       writtenSources
       |> List.choose (fun (source, expected) ->
         match (try encodeFirst assembler source with _ -> None) with
-        | None -> Some $"'{source}' does not assemble"
+        | None ->
+          Some $"'{source}' does not assemble"
         | Some bytes ->
           let text = try disasm bytes with _ -> "<undecodable>"
           if text = expected then None
@@ -359,7 +368,8 @@ type EVMRoundTripTests() =
     Assert.AreEqual<string>(
       "",
       String.concat "\n" wrong,
-      "These are no longer read as the instruction they name.")
+      "These are no longer read as the instruction they name."
+    )
 
   /// Checks that a source the assembler refuses leaves it able to read the next
   /// one, which a parser keeping state across a failure would not.

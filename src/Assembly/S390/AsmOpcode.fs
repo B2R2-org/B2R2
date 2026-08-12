@@ -1782,12 +1782,13 @@ let private rows =
 let buildTable () =
   rows
   |> List.map (fun (name, bits, length, layout) ->
-    name,
-    { Bits = bits
-      Length = length
-      Layout = layout
-      Bits20 = bits20Of name
-      Esa390 = Set.contains name esa390 })
+    let row =
+      { Bits = bits
+        Length = length
+        Layout = layout
+        Bits20 = bits20Of name
+        Esa390 = Set.contains name esa390 }
+    name, row)
   |> Map.ofList
 
 // vim: set tw=80 sts=2 sw=2:

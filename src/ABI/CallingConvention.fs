@@ -82,12 +82,10 @@ with
     ArgLocation.toRegister this.FloatReturnLocation
 
   /// Returns true if the given register is callee-saved (non-volatile).
-  member this.IsCalleeSaved(rid) =
-    Set.contains rid this.CalleeSavedRegisters
+  member this.IsCalleeSaved(rid) = Set.contains rid this.CalleeSavedRegisters
 
   /// Returns true if the given register is caller-saved (volatile).
-  member this.IsCallerSaved(rid) =
-    Set.contains rid this.CallerSavedRegisters
+  member this.IsCallerSaved(rid) = Set.contains rid this.CallerSavedRegisters
 
 /// Builds the function-call calling convention for a given binary, producing
 /// the architecture-independent CallingConvention type from a target OS and

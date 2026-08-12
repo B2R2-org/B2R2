@@ -39,7 +39,8 @@ let private regForm opcode funct3 funct7 ins =
   match ins.Operands with
   | [ Rg d; Rg s1; Rg s2 ] ->
     rType opcode funct3 funct7 (gpr d) (gpr s1) (gpr s2)
-  | _ -> wrongOperands ins
+  | _ ->
+    wrongOperands ins
 
 /// The instructions computing from two registers into a third, both the ones
 /// that work on a whole doubleword and the ones that keep only a word of what
@@ -79,7 +80,8 @@ let private immForm opcode funct3 ins =
   match ins.Operands with
   | [ Rg d; Rg s; Im value ] ->
     iType opcode funct3 (gpr d) (gpr s) (immediate12 value)
-  | _ -> wrongOperands ins
+  | _ ->
+    wrongOperands ins
 
 /// <summary>
 /// A shift by a written amount.
@@ -94,7 +96,8 @@ let private shiftForm opcode funct3 upper width ins =
   | [ Rg d; Rg s; Im amount ] ->
     let field = (upper <<< width) ||| shiftAmount width amount
     iType opcode funct3 (gpr d) (gpr s) field
-  | _ -> wrongOperands ins
+  | _ ->
+    wrongOperands ins
 
 /// An instruction whose whole operand is the upper twenty bits of a number.
 let private upperForm opcode ins =
@@ -125,7 +128,8 @@ let private loadForm opcode funct3 ins =
   match ins.Operands with
   | [ Rg d; Mem(offset, b) ] ->
     iType opcode funct3 (gpr d) (gpr b) (immediate12 offset)
-  | _ -> wrongOperands ins
+  | _ ->
+    wrongOperands ins
 
 /// A store, which names where it writes the same way and keeps the register it
 /// writes from where a load keeps the one it writes to.
@@ -133,7 +137,8 @@ let private storeForm opcode funct3 ins =
   match ins.Operands with
   | [ Rg s; Mem(offset, b) ] ->
     sType opcode funct3 (gpr b) (gpr s) (immediate12 offset)
-  | _ -> wrongOperands ins
+  | _ ->
+    wrongOperands ins
 
 /// The instructions that read and write memory, one word size at a time.
 let loadStoreEncoders () =
@@ -156,14 +161,16 @@ let private branchForm funct3 ins =
   | [ Rg s1; Rg s2; Im target ] ->
     let distance = relativeTarget 13 ins.Address target
     bType OpBranch funct3 (gpr s1) (gpr s2) distance
-  | _ -> wrongOperands ins
+  | _ ->
+    wrongOperands ins
 
 /// The jump that counts how far away the place it goes to is.
 let private jumpForm ins =
   match ins.Operands with
   | [ Rg d; Im target ] ->
     jType OpJal (gpr d) (relativeTarget 21 ins.Address target)
-  | _ -> wrongOperands ins
+  | _ ->
+    wrongOperands ins
 
 /// The jump that goes to a distance from what a register holds, which is
 /// written the way a load names where it reads.
@@ -171,7 +178,8 @@ let private jumpRegForm ins =
   match ins.Operands with
   | [ Rg d; Mem(offset, b) ] ->
     iType OpJalr 0u (gpr d) (gpr b) (immediate12 offset)
-  | _ -> wrongOperands ins
+  | _ ->
+    wrongOperands ins
 
 /// The instructions that go somewhere other than the next word.
 let branchEncoders () =
@@ -191,7 +199,8 @@ let private atomicForm funct5 funct3 ins =
   | Rg d :: Rg s :: Mem mem :: rest ->
     let funct7 = (funct5 <<< 2) ||| orderingOf rest
     rType OpAtomic funct3 funct7 (gpr d) (atomicBase mem) (gpr s)
-  | _ -> wrongOperands ins
+  | _ ->
+    wrongOperands ins
 
 /// The load that reserves the memory it read, which names no second register
 /// because it changes nothing.
@@ -200,7 +209,8 @@ let private reserveForm funct3 ins =
   | Rg d :: Mem mem :: rest ->
     let funct7 = (0b00010u <<< 2) ||| orderingOf rest
     rType OpAtomic funct3 funct7 (gpr d) (atomicBase mem) 0u
-  | _ -> wrongOperands ins
+  | _ ->
+    wrongOperands ins
 
 /// The instructions that reach memory without anything else reaching it in
 /// between, in both the width of a word and the width of a doubleword. Which of
@@ -236,14 +246,16 @@ let private csrRegForm funct3 ins =
   match ins.Operands with
   | [ Rg d; Im number; Rg s ] ->
     iType OpSystem funct3 (gpr d) (gpr s) (csr number)
-  | _ -> wrongOperands ins
+  | _ ->
+    wrongOperands ins
 
 /// The same, where what is written is a number rather than a register.
 let private csrImmForm funct3 ins =
   match ins.Operands with
   | [ Rg d; Im number; Im value ] ->
     iType OpSystem funct3 (gpr d) (unsigned 5 value) (csr number)
-  | _ -> wrongOperands ins
+  | _ ->
+    wrongOperands ins
 
 /// An instruction whose name is the whole of it.
 let private wordForm word ins =
@@ -259,8 +271,7 @@ let private wordForm word ins =
 /// </summary>
 let private fenceForm ins =
   match ins.Operands with
-  | [ AsmFence(pred, succ) ] ->
-    iType OpFence 0u 0u 0u ((pred <<< 4) ||| succ)
+  | [ AsmFence(pred, succ) ] -> iType OpFence 0u 0u 0u ((pred <<< 4) ||| succ)
   | _ -> wrongOperands ins
 
 /// <summary>

@@ -113,10 +113,8 @@ let registers =
 /// </summary>
 let private nameOf (opcode: Opcode) =
   let name = string opcode
-  if name.EndsWith "dot" then
-    name[..name.Length - 4].ToLowerInvariant() + "."
-  else
-    name.ToLowerInvariant()
+  if name.EndsWith "dot" then name[..name.Length - 4].ToLowerInvariant() + "."
+  else name.ToLowerInvariant()
 
 /// Every mnemonic, paired with the opcode it names. Each opcode has exactly one
 /// name here, which is the one the disassembler writes it under.
@@ -135,8 +133,7 @@ let opcodes =
 /// other tests are what a comparison against them is called, not bits of their
 /// own.
 /// </summary>
-let conditionBits =
-  [ "lt", 0u; "gt", 1u; "eq", 2u; "so", 3u ] |> Map.ofList
+let conditionBits = [ "lt", 0u; "gt", 1u; "eq", 2u; "so", 3u ] |> Map.ofList
 
 /// Builds one instruction as written. Where it sits is not known until the
 /// lines before it have been counted, so it is filled in when they have been.

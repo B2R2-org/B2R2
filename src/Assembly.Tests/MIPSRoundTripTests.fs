@@ -87,7 +87,8 @@ type MIPSRoundTripTests() =
   /// text stands in for the word a probe was decoded from.
   static let roundTrip assembler parser (source: string) =
     match (try encodeFirst assembler source with _ -> None) with
-    | None -> MIPSUnsupported
+    | None ->
+      MIPSUnsupported
     | Some encoded ->
       let actual = try disasm parser encoded with _ -> "<undecodable>"
       if actual = source then MIPSPreserved else MIPSAltered actual
@@ -201,7 +202,8 @@ type MIPSRoundTripTests() =
       "",
       String.concat "\n" broken,
       "These instructions decode but no longer encode, or encode to a word \
-       that means something else.")
+       that means something else."
+    )
 
   /// <summary>
   /// Checks the same instructions where the source is sixty-four bits wide.
@@ -224,7 +226,8 @@ type MIPSRoundTripTests() =
     Assert.AreEqual<string>(
       "",
       String.concat "\n" broken,
-      "These instructions no longer encode where the source is 64-bit.")
+      "These instructions no longer encode where the source is 64-bit."
+    )
 
   [<TestMethod>]
   member _.``Branches and jumps to a label reach it in both directions``() =
@@ -234,7 +237,8 @@ type MIPSRoundTripTests() =
             expected, source, index, target ]
       |> List.choose (fun (expected, source, index, target) ->
         match (try assembler32.Lower source with _ -> Error "raised") with
-        | Error _ | Ok [] -> Some $"'{expected} L' does not assemble"
+        | Error _ | Ok [] ->
+          Some $"'{expected} L' does not assemble"
         | Ok encoded ->
           let addr = uint64 (4 * index)
           let text =
@@ -247,7 +251,8 @@ type MIPSRoundTripTests() =
     Assert.AreEqual<string>(
       "",
       String.concat "\n" wrong,
-      "These branches no longer reach the instruction their label marks.")
+      "These branches no longer reach the instruction their label marks."
+    )
 
   /// <summary>
   /// Checks that a source asking for what no encoding can say is refused
@@ -262,7 +267,8 @@ type MIPSRoundTripTests() =
       unencodableSources
       |> List.choose (fun source ->
         match (try encodeFirst assembler32 source with _ -> None) with
-        | None -> None
+        | None ->
+          None
         | Some bytes ->
           let text = try disasm parser32 bytes with _ -> "<undecodable>"
           Some $"'{source}' encoded as '{text}'")
@@ -270,7 +276,8 @@ type MIPSRoundTripTests() =
     Assert.AreEqual<string>(
       "",
       String.concat "\n" encoded,
-      "These ask for something no MIPS encoding can say.")
+      "These ask for something no MIPS encoding can say."
+    )
 
   /// <summary>
   /// Checks that the registers of an instruction are read in the vocabulary
@@ -289,7 +296,8 @@ type MIPSRoundTripTests() =
       |> List.choose (fun (isa, source, expected) ->
         let assembler = Assembler(isa, 0UL) :> ILowerable
         match (try encodeFirst assembler source with _ -> None) with
-        | None -> Some $"'{source}' does not assemble"
+        | None ->
+          Some $"'{source}' does not assemble"
         | Some bytes ->
           let word = BitConverter.ToUInt32(bytes, 0)
           if word = expected then None
@@ -298,7 +306,8 @@ type MIPSRoundTripTests() =
     Assert.AreEqual<string>(
       "",
       String.concat "\n" wrong,
-      "These name registers the disassembler writes other names for.")
+      "These name registers the disassembler writes other names for."
+    )
 
   /// Checks that a word comes out in the order the ISA stores its bytes in,
   /// which is the one thing about an encoding that the word itself cannot say.
@@ -311,7 +320,8 @@ type MIPSRoundTripTests() =
     match encodeFirst assembler source, encodeFirst assembler32 source with
     | Some big, Some little ->
       Assert.AreEqual<string>(hex (Array.rev little), hex big)
-    | _ -> Assert.Fail $"'{source}' does not assemble"
+    | _ ->
+      Assert.Fail $"'{source}' does not assemble"
 
   /// <summary>
   /// Checks that a source written the way a person writes one names the same
@@ -328,7 +338,8 @@ type MIPSRoundTripTests() =
       writtenSources
       |> List.choose (fun (source, expected) ->
         match (try encodeFirst assembler32 source with _ -> None) with
-        | None -> Some $"'{source}' does not assemble"
+        | None ->
+          Some $"'{source}' does not assemble"
         | Some bytes ->
           let text = try disasm parser32 bytes with _ -> "<undecodable>"
           if text = expected then None
@@ -337,7 +348,8 @@ type MIPSRoundTripTests() =
     Assert.AreEqual<string>(
       "",
       String.concat "\n" wrong,
-      "These are no longer read as the instruction they name.")
+      "These are no longer read as the instruction they name."
+    )
 
   /// Checks that a source the assembler refuses leaves it able to read the
   /// next one, which a parser keeping state across a failure would not.

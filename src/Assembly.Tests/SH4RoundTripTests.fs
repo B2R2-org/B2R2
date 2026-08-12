@@ -78,7 +78,8 @@ type SH4RoundTripTests() =
   /// text stands in for the word a probe was decoded from.
   static let roundTrip (source: string) =
     match (try encodeFirst assembler source with _ -> None) with
-    | None -> SH4Unsupported
+    | None ->
+      SH4Unsupported
     | Some encoded ->
       let actual = try disasm encoded with _ -> "<undecodable>"
       if actual = source then SH4Preserved else SH4Altered actual
@@ -88,7 +89,8 @@ type SH4RoundTripTests() =
   static let brokenProbe (probe: SH4Probe) =
     let source = probe.Text
     match roundTrip source with
-    | SH4Preserved -> None
+    | SH4Preserved ->
+      None
     | SH4Altered actual ->
       Some $"0x{probe.Word:x4} '{source}' encoded as '{actual}'"
     | SH4Unsupported ->
@@ -208,7 +210,8 @@ type SH4RoundTripTests() =
       "",
       String.concat "\n" broken,
       "These instructions decode but no longer encode, or encode to a word \
-       that means something else.")
+       that means something else."
+    )
 
   /// <summary>
   /// Checks that a branch naming a label lands on the instruction that label
@@ -231,7 +234,8 @@ type SH4RoundTripTests() =
         let field = (distance / 2L) &&& ((1L <<< width) - 1L)
         let expected = encodeFirst assembler $"{name} {field}"
         match (try assembler.Lower source with _ -> Error "raised") with
-        | Error _ | Ok [] -> Some $"'{name} L' does not assemble"
+        | Error _ | Ok [] ->
+          Some $"'{name} L' does not assemble"
         | Ok encoded ->
           let actual = snd (List.item index encoded)
           if Some actual = expected then None
@@ -241,7 +245,8 @@ type SH4RoundTripTests() =
     Assert.AreEqual<string>(
       "",
       String.concat "\n" wrong,
-      "These branches no longer reach the instruction their label marks.")
+      "These branches no longer reach the instruction their label marks."
+    )
 
   /// <summary>
   /// Checks that a source asking for what no encoding can say is refused rather
@@ -256,7 +261,8 @@ type SH4RoundTripTests() =
       unencodableSources
       |> List.choose (fun source ->
         match (try encodeFirst assembler source with _ -> None) with
-        | None -> None
+        | None ->
+          None
         | Some bytes ->
           let text = try disasm bytes with _ -> "<undecodable>"
           Some $"'{source}' encoded as '{text}'")
@@ -264,7 +270,8 @@ type SH4RoundTripTests() =
     Assert.AreEqual<string>(
       "",
       String.concat "\n" encoded,
-      "These ask for something no SH4 encoding can say.")
+      "These ask for something no SH4 encoding can say."
+    )
 
   /// Checks that a word comes out in the order the ISA stores its bytes in,
   /// which is the one thing about an encoding that the word itself cannot say.
@@ -277,7 +284,8 @@ type SH4RoundTripTests() =
     match encodeFirst bigEndian source, encodeFirst assembler source with
     | Some big, Some little ->
       Assert.AreEqual<string>(hex (Array.rev little), hex big)
-    | _ -> Assert.Fail $"'{source}' does not assemble"
+    | _ ->
+      Assert.Fail $"'{source}' does not assemble"
 
   /// <summary>
   /// Checks that a source written the way a person writes one names the same
@@ -295,7 +303,8 @@ type SH4RoundTripTests() =
       writtenSources
       |> List.choose (fun (source, expected) ->
         match (try encodeFirst assembler source with _ -> None) with
-        | None -> Some $"'{source}' does not assemble"
+        | None ->
+          Some $"'{source}' does not assemble"
         | Some bytes ->
           let text = try squashed (disasm bytes) with _ -> "<undecodable>"
           if text = expected then None
@@ -304,7 +313,8 @@ type SH4RoundTripTests() =
     Assert.AreEqual<string>(
       "",
       String.concat "\n" wrong,
-      "These are no longer read as the instruction they name.")
+      "These are no longer read as the instruction they name."
+    )
 
   /// Checks that a source the assembler refuses leaves it able to read the next
   /// one, which a parser keeping state across a failure would not.

@@ -164,8 +164,7 @@ let stackEncoders () =
 
 /// The instructions writing a record of what the program did, told apart by how
 /// many values they file that record under.
-let logEncoders () =
-  [ for n in 0 .. 4 -> $"log{n}", plain (byte (0xA0 + n)) ]
+let logEncoders () = [ for n in 0 .. 4 -> $"log{n}", plain (byte (0xA0 + n)) ]
 
 /// The instructions making another program, calling one, and leaving the one
 /// running, whether because it is done or because it is giving up.

@@ -80,7 +80,8 @@ type PARISCRoundTripTests() =
   /// text stands in for the word a probe was decoded from.
   static let roundTrip (source: string) =
     match (try encodeFirst assembler source with _ -> None) with
-    | None -> PARISCUnsupported
+    | None ->
+      PARISCUnsupported
     | Some encoded ->
       let actual = try disasm encoded with _ -> "<undecodable>"
       if actual = source then PARISCPreserved else PARISCAltered actual
@@ -111,11 +112,12 @@ type PARISCRoundTripTests() =
   /// away that an offset holding too few bits would not reach it.
   /// </summary>
   let branchCases source =
-    [ $"L:\n  or flags, flags, flags\n  {source}\n  or flags, flags, flags",
-        1, 0xFFFFFFFFFFFFFFFCUL
+    let fromAboveStr =
+      $"L:\n  or flags, flags, flags\n  {source}\n  or flags, flags, flags"
+    let farFromAbove = $"L:\n{padding}  {source}\n  or flags, flags, flags"
+    [ fromAboveStr, 1, 0xFFFFFFFFFFFFFFFCUL
       $"  {source}\n{padding}L:\n  or flags, flags, flags", 0, 0x324UL
-      $"L:\n{padding}  {source}\n  or flags, flags, flags", 200,
-        0xFFFFFFFFFFFFFCE0UL ]
+      farFromAbove, 200, 0xFFFFFFFFFFFFFCE0UL ]
 
   /// Every instruction that names a place, paired with how the disassembler
   /// writes it once it has worked out how far away that place is, with the
@@ -180,6 +182,7 @@ type PARISCRoundTripTests() =
   /// Sources written the way a person writes one rather than the way the
   /// disassembler does, each paired with the instruction it names.
   let writtenSources =
+    let fmpyadd = "fmpyadd,sgl fr21, fr19, fr16, fr16, fr16"
     [ "  add r3, r5, flags  ; what a person writes", "add r3, r5, flags"
       "ADD R3, R5, FLAGS", "add r3, r5, flags"
       "addi -1, r5, r3", "addi 0xffffffffffffffff, r5, r3"
@@ -194,8 +197,7 @@ type PARISCRoundTripTests() =
       "sync", "sync"
       "fadd,sgl fr5r, fpe7, fpsr", "fadd,sgl fr5R, fpe7, fpsr"
       "fldw r3(r5), fpe1", "fldw r3(r5), fpe1"
-      "fmpyadd,sgl fr21, fr19, fr16, fr16, fr16",
-        "fmpyadd,sgl fr21, fr19, fr16, fr16, fr16"
+      fmpyadd, fmpyadd
       "popbts 16", "popbts 0x10"
       "bve,pop (r5)", "bve,pop (r5)"
       "bve,l,push,n (r5), rp", "bve,l,push,n (r5), rp"
@@ -213,7 +215,8 @@ type PARISCRoundTripTests() =
       "",
       String.concat "\n" broken,
       "These instructions decode but no longer encode, or encode to a word \
-       that means something else.")
+       that means something else."
+    )
 
   [<TestMethod>]
   member _.``Branches to a label reach it in both directions``() =
@@ -223,7 +226,8 @@ type PARISCRoundTripTests() =
             expected, source, index, distance ]
       |> List.choose (fun (expected, source, index, distance) ->
         match (try assembler.Lower source with _ -> Error "raised") with
-        | Error _ | Ok [] -> Some $"'{expected}' does not assemble"
+        | Error _ | Ok [] ->
+          Some $"'{expected}' does not assemble"
         | Ok encoded ->
           let addr = uint64 (4 * index)
           let text =
@@ -237,7 +241,8 @@ type PARISCRoundTripTests() =
     Assert.AreEqual<string>(
       "",
       String.concat "\n" wrong,
-      "These branches no longer reach the instruction their label marks.")
+      "These branches no longer reach the instruction their label marks."
+    )
 
   /// <summary>
   /// Checks that a source asking for what no encoding can say is refused rather
@@ -252,7 +257,8 @@ type PARISCRoundTripTests() =
       unencodableSources
       |> List.choose (fun source ->
         match (try encodeFirst assembler source with _ -> None) with
-        | None -> None
+        | None ->
+          None
         | Some bytes ->
           let text = try disasm bytes with _ -> "<undecodable>"
           Some $"'{source}' encoded as '{text}'")
@@ -260,7 +266,8 @@ type PARISCRoundTripTests() =
     Assert.AreEqual<string>(
       "",
       String.concat "\n" encoded,
-      "These ask for something no PA-RISC encoding can say.")
+      "These ask for something no PA-RISC encoding can say."
+    )
 
   /// Checks that a word comes out in the order the ISA stores its bytes in,
   /// which is the one thing about an encoding that the word itself cannot say.
@@ -273,7 +280,8 @@ type PARISCRoundTripTests() =
     match encodeFirst littleEndian source, encodeFirst assembler source with
     | Some little, Some big ->
       Assert.AreEqual<string>(hex (Array.rev big), hex little)
-    | _ -> Assert.Fail $"'{source}' does not assemble"
+    | _ ->
+      Assert.Fail $"'{source}' does not assemble"
 
   /// <summary>
   /// Checks that a source written the way a person writes one names the same
@@ -291,7 +299,8 @@ type PARISCRoundTripTests() =
       writtenSources
       |> List.choose (fun (source, expected) ->
         match (try encodeFirst assembler source with _ -> None) with
-        | None -> Some $"'{source}' does not assemble"
+        | None ->
+          Some $"'{source}' does not assemble"
         | Some bytes ->
           let text = try disasm bytes with _ -> "<undecodable>"
           if text = expected then None
@@ -300,7 +309,8 @@ type PARISCRoundTripTests() =
     Assert.AreEqual<string>(
       "",
       String.concat "\n" wrong,
-      "These are no longer read as the instruction they name.")
+      "These are no longer read as the instruction they name."
+    )
 
   /// Checks that a source the assembler refuses leaves it able to read the next
   /// one, which a parser keeping state across a failure would not.

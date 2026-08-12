@@ -89,7 +89,8 @@ type PPCRoundTripTests() =
   /// text stands in for the word a probe was decoded from.
   static let roundTrip assembler parser (source: string) =
     match (try encodeFirst assembler source with _ -> None) with
-    | None -> PPCUnsupported
+    | None ->
+      PPCUnsupported
     | Some encoded ->
       let actual = try disasm parser encoded with _ -> "<undecodable>"
       if actual = source then PPCPreserved else PPCAltered actual
@@ -202,7 +203,8 @@ type PPCRoundTripTests() =
       "",
       String.concat "\n" broken,
       "These instructions decode but no longer encode, or encode to a word \
-       that means something else.")
+       that means something else."
+    )
 
   /// <summary>
   /// Checks the same against the decoder of the wider word size.
@@ -225,7 +227,8 @@ type PPCRoundTripTests() =
     Assert.AreEqual<string>(
       "",
       String.concat "\n" broken,
-      "These instructions no longer encode where the source is 64-bit.")
+      "These instructions no longer encode where the source is 64-bit."
+    )
 
   [<TestMethod>]
   member _.``Branches to a label reach it in both directions``() =
@@ -235,7 +238,8 @@ type PPCRoundTripTests() =
             expected, source, index, target ]
       |> List.choose (fun (expected, source, index, target) ->
         match (try assembler32.Lower source with _ -> Error "raised") with
-        | Error _ | Ok [] -> Some $"'{expected} L' does not assemble"
+        | Error _ | Ok [] ->
+          Some $"'{expected} L' does not assemble"
         | Ok encoded ->
           let addr = uint64 (4 * index)
           let text =
@@ -248,7 +252,8 @@ type PPCRoundTripTests() =
     Assert.AreEqual<string>(
       "",
       String.concat "\n" wrong,
-      "These branches no longer reach the instruction their label marks.")
+      "These branches no longer reach the instruction their label marks."
+    )
 
   /// <summary>
   /// Checks that a source asking for what no encoding can say is refused rather
@@ -263,7 +268,8 @@ type PPCRoundTripTests() =
       unencodableSources
       |> List.choose (fun source ->
         match (try encodeFirst assembler32 source with _ -> None) with
-        | None -> None
+        | None ->
+          None
         | Some bytes ->
           let text = try disasm parser32 bytes with _ -> "<undecodable>"
           Some $"'{source}' encoded as '{text}'")
@@ -271,7 +277,8 @@ type PPCRoundTripTests() =
     Assert.AreEqual<string>(
       "",
       String.concat "\n" encoded,
-      "These ask for something no PPC encoding can say.")
+      "These ask for something no PPC encoding can say."
+    )
 
   /// Checks that a word comes out in the order the ISA stores its bytes in,
   /// which is the one thing about an encoding that the word itself cannot say.
@@ -284,7 +291,8 @@ type PPCRoundTripTests() =
     match encodeFirst assembler source, encodeFirst assembler32 source with
     | Some big, Some little ->
       Assert.AreEqual<string>(hex (Array.rev little), hex big)
-    | _ -> Assert.Fail $"'{source}' does not assemble"
+    | _ ->
+      Assert.Fail $"'{source}' does not assemble"
 
   /// <summary>
   /// Checks that a source written the way a person writes one names the same
@@ -301,7 +309,8 @@ type PPCRoundTripTests() =
       writtenSources
       |> List.choose (fun (source, expected) ->
         match (try encodeFirst assembler32 source with _ -> None) with
-        | None -> Some $"'{source}' does not assemble"
+        | None ->
+          Some $"'{source}' does not assemble"
         | Some bytes ->
           let text = try disasm parser32 bytes with _ -> "<undecodable>"
           if text = expected then None
@@ -310,7 +319,8 @@ type PPCRoundTripTests() =
     Assert.AreEqual<string>(
       "",
       String.concat "\n" wrong,
-      "These are no longer read as the instruction they name.")
+      "These are no longer read as the instruction they name."
+    )
 
   /// Checks that a source the assembler refuses leaves it able to read the next
   /// one, which a parser keeping state across a failure would not.

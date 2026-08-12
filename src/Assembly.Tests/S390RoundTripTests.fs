@@ -89,7 +89,8 @@ type S390RoundTripTests() =
   /// text stands in for the word a probe was decoded from.
   static let roundTripWith assembler parser (source: string) =
     match (try encodeFirst assembler source with _ -> None) with
-    | None -> S390Unsupported
+    | None ->
+      S390Unsupported
     | Some encoded ->
       let actual = try disasmWith parser encoded with _ -> "<undecodable>"
       if actual = source then S390Preserved else S390Altered actual
@@ -233,7 +234,8 @@ type S390RoundTripTests() =
       "",
       brokenSources assembler parser texts,
       "These instructions decode but no longer encode, or encode to an \
-       instruction that means something else.")
+       instruction that means something else."
+    )
 
   [<TestMethod>]
   [<TestCategory("Sweep")>]
@@ -243,7 +245,8 @@ type S390RoundTripTests() =
       "",
       brokenSources assembler32 parser32 texts,
       "These instructions decode for a 32-bit target but no longer encode for \
-       one, or encode to an instruction that means something else.")
+       one, or encode to an instruction that means something else."
+    )
 
   [<TestMethod>]
   member _.``Branches to a label reach it in both directions``() =
@@ -253,7 +256,8 @@ type S390RoundTripTests() =
             expected, source, index, labelIndex ]
       |> List.choose (fun (expected, source, index, labelIndex) ->
         match (try assembler.Lower source with _ -> Error "raised") with
-        | Error _ | Ok [] -> Some $"'{expected}' does not assemble"
+        | Error _ | Ok [] ->
+          Some $"'{expected}' does not assemble"
         | Ok encoded ->
           let lengths = encoded |> List.map (fun (_, bytes) -> bytes.Length)
           let addrOf upto = List.take upto lengths |> List.sumBy uint64
@@ -265,8 +269,7 @@ type S390RoundTripTests() =
           let text =
             try (parser.Parse(bytes, addr)).Disasm() with _ -> "<undecodable>"
           let want =
-            expected.Replace("@",
-              $"{sign}0x{abs distance:x} ; 0x{target:x}")
+            expected.Replace("@", $"{sign}0x{abs distance:x} ; 0x{target:x}")
           if text = want then None
           else Some $"'{expected}' at 0x{addr:x} became '{text}'")
       |> List.distinct
@@ -274,7 +277,8 @@ type S390RoundTripTests() =
     Assert.AreEqual<string>(
       "",
       String.concat "\n" wrong,
-      "These no longer reach the instruction their label marks.")
+      "These no longer reach the instruction their label marks."
+    )
 
   /// <summary>
   /// Checks that a source asking for what no encoding can say is refused rather
@@ -289,7 +293,8 @@ type S390RoundTripTests() =
       unencodableSources
       |> List.choose (fun source ->
         match (try encodeFirst assembler source with _ -> None) with
-        | None -> None
+        | None ->
+          None
         | Some bytes ->
           let text = try disasm bytes with _ -> "<undecodable>"
           Some $"'{source}' encoded as '{text}'")
@@ -297,7 +302,8 @@ type S390RoundTripTests() =
     Assert.AreEqual<string>(
       "",
       String.concat "\n" encoded,
-      "These ask for something no S390 encoding can say.")
+      "These ask for something no S390 encoding can say."
+    )
 
   /// Checks that an assembler for a 32-bit target refuses what only
   /// z/Architecture has, because such a target could not read it back.
@@ -319,7 +325,8 @@ type S390RoundTripTests() =
       "",
       String.concat "\n" encoded,
       "These are not ESA/390 instructions, so a 32-bit target cannot read \
-       them back.")
+       them back."
+    )
 
   /// <summary>
   /// Checks that a source written the way a person writes one names the same
@@ -337,7 +344,8 @@ type S390RoundTripTests() =
       writtenSources
       |> List.choose (fun (source, expected) ->
         match (try encodeFirst assembler source with _ -> None) with
-        | None -> Some $"'{source}' does not assemble"
+        | None ->
+          Some $"'{source}' does not assemble"
         | Some bytes ->
           let text = try disasm bytes with _ -> "<undecodable>"
           if text = expected then None
@@ -346,7 +354,8 @@ type S390RoundTripTests() =
     Assert.AreEqual<string>(
       "",
       String.concat "\n" wrong,
-      "These are no longer read as the instruction they name.")
+      "These are no longer read as the instruction they name."
+    )
 
   /// <summary>
   /// Checks that an instruction comes out as long as its encoding is.
@@ -361,7 +370,8 @@ type S390RoundTripTests() =
       lengths
       |> List.choose (fun (source, expected) ->
         match (try encodeFirst assembler source with _ -> None) with
-        | None -> Some $"'{source}' does not assemble"
+        | None ->
+          Some $"'{source}' does not assemble"
         | Some bytes ->
           if bytes.Length = expected then None
           else Some $"'{source}' came out {bytes.Length} bytes long")
@@ -369,7 +379,8 @@ type S390RoundTripTests() =
     Assert.AreEqual<string>(
       "",
       String.concat "\n" wrong,
-      "These are no longer as long as their encoding is.")
+      "These are no longer as long as their encoding is."
+    )
 
   /// Checks that a source the assembler refuses leaves it able to read the next
   /// one, which a parser keeping state across a failure would not.

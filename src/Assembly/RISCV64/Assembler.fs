@@ -135,7 +135,8 @@ type Assembler(isa: ISA, baseAddr: Addr) =
     pIdentifier |>> fun name ->
       let name' = name.ToLowerInvariant()
       match Map.tryFind name' registers with
-      | Some reg -> AsmReg reg
+      | Some reg ->
+        AsmReg reg
       | None ->
         match Map.tryFind name' roundModes with
         | Some mode -> AsmRound mode
@@ -154,8 +155,7 @@ type Assembler(isa: ISA, baseAddr: Addr) =
     .>>. between (pchar '(') (pchar ')') (skipWhitespaces pRegister)
     |>> fun (offset, baseReg) -> AsmMem(defaultArg offset 0UL, baseReg)
 
-  let pOperand =
-    attempt pMemory <|> attempt (pNumber |>> AsmImm) <|> pNamed
+  let pOperand = attempt pMemory <|> attempt (pNumber |>> AsmImm) <|> pNamed
 
   /// <summary>
   /// Whether an atomic instruction takes the lock before what it does and gives
@@ -227,4 +227,5 @@ type Assembler(isa: ISA, baseAddr: Addr) =
         |> assemble encoders us isa.Endian baseAddr
         |> List.map (fun bytes -> isa, bytes)
         |> Result.Ok
-      | Failure(str, _, _) -> Result.Error str
+      | Failure(str, _, _) ->
+        Result.Error str

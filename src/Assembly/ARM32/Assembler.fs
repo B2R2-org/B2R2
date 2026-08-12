@@ -169,15 +169,16 @@ type Assembler(isa: ISA, baseAddr: Addr) =
       | Some reg when isSIMDRegister reg ->
         opt pElementIndex
         |>> fun index -> OprSIMD(SFReg(toSIMDRegister reg index))
-      | Some reg -> preturn (OprReg reg)
+      | Some reg ->
+        preturn (OprReg reg)
       | None ->
         match name.LastIndexOf '_' with
-        | -1 -> fail $"'{name}' is not a register"
+        | -1 ->
+          fail $"'{name}' is not a register"
         | index ->
-          let regName = name[..index - 1]
-          let flagName = name[index + 1..]
-          match Map.tryFind regName registers,
-                Map.tryFind flagName psrFlags with
+          let findregNameFromRegs = Map.tryFind name[..index - 1] registers
+          let findflagNameFromFlags = Map.tryFind name[index + 1..] psrFlags
+          match findregNameFromRegs, findflagNameFromFlags with
           | Some reg, Some flag -> preturn (OprSpecReg(reg, Some flag))
           | _ -> fail $"'{name}' is not a register"
 
@@ -242,8 +243,7 @@ type Assembler(isa: ISA, baseAddr: Addr) =
 
   /// The option of an unindexed memory operand, which names something the
   /// coprocessor reads rather than a place.
-  let pUnIdxOption =
-    between (pchar '{') (pchar '}') (skipWhitespaces pNumber)
+  let pUnIdxOption = between (pchar '{') (pchar '}') (skipWhitespaces pNumber)
 
   /// What may follow the closing bracket of a memory operand, which is what
   /// tells the addressing modes apart.
@@ -331,21 +331,19 @@ type Assembler(isa: ISA, baseAddr: Addr) =
     match opcode with
     | Opcode.VLDMIA | Opcode.VLDMDB | Opcode.VSTMIA | Opcode.VSTMDB
     | Opcode.VPUSH | Opcode.VPOP
-    | Opcode.FLDMIAX | Opcode.FLDMDBX | Opcode.FSTMIAX | Opcode.FSTMDBX ->
-      true
+    | Opcode.FLDMIAX | Opcode.FLDMDBX | Opcode.FSTMIAX | Opcode.FSTMDBX -> true
     | _ -> false
 
   /// {<registers>}{^}, which holds either core registers or SIMD ones.
   let pOprRegisterList opcode =
-    between (pchar '{') (pchar '}')
-      (sepBy (skipWhitespaces pRegisterListElement) (pchar ','))
+    between (pchar '{')
+            (pchar '}')
+            (sepBy (skipWhitespaces pRegisterListElement) (pchar ','))
     .>>. opt (pchar '^')
     |>> fun (elements, hat) ->
       noteCaret hat
-      if isRegisterListOpcode opcode then
-        elements |> List.map fst |> OprRegList
-      else
-        makeRegisterList elements
+      if isRegisterListOpcode opcode then elements |> List.map fst |> OprRegList
+      else makeRegisterList elements
 
   let pOprImm =
     attempt (pchar '#' >>. pFraction |>> OprFPImm)
@@ -468,4 +466,5 @@ type Assembler(isa: ISA, baseAddr: Addr) =
         |> List.map (fun (isThumb, bytes) ->
           (if isThumb then thumbISA else armISA), bytes)
         |> Result.Ok
-      | Failure(str, _, _) -> Result.Error str
+      | Failure(str, _, _) ->
+        Result.Error str

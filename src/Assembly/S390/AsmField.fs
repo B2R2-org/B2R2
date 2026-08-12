@@ -242,7 +242,9 @@ let encode length slots operands word =
   if List.length slots <> List.length operands then
     raise <| EncodingFailureException "the wrong number of operands"
   else
-    List.fold2 (fun acc slot opr -> encodeSlot length slot opr acc) word slots
+    List.fold2 (fun acc slot opr -> encodeSlot length slot opr acc)
+      word
+      slots
       operands
 
 // vim: set tw=80 sts=2 sw=2:

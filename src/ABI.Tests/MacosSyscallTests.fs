@@ -52,15 +52,18 @@ type MacosSyscallTests() =
     let x64Num = MacosSyscall.toNumber x64 MacosSyscall.Write
     let armNum = MacosSyscall.toNumber arm64 MacosSyscall.Write
     Assert.AreEqual<MacosSyscall>(
-      MacosSyscall.Write, MacosSyscall.ofNumber x64 x64Num)
+      MacosSyscall.Write, MacosSyscall.ofNumber x64 x64Num
+    )
     Assert.AreEqual<MacosSyscall>(
-      MacosSyscall.Write, MacosSyscall.ofNumber arm64 armNum)
+      MacosSyscall.Write, MacosSyscall.ofNumber arm64 armNum
+    )
 
   [<TestMethod>]
   member _.``toString and ofString round-trip``() =
     Assert.AreEqual<string>("close", MacosSyscall.toString MacosSyscall.Close)
     Assert.AreEqual<MacosSyscall>(
-      MacosSyscall.Close, MacosSyscall.ofString "close")
+      MacosSyscall.Close, MacosSyscall.ofString "close"
+    )
 
   [<TestMethod>]
   member _.``Unsupported ISA raises UnhandledSyscallException``() =

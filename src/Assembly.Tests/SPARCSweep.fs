@@ -120,8 +120,7 @@ module internal SPARCSweep =
 
   /// Whether the text is a written number, which is what tells an operand that
   /// names a value from one that names a register.
-  let private isNumber (text: string) =
-    text.Length > 0 && Char.IsDigit text[0]
+  let private isNumber (text: string) = text.Length > 0 && Char.IsDigit text[0]
 
   /// Whether a written number is below zero, which the disassembler says by
   /// writing the whole thirty-two bit word the number was widened to.
@@ -142,8 +141,7 @@ module internal SPARCSweep =
   /// whether it is below zero, because its value beyond that is not what an
   /// encoder gets wrong.
   let private shapeOfPart (part: string) =
-    if isNumber part then (if isNegative part then "imm-" else "imm+")
-    else part
+    if isNumber part then (if isNegative part then "imm-" else "imm+") else part
 
   /// What an operand names and nothing else, which is the coarser of the two
   /// keys: one form is worth reaching once however many registers it is written
@@ -166,7 +164,8 @@ module internal SPARCSweep =
     let text = (text.Split '!')[0]
     let marks = [| ' '; ','; '+'; '['; ']'; '('; ')' |]
     match text.Split ' ' |> Array.toList with
-    | [] | [ _ ] -> text.Trim()
+    | [] | [ _ ] ->
+      text.Trim()
     | mnemonic :: rest ->
       let operands = String.concat " " rest
       operands.Split(marks, StringSplitOptions.RemoveEmptyEntries)

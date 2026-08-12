@@ -56,9 +56,12 @@ let private generalReg (reg: Register) =
     uint32 number, true
   elif number >= int Register.W0 && number <= int Register.WZR then
     uint32 (number - int Register.W0), false
-  elif reg = Register.SP then 31u, true
-  elif reg = Register.WSP then 31u, false
-  else fail $"{Register.toString reg} is not a general register"
+  elif reg = Register.SP then
+    31u, true
+  elif reg = Register.WSP then
+    31u, false
+  else
+    fail $"{Register.toString reg} is not a general register"
 
 /// Whether the register is one of the sixty-four bit general registers, which
 /// is what the sf bit of an instruction says.
@@ -74,14 +77,16 @@ let coreReg (reg: Register) =
   match reg with
   | Register.SP | Register.WSP ->
     fail $"{Register.toString reg} cannot be named here"
-  | reg -> fst (generalReg reg)
+  | reg ->
+    fst (generalReg reg)
 
 /// The same field where thirty-one is the stack pointer instead.
 let coreRegSP (reg: Register) =
   match reg with
   | Register.XZR | Register.WZR ->
     fail $"{Register.toString reg} cannot be named here"
-  | reg -> fst (generalReg reg)
+  | reg ->
+    fst (generalReg reg)
 
 /// The number of a SIMD or floating-point register named by its width, together
 /// with that width in bits.
@@ -104,7 +109,8 @@ let tryScalarWidth (reg: Register) =
   let number = int reg
   if number >= int Register.B0 && number <= int Register.Q31 then
     Some(snd (scalarReg reg))
-  else None
+  else
+    None
 
 /// The number of a SIMD or floating-point register of the given width in bits.
 let simdReg width reg =
@@ -118,14 +124,16 @@ let vectorReg (reg: Register) =
   let number = int reg
   if number >= int Register.V0 && number <= int Register.V31 then
     uint32 (number - int Register.V0)
-  else fail $"{Register.toString reg} is not a vector register"
+  else
+    fail $"{Register.toString reg} is not a vector register"
 
 /// The number of one of the sixteen registers a system instruction names.
 let coprocReg (reg: Register) =
   let number = int reg
   if number >= int Register.C0 && number <= int Register.C15 then
     uint32 (number - int Register.C0)
-  else fail $"{Register.toString reg} is not a system register"
+  else
+    fail $"{Register.toString reg} is not a system register"
 
 /// A register operand, whichever of the two ways of writing one it took: a
 /// SIMD register that names no part of itself is a register like any other.
@@ -401,7 +409,8 @@ let logicalImm width (value: int64) =
     fail $"#{value} is not a logical immediate"
   else
     match rotationOf size count element with
-    | None -> fail $"#{value} is not a logical immediate"
+    | None ->
+      fail $"#{value} is not a logical immediate"
     | Some rotation ->
       let length = System.Numerics.BitOperations.Log2(uint32 size)
       let n = if size = 64 then 1u else 0u

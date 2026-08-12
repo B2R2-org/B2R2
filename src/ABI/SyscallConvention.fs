@@ -46,8 +46,7 @@ with
 
   /// Returns the register holding the syscall argument at the given zero-based
   /// index. Raises if the argument is not passed in a single register.
-  member this.ArgRegister(i) =
-    this.GetArgLocation(i) |> ArgLocation.toRegister
+  member this.ArgRegister(i) = this.GetArgLocation(i) |> ArgLocation.toRegister
 
 /// Describes how a system call reports failure.
 and SyscallError =

@@ -52,10 +52,12 @@ type SyscallConventionTests() =
   member _.``GetArgLocation resolves spilled stack arguments``() =
     Assert.AreEqual<ArgLocation>(
       ArgLocation.Stack { FirstOffset = 8; SlotSize = 8 },
-      sample.GetArgLocation(2))
+      sample.GetArgLocation(2)
+    )
     Assert.AreEqual<ArgLocation>(
       ArgLocation.Stack { FirstOffset = 16; SlotSize = 8 },
-      sample.GetArgLocation(3))
+      sample.GetArgLocation(3)
+    )
 
   (* Linux on m68k enters the kernel with a TRAP #0, taking the call number in
      D0 and the arguments in D1 through D5 and then A0, which is the one place

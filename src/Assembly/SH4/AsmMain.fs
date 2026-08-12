@@ -62,7 +62,8 @@ let private addresses baseAddr instrs =
 /// was never defined is a mistake in the source, not a lookup that failed.
 let private findLabel state (addrs: Addr[]) lbl =
   match Map.tryFind lbl state.LabelMap with
-  | Some index when index < addrs.Length -> addrs[index]
+  | Some index when index < addrs.Length ->
+    addrs[index]
   | Some _ | None ->
     raise <| EncodingFailureException $"Undefined label '{lbl}'"
 
@@ -83,7 +84,8 @@ let private resolveLabels state addrs pc ins =
 
 let private encodeInstruction (encoders: Map<_, _>) ins =
   match Map.tryFind ins.Mnemonic encoders with
-  | Some encode -> encode ins
+  | Some encode ->
+    encode ins
   | None ->
     raise <| EncodingFailureException $"{ins.Mnemonic} is not supported yet"
 

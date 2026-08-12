@@ -192,7 +192,8 @@ type IntelEncodingTests() =
         encoded
         |> List.map (snd >> Array.map (sprintf "%02x") >> String.concat "")
         |> String.concat " "
-      | Error _ -> "<cannot parse>"
+      | Error _ ->
+        "<cannot parse>"
     with
     | :? EncodingFailureException -> "<unsupported>"
     (* A form belonging to the other word size, such as a long-mode-only
@@ -215,7 +216,8 @@ type IntelEncodingTests() =
     Assert.AreEqual<string>(
       "",
       String.concat "\n" accepted,
-      "These carry a prefix the instruction cannot take.")
+      "These carry a prefix the instruction cannot take."
+    )
 
   [<TestMethod>]
   member _.``Golden vectors encode exactly as specified``() =
@@ -229,4 +231,5 @@ type IntelEncodingTests() =
     Assert.AreEqual<string>(
       "",
       String.concat "\n" defects,
-      "These vectors no longer encode as specified.")
+      "These vectors no longer encode as specified."
+    )

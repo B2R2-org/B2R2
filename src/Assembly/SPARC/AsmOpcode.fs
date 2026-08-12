@@ -48,7 +48,8 @@ let private arith op3 ins =
   match ins.Operands with
   | [ Rg s1; operand; Rg d ] ->
     format3 OpArith op3 (gpr d) (gpr s1) (rs2OrImm operand)
-  | _ -> wrongOperands ins
+  | _ ->
+    wrongOperands ins
 
 /// The instructions computing from two registers into a third, which the jump
 /// to a computed address and the two instructions turning a register window
@@ -110,14 +111,14 @@ let private shift op3 wide ins =
   | [ Rg s1; Im amount; Rg d ] ->
     let count = if wide then shcnt64 amount else shcnt32 amount
     format3 OpArith op3 (gpr d) (gpr s1) ((1u <<< 13) ||| width ||| count)
-  | _ -> wrongOperands ins
+  | _ ->
+    wrongOperands ins
 
 /// The instructions counting how many bits are set in what a register holds,
 /// which name no first register at all.
 let private popc ins =
   match ins.Operands with
-  | [ operand; Rg d ] ->
-    format3 OpArith 0x2Eu (gpr d) 0u (rs2OrImm operand)
+  | [ operand; Rg d ] -> format3 OpArith 0x2Eu (gpr d) 0u (rs2OrImm operand)
   | _ -> wrongOperands ins
 
 /// An instruction naming a register and what is added to it and nothing else,
@@ -125,8 +126,7 @@ let private popc ins =
 /// a written word visible as an instruction takes.
 let private pairForm op3 ins =
   match ins.Operands with
-  | [ Rg s1; operand ] ->
-    format3 OpArith op3 0u (gpr s1) (rs2OrImm operand)
+  | [ Rg s1; operand ] -> format3 OpArith op3 0u (gpr s1) (rs2OrImm operand)
   | _ -> wrongOperands ins
 
 /// The shifts and the few other instructions computing from registers whose
@@ -220,7 +220,8 @@ let private moveOnCondition name ins =
     let selector =
       ((bits >>> 2) <<< 18) ||| (cond <<< 14) ||| ((bits &&& 3u) <<< 11)
     format3 OpArith 0x2Cu (gpr d) 0u (selector ||| rs2OrSimm11 operand)
-  | _ -> wrongOperands ins
+  | _ ->
+    wrongOperands ins
 
 /// A move that happens only where what a register holds compares as the name
 /// says against zero.
@@ -229,7 +230,8 @@ let private moveOnRegister rcond ins =
   | [ Rg s1; operand; Rg d ] ->
     let low = (rcond <<< 10) ||| rs2OrSimm10 operand
     format3 OpArith 0x2Fu (gpr d) (gpr s1) low
-  | _ -> wrongOperands ins
+  | _ ->
+    wrongOperands ins
 
 /// The moves that happen only where something holds.
 let moveEncoders () =
@@ -250,7 +252,8 @@ let private trap name ins =
       | _ -> fail "a trap goes to a register or to a written number"
     let selector = integerCC cc <<< 11
     format3 OpArith 0x3Au (conditionOf name cc) 0u (selector ||| low)
-  | _ -> wrongOperands ins
+  | _ ->
+    wrongOperands ins
 
 /// The traps, one for each condition a comparison of integers leaves something
 /// to read.
@@ -273,8 +276,7 @@ let private annulOf ins = if ins.Annul then 0x10u else 0u
 /// </summary>
 let private branch op2 cond ins =
   match ins.Operands, ins.Predict with
-  | [ Im target ], None ->
-    format2 (annulOf ins ||| cond) op2 (disp22 target)
+  | [ Im target ], None -> format2 (annulOf ins ||| cond) op2 (disp22 target)
   | _, Some _ -> fail $"{ins.Mnemonic} says nothing about where it goes"
   | _, None -> wrongOperands ins
 
@@ -287,8 +289,10 @@ let private branchOnCondition op2 name ins =
     let expects = if predict then 1u <<< 19 else 0u
     let head = annulOf ins ||| conditionOf name cc
     format2 head op2 ((bits <<< 20) ||| expects ||| disp19 target)
-  | _, None -> fail $"{ins.Mnemonic} has to say whether it expects to go"
-  | _, Some _ -> wrongOperands ins
+  | _, None ->
+    fail $"{ins.Mnemonic} has to say whether it expects to go"
+  | _, Some _ ->
+    wrongOperands ins
 
 /// A branch on how what a register holds compares against zero, which always
 /// says whether it expects to go and keeps the distance in two pieces so that
@@ -302,8 +306,10 @@ let private branchOnRegister rcond ins =
       ((distance >>> 14) <<< 20) ||| expects ||| (gpr s1 <<< 14)
       ||| (distance &&& 0x3FFFu)
     format2 (annulOf ins ||| rcond) 3u low
-  | _, None -> fail $"{ins.Mnemonic} has to say whether it expects to go"
-  | _, Some _ -> wrongOperands ins
+  | _, None ->
+    fail $"{ins.Mnemonic} has to say whether it expects to go"
+  | _, Some _ ->
+    wrongOperands ins
 
 /// The call, which reaches anywhere a word away and is the only instruction
 /// whose whole body below the two bits naming it is one distance.
@@ -324,11 +330,13 @@ let branchEncoders () =
       match integer with
       | Some cond ->
         yield "b" + name, orTry (branch 2u cond) (branchOnCondition 1u name)
-      | None -> ()
+      | None ->
+        ()
       match float with
       | Some cond ->
         yield "fb" + name, orTry (branch 6u cond) (branchOnCondition 5u name)
-      | None -> ()
+      | None ->
+        ()
     for name, _, rcond in registerConditions ->
       "br" + name, branchOnRegister rcond
     yield "call", call ]
@@ -339,7 +347,8 @@ let private load op3 destination ins =
   | [ Mem mem; dest ] ->
     let rs1, low = address (AsmMem mem)
     format3 OpMemory op3 (destination dest) rs1 low
-  | _ -> wrongOperands ins
+  | _ ->
+    wrongOperands ins
 
 /// A store, which names where it writes the same way and keeps the register it
 /// writes from where a load keeps the one it writes to.
@@ -348,7 +357,8 @@ let private store op3 source ins =
   | [ src; Mem mem ] ->
     let rs1, low = address (AsmMem mem)
     format3 OpMemory op3 (source src) rs1 low
-  | _ -> wrongOperands ins
+  | _ ->
+    wrongOperands ins
 
 /// A load that names which address space it reaches.
 let private loadAlt op3 destination ins =
@@ -356,7 +366,8 @@ let private loadAlt op3 destination ins =
   | [ Mem mem; asi; dest ] ->
     let rs1, low = alternateAddress (AsmMem mem) asi
     format3 OpMemory op3 (destination dest) rs1 low
-  | _ -> wrongOperands ins
+  | _ ->
+    wrongOperands ins
 
 /// A store that names which address space it reaches.
 let private storeAlt op3 source ins =
@@ -364,7 +375,8 @@ let private storeAlt op3 source ins =
   | [ src; Mem mem; asi ] ->
     let rs1, low = alternateAddress (AsmMem mem) asi
     format3 OpMemory op3 (source src) rs1 low
-  | _ -> wrongOperands ins
+  | _ ->
+    wrongOperands ins
 
 /// The register a load writes to or a store writes from, where that register is
 /// one of the general ones.
@@ -411,7 +423,8 @@ let private compareAndSwap op3 ins =
   | [ Mem mem; asi; Rg s2; Rg d ] ->
     let rs1, low = alternateAddress (AsmMem mem) asi
     format3 OpMemory op3 (gpr d) rs1 (low ||| gpr s2)
-  | _ -> wrongOperands ins
+  | _ ->
+    wrongOperands ins
 
 /// <summary>
 /// The instructions that reach memory.
@@ -515,14 +528,14 @@ let private readState ins =
   | [ Rg source; Rg d ] ->
     let number = stateOf source |> Option.defaultWith (fun () -> gpr source)
     format3 OpArith 0x28u (gpr d) number 0u
-  | _ -> wrongOperands ins
+  | _ ->
+    wrongOperands ins
 
 /// The instruction reading one of the registers only what the machine trusts
 /// may read.
 let private readPrivileged ins =
   match ins.Operands with
-  | [ Rg source; Rg d ] ->
-    format3 OpArith 0x2Au (gpr d) (privileged source) 0u
+  | [ Rg source; Rg d ] -> format3 OpArith 0x2Au (gpr d) (privileged source) 0u
   | _ -> wrongOperands ins
 
 /// <summary>
@@ -556,7 +569,8 @@ let private writeState ins =
     format3 OpArith 0x30u (writtenState dest) (gpr s1) (rs2OrImm operand)
   | [ Rg s1; operand ] ->
     format3 OpArith 0x30u 4u (gpr s1) (rs2OrImm operand)
-  | _ -> wrongOperands ins
+  | _ ->
+    wrongOperands ins
 
 /// The instruction writing one of the registers only what the machine trusts
 /// may write.
@@ -564,7 +578,8 @@ let private writePrivileged ins =
   match ins.Operands with
   | [ Rg s1; operand; Rg dest ] ->
     format3 OpArith 0x32u (privileged dest) (gpr s1) (rs2OrImm operand)
-  | _ -> wrongOperands ins
+  | _ ->
+    wrongOperands ins
 
 /// An instruction whose name is the whole of it.
 let private wordForm word ins =
@@ -577,18 +592,19 @@ let private wordForm word ins =
 /// for, so what is read back here goes into the lower of the two.
 let private membar ins =
   match ins.Operands with
-  | [ Im mask ] ->
-    format3 OpArith 0x28u 0u 0u ((1u <<< 13) ||| membarMask mask)
+  | [ Im mask ] -> format3 OpArith 0x28u 0u 0u ((1u <<< 13) ||| membarMask mask)
   | _ -> wrongOperands ins
 
 /// The instruction resetting the machine, which carries a number where it
 /// carries anything at all.
 let private softwareReset ins =
   match ins.Operands with
-  | [] -> format3 OpArith 0x30u 15u 0u 0u
+  | [] ->
+    format3 OpArith 0x30u 15u 0u 0u
   | [ Im number ] ->
     format3 OpArith 0x30u 15u 0u ((1u <<< 13) ||| simm13 number)
-  | _ -> wrongOperands ins
+  | _ ->
+    wrongOperands ins
 
 /// The instruction building the upper part of an address, which is all one
 /// word can hold of one. Writing that part into the register that discards
@@ -599,7 +615,8 @@ let private sethi ins =
     let number = gpr d
     if number = 0u then fail "an address built into nothing does nothing"
     else format2 number 4u (hi22 value)
-  | _ -> wrongOperands ins
+  | _ ->
+    wrongOperands ins
 
 /// The instruction the machine traps on, which carries a number saying why.
 let private illtrap ins =

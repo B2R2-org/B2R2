@@ -106,7 +106,8 @@ let private storeHint = function
 /// No space at all, which is what the instructions reaching memory as the
 /// processor itself sees it name.
 let private noSpace = function
-  | None -> 0u
+  | None ->
+    0u
   | Some(reg: Register) ->
     fail $"nothing is reached in {Register.toString reg} here"
 
@@ -124,7 +125,8 @@ let private indexedLoad ext4 space hint ins =
   | [ Mem(Some(Rg index), sp, baseReg); Rg d ] ->
     OpShort ||| (gpr baseReg <<< 21) ||| (gpr index <<< 16) ||| space sp
     ||| (a <<< 13) ||| (cc <<< 10) ||| (ext4 <<< 6) ||| (m <<< 5) ||| gpr d
-  | _ -> wrongOperands ins
+  | _ ->
+    wrongOperands ins
 
 /// A load reaching memory at a written distance of five bits.
 let private shortLoad ext4 space hint ins =
@@ -136,7 +138,8 @@ let private shortLoad ext4 space hint ins =
     OpShort ||| (gpr baseReg <<< 21) ||| (lowSignExt 5 offset <<< 16)
     ||| space sp ||| (a <<< 13) ||| Written ||| (cc <<< 10) ||| (ext4 <<< 6)
     ||| (m <<< 5) ||| gpr d
-  | _ -> wrongOperands ins
+  | _ ->
+    wrongOperands ins
 
 /// A store reaching memory at a written distance of five bits, which keeps
 /// that distance where a load keeps the register it lands in.
@@ -149,7 +152,8 @@ let private shortStore ext4 space modify hint ins =
     OpShort ||| (gpr baseReg <<< 21) ||| (gpr s <<< 16) ||| space sp
     ||| (a <<< 13) ||| Written ||| (cc <<< 10) ||| (ext4 <<< 6) ||| (m <<< 5)
     ||| lowSignExt 5 offset
-  | _ -> wrongOperands ins
+  | _ ->
+    wrongOperands ins
 
 /// A load reaching memory at a written distance of fourteen bits.
 let private longLoad opcode ins =
@@ -158,7 +162,8 @@ let private longLoad opcode ins =
   | [ Mem(Some(Im offset), sp, baseReg); Rg d ] ->
     (opcode <<< 26) ||| (gpr baseReg <<< 21) ||| (gpr d <<< 16) ||| space2 sp
     ||| assemble16 offset
-  | _ -> wrongOperands ins
+  | _ ->
+    wrongOperands ins
 
 /// A store reaching memory at a written distance of fourteen bits.
 let private longStore opcode ins =
@@ -167,7 +172,8 @@ let private longStore opcode ins =
   | [ Rg s; Mem(Some(Im offset), sp, baseReg) ] ->
     (opcode <<< 26) ||| (gpr baseReg <<< 21) ||| (gpr s <<< 16) ||| space2 sp
     ||| assemble16 offset
-  | _ -> wrongOperands ins
+  | _ ->
+    wrongOperands ins
 
 /// <summary>
 /// Whether the word written after the name of a load or a store agrees with
@@ -197,7 +203,8 @@ let private modifiedLoad opcode before extra step ins =
     agrees before offset flags
     (opcode <<< 26) ||| (gpr baseReg <<< 21) ||| (gpr d <<< 16) ||| space2 sp
     ||| assemble16 offset ||| extra
-  | _ -> wrongOperands ins
+  | _ ->
+    wrongOperands ins
 
 /// The same, for a store.
 let private modifiedStore opcode before extra step ins =
@@ -209,7 +216,8 @@ let private modifiedStore opcode before extra step ins =
     agrees before offset flags
     (opcode <<< 26) ||| (gpr baseReg <<< 21) ||| (gpr s <<< 16) ||| space2 sp
     ||| assemble16 offset ||| extra
-  | _ -> wrongOperands ins
+  | _ ->
+    wrongOperands ins
 
 /// <summary>
 /// A load of a doubleword reaching a whole doubleword's distance away.
@@ -228,7 +236,8 @@ let private doubleLoad opcode kind target ins =
     let a, m = shortModify (offset = 0UL) flags
     (opcode <<< 26) ||| (gpr baseReg <<< 21) ||| (target d <<< 16)
     ||| space2 sp ||| assemble16 offset ||| (m <<< 3) ||| (a <<< 2) ||| kind
-  | _ -> wrongOperands ins
+  | _ ->
+    wrongOperands ins
 
 /// The same, for a store.
 let private doubleStore opcode kind source ins =
@@ -240,7 +249,8 @@ let private doubleStore opcode kind source ins =
     let a, m = shortModify (offset = 0UL) flags
     (opcode <<< 26) ||| (gpr baseReg <<< 21) ||| (source s <<< 16)
     ||| space2 sp ||| assemble16 offset ||| (m <<< 3) ||| (a <<< 2) ||| kind
-  | _ -> wrongOperands ins
+  | _ ->
+    wrongOperands ins
 
 /// <summary>
 /// A load of a floating-point word reaching a whole word's distance away.
@@ -255,7 +265,8 @@ let private wordFloatLoad opcode side ins =
     let n, right = fprHalf d
     (opcode <<< 26) ||| (gpr baseReg <<< 21) ||| (n <<< 16) ||| space2 sp
     ||| assemble16 (every 4L offset) ||| side ||| (right <<< 1)
-  | _ -> wrongOperands ins
+  | _ ->
+    wrongOperands ins
 
 /// The same, for a store.
 let private wordFloatStore opcode side ins =
@@ -264,7 +275,8 @@ let private wordFloatStore opcode side ins =
     let n, right = fprHalf s
     (opcode <<< 26) ||| (gpr baseReg <<< 21) ||| (n <<< 16) ||| space2 sp
     ||| assemble16 (every 4L offset) ||| side ||| (right <<< 1)
-  | _ -> wrongOperands ins
+  | _ ->
+    wrongOperands ins
 
 /// <summary>
 /// One word of the kind a unit outside the processor loads and stores with.
@@ -283,10 +295,13 @@ let private unitIndexedLoad opcode uid target ins =
   let cc = loadHint rest
   match ins.Operands with
   | [ Mem(Some(Rg index), sp, baseReg); Rg d ] ->
-    coprocessor opcode uid 0u
+    coprocessor opcode
+      uid
+      0u
       ((gpr baseReg <<< 21) ||| (gpr index <<< 16) ||| space2 sp
        ||| (a <<< 13) ||| (cc <<< 10) ||| (m <<< 5) ||| target d)
-  | _ -> wrongOperands ins
+  | _ ->
+    wrongOperands ins
 
 /// The same, at a written distance of five bits.
 let private unitShortLoad opcode uid target ins =
@@ -295,10 +310,13 @@ let private unitShortLoad opcode uid target ins =
   match ins.Operands with
   | [ Mem(Some(Im offset), sp, baseReg); Rg d ] ->
     let a, m = shortModify (offset = 0UL) flags
-    coprocessor opcode uid 0u
+    coprocessor opcode
+      uid
+      0u
       ((gpr baseReg <<< 21) ||| (lowSignExt 5 offset <<< 16) ||| space2 sp
        ||| (a <<< 13) ||| Written ||| (cc <<< 10) ||| (m <<< 5) ||| target d)
-  | _ -> wrongOperands ins
+  | _ ->
+    wrongOperands ins
 
 /// A store out of a unit outside the processor at a distance held in a
 /// register.
@@ -308,10 +326,13 @@ let private unitIndexedStore opcode uid source ins =
   let cc = storeHint rest
   match ins.Operands with
   | [ Rg s; Mem(Some(Rg index), sp, baseReg) ] ->
-    coprocessor opcode uid 1u
+    coprocessor opcode
+      uid
+      1u
       ((gpr baseReg <<< 21) ||| (gpr index <<< 16) ||| space2 sp
        ||| (a <<< 13) ||| (cc <<< 10) ||| (m <<< 5) ||| source s)
-  | _ -> wrongOperands ins
+  | _ ->
+    wrongOperands ins
 
 /// The same, at a written distance of five bits.
 let private unitShortStore opcode uid source ins =
@@ -320,10 +341,13 @@ let private unitShortStore opcode uid source ins =
   match ins.Operands with
   | [ Rg s; Mem(Some(Im offset), sp, baseReg) ] ->
     let a, m = shortModify (offset = 0UL) flags
-    coprocessor opcode uid 1u
+    coprocessor opcode
+      uid
+      1u
       ((gpr baseReg <<< 21) ||| (lowSignExt 5 offset <<< 16) ||| space2 sp
        ||| (a <<< 13) ||| Written ||| (cc <<< 10) ||| (m <<< 5) ||| source s)
-  | _ -> wrongOperands ins
+  | _ ->
+    wrongOperands ins
 
 /// An instruction naming which unit outside the processor it is meant for,
 /// where that unit is not the floating-point one and so is written out.
@@ -362,12 +386,14 @@ let private halfRegister reg =
 /// how far it reaches is held in a register.
 let private floatUnitLoad opcode ins =
   orTry (unitIndexedLoad opcode 0u halfRegister)
-    (unitShortLoad opcode 0u halfRegister) ins
+    (unitShortLoad opcode 0u halfRegister)
+    ins
 
 /// The same, for a store.
 let private floatUnitStore opcode ins =
   orTry (unitIndexedStore opcode 0u halfRegister)
-    (unitShortStore opcode 0u halfRegister) ins
+    (unitShortStore opcode 0u halfRegister)
+    ins
 
 /// Tries every way an instruction of this name reaches memory, in turn.
 let private anyOf forms ins = (List.reduce orTry forms) ins

@@ -67,14 +67,17 @@ let private shiftImmediate opcode ins =
   | ThreeOperands(OprReg rd, OprReg rm, OprImm amount) ->
     let amount =
       match opcode, amount with
-      | 0b00u, amount when amount >= 0L && amount < 32L -> uint32 amount
+      | 0b00u, amount when amount >= 0L && amount < 32L ->
+        uint32 amount
       | (0b01u | 0b10u), amount when amount >= 1L && amount <= 32L ->
         uint32 amount % 32u
-      | _ -> fail $"#{amount} is not a shift of that kind"
+      | _ ->
+        fail $"#{amount} is not a shift of that kind"
     noCondition ins
     narrow ((opcode <<< 11) ||| (amount <<< 6) ||| (lowReg rm <<< 3)
             ||| lowReg rd)
-  | _ -> wrongOperands ins
+  | _ ->
+    wrongOperands ins
 
 /// The additions and subtractions of three registers, or of two and a small
 /// immediate.
@@ -89,7 +92,8 @@ let private addSubtract op ins =
     noCondition ins
     narrow (head ||| (1u <<< 10) ||| (op <<< 9) ||| (unsignedImm 3 imm <<< 6)
             ||| (lowReg rn <<< 3) ||| lowReg rd)
-  | _ -> wrongOperands ins
+  | _ ->
+    wrongOperands ins
 
 /// The operations on one register and an eight-bit immediate, which is the
 /// widest immediate a narrow encoding holds.
@@ -99,7 +103,8 @@ let private immediate8 op ins =
     noCondition ins
     narrow ((0b001u <<< 13) ||| (op <<< 11) ||| (lowReg rdn <<< 8)
             ||| unsignedImm 8 imm)
-  | _ -> wrongOperands ins
+  | _ ->
+    wrongOperands ins
 
 /// The data-processing operations, which read and write the same register and
 /// so name it once in the encoding however many times the source writes it.
@@ -123,7 +128,8 @@ let private multiply ins =
   | ThreeOperands(OprReg rdm, OprReg rn, OprReg rdm2) when rdm = rdm2 ->
     noCondition ins
     narrow ((0b0100001101u <<< 6) ||| (lowReg rn <<< 3) ||| lowReg rdm)
-  | _ -> wrongOperands ins
+  | _ ->
+    wrongOperands ins
 
 /// The operations that may name any register rather than only the first eight,
 /// which they do by keeping the top bit of each register apart.
@@ -148,7 +154,8 @@ let private branchExchange link ins =
   | OneOperand(OprReg rm) ->
     noCondition ins
     narrow ((0b010001110u <<< 7) ||| (link <<< 7) ||| (coreReg rm <<< 3))
-  | _ -> wrongOperands ins
+  | _ ->
+    wrongOperands ins
 
 /// The offset of a literal an instruction reads, which counts in words from the
 /// program counter and so is always positive here.
@@ -161,12 +168,12 @@ let private literalOffset ins (offset: int64) =
 /// The loads and stores whose offset is held in a register.
 let private loadStoreReg op ins =
   match ins.Operands with
-  | TwoOperands(OprReg rt,
-                OprMemory(OffsetMode(RegOffset(rn, _, rm, None)))) ->
+  | TwoOperands(OprReg rt, OprMemory(OffsetMode(RegOffset(rn, _, rm, None)))) ->
     noCondition ins
     narrow ((0b0101u <<< 12) ||| (op <<< 9) ||| (lowReg rm <<< 6)
             ||| (lowReg rn <<< 3) ||| lowReg rt)
-  | _ -> wrongOperands ins
+  | _ ->
+    wrongOperands ins
 
 /// <summary>
 /// The loads and stores whose offset is an immediate, which counts in whatever
@@ -186,7 +193,8 @@ let private loadStoreImm head scale l ins =
                 OprMemory(OffsetMode(ImmOffset(Register.SP, _, imm))))
     when scale = 4u ->
     let imm = defaultArg imm 0L
-    if imm % 4L <> 0L then fail "a stack offset counts in words"
+    if imm % 4L <> 0L then
+      fail "a stack offset counts in words"
     else
       noCondition ins
       narrow ((0b1001u <<< 12) ||| (l <<< 11) ||| (lowReg rt <<< 8)
@@ -200,7 +208,8 @@ let private loadStoreImm head scale l ins =
       narrow (head ||| (l <<< 11)
               ||| (unsignedImm 5 (imm / int64 scale) <<< 6)
               ||| (lowReg rn <<< 3) ||| lowReg rt)
-  | _ -> wrongOperands ins
+  | _ ->
+    wrongOperands ins
 
 /// ADR, which names a place rather than a value, and the addition to the stack
 /// pointer beside it, which the manual encodes the same way.
@@ -211,23 +220,27 @@ let private addressOrStack op ins =
     narrow ((0b10100u <<< 11) ||| (lowReg rd <<< 8)
             ||| literalOffset ins offset)
   | ThreeOperands(OprReg rd, OprReg Register.SP, OprImm imm) when op = 1u ->
-    if imm % 4L <> 0L then fail "a stack offset counts in words"
+    if imm % 4L <> 0L then
+      fail "a stack offset counts in words"
     else
       noCondition ins
       narrow ((0b10101u <<< 11) ||| (lowReg rd <<< 8)
               ||| unsignedImm 8 (imm / 4L))
-  | _ -> wrongOperands ins
+  | _ ->
+    wrongOperands ins
 
 /// The additions and subtractions that move the stack pointer itself, whose
 /// immediate counts in words and has seven bits of its own.
 let private adjustStack op ins =
   match ins.Operands with
   | ThreeOperands(OprReg Register.SP, OprReg Register.SP, OprImm imm) ->
-    if imm % 4L <> 0L then fail "a stack adjustment counts in words"
+    if imm % 4L <> 0L then
+      fail "a stack adjustment counts in words"
     else
       noCondition ins
       narrow ((0b101100000u <<< 7) ||| (op <<< 7) ||| unsignedImm 7 (imm / 4L))
-  | _ -> wrongOperands ins
+  | _ ->
+    wrongOperands ins
 
 /// CBZ and CBNZ, which branch on a register being zero without reading the
 /// flags, and can only reach forwards.
@@ -241,7 +254,8 @@ let private compareBranch op ins =
       noCondition ins
       narrow ((0b1011u <<< 12) ||| (op <<< 11) ||| (1u <<< 8)
               ||| ((imm >>> 5) <<< 9) ||| ((imm &&& 0x1fu) <<< 3) ||| lowReg rn)
-  | _ -> wrongOperands ins
+  | _ ->
+    wrongOperands ins
 
 /// The sign- and zero-extending moves, and the byte-reversing ones, which
 /// share a shape and differ in the two bits above their registers.
@@ -250,7 +264,8 @@ let private twoRegister head op ins =
   | TwoOperands(OprReg rd, OprReg rm) ->
     noCondition ins
     narrow (head ||| (op <<< 6) ||| (lowReg rm <<< 3) ||| lowReg rd)
-  | _ -> wrongOperands ins
+  | _ ->
+    wrongOperands ins
 
 /// PUSH and POP, whose register list reaches the first eight registers and one
 /// more: the link register when pushing and the program counter when popping.
@@ -266,7 +281,8 @@ let private stack extra l ins =
       narrow ((0b1011u <<< 12) ||| (l <<< 11) ||| (0b10u <<< 9)
               ||| (((bits >>> int (coreReg extra)) &&& 1u) <<< 8)
               ||| (bits &&& 0xffu))
-  | _ -> wrongOperands ins
+  | _ ->
+    wrongOperands ins
 
 /// The transfers of several registers at once, which always step the base
 /// register on a store and step it on a load unless the load reads it back.
@@ -274,25 +290,29 @@ let private blockTransfer l ins =
   match ins.Operands with
   | TwoOperands(OprReg rn, OprRegList regs) ->
     let bits = regList regs
-    if bits > 0xffu then fail $"{ins.Opcode} cannot name that register"
+    if bits > 0xffu then
+      fail $"{ins.Opcode} cannot name that register"
     else
       noCondition ins
       narrow ((0b1100u <<< 12) ||| (l <<< 11) ||| (lowReg rn <<< 8) ||| bits)
-  | _ -> wrongOperands ins
+  | _ ->
+    wrongOperands ins
 
 /// The conditional branch, whose condition the mnemonic carries rather than a
 /// field of its own, and which reaches half as far as the unconditional one.
 let private conditionalBranch ins =
   match ins.Operands, ins.Condition with
   | OneOperand(OprMemory(LiteralMode offset)), Some cond ->
-    if offset % 2L <> 0L then fail "a branch reaches halfwords"
+    if offset % 2L <> 0L then
+      fail "a branch reaches halfwords"
     else
       narrow ((0b1101u <<< 12) ||| (condField cond <<< 8)
               ||| signedImm 8 (offset / 2L))
   | OneOperand(OprMemory(LiteralMode offset)), None ->
     if offset % 2L <> 0L then fail "a branch reaches halfwords"
     else narrow ((0b11100u <<< 11) ||| signedImm 11 (offset / 2L))
-  | _ -> wrongOperands ins
+  | _ ->
+    wrongOperands ins
 
 /// The instructions that name nothing but a number, which whatever reads them
 /// makes sense of.
@@ -301,7 +321,8 @@ let private serviceCall head width ins =
   | OneOperand(OprImm imm) ->
     noCondition ins
     narrow (head ||| unsignedImm width imm)
-  | _ -> wrongOperands ins
+  | _ ->
+    wrongOperands ins
 
 /// The hints, which do nothing a program can see and are told apart by the four
 /// bits above the ones an IT block would use.
@@ -310,7 +331,8 @@ let private hint value ins =
   | NoOperand ->
     noCondition ins
     narrow ((0b10111111u <<< 8) ||| (value <<< 4))
-  | _ -> wrongOperands ins
+  | _ ->
+    wrongOperands ins
 
 /// <summary>
 /// IT, which says what the condition of the instructions after it is.
@@ -337,7 +359,8 @@ let private ifThen letters ins =
     let mask = ((mask <<< 1) ||| 1u) <<< (3 - String.length letters)
     noCondition ins
     narrow ((0b10111111u <<< 8) ||| (cond <<< 4) ||| (mask &&& 0xfu))
-  | _ -> wrongOperands ins
+  | _ ->
+    wrongOperands ins
 
 /// CPS, which turns the interrupts its operand names on or off.
 let private changeState disable ins =
@@ -354,7 +377,8 @@ let private changeState disable ins =
       | AIF -> 0b111u
     noCondition ins
     narrow ((0b10110110011u <<< 5) ||| (disable <<< 4) ||| bits)
-  | _ -> wrongOperands ins
+  | _ ->
+    wrongOperands ins
 
 /// SETEND, which chooses the endianness the loads and stores that follow read.
 let private setEndian ins =
@@ -363,7 +387,8 @@ let private setEndian ins =
     let e = if endian = B2R2.Endian.Big then 1u else 0u
     noCondition ins
     narrow ((0b101101100100u <<< 4) ||| (e <<< 3))
-  | _ -> wrongOperands ins
+  | _ ->
+    wrongOperands ins
 
 /// SETPAN, whose one bit of immediate says whether privileged access to user
 /// memory is turned off.
@@ -372,13 +397,15 @@ let private setPan ins =
   | OneOperand(OprImm imm) ->
     noCondition ins
     narrow ((0b1011011000000u <<< 3) ||| (unsignedImm 1 imm <<< 3))
-  | _ -> wrongOperands ins
+  | _ ->
+    wrongOperands ins
 
 /// MOVS, which moves an immediate, a register, or a register shifted by
 /// another. What the operands name is what says which of those it is.
 let private moveShifted ins =
   match ins.Operands with
-  | TwoOperands(OprReg _, OprImm _) -> immediate8 0b00u ins
+  | TwoOperands(OprReg _, OprImm _) ->
+    immediate8 0b00u ins
   | TwoOperands(OprReg rd, OprReg rm) ->
     noCondition ins
     narrow ((lowReg rm <<< 3) ||| lowReg rd)
@@ -392,17 +419,21 @@ let private moveShifted ins =
       | ShiftOp.RRX -> fail "a narrow move cannot rotate through carry"
     noCondition ins
     narrow (dataProcWord op rd rs)
-  | _ -> wrongOperands ins
+  | _ ->
+    wrongOperands ins
 
 /// CMP, which reads an immediate or a register, and which of the two encodings
 /// that read a register is used depends on whether either is a high one.
 let private compare ins =
   match ins.Operands with
-  | TwoOperands(OprReg _, OprImm _) -> immediate8 0b01u ins
+  | TwoOperands(OprReg _, OprImm _) ->
+    immediate8 0b01u ins
   | TwoOperands(OprReg rn, OprReg rm) when coreReg rn < 8u && coreReg rm < 8u ->
     dataProc 0b1010u ins
-  | TwoOperands(OprReg _, OprReg _) -> specialData 0b01u ins
-  | _ -> wrongOperands ins
+  | TwoOperands(OprReg _, OprReg _) ->
+    specialData 0b01u ins
+  | _ ->
+    wrongOperands ins
 
 /// ADD, which reaches any register, the stack pointer, or a place.
 let private add ins =
@@ -417,8 +448,10 @@ let private add ins =
   | ThreeOperands(OprReg rd, OprReg Register.SP, OprReg rm) when rd = rm ->
     noCondition ins
     narrow (specialDataWord 0b00u rd Register.SP)
-  | TwoOperands(OprReg _, OprReg _) -> specialData 0b00u ins
-  | _ -> wrongOperands ins
+  | TwoOperands(OprReg _, OprReg _) ->
+    specialData 0b00u ins
+  | _ ->
+    wrongOperands ins
 
 /// ADDS and SUBS, which read a register or one of two widths of immediate.
 let private addSubtractOrImmediate op ins =
@@ -432,8 +465,7 @@ let private subtract ins = adjustStack 1u ins
 /// The loads and stores, whose offset is either a register or an immediate.
 let private loadStore head scale l regOp ins =
   match ins.Operands with
-  | TwoOperands(_, OprMemory(OffsetMode(RegOffset _))) ->
-    loadStoreReg regOp ins
+  | TwoOperands(_, OprMemory(OffsetMode(RegOffset _))) -> loadStoreReg regOp ins
   | _ -> loadStoreImm head scale l ins
 
 (* The wide encodings, which are two halfwords. *)
@@ -451,7 +483,8 @@ let private wide (word: uint32) = Wide(uint16 (word >>> 16), uint16 word)
 /// encoding.
 /// </summary>
 let private asThumbWord (word: uint32) =
-  if word >>> 28 <> 0xfu then word
+  if word >>> 28 <> 0xfu then
+    word
   elif (word >>> 25) &&& 0b111u = 0b001u then
     (0b111u <<< 29) ||| (((word >>> 24) &&& 1u) <<< 28) ||| (0xfu <<< 24)
     ||| (word &&& 0xffffffu)
@@ -481,16 +514,21 @@ let private thumbModifiedImm (value: int64) =
     |> List.tryFind (fun r ->
       let rotated = (value <<< r) ||| (value >>> (32 - r))
       rotated >= 0x80u && rotated < 0x100u)
-  if value < 0x100u then value
-  elif value = repeated then 0x100u ||| byte0
-  elif value = (repeated <<< 8) then 0x200u ||| ((value >>> 8) &&& 0xffu)
-  elif value = (repeated ||| (repeated <<< 8)) then 0x300u ||| byte0
+  if value < 0x100u then
+    value
+  elif value = repeated then
+    0x100u ||| byte0
+  elif value = (repeated <<< 8) then
+    0x200u ||| ((value >>> 8) &&& 0xffu)
+  elif value = (repeated ||| (repeated <<< 8)) then
+    0x300u ||| byte0
   else
     match rotations with
     | Some r ->
       let rotated = (value <<< r) ||| (value >>> (32 - r))
       (uint32 r <<< 7) ||| (rotated &&& 0x7fu)
-    | None -> fail $"#{value} is not a wide Thumb immediate"
+    | None ->
+      fail $"#{value} is not a wide Thumb immediate"
 
 /// The three fields a wide immediate is split across: one bit in the first
 /// halfword and the rest in the second.
@@ -503,16 +541,20 @@ let private wideShift shift =
   let bits imm5 typ =
     ((imm5 >>> 2) <<< 12) ||| ((imm5 &&& 0b11u) <<< 6) ||| (typ <<< 4)
   match shift with
-  | ShiftOp.LSL, Imm 0u -> 0u
-  | ShiftOp.LSL, Imm amount when amount < 32u -> bits amount 0u
+  | ShiftOp.LSL, Imm 0u ->
+    0u
+  | ShiftOp.LSL, Imm amount when amount < 32u ->
+    bits amount 0u
   | ShiftOp.LSR, Imm amount when amount >= 1u && amount <= 32u ->
     bits (amount % 32u) 1u
   | ShiftOp.ASR, Imm amount when amount >= 1u && amount <= 32u ->
     bits (amount % 32u) 2u
   | ShiftOp.ROR, Imm amount when amount >= 1u && amount < 32u ->
     bits amount 3u
-  | ShiftOp.RRX, _ -> bits 0u 3u
-  | shift, Imm amount -> fail $"{shift} by #{amount} is not encodable"
+  | ShiftOp.RRX, _ ->
+    bits 0u 3u
+  | shift, Imm amount ->
+    fail $"{shift} by #{amount} is not encodable"
 
 /// The bits every wide data-processing instruction shares, whichever kind its
 /// second operand is.
@@ -529,12 +571,14 @@ let private wideData op s ins =
     wide (wideDataHead (0b11101010u <<< 24) op s rn ||| (coreReg rd <<< 8)
           ||| wideShift shift ||| coreReg rm)
   match ins.Operands with
-  | ThreeOperands(OprReg rd, OprReg rn, OprImm imm) -> immediate rn rd imm
+  | ThreeOperands(OprReg rd, OprReg rn, OprImm imm) ->
+    immediate rn rd imm
   | ThreeOperands(OprReg rd, OprReg rn, OprReg rm) ->
     register rn rd rm (ShiftOp.LSL, Imm 0u)
   | FourOperands(OprReg rd, OprReg rn, OprReg rm, OprShift shift) ->
     register rn rd rm shift
-  | _ -> wrongOperands ins
+  | _ ->
+    wrongOperands ins
 
 /// The wide comparisons, which set the flags and name no destination.
 let private wideCompare op ins =
@@ -548,7 +592,8 @@ let private wideCompare op ins =
   | ThreeOperands(OprReg rn, OprReg rm, OprShift shift) ->
     wide (head (0b11101010u <<< 24) op 1u rn ||| (0xfu <<< 8)
           ||| wideShift shift ||| coreReg rm)
-  | _ -> wrongOperands ins
+  | _ ->
+    wrongOperands ins
 
 /// ADDW, SUBW, MOVW and MOVT, whose immediate is written as it stands rather
 /// than built out of a byte.
@@ -562,7 +607,8 @@ let private widePlainImm opcode ins =
     let imm16 = unsignedImm 16 imm
     wide (head ||| ((imm16 >>> 12) <<< 16) ||| (coreReg rd <<< 8)
           ||| splitImm12 (imm16 &&& 0xfffu))
-  | _ -> wrongOperands ins
+  | _ ->
+    wrongOperands ins
 
 /// The saturating moves and the bitfield instructions, which share a space and
 /// hold what they act on in the bits below the destination.
@@ -573,7 +619,9 @@ let private wideBitfield opcode bias ins =
   | ThreeOperands(OprReg rd, OprImm satImm, OprReg rn) ->
     wide (head (coreReg rn) opcode ||| (coreReg rd <<< 8)
           ||| unsignedImm 5 (satImm - bias))
-  | FourOperands(OprReg rd, OprImm satImm, OprReg rn,
+  | FourOperands(OprReg rd,
+                 OprImm satImm,
+                 OprReg rn,
                  OprShift(shift, Imm amount)) ->
     (* Which way the value is shifted is a bit of the opcode here rather than a
        field of its own, and the one below it is the amount. *)
@@ -585,7 +633,8 @@ let private wideBitfield opcode bias ins =
     wide (head (coreReg rn) opcode ||| (coreReg rd <<< 8)
           ||| wideShift (ShiftOp.LSL, Imm amount)
           ||| unsignedImm 5 (satImm - bias))
-  | _ -> wrongOperands ins
+  | _ ->
+    wrongOperands ins
 
 /// SBFX and UBFX, which read a field and say how wide it is, and BFI and BFC,
 /// which write one and say where it ends.
@@ -601,9 +650,9 @@ let private wideExtract opcode ins =
       else unsignedImm 5 (width - 1L)
     wide (head ||| (coreReg rn <<< 16) ||| fields rd lsb ||| last)
   | ThreeOperands(OprReg rd, OprImm lsb, OprImm width) ->
-    wide (head ||| (0xfu <<< 16) ||| fields rd lsb
-          ||| endOfBitfield lsb width)
-  | _ -> wrongOperands ins
+    wide (head ||| (0xfu <<< 16) ||| fields rd lsb ||| endOfBitfield lsb width)
+  | _ ->
+    wrongOperands ins
 
 /// The two halfwords of a wide encoding, written as the fields of each rather
 /// than as one number.
@@ -634,9 +683,10 @@ let private wideMemory ins rt mode =
     if p = 1u && w = 0u && u = 1u && value < 0x1000L then
       (1u <<< 7) ||| coreReg rn, hw2 (unsignedImm 12 value)
     else
-      coreReg rn,
-      hw2 ((1u <<< 11) ||| (p <<< 10) ||| (u <<< 9) ||| (w <<< 8)
-           ||| unsignedImm 8 value)
+      let sndVal =
+        (1u <<< 11) ||| (p <<< 10) ||| (u <<< 9) ||| (w <<< 8)
+        ||| unsignedImm 8 value
+      coreReg rn, hw2 sndVal
   | _, Some(1u, 0u, RegOffset(rn, _, rm, shift)) ->
     let amount =
       match defaultArg shift (ShiftOp.LSL, Imm 0u) with
@@ -646,7 +696,8 @@ let private wideMemory ins rt mode =
   | LiteralMode offset, _ ->
     let u, value = signedOffset None offset
     (u <<< 7) ||| 0xfu, hw2 (unsignedImm 12 value)
-  | _ -> wrongOperands ins
+  | _ ->
+    wrongOperands ins
 
 /// The wide loads and stores, which reach any register and every way of naming
 /// a place. What they transfer is two bits, and whether they extend its sign is
@@ -657,7 +708,8 @@ let private wideLoadStore signed size l ins =
   | TwoOperands(OprReg rt, OprMemory mode) ->
     let extra, hw2 = wideMemory ins rt mode
     wideWord (head ||| extra) hw2
-  | _ -> wrongOperands ins
+  | _ ->
+    wrongOperands ins
 
 /// The unprivileged loads and stores, which read and write as though the
 /// processor were in user mode and so keep their offset where the others keep
@@ -669,7 +721,8 @@ let private wideUnprivileged signed size l ins =
     wideWord (head ||| coreReg rn)
              ((coreReg rt <<< 12) ||| (0b1110u <<< 8)
               ||| unsignedImm 8 (defaultArg imm 0L))
-  | _ -> wrongOperands ins
+  | _ ->
+    wrongOperands ins
 
 /// The preload hints, which name a place the way a load does and name no
 /// register to read it into.
@@ -680,18 +733,21 @@ let private widePreload signed size ins =
       (0b11111u <<< 11) ||| (signed <<< 8) ||| (size <<< 5) ||| (1u <<< 4)
     let extra, hw2 = wideMemory ins Register.PC mode
     wideWord (head ||| extra) hw2
-  | _ -> wrongOperands ins
+  | _ ->
+    wrongOperands ins
 
 /// Where a load or store of two registers reads, whose offset counts in words.
 let private widePairMemory ins mode =
   match mode, thumbIndexBits mode with
   | _, Some(p, w, ImmOffset(rn, sign, imm)) ->
     let u, value = signedOffset sign (defaultArg imm 0L)
-    if value % 4L <> 0L then fail "a paired offset counts in words"
+    if value % 4L <> 0L then
+      fail "a paired offset counts in words"
     else
-      (p <<< 8) ||| (u <<< 7) ||| (w <<< 5) ||| coreReg rn,
-      unsignedImm 8 (value / 4L)
-  | _ -> wrongOperands ins
+      let fstVal = (p <<< 8) ||| (u <<< 7) ||| (w <<< 5) ||| coreReg rn
+      fstVal, unsignedImm 8 (value / 4L)
+  | _ ->
+    wrongOperands ins
 
 /// LDRD and STRD, which move two registers the source names in full.
 let private widePair l ins =
@@ -700,13 +756,13 @@ let private widePair l ins =
     let head, imm8 = widePairMemory ins mode
     wideWord ((0b1110100u <<< 9) ||| (1u <<< 6) ||| (l <<< 4) ||| head)
              ((coreReg rt <<< 12) ||| (coreReg rt2 <<< 8) ||| imm8)
-  | _ -> wrongOperands ins
+  | _ ->
+    wrongOperands ins
 
 /// The exclusive accesses, whose offset counts in words and which report in a
 /// register of their own whether a store succeeded.
 let private wideExclusive l ins =
-  let head rn =
-    (0b111010000u <<< 7) ||| (1u <<< 6) ||| (l <<< 4) ||| coreReg rn
+  let head rn = (0b111010000u <<< 7) ||| (1u <<< 6) ||| (l <<< 4) ||| coreReg rn
   let offset imm =
     if imm % 4L <> 0L then fail "an exclusive offset counts in words"
     else unsignedImm 8 (imm / 4L)
@@ -715,12 +771,14 @@ let private wideExclusive l ins =
     wideWord (head rn)
              ((coreReg rt <<< 12) ||| (0xfu <<< 8)
               ||| offset (defaultArg imm 0L))
-  | ThreeOperands(OprReg rd, OprReg rt,
+  | ThreeOperands(OprReg rd,
+                  OprReg rt,
                   OprMemory(OffsetMode(ImmOffset(rn, _, imm)))) ->
     wideWord (head rn)
              ((coreReg rt <<< 12) ||| (coreReg rd <<< 8)
               ||| offset (defaultArg imm 0L))
-  | _ -> wrongOperands ins
+  | _ ->
+    wrongOperands ins
 
 /// The wide transfers of several registers at once, and the two that save and
 /// restore the state an exception left behind, which share their space.
@@ -729,11 +787,14 @@ let private wideBlock op l ins =
   let head rn =
     (0b1110100u <<< 9) ||| (op <<< 7) ||| (w <<< 5) ||| (l <<< 4) ||| coreReg rn
   match ins.Operands with
-  | TwoOperands(OprReg rn, OprRegList regs) -> wideWord (head rn) (regList regs)
-  | OneOperand(OprReg rn) -> wideWord (head rn) 0xc000u
+  | TwoOperands(OprReg rn, OprRegList regs) ->
+    wideWord (head rn) (regList regs)
+  | OneOperand(OprReg rn) ->
+    wideWord (head rn) 0xc000u
   | TwoOperands(OprReg Register.SP, OprImm mode) ->
     wideWord (head Register.SP) (0xc000u ||| unsignedImm 6 mode)
-  | _ -> wrongOperands ins
+  | _ ->
+    wrongOperands ins
 
 /// <summary>
 /// The wide branches, whose reach is split across both halfwords and two bits
@@ -758,7 +819,8 @@ let private wideBranch link exchange ins =
               ||| ((value >>> 11) &&& 0x3ffu))
              ((1u <<< 15) ||| (link <<< 14) ||| (j1 <<< 13)
               ||| (exchange <<< 12) ||| (j2 <<< 11) ||| (value &&& 0x7ffu))
-  | _ -> wrongOperands ins
+  | _ ->
+    wrongOperands ins
 
 /// The signed multiplies that read half of each source, which name the halves
 /// in the two bits below their opcode.
@@ -773,7 +835,8 @@ let private wideHalfMul op1 op2 ins =
     wideWord (head rn)
              ((0xfu <<< 12) ||| (coreReg rd <<< 8) ||| (op2 <<< 4)
               ||| coreReg rm)
-  | _ -> wrongOperands ins
+  | _ ->
+    wrongOperands ins
 
 /// The instructions that name nothing but a number, whose bits sit on either
 /// side of the halfword boundary.
@@ -782,7 +845,8 @@ let private wideException head hw2Head width ins =
   | OneOperand(OprImm imm) ->
     let imm16 = unsignedImm width imm
     wideWord (head ||| (imm16 >>> 12)) (hw2Head ||| (imm16 &&& 0xfffu))
-  | _ -> wrongOperands ins
+  | _ ->
+    wrongOperands ins
 
 /// <summary>
 /// MRS and MSR, which move a status register, or the copy of a register that a
@@ -813,7 +877,8 @@ let private wideStatusMove read ins =
     wideWord ((0b1111001110u <<< 6) ||| (statusRegBit sreg <<< 4)
               ||| coreReg rn)
              (0x8000u ||| (psrMask flag <<< 8))
-  | _ -> wrongOperands ins
+  | _ ->
+    wrongOperands ins
 
 /// CPS, which turns the interrupts its operand names on or off and may say
 /// which mode to change to at the same time.
@@ -833,14 +898,14 @@ let private wideChangeState imod ins =
   | TwoOperands(OprIflag flags, OprImm mode) ->
     wideWord head (0x8000u ||| (imod <<< 9) ||| (1u <<< 8)
                    ||| (flagBits flags <<< 5) ||| unsignedImm 5 mode)
-  | _ -> wrongOperands ins
+  | _ ->
+    wrongOperands ins
 
 /// SMC, whose four bits of immediate name a monitor call and sit in the first
 /// halfword rather than the second.
 let private wideSecureMonitor ins =
   match ins.Operands with
-  | OneOperand(OprImm imm) ->
-    wideWord (0xf7f0u ||| unsignedImm 4 imm) 0x8000u
+  | OneOperand(OprImm imm) -> wideWord (0xf7f0u ||| unsignedImm 4 imm) 0x8000u
   | _ -> wrongOperands ins
 
 /// BXJ, which branches to an address a register holds and would once have
@@ -849,7 +914,8 @@ let private wideBranchExchangeJazelle ins =
   match ins.Operands with
   | OneOperand(OprReg rm) ->
     wideWord ((0b111100111100u <<< 4) ||| coreReg rm) 0x8f00u
-  | _ -> wrongOperands ins
+  | _ ->
+    wrongOperands ins
 
 /// The wide hints, which do nothing a program can see and are told apart by
 /// their low byte.
@@ -857,7 +923,8 @@ let private wideHint value ins =
   match ins.Operands with
   | NoOperand ->
     wideWord ((0b11110011101u <<< 5) ||| 0xfu) ((0b1000u <<< 12) ||| value)
-  | _ -> wrongOperands ins
+  | _ ->
+    wrongOperands ins
 
 /// The narrow Thumb instructions, which are what a halfword on its own can say.
 let thumbNarrowEncoders () =
@@ -947,8 +1014,7 @@ let thumbNarrowEncoders () =
 /// </summary>
 let preferNarrow narrowEncode wideEncode (ins: AsmInsInfo) =
   if ins.Qualifier = W then wideEncode ins
-  else
-    try narrowEncode ins with :? EncodingFailureException -> wideEncode ins
+  else try narrowEncode ins with :? EncodingFailureException -> wideEncode ins
 
 /// The wide Thumb instructions, which are what two halfwords together say.
 let thumbWideEncoders () =

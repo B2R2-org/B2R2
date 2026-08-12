@@ -175,8 +175,7 @@ let registers =
   |> Map.ofList
 
 /// The caches a source may name, paired with the bits saying which they are.
-let caches =
-  Map.ofList [ "nc", 0uy; "dc", 1uy; "ic", 2uy; "bc", 3uy ]
+let caches = Map.ofList [ "nc", 0uy; "dc", 1uy; "ic", 2uy; "bc", 3uy ]
 
 /// The size that a suffix of a mnemonic names, or nothing where the suffix
 /// names no size at all and so is part of no mnemonic this assembler knows.
@@ -194,9 +193,10 @@ let sizeOfSuffix (suffix: string) =
 /// The distance, the base register, and the index register that a run of parts
 /// wrote, each of them where the run named one.
 let private partsOf parts =
-  parts |> List.tryPick (function PartDisp v -> Some v | _ -> None),
-  parts |> List.tryPick (function PartBase r -> Some r | _ -> None),
-  parts |> List.tryPick (function PartIndex i -> Some i | _ -> None)
+  let disp = parts |> List.tryPick (function PartDisp v -> Some v | _ -> None)
+  let bse = parts |> List.tryPick (function PartBase r -> Some r | _ -> None)
+  let idx = parts |> List.tryPick (function PartIndex i -> Some i | _ -> None)
+  disp, bse, idx
 
 /// The address a run of parts written between parentheses names, which is the
 /// simplest mode that can say it: a register on its own where nothing else was
@@ -204,8 +204,10 @@ let private partsOf parts =
 /// otherwise.
 let plainAddress parts =
   match partsOf parts with
-  | None, Some reg, None -> AsmDirect reg
-  | Some v, Some reg, None -> AsmDisp(v, reg)
+  | None, Some reg, None ->
+    AsmDirect reg
+  | Some v, Some reg, None ->
+    AsmDisp(v, reg)
   | disp, bse, index ->
     AsmIndexed
       { Base = bse
@@ -247,7 +249,8 @@ let newInfo (name: string) operands =
   let name = name.ToLowerInvariant()
   let mnemonic, size =
     match name.LastIndexOf '.' with
-    | -1 -> name, Sz.NoSize
+    | -1 ->
+      name, Sz.NoSize
     | at ->
       match sizeOfSuffix name[at + 1..] with
       | Some size -> name[..at - 1], size

@@ -158,8 +158,7 @@ type Assembler(isa: ISA, baseAddr: Addr) =
     .>>. between (pchar '(') (pchar ')') (skipWhitespaces pInside)
     |>> fun (offset, (space, baseReg)) -> AsmMem(offset, space, baseReg)
 
-  let pOperand =
-    attempt pMemory <|> (pNumber |>> AsmImm) <|> pBare
+  let pOperand = attempt pMemory <|> (pNumber |>> AsmImm) <|> pBare
 
   let operandSep = whitespace >>. pchar ',' >>. whitespace |>> ignore
 
@@ -215,6 +214,7 @@ type Assembler(isa: ISA, baseAddr: Addr) =
         |> assemble encoders us isa.Endian baseAddr
         |> List.map (fun bytes -> isa, bytes)
         |> Result.Ok
-      | Failure(str, _, _) -> Result.Error str
+      | Failure(str, _, _) ->
+        Result.Error str
 
 // vim: set tw=80 sts=2 sw=2:
