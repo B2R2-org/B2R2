@@ -20,7 +20,6 @@
     <Compile Include="Intel.fs" />
     <Compile Include="Instruction.fs" />
     <Compile Include="ParsingHelper.fs" />
-    <Compile Include="InsSizeComputers.fs" />
     <Compile Include="OperandParsers.fs" />
     <Compile Include="Disasm.fs" />
     <Compile Include="LiftingUtils.fs" />
@@ -31,7 +30,6 @@
     <Compile Include="X87Lifter.fs" />
     <Compile Include="Lifter.fs" />
     <Compile Include="ParsingFunctions.fs" />
-    <Compile Include="ParsingJob.fs" />
     <Compile Include="Parser.fs" />
     <None Include="..\..\..\LICENSE.md" Pack="true" PackagePath="" />
     <None Include="..\..\..\assets\b2r2-240x240.png" Pack="true" PackagePath="" />
