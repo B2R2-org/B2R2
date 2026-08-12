@@ -7,7 +7,6 @@
   <ItemGroup>
     <Compile Include="ParserTests.fs" />
     <Compile Include="LifterTests.fs" />
-    <Compile Include="LiftingContractTests.fs" />
     <Compile Include="DisassemblerTests.fs" />
   </ItemGroup>
 

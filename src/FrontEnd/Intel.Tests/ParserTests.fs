@@ -2192,6 +2192,34 @@ type ParserTests() =
     ++ LOADIWKEY ** [ O.Reg R.XMM0; O.Reg R.XMM1; O.Reg R.EAX; O.Reg R.XMM0 ]
     ||> testX64NoPrefixNoSeg
 
+  (* The same angle brackets, on the instructions where dropping them was
+     caught: SSELifter reads all three operands, so a two-operand decoding
+     parses and then fails the moment anything lifts it. *)
+  [<TestMethod>]
+  member _.``Implicit operand from the manual (1)``() =
+    "660f3810c1"
+    ++ PBLENDVB ** [ O.Reg R.XMM0; O.Reg R.XMM1; O.Reg R.XMM0 ]
+    ||> testX64NoPrefixNoSeg
+
+  [<TestMethod>]
+  member _.``Implicit operand from the manual (2)``() =
+    "660f3815c1"
+    ++ BLENDVPD ** [ O.Reg R.XMM0; O.Reg R.XMM1; O.Reg R.XMM0 ]
+    ||> testX64NoPrefixNoSeg
+
+  [<TestMethod>]
+  member _.``Implicit operand from the manual (3)``() =
+    "0f38cbc1"
+    ++ SHA256RNDS2 ** [ O.Reg R.XMM0; O.Reg R.XMM1; O.Reg R.XMM0 ]
+    ||> testX64NoPrefixNoSeg
+
+  (* Two implicit registers rather than one, and both general-purpose. *)
+  [<TestMethod>]
+  member _.``Implicit operand from the manual (4)``() =
+    "660faef1"
+    ++ TPAUSE ** [ O.Reg R.ECX; O.Reg R.EDX; O.Reg R.EAX ]
+    ||> testX64NoPrefixNoSeg
+
   [<TestMethod>]
   member _.``Group entry pinned to a register form (1)``() =
     "f30faef1"
