@@ -160,15 +160,15 @@ let translate (binFile: PythonBinFile) (ins: Instruction) bld =
   | Opcode.LOAD_SUPER_ATTR ->
     loadSuperAttr ins bld
   | Opcode.LOAD_FROM_DICT_OR_GLOBALS ->
-    translateLoad "LOAD_FROM_DICT_OR_GLOBALS" ins bld
+    loadFromDict "LOAD_FROM_DICT_OR_GLOBALS" ins bld
   | Opcode.LOAD_FROM_DICT_OR_DEREF ->
-    translateLoad "LOAD_FROM_DICT_OR_DEREF" ins bld
+    loadFromDict "LOAD_FROM_DICT_OR_DEREF" ins bld
   | Opcode.LOAD_BUILD_CLASS ->
     loadBuildClass ins bld
   | Opcode.LOAD_ASSERTION_ERROR ->
     loadAssertionError ins bld
   | Opcode.LOAD_LOCALS ->
-    namedEffect "LOAD_LOCALS" ins bld
+    loadLocals ins bld
   (* Store instructions *)
   | Opcode.STORE_FAST ->
     storeNamed "STORE_FAST" ins bld

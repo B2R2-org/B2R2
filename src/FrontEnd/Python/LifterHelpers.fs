@@ -216,6 +216,26 @@ let translateLoad opname (ins: Instruction) bld =
   pushToStack bld (AST.app opname [ operandIndex ins ] rt)
   bld --!> ins.Length
 
+(* LOAD_LOCALS: leaves the mapping the running activation binds into. A class
+   body written with type parameters is what reaches for it -- the parameters
+   are a scope of their own, and the body reads a name out of this before
+   falling back to its own cells -- so it has to leave that mapping rather than
+   nothing at all. *)
+let loadLocals (ins: Instruction) bld =
+  bld <!-- (ins.Address, ins.Length)
+  pushToStack bld (AST.app "LOAD_LOCALS" [] rt)
+  bld --!> ins.Length
+
+(* LOAD_FROM_DICT_OR_DEREF and LOAD_FROM_DICT_OR_GLOBALS: the name is looked
+   for in the mapping LOAD_LOCALS left, and only then in the cell or the
+   module. The mapping is popped -- CPython's own stack effect consumes it --
+   so it travels as an operand rather than being left behind. *)
+let loadFromDict opname (ins: Instruction) bld =
+  bld <!-- (ins.Address, ins.Length)
+  let mapping = popFromStack bld
+  pushToStack bld (AST.app opname [ mapping; operandIndex ins ] rt)
+  bld --!> ins.Length
+
 let translateLoadGlobal (ins: Instruction) bld =
   bld <!-- (ins.Address, ins.Length)
   let v = AST.app "LOAD_GLOBAL" [ globalIndex ins ] rt
