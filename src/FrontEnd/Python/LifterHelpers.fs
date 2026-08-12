@@ -37,22 +37,21 @@ open B2R2.FrontEnd.BinLifter.LiftingUtils
 /// use of this alias.
 let rt = OperationSize.RegType
 
-let extractMinorVersion = function
-  | PythonVersion.Python306 -> 6
-  | PythonVersion.Python307 -> 7
-  | PythonVersion.Python308 -> 8
-  | PythonVersion.Python309 -> 9
-  | PythonVersion.Python310 -> 10
-  | PythonVersion.Python311 -> 11
-  | PythonVersion.Python312 -> 12
-  | PythonVersion.Python313 -> 13
-  | PythonVersion.Python314 -> 14
-  | version -> failwithf "Unsupported Python version: %A" version
-
 let getIntArg (ins: Instruction) =
   match ins.Operands with
   | OneOperand(arg, _) -> arg
   | _ -> failwith "Expected one operand with an integer argument."
+
+/// The instruction's argument, or the given value when this version's
+/// encoding gives the opcode none. An opcode that gains or loses its oparg
+/// across versions -- 3.1 gave LIST_APPEND and SET_ADD theirs, 3.13 took
+/// MAKE_FUNCTION's away -- otherwise reaches getIntArg with NoOperand and
+/// fails there, which is a lifting failure rather than the missing argument's
+/// own well-defined meaning.
+let getIntArgOr dflt (ins: Instruction) =
+  match ins.Operands with
+  | OneOperand(arg, _) -> arg
+  | _ -> dflt
 
 /// How far apart two evaluation-stack slots sit. A slot holds one rt-wide
 /// value and LowUIR's stores are byte-addressed, so the distance is rt's
@@ -919,6 +918,18 @@ let makeFunction (ins: Instruction) bld =
   pushToStack bld (AST.app "MAKE_FUNCTION" args rt)
   bld --!> ins.Length
 
+(* 3.13 removed MAKE_FUNCTION's oparg along with everything it selected: the
+   defaults, annotations and closure are attached one at a time by the
+   SET_FUNCTION_ATTRIBUTE instructions that follow, so the code object is all
+   this pops. The four slots stay NULL rather than vanishing, so the app keeps
+   the arity the other two forms have and HIR translation reads one shape. *)
+let makeFunctionSimple (ins: Instruction) bld =
+  bld <!-- (ins.Address, ins.Length)
+  let codeObj = popFromStack bld
+  let args = [ codeObj; nullSlot; nullSlot; nullSlot; nullSlot ]
+  pushToStack bld (AST.app "MAKE_FUNCTION" args rt)
+  bld --!> ins.Length
+
 (* Pre-3.11: MAKE_FUNCTION's stack order is different in two ways --
    there's an explicit qualname STRING on top of the code object (3.11+
    bakes qualname into the code object's own metadata instead, so this
@@ -974,9 +985,15 @@ let makeFunctionLegacy (ins: Instruction) bld =
    lost ConstSP tracking after the phantom extra pop). *)
 let callFunctionEx minor (ins: Instruction) bld =
   bld <!-- (ins.Address, ins.Length)
-  let flags = getIntArg ins
+  (* 3.14 dropped the oparg whose low bit used to say whether a keyword
+     mapping was passed: the mapping became a stack slot that is always
+     there, holding NULL for a call that passes none. 3.13's instrumented
+     form has no oparg either, and nothing else says what it was, so the
+     unflagged shape -- no mapping -- is what it reads as. *)
   let kwargs =
-    if flags &&& 0x01 <> 0 then popFromStack bld else nullSlot
+    if minor >= 14 then popFromStack bld
+    elif getIntArgOr 0 ins &&& 0x01 <> 0 then popFromStack bld
+    else nullSlot
   let args = popFromStack bld
   let func = popFromStack bld
   let maybeSelf = if minor >= 11 then popFromStack bld else nullSlot
@@ -984,9 +1001,11 @@ let callFunctionEx minor (ins: Instruction) bld =
   pushToStack bld result
   bld --!> ins.Length
 
+(* 3.0 gives neither this nor SET_ADD an oparg: the collection is always the
+   slot directly beneath the item, which is what an oparg of 1 says. *)
 let listAppend (ins: Instruction) bld =
   bld <!-- (ins.Address, ins.Length)
-  let i = getIntArg ins
+  let i = getIntArgOr 1 ins
   let item = popFromStack bld
   let lst = peekFromStack bld (i - 1)
   bld <+ AST.extCall (AST.app "LIST_APPEND" [ lst; item ] rt)
@@ -994,7 +1013,7 @@ let listAppend (ins: Instruction) bld =
 
 let setAdd (ins: Instruction) bld =
   bld <!-- (ins.Address, ins.Length)
-  let i = getIntArg ins
+  let i = getIntArgOr 1 ins
   let item = popFromStack bld
   let st = peekFromStack bld (i - 1)
   bld <+ AST.extCall (AST.app "SET_ADD" [ st; item ] rt)
@@ -1045,6 +1064,20 @@ let cmpOpName = function
   | 5 -> ">="
   | _ -> Terminator.futureFeature ()
 
+(* Before 3.9, COMPARE_OP's argument indexes an eleven-entry cmp_op table
+   that also holds the identity, membership and exception-match tests 3.9
+   split out into IS_OP, CONTAINS_OP and JUMP_IF_NOT_EXC_MATCH. The names
+   here are those later opcodes' own, so HIR translation sees one shape
+   across versions. *)
+let private legacyCmp idx left right =
+  match idx with
+  | 6 -> AST.app "CONTAINS_OP" [ right; left ] rt
+  | 7 -> AST.app "NOT_CONTAINS_OP" [ right; left ] rt
+  | 8 -> AST.app "IS_OP" [ left; right ] rt
+  | 9 -> AST.app "NOT_IS_OP" [ left; right ] rt
+  | 10 -> AST.app "CHECK_EXC_MATCH" [ left; right ] rt
+  | _ -> opApp (cmpOpName idx) left right
+
 (* COMPARE_OP: pop right (TOS) then left (TOS1), push bool result.
    In 3.12+ the operator index is arg >> 4; lower bits are cache flags. *)
 let compareOP minor (ins: Instruction) bld =
@@ -1053,7 +1086,8 @@ let compareOP minor (ins: Instruction) bld =
   let opIdx = if minor >= 12 then n >>> 4 else n
   let right = popFromStack bld
   let left = popFromStack bld
-  pushToStack bld (opApp (cmpOpName opIdx) left right)
+  if minor >= 9 then pushToStack bld (opApp (cmpOpName opIdx) left right)
+  else pushToStack bld (legacyCmp opIdx left right)
   bld --!> ins.Length
 
 (* IS_OP: pop TOS (right) and TOS1 (left), push identity test.

@@ -165,33 +165,11 @@ let rec private doParse semantics (span: ByteSpan) reader bf s c e =
     Instruction(s, total, opcode, opr, LifterHelpers.rt, version, bf,
                 semantics)
 
-/// Which version's lifter an instruction goes to. The lifters are still one
-/// file each, so this is the one place that has to name all sixteen.
-let private lift (ins: Instruction) bld =
-  match ins.Version with
-  | PythonVersion.Python300 -> Python300.Lifter.translate ins.BinFile ins bld
-  | PythonVersion.Python301 -> Python301.Lifter.translate ins.BinFile ins bld
-  | PythonVersion.Python302 -> Python302.Lifter.translate ins.BinFile ins bld
-  | PythonVersion.Python303 -> Python303.Lifter.translate ins.BinFile ins bld
-  | PythonVersion.Python304 -> Python304.Lifter.translate ins.BinFile ins bld
-  | PythonVersion.Python305 -> Python305.Lifter.translate ins.BinFile ins bld
-  | PythonVersion.Python306 -> Python306.Lifter.translate ins.BinFile ins bld
-  | PythonVersion.Python307 -> Python307.Lifter.translate ins.BinFile ins bld
-  | PythonVersion.Python308 -> Python308.Lifter.translate ins.BinFile ins bld
-  | PythonVersion.Python309 -> Python309.Lifter.translate ins.BinFile ins bld
-  | PythonVersion.Python310 -> Python310.Lifter.translate ins.BinFile ins bld
-  | PythonVersion.Python311 -> Python311.Lifter.translate ins.BinFile ins bld
-  | PythonVersion.Python312 -> Python312.Lifter.translate ins.BinFile ins bld
-  | PythonVersion.Python313 -> Python313.Lifter.translate ins.BinFile ins bld
-  | PythonVersion.Python314 -> Python314.Lifter.translate ins.BinFile ins bld
-  | PythonVersion.Python315 -> Python315.Lifter.translate ins.BinFile ins bld
-  | v -> failwithf "Unsupported Python version: %A" v
-
 /// Everything about an instruction that the rest of B2R2 asks of it. Nothing
 /// here holds state, so one instance serves every file ever opened.
-let private semantics =
+let semantics =
   { new IInstructionSemantics with
-      member _.Lift(ins, bld) = lift ins bld
+      member _.Lift(ins, bld) = Lifter.translate ins.BinFile ins bld
       member _.Disasm(ins, bld) = Disasm.disasm ins bld
       member _.IsBranch ins = Semantics.isBranch ins
       member _.IsCondBranch ins = Semantics.isCondBranch ins

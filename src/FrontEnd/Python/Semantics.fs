@@ -46,8 +46,10 @@ let isBranch (ins: Instruction) =
   | Opcode.JUMP_BACKWARD
   | Opcode.JUMP_BACKWARD_NO_INTERRUPT
   | Opcode.JUMP_FORWARD
+  | Opcode.JUMP_IF_FALSE
   | Opcode.JUMP_IF_FALSE_OR_POP
   | Opcode.JUMP_IF_NOT_EXC_MATCH
+  | Opcode.JUMP_IF_TRUE
   | Opcode.JUMP_IF_TRUE_OR_POP
   | Opcode.JUMP_NO_INTERRUPT
   | Opcode.POP_JUMP_BACKWARD_IF_FALSE
@@ -63,14 +65,12 @@ let isBranch (ins: Instruction) =
   | Opcode.POP_JUMP_IF_NOT_NONE
   | Opcode.POP_JUMP_IF_TRUE
   | Opcode.SEND -> true
-  (* JUMP_IF_FALSE/JUMP_IF_TRUE are deliberately absent. 3.15 alone counted
-     them, where they are pseudo-instructions no byte ever decodes to, while
-     in 3.0 they are the real conditional jumps -- and 3.0 has no rule for
-     where one lands, so counting them here would ask branchTarget below for
-     an answer it does not have. They belong here once 3.0's own conditional
-     jumps are implemented, not before. *)
   | _ -> false
 
+/// JUMP_IF_FALSE/JUMP_IF_TRUE are 3.0's own conditional jumps, which 3.1
+/// replaced with the POP_JUMP_IF_* and *_OR_POP pairs. Unlike both of those
+/// they leave the value they tested on the stack, which is a difference in
+/// what the branch consumes rather than in where it lands.
 let isCondBranch (ins: Instruction) =
   match ins.Opcode with
   | Opcode.FOR_ITER
@@ -79,8 +79,10 @@ let isCondBranch (ins: Instruction) =
   | Opcode.INSTRUMENTED_POP_JUMP_IF_NONE
   | Opcode.INSTRUMENTED_POP_JUMP_IF_NOT_NONE
   | Opcode.INSTRUMENTED_POP_JUMP_IF_TRUE
+  | Opcode.JUMP_IF_FALSE
   | Opcode.JUMP_IF_FALSE_OR_POP
   | Opcode.JUMP_IF_NOT_EXC_MATCH
+  | Opcode.JUMP_IF_TRUE
   | Opcode.JUMP_IF_TRUE_OR_POP
   | Opcode.POP_JUMP_BACKWARD_IF_FALSE
   | Opcode.POP_JUMP_BACKWARD_IF_NONE
@@ -100,6 +102,7 @@ let isCondBranch (ins: Instruction) =
 let isCJmpOnTrue (ins: Instruction) =
   match ins.Opcode with
   | Opcode.INSTRUMENTED_POP_JUMP_IF_TRUE
+  | Opcode.JUMP_IF_TRUE
   | Opcode.JUMP_IF_TRUE_OR_POP
   | Opcode.POP_JUMP_BACKWARD_IF_TRUE
   | Opcode.POP_JUMP_FORWARD_IF_TRUE
@@ -114,8 +117,11 @@ let isCall (ins: Instruction) =
   | Opcode.CALL_FUNCTION_KW
   | Opcode.CALL_FUNCTION_VAR
   | Opcode.CALL_FUNCTION_VAR_KW
+  | Opcode.CALL_KW
   | Opcode.CALL_METHOD
-  | Opcode.INSTRUMENTED_CALL -> true
+  | Opcode.INSTRUMENTED_CALL
+  | Opcode.INSTRUMENTED_CALL_FUNCTION_EX
+  | Opcode.INSTRUMENTED_CALL_KW -> true
   | _ -> false
 
 let isRET (ins: Instruction) =
@@ -194,6 +200,8 @@ let private targetKind (ins: Instruction) =
   | Opcode.POP_JUMP_IF_NONE
   | Opcode.POP_JUMP_IF_NOT_NONE
   | Opcode.CALL_FINALLY
+  | Opcode.JUMP_IF_FALSE
+  | Opcode.JUMP_IF_TRUE
   | Opcode.INSTRUMENTED_FOR_ITER
   | Opcode.INSTRUMENTED_JUMP_FORWARD
   | Opcode.INSTRUMENTED_POP_JUMP_IF_FALSE
