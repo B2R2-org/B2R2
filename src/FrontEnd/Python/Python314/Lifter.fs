@@ -411,7 +411,7 @@ let translate (binFile: PythonBinFile) (ins: Instruction) bld =
   | Opcode.UNPACK_SEQUENCE ->
     unpackSequence ins bld
   | Opcode.UNPACK_EX ->
-    namedEffect "UNPACK_EX" ins bld
+    unpackEx ins bld
   (* Collection update instructions *)
   | Opcode.LIST_APPEND ->
     listAppend ins bld

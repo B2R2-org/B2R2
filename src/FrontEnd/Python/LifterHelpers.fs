@@ -809,22 +809,31 @@ let getIter (ins: Instruction) bld =
   pushToStack bld iterNext
   bld --!> ins.Length
 
-(* SEND: pop TOS (sent value), pop TOS1 (generator), call send(gen, val).
-   Per CPython's own bytecodes.c, the stack effect is
-   `(receiver, v -- receiver, retval)` on BOTH the exhausted and
-   not-exhausted paths -- receiver stays regardless; only END_SEND (via
-   the exhausted jump) later drops it. So push gen back unconditionally,
-   then push the result, then jump on exhaustion or fall through. *)
+(* SEND: pop TOS (sent value), send it into the receiver beneath. Per CPython's
+   own bytecodes.c, the stack effect is `(receiver, v -- receiver, retval)` on
+   BOTH the exhausted and not-exhausted paths -- the receiver stays regardless;
+   only END_SEND (via the exhausted jump) later drops it. So the receiver is
+   read where it lies rather than popped and pushed back: a send runs the
+   sub-generator's own bytecode, which re-enters the interpreter and reuses
+   every temporary this instruction holds, so a receiver popped into one and
+   written back afterwards would be whatever that run left there. Leaving it in
+   its slot also keeps it out of the way of the sub-generator's own stack,
+   which is placed below the stack pointer -- and the stack pointer, with the
+   sent value popped, is the receiver's own slot. *)
 let send (ins: Instruction) bld =
   bld <!-- (ins.Address, ins.Length)
   let sentVal = popFromStack bld
-  let gen = popFromStack bld
-  let result = AST.app "SEND" [ gen; sentVal ] rt
+  let gen = peekFromStack bld 0
+  (* Bound before it is used, because it is used twice: once pushed onto the
+     stack and once asked whether it means the sub-generator is done. Left as
+     an expression it would be two sends rather than one, and the second would
+     take a value out of the sub-generator that nothing ever yields. *)
+  let result = tmpVar bld rt
+  bld <+ (result := AST.app "SEND" [ gen; sentVal ] rt)
   let n = getIntArg ins
   let jmpDst = ins.Address + uint64 ins.Length + uint64 (n * jumpArgScale ins)
   let fallDst = ins.Address + uint64 ins.Length
   let isExhausted = AST.app "IS_EXHAUSTED" [ result ] rt
-  pushToStack bld gen
   pushToStack bld result
   bld <+ AST.intercjmp isExhausted
     (AST.num (BitVector(jmpDst, rt)))
@@ -1117,6 +1126,32 @@ let binarySlice (ins: Instruction) bld =
 /// index order would put the last on top and hand every target the wrong
 /// element, which is a swap rather than a failure and so shows up as a wrong
 /// answer far from here.
+(* UNPACK_EX: the starred form of an unpacking, `a, *rest, b = xs`. The
+   argument packs how many targets precede the star in its low byte and how
+   many follow it in the high one. What it leaves is one value per target --
+   the star's own list among them -- deepest first, so the leftmost target ends
+   on top, exactly as UNPACK_SEQUENCE leaves its own. Which element each target
+   takes depends on how long the sequence turns out to be, which only the
+   runtime knows, so each is asked for by position rather than sliced here. *)
+let unpackEx (ins: Instruction) bld =
+  bld <!-- (ins.Address, ins.Length)
+  let arg = getIntArg ins
+  let before = arg &&& 0xFF
+  let after = arg >>> 8
+  let seq = popFromStack bld
+  (* Walked once, for the same reason UNPACK_SEQUENCE walks once. *)
+  let items = tmpVar bld rt
+  bld <+ (items := AST.app "LIST_TO_TUPLE" [ seq ] rt)
+  for i in before + after .. -1 .. 0 do
+    let taken =
+      AST.app "UNPACK_EX"
+        [ items
+          AST.num (BitVector(before, rt))
+          AST.num (BitVector(after, rt))
+          AST.num (BitVector(i, rt)) ] rt
+    pushToStack bld taken
+  bld --!> ins.Length
+
 let unpackSequence (ins: Instruction) bld =
   bld <!-- (ins.Address, ins.Length)
   let n = getIntArg ins
