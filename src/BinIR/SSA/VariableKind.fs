@@ -67,5 +67,4 @@ with
 module VariableKind =
   /// Converts an SSA variable kind to a string.
   [<CompiledName "ToString">]
-  let toString (kind: VariableKind) =
-    kind.ToString()
+  let toString (kind: VariableKind) = kind.ToString()

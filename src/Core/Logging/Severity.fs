@@ -54,5 +54,4 @@ module Severity =
   /// Returns the plain-text prefix that a serialized sink writes before a
   /// message of the given severity.
   [<CompiledName "ToPrefix">]
-  let toPrefix severity =
-    "[*] " + toString severity + ": "
+  let toPrefix severity = "[*] " + toString severity + ": "

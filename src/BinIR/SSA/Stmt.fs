@@ -128,5 +128,4 @@ and JmpType =
 module Stmt =
   /// Converts an SSA statement to a string.
   [<CompiledName "ToString">]
-  let toString (stmt: Stmt) =
-    stmt.ToString()
+  let toString (stmt: Stmt) = stmt.ToString()

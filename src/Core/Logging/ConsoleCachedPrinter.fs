@@ -48,8 +48,7 @@ type ConsoleCachedPrinter(myLevel: LogLevel) =
 
   let add (s: string) =
     cache.Append(s) |> ignore
-    if cache.Length <= PrinterConst.CacheLimit then ()
-    else flush ()
+    if cache.Length <= PrinterConst.CacheLimit then () else flush ()
 
   (* Diagnostics go straight to stderr instead of into the cache, so that
      redirecting stdout does not swallow them. Whatever is queued is flushed
@@ -79,8 +78,7 @@ type ConsoleCachedPrinter(myLevel: LogLevel) =
 
     member _.Dispose() = ()
 
-    member _.Print(s: string, lvl) =
-      if lvl <= myLevel then add s else ()
+    member _.Print(s: string, lvl) = if lvl <= myLevel then add s else ()
 
     member this.Print(cs: ColoredString, lvl) =
       if lvl <= myLevel then (this :> IPrinter).Print(cs.ToString(), lvl)
@@ -94,20 +92,16 @@ type ConsoleCachedPrinter(myLevel: LogLevel) =
       if lvl <= myLevel then s + Environment.NewLine |> add else ()
 
     member _.PrintLine(cs: ColoredString, lvl) =
-      if lvl <= myLevel then cs.ToString() + Environment.NewLine |> add
-      else ()
+      if lvl <= myLevel then cs.ToString() + Environment.NewLine |> add else ()
 
     member _.PrintLine(os: OutString, lvl) =
-      if lvl <= myLevel then os.ToString() + Environment.NewLine |> add
-      else ()
+      if lvl <= myLevel then os.ToString() + Environment.NewLine |> add else ()
 
     member _.PrintLine(lvl) =
-      if lvl <= myLevel then add Environment.NewLine
-      else ()
+      if lvl <= myLevel then add Environment.NewLine else ()
 
     member _.PrintRow(strs: string[]) =
-      if myLevel >= LogLevel.L2 then mycfg.RenderRow(strs, add)
-      else ()
+      if myLevel >= LogLevel.L2 then mycfg.RenderRow(strs, add) else ()
 
     member _.PrintRow(css: ColoredString[]) =
       if myLevel >= LogLevel.L2 then
@@ -132,8 +126,7 @@ type ConsoleCachedPrinter(myLevel: LogLevel) =
     member _.PrintError(cs: ColoredString) =
       errorPrefix + cs.ToString() |> addError
 
-    member _.PrintError(os: OutString) =
-      errorPrefix + os.ToString() |> addError
+    member _.PrintError(os: OutString) = errorPrefix + os.ToString() |> addError
 
     member _.PrintErrorLine(s: string) = writeDiagLine Severity.Error s
 
@@ -145,5 +138,4 @@ type ConsoleCachedPrinter(myLevel: LogLevel) =
 
     member _.Flush() = flush ()
 
-    member _.SetLogLevel(lvl) =
-      myLevel <- lvl
+    member _.SetLogLevel(lvl) = myLevel <- lvl

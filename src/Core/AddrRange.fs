@@ -116,5 +116,4 @@ module AddrRange =
   /// <paramref name="addr"/>.
   /// </returns>
   [<CompiledName "Singleton">]
-  let singleton addr =
-    { Min = addr; Max = addr }
+  let singleton addr = { Min = addr; Max = addr }

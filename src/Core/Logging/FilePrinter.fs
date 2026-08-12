@@ -61,8 +61,7 @@ type FilePrinter(filePath, myLevel: LogLevel) =
 
     member _.Dispose() = fs.Dispose()
 
-    member _.Print(s: string, lvl) =
-      if lvl <= myLevel then fs.Write s else ()
+    member _.Print(s: string, lvl) = if lvl <= myLevel then fs.Write s else ()
 
     member _.Print(cs: ColoredString, lvl: LogLevel) =
       if lvl <= myLevel then fs.Write(cs.ToString()) else ()
@@ -79,8 +78,7 @@ type FilePrinter(filePath, myLevel: LogLevel) =
     member _.PrintLine(os: OutString, lvl) =
       if lvl <= myLevel then fs.WriteLine(os.ToString()) else ()
 
-    member _.PrintLine(lvl) =
-      if lvl <= myLevel then fs.WriteLine() else ()
+    member _.PrintLine(lvl) = if lvl <= myLevel then fs.WriteLine() else ()
 
     member _.PrintRow(strs: string[]) =
       if myLevel >= LogLevel.L2 then
@@ -112,8 +110,7 @@ type FilePrinter(filePath, myLevel: LogLevel) =
     member _.PrintError(cs: ColoredString) =
       fs.Write(errorPrefix + cs.ToString())
 
-    member _.PrintError(os: OutString) =
-      fs.Write(errorPrefix + os.ToString())
+    member _.PrintError(os: OutString) = fs.Write(errorPrefix + os.ToString())
 
     member _.PrintErrorLine(s: string) = writeDiagLine Severity.Error s
 
@@ -123,8 +120,6 @@ type FilePrinter(filePath, myLevel: LogLevel) =
     member _.PrintErrorLine(os: OutString) =
       fs.WriteLine(errorPrefix + os.ToString())
 
-    member _.Flush() =
-      ()
+    member _.Flush() = ()
 
-    member _.SetLogLevel(lvl) =
-      myLevel <- lvl
+    member _.SetLogLevel(lvl) = myLevel <- lvl

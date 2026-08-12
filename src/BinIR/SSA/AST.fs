@@ -47,16 +47,19 @@ let private translateLabel addr = function
 
 let rec translateExpr (e: LowUIR.Expr) =
   match e with
-  | LowUIR.Num(bv, _) -> Num bv
+  | LowUIR.Num(bv, _) ->
+    Num bv
   | (LowUIR.Var _ as e)
   | (LowUIR.PCVar _ as e)
-  | (LowUIR.TempVar _ as e) -> Var <| translateDest e
+  | (LowUIR.TempVar _ as e) ->
+    Var <| translateDest e
   | LowUIR.ExprList(exprs, _) ->
     ExprList(List.map translateExpr exprs)
   | LowUIR.UnOp(op, e, _) ->
     let ty = LowUIR.Expr.typeOf e
     UnOp(op, ty, translateExpr e)
-  | LowUIR.FuncName(s, _) -> FuncName s
+  | LowUIR.FuncName(s, _) ->
+    FuncName s
   | LowUIR.BinOp(op, ty, e1, e2, _) ->
     BinOp(op, ty, translateExpr e1, translateExpr e2)
   | LowUIR.RelOp(op, e1, e2, _) ->
@@ -66,10 +69,14 @@ let rec translateExpr (e: LowUIR.Expr) =
   | LowUIR.Ite(e1, e2, e3, _) ->
     let ty = LowUIR.Expr.typeOf e2
     Ite(translateExpr e1, ty, translateExpr e2, translateExpr e3)
-  | LowUIR.Cast(op, ty, e, _) -> Cast(op, ty, translateExpr e)
-  | LowUIR.Extract(e, ty, pos, _) -> Extract(translateExpr e, ty, pos)
-  | LowUIR.Undefined(ty, s, _) -> Undefined(ty, s)
-  | _ -> raise InvalidExprException (* Name *)
+  | LowUIR.Cast(op, ty, e, _) ->
+    Cast(op, ty, translateExpr e)
+  | LowUIR.Extract(e, ty, pos, _) ->
+    Extract(translateExpr e, ty, pos)
+  | LowUIR.Undefined(ty, s, _) ->
+    Undefined(ty, s)
+  | _ ->
+    raise InvalidExprException (* Name *)
 
 let rec private translateStmtAux defaultRegType addr (s: LowUIR.Stmt) =
   match s with
@@ -77,8 +84,10 @@ let rec private translateStmtAux defaultRegType addr (s: LowUIR.Stmt) =
     let pc = { Kind = PCVar(defaultRegType); Identifier = -1 }
     let n = Num <| BitVector(u64 = addr, bitLen = defaultRegType)
     Def(pc, n) |> Some
-  | LowUIR.IEMark _ -> None
-  | LowUIR.LMark(lbl, _) -> LMark lbl |> Some
+  | LowUIR.IEMark _ ->
+    None
+  | LowUIR.LMark(lbl, _) ->
+    LMark lbl |> Some
   | LowUIR.Put(var, expr, _) ->
     let dest = translateDest var
     let expr = translateExpr expr

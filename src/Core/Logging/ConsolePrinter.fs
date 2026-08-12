@@ -67,8 +67,7 @@ type ConsolePrinter(myLevel: LogLevel) =
   let printOutString (w: IO.TextWriter) hasNewLineAtTheEnd (os: OutString) =
     match os with
     | OutputNormal s ->
-      if hasNewLineAtTheEnd then w.WriteLine s
-      else w.Write s
+      if hasNewLineAtTheEnd then w.WriteLine s else w.Write s
     | OutputColored cs ->
       render w cs
       if hasNewLineAtTheEnd then w.WriteLine() else ()
@@ -135,9 +134,7 @@ type ConsolePrinter(myLevel: LogLevel) =
     member _.PrintLine(os: OutString, lvl) =
       if lvl <= myLevel then printOutString Console.Out true os else ()
 
-    member _.PrintLine(lvl) =
-      if lvl <= myLevel then Console.WriteLine()
-      else ()
+    member _.PrintLine(lvl) = if lvl <= myLevel then Console.WriteLine() else ()
 
     member _.PrintRow(strs: string[]) =
       if myLevel >= LogLevel.L2 then
@@ -187,8 +184,6 @@ type ConsolePrinter(myLevel: LogLevel) =
       printDiagPrefix Severity.Error
       printOutString Console.Error true os
 
-    member _.Flush() =
-      ()
+    member _.Flush() = ()
 
-    member _.SetLogLevel(lvl) =
-      myLevel <- lvl
+    member _.SetLogLevel(lvl) = myLevel <- lvl

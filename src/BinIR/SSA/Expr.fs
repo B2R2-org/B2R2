@@ -83,8 +83,10 @@ type Expr =
 with
   static member internal AppendToString(expr, sb: StringBuilder) =
     match expr with
-    | Num n -> sb.Append(n.ToString()) |> ignore
-    | Var v -> sb.Append(v.ToString()) |> ignore
+    | Num n ->
+      sb.Append(n.ToString()) |> ignore
+    | Var v ->
+      sb.Append(v.ToString()) |> ignore
     | ExprList [] ->
       ()
     | ExprList(e :: []) ->
@@ -93,7 +95,8 @@ with
       Expr.AppendToString(e, sb)
       sb.Append ", " |> ignore
       Expr.AppendToString(ExprList more, sb)
-    | FuncName(n) -> sb.Append n |> ignore
+    | FuncName(n) ->
+      sb.Append n |> ignore
     | UnOp(op, _, e) ->
       sb.Append "(" |> ignore
       sb.Append(UnOpType.toString op) |> ignore
@@ -167,8 +170,7 @@ with
 module Expr =
   /// Converts an SSA expression to a string.
   [<CompiledName "ToString">]
-  let toString (expr: Expr) =
-    expr.ToString()
+  let toString (expr: Expr) = expr.ToString()
 
   /// Gets the type of an SSA expression.
   [<CompiledName "TypeOf">]

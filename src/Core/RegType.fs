@@ -47,8 +47,7 @@ type RegType = int<rt>
 module RegType =
 #if DEBUG
   let checkIfValidRegType t =
-    if t > 0<rt> then ()
-    else raise InvalidRegTypeException
+    if t > 0<rt> then () else raise InvalidRegTypeException
 #endif
 
   /// <summary>
@@ -90,8 +89,7 @@ module RegType =
   [<CompiledName "ToByteWidth">]
   let toByteWidth t =
     let t = toBitWidth t
-    if t % 8 = 0 then t / 8
-    else raise InvalidRegTypeException
+    if t % 8 = 0 then t / 8 else raise InvalidRegTypeException
 
   /// <summary>
   /// Gets the corresponding integer RegType from the given bit width.

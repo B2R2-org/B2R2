@@ -46,10 +46,8 @@ with
 module Variable =
   /// Converts an SSA variable to a string.
   [<CompiledName "ToString">]
-  let toString (var: Variable) =
-    var.ToString()
+  let toString (var: Variable) = var.ToString()
 
   /// Checks if an SSA variable represents a program counter.
   [<CompiledName "IsPC">]
-  let isPC (var: Variable) =
-    Variable.IsPC var
+  let isPC (var: Variable) = Variable.IsPC var

@@ -30,13 +30,11 @@ module B2R2.String
 
 /// Encodes a string to a UTF-8 byte array.
 [<CompiledName "ToUtf8Bytes">]
-let toUtf8Bytes (str: string) =
-  System.Text.Encoding.UTF8.GetBytes str
+let toUtf8Bytes (str: string) = System.Text.Encoding.UTF8.GetBytes str
 
 /// Decodes a UTF-8 byte array to a string.
 [<CompiledName "FromUtf8Bytes">]
-let fromUtf8Bytes (bs: byte[]) =
-  System.Text.Encoding.UTF8.GetString bs
+let fromUtf8Bytes (bs: byte[]) = System.Text.Encoding.UTF8.GetString bs
 
 /// Encodes a string to an ASCII byte array. Throws an exception if the string
 /// contains non-ASCII characters.
@@ -50,20 +48,16 @@ let toAsciiBytes (str: string) =
 /// Decodes an ASCII byte array to a string. Bytes outside the ASCII range
 /// (0–127) are replaced with '?'.
 [<CompiledName "FromAsciiBytes">]
-let fromAsciiBytes (bs: byte[]) =
-  System.Text.Encoding.ASCII.GetString bs
+let fromAsciiBytes (bs: byte[]) = System.Text.Encoding.ASCII.GetString bs
 
 /// Wraps a string with a pair of parentheses.
 [<CompiledName "WrapParen">]
-let wrapParen s =
-  "(" + s + ")"
+let wrapParen s = "(" + s + ")"
 
 /// Wraps a string with a pair of square brackets.
 [<CompiledName "WrapSquareBracket">]
-let wrapSquareBracket s =
-  "[" + s + "]"
+let wrapSquareBracket s = "[" + s + "]"
 
 /// Wraps a string with a pair of angle brackets.
 [<CompiledName "WrapAngleBracket">]
-let wrapAngleBracket s =
-  "<" + s + ">"
+let wrapAngleBracket s = "<" + s + ">"

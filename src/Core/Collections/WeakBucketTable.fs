@@ -68,7 +68,8 @@ type WeakBucketTable<'T when 'T: not struct>
     let mutable removed = 0
     for i = entries.Count - 1 downto 0 do
       match entries[i].TryGetTarget() with
-      | true, _ -> ()
+      | true, _ ->
+        ()
       | false, _ ->
         entries.RemoveAt i
         removed <- removed + 1
@@ -122,14 +123,13 @@ type WeakBucketTable<'T when 'T: not struct>
           | false, _ ->
             hasDead <- true
             i <- i + 1
-        if hasFound then found
+        if hasFound then
+          found
         else
           if hasDead || bucketEntries.Count >= cleanupThreshold then
             let removed = this.Prune bucket
-            if removed > 0 then
-              Interlocked.Add(&entries, -removed) |> ignore
-            else
-              ()
+            if removed > 0 then Interlocked.Add(&entries, -removed) |> ignore
+            else ()
           else
             ()
           initialize value hash

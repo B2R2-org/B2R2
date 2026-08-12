@@ -35,11 +35,13 @@ let rec private binSearch value lo hi (keys: IList<_>) (comp: IComparer<_>) =
   if lo < hi then
     let mid = lo + (hi - lo) / 2
     match comp.Compare(keys[mid], value) with
-    | 0 -> mid
+    | 0 ->
+      mid
     | n ->
       if n < 0 then binSearch value (mid + 1) hi keys comp
       else binSearch value lo (mid - 1) keys comp
-  else lo
+  else
+    lo
 
 /// Finds the previous key of the given key according to the comparer of the
 /// given SortedList. If there is no strictly smaller key, this function returns
@@ -48,7 +50,8 @@ let rec private binSearch value lo hi (keys: IList<_>) (comp: IComparer<_>) =
 let tryFindPreviousKey (key: 'T) (list: SortedList<'T, _>) =
   let comp = list.Comparer
   let keys = list.Keys
-  if keys.Count = 0 || comp.Compare(key, keys[0]) <= 0 then None
+  if keys.Count = 0 || comp.Compare(key, keys[0]) <= 0 then
+    None
   else
     let idx = binSearch key 0 (list.Count - 1) keys comp
     if comp.Compare(keys[idx], key) < 0 then keys[idx] else keys[idx - 1]
@@ -61,7 +64,8 @@ let tryFindNextKey (key: 'T) (list: SortedList<'T, _>) =
   let comp = list.Comparer
   let keys = list.Keys
   let lastIdx = list.Count - 1
-  if keys.Count = 0 || comp.Compare(keys[lastIdx], key) <= 0 then None
+  if keys.Count = 0 || comp.Compare(keys[lastIdx], key) <= 0 then
+    None
   else
     let idx = binSearch key 0 lastIdx keys comp
     if comp.Compare(keys[idx], key) <= 0 then keys[idx + 1] else keys[idx]
