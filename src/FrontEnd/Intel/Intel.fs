@@ -16895,7 +16895,9 @@ let (norTwo: InstructionCore[][]) =
         REXPrefixType = REXPrefixType.NOREX
         VectorLength = VectorLength.None
         ModRM = ModRMType.ModRMOp6 OpReg
-        Operands = [| Reg(32<rt>, RMBit) |]
+        Operands = [| Reg(32<rt>, RMBit)
+                      FixedReg(Register.EDX)
+                      FixedReg(Register.EAX) |]
         OpEn = OpEn.A
         Mode64 = Mode64.Valid
         Compat = CompatLegMode.Valid
@@ -16919,7 +16921,9 @@ let (norTwo: InstructionCore[][]) =
         REXPrefixType = REXPrefixType.NOREX
         VectorLength = VectorLength.None
         ModRM = ModRMType.ModRMOp6 OpReg
-        Operands = [| Reg(32<rt>, RMBit) |]
+        Operands = [| Reg(32<rt>, RMBit)
+                      FixedReg(Register.EDX)
+                      FixedReg(Register.EAX) |]
         OpEn = OpEn.A
         Mode64 = Mode64.Valid
         Compat = CompatLegMode.Valid
@@ -20003,7 +20007,9 @@ let (norThree38: InstructionCore[][]) =
         REXPrefixType = REXPrefixType.NOREX
         VectorLength = VectorLength.None
         ModRM = ModRMType.ModRM OpRegMem
-        Operands = [| Reg(128<rt>, RegBit); RM 128<rt> |]
+        Operands = [| Reg(128<rt>, RegBit)
+                      RM 128<rt>
+                      FixedReg(Register.XMM0) |]
         OpEn = OpEn.RM
         Mode64 = Mode64.Valid
         Compat = CompatLegMode.Valid
@@ -20023,7 +20029,9 @@ let (norThree38: InstructionCore[][]) =
         REXPrefixType = REXPrefixType.NOREX
         VectorLength = VectorLength.None
         ModRM = ModRMType.ModRM OpRegMem
-        Operands = [| Reg(128<rt>, RegBit); RM 128<rt> |]
+        Operands = [| Reg(128<rt>, RegBit)
+                      RM 128<rt>
+                      FixedReg(Register.XMM0) |]
         OpEn = OpEn.RM0
         Mode64 = Mode64.Valid
         Compat = CompatLegMode.Valid
@@ -20037,7 +20045,9 @@ let (norThree38: InstructionCore[][]) =
         REXPrefixType = REXPrefixType.NOREX
         VectorLength = VectorLength.None
         ModRM = ModRMType.ModRM OpRegMem
-        Operands = [| Reg(128<rt>, RegBit); RM 128<rt> |]
+        Operands = [| Reg(128<rt>, RegBit)
+                      RM 128<rt>
+                      FixedReg(Register.XMM0) |]
         OpEn = OpEn.RM0
         Mode64 = Mode64.Valid
         Compat = CompatLegMode.Valid
@@ -20881,7 +20891,9 @@ let (norThree38: InstructionCore[][]) =
         REXPrefixType = REXPrefixType.NOREX
         VectorLength = VectorLength.None
         ModRM = ModRMType.ModRM OpRegMem
-        Operands = [| Reg(128<rt>, RegBit); RM 128<rt> |]
+        Operands = [| Reg(128<rt>, RegBit)
+                      RM 128<rt>
+                      FixedReg(Register.XMM0) |]
         OpEn = OpEn.RMI
         Mode64 = Mode64.Valid
         Compat = CompatLegMode.Valid
@@ -21047,7 +21059,10 @@ let (norThree38: InstructionCore[][]) =
         REXPrefixType = REXPrefixType.NOREX
         VectorLength = VectorLength.None
         ModRM = ModRMType.ModRM OpReg
-        Operands = [| Reg(128<rt>, RegBit); Reg(128<rt>, RMBit) |]
+        Operands = [| Reg(128<rt>, RegBit)
+                      Reg(128<rt>, RMBit)
+                      FixedReg(Register.EAX)
+                      FixedReg(Register.XMM0) |]
         OpEn = OpEn.RM
         Mode64 = Mode64.Valid
         Compat = CompatLegMode.Valid
@@ -22365,7 +22380,7 @@ let (norThree3A: InstructionCore[][]) =
         REXPrefixType = REXPrefixType.NOREX
         VectorLength = VectorLength.None
         ModRM = ModRMType.FixedModRM 0xC0uy
-        Operands = [| Imm 8<rt> |]
+        Operands = [| Imm 8<rt>; FixedReg(Register.EAX) |]
         OpEn = OpEn.A
         Mode64 = Mode64.Valid
         Compat = CompatLegMode.Valid
