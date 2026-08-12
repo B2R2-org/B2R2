@@ -189,19 +189,6 @@ type internal ParsingHelper(reader: IBinReader,
 
   member inline _.ParsedLen() = cpos
 
-/// Specific conditions for determining the size of operands.
-/// (See Table A-1, Appendix A.2.5 of Vol. 2D).
-and internal SzCond =
-  /// (d64) When in 64-bit mode, instruction defaults to 64-bit operand size and
-  /// cannot encode 32-bit operand size.
-  | D64 = 0
-  /// (f64) The operand size is forced to a 64-bit operand size when in 64-bit
-  /// mode (prefixes that change operand size, e.g., 66 prefix, are ignored for
-  /// this instruction in 64-bit mode).
-  | F64 = 1
-  /// Normal conditions. This includes all other size conditions in Table A-1.
-  | Normal = 2
-
 and internal SizeKind =
   | Byte = 0
   | Word = 1

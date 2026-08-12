@@ -424,13 +424,6 @@ type IntelParser(wordSz, reader) =
     let effOprSz = ParsingHelper.GetEffOprSize(phlp, szCond)
     setupOprContextWithEffAddr phlp effOprSz effOprSz
 
-  /// Returns the size condition an opcode's operand width follows. The stack
-  /// operations default to 64 bits in 64-bit mode rather than to 32.
-  let getSzCond = function
-    | Opcode.POP | Opcode.PUSH | Opcode.RET | Opcode.LEAVE
-    | Opcode.POPF | Opcode.PUSHF -> SzCond.D64
-    | _ -> SzCond.Normal
-
   /// Returns true when the opcode has a sign-extending immediate encoding.
   let supportsSignExtendedImmediate = function
     | Opcode.ADC | Opcode.ADD | Opcode.AND | Opcode.CMP | Opcode.IMUL
@@ -519,19 +512,19 @@ type IntelParser(wordSz, reader) =
       setupOprContextWithEffAddr phlp 128<rt> 128<rt>
       OperandParsers.parseMemory modRM span phlp
     | Mem 0<rt> -> (* No declared width: the prefixes decide. *)
-      setupOprContextFromPrefixes phlp SzCond.Normal
+      setupOprContextFromPrefixes phlp ic.SzCond
       OperandParsers.parseMemory modRM span phlp
     | Mem sz ->
       setupOprContextWithEffAddr phlp sz sz
       OperandParsers.parseMemory modRM span phlp
     | Imm sz ->
-      setupOprContextFromPrefixes phlp (getSzCond ic.Opcode)
+      setupOprContextFromPrefixes phlp ic.SzCond
       if supportsSignExtendedImmediate ic.Opcode
          && hasSignExtendedImmediateSizeMismatch ic.Opcode szs then
         OperandParsers.parseOprSImm span phlp sz
       else OperandParsers.parseOprImm span phlp sz
     | Rel sz ->
-      setupOprContextFromPrefixes phlp SzCond.F64
+      setupOprContextFromPrefixes phlp ic.SzCond
       OperandParsers.parseOprForRelJmp span phlp sz
     | FixedReg reg ->
       let sz = RegisterHelper.toRegType phlp.WordSize reg
@@ -629,7 +622,7 @@ type IntelParser(wordSz, reader) =
     | [| NoOpr |] ->
       (* Nothing else sizes an operand-less instruction, yet the lifter still
          reads OperationSize: auxPop needs it for RET and LEAVE. *)
-      setupOprContextFromPrefixes phlp (getSzCond ic.Opcode)
+      setupOprContextFromPrefixes phlp ic.SzCond
       Operands.NoOperand
     | operandTypes ->
       let szs = collectDistinctOpSizes operandTypes
