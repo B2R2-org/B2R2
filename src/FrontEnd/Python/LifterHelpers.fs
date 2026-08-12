@@ -1223,8 +1223,14 @@ let unpackSequence (ins: Instruction) bld =
      answer rather than a failure. *)
   let items = tmpVar bld rt
   bld <+ (items := AST.app "LIST_TO_TUPLE" [ seq ] rt)
+  (* How many targets there are goes with each element, because the count is
+     half of what makes an unpacking right: a sequence longer than the targets
+     is as much an error as one shorter, and only the opcode's argument says
+     how many were written. *)
   for i in n - 1 .. -1 .. 0 do
-    let elem = AST.app "UNPACK" [ items; AST.num (BitVector(i, rt)) ] rt
+    let elem =
+      AST.app "UNPACK"
+        [ items; AST.num (BitVector(i, rt)); AST.num (BitVector(n, rt)) ] rt
     pushToStack bld elem
   bld --!> ins.Length
 
