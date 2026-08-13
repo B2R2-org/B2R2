@@ -636,16 +636,17 @@ let translate (binFile: PythonBinFile) (ins: Instruction) bld =
     let exitFunc = peekFromStack bld (if minor <= 10 then 6 else 3)
     pushToStack bld (AST.app "WITH_EXCEPT_START" [ exitFunc; exc ] rt)
     bld --!> ins.Length
+  (* 3.8's own pair, and the one place in this lifter where an opcode's stack
+     effect cannot be written down: what each takes off depends on whether the
+     `with` is being left normally or by an exception -- one slot in the first
+     case, six in the second, and only the value on top says which. CPython's
+     own compiler gives up on it too and reserves the larger of the two. So
+     neither touches the stack here; both are named effects, and the runtime
+     reads and moves the stack itself. *)
   | Opcode.WITH_CLEANUP_START ->
-    bld <!-- (ins.Address, ins.Length)
-    let exitFunc = peekFromStack bld 0
-    pushToStack bld (AST.app "WITH_CLEANUP_START" [ exitFunc ] rt)
-    bld --!> ins.Length
+    namedEffect "WITH_CLEANUP_START" ins bld
   | Opcode.WITH_CLEANUP_FINISH ->
-    bld <!-- (ins.Address, ins.Length)
-    let res = popFromStack bld
-    bld <+ AST.extCall (AST.app "WITH_CLEANUP_FINISH" [ res ] rt)
-    bld --!> ins.Length
+    namedEffect "WITH_CLEANUP_FINISH" ins bld
   | Opcode.WITH_CLEANUP ->
     withCleanup ins bld
   | Opcode.CLEANUP_THROW ->
@@ -673,15 +674,25 @@ let translate (binFile: PythonBinFile) (ins: Instruction) bld =
      END_FINALLY / POP_FINALLY that consume it. *)
   | Opcode.BEGIN_FINALLY ->
     pushNull ins bld
+  (* The same as its two neighbours above: what END_FINALLY takes off is one
+     value, or three plus the three an unwind saved beneath them, and what it
+     does next is fall through, jump to the address it popped, or raise again.
+     Only the value on top says which, so the runtime does it, and says which
+     of the three it did by how it answers. POP_FINALLY is the same question
+     asked without going anywhere; its argument says whether a return value
+     was pushed above the answer, to be put back. *)
   | Opcode.END_FINALLY ->
     namedEffect "END_FINALLY" ins bld
   | Opcode.POP_FINALLY ->
-    namedEffect "POP_FINALLY" ins bld
+    namedEffectWithArgs "POP_FINALLY" [ operandIndex ins ] ins bld
   (* Pushes the address to resume at, then jumps into the finally block;
-     END_FINALLY there pops that address and returns to it. *)
+     END_FINALLY there pops that address and returns to it. It goes on as a
+     value rather than as a bare number, since every slot of this stack is a
+     handle and END_FINALLY tells an address from an exception by asking what
+     the one it popped is. *)
   | Opcode.CALL_FINALLY ->
     let ret = ins.Address + uint64 ins.Length
-    pushToStack bld (AST.num (BitVector(ret, rt)))
+    pushToStack bld (AST.app "CALL_FINALLY" [ AST.num (BitVector(ret, rt)) ] rt)
     jumpByOffset ins bld true
   (* Jump instructions *)
   | Opcode.JUMP_FORWARD
