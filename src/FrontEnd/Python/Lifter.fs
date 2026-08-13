@@ -62,14 +62,18 @@ let private loadPair (ins: Instruction) bld =
   pushToStack bld (AST.app "LOAD_FAST" [ b ] rt)
   bld --!> ins.Length
 
-/// LOAD_SMALL_INT: the oparg IS the value, not an index into anything.
+/// LOAD_SMALL_INT: the oparg IS the value, not an index into anything. It
+/// still goes on as a named app rather than as the bare number: every slot of
+/// this stack is a handle on an object, and a small integer is an object like
+/// any other -- pushed as itself it would name whichever object that number
+/// happens to be.
 let private loadSmallInt (ins: Instruction) bld =
   bld <!-- (ins.Address, ins.Length)
-  pushToStack bld (numI32 (getIntArg ins) rt)
+  pushToStack bld (AST.app "LOAD_SMALL_INT" [ numI32 (getIntArg ins) rt ] rt)
   bld --!> ins.Length
 
-/// LOAD_COMMON_CONSTANT and LOAD_SPECIAL index a table built into the
-/// interpreter, not a co_* table, so the raw index is all there is.
+/// LOAD_COMMON_CONSTANT indexes a table built into the interpreter, not a
+/// co_* table, so the raw index is all there is.
 let private loadIndexed name (ins: Instruction) bld =
   bld <!-- (ins.Address, ins.Length)
   pushToStack bld (AST.app name [ numI32 (getIntArg ins) rt ] rt)
@@ -129,6 +133,20 @@ let private buildFromStack name count (ins: Instruction) bld =
   bld <!-- (ins.Address, ins.Length)
   let items = List.init count (fun _ -> popFromStack bld) |> List.rev
   pushToStack bld (AST.app name items rt)
+  bld --!> ins.Length
+
+/// LOAD_SPECIAL: 3.14 fetches the method a `with` needs by index into a table
+/// of four the interpreter carries -- __enter__, __exit__ and their async
+/// pair -- rather than by name out of co_names, where every version before it
+/// looked one up like any other attribute. It takes the object off and leaves
+/// the pair a call sits on, in the order 3.13 settled: the method, and above
+/// it the empty self-slot, since what it answers with is already bound.
+let private loadSpecial (ins: Instruction) bld =
+  bld <!-- (ins.Address, ins.Length)
+  let owner = popFromStack bld
+  let which = numI32 (getIntArg ins) rt
+  pushToStack bld (AST.app "LOAD_SPECIAL" [ owner; which ] rt)
+  pushToStack bld nullSlot
   bld --!> ins.Length
 
 /// SET_FUNCTION_ATTRIBUTE pops the function, sets on it the value beneath,
@@ -364,7 +382,7 @@ let translate (binFile: PythonBinFile) (ins: Instruction) bld =
   | Opcode.LOAD_COMMON_CONSTANT ->
     loadIndexed "LOAD_COMMON_CONSTANT" ins bld
   | Opcode.LOAD_SPECIAL ->
-    loadIndexed "LOAD_SPECIAL" ins bld
+    loadSpecial ins bld
   (* Store instructions *)
   | Opcode.STORE_FAST ->
     storeNamed "STORE_FAST" ins bld
@@ -633,10 +651,16 @@ let translate (binFile: PythonBinFile) (ins: Instruction) bld =
     (* The exception occupies three slots up to 3.10 and one from 3.11, and
        the three an unwind saved sit beneath it either way -- so __exit__,
        which went on before the block, is six slots down there and three here.
-       What it is called with is the exception itself, which up to 3.10 is the
-       middle of the three rather than the type on top. *)
+       3.14 puts it one deeper again: its LOAD_SPECIAL leaves the empty
+       self-slot beside the method, where 3.11's BEFORE_WITH left the method
+       alone. What it is called with is the exception itself, which up to 3.10
+       is the middle of the three rather than the type on top. *)
     let exc = peekFromStack bld (if minor <= 10 then 1 else 0)
-    let exitFunc = peekFromStack bld (if minor <= 10 then 6 else 3)
+    let below =
+      if minor <= 10 then 6
+      elif minor >= 14 then 4
+      else 3
+    let exitFunc = peekFromStack bld below
     pushToStack bld (AST.app "WITH_EXCEPT_START" [ exitFunc; exc ] rt)
     bld --!> ins.Length
   (* 3.8's own pair, and the one place in this lifter where an opcode's stack

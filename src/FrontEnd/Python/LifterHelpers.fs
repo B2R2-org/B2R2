@@ -1208,6 +1208,12 @@ let binaryOp (ins: Instruction) bld =
     | 23 -> opApp "ISUB" left right
     | 24 -> opApp "IDIV" left right
     | 25 -> opApp "IBITXOR" left right
+    (* 3.14 folded the subscript into this instruction: `a[b]` is BINARY_OP
+       with an argument one past the in-place operators, where every version
+       before it had BINARY_SUBSCR of its own. It is named as that opcode
+       still, so nothing downstream has to know which spelling it came
+       from. *)
+    | 26 -> AST.app "BINARY_SUBSCR" [ left; right ] rt
     | n -> failwithf "Invalid BINARY_OP arg %d at %A" n ins.Address
   pushToStack bld result
   bld --!> ins.Length
