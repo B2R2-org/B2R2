@@ -43,13 +43,33 @@ type FunctionSummarizer<'FnCtx,
     | true, v -> int v
     | false, _ -> 0
 
-  let returnValueDef (hdl: BinHandle) =
+  let intReturnValueDef (hdl: BinHandle) =
     let retReg =
       hdl.Conventions.Calling.IntReturnRegister
       |> hdl.RegisterFactory.GetRegVar
     let rt = hdl.ISA.WordSize |> WordSize.toRegType
     let e = AST.undef rt "ret"
     [| (retReg, e) |]
+
+  let floatReturnValueDef (hdl: BinHandle) =
+    let rid = hdl.Conventions.Calling.FloatReturnRegister
+    let retReg = hdl.RegisterFactory.GetRegVar rid
+    let rt = hdl.RegisterFactory.GetRegType rid
+    let e = AST.undef rt "ret"
+    [| (retReg, e) |]
+
+  let callerSavedValueDefs (hdl: BinHandle) =
+    let cc = hdl.Conventions.Calling
+    let regFactory = hdl.RegisterFactory
+    let intRet = cc.IntReturnRegister
+    let floatRet = cc.FloatReturnRegister
+    [| for rid in cc.CallerSavedRegisters do
+        if rid <> intRet && rid <> floatRet then
+          let regVar = regFactory.GetRegVar rid
+          let rt = regFactory.GetRegType rid
+          regVar, AST.undef rt "caller-saved"
+        else
+          () |]
 
   let stackPointerDef (hdl: BinHandle) unwindingAmount =
     match hdl.RegisterFactory.StackPointer with
@@ -97,10 +117,12 @@ type FunctionSummarizer<'FnCtx,
   let computeLiveDefs ctx unwindingAmount =
     let hdl = ctx.BinHandle
     if ctx.IsExternal then
-      [| yield! returnValueDef hdl
+      [| yield! intReturnValueDef hdl
+         yield! floatReturnValueDef hdl
+         yield! callerSavedValueDefs hdl
          yield! stackPointerDef hdl unwindingAmount |]
     else
-      [| yield! returnValueDef hdl
+      [| yield! intReturnValueDef hdl
          yield! initializeLiveVarMap hdl ctx.FunctionAddress
          yield! stackPointerDef hdl unwindingAmount |]
 
