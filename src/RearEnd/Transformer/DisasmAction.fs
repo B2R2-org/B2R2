@@ -56,7 +56,8 @@ type DisasmAction() =
     let len = hdl.File.Length
     let ptr =
       BinFilePointer.CreateFileBacked(
-        baddr, baddr + uint64 len - 1UL, 0, len - 1)
+        baddr, baddr + uint64 len - 1UL, 0, len - 1
+      )
     disasm [] lifter ptr
     |> box
 

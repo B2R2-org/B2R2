@@ -30,9 +30,10 @@ open B2R2.MiddleEnd
 open B2R2.MiddleEnd.ControlFlowAnalysis
 
 /// Represents a command message that can be sent to the arbiter.
-type private ArbiterCommand<'FnCtx, 'GlCtx when 'FnCtx :> IResettable
-                                            and 'FnCtx: (new: unit -> 'FnCtx)
-                                            and 'GlCtx: (new: unit -> 'GlCtx)> =
+type private ArbiterCommand<'FnCtx, 'GlCtx
+  when 'FnCtx :> IResettable
+  and 'FnCtx: (new: unit -> 'FnCtx)
+  and 'GlCtx: (new: unit -> 'GlCtx)> =
   | Command of Action * AsyncReplyChannel<ReplyMsg<'FnCtx, 'GlCtx>>
 
 and private Action =
@@ -48,16 +49,18 @@ and private Action =
   /// Terminates the arbiter and releases all resources.
   | Terminate
 
-and private ReplyMsg<'FnCtx, 'GlCtx when 'FnCtx :> IResettable
-                                     and 'FnCtx: (new: unit -> 'FnCtx)
-                                     and 'GlCtx: (new: unit -> 'GlCtx)> =
+and private ReplyMsg<'FnCtx, 'GlCtx
+  when 'FnCtx :> IResettable
+  and 'FnCtx: (new: unit -> 'FnCtx)
+  and 'GlCtx: (new: unit -> 'GlCtx)> =
   | Ack of Result<unit, string>
   | ReplyBinaryBrew of BinaryBrew<'FnCtx, 'GlCtx> option
 
 /// Represents an arbiter that manages AnalysisSession instances.
-type Arbiter<'FnCtx, 'GlCtx when 'FnCtx :> IResettable
-                             and 'FnCtx: (new: unit -> 'FnCtx)
-                             and 'GlCtx: (new: unit -> 'GlCtx)>
+type Arbiter<'FnCtx, 'GlCtx
+  when 'FnCtx :> IResettable
+  and 'FnCtx: (new: unit -> 'FnCtx)
+  and 'GlCtx: (new: unit -> 'GlCtx)>
   public(brewLoader: IBrewLoadable<'FnCtx, 'GlCtx>, logFile) =
 
   let logger =

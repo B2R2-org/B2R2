@@ -55,8 +55,7 @@ let private initTableConfig (isa: ISA) isLift =
       [| LeftAligned addrWidth; LeftAligned binaryWidth; LeftAligned 10 |]
 
 let private getOptimizer (opts: BinDisasmOpts) =
-  if opts.DoOptimization then LocalOptimizer.Optimize
-  else id
+  if opts.DoOptimization then LocalOptimizer.Optimize else id
 
 let private makeCodeDumper hdl (opts: BinDisasmOpts) =
   let mode =
@@ -116,18 +115,21 @@ let private pythonCodeObjects (file: PythonBinFile) =
   let acc = ResizeArray<string * Addr * uint64>()
   let rec collect obj =
     match obj with
-    | Python.PyREF(_, o) -> collect o
+    | Python.PyREF(_, o) ->
+      collect o
     | Python.PyCode co ->
       let addr, code = co.Code
       match code with
       | Python.PyString bs when bs.Length > 0 ->
         acc.Add(co.QualName, addr, uint64 bs.Length)
-      | _ -> ()
+      | _ ->
+        ()
       match co.Consts with
       | Python.PyTuple objs
       | Python.PyREF(_, Python.PyTuple objs) -> Array.iter collect objs
       | _ -> ()
-    | _ -> ()
+    | _ ->
+      ()
   collect file.CodeObj
   acc |> Seq.sortBy (fun (_, addr, _) -> addr) |> Seq.toArray
 
@@ -135,21 +137,30 @@ let private dumpPythonCodeObjects (hdl: BinHandle) (codeprn: IBinDumper) =
   let file = hdl.File :?> PythonBinFile
   for name, addr, len in pythonCodeObjects file do
     let ptr =
-      BinFilePointer.CreateFileBacked(addr, addr + len - 1UL,
-                                      int addr, int (addr + len) - 1)
+      BinFilePointer.CreateFileBacked(addr,
+                                      addr + len - 1UL,
+                                      int addr,
+                                      int (addr + len) - 1)
     dumpOneSection codeprn $"code object {name}" ptr
 
-let private dumpSection hdl (opts: BinDisasmOpts) codeprn tableprn
+let private dumpSection hdl
+                        (opts: BinDisasmOpts)
+                        codeprn
+                        tableprn
                         (sec: BinSection) =
   if sec.Size > 0UL then
     let ptr = BinFileOps.getSectionPointer (hdl: BinHandle).File sec.Name
     match sec.Kind with
-    | DynamicLinkageSection -> dumpOneSection tableprn sec.Name ptr
+    | DynamicLinkageSection ->
+      dumpOneSection tableprn sec.Name ptr
     | _ when sec.Permission.HasFlag Permission.Executable ->
       dumpOneSection codeprn sec.Name ptr
-    | _ when opts.OnlyDisasm -> dumpOneSection codeprn sec.Name ptr
-    | _ -> dumpData hdl opts ptr sec
-  else ()
+    | _ when opts.OnlyDisasm ->
+      dumpOneSection codeprn sec.Name ptr
+    | _ ->
+      dumpData hdl opts ptr sec
+  else
+    ()
 
 /// Section dumping is supported only for formats that expose a section view.
 let private hasDumpableSections (hdl: BinHandle) =
@@ -165,8 +176,10 @@ let private dumpOneSectionOfName (hdl: BinHandle) opts codeprn tableprn name =
     |> Array.filter (fun (n, _, _) -> n = name)
     |> Array.iter (fun (n, addr, len) ->
       let ptr =
-        BinFilePointer.CreateFileBacked(addr, addr + len - 1UL,
-                                        int addr, int (addr + len) - 1)
+        BinFilePointer.CreateFileBacked(addr,
+                                        addr + len - 1UL,
+                                        int addr,
+                                        int (addr + len) - 1)
       dumpOneSection codeprn $"code object {n}" ptr)
   elif hasDumpableSections hdl then
     BinFileOps.getSections hdl.File
@@ -174,7 +187,8 @@ let private dumpOneSectionOfName (hdl: BinHandle) opts codeprn tableprn name =
     |> function
       | Some sec -> dumpSection hdl opts codeprn tableprn sec
       | None -> ()
-  else Terminator.futureFeature ()
+  else
+    Terminator.futureFeature ()
 
 let private dumpAllSections (hdl: BinHandle) opts codeprn tableprn =
   if hdl.File.Format = FileFormat.PythonBinary then
@@ -182,25 +196,23 @@ let private dumpAllSections (hdl: BinHandle) opts codeprn tableprn =
   elif hasDumpableSections hdl then
     for sec in BinFileOps.getSections hdl.File do
       dumpSection hdl opts codeprn tableprn sec
-  else Terminator.futureFeature ()
+  else
+    Terminator.futureFeature ()
 
 let private dumpRegularFile (hdl: BinHandle) (opts: BinDisasmOpts) =
   let codeprn = makeCodeDumper hdl opts
   let tableprn = makeTableDumper hdl opts
   let opts = { opts with ShowSymbols = true }
   match opts.InputSecName with
-  | Some secName ->
-    dumpOneSectionOfName hdl opts codeprn tableprn secName
-  | None ->
-    dumpAllSections hdl opts codeprn tableprn
+  | Some secName -> dumpOneSectionOfName hdl opts codeprn tableprn secName
+  | None -> dumpAllSections hdl opts codeprn tableprn
 
 let private dumpFile (opts: BinDisasmOpts) filePath =
   let opts = { opts with ShowAddress = true }
   let hdl = BinHandle.LoadFile(filePath, opts.ISA, opts.BaseAddress)
   initTableConfig hdl.ISA opts.ShowLowUIR
   printFileName hdl.File.Path
-  if isRawBinary hdl then dumpRawBinary hdl opts
-  else dumpRegularFile hdl opts
+  if isRawBinary hdl then dumpRawBinary hdl opts else dumpRegularFile hdl opts
 
 let private dumpFiles files opts =
   match List.partition IO.File.Exists files with
@@ -262,8 +274,11 @@ let private dumpHexString (opts: BinDisasmOpts) =
   let len = opts.InputHexStr.Length
   let ptr =
     BinFilePointer.CreateFileBacked(
-      uint64 offset + baseAddr, uint64 offset + baseAddr + uint64 len - 1UL,
-      offset, offset + len - 1)
+      uint64 offset + baseAddr,
+      uint64 offset + baseAddr + uint64 len - 1UL,
+      offset,
+      offset + len - 1
+    )
   dumper.IsThumb <- opts.ThumbMode
   dumper.Dump ptr
   printsn ""

@@ -29,9 +29,10 @@ open B2R2.MiddleEnd
 open B2R2.MiddleEnd.ControlFlowAnalysis
 
 /// Represents a session that holds the state of the current analysis.
-type AnalysisSession<'FnCtx, 'GlCtx when 'FnCtx :> IResettable
-                                     and 'FnCtx: (new: unit -> 'FnCtx)
-                                     and 'GlCtx: (new: unit -> 'GlCtx)>
+type AnalysisSession<'FnCtx, 'GlCtx
+  when 'FnCtx :> IResettable
+  and 'FnCtx: (new: unit -> 'FnCtx)
+  and 'GlCtx: (new: unit -> 'GlCtx)>
   public(brewLoader: IBrewLoadable<'FnCtx, 'GlCtx>) =
 
   let binaries = Dictionary<string, BinaryBrew<'FnCtx, 'GlCtx>>()
@@ -44,8 +45,7 @@ type AnalysisSession<'FnCtx, 'GlCtx when 'FnCtx :> IResettable
 
   /// Returns the current binary instance.
   member _.CurrentBinary with get() =
-    if isNull currentBinary then None
-    else Some currentBinary
+    if isNull currentBinary then None else Some currentBinary
 
   /// Adds a binary instance to the session. If the file path of the binary is
   /// already present in the session, it does nothing and returns an error.
@@ -72,7 +72,8 @@ type AnalysisSession<'FnCtx, 'GlCtx when 'FnCtx :> IResettable
     | true, brew -> currentBinary <- brew; Some brew
     | false, _ -> None
 
-and IBrewLoadable<'FnCtx, 'GlCtx when 'FnCtx :> IResettable
-                                          and 'FnCtx: (new: unit -> 'FnCtx)
-                                          and 'GlCtx: (new: unit -> 'GlCtx)> =
+and IBrewLoadable<'FnCtx, 'GlCtx
+  when 'FnCtx :> IResettable
+  and 'FnCtx: (new: unit -> 'FnCtx)
+  and 'GlCtx: (new: unit -> 'GlCtx)> =
   abstract LoadBrew: path: string -> BinaryBrew<'FnCtx, 'GlCtx>

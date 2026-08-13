@@ -56,8 +56,7 @@ let private redrawCmdWindow windowHeight prompt (input: string) candidates =
   if windowHeight > 0 then
     clearCmdWindow windowHeight
     System.Console.Write $"{prompt}"
-    if Array.isEmpty candidates then System.Console.Write input
-    else ()
+    if Array.isEmpty candidates then System.Console.Write input else ()
   else
     ()
 
@@ -73,8 +72,7 @@ let private showCandidates height prompt candidates =
   let struct (x, y) = System.Console.GetCursorPosition()
   let candidateLineCount = drawCandidates candidates + 1
   let diff =
-    if candidateLineCount <= height then 0
-    else candidateLineCount - height
+    if candidateLineCount <= height then 0 else candidateLineCount - height
   System.Console.SetCursorPosition(x, y - diff)
   candidateLineCount
 
@@ -113,8 +111,7 @@ let rec private cliLoop cmdStore arbiter (console: FsReadLine.Console) =
     printsn ""
     cliLoop cmdStore arbiter console
 
-let private getDivider () =
-  String.replicate System.Console.WindowWidth "━"
+let private getDivider () = String.replicate System.Console.WindowWidth "━"
 
 let start arbiter (cmdStore: CmdStore) =
   let console = FsReadLine.Console(DefaultPrompt, cmdStore.Commands, callback)

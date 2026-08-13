@@ -45,15 +45,12 @@ module String =
     | Some entry -> $"0x{entry:x}"
 
   /// Converts an enum value to an enumerated string with a bullet point.
-  let inline ofEnum (v: System.Enum) =
-    $"- {v.ToString()}"
+  let inline ofEnum (v: System.Enum) = $"- {v.ToString()}"
 
   /// Converts a string to a ColoredString with the specified color.
-  let inline toColoredString (s: string) col =
-    ColoredString().Append(col, s)
+  let inline toColoredString (s: string) col = ColoredString().Append(col, s)
 
 [<AutoOpen>]
 module StringUtils =
   /// Converts a string to a ColoredString with no color.
-  let inline noCol s =
-    String.toColoredString s NoColor
+  let inline noCol s = String.toColoredString s NoColor

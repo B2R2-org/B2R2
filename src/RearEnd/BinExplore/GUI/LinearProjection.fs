@@ -32,14 +32,13 @@ module B2R2.RearEnd.BinExplore.GUI.LinearProjection
 
 let private findFirstIndexAtOrAfterOffset doc targetOffset =
   let rec loop low high =
-    if low >= high then low
+    if low >= high then
+      low
     else
       let mid = low + (high - low) / 2
       match LinearDocument.itemOffset doc mid with
-      | Some offset when offset < targetOffset ->
-        loop (mid + 1) high
-      | _ ->
-        loop low mid
+      | Some offset when offset < targetOffset -> loop (mid + 1) high
+      | _ -> loop low mid
   loop 0 doc.LinearItems.Count
 
 let findVisibleRange overscanPx doc state =
@@ -52,8 +51,7 @@ let tryGetScrollOffsetForFileOffset doc state targetOffset =
   if doc.LinearItems.Count = 0 then
     None
   else
-    let targetOffset =
-      max 0 targetOffset |> min (int doc.LinearTotalLength)
+    let targetOffset = max 0 targetOffset |> min (int doc.LinearTotalLength)
     let idx =
       findFirstIndexAtOrAfterOffset doc targetOffset
       |> min (max 0 (doc.LinearItems.Count - 1))
@@ -74,8 +72,7 @@ let tryGetVisibleFileOffsetRange doc state =
     | Some startItem, Some endItem ->
       let startLoc = LinearItem.location startItem
       let endLoc = LinearItem.location endItem
-      let endOffset =
-        endLoc.Offset + max 0 (endLoc.ItemLength - 1)
+      let endOffset = endLoc.Offset + max 0 (endLoc.ItemLength - 1)
       Some(startLoc.Offset, endOffset)
     | _ ->
       None

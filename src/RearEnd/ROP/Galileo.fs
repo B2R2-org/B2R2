@@ -42,17 +42,19 @@ let private instrMaxLen (liftingUnit: LiftingUnit) =
   | _ -> raise InvalidISAException
 
 let getTailPatterns (liftingUnit: LiftingUnit) =
-  match liftingUnit.File.ISA with
-  | X86 ->
-    [ [| 0xC3uy |] (* RET *)
-      [| 0xCDuy; 0x80uy |] (* INT 0x80 *)
-      [| 0xCDuy; 0x80uy; 0xC3uy |] (* INT 0x80; RET *) ]
-  | X64 ->
-    [ [| 0xC3uy |] (* RET *)
-      [| 0x0Fuy; 0x05uy |] (* SYSCALL *)
-      [| 0x0Fuy; 0x05uy; 0xC3uy |] (* SYSCALL; RET *) ]
-  | _ -> failwith "Unsupported arch."
-  |> List.map toTail
+  let patterns =
+    match liftingUnit.File.ISA with
+    | X86 ->
+      [ [| 0xC3uy |] (* RET *)
+        [| 0xCDuy; 0x80uy |] (* INT 0x80 *)
+        [| 0xCDuy; 0x80uy; 0xC3uy |] (* INT 0x80; RET *) ]
+    | X64 ->
+      [ [| 0xC3uy |] (* RET *)
+        [| 0x0Fuy; 0x05uy |] (* SYSCALL *)
+        [| 0x0Fuy; 0x05uy; 0xC3uy |] (* SYSCALL; RET *) ]
+    | _ ->
+      failwith "Unsupported arch."
+  List.map toTail patterns
 
 let private getExecutableRanges (liftingUnit: LiftingUnit) =
   let file = liftingUnit.File
@@ -73,10 +75,12 @@ let inline updateGadgets curAddr nextAddr ins gadgets =
               Offset = curAddr
               NextOff = nextAddr }
     Map.add curAddr g gadgets |> Some
-  | _ -> None
+  | _ ->
+    None
 
 let rec buildBackward (liftingUnit: LiftingUnit) minAddr curAddr lastAddr map =
-  if curAddr < minAddr || (curAddr + 1UL) = 0UL then map
+  if curAddr < minAddr || (curAddr + 1UL) = 0UL then
+    map
   else
     match liftingUnit.TryParseInstruction curAddr with
     | Ok ins ->
@@ -89,8 +93,10 @@ let rec buildBackward (liftingUnit: LiftingUnit) minAddr curAddr lastAddr map =
         | Some map ->
           let minAddr' = curAddr - instrMaxLen liftingUnit
           buildBackward liftingUnit minAddr' (curAddr - 1UL) curAddr map
-        | None -> buildBackward liftingUnit minAddr (curAddr - 1UL) lastAddr map
-    | Error _ -> buildBackward liftingUnit minAddr (curAddr - 1UL) lastAddr map
+        | None ->
+          buildBackward liftingUnit minAddr (curAddr - 1UL) lastAddr map
+    | Error _ ->
+      buildBackward liftingUnit minAddr (curAddr - 1UL) lastAddr map
 
 let parseTail (liftingUnit: LiftingUnit) addr bytes =
   let lastAddr = (Array.length bytes |> uint64) + addr
@@ -98,7 +104,8 @@ let parseTail (liftingUnit: LiftingUnit) addr bytes =
     if lastAddr > addr then
       let ins = liftingUnit.ParseInstruction addr
       parseLoop (ins :: acc) (addr + uint64 ins.Length)
-    else List.rev acc
+    else
+      List.rev acc
   parseLoop [] addr
 
 let private buildGadgetMap hdl (liftingUnit: LiftingUnit) tail map vmRange =

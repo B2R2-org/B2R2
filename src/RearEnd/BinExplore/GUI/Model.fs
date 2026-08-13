@@ -76,7 +76,8 @@ and TabDragState =
 
 module Model =
   let rec tryFindFirstLeaf = function
-    | Leaf(paneID, paneState) -> Some(paneID, paneState)
+    | Leaf(paneID, paneState) ->
+      Some(paneID, paneState)
     | Split(_, _, first, second) ->
       match tryFindFirstLeaf first with
       | Some _ as found -> found
@@ -99,7 +100,8 @@ module Model =
 
   let getFocusedPaneOrDefault model =
     match tryGetFocusedPane model with
-    | Some pane -> pane
+    | Some pane ->
+      pane
     | None ->
       match tryFindFirstLeaf model.RootPane with
       | Some(_, pane) -> pane
@@ -110,8 +112,10 @@ module Model =
     |> Option.bind (fun pane -> pane.ActiveTab)
 
   let rec private mapPaneState paneID fn = function
-    | Leaf(id, paneState) when id = paneID -> Leaf(id, fn paneState)
-    | Leaf _ as leaf -> leaf
+    | Leaf(id, paneState) when id = paneID ->
+      Leaf(id, fn paneState)
+    | Leaf _ as leaf ->
+      leaf
     | Split(id, axis, fst, snd) ->
       Split(id, axis, mapPaneState paneID fn fst, mapPaneState paneID fn snd)
 
@@ -152,14 +156,11 @@ module Model =
     findAllPane model.RootPane
 
 type Model with
-  member this.ActiveTab =
-    (Model.getFocusedPaneOrDefault this).ActiveTab
+  member this.ActiveTab = (Model.getFocusedPaneOrDefault this).ActiveTab
 
-  member this.OpenTabs =
-    (Model.getFocusedPaneOrDefault this).OpenTabs
+  member this.OpenTabs = (Model.getFocusedPaneOrDefault this).OpenTabs
 
-  member this.PreviewTab =
-    (Model.getFocusedPaneOrDefault this).PreviewTab
+  member this.PreviewTab = (Model.getFocusedPaneOrDefault this).PreviewTab
 
   member this.ContentViewportSize =
     (Model.getFocusedPaneOrDefault this).ContentViewportSize

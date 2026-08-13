@@ -51,15 +51,15 @@ type Search() =
     let ret = [| "[*] Searching for (" + strPattern + ") ..." |]
     match search hdl bytePattern with
     | [] -> Array.append ret [| "[*] The pattern not found." |]
-    | results ->
-      Array.append ret (List.toArray results)
+    | results -> Array.append ret (List.toArray results)
 
   member this.CmdHandle(hdl, pattern: string) = function
     | "s" | "string" ->
       this.Search(hdl, pattern, Text.Encoding.ASCII.GetBytes pattern)
     | "h" | "hex" ->
       this.Search(hdl, pattern, ByteArray.ofHexString pattern)
-    | c -> [| "Unknown type " + c |]
+    | c ->
+      [| "Unknown type " + c |]
 
   interface ICmd with
 

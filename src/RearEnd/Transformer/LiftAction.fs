@@ -38,7 +38,8 @@ type LiftAction() =
         let s = lifter.LiftInstruction instr |> PrettyPrinter.ToString
         let ptr = ptr.Advance(instr.Length)
         lift (sb.Append s) lifter ptr
-      | Error _ -> "Bad instruction found"
+      | Error _ ->
+        "Bad instruction found"
     else
       sb.ToString()
 
@@ -50,7 +51,8 @@ type LiftAction() =
     let len = hdl.File.Length
     let ptr =
       BinFilePointer.CreateFileBacked(
-        baddr, baddr + uint64 len - 1UL, 0, len - 1)
+        baddr, baddr + uint64 len - 1UL, 0, len - 1
+      )
     let sb = StringBuilder()
     lift sb lifter ptr
     |> box

@@ -108,29 +108,19 @@ B2R2, please visit our official website: https://b2r2.org/."""
   $ b2r2 asm --help
 """
 
-let printMyVersion () =
-  printsn <| "v" + (Meta.getVersion ())
+let printMyVersion () = printsn <| "v" + (Meta.getVersion ())
 
 let handleCommands (cmd: string) (rest: string[]) =
   match cmd.ToLowerInvariant() with
-  | "help" | "--help" | "-h" ->
-    showUsage (); 0
-  | "version" | "--version" | "-v" ->
-    printMyVersion (); 0
-  | "binscan" | "scan" ->
-    BinScan.Program.main rest
-  | "bindisasm" | "disasm" ->
-    BinDisasm.Program.main rest
-  | "binexplore" | "explore" ->
-    BinExplore.Program.main rest
-  | "repl" ->
-    Repl.Program.main rest
-  | "assembler" | "asm" ->
-    Assembler.Program.main rest
-  | _ ->
-    Terminator.futureFeature ()
+  | "help" | "--help" | "-h" -> showUsage (); 0
+  | "version" | "--version" | "-v" -> printMyVersion (); 0
+  | "binscan" | "scan" -> BinScan.Program.main rest
+  | "bindisasm" | "disasm" -> BinDisasm.Program.main rest
+  | "binexplore" | "explore" -> BinExplore.Program.main rest
+  | "repl" -> Repl.Program.main rest
+  | "assembler" | "asm" -> Assembler.Program.main rest
+  | _ -> Terminator.futureFeature ()
 
 [<EntryPoint>]
 let main argv =
-  if argv.Length = 0 then showUsage (); 1
-  else handleCommands argv[0] argv[1..]
+  if argv.Length = 0 then showUsage (); 1 else handleCommands argv[0] argv[1..]

@@ -54,7 +54,9 @@ let confirm (owner: Window) text yesStr noStr fnOnYes =
         VerticalContentAlignment = VerticalAlignment.Center
       )
     let noButton =
-      Button(Content = noStr, Width = 90.0, Margin = Thickness 4.0,
+      Button(Content = noStr,
+             Width = 90.0,
+             Margin = Thickness 4.0,
              HorizontalContentAlignment = HorizontalAlignment.Center,
              VerticalContentAlignment = VerticalAlignment.Center)
     yesButton.Click.Add(fun _ ->

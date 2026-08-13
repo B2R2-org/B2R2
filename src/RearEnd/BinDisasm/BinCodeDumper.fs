@@ -136,8 +136,7 @@ type BinCodeDumper(hdl, isTable, showSymbol, showColor, dumpMode) =
       else
         ()
       liftingUnit.ConfigureDisassembly(false, showSymbol)
-      if showColor then colorDisPrinter
-      else regularDisPrinter
+      if showColor then colorDisPrinter else regularDisPrinter
 
   let handleInvalidIns ptr =
     let align = liftingUnit.InstructionAlignment
@@ -158,12 +157,12 @@ type BinCodeDumper(hdl, isTable, showSymbol, showColor, dumpMode) =
       | Error _ ->
         let ptr' = handleInvalidIns ptr
         binDump false ptr'
-    else ()
+    else
+      ()
 
   interface IBinDumper with
     member _.IsThumb
       with get() = liftingUnit.IsThumb
       and set v = liftingUnit.IsThumb <- v
 
-    member _.Dump ptr =
-      binDump true ptr
+    member _.Dump ptr = binDump true ptr

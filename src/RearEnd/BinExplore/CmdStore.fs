@@ -67,7 +67,8 @@ type CmdStore(spec) as this =
                .Append(DarkCyan, name)
                .Append(NoColor, ": " + cmd.CmdDescr)
            yield item
-         else () |]
+         else
+           () |]
 
   let specificHelp cmd =
     match cmdMap.TryGetValue cmd with
@@ -80,8 +81,7 @@ type CmdStore(spec) as this =
           .Append(DarkCyan, cmd.CmdName)
           .Append(NoColor, "':\n")
       [| yield head
-         if cmd.CmdHelp.Length > 0 then yield cmd.CmdHelp
-         else () |]
+         if cmd.CmdHelp.Length > 0 then yield cmd.CmdHelp else () |]
     | false, _ ->
       warnUnknown cmd
 
@@ -138,12 +138,9 @@ and private CmdHelp(cmdStore: CmdStore) =
 
     member _.CallBack(_, args) =
       match args with
-      | [] ->
-        cmdStore.CreateHelpString()
-      | cmd :: _ when String.IsNullOrEmpty cmd ->
-        cmdStore.CreateHelpString()
-      | cmd :: _ ->
-        cmdStore.CreateHelpString cmd
+      | [] -> cmdStore.CreateHelpString()
+      | cmd :: _ when String.IsNullOrEmpty cmd -> cmdStore.CreateHelpString()
+      | cmd :: _ -> cmdStore.CreateHelpString cmd
 
 and private CmdExit() =
   let [<Literal>] CmdName = "exit"

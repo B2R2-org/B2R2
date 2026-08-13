@@ -52,8 +52,7 @@ with
     match bin with
     | Binary(hdl, annot) ->
       let path = hdl.Value.File.Path
-      if String.IsNullOrEmpty path then annot
-      else $"{prefix}{path}"
+      if String.IsNullOrEmpty path then annot else $"{prefix}{path}"
 
   /// <summary>
   /// Derives a Binary holding the whole content of the given one, edited. The

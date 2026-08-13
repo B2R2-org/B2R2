@@ -108,9 +108,7 @@ let private computeLayout (viewState: HexViewState) =
     AsciiWidth = asciiWidth
     LineWidth = asciiLeft + asciiWidth }
 
-let private byteToAscii b =
-  if b >= 0x20uy && b <= 0x7Euy then char b
-  else '.'
+let private byteToAscii b = if b >= 0x20uy && b <= 0x7Euy then char b else '.'
 
 let private formatHexString bytes =
   bytes |> Array.map (fun b -> $"{b:X2}") |> String.concat ""
@@ -118,8 +116,7 @@ let private formatHexString bytes =
 let private formatEscapedHexString bytes =
   bytes |> Array.map (fun b -> $"\\x{b:X2}") |> String.concat ""
 
-let private formatAsciiString bytes =
-  bytes |> Array.map byteToAscii |> String
+let private formatAsciiString bytes = bytes |> Array.map byteToAscii |> String
 
 let private tryGetSelectionBytes (state: HexdumpState) =
   match state.Selection with
@@ -155,8 +152,7 @@ type private HexdumpInteractionCanvas() as this =
   let ctxMenu = ContextMenu()
 
   let clampIfNeeded shouldClamp minValue maxValue value =
-    if shouldClamp then max minValue (min maxValue value)
-    else value
+    if shouldClamp then max minValue (min maxValue value) else value
 
   let selectionRange selection =
     min selection.Anchor selection.Caret, max selection.Anchor selection.Caret
@@ -303,16 +299,13 @@ type private HexdumpInteractionCanvas() as this =
       HexdumpInteractionCanvas.DispatchProperty, value, ValueNone
     )
 
-  member this.DispatchHexdump msg =
-    this.Dispatcher(HexdumpPaneMsg msg)
+  member this.DispatchHexdump msg = this.Dispatcher(HexdumpPaneMsg msg)
 
   override this.OnPointerWheelChanged e =
     base.OnPointerWheelChanged e
     if e.KeyModifiers.HasFlag KeyModifiers.Control then
       let delta =
-        if e.Delta.Y > 0.0 then 1.0
-        elif e.Delta.Y < 0.0 then -1.0
-        else 0.0
+        if e.Delta.Y > 0.0 then 1.0 elif e.Delta.Y < 0.0 then -1.0 else 0.0
       if abs delta > 0.0 then
         this.DispatchHexdump(ChangeFontSize delta)
         e.Handled <- true
@@ -417,10 +410,8 @@ let private onScrollChanged dispatch (args: ScrollChangedEventArgs) =
   let deltaY = args.OffsetDelta.Y
   let currentOffsetY =
     match args.Source with
-    | :? ScrollViewer as scrollViewer ->
-      scrollViewer.Offset.Y
-    | _ ->
-      Double.NaN
+    | :? ScrollViewer as scrollViewer -> scrollViewer.Offset.Y
+    | _ -> Double.NaN
   dispatch (HexdumpPaneMsg(HandleScrollChanged(currentOffsetY, deltaY)))
 
 let private formatAddress digits baseAddress offset =
@@ -429,8 +420,7 @@ let private formatAddress digits baseAddress offset =
   $"0x{txt}"
 
 let private hexDigit value =
-  if value < 10 then char (int '0' + value)
-  else char (int 'A' + value - 10)
+  if value < 10 then char (int '0' + value) else char (int 'A' + value - 10)
 
 let private formatRowTexts (doc: HexDocument) bytesPerRow rowIdx =
   let offset = rowIdx * bytesPerRow
@@ -451,15 +441,14 @@ let private formatRowTexts (doc: HexDocument) bytesPerRow rowIdx =
 let private selectionRange selection =
   min selection.Anchor selection.Caret, max selection.Anchor selection.Caret
 
-let private hexTextRangeLength count =
-  if count <= 0 then 0
-  else count * 3 - 1
+let private hexTextRangeLength count = if count <= 0 then 0 else count * 3 - 1
 
 let private brushOfColor =
   let cache = Dictionary<string, IBrush>()
   fun color ->
     match cache.TryGetValue color with
-    | true, brush -> brush
+    | true, brush ->
+      brush
     | _ ->
       let brush = Brush.Parse color
       cache[color] <- brush
@@ -538,8 +527,7 @@ let private sliceTransientHighlights theme layout startRow endRow state =
   collectBuckets buckets
 
 let private expandRowRangeWithOverscan totalRows (startRow, endRow) =
-  max 0 (startRow - OverscanRows),
-  min totalRows (endRow + OverscanRows)
+  max 0 (startRow - OverscanRows), min totalRows (endRow + OverscanRows)
 
 let private computeRenderSignature state theme startRow endRow =
   { BytesRef = state.Document.Bytes
@@ -596,8 +584,7 @@ type private HexdumpRenderLayer() =
   let mutable cachedAnnotationFallback = ""
   let mutable cachedAnnotationRows: RowHighlightSegment list array = [||]
 
-  let clearRowCache () =
-    rowCache.Clear()
+  let clearRowCache () = rowCache.Clear()
 
   let makeFormattedText typeface fontSize brush text =
     FormattedText(
@@ -638,8 +625,7 @@ type private HexdumpRenderLayer() =
     Typeface(FontFamily fontFamily), fontSize
 
   let ensureAnnotationCache (state: HexdumpState) theme layout =
-    let bytesRefEqual =
-      cachedAnnotationBytes.Equals state.Document.Bytes
+    let bytesRefEqual = cachedAnnotationBytes.Equals state.Document.Bytes
     let spansRefEqual =
       obj.ReferenceEquals(box cachedAnnotationSpans, box state.AnnotationSpans)
     let cacheInvalid =
@@ -653,8 +639,10 @@ type private HexdumpRenderLayer() =
       cachedAnnotationBytesPerRow <- layout.BytesPerRow
       cachedAnnotationFallback <- theme.Search.SelectedBackground
       cachedAnnotationRows <-
-        buildAnnotationRows theme state.Document.Length
-                            layout.BytesPerRow state.AnnotationSpans
+        buildAnnotationRows theme
+                            state.Document.Length
+                            layout.BytesPerRow
+                            state.AnnotationSpans
     else
       ()
     cachedAnnotationRows
@@ -667,11 +655,13 @@ type private HexdumpRenderLayer() =
     |> Array.iter (fun rowIdx ->
       if rowIdx < minKeep || rowIdx > maxKeep then
         rowCache.Remove rowIdx |> ignore
-      else ())
+      else
+        ())
 
   let getOrCreateRowVisual state theme layout typeface fontSize rowIdx =
     match rowCache.TryGetValue rowIdx with
-    | true, cached -> cached
+    | true, cached ->
+      cached
     | _ ->
       let offset = rowIdx * layout.BytesPerRow
       let address =
@@ -704,10 +694,12 @@ type private HexdumpRenderLayer() =
     let asciiWidth = float segment.Length * layout.CharWidth
     if hexWidth > 0.0 then
       ctx.FillRectangle(brush, Rect(hexX, txtTop, hexWidth, txtHeight))
-    else ()
+    else
+      ()
     if asciiWidth > 0.0 then
       ctx.FillRectangle(brush, Rect(asciiX, txtTop, asciiWidth, txtHeight))
-    else ()
+    else
+      ()
 
   let drawRow ctx state theme layout typeface fontSize startRow rowIdx segs =
     let rowTop = float (rowIdx - startRow) * layout.RowHeight
@@ -835,8 +827,15 @@ type private HexdumpRenderLayer() =
           let transientHighlights = transientRows[rowIdx - startRow]
           let rowHighlights =
             List.append annotationHighlights transientHighlights
-          drawRow ctx state theme layout typeface fontSize
-                  startRow rowIdx rowHighlights
+          drawRow ctx
+                  state
+                  theme
+                  layout
+                  typeface
+                  fontSize
+                  startRow
+                  rowIdx
+                  rowHighlights
       | _ ->
         ()
     with ex ->
@@ -911,7 +910,5 @@ let private emptyStateView model =
 
 let view pane model dispatch =
   match pane.ActiveTab, model.Hexdump with
-  | Some { Content = HexContent }, Some state ->
-    bodyView model dispatch state
-  | _ ->
-    emptyStateView model
+  | Some { Content = HexContent }, Some state -> bodyView model dispatch state
+  | _ -> emptyStateView model

@@ -84,16 +84,16 @@ module MinimapStaticCache =
 
   let create (viewportWidth, viewportHeight) viewState (graph: VisGraph) =
     let width, height, scale =
-      computeDimension viewportWidth viewportHeight
-        viewState.GraphWidth viewState.GraphHeight
+      computeDimension viewportWidth
+                       viewportHeight
+                       viewState.GraphWidth
+                       viewState.GraphHeight
     let offsetX = (width - viewState.GraphWidth * scale) / 2.0
     let offsetY = (height - viewState.GraphHeight * scale) / 2.0
     let minX = viewState.GraphMinX
     let minY = viewState.GraphMinY
-    let edgePolylines =
-      buildEdgePolylines minX minY scale offsetX offsetY graph
-    let nodeRects =
-      buildNodeRects minX minY scale offsetX offsetY graph
+    let edgePolylines = buildEdgePolylines minX minY scale offsetX offsetY graph
+    let nodeRects = buildNodeRects minX minY scale offsetX offsetY graph
     { Width = width
       Height = height
       Scale = scale

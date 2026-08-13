@@ -42,7 +42,8 @@ type EditAction() =
     let hdl = Binary.Handle bin
     let bs = hdl.File.RawBytes.ToArray()
     let newbs = Array.zeroCreate (bs.Length + snip.Length)
-    if off > bs.Length then invalidArg (nameof off) "Offset is too large."
+    if off > bs.Length then
+      invalidArg (nameof off) "Offset is too large."
     elif off = 0 then
       Array.blit snip 0 newbs 0 snip.Length
       Array.blit bs 0 newbs snip.Length bs.Length
@@ -59,7 +60,8 @@ type EditAction() =
     let rmlen = eoff - soff + 1
     let newbs = Array.zeroCreate (bs.Length - rmlen)
     if rmlen > bs.Length || eoff >= bs.Length || soff >= bs.Length || soff < 0
-    then invalidArg (nameof soff) "Wrong offset(s) given."
+    then
+      invalidArg (nameof soff) "Wrong offset(s) given."
     elif soff = 0 then
       Array.blit bs rmlen newbs 0 (bs.Length - rmlen)
     else
@@ -116,12 +118,15 @@ type EditAction() =
         let eoff = parseEndOffset soff eoff
         if eoff >= soff then
           { Values = collection.Values |> Array.map (delete soff eoff) }
-        else invalidArg (nameof args) "Invalid offsets."
+        else
+          invalidArg (nameof args) "Invalid offsets."
       | "replace" :: soff :: eoff :: hexstr :: [] ->
         let soff = Convert.ToInt32 soff
         let eoff = parseEndOffset soff eoff
         let newbs = ByteArray.ofHexString hexstr
         if eoff >= soff && (eoff - soff + 1) = newbs.Length then
           { Values = collection.Values |> Array.map (replace soff eoff newbs) }
-        else invalidArg (nameof args) "Invalid offsets or hexstring."
-      | _ -> invalidArg (nameof args) "Invalid edit action."
+        else
+          invalidArg (nameof args) "Invalid offsets or hexstring."
+      | _ ->
+        invalidArg (nameof args) "Invalid edit action."

@@ -48,14 +48,11 @@ module LinearViewState =
   let [<Literal>] private HeaderVerticalPadding = 8.0
   let [<Literal>] ValueColumnByteCapacity = 8
 
-  let sectionHeaderFontSize fontSize =
-    fontSize * SectionHeaderFontScale
+  let sectionHeaderFontSize fontSize = fontSize * SectionHeaderFontScale
 
   let private itemLineCount = function
-    | Disassembly(loc, _) when loc.ItemLength > ValueColumnByteCapacity ->
-      2.0
-    | _ ->
-      1.0
+    | Disassembly(loc, _) when loc.ItemLength > ValueColumnByteCapacity -> 2.0
+    | _ -> 1.0
 
   let private measureItemHeight defaultItemHeight item =
     match item with
@@ -101,8 +98,7 @@ module LinearViewState =
     if index < 0 || index >= state.Layout.ItemHeights.Count then 0.0
     else state.Layout.ItemHeights[index]
 
-  let totalHeight state =
-    state.Layout.TotalHeight
+  let totalHeight state = state.Layout.TotalHeight
 
   let rebuildUniformLayout rowHeight doc state =
     { state with Layout = buildLayoutIndex doc.LinearItems rowHeight }
@@ -110,23 +106,23 @@ module LinearViewState =
   let private findFirstIndexAtOrAfterY
       (tops: ResizeArray<float>) targetY =
     let rec loop low high =
-      if low >= high then low
+      if low >= high then
+        low
       else
         let mid = low + (high - low) / 2
-        if tops[mid] < targetY then loop (mid + 1) high
-        else loop low mid
+        if tops[mid] < targetY then loop (mid + 1) high else loop low mid
     loop 0 tops.Count
 
   let private findFirstIndexAfterBottom state targetY =
     let tops: ResizeArray<float> = state.Layout.ItemTops
     let heights: ResizeArray<float> = state.Layout.ItemHeights
     let rec loop low high =
-      if low >= high then low
+      if low >= high then
+        low
       else
         let mid = low + (high - low) / 2
         let bottom = tops[mid] + heights[mid]
-        if bottom <= targetY then loop (mid + 1) high
-        else loop low mid
+        if bottom <= targetY then loop (mid + 1) high else loop low mid
     loop 0 tops.Count
 
   let findVisibleRange overscanPx state =
@@ -135,8 +131,7 @@ module LinearViewState =
       0, 0
     else
       let overscanPx = max overscanPx 0.0
-      let visibleTop =
-        max 0.0 (state.ScrollOffsetY - overscanPx)
+      let visibleTop = max 0.0 (state.ScrollOffsetY - overscanPx)
       let visibleBottom =
         min state.Layout.TotalHeight
           (state.ScrollOffsetY
@@ -145,7 +140,6 @@ module LinearViewState =
         min (max 0 (totalItems - 1))
           (findFirstIndexAfterBottom state visibleTop)
       let endIndexExclusive =
-        let idx =
-          findFirstIndexAtOrAfterY state.Layout.ItemTops visibleBottom
+        let idx = findFirstIndexAtOrAfterY state.Layout.ItemTops visibleBottom
         max (startIndex + 1) idx |> min totalItems
       startIndex, endIndexExclusive

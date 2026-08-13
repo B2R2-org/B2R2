@@ -85,4 +85,5 @@ type GrepAction() =
                    |> Array.map (grep pattern bytesBefore 0) }
       | [ pattern ] ->
         { Values = collection.Values |> Array.map (grep pattern 0 0) }
-      | _ -> invalidArg (nameof args) "Single pattern should be given."
+      | _ ->
+        invalidArg (nameof args) "Single pattern should be given."

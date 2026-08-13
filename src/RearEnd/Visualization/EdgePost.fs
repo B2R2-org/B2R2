@@ -59,8 +59,7 @@ let private sameX (a: VisPosition) (b: VisPosition) =
 let private sameY (a: VisPosition) (b: VisPosition) =
   abs (a.Y - b.Y) < CoordEpsilon
 
-let private samePos (a: VisPosition) (b: VisPosition) =
-  sameX a b && sameY a b
+let private samePos (a: VisPosition) (b: VisPosition) = sameX a b && sameY a b
 
 let private pos x y = VisPosition.Create(x, y)
 
@@ -77,8 +76,7 @@ let private safeBox (v: IVertex<VisBBlock>): Box =
   let y = VisGraph.getYPos v
   let w = VisGraph.getWidth v
   let h = VisGraph.getHeight v
-  x - SafeMargin, x + w + SafeMargin,
-  y - SafeMargin, y + h + SafeMargin
+  x - SafeMargin, x + w + SafeMargin, y - SafeMargin, y + h + SafeMargin
 
 /// Return non-degenerate consecutive segments of the polyline.
 let private polySegments (pts: VisPosition array) =
@@ -95,15 +93,15 @@ let private polySegments (pts: VisPosition array) =
 
 let private countBends (pts: VisPosition array) =
   let n = pts.Length
-  if n < 3 then 0
+  if n < 3 then
+    0
   else
     let mutable acc = 0
     for i in 0 .. n - 3 do
       let a = pts[i]
       let b = pts[i + 1]
       let c = pts[i + 2]
-      let straight =
-        (sameX a b && sameX b c) || (sameY a b && sameY b c)
+      let straight = (sameX a b && sameX b c) || (sameY a b && sameY b c)
       if not straight then acc <- acc + 1 else ()
     acc
 
@@ -111,29 +109,29 @@ let private countBends (pts: VisPosition array) =
 /// in a single pass.
 let private dedupAndCollapse (points: VisPosition array) =
   let n = points.Length
-  if n = 0 then [||]
+  if n = 0 then
+    [||]
   else
     let out = ResizeArray<VisPosition>(n)
     for i in 0 .. n - 1 do
       let p = points[i]
       let k = out.Count
-      if k = 0 then out.Add p
-      elif samePos out[k - 1] p then ()
+      if k = 0 then
+        out.Add p
+      elif samePos out[k - 1] p then
+        ()
       elif k >= 2 then
         let a = out[k - 2]
         let b = out[k - 1]
-        let collinear =
-          (sameX a b && sameX b p) || (sameY a b && sameY b p)
-        if collinear then out[k - 1] <- p
-        else out.Add p
-      else out.Add p
+        let collinear = (sameX a b && sameX b p) || (sameY a b && sameY b p)
+        if collinear then out[k - 1] <- p else out.Add p
+      else
+        out.Add p
     out.ToArray()
 
 let private orientation ax ay bx by cx cy =
   let v = (bx - ax) * (cy - ay) - (by - ay) * (cx - ax)
-  if abs v <= CoordEpsilon then 0
-  elif v > 0.0 then 1
-  else -1
+  if abs v <= CoordEpsilon then 0 elif v > 0.0 then 1 else -1
 
 let private onSegment ax ay bx by px py =
   px >= min ax bx - CoordEpsilon
@@ -141,8 +139,10 @@ let private onSegment ax ay bx by px py =
   && py >= min ay by - CoordEpsilon
   && py <= max ay by + CoordEpsilon
 
-let private segmentsIntersectRaw (a0: VisPosition) (a1: VisPosition)
-                                 (b0: VisPosition) (b1: VisPosition) =
+let private segmentsIntersectRaw (a0: VisPosition)
+                                 (a1: VisPosition)
+                                 (b0: VisPosition)
+                                 (b1: VisPosition) =
   let ax, ay = a0.X, a0.Y
   let bx, by = a1.X, a1.Y
   let cx, cy = b0.X, b0.Y
@@ -162,7 +162,8 @@ let private onlyTouchesAtEndpoint a0 a1 b0 b1 =
   let shared =
     samePos a0 b0 || samePos a0 b1
     || samePos a1 b0 || samePos a1 b1
-  if not shared then false
+  if not shared then
+    false
   else
     let collinear =
       (sameX a0 a1 && sameX b0 b1 && sameX a0 b0)
@@ -181,14 +182,16 @@ let private clipLB p q (t0: byref<float>) (t1: byref<float>) (ok: byref<bool>) =
   else
     let r = q / p
     if p < 0.0 then
-      if r > t1 then ok <- false
-      elif r > t0 then t0 <- r
-      else ()
-    elif r < t0 then ok <- false
-    elif r < t1 then t1 <- r
-    else ()
+      if r > t1 then ok <- false elif r > t0 then t0 <- r else ()
+    elif r < t0 then
+      ok <- false
+    elif r < t1 then
+      t1 <- r
+    else
+      ()
 
-let private segIntersectsRect ((l, r, t, b): Box) (x0, y0)
+let private segIntersectsRect ((l, r, t, b): Box)
+                              (x0, y0)
                               (x1: float, y1: float) =
   let eL = l + CoordEpsilon
   let eR = r - CoordEpsilon
@@ -196,7 +199,8 @@ let private segIntersectsRect ((l, r, t, b): Box) (x0, y0)
   let eB = b - CoordEpsilon
   let insideA = x0 > eL && x0 < eR && y0 > eT && y0 < eB
   let insideB = x1 > eL && x1 < eR && y1 > eT && y1 < eB
-  if insideA || insideB then true
+  if insideA || insideB then
+    true
   else
     let dx = x1 - x0
     let dy = y1 - y0
@@ -213,8 +217,10 @@ let private buildSafeBoxes (realVertices: IVertex<VisBBlock> array) =
   realVertices |> Array.map (fun v -> v, safeBox v)
 
 let private segmentHitsAnySafeBox (safeBoxes: (IVertex<VisBBlock> * Box) array)
-  (src: IVertex<VisBBlock>) (dst: IVertex<VisBBlock>) (p0: VisPosition)
-  (p1: VisPosition) =
+                                  (src: IVertex<VisBBlock>)
+                                  (dst: IVertex<VisBBlock>)
+                                  (p0: VisPosition)
+                                  (p1: VisPosition) =
   let mutable hit = false
   let mutable i = 0
   while not hit && i < safeBoxes.Length do
@@ -249,8 +255,11 @@ let private buildEdgeSegCache (g: VisGraph) =
 /// Count proper crossings between mySegs and every non-ignored graph
 /// edge. Uses an axis-aligned bounding-box prefilter to avoid calling
 /// the full intersection test for clearly disjoint segments.
-let private countCrossings (cache: SegCacheEntry array) (ignored: HashSet<_>)
-  isBackEdge dst (mySegs: (VisPosition * VisPosition) array) =
+let private countCrossings (cache: SegCacheEntry array)
+                           (ignored: HashSet<_>)
+                           isBackEdge
+                           dst
+                           (mySegs: (VisPosition * VisPosition) array) =
   let mutable n = 0
   for i in 0 .. cache.Length - 1 do
     let entry = cache[i]
@@ -296,8 +305,10 @@ let private forwardEdgeAvoidNeighborBigBox (g: VisGraph) realVertices =
     let src = e.First
     let dst = e.Second
     let edge = e.Label
-    if not edge.IsBackEdge && not src.VData.IsDummy
-      && not dst.VData.IsDummy && edge.Points.Length >= 3 then
+    if not edge.IsBackEdge
+      && not src.VData.IsDummy
+      && not dst.VData.IsDummy
+      && edge.Points.Length >= 3 then
       let p0 = edge.Points[0]
       let p1 = edge.Points[1]
       let p2 = edge.Points[2]
@@ -310,7 +321,8 @@ let private forwardEdgeAvoidNeighborBigBox (g: VisGraph) realVertices =
           if hit then
             let key = boxKey box
             match hitMap.TryGetValue key with
-            | true, xs -> xs.Add(src, edge)
+            | true, xs ->
+              xs.Add(src, edge)
             | _ ->
               let xs = ResizeArray()
               xs.Add(src, edge)
@@ -375,7 +387,8 @@ let private buildShortcutCandidate prefix middle suffix =
 
 let private tryAcceptShortcut
     cache safeBoxes src dst ignoredEdges isBackEdge oldCross cand =
-  if polylineViolatesSafeBox safeBoxes src dst cand then None
+  if polylineViolatesSafeBox safeBoxes src dst cand then
+    None
   else
     let segs = polySegments cand
     if countCrossings cache ignoredEdges isBackEdge dst segs <= oldCross
@@ -405,8 +418,11 @@ let private tryIntersectYOnSegment targetY (a: VisPosition) (b: VisPosition) =
     if t < -CoordEpsilon || t > 1.0 + CoordEpsilon then None
     else Some(a.X + t * (b.X - a.X))
 
-let private tryFindPointAtX targetX segStart segEnd pickFirst
-  (pts: VisPosition array) =
+let private tryFindPointAtX targetX
+                            segStart
+                            segEnd
+                            pickFirst
+                            (pts: VisPosition array) =
   let mutable best: (int * VisPosition) option = None
   let mutable i = segStart
   let mutable stop = false
@@ -415,11 +431,15 @@ let private tryFindPointAtX targetX segStart segEnd pickFirst
     | Some y ->
       best <- Some(i, pos targetX y)
       if pickFirst then stop <- true else ()
-    | None -> ()
+    | None ->
+      ()
     i <- i + 1
   best
 
-let private tryFindPointAtY targetY segStart segEnd pickFirst
+let private tryFindPointAtY targetY
+                            segStart
+                            segEnd
+                            pickFirst
                             (pts: VisPosition array) =
   let mutable best: (int * VisPosition) option = None
   let mutable i = segStart
@@ -429,7 +449,8 @@ let private tryFindPointAtY targetY segStart segEnd pickFirst
     | Some x ->
       best <- Some(i, pos x targetY)
       if pickFirst then stop <- true else ()
-    | None -> ()
+    | None ->
+      ()
     i <- i + 1
   best
 
@@ -463,8 +484,15 @@ let private tryFindPointIndex (p: VisPosition) (pts: VisPosition array) =
     i <- i + 1
   if found < 0 then None else Some found
 
-let private tryBackwardNearestDummyShortcut cache layerTopMap safeBoxes src dst
-  ignoredEdges prefix dummies (pts: VisPosition array) =
+let private tryBackwardNearestDummyShortcut cache
+                                            layerTopMap
+                                            safeBoxes
+                                            src
+                                            dst
+                                            ignoredEdges
+                                            prefix
+                                            dummies
+                                            (pts: VisPosition array) =
   let hits =
     dummies
     |> List.choose (fun dummy ->
@@ -474,7 +502,8 @@ let private tryBackwardNearestDummyShortcut cache layerTopMap safeBoxes src dst
       | None -> None)
     |> List.sortByDescending fst
   match hits with
-  | [] -> None
+  | [] ->
+    None
   | _ ->
     let oldCross = countCrossings cache ignoredEdges true dst (polySegments pts)
     hits
@@ -482,8 +511,12 @@ let private tryBackwardNearestDummyShortcut cache layerTopMap safeBoxes src dst
       let cand = buildShortcutCandidate prefix [| targetTop |] pts[idx + 1..]
       tryAcceptShortcut cache safeBoxes src dst ignoredEdges true oldCross cand)
 
-let private tryBackwardInsertPointAtAdjustedY cache safeBoxes src dst
-  ignoredEdges (pts: VisPosition array) =
+let private tryBackwardInsertPointAtAdjustedY cache
+                                              safeBoxes
+                                              src
+                                              dst
+                                              ignoredEdges
+                                              (pts: VisPosition array) =
   if pts.Length < 7 then
     None
   else
@@ -498,21 +531,28 @@ let private tryBackwardInsertPointAtAdjustedY cache safeBoxes src dst
       let cand = buildShortcutCandidate prefix [| targetPt |] pts[segIdx + 1..]
       let oldBends = countBends pts
       let newBends = countBends cand
-      if newBends >= oldBends then None
-      elif polylineViolatesSafeBox safeBoxes src dst cand then None
+      if newBends >= oldBends then
+        None
+      elif polylineViolatesSafeBox safeBoxes src dst cand then
+        None
       else
         let old = countCrossings cache ignoredEdges true dst (polySegments pts)
         let neC = countCrossings cache ignoredEdges true dst (polySegments cand)
         if neC > old then None else Some cand
-    | _ -> None
+    | _ ->
+      None
 
 /// After stage-1 dummy shortcut, try to further straighten the departure and
 /// arrival legs by aligning them with the source/destination port x-coordinates
 /// searches for the first occurrence of sPortX (and last of inPortX) in the
 /// interior segments, then shortcuts prefix→alignPt→alignPt→suffix.
 /// falls back to src-side-only when no dst intersection is found.
-let private tryBackwardAlignPortX cache safeBox src dst ignoredEdges
-  (pts: VisPosition array) =
+let private tryBackwardAlignPortX cache
+                                  safeBox
+                                  src
+                                  dst
+                                  ignoredEdges
+                                  (pts: VisPosition array) =
   if pts.Length < 8 then
     None
   else
@@ -532,30 +572,55 @@ let private tryBackwardAlignPortX cache safeBox src dst ignoredEdges
       when si < di || (si = di && not (samePos sp dp)) ->
       let cand = buildShortcutCandidate prefix [| sp; dp |] pts[di + 1..]
       match tryShortcut cand with
-      | Some _ as result -> result
+      | Some _ as result ->
+        result
       | None ->
         match tryFindPointAtX sPortX 4 (n - 3) true pts with
         | Some(si2, sp2) ->
           buildShortcutCandidate prefix [| sp2 |] pts[si2 + 1..] |> tryShortcut
-        | None -> None
+        | None ->
+          None
     | Some(si, sp), None ->
       buildShortcutCandidate prefix [| sp |] pts[si + 1..] |> tryShortcut
-    | _ -> None
+    | _ ->
+      None
 
-let private optimizeBackwardStage1 cache layerTopMap safeBoxes src dst
-  ignoredEdges dummies (merged: VisPosition array) =
+let private optimizeBackwardStage1 cache
+                                   layerTopMap
+                                   safeBoxes
+                                   src
+                                   dst
+                                   ignoredEdges
+                                   dummies
+                                   (merged: VisPosition array) =
   match tryExtractBackwardPrefix merged with
-  | None -> merged
+  | None ->
+    merged
   | Some prefix ->
-    match tryBackwardNearestDummyShortcut cache layerTopMap safeBoxes src dst
-      ignoredEdges prefix dummies merged with
+    match tryBackwardNearestDummyShortcut cache
+                                          layerTopMap
+                                          safeBoxes
+                                          src
+                                          dst
+                                          ignoredEdges
+                                          prefix
+                                          dummies
+                                          merged with
     | Some optimized -> optimized
     | None -> merged
 
-let private optimizeBackwardStage2 cache safeBoxes src dst ignoredEdges
-  (merged: VisPosition array) =
-  match tryBackwardInsertPointAtAdjustedY cache safeBoxes src dst ignoredEdges
-    merged with
+let private optimizeBackwardStage2 cache
+                                   safeBoxes
+                                   src
+                                   dst
+                                   ignoredEdges
+                                   (merged: VisPosition array) =
+  match tryBackwardInsertPointAtAdjustedY cache
+                                          safeBoxes
+                                          src
+                                          dst
+                                          ignoredEdges
+                                          merged with
   | Some optimized -> optimized
   | None -> merged
 
@@ -620,8 +685,14 @@ let private runStage1 cache layerTopMap safeBoxes plans =
     let ignoredEdges = buildIgnoredEdgeSet plan.ChainEdges
     let pts =
       if plan.Edge.IsBackEdge then
-        optimizeBackwardStage1 cache layerTopMap safeBoxes plan.Src plan.Dst
-          ignoredEdges plan.Dummies plan.Merged
+        optimizeBackwardStage1 cache
+                               layerTopMap
+                               safeBoxes
+                               plan.Src
+                               plan.Dst
+                               ignoredEdges
+                               plan.Dummies
+                               plan.Merged
       else
         plan.Merged
     { plan with Stage1Points = pts
@@ -642,8 +713,12 @@ let private runStage2 cache safeBoxes plans =
       let groupEdges = groupPlans |> List.collect (fun p -> p.ChainEdges)
       let ignoredEdges = buildIgnoredEdgeSet groupEdges
       let pts =
-        optimizeBackwardStage2 cache safeBoxes plan.Src plan.Dst ignoredEdges
-          plan.FinalPoints
+        optimizeBackwardStage2 cache
+                               safeBoxes
+                               plan.Src
+                               plan.Dst
+                               ignoredEdges
+                               plan.FinalPoints
       { plan with FinalPoints = pts })
 
 /// Stage 3: among backward edges that share the same destination, reject
@@ -663,14 +738,14 @@ let private runStage3 plans =
       plan
     else
       match Map.tryFind plan.Dst backGroupsMap with
-      | None | Some [] | Some [ _ ] -> plan
+      | None | Some [] | Some [ _ ] ->
+        plan
       | Some groupPlans ->
         let hasCrossing =
           groupPlans |> List.exists (fun other ->
             not (obj.ReferenceEquals(other.Edge, plan.Edge)) &&
             approachSegsCross plan.FinalPoints other.FinalPoints)
-        let hitsDstBox =
-          approachSegsHitDstBox plan.Dst plan.FinalPoints
+        let hitsDstBox = approachSegsHitDstBox plan.Dst plan.FinalPoints
         if hasCrossing || hitsDstBox then
           { plan with FinalPoints = plan.Stage1Points }
         else

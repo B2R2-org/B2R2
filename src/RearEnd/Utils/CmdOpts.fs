@@ -41,8 +41,7 @@ let makeIntroString () =
     .Append(NoColor, Meta.Copyright + Environment.NewLine)
 
 /// Writes introduction message to console.
-let writeIntro () =
-  iprintcn <| makeIntroString ()
+let writeIntro () = iprintcn <| makeIntroString ()
 
 let private createUsage tool usageTail =
   let tail = if String.IsNullOrEmpty usageTail then "" else " " + usageTail
@@ -102,6 +101,7 @@ let rec sanitizeRestArgs args =
     if (arg: string).StartsWith('-') then
       eprintfn "Invalid argument (%s) is used" arg
       exit 1
-    else sanitizeRestArgs rest
+    else
+      sanitizeRestArgs rest
   | [] ->
     ()

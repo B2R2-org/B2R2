@@ -78,7 +78,8 @@ module ROPValue =
     acc + Environment.NewLine
 
   let toString liftingUnit binBase = function
-    | Expr expr -> ROPExpr.toString expr
+    | Expr expr ->
+      ROPExpr.toString expr
     | Gadget gadget ->
       let s = sprintf "[ %08X ]" ((uint32 gadget.Offset) + binBase)
       let s = s + Environment.NewLine

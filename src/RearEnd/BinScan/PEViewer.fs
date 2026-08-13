@@ -79,8 +79,7 @@ let makeSectionHeadersTableHeaderVerbose () =
      "Characteristics" |]
 
 let selectSize (s: SectionHeader) =
-  if s.VirtualSize = 0 then s.SizeOfRawData
-  else s.VirtualSize
+  if s.VirtualSize = 0 then s.SizeOfRawData else s.VirtualSize
 
 let enumSectionCharacteristics (ch: SectionCharacteristics) =
   if uint64 ch = 0UL then
@@ -394,5 +393,4 @@ let dumpDependencies _ (file: IBinFile) =
   |> Set.iter (fun s -> printsn $"- {s}")
   printsn ""
 
-let dumpExceptionTable _ _ =
-  Terminator.futureFeature ()
+let dumpExceptionTable _ _ = Terminator.futureFeature ()

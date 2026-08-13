@@ -84,7 +84,8 @@ type ROP() =
     | "pivot" :: [ esp ] ->
       ROPHandle.stackPivot rop (ROPExpr.ofUInt32 esp)
       |> this.ShowResult rop.LiftingUnit
-    | _ -> [| "[*] Unknown ROP cmd." |]
+    | _ ->
+      [| "[*] Unknown ROP cmd." |]
 
   interface ICmd with
 

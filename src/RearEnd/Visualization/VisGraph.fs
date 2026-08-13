@@ -40,7 +40,8 @@ module VisGraph =
     let newGraph = init ()
     let vblocks = Dictionary<VertexID, IVertex<VisBBlock>>()
     for v in g.Vertices do
-      if vblocks.ContainsKey v.ID then ()
+      if vblocks.ContainsKey v.ID then
+        ()
       else
         let blk = VisBBlock(v.VData, charWidth, charHeight, false)
         let v', _ = newGraph.AddVertex blk

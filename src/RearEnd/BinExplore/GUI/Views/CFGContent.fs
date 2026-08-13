@@ -68,7 +68,8 @@ let private brushOfColor =
   let cache = Dictionary<string, IBrush>()
   fun color ->
     match cache.TryGetValue color with
-    | true, brush -> brush
+    | true, brush ->
+      brush
     | _ ->
       let brush = Brush.Parse color
       cache[color] <- brush
@@ -166,8 +167,7 @@ let private edgeLineView (pts: Point array) zoom (color: string) =
     Polyline.isHitTestVisible false
   ] :> IView
 
-let private edgeHitAreaThickness zoom =
-  5.0 / sqrt zoom |> max 6.0 |> min 14.0
+let private edgeHitAreaThickness zoom = 5.0 / sqrt zoom |> max 6.0 |> min 14.0
 
 let private distSquared x1 y1 x2 y2 =
   let dx = x1 - x2
@@ -312,9 +312,7 @@ let private compactTitleMenuItem model dispatch txt txtToCopy =
     MenuItem.header (tokenTextViewUnselectable model txt)
     MenuItem.onClick (fun e ->
       Clipboard.setText
-        (fun msg -> dispatch (UpdateStatusMsg msg))
-        e.Source
-        txtToCopy
+        (fun msg -> dispatch (UpdateStatusMsg msg)) e.Source txtToCopy
     )
   ]
 
@@ -333,9 +331,7 @@ let private compactMonoMenuItem dispatch (header: IView) txtToCopy =
     MenuItem.header header
     MenuItem.onClick (fun e ->
       Clipboard.setText
-        (fun msg -> dispatch (UpdateStatusMsg msg))
-        e.Source
-        txtToCopy
+        (fun msg -> dispatch (UpdateStatusMsg msg)) e.Source txtToCopy
     )
   ]
 
@@ -375,7 +371,8 @@ let private addressTokenMenuItems fnAddr provider model dispatch word =
       () ]
 
 let private appendMenuSection title items model dispatch =
-  if Array.isEmpty items then []
+  if Array.isEmpty items then
+    []
   else
     [ Separator.create [] :> IView
       compactTitleMenuItem model dispatch title ""
@@ -594,33 +591,29 @@ let private pointerXY (e: PointerEventArgs) =
       match e.Source with
       | :? Control as ctrl ->
         let root = TopLevel.GetTopLevel ctrl
-        let p =
-          if isNull root then e.GetPosition ctrl
-          else e.GetPosition root
+        let p = if isNull root then e.GetPosition ctrl else e.GetPosition root
         struct (p.X, p.Y)
-      | _ -> struct (0.0, 0.0)
+      | _ ->
+        struct (0.0, 0.0)
 
 let private setPointerCapture shouldCapture (e: PointerEventArgs) =
   match tryFindGraphCanvas e.Source with
   | Some canvas ->
     let target: IInputElement =
-      if shouldCapture then canvas :> IInputElement
-      else null
+      if shouldCapture then canvas :> IInputElement else null
     e.Pointer.Capture target
   | None ->
     match e.Source with
     | :? Control as ctrl ->
       let target: IInputElement =
-        if shouldCapture then ctrl :> IInputElement
-        else null
+        if shouldCapture then ctrl :> IInputElement else null
       e.Pointer.Capture target
-    | _ -> ()
+    | _ ->
+      ()
 
-let private capturePointer e =
-  setPointerCapture true e
+let private capturePointer e = setPointerCapture true e
 
-let private releasePointer e =
-  setPointerCapture false e
+let private releasePointer e = setPointerCapture false e
 
 let private onWheel dispatch (e: PointerWheelEventArgs) =
   let delta = if e.Delta.Y > 0.0 then ZoomDelta else -ZoomDelta
@@ -644,7 +637,8 @@ let private onMoved model dispatch (e: PointerEventArgs) =
       let dx = x - pressedX
       let dy = y - pressedY
       dx * dx + dy * dy >= CFGPanStartThresholdSquared
-    | _ -> false
+    | _ ->
+      false
   if shouldStartPan then capturePointer e else ()
   dispatch (CFGPaneMsg(MovePan(x, y, ViewportSpace)))
   if shouldStartPan || model.CFGIsPanning then e.Handled <- true else ()
@@ -693,7 +687,8 @@ let private onMinimapClick dispatch (minimap: MinimapStaticCache) viewState e =
     dispatch (CFGPaneMsg(StartPan(sx, sy)))
     e.Pointer.Capture ctrl
     e.Handled <- true
-  | _ -> ()
+  | _ ->
+    ()
 
 let private onRectMoved dispatch minimapScale e =
   let struct (x, y) = pointerXY e

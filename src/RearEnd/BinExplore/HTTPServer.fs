@@ -37,8 +37,7 @@ let listen host reqHandler =
   let rec loop () =
     async {
       let! context = Async.FromBeginEnd(hl.BeginGetContext, hl.EndGetContext)
-      try reqHandler context.Request context.Response
-      with _ -> ()
+      try reqHandler context.Request context.Response with _ -> ()
       return! loop ()
     }
   loop ()
@@ -101,8 +100,7 @@ let invokeAPI (req: HttpListenerRequest) arbiter =
     None
 
 let readIfExists path =
-  if File.Exists path then Some(File.ReadAllBytes(path))
-  else None
+  if File.Exists path then Some(File.ReadAllBytes(path)) else None
 
 let handleWebRequest (req: HttpListenerRequest) resp arbiter =
   match req.Url.LocalPath.Remove(0, 1) with (* Remove the first '/' *)

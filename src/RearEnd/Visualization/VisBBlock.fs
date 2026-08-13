@@ -44,7 +44,8 @@ type VisBBlock(blk: IVisualizable, charWidth, charHeight, isDummy) =
     if block.Length = 0 then
       [| [| { AsmWordKind = AsmWordKind.String
               AsmWordValue = $"# fake block @ {blk.BlockAddress:x}" } |] |]
-    else block
+    else
+      block
 
   let lineWidth asmLine =
     asmLine |> Array.fold (fun width term -> width + AsmWord.Width term) 0

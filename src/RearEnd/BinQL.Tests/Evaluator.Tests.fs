@@ -34,10 +34,8 @@ type EvaluatorTests() =
 
   let (==>) str (expected: string) =
     match parser.Run str with
-    | Ok e ->
-      Assert.AreEqual<string>(expected, evaluator.EvalExprToString e)
-    | _ ->
-      Assert.Fail "Parsing failed."
+    | Ok e -> Assert.AreEqual<string>(expected, evaluator.EvalExprToString e)
+    | _ -> Assert.Fail "Parsing failed."
 
   [<TestMethod>]
   member _.``Arithmetic evaluation tests``() =

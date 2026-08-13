@@ -150,13 +150,21 @@ type Parser() =
 
   let addInfixOp str prec assoc mapping =
     let op =
-      InfixOperator(str, spaces, prec, assoc, (),
+      InfixOperator(str,
+                    spaces,
+                    prec,
+                    assoc,
+                    (),
                     fun () leftTerm rightTerm -> mapping () leftTerm rightTerm)
     opp.AddOperator op
 
   let addPrefixOp str prec mapping =
     let op =
-      PrefixOperator(str, spaces, prec, true, (),
+      PrefixOperator(str,
+                     spaces,
+                     prec,
+                     true,
+                     (),
                      fun () term -> mapping () term)
     opp.AddOperator op
 

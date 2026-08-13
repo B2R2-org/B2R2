@@ -45,4 +45,5 @@ type ListAction() =
       match args with
       | [ "sections" ] | [ "sects" ] | [ "ss" ] ->
         { Values = collection.Values |> Array.map listSections }
-      | _ -> invalidArg (nameof args) "Invalid argument."
+      | _ ->
+        invalidArg (nameof args) "Invalid argument."

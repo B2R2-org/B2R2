@@ -38,8 +38,7 @@ open B2R2.RearEnd.Visualization
 let private dispatchOnUi dispatch msg =
   Dispatcher.UIThread.Post(fun () -> dispatch msg)
 
-let private cmdOfSub sub: Elmish.Cmd<Message> =
-  [ sub ]
+let private cmdOfSub sub: Elmish.Cmd<Message> = [ sub ]
 
 let private deferHexdumpScrollCmd offsetY: Elmish.Cmd<Message> =
   cmdOfSub (fun dispatch ->
@@ -94,8 +93,11 @@ let private confirmDroppedBinaryCmd (owner: Window) currentPath droppedPath =
       [ $"{owner.Title} has already loaded a binary ({currentName})."
         $"Do you still want to load a new binary ({droppedName})?" ]
       |> String.concat " "
-    Dialogs.confirm owner text "Load" "Cancel"
-      (fun _ -> dispatch (ConfirmDroppedBinary droppedPath)))
+    Dialogs.confirm owner
+                    text
+                    "Load"
+                    "Cancel"
+                    (fun _ -> dispatch (ConfirmDroppedBinary droppedPath)))
 
 let private startLinearAnalysisCmd arbiter filePath sections fontSize =
   cmdOfSub (fun dispatch ->
@@ -117,10 +119,11 @@ let openBinary (arbiter: Arbiter<_, _>) model filePath =
   if String.IsNullOrWhiteSpace filePath then
     model, Elmish.Cmd.none
   else
-    { model with
-        LoadingBinaryPath = Some filePath
-        OffsetSnapshot = OffsetSnapshot.empty },
-    startLoadWorkflowCmd arbiter filePath
+    let updatedModel =
+      { model with
+          LoadingBinaryPath = Some filePath
+          OffsetSnapshot = OffsetSnapshot.empty }
+    updatedModel, startLoadWorkflowCmd arbiter filePath
 
 let private mkText typeface fontSize text =
   FormattedText(
@@ -157,8 +160,7 @@ let private measureMaxCharSize model =
 
 let private clampLinearScrollState linearViewState =
   let contentHeight = LinearViewState.totalHeight linearViewState
-  let maxScrollOffset =
-    max 0.0 (contentHeight - linearViewState.ViewportHeight)
+  let maxScrollOffset = max 0.0 (contentHeight - linearViewState.ViewportHeight)
   { linearViewState with
       ScrollOffsetY =
         max 0.0 (min maxScrollOffset linearViewState.ScrollOffsetY) }
@@ -297,8 +299,10 @@ let private buildSpans (theme: Theme) (file: IBinFile) =
             Foreground = None
             Background = Some bg
             Priority = prio }
-        else ()
-      | _ -> () ]
+        else
+          ()
+      | _ ->
+        () ]
 
 let private buildHexAnnotations theme (file: IBinFile) (state: HexdumpState) =
   { state with AnnotationSpans = buildSpans theme file }
@@ -308,8 +312,7 @@ let private buildLoadedBinaryState (arbiter: Arbiter<_, _>) model filePath =
         API.getSections arbiter,
         API.getFile arbiter with
   | Ok fns, Ok secs, Ok file ->
-    let sections =
-      secs |> Array.map SectionItem.make |> List.ofArray
+    let sections = secs |> Array.map SectionItem.make |> List.ofArray
     let numDigits = (file.ISA.WordSize |> WordSize.toByteWidth) * 2
     let fontSize = model.Theme.Font.Monospace.FontSize
     let hexdump =
@@ -317,11 +320,10 @@ let private buildLoadedBinaryState (arbiter: Arbiter<_, _>) model filePath =
       |> buildHexAnnotations model.Theme file
       |> initializeHexdumpTabView model
     let initialTab = Some(Tab.ofLinearView ())
-    fns |> Array.map (FunctionItem.ofFunction file) |> List.ofArray,
-    sections,
-    Some hexdump,
-    FileLoaded(filePath, FileFormat.toString file.Format),
-    initialTab
+    let functionItems =
+      fns |> Array.map (FunctionItem.ofFunction file) |> List.ofArray
+    let fileStatus = FileLoaded(filePath, FileFormat.toString file.Format)
+    functionItems, sections, Some hexdump, fileStatus, initialTab
   | _ ->
     [], [], None, EmptyStatus, None
 
@@ -355,10 +357,7 @@ let openBinaryCompleted arbiter (model: Model) filePath =
       match initialTab with
       | Some _ ->
         startLinearAnalysisCmd
-          arbiter
-          filePath
-          sections
-          model.Theme.Font.Monospace.FontSize
+          arbiter filePath sections model.Theme.Font.Monospace.FontSize
       | None ->
         Elmish.Cmd.none
     nextModel, cmd
@@ -367,11 +366,12 @@ let openBinaryCompleted arbiter (model: Model) filePath =
 
 let openBinaryFailed model filePath reason =
   if model.LoadingBinaryPath = Some filePath then
-    { model with
-        LoadingBinaryPath = None
-        OffsetSnapshot = OffsetSnapshot.empty
-        StatusBarState = MessageOnly $"Failed to load binary: {reason}" },
-    Elmish.Cmd.none
+    let updatedModel =
+      { model with
+          LoadingBinaryPath = None
+          OffsetSnapshot = OffsetSnapshot.empty
+          StatusBarState = MessageOnly $"Failed to load binary: {reason}" }
+    updatedModel, Elmish.Cmd.none
   else
     model, Elmish.Cmd.none
 
@@ -394,8 +394,7 @@ let closeWorkspace (arbiter: Arbiter<_, _>) (model: Model) =
         LinearViewState = None
         Hexdump = None
         OffsetSnapshot = OffsetSnapshot.empty
-        StatusBarState = EmptyStatus },
-  Elmish.Cmd.none
+        StatusBarState = EmptyStatus }, Elmish.Cmd.none
 
 let replaceBinary arbiter model filePath =
   let model, _ = closeWorkspace arbiter model
@@ -412,12 +411,9 @@ let private tryGetSelectedFileOffsetRange selection =
   let startOffset = min selection.Anchor selection.Caret
   let endOffset = max selection.Anchor selection.Caret
   let maxOffset = int64 UInt32.MaxValue
-  if startOffset < 0L || endOffset < 0L then
-    None
-  elif startOffset > maxOffset || endOffset > maxOffset then
-    None
-  else
-    Some(uint32 startOffset, uint32 endOffset)
+  if startOffset < 0L || endOffset < 0L then None
+  elif startOffset > maxOffset || endOffset > maxOffset then None
+  else Some(uint32 startOffset, uint32 endOffset)
 
 let private findSectionRange (f: IBinFile) (sOff: uint32) (eOff: uint32) =
   match BinFileOps.tryFindSectionNameByOffset f sOff,
@@ -442,10 +438,8 @@ let private tryGetVisibleFileOffsetRange hexdump =
   match HexdumpState.tryGetVisibleByteRange hexdump with
   | Some(startOffset, endOffset) ->
     let maxOffset = int64 UInt32.MaxValue
-    if startOffset > maxOffset then
-      None
-    else
-      Some(uint32 startOffset, uint32 (min maxOffset endOffset))
+    if startOffset > maxOffset then None
+    else Some(uint32 startOffset, uint32 (min maxOffset endOffset))
   | None ->
     None
 
@@ -502,23 +496,22 @@ let linearAnalysisCompleted arbiter model filePath doc state =
     { model with
         LinearDocument = Some doc
         LinearViewState = Some state }
-    |> syncOffsetSnapshotWithActiveTab arbiter,
-    Elmish.Cmd.none
+    |> syncOffsetSnapshotWithActiveTab arbiter, Elmish.Cmd.none
   else
     model, Elmish.Cmd.none
 
 let linearAnalysisFailed model filePath reason =
   if model.LoadedBinary = Some filePath then
-    { model with
-        StatusBarState =
-          MessageOnly $"Failed to analyze linear view: {reason}" },
-    Elmish.Cmd.none
+    let updatedModel =
+      { model with
+          StatusBarState =
+            MessageOnly $"Failed to analyze linear view: {reason}" }
+    updatedModel, Elmish.Cmd.none
   else
     model, Elmish.Cmd.none
 
 let private replaceTabByID tabID newTab oldTab =
-  if oldTab.ID = tabID then newTab
-  else oldTab
+  if oldTab.ID = tabID then newTab else oldTab
 
 let private replaceTabReferences (model: Model) tab =
   let paneID =
@@ -549,8 +542,7 @@ let openHexdumpTab (arbiter: Arbiter<_, _>) (model: Model) =
           PreviewTab = pane.PreviewTab }) model
     |> fun nextModel ->
       { nextModel with FocusedPaneID = Some paneID }
-      |> syncOffsetSnapshotWithActiveTab arbiter,
-      Elmish.Cmd.none
+      |> syncOffsetSnapshotWithActiveTab arbiter, Elmish.Cmd.none
   | None ->
     match model.Hexdump with
     | Some _ ->
@@ -559,8 +551,7 @@ let openHexdumpTab (arbiter: Arbiter<_, _>) (model: Model) =
           { pane with
               ActiveTab = Some tab
               OpenTabs = tab :: pane.OpenTabs }) model
-      |> syncOffsetSnapshotWithActiveTab arbiter,
-        Elmish.Cmd.none
+      |> syncOffsetSnapshotWithActiveTab arbiter, Elmish.Cmd.none
     | None ->
       model, Elmish.Cmd.none
 
@@ -581,8 +572,7 @@ let openLinearViewTab (arbiter: Arbiter<_, _>) (model: Model) =
           PreviewTab = pane.PreviewTab }) model
     |> fun nextModel ->
       { nextModel with FocusedPaneID = Some paneID }
-      |> syncOffsetSnapshotWithActiveTab arbiter,
-      Elmish.Cmd.none
+      |> syncOffsetSnapshotWithActiveTab arbiter, Elmish.Cmd.none
   | None ->
     match model.LinearViewState with
     | Some _ ->
@@ -591,17 +581,14 @@ let openLinearViewTab (arbiter: Arbiter<_, _>) (model: Model) =
           { pane with
               ActiveTab = Some tab
               OpenTabs = tab :: pane.OpenTabs }) model
-      |> syncOffsetSnapshotWithActiveTab arbiter,
-        Elmish.Cmd.none
+      |> syncOffsetSnapshotWithActiveTab arbiter, Elmish.Cmd.none
     | None ->
       model, Elmish.Cmd.none
 
 let private mapCFGTabState newState (tab: Tab) =
   match tab.Content with
-  | CFGContent(func, _) ->
-    { tab with Content = CFGContent(func, newState) }
-  | _ ->
-    tab
+  | CFGContent(func, _) -> { tab with Content = CFGContent(func, newState) }
+  | _ -> tab
 
 let private createMinimapCache (model: Model) viewState cfg =
   MinimapStaticCache.create model.ContentViewportSize viewState cfg
@@ -723,8 +710,7 @@ let private resizeOpenedHexdumpTab arbiter (model: Model) paneID width height =
       let viewState = hexdump.View
       let topByte = viewState.ScrollRow * int64 (max 1 viewState.BytesPerRow)
       let fontSize = clampHexdumpFontSize viewState.FontSize
-      let charWidth, rowHeight =
-        measureMaxCharSizeWithFontSize model fontSize
+      let charWidth, rowHeight = measureMaxCharSizeWithFontSize model fontSize
       let nextView =
         { viewState with
             ViewportWidth = width
@@ -751,11 +737,9 @@ let private resizeOpenedLinearTab arbiter (model: Model) paneID width height =
   | Some pane when containsLinearTab pane ->
     updateLinearViewState arbiter model (fun doc linearViewState ->
       let fontSize =
-        if linearViewState.FontSize > 0.0 then
-          linearViewState.FontSize
+        if linearViewState.FontSize > 0.0 then linearViewState.FontSize
         else model.Theme.Font.Monospace.FontSize
-      let charWidth, rowHeight =
-        measureMaxCharSizeWithFontSize model fontSize
+      let charWidth, rowHeight = measureMaxCharSizeWithFontSize model fontSize
       { linearViewState with
           ViewportWidth = width
           ViewportHeight = height
@@ -794,10 +778,8 @@ let private computeJumpedHexdump theme hexdump byteIndex length =
         ScrollOffsetY = targetOffsetY
         ScrollRow = targetScrollRow
         ScrollGuard =
-          if abs pendingDelta > 0.5 then
-            IgnoreNextProgrammatic pendingDelta
-          else
-            NoScrollGuard }
+          if abs pendingDelta > 0.5 then IgnoreNextProgrammatic pendingDelta
+          else NoScrollGuard }
   { hexdump with
       HighlightSpans =
         [ { Start = byteIndex
@@ -805,9 +787,7 @@ let private computeJumpedHexdump theme hexdump byteIndex length =
             Foreground = Some theme.Search.Foreground
             Background = Some theme.Search.SelectedBackground
             Priority = 100 } ]
-      View = nextView },
-  targetOffsetY,
-  pendingDelta
+      View = nextView }, targetOffsetY, pendingDelta
 
 let private jumpHexdump (model: Model) byteIndex length =
   match model.Hexdump with
@@ -933,8 +913,7 @@ let private syncViewsWithActiveCFG arbiter (model: Model) =
     model
 
 let private syncViewsWithActiveCFGIfEnabled arbiter (model: Model) =
-  if model.SyncEnabled then syncViewsWithActiveCFG arbiter model
-  else model
+  if model.SyncEnabled then syncViewsWithActiveCFG arbiter model else model
 
 let setTopFileOffset arbiter (model: Model) offset =
   let model =
@@ -955,15 +934,13 @@ let setTopFileOffset arbiter (model: Model) offset =
     | None ->
       model
   syncLinearWithFileOffset model (int offset)
-  |> syncOffsetSnapshotWithActiveTab arbiter,
-  Elmish.Cmd.none
+  |> syncOffsetSnapshotWithActiveTab arbiter, Elmish.Cmd.none
 
 let updateHexdump arbiter (model: Model) msg =
   match msg with
   | SetHighlightSpans spans ->
     updateHexdumpState arbiter model (fun hexdump ->
-      { hexdump with HighlightSpans = spans }),
-    Elmish.Cmd.none
+      { hexdump with HighlightSpans = spans }), Elmish.Cmd.none
   | ChangeFontSize delta when abs delta > 0.0 ->
     recomputeHexViewLayout arbiter model (fun viewState ->
       let fontSize = clampHexdumpFontSize (viewState.FontSize + delta)
@@ -1004,9 +981,10 @@ let updateHexdump arbiter (model: Model) msg =
         updateHexdumpState arbiter model (fun hexdump ->
           syncHexScrollOffset hexdump offsetY NoScrollGuard), Elmish.Cmd.none
   | SetScrollOffset(offsetY) ->
-    updateHexdumpState arbiter model (fun hexdump ->
-      syncHexScrollOffset hexdump offsetY hexdump.View.ScrollGuard),
-    Elmish.Cmd.none
+    let updateState =
+      updateHexdumpState arbiter model (fun hexdump ->
+        syncHexScrollOffset hexdump offsetY hexdump.View.ScrollGuard)
+    updateState, Elmish.Cmd.none
   | ScrollRows(delta) ->
     updateHexdumpState arbiter model (fun hexdump ->
       let viewState = hexdump.View
@@ -1043,15 +1021,15 @@ let updateHexdump arbiter (model: Model) msg =
       | _ ->
         hexdump), Elmish.Cmd.none
   | EndSelection ->
-    updateHexdumpState arbiter model (fun hexdump ->
-      { hexdump with View = { hexdump.View with IsSelecting = false } }),
-    Elmish.Cmd.none
+    let updateState =
+      updateHexdumpState arbiter model (fun hexdump ->
+        { hexdump with View = { hexdump.View with IsSelecting = false } })
+    updateState, Elmish.Cmd.none
   | SetHoveredByte byteIndex ->
     updateHexViewState arbiter model (fun viewState ->
       let hovered =
         match model.Hexdump with
-        | Some hexdump ->
-          byteIndex |> Option.bind (clampHexByteIndex hexdump)
+        | Some hexdump -> byteIndex |> Option.bind (clampHexByteIndex hexdump)
         | _ -> None
       { viewState with HoveredByte = hovered })
   | _ ->
@@ -1061,22 +1039,18 @@ let updateLinear arbiter (model: Model) msg =
   match msg with
   | LinearPaneMessage.HandleScrollChanged(offsetY, _) ->
     updateLinearViewState arbiter model (fun _ viewState ->
-      { viewState with ScrollOffsetY = offsetY }),
-    Elmish.Cmd.none
+      { viewState with ScrollOffsetY = offsetY }), Elmish.Cmd.none
   | LinearPaneMessage.SetScrollOffset offsetY ->
     updateLinearViewState arbiter model (fun _ viewState ->
-      { viewState with ScrollOffsetY = offsetY }),
-    Elmish.Cmd.none
+      { viewState with ScrollOffsetY = offsetY }), Elmish.Cmd.none
   | LinearPaneMessage.ChangeFontSize delta when abs delta > 0.0 ->
     updateLinearViewState arbiter model (fun doc linearViewState ->
       let topIndex, _ = LinearViewState.findVisibleRange 0.0 linearViewState
       let topItemOffset =
         linearViewState.ScrollOffsetY
         - LinearViewState.itemTop linearViewState topIndex
-      let fontSize =
-        clampLinearFontSize (linearViewState.FontSize + delta)
-      let charWidth, rowHeight =
-        measureMaxCharSizeWithFontSize model fontSize
+      let fontSize = clampLinearFontSize (linearViewState.FontSize + delta)
+      let charWidth, rowHeight = measureMaxCharSizeWithFontSize model fontSize
       let nextState =
         { linearViewState with
             FontSize = fontSize
@@ -1086,16 +1060,14 @@ let updateLinear arbiter (model: Model) msg =
       { nextState with
           ScrollOffsetY =
             LinearViewState.itemTop nextState topIndex
-            + max 0.0 topItemOffset }),
-    Elmish.Cmd.none
+            + max 0.0 topItemOffset }), Elmish.Cmd.none
   | LinearPaneMessage.UpdateFontMetrics(charWidth, rowHeight)
     when charWidth > 0.0 && rowHeight > 0.0 ->
     updateLinearViewState arbiter model (fun doc linearViewState ->
       { linearViewState with
           CharWidth = charWidth
           RowHeight = rowHeight }
-      |> LinearViewState.rebuildUniformLayout rowHeight doc),
-    Elmish.Cmd.none
+      |> LinearViewState.rebuildUniformLayout rowHeight doc), Elmish.Cmd.none
   | _ ->
     model, Elmish.Cmd.none
 
@@ -1140,19 +1112,20 @@ let private startLoadIfNeeded arbiter tab (model: Model) =
             ActiveTab = Some loadingTab
             OpenTabs = opens
             PreviewTab = preview }) model
-    model,
-    loadCFGCmd arbiter model fn CFGKind.Disasm loadingTab
+    model, loadCFGCmd arbiter model fn CFGKind.Disasm loadingTab
   | _ ->
     let tab = refreshCFGTabMinimap model tab
-    replaceTabReferences model tab |> syncOffsetSnapshotWithActiveTab arbiter,
-    Elmish.Cmd.none
+    let sync =
+      replaceTabReferences model tab |> syncOffsetSnapshotWithActiveTab arbiter
+    sync, Elmish.Cmd.none
 
 let openCFGTab (arbiter: Arbiter<_, _>) (model: Model) fnItem =
   let tab = Tab.ofFunctionItem fnItem
   match Model.tryFindTab model tab.ID with
   | Some(paneID, _, tab, _) ->
     startLoadIfNeeded arbiter tab (Model.mapPaneByID paneID
-      (fun pane -> { pane with ActiveTab = Some tab }) model)
+      (fun pane -> { pane with ActiveTab = Some tab })
+      model)
     |> fun (nextModel, cmd) ->
       { nextModel with FocusedPaneID = Some paneID }
       |> syncViewsWithActiveCFGIfEnabled arbiter, cmd
@@ -1179,7 +1152,8 @@ let pinCFGTab (arbiter: Arbiter<_, _>) (model: Model) fnItem =
       { pane with
           ActiveTab = Some tab
           OpenTabs = newOpenTabs
-          PreviewTab = None }) model)
+          PreviewTab = None })
+    model)
   |> fun (nextModel, cmd) ->
     { nextModel with FocusedPaneID = Some paneID }
     |> syncViewsWithActiveCFGIfEnabled arbiter, cmd
@@ -1258,13 +1232,11 @@ let switchTab arbiter (model: Model) paneID tabID =
       else
         model
     let tab =
-      if tab.ID = Tab.HexdumpTabID then tab
-      else refreshCFGTabMinimap model tab
+      if tab.ID = Tab.HexdumpTabID then tab else refreshCFGTabMinimap model tab
     replaceTabReferences (Model.mapFocusedPane
       (fun pane -> { pane with ActiveTab = Some tab }) model) tab
     |> syncOffsetSnapshotWithActiveTab arbiter
-    |> syncViewsWithActiveCFGIfEnabled arbiter,
-    Elmish.Cmd.none
+    |> syncViewsWithActiveCFGIfEnabled arbiter, Elmish.Cmd.none
   | None ->
     model, Elmish.Cmd.none
 
@@ -1277,9 +1249,11 @@ let startTabDrag (model: Model) paneID tabID =
   let model = { model with FocusedPaneID = Some paneID }
   match Model.tryFindVisibleTab model tabID with
   | Some tab ->
-    { model with DraggingTab = Some { SourcePaneID = paneID; Tab = tab } },
-    Elmish.Cmd.none
-  | None -> model, Elmish.Cmd.none
+    let updatedModel =
+      { model with DraggingTab = Some { SourcePaneID = paneID; Tab = tab } }
+    updatedModel, Elmish.Cmd.none
+  | None ->
+    model, Elmish.Cmd.none
 
 let private findTwoTabs (model: Model) paneID tabID1 tabID2 =
   let tabs =
@@ -1302,17 +1276,19 @@ let private reorderOpenTabs (model: Model) paneID draggedTabID targetTabID =
         Some(filtered |> List.insertAt targetIdx draggedTab, draggedTab)
       | _ ->
         None
-  | _ -> None
+  | _ ->
+    None
 
 let reorderTab (model: Model) paneID draggedTabID targetTabID =
   let model = { model with FocusedPaneID = Some paneID }
   match reorderOpenTabs model paneID draggedTabID targetTabID with
   | Some(reorderedTabs, draggedTab) ->
-    Model.mapFocusedPane
-      (fun pane -> { pane with OpenTabs = reorderedTabs })
-      { model with
-          DraggingTab = Some { SourcePaneID = paneID; Tab = draggedTab } },
-    Elmish.Cmd.none
+    let focus =
+      Model.mapFocusedPane
+        (fun pane -> { pane with OpenTabs = reorderedTabs })
+        { model with
+            DraggingTab = Some { SourcePaneID = paneID; Tab = draggedTab } }
+    focus, Elmish.Cmd.none
   | None ->
     model, Elmish.Cmd.none
 
@@ -1330,8 +1306,7 @@ let registerCustomTheme model themeId theme =
     | _ -> model.Theme
   { model with
       CustomThemes = customThemes
-      Theme = currentTheme },
-  Elmish.Cmd.none
+      Theme = currentTheme }, Elmish.Cmd.none
 
 let private applyThemeVariant (window: Window) mode =
   match mode with
@@ -1349,8 +1324,7 @@ let setThemeMode window arbiter model mode =
   { model with
       ThemeMode = mode
       Theme = theme
-      Hexdump = hexdump },
-  Elmish.Cmd.none
+      Hexdump = hexdump }, Elmish.Cmd.none
 
 let updateFunctionFilter model text =
   { model with FunctionFilter = text }, Elmish.Cmd.none
@@ -1437,8 +1411,7 @@ let loadCFGCompleted arbiter (model: Model) tabID addr cfgKind cfg =
     let tab = mapCFGTabState (Loaded loaded) tab
     replaceTabReferences model tab
     |> syncOffsetSnapshotWithActiveTab arbiter
-    |> syncViewsWithActiveCFGIfEnabled arbiter,
-    Elmish.Cmd.none
+    |> syncViewsWithActiveCFGIfEnabled arbiter, Elmish.Cmd.none
   | None ->
     model, Elmish.Cmd.none
 
@@ -1456,7 +1429,8 @@ let private updateCFGViewState target update =
     let viewState = update loaded.ViewState
     let loaded = { loaded with ViewState = viewState }
     { target with Content = CFGContent(fn, Loaded loaded) }
-  | _ -> target
+  | _ ->
+    target
 
 let private clampPanToGraphBounds panX panY viewState (model: Model) =
   let viewportWidth, viewportHeight = model.ContentViewportSize
@@ -1481,8 +1455,10 @@ let setCFGZoom (model: Model) delta mouseX mouseY =
       let newPanX = mouseX - graphX * newZoom
       let newPanY = mouseY - graphY * newZoom
       let clampedPanX, clampedPanY =
-        clampPanToGraphBounds newPanX newPanY
-          { viewState with Zoom = newZoom } model
+        clampPanToGraphBounds newPanX
+          newPanY
+          { viewState with Zoom = newZoom }
+          model
       { viewState with
           Zoom = newZoom
           PanX = clampedPanX
@@ -1534,8 +1510,9 @@ let moveCFGPan (model: Model) x y space =
             PanX = clampedPanX
             PanY = clampedPanY }
       let tab = updateCFGViewState tab update
-      { replaceTabReferences model tab with CFGPanPointer = Some(x, y) },
-      Elmish.Cmd.none
+      let updated =
+        { replaceTabReferences model tab with CFGPanPointer = Some(x, y) }
+      updated, Elmish.Cmd.none
     | None ->
       { model with CFGPanPointer = Some(x, y) }, Elmish.Cmd.none
   | _ ->
@@ -1584,21 +1561,18 @@ let jumpCFGPanToAddr (model: Model) addr =
 let setCFGSelectedToken arbiter (model: Model) selectedToken =
   match model.ActiveTab with
   | Some tab ->
-    let update viewState =
-      { viewState with SelectedToken = selectedToken }
+    let update viewState = { viewState with SelectedToken = selectedToken }
     let tab = updateCFGViewState tab update
     replaceTabReferences model tab
     |> syncOffsetSnapshotWithActiveTab arbiter
-    |> syncViewsWithActiveCFGIfEnabled arbiter,
-    Elmish.Cmd.none
+    |> syncViewsWithActiveCFGIfEnabled arbiter, Elmish.Cmd.none
   | None ->
     model, Elmish.Cmd.none
 
 let setHoveredCFGEdge (model: Model) edgeID =
   match model.ActiveTab with
   | Some tab ->
-    let update viewState =
-      { viewState with CFGViewState.HoveredEdge = edgeID }
+    let update viewState = { viewState with CFGViewState.HoveredEdge = edgeID }
     let tab = updateCFGViewState tab update
     replaceTabReferences model tab, Elmish.Cmd.none
   | None ->
@@ -1665,8 +1639,7 @@ let focusPane (arbiter: Arbiter<_, _>) (model: Model) paneID =
     model, Elmish.Cmd.none
   elif Pane.tryFindLeaf paneID model.RootPane |> Option.isSome then
     { model with FocusedPaneID = Some paneID }
-    |> syncOffsetSnapshotWithActiveTab arbiter,
-    Elmish.Cmd.none
+    |> syncOffsetSnapshotWithActiveTab arbiter, Elmish.Cmd.none
   else
     model, Elmish.Cmd.none
 
@@ -1750,8 +1723,7 @@ let private moveTabBetweenPanes arbiter model sourcePaneID targetPaneID tabID =
           FocusedPaneID = Some targetPaneID
           DraggingTab = None }
       |> normalizePaneModel
-      |> finalizeMovedTab arbiter,
-      Elmish.Cmd.none
+      |> finalizeMovedTab arbiter, Elmish.Cmd.none
     | None ->
       model, Elmish.Cmd.none
   | _ ->
@@ -1786,8 +1758,7 @@ let private moveTabToNewSibling arbiter model placement tabID =
             FocusedPaneID = Some targetPaneID
             DraggingTab = None }
         |> normalizePaneModel
-        |> finalizeMovedTab arbiter,
-        Elmish.Cmd.none
+        |> finalizeMovedTab arbiter, Elmish.Cmd.none
       | Split _ ->
         model, Elmish.Cmd.none
     | None ->
@@ -1821,32 +1792,34 @@ let private tryResolveAdjacentPaneIDs model = function
     | Some(Split(_, LeftRight, left, Leaf(id, _))) when id = srcID ->
       tryFindEdgeLeafID (fun _ r -> r) left
       |> Option.map (fun dstID -> srcID, dstID)
-    | _ -> None
+    | _ ->
+      None
   | RightOf srcID ->
     match tryFindParentSplitOfLeaf srcID model.RootPane with
     | Some(Split(_, LeftRight, Leaf(id, _), right)) when id = srcID ->
       tryFindEdgeLeafID (fun l _ -> l) right
       |> Option.map (fun dstID -> srcID, dstID)
-    | _ -> None
+    | _ ->
+      None
   | Above srcID ->
     match tryFindParentSplitOfLeaf srcID model.RootPane with
     | Some(Split(_, TopBottom, above, Leaf(id, _))) when id = srcID ->
       tryFindEdgeLeafID (fun _ r -> r) above
       |> Option.map (fun dstID -> srcID, dstID)
-    | _ -> None
+    | _ ->
+      None
   | Below srcID ->
     match tryFindParentSplitOfLeaf srcID model.RootPane with
     | Some(Split(_, TopBottom, Leaf(id, _), below)) when id = srcID ->
       tryFindEdgeLeafID (fun l _ -> l) below
       |> Option.map (fun dstID -> srcID, dstID)
-    | _ -> None
+    | _ ->
+      None
 
 let moveTabRelative arbiter model placement tabID =
   match tryResolveAdjacentPaneIDs model placement with
-  | Some(srcID, dstID) ->
-    moveTabBetweenPanes arbiter model srcID dstID tabID
-  | _ ->
-    moveTabToNewSibling arbiter model placement tabID
+  | Some(srcID, dstID) -> moveTabBetweenPanes arbiter model srcID dstID tabID
+  | _ -> moveTabToNewSibling arbiter model placement tabID
 
 let updateViewportSize arbiter (model: Model) paneID width height =
   updateCFGViewportSize arbiter model paneID width height
@@ -1860,26 +1833,16 @@ let updateCFGLoad arbiter (model: Model) msg =
 
 let updateCFG arbiter (model: Model) msg =
   match msg with
-  | SetZoom(delta, mouseX, mouseY) ->
-    setCFGZoom model delta mouseX mouseY
-  | StartPan(x, y) ->
-    startCFGPan model x y
-  | MovePan(x, y, space) ->
-    moveCFGPan model x y space
-  | EndPan ->
-    endCFGPan model
-  | JumpPan(gx, gy) ->
-    jumpCFGPan model gx gy
-  | JumpPanToAddr addr ->
-    jumpCFGPanToAddr model addr
-  | SetSelectedToken token ->
-    setCFGSelectedToken arbiter model token
-  | SetHoveredEdge edgeID ->
-    setHoveredCFGEdge model edgeID
-  | ChangeKind kind ->
-    changeCFGKind arbiter model kind
-  | ToggleMinimap(tabID, activate) ->
-    toggleMinimap model tabID activate
+  | SetZoom(delta, mouseX, mouseY) -> setCFGZoom model delta mouseX mouseY
+  | StartPan(x, y) -> startCFGPan model x y
+  | MovePan(x, y, space) -> moveCFGPan model x y space
+  | EndPan -> endCFGPan model
+  | JumpPan(gx, gy) -> jumpCFGPan model gx gy
+  | JumpPanToAddr addr -> jumpCFGPanToAddr model addr
+  | SetSelectedToken token -> setCFGSelectedToken arbiter model token
+  | SetHoveredEdge edgeID -> setHoveredCFGEdge model edgeID
+  | ChangeKind kind -> changeCFGKind arbiter model kind
+  | ToggleMinimap(tabID, activate) -> toggleMinimap model tabID activate
 
 let updateStatusMsg (model: Model) msg =
   { model with StatusBarState = MessageOnly msg }, Elmish.Cmd.none
@@ -1888,5 +1851,4 @@ let updateStatusOffsetCtx (model: Model) sOff eOff sections =
   let selection = Some(mkOffsetRangeInfo sOff eOff sections)
   { model with
       OffsetSnapshot =
-        { model.OffsetSnapshot with Selection = selection } },
-  Elmish.Cmd.none
+        { model.OffsetSnapshot with Selection = selection } }, Elmish.Cmd.none

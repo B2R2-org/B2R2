@@ -55,9 +55,12 @@ module Summary =
   let getInput (state: State) e =
     let rec getInput e =
       match e with
-      | Var(_, _, n, _) -> (Set.empty.Add(n), Set.empty)
-      | TempVar(_, n, _) -> getInput <| (Map.find n state.TempRegs).GetExpr()
-      | UnOp(_, expr, _) -> getInput expr
+      | Var(_, _, n, _) ->
+        (Set.empty.Add(n), Set.empty)
+      | TempVar(_, n, _) ->
+        getInput <| (Map.find n state.TempRegs).GetExpr()
+      | UnOp(_, expr, _) ->
+        getInput expr
       | BinOp(_, _, lExpr, rExpr, _) | RelOp(_, lExpr, rExpr, _) ->
         mergeInput (getInput lExpr) (getInput rExpr)
       | Load(_, _, expr, _) ->
@@ -65,8 +68,10 @@ module Summary =
       | Ite(cExpr, tExpr, fExpr, _) ->
         mergeInput (getInput cExpr) (getInput tExpr)
         |> mergeInput (getInput fExpr)
-      | Cast(_, _, expr, _) | Extract(expr, _, _, _) -> getInput expr
-      | _ -> emptyInput (* Num, Name, PCVar *)
+      | Cast(_, _, expr, _) | Extract(expr, _, _, _) ->
+        getInput expr
+      | _ ->
+        emptyInput (* Num, Name, PCVar *)
     getInput e
 
   let private getInputAll state =
@@ -89,13 +94,15 @@ module Summary =
 
   let private getEspOff e =
     match e with
-    | _ when e = esp -> Some 0
+    | _ when e = esp ->
+      Some 0
     | BinOp(BinOpType.ADD, 32<rt>, var, Num(n, _), _)
     | BinOp(BinOpType.ADD, 32<rt>, Num(n, _), var, _) when var = esp ->
       calcOffset (n.ToInt32())
     | BinOp(BinOpType.SUB, 32<rt>, var, Num(n, _), _) when var = esp ->
       calcOffset (-n.ToInt32())
-    | _ -> None
+    | _ ->
+      None
 
   let private getStackOff (v: Value) =
     match v.GetExpr() with
@@ -123,14 +130,16 @@ module Summary =
 
   let private isLinearExpr e =
     match e with
-    | Var(32<rt>, _, reg, _) -> Some(reg, 0u)
+    | Var(32<rt>, _, reg, _) ->
+      Some(reg, 0u)
     | BinOp(BinOpType.ADD, _, Var(32<rt>, _, reg, _), Num(n, _), _)
     | BinOp(BinOpType.ADD, _, Num(n, _), Var(32<rt>, _, reg, _), _) ->
       Some(reg, n.ToUInt32())
     | BinOp(BinOpType.SUB, _, Var(32<rt>, _, reg, _), Num(n, _), _)
     | BinOp(BinOpType.SUB, _, Num(n, _), Var(32<rt>, _, reg, _), _) ->
       Some(reg, (BitVector.Neg n).ToUInt32())
-    | _ -> None
+    | _ ->
+      None
 
   let private isLinear (value: Value) = value.GetExpr() |> isLinearExpr
 
@@ -142,18 +151,23 @@ module Summary =
       | Some(reg1, off1), Some(reg2, off2) ->
         if reg1 <> reg2 && Set.contains reg1 regs && Set.contains reg2 regs then
           Some((reg1, off1), (reg2, off2))
-        else None
-      | _, _ -> None
-    else None
+        else
+          None
+      | _, _ ->
+        None
+    else
+      None
 
   let isSysCall = function
-    | Error _ -> false
+    | Error _ ->
+      false
     | Ok sum ->
     sum.SideEff && sum.InRegs = Set.empty && sum.InMems = Set.empty
                 && sum.OutRegs = syscallOutRegs && sum.OutMems = Map.empty
 
   let isEspAdder min = function
-    | Error _ -> (false, None)
+    | Error _ ->
+      (false, None)
     | Ok sum ->
     if not sum.SideEff && sum.OutMems = Map.empty && isStackMems sum.InMems then
       match Map.tryFind "EIP" (getRegsStackOff sum) with
@@ -161,8 +175,10 @@ module Summary =
         if eip < min then (true, None)
         elif min <= eip then (false, Some eip)
         else (false, None)
-      | None -> (false, None)
-    else (false, None)
+      | None ->
+        (false, None)
+    else
+      (false, None)
 
   let inline containKeys keys map =
     Set.forall (fun k -> Map.containsKey k map) keys
@@ -170,9 +186,7 @@ module Summary =
   let private isReg reg = Array.exists (fun x -> x = reg) regs
 
   let private getRegs regMap =
-    let folder acc reg _ =
-      if isReg reg then Set.add reg acc
-      else acc
+    let folder acc reg _ = if isReg reg then Set.add reg acc else acc
     Map.fold folder Set.empty regMap
 
   let private getLinear reg (sum: Summary) =
@@ -186,10 +200,12 @@ module Summary =
       match value.GetExpr() with
       | Load(_, _, addr, _) -> isLinearExpr addr
       | _ -> None
-    | _ -> None
+    | _ ->
+      None
 
   let isSetter = function
-    | Error _ -> (false, None)
+    | Error _ ->
+      (false, None)
     | Ok sum ->
     if not sum.SideEff && sum.OutMems = Map.empty && isStackMems sum.InMems then
       let regMap = getRegsStackOff sum
@@ -199,36 +215,44 @@ module Summary =
         | true, Some eip ->
           if Map.forall (fun reg off -> reg = "EIP" || off < eip) regMap then
             (true, Some(eip, regMap))
-          else (false, None)
-        | _, _ -> (false, None)
-      else (true, None)
-    else (false, None)
+          else
+            (false, None)
+        | _, _ ->
+          (false, None)
+      else
+        (true, None)
+    else
+      (false, None)
 
   let isMemWriter regs = function
-    | Error _ -> (false, None)
+    | Error _ ->
+      (false, None)
     | Ok sum ->
     if not sum.SideEff && isStackMems sum.InMems then
       match Map.tryFind "EIP" (getRegsStackOff sum), getMemWriter regs sum with
       | Some eip, Some writer -> (true, Some(eip, writer))
       | Some eip, None -> (true, None)
       | None, _ -> (false, None)
-    else (false, None)
+    else
+      (false, None)
 
   let isStackPivotor regs = function
-    | Error _ -> (false, None)
+    | Error _ ->
+      (false, None)
     | Ok sum ->
     if not sum.SideEff then
       match getLinear "ESP" sum, getLinearLoad "EIP" sum with
       | Some(r, o), Some eip when r <> "ESP" && eip = (r, o - 4u) ->
         (false, Some eip)
-      | _, _ -> (true, None)
-    else (false, None)
+      | _, _ ->
+        (true, None)
+    else
+      (false, None)
 
   let private checkRegs (sum: Summary) regs =
     let checker (reg, v: uint32) =
       match Map.tryFind reg sum.OutRegs with
-      | Some x when x = (BitVector(v, 32<rt>) |> AST.num |> Value) ->
-        true
+      | Some x when x = (BitVector(v, 32<rt>) |> AST.num |> Value) -> true
       | _ -> false
     Array.forall checker regs
 
@@ -258,7 +282,8 @@ module Summary =
       | Some bytes ->
         let str = String.fromAsciiBytes bytes
         readStr (addNum32 ptr (String.length str)) (acc + str)
-      | _ -> ""
+      | _ ->
+        ""
     readStr ptr ""
 
   let private checkShellCode (sum: Summary) =
@@ -266,10 +291,12 @@ module Summary =
     | Some ebx ->
       checkRegs sum [| ("EAX", 0xbu); ("ECX", 0u); ("EDX", 0u) |]
       && readMemStr sum ebx |> System.IO.Path.GetFullPath = "/bin/sh"
-    | None -> false
+    | None ->
+      false
 
   let isShellCode = function
-    | Error _ -> false
+    | Error _ ->
+      false
     | Ok sum ->
     match sum.SysCall with
     | [ sum ] when checkShellCode sum -> true

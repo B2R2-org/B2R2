@@ -150,10 +150,8 @@ let private expandLayerGap (edgeSet: EdgeSet) (layout: IVertex<VisBBlock>[][]) =
         (nextLayerTop + degreeShifts[bandIdx + 1])
         - (curLayerBottom + degreeShifts[bandIdx])
       let deficit = requiredGap - currentGap
-      if deficit > 0.0 then
-        cumulativeGapShift <- cumulativeGapShift + deficit
-      else
-        ()
+      if deficit > 0.0 then cumulativeGapShift <- cumulativeGapShift + deficit
+      else ()
     else
       ()
     gapShifts[bandIdx + 1] <- cumulativeGapShift
@@ -224,8 +222,8 @@ let private collectPossibleBendPoints edgeSet portMap edges src dst =
       for isLeftForDst in [ true; false ] do
         let srcX = getCXPos src + if isLeftForSrc then -1. else 1.
         let dstX = getCXPos dst + if isLeftForDst then -1. else 1.
-        computeCrossings edgeSet portMap edges src srcX dstX,
-        isLeftForSrc, isLeftForDst ]
+        let computeCross = computeCrossings edgeSet portMap edges src srcX dstX
+        computeCross, isLeftForSrc, isLeftForDst ]
 
 /// To minimize the edge crossings, we assign ports for backward edges
 /// by considering the forward edges. We also assign the ports backwards from
@@ -243,16 +241,18 @@ let private chooseBackwardEdgeBendPoints (edgeSet: EdgeSet) layout portMap =
         match src.VData.IsDummy, dst.VData.IsDummy with
         (* From dummy to dummy, no need to assign a bend point because the edge
            will be routed as a straight line. *)
-        | true, true -> ()
+        | true, true ->
+          ()
         (* From dummy to destination. The bend point is created in the upper
            layer. *)
         | true, false ->
           let srcXPos = getCXPos src
           let dstXPos = getCXPos dst
-          [ computeCrossings edgeSet portMap edges src srcXPos (dstXPos - 1.),
-            true
-            computeCrossings edgeSet portMap edges src srcXPos (dstXPos + 1.),
-            false ]
+          let compute1 =
+            computeCrossings edgeSet portMap edges src srcXPos (dstXPos - 1.)
+          let compute2 =
+            computeCrossings edgeSet portMap edges src srcXPos (dstXPos + 1.)
+          [ compute1, true; compute2, false ]
           |> List.sortBy (fun (sum, _) -> sum)
           |> List.head
           |> snd
@@ -263,10 +263,11 @@ let private chooseBackwardEdgeBendPoints (edgeSet: EdgeSet) layout portMap =
         | false, true ->
           let srcXPos = getCXPos src
           let dstXPos = getCXPos dst
-          [ computeCrossings edgeSet portMap edges src (srcXPos - 1.) dstXPos,
-            true
-            computeCrossings edgeSet portMap edges src (srcXPos + 1.) dstXPos,
-            false ]
+          let compute1 =
+            computeCrossings edgeSet portMap edges src (srcXPos - 1.) dstXPos
+          let compute2 =
+            computeCrossings edgeSet portMap edges src (srcXPos + 1.) dstXPos
+          [ compute1, true; compute2, false ]
           |> List.sortBy (fun (sum, _) -> sum)
           |> List.head
           |> snd
@@ -299,10 +300,8 @@ let private assignSelfCycleEdgePort (edgeSet: EdgeSet) layout portMap =
     let bwdInXs =
       edgeSet.GetBwdInEdges v
       |> fun edges -> getPortXs portMap.BwdInPorts edges cx
-    let outermostOut =
-      List.min (cx :: (fwdOutXs @ bwdOutXs))
-    let outermostIn =
-      List.min (cx :: (fwdInXs @ bwdInXs))
+    let outermostOut = List.min (cx :: (fwdOutXs @ bwdOutXs))
+    let outermostIn = List.min (cx :: (fwdInXs @ bwdInXs))
     edgeSet.GetSelfCycleEdge v
     |> List.iteri (fun i (_, edge) ->
       let step = float (i + 1) * EdgeOffset
@@ -336,13 +335,13 @@ let private routeForwardEdges (edgeSet: EdgeSet) layout portMap fwdArrivalTopY =
       let dstCx, dTopY, _ = vertexGeometryWithDummyHeight layerYMap dst
       let sPortX = getPortX portMap.FwdOutPorts edge src srcCx
       let dPortX = getPortX portMap.FwdInPorts edge dst dstCx
-      let arrivalTopY =
-        getDefault fwdArrivalTopY edge (dTopY - StubMargin)
+      let arrivalTopY = getDefault fwdArrivalTopY edge (dTopY - StubMargin)
       edge.Points <- addFwdEdgePoint sPortX sBotY dPortX arrivalTopY dTopY)))
 
 let private findRealBwdDst (edgeSet: EdgeSet) (dst: IVertex<VisBBlock>) =
   let rec loop (v: IVertex<VisBBlock>) =
-    if not v.VData.IsDummy then v
+    if not v.VData.IsDummy then
+      v
     else
       match edgeSet.GetBwdOutEdges v with
       | (next, _) :: _ -> loop next
@@ -407,7 +406,8 @@ let private assignBwdInPorts (edgeSet: EdgeSet) portMap railX rDsts =
             let isDstLeft = getDstIsLeft bp
             let rx = getDefault railX edge cx
             Some(isDstLeft, rx, edge)
-          | _ -> None)
+          | _ ->
+            None)
       inEdges
       |> List.filter (fun (isDstLeft, _, _) -> isDstLeft)
       |> List.sortBy (fun (_, rx, _) -> rx)
@@ -435,12 +435,9 @@ let private allocateBwdOutPorts edgeSet portMap departureIdx v srcIsLeft edges =
       match fwdOutXs |> List.filter (fun x -> x >= cx) with
       | [] -> cx
       | xs -> List.max xs
-  let cross, same =
-    edges |> List.partition (fun (_, _, isCross, _) -> isCross)
-  let crossSorted =
-    cross |> List.sortByDescending (fun (_, _, _, dist) -> dist)
-  let sameSorted =
-    same |> List.sortBy (fun (_, _, _, dist) -> dist)
+  let cross, same = edges |> List.partition (fun (_, _, isCross, _) -> isCross)
+  let crossSorted = cross |> List.sortByDescending (fun (_, _, _, dist) -> dist)
+  let sameSorted = same |> List.sortBy (fun (_, _, _, dist) -> dist)
   let ordered = crossSorted @ sameSorted
   let count = List.length ordered
   ordered |> List.iteri (fun i (_, edge, _, _) ->
@@ -481,7 +478,8 @@ let private assignBwdOutPorts (edgeSet: EdgeSet) portMap depIdx rSrcs =
             let isCross = isCrossAtDstSafeX realDst dstIsLeft src
             let dist = computeEdgeDistance edgeSet src dst
             Some(dst, edge, srcIsLeft, isCross, dist)
-          | _ -> None)
+          | _ ->
+            None)
       let leftEdges =
         edgesWithInfo
         |> List.filter (fun (_, _, srcIsLeft, _, _) -> srcIsLeft)
@@ -516,11 +514,10 @@ let private computeForwardArrivalTopY (edgeSet: EdgeSet) portMap realVertices =
           | true, bp ->
             let isLeft = getDstIsLeft bp
             Some(edge, isLeft)
-          | _ -> None)
-      let leftMaxIdx =
-        bwdInEdges |> List.filter snd |> List.length
-      let rightMaxIdx =
-        bwdInEdges |> List.filter (snd >> not) |> List.length
+          | _ ->
+            None)
+      let leftMaxIdx = bwdInEdges |> List.filter snd |> List.length
+      let rightMaxIdx = bwdInEdges |> List.filter (snd >> not) |> List.length
       let leftBarrierY =
         if leftMaxIdx = 0 then dstTopY - StubMargin
         else dstTopY - StubMargin - float (leftMaxIdx - 1) * EdgeOffset
@@ -563,7 +560,8 @@ let private computeRailXForEdgeArriving (edgeSet: EdgeSet)
           | true, bp ->
             let dstIsLeft = getDstIsLeft bp
             Some(src, edge, dstIsLeft)
-          | _ -> None)
+          | _ ->
+            None)
       let leftArrivals =
         edgesWithInfo |> List.filter (fun (_, _, dstIsLeft) -> dstIsLeft)
       let leftCross =
@@ -611,8 +609,12 @@ let private preprocessBackwardRouting (edgeSet: EdgeSet) layout portMap =
   assignBwdInPorts edgeSet portMap railMap realVertices
   dIdx, aIdx, crossYOffset, realVertices
 
-let private routeBackwardEdges (edgeSet: EdgeSet) layout portMap dIdx aIdx
-  crossYOffset =
+let private routeBackwardEdges (edgeSet: EdgeSet)
+                               layout
+                               portMap
+                               dIdx
+                               aIdx
+                               crossYOffset =
   let layerYMap = layout |> Array.map layerY
   let bendX v isLeft =
     if isLeft then VisGraph.getXPos v - StubMargin
@@ -665,8 +667,7 @@ let private routeBackwardEdges (edgeSet: EdgeSet) layout portMap dIdx aIdx
             match (aIdx: Dictionary<_, _>).TryGetValue dst with
             | true, m -> getDefault m edge 0
             | _ -> 0
-          let railX, topY, dstTopY =
-            computeArrivalGeometry dst dstIsLeft idx
+          let railX, topY, dstTopY = computeArrivalGeometry dst dstIsLeft idx
           let adjustedY = getDefault crossYOffset edge topY
           let inPortX = getDefault portMap.BwdInPorts edge (getCXPos dst)
           let srcTopY = VisGraph.getYPos src
@@ -721,22 +722,25 @@ let private collectBwdArrivalMargins edgeSet portMap aIdx crossYOffset v =
       let dstIsLeft = getDstIsLeft bp
       let idx = getApproachIdx aIdx v edge
       let railX, railTopY, _ = computeArrivalGeometry v dstIsLeft idx
-      let sideMargin =
-        if dstIsLeft then leftX - railX else railX - rightX
+      let sideMargin = if dstIsLeft then leftX - railX else railX - rightX
       let topMargin = topY - railTopY
       let bottomMargins =
         match (crossYOffset: Dictionary<_, _>).TryGetValue edge with
         | true, y when y > botY -> [ y - botY ]
         | _ -> []
       sideMargin :: topMargin :: bottomMargins
-    | _ -> [])
+    | _ ->
+      [])
 
 let private computeSelfCycleMargin edgeSet portMap aIdx crossYOffset v =
   match collectBwdArrivalMargins edgeSet portMap aIdx crossYOffset v with
   | [] -> StubMargin
   | margins -> max EdgeOffset (List.min margins - EdgeOffset)
 
-let private routeSelfCycleEdge (edgeSet: EdgeSet) layout portMap aIdx
+let private routeSelfCycleEdge (edgeSet: EdgeSet)
+                               layout
+                               portMap
+                               aIdx
                                crossYOffset =
   layout
   |> Array.iter (Array.iter (fun v ->
@@ -745,8 +749,7 @@ let private routeSelfCycleEdge (edgeSet: EdgeSet) layout portMap aIdx
       let topY = VisGraph.getYPos v
       let leftX = srcCx - VisGraph.getWidth v / 2.0
       let botY = topY + VisGraph.getHeight v
-      let margin =
-        computeSelfCycleMargin edgeSet portMap aIdx crossYOffset v
+      let margin = computeSelfCycleMargin edgeSet portMap aIdx crossYOffset v
       edgeSet.GetSelfCycleEdge v
       |> List.iter (fun (_, edge: VisEdge) ->
         let pts = ResizeArray<VisPosition>()

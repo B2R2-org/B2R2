@@ -67,14 +67,20 @@ let private onNavigationKeyDown dispatch (state: LinearViewState) e =
   let lineHeight = max state.RowHeight 1.0
   let targetOffset =
     match (e: KeyEventArgs).Key with
-    | Key.Home -> Some 0.0
+    | Key.Home ->
+      Some 0.0
     | Key.End ->
       Some(max 0.0 (LinearViewState.totalHeight state - state.ViewportHeight))
-    | Key.Up -> Some(state.ScrollOffsetY - lineHeight)
-    | Key.Down -> Some(state.ScrollOffsetY + lineHeight)
-    | Key.PageUp -> Some(state.ScrollOffsetY - pageScrollDelta state)
-    | Key.PageDown -> Some(state.ScrollOffsetY + pageScrollDelta state)
-    | _ -> None
+    | Key.Up ->
+      Some(state.ScrollOffsetY - lineHeight)
+    | Key.Down ->
+      Some(state.ScrollOffsetY + lineHeight)
+    | Key.PageUp ->
+      Some(state.ScrollOffsetY - pageScrollDelta state)
+    | Key.PageDown ->
+      Some(state.ScrollOffsetY + pageScrollDelta state)
+    | _ ->
+      None
   match targetOffset with
   | Some offsetY ->
     scrollLinearTo dispatch offsetY
@@ -85,9 +91,7 @@ let private onNavigationKeyDown dispatch (state: LinearViewState) e =
 let private onPointerWheelChanged dispatch (e: PointerWheelEventArgs) =
   if e.KeyModifiers.HasFlag KeyModifiers.Control then
     let delta =
-      if e.Delta.Y > 0.0 then 1.0
-      elif e.Delta.Y < 0.0 then -1.0
-      else 0.0
+      if e.Delta.Y > 0.0 then 1.0 elif e.Delta.Y < 0.0 then -1.0 else 0.0
     if abs delta > 0.0 then
       dispatch (LinearPaneMsg(LinearPaneMessage.ChangeFontSize delta))
       e.Handled <- true
@@ -160,8 +164,7 @@ type private CachedRowVisual =
 
 let private offsetDigits (doc: LinearDocument) =
   let maxOffset =
-    if doc.LinearTotalLength <= 0L then 0L
-    else doc.LinearTotalLength - 1L
+    if doc.LinearTotalLength <= 0L then 0L else doc.LinearTotalLength - 1L
   max 1 (maxOffset.ToString("X").Length)
 
 let private valueColumnChars () =
@@ -216,10 +219,14 @@ let private rowLayoutOf common rowKind cells =
     LinkageLayout(disasmX, max fixedSymbolX symbolX)
 
 let private cellX common rowLayout = function
-  | OffsetCell -> common.OffsetX
-  | AddressCell -> common.AddressX
-  | KindCell -> common.KindX
-  | ValueCell -> common.ValueX
+  | OffsetCell ->
+    common.OffsetX
+  | AddressCell ->
+    common.AddressX
+  | KindCell ->
+    common.KindX
+  | ValueCell ->
+    common.ValueX
   | DisasmCell ->
     match rowLayout with
     | DisassemblyLayout disasmX -> disasmX
@@ -235,8 +242,7 @@ let private cellX common rowLayout = function
     | _ -> common.ValueX
 
 let private asciiOfByte value =
-  if value >= 0x20uy && value <= 0x7Euy then string (char value)
-  else "."
+  if value >= 0x20uy && value <= 0x7Euy then string (char value) else "."
 
 let private linearCell kind text role =
   { Kind = kind
@@ -286,9 +292,11 @@ let private valueCellsOfBytes (bytes: byte[]) =
     [ linearCell ValueCell (bytesText bytes) PrimaryText ]
   else
     [ linearCell ValueCell
-        (bytes |> Array.take capacity |> bytesText) PrimaryText
+        (bytes |> Array.take capacity |> bytesText)
+        PrimaryText
       linearCellAt 1 ValueCell
-        (bytes |> Array.skip capacity |> bytesText) PrimaryText ]
+        (bytes |> Array.skip capacity |> bytesText)
+        PrimaryText ]
 
 let private toRowVisualModel (hdl: BinHandle) (lifter: LiftingUnit) = function
   | RawByte(loc, value) ->
@@ -338,8 +346,7 @@ type private LinearRenderLayer() =
   let mutable lastVariable = ""
   let mutable lastValue = ""
 
-  let clearCache () =
-    textCache.Clear()
+  let clearCache () = textCache.Clear()
 
   let makeFormattedText fontFamily fontSize foreground text =
     FormattedText(
@@ -390,7 +397,8 @@ type private LinearRenderLayer() =
     let fontFamily, fontSize, foreground, secondary =
       ensureCacheSignature state theme
     match textCache.TryGetValue index with
-    | true, txt -> txt
+    | true, txt ->
+      txt
     | _ ->
       let item = doc.LinearItems[index]
       let txt =
@@ -403,9 +411,7 @@ type private LinearRenderLayer() =
               |> List.map (fun segment ->
                 let color = textColor theme foreground secondary segment.Role
                 makeFormattedText fontFamily fontSize color segment.Text)
-            cell.Kind,
-            cell.Line,
-            texts)
+            cell.Kind, cell.Line, texts)
           |> fun cells -> CellRowVisual(rowKind, cells)
         | FullWidthHeader(headerKind, title) ->
           let headerFontSize =
@@ -418,11 +424,7 @@ type private LinearRenderLayer() =
               fontSize
           FullWidthHeaderVisual(
             headerKind,
-            makeFormattedText
-              fontFamily
-              headerFontSize
-              foreground
-              title
+            makeFormattedText fontFamily headerFontSize foreground title
           )
       textCache[index] <- txt
       txt
@@ -515,8 +517,7 @@ type private LinearRenderLayer() =
       |> List.map (fun (_, line, _) -> line)
       |> List.fold max 0
       |> (+) 1
-    let lineStep =
-      if lineCount <= 1 then 0.0 else rowHeight / float lineCount
+    let lineStep = if lineCount <= 1 then 0.0 else rowHeight / float lineCount
     let blockHeight =
       if lineCount <= 1 then textHeight
       else lineStep * float (lineCount - 1) + textHeight
@@ -586,8 +587,7 @@ type private LinearRenderLayer() =
        || change.Property = themeProperty
        || change.Property = startIndexProperty
        || change.Property = endIndexProperty then
-      if change.Property = docProperty then clearCache ()
-      else ()
+      if change.Property = docProperty then clearCache () else ()
       this.InvalidateVisual()
     else
       ()

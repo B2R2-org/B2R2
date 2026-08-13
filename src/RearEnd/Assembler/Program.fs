@@ -40,7 +40,8 @@ let [<Literal>] private NormalPrompt = "> "
 /// both of theirs.
 let private parserFor (parsers: Dictionary<_, _>) (isa: ISA) =
   match parsers.TryGetValue(isa.ToString()) with
-  | true, parser -> parser
+  | true, parser ->
+    parser
   | false, _ ->
     let parser = ArchSupport.createParser (BinReader.Init isa.Endian) isa
     parsers[isa.ToString()] <- parser
@@ -62,8 +63,7 @@ type BinDumper(path: string option) =
   let mutable hasError = false
 
   /// Appends the bytes of a single assembled instruction.
-  member _.Add(bs: byte[]) =
-    if Option.isSome path then buf.AddRange bs else ()
+  member _.Add(bs: byte[]) = if Option.isSome path then buf.AddRange bs else ()
 
   /// Remembers that a part of the input failed to assemble, in which case
   /// nothing is dumped at all.
@@ -107,7 +107,8 @@ let getAssemblyPrinter (opts: AssemblerOpts) dumper =
 
 let rec private asmFromStdin (console: FsReadLine.Console) printer str =
   match console.ReadLine() with
-  | "" -> asmFromStdin console printer str
+  | "" ->
+    asmFromStdin console printer str
   | input when isNull input || input = "q" || input = "quit" ->
     printsn "Bye!"
   | input ->

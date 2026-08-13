@@ -138,8 +138,7 @@ let dumpSymbols _ (file: WasmBinFile) =
   printDoubleHorizontalRule ()
   printsn ""
 
-let dumpRelocs _ (_: WasmBinFile) =
-  Terminator.futureFeature ()
+let dumpRelocs _ (_: WasmBinFile) = Terminator.futureFeature ()
 
 let dumpFunctions _ (file: WasmBinFile) =
   let file = file :> IBinFile
@@ -154,5 +153,4 @@ let dumpFunctions _ (file: WasmBinFile) =
   printDoubleHorizontalRule ()
   printsn ""
 
-let dumpExceptionTable _ (_: WasmBinFile) =
-  Terminator.futureFeature ()
+let dumpExceptionTable _ (_: WasmBinFile) = Terminator.futureFeature ()

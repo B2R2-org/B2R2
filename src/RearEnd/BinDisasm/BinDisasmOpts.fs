@@ -95,8 +95,7 @@ with
     | "thumb" -> { opts with ThumbMode = true }
     | _ -> opts
 
-  static let cbATTSyntax opts _ =
-    { opts with DisassemblySyntax = ATTSyntax }
+  static let cbATTSyntax opts _ = { opts with DisassemblySyntax = ATTSyntax }
 
   static let cbSection opts (arg: _[]) =
     { opts with InputSecName = Some arg[0] }
@@ -107,52 +106,58 @@ with
                                  .Append(NoColor, "]"),
           descrPrinter = printcn,
           dummy = true)
-      Opt(descr = noCol "",
-          dummy = true)
+      Opt(descr = noCol "", dummy = true)
       Opt(descr = noCol "Show this usage",
-          short = "-h", long = "--help",
+          short = "-h",
+          long = "--help",
           help = true)
       Opt(descr = noCol "Verbose mode",
-          short = "-v", long = "--verbose",
+          short = "-v",
+          long = "--verbose",
           callback = fun opts _ -> { opts with Verbose = true })
       Opt(descr = noCol "Specify <ISA> (e.g., x86)",
-          short = "-i", long = "--isa", extra = 1,
+          short = "-i",
+          long = "--isa",
+          extra = 1,
           callback = fun opts arg -> { opts with ISA = ISA arg[0] })
       Opt(descr = noCol "Specify the base <address> in hex (default=0)",
-          short = "-r", long = "--base-addr", extra = 1,
+          short = "-r",
+          long = "--base-addr",
+          extra = 1,
           callback = cbBaseAddress)
-      Opt(descr = noCol "",
-          dummy = true)
+      Opt(descr = noCol "", dummy = true)
       Opt(descr = ColoredString().Append(NoColor, "[")
                                  .Append(DarkCyan, "Input Configuration")
                                  .Append(NoColor, "]"),
           descrPrinter = printcn,
           dummy = true)
-      Opt(descr = noCol "",
-          dummy = true)
+      Opt(descr = noCol "", dummy = true)
       Opt(descr = noCol "Specify an input <hexstring>",
-          short = "-s", extra = 1,
+          short = "-s",
+          extra = 1,
           callback = cbInputHexStr)
       Opt(descr = noCol "Specify <operation mode> (e.g., thumb/arm)",
-          short = "-m", long = "--mode", extra = 1,
+          short = "-m",
+          long = "--mode",
+          extra = 1,
           callback = cbArchMode)
       Opt(descr = noCol "Turn off file format detection",
           long = "--raw-binary",
           callback = fun opts _ -> { opts with AutoDetect = false })
-      Opt(descr = noCol "",
-          dummy = true)
+      Opt(descr = noCol "", dummy = true)
       Opt(descr = ColoredString().Append(NoColor, "[")
                                  .Append(DarkCyan, "Output Configuration")
                                  .Append(NoColor, "]"),
           descrPrinter = printcn,
           dummy = true)
-      Opt(descr = noCol "",
-          dummy = true)
+      Opt(descr = noCol "", dummy = true)
       Opt(descr = noCol "Use AT&T syntax for disassembling Intel instructions",
           long = "--att",
           callback = cbATTSyntax)
       Opt(descr = noCol "Display the contents of a specific section",
-          short = "-S", long = "--section", extra = 1,
+          short = "-S",
+          long = "--section",
+          extra = 1,
           callback = cbSection)
       Opt(descr = noCol "Always display disassembly for all sections.",
           long = "--only-disasm",
@@ -172,15 +177,13 @@ with
       Opt(descr = noCol "Show LowUIR of excutable sections",
           long = "--lift",
           callback = fun opts _ -> { opts with ShowLowUIR = true })
-      Opt(descr = noCol "",
-          dummy = true)
+      Opt(descr = noCol "", dummy = true)
       Opt(descr = ColoredString().Append(NoColor, "[")
                                  .Append(DarkCyan, "Optional Configuration")
                                  .Append(NoColor, "]"),
           descrPrinter = printcn,
           dummy = true)
-      Opt(descr = noCol "",
-          dummy = true)
+      Opt(descr = noCol "", dummy = true)
       Opt(descr = noCol "Perform bblock optimization for IL",
           long = "--optimize",
           callback = fun opts _ -> { opts with DoOptimization = true }) ]
