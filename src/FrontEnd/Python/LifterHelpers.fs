@@ -527,22 +527,24 @@ let printExpr (ins: Instruction) bld =
 (* YIELD_FROM (pre-3.11 `yield from`/`await`): unlike 3.12's explicit
    GET_AWAITABLE + SEND-loop decomposition (recognized and folded by
    AwaitFolding.fs), YIELD_FROM is a single opcode that internally loops
-   in the interpreter itself -- it either completes (leaving the
-   sub-generator's final return value on the stack) or suspends (yielding
-   a value, then resuming with the very same PC on the next `.send()`).
-   Modeled as a single external-call step mirroring YIELD_VALUE's own
-   "unknown resumption value" sentinel below, since the actual multi-path
-   control flow (yield-and-loop vs completed) isn't something a single
-   linear IR sequence can express -- HIR-level reconstruction of the
-   pre-3.11 yield-from/await shape (an AwaitFolding.fs counterpart for
-   this encoding) is a separate, not-yet-attempted follow-up; this only
-   ensures the opcode lifts to something well-typed instead of crashing. *)
+   in the interpreter itself -- it either completes, or suspends, yielding a
+   value and resuming at the very same PC on the next `.send()`.
+
+   Both paths leave the stack the same shape, which is what lets one linear
+   sequence say it: the sent value is popped, and the sub-iterator beneath it
+   stays where it is. On completion CPython overwrites that slot with what the
+   sub-iterator returned (SET_TOP in ceval.c); on suspension it leaves the
+   sub-iterator there for the resumed instruction to find. So the effect is
+   -1, and it is the external call rather than a push that settles what the
+   remaining slot holds. Pushing a resumption sentinel here instead -- as
+   YIELD_VALUE rightly does, that one really does receive what was sent --
+   made the effect 0 and left every stack slot after a `yield from` off by
+   one. *)
 let yieldFrom (ins: Instruction) bld =
   bld <!-- (ins.Address, ins.Length)
   let sendVal = popFromStack bld
   let subIter = peekFromStack bld 0
   bld <+ AST.extCall (AST.app "YIELD_FROM" [ subIter; sendVal ] rt)
-  pushToStack bld yieldReceived
   bld --!> ins.Length
 
 let callFunction (ins: Instruction) bld =
@@ -936,18 +938,22 @@ let makeFunctionSimple (ins: Instruction) bld =
   pushToStack bld (AST.app "MAKE_FUNCTION" args rt)
   bld --!> ins.Length
 
-(* Pre-3.11: MAKE_FUNCTION's stack order is different in two ways --
-   there's an explicit qualname STRING on top of the code object (3.11+
-   bakes qualname into the code object's own metadata instead, so this
-   slot doesn't exist there at all), and the flag-dependent extras
-   (closure/annotations/kwdefaults/posdefaults) sit BELOW the code object
-   rather than above it, popped in the OPPOSITE bit order (0x01 first,
-   not 0x08 first) -- reusing the 3.12 version's `makeFunction` verbatim
+(* Pre-3.11: MAKE_FUNCTION pops one thing more than the later form -- an
+   explicit qualname STRING sitting on top of the code object, which 3.11
+   bakes into the code object's own metadata instead, so that slot does not
+   exist there at all. Reusing the 3.12 version's `makeFunction` verbatim
    silently popped the qualname string as if it were the code object
    itself, corrupting every nested function's own CodeRef into its own
    qualname text instead of an address-based ref (confirmed via `10013`
    in the CSN 3.10 sweep: `fillIncompleteFuncSigs` crashed looking up
-   codeRef `"get_bucket"` -- the qualname -- instead of `"<90>"`). *)
+   codeRef `"get_bucket"` -- the qualname -- instead of `"<90>"`).
+   Everything below the code object is popped in the very order 3.11 uses:
+   3.10's ceval.c takes the closure first and the positional defaults last,
+   highest flag bit to lowest, exactly as its successor does. Reversing them
+   here left `def f(a, b=2, *, c=3)` -- flags 0x03, the one shape where the
+   order shows -- with the keyword defaults read as the positional tuple and
+   the positional defaults as the keyword dictionary, so every parameter that
+   had a default arrived with none. *)
 let makeFunctionLegacy (ins: Instruction) bld =
   bld <!-- (ins.Address, ins.Length)
   let flags = getIntArg ins
@@ -967,14 +973,14 @@ let makeFunctionLegacy (ins: Instruction) bld =
   let qualname = popFromStack bld
   bld <+ AST.extCall (AST.app "DISCARD" [ qualname ] rt)
   let codeObj = popFromStack bld
-  let posDefs =
-    if flags &&& 0x01 <> 0 then popFromStack bld else nullSlot
-  let kwDefs =
-    if flags &&& 0x02 <> 0 then popFromStack bld else nullSlot
-  let annotations =
-    if flags &&& 0x04 <> 0 then popFromStack bld else nullSlot
   let closure =
     if flags &&& 0x08 <> 0 then popFromStack bld else nullSlot
+  let annotations =
+    if flags &&& 0x04 <> 0 then popFromStack bld else nullSlot
+  let kwDefs =
+    if flags &&& 0x02 <> 0 then popFromStack bld else nullSlot
+  let posDefs =
+    if flags &&& 0x01 <> 0 then popFromStack bld else nullSlot
   let args = [ codeObj; posDefs; kwDefs; annotations; closure ]
   pushToStack bld (AST.app "MAKE_FUNCTION" args rt)
   bld --!> ins.Length
