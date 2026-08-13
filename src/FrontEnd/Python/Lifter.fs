@@ -131,12 +131,15 @@ let private buildFromStack name count (ins: Instruction) bld =
   pushToStack bld (AST.app name items rt)
   bld --!> ins.Length
 
-/// SET_FUNCTION_ATTRIBUTE pops the attribute value, sets it on the function
-/// beneath it, and leaves that function on the stack.
+/// SET_FUNCTION_ATTRIBUTE pops the function, sets on it the value beneath,
+/// and leaves the function on the stack. The function is what is on top: the
+/// value went on first -- `def f(b=2)` loads the defaults tuple, then the code
+/// object MAKE_FUNCTION turns into the function -- so a pop that took the
+/// value first read the two as each other.
 let private setFunctionAttribute (ins: Instruction) bld =
   bld <!-- (ins.Address, ins.Length)
-  let attr = popFromStack bld
   let func = popFromStack bld
+  let attr = popFromStack bld
   let which = numI32 (getIntArg ins) rt
   pushToStack bld (AST.app "SET_FUNCTION_ATTRIBUTE" [ func; which; attr ] rt)
   bld --!> ins.Length

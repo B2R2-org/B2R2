@@ -235,11 +235,37 @@ let loadFromDict opname (ins: Instruction) bld =
   pushToStack bld (AST.app opname [ mapping; operandIndex ins ] rt)
   bld --!> ins.Length
 
+(* Which of the two slots a call sits on is the deeper. 3.11 gave every call a
+   self-or-NULL beside its callable and put it underneath; 3.13 swapped the
+   pair, so the callable is pushed first and the slot above it. Everything that
+   leaves that pair -- a global or attribute load with its own flag set, and a
+   super lookup with the same -- swapped with it. *)
+let calleeFirst (ins: Instruction) = ins.Minor >= 13
+
+(* The pair, taken off in whichever order this version put them on. *)
+let popCallee (ins: Instruction) bld =
+  if calleeFirst ins then
+    let maybeSelf = popFromStack bld
+    popFromStack bld, maybeSelf
+  else
+    let func = popFromStack bld
+    func, popFromStack bld
+
+(* And put on the same way: the callable, with the empty self-slot beside it
+   where the instruction's flag asked for one. *)
+let pushCallee (ins: Instruction) bld callee =
+  if not ins.Flag then
+    pushToStack bld callee
+  elif calleeFirst ins then
+    pushToStack bld callee
+    pushToStack bld nullSlot
+  else
+    pushToStack bld nullSlot
+    pushToStack bld callee
+
 let translateLoadGlobal (ins: Instruction) bld =
   bld <!-- (ins.Address, ins.Length)
-  let v = AST.app "LOAD_GLOBAL" [ globalIndex ins ] rt
-  if ins.Flag then pushToStack bld nullSlot else ()
-  pushToStack bld v
+  pushCallee ins bld (AST.app "LOAD_GLOBAL" [ globalIndex ins ] rt)
   bld --!> ins.Length
 
 let translateDelete opname (ins: Instruction) bld =
@@ -605,9 +631,15 @@ let callMethod (ins: Instruction) bld =
   pushToStack bld result
   bld --!> ins.Length
 
+(* END_FOR: what a for loop ends at. Up to 3.12 it is alone; 3.13 splits what
+   it did between it and a POP_TOP after it. What is on the stack here is the
+   iterator and nothing else -- the exhausted value CPython leaves beside it is
+   not something this model puts there, see forIter -- so between them the pair
+   takes one slot however it is spelled. END_FOR takes it where it is alone,
+   and leaves it to the POP_TOP where it is not. *)
 let endFor (ins: Instruction) bld =
   bld <!-- (ins.Address, ins.Length)
-  discardTOS bld
+  if ins.Minor < 13 then discardTOS bld else ()
   bld --!> ins.Length
 
 (* END_SEND: removes the second-from-top value (the exhausted generator
@@ -664,9 +696,7 @@ let loadAttr (ins: Instruction) bld =
   bld <!-- (ins.Address, ins.Length)
   let name = attrIndex ins
   let obj = popFromStack bld
-  let attr = AST.app "LOAD_ATTR" [ obj; name ] rt
-  if ins.Flag then pushToStack bld nullSlot else ()
-  pushToStack bld attr
+  pushCallee ins bld (AST.app "LOAD_ATTR" [ obj; name ] rt)
   bld --!> ins.Length
 
 (* LOAD_SUPER_ATTR: pops self, __class__, and the global `super` reference
@@ -686,9 +716,7 @@ let loadSuperAttr (ins: Instruction) bld =
   let opname =
     if ins.SuperHasExplicitArgs then "LOAD_SUPER_ATTR_EXPLICIT"
     else "LOAD_SUPER_ATTR"
-  let attr = AST.app opname [ superGlobal; cls; self; name ] rt
-  if ins.Flag then pushToStack bld nullSlot else ()
-  pushToStack bld attr
+  pushCallee ins bld (AST.app opname [ superGlobal; cls; self; name ] rt)
   bld --!> ins.Length
 
 (* STORE_SUBSCR: TOS1[TOS] = TOS2 ??pops three items. *)
@@ -890,11 +918,18 @@ let kwNames (ins: Instruction) bld =
 let call (ins: Instruction) bld =
   bld <!-- (ins.Address, ins.Length)
   let argc = getIntArg ins
+  (* 3.13 folded the keyword names into the call itself: they arrive as a
+     tuple above the arguments, where 3.12 left them in a register a separate
+     KW_NAMES had set. *)
+  let named =
+    match ins.Opcode with
+    | Opcode.CALL_KW | Opcode.INSTRUMENTED_CALL_KW -> Some(popFromStack bld)
+    | _ -> None
   let args = List.init argc (fun _ -> popFromStack bld) |> List.rev
-  let func = popFromStack bld
-  let maybeSelf = popFromStack bld
+  let func, maybeSelf = popCallee ins bld
   let kwReg = regVar bld R.KW_NAMES
-  let result = AST.app "CALL" (maybeSelf :: func :: args @ [ kwReg ]) rt
+  let names = defaultArg named kwReg
+  let result = AST.app "CALL" (maybeSelf :: func :: args @ [ names ]) rt
   pushToStack bld result
   bld <+ (kwReg := nullSlot)
   bld --!> ins.Length
@@ -1007,8 +1042,8 @@ let callFunctionEx minor (ins: Instruction) bld =
     elif getIntArgOr 0 ins &&& 0x01 <> 0 then popFromStack bld
     else nullSlot
   let args = popFromStack bld
-  let func = popFromStack bld
-  let maybeSelf = if minor >= 11 then popFromStack bld else nullSlot
+  let func, maybeSelf =
+    if minor >= 11 then popCallee ins bld else popFromStack bld, nullSlot
   let result = AST.app "CALL_FUNCTION_EX" [ maybeSelf; func; args; kwargs ] rt
   pushToStack bld result
   bld --!> ins.Length
@@ -1091,11 +1126,17 @@ let private legacyCmp idx left right =
   | _ -> opApp (cmpOpName idx) left right
 
 (* COMPARE_OP: pop right (TOS) then left (TOS1), push bool result.
-   In 3.12+ the operator index is arg >> 4; lower bits are cache flags. *)
+   The index sits above whatever flag bits the version put beneath it: none up
+   to 3.11, four cache bits in 3.12, and five from 3.13, which added one saying
+   the result is to be forced to a bool. Reading a 3.13 argument four bits down
+   leaves that bit in the index, which names an operator there is none of. *)
 let compareOP minor (ins: Instruction) bld =
   bld <!-- (ins.Address, ins.Length)
   let n = getIntArg ins
-  let opIdx = if minor >= 12 then n >>> 4 else n
+  let opIdx =
+    if minor >= 13 then n >>> 5
+    elif minor >= 12 then n >>> 4
+    else n
   let right = popFromStack bld
   let left = popFromStack bld
   if minor >= 9 then pushToStack bld (opApp (cmpOpName opIdx) left right)
