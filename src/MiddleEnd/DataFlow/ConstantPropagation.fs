@@ -89,8 +89,10 @@ type ConstantPropagation(hdl, vs) =
       let addr = (pp: ProgramPoint).Address
       let bv = BitVector(addr, rt)
       ConstantDomain.Const bv
-    | Num(bv, _) -> ConstantDomain.Const bv
-    | Var _ | TempVar _ -> evaluateVarPoint state pp (VarKind.ofIRExpr e)
+    | Num(bv, _) ->
+      ConstantDomain.Const bv
+    | Var _ | TempVar _ ->
+      evaluateVarPoint state pp (VarKind.ofIRExpr e)
     | Load(_m, rt, addr, _) ->
       match state.EvaluateStackPointerExpr(pp, addr) with
       | StackPointerDomain.ConstSP bv ->
@@ -102,9 +104,12 @@ type ConstantPropagation(hdl, vs) =
           ConstantDomain.Const <| BitVector.ZExt(bv, rt)
         | ConstantDomain.Const bv when bv.Length > rt ->
           ConstantDomain.Const <| BitVector.Extract(bv, rt, 0)
-        | _ -> c
-      | StackPointerDomain.NotConstSP -> ConstantDomain.NotAConst
-      | StackPointerDomain.Undef -> ConstantDomain.Undef
+        | _ ->
+          c
+      | StackPointerDomain.NotConstSP ->
+        ConstantDomain.NotAConst
+      | StackPointerDomain.Undef ->
+        ConstantDomain.Undef
     | UnOp(op, e, _) ->
       evaluateExpr state pp e
       |> ConstantPropagation.evalUnOp op
@@ -127,8 +132,10 @@ type ConstantPropagation(hdl, vs) =
     | Extract(e, rt, pos, _) ->
       let c = evaluateExpr state pp e
       ConstantDomain.extract c rt pos
-    | FuncName _ | ExprList _ | Undefined _ -> ConstantDomain.NotAConst
-    | _ -> Terminator.impossible ()
+    | FuncName _ | ExprList _ | Undefined _ ->
+      ConstantDomain.NotAConst
+    | _ ->
+      Terminator.impossible ()
 
   let lattice =
     { new ILattice<ConstantDomain.Lattice> with

@@ -57,7 +57,8 @@ let rec private translateExpr (builder: LLVMIRBuilder) tempMap expr =
     let etyp = Expr.typeOf e
     let e = translateExpr builder tempMap e
     builder.EmitExtract(e, etyp, len, pos)
-  | e -> printfn "%A" e; Terminator.futureFeature ()
+  | e ->
+    printfn "%A" e; Terminator.futureFeature ()
 
 and private translateUnOp builder tempMap op exp =
   match op with
@@ -65,7 +66,8 @@ and private translateUnOp builder tempMap op exp =
     let etyp = Expr.typeOf exp
     let exp = translateExpr builder tempMap exp
     builder.EmitUnOp("not", exp, etyp)
-  | _ -> Terminator.futureFeature ()
+  | _ ->
+    Terminator.futureFeature ()
 
 and private translateBinOp builder tempMap op typ lhs rhs =
   match op with
@@ -137,7 +139,8 @@ and private translateBinOp builder tempMap op typ lhs rhs =
     let lhs = translateExpr builder tempMap lhs
     let rhs = translateExpr builder tempMap rhs
     builder.EmitBinOp("fdiv", typ, lhs, rhs)
-  | _ -> Terminator.futureFeature ()
+  | _ ->
+    Terminator.futureFeature ()
 
 and private translateRelOp builder tempMap op typ lhs rhs =
   match op with
@@ -181,7 +184,8 @@ and private translateRelOp builder tempMap op typ lhs rhs =
     let lhs = translateExpr builder tempMap lhs
     let rhs = translateExpr builder tempMap rhs
     builder.EmitRelOp("sle", typ, lhs, rhs)
-  | _ -> Terminator.futureFeature ()
+  | _ ->
+    Terminator.futureFeature ()
 
 and private translateCast builder tempMap e kind etyp rt =
   match kind with
@@ -191,7 +195,8 @@ and private translateCast builder tempMap e kind etyp rt =
   | CastKind.ZeroExt ->
     let e = translateExpr builder tempMap e
     builder.EmitCast(e, "zext", etyp, rt)
-  | _ -> Terminator.futureFeature ()
+  | _ ->
+    Terminator.futureFeature ()
 
 let private translateStmts (builder: LLVMIRBuilder) addr succs (stmts: Stmt[]) =
   let mutable lastAddr = addr
@@ -203,8 +208,10 @@ let private translateStmts (builder: LLVMIRBuilder) addr succs (stmts: Stmt[]) =
       lastAddr <- lastAddr + lastLen
       lastLen <- uint64 insLen
       builder.EmitComment $"0x{lastAddr:x}"
-    | IEMark _ -> ()
-    | Put(_, Undefined _, _) -> ()
+    | IEMark _ ->
+      ()
+    | Put(_, Undefined _, _) ->
+      ()
     | Put(Var(_, reg, _, _), rhs, _) ->
       let r = translateExpr builder tempMap rhs
       builder.EmitRegStore(reg, r)
@@ -225,7 +232,8 @@ let private translateStmts (builder: LLVMIRBuilder) addr succs (stmts: Stmt[]) =
       let t = translateExpr builder tempMap t
       let f = translateExpr builder tempMap f
       builder.EmitInterCJmp(typ, c, t, f, succs)
-    | s -> printfn "%A" s; Terminator.futureFeature ()
+    | s ->
+      printfn "%A" s; Terminator.futureFeature ()
   if builder.Address = addr then () else builder.EmitLabel addr
   for stmt in stmts do
     translateStmt stmt

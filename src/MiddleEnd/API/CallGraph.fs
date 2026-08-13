@@ -46,7 +46,8 @@ module CallGraph =
       let v, g = (g: IDiGraph<_, _>).AddVertex blk
       vMap.Add(addr, v)
       v, g
-    | true, v -> v, g
+    | true, v ->
+      v, g
 
   let private addEdge brew vMap entryPoint target callCFG =
     let src, callCFG = getVertex brew vMap entryPoint callCFG
@@ -68,7 +69,8 @@ module CallGraph =
           ) callCFG
         | SyscallCallee _
         | UnresolvedIndirectCallees
-        | NullCallee -> callCFG
+        | NullCallee ->
+          callCFG
       ) callCFG) callCFG
 
   /// Create a CallCFG from a BinaryBrew.

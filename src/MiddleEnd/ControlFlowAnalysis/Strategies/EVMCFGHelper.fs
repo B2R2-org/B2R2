@@ -37,8 +37,10 @@ let rec expandExpr state e = expandExprAux Set.empty 0 state e
 and expandExprAux visited depth (state: State<_, _>) e =
   let depth = depth + 1
   match e with
-  | _ when depth > MaxExpansionDepth -> e
-  | SSA.Var var when Set.contains var visited -> e
+  | _ when depth > MaxExpansionDepth ->
+    e
+  | SSA.Var var when Set.contains var visited ->
+    e
   | SSA.Var var ->
     let visited = Set.add var visited
     (* Note that we use fake definition for variables that are not defined in
@@ -49,7 +51,8 @@ and expandExprAux visited depth (state: State<_, _>) e =
     | Some(SSA.Def(_, e)) -> expandExprAux visited depth state e
     | None -> e
     | _ -> Terminator.impossible ()
-  | SSA.ExprList [ e ] -> expandExprAux visited depth state e
+  | SSA.ExprList [ e ] ->
+    expandExprAux visited depth state e
   | SSA.ExprList el ->
     el |> List.map (expandExprAux visited depth state) |> SSA.ExprList
   | SSA.BinOp(op, rt, e1, e2) ->
@@ -83,17 +86,20 @@ and expandExprAux visited depth (state: State<_, _>) e =
     SSA.Store(memVar, rt, addr', value')
   | SSA.Num _
   | SSA.FuncName _
-  | SSA.Undefined _ -> e
+  | SSA.Undefined _ ->
+    e
 
 /// Returns the list of root variables for the given variables.
 let rec findRootVars (state: State<_, _>) acc worklist =
   match worklist with
-  | [] -> acc
+  | [] ->
+    acc
   | var :: rest ->
     match state.TryFindSSADefStmtFromSSAVar var with
     | Some(SSA.Def(_, e)) ->
       match e with
-      | SSA.Var rdVar -> findRootVars state acc (rdVar :: rest)
+      | SSA.Var rdVar ->
+        findRootVars state acc (rdVar :: rest)
       | SSA.ExprList exprs ->
         exprs
         |> List.choose (function
@@ -101,20 +107,24 @@ let rec findRootVars (state: State<_, _>) acc worklist =
           | _ -> None)
         |> List.append rest
         |> findRootVars state acc
-      | _ -> findRootVars state (var :: acc) rest
-    | _ -> findRootVars state (var :: acc) rest
+      | _ ->
+        findRootVars state (var :: acc) rest
+    | _ ->
+      findRootVars state (var :: acc) rest
 
 /// Returns the list of root variables, considering AND operators with jump
 /// destination addresses. Note that this function must be given a non-expanded
 /// expression.
 let rec findRootVarsFromJumpDstVar (state: State<_, _>) acc worklist =
   match worklist with
-  | [] -> acc
+  | [] ->
+    acc
   | var :: rest ->
     match state.TryFindSSADefStmtFromSSAVar var with
     | Some(SSA.Def(_, e)) ->
       match e with
-      | SSA.Var rdVar -> findRootVarsFromJumpDstVar state acc (rdVar :: rest)
+      | SSA.Var rdVar ->
+        findRootVarsFromJumpDstVar state acc (rdVar :: rest)
       | SSA.BinOp(BinOpType.AND, _, SSA.ExprList [ SSA.Var var1 ],
                                     SSA.ExprList [ SSA.Var var2 ]) ->
         match expandExpr state (SSA.Var var1),
@@ -125,7 +135,8 @@ let rec findRootVarsFromJumpDstVar (state: State<_, _>) acc worklist =
         | SSA.Num _bv_dst, SSA.Num bv_bitmask
           when bv_bitmask.ToBigInt() = bigint 0xffffffffUL ->
           findRootVarsFromJumpDstVar state acc (var1 :: rest)
-        | _ -> acc
+        | _ ->
+          acc
       | SSA.ExprList exprs ->
         exprs
         |> List.choose (function
@@ -133,18 +144,22 @@ let rec findRootVarsFromJumpDstVar (state: State<_, _>) acc worklist =
           | _ -> None)
         |> List.append rest
         |> findRootVarsFromJumpDstVar state acc
-      | _ -> findRootVarsFromJumpDstVar state (var :: acc) rest
-    | _ -> findRootVarsFromJumpDstVar state (var :: acc) rest
+      | _ ->
+        findRootVarsFromJumpDstVar state (var :: acc) rest
+    | _ ->
+      findRootVarsFromJumpDstVar state (var :: acc) rest
 
 let extractVarsFromExpr e =
   match e with
-  | SSA.Var var -> [ var ]
+  | SSA.Var var ->
+    [ var ]
   | SSA.ExprList exprs ->
     exprs
     |> List.choose (function
       | SSA.Var var -> Some var
       | _ -> None)
-  | _ -> []
+  | _ ->
+    []
 
 let findRootVarsFromJumpDstExpr state e =
   extractVarsFromExpr e
@@ -169,8 +184,7 @@ let getTerminator (state: State<_, _>) v tag =
   assert (not << Seq.isEmpty) sstmts
   Array.last sstmts
 
-let constantFoldSensitiveVPs (state: State<_, _>)
-                             vars =
+let constantFoldSensitiveVPs (state: State<_, _>) vars =
   vars
   |> List.map state.DomainSubState.GetAbsValue
   |> List.fold ConstantDomain.join ConstantDomain.Undef
@@ -199,7 +213,8 @@ let private tryJoinExprs e1 e2 =
   | SSA.Num bv1, SSA.Num bv2 when bv1 = bv2 ->
     SSA.Num bv1
     |> Some
-  | _ -> None
+  | _ ->
+    None
 
 /// Over-approximates the terminator of a vertex `v` by considering all possible
 /// tags. This returns None if the vertex has inconsistent terminators for
@@ -227,10 +242,13 @@ let tryOverApproximateTerminator (state: State<_, _>) v =
         (* Currently, we allow the condition to be None as we do not care if
            conditions can be joined or not. *)
         | _, None, _
-        | _, _, None -> None
+        | _, _, None ->
+          None
         | _, Some tDst, Some fDst ->
           Some <| SSA.Jmp(SSA.InterCJmp(cond1, tDst, fDst))
-      | _ -> None
+      | _ ->
+        None
     | Some(SSA.SideEffect eff1), SSA.SideEffect eff2 when eff1 = eff2 ->
       Some <| SSA.SideEffect eff1
-    | _ -> None) (Some first)
+    | _ ->
+      None) (Some first)

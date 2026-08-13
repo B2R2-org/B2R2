@@ -28,10 +28,10 @@ open System.Collections.Generic
 open B2R2
 
 /// Collection of recovered functions.
-type FunctionCollection<'FnCtx,
-                        'GlCtx when 'FnCtx :> IResettable
-                                and 'FnCtx: (new: unit -> 'FnCtx)
-                                and 'GlCtx: (new: unit -> 'GlCtx)>
+type FunctionCollection<'FnCtx, 'GlCtx
+  when 'FnCtx :> IResettable
+  and 'FnCtx: (new: unit -> 'FnCtx)
+  and 'GlCtx: (new: unit -> 'GlCtx)>
   public(builders: ICFGBuildable<'FnCtx, 'GlCtx>[]) =
 
   let addrToFunction = Dictionary<Addr, Function>()
@@ -51,7 +51,8 @@ type FunctionCollection<'FnCtx,
         let fns = List<Function>()
         fns.Add fn
         nameToFunction.Add(fn.Name, fns)
-      | true, fns -> fns.Add fn)
+      | true, fns ->
+        fns.Add fn)
 
   let findByAddr addr =
     match addrToFunction.TryGetValue addr with

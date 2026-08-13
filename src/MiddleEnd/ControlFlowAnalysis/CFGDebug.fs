@@ -38,7 +38,7 @@ type LogMessage =
   | Flush of int
 
 type CFGLogger(numThreads) =
-  let logBuilders = Array.init (numThreads + 1) (fun _ -> StringBuilder ())
+  let logBuilders = Array.init (numThreads + 1) (fun _ -> StringBuilder())
 
   let cts = new CancellationTokenSource()
 
@@ -78,18 +78,14 @@ type CFGLogger(numThreads) =
     let log = $"{t} | {locationName, -22} | {msg}"
     agent.Post <| Log(tid, log)
 
-  member inline _.Flush tid =
-    agent.Post <| Flush tid
+  member inline _.Flush tid = agent.Post <| Flush tid
 
 let mutable logger: CFGLogger | null = null
 
 let initLogger numThreads =
-  if isNull logger then logger <- CFGLogger numThreads
-  else ()
+  if isNull logger then logger <- CFGLogger numThreads else ()
 
-let inline dbglog tid locationName msg =
-  logger.Log(tid, locationName, msg)
+let inline dbglog tid locationName msg = logger.Log(tid, locationName, msg)
 
-let inline flushLog tid =
-  logger.Flush tid
+let inline flushLog tid = logger.Flush tid
 #endif

@@ -40,8 +40,8 @@ type CooperDominanceFrontier<'V, 'E when 'V: equality and 'E: equality>() =
     for v in g.Vertices do
       let preds = g.GetPreds v
       let isRoot = Array.contains v roots
-      if not isRoot && preds.Length < 2 ||
-         isRoot && preds.Length = 0 then ()
+      if not isRoot && preds.Length < 2 || isRoot && preds.Length = 0 then
+        ()
       else
         for p in preds do
           let mutable runner = p

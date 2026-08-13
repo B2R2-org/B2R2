@@ -76,7 +76,8 @@ module internal SymbMemoryOperation =
         | Ok bytes ->
           mem.ByteRead(addr + uint64 offset)
           |> Result.map (fun byte -> byte :: bytes)
-        | Error e -> Error e) (Ok [])
+        | Error e ->
+          Error e) (Ok [])
     match bytes with
     | Ok bytes ->
       let bytes =
@@ -84,7 +85,8 @@ module internal SymbMemoryOperation =
         | Endian.Big -> List.rev bytes
         | _ -> bytes
       combineBytes bytes
-    | Error e -> Error e
+    | Error e ->
+      Error e
 
   let store addr (value: SymbExpr) endian (mem: ISymbMemory) =
     let len = RegType.toByteWidth value.Type

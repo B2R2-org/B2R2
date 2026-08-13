@@ -76,8 +76,7 @@ and IDominanceFrontierProvider<'V, 'E when 'V: equality and 'E: equality> =
 
 /// Represents a dominator tree interface. A dominator tree is a tree where each
 /// node's children are those nodes it immediately dominates.
-and DominatorTree<'V, 'E when 'V: equality
-                          and 'E: equality>
+and DominatorTree<'V, 'E when 'V: equality and 'E: equality>
   public(g: IDiGraphAccessible<'V, 'E>,
          getIDom: IVertex<'V> -> IVertex<'V> | null) =
 

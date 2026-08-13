@@ -72,13 +72,18 @@ with
 
   override this.ToString() =
     match this with
-    | Const bv -> bv.ToString()
-    | Var(name, typ) -> $"{name}:{RegType.toString typ}"
-    | UnOp(op, expr) -> $"({UnOpType.toString op} {expr})"
+    | Const bv ->
+      bv.ToString()
+    | Var(name, typ) ->
+      $"{name}:{RegType.toString typ}"
+    | UnOp(op, expr) ->
+      $"({UnOpType.toString op} {expr})"
     | BinOp(op, typ, lhs, rhs) ->
       $"({lhs} {BinOpType.toString op} {rhs}):{RegType.toString typ}"
-    | RelOp(op, lhs, rhs) -> $"({lhs} {RelOpType.toString op} {rhs})"
-    | Load(_endian, typ, addr) -> $"[{addr}]:{RegType.toString typ}"
+    | RelOp(op, lhs, rhs) ->
+      $"({lhs} {RelOpType.toString op} {rhs})"
+    | Load(_endian, typ, addr) ->
+      $"[{addr}]:{RegType.toString typ}"
     | Ite(cond, thenExpr, elseExpr) ->
       $"(({cond}) ? ({thenExpr}) : ({elseExpr}))"
     | Cast(kind, typ, expr) ->
@@ -89,7 +94,8 @@ with
     | FuncApp(name, typ, args) ->
       let args = args |> List.map string |> String.concat ", "
       $"{name}({args}):{RegType.toString typ}"
-    | Undef(_, reason) -> $"?? ({reason})"
+    | Undef(_, reason) ->
+      $"?? ({reason})"
 
 /// Represents an error encountered while communicating with an SMT solver.
 type SolverFailure =
@@ -128,8 +134,7 @@ with
       match this with
       | Empty -> []
       | Value expr -> [ expr ]
-      | Values exprs ->
-        exprs |> List.collect (fun expr -> expr.QueryValues)
+      | Values exprs -> exprs |> List.collect (fun expr -> expr.QueryValues)
 
 /// Symbolic expression helpers.
 [<RequireQualifiedAccess>]

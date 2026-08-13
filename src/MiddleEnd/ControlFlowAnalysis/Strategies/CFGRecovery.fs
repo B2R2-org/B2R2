@@ -31,8 +31,13 @@ open B2R2.MiddleEnd.ControlFlowAnalysis.Strategies.CFGRecoveryCommon
 
 [<AutoOpen>]
 module private CFGRecovery =
-  let onAction (ctx: CFGBuildingContext<_, _>) cfgRec queue syscallAnalysis
-               jmptblAnalysis useTCHeuristic (action: CFGAction) =
+  let onAction (ctx: CFGBuildingContext<_, _>)
+               cfgRec
+               queue
+               syscallAnalysis
+               jmptblAnalysis
+               useTCHeuristic
+               (action: CFGAction) =
     try
       match action with
       | InitiateCFG ->
@@ -140,7 +145,8 @@ module private CFGRecovery =
           ctx.CFG.AddRoot(v)
           recoverNoReturnFallThroughEdge ctx v
           buildCFG ctx cfgRec syscallAnalysis useTCHeuristic queue [ pp ]
-        | Error e -> FailStop e
+        | Error e ->
+          FailStop e
       | EndGapAnalysis ->
         assert (ctx.GapToAnalyze.IsSome)
         ctx.GapToAnalyze <- None
@@ -150,10 +156,10 @@ module private CFGRecovery =
       FailStop ErrorCase.FailedToRecoverCFG
 
 /// Base strategy for building a CFG.
-type CFGRecovery<'FnCtx,
-                 'GlCtx when 'FnCtx :> IResettable
-                         and 'FnCtx: (new: unit -> 'FnCtx)
-                         and 'GlCtx: (new: unit -> 'GlCtx)>
+type CFGRecovery<'FnCtx, 'GlCtx
+  when 'FnCtx :> IResettable
+  and 'FnCtx: (new: unit -> 'FnCtx)
+  and 'GlCtx: (new: unit -> 'GlCtx)>
   public(summarizer: IFunctionSummarizable<'FnCtx, 'GlCtx>,
          jmptblAnalysis: IJmpTableAnalyzable<'FnCtx, 'GlCtx>,
          syscallAnalysis: ISyscallAnalyzable,
@@ -182,8 +188,13 @@ type CFGRecovery<'FnCtx,
     member _.AnalyzeIndirectCondJump(_, _, _, _) = None
 
     member _.OnAction(ctx, queue, action) =
-      onAction ctx this queue syscallAnalysis jmptblAnalysis
-               useTailcallHeuristic action
+      onAction ctx
+               this
+               queue
+               syscallAnalysis
+               jmptblAnalysis
+               useTailcallHeuristic
+               action
 
     member _.OnCreate _ctx = ()
 
@@ -192,23 +203,19 @@ type CFGRecovery<'FnCtx,
     member _.OnCyclicDependency deps = onCyclicDependency deps
 
     member _.OnAddVertex(ctx, vertex) =
-      if not useSSA then markVertexAsPendingForAnalysis ctx vertex
-      else ()
+      if not useSSA then markVertexAsPendingForAnalysis ctx vertex else ()
 
     member _.OnAddEdge(ctx, _srcVertex, dstVertex, _edgeKind) =
-      if not useSSA then markVertexAsPendingForAnalysis ctx dstVertex
-      else ()
+      if not useSSA then markVertexAsPendingForAnalysis ctx dstVertex else ()
 
     member _.OnRemoveVertex(ctx, vertex) =
       markVertexAsRemovalForAnalysis ctx vertex
 
     member _.FindCandidatesForPostProcessing _ = [||]
 
-  new(recoveryTargets) =
-    CFGRecovery(false, false, recoveryTargets)
+  new(recoveryTargets) = CFGRecovery(false, false, recoveryTargets)
 
-  new(allowBBLOverlap, useSSA) =
-    CFGRecovery(allowBBLOverlap, useSSA, All)
+  new(allowBBLOverlap, useSSA) = CFGRecovery(allowBBLOverlap, useSSA, All)
 
   new(allowBBLOverlap, useSSA, recoveryTargets) =
     let summarizer = FunctionSummarizer()
@@ -216,11 +223,13 @@ type CFGRecovery<'FnCtx,
     let jmptblAnalysis, postAnalysis =
       if useSSA then
         let ssaLifter = SSALifter() :> ICFGAnalysis<_>
-        JmpTableAnalysis(Some ssaLifter) :> IJmpTableAnalyzable<_, _>,
-        ssaLifter <+> CondAwareNoretAnalysis()
+        let jmpTableAnalysis =
+          JmpTableAnalysis(Some ssaLifter) :> IJmpTableAnalyzable<_, _>
+        jmpTableAnalysis, ssaLifter <+> CondAwareNoretAnalysis()
       else
-        JmpTableAnalysis None :> IJmpTableAnalyzable<_, _>,
-        CondAwareNoretAnalysis()
+        let jmpTableAnalysis =
+          JmpTableAnalysis None :> IJmpTableAnalyzable<_, _>
+        jmpTableAnalysis, CondAwareNoretAnalysis()
     CFGRecovery(summarizer,
                 jmptblAnalysis,
                 syscallAnalysis,

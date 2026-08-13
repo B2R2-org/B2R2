@@ -62,8 +62,7 @@ type Serializer =
 
   /// Exports the given graph to a string in the JSON format using the default
   /// string representations of vertices and edges as labels.
-  static member ToJson g =
-    Serializer.ToJson(Serializer.NewGraph g)
+  static member ToJson g = Serializer.ToJson(Serializer.NewGraph g)
 
   /// <summary>
   /// Exports the given graph to a string in the JSON format.

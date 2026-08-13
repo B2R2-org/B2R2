@@ -29,10 +29,10 @@ open B2R2
 open B2R2.FrontEnd.BinFile
 open B2R2.MiddleEnd.ControlFlowAnalysis.ExternalFunctionLoader
 
-type CFGBuilderTable<'FnCtx,
-                     'GlCtx when 'FnCtx :> IResettable
-                             and 'FnCtx: (new: unit -> 'FnCtx)
-                             and 'GlCtx: (new: unit -> 'GlCtx)>
+type CFGBuilderTable<'FnCtx, 'GlCtx
+  when 'FnCtx :> IResettable
+  and 'FnCtx: (new: unit -> 'FnCtx)
+  and 'GlCtx: (new: unit -> 'GlCtx)>
   public(hdl, exnInfo, instrs, irBlkOptimizer) =
 
   let builders = SortedList<Addr, ICFGBuildable<'FnCtx, 'GlCtx>>()
@@ -54,7 +54,8 @@ type CFGBuilderTable<'FnCtx,
 
   let getOrCreateInternalBuilder managerMsgbox addr =
     match builders.TryGetValue addr with
-    | true, builder -> builder
+    | true, builder ->
+      builder
     | false, _ ->
       let builder =
         InternalFnCFGBuilder(hdl,
@@ -88,8 +89,7 @@ type CFGBuilderTable<'FnCtx,
 
   let rec getTerminationStatus (builders: IList<ICFGBuildable<_, _>>) acc idx =
     if idx < 0 then
-      if List.isEmpty acc then AllDone
-      else ForceTerminated <| List.toArray acc
+      if List.isEmpty acc then AllDone else ForceTerminated <| List.toArray acc
     else
       let b = builders[idx]
       match b.BuilderState with
@@ -127,10 +127,10 @@ type CFGBuilderTable<'FnCtx,
     | true, builder -> Ok builder
     | false, _ -> Error ErrorCase.ItemNotFound
 
-and TerminationStatus<'FnCtx,
-                      'GlCtx when 'FnCtx :> IResettable
-                              and 'FnCtx: (new: unit -> 'FnCtx)
-                              and 'GlCtx: (new: unit -> 'GlCtx)> =
+and TerminationStatus<'FnCtx, 'GlCtx
+  when 'FnCtx :> IResettable
+  and 'FnCtx: (new: unit -> 'FnCtx)
+  and 'GlCtx: (new: unit -> 'GlCtx)> =
   /// Everything is finished and there's no forcefully terminated builders.
   | AllDone
   /// Everything is finished, but there are some builders that are forcefully

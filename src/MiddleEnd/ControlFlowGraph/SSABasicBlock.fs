@@ -46,7 +46,8 @@ type SSABasicBlock private(ppoint, lastAddr, stmts: _[], funcAbs) =
       match v.Kind with
       | PCVar _ -> ProgramPoint(bv.ToUInt64(), 0)
       | _ -> ppoint.Next()
-    | _ -> ppoint.Next()
+    | _ ->
+      ppoint.Next()
 
   /// Return the `ISSABasicBlock` interface to access the internal
   /// representation of the basic block.
@@ -111,7 +112,8 @@ type SSABasicBlock private(ppoint, lastAddr, stmts: _[], funcAbs) =
         |> Array.map (fun (_, stmt) ->
           [| { AsmWordKind = AsmWordKind.String
                AsmWordValue = PrettyPrinter.ToString stmt } |])
-      else [||]
+      else
+        [||]
 
 /// Interafce for a basic block containing a sequence of SSA statements.
 and ISSABasicBlock =

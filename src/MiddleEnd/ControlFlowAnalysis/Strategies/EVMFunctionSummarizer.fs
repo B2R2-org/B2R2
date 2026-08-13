@@ -38,10 +38,10 @@ open B2R2.MiddleEnd.BinGraph
 /// Summarizes a function in the EVM context. Thanks to the powerful
 /// expressiveness of B2R2's IR, we can easily express a function's
 /// abstraction, including its unwinding behavior and return behavior.
-type EVMFunctionSummarizer<'FnCtx,
-                           'GlCtx when 'FnCtx :> EVMFuncUserContext
-                                   and 'FnCtx: (new: unit -> 'FnCtx)
-                                   and 'GlCtx: (new: unit -> 'GlCtx)>() =
+type EVMFunctionSummarizer<'FnCtx, 'GlCtx
+  when 'FnCtx :> EVMFuncUserContext
+  and 'FnCtx: (new: unit -> 'FnCtx)
+  and 'GlCtx: (new: unit -> 'GlCtx)>() =
   let makeRundownForReturn hdl unwindingAmount retStackOff =
     let spRegId = (hdl: BinHandle).RegisterFactory.StackPointer |> Option.get
     let spVar = hdl.RegisterFactory.GetRegVar spRegId
@@ -135,13 +135,17 @@ and EVMFuncUserContext() =
       | BinOpType.ADD -> v1 + v2
       | BinOpType.SUB -> v1 - v2
       | _ -> Terminator.impossible ()
-    | Num(bv, _) -> bv
-    | Var(_, regId, _, _) when regId = spId -> offBV
-    | _ -> Terminator.impossible ()
+    | Num(bv, _) ->
+      bv
+    | Var(_, regId, _, _) when regId = spId ->
+      offBV
+    | _ ->
+      Terminator.impossible ()
 
   let getStackPointerDelta state v =
     match perVertexStackPointerDelta.TryGetValue v with
-    | true, delta -> delta
+    | true, delta ->
+      delta
     | false, _ ->
       let delta = computeStackPointerDelta state v
       perVertexStackPointerDelta[v] <- delta

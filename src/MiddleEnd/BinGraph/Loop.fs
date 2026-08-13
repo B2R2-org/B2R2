@@ -46,7 +46,8 @@ let private findNaturalLoopBody g (edge: Edge<_, _>) =
     if not (body.Contains v) then
       body.Add v |> ignore
       for pred in (g: IDiGraphAccessible<_, _>).GetPreds v do stack.Push pred
-    else ()
+    else
+      ()
   body
 
 /// Gets the natural loops in the given directed graph.

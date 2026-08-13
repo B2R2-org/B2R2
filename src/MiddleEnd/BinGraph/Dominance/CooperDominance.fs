@@ -61,10 +61,12 @@ let private prepareWithDummyRoot g info =
 #else
     Traversal.BFS.reverseFoldWithRoots g
 #endif
-      (realRoots |> Array.toList) (fun n v ->
+      (realRoots |> Array.toList)
+      (fun n v ->
        info.NumMap[v.ID] <- n
        info.Vertex[n] <- v
-       n + 1) 0
+       n + 1)
+      0
   info.NumMap[info.DummyRoot.ID] <- n
   info.Vertex[n] <- info.DummyRoot
   for r in realRoots |> Array.map (fun v -> info.NumMap[v.ID]) do
@@ -103,14 +105,16 @@ let rec private domsAux acc v info =
     if idom = -1 || idom = info.NumMap[info.DummyRoot.ID]
     then acc |> List.toArray
     else domsAux (info.Vertex[idom] :: acc) info.Vertex[idom] info
-  else acc |> List.toArray
+  else
+    acc |> List.toArray
 
 let private idomAux info v =
   if info.NumMap.ContainsKey((v: IVertex<'V>).ID) then
     let num = info.IDom[info.NumMap[v.ID]]
     if num <> -1 && num <> info.NumMap[info.DummyRoot.ID] then info.Vertex[num]
     else null
-  else null
+  else
+    null
 
 let private prepareDomInfo (g: IDiGraphAccessible<_, _>) =
   let info = initDomInfo g
@@ -137,7 +141,9 @@ let private computeDomInfo g =
   let info, n = prepareDomInfo g
   computeIDom info n
 
-let private createDominance fwG (bwG: Lazy<IDiGraphAccessible<_, _>>) fwInfo
+let private createDominance fwG
+                            (bwG: Lazy<IDiGraphAccessible<_, _>>)
+                            fwInfo
                             (fwDT: Lazy<DominatorTree<_, _>>)
                             (bwInfo: Lazy<CPDomInfo<_>>)
                             (bwDT: Lazy<DominatorTree<_, _>>)
@@ -162,7 +168,8 @@ let private createDominance fwG (bwG: Lazy<IDiGraphAccessible<_, _>>) fwInfo
 #endif
       if isNull pdfProvider then
         pdfProvider <- dfp.CreateIDominanceFrontier(fwG, this, false)
-      else ()
+      else
+        ()
       pdfProvider.DominanceFrontier v
     member _.PostDominators v =
 #if DEBUG
@@ -183,7 +190,8 @@ let private createDominance fwG (bwG: Lazy<IDiGraphAccessible<_, _>>) fwInfo
 #endif
       if isNull dfProvider then
         dfProvider <- dfp.CreateIDominanceFrontier(bwG.Value, this, true)
-      else ()
+      else
+        ()
       dfProvider.DominanceFrontier v
       |> Seq.map (findOriginalVertex fwG) }
 

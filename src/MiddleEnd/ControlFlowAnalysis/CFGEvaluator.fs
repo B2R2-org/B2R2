@@ -41,7 +41,8 @@ let private memoryReader (hdl: BinHandle) _pc addr typ _e =
     match hdl.TryReadBytes(ptr, len) with
     | Ok v -> Ok(BitVector v)
     | Error e -> Error e
-  else Error ErrorCase.InvalidMemoryRead
+  else
+    Error ErrorCase.InvalidMemoryRead
 
 let private stackAddr t = BitVector(InitialStackPointer, t)
 
@@ -52,8 +53,7 @@ let private obtainStackDef (hdl: BinHandle) =
 
 let private obtainFramePointerDef (hdl: BinHandle) =
   match hdl.RegisterFactory.FramePointer with
-  | Some r ->
-    [| r, hdl.ISA.WordSize |> WordSize.toRegType |> BitVector.Zero |]
+  | Some r -> [| r, hdl.ISA.WordSize |> WordSize.toRegType |> BitVector.Zero |]
   | None -> [||]
 
 let private initState hdl pc =
@@ -67,9 +67,7 @@ let private initState hdl pc =
 let private tryEvaluate stmt st =
   match SafeEvaluator.evalStmt st stmt with
   | Ok() -> Ok st
-  | Error e ->
-    if st.IgnoreUndef then st.NextStmt(); Ok st
-    else Error e
+  | Error e -> if st.IgnoreUndef then st.NextStmt(); Ok st else Error e
 
 /// Evaluate a sequence of statements, which is lifted from a single
 /// instruction.
@@ -85,8 +83,10 @@ let rec private evalStmts stmts result =
       else
         let stmt = stmts[idx]
         evalStmts stmts (tryEvaluate stmt st)
-    else Ok st
-  | Error _ -> result
+    else
+      Ok st
+  | Error _ ->
+    result
 
 let rec private evalBlockLoop idx (blk: Stmt[][]) result =
   match result with
@@ -96,8 +96,10 @@ let rec private evalBlockLoop idx (blk: Stmt[][]) result =
       st.PrepareInstrEval stmts
       evalStmts stmts (Ok st)
       |> evalBlockLoop (idx + 1) blk
-    else result
-  | Error e -> Error e
+    else
+      result
+  | Error e ->
+    Error e
 
 /// Evaluates a series of statement arrays, assuming that each array is obtained
 /// from a single machine instruction.

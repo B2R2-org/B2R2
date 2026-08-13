@@ -30,9 +30,10 @@ open System.Threading.Tasks
 open B2R2
 
 /// Task manager for control flow analysis.
-type TaskManager<'FnCtx, 'GlCtx when 'FnCtx :> IResettable
-                                 and 'FnCtx: (new: unit -> 'FnCtx)
-                                 and 'GlCtx: (new: unit -> 'GlCtx)>
+type TaskManager<'FnCtx, 'GlCtx
+  when 'FnCtx :> IResettable
+  and 'FnCtx: (new: unit -> 'FnCtx)
+  and 'GlCtx: (new: unit -> 'GlCtx)>
   public(builders: CFGBuilderTable<'FnCtx, 'GlCtx>,
          strategy: ICFGBuildingStrategy<'FnCtx, 'GlCtx>,
          numThreads) =
@@ -104,10 +105,10 @@ type TaskManager<'FnCtx, 'GlCtx when 'FnCtx :> IResettable
 #endif
 
 /// Task worker for control flow recovery.
-and private TaskWorker<'FnCtx,
-                       'GlCtx when 'FnCtx :> IResettable
-                               and 'FnCtx: (new: unit -> 'FnCtx)
-                               and 'GlCtx: (new: unit -> 'GlCtx)>
+and private TaskWorker<'FnCtx, 'GlCtx
+  when 'FnCtx :> IResettable
+  and 'FnCtx: (new: unit -> 'FnCtx)
+  and 'GlCtx: (new: unit -> 'GlCtx)>
   public(tid: int,
          scheduler: TaskScheduler<'FnCtx, 'GlCtx>,
          strategy: ICFGBuildingStrategy<'FnCtx, 'GlCtx>,
@@ -120,8 +121,10 @@ and private TaskWorker<'FnCtx,
     task {
       while doContinue do
         match! stream.Receive(token) with
-        | NotAvailable -> doContinue <- false
-        | AvailableButNotReceived -> ()
+        | NotAvailable ->
+          doContinue <- false
+        | AvailableButNotReceived ->
+          ()
         | Received(BuildCFG builder) ->
           builder.Context.ThreadID <- tid
           try

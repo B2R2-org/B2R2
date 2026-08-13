@@ -52,27 +52,28 @@ type UntouchedValueAnalysis(hdl: BinHandle, vs) =
   let evaluateVarPoint (state: UntouchedValueState) pp varKind =
     let vp = { ProgramPoint = pp; VarKind = varKind }
     match state.UseDefMap.TryGetValue vp with
-    | true, defVp when defVp.ProgramPoint.IsFake ->
-      getBaseCase varKind
-    | true, defVp ->
-      state.DomainSubState.GetAbsValue defVp
-    | false, _ ->
-      UntouchedValueDomain.Undef
+    | true, defVp when defVp.ProgramPoint.IsFake -> getBaseCase varKind
+    | true, defVp -> state.DomainSubState.GetAbsValue defVp
+    | false, _ -> UntouchedValueDomain.Undef
 
   let rec evaluateExpr state pp e =
     match e with
-    | Var _ | TempVar _ -> evaluateVarPoint state pp (VarKind.ofIRExpr e)
+    | Var _ | TempVar _ ->
+      evaluateVarPoint state pp (VarKind.ofIRExpr e)
     | Load(_, _, addr, _) ->
       match state.EvaluateStackPointerExpr(pp, addr) with
       | StackPointerDomain.ConstSP bv ->
         let addr = bv.ToUInt64()
         let offset = LowUIRSparseDataFlow.toFrameOffset addr
         evaluateVarPoint state pp (StackLocal offset)
-      | _ -> UntouchedValueDomain.Touched
+      | _ ->
+        UntouchedValueDomain.Touched
     | Extract(e, _, _, _)
     | Cast(CastKind.ZeroExt, _, e, _)
-    | Cast(CastKind.SignExt, _, e, _) -> evaluateExpr state pp e
-    | _ -> UntouchedValueDomain.Touched
+    | Cast(CastKind.SignExt, _, e, _) ->
+      evaluateExpr state pp e
+    | _ ->
+      UntouchedValueDomain.Touched
 
   let lattice =
     { new ILattice<UntouchedValueLattice> with

@@ -24,8 +24,7 @@
 
 namespace B2R2.MiddleEnd.BinGraph
 
-type RangedDiGraph<'D, 'E
-    when 'D :> RangedVertexData and 'D : equality>(core) =
+type RangedDiGraph<'D, 'E when 'D :> RangedVertexData and 'D : equality>(core) =
   inherit DiGraph<'D, 'E>(core: GraphCore<'D, 'E, DiGraph<'D, 'E>>)
 
   member _.FindVertexByRange range =

@@ -36,10 +36,10 @@ open B2R2.MiddleEnd.DataFlow
 /// the function CFG while maintaining its internal state. By "internal", we
 /// mean that the function is defined within the target binary as opposed to
 /// external (library) functions.
-type InternalFnCFGBuilder<'FnCtx,
-                          'GlCtx when 'FnCtx :> IResettable
-                                  and 'FnCtx: (new: unit -> 'FnCtx)
-                                  and 'GlCtx: (new: unit -> 'GlCtx)>
+type InternalFnCFGBuilder<'FnCtx, 'GlCtx
+  when 'FnCtx :> IResettable
+  and 'FnCtx: (new: unit -> 'FnCtx)
+  and 'GlCtx: (new: unit -> 'GlCtx)>
   public(ctx, nextFnAddr, manager: Agent<TaskManagerCommand<'FnCtx, 'GlCtx>>) =
 
   /// Internal builder state.
@@ -101,8 +101,10 @@ type InternalFnCFGBuilder<'FnCtx,
           manager.Post <| UpdateGlobalContext updater }
 
   let rec build (strategy: ICFGBuildingStrategy<_, _>) queue =
-    if (queue: CFGActionQueue).IsEmpty() then strategy.OnFinish ctx
-    elif state = Invalid then FailStop ErrorCase.UnexpectedError
+    if (queue: CFGActionQueue).IsEmpty() then
+      strategy.OnFinish ctx
+    elif state = Invalid then
+      FailStop ErrorCase.UnexpectedError
     else
       let action = queue.Pop()
       match strategy.OnAction(ctx, queue, action) with
@@ -114,12 +116,7 @@ type InternalFnCFGBuilder<'FnCtx,
 
   do ctx.ManagerChannel <- managerChannel
 
-  new(hdl: BinHandle,
-      exnInfo,
-      instrs,
-      entryPoint,
-      manager,
-      irBlkOptimizer) =
+  new(hdl: BinHandle, exnInfo, instrs, entryPoint, manager, irBlkOptimizer) =
     let name =
       match BinFileOps.tryResolveName hdl.File entryPoint with
       | Ok name -> name

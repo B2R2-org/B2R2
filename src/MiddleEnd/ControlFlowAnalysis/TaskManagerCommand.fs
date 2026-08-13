@@ -28,10 +28,10 @@ open B2R2
 open B2R2.MiddleEnd.ControlFlowGraph
 
 /// Request messages for the task manager.
-type TaskManagerCommand<'FnCtx,
-                        'GlCtx when 'FnCtx :> IResettable
-                                and 'FnCtx: (new: unit -> 'FnCtx)
-                                and 'GlCtx: (new: unit -> 'GlCtx)> =
+type TaskManagerCommand<'FnCtx, 'GlCtx
+  when 'FnCtx :> IResettable
+  and 'FnCtx: (new: unit -> 'FnCtx)
+  and 'GlCtx: (new: unit -> 'GlCtx)> =
   /// Start building a CFG for a function at the given address using the given
   /// operation mode.
   | StartBuilding of Addr

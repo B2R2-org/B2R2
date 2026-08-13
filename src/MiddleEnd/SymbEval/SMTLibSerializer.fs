@@ -84,31 +84,42 @@ module SMTLibSerializer =
     match decls.TryGetValue name with
     | true, oldTyp when oldTyp <> typ ->
       invalidOp $"Conflicting SMT-LIB variable type: {name}"
-    | true, _ -> ()
-    | false, _ -> decls[name] <- typ
+    | true, _ ->
+      ()
+    | false, _ ->
+      decls[name] <- typ
 
   let rec private collectVars decls = function
-    | Const _ -> ()
-    | Var(name, typ) -> collectVar decls name typ
-    | UnOp(_, expr) -> collectVars decls expr
+    | Const _ ->
+      ()
+    | Var(name, typ) ->
+      collectVar decls name typ
+    | UnOp(_, expr) ->
+      collectVars decls expr
     | BinOp(_, _, lhs, rhs)
     | RelOp(_, lhs, rhs) ->
       collectVars decls lhs
       collectVars decls rhs
-    | Load(_, _, addr) -> collectVars decls addr
+    | Load(_, _, addr) ->
+      collectVars decls addr
     | Ite(cond, thenExpr, elseExpr) ->
       collectVars decls cond
       collectVars decls thenExpr
       collectVars decls elseExpr
     | Cast(_, _, expr)
-    | Extract(expr, _, _) -> collectVars decls expr
-    | FuncApp(_, _, args) -> args |> List.iter (collectVars decls)
-    | Undef _ -> ()
+    | Extract(expr, _, _) ->
+      collectVars decls expr
+    | FuncApp(_, _, args) ->
+      args |> List.iter (collectVars decls)
+    | Undef _ ->
+      ()
 
   let rec private serializeBool expr =
     match expr with
-    | Const bv when bv.IsTrue -> "true"
-    | Const bv when bv.IsFalse -> "false"
+    | Const bv when bv.IsTrue ->
+      "true"
+    | Const bv when bv.IsFalse ->
+      "false"
     | RelOp(RelOpType.NEQ, lhs, rhs) ->
       $"(not (= {serializeExpr lhs} {serializeExpr rhs}))"
     | RelOp(op, lhs, rhs) ->
@@ -124,34 +135,41 @@ module SMTLibSerializer =
 
   and serializeExpr expr =
     match expr with
-    | Const bv -> bvConst bv
-    | Var(name, _) -> symbol name
-    | UnOp(op, expr) -> $"({unaryOp op} {serializeExpr expr})"
+    | Const bv ->
+      bvConst bv
+    | Var(name, _) ->
+      symbol name
+    | UnOp(op, expr) ->
+      $"({unaryOp op} {serializeExpr expr})"
     | BinOp(BinOpType.CONCAT, _, lhs, rhs) ->
       $"(concat {serializeExpr lhs} {serializeExpr rhs})"
     | BinOp(op, _, lhs, rhs) ->
       $"({binaryOp op} {serializeExpr lhs} {serializeExpr rhs})"
-    | RelOp(op, lhs, rhs) -> serializeRelAsBitVec op lhs rhs
-    | Load _ -> unsupported "symbolic load"
+    | RelOp(op, lhs, rhs) ->
+      serializeRelAsBitVec op lhs rhs
+    | Load _ ->
+      unsupported "symbolic load"
     | Ite(cond, thenExpr, elseExpr) ->
       $"(ite {serializeBool cond} {serializeExpr thenExpr} "
       + $"{serializeExpr elseExpr})"
     | Cast(kind, typ, expr) ->
       let amount = RegType.toBitWidth typ - RegType.toBitWidth expr.Type
-      if amount < 0 then invalidOp $"Invalid SMT-LIB cast width: {expr.Type}"
-      elif amount = 0 then serializeExpr expr
+      if amount < 0 then
+        invalidOp $"Invalid SMT-LIB cast width: {expr.Type}"
+      elif amount = 0 then
+        serializeExpr expr
       else
         match kind with
-        | CastKind.SignExt ->
-          $"((_ sign_extend {amount}) {serializeExpr expr})"
-        | CastKind.ZeroExt ->
-          $"((_ zero_extend {amount}) {serializeExpr expr})"
+        | CastKind.SignExt -> $"((_ sign_extend {amount}) {serializeExpr expr})"
+        | CastKind.ZeroExt -> $"((_ zero_extend {amount}) {serializeExpr expr})"
         | kind -> CastKind.toString kind |> unsupported
     | Extract(expr, typ, startPos) ->
       let hi = startPos + RegType.toBitWidth typ - 1
       $"((_ extract {hi} {startPos}) {serializeExpr expr})"
-    | FuncApp _ -> unsupported "function application"
-    | Undef(_, reason) -> unsupported $"undefined value ({reason})"
+    | FuncApp _ ->
+      unsupported "function application"
+    | Undef(_, reason) ->
+      unsupported $"undefined value ({reason})"
 
   let private serializeScriptPrefix pathCondition additionalDeclExprs =
     let decls = Dictionary<string, RegType>()

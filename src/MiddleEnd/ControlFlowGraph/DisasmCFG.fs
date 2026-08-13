@@ -53,7 +53,8 @@ type DisasmCFG(disasmBuilder, ircfg: LowUIRCFG) =
   let getTempVertex (vMap: TempDisasmVMap) (v: IVertex<LowUIRBasicBlock>) =
     let addr = v.VData.Internals.PPoint.Address
     match vMap.TryGetValue(addr) with
-    | true, tmpV -> tmpV
+    | true, tmpV ->
+      tmpV
     | false, _ ->
       let tmpV =
         { Address = addr
@@ -105,7 +106,8 @@ type DisasmCFG(disasmBuilder, ircfg: LowUIRCFG) =
     && not <| hasIntraBackEdge g srcTmpV.IRVertex
 
   let rec skipAbsVertices (g: LowUIRCFG) (v: IVertex<LowUIRBasicBlock>) =
-    if not v.VData.Internals.IsAbstract then v
+    if not v.VData.Internals.IsAbstract then
+      v
     else
       match g.GetSuccs(v) with
       | [||] -> v
@@ -128,7 +130,8 @@ type DisasmCFG(disasmBuilder, ircfg: LowUIRCFG) =
 
   let rec dfs g tempVMap (visited: HashSet<_>) edges =
     match edges with
-    | [] -> ()
+    | [] ->
+      ()
     | (e: Edge<LowUIRBasicBlock, _>) :: rest ->
       visited.Add(e) |> ignore
       let s, d, e = e.First, e.Second, e.Label
@@ -154,7 +157,8 @@ type DisasmCFG(disasmBuilder, ircfg: LowUIRCFG) =
 
   let getDisasmVertex g (vMap: DisasmVMap) (tempVMap: TempDisasmVMap) addr =
     match vMap.TryGetValue(addr) with
-    | true, v -> v, g
+    | true, v ->
+      v, g
     | false, _ ->
       let tmpV = tempVMap[addr]
       let ppoint = ProgramPoint(tmpV.Address, 0)

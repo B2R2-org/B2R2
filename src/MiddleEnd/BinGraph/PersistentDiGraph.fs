@@ -25,8 +25,9 @@
 namespace B2R2.MiddleEnd.BinGraph
 
 /// Represents a persistent directed graph.
-type PersistentDiGraph<'V, 'E when 'V: equality
-                               and 'E: equality>(roots, vs, preds, succs, id) =
+type PersistentDiGraph<'V, 'E
+  when 'V: equality
+  and 'E: equality>(roots, vs, preds, succs, id) =
   let vertices = vs
 
   let preds: Map<VertexID, Edge<'V, 'E> list> = preds

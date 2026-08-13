@@ -44,10 +44,10 @@ open B2R2.MiddleEnd.ControlFlowAnalysis.Strategies
 /// the target binary, such as instructions, IRs, functions, CFGs, and exception
 /// information, etc.
 /// </summary>
-type BinaryBrew<'FnCtx,
-                'GlCtx when 'FnCtx :> IResettable
-                        and 'FnCtx: (new: unit -> 'FnCtx)
-                        and 'GlCtx: (new: unit -> 'GlCtx)>
+type BinaryBrew<'FnCtx, 'GlCtx
+  when 'FnCtx :> IResettable
+  and 'FnCtx: (new: unit -> 'FnCtx)
+  and 'GlCtx: (new: unit -> 'GlCtx)>
   public(hdl: BinHandle,
          exnInfo: ExceptionInfo,
          funcID: IFunctionIdentifiable,

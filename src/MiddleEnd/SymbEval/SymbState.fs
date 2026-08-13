@@ -49,8 +49,7 @@ type SymbState(regs, temps, lbls, mem: ISymbMemory, pathCond: SymbExpr list) =
              SymbMemory() :> ISymbMemory,
              [])
 
-  new(mem) =
-    SymbState(SymbVariables(), SymbVariables(), Labels(), mem, [])
+  new(mem) = SymbState(SymbVariables(), SymbVariables(), Labels(), mem, [])
 
   member _.PC with get() = pc and set(addr) = pc <- addr
 

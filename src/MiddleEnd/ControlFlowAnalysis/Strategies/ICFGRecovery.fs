@@ -31,9 +31,10 @@ open B2R2.MiddleEnd.ControlFlowGraph
 open B2R2.MiddleEnd.ControlFlowAnalysis
 
 /// Represents the main interface for CFG recovery strategies.
-type ICFGRecovery<'UsrCtx, 'GlbCtx when 'UsrCtx :> IResettable
-                                    and 'UsrCtx: (new: unit -> 'UsrCtx)
-                                    and 'GlbCtx: (new: unit -> 'GlbCtx)> =
+type ICFGRecovery<'UsrCtx, 'GlbCtx
+  when 'UsrCtx :> IResettable
+  and 'UsrCtx: (new: unit -> 'UsrCtx)
+  and 'GlbCtx: (new: unit -> 'GlbCtx)> =
   inherit ICFGBuildingStrategy<'UsrCtx, 'GlbCtx>
   inherit IIndirectJmpAnalyzable<'UsrCtx, 'GlbCtx>
   inherit IGraphCallback<'UsrCtx, 'GlbCtx>
@@ -43,9 +44,10 @@ type ICFGRecovery<'UsrCtx, 'GlbCtx when 'UsrCtx :> IResettable
 
 /// Handles the analysis of indirect jumps and conditional jumps during CFG
 /// recovery.
-and IIndirectJmpAnalyzable<'FnCtx, 'GlCtx when 'FnCtx :> IResettable
-                                           and 'FnCtx: (new: unit -> 'FnCtx)
-                                           and 'GlCtx: (new: unit -> 'GlCtx)> =
+and IIndirectJmpAnalyzable<'FnCtx, 'GlCtx
+  when 'FnCtx :> IResettable
+  and 'FnCtx: (new: unit -> 'FnCtx)
+  and 'GlCtx: (new: unit -> 'GlCtx)> =
   abstract AnalyzeIndirectJump:
        CFGBuildingContext<'FnCtx, 'GlCtx>
     * Queue<ProgramPoint>
@@ -61,9 +63,10 @@ and IIndirectJmpAnalyzable<'FnCtx, 'GlCtx when 'FnCtx :> IResettable
     -> Option<CFGResult>
 
 /// Represents a callback interface for graph operations in CFG recovery.
-and IGraphCallback<'FnCtx, 'GlCtx when 'FnCtx :> IResettable
-                                    and 'FnCtx: (new: unit -> 'FnCtx)
-                                    and 'GlCtx: (new: unit -> 'GlCtx)> =
+and IGraphCallback<'FnCtx, 'GlCtx
+  when 'FnCtx :> IResettable
+  and 'FnCtx: (new: unit -> 'FnCtx)
+  and 'GlCtx: (new: unit -> 'GlCtx)> =
   /// Called when a new vertex is added to the CFG.
   abstract OnAddVertex:
        CFGBuildingContext<'FnCtx, 'GlCtx>

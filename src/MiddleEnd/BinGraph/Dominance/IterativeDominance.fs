@@ -54,7 +54,8 @@ let private computeDoms (g: IDiGraphAccessible<_, _>) =
       if newDoms <> doms[v] then
         doms[v] <- newDoms
         changed <- true
-      else ()
+      else
+        ()
   doms
 
 let private computeIDoms g (doms: Dictionary<_, _>) =
@@ -64,14 +65,15 @@ let private computeIDoms g (doms: Dictionary<_, _>) =
   for v in g.Vertices do tmps[v] <- Set.remove v doms[v]
   for r in roots do idoms[r] <- null
   for v in g.Vertices do
-    if idoms.ContainsKey v then ()
+    if idoms.ContainsKey v then
+      ()
     else
       for s in tmps[v] do
         for t in Set.remove s tmps[v] do
-          if Set.contains t tmps[s] then tmps[v] <- Set.remove t tmps[v]
-          else ()
+          if Set.contains t tmps[s] then tmps[v] <- Set.remove t tmps[v] else ()
   for v in g.Vertices do
-    if idoms.ContainsKey v then ()
+    if idoms.ContainsKey v then
+      ()
     else
       (* ipdom may not exist when there are multiple exit nodes. *)
       idoms[v] <- if Set.isEmpty tmps[v] then null else tmps[v].MinimumElement
@@ -120,7 +122,8 @@ type private IterativeDominance<'V, 'E when 'V: equality and 'E: equality>
 #endif
       if isNull dfProvider then
         dfProvider <- dfp.CreateIDominanceFrontier(g, this, false)
-      else ()
+      else
+        ()
       dfProvider.DominanceFrontier v
 
     member _.PostDominators v =
@@ -147,7 +150,8 @@ type private IterativeDominance<'V, 'E when 'V: equality and 'E: equality>
       if isNull pdfProvider then
         pdfProvider <-
           dfp.CreateIDominanceFrontier(backwardG.Value, this, true)
-      else ()
+      else
+        ()
       pdfProvider.DominanceFrontier v
       |> Seq.map (findOriginalVertex g)
 

@@ -63,7 +63,8 @@ module internal ELF = begin
     |> Map.ofList
 
   let getNoReturnStatusFromKnownFunc (name: string) =
-    if knownNoReturnFuncs.Contains name then NoRet
+    if knownNoReturnFuncs.Contains name then
+      NoRet
     else
       match knownCondNoReturnFuncMap.TryGetValue name with
       | true, nth -> ConditionalNoRet nth

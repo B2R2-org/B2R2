@@ -39,8 +39,7 @@ type JmpTableRecoveryNotebook() =
       note.StartingPoint <= addr && addr <= note.PotentialEndPoint)
 
   let updatePotentialEndPoint note newPoint =
-    if note.PotentialEndPoint > newPoint then
-      note.PotentialEndPoint <- newPoint
+    if note.PotentialEndPoint > newPoint then note.PotentialEndPoint <- newPoint
     else ()
 
   let syncConfirmedEndPoint note newPoint =
@@ -70,11 +69,11 @@ type JmpTableRecoveryNotebook() =
       | false, _ -> SharedByFunctions note.HostFunctionAddr
     else
       match findOverlap tblAddr with
-      | Some note -> OverlappingNote note (* Return the overlapping note. *)
+      | Some note ->
+        OverlappingNote note (* Return the overlapping note. *)
       | None ->
         let potentialEndPoint =
-          if jmptbl.IsSingleEntry then tblAddr
-          else System.UInt64.MaxValue
+          if jmptbl.IsSingleEntry then tblAddr else System.UInt64.MaxValue
         let note =
           { HostFunctionAddr = fnAddr
             InsAddr = jmptbl.InsAddr
@@ -94,7 +93,8 @@ type JmpTableRecoveryNotebook() =
     match notes.TryGetValue tblAddr with
     | true, note when note.HostFunctionAddr = fnAddr ->
       notes.Remove tblAddr |> ignore
-    | _ -> ()
+    | _ ->
+      ()
 
   /// Check if the given index is expandable within the jump table.
   member _.IsExpandable(tblAddr, idx) =
