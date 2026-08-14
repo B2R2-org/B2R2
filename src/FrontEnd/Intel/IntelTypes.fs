@@ -33,6 +33,10 @@ and PrefixKind =
   | P66
   | F3
   | F2
+  /// 66h and F2h together. Only the operand-size prefix separates CRC32's two
+  /// source widths, and only F2h separates either of them from MOVBE, so the
+  /// narrower row needs both and neither one alone will do.
+  | P66F2
 
 type REXPrefixType =
   | NOREX = 0
