@@ -509,7 +509,7 @@ type IntelParser(wordSz, reader) =
         OperandParsers.findRegReg sz modRM phlp |> OprReg
       | OprRegType.IS4 -> (* imm8[7:4] holds the register. *)
         let regBit = phlp.ReadByte span >>> 4 &&& 0b1111uy |> int
-        OperandParsers.findRegRBits sz phlp.REXPrefix regBit |> OprReg
+        OperandParsers.findRegIS4 phlp.WordSize sz regBit |> OprReg
       | OprRegType.Unused -> failwith "Unused OprRegType." (* FixedReg *)
     | RegSae sz ->
       setupOprContextWithEffAddr phlp sz sz
