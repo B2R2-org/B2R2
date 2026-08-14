@@ -122,7 +122,13 @@ type IntelParser(wordSz, reader) =
     | r when (r &&& REXPrefix.REXW) = REXPrefix.REXW ->
       (insREX = REXPrefixType.WIG) || (insREX = REXPrefixType.W1) ||
       (insREX = REXPrefixType.REXW)
-    | _ -> true
+    | _ ->
+      (* A prefix with W clear. It still extends registers, so a row that says
+         nothing about W matches; one that asks for W1 does not, and letting it
+         through leaves VFMADD132PS and VFMADD132PD both matching their shared
+         opcode byte with nothing but table order to tell them apart. *)
+      (insREX = REXPrefixType.WIG) || (insREX = REXPrefixType.W0) ||
+      (insREX = REXPrefixType.NOREX) || (insREX = REXPrefixType.REX)
 
   /// Returns true when pref satisfies insPref, treating Legacy NP as a fallback
   /// for Mandatory NP.
