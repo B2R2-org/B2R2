@@ -1940,6 +1940,23 @@ type ParserTests() =
     ++ VPMULLD ** [ O.Reg R.YMM0; O.Reg R.YMM3; O.Reg R.YMM3 ]
     ||> testX64NoPrefixNoSeg
 
+  (* VEX.W is what tells the single-precision form from the double: W0 here
+     and W1 for VFMADD132PD at the same opcode byte. The prefix also carries
+     R, which is what makes the difference visible - with no register needing
+     R, X or B the whole prefix reads as absent and the W0 row is reached
+     anyway. *)
+  [<TestMethod>]
+  member _.``VEX W bit selects the operand kind (1)``() =
+    "c4625198e3"
+    ++ VFMADD132PS ** [ O.Reg R.XMM12; O.Reg R.XMM5; O.Reg R.XMM3 ]
+    ||> testX64NoPrefixNoSeg
+
+  [<TestMethod>]
+  member _.``VEX W bit selects the operand kind (2)``() =
+    "c462d198e3"
+    ++ VFMADD132PD ** [ O.Reg R.XMM12; O.Reg R.XMM5; O.Reg R.XMM3 ]
+    ||> testX64NoPrefixNoSeg
+
   [<TestMethod>]
   member _.``MOV to/from control registers (1)``() =
     "0f20c0"
