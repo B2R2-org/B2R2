@@ -1990,6 +1990,16 @@ type ParserTests() =
         O.Imm(0x3aL, 8<rt>) ]
     ||> testX64NoPrefixNoSeg
 
+  (* A segment selector is two bytes wherever it comes from. REX.W widens the
+     register the value may arrive in, not the memory read, which is how the
+     paired store at 8C is written. The 8E row prints r/m64 instead, and the
+     patch file records why the tables depart from it. *)
+  [<TestMethod>]
+  member _.``Segment register loaded from memory (1)``() =
+    "488e5e10"
+    ++ MOV ** [ O.Reg R.DS; O.Mem(R.RSI, 16L, 16<rt>) ]
+    ||> testX64NoPrefixNoSeg
+
   [<TestMethod>]
   member _.``MOV to/from control registers (1)``() =
     "0f20c0"
