@@ -140,21 +140,43 @@ type IntelParser(wordSz, reader) =
       else pref = insPref
     | _ -> true
 
+  /// Returns true when 66h names an instruction in this slot rather than
+  /// setting the operand size. A row has to ask for it: MOVUPD asks at 0F 10
+  /// and so keeps MOVUPS from answering the prefixed bytes, while nothing
+  /// asks at 0F 38 F1, which leaves 66h free to mean the width MOVBE's
+  /// 16-bit form is written with. Under F2h a row asks for the pair, so
+  /// CRC32's narrow source is a separate question from MOVBE's.
+  let is66hOpcodeSelector (ins: InstructionCore[]) mPref =
+    let asked =
+      if Prefix.hasREPNZ mPref then Mandatory P66F2 else Mandatory P66
+    ins |> Array.exists (fun i -> i.PrefixType = asked)
+
   /// Returns true when the current prefix state satisfies insPref, with Legacy
   /// NP as a fallback for Mandatory NP.
-  let matchPrefixWithLegacyFallback (phlp: ParsingHelper) insPref =
+  let matchPrefixWithLegacyFallback (phlp: ParsingHelper) ins insPref =
     let pref =
       match phlp.VEXInfo with
       | Some v -> v.VPrefixes
       | _ -> phlp.Prefixes
-    let mPref = pref &&& (Prefix.OPSIZE ||| Prefix.REPZ ||| Prefix.REPNZ)
-    if Prefix.hasOprSz mPref then insPref = Mandatory P66 || insPref = Legacy NP
-    elif Prefix.hasREPZ mPref then insPref = Mandatory F3 || insPref = Legacy NP
+    let sel = pref &&& (Prefix.OPSIZE ||| Prefix.REPZ ||| Prefix.REPNZ)
+    (* Where no row asks for 66h it is not selecting anything, so it is left
+       out of the question here and matchOperandSize reads it instead. *)
+    let mPref =
+      if Prefix.hasOprSz sel && not (is66hOpcodeSelector ins sel) then
+        sel &&& (Prefix.REPZ ||| Prefix.REPNZ)
+      else sel
+    if Prefix.hasOprSz mPref && Prefix.hasREPNZ mPref then
+      insPref = Mandatory P66F2
+    elif Prefix.hasOprSz mPref then
+      insPref = Mandatory P66 || insPref = Legacy NP
+    elif Prefix.hasREPZ mPref then
+      insPref = Mandatory F3 || insPref = Legacy NP
     elif Prefix.hasREPNZ mPref then
       insPref = Mandatory F2 || insPref = Legacy NP
     elif mPref = Prefix.None then
       insPref = Legacy NP || insPref = Mandatory NP
-    else false
+    else
+      false
 
   /// Returns the effective PrefixType for opcodes that deviate from standard
   /// mandatory-prefix rules; None for all other opcodes.
@@ -165,40 +187,35 @@ type IntelParser(wordSz, reader) =
       | OpcodeClass.Normal OneByte
         when opByte = 0x90uy && Prefix.hasREPZ phlp.Prefixes ->
         Some(Mandatory F3) // F3 90 = PAUSE
-      | OpcodeClass.Normal TwoBytes when opByte = 0xBCuy || opByte = 0xBDuy ->
-        // 0F BC/BD use F3 as an opcode selector (TZCNT/LZCNT), while 66 still
-        // acts as the ordinary operand-size prefix for BSF/BSR.
-        if Prefix.hasREPZ phlp.Prefixes then Some(Mandatory F3)
-        else Some(Mandatory NP)
       | _ -> None
 
   /// Returns true when the current prefix satisfies the instruction's
   /// requirement, applying special-case resolution where needed.
-  let matchPrefix (phlp: ParsingHelper) opByte insPref =
+  let matchPrefix (phlp: ParsingHelper) ins opByte insPref =
     match tryResolveSpecialPrefix phlp opByte with
     | Some pref -> matchPrefixType pref insPref
-    | None -> matchPrefixWithLegacyFallback phlp insPref
+    | None -> matchPrefixWithLegacyFallback phlp ins insPref
 
-  /// Returns true when the special-case prefix acted as an opcode selector and
-  /// should be stripped after matching.
-  let shouldConsumeSpecialPrefix pref =
-    match pref with
-    | Mandatory NP -> false
-    | Mandatory _ -> true
-    | _ -> false
+  /// The prefixes a row named, which are the ones that picked it out rather
+  /// than describing its operands. Dropping the rest would lose what they
+  /// said: the 66h ahead of TZCNT's F3 set the operand size and nothing else
+  /// records that it was there.
+  let selectorPrefixes = function
+    | Mandatory P66 -> Prefix.OPSIZE
+    | Mandatory F3 -> Prefix.REPZ
+    | Mandatory F2 -> Prefix.REPNZ
+    | Mandatory P66F2 -> Prefix.OPSIZE ||| Prefix.REPNZ
+    | _ -> Prefix.None
 
-  /// Returns true when the matched prefix should be removed after parsing
-  /// (VEX always; legacy mandatory only when used as an opcode selector).
-  let shouldConsumePrefix (phlp: ParsingHelper) (insCore: InstructionCore) =
+  /// The prefixes to drop after parsing. A VEX prefix carries its own copy of
+  /// all three, so none of the legacy set outlives it.
+  let consumedPrefixes (phlp: ParsingHelper) (insCore: InstructionCore) =
     match phlp.VEXInfo with
-    | Some _ -> true
+    | Some _ -> Prefix.OPSIZE ||| Prefix.REPZ ||| Prefix.REPNZ
     | None ->
       match tryResolveSpecialPrefix phlp (uint8 insCore.OpcodeByte) with
-      | Some pref -> shouldConsumeSpecialPrefix pref
-      | None ->
-        match insCore.PrefixType with
-        | Mandatory _ -> true
-        | _ -> false
+      | Some pref -> selectorPrefixes pref
+      | None -> selectorPrefixes insCore.PrefixType
 
   /// Returns true for opcodes that implicitly operate on 16-bit operands
   /// without encoding an explicit size (e.g., MOVSW, PUSHF, IRET).
@@ -347,7 +364,7 @@ type IntelParser(wordSz, reader) =
   /// Returns true when every constraint the instruction core declares holds
   /// for the bytes at hand.
   let matchesInstrCore span (phlp: ParsingHelper) ins isRounding insCore =
-    matchPrefix phlp (uint8 insCore.OpcodeByte) insCore.PrefixType
+    matchPrefix phlp ins (uint8 insCore.OpcodeByte) insCore.PrefixType
     && matchCPUMode phlp.WordSize insCore.Mode64 insCore.Compat
     && matchOperandSize phlp.Prefixes ins insCore
     && matchREX phlp insCore
@@ -363,7 +380,7 @@ type IntelParser(wordSz, reader) =
     printfn
       "[%d] %A pref=%b mode=%b size=%b rex=%b vlen=%b modrm=%b addrsz=%b"
       i insCore.Opcode
-      (matchPrefix phlp (uint8 insCore.OpcodeByte) insCore.PrefixType)
+      (matchPrefix phlp ins (uint8 insCore.OpcodeByte) insCore.PrefixType)
       (matchCPUMode phlp.WordSize insCore.Mode64 insCore.Compat)
       (matchOperandSize phlp.Prefixes ins insCore)
       (matchREX phlp insCore)
@@ -637,12 +654,11 @@ type IntelParser(wordSz, reader) =
         operands[i] <- parseOperand span phlp szs modRM ic operandTypes[i]
       buildOperands operands
 
-  /// Removes the prefix from the set when the matched instruction consumed
-  /// it as an opcode selector rather than a plain prefix.
-  let consumePrefixIfNeeded phlp insCore =
-    if shouldConsumePrefix phlp insCore then
-      phlp.Prefixes <- filterPrefs phlp.Prefixes
-    else ()
+  /// Removes the prefixes the matched instruction consumed as opcode
+  /// selectors, leaving the ones that kept their ordinary meaning.
+  let consumePrefixIfNeeded (phlp: ParsingHelper) insCore =
+    let consumed = consumedPrefixes phlp insCore
+    phlp.Prefixes <- phlp.Prefixes &&& ~~~consumed
 
   member _.SetDisassemblySyntax syntax =
     match syntax with
