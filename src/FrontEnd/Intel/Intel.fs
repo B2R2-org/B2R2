@@ -21268,7 +21268,7 @@ let (norThree38: InstructionCore[][]) =
     [| // index 241(0xF1)
       { OpcodeByte = 241u
         Opcode = Opcode.CRC32
-        PrefixType = Mandatory F2
+        PrefixType = Mandatory P66
         REXPrefixType = REXPrefixType.NOREX
         VectorLength = VectorLength.None
         ModRM = ModRMType.ModRM OpRegMem

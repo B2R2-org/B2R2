@@ -1957,6 +1957,39 @@ type ParserTests() =
     ++ VFMADD132PD ** [ O.Reg R.XMM12; O.Reg R.XMM5; O.Reg R.XMM3 ]
     ||> testX64NoPrefixNoSeg
 
+  (* An /is4 operand names its register in imm8[7:4]. Those four bits already
+     reach every register the mode has, so no REX or VEX bit extends them
+     further - here imm8 is 0x10, which is ymm1 and not ymm9. *)
+  [<TestMethod>]
+  member _.``Register from imm8 bits 7 to 4 (1)``() =
+    "c4630d4b5d1010"
+    ++ VBLENDVPD **
+      [ O.Reg R.YMM11
+        O.Reg R.YMM14
+        O.Mem(R.RBP, 16L, 256<rt>)
+        O.Reg R.YMM1 ]
+    ||> testX64NoPrefixNoSeg
+
+  (* Tuple1 Scalar scales the compressed displacement by the width of the
+     scalar element, which for these is the byte or word the operand names.
+     REX.W says nothing here - both forms are WIG. *)
+  [<TestMethod>]
+  member _.``Compressed displacement of a scalar element (1)``() =
+    "62f37d08154908ef"
+    ++ VPEXTRW **
+      [ O.Mem(R.RCX, 16L, 16<rt>); O.Reg R.XMM1; O.Imm(0xefL, 8<rt>) ]
+    ||> testX64NoPrefixNoSeg
+
+  [<TestMethod>]
+  member _.``Compressed displacement of a scalar element (2)``() =
+    "62733d08204b083a"
+    ++ VPINSRB **
+      [ O.Reg R.XMM9
+        O.Reg R.XMM8
+        O.Mem(R.RBX, 8L, 8<rt>)
+        O.Imm(0x3aL, 8<rt>) ]
+    ||> testX64NoPrefixNoSeg
+
   [<TestMethod>]
   member _.``MOV to/from control registers (1)``() =
     "0f20c0"

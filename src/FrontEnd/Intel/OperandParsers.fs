@@ -208,6 +208,13 @@ let findRegRmAndSIBBase sz rex (n: int) = findReg sz rex 1 n
 /// Registers defined by REG field of the ModR/M byte.
 let findRegRBits sz rex (n: int): Register = findReg sz rex 4 n
 
+/// The register an /is4 operand names. Its four bits of imm8 already reach
+/// every register the mode has, so nothing in the REX or VEX prefix extends
+/// them; a 32-bit mode ignores the top one instead of adding to it.
+let findRegIS4 wordSize sz (n: int) =
+  if wordSize = WordSize.Bit32 then regOfIndex sz (n &&& 0b0111)
+  else regOfIndex sz n
+
 /// Registers defined by REG bit of the opcode: some instructions such as PUSH
 /// make use of its opcode to represent the REG bit. REX bits *cannot* change
 /// the symbol.
@@ -270,8 +277,12 @@ let uncompressedDisp (phlp: ParsingHelper) disp =
   (* Table 2-35. EVEX DISP8*N for Instructions Not Affected by Embedded
      Broadcast. *)
   | TupleType.FullMem, false, _, _ -> disp * (int64 vl / 8L), memSz
-  (* MemEffOprSize is the whole vector for a VSIB operand, so the element
-     width has to come from REX.W here rather than from memSz. *)
+  (* N is the width of the scalar element. A byte or word one says so in memSz
+     and cannot be read off REX.W, which those forms leave ignored; the wider
+     two have to come from REX.W instead, because a VSIB operand reports the
+     whole vector in memSz rather than its element. *)
+  | TupleType.Tuple1Scalar, false, _, _ when memSz <= 16<rt> ->
+    disp * (int64 memSz / 8L), memSz
   | TupleType.Tuple1Scalar, false, 32<rt>, false -> disp * 4L, memSz
   | TupleType.Tuple1Scalar, false, 64<rt>, true -> disp * 8L, memSz
   | TupleType.Tuple1Fixed, false, _, _ -> disp * (int64 memSz / 8L), memSz
