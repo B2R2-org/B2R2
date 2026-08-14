@@ -2235,7 +2235,7 @@ type ParserTests() =
   [<TestMethod>]
   member _.``BOUND is not an EVEX prefix in 32-bit mode (1)``() =
     "6201"
-    ++ BOUND ** [ O.Reg R.EAX; O.Mem(R.ECX, 32<rt>) ]
+    ++ BOUND ** [ O.Reg R.EAX; O.Mem(R.ECX, 64<rt>) ]
     ||> testX86NoPrefixNoSeg
 
   [<TestMethod>]
