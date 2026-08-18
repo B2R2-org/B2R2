@@ -83,13 +83,12 @@ module internal SymbolStore =
   let private getLibraryVerInfo (flags: MachFlag) libs nDesc =
     if flags.HasFlag MachFlag.MH_TWOLEVEL then
       let ord = nDesc >>> 8 &&& 0xffs |> int
-      if ord = 0 || ord = 254 then None
-      else Some <| Array.get libs (ord - 1)
-    else None
+      if ord = 0 || ord = 254 then None else Some <| Array.get libs (ord - 1)
+    else
+      None
 
   let private adjustSymVal toolBox addr = (* TODO: needs to consider n_type *)
-    if addr = 0UL then 0UL
-    else toolBox.BaseAddress + uint64 addr
+    if addr = 0UL then 0UL else toolBox.BaseAddress + uint64 addr
 
   let private parseNList toolBox libs strTab symTab offset =
     let reader = toolBox.Reader
@@ -183,7 +182,8 @@ module internal SymbolStore =
         let entryLen = sec.SecReserved2
         let entryCnt = sec.SecSize / uint64 entryLen
         parseSymbStub acc symbols dynsymtbl sec 0 entryLen entryCnt
-      | _ -> acc
+      | _ ->
+        acc
     secs |> Array.fold folder Map.empty
 
   /// Symbol pointers are similar to GOT in ELF.
@@ -195,7 +195,8 @@ module internal SymbolStore =
         let entryLen = WordSize.toByteWidth macHdr.Class
         let entryCnt = sec.SecSize / uint64 entryLen
         parseSymbStub acc symbols dynsymtbl sec 0 entryLen entryCnt
-      | _ -> acc
+      | _ ->
+        acc
     secs |> Array.fold folder Map.empty
 
   let getSymbolLibName symbol =
@@ -212,7 +213,8 @@ module internal SymbolStore =
              LibraryName = getSymbolLibName symbol
              TrampolineAddress = Some stubAddr
              TableAddress = addr }
-         | None -> () |]
+         | None ->
+           () |]
 
   let private buildSymbolMap stubs ptrtbls staticsymbs =
     let dict = Dictionary<Addr, Symbol>()

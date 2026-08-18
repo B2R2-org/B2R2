@@ -77,14 +77,18 @@ let zeroExtend bitSize extSize (imm: uint32) =
 /// UBFM or SBFM bitfield instruction. Must exclude more specific
 /// aliases UBFIZ, SBFIZ, UXT[BH], SXT[BHW], LSL, LSR and ASR.
 let bfxPreferred sf uns imms immr =
-  if imms < immr then false
-  elif imms = (concat sf 0b11111u 5) then false
+  if imms < immr then
+    false
+  elif imms = (concat sf 0b11111u 5) then
+    false
   elif immr = 0b000000u then
-    if sf = 0b0u && (imms = 0b000111u || imms = 0b001111u) then false
+    if sf = 0b0u && (imms = 0b000111u || imms = 0b001111u) then
+      false
     else
       not (concat sf uns 1 = 0b10u
         && (imms = 0b000111u || imms = 0b001111u || imms = 0b011111u))
-  else true
+  else
+    true
 
 /// HighestSetBit()
 /// ===============
@@ -93,7 +97,8 @@ let highestSetBit nBit imm =
     (* An immediate of zero has no set bit, which the encodings reaching here
        are not allowed to hold, so the instruction does not decode. *)
     if idx < 0 then raise ParsingFailureException
-    elif imm &&& (1u <<< idx) <> 0u then idx else loop (idx - 1)
+    elif imm &&& (1u <<< idx) <> 0u then idx
+    else loop (idx - 1)
   loop (nBit - 1)
 
 /// Ones()

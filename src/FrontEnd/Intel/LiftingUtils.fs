@@ -36,7 +36,8 @@ let numInsLen insLen (bld: ILowUIRBuilder) = numU32 insLen bld.RegType
 let numOprSize = function
   | 8<rt> | 16<rt> | 32<rt> | 64<rt> | 128<rt> | 256<rt> | 512<rt> as rt ->
     numI32 (int rt) rt
-  | _ -> raise InvalidOperandSizeException
+  | _ ->
+    raise InvalidOperandSizeException
 
 let inline is64bit (bld: ILowUIRBuilder) = bld.RegType = 64<rt>
 
@@ -44,8 +45,7 @@ let is64REXW bld (ins: Instruction) =
   is64bit bld && REXPrefix.hasW ins.REXPrefix
 
 #if DEBUG
-let assert32 bld =
-  if is64bit bld then raise InvalidISAException else ()
+let assert32 bld = if is64bit bld then raise InvalidISAException else ()
 #endif
 
 let inline getOperationSize (i: Instruction) = i.MainOperationSize
@@ -68,12 +68,12 @@ let private getMemExpr128 expr =
   | Load(e, 128<rt>, BinOp(BinOpType.ADD, _, Num(n, _), b, _), _) ->
     let off1 = AST.num n
     let off2 = BitVector.Add(n, BitVector(8, n.Length)) |> AST.num
-    struct (AST.load e 64<rt> (b .+ off2),
-            AST.load e 64<rt> (b .+ off1))
+    struct (AST.load e 64<rt> (b .+ off2), AST.load e 64<rt> (b .+ off1))
   | Load(e, 128<rt>, expr, _) ->
-    struct (AST.load e 64<rt> (expr .+ numI32 8 (Expr.typeOf expr)),
-            AST.load e 64<rt> expr)
-  | _ -> raise InvalidOperandException
+    let qwordAt8 = AST.load e 64<rt> (expr .+ numI32 8 (Expr.typeOf expr))
+    struct (qwordAt8, AST.load e 64<rt> expr)
+  | _ ->
+    raise InvalidOperandException
 
 let private getMemExpr256 expr =
   match expr with
@@ -83,16 +83,18 @@ let private getMemExpr256 expr =
     let off2 = BitVector.Add(n, BitVector(8, n.Length)) |> AST.num
     let off3 = BitVector.Add(n, BitVector(16, n.Length)) |> AST.num
     let off4 = BitVector.Add(n, BitVector(24, n.Length)) |> AST.num
-    struct (AST.load e 64<rt> (b .+ off4),
-            AST.load e 64<rt> (b .+ off3),
-            AST.load e 64<rt> (b .+ off2),
-            AST.load e 64<rt> (b .+ off1))
+    let qwordAtOffset4 = AST.load e 64<rt> (b .+ off4)
+    let qwordAtOffset3 = AST.load e 64<rt> (b .+ off3)
+    let qwordAtOffset2 = AST.load e 64<rt> (b .+ off2)
+    let qwordAtOffset1 = AST.load e 64<rt> (b .+ off1)
+    struct (qwordAtOffset4, qwordAtOffset3, qwordAtOffset2, qwordAtOffset1)
   | Load(e, 256<rt>, expr, _) ->
-    struct (AST.load e 64<rt> (expr .+ numI32 24 (Expr.typeOf expr)),
-            AST.load e 64<rt> (expr .+ numI32 16 (Expr.typeOf expr)),
-            AST.load e 64<rt> (expr .+ numI32 8 (Expr.typeOf expr)),
-            AST.load e 64<rt> expr)
-  | _ -> raise InvalidOperandException
+    let qwordAt24 = AST.load e 64<rt> (expr .+ numI32 24 (Expr.typeOf expr))
+    let qwordAt16 = AST.load e 64<rt> (expr .+ numI32 16 (Expr.typeOf expr))
+    let qwordAt8 = AST.load e 64<rt> (expr .+ numI32 8 (Expr.typeOf expr))
+    struct (qwordAt24, qwordAt16, qwordAt8, AST.load e 64<rt> expr)
+  | _ ->
+    raise InvalidOperandException
 
 let private getMemExpr512 expr =
   match expr with
@@ -106,24 +108,27 @@ let private getMemExpr512 expr =
     let off6 = BitVector.Add(n, BitVector(40, n.Length)) |> AST.num
     let off7 = BitVector.Add(n, BitVector(48, n.Length)) |> AST.num
     let off8 = BitVector.Add(n, BitVector(56, n.Length)) |> AST.num
-    struct (AST.load e 64<rt> (b .+ off8),
-            AST.load e 64<rt> (b .+ off7),
-            AST.load e 64<rt> (b .+ off6),
-            AST.load e 64<rt> (b .+ off5),
-            AST.load e 64<rt> (b .+ off4),
-            AST.load e 64<rt> (b .+ off3),
-            AST.load e 64<rt> (b .+ off2),
-            AST.load e 64<rt> (b .+ off1))
+    let qword8 = AST.load e 64<rt> (b .+ off8)
+    let qword7 = AST.load e 64<rt> (b .+ off7)
+    let qword6 = AST.load e 64<rt> (b .+ off6)
+    let qword5 = AST.load e 64<rt> (b .+ off5)
+    let qword4 = AST.load e 64<rt> (b .+ off4)
+    let qword3 = AST.load e 64<rt> (b .+ off3)
+    let qword2 = AST.load e 64<rt> (b .+ off2)
+    let qword1 = AST.load e 64<rt> (b .+ off1)
+    struct (qword8, qword7, qword6, qword5, qword4, qword3, qword2, qword1)
   | Load(e, 512<rt>, expr, _) ->
-    struct (AST.load e 64<rt> (expr .+ numI32 56 (Expr.typeOf expr)),
-            AST.load e 64<rt> (expr .+ numI32 48 (Expr.typeOf expr)),
-            AST.load e 64<rt> (expr .+ numI32 40 (Expr.typeOf expr)),
-            AST.load e 64<rt> (expr .+ numI32 32 (Expr.typeOf expr)),
-            AST.load e 64<rt> (expr .+ numI32 24 (Expr.typeOf expr)),
-            AST.load e 64<rt> (expr .+ numI32 16 (Expr.typeOf expr)),
-            AST.load e 64<rt> (expr .+ numI32 8 (Expr.typeOf expr)),
-            AST.load e 64<rt> expr)
-  | _ -> raise InvalidOperandException
+    let qword56 = AST.load e 64<rt> (expr .+ numI32 56 (Expr.typeOf expr))
+    let qword48 = AST.load e 64<rt> (expr .+ numI32 48 (Expr.typeOf expr))
+    let qword40 = AST.load e 64<rt> (expr .+ numI32 40 (Expr.typeOf expr))
+    let qword32 = AST.load e 64<rt> (expr .+ numI32 32 (Expr.typeOf expr))
+    let qword24 = AST.load e 64<rt> (expr .+ numI32 24 (Expr.typeOf expr))
+    let qword16 = AST.load e 64<rt> (expr .+ numI32 16 (Expr.typeOf expr))
+    let qword8 = AST.load e 64<rt> (expr .+ numI32 8 (Expr.typeOf expr))
+    let qword = AST.load e 64<rt> expr
+    struct (qword56, qword48, qword40, qword32, qword24, qword16, qword8, qword)
+  | _ ->
+    raise InvalidOperandException
 
 let private getMemExprs expr =
   match expr with
@@ -144,11 +149,13 @@ let private getMemExprs expr =
       AST.load e 64<rt> (expr .+ numI32 40 (Expr.typeOf expr))
       AST.load e 64<rt> (expr .+ numI32 48 (Expr.typeOf expr))
       AST.load e 64<rt> (expr .+ numI32 56 (Expr.typeOf expr)) ]
-  | _ -> raise InvalidOperandException
+  | _ ->
+    raise InvalidOperandException
 
 let private pseudoRegVars bld r =
   match RegisterHelper.getKind r with
-  | RegisterHelper.Kind.XMM -> [ pseudoRegVar bld r 1; pseudoRegVar bld r 2 ]
+  | RegisterHelper.Kind.XMM ->
+    [ pseudoRegVar bld r 1; pseudoRegVar bld r 2 ]
   | RegisterHelper.Kind.YMM ->
     [ pseudoRegVar bld r 1
       pseudoRegVar bld r 2
@@ -163,7 +170,8 @@ let private pseudoRegVars bld r =
       pseudoRegVar bld r 6
       pseudoRegVar bld r 7
       pseudoRegVar bld r 8 ]
-  | _ -> raise InvalidOperandException
+  | _ ->
+    raise InvalidOperandException
 
 let isSegReg = function
   | Register.CS
@@ -198,7 +206,10 @@ let private numOfAddrSz (ins: Instruction) (bld: ILowUIRBuilder) n =
   let sz =
     if bld.RegType = 32<rt> then
       if Prefix.hasAddrSz pref then 16<rt> else 32<rt>
-    elif Prefix.hasAddrSz pref then 32<rt> else 64<rt>
+    elif Prefix.hasAddrSz pref then
+      32<rt>
+    else
+      64<rt>
   numI64 n sz
 
 let inline private sIdx ins bld (r, s: Scale) =
@@ -216,7 +227,8 @@ let private transMem bld useTmpVar ins insLen b index disp oprSize =
       numOfAddrSz ins bld d
     | None, Some i, Some d ->
       let e = (sIdx ins bld i) .+ (numOfAddrSz ins bld d)
-      if not useTmpVar then e
+      if not useTmpVar then
+        e
       else
         let tAddress = tmpVar bld bld.RegType
         bld <+ (tAddress := e)
@@ -231,99 +243,124 @@ let private transMem bld useTmpVar ins insLen b index disp oprSize =
         regVar bld R.RIP
 #endif
       let e = pc .+ numOfAddrSz ins bld (d + int64 (insLen: uint32))
-      if not useTmpVar then e
+      if not useTmpVar then
+        e
       else
         let tAddress = tmpVar bld bld.RegType
         bld <+ (tAddress := e)
         tAddress
     | Some b, None, Some d ->
       let e = regVar bld b .+ (numOfAddrSz ins bld d)
-      if not useTmpVar then e
+      if not useTmpVar then
+        e
       else
         let tAddress = tmpVar bld bld.RegType
         bld <+ (tAddress := e)
         tAddress
     | Some b, Some i, None ->
       let e = regVar bld b .+ (sIdx ins bld i)
-      if not useTmpVar then e
+      if not useTmpVar then
+        e
       else
         let tAddress = tmpVar bld bld.RegType
         bld <+ (tAddress := e)
         tAddress
     | Some b, Some i, Some d ->
       let e = regVar bld b .+ (sIdx ins bld i) .+ (numOfAddrSz ins bld d)
-      if not useTmpVar then e
+      if not useTmpVar then
+        e
       else
         let tAddress = tmpVar bld bld.RegType
         bld <+ (tAddress := e)
         tAddress
-    | _, _, _ -> raise InvalidOperandException
+    | _, _, _ ->
+      raise InvalidOperandException
   ldMem ins bld oprSize address
 
 let transOprToExpr bld useTmpVar ins insLen = function
-  | OprReg reg -> regVar bld reg
+  | OprReg reg ->
+    regVar bld reg
   | OprMem(b, index, disp, oprSize) ->
     transMem bld useTmpVar ins insLen b index disp oprSize
-  | OprImm(imm, _) -> numI64 imm (getOperationSize ins)
-  | OprDirAddr(Relative offset) -> numI64 offset bld.RegType
-  | OprDirAddr(Absolute(_, addr, _)) -> numU64 addr bld.RegType
-  | _ -> Terminator.impossible ()
+  | OprImm(imm, _) ->
+    numI64 imm (getOperationSize ins)
+  | OprDirAddr(Relative offset) ->
+    numI64 offset bld.RegType
+  | OprDirAddr(Absolute(_, addr, _)) ->
+    numU64 addr bld.RegType
+  | _ ->
+    Terminator.impossible ()
 
 let transOprToExprVec bld useTmpVar ins insLen opr =
   match opr with
-  | OprReg r -> pseudoRegVars bld r
+  | OprReg r ->
+    pseudoRegVars bld r
   | OprMem(b, index, disp, oprSize) ->
     transMem bld useTmpVar ins insLen b index disp oprSize |> getMemExprs
-  | OprImm(imm, _) -> [ numI64 imm (getOperationSize ins) ]
-  | _ -> raise InvalidOperandException
+  | OprImm(imm, _) ->
+    [ numI64 imm (getOperationSize ins) ]
+  | _ ->
+    raise InvalidOperandException
 
 let transOprToExpr16 (bld: ILowUIRBuilder) useTmpVar ins insLen opr =
   match opr with
   | OprReg r when RegisterHelper.toRegType bld.WordSize r > 64<rt> ->
     pseudoRegVar bld r 1 |> AST.xtlo 16<rt>
-  | OprReg r -> regVar bld r
+  | OprReg r ->
+    regVar bld r
   | OprMem(b, index, disp, 16<rt>) ->
     transMem bld useTmpVar ins insLen b index disp 16<rt>
-  | _ -> raise InvalidOperandException
+  | _ ->
+    raise InvalidOperandException
 
 let transOprToExpr32 (bld: ILowUIRBuilder) useTmpVar ins insLen opr =
   match opr with
   | OprReg r when RegisterHelper.toRegType bld.WordSize r > 64<rt> ->
     pseudoRegVar bld r 1 |> AST.xtlo 32<rt>
-  | OprReg r -> regVar bld r
+  | OprReg r ->
+    regVar bld r
   | OprMem(b, index, disp, 32<rt>) ->
     transMem bld useTmpVar ins insLen b index disp 32<rt>
-  | _ -> raise InvalidOperandException
+  | _ ->
+    raise InvalidOperandException
 
 let transOprToExpr64 (bld: ILowUIRBuilder) useTmpVar ins insLen opr =
   match opr with
   | OprReg r when RegisterHelper.toRegType bld.WordSize r > 64<rt> ->
     pseudoRegVar bld r 1
-  | OprReg r -> regVar bld r
+  | OprReg r ->
+    regVar bld r
   | OprMem(b, index, disp, 64<rt>) ->
     transMem bld useTmpVar ins insLen b index disp 64<rt>
-  | _ -> raise InvalidOperandException
+  | _ ->
+    raise InvalidOperandException
 
 let transOprToExpr128 bld useTmpVar ins insLen opr =
   match opr with
-  | OprReg r -> pseudoRegVar128 bld r
+  | OprReg r ->
+    pseudoRegVar128 bld r
   | OprMem(b, index, disp, oprSize) ->
     transMem bld useTmpVar ins insLen b index disp oprSize |> getMemExpr128
-  | _ -> raise InvalidOperandException
+  | _ ->
+    raise InvalidOperandException
 
 let transOprToExpr256 bld useTmpVar ins insLen opr =
   match opr with
-  | OprReg r -> pseudoRegVar256 bld r
+  | OprReg r ->
+    pseudoRegVar256 bld r
   | OprMem(b, index, disp, oprSize) ->
     transMem bld useTmpVar ins insLen b index disp oprSize |> getMemExpr256
-  | _ -> raise InvalidOperandException
+  | _ ->
+    raise InvalidOperandException
 
 let transOprToExpr512 bld useTmpVar ins insLen opr =
   match opr with
-  | OprReg r -> pseudoRegVar512 bld r
+  | OprReg r ->
+    pseudoRegVar512 bld r
   | OprMem(b, index, disp, oprSize) ->
     transMem bld useTmpVar ins insLen b index disp oprSize |> getMemExpr512
-  | _ -> raise InvalidOperandException
+  | _ ->
+    raise InvalidOperandException
 
 /// Return a tuple (jump target expr, is pc-relative?)
 let transJumpTargetOpr (bld: ILowUIRBuilder) useTmpVar ins pc insLen =
@@ -334,10 +371,12 @@ let transJumpTargetOpr (bld: ILowUIRBuilder) useTmpVar ins pc insLen =
     let wordSize = bld.RegType
     let offset = numI64 offset wordSize |> AST.sext wordSize
     struct (pc .+ offset, true)
-  | OneOperand(OprReg reg) -> struct (regVar bld reg, false)
+  | OneOperand(OprReg reg) ->
+    struct (regVar bld reg, false)
   | OneOperand(OprMem(b, index, disp, oprSize)) ->
     struct (transMem bld useTmpVar ins insLen b index disp oprSize, false)
-  | _ -> raise InvalidOperandException
+  | _ ->
+    raise InvalidOperandException
 
 let transOprToArr bld useTmpVars ins insLen packSz packNum oprSize opr =
   let pos = int packSz
@@ -395,7 +434,8 @@ let transOprToArr bld useTmpVars ins insLen packSz packNum oprSize opr =
         let oprG = Array.init packNum (fun i -> AST.extract mG packSz (i * pos))
         let oprH = Array.init packNum (fun i -> AST.extract mH packSz (i * pos))
         Array.concat [| oprA; oprB; oprC; oprD; oprE; oprF; oprG; oprH |]
-      | _ -> raise InvalidOperandSizeException
+      | _ ->
+        raise InvalidOperandSizeException
     | _ ->
       match oprSize with
       | 64<rt> ->
@@ -425,12 +465,14 @@ let transOprToArr bld useTmpVars ins insLen packSz packNum oprSize opr =
         let oprG = Array.init packNum (fun i -> AST.extract oG packSz (i * pos))
         let oprH = Array.init packNum (fun i -> AST.extract oH packSz (i * pos))
         Array.concat [| oprA; oprB; oprC; oprD; oprE; oprF; oprG; oprH |]
-      | _ -> raise InvalidOperandSizeException
+      | _ ->
+        raise InvalidOperandSizeException
   if useTmpVars then
     let tmps = Array.init (oprSize / packSz) (fun _ -> tmpVar bld packSz)
     Array.iter2 (fun e1 e2 -> bld <+ (e1 := e2)) tmps exprArr
     tmps
-  else exprArr
+  else
+    exprArr
 
 let private isMMXReg = function
   | OprReg r -> RegisterHelper.getKind r = RegisterHelper.Kind.MMX
@@ -452,7 +494,8 @@ let fillOnesToMMXHigh16 bld (ins: Instruction) =
   | TwoOperands(OprReg _ as o, _)
   | ThreeOperands(OprReg _ as o, _, _) ->
     bld <+ (pseudoRegVar bld (convMMXToST o) 2 := AST.num BitVector.MaxUInt16)
-  | _ -> ()
+  | _ ->
+    ()
 
 let assignPackedInstr bld useTmpVar ins insLen packNum oprSize dst result =
   match oprSize with
@@ -485,7 +528,8 @@ let assignPackedInstr bld useTmpVar ins insLen packNum oprSize dst result =
     bld <+ (dstF := Array.sub result (5 * packNum) packNum |> AST.revConcat)
     bld <+ (dstG := Array.sub result (6 * packNum) packNum |> AST.revConcat)
     bld <+ (dstH := Array.sub result (7 * packNum) packNum |> AST.revConcat)
-  | _ -> raise InvalidOperandSizeException
+  | _ ->
+    raise InvalidOperandSizeException
 
 let getTwoOprs (ins: Instruction) =
   match ins.Operands with
@@ -514,8 +558,10 @@ let transReg bld useTmpVar expr =
       let t = tmpVar bld rt
       bld <+ (t := expr)
       t
-    | _ -> expr
-  else expr
+    | _ ->
+      expr
+  else
+    expr
 
 let transTwoOprs bld useTmpVar (ins: Instruction) insLen =
   match ins.Operands with
@@ -523,15 +569,18 @@ let transTwoOprs bld useTmpVar (ins: Instruction) insLen =
     let o1 = transOprToExpr bld useTmpVar ins insLen o1
     let o2 = transOprToExpr bld false ins insLen o2 |> transReg bld useTmpVar
     struct (o1, o2)
-  | _ -> raise InvalidOperandException
+  | _ ->
+    raise InvalidOperandException
 
 let transThreeOprs bld useTmpVar (ins: Instruction) insLen =
   match ins.Operands with
   | ThreeOperands(o1, o2, o3) ->
-    struct (transOprToExpr bld useTmpVar ins insLen o1,
-            transOprToExpr bld useTmpVar ins insLen o2,
-            transOprToExpr bld useTmpVar ins insLen o3)
-  | _ -> raise InvalidOperandException
+    let opr1 = transOprToExpr bld useTmpVar ins insLen o1
+    let opr2 = transOprToExpr bld useTmpVar ins insLen o2
+    let opr3 = transOprToExpr bld useTmpVar ins insLen o3
+    struct (opr1, opr2, opr3)
+  | _ ->
+    raise InvalidOperandException
 
 /// This is an Intel-specific assignment to a destination operand.
 /// Unlike typical assignments, this function performs zero-padding when
@@ -556,15 +605,22 @@ let dstAssign oprSize dst src =
 /// For x87 FPU Top register or x87 FPU Tag word sections.
 let extractDstAssign e1 e2 =
   match e1 with
-  | Extract(BinOp(BinOpType.SHR, 16<rt>,
-                  BinOp(BinOpType.AND, 16<rt>,
+  | Extract(BinOp(BinOpType.SHR,
+                  16<rt>,
+                  BinOp(BinOpType.AND,
+                        16<rt>,
                         (Var(16<rt>, rId, _, _) as e1),
-                        mask, _),
-                  amt, _),
-             8<rt>, 0, _) when int rId = 0x4F (* FSW *)
-                            || int rId = 0x50 (* FTW *) ->
+                        mask,
+                        _),
+                  amt,
+                  _),
+             8<rt>,
+             0,
+             _) when int rId = 0x4F (* FSW *)
+                     || int rId = 0x50 (* FTW *) ->
     e1 := (e1 .& (AST.not mask)) .| (((AST.zext 16<rt> e2) << amt) .& mask)
-  | e -> printfn "%A" e; raise InvalidAssignmentException
+  | e ->
+    printfn "%A" e; raise InvalidAssignmentException
 
 let maxNum rt =
   match rt with
@@ -593,7 +649,8 @@ let sideEffects bld (ins: Instruction) insLen name =
 #if EMULATION
   if bld.ConditionCodeOp <> ConditionCodeOp.TraceStart then
     bld <+ (regVar bld R.CCOP := numI32 (int bld.ConditionCodeOp) 8<rt>)
-  else ()
+  else
+    ()
   bld.ConditionCodeOp <- ConditionCodeOp.TraceStart
 #endif
   bld <+ (AST.sideEffect name)
@@ -726,7 +783,8 @@ let setCCDst bld dst =
 let setCCOp (bld: ILowUIRBuilder) =
   if bld.ConditionCodeOp <> ConditionCodeOp.TraceStart then
     bld <+ (regVar bld R.CCOP := numI32 (int bld.ConditionCodeOp) 8<rt>)
-  else ()
+  else
+    ()
 
 let genDynamicFlagsUpdate bld =
   setCCOp bld
@@ -740,7 +798,7 @@ let getOFLazy (bld: ILowUIRBuilder) =
   | ConditionCodeOp.SUBW
   | ConditionCodeOp.SUBD
   | ConditionCodeOp.SUBQ ->
-    let size = 1 <<< ((int ccOp  - int ConditionCodeOp.SUBB) &&& 0b11)
+    let size = 1 <<< ((int ccOp - int ConditionCodeOp.SUBB) &&& 0b11)
     let regType = RegType.fromByteWidth size
     let struct (t1, t2, t3) = tmpVars3 bld regType
     let src1 = getCCSrc1 bld regType
@@ -758,7 +816,7 @@ let getOFLazy (bld: ILowUIRBuilder) =
   | ConditionCodeOp.DECW
   | ConditionCodeOp.DECD
   | ConditionCodeOp.DECQ ->
-    let size = 1 <<< ((int ccOp  - int ConditionCodeOp.SUBB) &&& 0b11)
+    let size = 1 <<< ((int ccOp - int ConditionCodeOp.SUBB) &&& 0b11)
     let regType = RegType.fromByteWidth size
     let struct (t1, t2, t3) = tmpVars3 bld regType
     let src1 = getCCSrc1 bld regType
@@ -776,7 +834,7 @@ let getOFLazy (bld: ILowUIRBuilder) =
   | ConditionCodeOp.ADDW
   | ConditionCodeOp.ADDD
   | ConditionCodeOp.ADDQ ->
-    let size = 1 <<< ((int ccOp  - int ConditionCodeOp.SUBB) &&& 0b11)
+    let size = 1 <<< ((int ccOp - int ConditionCodeOp.SUBB) &&& 0b11)
     let regType = RegType.fromByteWidth size
     let struct (t1, t2, t3) = tmpVars3 bld regType
     let src1 = getCCSrc1 bld regType
@@ -793,7 +851,7 @@ let getOFLazy (bld: ILowUIRBuilder) =
   | ConditionCodeOp.INCW
   | ConditionCodeOp.INCD
   | ConditionCodeOp.INCQ ->
-    let size = 1 <<< ((int ccOp  - int ConditionCodeOp.SUBB) &&& 0b11)
+    let size = 1 <<< ((int ccOp - int ConditionCodeOp.SUBB) &&& 0b11)
     let regType = RegType.fromByteWidth size
     let struct (t1, t2, t3) = tmpVars3 bld regType
     let src1 = getCCSrc1 bld regType
@@ -810,7 +868,7 @@ let getOFLazy (bld: ILowUIRBuilder) =
   | ConditionCodeOp.SHLW
   | ConditionCodeOp.SHLD
   | ConditionCodeOp.SHLQ ->
-    let size = 1 <<< ((int ccOp  - int ConditionCodeOp.SUBB) &&& 0b11)
+    let size = 1 <<< ((int ccOp - int ConditionCodeOp.SUBB) &&& 0b11)
     let regType = RegType.fromByteWidth size
     let struct (t1, t2, t3) = tmpVars3 bld regType
     let src1 = getCCSrc1 bld regType
@@ -839,7 +897,7 @@ let getOFLazy (bld: ILowUIRBuilder) =
   | ConditionCodeOp.SHRW
   | ConditionCodeOp.SHRD
   | ConditionCodeOp.SHRQ ->
-    let size = 1 <<< ((int ccOp  - int ConditionCodeOp.SUBB) &&& 0b11)
+    let size = 1 <<< ((int ccOp - int ConditionCodeOp.SUBB) &&& 0b11)
     let regType = RegType.fromByteWidth size
     let struct (t1, t2, t3) = tmpVars3 bld regType
     let src1 = getCCSrc1 bld regType
@@ -867,7 +925,7 @@ let getOFLazy (bld: ILowUIRBuilder) =
   | ConditionCodeOp.SARW
   | ConditionCodeOp.SARD
   | ConditionCodeOp.SARQ ->
-    let size = 1 <<< ((int ccOp  - int ConditionCodeOp.SUBB) &&& 0b11)
+    let size = 1 <<< ((int ccOp - int ConditionCodeOp.SUBB) &&& 0b11)
     let regType = RegType.fromByteWidth size
     let struct (t1, t2, t3) = tmpVars3 bld regType
     let src1 = getCCSrc1 bld regType
@@ -902,7 +960,8 @@ let getOFLazy (bld: ILowUIRBuilder) =
     regVar bld R.OF
   | ConditionCodeOp.EFlags ->
     regVar bld R.OF
-  | _ -> Terminator.futureFeature ()
+  | _ ->
+    Terminator.futureFeature ()
 
 let getSFLazy (bld: ILowUIRBuilder) =
   let ccOp = bld.ConditionCodeOp
@@ -927,7 +986,7 @@ let getSFLazy (bld: ILowUIRBuilder) =
   | ConditionCodeOp.DECW
   | ConditionCodeOp.DECD
   | ConditionCodeOp.DECQ ->
-    let size = 1 <<< ((int ccOp  - int ConditionCodeOp.SUBB) &&& 0b11)
+    let size = 1 <<< ((int ccOp - int ConditionCodeOp.SUBB) &&& 0b11)
     let regType = RegType.fromByteWidth size
     let t = getCCDst bld regType
     t ?< AST.num0 regType
@@ -943,7 +1002,7 @@ let getSFLazy (bld: ILowUIRBuilder) =
   | ConditionCodeOp.SARW
   | ConditionCodeOp.SARD
   | ConditionCodeOp.SARQ ->
-    let size = 1 <<< ((int ccOp  - int ConditionCodeOp.SUBB) &&& 0b11)
+    let size = 1 <<< ((int ccOp - int ConditionCodeOp.SUBB) &&& 0b11)
     let regType = RegType.fromByteWidth size
     let t = getCCDst bld regType
     let cnt = getCCSrc2 bld regType
@@ -955,7 +1014,8 @@ let getSFLazy (bld: ILowUIRBuilder) =
     regVar bld R.SF
   | ConditionCodeOp.EFlags ->
     regVar bld R.SF
-  | _ -> Terminator.futureFeature ()
+  | _ ->
+    Terminator.futureFeature ()
 
 let getZFLazy (bld: ILowUIRBuilder) =
   let ccOp = bld.ConditionCodeOp
@@ -980,7 +1040,7 @@ let getZFLazy (bld: ILowUIRBuilder) =
   | ConditionCodeOp.DECW
   | ConditionCodeOp.DECD
   | ConditionCodeOp.DECQ ->
-    let size = 1 <<< ((int ccOp  - int ConditionCodeOp.SUBB) &&& 0b11)
+    let size = 1 <<< ((int ccOp - int ConditionCodeOp.SUBB) &&& 0b11)
     let regType = RegType.fromByteWidth size
     let t = getCCDst bld regType
     t == AST.num0 regType
@@ -996,7 +1056,7 @@ let getZFLazy (bld: ILowUIRBuilder) =
   | ConditionCodeOp.SARW
   | ConditionCodeOp.SARD
   | ConditionCodeOp.SARQ ->
-    let size = 1 <<< ((int ccOp  - int ConditionCodeOp.SUBB) &&& 0b11)
+    let size = 1 <<< ((int ccOp - int ConditionCodeOp.SUBB) &&& 0b11)
     let regType = RegType.fromByteWidth size
     let t = getCCDst bld regType
     let cnt = getCCSrc2 bld regType
@@ -1008,7 +1068,8 @@ let getZFLazy (bld: ILowUIRBuilder) =
     regVar bld R.ZF
   | ConditionCodeOp.EFlags ->
     regVar bld R.ZF
-  | _ -> Terminator.futureFeature ()
+  | _ ->
+    Terminator.futureFeature ()
 
 let getAFLazy (bld: ILowUIRBuilder) =
   let ccOp = bld.ConditionCodeOp
@@ -1017,7 +1078,7 @@ let getAFLazy (bld: ILowUIRBuilder) =
   | ConditionCodeOp.SUBW
   | ConditionCodeOp.SUBD
   | ConditionCodeOp.SUBQ ->
-    let size = 1 <<< ((int ccOp  - int ConditionCodeOp.SUBB) &&& 0b11)
+    let size = 1 <<< ((int ccOp - int ConditionCodeOp.SUBB) &&& 0b11)
     let regType = RegType.fromByteWidth size
     let struct (t1, t2, t3) = tmpVars3 bld regType
     let src1 = getCCSrc1 bld regType
@@ -1035,7 +1096,7 @@ let getAFLazy (bld: ILowUIRBuilder) =
   | ConditionCodeOp.DECW
   | ConditionCodeOp.DECD
   | ConditionCodeOp.DECQ ->
-    let size = 1 <<< ((int ccOp  - int ConditionCodeOp.SUBB) &&& 0b11)
+    let size = 1 <<< ((int ccOp - int ConditionCodeOp.SUBB) &&& 0b11)
     let regType = RegType.fromByteWidth size
     let struct (t1, t2, t3) = tmpVars3 bld regType
     let src1 = getCCSrc1 bld regType
@@ -1053,7 +1114,7 @@ let getAFLazy (bld: ILowUIRBuilder) =
   | ConditionCodeOp.ADDW
   | ConditionCodeOp.ADDD
   | ConditionCodeOp.ADDQ ->
-    let size = 1 <<< ((int ccOp  - int ConditionCodeOp.SUBB) &&& 0b11)
+    let size = 1 <<< ((int ccOp - int ConditionCodeOp.SUBB) &&& 0b11)
     let regType = RegType.fromByteWidth size
     let struct (t1, t2, t3) = tmpVars3 bld regType
     let src1 = getCCSrc1 bld regType
@@ -1070,7 +1131,7 @@ let getAFLazy (bld: ILowUIRBuilder) =
   | ConditionCodeOp.INCW
   | ConditionCodeOp.INCD
   | ConditionCodeOp.INCQ ->
-    let size = 1 <<< ((int ccOp  - int ConditionCodeOp.SUBB) &&& 0b11)
+    let size = 1 <<< ((int ccOp - int ConditionCodeOp.SUBB) &&& 0b11)
     let regType = RegType.fromByteWidth size
     let struct (t1, t2, t3) = tmpVars3 bld regType
     let src1 = getCCSrc1 bld regType
@@ -1106,7 +1167,8 @@ let getAFLazy (bld: ILowUIRBuilder) =
     regVar bld R.AF
   | ConditionCodeOp.EFlags ->
     regVar bld R.AF
-  | _ -> Terminator.futureFeature ()
+  | _ ->
+    Terminator.futureFeature ()
 
 let getPFLazy (bld: ILowUIRBuilder) =
   let ccOp = bld.ConditionCodeOp
@@ -1115,7 +1177,7 @@ let getPFLazy (bld: ILowUIRBuilder) =
   | ConditionCodeOp.SUBW
   | ConditionCodeOp.SUBD
   | ConditionCodeOp.SUBQ ->
-    let size = 1 <<< ((int ccOp  - int ConditionCodeOp.SUBB) &&& 0b11)
+    let size = 1 <<< ((int ccOp - int ConditionCodeOp.SUBB) &&& 0b11)
     let regType = RegType.fromByteWidth size
     let struct (t1, t2, t3) = tmpVars3 bld regType
     let src1 = getCCSrc1 bld regType
@@ -1133,7 +1195,7 @@ let getPFLazy (bld: ILowUIRBuilder) =
   | ConditionCodeOp.DECW
   | ConditionCodeOp.DECD
   | ConditionCodeOp.DECQ ->
-    let size = 1 <<< ((int ccOp  - int ConditionCodeOp.SUBB) &&& 0b11)
+    let size = 1 <<< ((int ccOp - int ConditionCodeOp.SUBB) &&& 0b11)
     let regType = RegType.fromByteWidth size
     let struct (t1, t2, t3) = tmpVars3 bld regType
     let src1 = getCCSrc1 bld regType
@@ -1151,7 +1213,7 @@ let getPFLazy (bld: ILowUIRBuilder) =
   | ConditionCodeOp.ADDW
   | ConditionCodeOp.ADDD
   | ConditionCodeOp.ADDQ ->
-    let size = 1 <<< ((int ccOp  - int ConditionCodeOp.SUBB) &&& 0b11)
+    let size = 1 <<< ((int ccOp - int ConditionCodeOp.SUBB) &&& 0b11)
     let regType = RegType.fromByteWidth size
     let struct (t1, t2, t3) = tmpVars3 bld regType
     let src1 = getCCSrc1 bld regType
@@ -1168,7 +1230,7 @@ let getPFLazy (bld: ILowUIRBuilder) =
   | ConditionCodeOp.INCW
   | ConditionCodeOp.INCD
   | ConditionCodeOp.INCQ ->
-    let size = 1 <<< ((int ccOp  - int ConditionCodeOp.SUBB) &&& 0b11)
+    let size = 1 <<< ((int ccOp - int ConditionCodeOp.SUBB) &&& 0b11)
     let regType = RegType.fromByteWidth size
     let struct (t1, t2, t3) = tmpVars3 bld regType
     let src1 = getCCSrc1 bld regType
@@ -1185,7 +1247,7 @@ let getPFLazy (bld: ILowUIRBuilder) =
   | ConditionCodeOp.SHLW
   | ConditionCodeOp.SHLD
   | ConditionCodeOp.SHLQ ->
-    let size = 1 <<< ((int ccOp  - int ConditionCodeOp.SUBB) &&& 0b11)
+    let size = 1 <<< ((int ccOp - int ConditionCodeOp.SUBB) &&& 0b11)
     let regType = RegType.fromByteWidth size
     let struct (t1, t2, t3) = tmpVars3 bld regType
     let src1 = getCCSrc1 bld regType
@@ -1214,7 +1276,7 @@ let getPFLazy (bld: ILowUIRBuilder) =
   | ConditionCodeOp.SHRW
   | ConditionCodeOp.SHRD
   | ConditionCodeOp.SHRQ ->
-    let size = 1 <<< ((int ccOp  - int ConditionCodeOp.SUBB) &&& 0b11)
+    let size = 1 <<< ((int ccOp - int ConditionCodeOp.SUBB) &&& 0b11)
     let regType = RegType.fromByteWidth size
     let struct (t1, t2, t3) = tmpVars3 bld regType
     let src1 = getCCSrc1 bld regType
@@ -1242,7 +1304,7 @@ let getPFLazy (bld: ILowUIRBuilder) =
   | ConditionCodeOp.SARW
   | ConditionCodeOp.SARD
   | ConditionCodeOp.SARQ ->
-    let size = 1 <<< ((int ccOp  - int ConditionCodeOp.SUBB) &&& 0b11)
+    let size = 1 <<< ((int ccOp - int ConditionCodeOp.SUBB) &&& 0b11)
     let regType = RegType.fromByteWidth size
     let struct (t1, t2, t3) = tmpVars3 bld regType
     let src1 = getCCSrc1 bld regType
@@ -1270,7 +1332,7 @@ let getPFLazy (bld: ILowUIRBuilder) =
   | ConditionCodeOp.LOGICW
   | ConditionCodeOp.LOGICD
   | ConditionCodeOp.LOGICQ ->
-    let size = 1 <<< ((int ccOp  - int ConditionCodeOp.SUBB) &&& 0b11)
+    let size = 1 <<< ((int ccOp - int ConditionCodeOp.SUBB) &&& 0b11)
     let regType = RegType.fromByteWidth size
     let t = getCCDst bld regType
     bld <+ (regVar bld R.SF := AST.xthi 1<rt> t)
@@ -1287,7 +1349,8 @@ let getPFLazy (bld: ILowUIRBuilder) =
     regVar bld R.PF
   | ConditionCodeOp.EFlags ->
     regVar bld R.PF
-  | _ -> Terminator.futureFeature ()
+  | _ ->
+    Terminator.futureFeature ()
 
 let getCFLazy (bld: ILowUIRBuilder) =
   let ccOp = bld.ConditionCodeOp
@@ -1296,7 +1359,7 @@ let getCFLazy (bld: ILowUIRBuilder) =
   | ConditionCodeOp.SUBW
   | ConditionCodeOp.SUBD
   | ConditionCodeOp.SUBQ ->
-    let size = 1 <<< ((int ccOp  - int ConditionCodeOp.SUBB) &&& 0b11)
+    let size = 1 <<< ((int ccOp - int ConditionCodeOp.SUBB) &&& 0b11)
     let regType = RegType.fromByteWidth size
     let src1 = getCCSrc1 bld regType
     let dst = getCCDst bld regType
@@ -1305,7 +1368,7 @@ let getCFLazy (bld: ILowUIRBuilder) =
   | ConditionCodeOp.ADDW
   | ConditionCodeOp.ADDD
   | ConditionCodeOp.ADDQ ->
-    let size = 1 <<< ((int ccOp  - int ConditionCodeOp.SUBB) &&& 0b11)
+    let size = 1 <<< ((int ccOp - int ConditionCodeOp.SUBB) &&& 0b11)
     let regType = RegType.fromByteWidth size
     let src1 = getCCSrc1 bld regType
     let dst = getCCDst bld regType
@@ -1323,7 +1386,7 @@ let getCFLazy (bld: ILowUIRBuilder) =
   | ConditionCodeOp.SHLW
   | ConditionCodeOp.SHLD
   | ConditionCodeOp.SHLQ ->
-    let size = 1 <<< ((int ccOp  - int ConditionCodeOp.SUBB) &&& 0b11)
+    let size = 1 <<< ((int ccOp - int ConditionCodeOp.SUBB) &&& 0b11)
     let regType = RegType.fromByteWidth size
     let src1 = getCCSrc1 bld regType
     let src2 = getCCSrc2 bld regType
@@ -1336,7 +1399,7 @@ let getCFLazy (bld: ILowUIRBuilder) =
   | ConditionCodeOp.SHRW
   | ConditionCodeOp.SHRD
   | ConditionCodeOp.SHRQ ->
-    let size = 1 <<< ((int ccOp  - int ConditionCodeOp.SUBB) &&& 0b11)
+    let size = 1 <<< ((int ccOp - int ConditionCodeOp.SUBB) &&& 0b11)
     let regType = RegType.fromByteWidth size
     let src1 = getCCSrc1 bld regType
     let src2 = getCCSrc2 bld regType
@@ -1349,7 +1412,7 @@ let getCFLazy (bld: ILowUIRBuilder) =
   | ConditionCodeOp.SARW
   | ConditionCodeOp.SARD
   | ConditionCodeOp.SARQ ->
-    let size = 1 <<< ((int ccOp  - int ConditionCodeOp.SUBB) &&& 0b11)
+    let size = 1 <<< ((int ccOp - int ConditionCodeOp.SUBB) &&& 0b11)
     let regType = RegType.fromByteWidth size
     let src1 = getCCSrc1 bld regType
     let src2 = getCCSrc2 bld regType
@@ -1369,5 +1432,6 @@ let getCFLazy (bld: ILowUIRBuilder) =
     regVar bld R.CF
   | ConditionCodeOp.EFlags ->
     regVar bld R.CF
-  | _ -> Terminator.futureFeature ()
+  | _ ->
+    Terminator.futureFeature ()
 #endif

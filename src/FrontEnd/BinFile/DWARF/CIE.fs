@@ -111,7 +111,8 @@ module internal CIE =
         obtainAugData addrSize arr data idx ch) ([], 0)
       |> fst
       |> List.rev, offset + int len
-    else [], offset
+    else
+      [], offset
 
   let extractOldOffset = function
     | RegPlusOffset(_, o) -> o
@@ -296,7 +297,8 @@ module internal CIE =
         getUnwind acc cfa irule rst rule isa regs lr cf df rr span (i + cnt) loc
       | CFAInstruction.DW_CFA_nop ->
         getUnwind acc cfa irule rst rule isa regs lr cf df rr span i loc
-      | op -> printfn "%A" op; Terminator.futureFeature ()
+      | op ->
+        printfn "%A" op; Terminator.futureFeature ()
 
   let extractRule unwindingInfo =
     match unwindingInfo with
@@ -319,11 +321,14 @@ module internal CIE =
       let augs, offset =
         parseAugmentationData reader secChunk offset addrSize augstr
       let instrLen = nextOffset - offset
-      if instrLen > 0 then
-        let span = secChunk.Slice(offset, instrLen)
-        let rule = Map.empty
-        getUnwind [] UnknownCFA rule [] rule isa regs rr cf df rr span 0 0UL
-      else [], UnknownCFA, rr
+      let infos =
+        if instrLen > 0 then
+          let span = secChunk.Slice(offset, instrLen)
+          let rule = Map.empty
+          getUnwind [] UnknownCFA rule [] rule isa regs rr cf df rr span 0 0UL
+        else
+          [], UnknownCFA, rr
+      infos
       |> fun (info, cfa, reg) ->
         { Version = version
           AugmentationString = augstr

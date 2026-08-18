@@ -279,11 +279,13 @@ let oprToString ins opr delim (builder: IDisasmBuilder) =
     builder.Accumulate(AsmWordKind.String, delim)
     relToString ins.Address offset builder
   // Never gets matched. Only used in intermediate stage mips assembly parser.
-  | GoToLabel _ -> raise InvalidOperandException
+  | GoToLabel _ ->
+    raise InvalidOperandException
 
 let buildOprs (ins: Instruction) (builder: IDisasmBuilder) =
   match ins.Operands with
-  | NoOperand -> ()
+  | NoOperand ->
+    ()
   | OneOperand opr ->
     oprToString ins opr " " builder
   | TwoOperands(opr1, opr2) ->

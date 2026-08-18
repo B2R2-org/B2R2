@@ -93,7 +93,8 @@ let private modelRange = function
   | Op.FSMUL | Op.FSNEG | Op.FSSQRT | Op.FSSUB | Op.MOVE16 | Op.PFLUSH
   | Op.PFLUSHA | Op.PFLUSHAN | Op.PFLUSHN | Op.PTESTR | Op.PTESTW ->
     M68KModel.M68040, M68KModel.M68060
-  | _ -> Terminator.impossible ()
+  | _ ->
+    Terminator.impossible ()
 
 /// Returns true when the given opcode can be decoded on the given
 /// member of the family. The family shares one encoding space and

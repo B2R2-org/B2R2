@@ -42,8 +42,7 @@ let findMappedSectionIndex (secs: SectionHeader[]) rva =
 
 let findSectionIndex (hdrs: PEHeaders) secs rva =
   let idx = hdrs.GetContainingSectionIndex rva
-  if idx < 0 then findMappedSectionIndex secs rva
-  else idx
+  if idx < 0 then findMappedSectionIndex secs rva else idx
 
 let getRawOffset secs rva =
   let idx = findMappedSectionIndex secs rva

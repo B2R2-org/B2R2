@@ -150,7 +150,8 @@ let transAddr (bld: ILowUIRBuilder) idx b disp =
       match acc with
       | Some e -> Some(e .+ reg bld b)
       | None -> Some(reg bld b)
-    else acc
+    else
+      acc
   match acc with
   | Some e when d = 0L -> maskAddr bld e
   | Some e -> maskAddr bld (e .+ numG d)
@@ -305,7 +306,8 @@ let private leftmostBit (m: uint64) =
 /// mask selects nothing and so always reports 0.
 let setCCTestMask bld value (mask: uint64) =
   let rt = Expr.typeOf value
-  if mask = 0UL then setCC bld 0
+  if mask = 0UL then
+    setCC bld 0
   else
     let sel = value .& numI64 (int64 mask) rt
     let zero = AST.num0 rt
@@ -322,19 +324,32 @@ let setCCTestMask bld value (mask: uint64) =
 let condOfMask bld (m: Mask) =
   let cc = ccVar bld
   match m &&& 0xfus with
-  | 0us -> AST.b0
-  | 1us -> cc == numCC 3
-  | 2us -> cc == numCC 2
-  | 3us -> cc ?>= numCC 2
-  | 4us -> cc == numCC 1
-  | 6us -> (cc == numCC 1) .| (cc == numCC 2)
-  | 7us -> cc != numCC 0
-  | 8us -> cc == numCC 0
-  | 11us -> cc != numCC 1
-  | 12us -> cc ?<= numCC 1
-  | 13us -> cc != numCC 2
-  | 14us -> cc != numCC 3
-  | 15us -> AST.b1
+  | 0us ->
+    AST.b0
+  | 1us ->
+    cc == numCC 3
+  | 2us ->
+    cc == numCC 2
+  | 3us ->
+    cc ?>= numCC 2
+  | 4us ->
+    cc == numCC 1
+  | 6us ->
+    (cc == numCC 1) .| (cc == numCC 2)
+  | 7us ->
+    cc != numCC 0
+  | 8us ->
+    cc == numCC 0
+  | 11us ->
+    cc != numCC 1
+  | 12us ->
+    cc ?<= numCC 1
+  | 13us ->
+    cc != numCC 2
+  | 14us ->
+    cc != numCC 3
+  | 15us ->
+    AST.b1
   | m ->
     let bit = numCC (int m) >> (numCC 3 .- cc)
     (bit .& numCC 1) == numCC 1

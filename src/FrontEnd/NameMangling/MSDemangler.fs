@@ -167,7 +167,10 @@ type MSDemangler() =
   (* For RTTI0 related codes*)
   let pRTTI0 = pstring "?_R0" >>. possibleType |>> RTTI0
   let pRTTI1 =
-    pipe4 (pstring "?_R1" >>. pEncodedNum) pEncodedNum pEncodedNum pEncodedNum
+    pipe4 (pstring "?_R1" >>. pEncodedNum)
+      pEncodedNum
+      pEncodedNum
+      pEncodedNum
       (sprintf "'RTTI Base Class Descriptor at (%d,%d,%d,%d)'") |>> Name
   let pRTTIrest = pstring "?_R" >>. digit |>> getRTTI |>> Name
   /// RTTI codes that come as name fragments.
@@ -229,7 +232,8 @@ type MSDemangler() =
   /// Parses the whole pointer symbol with modifiers.
   let pPtrStrT =
     tuple3 (pointerType <|> attempt rValueReference <|> blankTypeMod)
-      normalcvModifier (preturn (Name ""))
+      normalcvModifier
+      (preturn (Name ""))
     |>> PointerStrT
   /// Includes the normal pointers, references and empty modifiers.
   let normalPointer =
@@ -260,11 +264,13 @@ type MSDemangler() =
 
   let dashBasedMemberPointer =
     tuple4 (pointerType <|> attempt rValueReference <|> blankTypeMod)
-      dashBasedMemberPointerModifier (fullName .>> pchar '@')
+      dashBasedMemberPointerModifier
+      (fullName .>> pchar '@')
       (dashBasedPtrVoid <|> dashBasedPtrName)
     |>> (fun (ptr, mods, name, dname) ->
-          PointerStrT(ptr, mods,
-            ConcatT([ dname; Name " "; FullName [ Name ""; name ] ])))
+          PointerStrT(ptr,
+                      mods,
+                      ConcatT([ dname; Name " "; FullName [ Name ""; name ] ])))
     .>>. possibleType |>> PointerT
 
   (*-------------For pointers to different data structures--------------*)
@@ -312,10 +318,7 @@ type MSDemangler() =
 
   //Since all the function pointers are considered as normal pointers.
   let pointerAtFunc =
-    tuple3
-      pointerType
-      normalcvModifier
-      (preturn (Name ""))
+    tuple3 pointerType normalcvModifier (preturn (Name ""))
     |>> PointerStrT
 
   /// A function pointer coming as a parameter to another function.
@@ -325,8 +328,12 @@ type MSDemangler() =
     .>> anyOf "67" .>>. pCallConv .>>.
     (possibleType .>>. pFuncParameters |>> (fun (x, lst) -> x :: lst))
     |>> (fun (((ptrStrs, fPtr), cc), lst) ->
-          FuncPointer(fPtr :: List.rev ptrStrs, cc, lst.Head, "", lst.Tail,
-            None))
+          FuncPointer(fPtr :: List.rev ptrStrs,
+                      cc,
+                      lst.Head,
+                      "",
+                      lst.Tail,
+                      None))
     <?> "function Type"
   let pMemberFuncPointer =
     many (attempt pointerAtFunc) .>>.
@@ -335,8 +342,12 @@ type MSDemangler() =
     .>>. normalcvModifier .>>. pCallConv .>>.
     (possibleType .>>. pFuncParameters |>> (fun (x, lst) -> x :: lst))
     |>> (fun ((((ptrStrs, fPtr), mods), cc), lst) ->
-          FuncPointer(fPtr :: List.rev ptrStrs, cc, lst.Head, "", lst.Tail,
-            Some mods))
+          FuncPointer(fPtr :: List.rev ptrStrs,
+                      cc,
+                      lst.Head,
+                      "",
+                      lst.Tail,
+                      Some mods))
     <?> "member function pointer Type"
   let pDashBasedFuncPointer =
     many (attempt pointerAtFunc) .>>.
@@ -389,12 +400,14 @@ type MSDemangler() =
     pchar '2' >>. pEncodedNum .>>. pEncodedNum
     |>> (fun (baseN, expN) ->
       let baseStr = (string baseN).ToCharArray()
-      sprintf "%c.%se%d" (Seq.head baseStr)
-        (String.Concat(Seq.tail baseStr)) expN |> Name)
+      sprintf "%c.%se%d"
+        (Seq.head baseStr) (String.Concat(Seq.tail baseStr)) expN |> Name)
   let twoTuple =
     pipe2 (pchar 'F' >>. pEncodedNum) pEncodedNum (sprintf "{%d,%d}") |>> Name
   let threeTuple =
-    pipe3 (pchar 'G' >>. pEncodedNum) pEncodedNum pEncodedNum
+    pipe3 (pchar 'G' >>. pEncodedNum)
+      pEncodedNum
+      pEncodedNum
       (sprintf "{%d,%d,%d}")
     |>> Name
   let emptyPack = pchar 'S' >>% Name ""
@@ -464,8 +477,13 @@ type MSDemangler() =
     |>> (fun ((((((name, callS), num1), num2), cvMods), cc), typs) ->
            let addedName = Name(sprintf "`vtordisp{%d,%d}'" num1 num2)
            let newName = ConcatT [ name; addedName ]
-           FunctionT(CallScope.fromChar callS, cvMods, cc,
-                     newName, typs.Head, typs.Tail, None)
+           FunctionT(CallScope.fromChar callS,
+                     cvMods,
+                     cc,
+                     newName,
+                     typs.Head,
+                     typs.Tail,
+                     None)
     )
 
   /// All supported Thunk Functions.

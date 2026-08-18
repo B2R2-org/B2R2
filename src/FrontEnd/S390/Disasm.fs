@@ -1310,15 +1310,13 @@ let oprToString (ins: Instruction) opr delim (builder: IDisasmBuilder) =
       builder.Accumulate(AsmWordKind.Value,
         HexString.ofUInt32 (value.ToUInt32()))
     | ImmS12 value ->
-      builder.Accumulate(AsmWordKind.Value,
-        HexString.ofInt32 (value.ToInt32()))
+      builder.Accumulate(AsmWordKind.Value, HexString.ofInt32 (value.ToInt32()))
     | ImmU16 value ->
       builder.Accumulate(AsmWordKind.Value, HexString.ofUInt16 value)
     | ImmS16 value ->
       builder.Accumulate(AsmWordKind.Value, HexString.ofInt16 value)
     | ImmS24 value ->
-      builder.Accumulate(AsmWordKind.Value,
-        HexString.ofInt32 (value.ToInt32()))
+      builder.Accumulate(AsmWordKind.Value, HexString.ofInt32 (value.ToInt32()))
     | ImmU32 value ->
       builder.Accumulate(AsmWordKind.Value, HexString.ofUInt32 value)
     | ImmS32 value ->
@@ -1345,7 +1343,8 @@ let oprToString (ins: Instruction) opr delim (builder: IDisasmBuilder) =
         builder.Accumulate(AsmWordKind.String, "+")
         builder.Accumulate(AsmWordKind.Value, HexString.ofInt64 offset)
       buildComment (branchTarget builder ins.Address offset) builder
-    | _ -> printfn "%A" immTyp; failwith "Invalid immType"
+    | _ ->
+      printfn "%A" immTyp; failwith "Invalid immType"
   | OpMask mask ->
     builder.Accumulate(AsmWordKind.String, delim)
     builder.Accumulate(AsmWordKind.Value, binaryMaskString mask)
@@ -1357,7 +1356,8 @@ let oprToString (ins: Instruction) opr delim (builder: IDisasmBuilder) =
     | Some reg ->
       builder.Accumulate(AsmWordKind.Variable, Register.toString reg)
       builder.Accumulate(AsmWordKind.String, ", ")
-    | None -> ()
+    | None ->
+      ()
     builder.Accumulate(AsmWordKind.Variable, Register.toString baseReg)
     builder.Accumulate(AsmWordKind.String, ")")
   | OpStoreLen(len, baseReg, disp) ->
@@ -1371,7 +1371,8 @@ let oprToString (ins: Instruction) opr delim (builder: IDisasmBuilder) =
 
 let inline buildOprs (ins: Instruction) (builder: IDisasmBuilder) =
   match ins.Operands with
-  | NoOperand -> ()
+  | NoOperand ->
+    ()
   | OneOperand op1 ->
     oprToString ins op1 " " builder
   | TwoOperands(op1, op2) ->

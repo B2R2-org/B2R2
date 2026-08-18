@@ -247,7 +247,8 @@ let memToStr addrMode (builder: IDisasmBuilder) =
   | Imm imm ->
     builder.Accumulate(AsmWordKind.String, "#")
     builder.Accumulate(AsmWordKind.Value, string imm)
-  | _ -> raise InvalidOperandException
+  | _ ->
+    raise InvalidOperandException
 
 let buildReg ins reg (builder: IDisasmBuilder) =
   let reg = Register.toString reg
@@ -267,7 +268,8 @@ let opToStr ins addr op delim builder =
 
 let buildOp (ins: Instruction) pc builder =
   match ins.Operands with
-  | NoOperand -> ()
+  | NoOperand ->
+    ()
   | OneOperand opr ->
     opToStr ins pc opr (Some " ") builder
   | TwoOperands(opr1, opr2) ->

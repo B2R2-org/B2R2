@@ -66,8 +66,7 @@ let getInterpreterPath (file: IBinFile) = file.InterpreterPath
 
 /// Returns the SysV-style program header table, if this format has it.
 [<CompiledName "GetProgramHeaderTable">]
-let getProgramHeaderTable (file: IBinFile) =
-  file.ProgramHeaderTable
+let getProgramHeaderTable (file: IBinFile) = file.ProgramHeaderTable
 
 /// Checks whether the given binary file is an executable program.
 [<CompiledName "IsExecutable">]
@@ -117,7 +116,8 @@ let getCodeSectionPointer (file: IBinFile) =
 [<CompiledName "GetDefaultCodePointer">]
 let getDefaultCodePointer (file: IBinFile) =
   match file.Structure with
-  | Some structure -> structure.CodeSectionPointer
+  | Some structure ->
+    structure.CodeSectionPointer
   | None ->
     match file.EntryPoint with
     | Some entry -> file.GetBoundedPointer entry
@@ -250,4 +250,5 @@ let getMemoryMappedRegionsByPermission (file: IBinFile) perm =
   |> Array.choose (fun seg ->
     if seg.Permission.HasFlag perm then
       AddrRange.create seg.Address (seg.Address + seg.Size - 1UL) |> Some
-    else None)
+    else
+      None)

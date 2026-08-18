@@ -45,19 +45,22 @@ let private identifyMach bytes isa =
     match Mach.Header.getISA bytes isa with
     | Ok isa -> Some struct (FileFormat.MachBinary, isa)
     | _ -> None
-  else None
+  else
+    None
 
 let private identifyWASM bytes isa =
   let reader = BinReader.Init Endian.Little
   if Wasm.Header.isWasm bytes reader then
     Some struct (FileFormat.WasmBinary, isa)
-  else None
+  else
+    None
 
 let private identifyPython bytes isa =
   let reader = BinReader.Init Endian.Little
   if Python.Helper.isPythonBytecode bytes reader then
     Some struct (FileFormat.PythonBinary, ISA Architecture.Python)
-  else None
+  else
+    None
 
 let private identifyHexString (bytes: byte[]) isa =
   tryParseHexBytes bytes

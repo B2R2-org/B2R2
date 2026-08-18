@@ -103,7 +103,8 @@ let add (ins: Instruction) insLen bld addr =
     let dst, s1, s2 = transFourOprsWithBarrelShift ins bld addr
     let result, _ = addWithCarry s1 s2 (AST.num0 ins.OprSize) ins.OprSize
     dstAssign ins.OprSize dst result bld
-  | _ -> raise InvalidOperandException
+  | _ ->
+    raise InvalidOperandException
   bld --!> insLen
 
 let addp (ins: Instruction) insLen bld addr =
@@ -124,7 +125,8 @@ let addp (ins: Instruction) insLen bld addr =
     |> Array.map (fun e -> e[0] .+ e[1])
     |> Array.iter2 (fun e1 e2 -> bld <+ (e1 := e2)) result
     dstAssignForSIMD dstA dstB result dataSize elements bld
-  | _ -> raise InvalidOperandException
+  | _ ->
+    raise InvalidOperandException
   bld --!> insLen
 
 let adds ins insLen bld addr =
@@ -296,7 +298,8 @@ let private bitInsert (ins: Instruction) insLen bld addr isTrue =
   bld <+ (dstA := AST.xor opr1A ((AST.xor opr1A opr4A) .& opr3A))
   if ins.OprSize = 128<rt> then
     bld <+ (dstB := AST.xor opr1B ((AST.xor opr1B opr4B) .& opr3B))
-  else bld <+ (dstB := AST.num0 64<rt>)
+  else
+    bld <+ (dstB := AST.num0 64<rt>)
   bld --!> insLen
 
 let bif ins insLen bld addr = bitInsert ins insLen bld addr false
@@ -345,7 +348,8 @@ let bsl (ins: Instruction) insLen bld addr =
   bld <+ (dstA := AST.xor opr1A ((AST.xor opr1A opr4A) .& opr3A))
   if ins.OprSize = 128<rt> then
     bld <+ (dstB := AST.xor opr1B ((AST.xor opr1B opr4B) .& opr3B))
-  else bld <+ (dstB := AST.num0 64<rt>)
+  else
+    bld <+ (dstB := AST.num0 64<rt>)
   bld --!> insLen
 
 let inline private compareBranch ins insLen bld addr cmp =
@@ -463,7 +467,8 @@ let private clzBits src bitSize oprSize bld =
     bld <+ (x := x .+ (x >> numI32 16 64<rt>))
     bld <+ (x := x .+ (x >> numI32 32 64<rt>))
     numI32 bitSize 64<rt> .- (x .& numI32 127 64<rt>)
-  | _ -> raise InvalidOperandSizeException
+  | _ ->
+    raise InvalidOperandSizeException
 
 let private clsBits src oprSize bld =
   let n1 = AST.num1 oprSize
@@ -566,7 +571,8 @@ let private compare (ins: Instruction) insLen bld addr cond =
     let result = tmpVar bld 64<rt>
     bld <+ (result := AST.ite (cond src1 src2) (numI64 -1L 64<rt>) num0)
     dstAssignScalar ins bld addr o1 result eSize
-  | _ -> raise InvalidOperandException
+  | _ ->
+    raise InvalidOperandException
   bld --!> insLen
 
 let cmeq ins insLen bld addr = compare ins insLen bld addr (==)
@@ -769,11 +775,13 @@ let extr ins insLen bld addr =
       | ThreeOperands(_, _, OprLSB shift) -> int32 shift
       | FourOperands(_, _, _, OprLSB lsb) -> int32 lsb
       | _ -> raise InvalidOperandException
-    if lsb = 0 then bld <+ (dst := src2)
+    if lsb = 0 then
+      bld <+ (dst := src2)
     else
       let leftAmt = numI32 (64 - lsb) 64<rt>
       bld <+ (dst := (src1 << leftAmt) .| (src2 >> (numI32 lsb 64<rt>)))
-  else raise InvalidOperandSizeException
+  else
+    raise InvalidOperandSizeException
   bld --!> insLen
 
 let fabd (ins: Instruction) insLen bld addr =
@@ -793,7 +801,8 @@ let fabd (ins: Instruction) insLen bld addr =
     let src2 = transSIMDOprToExpr bld eSize dataSize elements src2
     let result = Array.map2 (fpAbsDiff) src1 src2
     dstAssignForSIMD dstA dstB result dataSize elements bld
-  | _ -> raise InvalidOperandException
+  | _ ->
+    raise InvalidOperandException
   bld --!> insLen
 
 let fabs (ins: Instruction) insLen bld addr =
@@ -811,7 +820,8 @@ let fabs (ins: Instruction) insLen bld addr =
     let src = transSIMDOprToExpr bld eSize dataSize elements src
     let result = Array.map (fun e -> (e << n1) >> n1) src
     dstAssignForSIMD dstA dstB result dataSize elements bld
-  | _ -> raise InvalidOperandException
+  | _ ->
+    raise InvalidOperandException
   bld --!> insLen
 
 let fadd (ins: Instruction) insLen bld addr =
@@ -829,7 +839,8 @@ let fadd (ins: Instruction) insLen bld addr =
     let src2 = transSIMDOprToExpr bld eSize dataSize elements src2
     let result = Array.map2 (fpAdd bld eSize) src1 src2
     dstAssignForSIMD dstA dstB result dataSize elements bld
-  | _ -> raise InvalidOperandException
+  | _ ->
+    raise InvalidOperandException
   bld --!> insLen
 
 let faddp (ins: Instruction) insLen bld addr =
@@ -853,7 +864,8 @@ let faddp (ins: Instruction) insLen bld addr =
       Array.chunkBySize 2 concat
       |> Array.map (fun e -> fpAdd bld eSize e[0] e[1])
     dstAssignForSIMD dstA dstB result dataSize elements bld
-  | _ -> raise InvalidOperandException
+  | _ ->
+    raise InvalidOperandException
   bld --!> insLen
 
 let private fpneg reg eSize =
@@ -883,8 +895,10 @@ let private checkZero bld dataSize fpVal =
   | 64<rt> ->
     bld <+ (exp := (fpVal >> numI64 52L 64<rt>) .& numI64 0x7ffL 64<rt>)
     bld <+ (frac := fpVal .& numU64 0xfffffffffffffUL 64<rt>)
-  | _ -> raise InvalidOperandSizeException
-  AST.ite ((exp == n0) .& (frac == n0 .| isFZ)) f0
+  | _ ->
+    raise InvalidOperandSizeException
+  AST.ite ((exp == n0) .& (frac == n0 .| isFZ))
+    f0
     (AST.ite ((isOnes exp) .& (frac != n0)) f0 fpVal)
 
 let private fpCompare bld oprSz src1 src2 =
@@ -968,7 +982,8 @@ let fcmgt (ins: Instruction) insLen bld addr =
       Array.map2 (fun e1 e2 ->
         AST.ite (chkNan e1 e2) zeros (AST.ite (fpgt e1 e2) ones zeros)) s1 s2
     dstAssignForSIMD dstA dstB result dataSize elements bld
-  | _ -> raise InvalidOperandException
+  | _ ->
+    raise InvalidOperandException
   bld --!> insLen
 
 let fcsel ins insLen bld addr =
@@ -1052,7 +1067,8 @@ let private fpConvert (ins: Instruction) insLen bld addr isUnsigned round =
     let fcvt = fpToFixed ins.OprSize src fbits isUnsigned round bld
     let result = if isUnsigned then AST.ite (isNeg src) n0 fcvt else fcvt
     dstAssign ins.OprSize dst result bld
-  | _ -> raise InvalidOperandException
+  | _ ->
+    raise InvalidOperandException
   bld --!> insLen
 
 let fcvtas ins insLen bld addr =
@@ -1094,7 +1110,8 @@ let fdiv (ins: Instruction) insLen bld addr =
     let src2 = transSIMDOprToExpr bld eSize dataSize elements src2
     let result = Array.map2 (fpDiv bld eSize) src1 src2
     dstAssignForSIMD dstA dstB result dataSize elements bld
-  | _ -> raise InvalidOperandException
+  | _ ->
+    raise InvalidOperandException
   bld --!> insLen
 
 let fmadd (ins: Instruction) insLen bld addr =
@@ -1189,7 +1206,8 @@ let fmov (ins: Instruction) insLen bld addr =
     let src =
       if eSize <> 64<rt> then
         transOprToExprFPImm ins eSize src |> advSIMDExpandImm bld eSize
-      else transOprToExprFPImm ins eSize src |> AST.xtlo 64<rt>
+      else
+        transOprToExprFPImm ins eSize src |> AST.xtlo 64<rt>
     dstAssign128 ins bld addr dst src src dataSize
   | TwoOperands(OprSIMD(ScalarReg _), _) ->
     let struct (dst, src) = getTwoOprs ins
@@ -1251,7 +1269,8 @@ let fneg (ins: Instruction) insLen bld addr =
     let result = Array.init elements (fun _ -> tmpVar bld eSize)
     Array.iter2 (fun dst src -> bld <+ (dst := fpneg src eSize)) result src
     dstAssignForSIMD dstA dstB result dataSize elements bld
-  | _ -> raise InvalidOperandException
+  | _ ->
+    raise InvalidOperandException
   bld --!> insLen
 
 let fnmsub (ins: Instruction) insLen bld addr =
@@ -1296,7 +1315,8 @@ let private fpType bld cast eSize element =
   bld <+ (checkNan := isNaN eSize element)
   bld <+ (checkInf := isInfinity eSize element)
   bld <+ (AST.cjmp (checkNan .| checkInf)
-                 (AST.jmpDest lblNan) (AST.jmpDest lblCon))
+                   (AST.jmpDest lblNan)
+                   (AST.jmpDest lblCon))
   bld <+ (AST.lmark lblNan)
   let fpNaN = fpProcessNan bld eSize element
   bld <+ (res := AST.ite checkNan fpNaN (fpDefaultInfinity element eSize))
@@ -1321,7 +1341,8 @@ let private fpRoundToInt (ins: Instruction) insLen bld addr cast =
     let src = transSIMDOprToExpr bld eSize dataSize elements src
     let result = Array.map (fpType bld cast eSize) src
     dstAssignForSIMD dstA dstB result dataSize elements bld
-  | _ -> raise InvalidOperandException
+  | _ ->
+    raise InvalidOperandException
   bld --!> insLen
 
 let private fpCurrentRoundToInt (ins: Instruction) insLen bld addr =
@@ -1337,7 +1358,8 @@ let private fpCurrentRoundToInt (ins: Instruction) insLen bld addr =
     let src = transSIMDOprToExpr bld eSize dataSize elements src
     let result = Array.map (fun s -> fpRoundingMode s eSize bld) src
     dstAssignForSIMD dstA dstB result dataSize elements bld
-  | _ -> raise InvalidOperandException
+  | _ ->
+    raise InvalidOperandException
   bld --!> insLen
 
 let private tieawayCast bld eSize src =
@@ -1376,7 +1398,8 @@ let frinta (ins: Instruction) insLen bld addr =
     let src = transSIMDOprToExpr bld eSize dataSize elements src
     let result = Array.map (tieawayCast bld eSize) src
     dstAssignForSIMD dstA dstB result dataSize elements bld
-  | _ -> raise InvalidOperandException
+  | _ ->
+    raise InvalidOperandException
   bld --!> insLen
 
 let frinti ins insLen bld addr = fpCurrentRoundToInt ins insLen bld addr
@@ -1444,7 +1467,8 @@ let private isVecIdxOrLD1ST1 (ins: Instruction) opr =
       match simd[0] with
       | VecRegWithIdx _ -> true
       | _ -> false
-    | _ -> false
+    | _ ->
+      false
   isVecIdx || (ins.Opcode = Opcode.LD1) || (ins.Opcode = Opcode.ST1)
 
 let private fillZeroHigh64 (ins: Instruction) bld opr =
@@ -1456,9 +1480,12 @@ let private fillZeroHigh64 (ins: Instruction) bld opr =
           | VecReg(reg, _) ->
             let regB = pseudoRegVar bld reg 2
             bld <+ (regB := AST.num0 64<rt>)
-          | _ -> ()) simds
-      | _ -> ()
-    else ()
+          | _ ->
+            ()) simds
+      | _ ->
+        ()
+    else
+      ()
 
 let loadStoreList (ins: Instruction) insLen bld addr isLoad =
   let isWBack, _ = getIsWBackAndIsPostIndex ins.Operands
@@ -1620,7 +1647,8 @@ let ldp (ins: Instruction) insLen bld addr =
     bld <+ (src2A := AST.loadLE 64<rt> (address .+ dByte))
     bld <+ (src2B := AST.loadLE 64<rt> (address .+ dByte .+ n8))
     if isWBack && isPostIndex then bld <+ (bReg := address .+ offset)
-    elif isWBack then bld <+ (bReg := address) else ()
+    elif isWBack then bld <+ (bReg := address)
+    else ()
   | ThreeOperands(OprSIMD _ as src1, src2, src3), _ ->
     let bReg, offset = transOprToExpr ins bld addr src3 |> separateMemExpr
     let struct (eSize, _, _) = getElemDataSzAndElems src1
@@ -1630,7 +1658,8 @@ let ldp (ins: Instruction) insLen bld addr =
     dstAssignScalar ins bld addr src1 (load address) eSize
     dstAssignScalar ins bld addr src2 (load (address .+ dByte)) eSize
     if isWBack && isPostIndex then bld <+ (bReg := address .+ offset)
-    elif isWBack then bld <+ (bReg := address) else ()
+    elif isWBack then bld <+ (bReg := address)
+    else ()
   | _ ->
     let src1, src2, (bReg, offset) = transThreeOprsSepMem ins bld addr
     let oprSize = ins.OprSize
@@ -1639,7 +1668,8 @@ let ldp (ins: Instruction) insLen bld addr =
     dstAssign oprSize src1 (AST.loadLE oprSize address) bld
     dstAssign oprSize src2 (AST.loadLE oprSize (address .+ dByte)) bld
     if isWBack && isPostIndex then bld <+ (bReg := address .+ offset)
-    elif isWBack then bld <+ (bReg := address) else ()
+    elif isWBack then bld <+ (bReg := address)
+    else ()
   bld --!> insLen
 
 let ldpsw ins insLen bld addr =
@@ -1656,7 +1686,8 @@ let ldpsw ins insLen bld addr =
   bld <+ (src1 := AST.sext 64<rt> data1)
   bld <+ (src2 := AST.sext 64<rt> data2)
   if isWBack && isPostIndex then bld <+ (bReg := address .+ offset)
-  elif isWBack then bld <+ (bReg := address) else ()
+  elif isWBack then bld <+ (bReg := address)
+  else ()
   bld --!> insLen
 
 let ldr (ins: Instruction) insLen bld addr =
@@ -1677,8 +1708,7 @@ let ldr (ins: Instruction) insLen bld addr =
       bld <+ (address := getPC bld .+ offset)
       bld <+ (data := AST.loadLE ins.OprSize address)
       match o1 with
-      | OprSIMD(ScalarReg _) ->
-        dstAssignScalar ins bld addr o1 data ins.OprSize
+      | OprSIMD(ScalarReg _) -> dstAssignScalar ins bld addr o1 data ins.OprSize
       | _ -> dstAssign ins.OprSize dst data bld
   | TwoOperands(o1, o2) ->
     let isWBack, isPostIndex = getIsWBackAndIsPostIndex ins.Operands
@@ -1692,7 +1722,8 @@ let ldr (ins: Instruction) insLen bld addr =
       bld <+ (dstA := AST.loadLE 64<rt> address)
       bld <+ (dstB := AST.loadLE 64<rt> (address .+ (numI32 8 64<rt>)))
       if isWBack && isPostIndex then bld <+ (bReg := address .+ offset)
-      elif isWBack then bld <+ (bReg := address) else ()
+      elif isWBack then bld <+ (bReg := address)
+      else ()
     | _ ->
       let dst = transOprToExpr ins bld addr o1
       let bReg, offset = transOprToExpr ins bld addr o2 |> separateMemExpr
@@ -1701,12 +1732,13 @@ let ldr (ins: Instruction) insLen bld addr =
       bld <+ (address := if isPostIndex then address else address .+ offset)
       bld <+ (data := AST.loadLE ins.OprSize address)
       match o1 with
-      | OprSIMD(ScalarReg _) ->
-        dstAssignScalar ins bld addr o1 data ins.OprSize
+      | OprSIMD(ScalarReg _) -> dstAssignScalar ins bld addr o1 data ins.OprSize
       | _ -> dstAssign ins.OprSize dst data bld
       if isWBack && isPostIndex then bld <+ (bReg := address .+ offset)
-      elif isWBack then bld <+ (bReg := address) else ()
-  | _ -> raise InvalidOperandException
+      elif isWBack then bld <+ (bReg := address)
+      else ()
+  | _ ->
+    raise InvalidOperandException
   bld --!> insLen
 
 let ldrb ins insLen bld addr =
@@ -1720,7 +1752,8 @@ let ldrb ins insLen bld addr =
   bld <+ (data := AST.loadLE 8<rt> address)
   dstAssign ins.OprSize dst (AST.zext 32<rt> data) bld
   if isWBack && isPostIndex then bld <+ (bReg := address .+ offset)
-  elif isWBack then bld <+ (bReg := address) else ()
+  elif isWBack then bld <+ (bReg := address)
+  else ()
   bld --!> insLen
 
 let ldrh ins insLen bld addr =
@@ -1734,7 +1767,8 @@ let ldrh ins insLen bld addr =
   bld <+ (data := AST.loadLE 16<rt> address)
   dstAssign ins.OprSize dst (AST.zext 32<rt> data) bld
   if isWBack && isPostIndex then bld <+ (bReg := address .+ offset)
-  elif isWBack then bld <+ (bReg := address) else ()
+  elif isWBack then bld <+ (bReg := address)
+  else ()
   bld --!> insLen
 
 let ldrsb ins insLen bld addr =
@@ -1748,7 +1782,8 @@ let ldrsb ins insLen bld addr =
   bld <+ (data := AST.loadLE 8<rt> address)
   dstAssign ins.OprSize dst (AST.sext ins.OprSize data) bld
   if isWBack && isPostIndex then bld <+ (bReg := address .+ offset)
-  elif isWBack then bld <+ (bReg := address) else ()
+  elif isWBack then bld <+ (bReg := address)
+  else ()
   bld --!> insLen
 
 let ldrsh ins insLen bld addr =
@@ -1762,7 +1797,8 @@ let ldrsh ins insLen bld addr =
   bld <+ (data := AST.loadLE 16<rt> address)
   dstAssign ins.OprSize dst (AST.sext ins.OprSize data) bld
   if isWBack && isPostIndex then bld <+ (bReg := address .+ offset)
-  elif isWBack then bld <+ (bReg := address) else ()
+  elif isWBack then bld <+ (bReg := address)
+  else ()
   bld --!> insLen
 
 let ldrsw (ins: Instruction) insLen bld addr =
@@ -1785,8 +1821,10 @@ let ldrsw (ins: Instruction) insLen bld addr =
     bld <+ (data := AST.loadLE 32<rt> address)
     bld <+ (dst := AST.sext 64<rt> data)
     if isWBack && isPostIndex then bld <+ (bReg := address .+ offset)
-    elif isWBack then bld <+ (bReg := address) else ()
-  | _ -> raise InvalidOperandException
+    elif isWBack then bld <+ (bReg := address)
+    else ()
+  | _ ->
+    raise InvalidOperandException
   bld --!> insLen
 
 let ldtr ins insLen bld addr =
@@ -1814,7 +1852,8 @@ let ldur (ins: Instruction) insLen bld addr =
     bld <+ (dstA := AST.loadLE 64<rt> address)
     bld <+ (dstB := AST.loadLE 64<rt> (address .+ (numI32 8 64<rt>)))
     if isWBack && isPostIndex then bld <+ (bReg := address .+ offset)
-    elif isWBack then bld <+ (bReg := address) else ()
+    elif isWBack then bld <+ (bReg := address)
+    else ()
   | _ ->
     let dst = transOprToExpr ins bld addr o1
     let bReg, offset = transOprToExpr ins bld addr o2 |> separateMemExpr
@@ -1822,11 +1861,11 @@ let ldur (ins: Instruction) insLen bld addr =
     bld <+ (address := if isPostIndex then address else address .+ offset)
     bld <+ (data := AST.loadLE ins.OprSize address)
     match o1 with
-    | OprSIMD(ScalarReg _) ->
-      dstAssignScalar ins bld addr o1 data ins.OprSize
+    | OprSIMD(ScalarReg _) -> dstAssignScalar ins bld addr o1 data ins.OprSize
     | _ -> dstAssign ins.OprSize dst data bld
     if isWBack && isPostIndex then bld <+ (bReg := address .+ offset)
-    elif isWBack then bld <+ (bReg := address) else ()
+    elif isWBack then bld <+ (bReg := address)
+    else ()
   bld --!> insLen
 
 let ldurb ins insLen bld addr =
@@ -2021,7 +2060,8 @@ let movi (ins: Instruction) insLen bld addr =
     let imm = if not (dataSize = 128<rt> && eSize = 64<rt>) then
                 transOprToExpr ins bld addr src
                 |> advSIMDExpandImm bld eSize
-              else transOprToExpr ins bld addr src |> AST.xtlo 64<rt>
+              else
+                transOprToExpr ins bld addr src |> AST.xtlo 64<rt>
     dstAssign128 ins bld addr dst imm imm dataSize
   | ThreeOperands(OprSIMD(VecReg _), OprImm _, OprShift _) ->
     let struct (dst, src, amount) = getThreeOprs ins
@@ -2029,13 +2069,13 @@ let movi (ins: Instruction) insLen bld addr =
     let imm = transBarrelShiftToExpr ins.OprSize bld src amount
               |> advSIMDExpandImm bld eSize
     dstAssign128 ins bld addr dst imm imm dataSize
-  | _ -> raise InvalidOperandException
+  | _ ->
+    raise InvalidOperandException
   bld --!> insLen
 
 let private getWordMask (ins: Instruction) shift =
   match shift with
-  | OprShift(LSL, Imm amt) ->
-    numI64 (~~~(0xFFFFL <<< (int amt))) ins.OprSize
+  | OprShift(LSL, Imm amt) -> numI64 (~~~(0xFFFFL <<< (int amt))) ins.OprSize
   | _ -> raise InvalidOperandException
 
 let movk (ins: Instruction) insLen bld addr =
@@ -2078,7 +2118,8 @@ let mrs (ins: Instruction) insLen bld addr =
         let c = (regVar bld R.C |> AST.zext 64<rt>) << numI32 29 64<rt>
         let v = (regVar bld R.V |> AST.zext 64<rt>) << numI32 28 64<rt>
         n .| z .| c .| v
-      | _ -> transOprToExpr ins bld addr src
+      | _ ->
+        transOprToExpr ins bld addr src
     bld <+ (dst := src)
   bld --!> insLen
 
@@ -2344,11 +2385,11 @@ let private fixedToFp bld oprSz fbits unsigned src =
     AST.cast CastKind.UIntToFloat oprSz (numU64 0x1uL oprSz << fbits)
   let intOperand, num0 =
     if unsigned then
-      AST.cast CastKind.UIntToFloat oprSz src,
-      AST.cast CastKind.UIntToFloat oprSz (AST.num0 oprSz)
+      let float0 = AST.cast CastKind.UIntToFloat oprSz (AST.num0 oprSz)
+      AST.cast CastKind.UIntToFloat oprSz src, float0
     else
-      AST.cast CastKind.SIntToFloat oprSz src,
-      AST.cast CastKind.SIntToFloat oprSz (AST.num0 oprSz)
+      let float0 = AST.cast CastKind.SIntToFloat oprSz (AST.num0 oprSz)
+      AST.cast CastKind.SIntToFloat oprSz src, float0
   let realOperand = fpDiv bld oprSz intOperand divBits
   let cond = AST.eq realOperand num0
   AST.ite cond (AST.num0 oprSz) realOperand
@@ -2618,7 +2659,8 @@ let stp (ins: Instruction) insLen bld addr =
     bld <+ (AST.loadLE 64<rt> (address .+ dByte) := src2A)
     bld <+ (AST.loadLE 64<rt> (address .+ dByte .+ n8) := src2B)
     if isWBack && isPostIndex then bld <+ (bReg := address .+ offset)
-    elif isWBack then bld <+ (bReg := address) else ()
+    elif isWBack then bld <+ (bReg := address)
+    else ()
   | _ ->
     let src1, src2, (bReg, offset) = transThreeOprsSepMem ins bld addr
     bld <+ (address := bReg)
@@ -2626,7 +2668,8 @@ let stp (ins: Instruction) insLen bld addr =
     bld <+ (AST.loadLE ins.OprSize address := src1)
     bld <+ (AST.loadLE ins.OprSize (address .+ dByte) := src2)
     if isWBack && isPostIndex then bld <+ (bReg := address .+ offset)
-    elif isWBack then bld <+ (bReg := address) else ()
+    elif isWBack then bld <+ (bReg := address)
+    else ()
   bld --!> insLen
 
 let str (ins: Instruction) insLen bld addr =
@@ -2643,7 +2686,8 @@ let str (ins: Instruction) insLen bld addr =
     bld <+ (AST.loadLE 64<rt> address := srcA)
     bld <+ (AST.loadLE 64<rt> (address .+ (numI32 8 64<rt>)) := srcB)
     if isWBack && isPostIndex then bld <+ (bReg := address .+ offset)
-    elif isWBack then bld <+ (bReg := address) else ()
+    elif isWBack then bld <+ (bReg := address)
+    else ()
   | _ ->
     let src, (bReg, offset) = transTwoOprsSepMem ins bld addr
     let address = tmpVar bld 64<rt>
@@ -2653,7 +2697,8 @@ let str (ins: Instruction) insLen bld addr =
     bld <+ (data := src)
     bld <+ (AST.loadLE ins.OprSize address := data)
     if isWBack && isPostIndex then bld <+ (bReg := address .+ offset)
-    elif isWBack then bld <+ (bReg := address) else ()
+    elif isWBack then bld <+ (bReg := address)
+    else ()
   bld --!> insLen
 
 let strb ins insLen bld addr =
@@ -2667,7 +2712,8 @@ let strb ins insLen bld addr =
   bld <+ (data := AST.xtlo 8<rt> src)
   bld <+ (AST.loadLE 8<rt> address := data)
   if isWBack && isPostIndex then bld <+ (bReg := address .+ offset)
-  elif isWBack then bld <+ (bReg := address) else ()
+  elif isWBack then bld <+ (bReg := address)
+  else ()
   bld --!> insLen
 
 let strh ins insLen bld addr =
@@ -2681,7 +2727,8 @@ let strh ins insLen bld addr =
   bld <+ (data := AST.xtlo 16<rt> src)
   bld <+ (AST.loadLE 16<rt> address := data)
   if isWBack && isPostIndex then bld <+ (bReg := address .+ offset)
-  elif isWBack then bld <+ (bReg := address) else ()
+  elif isWBack then bld <+ (bReg := address)
+  else ()
   bld --!> insLen
 
 let sttrb ins insLen bld addr =
@@ -2710,7 +2757,8 @@ let stur (ins: Instruction) insLen bld addr =
     bld <+ (AST.loadLE 64<rt> address := src1A)
     bld <+ (AST.loadLE 64<rt> (address .+ (numI32 8 64<rt>)) := src1B)
     if isWBack && isPostIndex then bld <+ (bReg := address .+ offset)
-    elif isWBack then bld <+ (bReg := address) else ()
+    elif isWBack then bld <+ (bReg := address)
+    else ()
   | _ ->
     let src, (bReg, offset) = transTwoOprsSepMem ins bld addr
     bld <+ (address := bReg)
@@ -2718,7 +2766,8 @@ let stur (ins: Instruction) insLen bld addr =
     bld <+ (data := src)
     bld <+ (AST.loadLE ins.OprSize address := data)
     if isWBack && isPostIndex then bld <+ (bReg := address .+ offset)
-    elif isWBack then bld <+ (bReg := address) else ()
+    elif isWBack then bld <+ (bReg := address)
+    else ()
   bld --!> insLen
 
 let sturb ins insLen bld addr =
@@ -2823,13 +2872,16 @@ let tbl (ins: Instruction) insLen bld addr = (* FIMXE *)
   let elements = dataSize / 8<rt>
   let struct (dstB, dstA) = transOprToExpr128 ins bld addr dst
   let src =
-    match src1 with
-    | OprSIMDList simds ->
-      Array.map (fun simd ->
-        let struct (dstB, dstA) = transOprToExpr128 ins bld addr (OprSIMD simd)
-        [| dstA; dstB |]) (List.toArray simds)
-    | _ -> raise InvalidOperandException
-    |> Array.concat
+    let oprs =
+      match src1 with
+      | OprSIMDList simds ->
+        Array.map (fun simd ->
+          let struct (dstB, dstA) =
+            transOprToExpr128 ins bld addr (OprSIMD simd)
+          [| dstA; dstB |]) (List.toArray simds)
+      | _ ->
+        raise InvalidOperandException
+    oprs |> Array.concat
   let indices = transSIMDOprToExpr bld 8<rt> dataSize elements src2
   let n8 = numI32 8 8<rt>
   let nFF = numI32 -1 8<rt> |> AST.zext 64<rt>
@@ -2849,32 +2901,53 @@ let tbl (ins: Instruction) insLen bld addr = (* FIMXE *)
     AST.ite (index .< lenExpr) (elem expr index) dst
   let getElem i idx =
     if len = 2 then
-      AST.ite (idx .< numI32 8 8<rt>) (limit i src[0] idx)
+      AST.ite (idx .< numI32 8 8<rt>)
+        (limit i src[0] idx)
         (AST.ite (idx .< numI32 16 8<rt>) (limit i src[1] idx) zeros)
     elif len = 4 then
-      AST.ite (idx .< numI32 8 8<rt>) (limit i src[0] idx)
-        (AST.ite (idx .< numI32 16 8<rt>) (limit i src[1] idx)
-          (AST.ite (idx .< numI32 24 8<rt>) (limit i src[2] idx)
-            (AST.ite (idx .< numI32 32 8<rt>) (limit i src[3] idx) zeros)))
+      AST.ite (idx .< numI32 8 8<rt>)
+              (limit i src[0] idx)
+              (AST.ite (idx .< numI32 16 8<rt>)
+                       (limit i src[1] idx)
+                       (AST.ite (idx .< numI32 24 8<rt>)
+                                (limit i src[2] idx)
+                                (AST.ite (idx .< numI32 32 8<rt>)
+                                         (limit i src[3] idx)
+                                         zeros)))
     elif len = 6 then
-      AST.ite (idx .< numI32 8 8<rt>) (limit i src[0] idx)
-        (AST.ite (idx .< numI32 16 8<rt>) (limit i src[1] idx)
-          (AST.ite (idx .< numI32 24 8<rt>) (limit i src[2] idx)
-            (AST.ite (idx .< numI32 32 8<rt>) (limit i src[3] idx)
-              (AST.ite (idx .< numI32 40 8<rt>) (limit i src[4] idx)
-                (AST.ite (idx .< numI32 48 8<rt>) (limit i src[5] idx)
+      AST.ite (idx .< numI32 8 8<rt>)
+        (limit i src[0] idx)
+        (AST.ite (idx .< numI32 16 8<rt>)
+          (limit i src[1] idx)
+          (AST.ite (idx .< numI32 24 8<rt>)
+            (limit i src[2] idx)
+            (AST.ite (idx .< numI32 32 8<rt>)
+              (limit i src[3] idx)
+              (AST.ite (idx .< numI32 40 8<rt>)
+                (limit i src[4] idx)
+                (AST.ite (idx .< numI32 48 8<rt>)
+                  (limit i src[5] idx)
                   zeros)))))
     elif len = 8 then
-      AST.ite (idx .< numI32 8 8<rt>) (limit i src[0] idx)
-        (AST.ite (idx .< numI32 16 8<rt>) (limit i src[1] idx)
-          (AST.ite (idx .< numI32 24 8<rt>) (limit i src[2] idx)
-            (AST.ite (idx .< numI32 32 8<rt>) (limit i src[3] idx)
-              (AST.ite (idx .< numI32 40 8<rt>) (limit i src[4] idx)
-                (AST.ite (idx .< numI32 48 8<rt>) (limit i src[5] idx)
-                  (AST.ite (idx .< numI32 56 8<rt>) (limit i src[6] idx)
-                    (AST.ite (idx .< numI32 64 8<rt>) (limit i src[7] idx)
+      AST.ite (idx .< numI32 8 8<rt>)
+        (limit i src[0] idx)
+        (AST.ite (idx .< numI32 16 8<rt>)
+          (limit i src[1] idx)
+          (AST.ite (idx .< numI32 24 8<rt>)
+            (limit i src[2] idx)
+            (AST.ite (idx .< numI32 32 8<rt>)
+              (limit i src[3] idx)
+              (AST.ite (idx .< numI32 40 8<rt>)
+                (limit i src[4] idx)
+                (AST.ite (idx .< numI32 48 8<rt>)
+                  (limit i src[5] idx)
+                  (AST.ite (idx .< numI32 56 8<rt>)
+                    (limit i src[6] idx)
+                    (AST.ite (idx .< numI32 64 8<rt>)
+                      (limit i src[7] idx)
                       zeros)))))))
-    else failwith "Invalid number of registers."
+    else
+      failwith "Invalid number of registers."
   let result = Array.init elements (fun _ -> tmpVar bld eSize)
   Array.mapi getElem indices
   |> Array.iter2 (fun e1 e2 -> bld <+ (e1 := e2)) result
@@ -3238,7 +3311,8 @@ let sqdmulh (ins: Instruction) insLen bld addr =
     let src2 = transOprToExpr ins bld addr o3
     let result = ssatQMulH bld src1 src2 eSize
     dstAssignScalar ins bld addr o1 result eSize
-  | _ -> raise InvalidOperandException
+  | _ ->
+    raise InvalidOperandException
   bld --!> insLen
 
 let private ssatQMulL bld e1 e2 (eSize: int<rt>) =
@@ -3287,7 +3361,8 @@ let sqdmull (ins: Instruction) insLen bld addr =
     let src2 = transOprToExpr ins bld addr o3
     let result = ssatQMulL bld src1 src2 eSize
     dstAssignScalar ins bld addr o1 result eSize
-  | _ -> raise InvalidOperandException
+  | _ ->
+    raise InvalidOperandException
   bld --!> insLen
 
 let private ssatQMAdd bld src1 src2 dstElm eSize =
@@ -3338,7 +3413,8 @@ let sqdmlal (ins: Instruction) insLen bld addr =
     let src2 = transOprToExpr ins bld addr o3
     let result = ssatQMAdd bld src1 src2 dst eSize
     dstAssignScalar ins bld addr o1 result eSize
-  | _ -> raise InvalidOperandException
+  | _ ->
+    raise InvalidOperandException
   bld --!> insLen
 
 let umlal (ins: Instruction) insLen bld addr =
@@ -3478,12 +3554,14 @@ let uqadd (ins: Instruction) insLen bld addr =
     let src1 = transOprToExpr ins bld addr o2
     let src2 = transOprToExpr ins bld addr o3
     let result =
-      if eSize = 64<rt> then satQ64 src1 src2
+      if eSize = 64<rt> then
+        satQ64 src1 src2
       else
         let input = AST.zext (2 * eSize) src1 .+ AST.zext (2 * eSize) src2
         satQ bld input eSize true
     dstAssignScalar ins bld addr o1 result eSize
-  | _ -> raise InvalidOperandException
+  | _ ->
+    raise InvalidOperandException
   bld --!> insLen
 
 let private getRndConst amt eSize =
@@ -3539,7 +3617,8 @@ let uqrshl (ins: Instruction) insLen bld addr =
       transOprToExpr ins bld addr o3 |> AST.xtlo 8<rt> |> AST.sext eSize
     let result = usatQRShl bld src1 shift eSize
     dstAssignScalar ins bld addr o1 result eSize
-  | _ -> raise InvalidOperandException
+  | _ ->
+    raise InvalidOperandException
   bld --!> insLen
 
 let uqsub (ins: Instruction) insLen bld addr =
@@ -3571,12 +3650,14 @@ let uqsub (ins: Instruction) insLen bld addr =
     let src1 = transOprToExpr ins bld addr o2
     let src2 = transOprToExpr ins bld addr o3
     let result =
-      if eSize = 64<rt> then satQ64 src1 src2
+      if eSize = 64<rt> then
+        satQ64 src1 src2
       else
         let input = AST.zext (2 * eSize) src1 .- AST.zext (2 * eSize) src2
         satQ bld input eSize true
     dstAssignScalar ins bld addr o1 result eSize
-  | _ -> raise InvalidOperandException
+  | _ ->
+    raise InvalidOperandException
   bld --!> insLen
 
 let private usatQShl bld expr amt eSize =
@@ -3624,7 +3705,8 @@ let uqshl (ins: Instruction) insLen bld addr =
     let shift = transOprToExpr ins bld addr o3 |> AST.xtlo 8<rt>
     let result = usatQShl bld src1 (AST.sext eSize shift) eSize
     dstAssignScalar ins bld addr o1 result eSize
-  | _ -> raise InvalidOperandException
+  | _ ->
+    raise InvalidOperandException
   bld --!> insLen
 
 let shiftULeftLong (ins: Instruction) insLen bld addr =
@@ -3679,12 +3761,16 @@ let urshl (ins: Instruction) insLen bld addr =
       let cElem = tmpVar bld 64<rt>
       bld <+ (cElem := (elem >> n1) .| numU64 0x8000000000000000UL 64<rt>)
       bld <+ (res := AST.ite cond
-                     (AST.ite isOver n0
-                       (AST.ite isCarry (cElem >> (AST.neg shf .- n1))
-                         (elem >> AST.neg shf))) (elem << shf))
+                     (AST.ite isOver
+                       n0
+                       (AST.ite isCarry
+                         (cElem >> (AST.neg shf .- n1))
+                         (elem >> AST.neg shf)))
+                         (elem << shf))
     else
       bld <+ (res := AST.ite cond
-                     (AST.ite isOver n0 (elem >> AST.neg shf)) (elem << shf))
+                             (AST.ite isOver n0 (elem >> AST.neg shf))
+                             (elem << shf))
     AST.xtlo eSize res
   match ins.Operands with
   | ThreeOperands(OprSIMD(ScalarReg _), _, _) ->
@@ -3717,7 +3803,8 @@ let srshl (ins: Instruction) insLen bld addr =
     bld <+ (elem := e1 .+ rndCst)
     let isOver = AST.neg shf .> numI32 (int eSize) eSize
     AST.ite cond (AST.ite isOver n0 (AST.ite signBit
-                   (elem ?>> AST.neg shf) (elem >> AST.neg shf))) (elem << shf)
+                   (elem ?>> AST.neg shf)
+                   (elem >> AST.neg shf))) (elem << shf)
   match ins.Operands with
   | ThreeOperands(OprSIMD(ScalarReg _), _, _) ->
     let src = transOprToExpr ins bld addr src
@@ -3964,289 +4051,559 @@ let distLogicalRightShift (ins: Instruction) insLen bld addr =
 let translate (ins: Instruction) insLen bld =
   let addr = ins.Address
   match ins.Opcode with
-  | Opcode.ABS -> abs ins insLen bld addr
-  | Opcode.ADC -> adc ins insLen bld addr
-  | Opcode.ADCS -> adcs ins insLen bld addr
-  | Opcode.ADD -> add ins insLen bld addr
-  | Opcode.ADDHN -> addSubHN ins insLen bld addr false (.+)
-  | Opcode.ADDHN2 -> addSubHN ins insLen bld addr true (.+)
-  | Opcode.ADDP -> addp ins insLen bld addr
-  | Opcode.ADDS -> adds ins insLen bld addr
-  | Opcode.ADDV -> addv ins insLen bld addr
-  | Opcode.ADR -> adr ins insLen bld addr
-  | Opcode.ADRP -> adrp ins insLen bld addr
-  | Opcode.AND -> logAnd ins insLen bld addr
-  | Opcode.ANDS -> ands ins insLen bld addr
-  | Opcode.ASR -> asrv ins insLen bld addr
-  | Opcode.B -> b ins insLen bld addr
-  | Opcode.BAL -> bCond ins insLen bld addr AL
-  | Opcode.BCC -> bCond ins insLen bld addr CC
-  | Opcode.BCS -> bCond ins insLen bld addr CS
-  | Opcode.BEQ -> bCond ins insLen bld addr EQ
-  | Opcode.BFI -> bfi ins insLen bld addr
-  | Opcode.BFXIL -> bfxil ins insLen bld addr
-  | Opcode.BGE -> bCond ins insLen bld addr GE
-  | Opcode.BGT -> bCond ins insLen bld addr GT
-  | Opcode.BHI -> bCond ins insLen bld addr HI
-  | Opcode.BIC -> bic ins insLen bld addr
-  | Opcode.BICS -> bics ins insLen bld addr
-  | Opcode.BIF -> bif ins insLen bld addr
-  | Opcode.BIT -> bit ins insLen bld addr
-  | Opcode.BL -> bl ins insLen bld addr
-  | Opcode.BLE -> bCond ins insLen bld addr LE
-  | Opcode.BLR -> blr ins insLen bld addr
-  | Opcode.BLS -> bCond ins insLen bld addr LS
-  | Opcode.BLT -> bCond ins insLen bld addr LT
-  | Opcode.BMI -> bCond ins insLen bld addr MI
-  | Opcode.BNE -> bCond ins insLen bld addr NE
-  | Opcode.BNV -> bCond ins insLen bld addr NV
-  | Opcode.BPL -> bCond ins insLen bld addr PL
-  | Opcode.BR -> br ins insLen bld addr
-  | Opcode.BRK -> sideEffects ins.Address insLen bld Breakpoint
-  | Opcode.BSL -> bsl ins insLen bld addr
-  | Opcode.BVC -> bCond ins insLen bld addr VC
-  | Opcode.BVS -> bCond ins insLen bld addr VS
+  | Opcode.ABS ->
+    abs ins insLen bld addr
+  | Opcode.ADC ->
+    adc ins insLen bld addr
+  | Opcode.ADCS ->
+    adcs ins insLen bld addr
+  | Opcode.ADD ->
+    add ins insLen bld addr
+  | Opcode.ADDHN ->
+    addSubHN ins insLen bld addr false (.+)
+  | Opcode.ADDHN2 ->
+    addSubHN ins insLen bld addr true (.+)
+  | Opcode.ADDP ->
+    addp ins insLen bld addr
+  | Opcode.ADDS ->
+    adds ins insLen bld addr
+  | Opcode.ADDV ->
+    addv ins insLen bld addr
+  | Opcode.ADR ->
+    adr ins insLen bld addr
+  | Opcode.ADRP ->
+    adrp ins insLen bld addr
+  | Opcode.AND ->
+    logAnd ins insLen bld addr
+  | Opcode.ANDS ->
+    ands ins insLen bld addr
+  | Opcode.ASR ->
+    asrv ins insLen bld addr
+  | Opcode.B ->
+    b ins insLen bld addr
+  | Opcode.BAL ->
+    bCond ins insLen bld addr AL
+  | Opcode.BCC ->
+    bCond ins insLen bld addr CC
+  | Opcode.BCS ->
+    bCond ins insLen bld addr CS
+  | Opcode.BEQ ->
+    bCond ins insLen bld addr EQ
+  | Opcode.BFI ->
+    bfi ins insLen bld addr
+  | Opcode.BFXIL ->
+    bfxil ins insLen bld addr
+  | Opcode.BGE ->
+    bCond ins insLen bld addr GE
+  | Opcode.BGT ->
+    bCond ins insLen bld addr GT
+  | Opcode.BHI ->
+    bCond ins insLen bld addr HI
+  | Opcode.BIC ->
+    bic ins insLen bld addr
+  | Opcode.BICS ->
+    bics ins insLen bld addr
+  | Opcode.BIF ->
+    bif ins insLen bld addr
+  | Opcode.BIT ->
+    bit ins insLen bld addr
+  | Opcode.BL ->
+    bl ins insLen bld addr
+  | Opcode.BLE ->
+    bCond ins insLen bld addr LE
+  | Opcode.BLR ->
+    blr ins insLen bld addr
+  | Opcode.BLS ->
+    bCond ins insLen bld addr LS
+  | Opcode.BLT ->
+    bCond ins insLen bld addr LT
+  | Opcode.BMI ->
+    bCond ins insLen bld addr MI
+  | Opcode.BNE ->
+    bCond ins insLen bld addr NE
+  | Opcode.BNV ->
+    bCond ins insLen bld addr NV
+  | Opcode.BPL ->
+    bCond ins insLen bld addr PL
+  | Opcode.BR ->
+    br ins insLen bld addr
+  | Opcode.BRK ->
+    sideEffects ins.Address insLen bld Breakpoint
+  | Opcode.BSL ->
+    bsl ins insLen bld addr
+  | Opcode.BVC ->
+    bCond ins insLen bld addr VC
+  | Opcode.BVS ->
+    bCond ins insLen bld addr VS
   | Opcode.CAS | Opcode.CASA | Opcode.CASL | Opcode.CASAL ->
     compareAndSwap ins insLen bld addr
-  | Opcode.CBNZ -> cbnz ins insLen bld addr
-  | Opcode.CBZ -> cbz ins insLen bld addr
-  | Opcode.CCMN -> ccmn ins insLen bld addr
-  | Opcode.CCMP -> ccmp ins insLen bld addr
-  | Opcode.CLS -> cls ins insLen bld addr
-  | Opcode.CLZ -> clz ins insLen bld addr
-  | Opcode.CMEQ -> cmeq ins insLen bld addr
-  | Opcode.CMGE -> cmge ins insLen bld addr
-  | Opcode.CMGT -> cmgt ins insLen bld addr
-  | Opcode.CMHI -> cmhi ins insLen bld addr
-  | Opcode.CMHS -> cmhs ins insLen bld addr
-  | Opcode.CMLT -> cmlt ins insLen bld addr
-  | Opcode.CMN -> cmn ins insLen bld addr
-  | Opcode.CMP -> cmp ins insLen bld addr
-  | Opcode.CMTST -> cmtst ins insLen bld addr
-  | Opcode.CNEG | Opcode.CSNEG -> csneg ins insLen bld addr
-  | Opcode.CNT -> cnt ins insLen bld addr
-  | Opcode.CSEL -> csel ins insLen bld addr
-  | Opcode.CSETM | Opcode.CINV | Opcode.CSINV -> csinv ins insLen bld addr
-  | Opcode.CSINC | Opcode.CINC | Opcode.CSET -> csinc ins insLen bld addr
-  | Opcode.CTZ -> ctz ins insLen bld addr
-  | Opcode.DCZVA -> dczva ins insLen bld addr
+  | Opcode.CBNZ ->
+    cbnz ins insLen bld addr
+  | Opcode.CBZ ->
+    cbz ins insLen bld addr
+  | Opcode.CCMN ->
+    ccmn ins insLen bld addr
+  | Opcode.CCMP ->
+    ccmp ins insLen bld addr
+  | Opcode.CLS ->
+    cls ins insLen bld addr
+  | Opcode.CLZ ->
+    clz ins insLen bld addr
+  | Opcode.CMEQ ->
+    cmeq ins insLen bld addr
+  | Opcode.CMGE ->
+    cmge ins insLen bld addr
+  | Opcode.CMGT ->
+    cmgt ins insLen bld addr
+  | Opcode.CMHI ->
+    cmhi ins insLen bld addr
+  | Opcode.CMHS ->
+    cmhs ins insLen bld addr
+  | Opcode.CMLT ->
+    cmlt ins insLen bld addr
+  | Opcode.CMN ->
+    cmn ins insLen bld addr
+  | Opcode.CMP ->
+    cmp ins insLen bld addr
+  | Opcode.CMTST ->
+    cmtst ins insLen bld addr
+  | Opcode.CNEG | Opcode.CSNEG ->
+    csneg ins insLen bld addr
+  | Opcode.CNT ->
+    cnt ins insLen bld addr
+  | Opcode.CSEL ->
+    csel ins insLen bld addr
+  | Opcode.CSETM | Opcode.CINV | Opcode.CSINV ->
+    csinv ins insLen bld addr
+  | Opcode.CSINC | Opcode.CINC | Opcode.CSET ->
+    csinc ins insLen bld addr
+  | Opcode.CTZ ->
+    ctz ins insLen bld addr
+  | Opcode.DCZVA ->
+    dczva ins insLen bld addr
   | Opcode.CLREX
-  | Opcode.DMB | Opcode.DSB | Opcode.ISB -> nop ins.Address insLen bld
-  | Opcode.DUP -> dup ins insLen bld addr
-  | Opcode.EOR | Opcode.EON -> eor ins insLen bld addr
-  | Opcode.EXT -> ext ins insLen bld addr
-  | Opcode.EXTR | Opcode.ROR -> extr ins insLen bld addr
-  | Opcode.FABD -> fabd ins insLen bld addr
-  | Opcode.FABS -> fabs ins insLen bld addr
-  | Opcode.FADD -> fadd ins insLen bld addr
-  | Opcode.FADDP -> faddp ins insLen bld addr
-  | Opcode.FCCMP -> fccmp ins insLen bld addr
-  | Opcode.FCCMPE -> fccmp ins insLen bld addr
-  | Opcode.FCMGT -> fcmgt ins insLen bld addr
-  | Opcode.FCMP -> fcmp ins insLen bld addr
-  | Opcode.FCMPE -> fcmp ins insLen bld addr
-  | Opcode.FCSEL -> fcsel ins insLen bld addr
-  | Opcode.FCVT -> fcvt ins insLen bld addr
-  | Opcode.FCVTAS -> fcvtas ins insLen bld addr
-  | Opcode.FCVTAU -> fcvtau ins insLen bld addr
-  | Opcode.FCVTMS -> fcvtms ins insLen bld addr
-  | Opcode.FCVTMU -> fcvtmu ins insLen bld addr
-  | Opcode.FCVTPS -> fcvtps ins insLen bld addr
-  | Opcode.FCVTPU -> fcvtpu ins insLen bld addr
-  | Opcode.FCVTZS -> fcvtzs ins insLen bld addr
-  | Opcode.FCVTZU -> fcvtzu ins insLen bld addr
-  | Opcode.FDIV -> fdiv ins insLen bld addr
-  | Opcode.FMADD -> fmadd ins insLen bld addr
-  | Opcode.FMAX -> fmaxmin ins insLen bld addr AST.fgt
-  | Opcode.FMAXNM -> sideEffects ins.Address insLen bld UnsupportedInstruction
-  | Opcode.FMIN -> fmaxmin ins insLen bld addr AST.flt
-  | Opcode.FMLS -> fmls ins insLen bld addr
-  | Opcode.FMOV -> fmov ins insLen bld addr
-  | Opcode.FMSUB -> fmsub ins insLen bld addr
-  | Opcode.FMUL -> fmul ins insLen bld addr
-  | Opcode.FNEG -> fneg ins insLen bld addr
-  | Opcode.FNMSUB -> fnmsub ins insLen bld addr
-  | Opcode.FNMUL -> fnmul ins insLen bld addr
-  | Opcode.FRINTA -> frinta ins insLen bld addr
-  | Opcode.FRINTM -> frintm ins insLen bld addr
-  | Opcode.FRINTP -> frintp ins insLen bld addr
-  | Opcode.FRINTI -> frinti ins insLen bld addr
-  | Opcode.FRINTN -> frintn ins insLen bld addr
-  | Opcode.FRINTX -> frintx ins insLen bld addr
-  | Opcode.FRINTZ -> frintz ins insLen bld addr
-  | Opcode.FSQRT -> fsqrt ins insLen bld addr
-  | Opcode.FSUB -> fsub ins insLen bld addr
-  | Opcode.HINT -> nop ins.Address insLen bld
-  | Opcode.INS -> insv ins insLen bld addr
+  | Opcode.DMB | Opcode.DSB | Opcode.ISB ->
+    nop ins.Address insLen bld
+  | Opcode.DUP ->
+    dup ins insLen bld addr
+  | Opcode.EOR | Opcode.EON ->
+    eor ins insLen bld addr
+  | Opcode.EXT ->
+    ext ins insLen bld addr
+  | Opcode.EXTR | Opcode.ROR ->
+    extr ins insLen bld addr
+  | Opcode.FABD ->
+    fabd ins insLen bld addr
+  | Opcode.FABS ->
+    fabs ins insLen bld addr
+  | Opcode.FADD ->
+    fadd ins insLen bld addr
+  | Opcode.FADDP ->
+    faddp ins insLen bld addr
+  | Opcode.FCCMP ->
+    fccmp ins insLen bld addr
+  | Opcode.FCCMPE ->
+    fccmp ins insLen bld addr
+  | Opcode.FCMGT ->
+    fcmgt ins insLen bld addr
+  | Opcode.FCMP ->
+    fcmp ins insLen bld addr
+  | Opcode.FCMPE ->
+    fcmp ins insLen bld addr
+  | Opcode.FCSEL ->
+    fcsel ins insLen bld addr
+  | Opcode.FCVT ->
+    fcvt ins insLen bld addr
+  | Opcode.FCVTAS ->
+    fcvtas ins insLen bld addr
+  | Opcode.FCVTAU ->
+    fcvtau ins insLen bld addr
+  | Opcode.FCVTMS ->
+    fcvtms ins insLen bld addr
+  | Opcode.FCVTMU ->
+    fcvtmu ins insLen bld addr
+  | Opcode.FCVTPS ->
+    fcvtps ins insLen bld addr
+  | Opcode.FCVTPU ->
+    fcvtpu ins insLen bld addr
+  | Opcode.FCVTZS ->
+    fcvtzs ins insLen bld addr
+  | Opcode.FCVTZU ->
+    fcvtzu ins insLen bld addr
+  | Opcode.FDIV ->
+    fdiv ins insLen bld addr
+  | Opcode.FMADD ->
+    fmadd ins insLen bld addr
+  | Opcode.FMAX ->
+    fmaxmin ins insLen bld addr AST.fgt
+  | Opcode.FMAXNM ->
+    sideEffects ins.Address insLen bld UnsupportedInstruction
+  | Opcode.FMIN ->
+    fmaxmin ins insLen bld addr AST.flt
+  | Opcode.FMLS ->
+    fmls ins insLen bld addr
+  | Opcode.FMOV ->
+    fmov ins insLen bld addr
+  | Opcode.FMSUB ->
+    fmsub ins insLen bld addr
+  | Opcode.FMUL ->
+    fmul ins insLen bld addr
+  | Opcode.FNEG ->
+    fneg ins insLen bld addr
+  | Opcode.FNMSUB ->
+    fnmsub ins insLen bld addr
+  | Opcode.FNMUL ->
+    fnmul ins insLen bld addr
+  | Opcode.FRINTA ->
+    frinta ins insLen bld addr
+  | Opcode.FRINTM ->
+    frintm ins insLen bld addr
+  | Opcode.FRINTP ->
+    frintp ins insLen bld addr
+  | Opcode.FRINTI ->
+    frinti ins insLen bld addr
+  | Opcode.FRINTN ->
+    frintn ins insLen bld addr
+  | Opcode.FRINTX ->
+    frintx ins insLen bld addr
+  | Opcode.FRINTZ ->
+    frintz ins insLen bld addr
+  | Opcode.FSQRT ->
+    fsqrt ins insLen bld addr
+  | Opcode.FSUB ->
+    fsub ins insLen bld addr
+  | Opcode.HINT ->
+    nop ins.Address insLen bld
+  | Opcode.INS ->
+    insv ins insLen bld addr
   | Opcode.LD1 | Opcode.LD2 | Opcode.LD3 | Opcode.LD4 ->
     loadStoreList ins insLen bld addr true
   | Opcode.LD1R | Opcode.LD2R | Opcode.LD3R | Opcode.LD4R ->
     loadRep ins insLen bld addr
-  | Opcode.LDAR -> ldar ins insLen bld addr
-  | Opcode.LDARB -> ldarb ins insLen bld addr
-  | Opcode.LDAXP | Opcode.LDXP -> ldaxp ins insLen bld addr
-  | Opcode.LDAXR | Opcode.LDXR -> ldaxr ins insLen bld addr
-  | Opcode.LDAXRB | Opcode.LDXRB -> ldax ins insLen bld addr 8<rt>
-  | Opcode.LDAXRH | Opcode.LDXRH -> ldax ins insLen bld addr 16<rt>
-  | Opcode.LDNP -> ldnp ins insLen bld addr
-  | Opcode.LDP -> ldp ins insLen bld addr
-  | Opcode.LDPSW -> ldpsw ins insLen bld addr
-  | Opcode.LDR -> ldr ins insLen bld addr
-  | Opcode.LDRB -> ldrb ins insLen bld addr
-  | Opcode.LDRH -> ldrh ins insLen bld addr
-  | Opcode.LDRSB -> ldrsb ins insLen bld addr
-  | Opcode.LDRSH -> ldrsh ins insLen bld addr
-  | Opcode.LDRSW -> ldrsw ins insLen bld addr
-  | Opcode.LDUR -> ldur ins insLen bld addr
-  | Opcode.LDURB -> ldurb ins insLen bld addr
-  | Opcode.LDURH -> ldurh ins insLen bld addr
-  | Opcode.LDURSB -> ldursb ins insLen bld addr
-  | Opcode.LDURSH -> ldursh ins insLen bld addr
-  | Opcode.LDURSW -> ldursw ins insLen bld addr
-  | Opcode.LSL -> distLogicalLeftShift ins insLen bld addr
-  | Opcode.LSR -> distLogicalRightShift ins insLen bld addr
-  | Opcode.MADD -> madd ins insLen bld addr
-  | Opcode.MLA -> mladdsub ins insLen bld addr (.+)
-  | Opcode.MLS -> mladdsub ins insLen bld addr (.-)
-  | Opcode.MNEG -> msub ins insLen bld addr
-  | Opcode.MOV -> mov ins insLen bld addr
-  | Opcode.MOVI -> movi ins insLen bld addr
-  | Opcode.MOVK -> movk ins insLen bld addr
-  | Opcode.MOVN -> movn ins insLen bld addr
-  | Opcode.MOVZ -> movz ins insLen bld addr
-  | Opcode.MRS -> mrs ins insLen bld addr
-  | Opcode.MSR -> msr ins insLen bld addr
-  | Opcode.MSUB -> msub ins insLen bld addr
-  | Opcode.MUL -> madd ins insLen bld addr
-  | Opcode.MVN -> orn ins insLen bld addr
-  | Opcode.MVNI -> mvni ins insLen bld addr
-  | Opcode.NEG -> sub ins insLen bld addr
-  | Opcode.NEGS -> subs ins insLen bld addr
-  | Opcode.NOT -> orn ins insLen bld addr
-  | Opcode.NOP -> nop ins.Address insLen bld
-  | Opcode.ORN -> orn ins insLen bld addr
-  | Opcode.ORR -> orr ins insLen bld addr
-  | Opcode.PRFM | Opcode.PRFUM -> nop ins.Address insLen bld
-  | Opcode.RBIT -> rbit ins insLen bld addr
-  | Opcode.RET -> ret ins insLen bld addr
-  | Opcode.REV -> rev ins insLen bld addr
-  | Opcode.REV16 -> rev16 ins insLen bld addr
-  | Opcode.REV32 -> rev32 ins insLen bld addr
-  | Opcode.REV64 -> rev ins insLen bld addr
-  | Opcode.RORV -> rorv ins insLen bld addr
-  | Opcode.SADDL | Opcode.SADDL2 -> saddl ins insLen bld addr
-  | Opcode.SADDW | Opcode.SADDW2 -> saddw ins insLen bld addr
-  | Opcode.SADDLP -> saddlp ins insLen bld addr
-  | Opcode.SADDLV -> saddlv ins insLen bld addr
-  | Opcode.SBC -> sbc ins insLen bld addr
-  | Opcode.SBCS -> sbcs ins insLen bld addr
-  | Opcode.SBFIZ -> sbfiz ins insLen bld addr
-  | Opcode.SBFX -> sbfx ins insLen bld addr
-  | Opcode.SCVTF -> icvtf ins insLen bld addr false
-  | Opcode.SDIV -> sdiv ins insLen bld addr
-  | Opcode.SHL -> shl ins insLen bld addr
-  | Opcode.SHRN -> shrn ins insLen bld addr false
-  | Opcode.SHRN2 -> shrn ins insLen bld addr true
-  | Opcode.SMADDL -> smaddl ins insLen bld addr
-  | Opcode.SMOV -> smov ins insLen bld addr
-  | Opcode.SMSUBL | Opcode.SMNEGL -> smsubl ins insLen bld addr
-  | Opcode.SMULH -> smulh ins insLen bld addr
-  | Opcode.SMULL | Opcode.SMULL2 -> smull ins insLen bld addr
-  | Opcode.SSHL -> sshl ins insLen bld addr
+  | Opcode.LDAR ->
+    ldar ins insLen bld addr
+  | Opcode.LDARB ->
+    ldarb ins insLen bld addr
+  | Opcode.LDAXP | Opcode.LDXP ->
+    ldaxp ins insLen bld addr
+  | Opcode.LDAXR | Opcode.LDXR ->
+    ldaxr ins insLen bld addr
+  | Opcode.LDAXRB | Opcode.LDXRB ->
+    ldax ins insLen bld addr 8<rt>
+  | Opcode.LDAXRH | Opcode.LDXRH ->
+    ldax ins insLen bld addr 16<rt>
+  | Opcode.LDNP ->
+    ldnp ins insLen bld addr
+  | Opcode.LDP ->
+    ldp ins insLen bld addr
+  | Opcode.LDPSW ->
+    ldpsw ins insLen bld addr
+  | Opcode.LDR ->
+    ldr ins insLen bld addr
+  | Opcode.LDRB ->
+    ldrb ins insLen bld addr
+  | Opcode.LDRH ->
+    ldrh ins insLen bld addr
+  | Opcode.LDRSB ->
+    ldrsb ins insLen bld addr
+  | Opcode.LDRSH ->
+    ldrsh ins insLen bld addr
+  | Opcode.LDRSW ->
+    ldrsw ins insLen bld addr
+  | Opcode.LDUR ->
+    ldur ins insLen bld addr
+  | Opcode.LDURB ->
+    ldurb ins insLen bld addr
+  | Opcode.LDURH ->
+    ldurh ins insLen bld addr
+  | Opcode.LDURSB ->
+    ldursb ins insLen bld addr
+  | Opcode.LDURSH ->
+    ldursh ins insLen bld addr
+  | Opcode.LDURSW ->
+    ldursw ins insLen bld addr
+  | Opcode.LSL ->
+    distLogicalLeftShift ins insLen bld addr
+  | Opcode.LSR ->
+    distLogicalRightShift ins insLen bld addr
+  | Opcode.MADD ->
+    madd ins insLen bld addr
+  | Opcode.MLA ->
+    mladdsub ins insLen bld addr (.+)
+  | Opcode.MLS ->
+    mladdsub ins insLen bld addr (.-)
+  | Opcode.MNEG ->
+    msub ins insLen bld addr
+  | Opcode.MOV ->
+    mov ins insLen bld addr
+  | Opcode.MOVI ->
+    movi ins insLen bld addr
+  | Opcode.MOVK ->
+    movk ins insLen bld addr
+  | Opcode.MOVN ->
+    movn ins insLen bld addr
+  | Opcode.MOVZ ->
+    movz ins insLen bld addr
+  | Opcode.MRS ->
+    mrs ins insLen bld addr
+  | Opcode.MSR ->
+    msr ins insLen bld addr
+  | Opcode.MSUB ->
+    msub ins insLen bld addr
+  | Opcode.MUL ->
+    madd ins insLen bld addr
+  | Opcode.MVN ->
+    orn ins insLen bld addr
+  | Opcode.MVNI ->
+    mvni ins insLen bld addr
+  | Opcode.NEG ->
+    sub ins insLen bld addr
+  | Opcode.NEGS ->
+    subs ins insLen bld addr
+  | Opcode.NOT ->
+    orn ins insLen bld addr
+  | Opcode.NOP ->
+    nop ins.Address insLen bld
+  | Opcode.ORN ->
+    orn ins insLen bld addr
+  | Opcode.ORR ->
+    orr ins insLen bld addr
+  | Opcode.PRFM | Opcode.PRFUM ->
+    nop ins.Address insLen bld
+  | Opcode.RBIT ->
+    rbit ins insLen bld addr
+  | Opcode.RET ->
+    ret ins insLen bld addr
+  | Opcode.REV ->
+    rev ins insLen bld addr
+  | Opcode.REV16 ->
+    rev16 ins insLen bld addr
+  | Opcode.REV32 ->
+    rev32 ins insLen bld addr
+  | Opcode.REV64 ->
+    rev ins insLen bld addr
+  | Opcode.RORV ->
+    rorv ins insLen bld addr
+  | Opcode.SADDL | Opcode.SADDL2 ->
+    saddl ins insLen bld addr
+  | Opcode.SADDW | Opcode.SADDW2 ->
+    saddw ins insLen bld addr
+  | Opcode.SADDLP ->
+    saddlp ins insLen bld addr
+  | Opcode.SADDLV ->
+    saddlv ins insLen bld addr
+  | Opcode.SBC ->
+    sbc ins insLen bld addr
+  | Opcode.SBCS ->
+    sbcs ins insLen bld addr
+  | Opcode.SBFIZ ->
+    sbfiz ins insLen bld addr
+  | Opcode.SBFX ->
+    sbfx ins insLen bld addr
+  | Opcode.SCVTF ->
+    icvtf ins insLen bld addr false
+  | Opcode.SDIV ->
+    sdiv ins insLen bld addr
+  | Opcode.SHL ->
+    shl ins insLen bld addr
+  | Opcode.SHRN ->
+    shrn ins insLen bld addr false
+  | Opcode.SHRN2 ->
+    shrn ins insLen bld addr true
+  | Opcode.SMADDL ->
+    smaddl ins insLen bld addr
+  | Opcode.SMOV ->
+    smov ins insLen bld addr
+  | Opcode.SMSUBL | Opcode.SMNEGL ->
+    smsubl ins insLen bld addr
+  | Opcode.SMULH ->
+    smulh ins insLen bld addr
+  | Opcode.SMULL | Opcode.SMULL2 ->
+    smull ins insLen bld addr
+  | Opcode.SSHL ->
+    sshl ins insLen bld addr
   | Opcode.UXTL | Opcode.UXTL2 | Opcode.USHLL | Opcode.USHLL2 ->
     shiftULeftLong ins insLen bld addr
   | Opcode.SXTL | Opcode.SXTL2 | Opcode.SSHLL | Opcode.SSHLL2 ->
     shiftSLeftLong ins insLen bld addr
-  | Opcode.SSHR -> shift ins insLen bld addr (?>>)
-  | Opcode.SSRA -> shiftRight ins insLen bld addr (?>>)
-  | Opcode.SSUBL | Opcode.SSUBL2 -> ssubl ins insLen bld addr
-  | Opcode.SSUBW | Opcode.SSUBW2 -> ssubw ins insLen bld addr
-  | Opcode.SMAX -> maxMin ins insLen bld addr (?>=)
-  | Opcode.SMAXP -> maxMinp ins insLen bld addr (?>=)
-  | Opcode.SMAXV -> maxMinv ins insLen bld addr (?>=)
-  | Opcode.SMIN -> maxMin ins insLen bld addr (?<=)
-  | Opcode.SMINP -> maxMinp ins insLen bld addr (?<=)
-  | Opcode.SMINV -> maxMinv ins insLen bld addr (?<=)
-  | Opcode.SMLAL | Opcode.SMLAL2 -> smlal ins insLen bld addr
-  | Opcode.SMLSL | Opcode.SMLSL2 -> smlsl ins insLen bld addr
-  | Opcode.SQDMULH -> sqdmulh ins insLen bld addr
-  | Opcode.SQDMULL | Opcode.SQDMULL2 -> sqdmull ins insLen bld addr
-  | Opcode.SQDMLAL | Opcode.SQDMLAL2 -> sqdmlal ins insLen bld addr
+  | Opcode.SSHR ->
+    shift ins insLen bld addr (?>>)
+  | Opcode.SSRA ->
+    shiftRight ins insLen bld addr (?>>)
+  | Opcode.SSUBL | Opcode.SSUBL2 ->
+    ssubl ins insLen bld addr
+  | Opcode.SSUBW | Opcode.SSUBW2 ->
+    ssubw ins insLen bld addr
+  | Opcode.SMAX ->
+    maxMin ins insLen bld addr (?>=)
+  | Opcode.SMAXP ->
+    maxMinp ins insLen bld addr (?>=)
+  | Opcode.SMAXV ->
+    maxMinv ins insLen bld addr (?>=)
+  | Opcode.SMIN ->
+    maxMin ins insLen bld addr (?<=)
+  | Opcode.SMINP ->
+    maxMinp ins insLen bld addr (?<=)
+  | Opcode.SMINV ->
+    maxMinv ins insLen bld addr (?<=)
+  | Opcode.SMLAL | Opcode.SMLAL2 ->
+    smlal ins insLen bld addr
+  | Opcode.SMLSL | Opcode.SMLSL2 ->
+    smlsl ins insLen bld addr
+  | Opcode.SQDMULH ->
+    sqdmulh ins insLen bld addr
+  | Opcode.SQDMULL | Opcode.SQDMULL2 ->
+    sqdmull ins insLen bld addr
+  | Opcode.SQDMLAL | Opcode.SQDMLAL2 ->
+    sqdmlal ins insLen bld addr
   | Opcode.ST1 | Opcode.ST2 | Opcode.ST3 | Opcode.ST4 ->
     loadStoreList ins insLen bld addr false
-  | Opcode.STLR -> stlr ins insLen bld addr
-  | Opcode.STLRB -> stlrb ins insLen bld addr
-  | Opcode.STLXP | Opcode.STXP -> stlxp ins insLen bld addr
-  | Opcode.STLXR | Opcode.STXR -> stlxr ins insLen bld addr
-  | Opcode.STLXRB | Opcode.STXRB -> stlx ins insLen bld addr 8<rt>
-  | Opcode.STLXRH | Opcode.STXRH -> stlx ins insLen bld addr 16<rt>
-  | Opcode.STNP -> stnp ins insLen bld addr
-  | Opcode.STP -> stp ins insLen bld addr
-  | Opcode.STR -> str ins insLen bld addr
-  | Opcode.STRB -> strb ins insLen bld addr
-  | Opcode.STRH -> strh ins insLen bld addr
-  | Opcode.STTRB -> sttrb ins insLen bld addr
-  | Opcode.STUR -> stur ins insLen bld addr
-  | Opcode.STURB -> sturb ins insLen bld addr
-  | Opcode.STURH -> sturh ins insLen bld addr
-  | Opcode.SUB -> sub ins insLen bld addr
-  | Opcode.SUBHN -> addSubHN ins insLen bld addr false (.-)
-  | Opcode.SUBHN2 -> addSubHN ins insLen bld addr true (.-)
-  | Opcode.SUBS -> subs ins insLen bld addr
-  | Opcode.SVC -> svc ins insLen bld
-  | Opcode.SXTB -> sxtb ins insLen bld addr
-  | Opcode.SXTH -> sxth ins insLen bld addr
-  | Opcode.SXTW -> sxtw ins insLen bld addr
-  | Opcode.TBL -> tbl ins insLen bld addr
-  | Opcode.TBNZ -> tbnz ins insLen bld addr
-  | Opcode.TBZ -> tbz ins insLen bld addr
-  | Opcode.TRN1 -> trn1 ins insLen bld addr
-  | Opcode.TRN2 -> trn2 ins insLen bld addr
-  | Opcode.TST -> tst ins insLen bld addr
-  | Opcode.UABAL | Opcode.UABAL2 -> uabal ins insLen bld addr
-  | Opcode.UABDL | Opcode.UABDL2 -> uabdl ins insLen bld addr
-  | Opcode.UADALP -> uadalp ins insLen bld addr
-  | Opcode.UADDL | Opcode.UADDL2 -> uaddl ins insLen bld addr
-  | Opcode.UADDLP -> uaddlp ins insLen bld addr
-  | Opcode.UADDLV -> uaddlv ins insLen bld addr
-  | Opcode.UADDW | Opcode.UADDW2 -> uaddw ins insLen bld addr
-  | Opcode.UBFIZ -> ubfiz ins insLen bld addr
-  | Opcode.UBFX -> ubfx ins insLen bld addr
-  | Opcode.UCVTF -> icvtf ins insLen bld addr true
-  | Opcode.UDIV -> udiv ins insLen bld addr
-  | Opcode.UMADDL -> umaddl ins insLen bld addr
-  | Opcode.UMAX -> maxMin ins insLen bld addr (.>=)
-  | Opcode.UMAXP -> maxMinp ins insLen bld addr (.>=)
-  | Opcode.UMAXV -> maxMinv ins insLen bld addr (.>=)
-  | Opcode.UMIN -> maxMin ins insLen bld addr (.<=)
-  | Opcode.UMINP -> maxMinp ins insLen bld addr (.<=)
-  | Opcode.UMINV -> maxMinv ins insLen bld addr (.<=)
-  | Opcode.UMLAL | Opcode.UMLAL2 -> umlal ins insLen bld addr
-  | Opcode.UMLSL | Opcode.UMLSL2 -> umlsl ins insLen bld addr
-  | Opcode.UMOV -> umov ins insLen bld addr
-  | Opcode.UMSUBL | Opcode.UMNEGL -> umsubl ins insLen bld addr
-  | Opcode.UMULH -> umulh ins insLen bld addr
-  | Opcode.UMULL | Opcode.UMULL2 -> umull ins insLen bld addr
-  | Opcode.UQADD -> uqadd ins insLen bld addr
-  | Opcode.UQRSHL -> uqrshl ins insLen bld addr
-  | Opcode.UQSHL -> uqshl ins insLen bld addr
-  | Opcode.UQSUB -> uqsub ins insLen bld addr
-  | Opcode.URSHL -> urshl ins insLen bld addr
-  | Opcode.SRSHL -> srshl ins insLen bld addr
-  | Opcode.URHADD -> urhadd ins insLen bld addr
-  | Opcode.USHL -> ushl ins insLen bld addr
-  | Opcode.USHR -> shift ins insLen bld addr (>>)
-  | Opcode.USRA -> shiftRight ins insLen bld addr (>>)
-  | Opcode.USUBL | Opcode.USUBL2 -> usubl ins insLen bld addr
-  | Opcode.USUBW | Opcode.USUBW2 -> usubw ins insLen bld addr
-  | Opcode.UXTB -> uxtb ins insLen bld addr
-  | Opcode.UXTH -> uxth ins insLen bld addr
-  | Opcode.UZP1 -> uzp ins insLen bld addr 0
-  | Opcode.UZP2 -> uzp ins insLen bld addr 1
-  | Opcode.XTN -> xtn ins insLen bld addr
-  | Opcode.XTN2 -> xtn2 ins insLen bld addr
-  | Opcode.ZIP1 -> zip ins insLen bld addr true
-  | Opcode.ZIP2 -> zip ins insLen bld addr false
+  | Opcode.STLR ->
+    stlr ins insLen bld addr
+  | Opcode.STLRB ->
+    stlrb ins insLen bld addr
+  | Opcode.STLXP | Opcode.STXP ->
+    stlxp ins insLen bld addr
+  | Opcode.STLXR | Opcode.STXR ->
+    stlxr ins insLen bld addr
+  | Opcode.STLXRB | Opcode.STXRB ->
+    stlx ins insLen bld addr 8<rt>
+  | Opcode.STLXRH | Opcode.STXRH ->
+    stlx ins insLen bld addr 16<rt>
+  | Opcode.STNP ->
+    stnp ins insLen bld addr
+  | Opcode.STP ->
+    stp ins insLen bld addr
+  | Opcode.STR ->
+    str ins insLen bld addr
+  | Opcode.STRB ->
+    strb ins insLen bld addr
+  | Opcode.STRH ->
+    strh ins insLen bld addr
+  | Opcode.STTRB ->
+    sttrb ins insLen bld addr
+  | Opcode.STUR ->
+    stur ins insLen bld addr
+  | Opcode.STURB ->
+    sturb ins insLen bld addr
+  | Opcode.STURH ->
+    sturh ins insLen bld addr
+  | Opcode.SUB ->
+    sub ins insLen bld addr
+  | Opcode.SUBHN ->
+    addSubHN ins insLen bld addr false (.-)
+  | Opcode.SUBHN2 ->
+    addSubHN ins insLen bld addr true (.-)
+  | Opcode.SUBS ->
+    subs ins insLen bld addr
+  | Opcode.SVC ->
+    svc ins insLen bld
+  | Opcode.SXTB ->
+    sxtb ins insLen bld addr
+  | Opcode.SXTH ->
+    sxth ins insLen bld addr
+  | Opcode.SXTW ->
+    sxtw ins insLen bld addr
+  | Opcode.TBL ->
+    tbl ins insLen bld addr
+  | Opcode.TBNZ ->
+    tbnz ins insLen bld addr
+  | Opcode.TBZ ->
+    tbz ins insLen bld addr
+  | Opcode.TRN1 ->
+    trn1 ins insLen bld addr
+  | Opcode.TRN2 ->
+    trn2 ins insLen bld addr
+  | Opcode.TST ->
+    tst ins insLen bld addr
+  | Opcode.UABAL | Opcode.UABAL2 ->
+    uabal ins insLen bld addr
+  | Opcode.UABDL | Opcode.UABDL2 ->
+    uabdl ins insLen bld addr
+  | Opcode.UADALP ->
+    uadalp ins insLen bld addr
+  | Opcode.UADDL | Opcode.UADDL2 ->
+    uaddl ins insLen bld addr
+  | Opcode.UADDLP ->
+    uaddlp ins insLen bld addr
+  | Opcode.UADDLV ->
+    uaddlv ins insLen bld addr
+  | Opcode.UADDW | Opcode.UADDW2 ->
+    uaddw ins insLen bld addr
+  | Opcode.UBFIZ ->
+    ubfiz ins insLen bld addr
+  | Opcode.UBFX ->
+    ubfx ins insLen bld addr
+  | Opcode.UCVTF ->
+    icvtf ins insLen bld addr true
+  | Opcode.UDIV ->
+    udiv ins insLen bld addr
+  | Opcode.UMADDL ->
+    umaddl ins insLen bld addr
+  | Opcode.UMAX ->
+    maxMin ins insLen bld addr (.>=)
+  | Opcode.UMAXP ->
+    maxMinp ins insLen bld addr (.>=)
+  | Opcode.UMAXV ->
+    maxMinv ins insLen bld addr (.>=)
+  | Opcode.UMIN ->
+    maxMin ins insLen bld addr (.<=)
+  | Opcode.UMINP ->
+    maxMinp ins insLen bld addr (.<=)
+  | Opcode.UMINV ->
+    maxMinv ins insLen bld addr (.<=)
+  | Opcode.UMLAL | Opcode.UMLAL2 ->
+    umlal ins insLen bld addr
+  | Opcode.UMLSL | Opcode.UMLSL2 ->
+    umlsl ins insLen bld addr
+  | Opcode.UMOV ->
+    umov ins insLen bld addr
+  | Opcode.UMSUBL | Opcode.UMNEGL ->
+    umsubl ins insLen bld addr
+  | Opcode.UMULH ->
+    umulh ins insLen bld addr
+  | Opcode.UMULL | Opcode.UMULL2 ->
+    umull ins insLen bld addr
+  | Opcode.UQADD ->
+    uqadd ins insLen bld addr
+  | Opcode.UQRSHL ->
+    uqrshl ins insLen bld addr
+  | Opcode.UQSHL ->
+    uqshl ins insLen bld addr
+  | Opcode.UQSUB ->
+    uqsub ins insLen bld addr
+  | Opcode.URSHL ->
+    urshl ins insLen bld addr
+  | Opcode.SRSHL ->
+    srshl ins insLen bld addr
+  | Opcode.URHADD ->
+    urhadd ins insLen bld addr
+  | Opcode.USHL ->
+    ushl ins insLen bld addr
+  | Opcode.USHR ->
+    shift ins insLen bld addr (>>)
+  | Opcode.USRA ->
+    shiftRight ins insLen bld addr (>>)
+  | Opcode.USUBL | Opcode.USUBL2 ->
+    usubl ins insLen bld addr
+  | Opcode.USUBW | Opcode.USUBW2 ->
+    usubw ins insLen bld addr
+  | Opcode.UXTB ->
+    uxtb ins insLen bld addr
+  | Opcode.UXTH ->
+    uxth ins insLen bld addr
+  | Opcode.UZP1 ->
+    uzp ins insLen bld addr 0
+  | Opcode.UZP2 ->
+    uzp ins insLen bld addr 1
+  | Opcode.XTN ->
+    xtn ins insLen bld addr
+  | Opcode.XTN2 ->
+    xtn2 ins insLen bld addr
+  | Opcode.ZIP1 ->
+    zip ins insLen bld addr true
+  | Opcode.ZIP2 ->
+    zip ins insLen bld addr false
   | o ->
 #if DEBUG
          eprintfn "%A" o

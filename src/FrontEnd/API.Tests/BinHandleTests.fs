@@ -151,8 +151,7 @@ type BinHandleTests() =
 
   [<TestMethod>]
   member _.``[BinHandle] try read bytes of a non-positive size test``() =
-    Assert.AreEqual(Error ErrorCase.InvalidMemoryRead,
-                    hdl.TryReadBytes(0UL, 0))
+    Assert.AreEqual(Error ErrorCase.InvalidMemoryRead, hdl.TryReadBytes(0UL, 0))
 
   [<TestMethod>]
   member _.``[BinHandle] try read bytes through a skewed pointer test``() =
@@ -179,8 +178,7 @@ type BinHandleTests() =
 
   [<TestMethod>]
   member _.``[BinHandle] try read an integer of an unsupported size test``() =
-    Assert.AreEqual(Error ErrorCase.InvalidMemoryRead,
-                    hdl.TryReadInt(0UL, 3))
+    Assert.AreEqual(Error ErrorCase.InvalidMemoryRead, hdl.TryReadInt(0UL, 3))
 
   [<TestMethod>]
   member _.``[BinHandle] read a NUL-terminated string test``() =
@@ -204,8 +202,7 @@ type BinHandleTests() =
                     hdl.TryReadASCII unmapped)
     Assert.AreEqual(Error ErrorCase.InvalidMemoryRead,
                     hdl.TryReadASCII BinFilePointer.Null)
-    Assert.AreEqual(Error ErrorCase.InvalidMemoryRead,
-                    hdl.TryReadASCII vmOnly)
+    Assert.AreEqual(Error ErrorCase.InvalidMemoryRead, hdl.TryReadASCII vmOnly)
     Assert.AreEqual(Error ErrorCase.InvalidMemoryRead,
                     emptyHdl.TryReadASCII 0UL)
 

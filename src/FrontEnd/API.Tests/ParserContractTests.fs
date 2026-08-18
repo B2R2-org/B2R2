@@ -112,7 +112,8 @@ type ParserContractTests() =
       let parser = parserFor arch
       for _ = 1 to 2000 do
         rng.NextBytes bytes
-        try parser.Parse(ReadOnlySpan bytes, 0UL) |> ignore
+        try
+          parser.Parse(ReadOnlySpan bytes, 0UL) |> ignore
         with
         | ParsingFailureException -> ()
         | e -> Assert.Fail $"{arch}: {e.GetType().Name}"

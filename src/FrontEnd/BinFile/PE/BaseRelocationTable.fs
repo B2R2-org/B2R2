@@ -47,7 +47,8 @@ let private buildRelocBlock (bytes: byte[]) (reader: IBinReader) headerOffset =
 let parse bytes (reader: IBinReader) (headers: PEHeaders) secs =
   let peHdr = headers.PEHeader
   match peHdr.BaseRelocationTableDirectory.RelativeVirtualAddress with
-  | 0 -> List.empty
+  | 0 ->
+    List.empty
   | rva ->
     let hdrOffset = getRawOffset secs rva
     let upperBound = hdrOffset + peHdr.BaseRelocationTableDirectory.Size
@@ -55,6 +56,7 @@ let parse bytes (reader: IBinReader) (headers: PEHeaders) secs =
       if offset < upperBound then
         let relocBlk = buildRelocBlock bytes reader offset
         parseRelocDirectory (offset + relocBlk.BlockSize) (relocBlk :: blks)
-      else blks
+      else
+        blks
     parseRelocDirectory hdrOffset List.empty
 

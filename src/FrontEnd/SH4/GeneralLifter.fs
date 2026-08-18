@@ -57,13 +57,13 @@ let (<!--) (bld: ILowUIRBuilder) (addr, insLen) =
        leaked across the block boundary (the slot was never lifted here), so
        drop it rather than flush this unrelated instruction as the slot. *)
     match sbld.DelaySlotAddr with
-    | ValueSome expected when
-        sbld.DelayedBranch <> InterJmpKind.NotAJmp
-        && not sbld.Armed && addr <> expected ->
-      sbld.ResetDelayState()
+    | ValueSome expected when sbld.DelayedBranch <> InterJmpKind.NotAJmp
+                              && not sbld.Armed
+                              && addr <> expected -> sbld.ResetDelayState()
     | _ -> ()
     sbld.CurAddr <- addr
-  | _ -> ()
+  | _ ->
+    ()
 
 /// Finalizes an instruction, flushing a pending delayed branch. An SH4 control
 /// transfer that has a delay slot stores its target in NPC rather than jumping,
@@ -80,7 +80,8 @@ let (--!>) (bld: ILowUIRBuilder) insLen =
       else
         bld <+ (AST.interjmp (regVar bld R.NPC) sbld.DelayedBranch)
         sbld.Disarm()
-    else ()
+    else
+      ()
     bld.Stream.MarkEnd insLen
     bld
   | _ ->
@@ -250,10 +251,8 @@ let add (ins: Instruction) len bld =
   let dst = regOf bld o2
   bld <!-- (ins.Address, len)
   match o1 with
-  | OpReg(Imm imm) ->
-    bld <+ (dst := dst .+ num (signExtend 8 imm))
-  | _ ->
-    bld <+ (dst := dst .+ regOf bld o1)
+  | OpReg(Imm imm) -> bld <+ (dst := dst .+ num (signExtend 8 imm))
+  | _ -> bld <+ (dst := dst .+ regOf bld o1)
   bld --!> len
 
 let addc (ins: Instruction) len bld =
@@ -289,10 +288,8 @@ let ``and`` (ins: Instruction) len bld =
   bld <!-- (ins.Address, len)
   (* The immediate form is zero-extended, so it clears the upper three bytes. *)
   match o1 with
-  | OpReg(Imm imm) ->
-    bld <+ (dst := dst .& num imm)
-  | _ ->
-    bld <+ (dst := dst .& regOf bld o1)
+  | OpReg(Imm imm) -> bld <+ (dst := dst .& num imm)
+  | _ -> bld <+ (dst := dst .& regOf bld o1)
   bld --!> len
 
 let andb (ins: Instruction) len bld =
@@ -386,10 +383,8 @@ let cmpeq (ins: Instruction) len bld =
   let dst = regOf bld o2
   bld <!-- (ins.Address, len)
   match o1 with
-  | OpReg(Imm imm) ->
-    bld <+ (regVar bld R.T := (dst == num (signExtend 8 imm)))
-  | _ ->
-    bld <+ (regVar bld R.T := (dst == regOf bld o1))
+  | OpReg(Imm imm) -> bld <+ (regVar bld R.T := (dst == num (signExtend 8 imm)))
+  | _ -> bld <+ (regVar bld R.T := (dst == regOf bld o1))
   bld --!> len
 
 let cmpge (ins: Instruction) len bld =
@@ -588,9 +583,7 @@ let private byMode bld pos off on =
   let lblOn = label bld "ModeOn"
   let lblOff = label bld "ModeOff"
   let lblEnd = label bld "ModeEnd"
-  bld <+ (AST.cjmp (fpscrBit bld pos)
-                   (AST.jmpDest lblOn)
-                   (AST.jmpDest lblOff))
+  bld <+ (AST.cjmp (fpscrBit bld pos) (AST.jmpDest lblOn) (AST.jmpDest lblOff))
   bld <+ (AST.lmark lblOff)
   off ()
   bld <+ (AST.jmp (AST.jmpDest lblEnd))
@@ -645,10 +638,8 @@ let private fpCompare (ins: Instruction) len bld cmp =
     (fun () ->
       bld <+ (regVar bld R.T := cmp (regVar bld n) (regVar bld m)))
     (fun () ->
-      if isOddFpNum m || isOddFpNum n then
-        unsupportedBank bld
-      else
-        bld <+ (regVar bld R.T := cmp (doubleOf bld n) (doubleOf bld m)))
+      if isOddFpNum m || isOddFpNum n then unsupportedBank bld
+      else bld <+ (regVar bld R.T := cmp (doubleOf bld n) (doubleOf bld m)))
   bld --!> len
 
 let fcmpeq ins len bld = fpCompare ins len bld AST.feq
@@ -791,7 +782,8 @@ let private fpMove (ins: Instruction) len bld =
           bld <+ (value := doubleOf bld m)
           setDouble bld n value)
   | _ ->
-    byMode bld SzBit
+    byMode bld
+      SzBit
       (fun () -> movMemBody ins bld 32<rt>)
       (fun () -> fpMemDouble ins bld)
   bld --!> len
@@ -845,10 +837,8 @@ let ftrc (ins: Instruction) len bld =
     (fun () ->
       bld <+ (dst := AST.cast CastKind.FtoITrunc 32<rt> (regVar bld m)))
     (fun () ->
-      if isOddFpNum m then
-        unsupportedBank bld
-      else
-        bld <+ (dst := AST.cast CastKind.FtoITrunc 32<rt> (doubleOf bld m)))
+      if isOddFpNum m then unsupportedBank bld
+      else bld <+ (dst := AST.cast CastKind.FtoITrunc 32<rt> (doubleOf bld m)))
   bld --!> len
 
 let ftrv ins _len _bld = notLifted ins
@@ -984,10 +974,8 @@ let mov (ins: Instruction) len bld =
   let dst = regOf bld o2
   bld <!-- (ins.Address, len)
   match o1 with
-  | OpReg(Imm imm) ->
-    bld <+ (dst := num (signExtend 8 imm))
-  | _ ->
-    bld <+ (dst := regOf bld o1)
+  | OpReg(Imm imm) -> bld <+ (dst := num (signExtend 8 imm))
+  | _ -> bld <+ (dst := regOf bld o1)
   bld --!> len
 
 let mova (ins: Instruction) len bld =
@@ -1080,10 +1068,8 @@ let ``or`` (ins: Instruction) len bld =
   let dst = regOf bld o2
   bld <!-- (ins.Address, len)
   match o1 with
-  | OpReg(Imm imm) ->
-    bld <+ (dst := dst .| num imm)
-  | _ ->
-    bld <+ (dst := dst .| regOf bld o1)
+  | OpReg(Imm imm) -> bld <+ (dst := dst .| num imm)
+  | _ -> bld <+ (dst := dst .| regOf bld o1)
   bld --!> len
 
 let orb (ins: Instruction) len bld =
@@ -1306,10 +1292,8 @@ let tst (ins: Instruction) len bld =
   let dst = regOf bld o2
   bld <!-- (ins.Address, len)
   match o1 with
-  | OpReg(Imm imm) ->
-    bld <+ (regVar bld R.T := ((dst .& num imm) == num 0))
-  | _ ->
-    bld <+ (regVar bld R.T := ((dst .& regOf bld o1) == num 0))
+  | OpReg(Imm imm) -> bld <+ (regVar bld R.T := ((dst .& num imm) == num 0))
+  | _ -> bld <+ (regVar bld R.T := ((dst .& regOf bld o1) == num 0))
   bld --!> len
 
 let tstb (ins: Instruction) len bld =
@@ -1327,10 +1311,8 @@ let xor (ins: Instruction) len bld =
   let dst = regOf bld o2
   bld <!-- (ins.Address, len)
   match o1 with
-  | OpReg(Imm imm) ->
-    bld <+ (dst := dst <+> num imm)
-  | _ ->
-    bld <+ (dst := dst <+> regOf bld o1)
+  | OpReg(Imm imm) -> bld <+ (dst := dst <+> num imm)
+  | _ -> bld <+ (dst := dst <+> regOf bld o1)
   bld --!> len
 
 let xorb (ins: Instruction) len bld =

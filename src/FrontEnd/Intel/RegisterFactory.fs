@@ -36,23 +36,19 @@ type RegisterFactory(isa: ISA) =
   let wordSize = isa.WordSize
 
   let reg64 wordSize t name =
-    if wordSize = Bit32 then AST.undef 64<rt> name
-    else AST.var 64<rt> t name
+    if wordSize = Bit32 then AST.undef 64<rt> name else AST.var 64<rt> t name
 
   let reg32 wordSize t name r64 =
-    if wordSize = Bit32 then AST.var 32<rt> t name
-    else AST.xtlo 32<rt> r64
+    if wordSize = Bit32 then AST.var 32<rt> t name else AST.xtlo 32<rt> r64
 
   let reg32ext wordSize name r64 =
-    if wordSize = Bit32 then AST.undef 32<rt> name
-    else AST.xtlo 32<rt> r64
+    if wordSize = Bit32 then AST.undef 32<rt> name else AST.xtlo 32<rt> r64
 
   let reg16 wordSize r32 r64 =
     AST.xtlo 16<rt> (if wordSize = Bit32 then r32 else r64)
 
   let reg16ext wordSize name r64 =
-    if wordSize = Bit32 then AST.undef 16<rt> name
-    else AST.xtlo 16<rt> r64
+    if wordSize = Bit32 then AST.undef 16<rt> name else AST.xtlo 16<rt> r64
 
   let regL8 wordSize r32 r64 =
     AST.xtlo 8<rt> (if wordSize = Bit32 then r32 else r64)
@@ -61,8 +57,7 @@ type RegisterFactory(isa: ISA) =
     AST.extract (if wordSize = Bit32 then r32 else r64) 8<rt> 8
 
   let regL8ext wordSize name r64 =
-    if wordSize = Bit32 then AST.undef 16<rt> name
-    else AST.xtlo 8<rt> r64
+    if wordSize = Bit32 then AST.undef 16<rt> name else AST.xtlo 8<rt> r64
 
   let regBasic reg regString =
     AST.var (WordSize.toRegType wordSize) reg regString
@@ -382,27 +377,20 @@ type RegisterFactory(isa: ISA) =
   let dr7 = AST.var 32<rt> (Register.toRegID DR7) "DR7"
 
 #if EMULATION
-  let ccOp =
-    AST.var 8<rt> (Register.toRegID CCOP) "CCOP"
+  let ccOp = AST.var 8<rt> (Register.toRegID CCOP) "CCOP"
   let ccDst =
     AST.var (WordSize.toRegType wordSize) (Register.toRegID CCDST) "CCDST"
-  let ccDstD =
-    if wordSize = Bit32 then ccDst
-    else AST.xtlo 32<rt> ccDst
+  let ccDstD = if wordSize = Bit32 then ccDst else AST.xtlo 32<rt> ccDst
   let ccDstW = AST.xtlo 16<rt> ccDst
   let ccDstB = AST.xtlo 8<rt> ccDst
   let ccSrc1 =
     AST.var (WordSize.toRegType wordSize) (Register.toRegID CCSRC1) "CCSRC1"
-  let ccSrc1D =
-    if wordSize = Bit32 then ccSrc1
-    else AST.xtlo 32<rt> ccSrc1
+  let ccSrc1D = if wordSize = Bit32 then ccSrc1 else AST.xtlo 32<rt> ccSrc1
   let ccSrc1W = AST.xtlo 16<rt> ccSrc1
   let ccSrc1B = AST.xtlo 8<rt> ccSrc1
   let ccSrc2 =
     AST.var (WordSize.toRegType wordSize) (Register.toRegID CCSRC2) "CCSRC2"
-  let ccSrc2D =
-    if wordSize = Bit32 then ccSrc2
-    else AST.xtlo 32<rt> ccSrc2
+  let ccSrc2D = if wordSize = Bit32 then ccSrc2 else AST.xtlo 32<rt> ccSrc2
   let ccSrc2W = AST.xtlo 16<rt> ccSrc2
   let ccSrc2B = AST.xtlo 8<rt> ccSrc2
 #endif
@@ -466,30 +454,54 @@ type RegisterFactory(isa: ISA) =
         assert64Bit wordSize
 #endif
         rdi
-      | R.EAX -> eax
-      | R.EBX -> ebx
-      | R.ECX -> ecx
-      | R.EDX -> edx
-      | R.ESP -> esp
-      | R.EBP -> ebp
-      | R.ESI -> esi
-      | R.EDI -> edi
-      | R.AX -> ax
-      | R.BX -> bx
-      | R.CX -> cx
-      | R.DX -> dx
-      | R.SP -> sp
-      | R.BP -> bp
-      | R.SI -> si
-      | R.DI -> di
-      | R.AL -> al
-      | R.BL -> bl
-      | R.CL -> cl
-      | R.DL -> dl
-      | R.AH -> ah
-      | R.BH -> bh
-      | R.CH -> ch
-      | R.DH -> dh
+      | R.EAX ->
+        eax
+      | R.EBX ->
+        ebx
+      | R.ECX ->
+        ecx
+      | R.EDX ->
+        edx
+      | R.ESP ->
+        esp
+      | R.EBP ->
+        ebp
+      | R.ESI ->
+        esi
+      | R.EDI ->
+        edi
+      | R.AX ->
+        ax
+      | R.BX ->
+        bx
+      | R.CX ->
+        cx
+      | R.DX ->
+        dx
+      | R.SP ->
+        sp
+      | R.BP ->
+        bp
+      | R.SI ->
+        si
+      | R.DI ->
+        di
+      | R.AL ->
+        al
+      | R.BL ->
+        bl
+      | R.CL ->
+        cl
+      | R.DL ->
+        dl
+      | R.AH ->
+        ah
+      | R.BH ->
+        bh
+      | R.CH ->
+        ch
+      | R.DH ->
+        dh
       | R.R8 ->
 #if DEBUG
         assert64Bit wordSize
@@ -677,106 +689,199 @@ type RegisterFactory(isa: ISA) =
         assert64Bit wordSize
 #endif
         rip
-      | R.CS -> cs
-      | R.DS -> ds
-      | R.ES -> es
-      | R.FS -> fs
-      | R.GS -> gs
-      | R.SS -> ss
-      | R.CSBase -> csbase
-      | R.DSBase -> dsbase
-      | R.ESBase -> esbase
-      | R.FSBase -> fsbase
-      | R.GSBase -> gsbase
-      | R.SSBase -> ssbase
-      | R.CR0 -> cr0
-      | R.CR2 -> cr2
-      | R.CR3 -> cr3
-      | R.CR4 -> cr4
+      | R.CS ->
+        cs
+      | R.DS ->
+        ds
+      | R.ES ->
+        es
+      | R.FS ->
+        fs
+      | R.GS ->
+        gs
+      | R.SS ->
+        ss
+      | R.CSBase ->
+        csbase
+      | R.DSBase ->
+        dsbase
+      | R.ESBase ->
+        esbase
+      | R.FSBase ->
+        fsbase
+      | R.GSBase ->
+        gsbase
+      | R.SSBase ->
+        ssbase
+      | R.CR0 ->
+        cr0
+      | R.CR2 ->
+        cr2
+      | R.CR3 ->
+        cr3
+      | R.CR4 ->
+        cr4
       | R.CR8 ->
 #if DEBUG
         assert64Bit wordSize
 #endif
         cr8
-      | R.OF -> oFlag
-      | R.DF -> dFlag
-      | R.IF -> iFlag
-      | R.TF -> tFlag
-      | R.SF -> sFlag
-      | R.ZF -> zFlag
-      | R.AF -> aFlag
-      | R.PF -> pFlag
-      | R.CF -> cFlag
-      | R.MM0 -> st0a
-      | R.MM1 -> st1a
-      | R.MM2 -> st2a
-      | R.MM3 -> st3a
-      | R.MM4 -> st4a
-      | R.MM5 -> st5a
-      | R.MM6 -> st6a
-      | R.MM7 -> st7a
-      | R.FCW -> fcw
-      | R.FSW -> fsw
-      | R.FTW -> ftw
-      | R.FOP -> fop
-      | R.FIP -> fip
-      | R.FCS -> fcs
-      | R.FDP -> fdp
-      | R.FDS -> fds
-      | R.FTOP -> ftop
-      | R.FTW0 -> ftw0
-      | R.FTW1 -> ftw1
-      | R.FTW2 -> ftw2
-      | R.FTW3 -> ftw3
-      | R.FTW4 -> ftw4
-      | R.FTW5 -> ftw5
-      | R.FTW6 -> ftw6
-      | R.FTW7 -> ftw7
-      | R.FSWC0 -> fswc0
-      | R.FSWC1 -> fswc1
-      | R.FSWC2 -> fswc2
-      | R.FSWC3 -> fswc3
-      | R.MXCSR -> mxcsr
-      | R.MXCSRMASK -> mxcsrmask
-      | R.PKRU -> pkru
-      | R.ST0 -> AST.concat st0b st0a
-      | R.ST1 -> AST.concat st1b st1a
-      | R.ST2 -> AST.concat st2b st2a
-      | R.ST3 -> AST.concat st3b st3a
-      | R.ST4 -> AST.concat st4b st4a
-      | R.ST5 -> AST.concat st5b st5a
-      | R.ST6 -> AST.concat st6b st6a
-      | R.ST7 -> AST.concat st7b st7a
-      | R.K0 -> k0
-      | R.K1 -> k1
-      | R.K2 -> k2
-      | R.K3 -> k3
-      | R.K4 -> k4
-      | R.K5 -> k5
-      | R.K6 -> k6
-      | R.K7 -> k7
-      | R.DR0 -> dr0
-      | R.DR1 -> dr1
-      | R.DR2 -> dr2
-      | R.DR3 -> dr3
-      | R.DR6 -> dr6
-      | R.DR7 -> dr7
+      | R.OF ->
+        oFlag
+      | R.DF ->
+        dFlag
+      | R.IF ->
+        iFlag
+      | R.TF ->
+        tFlag
+      | R.SF ->
+        sFlag
+      | R.ZF ->
+        zFlag
+      | R.AF ->
+        aFlag
+      | R.PF ->
+        pFlag
+      | R.CF ->
+        cFlag
+      | R.MM0 ->
+        st0a
+      | R.MM1 ->
+        st1a
+      | R.MM2 ->
+        st2a
+      | R.MM3 ->
+        st3a
+      | R.MM4 ->
+        st4a
+      | R.MM5 ->
+        st5a
+      | R.MM6 ->
+        st6a
+      | R.MM7 ->
+        st7a
+      | R.FCW ->
+        fcw
+      | R.FSW ->
+        fsw
+      | R.FTW ->
+        ftw
+      | R.FOP ->
+        fop
+      | R.FIP ->
+        fip
+      | R.FCS ->
+        fcs
+      | R.FDP ->
+        fdp
+      | R.FDS ->
+        fds
+      | R.FTOP ->
+        ftop
+      | R.FTW0 ->
+        ftw0
+      | R.FTW1 ->
+        ftw1
+      | R.FTW2 ->
+        ftw2
+      | R.FTW3 ->
+        ftw3
+      | R.FTW4 ->
+        ftw4
+      | R.FTW5 ->
+        ftw5
+      | R.FTW6 ->
+        ftw6
+      | R.FTW7 ->
+        ftw7
+      | R.FSWC0 ->
+        fswc0
+      | R.FSWC1 ->
+        fswc1
+      | R.FSWC2 ->
+        fswc2
+      | R.FSWC3 ->
+        fswc3
+      | R.MXCSR ->
+        mxcsr
+      | R.MXCSRMASK ->
+        mxcsrmask
+      | R.PKRU ->
+        pkru
+      | R.ST0 ->
+        AST.concat st0b st0a
+      | R.ST1 ->
+        AST.concat st1b st1a
+      | R.ST2 ->
+        AST.concat st2b st2a
+      | R.ST3 ->
+        AST.concat st3b st3a
+      | R.ST4 ->
+        AST.concat st4b st4a
+      | R.ST5 ->
+        AST.concat st5b st5a
+      | R.ST6 ->
+        AST.concat st6b st6a
+      | R.ST7 ->
+        AST.concat st7b st7a
+      | R.K0 ->
+        k0
+      | R.K1 ->
+        k1
+      | R.K2 ->
+        k2
+      | R.K3 ->
+        k3
+      | R.K4 ->
+        k4
+      | R.K5 ->
+        k5
+      | R.K6 ->
+        k6
+      | R.K7 ->
+        k7
+      | R.DR0 ->
+        dr0
+      | R.DR1 ->
+        dr1
+      | R.DR2 ->
+        dr2
+      | R.DR3 ->
+        dr3
+      | R.DR6 ->
+        dr6
+      | R.DR7 ->
+        dr7
 #if EMULATION
-      | R.CCOP -> ccOp
-      | R.CCDST -> ccDst
-      | R.CCDSTD -> ccDstD
-      | R.CCDSTW -> ccDstW
-      | R.CCDSTB -> ccDstB
-      | R.CCSRC1 -> ccSrc1
-      | R.CCSRC1D -> ccSrc1D
-      | R.CCSRC1W -> ccSrc1W
-      | R.CCSRC1B -> ccSrc1B
-      | R.CCSRC2 -> ccSrc2
-      | R.CCSRC2D -> ccSrc2D
-      | R.CCSRC2W -> ccSrc2W
-      | R.CCSRC2B -> ccSrc2B
+      | R.CCOP ->
+        ccOp
+      | R.CCDST ->
+        ccDst
+      | R.CCDSTD ->
+        ccDstD
+      | R.CCDSTW ->
+        ccDstW
+      | R.CCDSTB ->
+        ccDstB
+      | R.CCSRC1 ->
+        ccSrc1
+      | R.CCSRC1D ->
+        ccSrc1D
+      | R.CCSRC1W ->
+        ccSrc1W
+      | R.CCSRC1B ->
+        ccSrc1B
+      | R.CCSRC2 ->
+        ccSrc2
+      | R.CCSRC2D ->
+        ccSrc2D
+      | R.CCSRC2W ->
+        ccSrc2W
+      | R.CCSRC2B ->
+        ccSrc2B
 #endif
-      | _ -> failwith "Unhandled register."
+      | _ ->
+        failwith "Unhandled register."
 
     member _.GetRegVar(name: string) =
       match name.ToUpperInvariant() with
@@ -1070,22 +1175,38 @@ type RegisterFactory(isa: ISA) =
 
     member _.GetPseudoRegVar(rid, pos) =
       match Register.ofRegID rid, pos with
-      | R.XMM0, 1 -> zmm0a
-      | R.XMM0, 2 -> zmm0b
-      | R.XMM1, 1 -> zmm1a
-      | R.XMM1, 2 -> zmm1b
-      | R.XMM2, 1 -> zmm2a
-      | R.XMM2, 2 -> zmm2b
-      | R.XMM3, 1 -> zmm3a
-      | R.XMM3, 2 -> zmm3b
-      | R.XMM4, 1 -> zmm4a
-      | R.XMM4, 2 -> zmm4b
-      | R.XMM5, 1 -> zmm5a
-      | R.XMM5, 2 -> zmm5b
-      | R.XMM6, 1 -> zmm6a
-      | R.XMM6, 2 -> zmm6b
-      | R.XMM7, 1 -> zmm7a
-      | R.XMM7, 2 -> zmm7b
+      | R.XMM0, 1 ->
+        zmm0a
+      | R.XMM0, 2 ->
+        zmm0b
+      | R.XMM1, 1 ->
+        zmm1a
+      | R.XMM1, 2 ->
+        zmm1b
+      | R.XMM2, 1 ->
+        zmm2a
+      | R.XMM2, 2 ->
+        zmm2b
+      | R.XMM3, 1 ->
+        zmm3a
+      | R.XMM3, 2 ->
+        zmm3b
+      | R.XMM4, 1 ->
+        zmm4a
+      | R.XMM4, 2 ->
+        zmm4b
+      | R.XMM5, 1 ->
+        zmm5a
+      | R.XMM5, 2 ->
+        zmm5b
+      | R.XMM6, 1 ->
+        zmm6a
+      | R.XMM6, 2 ->
+        zmm6b
+      | R.XMM7, 1 ->
+        zmm7a
+      | R.XMM7, 2 ->
+        zmm7b
       | R.XMM8, 1 ->
 #if DEBUG
         assert64Bit wordSize
@@ -1166,38 +1287,70 @@ type RegisterFactory(isa: ISA) =
         assert64Bit wordSize
 #endif
         zmm15b
-      | R.YMM0, 1 -> zmm0a
-      | R.YMM0, 2 -> zmm0b
-      | R.YMM0, 3 -> zmm0c
-      | R.YMM0, 4 -> zmm0d
-      | R.YMM1, 1 -> zmm1a
-      | R.YMM1, 2 -> zmm1b
-      | R.YMM1, 3 -> zmm1c
-      | R.YMM1, 4 -> zmm1d
-      | R.YMM2, 1 -> zmm2a
-      | R.YMM2, 2 -> zmm2b
-      | R.YMM2, 3 -> zmm2c
-      | R.YMM2, 4 -> zmm2d
-      | R.YMM3, 1 -> zmm3a
-      | R.YMM3, 2 -> zmm3b
-      | R.YMM3, 3 -> zmm3c
-      | R.YMM3, 4 -> zmm3d
-      | R.YMM4, 1 -> zmm4a
-      | R.YMM4, 2 -> zmm4b
-      | R.YMM4, 3 -> zmm4c
-      | R.YMM4, 4 -> zmm4d
-      | R.YMM5, 1 -> zmm5a
-      | R.YMM5, 2 -> zmm5b
-      | R.YMM5, 3 -> zmm5c
-      | R.YMM5, 4 -> zmm5d
-      | R.YMM6, 1 -> zmm6a
-      | R.YMM6, 2 -> zmm6b
-      | R.YMM6, 3 -> zmm6c
-      | R.YMM6, 4 -> zmm6d
-      | R.YMM7, 1 -> zmm7a
-      | R.YMM7, 2 -> zmm7b
-      | R.YMM7, 3 -> zmm7c
-      | R.YMM7, 4 -> zmm7d
+      | R.YMM0, 1 ->
+        zmm0a
+      | R.YMM0, 2 ->
+        zmm0b
+      | R.YMM0, 3 ->
+        zmm0c
+      | R.YMM0, 4 ->
+        zmm0d
+      | R.YMM1, 1 ->
+        zmm1a
+      | R.YMM1, 2 ->
+        zmm1b
+      | R.YMM1, 3 ->
+        zmm1c
+      | R.YMM1, 4 ->
+        zmm1d
+      | R.YMM2, 1 ->
+        zmm2a
+      | R.YMM2, 2 ->
+        zmm2b
+      | R.YMM2, 3 ->
+        zmm2c
+      | R.YMM2, 4 ->
+        zmm2d
+      | R.YMM3, 1 ->
+        zmm3a
+      | R.YMM3, 2 ->
+        zmm3b
+      | R.YMM3, 3 ->
+        zmm3c
+      | R.YMM3, 4 ->
+        zmm3d
+      | R.YMM4, 1 ->
+        zmm4a
+      | R.YMM4, 2 ->
+        zmm4b
+      | R.YMM4, 3 ->
+        zmm4c
+      | R.YMM4, 4 ->
+        zmm4d
+      | R.YMM5, 1 ->
+        zmm5a
+      | R.YMM5, 2 ->
+        zmm5b
+      | R.YMM5, 3 ->
+        zmm5c
+      | R.YMM5, 4 ->
+        zmm5d
+      | R.YMM6, 1 ->
+        zmm6a
+      | R.YMM6, 2 ->
+        zmm6b
+      | R.YMM6, 3 ->
+        zmm6c
+      | R.YMM6, 4 ->
+        zmm6d
+      | R.YMM7, 1 ->
+        zmm7a
+      | R.YMM7, 2 ->
+        zmm7b
+      | R.YMM7, 3 ->
+        zmm7c
+      | R.YMM7, 4 ->
+        zmm7d
       | R.YMM8, 1 ->
 #if DEBUG
         assert64Bit wordSize
@@ -1358,70 +1511,134 @@ type RegisterFactory(isa: ISA) =
         assert64Bit wordSize
 #endif
         zmm15d
-      | R.ZMM0, 1 -> zmm0a
-      | R.ZMM0, 2 -> zmm0b
-      | R.ZMM0, 3 -> zmm0c
-      | R.ZMM0, 4 -> zmm0d
-      | R.ZMM0, 5 -> zmm0e
-      | R.ZMM0, 6 -> zmm0f
-      | R.ZMM0, 7 -> zmm0g
-      | R.ZMM0, 8 -> zmm0h
-      | R.ZMM1, 1 -> zmm1a
-      | R.ZMM1, 2 -> zmm1b
-      | R.ZMM1, 3 -> zmm1c
-      | R.ZMM1, 4 -> zmm1d
-      | R.ZMM1, 5 -> zmm1e
-      | R.ZMM1, 6 -> zmm1f
-      | R.ZMM1, 7 -> zmm1g
-      | R.ZMM1, 8 -> zmm1h
-      | R.ZMM2, 1 -> zmm2a
-      | R.ZMM2, 2 -> zmm2b
-      | R.ZMM2, 3 -> zmm2c
-      | R.ZMM2, 4 -> zmm2d
-      | R.ZMM2, 5 -> zmm2e
-      | R.ZMM2, 6 -> zmm2f
-      | R.ZMM2, 7 -> zmm2g
-      | R.ZMM2, 8 -> zmm2h
-      | R.ZMM3, 1 -> zmm3a
-      | R.ZMM3, 2 -> zmm3b
-      | R.ZMM3, 3 -> zmm3c
-      | R.ZMM3, 4 -> zmm3d
-      | R.ZMM3, 5 -> zmm3e
-      | R.ZMM3, 6 -> zmm3f
-      | R.ZMM3, 7 -> zmm3g
-      | R.ZMM3, 8 -> zmm3h
-      | R.ZMM4, 1 -> zmm4a
-      | R.ZMM4, 2 -> zmm4b
-      | R.ZMM4, 3 -> zmm4c
-      | R.ZMM4, 4 -> zmm4d
-      | R.ZMM4, 5 -> zmm4e
-      | R.ZMM4, 6 -> zmm4f
-      | R.ZMM4, 7 -> zmm4g
-      | R.ZMM4, 8 -> zmm4h
-      | R.ZMM5, 1 -> zmm5a
-      | R.ZMM5, 2 -> zmm5b
-      | R.ZMM5, 3 -> zmm5c
-      | R.ZMM5, 4 -> zmm5d
-      | R.ZMM5, 5 -> zmm5e
-      | R.ZMM5, 6 -> zmm5f
-      | R.ZMM5, 7 -> zmm5g
-      | R.ZMM5, 8 -> zmm5h
-      | R.ZMM6, 1 -> zmm6a
-      | R.ZMM6, 2 -> zmm6b
-      | R.ZMM6, 3 -> zmm6c
-      | R.ZMM6, 4 -> zmm6d
-      | R.ZMM6, 5 -> zmm6e
-      | R.ZMM6, 6 -> zmm6f
-      | R.ZMM6, 7 -> zmm6g
-      | R.ZMM6, 8 -> zmm6h
-      | R.ZMM7, 1 -> zmm7a
-      | R.ZMM7, 2 -> zmm7b
-      | R.ZMM7, 3 -> zmm7c
-      | R.ZMM7, 4 -> zmm7d
-      | R.ZMM7, 5 -> zmm7e
-      | R.ZMM7, 6 -> zmm7f
-      | R.ZMM7, 7 -> zmm7g
-      | R.ZMM7, 8 -> zmm7h
+      | R.ZMM0, 1 ->
+        zmm0a
+      | R.ZMM0, 2 ->
+        zmm0b
+      | R.ZMM0, 3 ->
+        zmm0c
+      | R.ZMM0, 4 ->
+        zmm0d
+      | R.ZMM0, 5 ->
+        zmm0e
+      | R.ZMM0, 6 ->
+        zmm0f
+      | R.ZMM0, 7 ->
+        zmm0g
+      | R.ZMM0, 8 ->
+        zmm0h
+      | R.ZMM1, 1 ->
+        zmm1a
+      | R.ZMM1, 2 ->
+        zmm1b
+      | R.ZMM1, 3 ->
+        zmm1c
+      | R.ZMM1, 4 ->
+        zmm1d
+      | R.ZMM1, 5 ->
+        zmm1e
+      | R.ZMM1, 6 ->
+        zmm1f
+      | R.ZMM1, 7 ->
+        zmm1g
+      | R.ZMM1, 8 ->
+        zmm1h
+      | R.ZMM2, 1 ->
+        zmm2a
+      | R.ZMM2, 2 ->
+        zmm2b
+      | R.ZMM2, 3 ->
+        zmm2c
+      | R.ZMM2, 4 ->
+        zmm2d
+      | R.ZMM2, 5 ->
+        zmm2e
+      | R.ZMM2, 6 ->
+        zmm2f
+      | R.ZMM2, 7 ->
+        zmm2g
+      | R.ZMM2, 8 ->
+        zmm2h
+      | R.ZMM3, 1 ->
+        zmm3a
+      | R.ZMM3, 2 ->
+        zmm3b
+      | R.ZMM3, 3 ->
+        zmm3c
+      | R.ZMM3, 4 ->
+        zmm3d
+      | R.ZMM3, 5 ->
+        zmm3e
+      | R.ZMM3, 6 ->
+        zmm3f
+      | R.ZMM3, 7 ->
+        zmm3g
+      | R.ZMM3, 8 ->
+        zmm3h
+      | R.ZMM4, 1 ->
+        zmm4a
+      | R.ZMM4, 2 ->
+        zmm4b
+      | R.ZMM4, 3 ->
+        zmm4c
+      | R.ZMM4, 4 ->
+        zmm4d
+      | R.ZMM4, 5 ->
+        zmm4e
+      | R.ZMM4, 6 ->
+        zmm4f
+      | R.ZMM4, 7 ->
+        zmm4g
+      | R.ZMM4, 8 ->
+        zmm4h
+      | R.ZMM5, 1 ->
+        zmm5a
+      | R.ZMM5, 2 ->
+        zmm5b
+      | R.ZMM5, 3 ->
+        zmm5c
+      | R.ZMM5, 4 ->
+        zmm5d
+      | R.ZMM5, 5 ->
+        zmm5e
+      | R.ZMM5, 6 ->
+        zmm5f
+      | R.ZMM5, 7 ->
+        zmm5g
+      | R.ZMM5, 8 ->
+        zmm5h
+      | R.ZMM6, 1 ->
+        zmm6a
+      | R.ZMM6, 2 ->
+        zmm6b
+      | R.ZMM6, 3 ->
+        zmm6c
+      | R.ZMM6, 4 ->
+        zmm6d
+      | R.ZMM6, 5 ->
+        zmm6e
+      | R.ZMM6, 6 ->
+        zmm6f
+      | R.ZMM6, 7 ->
+        zmm6g
+      | R.ZMM6, 8 ->
+        zmm6h
+      | R.ZMM7, 1 ->
+        zmm7a
+      | R.ZMM7, 2 ->
+        zmm7b
+      | R.ZMM7, 3 ->
+        zmm7c
+      | R.ZMM7, 4 ->
+        zmm7d
+      | R.ZMM7, 5 ->
+        zmm7e
+      | R.ZMM7, 6 ->
+        zmm7f
+      | R.ZMM7, 7 ->
+        zmm7g
+      | R.ZMM7, 8 ->
+        zmm7h
       | R.ZMM8, 1 ->
 #if DEBUG
         assert64Bit wordSize
@@ -1742,31 +1959,56 @@ type RegisterFactory(isa: ISA) =
         assert64Bit wordSize
 #endif
         zmm15h
-      | R.BND0, 1 -> bnd0a
-      | R.BND0, 2 -> bnd0b
-      | R.BND1, 1 -> bnd1a
-      | R.BND1, 2 -> bnd1b
-      | R.BND2, 1 -> bnd2a
-      | R.BND2, 2 -> bnd2b
-      | R.BND3, 1 -> bnd3a
-      | R.BND3, 2 -> bnd3b
-      | R.ST0, 1 -> st0a
-      | R.ST0, 2 -> st0b
-      | R.ST1, 1 -> st1a
-      | R.ST1, 2 -> st1b
-      | R.ST2, 1 -> st2a
-      | R.ST2, 2 -> st2b
-      | R.ST3, 1 -> st3a
-      | R.ST3, 2 -> st3b
-      | R.ST4, 1 -> st4a
-      | R.ST4, 2 -> st4b
-      | R.ST5, 1 -> st5a
-      | R.ST5, 2 -> st5b
-      | R.ST6, 1 -> st6a
-      | R.ST6, 2 -> st6b
-      | R.ST7, 1 -> st7a
-      | R.ST7, 2 -> st7b
-      | _ -> raise InvalidRegisterException
+      | R.BND0, 1 ->
+        bnd0a
+      | R.BND0, 2 ->
+        bnd0b
+      | R.BND1, 1 ->
+        bnd1a
+      | R.BND1, 2 ->
+        bnd1b
+      | R.BND2, 1 ->
+        bnd2a
+      | R.BND2, 2 ->
+        bnd2b
+      | R.BND3, 1 ->
+        bnd3a
+      | R.BND3, 2 ->
+        bnd3b
+      | R.ST0, 1 ->
+        st0a
+      | R.ST0, 2 ->
+        st0b
+      | R.ST1, 1 ->
+        st1a
+      | R.ST1, 2 ->
+        st1b
+      | R.ST2, 1 ->
+        st2a
+      | R.ST2, 2 ->
+        st2b
+      | R.ST3, 1 ->
+        st3a
+      | R.ST3, 2 ->
+        st3b
+      | R.ST4, 1 ->
+        st4a
+      | R.ST4, 2 ->
+        st4b
+      | R.ST5, 1 ->
+        st5a
+      | R.ST5, 2 ->
+        st5b
+      | R.ST6, 1 ->
+        st6a
+      | R.ST6, 2 ->
+        st6b
+      | R.ST7, 1 ->
+        st7a
+      | R.ST7, 2 ->
+        st7b
+      | _ ->
+        raise InvalidRegisterException
 
     member _.GetAllRegVars() =
       if WordSize.is32 wordSize then
@@ -2171,11 +2413,12 @@ type RegisterFactory(isa: ISA) =
 
     member _.GetRegisterID expr =
       match expr with
-      | Var(_, id, _, _) -> id
+      | Var(_, id, _, _) ->
+        id
       | PCVar(regT, _, _) ->
-        if regT = 32<rt> then Register.toRegID EIP
-        else Register.toRegID RIP
-      | _ -> raise InvalidRegisterException
+        if regT = 32<rt> then Register.toRegID EIP else Register.toRegID RIP
+      | _ ->
+        raise InvalidRegisterException
 
     member _.GetRegisterID name = Register.ofString name |> Register.toRegID
 

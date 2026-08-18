@@ -601,7 +601,8 @@ let oprToString opr delim (builder: IDisasmBuilder) =
 
 let buildOperands (ins: Instruction) (builder: IDisasmBuilder) =
   match ins.Operands with
-  | NoOperand -> ()
+  | NoOperand ->
+    ()
   | OneOperand opr ->
     oprToString opr " " builder
   | TwoOperands(opr1, opr2) ->
@@ -613,7 +614,8 @@ let buildOperands (ins: Instruction) (builder: IDisasmBuilder) =
     oprToString opr3 " " builder
   | Operands oprs ->
     let rec auxOprsToString oprs builder =
-      if List.isEmpty oprs then ()
+      if List.isEmpty oprs then
+        ()
       else
         oprToString (List.head oprs) " " builder
         auxOprsToString (List.tail oprs) builder

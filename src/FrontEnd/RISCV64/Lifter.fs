@@ -41,173 +41,340 @@ let inline (:=) dst src =
 let inline getCSRReg (bld: ILowUIRBuilder) csr =
   let csrReg =
     match csr with
-    | 0001us -> Register.FFLAGS
-    | 0002us -> Register.FRM
-    | 0003us -> Register.FCSR
-    | 0768us -> Register.CSR0768
-    | 0769us -> Register.CSR0769
-    | 0770us -> Register.CSR0770
-    | 0771us -> Register.CSR0771
-    | 0772us -> Register.CSR0772
-    | 0773us -> Register.CSR0773
-    | 0784us -> Register.CSR0784
-    | 0832us -> Register.CSR0832
-    | 0833us -> Register.CSR0833
-    | 0834us -> Register.CSR0834
-    | 0835us -> Register.CSR0835
-    | 0836us -> Register.CSR0836
-    | 0842us -> Register.CSR0842
-    | 0843us -> Register.CSR0843
-    | 3114us -> Register.CSR3114
-    | 3787us -> Register.CSR3787
-    | 3857us -> Register.CSR3857
-    | 3858us -> Register.CSR3858
-    | 3859us -> Register.CSR3859
-    | 3860us -> Register.CSR3860
-    | 0928us -> Register.CSR0928
-    | 0930us -> Register.CSR0930
-    | 0932us -> Register.CSR0932
-    | 0934us -> Register.CSR0934
-    | 0936us -> Register.CSR0936
-    | 0938us -> Register.CSR0938
-    | 0940us -> Register.CSR0940
-    | 0942us -> Register.CSR0942
-    | 0944us -> Register.CSR0944
-    | 0945us -> Register.CSR0945
-    | 0946us -> Register.CSR0946
-    | 0947us -> Register.CSR0947
-    | 0948us -> Register.CSR0948
-    | 0949us -> Register.CSR0949
-    | 0950us -> Register.CSR0950
-    | 0951us -> Register.CSR0951
-    | 0952us -> Register.CSR0952
-    | 0953us -> Register.CSR0953
-    | 0954us -> Register.CSR0954
-    | 0955us -> Register.CSR0955
-    | 0956us -> Register.CSR0956
-    | 0957us -> Register.CSR0957
-    | 0958us -> Register.CSR0958
-    | 0959us -> Register.CSR0959
-    | 0960us -> Register.CSR0960
-    | 0961us -> Register.CSR0961
-    | 0962us -> Register.CSR0962
-    | 0963us -> Register.CSR0963
-    | 0964us -> Register.CSR0964
-    | 0965us -> Register.CSR0965
-    | 0966us -> Register.CSR0966
-    | 0967us -> Register.CSR0967
-    | 0968us -> Register.CSR0968
-    | 0969us -> Register.CSR0969
-    | 0970us -> Register.CSR0970
-    | 0971us -> Register.CSR0971
-    | 0972us -> Register.CSR0972
-    | 0973us -> Register.CSR0973
-    | 0974us -> Register.CSR0974
-    | 0975us -> Register.CSR0975
-    | 0976us -> Register.CSR0976
-    | 0977us -> Register.CSR0977
-    | 0978us -> Register.CSR0978
-    | 0979us -> Register.CSR0979
-    | 0980us -> Register.CSR0980
-    | 0981us -> Register.CSR0981
-    | 0982us -> Register.CSR0982
-    | 0983us -> Register.CSR0983
-    | 0984us -> Register.CSR0984
-    | 0985us -> Register.CSR0985
-    | 0986us -> Register.CSR0986
-    | 0987us -> Register.CSR0987
-    | 0988us -> Register.CSR0988
-    | 0989us -> Register.CSR0989
-    | 0990us -> Register.CSR0990
-    | 0991us -> Register.CSR0991
-    | 0992us -> Register.CSR0992
-    | 0993us -> Register.CSR0993
-    | 0994us -> Register.CSR0994
-    | 0995us -> Register.CSR0995
-    | 0996us -> Register.CSR0996
-    | 0997us -> Register.CSR0997
-    | 0998us -> Register.CSR0998
-    | 0999us -> Register.CSR0999
-    | 1000us -> Register.CSR1000
-    | 1001us -> Register.CSR1001
-    | 1002us -> Register.CSR1002
-    | 1003us -> Register.CSR1003
-    | 1004us -> Register.CSR1004
-    | 1005us -> Register.CSR1005
-    | 1006us -> Register.CSR1006
-    | 1007us -> Register.CSR1007
-    | 2145us -> Register.CSR2145
-    | 2617us -> Register.CSR2617
-    | 2816us -> Register.CSR2816
-    | 2818us -> Register.CSR2818
-    | 2819us -> Register.CSR2819
-    | 2820us -> Register.CSR2820
-    | 2821us -> Register.CSR2821
-    | 2822us -> Register.CSR2822
-    | 2823us -> Register.CSR2823
-    | 2824us -> Register.CSR2824
-    | 2825us -> Register.CSR2825
-    | 2826us -> Register.CSR2826
-    | 2827us -> Register.CSR2827
-    | 2828us -> Register.CSR2828
-    | 2829us -> Register.CSR2829
-    | 2830us -> Register.CSR2830
-    | 2831us -> Register.CSR2831
-    | 2832us -> Register.CSR2832
-    | 2833us -> Register.CSR2833
-    | 2834us -> Register.CSR2834
-    | 2835us -> Register.CSR2835
-    | 2836us -> Register.CSR2836
-    | 2837us -> Register.CSR2837
-    | 2838us -> Register.CSR2838
-    | 2839us -> Register.CSR2839
-    | 2840us -> Register.CSR2840
-    | 2841us -> Register.CSR2841
-    | 2842us -> Register.CSR2842
-    | 2843us -> Register.CSR2843
-    | 2844us -> Register.CSR2844
-    | 2845us -> Register.CSR2845
-    | 2846us -> Register.CSR2846
-    | 2847us -> Register.CSR2847
-    | 2945us -> Register.CSR2945
-    | 0800us -> Register.CSR0800
-    | 0803us -> Register.CSR0803
-    | 0804us -> Register.CSR0804
-    | 0805us -> Register.CSR0805
-    | 0806us -> Register.CSR0806
-    | 0807us -> Register.CSR0807
-    | 0808us -> Register.CSR0808
-    | 0809us -> Register.CSR0809
-    | 0810us -> Register.CSR0810
-    | 0811us -> Register.CSR0811
-    | 0812us -> Register.CSR0812
-    | 0813us -> Register.CSR0813
-    | 0814us -> Register.CSR0814
-    | 0815us -> Register.CSR0815
-    | 0816us -> Register.CSR0816
-    | 0817us -> Register.CSR0817
-    | 0818us -> Register.CSR0818
-    | 0819us -> Register.CSR0819
-    | 0820us -> Register.CSR0820
-    | 0821us -> Register.CSR0821
-    | 0822us -> Register.CSR0822
-    | 0823us -> Register.CSR0823
-    | 0824us -> Register.CSR0824
-    | 0825us -> Register.CSR0825
-    | 0826us -> Register.CSR0826
-    | 0827us -> Register.CSR0827
-    | 0828us -> Register.CSR0828
-    | 0829us -> Register.CSR0829
-    | 0830us -> Register.CSR0830
-    | 0831us -> Register.CSR0831
-    | 1952us -> Register.CSR1952
-    | 1953us -> Register.CSR1953
-    | 1954us -> Register.CSR1954
-    | 1955us -> Register.CSR1955
-    | 1968us -> Register.CSR1968
-    | 1969us -> Register.CSR1969
-    | 1970us -> Register.CSR1970
-    | 1971us -> Register.CSR1971
+    | 0001us ->
+      Register.FFLAGS
+    | 0002us ->
+      Register.FRM
+    | 0003us ->
+      Register.FCSR
+    | 0768us ->
+      Register.CSR0768
+    | 0769us ->
+      Register.CSR0769
+    | 0770us ->
+      Register.CSR0770
+    | 0771us ->
+      Register.CSR0771
+    | 0772us ->
+      Register.CSR0772
+    | 0773us ->
+      Register.CSR0773
+    | 0784us ->
+      Register.CSR0784
+    | 0832us ->
+      Register.CSR0832
+    | 0833us ->
+      Register.CSR0833
+    | 0834us ->
+      Register.CSR0834
+    | 0835us ->
+      Register.CSR0835
+    | 0836us ->
+      Register.CSR0836
+    | 0842us ->
+      Register.CSR0842
+    | 0843us ->
+      Register.CSR0843
+    | 3114us ->
+      Register.CSR3114
+    | 3787us ->
+      Register.CSR3787
+    | 3857us ->
+      Register.CSR3857
+    | 3858us ->
+      Register.CSR3858
+    | 3859us ->
+      Register.CSR3859
+    | 3860us ->
+      Register.CSR3860
+    | 0928us ->
+      Register.CSR0928
+    | 0930us ->
+      Register.CSR0930
+    | 0932us ->
+      Register.CSR0932
+    | 0934us ->
+      Register.CSR0934
+    | 0936us ->
+      Register.CSR0936
+    | 0938us ->
+      Register.CSR0938
+    | 0940us ->
+      Register.CSR0940
+    | 0942us ->
+      Register.CSR0942
+    | 0944us ->
+      Register.CSR0944
+    | 0945us ->
+      Register.CSR0945
+    | 0946us ->
+      Register.CSR0946
+    | 0947us ->
+      Register.CSR0947
+    | 0948us ->
+      Register.CSR0948
+    | 0949us ->
+      Register.CSR0949
+    | 0950us ->
+      Register.CSR0950
+    | 0951us ->
+      Register.CSR0951
+    | 0952us ->
+      Register.CSR0952
+    | 0953us ->
+      Register.CSR0953
+    | 0954us ->
+      Register.CSR0954
+    | 0955us ->
+      Register.CSR0955
+    | 0956us ->
+      Register.CSR0956
+    | 0957us ->
+      Register.CSR0957
+    | 0958us ->
+      Register.CSR0958
+    | 0959us ->
+      Register.CSR0959
+    | 0960us ->
+      Register.CSR0960
+    | 0961us ->
+      Register.CSR0961
+    | 0962us ->
+      Register.CSR0962
+    | 0963us ->
+      Register.CSR0963
+    | 0964us ->
+      Register.CSR0964
+    | 0965us ->
+      Register.CSR0965
+    | 0966us ->
+      Register.CSR0966
+    | 0967us ->
+      Register.CSR0967
+    | 0968us ->
+      Register.CSR0968
+    | 0969us ->
+      Register.CSR0969
+    | 0970us ->
+      Register.CSR0970
+    | 0971us ->
+      Register.CSR0971
+    | 0972us ->
+      Register.CSR0972
+    | 0973us ->
+      Register.CSR0973
+    | 0974us ->
+      Register.CSR0974
+    | 0975us ->
+      Register.CSR0975
+    | 0976us ->
+      Register.CSR0976
+    | 0977us ->
+      Register.CSR0977
+    | 0978us ->
+      Register.CSR0978
+    | 0979us ->
+      Register.CSR0979
+    | 0980us ->
+      Register.CSR0980
+    | 0981us ->
+      Register.CSR0981
+    | 0982us ->
+      Register.CSR0982
+    | 0983us ->
+      Register.CSR0983
+    | 0984us ->
+      Register.CSR0984
+    | 0985us ->
+      Register.CSR0985
+    | 0986us ->
+      Register.CSR0986
+    | 0987us ->
+      Register.CSR0987
+    | 0988us ->
+      Register.CSR0988
+    | 0989us ->
+      Register.CSR0989
+    | 0990us ->
+      Register.CSR0990
+    | 0991us ->
+      Register.CSR0991
+    | 0992us ->
+      Register.CSR0992
+    | 0993us ->
+      Register.CSR0993
+    | 0994us ->
+      Register.CSR0994
+    | 0995us ->
+      Register.CSR0995
+    | 0996us ->
+      Register.CSR0996
+    | 0997us ->
+      Register.CSR0997
+    | 0998us ->
+      Register.CSR0998
+    | 0999us ->
+      Register.CSR0999
+    | 1000us ->
+      Register.CSR1000
+    | 1001us ->
+      Register.CSR1001
+    | 1002us ->
+      Register.CSR1002
+    | 1003us ->
+      Register.CSR1003
+    | 1004us ->
+      Register.CSR1004
+    | 1005us ->
+      Register.CSR1005
+    | 1006us ->
+      Register.CSR1006
+    | 1007us ->
+      Register.CSR1007
+    | 2145us ->
+      Register.CSR2145
+    | 2617us ->
+      Register.CSR2617
+    | 2816us ->
+      Register.CSR2816
+    | 2818us ->
+      Register.CSR2818
+    | 2819us ->
+      Register.CSR2819
+    | 2820us ->
+      Register.CSR2820
+    | 2821us ->
+      Register.CSR2821
+    | 2822us ->
+      Register.CSR2822
+    | 2823us ->
+      Register.CSR2823
+    | 2824us ->
+      Register.CSR2824
+    | 2825us ->
+      Register.CSR2825
+    | 2826us ->
+      Register.CSR2826
+    | 2827us ->
+      Register.CSR2827
+    | 2828us ->
+      Register.CSR2828
+    | 2829us ->
+      Register.CSR2829
+    | 2830us ->
+      Register.CSR2830
+    | 2831us ->
+      Register.CSR2831
+    | 2832us ->
+      Register.CSR2832
+    | 2833us ->
+      Register.CSR2833
+    | 2834us ->
+      Register.CSR2834
+    | 2835us ->
+      Register.CSR2835
+    | 2836us ->
+      Register.CSR2836
+    | 2837us ->
+      Register.CSR2837
+    | 2838us ->
+      Register.CSR2838
+    | 2839us ->
+      Register.CSR2839
+    | 2840us ->
+      Register.CSR2840
+    | 2841us ->
+      Register.CSR2841
+    | 2842us ->
+      Register.CSR2842
+    | 2843us ->
+      Register.CSR2843
+    | 2844us ->
+      Register.CSR2844
+    | 2845us ->
+      Register.CSR2845
+    | 2846us ->
+      Register.CSR2846
+    | 2847us ->
+      Register.CSR2847
+    | 2945us ->
+      Register.CSR2945
+    | 0800us ->
+      Register.CSR0800
+    | 0803us ->
+      Register.CSR0803
+    | 0804us ->
+      Register.CSR0804
+    | 0805us ->
+      Register.CSR0805
+    | 0806us ->
+      Register.CSR0806
+    | 0807us ->
+      Register.CSR0807
+    | 0808us ->
+      Register.CSR0808
+    | 0809us ->
+      Register.CSR0809
+    | 0810us ->
+      Register.CSR0810
+    | 0811us ->
+      Register.CSR0811
+    | 0812us ->
+      Register.CSR0812
+    | 0813us ->
+      Register.CSR0813
+    | 0814us ->
+      Register.CSR0814
+    | 0815us ->
+      Register.CSR0815
+    | 0816us ->
+      Register.CSR0816
+    | 0817us ->
+      Register.CSR0817
+    | 0818us ->
+      Register.CSR0818
+    | 0819us ->
+      Register.CSR0819
+    | 0820us ->
+      Register.CSR0820
+    | 0821us ->
+      Register.CSR0821
+    | 0822us ->
+      Register.CSR0822
+    | 0823us ->
+      Register.CSR0823
+    | 0824us ->
+      Register.CSR0824
+    | 0825us ->
+      Register.CSR0825
+    | 0826us ->
+      Register.CSR0826
+    | 0827us ->
+      Register.CSR0827
+    | 0828us ->
+      Register.CSR0828
+    | 0829us ->
+      Register.CSR0829
+    | 0830us ->
+      Register.CSR0830
+    | 0831us ->
+      Register.CSR0831
+    | 1952us ->
+      Register.CSR1952
+    | 1953us ->
+      Register.CSR1953
+    | 1954us ->
+      Register.CSR1954
+    | 1955us ->
+      Register.CSR1955
+    | 1968us ->
+      Register.CSR1968
+    | 1969us ->
+      Register.CSR1969
+    | 1970us ->
+      Register.CSR1970
+    | 1971us ->
+      Register.CSR1971
     | _ ->
       eprintfn "%A" csr
       raise InvalidRegisterException
@@ -244,14 +411,17 @@ let getFiveOprs (ins: Instruction) =
   | _ -> raise InvalidOperandException
 
 let transOprToExpr (ins: Instruction) bld = function
-  | OpReg reg -> regVar bld reg
+  | OpReg reg ->
+    regVar bld reg
   | OpImm imm
-  | OpShiftAmount imm -> numU64 imm bld.RegType
+  | OpShiftAmount imm ->
+    numU64 imm bld.RegType
   | OpMem(b, Some(Imm o), sz) ->
     let reg = regVar bld b
     let offset = numI64 o bld.RegType
     AST.loadLE sz (reg .+ offset)
-  | OpAddr(Relative o) -> numI64 (int64 ins.Address + o) bld.RegType
+  | OpAddr(Relative o) ->
+    numI64 (int64 ins.Address + o) bld.RegType
   | OpAddr(RelativeBase(b, imm)) ->
     if b = Register.X0 then
       AST.num0 bld.RegType
@@ -259,10 +429,14 @@ let transOprToExpr (ins: Instruction) bld = function
       let target = regVar bld b .+ numI64 (int64 imm) bld.RegType
       let mask = numI64 0xFFFFFFFF_FFFFFFFEL 64<rt>
       target .& mask
-  | OpMem(b, None, sz) -> AST.loadLE sz (regVar bld b)
-  | OpAtomMemOperation(_) -> numU32 0u 32<rt> // FIXME:
-  | OpCSR(csr) -> getCSRReg bld csr
-  | _ -> raise InvalidOperandException
+  | OpMem(b, None, sz) ->
+    AST.loadLE sz (regVar bld b)
+  | OpAtomMemOperation(_) ->
+    numU32 0u 32<rt> // FIXME:
+  | OpCSR(csr) ->
+    getCSRReg bld csr
+  | _ ->
+    raise InvalidOperandException
 
 let private maskForFCSR csr (opr1, opr2) =
   let lowSrc = AST.xtlo 32<rt> opr2
@@ -280,7 +454,8 @@ let private assignFCSR dst src bld =
     bld <+ (regVar bld R.FRM :=
       (lowSrc .& numU32 0b11100000u 32<rt>) >> numI32 5 32<rt>)
     bld <+ (regVar bld R.FFLAGS := lowSrc .& numU32 0b11111u 32<rt>)
-  | _ -> bld <+ (dst := src)
+  | _ ->
+    bld <+ (dst := src)
 
 let roundingToCastFloat x =
   match x with
@@ -292,7 +467,8 @@ let roundingToCastFloat x =
     | RoundMode.RDN -> CastKind.FtoFFloor
     | RoundMode.RUP -> CastKind.FtoFCeil
     | _ -> raise InvalidOperandException
-  | _ -> raise InvalidOperandException
+  | _ ->
+    raise InvalidOperandException
 
 let roundingToCastInt x =
   match x with
@@ -304,7 +480,8 @@ let roundingToCastInt x =
     | RoundMode.RDN -> CastKind.FtoIFloor
     | RoundMode.RUP -> CastKind.FtoICeil
     | _ -> raise InvalidOperandException
-  | _ -> raise InvalidOperandException
+  | _ ->
+    raise InvalidOperandException
 
 let dynamicRoundingFl bld rt res =
   let tmpVar = tmpVar bld rt
@@ -392,15 +569,17 @@ let transTwoOprs ins bld (o1, o2) =
   transOprToExpr ins bld o1, transOprToExpr ins bld o2
 
 let transThreeOprs ins bld (o1, o2, o3) =
-  transOprToExpr ins bld o1,
-  transOprToExpr ins bld o2,
-  transOprToExpr ins bld o3
+  let o1 = transOprToExpr ins bld o1
+  let o2 = transOprToExpr ins bld o2
+  let o3 = transOprToExpr ins bld o3
+  o1, o2, o3
 
 let transFourOprs ins bld (o1, o2, o3, o4) =
-  transOprToExpr ins bld o1,
-  transOprToExpr ins bld o2,
-  transOprToExpr ins bld o3,
-  transOprToExpr ins bld o4
+  let o1 = transOprToExpr ins bld o1
+  let o2 = transOprToExpr ins bld o2
+  let o3 = transOprToExpr ins bld o3
+  let o4 = transOprToExpr ins bld o4
+  o1, o2, o3, o4
 
 let getNanBoxed e = (numU64 0xFFFFFFFF_00000000uL 64<rt>) .| (AST.zext 64<rt> e)
 
@@ -457,7 +636,8 @@ let isInf rt e =
     let fullMantissa = numU64 0xFFFFFFFFFFFFFuL 64<rt>
     ((e .& fullExponent) == fullExponent) .&
     ((e .& fullMantissa) == AST.num0 64<rt>)
-  | _ -> raise InvalidRegTypeException
+  | _ ->
+    raise InvalidRegTypeException
 
 let isNan rt e =
   match rt with
@@ -471,7 +651,8 @@ let isNan rt e =
     let fullMantissa = numU64 0xFFFFFFFFFFFFFuL 64<rt>
     ((e .& fullExponent) == fullExponent) .&
     ((e .& fullMantissa) != AST.num0 64<rt>)
-  | _ -> raise InvalidRegTypeException
+  | _ ->
+    raise InvalidRegTypeException
 
 let isSNan rt e =
   match rt with
@@ -481,7 +662,8 @@ let isSNan rt e =
   | 64<rt> ->
     let signalBit = numU64 (1uL <<< 51) 64<rt>
     (isNan rt e) .& ((e .& signalBit) == AST.num0 64<rt>)
-  | _ -> raise InvalidRegTypeException
+  | _ ->
+    raise InvalidRegTypeException
 
 let isQNan rt e =
   match rt with
@@ -491,7 +673,8 @@ let isQNan rt e =
   | 64<rt> ->
     let signalBit = numU64 (1uL <<< 51) 64<rt>
     (isNan rt e) .& ((e .& signalBit) != AST.num0 64<rt>)
-  | _ -> raise InvalidRegTypeException
+  | _ ->
+    raise InvalidRegTypeException
 
 let isZero rt e =
   match rt with
@@ -501,7 +684,8 @@ let isZero rt e =
   | 64<rt> ->
     let mask = numU64 0x7fffffff_ffffffffUL 64<rt>
     AST.eq (e .& mask) (AST.num0 64<rt>)
-  | _ -> Terminator.impossible ()
+  | _ ->
+    Terminator.impossible ()
 
 let fpNeg rt expr =
   let mask =
@@ -533,7 +717,8 @@ let isSubnormal rt e =
     let fullMantissa = numU64 0xFFFFFFFFFFFFFuL 64<rt>
     ((e .& fullExponent) == AST.num0 64<rt>) .&
     (e .& fullMantissa != AST.num0 64<rt>)
-  | _ -> raise InvalidRegTypeException
+  | _ ->
+    raise InvalidRegTypeException
 
 let add ins insLen bld =
   let rd, rs1, rs2 = getThreeOprs ins |> transThreeOprs ins bld
@@ -1632,7 +1817,8 @@ let csrrw ins insLen bld =
   bld <!-- (ins.Address, insLen)
   bld <+ (AST.sideEffect AtomicBegin)
   match rd with
-  | OpReg Register.X0 -> assignFCSR csr src bld
+  | OpReg Register.X0 ->
+    assignFCSR csr src bld
   | _ ->
     let rd = transOneOpr ins bld rd
     let tmpVar = tmpVar bld 64<rt>
@@ -2190,51 +2376,80 @@ let translate (ins: Instruction) insLen bld =
   match ins.Opcode with
   | Op.CdotMV
   | Op.CdotADD
-  | Op.ADD -> add ins insLen bld
+  | Op.ADD ->
+    add ins insLen bld
   | Op.CdotADDW
-  | Op.ADDW -> addw ins insLen bld
+  | Op.ADDW ->
+    addw ins insLen bld
   | Op.CdotSUBW
-  | Op.SUBW -> subw ins insLen bld
+  | Op.SUBW ->
+    subw ins insLen bld
   | Op.CdotAND
-  | Op.AND -> ``and`` ins insLen bld
+  | Op.AND ->
+    ``and`` ins insLen bld
   | Op.CdotOR
-  | Op.OR -> ``or`` ins insLen bld
+  | Op.OR ->
+    ``or`` ins insLen bld
   | Op.CdotXOR
-  | Op.XOR -> xor ins insLen bld
+  | Op.XOR ->
+    xor ins insLen bld
   | Op.CdotSUB
-  | Op.SUB -> sub ins insLen bld
-  | Op.SLT -> slt ins insLen bld
-  | Op.SLTU -> sltu ins insLen bld
-  | Op.SLL -> sll ins insLen bld
-  | Op.SLLW -> sllw ins insLen bld
-  | Op.SRA -> sra ins insLen bld
-  | Op.SRAW -> sraw ins insLen bld
-  | Op.SRL -> srl ins insLen bld
-  | Op.SRLW -> srlw ins insLen bld
+  | Op.SUB ->
+    sub ins insLen bld
+  | Op.SLT ->
+    slt ins insLen bld
+  | Op.SLTU ->
+    sltu ins insLen bld
+  | Op.SLL ->
+    sll ins insLen bld
+  | Op.SLLW ->
+    sllw ins insLen bld
+  | Op.SRA ->
+    sra ins insLen bld
+  | Op.SRAW ->
+    sraw ins insLen bld
+  | Op.SRL ->
+    srl ins insLen bld
+  | Op.SRLW ->
+    srlw ins insLen bld
   | Op.CdotANDI
-  | Op.ANDI -> andi ins insLen bld
+  | Op.ANDI ->
+    andi ins insLen bld
   | Op.CdotADDI16SP
   | Op.CdotLI
   | Op.CdotADDI
   | Op.CdotADDI4SPN
-  | Op.ADDI -> addi ins insLen bld
-  | Op.ORI -> ori ins insLen bld
-  | Op.XORI -> xori ins insLen bld
-  | Op.SLTI -> slti ins insLen bld
-  | Op.SLTIU -> sltiu ins insLen bld
+  | Op.ADDI ->
+    addi ins insLen bld
+  | Op.ORI ->
+    ori ins insLen bld
+  | Op.XORI ->
+    xori ins insLen bld
+  | Op.SLTI ->
+    slti ins insLen bld
+  | Op.SLTIU ->
+    sltiu ins insLen bld
   | Op.CdotJ
-  | Op.JAL -> jal ins insLen bld
+  | Op.JAL ->
+    jal ins insLen bld
   | Op.CdotJR
   | Op.CdotJALR
-  | Op.JALR -> jalr ins insLen bld
+  | Op.JALR ->
+    jalr ins insLen bld
   | Op.CdotBEQZ
-  | Op.BEQ -> beq ins insLen bld
+  | Op.BEQ ->
+    beq ins insLen bld
   | Op.CdotBNEZ
-  | Op.BNE -> bne ins insLen bld
-  | Op.BLT -> blt ins insLen bld
-  | Op.BGE -> bge ins insLen bld
-  | Op.BLTU -> bltu ins insLen bld
-  | Op.BGEU -> bgeu ins insLen bld
+  | Op.BNE ->
+    bne ins insLen bld
+  | Op.BLT ->
+    blt ins insLen bld
+  | Op.BGE ->
+    bge ins insLen bld
+  | Op.BLTU ->
+    bltu ins insLen bld
+  | Op.BGEU ->
+    bgeu ins insLen bld
   | Op.CdotLW
   | Op.CdotLD
   | Op.CdotLWSP
@@ -2242,10 +2457,12 @@ let translate (ins: Instruction) insLen bld =
   | Op.LB
   | Op.LH
   | Op.LW
-  | Op.LD -> load ins insLen bld
+  | Op.LD ->
+    load ins insLen bld
   | Op.LBU
   | Op.LHU
-  | Op.LWU -> loadu ins insLen bld
+  | Op.LWU ->
+    loadu ins insLen bld
   | Op.CdotSW
   | Op.CdotSD
   | Op.CdotSWSP
@@ -2253,82 +2470,148 @@ let translate (ins: Instruction) insLen bld =
   | Op.SB
   | Op.SH
   | Op.SW
-  | Op.SD -> store ins insLen bld
+  | Op.SD ->
+    store ins insLen bld
   | Op.CdotEBREAK
-  | Op.EBREAK -> sideEffects ins insLen bld Breakpoint
-  | Op.ECALL -> sideEffects ins insLen bld SysCall
+  | Op.EBREAK ->
+    sideEffects ins insLen bld Breakpoint
+  | Op.ECALL ->
+    sideEffects ins insLen bld SysCall
   | Op.CdotSRAI
-  | Op.SRAI -> srai ins insLen bld
+  | Op.SRAI ->
+    srai ins insLen bld
   | Op.CdotSLLI
-  | Op.SLLI -> slli ins insLen bld
+  | Op.SLLI ->
+    slli ins insLen bld
   | Op.CdotSRLI
-  | Op.SRLI -> srli ins insLen bld
+  | Op.SRLI ->
+    srli ins insLen bld
   | Op.CdotLUI
-  | Op.LUI -> lui ins insLen bld
-  | Op.AUIPC -> auipc ins insLen bld
+  | Op.LUI ->
+    lui ins insLen bld
+  | Op.AUIPC ->
+    auipc ins insLen bld
   | Op.CdotADDIW
-  | Op.ADDIW -> addiw ins insLen bld
-  | Op.SLLIW -> slliw ins insLen bld
-  | Op.SRLIW -> srliw ins insLen bld
-  | Op.SRAIW -> sraiw ins insLen bld
-  | Op.MUL -> mul ins insLen bld
-  | Op.MULH -> mulhSignOrUnsign ins insLen bld (true, true)
-  | Op.MULHU -> mulhSignOrUnsign ins insLen bld (false, true)
-  | Op.MULHSU -> mulhSignOrUnsign ins insLen bld (true, false)
-  | Op.MULW -> mulw ins insLen bld
-  | Op.CdotNOP -> nop ins insLen bld
+  | Op.ADDIW ->
+    addiw ins insLen bld
+  | Op.SLLIW ->
+    slliw ins insLen bld
+  | Op.SRLIW ->
+    srliw ins insLen bld
+  | Op.SRAIW ->
+    sraiw ins insLen bld
+  | Op.MUL ->
+    mul ins insLen bld
+  | Op.MULH ->
+    mulhSignOrUnsign ins insLen bld (true, true)
+  | Op.MULHU ->
+    mulhSignOrUnsign ins insLen bld (false, true)
+  | Op.MULHSU ->
+    mulhSignOrUnsign ins insLen bld (true, false)
+  | Op.MULW ->
+    mulw ins insLen bld
+  | Op.CdotNOP ->
+    nop ins insLen bld
   | Op.CdotFLD
   | Op.CdotFLDSP
-  | Op.FLD -> fld ins insLen bld
+  | Op.FLD ->
+    fld ins insLen bld
   | Op.CdotFSD
   | Op.CdotFSDSP
-  | Op.FSD -> fsd ins insLen bld
-  | Op.FLTdotS -> fltdots ins insLen bld
-  | Op.FLTdotD -> fltdotd ins insLen bld
-  | Op.FLEdotS -> fledots ins insLen bld
-  | Op.FLEdotD -> fledotd ins insLen bld
-  | Op.FEQdotS -> feqdots ins insLen bld
-  | Op.FEQdotD -> feqdotd ins insLen bld
-  | Op.FLW -> flw ins insLen bld
-  | Op.FSW -> fsw ins insLen bld
-  | Op.FADDdotS -> fpArithmeticSingle ins insLen bld AST.fadd
-  | Op.FADDdotD -> fpArithmeticDouble ins insLen bld AST.fadd
-  | Op.FSUBdotS -> fpArithmeticSingle ins insLen bld AST.fsub
-  | Op.FSUBdotD -> fpArithmeticDouble ins insLen bld AST.fsub
-  | Op.FDIVdotS -> fpArithmeticSingle ins insLen bld AST.fdiv
-  | Op.FDIVdotD -> fpArithmeticDouble ins insLen bld AST.fdiv
-  | Op.FMULdotS -> fpArithmeticSingle ins insLen bld AST.fmul
-  | Op.FMULdotD -> fpArithmeticDouble ins insLen bld AST.fmul
-  | Op.FMINdotS -> fmindots ins insLen bld
-  | Op.FMINdotD -> fmindotd ins insLen bld
-  | Op.FMAXdotS -> fmaxdots ins insLen bld
-  | Op.FMAXdotD -> fmaxdotd ins insLen bld
-  | Op.FNMADDdotS -> fnmadddots ins insLen bld
-  | Op.FNMADDdotD -> fnmadddotd ins insLen bld
-  | Op.FNMSUBdotS -> fnmsubdots ins insLen bld
-  | Op.FNMSUBdotD -> fnmsubdotd ins insLen bld
-  | Op.FMADDdotS -> fmadddots ins insLen bld
-  | Op.FMADDdotD -> fmadddotd ins insLen bld
-  | Op.FMSUBdotS -> fmsubdots ins insLen bld
-  | Op.FMSUBdotD -> fmsubdotd ins insLen bld
-  | Op.FSQRTdotS -> fsqrtdots ins insLen bld
-  | Op.FSQRTdotD -> fsqrtdotd ins insLen bld
-  | Op.FCLASSdotS -> fclassdots ins insLen bld
-  | Op.FCLASSdotD -> fclassdotd ins insLen bld
-  | Op.FSGNJdotS -> fsgnjdots ins insLen bld
-  | Op.FSGNJdotD -> fsgnjdotd ins insLen bld
-  | Op.FSGNJNdotS -> fsgnjndots ins insLen bld
-  | Op.FSGNJNdotD -> fsgnjndotd ins insLen bld
-  | Op.FSGNJXdotS -> fsgnjxdots ins insLen bld
-  | Op.FSGNJXdotD -> fsgnjxdotd ins insLen bld
-  | Op.AMOADDdotW -> amow ins insLen bld (.+)
-  | Op.AMOADDdotD -> amod ins insLen bld (.+)
-  | Op.AMOANDdotW -> amow ins insLen bld (.&)
-  | Op.AMOANDdotD -> amod ins insLen bld (.&)
-  | Op.AMOXORdotW -> amow ins insLen bld (<+>)
-  | Op.AMOXORdotD -> amod ins insLen bld (<+>)
-  | Op.AMOORdotW -> amow ins insLen bld (.|)
-  | Op.AMOORdotD -> amod ins insLen bld (.|)
+  | Op.FSD ->
+    fsd ins insLen bld
+  | Op.FLTdotS ->
+    fltdots ins insLen bld
+  | Op.FLTdotD ->
+    fltdotd ins insLen bld
+  | Op.FLEdotS ->
+    fledots ins insLen bld
+  | Op.FLEdotD ->
+    fledotd ins insLen bld
+  | Op.FEQdotS ->
+    feqdots ins insLen bld
+  | Op.FEQdotD ->
+    feqdotd ins insLen bld
+  | Op.FLW ->
+    flw ins insLen bld
+  | Op.FSW ->
+    fsw ins insLen bld
+  | Op.FADDdotS ->
+    fpArithmeticSingle ins insLen bld AST.fadd
+  | Op.FADDdotD ->
+    fpArithmeticDouble ins insLen bld AST.fadd
+  | Op.FSUBdotS ->
+    fpArithmeticSingle ins insLen bld AST.fsub
+  | Op.FSUBdotD ->
+    fpArithmeticDouble ins insLen bld AST.fsub
+  | Op.FDIVdotS ->
+    fpArithmeticSingle ins insLen bld AST.fdiv
+  | Op.FDIVdotD ->
+    fpArithmeticDouble ins insLen bld AST.fdiv
+  | Op.FMULdotS ->
+    fpArithmeticSingle ins insLen bld AST.fmul
+  | Op.FMULdotD ->
+    fpArithmeticDouble ins insLen bld AST.fmul
+  | Op.FMINdotS ->
+    fmindots ins insLen bld
+  | Op.FMINdotD ->
+    fmindotd ins insLen bld
+  | Op.FMAXdotS ->
+    fmaxdots ins insLen bld
+  | Op.FMAXdotD ->
+    fmaxdotd ins insLen bld
+  | Op.FNMADDdotS ->
+    fnmadddots ins insLen bld
+  | Op.FNMADDdotD ->
+    fnmadddotd ins insLen bld
+  | Op.FNMSUBdotS ->
+    fnmsubdots ins insLen bld
+  | Op.FNMSUBdotD ->
+    fnmsubdotd ins insLen bld
+  | Op.FMADDdotS ->
+    fmadddots ins insLen bld
+  | Op.FMADDdotD ->
+    fmadddotd ins insLen bld
+  | Op.FMSUBdotS ->
+    fmsubdots ins insLen bld
+  | Op.FMSUBdotD ->
+    fmsubdotd ins insLen bld
+  | Op.FSQRTdotS ->
+    fsqrtdots ins insLen bld
+  | Op.FSQRTdotD ->
+    fsqrtdotd ins insLen bld
+  | Op.FCLASSdotS ->
+    fclassdots ins insLen bld
+  | Op.FCLASSdotD ->
+    fclassdotd ins insLen bld
+  | Op.FSGNJdotS ->
+    fsgnjdots ins insLen bld
+  | Op.FSGNJdotD ->
+    fsgnjdotd ins insLen bld
+  | Op.FSGNJNdotS ->
+    fsgnjndots ins insLen bld
+  | Op.FSGNJNdotD ->
+    fsgnjndotd ins insLen bld
+  | Op.FSGNJXdotS ->
+    fsgnjxdots ins insLen bld
+  | Op.FSGNJXdotD ->
+    fsgnjxdotd ins insLen bld
+  | Op.AMOADDdotW ->
+    amow ins insLen bld (.+)
+  | Op.AMOADDdotD ->
+    amod ins insLen bld (.+)
+  | Op.AMOANDdotW ->
+    amow ins insLen bld (.&)
+  | Op.AMOANDdotD ->
+    amod ins insLen bld (.&)
+  | Op.AMOXORdotW ->
+    amow ins insLen bld (<+>)
+  | Op.AMOXORdotD ->
+    amod ins insLen bld (<+>)
+  | Op.AMOORdotW ->
+    amow ins insLen bld (.|)
+  | Op.AMOORdotD ->
+    amod ins insLen bld (.|)
   | Op.AMOMINdotW ->
     amow ins insLen bld (fun a b -> AST.ite (a ?< b) (a) (b))
   | Op.AMOMINdotD ->
@@ -2345,51 +2628,90 @@ let translate (ins: Instruction) insLen bld =
     amow ins insLen bld (fun a b -> AST.ite (a .> b) (a) (b))
   | Op.AMOMAXUdotD ->
     amod ins insLen bld (fun a b -> AST.ite (a .> b) (a) (b))
-  | Op.AMOSWAPdotW -> amow ins insLen bld (fun _ b -> b)
-  | Op.AMOSWAPdotD -> amod ins insLen bld (fun _ b -> b)
-  | Op.FMVdotXdotW -> fmvdotxdotw ins insLen bld
-  | Op.FMVdotXdotD -> fmvdotxdotd ins insLen bld
-  | Op.FMVdotWdotX -> fmvdotwdotx ins insLen bld
-  | Op.FMVdotDdotX -> fmvdotddotx ins insLen bld
-  | Op.DIVW -> divw ins insLen bld
-  | Op.DIV -> div ins insLen bld
-  | Op.DIVU -> divu ins insLen bld
-  | Op.REM -> rem ins insLen bld
-  | Op.REMU -> remu ins insLen bld
-  | Op.REMW -> remw ins insLen bld
-  | Op.DIVUW -> divuw ins insLen bld
-  | Op.REMUW -> remuw ins insLen bld
-  | Op.FCVTdotWdotD -> fcvtdotwdotd ins insLen bld
-  | Op.FCVTdotWUdotD -> fcvtdotwudotd ins insLen bld
-  | Op.FCVTdotLdotD -> fcvtdotldotd ins insLen bld
-  | Op.FCVTdotLUdotD -> fcvtdotludotd ins insLen bld
-  | Op.FCVTdotWdotS -> fcvtdotwdots ins insLen bld
-  | Op.FCVTdotWUdotS -> fcvtdotwudots ins insLen bld
-  | Op.FCVTdotLdotS -> fcvtdotldots ins insLen bld
-  | Op.FCVTdotLUdotS -> fcvtdotludots ins insLen bld
+  | Op.AMOSWAPdotW ->
+    amow ins insLen bld (fun _ b -> b)
+  | Op.AMOSWAPdotD ->
+    amod ins insLen bld (fun _ b -> b)
+  | Op.FMVdotXdotW ->
+    fmvdotxdotw ins insLen bld
+  | Op.FMVdotXdotD ->
+    fmvdotxdotd ins insLen bld
+  | Op.FMVdotWdotX ->
+    fmvdotwdotx ins insLen bld
+  | Op.FMVdotDdotX ->
+    fmvdotddotx ins insLen bld
+  | Op.DIVW ->
+    divw ins insLen bld
+  | Op.DIV ->
+    div ins insLen bld
+  | Op.DIVU ->
+    divu ins insLen bld
+  | Op.REM ->
+    rem ins insLen bld
+  | Op.REMU ->
+    remu ins insLen bld
+  | Op.REMW ->
+    remw ins insLen bld
+  | Op.DIVUW ->
+    divuw ins insLen bld
+  | Op.REMUW ->
+    remuw ins insLen bld
+  | Op.FCVTdotWdotD ->
+    fcvtdotwdotd ins insLen bld
+  | Op.FCVTdotWUdotD ->
+    fcvtdotwudotd ins insLen bld
+  | Op.FCVTdotLdotD ->
+    fcvtdotldotd ins insLen bld
+  | Op.FCVTdotLUdotD ->
+    fcvtdotludotd ins insLen bld
+  | Op.FCVTdotWdotS ->
+    fcvtdotwdots ins insLen bld
+  | Op.FCVTdotWUdotS ->
+    fcvtdotwudots ins insLen bld
+  | Op.FCVTdotLdotS ->
+    fcvtdotldots ins insLen bld
+  | Op.FCVTdotLUdotS ->
+    fcvtdotludots ins insLen bld
   | Op.FENCE
   | Op.FENCEdotI
-  | Op.FENCEdotTSO -> nop ins insLen bld
+  | Op.FENCEdotTSO ->
+    nop ins insLen bld
   | Op.LRdotW
-  | Op.LRdotD -> lr ins insLen bld
-  | Op.SCdotW -> sc ins insLen bld 32<rt>
-  | Op.SCdotD -> sc ins insLen bld 64<rt>
+  | Op.LRdotD ->
+    lr ins insLen bld
+  | Op.SCdotW ->
+    sc ins insLen bld 32<rt>
+  | Op.SCdotD ->
+    sc ins insLen bld 64<rt>
   | Op.CSRRW
-  | Op.CSRRWI -> csrrw ins insLen bld
+  | Op.CSRRWI ->
+    csrrw ins insLen bld
   | Op.CSRRS
-  | Op.CSRRSI -> csrrs ins insLen bld
+  | Op.CSRRSI ->
+    csrrs ins insLen bld
   | Op.CSRRC
-  | Op.CSRRCI -> csrrc ins insLen bld
-  | Op.FCVTdotSdotW -> fcvtdotsdotw ins insLen bld
-  | Op.FCVTdotSdotL -> fcvtdotsdotl ins insLen bld
-  | Op.FCVTdotSdotD -> fcvtdotsdotd ins insLen bld
-  | Op.FCVTdotDdotS -> fcvtdotddots ins insLen bld
-  | Op.FCVTdotDdotW -> fcvtdotddotw ins insLen bld
-  | Op.FCVTdotDdotL -> fcvtdotddotl ins insLen bld
-  | Op.FCVTdotDdotWU -> fcvtdotddotwu ins insLen bld
-  | Op.FCVTdotDdotLU -> fcvtdotddotlu ins insLen bld
-  | Op.FCVTdotSdotWU -> fcvtdotsdotwu ins insLen bld
-  | Op.FCVTdotSdotLU -> fcvtdotsdotlu ins insLen bld
+  | Op.CSRRCI ->
+    csrrc ins insLen bld
+  | Op.FCVTdotSdotW ->
+    fcvtdotsdotw ins insLen bld
+  | Op.FCVTdotSdotL ->
+    fcvtdotsdotl ins insLen bld
+  | Op.FCVTdotSdotD ->
+    fcvtdotsdotd ins insLen bld
+  | Op.FCVTdotDdotS ->
+    fcvtdotddots ins insLen bld
+  | Op.FCVTdotDdotW ->
+    fcvtdotddotw ins insLen bld
+  | Op.FCVTdotDdotL ->
+    fcvtdotddotl ins insLen bld
+  | Op.FCVTdotDdotWU ->
+    fcvtdotddotwu ins insLen bld
+  | Op.FCVTdotDdotLU ->
+    fcvtdotddotlu ins insLen bld
+  | Op.FCVTdotSdotWU ->
+    fcvtdotsdotwu ins insLen bld
+  | Op.FCVTdotSdotLU ->
+    fcvtdotsdotlu ins insLen bld
   | o ->
 #if DEBUG
     eprintfn "%A" o

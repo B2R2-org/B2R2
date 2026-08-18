@@ -102,7 +102,8 @@ let private vexedScalarFPBinOp (ins: Instruction) insLen bld sz op =
   | 64<rt> ->
     let src2 = transOprToExpr64 bld false ins insLen src2
     bld <+ (dst1 := op src1A src2)
-  | _ -> raise InvalidOperandSizeException
+  | _ ->
+    raise InvalidOperandSizeException
   bld <+ (dst2 := src1B)
   fillZeroFromVLToMaxVL bld dst (getOperationSize ins) 512
   bld --!> insLen
@@ -137,7 +138,8 @@ let vsqrtpd ins insLen bld =
     bld <+ (dst2 := AST.fsqrt sr2)
     bld <+ (dst3 := AST.fsqrt sr3)
     bld <+ (dst4 := AST.fsqrt sr4)
-  | _ -> raise InvalidOperandSizeException
+  | _ ->
+    raise InvalidOperandSizeException
   fillZeroFromVLToMaxVL bld dst oprSz 512
   bld --!> insLen
 
@@ -154,7 +156,8 @@ let private vsqrts (ins: Instruction) insLen bld sz =
   | 64<rt> ->
     let src2 = transOprToExpr64 bld false ins insLen src2
     bld <+ (dst1 := AST.fsqrt src2)
-  | _ -> raise InvalidOperandSizeException
+  | _ ->
+    raise InvalidOperandSizeException
   bld <+ (dst2 := src1B)
   fillZeroFromVLToMaxVL bld dst (getOperationSize ins) 512
   bld --!> insLen
@@ -256,7 +259,8 @@ let vmovd (ins: Instruction) insLen bld =
     bld <+ (dstA := AST.zext 64<rt> src)
     bld <+ (dstB := AST.num0 64<rt>)
     fillZeroFromVLToMaxVL bld dst oprSize 512
-  | _ -> raise InvalidOperandSizeException
+  | _ ->
+    raise InvalidOperandSizeException
   bld --!> insLen
 
 let vmovq (ins: Instruction) insLen bld =
@@ -293,7 +297,8 @@ let vmovq (ins: Instruction) insLen bld =
       bld <+ (dstA := srcA)
       bld <+ (dstB := n0)
       fillZeroFromVLToMaxVL bld dst oprSize 512
-  | _ -> raise InvalidOperandException
+  | _ ->
+    raise InvalidOperandException
   bld --!> insLen
 
 let private buildVectorMove (ins: Instruction) insLen bld packSz =
@@ -310,7 +315,8 @@ let private buildVectorMove (ins: Instruction) insLen bld packSz =
       let ePrx = getEVEXPrx ins.VEXInfo
       let k = regVar bld (ePrx.AAA |> int |> RegisterHelper.opmask)
       makeAssignWithMask bld ePrx k oprSz packSz eDst src (isMemOpr dst)
-    else src
+    else
+      src
   assignPackedInstr bld false ins insLen packNum oprSz dst result
   fillZeroFromVLToMaxVL bld dst oprSz 512
   bld --!> insLen
@@ -369,7 +375,8 @@ let vmovddup (ins: Instruction) insLen bld =
     bld <+ (dst2 := src1)
     bld <+ (dst3 := src3)
     bld <+ (dst4 := src3)
-  | _ -> raise InvalidOperandSizeException
+  | _ ->
+    raise InvalidOperandSizeException
   fillZeroFromVLToMaxVL bld dst oprSize 512
   bld --!> insLen
 
@@ -392,7 +399,8 @@ let vmovhpd (ins: Instruction) insLen bld =
   bld <!-- (ins.Address, insLen)
   match ins.Operands with
   | TwoOperands(dst, src) ->
-    if haveEVEXPrx ins.VEXInfo then ()
+    if haveEVEXPrx ins.VEXInfo then
+      ()
     else
       let dst = transOprToExpr64 bld false ins insLen dst
       let struct (src2, _src1) = transOprToExpr128 bld false ins insLen src
@@ -404,7 +412,8 @@ let vmovhpd (ins: Instruction) insLen bld =
     bld <+ (dstA := src1A)
     bld <+ (dstB := src2)
     fillZeroFromVLToMaxVL bld dst (getOperationSize ins) 512
-  | _ -> raise InvalidOperandException
+  | _ ->
+    raise InvalidOperandException
   bld --!> insLen
 
 let vmovlhps (ins: Instruction) insLen bld =
@@ -432,14 +441,16 @@ let vmovlpd (ins: Instruction) insLen bld =
     bld <+ (dstA := src2)
     bld <+ (dstB := src1B)
     fillZeroFromVLToMaxVL bld dst (getOperationSize ins) 512
-  | _ -> raise InvalidOperandException
+  | _ ->
+    raise InvalidOperandException
   bld --!> insLen
 
 let vmovmskpd ins insLen bld =
   let struct (dst, src) = getTwoOprs ins
   let mskpd r =
     match RegisterHelper.getKind r with
-    | RegisterHelper.Kind.XMM -> movmskpd ins insLen bld
+    | RegisterHelper.Kind.XMM ->
+      movmskpd ins insLen bld
     | RegisterHelper.Kind.YMM ->
       bld <!-- (ins.Address, insLen)
       let dst = transOprToExpr bld false ins insLen dst
@@ -452,7 +463,8 @@ let vmovmskpd ins insLen bld =
       let src255 = (AST.sext dstSz (AST.xthi 1<rt> src4)) << numI32 3 dstSz
       bld <+ (dst := src63 .| src127 .| src191 .| src255)
       bld --!> insLen
-    | _ -> raise InvalidOperandException
+    | _ ->
+      raise InvalidOperandException
   match src with
   | OprReg r -> mskpd r
   | _ -> raise InvalidOperandSizeException
@@ -461,7 +473,8 @@ let vmovmskps ins insLen bld =
   let struct (dst, src) = getTwoOprs ins
   let mskpd r =
     match RegisterHelper.getKind r with
-    | RegisterHelper.Kind.XMM -> movmskps ins insLen bld
+    | RegisterHelper.Kind.XMM ->
+      movmskps ins insLen bld
     | RegisterHelper.Kind.YMM ->
       bld <!-- (ins.Address, insLen)
       let oprSz = getOperationSize ins
@@ -479,7 +492,8 @@ let vmovmskps ins insLen bld =
       bld
       <+ (dstAssign oprSz dst (b7 .| b6 .| b5 .| b4 .| b3 .| b2 .| b1 .| b0))
       bld --!> insLen
-    | _ -> raise InvalidOperandException
+    | _ ->
+      raise InvalidOperandException
   match src with
   | OprReg r -> mskpd r
   | _ -> raise InvalidOperandSizeException
@@ -487,7 +501,8 @@ let vmovmskps ins insLen bld =
 let vmovsd (ins: Instruction) insLen bld =
   bld <!-- (ins.Address, insLen)
   match ins.Operands with
-  | TwoOperands(OprMem _, _) -> movsd ins insLen bld
+  | TwoOperands(OprMem _, _) ->
+    movsd ins insLen bld
   | TwoOperands(OprReg _ as dst, src) ->
     let struct (dst2, dst1) = transOprToExpr128 bld false ins insLen dst
     let src = transOprToExpr64 bld false ins insLen src
@@ -503,7 +518,8 @@ let vmovsd (ins: Instruction) insLen bld =
     bld <+ (dstB := src1B)
     fillZeroFromVLToMaxVL bld dst (getOperationSize ins) 512
     bld --!> insLen
-  | _ -> raise InvalidOperandException
+  | _ ->
+    raise InvalidOperandException
 
 let vmovshdup ins insLen bld =
   let struct (dst, src) = getTwoOprs ins
@@ -530,7 +546,8 @@ let vmovshdup ins insLen bld =
     bld <+ (AST.xthi 32<rt> dst3 := AST.xthi 32<rt> src3)
     bld <+ (AST.xtlo 32<rt> dst4 := AST.xthi 32<rt> src4)
     bld <+ (AST.xthi 32<rt> dst4 := AST.xthi 32<rt> src4)
-  | _ -> raise InvalidOperandSizeException
+  | _ ->
+    raise InvalidOperandSizeException
   fillZeroFromVLToMaxVL bld dst oprSize 512
   bld --!> insLen
 
@@ -559,14 +576,16 @@ let vmovsldup ins insLen bld =
     bld <+ (AST.xthi 32<rt> dst3 := AST.xtlo 32<rt> src3)
     bld <+ (AST.xtlo 32<rt> dst4 := AST.xtlo 32<rt> src4)
     bld <+ (AST.xthi 32<rt> dst4 := AST.xtlo 32<rt> src4)
-  | _ -> raise InvalidOperandSizeException
+  | _ ->
+    raise InvalidOperandSizeException
   fillZeroFromVLToMaxVL bld dst oprSize 512
   bld --!> insLen
 
 let vmovss (ins: Instruction) insLen bld =
   bld <!-- (ins.Address, insLen)
   match ins.Operands with
-  | TwoOperands(OprMem _, _) -> movss ins insLen bld
+  | TwoOperands(OprMem _, _) ->
+    movss ins insLen bld
   | TwoOperands(OprReg _ as dst, src) ->
     let struct (dst2, dst1) = transOprToExpr128 bld false ins insLen dst
     let src = transOprToExpr32 bld false ins insLen src
@@ -584,7 +603,8 @@ let vmovss (ins: Instruction) insLen bld =
     bld <+ (dstB := src1B)
     fillZeroFromVLToMaxVL bld dst (getOperationSize ins) 512
     bld --!> insLen
-  | _ -> raise InvalidOperandException
+  | _ ->
+    raise InvalidOperandException
 
 let vandps ins insLen bld = buildPackedFPInstr ins insLen bld 32<rt> (.&)
 
@@ -620,7 +640,8 @@ let vshufi32x4 (ins: Instruction) insLen bld =
     let tSrc2 = tmpVar bld 32<rt>
     bld <+ (tSrc2 := Array.head src2)
     Array.iter (fun e -> bld <+ (e := tSrc2)) tmpSrc2
-  else Array.iter2 (fun e1 e2 -> bld <+ (e1 := e2)) tmpSrc2 src2
+  else
+    Array.iter2 (fun e1 e2 -> bld <+ (e1 := e2)) tmpSrc2 src2
   match oprSize with
   | 256<rt> ->
     let halfPNum = oprSize / packSz / 2
@@ -656,7 +677,8 @@ let vshufi32x4 (ins: Instruction) insLen bld =
     let tDst = Array.concat [| tDstA; tDstB; tDstC; tDstD |]
     let result = makeAssignWithMask bld ePrx k oprSize packSz orgDst tDst false
     assignPackedInstr bld false ins insLen packNum oprSize dst result
-  | _ -> raise InvalidOperandException
+  | _ ->
+    raise InvalidOperandException
   fillZeroFromVLToMaxVL bld dst oprSize 512
   bld --!> insLen
 
@@ -699,7 +721,8 @@ let vshufps (ins: Instruction) insLen bld =
     doShuf bld (makeShufCond imm 2) (AST.xthi 32<rt> dstC) sr1C sr1D
     doShuf bld (makeShufCond imm 4) (AST.xtlo 32<rt> dstD) sr2C sr2D
     doShuf bld (makeShufCond imm 6) (AST.xthi 32<rt> dstD) sr2C sr2D
-  | _ -> raise InvalidOperandSizeException
+  | _ ->
+    raise InvalidOperandSizeException
   fillZeroFromVLToMaxVL bld dst oprSize 512
   bld --!> insLen
 
@@ -730,7 +753,8 @@ let vshufpd (ins: Instruction) insLen bld =
     bld <+ (dstB := AST.ite cond2 sr2B sr2A)
     bld <+ (dstC := AST.ite cond3 sr1D sr1C)
     bld <+ (dstD := AST.ite cond4 sr2D sr2C)
-  | _ -> raise InvalidOperandSizeException
+  | _ ->
+    raise InvalidOperandSizeException
   fillZeroFromVLToMaxVL bld dst oprSize 512
   bld --!> insLen
 
@@ -761,7 +785,8 @@ let vunpckhps (ins: Instruction) insLen bld =
     bld <+ (AST.xthi 32<rt> dstC := AST.xtlo 32<rt> sr2D)
     bld <+ (AST.xtlo 32<rt> dstD := AST.xthi 32<rt> sr1D)
     bld <+ (AST.xthi 32<rt> dstD := AST.xthi 32<rt> sr2D)
-  | _ -> raise InvalidOperandSizeException
+  | _ ->
+    raise InvalidOperandSizeException
   fillZeroFromVLToMaxVL bld dst oprSize 512
   bld --!> insLen
 
@@ -786,7 +811,8 @@ let vunpckhpd (ins: Instruction) insLen bld =
     bld <+ (dstB := sr2B)
     bld <+ (dstC := sr1D)
     bld <+ (dstD := sr2D)
-  | _ -> raise InvalidOperandSizeException
+  | _ ->
+    raise InvalidOperandSizeException
   fillZeroFromVLToMaxVL bld dst oprSize 512
   bld --!> insLen
 
@@ -817,7 +843,8 @@ let vunpcklps (ins: Instruction) insLen bld =
     bld <+ (AST.xthi 32<rt> dstC := AST.xtlo 32<rt> src2C)
     bld <+ (AST.xtlo 32<rt> dstD := AST.xthi 32<rt> src1C)
     bld <+ (AST.xthi 32<rt> dstD := AST.xthi 32<rt> src2C)
-  | _ -> raise InvalidOperandSizeException
+  | _ ->
+    raise InvalidOperandSizeException
   fillZeroFromVLToMaxVL bld dst oprSize 512
   bld --!> insLen
 
@@ -841,7 +868,8 @@ let vunpcklpd (ins: Instruction) insLen bld =
     bld <+ (dstB := src2A)
     bld <+ (dstC := src1C)
     bld <+ (dstD := src2C)
-  | _ -> raise InvalidOperandSizeException
+  | _ ->
+    raise InvalidOperandSizeException
   fillZeroFromVLToMaxVL bld dst oprSize 512
   bld --!> insLen
 
@@ -860,7 +888,8 @@ let vxorps (ins: Instruction) insLen bld =
       let ePrx = getEVEXPrx ins.VEXInfo
       let k = regVar bld (ePrx.AAA |> int |> RegisterHelper.opmask)
       makeAssignEVEX bld ePrx k oprSz packSz eDst tSrc1 tSrc2 (<+>) isSrc2Mem
-    else Array.map2 (<+>) tSrc1 tSrc2
+    else
+      Array.map2 (<+>) tSrc1 tSrc2
   assignPackedInstr bld false ins insLen packNum oprSz dst result
   fillZeroFromVLToMaxVL bld dst oprSz 512
   bld --!> insLen
@@ -907,8 +936,10 @@ let vbroadcastss (ins: Instruction) insLen bld =
     bld <+ (AST.xthi 32<rt> dst3 := tmp)
     bld <+ (AST.xtlo 32<rt> dst4 := tmp)
     bld <+ (AST.xthi 32<rt> dst4 := tmp)
-  | 512<rt> -> ()
-  | _ -> raise InvalidOperandException
+  | 512<rt> ->
+    ()
+  | _ ->
+    raise InvalidOperandException
   fillZeroFromVLToMaxVL bld dst oprSize 512
   bld --!> insLen
 
@@ -969,19 +1000,24 @@ let vextracti64x4 (ins: Instruction) insLen bld =
   match dst with
   | OprReg _ ->
     bld <+ (dstA := AST.ite (getVectorMoveCond ePrx k 0)
-                          tDstA (maskWithEPrx ePrx dstA 64<rt>))
+                            tDstA
+                            (maskWithEPrx ePrx dstA 64<rt>))
     bld <+ (dstB := AST.ite (getVectorMoveCond ePrx k 1)
-                          tDstB (maskWithEPrx ePrx dstB 64<rt>))
+                            tDstB
+                            (maskWithEPrx ePrx dstB 64<rt>))
     bld <+ (dstC := AST.ite (getVectorMoveCond ePrx k 2)
-                          tDstC (maskWithEPrx ePrx dstC 64<rt>))
+                            tDstC
+                            (maskWithEPrx ePrx dstC 64<rt>))
     bld <+ (dstD := AST.ite (getVectorMoveCond ePrx k 3)
-                          tDstD (maskWithEPrx ePrx dstD 64<rt>))
+                            tDstD
+                            (maskWithEPrx ePrx dstD 64<rt>))
   | OprMem _ ->
     bld <+ (dstA := AST.ite (getVectorMoveCond ePrx k 0) tDstA dstA)
     bld <+ (dstB := AST.ite (getVectorMoveCond ePrx k 1) tDstB dstB)
     bld <+ (dstC := AST.ite (getVectorMoveCond ePrx k 2) tDstC dstC)
     bld <+ (dstD := AST.ite (getVectorMoveCond ePrx k 3) tDstD dstD)
-  | _ -> raise InvalidOperandException
+  | _ ->
+    raise InvalidOperandException
   bld --!> insLen
 
 let vinserti128 (ins: Instruction) insLen bld =
@@ -1022,7 +1058,8 @@ let vpaddd (ins: Instruction) insLen bld =
       let ePrx = getEVEXPrx ins.VEXInfo
       let k = regVar bld (ePrx.AAA |> int |> RegisterHelper.opmask)
       makeAssignEVEX bld ePrx k oprSz packSz eDst tSrc1 tSrc2 (.+) isSrc2Mem
-    else Array.map2 (.+) tSrc1 tSrc2
+    else
+      Array.map2 (.+) tSrc1 tSrc2
   assignPackedInstr bld false ins insLen packNum oprSz dst result
   fillZeroFromVLToMaxVL bld dst oprSz 512
   bld --!> insLen
@@ -1059,7 +1096,8 @@ let vpalignr (ins: Instruction) insLen bld =
         let srcL = Array.sub (Array.append src2L src1L) imm cnt
         let srcH = Array.sub (Array.append src2H src1H) imm cnt
         Array.concat [| srcL; zeroPad; srcH; zeroPad |]
-      | _ -> raise InvalidOperandSizeException
+      | _ ->
+        raise InvalidOperandSizeException
   assignPackedInstr bld false ins insLen packNum oprSz dst result
   fillZeroFromVLToMaxVL bld dst oprSz 512
   bld --!> insLen
@@ -1143,12 +1181,14 @@ let vpackusdw (ins: Instruction) insLen bld =
   let src2 = transOprToArr bld false ins insLen 32<rt> packNum oprSize src2
   let src =
     match oprSize with
-    | 128<rt> -> Array.append src1 src2
+    | 128<rt> ->
+      Array.append src1 src2
     | 256<rt> ->
       let loSrc1, hiSrc1 = Array.splitAt (allPackNum / 2) src1
       let loSrc2, hiSrc2 = Array.splitAt (allPackNum / 2) src2
       Array.concat [| loSrc1; loSrc2; hiSrc1; hiSrc2 |]
-    | _ -> raise InvalidOperandSizeException
+    | _ ->
+      raise InvalidOperandSizeException
   let result = Array.map (packWithSaturation bld 32<rt>) src
   assignPackedInstr bld false ins insLen (packNum * 2) oprSize dst result
   fillZeroFromVLToMaxVL bld dst oprSize 512
@@ -1173,12 +1213,14 @@ let vpackuswb (ins: Instruction) insLen bld =
   let src2 = transOprToArr bld false ins insLen 16<rt> packNum oprSize src2
   let src =
     match oprSize with
-    | 128<rt> -> Array.append src1 src2
+    | 128<rt> ->
+      Array.append src1 src2
     | 256<rt> ->
       let loSrc1, hiSrc1 = Array.splitAt (allPackNum / 2) src1
       let loSrc2, hiSrc2 = Array.splitAt (allPackNum / 2) src2
       Array.concat [| loSrc1; loSrc2; hiSrc1; hiSrc2 |]
-    | _ -> raise InvalidOperandSizeException
+    | _ ->
+      raise InvalidOperandSizeException
   let result = Array.map (saturateSignedWordToUnsignedByte bld) src
   assignPackedInstr bld false ins insLen (packNum * 2) oprSize dst result
   fillZeroFromVLToMaxVL bld dst oprSize 512
@@ -1198,17 +1240,22 @@ let vpbroadcast (ins: Instruction) insLen bld packSz =
   let struct (dst, src) = getTwoOprs ins
   let eDst = transOprToArr bld false ins insLen packSz packNum oprSize dst
   let src =
-    match src with
-    | OprReg r ->
-      match RegisterHelper.getKind r with
-      | RegisterHelper.Kind.XMM ->
-        let struct (_, r) = transOprToExpr128 bld false ins insLen src
-        r
-      | RegisterHelper.Kind.GP -> transOprToExpr bld false ins insLen src
-      | _ -> raise InvalidOperandException
-    | OprMem _ -> transOprToExpr bld false ins insLen src
-    | _ -> raise InvalidOperandException
-    |> AST.xtlo packSz
+    let opr =
+      match src with
+      | OprReg r ->
+        match RegisterHelper.getKind r with
+        | RegisterHelper.Kind.XMM ->
+          let struct (_, r) = transOprToExpr128 bld false ins insLen src
+          r
+        | RegisterHelper.Kind.GP ->
+          transOprToExpr bld false ins insLen src
+        | _ ->
+          raise InvalidOperandException
+      | OprMem _ ->
+        transOprToExpr bld false ins insLen src
+      | _ ->
+        raise InvalidOperandException
+    opr |> AST.xtlo packSz
   let temp = tmpVar bld packSz
   bld <+ (temp := src)
   let src = Array.init allPackNum (fun _ -> temp)
@@ -1217,7 +1264,8 @@ let vpbroadcast (ins: Instruction) insLen bld packSz =
       let ePrx = getEVEXPrx ins.VEXInfo
       let k = regVar bld (ePrx.AAA |> int |> RegisterHelper.opmask)
       makeAssignWithMask bld ePrx k oprSize packSz eDst src (isMemOpr dst)
-    else src
+    else
+      src
   assignPackedInstr bld false ins insLen packNum oprSize dst result
   fillZeroFromVLToMaxVL bld dst oprSize 512
   bld --!> insLen
@@ -1296,13 +1344,19 @@ let vperm2i128 ins insLen bld =
   bld --!> insLen
 
 let private getSrc cond dst e0 e1 e2 e3 e4 e5 e6 e7 bld =
-  bld <+ (dst := AST.ite (cond == AST.num0 8<rt>) e0
-              (AST.ite (cond == AST.num1 8<rt>) e1
-              (AST.ite (cond == numI32 2 8<rt>) e2
-              (AST.ite (cond == numI32 3 8<rt>) e3
-              (AST.ite (cond == numI32 4 8<rt>) e4
-              (AST.ite (cond == numI32 5 8<rt>) e5
-              (AST.ite (cond == numI32 6 8<rt>) e6 e7)))))))
+  bld <+ (dst := AST.ite (cond == AST.num0 8<rt>)
+                   e0
+                   (AST.ite (cond == AST.num1 8<rt>)
+                     e1
+                     (AST.ite (cond == numI32 2 8<rt>)
+                       e2
+                       (AST.ite (cond == numI32 3 8<rt>)
+                         e3
+                         (AST.ite (cond == numI32 4 8<rt>)
+                           e4
+                           (AST.ite (cond == numI32 5 8<rt>)
+                             e5
+                             (AST.ite (cond == numI32 6 8<rt>) e6 e7)))))))
 
 let vpermd ins insLen bld =
   let struct (dst, src1, src2) = getThreeOprs ins
@@ -1442,7 +1496,8 @@ let vpmovx (ins: Instruction) insLen bld srcSz dstSz isSignExt =
       let struct (srcB, srcA) = transOprToExpr128 bld false ins insLen src
       if (dstSz / srcSz) = 2 then
         Array.append (extSrc sNum srcA) (extSrc sNum srcB)
-      else extSrc (sNum * 2) srcA
+      else
+        extSrc (sNum * 2) srcA
     let result = Array.map ext src
     assignPackedInstr bld false ins insLen packNum oprSize dst result
     fillZeroFromVLToMaxVL bld dst oprSize 512
@@ -1457,7 +1512,8 @@ let vpmovx (ins: Instruction) insLen bld srcSz dstSz isSignExt =
              (extSrc sNum srcB)
              (extSrc sNum srcC)
              (extSrc sNum srcD) |]
-      else extSrc (sNum * 2) srcA
+      else
+        extSrc (sNum * 2) srcA
     let result = Array.map ext src
     assignPackedInstr bld false ins insLen packNum oprSize dst result
   | OprMem(_, _, _, memSz), _ ->
@@ -1466,7 +1522,8 @@ let vpmovx (ins: Instruction) insLen bld srcSz dstSz isSignExt =
     let result = Array.map ext (extSrc sNum src)
     assignPackedInstr bld false ins insLen packNum oprSize dst result
     fillZeroFromVLToMaxVL bld dst oprSize 512
-  | _ -> raise InvalidOperandSizeException
+  | _ ->
+    raise InvalidOperandSizeException
   bld --!> insLen
 
 let vpmovd2m (ins: Instruction) insLen bld =
@@ -1539,7 +1596,8 @@ let vpshufb (ins: Instruction) insLen bld =
       let ePrx = getEVEXPrx ins.VEXInfo
       let k = regVar bld (ePrx.AAA |> int |> RegisterHelper.opmask)
       Array.mapi2 (shuffleOfEVEX ePrx k) eDst src2
-    else Array.mapi shuffle src2
+    else
+      Array.mapi shuffle src2
   assignPackedInstr bld false ins insLen packNum oprSz dst result
   fillZeroFromVLToMaxVL bld dst oprSz 512
   bld --!> insLen
@@ -1562,7 +1620,8 @@ let vpshufd (ins: Instruction) insLen bld =
       let src =
         if (isMemOpr src1) && ePrx.B = 1uy (* B *) then
           Array.init allPackNum (fun _ -> Array.head src)
-        else src
+        else
+          src
       let src = Array.init allPackNum (fun i -> src[getIdx i])
       makeAssignWithMask bld ePrx k oprSize packSize eDst src false
     else
@@ -1653,7 +1712,8 @@ let vpslldq (ins: Instruction) insLen bld =
       bld <+ (dstB := AST.num0 64<rt>)
       bld <+ (dstC := AST.num0 64<rt>)
       bld <+ (dstD := AST.num0 64<rt>)
-  | _ -> raise InvalidOperandSizeException
+  | _ ->
+    raise InvalidOperandSizeException
   fillZeroFromVLToMaxVL bld dst oprSize 512
   bld --!> insLen
 
@@ -1710,8 +1770,7 @@ let vpsrlq (ins: Instruction) insLen bld =
   let src1 = transOprToArr bld true ins insLen packSz packNum oprSize src1
   let src2 =
     match src2 with
-    | OprImm _ ->
-      transOprToExpr bld false ins insLen src2 |> AST.xtlo packSz
+    | OprImm _ -> transOprToExpr bld false ins insLen src2 |> AST.xtlo packSz
     | _ -> let struct (_, e) = transOprToExpr128 bld false ins insLen src2 in e
   let result = opShiftVpackedDataLogical packSz (>>) src1 src2
   assignPackedInstr bld false ins insLen packNum oprSize dst result
@@ -1763,7 +1822,8 @@ let vpsrldq (ins: Instruction) insLen bld =
       bld <+ (dstB := AST.num0 64<rt>)
       bld <+ (dstC := AST.num0 64<rt>)
       bld <+ (dstD := AST.num0 64<rt>)
-  | _ -> raise InvalidOperandSizeException
+  | _ ->
+    raise InvalidOperandSizeException
   fillZeroFromVLToMaxVL bld dst oprSize 512
   bld --!> insLen
 
@@ -1778,7 +1838,8 @@ let vpsubd ins insLen bld =
   buildPackedInstr ins insLen bld true 32<rt> (opP (.-))
 
 let vptest ins insLen bld =
-  if getOperationSize ins = 128<rt> then SSELifter.ptest ins insLen bld
+  if getOperationSize ins = 128<rt> then
+    SSELifter.ptest ins insLen bld
   else
     bld <!-- (ins.Address, insLen)
     let struct (src1, src2) = getTwoOprs ins
@@ -1845,7 +1906,8 @@ let vpxor (ins: Instruction) insLen bld =
     bld <+ (dstC := src1C <+> src2C)
     bld <+ (dstB := src1B <+> src2B)
     bld <+ (dstA := src1A <+> src2A)
-  | _ -> raise InvalidOperandSizeException
+  | _ ->
+    raise InvalidOperandSizeException
   fillZeroFromVLToMaxVL bld dst oprSize 512
   bld --!> insLen
 
@@ -1864,7 +1926,8 @@ let vpxord (ins: Instruction) insLen bld =
       let ePrx = getEVEXPrx ins.VEXInfo
       let k = regVar bld (ePrx.AAA |> int |> RegisterHelper.opmask)
       makeAssignEVEX bld ePrx k oprSz packSz tDst tSrc1 tSrc2 (<+>) isSrc2Mem
-    else Array.map2 (<+>) tSrc1 tSrc2
+    else
+      Array.map2 (<+>) tSrc1 tSrc2
   assignPackedInstr bld false ins insLen packNum oprSz dst result
   fillZeroFromVLToMaxVL bld dst oprSz 512
   bld --!> insLen

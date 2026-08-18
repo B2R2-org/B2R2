@@ -62,14 +62,14 @@ module private Parser =
   /// length. Inverse of unpackITState; [] packs to 0 (not in an IT block).
   let packITState (conds: byte list) =
     match conds with
-    | [] -> 0uy
+    | [] ->
+      0uy
     | c0 :: _ ->
       let k = List.length conds
       let hi = (c0 &&& 0b1110uy) <<< 4
       let mutable m = 0uy
       conds |> List.iteri (fun i c ->
-        if c &&& 1uy = 1uy then m <- m ||| (1uy <<< (4 - i))
-        else ()
+        if c &&& 1uy = 1uy then m <- m ||| (1uy <<< (4 - i)) else ()
       )
       hi ||| (m &&& 0b11111uy) ||| (1uy <<< (4 - k))
 
@@ -418,7 +418,8 @@ type ARM32Parser(isa: ISA, isThumb, reader) =
         phlp.InsAddr <- addr
         if isThumb then Parser.parseThumb span phlp &itstate :> IInstruction
         else Parser.parseARM span phlp :> IInstruction
-      with e when not (Terminator.isCritical e) -> raise ParsingFailureException
+      with e when not (Terminator.isCritical e) ->
+        raise ParsingFailureException
 
     member this.Parse(bs: byte[], addr) =
       (this :> IInstructionParsable).Parse(ReadOnlySpan bs, addr)

@@ -48,8 +48,7 @@ module internal LSDATable =
       |> List.min
 
   let rec readUntilNull (span: ByteSpan) offset =
-    if span[offset] = 0uy then (offset + 1)
-    else readUntilNull span (offset + 1)
+    if span[offset] = 0uy then (offset + 1) else readUntilNull span (offset + 1)
 
   /// We currently just skip the type table by picking up the minimum filter
   /// value as we don't use the type table.
@@ -58,7 +57,8 @@ module internal LSDATable =
     if minFilter < 0L then
       let offset = ttbase - int minFilter - 1
       readUntilNull span offset (* Consume exception spec table. *)
-    else ttbase
+    else
+      ttbase
 
   /// Sometimes, we observe dummy zero bytes inserted by the compiler (icc);
   /// this is nothing to do with the alignment. This is likely to be the
@@ -68,8 +68,7 @@ module internal LSDATable =
       offset
     else
       let b = span[offset]
-      if b = 0uy then skipDummyAlign span (offset + 1)
-      else offset
+      if b = 0uy then skipDummyAlign span (offset + 1) else offset
 
   /// Parses LSDA records from the `.gcc_except_table` section.
   let rec parseFromSection cls (span: ByteSpan) reader sAddr offset lsdas =

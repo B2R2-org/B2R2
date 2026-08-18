@@ -692,7 +692,8 @@ let changeToAliasOfAddSubImm bin instr =
   let isImm12Zero = valImm12 bin = 0b000000000000u
   match instr with
   | Op.ADD, FourOperands(rd, rn, _, _), oprSize
-    when (valShift bin = 0b00u) && isImm12Zero
+    when (valShift bin = 0b00u)
+         && isImm12Zero
          && (valD bin = 0b11111u || valN bin = 0b11111u) ->
     Op.MOV, TwoOperands(rd, rn), oprSize
   | Op.ADDS, FourOperands(_, rn, imm, shf), oprSize when valD bin = 0b11111u ->
@@ -700,89 +701,97 @@ let changeToAliasOfAddSubImm bin instr =
   | Op.SUBS, FourOperands(_, rn, imm, shf), oprSize
     when valD bin = 0b11111u ->
     Op.CMP, ThreeOperands(rn, imm, shf), oprSize
-  | _ -> instr
+  | _ ->
+    instr
 
 let parseAddSubImm bin =
-  let cond = extract bin 31u 29u (* sf:op:S *)
-  match cond with
-  | c when c &&& 0b000u = 0b000u && (extract bin 23u 22u >>> 1) = 0b1u ->
-    unallocated ()
-  | 0b000u -> Op.ADD, getWSdWSnImmShf bin, 32<rt>
-  | 0b001u -> Op.ADDS, getWdWSnImmShf bin, 32<rt>
-  | 0b010u -> Op.SUB, getWSdWSnImmShf bin, 32<rt>
-  | 0b011u -> Op.SUBS, getWdWSnImmShf bin, 32<rt>
-  | 0b100u -> Op.ADD, getXSdXSnImmShf bin, 64<rt>
-  | 0b101u -> Op.ADDS, getXdXSnImmShf bin, 64<rt>
-  | 0b110u -> Op.SUB, getXSdXSnImmShf bin, 64<rt>
-  | 0b111u -> Op.SUBS, getXdXSnImmShf bin, 64<rt>
-  | _ -> raise ParsingFailureException
-  |> changeToAliasOfAddSubImm bin
+  let ins =
+    match extract bin 31u 29u (* sf:op:S *) with
+    | c when c &&& 0b000u = 0b000u && (extract bin 23u 22u >>> 1) = 0b1u ->
+      unallocated ()
+    | 0b000u ->
+      Op.ADD, getWSdWSnImmShf bin, 32<rt>
+    | 0b001u ->
+      Op.ADDS, getWdWSnImmShf bin, 32<rt>
+    | 0b010u ->
+      Op.SUB, getWSdWSnImmShf bin, 32<rt>
+    | 0b011u ->
+      Op.SUBS, getWdWSnImmShf bin, 32<rt>
+    | 0b100u ->
+      Op.ADD, getXSdXSnImmShf bin, 64<rt>
+    | 0b101u ->
+      Op.ADDS, getXdXSnImmShf bin, 64<rt>
+    | 0b110u ->
+      Op.SUB, getXSdXSnImmShf bin, 64<rt>
+    | 0b111u ->
+      Op.SUBS, getXdXSnImmShf bin, 64<rt>
+    | _ ->
+      raise ParsingFailureException
+  ins |> changeToAliasOfAddSubImm bin
 
 let changeToAliasOfBitfield bin instr =
   let sf = valMSB bin
   match instr with
   | Op.SBFM, FourOperands(rd, rn, immr, OprImm imms), oprSize
-      when (sf = 0u && imms = 0b011111L) || (sf = 1u && imms = 0b111111L) ->
+    when (sf = 0u && imms = 0b011111L) || (sf = 1u && imms = 0b111111L) ->
     Op.ASR, ThreeOperands(rd, rn, immr), oprSize
   | Op.SBFM, FourOperands(rd, rn, OprImm immr, OprImm imms), oSz
-      when imms < immr ->
+    when imms < immr ->
     let lsb = (RegType.toBitWidth oSz |> int64) - immr
     Op.SBFIZ, FourOperands(rd, rn, OprImm lsb, OprImm(imms + 1L)), oSz
   | Op.SBFM, FourOperands(rd, rn, OprImm r, OprImm s), oSz
-      when bfxPreferred sf 0u (uint32 s) (uint32 r) ->
+    when bfxPreferred sf 0u (uint32 s) (uint32 r) ->
     Op.SBFX, FourOperands(rd, rn, OprImm r, OprImm(s - r + 1L)), oSz
   | Op.SBFM, FourOperands(rd, _, OprImm immr, OprImm imms), oprSz
-      when (immr = 0b000000L) && (imms = 0b000111L) ->
-    Op.SXTB,
-    TwoOperands(rd, getRegister64 32<rt> (valN bin |> byte) |> OprRegister),
-    oprSz
+    when (immr = 0b000000L) && (imms = 0b000111L) ->
+    let oprs =
+      TwoOperands(rd, getRegister64 32<rt> (valN bin |> byte) |> OprRegister)
+    Op.SXTB, oprs, oprSz
   | Op.SBFM, FourOperands(rd, _, OprImm immr, OprImm imms), oprSz
-      when (immr = 0b000000L) && (imms = 0b001111L) ->
-    Op.SXTH,
-    TwoOperands(rd, getRegister64 32<rt> (valN bin |> byte) |> OprRegister),
-    oprSz
+    when (immr = 0b000000L) && (imms = 0b001111L) ->
+    let oprs =
+      TwoOperands(rd, getRegister64 32<rt> (valN bin |> byte) |> OprRegister)
+    Op.SXTH, oprs, oprSz
   | Op.SBFM, FourOperands(rd, _, OprImm immr, OprImm imms), oprSz
-      when (immr = 0b000000L) && (imms = 0b011111L) ->
-    Op.SXTW,
-    TwoOperands(rd, getRegister64 32<rt> (valN bin |> byte) |> OprRegister),
-    oprSz
+    when (immr = 0b000000L) && (imms = 0b011111L) ->
+    let oprs =
+      TwoOperands(rd, getRegister64 32<rt> (valN bin |> byte) |> OprRegister)
+    Op.SXTW, oprs, oprSz
   | Op.BFM, FourOperands(rd, rn, OprImm immr, OprImm imms), oprSize
-      when (valN bin <> 0b11111u) && (imms < immr) ->
+    when (valN bin <> 0b11111u) && (imms < immr) ->
     let lsb = (RegType.toBitWidth oprSize |> int64) - immr
-    Op.BFI,
-    FourOperands(rd, rn, OprImm lsb, OprImm(imms + 1L)), oprSize
+    Op.BFI, FourOperands(rd, rn, OprImm lsb, OprImm(imms + 1L)), oprSize
   | Op.BFM, FourOperands(d, n, OprImm immr, OprImm imms), oprSize
-      when imms >= immr ->
-    Op.BFXIL,
-    FourOperands(d, n, OprImm immr, OprImm(imms - immr + 1L)), oprSize
+    when imms >= immr ->
+    Op.BFXIL, FourOperands(d, n, OprImm immr, OprImm(imms - immr + 1L)), oprSize
   | Op.UBFM, FourOperands(rd, rn, OprImm immr, OprImm imms), oprSize
-      when (oprSize = 32<rt>) && (imms <> 0b011111L) && (imms + 1L = immr) ->
+    when (oprSize = 32<rt>) && (imms <> 0b011111L) && (imms + 1L = immr) ->
     Op.LSL, ThreeOperands(rd, rn, OprImm(31L - imms)), oprSize
   | Op.UBFM, FourOperands(rd, rn, OprImm immr, OprImm imms), oprSize
-      when (oprSize = 64<rt>) && (imms <> 0b111111L) && (imms + 1L = immr) ->
+    when (oprSize = 64<rt>) && (imms <> 0b111111L) && (imms + 1L = immr) ->
     Op.LSL, ThreeOperands(rd, rn, OprImm(63L - imms)), oprSize
   | Op.UBFM, FourOperands(rd, rn, immr, OprImm imms), oprSize
-      when (oprSize = 32<rt>) && (imms = 0b011111L) ->
+    when (oprSize = 32<rt>) && (imms = 0b011111L) ->
     Op.LSR, ThreeOperands(rd, rn, immr), oprSize
   | Op.UBFM, FourOperands(rd, rn, immr, OprImm imms), oprSize
-      when (oprSize = 64<rt>) && (imms = 0b111111L) ->
+    when (oprSize = 64<rt>) && (imms = 0b111111L) ->
     Op.LSR, ThreeOperands(rd, rn, immr), oprSize
   | Op.UBFM, FourOperands(rd, rn, OprImm immr, OprImm imms), oprSize
-      when imms < immr ->
+    when imms < immr ->
     let lsb = (RegType.toBitWidth oprSize |> int64) - immr
-    Op.UBFIZ, FourOperands(rd, rn, OprImm lsb, OprImm(imms + 1L)),
-    oprSize
+    Op.UBFIZ, FourOperands(rd, rn, OprImm lsb, OprImm(imms + 1L)), oprSize
   | Op.UBFM, FourOperands(rd, rn, OprImm immr, OprImm imms), oprSize
-      when bfxPreferred sf 1u (uint32 imms) (uint32 immr) ->
-    Op.UBFX,
-    FourOperands(rd, rn, OprImm immr, OprImm(imms - immr + 1L)), oprSize
+    when bfxPreferred sf 1u (uint32 imms) (uint32 immr) ->
+    let oprs = FourOperands(rd, rn, OprImm immr, OprImm(imms - immr + 1L))
+    Op.UBFX, oprs, oprSize
   | Op.UBFM, FourOperands(rd, rn, OprImm immr, OprImm imms), oprSize
-      when immr = 0b000000L && imms = 0b000111L ->
+    when immr = 0b000000L && imms = 0b000111L ->
     Op.UXTB, TwoOperands(rd, rn), oprSize
   | Op.UBFM, FourOperands(rd, rn, OprImm immr, OprImm imms), oprSize
-      when immr = 0b000000L && imms = 0b001111L ->
+    when immr = 0b000000L && imms = 0b001111L ->
     Op.UXTH, TwoOperands(rd, rn), oprSize
-  | _ -> instr
+  | _ ->
+    instr
 
 let parseBitfield bin =
   let cond = concat (extract bin 31u 29u) (pickBit bin 22u) 1 (* sf:opc:N *)
@@ -803,24 +812,34 @@ let changeToAliasOfExtract instr =
   match instr with
   | Op.EXTR, FourOperands(rd, rn, rm, lsb), oprSize when rn = rm ->
     Op.ROR, ThreeOperands(rd, rn, lsb), oprSize
-  | _ -> instr
+  | _ ->
+    instr
 
 let parseExtract bin =
   let cond = concat (concat (extract bin 31u 29u) (extract bin 22u 21u) 2)
-                    (extract bin 15u 10u) 6 (* sf:op21:N:o0:imms *)
-  match cond with
-  | c when c &&& 0b00100000000u = 0b00100000000u -> unallocated ()
-  | c when c &&& 0b01101000000u = 0b00001000000u -> unallocated ()
-  | c when c &&& 0b01000000000u = 0b01000000000u -> unallocated ()
-  | c when c &&& 0b10000100000u = 0b00000100000u -> unallocated ()
-  | c when c &&& 0b10010000000u = 0b00010000000u -> unallocated ()
-  | c when c &&& 0b11111100000u = 0b00000000000u ->
-    Op.EXTR, getWdWnWmLsb bin, 32<rt>
-  | c when c &&& 0b11111000000u = 0b10010000000u ->
-    Op.EXTR, getXdXnXmLsb bin, 64<rt>
-  | c when c &&& 0b10010000000u = 0b10000000000u -> unallocated ()
-  | _ -> raise ParsingFailureException
-  |> changeToAliasOfExtract
+                    (extract bin 15u 10u)
+                    6 (* sf:op21:N:o0:imms *)
+  let ins =
+    match cond with
+    | c when c &&& 0b00100000000u = 0b00100000000u ->
+      unallocated ()
+    | c when c &&& 0b01101000000u = 0b00001000000u ->
+      unallocated ()
+    | c when c &&& 0b01000000000u = 0b01000000000u ->
+      unallocated ()
+    | c when c &&& 0b10000100000u = 0b00000100000u ->
+      unallocated ()
+    | c when c &&& 0b10010000000u = 0b00010000000u ->
+      unallocated ()
+    | c when c &&& 0b11111100000u = 0b00000000000u ->
+      Op.EXTR, getWdWnWmLsb bin, 32<rt>
+    | c when c &&& 0b11111000000u = 0b10010000000u ->
+      Op.EXTR, getXdXnXmLsb bin, 64<rt>
+    | c when c &&& 0b10010000000u = 0b10000000000u ->
+      unallocated ()
+    | _ ->
+      raise ParsingFailureException
+  ins |> changeToAliasOfExtract
 
 let changeToAliasOfLogical bin instr =
   match instr with
@@ -829,7 +848,8 @@ let changeToAliasOfLogical bin instr =
     Op.MOV, TwoOperands(rd, imm), oprSize
   | Op.ANDS, ThreeOperands(_, rn, imm), oprSize when valD bin = 0b11111u ->
     Op.TST, TwoOperands(rn, imm), oprSize
-  | _ -> instr
+  | _ ->
+    instr
 
 let parseLogical bin =
   let cond = concat (extract bin 31u 29u) (pickBit bin 22u) 1 (* sf:opc:N *)
@@ -856,15 +876,17 @@ let changeToAliasOfMoveWide bin instr =
     let imm = ~~~(imm16 <<< int32 amt)
     Op.MOV, TwoOperands(xd, OprImm imm), oprSz
   | Op.MOVN, ThreeOperands(wd, OprImm imm16, OprShift(_, Imm amt)), oprSz
-      when not is64Bit && not (0b0L = imm16 && hw <> 0b00u)
-           && (0b1111111111111111L <> imm16) ->
+    when not is64Bit
+         && not (0b0L = imm16 && hw <> 0b00u)
+         && (0b1111111111111111L <> imm16) ->
     let imm = ~~~(uint32 (imm16 <<< int32 amt)) |> int64
     Op.MOV, TwoOperands(wd, OprImm imm), oprSz
   (* C6.2.123 MOV (wide immediate) *)
   | Op.MOVZ, ThreeOperands(rd, OprImm imm16, OprShift(_, Imm amt)), oprSz
     when not (imm16 = 0b0L && hw <> 0b00u) ->
     Op.MOV, TwoOperands(rd, OprImm(imm16 <<< (int32 amt))), oprSz
-  | _ -> instr
+  | _ ->
+    instr
 
 let parseMoveWide bin =
   let cond = concat (extract bin 31u 29u) (extract bin 22u 21u) 2
@@ -966,7 +988,8 @@ let changeToAliasOfSystem bin instr =
   | Op.SYS, FiveOperands(_, OprRegister cn, _, _, xt), oSz
       when cn = R.C7 && sysOp bin = SysDC ->
     getDCInstruction bin, OneOperand xt, oSz
-  | _ -> instr
+  | _ ->
+    instr
 
 let parseSystem bin =
   let cond = concat (extract bin 21u 12u) (extract bin 7u 5u) 3
@@ -974,52 +997,75 @@ let parseSystem bin =
   let isRt1F = rt = 0b11111u
   let crm = extract bin 11u 8u |> int64
   let isCRmZero = crm = 0b00000L
-  match cond with (* L:op0:op1:CRn:CRm:op2 *)
-  | c when c &&& 0b1110001110000u = 0b0000000000000u -> unallocated ()
-  | c when c &&& 0b1110001111000u = 0b0000000100000u && not isRt1F ->
-    unallocated ()
-  | c when c &&& 0b1110001111000u = 0b0000000100000u && isRt1F ->
-    Op.MSR, getPstatefieldImm bin, 0<rt>
-  | c when c &&& 0b1110001111000u = 0b0000000101000u -> unallocated ()
-  | c when c &&& 0b1110001110000u = 0b0000000110000u -> unallocated ()
-  | c when c &&& 0b1110001000000u = 0b0000001000000u -> unallocated ()
-  | c when c &&& 0b1110011110000u = 0b0000000010000u -> unallocated ()
-  | c when c &&& 0b1110101110000u = 0b0000000010000u -> unallocated ()
-  | c when c &&& 0b1111111110000u = 0b0000110010000u && not isRt1F ->
-    unallocated ()
-  | c when c &&& 0b1111111111000u = 0b0000110010000u &&
-           not isCRmZero && isRt1F ->
-    let imm = concat (uint32 crm) (extract bin 7u 5u) 3 |> int64
-    Op.HINT, OneOperand(OprImm imm), 0<rt> (* Hints 8 to 127 variant *)
-  | 0b0000110010000u when isCRmZero && isRt1F -> Op.NOP, NoOperand, 0<rt>
-  | 0b0000110010001u when isCRmZero && isRt1F -> Op.YIELD, NoOperand, 0<rt>
-  | 0b0000110010010u when isCRmZero && isRt1F -> Op.WFE, NoOperand, 0<rt>
-  | 0b0000110010011u when isCRmZero && isRt1F -> Op.WFI, NoOperand, 0<rt>
-  | 0b0000110010100u when isCRmZero && isRt1F -> Op.SEV, NoOperand, 0<rt>
-  | 0b0000110010101u when isCRmZero && isRt1F -> Op.SEVL, NoOperand, 0<rt>
-  | c when c &&& 0b1111111111110u = 0b0000110010110u && isCRmZero && isRt1F ->
-    let imm = concat (uint32 crm) (extract bin 7u 5u) 3 |> int64
-    Op.HINT, OneOperand(OprImm imm), 0<rt> (* Hints 6 and 7 variant *)
-  | 0b0000110011000u -> unallocated ()
-  | 0b0000110011001u -> unallocated ()
-  | 0b0000110011010u when isRt1F ->
-    Op.CLREX, OneOperand(OprImm crm), 0<rt>
-  | 0b0000110011011u -> unallocated ()
-  | 0b0000110011100u when isRt1F -> Op.DSB, getOptionOrimm bin, 0<rt>
-  | 0b0000110011101u when isRt1F -> Op.DMB, getOptionOrimm bin, 0<rt>
-  | 0b0000110011110u when isRt1F -> Op.ISB, getISBOprs crm, 0<rt>
-  | 0b0000110011111u -> unallocated ()
-  | c when c &&& 0b1111001110000u = 0b0001000010000u -> unallocated ()
-  | c when c &&& 0b1110000000000u = 0b0010000000000u ->
-    Op.SYS, getOp1cncmop2Xt bin, 0<rt>
-  | c when c &&& 0b1100000000000u = 0b0100000000000u ->
-    Op.MSR, getSysregOrctrlXt bin, 0<rt>
-  | c when c &&& 0b1110000000000u = 0b1010000000000u ->
-    Op.SYSL, getXtOp1cncmop2 bin, 0<rt>
-  | c when c &&& 0b1000000000000u = 0b1000000000000u ->
-    Op.MRS, getXtSysregOrctrl bin, 0<rt>
-  | _ -> raise ParsingFailureException
-  |> changeToAliasOfSystem bin
+  let ins =
+    match cond with (* L:op0:op1:CRn:CRm:op2 *)
+    | c when c &&& 0b1110001110000u = 0b0000000000000u ->
+      unallocated ()
+    | c when c &&& 0b1110001111000u = 0b0000000100000u && not isRt1F ->
+      unallocated ()
+    | c when c &&& 0b1110001111000u = 0b0000000100000u && isRt1F ->
+      Op.MSR, getPstatefieldImm bin, 0<rt>
+    | c when c &&& 0b1110001111000u = 0b0000000101000u ->
+      unallocated ()
+    | c when c &&& 0b1110001110000u = 0b0000000110000u ->
+      unallocated ()
+    | c when c &&& 0b1110001000000u = 0b0000001000000u ->
+      unallocated ()
+    | c when c &&& 0b1110011110000u = 0b0000000010000u ->
+      unallocated ()
+    | c when c &&& 0b1110101110000u = 0b0000000010000u ->
+      unallocated ()
+    | c when c &&& 0b1111111110000u = 0b0000110010000u && not isRt1F ->
+      unallocated ()
+    | c when c &&& 0b1111111111000u = 0b0000110010000u &&
+             not isCRmZero &&
+             isRt1F ->
+      let imm = concat (uint32 crm) (extract bin 7u 5u) 3 |> int64
+      Op.HINT, OneOperand(OprImm imm), 0<rt> (* Hints 8 to 127 variant *)
+    | 0b0000110010000u when isCRmZero && isRt1F ->
+      Op.NOP, NoOperand, 0<rt>
+    | 0b0000110010001u when isCRmZero && isRt1F ->
+      Op.YIELD, NoOperand, 0<rt>
+    | 0b0000110010010u when isCRmZero && isRt1F ->
+      Op.WFE, NoOperand, 0<rt>
+    | 0b0000110010011u when isCRmZero && isRt1F ->
+      Op.WFI, NoOperand, 0<rt>
+    | 0b0000110010100u when isCRmZero && isRt1F ->
+      Op.SEV, NoOperand, 0<rt>
+    | 0b0000110010101u when isCRmZero && isRt1F ->
+      Op.SEVL, NoOperand, 0<rt>
+    | c when c &&& 0b1111111111110u = 0b0000110010110u && isCRmZero && isRt1F ->
+      let imm = concat (uint32 crm) (extract bin 7u 5u) 3 |> int64
+      Op.HINT, OneOperand(OprImm imm), 0<rt> (* Hints 6 and 7 variant *)
+    | 0b0000110011000u ->
+      unallocated ()
+    | 0b0000110011001u ->
+      unallocated ()
+    | 0b0000110011010u when isRt1F ->
+      Op.CLREX, OneOperand(OprImm crm), 0<rt>
+    | 0b0000110011011u ->
+      unallocated ()
+    | 0b0000110011100u when isRt1F ->
+      Op.DSB, getOptionOrimm bin, 0<rt>
+    | 0b0000110011101u when isRt1F ->
+      Op.DMB, getOptionOrimm bin, 0<rt>
+    | 0b0000110011110u when isRt1F ->
+      Op.ISB, getISBOprs crm, 0<rt>
+    | 0b0000110011111u ->
+      unallocated ()
+    | c when c &&& 0b1111001110000u = 0b0001000010000u ->
+      unallocated ()
+    | c when c &&& 0b1110000000000u = 0b0010000000000u ->
+      Op.SYS, getOp1cncmop2Xt bin, 0<rt>
+    | c when c &&& 0b1100000000000u = 0b0100000000000u ->
+      Op.MSR, getSysregOrctrlXt bin, 0<rt>
+    | c when c &&& 0b1110000000000u = 0b1010000000000u ->
+      Op.SYSL, getXtOp1cncmop2 bin, 0<rt>
+    | c when c &&& 0b1000000000000u = 0b1000000000000u ->
+      Op.MRS, getXtSysregOrctrl bin, 0<rt>
+    | _ ->
+      raise ParsingFailureException
+  ins |> changeToAliasOfSystem bin
 
 let parseTestBranchImm bin =
   let opCode = if (pickBit bin 24u) = 0u then Op.TBZ else Op.TBNZ
@@ -1046,25 +1092,25 @@ let parseUncondBranchReg bin =
   if not isOp4Zero || not isOp3Zero || not isOp21F then unallocated () else ()
   match opc with
   | 0b0000u when isOp21F && isOp3Zero && isOp4Zero ->
-    Op.BR,
-    OneOperand(OprRegister <| getRegister64 64<rt> (byte rn)), 64<rt>
+    Op.BR, OneOperand(OprRegister <| getRegister64 64<rt> (byte rn)), 64<rt>
   | 0b0001u when isOp21F && isOp3Zero && isOp4Zero ->
-    Op.BLR,
-    OneOperand(OprRegister <| getRegister64 64<rt> (byte rn)),
-    64<rt>
+    Op.BLR, OneOperand(OprRegister <| getRegister64 64<rt> (byte rn)), 64<rt>
   | 0b0010u when isOp21F && isOp3Zero && isOp4Zero ->
-    Op.RET,
-    OneOperand(OprRegister <| getRegister64 64<rt> (byte rn)),
-    64<rt>
-  | 0b0011u -> unallocated ()
-  | o when o &&& 1110u = 0100u && not isRn1F -> unallocated ()
+    Op.RET, OneOperand(OprRegister <| getRegister64 64<rt> (byte rn)), 64<rt>
+  | 0b0011u ->
+    unallocated ()
+  | o when o &&& 1110u = 0100u && not isRn1F ->
+    unallocated ()
   | 0b0100u when isOp21F && isOp3Zero && isRn1F && isOp4Zero ->
     Op.ERET, NoOperand, 0<rt>
   | 0b0101u when isOp21F && isOp3Zero && isRn1F && isOp4Zero ->
     Op.DRPS, NoOperand, 0<rt>
-  | o when o &&& 1110u = 0110u -> unallocated ()
-  | o when o &&& 1000u = 1000u -> unallocated ()
-  | _ -> raise ParsingFailureException
+  | o when o &&& 1110u = 0110u ->
+    unallocated ()
+  | o when o &&& 1000u = 1000u ->
+    unallocated ()
+  | _ ->
+    raise ParsingFailureException
 
 /// Branches, exception generating and system instructions
 let parse64Group2 bin =
@@ -1130,8 +1176,7 @@ let parseAdvSIMDMulPostIndexed bin =
   | 0b01001u -> unallocated ()
   | 0b01011u -> unallocated ()
   | c when c &&& 0b11100u = 0b01100u -> unallocated ()
-  | 0b00000u when not isRm11111 ->
-    Op.ST4, getVt4tPoXSnXm bin sizeQ110b, oSz
+  | 0b00000u when not isRm11111 -> Op.ST4, getVt4tPoXSnXm bin sizeQ110b, oSz
   | 0b00010u when not isRm11111 -> Op.ST1, getVt4tPoXSnXm bin resNone, oSz
   | 0b00100u when not isRm11111 -> Op.ST3, getVt3tPoXSnXm bin sizeQ110b, oSz
   | 0b00110u when not isRm11111 -> Op.ST1, getVt3tPoXSnXm bin resNone, oSz
@@ -1172,106 +1217,150 @@ let parseAdvSIMDSingle bin =
   let cond = concat (extract bin 22u 21u) (extract bin 15u 10u) 6
   let oprSize = getOprSizeByQ bin
   match cond with (* L:R:opcode:S:size *)
-  | c when c &&& 0b10110000u = 0b00110000u -> unallocated ()
+  | c when c &&& 0b10110000u = 0b00110000u ->
+    unallocated ()
   | c when c &&& 0b11111000u = 0b00000000u ->
     Op.ST1, getVt1BidxMXSn bin, oprSize
   | c when c &&& 0b11111000u = 0b00001000u ->
     Op.ST3, getVt3BidxMXSn bin, oprSize
   | c when c &&& 0b11111001u = 0b00010000u ->
     Op.ST1, getVt1HidxMXSn bin, oprSize
-  | c when c &&& 0b11111001u = 0b00010001u -> unallocated ()
+  | c when c &&& 0b11111001u = 0b00010001u ->
+    unallocated ()
   | c when c &&& 0b11111001u = 0b00011000u ->
     Op.ST3, getVt3HidxMXSn bin, oprSize
-  | c when c &&& 0b11111001u = 0b00011001u -> unallocated ()
+  | c when c &&& 0b11111001u = 0b00011001u ->
+    unallocated ()
   | c when c &&& 0b11111011u = 0b00100000u ->
     Op.ST1, getVt1SidxMXSn bin, oprSize
-  | c when c &&& 0b11111010u = 0b00100010u -> unallocated ()
-  | 0b00100001u -> Op.ST1, getVt1DidxMXSn bin, oprSize
-  | 0b00100101u -> unallocated ()
+  | c when c &&& 0b11111010u = 0b00100010u ->
+    unallocated ()
+  | 0b00100001u ->
+    Op.ST1, getVt1DidxMXSn bin, oprSize
+  | 0b00100101u ->
+    unallocated ()
   | c when c &&& 0b11111011u = 0b00101000u ->
     Op.ST3, getVt3SidxMXSn bin, oprSize
-  | c when c &&& 0b11111011u = 0b00101010u -> unallocated ()
-  | 0b00101001u -> Op.ST3, getVt3DidxMXSn bin, oprSize
-  | 0b00101011u -> unallocated ()
-  | c when c &&& 0b11111101u = 0b00101101u -> unallocated ()
+  | c when c &&& 0b11111011u = 0b00101010u ->
+    unallocated ()
+  | 0b00101001u ->
+    Op.ST3, getVt3DidxMXSn bin, oprSize
+  | 0b00101011u ->
+    unallocated ()
+  | c when c &&& 0b11111101u = 0b00101101u ->
+    unallocated ()
   | c when c &&& 0b11111000u = 0b01000000u ->
     Op.ST2, getVt2BidxMXSn bin, oprSize
   | c when c &&& 0b11111000u = 0b01001000u ->
     Op.ST4, getVt4BidxMXSn bin, oprSize
   | c when c &&& 0b11111001u = 0b01010000u ->
     Op.ST2, getVt2HidxMXSn bin, oprSize
-  | c when c &&& 0b11111001u = 0b01010001u -> unallocated ()
+  | c when c &&& 0b11111001u = 0b01010001u ->
+    unallocated ()
   | c when c &&& 0b11111001u = 0b01011000u ->
     Op.ST4, getVt4HidxMXSn bin, oprSize
-  | c when c &&& 0b11111001u = 0b01011001u -> unallocated ()
+  | c when c &&& 0b11111001u = 0b01011001u ->
+    unallocated ()
   | c when c &&& 0b11111011u = 0b01100000u ->
     Op.ST2, getVt2SidxMXSn bin, oprSize
-  | c when c &&& 0b11111011u = 0b01100010u -> unallocated ()
-  | 0b01100001u -> Op.ST2, getVt2DidxMXSn bin, oprSize
-  | 0b01100011u -> unallocated ()
-  | c when c &&& 0b11111101u = 0b01100101u -> unallocated ()
+  | c when c &&& 0b11111011u = 0b01100010u ->
+    unallocated ()
+  | 0b01100001u ->
+    Op.ST2, getVt2DidxMXSn bin, oprSize
+  | 0b01100011u ->
+    unallocated ()
+  | c when c &&& 0b11111101u = 0b01100101u ->
+    unallocated ()
   | c when c &&& 0b11111011u = 0b01101000u ->
     Op.ST4, getVt4SidxMXSn bin, oprSize
-  | c when c &&& 0b11111011u = 0b01101010u -> unallocated ()
-  | 0b01101001u -> Op.ST4, getVt4DidxMXSn bin, oprSize
-  | 0b01101011u -> unallocated ()
-  | c when c &&& 0b11111101u = 0b01101101u -> unallocated ()
+  | c when c &&& 0b11111011u = 0b01101010u ->
+    unallocated ()
+  | 0b01101001u ->
+    Op.ST4, getVt4DidxMXSn bin, oprSize
+  | 0b01101011u ->
+    unallocated ()
+  | c when c &&& 0b11111101u = 0b01101101u ->
+    unallocated ()
   | c when c &&& 0b11111000u = 0b10000000u ->
     Op.LD1, getVt1BidxMXSn bin, oprSize
   | c when c &&& 0b11111000u = 0b10001000u ->
     Op.LD3, getVt3BidxMXSn bin, oprSize
   | c when c &&& 0b11111001u = 0b10010000u ->
     Op.LD1, getVt1HidxMXSn bin, oprSize
-  | c when c &&& 0b11111001u = 0b10010001u -> unallocated ()
+  | c when c &&& 0b11111001u = 0b10010001u ->
+    unallocated ()
   | c when c &&& 0b11111001u = 0b10011000u ->
     Op.LD3, getVt3HidxMXSn bin, oprSize
-  | c when c &&& 0b11111001u = 0b10011001u -> unallocated ()
+  | c when c &&& 0b11111001u = 0b10011001u ->
+    unallocated ()
   | c when c &&& 0b11111011u = 0b10100000u ->
     Op.LD1, getVt1SidxMXSn bin, oprSize
-  | c when c &&& 0b11111010u = 0b10100010u -> unallocated ()
-  | 0b10100001u -> Op.LD1, getVt1DidxMXSn bin, oprSize
-  | 0b10100101u -> unallocated ()
+  | c when c &&& 0b11111010u = 0b10100010u ->
+    unallocated ()
+  | 0b10100001u ->
+    Op.LD1, getVt1DidxMXSn bin, oprSize
+  | 0b10100101u ->
+    unallocated ()
   | c when c &&& 0b11111011u = 0b10101000u ->
     Op.LD3, getVt3SidxMXSn bin, oprSize
-  | c when c &&& 0b11111011u = 0b10101010u -> unallocated ()
-  | 0b10101001u -> Op.LD3, getVt3DidxMXSn bin, oprSize
-  | 0b10101011u -> unallocated ()
-  | c when c &&& 0b11111101u = 0b10101101u -> unallocated ()
+  | c when c &&& 0b11111011u = 0b10101010u ->
+    unallocated ()
+  | 0b10101001u ->
+    Op.LD3, getVt3DidxMXSn bin, oprSize
+  | 0b10101011u ->
+    unallocated ()
+  | c when c &&& 0b11111101u = 0b10101101u ->
+    unallocated ()
   | c when c &&& 0b11111100u = 0b10110000u ->
     Op.LD1R, getVt1tMXSn bin resNone, oprSize
-  | c when c &&& 0b11111100u = 0b10110100u -> unallocated ()
+  | c when c &&& 0b11111100u = 0b10110100u ->
+    unallocated ()
   | c when c &&& 0b11111100u = 0b10111000u ->
     Op.LD3R, getVt3tMXSn bin resNone, oprSize
-  | c when c &&& 0b11111100u = 0b10111100u -> unallocated ()
+  | c when c &&& 0b11111100u = 0b10111100u ->
+    unallocated ()
   | c when c &&& 0b11111000u = 0b11000000u ->
     Op.LD2, getVt2BidxMXSn bin, oprSize
   | c when c &&& 0b11111000u = 0b11001000u ->
     Op.LD4, getVt4BidxMXSn bin, oprSize
   | c when c &&& 0b11111001u = 0b11010000u ->
     Op.LD2, getVt2HidxMXSn bin, oprSize
-  | c when c &&& 0b11111001u = 0b11010001u -> unallocated ()
+  | c when c &&& 0b11111001u = 0b11010001u ->
+    unallocated ()
   | c when c &&& 0b11111001u = 0b11011000u ->
     Op.LD4, getVt4HidxMXSn bin, oprSize
-  | c when c &&& 0b11111001u = 0b11011001u -> unallocated ()
+  | c when c &&& 0b11111001u = 0b11011001u ->
+    unallocated ()
   | c when c &&& 0b11111011u = 0b11100000u ->
     Op.LD2, getVt2SidxMXSn bin, oprSize
-  | c when c &&& 0b11111011u = 0b11100010u -> unallocated ()
-  | 0b11100001u -> Op.LD2, getVt2DidxMXSn bin, oprSize
-  | 0b11100011u -> unallocated ()
-  | c when c &&& 0b11111101u = 0b11100101u -> unallocated ()
+  | c when c &&& 0b11111011u = 0b11100010u ->
+    unallocated ()
+  | 0b11100001u ->
+    Op.LD2, getVt2DidxMXSn bin, oprSize
+  | 0b11100011u ->
+    unallocated ()
+  | c when c &&& 0b11111101u = 0b11100101u ->
+    unallocated ()
   | c when c &&& 0b11111011u = 0b11101000u ->
     Op.LD4, getVt4SidxMXSn bin, oprSize
-  | c when c &&& 0b11111011u = 0b11101010u -> unallocated ()
-  | 0b11101001u -> Op.LD4, getVt4DidxMXSn bin, oprSize
-  | 0b11101011u -> unallocated ()
-  | c when c &&& 0b11111101u = 0b11101101u -> unallocated ()
+  | c when c &&& 0b11111011u = 0b11101010u ->
+    unallocated ()
+  | 0b11101001u ->
+    Op.LD4, getVt4DidxMXSn bin, oprSize
+  | 0b11101011u ->
+    unallocated ()
+  | c when c &&& 0b11111101u = 0b11101101u ->
+    unallocated ()
   | c when c &&& 0b11111100u = 0b11110000u ->
     Op.LD2R, getVt2tMXSn bin resNone, oprSize
-  | c when c &&& 0b11111100u = 0b11110100u -> unallocated ()
+  | c when c &&& 0b11111100u = 0b11110100u ->
+    unallocated ()
   | c when c &&& 0b11111100u = 0b11111000u ->
     Op.LD4R, getVt4tMXSn bin resNone, oprSize
-  | c when c &&& 0b11111100u = 0b11111100u -> unallocated ()
-  | _ -> raise ParsingFailureException
+  | c when c &&& 0b11111100u = 0b11111100u ->
+    unallocated ()
+  | _ ->
+    raise ParsingFailureException
 
 /// Advanced SIMD load/store single structure (post-indexed) on page C4-286.
 let parseAdvSIMDSinglePostIndexed bin =
@@ -1279,14 +1368,22 @@ let parseAdvSIMDSinglePostIndexed bin =
   let isRm11111 = (extract bin 20u 16u) = 0b11111u
   let oprSize = getOprSizeByQ bin
   match cond with (* L:R:opcode:S:size *)
-  | c when c &&& 0b10110000u = 0b00110000u -> unallocated ()
-  | c when c &&& 0b11111001u = 0b00010001u -> unallocated ()
-  | c when c &&& 0b11111001u = 0b00011001u -> unallocated ()
-  | c when c &&& 0b11111010u = 0b00100010u -> unallocated ()
-  | c when c &&& 0b11111111u = 0b00100101u -> unallocated ()
-  | c when c &&& 0b11111011u = 0b00101010u -> unallocated ()
-  | c when c &&& 0b11111111u = 0b00101011u -> unallocated ()
-  | c when c &&& 0b11111101u = 0b00101101u -> unallocated ()
+  | c when c &&& 0b10110000u = 0b00110000u ->
+    unallocated ()
+  | c when c &&& 0b11111001u = 0b00010001u ->
+    unallocated ()
+  | c when c &&& 0b11111001u = 0b00011001u ->
+    unallocated ()
+  | c when c &&& 0b11111010u = 0b00100010u ->
+    unallocated ()
+  | c when c &&& 0b11111111u = 0b00100101u ->
+    unallocated ()
+  | c when c &&& 0b11111011u = 0b00101010u ->
+    unallocated ()
+  | c when c &&& 0b11111111u = 0b00101011u ->
+    unallocated ()
+  | c when c &&& 0b11111101u = 0b00101101u ->
+    unallocated ()
   | c when c &&& 0b11111000u = 0b00000000u && not isRm11111 ->
     Op.ST1, getVt1BidxPoXSnXm bin, oprSize
   | c when c &&& 0b11111000u = 0b00001000u && not isRm11111 ->
@@ -1319,14 +1416,22 @@ let parseAdvSIMDSinglePostIndexed bin =
     Op.ST3, getVt3SidxPoXSnI12 bin, oprSize
   | c when c &&& 0b11111111u = 0b00101001u && isRm11111 ->
     Op.ST3, getVt3DidxPoXSnI24 bin, oprSize
-  | c when c &&& 0b11111001u = 0b01010001u -> unallocated ()
-  | c when c &&& 0b11111001u = 0b01011001u -> unallocated ()
-  | c when c &&& 0b11111011u = 0b01100010u -> unallocated ()
-  | c when c &&& 0b11111111u = 0b01100011u -> unallocated ()
-  | c when c &&& 0b11111101u = 0b01100101u -> unallocated ()
-  | c when c &&& 0b11111011u = 0b01101010u -> unallocated ()
-  | c when c &&& 0b11111111u = 0b01101011u -> unallocated ()
-  | c when c &&& 0b11111101u = 0b01101101u -> unallocated ()
+  | c when c &&& 0b11111001u = 0b01010001u ->
+    unallocated ()
+  | c when c &&& 0b11111001u = 0b01011001u ->
+    unallocated ()
+  | c when c &&& 0b11111011u = 0b01100010u ->
+    unallocated ()
+  | c when c &&& 0b11111111u = 0b01100011u ->
+    unallocated ()
+  | c when c &&& 0b11111101u = 0b01100101u ->
+    unallocated ()
+  | c when c &&& 0b11111011u = 0b01101010u ->
+    unallocated ()
+  | c when c &&& 0b11111111u = 0b01101011u ->
+    unallocated ()
+  | c when c &&& 0b11111101u = 0b01101101u ->
+    unallocated ()
   | c when c &&& 0b11111000u = 0b01000000u && not isRm11111 ->
     Op.ST2, getVt2BidxPoXSnXm bin, oprSize
   | c when c &&& 0b11111000u = 0b01001000u && not isRm11111 ->
@@ -1359,15 +1464,24 @@ let parseAdvSIMDSinglePostIndexed bin =
     Op.ST4, getVt4SidxPoXSnI16 bin, oprSize
   | c when c &&& 0b11111111u = 0b01101001u && isRm11111 ->
     Op.ST4, getVt4DidxPoXSnI32 bin, oprSize
-  | c when c &&& 0b11111001u = 0b10010001u -> unallocated ()
-  | c when c &&& 0b11111001u = 0b10011001u -> unallocated ()
-  | c when c &&& 0b11111010u = 0b10100010u -> unallocated ()
-  | c when c &&& 0b11111111u = 0b10100101u -> unallocated ()
-  | c when c &&& 0b11111011u = 0b10101010u -> unallocated ()
-  | c when c &&& 0b11111111u = 0b10101011u -> unallocated ()
-  | c when c &&& 0b11111101u = 0b10101101u -> unallocated ()
-  | c when c &&& 0b11111100u = 0b10110100u -> unallocated ()
-  | c when c &&& 0b11111100u = 0b10111100u -> unallocated ()
+  | c when c &&& 0b11111001u = 0b10010001u ->
+    unallocated ()
+  | c when c &&& 0b11111001u = 0b10011001u ->
+    unallocated ()
+  | c when c &&& 0b11111010u = 0b10100010u ->
+    unallocated ()
+  | c when c &&& 0b11111111u = 0b10100101u ->
+    unallocated ()
+  | c when c &&& 0b11111011u = 0b10101010u ->
+    unallocated ()
+  | c when c &&& 0b11111111u = 0b10101011u ->
+    unallocated ()
+  | c when c &&& 0b11111101u = 0b10101101u ->
+    unallocated ()
+  | c when c &&& 0b11111100u = 0b10110100u ->
+    unallocated ()
+  | c when c &&& 0b11111100u = 0b10111100u ->
+    unallocated ()
   | c when c &&& 0b11111000u = 0b10000000u && not isRm11111 ->
     Op.LD1, getVt1BidxPoXSnXm bin, oprSize
   | c when c &&& 0b11111000u = 0b10001000u && not isRm11111 ->
@@ -1408,16 +1522,26 @@ let parseAdvSIMDSinglePostIndexed bin =
     Op.LD1R, getVt1tPoXSnImm2 bin, oprSize
   | c when c &&& 0b11111100u = 0b10111000u && isRm11111 ->
     Op.LD3R, getVt3tPoXSnImm2 bin, oprSize
-  | c when c &&& 0b11111001u = 0b11010001u -> unallocated ()
-  | c when c &&& 0b11111001u = 0b11011001u -> unallocated ()
-  | c when c &&& 0b11111011u = 0b11100010u -> unallocated ()
-  | c when c &&& 0b11111111u = 0b11100011u -> unallocated ()
-  | c when c &&& 0b11111101u = 0b11100101u -> unallocated ()
-  | c when c &&& 0b11111011u = 0b11101010u -> unallocated ()
-  | c when c &&& 0b11111111u = 0b11101011u -> unallocated ()
-  | c when c &&& 0b11111101u = 0b11101101u -> unallocated ()
-  | c when c &&& 0b11111100u = 0b11110100u -> unallocated ()
-  | c when c &&& 0b11111100u = 0b11111100u -> unallocated ()
+  | c when c &&& 0b11111001u = 0b11010001u ->
+    unallocated ()
+  | c when c &&& 0b11111001u = 0b11011001u ->
+    unallocated ()
+  | c when c &&& 0b11111011u = 0b11100010u ->
+    unallocated ()
+  | c when c &&& 0b11111111u = 0b11100011u ->
+    unallocated ()
+  | c when c &&& 0b11111101u = 0b11100101u ->
+    unallocated ()
+  | c when c &&& 0b11111011u = 0b11101010u ->
+    unallocated ()
+  | c when c &&& 0b11111111u = 0b11101011u ->
+    unallocated ()
+  | c when c &&& 0b11111101u = 0b11101101u ->
+    unallocated ()
+  | c when c &&& 0b11111100u = 0b11110100u ->
+    unallocated ()
+  | c when c &&& 0b11111100u = 0b11111100u ->
+    unallocated ()
   | c when c &&& 0b11111000u = 0b11000000u && not isRm11111 ->
     Op.LD2, getVt2BidxPoXSnXm bin, oprSize
   | c when c &&& 0b11111000u = 0b11001000u && not isRm11111 ->
@@ -1458,7 +1582,8 @@ let parseAdvSIMDSinglePostIndexed bin =
     Op.LD2R, getVt2tPoXSnImm2 bin, oprSize
   | c when c &&& 0b11111100u = 0b11111000u && isRm11111 ->
     Op.LD4R, getVt4tPoXSnImm2 bin, oprSize
-  | _ -> raise ParsingFailureException
+  | _ ->
+    raise ParsingFailureException
 
 /// Load register (literal) on page C4-293.
 let parseLoadRegLiteral bin =
@@ -1476,7 +1601,8 @@ let parseLoadRegLiteral bin =
 
 let parseLoadStoreExclusive bin =
   let cond = concat (concat (extract bin 31u 30u) (extract bin 23u 21u) 3)
-                    (pickBit bin 15u) 1 (* size:o2:L:o1:o0 *)
+                    (pickBit bin 15u)
+                    1 (* size:o2:L:o1:o0 *)
   let rt2 = extract bin 14u 10u
   match cond with
   | c when c &&& 0b001011u = 0b001000u (* FEAT_LOR *) -> unallocated ()
@@ -1526,7 +1652,8 @@ let parseLoadStoreExclusive bin =
 
 let parseLoadStoreNoAllocatePairOffset bin =
   let cond = concat (concat (extract bin 31u 30u) (pickBit bin 26u) 1)
-                    (pickBit bin 22u) 1 (* opc:V:L *)
+                    (pickBit bin 22u)
+                    1 (* opc:V:L *)
   match cond with
   | 0b0000u -> Op.STNP, getWt1Wt2BIXSnimm bin 2, 32<rt>
   | 0b0001u -> Op.LDNP, getWt1Wt2BIXSnimm bin 2, 32<rt>
@@ -1544,7 +1671,8 @@ let parseLoadStoreNoAllocatePairOffset bin =
 
 let parseLoadStoreRegImmPostIndexed bin =
   let cond = concat (concat (extract bin 31u 30u) (pickBit bin 26u) 1)
-                    (extract bin 23u 22u) 2 (* size:V:opc *)
+                    (extract bin 23u 22u)
+                    2 (* size:V:opc *)
   match cond with
   | c when c &&& 0b01110u = 0b01110u -> unallocated ()
   | 0b00000u -> Op.STRB, getWtPoXSnsimm bin, 32<rt>
@@ -1577,7 +1705,8 @@ let parseLoadStoreRegImmPostIndexed bin =
 
 let parseLoadStoreRegImmPreIndexed bin =
   let cond = concat (concat (extract bin 31u 30u) (pickBit bin 26u) 1)
-                    (extract bin 23u 22u) 2 (* size:V:opc *)
+                    (extract bin 23u 22u)
+                    2 (* size:V:opc *)
   match cond with
   | c when c &&& 0b01110u = 0b01110u -> unallocated ()
   | 0b00000u -> Op.STRB, getWtPrXSnsimm bin, 32<rt>
@@ -1611,7 +1740,8 @@ let parseLoadStoreRegImmPreIndexed bin =
 /// Load/store register (register offset) on page C4-307.
 let parseLoadStoreRegOffset bin =
   let cond = concat (concat (extract bin 31u 30u) (pickBit bin 26u) 1)
-                    (extract bin 23u 22u) 2
+                    (extract bin 23u 22u)
+                    2
   let option = extract bin 15u 13u
   let isOption011 = option = 0b011u
   if option &&& 0b010u = 0b000u then unallocated () else ()
@@ -1621,11 +1751,9 @@ let parseLoadStoreRegOffset bin =
   | 0b00000u when isOption011 -> Op.STRB, getWtBRXSnxmamt bin, 32<rt>
   | 0b00001u when not isOption011 -> Op.LDRB, getWtBEXSnrmamt bin 0L, 32<rt>
   | 0b00001u when isOption011 -> Op.LDRB, getWtBRXSnxmamt bin, 32<rt>
-  | 0b00010u when not isOption011 ->
-    Op.LDRSB, getXtBEXSnrmamt bin 0L, 64<rt>
+  | 0b00010u when not isOption011 -> Op.LDRSB, getXtBEXSnrmamt bin 0L, 64<rt>
   | 0b00010u when isOption011 -> Op.LDRSB, getXtBRXSnxmamt bin, 64<rt>
-  | 0b00011u when not isOption011 ->
-    Op.LDRSB, getWtBEXSnrmamt bin 0L, 32<rt>
+  | 0b00011u when not isOption011 -> Op.LDRSB, getWtBEXSnrmamt bin 0L, 32<rt>
   | 0b00011u when isOption011 -> Op.LDRSB, getWtBRXSnxmamt bin, 32<rt>
   | 0b00100u when not isOption011 -> Op.STR, getBtBEXSnrmamt bin, 8<rt>
   | 0b00100u when isOption011 -> Op.STR, getBtBRXSnxmamt bin, 8<rt>
@@ -1655,7 +1783,8 @@ let parseLoadStoreRegOffset bin =
 
 let parseLoadStoreRegUnprivileged bin =
   let cond = concat (concat (extract bin 31u 30u) (pickBit bin 26u) 1)
-                    (extract bin 23u 22u) 2 (* size:V:opc *)
+                    (extract bin 23u 22u)
+                    2 (* size:V:opc *)
   match cond with
   | c when c &&& 0b00100u = 0b00100u -> unallocated ()
   | 0b00000u -> Op.STTRB, getWtBIXSnsimm bin, 32<rt>
@@ -1678,7 +1807,8 @@ let parseLoadStoreRegUnprivileged bin =
 /// Load/store register (unscaled immediate) on page C4-296.
 let parseLoadStoreRegUnscaledImm bin =
   let cond = concat (concat (extract bin 31u 30u) (pickBit bin 26u) 1)
-                    (extract bin 23u 22u) 2 (* size:V:opc *)
+                    (extract bin 23u 22u)
+                    2 (* size:V:opc *)
   match cond with
   | c when c &&& 0b01110u = 0b01110u -> unallocated ()
   | 0b00000u -> Op.STURB, getWtBIXSnsimm bin, 32<rt>
@@ -1711,7 +1841,8 @@ let parseLoadStoreRegUnscaledImm bin =
 
 let parseLoadStoreRegUnsignedImm bin =
   let cond = concat (concat (extract bin 31u 30u) (pickBit bin 26u) 1)
-                    (extract bin 23u 22u) 2 (* size:V:opc *)
+                    (extract bin 23u 22u)
+                    2 (* size:V:opc *)
   match cond with
   | c when c &&& 0b01110u = 0b01110u -> unallocated ()
   | 0b00000u -> Op.STRB, getWtBIXSnpimm bin 1u, 8<rt>
@@ -1744,7 +1875,8 @@ let parseLoadStoreRegUnsignedImm bin =
 
 let parseLoadStoreRegPairOffset bin =
   let cond = concat (concat (extract bin 31u 30u) (pickBit bin 26u) 1)
-                    (pickBit bin 22u) 1 (* opc:V:L *)
+                    (pickBit bin 22u)
+                    1 (* opc:V:L *)
   match cond with
   | 0b0000u -> Op.STP, getWt1Wt2BIXSnimm bin 2, 32<rt>
   | 0b0001u -> Op.LDP, getWt1Wt2BIXSnimm bin 2, 32<rt>
@@ -1763,7 +1895,8 @@ let parseLoadStoreRegPairOffset bin =
 
 let parseLoadStoreRegPairPostIndexed bin =
   let cond = concat (concat (extract bin 31u 30u) (pickBit bin 26u) 1)
-                    (pickBit bin 22u) 1 (* opc:V:L *)
+                    (pickBit bin 22u)
+                    1 (* opc:V:L *)
   match cond with
   | 0b0000u -> Op.STP, getWt1Wt2PoXSnimm bin, 32<rt>
   | 0b0001u -> Op.LDP, getWt1Wt2PoXSnimm bin, 32<rt>
@@ -1782,7 +1915,8 @@ let parseLoadStoreRegPairPostIndexed bin =
 
 let parseLoadStoreRegPairPreIndexed bin =
   let cond = concat (concat (extract bin 31u 30u) (pickBit bin 26u) 1)
-                    (pickBit bin 22u) 1 (* opc:V:L *)
+                    (pickBit bin 22u)
+                    1 (* opc:V:L *)
   match cond with
   | 0b0000u -> Op.STP, getWt1Wt2PrXSnimm bin, 32<rt>
   | 0b0001u -> Op.LDP, getWt1Wt2PrXSnimm bin, 32<rt>
@@ -1810,26 +1944,36 @@ let parse64Group3 bin =
   let cond =
     concat (concat (concat (concat (concat op0 op1 2) op2 1) op3 2) op4 6) op5 2
   match cond with
-  | c when c &&& 0b11111111111100u = 0b00010000000000u -> parseAdvSIMDMul bin
+  | c when c &&& 0b11111111111100u = 0b00010000000000u ->
+    parseAdvSIMDMul bin
   | c when c &&& 0b11111110000000u = 0b00010100000000u ->
     parseAdvSIMDMulPostIndexed bin
-  | c when c &&& 0b11111010000000u = 0b00010010000000u -> unallocated ()
+  | c when c &&& 0b11111010000000u = 0b00010010000000u ->
+    unallocated ()
   | c when c &&& 0b11111101111100u = 0b00011000000000u ->
     parseAdvSIMDSingle bin
   | c when c &&& 0b11111100000000u = 0b00011100000000u ->
     parseAdvSIMDSinglePostIndexed bin
-  | c when c &&& 0b11110101000000u = 0b00010001000000u -> unallocated ()
-  | c when c &&& 0b11110100100000u = 0b00010000100000u -> unallocated ()
-  | c when c &&& 0b11110100010000u = 0b00010000010000u -> unallocated ()
-  | c when c &&& 0b11110100001000u = 0b00010000001000u -> unallocated ()
-  | c when c &&& 0b11110100000100u = 0b00010000000100u -> unallocated ()
-  | c when c &&& 0b11110000000000u = 0b10010000000000u -> unallocated ()
+  | c when c &&& 0b11110101000000u = 0b00010001000000u ->
+    unallocated ()
+  | c when c &&& 0b11110100100000u = 0b00010000100000u ->
+    unallocated ()
+  | c when c &&& 0b11110100010000u = 0b00010000010000u ->
+    unallocated ()
+  | c when c &&& 0b11110100001000u = 0b00010000001000u ->
+    unallocated ()
+  | c when c &&& 0b11110100000100u = 0b00010000000100u ->
+    unallocated ()
+  | c when c &&& 0b11110000000000u = 0b10010000000000u ->
+    unallocated ()
   | c when c &&& 0b01111000000000u = 0b00000000000000u ->
     parseLoadStoreExclusive bin
-  | c when c &&& 0b01111000000000u = 0b00001000000000u -> unallocated ()
+  | c when c &&& 0b01111000000000u = 0b00001000000000u ->
+    unallocated ()
   | c when c &&& 0b01101000000000u = 0b00100000000000u ->
     parseLoadRegLiteral bin
-  | c when c &&& 0b01101000000000u = 0b00101000000000u -> unallocated ()
+  | c when c &&& 0b01101000000000u = 0b00101000000000u ->
+    unallocated ()
   | c when c &&& 0b01101100000000u = 0b01000000000000u ->
     parseLoadStoreNoAllocatePairOffset bin
   | c when c &&& 0b01101100000000u = 0b01000100000000u ->
@@ -1846,14 +1990,18 @@ let parse64Group3 bin =
     parseLoadStoreRegUnprivileged bin
   | c when c &&& 0b01101010000011u = 0b01100000000011u ->
     parseLoadStoreRegImmPreIndexed bin
-  | c when c &&& 0b01101010000011u = 0b01100010000000u -> unallocated ()
-  | c when c &&& 0b01101010000011u = 0b01100010000001u -> unallocated ()
+  | c when c &&& 0b01101010000011u = 0b01100010000000u ->
+    unallocated ()
+  | c when c &&& 0b01101010000011u = 0b01100010000001u ->
+    unallocated ()
   | c when c &&& 0b01101010000011u = 0b01100010000010u ->
     parseLoadStoreRegOffset bin
-  | c when c &&& 0b01101010000011u = 0b01100010000011u -> unallocated ()
+  | c when c &&& 0b01101010000011u = 0b01100010000011u ->
+    unallocated ()
   | c when c &&& 0b01101000000000u = 0b01101000000000u ->
     parseLoadStoreRegUnsignedImm bin
-  | _ -> raise ParsingFailureException
+  | _ ->
+    raise ParsingFailureException
 
 /// The alias is always the preferred disassembly.
 let toAliasFromLSLV _ = Op.LSL
@@ -1864,7 +2012,8 @@ let toAliasFromASRV _ = Op.ASR
 
 let parseDataProcessing2Src bin =
   let cond = concat (concat (pickBit bin 31u) (pickBit bin 29u) 1)
-                    (extract bin 15u 10u) 6  (* sf:S:opcode *)
+                    (extract bin 15u 10u)
+                    6  (* sf:S:opcode *)
   match cond with
   | c when c &&& 0b00111110u = 0b00000000u -> unallocated ()
   | c when c &&& 0b00111000u = 0b00011000u -> unallocated ()
@@ -1901,7 +2050,8 @@ let parseDataProcessing2Src bin =
 /// Data-processing (1 source) on page 4554(ID121622).
 let parseDataProcessing1Src bin =
   let cond = concat (concat (pickBit bin 31u) (pickBit bin 29u) 1)
-                    (extract bin 20u 10u) 11 (* sf:S:opcode2:opcode *)
+                    (extract bin 20u 10u)
+                    11 (* sf:S:opcode2:opcode *)
   match cond with
   | c when c &&& 0b0000000001000u = 0b0000000001000u -> unallocated ()
   | c when c &&& 0b0000000010000u = 0b0000000010000u -> unallocated ()
@@ -1941,32 +2091,51 @@ let changeToAliasOfShiftReg bin instr =
     Op.MVN, ThreeOperands(rd, rm, s), oprSize
   | Op.ANDS, FourOperands(_, rn, rm, s), oprSz when valD bin = 0b11111u ->
     Op.TST, ThreeOperands(rn, rm, s), oprSz
-  | _ -> instr
+  | _ ->
+    instr
 
 let parseLogicalShiftedReg bin =
   let cond = concat (extract bin 31u 29u) (pickBit bin 21u) 1
   let imm6 = extract bin 15u 10u
-  match cond with
-  | c when c &&& 0b1000u = 0b0000u && imm6 &&& 0b100000u = 0b100000u ->
-    unallocated ()
-  | 0b0000u -> Op.AND, getWdWnWmShfamt bin, 32<rt>
-  | 0b0001u -> Op.BIC, getWdWnWmShfamt bin, 32<rt>
-  | 0b0010u -> Op.ORR, getWdWnWmShfamt bin, 32<rt>
-  | 0b0011u -> Op.ORN, getWdWnWmShfamt bin, 32<rt>
-  | 0b0100u -> Op.EOR, getWdWnWmShfamt bin, 32<rt>
-  | 0b0101u -> Op.EON, getWdWnWmShfamt bin, 32<rt>
-  | 0b0110u -> Op.ANDS, getWdWnWmShfamt bin, 32<rt>
-  | 0b0111u -> Op.BICS, getWdWnWmShfamt bin, 32<rt>
-  | 0b1000u -> Op.AND, getXdXnXmShfamt bin, 64<rt>
-  | 0b1001u -> Op.BIC, getXdXnXmShfamt bin, 64<rt>
-  | 0b1010u -> Op.ORR, getXdXnXmShfamt bin, 64<rt>
-  | 0b1011u -> Op.ORN, getXdXnXmShfamt bin, 64<rt>
-  | 0b1100u -> Op.EOR, getXdXnXmShfamt bin, 64<rt>
-  | 0b1101u -> Op.EON, getXdXnXmShfamt bin, 64<rt>
-  | 0b1110u -> Op.ANDS, getXdXnXmShfamt bin, 64<rt>
-  | 0b1111u -> Op.BICS, getXdXnXmShfamt bin, 64<rt>
-  | _ -> raise ParsingFailureException
-  |> changeToAliasOfShiftReg bin
+  let ins =
+    match cond with
+    | c when c &&& 0b1000u = 0b0000u && imm6 &&& 0b100000u = 0b100000u ->
+      unallocated ()
+    | 0b0000u ->
+      Op.AND, getWdWnWmShfamt bin, 32<rt>
+    | 0b0001u ->
+      Op.BIC, getWdWnWmShfamt bin, 32<rt>
+    | 0b0010u ->
+      Op.ORR, getWdWnWmShfamt bin, 32<rt>
+    | 0b0011u ->
+      Op.ORN, getWdWnWmShfamt bin, 32<rt>
+    | 0b0100u ->
+      Op.EOR, getWdWnWmShfamt bin, 32<rt>
+    | 0b0101u ->
+      Op.EON, getWdWnWmShfamt bin, 32<rt>
+    | 0b0110u ->
+      Op.ANDS, getWdWnWmShfamt bin, 32<rt>
+    | 0b0111u ->
+      Op.BICS, getWdWnWmShfamt bin, 32<rt>
+    | 0b1000u ->
+      Op.AND, getXdXnXmShfamt bin, 64<rt>
+    | 0b1001u ->
+      Op.BIC, getXdXnXmShfamt bin, 64<rt>
+    | 0b1010u ->
+      Op.ORR, getXdXnXmShfamt bin, 64<rt>
+    | 0b1011u ->
+      Op.ORN, getXdXnXmShfamt bin, 64<rt>
+    | 0b1100u ->
+      Op.EOR, getXdXnXmShfamt bin, 64<rt>
+    | 0b1101u ->
+      Op.EON, getXdXnXmShfamt bin, 64<rt>
+    | 0b1110u ->
+      Op.ANDS, getXdXnXmShfamt bin, 64<rt>
+    | 0b1111u ->
+      Op.BICS, getXdXnXmShfamt bin, 64<rt>
+    | _ ->
+      raise ParsingFailureException
+  ins |> changeToAliasOfShiftReg bin
 
 let changeToAliasOfAddSubShiftReg bin instr =
   match instr with
@@ -1978,49 +2147,71 @@ let changeToAliasOfAddSubShiftReg bin instr =
     Op.CMP, ThreeOperands(rn, rm, shf), oprSize
   | Op.SUBS, FourOperands(rd, _, rm, shf), oprSize when valN bin = 0b11111u ->
     Op.NEGS, ThreeOperands(rd, rm, shf), oprSize
-  | _ -> instr
+  | _ ->
+    instr
 
 let parseAddSubShiftReg bin =
   if valShift bin = 0b11u then unallocated () else ()
-  match extract bin 31u 29u with
-  | c when c &&& 0b100u = 0b000u && imm6 bin &&& 0b100000u = 0b100000u ->
-    unallocated ()
-  | 0b000u -> Op.ADD, getWdWnWmShfamt bin, 32<rt>
-  | 0b001u -> Op.ADDS, getWdWnWmShfamt bin, 32<rt>
-  | 0b010u -> Op.SUB, getWdWnWmShfamt bin, 32<rt>
-  | 0b011u -> Op.SUBS, getWdWnWmShfamt bin, 32<rt>
-  | 0b100u -> Op.ADD, getXdXnXmShfamt bin, 64<rt>
-  | 0b101u -> Op.ADDS, getXdXnXmShfamt bin, 64<rt>
-  | 0b110u -> Op.SUB, getXdXnXmShfamt bin, 64<rt>
-  | 0b111u -> Op.SUBS, getXdXnXmShfamt bin, 64<rt>
-  | _ -> raise ParsingFailureException
-  |> changeToAliasOfAddSubShiftReg bin
+  let ins =
+    match extract bin 31u 29u with
+    | c when c &&& 0b100u = 0b000u && imm6 bin &&& 0b100000u = 0b100000u ->
+      unallocated ()
+    | 0b000u ->
+      Op.ADD, getWdWnWmShfamt bin, 32<rt>
+    | 0b001u ->
+      Op.ADDS, getWdWnWmShfamt bin, 32<rt>
+    | 0b010u ->
+      Op.SUB, getWdWnWmShfamt bin, 32<rt>
+    | 0b011u ->
+      Op.SUBS, getWdWnWmShfamt bin, 32<rt>
+    | 0b100u ->
+      Op.ADD, getXdXnXmShfamt bin, 64<rt>
+    | 0b101u ->
+      Op.ADDS, getXdXnXmShfamt bin, 64<rt>
+    | 0b110u ->
+      Op.SUB, getXdXnXmShfamt bin, 64<rt>
+    | 0b111u ->
+      Op.SUBS, getXdXnXmShfamt bin, 64<rt>
+    | _ ->
+      raise ParsingFailureException
+  ins |> changeToAliasOfAddSubShiftReg bin
 
 let changeToAliasOfExtReg bin = function
   | Op.ADDS, FourOperands(_, rn, rm, ext), oprSize when valD bin = 0b11111u ->
     Op.CMN, ThreeOperands(rn, rm, ext), oprSize
   | Op.SUBS, FourOperands(_, rn, rm, ext), oprSize when valD bin = 0b11111u ->
     Op.CMP, ThreeOperands(rn, rm, ext), oprSize
-  | instr -> instr
+  | instr ->
+    instr
 
 let parseAddSubExtReg bin =
   let imm3 = extract bin 12u 10u
   if imm3 &&& 0b101u = 0b101u || imm3 &&& 0b110u = 0b110u then unallocated ()
   else ()
   let cond = concat (extract bin 31u 29u) (extract bin 23u 22u) 2
-  match cond with (* sf:op:S:opt *)
-  | c when c &&& 0b00001u = 0b00001u || c &&& 0b00010u = 0b00010u ->
-    unallocated ()
-  | 0b00000u -> Op.ADD, getWSdWSnWmExtamt bin, 32<rt>
-  | 0b00100u -> Op.ADDS, getWSdWSnWmExtamt bin, 32<rt>
-  | 0b01000u -> Op.SUB, getWSdWSnWmExtamt bin, 32<rt>
-  | 0b01100u -> Op.SUBS, getWSdWSnWmExtamt bin, 32<rt>
-  | 0b10000u -> Op.ADD, getXSdXSnRmExtamt bin, 64<rt>
-  | 0b10100u -> Op.ADDS, getXSdXSnRmExtamt bin, 64<rt>
-  | 0b11000u -> Op.SUB, getXSdXSnRmExtamt bin, 64<rt>
-  | 0b11100u -> Op.SUBS, getXSdXSnRmExtamt bin, 64<rt>
-  | _ -> raise ParsingFailureException
-  |> changeToAliasOfExtReg bin
+  let ins =
+    match cond with (* sf:op:S:opt *)
+    | c when c &&& 0b00001u = 0b00001u || c &&& 0b00010u = 0b00010u ->
+      unallocated ()
+    | 0b00000u ->
+      Op.ADD, getWSdWSnWmExtamt bin, 32<rt>
+    | 0b00100u ->
+      Op.ADDS, getWSdWSnWmExtamt bin, 32<rt>
+    | 0b01000u ->
+      Op.SUB, getWSdWSnWmExtamt bin, 32<rt>
+    | 0b01100u ->
+      Op.SUBS, getWSdWSnWmExtamt bin, 32<rt>
+    | 0b10000u ->
+      Op.ADD, getXSdXSnRmExtamt bin, 64<rt>
+    | 0b10100u ->
+      Op.ADDS, getXSdXSnRmExtamt bin, 64<rt>
+    | 0b11000u ->
+      Op.SUB, getXSdXSnRmExtamt bin, 64<rt>
+    | 0b11100u ->
+      Op.SUBS, getXSdXSnRmExtamt bin, 64<rt>
+    | _ ->
+      raise ParsingFailureException
+  ins |> changeToAliasOfExtReg bin
 
 let changeToAliasOfWithCarry = function
   | Op.SBC, ThreeOperands(rd, _, rm), oSz -> Op.NGC, TwoOperands(rd, rm), oSz
@@ -2050,7 +2241,8 @@ let parseAddSubWithCarry bin =
 
 let parseCondCmpReg bin =
   let cond = concat (concat (extract bin 31u 29u) (pickBit bin 10u) 1)
-                    (pickBit bin 4u) 1 (* sf:op:S:o2:o3 *)
+                    (pickBit bin 4u)
+                    1 (* sf:op:S:o2:o3 *)
   match cond with
   | c when c &&& 0b00001u = 0b00001u -> unallocated ()
   | c when c &&& 0b00010u = 0b00010u -> unallocated ()
@@ -2063,7 +2255,8 @@ let parseCondCmpReg bin =
 
 let parseCondCmpImm bin =
   let cond = concat (concat (extract bin 31u 29u) (pickBit bin 10u) 1)
-                    (pickBit bin 4u) 1 (* sf:op:S:o2:o3 *)
+                    (pickBit bin 4u)
+                    1 (* sf:op:S:o2:o3 *)
   match cond with
   | c when c &&& 0b00001u = 0b00001u -> unallocated ()
   | c when c &&& 0b00010u = 0b00010u -> unallocated ()
@@ -2095,7 +2288,8 @@ let changeToAliasOfCondSelect bin instr =
     Op.CSETM, TwoOperands(rd, cond), oprSize
   | Op.CSNEG, FourOperands(rd, rn, _, _), oprSize when cond3 ->
     Op.CNEG, ThreeOperands(rd, rn, cond), oprSize
-  | instr -> instr
+  | instr ->
+    instr
 
 let parseCondSelect bin =
   let cond = concat (extract bin 31u 29u) (extract bin 11u 10u) 2
@@ -2126,11 +2320,13 @@ let changeToAliasOfDataProcessing3Src = function
     Op.UMULL, ThreeOperands(rd, rn, rm), oprSize
   | Op.UMSUBL, FourOperands(rd, rn, rm, _), oprSize ->
     Op.UMNEGL, ThreeOperands(rd, rn, rm), oprSize
-  | instr -> instr
+  | instr ->
+    instr
 
 let parseDataProcessing3Src bin =
   let cond = concat (concat (extract bin 31u 29u) (extract bin 23u 21u) 3)
-                    (pickBit bin 15u) 1
+                    (pickBit bin 15u)
+                    1
   match cond with
   | c when c &&& 0b0111111u = 0b0000101u -> unallocated ()
   | c when c &&& 0b0111110u = 0b0000110u -> unallocated ()
@@ -2237,54 +2433,73 @@ let changeToAliasOfAdvSIMDCopy bin =
   | Op.UMOV, oprs, oprSize
       when imm5 &&& 0b01111u = 0b01000u || imm5 &&& 0b00111u = 0b00100u ->
     Op.MOV, oprs, oprSize
-  | instr -> instr
+  | instr ->
+    instr
 
 /// Advanced SIMD copy on page C4-338.
 let parseAdvSIMDCopy bin =
   let cond = concat (concat (extract bin 30u 29u) (extract bin 20u 16u) 5)
-                    (extract bin 14u 11u) 4 (* Q:op:imm5:imm4 *)
-  match cond with
-  | c when c &&& 0b00011110000u = 0b00000000000u -> unallocated ()
-  | c when c &&& 0b01000001111u = 0b00000000000u ->
-    Op.DUP, getVdtVntsidx bin, getOprSizeByQ bin
-  | c when c &&& 0b01000001111u = 0b00000000001u ->
-    Op.DUP, getVdtRn bin, getOprSizeByQ bin
-  | c when c &&& 0b01000001111u = 0b00000000010u -> unallocated ()
-  | c when c &&& 0b01000001111u = 0b00000000100u -> unallocated ()
-  | c when c &&& 0b01000001111u = 0b00000000110u -> unallocated ()
-  | c when c &&& 0b01000001000u = 0b00000001000u -> unallocated ()
-  | c when c &&& 0b11000001111u = 0b00000000011u -> unallocated ()
-  | c when c &&& 0b11000001111u = 0b00000000101u ->
-    Op.SMOV, getWdVntsidx bin imm5xxx00, 32<rt>
-  | c when c &&& 0b11000001111u = 0b00000000111u ->
-    Op.UMOV, getWdVntsidx bin imm5xx000, 32<rt>
-  | c when c &&& 0b11000000000u = 0b01000000000u -> unallocated ()
-  | c when c &&& 0b11000001111u = 0b10000000011u ->
-    Op.INS, getVdtsidxRn bin, 128<rt>
-  | c when c &&& 0b11000001111u = 0b10000000101u ->
-    Op.SMOV, getXdVntsidx bin imm5xx000, 64<rt>
-  | c when c &&& 0b11011111111u = 0b10010000111u ->
-    Op.UMOV, getXdVntsidx bin imm5notx1000, 64<rt>
-  | c when c &&& 0b11000000000u = 0b11000000000u ->
-    Op.INS, getVdtsidx1Vntsidx2 bin, 128<rt>
-  | _ -> raise ParsingFailureException
-  |> changeToAliasOfAdvSIMDCopy bin
+                    (extract bin 14u 11u)
+                    4 (* Q:op:imm5:imm4 *)
+  let ins =
+    match cond with
+    | c when c &&& 0b00011110000u = 0b00000000000u ->
+      unallocated ()
+    | c when c &&& 0b01000001111u = 0b00000000000u ->
+      Op.DUP, getVdtVntsidx bin, getOprSizeByQ bin
+    | c when c &&& 0b01000001111u = 0b00000000001u ->
+      Op.DUP, getVdtRn bin, getOprSizeByQ bin
+    | c when c &&& 0b01000001111u = 0b00000000010u ->
+      unallocated ()
+    | c when c &&& 0b01000001111u = 0b00000000100u ->
+      unallocated ()
+    | c when c &&& 0b01000001111u = 0b00000000110u ->
+      unallocated ()
+    | c when c &&& 0b01000001000u = 0b00000001000u ->
+      unallocated ()
+    | c when c &&& 0b11000001111u = 0b00000000011u ->
+      unallocated ()
+    | c when c &&& 0b11000001111u = 0b00000000101u ->
+      Op.SMOV, getWdVntsidx bin imm5xxx00, 32<rt>
+    | c when c &&& 0b11000001111u = 0b00000000111u ->
+      Op.UMOV, getWdVntsidx bin imm5xx000, 32<rt>
+    | c when c &&& 0b11000000000u = 0b01000000000u ->
+      unallocated ()
+    | c when c &&& 0b11000001111u = 0b10000000011u ->
+      Op.INS, getVdtsidxRn bin, 128<rt>
+    | c when c &&& 0b11000001111u = 0b10000000101u ->
+      Op.SMOV, getXdVntsidx bin imm5xx000, 64<rt>
+    | c when c &&& 0b11011111111u = 0b10010000111u ->
+      Op.UMOV, getXdVntsidx bin imm5notx1000, 64<rt>
+    | c when c &&& 0b11000000000u = 0b11000000000u ->
+      Op.INS, getVdtsidx1Vntsidx2 bin, 128<rt>
+    | _ ->
+      raise ParsingFailureException
+  ins |> changeToAliasOfAdvSIMDCopy bin
 
 let toAliasFromNOT _ = Op.MVN
 
 /// Advanced SIMD two-register miscellaneous on page C4-343.
 let parseAdvSIMDTwoReg bin =
   let cond = concat (concat (pickBit bin 29u) (extract bin 23u 22u) 2)
-                    (extract bin 16u 12u) 5 (* U:size:opcode *)
+                    (extract bin 16u 12u)
+                    5 (* U:size:opcode *)
   let oprSize = getOprSizeByQ bin
   match cond with
-  | c when c &&& 0b00011110u = 0b00010000u -> unallocated ()
-  | c when c &&& 0b00011111u = 0b00010101u -> unallocated ()
-  | c when c &&& 0b00011111u = 0b00011110u -> unallocated ()
-  | c when c &&& 0b01011100u = 0b00001100u -> unallocated ()
-  | c when c &&& 0b01011111u = 0b00011111u -> unallocated ()
-  | c when c &&& 0b01011111u = 0b01010110u -> unallocated ()
-  | c when c &&& 0b01011111u = 0b01010111u -> unallocated ()
+  | c when c &&& 0b00011110u = 0b00010000u ->
+    unallocated ()
+  | c when c &&& 0b00011111u = 0b00010101u ->
+    unallocated ()
+  | c when c &&& 0b00011111u = 0b00011110u ->
+    unallocated ()
+  | c when c &&& 0b01011100u = 0b00001100u ->
+    unallocated ()
+  | c when c &&& 0b01011111u = 0b00011111u ->
+    unallocated ()
+  | c when c &&& 0b01011111u = 0b01010110u ->
+    unallocated ()
+  | c when c &&& 0b01011111u = 0b01010111u ->
+    unallocated ()
   | c when c &&& 0b10011111u = 0b00000000u ->
     Op.REV64, getVdtVnt bin sizeQ110, oprSize
   | c when c &&& 0b10011111u = 0b00000001u ->
@@ -2311,7 +2526,8 @@ let parseAdvSIMDTwoReg bin =
     Op.ABS, getVdtVnt bin sizeQ110, oprSize
   | c when c &&& 0b10011111u = 0b00010010u ->
     getOpcodeByQ bin Op.XTN Op.XTN2, getVdtbVnta bin sizeQ11x, 64<rt>
-  | c when c &&& 0b10011111u = 0b00010011u -> unallocated ()
+  | c when c &&& 0b10011111u = 0b00010011u ->
+    unallocated ()
   | c when c &&& 0b10011111u = 0b00010100u ->
     getOpcodeByQ bin Op.SQXTN Op.SQXTN2, getVdtbVnta bin sizeQ11x, 64<rt>
   | c when c &&& 0b11011111u = 0b00010110u ->
@@ -2350,10 +2566,12 @@ let parseAdvSIMDTwoReg bin =
     Op.URECPE, getVdtVnt2 bin szQ1x, oprSize
   | c when c &&& 0b11011111u = 0b01011101u ->
     Op.FRECPE, getVdtVnt2 bin szQ10, oprSize
-  | c when c &&& 0b11011111u = 0b01011111u -> unallocated ()
+  | c when c &&& 0b11011111u = 0b01011111u ->
+    unallocated ()
   | c when c &&& 0b10011111u = 0b10000000u ->
     Op.REV32, getVdtVnt bin sizeQ1xx, oprSize
-  | c when c &&& 0b10011111u = 0b10000001u -> unallocated ()
+  | c when c &&& 0b10011111u = 0b10000001u ->
+    unallocated ()
   | c when c &&& 0b10011111u = 0b10000010u ->
     Op.UADDLP, getVdtaVntb bin sizeQ11x, oprSize
   | c when c &&& 0b10011111u = 0b10000011u ->
@@ -2368,7 +2586,8 @@ let parseAdvSIMDTwoReg bin =
     Op.CMGE, getVdtVntI0 bin sizeQ110, oprSize
   | c when c &&& 0b10011111u = 0b10001001u ->
     Op.CMLE, getVdtVntI0 bin sizeQ110, oprSize
-  | c when c &&& 0b10011111u = 0b10001010u -> unallocated ()
+  | c when c &&& 0b10011111u = 0b10001010u ->
+    unallocated ()
   | c when c &&& 0b10011111u = 0b10001011u ->
     Op.NEG, getVdtVnt bin sizeQ110, oprSize
   | c when c &&& 0b10011111u = 0b10010010u ->
@@ -2379,7 +2598,8 @@ let parseAdvSIMDTwoReg bin =
     getOpcodeByQ bin Op.UQXTN Op.UQXTN2, getVdtbVnta bin sizeQ11x, 64<rt>
   | c when c &&& 0b11011111u = 0b10010110u ->
     getOpcodeByQ bin Op.FCVTXN Op.FCVTXN2, getVdtbVnta2 bin szQ0x, 64<rt>
-  | c when c &&& 0b11011111u = 0b10010111u -> unallocated ()
+  | c when c &&& 0b11011111u = 0b10010111u ->
+    unallocated ()
   | c when c &&& 0b11011111u = 0b10011000u ->
     Op.FRINTA, getVdtVnt2 bin szQ10, oprSize
   | c when c &&& 0b11011111u = 0b10011001u ->
@@ -2396,15 +2616,18 @@ let parseAdvSIMDTwoReg bin =
     toAliasFromNOT Op.NOT, getVdtVnt3 bin, oprSize
   | c when c &&& 0b11111111u = 0b10100101u ->
     Op.RBIT, getVdtVnt3 bin, oprSize
-  | c when c &&& 0b11011111u = 0b11000101u -> unallocated ()
+  | c when c &&& 0b11011111u = 0b11000101u ->
+    unallocated ()
   | c when c &&& 0b11011111u = 0b11001100u ->
     Op.FCMGE, getVdtVntF0 bin szQ10, oprSize
   | c when c &&& 0b11011111u = 0b11001101u ->
     Op.FCMLE, getVdtVntF0 bin szQ10, oprSize
-  | c when c &&& 0b11011111u = 0b11001110u -> unallocated ()
+  | c when c &&& 0b11011111u = 0b11001110u ->
+    unallocated ()
   | c when c &&& 0b11011111u = 0b11001111u ->
     Op.FNEG, getVdtVnt2 bin szQ10, oprSize
-  | c when c &&& 0b11011111u = 0b11011000u -> unallocated ()
+  | c when c &&& 0b11011111u = 0b11011000u ->
+    unallocated ()
   | c when c &&& 0b11011111u = 0b11011001u ->
     Op.FRINTI, getVdtVnt2 bin szQ10, oprSize
   | c when c &&& 0b11011111u = 0b11011010u ->
@@ -2417,24 +2640,36 @@ let parseAdvSIMDTwoReg bin =
     Op.FRSQRTE, getVdtVnt2 bin szQ10, oprSize
   | c when c &&& 0b11011111u = 0b11011111u ->
     Op.FSQRT, getVdtVnt2 bin szQ10, oprSize
-  | _ -> raise ParsingFailureException
+  | _ ->
+    raise ParsingFailureException
 
 /// Advanced SIMD across lanes on page C4-345.
 let parseAdvSIMDAcrossLanes bin =
   let cond = concat (concat (pickBit bin 29u) (extract bin 23u 22u) 2)
-                    (extract bin 16u 12u) 5 (* U:size:opcode *)
+                    (extract bin 16u 12u)
+                    5 (* U:size:opcode *)
   let oprSize = getOprSizeByQ bin
   match cond with
-  | c when c &&& 0b00011110u = 0b00000000u -> unallocated ()
-  | c when c &&& 0b00011111u = 0b00000010u -> unallocated ()
-  | c when c &&& 0b00011100u = 0b00000100u -> unallocated ()
-  | c when c &&& 0b00011110u = 0b00001000u -> unallocated ()
-  | c when c &&& 0b00011111u = 0b00001011u -> unallocated ()
-  | c when c &&& 0b00011111u = 0b00001101u -> unallocated ()
-  | c when c &&& 0b00011111u = 0b00001110u -> unallocated ()
-  | c when c &&& 0b00011000u = 0b00010000u -> unallocated ()
-  | c when c &&& 0b00011110u = 0b00011000u -> unallocated ()
-  | c when c &&& 0b00011100u = 0b00011100u -> unallocated ()
+  | c when c &&& 0b00011110u = 0b00000000u ->
+    unallocated ()
+  | c when c &&& 0b00011111u = 0b00000010u ->
+    unallocated ()
+  | c when c &&& 0b00011100u = 0b00000100u ->
+    unallocated ()
+  | c when c &&& 0b00011110u = 0b00001000u ->
+    unallocated ()
+  | c when c &&& 0b00011111u = 0b00001011u ->
+    unallocated ()
+  | c when c &&& 0b00011111u = 0b00001101u ->
+    unallocated ()
+  | c when c &&& 0b00011111u = 0b00001110u ->
+    unallocated ()
+  | c when c &&& 0b00011000u = 0b00010000u ->
+    unallocated ()
+  | c when c &&& 0b00011110u = 0b00011000u ->
+    unallocated ()
+  | c when c &&& 0b00011100u = 0b00011100u ->
+    unallocated ()
   | c when c &&& 0b10011111u = 0b00000011u ->
     Op.SADDLV, getVdVnt1 bin sizeQ10011x, oprSize
   | c when c &&& 0b10011111u = 0b00001010u ->
@@ -2449,7 +2684,8 @@ let parseAdvSIMDAcrossLanes bin =
     Op.UMAXV, getVdVnt2 bin sizeQ10011x, oprSize
   | c when c &&& 0b10011111u = 0b10011010u ->
     Op.UMINV, getVdVnt2 bin sizeQ10011x, oprSize
-  | c when c &&& 0b10011111u = 0b10011011u -> unallocated ()
+  | c when c &&& 0b10011111u = 0b10011011u ->
+    unallocated ()
   | c when c &&& 0b11011111u = 0b10001100u ->
     Op.FMAXNMV, getVdVnt3 bin szQx011, oprSize
   | c when c &&& 0b11011111u = 0b10001111u ->
@@ -2458,224 +2694,268 @@ let parseAdvSIMDAcrossLanes bin =
     Op.FMINNMV, getVdVnt3 bin szQx011, oprSize
   | c when c &&& 0b11011111u = 0b11001111u ->
     Op.FMINV, getVdVnt3 bin szQx011, oprSize
-  | _ -> raise ParsingFailureException
+  | _ ->
+    raise ParsingFailureException
 
 /// Advanced SIMD three different on page C4-347.
 let parseAdvSIMDThreeDiff bin =
   let cond = concat (pickBit bin 29u) (extract bin 15u 12u) 4 (* U:opcode *)
   match cond with
-  | c when c &&& 0b01111u = 0b01111u -> unallocated ()
+  | c when c &&& 0b01111u = 0b01111u ->
+    unallocated ()
   | 0b00000u ->
     getOpcodeByQ bin Op.SADDL Op.SADDL2, getVdtaVntbVmtb bin size11, 64<rt>
-  | 0b00001u -> getOpcodeByQ bin Op.SADDW Op.SADDW2,
-                getVdtaVntaVmtb bin size11, 64<rt>
-  | 0b00010u -> getOpcodeByQ bin Op.SSUBL Op.SSUBL2,
-                getVdtaVntbVmtb bin size11, 64<rt>
-  | 0b00011u -> getOpcodeByQ bin Op.SSUBW Op.SSUBW2,
-                getVdtaVntaVmtb bin size11, 64<rt>
-  | 0b00100u -> getOpcodeByQ bin Op.ADDHN Op.ADDHN2,
-                getVdtbVntaVmta bin size11, 64<rt>
-  | 0b00101u -> getOpcodeByQ bin Op.SABAL Op.SABAL2,
-                getVdtaVntbVmtb bin size11, 64<rt>
-  | 0b00110u -> getOpcodeByQ bin Op.SUBHN Op.SUBHN2,
-                getVdtbVntaVmta bin size11, 64<rt>
-  | 0b00111u -> getOpcodeByQ bin Op.SABDL Op.SABDL2,
-                getVdtaVntbVmtb bin size11, 64<rt>
-  | 0b01000u -> getOpcodeByQ bin Op.SMLAL Op.SMLAL2,
-                getVdtaVntbVmtb bin size11, 64<rt>
-  | 0b01001u -> getOpcodeByQ bin Op.SQDMLAL Op.SQDMLAL2,
-                getVdtaVntbVmtb bin size0011, 64<rt>
-  | 0b01010u -> getOpcodeByQ bin Op.SMLSL Op.SMLSL2,
-                getVdtaVntbVmtb bin size11, 64<rt>
-  | 0b01011u -> getOpcodeByQ bin Op.SQDMLSL Op.SQDMLSL2,
-                getVdtaVntbVmtb bin size0011, 64<rt>
-  | 0b01100u -> getOpcodeByQ bin Op.SMULL Op.SMULL2,
-                getVdtaVntbVmtb bin size11, 64<rt>
-  | 0b01101u -> getOpcodeByQ bin Op.SQDMULL Op.SQDMULL2,
-                getVdtaVntbVmtb bin size0011, 64<rt>
-  | 0b01110u -> getOpcodeByQ bin Op.PMULL Op.PMULL2,
-                getVdtaVntbVmtb bin size0110, 64<rt>
-  | 0b10000u -> getOpcodeByQ bin Op.UADDL Op.UADDL2,
-                getVdtaVntbVmtb bin size11, 64<rt>
-  | 0b10001u -> getOpcodeByQ bin Op.UADDW Op.UADDW2,
-                getVdtaVntaVmtb bin size11, 64<rt>
-  | 0b10010u -> getOpcodeByQ bin Op.USUBL Op.USUBL2,
-                getVdtaVntbVmtb bin size11, 64<rt>
-  | 0b10011u -> getOpcodeByQ bin Op.USUBW Op.USUBW2,
-                getVdtaVntaVmtb bin size11, 64<rt>
-  | 0b10100u -> getOpcodeByQ bin Op.RADDHN Op.RADDHN2,
-                getVdtbVntaVmta bin size11, 64<rt>
-  | 0b10101u -> getOpcodeByQ bin Op.UABAL Op.UABAL2,
-                getVdtaVntbVmtb bin size11, 64<rt>
-  | 0b10110u -> getOpcodeByQ bin Op.RSUBHN Op.RSUBHN2,
-                getVdtbVntaVmta bin size11, 64<rt>
-  | 0b10111u -> getOpcodeByQ bin Op.UABDL Op.UABDL2,
-                getVdtaVntbVmtb bin size11, 64<rt>
-  | 0b11000u -> getOpcodeByQ bin Op.UMLAL Op.UMLAL2,
-                getVdtaVntbVmtb bin size11, 64<rt>
-  | 0b11001u -> unallocated ()
-  | 0b11010u -> getOpcodeByQ bin Op.UMLSL Op.UMLSL2,
-                getVdtaVntbVmtb bin size11, 64<rt>
-  | 0b11011u -> unallocated ()
-  | 0b11100u -> getOpcodeByQ bin Op.UMULL Op.UMULL2,
-                getVdtaVntbVmtb bin size11, 64<rt>
-  | 0b11101u -> unallocated ()
-  | 0b11110u -> unallocated ()
-  | _ -> raise ParsingFailureException
+  | 0b00001u ->
+    getOpcodeByQ bin Op.SADDW Op.SADDW2, getVdtaVntaVmtb bin size11, 64<rt>
+  | 0b00010u ->
+    getOpcodeByQ bin Op.SSUBL Op.SSUBL2, getVdtaVntbVmtb bin size11, 64<rt>
+  | 0b00011u ->
+    getOpcodeByQ bin Op.SSUBW Op.SSUBW2, getVdtaVntaVmtb bin size11, 64<rt>
+  | 0b00100u ->
+    getOpcodeByQ bin Op.ADDHN Op.ADDHN2, getVdtbVntaVmta bin size11, 64<rt>
+  | 0b00101u ->
+    getOpcodeByQ bin Op.SABAL Op.SABAL2, getVdtaVntbVmtb bin size11, 64<rt>
+  | 0b00110u ->
+    getOpcodeByQ bin Op.SUBHN Op.SUBHN2, getVdtbVntaVmta bin size11, 64<rt>
+  | 0b00111u ->
+    getOpcodeByQ bin Op.SABDL Op.SABDL2, getVdtaVntbVmtb bin size11, 64<rt>
+  | 0b01000u ->
+    getOpcodeByQ bin Op.SMLAL Op.SMLAL2, getVdtaVntbVmtb bin size11, 64<rt>
+  | 0b01001u ->
+    let opcodeByQ = getOpcodeByQ bin Op.SQDMLAL Op.SQDMLAL2
+    opcodeByQ, getVdtaVntbVmtb bin size0011, 64<rt>
+  | 0b01010u ->
+    getOpcodeByQ bin Op.SMLSL Op.SMLSL2, getVdtaVntbVmtb bin size11, 64<rt>
+  | 0b01011u ->
+    let opcodeByQ = getOpcodeByQ bin Op.SQDMLSL Op.SQDMLSL2
+    opcodeByQ, getVdtaVntbVmtb bin size0011, 64<rt>
+  | 0b01100u ->
+    getOpcodeByQ bin Op.SMULL Op.SMULL2, getVdtaVntbVmtb bin size11, 64<rt>
+  | 0b01101u ->
+    let opcodeByQ = getOpcodeByQ bin Op.SQDMULL Op.SQDMULL2
+    opcodeByQ, getVdtaVntbVmtb bin size0011, 64<rt>
+  | 0b01110u ->
+    getOpcodeByQ bin Op.PMULL Op.PMULL2, getVdtaVntbVmtb bin size0110, 64<rt>
+  | 0b10000u ->
+    getOpcodeByQ bin Op.UADDL Op.UADDL2, getVdtaVntbVmtb bin size11, 64<rt>
+  | 0b10001u ->
+    getOpcodeByQ bin Op.UADDW Op.UADDW2, getVdtaVntaVmtb bin size11, 64<rt>
+  | 0b10010u ->
+    getOpcodeByQ bin Op.USUBL Op.USUBL2, getVdtaVntbVmtb bin size11, 64<rt>
+  | 0b10011u ->
+    getOpcodeByQ bin Op.USUBW Op.USUBW2, getVdtaVntaVmtb bin size11, 64<rt>
+  | 0b10100u ->
+    getOpcodeByQ bin Op.RADDHN Op.RADDHN2, getVdtbVntaVmta bin size11, 64<rt>
+  | 0b10101u ->
+    getOpcodeByQ bin Op.UABAL Op.UABAL2, getVdtaVntbVmtb bin size11, 64<rt>
+  | 0b10110u ->
+    getOpcodeByQ bin Op.RSUBHN Op.RSUBHN2, getVdtbVntaVmta bin size11, 64<rt>
+  | 0b10111u ->
+    getOpcodeByQ bin Op.UABDL Op.UABDL2, getVdtaVntbVmtb bin size11, 64<rt>
+  | 0b11000u ->
+    getOpcodeByQ bin Op.UMLAL Op.UMLAL2, getVdtaVntbVmtb bin size11, 64<rt>
+  | 0b11001u ->
+    unallocated ()
+  | 0b11010u ->
+    getOpcodeByQ bin Op.UMLSL Op.UMLSL2, getVdtaVntbVmtb bin size11, 64<rt>
+  | 0b11011u ->
+    unallocated ()
+  | 0b11100u ->
+    getOpcodeByQ bin Op.UMULL Op.UMULL2, getVdtaVntbVmtb bin size11, 64<rt>
+  | 0b11101u ->
+    unallocated ()
+  | 0b11110u ->
+    unallocated ()
+  | _ ->
+    raise ParsingFailureException
 
 let changeToAliasOfAdvSIMDThreeSame bin = function
   | Op.ORR, ThreeOperands(vdt, vnt, _) when valM bin = valN bin ->
     Op.MOV, TwoOperands(vdt, vnt)
-  | instr -> instr
+  | instr ->
+    instr
 
 let parseAdvSIMDThreeSame b =
   let cond = concat (concat (pickBit b 29u) (extract b 23u 22u) 2)
-                    (extract b 15u 11u) 5 (* U:size:opcode *)
-  match cond with
-  | c when c &&& 0b10011111u = 0b00000000u ->
-    Op.SHADD, getVdtVntVmt1 b size11
-  | c when c &&& 0b10011111u = 0b00000001u ->
-    Op.SQADD, getVdtVntVmt1 b sizeQ110
-  | c when c &&& 0b10011111u = 0b00000010u ->
-    Op.SRHADD, getVdtVntVmt1 b size11
-  | c when c &&& 0b10011111u = 0b00000100u ->
-    Op.SHSUB, getVdtVntVmt1 b size11
-  | c when c &&& 0b10011111u = 0b00000101u ->
-    Op.SQSUB, getVdtVntVmt1 b sizeQ110
-  | c when c &&& 0b10011111u = 0b00000110u ->
-    Op.CMGT, getVdtVntVmt1 b sizeQ110
-  | c when c &&& 0b10011111u = 0b00000111u ->
-    Op.CMGE, getVdtVntVmt1 b sizeQ110
-  | c when c &&& 0b10011111u = 0b00001000u ->
-    Op.SSHL, getVdtVntVmt1 b sizeQ110
-  | c when c &&& 0b10011111u = 0b00001001u ->
-    Op.SQSHL, getVdtVntVmt1 b sizeQ110
-  | c when c &&& 0b10011111u = 0b00001010u ->
-    Op.SRSHL, getVdtVntVmt1 b sizeQ110
-  | c when c &&& 0b10011111u = 0b00001011u ->
-    Op.SQRSHL, getVdtVntVmt1 b sizeQ110
-  | c when c &&& 0b10011111u = 0b00001100u ->
-    Op.SMAX, getVdtVntVmt1 b size11
-  | c when c &&& 0b10011111u = 0b00001101u ->
-    Op.SMIN, getVdtVntVmt1 b size11
-  | c when c &&& 0b10011111u = 0b00001110u ->
-    Op.SABD, getVdtVntVmt1 b size11
-  | c when c &&& 0b10011111u = 0b00001111u ->
-    Op.SABA, getVdtVntVmt1 b size11
-  | c when c &&& 0b10011111u = 0b00010000u ->
-    Op.ADD, getVdtVntVmt1 b sizeQ110
-  | c when c &&& 0b10011111u = 0b00010001u ->
-    Op.CMTST, getVdtVntVmt1 b sizeQ110
-  | c when c &&& 0b10011111u = 0b00010010u -> Op.MLA, getVdtVntVmt1 b size11
-  | c when c &&& 0b10011111u = 0b00010011u -> Op.MUL, getVdtVntVmt1 b size11
-  | c when c &&& 0b10011111u = 0b00010100u ->
-    Op.SMAXP, getVdtVntVmt1 b size11
-  | c when c &&& 0b10011111u = 0b00010101u ->
-    Op.SMINP, getVdtVntVmt1 b size11
-  | c when c &&& 0b10011111u = 0b00010110u ->
-    Op.SQDMULH, getVdtVntVmt1 b size0011
-  | c when c &&& 0b10011111u = 0b00010111u ->
-    Op.ADDP, getVdtVntVmt1 b sizeQ110
-  | c when c &&& 0b11011111u = 0b00011000u ->
-    Op.FMAXNM, getVdtVntVmt2 b szQ10
-  | c when c &&& 0b11011111u = 0b00011001u -> Op.FMLA, getVdtVntVmt2 b szQ10
-  | c when c &&& 0b11011111u = 0b00011010u -> Op.FADD, getVdtVntVmt2 b szQ10
-  | c when c &&& 0b11011111u = 0b00011011u ->
-    Op.FMULX, getVdtVntVmt2 b szQ10
-  | c when c &&& 0b11011111u = 0b00011100u ->
-    Op.FCMEQ, getVdtVntVmt2 b szQ10
-  | c when c &&& 0b11011111u = 0b00011101u -> unallocated ()
-  | c when c &&& 0b11011111u = 0b00011110u -> Op.FMAX, getVdtVntVmt2 b szQ10
-  | c when c &&& 0b11011111u = 0b00011111u ->
-    Op.FRECPS, getVdtVntVmt2 b szQ10
-  | c when c &&& 0b11111111u = 0b00000011u -> Op.AND, getVdtVntVmt3 b
-  | c when c &&& 0b11111111u = 0b00100011u -> Op.BIC, getVdtVntVmt3 b
-  | c when c &&& 0b11011111u = 0b01011000u ->
-    Op.FMINNM, getVdtVntVmt2 b szQ10
-  | c when c &&& 0b11011111u = 0b01011001u -> Op.FMLS, getVdtVntVmt2 b szQ10
-  | c when c &&& 0b11011111u = 0b01011010u -> Op.FSUB, getVdtVntVmt2 b szQ10
-  | c when c &&& 0b11011111u = 0b01011011u -> unallocated ()
-  | c when c &&& 0b11011111u = 0b01011100u -> unallocated ()
-  | c when c &&& 0b11011111u = 0b01011101u -> unallocated ()
-  | c when c &&& 0b11011111u = 0b01011110u -> Op.FMIN, getVdtVntVmt2 b szQ10
-  | c when c &&& 0b11011111u = 0b01011111u ->
-    Op.FRSQRTS, getVdtVntVmt2 b szQ10
-  | c when c &&& 0b11111111u = 0b01000011u -> Op.ORR, getVdtVntVmt3 b
-  | c when c &&& 0b11111111u = 0b01100011u -> Op.ORN, getVdtVntVmt3 b
-  | c when c &&& 0b10011111u = 0b10000000u ->
-    Op.UHADD, getVdtVntVmt1 b size11
-  | c when c &&& 0b10011111u = 0b10000001u ->
-    Op.UQADD, getVdtVntVmt1 b sizeQ110
-  | c when c &&& 0b10011111u = 0b10000010u ->
-    Op.URHADD, getVdtVntVmt1 b size11
-  | c when c &&& 0b10011111u = 0b10000100u ->
-    Op.UHSUB, getVdtVntVmt1 b size11
-  | c when c &&& 0b10011111u = 0b10000101u ->
-    Op.UQSUB, getVdtVntVmt1 b sizeQ110
-  | c when c &&& 0b10011111u = 0b10000110u ->
-    Op.CMHI, getVdtVntVmt1 b sizeQ110
-  | c when c &&& 0b10011111u = 0b10000111u ->
-    Op.CMHS, getVdtVntVmt1 b sizeQ110
-  | c when c &&& 0b10011111u = 0b10001000u ->
-    Op.USHL, getVdtVntVmt1 b sizeQ110
-  | c when c &&& 0b10011111u = 0b10001001u ->
-    Op.UQSHL, getVdtVntVmt1 b sizeQ110
-  | c when c &&& 0b10011111u = 0b10001010u ->
-    Op.URSHL, getVdtVntVmt1 b sizeQ110
-  | c when c &&& 0b10011111u = 0b10001011u ->
-    Op.UQRSHL, getVdtVntVmt1 b sizeQ110
-  | c when c &&& 0b10011111u = 0b10001100u ->
-    Op.UMAX, getVdtVntVmt1 b size11
-  | c when c &&& 0b10011111u = 0b10001101u ->
-    Op.UMIN, getVdtVntVmt1 b size11
-  | c when c &&& 0b10011111u = 0b10001110u ->
-    Op.UABD, getVdtVntVmt1 b size11
-  | c when c &&& 0b10011111u = 0b10001111u ->
-    Op.UABA, getVdtVntVmt1 b size11
-  | c when c &&& 0b10011111u = 0b10010000u ->
-    Op.SUB, getVdtVntVmt1 b sizeQ110
-  | c when c &&& 0b10011111u = 0b10010001u ->
-    Op.CMEQ, getVdtVntVmt1 b sizeQ110
-  | c when c &&& 0b10011111u = 0b10010010u -> Op.MLS, getVdtVntVmt1 b size11
-  | c when c &&& 0b10011111u = 0b10010011u ->
-    Op.PMUL, getVdtVntVmt1 b size011011
-  | c when c &&& 0b10011111u = 0b10010100u ->
-    Op.UMAXP, getVdtVntVmt1 b size11
-  | c when c &&& 0b10011111u = 0b10010101u ->
-    Op.UMINP, getVdtVntVmt1 b size11
-  | c when c &&& 0b10011111u = 0b10010110u ->
-    Op.SQRDMULH, getVdtVntVmt1 b size0011
-  | c when c &&& 0b10011111u = 0b10010111u -> unallocated ()
-  | c when c &&& 0b11011111u = 0b10011000u ->
-    Op.FMAXNMP, getVdtVntVmt2 b szQ10
-  | c when c &&& 0b11011111u = 0b10011001u -> unallocated ()
-  | c when c &&& 0b11011111u = 0b10011010u ->
-    Op.FADDP, getVdtVntVmt2 b szQ10
-  | c when c &&& 0b11011111u = 0b10011011u -> Op.FMUL, getVdtVntVmt2 b szQ10
-  | c when c &&& 0b11011111u = 0b10011100u ->
-    Op.FCMGE, getVdtVntVmt2 b szQ10
-  | c when c &&& 0b11011111u = 0b10011101u ->
-    Op.FACGE, getVdtVntVmt2 b szQ10
-  | c when c &&& 0b11011111u = 0b10011110u ->
-    Op.FMAXP, getVdtVntVmt2 b szQ10
-  | c when c &&& 0b11011111u = 0b10011111u -> Op.FDIV, getVdtVntVmt2 b szQ10
-  | c when c &&& 0b11111111u = 0b10000011u -> Op.EOR, getVdtVntVmt3 b
-  | c when c &&& 0b11111111u = 0b10100011u -> Op.BSL, getVdtVntVmt3 b
-  | c when c &&& 0b11011111u = 0b11011000u ->
-    Op.FMINNMP, getVdtVntVmt2 b szQ10
-  | c when c &&& 0b11011111u = 0b11011001u -> unallocated ()
-  | c when c &&& 0b11011111u = 0b11011010u -> Op.FABD, getVdtVntVmt2 b szQ10
-  | c when c &&& 0b11011111u = 0b11011011u -> unallocated ()
-  | c when c &&& 0b11011111u = 0b11011100u ->
-    Op.FCMGT, getVdtVntVmt2 b szQ10
-  | c when c &&& 0b11011111u = 0b11011101u ->
-    Op.FACGT, getVdtVntVmt2 b szQ10
-  | c when c &&& 0b11011111u = 0b11011110u ->
-    Op.FMINP, getVdtVntVmt2 b szQ10
-  | c when c &&& 0b11011111u = 0b11011111u -> unallocated ()
-  | c when c &&& 0b11111111u = 0b11000011u -> Op.BIT, getVdtVntVmt3 b
-  | c when c &&& 0b11111111u = 0b11100011u -> Op.BIF, getVdtVntVmt3 b
-  | _ -> raise ParsingFailureException
+                    (extract b 15u 11u)
+                    5 (* U:size:opcode *)
+  let ins =
+    match cond with
+    | c when c &&& 0b10011111u = 0b00000000u ->
+      Op.SHADD, getVdtVntVmt1 b size11
+    | c when c &&& 0b10011111u = 0b00000001u ->
+      Op.SQADD, getVdtVntVmt1 b sizeQ110
+    | c when c &&& 0b10011111u = 0b00000010u ->
+      Op.SRHADD, getVdtVntVmt1 b size11
+    | c when c &&& 0b10011111u = 0b00000100u ->
+      Op.SHSUB, getVdtVntVmt1 b size11
+    | c when c &&& 0b10011111u = 0b00000101u ->
+      Op.SQSUB, getVdtVntVmt1 b sizeQ110
+    | c when c &&& 0b10011111u = 0b00000110u ->
+      Op.CMGT, getVdtVntVmt1 b sizeQ110
+    | c when c &&& 0b10011111u = 0b00000111u ->
+      Op.CMGE, getVdtVntVmt1 b sizeQ110
+    | c when c &&& 0b10011111u = 0b00001000u ->
+      Op.SSHL, getVdtVntVmt1 b sizeQ110
+    | c when c &&& 0b10011111u = 0b00001001u ->
+      Op.SQSHL, getVdtVntVmt1 b sizeQ110
+    | c when c &&& 0b10011111u = 0b00001010u ->
+      Op.SRSHL, getVdtVntVmt1 b sizeQ110
+    | c when c &&& 0b10011111u = 0b00001011u ->
+      Op.SQRSHL, getVdtVntVmt1 b sizeQ110
+    | c when c &&& 0b10011111u = 0b00001100u ->
+      Op.SMAX, getVdtVntVmt1 b size11
+    | c when c &&& 0b10011111u = 0b00001101u ->
+      Op.SMIN, getVdtVntVmt1 b size11
+    | c when c &&& 0b10011111u = 0b00001110u ->
+      Op.SABD, getVdtVntVmt1 b size11
+    | c when c &&& 0b10011111u = 0b00001111u ->
+      Op.SABA, getVdtVntVmt1 b size11
+    | c when c &&& 0b10011111u = 0b00010000u ->
+      Op.ADD, getVdtVntVmt1 b sizeQ110
+    | c when c &&& 0b10011111u = 0b00010001u ->
+      Op.CMTST, getVdtVntVmt1 b sizeQ110
+    | c when c &&& 0b10011111u = 0b00010010u ->
+      Op.MLA, getVdtVntVmt1 b size11
+    | c when c &&& 0b10011111u = 0b00010011u ->
+      Op.MUL, getVdtVntVmt1 b size11
+    | c when c &&& 0b10011111u = 0b00010100u ->
+      Op.SMAXP, getVdtVntVmt1 b size11
+    | c when c &&& 0b10011111u = 0b00010101u ->
+      Op.SMINP, getVdtVntVmt1 b size11
+    | c when c &&& 0b10011111u = 0b00010110u ->
+      Op.SQDMULH, getVdtVntVmt1 b size0011
+    | c when c &&& 0b10011111u = 0b00010111u ->
+      Op.ADDP, getVdtVntVmt1 b sizeQ110
+    | c when c &&& 0b11011111u = 0b00011000u ->
+      Op.FMAXNM, getVdtVntVmt2 b szQ10
+    | c when c &&& 0b11011111u = 0b00011001u ->
+      Op.FMLA, getVdtVntVmt2 b szQ10
+    | c when c &&& 0b11011111u = 0b00011010u ->
+      Op.FADD, getVdtVntVmt2 b szQ10
+    | c when c &&& 0b11011111u = 0b00011011u ->
+      Op.FMULX, getVdtVntVmt2 b szQ10
+    | c when c &&& 0b11011111u = 0b00011100u ->
+      Op.FCMEQ, getVdtVntVmt2 b szQ10
+    | c when c &&& 0b11011111u = 0b00011101u ->
+      unallocated ()
+    | c when c &&& 0b11011111u = 0b00011110u ->
+      Op.FMAX, getVdtVntVmt2 b szQ10
+    | c when c &&& 0b11011111u = 0b00011111u ->
+      Op.FRECPS, getVdtVntVmt2 b szQ10
+    | c when c &&& 0b11111111u = 0b00000011u ->
+      Op.AND, getVdtVntVmt3 b
+    | c when c &&& 0b11111111u = 0b00100011u ->
+      Op.BIC, getVdtVntVmt3 b
+    | c when c &&& 0b11011111u = 0b01011000u ->
+      Op.FMINNM, getVdtVntVmt2 b szQ10
+    | c when c &&& 0b11011111u = 0b01011001u ->
+      Op.FMLS, getVdtVntVmt2 b szQ10
+    | c when c &&& 0b11011111u = 0b01011010u ->
+      Op.FSUB, getVdtVntVmt2 b szQ10
+    | c when c &&& 0b11011111u = 0b01011011u ->
+      unallocated ()
+    | c when c &&& 0b11011111u = 0b01011100u ->
+      unallocated ()
+    | c when c &&& 0b11011111u = 0b01011101u ->
+      unallocated ()
+    | c when c &&& 0b11011111u = 0b01011110u ->
+      Op.FMIN, getVdtVntVmt2 b szQ10
+    | c when c &&& 0b11011111u = 0b01011111u ->
+      Op.FRSQRTS, getVdtVntVmt2 b szQ10
+    | c when c &&& 0b11111111u = 0b01000011u ->
+      Op.ORR, getVdtVntVmt3 b
+    | c when c &&& 0b11111111u = 0b01100011u ->
+      Op.ORN, getVdtVntVmt3 b
+    | c when c &&& 0b10011111u = 0b10000000u ->
+      Op.UHADD, getVdtVntVmt1 b size11
+    | c when c &&& 0b10011111u = 0b10000001u ->
+      Op.UQADD, getVdtVntVmt1 b sizeQ110
+    | c when c &&& 0b10011111u = 0b10000010u ->
+      Op.URHADD, getVdtVntVmt1 b size11
+    | c when c &&& 0b10011111u = 0b10000100u ->
+      Op.UHSUB, getVdtVntVmt1 b size11
+    | c when c &&& 0b10011111u = 0b10000101u ->
+      Op.UQSUB, getVdtVntVmt1 b sizeQ110
+    | c when c &&& 0b10011111u = 0b10000110u ->
+      Op.CMHI, getVdtVntVmt1 b sizeQ110
+    | c when c &&& 0b10011111u = 0b10000111u ->
+      Op.CMHS, getVdtVntVmt1 b sizeQ110
+    | c when c &&& 0b10011111u = 0b10001000u ->
+      Op.USHL, getVdtVntVmt1 b sizeQ110
+    | c when c &&& 0b10011111u = 0b10001001u ->
+      Op.UQSHL, getVdtVntVmt1 b sizeQ110
+    | c when c &&& 0b10011111u = 0b10001010u ->
+      Op.URSHL, getVdtVntVmt1 b sizeQ110
+    | c when c &&& 0b10011111u = 0b10001011u ->
+      Op.UQRSHL, getVdtVntVmt1 b sizeQ110
+    | c when c &&& 0b10011111u = 0b10001100u ->
+      Op.UMAX, getVdtVntVmt1 b size11
+    | c when c &&& 0b10011111u = 0b10001101u ->
+      Op.UMIN, getVdtVntVmt1 b size11
+    | c when c &&& 0b10011111u = 0b10001110u ->
+      Op.UABD, getVdtVntVmt1 b size11
+    | c when c &&& 0b10011111u = 0b10001111u ->
+      Op.UABA, getVdtVntVmt1 b size11
+    | c when c &&& 0b10011111u = 0b10010000u ->
+      Op.SUB, getVdtVntVmt1 b sizeQ110
+    | c when c &&& 0b10011111u = 0b10010001u ->
+      Op.CMEQ, getVdtVntVmt1 b sizeQ110
+    | c when c &&& 0b10011111u = 0b10010010u ->
+      Op.MLS, getVdtVntVmt1 b size11
+    | c when c &&& 0b10011111u = 0b10010011u ->
+      Op.PMUL, getVdtVntVmt1 b size011011
+    | c when c &&& 0b10011111u = 0b10010100u ->
+      Op.UMAXP, getVdtVntVmt1 b size11
+    | c when c &&& 0b10011111u = 0b10010101u ->
+      Op.UMINP, getVdtVntVmt1 b size11
+    | c when c &&& 0b10011111u = 0b10010110u ->
+      Op.SQRDMULH, getVdtVntVmt1 b size0011
+    | c when c &&& 0b10011111u = 0b10010111u ->
+      unallocated ()
+    | c when c &&& 0b11011111u = 0b10011000u ->
+      Op.FMAXNMP, getVdtVntVmt2 b szQ10
+    | c when c &&& 0b11011111u = 0b10011001u ->
+      unallocated ()
+    | c when c &&& 0b11011111u = 0b10011010u ->
+      Op.FADDP, getVdtVntVmt2 b szQ10
+    | c when c &&& 0b11011111u = 0b10011011u ->
+      Op.FMUL, getVdtVntVmt2 b szQ10
+    | c when c &&& 0b11011111u = 0b10011100u ->
+      Op.FCMGE, getVdtVntVmt2 b szQ10
+    | c when c &&& 0b11011111u = 0b10011101u ->
+      Op.FACGE, getVdtVntVmt2 b szQ10
+    | c when c &&& 0b11011111u = 0b10011110u ->
+      Op.FMAXP, getVdtVntVmt2 b szQ10
+    | c when c &&& 0b11011111u = 0b10011111u ->
+      Op.FDIV, getVdtVntVmt2 b szQ10
+    | c when c &&& 0b11111111u = 0b10000011u ->
+      Op.EOR, getVdtVntVmt3 b
+    | c when c &&& 0b11111111u = 0b10100011u ->
+      Op.BSL, getVdtVntVmt3 b
+    | c when c &&& 0b11011111u = 0b11011000u ->
+      Op.FMINNMP, getVdtVntVmt2 b szQ10
+    | c when c &&& 0b11011111u = 0b11011001u ->
+      unallocated ()
+    | c when c &&& 0b11011111u = 0b11011010u ->
+      Op.FABD, getVdtVntVmt2 b szQ10
+    | c when c &&& 0b11011111u = 0b11011011u ->
+      unallocated ()
+    | c when c &&& 0b11011111u = 0b11011100u ->
+      Op.FCMGT, getVdtVntVmt2 b szQ10
+    | c when c &&& 0b11011111u = 0b11011101u ->
+      Op.FACGT, getVdtVntVmt2 b szQ10
+    | c when c &&& 0b11011111u = 0b11011110u ->
+      Op.FMINP, getVdtVntVmt2 b szQ10
+    | c when c &&& 0b11011111u = 0b11011111u ->
+      unallocated ()
+    | c when c &&& 0b11111111u = 0b11000011u ->
+      Op.BIT, getVdtVntVmt3 b
+    | c when c &&& 0b11111111u = 0b11100011u ->
+      Op.BIF, getVdtVntVmt3 b
+    | _ ->
+      raise ParsingFailureException
+  ins
   |> changeToAliasOfAdvSIMDThreeSame b
   |> getSIMDVectorOprSize
 
@@ -2684,7 +2964,8 @@ let parseAdvSIMDModImm bin =
   let cond = concat (extract bin 30u 29u) (extract bin 15u 11u) 5
   let oprSize = getOprSizeByQ bin
   match cond with (* Q:op:cmode:o2 *)
-  | c when c &&& 0b0000001u = 0b0000001u -> unallocated ()
+  | c when c &&& 0b0000001u = 0b0000001u ->
+    unallocated ()
   | c when c &&& 0b0110011u = 0b0000000u ->
     Op.MOVI, getVdtImm8LAmt3 bin, oprSize
   | c when c &&& 0b0110011u = 0b0000010u ->
@@ -2697,7 +2978,8 @@ let parseAdvSIMDModImm bin =
     Op.MOVI, getVdtImm8MAmt bin, oprSize
   | c when c &&& 0b0111111u = 0b0011100u ->
     Op.MOVI, getVdtImm8LAmt1 bin, oprSize
-  | c when c &&& 0b0111111u = 0b0011110u -> Op.FMOV, getVdtFImm bin, oprSize
+  | c when c &&& 0b0111111u = 0b0011110u ->
+    Op.FMOV, getVdtFImm bin, oprSize
   | c when c &&& 0b0110011u = 0b0100000u ->
     Op.MVNI, getVdtImm8LAmt3 bin, oprSize
   | c when c &&& 0b0110011u = 0b0100010u ->
@@ -2708,37 +2990,62 @@ let parseAdvSIMDModImm bin =
     Op.BIC, getVdtImm8LAmt2 bin, oprSize
   | c when c &&& 0b0111101u = 0b0111000u ->
     Op.MVNI, getVdtImm8MAmt bin, oprSize
-  | c when c &&& 0b1111111u = 0b0111100u -> Op.MOVI, getDdImm bin, oprSize
-  | c when c &&& 0b1111111u = 0b0111110u -> unallocated ()
-  | c when c &&& 0b1111111u = 0b1111100u -> Op.MOVI, getVd2DImm bin, oprSize
-  | c when c &&& 0b1111111u = 0b1111110u -> Op.FMOV, getVd2DFImm bin, oprSize
-  | _ -> raise ParsingFailureException
+  | c when c &&& 0b1111111u = 0b0111100u ->
+    Op.MOVI, getDdImm bin, oprSize
+  | c when c &&& 0b1111111u = 0b0111110u ->
+    unallocated ()
+  | c when c &&& 0b1111111u = 0b1111100u ->
+    Op.MOVI, getVd2DImm bin, oprSize
+  | c when c &&& 0b1111111u = 0b1111110u ->
+    Op.FMOV, getVd2DFImm bin, oprSize
+  | _ ->
+    raise ParsingFailureException
 
 /// Advanced SIMD shift by immediate on page C4-352.
 let getAdvSIMDShfByImm b =
   let cond = concat (pickBit b 29u) (extract b 15u 11u) 5 (* U:opcode *)
   let oprSize = getOprSizeByQ b
   match cond with
-  | c when c &&& 0b011111u = 0b000001u -> unallocated ()
-  | c when c &&& 0b011111u = 0b000011u -> unallocated ()
-  | c when c &&& 0b011111u = 0b000101u -> unallocated ()
-  | c when c &&& 0b011111u = 0b000111u -> unallocated ()
-  | c when c &&& 0b011111u = 0b001001u -> unallocated ()
-  | c when c &&& 0b011111u = 0b001011u -> unallocated ()
-  | c when c &&& 0b011111u = 0b001101u -> unallocated ()
-  | c when c &&& 0b011111u = 0b001111u -> unallocated ()
-  | c when c &&& 0b011111u = 0b010101u -> unallocated ()
-  | c when c &&& 0b011110u = 0b010110u -> unallocated ()
-  | c when c &&& 0b011111u = 0b011101u -> unallocated ()
-  | c when c &&& 0b011111u = 0b011110u -> unallocated ()
-  | 0b000000u -> Op.SSHR, getVdtVntShf1 b, oprSize
-  | 0b000010u -> Op.SSRA, getVdtVntShf1 b, oprSize
-  | 0b000100u -> Op.SRSHR, getVdtVntShf1 b, oprSize
-  | 0b000110u -> Op.SRSRA, getVdtVntShf1 b, oprSize
-  | 0b001000u -> unallocated ()
-  | 0b001010u -> Op.SHL, getVdtVntShf2 b, oprSize
-  | 0b001100u -> unallocated ()
-  | 0b001110u -> Op.SQSHL, getVdtVntShf2 b, oprSize
+  | c when c &&& 0b011111u = 0b000001u ->
+    unallocated ()
+  | c when c &&& 0b011111u = 0b000011u ->
+    unallocated ()
+  | c when c &&& 0b011111u = 0b000101u ->
+    unallocated ()
+  | c when c &&& 0b011111u = 0b000111u ->
+    unallocated ()
+  | c when c &&& 0b011111u = 0b001001u ->
+    unallocated ()
+  | c when c &&& 0b011111u = 0b001011u ->
+    unallocated ()
+  | c when c &&& 0b011111u = 0b001101u ->
+    unallocated ()
+  | c when c &&& 0b011111u = 0b001111u ->
+    unallocated ()
+  | c when c &&& 0b011111u = 0b010101u ->
+    unallocated ()
+  | c when c &&& 0b011110u = 0b010110u ->
+    unallocated ()
+  | c when c &&& 0b011111u = 0b011101u ->
+    unallocated ()
+  | c when c &&& 0b011111u = 0b011110u ->
+    unallocated ()
+  | 0b000000u ->
+    Op.SSHR, getVdtVntShf1 b, oprSize
+  | 0b000010u ->
+    Op.SSRA, getVdtVntShf1 b, oprSize
+  | 0b000100u ->
+    Op.SRSHR, getVdtVntShf1 b, oprSize
+  | 0b000110u ->
+    Op.SRSRA, getVdtVntShf1 b, oprSize
+  | 0b001000u ->
+    unallocated ()
+  | 0b001010u ->
+    Op.SHL, getVdtVntShf2 b, oprSize
+  | 0b001100u ->
+    unallocated ()
+  | 0b001110u ->
+    Op.SQSHL, getVdtVntShf2 b, oprSize
   | 0b010000u ->
     getOpcodeByQ b Op.SHRN Op.SHRN2, getVdtbVntaShf b immh1xxx, 64<rt>
   | 0b010001u ->
@@ -2749,16 +3056,26 @@ let getAdvSIMDShfByImm b =
     getOpcodeByQ b Op.SQRSHRN Op.SQRSHRN2, getVdtbVntaShf b immh1xxx, 64<rt>
   | 0b010100u ->
     getOpcodeByQ b Op.SSHLL Op.SSHLL2, getVdtaVntbShf b immh1xxx, 64<rt>
-  | 0b011100u -> Op.SCVTF, getVdtVntFbits b immhQ1, oprSize
-  | 0b011111u -> Op.FCVTZS, getVdtVntFbits b immhQ1, oprSize
-  | 0b100000u -> Op.USHR, getVdtVntShf1 b, oprSize
-  | 0b100010u -> Op.USRA, getVdtVntShf1 b, oprSize
-  | 0b100100u -> Op.URSHR, getVdtVntShf1 b, oprSize
-  | 0b100110u -> Op.URSRA, getVdtVntShf1 b, oprSize
-  | 0b101000u -> Op.SRI, getVdtVntShf1 b, oprSize
-  | 0b101010u -> Op.SLI, getVdtVntShf2 b, oprSize
-  | 0b101100u -> Op.SQSHLU, getVdtVntShf2 b, oprSize
-  | 0b101110u -> Op.UQSHL, getVdtVntShf2 b, oprSize
+  | 0b011100u ->
+    Op.SCVTF, getVdtVntFbits b immhQ1, oprSize
+  | 0b011111u ->
+    Op.FCVTZS, getVdtVntFbits b immhQ1, oprSize
+  | 0b100000u ->
+    Op.USHR, getVdtVntShf1 b, oprSize
+  | 0b100010u ->
+    Op.USRA, getVdtVntShf1 b, oprSize
+  | 0b100100u ->
+    Op.URSHR, getVdtVntShf1 b, oprSize
+  | 0b100110u ->
+    Op.URSRA, getVdtVntShf1 b, oprSize
+  | 0b101000u ->
+    Op.SRI, getVdtVntShf1 b, oprSize
+  | 0b101010u ->
+    Op.SLI, getVdtVntShf2 b, oprSize
+  | 0b101100u ->
+    Op.SQSHLU, getVdtVntShf2 b, oprSize
+  | 0b101110u ->
+    Op.UQSHL, getVdtVntShf2 b, oprSize
   | 0b110000u ->
     getOpcodeByQ b Op.SQSHRUN Op.SQSHRUN2, getVdtbVntaShf b immh1xxx, 64<rt>
   | 0b110001u ->
@@ -2769,35 +3086,42 @@ let getAdvSIMDShfByImm b =
     getOpcodeByQ b Op.UQRSHRN Op.UQRSHRN2, getVdtbVntaShf b immh1xxx, 64<rt>
   | 0b110100u ->
     getOpcodeByQ b Op.USHLL Op.USHLL2, getVdtaVntbShf b immh1xxx, 64<rt>
-  | 0b111100u -> Op.UCVTF, getVdtVntFbits b immhQ1, oprSize
-  | 0b111111u -> Op.FCVTZU, getVdtVntFbits b immhQ1, oprSize
-  | _ -> raise ParsingFailureException
+  | 0b111100u ->
+    Op.UCVTF, getVdtVntFbits b immhQ1, oprSize
+  | 0b111111u ->
+    Op.FCVTZU, getVdtVntFbits b immhQ1, oprSize
+  | _ ->
+    raise ParsingFailureException
 
 /// Advanced SIMD vector x indexed element on page C4-354.
 let parseAdvSIMDVecXIdxElem bin =
   let cond = concat (concat (pickBit bin 29u) (extract bin 23u 22u) 2)
-                    (extract bin 15u 12u) 4 (* U:size:opcode *)
+                    (extract bin 15u 12u)
+                    4 (* U:size:opcode *)
   match cond with
-  | c when c &&& 0b0001110u = 0b0001110u -> unallocated ()
-  | c when c &&& 0b1001111u = 0b0000000u -> unallocated ()
+  | c when c &&& 0b0001110u = 0b0001110u ->
+    unallocated ()
+  | c when c &&& 0b1001111u = 0b0000000u ->
+    unallocated ()
   | c when c &&& 0b1001111u = 0b0000010u ->
     getOpcodeByQ bin Op.SMLAL Op.SMLAL2, getVdtaVntbVmtsidx bin size0011, 64<rt>
   | c when c &&& 0b1001111u = 0b0000011u ->
-    getOpcodeByQ bin Op.SQDMLAL Op.SQDMLAL2,
-    getVdtaVntbVmtsidx bin size0011, 64<rt>
-  | c when c &&& 0b1001111u = 0b0000100u -> unallocated ()
+    let opcodeByQ = getOpcodeByQ bin Op.SQDMLAL Op.SQDMLAL2
+    opcodeByQ, getVdtaVntbVmtsidx bin size0011, 64<rt>
+  | c when c &&& 0b1001111u = 0b0000100u ->
+    unallocated ()
   | c when c &&& 0b1001111u = 0b0000110u ->
     getOpcodeByQ bin Op.SMLSL Op.SMLSL2, getVdtaVntbVmtsidx bin size0011, 64<rt>
   | c when c &&& 0b1001111u = 0b0000111u ->
-    getOpcodeByQ bin Op.SQDMLSL Op.SQDMLSL2,
-    getVdtaVntbVmtsidx bin size0011, 64<rt>
+    let opcodeByQ = getOpcodeByQ bin Op.SQDMLSL Op.SQDMLSL2
+    opcodeByQ, getVdtaVntbVmtsidx bin size0011, 64<rt>
   | c when c &&& 0b1001111u = 0b0001000u ->
     Op.MUL, getVdtVntVmtsidx1 bin size0011, getOprSizeByQ bin
   | c when c &&& 0b1001111u = 0b0001010u ->
     getOpcodeByQ bin Op.SMULL Op.SMULL2, getVdtaVntbVmtsidx bin size0011, 64<rt>
   | c when c &&& 0b1001111u = 0b0001011u ->
-    getOpcodeByQ bin Op.SQDMULL Op.SQDMULL2,
-    getVdtaVntbVmtsidx bin size0011, 64<rt>
+    let opcodeByQ = getOpcodeByQ bin Op.SQDMULL Op.SQDMULL2
+    opcodeByQ, getVdtaVntbVmtsidx bin size0011, 64<rt>
   | c when c &&& 0b1001111u = 0b0001100u ->
     Op.SQDMULH, getVdtVntVmtsidx1 bin size0011, getOprSizeByQ bin
   | c when c &&& 0b1001111u = 0b0001101u ->
@@ -2812,33 +3136,45 @@ let parseAdvSIMDVecXIdxElem bin =
     Op.MLA, getVdtVntVmtsidx1 bin size0011, getOprSizeByQ bin
   | c when c &&& 0b1001111u = 0b1000010u ->
     getOpcodeByQ bin Op.UMLAL Op.UMLAL2, getVdtaVntbVmtsidx bin size0011, 64<rt>
-  | c when c &&& 0b1001111u = 0b1000011u -> unallocated ()
+  | c when c &&& 0b1001111u = 0b1000011u ->
+    unallocated ()
   | c when c &&& 0b1001111u = 0b1000100u ->
     Op.MLS, getVdtVntVmtsidx1 bin size0011, getOprSizeByQ bin
   | c when c &&& 0b1001111u = 0b1000110u ->
     getOpcodeByQ bin Op.UMLSL Op.UMLSL2, getVdtaVntbVmtsidx bin size0011, 64<rt>
-  | c when c &&& 0b1001111u = 0b1000111u -> unallocated ()
-  | c when c &&& 0b1001111u = 0b1001000u -> unallocated ()
+  | c when c &&& 0b1001111u = 0b1000111u ->
+    unallocated ()
+  | c when c &&& 0b1001111u = 0b1001000u ->
+    unallocated ()
   | c when c &&& 0b1001111u = 0b1001010u ->
     getOpcodeByQ bin Op.UMULL Op.UMULL2, getVdtaVntbVmtsidx bin size0011, 64<rt>
-  | c when c &&& 0b1001111u = 0b1001011u -> unallocated ()
-  | c when c &&& 0b1001110u = 0b1001100u -> unallocated ()
-  | c when c &&& 0b1101111u = 0b1100001u -> unallocated ()
-  | c when c &&& 0b1101111u = 0b1100101u -> unallocated ()
+  | c when c &&& 0b1001111u = 0b1001011u ->
+    unallocated ()
+  | c when c &&& 0b1001110u = 0b1001100u ->
+    unallocated ()
+  | c when c &&& 0b1101111u = 0b1100001u ->
+    unallocated ()
+  | c when c &&& 0b1101111u = 0b1100101u ->
+    unallocated ()
   | c when c &&& 0b1101111u = 0b1101001u ->
     Op.FMULX, getVdtVntVmtsidx2 bin szL11, getOprSizeByQ bin
-  | _ -> raise ParsingFailureException
+  | _ ->
+    raise ParsingFailureException
 
 /// Data processing - SIMD and FP - 1
 let parse64Group5 bin =
   let cond = concat (concat (extract bin 31u 28u) (extract bin 24u 17u) 8)
-                    (extract bin 15u 10u) 6 (* op0:op1:op2:op3:op4 *)
+                    (extract bin 15u 10u)
+                    6 (* op0:op1:op2:op3:op4 *)
   match cond with
-  | c when c &&& 0b111110011111000011u = 0b000000010100000010u -> unallocated ()
-  | c when c &&& 0b111110011111000011u = 0b001000010100000010u -> unallocated ()
+  | c when c &&& 0b111110011111000011u = 0b000000010100000010u ->
+    unallocated ()
+  | c when c &&& 0b111110011111000011u = 0b001000010100000010u ->
+    unallocated ()
   | c when c &&& 0b111110011111000011u = 0b010000010100000010u ->
     parseCryptAES bin
-  | c when c &&& 0b111110011111000011u = 0b011000010100000010u -> unallocated ()
+  | c when c &&& 0b111110011111000011u = 0b011000010100000010u ->
+    unallocated ()
   | c when c &&& 0b101110010000100011u = 0b000000000000000000u ->
     parseAdvSIMDTableLookup bin
   | c when c &&& 0b101110010000100011u = 0b000000000000000010u ->
@@ -2847,29 +3183,39 @@ let parse64Group5 bin =
     parseAdvSIMDExtract bin
   | c when c &&& 0b100111110000100001u = 0b000000000000000001u ->
     parseAdvSIMDCopy bin
-  | c when c &&& 0b100111010000100001u = 0b000001000000000001u -> unallocated ()
-  | c when c &&& 0b100110111111000011u = 0b000000011100000010u -> unallocated ()
-  | c when c &&& 0b100110110000110001u = 0b000000100000010001u -> unallocated ()
-  | c when c &&& 0b100110010000100000u = 0b000000000000100000u -> unallocated ()
+  | c when c &&& 0b100111010000100001u = 0b000001000000000001u ->
+    unallocated ()
+  | c when c &&& 0b100110111111000011u = 0b000000011100000010u ->
+    unallocated ()
+  | c when c &&& 0b100110110000110001u = 0b000000100000010001u ->
+    unallocated ()
+  | c when c &&& 0b100110010000100000u = 0b000000000000100000u ->
+    unallocated ()
   | c when c &&& 0b100110011111000011u = 0b000000010000000010u ->
     parseAdvSIMDTwoReg bin
   | c when c &&& 0b100110011111000011u = 0b000000011000000010u ->
     parseAdvSIMDAcrossLanes bin
-  | c when c &&& 0b100110010010000011u = 0b000000010010000010u -> unallocated ()
-  | c when c &&& 0b100110010001000011u = 0b000000010001000010u -> unallocated ()
+  | c when c &&& 0b100110010010000011u = 0b000000010010000010u ->
+    unallocated ()
+  | c when c &&& 0b100110010001000011u = 0b000000010001000010u ->
+    unallocated ()
   | c when c &&& 0b100110010000000011u = 0b000000010000000000u ->
     parseAdvSIMDThreeDiff bin
   | c when c &&& 0b100110010000000001u = 0b000000010000000001u ->
     parseAdvSIMDThreeSame bin
   | c when c &&& 0b100111111100000001u = 0b000010000000000001u ->
     parseAdvSIMDModImm bin
-  | c when c &&& 0b100111000000000001u = 0b000010000000000001u &&
-           extract c 11u 8u <> 0b0000u -> getAdvSIMDShfByImm bin
-  | c when c &&& 0b100111000000000001u = 0b000011000000000001u -> unallocated ()
+  | c when c &&& 0b100111000000000001u = 0b000010000000000001u
+           && extract c 11u 8u <> 0b0000u ->
+    getAdvSIMDShfByImm bin
+  | c when c &&& 0b100111000000000001u = 0b000011000000000001u ->
+    unallocated ()
   | c when c &&& 0b100110000000000001u = 0b000010000000000000u ->
     parseAdvSIMDVecXIdxElem bin
-  | c when c &&& 0b100100000000000000u = 0b100000000000000000u -> unallocated ()
-  | _ -> raise ParsingFailureException
+  | c when c &&& 0b100100000000000000u = 0b100000000000000000u ->
+    unallocated ()
+  | _ ->
+    raise ParsingFailureException
 
  /// Cryptographic three-register SHA on page C4-323.
 let parseCryptThreeRegSHA bin =
@@ -2908,38 +3254,62 @@ let toAliasFromDUP _ = Op.MOV
 /// Advanced SIMD scalar copy on page C4-325.
 let parseAdvSIMDScalarCopy bin =
   let cond = concat (concat (pickBit bin 29u) (extract bin 20u 16u) 5)
-                    (extract bin 14u 11u) 4 (* op:imm5:imm4 *)
+                    (extract bin 14u 11u)
+                    4 (* op:imm5:imm4 *)
   match cond with
-  | c when c &&& 0b1000000001u = 0b0000000001u -> unallocated ()
-  | c when c &&& 0b1000000010u = 0b0000000010u -> unallocated ()
-  | c when c &&& 0b1000000100u = 0b0000000100u -> unallocated ()
+  | c when c &&& 0b1000000001u = 0b0000000001u ->
+    unallocated ()
+  | c when c &&& 0b1000000010u = 0b0000000010u ->
+    unallocated ()
+  | c when c &&& 0b1000000100u = 0b0000000100u ->
+    unallocated ()
   | c when c &&& 0b1000001111u = 0b0000000000u ->
     toAliasFromDUP Op.DUP, getVdVntidx bin, getOprSizeByQ bin
-  | c when c &&& 0b1000001000u = 0b0000001000u -> unallocated ()
-  | c when c &&& 0b1011111111u = 0b0000000000u -> unallocated ()
-  | c when c &&& 0b1000000000u = 0b1000000000u -> unallocated ()
-  | _ -> raise ParsingFailureException
+  | c when c &&& 0b1000001000u = 0b0000001000u ->
+    unallocated ()
+  | c when c &&& 0b1011111111u = 0b0000000000u ->
+    unallocated ()
+  | c when c &&& 0b1000000000u = 0b1000000000u ->
+    unallocated ()
+  | _ ->
+    raise ParsingFailureException
 
  /// Advanced SIMD scalar two-register miscellaneous on page C4-328.
 let parseAdvSIMDScalarTwoReg bin =
   let cond = concat (concat (extract bin 29u 29u) (extract bin 23u 22u) 2)
-                    (extract bin 16u 12u) 5 (* U + size + opcode *)
+                    (extract bin 16u 12u)
+                    5 (* U + size + opcode *)
   match cond with
-  | c when c &&& 0b00011110u = 0b00000000u -> unallocated ()
-  | c when c &&& 0b00011111u = 0b00000010u -> unallocated ()
-  | c when c &&& 0b00011110u = 0b00000100u -> unallocated ()
-  | c when c &&& 0b00011111u = 0b00000110u -> unallocated ()
-  | c when c &&& 0b00011111u = 0b00001111u -> unallocated ()
-  | c when c &&& 0b00011110u = 0b00010000u -> unallocated ()
-  | c when c &&& 0b00011111u = 0b00010011u -> unallocated ()
-  | c when c &&& 0b00011111u = 0b00010101u -> unallocated ()
-  | c when c &&& 0b00011111u = 0b00010111u -> unallocated ()
-  | c when c &&& 0b00011110u = 0b00011000u -> unallocated ()
-  | c when c &&& 0b00011111u = 0b00011110u -> unallocated ()
-  | c when c &&& 0b01011100u = 0b00001100u -> unallocated ()
-  | c when c &&& 0b01011111u = 0b00011111u -> unallocated ()
-  | c when c &&& 0b01011111u = 0b01010110u -> unallocated ()
-  | c when c &&& 0b01011111u = 0b01011100u -> unallocated ()
+  | c when c &&& 0b00011110u = 0b00000000u ->
+    unallocated ()
+  | c when c &&& 0b00011111u = 0b00000010u ->
+    unallocated ()
+  | c when c &&& 0b00011110u = 0b00000100u ->
+    unallocated ()
+  | c when c &&& 0b00011111u = 0b00000110u ->
+    unallocated ()
+  | c when c &&& 0b00011111u = 0b00001111u ->
+    unallocated ()
+  | c when c &&& 0b00011110u = 0b00010000u ->
+    unallocated ()
+  | c when c &&& 0b00011111u = 0b00010011u ->
+    unallocated ()
+  | c when c &&& 0b00011111u = 0b00010101u ->
+    unallocated ()
+  | c when c &&& 0b00011111u = 0b00010111u ->
+    unallocated ()
+  | c when c &&& 0b00011110u = 0b00011000u ->
+    unallocated ()
+  | c when c &&& 0b00011111u = 0b00011110u ->
+    unallocated ()
+  | c when c &&& 0b01011100u = 0b00001100u ->
+    unallocated ()
+  | c when c &&& 0b01011111u = 0b00011111u ->
+    unallocated ()
+  | c when c &&& 0b01011111u = 0b01010110u ->
+    unallocated ()
+  | c when c &&& 0b01011111u = 0b01011100u ->
+    unallocated ()
   | c when c &&& 0b10011111u = 0b00000011u ->
     Op.SUQADD, getVdVn bin resNone, getOprSzBySize bin
   | c when c &&& 0b10011111u = 0b00000111u ->
@@ -2952,10 +3322,12 @@ let parseAdvSIMDScalarTwoReg bin =
     Op.CMLT, getVdVnI0 bin size0x10, getOprSzBySize bin
   | c when c &&& 0b10011111u = 0b00001011u ->
     Op.ABS, getVdVn bin size0x10, getOprSzBySize bin
-  | c when c &&& 0b10011111u = 0b00010010u -> unallocated ()
+  | c when c &&& 0b10011111u = 0b00010010u ->
+    unallocated ()
   | c when c &&& 0b10011111u = 0b00010100u ->
     Op.SQXTN, getVbdVan bin size11, getOprSzBySize bin
-  | c when c &&& 0b11011111u = 0b00010110u -> unallocated ()
+  | c when c &&& 0b11011111u = 0b00010110u ->
+    unallocated ()
   | c when c &&& 0b11011111u = 0b00011010u ->
     Op.FCVTNS, getVdVn2 bin, getOprSzBySz bin
   | c when c &&& 0b11011111u = 0b00011011u ->
@@ -2986,7 +3358,8 @@ let parseAdvSIMDScalarTwoReg bin =
     Op.CMGE, getVdVnI0 bin size0x10, getOprSzBySize bin
   | c when c &&& 0b10011111u = 0b10001001u ->
     Op.CMLE, getVdVnI0 bin size0x10, getOprSzBySize bin
-  | c when c &&& 0b10011111u = 0b10001010u -> unallocated ()
+  | c when c &&& 0b10011111u = 0b10001010u ->
+    unallocated ()
   | c when c &&& 0b10011111u = 0b10001011u ->
     Op.NEG, getVdVn bin size0x10, getOprSzBySize bin
   | c when c &&& 0b10011111u = 0b10010010u ->
@@ -3007,152 +3380,225 @@ let parseAdvSIMDScalarTwoReg bin =
     Op.FCMGE, getVdVnF0 bin, getOprSzBySz bin
   | c when c &&& 0b11011111u = 0b11001101u ->
     Op.FCMLE, getVdVnF0 bin, getOprSzBySz bin
-  | c when c &&& 0b11011111u = 0b11001110u -> unallocated ()
+  | c when c &&& 0b11011111u = 0b11001110u ->
+    unallocated ()
   | c when c &&& 0b11011111u = 0b11011010u ->
     Op.FCVTPU, getVdVn2 bin, getOprSzBySz bin
   | c when c &&& 0b11011111u = 0b11011011u ->
     Op.FCVTZU, getVdVn2 bin, getOprSzBySz bin
   | c when c &&& 0b11011111u = 0b11011101u ->
     Op.FRSQRTE, getVdVn2 bin, getOprSzBySz bin
-  | c when c &&& 0b11011111u = 0b11011111u -> unallocated ()
-  | _ -> raise ParsingFailureException
+  | c when c &&& 0b11011111u = 0b11011111u ->
+    unallocated ()
+  | _ ->
+    raise ParsingFailureException
 
 /// Advanced SIMD scalar pairwise on page C4-330.
 let parseAdvSIMDScalarPairwise bin =
   let cond = concat (concat (extract bin 29u 29u) (extract bin 23u 22u) 2)
-                    (extract bin 16u 12u) 5 (* U:size:opcode *)
+                    (extract bin 16u 12u)
+                    5 (* U:size:opcode *)
   match cond with
-  | c when c &&& 0b00011000u = 0b00000000u -> unallocated ()
-  | c when c &&& 0b00011100u = 0b00001000u -> unallocated ()
-  | c when c &&& 0b00011111u = 0b00001110u -> unallocated ()
-  | c when c &&& 0b00011000u = 0b00010000u -> unallocated ()
-  | c when c &&& 0b00011110u = 0b00011000u -> unallocated ()
-  | c when c &&& 0b00011111u = 0b00011010u -> unallocated ()
-  | c when c &&& 0b00011100u = 0b00011100u -> unallocated ()
-  | c when c &&& 0b01011111u = 0b01001101u -> unallocated ()
+  | c when c &&& 0b00011000u = 0b00000000u ->
+    unallocated ()
+  | c when c &&& 0b00011100u = 0b00001000u ->
+    unallocated ()
+  | c when c &&& 0b00011111u = 0b00001110u ->
+    unallocated ()
+  | c when c &&& 0b00011000u = 0b00010000u ->
+    unallocated ()
+  | c when c &&& 0b00011110u = 0b00011000u ->
+    unallocated ()
+  | c when c &&& 0b00011111u = 0b00011010u ->
+    unallocated ()
+  | c when c &&& 0b00011100u = 0b00011100u ->
+    unallocated ()
+  | c when c &&& 0b01011111u = 0b01001101u ->
+    unallocated ()
   | c when c &&& 0b10011111u = 0b00011011u ->
     Op.ADDP, getVdVnt4 bin size0x10, getOprSzBySize bin
-  | c when c &&& 0b10011111u = 0b10011011u -> unallocated ()
+  | c when c &&& 0b10011111u = 0b10011011u ->
+    unallocated ()
   | c when c &&& 0b11011111u = 0b10001100u ->
     Op.FMAXNMP, getVdVnt5 bin, 64<rt>
-  | c when c &&& 0b11011111u = 0b10001101u -> Op.FADDP, getVdVnt5 bin, 64<rt>
-  | c when c &&& 0b11011111u = 0b10001111u -> Op.FMAXP, getVdVnt5 bin, 64<rt>
-  | c when c &&& 0b11011111u = 0b11001100u -> Op.FMINNMP, getVdVnt5 bin, 64<rt>
-  | c when c &&& 0b11011111u = 0b11001111u -> Op.FMINP, getVdVnt5 bin, 64<rt>
-  | _ -> raise ParsingFailureException
+  | c when c &&& 0b11011111u = 0b10001101u ->
+    Op.FADDP, getVdVnt5 bin, 64<rt>
+  | c when c &&& 0b11011111u = 0b10001111u ->
+    Op.FMAXP, getVdVnt5 bin, 64<rt>
+  | c when c &&& 0b11011111u = 0b11001100u ->
+    Op.FMINNMP, getVdVnt5 bin, 64<rt>
+  | c when c &&& 0b11011111u = 0b11001111u ->
+    Op.FMINP, getVdVnt5 bin, 64<rt>
+  | _ ->
+    raise ParsingFailureException
 
 let parseAdvSIMDScalarThreeDiff bin =
   let cond = concat (extract bin 29u 29u) (extract bin 15u 12u) 4
   match cond with
-  | c when c &&& 0b01100u = 0b00000u -> unallocated ()
-  | c when c &&& 0b01100u = 0b00100u -> unallocated ()
-  | c when c &&& 0b01111u = 0b01000u -> unallocated ()
-  | c when c &&& 0b01111u = 0b01010u -> unallocated ()
-  | c when c &&& 0b01111u = 0b01100u -> unallocated ()
-  | c when c &&& 0b01110u = 0b01110u -> unallocated ()
+  | c when c &&& 0b01100u = 0b00000u ->
+    unallocated ()
+  | c when c &&& 0b01100u = 0b00100u ->
+    unallocated ()
+  | c when c &&& 0b01111u = 0b01000u ->
+    unallocated ()
+  | c when c &&& 0b01111u = 0b01010u ->
+    unallocated ()
+  | c when c &&& 0b01111u = 0b01100u ->
+    unallocated ()
+  | c when c &&& 0b01110u = 0b01110u ->
+    unallocated ()
   | c when c &&& 0b11111u = 0b01001u ->
     Op.SQDMLAL, getVadVbnVbm bin size0011, getOprSzBySize bin
   | c when c &&& 0b11111u = 0b01011u ->
     Op.SQDMLSL, getVadVbnVbm bin size0011, getOprSzBySize bin
   | c when c &&& 0b11111u = 0b01101u ->
     Op.SQDMULL, getVadVbnVbm bin size0011, getOprSzBySize bin
-  | c when c &&& 0b11111u = 0b11001u -> unallocated ()
-  | c when c &&& 0b11111u = 0b11011u -> unallocated ()
-  | c when c &&& 0b11111u = 0b11101u -> unallocated ()
-  | _ -> raise ParsingFailureException
+  | c when c &&& 0b11111u = 0b11001u ->
+    unallocated ()
+  | c when c &&& 0b11111u = 0b11011u ->
+    unallocated ()
+  | c when c &&& 0b11111u = 0b11101u ->
+    unallocated ()
+  | _ ->
+    raise ParsingFailureException
 
 let parseAdvSIMDScalarThreeSame bin =
   let cond = concat (concat (extract bin 29u 29u) (extract bin 23u 22u) 2)
-                    (extract bin 15u 11u) 5 (* U:size:opcode *)
-  match cond with
-  | c when c &&& 0b00011111u = 0b00000000u -> unallocated ()
-  | c when c &&& 0b00011110u = 0b00000010u -> unallocated ()
-  | c when c &&& 0b00011111u = 0b00000100u -> unallocated ()
-  | c when c &&& 0b00011100u = 0b00001100u -> unallocated ()
-  | c when c &&& 0b00011110u = 0b00010010u -> unallocated ()
-  | c when c &&& 0b01011111u = 0b01011011u -> unallocated ()
-  | c when c &&& 0b10011111u = 0b00000001u ->
-    Op.SQADD, getVdVnVm1 bin resNone
-  | c when c &&& 0b10011111u = 0b00000101u ->
-    Op.SQSUB, getVdVnVm1 bin resNone
-  | c when c &&& 0b10011111u = 0b00000110u ->
-    Op.CMGT, getVdVnVm1 bin size0x10
-  | c when c &&& 0b10011111u = 0b00000111u ->
-    Op.CMGE, getVdVnVm1 bin size0x10
-  | c when c &&& 0b10011111u = 0b00001000u ->
-    Op.SSHL, getVdVnVm1 bin size0x10
-  | c when c &&& 0b10011111u = 0b00001001u ->
-    Op.SQSHL, getVdVnVm1 bin resNone
-  | c when c &&& 0b10011111u = 0b00001010u ->
-    Op.SRSHL, getVdVnVm1 bin size0x10
-  | c when c &&& 0b10011111u = 0b00001011u ->
-    Op.SQRSHL, getVdVnVm1 bin resNone
-  | c when c &&& 0b10011111u = 0b00010000u ->
-    Op.ADD, getVdVnVm1 bin size0x10
-  | c when c &&& 0b10011111u = 0b00010001u ->
-    Op.CMTST, getVdVnVm1 bin size0x10
-  | c when c &&& 0b10011111u = 0b00010100u -> unallocated ()
-  | c when c &&& 0b10011111u = 0b00010101u -> unallocated ()
-  | c when c &&& 0b10011111u = 0b00010110u ->
-    Op.SQDMULH, getVdVnVm1 bin size0011
-  | c when c &&& 0b10011111u = 0b00010111u -> unallocated ()
-  | c when c &&& 0b11011111u = 0b00011000u -> unallocated ()
-  | c when c &&& 0b11011111u = 0b00011001u -> unallocated ()
-  | c when c &&& 0b11011111u = 0b00011010u -> unallocated ()
-  | c when c &&& 0b11011111u = 0b00011011u -> Op.FMULX, getVdVnVm2 bin
-  | c when c &&& 0b11011111u = 0b00011100u -> Op.FCMEQ, getVdVnVm2 bin
-  | c when c &&& 0b11011111u = 0b00011101u -> unallocated ()
-  | c when c &&& 0b11011111u = 0b00011110u -> unallocated ()
-  | c when c &&& 0b11011111u = 0b00011111u -> Op.FRECPS, getVdVnVm2 bin
-  | c when c &&& 0b11011111u = 0b01011000u -> unallocated ()
-  | c when c &&& 0b11011111u = 0b01011001u -> unallocated ()
-  | c when c &&& 0b11011111u = 0b01011010u -> unallocated ()
-  | c when c &&& 0b11011111u = 0b01011100u -> unallocated ()
-  | c when c &&& 0b11011111u = 0b01011101u -> unallocated ()
-  | c when c &&& 0b11011111u = 0b01011110u -> unallocated ()
-  | c when c &&& 0b11011111u = 0b01011111u -> Op.FRSQRTS, getVdVnVm2 bin
-  | c when c &&& 0b10011111u = 0b10000001u ->
-    Op.UQADD, getVdVnVm1 bin resNone
-  | c when c &&& 0b10011111u = 0b10000101u ->
-    Op.UQSUB, getVdVnVm1 bin resNone
-  | c when c &&& 0b10011111u = 0b10000110u ->
-    Op.CMHI, getVdVnVm1 bin size0x10
-  | c when c &&& 0b10011111u = 0b10000111u ->
-    Op.CMHS, getVdVnVm1 bin size0x10
-  | c when c &&& 0b10011111u = 0b10001000u ->
-    Op.USHL, getVdVnVm1 bin size0x10
-  | c when c &&& 0b10011111u = 0b10001001u ->
-    Op.UQSHL, getVdVnVm1 bin resNone
-  | c when c &&& 0b10011111u = 0b10001010u ->
-    Op.URSHL, getVdVnVm1 bin size0x10
-  | c when c &&& 0b10011111u = 0b10001011u ->
-    Op.UQRSHL, getVdVnVm1 bin resNone
-  | c when c &&& 0b10011111u = 0b10010000u ->
-    Op.SUB, getVdVnVm1 bin size0x10
-  | c when c &&& 0b10011111u = 0b10010001u ->
-    Op.CMEQ, getVdVnVm1 bin size0x10
-  | c when c &&& 0b10011111u = 0b10010100u -> unallocated ()
-  | c when c &&& 0b10011111u = 0b10010101u -> unallocated ()
-  | c when c &&& 0b10011111u = 0b10010110u ->
-    Op.SQRDMULH, getVdVnVm1 bin size0011
-  | c when c &&& 0b10011111u = 0b10010111u -> unallocated ()
-  | c when c &&& 0b11011111u = 0b10011000u -> unallocated ()
-  | c when c &&& 0b11011111u = 0b10011001u -> unallocated ()
-  | c when c &&& 0b11011111u = 0b10011010u -> unallocated ()
-  | c when c &&& 0b11011111u = 0b10011011u -> unallocated ()
-  | c when c &&& 0b11011111u = 0b10011100u -> Op.FCMGE, getVdVnVm2 bin
-  | c when c &&& 0b11011111u = 0b10011101u -> Op.FACGE, getVdVnVm2 bin
-  | c when c &&& 0b11011111u = 0b10011110u -> unallocated ()
-  | c when c &&& 0b11011111u = 0b10011111u -> unallocated ()
-  | c when c &&& 0b11011111u = 0b11011000u -> unallocated ()
-  | c when c &&& 0b11011111u = 0b11011001u -> unallocated ()
-  | c when c &&& 0b11011111u = 0b11011010u -> Op.FABD, getVdVnVm2 bin
-  | c when c &&& 0b11011111u = 0b11011100u -> Op.FCMGT, getVdVnVm2 bin
-  | c when c &&& 0b11011111u = 0b11011101u -> Op.FACGT, getVdVnVm2 bin
-  | c when c &&& 0b11011111u = 0b11011110u -> unallocated ()
-  | c when c &&& 0b11011111u = 0b11011111u -> unallocated ()
-  | _ -> raise ParsingFailureException
-  |> getSIMDScalarOprSize (extract bin 15u 14u) (valSize1 bin)
+                    (extract bin 15u 11u)
+                    5 (* U:size:opcode *)
+  let ins =
+    match cond with
+    | c when c &&& 0b00011111u = 0b00000000u ->
+      unallocated ()
+    | c when c &&& 0b00011110u = 0b00000010u ->
+      unallocated ()
+    | c when c &&& 0b00011111u = 0b00000100u ->
+      unallocated ()
+    | c when c &&& 0b00011100u = 0b00001100u ->
+      unallocated ()
+    | c when c &&& 0b00011110u = 0b00010010u ->
+      unallocated ()
+    | c when c &&& 0b01011111u = 0b01011011u ->
+      unallocated ()
+    | c when c &&& 0b10011111u = 0b00000001u ->
+      Op.SQADD, getVdVnVm1 bin resNone
+    | c when c &&& 0b10011111u = 0b00000101u ->
+      Op.SQSUB, getVdVnVm1 bin resNone
+    | c when c &&& 0b10011111u = 0b00000110u ->
+      Op.CMGT, getVdVnVm1 bin size0x10
+    | c when c &&& 0b10011111u = 0b00000111u ->
+      Op.CMGE, getVdVnVm1 bin size0x10
+    | c when c &&& 0b10011111u = 0b00001000u ->
+      Op.SSHL, getVdVnVm1 bin size0x10
+    | c when c &&& 0b10011111u = 0b00001001u ->
+      Op.SQSHL, getVdVnVm1 bin resNone
+    | c when c &&& 0b10011111u = 0b00001010u ->
+      Op.SRSHL, getVdVnVm1 bin size0x10
+    | c when c &&& 0b10011111u = 0b00001011u ->
+      Op.SQRSHL, getVdVnVm1 bin resNone
+    | c when c &&& 0b10011111u = 0b00010000u ->
+      Op.ADD, getVdVnVm1 bin size0x10
+    | c when c &&& 0b10011111u = 0b00010001u ->
+      Op.CMTST, getVdVnVm1 bin size0x10
+    | c when c &&& 0b10011111u = 0b00010100u ->
+      unallocated ()
+    | c when c &&& 0b10011111u = 0b00010101u ->
+      unallocated ()
+    | c when c &&& 0b10011111u = 0b00010110u ->
+      Op.SQDMULH, getVdVnVm1 bin size0011
+    | c when c &&& 0b10011111u = 0b00010111u ->
+      unallocated ()
+    | c when c &&& 0b11011111u = 0b00011000u ->
+      unallocated ()
+    | c when c &&& 0b11011111u = 0b00011001u ->
+      unallocated ()
+    | c when c &&& 0b11011111u = 0b00011010u ->
+      unallocated ()
+    | c when c &&& 0b11011111u = 0b00011011u ->
+      Op.FMULX, getVdVnVm2 bin
+    | c when c &&& 0b11011111u = 0b00011100u ->
+      Op.FCMEQ, getVdVnVm2 bin
+    | c when c &&& 0b11011111u = 0b00011101u ->
+      unallocated ()
+    | c when c &&& 0b11011111u = 0b00011110u ->
+      unallocated ()
+    | c when c &&& 0b11011111u = 0b00011111u ->
+      Op.FRECPS, getVdVnVm2 bin
+    | c when c &&& 0b11011111u = 0b01011000u ->
+      unallocated ()
+    | c when c &&& 0b11011111u = 0b01011001u ->
+      unallocated ()
+    | c when c &&& 0b11011111u = 0b01011010u ->
+      unallocated ()
+    | c when c &&& 0b11011111u = 0b01011100u ->
+      unallocated ()
+    | c when c &&& 0b11011111u = 0b01011101u ->
+      unallocated ()
+    | c when c &&& 0b11011111u = 0b01011110u ->
+      unallocated ()
+    | c when c &&& 0b11011111u = 0b01011111u ->
+      Op.FRSQRTS, getVdVnVm2 bin
+    | c when c &&& 0b10011111u = 0b10000001u ->
+      Op.UQADD, getVdVnVm1 bin resNone
+    | c when c &&& 0b10011111u = 0b10000101u ->
+      Op.UQSUB, getVdVnVm1 bin resNone
+    | c when c &&& 0b10011111u = 0b10000110u ->
+      Op.CMHI, getVdVnVm1 bin size0x10
+    | c when c &&& 0b10011111u = 0b10000111u ->
+      Op.CMHS, getVdVnVm1 bin size0x10
+    | c when c &&& 0b10011111u = 0b10001000u ->
+      Op.USHL, getVdVnVm1 bin size0x10
+    | c when c &&& 0b10011111u = 0b10001001u ->
+      Op.UQSHL, getVdVnVm1 bin resNone
+    | c when c &&& 0b10011111u = 0b10001010u ->
+      Op.URSHL, getVdVnVm1 bin size0x10
+    | c when c &&& 0b10011111u = 0b10001011u ->
+      Op.UQRSHL, getVdVnVm1 bin resNone
+    | c when c &&& 0b10011111u = 0b10010000u ->
+      Op.SUB, getVdVnVm1 bin size0x10
+    | c when c &&& 0b10011111u = 0b10010001u ->
+      Op.CMEQ, getVdVnVm1 bin size0x10
+    | c when c &&& 0b10011111u = 0b10010100u ->
+      unallocated ()
+    | c when c &&& 0b10011111u = 0b10010101u ->
+      unallocated ()
+    | c when c &&& 0b10011111u = 0b10010110u ->
+      Op.SQRDMULH, getVdVnVm1 bin size0011
+    | c when c &&& 0b10011111u = 0b10010111u ->
+      unallocated ()
+    | c when c &&& 0b11011111u = 0b10011000u ->
+      unallocated ()
+    | c when c &&& 0b11011111u = 0b10011001u ->
+      unallocated ()
+    | c when c &&& 0b11011111u = 0b10011010u ->
+      unallocated ()
+    | c when c &&& 0b11011111u = 0b10011011u ->
+      unallocated ()
+    | c when c &&& 0b11011111u = 0b10011100u ->
+      Op.FCMGE, getVdVnVm2 bin
+    | c when c &&& 0b11011111u = 0b10011101u ->
+      Op.FACGE, getVdVnVm2 bin
+    | c when c &&& 0b11011111u = 0b10011110u ->
+      unallocated ()
+    | c when c &&& 0b11011111u = 0b10011111u ->
+      unallocated ()
+    | c when c &&& 0b11011111u = 0b11011000u ->
+      unallocated ()
+    | c when c &&& 0b11011111u = 0b11011001u ->
+      unallocated ()
+    | c when c &&& 0b11011111u = 0b11011010u ->
+      Op.FABD, getVdVnVm2 bin
+    | c when c &&& 0b11011111u = 0b11011100u ->
+      Op.FCMGT, getVdVnVm2 bin
+    | c when c &&& 0b11011111u = 0b11011101u ->
+      Op.FACGT, getVdVnVm2 bin
+    | c when c &&& 0b11011111u = 0b11011110u ->
+      unallocated ()
+    | c when c &&& 0b11011111u = 0b11011111u ->
+      unallocated ()
+    | _ ->
+      raise ParsingFailureException
+  ins |> getSIMDScalarOprSize (extract bin 15u 14u) (valSize1 bin)
 
 /// Advanced SIMD scalar shift by immediate on page C4-333.
 let parseAdvSIMDScalarShiftByImm bin =
@@ -3206,15 +3652,23 @@ let parseAdvSIMDScalarShiftByImm bin =
 /// Advanced SIMD scalar x indexed element on page C4-335.
 let parseAdvSIMDScalarXIdxElem b =
   let cond = concat (concat (extract b 29u 29u) (extract b 23u 22u) 2)
-                    (extract b 15u 12u) 4 (* U:size:opcode *)
+                    (extract b 15u 12u)
+                    4 (* U:size:opcode *)
   match cond with
-  | c when c &&& 0b0001111u = 0b0000000u -> unallocated ()
-  | c when c &&& 0b0001111u = 0b0000100u -> unallocated ()
-  | c when c &&& 0b0001111u = 0b0000100u -> unallocated ()
-  | c when c &&& 0b0001111u = 0b0000110u -> unallocated ()
-  | c when c &&& 0b0001111u = 0b0001000u -> unallocated ()
-  | c when c &&& 0b0001111u = 0b0001010u -> unallocated ()
-  | c when c &&& 0b0001110u = 0b0001110u -> unallocated ()
+  | c when c &&& 0b0001111u = 0b0000000u ->
+    unallocated ()
+  | c when c &&& 0b0001111u = 0b0000100u ->
+    unallocated ()
+  | c when c &&& 0b0001111u = 0b0000100u ->
+    unallocated ()
+  | c when c &&& 0b0001111u = 0b0000110u ->
+    unallocated ()
+  | c when c &&& 0b0001111u = 0b0001000u ->
+    unallocated ()
+  | c when c &&& 0b0001111u = 0b0001010u ->
+    unallocated ()
+  | c when c &&& 0b0001110u = 0b0001110u ->
+    unallocated ()
   | c when c &&& 0b1001111u = 0b0000011u ->
     Op.SQDMLAL, getVadVbnVmtsidx b size0011, getOprSzBySize b
   | c when c &&& 0b1001111u = 0b0000111u ->
@@ -3231,15 +3685,22 @@ let parseAdvSIMDScalarXIdxElem b =
     Op.FMLS, getVdVnVmtsidx2 b szL11, getOprSzBySize b
   | c when c &&& 0b1101111u = 0b0101001u ->
     Op.FMUL, getVdVnVmtsidx2 b szL11, getOprSzBySize b
-  | c when c &&& 0b1001111u = 0b1000011u -> unallocated ()
-  | c when c &&& 0b1001111u = 0b1000111u -> unallocated ()
-  | c when c &&& 0b1001111u = 0b1001011u -> unallocated ()
-  | c when c &&& 0b1001110u = 0b1001100u -> unallocated ()
-  | c when c &&& 0b1101111u = 0b1100001u -> unallocated ()
-  | c when c &&& 0b1101111u = 0b1100101u -> unallocated ()
+  | c when c &&& 0b1001111u = 0b1000011u ->
+    unallocated ()
+  | c when c &&& 0b1001111u = 0b1000111u ->
+    unallocated ()
+  | c when c &&& 0b1001111u = 0b1001011u ->
+    unallocated ()
+  | c when c &&& 0b1001110u = 0b1001100u ->
+    unallocated ()
+  | c when c &&& 0b1101111u = 0b1100001u ->
+    unallocated ()
+  | c when c &&& 0b1101111u = 0b1100101u ->
+    unallocated ()
   | c when c &&& 0b1101111u = 0b1101001u ->
     Op.FMULX, getVdVnVmtsidx2 b szL11, getOprSzBySize b
-  | _ -> raise ParsingFailureException
+  | _ ->
+    raise ParsingFailureException
 
 let parseConvBetwFPAndFixedPt bin =
   let cond = (* sf:S:type:rmode:opcode *)
@@ -3497,7 +3958,8 @@ let parseFPDP2Src bin =
 /// Floating-point conditional select on page C4-368.
 let parseFPCondSelect bin =
   let cond = concat (concat (pickBit bin 31u) (pickBit bin 29u) 1)
-                    (extract bin 23u 22u) 2 (* M:S:type *)
+                    (extract bin 23u 22u)
+                    2 (* M:S:type *)
   match cond with
   | c when c &&& 0b0011u = 0b0010u -> unallocated ()
   | c when c &&& 0b0100u = 0b0100u -> unallocated ()
@@ -3528,40 +3990,51 @@ let parseFPDP3Src bin =
 /// Data processing - SIMD and FP - 2
 let parse64Group6 bin =
   let cond = concat (concat (extract bin 31u 28u) (extract bin 24u 17u) 8)
-                    (extract bin 15u 10u) 6 (* op0:op1:op2:op3:op4 *)
+                    (extract bin 15u 10u)
+                    6 (* op0:op1:op2:op3:op4 *)
   match cond with
   | c when c &&& 0b111110010000100011u = 0b010100000000000000u ->
     parseCryptThreeRegSHA bin
-  | c when c &&& 0b111110010000100011u = 0b010100000000000010u -> unallocated ()
+  | c when c &&& 0b111110010000100011u = 0b010100000000000010u ->
+    unallocated ()
   | c when c &&& 0b111110011111000011u = 0b010100010100000010u ->
     parseCryptTwoRegSHA bin
-  | c when c &&& 0b111110010000100001u = 0b011100000000000000u -> unallocated ()
-  | c when c &&& 0b111110011111000011u = 0b011100010100000010u -> unallocated ()
+  | c when c &&& 0b111110010000100001u = 0b011100000000000000u ->
+    unallocated ()
+  | c when c &&& 0b111110011111000011u = 0b011100010100000010u ->
+    unallocated ()
   | c when c &&& 0b110111110000100001u = 0b010100000000000001u ->
     parseAdvSIMDScalarCopy bin
-  | c when c &&& 0b110111010000100001u = 0b010101000000000001u -> unallocated ()
-  | c when c &&& 0b110110111111000011u = 0b010100011100000010u -> unallocated ()
+  | c when c &&& 0b110111010000100001u = 0b010101000000000001u ->
+    unallocated ()
+  | c when c &&& 0b110110111111000011u = 0b010100011100000010u ->
+    unallocated ()
   | c when c &&& 0b110110011111000011u = 0b010100010000000010u ->
     parseAdvSIMDScalarTwoReg bin
   | c when c &&& 0b110110011111000011u = 0b010100011000000010u ->
     parseAdvSIMDScalarPairwise bin
-  | c when c &&& 0b110110010010000011u = 0b010100010010000010u -> unallocated ()
-  | c when c &&& 0b110110010001000011u = 0b010100010001000010u -> unallocated ()
+  | c when c &&& 0b110110010010000011u = 0b010100010010000010u ->
+    unallocated ()
+  | c when c &&& 0b110110010001000011u = 0b010100010001000010u ->
+    unallocated ()
   | c when c &&& 0b110110010000000011u = 0b010100010000000000u ->
     parseAdvSIMDScalarThreeDiff bin
   | c when c &&& 0b110110010000000001u = 0b010100010000000001u ->
     parseAdvSIMDScalarThreeSame bin
   | c when c &&& 0b110111000000000001u = 0b010110000000000001u ->
     parseAdvSIMDScalarShiftByImm bin
-  | c when c &&& 0b110111000000000001u = 0b010111000000000001u -> unallocated ()
+  | c when c &&& 0b110111000000000001u = 0b010111000000000001u ->
+    unallocated ()
   | c when c &&& 0b110110000000000001u = 0b010110000000000000u ->
     parseAdvSIMDScalarXIdxElem bin
-  | c when c &&& 0b110100000000000000u = 0b110100000000000000u -> unallocated ()
+  | c when c &&& 0b110100000000000000u = 0b110100000000000000u ->
+    unallocated ()
   | c when c &&& 0b010110010000000000u = 0b000100000000000000u ->
     parseConvBetwFPAndFixedPt bin
   | c when c &&& 0b010110010000111111u = 0b000100010000000000u ->
     parseConvBetwFPAndInt bin
-  | c when c &&& 0b010110010000111111u = 0b000100010000100000u -> unallocated ()
+  | c when c &&& 0b010110010000111111u = 0b000100010000100000u ->
+    unallocated ()
   | c when c &&& 0b010110010000011111u = 0b000100010000010000u ->
     parseFPDP1Src bin
   | c when c &&& 0b010110010000001111u = 0b000100010000001000u ->
@@ -3576,7 +4049,8 @@ let parse64Group6 bin =
     parseFPCondSelect bin
   | c when c &&& 0b010110000000000000u = 0b000110000000000000u ->
     parseFPDP3Src bin
-  | _ -> raise ParsingFailureException
+  | _ ->
+    raise ParsingFailureException
 
 let parseByGroupOfB64 bin =
   let op0 = extract bin 28u 25u

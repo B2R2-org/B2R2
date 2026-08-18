@@ -36,7 +36,8 @@ type ItaniumDemangler() =
 
   let rec convertbase36todecimal idx res input =
     match input with
-    | [] -> res
+    | [] ->
+      res
     | hd :: tail ->
       if Char.IsDigit hd then
         let hd = int (hd) - int ('0')
@@ -57,7 +58,8 @@ type ItaniumDemangler() =
           if x + 2 <= us.Namelist.Length then
             let a2 = (List.rev us.Namelist)[x + 1]
             match a2 with
-            | NestedName(a, b) -> NestedName(a, List.rev b)
+            | NestedName(a, b) ->
+              NestedName(a, List.rev b)
             | PointerArg(a, b, Specific idx) ->
               let value = us.TemplateArgList[idx + 1]
               PointerArg(a, b, value)
@@ -67,7 +69,8 @@ type ItaniumDemangler() =
             | Specific idx ->
               let value = us.TemplateArgList[idx + 1]
               value
-            | _ -> a2
+            | _ ->
+              a2
           else
             Dummy "") |>> SingleArg
 
@@ -284,8 +287,7 @@ type ItaniumDemangler() =
     |>>
     (fun (x, y) ->
       match x with
-      | Some value ->
-        RefArg(value, y)
+      | Some value -> RefArg(value, y)
       | None -> RefArg(ReferenceArg(Reference Empty, None), y))
     >>= addArgPack >>= addOnCondition
     |>>
@@ -294,7 +296,8 @@ type ItaniumDemangler() =
       | RefArg(a, Arguments alist)
       | RefArg(a, TemplateSub(Arguments alist, _)) ->
         List.map (fun x -> RefArg(a, x)) alist
-      | _ -> [ b ]
+      | _ ->
+        [ b ]
     ) |>> Arguments
 
   let pMember = pchar 'M' >>. (pNormalArg <|> prefArg) |>> MemberPointer
@@ -592,6 +595,7 @@ type ItaniumDemangler() =
       | Success(result, _, pos) ->
         if pos.Column = int64 str.Length - 1L then
           Result.Ok <| ItaniumInterpreter.interpret result
-        else Result.Error ErrorCase.ParsingFailure (* Didn't consume all. *)
+        else
+          Result.Error ErrorCase.ParsingFailure (* Didn't consume all. *)
       | Failure(e, _, _) ->
         Result.Error ErrorCase.ParsingFailure

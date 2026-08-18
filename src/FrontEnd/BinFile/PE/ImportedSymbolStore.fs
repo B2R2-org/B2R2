@@ -86,8 +86,7 @@ module internal ImportedSymbolStore =
       ByName(hint, funname, dllname)
 
   let private computeRVAMaskForILT wordSize =
-    if wordSize = WordSize.Bit32 then 0x80000000UL
-    else 0x8000000000000000UL
+    if wordSize = WordSize.Bit32 then 0x80000000UL else 0x8000000000000000UL
 
   let private parseILT (bytes: byte[]) reader secs wordSize map idt =
     let skip = if wordSize = WordSize.Bit32 then 4 else 8

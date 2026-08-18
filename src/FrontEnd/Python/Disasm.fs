@@ -158,8 +158,7 @@ let private pyStrRepr (lone: Set<int>) (s: string) =
     let paired =
       not (lone.Contains i) && Char.IsHighSurrogate s[i]
       && i + 1 < s.Length && Char.IsLowSurrogate s[i + 1]
-    let cp =
-      if paired then Char.ConvertToUtf32(s[i], s[i + 1]) else int s[i]
+    let cp = if paired then Char.ConvertToUtf32(s[i], s[i + 1]) else int s[i]
     (* Asked with an index, .NET reads the pair and answers for the character
        it spells -- which is the wrong answer for a surrogate standing on its
        own, and would let it through unescaped. *)
@@ -225,8 +224,7 @@ let private roundTo (digits: string) n =
         arr[i] <- char (int arr[i] + 1)
         carry <- false
       i <- i - 1
-    if carry then "1" + String(arr[0..n - 2]), 1
-    else String arr, 0
+    if carry then "1" + String(arr[0..n - 2]), 1 else String arr, 0
 
 /// The fewest digits that still read back as the same double, which is what
 /// Python's repr prints. Shortens the exact decimal a digit at a time rather
@@ -509,9 +507,12 @@ let private formatValueFlags arg =
 /// moved the index four bits up to make room for cache flags, 3.13 five, and
 /// 3.13 added one below it saying the result is forced to bool.
 let private compareNote minor arg =
-  if minor <= 8 then at cmpOpsLegacy arg
-  elif minor <= 11 then at cmpOps arg
-  elif minor = 12 then at cmpOps (arg >>> 4)
+  if minor <= 8 then
+    at cmpOpsLegacy arg
+  elif minor <= 11 then
+    at cmpOps arg
+  elif minor = 12 then
+    at cmpOps (arg >>> 4)
   else
     match at cmpOps ((arg >>> 5) &&& 0xF) with
     | "" -> ""
@@ -523,20 +524,28 @@ let private compareNote minor arg =
 /// Empty means the argument speaks for itself.
 let private operandNote minor opcode arg =
   match opcode with
-  | Opcode.COMPARE_OP -> compareNote minor arg
-  | Opcode.IS_OP -> if arg = 0 then "is" else "is not"
-  | Opcode.CONTAINS_OP -> if arg = 0 then "in" else "not in"
-  | Opcode.FORMAT_VALUE -> formatValueFlags arg
+  | Opcode.COMPARE_OP ->
+    compareNote minor arg
+  | Opcode.IS_OP ->
+    if arg = 0 then "is" else "is not"
+  | Opcode.CONTAINS_OP ->
+    if arg = 0 then "in" else "not in"
+  | Opcode.FORMAT_VALUE ->
+    formatValueFlags arg
   | Opcode.BINARY_OP ->
     at (if minor >= 14 then binaryOps14 else binaryOps13) arg
-  | Opcode.CALL_INTRINSIC_1 -> at intrinsic1 arg
+  | Opcode.CALL_INTRINSIC_1 ->
+    at intrinsic1 arg
   | Opcode.CALL_INTRINSIC_2 ->
     at (if minor >= 13 then intrinsic2From13 else intrinsic2) arg
-  | Opcode.LOAD_SPECIAL -> at specialMethods arg
+  | Opcode.LOAD_SPECIAL ->
+    at specialMethods arg
   | Opcode.LOAD_COMMON_CONSTANT ->
     at (if minor >= 15 then commonConstants15 else commonConstants14) arg
-  | Opcode.CONVERT_VALUE -> at conversions arg
-  | Opcode.MAKE_FUNCTION -> bitNames functionAttrs13 arg
+  | Opcode.CONVERT_VALUE ->
+    at conversions arg
+  | Opcode.MAKE_FUNCTION ->
+    bitNames functionAttrs13 arg
   | Opcode.SET_FUNCTION_ATTRIBUTE ->
     bitNames (if minor >= 14 then functionAttrs14 else functionAttrs13) arg
   (* 3.0 to 3.5 pack two counts into a call's argument: the low byte counts
@@ -546,7 +555,8 @@ let private operandNote minor opcode arg =
   | Opcode.CALL_FUNCTION_KW
   | Opcode.CALL_FUNCTION_VAR_KW when minor <= 5 ->
     sprintf "%d positional, %d keyword pair" (arg % 256) (arg / 256)
-  | _ -> ""
+  | _ ->
+    ""
 
 /// dis prints a constant with repr and a name bare, so the two have to be
 /// told apart, and only the opcode says which of them it is. An opcode a

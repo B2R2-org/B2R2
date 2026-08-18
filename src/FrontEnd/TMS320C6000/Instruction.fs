@@ -29,7 +29,13 @@ open B2R2.FrontEnd.BinLifter
 
 /// Represents an instruction for TMS320C6000.
 type Instruction
-  internal(addr, numBytes, op, opr, funit, oprSize, isParallel,
+  internal(addr,
+           numBytes,
+           op,
+           opr,
+           funit,
+           oprSize,
+           isParallel,
            lifter: ILiftable) =
 
   /// Address of this instruction.

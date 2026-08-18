@@ -151,4 +151,5 @@ let parse toolBox cls shdrs =
   | Some indexTable, Some exnTable ->
     let indexTable = parseIndexTable toolBox indexTable
     parseExnTable toolBox cls exnTable indexTable
-  | _ -> struct ([], Map.empty)
+  | _ ->
+    struct ([], Map.empty)

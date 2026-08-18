@@ -89,9 +89,9 @@ let validateSectionsOrder secsSummary =
         if id1 = SectionId.Custom || id2 = SectionId.Custom
         then true
         else idLtId id1 id2
-      if not isValid' then isValid'
-      else validationLoop secsSumm' isValid'
-    | None -> isValid
+      if not isValid' then isValid' else validationLoop secsSumm' isValid'
+    | None ->
+      isValid
   validationLoop secsSummary true
 
 let updateSection bs reader wm id updateRec parseSec secsSumm =
@@ -104,7 +104,8 @@ let updateSection bs reader wm id updateRec parseSec secsSumm =
     let secsSummary' = secsSumm |> List.except [ sm ]
     let sec = parseSec bs reader sm.Offset
     (updateRec wm sec), secsSummary'
-  | None -> wm, secsSumm
+  | None ->
+    wm, secsSumm
 
 let updateCustomSection bs reader wasmModule secsSummary =
   let ur wm sec = { wm with CustomSections = wm.CustomSections @ [ sec ] }
@@ -169,8 +170,7 @@ let updateDataSection bs reader wasmModule secsSummary =
 let renameSecSumm (sm: SectionSummary) (secConts: CustomContents option) =
   let name =
     match secConts with
-    | Some conts ->
-      conts.Name
+    | Some conts -> conts.Name
     | None -> sm.Name
   { sm with Name = name }
 
@@ -191,77 +191,79 @@ let private parseWasmModule (bs: byte[]) (reader: IBinReader) offset =
   let contOff = offset + 8
   let secsSummary = summerizeSections bs reader contOff
   if not (validateSectionsOrder secsSummary)
-  then raise InvalidFileFormatException
+  then
+    raise InvalidFileFormatException
   else
-  let rec parsingLoop wasmModule info (secsSummary: SectionSummary list) =
-    if List.isEmpty secsSummary then
-      { wasmModule with SectionsInfo = info }
-    else
-    let secSumm = List.head secsSummary
-    let info' =
-        if secSumm.Id = SectionId.Custom then info
-        else addSecSummToSecsInfo secSumm info
-    match secSumm.Id with
-    | SectionId.Custom ->
-      let wm, sm = updateCustomSection bs reader wasmModule secsSummary
-      let lastCS = List.last wm.CustomSections
-      let secSumm' = renameSecSumm secSumm lastCS.Contents
-      let updatedInfo = addSecSummToSecsInfo secSumm' info'
-      parsingLoop wm updatedInfo sm
-    | SectionId.Type ->
-      let wm, sm = updateTypeSection bs reader wasmModule secsSummary
-      parsingLoop wm info' sm
-    | SectionId.Import ->
-      let wm, sm = updateImportSection bs reader wasmModule secsSummary
-      parsingLoop wm info' sm
-    | SectionId.Function ->
-      let wm, sm = updateFunctionSection bs reader wasmModule secsSummary
-      parsingLoop wm info' sm
-    | SectionId.Table ->
-      let wm, sm = updateTableSection bs reader wasmModule secsSummary
-      parsingLoop wm info' sm
-    | SectionId.Memory ->
-      let wm, sm = updateMemorySection bs reader wasmModule secsSummary
-      parsingLoop wm info' sm
-    | SectionId.Global ->
-      let wm, sm = updateGlobalSection bs reader wasmModule secsSummary
-      parsingLoop wm info' sm
-    | SectionId.Export ->
-      let wm, sm = updateExportSection bs reader wasmModule secsSummary
-      parsingLoop wm info' sm
-    | SectionId.Start ->
-      let wm, sm = updateStartSection bs reader wasmModule secsSummary
-      parsingLoop wm info' sm
-    | SectionId.Element ->
-      let wm, sm = updateElementSection bs reader wasmModule secsSummary
-      parsingLoop wm info' sm
-    | SectionId.Code ->
-      let wm, sm = updateCodeSection bs reader wasmModule secsSummary
-      parsingLoop wm info' sm
-    | SectionId.Data ->
-      let wm, sm = updateDataSection bs reader wasmModule secsSummary
-      parsingLoop wm info' sm
-    | _ -> wasmModule
-  let wasmModule =
-    { FormatVersion = version
-      CustomSections = []
-      TypeSection = None
-      ImportSection = None
-      FunctionSection = None
-      TableSection = None
-      MemorySection = None
-      GlobalSection = None
-      ExportSection = None
-      StartSection = None
-      ElementSection = None
-      CodeSection = None
-      DataSection = None
-      SectionsInfo =
-        { SecByAddr = NoOverlapIntervalMap.empty
-          SecByName = Map.empty
-          SecArray = Array.empty }
-      IndexMap = Array.empty }
-  parsingLoop wasmModule wasmModule.SectionsInfo secsSummary
+    let rec parsingLoop wasmModule info (secsSummary: SectionSummary list) =
+      if List.isEmpty secsSummary then
+        { wasmModule with SectionsInfo = info }
+      else
+        let secSumm = List.head secsSummary
+        let info' =
+          if secSumm.Id = SectionId.Custom then info
+          else addSecSummToSecsInfo secSumm info
+        match secSumm.Id with
+        | SectionId.Custom ->
+          let wm, sm = updateCustomSection bs reader wasmModule secsSummary
+          let lastCS = List.last wm.CustomSections
+          let secSumm' = renameSecSumm secSumm lastCS.Contents
+          let updatedInfo = addSecSummToSecsInfo secSumm' info'
+          parsingLoop wm updatedInfo sm
+        | SectionId.Type ->
+          let wm, sm = updateTypeSection bs reader wasmModule secsSummary
+          parsingLoop wm info' sm
+        | SectionId.Import ->
+          let wm, sm = updateImportSection bs reader wasmModule secsSummary
+          parsingLoop wm info' sm
+        | SectionId.Function ->
+          let wm, sm = updateFunctionSection bs reader wasmModule secsSummary
+          parsingLoop wm info' sm
+        | SectionId.Table ->
+          let wm, sm = updateTableSection bs reader wasmModule secsSummary
+          parsingLoop wm info' sm
+        | SectionId.Memory ->
+          let wm, sm = updateMemorySection bs reader wasmModule secsSummary
+          parsingLoop wm info' sm
+        | SectionId.Global ->
+          let wm, sm = updateGlobalSection bs reader wasmModule secsSummary
+          parsingLoop wm info' sm
+        | SectionId.Export ->
+          let wm, sm = updateExportSection bs reader wasmModule secsSummary
+          parsingLoop wm info' sm
+        | SectionId.Start ->
+          let wm, sm = updateStartSection bs reader wasmModule secsSummary
+          parsingLoop wm info' sm
+        | SectionId.Element ->
+          let wm, sm = updateElementSection bs reader wasmModule secsSummary
+          parsingLoop wm info' sm
+        | SectionId.Code ->
+          let wm, sm = updateCodeSection bs reader wasmModule secsSummary
+          parsingLoop wm info' sm
+        | SectionId.Data ->
+          let wm, sm = updateDataSection bs reader wasmModule secsSummary
+          parsingLoop wm info' sm
+        | _ ->
+          wasmModule
+    let wasmModule =
+      { FormatVersion = version
+        CustomSections = []
+        TypeSection = None
+        ImportSection = None
+        FunctionSection = None
+        TableSection = None
+        MemorySection = None
+        GlobalSection = None
+        ExportSection = None
+        StartSection = None
+        ElementSection = None
+        CodeSection = None
+        DataSection = None
+        SectionsInfo =
+          { SecByAddr = NoOverlapIntervalMap.empty
+            SecByName = Map.empty
+            SecArray = Array.empty }
+        IndexMap = Array.empty }
+    parsingLoop wasmModule wasmModule.SectionsInfo secsSummary
 
 let buildFuncIndexMap (wm: Module) =
   let makeFuncIdxInfo secOff idx elemOff =
@@ -315,7 +317,8 @@ let private importedEntriesOf (wm: Module) pred =
     match sec.Contents with
     | Some conts -> conts.Elements |> Array.filter (fun ie -> pred ie.Desc)
     | None -> [||]
-  | None -> [||]
+  | None ->
+    [||]
 
 /// Re-walks a section's vector to recover the file offset of each locally
 /// defined element, using the element parser to advance over each entry.
@@ -353,7 +356,8 @@ let private buildKindIndexMap bs reader wm kind importPred localSec peekElem =
       |> List.mapi (fun i off ->
         makeIdxInfo kind sec.Offset (baseIdx + uint32 i) off)
       |> List.toArray
-    | None -> [||]
+    | None ->
+      [||]
   Array.append impEntries localEntries
 
 let private isImpTable = function ImpTable _ -> true | _ -> false
@@ -366,17 +370,37 @@ let private neverImported _ = false
 
 let buildModuleIndexMap bs reader (wm: Module) =
   let typeMap =
-    buildKindIndexMap bs reader wm IndexKind.Type
-      neverImported wm.TypeSection peekFuncType
+    buildKindIndexMap bs
+      reader
+      wm
+      IndexKind.Type
+      neverImported
+      wm.TypeSection
+      peekFuncType
   let tableMap =
-    buildKindIndexMap bs reader wm IndexKind.Table
-      isImpTable wm.TableSection peekTableType
+    buildKindIndexMap bs
+      reader
+      wm
+      IndexKind.Table
+      isImpTable
+      wm.TableSection
+      peekTableType
   let memMap =
-    buildKindIndexMap bs reader wm IndexKind.Memory
-      isImpMem wm.MemorySection peekLimits
+    buildKindIndexMap bs
+      reader
+      wm
+      IndexKind.Memory
+      isImpMem
+      wm.MemorySection
+      peekLimits
   let globalMap =
-    buildKindIndexMap bs reader wm IndexKind.Global
-      isImpGlobal wm.GlobalSection peekGlobalVar
+    buildKindIndexMap bs
+      reader
+      wm
+      IndexKind.Global
+      isImpGlobal
+      wm.GlobalSection
+      peekGlobalVar
   let indexMap =
     [| buildFuncIndexMap wm; typeMap; tableMap; memMap; globalMap |]
     |> Array.concat
@@ -384,7 +408,6 @@ let buildModuleIndexMap bs reader (wm: Module) =
 
 let parse (bs: byte[]) =
   let reader = BinReader.Init Endian.Little
-  if Header.isWasm bs reader then ()
-  else raise InvalidFileFormatException
+  if Header.isWasm bs reader then () else raise InvalidFileFormatException
   parseWasmModule bs reader 0
   |> buildModuleIndexMap bs reader

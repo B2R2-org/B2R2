@@ -58,8 +58,7 @@ let getTextSegOffset segs =
 
 let computeEntryPoint segs cmds =
   let mainOffset = getMainOffset cmds
-  if mainOffset = 0UL then None
-  else Some(mainOffset + getTextSegOffset segs)
+  if mainOffset = 0UL then None else Some(mainOffset + getTextSegOffset segs)
 
 let isNXEnabled hdr =
   not (hdr.Flags.HasFlag MachFlag.MH_ALLOW_STACK_EXECUTION)

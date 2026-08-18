@@ -594,8 +594,10 @@ let inline appendQualifier (ins: Instruction) (sb: StringBuilder) =
 
 let inline appendSIMDDataTypes (ins: Instruction) (sb: StringBuilder) =
   match ins.SIMDTyp with
-  | None -> sb
-  | Some(OneDT dt) -> sb.Append(simdTypeToStr dt)
+  | None ->
+    sb
+  | Some(OneDT dt) ->
+    sb.Append(simdTypeToStr dt)
   | Some(TwoDT(dt1, dt2)) ->
     (sb.Append(simdTypeToStr dt1)).Append(simdTypeToStr dt2)
 
@@ -652,7 +654,8 @@ let flagToString = function
 
 let specRegToString ins reg pFlag builder =
   match pFlag with
-  | None -> buildReg ins false reg builder
+  | None ->
+    buildReg ins false reg builder
   | Some f ->
     buildReg ins false reg builder
     builder.Accumulate(AsmWordKind.String, flagToString f)
@@ -663,15 +666,15 @@ let regListToString (ins: Instruction) list (builder: IDisasmBuilder) =
   list
   |> List.iteri (fun idx r ->
     buildReg ins true r builder
-    if idx + 1 = len then ()
-    else builder.Accumulate(AsmWordKind.String, ", ")
+    if idx + 1 = len then () else builder.Accumulate(AsmWordKind.String, ", ")
   )
   builder.Accumulate(AsmWordKind.String, "}")
   if ins.Caret then builder.Accumulate(AsmWordKind.String, "^") else ()
 
 let simdToString ins s builder =
   match s with
-  | Vector v -> buildReg ins false v builder
+  | Vector v ->
+    buildReg ins false v builder
   | Scalar(v, None) ->
     buildReg ins false v builder
     builder.Accumulate(AsmWordKind.String, "[]")
@@ -683,7 +686,8 @@ let simdToString ins s builder =
 
 let simdOprToString ins simd builder =
   match simd with
-  | SFReg s -> simdToString ins s builder
+  | SFReg s ->
+    simdToString ins s builder
   | OneReg s ->
     builder.Accumulate(AsmWordKind.String, "{")
     simdToString ins s builder
@@ -744,7 +748,8 @@ let prependDelimiter delimiter (builder: IDisasmBuilder) =
 
 let shiftToString shift delim builder =
   match shift with
-  | _, Imm 0u -> ()
+  | _, Imm 0u ->
+    ()
   | s, Imm i ->
     prependDelimiter delim builder
     builder.Accumulate(AsmWordKind.String, srTypeToString s)
@@ -807,7 +812,8 @@ let alignOffsetToString ins offset builder =
     buildReg ins false bReg builder
     builder.Accumulate(AsmWordKind.String, "], ")
     buildReg ins false reg builder
-  | bReg, None, None -> buildReg ins false bReg builder
+  | bReg, None, None ->
+    buildReg ins false bReg builder
 
 let offsetToString ins addrMode offset builder =
   match offset with
@@ -940,11 +946,13 @@ let oprToString ins addr operand delim builder =
   | OprCond c ->
     prependDelimiter delim builder
     builder.Accumulate(AsmWordKind.String, condToString c)
-  | GoToLabel _ -> ()
+  | GoToLabel _ ->
+    ()
 
 let buildOprs (ins: Instruction) pc builder =
   match ins.Operands with
-  | NoOperand -> ()
+  | NoOperand ->
+    ()
   | OneOperand opr ->
     oprToString ins pc opr (Some " ") builder
   | TwoOperands(opr1, opr2) ->

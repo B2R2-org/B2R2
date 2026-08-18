@@ -218,4 +218,5 @@ module internal Header =
       let reader = BinReader.Init endian
       let cls = getClass span
       Ok(toISA span reader cls (getELFMachineType span reader))
-    else Error ErrorCase.InvalidFormat
+    else
+      Error ErrorCase.InvalidFormat

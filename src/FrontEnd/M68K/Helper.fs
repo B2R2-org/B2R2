@@ -125,8 +125,7 @@ let private parseFull (phlp: ParsingHelper) span (ext: uint16) baseReg =
   let bdSize = Bits.extract (uint32 ext) 5u 4u
   let iis = Bits.extract (uint32 ext) 2u 0u
   checkFull ext bdSize iis
-  let index =
-    if ext &&& 0x40us <> 0us then None else Some(toIndexReg phlp ext)
+  let index = if ext &&& 0x40us <> 0us then None else Some(toIndexReg phlp ext)
   let baseDisp = readBaseDisp phlp span bdSize
   let outerDisp = readOuterDisp phlp span (iis &&& 0b11u)
   { Base = if ext &&& 0x80us <> 0us then None else Some baseReg

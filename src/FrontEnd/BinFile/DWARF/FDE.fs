@@ -66,7 +66,8 @@ module internal FDE =
     | Some addend ->
       let beginAddr = addr + addend
       struct (beginAddr, beginAddr + range, offset)
-    | None -> struct (beginAddr, endAddr, offset)
+    | None ->
+      struct (beginAddr, endAddr, offset)
 
   let parseLSDA cls span reader sAddr aug offset =
     let _, offset = FileHelper.readULEB128 span offset
@@ -96,9 +97,12 @@ module internal FDE =
     | Some cie ->
       let venc, aenc =
         match tryFindAugmentation cie 'R' with
-        | Some aug -> aug.ValueEncoding, aug.ApplicationEncoding
-        | None -> ExceptionHeaderValue.DW_EH_PE_absptr,
-                  ExceptionHeaderApplication.DW_EH_PE_omit
+        | Some aug ->
+          aug.ValueEncoding, aug.ApplicationEncoding
+        | None ->
+          let absptr = ExceptionHeaderValue.DW_EH_PE_absptr
+          let omit = ExceptionHeaderApplication.DW_EH_PE_omit
+          absptr, omit
       let struct (b, e, offset) =
         parsePCInfo cls span reader sAddr resolveReloc venc aenc offset
       let lsdaPointer, offset =
@@ -110,4 +114,5 @@ module internal FDE =
         PCEnd = e
         LSDAPointer = lsdaPointer
         UnwindingInfo = info }
-    | None -> raise CIENotFoundByFDEException
+    | None ->
+      raise CIENotFoundByFDEException

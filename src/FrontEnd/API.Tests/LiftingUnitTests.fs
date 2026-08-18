@@ -251,7 +251,8 @@ type LiftingUnitTests() =
         unit.IsThumb <- thumb
         for _ = 1 to 2000 do
           rng.NextBytes bytes
-          try unit.ParseInstruction(System.ReadOnlySpan bytes, 0UL) |> ignore
+          try
+            unit.ParseInstruction(System.ReadOnlySpan bytes, 0UL) |> ignore
           with
           | ParsingFailureException -> ()
           | e -> Assert.Fail $"{arch} thumb={thumb}: {e.GetType().Name}"
@@ -272,8 +273,7 @@ type LiftingUnitTests() =
     let addEax = [| 0x05uy; 0x00uy; 0x00uy; 0x01uy; 0x00uy |]
     let x86 = ISA(Architecture.Intel, WordSize.Bit32)
     let x86Unit = BinHandle.LoadRawImage(addEax, x86).NewLiftingUnit()
-    let disasm () =
-      x86Unit.DisasmInstruction(addr = 0UL).ToLowerInvariant()
+    let disasm () = x86Unit.DisasmInstruction(addr = 0UL).ToLowerInvariant()
     Assert.AreEqual<DisasmSyntax>(DefaultSyntax, x86Unit.DisassemblySyntax)
     Assert.AreEqual<string>("add eax, 0x10000", disasm ())
     x86Unit.DisassemblySyntax <- ATTSyntax

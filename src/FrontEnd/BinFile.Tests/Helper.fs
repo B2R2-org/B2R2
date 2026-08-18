@@ -38,8 +38,7 @@ module Helper =
     let ptr = BinFileOps.getCodeSectionPointer file
     ptr.Addr
 
-  let getLinkageTableEntries (file: IBinFile) =
-    BinFileOps.getImports file
+  let getLinkageTableEntries (file: IBinFile) = BinFileOps.getImports file
 
   let assertExistenceOfPair pair pairSequence =
     Assert.AreEqual(true, Seq.exists ((=) pair) pairSequence)

@@ -40,7 +40,8 @@ let private tableOf (binFile: PythonBinFile) minor opcode =
   | Opcode.LOAD_CONST
   | Opcode.RETURN_CONST
   | Opcode.KW_NAMES
-  | Opcode.INSTRUMENTED_RETURN_CONST -> binFile.Consts
+  | Opcode.INSTRUMENTED_RETURN_CONST ->
+    binFile.Consts
   | Opcode.LOAD_NAME
   | Opcode.STORE_NAME
   | Opcode.DELETE_NAME
@@ -56,7 +57,8 @@ let private tableOf (binFile: PythonBinFile) minor opcode =
   | Opcode.LOAD_SUPER_ATTR
   | Opcode.LOAD_FROM_DICT_OR_GLOBALS
   | Opcode.STORE_ANNOTATION
-  | Opcode.INSTRUMENTED_LOAD_SUPER_ATTR -> binFile.Names
+  | Opcode.INSTRUMENTED_LOAD_SUPER_ATTR ->
+    binFile.Names
   | Opcode.LOAD_FAST
   | Opcode.STORE_FAST
   | Opcode.DELETE_FAST
@@ -68,7 +70,8 @@ let private tableOf (binFile: PythonBinFile) minor opcode =
   | Opcode.STORE_FAST_LOAD_FAST
   | Opcode.STORE_FAST_STORE_FAST
   | Opcode.MAKE_CELL
-  | Opcode.LOAD_FROM_DICT_OR_DEREF -> binFile.Varnames
+  | Opcode.LOAD_FROM_DICT_OR_DEREF ->
+    binFile.Varnames
   (* 3.11 folded the cell and free variables into the locals array, so from
      there on these index co_varnames rather than a space of their own. *)
   | Opcode.LOAD_CLOSURE
@@ -77,7 +80,8 @@ let private tableOf (binFile: PythonBinFile) minor opcode =
   | Opcode.DELETE_DEREF
   | Opcode.LOAD_CLASSDEREF ->
     if minor >= 11 then binFile.Varnames else binFile.FreeVars
-  | _ -> [||]
+  | _ ->
+    [||]
 
 /// The opcodes 3.13 introduced that pack TWO co_varnames indices into one
 /// argument, the high nibble first, so the operand carries both names.
@@ -116,10 +120,12 @@ let private resolveOperand minor opcode (entries: PyObject[]) idx =
     if i < 0 || i >= entries.Length then
       failwithf "%A: oparg %d resolves to table index %d, but the table \
                  holds %d entries" opcode idx i entries.Length
-    else entries[i]
+    else
+      entries[i]
   if isPairedLocal opcode then
     OneOperand(idx, Some(PyTuple [| get (idx >>> 4); get (idx &&& 0xF) |]))
-  else OneOperand(idx, Some(get (idx >>> flagBits minor opcode)))
+  else
+    OneOperand(idx, Some(get (idx >>> flagBits minor opcode)))
 
 /// Looks up what the argument at this address names.
 let private resolveArg (bf: PythonBinFile) opcode addr idx =
@@ -160,10 +166,10 @@ let rec private doParse semantics (span: ByteSpan) reader bf s c e =
           if Tables.isWordcode version then reader.ReadUInt8(span, 1) |> int
           else reader.ReadUInt16(span, 1) |> int
         resolveArg bf opcode c (raw ||| e)
-      else NoOperand
+      else
+        NoOperand
     let total = uint32 (c - s) + Tables.length version b
-    Instruction(s, total, opcode, opr, LifterHelpers.rt, version, bf,
-                semantics)
+    Instruction(s, total, opcode, opr, LifterHelpers.rt, version, bf, semantics)
 
 /// Everything about an instruction that the rest of B2R2 asks of it. Nothing
 /// here holds state, so one instance serves every file ever opened.

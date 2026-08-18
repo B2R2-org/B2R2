@@ -47,8 +47,7 @@ open B2R2.FrontEnd.BinLifter
 type PythonRawParser(isa: ISA, reader: IBinReader) =
   let version = LanguagePrimitives.EnumOfValue<int, PythonVersion> isa.Flags
 
-  let magic =
-    try Builder.magicOf version with _ -> raise InvalidISAException
+  let magic = try Builder.magicOf version with _ -> raise InvalidISAException
 
   let parse (bs: byte[]) =
     let pyc = Builder.build version magic (Builder.codeOf bs)

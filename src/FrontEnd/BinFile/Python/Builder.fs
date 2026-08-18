@@ -55,8 +55,7 @@ let private bytesObj (bs: byte[]) =
 
 let private shortAscii (s: string) =
   let bs = Text.Encoding.ASCII.GetBytes s
-  tagged MarshalledType.TYPE_SHORT_ASCII
-    (Array.append [| byte bs.Length |] bs)
+  tagged MarshalledType.TYPE_SHORT_ASCII (Array.append [| byte bs.Length |] bs)
 
 /// A tuple of short ASCII names, which is what every table of names is.
 /// Written as a full tuple rather than a small one because a small tuple

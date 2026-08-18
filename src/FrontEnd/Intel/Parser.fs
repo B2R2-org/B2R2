@@ -549,13 +549,15 @@ type IntelParser(wordSz, reader) =
     pos
 
   member inline private _.ParseREX(bs: ByteSpan, pos, rex: REXPrefix byref) =
-    if wordSz = WordSize.Bit32 then pos
+    if wordSz = WordSize.Bit32 then
+      pos
     else
       let rb = bs[pos] |> int
       if rb &&& 0b11110000 = 0b01000000 then
         rex <- EnumOfValue rb
         pos + 1
-      else pos
+      else
+        pos
 
   interface IInstructionParsable with
     member _.MaxInstructionSize = 15
@@ -579,4 +581,5 @@ type IntelParser(wordSz, reader) =
         phlp.MarkPrefixEnd(prefEndPos)
 #endif
         oneByteParsers[int (phlp.ReadByte span)].Run(span, phlp) :> IInstruction
-      with e when not (Terminator.isCritical e) -> raise ParsingFailureException
+      with e when not (Terminator.isCritical e) ->
+        raise ParsingFailureException

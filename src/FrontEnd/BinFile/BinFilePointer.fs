@@ -125,7 +125,8 @@ with
       this.Addr + uint64 amount,
       this.MaxAddr,
       min (this.MaxOffset + 1) (this.Offset + amount),
-      this.MaxOffset)
+      this.MaxOffset
+    )
 
   /// <summary>
   /// Advances the pointer forward by the given amount of bytes. See the
@@ -136,7 +137,8 @@ with
       this.Addr + uint64 amount,
       this.MaxAddr,
       min (this.MaxOffset + 1) (this.Offset + int amount),
-      this.MaxOffset)
+      this.MaxOffset
+    )
 
   /// Returns a null pointer.
   static member Null = BinFilePointer(0UL, 0UL, -1, -2)
@@ -177,8 +179,7 @@ with
   /// Advances the given pointer forward by the given amount of bytes. This is a
   /// static counterpart of the instance `Advance` method, provided for piping
   /// and interop convenience.
-  static member Advance(p: BinFilePointer, amount: int) =
-    p.Advance amount
+  static member Advance(p: BinFilePointer, amount: int) = p.Advance amount
 
   override this.ToString() =
     $"{this.Addr:x}-{this.MaxAddr:x} ({this.Offset:x} of {this.MaxOffset:x})"

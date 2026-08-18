@@ -37,8 +37,7 @@ type DisasmBuilderTests() =
   static let resolver =
     { new INameResolvable with
         member _.TryResolveName addr =
-          if addr = known then Ok "main"
-          else Error ErrorCase.SymbolNotFound }
+          if addr = known then Ok "main" else Error ErrorCase.SymbolNotFound }
 
   static let prefix = { AsmWordKind = AsmWordKind.String; AsmWordValue = "<" }
 

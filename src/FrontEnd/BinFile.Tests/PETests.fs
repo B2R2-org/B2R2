@@ -32,8 +32,7 @@ open type FileFormat
 
 [<TestClass>]
 type PETests() =
-  static let isStripped (file: IBinFile) =
-    file.SymbolTable.Value.IsStripped
+  static let isStripped (file: IBinFile) = file.SymbolTable.Value.IsStripped
 
   static let parseFile fileName =
     let zipFile = fileName + ".zip"

@@ -119,7 +119,8 @@ let rec private replace maps expr =
       match e with
       | Num(bv, _) -> struct (true, AST.num <| concretizeUnOp t bv)
       | _ -> struct (true, AST.unop t e)
-    else struct (false, expr)
+    else
+      struct (false, expr)
   | BinOp(BinOpType.ADD, _, e, Num(bv, _), _)
   | BinOp(BinOpType.ADD, _, Num(bv, _), e, _) when bv.IsZero ->
     let struct (changed, e') = replace maps e
@@ -157,25 +158,29 @@ let rec private replace maps expr =
     if changed0 || changed1 || changed2 then
       match cond with
       | Num(bv, _) ->
-        if bv.IsTrue then struct (true, e1)
-        else struct (false, e2)
-      | _ -> struct (true, AST.ite cond e1 e2)
-    else struct (false, expr)
+        if bv.IsTrue then struct (true, e1) else struct (false, e2)
+      | _ ->
+        struct (true, AST.ite cond e1 e2)
+    else
+      struct (false, expr)
   | Cast(kind, rt, e, _) ->
     let struct (changed, e) = replace maps e
     if changed then
       match e with
       | Num(bv, _) -> struct (true, AST.num <| concretizeCast kind rt bv)
       | _ -> struct (true, AST.cast kind rt e)
-    else struct (false, expr)
+    else
+      struct (false, expr)
   | Extract(e, rt, pos, _) ->
     let struct (changed, e) = replace maps e
     if changed then
       match e with
       | Num(bv, _) -> struct (true, AST.num <| BitVector.Extract(bv, rt, pos))
       | _ -> struct (true, AST.extract e rt pos)
-    else struct (false, expr)
-  | _ -> struct (false, expr)
+    else
+      struct (false, expr)
+  | _ ->
+    struct (false, expr)
 
 let private updateMapsAtDef maps dst src =
   match dst, src with
@@ -208,7 +213,8 @@ let rec private optimizeLoop (stmts: Stmt[]) idx maps =
             AST.interjmp e1 InterJmpKind.Base
           | Num _ -> AST.interjmp e2 InterJmpKind.Base
           | _ -> AST.intercjmp cond e1 e2
-      else ()
+      else
+        ()
       optimizeLoop stmts (idx + 1) maps
     | Jmp(e, _) ->
       let struct (changed, e) = replace maps e
@@ -224,9 +230,11 @@ let rec private optimizeLoop (stmts: Stmt[]) idx maps =
           | Num(n, _) when n.IsOne -> AST.jmp e1
           | Num(_) -> AST.jmp e2
           | _ -> AST.cjmp cond e1 e2
-      else ()
+      else
+        ()
       optimizeLoop stmts (idx + 1) maps
-    | LMark _ -> optimizeLoop stmts (idx + 1) maps
+    | LMark _ ->
+      optimizeLoop stmts (idx + 1) maps
     | Put(lhs, rhs, _) ->
       let rhs = match replace maps rhs with
                 | true, rhs -> stmts[idx] <- AST.put lhs rhs; rhs
@@ -235,7 +243,8 @@ let rec private optimizeLoop (stmts: Stmt[]) idx maps =
       optimizeLoop stmts (idx + 1) maps
     | ISMark _ | IEMark _ | ExternalCall _ | SideEffect _ ->
       optimizeLoop stmts (idx + 1) maps
-  else stmts
+  else
+    stmts
 
 /// Assuming that the stmts are localized, i.e., those stmts represent a basic
 /// block, perform local constant folding.

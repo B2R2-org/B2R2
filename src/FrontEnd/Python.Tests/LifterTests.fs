@@ -41,9 +41,7 @@ open Microsoft.VisualStudio.TestTools.UnitTesting
 [<TestClass>]
 type LifterTests() =
   static let zipPath =
-    Path.Combine(System.AppContext.BaseDirectory,
-                 "Python",
-                 "python_basic.zip")
+    Path.Combine(System.AppContext.BaseDirectory, "Python", "python_basic.zip")
 
   static let bytes =
     use archive = ZipFile.Open(zipPath, ZipArchiveMode.Read)
@@ -81,7 +79,8 @@ type LifterTests() =
         let opcode = Tables.decode version b
         (* EXTENDED_ARG is folded into the instruction it prefixes while
            parsing, so it is the one opcode nothing downstream ever sees. *)
-        if opcode = Opcode.InvalidOp || opcode = Opcode.EXTENDED_ARG then ()
+        if opcode = Opcode.InvalidOp || opcode = Opcode.EXTENDED_ARG then
+          ()
         else
           try check (mkIns version b opcode)
           with e -> Assert.Fail $"{version} {opcode} (0x%02x{b}): {e.Message}"
@@ -102,7 +101,8 @@ type LifterTests() =
       if Semantics.isBranch ins then
         let ftAddr = ins.Address + uint64 ins.Length
         Semantics.branchTarget ins ftAddr 1 |> ignore
-      else ()
+      else
+        ()
 
   [<TestMethod>]
   member _.``[Python] minor version matches the enum``() =

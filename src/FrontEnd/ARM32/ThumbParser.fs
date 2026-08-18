@@ -37,21 +37,32 @@ type BL = byte list
 let render (phlp: ParsingHelper) (itstate: byref<BL>) it isInIT bin op dt q o =
   let struct (oprs, wback, cflags, oSz) = phlp.OprParsers.[int o].Render bin
   if isInIT then updateITSTATE &itstate else ()
-  Instruction(phlp.InsAddr, phlp.Len, phlp.Cond, op, oprs, (byte it), wback,
-              false, q, dt, phlp.IsThumb, cflags, oSz, phlp.IsAdd, phlp.Lifter)
+  Instruction(phlp.InsAddr,
+              phlp.Len,
+              phlp.Cond,
+              op,
+              oprs,
+              byte it,
+              wback,
+              false,
+              q,
+              dt,
+              phlp.IsThumb,
+              cflags,
+              oSz,
+              phlp.IsAdd,
+              phlp.Lifter)
 
 /// Add, subtract (three low registers) on page F3-4153.
 let parseAddSubThreeLowReg (phlp: ParsingHelper) (itstate: byref<BL>) isInIT b =
   match pickBit b 9 (* S *) with
   | 0b0u ->
     let op =
-      if inITBlock itstate then Op.ADD
-      else phlp.Cond <- Condition.UN; Op.ADDS
+      if inITBlock itstate then Op.ADD else phlp.Cond <- Condition.UN; Op.ADDS
     render phlp &itstate 0 isInIT b op None N OD.OprRdRnRmT16
   | _ (* 1 *) ->
     let op =
-      if inITBlock itstate then Op.SUB
-      else phlp.Cond <- Condition.UN; Op.SUBS
+      if inITBlock itstate then Op.SUB else phlp.Cond <- Condition.UN; Op.SUBS
     render phlp &itstate 0 isInIT b op None N OD.OprRdRnRmT16
 
 /// Add, subtract (two low registers and immediate) on page F3-4153.
@@ -59,13 +70,11 @@ let parseAddSubTwoLRegsImm (phlp: ParsingHelper) (itstate: byref<BL>) isInIT b =
   match pickBit b 9 (* S *) with
   | 0b0u ->
     let op =
-      if inITBlock itstate then Op.ADD
-      else phlp.Cond <- Condition.UN; Op.ADDS
+      if inITBlock itstate then Op.ADD else phlp.Cond <- Condition.UN; Op.ADDS
     render phlp &itstate 0 isInIT b op None N OD.OprRdRnImm3
   | _ (* 1 *) ->
     let op =
-      if inITBlock itstate then Op.SUB
-      else phlp.Cond <- Condition.UN; Op.SUBS
+      if inITBlock itstate then Op.SUB else phlp.Cond <- Condition.UN; Op.SUBS
     render phlp &itstate 0 isInIT b op None N OD.OprRdRnImm3
 
 /// Add, subtract, compare, move (one low register and imm) on page F3-4153.
@@ -108,57 +117,49 @@ let parseShfImmAddSubMovCmp phlp (itstate: byref<BL>) isInIT bin =
       elif inITBlock then struct (Op.MOV, OD.OprRdRmShfT16)
         else phlp.Cond <- Condition.UN; struct (Op.MOVS, OD.OprRdRmShfT16)
     render phlp &itstate 0 isInIT bin opcode None N operands
-  | _ (* 1xxx *) -> parseAddSubCmpMov phlp &itstate isInIT bin
+  | _ (* 1xxx *) ->
+    parseAddSubCmpMov phlp &itstate isInIT bin
 
 /// Data-processing (two low registers) on page F3-4149.
 let parseDataProc (phlp: ParsingHelper) (itstate: byref<BL>) isInIT bin =
   match pickFour bin 6 (* op *) with
   | 0b0000u ->
     let op =
-      if inITBlock itstate then Op.AND
-      else phlp.Cond <- Condition.UN; Op.ANDS
+      if inITBlock itstate then Op.AND else phlp.Cond <- Condition.UN; Op.ANDS
     render phlp &itstate 0 isInIT bin op None N OD.OprRdnRdnRm
   | 0b0001u ->
     let op =
-      if inITBlock itstate then Op.EOR
-      else phlp.Cond <- Condition.UN; Op.EORS
+      if inITBlock itstate then Op.EOR else phlp.Cond <- Condition.UN; Op.EORS
     render phlp &itstate 0 isInIT bin op None N OD.OprRdnRdnRm
   | 0b0010u ->
     let op =
-      if inITBlock itstate then Op.MOV
-      else phlp.Cond <- Condition.UN; Op.MOVS
+      if inITBlock itstate then Op.MOV else phlp.Cond <- Condition.UN; Op.MOVS
     render phlp &itstate 0 isInIT bin op None N OD.OprRdmRdmLSLRs
   | 0b0011u ->
     let op =
-      if inITBlock itstate then Op.MOV
-      else phlp.Cond <- Condition.UN; Op.MOVS
+      if inITBlock itstate then Op.MOV else phlp.Cond <- Condition.UN; Op.MOVS
     render phlp &itstate 0 isInIT bin op None N OD.OprRdmRdmLSRRs
   | 0b0100u ->
     let op =
-      if inITBlock itstate then Op.MOV
-      else phlp.Cond <- Condition.UN; Op.MOVS
+      if inITBlock itstate then Op.MOV else phlp.Cond <- Condition.UN; Op.MOVS
     render phlp &itstate 0 isInIT bin op None N OD.OprRdmRdmASRRs
   | 0b0101u ->
     let op =
-      if inITBlock itstate then Op.ADC
-      else phlp.Cond <- Condition.UN; Op.ADCS
+      if inITBlock itstate then Op.ADC else phlp.Cond <- Condition.UN; Op.ADCS
     render phlp &itstate 0 isInIT bin op None N OD.OprRdnRdnRm
   | 0b0110u ->
     let op =
-      if inITBlock itstate then Op.SBC
-      else phlp.Cond <- Condition.UN; Op.SBCS
+      if inITBlock itstate then Op.SBC else phlp.Cond <- Condition.UN; Op.SBCS
     render phlp &itstate 0 isInIT bin op None N OD.OprRdnRdnRm
   | 0b0111u ->
     let op =
-      if inITBlock itstate then Op.MOV
-      else phlp.Cond <- Condition.UN; Op.MOVS
+      if inITBlock itstate then Op.MOV else phlp.Cond <- Condition.UN; Op.MOVS
     render phlp &itstate 0 isInIT bin op None N OD.OprRdmRdmRORRs
   | 0b1000u ->
     render phlp &itstate 0 isInIT bin Op.TST None N OD.OprRnRm
   | 0b1001u ->
     let op =
-      if inITBlock itstate then Op.RSB
-      else phlp.Cond <- Condition.UN; Op.RSBS
+      if inITBlock itstate then Op.RSB else phlp.Cond <- Condition.UN; Op.RSBS
     render phlp &itstate 0 isInIT bin op None N OD.OprRdRn0
   | 0b1010u ->
     render phlp &itstate 0 isInIT bin Op.CMP None N OD.OprRnRm
@@ -166,23 +167,19 @@ let parseDataProc (phlp: ParsingHelper) (itstate: byref<BL>) isInIT bin =
     render phlp &itstate 0 isInIT bin Op.CMN None N OD.OprRnRm
   | 0b1100u ->
     let op =
-      if inITBlock itstate then Op.ORR
-      else phlp.Cond <- Condition.UN; Op.ORRS
+      if inITBlock itstate then Op.ORR else phlp.Cond <- Condition.UN; Op.ORRS
     render phlp &itstate 0 isInIT bin op None N OD.OprRdnRdnRm
   | 0b1101u ->
     let op =
-      if inITBlock itstate then Op.MUL
-      else phlp.Cond <- Condition.UN; Op.MULS
+      if inITBlock itstate then Op.MUL else phlp.Cond <- Condition.UN; Op.MULS
     render phlp &itstate 0 isInIT bin op None N OD.OprRdmRnRdm
   | 0b1110u ->
     let op =
-      if inITBlock itstate then Op.BIC
-      else phlp.Cond <- Condition.UN; Op.BICS
+      if inITBlock itstate then Op.BIC else phlp.Cond <- Condition.UN; Op.BICS
     render phlp &itstate 0 isInIT bin op None N OD.OprRdnRdnRm
   | _ (* 1111 *) ->
     let op =
-      if inITBlock itstate then Op.MVN
-      else phlp.Cond <- Condition.UN; Op.MVNS
+      if inITBlock itstate then Op.MVN else phlp.Cond <- Condition.UN; Op.MVNS
     render phlp &itstate 0 isInIT bin op None N OD.OprRdRmT16
 
 /// Branch and exchange on page F3-4154.
@@ -226,14 +223,14 @@ let parseAddSubCmpMovTwoHRegs phlp (itstate: byref<BL>) isInIT bin =
     chkPCDRdIT bin itstate
 #endif
     render phlp &itstate 0 isInIT bin Op.MOV None N OD.OprRdRmExt
-  | _ -> raise ParsingFailureException
+  | _ ->
+    raise ParsingFailureException
 
 /// Special data instructions and branch and exchange on page F3-4154.
 let parseSpecDataInsBrXchg phlp (itstate: byref<BL>) isInIT bin =
   match pickTwo bin 8 (* op0 *) with
   | 0b11u -> parseBranchAndExchange phlp &itstate isInIT bin
-  | _ (* != 11 *) ->
-    parseAddSubCmpMovTwoHRegs phlp &itstate isInIT bin
+  | _ (* != 11 *) -> parseAddSubCmpMovTwoHRegs phlp &itstate isInIT bin
 
 /// Load/store (register offset) on page F3-4150.
 let parseLoadStoreRegOffset phlp (itstate: byref<BL>) isInIT bin =
@@ -278,10 +275,8 @@ let parseLdStHalfwordImmOff phlp (itstate: byref<BL>) isInIT bin =
 /// Load/store (SP-relative) on page F3-4151.
 let parseLdStSPRelative phlp (itstate: byref<BL>) isInIT bin =
   match pickBit bin 11 (* L *) with
-  | 0b0u ->
-    render phlp &itstate 0 isInIT bin Op.STR None N OD.OprRtMemSP
-  | _ (* 1 *) ->
-    render phlp &itstate 0 isInIT bin Op.LDR None N OD.OprRtMemSP
+  | 0b0u -> render phlp &itstate 0 isInIT bin Op.STR None N OD.OprRtMemSP
+  | _ (* 1 *) -> render phlp &itstate 0 isInIT bin Op.LDR None N OD.OprRtMemSP
 
 /// Add PC/SP (immediate) on page F3-4151.
 let parseAddPCSPImm (phlp: ParsingHelper) (itstate: byref<BL>) isInIT bin =
@@ -295,22 +290,16 @@ let parseAddPCSPImm (phlp: ParsingHelper) (itstate: byref<BL>) isInIT bin =
 /// Adjust SP (immediate) on page F3-4156.
 let parseAdjustSPImm phlp (itstate: byref<BL>) isInIT bin =
   match pickBit bin 7 (* S *) with
-  | 0b0u ->
-    render phlp &itstate 0 isInIT bin Op.ADD None N OD.OprSPSPImm7
-  | _ (* 1 *) ->
-    render phlp &itstate 0 isInIT bin Op.SUB None N OD.OprSPSPImm7
+  | 0b0u -> render phlp &itstate 0 isInIT bin Op.ADD None N OD.OprSPSPImm7
+  | _ (* 1 *) -> render phlp &itstate 0 isInIT bin Op.SUB None N OD.OprSPSPImm7
 
 /// Extend on page F3-4156.
 let parseExtend phlp (itstate: byref<BL>) isInIT bin =
   match pickTwo bin 6 (* U:B *) with
-  | 0b00u ->
-    render phlp &itstate 0 isInIT bin Op.SXTH None N OD.OprRdRmT16
-  | 0b01u ->
-    render phlp &itstate 0 isInIT bin Op.SXTB None N OD.OprRdRmT16
-  | 0b10u ->
-    render phlp &itstate 0 isInIT bin Op.UXTH None N OD.OprRdRmT16
-  | _ (* 11 *) ->
-    render phlp &itstate 0 isInIT bin Op.UXTB None N OD.OprRdRmT16
+  | 0b00u -> render phlp &itstate 0 isInIT bin Op.SXTH None N OD.OprRdRmT16
+  | 0b01u -> render phlp &itstate 0 isInIT bin Op.SXTB None N OD.OprRdRmT16
+  | 0b10u -> render phlp &itstate 0 isInIT bin Op.UXTH None N OD.OprRdRmT16
+  | _ (* 11 *) -> render phlp &itstate 0 isInIT bin Op.UXTB None N OD.OprRdRmT16
 
 /// Change Processor State on page F3-4156.
 let parseChgProcStateT16 (phlp: ParsingHelper) (itstate: byref<BL>) isInIT bin =
@@ -332,20 +321,19 @@ let parseMisc16BitInstr0110 phlp (itstate: byref<BL>) isInIT bin =
   | 0b000u -> (* Armv8.1 *)
     inITBlock itstate |> checkUnpred
     render phlp &itstate 0 isInIT bin Op.SETPAN None N OD.OprImm1T
-  | 0b001u -> raise ParsingFailureException
+  | 0b001u ->
+    raise ParsingFailureException
   | 0b010u | 0b011u ->
     parseChgProcStateT16 phlp &itstate isInIT bin
-  | _ (* 1xx *) -> raise ParsingFailureException
+  | _ (* 1xx *) ->
+    raise ParsingFailureException
 
 /// Reverse bytes on page F3-4157.
 let parseReverseBytes phlp (itstate: byref<BL>) isInIT bin =
   match pickTwo bin 6 (* op *) with
-  | 0b00u ->
-    render phlp &itstate 0 isInIT bin Op.REV None N OD.OprRdRmT16
-  | 0b01u ->
-    render phlp &itstate 0 isInIT bin Op.REV16 None N OD.OprRdRmT16
-  | 0b11u ->
-    render phlp &itstate 0 isInIT bin Op.REVSH None N OD.OprRdRmT16
+  | 0b00u -> render phlp &itstate 0 isInIT bin Op.REV None N OD.OprRdRmT16
+  | 0b01u -> render phlp &itstate 0 isInIT bin Op.REV16 None N OD.OprRdRmT16
+  | 0b11u -> render phlp &itstate 0 isInIT bin Op.REVSH None N OD.OprRdRmT16
   | _ (* 10 *) -> raise ParsingFailureException
 
 /// Hints on page F3-4157.
@@ -382,14 +370,20 @@ let parsePushAndPop phlp (itstate: byref<BL>) isInIT bin =
 /// Miscellaneous 16-bit instructions on page F3-4155.
 let parseMisc16BitInstr phlp (itstate: byref<BL>) isInIT bin =
   match pickFour bin 8 (* op0 *) with
-  | 0b0000u -> parseAdjustSPImm phlp &itstate isInIT bin
-  | 0b0010u -> parseExtend phlp &itstate isInIT bin
-  | 0b0110u -> parseMisc16BitInstr0110 phlp &itstate isInIT bin
-  | 0b0111u -> raise ParsingFailureException
-  | 0b1000u -> raise ParsingFailureException
+  | 0b0000u ->
+    parseAdjustSPImm phlp &itstate isInIT bin
+  | 0b0010u ->
+    parseExtend phlp &itstate isInIT bin
+  | 0b0110u ->
+    parseMisc16BitInstr0110 phlp &itstate isInIT bin
+  | 0b0111u ->
+    raise ParsingFailureException
+  | 0b1000u ->
+    raise ParsingFailureException
   | 0b1010u when pickTwo bin 6 = 0b10u ->
     render phlp &itstate 0 isInIT bin Op.HLT None N OD.OprImm6
-  | 0b1010u (* != 10 *) -> parseReverseBytes phlp &itstate isInIT bin
+  | 0b1010u (* != 10 *) ->
+    parseReverseBytes phlp &itstate isInIT bin
   | 0b1110u ->
     phlp.Cond <- Condition.UN
     render phlp &itstate 0 isInIT bin Op.BKPT None N OD.OprImm8
@@ -413,7 +407,8 @@ let parseMisc16BitInstr phlp (itstate: byref<BL>) isInIT bin =
     inITBlock itstate |> checkUnpred
     phlp.Cond <- Condition.UN
     render phlp &itstate 0 isInIT bin Op.CBZ None N OD.OprRnLabel
-  | _ (* x10x *) -> parsePushAndPop phlp &itstate isInIT bin
+  | _ (* x10x *) ->
+    parsePushAndPop phlp &itstate isInIT bin
 
 /// Load/store multiple on page F3-4152.
 let parseLoadStoreMul phlp (itstate: byref<BL>) isInIT bin =
@@ -430,15 +425,14 @@ let parseLoadStoreMul phlp (itstate: byref<BL>) isInIT bin =
 /// Exception generation on page F3-4158.
 let parseExceptionGen phlp (itstate: byref<BL>) isInIT bin =
   match pickBit bin 8 (* S *) with
-  | 0b0u ->
-    render phlp &itstate 0 isInIT bin Op.UDF None N OD.OprImm8
-  | _ (* 1 *) ->
-    render phlp &itstate 0 isInIT bin Op.SVC None N OD.OprImm8
+  | 0b0u -> render phlp &itstate 0 isInIT bin Op.UDF None N OD.OprImm8
+  | _ (* 1 *) -> render phlp &itstate 0 isInIT bin Op.SVC None N OD.OprImm8
 
 /// Conditional branch, and Supervisor Call on page F3-4158.
 let parseCondBrSVCall phlp (itstate: byref<BL>) isInIT bin =
   match pickFour bin 8 (* op0 *) with
-  | 0b1110u | 0b1111u -> parseExceptionGen phlp &itstate isInIT bin
+  | 0b1110u | 0b1111u ->
+    parseExceptionGen phlp &itstate isInIT bin
   | _ (* != 111x *) ->
     inITBlock itstate |> checkUnpred
     phlp.Cond <- pickFour bin 8 |> byte |> parseCond
@@ -449,7 +443,8 @@ let parse16Bit phlp (itstate: byref<BL>) isInIT bin =
   match extract bin 15 10 (* op0 *) with
   | b when b &&& 0b110000u = 0b000000u (* 00xxxx *) ->
     parseShfImmAddSubMovCmp phlp &itstate isInIT bin
-  | 0b010000u -> parseDataProc phlp &itstate isInIT bin
+  | 0b010000u ->
+    parseDataProc phlp &itstate isInIT bin
   | 0b010001u ->
     parseSpecDataInsBrXchg phlp &itstate isInIT bin
   | 0b010010u | 0b010011u (* 01001x *) ->
@@ -470,7 +465,8 @@ let parse16Bit phlp (itstate: byref<BL>) isInIT bin =
     parseLoadStoreMul phlp &itstate isInIT bin
   | 0b110100u| 0b110101u | 0b110110u | 0b110111u (* 1101xx *) ->
     parseCondBrSVCall phlp &itstate isInIT bin
-  | _ -> raise ParsingFailureException
+  | _ ->
+    raise ParsingFailureException
 
 /// Advanced SIMD three registers of the same length on page F3-4165.
 let parseAdvSIMDThreeRegsOfSameLen phlp (itstate: byref<BL>) isInIT b =
@@ -823,7 +819,8 @@ let parseAdvSIMDThreeRegsOfSameLen phlp (itstate: byref<BL>) isInIT b =
 #endif
     render phlp &itstate 0 isInIT b Op.VRHADD (oneDt SIMDTypU32) N OD.OprQdQnQm
   (* SHA1C 0001100x0 *)
-  | 0b000110000u (* Q != 1 *) -> undefined ()
+  | 0b000110000u (* Q != 1 *) ->
+    undefined ()
   | 0b000110010u ->
 #if !EMULATION
     chkITVdVnVm b itstate
@@ -1111,7 +1108,8 @@ let parseAdvSIMDThreeRegsOfSameLen phlp (itstate: byref<BL>) isInIT b =
 #endif
     render phlp &itstate 0 isInIT b Op.VCGE (oneDt SIMDTypU32) N OD.OprQdQnQm
   (* SHA1P 0011100x0 *)
-  | 0b001110000u (* Q != 1 *) -> undefined ()
+  | 0b001110000u (* Q != 1 *) ->
+    undefined ()
   | 0b001110010u ->
 #if !EMULATION
     chkITVdVnVm b itstate
@@ -1358,7 +1356,8 @@ let parseAdvSIMDThreeRegsOfSameLen phlp (itstate: byref<BL>) isInIT b =
 #endif
     render phlp &itstate 0 isInIT b Op.VORR None N OD.OprQdQnQm
   (* VTST 0xx1000x1 *)
-  | 0b011100001u | 0b011100011u (* 0111000x1 *) -> undefined ()
+  | 0b011100001u | 0b011100011u (* 0111000x1 *) ->
+    undefined ()
   | 0b000100001u ->
 #if !EMULATION
     chkQVdVnVm b
@@ -1471,7 +1470,8 @@ let parseAdvSIMDThreeRegsOfSameLen phlp (itstate: byref<BL>) isInIT b =
 #endif
     render phlp &itstate 0 isInIT b Op.VQSHL (oneDt SIMDTypU64) N OD.OprQdQmQn
   (* VMLA 0xx1001x0, 0111001x0 *)
-  | 0b011100100u | 0b011100110u -> undefined ()
+  | 0b011100100u | 0b011100110u ->
+    undefined ()
   | 0b000100100u ->
 #if !EMULATION
     chkQVdVnVm b
@@ -1688,7 +1688,8 @@ let parseAdvSIMDThreeRegsOfSameLen phlp (itstate: byref<BL>) isInIT b =
 #endif
     render phlp &itstate 0 isInIT b Op.VQDMULH (oneDt SIMDTypS32) N OD.OprQdQnQm
   (* SHA1M 0101100x0 *)
-  | 0b010110000u (* Q != 1 *) -> undefined ()
+  | 0b010110000u (* Q != 1 *) ->
+    undefined ()
   | 0b010110010u ->
 #if !EMULATION
     chkITVdVnVm b itstate
@@ -1967,14 +1968,16 @@ let parseAdvSIMDThreeRegsOfSameLen phlp (itstate: byref<BL>) isInIT b =
 #endif
     render phlp &itstate 0 isInIT b Op.VABA (oneDt SIMDTypU32) N OD.OprQdQnQm
   (* SHA1SU0 0111100x0 *)
-  | 0b011110000u (* Q != '1' *) -> undefined ()
+  | 0b011110000u (* Q != '1' *) ->
+    undefined ()
   | 0b011110010u ->
 #if !EMULATION
     chkVdVnVm b
 #endif
     render phlp &itstate 0 isInIT b Op.SHA1SU0 (oneDt SIMDTyp32) N OD.OprQdQnQm
   (* VPADD 10x1101x0 *)
-  | 0b100110110u | 0b101110110u (* Q == '1' *) -> undefined ()
+  | 0b100110110u | 0b101110110u (* Q == '1' *) ->
+    undefined ()
   | 0b100110100u ->
 #if !EMULATION
     chkSzIT b itstate
@@ -2136,14 +2139,16 @@ let parseAdvSIMDThreeRegsOfSameLen phlp (itstate: byref<BL>) isInIT b =
 #endif
     render phlp &itstate 0 isInIT b Op.VMUL (oneDt SIMDTypP8) N OD.OprQdQnQm
   (* SHA256H 1001100x0 *)
-  | 0b100110000u (* Q != '1' *) -> undefined ()
+  | 0b100110000u (* Q != '1' *) ->
+    undefined ()
   | 0b100110010u ->
 #if !EMULATION
     chkITVdVnVm b itstate
 #endif
     render phlp &itstate 0 isInIT b Op.SHA256H (oneDt SIMDTyp32) N OD.OprQdQnQm
   (* VPMAX xxx101000 *)
-  | 0b011101000u | 0b111101000u (* size == '11' *) -> undefined ()
+  | 0b011101000u | 0b111101000u (* size == '11' *) ->
+    undefined ()
   | 0b000101000u ->
     render phlp &itstate 0 isInIT b Op.VPMAX (oneDt SIMDTypS8) N OD.OprDdDnDm
   | 0b001101000u ->
@@ -2168,7 +2173,8 @@ let parseAdvSIMDThreeRegsOfSameLen phlp (itstate: byref<BL>) isInIT b =
 #endif
     render phlp &itstate 0 isInIT b Op.VBSL None N OD.OprQdQnQm
   (* VPMIN xxx101001 *)
-  | 0b011101001u | 0b111101001u (* size == '11' *) -> undefined ()
+  | 0b011101001u | 0b111101001u (* size == '11' *) ->
+    undefined ()
   | 0b000101001u ->
     render phlp &itstate 0 isInIT b Op.VPMIN (oneDt SIMDTypS8) N OD.OprDdDnDm
   | 0b001101001u ->
@@ -2184,7 +2190,8 @@ let parseAdvSIMDThreeRegsOfSameLen phlp (itstate: byref<BL>) isInIT b =
   | b when b &&& 0b000111110u = 0b000101010u (* 0bxxx10101xu *) ->
     raise ParsingFailureException
   (* SHA256H2 1011100x0 *)
-  | 0b101110000u (* Q != '1' *) -> undefined ()
+  | 0b101110000u (* Q != '1' *) ->
+    undefined ()
   | 0b101110010u ->
 #if !EMULATION
     chkVdVnVm b
@@ -2338,7 +2345,8 @@ let parseAdvSIMDThreeRegsOfSameLen phlp (itstate: byref<BL>) isInIT b =
 #endif
     render phlp &itstate 0 isInIT b Op.VBIT None N OD.OprQdQnQm
   (* VCEQ 1xx1000x1 *)
-  | 0b111100001u | 0b111100011u (* size == '11' *) -> undefined ()
+  | 0b111100001u | 0b111100011u (* size == '11' *) ->
+    undefined ()
   | 0b100100001u ->
 #if !EMULATION
     chkQVdVnVm b
@@ -2370,7 +2378,8 @@ let parseAdvSIMDThreeRegsOfSameLen phlp (itstate: byref<BL>) isInIT b =
 #endif
     render phlp &itstate 0 isInIT b Op.VCEQ (oneDt SIMDTypI32) N OD.OprQdQnQm
   (* VMLS 1xx1001x0 *)
-  | 00111100100u | 00111100110u (* size == '11' *) -> undefined ()
+  | 00111100100u | 00111100110u (* size == '11' *) ->
+    undefined ()
   | 0b100100100u ->
 #if !EMULATION
     chkQVdVnVm b
@@ -2429,7 +2438,8 @@ let parseAdvSIMDThreeRegsOfSameLen phlp (itstate: byref<BL>) isInIT b =
     let dt = oneDt SIMDTypS32
     render phlp &itstate 0 isInIT b Op.VQRDMULH dt N OD.OprQdQnQm
   (* SHA256SU1 1101100x0 *)
-  | 0b110110000u (* Q != '1' *) -> undefined ()
+  | 0b110110000u (* Q != '1' *) ->
+    undefined ()
   | 0b110110010u ->
 #if !EMULATION
     chkITVdVnVm b itstate
@@ -2503,7 +2513,8 @@ let parseAdvSIMDThreeRegsOfSameLen phlp (itstate: byref<BL>) isInIT b =
     render phlp &itstate 0 isInIT b Op.VQRDMLSH dt N OD.OprQdQnQm
   | b when b &&& 0b100111111u = 0b100111110u (* 0b1xx111110u *) ->
     raise ParsingFailureException
-  | _ -> raise ParsingFailureException
+  | _ ->
+    raise ParsingFailureException
 
 /// Advanced SIMD two registers misc on page F3-4168.
 let parseAdvSIMDTwoRegsMisc phlp (itstate: byref<BL>) isInIT b =
@@ -2511,7 +2522,8 @@ let parseAdvSIMDTwoRegsMisc phlp (itstate: byref<BL>) isInIT b =
     concat (pickFour b 16) (pickFive b 6) 5
   match decodeFields with
   (* VREV64 xx000000x *)
-  | 0b110000000u | 0b110000001u (* size = 11 *) -> undefined ()
+  | 0b110000000u | 0b110000001u (* size = 11 *) ->
+    undefined ()
   | 0b000000000u ->
 #if !EMULATION
     chkQVdVm b
@@ -2545,7 +2557,8 @@ let parseAdvSIMDTwoRegsMisc phlp (itstate: byref<BL>) isInIT b =
   (* VREV32 xx000001x *)
   | 0b100000010u | 0b100000011u (* size = 10 *)
   (* size = 11 *)
-  | 0b110000010u | 0b110000011u -> undefined ()
+  | 0b110000010u | 0b110000011u ->
+    undefined ()
   | 0b000000010u ->
 #if !EMULATION
     chkQVdVm b
@@ -2679,7 +2692,8 @@ let parseAdvSIMDTwoRegsMisc phlp (itstate: byref<BL>) isInIT b =
 #endif
     render phlp &itstate 0 isInIT b Op.AESIMC (oneDt SIMDTyp8) N OD.OprQdQm
   (* VCLS xx001000x *)
-  | 0b110010000u | 0b110010001u (* size = 11 *) -> undefined ()
+  | 0b110010000u | 0b110010001u (* size = 11 *) ->
+    undefined ()
   | 0b000010000u ->
 #if !EMULATION
     chkQVdVm b
@@ -2722,7 +2736,8 @@ let parseAdvSIMDTwoRegsMisc phlp (itstate: byref<BL>) isInIT b =
 #endif
     render phlp &itstate 0 isInIT b Op.VSWP None N OD.OprQdQm
   (* VCLZ xx001001x *)
-  | 0b110010010u | 0b110010011u (* size = 11 *) -> undefined ()
+  | 0b110010010u | 0b110010011u (* size = 11 *) ->
+    undefined ()
   | 0b000010010u ->
 #if !EMULATION
     chkQVdVm b
@@ -2756,7 +2771,8 @@ let parseAdvSIMDTwoRegsMisc phlp (itstate: byref<BL>) isInIT b =
   (* VCNT xx001010x *)
   | 0b010010100u | 0b100010100u | 0b110010100u | 0b010010101u | 0b100010101u
   (* size != 00 *)
-  | 0b110010101u -> undefined ()
+  | 0b110010101u ->
+    undefined ()
   | 0b000010100u ->
 #if !EMULATION
     chkQVdVm b
@@ -2770,7 +2786,8 @@ let parseAdvSIMDTwoRegsMisc phlp (itstate: byref<BL>) isInIT b =
   (* VMVN xx001011x *)
   | 0b010010110u | 0b010010111u | 0b100010110u | 0b100010111u | 0b110010110u
   (* size != 00 *)
-  | 0b110010111u -> undefined ()
+  | 0b110010111u ->
+    undefined ()
   | 0b000010110u ->
 #if !EMULATION
     chkQVdVm b
@@ -2781,7 +2798,8 @@ let parseAdvSIMDTwoRegsMisc phlp (itstate: byref<BL>) isInIT b =
     chkQVdVm b
 #endif
     render phlp &itstate 0 isInIT b Op.VMVN None N OD.OprQdQm
-  | 0b001011001u -> raise ParsingFailureException
+  | 0b001011001u ->
+    raise ParsingFailureException
   (* VPADAL xx00110xx *)
   | 0b110011000u | 0b110011001u | 0b110011010u | 0b110011011u (* size = 11 *) ->
     undefined ()
@@ -2846,7 +2864,8 @@ let parseAdvSIMDTwoRegsMisc phlp (itstate: byref<BL>) isInIT b =
 #endif
     render phlp &itstate 0 isInIT b Op.VPADAL (oneDt SIMDTypU32) N OD.OprQdQm
   (* VQABS xx001110x *)
-  | 0b110011100u | 0b110011101u (* size = 11 *) -> undefined ()
+  | 0b110011100u | 0b110011101u (* size = 11 *) ->
+    undefined ()
   | 0b000011100u ->
 #if !EMULATION
     chkQVdVm b
@@ -2878,7 +2897,8 @@ let parseAdvSIMDTwoRegsMisc phlp (itstate: byref<BL>) isInIT b =
 #endif
     render phlp &itstate 0 isInIT b Op.VQABS (oneDt SIMDTypS32) N OD.OprQdQm
   (* VQNEG xx001111x *)
-  | 0b110011110u | 0b110011111u (* size = 11 *) -> undefined ()
+  | 0b110011110u | 0b110011111u (* size = 11 *) ->
+    undefined ()
   | 0b000011110u ->
 #if !EMULATION
     chkQVdVm b
@@ -3302,7 +3322,8 @@ let parseAdvSIMDTwoRegsMisc phlp (itstate: byref<BL>) isInIT b =
     let dt = twoDt (BF16, SIMDTypF32)
     render phlp &itstate 0 isInIT b Op.VCVT dt N OD.OprDdQm
   (* VTRN xx100001x *)
-  | 0b111000010u | 0b111000011u (* size = 11 *) -> undefined ()
+  | 0b111000010u | 0b111000011u (* size = 11 *) ->
+    undefined ()
   | 0b001000010u ->
 #if !EMULATION
     chkQVdVm b
@@ -3335,7 +3356,8 @@ let parseAdvSIMDTwoRegsMisc phlp (itstate: byref<BL>) isInIT b =
     render phlp &itstate 0 isInIT b Op.VTRN (oneDt SIMDTyp32) N OD.OprQdQm
   (* VUZP xx100010x *)
   | 0b111000100u | 0b111000101u (* size = 11 *)
-  | 0b101000100u (* Q = 0 && size = 10 *) -> undefined ()
+  | 0b101000100u (* Q = 0 && size = 10 *) ->
+    undefined ()
   | 0b001000100u ->
 #if !EMULATION
     chkQVdVm b
@@ -3363,7 +3385,8 @@ let parseAdvSIMDTwoRegsMisc phlp (itstate: byref<BL>) isInIT b =
     render phlp &itstate 0 isInIT b Op.VUZP (oneDt SIMDTyp32) N OD.OprQdQm
   (* VZIP xx100011x *)
   | 0b111000110u | 0b111000111u (* size = 11 *)
-  | 0b101000110u (* Q = 0 && size = 10 *) -> undefined ()
+  | 0b101000110u (* Q = 0 && size = 10 *) ->
+    undefined ()
   | 0b001000110u ->
 #if !EMULATION
     chkQVdVm b
@@ -3390,7 +3413,8 @@ let parseAdvSIMDTwoRegsMisc phlp (itstate: byref<BL>) isInIT b =
 #endif
     render phlp &itstate 0 isInIT b Op.VZIP (oneDt SIMDTyp32) N OD.OprQdQm
   (* VMOVN xx1001000 *)
-  | 0b111001000u (* size = 11 *) -> undefined ()
+  | 0b111001000u (* size = 11 *) ->
+    undefined ()
   | 0b001001000u ->
 #if !EMULATION
     chkVm b
@@ -3407,7 +3431,8 @@ let parseAdvSIMDTwoRegsMisc phlp (itstate: byref<BL>) isInIT b =
 #endif
     render phlp &itstate 0 isInIT b Op.VMOVN (oneDt SIMDTypI64) N OD.OprDdQm
   (* VQMOVUN xx1001001 *)
-  | 00111001001u (* size = 11 *) -> undefined ()
+  | 00111001001u (* size = 11 *) ->
+    undefined ()
   | 0b001001001u ->
 #if !EMULATION
     chkVm b
@@ -3455,7 +3480,8 @@ let parseAdvSIMDTwoRegsMisc phlp (itstate: byref<BL>) isInIT b =
 #endif
     render phlp &itstate 0 isInIT b Op.VQMOVN (oneDt SIMDTypU64) N OD.OprDdQm
   (* VSHLL xx1001100 *)
-  | 0b111001100u (* size = 11 *) -> undefined ()
+  | 0b111001100u (* size = 11 *) ->
+    undefined ()
   | 0b001001100u ->
 #if !EMULATION
     chkVm b
@@ -3491,7 +3517,8 @@ let parseAdvSIMDTwoRegsMisc phlp (itstate: byref<BL>) isInIT b =
     render phlp &itstate 0 isInIT b Op.SHA256SU0 (oneDt SIMDTyp32) N OD.OprQdQm
   (* VRINTN xx101000x *)
   | 0b001010000u | 0b001010001u (* size = 00 *)
-  | 0b111010000u | 0b111010001u (* size = 11 *) -> undefined ()
+  | 0b111010000u | 0b111010001u (* size = 11 *) ->
+    undefined ()
   | 0b011010000u ->
 #if !EMULATION
     chkITQVdVm b itstate
@@ -3514,7 +3541,8 @@ let parseAdvSIMDTwoRegsMisc phlp (itstate: byref<BL>) isInIT b =
     render phlp &itstate 0 isInIT b Op.VRINTN (oneDt SIMDTypF32) N OD.OprQdQm
   (* VRINTX xx101001x *)
   | 0b001010010u | 0b001010011u (* size = 00 *)
-  | 0b111010010u | 0b111010011u (* size = 11 *) -> undefined ()
+  | 0b111010010u | 0b111010011u (* size = 11 *) ->
+    undefined ()
   | 0b011010010u ->
 #if !EMULATION
     chkITQVdVm b itstate
@@ -3537,7 +3565,8 @@ let parseAdvSIMDTwoRegsMisc phlp (itstate: byref<BL>) isInIT b =
     render phlp &itstate 0 isInIT b Op.VRINTX (oneDt SIMDTypF32) N OD.OprQdQm
   (* VRINTA xx101010x *)
   | 0b001010100u | 0b001010101u (* size = 00 *)
-  | 0b111010100u | 0b111010101u (* size = 11 *) -> undefined ()
+  | 0b111010100u | 0b111010101u (* size = 11 *) ->
+    undefined ()
   | 0b011010100u ->
 #if !EMULATION
     chkITQVdVm b itstate
@@ -3560,7 +3589,8 @@ let parseAdvSIMDTwoRegsMisc phlp (itstate: byref<BL>) isInIT b =
     render phlp &itstate 0 isInIT b Op.VRINTA (oneDt SIMDTypF32) N OD.OprQdQm
   (* VRINTZ xx101011x *)
   | 0b001010110u | 0b001010111u (* size = 00 *)
-  | 0b111010110u | 0b111010111u (* size = 11 *) -> undefined ()
+  | 0b111010110u | 0b111010111u (* size = 11 *) ->
+    undefined ()
   | 0b011010110u ->
 #if !EMULATION
     chkITQVdVm b itstate
@@ -3581,7 +3611,8 @@ let parseAdvSIMDTwoRegsMisc phlp (itstate: byref<BL>) isInIT b =
     chkITQVdVm b itstate
 #endif
     render phlp &itstate 0 isInIT b Op.VRINTZ (oneDt SIMDTypF32) N OD.OprQdQm
-  | 0b101011001u -> raise ParsingFailureException
+  | 0b101011001u ->
+    raise ParsingFailureException
   (* VCVT xx1011000 *)
   | 0b001011000u | 0b101011000u | 0b111011000u (* size != 01 *) ->
     undefined ()
@@ -3593,7 +3624,8 @@ let parseAdvSIMDTwoRegsMisc phlp (itstate: byref<BL>) isInIT b =
     render phlp &itstate 0 isInIT b Op.VCVT dt N OD.OprDdQm
   (* VRINTM xx101101x *)
   | 0b001011010u | 0b001011011u (* size = 00 *)
-  | 0b111011010u | 0b111011011u (* size = 11 *) -> undefined ()
+  | 0b111011010u | 0b111011011u (* size = 11 *) ->
+    undefined ()
   | 0b011011010u ->
 #if !EMULATION
     chkITQVdVm b itstate
@@ -3627,7 +3659,8 @@ let parseAdvSIMDTwoRegsMisc phlp (itstate: byref<BL>) isInIT b =
     raise ParsingFailureException
   (* VRINTP xx101111x *)
   | 0b001011110u | 0b001011111u (* size = 00 *)
-  | 0b111011110u | 0b111011111u (* size = 11 *) -> undefined ()
+  | 0b111011110u | 0b111011111u (* size = 11 *) ->
+    undefined ()
   | 0b011011110u ->
 #if !EMULATION
     chkQVdVm b
@@ -3924,10 +3957,13 @@ let parseAdvSIMDTwoRegsMisc phlp (itstate: byref<BL>) isInIT b =
     chkQVdVmSzIT b itstate
 #endif
     render phlp &itstate 0 isInIT b Op.VRSQRTE (oneDt SIMDTypF32) N OD.OprQdQm
-  | 0b111011001u -> raise ParsingFailureException
+  | 0b111011001u ->
+    raise ParsingFailureException
   (* VCVT xx1111xxx *)
-  | b when pickTwo b 7 = 0b00u (* size = 00 *) -> undefined ()
-  | b when pickTwo b 7 = 0b11u (* size = 11 *) -> undefined ()
+  | b when pickTwo b 7 = 0b00u (* size = 00 *) ->
+    undefined ()
+  | b when pickTwo b 7 = 0b11u (* size = 11 *) ->
+    undefined ()
   | 0b011111000u ->
 #if !EMULATION
     chkQVdVmSzIT b itstate
@@ -4024,7 +4060,8 @@ let parseAdvSIMDTwoRegsMisc phlp (itstate: byref<BL>) isInIT b =
 #endif
     let dt = twoDt (SIMDTypU32, SIMDTypF32)
     render phlp &itstate 0 isInIT b Op.VCVT dt N OD.OprQdQm
-  | _ -> raise ParsingFailureException
+  | _ ->
+    raise ParsingFailureException
 
 /// Advanced SIMD duplicate (scalar) on page F3-4170.
 let parseAdvSIMDDupScalar phlp (itstate: byref<BL>) isInIT bin =
@@ -4035,7 +4072,8 @@ let parseAdvSIMDDupScalar phlp (itstate: byref<BL>) isInIT bin =
 #endif
     let dt = getDTImm4 (pickFour bin 16) |> oneDt
     render phlp &itstate 0 isInIT bin Op.VDUP dt N OD.OprDdDmx
-  | _ (* 001 | 01x | 1xx *) -> raise ParsingFailureException
+  | _ (* 001 | 01x | 1xx *) ->
+    raise ParsingFailureException
 
 /// Advanced SIMD three registers of different lengths on page F3-4171.
 let parseAdvSIMDThreeRegsDiffLen phlp (itstate: byref<BL>) isInIT bin =
@@ -4136,11 +4174,16 @@ let parseAdvSIMDThreeRegsDiffLen phlp (itstate: byref<BL>) isInIT bin =
 #endif
     let dt = getDTPolyT bin |> oneDt
     render phlp &itstate 0 isInIT bin Op.VMULL dt N OD.OprQdDnDm
-  | 0b11001u -> raise ParsingFailureException
-  | 0b11011u -> raise ParsingFailureException
-  | 0b11101u -> raise ParsingFailureException
-  | 0b01111u | 0b11111u (* x1111 *) -> raise ParsingFailureException
-  | _ -> raise ParsingFailureException
+  | 0b11001u ->
+    raise ParsingFailureException
+  | 0b11011u ->
+    raise ParsingFailureException
+  | 0b11101u ->
+    raise ParsingFailureException
+  | 0b01111u | 0b11111u (* x1111 *) ->
+    raise ParsingFailureException
+  | _ ->
+    raise ParsingFailureException
 
 /// Advanced SIMD two registers and a scalar on page F3-4172.
 let parseAdvSIMDTwoRegsAndScalar phlp (itstate: byref<BL>) isInIT bin =
@@ -4267,7 +4310,8 @@ let parseAdvSIMDTwoRegsAndScalar phlp (itstate: byref<BL>) isInIT bin =
 #endif
     let dt = getDTF1 (pickTwo bin 20) |> oneDt
     render phlp &itstate 0 isInIT bin Op.VMUL dt N OD.OprQdQnDmx
-  | 0b10011u -> raise ParsingFailureException
+  | 0b10011u ->
+    raise ParsingFailureException
   (* VMULL x1010 *)
   | 0b01010u ->
 #if !EMULATION
@@ -4281,7 +4325,8 @@ let parseAdvSIMDTwoRegsAndScalar phlp (itstate: byref<BL>) isInIT bin =
 #endif
     let dt = getDTUSign (pickTwo bin 20) |> oneDt
     render phlp &itstate 0 isInIT bin Op.VMULL dt N OD.OprQdDnDmx
-  | 0b10111u -> raise ParsingFailureException
+  | 0b10111u ->
+    raise ParsingFailureException
   (* VQDMULH x1100 *)
   | 0b01100u ->
 #if !EMULATION
@@ -4308,7 +4353,8 @@ let parseAdvSIMDTwoRegsAndScalar phlp (itstate: byref<BL>) isInIT bin =
 #endif
     let dt = getDTSign (pickTwo bin 20) |> oneDt
     render phlp &itstate 0 isInIT bin Op.VQRDMULH dt N OD.OprQdQnDmx
-  | 0b11011u -> raise ParsingFailureException
+  | 0b11011u ->
+    raise ParsingFailureException
   (* VQRDMLAH x1110 Armv8.1 *)
   | 0b01110u ->
 #if !EMULATION
@@ -4453,7 +4499,8 @@ let parseAdvSIMDOneRegAndModImm phlp (itstate: byref<BL>) isInIT bin =
 #endif
     let oprs = if pickBit bin 6 = 0u then OD.OprDdImm64T else OD.OprQdImm64T
     render phlp &itstate 0 isInIT bin Op.VMOV (oneDt SIMDTypI64) N oprs
-  | _ (* 11111 *) -> raise ParsingFailureException
+  | _ (* 11111 *) ->
+    raise ParsingFailureException
 
 /// Advanced SIMD two registers and shift amount on page F3-4174.
 let parseAdvSIMDTwoRegsAndShfAmt phlp (itstate: byref<BL>) isInIT bin =
@@ -4651,23 +4698,22 @@ let parseAdvSIMDTwoRegsAndShfAmt phlp (itstate: byref<BL>) isInIT bin =
   (* A gap in the Advanced SIMD tables above rather than an impossible state:
      ordinary Thumb input reaches this, so it reports an undecodable encoding
      instead of announcing a fatal error on stderr. *)
-  | _ -> raise ParsingFailureException
+  | _ ->
+    raise ParsingFailureException
 
 /// Advanced SIMD shifts and immediate generation on page F3-4173.
 let parseAdvSIMDShfsAndImmGen phlp (itstate: byref<BL>) isInIT bin =
   if concat (pickThree bin 19) (pickBit bin 7) 1 = 0b0000u then
     parseAdvSIMDOneRegAndModImm phlp &itstate isInIT bin
-  else parseAdvSIMDTwoRegsAndShfAmt phlp &itstate isInIT bin
+  else
+    parseAdvSIMDTwoRegsAndShfAmt phlp &itstate isInIT bin
 
 /// Advanced SIMD data-processing on page F3-4165.
 let parseAdvSIMDDataProcess phlp (itstate: byref<BL>) isInIT bin =
   match concat (pickBit bin 23) (pickBit bin 4) 1 (* op0:op1 *) with
-  | 0b00u | 0b01u ->
-    parseAdvSIMDThreeRegsOfSameLen phlp &itstate isInIT bin
-  | 0b10u ->
-    parseAdvSIMDTwoOrThreeRegsDiffLen phlp &itstate isInIT bin
-  | _ (* 11 *) ->
-    parseAdvSIMDShfsAndImmGen phlp &itstate isInIT bin
+  | 0b00u | 0b01u -> parseAdvSIMDThreeRegsOfSameLen phlp &itstate isInIT bin
+  | 0b10u -> parseAdvSIMDTwoOrThreeRegsDiffLen phlp &itstate isInIT bin
+  | _ (* 11 *) -> parseAdvSIMDShfsAndImmGen phlp &itstate isInIT bin
 
 /// Advanced SIMD and floating-point 64-bit move on page F3-4175.
 let parseAdvSIMDAndFP64BitMove phlp (itstate: byref<BL>) isInIT bin =
@@ -4709,7 +4755,8 @@ let parseAdvSIMDAndFP64BitMove phlp (itstate: byref<BL>) isInIT bin =
 /// System register 64-bit move on page F3-4176.
 let parseSystemReg64BitMove phlp (itstate: byref<BL>) isInIT bin =
   match concat (pickBit bin 22) (pickBit bin 20) 1 (* D:L *) with
-  | 0b00u | 0b01u -> raise ParsingFailureException
+  | 0b00u | 0b01u ->
+    raise ParsingFailureException
   | 0b10u ->
 #if !EMULATION
     chkPCRtRt2 bin
@@ -4763,7 +4810,8 @@ let parseAdvSIMDAndFPLdSt phlp (itstate: byref<BL>) isInIT bin =
 #endif
     render phlp &itstate 0 isInIT bin Op.FLDMIAX None N OD.OprRnDreglist
   (* VSTR 1x00xx *)
-  | 0b100000u | 0b110000u (* size = 00 *) -> undefined ()
+  | 0b100000u | 0b110000u (* size = 00 *) ->
+    undefined ()
   | 0b100001u | 0b110001u ->
 #if !EMULATION
     chkSzIT bin itstate
@@ -4781,7 +4829,8 @@ let parseAdvSIMDAndFPLdSt phlp (itstate: byref<BL>) isInIT bin =
 #endif
     render phlp &itstate 0 isInIT bin Op.VSTR None N OD.OprDdMem
   (* VLDR 1x01xx *)
-  | 0b100100u | 0b110100u when isNot1111 -> undefined ()
+  | 0b100100u | 0b110100u when isNot1111 ->
+    undefined ()
   | 0b100101u | 0b110101u when isNot1111 ->
 #if !EMULATION
     chkSz01IT bin itstate
@@ -4831,7 +4880,8 @@ let parseAdvSIMDAndFPLdSt phlp (itstate: byref<BL>) isInIT bin =
 #endif
     render phlp &itstate 0 isInIT bin Op.FLDMDBX None N OD.OprRnDreglist
   (* VLDR 1x01xx *)
-  | 0b100100u | 0b110100u (* size = 00 *) -> undefined ()
+  | 0b100100u | 0b110100u (* size = 00 *) ->
+    undefined ()
   | 0b100101u | 0b110101u ->
 #if !EMULATION
     chkSz01IT bin itstate
@@ -4852,7 +4902,8 @@ let parseAdvSIMDAndFPLdSt phlp (itstate: byref<BL>) isInIT bin =
     render phlp &itstate 0 isInIT bin Op.VLDR dt N OD.OprDdMem
   | b when b &&& 0b111000u = 0b111000u (* 111xxx *) ->
     raise ParsingFailureException
-  | _ -> raise ParsingFailureException
+  | _ ->
+    raise ParsingFailureException
 
 /// System register Load/Store on page F3-4177.
 let parseSystemRegLdSt phlp (itstate: byref<BL>) isInIT bin =
@@ -4866,7 +4917,8 @@ let parseSystemRegLdSt phlp (itstate: byref<BL>) isInIT bin =
     + (pickBit bin 8)
   match decodeField1 (* D:L:cp15 *) with
   | 0b000u | 0b010u | 0b100u | 0b110u (* xx0 *)
-    when puw <> 0b000u && crd <> 0b0101u -> raise ParsingFailureException
+    when puw <> 0b000u && crd <> 0b0101u ->
+    raise ParsingFailureException
   | 0b010u when puw <> 0b000u && rn = 0b1111u && crd = 0b0101u ->
     (* if W == '1' then UNPREDICTABLE *)
     pickBit bin 21 = 1u |> checkUnpred
@@ -4905,7 +4957,8 @@ let parseSystemRegLdSt phlp (itstate: byref<BL>) isInIT bin =
       render phlp &itstate 0 isInIT bin Op.STC None N OD.OprP14C5Mem
     | 0b1010101010u | 0b1110101010u (* 1x10101010 *) when rn <> 0b1111u ->
       render phlp &itstate 0 isInIT bin Op.LDC None N OD.OprP14C5Mem
-    | _ -> raise ParsingFailureException
+    | _ ->
+      raise ParsingFailureException
 
 /// Advanced SIMD and System register load/store and 64-bit move
 /// on page F3-4174.
@@ -4914,18 +4967,25 @@ let parseAdvSIMDAndSysRegLdStAnd64BitMov phlp (itstate: byref<BL>) isInIT bin =
   match pickTwo bin 9 (* op1 *) with
   | 0b00u | 0b01u (* 0x *) when is00x0 ->
     parseAdvSIMDAndFP64BitMove phlp &itstate isInIT bin
-  | 0b11u when is00x0 -> parseSystemReg64BitMove phlp &itstate isInIT bin
-  | 0b00u | 0b01u (* 0x *) -> parseAdvSIMDAndFPLdSt phlp &itstate isInIT bin
-  | 0b11u -> parseSystemRegLdSt phlp &itstate isInIT bin
-  | _ (* 10 *) -> raise ParsingFailureException
+  | 0b11u when is00x0 ->
+    parseSystemReg64BitMove phlp &itstate isInIT bin
+  | 0b00u | 0b01u (* 0x *) ->
+    parseAdvSIMDAndFPLdSt phlp &itstate isInIT bin
+  | 0b11u ->
+    parseSystemRegLdSt phlp &itstate isInIT bin
+  | _ (* 10 *) ->
+    raise ParsingFailureException
 
 /// Floating-point data-processing (two registers) on page F3-4178.
 let parseFPDataProcTwoRegs phlp (itstate: byref<BL>) isInIT bin =
   match (pickFour bin 16 <<< 3) + (pickThree bin 7) (* o1:opc2:size:o3 *) with
-  | b when b &&& 0b0000110u = 0u (* xxxx00x *) -> raise ParsingFailureException
-  | 0b0000010u -> raise ParsingFailureException
+  | b when b &&& 0b0000110u = 0u (* xxxx00x *) ->
+    raise ParsingFailureException
+  | 0b0000010u ->
+    raise ParsingFailureException
   (* VABS 0000xx1 *)
-  | 0b0000001u (* size = 00 *) -> undefined ()
+  | 0b0000001u (* size = 00 *) ->
+    undefined ()
   | 0b0000011u ->
 #if !EMULATION
     chkSz01IT bin itstate
@@ -4952,7 +5012,8 @@ let parseFPDataProcTwoRegs phlp (itstate: byref<BL>) isInIT bin =
     let dt = oneDt SIMDTypF64
     render phlp &itstate 0 isInIT bin Op.VMOV dt N OD.OprDdDm
   (* VNEG 0001xx0 *)
-  | 0b0001000u (* size = 00 *) -> undefined ()
+  | 0b0001000u (* size = 00 *) ->
+    undefined ()
   | 0b0001010u ->
 #if !EMULATION
     chkSz01IT bin itstate
@@ -4972,7 +5033,8 @@ let parseFPDataProcTwoRegs phlp (itstate: byref<BL>) isInIT bin =
     let dt = oneDt SIMDTypF64
     render phlp &itstate 0 isInIT bin Op.VNEG dt N OD.OprDdDm
   (* VSQRT 0001xx1 *)
-  | 0b0001001u (* size = 00 *) -> undefined ()
+  | 0b0001001u (* size = 00 *) ->
+    undefined ()
   | 0b0001011u ->
 #if !EMULATION
     chkSz01IT bin itstate
@@ -4998,7 +5060,8 @@ let parseFPDataProcTwoRegs phlp (itstate: byref<BL>) isInIT bin =
   | 0b0010110u ->
     let dt = twoDt (SIMDTypF64, SIMDTypF16)
     render phlp &itstate 0 isInIT bin Op.VCVTB dt N OD.OprDdSm
-  | 0b0010010u | 0b0010011u (* 001001x *) -> raise ParsingFailureException
+  | 0b0010010u | 0b0010011u (* 001001x *) ->
+    raise ParsingFailureException
   (* VCVTT 0010xx1 *)
   | 0b0010101u ->
     let dt = twoDt (SIMDTypF32, SIMDTypF16)
@@ -5025,7 +5088,8 @@ let parseFPDataProcTwoRegs phlp (itstate: byref<BL>) isInIT bin =
     let dt = twoDt (SIMDTypF16, SIMDTypF64)
     render phlp &itstate 0 isInIT bin Op.VCVTT dt N OD.OprSdDm
   (* VCMP 0100xx0 *)
-  | 0b0100000u (* size = 00 *) -> undefined ()
+  | 0b0100000u (* size = 00 *) ->
+    undefined ()
   | 0b0100010u ->
 #if !EMULATION
     chkSz01IT bin itstate
@@ -5045,7 +5109,8 @@ let parseFPDataProcTwoRegs phlp (itstate: byref<BL>) isInIT bin =
     let dt = oneDt SIMDTypF64
     render phlp &itstate 0 isInIT bin Op.VCMP dt N OD.OprDdDm
   (* 0100xx1 VCMPE *)
-  | 0b0100001u (* size = 00 *) -> undefined ()
+  | 0b0100001u (* size = 00 *) ->
+    undefined ()
   | 0b0100011u ->
 #if !EMULATION
     chkSz01IT bin itstate
@@ -5065,7 +5130,8 @@ let parseFPDataProcTwoRegs phlp (itstate: byref<BL>) isInIT bin =
     let dt = oneDt SIMDTypF64
     render phlp &itstate 0 isInIT bin Op.VCMPE dt N OD.OprDdDm
   (* 0101xx0 VCMP *)
-  | 0b0101000u (* size = 00 *) -> undefined ()
+  | 0b0101000u (* size = 00 *) ->
+    undefined ()
   | 0b0101010u ->
 #if !EMULATION
     chkSz01IT bin itstate
@@ -5085,7 +5151,8 @@ let parseFPDataProcTwoRegs phlp (itstate: byref<BL>) isInIT bin =
     let dt = oneDt SIMDTypF64
     render phlp &itstate 0 isInIT bin Op.VCMP dt N OD.OprDdImm0
   (* 0101xx1 VCMPE *)
-  | 0b0101001u (* size = 00 *) -> undefined ()
+  | 0b0101001u (* size = 00 *) ->
+    undefined ()
   | 0b0101011u ->
 #if !EMULATION
     chkSz01IT bin itstate
@@ -5124,7 +5191,8 @@ let parseFPDataProcTwoRegs phlp (itstate: byref<BL>) isInIT bin =
     let dt = oneDt SIMDTypF64
     render phlp &itstate 0 isInIT bin Op.VRINTR dt N OD.OprDdDm
   (* 0110xx1 VRINTZ ARMv8 *)
-  | 0b0110001u (* size = 00 *) -> undefined ()
+  | 0b0110001u (* size = 00 *) ->
+    undefined ()
   | 0b0110011u ->
 #if !EMULATION
     chkSz01IT bin itstate
@@ -5144,7 +5212,8 @@ let parseFPDataProcTwoRegs phlp (itstate: byref<BL>) isInIT bin =
     let dt = oneDt SIMDTypF64
     render phlp &itstate 0 isInIT bin Op.VRINTZ dt N OD.OprDdDm
   (* 0111xx0 VRINTX ARMv8 *)
-  | 0b0111000u (* size = 00 *) -> undefined ()
+  | 0b0111000u (* size = 00 *) ->
+    undefined ()
   | 0b0111010u ->
 #if !EMULATION
     chkSz01IT bin itstate
@@ -5163,7 +5232,8 @@ let parseFPDataProcTwoRegs phlp (itstate: byref<BL>) isInIT bin =
 #endif
     let dt = oneDt SIMDTypF64
     render phlp &itstate 0 isInIT bin Op.VRINTX dt N OD.OprDdDm
-  | 0b0111011u -> raise ParsingFailureException
+  | 0b0111011u ->
+    raise ParsingFailureException
   | 0b0111101u ->
     let dt = twoDt (SIMDTypF64, SIMDTypF32)
     render phlp &itstate 0 isInIT bin Op.VCVT dt N OD.OprDdSm
@@ -5171,7 +5241,8 @@ let parseFPDataProcTwoRegs phlp (itstate: byref<BL>) isInIT bin =
     let dt = twoDt (SIMDTypF32, SIMDTypF64)
     render phlp &itstate 0 isInIT bin Op.VCVT dt N OD.OprSdDm
   (* 1000xxx VCVT *)
-  | 0b1000000u | 0b1000001u (* size = 00 *) -> undefined ()
+  | 0b1000000u | 0b1000001u (* size = 00 *) ->
+    undefined ()
   | 0b1000010u ->
 #if !EMULATION
     chkSz01IT bin itstate
@@ -5208,9 +5279,12 @@ let parseFPDataProcTwoRegs phlp (itstate: byref<BL>) isInIT bin =
 #endif
     let dt = twoDt (SIMDTypF64, SIMDTypS32)
     render phlp &itstate 0 isInIT bin Op.VCVT dt N OD.OprDdSm
-  | 0b1001010u | 0b1001011u (* 100101x *) -> raise ParsingFailureException
-  | 0b1001100u | 0b1001101u (* 100110x *) -> raise ParsingFailureException
-  | 0b1001110u -> raise ParsingFailureException
+  | 0b1001010u | 0b1001011u (* 100101x *) ->
+    raise ParsingFailureException
+  | 0b1001100u | 0b1001101u (* 100110x *) ->
+    raise ParsingFailureException
+  | 0b1001110u ->
+    raise ParsingFailureException
   | 0b1001111u -> (* Armv8.3 *)
     inITBlock itstate |> checkUnpred
     let dt = twoDt (SIMDTypS32, SIMDTypF64)
@@ -5291,7 +5365,8 @@ let parseFPDataProcTwoRegs phlp (itstate: byref<BL>) isInIT bin =
     let dt = twoDt (SIMDTypF64, SIMDTypU32)
     render phlp &itstate 0 isInIT bin Op.VCVT dt N OD.OprDdmDdmFbits
   (* 1100xx0 VCVTR *)
-  | 0b1100000u (* size = 00 *) -> undefined ()
+  | 0b1100000u (* size = 00 *) ->
+    undefined ()
   | 0b1100010u ->
 #if !EMULATION
     chkSz01IT bin itstate
@@ -5311,7 +5386,8 @@ let parseFPDataProcTwoRegs phlp (itstate: byref<BL>) isInIT bin =
     let dt = twoDt (SIMDTypU32, SIMDTypF64)
     render phlp &itstate 0 isInIT bin Op.VCVTR dt N OD.OprSdDm
   (* 1100xx1 VCVT *)
-  | 0b1100001u (* size = 00 *) -> undefined ()
+  | 0b1100001u (* size = 00 *) ->
+    undefined ()
   | 0b1100011u ->
 #if !EMULATION
     chkSz01IT bin itstate
@@ -5331,7 +5407,8 @@ let parseFPDataProcTwoRegs phlp (itstate: byref<BL>) isInIT bin =
     let dt = twoDt (SIMDTypU32, SIMDTypF64)
     render phlp &itstate 0 isInIT bin Op.VCVT dt N OD.OprSdDm
   (* 1101xx0 VCVTR *)
-  | 0b1101000u (* size = 00 *) -> undefined ()
+  | 0b1101000u (* size = 00 *) ->
+    undefined ()
   | 0b1101010u ->
 #if !EMULATION
     chkSz01IT bin itstate
@@ -5351,7 +5428,8 @@ let parseFPDataProcTwoRegs phlp (itstate: byref<BL>) isInIT bin =
     let dt = twoDt (SIMDTypS32, SIMDTypF64)
     render phlp &itstate 0 isInIT bin Op.VCVTR dt N OD.OprSdDm
   (* 1101xx1u VCVT *)
-  | 0b1101001u (* size = 00 *) -> undefined ()
+  | 0b1101001u (* size = 00 *) ->
+    undefined ()
   | 0b1101011u ->
 #if !EMULATION
     chkSz01IT bin itstate
@@ -5445,12 +5523,14 @@ let parseFPDataProcTwoRegs phlp (itstate: byref<BL>) isInIT bin =
 #endif
     let dt = twoDt (SIMDTypU32, SIMDTypF64)
     render phlp &itstate 0 isInIT bin Op.VCVT dt N OD.OprDdmDdmFbits
-  | _ -> raise ParsingFailureException
+  | _ ->
+    raise ParsingFailureException
 
 /// Floating-point move immediate on page F3-4180.
 let parseFPMoveImm phlp (itstate: byref<BL>) isInIT bin =
   match pickTwo bin 8 (* size *) with
-  | 0b00u -> raise ParsingFailureException
+  | 0b00u ->
+    raise ParsingFailureException
   | 0b01u -> (* Armv8.2 *)
 #if !EMULATION
     chkSz01IT bin itstate
@@ -5479,7 +5559,8 @@ let parseFPDataProcThreeRegs phlp (itstate: byref<BL>) isInIT bin =
   | b when (b >>> 3 <> 0b111u) && (b &&& 0b000110u = 0b000u) (* != 111 00x *) ->
     raise ParsingFailureException
   (* 000xx0 VMLA *)
-  | 0b000000u (* size = 00 *) -> undefined ()
+  | 0b000000u (* size = 00 *) ->
+    undefined ()
   | 0b000010u ->
 #if !EMULATION
     chkSz01IT bin itstate
@@ -5499,7 +5580,8 @@ let parseFPDataProcThreeRegs phlp (itstate: byref<BL>) isInIT bin =
     let dt = oneDt SIMDTypF64
     render phlp &itstate 0 isInIT bin Op.VMLA dt N OD.OprDdDnDm
   (* 000xx1 VMLS *)
-  | 0b000001u (* size = 00 *) -> undefined ()
+  | 0b000001u (* size = 00 *) ->
+    undefined ()
   | 0b000011u ->
 #if !EMULATION
     chkSz01IT bin itstate
@@ -5519,7 +5601,8 @@ let parseFPDataProcThreeRegs phlp (itstate: byref<BL>) isInIT bin =
     let dt = oneDt SIMDTypF64
     render phlp &itstate 0 isInIT bin Op.VMLS dt N OD.OprDdDnDm
   (* 001xx0 VNMLS *)
-  | 0b001000u (* size = 00 *) -> undefined ()
+  | 0b001000u (* size = 00 *) ->
+    undefined ()
   | 0b001010u ->
 #if !EMULATION
     chkSz01IT bin itstate
@@ -5539,7 +5622,8 @@ let parseFPDataProcThreeRegs phlp (itstate: byref<BL>) isInIT bin =
     let dt = oneDt SIMDTypF64
     render phlp &itstate 0 isInIT bin Op.VNMLS dt N OD.OprDdDnDm
   (* 001xx1 VNMLA *)
-  | 0b001001u (* size = 00 *) -> undefined ()
+  | 0b001001u (* size = 00 *) ->
+    undefined ()
   | 0b001011u ->
 #if !EMULATION
     chkSz01IT bin itstate
@@ -5559,7 +5643,8 @@ let parseFPDataProcThreeRegs phlp (itstate: byref<BL>) isInIT bin =
     let dt = oneDt SIMDTypF64
     render phlp &itstate 0 isInIT bin Op.VNMLA dt N OD.OprDdDnDm
   (* 010xx0 VMUL *)
-  | 0b010000u (* size = 00 *) -> undefined ()
+  | 0b010000u (* size = 00 *) ->
+    undefined ()
   | 0b010010u ->
 #if !EMULATION
     chkSz01IT bin itstate
@@ -5579,7 +5664,8 @@ let parseFPDataProcThreeRegs phlp (itstate: byref<BL>) isInIT bin =
     let dt = oneDt SIMDTypF64
     render phlp &itstate 0 isInIT bin Op.VMUL dt N OD.OprDdDnDm
   (* 010xx1 VNMUL *)
-  | 0b010001u (* size = 00 *) -> undefined ()
+  | 0b010001u (* size = 00 *) ->
+    undefined ()
   | 0b010011u ->
 #if !EMULATION
     chkSz01IT bin itstate
@@ -5599,7 +5685,8 @@ let parseFPDataProcThreeRegs phlp (itstate: byref<BL>) isInIT bin =
     let dt = oneDt SIMDTypF64
     render phlp &itstate 0 isInIT bin Op.VNMUL dt N OD.OprDdDnDm
   (* 011xx0 VADD *)
-  | 0b011000u (* size = 00 *) -> undefined ()
+  | 0b011000u (* size = 00 *) ->
+    undefined ()
   | 0b011010u ->
 #if !EMULATION
     chkSz01IT bin itstate
@@ -5619,7 +5706,8 @@ let parseFPDataProcThreeRegs phlp (itstate: byref<BL>) isInIT bin =
     let dt = oneDt SIMDTypF64
     render phlp &itstate 0 isInIT bin Op.VADD dt N OD.OprDdDnDm
   (* 011xx1 VSUB *)
-  | 0b011001u (* size = 00 *) -> undefined ()
+  | 0b011001u (* size = 00 *) ->
+    undefined ()
   | 0b011011u ->
 #if !EMULATION
     chkSz01IT bin itstate
@@ -5639,7 +5727,8 @@ let parseFPDataProcThreeRegs phlp (itstate: byref<BL>) isInIT bin =
     let dt = oneDt SIMDTypF64
     render phlp &itstate 0 isInIT bin Op.VSUB dt N OD.OprDdDnDm
   (* 100xx0 VDIV *)
-  | 0b100000u (* size = 00 *) -> undefined ()
+  | 0b100000u (* size = 00 *) ->
+    undefined ()
   | 0b100010u ->
 #if !EMULATION
     chkSz01IT bin itstate
@@ -5659,7 +5748,8 @@ let parseFPDataProcThreeRegs phlp (itstate: byref<BL>) isInIT bin =
     let dt = oneDt SIMDTypF64
     render phlp &itstate 0 isInIT bin Op.VDIV dt N OD.OprDdDnDm
   (* 101xx0 VFNMS *)
-  | 0b101000u (* size = 00 *) -> undefined ()
+  | 0b101000u (* size = 00 *) ->
+    undefined ()
   | 0b101010u ->
 #if !EMULATION
     chkSz01IT bin itstate
@@ -5679,7 +5769,8 @@ let parseFPDataProcThreeRegs phlp (itstate: byref<BL>) isInIT bin =
     let dt = oneDt SIMDTypF64
     render phlp &itstate 0 isInIT bin Op.VFNMS dt N OD.OprDdDnDm
   (* 101xx1 VFNMA *)
-  | 0b101001u (* size = 00 *) -> undefined ()
+  | 0b101001u (* size = 00 *) ->
+    undefined ()
   | 0b101011u ->
 #if !EMULATION
     chkSz01IT bin itstate
@@ -5699,7 +5790,8 @@ let parseFPDataProcThreeRegs phlp (itstate: byref<BL>) isInIT bin =
     let dt = oneDt SIMDTypF64
     render phlp &itstate 0 isInIT bin Op.VFNMA dt N OD.OprDdDnDm
   (* 110xx0 VFMA *)
-  | 0b110000u (* size = 00 *) -> undefined ()
+  | 0b110000u (* size = 00 *) ->
+    undefined ()
   | 0b110010u ->
 #if !EMULATION
     chkSz01IT bin itstate
@@ -5719,7 +5811,8 @@ let parseFPDataProcThreeRegs phlp (itstate: byref<BL>) isInIT bin =
     let dt = oneDt SIMDTypF64
     render phlp &itstate 0 isInIT bin Op.VFMA dt N OD.OprDdDnDm
   (* 110xx1 VFMS *)
-  | 0b110001u (* size = 00 *) -> undefined ()
+  | 0b110001u (* size = 00 *) ->
+    undefined ()
   | 0b110011u ->
 #if !EMULATION
     chkSz01IT bin itstate
@@ -5738,7 +5831,8 @@ let parseFPDataProcThreeRegs phlp (itstate: byref<BL>) isInIT bin =
 #endif
     let dt = oneDt SIMDTypF64
     render phlp &itstate 0 isInIT bin Op.VFMS dt N OD.OprDdDnDm
-  | _ -> raise ParsingFailureException
+  | _ ->
+    raise ParsingFailureException
 
 /// Floating-point data-processing on page F3-4178.
 let parseFPDataProcessing phlp (itstate: byref<BL>) isInIT bin =
@@ -5838,7 +5932,8 @@ let parseAdvSIMD8n16n32BitElemMoveDup phlp (itstate: byref<BL>) isInIT bin =
     chkPCRt bin
 #endif
     render phlp &itstate 0 isInIT bin Op.VMOV (oneDt SIMDTyp32) N OD.OprDd1Rt
-  | 0b000010u | 0b001010u -> undefined ()
+  | 0b000010u | 0b001010u ->
+    undefined ()
   (* xxx1xx VMOV (scalar to general-purpose register) *)
   | 0b010100u ->
 #if !EMULATION
@@ -6004,8 +6099,10 @@ let parseAdvSIMD8n16n32BitElemMoveDup phlp (itstate: byref<BL>) isInIT bin =
     chkPCRt bin
 #endif
     render phlp &itstate 0 isInIT bin Op.VDUP (oneDt SIMDTyp32) N OD.OprQdRt
-  | 0b111001u | 0b110001u -> undefined ()
-  | _ (* 1xx01x *) -> raise ParsingFailureException
+  | 0b111001u | 0b110001u ->
+    undefined ()
+  | _ (* 1xx01x *) ->
+    raise ParsingFailureException
 
 /// System register 32-bit move on page F3-4183.
 let parseSystemReg32BitMove phlp (itstate: byref<BL>) isInIT bin =
@@ -6021,7 +6118,8 @@ let parseSystemReg32BitMove phlp (itstate: byref<BL>) isInIT bin =
 /// Advanced SIMD and System register 32-bit move on page F3-4181.
 let parseAdvSIMDAndSysReg32BitMov phlp (itstate: byref<BL>) isInIT bin =
   match concat (pickThree bin 21) (pickThree bin 8) 3 (* op0:op1 *) with
-  | 0b000000u -> raise ParsingFailureException
+  | 0b000000u ->
+    raise ParsingFailureException
   | 0b000001u -> (* Armv8.2 *)
     inITBlock itstate |> checkUnpred
     let oprs = if pickBit bin 20 = 0u then OD.OprSnRt else OD.OprRtSn
@@ -6032,18 +6130,24 @@ let parseAdvSIMDAndSysReg32BitMov phlp (itstate: byref<BL>) isInIT bin =
 #endif
     let oprs = if pickBit bin 20 = 0u then OD.OprSnRt else OD.OprRtSn
     render phlp &itstate 0 isInIT bin Op.VMOV None N oprs
-  | 0b001010u -> raise ParsingFailureException
-  | 0b010010u | 0b011010u (* 01x010 *) -> raise ParsingFailureException
-  | 0b100010u | 0b101010u (* 10x010 *) -> raise ParsingFailureException
-  | 0b110010u -> raise ParsingFailureException
-  | 0b111010u -> parseFPMoveSpecialReg phlp &itstate isInIT bin
+  | 0b001010u ->
+    raise ParsingFailureException
+  | 0b010010u | 0b011010u (* 01x010 *) ->
+    raise ParsingFailureException
+  | 0b100010u | 0b101010u (* 10x010 *) ->
+    raise ParsingFailureException
+  | 0b110010u ->
+    raise ParsingFailureException
+  | 0b111010u ->
+    parseFPMoveSpecialReg phlp &itstate isInIT bin
   | b when b &&& 0b000111u = 0b000011u (* xxx011 *) ->
     parseAdvSIMD8n16n32BitElemMoveDup phlp &itstate isInIT bin
   | b when b &&& 0b000110u = 0b000100u (* xxx10x *) ->
     raise ParsingFailureException
   | b when b &&& 0b000110u = 0b000110u (* xxx11x *) ->
     parseSystemReg32BitMove phlp &itstate isInIT bin
-  | _ -> raise ParsingFailureException
+  | _ ->
+    raise ParsingFailureException
 
 /// Advanced SIMD three registers of the same length extension on page F3-4184.
 let parseAdvSIMDThreeRegSameLenExt phlp (itstate: byref<BL>) isInIT bin =
@@ -6086,29 +6190,34 @@ let parseAdvSIMDThreeRegSameLenExt phlp (itstate: byref<BL>) isInIT bin =
     raise ParsingFailureException
   | bin when bin &&& 0b11101100u = 0b00000100u (* 000x01xx *) ->
     raise ParsingFailureException
-  | 0b00001000u -> raise ParsingFailureException
-  | 0b00001001u -> raise ParsingFailureException
+  | 0b00001000u ->
+    raise ParsingFailureException
+  | 0b00001001u ->
+    raise ParsingFailureException
   (* VMMLA Armv8.6 *)
   | 0b00001010u ->
 #if !EMULATION
     chkITQVdVnVm bin itstate
 #endif
     render phlp &itstate 0 isInIT bin Op.VMMLA (oneDt BF16) N OD.OprQdQnQm
-  | 0b00001011u -> raise ParsingFailureException
+  | 0b00001011u ->
+    raise ParsingFailureException
   (* VDOT 64-bit Armv8.6 *)
   | 0b00001100u ->
 #if !EMULATION
     chkITQVdVnVm bin itstate
 #endif
     render phlp &itstate 0 isInIT bin Op.VDOT (oneDt BF16) N OD.OprDdDnDm
-  | 0b00001101u -> raise ParsingFailureException
+  | 0b00001101u ->
+    raise ParsingFailureException
   (* VDOT 128-bit Armv8.6 *)
   | 0b00001110u ->
 #if !EMULATION
     chkITQVdVnVm bin itstate
 #endif
     render phlp &itstate 0 isInIT bin Op.VDOT (oneDt BF16) N OD.OprQdQnQm
-  | 0b00001111u -> raise ParsingFailureException
+  | 0b00001111u ->
+    raise ParsingFailureException
   | 0b00011000u | 0b00011001u | 0b00011010u | 0b00011011u (* 000110xx *) ->
     raise ParsingFailureException
   | 0b00011100u | 0b00011101u | 0b00011110u | 0b00011111u (* 000111xx *) ->
@@ -6126,7 +6235,8 @@ let parseAdvSIMDThreeRegSameLenExt phlp (itstate: byref<BL>) isInIT bin =
     render phlp &itstate 0 isInIT bin Op.VFMAL (oneDt SIMDTypF16) N OD.OprQdDnDm
   | 0b00100100u | 0b00100101u | 0b00100110u | 0b00100111u (* 001001xx *) ->
     raise ParsingFailureException
-  | 0b00101000u | 0b00101001u (* 0010100xu *) -> raise ParsingFailureException
+  | 0b00101000u | 0b00101001u (* 0010100xu *) ->
+    raise ParsingFailureException
   (* VSMMLA Armv8.6 *)
   | 0b00101010u ->
 #if !EMULATION
@@ -6193,7 +6303,8 @@ let parseAdvSIMDThreeRegSameLenExt phlp (itstate: byref<BL>) isInIT bin =
     render phlp &itstate 0 isInIT bin Op.VFMSL (oneDt SIMDTypF16) N OD.OprQdDnDm
   | 0b01100100u | 0b01100101u | 0b01100110u | 0b01100111u (* 011001xx *) ->
     raise ParsingFailureException
-  | 0b01101000u | 0b01101001u (* 0110100x *) -> raise ParsingFailureException
+  | 0b01101000u | 0b01101001u (* 0110100x *) ->
+    raise ParsingFailureException
   (* VUSMMLA Armv8.6 *)
   | 0b01101010u ->
 #if !EMULATION
@@ -6201,14 +6312,16 @@ let parseAdvSIMDThreeRegSameLenExt phlp (itstate: byref<BL>) isInIT bin =
 #endif
     let dt = oneDt SIMDTypS8
     render phlp &itstate 0 isInIT bin Op.VUSMMLA dt N OD.OprQdQnQm
-  | 0b01101011u -> raise ParsingFailureException
+  | 0b01101011u ->
+    raise ParsingFailureException
   (* VUSDOT 64-bit Armv8.6 *)
   | 0b01101100u ->
 #if !EMULATION
     chkITQVdVnVm bin itstate
 #endif
     render phlp &itstate 0 isInIT bin Op.VUSDOT (oneDt SIMDTypS8) N OD.OprDdDnDm
-  | 0b01101101u | 0b01101111u (* 011011x1 *) -> raise ParsingFailureException
+  | 0b01101101u | 0b01101111u (* 011011x1 *) ->
+    raise ParsingFailureException
   (* VUSDOT 128-bit Armv8.6 *)
   | 0b01101110u ->
 #if !EMULATION
@@ -6258,7 +6371,8 @@ let parseAdvSIMDThreeRegSameLenExt phlp (itstate: byref<BL>) isInIT bin =
     raise ParsingFailureException
   | 0b11111100u | 0b11111101u | 0b11111110u | 0b11111111u (* 111111xx *) ->
     raise ParsingFailureException
-  | _ -> raise ParsingFailureException
+  | _ ->
+    raise ParsingFailureException
 
 /// VSELEQ, VSELGE, VSELGT, VSELVS on page F6-5579.
 let parseVectorSelect phlp (itstate: byref<BL>) isInIT bin =
@@ -6311,7 +6425,8 @@ let parseVectorSelect phlp (itstate: byref<BL>) isInIT bin =
     inITBlock itstate |> checkUnpred
     let dt = oneDt SIMDTypF32
     render phlp &itstate 0 isInIT bin Op.VSELVS dt N OD.OprSdSnSm
-  | _ (* xx00 *) -> undefined ()
+  | _ (* xx00 *) ->
+    undefined ()
 
 /// Floating-point minNum/maxNum on page F3-4185.
 let parseFPMinMaxNum phlp (itstate: byref<BL>) isInIT bin =
@@ -6330,13 +6445,16 @@ let parseFPMinMaxNum phlp (itstate: byref<BL>) isInIT bin =
 /// Floating-point extraction and insertion on page F3-4186.
 let parseFPExtractionAndInsertion phlp (itstate: byref<BL>) isInIT bin =
   match concat (pickTwo bin 8) (pickBit bin 7) 1 (* size:op *) with
-  | 0b010u | 0b011u (* 01x *) -> raise ParsingFailureException
+  | 0b010u | 0b011u (* 01x *) ->
+    raise ParsingFailureException
   | 0b100u -> (* Armv8.2 *)
     render phlp &itstate 0 isInIT bin Op.VMOVX (oneDt SIMDTypF16) N OD.OprSdSm
   | 0b101u -> (* Armv8.2 *)
     render phlp &itstate 0 isInIT bin Op.VINS (oneDt SIMDTypF16) N OD.OprSdSm
-  | 0b110u | 0b111u (* 11x *) -> raise ParsingFailureException
-  | _ -> raise ParsingFailureException
+  | 0b110u | 0b111u (* 11x *) ->
+    raise ParsingFailureException
+  | _ ->
+    raise ParsingFailureException
 
 /// Floating-point directed convert to integer on page F3-4186.
 let parseFPDirConvToInt phlp (itstate: byref<BL>) isInIT bin =
@@ -6435,7 +6553,8 @@ let parseAdvSIMDAndFPMulWithAcc phlp (itstate: byref<BL>) isInIT bin =
 #endif
     let dt = oneDt SIMDTypF16
     render phlp &itstate 0 isInIT bin Op.VFMSL dt N OD.OprQdDnDmidx
-  | 0b01001u | 0b01011u (* 010x1 *) -> raise ParsingFailureException
+  | 0b01001u | 0b01011u (* 010x1 *) ->
+    raise ParsingFailureException
   (* VFMAB Armv8.6 *)
   | 0b01101u ->
 #if !EMULATION
@@ -6458,7 +6577,8 @@ let parseAdvSIMDAndFPMulWithAcc phlp (itstate: byref<BL>) isInIT bin =
     let dt = oneDt SIMDTypF32
     render phlp &itstate 0 isInIT bin Op.VCMLA dt N OD.OprDdDnDm0Rotate
   | 0b10001u | 0b10011u | 0b10101u | 0b10111u | 0b11001u | 0b11011u | 0b11101u
-  | 0b11111u (* 1xxx1 *) -> raise ParsingFailureException
+  | 0b11111u (* 1xxx1 *) ->
+    raise ParsingFailureException
   (* VCMLA Armv8.3 *)
   | _ (* 1xx10 *) ->
 #if !EMULATION
@@ -6481,7 +6601,8 @@ let parseAdvSIMDAndFPDotProduct phlp (itstate: byref<BL>) isInIT b =
     chkITQVdVn b itstate
 #endif
     render phlp &itstate 0 isInIT b Op.VDOT (oneDt BF16) N OD.OprDdDnDmidx
-  | 0b000101u | 0b000111u (* 0001x1 *) -> raise ParsingFailureException
+  | 0b000101u | 0b000111u (* 0001x1 *) ->
+    raise ParsingFailureException
   (* VDOT 128-bit Armv8.6 *)
   | 0b000110u ->
 #if !EMULATION
@@ -6552,7 +6673,8 @@ let parseAdvSIMDAndFPDotProduct phlp (itstate: byref<BL>) isInIT b =
     raise ParsingFailureException
   | b when b &&& 0b110100u = 0b110100u (* 11x1xx *) ->
     raise ParsingFailureException
-  | _ -> raise ParsingFailureException
+  | _ ->
+    raise ParsingFailureException
 
 /// Additional Advanced SIMD and floating-point instructions on page F3-4183.
 let parseAddAdvSIMDAndFPInstrs phlp (itstate: byref<BL>) isInIT bin =
@@ -6576,7 +6698,8 @@ let parseAddAdvSIMDAndFPInstrs phlp (itstate: byref<BL>) isInIT bin =
     parseAdvSIMDAndFPMulWithAcc phlp &itstate isInIT bin
   | b when (* 10x1xx *) b &&& 0b110100u = 0b100100u && pickBit op3 1 = 0u ->
     parseAdvSIMDAndFPDotProduct phlp &itstate isInIT bin
-  | _ -> raise ParsingFailureException
+  | _ ->
+    raise ParsingFailureException
 
 /// System register access, Advanced SIMD, and floating-point on page F3-4164.
 let parseSystemRegAccessAdvSIMDAndFP phlp (itstate: byref<BL>) isInIT bin =
@@ -6592,8 +6715,10 @@ let parseSystemRegAccessAdvSIMDAndFP phlp (itstate: byref<BL>) isInIT bin =
     parseAdvSIMDDataProcess phlp &itstate isInIT bin
   | b when b &&& 0b11010u = 0b00010u (* 00x1x *) ->
     parseAdvSIMDAndSysRegLdStAnd64BitMov phlp &itstate isInIT bin
-  | 0b01010u -> parseFPDataProcessing phlp &itstate isInIT bin
-  | 0b01011u -> parseAdvSIMDAndSysReg32BitMov phlp &itstate isInIT bin
+  | 0b01010u ->
+    parseFPDataProcessing phlp &itstate isInIT bin
+  | 0b01011u ->
+    parseAdvSIMDAndSysReg32BitMov phlp &itstate isInIT bin
   | _ (* 1 != 11 1 x *) ->
     parseAddAdvSIMDAndFPInstrs phlp &itstate isInIT bin
 
@@ -6614,8 +6739,9 @@ let parseLdStMul phlp (itstate: byref<BL>) isInIT bin =
     chkPCRnRegsPMWback bin itstate
 #endif
     let struct (op, oprs) = (* Alias conditions F5-4438 *)
-      if (wbackW bin) && (pickFour bin 16 = 0b1101u) &&
-         (bitCount (extract bin 15 0) 15 > 1)
+      if (wbackW bin)
+        && (pickFour bin 16 = 0b1101u)
+        && (bitCount (extract bin 15 0) 15 > 1)
       then struct (Op.POP, OD.OprRegs)
       else struct (Op.LDM, OD.OprRnRegsT32)
     render phlp &itstate 0 isInIT bin op None W oprs
@@ -6624,8 +6750,9 @@ let parseLdStMul phlp (itstate: byref<BL>) isInIT bin =
     chkPCRnRegsWBRegs bin
 #endif
     let struct (op, oprs, q) = (* Alias conditions on page F5-4813 *)
-      if (wbackW bin) && (pickFour bin 16 = 0b1101u) &&
-         (bitCount (extract bin 14 0) 14 > 1)
+      if (wbackW bin)
+        && (pickFour bin 16 = 0b1101u)
+        && (bitCount (extract bin 14 0) 14 > 1)
       then struct (Op.PUSH, OD.OprRegs, W)
       else struct (Op.STMDB, OD.OprRnRegsT32, N)
     render phlp &itstate 0 isInIT bin op None q oprs
@@ -6669,7 +6796,8 @@ let parseLdStEexclusiveByteHalfDual phlp (itstate: byref<BL>) isInIT bin =
     chkPCRd3RtRn bin
 #endif
     render phlp &itstate 0 isInIT bin Op.STREXH None N OD.OprRdRtMemT
-  | 0b010u -> raise ParsingFailureException
+  | 0b010u ->
+    raise ParsingFailureException
   | 0b011u ->
 #if !EMULATION
     chkPCRdRtRt2Rn bin
@@ -6685,7 +6813,8 @@ let parseLdStEexclusiveByteHalfDual phlp (itstate: byref<BL>) isInIT bin =
     chkPCRtRn bin
 #endif
     render phlp &itstate 0 isInIT bin Op.LDREXH None N OD.OprRt15Mem
-  | 0b110u -> raise ParsingFailureException
+  | 0b110u ->
+    raise ParsingFailureException
   | _ (* 111 *) ->
 #if !EMULATION
     chkThumbPCRtRt2Rn bin
@@ -6710,7 +6839,8 @@ let parseLdAcqStRel phlp (itstate: byref<BL>) isInIT bin =
     chkPCRtRn bin
 #endif
     render phlp &itstate 0 isInIT bin Op.STL None N OD.OprRt15Mem
-  | 0b0011u -> raise ParsingFailureException
+  | 0b0011u ->
+    raise ParsingFailureException
   | 0b0100u ->
 #if !EMULATION
     chkPCRd3RtRn bin
@@ -6746,7 +6876,8 @@ let parseLdAcqStRel phlp (itstate: byref<BL>) isInIT bin =
     chkPCRtRn bin
 #endif
     render phlp &itstate 0 isInIT bin Op.LDA None N OD.OprRt15Mem
-  | 0b1011u -> raise ParsingFailureException
+  | 0b1011u ->
+    raise ParsingFailureException
   | 0b1100u ->
 #if !EMULATION
     chkPCRtRn bin
@@ -6818,7 +6949,8 @@ let parseLdStDualExclusiveAndTblBranch phlp (itstate: byref<BL>) isInIT bin =
   match concat (pickFive bin 20) (pickThree bin 5) 3 (* op0:op1:op3 *) with
   | b when pickFour b 4 = 0b0010u (* 0010xxxx *) ->
     parseLdStExclusive phlp &itstate isInIT bin
-  | 0b01100000u -> raise ParsingFailureException
+  | 0b01100000u ->
+    raise ParsingFailureException
   | 0b01101000u ->
 #if !EMULATION
     chkPCRmIT32 bin itstate
@@ -6842,7 +6974,8 @@ let parseLdStDualExclusiveAndTblBranch phlp (itstate: byref<BL>) isInIT bin =
     chkPCRtRt2EqW bin
 #endif
     render phlp &itstate 0 isInIT bin Op.LDRD None N OD.OprRtRt2LabelT
-  | _ -> raise ParsingFailureException
+  | _ ->
+    raise ParsingFailureException
 
 /// Alias conditions on page F5-4557.
 let changeToAliasOfMOVS bin =
@@ -7053,20 +7186,24 @@ let parseDataProcessingShiftReg phlp (itstate: byref<BL>) isInIT bin =
     chkThumbPCRnRm bin
 #endif
     render phlp &itstate 0 isInIT bin Op.TEQ None N OD.OprRnRmShfT
-  | 0b01010u | 0b01011u (* 0101x *) -> raise ParsingFailureException
+  | 0b01010u | 0b01011u (* 0101x *) ->
+    raise ParsingFailureException
   | 0b01100u when i3i2st &&& 0b11u = 0b00u ->
 #if !EMULATION
     chkThumbPCRdRnRm bin
 #endif
     render phlp &itstate 0 isInIT bin Op.PKHBT None N OD.OprRdRnRmShfT
-  | 0b01100u when i3i2st &&& 0b11u = 0b01u -> raise ParsingFailureException
+  | 0b01100u when i3i2st &&& 0b11u = 0b01u ->
+    raise ParsingFailureException
   | 0b01100u when i3i2st &&& 0b11u = 0b10u ->
 #if !EMULATION
     chkThumbPCRdRnRm bin
 #endif
     render phlp &itstate 0 isInIT bin Op.PKHTB None N OD.OprRdRnRmShfT
-  | 0b01100u when i3i2st &&& 0b11u = 0b11u -> raise ParsingFailureException
-  | 0b01110u | 0b01111u (* 0111x *) -> raise ParsingFailureException
+  | 0b01100u when i3i2st &&& 0b11u = 0b11u ->
+    raise ParsingFailureException
+  | 0b01110u | 0b01111u (* 0111x *) ->
+    raise ParsingFailureException
   | 0b10000u when rn <> 0b1101u && i3i2st = 0b11u ->
 #if !EMULATION
     chkPCRdSRnRm bin
@@ -7105,7 +7242,8 @@ let parseDataProcessingShiftReg phlp (itstate: byref<BL>) isInIT bin =
     chkThumbPCRnRm bin
 #endif
     render phlp &itstate 0 isInIT bin Op.CMN None N OD.OprRnRmShfT
-  | 0b10010u | 0b10011u (* 1001x *) -> raise ParsingFailureException
+  | 0b10010u | 0b10011u (* 1001x *) ->
+    raise ParsingFailureException
   | 0b10100u when i3i2st = 0b11u ->
 #if !EMULATION
     chkThumbPCRdRnRm bin
@@ -7158,7 +7296,8 @@ let parseDataProcessingShiftReg phlp (itstate: byref<BL>) isInIT bin =
       if inITBlock itstate |> not then struct (W, OD.OprRdRnRmShfT)
       else struct (N, OD.OprRdRnRmShfT)
     render phlp &itstate 0 isInIT bin Op.SBCS None q oprs
-  | 0b11000u | 0b11001u (* 1100x *) -> raise ParsingFailureException
+  | 0b11000u | 0b11001u (* 1100x *) ->
+    raise ParsingFailureException
   | 0b11010u when rn <> 0b1101u && i3i2st = 0b11u ->
 #if !EMULATION
     chkPCRdSRnRm bin
@@ -7223,8 +7362,10 @@ let parseDataProcessingShiftReg phlp (itstate: byref<BL>) isInIT bin =
     chkThumbPCRdRnRm bin
 #endif
     render phlp &itstate 0 isInIT bin Op.RSBS None N OD.OprRdRnRmShfT
-  | 0b11110u | 0b11111u (* 1111x *) -> raise ParsingFailureException
-  | _ -> raise ParsingFailureException
+  | 0b11110u | 0b11111u (* 1111x *) ->
+    raise ParsingFailureException
+  | _ ->
+    raise ParsingFailureException
 
 /// Hints on page F3-4193.
 let parseHints32 phlp (itstate: byref<BL>) isInIT bin =
@@ -7276,7 +7417,8 @@ let parseHints32 phlp (itstate: byref<BL>) isInIT bin =
     render phlp &itstate 0 isInIT bin Op.NOP None W OD.OprNo
   | b when b &&& 0b11110000u = 0b11110000u ->
     render phlp &itstate 0 isInIT bin Op.DBG None N OD.OprOptImm
-  | _ -> raise ParsingFailureException
+  | _ ->
+    raise ParsingFailureException
 
 /// Change processor state on page F3-4194.
 let parseChgProcStateT32 (phlp: ParsingHelper) (itstate: byref<BL>) isInIT bin =
@@ -7287,7 +7429,8 @@ let parseChgProcStateT32 (phlp: ParsingHelper) (itstate: byref<BL>) isInIT bin =
     chkModeImodAIFIT bin itstate
 #endif
     render phlp &itstate 0 isInIT bin Op.CPS None N OD.OprMode
-  | 0b010u | 0b011u (* 01x *) -> raise ParsingFailureException
+  | 0b010u | 0b011u (* 01x *) ->
+    raise ParsingFailureException
   (* CPSIE 10x *)
   | 0b100u ->
 #if !EMULATION
@@ -7310,16 +7453,19 @@ let parseChgProcStateT32 (phlp: ParsingHelper) (itstate: byref<BL>) isInIT bin =
     chkModeImodAIFIT bin itstate
 #endif
     render phlp &itstate 0 isInIT bin Op.CPSID None N OD.OprIflagsModeT
-  | _ -> raise ParsingFailureException
+  | _ ->
+    raise ParsingFailureException
 
 /// Miscellaneous system on page F3-4194.
 let parseMiscSystem phlp (itstate: byref<BL>) isInIT bin =
   let option = pickFour bin 0
   match pickFour bin 4 (* opc *) with
-  | 0b0000u | 0b0001u (* 000x *) -> raise ParsingFailureException
+  | 0b0000u | 0b0001u (* 000x *) ->
+    raise ParsingFailureException
   | 0b0010u ->
     render phlp &itstate 0 isInIT bin Op.CLREX None N OD.OprNo
-  | 0b0011u -> raise ParsingFailureException
+  | 0b0011u ->
+    raise ParsingFailureException
   | 0b0100u when option <> 0b0000u || option <> 0b0100u (* != 0x00 *) ->
     render phlp &itstate 0 isInIT bin Op.DSB None N OD.OprOpt
   | 0b0100u when option = 0b0000u ->
@@ -7335,7 +7481,8 @@ let parseMiscSystem phlp (itstate: byref<BL>) isInIT bin =
   | 0b0111u ->
     inITBlock itstate |> checkUndef
     render phlp &itstate 0 isInIT bin Op.SB None N OD.OprNo
-  | _ (* 1xxx *) -> raise ParsingFailureException
+  | _ (* 1xxx *) ->
+    raise ParsingFailureException
 
 /// Exception return on page F3-4195.
 let parseExceptionReturn phlp (itstate: byref<BL>) isInIT bin =
@@ -7353,17 +7500,16 @@ let parseExceptionReturn phlp (itstate: byref<BL>) isInIT bin =
 
 /// DCPS on page F3-4195.
 let parseDCPS phlp (itstate: byref<BL>) isInIT bin =
-  if pickFour bin 16 <> 0b1111u (* imm4 *) then undefined ()
-  elif extract bin 11 2 <> 0b0u (* imm10 *) then undefined ()
+  if pickFour bin 16 <> 0b1111u (* imm4 *) then
+    undefined ()
+  elif extract bin 11 2 <> 0b0u (* imm10 *) then
+    undefined ()
   else
     match pickTwo bin 0 (* opt *) with
     | 0b00u -> raise ParsingFailureException
-    | 0b01u ->
-      render phlp &itstate 0 isInIT bin Op.DCPS1 None N OD.OprNo
-    | 0b10u ->
-      render phlp &itstate 0 isInIT bin Op.DCPS2 None N OD.OprNo
-    | _ (* 11 *) ->
-      render phlp &itstate 0 isInIT bin Op.DCPS3 None N OD.OprNo
+    | 0b01u -> render phlp &itstate 0 isInIT bin Op.DCPS1 None N OD.OprNo
+    | 0b10u -> render phlp &itstate 0 isInIT bin Op.DCPS2 None N OD.OprNo
+    | _ (* 11 *) -> render phlp &itstate 0 isInIT bin Op.DCPS3 None N OD.OprNo
 
 /// Exception generation on page F3-4195.
 let parseExcepGeneration (phlp: ParsingHelper) (itstate: byref<BL>) isInIT bin =
@@ -7372,7 +7518,8 @@ let parseExcepGeneration (phlp: ParsingHelper) (itstate: byref<BL>) isInIT bin =
     inITBlock itstate |> checkUnpred
     phlp.Cond <- Condition.UN
     render phlp &itstate 0 isInIT bin Op.HVC None N OD.OprImm16T
-  | 0b01u -> raise ParsingFailureException
+  | 0b01u ->
+    raise ParsingFailureException
   | 0b10u ->
 #if !EMULATION
     chkInITLastIT itstate
@@ -7453,7 +7600,8 @@ let parseBranchAndMiscCtrl phlp (itstate: byref<BL>) isInIT bin =
     chkInITLastIT itstate
 #endif
     render phlp &itstate 0 isInIT bin Op.BL None N OD.OprLabelT4
-  | _ -> raise ParsingFailureException
+  | _ ->
+    raise ParsingFailureException
 
 /// Data-processing (modified immediate) on page F3-4162.
 let parseDataProcessingModImm phlp (itstate: byref<BL>) isInIT bin =
@@ -7542,7 +7690,8 @@ let parseDataProcessingModImm phlp (itstate: byref<BL>) isInIT bin =
     chkPCRn bin
 #endif
     render phlp &itstate 0 isInIT bin Op.TEQ None N OD.OprRnConstT
-  | 0b01010u | 0b01011u (* 0101x *) -> raise ParsingFailureException
+  | 0b01010u | 0b01011u (* 0101x *) ->
+    raise ParsingFailureException
   | 0b01100u | 0b01101u | 0b01110u | 0b01111u (* 011xx *) ->
     raise ParsingFailureException
   | 0b10000u when rn <> 0b1101u ->
@@ -7572,7 +7721,8 @@ let parseDataProcessingModImm phlp (itstate: byref<BL>) isInIT bin =
     chkPCRn bin
 #endif
     render phlp &itstate 0 isInIT bin Op.CMN None N OD.OprRnConstT
-  | 0b10010u | 0b10011u (* 1001x *) -> raise ParsingFailureException
+  | 0b10010u | 0b10011u (* 1001x *) ->
+    raise ParsingFailureException
   | 0b10100u ->
     render phlp &itstate 0 isInIT bin Op.ADC None N OD.OprRdRnConstT
   | 0b10101u ->
@@ -7587,7 +7737,8 @@ let parseDataProcessingModImm phlp (itstate: byref<BL>) isInIT bin =
     chkThumbPCRdRn bin
 #endif
     render phlp &itstate 0 isInIT bin Op.SBCS None N OD.OprRdRnConstT
-  | 0b11000u | 0b11001u (* 1100x *) -> raise ParsingFailureException
+  | 0b11000u | 0b11001u (* 1100x *) ->
+    raise ParsingFailureException
   | 0b11010u when rn <> 0b1101u ->
 #if !EMULATION
     chkPCRdSRn bin
@@ -7627,7 +7778,8 @@ let parseDataProcessingModImm phlp (itstate: byref<BL>) isInIT bin =
 #endif
     let q = if inITBlock itstate then W else N
     render phlp &itstate 0 isInIT bin Op.RSBS None q OD.OprRdRnConstT
-  | _ (* 1111x *) -> raise ParsingFailureException
+  | _ (* 1111x *) ->
+    raise ParsingFailureException
 
 /// Data-processing (simple immediate) on page F3-4196.
 let parseDataProcSimImm phlp (itstate: byref<BL>) isInIT bin =
@@ -7649,8 +7801,10 @@ let parseDataProcSimImm phlp (itstate: byref<BL>) isInIT bin =
     chkThumbPCRd bin
 #endif
     render phlp &itstate 0 isInIT bin Op.ADDW None N OD.OprRdRnImm12
-  | 0b01u -> raise ParsingFailureException
-  | 0b10u -> raise ParsingFailureException
+  | 0b01u ->
+    raise ParsingFailureException
+  | 0b10u ->
+    raise ParsingFailureException
   | 0b11u when rn = 0b1101u ->
 #if !EMULATION
     chkThumbPCRd bin
@@ -7737,13 +7891,13 @@ let parseSaturateBitfield phlp (itstate: byref<BL>) isInIT bin =
     chkThumbPCRdRn bin
 #endif
     render phlp &itstate 0 isInIT bin Op.UBFX None N OD.OprRdRnLsbWidthM1T
-  | _ (* 111 *) -> raise ParsingFailureException
+  | _ (* 111 *) ->
+    raise ParsingFailureException
 
 /// Data-processing (plain binary immediate) on page F3-4196.
 let parseDataProcessingPlainBinImm phlp (itstate: byref<BL>) isInIT bin =
   match concat (pickBit bin 24) (pickTwo bin 21) 2 (* op0:op1 *) with
-  | 0b000u | 0b001u (* 00x *) ->
-    parseDataProcSimImm phlp &itstate isInIT bin
+  | 0b000u | 0b001u (* 00x *) -> parseDataProcSimImm phlp &itstate isInIT bin
   | 0b010u -> parseMoveWide16BitImm phlp &itstate isInIT bin
   | 0b011u -> raise ParsingFailureException
   | _ (* 1xx *) -> parseSaturateBitfield phlp &itstate isInIT bin
@@ -7823,7 +7977,8 @@ let parseAdvSIMDLdStMulStruct phlp (itstate: byref<BL>) isInIT bin =
 #endif
     let dt = getDT64 (pickTwo bin 6) |> oneDt
     render phlp &itstate 0 isInIT bin Op.VLD3 dt N OD.OprListMem
-  | 0b01011u | 0b11011u (* x1011 *) -> raise ParsingFailureException
+  | 0b01011u | 0b11011u (* x1011 *) ->
+    raise ParsingFailureException
   | 0b10110u ->
 #if !EMULATION
     chkAlign1PCRnDregs bin 3u
@@ -7837,7 +7992,8 @@ let parseAdvSIMDLdStMulStruct phlp (itstate: byref<BL>) isInIT bin =
     let dt = getDT64 (pickTwo bin 6) |> oneDt
     render phlp &itstate 0 isInIT bin Op.VLD1 dt N OD.OprListMem
   | 0b01100u | 0b01101u | 0b01110u | 0b01111u | 0b11100u | 0b11101u | 0b11110u
-  | 0b11111u (* x11xx *) -> raise ParsingFailureException
+  | 0b11111u (* x11xx *) ->
+    raise ParsingFailureException
   | 0b11000u | 0b11001u (* 1100x *) ->
 #if !EMULATION
     chkAlignPCRnD2regs bin
@@ -7850,14 +8006,16 @@ let parseAdvSIMDLdStMulStruct phlp (itstate: byref<BL>) isInIT bin =
 #endif
     let dt = getDT64 (pickTwo bin 6) |> oneDt
     render phlp &itstate 0 isInIT bin Op.VLD1 dt N OD.OprListMem
-  | _ -> raise ParsingFailureException
+  | _ ->
+    raise ParsingFailureException
 
 /// Advanced SIMD load single structure to all lanes on page F3-4199.
 let parseAdvSIMDLdSingStruAllLanes phlp (itstate: byref<BL>) isInIT bin =
   let decodeFields (* L:N:a *) =
     concat (concat (pickBit bin 21) (pickTwo bin 8) 2) (pickBit bin 4) 1
   match decodeFields with
-  | b when b &&& 0b1000u = 0b0000u (* 0xxx *) -> raise ParsingFailureException
+  | b when b &&& 0b1000u = 0b0000u (* 0xxx *) ->
+    raise ParsingFailureException
   | 0b1000u | 0b1001u (* 100x *) ->
 #if !EMULATION
     chkSzAPCRnDregs bin
@@ -7876,7 +8034,8 @@ let parseAdvSIMDLdSingStruAllLanes phlp (itstate: byref<BL>) isInIT bin =
 #endif
     let dt = getDT64 (pickTwo bin 6) |> oneDt
     render phlp &itstate 0 isInIT bin Op.VLD3 dt N OD.OprListMem3
-  | 0b1101u -> raise ParsingFailureException
+  | 0b1101u ->
+    raise ParsingFailureException
   | _ (* 111x *) ->
 #if !EMULATION
     chkSzAPCRnD4 bin
@@ -8023,12 +8182,14 @@ let parseAdvSIMDLdStSingStruOneLane phlp (itstate: byref<BL>) isInIT bin =
 #endif
     let dt = oneDt SIMDTyp32
     render phlp &itstate 0 isInIT bin Op.VLD4 dt N OD.OprListMemD
-  | _ -> raise ParsingFailureException
+  | _ ->
+    raise ParsingFailureException
 
 /// Advanced SIMD element or structure load/store on page F3-4198.
 let parseAdvSIMDElemOrStructLdSt phlp (itstate: byref<BL>) isInIT bin =
   match pickBit bin 23 (* op0 *) with
-  | 0b0u -> parseAdvSIMDLdStMulStruct phlp &itstate isInIT bin
+  | 0b0u ->
+    parseAdvSIMDLdStMulStruct phlp &itstate isInIT bin
   | 0b1u when pickTwo bin 10 = 0b11u ->
     parseAdvSIMDLdSingStruAllLanes phlp &itstate isInIT bin
   | _ (* 1 *) ->
@@ -8096,7 +8257,8 @@ let parseLdStUnsignedRegOffset phlp (itstate: byref<BL>) isInIT bin =
       if pickTwo bin 4 = 0b00u then struct (W, OD.OprRtMemReg32)
       else struct (N, OD.OprRtMemRegLSL)
     render phlp &itstate 0 isInIT bin Op.LDR None q oprs
-  | _ (* 11x *) -> raise ParsingFailureException
+  | _ (* 11x *) ->
+    raise ParsingFailureException
 
 /// Load/store, unsigned (immediate, post-indexed) on page F3-4203.
 let parseLdStUnsignedImmPostIdx phlp (itstate: byref<BL>) isInIT bin =
@@ -8141,7 +8303,8 @@ let parseLdStUnsignedImmPostIdx phlp (itstate: byref<BL>) isInIT bin =
       then struct (Op.POP, OD.OprSingleRegsT, W)
       else struct (Op.LDR, OD.OprRtMemImmPs, N)
     render phlp &itstate 0 isInIT bin op None q oprs
-  | _ (* 11x *) -> raise ParsingFailureException
+  | _ (* 11x *) ->
+    raise ParsingFailureException
 
 /// Load/store, unsigned (negative immediate) on page F3-4203.
 let parseLdStUnsignedNegImm phlp (itstate: byref<BL>) isInIT bin =
@@ -8184,7 +8347,8 @@ let parseLdStUnsignedNegImm phlp (itstate: byref<BL>) isInIT bin =
     chkPWWBRnPCRtIT bin itstate
 #endif
     render phlp &itstate 0 isInIT bin Op.LDR None N OD.OprRtMemImm8M
-  | _ (* 11x *) -> raise ParsingFailureException
+  | _ (* 11x *) ->
+    raise ParsingFailureException
 
 /// Load/store, unsigned (unprivileged) on page F3-4204.
 let parseLdStUnsignedUnpriv phlp (itstate: byref<BL>) isInIT bin =
@@ -8219,7 +8383,8 @@ let parseLdStUnsignedUnpriv phlp (itstate: byref<BL>) isInIT bin =
     chkPCRt bin
 #endif
     render phlp &itstate 0 isInIT bin Op.LDRT None N OD.OprRtMemImm8P
-  | _ (* 11x *) -> raise ParsingFailureException
+  | _ (* 11x *) ->
+    raise ParsingFailureException
 
 /// Load/store, unsigned (immediate, pre-indexed) on page F3-4204.
 let parseLdStUnsignedImmPreIdx phlp (itstate: byref<BL>) isInIT bin =
@@ -8264,7 +8429,8 @@ let parseLdStUnsignedImmPreIdx phlp (itstate: byref<BL>) isInIT bin =
       then struct (Op.POP, OD.OprSingleRegsT, W)
       else struct (Op.LDR, OD.OprRtMemImmPr, N)
     render phlp &itstate 0 isInIT bin op None q oprs
-  | _ (* 11x *) -> raise ParsingFailureException
+  | _ (* 11x *) ->
+    raise ParsingFailureException
 
 /// Load/store, unsigned (positive immediate) on page F3-4205.
 let parseLdStUnsignedPosImm phlp (itstate: byref<BL>) isInIT bin =
@@ -8298,7 +8464,8 @@ let parseLdStUnsignedPosImm phlp (itstate: byref<BL>) isInIT bin =
     chkPCRtIT bin itstate
 #endif
     render phlp &itstate 0 isInIT bin Op.LDR None W OD.OprRtMemImm12T
-  | _ (* 11x *) -> raise ParsingFailureException
+  | _ (* 11x *) ->
+    raise ParsingFailureException
 
 /// Load, unsigned (literal) on page F3-4205.
 let parseLdUnsignedLiteral phlp (itstate: byref<BL>) isInIT bin =
@@ -8315,8 +8482,10 @@ let parseLdUnsignedLiteral phlp (itstate: byref<BL>) isInIT bin =
     chkPCRtIT bin itstate
 #endif
     render phlp &itstate 0 isInIT bin Op.LDR None W OD.OprRtLabel12
-  | 0b110u | 0b111u -> raise ParsingFailureException
-  | _ -> raise ParsingFailureException
+  | 0b110u | 0b111u ->
+    raise ParsingFailureException
+  | _ ->
+    raise ParsingFailureException
 
 /// Load/store, signed (register offset) on page F3-4206.
 let parseLdStSignedRegOffset phlp (itstate: byref<BL>) isInIT bin =
@@ -8345,7 +8514,8 @@ let parseLdStSignedRegOffset phlp (itstate: byref<BL>) isInIT bin =
     render phlp &itstate 0 isInIT bin Op.LDRSH None q oprs
   | 0b01u ->
     render phlp &itstate 0 isInIT bin Op.NOP None N OD.OprNo
-  | _ (* 1x *) -> raise ParsingFailureException
+  | _ (* 1x *) ->
+    raise ParsingFailureException
 
 /// Load/store, signed (immediate, post-indexed) on page F3-4206.
 let parseLdStoreSignedImmPostIdx phlp (itstate: byref<BL>) isInIT bin =
@@ -8360,7 +8530,8 @@ let parseLdStoreSignedImmPostIdx phlp (itstate: byref<BL>) isInIT bin =
     chkPWPCRtWBRn bin
 #endif
     render phlp &itstate 0 isInIT bin Op.LDRSH None N OD.OprRtMemImmPs
-  | _ (* 1x *) -> raise ParsingFailureException
+  | _ (* 1x *) ->
+    raise ParsingFailureException
 
 /// Load/store, signed (negative immediate) on page F3-4207.
 let parseLdStSignedNegImm phlp (itstate: byref<BL>) isInIT bin =
@@ -8378,8 +8549,10 @@ let parseLdStSignedNegImm phlp (itstate: byref<BL>) isInIT bin =
     chkPWPCRtWBRn bin
 #endif
     render phlp &itstate 0 isInIT bin Op.LDRSH None N OD.OprRtMemImm8M
-  | 0b01u -> render phlp &itstate 0 isInIT bin Op.NOP None N OD.OprNo
-  | _ (* 1x *) -> raise ParsingFailureException
+  | 0b01u ->
+    render phlp &itstate 0 isInIT bin Op.NOP None N OD.OprNo
+  | _ (* 1x *) ->
+    raise ParsingFailureException
 
 /// Load/store, signed (unprivileged) on page F3-4207.
 let parseLdStSignedUnpriv phlp (itstate: byref<BL>) isInIT bin =
@@ -8394,7 +8567,8 @@ let parseLdStSignedUnpriv phlp (itstate: byref<BL>) isInIT bin =
     chkPCRt bin
 #endif
     render phlp &itstate 0 isInIT bin Op.LDRSHT None N OD.OprRtMemImm8P
-  | _ (* 1x *) -> raise ParsingFailureException
+  | _ (* 1x *) ->
+    raise ParsingFailureException
 
 /// Load/store, signed (immediate, pre-indexed) on page F3-4208.
 let parseLdStSignedImmPreIdx phlp (itstate: byref<BL>) isInIT bin =
@@ -8409,7 +8583,8 @@ let parseLdStSignedImmPreIdx phlp (itstate: byref<BL>) isInIT bin =
     chkPWPCRtWBRn bin
 #endif
     render phlp &itstate 0 isInIT bin Op.LDRSH None N OD.OprRtMemImmPr
-  | _ (* 1x *) -> raise ParsingFailureException
+  | _ (* 1x *) ->
+    raise ParsingFailureException
 
 /// Load/store, signed (positive immediate) on page F3-4208.
 let parseLdStSignedPosImm phlp (itstate: byref<BL>) isInIT bin =
@@ -8421,8 +8596,10 @@ let parseLdStSignedPosImm phlp (itstate: byref<BL>) isInIT bin =
     render phlp &itstate 0 isInIT bin Op.PLI None N OD.OprMemImm12
   | 0b01u when rt <> 0b1111u ->
     render phlp &itstate 0 isInIT bin Op.LDRSH None N OD.OprRtMemImm12T
-  | 0b01u -> render phlp &itstate 0 isInIT bin Op.NOP None N OD.OprNo
-  | _ (* 1x *) -> raise ParsingFailureException
+  | 0b01u ->
+    render phlp &itstate 0 isInIT bin Op.NOP None N OD.OprNo
+  | _ (* 1x *) ->
+    raise ParsingFailureException
 
 /// Load, signed (literal) on page F3-4209.
 let parseLoadSignedLiteral phlp (itstate: byref<BL>) isInIT bin =
@@ -8434,8 +8611,10 @@ let parseLoadSignedLiteral phlp (itstate: byref<BL>) isInIT bin =
     render phlp &itstate 0 isInIT bin Op.PLI None N OD.OprMemImm12
   | 0b01u when rt <> 0b1111u ->
     render phlp &itstate 0 isInIT bin Op.LDRSH None N OD.OprRtLabel12
-  | 0b01u -> render phlp &itstate 0 isInIT bin Op.NOP None N OD.OprNo
-  | _ (* 1x *) -> raise ParsingFailureException
+  | 0b01u ->
+    render phlp &itstate 0 isInIT bin Op.NOP None N OD.OprNo
+  | _ (* 1x *) ->
+    raise ParsingFailureException
 
 /// Load/store single on page F3-4201.
 let parseLdStSingle phlp (itstate: byref<BL>) isInIT bin =
@@ -8471,7 +8650,8 @@ let parseLdStSingle phlp (itstate: byref<BL>) isInIT bin =
     parseLdUnsignedLiteral phlp &itstate isInIT bin
   | 0b101000000u when o2 <> 0b1111u ->
     parseLdStSignedRegOffset phlp &itstate isInIT bin
-  | 0b101000001u when o2 <> 0b1111u -> raise ParsingFailureException
+  | 0b101000001u when o2 <> 0b1111u ->
+    raise ParsingFailureException
   | b when (* 10100001x *) b &&& 0b111111110u = 0b101000010u && o2 <> 0b1111u ->
     raise ParsingFailureException
   | b when (* 1010001xx *) b &&& 0b111111100u = 0b101000100u && o2 <> 0b1111u ->
@@ -8494,7 +8674,8 @@ let parseLdStSingle phlp (itstate: byref<BL>) isInIT bin =
     parseLdStSignedPosImm phlp &itstate isInIT bin
   | b when (* 1x1xxxxxx *) b &&& 0b101000000u = 0b101000000u && o2 = 0b1111u ->
     parseLoadSignedLiteral phlp &itstate isInIT bin
-  | _ -> raise ParsingFailureException
+  | _ ->
+    raise ParsingFailureException
 
 /// Register extends on page F3-4210.
 let parseRegExtends phlp (itstate: byref<BL>) isInIT bin =
@@ -8572,7 +8753,8 @@ let parseRegExtends phlp (itstate: byref<BL>) isInIT bin =
       if pickTwo bin 4 = 0b00u (* rotate *) then struct (W, OD.OprRdRmT32)
       else struct (N, OD.OprRdRmRorT)
     render phlp &itstate 0 isInIT bin Op.UXTB None q oprs
-  | _ (* 11x *) -> raise ParsingFailureException
+  | _ (* 11x *) ->
+    raise ParsingFailureException
 
 /// Parallel add-subtract on page F3-4210.
 let parseParallelAddSub phlp (itstate: byref<BL>) isInIT bin =
@@ -8592,7 +8774,8 @@ let parseParallelAddSub phlp (itstate: byref<BL>) isInIT bin =
     chkThumbPCRdRnRm bin
 #endif
     render phlp &itstate 0 isInIT bin Op.SHADD8 None N OD.OprRdRnRmT32
-  | 0b000011u -> raise ParsingFailureException
+  | 0b000011u ->
+    raise ParsingFailureException
   | 0b000100u ->
 #if !EMULATION
     chkThumbPCRdRnRm bin
@@ -8608,7 +8791,8 @@ let parseParallelAddSub phlp (itstate: byref<BL>) isInIT bin =
     chkThumbPCRdRnRm bin
 #endif
     render phlp &itstate 0 isInIT bin Op.UHADD8 None N OD.OprRdRnRmT32
-  | 0b000111u -> raise ParsingFailureException
+  | 0b000111u ->
+    raise ParsingFailureException
   | 0b001000u ->
 #if !EMULATION
     chkThumbPCRdRnRm bin
@@ -8624,7 +8808,8 @@ let parseParallelAddSub phlp (itstate: byref<BL>) isInIT bin =
     chkThumbPCRdRnRm bin
 #endif
     render phlp &itstate 0 isInIT bin Op.SHADD16 None N OD.OprRdRnRmT32
-  | 0b001011u -> raise ParsingFailureException
+  | 0b001011u ->
+    raise ParsingFailureException
   | 0b001100u ->
 #if !EMULATION
     chkThumbPCRdRnRm bin
@@ -8640,7 +8825,8 @@ let parseParallelAddSub phlp (itstate: byref<BL>) isInIT bin =
     chkThumbPCRdRnRm bin
 #endif
     render phlp &itstate 0 isInIT bin Op.UHADD16 None N OD.OprRdRnRmT32
-  | 0b001111u -> raise ParsingFailureException
+  | 0b001111u ->
+    raise ParsingFailureException
   | 0b010000u ->
 #if !EMULATION
     chkThumbPCRdRnRm bin
@@ -8656,7 +8842,8 @@ let parseParallelAddSub phlp (itstate: byref<BL>) isInIT bin =
     chkThumbPCRdRnRm bin
 #endif
     render phlp &itstate 0 isInIT bin Op.SHASX None N OD.OprRdRnRmT32
-  | 0b010011u -> raise ParsingFailureException
+  | 0b010011u ->
+    raise ParsingFailureException
   | 0b010100u ->
 #if !EMULATION
     chkThumbPCRdRnRm bin
@@ -8672,7 +8859,8 @@ let parseParallelAddSub phlp (itstate: byref<BL>) isInIT bin =
     chkThumbPCRdRnRm bin
 #endif
     render phlp &itstate 0 isInIT bin Op.UHASX None N OD.OprRdRnRmT32
-  | 0b010111u -> raise ParsingFailureException
+  | 0b010111u ->
+    raise ParsingFailureException
   | 0b100000u ->
 #if !EMULATION
     chkThumbPCRdRnRm bin
@@ -8688,7 +8876,8 @@ let parseParallelAddSub phlp (itstate: byref<BL>) isInIT bin =
     chkThumbPCRdRnRm bin
 #endif
     render phlp &itstate 0 isInIT bin Op.SHSUB8 None N OD.OprRdRnRmT32
-  | 0b100011u -> raise ParsingFailureException
+  | 0b100011u ->
+    raise ParsingFailureException
   | 0b100100u ->
 #if !EMULATION
     chkThumbPCRdRnRm bin
@@ -8704,7 +8893,8 @@ let parseParallelAddSub phlp (itstate: byref<BL>) isInIT bin =
     chkThumbPCRdRnRm bin
 #endif
     render phlp &itstate 0 isInIT bin Op.UHSUB8 None N OD.OprRdRnRmT32
-  | 0b100111u -> raise ParsingFailureException
+  | 0b100111u ->
+    raise ParsingFailureException
   | 0b101000u ->
 #if !EMULATION
     chkThumbPCRdRnRm bin
@@ -8720,7 +8910,8 @@ let parseParallelAddSub phlp (itstate: byref<BL>) isInIT bin =
     chkThumbPCRdRnRm bin
 #endif
     render phlp &itstate 0 isInIT bin Op.SHSUB16 None N OD.OprRdRnRmT32
-  | 0b101011u -> raise ParsingFailureException
+  | 0b101011u ->
+    raise ParsingFailureException
   | 0b101100u ->
 #if !EMULATION
     chkThumbPCRdRnRm bin
@@ -8736,7 +8927,8 @@ let parseParallelAddSub phlp (itstate: byref<BL>) isInIT bin =
     chkThumbPCRdRnRm bin
 #endif
     render phlp &itstate 0 isInIT bin Op.UHSUB16 None N OD.OprRdRnRmT32
-  | 0b101111u -> raise ParsingFailureException
+  | 0b101111u ->
+    raise ParsingFailureException
   | 0b110000u ->
 #if !EMULATION
     chkThumbPCRdRnRm bin
@@ -8752,7 +8944,8 @@ let parseParallelAddSub phlp (itstate: byref<BL>) isInIT bin =
     chkThumbPCRdRnRm bin
 #endif
     render phlp &itstate 0 isInIT bin Op.SHSAX None N OD.OprRdRnRmT32
-  | 0b110011u -> raise ParsingFailureException
+  | 0b110011u ->
+    raise ParsingFailureException
   | 0b110100u ->
 #if !EMULATION
     chkThumbPCRdRnRm bin
@@ -8768,8 +8961,10 @@ let parseParallelAddSub phlp (itstate: byref<BL>) isInIT bin =
     chkThumbPCRdRnRm bin
 #endif
     render phlp &itstate 0 isInIT bin Op.UHSAX None N OD.OprRdRnRmT32
-  | 0b110111u -> raise ParsingFailureException
-  | _ (* 111xxx *) -> raise ParsingFailureException
+  | 0b110111u ->
+    raise ParsingFailureException
+  | _ (* 111xxx *) ->
+    raise ParsingFailureException
 
 /// Data-processing (two source registers) on page F3-4212.
 let parseDataProcTwoSrcRegs phlp (itstate: byref<BL>) isInIT bin =
@@ -8819,15 +9014,19 @@ let parseDataProcTwoSrcRegs phlp (itstate: byref<BL>) isInIT bin =
     chkThumbPCRdRnRm bin
 #endif
     render phlp &itstate 0 isInIT bin Op.SEL None N OD.OprRdRnRmT32
-  | 0b01001u -> raise ParsingFailureException
-  | 0b01010u | 0b01011u (* 0101x *) -> raise ParsingFailureException
+  | 0b01001u ->
+    raise ParsingFailureException
+  | 0b01010u | 0b01011u (* 0101x *) ->
+    raise ParsingFailureException
   | 0b01100u ->
 #if !EMULATION
     chkRmRnPCRdRm bin
 #endif
     render phlp &itstate 0 isInIT bin Op.CLZ None N OD.OprRdRmT32
-  | 0b01101u -> raise ParsingFailureException
-  | 0b01110u | 0b01111u (* 0111x *) -> raise ParsingFailureException
+  | 0b01101u ->
+    raise ParsingFailureException
+  | 0b01110u | 0b01111u (* 0111x *) ->
+    raise ParsingFailureException
   | 0b10000u ->
 #if !EMULATION
     chkITPCRdRnRm bin itstate
@@ -8843,7 +9042,8 @@ let parseDataProcTwoSrcRegs phlp (itstate: byref<BL>) isInIT bin =
     chkITPCRdRnRm bin itstate
 #endif
     render phlp &itstate 0 isInIT bin Op.CRC32W None N OD.OprRdRnRmT32
-  | 0b10011u -> unpredictable ()
+  | 0b10011u ->
+    unpredictable ()
   | 0b10100u ->
 #if !EMULATION
     chkITPCRdRnRm bin itstate
@@ -8859,8 +9059,10 @@ let parseDataProcTwoSrcRegs phlp (itstate: byref<BL>) isInIT bin =
     chkITPCRdRnRm bin itstate
 #endif
     render phlp &itstate 0 isInIT bin Op.CRC32CW None N OD.OprRdRnRmT32
-  | 0b10111u -> unpredictable ()
-  | _ (* 11xxx *) -> raise ParsingFailureException
+  | 0b10111u ->
+    unpredictable ()
+  | _ (* 11xxx *) ->
+    raise ParsingFailureException
 
 /// Data-processing (register) on page F3-4209.
 let parseDataProcessingReg phlp (itstate: byref<BL>) isInIT bin =
@@ -8893,8 +9095,10 @@ let parseDataProcessingReg phlp (itstate: byref<BL>) isInIT bin =
           | _ (* 11 *) -> Op.ROR
         struct (opcode, q)
     render phlp &itstate 0 isInIT bin op None q OD.OprRdRmRsT
-  | 0b011110001u -> raise ParsingFailureException
-  | 0b011110010u | 0b011110011u (* 01111001x *) -> raise ParsingFailureException
+  | 0b011110001u ->
+    raise ParsingFailureException
+  | 0b011110010u | 0b011110011u (* 01111001x *) ->
+    raise ParsingFailureException
   | b when b &&& 0b111111100u = 0b011110100u (* 0111101xx *) ->
     raise ParsingFailureException
   | b when b &&& 0b111111000u = 0b011111000u (* 011111xxx *) ->
@@ -8905,7 +9109,8 @@ let parseDataProcessingReg phlp (itstate: byref<BL>) isInIT bin =
     parseDataProcTwoSrcRegs phlp &itstate isInIT bin
   | b when b &&& 0b111111100u = 0b111111100u (* 1111111xx *) ->
     raise ParsingFailureException
-  | _ (* x != 1111 xxxx *) -> raise ParsingFailureException
+  | _ (* x != 1111 xxxx *) ->
+    raise ParsingFailureException
 
 /// Multiply and absolute difference on page F3-4213.
 let parseMulAndAbsDiff phlp (itstate: byref<BL>) isInIT bin =
@@ -8921,7 +9126,8 @@ let parseMulAndAbsDiff phlp (itstate: byref<BL>) isInIT bin =
     chkThumbPCRdRnRmRa bin
 #endif
     render phlp &itstate 0 isInIT bin Op.MLS None N OD.OprRdRnRmRaT
-  | 0b00010u | 0b00011u (* 0001x *) -> raise ParsingFailureException
+  | 0b00010u | 0b00011u (* 0001x *) ->
+    raise ParsingFailureException
   | 0b00000u ->
 #if !EMULATION
     chkThumbPCRdRnRm bin
@@ -8978,7 +9184,8 @@ let parseMulAndAbsDiff phlp (itstate: byref<BL>) isInIT bin =
     chkThumbPCRdRnRm bin
 #endif
     render phlp &itstate 0 isInIT bin Op.SMLADX None N OD.OprRdRnRmRaT
-  | 0b01010u | 0b01011u (* 0101x *) -> raise ParsingFailureException
+  | 0b01010u | 0b01011u (* 0101x *) ->
+    raise ParsingFailureException
   | 0b01000u ->
 #if !EMULATION
     chkThumbPCRdRnRm bin
@@ -8999,7 +9206,8 @@ let parseMulAndAbsDiff phlp (itstate: byref<BL>) isInIT bin =
     chkThumbPCRdRnRm bin
 #endif
     render phlp &itstate 0 isInIT bin Op.SMLAWT None N OD.OprRdRnRmRaT
-  | 0b01110u | 0b01111u (* 0111x *) -> raise ParsingFailureException
+  | 0b01110u | 0b01111u (* 0111x *) ->
+    raise ParsingFailureException
   | 0b01100u ->
 #if !EMULATION
     chkThumbPCRdRnRm bin
@@ -9020,7 +9228,8 @@ let parseMulAndAbsDiff phlp (itstate: byref<BL>) isInIT bin =
     chkThumbPCRdRnRm bin
 #endif
     render phlp &itstate 0 isInIT bin Op.SMLSDX None N OD.OprRdRnRmRaT
-  | 0b10010u | 0b10011u (* 1001x *) -> raise ParsingFailureException
+  | 0b10010u | 0b10011u (* 1001x *) ->
+    raise ParsingFailureException
   | 0b10000u ->
 #if !EMULATION
     chkThumbPCRdRnRm bin
@@ -9041,7 +9250,8 @@ let parseMulAndAbsDiff phlp (itstate: byref<BL>) isInIT bin =
     chkThumbPCRdRnRm bin
 #endif
     render phlp &itstate 0 isInIT bin Op.SMMLAR None N OD.OprRdRnRmRaT
-  | 0b10110u | 0b10111u (* 1011x *) -> raise ParsingFailureException
+  | 0b10110u | 0b10111u (* 1011x *) ->
+    raise ParsingFailureException
   | 0b10100u ->
 #if !EMULATION
     chkThumbPCRdRnRm bin
@@ -9062,14 +9272,17 @@ let parseMulAndAbsDiff phlp (itstate: byref<BL>) isInIT bin =
     chkThumbPCRdRnRm bin
 #endif
     render phlp &itstate 0 isInIT bin Op.SMMLSR None N OD.OprRdRnRmRaT
-  | 0b11010u | 0b11011u (* 1101x *) -> raise ParsingFailureException
+  | 0b11010u | 0b11011u (* 1101x *) ->
+    raise ParsingFailureException
   | 0b11100u when ra <> 0b1111u ->
 #if !EMULATION
     chkThumbPCRdRnRm bin
 #endif
     render phlp &itstate 0 isInIT bin Op.USADA8 None N OD.OprRdRnRmRaT
-  | 0b11101u -> raise ParsingFailureException
-  | 0b11110u | 0b11111u (* 1111x *) -> raise ParsingFailureException
+  | 0b11101u ->
+    raise ParsingFailureException
+  | 0b11110u | 0b11111u (* 1111x *) ->
+    raise ParsingFailureException
   | _ (* 11100 *) ->
 #if !EMULATION
     chkThumbPCRdRnRm bin
@@ -9087,25 +9300,29 @@ let parseMulAccumlateAndAbsDiff phlp (itstate: byref<BL>) isInIT bin =
 let parseLongMulAndDiv phlp (itstate: byref<BL>) isInIT bin =
   let op2 = pickFour bin 4
   match pickThree bin 20 (* op1 *) with
-  | 0b000u when op2 <> 0b0000u -> raise ParsingFailureException
+  | 0b000u when op2 <> 0b0000u ->
+    raise ParsingFailureException
   | 0b000u ->
 #if !EMULATION
     chkThumbPCRdlRdhRnRm bin
 #endif
     render phlp &itstate 0 isInIT bin Op.SMULL None N OD.OprRdlRdhRnRmT
-  | 0b001u when op2 <> 0b1111u -> raise ParsingFailureException
+  | 0b001u when op2 <> 0b1111u ->
+    raise ParsingFailureException
   | 0b001u ->
 #if !EMULATION
     chkThumbPCRdRnRmRaNot bin
 #endif
     render phlp &itstate 0 isInIT bin Op.SDIV None N OD.OprRdRnRmT32
-  | 0b010u when op2 <> 0b0000u -> raise ParsingFailureException
+  | 0b010u when op2 <> 0b0000u ->
+    raise ParsingFailureException
   | 0b010u ->
 #if !EMULATION
     chkThumbPCRdlRdhRnRm bin
 #endif
     render phlp &itstate 0 isInIT bin Op.UMULL None N OD.OprRdlRdhRnRmT
-  | 0b011u when op2 <> 0b1111u -> raise ParsingFailureException
+  | 0b011u when op2 <> 0b1111u ->
+    raise ParsingFailureException
   | 0b011u ->
 #if !EMULATION
     chkThumbPCRdRnRmRaNot bin
@@ -9118,8 +9335,10 @@ let parseLongMulAndDiv phlp (itstate: byref<BL>) isInIT bin =
       chkThumbPCRdlRdhRnRm bin
 #endif
       render phlp &itstate 0 isInIT bin Op.SMLAL None N OD.OprRdlRdhRnRmT
-    | 0b1000001u -> raise ParsingFailureException
-    | 0b1000010u | 0b1000011u (* 100001x *) -> raise ParsingFailureException
+    | 0b1000001u ->
+      raise ParsingFailureException
+    | 0b1000010u | 0b1000011u (* 100001x *) ->
+      raise ParsingFailureException
     | 0b1000100u | 0b1000101u | 0b1000110u | 0b1000111u (* 10001xx *) ->
       raise ParsingFailureException
     | 0b1001000u ->
@@ -9152,7 +9371,8 @@ let parseLongMulAndDiv phlp (itstate: byref<BL>) isInIT bin =
       chkThumbPCRdlRdhRnRm bin
 #endif
       render phlp &itstate 0 isInIT bin Op.SMLALDX None N OD.OprRdlRdhRnRmT
-    | 0b1001110u | 0b1001111u (* 100111x *) -> raise ParsingFailureException
+    | 0b1001110u | 0b1001111u (* 100111x *) ->
+      raise ParsingFailureException
     | b when b &&& 0b1111000u = 0b1010000u (* 1010xxx *) ->
       raise ParsingFailureException
     | 0b1011000u | 0b1011001u | 0b1011010u | 0b1011011u (* 10110xx *) ->
@@ -9167,24 +9387,30 @@ let parseLongMulAndDiv phlp (itstate: byref<BL>) isInIT bin =
       chkThumbPCRdlRdhRnRm bin
 #endif
       render phlp &itstate 0 isInIT bin Op.SMLSLDX None N OD.OprRdlRdhRnRmT
-    | 0b1011110u | 0b1011111u (* 101111x *) -> raise ParsingFailureException
+    | 0b1011110u | 0b1011111u (* 101111x *) ->
+      raise ParsingFailureException
     | 0b1100000u ->
 #if !EMULATION
       chkThumbPCRdlRdhRnRm bin
 #endif
       render phlp &itstate 0 isInIT bin Op.UMLAL None N OD.OprRdlRdhRnRmT
-    | 0b1100001u -> raise ParsingFailureException
-    | 0b1100010u | 0b1100011u (* 110001x *) -> raise ParsingFailureException
-    | 0b1100100u | 0b1100101u (* 110010x *) -> raise ParsingFailureException
+    | 0b1100001u ->
+      raise ParsingFailureException
+    | 0b1100010u | 0b1100011u (* 110001x *) ->
+      raise ParsingFailureException
+    | 0b1100100u | 0b1100101u (* 110010x *) ->
+      raise ParsingFailureException
     | 0b1100110u ->
 #if !EMULATION
       chkThumbPCRdlRdhRnRm bin
 #endif
       render phlp &itstate 0 isInIT bin Op.UMAAL None N OD.OprRdlRdhRnRmT
-    | 0b1100111u -> raise ParsingFailureException
+    | 0b1100111u ->
+      raise ParsingFailureException
     | b when b &&& 0b1111000u = 0b1101000u (* 1101xxx *) ->
       raise ParsingFailureException
-    | _ (* 111xxxx *) -> raise ParsingFailureException
+    | _ (* 111xxxx *) ->
+      raise ParsingFailureException
 
 /// 32-bit on page F3-4159.
 let parse32Bit phlp (itstate: byref<BL>) isInIT bin =
@@ -9216,7 +9442,8 @@ let parse32Bit phlp (itstate: byref<BL>) isInIT bin =
     parseMulAccumlateAndAbsDiff phlp &itstate isInIT bin
   | 0b11010u | 0b11011u when pickTwo bin 23 = 0b11u (* 1101 11xxx x *) ->
     parseLongMulAndDiv phlp &itstate isInIT bin
-  | _ -> raise ParsingFailureException
+  | _ ->
+    raise ParsingFailureException
 
 /// ARM Architecture Reference Manual ARMv8-A, ARM DDI 0487F.c ID072120
 /// T32 instruction set encoding on page F3-4148.

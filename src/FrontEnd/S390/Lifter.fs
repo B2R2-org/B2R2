@@ -143,71 +143,114 @@ let private liftArith ins insLen bld opcode =
     alu2 ins insLen bld GRSize (.+) ccAdd
   | Opcode.AH | Opcode.AHY ->
     alu2Ext ins insLen bld WSize 16<rt> sextTo (.+) ccAdd
-  | Opcode.AGH -> alu2Ext ins insLen bld GRSize 16<rt> sextTo (.+) ccAdd
+  | Opcode.AGH ->
+    alu2Ext ins insLen bld GRSize 16<rt> sextTo (.+) ccAdd
   | Opcode.AGF | Opcode.AGFR ->
     alu2Ext ins insLen bld GRSize WSize sextTo (.+) ccAdd
-  | Opcode.ARK -> alu3 ins insLen bld WSize (.+) ccAdd
-  | Opcode.AGRK -> alu3 ins insLen bld GRSize (.+) ccAdd
-  | Opcode.AHIK -> alu3Imm ins insLen bld WSize (.+) ccAdd
-  | Opcode.AGHIK -> alu3Imm ins insLen bld GRSize (.+) ccAdd
-  | Opcode.ASI -> addToStorage ins insLen bld WSize
-  | Opcode.AGSI -> addToStorage ins insLen bld GRSize
+  | Opcode.ARK ->
+    alu3 ins insLen bld WSize (.+) ccAdd
+  | Opcode.AGRK ->
+    alu3 ins insLen bld GRSize (.+) ccAdd
+  | Opcode.AHIK ->
+    alu3Imm ins insLen bld WSize (.+) ccAdd
+  | Opcode.AGHIK ->
+    alu3Imm ins insLen bld GRSize (.+) ccAdd
+  | Opcode.ASI ->
+    addToStorage ins insLen bld WSize
+  | Opcode.AGSI ->
+    addToStorage ins insLen bld GRSize
   | Opcode.ALR | Opcode.AL | Opcode.ALY | Opcode.ALFI ->
     alu2 ins insLen bld WSize (.+) ccAddL
   | Opcode.ALGR | Opcode.ALG | Opcode.ALGFI ->
     alu2 ins insLen bld GRSize (.+) ccAddL
   | Opcode.ALGF | Opcode.ALGFR ->
     alu2Ext ins insLen bld GRSize WSize zextTo (.+) ccAddL
-  | Opcode.ALRK -> alu3 ins insLen bld WSize (.+) ccAddL
-  | Opcode.ALGRK -> alu3 ins insLen bld GRSize (.+) ccAddL
-  | Opcode.ALHSIK -> alu3Imm ins insLen bld WSize (.+) ccAddL
-  | Opcode.ALGHSIK -> alu3Imm ins insLen bld GRSize (.+) ccAddL
-  | Opcode.ALCR -> addCarry ins insLen bld WSize
-  | Opcode.ALCGR -> addCarry ins insLen bld GRSize
-  | Opcode.SR | Opcode.S | Opcode.SY -> alu2 ins insLen bld WSize (.-) ccSub
-  | Opcode.SGR | Opcode.SG -> alu2 ins insLen bld GRSize (.-) ccSub
+  | Opcode.ALRK ->
+    alu3 ins insLen bld WSize (.+) ccAddL
+  | Opcode.ALGRK ->
+    alu3 ins insLen bld GRSize (.+) ccAddL
+  | Opcode.ALHSIK ->
+    alu3Imm ins insLen bld WSize (.+) ccAddL
+  | Opcode.ALGHSIK ->
+    alu3Imm ins insLen bld GRSize (.+) ccAddL
+  | Opcode.ALCR ->
+    addCarry ins insLen bld WSize
+  | Opcode.ALCGR ->
+    addCarry ins insLen bld GRSize
+  | Opcode.SR | Opcode.S | Opcode.SY ->
+    alu2 ins insLen bld WSize (.-) ccSub
+  | Opcode.SGR | Opcode.SG ->
+    alu2 ins insLen bld GRSize (.-) ccSub
   | Opcode.SH | Opcode.SHY ->
     alu2Ext ins insLen bld WSize 16<rt> sextTo (.-) ccSub
   | Opcode.SGF | Opcode.SGFR ->
     alu2Ext ins insLen bld GRSize WSize sextTo (.-) ccSub
-  | Opcode.SRK -> alu3 ins insLen bld WSize (.-) ccSub
-  | Opcode.SGRK -> alu3 ins insLen bld GRSize (.-) ccSub
+  | Opcode.SRK ->
+    alu3 ins insLen bld WSize (.-) ccSub
+  | Opcode.SGRK ->
+    alu3 ins insLen bld GRSize (.-) ccSub
   | Opcode.SLR | Opcode.SL | Opcode.SLY | Opcode.SLFI ->
     alu2 ins insLen bld WSize (.-) ccSubL
   | Opcode.SLGR | Opcode.SLG | Opcode.SLGFI ->
     alu2 ins insLen bld GRSize (.-) ccSubL
   | Opcode.SLGF | Opcode.SLGFR ->
     alu2Ext ins insLen bld GRSize WSize zextTo (.-) ccSubL
-  | Opcode.SLRK -> alu3 ins insLen bld WSize (.-) ccSubL
-  | Opcode.SLGRK -> alu3 ins insLen bld GRSize (.-) ccSubL
-  | Opcode.SLBR -> subBorrow ins insLen bld WSize
-  | Opcode.SLBGR -> subBorrow ins insLen bld GRSize
-  | Opcode.LCR -> unaryArith ins insLen bld WSize WSize AST.neg
-  | Opcode.LCGR -> unaryArith ins insLen bld GRSize GRSize AST.neg
-  | Opcode.LCGFR -> unaryArith ins insLen bld GRSize WSize AST.neg
-  | Opcode.LPR -> unaryArith ins insLen bld WSize WSize absValue
-  | Opcode.LPGR -> unaryArith ins insLen bld GRSize GRSize absValue
-  | Opcode.LPGFR -> unaryArith ins insLen bld GRSize WSize absValue
-  | Opcode.LNR -> unaryArith ins insLen bld WSize WSize negAbsValue
-  | Opcode.LNGR -> unaryArith ins insLen bld GRSize GRSize negAbsValue
-  | Opcode.LNGFR -> unaryArith ins insLen bld GRSize WSize negAbsValue
+  | Opcode.SLRK ->
+    alu3 ins insLen bld WSize (.-) ccSubL
+  | Opcode.SLGRK ->
+    alu3 ins insLen bld GRSize (.-) ccSubL
+  | Opcode.SLBR ->
+    subBorrow ins insLen bld WSize
+  | Opcode.SLBGR ->
+    subBorrow ins insLen bld GRSize
+  | Opcode.LCR ->
+    unaryArith ins insLen bld WSize WSize AST.neg
+  | Opcode.LCGR ->
+    unaryArith ins insLen bld GRSize GRSize AST.neg
+  | Opcode.LCGFR ->
+    unaryArith ins insLen bld GRSize WSize AST.neg
+  | Opcode.LPR ->
+    unaryArith ins insLen bld WSize WSize absValue
+  | Opcode.LPGR ->
+    unaryArith ins insLen bld GRSize GRSize absValue
+  | Opcode.LPGFR ->
+    unaryArith ins insLen bld GRSize WSize absValue
+  | Opcode.LNR ->
+    unaryArith ins insLen bld WSize WSize negAbsValue
+  | Opcode.LNGR ->
+    unaryArith ins insLen bld GRSize GRSize negAbsValue
+  | Opcode.LNGFR ->
+    unaryArith ins insLen bld GRSize WSize negAbsValue
   | Opcode.MSR | Opcode.MS | Opcode.MSY | Opcode.MSFI | Opcode.MHI ->
     mul ins insLen bld WSize WSize same
   | Opcode.MSGR | Opcode.MSG | Opcode.MSGFI | Opcode.MGHI ->
     mul ins insLen bld GRSize GRSize same
-  | Opcode.MSGF | Opcode.MSGFR -> mul ins insLen bld GRSize WSize sextTo
-  | Opcode.MH | Opcode.MHY -> mul ins insLen bld WSize 16<rt> sextTo
-  | Opcode.MSRKC -> mul3 ins insLen bld WSize
-  | Opcode.MSGRKC -> mul3 ins insLen bld GRSize
-  | Opcode.MLR | Opcode.ML -> mulLogical ins insLen bld WSize WSize
-  | Opcode.MLGR | Opcode.MLG -> mulLogical ins insLen bld GRSize GRSize
-  | Opcode.DLR | Opcode.DL -> divLogical ins insLen bld WSize WSize
-  | Opcode.DLGR | Opcode.DLG -> divLogical ins insLen bld GRSize GRSize
-  | Opcode.DSGR | Opcode.DSG -> divSingle ins insLen bld GRSize GRSize
-  | Opcode.DSGFR | Opcode.DSGF -> divSingle ins insLen bld GRSize WSize
-  | Opcode.FLOGR -> flogr ins insLen bld
-  | Opcode.POPCNT -> popcnt ins insLen bld
-  | _ -> raise ParsingFailureException
+  | Opcode.MSGF | Opcode.MSGFR ->
+    mul ins insLen bld GRSize WSize sextTo
+  | Opcode.MH | Opcode.MHY ->
+    mul ins insLen bld WSize 16<rt> sextTo
+  | Opcode.MSRKC ->
+    mul3 ins insLen bld WSize
+  | Opcode.MSGRKC ->
+    mul3 ins insLen bld GRSize
+  | Opcode.MLR | Opcode.ML ->
+    mulLogical ins insLen bld WSize WSize
+  | Opcode.MLGR | Opcode.MLG ->
+    mulLogical ins insLen bld GRSize GRSize
+  | Opcode.DLR | Opcode.DL ->
+    divLogical ins insLen bld WSize WSize
+  | Opcode.DLGR | Opcode.DLG ->
+    divLogical ins insLen bld GRSize GRSize
+  | Opcode.DSGR | Opcode.DSG ->
+    divSingle ins insLen bld GRSize GRSize
+  | Opcode.DSGFR | Opcode.DSGF ->
+    divSingle ins insLen bld GRSize WSize
+  | Opcode.FLOGR ->
+    flogr ins insLen bld
+  | Opcode.POPCNT ->
+    popcnt ins insLen bld
+  | _ ->
+    raise ParsingFailureException
 
 /// The bitwise operations, including the ones an immediate names a field of a
 /// register or a byte of storage for.
@@ -247,29 +290,46 @@ let private liftLogic ins insLen bld opcode =
 /// The shifts and the rotate-then-insert family.
 let private liftShift ins insLen bld opcode =
   match opcode with
-  | Opcode.SLL -> shift2 ins insLen bld (<<) false
-  | Opcode.SRL -> shift2 ins insLen bld (>>) false
-  | Opcode.SLA -> shift2 ins insLen bld (<<) true
-  | Opcode.SRA -> shift2 ins insLen bld (?>>) true
-  | Opcode.SLLK -> shift3 ins insLen bld WSize (<<) false
-  | Opcode.SRLK -> shift3 ins insLen bld WSize (>>) false
-  | Opcode.SLAK -> shift3 ins insLen bld WSize (<<) true
-  | Opcode.SRAK -> shift3 ins insLen bld WSize (?>>) true
-  | Opcode.SLLG -> shift3 ins insLen bld GRSize (<<) false
-  | Opcode.SRLG -> shift3 ins insLen bld GRSize (>>) false
-  | Opcode.SLAG -> shift3 ins insLen bld GRSize (<<) true
-  | Opcode.SRAG -> shift3 ins insLen bld GRSize (?>>) true
-  | Opcode.RLL -> rotate ins insLen bld WSize
-  | Opcode.RLLG -> rotate ins insLen bld GRSize
-  | Opcode.RISBG -> rotateInsert ins insLen bld (.|) true
-  | Opcode.RISBGN -> rotateInsert ins insLen bld (.|) false
+  | Opcode.SLL ->
+    shift2 ins insLen bld (<<) false
+  | Opcode.SRL ->
+    shift2 ins insLen bld (>>) false
+  | Opcode.SLA ->
+    shift2 ins insLen bld (<<) true
+  | Opcode.SRA ->
+    shift2 ins insLen bld (?>>) true
+  | Opcode.SLLK ->
+    shift3 ins insLen bld WSize (<<) false
+  | Opcode.SRLK ->
+    shift3 ins insLen bld WSize (>>) false
+  | Opcode.SLAK ->
+    shift3 ins insLen bld WSize (<<) true
+  | Opcode.SRAK ->
+    shift3 ins insLen bld WSize (?>>) true
+  | Opcode.SLLG ->
+    shift3 ins insLen bld GRSize (<<) false
+  | Opcode.SRLG ->
+    shift3 ins insLen bld GRSize (>>) false
+  | Opcode.SLAG ->
+    shift3 ins insLen bld GRSize (<<) true
+  | Opcode.SRAG ->
+    shift3 ins insLen bld GRSize (?>>) true
+  | Opcode.RLL ->
+    rotate ins insLen bld WSize
+  | Opcode.RLLG ->
+    rotate ins insLen bld GRSize
+  | Opcode.RISBG ->
+    rotateInsert ins insLen bld (.|) true
+  | Opcode.RISBGN ->
+    rotateInsert ins insLen bld (.|) false
   | Opcode.ROSBG ->
     rotateCombine ins insLen bld (fun d r m -> d .| (r .& numG (int64 m)))
   | Opcode.RXSBG ->
     rotateCombine ins insLen bld (fun d r m -> d <+> (r .& numG (int64 m)))
   | Opcode.RNSBG ->
     rotateCombine ins insLen bld (fun d r m -> d .& (r .| numG (int64 ~~~m)))
-  | _ -> raise ParsingFailureException
+  | _ ->
+    raise ParsingFailureException
 
 /// The comparisons and the tests under a mask.
 let private liftCompare ins insLen bld opcode =
@@ -278,8 +338,10 @@ let private liftCompare ins insLen bld opcode =
     compare ins insLen bld WSize WSize same true
   | Opcode.CGR | Opcode.CG | Opcode.CGHI | Opcode.CGFI ->
     compare ins insLen bld GRSize GRSize same true
-  | Opcode.CH | Opcode.CHY -> compare ins insLen bld WSize 16<rt> sextTo true
-  | Opcode.CGH -> compare ins insLen bld GRSize 16<rt> sextTo true
+  | Opcode.CH | Opcode.CHY ->
+    compare ins insLen bld WSize 16<rt> sextTo true
+  | Opcode.CGH ->
+    compare ins insLen bld GRSize 16<rt> sextTo true
   | Opcode.CGF | Opcode.CGFR ->
     compare ins insLen bld GRSize WSize sextTo true
   | Opcode.CLR | Opcode.CL | Opcode.CLY | Opcode.CLFI ->
@@ -288,75 +350,130 @@ let private liftCompare ins insLen bld opcode =
     compare ins insLen bld GRSize GRSize same false
   | Opcode.CLGF | Opcode.CLGFR ->
     compare ins insLen bld GRSize WSize zextTo false
-  | Opcode.CRL -> compareRel ins insLen bld WSize WSize same true
-  | Opcode.CGRL -> compareRel ins insLen bld GRSize GRSize same true
-  | Opcode.CGFRL -> compareRel ins insLen bld GRSize WSize sextTo true
-  | Opcode.CHRL -> compareRel ins insLen bld WSize 16<rt> sextTo true
-  | Opcode.CGHRL -> compareRel ins insLen bld GRSize 16<rt> sextTo true
-  | Opcode.CLRL -> compareRel ins insLen bld WSize WSize same false
-  | Opcode.CLGRL -> compareRel ins insLen bld GRSize GRSize same false
-  | Opcode.CLGFRL -> compareRel ins insLen bld GRSize WSize zextTo false
-  | Opcode.CLHRL -> compareRel ins insLen bld WSize 16<rt> zextTo false
-  | Opcode.CLGHRL -> compareRel ins insLen bld GRSize 16<rt> zextTo false
-  | Opcode.CLI | Opcode.CLIY -> compareStorageImm ins insLen bld 8<rt> false
-  | Opcode.CHHSI -> compareStorageImm ins insLen bld 16<rt> true
-  | Opcode.CHSI -> compareStorageImm ins insLen bld WSize true
-  | Opcode.CGHSI -> compareStorageImm ins insLen bld GRSize true
-  | Opcode.CLHHSI -> compareStorageImm ins insLen bld 16<rt> false
-  | Opcode.CLFHSI -> compareStorageImm ins insLen bld WSize false
-  | Opcode.CLGHSI -> compareStorageImm ins insLen bld GRSize false
-  | Opcode.CLC -> compareStorage ins insLen bld
-  | Opcode.CLM | Opcode.CLMY -> clm ins insLen bld
-  | Opcode.TM | Opcode.TMY -> testMaskStorage ins insLen bld
-  | Opcode.TMLL -> testMaskReg ins insLen bld 0
-  | Opcode.TMLH -> testMaskReg ins insLen bld 16
-  | Opcode.TMHL -> testMaskReg ins insLen bld 32
-  | Opcode.TMHH -> testMaskReg ins insLen bld 48
-  | Opcode.CS | Opcode.CSY -> compareAndSwap ins insLen bld WSize
-  | Opcode.CSG -> compareAndSwap ins insLen bld GRSize
-  | _ -> raise ParsingFailureException
+  | Opcode.CRL ->
+    compareRel ins insLen bld WSize WSize same true
+  | Opcode.CGRL ->
+    compareRel ins insLen bld GRSize GRSize same true
+  | Opcode.CGFRL ->
+    compareRel ins insLen bld GRSize WSize sextTo true
+  | Opcode.CHRL ->
+    compareRel ins insLen bld WSize 16<rt> sextTo true
+  | Opcode.CGHRL ->
+    compareRel ins insLen bld GRSize 16<rt> sextTo true
+  | Opcode.CLRL ->
+    compareRel ins insLen bld WSize WSize same false
+  | Opcode.CLGRL ->
+    compareRel ins insLen bld GRSize GRSize same false
+  | Opcode.CLGFRL ->
+    compareRel ins insLen bld GRSize WSize zextTo false
+  | Opcode.CLHRL ->
+    compareRel ins insLen bld WSize 16<rt> zextTo false
+  | Opcode.CLGHRL ->
+    compareRel ins insLen bld GRSize 16<rt> zextTo false
+  | Opcode.CLI | Opcode.CLIY ->
+    compareStorageImm ins insLen bld 8<rt> false
+  | Opcode.CHHSI ->
+    compareStorageImm ins insLen bld 16<rt> true
+  | Opcode.CHSI ->
+    compareStorageImm ins insLen bld WSize true
+  | Opcode.CGHSI ->
+    compareStorageImm ins insLen bld GRSize true
+  | Opcode.CLHHSI ->
+    compareStorageImm ins insLen bld 16<rt> false
+  | Opcode.CLFHSI ->
+    compareStorageImm ins insLen bld WSize false
+  | Opcode.CLGHSI ->
+    compareStorageImm ins insLen bld GRSize false
+  | Opcode.CLC ->
+    compareStorage ins insLen bld
+  | Opcode.CLM | Opcode.CLMY ->
+    clm ins insLen bld
+  | Opcode.TM | Opcode.TMY ->
+    testMaskStorage ins insLen bld
+  | Opcode.TMLL ->
+    testMaskReg ins insLen bld 0
+  | Opcode.TMLH ->
+    testMaskReg ins insLen bld 16
+  | Opcode.TMHL ->
+    testMaskReg ins insLen bld 32
+  | Opcode.TMHH ->
+    testMaskReg ins insLen bld 48
+  | Opcode.CS | Opcode.CSY ->
+    compareAndSwap ins insLen bld WSize
+  | Opcode.CSG ->
+    compareAndSwap ins insLen bld GRSize
+  | _ ->
+    raise ParsingFailureException
 
 /// The transfers of control.
 let private liftBranch ins insLen bld opcode =
   match opcode with
-  | Opcode.BRC | Opcode.BRCL -> branchRelative ins insLen bld
-  | Opcode.BC -> branchOnCondition ins insLen bld
-  | Opcode.BCR -> branchOnConditionReg ins insLen bld
-  | Opcode.BRAS | Opcode.BRASL -> branchAndSaveRel ins insLen bld
-  | Opcode.BAS | Opcode.BAL -> branchAndSave ins insLen bld
+  | Opcode.BRC | Opcode.BRCL ->
+    branchRelative ins insLen bld
+  | Opcode.BC ->
+    branchOnCondition ins insLen bld
+  | Opcode.BCR ->
+    branchOnConditionReg ins insLen bld
+  | Opcode.BRAS | Opcode.BRASL ->
+    branchAndSaveRel ins insLen bld
+  | Opcode.BAS | Opcode.BAL ->
+    branchAndSave ins insLen bld
   | Opcode.BASR | Opcode.BALR | Opcode.BASSM ->
     branchAndSaveReg ins insLen bld
-  | Opcode.BCT -> branchOnCount ins insLen bld WSize
-  | Opcode.BCTG -> branchOnCount ins insLen bld GRSize
-  | Opcode.BCTR -> branchOnCountReg ins insLen bld WSize
-  | Opcode.BCTGR -> branchOnCountReg ins insLen bld GRSize
-  | Opcode.BRCT -> branchOnCountRel ins insLen bld WSize
-  | Opcode.BRCTG -> branchOnCountRel ins insLen bld GRSize
-  | Opcode.BXH -> branchOnIndex ins insLen bld WSize true
-  | Opcode.BXHG -> branchOnIndex ins insLen bld GRSize true
-  | Opcode.BXLE -> branchOnIndex ins insLen bld WSize false
-  | Opcode.BXLEG -> branchOnIndex ins insLen bld GRSize false
-  | Opcode.BRXH -> branchOnIndexRel ins insLen bld WSize true
-  | Opcode.BRXHG -> branchOnIndexRel ins insLen bld GRSize true
-  | Opcode.BRXLE -> branchOnIndexRel ins insLen bld WSize false
-  | Opcode.BRXLG -> branchOnIndexRel ins insLen bld GRSize false
-  | Opcode.CRJ | Opcode.CIJ -> compareAndBranchRel ins insLen bld WSize true
+  | Opcode.BCT ->
+    branchOnCount ins insLen bld WSize
+  | Opcode.BCTG ->
+    branchOnCount ins insLen bld GRSize
+  | Opcode.BCTR ->
+    branchOnCountReg ins insLen bld WSize
+  | Opcode.BCTGR ->
+    branchOnCountReg ins insLen bld GRSize
+  | Opcode.BRCT ->
+    branchOnCountRel ins insLen bld WSize
+  | Opcode.BRCTG ->
+    branchOnCountRel ins insLen bld GRSize
+  | Opcode.BXH ->
+    branchOnIndex ins insLen bld WSize true
+  | Opcode.BXHG ->
+    branchOnIndex ins insLen bld GRSize true
+  | Opcode.BXLE ->
+    branchOnIndex ins insLen bld WSize false
+  | Opcode.BXLEG ->
+    branchOnIndex ins insLen bld GRSize false
+  | Opcode.BRXH ->
+    branchOnIndexRel ins insLen bld WSize true
+  | Opcode.BRXHG ->
+    branchOnIndexRel ins insLen bld GRSize true
+  | Opcode.BRXLE ->
+    branchOnIndexRel ins insLen bld WSize false
+  | Opcode.BRXLG ->
+    branchOnIndexRel ins insLen bld GRSize false
+  | Opcode.CRJ | Opcode.CIJ ->
+    compareAndBranchRel ins insLen bld WSize true
   | Opcode.CGRJ | Opcode.CGIJ ->
     compareAndBranchRel ins insLen bld GRSize true
   | Opcode.CLRJ | Opcode.CLIJ ->
     compareAndBranchRel ins insLen bld WSize false
   | Opcode.CLGRJ | Opcode.CLGIJ ->
     compareAndBranchRel ins insLen bld GRSize false
-  | Opcode.CRB | Opcode.CIB -> compareAndBranch ins insLen bld WSize true
-  | Opcode.CGRB | Opcode.CGIB -> compareAndBranch ins insLen bld GRSize true
-  | Opcode.CLRB | Opcode.CLIB -> compareAndBranch ins insLen bld WSize false
+  | Opcode.CRB | Opcode.CIB ->
+    compareAndBranch ins insLen bld WSize true
+  | Opcode.CGRB | Opcode.CGIB ->
+    compareAndBranch ins insLen bld GRSize true
+  | Opcode.CLRB | Opcode.CLIB ->
+    compareAndBranch ins insLen bld WSize false
   | Opcode.CLGRB | Opcode.CLGIB ->
     compareAndBranch ins insLen bld GRSize false
-  | Opcode.CRT | Opcode.CIT -> compareAndTrap ins insLen bld WSize true
-  | Opcode.CGRT | Opcode.CGIT -> compareAndTrap ins insLen bld GRSize true
-  | Opcode.CLRT | Opcode.CLFIT -> compareAndTrap ins insLen bld WSize false
-  | Opcode.CLGRT | Opcode.CLGIT -> compareAndTrap ins insLen bld GRSize false
-  | _ -> raise ParsingFailureException
+  | Opcode.CRT | Opcode.CIT ->
+    compareAndTrap ins insLen bld WSize true
+  | Opcode.CGRT | Opcode.CGIT ->
+    compareAndTrap ins insLen bld GRSize true
+  | Opcode.CLRT | Opcode.CLFIT ->
+    compareAndTrap ins insLen bld WSize false
+  | Opcode.CLGRT | Opcode.CLGIT ->
+    compareAndTrap ins insLen bld GRSize false
+  | _ ->
+    raise ParsingFailureException
 
 /// The floating-point operations this lifter models, which are the short and
 /// the long binary formats; the extended one is left out.
@@ -366,11 +483,16 @@ let private liftFloat ins insLen bld opcode =
     FloatLifter.move ins insLen bld 64<rt>
   | Opcode.LER | Opcode.LE | Opcode.LEY ->
     FloatLifter.move ins insLen bld 32<rt>
-  | Opcode.LZDR -> FloatLifter.loadZero ins insLen bld 64<rt>
-  | Opcode.LZER -> FloatLifter.loadZero ins insLen bld 32<rt>
-  | Opcode.LDGR | Opcode.LGDR -> regCopy ins insLen bld
-  | Opcode.STD | Opcode.STDY -> store ins insLen bld 64<rt>
-  | Opcode.STE | Opcode.STEY -> storeHigh ins insLen bld
+  | Opcode.LZDR ->
+    FloatLifter.loadZero ins insLen bld 64<rt>
+  | Opcode.LZER ->
+    FloatLifter.loadZero ins insLen bld 32<rt>
+  | Opcode.LDGR | Opcode.LGDR ->
+    regCopy ins insLen bld
+  | Opcode.STD | Opcode.STDY ->
+    store ins insLen bld 64<rt>
+  | Opcode.STE | Opcode.STEY ->
+    storeHigh ins insLen bld
   | Opcode.ADBR | Opcode.ADB ->
     FloatLifter.arith ins insLen bld 64<rt> AST.fadd true
   | Opcode.AEBR | Opcode.AEB ->
@@ -391,19 +513,28 @@ let private liftFloat ins insLen bld opcode =
     FloatLifter.compare ins insLen bld 64<rt>
   | Opcode.CEBR | Opcode.CEB | Opcode.KEBR | Opcode.KEB ->
     FloatLifter.compare ins insLen bld 32<rt>
-  | Opcode.LTDBR -> FloatLifter.loadTest ins insLen bld 64<rt>
-  | Opcode.LTEBR -> FloatLifter.loadTest ins insLen bld 32<rt>
-  | Opcode.LCDBR -> FloatLifter.loadSign ins insLen bld 64<rt> (<+>)
-  | Opcode.LCEBR -> FloatLifter.loadSign ins insLen bld 32<rt> (<+>)
+  | Opcode.LTDBR ->
+    FloatLifter.loadTest ins insLen bld 64<rt>
+  | Opcode.LTEBR ->
+    FloatLifter.loadTest ins insLen bld 32<rt>
+  | Opcode.LCDBR ->
+    FloatLifter.loadSign ins insLen bld 64<rt> (<+>)
+  | Opcode.LCEBR ->
+    FloatLifter.loadSign ins insLen bld 32<rt> (<+>)
   | Opcode.LPDBR | Opcode.LPDR ->
     FloatLifter.loadSign ins insLen bld 64<rt> (fun v s -> v .& AST.not s)
   | Opcode.LPEBR ->
     FloatLifter.loadSign ins insLen bld 32<rt> (fun v s -> v .& AST.not s)
-  | Opcode.LNDBR -> FloatLifter.loadSign ins insLen bld 64<rt> (.|)
-  | Opcode.LNEBR -> FloatLifter.loadSign ins insLen bld 32<rt> (.|)
-  | Opcode.SQDBR | Opcode.SQDB -> FloatLifter.sqrt ins insLen bld 64<rt>
-  | Opcode.SQEBR | Opcode.SQEB -> FloatLifter.sqrt ins insLen bld 32<rt>
-  | Opcode.CPSDR -> FloatLifter.copySign ins insLen bld
+  | Opcode.LNDBR ->
+    FloatLifter.loadSign ins insLen bld 64<rt> (.|)
+  | Opcode.LNEBR ->
+    FloatLifter.loadSign ins insLen bld 32<rt> (.|)
+  | Opcode.SQDBR | Opcode.SQDB ->
+    FloatLifter.sqrt ins insLen bld 64<rt>
+  | Opcode.SQEBR | Opcode.SQEB ->
+    FloatLifter.sqrt ins insLen bld 32<rt>
+  | Opcode.CPSDR ->
+    FloatLifter.copySign ins insLen bld
   | Opcode.LDEBR | Opcode.LDEB ->
     FloatLifter.convertFormat ins insLen bld 32<rt> 64<rt>
   | Opcode.LEDBR | Opcode.LEDBRA ->
@@ -416,10 +547,14 @@ let private liftFloat ins insLen bld opcode =
     FloatLifter.fromInt ins insLen bld 32<rt> GRSize true
   | Opcode.CDGBR | Opcode.CDGBRA ->
     FloatLifter.fromInt ins insLen bld 64<rt> GRSize true
-  | Opcode.CELFBR -> FloatLifter.fromInt ins insLen bld 32<rt> WSize false
-  | Opcode.CDLFBR -> FloatLifter.fromInt ins insLen bld 64<rt> WSize false
-  | Opcode.CELGBR -> FloatLifter.fromInt ins insLen bld 32<rt> GRSize false
-  | Opcode.CDLGBR -> FloatLifter.fromInt ins insLen bld 64<rt> GRSize false
+  | Opcode.CELFBR ->
+    FloatLifter.fromInt ins insLen bld 32<rt> WSize false
+  | Opcode.CDLFBR ->
+    FloatLifter.fromInt ins insLen bld 64<rt> WSize false
+  | Opcode.CELGBR ->
+    FloatLifter.fromInt ins insLen bld 32<rt> GRSize false
+  | Opcode.CDLGBR ->
+    FloatLifter.fromInt ins insLen bld 64<rt> GRSize false
   | Opcode.CFEBR | Opcode.CFEBRA | Opcode.CLFEBR ->
     FloatLifter.toInt ins insLen bld 32<rt> WSize
   | Opcode.CFDBR | Opcode.CFDBRA | Opcode.CLFDBR ->
@@ -428,62 +563,99 @@ let private liftFloat ins insLen bld opcode =
     FloatLifter.toInt ins insLen bld 32<rt> GRSize
   | Opcode.CGDBR | Opcode.CGDBRA | Opcode.CLGDBR ->
     FloatLifter.toInt ins insLen bld 64<rt> GRSize
-  | Opcode.FIDBR | Opcode.FIDBRA -> FloatLifter.roundToInt ins insLen bld
-                                                            64<rt>
-  | Opcode.FIEBR | Opcode.FIEBRA -> FloatLifter.roundToInt ins insLen bld
-                                                            32<rt>
-  | Opcode.LCDFR -> FloatLifter.loadSignQuiet ins insLen bld (<+>)
+  | Opcode.FIDBR | Opcode.FIDBRA ->
+    FloatLifter.roundToInt ins insLen bld 64<rt>
+  | Opcode.FIEBR | Opcode.FIEBRA ->
+    FloatLifter.roundToInt ins insLen bld 32<rt>
+  | Opcode.LCDFR ->
+    FloatLifter.loadSignQuiet ins insLen bld (<+>)
   | Opcode.LPDFR ->
     FloatLifter.loadSignQuiet ins insLen bld (fun v s -> v .& AST.not s)
-  | Opcode.LNDFR -> FloatLifter.loadSignQuiet ins insLen bld (.|)
-  | Opcode.TCDB -> FloatLifter.testDataClass ins insLen bld 64<rt>
-  | Opcode.TCEB -> FloatLifter.testDataClass ins insLen bld 32<rt>
-  | Opcode.MADB | Opcode.MADBR -> FloatLifter.mulAdd ins insLen bld 64<rt>
-                                                      false
-  | Opcode.MAEB | Opcode.MAEBR -> FloatLifter.mulAdd ins insLen bld 32<rt>
-                                                      false
-  | Opcode.MSDB | Opcode.MSDBR -> FloatLifter.mulAdd ins insLen bld 64<rt>
-                                                      true
-  | Opcode.MSEB | Opcode.MSEBR -> FloatLifter.mulAdd ins insLen bld 32<rt>
-                                                      true
-  | Opcode.MDEB | Opcode.MDEBR -> FloatLifter.mulWiden ins insLen bld
-  | Opcode.DIDBR -> FloatLifter.divideToInteger ins insLen bld 64<rt>
-  | Opcode.DIEBR -> FloatLifter.divideToInteger ins insLen bld 32<rt>
-  | Opcode.SRNM -> FloatLifter.setRoundingMode ins insLen bld 2
-  | Opcode.SRNMB -> FloatLifter.setRoundingMode ins insLen bld 3
-  | Opcode.SRNMT -> FloatLifter.setRoundingMode ins insLen bld 3
-  | Opcode.LFAS -> FloatLifter.loadFpc ins insLen bld
-  | Opcode.SFASR -> FloatLifter.setFpc ins insLen bld
-  | Opcode.SFPC -> FloatLifter.setFpc ins insLen bld
-  | Opcode.EFPC -> FloatLifter.extractFpc ins insLen bld
-  | Opcode.LFPC -> FloatLifter.loadFpc ins insLen bld
-  | Opcode.STFPC -> FloatLifter.storeFpc ins insLen bld
-  | _ -> raise ParsingFailureException
+  | Opcode.LNDFR ->
+    FloatLifter.loadSignQuiet ins insLen bld (.|)
+  | Opcode.TCDB ->
+    FloatLifter.testDataClass ins insLen bld 64<rt>
+  | Opcode.TCEB ->
+    FloatLifter.testDataClass ins insLen bld 32<rt>
+  | Opcode.MADB | Opcode.MADBR ->
+    FloatLifter.mulAdd ins insLen bld 64<rt> false
+  | Opcode.MAEB | Opcode.MAEBR ->
+    FloatLifter.mulAdd ins insLen bld 32<rt> false
+  | Opcode.MSDB | Opcode.MSDBR ->
+    FloatLifter.mulAdd ins insLen bld 64<rt> true
+  | Opcode.MSEB | Opcode.MSEBR ->
+    FloatLifter.mulAdd ins insLen bld 32<rt> true
+  | Opcode.MDEB | Opcode.MDEBR ->
+    FloatLifter.mulWiden ins insLen bld
+  | Opcode.DIDBR ->
+    FloatLifter.divideToInteger ins insLen bld 64<rt>
+  | Opcode.DIEBR ->
+    FloatLifter.divideToInteger ins insLen bld 32<rt>
+  | Opcode.SRNM ->
+    FloatLifter.setRoundingMode ins insLen bld 2
+  | Opcode.SRNMB ->
+    FloatLifter.setRoundingMode ins insLen bld 3
+  | Opcode.SRNMT ->
+    FloatLifter.setRoundingMode ins insLen bld 3
+  | Opcode.LFAS ->
+    FloatLifter.loadFpc ins insLen bld
+  | Opcode.SFASR ->
+    FloatLifter.setFpc ins insLen bld
+  | Opcode.SFPC ->
+    FloatLifter.setFpc ins insLen bld
+  | Opcode.EFPC ->
+    FloatLifter.extractFpc ins insLen bld
+  | Opcode.LFPC ->
+    FloatLifter.loadFpc ins insLen bld
+  | Opcode.STFPC ->
+    FloatLifter.storeFpc ins insLen bld
+  | _ ->
+    raise ParsingFailureException
 
 /// The high-word facility, which addresses bits 0 to 31 of a general register
 /// as a register of its own.
 let private liftHighWord ins insLen bld opcode =
   match opcode with
-  | Opcode.LFH -> HighWordLifter.load ins insLen bld WSize same
-  | Opcode.LBH -> HighWordLifter.load ins insLen bld 8<rt> sextTo
-  | Opcode.LHH -> HighWordLifter.load ins insLen bld 16<rt> sextTo
-  | Opcode.LLCH -> HighWordLifter.load ins insLen bld 8<rt> zextTo
-  | Opcode.LLHH -> HighWordLifter.load ins insLen bld 16<rt> zextTo
-  | Opcode.LFHAT -> HighWordLifter.loadAndTrap ins insLen bld
-  | Opcode.STFH -> HighWordLifter.store ins insLen bld WSize
-  | Opcode.STCH -> HighWordLifter.store ins insLen bld 8<rt>
-  | Opcode.STHH -> HighWordLifter.store ins insLen bld 16<rt>
-  | Opcode.AHHHR -> HighWordLifter.alu3 ins insLen bld false (.+) ccAdd
-  | Opcode.AHHLR -> HighWordLifter.alu3 ins insLen bld true (.+) ccAdd
-  | Opcode.SHHHR -> HighWordLifter.alu3 ins insLen bld false (.-) ccSub
-  | Opcode.SHHLR -> HighWordLifter.alu3 ins insLen bld true (.-) ccSub
-  | Opcode.ALHHHR -> HighWordLifter.alu3 ins insLen bld false (.+) ccAddL
-  | Opcode.ALHHLR -> HighWordLifter.alu3 ins insLen bld true (.+) ccAddL
-  | Opcode.SLHHHR -> HighWordLifter.alu3 ins insLen bld false (.-) ccSubL
-  | Opcode.SLHHLR -> HighWordLifter.alu3 ins insLen bld true (.-) ccSubL
-  | Opcode.AIH -> HighWordLifter.addImm ins insLen bld ccAdd
-  | Opcode.ALSIH -> HighWordLifter.addImm ins insLen bld ccAddL
-  | Opcode.ALSIHN -> HighWordLifter.addImm ins insLen bld ccNone
+  | Opcode.LFH ->
+    HighWordLifter.load ins insLen bld WSize same
+  | Opcode.LBH ->
+    HighWordLifter.load ins insLen bld 8<rt> sextTo
+  | Opcode.LHH ->
+    HighWordLifter.load ins insLen bld 16<rt> sextTo
+  | Opcode.LLCH ->
+    HighWordLifter.load ins insLen bld 8<rt> zextTo
+  | Opcode.LLHH ->
+    HighWordLifter.load ins insLen bld 16<rt> zextTo
+  | Opcode.LFHAT ->
+    HighWordLifter.loadAndTrap ins insLen bld
+  | Opcode.STFH ->
+    HighWordLifter.store ins insLen bld WSize
+  | Opcode.STCH ->
+    HighWordLifter.store ins insLen bld 8<rt>
+  | Opcode.STHH ->
+    HighWordLifter.store ins insLen bld 16<rt>
+  | Opcode.AHHHR ->
+    HighWordLifter.alu3 ins insLen bld false (.+) ccAdd
+  | Opcode.AHHLR ->
+    HighWordLifter.alu3 ins insLen bld true (.+) ccAdd
+  | Opcode.SHHHR ->
+    HighWordLifter.alu3 ins insLen bld false (.-) ccSub
+  | Opcode.SHHLR ->
+    HighWordLifter.alu3 ins insLen bld true (.-) ccSub
+  | Opcode.ALHHHR ->
+    HighWordLifter.alu3 ins insLen bld false (.+) ccAddL
+  | Opcode.ALHHLR ->
+    HighWordLifter.alu3 ins insLen bld true (.+) ccAddL
+  | Opcode.SLHHHR ->
+    HighWordLifter.alu3 ins insLen bld false (.-) ccSubL
+  | Opcode.SLHHLR ->
+    HighWordLifter.alu3 ins insLen bld true (.-) ccSubL
+  | Opcode.AIH ->
+    HighWordLifter.addImm ins insLen bld ccAdd
+  | Opcode.ALSIH ->
+    HighWordLifter.addImm ins insLen bld ccAddL
+  | Opcode.ALSIHN ->
+    HighWordLifter.addImm ins insLen bld ccNone
   | Opcode.CIH ->
     HighWordLifter.compare ins insLen bld true HighWordLifter.wordOf
   | Opcode.CLIH ->
@@ -500,21 +672,30 @@ let private liftHighWord ins insLen bld opcode =
     HighWordLifter.compare ins insLen bld true HighWordLifter.lowOf
   | Opcode.CLHLR ->
     HighWordLifter.compare ins insLen bld false HighWordLifter.lowOf
-  | Opcode.BRCTH -> HighWordLifter.branchOnCount ins insLen bld
+  | Opcode.BRCTH ->
+    HighWordLifter.branchOnCount ins insLen bld
   | Opcode.LOCFHR ->
     HighWordLifter.loadOnCondition ins insLen bld HighWordLifter.highOf
   | Opcode.LOCFH ->
     HighWordLifter.loadOnCondition ins insLen bld HighWordLifter.wordOf
   | Opcode.LOCHHI ->
     HighWordLifter.loadOnCondition ins insLen bld HighWordLifter.wordOf
-  | Opcode.STOCFH -> HighWordLifter.storeOnCondition ins insLen bld
-  | Opcode.LMH -> HighWordLifter.loadMultiple ins insLen bld
-  | Opcode.STMH -> HighWordLifter.storeMultiple ins insLen bld
-  | Opcode.STCMH -> HighWordLifter.storeUnderMask ins insLen bld
-  | Opcode.CLMH -> HighWordLifter.compareUnderMask ins insLen bld
-  | Opcode.RISBHG -> HighWordLifter.rotateInsert ins insLen bld true
-  | Opcode.RISBLG -> HighWordLifter.rotateInsert ins insLen bld false
-  | _ -> raise ParsingFailureException
+  | Opcode.STOCFH ->
+    HighWordLifter.storeOnCondition ins insLen bld
+  | Opcode.LMH ->
+    HighWordLifter.loadMultiple ins insLen bld
+  | Opcode.STMH ->
+    HighWordLifter.storeMultiple ins insLen bld
+  | Opcode.STCMH ->
+    HighWordLifter.storeUnderMask ins insLen bld
+  | Opcode.CLMH ->
+    HighWordLifter.compareUnderMask ins insLen bld
+  | Opcode.RISBHG ->
+    HighWordLifter.rotateInsert ins insLen bld true
+  | Opcode.RISBLG ->
+    HighWordLifter.rotateInsert ins insLen bld false
+  | _ ->
+    raise ParsingFailureException
 
 /// The register-pair operations, the long moves and comparisons, the
 /// translations, and the odds and ends that belong to no other group.
@@ -605,37 +786,63 @@ let private liftWide ins insLen bld opcode =
 /// of user code has nothing to do for.
 let private liftOther ins insLen bld opcode =
   match opcode with
-  | Opcode.SVC -> svc ins insLen bld
-  | Opcode.EX -> execute ins insLen bld
-  | Opcode.EXRL -> executeRel ins insLen bld
-  | Opcode.IPM -> ipm ins insLen bld
-  | Opcode.SPM -> spm ins insLen bld
-  | Opcode.EAR -> ear ins insLen bld
-  | Opcode.SAR -> sar ins insLen bld
-  | Opcode.SRST -> srst ins insLen bld
-  | Opcode.MVST -> mvst ins insLen bld
-  | Opcode.CLST -> clst ins insLen bld
-  | Opcode.LAA | Opcode.LAAL -> loadAndOp ins insLen bld WSize (.+)
-  | Opcode.LAAG | Opcode.LAALG -> loadAndOp ins insLen bld GRSize (.+)
-  | Opcode.LAN -> loadAndOp ins insLen bld WSize (.&)
-  | Opcode.LANG -> loadAndOp ins insLen bld GRSize (.&)
-  | Opcode.LAO -> loadAndOp ins insLen bld WSize (.|)
-  | Opcode.LAOG -> loadAndOp ins insLen bld GRSize (.|)
-  | Opcode.LAX -> loadAndOp ins insLen bld WSize (<+>)
-  | Opcode.LAXG -> loadAndOp ins insLen bld GRSize (<+>)
-  | Opcode.ECAG -> ecag ins insLen bld
-  | Opcode.TBEGIN | Opcode.TBEGINC -> tbegin ins insLen bld
-  | Opcode.TEND -> tend ins insLen bld
-  | Opcode.ETND -> etnd ins insLen bld
-  | Opcode.STCK | Opcode.STCKF -> storeClock ins insLen bld
-  | Opcode.STFLE -> stfle ins insLen bld
-  | Opcode.BCR -> branchOnConditionReg ins insLen bld
+  | Opcode.SVC ->
+    svc ins insLen bld
+  | Opcode.EX ->
+    execute ins insLen bld
+  | Opcode.EXRL ->
+    executeRel ins insLen bld
+  | Opcode.IPM ->
+    ipm ins insLen bld
+  | Opcode.SPM ->
+    spm ins insLen bld
+  | Opcode.EAR ->
+    ear ins insLen bld
+  | Opcode.SAR ->
+    sar ins insLen bld
+  | Opcode.SRST ->
+    srst ins insLen bld
+  | Opcode.MVST ->
+    mvst ins insLen bld
+  | Opcode.CLST ->
+    clst ins insLen bld
+  | Opcode.LAA | Opcode.LAAL ->
+    loadAndOp ins insLen bld WSize (.+)
+  | Opcode.LAAG | Opcode.LAALG ->
+    loadAndOp ins insLen bld GRSize (.+)
+  | Opcode.LAN ->
+    loadAndOp ins insLen bld WSize (.&)
+  | Opcode.LANG ->
+    loadAndOp ins insLen bld GRSize (.&)
+  | Opcode.LAO ->
+    loadAndOp ins insLen bld WSize (.|)
+  | Opcode.LAOG ->
+    loadAndOp ins insLen bld GRSize (.|)
+  | Opcode.LAX ->
+    loadAndOp ins insLen bld WSize (<+>)
+  | Opcode.LAXG ->
+    loadAndOp ins insLen bld GRSize (<+>)
+  | Opcode.ECAG ->
+    ecag ins insLen bld
+  | Opcode.TBEGIN | Opcode.TBEGINC ->
+    tbegin ins insLen bld
+  | Opcode.TEND ->
+    tend ins insLen bld
+  | Opcode.ETND ->
+    etnd ins insLen bld
+  | Opcode.STCK | Opcode.STCKF ->
+    storeClock ins insLen bld
+  | Opcode.STFLE ->
+    stfle ins insLen bld
+  | Opcode.BCR ->
+    branchOnConditionReg ins insLen bld
   (* A prefetch, a branch-prediction hint, and a performance-assist hint move
      nothing a program can see, and the serializing instructions only order
      what is around them, which one thread at a time already is. *)
   | Opcode.PFD | Opcode.PFDRL | Opcode.BPP | Opcode.BPRP | Opcode.PPA ->
     nop ins insLen bld
-  | _ -> raise ParsingFailureException
+  | _ ->
+    raise ParsingFailureException
 
 /// The extended binary floating-point format, whose 128 bits live in a pair of
 /// registers. Everything that is a matter of moving or reading the bits is done
@@ -644,16 +851,22 @@ let private liftOther ins insLen bld opcode =
 /// precision instead and so answer to 53 bits rather than 113.
 let private liftExtFloat ins insLen bld opcode =
   match opcode with
-  | Opcode.LXR -> FloatLifter.extLoadSign ins insLen bld (fun v _ -> v) false
-  | Opcode.LZXR -> FloatLifter.extLoadZero ins insLen bld
-  | Opcode.LTXBR -> FloatLifter.extLoadSign ins insLen bld (fun v _ -> v) true
-  | Opcode.LCXBR -> FloatLifter.extLoadSign ins insLen bld (<+>) true
+  | Opcode.LXR ->
+    FloatLifter.extLoadSign ins insLen bld (fun v _ -> v) false
+  | Opcode.LZXR ->
+    FloatLifter.extLoadZero ins insLen bld
+  | Opcode.LTXBR ->
+    FloatLifter.extLoadSign ins insLen bld (fun v _ -> v) true
+  | Opcode.LCXBR ->
+    FloatLifter.extLoadSign ins insLen bld (<+>) true
   | Opcode.LPXBR ->
     FloatLifter.extLoadSign ins insLen bld (fun v s -> v .& AST.not s) true
   | Opcode.LNXBR ->
     FloatLifter.extLoadSign ins insLen bld (fun v s -> v .| s) true
-  | Opcode.CXBR | Opcode.KXBR -> FloatLifter.extCompare ins insLen bld
-  | Opcode.TCXB -> FloatLifter.extTestDataClass ins insLen bld
+  | Opcode.CXBR | Opcode.KXBR ->
+    FloatLifter.extCompare ins insLen bld
+  | Opcode.TCXB ->
+    FloatLifter.extTestDataClass ins insLen bld
   | Opcode.LXDBR | Opcode.LXDB ->
     FloatLifter.extFromNarrow ins insLen bld 64<rt>
   | Opcode.LXEBR | Opcode.LXEB ->
@@ -666,20 +879,30 @@ let private liftExtFloat ins insLen bld opcode =
     FloatLifter.extFromInt ins insLen bld WSize true
   | Opcode.CXGBR | Opcode.CXGBRA ->
     FloatLifter.extFromInt ins insLen bld GRSize true
-  | Opcode.CXLFBR -> FloatLifter.extFromInt ins insLen bld WSize false
-  | Opcode.CXLGBR -> FloatLifter.extFromInt ins insLen bld GRSize false
+  | Opcode.CXLFBR ->
+    FloatLifter.extFromInt ins insLen bld WSize false
+  | Opcode.CXLGBR ->
+    FloatLifter.extFromInt ins insLen bld GRSize false
   | Opcode.CFXBR | Opcode.CFXBRA | Opcode.CLFXBR ->
     FloatLifter.extToInt ins insLen bld WSize
   | Opcode.CGXBR | Opcode.CGXBRA | Opcode.CLGXBR ->
     FloatLifter.extToInt ins insLen bld GRSize
-  | Opcode.AXBR -> FloatLifter.extArith ins insLen bld AST.fadd true
-  | Opcode.SXBR -> FloatLifter.extArith ins insLen bld AST.fsub true
-  | Opcode.MXBR -> FloatLifter.extArith ins insLen bld AST.fmul false
-  | Opcode.DXBR -> FloatLifter.extArith ins insLen bld AST.fdiv false
-  | Opcode.SQXBR -> FloatLifter.extSqrt ins insLen bld
-  | Opcode.MXDBR | Opcode.MXDB -> FloatLifter.extMulLong ins insLen bld
-  | Opcode.FIXBR | Opcode.FIXBRA -> FloatLifter.extRoundToInt ins insLen bld
-  | _ -> unsupported ins insLen bld
+  | Opcode.AXBR ->
+    FloatLifter.extArith ins insLen bld AST.fadd true
+  | Opcode.SXBR ->
+    FloatLifter.extArith ins insLen bld AST.fsub true
+  | Opcode.MXBR ->
+    FloatLifter.extArith ins insLen bld AST.fmul false
+  | Opcode.DXBR ->
+    FloatLifter.extArith ins insLen bld AST.fdiv false
+  | Opcode.SQXBR ->
+    FloatLifter.extSqrt ins insLen bld
+  | Opcode.MXDBR | Opcode.MXDB ->
+    FloatLifter.extMulLong ins insLen bld
+  | Opcode.FIXBR | Opcode.FIXBRA ->
+    FloatLifter.extRoundToInt ins insLen bld
+  | _ ->
+    unsupported ins insLen bld
 
 /// The instructions this lifter models, grouped by what they do so that the
 /// dispatch stays a few wide matches rather than one enormous one.

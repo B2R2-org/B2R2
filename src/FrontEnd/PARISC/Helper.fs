@@ -740,7 +740,8 @@ let getMemSpaceOff b space offset wordSz =
 
 let getMemSpaceOffSr0R31 b space offset wordSz =
   ThreeOperands(OpMem(br b, Some space, Some(Imm offset), wordSz),
-    OpReg SR0, OpReg GR31)
+                OpReg SR0,
+                OpReg GR31)
 
 let getMemSpaceRegOff b space offset wordSz =
   OneOperand(OpMem(br b, Some space, Some(Reg offset), wordSz))

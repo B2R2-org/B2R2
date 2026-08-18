@@ -81,23 +81,30 @@ let getEndian = function
 let getRegister n: Register = n |> int |> LanguagePrimitives.EnumOfValue
 
 let rec private getRegListLoop acc b = function
-  | n when n > 15 -> acc
+  | n when n > 15 ->
+    acc
   | n when ((b >>> n) &&& 1u) <> 0u ->
     getRegListLoop (getRegister (uint32 n) :: acc) b (n + 1)
-  | n -> getRegListLoop acc b (n + 1)
+  | n ->
+    getRegListLoop acc b (n + 1)
 
 let getRegList b = getRegListLoop [] b 0 |> List.rev
 
 (* SIMD vector register list *)
 let getSIMDVector rLst =
-  match rLst with
-  | [ vt ] -> OneReg(Vector vt)
-  | [ vt; vt2 ] -> TwoRegs(Vector vt, Vector vt2)
-  | [ vt; vt2; vt3 ] -> ThreeRegs(Vector vt, Vector vt2, Vector vt3)
-  | [ vt; vt2; vt3; vt4 ] ->
-    FourRegs(Vector vt, Vector vt2, Vector vt3, Vector vt4)
-  | _ -> raise ParsingFailureException
-  |> OprSIMD
+  let regs =
+    match rLst with
+    | [ vt ] ->
+      OneReg(Vector vt)
+    | [ vt; vt2 ] ->
+      TwoRegs(Vector vt, Vector vt2)
+    | [ vt; vt2; vt3 ] ->
+      ThreeRegs(Vector vt, Vector vt2, Vector vt3)
+    | [ vt; vt2; vt3; vt4 ] ->
+      FourRegs(Vector vt, Vector vt2, Vector vt3, Vector vt4)
+    | _ ->
+      raise ParsingFailureException
+  regs |> OprSIMD
 
 (* SIMD scalar list *)
 let getSIMDScalar idx rLst =

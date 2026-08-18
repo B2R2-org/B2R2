@@ -56,7 +56,8 @@ type StringDisasmBuilder(showAddr,
           match symbolResolver.TryResolveName addr with
           | Ok name -> name
           | Error _ -> ""
-        else ""
+        else
+          ""
       if name.Length > 0 then
         sb.Append prefix.AsmWordValue |> ignore
         sb.Append name |> ignore
@@ -69,7 +70,8 @@ type StringDisasmBuilder(showAddr,
       if showAddr then
         sb.Append(Addr.toString wordSz addr) |> ignore
         sb.Append(": ") |> ignore
-      else ()
+      else
+        ()
 
     member _.ToString() =
       let s = sb.ToString()

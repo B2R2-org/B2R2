@@ -65,8 +65,7 @@ let loadAndTrap ins insLen bld =
   let out = label bld "LfhatOut"
   bld <!-- ((ins: Instruction).Address, insLen)
   bld <+ (t := srcOf bld WSize o2)
-  bld <+ (AST.cjmp (t == AST.num0 WSize)
-                   (AST.jmpDest trap) (AST.jmpDest out))
+  bld <+ (AST.cjmp (t == AST.num0 WSize) (AST.jmpDest trap) (AST.jmpDest out))
   bld <+ (AST.lmark trap)
   bld <+ AST.sideEffect (Exception IntegerOverflow)
   bld <+ (AST.lmark out)
@@ -91,8 +90,7 @@ let alu3 ins insLen bld thirdIsLow f cc =
   let t = tmpVar bld WSize
   bld <!-- ((ins: Instruction).Address, insLen)
   let a = high (oprRegVar bld o2)
-  let b =
-    if thirdIsLow then low (oprRegVar bld o3) else high (oprRegVar bld o3)
+  let b = if thirdIsLow then low (oprRegVar bld o3) else high (oprRegVar bld o3)
   bld <+ (t := f a b)
   cc bld t a b
   bld <+ (high d := t)
@@ -155,11 +153,11 @@ let loadOnCondition ins insLen bld other =
   let d = oprRegVar bld o1
   let m = oprMask o3
   bld <!-- ((ins: Instruction).Address, insLen)
-  if isNever m then ()
+  if isNever m then
+    ()
   else
     let v = other bld o2
-    let value =
-      if isAlways m then v else AST.ite (condOfMask bld m) v (high d)
+    let value = if isAlways m then v else AST.ite (condOfMask bld m) v (high d)
     bld <+ (high d := value)
   bld --!> insLen
 
@@ -170,13 +168,14 @@ let storeOnCondition ins insLen bld =
   let m = oprMask o3
   let value = AST.extract (oprRegVar bld o1) WSize 32
   bld <!-- ((ins: Instruction).Address, insLen)
-  if isNever m then ()
-  elif isAlways m then bld <+ storeMem (transMem bld o2) value
+  if isNever m then
+    ()
+  elif isAlways m then
+    bld <+ storeMem (transMem bld o2) value
   else
     let doIt = label bld "StoreHighOnCond"
     let out = label bld "SkipStoreHigh"
-    bld <+ (AST.cjmp (condOfMask bld m)
-                     (AST.jmpDest doIt) (AST.jmpDest out))
+    bld <+ (AST.cjmp (condOfMask bld m) (AST.jmpDest doIt) (AST.jmpDest out))
     bld <+ (AST.lmark doIt)
     bld <+ storeMem (transMem bld o2) value
     bld <+ (AST.lmark out)
@@ -242,7 +241,8 @@ let compareUnderMask ins insLen bld =
   let addr = tmpVar bld GRSize
   bld <!-- ((ins: Instruction).Address, insLen)
   bld <+ (addr := transMem bld o2)
-  if sel.Length = 0 then setCC bld 0
+  if sel.Length = 0 then
+    setCC bld 0
   else
     let out = label bld "ClmhOut"
     setCC bld 0
@@ -267,7 +267,8 @@ let compareUnderMask ins insLen bld =
 let private wordMask (start: int) (fin: int) =
   let bitAt i = 1L <<< (31 - i)
   let rec ones i acc = if i > fin then acc else ones (i + 1) (acc ||| bitAt i)
-  if start <= fin then ones start 0L
+  if start <= fin then
+    ones start 0L
   else
     let rec upper i acc =
       if i > 31 then acc else upper (i + 1) (acc ||| bitAt i)
@@ -298,4 +299,5 @@ let rotateInsert ins insLen bld toHigh =
     else bld <+ (t := (field .& numW ~~~mask) .| selected)
     bld <+ (field := t)
     bld --!> insLen
-  | _ -> raise InvalidOperandException
+  | _ ->
+    raise InvalidOperandException

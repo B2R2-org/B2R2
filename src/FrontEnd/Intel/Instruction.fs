@@ -29,7 +29,17 @@ open B2R2.FrontEnd.BinLifter
 
 /// Represents an instruction for Intel x86 and x86-64 architectures.
 type Instruction
-  internal(addr, len, wordSz, pref, rex, vex, opcode, oprs, opsz, psz, isFar,
+  internal(addr,
+           len,
+           wordSz,
+           pref,
+           rex,
+           vex,
+           opcode,
+           oprs,
+           opsz,
+           psz,
+           isFar,
            lifter: ILiftable) =
 
   let hasConcJmpTarget () =
@@ -108,7 +118,8 @@ type Instruction
       | Opcode.JG | Opcode.JL | Opcode.JLE | Opcode.JO | Opcode.JP
       | Opcode.JRCXZ | Opcode.JS | Opcode.JZ | Opcode.LOOP | Opcode.LOOPE ->
         true
-      | _ -> false
+      | _ ->
+        false
 
     member _.IsCall =
       match opcode with
@@ -153,17 +164,20 @@ type Instruction
 
     member _.IsNop =
       match opcode with
-      | Opcode.NOP -> true
+      | Opcode.NOP ->
+        true
       | Opcode.LEA ->
         match oprs with
         | TwoOperands(OprReg dst, OprMem(Some src, None, Some 0L, _)) ->
           dst = src
-        | _ -> false
+        | _ ->
+          false
       | Opcode.MOV ->
         match oprs with
         | TwoOperands(OprReg dst, OprReg src) -> dst = src
         | _ -> false
-      | _ -> false
+      | _ ->
+        false
 
     member _.IsInlinedAssembly = false
 
@@ -174,12 +188,15 @@ type Instruction
     member this.DirectBranchTarget(addr: byref<Addr>) =
       if (this :> IInstruction).IsBranch then
         match oprs with
-        | OneOperand(OprDirAddr(Absolute(_))) -> Terminator.futureFeature ()
+        | OneOperand(OprDirAddr(Absolute(_))) ->
+          Terminator.futureFeature ()
         | OneOperand(OprDirAddr(Relative offset)) ->
           addr <- (int64 this.Address + offset) |> uint64
           true
-        | _ -> false
-      else false
+        | _ ->
+          false
+      else
+        false
 
     member this.IndirectTrampolineAddr(addr: byref<Addr>) =
       if (this :> IInstruction).IsIndirectBranch then
@@ -189,11 +206,14 @@ type Instruction
         | OneOperand(OprMem(Some Register.RIP, None, Some disp, _)) ->
           addr <- this.Address + uint64 this.Length + uint64 disp
           true
-        | _ -> false
-      else false
+        | _ ->
+          false
+      else
+        false
 
     member this.MemoryDereferences(addrs: byref<Addr[]>) =
-      if opcode = Opcode.LEA then false
+      if opcode = Opcode.LEA then
+        false
       else
         match oprs with
         | OneOperand(OprMem(Some Register.RIP, None, Some disp, _)) ->
@@ -203,7 +223,8 @@ type Instruction
         | TwoOperands(_, OprMem(Some Register.RIP, None, Some disp, _)) ->
           addrs <- [| this.Address + uint64 this.Length + uint64 disp |]
           true
-        | _ -> false
+        | _ ->
+          false
 
     member _.Immediate(v: byref<int64>) =
       match oprs with
@@ -222,12 +243,15 @@ type Instruction
     member this.GetNextInstrAddrs() =
       let acc = [ this.Address + uint64 this.Length ]
       let ins = this :> IInstruction
-      if ins.IsBranch then
-        if ins.IsCondBranch then acc |> this.AddBranchTargetIfExist
-        else this.AddBranchTargetIfExist []
-      elif opcode = Opcode.HLT || opcode = Opcode.UD2 then []
-      else acc
-      |> List.toArray
+      let addrs =
+        if ins.IsBranch then
+          if ins.IsCondBranch then acc |> this.AddBranchTargetIfExist
+          else this.AddBranchTargetIfExist []
+        elif opcode = Opcode.HLT || opcode = Opcode.UD2 then
+          []
+        else
+          acc
+      addrs |> List.toArray
 
     member _.InterruptNum(num: byref<int64>) =
       if opcode = Opcode.INT then
@@ -235,8 +259,10 @@ type Instruction
         | OneOperand(OprImm(n, _)) ->
           num <- n
           true
-        | _ -> false
-      else false
+        | _ ->
+          false
+      else
+        false
 
     member this.Translate builder = lifter.Lift(this, builder).Stream.ToStmts()
 

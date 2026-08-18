@@ -45,14 +45,12 @@ let private isHexString (str: string) =
   str.Length > 0 && str.Length % 2 = 0 && String.forall isHexChar str
 
 /// Converts a byte array containing an ASCII hex string into raw bytes.
-let parseHexBytes bytes =
-  normalizeHexString bytes |> ByteArray.ofHexString
+let parseHexBytes bytes = normalizeHexString bytes |> ByteArray.ofHexString
 
 /// Tries to parse a byte array containing an ASCII hex string into raw bytes.
 let tryParseHexBytes bytes =
   let str = normalizeHexString bytes
-  if isHexString str then Some <| ByteArray.ofHexString str
-  else None
+  if isHexString str then Some <| ByteArray.ofHexString str else None
 
 /// Reads either 32-bit or 64-bit value based on the word size from the given
 /// offset of the given byte span. This function always returns a 64-bit value.
@@ -65,7 +63,9 @@ let readUIntByWordSize (span: ByteSpan) (reader: IBinReader) wordSize offset =
 /// 64-bit value. The first offset is used for 32-bit and the second offset is
 /// used for 64-bit.
 let readUIntByWordSizeAndOffset span reader wordSize offset32 offset64 =
-  readUIntByWordSize span reader wordSize
+  readUIntByWordSize span
+    reader
+    wordSize
     (selectByWordSize wordSize offset32 offset64)
 
 let rec private cstrLoop (span: ByteSpan) acc pos =

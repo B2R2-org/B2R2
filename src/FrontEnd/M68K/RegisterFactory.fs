@@ -277,8 +277,7 @@ type RegisterFactory(isa: ISA) =
       regFactory.GetAllRegVars()
       |> Array.map (regFactory.GetRegisterID >> regFactory.GetRegisterName)
 
-    member _.GetRegType rid =
-      Register.ofRegID rid |> RegisterHelper.toRegType
+    member _.GetRegType rid = Register.ofRegID rid |> RegisterHelper.toRegType
 
     member _.IsProgramCounter rid = Register.toRegID Register.PC = rid
 

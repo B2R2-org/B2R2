@@ -112,7 +112,10 @@ type ParserTests() =
     assertFails m68020 "25C0"
     assertFails m68020 "27C0"
     assertFails m68020 "29C0"
-    assertIns MOVE Sz.Long (TwoOperands(OpReg D0, OpAddr 0x1234UL)) 4u
+    assertIns MOVE
+      Sz.Long
+      (TwoOperands(OpReg D0, OpAddr 0x1234UL))
+      4u
       "21C01234"
 
   [<TestMethod>]
@@ -406,7 +409,10 @@ type ParserTests() =
     assertIns FADD Sz.Extended (TwoOperands(OpReg FP0, OpReg FP0)) 4u "f2000022"
     let fromMem = TwoOperands(OpMem(Direct A0), OpReg FP0)
     assertIns FADD Sz.Single fromMem 4u "f2104422"
-    assertIns FSQRT Sz.Double (TwoOperands(OpMem(Direct A0), OpReg FP0)) 4u
+    assertIns FSQRT
+      Sz.Double
+      (TwoOperands(OpMem(Direct A0), OpReg FP0))
+      4u
       "f2105404"
 
   (* A data register stands in for memory only where the format is no wider than

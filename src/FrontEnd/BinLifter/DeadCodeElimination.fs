@@ -44,8 +44,10 @@ let rec private createLoop (outs: _[]) (ins: _[]) (used: bool[]) iIdx oIdx =
     if used[iIdx] then
       outs[oIdx] <- ins[iIdx]
       createLoop outs ins used (iIdx + 1) (oIdx + 1)
-    else createLoop outs ins used (iIdx + 1) oIdx
-  else outs
+    else
+      createLoop outs ins used (iIdx + 1) oIdx
+  else
+    outs
 
 let inline private createReducedStmts stmts reducedLen (used: bool[]) =
   createLoop (Array.zeroCreate reducedLen) stmts used 0 0
@@ -110,7 +112,8 @@ let rec private optimizeLoop (stmts: Stmt[]) (used: bool[]) idx len ctx =
       optimizeLoop stmts used (idx - 1) len ctx
     | _ ->
       optimizeLoop stmts used (idx - 1) len ctx
-  else createReducedStmts stmts len used
+  else
+    createReducedStmts stmts len used
 
 /// Assuming that the stmts are localized, i.e., those stmts represent a basic
 /// block, perform dead code elimination.

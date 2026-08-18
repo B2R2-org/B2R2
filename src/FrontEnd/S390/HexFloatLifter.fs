@@ -184,7 +184,8 @@ let loadSign ins insLen bld w f setsCC =
     bld <+ (v := toDouble bld w t)
     let hi = AST.ite (AST.flt v (AST.num0 64<rt>)) (numCC 1) (numCC 2)
     bld <+ (ccVar bld := AST.ite (AST.feq v (AST.num0 64<rt>)) (numCC 0) hi)
-  else ()
+  else
+    ()
   bld <+ (part w d := t)
   bld --!> insLen
 
@@ -195,8 +196,7 @@ let halve ins insLen bld w =
   let v = tmpVar bld 64<rt>
   bld <!-- ((ins: Instruction).Address, insLen)
   bld <+ (v := toDouble bld w (part w (oprRegVar bld o2)))
-  bld <+ (part w d := ofDouble bld w
-                               (AST.fmul v (numG 0x3fe0000000000000L)))
+  bld <+ (part w d := ofDouble bld w (AST.fmul v (numG 0x3fe0000000000000L)))
   bld --!> insLen
 
 /// A move between the two hexadecimal formats.
@@ -271,7 +271,8 @@ let toBinary ins insLen bld fromW toW =
   bld <+ (v := toDouble bld fromW (part fromW (oprRegVar bld o2)))
   if toW = ShortHFP then
     bld <+ (AST.xthi 32<rt> d := AST.cast CastKind.FloatCast 32<rt> v)
-  else bld <+ (d := v)
+  else
+    bld <+ (d := v)
   bld --!> insLen
 
 let fromBinary ins insLen bld fromW toW =
@@ -282,7 +283,8 @@ let fromBinary ins insLen bld fromW toW =
   let src = oprRegVar bld o2
   if fromW = ShortHFP then
     bld <+ (v := AST.cast CastKind.FloatCast 64<rt> (AST.xthi 32<rt> src))
-  else bld <+ (v := src)
+  else
+    bld <+ (v := src)
   bld <+ (part toW d := ofDouble bld toW v)
   bld --!> insLen
 
@@ -329,43 +331,77 @@ let translate (ins: Instruction) insLen bld =
     arith ins insLen bld LongHFP AST.fmul
   | Opcode.MEE | Opcode.MEER ->
     arith ins insLen bld ShortHFP AST.fmul
-  | Opcode.MDE | Opcode.MDER -> arithWiden ins insLen bld AST.fmul
-  | Opcode.DD | Opcode.DDR -> arith ins insLen bld LongHFP AST.fdiv
-  | Opcode.DE | Opcode.DER -> arith ins insLen bld ShortHFP AST.fdiv
-  | Opcode.CD | Opcode.CDR -> compare ins insLen bld LongHFP
-  | Opcode.CE | Opcode.CER -> compare ins insLen bld ShortHFP
-  | Opcode.LTDR -> loadSign ins insLen bld LongHFP (fun v _ -> v) true
-  | Opcode.LTER -> loadSign ins insLen bld ShortHFP (fun v _ -> v) true
-  | Opcode.LCDR -> loadSign ins insLen bld LongHFP (<+>) true
-  | Opcode.LCER -> loadSign ins insLen bld ShortHFP (<+>) true
+  | Opcode.MDE | Opcode.MDER ->
+    arithWiden ins insLen bld AST.fmul
+  | Opcode.DD | Opcode.DDR ->
+    arith ins insLen bld LongHFP AST.fdiv
+  | Opcode.DE | Opcode.DER ->
+    arith ins insLen bld ShortHFP AST.fdiv
+  | Opcode.CD | Opcode.CDR ->
+    compare ins insLen bld LongHFP
+  | Opcode.CE | Opcode.CER ->
+    compare ins insLen bld ShortHFP
+  | Opcode.LTDR ->
+    loadSign ins insLen bld LongHFP (fun v _ -> v) true
+  | Opcode.LTER ->
+    loadSign ins insLen bld ShortHFP (fun v _ -> v) true
+  | Opcode.LCDR ->
+    loadSign ins insLen bld LongHFP (<+>) true
+  | Opcode.LCER ->
+    loadSign ins insLen bld ShortHFP (<+>) true
   | Opcode.LNDR ->
     loadSign ins insLen bld LongHFP (fun v s -> v .| s) true
   | Opcode.LNER ->
     loadSign ins insLen bld ShortHFP (fun v s -> v .| s) true
   | Opcode.LPER ->
     loadSign ins insLen bld ShortHFP (fun v s -> v .& AST.not s) true
-  | Opcode.HDR -> halve ins insLen bld LongHFP
-  | Opcode.HER -> halve ins insLen bld ShortHFP
-  | Opcode.LDE | Opcode.LDER -> convertFormat ins insLen bld ShortHFP LongHFP
-  | Opcode.LEDR -> convertFormat ins insLen bld LongHFP ShortHFP
-  | Opcode.FIDR -> roundToInt ins insLen bld LongHFP
-  | Opcode.FIER -> roundToInt ins insLen bld ShortHFP
-  | Opcode.SQD | Opcode.SQDR -> squareRoot ins insLen bld LongHFP
-  | Opcode.SQE | Opcode.SQER -> squareRoot ins insLen bld ShortHFP
-  | Opcode.CEFR -> fromInt ins insLen bld ShortHFP WSize
-  | Opcode.CDFR -> fromInt ins insLen bld LongHFP WSize
-  | Opcode.CEGR -> fromInt ins insLen bld ShortHFP GRSize
-  | Opcode.CDGR -> fromInt ins insLen bld LongHFP GRSize
-  | Opcode.CFER -> toInt ins insLen bld ShortHFP WSize
-  | Opcode.CFDR -> toInt ins insLen bld LongHFP WSize
-  | Opcode.CGER -> toInt ins insLen bld ShortHFP GRSize
-  | Opcode.CGDR -> toInt ins insLen bld LongHFP GRSize
-  | Opcode.THDER -> toBinary ins insLen bld ShortHFP LongHFP
-  | Opcode.THDR -> toBinary ins insLen bld LongHFP LongHFP
-  | Opcode.TBEDR -> fromBinary ins insLen bld LongHFP ShortHFP
-  | Opcode.TBDR -> fromBinary ins insLen bld LongHFP LongHFP
-  | Opcode.MAD | Opcode.MADR -> mulAdd ins insLen bld LongHFP false
-  | Opcode.MAE | Opcode.MAER -> mulAdd ins insLen bld ShortHFP false
-  | Opcode.MSD | Opcode.MSDR -> mulAdd ins insLen bld LongHFP true
-  | Opcode.MSE | Opcode.MSER -> mulAdd ins insLen bld ShortHFP true
-  | _ -> unsupported ins insLen bld
+  | Opcode.HDR ->
+    halve ins insLen bld LongHFP
+  | Opcode.HER ->
+    halve ins insLen bld ShortHFP
+  | Opcode.LDE | Opcode.LDER ->
+    convertFormat ins insLen bld ShortHFP LongHFP
+  | Opcode.LEDR ->
+    convertFormat ins insLen bld LongHFP ShortHFP
+  | Opcode.FIDR ->
+    roundToInt ins insLen bld LongHFP
+  | Opcode.FIER ->
+    roundToInt ins insLen bld ShortHFP
+  | Opcode.SQD | Opcode.SQDR ->
+    squareRoot ins insLen bld LongHFP
+  | Opcode.SQE | Opcode.SQER ->
+    squareRoot ins insLen bld ShortHFP
+  | Opcode.CEFR ->
+    fromInt ins insLen bld ShortHFP WSize
+  | Opcode.CDFR ->
+    fromInt ins insLen bld LongHFP WSize
+  | Opcode.CEGR ->
+    fromInt ins insLen bld ShortHFP GRSize
+  | Opcode.CDGR ->
+    fromInt ins insLen bld LongHFP GRSize
+  | Opcode.CFER ->
+    toInt ins insLen bld ShortHFP WSize
+  | Opcode.CFDR ->
+    toInt ins insLen bld LongHFP WSize
+  | Opcode.CGER ->
+    toInt ins insLen bld ShortHFP GRSize
+  | Opcode.CGDR ->
+    toInt ins insLen bld LongHFP GRSize
+  | Opcode.THDER ->
+    toBinary ins insLen bld ShortHFP LongHFP
+  | Opcode.THDR ->
+    toBinary ins insLen bld LongHFP LongHFP
+  | Opcode.TBEDR ->
+    fromBinary ins insLen bld LongHFP ShortHFP
+  | Opcode.TBDR ->
+    fromBinary ins insLen bld LongHFP LongHFP
+  | Opcode.MAD | Opcode.MADR ->
+    mulAdd ins insLen bld LongHFP false
+  | Opcode.MAE | Opcode.MAER ->
+    mulAdd ins insLen bld ShortHFP false
+  | Opcode.MSD | Opcode.MSDR ->
+    mulAdd ins insLen bld LongHFP true
+  | Opcode.MSE | Opcode.MSER ->
+    mulAdd ins insLen bld ShortHFP true
+  | _ ->
+    unsupported ins insLen bld

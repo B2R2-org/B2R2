@@ -62,7 +62,8 @@ module internal Header =
   (* Format detection runs this over anything, including arrays too short to
      hold a magic, so the length has to be checked before slicing. *)
   let isMach (bytes: byte[]) offset =
-    if uint64 bytes.Length < offset + 4UL then false else
+    if uint64 bytes.Length < offset + 4UL then
+      false else
     let span = ReadOnlySpan(bytes, int offset, 4)
     let reader = BinReader.Init Endian.Little
     match Magic.read span reader with
@@ -120,7 +121,8 @@ module internal Header =
     if Header.IsFat bytes then
       let fatArch = Fat.parseArch bytes isa
       uint64 fatArch.Offset
-    else 0UL
+    else
+      0UL
 
   let private computeBaseAddr machHdr baseAddr =
     if machHdr.Flags.HasFlag MachFlag.MH_PIE then defaultArg baseAddr 0UL
@@ -142,7 +144,8 @@ module internal Header =
       let reader = BinReader.Init(magicToEndian hdr.Magic)
       let isa = toISA hdr
       struct (hdr, reader, baseAddr, offset, isa)
-    else raise InvalidFileFormatException
+    else
+      raise InvalidFileFormatException
 
   /// Checks if the file has a valid Mach-O header and returns the ISA if it
   /// does.
@@ -151,4 +154,5 @@ module internal Header =
     if isMach bytes offset then
       let hdr = parseHeader bytes offset
       Ok(toISA hdr)
-    else Error ErrorCase.InvalidFormat
+    else
+      Error ErrorCase.InvalidFormat

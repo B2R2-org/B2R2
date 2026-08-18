@@ -248,7 +248,8 @@ let rec parseSymbolRecord (bs: byte[]) reader offset modules streamMap =
     let m = Array.get modules (modnum - 1)
     let stream, _ = getStream streamMap m.SymStreamIndex
     parseSymbolRecord stream reader refOffset modules streamMap
-  | _ -> None
+  | _ ->
+    None
 
 let parseSymRecordStream reader modules streamMap (stream: byte[], streamSize) =
   let rec loop acc cnt offset =
@@ -270,8 +271,7 @@ let readStr (bs: byte[]) pos =
   Text.Encoding.ASCII.GetString bs, nextPos
 
 let align offset n =
-  if offset &&& (n - 1) > 0 then (offset &&& (~~~(n - 1))) + n
-  else offset
+  if offset &&& (n - 1) > 0 then (offset &&& (~~~(n - 1))) + n else offset
 
 let parseModuleInfo (reader: IBinReader) dbi (bs: byte[]) =
   let maxOffset = dbi.ModInfoSize + 64
@@ -289,8 +289,11 @@ let parseModuleInfo (reader: IBinReader) dbi (bs: byte[]) =
       loop acc (align nextOffset 4)
   loop [] 64 |> List.rev |> List.toArray
 
-let rec readHashRecords acc (span: ByteSpan) (reader: IBinReader)
-                        offset numEntries =
+let rec readHashRecords acc
+                        (span: ByteSpan)
+                        (reader: IBinReader)
+                        offset
+                        numEntries =
   if numEntries = 0u then
     List.rev acc
   else

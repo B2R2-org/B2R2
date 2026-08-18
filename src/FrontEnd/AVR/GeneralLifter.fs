@@ -138,8 +138,7 @@ let private setPtr bld ptr v =
   bld <+ (lo := AST.extract v 8<rt> 0)
 
 /// How many bytes of return address a call frame holds on the given core.
-let private retBytes (core: AVRCore) =
-  if core = AVRCore.Avr6 then 3 else 2
+let private retBytes (core: AVRCore) = if core = AVRCore.Avr6 then 3 else 2
 
 /// Emits the return-address push of CALL, RCALL, ICALL, and EICALL. Like the
 /// hardware, the value pushed is the *word* address of the instruction after
@@ -163,8 +162,7 @@ let private pushRet core (ins: Instruction) len bld =
 /// how big program memory is, so the target is left alone and a branch that
 /// relied on the wrap runs off the end instead of landing somewhere plausible.
 let private wrapPC (pcMask: uint64) target =
-  if pcMask = 0UL then target
-  else target .& LiftingUtils.numU64 pcMask pcSize
+  if pcMask = 0UL then target else target .& LiftingUtils.numU64 pcMask pcSize
 
 /// Returns the byte address IJMP and ICALL go to, which Z alone names. Every
 /// AVR code address a program handles counts words, so the byte address is
@@ -204,7 +202,8 @@ let transMemOprToExpr (ins: Instruction) bld =
     regVar bld reg, regVar bld reg1, 1
   | TwoOperands(OprReg reg, OprMemory(UnchMode(reg1))) ->
     regVar bld reg, regVar bld reg1, 0
-  | _ -> Terminator.impossible ()
+  | _ ->
+    Terminator.impossible ()
 
 let transMemOprToExpr2 (ins: Instruction) bld =
   match ins.Operands with
@@ -214,19 +213,22 @@ let transMemOprToExpr2 (ins: Instruction) bld =
     regVar bld reg1, regVar bld reg, 1
   | TwoOperands(OprMemory(UnchMode(reg1)), OprReg reg) ->
     regVar bld reg1, regVar bld reg, 0
-  | _ -> Terminator.impossible ()
+  | _ ->
+    Terminator.impossible ()
 
 let transMemOprToExpr1 (ins: Instruction) bld =
   match ins.Operands with
   | TwoOperands(OprReg reg, OprMemory(DispMode(reg1, imm))) ->
     regVar bld reg, regVar bld reg1, numAddr imm
-  | _ -> Terminator.impossible ()
+  | _ ->
+    Terminator.impossible ()
 
 let transMemOprToExpr3 (ins: Instruction) bld =
   match ins.Operands with
   | TwoOperands(OprMemory(DispMode(reg1, imm)), OprReg reg) ->
     regVar bld reg1, regVar bld reg, numAddr imm
-  | _ -> Terminator.impossible ()
+  | _ ->
+    Terminator.impossible ()
 
 let transOneOpr (ins: Instruction) bld =
   match ins.Operands with
@@ -250,7 +252,8 @@ let getIndAdrReg (ins: Instruction) bld =
     let dst1 = reg1 |> Register.toRegID |> int |> (fun n -> n + 1)
                |> RegisterID.create |> Register.ofRegID |> regVar bld
     AST.concat dst1 dst
-  | _ -> raise InvalidOperandException
+  | _ ->
+    raise InvalidOperandException
 
 let adc ins len bld =
   let struct (dst, src) = transTwoOprs ins bld
@@ -303,7 +306,8 @@ let adiw (ins: Instruction) len bld =
         |> RegisterID.create |> Register.ofRegID |> regVar bld
       let src = imm |> numI32
       struct (dst, dst1, src)
-    | _ -> raise InvalidOperandException
+    | _ ->
+      raise InvalidOperandException
   bld <!-- (ins.Address, len)
   bld <+ (t1 := dst1)
   bld <+ (t2 := dst)
@@ -735,7 +739,8 @@ let movw (ins: Instruction) len bld =
         reg2 |> Register.toRegID |> int |> (fun n -> n + 1)
         |> RegisterID.create |> Register.ofRegID |> regVar bld
       struct (dst, dst1, src, src1)
-    | _ -> raise InvalidOperandException
+    | _ ->
+      raise InvalidOperandException
   bld <!-- (ins.Address, len)
   bld <+ (dst := src)
   bld <+ (dst1 := src1)
@@ -828,7 +833,8 @@ let sbiw (ins: Instruction) len bld =
         |> RegisterID.create |> Register.ofRegID |> regVar bld
       let src = imm |> numI32
       struct (dst, dst1, src)
-    | _ -> raise InvalidOperandException
+    | _ ->
+      raise InvalidOperandException
   bld <!-- (ins.Address, len)
   bld <+ (t1 := dst1)
   bld <+ (t2 := dst)

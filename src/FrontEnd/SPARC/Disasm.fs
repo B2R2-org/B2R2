@@ -575,8 +575,10 @@ let buildComment2 opr1 opr2 (builder: IDisasmBuilder) =
     | DispMode(reg, c) ->
       builder.Accumulate(AsmWordKind.String, "     ! ")
       builder.Accumulate(AsmWordKind.Value, HexString.ofInt32 c)
-    | _ -> ()
-  | _ -> ()
+    | _ ->
+      ()
+  | _ ->
+    ()
 
 let buildComment3 opr1 opr2 opr3 (builder: IDisasmBuilder) =
   match opr1, opr2, opr3 with
@@ -589,8 +591,10 @@ let buildComment3 opr1 opr2 opr3 (builder: IDisasmBuilder) =
     | DispMode(reg, c) ->
       builder.Accumulate(AsmWordKind.String, "     ! ")
       builder.Accumulate(AsmWordKind.Value, HexString.ofInt32 c)
-    | _ -> ()
-  | _ -> ()
+    | _ ->
+      ()
+  | _ ->
+    ()
 
 let buildComment3Bracket opr1 opr2 opr3 (builder: IDisasmBuilder) =
   match opr1, opr2, opr3 with
@@ -603,10 +607,12 @@ let buildComment3Bracket opr1 opr2 opr3 (builder: IDisasmBuilder) =
     | DispMode(reg, c) ->
       builder.Accumulate(AsmWordKind.String, "]     ! ")
       builder.Accumulate(AsmWordKind.Value, HexString.ofInt32 c)
-    | _ -> ()
+    | _ ->
+      ()
   | OprReg _, OprReg _, OprReg _ ->
     builder.Accumulate(AsmWordKind.String, "]")
-  | _ -> ()
+  | _ ->
+    ()
 
 let buildComment4 opr1 opr2 opr3 opr4 (builder: IDisasmBuilder) =
   match opr1, opr2, opr3, opr4 with
@@ -614,7 +620,8 @@ let buildComment4 opr1 opr2 opr3 opr4 (builder: IDisasmBuilder) =
   | _, _, _, OprImm imm ->
     builder.Accumulate(AsmWordKind.String, "     ! ")
     builder.Accumulate(AsmWordKind.Value, string imm)
-  | _ -> ()
+  | _ ->
+    ()
 
 let buildComment5 opr1 opr2 opr3 opr4 opr5 (builder: IDisasmBuilder) =
   match opr1, opr2, opr3, opr4, opr5 with
@@ -629,13 +636,16 @@ let buildComment5 opr1 opr2 opr3 opr4 opr5 (builder: IDisasmBuilder) =
     | DispMode(reg, c) ->
       builder.Accumulate(AsmWordKind.String, "     ! ")
       builder.Accumulate(AsmWordKind.Value, HexString.ofInt32 c)
-    | _ -> ()
-  | _ -> ()
+    | _ ->
+      ()
+  | _ ->
+    ()
 
 let buildOprs (ins: Instruction) pc builder =
   let pcValue = int32 pc
   match ins.Operands with
-  | NoOperand -> ()
+  | NoOperand ->
+    ()
   | OneOperand opr ->
     match ins.Opcode with
     | Opcode.CALL ->
@@ -643,7 +653,8 @@ let buildOprs (ins: Instruction) pc builder =
         | OprAddr k ->
          prependDelimiter (Some " 0x") builder
          immToStringNoPrefix (k) builder
-        | _ -> Terminator.impossible ()
+        | _ ->
+          Terminator.impossible ()
     | _ ->
       oprToString ins pc opr (Some " ") builder
   | TwoOperands(opr1, opr2) ->
@@ -660,7 +671,8 @@ let buildOprs (ins: Instruction) pc builder =
       | OprImm 0b1, OprAddr k ->
         prependDelimiter (Some ",a 0x") builder
         immToStringNoPrefix (k) builder
-      | _ -> Terminator.impossible ()
+      | _ ->
+        Terminator.impossible ()
     | Opcode.BA | Opcode.BN
     | Opcode.BNE | Opcode.BE | Opcode.BG | Opcode.BLE | Opcode.BGE
     | Opcode.BL | Opcode.BGU | Opcode.BLEU | Opcode.BCC | Opcode.BCS
@@ -672,7 +684,8 @@ let buildOprs (ins: Instruction) pc builder =
       | OprImm 0b1, OprAddr k ->
         prependDelimiter (Some ",a 0x") builder
         immToStringNoPrefix (k) builder
-      | _ -> Terminator.impossible ()
+      | _ ->
+        Terminator.impossible ()
     | Opcode.FdTOx | Opcode.FNEGs | Opcode.FNEGd | Opcode.FNEGq | Opcode.FABSs
     | Opcode.FABSd | Opcode.FABSq | Opcode.FSQRTs | Opcode.FSQRTd
     | Opcode.FSQRTq | Opcode.FCMPs | Opcode.FCMPd | Opcode.FCMPq
@@ -749,7 +762,8 @@ let buildOprs (ins: Instruction) pc builder =
         ccToString c builder
         prependDelimiter (Some ", 0x") builder
         immToStringNoPrefix (k) builder
-      | _ -> Terminator.impossible ()
+      | _ ->
+        Terminator.impossible ()
     | Opcode.FBPA | Opcode.FBPN | Opcode.FBPU | Opcode.FBPG | Opcode.FBPUG
     | Opcode.FBPL | Opcode.FBPUL | Opcode.FBPLG | Opcode.FBPNE | Opcode.FBPE
     | Opcode.FBPUE | Opcode.FBPGE | Opcode.FBPUGE | Opcode.FBPLE
@@ -775,7 +789,8 @@ let buildOprs (ins: Instruction) pc builder =
         ccToString c builder
         prependDelimiter (Some ", 0x") builder
         immToStringNoPrefix (k) builder
-      | _ -> Terminator.impossible ()
+      | _ ->
+        Terminator.impossible ()
     | Opcode.LDFA | Opcode.LDDFA | Opcode.LDQFA | Opcode.LDSTUBA
     | Opcode.LDSBA | Opcode.LDSHA | Opcode.LDSWA | Opcode.LDUBA
     | Opcode.LDUHA | Opcode.LDUWA | Opcode.LDXA | Opcode.LDDA ->
@@ -807,7 +822,8 @@ let buildOprs (ins: Instruction) pc builder =
         buildReg ins reg builder
         prependDelimiter (Some ", 0x") builder
         immToStringNoPrefix (k) builder
-      | _ -> Terminator.impossible ()
+      | _ ->
+        Terminator.impossible ()
     | Opcode.PREFETCHA ->
       oprToString ins pc opr1 (Some " [") builder
       oprToString ins pc opr2 (Some " + ") builder
