@@ -110,9 +110,21 @@ type IntelParser(wordSz, reader) =
     | [| Some 8<rt> |] -> true
     | _ -> false
 
+  /// Returns true when REX.W picks nothing out of this slot and so rides
+  /// along inert. A row has to ask for the wider form before W is doing any
+  /// work: TEST's 64-bit row asks at 85h and so keeps the 32-bit row from
+  /// answering the prefixed bytes, while nothing asks at A8h, where the
+  /// operand is a byte and there is no width to switch to. VEX and EVEX
+  /// carry a W of their own, which this leaves alone.
+  let ignoresREXW (phlp: ParsingHelper) (ins: InstructionCore[]) =
+    let asksForW (i: InstructionCore) =
+      i.REXPrefixType = REXPrefixType.W1
+      || i.REXPrefixType = REXPrefixType.REXW
+    phlp.VEXInfo.IsNone && not (Array.exists asksForW ins)
+
   /// Returns true when the observed REX prefix satisfies the constraint
   /// declared in the instruction core (NOREX / W0 / W1 / WIG / REXW).
-  let matchREX (phlp: ParsingHelper) (insCore: InstructionCore) =
+  let matchREX (phlp: ParsingHelper) ins (insCore: InstructionCore) =
     let insREX = insCore.REXPrefixType
     match phlp.REXPrefix with
     | _ when isAllOprSize8 (collectDistinctOpSizes insCore.Operands) -> true
@@ -121,7 +133,8 @@ type IntelParser(wordSz, reader) =
       (insREX = REXPrefixType.NOREX)
     | r when (r &&& REXPrefix.REXW) = REXPrefix.REXW ->
       (insREX = REXPrefixType.WIG) || (insREX = REXPrefixType.W1) ||
-      (insREX = REXPrefixType.REXW)
+      (insREX = REXPrefixType.REXW) ||
+      (insREX = REXPrefixType.NOREX && ignoresREXW phlp ins)
     | _ ->
       (* A prefix with W clear. It still extends registers, so a row that says
          nothing about W matches; one that asks for W1 does not, and letting it
@@ -367,7 +380,7 @@ type IntelParser(wordSz, reader) =
     matchPrefix phlp ins (uint8 insCore.OpcodeByte) insCore.PrefixType
     && matchCPUMode phlp.WordSize insCore.Mode64 insCore.Compat
     && matchOperandSize phlp.Prefixes ins insCore
-    && matchREX phlp insCore
+    && matchREX phlp ins insCore
     && matchVectorLength isRounding phlp.VEXInfo insCore
     && matchModRM span phlp insCore
     && matchJcxzAddrSize phlp insCore
@@ -383,7 +396,7 @@ type IntelParser(wordSz, reader) =
       (matchPrefix phlp ins (uint8 insCore.OpcodeByte) insCore.PrefixType)
       (matchCPUMode phlp.WordSize insCore.Mode64 insCore.Compat)
       (matchOperandSize phlp.Prefixes ins insCore)
-      (matchREX phlp insCore)
+      (matchREX phlp ins insCore)
       (matchVectorLength isRounding phlp.VEXInfo insCore)
       (matchModRM span phlp insCore)
       (matchJcxzAddrSize phlp insCore)
