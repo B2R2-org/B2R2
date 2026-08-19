@@ -1,0 +1,65 @@
+name: build-test
+
+# Builds the solution, packs it and runs the test suite, once per
+# configuration. Debug and Release are a matrix rather than two workflows,
+# because the three steps are the same but for the configuration they are
+# handed, and each configuration is one chain: what is packed and tested is
+# what the build of that same configuration produced.
+
+on:
+  push:
+    branches: [ "*" ]
+  pull_request:
+    branches: [ "main" ]
+
+jobs:
+  build:
+
+    runs-on: ubuntu-latest
+
+    strategy:
+      # Both configurations are reported, because which one broke is what
+      # keeping them apart is for.
+      fail-fast: false
+      matrix:
+        configuration:
+        - Debug
+        - Release
+
+    steps:
+    - uses: actions/checkout@v5
+    - name: Setup .NET
+      uses: actions/setup-dotnet@v5
+    # The key is what the package versions are written in, and is shared with
+    # the other workflows, so whichever of them runs first warms it for the
+    # rest. A changed version falls back to the newest cache there is and
+    # downloads only what moved.
+    - name: Cache NuGet packages
+      uses: actions/cache@v4
+      with:
+        key: nuget-${{ hashFiles('**/*.fsproj', '**/Directory.Build.props') }}
+        path: ~/.nuget/packages
+        restore-keys: nuget-
+    - name: Restore dependencies
+      run: dotnet restore
+    - name: Build
+      run: dotnet build -c ${{ matrix.configuration }} --no-restore
+    # Packing is what the publish workflow does with a tagged commit, and it
+    # reads files no build or test step touches, so it is checked here rather
+    # than first going wrong on a release.
+    - name: Pack
+      run: >
+        dotnet pack -c ${{ matrix.configuration }} --no-build
+        --output ./nupkgs
+    - name: Test
+      run: >
+        dotnet test -c ${{ matrix.configuration }} --no-build
+        --verbosity normal
+
+  notify-failure:
+
+    needs: build
+    if: failure()
+
+    uses: ./.github/workflows/notify-failure.yml
+    secrets: inherit

@@ -1,0 +1,45 @@
+name: notify-failure
+
+# Sends the warning card to the same Google Chat room the push notification
+# goes to. Called by the workflows that gate a push -- lint, build-test and
+# assembly-test -- as a job that runs only once one of their jobs has failed,
+# so a broken commit is announced the way a pushed one is.
+
+on:
+  workflow_call:
+    secrets:
+      WEBHOOK_URL:
+        # Not required, so that a pull request from a fork, which is handed no
+        # secret, skips the notification instead of failing on it.
+        required: false
+
+jobs:
+  notify:
+
+    runs-on: ubuntu-latest
+
+    steps:
+    - uses: actions/checkout@v5
+
+    - name: Setup .NET
+      uses: actions/setup-dotnet@v5
+
+    - name: Failure Notification to Google Chat
+      working-directory: .github
+      env:
+          WEBHOOK_URL: ${{ secrets.WEBHOOK_URL }}
+          ACTOR: ${{ github.actor }}
+          BRANCH: ${{ github.head_ref || github.ref_name }}
+          COMMIT_ID: ${{ github.sha }}
+          REPO_URL: ${{ github.server_url }}/${{ github.repository }}
+          RUN_ID: ${{ github.run_id }}
+          # In a called workflow this names the workflow that called it, which
+          # is the one that failed.
+          WORKFLOW: ${{ github.workflow }}
+      run: |
+        dotnet fsi notify.fsx failure "$ACTOR" \
+                                      "$BRANCH" \
+                                      "$COMMIT_ID" \
+                                      "$REPO_URL/commit/$COMMIT_ID" \
+                                      "$REPO_URL/actions/runs/$RUN_ID" \
+                                      "$WORKFLOW"

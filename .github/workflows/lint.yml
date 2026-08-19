@@ -1,6 +1,10 @@
 name: lint
 
-on: push
+on:
+  push:
+    branches: [ "*" ]
+  pull_request:
+    branches: [ "main" ]
 
 jobs:
   linting:
@@ -17,3 +21,11 @@ jobs:
         git clone --depth 1 https://github.com/B2R2-org/FSLint.git
         dotnet build FSLint
         dotnet run --project FSLint/src/FSLint -- src/ --strict
+
+  notify-failure:
+
+    needs: linting
+    if: failure()
+
+    uses: ./.github/workflows/notify-failure.yml
+    secrets: inherit

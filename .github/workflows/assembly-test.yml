@@ -1,12 +1,12 @@
 name: assembly-test
 
-# Runs the assembler sweeps, which debug-test and release-test leave out. Each
-# sweep walks the whole encoding space of one architecture with B2R2's own
-# decoder and round-trips everything the decoder reads, so one architecture
-# costs about as much as the rest of the suite put together. They are split one
-# job per architecture: the build happens once and every job reads its output,
-# so the pipeline costs one build plus the slowest single architecture rather
-# than the sum of all of them.
+# Runs the assembler sweeps, which build-test leaves out. Each sweep walks the
+# whole encoding space of one architecture with B2R2's own decoder and
+# round-trips everything the decoder reads, so one architecture costs about as
+# much as the rest of the suite put together. They are split one job per
+# architecture: the build happens once and every job reads its output, so the
+# pipeline costs one build plus the slowest single architecture rather than the
+# sum of all of them.
 
 on:
   push:
@@ -88,3 +88,11 @@ jobs:
       run: >
         dotnet test bin/B2R2.Assembly.Tests.dll --verbosity normal
         --filter "TestCategory=Sweep&FullyQualifiedName~${{ matrix.arch }}RoundTripTests"
+
+  notify-failure:
+
+    needs: [ build, sweep ]
+    if: failure()
+
+    uses: ./.github/workflows/notify-failure.yml
+    secrets: inherit

@@ -28,8 +28,8 @@ jobs:
               COMMIT_URL: ${{ github.event.head_commit.url }}
           run: |
             printf '%s' "$COMMIT" > msg.txt
-            dotnet fsi push.fsx "$ACTOR" \
-                                "$BRANCH" \
-                                "$COMMIT_ID" \
-                                "$COMPARE_URL" \
-                                "$COMMIT_URL"
+            dotnet fsi notify.fsx push "$ACTOR" \
+                                       "$BRANCH" \
+                                       "$COMMIT_ID" \
+                                       "$COMMIT_URL" \
+                                       "$COMPARE_URL"
