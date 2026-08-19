@@ -1,8 +1,5 @@
 <Project Sdk="Microsoft.NET.Sdk">
   <PropertyGroup>
-    <PackageLicenseFile>LICENSE.md</PackageLicenseFile>
-    <PackageIcon>b2r2-240x240.png</PackageIcon>
-    <PackageReadmeFile>README.md</PackageReadmeFile>
     <Description>B2R2 graph library.</Description>
   </PropertyGroup>
 
@@ -35,9 +32,6 @@
     <Compile Include="Dominance\CytronDominanceFrontier.fs" />
     <Compile Include="Dominance\CooperDominanceFrontier.fs" />
     <Compile Include="Loop.fs" />
-    <None Include="..\..\..\LICENSE.md" Pack="true" PackagePath="" />
-    <None Include="..\..\..\assets\b2r2-240x240.png" Pack="true" PackagePath="" />
-    <None Include="README.md" Pack="true" PackagePath="" />
   </ItemGroup>
 
   <ItemGroup>

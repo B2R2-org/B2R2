@@ -1,10 +1,7 @@
 <Project Sdk="Microsoft.NET.Sdk">
 
   <PropertyGroup>
-    <PackageLicenseFile>LICENSE.md</PackageLicenseFile>
-    <PackageIcon>b2r2-240x240.png</PackageIcon>
     <OtherFlags>$(OtherFlags)--warnon:3390</OtherFlags>
-    <PackageReadmeFile>README.md</PackageReadmeFile>
     <Description>B2R2 intermediate representation library.</Description>
   </PropertyGroup>
 
@@ -34,9 +31,6 @@
     <Compile Include="SSA\IStmtPostProcessor.fs" />
     <Compile Include="SSA\AST.fs" />
     <Compile Include="PrettyPrint.fs" />
-    <None Include="..\..\LICENSE.md" Pack="true" PackagePath="" />
-    <None Include="..\..\assets\b2r2-240x240.png" Pack="true" PackagePath="" />
-    <None Include="README.md" Pack="true" PackagePath="" />
   </ItemGroup>
 
   <ItemGroup>

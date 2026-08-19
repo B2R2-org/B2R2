@@ -1,9 +1,6 @@
 <Project Sdk="Microsoft.NET.Sdk">
 
   <PropertyGroup>
-    <PackageLicenseFile>LICENSE.md</PackageLicenseFile>
-    <PackageIcon>b2r2-240x240.png</PackageIcon>
-    <PackageReadmeFile>README.md</PackageReadmeFile>
     <Description>B2R2 PARISC frontend.</Description>
   </PropertyGroup>
 
@@ -21,9 +18,6 @@
     <Compile Include="Helper.fs" />
     <Compile Include="ParsingMain.fs" />
     <Compile Include="Parser.fs" />
-    <None Include="..\..\..\LICENSE.md" Pack="true" PackagePath="" />
-    <None Include="..\..\..\assets\b2r2-240x240.png" Pack="true" PackagePath="" />
-    <None Include="README.md" Pack="true" PackagePath="" />
   </ItemGroup>
 
   <ItemGroup>

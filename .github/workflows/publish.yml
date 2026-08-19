@@ -19,7 +19,7 @@ jobs:
     - name: Build project
       run: dotnet build -c Release --no-restore
     - name: Pack
-      run: dotnet pack -c Release --output .
+      run: dotnet pack -c Release --no-build --output .
     - name: Push
       env:
         TOKEN: ${{ secrets.NUGET_TOKEN }}
