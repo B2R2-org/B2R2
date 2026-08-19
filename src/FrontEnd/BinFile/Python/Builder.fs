@@ -78,7 +78,11 @@ type CodeObject =
     Varnames: string[]
     Name: string
     FileName: string
-    FirstLineNo: int }
+    FirstLineNo: int
+    /// The raw `co_exceptiontable` bytes, written only for 3.11 and later
+    /// since no older code object has the field at all. Empty unless a test
+    /// asks for guarded ranges.
+    ExceptionTable: byte[] }
 
 /// How many entries each table is given. An argument is an index into one of
 /// them, and an index past the end is a parse failure rather than an
@@ -97,7 +101,8 @@ let codeWith width code =
     Varnames = Array.init width (sprintf "v%d")
     Name = "<module>"
     FileName = "<synthetic>"
-    FirstLineNo = 1 }
+    FirstLineNo = 1
+    ExceptionTable = [||] }
 
 /// A code object holding the given bytecode, with tables wide enough that any
 /// single-byte argument resolves to something.
@@ -139,7 +144,7 @@ let private tables (version: PythonVersion) co =
        shortAscii co.Name                          (* qualname *)
        i32 co.FirstLineNo
        bytesObj [||]                               (* linetable *)
-       bytesObj [||] |]                            (* exceptiontable *)
+       bytesObj co.ExceptionTable |]               (* exceptiontable *)
   else
     [| bytesObj co.Code
        constTuple co.Consts

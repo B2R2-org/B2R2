@@ -53,7 +53,7 @@ type internal R = Register
 type OperationSize = int
 
 module internal OperationSize =
-  let regType = 64<rt>
+  let [<Literal>] RegType = 64<rt>
 
 /// Provides several useful functions for handling Python registers.
 [<RequireQualifiedAccess>]
@@ -80,5 +80,5 @@ module Register =
   let toRegType = function
     | R.PC
     | R.SP
-    | R.KW_NAMES -> OperationSize.regType
+    | R.KW_NAMES -> OperationSize.RegType
     | _ -> Terminator.impossible ()

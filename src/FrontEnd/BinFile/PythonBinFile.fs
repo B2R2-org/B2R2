@@ -77,6 +77,21 @@ type PythonBinFile(path, inputBytes: byte[], baseAddrOpt) =
 
   let operator = [||]
 
+  (* Entries of every code object at once. Each one is addressed absolutely and
+     no two code objects share an address range, so a flat array is as
+     queryable as a per-function one would be. *)
+  let exceptionEntries =
+    Python.PyExceptionTable.collect codeObject
+    |> Array.collect snd
+    |> Array.sortBy (fun e -> e.Start)
+
+  let exceptionFrames = lazy (Python.PyExceptionTable.toFrames codeObject)
+
+  let exceptionTable =
+    Some { new IExceptionTable with
+      member _.Frames = exceptionFrames.Value
+    }
+
   /// Python magic
   member _.Magic with get() = magic
 
@@ -101,6 +116,10 @@ type PythonBinFile(path, inputBytes: byte[], baseAddrOpt) =
 
   /// Operator.
   member _.Operator with get() = operator
+
+  /// Exception-table entries of every code object in the file, in address
+  /// order. Empty for pre-3.11 files, which carry no such table.
+  member _.ExceptionEntries with get() = exceptionEntries
 
   interface IBinFile with
     member _.Reader with get() = reader
@@ -145,7 +164,7 @@ type PythonBinFile(path, inputBytes: byte[], baseAddrOpt) =
 
     member _.Relocations with get() = None
 
-    member _.ExceptionTable with get() = None
+    member _.ExceptionTable with get() = exceptionTable
 
     member _.ImportTable with get() = None
 

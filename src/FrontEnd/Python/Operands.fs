@@ -26,11 +26,12 @@ namespace B2R2.FrontEnd.Python
 
 open B2R2.FrontEnd.BinFile.Python
 
-/// Represents a set of operands in an Python instruction.
+/// Represents the operands of a Python instruction, which carries either one
+/// or none: an opcode takes at most a single argument byte.
 type Operands =
   | NoOperand
   | OneOperand of Operand
-  | TwoOperands of Operand * Operand
 
-/// Represents an operand used in a Python instruction.
+/// Represents an operand used in a Python instruction. The raw argument comes
+/// first, and the entry it names, when it names one at all.
 and Operand = int * PyObject option
