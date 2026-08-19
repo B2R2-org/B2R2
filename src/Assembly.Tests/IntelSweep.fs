@@ -51,36 +51,13 @@ type internal Probe =
 /// than listed by hand.
 ///
 /// The rule this encodes is that anything the decoder decodes, the assembler
-/// encodes, and it now holds outright: every probe here round-trips. What the
-/// filters below drop is not a gap in the assembler but a coordinate at which
-/// the decoder says something no processor would execute, or a space this sweep
-/// does not claim to cover. Each says which of the two it is.
+/// encodes. A form the manual leaves reserved never reaches the assembler,
+/// because the decode tables carry the manual's own ModRM constraint and the
+/// decoder refuses it; nothing here has to list those coordinates by hand. What
+/// the two filters below drop is text no assembly syntax accepts, and a space
+/// this sweep does not claim to cover. Each says which of the two it is.
 /// </summary>
 module internal IntelSweep =
-
-  /// The opcode bytes at which the decoder renders an operand form the manual
-  /// leaves reserved. A register ModRM byte is reserved where the instruction
-  /// only stores through memory, and a memory one where it only reads a
-  /// register; either way the decoder names an instruction that no processor
-  /// executes, so the sweep must not ask the assembler to emit it.
-  ///
-  /// These are not gaps in the assembler. Every form that does exist at these
-  /// bytes encodes, and IntelEncodingTests pins the ones canonical disassembly
-  /// cannot reach.
-  let private reservedRegisterForm =
-    [ 0x12 (* MOVLPD *)
-      0x13 (* MOVLPS and MOVLPD, storing *)
-      0x16 (* MOVHPD *)
-      0x17 (* MOVHPS and MOVHPD, storing *)
-      0x2b (* MOVNTPS and MOVNTPD *)
-      0xc3 (* MOVNTI *)
-      0xe7 (* MOVNTQ and MOVNTDQ *) ]
-
-  let private reservedMemoryForm =
-    [ 0x50 (* MOVMSKPS and MOVMSKPD *)
-      0xc5 (* PEXTRW *)
-      0xd6 (* MOVDQ2Q and MOVQ2DQ *)
-      0xd7 (* PMOVMSKB *) ]
 
   /// Bytes appended to every probe so that an instruction reading a
   /// displacement or an immediate still decodes. They are distinctive rather
@@ -148,24 +125,6 @@ module internal IntelSweep =
       let kinds = (String.concat " " rest).Split(',') |> Array.map operandShape
       mnemonic + " " + String.concat "," kinds
 
-  /// Whether the ModRM byte names a register rather than a memory operand.
-  let private isRegisterForm (modRM: byte) = modRM >= 0xc0uy
-
-  /// Whether the decoder renders a form the manual leaves reserved. Both lists
-  /// are about the two-byte map, which is the only place this arises.
-  let private isReservedForm map opcodeByte modRM =
-    map = TwoByte
-    && if isRegisterForm modRM then
-         List.contains opcodeByte reservedRegisterForm
-       else
-         List.contains opcodeByte reservedMemoryForm
-
-  /// MOVNTI stores a doubleword or a quadword and has no 16-bit form, so the
-  /// operand-size prefix names nothing at its opcode byte and the decoder
-  /// renders a store no processor performs.
-  let private hasNoOperandSizeOverride map opcodeByte (prefix: byte[]) =
-    map = TwoByte && opcodeByte = 0xc3 && prefix = [| 0x66uy |]
-
   /// C4 and C5 are the three- and two-byte VEX prefixes as well as LES and LDS,
   /// so a probe there can decode an AVX instruction whose opcode comes out of
   /// the padding rather than out of the probe. The VEX and EVEX spaces want a
@@ -173,37 +132,21 @@ module internal IntelSweep =
   /// arrived through a VEX prefix is out of scope.
   let private isVexEncoded (ins: Instruction) = ins.VEXInfo |> Option.isSome
 
-  /// Every byte pattern probed for one opcode map under one word size, less
-  /// the coordinates at which nothing the decoder says is worth encoding.
+  /// Every byte pattern probed for one opcode map under one word size.
   let private patterns map wordSize =
     [ for prefix in prefixesOf map do
         for rex in rexesOf wordSize do
+          let head = Array.concat [ prefix; rex; escapeOf map ]
           for opcodeByte in 0 .. 255 do
             for modRM in modRMs do
-              let worthProbing =
-                not (isReservedForm map opcodeByte modRM)
-                && not (hasNoOperandSizeOverride map opcodeByte prefix)
-              if worthProbing then
-                let head = Array.concat [ prefix; rex; escapeOf map ]
-                yield Array.append head [| byte opcodeByte; modRM |]
-              else
-                () ]
-
-  /// CALL FAR and JMP FAR name a selector and an offset held in memory. The
-  /// decoder also accepts a register there and renders the result as though it
-  /// were a near branch, so encoding that text back would mean emitting bytes
-  /// that fault on real hardware. Those probes are dropped, not demanded.
-  let private isFarBranchOnRegister (ins: Instruction) =
-    match ins.Operands with
-    | OneOperand(OprReg _) -> ins.IsFar
-    | _ -> false
+              yield Array.append head [| byte opcodeByte; modRM |] ]
 
   let private decode (parser: IInstructionParsable) (bytes: byte[]) =
     try
       let parsed = parser.Parse(Array.append bytes padding, 0UL)
       let ins = parsed :?> Instruction
       if int parsed.Length > bytes.Length + padding.Length
-         || isFarBranchOnRegister ins || isVexEncoded ins then
+         || isVexEncoded ins then
         None
       else
         Some(ins.Opcode, (parsed.Disasm()).ToLowerInvariant())

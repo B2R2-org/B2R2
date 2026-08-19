@@ -355,6 +355,134 @@ type RegisterFactory(isa: ISA) =
   let zmm15f = AST.var 64<rt> (Register.toRegID ZMM15F) "ZMM15F"
   let zmm15g = AST.var 64<rt> (Register.toRegID ZMM15G) "ZMM15G"
   let zmm15h = AST.var 64<rt> (Register.toRegID ZMM15H) "ZMM15H"
+  let zmm16a = AST.var 64<rt> (Register.toRegID ZMM16A) "ZMM16A"
+  let zmm16b = AST.var 64<rt> (Register.toRegID ZMM16B) "ZMM16B"
+  let zmm16c = AST.var 64<rt> (Register.toRegID ZMM16C) "ZMM16C"
+  let zmm16d = AST.var 64<rt> (Register.toRegID ZMM16D) "ZMM16D"
+  let zmm16e = AST.var 64<rt> (Register.toRegID ZMM16E) "ZMM16E"
+  let zmm16f = AST.var 64<rt> (Register.toRegID ZMM16F) "ZMM16F"
+  let zmm16g = AST.var 64<rt> (Register.toRegID ZMM16G) "ZMM16G"
+  let zmm16h = AST.var 64<rt> (Register.toRegID ZMM16H) "ZMM16H"
+  let zmm17a = AST.var 64<rt> (Register.toRegID ZMM17A) "ZMM17A"
+  let zmm17b = AST.var 64<rt> (Register.toRegID ZMM17B) "ZMM17B"
+  let zmm17c = AST.var 64<rt> (Register.toRegID ZMM17C) "ZMM17C"
+  let zmm17d = AST.var 64<rt> (Register.toRegID ZMM17D) "ZMM17D"
+  let zmm17e = AST.var 64<rt> (Register.toRegID ZMM17E) "ZMM17E"
+  let zmm17f = AST.var 64<rt> (Register.toRegID ZMM17F) "ZMM17F"
+  let zmm17g = AST.var 64<rt> (Register.toRegID ZMM17G) "ZMM17G"
+  let zmm17h = AST.var 64<rt> (Register.toRegID ZMM17H) "ZMM17H"
+  let zmm18a = AST.var 64<rt> (Register.toRegID ZMM18A) "ZMM18A"
+  let zmm18b = AST.var 64<rt> (Register.toRegID ZMM18B) "ZMM18B"
+  let zmm18c = AST.var 64<rt> (Register.toRegID ZMM18C) "ZMM18C"
+  let zmm18d = AST.var 64<rt> (Register.toRegID ZMM18D) "ZMM18D"
+  let zmm18e = AST.var 64<rt> (Register.toRegID ZMM18E) "ZMM18E"
+  let zmm18f = AST.var 64<rt> (Register.toRegID ZMM18F) "ZMM18F"
+  let zmm18g = AST.var 64<rt> (Register.toRegID ZMM18G) "ZMM18G"
+  let zmm18h = AST.var 64<rt> (Register.toRegID ZMM18H) "ZMM18H"
+  let zmm19a = AST.var 64<rt> (Register.toRegID ZMM19A) "ZMM19A"
+  let zmm19b = AST.var 64<rt> (Register.toRegID ZMM19B) "ZMM19B"
+  let zmm19c = AST.var 64<rt> (Register.toRegID ZMM19C) "ZMM19C"
+  let zmm19d = AST.var 64<rt> (Register.toRegID ZMM19D) "ZMM19D"
+  let zmm19e = AST.var 64<rt> (Register.toRegID ZMM19E) "ZMM19E"
+  let zmm19f = AST.var 64<rt> (Register.toRegID ZMM19F) "ZMM19F"
+  let zmm19g = AST.var 64<rt> (Register.toRegID ZMM19G) "ZMM19G"
+  let zmm19h = AST.var 64<rt> (Register.toRegID ZMM19H) "ZMM19H"
+  let zmm20a = AST.var 64<rt> (Register.toRegID ZMM20A) "ZMM20A"
+  let zmm20b = AST.var 64<rt> (Register.toRegID ZMM20B) "ZMM20B"
+  let zmm20c = AST.var 64<rt> (Register.toRegID ZMM20C) "ZMM20C"
+  let zmm20d = AST.var 64<rt> (Register.toRegID ZMM20D) "ZMM20D"
+  let zmm20e = AST.var 64<rt> (Register.toRegID ZMM20E) "ZMM20E"
+  let zmm20f = AST.var 64<rt> (Register.toRegID ZMM20F) "ZMM20F"
+  let zmm20g = AST.var 64<rt> (Register.toRegID ZMM20G) "ZMM20G"
+  let zmm20h = AST.var 64<rt> (Register.toRegID ZMM20H) "ZMM20H"
+  let zmm21a = AST.var 64<rt> (Register.toRegID ZMM21A) "ZMM21A"
+  let zmm21b = AST.var 64<rt> (Register.toRegID ZMM21B) "ZMM21B"
+  let zmm21c = AST.var 64<rt> (Register.toRegID ZMM21C) "ZMM21C"
+  let zmm21d = AST.var 64<rt> (Register.toRegID ZMM21D) "ZMM21D"
+  let zmm21e = AST.var 64<rt> (Register.toRegID ZMM21E) "ZMM21E"
+  let zmm21f = AST.var 64<rt> (Register.toRegID ZMM21F) "ZMM21F"
+  let zmm21g = AST.var 64<rt> (Register.toRegID ZMM21G) "ZMM21G"
+  let zmm21h = AST.var 64<rt> (Register.toRegID ZMM21H) "ZMM21H"
+  let zmm22a = AST.var 64<rt> (Register.toRegID ZMM22A) "ZMM22A"
+  let zmm22b = AST.var 64<rt> (Register.toRegID ZMM22B) "ZMM22B"
+  let zmm22c = AST.var 64<rt> (Register.toRegID ZMM22C) "ZMM22C"
+  let zmm22d = AST.var 64<rt> (Register.toRegID ZMM22D) "ZMM22D"
+  let zmm22e = AST.var 64<rt> (Register.toRegID ZMM22E) "ZMM22E"
+  let zmm22f = AST.var 64<rt> (Register.toRegID ZMM22F) "ZMM22F"
+  let zmm22g = AST.var 64<rt> (Register.toRegID ZMM22G) "ZMM22G"
+  let zmm22h = AST.var 64<rt> (Register.toRegID ZMM22H) "ZMM22H"
+  let zmm23a = AST.var 64<rt> (Register.toRegID ZMM23A) "ZMM23A"
+  let zmm23b = AST.var 64<rt> (Register.toRegID ZMM23B) "ZMM23B"
+  let zmm23c = AST.var 64<rt> (Register.toRegID ZMM23C) "ZMM23C"
+  let zmm23d = AST.var 64<rt> (Register.toRegID ZMM23D) "ZMM23D"
+  let zmm23e = AST.var 64<rt> (Register.toRegID ZMM23E) "ZMM23E"
+  let zmm23f = AST.var 64<rt> (Register.toRegID ZMM23F) "ZMM23F"
+  let zmm23g = AST.var 64<rt> (Register.toRegID ZMM23G) "ZMM23G"
+  let zmm23h = AST.var 64<rt> (Register.toRegID ZMM23H) "ZMM23H"
+  let zmm24a = AST.var 64<rt> (Register.toRegID ZMM24A) "ZMM24A"
+  let zmm24b = AST.var 64<rt> (Register.toRegID ZMM24B) "ZMM24B"
+  let zmm24c = AST.var 64<rt> (Register.toRegID ZMM24C) "ZMM24C"
+  let zmm24d = AST.var 64<rt> (Register.toRegID ZMM24D) "ZMM24D"
+  let zmm24e = AST.var 64<rt> (Register.toRegID ZMM24E) "ZMM24E"
+  let zmm24f = AST.var 64<rt> (Register.toRegID ZMM24F) "ZMM24F"
+  let zmm24g = AST.var 64<rt> (Register.toRegID ZMM24G) "ZMM24G"
+  let zmm24h = AST.var 64<rt> (Register.toRegID ZMM24H) "ZMM24H"
+  let zmm25a = AST.var 64<rt> (Register.toRegID ZMM25A) "ZMM25A"
+  let zmm25b = AST.var 64<rt> (Register.toRegID ZMM25B) "ZMM25B"
+  let zmm25c = AST.var 64<rt> (Register.toRegID ZMM25C) "ZMM25C"
+  let zmm25d = AST.var 64<rt> (Register.toRegID ZMM25D) "ZMM25D"
+  let zmm25e = AST.var 64<rt> (Register.toRegID ZMM25E) "ZMM25E"
+  let zmm25f = AST.var 64<rt> (Register.toRegID ZMM25F) "ZMM25F"
+  let zmm25g = AST.var 64<rt> (Register.toRegID ZMM25G) "ZMM25G"
+  let zmm25h = AST.var 64<rt> (Register.toRegID ZMM25H) "ZMM25H"
+  let zmm26a = AST.var 64<rt> (Register.toRegID ZMM26A) "ZMM26A"
+  let zmm26b = AST.var 64<rt> (Register.toRegID ZMM26B) "ZMM26B"
+  let zmm26c = AST.var 64<rt> (Register.toRegID ZMM26C) "ZMM26C"
+  let zmm26d = AST.var 64<rt> (Register.toRegID ZMM26D) "ZMM26D"
+  let zmm26e = AST.var 64<rt> (Register.toRegID ZMM26E) "ZMM26E"
+  let zmm26f = AST.var 64<rt> (Register.toRegID ZMM26F) "ZMM26F"
+  let zmm26g = AST.var 64<rt> (Register.toRegID ZMM26G) "ZMM26G"
+  let zmm26h = AST.var 64<rt> (Register.toRegID ZMM26H) "ZMM26H"
+  let zmm27a = AST.var 64<rt> (Register.toRegID ZMM27A) "ZMM27A"
+  let zmm27b = AST.var 64<rt> (Register.toRegID ZMM27B) "ZMM27B"
+  let zmm27c = AST.var 64<rt> (Register.toRegID ZMM27C) "ZMM27C"
+  let zmm27d = AST.var 64<rt> (Register.toRegID ZMM27D) "ZMM27D"
+  let zmm27e = AST.var 64<rt> (Register.toRegID ZMM27E) "ZMM27E"
+  let zmm27f = AST.var 64<rt> (Register.toRegID ZMM27F) "ZMM27F"
+  let zmm27g = AST.var 64<rt> (Register.toRegID ZMM27G) "ZMM27G"
+  let zmm27h = AST.var 64<rt> (Register.toRegID ZMM27H) "ZMM27H"
+  let zmm28a = AST.var 64<rt> (Register.toRegID ZMM28A) "ZMM28A"
+  let zmm28b = AST.var 64<rt> (Register.toRegID ZMM28B) "ZMM28B"
+  let zmm28c = AST.var 64<rt> (Register.toRegID ZMM28C) "ZMM28C"
+  let zmm28d = AST.var 64<rt> (Register.toRegID ZMM28D) "ZMM28D"
+  let zmm28e = AST.var 64<rt> (Register.toRegID ZMM28E) "ZMM28E"
+  let zmm28f = AST.var 64<rt> (Register.toRegID ZMM28F) "ZMM28F"
+  let zmm28g = AST.var 64<rt> (Register.toRegID ZMM28G) "ZMM28G"
+  let zmm28h = AST.var 64<rt> (Register.toRegID ZMM28H) "ZMM28H"
+  let zmm29a = AST.var 64<rt> (Register.toRegID ZMM29A) "ZMM29A"
+  let zmm29b = AST.var 64<rt> (Register.toRegID ZMM29B) "ZMM29B"
+  let zmm29c = AST.var 64<rt> (Register.toRegID ZMM29C) "ZMM29C"
+  let zmm29d = AST.var 64<rt> (Register.toRegID ZMM29D) "ZMM29D"
+  let zmm29e = AST.var 64<rt> (Register.toRegID ZMM29E) "ZMM29E"
+  let zmm29f = AST.var 64<rt> (Register.toRegID ZMM29F) "ZMM29F"
+  let zmm29g = AST.var 64<rt> (Register.toRegID ZMM29G) "ZMM29G"
+  let zmm29h = AST.var 64<rt> (Register.toRegID ZMM29H) "ZMM29H"
+  let zmm30a = AST.var 64<rt> (Register.toRegID ZMM30A) "ZMM30A"
+  let zmm30b = AST.var 64<rt> (Register.toRegID ZMM30B) "ZMM30B"
+  let zmm30c = AST.var 64<rt> (Register.toRegID ZMM30C) "ZMM30C"
+  let zmm30d = AST.var 64<rt> (Register.toRegID ZMM30D) "ZMM30D"
+  let zmm30e = AST.var 64<rt> (Register.toRegID ZMM30E) "ZMM30E"
+  let zmm30f = AST.var 64<rt> (Register.toRegID ZMM30F) "ZMM30F"
+  let zmm30g = AST.var 64<rt> (Register.toRegID ZMM30G) "ZMM30G"
+  let zmm30h = AST.var 64<rt> (Register.toRegID ZMM30H) "ZMM30H"
+  let zmm31a = AST.var 64<rt> (Register.toRegID ZMM31A) "ZMM31A"
+  let zmm31b = AST.var 64<rt> (Register.toRegID ZMM31B) "ZMM31B"
+  let zmm31c = AST.var 64<rt> (Register.toRegID ZMM31C) "ZMM31C"
+  let zmm31d = AST.var 64<rt> (Register.toRegID ZMM31D) "ZMM31D"
+  let zmm31e = AST.var 64<rt> (Register.toRegID ZMM31E) "ZMM31E"
+  let zmm31f = AST.var 64<rt> (Register.toRegID ZMM31F) "ZMM31F"
+  let zmm31g = AST.var 64<rt> (Register.toRegID ZMM31G) "ZMM31G"
+  let zmm31h = AST.var 64<rt> (Register.toRegID ZMM31H) "ZMM31H"
   let bnd0a = AST.var 64<rt> (Register.toRegID BND0A) "BND0A"
   let bnd0b = AST.var 64<rt> (Register.toRegID BND0B) "BND0B"
   let bnd1a = AST.var 64<rt> (Register.toRegID BND1A) "BND1A"
@@ -1059,6 +1187,134 @@ type RegisterFactory(isa: ISA) =
       | "ZMM15F" -> zmm15f
       | "ZMM15G" -> zmm15g
       | "ZMM15H" -> zmm15h
+      | "ZMM16A" -> zmm16a
+      | "ZMM16B" -> zmm16b
+      | "ZMM16C" -> zmm16c
+      | "ZMM16D" -> zmm16d
+      | "ZMM16E" -> zmm16e
+      | "ZMM16F" -> zmm16f
+      | "ZMM16G" -> zmm16g
+      | "ZMM16H" -> zmm16h
+      | "ZMM17A" -> zmm17a
+      | "ZMM17B" -> zmm17b
+      | "ZMM17C" -> zmm17c
+      | "ZMM17D" -> zmm17d
+      | "ZMM17E" -> zmm17e
+      | "ZMM17F" -> zmm17f
+      | "ZMM17G" -> zmm17g
+      | "ZMM17H" -> zmm17h
+      | "ZMM18A" -> zmm18a
+      | "ZMM18B" -> zmm18b
+      | "ZMM18C" -> zmm18c
+      | "ZMM18D" -> zmm18d
+      | "ZMM18E" -> zmm18e
+      | "ZMM18F" -> zmm18f
+      | "ZMM18G" -> zmm18g
+      | "ZMM18H" -> zmm18h
+      | "ZMM19A" -> zmm19a
+      | "ZMM19B" -> zmm19b
+      | "ZMM19C" -> zmm19c
+      | "ZMM19D" -> zmm19d
+      | "ZMM19E" -> zmm19e
+      | "ZMM19F" -> zmm19f
+      | "ZMM19G" -> zmm19g
+      | "ZMM19H" -> zmm19h
+      | "ZMM20A" -> zmm20a
+      | "ZMM20B" -> zmm20b
+      | "ZMM20C" -> zmm20c
+      | "ZMM20D" -> zmm20d
+      | "ZMM20E" -> zmm20e
+      | "ZMM20F" -> zmm20f
+      | "ZMM20G" -> zmm20g
+      | "ZMM20H" -> zmm20h
+      | "ZMM21A" -> zmm21a
+      | "ZMM21B" -> zmm21b
+      | "ZMM21C" -> zmm21c
+      | "ZMM21D" -> zmm21d
+      | "ZMM21E" -> zmm21e
+      | "ZMM21F" -> zmm21f
+      | "ZMM21G" -> zmm21g
+      | "ZMM21H" -> zmm21h
+      | "ZMM22A" -> zmm22a
+      | "ZMM22B" -> zmm22b
+      | "ZMM22C" -> zmm22c
+      | "ZMM22D" -> zmm22d
+      | "ZMM22E" -> zmm22e
+      | "ZMM22F" -> zmm22f
+      | "ZMM22G" -> zmm22g
+      | "ZMM22H" -> zmm22h
+      | "ZMM23A" -> zmm23a
+      | "ZMM23B" -> zmm23b
+      | "ZMM23C" -> zmm23c
+      | "ZMM23D" -> zmm23d
+      | "ZMM23E" -> zmm23e
+      | "ZMM23F" -> zmm23f
+      | "ZMM23G" -> zmm23g
+      | "ZMM23H" -> zmm23h
+      | "ZMM24A" -> zmm24a
+      | "ZMM24B" -> zmm24b
+      | "ZMM24C" -> zmm24c
+      | "ZMM24D" -> zmm24d
+      | "ZMM24E" -> zmm24e
+      | "ZMM24F" -> zmm24f
+      | "ZMM24G" -> zmm24g
+      | "ZMM24H" -> zmm24h
+      | "ZMM25A" -> zmm25a
+      | "ZMM25B" -> zmm25b
+      | "ZMM25C" -> zmm25c
+      | "ZMM25D" -> zmm25d
+      | "ZMM25E" -> zmm25e
+      | "ZMM25F" -> zmm25f
+      | "ZMM25G" -> zmm25g
+      | "ZMM25H" -> zmm25h
+      | "ZMM26A" -> zmm26a
+      | "ZMM26B" -> zmm26b
+      | "ZMM26C" -> zmm26c
+      | "ZMM26D" -> zmm26d
+      | "ZMM26E" -> zmm26e
+      | "ZMM26F" -> zmm26f
+      | "ZMM26G" -> zmm26g
+      | "ZMM26H" -> zmm26h
+      | "ZMM27A" -> zmm27a
+      | "ZMM27B" -> zmm27b
+      | "ZMM27C" -> zmm27c
+      | "ZMM27D" -> zmm27d
+      | "ZMM27E" -> zmm27e
+      | "ZMM27F" -> zmm27f
+      | "ZMM27G" -> zmm27g
+      | "ZMM27H" -> zmm27h
+      | "ZMM28A" -> zmm28a
+      | "ZMM28B" -> zmm28b
+      | "ZMM28C" -> zmm28c
+      | "ZMM28D" -> zmm28d
+      | "ZMM28E" -> zmm28e
+      | "ZMM28F" -> zmm28f
+      | "ZMM28G" -> zmm28g
+      | "ZMM28H" -> zmm28h
+      | "ZMM29A" -> zmm29a
+      | "ZMM29B" -> zmm29b
+      | "ZMM29C" -> zmm29c
+      | "ZMM29D" -> zmm29d
+      | "ZMM29E" -> zmm29e
+      | "ZMM29F" -> zmm29f
+      | "ZMM29G" -> zmm29g
+      | "ZMM29H" -> zmm29h
+      | "ZMM30A" -> zmm30a
+      | "ZMM30B" -> zmm30b
+      | "ZMM30C" -> zmm30c
+      | "ZMM30D" -> zmm30d
+      | "ZMM30E" -> zmm30e
+      | "ZMM30F" -> zmm30f
+      | "ZMM30G" -> zmm30g
+      | "ZMM30H" -> zmm30h
+      | "ZMM31A" -> zmm31a
+      | "ZMM31B" -> zmm31b
+      | "ZMM31C" -> zmm31c
+      | "ZMM31D" -> zmm31d
+      | "ZMM31E" -> zmm31e
+      | "ZMM31F" -> zmm31f
+      | "ZMM31G" -> zmm31g
+      | "ZMM31H" -> zmm31h
       | "PKRU" -> pkru
       | "DR0" -> dr0
       | "DR1" -> dr1
@@ -1166,6 +1422,166 @@ type RegisterFactory(isa: ISA) =
         assert64Bit wordSize
 #endif
         zmm15b
+      | R.XMM16, 1 ->
+#if DEBUG
+        assert64Bit wordSize
+#endif
+        zmm16a
+      | R.XMM16, 2 ->
+#if DEBUG
+        assert64Bit wordSize
+#endif
+        zmm16b
+      | R.XMM17, 1 ->
+#if DEBUG
+        assert64Bit wordSize
+#endif
+        zmm17a
+      | R.XMM17, 2 ->
+#if DEBUG
+        assert64Bit wordSize
+#endif
+        zmm17b
+      | R.XMM18, 1 ->
+#if DEBUG
+        assert64Bit wordSize
+#endif
+        zmm18a
+      | R.XMM18, 2 ->
+#if DEBUG
+        assert64Bit wordSize
+#endif
+        zmm18b
+      | R.XMM19, 1 ->
+#if DEBUG
+        assert64Bit wordSize
+#endif
+        zmm19a
+      | R.XMM19, 2 ->
+#if DEBUG
+        assert64Bit wordSize
+#endif
+        zmm19b
+      | R.XMM20, 1 ->
+#if DEBUG
+        assert64Bit wordSize
+#endif
+        zmm20a
+      | R.XMM20, 2 ->
+#if DEBUG
+        assert64Bit wordSize
+#endif
+        zmm20b
+      | R.XMM21, 1 ->
+#if DEBUG
+        assert64Bit wordSize
+#endif
+        zmm21a
+      | R.XMM21, 2 ->
+#if DEBUG
+        assert64Bit wordSize
+#endif
+        zmm21b
+      | R.XMM22, 1 ->
+#if DEBUG
+        assert64Bit wordSize
+#endif
+        zmm22a
+      | R.XMM22, 2 ->
+#if DEBUG
+        assert64Bit wordSize
+#endif
+        zmm22b
+      | R.XMM23, 1 ->
+#if DEBUG
+        assert64Bit wordSize
+#endif
+        zmm23a
+      | R.XMM23, 2 ->
+#if DEBUG
+        assert64Bit wordSize
+#endif
+        zmm23b
+      | R.XMM24, 1 ->
+#if DEBUG
+        assert64Bit wordSize
+#endif
+        zmm24a
+      | R.XMM24, 2 ->
+#if DEBUG
+        assert64Bit wordSize
+#endif
+        zmm24b
+      | R.XMM25, 1 ->
+#if DEBUG
+        assert64Bit wordSize
+#endif
+        zmm25a
+      | R.XMM25, 2 ->
+#if DEBUG
+        assert64Bit wordSize
+#endif
+        zmm25b
+      | R.XMM26, 1 ->
+#if DEBUG
+        assert64Bit wordSize
+#endif
+        zmm26a
+      | R.XMM26, 2 ->
+#if DEBUG
+        assert64Bit wordSize
+#endif
+        zmm26b
+      | R.XMM27, 1 ->
+#if DEBUG
+        assert64Bit wordSize
+#endif
+        zmm27a
+      | R.XMM27, 2 ->
+#if DEBUG
+        assert64Bit wordSize
+#endif
+        zmm27b
+      | R.XMM28, 1 ->
+#if DEBUG
+        assert64Bit wordSize
+#endif
+        zmm28a
+      | R.XMM28, 2 ->
+#if DEBUG
+        assert64Bit wordSize
+#endif
+        zmm28b
+      | R.XMM29, 1 ->
+#if DEBUG
+        assert64Bit wordSize
+#endif
+        zmm29a
+      | R.XMM29, 2 ->
+#if DEBUG
+        assert64Bit wordSize
+#endif
+        zmm29b
+      | R.XMM30, 1 ->
+#if DEBUG
+        assert64Bit wordSize
+#endif
+        zmm30a
+      | R.XMM30, 2 ->
+#if DEBUG
+        assert64Bit wordSize
+#endif
+        zmm30b
+      | R.XMM31, 1 ->
+#if DEBUG
+        assert64Bit wordSize
+#endif
+        zmm31a
+      | R.XMM31, 2 ->
+#if DEBUG
+        assert64Bit wordSize
+#endif
+        zmm31b
       | R.YMM0, 1 -> zmm0a
       | R.YMM0, 2 -> zmm0b
       | R.YMM0, 3 -> zmm0c
@@ -1358,6 +1774,326 @@ type RegisterFactory(isa: ISA) =
         assert64Bit wordSize
 #endif
         zmm15d
+      | R.YMM16, 1 ->
+#if DEBUG
+        assert64Bit wordSize
+#endif
+        zmm16a
+      | R.YMM16, 2 ->
+#if DEBUG
+        assert64Bit wordSize
+#endif
+        zmm16b
+      | R.YMM16, 3 ->
+#if DEBUG
+        assert64Bit wordSize
+#endif
+        zmm16c
+      | R.YMM16, 4 ->
+#if DEBUG
+        assert64Bit wordSize
+#endif
+        zmm16d
+      | R.YMM17, 1 ->
+#if DEBUG
+        assert64Bit wordSize
+#endif
+        zmm17a
+      | R.YMM17, 2 ->
+#if DEBUG
+        assert64Bit wordSize
+#endif
+        zmm17b
+      | R.YMM17, 3 ->
+#if DEBUG
+        assert64Bit wordSize
+#endif
+        zmm17c
+      | R.YMM17, 4 ->
+#if DEBUG
+        assert64Bit wordSize
+#endif
+        zmm17d
+      | R.YMM18, 1 ->
+#if DEBUG
+        assert64Bit wordSize
+#endif
+        zmm18a
+      | R.YMM18, 2 ->
+#if DEBUG
+        assert64Bit wordSize
+#endif
+        zmm18b
+      | R.YMM18, 3 ->
+#if DEBUG
+        assert64Bit wordSize
+#endif
+        zmm18c
+      | R.YMM18, 4 ->
+#if DEBUG
+        assert64Bit wordSize
+#endif
+        zmm18d
+      | R.YMM19, 1 ->
+#if DEBUG
+        assert64Bit wordSize
+#endif
+        zmm19a
+      | R.YMM19, 2 ->
+#if DEBUG
+        assert64Bit wordSize
+#endif
+        zmm19b
+      | R.YMM19, 3 ->
+#if DEBUG
+        assert64Bit wordSize
+#endif
+        zmm19c
+      | R.YMM19, 4 ->
+#if DEBUG
+        assert64Bit wordSize
+#endif
+        zmm19d
+      | R.YMM20, 1 ->
+#if DEBUG
+        assert64Bit wordSize
+#endif
+        zmm20a
+      | R.YMM20, 2 ->
+#if DEBUG
+        assert64Bit wordSize
+#endif
+        zmm20b
+      | R.YMM20, 3 ->
+#if DEBUG
+        assert64Bit wordSize
+#endif
+        zmm20c
+      | R.YMM20, 4 ->
+#if DEBUG
+        assert64Bit wordSize
+#endif
+        zmm20d
+      | R.YMM21, 1 ->
+#if DEBUG
+        assert64Bit wordSize
+#endif
+        zmm21a
+      | R.YMM21, 2 ->
+#if DEBUG
+        assert64Bit wordSize
+#endif
+        zmm21b
+      | R.YMM21, 3 ->
+#if DEBUG
+        assert64Bit wordSize
+#endif
+        zmm21c
+      | R.YMM21, 4 ->
+#if DEBUG
+        assert64Bit wordSize
+#endif
+        zmm21d
+      | R.YMM22, 1 ->
+#if DEBUG
+        assert64Bit wordSize
+#endif
+        zmm22a
+      | R.YMM22, 2 ->
+#if DEBUG
+        assert64Bit wordSize
+#endif
+        zmm22b
+      | R.YMM22, 3 ->
+#if DEBUG
+        assert64Bit wordSize
+#endif
+        zmm22c
+      | R.YMM22, 4 ->
+#if DEBUG
+        assert64Bit wordSize
+#endif
+        zmm22d
+      | R.YMM23, 1 ->
+#if DEBUG
+        assert64Bit wordSize
+#endif
+        zmm23a
+      | R.YMM23, 2 ->
+#if DEBUG
+        assert64Bit wordSize
+#endif
+        zmm23b
+      | R.YMM23, 3 ->
+#if DEBUG
+        assert64Bit wordSize
+#endif
+        zmm23c
+      | R.YMM23, 4 ->
+#if DEBUG
+        assert64Bit wordSize
+#endif
+        zmm23d
+      | R.YMM24, 1 ->
+#if DEBUG
+        assert64Bit wordSize
+#endif
+        zmm24a
+      | R.YMM24, 2 ->
+#if DEBUG
+        assert64Bit wordSize
+#endif
+        zmm24b
+      | R.YMM24, 3 ->
+#if DEBUG
+        assert64Bit wordSize
+#endif
+        zmm24c
+      | R.YMM24, 4 ->
+#if DEBUG
+        assert64Bit wordSize
+#endif
+        zmm24d
+      | R.YMM25, 1 ->
+#if DEBUG
+        assert64Bit wordSize
+#endif
+        zmm25a
+      | R.YMM25, 2 ->
+#if DEBUG
+        assert64Bit wordSize
+#endif
+        zmm25b
+      | R.YMM25, 3 ->
+#if DEBUG
+        assert64Bit wordSize
+#endif
+        zmm25c
+      | R.YMM25, 4 ->
+#if DEBUG
+        assert64Bit wordSize
+#endif
+        zmm25d
+      | R.YMM26, 1 ->
+#if DEBUG
+        assert64Bit wordSize
+#endif
+        zmm26a
+      | R.YMM26, 2 ->
+#if DEBUG
+        assert64Bit wordSize
+#endif
+        zmm26b
+      | R.YMM26, 3 ->
+#if DEBUG
+        assert64Bit wordSize
+#endif
+        zmm26c
+      | R.YMM26, 4 ->
+#if DEBUG
+        assert64Bit wordSize
+#endif
+        zmm26d
+      | R.YMM27, 1 ->
+#if DEBUG
+        assert64Bit wordSize
+#endif
+        zmm27a
+      | R.YMM27, 2 ->
+#if DEBUG
+        assert64Bit wordSize
+#endif
+        zmm27b
+      | R.YMM27, 3 ->
+#if DEBUG
+        assert64Bit wordSize
+#endif
+        zmm27c
+      | R.YMM27, 4 ->
+#if DEBUG
+        assert64Bit wordSize
+#endif
+        zmm27d
+      | R.YMM28, 1 ->
+#if DEBUG
+        assert64Bit wordSize
+#endif
+        zmm28a
+      | R.YMM28, 2 ->
+#if DEBUG
+        assert64Bit wordSize
+#endif
+        zmm28b
+      | R.YMM28, 3 ->
+#if DEBUG
+        assert64Bit wordSize
+#endif
+        zmm28c
+      | R.YMM28, 4 ->
+#if DEBUG
+        assert64Bit wordSize
+#endif
+        zmm28d
+      | R.YMM29, 1 ->
+#if DEBUG
+        assert64Bit wordSize
+#endif
+        zmm29a
+      | R.YMM29, 2 ->
+#if DEBUG
+        assert64Bit wordSize
+#endif
+        zmm29b
+      | R.YMM29, 3 ->
+#if DEBUG
+        assert64Bit wordSize
+#endif
+        zmm29c
+      | R.YMM29, 4 ->
+#if DEBUG
+        assert64Bit wordSize
+#endif
+        zmm29d
+      | R.YMM30, 1 ->
+#if DEBUG
+        assert64Bit wordSize
+#endif
+        zmm30a
+      | R.YMM30, 2 ->
+#if DEBUG
+        assert64Bit wordSize
+#endif
+        zmm30b
+      | R.YMM30, 3 ->
+#if DEBUG
+        assert64Bit wordSize
+#endif
+        zmm30c
+      | R.YMM30, 4 ->
+#if DEBUG
+        assert64Bit wordSize
+#endif
+        zmm30d
+      | R.YMM31, 1 ->
+#if DEBUG
+        assert64Bit wordSize
+#endif
+        zmm31a
+      | R.YMM31, 2 ->
+#if DEBUG
+        assert64Bit wordSize
+#endif
+        zmm31b
+      | R.YMM31, 3 ->
+#if DEBUG
+        assert64Bit wordSize
+#endif
+        zmm31c
+      | R.YMM31, 4 ->
+#if DEBUG
+        assert64Bit wordSize
+#endif
+        zmm31d
       | R.ZMM0, 1 -> zmm0a
       | R.ZMM0, 2 -> zmm0b
       | R.ZMM0, 3 -> zmm0c
@@ -1742,6 +2478,646 @@ type RegisterFactory(isa: ISA) =
         assert64Bit wordSize
 #endif
         zmm15h
+      | R.ZMM16, 1 ->
+#if DEBUG
+        assert64Bit wordSize
+#endif
+        zmm16a
+      | R.ZMM16, 2 ->
+#if DEBUG
+        assert64Bit wordSize
+#endif
+        zmm16b
+      | R.ZMM16, 3 ->
+#if DEBUG
+        assert64Bit wordSize
+#endif
+        zmm16c
+      | R.ZMM16, 4 ->
+#if DEBUG
+        assert64Bit wordSize
+#endif
+        zmm16d
+      | R.ZMM16, 5 ->
+#if DEBUG
+        assert64Bit wordSize
+#endif
+        zmm16e
+      | R.ZMM16, 6 ->
+#if DEBUG
+        assert64Bit wordSize
+#endif
+        zmm16f
+      | R.ZMM16, 7 ->
+#if DEBUG
+        assert64Bit wordSize
+#endif
+        zmm16g
+      | R.ZMM16, 8 ->
+#if DEBUG
+        assert64Bit wordSize
+#endif
+        zmm16h
+      | R.ZMM17, 1 ->
+#if DEBUG
+        assert64Bit wordSize
+#endif
+        zmm17a
+      | R.ZMM17, 2 ->
+#if DEBUG
+        assert64Bit wordSize
+#endif
+        zmm17b
+      | R.ZMM17, 3 ->
+#if DEBUG
+        assert64Bit wordSize
+#endif
+        zmm17c
+      | R.ZMM17, 4 ->
+#if DEBUG
+        assert64Bit wordSize
+#endif
+        zmm17d
+      | R.ZMM17, 5 ->
+#if DEBUG
+        assert64Bit wordSize
+#endif
+        zmm17e
+      | R.ZMM17, 6 ->
+#if DEBUG
+        assert64Bit wordSize
+#endif
+        zmm17f
+      | R.ZMM17, 7 ->
+#if DEBUG
+        assert64Bit wordSize
+#endif
+        zmm17g
+      | R.ZMM17, 8 ->
+#if DEBUG
+        assert64Bit wordSize
+#endif
+        zmm17h
+      | R.ZMM18, 1 ->
+#if DEBUG
+        assert64Bit wordSize
+#endif
+        zmm18a
+      | R.ZMM18, 2 ->
+#if DEBUG
+        assert64Bit wordSize
+#endif
+        zmm18b
+      | R.ZMM18, 3 ->
+#if DEBUG
+        assert64Bit wordSize
+#endif
+        zmm18c
+      | R.ZMM18, 4 ->
+#if DEBUG
+        assert64Bit wordSize
+#endif
+        zmm18d
+      | R.ZMM18, 5 ->
+#if DEBUG
+        assert64Bit wordSize
+#endif
+        zmm18e
+      | R.ZMM18, 6 ->
+#if DEBUG
+        assert64Bit wordSize
+#endif
+        zmm18f
+      | R.ZMM18, 7 ->
+#if DEBUG
+        assert64Bit wordSize
+#endif
+        zmm18g
+      | R.ZMM18, 8 ->
+#if DEBUG
+        assert64Bit wordSize
+#endif
+        zmm18h
+      | R.ZMM19, 1 ->
+#if DEBUG
+        assert64Bit wordSize
+#endif
+        zmm19a
+      | R.ZMM19, 2 ->
+#if DEBUG
+        assert64Bit wordSize
+#endif
+        zmm19b
+      | R.ZMM19, 3 ->
+#if DEBUG
+        assert64Bit wordSize
+#endif
+        zmm19c
+      | R.ZMM19, 4 ->
+#if DEBUG
+        assert64Bit wordSize
+#endif
+        zmm19d
+      | R.ZMM19, 5 ->
+#if DEBUG
+        assert64Bit wordSize
+#endif
+        zmm19e
+      | R.ZMM19, 6 ->
+#if DEBUG
+        assert64Bit wordSize
+#endif
+        zmm19f
+      | R.ZMM19, 7 ->
+#if DEBUG
+        assert64Bit wordSize
+#endif
+        zmm19g
+      | R.ZMM19, 8 ->
+#if DEBUG
+        assert64Bit wordSize
+#endif
+        zmm19h
+      | R.ZMM20, 1 ->
+#if DEBUG
+        assert64Bit wordSize
+#endif
+        zmm20a
+      | R.ZMM20, 2 ->
+#if DEBUG
+        assert64Bit wordSize
+#endif
+        zmm20b
+      | R.ZMM20, 3 ->
+#if DEBUG
+        assert64Bit wordSize
+#endif
+        zmm20c
+      | R.ZMM20, 4 ->
+#if DEBUG
+        assert64Bit wordSize
+#endif
+        zmm20d
+      | R.ZMM20, 5 ->
+#if DEBUG
+        assert64Bit wordSize
+#endif
+        zmm20e
+      | R.ZMM20, 6 ->
+#if DEBUG
+        assert64Bit wordSize
+#endif
+        zmm20f
+      | R.ZMM20, 7 ->
+#if DEBUG
+        assert64Bit wordSize
+#endif
+        zmm20g
+      | R.ZMM20, 8 ->
+#if DEBUG
+        assert64Bit wordSize
+#endif
+        zmm20h
+      | R.ZMM21, 1 ->
+#if DEBUG
+        assert64Bit wordSize
+#endif
+        zmm21a
+      | R.ZMM21, 2 ->
+#if DEBUG
+        assert64Bit wordSize
+#endif
+        zmm21b
+      | R.ZMM21, 3 ->
+#if DEBUG
+        assert64Bit wordSize
+#endif
+        zmm21c
+      | R.ZMM21, 4 ->
+#if DEBUG
+        assert64Bit wordSize
+#endif
+        zmm21d
+      | R.ZMM21, 5 ->
+#if DEBUG
+        assert64Bit wordSize
+#endif
+        zmm21e
+      | R.ZMM21, 6 ->
+#if DEBUG
+        assert64Bit wordSize
+#endif
+        zmm21f
+      | R.ZMM21, 7 ->
+#if DEBUG
+        assert64Bit wordSize
+#endif
+        zmm21g
+      | R.ZMM21, 8 ->
+#if DEBUG
+        assert64Bit wordSize
+#endif
+        zmm21h
+      | R.ZMM22, 1 ->
+#if DEBUG
+        assert64Bit wordSize
+#endif
+        zmm22a
+      | R.ZMM22, 2 ->
+#if DEBUG
+        assert64Bit wordSize
+#endif
+        zmm22b
+      | R.ZMM22, 3 ->
+#if DEBUG
+        assert64Bit wordSize
+#endif
+        zmm22c
+      | R.ZMM22, 4 ->
+#if DEBUG
+        assert64Bit wordSize
+#endif
+        zmm22d
+      | R.ZMM22, 5 ->
+#if DEBUG
+        assert64Bit wordSize
+#endif
+        zmm22e
+      | R.ZMM22, 6 ->
+#if DEBUG
+        assert64Bit wordSize
+#endif
+        zmm22f
+      | R.ZMM22, 7 ->
+#if DEBUG
+        assert64Bit wordSize
+#endif
+        zmm22g
+      | R.ZMM22, 8 ->
+#if DEBUG
+        assert64Bit wordSize
+#endif
+        zmm22h
+      | R.ZMM23, 1 ->
+#if DEBUG
+        assert64Bit wordSize
+#endif
+        zmm23a
+      | R.ZMM23, 2 ->
+#if DEBUG
+        assert64Bit wordSize
+#endif
+        zmm23b
+      | R.ZMM23, 3 ->
+#if DEBUG
+        assert64Bit wordSize
+#endif
+        zmm23c
+      | R.ZMM23, 4 ->
+#if DEBUG
+        assert64Bit wordSize
+#endif
+        zmm23d
+      | R.ZMM23, 5 ->
+#if DEBUG
+        assert64Bit wordSize
+#endif
+        zmm23e
+      | R.ZMM23, 6 ->
+#if DEBUG
+        assert64Bit wordSize
+#endif
+        zmm23f
+      | R.ZMM23, 7 ->
+#if DEBUG
+        assert64Bit wordSize
+#endif
+        zmm23g
+      | R.ZMM23, 8 ->
+#if DEBUG
+        assert64Bit wordSize
+#endif
+        zmm23h
+      | R.ZMM24, 1 ->
+#if DEBUG
+        assert64Bit wordSize
+#endif
+        zmm24a
+      | R.ZMM24, 2 ->
+#if DEBUG
+        assert64Bit wordSize
+#endif
+        zmm24b
+      | R.ZMM24, 3 ->
+#if DEBUG
+        assert64Bit wordSize
+#endif
+        zmm24c
+      | R.ZMM24, 4 ->
+#if DEBUG
+        assert64Bit wordSize
+#endif
+        zmm24d
+      | R.ZMM24, 5 ->
+#if DEBUG
+        assert64Bit wordSize
+#endif
+        zmm24e
+      | R.ZMM24, 6 ->
+#if DEBUG
+        assert64Bit wordSize
+#endif
+        zmm24f
+      | R.ZMM24, 7 ->
+#if DEBUG
+        assert64Bit wordSize
+#endif
+        zmm24g
+      | R.ZMM24, 8 ->
+#if DEBUG
+        assert64Bit wordSize
+#endif
+        zmm24h
+      | R.ZMM25, 1 ->
+#if DEBUG
+        assert64Bit wordSize
+#endif
+        zmm25a
+      | R.ZMM25, 2 ->
+#if DEBUG
+        assert64Bit wordSize
+#endif
+        zmm25b
+      | R.ZMM25, 3 ->
+#if DEBUG
+        assert64Bit wordSize
+#endif
+        zmm25c
+      | R.ZMM25, 4 ->
+#if DEBUG
+        assert64Bit wordSize
+#endif
+        zmm25d
+      | R.ZMM25, 5 ->
+#if DEBUG
+        assert64Bit wordSize
+#endif
+        zmm25e
+      | R.ZMM25, 6 ->
+#if DEBUG
+        assert64Bit wordSize
+#endif
+        zmm25f
+      | R.ZMM25, 7 ->
+#if DEBUG
+        assert64Bit wordSize
+#endif
+        zmm25g
+      | R.ZMM25, 8 ->
+#if DEBUG
+        assert64Bit wordSize
+#endif
+        zmm25h
+      | R.ZMM26, 1 ->
+#if DEBUG
+        assert64Bit wordSize
+#endif
+        zmm26a
+      | R.ZMM26, 2 ->
+#if DEBUG
+        assert64Bit wordSize
+#endif
+        zmm26b
+      | R.ZMM26, 3 ->
+#if DEBUG
+        assert64Bit wordSize
+#endif
+        zmm26c
+      | R.ZMM26, 4 ->
+#if DEBUG
+        assert64Bit wordSize
+#endif
+        zmm26d
+      | R.ZMM26, 5 ->
+#if DEBUG
+        assert64Bit wordSize
+#endif
+        zmm26e
+      | R.ZMM26, 6 ->
+#if DEBUG
+        assert64Bit wordSize
+#endif
+        zmm26f
+      | R.ZMM26, 7 ->
+#if DEBUG
+        assert64Bit wordSize
+#endif
+        zmm26g
+      | R.ZMM26, 8 ->
+#if DEBUG
+        assert64Bit wordSize
+#endif
+        zmm26h
+      | R.ZMM27, 1 ->
+#if DEBUG
+        assert64Bit wordSize
+#endif
+        zmm27a
+      | R.ZMM27, 2 ->
+#if DEBUG
+        assert64Bit wordSize
+#endif
+        zmm27b
+      | R.ZMM27, 3 ->
+#if DEBUG
+        assert64Bit wordSize
+#endif
+        zmm27c
+      | R.ZMM27, 4 ->
+#if DEBUG
+        assert64Bit wordSize
+#endif
+        zmm27d
+      | R.ZMM27, 5 ->
+#if DEBUG
+        assert64Bit wordSize
+#endif
+        zmm27e
+      | R.ZMM27, 6 ->
+#if DEBUG
+        assert64Bit wordSize
+#endif
+        zmm27f
+      | R.ZMM27, 7 ->
+#if DEBUG
+        assert64Bit wordSize
+#endif
+        zmm27g
+      | R.ZMM27, 8 ->
+#if DEBUG
+        assert64Bit wordSize
+#endif
+        zmm27h
+      | R.ZMM28, 1 ->
+#if DEBUG
+        assert64Bit wordSize
+#endif
+        zmm28a
+      | R.ZMM28, 2 ->
+#if DEBUG
+        assert64Bit wordSize
+#endif
+        zmm28b
+      | R.ZMM28, 3 ->
+#if DEBUG
+        assert64Bit wordSize
+#endif
+        zmm28c
+      | R.ZMM28, 4 ->
+#if DEBUG
+        assert64Bit wordSize
+#endif
+        zmm28d
+      | R.ZMM28, 5 ->
+#if DEBUG
+        assert64Bit wordSize
+#endif
+        zmm28e
+      | R.ZMM28, 6 ->
+#if DEBUG
+        assert64Bit wordSize
+#endif
+        zmm28f
+      | R.ZMM28, 7 ->
+#if DEBUG
+        assert64Bit wordSize
+#endif
+        zmm28g
+      | R.ZMM28, 8 ->
+#if DEBUG
+        assert64Bit wordSize
+#endif
+        zmm28h
+      | R.ZMM29, 1 ->
+#if DEBUG
+        assert64Bit wordSize
+#endif
+        zmm29a
+      | R.ZMM29, 2 ->
+#if DEBUG
+        assert64Bit wordSize
+#endif
+        zmm29b
+      | R.ZMM29, 3 ->
+#if DEBUG
+        assert64Bit wordSize
+#endif
+        zmm29c
+      | R.ZMM29, 4 ->
+#if DEBUG
+        assert64Bit wordSize
+#endif
+        zmm29d
+      | R.ZMM29, 5 ->
+#if DEBUG
+        assert64Bit wordSize
+#endif
+        zmm29e
+      | R.ZMM29, 6 ->
+#if DEBUG
+        assert64Bit wordSize
+#endif
+        zmm29f
+      | R.ZMM29, 7 ->
+#if DEBUG
+        assert64Bit wordSize
+#endif
+        zmm29g
+      | R.ZMM29, 8 ->
+#if DEBUG
+        assert64Bit wordSize
+#endif
+        zmm29h
+      | R.ZMM30, 1 ->
+#if DEBUG
+        assert64Bit wordSize
+#endif
+        zmm30a
+      | R.ZMM30, 2 ->
+#if DEBUG
+        assert64Bit wordSize
+#endif
+        zmm30b
+      | R.ZMM30, 3 ->
+#if DEBUG
+        assert64Bit wordSize
+#endif
+        zmm30c
+      | R.ZMM30, 4 ->
+#if DEBUG
+        assert64Bit wordSize
+#endif
+        zmm30d
+      | R.ZMM30, 5 ->
+#if DEBUG
+        assert64Bit wordSize
+#endif
+        zmm30e
+      | R.ZMM30, 6 ->
+#if DEBUG
+        assert64Bit wordSize
+#endif
+        zmm30f
+      | R.ZMM30, 7 ->
+#if DEBUG
+        assert64Bit wordSize
+#endif
+        zmm30g
+      | R.ZMM30, 8 ->
+#if DEBUG
+        assert64Bit wordSize
+#endif
+        zmm30h
+      | R.ZMM31, 1 ->
+#if DEBUG
+        assert64Bit wordSize
+#endif
+        zmm31a
+      | R.ZMM31, 2 ->
+#if DEBUG
+        assert64Bit wordSize
+#endif
+        zmm31b
+      | R.ZMM31, 3 ->
+#if DEBUG
+        assert64Bit wordSize
+#endif
+        zmm31c
+      | R.ZMM31, 4 ->
+#if DEBUG
+        assert64Bit wordSize
+#endif
+        zmm31d
+      | R.ZMM31, 5 ->
+#if DEBUG
+        assert64Bit wordSize
+#endif
+        zmm31e
+      | R.ZMM31, 6 ->
+#if DEBUG
+        assert64Bit wordSize
+#endif
+        zmm31f
+      | R.ZMM31, 7 ->
+#if DEBUG
+        assert64Bit wordSize
+#endif
+        zmm31g
+      | R.ZMM31, 8 ->
+#if DEBUG
+        assert64Bit wordSize
+#endif
+        zmm31h
       | R.BND0, 1 -> bnd0a
       | R.BND0, 2 -> bnd0b
       | R.BND1, 1 -> bnd1a
