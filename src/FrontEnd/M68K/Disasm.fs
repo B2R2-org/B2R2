@@ -601,11 +601,11 @@ let rec oprToString (ins: Instruction) opr delim (builder: IDisasmBuilder) =
     accumulateField spec.Width builder
     accumulateStr "}" builder
 
-let inline buildOpcode (ins: Instruction) (builder: IDisasmBuilder) =
+let buildOpcode (ins: Instruction) (builder: IDisasmBuilder) =
   let mnemonic = opCodeToString ins.Opcode + sizeToString ins.Size
   builder.Accumulate(AsmWordKind.Mnemonic, mnemonic)
 
-let inline buildOprs (ins: Instruction) (builder: IDisasmBuilder) =
+let buildOprs (ins: Instruction) (builder: IDisasmBuilder) =
   match ins.Operands with
   | NoOperand -> ()
   | OneOperand op1 ->

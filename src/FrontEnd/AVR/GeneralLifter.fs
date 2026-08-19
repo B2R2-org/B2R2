@@ -42,11 +42,11 @@ let inline numI32 n = numI32 n 8<rt>
 let private pcSize = 32<rt>
 
 /// Creates a constant at the width of the program counter.
-let inline numI32PC n = LiftingUtils.numI32 n pcSize
+let numI32PC n = LiftingUtils.numI32 n pcSize
 
 /// Creates a constant at the width of one of AVR's own data addresses -- a
 /// pointer pair, the stack pointer, or an I/O address.
-let inline private numAddr n = LiftingUtils.numI32 n 16<rt>
+let private numAddr n = LiftingUtils.numI32 n 16<rt>
 
 /// AVR is a Harvard machine: its data space and its program space are separate
 /// address spaces that both start at zero. The two are folded into the one

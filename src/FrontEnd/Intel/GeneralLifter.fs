@@ -2555,7 +2555,7 @@ let setcc (ins: Instruction) insLen bld =
   bld <+ (dstAssign oprSize dst cond)
   bld --!> insLen
 
-let inline shiftDblPrec (ins: Instruction) insLen bld fnDst fnSrc isShl =
+let shiftDblPrec (ins: Instruction) insLen bld fnDst fnSrc isShl =
   bld <!-- (ins.Address, insLen)
   let oprSz = getOperationSize ins
   let exprOprSz = numI32 (int oprSz) oprSz
