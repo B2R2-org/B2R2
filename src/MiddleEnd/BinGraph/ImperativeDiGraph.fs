@@ -122,7 +122,10 @@ type ImperativeDiGraph<'V, 'E when 'V: equality and 'E: equality>() =
     vertices.Values |> Seq.iter (fun v ->
       let v', _ = ig.AddVertex((v :> IVertex<_>).VData)
       dictOldToNew.Add(v.ID, v'.ID))
+    (* Every edge endpoint is a vertex of this graph, hence mapped above. *)
     edges.Values |> Seq.iter (fun e ->
+      assert (dictOldToNew.ContainsKey e.First.ID)
+      assert (dictOldToNew.ContainsKey e.Second.ID)
       let src = ig.FindVertexByID dictOldToNew[e.First.ID]
       let dst = ig.FindVertexByID dictOldToNew[e.Second.ID]
       ig.AddEdge(src, dst, e.Label) |> ignore)

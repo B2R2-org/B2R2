@@ -46,7 +46,8 @@ let private computeDoms (g: IDiGraphAccessible<_, _>) reachables =
   let all = Set.ofSeq (reachables: HashSet<IVertex<_>>)
   for r in g.GetRoots() do doms[r] <- Set.singleton r
   for v in reachables do
-    if doms.ContainsKey v then ()
+    if doms.ContainsKey v then
+      ()
     else
       doms[v] <- all
       nonRoots.Add v
@@ -75,12 +76,12 @@ let private computeIDoms g (doms: Dictionary<_, _>) =
   for v in vertices do tmps[v] <- Set.remove v doms[v]
   for r in (g: IDiGraphAccessible<_, _>).GetRoots() do idoms[r] <- null
   for v in vertices do
-    if idoms.ContainsKey v then ()
+    if idoms.ContainsKey v then
+      ()
     else
       for s in tmps[v] do
         for t in Set.remove s tmps[v] do
-          if Set.contains t tmps[s] then tmps[v] <- Set.remove t tmps[v]
-          else ()
+          if Set.contains t tmps[s] then tmps[v] <- Set.remove t tmps[v] else ()
   for v in vertices do
     if idoms.ContainsKey v then
       ()

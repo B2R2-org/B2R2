@@ -36,11 +36,15 @@ type PersistentDiGraph<'V, 'E
 
   let id: VertexID = id
 
-  let unreachables () =
-    preds
-    |> Map.fold (fun acc vid ps ->
-      if List.isEmpty ps then (Map.find vid vertices :> IVertex<'V>) :: acc
-      else acc) []
+  (* The vertices, preds, and succs maps always share the same key set. *)
+  let findVertex vid =
+    assert (Map.containsKey vid vertices)
+    Map.find vid vertices :> IVertex<'V>
+
+  let verticesWithNoEdge (map: Map<VertexID, Edge<'V, 'E> list>) =
+    map
+    |> Map.fold (fun acc vid edges ->
+      if List.isEmpty edges then findVertex vid :: acc else acc) []
     |> List.toArray
 
   let tryFindVertexBy fn =
@@ -131,14 +135,9 @@ type PersistentDiGraph<'V, 'E
       |> Seq.collect snd
       |> Seq.toArray
 
-    member _.Unreachables with get() = unreachables ()
+    member _.Unreachables with get() = verticesWithNoEdge preds
 
-    member _.Exits with get() =
-      succs
-      |> Map.fold (fun acc vid ss ->
-        if List.isEmpty ss then (Map.find vid vertices :> IVertex<'V>) :: acc
-        else acc) []
-      |> List.toArray
+    member _.Exits with get() = verticesWithNoEdge succs
 
     member _.SingleRoot with get() =
       match roots with
@@ -191,10 +190,8 @@ type PersistentDiGraph<'V, 'E
     member _.TryFindEdge(src: IVertex<'V>, dst: IVertex<'V>) =
       let dstID = dst.ID
       match Map.tryFind src.ID succs with
-      | Some edges ->
-        edges |> List.tryFind (fun edge -> edge.Second.ID = dstID)
-      | None ->
-        None
+      | Some edges -> edges |> List.tryFind (fun edge -> edge.Second.ID = dstID)
+      | None -> None
 
     member _.GetPreds(v: IVertex<'V>) =
       getPredEdges v
