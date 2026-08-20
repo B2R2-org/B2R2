@@ -117,7 +117,7 @@ type PersistentDiGraph<'V, 'E
 
     member _.HasEdge(src, dst) =
       match succs.TryFind src.ID with
-      | None -> raise VertexNotFoundException
+      | None -> false
       | Some edges -> edges |> List.exists (fun edge -> edge.Second.ID = dst.ID)
 
     member _.FindVertexByID vid = vertices |> Map.find vid :> IVertex<'V>
