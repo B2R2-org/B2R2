@@ -153,8 +153,13 @@ type PersistentDiGraph<'V, 'E
 
     member _.FindEdge(src: IVertex<'V>, dst: IVertex<'V>) =
       let dstID = dst.ID
-      Map.find src.ID succs
-      |> List.find (fun edge -> edge.Second.ID = dstID)
+      match Map.tryFind src.ID succs with
+      | Some edges ->
+        match edges |> List.tryFind (fun edge -> edge.Second.ID = dstID) with
+        | Some edge -> edge
+        | None -> raise EdgeNotFoundException
+      | None ->
+        raise EdgeNotFoundException
 
     member _.TryFindEdge(src: IVertex<'V>, dst: IVertex<'V>) =
       let dstID = dst.ID
