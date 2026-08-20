@@ -26,6 +26,13 @@ namespace B2R2.MiddleEnd.BinGraph
 
 open System.Text.Json.Serialization
 
+/// <summary>
+/// Raised when a JSON string does not represent a valid graph, e.g., when it
+/// declares the same vertex ID twice, or when an edge refers to a vertex ID
+/// that the graph does not declare. The carried message describes the defect.
+/// </summary>
+exception InvalidSerializedGraphException of string
+
 /// Represents a serializable graph. This is not supposed to be used as a graph
 /// representation in the middle-end, but rather as a temporary data structure
 /// for importing/exporting graphs.
