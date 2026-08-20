@@ -68,8 +68,16 @@ type LowUIRCFG private(g: IDiGraph<LowUIRBasicBlock, CFGEdgeKind>) =
   /// Get an array of exit vertices in this CFG.
   member _.Exits with get() = g.Exits
 
-  /// Get exactly one root vertex of this CFG. If there are multiple root
-  /// vertices, this will raise an exception.
+  /// <summary>
+  /// Get exactly one root vertex of this CFG.
+  /// </summary>
+  /// <exception cref='T:B2R2.MiddleEnd.BinGraph.NoRootVertexException'>
+  /// Thrown when this CFG has no root vertex.
+  /// </exception>
+  /// <exception
+  ///   cref='T:B2R2.MiddleEnd.BinGraph.MultipleRootVerticesException'>
+  /// Thrown when this CFG has more than one root vertex.
+  /// </exception>
   member _.SingleRoot with get() = g.SingleRoot
 
   /// Get the root vertices of this CFG.

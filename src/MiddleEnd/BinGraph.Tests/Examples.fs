@@ -47,6 +47,9 @@ let private prepare count t =
     g.AddEdge(vmap[i], vmap[j], cnt)
   g, vmap, addEdge
 
+/// Empty graph, which has no vertex at all.
+let emptyDigraph t = makeGraph t
+
 /// Graph example from Wikipedia.
 let digraph1 t =
   let g, vmap, addEdge = prepare 6 t

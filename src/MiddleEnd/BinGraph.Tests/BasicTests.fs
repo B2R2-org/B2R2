@@ -125,6 +125,24 @@ type BasicTests() =
 
   [<TestMethod>]
   [<DynamicData(nameof BasicTests.GraphTypes)>]
+  member _.``Single Root Lookup Test``(t) =
+    let empty = emptyDigraph t
+    Assert.Throws<NoRootVertexException>(fun () ->
+      empty.SingleRoot |> ignore)
+    |> ignore
+    let g, vmap = digraph1 t
+    Assert.AreEqual<int>(1, g.SingleRoot.VData)
+    let multi = g.SetRoots [| vmap[1]; vmap[2] |]
+    Assert.Throws<MultipleRootVerticesException>(fun () ->
+      multi.SingleRoot |> ignore)
+    |> ignore
+    let rootless = multi.SetRoots [||]
+    Assert.Throws<NoRootVertexException>(fun () ->
+      rootless.SingleRoot |> ignore)
+    |> ignore
+
+  [<TestMethod>]
+  [<DynamicData(nameof BasicTests.GraphTypes)>]
   member _.``Adjacency Lookup Of Removed Vertex Test``(t) =
     let g, vmap = digraph1 t
     let v = vmap[3]

@@ -140,6 +140,7 @@ type PersistentDiGraph<'V, 'E
     member _.SingleRoot with get() =
       match roots with
       | [ r ] -> r
+      | [] -> raise NoRootVertexException
       | _ -> raise MultipleRootVerticesException
 
     member _.ImplementationType with get() = Persistent

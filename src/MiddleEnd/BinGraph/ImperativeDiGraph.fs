@@ -144,7 +144,10 @@ type ImperativeDiGraph<'V, 'E when 'V: equality and 'E: equality>() =
       |> Array.map (fun v -> v :> IVertex<'V>)
 
     member _.SingleRoot with get() =
-      if roots.Count = 1 then roots[0] else raise MultipleRootVerticesException
+      match roots.Count with
+      | 1 -> roots[0]
+      | 0 -> raise NoRootVertexException
+      | _ -> raise MultipleRootVerticesException
 
     member _.ImplementationType with get() = Imperative
 

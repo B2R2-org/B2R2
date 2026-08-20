@@ -39,6 +39,10 @@ exception VertexNotFoundException of string
 /// Raised when trying to access data from a dummy vertex that has no data.
 exception DummyDataAccessException
 
+/// Raised when there is no root vertex in a graph while exactly one is
+/// expected.
+exception NoRootVertexException
+
 /// Raised when there are multiple root vertices in a graph while only one is
 /// expected.
 exception MultipleRootVerticesException

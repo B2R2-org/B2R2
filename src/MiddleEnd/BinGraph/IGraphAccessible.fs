@@ -36,8 +36,16 @@ type IGraphAccessible<'V, 'E when 'V: equality and 'E: equality> =
   /// Gets an array of all edges in the graph.
   abstract Edges: Edge<'V, 'E>[]
 
-  /// Gets exactly one root vertex of this graph. If there are multiple root
-  /// vertices, this will raise an exception.
+  /// <summary>
+  /// Gets exactly one root vertex of this graph.
+  /// </summary>
+  /// <exception cref='T:B2R2.MiddleEnd.BinGraph.NoRootVertexException'>
+  /// Thrown when this graph has no root vertex.
+  /// </exception>
+  /// <exception
+  ///   cref='T:B2R2.MiddleEnd.BinGraph.MultipleRootVerticesException'>
+  /// Thrown when this graph has more than one root vertex.
+  /// </exception>
   abstract SingleRoot: IVertex<'V>
 
   /// Gets the implementation type of this graph.
