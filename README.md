@@ -1,7 +1,6 @@
 ![alt text](https://b2r2.org//images/b2r2-2d-white.png)
 
-![B2R2](https://github.com/B2R2-org/B2R2/actions/workflows/debug.yml/badge.svg)
-![B2R2](https://github.com/B2R2-org/B2R2/actions/workflows/release.yml/badge.svg)
+![B2R2](https://github.com/B2R2-org/B2R2/actions/workflows/build-test.yml/badge.svg)
 ![](https://img.shields.io/github/license/B2R2-org/B2R2.svg?style=flat)
 [![](https://img.shields.io/nuget/v/B2R2.RearEnd.Launcher)](https://www.nuget.org/packages/B2R2.RearEnd.Launcher/)
 
