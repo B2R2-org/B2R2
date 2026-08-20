@@ -36,8 +36,6 @@ type ImperativeDiGraph<'V, 'E when 'V: equality and 'E: equality>() =
 
   let succs = Dictionary<VertexID, List<Vertex<'V>>>()
 
-  let unreachables = HashSet<Vertex<'V>>()
-
   let exits = HashSet<Vertex<'V>>()
 
   let mutable id = 0
@@ -62,7 +60,6 @@ type ImperativeDiGraph<'V, 'E when 'V: equality and 'E: equality>() =
     vertices.Add(vid, v) |> ignore
     preds.Add(vid, List())
     succs.Add(vid, List())
-    unreachables.Add v |> ignore
     exits.Add v |> ignore
     v :> IVertex<'V>
 
@@ -85,7 +82,6 @@ type ImperativeDiGraph<'V, 'E when 'V: equality and 'E: equality>() =
       edges[(srcID, dstID)] <- Edge(src, dst, label)
       succs[srcID].Add dst
       preds[dstID].Add src
-      unreachables.Remove dst |> ignore
       exits.Remove src |> ignore
 
   let removeEdge (src: IVertex<'V>) (dst: IVertex<'V>) =
@@ -95,7 +91,6 @@ type ImperativeDiGraph<'V, 'E when 'V: equality and 'E: equality>() =
     let dstID = dst.ID
     succs[srcID].RemoveAll(fun s -> s.ID = dstID) |> ignore
     preds[dstID].RemoveAll(fun p -> p.ID = srcID) |> ignore
-    if preds[dstID].Count = 0 then unreachables.Add dst |> ignore else ()
     if succs[srcID].Count = 0 then exits.Add src |> ignore else ()
     edges.Remove((srcID, dstID)) |> ignore
 
@@ -142,11 +137,6 @@ type ImperativeDiGraph<'V, 'E when 'V: equality and 'E: equality>() =
       edges
       |> Seq.toArray
       |> Array.map (fun (KeyValue(_, edge)) -> edge)
-
-    member _.Unreachables with get() =
-      unreachables
-      |> Seq.toArray
-      |> Array.map (fun v -> v :> IVertex<'V>)
 
     member _.Exits with get() =
       exits
@@ -247,7 +237,6 @@ type ImperativeDiGraph<'V, 'E when 'V: equality and 'E: equality>() =
       vertices.Remove vid |> ignore
       preds.Remove vid |> ignore
       succs.Remove vid |> ignore
-      unreachables.Remove v |> ignore
       exits.Remove v |> ignore
       roots.Remove v |> ignore
       this

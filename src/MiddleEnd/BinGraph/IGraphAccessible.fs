@@ -36,9 +36,6 @@ type IGraphAccessible<'V, 'E when 'V: equality and 'E: equality> =
   /// Gets an array of all edges in the graph.
   abstract Edges: Edge<'V, 'E>[]
 
-  /// Gets a collection of unreachable vertices in the graph.
-  abstract Unreachables: IVertex<'V>[]
-
   /// Gets exactly one root vertex of this graph. If there are multiple root
   /// vertices, this will raise an exception.
   abstract SingleRoot: IVertex<'V>

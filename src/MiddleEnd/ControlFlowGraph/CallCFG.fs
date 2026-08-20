@@ -46,9 +46,6 @@ type CallCFG(t: ImplementationType) =
   /// Get an array of all edges in this CFG.
   member _.Edges with get() = g.Edges
 
-  /// Get an array of unreachable vertices in this CFG.
-  member _.Unreachables with get() = g.Unreachables
-
   /// Get an array of exit vertices in this CFG.
   member _.Exits with get() = g.Exits
 
@@ -77,7 +74,6 @@ type CallCFG(t: ImplementationType) =
     member _.Size = g.Size
     member _.Vertices = g.Vertices
     member _.Edges = g.Edges
-    member _.Unreachables = g.Unreachables
     member _.Exits = g.Exits
     member _.SingleRoot = g.SingleRoot
     member _.ImplementationType = g.ImplementationType

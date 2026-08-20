@@ -78,5 +78,4 @@ module CallGraph =
   let create implType brew =
     let callGraph = CallCFG implType
     let vMap = CallVMap()
-    let callGraph = buildCG callGraph vMap brew
-    callGraph, callGraph.Unreachables |> Array.toList
+    buildCG callGraph vMap brew

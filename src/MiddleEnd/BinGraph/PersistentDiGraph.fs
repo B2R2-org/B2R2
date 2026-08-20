@@ -135,8 +135,6 @@ type PersistentDiGraph<'V, 'E
       |> Seq.collect snd
       |> Seq.toArray
 
-    member _.Unreachables with get() = verticesWithNoEdge preds
-
     member _.Exits with get() = verticesWithNoEdge succs
 
     member _.SingleRoot with get() =

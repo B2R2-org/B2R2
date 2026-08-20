@@ -67,21 +67,18 @@ module API =
       let g = func.CFG
       match cfgType with
       | CFGKind.LowUIR ->
-        let roots = g.Roots |> Seq.toList
-        Visualizer.toVisGraph g roots cw ch
+        Visualizer.toVisGraph g cw ch
         |> Ok
       | CFGKind.Disasm ->
         let file = brew.BinHandle.File
         let disasmBuilder = getDisasmBuilder file
         let g = DisasmCFG(disasmBuilder, g)
-        let roots = g.Roots |> Seq.toList
-        Visualizer.toVisGraph g roots cw ch
+        Visualizer.toVisGraph g cw ch
         |> Ok
       | CFGKind.SSA ->
         let factory = SSA.SSALifterFactory.Create brew.BinHandle
         let ssaCFG = factory.Lift g
-        let roots = ssaCFG.Roots |> List.ofArray
-        Visualizer.toVisGraph ssaCFG roots cw ch
+        Visualizer.toVisGraph ssaCFG cw ch
         |> Ok
       | _ ->
         Error $"Bad CFG type given: {cfgType}"
@@ -110,9 +107,9 @@ module API =
 
   let private getCallGraph (brew: BinaryBrew<_, _>) =
     try
-      let g, roots = CallGraph.create BinGraph.Imperative brew
+      let g = CallGraph.create BinGraph.Imperative brew
       let cw, ch = Visualizer.CharWidth, Visualizer.CharHeight
-      Visualizer.toVisGraph g roots cw ch
+      Visualizer.toVisGraph g cw ch
       |> Ok
     with e ->
   #if DEBUG

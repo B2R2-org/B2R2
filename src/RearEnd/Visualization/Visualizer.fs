@@ -29,15 +29,15 @@ open B2R2
 #endif
 open B2R2.MiddleEnd.BinGraph
 
-let private convert iGraph roots charWidth charHeight =
+let private convert iGraph charWidth charHeight =
   try
-    let vGraph, roots = VisGraph.ofCFG iGraph roots charWidth charHeight
+    let vGraph = VisGraph.ofCFG iGraph charWidth charHeight
     let backEdgeList = CycleRemoval.run vGraph
     let backEdgeList, dummyMap = LayerAssignment.run vGraph backEdgeList
     let vLayout = CrossMinimization.run vGraph
     CoordAssignment.run vGraph vLayout
     EdgeDrawing.drawEdges vGraph vLayout backEdgeList dummyMap
-    Some(roots, vGraph)
+    Some vGraph
   with e ->
     eprintfn "%s" <| e.ToString()
     None
@@ -47,20 +47,19 @@ let toJSON (iGraph: IDiGraphAccessible<_, _>) roots charWidth charHeight =
   if iGraph.Size = 0 then
     "{}"
   else
-    match convert iGraph roots charWidth charHeight with
-    | Some(roots, vGraph) -> JSONExport.toStr roots vGraph
+    match convert iGraph charWidth charHeight with
+    | Some vGraph -> JSONExport.toStr roots vGraph
     | None -> "{}"
 
 /// Converts the given graph to a VisGraph for visualization.
-let toVisGraph (iGraph: IDiGraphAccessible<_, _>) roots charWidth charHeight =
+let toVisGraph (iGraph: IDiGraphAccessible<_, _>) charWidth charHeight =
   if iGraph.Size = 0 then
     VisGraph.init ()
   else
 #if DEBUG
     let sw = System.Diagnostics.Stopwatch.StartNew()
 #endif
-    convert iGraph roots charWidth charHeight
-    |> Option.map snd
+    convert iGraph charWidth charHeight
     |> Option.defaultValue (VisGraph.init ())
 #if DEBUG
     |> fun g ->

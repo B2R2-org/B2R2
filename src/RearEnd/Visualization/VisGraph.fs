@@ -36,7 +36,7 @@ module VisGraph =
     ImperativeDiGraph<VisBBlock, VisEdge>()
     :> VisGraph
 
-  let ofCFG (g: IDiGraphAccessible<_, _>) roots charWidth charHeight =
+  let ofCFG (g: IDiGraphAccessible<_, _>) charWidth charHeight =
     let newGraph = init ()
     let vblocks = Dictionary<VertexID, IVertex<VisBBlock>>()
     for v in g.Vertices do
@@ -46,13 +46,12 @@ module VisGraph =
         let blk = VisBBlock(v.VData, charWidth, charHeight, false)
         let v', _ = newGraph.AddVertex blk
         vblocks[v.ID] <- v'
-    let roots = roots |> List.map (fun (root: IVertex<_>) -> vblocks[root.ID])
     for e in g.Edges do
       let srcV = vblocks[e.First.ID]
       let dstV = vblocks[e.Second.ID]
       let edge = VisEdge e.Label
       newGraph.AddEdge(srcV, dstV, edge) |> ignore
-    newGraph, roots
+    newGraph
 
   let getID (v: IVertex<_>) = v.ID
 
