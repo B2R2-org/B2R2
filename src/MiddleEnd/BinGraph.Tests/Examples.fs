@@ -238,3 +238,13 @@ let digraph12 t =
   let g = addEdge g 3 4
   let g = addEdge g 5 3
   g, vmap
+
+/// Arbitrarily generated example, which has no regular exit, and whose loop
+/// tail (3) has two back edges. Exits: 3
+let digraph13 t =
+  let g, vmap, addEdge = prepare 3 t
+  let g = addEdge g 1 2
+  let g = addEdge g 2 3
+  let g = addEdge g 3 1
+  let g = addEdge g 3 2
+  g, vmap

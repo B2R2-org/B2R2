@@ -1803,6 +1803,42 @@ type DominanceTests() =
 
   [<TestMethod>]
   [<DynamicData(nameof DominanceTests.TestData)>]
+  member _.``Immediate Post-Dominator Test 13``(t, domAlgo, dfAlgo, sAlgo) =
+    let g, _ = digraph13 t
+    let dom: IDominance<_, _> = instantiate g domAlgo dfAlgo sAlgo
+    let v = dom.ImmediatePostDominator <| g.FindVertexByData 1
+    assertEqual g 2 v
+    let v = dom.ImmediatePostDominator <| g.FindVertexByData 2
+    assertEqual g 3 v
+    let v = dom.ImmediatePostDominator <| g.FindVertexByData 3
+    Assert.IsNull(v)
+
+  [<TestMethod>]
+  [<DynamicData(nameof DominanceTests.TestData)>]
+  member _.``Post-Dominators Test 13``(t, domAlgo, dfAlgo, sAlgo) =
+    let g, _ = digraph13 t
+    let dom: IDominance<_, _> = instantiate g domAlgo dfAlgo sAlgo
+    let pds = getPostDominators dom g 1
+    assertSetEqual g [ 1; 2; 3 ] pds
+    let pds = getPostDominators dom g 2
+    assertSetEqual g [ 2; 3 ] pds
+    let pds = getPostDominators dom g 3
+    assertSetEqual g [ 3 ] pds
+
+  [<TestMethod>]
+  [<DynamicData(nameof DominanceTests.TestData)>]
+  member _.``Post-Dominance Frontier Test 13``(t, domAlgo, dfAlgo, sAlgo) =
+    let g, _ = digraph13 t
+    let dom: IDominance<_, _> = instantiate g domAlgo dfAlgo sAlgo
+    let df = getPostDominanceFrontier dom g 1
+    assertSetEqual g [ 3 ] df
+    let df = getPostDominanceFrontier dom g 2
+    assertSetEqual g [ 3 ] df
+    let df = getPostDominanceFrontier dom g 3
+    assertSetEqual g [ 3 ] df
+
+  [<TestMethod>]
+  [<DynamicData(nameof DominanceTests.TestData)>]
   member _.``Foreign Vertex Query Test``(t, domAlgo, dfAlgo, sAlgo) =
     let g, vmap = digraph1 t
     let removed = vmap[6]

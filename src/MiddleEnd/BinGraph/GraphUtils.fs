@@ -89,12 +89,15 @@ let computeDepthFirstNumbers (g: IDiGraphAccessible<_, _>) =
   ) 0 |> ignore
   dfNums
 
+/// Collects the back edges of the given graph, each of them identified by the
+/// IDs of its endpoints. A vertex can be the source of more than one back
+/// edge, hence the edges, not their sources, are what the result holds.
 let findBackEdges (g: IDiGraphAccessible<_, _>) =
   let dfNums = computeDepthFirstNumbers g
-  let backEdges = Dictionary()
+  let backEdges = HashSet<VertexID * VertexID>()
   g.IterEdge(fun e ->
-    if dfNums[e.First] >= dfNums[e.Second] then backEdges[e.First] <- e.Second
-    else ())
+    if dfNums[e.First] < dfNums[e.Second] then ()
+    else backEdges.Add(e.First.ID, e.Second.ID) |> ignore)
   backEdges
 
 let findRegularExits (g: IDiGraphAccessible<_, _>) =
@@ -104,16 +107,11 @@ let findRegularExits (g: IDiGraphAccessible<_, _>) =
 
 let findExitsAfterRemovingBackEdges (g: IDiGraphAccessible<_, _>) =
   let backEdges = findBackEdges g
+  let isBackEdge (e: Edge<_, _>) =
+    backEdges.Contains(e.First.ID, e.Second.ID)
   g.Vertices
   |> Array.fold (fun exits v ->
-    g.GetSuccEdges v
-    |> Array.exists (fun e ->
-      match backEdges.TryGetValue e.First with
-      | true, dst -> dst <> e.Second
-      | false, _ -> true)
-    |> function
-      | true -> exits
-      | false -> v :: exits
+    if g.GetSuccEdges v |> Array.forall isBackEdge then v :: exits else exits
   ) []
 
 /// Finds exit nodes of a digraph. An exit node is a node that has no outgoing
