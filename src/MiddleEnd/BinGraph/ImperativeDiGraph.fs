@@ -41,8 +41,8 @@ type ImperativeDiGraph<'V, 'E when 'V: equality and 'E: equality>() =
   let roots = List<ImperativeVertex<'V>>()
 
   let checkVertexExistence (v: IVertex<'V>) =
-    if not <| vertices.ContainsKey v.ID then raise VertexNotFoundException
-    else ()
+    if vertices.ContainsKey v.ID then ()
+    else GraphUtils.raiseVertexNotFoundByID v.ID
 
   let addVertex (data: VertexData<'V>) (vid: VertexID) =
     let v = ImperativeVertex(vid, data)
@@ -89,12 +89,15 @@ type ImperativeDiGraph<'V, 'E when 'V: equality and 'E: equality>() =
     if src.Succs.Count = 0 then exits.Add src |> ignore else ()
     edges.Remove((srcid, dstid)) |> ignore
 
-  let findVertexBy fn = vertices.Values |> Seq.find fn :> IVertex<'V>
-
   let tryFindVertexBy fn =
     vertices.Values
     |> Seq.tryFind fn
     |> Option.map (fun v -> v :> IVertex<'V>)
+
+  let findVertexBy fn =
+    match tryFindVertexBy fn with
+    | Some v -> v
+    | None -> GraphUtils.raiseVertexNotFoundByPredicate ()
 
   let clone () =
     let g = ImperativeDiGraph<'V, 'E>()
@@ -146,7 +149,10 @@ type ImperativeDiGraph<'V, 'E when 'V: equality and 'E: equality>() =
 
     member _.TryFindVertexBy fn = tryFindVertexBy fn
 
-    member _.FindVertexByID vid = vertices[vid]
+    member _.FindVertexByID vid =
+      match vertices.TryGetValue vid with
+      | true, v -> v :> IVertex<'V>
+      | false, _ -> GraphUtils.raiseVertexNotFoundByID vid
 
     member _.TryFindVertexByID vid =
       match vertices.TryGetValue vid with
@@ -154,7 +160,9 @@ type ImperativeDiGraph<'V, 'E when 'V: equality and 'E: equality>() =
       | true, v -> Some v
 
     member _.FindVertexByData data =
-      findVertexBy (fun v -> (v :> IVertex<'V>).VData = data)
+      match tryFindVertexBy (fun v -> (v :> IVertex<'V>).VData = data) with
+      | Some v -> v
+      | None -> GraphUtils.raiseVertexNotFoundByData data
 
     member _.TryFindVertexByData data =
       tryFindVertexBy (fun v -> (v :> IVertex<'V>).VData = data)

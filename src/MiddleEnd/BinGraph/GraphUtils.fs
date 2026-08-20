@@ -28,10 +28,22 @@ module internal B2R2.MiddleEnd.BinGraph.GraphUtils
 open System.Collections.Generic
 open B2R2
 
+/// Raises `VertexNotFoundException` for a vertex looked up by its ID.
+let raiseVertexNotFoundByID (vid: VertexID) =
+  raise <| VertexNotFoundException $"No vertex with ID {vid}"
+
+/// Raises `VertexNotFoundException` for a vertex looked up by its data.
+let raiseVertexNotFoundByData data =
+  raise <| VertexNotFoundException $"No vertex with data {data}"
+
+/// Raises `VertexNotFoundException` for a vertex looked up by a predicate.
+let raiseVertexNotFoundByPredicate () =
+  raise <| VertexNotFoundException "No vertex satisfying the predicate"
+
 #if DEBUG
 let checkVertexInGraph (g: IDiGraphAccessible<_, _>) (v: IVertex<_>) =
   let v' = g.FindVertexByData v.VData
-  if v.ID = v'.ID then () else raise VertexNotFoundException
+  if v.ID = v'.ID then () else raiseVertexNotFoundByID v.ID
 #endif
 
 /// Makes a dummy vertex for an analysis without having to use `AddVertex`

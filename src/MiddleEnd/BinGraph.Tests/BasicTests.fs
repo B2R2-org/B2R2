@@ -107,3 +107,52 @@ type BasicTests() =
     Assert.AreEqual<int>(21, s1)
     Assert.AreEqual<int>(21, s2)
     CollectionAssert.AreEqual(edges, solution)
+
+  [<TestMethod>]
+  [<DynamicData(nameof BasicTests.GraphTypes)>]
+  member _.``Vertex Lookup Failure Test``(t) =
+    let g, _ = digraph1 t
+    Assert.Throws<VertexNotFoundException>(fun () ->
+      g.FindVertexByID 42 |> ignore)
+    |> ignore
+    Assert.Throws<VertexNotFoundException>(fun () ->
+      g.FindVertexByData 42 |> ignore)
+    |> ignore
+    Assert.Throws<VertexNotFoundException>(fun () ->
+      g.FindVertexBy(fun v -> v.VData = 42) |> ignore)
+    |> ignore
+    Assert.IsNull(g.TryFindVertexByID 42 |> Option.toObj)
+
+  [<TestMethod>]
+  [<DynamicData(nameof BasicTests.GraphTypes)>]
+  member _.``Adjacency Lookup Of Removed Vertex Test``(t) =
+    let g, vmap = digraph1 t
+    let v = vmap[3]
+    let g = g.RemoveVertex v
+    Assert.AreEqual<int>(0, (g.GetPreds v).Length)
+    Assert.AreEqual<int>(0, (g.GetPredEdges v).Length)
+    Assert.AreEqual<int>(0, (g.GetSuccs v).Length)
+    Assert.AreEqual<int>(0, (g.GetSuccEdges v).Length)
+
+  [<TestMethod>]
+  [<DynamicData(nameof BasicTests.GraphTypes)>]
+  member _.``Mutation With Removed Vertex Test``(t) =
+    let g, vmap = digraph1 t
+    let removed = vmap[3]
+    let other = vmap[1]
+    let g = g.RemoveVertex removed
+    Assert.Throws<VertexNotFoundException>(fun () ->
+      g.AddEdge(removed, other) |> ignore)
+    |> ignore
+    Assert.Throws<VertexNotFoundException>(fun () ->
+      g.AddEdge(other, removed) |> ignore)
+    |> ignore
+    Assert.Throws<VertexNotFoundException>(fun () ->
+      g.RemoveEdge(removed, other) |> ignore)
+    |> ignore
+    Assert.Throws<VertexNotFoundException>(fun () ->
+      g.RemoveEdge(other, removed) |> ignore)
+    |> ignore
+    Assert.Throws<VertexNotFoundException>(fun () ->
+      g.RemoveVertex removed |> ignore)
+    |> ignore

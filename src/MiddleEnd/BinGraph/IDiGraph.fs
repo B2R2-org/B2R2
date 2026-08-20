@@ -42,22 +42,27 @@ type IDiGraph<'V, 'E when 'V: equality and 'E: equality> =
   /// Adds a vertex to the graph without any data attached to it.
   abstract AddVertex: unit -> IVertex<'V> * IDiGraph<'V, 'E>
 
-  /// Removes the given vertex from the graph.
+  /// Removes the given vertex from the graph. This raises
+  /// `VertexNotFoundException` when the given vertex is not in the graph.
   abstract RemoveVertex: IVertex<'V> -> IDiGraph<'V, 'E>
 
-  /// Adds an edge from src to dst.
+  /// Adds an edge from src to dst. This raises `VertexNotFoundException` when
+  /// either src or dst is not in the graph.
   abstract AddEdge: src: IVertex<'V> * dst: IVertex<'V> -> IDiGraph<'V, 'E>
 
-  /// Adds an edge from src to dst with the given label.
+  /// Adds an edge from src to dst with the given label. This raises
+  /// `VertexNotFoundException` when either src or dst is not in the graph.
   abstract AddEdge:
     src: IVertex<'V> * dst: IVertex<'V> * label: 'E -> IDiGraph<'V, 'E>
 
-  /// Removes the edge that spans from src to dst.
+  /// Removes the edge that spans from src to dst. This raises
+  /// `VertexNotFoundException` when either src or dst is not in the graph.
   abstract RemoveEdge: src: IVertex<'V> * dst: IVertex<'V> -> IDiGraph<'V, 'E>
 
   /// Removes the given edge from the graph. The input edge does not need to
   /// have the same label as the one in the graph; we only check the source and
-  /// destination vertices to perform this operation.
+  /// destination vertices to perform this operation. This raises
+  /// `VertexNotFoundException` when either vertex is not in the graph.
   abstract RemoveEdge: edge: Edge<'V, 'E> -> IDiGraph<'V, 'E>
 
   /// Adds a root vertex to this graph explicitly. `AddVertex` will

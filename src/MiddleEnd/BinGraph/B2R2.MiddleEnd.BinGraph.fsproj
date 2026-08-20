@@ -4,6 +4,7 @@
   </PropertyGroup>
 
   <ItemGroup>
+    <Compile Include="VertexID.fs" />
     <Compile Include="IVertex.fs" />
     <Compile Include="Edge.fs" />
     <Compile Include="ImplementationType.fs" />

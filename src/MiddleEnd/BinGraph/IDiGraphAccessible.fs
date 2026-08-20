@@ -36,19 +36,23 @@ type IDiGraphAccessible<'V, 'E when 'V: equality and 'E: equality> =
   abstract Exits: IVertex<'V>[]
 
   /// Gets the predecessors of the given vertex. This is only meaningful for
-  /// directed graphs.
+  /// directed graphs. This returns an empty array when the given vertex is not
+  /// in the graph.
   abstract GetPreds: IVertex<'V> -> IVertex<'V>[]
 
   /// Gets the predecessor edges of the given vertex. This is only meaningful
-  /// for directed graphs.
+  /// for directed graphs. This returns an empty array when the given vertex is
+  /// not in the graph.
   abstract GetPredEdges: IVertex<'V> -> Edge<'V, 'E>[]
 
   /// Gets the successors of the given vertex. This is only meaningful for
-  /// directed graphs.
+  /// directed graphs. This returns an empty array when the given vertex is not
+  /// in the graph.
   abstract GetSuccs: IVertex<'V> -> IVertex<'V>[]
 
   /// Gets the successor edges of the given vertex. This is only meaningful for
-  /// directed graphs.
+  /// directed graphs. This returns an empty array when the given vertex is not
+  /// in the graph.
   abstract GetSuccEdges: IVertex<'V> -> Edge<'V, 'E>[]
 
   /// Gets the root vertices of this graph. When there's no root, this will

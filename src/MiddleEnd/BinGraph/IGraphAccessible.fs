@@ -56,17 +56,17 @@ type IGraphAccessible<'V, 'E when 'V: equality and 'E: equality> =
   /// Checks the existence of the given edge from the graph.
   abstract HasEdge: src: IVertex<'V> * dst: IVertex<'V> -> bool
 
-  /// Finds a vertex by its VertexID. This function raises an exception when
-  /// there is no such a vertex.
+  /// Finds a vertex by its VertexID. This function raises
+  /// `VertexNotFoundException` when there is no such a vertex.
   abstract FindVertexByID: VertexID -> IVertex<'V>
 
   /// Finds a vertex by its VertexID. This function returns an Option type.
   abstract TryFindVertexByID: VertexID -> IVertex<'V> option
 
-  /// Finds a vertex that has the given data value from the graph. It will raise
-  /// an exception if such a vertex does not exist. Note that this function
-  /// should be used only when one knows each vertex in the graph has a unique
-  /// data value.
+  /// Finds a vertex that has the given data value from the graph. It raises
+  /// `VertexNotFoundException` if such a vertex does not exist. Note that this
+  /// function should be used only when one knows each vertex in the graph has a
+  /// unique data value.
   abstract FindVertexByData: 'V -> IVertex<'V>
 
   /// Finds a vertex that has the given VertexData from the graph. This function
@@ -75,7 +75,7 @@ type IGraphAccessible<'V, 'E when 'V: equality and 'E: equality> =
 
   /// Finds a vertex by the given function. This function returns the first
   /// element, in which the function returns true. When there is no such an
-  /// element, the function raises an exception.
+  /// element, the function raises `VertexNotFoundException`.
   abstract FindVertexBy: (IVertex<'V> -> bool) -> IVertex<'V>
 
   /// Finds a vertex by the given function without raising an exception.

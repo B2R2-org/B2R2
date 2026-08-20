@@ -31,40 +31,6 @@ namespace B2R2.MiddleEnd.BinGraph
 ///   </summary>
 /// </namespacedoc>
 /// <summary>
-/// Raised when a vertex is not found in the graph. The carried message
-/// describes the key that was used to look the vertex up.
+/// Represents a unique ID for a vertex.
 /// </summary>
-exception VertexNotFoundException of string
-
-/// Raised when trying to access data from a dummy vertex that has no data.
-exception DummyDataAccessException
-
-/// Raised when there are multiple root vertices in a graph while only one is
-/// expected.
-exception MultipleRootVerticesException
-
-/// Represents a vertex of a graph.
-type IVertex<'V when 'V: equality> =
-  inherit System.IComparable
-  inherit System.IFormattable
-
-  /// Unique ID of the vertex.
-  abstract ID: VertexID
-
-  /// Data attached to the vertex. This can raise `DummyDataAccessException`
-  /// when the vertex has no data.
-  abstract VData: 'V
-
-  /// Check if the vertex has data. When this is true, `VData` should not raise
-  /// an exception.
-  abstract HasData: bool
-
-/// This is an internal data type used by a vertex implementation in order to
-/// represent nullable data.
-type internal VertexData<'V when 'V: equality>(v) =
-  member _.Value: 'V = v
-
-  override _.ToString() = $"{v}"
-
-  interface System.IEquatable<VertexData<'V>> with
-    member this.Equals(other: VertexData<'V>) = this.Value = other.Value
+type VertexID = int
