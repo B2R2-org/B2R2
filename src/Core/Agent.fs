@@ -50,14 +50,14 @@ type Agent<'Msg> private(ch: BufferBlock<'Msg>, task: Task) =
                 match ch.TryReceive() with
                 | true, msg -> return msg
                 | false, _ -> return raise <| InvalidOperationException()
-              else return raise <| OperationCanceledException()
+              else
+                return raise <| OperationCanceledException()
             } |> fun task -> task.Result
           member _.Complete() = ch.Complete()
           member _.IsCancelled with get() = token.IsCancellationRequested
           member _.Count with get() = ch.Count }
     let fn = fun () ->
-      try taskFn receivable
-      with e -> e.ToString() |> Terminator.fatalExit
+      try taskFn receivable with e -> e.ToString() |> Terminator.fatalExit
     Agent(ch, Task.Run(fn, cancellationToken = token))
 
   /// Posts a message to the agent.

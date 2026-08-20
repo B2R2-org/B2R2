@@ -27,10 +27,10 @@ namespace B2R2.MiddleEnd.ControlFlowAnalysis
 open System.Threading.Tasks.Dataflow
 
 /// Stream of commands consumed by task workers.
-type TaskWorkerCommandStream<'FnCtx,
-                             'GlCtx when 'FnCtx :> IResettable
-                                     and 'FnCtx: (new: unit -> 'FnCtx)
-                                     and 'GlCtx: (new: unit -> 'GlCtx)>() =
+type TaskWorkerCommandStream<'FnCtx, 'GlCtx
+  when 'FnCtx :> IResettable
+  and 'FnCtx: (new: unit -> 'FnCtx)
+  and 'GlCtx: (new: unit -> 'GlCtx)>() =
     let stream = BufferBlock<TaskWorkerCommand<'FnCtx, 'GlCtx>>()
 
     /// Post a command to the stream.
@@ -41,7 +41,8 @@ type TaskWorkerCommandStream<'FnCtx,
     member _.Receive(ct) =
       task {
         match! stream.OutputAvailableAsync(ct) with
-        | false -> return NotAvailable
+        | false ->
+          return NotAvailable
         | true ->
           match stream.TryReceive() with
           | true, command -> return Received command
@@ -52,10 +53,10 @@ type TaskWorkerCommandStream<'FnCtx,
     member _.Close() = stream.Complete()
 
 /// Status of a task worker command.
-and TaskWorkerCommandStatus<'FnCtx,
-                            'GlCtx when 'FnCtx :> IResettable
-                                    and 'FnCtx: (new: unit -> 'FnCtx)
-                                    and 'GlCtx: (new: unit -> 'GlCtx)> =
+and TaskWorkerCommandStatus<'FnCtx, 'GlCtx
+  when 'FnCtx :> IResettable
+  and 'FnCtx: (new: unit -> 'FnCtx)
+  and 'GlCtx: (new: unit -> 'GlCtx)> =
   | NotAvailable
   | AvailableButNotReceived
   | Received of TaskWorkerCommand<'FnCtx, 'GlCtx>

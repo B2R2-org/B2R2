@@ -44,8 +44,7 @@ type SMTLibPipelineTests() =
     state.SetTmp(0, x8)
     state
 
-  let normalize (s: string) =
-    s.Replace("\r\n", "\n")
+  let normalize (s: string) = s.Replace("\r\n", "\n")
 
   let solverValue name (values: SolverValue list) =
     values

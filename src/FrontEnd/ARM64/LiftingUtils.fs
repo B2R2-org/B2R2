@@ -75,14 +75,16 @@ let getPseudoRegVarToArr bld reg eSize dataSize elems =
     let regA = Array.init elems (fun i -> AST.extract regA eSize (i * pos))
     let regB = Array.init elems (fun i -> AST.extract regB eSize (i * pos))
     Array.append regA regB
-  else Array.init elems (fun i -> AST.extract regA eSize (i * pos))
+  else
+    Array.init elems (fun i -> AST.extract regA eSize (i * pos))
 
 let private getMemExpr128 expr =
   match expr with
   | Load(e, 128<rt>, expr, _) ->
-    struct (AST.load e 64<rt> (expr .+ numI32 8 (Expr.typeOf expr)),
-            AST.load e 64<rt> expr)
-  | _ -> raise InvalidOperandException
+    let add = AST.load e 64<rt> (expr .+ numI32 8 (Expr.typeOf expr))
+    struct (add, AST.load e 64<rt> expr)
+  | _ ->
+    raise InvalidOperandException
 
 let getImmValue imm =
   match imm with
@@ -137,9 +139,11 @@ let transShiftAmout bld oprSize = function
 /// ========
 let extend reg oprSz regSize isUnsigned =
   let uMask = numI64 ((1L <<< regSize) - 1L) oprSz
-  if isUnsigned then reg .& uMask
+  if isUnsigned then
+    reg .& uMask
   else
-    if regSize = 64 then reg
+    if regSize = 64 then
+      reg
     else
       let mBit = AST.extract reg 1<rt> (regSize - 1)
       let sMask = ~~~((1L <<< regSize) - 1L)
@@ -189,10 +193,14 @@ let getElemDataSzAndElemsByVector = function
 let rec getElemDataSzAndElems = function
   | OprSIMD(ScalarReg v) ->
     struct (RegisterHelper.toRegType v, RegisterHelper.toRegType v, 1)
-  | OprSIMD(VecReg(_, v)) -> getElemDataSzAndElemsByVector v
-  | OprSIMD(VecRegWithIdx(_, v, _)) -> getElemDataSzAndElemsByVector v
-  | OprSIMDList simds -> getElemDataSzAndElems (OprSIMD simds[0])
-  | _ -> raise InvalidOperandException
+  | OprSIMD(VecReg(_, v)) ->
+    getElemDataSzAndElemsByVector v
+  | OprSIMD(VecRegWithIdx(_, v, _)) ->
+    getElemDataSzAndElemsByVector v
+  | OprSIMDList simds ->
+    getElemDataSzAndElems (OprSIMD simds[0])
+  | _ ->
+    raise InvalidOperandException
 
 let transSIMDOprVPart bld eSize part = function
   | OprSIMD(VecReg(reg, _)) ->
@@ -204,7 +212,8 @@ let transSIMDOprVPart bld eSize part = function
     else
       let regA = pseudoRegVar bld reg 1
       Array.init elems (fun i -> AST.extract regA eSize (i * pos))
-  | _ -> raise InvalidOperandException
+  | _ ->
+    raise InvalidOperandException
 
 let transSIMDReg bld = function (* FIXME *)
   | VecRegWithIdx(reg, v, idx) ->
@@ -216,15 +225,18 @@ let transSIMDReg bld = function (* FIXME *)
   | VecReg(reg, v) ->
     let struct (eSize, dataSize, elements) = getElemDataSzAndElemsByVector v
     getPseudoRegVarToArr bld reg eSize dataSize elements
-  | _ (* SIMDFPScalarReg *) -> raise InvalidOperandException
+  | _ (* SIMDFPScalarReg *) ->
+    raise InvalidOperandException
 
 let transSIMDListToExpr bld = function (* FIXME *)
   | OprSIMDList simds -> Array.map (transSIMDReg bld) (List.toArray simds)
   | _ -> raise InvalidOperandException
 
 let transSIMD bld = function (* FIXME *)
-  | ScalarReg reg -> regVar bld reg
-  | VecReg _ -> raise InvalidOperandException
+  | ScalarReg reg ->
+    regVar bld reg
+  | VecReg _ ->
+    raise InvalidOperandException
   | VecRegWithIdx(reg, v, idx) ->
     let struct (regB, regA) = pseudoRegVar128 bld reg
     let struct (esize, _, _) = getElemDataSzAndElemsByVector v
@@ -235,23 +247,28 @@ let transSIMD bld = function (* FIXME *)
 let transImmOffset bld = function
   | BaseOffset(bReg, Some imm) ->
     regVar bld bReg .+ numI64 imm 64<rt> |> AST.loadLE 64<rt>
-  | BaseOffset(bReg, None) -> regVar bld bReg |> AST.loadLE 64<rt>
-  | Lbl lbl -> numI64 lbl 64<rt>
+  | BaseOffset(bReg, None) ->
+    regVar bld bReg |> AST.loadLE 64<rt>
+  | Lbl lbl ->
+    numI64 lbl 64<rt>
 
 let transRegOff (ins: Instruction) bld reg = function
   | ShiftOffset(shfTyp, amt) ->
     let reg = regVar bld reg
     let amount = transShiftAmout bld 64<rt> amt
     shiftReg reg amount ins.OprSize shfTyp
-  | ExtRegOffset(extTyp, shf) -> extendReg bld reg extTyp shf 64<rt>
+  | ExtRegOffset(extTyp, shf) ->
+    extendReg bld reg extTyp shf 64<rt>
 
 let transRegOffset ins bld = function
   | bReg, reg, Some regOffset ->
     regVar bld bReg .+ transRegOff ins bld reg regOffset
-  | bReg, reg, None -> regVar bld bReg .+ regVar bld reg
+  | bReg, reg, None ->
+    regVar bld bReg .+ regVar bld reg
 
 let transMemOffset ins bld = function
-  | ImmOffset immOffset -> transImmOffset bld immOffset
+  | ImmOffset immOffset ->
+    transImmOffset bld immOffset
   | RegOffset(bReg, reg, regOffset) ->
     transRegOffset ins bld (bReg, reg, regOffset) |> AST.loadLE 64<rt>
 
@@ -264,13 +281,20 @@ let transMem ins bld _addr = function
   | LiteralMode offset -> transBaseMode ins bld offset
 
 let transOprToExpr ins bld addr = function
-  | OprRegister reg -> regVar bld reg
-  | OprMemory mem -> transMem ins bld addr mem
-  | OprSIMD reg -> transSIMD bld reg
-  | OprImm imm -> numI64 imm ins.OprSize
-  | OprNZCV nzcv -> numI64 (int64 nzcv) ins.OprSize
-  | OprLSB lsb -> numI64 (int64 lsb) ins.OprSize
-  | OprFbits fbits -> numI64 (int64 fbits) ins.OprSize
+  | OprRegister reg ->
+    regVar bld reg
+  | OprMemory mem ->
+    transMem ins bld addr mem
+  | OprSIMD reg ->
+    transSIMD bld reg
+  | OprImm imm ->
+    numI64 imm ins.OprSize
+  | OprNZCV nzcv ->
+    numI64 (int64 nzcv) ins.OprSize
+  | OprLSB lsb ->
+    numI64 (int64 lsb) ins.OprSize
+  | OprFbits fbits ->
+    numI64 (int64 fbits) ins.OprSize
   | OprFPImm float ->
     if ins.OprSize = 64<rt> then
       numI64 (BitConverter.DoubleToInt64Bits float) ins.OprSize
@@ -278,7 +302,8 @@ let transOprToExpr ins bld addr = function
       BitConverter.SingleToInt32Bits(float32 float)
       |> int64
       |> fun bits -> numI64 bits ins.OprSize
-  | _ -> raise <| NotImplementedIRException "transOprToExpr"
+  | _ ->
+    raise <| NotImplementedIRException "transOprToExpr"
 
 let transOprToExprFPImm (ins: Instruction) eSize src =
   match eSize, src with
@@ -286,7 +311,8 @@ let transOprToExprFPImm (ins: Instruction) eSize src =
     numI64 (int64 (BitConverter.SingleToInt32Bits(float32 float))) ins.OprSize
   | 64<rt>, OprFPImm float ->
     numI64 (BitConverter.DoubleToInt64Bits float) ins.OprSize
-  | _ -> raise InvalidOperandException
+  | _ ->
+    raise InvalidOperandException
 
 let separateMemExpr expr =
   match expr with
@@ -302,50 +328,59 @@ let transOneOpr (ins: Instruction) bld addr =
 let transTwoOprs (ins: Instruction) bld addr =
   match ins.Operands with
   | TwoOperands(o1, o2) ->
-    transOprToExpr ins bld addr o1,
-    transOprToExpr ins bld addr o2
-  | _ -> raise InvalidOperandException
+    transOprToExpr ins bld addr o1, transOprToExpr ins bld addr o2
+  | _ ->
+    raise InvalidOperandException
 
 let transTwoOprsSepMem (ins: Instruction) bld addr =
   match ins.Operands with
   | TwoOperands(o1, o2) ->
-    transOprToExpr ins bld addr o1,
-    transOprToExpr ins bld addr o2 |> separateMemExpr
-  | _ -> raise InvalidOperandException
+    let memExpr = transOprToExpr ins bld addr o2 |> separateMemExpr
+    transOprToExpr ins bld addr o1, memExpr
+  | _ ->
+    raise InvalidOperandException
 
 let transThreeOprs (ins: Instruction) bld addr =
   match ins.Operands with
   | ThreeOperands(o1, o2, o3) ->
-    transOprToExpr ins bld addr o1,
-    transOprToExpr ins bld addr o2,
-    transOprToExpr ins bld addr o3
-  | _ -> raise InvalidOperandException
+    let o1 = transOprToExpr ins bld addr o1
+    let o2 = transOprToExpr ins bld addr o2
+    let o3 = transOprToExpr ins bld addr o3
+    o1, o2, o3
+  | _ ->
+    raise InvalidOperandException
 
 let transThreeOprsSepMem (ins: Instruction) bld addr =
   match ins.Operands with
   | ThreeOperands(o1, o2, o3) ->
-    transOprToExpr ins bld addr o1,
-    transOprToExpr ins bld addr o2,
-    transOprToExpr ins bld addr o3 |> separateMemExpr
-  | _ -> raise InvalidOperandException
+    let o1 = transOprToExpr ins bld addr o1
+    let o2 = transOprToExpr ins bld addr o2
+    let o3 = transOprToExpr ins bld addr o3 |> separateMemExpr
+    o1, o2, o3
+  | _ ->
+    raise InvalidOperandException
 
 let transFourOprs (ins: Instruction) bld addr =
   match ins.Operands with
   | FourOperands(o1, o2, o3, o4) ->
-    transOprToExpr ins bld addr o1,
-    transOprToExpr ins bld addr o2,
-    transOprToExpr ins bld addr o3,
-    transOprToExpr ins bld addr o4
-  | _ -> raise InvalidOperandException
+    let o1 = transOprToExpr ins bld addr o1
+    let o2 = transOprToExpr ins bld addr o2
+    let o3 = transOprToExpr ins bld addr o3
+    let o4 = transOprToExpr ins bld addr o4
+    o1, o2, o3, o4
+  | _ ->
+    raise InvalidOperandException
 
 let transFourOprsSepMem (ins: Instruction) bld addr =
   match ins.Operands with
   | FourOperands(o1, o2, o3, o4) ->
-    transOprToExpr ins bld addr o1,
-    transOprToExpr ins bld addr o2,
-    transOprToExpr ins bld addr o3,
-    transOprToExpr ins bld addr o4 |> separateMemExpr
-  | _ -> raise InvalidOperandException
+    let o1 = transOprToExpr ins bld addr o1
+    let o2 = transOprToExpr ins bld addr o2
+    let o3 = transOprToExpr ins bld addr o3
+    let o4 = transOprToExpr ins bld addr o4 |> separateMemExpr
+    o1, o2, o3, o4
+  | _ ->
+    raise InvalidOperandException
 
 let transOprToExpr128 ins bld addr = function
   | OprSIMD(ScalarReg reg) -> pseudoRegVar128 bld reg
@@ -359,11 +394,14 @@ let transSIMDOprToExpr bld eSize dataSize elements = function
     if dataSize = 128<rt> then
       let struct (regB, regA) = pseudoRegVar128 bld reg
       [| regB; regA |]
-    else [| regVar bld reg |]
+    else
+      [| regVar bld reg |]
   | OprSIMD(VecReg(reg, _)) ->
     getPseudoRegVarToArr bld reg eSize dataSize elements
-  | OprSIMD(VecRegWithIdx _) -> raise InvalidOperandException
-  | _ -> raise InvalidOperandException
+  | OprSIMD(VecRegWithIdx _) ->
+    raise InvalidOperandException
+  | _ ->
+    raise InvalidOperandException
 
 (* Barrel shift *)
 let transBarrelShiftToExpr oprSize bld src shift =
@@ -386,23 +424,26 @@ let transBarrelShiftToExpr oprSize bld src shift =
     shiftReg reg amount oprSize typ
   | OprRegister reg, OprExtReg(Some(ExtRegOffset(typ, shf))) ->
     extendReg bld reg typ shf oprSize
-  | OprRegister reg, OprExtReg None -> regVar bld reg
-  | _ -> raise <| NotImplementedIRException "transBarrelShiftToExpr"
+  | OprRegister reg, OprExtReg None ->
+    regVar bld reg
+  | _ ->
+    raise <| NotImplementedIRException "transBarrelShiftToExpr"
 
 let transThreeOprsWithBarrelShift (ins: Instruction) bld addr =
   match ins.Operands with
   | ThreeOperands(o1, o2, o3) ->
-    transOprToExpr ins bld addr o1,
-    transBarrelShiftToExpr ins.OprSize bld o2 o3
-  | _ -> raise InvalidOperandException
+    transOprToExpr ins bld addr o1, transBarrelShiftToExpr ins.OprSize bld o2 o3
+  | _ ->
+    raise InvalidOperandException
 
 let transFourOprsWithBarrelShift (ins: Instruction) bld addr =
   match ins.Operands with
   | FourOperands(o1, o2, o3, o4) ->
-    transOprToExpr ins bld addr o1,
-    transOprToExpr ins bld addr o2,
-    transBarrelShiftToExpr ins.OprSize bld o3 o4
-  | _ -> raise InvalidOperandException
+    let o1 = transOprToExpr ins bld addr o1
+    let o2 = transOprToExpr ins bld addr o2
+    o1, o2, transBarrelShiftToExpr ins.OprSize bld o3 o4
+  | _ ->
+    raise InvalidOperandException
 
 let isRegOffset opr =
   match opr with
@@ -457,82 +498,83 @@ let invertCond = function
 let transOprToExprOfCCMN (ins: Instruction) bld addr =
   match ins.Operands with
   | FourOperands(o1, o2, o3, o4) ->
-    transOprToExpr ins bld addr o1,
-    transOprToExpr ins bld addr o2,
-    transOprToExpr ins bld addr o3,
-    o4 |> unwrapCond
-  | _ -> raise InvalidOperandException
+    let o1 = transOprToExpr ins bld addr o1
+    let o2 = transOprToExpr ins bld addr o2
+    let o3 = transOprToExpr ins bld addr o3
+    o1, o2, o3, o4 |> unwrapCond
+  | _ ->
+    raise InvalidOperandException
 
 let transOprToExprOfCCMP (ins: Instruction) bld addr =
   match ins.Operands with
   | FourOperands(o1, o2, o3, o4) ->
-    transOprToExpr ins bld addr o1,
-    transOprToExpr ins bld addr o2,
-    transOprToExpr ins bld addr o3,
-    o4 |> unwrapCond
-  | _ -> raise InvalidOperandException
+    let o1 = transOprToExpr ins bld addr o1
+    let o2 = transOprToExpr ins bld addr o2
+    let o3 = transOprToExpr ins bld addr o3
+    o1, o2, o3, o4 |> unwrapCond
+  | _ ->
+    raise InvalidOperandException
 
 let transOprToExprOfCMP (ins: Instruction) bld addr =
   match ins.Operands with
   | ThreeOperands(o1, o2, o3) ->
-    transOprToExpr ins bld addr o1,
-    transBarrelShiftToExpr ins.OprSize bld o2 o3
-  | _ -> raise InvalidOperandException
+    transOprToExpr ins bld addr o1, transBarrelShiftToExpr ins.OprSize bld o2 o3
+  | _ ->
+    raise InvalidOperandException
 
 let transOprToExprOfCSEL (ins: Instruction) bld addr =
   match ins.Operands with
   | FourOperands(o1, o2, o3, o4) ->
-    transOprToExpr ins bld addr o1,
-    transOprToExpr ins bld addr o2,
-    transOprToExpr ins bld addr o3,
-    o4 |> unwrapCond
-  | _ -> raise InvalidOperandException
+    let o1 = transOprToExpr ins bld addr o1
+    let o2 = transOprToExpr ins bld addr o2
+    let o3 = transOprToExpr ins bld addr o3
+    o1, o2, o3, o4 |> unwrapCond
+  | _ ->
+    raise InvalidOperandException
 
 let transOprToExprOfFCSEL (ins: Instruction) bld addr =
   match ins.Operands with
   | FourOperands(o1, o2, o3, o4) ->
-    o1,
-    transOprToExpr ins bld addr o2,
-    transOprToExpr ins bld addr o3,
-    o4 |> unwrapCond
-  | _ -> raise InvalidOperandException
+    let o2 = transOprToExpr ins bld addr o2
+    let o3 = transOprToExpr ins bld addr o3
+    o1, o2, o3, o4 |> unwrapCond
+  | _ ->
+    raise InvalidOperandException
 
 let transOprToExprOfCSINC (ins: Instruction) bld addr =
   match ins.Operands with
   | TwoOperands(o1, o2) -> (* CSET *)
-    transOprToExpr ins bld addr o1,
-    regVar bld (if ins.OprSize = 64<rt> then R.XZR else R.WZR),
-    regVar bld (if ins.OprSize = 64<rt> then R.XZR else R.WZR),
-    o2 |> unwrapCond |> invertCond
+    let o1 = transOprToExpr ins bld addr o1
+    let cond = regVar bld (if ins.OprSize = 64<rt> then R.XZR else R.WZR)
+    o1, cond, cond, o2 |> unwrapCond |> invertCond
   | ThreeOperands(o1, o2, o3) -> (* CINC *)
-    transOprToExpr ins bld addr o1,
-    transOprToExpr ins bld addr o2,
-    transOprToExpr ins bld addr o2,
-    o3 |> unwrapCond |> invertCond
+    let o1 = transOprToExpr ins bld addr o1
+    let o2 = transOprToExpr ins bld addr o2
+    o1, o2, o2, o3 |> unwrapCond |> invertCond
   | FourOperands(o1, o2, o3, o4) ->
-    transOprToExpr ins bld addr o1,
-    transOprToExpr ins bld addr o2,
-    transOprToExpr ins bld addr o3,
-    o4 |> unwrapCond
-  | _ -> raise InvalidOperandException
+    let o1 = transOprToExpr ins bld addr o1
+    let o2 = transOprToExpr ins bld addr o2
+    let o3 = transOprToExpr ins bld addr o3
+    o1, o2, o3, o4 |> unwrapCond
+  | _ ->
+    raise InvalidOperandException
 
 let transOprToExprOfCSINV (ins: Instruction) bld addr =
   match ins.Operands with
   | TwoOperands(o1, o2) -> (* CSETM *)
-    transOprToExpr ins bld addr o1,
-    regVar bld (if ins.OprSize = 64<rt> then R.XZR else R.WZR),
-    regVar bld (if ins.OprSize = 64<rt> then R.XZR else R.WZR),
-    o2 |> unwrapCond |> invertCond
+    let o1 = transOprToExpr ins bld addr o1
+    let cond = regVar bld (if ins.OprSize = 64<rt> then R.XZR else R.WZR)
+    o1, cond, cond, o2 |> unwrapCond |> invertCond
   | ThreeOperands(o1, o2, o3) -> (* CINV *)
     let o2 = transOprToExpr ins bld addr o2
-    transOprToExpr ins bld addr o1, o2, o2,
-    o3 |> unwrapCond |> invertCond
+    transOprToExpr ins bld addr o1, o2, o2, o3 |> unwrapCond |> invertCond
   | FourOperands(o1, o2, o3, o4) -> (* CSINV *)
-    transOprToExpr ins bld addr o1,
-    transOprToExpr ins bld addr o2,
-    transOprToExpr ins bld addr o3,
-    o4 |> unwrapCond
-  | _ -> raise InvalidOperandException
+    let o1 = transOprToExpr ins bld addr o1
+    let o2 = transOprToExpr ins bld addr o2
+    let o3 = transOprToExpr ins bld addr o3
+    o1, o2, o3, o4 |> unwrapCond
+  | _ ->
+    raise InvalidOperandException
 
 let transOprToExprOfCSNEG (ins: Instruction) bld addr =
   match ins.Operands with
@@ -540,32 +582,37 @@ let transOprToExprOfCSNEG (ins: Instruction) bld addr =
     let o2 = transOprToExpr ins bld addr o2
     transOprToExpr ins bld addr o1, o2, o2, invertCond o3
   | FourOperands(o1, o2, o3, o4) -> (* CSNEG *)
-    transOprToExpr ins bld addr o1,
-    transOprToExpr ins bld addr o2,
-    transOprToExpr ins bld addr o3,
-    o4 |> unwrapCond
-  | _ -> raise InvalidOperandException
+    let o1 = transOprToExpr ins bld addr o1
+    let o2 = transOprToExpr ins bld addr o2
+    let o3 = transOprToExpr ins bld addr o3
+    o1, o2, o3, o4 |> unwrapCond
+  | _ ->
+    raise InvalidOperandException
 
 let transOprToExprOfEOR (ins: Instruction) bld addr =
   match ins.Operands with
-  | ThreeOperands _ -> transThreeOprs ins bld addr
+  | ThreeOperands _ ->
+    transThreeOprs ins bld addr
   | FourOperands(o1, o2, o3, o4) when ins.Opcode = Opcode.EOR ->
-    transOprToExpr ins bld addr o1,
-    transOprToExpr ins bld addr o2,
-    transBarrelShiftToExpr ins.OprSize bld o3 o4
+    let o1 = transOprToExpr ins bld addr o1
+    let o2 = transOprToExpr ins bld addr o2
+    o1, o2, transBarrelShiftToExpr ins.OprSize bld o3 o4
   | FourOperands(o1, o2, o3, o4) when ins.Opcode = Opcode.EON ->
-    transOprToExpr ins bld addr o1,
-    transOprToExpr ins bld addr o2,
-    transBarrelShiftToExpr ins.OprSize bld o3 o4 |> AST.not
-  | _ -> raise InvalidOperandException
+    let o1 = transOprToExpr ins bld addr o1
+    let o2 = transOprToExpr ins bld addr o2
+    o1, o2, transBarrelShiftToExpr ins.OprSize bld o3 o4 |> AST.not
+  | _ ->
+    raise InvalidOperandException
 
 let transOprToExprOfEXTR (ins: Instruction) bld addr =
   match ins.Operands with
   | ThreeOperands(o1, o2, o3) -> (* ROR *)
     let o2 = transOprToExpr ins bld addr o2
     transOprToExpr ins bld addr o1, o2, o2, transOprToExpr ins bld addr o3
-  | FourOperands _ -> transFourOprs ins bld addr
-  | _ -> raise InvalidOperandException
+  | FourOperands _ ->
+    transFourOprs ins bld addr
+  | _ ->
+    raise InvalidOperandException
 
 let getIsWBackAndIsPostIndexByAddrMode = function
   | BaseMode _ -> false, false
@@ -575,40 +622,44 @@ let getIsWBackAndIsPostIndexByAddrMode = function
 
 let getIsWBackAndIsPostIndex = function
   | TwoOperands(_, OprMemory mem) -> getIsWBackAndIsPostIndexByAddrMode mem
-  | ThreeOperands(_, _, OprMemory mem) ->
-    getIsWBackAndIsPostIndexByAddrMode mem
+  | ThreeOperands(_, _, OprMemory mem) -> getIsWBackAndIsPostIndexByAddrMode mem
   | _ -> raise InvalidOperandException
 
 let transOprToExprOfMADD (ins: Instruction) bld addr =
   match ins.Operands with
   | ThreeOperands(o1, o2, o3) -> (* MUL *)
-    transOprToExpr ins bld addr o1,
-    transOprToExpr ins bld addr o2,
-    transOprToExpr ins bld addr o3,
-    regVar bld (if ins.OprSize = 64<rt> then R.XZR else R.WZR)
-  | FourOperands _ -> transFourOprs ins bld addr
-  | _ -> raise InvalidOperandException
+    let o1 = transOprToExpr ins bld addr o1
+    let o2 = transOprToExpr ins bld addr o2
+    let o3 = transOprToExpr ins bld addr o3
+    o1, o2, o3, regVar bld (if ins.OprSize = 64<rt> then R.XZR else R.WZR)
+  | FourOperands _ ->
+    transFourOprs ins bld addr
+  | _ ->
+    raise InvalidOperandException
 
 let transOprToExprOfORN (ins: Instruction) bld addr =
   match ins.Operands with
   | ThreeOperands(o1, o2, o3) when ins.Opcode = Opcode.MVN -> (* MVN *)
-    transOprToExpr ins bld addr o1,
-    regVar bld (if ins.OprSize = 64<rt> then R.XZR else R.WZR),
-    transBarrelShiftToExpr ins.OprSize bld o2 o3
+    let o1 = transOprToExpr ins bld addr o1
+    let cond = regVar bld (if ins.OprSize = 64<rt> then R.XZR else R.WZR)
+    o1, cond, transBarrelShiftToExpr ins.OprSize bld o2 o3
   | FourOperands(o1, o2, o3, o4) when ins.Opcode = Opcode.ORN -> (* ORN *)
-    transOprToExpr ins bld addr o1,
-    transOprToExpr ins bld addr o2,
-    transBarrelShiftToExpr ins.OprSize bld o3 o4
-  | _ -> raise InvalidOperandException
+    let o1 = transOprToExpr ins bld addr o1
+    let o2 = transOprToExpr ins bld addr o2
+    o1, o2, transBarrelShiftToExpr ins.OprSize bld o3 o4
+  | _ ->
+    raise InvalidOperandException
 
 let transOprToExprOfORR (ins: Instruction) bld addr =
   match ins.Operands with
-  | ThreeOperands _ -> transThreeOprs ins bld addr
+  | ThreeOperands _ ->
+    transThreeOprs ins bld addr
   | FourOperands(o1, o2, o3, o4) ->
-    transOprToExpr ins bld addr o1,
-    transOprToExpr ins bld addr o2,
-    transBarrelShiftToExpr ins.OprSize bld o3 o4
-  | _ -> raise InvalidOperandException
+    let o1 = transOprToExpr ins bld addr o1
+    let o2 = transOprToExpr ins bld addr o2
+    o1, o2, transBarrelShiftToExpr ins.OprSize bld o3 o4
+  | _ ->
+    raise InvalidOperandException
 
 let unwrapReg e =
   match e with
@@ -618,67 +669,75 @@ let unwrapReg e =
 let transOprToExprOfSMSUBL (ins: Instruction) bld addr =
   match ins.Operands with
   | ThreeOperands(o1, o2, o3) ->
-    transOprToExpr ins bld addr o1,
-    transOprToExpr ins bld addr o2,
-    transOprToExpr ins bld addr o3,
-    regVar bld R.XZR
-  | FourOperands _ -> transFourOprs ins bld addr
-  | _ -> raise InvalidOperandException
+    let o1 = transOprToExpr ins bld addr o1
+    let o2 = transOprToExpr ins bld addr o2
+    let o3 = transOprToExpr ins bld addr o3
+    o1, o2, o3, regVar bld R.XZR
+  | FourOperands _ ->
+    transFourOprs ins bld addr
+  | _ ->
+    raise InvalidOperandException
 
 let transOprToExprOfSUB (ins: Instruction) bld addr =
   match ins.Operands with
   | ThreeOperands(o1, o2, o3)
     when ins.Opcode = Opcode.NEG ->
-    transOprToExpr ins bld addr o1,
-    regVar bld (if ins.OprSize = 64<rt> then R.XZR else R.WZR),
-    transBarrelShiftToExpr ins.OprSize bld o2 o3 |> AST.not
+    let o1 = transOprToExpr ins bld addr o1
+    let cond = regVar bld (if ins.OprSize = 64<rt> then R.XZR else R.WZR)
+    o1, cond, transBarrelShiftToExpr ins.OprSize bld o2 o3 |> AST.not
   | FourOperands(o1, o2, o3, o4) -> (* Arithmetic *)
-    transOprToExpr ins bld addr o1,
-    transOprToExpr ins bld addr o2,
-    transBarrelShiftToExpr ins.OprSize bld o3 o4 |> AST.not
-  | _ -> raise InvalidOperandException
+    let o1 = transOprToExpr ins bld addr o1
+    let o2 = transOprToExpr ins bld addr o2
+    o1, o2, transBarrelShiftToExpr ins.OprSize bld o3 o4 |> AST.not
+  | _ ->
+    raise InvalidOperandException
 
 let transOprToExprOfMSUB (ins: Instruction) bld addr =
   let oprSize = ins.OprSize
   match ins.Operands with
   | ThreeOperands(o1, o2, o3) -> (* MNEG *)
-    transOprToExpr ins bld addr o1,
-    transOprToExpr ins bld addr o2,
-    transOprToExpr ins bld addr o3,
-    regVar bld (if ins.OprSize = 64<rt> then R.XZR else R.WZR)
-  | FourOperands _ -> transFourOprs ins bld addr (* MSUB *)
-  | _ -> raise InvalidOperandException
+    let o1 = transOprToExpr ins bld addr o1
+    let o2 = transOprToExpr ins bld addr o2
+    let o3 = transOprToExpr ins bld addr o3
+    o1, o2, o3, regVar bld (if ins.OprSize = 64<rt> then R.XZR else R.WZR)
+  | FourOperands _ ->
+    transFourOprs ins bld addr (* MSUB *)
+  | _ ->
+    raise InvalidOperandException
 
 let transOprToExprOfUMADDL (ins: Instruction) bld addr =
   match ins.Operands with
   | ThreeOperands(o1, o2, o3) -> (* UMULL / UMNEGL *)
-    transOprToExpr ins bld addr o1,
-    transOprToExpr ins bld addr o2,
-    transOprToExpr ins bld addr o3,
-    regVar bld R.XZR
-  | FourOperands _ -> transFourOprs ins bld addr
-  | _ -> raise InvalidOperandException
+    let o1 = transOprToExpr ins bld addr o1
+    let o2 = transOprToExpr ins bld addr o2
+    let o3 = transOprToExpr ins bld addr o3
+    o1, o2, o3, regVar bld R.XZR
+  | FourOperands _ ->
+    transFourOprs ins bld addr
+  | _ ->
+    raise InvalidOperandException
 
 let transOprToExprOfSUBS (ins: Instruction) bld addr =
   match ins.Operands with
   | ThreeOperands(o1, o2, o3) ->
-    transOprToExpr ins bld addr o1,
-    regVar bld (if ins.OprSize = 64<rt> then R.XZR else R.WZR),
-    transBarrelShiftToExpr ins.OprSize bld o2 o3 |> AST.not
+    let o1 = transOprToExpr ins bld addr o1
+    let cond = regVar bld (if ins.OprSize = 64<rt> then R.XZR else R.WZR)
+    o1, cond, transBarrelShiftToExpr ins.OprSize bld o2 o3 |> AST.not
   | FourOperands(o1, o2, o3, o4) ->
-    transOprToExpr ins bld addr o1,
-    transOprToExpr ins bld addr o2,
-    transBarrelShiftToExpr ins.OprSize bld o3 o4 |> AST.not
-  | _ -> raise InvalidOperandException
+    let o1 = transOprToExpr ins bld addr o1
+    let o2 = transOprToExpr ins bld addr o2
+    o1, o2, transBarrelShiftToExpr ins.OprSize bld o3 o4 |> AST.not
+  | _ ->
+    raise InvalidOperandException
 
 let transOprToExprOfTST (ins: Instruction) bld addr =
   match ins.Operands with
   | TwoOperands(o1, o2) (* immediate *) ->
     transOprToExpr ins bld addr o1, transOprToExpr ins bld addr o2
   | ThreeOperands(o1, o2, o3) (* shfed *) ->
-    transOprToExpr ins bld addr o1,
-    transBarrelShiftToExpr ins.OprSize bld o2 o3
-  | _ -> raise InvalidOperandException
+    transOprToExpr ins bld addr o1, transBarrelShiftToExpr ins.OprSize bld o2 o3
+  | _ ->
+    raise InvalidOperandException
 
 type BranchType =
   | BrTypeCALL
@@ -742,9 +801,7 @@ let highestSetBitForIR expr width oprSz bld =
 
 let highestSetBit x size =
   let rec loop i =
-    if i < 0 then -1
-    elif (x >>> i) &&& 1 = 1 then i
-    else loop (i - 1)
+    if i < 0 then -1 elif (x >>> i) &&& 1 = 1 then i else loop (i - 1)
   loop (size - 1)
 
 /// shared/functions/common/Replicate
@@ -908,8 +965,8 @@ let fpRoundingMode src oprSz bld =
   let lblEnd = label bld "End"
   bld <+ (AST.cjmp rm1 (AST.jmpDest lblRMRZ) (AST.jmpDest lblRNRP))
   bld <+ (AST.lmark lblRMRZ)
-  bld <+ (res := AST.ite rm0
-                         (cast CastKind.FtoFTrunc) (cast CastKind.FtoFFloor))
+  bld <+ (res := AST.ite rm0 (cast CastKind.FtoFTrunc)
+                             (cast CastKind.FtoFFloor))
   bld <+ (AST.jmp (AST.jmpDest lblEnd))
   bld <+ (AST.lmark lblRNRP)
   bld <+ (res := AST.ite rm0 (cast CastKind.FtoFCeil) (cast CastKind.FtoFRound))
@@ -953,7 +1010,8 @@ let fpDefaultInfinity src fbit =
   | 16<rt> ->
     let signbit = src .& numU64 0x8000UL 16<rt>
     signbit .| numU64 0x7c00UL 16<rt>
-  | _ -> raise InvalidOperandException
+  | _ ->
+    raise InvalidOperandException
 
 let fpInfinity sign dataSize =
   match dataSize with
@@ -967,7 +1025,8 @@ let fpInfinity sign dataSize =
   | 16<rt> ->
     let signbit = AST.ite sign (numU64 0x8000UL 16<rt>) (AST.num0 16<rt>)
     signbit .| numU64 0x7c00UL 16<rt>
-  | _ -> raise InvalidOperandException
+  | _ ->
+    raise InvalidOperandException
 
 /// shared/functions/float/fpzero/FPZero
 /// FPZero()
@@ -993,7 +1052,8 @@ let fpMinMax src fbit =
     let max = numU64 0x7fffUL 16<rt>
     let min = numU64 0x8001UL 16<rt>
     AST.ite sign min max
-  | _ -> raise InvalidOperandException
+  | _ ->
+    raise InvalidOperandException
 
 /// shared/functions/float/fpprocessnan/FPProcessNaN
 /// FPProcessNaN()
@@ -1081,8 +1141,8 @@ let fpAdd bld dSz src1 src2 =
   bld <+ (res := fpDefaultNan dSz)
   bld <+ (AST.jmp (AST.jmpDest lblEnd))
   bld <+ (AST.lmark lblChkInf)
-  bld <+ (AST.cjmp (cond2 .| cond3)
-                   (AST.jmpDest lblInf) (AST.jmpDest lblChkZero))
+  bld <+ (AST.cjmp (cond2 .| cond3) (AST.jmpDest lblInf)
+                                    (AST.jmpDest lblChkZero))
   bld <+ (AST.lmark lblInf)
   bld <+ (res := AST.ite cond2 (fpInfinity AST.b0 dSz) (fpInfinity AST.b1 dSz))
   bld <+ (AST.jmp (AST.jmpDest lblEnd))
@@ -1126,8 +1186,8 @@ let fpSub bld dSz src1 src2 =
   bld <+ (res := fpDefaultNan dSz)
   bld <+ (AST.jmp (AST.jmpDest lblEnd))
   bld <+ (AST.lmark lblChkInf)
-  bld <+ (AST.cjmp (cond2 .| cond3)
-                   (AST.jmpDest lblInf) (AST.jmpDest lblChkZero))
+  bld <+ (AST.cjmp (cond2 .| cond3) (AST.jmpDest lblInf)
+                                    (AST.jmpDest lblChkZero))
   bld <+ (AST.lmark lblInf)
   bld <+ (res := AST.ite cond2 (fpInfinity AST.b0 dSz) (fpInfinity AST.b1 dSz))
   bld <+ (AST.jmp (AST.jmpDest lblEnd))
@@ -1242,7 +1302,8 @@ let fpToFixed dstSz src fbits unsigned round bld =
   let sign = AST.xthi 1<rt> src
   let trunc = AST.cast CastKind.FtoFTrunc srcSz src
   let convertBit =
-    if dstSz > srcSz then AST.xtlo srcSz fbits elif dstSz = srcSz then fbits
+    if dstSz > srcSz then AST.xtlo srcSz fbits
+    elif dstSz = srcSz then fbits
     else AST.zext srcSz fbits
   let mulBits =
     AST.cast CastKind.UIntToFloat srcSz (numU64 0x1UL srcSz << convertBit)
@@ -1261,8 +1322,8 @@ let fpToFixed dstSz src fbits unsigned round bld =
     bld <+ (checkNan := isNaN srcSz src)
     bld <+ (checkInf := isInfinity srcSz src)
     bld <+ (checkfbit := AST.zext srcSz fbits == AST.num0 srcSz)
-    bld <+ (AST.cjmp (checkNan .| checkInf)
-                   (AST.jmpDest lblNan) (AST.jmpDest lblCon))
+    bld <+ (AST.cjmp (checkNan .| checkInf) (AST.jmpDest lblNan)
+                                            (AST.jmpDest lblCon))
     bld <+ (AST.lmark lblNan)
     bld <+ (res := AST.ite checkNan (AST.num0 dstSz) (fpMinMax src dstSz))
     bld <+ (AST.jmp (AST.jmpDest lblEnd))
@@ -1271,7 +1332,8 @@ let fpToFixed dstSz src fbits unsigned round bld =
     bld <+ (AST.lmark lblEnd)
     res
   match round with
-  | FPRounding_TIEEVEN -> fpcheck (AST.cast CastKind.FtoIRound srcSz)
+  | FPRounding_TIEEVEN ->
+    fpcheck (AST.cast CastKind.FtoIRound srcSz)
   | FPRounding_TIEAWAY ->
     let t = tmpVar bld srcSz
     let comp1 =
@@ -1290,9 +1352,12 @@ let fpToFixed dstSz src fbits unsigned round bld =
     let pRes = AST.ite (AST.fge t comp1) ceil floor
     let nRes = AST.ite (AST.fle t comp2) floor ceil
     AST.ite sign nRes pRes
-  | FPRounding_Zero -> fpcheck (AST.cast CastKind.FtoITrunc srcSz)
-  | FPRounding_POSINF -> fpcheck (AST.cast CastKind.FtoICeil srcSz)
-  | FPRounding_NEGINF -> fpcheck (AST.cast CastKind.FtoIFloor srcSz)
+  | FPRounding_Zero ->
+    fpcheck (AST.cast CastKind.FtoITrunc srcSz)
+  | FPRounding_POSINF ->
+    fpcheck (AST.cast CastKind.FtoICeil srcSz)
+  | FPRounding_NEGINF ->
+    fpcheck (AST.cast CastKind.FtoIFloor srcSz)
 
 /// shared/functions/common/BitCount
 // BitCount()
@@ -1324,7 +1389,8 @@ let dstAssignScalar ins bld addr dst src eSize =
     let struct (dstB, dstA) = transOprToExpr128 ins bld addr reg
     dstAssign eSize dstA src bld
     bld <+ (dstB := AST.num0 64<rt>)
-  | _ -> raise InvalidOperandException
+  | _ ->
+    raise InvalidOperandException
 
 let dstAssign128 ins bld addr dst srcA srcB dataSize =
   let struct (dstB, dstA) = transOprToExpr128 ins bld addr dst

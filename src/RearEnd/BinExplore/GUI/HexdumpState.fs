@@ -117,8 +117,7 @@ module HexdumpState =
       0, 0
     else
       let rowHeight = max viewState.RowHeight 1.0
-      let startRow =
-        max 0 (int (floor (viewState.ScrollOffsetY / rowHeight)))
+      let startRow = max 0 (int (floor (viewState.ScrollOffsetY / rowHeight)))
       let endRowExclusive =
         max (startRow + 1)
           (int (ceil ((viewState.ScrollOffsetY + viewState.ViewportHeight)
@@ -137,7 +136,5 @@ module HexdumpState =
       let startOffset = int64 startRow * int64 bytesPerRow
       let endOffset =
         min (docLength - 1L) (int64 endRowExclusive * int64 bytesPerRow - 1L)
-      if startOffset < 0L || endOffset < 0L || startOffset > endOffset then
-        None
-      else
-        Some(startOffset, endOffset)
+      if startOffset < 0L || endOffset < 0L || startOffset > endOffset then None
+      else Some(startOffset, endOffset)

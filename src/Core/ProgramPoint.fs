@@ -58,8 +58,7 @@ type ProgramPoint private(addr, pos, callsite) =
   /// Returns the next program point by incrementing the position by one. If
   /// this is a fake program point, it is returned as-is.
   member this.Next() =
-    if this.IsFake then this
-    else ProgramPoint(this.Address, this.Position + 1)
+    if this.IsFake then this else ProgramPoint(this.Address, this.Position + 1)
 
   /// Compares against another program point.
   member this.CompareTo(rhs: ProgramPoint) =
@@ -74,7 +73,8 @@ type ProgramPoint private(addr, pos, callsite) =
       o.Address = this.Address
       && o.Position = this.Position
       && o.CallSite = this.CallSite
-    | _ -> false
+    | _ ->
+      false
 
   override this.GetHashCode() =
     let addrHash = int this.Address

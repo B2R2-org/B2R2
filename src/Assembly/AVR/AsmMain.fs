@@ -115,7 +115,8 @@ let private encodeInstruction (encoders: Map<_, _>) endian ins =
   match Map.tryFind ins.Mnemonic encoders with
   | Some encode ->
     let bytes = toBytes endian (encode ins)
-    if uint64 bytes.Length = sizeOf ins then bytes
+    if uint64 bytes.Length = sizeOf ins then
+      bytes
     else
       raise
       <| EncodingFailureException $"{ins.Mnemonic} came out the wrong width"

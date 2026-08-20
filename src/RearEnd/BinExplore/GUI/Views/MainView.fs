@@ -56,11 +56,9 @@ let private menuIconView iconSource model =
     Image.stretch Stretch.Uniform
   ]
 
-let private cfgMenuIconView model =
-  menuIconView IconAssets.cfgIcon model
+let private cfgMenuIconView model = menuIconView IconAssets.cfgIcon model
 
-let private sectionMenuIconView model =
-  menuIconView IconAssets.listIcon model
+let private sectionMenuIconView model = menuIconView IconAssets.listIcon model
 
 let private functionNavButtonView model dispatch =
   navButton
@@ -116,8 +114,7 @@ let private leftPanelView model dispatch =
   | FunctionPanel -> FunctionList.view model dispatch :> IView
   | SectionPanel -> SectionList.view model dispatch
 
-let private isFocusedPane model paneID =
-  model.FocusedPaneID = Some paneID
+let private isFocusedPane model paneID = model.FocusedPaneID = Some paneID
 
 let private onContentSizeChanged paneID dispatch (e: SizeChangedEventArgs) =
   let w, h = e.NewSize.Width, e.NewSize.Height

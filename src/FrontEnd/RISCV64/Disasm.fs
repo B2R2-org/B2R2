@@ -300,14 +300,16 @@ let oprToString (ins: Instruction) opr delim (builder: IDisasmBuilder) =
     if rm <> RoundMode.DYN then
       builder.Accumulate(AsmWordKind.String, delim)
       builder.Accumulate(AsmWordKind.String, roundModeToString rm)
-    else ()
+    else
+      ()
   | OpCSR(csr) ->
     builder.Accumulate(AsmWordKind.String, delim)
     builder.Accumulate(AsmWordKind.Value, HexString.ofUInt16 csr)
 
 let buildOprs (ins: Instruction) builder =
   match ins.Operands with
-  | NoOperand -> ()
+  | NoOperand ->
+    ()
   | OneOperand opr ->
     oprToString ins opr " " builder
   | TwoOperands(opr1, opr2) ->

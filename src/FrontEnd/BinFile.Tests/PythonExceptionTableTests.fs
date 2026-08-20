@@ -49,10 +49,7 @@ type PythonExceptionTableTests() =
   static let pycOf version =
     let co = Builder.codeOf (Array.zeroCreate codeLength)
     let co =
-      if int version >= 311 then
-        { co with ExceptionTable = tableBytes }
-      else
-        co
+      if int version >= 311 then { co with ExceptionTable = tableBytes } else co
     Builder.build version (Builder.magicOf version) co
 
   static let file = PythonBinFile("", pycOf PythonVersion.Python312, None)
@@ -74,7 +71,8 @@ type PythonExceptionTableTests() =
      Its `f` is the one function with guarded ranges; the module around it
      has none. See Python/README.md for the source it was compiled from. *)
   static let realBytes =
-    ZIPReader.readBytes PythonBinary "python_exception.zip"
+    ZIPReader.readBytes PythonBinary
+                        "python_exception.zip"
                         "python_exception.pyc"
 
   static let realFile = PythonBinFile("", realBytes, None)

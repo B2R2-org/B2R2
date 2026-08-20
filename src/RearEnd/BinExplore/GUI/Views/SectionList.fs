@@ -68,8 +68,7 @@ let private emptyStateView model =
     TextBlock.fontSize model.Theme.Font.Scale.Normal
   ]
 
-let private sectionAddressText (section: SectionItem) =
-  $"0x{section.Address:X}"
+let private sectionAddressText (section: SectionItem) = $"0x{section.Address:X}"
 
 let private sectionItemHeaderText model (section: SectionItem) =
   Grid.create [
@@ -192,8 +191,7 @@ let private sectionItemView (model: Model) (section: SectionItem) =
           ]
         ]
       )
-    ]
-  )
+    ])
 
 let private listBodyView model =
   ScrollViewer.create [

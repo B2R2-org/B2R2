@@ -233,8 +233,7 @@ let getSimm13 b = (extract b 12u 0u) <<< 19 |> int32 >>> 19 |> OprImm
 
 let getSimm13Zero b =
   let checkSimm13 = (extract b 12u 0u) <<< 19 |> int32 >>> 19
-  if checkSimm13 = 0 then getReg b 12u 0u |> OprReg
-  else checkSimm13 |> OprImm
+  if checkSimm13 = 0 then getReg b 12u 0u |> OprReg else checkSimm13 |> OprImm
 
 let getSimm11 b = (extract b 10u 0u) <<< 21 |> int32 >>> 21 |> OprImm
 
@@ -385,337 +384,223 @@ let priregWRPR b32 = getPriReg b32 29u 25u
 let parseFP b32 =
   match extract b32 13u 5u with
   | 0b001000001u ->
-    struct (
-      Opcode.FADDs,
-      parseThrOpr b32 getFloatRegRs1 getFloatRegRs2 getFloatRegRd
-    )
+    let opr = parseThrOpr b32 getFloatRegRs1 getFloatRegRs2 getFloatRegRd
+    struct (Opcode.FADDs, opr)
   | 0b001000010u ->
-    struct (
-      Opcode.FADDd,
-      parseThrOpr b32 getDPFloatRegRs1 getDPFloatRegRs2 getDPFloatRegRd
-    )
+    let opr = parseThrOpr b32 getDPFloatRegRs1 getDPFloatRegRs2 getDPFloatRegRd
+    struct (Opcode.FADDd, opr)
   | 0b001000011u ->
-    struct (
-      Opcode.FADDq,
-      parseThrOpr b32 getQPFloatRegRs1 getQPFloatRegRs2 getQPFloatRegRd
-    )
+    let opr = parseThrOpr b32 getQPFloatRegRs1 getQPFloatRegRs2 getQPFloatRegRd
+    struct (Opcode.FADDq, opr)
   | 0b001000101u ->
-    struct (
-      Opcode.FSUBs,
-      parseThrOpr b32 getFloatRegRs1 getFloatRegRs2 getFloatRegRd
-    )
+    let opr = parseThrOpr b32 getFloatRegRs1 getFloatRegRs2 getFloatRegRd
+    struct (Opcode.FSUBs, opr)
   | 0b001000110u ->
-    struct (
-      Opcode.FSUBd,
-      parseThrOpr b32 getDPFloatRegRs1 getDPFloatRegRs2 getDPFloatRegRd
-    )
+    let opr = parseThrOpr b32 getDPFloatRegRs1 getDPFloatRegRs2 getDPFloatRegRd
+    struct (Opcode.FSUBd, opr)
   | 0b001000111u ->
-    struct (
-      Opcode.FSUBq,
-      parseThrOpr b32 getQPFloatRegRs1 getQPFloatRegRs2 getQPFloatRegRd
-    )
+    let opr = parseThrOpr b32 getQPFloatRegRs1 getQPFloatRegRs2 getQPFloatRegRd
+    struct (Opcode.FSUBq, opr)
   | 0b010000001u ->
-    struct (
-      Opcode.FsTOx,
-      parseTwoOpr b32 getFloatRegRs2 getDPFloatRegRd
-    )
+    let opr = parseTwoOpr b32 getFloatRegRs2 getDPFloatRegRd
+    struct (Opcode.FsTOx, opr)
   | 0b010000010u ->
-    struct (
-      Opcode.FdTOx,
-      parseTwoOpr b32 getDPFloatRegRs2 getDPFloatRegRd
-    )
+    let opr = parseTwoOpr b32 getDPFloatRegRs2 getDPFloatRegRd
+    struct (Opcode.FdTOx, opr)
   | 0b010000011u ->
-    struct (
-      Opcode.FqTOx,
-      parseTwoOpr b32 getQPFloatRegRs2 getDPFloatRegRd
-    )
+    let opr = parseTwoOpr b32 getQPFloatRegRs2 getDPFloatRegRd
+    struct (Opcode.FqTOx, opr)
   | 0b011010001u ->
-    struct (
-      Opcode.FsTOi,
-      parseTwoOpr b32 getFloatRegRs2 getFloatRegRd
-    )
+    let opr = parseTwoOpr b32 getFloatRegRs2 getFloatRegRd
+    struct (Opcode.FsTOi, opr)
   | 0b011010010u ->
-    struct (
-      Opcode.FdTOi,
-      parseTwoOpr b32 getDPFloatRegRs2 getFloatRegRd
-    )
+    let opr = parseTwoOpr b32 getDPFloatRegRs2 getFloatRegRd
+    struct (Opcode.FdTOi, opr)
   | 0b011010011u ->
-    struct (
-      Opcode.FqTOi,
-      parseTwoOpr b32 getFloatRegRs2 getFloatRegRd
-    )
+    let opr = parseTwoOpr b32 getFloatRegRs2 getFloatRegRd
+    struct (Opcode.FqTOi, opr)
   | 0b011001001u ->
-    struct (
-      Opcode.FsTOd,
-      parseTwoOpr b32 getFloatRegRs2 getDPFloatRegRd
-    )
+    let opr = parseTwoOpr b32 getFloatRegRs2 getDPFloatRegRd
+    struct (Opcode.FsTOd, opr)
   | 0b011001101u ->
-    struct (
-      Opcode.FsTOq,
-      parseTwoOpr b32 getFloatRegRs2 getQPFloatRegRd
-    )
+    let opr = parseTwoOpr b32 getFloatRegRs2 getQPFloatRegRd
+    struct (Opcode.FsTOq, opr)
   | 0b011000110u ->
-    struct (
-      Opcode.FdTOs,
-      parseTwoOpr b32 getDPFloatRegRs2 getFloatRegRd
-    )
+    let opr = parseTwoOpr b32 getDPFloatRegRs2 getFloatRegRd
+    struct (Opcode.FdTOs, opr)
   | 0b011001110u ->
-    struct (
-      Opcode.FdTOq,
-      parseTwoOpr b32 getDPFloatRegRs2 getQPFloatRegRd
-    )
+    let opr = parseTwoOpr b32 getDPFloatRegRs2 getQPFloatRegRd
+    struct (Opcode.FdTOq, opr)
   | 0b011000111u ->
-    struct (
-      Opcode.FqTOs,
-      parseTwoOpr b32 getQPFloatRegRs2 getFloatRegRd
-    )
+    let opr = parseTwoOpr b32 getQPFloatRegRs2 getFloatRegRd
+    struct (Opcode.FqTOs, opr)
   | 0b011001011u ->
-    struct (
-      Opcode.FqTOd,
-      parseTwoOpr b32 getQPFloatRegRs2 getDPFloatRegRd
-    )
+    let opr = parseTwoOpr b32 getQPFloatRegRs2 getDPFloatRegRd
+    struct (Opcode.FqTOd, opr)
   | 0b010000100u ->
-    struct (
-      Opcode.FxTOs,
-      parseTwoOpr b32 getDPFloatRegRs2 getFloatRegRd
-    )
+    let opr = parseTwoOpr b32 getDPFloatRegRs2 getFloatRegRd
+    struct (Opcode.FxTOs, opr)
   | 0b010001000u ->
-    struct (
-      Opcode.FxTOd,
-      parseTwoOpr b32 getDPFloatRegRs2 getDPFloatRegRd
-    )
+    let opr = parseTwoOpr b32 getDPFloatRegRs2 getDPFloatRegRd
+    struct (Opcode.FxTOd, opr)
   | 0b010001100u ->
-    struct (
-      Opcode.FxTOq,
-      parseTwoOpr b32 getDPFloatRegRs2 getQPFloatRegRd
-    )
+    let opr = parseTwoOpr b32 getDPFloatRegRs2 getQPFloatRegRd
+    struct (Opcode.FxTOq, opr)
   | 0b011000100u ->
-    struct (
-      Opcode.FiTOs,
-      parseTwoOpr b32 getFloatRegRs2 getFloatRegRd
-    )
+    let opr = parseTwoOpr b32 getFloatRegRs2 getFloatRegRd
+    struct (Opcode.FiTOs, opr)
   | 0b011001000u ->
-    struct (
-      Opcode.FiTOd,
-      parseTwoOpr b32 getFloatRegRs2 getDPFloatRegRd
-    )
+    let opr = parseTwoOpr b32 getFloatRegRs2 getDPFloatRegRd
+    struct (Opcode.FiTOd, opr)
   | 0b011001100u ->
-    struct (
-      Opcode.FiTOq,
-      parseTwoOpr b32 getFloatRegRs2 getQPFloatRegRd
-    )
+    let opr = parseTwoOpr b32 getFloatRegRs2 getQPFloatRegRd
+    struct (Opcode.FiTOq, opr)
   | 0b000000001u ->
-    struct (
-      Opcode.FMOVs,
-      parseTwoOpr b32 getFloatRegRs2 getFloatRegRd
-    )
+    let opr = parseTwoOpr b32 getFloatRegRs2 getFloatRegRd
+    struct (Opcode.FMOVs, opr)
   | 0b000000010u ->
-    struct (
-      Opcode.FMOVd,
-      parseTwoOpr b32 getDPFloatRegRs2 getDPFloatRegRd
-    )
+    let opr = parseTwoOpr b32 getDPFloatRegRs2 getDPFloatRegRd
+    struct (Opcode.FMOVd, opr)
   | 0b000000011u ->
-    struct (
-      Opcode.FMOVq,
-      parseTwoOpr b32 getQPFloatRegRs2 getQPFloatRegRd
-    )
+    let opr = parseTwoOpr b32 getQPFloatRegRs2 getQPFloatRegRd
+    struct (Opcode.FMOVq, opr)
   | 0b000000101u ->
-    struct (
-      Opcode.FNEGs,
-      parseTwoOpr b32 getFloatRegRs2 getFloatRegRd
-    )
+    let opr = parseTwoOpr b32 getFloatRegRs2 getFloatRegRd
+    struct (Opcode.FNEGs, opr)
   | 0b000000110u ->
-    struct (
-      Opcode.FNEGd,
-      parseTwoOpr b32 getDPFloatRegRs2 getDPFloatRegRd
-    )
+    let opr = parseTwoOpr b32 getDPFloatRegRs2 getDPFloatRegRd
+    struct (Opcode.FNEGd, opr)
   | 0b000000111u ->
-    struct (
-      Opcode.FNEGq,
-      parseTwoOpr b32 getQPFloatRegRs2 getQPFloatRegRd
-    )
+    let opr = parseTwoOpr b32 getQPFloatRegRs2 getQPFloatRegRd
+    struct (Opcode.FNEGq, opr)
   | 0b000001001u ->
-    struct (
-      Opcode.FABSs,
-      parseTwoOpr b32 getFloatRegRs2 getFloatRegRd
-    )
+    let opr = parseTwoOpr b32 getFloatRegRs2 getFloatRegRd
+    struct (Opcode.FABSs, opr)
   | 0b000001010u ->
-    struct (
-      Opcode.FABSd,
-      parseTwoOpr b32 getDPFloatRegRs2 getDPFloatRegRd
-    )
+    let opr = parseTwoOpr b32 getDPFloatRegRs2 getDPFloatRegRd
+    struct (Opcode.FABSd, opr)
   | 0b000001011u ->
-    struct (
-      Opcode.FABSq,
-      parseTwoOpr b32 getQPFloatRegRs2 getQPFloatRegRd
-    )
+    let opr = parseTwoOpr b32 getQPFloatRegRs2 getQPFloatRegRd
+    struct (Opcode.FABSq, opr)
   | 0b001001001u ->
-    struct (
-      Opcode.FMULs,
-      parseThrOpr b32 getFloatRegRs1 getFloatRegRs2 getFloatRegRd
-    )
+    let opr = parseThrOpr b32 getFloatRegRs1 getFloatRegRs2 getFloatRegRd
+    struct (Opcode.FMULs, opr)
   | 0b001001010u ->
-    struct (
-      Opcode.FMULd,
-      parseThrOpr b32 getDPFloatRegRs1 getDPFloatRegRs2 getDPFloatRegRd
-    )
+    let opr = parseThrOpr b32 getDPFloatRegRs1 getDPFloatRegRs2 getDPFloatRegRd
+    struct (Opcode.FMULd, opr)
   | 0b001001011u ->
-    struct (
-      Opcode.FMULq,
-      parseThrOpr b32 getQPFloatRegRs1 getQPFloatRegRs2 getQPFloatRegRd
-    )
+    let opr = parseThrOpr b32 getQPFloatRegRs1 getQPFloatRegRs2 getQPFloatRegRd
+    struct (Opcode.FMULq, opr)
   | 0b001101001u ->
-    struct (
-      Opcode.FsMULd,
-      parseThrOpr b32 getFloatRegRs1 getFloatRegRs2 getDPFloatRegRd
-    )
+    let opr = parseThrOpr b32 getFloatRegRs1 getFloatRegRs2 getDPFloatRegRd
+    struct (Opcode.FsMULd, opr)
   | 0b001101110u ->
-    struct (
-      Opcode.FdMULq,
-      parseThrOpr b32 getDPFloatRegRs1 getDPFloatRegRs2 getQPFloatRegRd
-    )
+    let opr = parseThrOpr b32 getDPFloatRegRs1 getDPFloatRegRs2 getQPFloatRegRd
+    struct (Opcode.FdMULq, opr)
   | 0b001001101u ->
-    struct (
-      Opcode.FDIVs,
-      parseThrOpr b32 getFloatRegRs1 getFloatRegRs2 getFloatRegRd
-    )
+    let opr = parseThrOpr b32 getFloatRegRs1 getFloatRegRs2 getFloatRegRd
+    struct (Opcode.FDIVs, opr)
   | 0b001001110u ->
-    struct (
-      Opcode.FDIVd,
-      parseThrOpr b32 getDPFloatRegRs1 getDPFloatRegRs2 getDPFloatRegRd
-    )
+    let opr = parseThrOpr b32 getDPFloatRegRs1 getDPFloatRegRs2 getDPFloatRegRd
+    struct (Opcode.FDIVd, opr)
   | 0b001001111u ->
-    struct (
-      Opcode.FDIVq,
-      parseThrOpr b32 getQPFloatRegRs1 getQPFloatRegRs2 getQPFloatRegRd
-    )
+    let opr = parseThrOpr b32 getQPFloatRegRs1 getQPFloatRegRs2 getQPFloatRegRd
+    struct (Opcode.FDIVq, opr)
   | 0b000101001u ->
-    struct (
-      Opcode.FSQRTs,
-      parseTwoOpr b32 getFloatRegRs2 getFloatRegRd
-    )
+    let opr = parseTwoOpr b32 getFloatRegRs2 getFloatRegRd
+    struct (Opcode.FSQRTs, opr)
   | 0b000101010u ->
-    struct (
-      Opcode.FSQRTd,
-      parseTwoOpr b32 getFloatRegRs2 getFloatRegRd
-    )
+    let opr = parseTwoOpr b32 getFloatRegRs2 getFloatRegRd
+    struct (Opcode.FSQRTd, opr)
   | 0b000101011u ->
-    struct (
-      Opcode.FSQRTq,
-      parseTwoOpr b32 getQPFloatRegRs2 getQPFloatRegRd
-    )
-  | _ -> raise ParsingFailureException
+    let opr = parseTwoOpr b32 getQPFloatRegRs2 getQPFloatRegRd
+    struct (Opcode.FSQRTq, opr)
+  | _ ->
+    raise ParsingFailureException
 
 let parse110101fmovr b32 =
   match extract b32 12u 10u with
   | 0b001u ->
     match extract b32 9u 5u with
     | 0b00101u ->
-      struct (
-        Opcode.FMOVRsZ,
-        parseThrOpr b32 getRegRs1 getFloatRegRs2 getFloatRegRd
-      )
+      let opr = parseThrOpr b32 getRegRs1 getFloatRegRs2 getFloatRegRd
+      struct (Opcode.FMOVRsZ, opr)
     | 0b00110u ->
-      struct (
-        Opcode.FMOVRdZ,
-        parseThrOpr b32 getRegRs1 getDPFloatRegRs2 getDPFloatRegRd
-      )
+      let opr = parseThrOpr b32 getRegRs1 getDPFloatRegRs2 getDPFloatRegRd
+      struct (Opcode.FMOVRdZ, opr)
     | 0b00111u ->
-      struct (
-        Opcode.FMOVRqZ,
-        parseThrOpr b32 getRegRs1 getQPFloatRegRs2 getQPFloatRegRd
-      )
-    | _ -> raise ParsingFailureException
+      let opr = parseThrOpr b32 getRegRs1 getQPFloatRegRs2 getQPFloatRegRd
+      struct (Opcode.FMOVRqZ, opr)
+    | _ ->
+      raise ParsingFailureException
   | 0b010u ->
     match extract b32 9u 5u with
     | 0b00101u ->
-      struct (
-        Opcode.FMOVRsLEZ,
-        parseThrOpr b32 getRegRs1 getFloatRegRs2 getFloatRegRd
-      )
+      let opr = parseThrOpr b32 getRegRs1 getFloatRegRs2 getFloatRegRd
+      struct (Opcode.FMOVRsLEZ, opr)
     | 0b00110u ->
-      struct (Opcode.FMOVRdLEZ,
-      parseThrOpr b32 getRegRs1 getDPFloatRegRs2 getDPFloatRegRd
-      )
+      let parseThrOpr =
+        parseThrOpr b32 getRegRs1 getDPFloatRegRs2 getDPFloatRegRd
+      struct (Opcode.FMOVRdLEZ, parseThrOpr)
     | 0b00111u ->
-      struct (
-        Opcode.FMOVRqLEZ,
-        parseThrOpr b32 getRegRs1 getQPFloatRegRs2 getQPFloatRegRd
-      )
-    | _ -> raise ParsingFailureException
+      let opr = parseThrOpr b32 getRegRs1 getQPFloatRegRs2 getQPFloatRegRd
+      struct (Opcode.FMOVRqLEZ, opr)
+    | _ ->
+      raise ParsingFailureException
   | 0b011u ->
     match extract b32 9u 5u with
     | 0b00101u ->
-      struct (
-        Opcode.FMOVRsLZ,
-        parseThrOpr b32 getRegRs1 getFloatRegRs2 getFloatRegRd
-      )
+      let opr = parseThrOpr b32 getRegRs1 getFloatRegRs2 getFloatRegRd
+      struct (Opcode.FMOVRsLZ, opr)
     | 0b00110u ->
-      struct (
-        Opcode.FMOVRdLZ,
-        parseThrOpr b32 getRegRs1 getDPFloatRegRs2 getDPFloatRegRd
-      )
+      let opr = parseThrOpr b32 getRegRs1 getDPFloatRegRs2 getDPFloatRegRd
+      struct (Opcode.FMOVRdLZ, opr)
     | 0b00111u ->
-      struct (
-        Opcode.FMOVRqLZ,
-        parseThrOpr b32 getRegRs1 getQPFloatRegRs2 getQPFloatRegRd
-      )
-    | _ -> raise ParsingFailureException
+      let opr = parseThrOpr b32 getRegRs1 getQPFloatRegRs2 getQPFloatRegRd
+      struct (Opcode.FMOVRqLZ, opr)
+    | _ ->
+      raise ParsingFailureException
   | 0b101u ->
     match extract b32 9u 5u with
     | 0b00101u ->
-      struct (
-        Opcode.FMOVRsNZ,
-        parseThrOpr b32 getRegRs1 getFloatRegRs2 getFloatRegRd
-      )
+      let opr = parseThrOpr b32 getRegRs1 getFloatRegRs2 getFloatRegRd
+      struct (Opcode.FMOVRsNZ, opr)
     | 0b00110u ->
-      struct (
-        Opcode.FMOVRdNZ,
-        parseThrOpr b32 getRegRs1 getDPFloatRegRs2 getDPFloatRegRd
-      )
+      let opr = parseThrOpr b32 getRegRs1 getDPFloatRegRs2 getDPFloatRegRd
+      struct (Opcode.FMOVRdNZ, opr)
     | 0b00111u ->
-      struct (
-        Opcode.FMOVRqNZ,
-        parseThrOpr b32 getRegRs1 getQPFloatRegRs2 getQPFloatRegRd
-      )
-    | _ -> raise ParsingFailureException
+      let opr = parseThrOpr b32 getRegRs1 getQPFloatRegRs2 getQPFloatRegRd
+      struct (Opcode.FMOVRqNZ, opr)
+    | _ ->
+      raise ParsingFailureException
   | 0b110u ->
     match extract b32 9u 5u with
     | 0b00101u ->
-      struct (
-        Opcode.FMOVRsGZ,
-        parseThrOpr b32 getRegRs1 getFloatRegRs2 getFloatRegRd
-      )
+      let opr = parseThrOpr b32 getRegRs1 getFloatRegRs2 getFloatRegRd
+      struct (Opcode.FMOVRsGZ, opr)
     | 0b00110u ->
-      struct (
-        Opcode.FMOVRdGZ,
-        parseThrOpr b32 getRegRs1 getDPFloatRegRs2 getDPFloatRegRd
-      )
+      let opr = parseThrOpr b32 getRegRs1 getDPFloatRegRs2 getDPFloatRegRd
+      struct (Opcode.FMOVRdGZ, opr)
     | 0b00111u ->
-      struct (
-        Opcode.FMOVRqGZ,
-        parseThrOpr b32 getRegRs1 getQPFloatRegRs2 getQPFloatRegRd
-      )
-    | _ -> raise ParsingFailureException
+      let opr = parseThrOpr b32 getRegRs1 getQPFloatRegRs2 getQPFloatRegRd
+      struct (Opcode.FMOVRqGZ, opr)
+    | _ ->
+      raise ParsingFailureException
   | 0b111u ->
     match extract b32 9u 5u with
     | 0b00101u ->
-      struct (
-        Opcode.FMOVRsGEZ,
-        parseThrOpr b32 getRegRs1 getFloatRegRs2 getFloatRegRd
-      )
+      let opr = parseThrOpr b32 getRegRs1 getFloatRegRs2 getFloatRegRd
+      struct (Opcode.FMOVRsGEZ, opr)
     | 0b00110u ->
-      struct (
-        Opcode.FMOVRdGEZ,
-        parseThrOpr b32 getRegRs1 getDPFloatRegRs2 getDPFloatRegRd
-      )
+      let opr = parseThrOpr b32 getRegRs1 getDPFloatRegRs2 getDPFloatRegRd
+      struct (Opcode.FMOVRdGEZ, opr)
     | 0b00111u ->
-      struct (
-        Opcode.FMOVRqGEZ,
-        parseThrOpr b32 getRegRs1 getQPFloatRegRs2 getQPFloatRegRd
-      )
-    | _ -> raise ParsingFailureException
-  | _ -> raise ParsingFailureException
+      let opr = parseThrOpr b32 getRegRs1 getQPFloatRegRs2 getQPFloatRegRd
+      struct (Opcode.FMOVRqGEZ, opr)
+    | _ ->
+      raise ParsingFailureException
+  | _ ->
+    raise ParsingFailureException
 
 (*
   10r_ __d1 1010 10--
@@ -729,807 +614,842 @@ let parse110101 b32 =
       // struct (Opcode.FMOVA, parseThrOpr b32 getOpFCC getFloatRegRs2 getRegRd)
       match extract b32 10u 5u with
       | 0b000001u ->
-        struct (
-          Opcode.FMOVsA,
+        let opr =
           parseOneCCTwoOpr b32
             (getThrCC (get13cc2 b32) (get12cc1 b32) (get11cc0 b32))
-            getFloatRegRs2 getFloatRegRd
-        )
+            getFloatRegRs2
+            getFloatRegRd
+        struct (Opcode.FMOVsA, opr)
       | 0b000010u ->
-        struct (
-          Opcode.FMOVdA,
+        let opr =
           parseOneCCTwoOpr b32
             (getThrCC (get13cc2 b32) (get12cc1 b32) (get11cc0 b32))
-            getDPFloatRegRs2 getDPFloatRegRd
-        )
+            getDPFloatRegRs2
+            getDPFloatRegRd
+        struct (Opcode.FMOVdA, opr)
       | 0b000011u ->
-        struct (
-          Opcode.FMOVqA,
+        let opr =
           parseOneCCTwoOpr b32
             (getThrCC (get13cc2 b32) (get12cc1 b32) (get11cc0 b32))
-            getQPFloatRegRs2 getQPFloatRegRd
-        )
-      | _ -> parse110101fmovr b32
+            getQPFloatRegRs2
+            getQPFloatRegRd
+        struct (Opcode.FMOVqA, opr)
+      | _ ->
+        parse110101fmovr b32
     | 0b0000u ->
       // struct (Opcode.FMOVN, parseThrOpr b32 getOpFCC getRegRs2 getRegRd)
       match extract b32 10u 5u with
       | 0b000001u ->
-        struct (
-          Opcode.FMOVsN,
+        let opr =
           parseOneCCTwoOpr b32
             (getThrCC (get13cc2 b32) (get12cc1 b32) (get11cc0 b32))
-            getFloatRegRs2 getFloatRegRd
-        )
+            getFloatRegRs2
+            getFloatRegRd
+        struct (Opcode.FMOVsN, opr)
       | 0b000010u ->
-        struct (
-          Opcode.FMOVdN,
+        let opr =
           parseOneCCTwoOpr b32
             (getThrCC (get13cc2 b32) (get12cc1 b32) (get11cc0 b32))
-            getDPFloatRegRs2 getDPFloatRegRd
-        )
+            getDPFloatRegRs2
+            getDPFloatRegRd
+        struct (Opcode.FMOVdN, opr)
       | 0b000011u ->
-        struct (
-          Opcode.FMOVqN,
+        let opr =
           parseOneCCTwoOpr b32
             (getThrCC (get13cc2 b32) (get12cc1 b32) (get11cc0 b32))
-            getQPFloatRegRs2 getQPFloatRegRd
-        )
-      | _ -> parse110101fmovr b32
+            getQPFloatRegRs2
+            getQPFloatRegRd
+        struct (Opcode.FMOVqN, opr)
+      | _ ->
+        parse110101fmovr b32
     | 0b1001u ->
       // struct (Opcode.FMOVNE, parseThrOpr b32 getOpFCC getRegRs2 getRegRd)
       match extract b32 10u 5u with
       | 0b000001u ->
-        struct (
-          Opcode.FMOVsNE,
+        let opr =
           parseOneCCTwoOpr b32
             (getThrCC (get13cc2 b32) (get12cc1 b32) (get11cc0 b32))
-            getFloatRegRs2 getFloatRegRd
-        )
+            getFloatRegRs2
+            getFloatRegRd
+        struct (Opcode.FMOVsNE, opr)
       | 0b000010u ->
-        struct (
-          Opcode.FMOVdNE,
+        let opr =
           parseOneCCTwoOpr b32
             (getThrCC (get13cc2 b32) (get12cc1 b32) (get11cc0 b32))
-            getDPFloatRegRs2 getDPFloatRegRd
-        )
+            getDPFloatRegRs2
+            getDPFloatRegRd
+        struct (Opcode.FMOVdNE, opr)
       | 0b000011u ->
-        struct (
-          Opcode.FMOVqNE,
+        let opr =
           parseOneCCTwoOpr b32
             (getThrCC (get13cc2 b32) (get12cc1 b32) (get11cc0 b32))
-            getQPFloatRegRs2 getQPFloatRegRd
-        )
-      | _ -> parse110101fmovr b32
+            getQPFloatRegRs2
+            getQPFloatRegRd
+        struct (Opcode.FMOVqNE, opr)
+      | _ ->
+        parse110101fmovr b32
     | 0b0001u ->
       // struct (Opcode.FMOVE, parseThrOpr b32 getOpFCC getRegRs2 getRegRd)
       match extract b32 10u 5u with
       | 0b000001u ->
-        struct (
-          Opcode.FMOVsE,
+        let opr =
           parseOneCCTwoOpr b32
             (getThrCC (get13cc2 b32) (get12cc1 b32) (get11cc0 b32))
-            getFloatRegRs2 getFloatRegRd
-        )
+            getFloatRegRs2
+            getFloatRegRd
+        struct (Opcode.FMOVsE, opr)
       | 0b000010u ->
-        struct (
-          Opcode.FMOVdE,
+        let opr =
           parseOneCCTwoOpr b32
             (getThrCC (get13cc2 b32) (get12cc1 b32) (get11cc0 b32))
-            getDPFloatRegRs2 getDPFloatRegRd
-        )
+            getDPFloatRegRs2
+            getDPFloatRegRd
+        struct (Opcode.FMOVdE, opr)
       | 0b000011u ->
-        struct (
-          Opcode.FMOVqE,
+        let opr =
           parseOneCCTwoOpr b32
             (getThrCC (get13cc2 b32) (get12cc1 b32) (get11cc0 b32))
-            getQPFloatRegRs2 getQPFloatRegRd
-        )
-      | _ -> parse110101fmovr b32
+            getQPFloatRegRs2
+            getQPFloatRegRd
+        struct (Opcode.FMOVqE, opr)
+      | _ ->
+        parse110101fmovr b32
     | 0b1010u ->
       // struct (Opcode.FMOVG, parseThrOpr b32 getOpFCC getRegRs2 getRegRd)
       match extract b32 10u 5u with
       | 0b000001u ->
-        struct (
-          Opcode.FMOVsG,
+        let opr =
           parseOneCCTwoOpr b32
             (getThrCC (get13cc2 b32) (get12cc1 b32) (get11cc0 b32))
-            getFloatRegRs2 getFloatRegRd
-        )
+            getFloatRegRs2
+            getFloatRegRd
+        struct (Opcode.FMOVsG, opr)
       | 0b000010u ->
-        struct (
-          Opcode.FMOVdG,
+        let opr =
           parseOneCCTwoOpr b32
             (getThrCC (get13cc2 b32) (get12cc1 b32) (get11cc0 b32))
-            getDPFloatRegRs2 getDPFloatRegRd
-        )
+            getDPFloatRegRs2
+            getDPFloatRegRd
+        struct (Opcode.FMOVdG, opr)
       | 0b000011u ->
-        struct (
-          Opcode.FMOVqG,
+        let opr =
           parseOneCCTwoOpr b32
             (getThrCC (get13cc2 b32) (get12cc1 b32) (get11cc0 b32))
-            getQPFloatRegRs2 getQPFloatRegRd
-        )
-      | _ -> parse110101fmovr b32
+            getQPFloatRegRs2
+            getQPFloatRegRd
+        struct (Opcode.FMOVqG, opr)
+      | _ ->
+        parse110101fmovr b32
     | 0b0010u ->
       // struct (Opcode.FMOVLE, parseThrOpr b32 getOpFCC getRegRs2 getRegRd)
       match extract b32 10u 5u with
       | 0b000001u ->
-        struct (
-          Opcode.FMOVsLE,
-          parseOneCCTwoOpr b32
-           (getThrCC (get13cc2 b32) (get12cc1 b32) (get11cc0 b32))
-              getFloatRegRs2 getFloatRegRd
-        )
-      | 0b000010u ->
-        struct (
-          Opcode.FMOVdLE,
-          parseOneCCTwoOpr b32
-              (getThrCC (get13cc2 b32) (get12cc1 b32) (get11cc0 b32))
-              getDPFloatRegRs2 getDPFloatRegRd
-        )
-      | 0b000011u ->
-        struct (
-          Opcode.FMOVqLE,
+        let opr =
           parseOneCCTwoOpr b32
             (getThrCC (get13cc2 b32) (get12cc1 b32) (get11cc0 b32))
-            getQPFloatRegRs2 getQPFloatRegRd
-        )
-      | _ -> parse110101fmovr b32
+            getFloatRegRs2
+            getFloatRegRd
+        struct (Opcode.FMOVsLE, opr)
+      | 0b000010u ->
+        let opr =
+          parseOneCCTwoOpr b32
+            (getThrCC (get13cc2 b32) (get12cc1 b32) (get11cc0 b32))
+            getDPFloatRegRs2
+            getDPFloatRegRd
+        struct (Opcode.FMOVdLE, opr)
+      | 0b000011u ->
+        let opr =
+          parseOneCCTwoOpr b32
+            (getThrCC (get13cc2 b32) (get12cc1 b32) (get11cc0 b32))
+            getQPFloatRegRs2
+            getQPFloatRegRd
+        struct (Opcode.FMOVqLE, opr)
+      | _ ->
+        parse110101fmovr b32
     | 0b1011u ->
       // struct (Opcode.FMOVGE, parseThrOpr b32 getOpFCC getRegRs2 getRegRd)
       match extract b32 10u 5u with
       | 0b000001u ->
-        struct (
-          Opcode.FMOVsGE,
+        let opr =
           parseOneCCTwoOpr b32
             (getThrCC (get13cc2 b32) (get12cc1 b32) (get11cc0 b32))
-            getFloatRegRs2 getFloatRegRd
-        )
+            getFloatRegRs2
+            getFloatRegRd
+        struct (Opcode.FMOVsGE, opr)
       | 0b000010u ->
-        struct (
-          Opcode.FMOVdGE,
+        let opr =
           parseOneCCTwoOpr b32
             (getThrCC (get13cc2 b32) (get12cc1 b32) (get11cc0 b32))
-            getDPFloatRegRs2 getDPFloatRegRd
-        )
+            getDPFloatRegRs2
+            getDPFloatRegRd
+        struct (Opcode.FMOVdGE, opr)
       | 0b000011u ->
-        struct (
-          Opcode.FMOVqGE,
+        let opr =
           parseOneCCTwoOpr b32
             (getThrCC (get13cc2 b32) (get12cc1 b32) (get11cc0 b32))
-            getQPFloatRegRs2 getQPFloatRegRd
-        )
-      | _ -> parse110101fmovr b32
+            getQPFloatRegRs2
+            getQPFloatRegRd
+        struct (Opcode.FMOVqGE, opr)
+      | _ ->
+        parse110101fmovr b32
     | 0b0011u ->
       // struct (Opcode.FMOVL, parseThrOpr b32 getOpFCC getRegRs2 getRegRd)
       match extract b32 10u 5u with
       | 0b000001u ->
-        struct (
-          Opcode.FMOVsL,
+        let opr =
           parseOneCCTwoOpr b32
             (getThrCC (get13cc2 b32) (get12cc1 b32) (get11cc0 b32))
-            getFloatRegRs2 getFloatRegRd
-        )
+            getFloatRegRs2
+            getFloatRegRd
+        struct (Opcode.FMOVsL, opr)
       | 0b000010u ->
-        struct (
-          Opcode.FMOVdL,
+        let opr =
           parseOneCCTwoOpr b32
             (getThrCC (get13cc2 b32) (get12cc1 b32) (get11cc0 b32))
-            getDPFloatRegRs2 getDPFloatRegRd
-        )
+            getDPFloatRegRs2
+            getDPFloatRegRd
+        struct (Opcode.FMOVdL, opr)
       | 0b000011u ->
-        struct (
-          Opcode.FMOVqL,
+        let opr =
           parseOneCCTwoOpr b32
             (getThrCC (get13cc2 b32) (get12cc1 b32) (get11cc0 b32))
-            getQPFloatRegRs2 getQPFloatRegRd
-        )
-      | _ -> parse110101fmovr b32
+            getQPFloatRegRs2
+            getQPFloatRegRd
+        struct (Opcode.FMOVqL, opr)
+      | _ ->
+        parse110101fmovr b32
     | 0b1100u ->
       // struct (Opcode.FMOVGU, parseThrOpr b32 getOpFCC getRegRs2 getRegRd)
       match extract b32 10u 5u with
       | 0b000001u ->
-        struct (
-          Opcode.FMOVsGU,
+        let opr =
           parseOneCCTwoOpr b32
             (getThrCC (get13cc2 b32) (get12cc1 b32) (get11cc0 b32))
-            getFloatRegRs2 getFloatRegRd
-        )
+            getFloatRegRs2
+            getFloatRegRd
+        struct (Opcode.FMOVsGU, opr)
       | 0b000010u ->
-        struct (
-          Opcode.FMOVdGU,
+        let opr =
           parseOneCCTwoOpr b32
             (getThrCC (get13cc2 b32) (get12cc1 b32) (get11cc0 b32))
-            getDPFloatRegRs2 getDPFloatRegRd
-        )
+            getDPFloatRegRs2
+            getDPFloatRegRd
+        struct (Opcode.FMOVdGU, opr)
       | 0b000011u ->
-        struct (
-          Opcode.FMOVqGU,
+        let opr =
           parseOneCCTwoOpr b32
             (getThrCC (get13cc2 b32) (get12cc1 b32) (get11cc0 b32))
-            getQPFloatRegRs2 getQPFloatRegRd
-        )
-      | _ -> parse110101fmovr b32
+            getQPFloatRegRs2
+            getQPFloatRegRd
+        struct (Opcode.FMOVqGU, opr)
+      | _ ->
+        parse110101fmovr b32
     | 0b0100u ->
       // struct (Opcode.FMOVLEU, parseThrOpr b32 getOpFCC getRegRs2 getRegRd)
       match extract b32 10u 5u with
       | 0b000001u ->
-        struct (
-          Opcode.FMOVsLEU,
+        let opr =
           parseOneCCTwoOpr b32
             (getThrCC (get13cc2 b32) (get12cc1 b32) (get11cc0 b32))
-            getFloatRegRs2 getFloatRegRd
-        )
+            getFloatRegRs2
+            getFloatRegRd
+        struct (Opcode.FMOVsLEU, opr)
       | 0b000010u ->
-        struct (
-          Opcode.FMOVdLEU,
+        let opr =
           parseOneCCTwoOpr b32
             (getThrCC (get13cc2 b32) (get12cc1 b32) (get11cc0 b32))
-            getDPFloatRegRs2 getDPFloatRegRd
-        )
+            getDPFloatRegRs2
+            getDPFloatRegRd
+        struct (Opcode.FMOVdLEU, opr)
       | 0b000011u ->
-        struct (
-          Opcode.FMOVqLEU,
+        let opr =
           parseOneCCTwoOpr b32
             (getThrCC (get13cc2 b32) (get12cc1 b32) (get11cc0 b32))
-            getQPFloatRegRs2 getQPFloatRegRd
-        )
-      | _ -> parse110101fmovr b32
+            getQPFloatRegRs2
+            getQPFloatRegRd
+        struct (Opcode.FMOVqLEU, opr)
+      | _ ->
+        parse110101fmovr b32
     | 0b1101u ->
       // struct (Opcode.FMOVCC, parseThrOpr b32 getOpFCC getRegRs2 getRegRd)
       match extract b32 10u 5u with
       | 0b000001u ->
-        struct (
-          Opcode.FMOVsCC,
+        let opr =
           parseOneCCTwoOpr b32
             (getThrCC (get13cc2 b32) (get12cc1 b32) (get11cc0 b32))
-            getFloatRegRs2 getFloatRegRd
-        )
+            getFloatRegRs2
+            getFloatRegRd
+        struct (Opcode.FMOVsCC, opr)
       | 0b000010u ->
-        struct (
-          Opcode.FMOVdCC,
+        let opr =
           parseOneCCTwoOpr b32
             (getThrCC (get13cc2 b32) (get12cc1 b32) (get11cc0 b32))
-            getDPFloatRegRs2 getDPFloatRegRd
-        )
+            getDPFloatRegRs2
+            getDPFloatRegRd
+        struct (Opcode.FMOVdCC, opr)
       | 0b000011u ->
-        struct (
-          Opcode.FMOVqCC,
+        let opr =
           parseOneCCTwoOpr b32
             (getThrCC (get13cc2 b32) (get12cc1 b32) (get11cc0 b32))
-            getQPFloatRegRs2 getQPFloatRegRd
-        )
-      | _ -> parse110101fmovr b32
+            getQPFloatRegRs2
+            getQPFloatRegRd
+        struct (Opcode.FMOVqCC, opr)
+      | _ ->
+        parse110101fmovr b32
     | 0b0101u ->
       // struct (Opcode.FMOVCS, parseThrOpr b32 getOpFCC getRegRs2 getRegRd)
       match extract b32 10u 5u with
       | 0b000001u ->
-        struct (
-          Opcode.FMOVsCS,
+        let opr =
           parseOneCCTwoOpr b32
             (getThrCC (get13cc2 b32) (get12cc1 b32) (get11cc0 b32))
-            getFloatRegRs2 getFloatRegRd
-        )
+            getFloatRegRs2
+            getFloatRegRd
+        struct (Opcode.FMOVsCS, opr)
       | 0b000010u ->
-        struct (
-          Opcode.FMOVdCS,
+        let opr =
           parseOneCCTwoOpr b32
             (getThrCC (get13cc2 b32) (get12cc1 b32) (get11cc0 b32))
-            getDPFloatRegRs2 getDPFloatRegRd
-        )
+            getDPFloatRegRs2
+            getDPFloatRegRd
+        struct (Opcode.FMOVdCS, opr)
       | 0b000011u ->
-        struct (
-          Opcode.FMOVqCS,
+        let opr =
           parseOneCCTwoOpr b32
             (getThrCC (get13cc2 b32) (get12cc1 b32) (get11cc0 b32))
-            getQPFloatRegRs2 getQPFloatRegRd
-        )
-      | _ -> parse110101fmovr b32
+            getQPFloatRegRs2
+            getQPFloatRegRd
+        struct (Opcode.FMOVqCS, opr)
+      | _ ->
+        parse110101fmovr b32
     | 0b1110u ->
       // struct (Opcode.FMOVPOS, parseThrOpr b32 getOpFCC getRegRs2 getRegRd)
       match extract b32 10u 5u with
       | 0b000001u ->
-        struct (
-          Opcode.FMOVsPOS,
+        let opr =
           parseOneCCTwoOpr b32
             (getThrCC (get13cc2 b32) (get12cc1 b32) (get11cc0 b32))
-            getFloatRegRs2 getFloatRegRd
-        )
+            getFloatRegRs2
+            getFloatRegRd
+        struct (Opcode.FMOVsPOS, opr)
       | 0b000010u ->
-        struct (
-          Opcode.FMOVdPOS,
+        let opr =
           parseOneCCTwoOpr b32
             (getThrCC (get13cc2 b32) (get12cc1 b32) (get11cc0 b32))
-            getDPFloatRegRs2 getDPFloatRegRd
-        )
+            getDPFloatRegRs2
+            getDPFloatRegRd
+        struct (Opcode.FMOVdPOS, opr)
       | 0b000011u ->
-        struct (
-          Opcode.FMOVqPOS,
+        let opr =
           parseOneCCTwoOpr b32
             (getThrCC (get13cc2 b32) (get12cc1 b32) (get11cc0 b32))
-            getQPFloatRegRs2 getQPFloatRegRd
-        )
-      | _ -> parse110101fmovr b32
+            getQPFloatRegRs2
+            getQPFloatRegRd
+        struct (Opcode.FMOVqPOS, opr)
+      | _ ->
+        parse110101fmovr b32
     | 0b0110u ->
       // struct (Opcode.FMOVNEG, parseThrOpr b32 getOpFCC getRegRs2 getRegRd)
       match extract b32 10u 5u with
       | 0b000001u ->
-        struct (
-          Opcode.FMOVsNEG,
+        let opr =
           parseOneCCTwoOpr b32
             (getThrCC (get13cc2 b32) (get12cc1 b32) (get11cc0 b32))
-            getFloatRegRs2 getFloatRegRd
-        )
+            getFloatRegRs2
+            getFloatRegRd
+        struct (Opcode.FMOVsNEG, opr)
       | 0b000010u ->
-        struct (
-          Opcode.FMOVdNEG,
+        let opr =
           parseOneCCTwoOpr b32
             (getThrCC (get13cc2 b32) (get12cc1 b32) (get11cc0 b32))
-            getDPFloatRegRs2 getDPFloatRegRd
-        )
+            getDPFloatRegRs2
+            getDPFloatRegRd
+        struct (Opcode.FMOVdNEG, opr)
       | 0b000011u ->
-        struct (
-          Opcode.FMOVqNEG,
+        let opr =
           parseOneCCTwoOpr b32
             (getThrCC (get13cc2 b32) (get12cc1 b32) (get11cc0 b32))
-            getQPFloatRegRs2 getQPFloatRegRd
-        )
-      | _ -> parse110101fmovr b32
+            getQPFloatRegRs2
+            getQPFloatRegRd
+        struct (Opcode.FMOVqNEG, opr)
+      | _ ->
+        parse110101fmovr b32
     | 0b1111u ->
       // struct (Opcode.FMOVVC, parseThrOpr b32 getOpFCC getRegRs2 getRegRd)
       match extract b32 10u 5u with
       | 0b000001u ->
-        struct (
-          Opcode.FMOVsVC,
+        let opr =
           parseOneCCTwoOpr b32
             (getThrCC (get13cc2 b32) (get12cc1 b32) (get11cc0 b32))
-            getFloatRegRs2 getFloatRegRd
-        )
+            getFloatRegRs2
+            getFloatRegRd
+        struct (Opcode.FMOVsVC, opr)
       | 0b000010u ->
-        struct (
-          Opcode.FMOVdVC,
+        let opr =
           parseOneCCTwoOpr b32
             (getThrCC (get13cc2 b32) (get12cc1 b32) (get11cc0 b32))
-            getDPFloatRegRs2 getDPFloatRegRd
-        )
+            getDPFloatRegRs2
+            getDPFloatRegRd
+        struct (Opcode.FMOVdVC, opr)
       | 0b000011u ->
-        struct (
-          Opcode.FMOVqVC,
+        let opr =
           parseOneCCTwoOpr b32
             (getThrCC (get13cc2 b32) (get12cc1 b32) (get11cc0 b32))
-            getQPFloatRegRs2 getQPFloatRegRd
-        )
-      | _ -> parse110101fmovr b32
+            getQPFloatRegRs2
+            getQPFloatRegRd
+        struct (Opcode.FMOVqVC, opr)
+      | _ ->
+        parse110101fmovr b32
     | 0b0111u ->
       // struct (Opcode.FMOVVS, parseThrOpr b32 getOpFCC getRegRs2 getRegRd)
       match extract b32 10u 5u with
       | 0b000001u ->
-        struct (
-          Opcode.FMOVsVS,
+        let opr =
           parseOneCCTwoOpr b32
             (getThrCC (get13cc2 b32) (get12cc1 b32) (get11cc0 b32))
-            getFloatRegRs2 getFloatRegRd
-        )
+            getFloatRegRs2
+            getFloatRegRd
+        struct (Opcode.FMOVsVS, opr)
       | 0b000010u ->
-        struct (
-          Opcode.FMOVdVS,
+        let opr =
           parseOneCCTwoOpr b32
             (getThrCC (get13cc2 b32) (get12cc1 b32) (get11cc0 b32))
-            getDPFloatRegRs2 getDPFloatRegRd
-        )
+            getDPFloatRegRs2
+            getDPFloatRegRd
+        struct (Opcode.FMOVdVS, opr)
       | 0b000011u ->
-        struct (
-          Opcode.FMOVqVS,
+        let opr =
           parseOneCCTwoOpr b32
             (getThrCC (get13cc2 b32) (get12cc1 b32) (get11cc0 b32))
-            getQPFloatRegRs2 getQPFloatRegRd
-        )
-      | _ -> parse110101fmovr b32
-    | _ -> parse110101fmovr b32
+            getQPFloatRegRs2
+            getQPFloatRegRd
+        struct (Opcode.FMOVqVS, opr)
+      | _ ->
+        parse110101fmovr b32
+    | _ ->
+      parse110101fmovr b32
   | 0b000u | 0b001u | 0b010u | 0b011u ->
     match extract b32 17u 14u with
     | 0b1000u ->
       // struct (Opcode.FMOVA, parseThrOpr b32 getOpFCC getFloatRegRs2 getRegRd)
       match extract b32 10u 5u with
       | 0b000001u ->
-        struct (
-          Opcode.FMOVFsA,
+        let opr =
           parseOneCCTwoOpr b32
             (getThrCC (get13cc2 b32) (get12cc1 b32) (get11cc0 b32))
-            getFloatRegRs2 getFloatRegRd
-        )
+            getFloatRegRs2
+            getFloatRegRd
+        struct (Opcode.FMOVFsA, opr)
       | 0b000010u ->
-        struct (
-          Opcode.FMOVFdA,
+        let opr =
           parseOneCCTwoOpr b32
             (getThrCC (get13cc2 b32) (get12cc1 b32) (get11cc0 b32))
-            getDPFloatRegRs2 getDPFloatRegRd
-        )
+            getDPFloatRegRs2
+            getDPFloatRegRd
+        struct (Opcode.FMOVFdA, opr)
       | 0b000011u ->
-        struct (
-          Opcode.FMOVFqA,
+        let opr =
           parseOneCCTwoOpr b32
             (getThrCC (get13cc2 b32) (get12cc1 b32) (get11cc0 b32))
-            getQPFloatRegRs2 getQPFloatRegRd
-        )
-      | _ -> parse110101fmovr b32
+            getQPFloatRegRs2
+            getQPFloatRegRd
+        struct (Opcode.FMOVFqA, opr)
+      | _ ->
+        parse110101fmovr b32
     | 0b0000u ->
       // struct (Opcode.FMOVN, parseThrOpr b32 getOpFCC getRegRs2 getRegRd)
       match extract b32 10u 5u with
       | 0b000001u ->
-        struct (
-          Opcode.FMOVFsN,
+        let opr =
           parseOneCCTwoOpr b32
             (getThrCC (get13cc2 b32) (get12cc1 b32) (get11cc0 b32))
-            getFloatRegRs2 getFloatRegRd
-        )
+            getFloatRegRs2
+            getFloatRegRd
+        struct (Opcode.FMOVFsN, opr)
       | 0b000010u ->
-        struct (
-          Opcode.FMOVFdN,
+        let opr =
           parseOneCCTwoOpr b32
             (getThrCC (get13cc2 b32) (get12cc1 b32) (get11cc0 b32))
-            getDPFloatRegRs2 getDPFloatRegRd
-        )
+            getDPFloatRegRs2
+            getDPFloatRegRd
+        struct (Opcode.FMOVFdN, opr)
       | 0b000011u ->
-        struct (
-          Opcode.FMOVFqN,
+        let opr =
           parseOneCCTwoOpr b32
             (getThrCC (get13cc2 b32) (get12cc1 b32) (get11cc0 b32))
-            getQPFloatRegRs2 getQPFloatRegRd
-        )
-      | _ -> parse110101fmovr b32
+            getQPFloatRegRs2
+            getQPFloatRegRd
+        struct (Opcode.FMOVFqN, opr)
+      | _ ->
+        parse110101fmovr b32
     | 0b0111u ->
       // struct (Opcode.FMOVNE, parseThrOpr b32 getOpFCC getRegRs2 getRegRd)
       match extract b32 10u 5u with
       | 0b000001u ->
-        struct (
-          Opcode.FMOVFsU,
+        let opr =
           parseOneCCTwoOpr b32
             (getThrCC (get13cc2 b32) (get12cc1 b32) (get11cc0 b32))
-            getFloatRegRs2 getFloatRegRd
-        )
+            getFloatRegRs2
+            getFloatRegRd
+        struct (Opcode.FMOVFsU, opr)
       | 0b000010u ->
-        struct (
-          Opcode.FMOVFdU,
+        let opr =
           parseOneCCTwoOpr b32
             (getThrCC (get13cc2 b32) (get12cc1 b32) (get11cc0 b32))
-            getDPFloatRegRs2 getDPFloatRegRd
-        )
+            getDPFloatRegRs2
+            getDPFloatRegRd
+        struct (Opcode.FMOVFdU, opr)
       | 0b000011u ->
-        struct (
-          Opcode.FMOVFqU,
+        let opr =
           parseOneCCTwoOpr b32
             (getThrCC (get13cc2 b32) (get12cc1 b32) (get11cc0 b32))
-            getQPFloatRegRs2 getQPFloatRegRd
-        )
-      | _ -> parse110101fmovr b32
+            getQPFloatRegRs2
+            getQPFloatRegRd
+        struct (Opcode.FMOVFqU, opr)
+      | _ ->
+        parse110101fmovr b32
     | 0b110u ->
       // struct (Opcode.FMOVE, parseThrOpr b32 getOpFCC getRegRs2 getRegRd)
       match extract b32 10u 5u with
       | 0b000001u ->
-        struct (
-          Opcode.FMOVFsG,
+        let opr =
           parseOneCCTwoOpr b32
             (getThrCC (get13cc2 b32) (get12cc1 b32) (get11cc0 b32))
-            getFloatRegRs2 getFloatRegRd
-        )
+            getFloatRegRs2
+            getFloatRegRd
+        struct (Opcode.FMOVFsG, opr)
       | 0b000010u ->
-        struct (
-          Opcode.FMOVFdG,
+        let opr =
           parseOneCCTwoOpr b32
             (getThrCC (get13cc2 b32) (get12cc1 b32) (get11cc0 b32))
-            getDPFloatRegRs2 getDPFloatRegRd
-        )
+            getDPFloatRegRs2
+            getDPFloatRegRd
+        struct (Opcode.FMOVFdG, opr)
       | 0b000011u ->
-        struct (
-          Opcode.FMOVFqG,
+        let opr =
           parseOneCCTwoOpr b32
             (getThrCC (get13cc2 b32) (get12cc1 b32) (get11cc0 b32))
-            getQPFloatRegRs2 getQPFloatRegRd
-        )
-      | _ -> parse110101fmovr b32
+            getQPFloatRegRs2
+            getQPFloatRegRd
+        struct (Opcode.FMOVFqG, opr)
+      | _ ->
+        parse110101fmovr b32
     | 0b0101u ->
       // struct (Opcode.FMOVG, parseThrOpr b32 getOpFCC getRegRs2 getRegRd)
       match extract b32 10u 5u with
       | 0b000001u ->
-        struct (
-          Opcode.FMOVFsUG,
+        let opr =
           parseOneCCTwoOpr b32
             (getThrCC (get13cc2 b32) (get12cc1 b32) (get11cc0 b32))
-            getFloatRegRs2 getFloatRegRd
-        )
+            getFloatRegRs2
+            getFloatRegRd
+        struct (Opcode.FMOVFsUG, opr)
       | 0b000010u ->
-        struct (
-          Opcode.FMOVFdUG,
+        let opr =
           parseOneCCTwoOpr b32
             (getThrCC (get13cc2 b32) (get12cc1 b32) (get11cc0 b32))
-            getDPFloatRegRs2 getDPFloatRegRd
-        )
+            getDPFloatRegRs2
+            getDPFloatRegRd
+        struct (Opcode.FMOVFdUG, opr)
       | 0b000011u ->
-        struct (
-          Opcode.FMOVFqUG,
+        let opr =
           parseOneCCTwoOpr b32
             (getThrCC (get13cc2 b32) (get12cc1 b32) (get11cc0 b32))
-            getQPFloatRegRs2 getQPFloatRegRd
-        )
-      | _ -> parse110101fmovr b32
+            getQPFloatRegRs2
+            getQPFloatRegRd
+        struct (Opcode.FMOVFqUG, opr)
+      | _ ->
+        parse110101fmovr b32
     | 0b0100u ->
       // struct (Opcode.FMOVLE, parseThrOpr b32 getOpFCC getRegRs2 getRegRd)
       match extract b32 10u 5u with
       | 0b000001u ->
-        struct (
-          Opcode.FMOVFsL,
+        let opr =
           parseOneCCTwoOpr b32
             (getThrCC (get13cc2 b32) (get12cc1 b32) (get11cc0 b32))
-            getFloatRegRs2 getFloatRegRd
-        )
+            getFloatRegRs2
+            getFloatRegRd
+        struct (Opcode.FMOVFsL, opr)
       | 0b000010u ->
-        struct (
-          Opcode.FMOVFdL,
+        let opr =
           parseOneCCTwoOpr b32
             (getThrCC (get13cc2 b32) (get12cc1 b32) (get11cc0 b32))
-            getDPFloatRegRs2 getDPFloatRegRd
-        )
+            getDPFloatRegRs2
+            getDPFloatRegRd
+        struct (Opcode.FMOVFdL, opr)
       | 0b000011u ->
-        struct (
-          Opcode.FMOVFqL,
+        let opr =
           parseOneCCTwoOpr b32
             (getThrCC (get13cc2 b32) (get12cc1 b32) (get11cc0 b32))
-            getQPFloatRegRs2 getQPFloatRegRd
-        )
-      | _ -> parse110101fmovr b32
+            getQPFloatRegRs2
+            getQPFloatRegRd
+        struct (Opcode.FMOVFqL, opr)
+      | _ ->
+        parse110101fmovr b32
     | 0b0011u ->
       // struct (Opcode.FMOVGE, parseThrOpr b32 getOpFCC getRegRs2 getRegRd)
       match extract b32 10u 5u with
       | 0b000001u ->
-        struct (
-          Opcode.FMOVFsUL,
+        let opr =
           parseOneCCTwoOpr b32
             (getThrCC (get13cc2 b32) (get12cc1 b32) (get11cc0 b32))
-            getFloatRegRs2 getFloatRegRd
-        )
+            getFloatRegRs2
+            getFloatRegRd
+        struct (Opcode.FMOVFsUL, opr)
       | 0b000010u ->
-        struct (
-          Opcode.FMOVFdUL,
+        let opr =
           parseOneCCTwoOpr b32
             (getThrCC (get13cc2 b32) (get12cc1 b32) (get11cc0 b32))
-            getDPFloatRegRs2 getDPFloatRegRd
-        )
+            getDPFloatRegRs2
+            getDPFloatRegRd
+        struct (Opcode.FMOVFdUL, opr)
       | 0b000011u ->
-        struct (
-          Opcode.FMOVFqUL,
+        let opr =
           parseOneCCTwoOpr b32
             (getThrCC (get13cc2 b32) (get12cc1 b32) (get11cc0 b32))
-            getQPFloatRegRs2 getQPFloatRegRd
-        )
-      | _ -> parse110101fmovr b32
+            getQPFloatRegRs2
+            getQPFloatRegRd
+        struct (Opcode.FMOVFqUL, opr)
+      | _ ->
+        parse110101fmovr b32
     | 0b0010u ->
       // struct (Opcode.FMOVL, parseThrOpr b32 getOpFCC getRegRs2 getRegRd)
       match extract b32 10u 5u with
       | 0b000001u ->
-        struct (
-          Opcode.FMOVFsLG,
+        let opr =
           parseOneCCTwoOpr b32
             (getThrCC (get13cc2 b32) (get12cc1 b32) (get11cc0 b32))
-            getFloatRegRs2 getFloatRegRd
-        )
+            getFloatRegRs2
+            getFloatRegRd
+        struct (Opcode.FMOVFsLG, opr)
       | 0b000010u ->
-        struct (
-          Opcode.FMOVFdLG,
+        let opr =
           parseOneCCTwoOpr b32
             (getThrCC (get13cc2 b32) (get12cc1 b32) (get11cc0 b32))
-            getDPFloatRegRs2 getDPFloatRegRd
-        )
+            getDPFloatRegRs2
+            getDPFloatRegRd
+        struct (Opcode.FMOVFdLG, opr)
       | 0b000011u ->
-        struct (
-          Opcode.FMOVFqLG,
+        let opr =
           parseOneCCTwoOpr b32
             (getThrCC (get13cc2 b32) (get12cc1 b32) (get11cc0 b32))
-            getQPFloatRegRs2 getQPFloatRegRd
-        )
-      | _ -> parse110101fmovr b32
+            getQPFloatRegRs2
+            getQPFloatRegRd
+        struct (Opcode.FMOVFqLG, opr)
+      | _ ->
+        parse110101fmovr b32
     | 0b0001u ->
       // struct (Opcode.FMOVGU, parseThrOpr b32 getOpFCC getRegRs2 getRegRd)
       match extract b32 10u 5u with
       | 0b000001u ->
-        struct (
-          Opcode.FMOVFsNE,
+        let opr =
           parseOneCCTwoOpr b32
             (getThrCC (get13cc2 b32) (get12cc1 b32) (get11cc0 b32))
-            getFloatRegRs2 getFloatRegRd
-        )
+            getFloatRegRs2
+            getFloatRegRd
+        struct (Opcode.FMOVFsNE, opr)
       | 0b000010u ->
-        struct (
-          Opcode.FMOVFdNE,
+        let opr =
           parseOneCCTwoOpr b32
             (getThrCC (get13cc2 b32) (get12cc1 b32) (get11cc0 b32))
-            getDPFloatRegRs2 getDPFloatRegRd
-        )
+            getDPFloatRegRs2
+            getDPFloatRegRd
+        struct (Opcode.FMOVFdNE, opr)
       | 0b000011u ->
-        struct (
-          Opcode.FMOVFqNE,
+        let opr =
           parseOneCCTwoOpr b32
             (getThrCC (get13cc2 b32) (get12cc1 b32) (get11cc0 b32))
-            getQPFloatRegRs2 getQPFloatRegRd
-        )
-      | _ -> parse110101fmovr b32
+            getQPFloatRegRs2
+            getQPFloatRegRd
+        struct (Opcode.FMOVFqNE, opr)
+      | _ ->
+        parse110101fmovr b32
     | 0b1001u ->
       // struct (Opcode.FMOVLEU, parseThrOpr b32 getOpFCC getRegRs2 getRegRd)
       match extract b32 10u 5u with
       | 0b000001u ->
-        struct (
-          Opcode.FMOVFsE,
+        let opr =
           parseOneCCTwoOpr b32
             (getThrCC (get13cc2 b32) (get12cc1 b32) (get11cc0 b32))
-            getFloatRegRs2 getFloatRegRd
-        )
+            getFloatRegRs2
+            getFloatRegRd
+        struct (Opcode.FMOVFsE, opr)
       | 0b000010u ->
-        struct (
-          Opcode.FMOVFdE,
+        let opr =
           parseOneCCTwoOpr b32
             (getThrCC (get13cc2 b32) (get12cc1 b32) (get11cc0 b32))
-            getDPFloatRegRs2 getDPFloatRegRd
-        )
+            getDPFloatRegRs2
+            getDPFloatRegRd
+        struct (Opcode.FMOVFdE, opr)
       | 0b000011u ->
-        struct (
-          Opcode.FMOVFqE,
+        let opr =
           parseOneCCTwoOpr b32
             (getThrCC (get13cc2 b32) (get12cc1 b32) (get11cc0 b32))
-            getQPFloatRegRs2 getQPFloatRegRd
-        )
-      | _ -> parse110101fmovr b32
+            getQPFloatRegRs2
+            getQPFloatRegRd
+        struct (Opcode.FMOVFqE, opr)
+      | _ ->
+        parse110101fmovr b32
     | 0b1010u ->
       // struct (Opcode.FMOVCC, parseThrOpr b32 getOpFCC getRegRs2 getRegRd)
       match extract b32 10u 5u with
       | 0b000001u ->
-        struct (
-          Opcode.FMOVFsUE,
+        let opr =
           parseOneCCTwoOpr b32
             (getThrCC (get13cc2 b32) (get12cc1 b32) (get11cc0 b32))
-            getFloatRegRs2 getFloatRegRd
-        )
+            getFloatRegRs2
+            getFloatRegRd
+        struct (Opcode.FMOVFsUE, opr)
       | 0b000010u ->
-        struct (
-          Opcode.FMOVFdUE,
+        let opr =
           parseOneCCTwoOpr b32
             (getThrCC (get13cc2 b32) (get12cc1 b32) (get11cc0 b32))
-            getDPFloatRegRs2 getDPFloatRegRd
-        )
+            getDPFloatRegRs2
+            getDPFloatRegRd
+        struct (Opcode.FMOVFdUE, opr)
       | 0b000011u ->
-        struct (
-          Opcode.FMOVFqUE,
+        let opr =
           parseOneCCTwoOpr b32
             (getThrCC (get13cc2 b32) (get12cc1 b32) (get11cc0 b32))
-            getQPFloatRegRs2 getQPFloatRegRd
-        )
-      | _ -> parse110101fmovr b32
+            getQPFloatRegRs2
+            getQPFloatRegRd
+        struct (Opcode.FMOVFqUE, opr)
+      | _ ->
+        parse110101fmovr b32
     | 0b1011u ->
       // struct (Opcode.FMOVCS, parseThrOpr b32 getOpFCC getRegRs2 getRegRd)
       match extract b32 10u 5u with
       | 0b000001u ->
-        struct (
-          Opcode.FMOVFsGE,
+        let opr =
           parseOneCCTwoOpr b32
             (getThrCC (get13cc2 b32) (get12cc1 b32) (get11cc0 b32))
-            getFloatRegRs2 getFloatRegRd
-        )
+            getFloatRegRs2
+            getFloatRegRd
+        struct (Opcode.FMOVFsGE, opr)
       | 0b000010u ->
-        struct (
-          Opcode.FMOVFdGE,
+        let opr =
           parseOneCCTwoOpr b32
             (getThrCC (get13cc2 b32) (get12cc1 b32) (get11cc0 b32))
-            getDPFloatRegRs2 getDPFloatRegRd
-        )
+            getDPFloatRegRs2
+            getDPFloatRegRd
+        struct (Opcode.FMOVFdGE, opr)
       | 0b000011u ->
-        struct (
-          Opcode.FMOVFqGE,
+        let opr =
           parseOneCCTwoOpr b32
             (getThrCC (get13cc2 b32) (get12cc1 b32) (get11cc0 b32))
-            getQPFloatRegRs2 getQPFloatRegRd
-        )
-      | _ -> parse110101fmovr b32
+            getQPFloatRegRs2
+            getQPFloatRegRd
+        struct (Opcode.FMOVFqGE, opr)
+      | _ ->
+        parse110101fmovr b32
     | 0b1100u ->
       // struct (Opcode.FMOVPOS, parseThrOpr b32 getOpFCC getRegRs2 getRegRd)
       match extract b32 10u 5u with
       | 0b000001u ->
-        struct (
-          Opcode.FMOVFsUGE,
+        let opr =
           parseOneCCTwoOpr b32
             (getThrCC (get13cc2 b32) (get12cc1 b32) (get11cc0 b32))
-            getFloatRegRs2 getFloatRegRd
-        )
+            getFloatRegRs2
+            getFloatRegRd
+        struct (Opcode.FMOVFsUGE, opr)
       | 0b000010u ->
-        struct (
-          Opcode.FMOVFdUGE,
+        let opr =
           parseOneCCTwoOpr b32
             (getThrCC (get13cc2 b32) (get12cc1 b32) (get11cc0 b32))
-            getDPFloatRegRs2 getDPFloatRegRd
-        )
+            getDPFloatRegRs2
+            getDPFloatRegRd
+        struct (Opcode.FMOVFdUGE, opr)
       | 0b000011u ->
-        struct (
-          Opcode.FMOVFqUGE,
+        let opr =
           parseOneCCTwoOpr b32
             (getThrCC (get13cc2 b32) (get12cc1 b32) (get11cc0 b32))
-            getQPFloatRegRs2 getQPFloatRegRd
-        )
-      | _ -> parse110101fmovr b32
+            getQPFloatRegRs2
+            getQPFloatRegRd
+        struct (Opcode.FMOVFqUGE, opr)
+      | _ ->
+        parse110101fmovr b32
     | 0b1101u ->
       // struct (Opcode.FMOVNEG, parseThrOpr b32 getOpFCC getRegRs2 getRegRd)
       match extract b32 10u 5u with
       | 0b000001u ->
-        struct (
-          Opcode.FMOVFsLE,
+        let opr =
           parseOneCCTwoOpr b32
             (getThrCC (get13cc2 b32) (get12cc1 b32) (get11cc0 b32))
-            getFloatRegRs2 getFloatRegRd
-        )
+            getFloatRegRs2
+            getFloatRegRd
+        struct (Opcode.FMOVFsLE, opr)
       | 0b000010u ->
-        struct (
-          Opcode.FMOVFdLE,
+        let opr =
           parseOneCCTwoOpr b32
             (getThrCC (get13cc2 b32) (get12cc1 b32) (get11cc0 b32))
-            getDPFloatRegRs2 getDPFloatRegRd
-        )
+            getDPFloatRegRs2
+            getDPFloatRegRd
+        struct (Opcode.FMOVFdLE, opr)
       | 0b000011u ->
-        struct (
-          Opcode.FMOVFqLE,
+        let opr =
           parseOneCCTwoOpr b32
             (getThrCC (get13cc2 b32) (get12cc1 b32) (get11cc0 b32))
-            getQPFloatRegRs2 getQPFloatRegRd
-        )
-      | _ -> parse110101fmovr b32
+            getQPFloatRegRs2
+            getQPFloatRegRd
+        struct (Opcode.FMOVFqLE, opr)
+      | _ ->
+        parse110101fmovr b32
     | 0b1110u ->
       // struct (Opcode.FMOVVC, parseThrOpr b32 getOpFCC getRegRs2 getRegRd)
       match extract b32 10u 5u with
       | 0b000001u ->
-        struct (
-          Opcode.FMOVFsULE,
+        let opr =
           parseOneCCTwoOpr b32
             (getThrCC (get13cc2 b32) (get12cc1 b32) (get11cc0 b32))
-            getFloatRegRs2 getFloatRegRd
-        )
+            getFloatRegRs2
+            getFloatRegRd
+        struct (Opcode.FMOVFsULE, opr)
       | 0b000010u ->
-        struct (
-          Opcode.FMOVFdULE,
+        let opr =
           parseOneCCTwoOpr b32
             (getThrCC (get13cc2 b32) (get12cc1 b32) (get11cc0 b32))
-            getDPFloatRegRs2 getDPFloatRegRd
-        )
+            getDPFloatRegRs2
+            getDPFloatRegRd
+        struct (Opcode.FMOVFdULE, opr)
       | 0b000011u ->
-        struct (
-          Opcode.FMOVFqULE,
+        let opr =
           parseOneCCTwoOpr b32
             (getThrCC (get13cc2 b32) (get12cc1 b32) (get11cc0 b32))
-            getQPFloatRegRs2 getQPFloatRegRd
-        )
-      | _ -> parse110101fmovr b32
+            getQPFloatRegRs2
+            getQPFloatRegRd
+        struct (Opcode.FMOVFqULE, opr)
+      | _ ->
+        parse110101fmovr b32
     | 0b1111u ->
       // struct (Opcode.FMOVVS, parseThrOpr b32 getOpFCC getRegRs2 getRegRd)
       match extract b32 10u 5u with
       | 0b000001u ->
-        struct (
-          Opcode.FMOVFsO,
+        let opr =
           parseOneCCTwoOpr b32
             (getThrCC (get13cc2 b32) (get12cc1 b32) (get11cc0 b32))
-            getFloatRegRs2 getFloatRegRd
-        )
+            getFloatRegRs2
+            getFloatRegRd
+        struct (Opcode.FMOVFsO, opr)
       | 0b000010u ->
-        struct (
-          Opcode.FMOVFdO,
+        let opr =
           parseOneCCTwoOpr b32
             (getThrCC (get13cc2 b32) (get12cc1 b32) (get11cc0 b32))
-            getDPFloatRegRs2 getDPFloatRegRd
-        )
+            getDPFloatRegRs2
+            getDPFloatRegRd
+        struct (Opcode.FMOVFdO, opr)
       | 0b000011u ->
-        struct (
-          Opcode.FMOVFqO,
+        let opr =
           parseOneCCTwoOpr b32
             (getThrCC (get13cc2 b32) (get12cc1 b32) (get11cc0 b32))
-            getQPFloatRegRs2 getQPFloatRegRd
-        )
-      | _ -> parse110101fmovr b32
-    | _ -> raise ParsingFailureException
-  | _ -> parse110101fmovr b32
+            getQPFloatRegRs2
+            getQPFloatRegRd
+        struct (Opcode.FMOVFqO, opr)
+      | _ ->
+        parse110101fmovr b32
+    | _ ->
+      raise ParsingFailureException
+  | _ ->
+    parse110101fmovr b32
 
 (*
   10r_ __d1 0100 0---
@@ -1537,14 +1457,16 @@ let parse110101 b32 =
 *)
 let parse101000 b32 =
   match extract b32 18u 14u with
-  | 0u -> struct (Opcode.RDY, parseOneRegOneOpr b32 (setPriReg Y) getRegRd)
+  | 0u ->
+    struct (Opcode.RDY, parseOneRegOneOpr b32 (setPriReg Y) getRegRd)
   | 2u ->
     struct (Opcode.RDCCR, parseOneRegOneOpr b32 (setPriReg CCR) getRegRd)
   | 3u ->
     struct (Opcode.RDASI, parseOneRegOneOpr b32 (setPriReg ASI) getRegRd)
   | 4u ->
     struct (Opcode.RDTICK, parseOneRegOneOpr b32 (setPriReg TICK) getRegRd)
-  | 5u -> struct (Opcode.RDPC, parseOneRegOneOpr b32 (setPriReg PC) getRegRd)
+  | 5u ->
+    struct (Opcode.RDPC, parseOneRegOneOpr b32 (setPriReg PC) getRegRd)
   | 6u ->
     struct (Opcode.RDFPRS, parseOneRegOneOpr b32 (setPriReg FPRS) getRegRd)
   | 7u
@@ -1553,7 +1475,8 @@ let parse101000 b32 =
   | 10u
   | 12u
   | 13u
-  | 14u -> struct (Opcode.RDASR, parseTwoOpr b32 getRegRs1 getRegRd)
+  | 14u ->
+    struct (Opcode.RDASR, parseTwoOpr b32 getRegRs1 getRegRd)
   | 15u ->
     match pickBit b32 13u with
     | 0b0u -> struct (Opcode.STBAR, NoOperand)
@@ -1573,8 +1496,10 @@ let parse101000 b32 =
   | 28u
   | 29u
   | 30u
-  | 31u -> struct (Opcode.RDASR, parseTwoOpr b32 getRegRs1 getRegRd)
-  | _ -> raise ParsingFailureException
+  | 31u ->
+    struct (Opcode.RDASR, parseTwoOpr b32 getRegRs1 getRegRd)
+  | _ ->
+    raise ParsingFailureException
 
 (*
   10r_ __d1 1000 0---
@@ -1584,12 +1509,18 @@ let parse110000 b32 =
   match pickBit b32 13u with
   | 0b0u ->
     match extract b32 29u 25u with
-    | 0u -> struct (Opcode.WRY,
-              parseTwoOprOneReg b32 getRegRs1 getRegRs2 (setPriReg Y))
-    | 2u -> struct (Opcode.WRCCR,
-              parseTwoOprOneReg b32 getRegRs1 getRegRs2 (setPriReg CCR))
-    | 3u -> struct (Opcode.WRASI,
-              parseTwoOprOneReg b32 getRegRs1 getRegRs2 (setPriReg ASI))
+    | 0u ->
+      let parseTwoOprOneReg =
+        parseTwoOprOneReg b32 getRegRs1 getRegRs2 (setPriReg Y)
+      struct (Opcode.WRY, parseTwoOprOneReg)
+    | 2u ->
+      let parseTwoOprOneReg =
+        parseTwoOprOneReg b32 getRegRs1 getRegRs2 (setPriReg CCR)
+      struct (Opcode.WRCCR, parseTwoOprOneReg)
+    | 3u ->
+      let parseTwoOprOneReg =
+        parseTwoOprOneReg b32 getRegRs1 getRegRs2 (setPriReg ASI)
+      struct (Opcode.WRASI, parseTwoOprOneReg)
     | 4u
     | 5u
     | 7u
@@ -1598,10 +1529,14 @@ let parse110000 b32 =
     | 10u
     | 12u
     | 13u
-    | 14u -> struct (Opcode.WRASR, parseTwoOpr b32 getRegRs1 getRegRs2)
-    | 6u -> struct (Opcode.WRFPRS,
-                  parseTwoOprOneReg b32 getRegRs1 getRegRs2 (setPriReg FPRS))
-    | 15u -> struct (Opcode.SIR, NoOperand)
+    | 14u ->
+      struct (Opcode.WRASR, parseTwoOpr b32 getRegRs1 getRegRs2)
+    | 6u ->
+      let parseTwoOprOneReg =
+        parseTwoOprOneReg b32 getRegRs1 getRegRs2 (setPriReg FPRS)
+      struct (Opcode.WRFPRS, parseTwoOprOneReg)
+    | 15u ->
+      struct (Opcode.SIR, NoOperand)
     | 16u
     | 17u
     | 18u
@@ -1617,19 +1552,24 @@ let parse110000 b32 =
     | 28u
     | 29u
     | 30u
-    | 31u -> struct (Opcode.WRASR, parseTwoOpr b32 getRegRs1 getRegRs2)
-    | _ -> raise ParsingFailureException
+    | 31u ->
+      struct (Opcode.WRASR, parseTwoOpr b32 getRegRs1 getRegRs2)
+    | _ ->
+      raise ParsingFailureException
   | 0b1u ->
     match extract b32 29u 25u with
     | 0u ->
-      struct (Opcode.WRY,
-              parseTwoOprOneReg b32 getRegRs1 getSimm13 (setPriReg Y))
+      let parseTwoOprOneReg =
+        parseTwoOprOneReg b32 getRegRs1 getSimm13 (setPriReg Y)
+      struct (Opcode.WRY, parseTwoOprOneReg)
     | 2u ->
-      struct (Opcode.WRCCR,
-              parseTwoOprOneReg b32 getRegRs1 getSimm13 (setPriReg CCR))
+      let parseTwoOprOneReg =
+        parseTwoOprOneReg b32 getRegRs1 getSimm13 (setPriReg CCR)
+      struct (Opcode.WRCCR, parseTwoOprOneReg)
     | 3u ->
-      struct (Opcode.WRASI,
-              parseTwoOprOneReg b32 getRegRs1 getSimm13 (setPriReg ASI))
+      let parseTwoOprOneReg =
+        parseTwoOprOneReg b32 getRegRs1 getSimm13 (setPriReg ASI)
+      struct (Opcode.WRASI, parseTwoOprOneReg)
     | 4u
     | 5u
     | 7u
@@ -1638,13 +1578,13 @@ let parse110000 b32 =
     | 10u
     | 12u
     | 13u
-    | 14u -> struct (Opcode.WRASR, parseTwoOpr b32 getRegRs1 getSimm13)
+    | 14u ->
+      struct (Opcode.WRASR, parseTwoOpr b32 getRegRs1 getSimm13)
     | 6u ->
-      struct (
-        Opcode.WRFPRS,
-        parseTwoOprOneReg b32 getRegRs1 getSimm13 (setPriReg FPRS)
-      )
-    | 15u -> struct (Opcode.SIR, parseOneOpr b32 getSimm13)
+      let opr = parseTwoOprOneReg b32 getRegRs1 getSimm13 (setPriReg FPRS)
+      struct (Opcode.WRFPRS, opr)
+    | 15u ->
+      struct (Opcode.SIR, parseOneOpr b32 getSimm13)
     | 16u
     | 17u
     | 18u
@@ -1662,8 +1602,10 @@ let parse110000 b32 =
     | 30u
     | 31u ->
       struct (Opcode.WRASR, parseThrOpr b32 getRegRs1 getSimm13 getRegRd)
-    | _ -> raise ParsingFailureException
-  | _ -> raise ParsingFailureException
+    | _ ->
+      raise ParsingFailureException
+  | _ ->
+    raise ParsingFailureException
 
 (*
   10r_ __d1 0110 0---
@@ -1679,558 +1621,528 @@ let parse101100 b32 =
     | 0b0u ->
       match extract b32 17u 14u with
       | 0b1000u ->
-        struct (
-          Opcode.MOVFA,
+        let parseOneCCTwoOpr =
           parseOneCCTwoOpr b32
             (getThrCC (get18cc2 b32) (get12cc1 b32) (get11cc0 b32))
-            getRegRs2 getRegRd
-          )
+            getRegRs2
+            getRegRd
+        struct (Opcode.MOVFA, parseOneCCTwoOpr)
       | 0b0000u ->
-        struct (
-          Opcode.MOVFN,
+        let opr =
           parseOneCCTwoOpr b32
             (getThrCC (get18cc2 b32) (get12cc1 b32) (get11cc0 b32))
-            getRegRs2 getRegRd
-        )
+            getRegRs2
+            getRegRd
+        struct (Opcode.MOVFN, opr)
       | 0b0111u ->
-        struct (
-          Opcode.MOVFU,
+        let opr =
           parseOneCCTwoOpr
-            b32 (getThrCC (get18cc2 b32) (get12cc1 b32) (get11cc0 b32))
+            b32
+            (getThrCC (get18cc2 b32) (get12cc1 b32) (get11cc0 b32))
             getRegRs2
             getRegRd
-        )
+        struct (Opcode.MOVFU, opr)
       | 0b0110u ->
-        struct (
-          Opcode.MOVFG,
+        let opr =
           parseOneCCTwoOpr b32
             (getThrCC (get18cc2 b32) (get12cc1 b32) (get11cc0 b32))
             getRegRs2
             getRegRd
-        )
+        struct (Opcode.MOVFG, opr)
       | 0b0101u ->
-        struct (
-          Opcode.MOVFUG,
-          parseOneCCTwoOpr
-            b32 (getThrCC (get18cc2 b32) (get12cc1 b32) (get11cc0 b32))
-            getRegRs2
-            getRegRd
-        )
-      | 0b0100u ->
-        struct (
-          Opcode.MOVFL,
-          parseOneCCTwoOpr
-            b32 (getThrCC (get18cc2 b32) (get12cc1 b32) (get11cc0 b32))
-            getRegRs2 getRegRd
-        )
-      | 0b0011u ->
-        struct (
-          Opcode.MOVFUL,
+        let opr =
           parseOneCCTwoOpr
             b32
             (getThrCC (get18cc2 b32) (get12cc1 b32) (get11cc0 b32))
-            getRegRs2 getRegRd
-        )
+            getRegRs2
+            getRegRd
+        struct (Opcode.MOVFUG, opr)
+      | 0b0100u ->
+        let opr =
+          parseOneCCTwoOpr
+            b32
+            (getThrCC (get18cc2 b32) (get12cc1 b32) (get11cc0 b32))
+            getRegRs2
+            getRegRd
+        struct (Opcode.MOVFL, opr)
+      | 0b0011u ->
+        let opr =
+          parseOneCCTwoOpr
+            b32
+            (getThrCC (get18cc2 b32) (get12cc1 b32) (get11cc0 b32))
+            getRegRs2
+            getRegRd
+        struct (Opcode.MOVFUL, opr)
       | 0b0010u ->
-        struct (
-          Opcode.MOVFLG,
+        let opr =
           parseOneCCTwoOpr b32
             (getThrCC (get18cc2 b32) (get12cc1 b32) (get11cc0 b32))
-            getRegRs2 getRegRd
-        )
+            getRegRs2
+            getRegRd
+        struct (Opcode.MOVFLG, opr)
       | 0b0001u ->
-        struct (
-          Opcode.MOVFNE,
+        let opr =
           parseOneCCTwoOpr
             b32
             (getThrCC (get18cc2 b32) (get12cc1 b32) (get11cc0 b32))
             getRegRs2
             getRegRd
-        )
+        struct (Opcode.MOVFNE, opr)
       | 0b1001u ->
-        struct (
-          Opcode.MOVFE,
+        let opr =
           parseOneCCTwoOpr
             b32
             (getThrCC (get18cc2 b32) (get12cc1 b32) (get11cc0 b32))
             getRegRs2
             getRegRd
-        )
+        struct (Opcode.MOVFE, opr)
       | 0b1010u ->
-        struct (
-          Opcode.MOVFUE,
+        let opr =
           parseOneCCTwoOpr
             b32
             (getThrCC (get18cc2 b32) (get12cc1 b32) (get11cc0 b32))
             getRegRs2
             getRegRd
-        )
+        struct (Opcode.MOVFUE, opr)
       | 0b1011u ->
-        struct (
-          Opcode.MOVFGE,
+        let opr =
           parseOneCCTwoOpr
             b32
             (getThrCC (get18cc2 b32) (get12cc1 b32) (get11cc0 b32))
             getRegRs2
             getRegRd
-        )
+        struct (Opcode.MOVFGE, opr)
       | 0b1100u ->
-        struct (
-          Opcode.MOVFUGE,
+        let opr =
           parseOneCCTwoOpr
             b32
             (getThrCC (get18cc2 b32) (get12cc1 b32) (get11cc0 b32))
             getRegRs2
             getRegRd
-        )
+        struct (Opcode.MOVFUGE, opr)
       | 0b1101u ->
-        struct (
-          Opcode.MOVFLE,
+        let opr =
           parseOneCCTwoOpr
             b32
             (getThrCC (get18cc2 b32) (get12cc1 b32) (get11cc0 b32))
             getRegRs2
             getRegRd
-        )
+        struct (Opcode.MOVFLE, opr)
       | 0b1110u ->
-        struct (
-          Opcode.MOVFULE,
-          parseOneCCTwoOpr
-            b32
-            (getThrCC (get18cc2 b32) (get12cc1 b32) (get11cc0 b32))
-            getRegRs2
-            getRegRd)
-      | 0b1111u ->
-        struct (
-          Opcode.MOVFO,
+        let parseOneCCTwoOpr =
           parseOneCCTwoOpr
             b32
             (getThrCC (get18cc2 b32) (get12cc1 b32) (get11cc0 b32))
             getRegRs2
             getRegRd
-        )
-      | _ -> raise ParsingFailureException
+        struct (Opcode.MOVFULE, parseOneCCTwoOpr)
+      | 0b1111u ->
+        let opr =
+          parseOneCCTwoOpr
+            b32
+            (getThrCC (get18cc2 b32) (get12cc1 b32) (get11cc0 b32))
+            getRegRs2
+            getRegRd
+        struct (Opcode.MOVFO, opr)
+      | _ ->
+        raise ParsingFailureException
     | 0b1u ->
       match extract b32 17u 14u with
       | 0b1000u ->
-        struct (
-          Opcode.MOVFA,
+        let parseOneCCTwoOpr =
           parseOneCCTwoOpr b32
             (getThrCC (get18cc2 b32) (get12cc1 b32) (get11cc0 b32))
-            getSimm11 getRegRd
-          )
+            getSimm11
+            getRegRd
+        struct (Opcode.MOVFA, parseOneCCTwoOpr)
       | 0b0000u ->
-        struct (
-          Opcode.MOVFN,
+        let opr =
           parseOneCCTwoOpr b32
             (getThrCC (get18cc2 b32) (get12cc1 b32) (get11cc0 b32))
-            getSimm11 getRegRd
-        )
+            getSimm11
+            getRegRd
+        struct (Opcode.MOVFN, opr)
       | 0b0111u ->
-        struct (
-          Opcode.MOVFU,
+        let opr =
           parseOneCCTwoOpr
-            b32 (getThrCC (get18cc2 b32) (get12cc1 b32) (get11cc0 b32))
+            b32
+            (getThrCC (get18cc2 b32) (get12cc1 b32) (get11cc0 b32))
             getSimm11
             getRegRd
-        )
+        struct (Opcode.MOVFU, opr)
       | 0b0110u ->
-        struct (
-          Opcode.MOVFG,
+        let opr =
           parseOneCCTwoOpr b32
             (getThrCC (get18cc2 b32) (get12cc1 b32) (get11cc0 b32))
             getSimm11
             getRegRd
-        )
+        struct (Opcode.MOVFG, opr)
       | 0b0101u ->
-        struct (
-          Opcode.MOVFUG,
-          parseOneCCTwoOpr
-            b32 (getThrCC (get18cc2 b32) (get12cc1 b32) (get11cc0 b32))
-            getSimm11
-            getRegRd
-        )
-      | 0b0100u ->
-        struct (
-          Opcode.MOVFL,
-          parseOneCCTwoOpr
-            b32 (getThrCC (get18cc2 b32) (get12cc1 b32) (get11cc0 b32))
-            getSimm11 getRegRd
-        )
-      | 0b0011u ->
-        struct (
-          Opcode.MOVFUL,
+        let opr =
           parseOneCCTwoOpr
             b32
             (getThrCC (get18cc2 b32) (get12cc1 b32) (get11cc0 b32))
-            getSimm11 getRegRd
-        )
+            getSimm11
+            getRegRd
+        struct (Opcode.MOVFUG, opr)
+      | 0b0100u ->
+        let opr =
+          parseOneCCTwoOpr
+            b32
+            (getThrCC (get18cc2 b32) (get12cc1 b32) (get11cc0 b32))
+            getSimm11
+            getRegRd
+        struct (Opcode.MOVFL, opr)
+      | 0b0011u ->
+        let opr =
+          parseOneCCTwoOpr
+            b32
+            (getThrCC (get18cc2 b32) (get12cc1 b32) (get11cc0 b32))
+            getSimm11
+            getRegRd
+        struct (Opcode.MOVFUL, opr)
       | 0b0010u ->
-        struct (
-          Opcode.MOVFLG,
+        let opr =
           parseOneCCTwoOpr b32
             (getThrCC (get18cc2 b32) (get12cc1 b32) (get11cc0 b32))
-            getSimm11 getRegRd
-        )
+            getSimm11
+            getRegRd
+        struct (Opcode.MOVFLG, opr)
       | 0b0001u ->
-        struct (
-          Opcode.MOVFNE,
+        let opr =
           parseOneCCTwoOpr
             b32
             (getThrCC (get18cc2 b32) (get12cc1 b32) (get11cc0 b32))
             getSimm11
             getRegRd
-        )
+        struct (Opcode.MOVFNE, opr)
       | 0b1001u ->
-        struct (
-          Opcode.MOVFE,
+        let opr =
           parseOneCCTwoOpr
             b32
             (getThrCC (get18cc2 b32) (get12cc1 b32) (get11cc0 b32))
             getSimm11
             getRegRd
-        )
+        struct (Opcode.MOVFE, opr)
       | 0b1010u ->
-        struct (
-          Opcode.MOVFUE,
+        let opr =
           parseOneCCTwoOpr
             b32
             (getThrCC (get18cc2 b32) (get12cc1 b32) (get11cc0 b32))
             getSimm11
             getRegRd
-        )
+        struct (Opcode.MOVFUE, opr)
       | 0b1011u ->
-        struct (
-          Opcode.MOVFGE,
+        let opr =
           parseOneCCTwoOpr
             b32
             (getThrCC (get18cc2 b32) (get12cc1 b32) (get11cc0 b32))
             getSimm11
             getRegRd
-        )
+        struct (Opcode.MOVFGE, opr)
       | 0b1100u ->
-        struct (
-          Opcode.MOVFUGE,
+        let opr =
           parseOneCCTwoOpr
             b32
             (getThrCC (get18cc2 b32) (get12cc1 b32) (get11cc0 b32))
             getSimm11
             getRegRd
-        )
+        struct (Opcode.MOVFUGE, opr)
       | 0b1101u ->
-        struct (
-          Opcode.MOVFLE,
+        let opr =
           parseOneCCTwoOpr
             b32
             (getThrCC (get18cc2 b32) (get12cc1 b32) (get11cc0 b32))
             getSimm11
             getRegRd
-        )
+        struct (Opcode.MOVFLE, opr)
       | 0b1110u ->
-        struct (
-          Opcode.MOVFULE,
-          parseOneCCTwoOpr
-            b32
-            (getThrCC (get18cc2 b32) (get12cc1 b32) (get11cc0 b32))
-            getSimm11
-            getRegRd)
-      | 0b1111u ->
-        struct (
-          Opcode.MOVFO,
+        let parseOneCCTwoOpr =
           parseOneCCTwoOpr
             b32
             (getThrCC (get18cc2 b32) (get12cc1 b32) (get11cc0 b32))
             getSimm11
             getRegRd
-        )
-      | _ -> raise ParsingFailureException
-    | _ -> raise ParsingFailureException
+        struct (Opcode.MOVFULE, parseOneCCTwoOpr)
+      | 0b1111u ->
+        let opr =
+          parseOneCCTwoOpr
+            b32
+            (getThrCC (get18cc2 b32) (get12cc1 b32) (get11cc0 b32))
+            getSimm11
+            getRegRd
+        struct (Opcode.MOVFO, opr)
+      | _ ->
+        raise ParsingFailureException
+    | _ ->
+      raise ParsingFailureException
   | 0b1u, 0b0u, 0b0u
   | 0b1u, 0b1u, 0b0u ->
     match pickBit b32 13u with
     | 0b0u ->
       match extract b32 17u 14u with
       | 0b1000u ->
-        struct (
-          Opcode.MOVA,
+        let parseOneCCTwoOpr =
           parseOneCCTwoOpr b32
             (getThrCC (get18cc2 b32) (get12cc1 b32) (get11cc0 b32))
-            getRegRs2 getRegRd
-          )
+            getRegRs2
+            getRegRd
+        struct (Opcode.MOVA, parseOneCCTwoOpr)
       | 0b0000u ->
-        struct (
-          Opcode.MOVN,
+        let opr =
           parseOneCCTwoOpr b32
             (getThrCC (get18cc2 b32) (get12cc1 b32) (get11cc0 b32))
-            getRegRs2 getRegRd
-        )
+            getRegRs2
+            getRegRd
+        struct (Opcode.MOVN, opr)
       | 0b1001u ->
-        struct (
-          Opcode.MOVNE,
+        let opr =
           parseOneCCTwoOpr
-            b32 (getThrCC (get18cc2 b32) (get12cc1 b32) (get11cc0 b32))
+            b32
+            (getThrCC (get18cc2 b32) (get12cc1 b32) (get11cc0 b32))
             getRegRs2
             getRegRd
-        )
+        struct (Opcode.MOVNE, opr)
       | 0b0001u ->
-        struct (
-          Opcode.MOVE,
+        let opr =
           parseOneCCTwoOpr b32
             (getThrCC (get18cc2 b32) (get12cc1 b32) (get11cc0 b32))
             getRegRs2
             getRegRd
-        )
+        struct (Opcode.MOVE, opr)
       | 0b1010u ->
-        struct (
-          Opcode.MOVG,
-          parseOneCCTwoOpr
-            b32 (getThrCC (get18cc2 b32) (get12cc1 b32) (get11cc0 b32))
-            getRegRs2
-            getRegRd
-        )
-      | 0b0010u ->
-        struct (
-          Opcode.MOVLE,
-          parseOneCCTwoOpr
-            b32 (getThrCC (get18cc2 b32) (get12cc1 b32) (get11cc0 b32))
-            getRegRs2 getRegRd
-        )
-      | 0b1011u ->
-        struct (
-          Opcode.MOVGE,
+        let opr =
           parseOneCCTwoOpr
             b32
             (getThrCC (get18cc2 b32) (get12cc1 b32) (get11cc0 b32))
-            getRegRs2 getRegRd
-        )
+            getRegRs2
+            getRegRd
+        struct (Opcode.MOVG, opr)
+      | 0b0010u ->
+        let opr =
+          parseOneCCTwoOpr
+            b32
+            (getThrCC (get18cc2 b32) (get12cc1 b32) (get11cc0 b32))
+            getRegRs2
+            getRegRd
+        struct (Opcode.MOVLE, opr)
+      | 0b1011u ->
+        let opr =
+          parseOneCCTwoOpr
+            b32
+            (getThrCC (get18cc2 b32) (get12cc1 b32) (get11cc0 b32))
+            getRegRs2
+            getRegRd
+        struct (Opcode.MOVGE, opr)
       | 0b0011u ->
-        struct (
-          Opcode.MOVL,
+        let opr =
           parseOneCCTwoOpr b32
             (getThrCC (get18cc2 b32) (get12cc1 b32) (get11cc0 b32))
-            getRegRs2 getRegRd
-        )
+            getRegRs2
+            getRegRd
+        struct (Opcode.MOVL, opr)
       | 0b1100u ->
-        struct (
-          Opcode.MOVGU,
+        let opr =
           parseOneCCTwoOpr
             b32
             (getThrCC (get18cc2 b32) (get12cc1 b32) (get11cc0 b32))
             getRegRs2
             getRegRd
-        )
+        struct (Opcode.MOVGU, opr)
       | 0b0100u ->
-        struct (
-          Opcode.MOVLEU,
+        let opr =
           parseOneCCTwoOpr
             b32
             (getThrCC (get18cc2 b32) (get12cc1 b32) (get11cc0 b32))
             getRegRs2
             getRegRd
-        )
+        struct (Opcode.MOVLEU, opr)
       | 0b1101u ->
-        struct (
-          Opcode.MOVCC,
+        let opr =
           parseOneCCTwoOpr
             b32
             (getThrCC (get18cc2 b32) (get12cc1 b32) (get11cc0 b32))
             getRegRs2
             getRegRd
-        )
+        struct (Opcode.MOVCC, opr)
       | 0b0101u ->
-        struct (
-          Opcode.MOVCS,
+        let opr =
           parseOneCCTwoOpr
             b32
             (getThrCC (get18cc2 b32) (get12cc1 b32) (get11cc0 b32))
             getRegRs2
             getRegRd
-        )
+        struct (Opcode.MOVCS, opr)
       | 0b1110u ->
-        struct (
-          Opcode.MOVPOS,
+        let opr =
           parseOneCCTwoOpr
             b32
             (getThrCC (get18cc2 b32) (get12cc1 b32) (get11cc0 b32))
             getRegRs2
             getRegRd
-        )
+        struct (Opcode.MOVPOS, opr)
       | 0b0110u ->
-        struct (
-          Opcode.MOVNEG,
+        let opr =
           parseOneCCTwoOpr
             b32
             (getThrCC (get18cc2 b32) (get12cc1 b32) (get11cc0 b32))
             getRegRs2
             getRegRd
-        )
+        struct (Opcode.MOVNEG, opr)
       | 0b1111u ->
-        struct (
-          Opcode.MOVVC,
-          parseOneCCTwoOpr
-            b32
-            (getThrCC (get18cc2 b32) (get12cc1 b32) (get11cc0 b32))
-            getRegRs2
-            getRegRd)
-      | 0b0111u ->
-        struct (
-          Opcode.MOVVS,
+        let parseOneCCTwoOpr =
           parseOneCCTwoOpr
             b32
             (getThrCC (get18cc2 b32) (get12cc1 b32) (get11cc0 b32))
             getRegRs2
             getRegRd
-        )
-      | _ -> raise ParsingFailureException
+        struct (Opcode.MOVVC, parseOneCCTwoOpr)
+      | 0b0111u ->
+        let opr =
+          parseOneCCTwoOpr
+            b32
+            (getThrCC (get18cc2 b32) (get12cc1 b32) (get11cc0 b32))
+            getRegRs2
+            getRegRd
+        struct (Opcode.MOVVS, opr)
+      | _ ->
+        raise ParsingFailureException
     | 0b1u ->
       match extract b32 17u 14u with
       | 0b1000u ->
-        struct (
-          Opcode.MOVA,
+        let opr =
           parseOneCCTwoOpr
             b32
             (getThrCC (get18cc2 b32) (get12cc1 b32) (get11cc0 b32))
             getSimm11
             getRegRd
-        )
+        struct (Opcode.MOVA, opr)
       | 0b0000u ->
-        struct (
-          Opcode.MOVN,
+        let opr =
           parseOneCCTwoOpr
             b32
             (getThrCC (get18cc2 b32) (get12cc1 b32) (get11cc0 b32))
             getSimm11
             getRegRd
-        )
+        struct (Opcode.MOVN, opr)
       | 0b1001u ->
-        struct (
-          Opcode.MOVNE,
+        let opr =
           parseOneCCTwoOpr
             b32
             (getThrCC (get18cc2 b32) (get12cc1 b32) (get11cc0 b32))
             getSimm11
             getRegRd
-        )
+        struct (Opcode.MOVNE, opr)
       | 0b0001u ->
-        struct (
-          Opcode.MOVE,
+        let opr =
           parseOneCCTwoOpr
             b32
             (getThrCC (get18cc2 b32) (get12cc1 b32) (get11cc0 b32))
             getSimm11
             getRegRd
-        )
+        struct (Opcode.MOVE, opr)
       | 0b1010u ->
-        struct (
-          Opcode.MOVG,
+        let opr =
           parseOneCCTwoOpr
             b32
             (getThrCC (get18cc2 b32) (get12cc1 b32) (get11cc0 b32))
             getSimm11
             getRegRd
-        )
+        struct (Opcode.MOVG, opr)
       | 0b0010u ->
-        struct (
-          Opcode.MOVLE,
+        let opr =
           parseOneCCTwoOpr
             b32
             (getThrCC (get18cc2 b32) (get12cc1 b32) (get11cc0 b32))
             getSimm11
             getRegRd
-        )
+        struct (Opcode.MOVLE, opr)
       | 0b1011u ->
-        struct (
-          Opcode.MOVGE,
+        let opr =
           parseOneCCTwoOpr
             b32
             (getThrCC (get18cc2 b32) (get12cc1 b32) (get11cc0 b32))
             getSimm11
             getRegRd
-        )
+        struct (Opcode.MOVGE, opr)
       | 0b0011u ->
-        struct (
-          Opcode.MOVL,
+        let opr =
           parseOneCCTwoOpr
             b32
             (getThrCC (get18cc2 b32) (get12cc1 b32) (get11cc0 b32))
             getSimm11
             getRegRd
-        )
+        struct (Opcode.MOVL, opr)
       | 0b1100u ->
-        struct (
-          Opcode.MOVGU,
+        let opr =
           parseOneCCTwoOpr
             b32
             (getThrCC (get18cc2 b32) (get12cc1 b32) (get11cc0 b32))
             getSimm11
             getRegRd
-        )
+        struct (Opcode.MOVGU, opr)
       | 0b0100u ->
-        struct (
-          Opcode.MOVLEU,
+        let opr =
           parseOneCCTwoOpr
             b32
             (getThrCC (get18cc2 b32) (get12cc1 b32) (get11cc0 b32))
             getSimm11
             getRegRd
-        )
+        struct (Opcode.MOVLEU, opr)
       | 0b1101u ->
-        struct (
-          Opcode.MOVCC,
+        let opr =
           parseOneCCTwoOpr
             b32
             (getThrCC (get18cc2 b32) (get12cc1 b32) (get11cc0 b32))
             getSimm11
             getRegRd
-        )
+        struct (Opcode.MOVCC, opr)
       | 0b0101u ->
-        struct (
-          Opcode.MOVCS,
+        let opr =
           parseOneCCTwoOpr
             b32
             (getThrCC (get18cc2 b32) (get12cc1 b32) (get11cc0 b32))
             getSimm11
             getRegRd
-        )
+        struct (Opcode.MOVCS, opr)
       | 0b1110u ->
-        struct (
-          Opcode.MOVPOS,
+        let opr =
           parseOneCCTwoOpr
             b32
             (getThrCC (get18cc2 b32) (get12cc1 b32) (get11cc0 b32))
             getSimm11
             getRegRd
-        )
+        struct (Opcode.MOVPOS, opr)
       | 0b0110u ->
-        struct (
-          Opcode.MOVNEG,
+        let opr =
           parseOneCCTwoOpr
             b32
             (getThrCC (get18cc2 b32) (get12cc1 b32) (get11cc0 b32))
             getSimm11
             getRegRd
-        )
+        struct (Opcode.MOVNEG, opr)
       | 0b1111u ->
-        struct (
-          Opcode.MOVVC,
+        let opr =
           parseOneCCTwoOpr
             b32
             (getThrCC (get18cc2 b32) (get12cc1 b32) (get11cc0 b32))
             getSimm11
             getRegRd
-        )
+        struct (Opcode.MOVVC, opr)
       | 0b0111u ->
-        struct (
-          Opcode.MOVVS,
+        let parseOneCCTwoOpr =
           parseOneCCTwoOpr
             b32
             (getThrCC (get18cc2 b32) (get12cc1 b32) (get11cc0 b32))
             getSimm11
             getRegRd
-            )
-      | _ -> raise ParsingFailureException
-    | _ -> raise ParsingFailureException
-  | _ -> raise ParsingFailureException
+        struct (Opcode.MOVVS, parseOneCCTwoOpr)
+      | _ ->
+        raise ParsingFailureException
+    | _ ->
+      raise ParsingFailureException
+  | _ ->
+    raise ParsingFailureException
 
 (*
   10r_ __d1 0111 1---
@@ -2252,7 +2164,8 @@ let parse101111 b32 =
       struct (Opcode.MOVRGZ, parseThrOpr b32 getRegRs1 getRegRs2 getRegRd)
     | 0b111u ->
       struct (Opcode.MOVRGEZ, parseThrOpr b32 getRegRs1 getRegRs2 getRegRd)
-    | _ -> raise ParsingFailureException
+    | _ ->
+      raise ParsingFailureException
   | 0b1u ->
     match extract b32 12u 10u with
     | 0b001u ->
@@ -2267,8 +2180,10 @@ let parse101111 b32 =
       struct (Opcode.MOVRGZ, parseThrOpr b32 getRegRs1 getSimm10 getRegRd)
     | 0b111u ->
       struct (Opcode.MOVRGEZ, parseThrOpr b32 getRegRs1 getSimm10 getRegRd)
-    | _ -> raise ParsingFailureException
-  | _ -> raise ParsingFailureException
+    | _ ->
+      raise ParsingFailureException
+  | _ ->
+    raise ParsingFailureException
 
 (*
   10r_ __do ___p 3---
@@ -2344,7 +2259,8 @@ let parse10rd b32 =
     | 0b100100u ->
       struct (Opcode.MULScc, parseThrOpr b32 getRegRs1 getRegRs2 getRegRd)
     (* Population Count*)
-    | 0b101110u -> struct (Opcode.POPC, parseTwoOpr b32 getRegRs2 getRegRd)
+    | 0b101110u ->
+      struct (Opcode.POPC, parseTwoOpr b32 getRegRs2 getRegRd)
     (* SAVE and RESTORE *)
     | 0b111100u ->
       struct (Opcode.SAVE, parseThrOpr b32 getRegRs1 getRegRs2 getRegRd)
@@ -2392,20 +2308,28 @@ let parse10rd b32 =
     | 0b110010u ->
       struct (Opcode.WRPR, parseThrOpr b32 getRegRs1 getRegRs2 priregWRPR)
     (* Move Floating-Point Register on Condition (FMOVcc) *)
-    | 0b110101u -> parse110101 b32
+    | 0b110101u ->
+      parse110101 b32
     (* Floating-Point *)
-    | 0b110100u -> parseFP b32
+    | 0b110100u ->
+      parseFP b32
     (* Read State Register *)
-    | 0b101000u -> parse101000 b32
+    | 0b101000u ->
+      parse101000 b32
     (* Read Privileged State Register *)
-    | 0b101010u -> struct (Opcode.RDPR, parseTwoOpr b32 priregRDPR getRegRd)
+    | 0b101010u ->
+      struct (Opcode.RDPR, parseTwoOpr b32 priregRDPR getRegRd)
     (* Write State Register *)
-    | 0b110000u -> parse110000 b32
+    | 0b110000u ->
+      parse110000 b32
     (* Move Integer Register on Condition *)
-    | 0b101100u -> parse101100 b32
+    | 0b101100u ->
+      parse101100 b32
     (* Move Integer Register on Register Condition *)
-    | 0b101111u -> parse101111 b32
-    | _ -> raise ParsingFailureException
+    | 0b101111u ->
+      parse101111 b32
+    | _ ->
+      raise ParsingFailureException
   | 0b1u ->
     match extract b32 24u 19u with
     (* ADD *)
@@ -2474,7 +2398,8 @@ let parse10rd b32 =
     | 0b100100u ->
       struct (Opcode.MULScc, parseThrOpr b32 getRegRs1 getSimm13 getRegRd)
     (* Population Count *)
-    | 0b101110u -> struct (Opcode.POPC, parseTwoOpr b32 getSimm13 getRegRd)
+    | 0b101110u ->
+      struct (Opcode.POPC, parseTwoOpr b32 getSimm13 getRegRd)
     (* SAVE and RESTORE *)
     | 0b111100u ->
       struct (Opcode.SAVE, parseThrOpr b32 getRegRs1 getSimm13Zero getRegRd)
@@ -2487,21 +2412,24 @@ let parse10rd b32 =
         struct (Opcode.SLL, parseThrOpr b32 getRegRs1 getshcnt32 getRegRd)
       | 0b1u ->
         struct (Opcode.SLLX, parseThrOpr b32 getRegRs1 getshcnt64 getRegRd)
-      | _ -> raise ParsingFailureException
+      | _ ->
+        raise ParsingFailureException
     | 0b100110u ->
       match pickBit b32 12u with
       | 0b0u ->
         struct (Opcode.SRL, parseThrOpr b32 getRegRs1 getshcnt32 getRegRd)
       | 0b1u ->
         struct (Opcode.SRLX, parseThrOpr b32 getRegRs1 getshcnt64 getRegRd)
-      | _ -> raise ParsingFailureException
+      | _ ->
+        raise ParsingFailureException
     | 0b100111u ->
       match pickBit b32 12u with
       | 0b0u ->
         struct (Opcode.SRA, parseThrOpr b32 getRegRs1 getshcnt32 getRegRd)
       | 0b1u ->
         struct (Opcode.SRAX, parseThrOpr b32 getRegRs1 getshcnt64 getRegRd)
-      | _ -> raise ParsingFailureException
+      | _ ->
+        raise ParsingFailureException
     (* Subtract *)
     | 0b000100u ->
       struct (Opcode.SUB, parseThrOpr b32 getRegRs1 getSimm13 getRegRd)
@@ -2525,15 +2453,21 @@ let parse10rd b32 =
     | 0b110010u ->
       struct (Opcode.WRPR, parseThrOpr b32 getRegRs1 getSimm13 priregWRPR)
     (* Read Privileged Register *)
-    | 0b101010u -> struct (Opcode.RDPR, parseTwoOpr b32 priregRDPR getRegRd)
+    | 0b101010u ->
+      struct (Opcode.RDPR, parseTwoOpr b32 priregRDPR getRegRd)
     (* Write State Register *)
-    | 0b110000u -> parse110000 b32
+    | 0b110000u ->
+      parse110000 b32
     (* Move Integer Register on Condition *)
-    | 0b101100u -> parse101100 b32
+    | 0b101100u ->
+      parse101100 b32
     (* Move Integer Register on Register Condition *)
-    | 0b101111u -> parse101111 b32
-    | _ -> raise ParsingFailureException
-  | _ -> raise ParsingFailureException
+    | 0b101111u ->
+      parse101111 b32
+    | _ ->
+      raise ParsingFailureException
+  | _ ->
+    raise ParsingFailureException
 
 (*
   11r_ __d- ---- ----
@@ -2543,37 +2477,27 @@ let parse11rd b32 =
   match pickBit b32 13u with
   | 0b0u ->
     match extract b32 24u 19u with
-    | 0b011111u -> struct (Opcode.SWAPA, parseFourOpr b32 getAddrRs1
-        getAddrRs2 getImmAsi getRegRd)
-    | 0b001111u -> struct (
-        Opcode.SWAP,
-        parseThrOpr b32 getAddrRs1 getAddrRs2 getRegRd
-      )
+    | 0b011111u ->
+      let opr = parseFourOpr b32 getAddrRs1 getAddrRs2 getImmAsi getRegRd
+      struct (Opcode.SWAPA, opr)
+    | 0b001111u ->
+      let opr = parseThrOpr b32 getAddrRs1 getAddrRs2 getRegRd
+      struct (Opcode.SWAP, opr)
     | 0b010101u ->
-      struct (
-        Opcode.STBA,
-        parseFourOpr b32 getRegRd getAddrRs1 getAddrRs2 getImmAsi
-      )
+      let opr = parseFourOpr b32 getRegRd getAddrRs1 getAddrRs2 getImmAsi
+      struct (Opcode.STBA, opr)
     | 0b010110u ->
-      struct (
-        Opcode.STHA,
-        parseFourOpr b32 getRegRd getAddrRs1 getAddrRs2 getImmAsi
-      )
+      let opr = parseFourOpr b32 getRegRd getAddrRs1 getAddrRs2 getImmAsi
+      struct (Opcode.STHA, opr)
     | 0b010100u ->
-      struct (
-        Opcode.STWA,
-        parseFourOpr b32 getRegRd getAddrRs1 getAddrRs2 getImmAsi
-      )
+      let opr = parseFourOpr b32 getRegRd getAddrRs1 getAddrRs2 getImmAsi
+      struct (Opcode.STWA, opr)
     | 0b011110u ->
-      struct (
-        Opcode.STXA,
-        parseFourOpr b32 getRegRd getAddrRs1 getAddrRs2 getImmAsi
-      )
+      let opr = parseFourOpr b32 getRegRd getAddrRs1 getAddrRs2 getImmAsi
+      struct (Opcode.STXA, opr)
     | 0b010111u ->
-      struct (
-        Opcode.STDA,
-        parseFourOpr b32 getRegRd getAddrRs1 getAddrRs2 getImmAsi
-      )
+      let opr = parseFourOpr b32 getRegRd getAddrRs1 getAddrRs2 getImmAsi
+      struct (Opcode.STDA, opr)
     | 0b000101u ->
       struct (Opcode.STB, parseThrOpr b32 getRegRd getAddrRs1 getAddrRs2)
     | 0b000110u ->
@@ -2585,101 +2509,67 @@ let parse11rd b32 =
     | 0b000111u ->
       struct (Opcode.STD, parseThrOpr b32 getRegRd getAddrRs1 getAddrRs2)
     | 0b110100u ->
-      struct (
-        Opcode.STFA,
-        parseFourOpr b32 getFloatRegRd getAddrRs1 getAddrRs2 getImmAsi
-      )
+      let opr = parseFourOpr b32 getFloatRegRd getAddrRs1 getAddrRs2 getImmAsi
+      struct (Opcode.STFA, opr)
     | 0b110111u ->
-      struct (
-        Opcode.STDFA,
-        parseFourOpr b32 getDPFloatRegRd getAddrRs1 getAddrRs2 getImmAsi
-      )
+      let opr = parseFourOpr b32 getDPFloatRegRd getAddrRs1 getAddrRs2 getImmAsi
+      struct (Opcode.STDFA, opr)
     | 0b110110u ->
-      struct (
-        Opcode.STQFA,
-        parseFourOpr b32 getQPFloatRegRd getAddrRs1 getAddrRs2 getImmAsi
-      )
+      let opr = parseFourOpr b32 getQPFloatRegRd getAddrRs1 getAddrRs2 getImmAsi
+      struct (Opcode.STQFA, opr)
     | 0b100100u ->
-      struct (
-        Opcode.STF,
-        parseThrOpr b32 getFloatRegRd getAddrRs1 getAddrRs2
-      )
+      let opr = parseThrOpr b32 getFloatRegRd getAddrRs1 getAddrRs2
+      struct (Opcode.STF, opr)
     | 0b100111u ->
-      struct (
-        Opcode.STDF,
-        parseThrOpr b32 getDPFloatRegRd getAddrRs1 getAddrRs2
-      )
+      let opr = parseThrOpr b32 getDPFloatRegRd getAddrRs1 getAddrRs2
+      struct (Opcode.STDF, opr)
     | 0b100110u ->
-      struct (
-        Opcode.STQF,
-        parseThrOpr b32 getQPFloatRegRd getAddrRs1 getAddrRs2
-      )
+      let opr = parseThrOpr b32 getQPFloatRegRd getAddrRs1 getAddrRs2
+      struct (Opcode.STQF, opr)
     | 0b100101u ->
       match extract b32 29u 25u with
       | 0b00000u ->
-        struct (
-          Opcode.STFSR,
-          parseOneRegTwoOpr b32 (setPriReg FSR) getAddrRs1 getAddrRs2
-        )
+        let opr = parseOneRegTwoOpr b32 (setPriReg FSR) getAddrRs1 getAddrRs2
+        struct (Opcode.STFSR, opr)
       | 0b00001u ->
-        struct (
-          Opcode.STXFSR,
-          parseOneRegTwoOpr b32 (setPriReg FSR) getAddrRs1 getAddrRs2
-        )
-      | _ -> raise ParsingFailureException
+        let opr = parseOneRegTwoOpr b32 (setPriReg FSR) getAddrRs1 getAddrRs2
+        struct (Opcode.STXFSR, opr)
+      | _ ->
+        raise ParsingFailureException
     | 0b111100u ->
-      struct (
-        Opcode.CASA,
-        parseFourOpr b32 getRegRs1 getImmAsi getRegRs2 getRegRd
-      )
+      let opr = parseFourOpr b32 getRegRs1 getImmAsi getRegRs2 getRegRd
+      struct (Opcode.CASA, opr)
     | 0b111110u ->
-      struct (
-        Opcode.CASXA,
-        parseFourOpr b32 getRegRs1 getImmAsi getRegRs2 getRegRd
-      )
+      let opr = parseFourOpr b32 getRegRs1 getImmAsi getRegRs2 getRegRd
+      struct (Opcode.CASXA, opr)
     | 0b100000u ->
-      struct (
-        Opcode.LDF,
-        parseThrOpr b32 getAddrRs1 getAddrRs2 getFloatRegRd
-      )
+      let opr = parseThrOpr b32 getAddrRs1 getAddrRs2 getFloatRegRd
+      struct (Opcode.LDF, opr)
     | 0b100011u ->
-      struct (
-        Opcode.LDDF,
-        parseThrOpr b32 getAddrRs1 getAddrRs2 getDPFloatRegRd
-      )
+      let opr = parseThrOpr b32 getAddrRs1 getAddrRs2 getDPFloatRegRd
+      struct (Opcode.LDDF, opr)
     | 0b100010u ->
-      struct (
-        Opcode.LDQF,
-        parseThrOpr b32 getAddrRs1 getAddrRs2 getQPFloatRegRd
-      )
+      let opr = parseThrOpr b32 getAddrRs1 getAddrRs2 getQPFloatRegRd
+      struct (Opcode.LDQF, opr)
     | 0b100001u ->
       match extract b32 29u 25u with
       | 0b00000u ->
-        struct (
-          Opcode.LDFSR,
-          parseTwoOprOneReg b32 getAddrRs1 getAddrRs2 (setPriReg FSR)
-        )
+        let opr = parseTwoOprOneReg b32 getAddrRs1 getAddrRs2 (setPriReg FSR)
+        struct (Opcode.LDFSR, opr)
       | 0b00001u ->
-        struct (
-          Opcode.LDXFSR,
-          parseTwoOprOneReg b32 getAddrRs1 getAddrRs2 (setPriReg FSR)
-        )
-      | _ -> raise ParsingFailureException
+        let opr = parseTwoOprOneReg b32 getAddrRs1 getAddrRs2 (setPriReg FSR)
+        struct (Opcode.LDXFSR, opr)
+      | _ ->
+        raise ParsingFailureException
     | 0b110000u ->
-      struct (
-        Opcode.LDFA,
-        parseFourOpr b32 getAddrRs1 getAddrRs2 getImmAsi getFloatRegRd
-      )
+      let opr = parseFourOpr b32 getAddrRs1 getAddrRs2 getImmAsi getFloatRegRd
+      struct (Opcode.LDFA, opr)
     | 0b110011u ->
-      struct (
-        Opcode.LDDFA,
-        parseFourOpr b32 getAddrRs1 getAddrRs2 getImmAsi getDPFloatRegRd
-      )
+      let opr = parseFourOpr b32 getAddrRs1 getAddrRs2 getImmAsi getDPFloatRegRd
+      struct (Opcode.LDDFA, opr)
     | 0b110010u ->
-      struct (
-        Opcode.LDQFA,
-        parseFourOpr b32 getAddrRs1 getAddrRs2 getImmAsi getQPFloatRegRd
-      )
+      let opr = parseFourOpr b32 getAddrRs1 getAddrRs2 getImmAsi getQPFloatRegRd
+      struct (Opcode.LDQFA, opr)
     | 0b001001u ->
       struct (Opcode.LDSB, parseThrOpr b32 getAddrRs1 getAddrRs2 getRegRd)
     | 0b001010u ->
@@ -2697,91 +2587,59 @@ let parse11rd b32 =
     | 0b000011u ->
       struct (Opcode.LDD, parseThrOpr b32 getAddrRs1 getAddrRs2 getRegRd)
     | 0b011001u ->
-      struct (
-        Opcode.LDSBA,
-        parseFourOpr b32 getAddrRs1 getAddrRs2 getImmAsi getRegRd
-      )
+      let opr = parseFourOpr b32 getAddrRs1 getAddrRs2 getImmAsi getRegRd
+      struct (Opcode.LDSBA, opr)
     | 0b011010u ->
-      struct (
-        Opcode.LDSHA,
-        parseFourOpr b32 getAddrRs1 getAddrRs2 getImmAsi getRegRd
-      )
+      let opr = parseFourOpr b32 getAddrRs1 getAddrRs2 getImmAsi getRegRd
+      struct (Opcode.LDSHA, opr)
     | 0b011000u ->
-      struct (
-        Opcode.LDSWA,
-        parseFourOpr b32 getAddrRs1 getAddrRs2 getImmAsi getRegRd
-      )
+      let opr = parseFourOpr b32 getAddrRs1 getAddrRs2 getImmAsi getRegRd
+      struct (Opcode.LDSWA, opr)
     | 0b010001u ->
-      struct (
-        Opcode.LDUBA,
-        parseFourOpr b32 getAddrRs1 getAddrRs2 getImmAsi getRegRd
-      )
+      let opr = parseFourOpr b32 getAddrRs1 getAddrRs2 getImmAsi getRegRd
+      struct (Opcode.LDUBA, opr)
     | 0b010010u ->
-      struct (
-        Opcode.LDUHA,
-        parseFourOpr b32 getAddrRs1 getAddrRs2 getImmAsi getRegRd
-      )
+      let opr = parseFourOpr b32 getAddrRs1 getAddrRs2 getImmAsi getRegRd
+      struct (Opcode.LDUHA, opr)
     | 0b010000u ->
-      struct (
-        Opcode.LDUWA,
-        parseFourOpr b32 getAddrRs1 getAddrRs2 getImmAsi getRegRd
-      )
+      let opr = parseFourOpr b32 getAddrRs1 getAddrRs2 getImmAsi getRegRd
+      struct (Opcode.LDUWA, opr)
     | 0b011011u ->
-      struct (
-        Opcode.LDXA,
-        parseFourOpr b32 getAddrRs1 getAddrRs2 getImmAsi getRegRd
-      )
+      let opr = parseFourOpr b32 getAddrRs1 getAddrRs2 getImmAsi getRegRd
+      struct (Opcode.LDXA, opr)
     | 0b010011u ->
-      struct (
-        Opcode.LDDA,
-        parseFourOpr b32 getAddrRs1 getAddrRs2 getImmAsi getRegRd
-      )
+      let opr = parseFourOpr b32 getAddrRs1 getAddrRs2 getImmAsi getRegRd
+      struct (Opcode.LDDA, opr)
     | 0b001101u ->
       struct (Opcode.LDSTUB, parseThrOpr b32 getAddrRs1 getAddrRs2 getRegRd)
     | 0b011101u ->
-      struct (
-        Opcode.LDSTUBA,
-        parseFourOpr b32 getAddrRs1 getAddrRs2 getImmAsi getRegRd
-      )
-    | _ -> raise ParsingFailureException
+      let opr = parseFourOpr b32 getAddrRs1 getAddrRs2 getImmAsi getRegRd
+      struct (Opcode.LDSTUBA, opr)
+    | _ ->
+      raise ParsingFailureException
   | 0b1u ->
     match extract b32 24u 19u with
-    | 0b011111u -> struct (Opcode.SWAPA, parseFourOpr b32 getRegRs1
-        getSimm13 getRegAsi getRegRd)
-    | 0b001111u -> struct (
-        Opcode.SWAP,
-        parseThrOpr b32 getAddrRs1 getAddrRs2 getRegRd
-      )
+    | 0b011111u ->
+      let opr = parseFourOpr b32 getRegRs1 getSimm13 getRegAsi getRegRd
+      struct (Opcode.SWAPA, opr)
+    | 0b001111u ->
+      let opr = parseThrOpr b32 getAddrRs1 getAddrRs2 getRegRd
+      struct (Opcode.SWAP, opr)
     | 0b010101u ->
-      struct (
-        Opcode.STBA,
-        parseFourOpr b32 getRegRd getAddrRs1
-          getAddrSimm13 getRegAsi
-      )
+      let opr = parseFourOpr b32 getRegRd getAddrRs1 getAddrSimm13 getRegAsi
+      struct (Opcode.STBA, opr)
     | 0b010110u ->
-      struct (
-        Opcode.STHA,
-        parseFourOpr b32 getRegRd getAddrRs1
-          getAddrSimm13 getRegAsi
-      )
+      let opr = parseFourOpr b32 getRegRd getAddrRs1 getAddrSimm13 getRegAsi
+      struct (Opcode.STHA, opr)
     | 0b010100u ->
-      struct (
-        Opcode.STWA,
-        parseFourOpr b32 getRegRd getAddrRs1
-          getAddrSimm13 getRegAsi
-      )
+      let opr = parseFourOpr b32 getRegRd getAddrRs1 getAddrSimm13 getRegAsi
+      struct (Opcode.STWA, opr)
     | 0b011110u ->
-      struct (
-        Opcode.STXA,
-        parseFourOpr b32 getRegRd getAddrRs1
-          getAddrSimm13 getRegAsi
-      )
+      let opr = parseFourOpr b32 getRegRd getAddrRs1 getAddrSimm13 getRegAsi
+      struct (Opcode.STXA, opr)
     | 0b010111u ->
-      struct (
-        Opcode.STDA,
-        parseFourOpr b32 getRegRd getAddrRs1
-          getAddrSimm13 getRegAsi
-      )
+      let opr = parseFourOpr b32 getRegRd getAddrRs1 getAddrSimm13 getRegAsi
+      struct (Opcode.STDA, opr)
     | 0b000101u ->
       struct (Opcode.STB, parseThrOpr b32 getRegRd getAddrRs1 getAddrSimm13)
     | 0b000110u ->
@@ -2793,105 +2651,77 @@ let parse11rd b32 =
     | 0b000111u ->
       struct (Opcode.STD, parseThrOpr b32 getRegRd getAddrRs1 getAddrSimm13)
     | 0b110100u ->
-      struct (
-        Opcode.STFA,
+      let opr =
         parseSTXA b32 getFloatRegRd getAddrRs1 getAddrSimm13 (setPriReg ASI)
-      )
+      struct (Opcode.STFA, opr)
     | 0b110111u ->
-      struct (
-        Opcode.STDFA,
+      let opr =
         parseSTXA b32 getDPFloatRegRd getAddrRs1 getAddrSimm13 (setPriReg ASI)
-      )
+      struct (Opcode.STDFA, opr)
     | 0b110110u ->
-      struct (
-        Opcode.STQFA,
+      let opr =
         parseSTXA b32 getQPFloatRegRd getAddrRs1 getAddrSimm13 (setPriReg ASI)
-      )
+      struct (Opcode.STQFA, opr)
     | 0b100100u ->
-      struct (
-        Opcode.STF,
-        parseThrOpr b32 getFloatRegRd getAddrRs1 getAddrSimm13
-      )
+      let opr = parseThrOpr b32 getFloatRegRd getAddrRs1 getAddrSimm13
+      struct (Opcode.STF, opr)
     | 0b100111u ->
-      struct (
-        Opcode.STDF,
-        parseThrOpr b32 getDPFloatRegRd getAddrRs1 getAddrSimm13
-      )
+      let opr = parseThrOpr b32 getDPFloatRegRd getAddrRs1 getAddrSimm13
+      struct (Opcode.STDF, opr)
     | 0b100110u ->
-      struct (
-        Opcode.STQF,
-        parseThrOpr b32 getQPFloatRegRd getAddrRs1 getAddrSimm13
-      )
+      let opr = parseThrOpr b32 getQPFloatRegRd getAddrRs1 getAddrSimm13
+      struct (Opcode.STQF, opr)
     | 0b100101u ->
       match extract b32 29u 25u with
       | 0b00000u ->
-        struct (
-          Opcode.STFSR,
-          parseOneRegTwoOpr b32 (setPriReg FSR) getAddrRs1 getAddrSimm13
-        )
+        let opr = parseOneRegTwoOpr b32 (setPriReg FSR) getAddrRs1 getAddrSimm13
+        struct (Opcode.STFSR, opr)
       | 0b00001u ->
-        struct (
-          Opcode.STXFSR,
-          parseOneRegTwoOpr b32 (setPriReg FSR) getAddrRs1 getAddrSimm13
-        )
-      | _ -> raise ParsingFailureException
+        let opr = parseOneRegTwoOpr b32 (setPriReg FSR) getAddrRs1 getAddrSimm13
+        struct (Opcode.STXFSR, opr)
+      | _ ->
+        raise ParsingFailureException
     | 0b111100u ->
-      struct (
-        Opcode.CASA,
-        parseFourOpr b32 getRegRs1 getRegAsi getRegRs2 getRegRd
-      )
+      let opr = parseFourOpr b32 getRegRs1 getRegAsi getRegRs2 getRegRd
+      struct (Opcode.CASA, opr)
     | 0b111110u ->
-      struct (
-        Opcode.CASXA,
-        parseFourOpr b32 getRegRs1 getRegAsi getRegRs2 getRegRd
-      )
+      let opr = parseFourOpr b32 getRegRs1 getRegAsi getRegRs2 getRegRd
+      struct (Opcode.CASXA, opr)
     | 0b100000u ->
-      struct (
-        Opcode.LDF,
-        parseThrOpr b32 getAddrRs1 getAddrSimm13 getFloatRegRd
-      )
+      let opr = parseThrOpr b32 getAddrRs1 getAddrSimm13 getFloatRegRd
+      struct (Opcode.LDF, opr)
     | 0b100011u ->
-      struct (
-        Opcode.LDDF,
-        parseThrOpr b32 getAddrRs1 getAddrSimm13 getDPFloatRegRd
-      )
+      let opr = parseThrOpr b32 getAddrRs1 getAddrSimm13 getDPFloatRegRd
+      struct (Opcode.LDDF, opr)
     | 0b100010u ->
-      struct (
-        Opcode.LDQF,
-        parseThrOpr b32 getAddrRs1 getAddrSimm13 getQPFloatRegRd
-      )
+      let opr = parseThrOpr b32 getAddrRs1 getAddrSimm13 getQPFloatRegRd
+      struct (Opcode.LDQF, opr)
     | 0b100001u ->
       match extract b32 29u 25u with
       | 0b00000u ->
-        struct (
-          Opcode.LDFSR,
-          parseTwoOprOneReg b32 getAddrRs1 getAddrSimm13
-            (setPriReg FSR)
-        )
+        let opr = parseTwoOprOneReg b32 getAddrRs1 getAddrSimm13 (setPriReg FSR)
+        struct (Opcode.LDFSR, opr)
       | 0b00001u ->
-        struct (
-          Opcode.LDXFSR,
-          parseTwoOprOneReg b32 getAddrRs1 getAddrSimm13
-            (setPriReg FSR)
-        )
-      | _ -> raise ParsingFailureException
+        let opr = parseTwoOprOneReg b32 getAddrRs1 getAddrSimm13 (setPriReg FSR)
+        struct (Opcode.LDXFSR, opr)
+      | _ ->
+        raise ParsingFailureException
     | 0b110000u ->
-      struct (
-        Opcode.LDFA,
-        parseFourOpr b32 getAddrRs1 getAddrSimm13
-          getRegAsi getFloatRegRd
-      )
+      let opr =
+        parseFourOpr b32 getAddrRs1 getAddrSimm13 getRegAsi getFloatRegRd
+      struct (Opcode.LDFA, opr)
     | 0b110011u ->
-      struct (
-        Opcode.LDDFA,
-        parseFourOpr b32 getAddrRs1 getAddrSimm13
-          getRegAsi getDPFloatRegRd)
+      let parseFourOpr =
+        parseFourOpr b32 getAddrRs1 getAddrSimm13 getRegAsi getDPFloatRegRd
+      struct (Opcode.LDDFA, parseFourOpr)
     | 0b110010u ->
-      struct (
-        Opcode.LDQFA,
-        parseThrOprOneReg b32 getAddrRs1 getAddrSimm13
-          (setPriReg ASI) getQPFloatRegRd
-      )
+      let opr =
+        parseThrOprOneReg b32
+                          getAddrRs1
+                          getAddrSimm13
+                          (setPriReg ASI)
+                          getQPFloatRegRd
+      struct (Opcode.LDQFA, opr)
     | 0b001001u ->
       struct (Opcode.LDSB, parseThrOpr b32 getAddrRs1 getAddrSimm13 getRegRd)
     | 0b001010u ->
@@ -2909,63 +2739,38 @@ let parse11rd b32 =
     | 0b000011u ->
       struct (Opcode.LDD, parseThrOpr b32 getAddrRs1 getAddrSimm13 getRegRd)
     | 0b011001u ->
-      struct (
-        Opcode.LDSBA,
-        parseFourOpr b32 getAddrRs1 getAddrSimm13
-          getRegAsi getRegRd
-      )
+      let opr = parseFourOpr b32 getAddrRs1 getAddrSimm13 getRegAsi getRegRd
+      struct (Opcode.LDSBA, opr)
     | 0b011010u ->
-      struct (
-        Opcode.LDSHA,
-        parseFourOpr b32 getAddrRs1 getAddrSimm13
-          getRegAsi getRegRd
-      )
+      let opr = parseFourOpr b32 getAddrRs1 getAddrSimm13 getRegAsi getRegRd
+      struct (Opcode.LDSHA, opr)
     | 0b011000u ->
-      struct (
-        Opcode.LDSWA,
-        parseFourOpr b32 getAddrRs1 getAddrSimm13
-          getRegAsi getRegRd
-      )
+      let opr = parseFourOpr b32 getAddrRs1 getAddrSimm13 getRegAsi getRegRd
+      struct (Opcode.LDSWA, opr)
     | 0b010001u ->
-      struct (
-        Opcode.LDUBA,
-        parseFourOpr b32 getAddrRs1 getAddrSimm13
-          getRegAsi getRegRd
-      )
+      let opr = parseFourOpr b32 getAddrRs1 getAddrSimm13 getRegAsi getRegRd
+      struct (Opcode.LDUBA, opr)
     | 0b010010u ->
-      struct (
-        Opcode.LDUHA,
-        parseFourOpr b32 getAddrRs1 getAddrSimm13
-          getRegAsi getRegRd
-      )
+      let opr = parseFourOpr b32 getAddrRs1 getAddrSimm13 getRegAsi getRegRd
+      struct (Opcode.LDUHA, opr)
     | 0b010000u ->
-      struct (
-        Opcode.LDUWA,
-        parseFourOpr b32 getAddrRs1 getAddrSimm13
-          getRegAsi getRegRd
-      )
+      let opr = parseFourOpr b32 getAddrRs1 getAddrSimm13 getRegAsi getRegRd
+      struct (Opcode.LDUWA, opr)
     | 0b011011u ->
-      struct (
-        Opcode.LDXA,
-        parseFourOpr b32 getAddrRs1 getAddrSimm13
-          getRegAsi getRegRd
-      )
+      let opr = parseFourOpr b32 getAddrRs1 getAddrSimm13 getRegAsi getRegRd
+      struct (Opcode.LDXA, opr)
     | 0b010011u ->
-      struct (
-        Opcode.LDDA,
-        parseFourOpr b32 getAddrRs1 getAddrSimm13
-          getRegAsi getRegRd
-      )
+      let opr = parseFourOpr b32 getAddrRs1 getAddrSimm13 getRegAsi getRegRd
+      struct (Opcode.LDDA, opr)
     | 0b001101u ->
       struct (Opcode.LDSTUB, parseThrOpr b32 getAddrRs1 getAddrSimm13 getRegRd)
     | 0b011101u ->
-      struct (
-        Opcode.LDSTUBA,
-        parseFourOpr b32 getAddrRs1 getAddrSimm13
-          getRegAsi getRegRd
-      )
-    | _ -> raise ParsingFailureException
-  | _ -> raise ParsingFailureException
+      let opr = parseFourOpr b32 getAddrRs1 getAddrSimm13 getRegAsi getRegRd
+      struct (Opcode.LDSTUBA, opr)
+    | _ ->
+      raise ParsingFailureException
+  | _ ->
+    raise ParsingFailureException
 
 (*
   00-- ---- ---- ----
@@ -2973,7 +2778,8 @@ let parse11rd b32 =
 *)
 let parse00 b32 =
   match extract b32 24u 22u with
-  | 0b000u -> struct (Opcode.ILLTRAP, parseOneOpr b32 getConst22)
+  | 0b000u ->
+    struct (Opcode.ILLTRAP, parseOneOpr b32 getConst22)
   | 0b100u ->
     match extract b32 29u 25u with
     | 0b00000u -> struct (Opcode.NOP, NoOperand)
@@ -3000,166 +2806,151 @@ let parse00 b32 =
   | 0b101u ->
     match extract b32 28u 25u with
     | 0b1000u ->
-      struct (
-        Opcode.FBPA,
+      let opr =
         parseOneCCThrOpr
           b32
           (getTwoCCFcc (get21cc1 b32) (get20cc0 b32))
           getdisp19
           getAbit
           getPbit
-      )
+      struct (Opcode.FBPA, opr)
     | 0b0000u ->
-      struct (
-        Opcode.FBPN,
+      let opr =
         parseOneCCThrOpr
           b32
           (getTwoCCFcc (get21cc1 b32) (get20cc0 b32))
           getdisp19
           getAbit
           getPbit
-      )
+      struct (Opcode.FBPN, opr)
     | 0b0111u ->
-      struct (
-        Opcode.FBPU,
+      let opr =
         parseOneCCThrOpr
           b32
           (getTwoCCFcc (get21cc1 b32) (get20cc0 b32))
           getdisp19
           getAbit
           getPbit
-      )
+      struct (Opcode.FBPU, opr)
     | 0b0110u ->
-      struct (
-        Opcode.FBPG,
+      let opr =
         parseOneCCThrOpr
           b32
           (getTwoCCFcc (get21cc1 b32) (get20cc0 b32))
           getdisp19
           getAbit
           getPbit
-      )
+      struct (Opcode.FBPG, opr)
     | 0b0101u ->
-      struct (
-        Opcode.FBPUG,
+      let opr =
         parseOneCCThrOpr
           b32
           (getTwoCCFcc (get21cc1 b32) (get20cc0 b32))
           getdisp19
           getAbit
           getPbit
-      )
+      struct (Opcode.FBPUG, opr)
     | 0b0100u ->
-      struct (
-        Opcode.FBPL,
+      let opr =
         parseOneCCThrOpr
           b32
           (getTwoCCFcc (get21cc1 b32) (get20cc0 b32))
           getdisp19
           getAbit
           getPbit
-      )
+      struct (Opcode.FBPL, opr)
     | 0b0011u ->
-      struct (
-        Opcode.FBPUL,
+      let parseOneCCThrOpr =
         parseOneCCThrOpr
           b32
           (getTwoCCFcc (get21cc1 b32) (get20cc0 b32))
           getdisp19
           getAbit
           getPbit
-          )
+      struct (Opcode.FBPUL, parseOneCCThrOpr)
     | 0b0010u ->
-      struct (
-        Opcode.FBPLG,
+      let parseOneCCThrOpr =
         parseOneCCThrOpr
           b32
           (getTwoCCFcc (get21cc1 b32) (get20cc0 b32))
           getdisp19
           getAbit
           getPbit
-          )
+      struct (Opcode.FBPLG, parseOneCCThrOpr)
     | 0b0001u ->
-      struct (
-        Opcode.FBPNE,
+      let opr =
         parseOneCCThrOpr
           b32
           (getTwoCCFcc (get21cc1 b32) (get20cc0 b32))
           getdisp19
           getAbit
           getPbit
-      )
+      struct (Opcode.FBPNE, opr)
     | 0b1001u ->
-      struct (
-        Opcode.FBPE,
+      let opr =
         parseOneCCThrOpr
           b32
           (getTwoCCFcc (get21cc1 b32) (get20cc0 b32))
           getdisp19
           getAbit
           getPbit
-      )
+      struct (Opcode.FBPE, opr)
     | 0b1010u ->
-      struct (
-        Opcode.FBPUE,
+      let opr =
         parseOneCCThrOpr
           b32
           (getTwoCCFcc (get21cc1 b32) (get20cc0 b32))
           getdisp19
           getAbit
           getPbit
-      )
+      struct (Opcode.FBPUE, opr)
     | 0b1011u ->
-      struct (
-        Opcode.FBPGE,
+      let opr =
         parseOneCCThrOpr
           b32
           (getTwoCCFcc (get21cc1 b32) (get20cc0 b32))
           getdisp19
           getAbit
           getPbit
-      )
+      struct (Opcode.FBPGE, opr)
     | 0b1100u ->
-      struct (
-        Opcode.FBPUGE,
+      let opr =
         parseOneCCThrOpr
           b32
           (getTwoCCFcc (get21cc1 b32) (get20cc0 b32))
           getdisp19
           getAbit
           getPbit
-      )
+      struct (Opcode.FBPUGE, opr)
     | 0b1101u ->
-      struct (
-        Opcode.FBPLE,
+      let opr =
         parseOneCCThrOpr
           b32
           (getTwoCCFcc (get21cc1 b32) (get20cc0 b32))
           getdisp19
           getAbit
           getPbit
-      )
+      struct (Opcode.FBPLE, opr)
     | 0b1110u ->
-      struct (
-        Opcode.FBPULE,
+      let opr =
         parseOneCCThrOpr
           b32
           (getTwoCCFcc (get21cc1 b32) (get20cc0 b32))
           getdisp19
           getAbit
           getPbit
-      )
+      struct (Opcode.FBPULE, opr)
     | 0b1111u ->
-      struct (
-        Opcode.FBPO,
+      let opr =
         parseOneCCThrOpr
           b32
           (getTwoCCFcc (get21cc1 b32) (get20cc0 b32))
           getdisp19
           getAbit
           getPbit
-      )
-    | _ -> raise ParsingFailureException
+      struct (Opcode.FBPO, opr)
+    | _ ->
+      raise ParsingFailureException
   | 0b010u ->
     match extract b32 28u 25u with
     | 0b1000u -> struct (Opcode.BA, parseTwoOpr b32 getAbit getdisp22)
@@ -3182,260 +2973,225 @@ let parse00 b32 =
   | 0b001u ->
     match extract b32 28u 25u with
     | 0b1000u ->
-      struct (
-        Opcode.BPA,
+      let opr =
         parseOneCCThrOpr
           b32
           (getTwoCCix (get21cc1 b32) (get20cc0 b32))
           getdisp19
           getAbit
           getPbit
-      )
+      struct (Opcode.BPA, opr)
     | 0b0000u ->
-      struct (
-        Opcode.BPN,
+      let opr =
         parseOneCCThrOpr
           b32
           (getTwoCCix (get21cc1 b32) (get20cc0 b32))
           getdisp19
           getAbit
           getPbit
-      )
+      struct (Opcode.BPN, opr)
     | 0b1001u ->
-      struct (
-        Opcode.BPNE,
+      let opr =
         parseOneCCThrOpr
           b32
           (getTwoCCix (get21cc1 b32) (get20cc0 b32))
           getdisp19
           getAbit
           getPbit
-      )
+      struct (Opcode.BPNE, opr)
     | 0b0001u ->
-      struct (
-        Opcode.BPE,
+      let opr =
         parseOneCCThrOpr
           b32
           (getTwoCCix (get21cc1 b32) (get20cc0 b32))
           getdisp19
           getAbit
           getPbit
-      )
+      struct (Opcode.BPE, opr)
     | 0b1010u ->
-      struct (
-        Opcode.BPG,
+      let opr =
         parseOneCCThrOpr
           b32
           (getTwoCCix (get21cc1 b32) (get20cc0 b32))
           getdisp19
           getAbit
           getPbit
-      )
+      struct (Opcode.BPG, opr)
     | 0b0010u ->
-      struct (
-        Opcode.BPLE,
+      let opr =
         parseOneCCThrOpr
           b32
           (getTwoCCix (get21cc1 b32) (get20cc0 b32))
           getdisp19
           getAbit
           getPbit
-      )
+      struct (Opcode.BPLE, opr)
     | 0b1011u ->
-      struct (
-        Opcode.BPGE,
+      let opr =
         parseOneCCThrOpr
           b32
           (getTwoCCix (get21cc1 b32) (get20cc0 b32))
           getdisp19
           getAbit
           getPbit
-      )
+      struct (Opcode.BPGE, opr)
     | 0b0011u ->
-      struct (
-        Opcode.BPL,
+      let opr =
         parseOneCCThrOpr
           b32
           (getTwoCCix (get21cc1 b32) (get20cc0 b32))
           getdisp19
           getAbit
           getPbit
-      )
+      struct (Opcode.BPL, opr)
     | 0b1100u ->
-      struct (
-        Opcode.BPGU,
+      let opr =
         parseOneCCThrOpr
           b32
           (getTwoCCix (get21cc1 b32) (get20cc0 b32))
           getdisp19
           getAbit
           getPbit
-      )
+      struct (Opcode.BPGU, opr)
     | 0b0100u ->
-      struct (
-        Opcode.BPLEU,
+      let opr =
         parseOneCCThrOpr
           b32
           (getTwoCCix (get21cc1 b32) (get20cc0 b32))
           getdisp19
           getAbit
           getPbit
-      )
+      struct (Opcode.BPLEU, opr)
     | 0b1101u ->
-      struct (
-        Opcode.BPCC,
+      let opr =
         parseOneCCThrOpr
           b32
           (getTwoCCix (get21cc1 b32) (get20cc0 b32))
           getdisp19
           getAbit
           getPbit
-      )
+      struct (Opcode.BPCC, opr)
     | 0b0101u ->
-      struct (
-        Opcode.BPCS,
+      let opr =
         parseOneCCThrOpr
           b32
           (getTwoCCix (get21cc1 b32) (get20cc0 b32))
           getdisp19
           getAbit
           getPbit
-      )
+      struct (Opcode.BPCS, opr)
     | 0b1110u ->
-      struct (
-        Opcode.BPPOS,
+      let opr =
         parseOneCCThrOpr
           b32
           (getTwoCCix (get21cc1 b32) (get20cc0 b32))
           getdisp19
           getAbit
           getPbit
-      )
+      struct (Opcode.BPPOS, opr)
     | 0b0110u ->
-      struct (
-        Opcode.BPNEG,
+      let opr =
         parseOneCCThrOpr
           b32
           (getTwoCCix (get21cc1 b32) (get20cc0 b32))
           getdisp19
           getAbit
           getPbit
-      )
+      struct (Opcode.BPNEG, opr)
     | 0b1111u ->
-      struct (
-        Opcode.BPVC,
+      let opr =
         parseOneCCThrOpr
           b32
           (getTwoCCix (get21cc1 b32) (get20cc0 b32))
           getdisp19
           getAbit
           getPbit
-      )
+      struct (Opcode.BPVC, opr)
     | 0b0111u ->
-      struct (
-        Opcode.BPVS,
+      let opr =
         parseOneCCThrOpr
           b32
           (getTwoCCix (get21cc1 b32) (get20cc0 b32))
           getdisp19
           getAbit
           getPbit
-      )
-    | _ -> raise ParsingFailureException
+      struct (Opcode.BPVS, opr)
+    | _ ->
+      raise ParsingFailureException
   | 0b011u ->
     match extract b32 27u 25u with
     | 0b001u ->
-      struct (
-        Opcode.BRZ,
-        parseFourOpr
-          b32
-          getRegRs1
-          getd16
-          getAbit
-          getPbit
-      )
+      let opr = parseFourOpr b32 getRegRs1 getd16 getAbit getPbit
+      struct (Opcode.BRZ, opr)
     | 0b010u ->
-      struct (
-        Opcode.BRLEZ,
-        parseFourOpr
-          b32
-          getRegRs1
-          getd16
-          getAbit
-          getPbit
-      )
+      let opr = parseFourOpr b32 getRegRs1 getd16 getAbit getPbit
+      struct (Opcode.BRLEZ, opr)
     | 0b011u ->
-      struct (
-        Opcode.BRLZ,
-        parseFourOpr
-          b32
-          getRegRs1
-          getd16
-          getAbit
-          getPbit
-      )
+      let opr = parseFourOpr b32 getRegRs1 getd16 getAbit getPbit
+      struct (Opcode.BRLZ, opr)
     | 0b101u ->
-      struct (
-        Opcode.BRNZ,
-        parseFourOpr
-          b32
-          getRegRs1
-          getd16
-          getAbit
-          getPbit
-      )
+      let opr = parseFourOpr b32 getRegRs1 getd16 getAbit getPbit
+      struct (Opcode.BRNZ, opr)
     | 0b110u ->
-      struct (
-        Opcode.BRGZ,
-        parseFourOpr
-          b32
-          getRegRs1
-          getd16
-          getAbit
-          getPbit
-      )
+      let opr = parseFourOpr b32 getRegRs1 getd16 getAbit getPbit
+      struct (Opcode.BRGZ, opr)
     | 0b111u ->
-      struct (
-        Opcode.BRGEZ,
-        parseFourOpr
-          b32
-          getRegRs1
-          getd16
-          getAbit
-          getPbit
-      )
-    | _ -> raise ParsingFailureException
-  | _ -> raise ParsingFailureException
+      let opr = parseFourOpr b32 getRegRs1 getd16 getAbit getPbit
+      struct (Opcode.BRGEZ, opr)
+    | _ ->
+      raise ParsingFailureException
+  | _ ->
+    raise ParsingFailureException
 
 /// IMPDEP1 (op=10, op3=0x36) is the VIS opcode space, sub-selected by the 9-bit
 /// opf field (bits 13:5). Decode the 64-bit logical/select VIS ops (fzerod,
 /// fsrc*d, for*d, ...) here; anything else stays a raw IMPDEP1.
 let private parseVISimpdep1 b32 =
-  let vis op = struct (op, parseThrOpr b32 getDPFloatRegRs1 getDPFloatRegRs2
-                            getDPFloatRegRd)
+  let vis op = struct (op, parseThrOpr b32
+                                       getDPFloatRegRs1
+                                       getDPFloatRegRs2
+                                       getDPFloatRegRd)
   match extract b32 13u 5u with
-  | 0b001100000u -> vis Opcode.FZEROd
-  | 0b001111110u -> vis Opcode.FONEd
-  | 0b001110100u -> vis Opcode.FSRC1d
-  | 0b001111000u -> vis Opcode.FSRC2d
-  | 0b001101010u -> vis Opcode.FNOT1d
-  | 0b001100110u -> vis Opcode.FNOT2d
-  | 0b001111100u -> vis Opcode.FORd
-  | 0b001100010u -> vis Opcode.FNORd
-  | 0b001110000u -> vis Opcode.FANDd
-  | 0b001101110u -> vis Opcode.FNANDd
-  | 0b001101100u -> vis Opcode.FXORd
-  | 0b001110010u -> vis Opcode.FXNORd
-  | 0b001111010u -> vis Opcode.FORNOT1d
-  | 0b001110110u -> vis Opcode.FORNOT2d
-  | 0b001101000u -> vis Opcode.FANDNOT1d
-  | 0b001100100u -> vis Opcode.FANDNOT2d
-  | 0b001001000u -> vis Opcode.FALIGNDATAd
+  | 0b001100000u ->
+    vis Opcode.FZEROd
+  | 0b001111110u ->
+    vis Opcode.FONEd
+  | 0b001110100u ->
+    vis Opcode.FSRC1d
+  | 0b001111000u ->
+    vis Opcode.FSRC2d
+  | 0b001101010u ->
+    vis Opcode.FNOT1d
+  | 0b001100110u ->
+    vis Opcode.FNOT2d
+  | 0b001111100u ->
+    vis Opcode.FORd
+  | 0b001100010u ->
+    vis Opcode.FNORd
+  | 0b001110000u ->
+    vis Opcode.FANDd
+  | 0b001101110u ->
+    vis Opcode.FNANDd
+  | 0b001101100u ->
+    vis Opcode.FXORd
+  | 0b001110010u ->
+    vis Opcode.FXNORd
+  | 0b001111010u ->
+    vis Opcode.FORNOT1d
+  | 0b001110110u ->
+    vis Opcode.FORNOT2d
+  | 0b001101000u ->
+    vis Opcode.FANDNOT1d
+  | 0b001100100u ->
+    vis Opcode.FANDNOT2d
+  | 0b001001000u ->
+    vis Opcode.FALIGNDATAd
   | 0b000011000u ->
     struct (Opcode.ALIGNADDR, parseThrOpr b32 getRegRs1 getRegRs2 getRegRd)
   | 0b000011010u ->
     struct (Opcode.ALIGNADDRL, parseThrOpr b32 getRegRs1 getRegRs2 getRegRd)
-  | _ -> struct (Opcode.IMPDEP1, parseOneOpr b32 getImplDep)
+  | _ ->
+    struct (Opcode.IMPDEP1, parseOneOpr b32 getImplDep)
 
 (*
   10-- ---- ---- ----
@@ -3448,173 +3204,113 @@ let parse10 b32 =
     | 0b0u ->
       match extract b32 28u 25u with
       | 0b1000u ->
-        struct (
-          Opcode.TA,
-          parseTcc b32
-          )
+        let opr = parseTcc b32
+        struct (Opcode.TA, opr)
       | 0b0000u ->
-        struct (
-          Opcode.TN,
-          parseTcc b32
-        )
+        let opr = parseTcc b32
+        struct (Opcode.TN, opr)
       | 0b1001u ->
-        struct (
-          Opcode.TNE,
-          parseTcc b32
-        )
+        let opr = parseTcc b32
+        struct (Opcode.TNE, opr)
       | 0b0001u ->
-        struct (
-          Opcode.TE,
-          parseTcc b32
-        )
+        let opr = parseTcc b32
+        struct (Opcode.TE, opr)
       | 0b1010u ->
-        struct (
-          Opcode.TG,
-          parseTcc b32
-        )
+        let opr = parseTcc b32
+        struct (Opcode.TG, opr)
       | 0b0010u ->
-        struct (
-          Opcode.TLE,
-          parseTcc b32
-        )
+        let opr = parseTcc b32
+        struct (Opcode.TLE, opr)
       | 0b1011u ->
-        struct (
-          Opcode.TGE,
-          parseTcc b32
-        )
+        let opr = parseTcc b32
+        struct (Opcode.TGE, opr)
       | 0b0011u ->
-        struct (
-          Opcode.TL,
-          parseTcc b32
-        )
+        let opr = parseTcc b32
+        struct (Opcode.TL, opr)
       | 0b1100u ->
-        struct (
-          Opcode.TGU,
-          parseTcc b32
-        )
+        let opr = parseTcc b32
+        struct (Opcode.TGU, opr)
       | 0b0100u ->
-        struct (
-          Opcode.TLEU,
-          parseTcc b32
-        )
+        let opr = parseTcc b32
+        struct (Opcode.TLEU, opr)
       | 0b1101u ->
-        struct (
-          Opcode.TCC,
-          parseTcc b32
-        )
+        let opr = parseTcc b32
+        struct (Opcode.TCC, opr)
       | 0b0101u ->
-        struct (
-          Opcode.TCS,
-          parseTcc b32
-        )
+        let opr = parseTcc b32
+        struct (Opcode.TCS, opr)
       | 0b1110u ->
-        struct (
-          Opcode.TPOS,
-          parseTcc b32
-        )
+        let opr = parseTcc b32
+        struct (Opcode.TPOS, opr)
       | 0b0110u ->
-        struct (
-          Opcode.TNEG,
-          parseTcc b32
-        )
+        let opr = parseTcc b32
+        struct (Opcode.TNEG, opr)
       | 0b1111u ->
-        struct (
-          Opcode.TVC,
-          parseTcc b32
-        )
+        let opr = parseTcc b32
+        struct (Opcode.TVC, opr)
       | 0b0111u ->
-        struct (
-          Opcode.TVS,
-          parseTcc b32
-        )
-      | _ -> raise ParsingFailureException
+        let opr = parseTcc b32
+        struct (Opcode.TVS, opr)
+      | _ ->
+        raise ParsingFailureException
     | 0b1u ->
       match extract b32 28u 25u with
       | 0b1000u ->
-        struct (
-          Opcode.TA,
-          parseTcc b32
-        )
+        let opr = parseTcc b32
+        struct (Opcode.TA, opr)
       | 0b0000u ->
-        struct (
-          Opcode.TN,
-          parseTcc b32
-        )
+        let opr = parseTcc b32
+        struct (Opcode.TN, opr)
       | 0b1001u ->
-        struct (
-          Opcode.TNE,
-          parseTcc b32
-        )
+        let opr = parseTcc b32
+        struct (Opcode.TNE, opr)
       | 0b0001u ->
-        struct (
-          Opcode.TE,
-          parseTcc b32
-        )
+        let opr = parseTcc b32
+        struct (Opcode.TE, opr)
       | 0b1010u ->
-        struct (
-          Opcode.TG,
-          parseTcc b32
-        )
+        let opr = parseTcc b32
+        struct (Opcode.TG, opr)
       | 0b0010u ->
-        struct (
-          Opcode.TLE,
-          parseTcc b32
-        )
+        let opr = parseTcc b32
+        struct (Opcode.TLE, opr)
       | 0b1011u ->
-        struct (
-          Opcode.TGE,
-          parseTcc b32
-        )
+        let opr = parseTcc b32
+        struct (Opcode.TGE, opr)
       | 0b0011u ->
-        struct (
-          Opcode.TL,
-          parseTcc b32
-        )
+        let opr = parseTcc b32
+        struct (Opcode.TL, opr)
       | 0b1100u ->
-        struct (
-          Opcode.TGU,
-          parseTcc b32
-        )
+        let opr = parseTcc b32
+        struct (Opcode.TGU, opr)
       | 0b0100u ->
-        struct (
-          Opcode.TLEU,
-          parseTcc b32
-        )
+        let opr = parseTcc b32
+        struct (Opcode.TLEU, opr)
       | 0b1101u ->
-        struct (
-          Opcode.TCC,
-          parseTcc b32
-        )
+        let opr = parseTcc b32
+        struct (Opcode.TCC, opr)
       | 0b0101u ->
-        struct (
-          Opcode.TCS,
-          parseTcc b32
-        )
+        let opr = parseTcc b32
+        struct (Opcode.TCS, opr)
       | 0b1110u ->
-        struct (
-          Opcode.TPOS,
-          parseTcc b32
-        )
+        let opr = parseTcc b32
+        struct (Opcode.TPOS, opr)
       | 0b0110u ->
-        struct (
-          Opcode.TNEG,
-          parseTcc b32
-        )
+        let opr = parseTcc b32
+        struct (Opcode.TNEG, opr)
       | 0b1111u ->
-        struct (
-          Opcode.TVC,
-          parseTcc b32
-        )
+        let opr = parseTcc b32
+        struct (Opcode.TVC, opr)
       | 0b0111u ->
-        struct (
-          Opcode.TVS,
-          parseTcc b32
-        )
-      | _ -> raise ParsingFailureException
-    | _ -> raise ParsingFailureException
+        let opr = parseTcc b32
+        struct (Opcode.TVS, opr)
+      | _ ->
+        raise ParsingFailureException
+    | _ ->
+      raise ParsingFailureException
   | 0b101000u ->
     match pickBit b32 13u with
-    | 0b0u -> parse101000 b32
+    | 0b0u ->
+      parse101000 b32
     | _ ->
       match pickBit b32 25u with
       | 0u ->
@@ -3622,8 +3318,10 @@ let parse10 b32 =
         | 0b0u -> struct (Opcode.STBAR, NoOperand)
         | 0b1u -> struct (Opcode.MEMBAR, parseOneOpr b32 getMembarMask)
         | _ -> raise ParsingFailureException
-      | _ -> raise ParsingFailureException
-  | 0b110000u -> parse110000 b32
+      | _ ->
+        raise ParsingFailureException
+  | 0b110000u ->
+    parse110000 b32
   | 0b110001u ->
     match pickBit b32 25u with
     | 0u -> struct (Opcode.SAVED, NoOperand)
@@ -3642,56 +3340,62 @@ let parse10 b32 =
   | 0b110101u ->
     match extract b32 13u 5u with
     | 0b001010001u ->
-      struct (
-        Opcode.FCMPs,
-        parseOneCCTwoOpr b32 (getTwoCCFcc (get26cc1 b32) (get25cc0 b32))
+      let opr =
+        parseOneCCTwoOpr b32
+          (getTwoCCFcc (get26cc1 b32) (get25cc0 b32))
           getFloatRegRs1
           getFloatRegRs2
-      )
+      struct (Opcode.FCMPs, opr)
     | 0b001010010u ->
-      struct (Opcode.FCMPd,
-              parseOneCCTwoOpr
-                b32
-                (getTwoCCFcc (get26cc1 b32) (get25cc0 b32))
-                getDPFloatRegRs1
-                getDPFloatRegRs2)
+      let parseOneCCTwoOpr =
+        parseOneCCTwoOpr b32
+                         (getTwoCCFcc (get26cc1 b32) (get25cc0 b32))
+                         getDPFloatRegRs1
+                         getDPFloatRegRs2
+      struct (Opcode.FCMPd, parseOneCCTwoOpr)
     | 0b001010011u ->
-      struct (
-        Opcode.FCMPq,
-        parseOneCCTwoOpr b32 (getTwoCCFcc (get26cc1 b32) (get25cc0 b32))
+      let opr =
+        parseOneCCTwoOpr b32
+          (getTwoCCFcc (get26cc1 b32) (get25cc0 b32))
           getQPFloatRegRs1
           getQPFloatRegRs2
-      )
+      struct (Opcode.FCMPq, opr)
     | 0b001010101u ->
-      struct (
-        Opcode.FCMPEs,
-        parseOneCCTwoOpr b32 (getTwoCCFcc (get26cc1 b32) (get25cc0 b32))
+      let opr =
+        parseOneCCTwoOpr b32
+          (getTwoCCFcc (get26cc1 b32) (get25cc0 b32))
           getFloatRegRs1
           getFloatRegRs2
-      )
+      struct (Opcode.FCMPEs, opr)
     | 0b001010110u ->
-      struct (
-        Opcode.FCMPEd,
-        parseOneCCTwoOpr b32 (getTwoCCFcc (get26cc1 b32) (get25cc0 b32))
-          getDPFloatRegRs1 getDPFloatRegRs2
-      )
+      let opr =
+        parseOneCCTwoOpr b32
+          (getTwoCCFcc (get26cc1 b32) (get25cc0 b32))
+          getDPFloatRegRs1
+          getDPFloatRegRs2
+      struct (Opcode.FCMPEd, opr)
     | 0b001010111u ->
-      struct (
-        Opcode.FCMPEq,
-        parseOneCCTwoOpr b32 (getTwoCCFcc (get26cc1 b32) (get25cc0 b32))
+      let opr =
+        parseOneCCTwoOpr b32
+          (getTwoCCFcc (get26cc1 b32) (get25cc0 b32))
           getQPFloatRegRs1
           getQPFloatRegRs2
-      )
-    | _ -> parse110101 b32
+      struct (Opcode.FCMPEq, opr)
+    | _ ->
+      parse110101 b32
   | 0b111011u ->
     match pickBit b32 13u with
     | 0b0u -> struct (Opcode.FLUSH, parseTwoOpr b32 getRegRs1 getRegRs2)
     | 0b1u -> struct (Opcode.FLUSH, parseTwoOpr b32 getRegRs1 getSimm13)
     | _ -> raise ParsingFailureException
-  | 0b101011u -> struct (Opcode.FLUSHW, NoOperand)
-  | 0b110110u -> parseVISimpdep1 b32
-  | 0b110111u -> struct (Opcode.IMPDEP2, parseOneOpr b32 getImplDep)
-  | _ -> parse10rd b32
+  | 0b101011u ->
+    struct (Opcode.FLUSHW, NoOperand)
+  | 0b110110u ->
+    parseVISimpdep1 b32
+  | 0b110111u ->
+    struct (Opcode.IMPDEP2, parseOneOpr b32 getImplDep)
+  | _ ->
+    parse10rd b32
 
 (*
   11-- ---- ---- ----
@@ -3704,23 +3408,22 @@ let parse11 b32 =
     | 0b101101u ->
       struct (Opcode.PREFETCH, parseThrOpr b32 getRegRs1 getRegRs2 getRegRd)
     | 0b111101u ->
-      struct (
-        Opcode.PREFETCHA,
-        parseFourOpr b32 getRegRs1 getRegRs2 getImmAsi getRegRd
-      )
-    | _ -> parse11rd b32
+      let opr = parseFourOpr b32 getRegRs1 getRegRs2 getImmAsi getRegRd
+      struct (Opcode.PREFETCHA, opr)
+    | _ ->
+      parse11rd b32
   | 0b1u ->
     match extract b32 24u 19u with
     | 0b101101u ->
       struct (Opcode.PREFETCH, parseThrOpr b32 getRegRs1 getSimm13 getRegRd)
     | 0b111101u ->
-      struct (
-        Opcode.PREFETCHA,
-        parseThrOprOneReg b32 getRegRs1 getSimm13 (setPriReg ASI)
-          getRegRd
-      )
-    | _ -> parse11rd b32
-  | _ -> parse11rd b32
+      let opr =
+        parseThrOprOneReg b32 getRegRs1 getSimm13 (setPriReg ASI) getRegRd
+      struct (Opcode.PREFETCHA, opr)
+    | _ ->
+      parse11rd b32
+  | _ ->
+    parse11rd b32
 
 let parseTwoBits bin =
   match extract bin 31u 30u with

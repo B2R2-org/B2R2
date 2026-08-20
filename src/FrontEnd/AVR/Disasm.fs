@@ -224,12 +224,15 @@ let buildComment opr1 opr2 (builder: IDisasmBuilder) =
     | DispMode(reg, c) ->
       builder.Accumulate(AsmWordKind.String, "     ; ")
       builder.Accumulate(AsmWordKind.Value, HexString.ofInt32 c)
-    | _ -> ()
-  | _ -> ()
+    | _ ->
+      ()
+  | _ ->
+    ()
 
 let buildOprs (ins: Instruction) pc builder =
   match ins.Operands with
-  | NoOperand -> ()
+  | NoOperand ->
+    ()
   | OneOperand opr ->
     oprToString ins pc opr (Some " ") builder
   | TwoOperands(opr1, opr2) ->

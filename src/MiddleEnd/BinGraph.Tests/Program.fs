@@ -36,7 +36,8 @@ module DBS = DepthBasedSearchDominance
 let private buildTestPersistentGraphs fileName size =
   let rng = System.Random 42
   let rec loop acc (g: IDiGraph<_, _>) = function
-    | 0 -> g, acc
+    | 0 ->
+      g, acc
     | i ->
       let edges = g.Edges
       let edge = edges[rng.Next(0, edges.Length)]

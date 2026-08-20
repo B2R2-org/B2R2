@@ -29,7 +29,15 @@ open B2R2.FrontEnd.BinLifter
 
 /// Represents an instruction for PARISC.
 type Instruction
-  internal(addr, numBytes, completer, cond, id, op, opr, oprSize, wordSize,
+  internal(addr,
+           numBytes,
+           completer,
+           cond,
+           id,
+           op,
+           opr,
+           oprSize,
+           wordSize,
            lifter: ILiftable) =
 
   /// Address of this instruction.

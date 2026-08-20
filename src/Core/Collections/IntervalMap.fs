@@ -73,20 +73,20 @@ module IntervalMap =
   let private rangeExists i tree =
     let rec loop tree =
       match Op.ViewL tree with
-      | Nil -> false
+      | Nil ->
+        false
       | Cons(x: IntervalMapElem<_>, xs) ->
         if x.Min = i.Min then
-          if x.Max = i.Max then true
-          else loop xs
-        else false
+          if x.Max = i.Max then true else loop xs
+        else
+          false
     loop tree
 
   /// Adds a mapping to the interval map. Overlapping intervals are allowed, but
   /// an exact duplicate range is not.
   [<CompiledName("Add")>]
   let add (i: AddrRange) v (IntervalMap m) =
-    let l, r =
-      Op.Split((fun (e: InterMonoid<Addr>) -> Key i.Min <= e.Min), m)
+    let l, r = Op.Split((fun (e: InterMonoid<Addr>) -> Key i.Min <= e.Min), m)
     if rangeExists i r then raise InvalidAddrRangeException
     else IntervalMap <| Op.Concat(l, Op.Cons(IntervalMapElem(i, v), r))
 
@@ -97,10 +97,10 @@ module IntervalMap =
     let rec matches xs =
       let v = Op.DropUntil(dropMatcher, xs)
       match Op.ViewL v with
-      | Nil -> []
+      | Nil ->
+        []
       | Cons(x: IntervalMapElem<_>, xs) ->
-        if pred x.Key then x.Val :: matches xs
-        else matches xs
+        if pred x.Key then x.Val :: matches xs else matches xs
     Op.TakeUntil((fun (elt: InterMonoid<Addr>) -> Key ih < elt.Min), m)
     |> matches
 
@@ -129,17 +129,18 @@ module IntervalMap =
   /// address only when there is exactly one matching interval.
   [<CompiledName("TryFindExactlyOneByMin")>]
   let tryFindExactlyOneByMin (addr: Addr) (IntervalMap m) =
-    let _, r =
-      Op.Split((fun (e: InterMonoid<Addr>) -> Key addr <= e.Min), m)
+    let _, r = Op.Split((fun (e: InterMonoid<Addr>) -> Key addr <= e.Min), m)
     let rec loop found xs =
       match Op.ViewL xs with
-      | Nil -> found
+      | Nil ->
+        found
       | Cons(x: IntervalMapElem<'V>, xs) ->
         if x.Min = addr then
           match found with
           | None -> loop (Some x.Val) xs
           | Some _ -> None
-        else found
+        else
+          found
     loop None r
 
   /// Finds the value whose interval has the same low bound (Min) as the given
@@ -191,15 +192,14 @@ module IntervalMap =
     if Prio il <= ((m :> IMeasured<_>).Measurement).Max then
       let z = (m.Monoid :> IMonoid<InterMonoid<Addr>>).Zero
       let _, x, _ =
-        Op.SplitTree((fun (e: InterMonoid<Addr>) -> Prio il <= e.Max),
-          z, m)
+        Op.SplitTree((fun (e: InterMonoid<Addr>) -> Prio il <= e.Max), z, m)
       x.Min <= ih
-    else false
+    else
+      false
 
   /// Checks whether the given address exists in the interval tree.
   [<CompiledName("ContainsAddr")>]
-  let containsAddr addr m =
-    overlapsRange (AddrRange.singleton addr) m
+  let containsAddr addr m = overlapsRange (AddrRange.singleton addr) m
 
   /// Checks whether the exact range exists in the interval tree.
   [<CompiledName("ContainsRange")>]
@@ -212,11 +212,11 @@ module IntervalMap =
   /// Raises InvalidAddrRangeException if there is no such interval.
   [<CompiledName("Replace")>]
   let replace (i: AddrRange) (v: 'V) (IntervalMap m) =
-    let l, r =
-      Op.Split((fun (e: InterMonoid<Addr>) -> Key i.Min <= e.Min), m)
+    let l, r = Op.Split((fun (e: InterMonoid<Addr>) -> Key i.Min <= e.Min), m)
     let rec replaceLoop l r =
       match Op.ViewL r with
-      | Nil -> raise InvalidAddrRangeException
+      | Nil ->
+        raise InvalidAddrRangeException
       | Cons(x: IntervalMapElem<'V>, xs)
         when x.Min = i.Min && x.Max = i.Max ->
         Op.Concat(l, Op.Cons(IntervalMapElem(i, v), xs))
@@ -230,18 +230,17 @@ module IntervalMap =
   /// existing mapping with the new one.
   [<CompiledName("AddOrReplace")>]
   let addOrReplace (i: AddrRange) (v: 'V) m =
-    if containsRange i m then replace i v m
-    else add i v m
+    if containsRange i m then replace i v m else add i v m
 
   /// Removes the interval that exactly matches the given range. Raises
   /// InvalidAddrRangeException if there is no such interval.
   [<CompiledName("Remove")>]
   let remove (i: AddrRange) (IntervalMap m) =
-    let l, r =
-      Op.Split((fun (e: InterMonoid<Addr>) -> Key i.Min <= e.Min), m)
+    let l, r = Op.Split((fun (e: InterMonoid<Addr>) -> Key i.Min <= e.Min), m)
     let rec rmLoop l r =
       match Op.ViewL r with
-      | Nil -> raise InvalidAddrRangeException
+      | Nil ->
+        raise InvalidAddrRangeException
       | Cons(x: IntervalMapElem<'V>, xs)
         when x.Min = i.Min && x.Max = i.Max ->
         Op.Concat(l, xs)

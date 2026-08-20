@@ -67,7 +67,8 @@ type ImperativeDiGraph<'V, 'E when 'V: equality and 'E: equality>() =
     checkVertexExistence dst
     let srcID = (src :> IVertex<_>).ID
     let dstID = (dst :> IVertex<_>).ID
-    if edges.ContainsKey(srcID, dstID) then ()
+    if edges.ContainsKey(srcID, dstID) then
+      ()
     else
       edges[(srcID, dstID)] <- Edge(src, dst, label)
       src.Succs.Add dst
@@ -131,8 +132,7 @@ type ImperativeDiGraph<'V, 'E when 'V: equality and 'E: equality>() =
       |> Array.map (fun v -> v :> IVertex<'V>)
 
     member _.SingleRoot with get() =
-      if roots.Count = 1 then roots[0]
-      else raise MultipleRootVerticesException
+      if roots.Count = 1 then roots[0] else raise MultipleRootVerticesException
 
     member _.ImplementationType with get() = Imperative
 

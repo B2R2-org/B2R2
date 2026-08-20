@@ -69,14 +69,14 @@ module internal PythonSweep =
   let private filler = Array.init 64 (fun i -> byte (0x11 + i % 0xEF))
 
   /// Every version the front end reads.
-  let versions =
-    [ for v in 0 .. 15 -> enum<PythonVersion> (300 + v) ]
+  let versions = [ for v in 0 .. 15 -> enum<PythonVersion> (300 + v) ]
 
   /// Loads a file holding the given bytecode and returns the lifting unit
   /// alongside where the code sits, so a probe can be parsed at an address.
   let private load (dir: string) version (code: byte[]) =
     let path = Path.Combine(dir, $"{int version}.pyc")
-    let pyc = Builder.build version (Builder.magicOf version)
+    let pyc = Builder.build version
+                            (Builder.magicOf version)
                             (Builder.codeOf code)
     File.WriteAllBytes(path, pyc)
     let hdl = BinHandle.LoadFile path
@@ -91,7 +91,8 @@ module internal PythonSweep =
     try
       let ins = unit.ParseInstruction(baseAddr + uint64 index)
       let length = int ins.Length
-      if length <= 0 || index + length > bytes.Length then None
+      if length <= 0 || index + length > bytes.Length then
+        None
       else
         Some { Version = enum<PythonVersion> 0
                Bytes = bytes[index..index + length - 1]
@@ -116,7 +117,8 @@ module internal PythonSweep =
            yield byte b
            yield! filler |]
     match load dir version code with
-    | None -> []
+    | None ->
+      []
     | Some(unit, baseAddr) ->
       [ for b in 0 .. 0xFF do
           match decode unit baseAddr code (b * stride) with

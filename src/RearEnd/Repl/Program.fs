@@ -41,7 +41,8 @@ let console = FsReadLine.Console("B2R2> ", cmds)
 /// both of theirs.
 let parserFor (parsers: Dictionary<_, _>) (isa: ISA) =
   match parsers.TryGetValue(isa.ToString()) with
-  | true, parser -> parser
+  | true, parser ->
+    parser
   | false, _ ->
     let parser = ArchSupport.createParser (BinReader.Init isa.Endian) isa
     parsers[isa.ToString()] <- parser
@@ -71,8 +72,10 @@ let assemble state asm builder parsers uirParser (input: string) =
 let rec run showTemporary state asm builder parsers uirParser =
   let input = console.ReadLine()
   match ReplCommand.fromString input with
-  | Quit -> ()
-  | NoInput -> run showTemporary state asm builder parsers uirParser
+  | Quit ->
+    ()
+  | NoInput ->
+    run showTemporary state asm builder parsers uirParser
   | SwitchParser ->
     (state: ReplState).SwitchParser()
     state.ConsolePrompt |> console.UpdatePrompt

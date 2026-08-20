@@ -28,11 +28,10 @@ module B2R2.MiddleEnd.DataFlow.WorklistDataFlow
 open System.Collections.Generic
 
 /// Represents a state used in worklist-based dataflow analysis.
-type State<'WorkUnit,
-           'Lattice,
-           'V when 'WorkUnit: equality
-               and 'Lattice: equality
-               and 'V: equality>
+type State<'WorkUnit, 'Lattice, 'V
+  when 'WorkUnit: equality
+  and 'Lattice: equality
+  and 'V: equality>
   public(lattice: ILattice<'Lattice>) =
 
   let workList = Queue<'WorkUnit>()
@@ -40,7 +39,8 @@ type State<'WorkUnit,
   let workSet = HashSet<'WorkUnit>()
 
   let pushWork (work: 'WorkUnit) =
-    if workSet.Contains work then ()
+    if workSet.Contains work then
+      ()
     else
       workSet.Add work |> ignore
       workList.Enqueue work
@@ -69,8 +69,9 @@ type State<'WorkUnit,
 
 /// Represents an interface that defines how the worklist-based dataflow
 /// analysis should be performed.
-type IScheme<'WorkUnit, 'AbsVal when 'WorkUnit: equality
-                                 and 'AbsVal: equality> =
+type IScheme<'WorkUnit, 'AbsVal
+  when 'WorkUnit: equality
+  and 'AbsVal: equality> =
   /// Gets the next set of works to perform.
   abstract GetNextWorks: 'WorkUnit -> IReadOnlyCollection<'WorkUnit>
 
@@ -85,7 +86,8 @@ let compute initialWorkList (lattice: ILattice<_>) (sch: IScheme<_, _>) state =
     let work = state.PopWork()
     let absValue = (state :> IAbsValProvider<_, _>).GetAbsValue work
     let transferedAbsValue = sch.Transfer work
-    if lattice.Subsume(absValue, transferedAbsValue) then ()
+    if lattice.Subsume(absValue, transferedAbsValue) then
+      ()
     else
       state.AbsValues[work] <- transferedAbsValue
       for work in sch.GetNextWorks work do state.PushWork work

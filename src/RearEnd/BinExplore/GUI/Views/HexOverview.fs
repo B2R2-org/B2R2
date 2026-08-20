@@ -40,7 +40,8 @@ let private brushOfColor =
   let cache = Dictionary<string, IBrush>()
   fun color ->
     match cache.TryGetValue color with
-    | true, brush -> brush
+    | true, brush ->
+      brush
     | _ ->
       let brush = Brush.Parse color
       cache[color] <- brush
@@ -60,8 +61,7 @@ let private computeBarRect width height =
   let barLeft = (width - barWidth) / 2.0
   Rect(barLeft, 0.0, barWidth, height)
 
-let private computeBucketCount height =
-  max 1 (int (floor height))
+let private computeBucketCount height = max 1 (int (floor height))
 
 let private computeBucketRange docLength bucketCount bucketIdx =
   let rangeStart = int64 (float docLength * float bucketIdx / float bucketCount)
@@ -78,8 +78,7 @@ let private tryGetViewportOffsetRange model =
   model.OffsetSnapshot.Viewport
   |> Option.map (fun ctx -> ctx.Range)
 
-let private hasBytes (state: HexdumpState) =
-  state.Document.Length > 0L
+let private hasBytes (state: HexdumpState) = state.Document.Length > 0L
 
 let private getColoredSpans (state: HexdumpState): HexSpanStyle list =
   state.AnnotationSpans
@@ -100,8 +99,7 @@ let private tryPickBucketColor
       span.Priority, overlap, span.Background
     else
       bestPrio, bestOverlap, bestColor
-  let _, _, color =
-    List.fold step (Int32.MinValue, 0L, None) spans
+  let _, _, color = List.fold step (Int32.MinValue, 0L, None) spans
   color
 
 type private CachedBucketSegment =
@@ -161,8 +159,7 @@ let private drawCachedBuckets
 
 let private tryGetRangeOverlayRect
     docLength width height (range: FileOffsetRange) =
-  let clampOffset offset =
-    max 0L (min (docLength - 1L) offset)
+  let clampOffset offset = max 0L (min (docLength - 1L) offset)
   if docLength <= 0L || width <= 0.0 || height <= 0.0 then
     None
   else
@@ -192,9 +189,7 @@ type private HexOverviewLayer() =
 
   let isStaticCacheReusable (state: HexdumpState) =
     cachedDocLength = state.Document.Length
-    && obj.ReferenceEquals(
-      box cachedAnnotationSpans, box state.AnnotationSpans
-    )
+    && obj.ReferenceEquals(box cachedAnnotationSpans, box state.AnnotationSpans)
 
   let ensureStaticCache (state: HexdumpState) height =
     let bucketCount = computeBucketCount height
@@ -342,10 +337,7 @@ type private HexOverviewLayer() =
       if change.Property = stateProperty then
         match this.CurrentState with
         | Some state ->
-          if not (isStaticCacheReusable state) then
-            clearStaticCache ()
-          else
-            ()
+          if not (isStaticCacheReusable state) then clearStaticCache () else ()
         | None ->
           clearStaticCache ()
       else
@@ -361,7 +353,10 @@ type private HexOverviewLayer() =
       let props = e.GetCurrentPoint(this).Properties
       let p = e.GetPosition this
       match this.TryGetViewportOverlayRect(
-              this.Bounds.Width, this.Bounds.Height, state.Document.Length) with
+              this.Bounds.Width,
+              this.Bounds.Height,
+              state.Document.Length
+            ) with
       | Some overlayRect
         when props.IsLeftButtonPressed && overlayRect.Contains p ->
         dragOffsetY <- Some(p.Y - overlayRect.Y)
@@ -383,7 +378,10 @@ type private HexOverviewLayer() =
     | Some _, Some state when e.Pointer.Captured = this ->
       let p = e.GetPosition this
       match this.TryGetViewportOverlayRect(
-              this.Bounds.Width, this.Bounds.Height, state.Document.Length) with
+              this.Bounds.Width,
+              this.Bounds.Height,
+              state.Document.Length
+            ) with
       | Some overlayRect ->
         this.ScrollHexdumpToOverlayTop(p.Y, overlayRect, state)
         e.Handled <- true
@@ -398,7 +396,10 @@ type private HexOverviewLayer() =
     | Some _, Some state when e.Pointer.Captured = this ->
       let p = e.GetPosition this
       match this.TryGetViewportOverlayRect(
-              this.Bounds.Width, this.Bounds.Height, state.Document.Length) with
+              this.Bounds.Width,
+              this.Bounds.Height,
+              state.Document.Length
+            ) with
       | Some overlayRect ->
         this.ScrollHexdumpToOverlayTop(p.Y, overlayRect, state)
       | None ->

@@ -54,10 +54,15 @@ type internal CPUType =
 module internal CPUType =
   let toArchWordSizeTuple cputype subtype =
     match cputype with
-    | CPUType.I386 -> Architecture.Intel, WordSize.Bit32
-    | CPUType.X64 -> Architecture.Intel, WordSize.Bit64
-    | CPUType.ARM -> Architecture.ARMv7, WordSize.Bit32
-    | CPUType.ARM64 -> Architecture.ARMv8, WordSize.Bit64
+    | CPUType.I386 ->
+      Architecture.Intel, WordSize.Bit32
+    | CPUType.X64 ->
+      Architecture.Intel, WordSize.Bit64
+    | CPUType.ARM ->
+      Architecture.ARMv7, WordSize.Bit32
+    | CPUType.ARM64 ->
+      Architecture.ARMv8, WordSize.Bit64
     | CPUType.MIPS when CPUSubType.isKnownMIPS subtype ->
       Architecture.MIPS, WordSize.Bit32
-    | _ -> raise InvalidISAException
+    | _ ->
+      raise InvalidISAException

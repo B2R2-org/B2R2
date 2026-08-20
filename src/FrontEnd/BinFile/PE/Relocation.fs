@@ -51,7 +51,8 @@ let private tryGetRawOffset pe relocAddr size =
     let offset = rva + sec.PointerToRawData - sec.VirtualAddress
     if offset + size <= sec.PointerToRawData + sec.SizeOfRawData then
       Some offset
-    else None
+    else
+      None
 
 let getRelocations pe =
   pe.RelocBlocks
@@ -64,12 +65,12 @@ let getRelocations pe =
             SymbolName = None
             Addend = None }
         Some reloc
-      else None)
+      else
+        None)
     |> Array.toList)
   |> List.toArray
 
-let contains pe addr =
-  tryFindEntry pe addr |> Option.isSome
+let contains pe addr = tryFindEntry pe addr |> Option.isSome
 
 let tryGetRelocatedAddr (bytes: byte[]) pe relocAddr =
   match tryFindEntry pe relocAddr with

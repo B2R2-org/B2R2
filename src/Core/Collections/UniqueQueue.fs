@@ -40,15 +40,12 @@ type UniqueQueue<'T>() =
 
   /// Enqueues the given element only when it is not already present in the
   /// queue.
-  member _.Enqueue(x: 'T) =
-    if set.Add x |> not then ()
-    else queue.Enqueue x
+  member _.Enqueue(x: 'T) = if set.Add x |> not then () else queue.Enqueue x
 
   /// Dequeues the oldest element. Raises an exception when the queue is empty.
   member _.Dequeue() =
     let x = queue.Dequeue()
-    if set.Remove x then x
-    else B2R2.Terminator.impossible ()
+    if set.Remove x then x else B2R2.Terminator.impossible ()
 
   /// Tries to dequeue the oldest element. Returns false when the queue is
   /// empty.

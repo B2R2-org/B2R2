@@ -85,4 +85,5 @@ module internal ExceptionHeaderValue =
     | ExceptionHeaderValue.DW_EH_PE_sdata8 ->
       let cv = reader.ReadInt64(span, offset)
       struct (uint64 cv, offset + 8)
-    | _ -> printfn "%A" venc; Terminator.futureFeature ()
+    | _ ->
+      printfn "%A" venc; Terminator.futureFeature ()

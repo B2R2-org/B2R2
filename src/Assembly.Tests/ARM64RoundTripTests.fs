@@ -96,15 +96,19 @@ type ARM64RoundTripTests() =
     match expected.Split ' ' |> Array.toList with
     | [ "orr"; rd; "wzr,"; rm ] | [ "orr"; rd; "xzr,"; rm ] ->
       actual = $"mov {rd} {rm}"
-    | "mov" :: rest -> actual = "umov " + String.concat " " rest
-    | "umov" :: rest -> actual = "mov " + String.concat " " rest
-    | _ -> false
+    | "mov" :: rest ->
+      actual = "umov " + String.concat " " rest
+    | "umov" :: rest ->
+      actual = "mov " + String.concat " " rest
+    | _ ->
+      false
 
   /// Encodes the given source and disassembles the result, so that a source
   /// text stands in for the word a probe was decoded from.
   static let sourceRoundTrip (source: string) =
     match (try encodeFirst source with _ -> None) with
-    | None -> ARM64Unsupported
+    | None ->
+      ARM64Unsupported
     | Some encoded ->
       let actual = try disasm encoded with _ -> "<undecodable>"
       if actual = source || namesTheSame source actual then ARM64Preserved
@@ -151,7 +155,8 @@ type ARM64RoundTripTests() =
             text
             |> replaceAll (@"\b" + one + @"(\d+)\b") (w + "$1")
             |> replaceAll (@"\." + one + @"\[") ("." + w + "[") ]
-      | _ -> []
+      | _ ->
+        []
     arranged @ scaled
 
   /// The key one shape is kept once for, which is what the arrangements it is
@@ -454,8 +459,7 @@ type ARM64RoundTripTests() =
   let longVectorOpcodes =
     [ "saddl"; "ssubl"; "uaddl"; "usubl"; "sabal"; "uabdl"; "smlal"; "umull" ]
 
-  let longVectorShapes =
-    [ "OP v0.8h, v1.8b, v2.8b"; "OP v0.4s, v1.4h, v2.4h" ]
+  let longVectorShapes = [ "OP v0.8h, v1.8b, v2.8b"; "OP v0.4s, v1.4h, v2.4h" ]
 
   let longVectorShapes2 =
     [ "OP2 v0.8h, v1.16b, v2.16b"; "OP2 v0.2d, v1.4s, v2.4s" ]
@@ -973,7 +977,8 @@ type ARM64RoundTripTests() =
       "",
       String.concat "\n" broken,
       "These instructions decode but no longer encode, or encode to a word \
-       that means something else.")
+       that means something else."
+    )
 
   [<TestMethod>]
   member _.``Every data-processing shape encodes correctly``() =
@@ -986,7 +991,8 @@ type ARM64RoundTripTests() =
     Assert.AreEqual<string>(
       "",
       String.concat "\n" wrong,
-      "These data-processing operand shapes no longer encode correctly.")
+      "These data-processing operand shapes no longer encode correctly."
+    )
 
   [<TestMethod>]
   member _.``Every load and store shape encodes correctly``() =
@@ -999,7 +1005,8 @@ type ARM64RoundTripTests() =
     Assert.AreEqual<string>(
       "",
       String.concat "\n" wrong,
-      "These memory operand shapes no longer encode correctly.")
+      "These memory operand shapes no longer encode correctly."
+    )
 
   [<TestMethod>]
   member _.``Every condition and system instruction encodes correctly``() =
@@ -1007,7 +1014,8 @@ type ARM64RoundTripTests() =
     Assert.AreEqual<string>(
       "",
       String.concat "\n" wrong,
-      "These conditions and system instructions no longer encode correctly.")
+      "These conditions and system instructions no longer encode correctly."
+    )
 
   [<TestMethod>]
   member _.``Every vector shape encodes correctly``() =
@@ -1027,7 +1035,8 @@ type ARM64RoundTripTests() =
     Assert.AreEqual<string>(
       "",
       String.concat "\n" wrong,
-      "These vector operand shapes no longer encode correctly.")
+      "These vector operand shapes no longer encode correctly."
+    )
 
   [<TestMethod>]
   member _.``Every floating-point shape encodes correctly``() =
@@ -1040,7 +1049,8 @@ type ARM64RoundTripTests() =
     Assert.AreEqual<string>(
       "",
       String.concat "\n" wrong,
-      "These floating-point operand shapes no longer encode correctly.")
+      "These floating-point operand shapes no longer encode correctly."
+    )
 
   /// <summary>
   /// Checks that an arrangement the manual reserves is refused rather than
@@ -1063,7 +1073,8 @@ type ARM64RoundTripTests() =
         |> List.collect variants
         |> List.choose (fun variant ->
           match (try encodeFirst variant with _ -> None) with
-          | None -> None
+          | None ->
+            None
           | Some encoded ->
             let actual = try disasm encoded with _ -> "<undecodable>"
             if actual = variant || namesTheSame variant actual then None
@@ -1074,7 +1085,8 @@ type ARM64RoundTripTests() =
       "",
       String.concat "\n" broken,
       "These operand widths encode to a word that means something else, or to \
-       one that is not an instruction at all.")
+       one that is not an instruction at all."
+    )
 
   [<TestMethod>]
   member _.``Branches to a label reach it in both directions``() =
@@ -1085,7 +1097,8 @@ type ARM64RoundTripTests() =
               expected, source, index, target ]
         |> List.choose (fun (expected, source, index, target) ->
           match (try assembler.Lower source with _ -> Error "raised") with
-          | Error _ | Ok [] -> Some $"'{expected} L' does not assemble"
+          | Error _ | Ok [] ->
+            Some $"'{expected} L' does not assemble"
           | Ok encoded ->
             let addr = uint64 (4 * index)
             let text =
@@ -1098,4 +1111,5 @@ type ARM64RoundTripTests() =
     Assert.AreEqual<string>(
       "",
       String.concat "\n" wrong,
-      "These branches no longer reach the instruction their label marks.")
+      "These branches no longer reach the instruction their label marks."
+    )

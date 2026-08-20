@@ -55,8 +55,10 @@ let parseLine (line: string) =
     | -1 -> line
     | i -> line.Substring(i + 1)
   match line.Split([| ' '; '\t' |], StringSplitOptions.RemoveEmptyEntries) with
-  | [||] -> Ok None
-  | [| name |] -> Ok(Some { Mnemonic = name; Oparg = None })
+  | [||] ->
+    Ok None
+  | [| name |] ->
+    Ok(Some { Mnemonic = name; Oparg = None })
   | [| name; arg |] ->
     match Int32.TryParse arg with
     | true, n when n >= 0 -> Ok(Some { Mnemonic = name; Oparg = Some n })
@@ -70,14 +72,14 @@ let parseLine (line: string) =
 /// instruction. An argument that fits needs none.
 let private prefixBytes width arg =
   let rec go acc n =
-    if n = 0 then acc
-    else go (byte (n &&& 0xFF) :: acc) (n >>> 8)
+    if n = 0 then acc else go (byte (n &&& 0xFF) :: acc) (n >>> 8)
   go [] (arg >>> width) |> List.toArray
 
 /// Encodes one statement, or says why it cannot be.
 let encode (spec: VersionSpec) stmt =
   match spec.Lookup stmt.Mnemonic with
-  | None -> Error $"unknown instruction '{stmt.Mnemonic}'"
+  | None ->
+    Error $"unknown instruction '{stmt.Mnemonic}'"
   | Some op ->
     let takesArg = spec.HasOperand op
     match stmt.Oparg with
@@ -97,10 +99,12 @@ let encode (spec: VersionSpec) stmt =
         |> Array.collect (fun b ->
           if spec.IsWordcode then [| ext; b |] else [| ext; b; 0uy |])
       let body =
-        if spec.IsWordcode then [| byte op; byte (arg &&& 0xFF) |]
+        if spec.IsWordcode then
+          [| byte op; byte (arg &&& 0xFF) |]
         elif takesArg then
           [| byte op; byte (arg &&& 0xFF); byte ((arg >>> 8) &&& 0xFF) |]
-        else [| byte op |]
+        else
+          [| byte op |]
       (* The decoder counts an instruction's inline caches into its length, so
          bytes that stop short of them are not the instruction it read. *)
       let caches = Array.zeroCreate (2 * spec.CacheCount op)
@@ -109,11 +113,14 @@ let encode (spec: VersionSpec) stmt =
 /// Encodes a whole source, one byte array per instruction.
 let encodeAll spec (source: string) =
   let rec go acc = function
-    | [] -> Ok(List.rev acc)
+    | [] ->
+      Ok(List.rev acc)
     | (line: string) :: rest ->
       match parseLine line with
-      | Error e -> Error e
-      | Ok None -> go acc rest
+      | Error e ->
+        Error e
+      | Ok None ->
+        go acc rest
       | Ok(Some stmt) ->
         match encode spec stmt with
         | Error e -> Error e

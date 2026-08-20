@@ -119,7 +119,8 @@ let private getVarNames (hdl: BinHandle) = function
   | Regular v ->
     hdl.RegisterFactory.GetRegisterIDAliases v
     |> Array.map (hdl.RegisterFactory.GetRegisterName)
-  | _ -> [||]
+  | _ ->
+    [||]
 
 let getImmediateDataflowChain arbiter fnAddrString insAddrString register =
   let fnAddr = try Convert.ToUInt64(fnAddrString, 16) with _ -> 0UL

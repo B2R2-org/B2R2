@@ -28,10 +28,10 @@ open System.Collections.Generic
 open B2R2
 
 /// The interface for building a function.
-type ICFGBuildable<'FnCtx,
-                   'GlCtx when 'FnCtx :> IResettable
-                           and 'FnCtx: (new: unit -> 'FnCtx)
-                           and 'GlCtx: (new: unit -> 'GlCtx)> =
+type ICFGBuildable<'FnCtx, 'GlCtx
+  when 'FnCtx :> IResettable
+  and 'FnCtx: (new: unit -> 'FnCtx)
+  and 'GlCtx: (new: unit -> 'GlCtx)> =
   inherit ILinkage
 
   /// The current state of the function builder.
@@ -140,10 +140,10 @@ and CFGBuilderActivation =
 /// interface will be accessed in parallel by multiple threads, so every
 /// operation should be thread-safe. Note that CFGBuildingContext as well as
 /// 'FnCtx are only accessed by a single thread, though.
-and ICFGBuildingStrategy<'FnCtx,
-                         'GlCtx when 'FnCtx :> IResettable
-                                 and 'FnCtx: (new: unit -> 'FnCtx)
-                                 and 'GlCtx: (new: unit -> 'GlCtx)> =
+and ICFGBuildingStrategy<'FnCtx, 'GlCtx
+  when 'FnCtx :> IResettable
+  and 'FnCtx: (new: unit -> 'FnCtx)
+  and 'GlCtx: (new: unit -> 'GlCtx)> =
   /// Return the prioritizer to use for the CFG actions.
   abstract ActionPrioritizer: IPrioritizable
 

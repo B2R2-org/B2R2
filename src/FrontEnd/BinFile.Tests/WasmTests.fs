@@ -40,8 +40,7 @@ type WasmTests() =
   static let file = parseFile "wasm_basic"
 
   [<TestMethod>]
-  member _.``[Wasm] format test``() =
-    Assert.AreEqual(WasmBinary, file.Format)
+  member _.``[Wasm] format test``() = Assert.AreEqual(WasmBinary, file.Format)
 
   [<TestMethod>]
   member _.``[Wasm] ISA test``() =
@@ -83,7 +82,8 @@ type WasmTests() =
   member _.``[Wasm] name section resolves the entry point name``() =
     let resolver = Option.get file.NameResolver
     Assert.AreEqual<Result<string, _>>(
-      Ok "__wasm_call_ctors", resolver.TryResolveName file.EntryPoint.Value)
+      Ok "__wasm_call_ctors", resolver.TryResolveName file.EntryPoint.Value
+    )
 
   [<TestMethod>]
   member _.``[Wasm] name section resolves an imported function name``() =

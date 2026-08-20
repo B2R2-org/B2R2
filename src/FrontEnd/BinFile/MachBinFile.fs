@@ -174,23 +174,29 @@ type MachBinFile(path, bytes: byte[], isa, baseAddrOpt, regFactoryOpt) =
   let secKind (sec: Section) =
     if sec.SecAttrib.HasFlag SectionAttribute.S_ATTR_DEBUG then
       DebugSection
-    elif isTLSSection sec then ThreadLocalStorageSection
-    elif isZeroFillSection sec then UninitializedDataSection
-    elif isDynamicLinkageSection sec then DynamicLinkageSection
+    elif isTLSSection sec then
+      ThreadLocalStorageSection
+    elif isZeroFillSection sec then
+      UninitializedDataSection
+    elif isDynamicLinkageSection sec then
+      DynamicLinkageSection
     elif sec.SecAttrib.HasFlag SectionAttribute.S_ATTR_PURE_INSTRUCTIONS then
       CodeSection
-    elif sec.SecName = Section.Text then CodeSection
-    elif isMetadataSection sec then MetadataSection
-    elif sec.SecType = SectionType.S_REGULAR then DataSection
-    else UnknownSection
+    elif sec.SecName = Section.Text then
+      CodeSection
+    elif isMetadataSection sec then
+      MetadataSection
+    elif sec.SecType = SectionType.S_REGULAR then
+      DataSection
+    else
+      UnknownSection
 
   let toBinSection (sec: Section) =
     { Name = sec.SecName
       Address = sec.SecAddr
       Size = sec.SecSize
       Offset =
-        if isZeroFillSection sec then None
-        else Some(uint64 sec.SecOffset)
+        if isZeroFillSection sec then None else Some(uint64 sec.SecOffset)
       FileSize = if isZeroFillSection sec then 0UL else sec.SecSize
       Permission = secPermission sec
       Kind = secKind sec }
@@ -211,8 +217,7 @@ type MachBinFile(path, bytes: byte[], isa, baseAddrOpt, regFactoryOpt) =
 
   let structure =
     Some { new IBinStructure with
-      member _.Sections with get() =
-        secs.Value |> Array.map toBinSection
+      member _.Sections with get() = secs.Value |> Array.map toBinSection
 
       member _.CodeSectionPointer =
         let sec = secs.Value[secText.Value]
@@ -220,7 +225,8 @@ type MachBinFile(path, bytes: byte[], isa, baseAddrOpt, regFactoryOpt) =
           sec.SecAddr,
           sec.SecAddr + sec.SecSize - 1UL,
           int sec.SecOffset,
-          int sec.SecOffset + int sec.SecSize - 1)
+          int sec.SecOffset + int sec.SecSize - 1
+        )
 
       member _.GetSectionPointer name =
         secs.Value
@@ -231,7 +237,8 @@ type MachBinFile(path, bytes: byte[], isa, baseAddrOpt, regFactoryOpt) =
               sec.SecAddr,
               sec.SecAddr + sec.SecSize - 1UL,
               int sec.SecOffset,
-              int sec.SecOffset + int sec.SecSize - 1)
+              int sec.SecOffset + int sec.SecSize - 1
+            )
           | None ->
             BinFilePointer.Null
 
@@ -264,8 +271,7 @@ type MachBinFile(path, bytes: byte[], isa, baseAddrOpt, regFactoryOpt) =
           | Some sec -> Ok sec.SecName
           | None -> Error ErrorCase.ItemNotFound
 
-      member _.FunctionAddresses =
-        functionAddrs.Value
+      member _.FunctionAddresses = functionAddrs.Value
     }
 
   let relocations =
@@ -281,7 +287,8 @@ type MachBinFile(path, bytes: byte[], isa, baseAddrOpt, regFactoryOpt) =
           |> Map.toArray
           |> Array.map (fun (addr, fixup) ->
             match fixup.FixupTarget with
-            | Rebase _ -> { Address = addr; SymbolName = None; Addend = None }
+            | Rebase _ ->
+              { Address = addr; SymbolName = None; Addend = None }
             | Bind(sym, _, addend) ->
               { Address = addr; SymbolName = Some sym; Addend = Some addend })
         Array.append classic fixupRelocs
@@ -313,7 +320,8 @@ type MachBinFile(path, bytes: byte[], isa, baseAddrOpt, regFactoryOpt) =
                  LibraryName = library
                  TrampolineAddress = None
                  TableAddress = fixup.FixupAddr }
-        | Rebase _ -> None)
+        | Rebase _ ->
+          None)
 
   (* Stub-based binaries already describe imports via the symbol store; only
      fall back to dyld fixup binds when there is no classic import table (e.g.
@@ -436,8 +444,7 @@ type MachBinFile(path, bytes: byte[], isa, baseAddrOpt, regFactoryOpt) =
 
     member _.IsNXEnabled with get() = isNXEnabled toolBox.Header
 
-    member _.IsPIE with get() =
-      toolBox.Header.Flags.HasFlag MachFlag.MH_PIE
+    member _.IsPIE with get() = toolBox.Header.Flags.HasFlag MachFlag.MH_PIE
 
     member _.IsBaseRelative with get() =
       let hdr = toolBox.Header
@@ -497,7 +504,8 @@ type MachBinFile(path, bytes: byte[], isa, baseAddrOpt, regFactoryOpt) =
           else
             offset <- maxOffset + 1
             maxAddr <- seg.VMAddr + seg.VMSize - 1UL
-        else idx <- idx + 1
+        else
+          idx <- idx + 1
       if found then
         if offset > maxOffset then BinFilePointer.CreateVirtual(addr, maxAddr)
         else BinFilePointer.CreateFileBacked(addr, maxAddr, offset, maxOffset)

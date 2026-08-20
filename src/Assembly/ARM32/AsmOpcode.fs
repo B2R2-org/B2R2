@@ -59,7 +59,8 @@ let private dataProc opcode s ins =
   | OprReg rd :: OprReg rn :: operands ->
     dataProcHead opcode s ins ||| (coreReg rn <<< 16) ||| (coreReg rd <<< 12)
     ||| operand2 ins operands
-  | _ -> wrongOperands ins
+  | _ ->
+    wrongOperands ins
 
 /// <Rn>, <operand2>, the form of the instructions that only set the flags and
 /// so name no destination.
@@ -67,14 +68,16 @@ let private testAndCompare opcode ins =
   match getOperandsAsList ins.Operands with
   | OprReg rn :: operands ->
     dataProcHead opcode 1u ins ||| (coreReg rn <<< 16) ||| operand2 ins operands
-  | _ -> wrongOperands ins
+  | _ ->
+    wrongOperands ins
 
 /// <Rd>, <operand2>, the form of the moves, which read no first source.
 let private moveOperand2 opcode s ins =
   match getOperandsAsList ins.Operands with
   | OprReg rd :: operands ->
     dataProcHead opcode s ins ||| (coreReg rd <<< 12) ||| operand2 ins operands
-  | _ -> wrongOperands ins
+  | _ ->
+    wrongOperands ins
 
 /// <summary>
 /// The shift instructions, which the manual defines as aliases of MOV: what
@@ -93,7 +96,8 @@ let private shiftAlias shift s ins =
     move rd (regShift (shift, rs) ||| coreReg rm)
   | TwoOperands(OprReg rd, OprReg rm) when shift = ShiftOp.RRX ->
     move rd (immShift (shift, Imm 1u) ||| coreReg rm)
-  | _ -> wrongOperands ins
+  | _ ->
+    wrongOperands ins
 
 /// <summary>
 /// ADR, which the manual defines as an addition to the program counter: how far
@@ -108,7 +112,8 @@ let private adr ins =
     let opcode = if offset < 0L then 0b0010u else 0b0100u
     dataProcHead opcode 0u ins ||| (1u <<< 25) ||| (0xfu <<< 16)
     ||| (coreReg rd <<< 12) ||| modifiedImm (abs offset)
-  | _ -> wrongOperands ins
+  | _ ->
+    wrongOperands ins
 
 /// MOVW and MOVT, whose sixteen-bit immediate is split between the field that
 /// holds Rn elsewhere and the operand2 field.
@@ -118,7 +123,8 @@ let private moveHalfword opcodeBits ins =
     let imm16 = unsignedImm 16 imm
     cond ins ||| (opcodeBits <<< 20) ||| ((imm16 >>> 12) <<< 16)
     ||| (coreReg rd <<< 12) ||| (imm16 &&& 0xfffu)
-  | _ -> wrongOperands ins
+  | _ ->
+    wrongOperands ins
 
 (* Multiply instructions. *)
 /// The bits every multiply in the data-processing space shares: a four-bit
@@ -133,7 +139,8 @@ let private mul3 opcodeBits ins =
   | ThreeOperands(OprReg rd, OprReg rn, OprReg rm) ->
     mulHead opcodeBits ins ||| (coreReg rd <<< 16) ||| (coreReg rm <<< 8)
     ||| coreReg rn
-  | _ -> wrongOperands ins
+  | _ ->
+    wrongOperands ins
 
 /// <Rd>, <Rn>, <Rm>, <Ra>, the accumulating form.
 let private mul4 opcodeBits ins =
@@ -141,7 +148,8 @@ let private mul4 opcodeBits ins =
   | FourOperands(OprReg rd, OprReg rn, OprReg rm, OprReg ra) ->
     mulHead opcodeBits ins ||| (coreReg rd <<< 16) ||| (coreReg ra <<< 12)
     ||| (coreReg rm <<< 8) ||| coreReg rn
-  | _ -> wrongOperands ins
+  | _ ->
+    wrongOperands ins
 
 /// <RdLo>, <RdHi>, <Rn>, <Rm>, the form whose result is sixty-four bits wide.
 let private mulLong opcodeBits ins =
@@ -149,7 +157,8 @@ let private mulLong opcodeBits ins =
   | FourOperands(OprReg rdLo, OprReg rdHi, OprReg rn, OprReg rm) ->
     mulHead opcodeBits ins ||| (coreReg rdHi <<< 16) ||| (coreReg rdLo <<< 12)
     ||| (coreReg rm <<< 8) ||| coreReg rn
-  | _ -> wrongOperands ins
+  | _ ->
+    wrongOperands ins
 
 /// The bits the halfword multiplies share. They sit in the miscellaneous space
 /// rather than with the other multiplies, and pick which half of each source
@@ -163,21 +172,24 @@ let private halfMul3 opcode mn ins =
   | ThreeOperands(OprReg rd, OprReg rn, OprReg rm) ->
     halfMulHead opcode mn ins ||| (coreReg rd <<< 16) ||| (coreReg rm <<< 8)
     ||| coreReg rn
-  | _ -> wrongOperands ins
+  | _ ->
+    wrongOperands ins
 
 let private halfMul4 opcode mn ins =
   match ins.Operands with
   | FourOperands(OprReg rd, OprReg rn, OprReg rm, OprReg ra) ->
     halfMulHead opcode mn ins ||| (coreReg rd <<< 16) ||| (coreReg ra <<< 12)
     ||| (coreReg rm <<< 8) ||| coreReg rn
-  | _ -> wrongOperands ins
+  | _ ->
+    wrongOperands ins
 
 let private halfMulLong opcode mn ins =
   match ins.Operands with
   | FourOperands(OprReg rdLo, OprReg rdHi, OprReg rn, OprReg rm) ->
     halfMulHead opcode mn ins ||| (coreReg rdHi <<< 16)
     ||| (coreReg rdLo <<< 12) ||| (coreReg rm <<< 8) ||| coreReg rn
-  | _ -> wrongOperands ins
+  | _ ->
+    wrongOperands ins
 
 (* Branches and the miscellaneous space. *)
 /// BX, BXJ and BLX, which branch to an address held in a register. The fields
@@ -188,7 +200,8 @@ let private branchReg op1 ins =
   | OneOperand(OprReg rm) ->
     cond ins ||| (0b00010010u <<< 20) ||| (0xfffu <<< 8) ||| (op1 <<< 4)
     ||| coreReg rm
-  | _ -> wrongOperands ins
+  | _ ->
+    wrongOperands ins
 
 /// CLZ, which counts the leading zeroes of one register into another.
 let private clz ins =
@@ -196,14 +209,16 @@ let private clz ins =
   | TwoOperands(OprReg rd, OprReg rm) ->
     cond ins ||| (0b00010110u <<< 20) ||| (0xfu <<< 16) ||| (coreReg rd <<< 12)
     ||| (0xfu <<< 8) ||| (0b0001u <<< 4) ||| coreReg rm
-  | _ -> wrongOperands ins
+  | _ ->
+    wrongOperands ins
 
 /// ERET, which returns from an exception and has nothing to encode.
 let private eret ins =
   match ins.Operands with
   | NoOperand ->
     cond ins ||| (0b00010110u <<< 20) ||| (0b0110u <<< 4) ||| 0b1110u
-  | _ -> wrongOperands ins
+  | _ ->
+    wrongOperands ins
 
 /// HLT, BKPT and HVC, whose sixteen-bit immediate is split between the field
 /// above the fixed pattern and the four bits below it.
@@ -213,14 +228,16 @@ let private exception16 opcode ins =
     let imm16 = unsignedImm 16 imm
     alwaysCond ins ||| (0b00010u <<< 23) ||| (opcode <<< 21)
     ||| ((imm16 >>> 4) <<< 8) ||| (0b0111u <<< 4) ||| (imm16 &&& 0xfu)
-  | _ -> wrongOperands ins
+  | _ ->
+    wrongOperands ins
 
 /// SMC, which has only four bits of immediate to name a monitor call.
 let private smc ins =
   match ins.Operands with
   | OneOperand(OprImm imm) ->
     cond ins ||| (0b00010110u <<< 20) ||| (0b0111u <<< 4) ||| unsignedImm 4 imm
-  | _ -> wrongOperands ins
+  | _ ->
+    wrongOperands ins
 
 /// SVC, whose twenty-four bit immediate the supervisor reads rather than the
 /// processor.
@@ -228,7 +245,8 @@ let private svc ins =
   match ins.Operands with
   | OneOperand(OprImm imm) ->
     cond ins ||| (0b1111u <<< 24) ||| unsignedImm 24 imm
-  | _ -> wrongOperands ins
+  | _ ->
+    wrongOperands ins
 
 /// UDF, the encoding the manual promises will always be undefined.
 let private udf ins =
@@ -237,7 +255,8 @@ let private udf ins =
     let imm16 = unsignedImm 16 imm
     alwaysCond ins ||| (0b01111111u <<< 20) ||| ((imm16 >>> 4) <<< 8)
     ||| (0b1111u <<< 4) ||| (imm16 &&& 0xfu)
-  | _ -> wrongOperands ins
+  | _ ->
+    wrongOperands ins
 
 /// The saturating add and subtract instructions, which name their operands in
 /// the order Rd, Rm, Rn rather than the usual one.
@@ -246,7 +265,8 @@ let private saturatingArith opcode ins =
   | ThreeOperands(OprReg rd, OprReg rm, OprReg rn) ->
     cond ins ||| (0b00010u <<< 23) ||| (opcode <<< 21) ||| (coreReg rn <<< 16)
     ||| (coreReg rd <<< 12) ||| (0b0101u <<< 4) ||| coreReg rm
-  | _ -> wrongOperands ins
+  | _ ->
+    wrongOperands ins
 
 /// The cyclic redundancy check instructions, told apart by the width they read
 /// and by which polynomial they use.
@@ -255,7 +275,8 @@ let private crc32 size c ins =
   | ThreeOperands(OprReg rd, OprReg rn, OprReg rm) ->
     cond ins ||| (0b00010u <<< 23) ||| (size <<< 21) ||| (coreReg rn <<< 16)
     ||| (coreReg rd <<< 12) ||| (c <<< 9) ||| (0b0100u <<< 4) ||| coreReg rm
-  | _ -> wrongOperands ins
+  | _ ->
+    wrongOperands ins
 
 /// The bits an instruction that moves a banked register shares: the selector
 /// that names one is split, with its top bit sitting below the four others.
@@ -278,7 +299,8 @@ let private mrs ins =
   | TwoOperands(OprReg rd, OprReg sreg) ->
     cond ins ||| (0b00010u <<< 23) ||| (statusRegBit sreg <<< 22)
     ||| (0xfu <<< 16) ||| (coreReg rd <<< 12)
-  | _ -> wrongOperands ins
+  | _ ->
+    wrongOperands ins
 
 /// MSR, which writes the fields of a status register that its first operand
 /// names, from a general register or from an immediate.
@@ -293,12 +315,14 @@ let private msr ins =
     ||| (0xfu <<< 12) ||| ((selector >>> 4) <<< 8) ||| coreReg rn
   | TwoOperands(OprSpecReg(sreg, flag), OprReg rn) ->
     head sreg ||| (psrMask flag <<< 16) ||| coreReg rn
-  | TwoOperands(OprReg sreg, OprReg rn) -> head sreg ||| coreReg rn
+  | TwoOperands(OprReg sreg, OprReg rn) ->
+    head sreg ||| coreReg rn
   | TwoOperands(OprSpecReg(sreg, flag), OprImm imm) ->
     cond ins ||| (0b00110u <<< 23) ||| (statusRegBit sreg <<< 22)
     ||| (0b10u <<< 20) ||| (psrMask flag <<< 16) ||| (0xfu <<< 12)
     ||| modifiedImm imm
-  | _ -> wrongOperands ins
+  | _ ->
+    wrongOperands ins
 
 /// <summary>
 /// B and BL, whose target is written as a word offset from the program
@@ -312,7 +336,8 @@ let private branch opcodeBits ins =
     cond ins ||| (opcodeBits <<< 24) ||| signedImm 24 (offset / 4L)
   | OneOperand(OprMemory(LiteralMode _)) ->
     fail $"{ins.Opcode} can only reach a word-aligned target"
-  | _ -> wrongOperands ins
+  | _ ->
+    wrongOperands ins
 
 /// <summary>
 /// BLX, which branches to a target it takes either from a register or from a
@@ -323,14 +348,16 @@ let private branch opcodeBits ins =
 /// </summary>
 let private branchLinkExchange ins =
   match ins.Operands with
-  | OneOperand(OprReg _) -> branchReg 0b0011u ins
+  | OneOperand(OprReg _) ->
+    branchReg 0b0011u ins
   | OneOperand(OprMemory(LiteralMode offset)) when offset % 2L = 0L ->
     let halfwords = signedImm 25 (offset / 2L)
     unconditional ins ||| (0b101u <<< 25) ||| ((halfwords &&& 1u) <<< 24)
     ||| (halfwords >>> 1)
   | OneOperand(OprMemory(LiteralMode _)) ->
     fail "blx can only reach a halfword-aligned target"
-  | _ -> wrongOperands ins
+  | _ ->
+    wrongOperands ins
 
 (* Hints and barriers. *)
 /// The hint instructions, which are a move to the status register that writes
@@ -346,7 +373,8 @@ let private dbg ins =
   | OneOperand(OprImm imm) ->
     cond ins ||| (0b00110010u <<< 20) ||| (0xfu <<< 12) ||| (0xfu <<< 4)
     ||| unsignedImm 4 imm
-  | _ -> wrongOperands ins
+  | _ ->
+    wrongOperands ins
 
 /// <summary>
 /// The barriers and CLREX, which share one encoding in the unconditional
@@ -371,7 +399,8 @@ let private setend ins =
   | OneOperand(OprEndian endian) ->
     let e = if endian = Endian.Big then 1u else 0u
     unconditional ins ||| (0b00010000u <<< 20) ||| (1u <<< 16) ||| (e <<< 9)
-  | _ -> wrongOperands ins
+  | _ ->
+    wrongOperands ins
 
 /// SETPAN, whose one bit of immediate says whether privileged access to user
 /// memory is turned off.
@@ -379,7 +408,8 @@ let private setpan ins =
   match ins.Operands with
   | OneOperand(OprImm imm) ->
     unconditional ins ||| (0b00010001u <<< 20) ||| (unsignedImm 1 imm <<< 9)
-  | _ -> wrongOperands ins
+  | _ ->
+    wrongOperands ins
 
 (* Loads and stores. *)
 /// <summary>
@@ -404,7 +434,8 @@ let private wordMemory ins mode =
   | LiteralMode offset, _ ->
     let u, value = signedOffset None offset
     (1u <<< 24) ||| (u <<< 23) ||| (0xfu <<< 16) ||| unsignedImm 12 value
-  | _ -> wrongOperands ins
+  | _ ->
+    wrongOperands ins
 
 /// The word and byte loads and stores, which differ only in the bit that says
 /// which width they read and the one that says which way it goes.
@@ -413,7 +444,8 @@ let private loadStore b l ins =
   | TwoOperands(OprReg rt, OprMemory mode) ->
     cond ins ||| (0b01u <<< 26) ||| (b <<< 22) ||| (l <<< 20)
     ||| (coreReg rt <<< 12) ||| wordMemory ins mode
-  | _ -> wrongOperands ins
+  | _ ->
+    wrongOperands ins
 
 /// The unprivileged loads and stores, which read and write as though the
 /// processor were in user mode. They are the post-indexed forms with the bit
@@ -423,7 +455,8 @@ let private loadStoreUnpriv b l ins =
   | TwoOperands(OprReg rt, OprMemory(PostIdxMode _ as mode)) ->
     cond ins ||| (0b01u <<< 26) ||| (b <<< 22) ||| (1u <<< 21) ||| (l <<< 20)
     ||| (coreReg rt <<< 12) ||| wordMemory ins mode
-  | _ -> wrongOperands ins
+  | _ ->
+    wrongOperands ins
 
 /// Where a halfword, doubleword or sign-extending load or store reads. Its
 /// immediate offset is only eight bits wide and is split in two, and its
@@ -443,7 +476,8 @@ let private extraMemory ins mode =
     let value = unsignedImm 8 value
     (1u <<< 24) ||| (u <<< 23) ||| (1u <<< 22) ||| (0xfu <<< 16)
     ||| ((value >>> 4) <<< 8) ||| (value &&& 0xfu)
-  | _ -> wrongOperands ins
+  | _ ->
+    wrongOperands ins
 
 /// The bits the halfword, doubleword and sign-extending accesses share: they
 /// sit among the data-processing instructions and are told from them by the
@@ -455,7 +489,8 @@ let private extraLoadStore l op2 ins =
   match ins.Operands with
   | TwoOperands(OprReg rt, OprMemory mode) ->
     extraHead l op2 ins ||| (coreReg rt <<< 12) ||| extraMemory ins mode
-  | _ -> wrongOperands ins
+  | _ ->
+    wrongOperands ins
 
 /// The unprivileged halfword and sign-extending accesses, which like the word
 /// ones are post-indexed with the writeback bit set.
@@ -464,7 +499,8 @@ let private extraLoadStoreUnpriv l op2 ins =
   | TwoOperands(OprReg rt, OprMemory(PostIdxMode _ as mode)) ->
     extraHead l op2 ins ||| (1u <<< 21) ||| (coreReg rt <<< 12)
     ||| extraMemory ins mode
-  | _ -> wrongOperands ins
+  | _ ->
+    wrongOperands ins
 
 /// The doubleword loads and stores, which name two registers even though only
 /// the first is encoded: the second is always the one after it.
@@ -475,7 +511,8 @@ let private loadStoreDual l op2 ins =
       fail $"{Register.toString rt2} does not follow {Register.toString rt}"
     else
       extraHead l op2 ins ||| (coreReg rt <<< 12) ||| extraMemory ins mode
-  | _ -> wrongOperands ins
+  | _ ->
+    wrongOperands ins
 
 /// The bits the exclusive and ordered accesses share. The two bits above the
 /// fixed pattern say whether the access is exclusive, ordered, or both.
@@ -490,7 +527,8 @@ let private storeOrdered size ins =
   | TwoOperands(OprReg rt, OprMemory(OffsetMode(ImmOffset(rn, _, None)))) ->
     exclusiveHead size 0u 0b00u ins ||| (coreReg rn <<< 16) ||| (0xfu <<< 12)
     ||| coreReg rt
-  | _ -> wrongOperands ins
+  | _ ->
+    wrongOperands ins
 
 /// A load that acquires, and the exclusive loads, which read one register from
 /// an address with no offset.
@@ -499,53 +537,63 @@ let private loadExclusive size order ins =
   | TwoOperands(OprReg rt, OprMemory(OffsetMode(ImmOffset(rn, _, None)))) ->
     exclusiveHead size 1u order ins ||| (coreReg rn <<< 16)
     ||| (coreReg rt <<< 12) ||| 0xfu
-  | _ -> wrongOperands ins
+  | _ ->
+    wrongOperands ins
 
 /// The exclusive stores, which report in a register of their own whether the
 /// store succeeded.
 let private storeExclusive size order ins =
   match ins.Operands with
-  | ThreeOperands(OprReg rd, OprReg rt,
+  | ThreeOperands(OprReg rd,
+                  OprReg rt,
                   OprMemory(OffsetMode(ImmOffset(rn, _, None)))) ->
     exclusiveHead size 0u order ins ||| (coreReg rn <<< 16)
     ||| (coreReg rd <<< 12) ||| coreReg rt
-  | _ -> wrongOperands ins
+  | _ ->
+    wrongOperands ins
 
 /// The exclusive doubleword loads, which read the register after the one they
 /// name as well.
 let private loadExclusiveDual order ins =
   match ins.Operands with
-  | ThreeOperands(OprReg rt, OprReg rt2,
+  | ThreeOperands(OprReg rt,
+                  OprReg rt2,
                   OprMemory(OffsetMode(ImmOffset(rn, _, None)))) ->
     if int rt2 <> int rt + 1 then
       fail $"{Register.toString rt2} does not follow {Register.toString rt}"
     else
       exclusiveHead 0b01u 1u order ins ||| (coreReg rn <<< 16)
       ||| (coreReg rt <<< 12) ||| 0xfu
-  | _ -> wrongOperands ins
+  | _ ->
+    wrongOperands ins
 
 /// The exclusive doubleword stores, which write the register after the one they
 /// name as well.
 let private storeExclusiveDual order ins =
   match ins.Operands with
-  | FourOperands(OprReg rd, OprReg rt, OprReg rt2,
+  | FourOperands(OprReg rd,
+                 OprReg rt,
+                 OprReg rt2,
                  OprMemory(OffsetMode(ImmOffset(rn, _, None)))) ->
     if int rt2 <> int rt + 1 then
       fail $"{Register.toString rt2} does not follow {Register.toString rt}"
     else
       exclusiveHead 0b01u 0u order ins ||| (coreReg rn <<< 16)
       ||| (coreReg rd <<< 12) ||| coreReg rt
-  | _ -> wrongOperands ins
+  | _ ->
+    wrongOperands ins
 
 /// SWP and SWPB, which read a word and write another back in one step. ARMv7
 /// deprecated them and ARMv8 removed them, but the decoder still reads them.
 let private swap b ins =
   match ins.Operands with
-  | ThreeOperands(OprReg rt, OprReg rt2,
+  | ThreeOperands(OprReg rt,
+                  OprReg rt2,
                   OprMemory(OffsetMode(ImmOffset(rn, _, None)))) ->
     cond ins ||| (0b00010u <<< 23) ||| (b <<< 22) ||| (coreReg rn <<< 16)
     ||| (coreReg rt <<< 12) ||| (0b1001u <<< 4) ||| coreReg rt2
-  | _ -> wrongOperands ins
+  | _ ->
+    wrongOperands ins
 
 /// Where a preload reads. It never updates the base register, so the bits that
 /// would say when it did are free for saying which hint this is.
@@ -560,7 +608,8 @@ let private preloadMemory ins mode =
   | LiteralMode offset ->
     let u, value = signedOffset None offset
     (u <<< 23) ||| (0xfu <<< 16) ||| unsignedImm 12 value
-  | _ -> wrongOperands ins
+  | _ ->
+    wrongOperands ins
 
 /// The preload hints, which name a place the way a load does but read nothing.
 let private preload d r ins =
@@ -568,7 +617,8 @@ let private preload d r ins =
   | OneOperand(OprMemory mode) ->
     unconditional ins ||| (0b01u <<< 26) ||| (d <<< 24) ||| (r <<< 22)
     ||| (0b01u <<< 20) ||| (0xfu <<< 12) ||| preloadMemory ins mode
-  | _ -> wrongOperands ins
+  | _ ->
+    wrongOperands ins
 
 (* Block transfers. *)
 /// The bits every load or store of several registers shares. Which way the
@@ -584,7 +634,8 @@ let private blockTransfer p u l ins =
   match ins.Operands with
   | TwoOperands(OprReg rn, OprRegList regs) ->
     blockHead p u (caretBit ins) l ins ||| (coreReg rn <<< 16) ||| regList regs
-  | _ -> wrongOperands ins
+  | _ ->
+    wrongOperands ins
 
 /// <summary>
 /// PUSH and POP, which the manual defines as aliases: pushing is storing
@@ -604,14 +655,16 @@ let private stackTransfer ins =
       (* ldr <Rt>, [sp], #4 *)
       cond ins ||| (0x49du <<< 16) ||| (coreReg rt <<< 12) ||| 4u
   match ins.Operands with
-  | OneOperand(OprRegList [ rt ]) -> single rt
+  | OneOperand(OprRegList [ rt ]) ->
+    single rt
   | OneOperand(OprRegList regs) ->
     let ins = { ins with WriteBack = true }
     let head =
       if ins.Opcode = Opcode.PUSH then blockHead 1u 0u 0u 0u ins
       else blockHead 0u 1u 0u 1u ins
     head ||| (coreReg Register.SP <<< 16) ||| regList regs
-  | _ -> wrongOperands ins
+  | _ ->
+    wrongOperands ins
 
 /// RFE, which returns from an exception by loading the program counter and the
 /// status register from the stack a mode of its own keeps.
@@ -621,7 +674,8 @@ let private returnFromException p u ins =
   | OneOperand(OprReg rn) ->
     unconditional ins ||| (0b100u <<< 25) ||| (p <<< 24) ||| (u <<< 23)
     ||| (w <<< 21) ||| (1u <<< 20) ||| (coreReg rn <<< 16) ||| (0x0au <<< 8)
-  | _ -> wrongOperands ins
+  | _ ->
+    wrongOperands ins
 
 /// SRS, which stores the return state of the mode its immediate names.
 let private storeReturnState p u ins =
@@ -631,7 +685,8 @@ let private storeReturnState p u ins =
     unconditional ins ||| (0b100u <<< 25) ||| (p <<< 24) ||| (u <<< 23)
     ||| (1u <<< 22) ||| (w <<< 21) ||| (0xdu <<< 16) ||| (0x05u <<< 8)
     ||| unsignedImm 5 mode
-  | _ -> wrongOperands ins
+  | _ ->
+    wrongOperands ins
 
 (* The media instructions. *)
 /// The parallel arithmetic, which adds and subtracts several narrow values held
@@ -642,7 +697,8 @@ let private parallelArith op1 op2 ins =
     cond ins ||| (0b01100u <<< 23) ||| (op1 <<< 20) ||| (coreReg rn <<< 16)
     ||| (coreReg rd <<< 12) ||| (0xfu <<< 8) ||| (op2 <<< 5) ||| (1u <<< 4)
     ||| coreReg rm
-  | _ -> wrongOperands ins
+  | _ ->
+    wrongOperands ins
 
 /// SEL, which picks each byte of its result from one source or the other
 /// according to the flags a parallel addition left behind.
@@ -651,7 +707,8 @@ let private sel ins =
   | ThreeOperands(OprReg rd, OprReg rn, OprReg rm) ->
     cond ins ||| (0b01101000u <<< 20) ||| (coreReg rn <<< 16)
     ||| (coreReg rd <<< 12) ||| (0xfu <<< 8) ||| (0b1011u <<< 4) ||| coreReg rm
-  | _ -> wrongOperands ins
+  | _ ->
+    wrongOperands ins
 
 /// PKHBT and PKHTB, which build one register out of a halfword from each
 /// source. Which halves they take is what the shift below them says.
@@ -663,7 +720,8 @@ let private pack tb ins =
   | FourOperands(OprReg rd, OprReg rn, OprReg rm, OprShift shift) ->
     cond ins ||| (0b01101000u <<< 20) ||| (coreReg rn <<< 16)
     ||| (coreReg rd <<< 12) ||| immShift shift ||| (1u <<< 4) ||| coreReg rm
-  | _ -> wrongOperands ins
+  | _ ->
+    wrongOperands ins
 
 /// The saturating moves, which clamp a value to the width their immediate
 /// names. The signed one counts from one, so what it encodes is one less.
@@ -677,7 +735,8 @@ let private saturate u bias ins =
   | FourOperands(OprReg rd, OprImm satImm, OprReg rn, OprShift shift) ->
     head (satImm - bias) ||| (coreReg rd <<< 12) ||| immShift shift
     ||| coreReg rn
-  | _ -> wrongOperands ins
+  | _ ->
+    wrongOperands ins
 
 /// The saturating moves that clamp two halfwords at once, which take no shift.
 let private saturate16 u bias ins =
@@ -686,7 +745,8 @@ let private saturate16 u bias ins =
     cond ins ||| (0b0110101u <<< 21) ||| (u <<< 22)
     ||| (unsignedImm 4 (satImm - bias) <<< 16) ||| (coreReg rd <<< 12)
     ||| (0xfu <<< 8) ||| (0b0011u <<< 4) ||| coreReg rn
-  | _ -> wrongOperands ins
+  | _ ->
+    wrongOperands ins
 
 /// The byte-reversing moves and RBIT, which differ in two bits far apart.
 let private reverse o1 o2 ins =
@@ -695,14 +755,16 @@ let private reverse o1 o2 ins =
     cond ins ||| (0b0110101u <<< 21) ||| (o1 <<< 22) ||| (1u <<< 20)
     ||| (0xfu <<< 16) ||| (coreReg rd <<< 12) ||| (0xfu <<< 8) ||| (o2 <<< 7)
     ||| (0b0011u <<< 4) ||| coreReg rm
-  | _ -> wrongOperands ins
+  | _ ->
+    wrongOperands ins
 
 /// The rotate a sign- or zero-extending move applies before it extends, which
 /// the encoding holds as a count of bytes rather than of bits.
 let private extendRotate = function
   | Some(ShiftOp.ROR, Imm amount) when amount % 8u = 0u && amount < 32u ->
     (amount / 8u) <<< 10
-  | None -> 0u
+  | None ->
+    0u
   | Some(shift, Imm amount) ->
     fail $"an extending move cannot {shift} by #{amount}"
 
@@ -723,7 +785,8 @@ let private extend opcode ins =
     head rn 0u ||| (coreReg rd <<< 12) ||| coreReg rm
   | FourOperands(OprReg rd, OprReg rn, OprReg rm, OprShift shift) ->
     head rn (extendRotate (Some shift)) ||| (coreReg rd <<< 12) ||| coreReg rm
-  | _ -> wrongOperands ins
+  | _ ->
+    wrongOperands ins
 
 /// USAD8 and USADA8, which add up how far apart the bytes of two registers
 /// are. Naming the program counter where the sum would accumulate is how the
@@ -737,7 +800,8 @@ let private absoluteDifference ins =
   | FourOperands(OprReg rd, OprReg rn, OprReg rm, OprReg ra) ->
     head ||| (coreReg rd <<< 16) ||| (coreReg ra <<< 12)
     ||| (coreReg rm <<< 8) ||| coreReg rn
-  | _ -> wrongOperands ins
+  | _ ->
+    wrongOperands ins
 
 /// The bits the signed multiplies of the media space share, which is a
 /// different space from the one the other multiplies live in.
@@ -751,7 +815,8 @@ let private signedMul4 opcode op2 ins =
   | FourOperands(OprReg rd, OprReg rn, OprReg rm, OprReg ra) ->
     signedMulHead opcode op2 ins ||| (coreReg rd <<< 16)
     ||| (coreReg ra <<< 12) ||| (coreReg rm <<< 8) ||| coreReg rn
-  | _ -> wrongOperands ins
+  | _ ->
+    wrongOperands ins
 
 /// The signed multiplies that accumulate nothing, which name the program
 /// counter where the others name the register they accumulate into.
@@ -760,7 +825,8 @@ let private signedMul3 opcode op2 ins =
   | ThreeOperands(OprReg rd, OprReg rn, OprReg rm) ->
     signedMulHead opcode op2 ins ||| (coreReg rd <<< 16) ||| (0xfu <<< 12)
     ||| (coreReg rm <<< 8) ||| coreReg rn
-  | _ -> wrongOperands ins
+  | _ ->
+    wrongOperands ins
 
 /// The signed multiplies whose result is sixty-four bits wide.
 let private signedMulLong opcode op2 ins =
@@ -768,7 +834,8 @@ let private signedMulLong opcode op2 ins =
   | FourOperands(OprReg rdLo, OprReg rdHi, OprReg rn, OprReg rm) ->
     signedMulHead opcode op2 ins ||| (coreReg rdHi <<< 16)
     ||| (coreReg rdLo <<< 12) ||| (coreReg rm <<< 8) ||| coreReg rn
-  | _ -> wrongOperands ins
+  | _ ->
+    wrongOperands ins
 
 /// BFI and BFC, which write a field of one register into another and clear
 /// one. Naming the program counter as the source is how the manual writes the
@@ -782,7 +849,8 @@ let private bitfieldInsert ins =
     head lsb width ||| (coreReg rd <<< 12) ||| 0xfu
   | FourOperands(OprReg rd, OprReg rn, OprImm lsb, OprImm width) ->
     head lsb width ||| (coreReg rd <<< 12) ||| coreReg rn
-  | _ -> wrongOperands ins
+  | _ ->
+    wrongOperands ins
 
 /// The bitfield extracts, which hold the width of the field they read as one
 /// less than it is.
@@ -792,7 +860,8 @@ let private bitfieldExtract u ins =
     cond ins ||| (0b0111101u <<< 21) ||| (u <<< 22)
     ||| (unsignedImm 5 (width - 1L) <<< 16) ||| (coreReg rd <<< 12)
     ||| (unsignedImm 5 lsb <<< 7) ||| (0b0101u <<< 4) ||| coreReg rn
-  | _ -> wrongOperands ins
+  | _ ->
+    wrongOperands ins
 
 (* The coprocessor space. *)
 /// The bits every coprocessor instruction shares. The instructions whose
@@ -804,23 +873,33 @@ let private coprocHead two ins =
 /// CDP, which asks the coprocessor to do something with its own registers.
 let private cdp two ins =
   match ins.Operands with
-  | SixOperands(OprReg p, OprImm opc1, OprReg crd, OprReg crn, OprReg crm,
+  | SixOperands(OprReg p,
+                OprImm opc1,
+                OprReg crd,
+                OprReg crn,
+                OprReg crm,
                 OprImm opc2) ->
     coprocHead two ins ||| (0b1110u <<< 24) ||| (unsignedImm 4 opc1 <<< 20)
     ||| (coprocRegNum crn <<< 16) ||| (coprocRegNum crd <<< 12)
     ||| (coprocReg p <<< 8) ||| (unsignedImm 3 opc2 <<< 5) ||| coprocRegNum crm
-  | _ -> wrongOperands ins
+  | _ ->
+    wrongOperands ins
 
 /// MCR and MRC, which move one core register to or from the coprocessor.
 let private moveCoproc two l ins =
   match ins.Operands with
-  | SixOperands(OprReg p, OprImm opc1, OprReg rt, OprReg crn, OprReg crm,
+  | SixOperands(OprReg p,
+                OprImm opc1,
+                OprReg rt,
+                OprReg crn,
+                OprReg crm,
                 OprImm opc2) ->
     coprocHead two ins ||| (0b1110u <<< 24) ||| (unsignedImm 3 opc1 <<< 21)
     ||| (l <<< 20) ||| (coprocRegNum crn <<< 16) ||| (coreReg rt <<< 12)
     ||| (coprocReg p <<< 8) ||| (unsignedImm 3 opc2 <<< 5) ||| (1u <<< 4)
     ||| coprocRegNum crm
-  | _ -> wrongOperands ins
+  | _ ->
+    wrongOperands ins
 
 /// MCRR and MRRC, which move two core registers at once.
 let private moveCoprocPair two l ins =
@@ -829,7 +908,8 @@ let private moveCoprocPair two l ins =
     coprocHead two ins ||| (0b1100u <<< 24) ||| (0b010u <<< 21) ||| (l <<< 20)
     ||| (coreReg rt2 <<< 16) ||| (coreReg rt <<< 12) ||| (coprocReg p <<< 8)
     ||| (unsignedImm 4 opc1 <<< 4) ||| coprocRegNum crm
-  | _ -> wrongOperands ins
+  | _ ->
+    wrongOperands ins
 
 /// <summary>
 /// The P and W bits a coprocessor access sets, which do not mean quite what
@@ -849,7 +929,8 @@ let private coprocMemory ins mode =
   match mode, coprocIndexBits mode with
   | _, Some(p, w, ImmOffset(rn, sign, imm)) ->
     let u, value = signedOffset sign (defaultArg imm 0L)
-    if value % 4L <> 0L then fail "a coprocessor offset counts in words"
+    if value % 4L <> 0L then
+      fail "a coprocessor offset counts in words"
     else
       (p <<< 24) ||| (u <<< 23) ||| (w <<< 21) ||| (coreReg rn <<< 16)
       ||| unsignedImm 8 (value / 4L)
@@ -857,11 +938,13 @@ let private coprocMemory ins mode =
     (1u <<< 23) ||| (coreReg rn <<< 16) ||| unsignedImm 8 option
   | LiteralMode offset, _ ->
     let u, value = signedOffset None offset
-    if value % 4L <> 0L then fail "a coprocessor offset counts in words"
+    if value % 4L <> 0L then
+      fail "a coprocessor offset counts in words"
     else
       (1u <<< 24) ||| (u <<< 23) ||| (0xfu <<< 16)
       ||| unsignedImm 8 (value / 4L)
-  | _ -> wrongOperands ins
+  | _ ->
+    wrongOperands ins
 
 /// LDC and STC, which move words between memory and the coprocessor. The long
 /// variants say with one bit that the coprocessor decides how much to move.
@@ -871,7 +954,8 @@ let private loadStoreCoproc two n l ins =
     coprocHead two ins ||| (0b110u <<< 25) ||| (n <<< 22) ||| (l <<< 20)
     ||| (coprocRegNum crd <<< 12) ||| (coprocReg p <<< 8)
     ||| coprocMemory ins mode
-  | _ -> wrongOperands ins
+  | _ ->
+    wrongOperands ins
 
 (* The floating-point instructions. *)
 /// The register fields of a floating-point instruction, which sit at either end
@@ -882,8 +966,7 @@ let private fpFields dd dn dm =
   else (1u <<< 8) ||| vd dd ||| vn dn ||| vm dm
 
 let private fpFields2 dd dm =
-  if isSingleReg dd then sd dd ||| sm dm
-  else (1u <<< 8) ||| vd dd ||| vm dm
+  if isSingleReg dd then sd dd ||| sm dm else (1u <<< 8) ||| vd dd ||| vm dm
 
 /// <summary>
 /// The bits every floating-point operation on three registers shares.
@@ -897,30 +980,36 @@ let private fpHead opcode op ins =
 
 let private fp3 opcode op ins =
   match ins.Operands with
-  | ThreeOperands(OprSIMD(SFReg(Vector dd)), OprSIMD(SFReg(Vector dn)),
+  | ThreeOperands(OprSIMD(SFReg(Vector dd)),
+                  OprSIMD(SFReg(Vector dn)),
                   OprSIMD(SFReg(Vector dm))) ->
     fpHead opcode op ins ||| fpFields dd dn dm
-  | _ -> wrongOperands ins
+  | _ ->
+    wrongOperands ins
 
 /// VSEL, which picks one source or the other by a condition it holds itself
 /// rather than by the one every other instruction is written with.
 let private fpSelect cc ins =
   match ins.Operands with
-  | ThreeOperands(OprSIMD(SFReg(Vector dd)), OprSIMD(SFReg(Vector dn)),
+  | ThreeOperands(OprSIMD(SFReg(Vector dd)),
+                  OprSIMD(SFReg(Vector dn)),
                   OprSIMD(SFReg(Vector dm))) ->
     unconditional ins ||| (0b1110u <<< 24) ||| (cc <<< 20) ||| (0b101u <<< 9)
     ||| fpFields dd dn dm
-  | _ -> wrongOperands ins
+  | _ ->
+    wrongOperands ins
 
 /// VMAXNM and VMINNM, which say what to do with a NaN rather than leaving it to
 /// the flags, and so live in the unconditional space.
 let private fpMinMax op ins =
   match ins.Operands with
-  | ThreeOperands(OprSIMD(SFReg(Vector dd)), OprSIMD(SFReg(Vector dn)),
+  | ThreeOperands(OprSIMD(SFReg(Vector dd)),
+                  OprSIMD(SFReg(Vector dn)),
                   OprSIMD(SFReg(Vector dm))) ->
     unconditional ins ||| (0b1110u <<< 24) ||| (1u <<< 23) ||| (0b101u <<< 9)
     ||| (op <<< 6) ||| fpFields dd dn dm
-  | _ -> wrongOperands ins
+  | _ ->
+    wrongOperands ins
 
 /// The bits the floating-point operations on two registers share, whose second
 /// opcode names which one this is.
@@ -936,7 +1025,8 @@ let private fpRoundInt mode ins =
   | TwoOperands(OprSIMD(SFReg(Vector dd)), OprSIMD(SFReg(Vector dm))) ->
     unconditional ins ||| fpTwoRegHead (0b1000u ||| mode) 0b01u ins
     ||| fpFields2 dd dm
-  | _ -> wrongOperands ins
+  | _ ->
+    wrongOperands ins
 
 /// VJCVT, which converts to a signed integer the way a certain language
 /// requires rather than the way the manual would otherwise.
@@ -945,7 +1035,8 @@ let private fpJavaConvert ins =
   | TwoOperands(OprSIMD(SFReg(Vector sdd)), OprSIMD(SFReg(Vector dm))) ->
     cond ins ||| fpTwoRegHead 0b1001u 0b11u ins ||| (1u <<< 8) ||| sd sdd
     ||| vm dm
-  | _ -> wrongOperands ins
+  | _ ->
+    wrongOperands ins
 
 /// The floating-point move of an immediate, whose eight bits stand for a sign,
 /// a short exponent and four bits of significand.
@@ -957,7 +1048,8 @@ let private fpMoveImm ins =
     cond ins ||| (0b1110u <<< 24) ||| (0b1011u <<< 20) ||| (0b101u <<< 9)
     ||| ((imm8 >>> 4) <<< 16) ||| (imm8 &&& 0xfu)
     ||| (if width = 64 then (1u <<< 8) ||| vd dd else sd dd)
-  | _ -> wrongOperands ins
+  | _ ->
+    wrongOperands ins
 
 /// Where a floating-point load or store reads, whose immediate offset counts in
 /// words and cannot be written back.
@@ -965,7 +1057,8 @@ let private fpMemoryScaled ins scale mode =
   let offsetBits u value rn =
     if value % scale <> 0L then
       fail $"a floating-point offset counts in {scale} bytes at a time"
-    else (u <<< 23) ||| (rn <<< 16) ||| unsignedImm 8 (value / scale)
+    else
+      (u <<< 23) ||| (rn <<< 16) ||| unsignedImm 8 (value / scale)
   match mode with
   | OffsetMode(ImmOffset(rn, sign, imm)) ->
     let u, value = signedOffset sign (defaultArg imm 0L)
@@ -973,7 +1066,8 @@ let private fpMemoryScaled ins scale mode =
   | LiteralMode offset ->
     let u, value = signedOffset None offset
     offsetBits u value 0xfu
-  | _ -> wrongOperands ins
+  | _ ->
+    wrongOperands ins
 
 let private fpMemory ins mode = fpMemoryScaled ins 4L mode
 
@@ -993,7 +1087,8 @@ let private fpLoadStore l ins =
     cond ins ||| (0b1101u <<< 24) ||| (l <<< 20) ||| (0b101u <<< 9)
     ||| (if isSingleReg dd then sd dd else (1u <<< 8) ||| vd dd)
     ||| fpMemory ins mode
-  | _ -> wrongOperands ins
+  | _ ->
+    wrongOperands ins
 
 /// <summary>
 /// VLDM and VSTM, which move as many floating-point registers as their list
@@ -1015,7 +1110,8 @@ let private fpBlockTransfer p u l ins =
       ||| (l <<< 20) ||| (coreReg rn <<< 16) ||| (0b101u <<< 9)
       ||| unsignedImm 8 (int64 words)
       ||| (if isSingleReg first then sd first else (1u <<< 8) ||| vd first)
-  | _ -> wrongOperands ins
+  | _ ->
+    wrongOperands ins
 
 (* The Advanced SIMD instructions. *)
 /// The Q bit, which says whether the operands are quadword registers, and the
@@ -1041,11 +1137,13 @@ let private neon3With u size opcode op ins =
     neonHead ins ||| (u <<< 24) ||| (size <<< 20) ||| (opcode <<< 8)
     ||| (op <<< 4)
   match ins.Operands with
-  | ThreeOperands(OprSIMD(SFReg(Vector dd)), OprSIMD(SFReg(Vector dn)),
+  | ThreeOperands(OprSIMD(SFReg(Vector dd)),
+                  OprSIMD(SFReg(Vector dn)),
                   OprSIMD(SFReg(Vector dm))) ->
     let q = if isQuadReg dd then 1u else 0u
     head ||| neonFields q dd dn dm
-  | _ -> wrongOperands ins
+  | _ ->
+    wrongOperands ins
 
 let private neon3 u opcode op ins = neon3With u (elementSize ins) opcode op ins
 
@@ -1081,7 +1179,8 @@ let private neon3Reversed opcode op ins =
   match ins.Operands with
   | ThreeOperands(dd, dm, dn) ->
     neon3Signed opcode op { ins with Operands = ThreeOperands(dd, dn, dm) }
-  | _ -> wrongOperands ins
+  | _ ->
+    wrongOperands ins
 
 /// <summary>
 /// The operations both units have, which name their registers the same way
@@ -1094,13 +1193,16 @@ let private neon3Reversed opcode op ins =
 let private eitherUnit vfp neon ins =
   match ins.Operands with
   | ThreeOperands(OprSIMD(SFReg(Vector reg)), _, _) ->
-    if isSingleReg reg then vfp ins
-    elif isQuadReg reg then neon ins
+    if isSingleReg reg then
+      vfp ins
+    elif isQuadReg reg then
+      neon ins
     else
       match ins.SIMDTyp with
       | Some(OneDT SIMDTypF64) -> vfp ins
       | _ -> neon ins
-  | _ -> neon ins
+  | _ ->
+    neon ins
 
 /// The operations on three registers of different lengths, which write elements
 /// twice as wide as the ones they read. Their destination is always the wide
@@ -1110,10 +1212,12 @@ let private neon3Long u opcode ins =
     neonHead ins ||| (u <<< 24) ||| (1u <<< 23) ||| (elementSize ins <<< 20)
     ||| (opcode <<< 8)
   match ins.Operands with
-  | ThreeOperands(OprSIMD(SFReg(Vector qd)), OprSIMD(SFReg(Vector dn)),
+  | ThreeOperands(OprSIMD(SFReg(Vector qd)),
+                  OprSIMD(SFReg(Vector dn)),
                   OprSIMD(SFReg(Vector dm))) ->
     head ||| vd qd ||| vn dn ||| vm dm
-  | _ -> wrongOperands ins
+  | _ ->
+    wrongOperands ins
 
 let private neon3LongSigned opcode ins = neon3Long (unsignedBit ins) opcode ins
 
@@ -1157,7 +1261,8 @@ let private neonShiftWith u isLeft narrowing opcode ins =
     neonHead ins ||| (u <<< 24) ||| (1u <<< 23) ||| (opcode <<< 8)
     ||| (1u <<< 4)
   match ins.Operands with
-  | ThreeOperands(OprSIMD(SFReg(Vector dd)), OprSIMD(SFReg(Vector dm)),
+  | ThreeOperands(OprSIMD(SFReg(Vector dd)),
+                  OprSIMD(SFReg(Vector dm)),
                   OprImm amount) ->
     (* A shift that narrows or widens names one register of each width, and
        says which is which by what it does rather than by this bit. *)
@@ -1165,7 +1270,8 @@ let private neonShiftWith u isLeft narrowing opcode ins =
     head ||| shiftAmountField isLeft (shiftWidth narrowing ins) (uint32 amount)
     ||| (q <<< 6) ||| vd dd
     ||| vm dm
-  | _ -> wrongOperands ins
+  | _ ->
+    wrongOperands ins
 
 let private neonShift opcode ins =
   neonShiftWith (unsignedBit ins) false false opcode ins
@@ -1197,7 +1303,8 @@ let private neonConvertFixed ins =
     | true, false -> 0b1110u
     | false, false -> 0b1111u
   match ins.Operands with
-  | ThreeOperands(OprSIMD(SFReg(Vector dd)), OprSIMD(SFReg(Vector dm)),
+  | ThreeOperands(OprSIMD(SFReg(Vector dd)),
+                  OprSIMD(SFReg(Vector dm)),
                   OprImm amount) ->
     (* However wide its elements, this one counts what it converts from the
        widest they could be. *)
@@ -1205,7 +1312,8 @@ let private neonConvertFixed ins =
     neonHead ins ||| (u <<< 24) ||| (1u <<< 23) ||| (opcode <<< 8)
     ||| (1u <<< 4) ||| shiftAmountField false 32u (uint32 amount)
     ||| (q <<< 6) ||| vd dd ||| vm dm
-  | _ -> wrongOperands ins
+  | _ ->
+    wrongOperands ins
 
 /// The shifts that write elements half as wide as the ones they read.
 let private neonShiftNarrow opcode ins =
@@ -1223,8 +1331,10 @@ let private scalarField ins reg index =
   match elementSize ins with
   | 1u when number < 8u && index < 4u ->
     ((index &&& 1u) <<< 3) ||| number ||| ((index >>> 1) <<< 5)
-  | 2u when number < 16u && index < 2u -> number ||| (index <<< 5)
-  | _ -> fail $"{Register.toString reg}[{index}] is not a scalar"
+  | 2u when number < 16u && index < 2u ->
+    number ||| (index <<< 5)
+  | _ ->
+    fail $"{Register.toString reg}[{index}] is not a scalar"
 
 /// The operations that multiply every element of one register by one element of
 /// another. Their destination may be as wide as their sources or twice as wide,
@@ -1234,23 +1344,28 @@ let private neonScalar readQ opcode ins =
     neonHead ins ||| (1u <<< 23) ||| (elementSize ins <<< 20)
     ||| (opcode <<< 8) ||| (1u <<< 6)
   match ins.Operands with
-  | ThreeOperands(OprSIMD(SFReg(Vector dd)), OprSIMD(SFReg(Vector dn)),
+  | ThreeOperands(OprSIMD(SFReg(Vector dd)),
+                  OprSIMD(SFReg(Vector dn)),
                   OprSIMD(SFReg(Scalar(dm, Some index)))) ->
     let q = if readQ && isQuadReg dd then 1u else 0u
     head ||| (q <<< 24) ||| vd dd ||| vn dn
     ||| scalarField ins dm (uint32 index)
-  | _ -> wrongOperands ins
+  | _ ->
+    wrongOperands ins
 
 /// VEXT, which reads one register's worth of bytes starting part way through a
 /// pair of them.
 let private neonExtract ins =
   let head = neonHead ins ||| (1u <<< 23) ||| (0b11u <<< 20)
   match ins.Operands with
-  | FourOperands(OprSIMD(SFReg(Vector dd)), OprSIMD(SFReg(Vector dn)),
-                 OprSIMD(SFReg(Vector dm)), OprImm offset) ->
+  | FourOperands(OprSIMD(SFReg(Vector dd)),
+                 OprSIMD(SFReg(Vector dn)),
+                 OprSIMD(SFReg(Vector dm)),
+                 OprImm offset) ->
     let q = if isQuadReg dd then 1u else 0u
     head ||| (unsignedImm 4 offset <<< 8) ||| neonFields q dd dn dm
-  | _ -> wrongOperands ins
+  | _ ->
+    wrongOperands ins
 
 /// The bits the operations on two registers share, whose opcode is split in two
 /// and sits on either side of the destination.
@@ -1263,7 +1378,8 @@ let private neonTwoReg a b ins =
   | TwoOperands(OprSIMD(SFReg(Vector dd)), OprSIMD(SFReg(Vector dm))) ->
     let q = if isQuadReg dd then 1u else 0u
     neonTwoRegHead a b ins ||| (q <<< 6) ||| vd dd ||| vm dm
-  | _ -> wrongOperands ins
+  | _ ->
+    wrongOperands ins
 
 /// The registers of a SIMD list, which a table lookup reads as one table.
 let private simdListRegs list =
@@ -1281,7 +1397,8 @@ let private simdListRegs list =
 /// of up to four registers the matching byte of their index names.
 let private neonTableLookup op ins =
   match ins.Operands with
-  | ThreeOperands(OprSIMD(SFReg(Vector dd)), OprSIMD table,
+  | ThreeOperands(OprSIMD(SFReg(Vector dd)),
+                  OprSIMD table,
                   OprSIMD(SFReg(Vector dm))) ->
     let regs = simdListRegs table
     let consecutive =
@@ -1292,7 +1409,8 @@ let private neonTableLookup op ins =
       neonHead ins ||| (1u <<< 24) ||| (1u <<< 23) ||| (0b11u <<< 20)
       ||| (0b10u <<< 10) ||| (uint32 (List.length regs - 1) <<< 8)
       ||| (op <<< 6) ||| vd dd ||| vn (List.head regs) ||| vm dm
-  | _ -> wrongOperands ins
+  | _ ->
+    wrongOperands ins
 
 /// VDUP, which fills every element of a SIMD register with one core register.
 /// Its two size bits sit far apart, and its destination is written where an
@@ -1310,7 +1428,8 @@ let private neonDuplicate ins =
     cond ins ||| (0b1110u <<< 24) ||| (1u <<< 23) ||| (b <<< 22) ||| (q <<< 21)
     ||| (coreReg rt <<< 12) ||| (0b1011u <<< 8) ||| (e <<< 5) ||| (1u <<< 4)
     ||| vn dd
-  | _ -> wrongOperands ins
+  | _ ->
+    wrongOperands ins
 
 /// The three fields an eight-bit SIMD immediate is split across: one bit well
 /// above the rest, three in the middle and four at the bottom.
@@ -1336,13 +1455,17 @@ let private simdImmediate ins withRegister (value: int64) =
       let code = baseCode ||| (uint32 (shift / 8) <<< 1)
       ((code ||| (if withRegister then 1u else 0u)) <<< 8)
       ||| splitSimdImm8 (value >>> shift)
-    | None -> fail $"#{value} is not a SIMD immediate"
+    | None ->
+      fail $"#{value} is not a SIMD immediate"
   match elementSize ins with
-  | 2u -> placed [ 0; 8; 16; 24 ] 0b0000u
-  | 1u -> placed [ 0; 8 ] 0b1000u
+  | 2u ->
+    placed [ 0; 8; 16; 24 ] 0b0000u
+  | 1u ->
+    placed [ 0; 8 ] 0b1000u
   | 0u when not withRegister && value < 0x100u ->
     (0b1110u <<< 8) ||| splitSimdImm8 value
-  | _ -> fail $"#{value} is not a SIMD immediate of this width"
+  | _ ->
+    fail $"#{value} is not a SIMD immediate of this width"
 
 /// <summary>
 /// The immediate that fills a whole element rather than a byte of one, whose
@@ -1372,7 +1495,8 @@ let private neonImmediate withRegister op ins =
       else simdImmediate ins withRegister imm, op
     neonHead ins ||| (1u <<< 23) ||| bits ||| (q <<< 6) ||| (op <<< 5)
     ||| (1u <<< 4) ||| vd dd
-  | _ -> wrongOperands ins
+  | _ ->
+    wrongOperands ins
 
 /// <summary>
 /// Which element of a SIMD register a move names, as the two fields that say
@@ -1431,15 +1555,20 @@ let private vmov ins =
     ||| vm dm
   (* Two single-precision registers hold as much as one double-precision one,
      so the pair that moves them names four registers rather than three. *)
-  | FourOperands(OprSIMD(SFReg(Vector first)), OprSIMD(SFReg(Vector _)),
-                 OprReg rt, OprReg rt2) ->
+  | FourOperands(OprSIMD(SFReg(Vector first)),
+                 OprSIMD(SFReg(Vector _)),
+                 OprReg rt,
+                 OprReg rt2) ->
     pairHead 0b1010u 0u ||| (coreReg rt2 <<< 16) ||| (coreReg rt <<< 12)
     ||| sm first
-  | FourOperands(OprReg rt, OprReg rt2, OprSIMD(SFReg(Vector first)),
+  | FourOperands(OprReg rt,
+                 OprReg rt2,
+                 OprSIMD(SFReg(Vector first)),
                  OprSIMD(SFReg(Vector _))) ->
     pairHead 0b1010u 1u ||| (coreReg rt2 <<< 16) ||| (coreReg rt <<< 12)
     ||| sm first
-  | _ -> wrongOperands ins
+  | _ ->
+    wrongOperands ins
 
 /// VMLA and VMLS, which both the floating-point unit and the SIMD unit have.
 /// Only the SIMD ones multiply by one element of a register, so what the third
@@ -1448,7 +1577,8 @@ let private mulAccumulate opcode op scalarOpcode variant ins =
   match ins.Operands with
   | ThreeOperands(_, _, OprSIMD(SFReg(Scalar _))) ->
     neonScalar true scalarOpcode ins
-  | _ -> eitherUnit (fp3 opcode op) (neon3FloatDt 0u variant 0b1101u) ins
+  | _ ->
+    eitherUnit (fp3 opcode op) (neon3FloatDt 0u variant 0b1101u) ins
 
 /// <summary>
 /// Where a SIMD access that names whole structures reads, which is the only
@@ -1483,7 +1613,8 @@ let private laneMemory ins mode =
     (coreReg rn <<< 16) ||| coreReg Register.SP
   | PostIdxMode(AlignOffset(rn, _, Some rm)) ->
     (coreReg rn <<< 16) ||| coreReg rm
-  | _ -> wrongOperands ins
+  | _ ->
+    wrongOperands ins
 
 /// The bits the SIMD accesses that name whole structures share. They live in
 /// the unconditional encoding space, as every SIMD access does.
@@ -1532,7 +1663,8 @@ let private structureTransfer l ins =
       ||| (structureType ins.Opcode (List.length regs) spacing <<< 8)
       ||| (elementSize ins <<< 6) ||| vd (List.head regs)
       ||| structureMemory ins mode
-  | _ -> wrongOperands ins
+  | _ ->
+    wrongOperands ins
 
 /// The registers of a SIMD list that names one element of each, together with
 /// the element they all name.
@@ -1619,7 +1751,8 @@ let private structureLane l ins =
       structureHead 1u l ins ||| (size <<< 10)
       ||| (uint32 (count - 1) <<< 8) ||| (indexAlign <<< 4) ||| vd first
       ||| laneMemory ins mode
-  | _ -> wrongOperands ins
+  | _ ->
+    wrongOperands ins
 
 /// <summary>
 /// The loads that read one element into every lane of the registers they name,
@@ -1644,7 +1777,8 @@ let private structureAllLanes ins =
     ||| (uint32 (List.length named - 1) <<< 8) ||| (elementSize ins <<< 6)
     ||| ((if spacing = 2 then 1u else 0u) <<< 5) ||| (align <<< 4)
     ||| vd (List.head named) ||| laneMemory ins mode
-  | _ -> wrongOperands ins
+  | _ ->
+    wrongOperands ins
 
 /// VLD and VST, which move whole structures or one element of one. Which of the
 /// two is meant is what the operand names.
@@ -1661,11 +1795,13 @@ let private structureAccess l ins =
     | _ -> false
   match ins.Operands with
   | ThreeOperands(OprSIMD list, _, _)
-  | TwoOperands(OprSIMD list, _) when namesOneLane list -> structureLane l ins
+  | TwoOperands(OprSIMD list, _) when namesOneLane list ->
+    structureLane l ins
   | ThreeOperands(OprSIMD list, _, _)
   | TwoOperands(OprSIMD list, _) when namesEveryLane list ->
     structureAllLanes ins
-  | _ -> structureTransfer l ins
+  | _ ->
+    structureTransfer l ins
 
 (* The encoder tables. Each is a function so that its rows are built when an
    assembler asks for them rather than living for as long as the process. *)
@@ -2020,7 +2156,8 @@ let private saturatingShift ins =
   match ins.Operands with
   | ThreeOperands(_, _, OprImm _) ->
     neonShiftWith (unsignedBit ins) true false 0b0111u ins
-  | _ -> neon3Reversed 0b0100u 1u ins
+  | _ ->
+    neon3Reversed 0b0100u 1u ins
 
 /// VMUL, which multiplies integers, polynomials or floating-point numbers, and
 /// says which in its data type.
@@ -2043,16 +2180,19 @@ let private neonDotProduct u op size ins =
     ||| (0b1101u <<< 8) ||| (u <<< 4)
   let scalarHead = head ||| (1u <<< 25)
   match ins.Operands with
-  | ThreeOperands(OprSIMD(SFReg(Vector dd)), OprSIMD(SFReg(Vector dn)),
+  | ThreeOperands(OprSIMD(SFReg(Vector dd)),
+                  OprSIMD(SFReg(Vector dn)),
                   OprSIMD(SFReg(Vector dm))) ->
     let q = if isQuadReg dd then 1u else 0u
     head ||| neonFields q dd dn dm
-  | ThreeOperands(OprSIMD(SFReg(Vector dd)), OprSIMD(SFReg(Vector dn)),
+  | ThreeOperands(OprSIMD(SFReg(Vector dd)),
+                  OprSIMD(SFReg(Vector dn)),
                   OprSIMD(SFReg(Scalar(dm, Some index)))) ->
     let q = if isQuadReg dd then 1u else 0u
     scalarHead ||| (q <<< 6) ||| vd dd ||| vn dn
     ||| (simdReg dm &&& 0xfu) ||| ((uint32 index &&& 1u) <<< 5)
-  | _ -> wrongOperands ins
+  | _ ->
+    wrongOperands ins
 
 /// <summary>
 /// The half-precision multiplies that accumulate into single-precision numbers,
@@ -2063,12 +2203,14 @@ let private neonFusedLong op ins =
      one, and below them when it reads one element of one. *)
   let head = (0b11111100u <<< 24) ||| (0b1000u <<< 8) ||| (1u <<< 4)
   match ins.Operands with
-  | ThreeOperands(OprSIMD(SFReg(Vector dd)), OprSIMD(SFReg(Vector sourceN)),
+  | ThreeOperands(OprSIMD(SFReg(Vector dd)),
+                  OprSIMD(SFReg(Vector sourceN)),
                   OprSIMD(SFReg(Vector sourceM))) ->
     let q = if isQuadReg dd then 1u else 0u
     head ||| (op <<< 23) ||| (0b10u <<< 20) ||| (q <<< 6) ||| vd dd
     ||| sn sourceN ||| sm sourceM
-  | ThreeOperands(OprSIMD(SFReg(Vector dd)), OprSIMD(SFReg(Vector sourceN)),
+  | ThreeOperands(OprSIMD(SFReg(Vector dd)),
+                  OprSIMD(SFReg(Vector sourceN)),
                   OprSIMD(SFReg(Scalar(sourceM, Some index)))) ->
     (* The element is named by the bit above the register's own number, and
        what is left of that number keeps its lowest bit apart as a
@@ -2078,7 +2220,8 @@ let private neonFusedLong op ins =
     head ||| (1u <<< 25) ||| (op <<< 20) ||| (q <<< 6) ||| vd dd
     ||| sn sourceN ||| ((uint32 index &&& 1u) <<< 3) ||| (number >>> 1)
     ||| ((number &&& 1u) <<< 5)
-  | _ -> wrongOperands ins
+  | _ ->
+    wrongOperands ins
 
 /// VMRS and VMSR, which move a floating-point status register to or from a core
 /// register, and name that register rather than encoding it.
@@ -2090,10 +2233,12 @@ let private fpStatusMove l ins =
     ||| (1u <<< 4)
   | TwoOperands(OprReg _, OprReg rt) ->
     head ||| (coreReg rt <<< 12) ||| (0b1010u <<< 8) ||| (1u <<< 4)
-  | _ -> wrongOperands ins
+  | _ ->
+    wrongOperands ins
 
 /// The Advanced SIMD instructions that read and write whole registers.
 let advancedSIMDEncoders () =
+  let vshll = fun ins -> neonShiftWith (unsignedBit ins) true false 0b1010u ins
   [ Opcode.VHADD, neon3Signed 0b0000u 0u
     Opcode.VQADD, neon3Signed 0b0000u 1u
     Opcode.VCGT, neon3Signed 0b0011u 0u
@@ -2115,8 +2260,7 @@ let advancedSIMDEncoders () =
     Opcode.VSHRN, neonShiftNarrow 0b1000u
     Opcode.VQSHRUN, neonShiftNarrow 0b1000u
     Opcode.VQSHRN, neonShiftNarrow 0b1001u
-    Opcode.VSHLL,
-      fun ins -> neonShiftWith (unsignedBit ins) true false 0b1010u ins
+    Opcode.VSHLL, vshll
     Opcode.VMOV, vmov
     Opcode.VMVN, neonImmediate false 1u
     Opcode.VQDMLAL, neonScalar false 0b0011u

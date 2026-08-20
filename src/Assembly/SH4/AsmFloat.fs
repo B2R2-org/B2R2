@@ -51,8 +51,7 @@ let private fpuPair rest ins =
 /// to what it made, which is the only one naming three registers.
 let private multiplyAccumulate ins =
   match ins.Operands with
-  | [ Rg Register.FR0; Rg m; Rg n ] ->
-    nmWord FamFloat (fpr n) (fpr m) 0xEus
+  | [ Rg Register.FR0; Rg m; Rg n ] -> nmWord FamFloat (fpr n) (fpr m) 0xEus
   | _ -> wrongOperands ins
 
 /// A move between a floating-point register and memory, which takes the same

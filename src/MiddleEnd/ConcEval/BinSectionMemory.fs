@@ -36,12 +36,14 @@ type BinSectionMemory(hdl: BinHandle) =
 
     member _.ByteRead(addr) =
       match mem.ByteRead addr with
-      | Ok b -> Ok b
+      | Ok b ->
+        Ok b
       | Error _ when isBacked && hdl.File.IsValidAddr addr ->
         match hdl.TryReadBytes(addr, 1) with
         | Ok bs -> Ok bs[0]
         | Error e -> Error e
-      | Error e -> Error e
+      | Error e ->
+        Error e
 
     member _.ByteWrite(addr, b) = mem.ByteWrite(addr, b)
 

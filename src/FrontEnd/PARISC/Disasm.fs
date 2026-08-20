@@ -339,9 +339,11 @@ let inline attachPrefixer (ins: Instruction) opcode =
     match ins.ID with
     | Some arr when arr.Length > 0 ->
       opcode + "," + (arr |> Array.map string |> String.concat ",")
-    | _ -> opcode
+    | _ ->
+      opcode
   let formatCompleterArray cmpltArr =
-    if Array.isEmpty cmpltArr then ""
+    if Array.isEmpty cmpltArr then
+      ""
     else
       cmpltArr
       |> Array.map formatCompleter
@@ -359,7 +361,8 @@ let inline attachPrefixer (ins: Instruction) opcode =
   | None, Some cond ->
     if cond = Completer.NEVER then baseOpcode
     else baseOpcode + formatCompleter cond
-  | None, None -> baseOpcode
+  | None, None ->
+    baseOpcode
 
 let inline buildOpcode (ins: Instruction) (builder: IDisasmBuilder) =
   let str = opCodeToString ins.Opcode |> attachPrefixer ins
@@ -387,7 +390,8 @@ let oprToString (ins: Instruction) opr delim (builder: IDisasmBuilder) =
       builder.Accumulate(AsmWordKind.Value, HexString.ofInt64 off)
     | Some(Reg off) ->
       builder.Accumulate(AsmWordKind.Variable, Register.toString off)
-    | _ -> ()
+    | _ ->
+      ()
     builder.Accumulate(AsmWordKind.String, "(")
     if printSpace space then
       builder.Accumulate(AsmWordKind.Variable,
@@ -409,7 +413,8 @@ let oprToString (ins: Instruction) opr delim (builder: IDisasmBuilder) =
 
 let buildOprs (ins: Instruction) builder =
   match ins.Operands with
-  | NoOperand -> ()
+  | NoOperand ->
+    ()
   | OneOperand opr ->
     oprToString ins opr " " builder
   | TwoOperands(opr1, opr2) ->

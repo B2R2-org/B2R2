@@ -126,7 +126,8 @@ module internal LSDA =
       let next, offset = FileHelper.readSLEB128 span offset
       let acc = tfilter :: acc
       parseActionEntries acc span offset (int next)
-    else List.rev acc
+    else
+      List.rev acc
 
   let rec parseActionTable acc span offset callsites =
     match callsites with
@@ -134,7 +135,8 @@ module internal LSDA =
       let filters = parseActionEntries [] span offset csEntry.ActionOffset
       let acc = { csEntry with ActionTypeFilters = filters } :: acc
       parseActionTable acc span offset tl
-    | [] -> List.rev acc
+    | [] ->
+      List.rev acc
 
   /// Parses one LSDA entry.
   let parse cls (span: ByteSpan) reader sAddr offset =
@@ -145,8 +147,7 @@ module internal LSDA =
       parseCallSiteTable [] cls subspn reader 0 csv false
     let offset = offset + int cstsz
     let callsites =
-      if hasAction then parseActionTable [] span offset callsites
-      else callsites
+      if hasAction then parseActionTable [] span offset callsites else callsites
     let lsda =
       { LPValueEncoding = lpv
         LPAppEncoding = lpapp

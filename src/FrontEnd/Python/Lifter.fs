@@ -656,10 +656,7 @@ let translate (binFile: PythonBinFile) (ins: Instruction) bld =
        alone. What it is called with is the exception itself, which up to 3.10
        is the middle of the three rather than the type on top. *)
     let exc = peekFromStack bld (if minor <= 10 then 1 else 0)
-    let below =
-      if minor <= 10 then 6
-      elif minor >= 14 then 4
-      else 3
+    let below = if minor <= 10 then 6 elif minor >= 14 then 4 else 3
     let exitFunc = peekFromStack bld below
     pushToStack bld (AST.app "WITH_EXCEPT_START" [ exitFunc; exc ] rt)
     bld --!> ins.Length

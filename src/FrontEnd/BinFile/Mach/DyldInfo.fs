@@ -100,8 +100,7 @@ module internal DyldInfo =
     | DyLdInfo(_, _, c) -> Some c
     | _ -> None
 
-  let inline private appendToList (lst: ResizeArray<_>) elm =
-    lst.Add elm
+  let inline private appendToList (lst: ResizeArray<_>) elm = lst.Add elm
 
   /// Decodes the rebase opcode stream, accumulating Rebase fixups. The target
   /// is the unslid pointer stored in place plus the image base.
@@ -136,7 +135,8 @@ module internal DyldInfo =
         cur <- cur + n
       | RebaseOpcode.ADD_ADDR_IMM_SCALED ->
         segOff <- segOff + uint64 (imm * PtrSize)
-      | RebaseOpcode.DO_REBASE_IMM_TIMES -> emit imm
+      | RebaseOpcode.DO_REBASE_IMM_TIMES ->
+        emit imm
       | RebaseOpcode.DO_REBASE_ULEB_TIMES ->
         let v, n = reader.ReadUInt64LEB128(bytes, cur)
         cur <- cur + n
@@ -158,7 +158,8 @@ module internal DyldInfo =
             FixupTarget = Rebase(baseAddr + value) }
           |> appendToList acc
           segOff <- segOff + uint64 PtrSize + skip
-      | _ -> () (* DONE, SET_TYPE_IMM, or unknown: no effect *)
+      | _ ->
+        () (* DONE, SET_TYPE_IMM, or unknown: no effect *)
 
   /// Decodes a bind opcode stream, accumulating Bind fixups. The bind type is
   /// consumed but not retained.
@@ -183,7 +184,8 @@ module internal DyldInfo =
       let imm = int bytes[cur] &&& 0x0F
       cur <- cur + 1
       match enum<BindOpcode> opcode with
-      | BindOpcode.SET_DYLIB_ORDINAL_IMM -> libOrd <- imm
+      | BindOpcode.SET_DYLIB_ORDINAL_IMM ->
+        libOrd <- imm
       | BindOpcode.SET_DYLIB_ORDINAL_ULEB ->
         let v, n = reader.ReadUInt64LEB128(bytes, cur)
         libOrd <- int v
@@ -207,7 +209,8 @@ module internal DyldInfo =
         let v, n = reader.ReadUInt64LEB128(bytes, cur)
         segOff <- segOff + v
         cur <- cur + n
-      | BindOpcode.DO_BIND -> emit ()
+      | BindOpcode.DO_BIND ->
+        emit ()
       | BindOpcode.DO_BIND_ADD_ADDR_ULEB ->
         emit ()
         let v, n = reader.ReadUInt64LEB128(bytes, cur)
@@ -228,11 +231,13 @@ module internal DyldInfo =
               Bind(name, Fixup.resolveLibrary dylibs libOrd, addend) }
           |> appendToList acc
           segOff <- segOff + uint64 PtrSize + skip
-      | _ -> () (* DONE and IMM-only setters need no operand handling *)
+      | _ ->
+        () (* DONE and IMM-only setters need no operand handling *)
 
   let parse toolBox cmds segCmds =
     match Array.tryPick chooser cmds with
-    | None -> [||]
+    | None ->
+      [||]
     | Some info ->
       let acc = ResizeArray()
       let dylibs = Fixup.dylibNames cmds

@@ -207,17 +207,20 @@ let private targetKind (ins: Instruction) =
   | Opcode.INSTRUMENTED_POP_JUMP_IF_FALSE
   | Opcode.INSTRUMENTED_POP_JUMP_IF_NONE
   | Opcode.INSTRUMENTED_POP_JUMP_IF_NOT_NONE
-  | Opcode.INSTRUMENTED_POP_JUMP_IF_TRUE -> Forward
+  | Opcode.INSTRUMENTED_POP_JUMP_IF_TRUE ->
+    Forward
   | Opcode.JUMP_BACKWARD
   | Opcode.JUMP_BACKWARD_NO_INTERRUPT
   | Opcode.POP_JUMP_BACKWARD_IF_FALSE
   | Opcode.POP_JUMP_BACKWARD_IF_NONE
   | Opcode.POP_JUMP_BACKWARD_IF_NOT_NONE
   | Opcode.POP_JUMP_BACKWARD_IF_TRUE
-  | Opcode.INSTRUMENTED_JUMP_BACKWARD -> Backward
+  | Opcode.INSTRUMENTED_JUMP_BACKWARD ->
+    Backward
   | Opcode.JUMP_ABSOLUTE
   | Opcode.CONTINUE_LOOP
-  | Opcode.JUMP_IF_NOT_EXC_MATCH -> FromCodeObject
+  | Opcode.JUMP_IF_NOT_EXC_MATCH ->
+    FromCodeObject
   (* 3.12 gave these two a forward-relative target, where every version up to
      3.10 measured them from the code object's own start. *)
   | Opcode.POP_JUMP_IF_FALSE
@@ -226,7 +229,8 @@ let private targetKind (ins: Instruction) =
   | Opcode.JUMP_IF_FALSE_OR_POP
   | Opcode.JUMP_IF_TRUE_OR_POP ->
     if ins.Minor = 11 then FromZero else FromCodeObject
-  | op -> failwithf "Invalid opcode for branch target: %A" op
+  | op ->
+    failwithf "Invalid opcode for branch target: %A" op
 
 /// Where a branch lands, given the fall-through address and the raw argument.
 /// Up to 3.9 the argument counts bytes; 3.10 made it count instructions, so

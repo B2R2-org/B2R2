@@ -99,7 +99,8 @@ type OptimizerTests() =
        AST.lmark lblEnd ],
      [ varA := num 1u
        AST.cjmp (varA == varA)
-                (AST.jmpDest lblTarget) (AST.jmpDest lblImpossible)
+                (AST.jmpDest lblTarget)
+                (AST.jmpDest lblImpossible)
        AST.lmark lblImpossible
        varB := num 0u
        AST.lmark lblTarget

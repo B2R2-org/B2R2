@@ -77,7 +77,8 @@ let private addEncoders claims table rows =
     | Some other ->
       let choose ins = if claims ins then encode ins else other ins
       Map.add opcode choose table
-    | None -> Map.add opcode encode table) table
+    | None ->
+      Map.add opcode encode table) table
 
 /// Builds the lookup from an opcode to the encoder for it. Each assembler
 /// builds its own and lets it go when it goes, rather than the rows living for
@@ -93,14 +94,16 @@ let buildEncoderTable () =
     |> Map.ofList
   addEncoders writesVector general (vectorEncoders ())
   |> fun table ->
-    addEncoders (fun ins -> namesSIMD ins && not (writesVector ins)) table
+    addEncoders (fun ins -> namesSIMD ins && not (writesVector ins))
+                table
                 (floatEncoders ())
 
 /// Resolves a label to the address of the instruction it marks. A label that
 /// was never defined is a mistake in the source, not a lookup that failed.
 let private findLabel state (baseAddr: Addr) lbl count =
   match Map.tryFind lbl state.LabelMap with
-  | Some index when index <= count -> baseAddr + uint64 (index * 4)
+  | Some index when index <= count ->
+    baseAddr + uint64 (index * 4)
   | Some _ | None ->
     raise <| EncodingFailureException $"Undefined label '{lbl}'"
 
@@ -132,13 +135,15 @@ let private resolvePlace state baseAddr count index ins =
         | Some lbl -> findLabel state baseAddr lbl count
         | None -> uint64 target
       OprMemory(LiteralMode(ImmOffset(Lbl(int64 (target - pc)))))
-    | operand -> operand
+    | operand ->
+      operand
   let operands = getOperandsAsList ins.Operands |> List.map resolve
   { ins with Operands = extractOperands operands }
 
 let private encodeInstruction (encoders: Map<_, _>) ins =
   match Map.tryFind ins.Opcode encoders with
-  | Some encode -> encode ins
+  | Some encode ->
+    encode ins
   | None ->
     raise <| EncodingFailureException $"{ins.Opcode} is not supported yet"
 

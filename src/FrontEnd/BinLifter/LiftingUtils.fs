@@ -53,10 +53,8 @@ let inline tmpVars3 (builder: ILowUIRBuilder) rt =
 
 /// Creates four new temporary variables with the given type.
 let inline tmpVars4 (builder: ILowUIRBuilder) rt =
-  struct (tmpVar builder rt,
-          tmpVar builder rt,
-          tmpVar builder rt,
-          tmpVar builder rt)
+  let rt = tmpVar builder rt
+  struct (rt, rt, rt, rt)
 
 /// Creates a new label with the given name.
 let inline label (builder: ILowUIRBuilder) name = builder.Stream.NewLabel name
@@ -80,22 +78,14 @@ let inline pseudoRegVar128 (builder: ILowUIRBuilder) reg =
 /// Creates four new pseudo-register variables for a 256-bit register of the
 /// given register enum.
 let inline pseudoRegVar256 (builder: ILowUIRBuilder) reg =
-  struct (pseudoRegVar builder reg 4,
-          pseudoRegVar builder reg 3,
-          pseudoRegVar builder reg 2,
-          pseudoRegVar builder reg 1)
+  let pseudoRegVar = pseudoRegVar builder reg
+  struct (pseudoRegVar 4, pseudoRegVar 3, pseudoRegVar 2, pseudoRegVar 1)
 
 /// Creates eight new pseudo-register variables for a 512-bit register of the
 /// given register enum.
 let inline pseudoRegVar512 (builder: ILowUIRBuilder) reg =
-  struct (pseudoRegVar builder reg 8,
-          pseudoRegVar builder reg 7,
-          pseudoRegVar builder reg 6,
-          pseudoRegVar builder reg 5,
-          pseudoRegVar builder reg 4,
-          pseudoRegVar builder reg 3,
-          pseudoRegVar builder reg 2,
-          pseudoRegVar builder reg 1)
+  let regV = pseudoRegVar builder reg
+  struct (regV 8, regV 7, regV 6, regV 5, regV 4, regV 3, regV 2, regV 1)
 
 /// Appends a statement to the given builder. A builder is defined for each
 /// different CPU architecture, so this function is only useful if the builder

@@ -110,7 +110,8 @@ with
     | MachineType.EM_PARISC ->
       let kind: RelocationPARISC = LanguagePrimitives.EnumOfValue relocValue
       kind.ToString()
-    | _ -> invalidArg (nameof arch) "Unsupported architecture for relocation."
+    | _ ->
+      invalidArg (nameof arch) "Unsupported architecture for relocation."
 
 /// Represents a relocation type for x86.
 and internal RelocationX86 =
@@ -842,7 +843,8 @@ module internal RelocationKind =
     | MachineType.EM_386 ->
       let reloc: RelocationX86 = LanguagePrimitives.EnumOfValue relocValue
       ValueSome reloc
-    | _ -> ValueNone
+    | _ ->
+      ValueNone
 
   [<return: Struct>]
   let (|RelocationKindX64|_|) (RelocationKind(arch, relocValue)) =
@@ -850,7 +852,8 @@ module internal RelocationKind =
     | MachineType.EM_X86_64 ->
       let reloc: RelocationX64 = LanguagePrimitives.EnumOfValue relocValue
       ValueSome reloc
-    | _ -> ValueNone
+    | _ ->
+      ValueNone
 
   [<return: Struct>]
   let (|RelocationKindARMv7|_|) (RelocationKind(arch, relocValue)) =
@@ -858,7 +861,8 @@ module internal RelocationKind =
     | MachineType.EM_ARM ->
       let reloc: RelocationARMv7 = LanguagePrimitives.EnumOfValue relocValue
       ValueSome reloc
-    | _ -> ValueNone
+    | _ ->
+      ValueNone
 
   [<return: Struct>]
   let (|RelocationKindARMv8|_|) (RelocationKind(arch, relocValue)) =
@@ -866,7 +870,8 @@ module internal RelocationKind =
     | MachineType.EM_AARCH64 ->
       let reloc: RelocationARMv8 = LanguagePrimitives.EnumOfValue relocValue
       ValueSome reloc
-    | _ -> ValueNone
+    | _ ->
+      ValueNone
 
   [<return: Struct>]
   let (|RelocationKindMIPS|_|) (RelocationKind(arch, relocValue)) =
@@ -874,7 +879,8 @@ module internal RelocationKind =
     | MachineType.EM_MIPS ->
       let reloc: RelocationMIPS = LanguagePrimitives.EnumOfValue relocValue
       ValueSome reloc
-    | _ -> ValueNone
+    | _ ->
+      ValueNone
 
   [<return: Struct>]
   let (|RelocationKindM68K|_|) (RelocationKind(arch, relocValue)) =
@@ -882,7 +888,8 @@ module internal RelocationKind =
     | MachineType.EM_68K ->
       let reloc: RelocationM68K = LanguagePrimitives.EnumOfValue relocValue
       ValueSome reloc
-    | _ -> ValueNone
+    | _ ->
+      ValueNone
 
   [<return: Struct>]
   let (|RelocationKindS390|_|) (RelocationKind(arch, relocValue)) =
@@ -890,7 +897,8 @@ module internal RelocationKind =
     | MachineType.EM_S390 ->
       let reloc: RelocationS390 = LanguagePrimitives.EnumOfValue relocValue
       ValueSome reloc
-    | _ -> ValueNone
+    | _ ->
+      ValueNone
 
   [<return: Struct>]
   let (|RelocationKindSH4|_|) (RelocationKind(arch, relocValue)) =
@@ -898,7 +906,8 @@ module internal RelocationKind =
     | MachineType.EM_SH ->
       let reloc: RelocationSH4 = LanguagePrimitives.EnumOfValue relocValue
       ValueSome reloc
-    | _ -> ValueNone
+    | _ ->
+      ValueNone
 
   [<return: Struct>]
   let (|RelocationKindRISCV|_|) (RelocationKind(arch, relocValue)) =
@@ -906,7 +915,8 @@ module internal RelocationKind =
     | MachineType.EM_RISCV ->
       let reloc: RelocationRISCV = LanguagePrimitives.EnumOfValue relocValue
       ValueSome reloc
-    | _ -> ValueNone
+    | _ ->
+      ValueNone
 
   [<return: Struct>]
   let (|RelocationKindPPC32|_|) (RelocationKind(arch, relocValue)) =
@@ -914,7 +924,8 @@ module internal RelocationKind =
     | MachineType.EM_PPC ->
       let reloc: RelocationPPC32 = LanguagePrimitives.EnumOfValue relocValue
       ValueSome reloc
-    | _ -> ValueNone
+    | _ ->
+      ValueNone
 
   [<return: Struct>]
   let (|RelocationKindPARISC|_|) (RelocationKind(arch, relocValue)) =
@@ -922,4 +933,5 @@ module internal RelocationKind =
     | MachineType.EM_PARISC ->
       let reloc: RelocationPARISC = LanguagePrimitives.EnumOfValue relocValue
       ValueSome reloc
-    | _ -> ValueNone
+    | _ ->
+      ValueNone

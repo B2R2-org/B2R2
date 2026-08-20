@@ -55,8 +55,7 @@ with
 module internal Reloc =
   let private parseRelocSymbol data =
     let n = data &&& 0xFFFFFF
-    if (data >>> 27) &&& 1 = 1 then SymIndex(n)
-    else SecOrdinal(n)
+    if (data >>> 27) &&& 1 = 1 then SymIndex(n) else SecOrdinal(n)
 
   let private parseRelocLength data =
     match (data >>> 25) &&& 3 with
@@ -135,4 +134,5 @@ module internal Reloc =
       match reloc.RelocSymbol with
       | SymIndex n -> int64 symbols[n].SymAddr + addend |> uint64 |> Ok
       | SecOrdinal _ -> uint64 addend |> Ok
-    | None -> Error ErrorCase.ItemNotFound
+    | None ->
+      Error ErrorCase.ItemNotFound

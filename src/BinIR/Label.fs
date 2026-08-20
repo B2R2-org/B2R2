@@ -67,14 +67,12 @@ type Label(name: string, id: int, addr: Addr) =
   /// <summary>
   /// Computes the hash code for the label.
   /// </summary>
-  override _.GetHashCode() =
-    System.HashCode.Combine(name, id, addr)
+  override _.GetHashCode() = System.HashCode.Combine(name, id, addr)
 
   /// <summary>
   /// Returns a string representation of the label.
   /// </summary>
-  override _.ToString() =
-    name + "_" + id.ToString() + "@" + addr.ToString "x"
+  override _.ToString() = name + "_" + id.ToString() + "@" + addr.ToString "x"
 
   interface System.IEquatable<Label> with
     member this.Equals other = this.Equals other

@@ -48,8 +48,7 @@ type ImperativeVertex<'V when 'V: equality>
     member _.ID = id
 
     member _.VData =
-      if isNull vData then raise DummyDataAccessException
-      else vData.Value
+      if isNull vData then raise DummyDataAccessException else vData.Value
 
     member _.HasData = not (isNull vData)
 

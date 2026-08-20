@@ -104,7 +104,8 @@ module LinearDocument =
           Offset = int offset
           ItemLength = 0 }, (* header itself in LinearView has no length*)
         sec.Kind = DynamicLinkageSection,
-        sec.Kind = UninitializedDataSection)
+        sec.Kind = UninitializedDataSection
+      )
     | None ->
       None (* The section has no file position; not placed in LinearView. *)
 
@@ -181,8 +182,7 @@ module LinearDocument =
                 Offset = i
                 ItemLength = int ins.Length }
             match BinFileOps.tryResolveName brew.BinHandle.File addr with
-            | Ok name ->
-              items.Add(LinkageTableHeader(location, name))
+            | Ok name -> items.Add(LinkageTableHeader(location, name))
             | _ -> ()
             let disasm = lifter.DisasmInstruction ins
             items.Add(LinkageTableEntry(location, disasm))
@@ -211,8 +211,7 @@ module LinearDocument =
       let lastAddr =
         if loc.ItemLength <= 0 then loc.Address
         else loc.Address + uint64 (loc.ItemLength - 1)
-      if lastAddr > maxAddr then maxAddr <- lastAddr
-      else ()
+      if lastAddr > maxAddr then maxAddr <- lastAddr else ()
     max 1 (maxAddr.ToString("X").Length)
 
   let private renderedTextChars = function
@@ -242,10 +241,8 @@ module LinearDocument =
       LiftingUnit = lifter }
 
   let tryGetItem doc index =
-    if index < 0 || index >= doc.LinearItems.Count then
-      None
-    else
-      Some doc.LinearItems[index]
+    if index < 0 || index >= doc.LinearItems.Count then None
+    else Some doc.LinearItems[index]
 
   let itemOffset doc index =
     match tryGetItem doc index with
@@ -254,10 +251,8 @@ module LinearDocument =
     | Some(Disassembly(loc, _))
     | Some(FunctionHeader(loc, _))
     | Some(LinkageTableHeader(loc, _))
-    | Some(LinkageTableEntry(loc, _)) ->
-      Some loc.Offset
-    | None ->
-      None
+    | Some(LinkageTableEntry(loc, _)) -> Some loc.Offset
+    | None -> None
 
 [<RequireQualifiedAccess>]
 module LinearItem =

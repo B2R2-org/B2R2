@@ -430,8 +430,7 @@ type BitVectorTests() =
     let bf800000 = BitConverter.SingleToUInt32Bits -1.0f |> uint64
     Assert.AreEqual<uint64>(bf800000, (FCast(mk64 -1.0, 32<rt>)).ToUInt64())
     let c0000000 = BitConverter.SingleToUInt32Bits -2.0f |> uint64
-    Assert.AreEqual<uint64>(c0000000,
-                            (FAdd(mk32 -1.0f, mk32 -1.0f)).ToUInt64())
+    Assert.AreEqual<uint64>(c0000000, (FAdd(mk32 -1.0f, mk32 -1.0f)).ToUInt64())
     Assert.AreEqual<uint64>(0UL, (FSin(mk32 3.5f)).ToUInt64() >>> 32)
     Assert.AreEqual<uint64>(0UL, (FSqrt(mk32 2.0f)).ToUInt64() >>> 32)
 

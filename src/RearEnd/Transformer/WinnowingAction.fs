@@ -37,7 +37,8 @@ type WinnowingAction() =
         elif minHash = curHash && minPos < curPos then curHash, curPos
         else minHash, minPos
       min span (minHash, minPos) (idx + 1)
-    else (minHash, minPos)
+    else
+      (minHash, minPos)
 
   let rec computeFingerprint acc annot prev n wsz idx (ngrams: (int * int)[]) =
     if idx <= ngrams.Length - wsz then
@@ -47,10 +48,11 @@ type WinnowingAction() =
         computeFingerprint acc annot prev n wsz (idx + 1) ngrams
       else
         computeFingerprint (m :: acc) annot m n wsz (idx + 1) ngrams
-    else { Patterns = List.rev acc
-           NGramSize = n
-           WindowSize = wsz
-           Annotation = annot }
+    else
+      { Patterns = List.rev acc
+        NGramSize = n
+        WindowSize = wsz
+        Annotation = annot }
 
   let winnowing n wsz input =
     let bin = unbox<Binary> input

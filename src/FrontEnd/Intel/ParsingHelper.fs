@@ -52,8 +52,16 @@ type internal ParsingHelper(reader: IBinReader,
   let mutable isFar = false
 
   new(reader, wordSz, oparsers, szcomputers, lifter) =
-    ParsingHelper(reader, 0UL, 0, Prefix.None, REXPrefix.NOREX, None,
-                  wordSz, oparsers, szcomputers, lifter)
+    ParsingHelper(reader,
+                  0UL,
+                  0,
+                  Prefix.None,
+                  REXPrefix.NOREX,
+                  None,
+                  wordSz,
+                  oparsers,
+                  szcomputers,
+                  lifter)
 
   member _.InsAddr with get(): Addr = addr and set a = addr <- a
   member _.CurrPos with get() = cpos and set p = cpos <- p
@@ -113,7 +121,8 @@ type internal ParsingHelper(reader: IBinReader,
     if Prefix.hasAddrSz prefs then 16<rt> else 32<rt>
 
   static member inline GetEffOprSize64(prefs, rexPref, sizeCond) =
-    if REXPrefix.hasW rexPref then 64<rt>
+    if REXPrefix.hasW rexPref then
+      64<rt>
     else
       if Prefix.hasOprSz prefs then ParsingHelper.GetOprSize(16<rt>, sizeCond)
       else ParsingHelper.GetOprSize(32<rt>, sizeCond)
@@ -124,12 +133,14 @@ type internal ParsingHelper(reader: IBinReader,
   static member inline GetEffAddrSize(phlp: ParsingHelper) =
     if phlp.WordSize = WordSize.Bit32 then
       ParsingHelper.GetEffAddrSize32 phlp.Prefixes
-    else ParsingHelper.GetEffAddrSize64 phlp.Prefixes
+    else
+      ParsingHelper.GetEffAddrSize64 phlp.Prefixes
 
   static member inline GetEffOprSize(phlp: ParsingHelper, sizeCond) =
     if phlp.WordSize = WordSize.Bit32 then
       ParsingHelper.GetEffOprSize32 phlp.Prefixes
-    else ParsingHelper.GetEffOprSize64(phlp.Prefixes, phlp.REXPrefix, sizeCond)
+    else
+      ParsingHelper.GetEffOprSize64(phlp.Prefixes, phlp.REXPrefix, sizeCond)
 
   member _.IncPos() = cpos <- cpos + 1
 

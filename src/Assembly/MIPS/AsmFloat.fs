@@ -62,7 +62,8 @@ let private arith3 func ins =
   match ins.Operands with
   | ThreeOperands(Rg fd, Rg fs, Rg ft) ->
     word 0b010001u (floatFormat ins) (fpr ft) (fpr fs) (fpr fd) func
-  | _ -> wrongOperands ins
+  | _ ->
+    wrongOperands ins
 
 /// <fd>, <fs>: the arithmetic on one of them, and the truncations towards zero
 /// that turn one into a fixed-point number.
@@ -70,7 +71,8 @@ let private arith2 func ins =
   match ins.Operands with
   | TwoOperands(Rg fd, Rg fs) ->
     word 0b010001u (floatFormat ins) 0u (fpr fs) (fpr fd) func
-  | _ -> wrongOperands ins
+  | _ ->
+    wrongOperands ins
 
 /// <fd>, <fs>: turning a number of one kind into a number of another. The
 /// name says which kind it becomes and the suffix says which kind it was, so
@@ -81,7 +83,8 @@ let private convert into func ins =
     let fmt = convertFormat ins
     if fmt = into then fail $"{ins.Opcode} cannot read what it writes"
     else word 0b010001u fmt 0u (fpr fs) (fpr fd) func
-  | _ -> wrongOperands ins
+  | _ ->
+    wrongOperands ins
 
 /// <fd>, <fs>, <cc>: a move that happens only where the condition the source
 /// names holds, or only where it does not.
@@ -90,7 +93,8 @@ let private moveOnCondition tf ins =
   | ThreeOperands(Rg fd, Rg fs, Im cc) ->
     let rt = (unsigned 3 cc <<< 2) ||| tf
     word 0b010001u (floatFormat ins) rt (fpr fs) (fpr fd) 0b010001u
-  | _ -> wrongOperands ins
+  | _ ->
+    wrongOperands ins
 
 /// <fd>, <fs>, <rt>: a move that happens only where a general register holds
 /// zero, or only where it does not.
@@ -98,7 +102,8 @@ let private moveOnZero func ins =
   match ins.Operands with
   | ThreeOperands(Rg fd, Rg fs, Rg rt) ->
     word 0b010001u (floatFormat ins) (gpr rt) (fpr fs) (fpr fd) func
-  | _ -> wrongOperands ins
+  | _ ->
+    wrongOperands ins
 
 /// <fs>, <ft> and <cc>, <fs>, <ft>: the compare, which writes what it found
 /// into one of the eight places the unit keeps a condition in and names that
@@ -114,7 +119,8 @@ let private compare ins =
   | ThreeOperands(Im cc, Rg fs, Rg ft) ->
     let sa = unsigned 3 cc <<< 2
     word 0b010001u (floatFormat ins) (fpr ft) (fpr fs) sa func
-  | _ -> wrongOperands ins
+  | _ ->
+    wrongOperands ins
 
 /// <rt>, <fs>: the moves of a word between a general register and a register
 /// of the unit, and the reads and the writes of the registers that say how the
@@ -134,7 +140,8 @@ let private branchOnFP tf ins =
   | TwoOperands(Im cc, Place distance) ->
     let rt = (unsigned 3 cc <<< 2) ||| tf
     immWord 0b010001u 0b01000u rt (branchOffset distance)
-  | _ -> wrongOperands ins
+  | _ ->
+    wrongOperands ins
 
 (* The second space of the unit, which reaches memory at a distance a register
    holds and multiplies three numbers at once. Its instructions say the format
@@ -146,14 +153,16 @@ let private loadIndexed func ins =
   match ins.Operands with
   | TwoOperands(Rg fd, MemIdx(baseReg, index)) ->
     word 0b010011u (gpr baseReg) (gpr index) 0u (fpr fd) func
-  | _ -> wrongOperands ins
+  | _ ->
+    wrongOperands ins
 
 /// <fs>, <index>(<base>): the stores that name it the same way.
 let private storeIndexed func ins =
   match ins.Operands with
   | TwoOperands(Rg fs, MemIdx(baseReg, index)) ->
     word 0b010011u (gpr baseReg) (gpr index) (fpr fs) 0u func
-  | _ -> wrongOperands ins
+  | _ ->
+    wrongOperands ins
 
 /// <summary>
 /// <hint>, <index>(<base>): the word that a place is about to be read, which
@@ -171,7 +180,8 @@ let private prefetchIndexed ins =
       word 0b010011u (gpr baseReg) field 0u 0u 0b001111u
     else
       fail "a prefetch says what to do and where to read in one field"
-  | _ -> wrongOperands ins
+  | _ ->
+    wrongOperands ins
 
 /// The three bits at the bottom of the function field that say the format a
 /// multiply of three numbers is read in, which is a pair of them as well as
@@ -190,7 +200,8 @@ let private multiplyAdd func ins =
   match ins.Operands with
   | FourOperands(Rg fd, Rg fr, Rg fs, Rg ft) ->
     word 0b010011u (fpr fr) (fpr ft) (fpr fs) (fpr fd) (func ||| wideFormat ins)
-  | _ -> wrongOperands ins
+  | _ ->
+    wrongOperands ins
 
 let floatEncoders () =
   [ Opcode.ADD, arith3 0b000000u

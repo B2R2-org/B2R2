@@ -51,7 +51,8 @@ type BBLFactory(hdl: BinHandle,
     if isNull blkOptimizer then
       { new IIRBlockOptimizable with
           member _.Optimize stmts = stmts }
-    else blkOptimizer
+    else
+      blkOptimizer
 
   let rec parseBlock (channel: BufferBlock<_>) acc insCount addr leader prev =
     match (instrs: InstructionCollection).TryFind addr with
@@ -59,11 +60,13 @@ type BBLFactory(hdl: BinHandle,
       let nextAddr = addr + uint64 ins.Length
       if ins.IsTerminator prev || interLeaders.ContainsKey nextAddr then
         channel.Post(leader, ins :: acc, insCount + 1) |> ignore
-        if ins.IsCall then Ok [||]
+        if ins.IsCall then
+          Ok [||]
         else
           ins.GetNextInstrAddrs() (* TODO: ARM mode switch *)
           |> Ok
-      else parseBlock channel (ins :: acc) (insCount + 1) nextAddr leader ins
+      else
+        parseBlock channel (ins :: acc) (insCount + 1) nextAddr leader ins
     | Error e ->
 #if CFGDEBUG
       dbglog ManagerTid (nameof BBLFactory)
@@ -85,7 +88,8 @@ type BBLFactory(hdl: BinHandle,
     task {
       while queue.Count <> 0 do
         let addr = queue.Dequeue()
-        if visited.ContainsKey addr then ()
+        if visited.ContainsKey addr then
+          ()
         else
           visited.TryAdd(addr, ()) |> ignore
           match tryParse channel addr with
@@ -106,14 +110,17 @@ type BBLFactory(hdl: BinHandle,
 
   let hasProperTerminator addr (stmts: Stmt[]) =
     match stmts[stmts.Length - 1] with
-    | Jmp _ | CJmp _ | InterJmp _ | InterCJmp _ -> true
+    | Jmp _ | CJmp _ | InterJmp _ | InterCJmp _ ->
+      true
     | IEMark _ ->
       match stmts[stmts.Length - 2] with
       | Jmp _ | CJmp _ | InterJmp _ | InterCJmp _ ->
         eprintfn "Need to fix the terminator @ %x" addr
         false
-      | _ -> true
-    | _ -> false
+      | _ ->
+        true
+    | _ ->
+      false
 #endif
 
   /// The given list is reversed, so we fill the array in reverse order.
@@ -130,15 +137,18 @@ type BBLFactory(hdl: BinHandle,
       let liftedIns = { Original = ins; Stmts = stmts; BBLAddr = bblAddr }
       arr[ndx] <- liftedIns
       liftAndFill lunit bblAddr arr tl (ndx - 1)
-    | [] -> arr
+    | [] ->
+      arr
 
   let rec addLeaderHead (intraLeaders: LinkedList<_>) lastLeader idx =
     if isNull (lastLeader: LinkedListNode<_>) then
       intraLeaders.AddFirst((idx, 0)) |> ignore
-    elif lastLeader.Value = (idx, 0) then () (* due to `hasIntraFlow` *)
+    elif lastLeader.Value = (idx, 0) then
+      () (* due to `hasIntraFlow` *)
     elif fst lastLeader.Value < idx then
       intraLeaders.AddAfter(lastLeader, (idx, 0)) |> ignore
-    else addLeaderHead intraLeaders lastLeader.Previous idx
+    else
+      addLeaderHead intraLeaders lastLeader.Previous idx
 
   let scanIntraLeaders (liftedInss: LiftedInstruction[]) =
     let lblMap = Dictionary<Label, ProgramPoint>()
@@ -161,7 +171,8 @@ type BBLFactory(hdl: BinHandle,
           (* JMP PC means that the instruction jumps to itself. *)
           if i = 0 then () (* Ignore if it is the first lifted instruction. *)
           else addLeaderHead intraLeaders intraLeaders.Last i
-        | _ -> ()
+        | _ ->
+          ()
     struct (lblMap, intraLeaders)
 
   let extractInstrs (liftedInss: LiftedInstruction[]) startNdxs endNdxs =
@@ -187,15 +198,18 @@ type BBLFactory(hdl: BinHandle,
 
   let rec extractLabelInfo (lblMap: Dictionary<_, _>) liftedIns insAddr ndx =
     match liftedIns.Stmts[ndx] with
-    | IEMark _ -> extractLabelInfo lblMap liftedIns insAddr (ndx - 1)
-    | Jmp(JmpDest(label, _), _) -> [ KeyValuePair(label, lblMap[label]) ]
+    | IEMark _ ->
+      extractLabelInfo lblMap liftedIns insAddr (ndx - 1)
+    | Jmp(JmpDest(label, _), _) ->
+      [ KeyValuePair(label, lblMap[label]) ]
     | CJmp(_, JmpDest(label1, _), JmpDest(label2, _), _) ->
       [ KeyValuePair(label1, lblMap[label1])
         KeyValuePair(label2, lblMap[label2]) ]
     | CJmp(_, JmpDest(label, _), _, _)
     | CJmp(_, _, JmpDest(label, _), _) ->
       [ KeyValuePair(label, lblMap[label]) ]
-    | _ -> []
+    | _ ->
+      []
 
   let buildLabelMap lblMap liftedIns =
     let insAddr = liftedIns.Original.Address
@@ -246,15 +260,18 @@ type BBLFactory(hdl: BinHandle,
           | true, (_, _, -1) -> (* error case*)
             isSuccessful <- false; canContinue <- false
           | true, (leaderAddr, instrs, insCount) ->
-            try liftBlock liftingUnit leaderAddr instrs insCount
+            try
+              liftBlock liftingUnit leaderAddr instrs insCount
             with e ->
 #if CFGDEBUG
               dbglog ManagerTid (nameof BBLFactory)
               <| $"Failed to lift instruction at {leaderAddr:x} {e}"
 #endif
               isSuccessful <- false; canContinue <- false
-          | false, _ -> ()
-        else canContinue <- false
+          | false, _ ->
+            ()
+        else
+          canContinue <- false
       return isSuccessful
     }
 
@@ -286,20 +303,23 @@ type BBLFactory(hdl: BinHandle,
   /// a BBL-level overlap because when there is an instruction-level overlap,
   /// our pairwise check will miss the overlapping BBLs.
   let rec findOverlappingLeader currentBBL (leaders: Addr[]) idx =
-    if idx = leaders.Length then Error ErrorCase.ItemNotFound
+    if idx = leaders.Length then
+      Error ErrorCase.ItemNotFound
     else
       let nextAddr = leaders[idx]
       if (currentBBL :> IAddressable).Range.IsIncluding nextAddr then
         if isInstructionAddress currentBBL nextAddr then Ok nextAddr
         else findOverlappingLeader currentBBL leaders (idx + 1)
-      else Error ErrorCase.ItemNotFound
+      else
+        Error ErrorCase.ItemNotFound
 
   /// Iterate over all the BBL leaders and split the BBLs if necessary.
   let commit () =
     let leaders = getSortedLeaders ()
     let dividedEdges = List()
     for i = 0 to leaders.Length - 1 do
-      if i = leaders.Length - 1 then ()
+      if i = leaders.Length - 1 then
+        ()
       else
         let currPPoint = ProgramPoint(leaders[i], 0)
         let currentBBL = bbls[currPPoint]
@@ -310,7 +330,8 @@ type BBLFactory(hdl: BinHandle,
           bbls[currPPoint] <- fst
           bbls[nextPPoint] <- snd
           dividedEdges.Add((currPPoint, nextPPoint))
-        | Error _ -> ()
+        | Error _ ->
+          ()
     done
     Ok dividedEdges
 
@@ -337,8 +358,7 @@ type BBLFactory(hdl: BinHandle,
       let channel = BufferBlock<Addr * IInstruction list * int>()
       instrProducer channel addrs |> ignore
       let! isSuccessful = bblLifter channel
-      if isSuccessful then
-        return if allowOverlap then Ok(List()) else commit ()
+      if isSuccessful then return if allowOverlap then Ok(List()) else commit ()
       else return Error ErrorCase.ParsingFailure
     }
 

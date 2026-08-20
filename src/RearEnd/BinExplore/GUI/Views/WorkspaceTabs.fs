@@ -42,10 +42,12 @@ let [<Literal>] private DragPayloadSeparator = "|"
 
 let rec private originatedFromButton (source: obj) =
   match source with
-  | :? Button -> true
+  | :? Button ->
+    true
   | :? Control as control when not (isNull control.Parent) ->
     originatedFromButton (control.Parent :> obj)
-  | _ -> false
+  | _ ->
+    false
 
 let private buildDragPayload paneID tabID =
   $"{paneID}{DragPayloadSeparator}{tabID}"
@@ -57,7 +59,8 @@ let private tryParseDragPayload (e: DragEventArgs) =
   else
     let parts =
       payload.Split([| DragPayloadSeparator |], 2, StringSplitOptions.None)
-    if parts.Length <> 2 then None
+    if parts.Length <> 2 then
+      None
     else
       match Guid.TryParse parts[0] with
       | true, paneID -> Some(paneID, parts[1])
@@ -156,8 +159,7 @@ let private getTabTextColor model pane tab =
   else model.Theme.Tab.InactiveForeground
 
 let private getTabFontStyle pane tab =
-  if pane.PreviewTab = Some tab then FontStyle.Italic
-  else FontStyle.Normal
+  if pane.PreviewTab = Some tab then FontStyle.Italic else FontStyle.Normal
 
 let private themedTabIconView model tab iconSource =
   Image.create [

@@ -43,8 +43,10 @@ module private RelocMap =
         ||| ((info >>> 40) &&& 0xff00UL)
         ||| ((info >>> 24) &&& 0xff0000UL)
         ||| ((info >>> 8) &&& 0xff000000UL)
-      else info
-    | _ -> info
+      else
+        info
+    | _ ->
+      info
 
   let inline getRelocSIdx hdr (i: uint64) =
     if hdr.Class = WordSize.Bit32 then i >>> 8 else i >>> 32
@@ -95,7 +97,8 @@ module private RelocMap =
           let offset, size = int sec.SecOffset, int sec.SecSize
           let span = ReadOnlySpan(toolBox.Bytes, offset, size)
           parseRelocSection toolBox symbs relocMap sec span
-      | _ -> ()
+      | _ ->
+        ()
     relocMap
 
 /// Represents relocation information, which internally stores a collection of

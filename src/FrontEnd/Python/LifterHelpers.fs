@@ -949,14 +949,10 @@ let makeFunction (ins: Instruction) bld =
   bld <!-- (ins.Address, ins.Length)
   let flags = getIntArg ins
   let codeObj = popFromStack bld
-  let closure =
-    if flags &&& 0x08 <> 0 then popFromStack bld else nullSlot
-  let annotations =
-    if flags &&& 0x04 <> 0 then popFromStack bld else nullSlot
-  let kwDefs =
-    if flags &&& 0x02 <> 0 then popFromStack bld else nullSlot
-  let posDefs =
-    if flags &&& 0x01 <> 0 then popFromStack bld else nullSlot
+  let closure = if flags &&& 0x08 <> 0 then popFromStack bld else nullSlot
+  let annotations = if flags &&& 0x04 <> 0 then popFromStack bld else nullSlot
+  let kwDefs = if flags &&& 0x02 <> 0 then popFromStack bld else nullSlot
+  let posDefs = if flags &&& 0x01 <> 0 then popFromStack bld else nullSlot
   let args = [ codeObj; posDefs; kwDefs; annotations; closure ]
   pushToStack bld (AST.app "MAKE_FUNCTION" args rt)
   bld --!> ins.Length
@@ -1008,14 +1004,10 @@ let makeFunctionLegacy (ins: Instruction) bld =
   let qualname = popFromStack bld
   bld <+ AST.extCall (AST.app "DISCARD" [ qualname ] rt)
   let codeObj = popFromStack bld
-  let closure =
-    if flags &&& 0x08 <> 0 then popFromStack bld else nullSlot
-  let annotations =
-    if flags &&& 0x04 <> 0 then popFromStack bld else nullSlot
-  let kwDefs =
-    if flags &&& 0x02 <> 0 then popFromStack bld else nullSlot
-  let posDefs =
-    if flags &&& 0x01 <> 0 then popFromStack bld else nullSlot
+  let closure = if flags &&& 0x08 <> 0 then popFromStack bld else nullSlot
+  let annotations = if flags &&& 0x04 <> 0 then popFromStack bld else nullSlot
+  let kwDefs = if flags &&& 0x02 <> 0 then popFromStack bld else nullSlot
+  let posDefs = if flags &&& 0x01 <> 0 then popFromStack bld else nullSlot
   let args = [ codeObj; posDefs; kwDefs; annotations; closure ]
   pushToStack bld (AST.app "MAKE_FUNCTION" args rt)
   bld --!> ins.Length
@@ -1133,10 +1125,7 @@ let private legacyCmp idx left right =
 let compareOP minor (ins: Instruction) bld =
   bld <!-- (ins.Address, ins.Length)
   let n = getIntArg ins
-  let opIdx =
-    if minor >= 13 then n >>> 5
-    elif minor >= 12 then n >>> 4
-    else n
+  let opIdx = if minor >= 13 then n >>> 5 elif minor >= 12 then n >>> 4 else n
   let right = popFromStack bld
   let left = popFromStack bld
   if minor >= 9 then pushToStack bld (opApp (cmpOpName opIdx) left right)

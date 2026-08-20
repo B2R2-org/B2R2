@@ -362,14 +362,18 @@ module OperandParsingHelper =
     let op = pickBit bin 5
     let imm8 = (i <<< 7) + (extract bin 18 16 <<< 4) + (extract bin 3 0)
     match extract cmode 3 1 (* cmode<3:1> *) with
-    | 0b000u -> replicate (imm8 |> int64) 32 64<rt> (* Zeros(24):imm8 *)
+    | 0b000u ->
+      replicate (imm8 |> int64) 32 64<rt> (* Zeros(24):imm8 *)
     | 0b001u ->
       replicate (imm8 <<< 8 |> int64) 32 64<rt> (* Zeros(16):imm8:Zeros(8) *)
     | 0b010u ->
       replicate (imm8 <<< 16 |> int64) 32 64<rt> (* Zeros(8):imm8:Zeros(16) *)
-    | 0b011u -> replicate (imm8 <<< 24 |> int64) 32 64<rt> (* imm8:Zeros(24) *)
-    | 0b100u -> replicate (imm8 |> int64) 16 64<rt> (* Zeros(8):imm8 *)
-    | 0b101u -> replicate (imm8 <<< 8 |> int64) 16 64<rt> (* imm8:Zeros(8) *)
+    | 0b011u ->
+      replicate (imm8 <<< 24 |> int64) 32 64<rt> (* imm8:Zeros(24) *)
+    | 0b100u ->
+      replicate (imm8 |> int64) 16 64<rt> (* Zeros(8):imm8 *)
+    | 0b101u ->
+      replicate (imm8 <<< 8 |> int64) 16 64<rt> (* imm8:Zeros(8) *)
     | 0b110u ->
       let imm =
         if cmode0 = 0u && op = 0u
@@ -377,7 +381,8 @@ module OperandParsingHelper =
         else (imm8 <<< 16 |> int64) ||| 0xFFL (* Zeros(8):imm8:Ones(16) *)
       replicate (imm |> int64) 32 64<rt>
     | 0b111u ->
-      if cmode0 = 0u && op = 0u then replicate (imm8 |> int64) 8 64<rt>
+      if cmode0 = 0u && op = 0u then
+        replicate (imm8 |> int64) 8 64<rt>
       elif cmode0 = 0u && op = 1u then
         (* imm8a = Replicate(imm8<7>, 8); imm8b = Replicate(imm8<6>, 8)
            imm8c = Replicate(imm8<5>, 8); imm8d = Replicate(imm8<4>, 8)
@@ -406,7 +411,8 @@ module OperandParsingHelper =
          ((~~~(pickBit imm8 6) |> int64) <<< 14) |||
          ((replicate (pickBit imm8 6 |> int64) 1 8<rt>) <<< 6) |||
          (extract imm8 5 0 |> int64)) <<< 48
-    | _ -> raise ParsingFailureException
+    | _ ->
+      raise ParsingFailureException
 
   /// shared/functions/float/vfpexpandimm/VFPExpandImm on page J1-7900.
   let vfpExpandImm bin imm8 =
@@ -501,15 +507,20 @@ module OperandParsingHelper =
 
   let getDTLImmA bin =
     let isSign = pickBit bin 24 = 0u (* U *)
-    match concat (pickBit bin 7) (extract bin 21 19) 3 (* L:imm6<5:3> *) with
-    | 0b0000u -> raise ParsingFailureException
-    | 0b0001u -> if isSign then SIMDTypS8 else SIMDTypU8
-    | 0b0010u | 0b0011u -> if isSign then SIMDTypS16 else SIMDTypU16
-    | 0b0100u | 0b0101u | 0b0110u | 0b0111u ->
-      if isSign then SIMDTypS32 else SIMDTypU32
-    (* 1xxx *)
-    | _ -> if isSign then SIMDTypS64 else SIMDTypU64
-    |> oneDt
+    let simdTyp =
+      match concat (pickBit bin 7) (extract bin 21 19) 3 (* L:imm6<5:3> *) with
+      | 0b0000u ->
+        raise ParsingFailureException
+      | 0b0001u ->
+        if isSign then SIMDTypS8 else SIMDTypU8
+      | 0b0010u | 0b0011u ->
+        if isSign then SIMDTypS16 else SIMDTypU16
+      | 0b0100u | 0b0101u | 0b0110u | 0b0111u ->
+        if isSign then SIMDTypS32 else SIMDTypU32
+      (* 1xxx *)
+      | _ ->
+        if isSign then SIMDTypS64 else SIMDTypU64
+    simdTyp |> oneDt
 
   let getDTUImm3hA bin =
     match concat (pickBit bin 24) (extract bin 21 19) 3 (* U:imm3H *) with
@@ -809,15 +820,20 @@ module OperandParsingHelper =
      64 when L = 1, imm6<5:3> = xxx *)
   let getDTLImmT bin =
     let isSign = pickBit bin 28 = 0u (* U *)
-    match concat (pickBit bin 7) (extract bin 21 19) 3 (* L:imm6<5:3> *) with
-    | 0b0000u -> raise ParsingFailureException
-    | 0b0001u -> if isSign then SIMDTypS8 else SIMDTypU16
-    | 0b0010u | 0b0011u -> if isSign then SIMDTypS16 else SIMDTypU16
-    | 0b0100u | 0b0101u | 0b0110u | 0b0111u ->
-      if isSign then SIMDTypS32 else SIMDTypU32
-    (* 1xxx *)
-    | _ -> if isSign then SIMDTypS64 else SIMDTypU64
-    |> oneDt
+    let simdTyp =
+      match concat (pickBit bin 7) (extract bin 21 19) 3 (* L:imm6<5:3> *) with
+      | 0b0000u ->
+        raise ParsingFailureException
+      | 0b0001u ->
+        if isSign then SIMDTypS8 else SIMDTypU16
+      | 0b0010u | 0b0011u ->
+        if isSign then SIMDTypS16 else SIMDTypU16
+      | 0b0100u | 0b0101u | 0b0110u | 0b0111u ->
+        if isSign then SIMDTypS32 else SIMDTypU32
+      (* 1xxx *)
+      | _ ->
+        if isSign then SIMDTypS64 else SIMDTypU64
+    simdTyp |> oneDt
 
   (* S8 when U = 0, imm3H = 001
      S16 when U = 0, imm3H = 010
@@ -970,7 +986,14 @@ module OperandParsingHelper =
 type [<AbstractClass>] OperandParser() =
   abstract Render: uint32 -> struct (Operands * bool * bool option * RegType)
 
-and internal ParsingHelper(arch, isThumb, reader, addr, oprs, len, cond, isAdd,
+and internal ParsingHelper(arch,
+                           isThumb,
+                           reader,
+                           addr,
+                           oprs,
+                           len,
+                           cond,
+                           isAdd,
                            lifter) =
   let mutable isThumb: bool = isThumb
   let mutable addr: Addr = addr
@@ -979,8 +1002,15 @@ and internal ParsingHelper(arch, isThumb, reader, addr, oprs, len, cond, isAdd,
   let mutable isAdd: bool = isAdd
   let isARMv7 = arch = Architecture.ARMv7
   new(arch, reader, oparsers, lifter) =
-    ParsingHelper(arch, false, reader, 0UL, oparsers, 0u, Condition.UN, true,
-      lifter)
+    ParsingHelper(arch,
+                  false,
+                  reader,
+                  0UL,
+                  oparsers,
+                  0u,
+                  Condition.UN,
+                  true,
+                  lifter)
   member _.IsThumb with get() = isThumb and set v = isThumb <- v
   member _.BinReader with get(): IBinReader = reader
   member _.InsAddr with get() = addr and set(a) = addr <- a
@@ -2094,14 +2124,17 @@ type internal OprListMemB() =
       |> uint8 |> Some
     let list =
       let d = concat (pickBit bin 22) (extract bin 15 12) 4 (* D:Vd *)
-      match extract bin 11 10 (* size *) with
-      | 0b00u -> [ d; d + 1u ]
-      | 0b01u -> (* index_align<1> *)
-        if pickBit bin 5 = 0u then [ d; d + 1u ] else [ d; d + 2u ]
-      | 0b10u -> (* index_align<2> *)
-        if pickBit bin 6 = 0u then [ d; d + 1u ] else [ d; d + 2u ]
-      | _ -> undefined ()
-      |> List.map getVecDReg |> getSIMDScalar (idx)
+      let bits =
+        match extract bin 11 10 (* size *) with
+        | 0b00u ->
+          [ d; d + 1u ]
+        | 0b01u -> (* index_align<1> *)
+          if pickBit bin 5 = 0u then [ d; d + 1u ] else [ d; d + 2u ]
+        | 0b10u -> (* index_align<2> *)
+          if pickBit bin 6 = 0u then [ d; d + 1u ] else [ d; d + 2u ]
+        | _ ->
+          undefined ()
+      bits |> List.map getVecDReg |> getSIMDScalar (idx)
     let mem =
       let rn = extract bin 19 16 |> getRegister
       let rm = extract bin 3 0 |> getRegister
@@ -2127,16 +2160,19 @@ type internal OprListMemD() =
       |> uint8 |> Some
     let list =
       let d = concat (pickBit bin 22) (extract bin 15 12) 4 (* D:Vd *)
-      match extract bin 11 10 (* size *) with
-      | 0b00u -> [ d; d + 1u; d + 2u; d + 3u ]
-      | 0b01u -> (* index_align<1> *)
-        if pickBit bin 5 = 0u then [ d; d + 1u; d + 2u; d + 3u ]
-        else [ d; d + 2u; d + 4u; d + 6u ]
-      | 0b10u -> (* index_align<2> *)
-        if pickBit bin 6 = 0u then [ d; d + 1u; d + 2u; d + 3u ]
-        else [ d; d + 2u; d + 4u; d + 6u ]
-      | _ -> undefined ()
-      |> List.map getVecDReg |> getSIMDScalar (idx)
+      let bits =
+        match extract bin 11 10 (* size *) with
+        | 0b00u ->
+          [ d; d + 1u; d + 2u; d + 3u ]
+        | 0b01u -> (* index_align<1> *)
+          if pickBit bin 5 = 0u then [ d; d + 1u; d + 2u; d + 3u ]
+          else [ d; d + 2u; d + 4u; d + 6u ]
+        | 0b10u -> (* index_align<2> *)
+          if pickBit bin 6 = 0u then [ d; d + 1u; d + 2u; d + 3u ]
+          else [ d; d + 2u; d + 4u; d + 6u ]
+        | _ ->
+          undefined ()
+      bits |> List.map getVecDReg |> getSIMDScalar (idx)
     let mem =
       let rn = extract bin 19 16 |> getRegister
       let rm = extract bin 3 0 |> getRegister
@@ -2166,18 +2202,21 @@ type internal OprListMemC() =
       |> uint8 |> Some
     let list =
       let d = concat (pickBit bin 22) (extract bin 15 12) 4 (* D:Vd *)
-      match extract bin 11 10 (* size *) with
-      | 0b00u -> [ d; d + 1u; d + 2u ]
-      | 0b01u ->
-        if pickBit bin 5 = 0u (* index_align<1> *)
-        then [ d; d + 1u; d + 2u ]
-        else [ d; d + 2u; d + 4u ]
-      | 0b10u ->
-        if pickBit bin 6 = 0u (* index_align<2> *)
-        then [ d; d + 1u; d + 2u ]
-        else [ d; d + 2u; d + 4u ]
-      | _ -> undefined ()
-      |> List.map getVecDReg |> getSIMDScalar idx
+      let bits =
+        match extract bin 11 10 (* size *) with
+        | 0b00u ->
+          [ d; d + 1u; d + 2u ]
+        | 0b01u ->
+          if pickBit bin 5 = 0u (* index_align<1> *)
+          then [ d; d + 1u; d + 2u ]
+          else [ d; d + 2u; d + 4u ]
+        | 0b10u ->
+          if pickBit bin 6 = 0u (* index_align<2> *)
+          then [ d; d + 1u; d + 2u ]
+          else [ d; d + 2u; d + 4u ]
+        | _ ->
+          undefined ()
+      bits |> List.map getVecDReg |> getSIMDScalar idx
     let mem =
       let rn = extract bin 19 16 |> getRegister
       let rm = extract bin 3 0 |> getRegister
@@ -3058,8 +3097,8 @@ type internal OprRdRnRmShfA() =
     let rm = extract bin 3 0 |> getRegister |> OprReg
     let struct (shift, amount) = (* stype imm5 *)
       decodeImmShift (extract bin 6 5) (extract bin 11 7)
-    struct (FourOperands(rd, rn, rm, OprShift(shift, Imm amount)),
-            false, None, 32<rt>)
+    let oprs = FourOperands(rd, rn, rm, OprShift(shift, Imm amount))
+    struct (oprs, false, None, 32<rt>)
 
 (* {<Rd>,} <Rn>, <Rm>, <shift> <Rs> *)
 type internal OprRdRnRmShfRs() =
@@ -3093,8 +3132,8 @@ type internal OprRdImmRnShfA() =
     let rn = extract bin 3 0 |> getRegister |> OprReg
     let struct (sTyp, amount) = (* sh:'0' *) (* imm5 *)
       decodeImmShift (extract bin 6 5) (extract bin 11 7)
-    struct (FourOperands(rd, imm, rn, OprShift(sTyp, Imm amount)),
-            false, None, 32<rt>)
+    let oprs = FourOperands(rd, imm, rn, OprShift(sTyp, Imm amount))
+    struct (oprs, false, None, 32<rt>)
 
 (* <Rd>, #<imm>, <Rn>, ASR #<amount> *)
 (* <Rd>, #<imm>, <Rn>, LSL #<amount> *)
@@ -3107,8 +3146,8 @@ type internal OprRdImmRnShfUA() =
     let struct (sTyp, amount) =
       (* sh:'0' *) (* imm5 *)
       decodeImmShift (extract bin 6 5) (extract bin 11 7)
-    struct (FourOperands(rd, imm, rn, OprShift(sTyp, Imm amount)),
-            false, None, 32<rt>)
+    let oprs = FourOperands(rd, imm, rn, OprShift(sTyp, Imm amount))
+    struct (oprs, false, None, 32<rt>)
 
 (* <Rd>, <Rn>, #<lsb>, #<width> *)
 type internal OprRdRnLsbWidthA() =
@@ -3296,12 +3335,16 @@ type internal OprCoprocCRdMem() =
       let imm = extract bin 7 0 <<< 2 |> int64
       let sign = pickBit bin 23 |> getSign |> Some
       match pickTwoBitsApart bin 24 21 (* P:W *) with
-      | 0b10u -> memOffsetImm (rn, sign, Some imm)
-      | 0b11u -> memPreIdxImm (rn, sign, Some imm)
-      | 0b01u -> memPostIdxImm (rn, sign, Some imm)
+      | 0b10u ->
+        memOffsetImm (rn, sign, Some imm)
+      | 0b11u ->
+        memPreIdxImm (rn, sign, Some imm)
+      | 0b01u ->
+        memPostIdxImm (rn, sign, Some imm)
       | 0b00u when pickBit bin 23 = 1u ->
         memUnIdxImm (rn, extract bin 7 0 |> int64) (* imm8 *)
-      | _ (* 00 *) -> undefined ()
+      | _ (* 00 *) ->
+        undefined ()
     struct (ThreeOperands(coproc, crd, mem), wbackW bin, None, 32<rt>)
 
 (* <label> *)

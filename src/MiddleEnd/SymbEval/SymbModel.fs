@@ -42,7 +42,8 @@ type SymbModel(values: SolverValue list) =
   /// Gets a solver value by symbolic variable name.
   member this.GetValue name =
     match this.TryGetValue name with
-    | Some value -> value
+    | Some value ->
+      value
     | None ->
       raise (InvalidOperationException $"Solver value {name} is missing.")
 
@@ -53,7 +54,8 @@ type SymbModel(values: SolverValue list) =
   /// Gets an 8-bit solver value for a symbolic byte expression.
   member this.GetByte expr =
     match expr with
-    | SymbExpr.Var(name, _) -> this.GetByte name
+    | SymbExpr.Var(name, _) ->
+      this.GetByte name
     | expr ->
       raise (InvalidOperationException $"Unexpected query value: {expr}.")
 

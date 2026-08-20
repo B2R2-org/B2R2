@@ -105,8 +105,7 @@ type RawBinFile(path, bytes: byte[], isa: ISA, baseAddrOpt) =
 
     member _.MemoryLayout with get() = memoryLayout
 
-    member _.Slice(addr, len) =
-      sliceBySafeOffset bytes (addr - baseAddr) len
+    member _.Slice(addr, len) = sliceBySafeOffset bytes (addr - baseAddr) len
 
     member _.IsValidAddr addr =
       addr >= baseAddr && addr < (baseAddr + uint64 size)
@@ -121,12 +120,12 @@ type RawBinFile(path, bytes: byte[], isa: ISA, baseAddrOpt) =
     member this.IsRangeMappedToFile range =
       (this :> IAddressSpace).IsValidRange range
 
-    member this.IsExecutableAddr addr =
-      (this :> IAddressSpace).IsValidAddr addr
+    member this.IsExecutableAddr addr = (this :> IAddressSpace).IsValidAddr addr
 
     member _.GetBoundedPointer(addr) =
       if addr >= baseAddr && addr < (baseAddr + uint64 size) then
         let maxAddr = baseAddr + uint64 size - 1UL
         let offset = addr - baseAddr
         BinFilePointer.CreateFileBacked(addr, maxAddr, int offset, size - 1)
-      else BinFilePointer.Null
+      else
+        BinFilePointer.Null

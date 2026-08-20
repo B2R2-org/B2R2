@@ -92,7 +92,8 @@ type M68KRoundTripTests() =
   /// text stands in for the word a probe was decoded from.
   static let roundTripWith assembler parser (source: string) =
     match (try encodeFirst assembler source with _ -> None) with
-    | None -> M68KUnsupported
+    | None ->
+      M68KUnsupported
     | Some encoded ->
       let actual = try disasmWith parser encoded with _ -> "<undecodable>"
       if actual = source then M68KPreserved else M68KAltered actual
@@ -253,7 +254,8 @@ type M68KRoundTripTests() =
       "",
       brokenSources assembler parser texts,
       "These instructions decode but no longer encode, or encode to an \
-       instruction that means something else.")
+       instruction that means something else."
+    )
 
   [<TestMethod>]
   [<TestCategory("Sweep")>]
@@ -263,7 +265,8 @@ type M68KRoundTripTests() =
       "",
       brokenSources assembler40 parser40 texts,
       "These instructions decode for a 68040 but no longer encode for one, or \
-       encode to an instruction that means something else.")
+       encode to an instruction that means something else."
+    )
 
   [<TestMethod>]
   [<TestCategory("Sweep")>]
@@ -273,7 +276,8 @@ type M68KRoundTripTests() =
       "",
       brokenSources assembler00 parser00 texts,
       "These instructions decode for a 68000 but no longer encode for one, or \
-       encode to an instruction that means something else.")
+       encode to an instruction that means something else."
+    )
 
   [<TestMethod>]
   member _.``Branches to a label reach it in both directions``() =
@@ -283,7 +287,8 @@ type M68KRoundTripTests() =
             expected, source, index, labelIndex ]
       |> List.choose (fun (expected, source, index, labelIndex) ->
         match (try assembler.Lower source with _ -> Error "raised") with
-        | Error _ | Ok [] -> Some $"'{expected}' does not assemble"
+        | Error _ | Ok [] ->
+          Some $"'{expected}' does not assemble"
         | Ok encoded ->
           let lengths = encoded |> List.map (fun (_, bytes) -> bytes.Length)
           let addrOf upto = List.take upto lengths |> List.sumBy uint64
@@ -303,7 +308,8 @@ type M68KRoundTripTests() =
     Assert.AreEqual<string>(
       "",
       String.concat "\n" wrong,
-      "These no longer reach the instruction their label marks.")
+      "These no longer reach the instruction their label marks."
+    )
 
   /// <summary>
   /// Checks that a source asking for what no encoding can say is refused rather
@@ -318,7 +324,8 @@ type M68KRoundTripTests() =
       unencodableSources
       |> List.choose (fun source ->
         match (try encodeFirst assembler source with _ -> None) with
-        | None -> None
+        | None ->
+          None
         | Some bytes ->
           let text = try disasm bytes with _ -> "<undecodable>"
           Some $"'{source}' encoded as '{text}'")
@@ -326,7 +333,8 @@ type M68KRoundTripTests() =
     Assert.AreEqual<string>(
       "",
       String.concat "\n" encoded,
-      "These ask for something no m68k encoding can say.")
+      "These ask for something no m68k encoding can say."
+    )
 
   /// Checks that an assembler for an earlier member of the family refuses what
   /// a later one added, because such a target could not read it back.
@@ -359,7 +367,8 @@ type M68KRoundTripTests() =
     Assert.AreEqual<string>(
       "",
       String.concat "\n" encoded,
-      "A 68000 reads none of these, so it cannot be given them.")
+      "A 68000 reads none of these, so it cannot be given them."
+    )
 
   /// Checks that an assembler for a 68040 refuses the two instructions that the
   /// 68020 alone has, the family having dropped them again.
@@ -375,7 +384,8 @@ type M68KRoundTripTests() =
     Assert.AreEqual<string>(
       "",
       String.concat "\n" encoded,
-      "A 68040 reads neither of these, so it cannot be given them.")
+      "A 68040 reads neither of these, so it cannot be given them."
+    )
 
   /// <summary>
   /// Checks that a source written the way a person writes one names the same
@@ -393,7 +403,8 @@ type M68KRoundTripTests() =
       writtenSources
       |> List.choose (fun (source, expected) ->
         match (try encodeFirst assembler source with _ -> None) with
-        | None -> Some $"'{source}' does not assemble"
+        | None ->
+          Some $"'{source}' does not assemble"
         | Some bytes ->
           let text = try disasm bytes with _ -> "<undecodable>"
           if text = expected then None
@@ -402,7 +413,8 @@ type M68KRoundTripTests() =
     Assert.AreEqual<string>(
       "",
       String.concat "\n" wrong,
-      "These are no longer read as the instruction they name.")
+      "These are no longer read as the instruction they name."
+    )
 
   /// <summary>
   /// Checks that an instruction comes out as long as its encoding is.
@@ -418,7 +430,8 @@ type M68KRoundTripTests() =
       lengths
       |> List.choose (fun (source, expected) ->
         match (try encodeFirst assembler source with _ -> None) with
-        | None -> Some $"'{source}' does not assemble"
+        | None ->
+          Some $"'{source}' does not assemble"
         | Some bytes ->
           if bytes.Length = expected then None
           else Some $"'{source}' came out {bytes.Length} bytes long")
@@ -426,7 +439,8 @@ type M68KRoundTripTests() =
     Assert.AreEqual<string>(
       "",
       String.concat "\n" wrong,
-      "These are no longer as long as their encoding is.")
+      "These are no longer as long as their encoding is."
+    )
 
   /// Checks that a source the assembler refuses leaves it able to read the next
   /// one, which a parser keeping state across a failure would not.

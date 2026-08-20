@@ -48,7 +48,8 @@ type ConcStateAccessor(hdl: BinHandle, state: EvalState) as this =
 
   let getDefinedReg rid =
     match state.TryGetReg rid with
-    | Def v -> v
+    | Def v ->
+      v
     | Undef ->
       let name = regFactory.GetRegisterName rid
       raise (InvalidOperationException $"Register {name} is not initialized.")
@@ -60,14 +61,16 @@ type ConcStateAccessor(hdl: BinHandle, state: EvalState) as this =
 
   let getStackPointerRegister () =
     match regFactory.StackPointer with
-    | Some rid -> rid
+    | Some rid ->
+      rid
     | None ->
       raise (InvalidOperationException
         "Stack pointer register is unavailable.")
 
   let getFramePointerRegister () =
     match regFactory.FramePointer with
-    | Some rid -> rid
+    | Some rid ->
+      rid
     | None ->
       raise (InvalidOperationException
         "Frame pointer register is unavailable.")
@@ -99,17 +102,13 @@ type ConcStateAccessor(hdl: BinHandle, state: EvalState) as this =
     let fp = getFramePointerRegister ()
     state.SetReg(fp, wordValue (getStackPointer ()))
 
-  let setRegisterByName name value =
-    state.SetReg(registerByName name, value)
+  let setRegisterByName name value = state.SetReg(registerByName name, value)
 
-  let setRegister rid value =
-    state.SetReg(rid, value)
+  let setRegister rid value = state.SetReg(rid, value)
 
-  let getRegisterByName name =
-    registerByName name |> getDefinedReg
+  let getRegisterByName name = registerByName name |> getDefinedReg
 
-  let getRegister rid =
-    getDefinedReg rid
+  let getRegister rid = getDefinedReg rid
 
   let zeroRegistersByName names =
     let zero = BitVector.Zero wordType
@@ -120,17 +119,14 @@ type ConcStateAccessor(hdl: BinHandle, state: EvalState) as this =
     rids |> Array.iter (fun rid -> setRegister rid zero)
 
   let setArgument idx value =
-    if idx < 0 then raise (ArgumentOutOfRangeException(nameof idx))
-    else ()
+    if idx < 0 then raise (ArgumentOutOfRangeException(nameof idx)) else ()
     let rid = cc.IntArgRegister idx
     state.SetReg(rid, value)
 
-  let getReturnValue () =
-    cc.IntReturnRegister |> getDefinedReg
+  let getReturnValue () = cc.IntReturnRegister |> getDefinedReg
 
   let allocateStackBuffer size =
-    if size < 0 then raise (ArgumentOutOfRangeException(nameof size))
-    else ()
+    if size < 0 then raise (ArgumentOutOfRangeException(nameof size)) else ()
     let addr = getStackPointer () - uint64 size
     setStackPointer addr
     addr
@@ -166,8 +162,7 @@ type ConcStateAccessor(hdl: BinHandle, state: EvalState) as this =
   member _.InitializeFramePointer() = initializeFramePointer ()
 
   /// Set a register value by name.
-  member _.SetRegister(name: string, value) =
-    setRegisterByName name value
+  member _.SetRegister(name: string, value) = setRegisterByName name value
 
   /// Set a register value by register ID.
   member _.SetRegister(rid: RegisterID, value) = setRegister rid value
@@ -200,8 +195,7 @@ type ConcStateAccessor(hdl: BinHandle, state: EvalState) as this =
   member _.PopFromStack() = popFromStack ()
 
   /// Push a word-sized pointer value to the stack and return its address.
-  member _.PushPointer(value: Addr) =
-    wordValue value |> pushToStack
+  member _.PushPointer(value: Addr) = wordValue value |> pushToStack
 
   /// Pop a word-sized pointer value from the stack.
   member _.PopPointer() =
@@ -242,7 +236,8 @@ type ConcStateAccessor(hdl: BinHandle, state: EvalState) as this =
     let mutable finished = false
     while not finished && idx < maxLength do
       match readByte (addr + uint64 idx) with
-      | 0uy -> finished <- true
+      | 0uy ->
+        finished <- true
       | b ->
         bytes.Add b
         idx <- idx + 1
@@ -264,11 +259,9 @@ type ConcStateAccessor(hdl: BinHandle, state: EvalState) as this =
 
     member _.InitializeFramePointer() = this.InitializeFramePointer()
 
-    member _.SetRegister(name: string, value) =
-      this.SetRegister(name, value)
+    member _.SetRegister(name: string, value) = this.SetRegister(name, value)
 
-    member _.SetRegister(rid: RegisterID, value) =
-      this.SetRegister(rid, value)
+    member _.SetRegister(rid: RegisterID, value) = this.SetRegister(rid, value)
 
     member _.GetRegister(name: string) = this.GetRegister name
 

@@ -82,4 +82,5 @@ module IGraph =
           let src = g.FindVertexByID <| e.First.ID
           let dst = g.FindVertexByID <| e.Second.ID
           (g :> IGraph<'V, _>).AddEdge(src, dst, e.Label)
-        else g), graph)
+        else
+          g), graph)

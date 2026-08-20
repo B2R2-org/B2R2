@@ -155,7 +155,8 @@ let private castTo80Bit bld tmpB tmpA srcExpr =
     bld <+ (biasedExponent :=
       AST.xtlo 16<rt> ((tmpSrc >> n23) .& (numI32 0xff 32<rt>)))
     let exponent =
-      AST.ite (biasedExponent == numI32 0 16<rt>) (numI32 0 16<rt>)
+      AST.ite (biasedExponent == numI32 0 16<rt>)
+        (numI32 0 16<rt>)
         (AST.ite (biasedExponent == numI32 0xff 16<rt>)
           (numI32 0x7fff 16<rt>)
           (biasedExponent .+ biasDiff))
@@ -180,7 +181,8 @@ let private castTo80Bit bld tmpB tmpA srcExpr =
     bld <+ (biasedExponent :=
       AST.xtlo 16<rt> ((tmpSrc >> n52) .& (numI32 0x7ff 64<rt>)))
     let exponent =
-      AST.ite (biasedExponent == numI32 0 16<rt>) (numI32 0 16<rt>)
+      AST.ite (biasedExponent == numI32 0 16<rt>)
+        (numI32 0 16<rt>)
         (AST.ite (biasedExponent == numI32 0x7ff 16<rt>)
           (numI32 0x7fff 16<rt>)
           (biasedExponent .+ biasDiff))
@@ -201,8 +203,10 @@ let private castTo80Bit bld tmpB tmpA srcExpr =
       let struct (srcB, srcA) = getFPUPseudoRegVars bld reg
       bld <+ (tmpB := srcB)
       bld <+ (tmpA := srcA)
-    | _ -> raise InvalidOperandException
-  | _ -> Terminator.impossible ()
+    | _ ->
+      raise InvalidOperandException
+  | _ ->
+    Terminator.impossible ()
 
 let private fpuLoad (ins: Instruction) insLen bld oprExpr =
   let struct (st0b, st0a) = getFPUPseudoRegVars bld R.ST0
@@ -237,8 +241,10 @@ let private castFrom80Bit dstExpr dstSize srcB srcA bld =
     let computedExp = exp .- biasDiff
     let maxExp = numI32 0x1f 16<rt>
     let exponent =
-      AST.ite (exp == AST.num0 16<rt>) (AST.num0 16<rt>)
-        (AST.ite (exp == numI32 0x7fff 16<rt>) (numI32 0x1f 16<rt>)
+      AST.ite (exp == AST.num0 16<rt>)
+        (AST.num0 16<rt>)
+        (AST.ite (exp == numI32 0x7fff 16<rt>)
+          (numI32 0x1f 16<rt>)
           (AST.ite (computedExp .> maxExp) maxExp computedExp))
       << numI32 10 dstSize
     let n53 = numI32 53 64<rt>
@@ -256,8 +262,10 @@ let private castFrom80Bit dstExpr dstSize srcB srcA bld =
     let computedExp = AST.zext 64<rt> exp .- biasDiff
     let maxExp = numI32 0x7ff 64<rt>
     let exponent =
-      AST.ite (exp == AST.num0 16<rt>) (AST.num0 64<rt>)
-        (AST.ite (exp == numI32 0x7fff 16<rt>) (numI32 0x7ff 64<rt>)
+      AST.ite (exp == AST.num0 16<rt>)
+        (AST.num0 64<rt>)
+        (AST.ite (exp == numI32 0x7fff 16<rt>)
+          (numI32 0x7ff 64<rt>)
           (AST.ite (computedExp .> maxExp) maxExp computedExp))
       << numI32 52 64<rt>
     let n11 = numI32 11 64<rt>
@@ -274,8 +282,10 @@ let private castFrom80Bit dstExpr dstSize srcB srcA bld =
     let computedExp = AST.zext 64<rt> exp .- biasDiff
     let maxExp = numI32 0x7ff 64<rt>
     let exponent =
-      AST.ite (exp == AST.num0 16<rt>) (AST.num0 64<rt>)
-        (AST.ite (exp == numI32 0x7fff 16<rt>) (numI32 0x7ff 64<rt>)
+      AST.ite (exp == AST.num0 16<rt>)
+        (AST.num0 64<rt>)
+        (AST.ite (exp == numI32 0x7fff 16<rt>)
+          (numI32 0x7ff 64<rt>)
           (AST.ite (computedExp .> maxExp) maxExp computedExp))
       << numI32 52 64<rt>
     let n11 = numI32 11 64<rt>
@@ -286,7 +296,8 @@ let private castFrom80Bit dstExpr dstSize srcB srcA bld =
     let struct (addrExpr, addrSize) = getLoadAddressExpr dstExpr
     bld <+ (AST.store Endian.Little (addrExpr) srcA)
     bld <+ (AST.store Endian.Little (addrExpr .+ numI32 8 addrSize) srcB)
-  | _ -> Terminator.impossible ()
+  | _ ->
+    Terminator.impossible ()
 
 let ffst (ins: Instruction) insLen bld doPop =
   let struct (st0b, st0a) = getFPUPseudoRegVars bld R.ST0
@@ -300,7 +311,8 @@ let ffst (ins: Instruction) insLen bld doPop =
     let oprExpr = transOprToExpr bld false ins insLen opr
     let oprSize = Expr.typeOf oprExpr
     castFrom80Bit oprExpr oprSize st0b st0a bld
-  | _ -> raise InvalidOperandException
+  | _ ->
+    raise InvalidOperandException
   if doPop then popFPUStack bld else ()
   updateC1OnStore bld
   bld --!> insLen
@@ -608,7 +620,8 @@ let private fpuFBinOp (ins: Instruction) insLen bld binOp doPop leftToRight =
     if leftToRight then bld <+ (res := binOp tmp0 tmp1)
     else bld <+ (res := binOp tmp1 tmp0)
     castTo80Bit bld r0B r0A res
-  | _ -> raise InvalidOperandException
+  | _ ->
+    raise InvalidOperandException
   if doPop then popFPUStack bld else ()
   updateC1OnStore bld
   bld --!> insLen
@@ -660,7 +673,8 @@ let fdivr (ins: Instruction) insLen bld doPop =
     let struct (st0b, st0a) = getFPUPseudoRegVars bld R.ST0
     let struct (st1b, st1a) = getFPUPseudoRegVars bld R.ST1
     bld <+ (AST.cjmp (isZero st0b st0a)
-                     (AST.jmpDest lblErr) (AST.jmpDest lblChk))
+                     (AST.jmpDest lblErr)
+                     (AST.jmpDest lblChk))
     bld <+ (AST.lmark lblErr)
     bld <+ (AST.sideEffect (Exception DivideError))
     bld <+ (AST.lmark lblChk)
@@ -673,7 +687,8 @@ let fdivr (ins: Instruction) insLen bld doPop =
     let oprSize = Expr.typeOf oprExpr
     let struct (st0b, st0a) = getFPUPseudoRegVars bld R.ST0
     bld <+ (AST.cjmp (isZero st0b st0a)
-                     (AST.jmpDest lblErr) (AST.jmpDest lblChk))
+                     (AST.jmpDest lblErr)
+                     (AST.jmpDest lblChk))
     bld <+ (AST.lmark lblErr)
     bld <+ (AST.sideEffect (Exception DivideError))
     bld <+ (AST.lmark lblChk)
@@ -693,7 +708,8 @@ let fdivr (ins: Instruction) insLen bld doPop =
     castFrom80Bit tmp1 64<rt> r1B r1A bld
     bld <+ (res := AST.fdiv tmp1 tmp0)
     castTo80Bit bld r0B r0A res
-  | _ -> raise InvalidOperandException
+  | _ ->
+    raise InvalidOperandException
   if doPop then popFPUStack bld else ()
   updateC1OnStore bld
   bld --!> insLen
@@ -756,14 +772,16 @@ let fprem (ins: Instruction) insLen bld round =
   bld <+ (expDiff := (st0b .& expMask) .- (st1b .& expMask))
   bld <+ (AST.cjmp
     (isUnordered true tmp0 .| isUnordered true tmp1)
-    (AST.jmpDest lblUnordered) (AST.jmpDest lblOrdered))
+    (AST.jmpDest lblUnordered)
+    (AST.jmpDest lblOrdered))
   bld <+ (AST.lmark lblUnordered)
   castTo80Bit bld st0b st0a (AST.ite (isUnordered true tmp0) tmp0 tmp1)
   bld <+ (regVar bld R.FSWC2 := AST.b0)
   bld <+ (AST.jmp (AST.jmpDest lblExit))
   bld <+ (AST.lmark lblOrdered)
   bld <+ (AST.cjmp (AST.slt expDiff n64)
-                   (AST.jmpDest lblLT64) (AST.jmpDest lblGE64))
+                   (AST.jmpDest lblLT64)
+                   (AST.jmpDest lblGE64))
   bld <+ (AST.lmark lblLT64) (* D < 64 *)
   bld <+ (divres := AST.fdiv tmp0 tmp1)
   bld <+ (intres := AST.cast caster 64<rt> divres)
@@ -825,8 +843,7 @@ let frndint (ins: Instruction) insLen bld =
   bld <!-- (ins.Address, insLen)
   castFrom80Bit tmp0 64<rt> st0b st0a bld
   bld <+ (AST.cjmp
-    (isUnordered true tmp0)
-    (AST.jmpDest lblExit) (AST.jmpDest lblOrdered))
+    (isUnordered true tmp0) (AST.jmpDest lblExit) (AST.jmpDest lblOrdered))
   bld <+ (AST.lmark lblOrdered)
   bld <+ (rcField := (AST.zext 8<rt> (AST.extract (regVar bld R.FCW) 1<rt> 11)))
   bld <+ (rcField := (rcField << AST.num1 8<rt>))
@@ -906,7 +923,8 @@ let private prepareTwoOprsForComparison (ins: Instruction) insLen bld =
     let struct (st1b, st1a) = getFPUPseudoRegVars bld r2
     castFrom80Bit tmp0 64<rt> st0b st0a bld
     castFrom80Bit tmp1 64<rt> st1b st1a bld
-  | _ -> raise InvalidOperandException
+  | _ ->
+    raise InvalidOperandException
   if ins.Opcode = Opcode.FUCOM then struct (tmp1, tmp0) else struct (tmp0, tmp1)
 
 let fcom (ins: Instruction) insLen bld nPop unordered =
@@ -995,7 +1013,8 @@ let private checkForTrigFunction unsigned lin lout bld =
   let maxLimit = numI64 (1L <<< 63) 64<rt>
   let maxFloat = AST.cast CastKind.UIntToFloat 64<rt> maxLimit
   bld <+ (AST.cjmp (AST.flt unsigned maxFloat)
-                 (AST.jmpDest lin) (AST.jmpDest lout))
+                   (AST.jmpDest lin)
+                   (AST.jmpDest lout))
 
 let private ftrig (ins: Instruction) insLen bld trigFunc =
   let struct (st0b, st0a) = getFPUPseudoRegVars bld R.ST0
@@ -1432,7 +1451,8 @@ let fnsave (ins: Instruction) insLen bld =
   | 864<rt> ->
     m28fstenv addrExpr addrSize bld
     stSts addrExpr addrSize 28 bld
-  | _ -> raise InvalidOperandSizeException
+  | _ ->
+    raise InvalidOperandSizeException
   bld <+ (regVar bld R.FCW := numI32 0x037F 16<rt>)
   bld <+ (regVar bld R.FSW := AST.num0 16<rt>)
   bld <+ (regVar bld R.FTW := numI32 0xFFFF 16<rt>)
@@ -1478,7 +1498,8 @@ let frstor (ins: Instruction) insLen bld =
   | 864<rt> ->
     m28fldenv addrExpr addrSize bld
     ldSts addrExpr addrSize 28 bld
-  | _ -> raise InvalidOperandSizeException
+  | _ ->
+    raise InvalidOperandSizeException
   bld --!> insLen
 
 let fnstsw (ins: Instruction) insLen bld =
@@ -1584,7 +1605,8 @@ let private fxsaveInternal bld dstAddr addrSize is64bit =
     let struct (xmmb, xmma) = pseudoRegVar128 bld R.XMM15
     bld <+ (storeLE (dstAddr .+ (numI32 400 addrSize)) xmma)
     bld <+ (storeLE (dstAddr .+ (numI32 408 addrSize)) xmmb)
-  else ()
+  else
+    ()
 
 let fxsave (ins: Instruction) insLen bld =
   bld <!-- (ins.Address, insLen)
@@ -1677,7 +1699,8 @@ let private fxrstoreInternal bld srcAddr addrSz is64bit =
     let struct (xmmb, xmma) = pseudoRegVar128 bld R.XMM15
     bld <+ (xmma := AST.loadLE 64<rt> (srcAddr .+ (numI32 400 addrSz)))
     bld <+ (xmmb := AST.loadLE 64<rt> (srcAddr .+ (numI32 408 addrSz)))
-  else ()
+  else
+    ()
 
 let fxrstor (ins: Instruction) insLen bld =
   bld <!-- (ins.Address, insLen)

@@ -422,7 +422,8 @@ let private accumulateIndex (idx: IndexReg) (builder: IDisasmBuilder) =
   if idx.Scale > 1 then
     accumulateStr "*" builder
     builder.Accumulate(AsmWordKind.Value, string idx.Scale)
-  else ()
+  else
+    ()
 
 /// Writes the index of an indexed operand where it has one, preceded by the
 /// comma that separates it from whatever came before.
@@ -490,8 +491,7 @@ let private accumulateTarget target (builder: IDisasmBuilder) =
 /// range. The general registers and the floating-point data registers each do;
 /// the floating-point control registers, of which there are three and which no
 /// list ever names in part, do not.
-let private isRanged (reg: Register) =
-  LanguagePrimitives.EnumToValue reg <= 42
+let private isRanged (reg: Register) = LanguagePrimitives.EnumToValue reg <= 42
 
 /// Writes a register list, folding each run of consecutive registers into a
 /// range the way an assembler writes one. A run may cross from the data
@@ -503,7 +503,8 @@ let private accumulateRegList (regs: Register[]) (builder: IDisasmBuilder) =
   if Array.isEmpty regs then
     accumulateStr "#" builder
     builder.Accumulate(AsmWordKind.Value, HexString.ofInt64 0L)
-  else ()
+  else
+    ()
   let runs =
     regs
     |> Array.fold (fun runs reg ->
@@ -512,7 +513,8 @@ let private accumulateRegList (regs: Register[]) (builder: IDisasmBuilder) =
                                    && LanguagePrimitives.EnumToValue last + 1
                                       = LanguagePrimitives.EnumToValue reg ->
         (first, reg) :: rest
-      | _ -> (reg, reg) :: runs) []
+      | _ ->
+        (reg, reg) :: runs) []
     |> List.rev
   runs
   |> List.iteri (fun i (first, last) ->
@@ -521,19 +523,17 @@ let private accumulateRegList (regs: Register[]) (builder: IDisasmBuilder) =
     if first <> last then
       accumulateStr "-" builder
       accumulateReg last builder
-    else ())
+    else
+      ())
 
 /// Writes the offset or the width of a bit field, which is a literal or the
 /// data register holding one. Neither carries the hash an immediate operand
 /// does, there being nothing else either of them could be.
 let private accumulateField opr (builder: IDisasmBuilder) =
   match opr with
-  | OpReg reg ->
-    accumulateReg reg builder
-  | OpImm v ->
-    accumulateDisp v builder
-  | _ ->
-    Terminator.impossible ()
+  | OpReg reg -> accumulateReg reg builder
+  | OpImm v -> accumulateDisp v builder
+  | _ -> Terminator.impossible ()
 
 let rec oprToString (ins: Instruction) opr delim (builder: IDisasmBuilder) =
   accumulateStr delim builder
@@ -607,7 +607,8 @@ let buildOpcode (ins: Instruction) (builder: IDisasmBuilder) =
 
 let buildOprs (ins: Instruction) (builder: IDisasmBuilder) =
   match ins.Operands with
-  | NoOperand -> ()
+  | NoOperand ->
+    ()
   | OneOperand op1 ->
     oprToString ins op1 " " builder
   | TwoOperands(op1, op2) ->

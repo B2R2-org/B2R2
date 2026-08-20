@@ -239,37 +239,28 @@ type IPrinter =
     pr
 
   /// Prints out the given string with newline.
-  static member (<=/) (pr: IPrinter, s: string) =
-    pr.PrintLine s
+  static member (<=/) (pr: IPrinter, s: string) = pr.PrintLine s
 
   /// Prints out the given OutString with newline.
-  static member (<=/) (pr: IPrinter, os: OutString) =
-    pr.PrintLine os
+  static member (<=/) (pr: IPrinter, os: OutString) = pr.PrintLine os
 
   /// Prints out the given ColoredString with newline.
-  static member (<=/) (pr: IPrinter, cs: ColoredString) =
-    pr.PrintLine cs
+  static member (<=/) (pr: IPrinter, cs: ColoredString) = pr.PrintLine cs
 
   /// Prints out the given string array as a table row.
-  static member (<=/) (pr: IPrinter, strs: string[]) =
-    pr.PrintRow strs
+  static member (<=/) (pr: IPrinter, strs: string[]) = pr.PrintRow strs
 
   /// Prints out the given ColoredString array as a table row.
-  static member (<=/) (pr: IPrinter, css: ColoredString[]) =
-    pr.PrintRow css
+  static member (<=/) (pr: IPrinter, css: ColoredString[]) = pr.PrintRow css
 
   /// Prints out the given OutString array as a table row.
-  static member (<=/) (pr: IPrinter, oss: OutString[]) =
-    pr.PrintRow oss
+  static member (<=/) (pr: IPrinter, oss: OutString[]) = pr.PrintRow oss
 
   /// Prints out the given string as an error message.
-  static member (<=?) (pr: IPrinter, s: string) =
-    pr.PrintErrorLine s
+  static member (<=?) (pr: IPrinter, s: string) = pr.PrintErrorLine s
 
   /// Prints out the given OutString as an error message.
-  static member (<=?) (pr: IPrinter, os: OutString) =
-    pr.PrintErrorLine os
+  static member (<=?) (pr: IPrinter, os: OutString) = pr.PrintErrorLine os
 
   /// Prints out the given ColoredString as an error message.
-  static member (<=?) (pr: IPrinter, cs: ColoredString) =
-    pr.PrintErrorLine cs
+  static member (<=?) (pr: IPrinter, cs: ColoredString) = pr.PrintErrorLine cs

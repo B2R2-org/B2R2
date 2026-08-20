@@ -215,6 +215,7 @@ type Assembler(isa: ISA, baseAddr: Addr) =
         |> assemble encoders us isa.Endian baseAddr
         |> List.map (fun bytes -> isa, bytes)
         |> Result.Ok
-      | Failure(str, _, _) -> Result.Error str
+      | Failure(str, _, _) ->
+        Result.Error str
 
 // vim: set tw=80 sts=2 sw=2:

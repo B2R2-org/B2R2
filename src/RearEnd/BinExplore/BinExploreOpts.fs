@@ -73,19 +73,24 @@ with
                                  .Append(NoColor, "]"),
           descrPrinter = printcn,
           dummy = true)
-      Opt(descr = noCol "",
-          dummy = true)
+      Opt(descr = noCol "", dummy = true)
       Opt(descr = noCol "Show this usage",
-          short = "-h", long = "--help",
+          short = "-h",
+          long = "--help",
           help = true)
       Opt(descr = noCol "Verbose mode",
-          short = "-v", long = "--verbose",
+          short = "-v",
+          long = "--verbose",
           callback = fun opts _ -> { opts with Verbose = true })
       Opt(descr = noCol "Specify log file <name>",
-          short = "-l", long = "--log", extra = 1,
+          short = "-l",
+          long = "--log",
+          extra = 1,
           callback = fun opts arg -> { opts with LogFile = Some arg[0] })
       Opt(descr = noCol "Specify <ISA> (e.g., x86) for fat binaries",
-          short = "-a", long = "--isa", extra = 1,
+          short = "-a",
+          long = "--isa",
+          extra = 1,
           callback = fun opts arg -> { opts with ISA = ISA arg[0] })
       Opt(descr = noCol "Disable GUI (enabled by default)",
           long = "--no-gui",
@@ -93,20 +98,22 @@ with
       Opt(descr = noCol "Use light theme for GUI",
           long = "--light-theme",
           callback = fun opts _-> { opts with UseDarkTheme = false })
-      Opt(descr = noCol "",
-          dummy = true)
+      Opt(descr = noCol "", dummy = true)
       Opt(descr = ColoredString().Append(NoColor, "[")
                                  .Append(DarkCyan, "Host Configuration")
                                  .Append(NoColor, "]"),
           descrPrinter = printcn,
           dummy = true)
-      Opt(descr = noCol "",
-          dummy = true)
+      Opt(descr = noCol "", dummy = true)
       Opt(descr = noCol "Specify IP <address> (default: localhost)",
-          short = "-i", long = "--ip", extra = 1,
+          short = "-i",
+          long = "--ip",
+          extra = 1,
           callback = fun opts arg -> { opts with IP = arg[0] })
       Opt(descr = noCol "Specify host port <number> (default: 8282)",
-          short = "-p", long = "--port", extra = 1,
+          short = "-p",
+          long = "--port",
+          extra = 1,
           callback = fun opts arg -> { opts with Port = int arg[0] }) ]
 
 and Opt = CmdOpt<BinExploreOpts, ColoredString>

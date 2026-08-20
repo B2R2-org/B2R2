@@ -64,8 +64,7 @@ let private computeBarycenterFromNeighbors neighbors =
 
 let private computeBarycenter g isDown v =
   let fnGetNeighbors =
-    if isDown then (g: IDiGraph<_, _>).GetPreds
-    else g.GetSuccs
+    if isDown then (g: IDiGraph<_, _>).GetPreds else g.GetSuccs
   let neighbors = fnGetNeighbors v
   let barycenter = computeBarycenterFromNeighbors neighbors
   barycenter, v
@@ -103,13 +102,9 @@ let private phase1 g layout isDown from maxLayer =
 /// maximum target index is enough.
 let private hasBilayerEdgeCrossing (g: IDiGraph<_, _>) layout isDown layerNum =
   let vertices =
-    if isDown then
-      (layout: _[][])[layerNum - 1]
-    else
-      layout[layerNum + 1]
+    if isDown then (layout: _[][])[layerNum - 1] else layout[layerNum + 1]
   let fnGetNeighbors =
-    if isDown then (g: IDiGraph<_, _>).GetSuccs
-    else g.GetPreds
+    if isDown then (g: IDiGraph<_, _>).GetSuccs else g.GetPreds
   let mutable found = false
   let mutable prefixMax = -1
   let mutable i = 0
@@ -122,26 +117,18 @@ let private hasBilayerEdgeCrossing (g: IDiGraph<_, _>) layout isDown layerNum =
         let idx = getIndex neighbors[j]
         if idx < localMin then localMin <- idx else ()
         if idx > localMax then localMax <- idx else ()
-      if localMin < prefixMax then
-        found <- true
-      elif localMax > prefixMax then
-        prefixMax <- localMax
-      else
-        ()
+      if localMin < prefixMax then found <- true
+      elif localMax > prefixMax then prefixMax <- localMax
+      else ()
     else
       ()
     i <- i + 1
   found
 
 let private countBilayerEdgeCrossings g (layout: _[][]) isDown layerNum =
-  let vertices =
-    if isDown then
-      layout[layerNum - 1]
-    else
-      layout[layerNum + 1]
+  let vertices = if isDown then layout[layerNum - 1] else layout[layerNum + 1]
   let fnGetNeighbors =
-    if isDown then (g: IDiGraph<_, _>).GetSuccs
-    else g.GetPreds
+    if isDown then (g: IDiGraph<_, _>).GetSuccs else g.GetPreds
   let targetCount = layout[layerNum].Length
   let bit = Array.zeroCreate (targetCount + 1)
   let inline add idx =
@@ -201,12 +188,14 @@ let private reverseOneLayer g layout isDown maxLayer layerNum =
     let baryCenters = Array.map (computeBarycenter g isDown) layer
     baryCenters |> Array.sortInPlaceBy barycenterSortKey
     let hasTie, candidate = buildReversedTieLayer baryCenters
-    if not hasTie then false
+    if not hasTie then
+      false
     else
       let before = countBilayerEdgeCrossings g layout isDown layerNum
       let original = Array.copy layer
       let changed = writeVerticesToLayer layer candidate
-      if not changed then false
+      if not changed then
+        false
       else
         let after = countBilayerEdgeCrossings g layout isDown layerNum
         if after >= before then
@@ -235,8 +224,7 @@ let rec private performSugiyamaReorder g trials layout =
     let changed3 = phase2 g layout false maxLayer
     let changed4 = phase2 g layout true maxLayer
     let changed = changed1 || changed2 || changed3 || changed4
-    if not changed then layout
-    else performSugiyamaReorder g (trials + 1) layout
+    if not changed then layout else performSugiyamaReorder g (trials + 1) layout
 
 let run g =
   createInitialLayout g

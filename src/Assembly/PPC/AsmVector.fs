@@ -55,7 +55,8 @@ let private vsxIndexed xo ins =
   | [ Rg x; Rg a ] ->
     let n = vsr x
     word 31u (n &&& 0x1Fu) (gpr a) 0u ((xo <<< 1) ||| (n >>> 5))
-  | _ -> wrongOperands ins
+  | _ ->
+    wrongOperands ins
 
 /// A VX-form "vD, vA, vB".
 let private vx xo ins =
@@ -95,7 +96,8 @@ let private va xo ins =
   match ins.Operands with
   | [ Rg d; Rg a; Rg b; Rg c ] ->
     word 4u (vr d) (vr a) (vr b) (((vr c) <<< 6) ||| xo)
-  | _ -> wrongOperands ins
+  | _ ->
+    wrongOperands ins
 
 /// vsldoi, a VA-form whose fourth operand says how far to shift rather than
 /// naming a register.
@@ -103,7 +105,8 @@ let private vaShift ins =
   match ins.Operands with
   | [ Rg d; Rg a; Rg b; Im sh ] ->
     word 4u (vr d) (vr a) (vr b) (((unsigned 4 sh) <<< 6) ||| 44u)
-  | _ -> wrongOperands ins
+  | _ ->
+    wrongOperands ins
 
 /// A VC-form comparison, whose record bit sits above its extended opcode
 /// rather than below it.
@@ -128,8 +131,7 @@ let private xx3 xo ins =
 /// rather than in a vector-scalar one.
 let private xx3Compare xo ins =
   match ins.Operands with
-  | [ Rg f; Rg a; Rg b ] ->
-    vsxWord (xo <<< 3) ((crf f) <<< 2) (vsr a) (vsr b)
+  | [ Rg f; Rg a; Rg b ] -> vsxWord (xo <<< 3) ((crf f) <<< 2) (vsr a) (vsr b)
   | _ -> wrongOperands ins
 
 /// xxpermdi and xxsldwi, whose fourth operand says which halves or which words
@@ -139,7 +141,8 @@ let private xx3Pick xo ins =
   | [ Rg t; Rg a; Rg b; Im n ] ->
     let extended = ((unsigned 2 n) <<< 5) ||| xo
     vsxWord (extended <<< 3) (vsr t) (vsr a) (vsr b)
-  | _ -> wrongOperands ins
+  | _ ->
+    wrongOperands ins
 
 /// An XX2-form "xT, xB", whose extended opcode is a bit wider because only two
 /// of the register-extension bits follow it.
@@ -151,8 +154,7 @@ let private xx2 xo ins =
 /// xxspltw, an XX2 form whose spare field says which word to take.
 let private xx2Splat ins =
   match ins.Operands with
-  | [ Rg t; Rg b; Im u ] ->
-    vsxWord (164u <<< 2) (vsr t) (unsigned 2 u) (vsr b)
+  | [ Rg t; Rg b; Im u ] -> vsxWord (164u <<< 2) (vsr t) (unsigned 2 u) (vsr b)
   | _ -> wrongOperands ins
 
 /// xxspltib, whose byte to fill a register with straddles the two fields the
@@ -164,7 +166,8 @@ let private xx2SplatByte ins =
     let n = vsr t
     let tail = (180u <<< 2) ||| (n >>> 5)
     word 60u (n &&& 0x1Fu) (imm >>> 3) ((imm &&& 0x7u) <<< 2) tail
-  | _ -> wrongOperands ins
+  | _ ->
+    wrongOperands ins
 
 /// The loads and the stores of a wide register, and the moves between one and
 /// the general registers.

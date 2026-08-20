@@ -1427,925 +1427,1831 @@ module MacosSyscall =
   /// Converts a MacosSyscall to a string.
   [<CompiledName "ToString">]
   let toString = function
-    | MacosSyscall.ChannelGetInfo -> "__channel_get_info"
-    | MacosSyscall.ChannelGetOpt -> "__channel_get_opt"
-    | MacosSyscall.ChannelOpen -> "__channel_open"
-    | MacosSyscall.ChannelSetOpt -> "__channel_set_opt"
-    | MacosSyscall.ChannelSync -> "__channel_sync"
-    | MacosSyscall.DisableThreadsignal -> "__disable_threadsignal"
-    | MacosSyscall.MacExecve -> "__mac_execve"
-    | MacosSyscall.MacGetFd -> "__mac_get_fd"
-    | MacosSyscall.MacGetFile -> "__mac_get_file"
-    | MacosSyscall.MacGetLink -> "__mac_get_link"
-    | MacosSyscall.MacGetMount -> "__mac_get_mount"
-    | MacosSyscall.MacGetPid -> "__mac_get_pid"
-    | MacosSyscall.MacGetProc -> "__mac_get_proc"
-    | MacosSyscall.MacGetfsstat -> "__mac_getfsstat"
-    | MacosSyscall.MacMount -> "__mac_mount"
-    | MacosSyscall.MacSetFd -> "__mac_set_fd"
-    | MacosSyscall.MacSetFile -> "__mac_set_file"
-    | MacosSyscall.MacSetLink -> "__mac_set_link"
-    | MacosSyscall.MacSetProc -> "__mac_set_proc"
-    | MacosSyscall.MacSyscall -> "__mac_syscall"
-    | MacosSyscall.MachBridgeRemoteTime -> "__mach_bridge_remote_time"
-    | MacosSyscall.NexusCreate -> "__nexus_create"
-    | MacosSyscall.NexusDeregister -> "__nexus_deregister"
-    | MacosSyscall.NexusDestroy -> "__nexus_destroy"
-    | MacosSyscall.NexusGetOpt -> "__nexus_get_opt"
-    | MacosSyscall.NexusOpen -> "__nexus_open"
-    | MacosSyscall.NexusRegister -> "__nexus_register"
-    | MacosSyscall.NexusSetOpt -> "__nexus_set_opt"
-    | MacosSyscall.PthreadCanceled -> "__pthread_canceled"
-    | MacosSyscall.PthreadChdir -> "__pthread_chdir"
-    | MacosSyscall.PthreadFchdir -> "__pthread_fchdir"
-    | MacosSyscall.PthreadKill -> "__pthread_kill"
-    | MacosSyscall.PthreadMarkcancel -> "__pthread_markcancel"
-    | MacosSyscall.PthreadSigmask -> "__pthread_sigmask"
-    | MacosSyscall.SemwaitSignal -> "__semwait_signal"
-    | MacosSyscall.SemwaitSignalNocancel -> "__semwait_signal_nocancel"
-    | MacosSyscall.Sigwait -> "__sigwait"
-    | MacosSyscall.SigwaitNocancel -> "__sigwait_nocancel"
-    | MacosSyscall.AbortWithPayload -> "abort_with_payload"
-    | MacosSyscall.Accept -> "accept"
-    | MacosSyscall.AcceptNocancel -> "accept_nocancel"
-    | MacosSyscall.Access -> "access"
-    | MacosSyscall.AccessExtended -> "access_extended"
-    | MacosSyscall.Acct -> "acct"
-    | MacosSyscall.Adjtime -> "adjtime"
-    | MacosSyscall.AioCancel -> "aio_cancel"
-    | MacosSyscall.AioError -> "aio_error"
-    | MacosSyscall.AioFsync -> "aio_fsync"
-    | MacosSyscall.AioRead -> "aio_read"
-    | MacosSyscall.AioReturn -> "aio_return"
-    | MacosSyscall.AioSuspend -> "aio_suspend"
-    | MacosSyscall.AioSuspendNocancel -> "aio_suspend_nocancel"
-    | MacosSyscall.AioWrite -> "aio_write"
-    | MacosSyscall.Audit -> "audit"
-    | MacosSyscall.AuditSessionJoin -> "audit_session_join"
-    | MacosSyscall.AuditSessionPort -> "audit_session_port"
-    | MacosSyscall.AuditSessionSelf -> "audit_session_self"
-    | MacosSyscall.Auditctl -> "auditctl"
-    | MacosSyscall.Auditon -> "auditon"
-    | MacosSyscall.Bind -> "bind"
-    | MacosSyscall.BsdthreadCreate -> "bsdthread_create"
-    | MacosSyscall.BsdthreadCtl -> "bsdthread_ctl"
-    | MacosSyscall.BsdthreadRegister -> "bsdthread_register"
-    | MacosSyscall.BsdthreadTerminate -> "bsdthread_terminate"
-    | MacosSyscall.ChangeFdguardNp -> "change_fdguard_np"
-    | MacosSyscall.Chdir -> "chdir"
-    | MacosSyscall.Chflags -> "chflags"
-    | MacosSyscall.Chmod -> "chmod"
-    | MacosSyscall.ChmodExtended -> "chmod_extended"
-    | MacosSyscall.Chown -> "chown"
-    | MacosSyscall.Chroot -> "chroot"
-    | MacosSyscall.Clonefileat -> "clonefileat"
-    | MacosSyscall.Close -> "close"
-    | MacosSyscall.CloseNocancel -> "close_nocancel"
-    | MacosSyscall.Coalition -> "coalition"
-    | MacosSyscall.CoalitionInfo -> "coalition_info"
-    | MacosSyscall.CoalitionLedger -> "coalition_ledger"
-    | MacosSyscall.CoalitionPolicyGet -> "coalition_policy_get"
-    | MacosSyscall.CoalitionPolicySet -> "coalition_policy_set"
-    | MacosSyscall.Connect -> "connect"
-    | MacosSyscall.ConnectNocancel -> "connect_nocancel"
-    | MacosSyscall.Connectx -> "connectx"
-    | MacosSyscall.Copyfile -> "copyfile"
-    | MacosSyscall.CrossarchTrap -> "crossarch_trap"
-    | MacosSyscall.Csops -> "csops"
-    | MacosSyscall.CsopsAudittoken -> "csops_audittoken"
-    | MacosSyscall.Csrctl -> "csrctl"
-    | MacosSyscall.DebugSyscallReject -> "debug_syscall_reject"
-    | MacosSyscall.DebugSyscallRejectConfig -> "debug_syscall_reject_config"
-    | MacosSyscall.Delete -> "delete"
-    | MacosSyscall.Disconnectx -> "disconnectx"
-    | MacosSyscall.Dup -> "dup"
-    | MacosSyscall.Dup2 -> "dup2"
-    | MacosSyscall.Exchangedata -> "exchangedata"
-    | MacosSyscall.Execve -> "execve"
-    | MacosSyscall.Exit -> "exit"
-    | MacosSyscall.Faccessat -> "faccessat"
-    | MacosSyscall.Fchdir -> "fchdir"
-    | MacosSyscall.Fchflags -> "fchflags"
-    | MacosSyscall.Fchmod -> "fchmod"
-    | MacosSyscall.FchmodExtended -> "fchmod_extended"
-    | MacosSyscall.Fchmodat -> "fchmodat"
-    | MacosSyscall.Fchown -> "fchown"
-    | MacosSyscall.Fchownat -> "fchownat"
-    | MacosSyscall.Fclonefileat -> "fclonefileat"
-    | MacosSyscall.Fcntl -> "fcntl"
-    | MacosSyscall.FcntlNocancel -> "fcntl_nocancel"
-    | MacosSyscall.Fdatasync -> "fdatasync"
-    | MacosSyscall.Ffsctl -> "ffsctl"
-    | MacosSyscall.Fgetattrlist -> "fgetattrlist"
-    | MacosSyscall.Fgetxattr -> "fgetxattr"
-    | MacosSyscall.Fhopen -> "fhopen"
-    | MacosSyscall.FileportMakefd -> "fileport_makefd"
-    | MacosSyscall.FileportMakeport -> "fileport_makeport"
-    | MacosSyscall.Flistxattr -> "flistxattr"
-    | MacosSyscall.Flock -> "flock"
-    | MacosSyscall.Fmount -> "fmount"
-    | MacosSyscall.Fork -> "fork"
-    | MacosSyscall.Fpathconf -> "fpathconf"
-    | MacosSyscall.Freadlink -> "freadlink"
-    | MacosSyscall.Fremovexattr -> "fremovexattr"
-    | MacosSyscall.FsSnapshot -> "fs_snapshot"
-    | MacosSyscall.Fsctl -> "fsctl"
-    | MacosSyscall.Fsetattrlist -> "fsetattrlist"
-    | MacosSyscall.Fsetxattr -> "fsetxattr"
-    | MacosSyscall.Fsgetpath -> "fsgetpath"
-    | MacosSyscall.FsgetpathExt -> "fsgetpath_ext"
-    | MacosSyscall.Fstat -> "fstat"
-    | MacosSyscall.Fstat64 -> "fstat64"
-    | MacosSyscall.Fstat64Extended -> "fstat64_extended"
-    | MacosSyscall.FstatExtended -> "fstat_extended"
-    | MacosSyscall.Fstatat -> "fstatat"
-    | MacosSyscall.Fstatat64 -> "fstatat64"
-    | MacosSyscall.Fstatfs -> "fstatfs"
-    | MacosSyscall.Fstatfs64 -> "fstatfs64"
-    | MacosSyscall.Fsync -> "fsync"
-    | MacosSyscall.FsyncNocancel -> "fsync_nocancel"
-    | MacosSyscall.Ftruncate -> "ftruncate"
-    | MacosSyscall.Funmount -> "funmount"
-    | MacosSyscall.Futimes -> "futimes"
-    | MacosSyscall.Getattrlist -> "getattrlist"
-    | MacosSyscall.Getattrlistat -> "getattrlistat"
-    | MacosSyscall.Getattrlistbulk -> "getattrlistbulk"
-    | MacosSyscall.GetauditAddr -> "getaudit_addr"
-    | MacosSyscall.Getauid -> "getauid"
-    | MacosSyscall.Getdirentries -> "getdirentries"
-    | MacosSyscall.Getdirentries64 -> "getdirentries64"
-    | MacosSyscall.Getdirentriesattr -> "getdirentriesattr"
-    | MacosSyscall.Getdtablesize -> "getdtablesize"
-    | MacosSyscall.Getegid -> "getegid"
-    | MacosSyscall.Getentropy -> "getentropy"
-    | MacosSyscall.Geteuid -> "geteuid"
-    | MacosSyscall.Getfh -> "getfh"
-    | MacosSyscall.Getfsstat -> "getfsstat"
-    | MacosSyscall.Getfsstat64 -> "getfsstat64"
-    | MacosSyscall.Getgid -> "getgid"
-    | MacosSyscall.Getgroups -> "getgroups"
-    | MacosSyscall.Gethostuuid -> "gethostuuid"
-    | MacosSyscall.Getitimer -> "getitimer"
-    | MacosSyscall.Getlogin -> "getlogin"
-    | MacosSyscall.Getpeername -> "getpeername"
-    | MacosSyscall.Getpgid -> "getpgid"
-    | MacosSyscall.Getpgrp -> "getpgrp"
-    | MacosSyscall.Getpid -> "getpid"
-    | MacosSyscall.Getppid -> "getppid"
-    | MacosSyscall.Getpriority -> "getpriority"
-    | MacosSyscall.Getrlimit -> "getrlimit"
-    | MacosSyscall.Getrusage -> "getrusage"
-    | MacosSyscall.Getsgroups -> "getsgroups"
-    | MacosSyscall.Getsid -> "getsid"
-    | MacosSyscall.Getsockname -> "getsockname"
-    | MacosSyscall.Getsockopt -> "getsockopt"
-    | MacosSyscall.Gettid -> "gettid"
-    | MacosSyscall.Gettimeofday -> "gettimeofday"
-    | MacosSyscall.Getuid -> "getuid"
-    | MacosSyscall.Getwgroups -> "getwgroups"
-    | MacosSyscall.Getxattr -> "getxattr"
-    | MacosSyscall.GrabPgoData -> "grab_pgo_data"
-    | MacosSyscall.Graftdmg -> "graftdmg"
-    | MacosSyscall.GuardedCloseNp -> "guarded_close_np"
-    | MacosSyscall.GuardedKqueueNp -> "guarded_kqueue_np"
-    | MacosSyscall.GuardedOpenDprotectedNp -> "guarded_open_dprotected_np"
-    | MacosSyscall.GuardedOpenNp -> "guarded_open_np"
-    | MacosSyscall.GuardedPwriteNp -> "guarded_pwrite_np"
-    | MacosSyscall.GuardedWriteNp -> "guarded_write_np"
-    | MacosSyscall.GuardedWritevNp -> "guarded_writev_np"
-    | MacosSyscall.Identitysvc -> "identitysvc"
-    | MacosSyscall.Initgroups -> "initgroups"
-    | MacosSyscall.Ioctl -> "ioctl"
-    | MacosSyscall.Iopolicysys -> "iopolicysys"
-    | MacosSyscall.Issetugid -> "issetugid"
-    | MacosSyscall.KasInfo -> "kas_info"
-    | MacosSyscall.KdebugTrace -> "kdebug_trace"
-    | MacosSyscall.KdebugTrace64 -> "kdebug_trace64"
-    | MacosSyscall.KdebugTraceString -> "kdebug_trace_string"
-    | MacosSyscall.KdebugTypefilter -> "kdebug_typefilter"
-    | MacosSyscall.Kevent -> "kevent"
-    | MacosSyscall.Kevent64 -> "kevent64"
-    | MacosSyscall.KeventId -> "kevent_id"
-    | MacosSyscall.KeventQos -> "kevent_qos"
-    | MacosSyscall.Kill -> "kill"
-    | MacosSyscall.Kqueue -> "kqueue"
-    | MacosSyscall.KqueueWorkloopCtl -> "kqueue_workloop_ctl"
-    | MacosSyscall.Lchown -> "lchown"
-    | MacosSyscall.Ledger -> "ledger"
-    | MacosSyscall.Link -> "link"
-    | MacosSyscall.Linkat -> "linkat"
-    | MacosSyscall.LioListio -> "lio_listio"
-    | MacosSyscall.Listen -> "listen"
-    | MacosSyscall.Listxattr -> "listxattr"
-    | MacosSyscall.LogData -> "log_data"
-    | MacosSyscall.Lseek -> "lseek"
-    | MacosSyscall.Lstat -> "lstat"
-    | MacosSyscall.Lstat64 -> "lstat64"
-    | MacosSyscall.Lstat64Extended -> "lstat64_extended"
-    | MacosSyscall.LstatExtended -> "lstat_extended"
-    | MacosSyscall.MachEventlinkSignal -> "mach_eventlink_signal"
+    | MacosSyscall.ChannelGetInfo ->
+      "__channel_get_info"
+    | MacosSyscall.ChannelGetOpt ->
+      "__channel_get_opt"
+    | MacosSyscall.ChannelOpen ->
+      "__channel_open"
+    | MacosSyscall.ChannelSetOpt ->
+      "__channel_set_opt"
+    | MacosSyscall.ChannelSync ->
+      "__channel_sync"
+    | MacosSyscall.DisableThreadsignal ->
+      "__disable_threadsignal"
+    | MacosSyscall.MacExecve ->
+      "__mac_execve"
+    | MacosSyscall.MacGetFd ->
+      "__mac_get_fd"
+    | MacosSyscall.MacGetFile ->
+      "__mac_get_file"
+    | MacosSyscall.MacGetLink ->
+      "__mac_get_link"
+    | MacosSyscall.MacGetMount ->
+      "__mac_get_mount"
+    | MacosSyscall.MacGetPid ->
+      "__mac_get_pid"
+    | MacosSyscall.MacGetProc ->
+      "__mac_get_proc"
+    | MacosSyscall.MacGetfsstat ->
+      "__mac_getfsstat"
+    | MacosSyscall.MacMount ->
+      "__mac_mount"
+    | MacosSyscall.MacSetFd ->
+      "__mac_set_fd"
+    | MacosSyscall.MacSetFile ->
+      "__mac_set_file"
+    | MacosSyscall.MacSetLink ->
+      "__mac_set_link"
+    | MacosSyscall.MacSetProc ->
+      "__mac_set_proc"
+    | MacosSyscall.MacSyscall ->
+      "__mac_syscall"
+    | MacosSyscall.MachBridgeRemoteTime ->
+      "__mach_bridge_remote_time"
+    | MacosSyscall.NexusCreate ->
+      "__nexus_create"
+    | MacosSyscall.NexusDeregister ->
+      "__nexus_deregister"
+    | MacosSyscall.NexusDestroy ->
+      "__nexus_destroy"
+    | MacosSyscall.NexusGetOpt ->
+      "__nexus_get_opt"
+    | MacosSyscall.NexusOpen ->
+      "__nexus_open"
+    | MacosSyscall.NexusRegister ->
+      "__nexus_register"
+    | MacosSyscall.NexusSetOpt ->
+      "__nexus_set_opt"
+    | MacosSyscall.PthreadCanceled ->
+      "__pthread_canceled"
+    | MacosSyscall.PthreadChdir ->
+      "__pthread_chdir"
+    | MacosSyscall.PthreadFchdir ->
+      "__pthread_fchdir"
+    | MacosSyscall.PthreadKill ->
+      "__pthread_kill"
+    | MacosSyscall.PthreadMarkcancel ->
+      "__pthread_markcancel"
+    | MacosSyscall.PthreadSigmask ->
+      "__pthread_sigmask"
+    | MacosSyscall.SemwaitSignal ->
+      "__semwait_signal"
+    | MacosSyscall.SemwaitSignalNocancel ->
+      "__semwait_signal_nocancel"
+    | MacosSyscall.Sigwait ->
+      "__sigwait"
+    | MacosSyscall.SigwaitNocancel ->
+      "__sigwait_nocancel"
+    | MacosSyscall.AbortWithPayload ->
+      "abort_with_payload"
+    | MacosSyscall.Accept ->
+      "accept"
+    | MacosSyscall.AcceptNocancel ->
+      "accept_nocancel"
+    | MacosSyscall.Access ->
+      "access"
+    | MacosSyscall.AccessExtended ->
+      "access_extended"
+    | MacosSyscall.Acct ->
+      "acct"
+    | MacosSyscall.Adjtime ->
+      "adjtime"
+    | MacosSyscall.AioCancel ->
+      "aio_cancel"
+    | MacosSyscall.AioError ->
+      "aio_error"
+    | MacosSyscall.AioFsync ->
+      "aio_fsync"
+    | MacosSyscall.AioRead ->
+      "aio_read"
+    | MacosSyscall.AioReturn ->
+      "aio_return"
+    | MacosSyscall.AioSuspend ->
+      "aio_suspend"
+    | MacosSyscall.AioSuspendNocancel ->
+      "aio_suspend_nocancel"
+    | MacosSyscall.AioWrite ->
+      "aio_write"
+    | MacosSyscall.Audit ->
+      "audit"
+    | MacosSyscall.AuditSessionJoin ->
+      "audit_session_join"
+    | MacosSyscall.AuditSessionPort ->
+      "audit_session_port"
+    | MacosSyscall.AuditSessionSelf ->
+      "audit_session_self"
+    | MacosSyscall.Auditctl ->
+      "auditctl"
+    | MacosSyscall.Auditon ->
+      "auditon"
+    | MacosSyscall.Bind ->
+      "bind"
+    | MacosSyscall.BsdthreadCreate ->
+      "bsdthread_create"
+    | MacosSyscall.BsdthreadCtl ->
+      "bsdthread_ctl"
+    | MacosSyscall.BsdthreadRegister ->
+      "bsdthread_register"
+    | MacosSyscall.BsdthreadTerminate ->
+      "bsdthread_terminate"
+    | MacosSyscall.ChangeFdguardNp ->
+      "change_fdguard_np"
+    | MacosSyscall.Chdir ->
+      "chdir"
+    | MacosSyscall.Chflags ->
+      "chflags"
+    | MacosSyscall.Chmod ->
+      "chmod"
+    | MacosSyscall.ChmodExtended ->
+      "chmod_extended"
+    | MacosSyscall.Chown ->
+      "chown"
+    | MacosSyscall.Chroot ->
+      "chroot"
+    | MacosSyscall.Clonefileat ->
+      "clonefileat"
+    | MacosSyscall.Close ->
+      "close"
+    | MacosSyscall.CloseNocancel ->
+      "close_nocancel"
+    | MacosSyscall.Coalition ->
+      "coalition"
+    | MacosSyscall.CoalitionInfo ->
+      "coalition_info"
+    | MacosSyscall.CoalitionLedger ->
+      "coalition_ledger"
+    | MacosSyscall.CoalitionPolicyGet ->
+      "coalition_policy_get"
+    | MacosSyscall.CoalitionPolicySet ->
+      "coalition_policy_set"
+    | MacosSyscall.Connect ->
+      "connect"
+    | MacosSyscall.ConnectNocancel ->
+      "connect_nocancel"
+    | MacosSyscall.Connectx ->
+      "connectx"
+    | MacosSyscall.Copyfile ->
+      "copyfile"
+    | MacosSyscall.CrossarchTrap ->
+      "crossarch_trap"
+    | MacosSyscall.Csops ->
+      "csops"
+    | MacosSyscall.CsopsAudittoken ->
+      "csops_audittoken"
+    | MacosSyscall.Csrctl ->
+      "csrctl"
+    | MacosSyscall.DebugSyscallReject ->
+      "debug_syscall_reject"
+    | MacosSyscall.DebugSyscallRejectConfig ->
+      "debug_syscall_reject_config"
+    | MacosSyscall.Delete ->
+      "delete"
+    | MacosSyscall.Disconnectx ->
+      "disconnectx"
+    | MacosSyscall.Dup ->
+      "dup"
+    | MacosSyscall.Dup2 ->
+      "dup2"
+    | MacosSyscall.Exchangedata ->
+      "exchangedata"
+    | MacosSyscall.Execve ->
+      "execve"
+    | MacosSyscall.Exit ->
+      "exit"
+    | MacosSyscall.Faccessat ->
+      "faccessat"
+    | MacosSyscall.Fchdir ->
+      "fchdir"
+    | MacosSyscall.Fchflags ->
+      "fchflags"
+    | MacosSyscall.Fchmod ->
+      "fchmod"
+    | MacosSyscall.FchmodExtended ->
+      "fchmod_extended"
+    | MacosSyscall.Fchmodat ->
+      "fchmodat"
+    | MacosSyscall.Fchown ->
+      "fchown"
+    | MacosSyscall.Fchownat ->
+      "fchownat"
+    | MacosSyscall.Fclonefileat ->
+      "fclonefileat"
+    | MacosSyscall.Fcntl ->
+      "fcntl"
+    | MacosSyscall.FcntlNocancel ->
+      "fcntl_nocancel"
+    | MacosSyscall.Fdatasync ->
+      "fdatasync"
+    | MacosSyscall.Ffsctl ->
+      "ffsctl"
+    | MacosSyscall.Fgetattrlist ->
+      "fgetattrlist"
+    | MacosSyscall.Fgetxattr ->
+      "fgetxattr"
+    | MacosSyscall.Fhopen ->
+      "fhopen"
+    | MacosSyscall.FileportMakefd ->
+      "fileport_makefd"
+    | MacosSyscall.FileportMakeport ->
+      "fileport_makeport"
+    | MacosSyscall.Flistxattr ->
+      "flistxattr"
+    | MacosSyscall.Flock ->
+      "flock"
+    | MacosSyscall.Fmount ->
+      "fmount"
+    | MacosSyscall.Fork ->
+      "fork"
+    | MacosSyscall.Fpathconf ->
+      "fpathconf"
+    | MacosSyscall.Freadlink ->
+      "freadlink"
+    | MacosSyscall.Fremovexattr ->
+      "fremovexattr"
+    | MacosSyscall.FsSnapshot ->
+      "fs_snapshot"
+    | MacosSyscall.Fsctl ->
+      "fsctl"
+    | MacosSyscall.Fsetattrlist ->
+      "fsetattrlist"
+    | MacosSyscall.Fsetxattr ->
+      "fsetxattr"
+    | MacosSyscall.Fsgetpath ->
+      "fsgetpath"
+    | MacosSyscall.FsgetpathExt ->
+      "fsgetpath_ext"
+    | MacosSyscall.Fstat ->
+      "fstat"
+    | MacosSyscall.Fstat64 ->
+      "fstat64"
+    | MacosSyscall.Fstat64Extended ->
+      "fstat64_extended"
+    | MacosSyscall.FstatExtended ->
+      "fstat_extended"
+    | MacosSyscall.Fstatat ->
+      "fstatat"
+    | MacosSyscall.Fstatat64 ->
+      "fstatat64"
+    | MacosSyscall.Fstatfs ->
+      "fstatfs"
+    | MacosSyscall.Fstatfs64 ->
+      "fstatfs64"
+    | MacosSyscall.Fsync ->
+      "fsync"
+    | MacosSyscall.FsyncNocancel ->
+      "fsync_nocancel"
+    | MacosSyscall.Ftruncate ->
+      "ftruncate"
+    | MacosSyscall.Funmount ->
+      "funmount"
+    | MacosSyscall.Futimes ->
+      "futimes"
+    | MacosSyscall.Getattrlist ->
+      "getattrlist"
+    | MacosSyscall.Getattrlistat ->
+      "getattrlistat"
+    | MacosSyscall.Getattrlistbulk ->
+      "getattrlistbulk"
+    | MacosSyscall.GetauditAddr ->
+      "getaudit_addr"
+    | MacosSyscall.Getauid ->
+      "getauid"
+    | MacosSyscall.Getdirentries ->
+      "getdirentries"
+    | MacosSyscall.Getdirentries64 ->
+      "getdirentries64"
+    | MacosSyscall.Getdirentriesattr ->
+      "getdirentriesattr"
+    | MacosSyscall.Getdtablesize ->
+      "getdtablesize"
+    | MacosSyscall.Getegid ->
+      "getegid"
+    | MacosSyscall.Getentropy ->
+      "getentropy"
+    | MacosSyscall.Geteuid ->
+      "geteuid"
+    | MacosSyscall.Getfh ->
+      "getfh"
+    | MacosSyscall.Getfsstat ->
+      "getfsstat"
+    | MacosSyscall.Getfsstat64 ->
+      "getfsstat64"
+    | MacosSyscall.Getgid ->
+      "getgid"
+    | MacosSyscall.Getgroups ->
+      "getgroups"
+    | MacosSyscall.Gethostuuid ->
+      "gethostuuid"
+    | MacosSyscall.Getitimer ->
+      "getitimer"
+    | MacosSyscall.Getlogin ->
+      "getlogin"
+    | MacosSyscall.Getpeername ->
+      "getpeername"
+    | MacosSyscall.Getpgid ->
+      "getpgid"
+    | MacosSyscall.Getpgrp ->
+      "getpgrp"
+    | MacosSyscall.Getpid ->
+      "getpid"
+    | MacosSyscall.Getppid ->
+      "getppid"
+    | MacosSyscall.Getpriority ->
+      "getpriority"
+    | MacosSyscall.Getrlimit ->
+      "getrlimit"
+    | MacosSyscall.Getrusage ->
+      "getrusage"
+    | MacosSyscall.Getsgroups ->
+      "getsgroups"
+    | MacosSyscall.Getsid ->
+      "getsid"
+    | MacosSyscall.Getsockname ->
+      "getsockname"
+    | MacosSyscall.Getsockopt ->
+      "getsockopt"
+    | MacosSyscall.Gettid ->
+      "gettid"
+    | MacosSyscall.Gettimeofday ->
+      "gettimeofday"
+    | MacosSyscall.Getuid ->
+      "getuid"
+    | MacosSyscall.Getwgroups ->
+      "getwgroups"
+    | MacosSyscall.Getxattr ->
+      "getxattr"
+    | MacosSyscall.GrabPgoData ->
+      "grab_pgo_data"
+    | MacosSyscall.Graftdmg ->
+      "graftdmg"
+    | MacosSyscall.GuardedCloseNp ->
+      "guarded_close_np"
+    | MacosSyscall.GuardedKqueueNp ->
+      "guarded_kqueue_np"
+    | MacosSyscall.GuardedOpenDprotectedNp ->
+      "guarded_open_dprotected_np"
+    | MacosSyscall.GuardedOpenNp ->
+      "guarded_open_np"
+    | MacosSyscall.GuardedPwriteNp ->
+      "guarded_pwrite_np"
+    | MacosSyscall.GuardedWriteNp ->
+      "guarded_write_np"
+    | MacosSyscall.GuardedWritevNp ->
+      "guarded_writev_np"
+    | MacosSyscall.Identitysvc ->
+      "identitysvc"
+    | MacosSyscall.Initgroups ->
+      "initgroups"
+    | MacosSyscall.Ioctl ->
+      "ioctl"
+    | MacosSyscall.Iopolicysys ->
+      "iopolicysys"
+    | MacosSyscall.Issetugid ->
+      "issetugid"
+    | MacosSyscall.KasInfo ->
+      "kas_info"
+    | MacosSyscall.KdebugTrace ->
+      "kdebug_trace"
+    | MacosSyscall.KdebugTrace64 ->
+      "kdebug_trace64"
+    | MacosSyscall.KdebugTraceString ->
+      "kdebug_trace_string"
+    | MacosSyscall.KdebugTypefilter ->
+      "kdebug_typefilter"
+    | MacosSyscall.Kevent ->
+      "kevent"
+    | MacosSyscall.Kevent64 ->
+      "kevent64"
+    | MacosSyscall.KeventId ->
+      "kevent_id"
+    | MacosSyscall.KeventQos ->
+      "kevent_qos"
+    | MacosSyscall.Kill ->
+      "kill"
+    | MacosSyscall.Kqueue ->
+      "kqueue"
+    | MacosSyscall.KqueueWorkloopCtl ->
+      "kqueue_workloop_ctl"
+    | MacosSyscall.Lchown ->
+      "lchown"
+    | MacosSyscall.Ledger ->
+      "ledger"
+    | MacosSyscall.Link ->
+      "link"
+    | MacosSyscall.Linkat ->
+      "linkat"
+    | MacosSyscall.LioListio ->
+      "lio_listio"
+    | MacosSyscall.Listen ->
+      "listen"
+    | MacosSyscall.Listxattr ->
+      "listxattr"
+    | MacosSyscall.LogData ->
+      "log_data"
+    | MacosSyscall.Lseek ->
+      "lseek"
+    | MacosSyscall.Lstat ->
+      "lstat"
+    | MacosSyscall.Lstat64 ->
+      "lstat64"
+    | MacosSyscall.Lstat64Extended ->
+      "lstat64_extended"
+    | MacosSyscall.LstatExtended ->
+      "lstat_extended"
+    | MacosSyscall.MachEventlinkSignal ->
+      "mach_eventlink_signal"
     | MacosSyscall.MachEventlinkSignalWaitUntil ->
       "mach_eventlink_signal_wait_until"
-    | MacosSyscall.MachEventlinkWaitUntil -> "mach_eventlink_wait_until"
-    | MacosSyscall.Madvise -> "madvise"
-    | MacosSyscall.MapWithLinkingNp -> "map_with_linking_np"
+    | MacosSyscall.MachEventlinkWaitUntil ->
+      "mach_eventlink_wait_until"
+    | MacosSyscall.Madvise ->
+      "madvise"
+    | MacosSyscall.MapWithLinkingNp ->
+      "map_with_linking_np"
     | MacosSyscall.MemorystatusAvailableMemory ->
       "memorystatus_available_memory"
-    | MacosSyscall.MemorystatusControl -> "memorystatus_control"
-    | MacosSyscall.MemorystatusGetLevel -> "memorystatus_get_level"
-    | MacosSyscall.Microstackshot -> "microstackshot"
-    | MacosSyscall.Mincore -> "mincore"
-    | MacosSyscall.Minherit -> "minherit"
-    | MacosSyscall.Mkdir -> "mkdir"
-    | MacosSyscall.MkdirExtended -> "mkdir_extended"
-    | MacosSyscall.Mkdirat -> "mkdirat"
-    | MacosSyscall.Mkfifo -> "mkfifo"
-    | MacosSyscall.MkfifoExtended -> "mkfifo_extended"
-    | MacosSyscall.Mkfifoat -> "mkfifoat"
-    | MacosSyscall.Mknod -> "mknod"
-    | MacosSyscall.Mknodat -> "mknodat"
-    | MacosSyscall.Mlock -> "mlock"
-    | MacosSyscall.Mlockall -> "mlockall"
-    | MacosSyscall.Mmap -> "mmap"
-    | MacosSyscall.Mount -> "mount"
-    | MacosSyscall.Mprotect -> "mprotect"
-    | MacosSyscall.MremapEncrypted -> "mremap_encrypted"
-    | MacosSyscall.Msgctl -> "msgctl"
-    | MacosSyscall.Msgget -> "msgget"
-    | MacosSyscall.Msgrcv -> "msgrcv"
-    | MacosSyscall.MsgrcvNocancel -> "msgrcv_nocancel"
-    | MacosSyscall.Msgsnd -> "msgsnd"
-    | MacosSyscall.MsgsndNocancel -> "msgsnd_nocancel"
-    | MacosSyscall.Msgsys -> "msgsys"
-    | MacosSyscall.Msync -> "msync"
-    | MacosSyscall.MsyncNocancel -> "msync_nocancel"
-    | MacosSyscall.Munlock -> "munlock"
-    | MacosSyscall.Munlockall -> "munlockall"
-    | MacosSyscall.Munmap -> "munmap"
-    | MacosSyscall.NecpClientAction -> "necp_client_action"
-    | MacosSyscall.NecpMatchPolicy -> "necp_match_policy"
-    | MacosSyscall.NecpOpen -> "necp_open"
-    | MacosSyscall.NecpSessionAction -> "necp_session_action"
-    | MacosSyscall.NecpSessionOpen -> "necp_session_open"
-    | MacosSyscall.NetQosGuideline -> "net_qos_guideline"
-    | MacosSyscall.NetagentTrigger -> "netagent_trigger"
-    | MacosSyscall.Nfssvc -> "nfssvc"
-    | MacosSyscall.NtpAdjtime -> "ntp_adjtime"
-    | MacosSyscall.NtpGettime -> "ntp_gettime"
-    | MacosSyscall.ObjcBpAssistCfgNp -> "objc_bp_assist_cfg_np"
-    | MacosSyscall.Open -> "open"
-    | MacosSyscall.OpenDprotectedNp -> "open_dprotected_np"
-    | MacosSyscall.OpenExtended -> "open_extended"
-    | MacosSyscall.OpenNocancel -> "open_nocancel"
-    | MacosSyscall.Openat -> "openat"
-    | MacosSyscall.OpenatDprotectedNp -> "openat_dprotected_np"
-    | MacosSyscall.OpenatNocancel -> "openat_nocancel"
-    | MacosSyscall.OpenbyidNp -> "openbyid_np"
-    | MacosSyscall.OsFaultWithPayload -> "os_fault_with_payload"
-    | MacosSyscall.OslogCoproc -> "oslog_coproc"
-    | MacosSyscall.OslogCoprocReg -> "oslog_coproc_reg"
-    | MacosSyscall.PanicWithData -> "panic_with_data"
-    | MacosSyscall.Pathconf -> "pathconf"
-    | MacosSyscall.Peeloff -> "peeloff"
-    | MacosSyscall.Persona -> "persona"
-    | MacosSyscall.PidHibernate -> "pid_hibernate"
-    | MacosSyscall.PidResume -> "pid_resume"
-    | MacosSyscall.PidShutdownSockets -> "pid_shutdown_sockets"
-    | MacosSyscall.PidSuspend -> "pid_suspend"
-    | MacosSyscall.Pipe -> "pipe"
-    | MacosSyscall.PivotRoot -> "pivot_root"
-    | MacosSyscall.Poll -> "poll"
-    | MacosSyscall.PollNocancel -> "poll_nocancel"
-    | MacosSyscall.PosixSpawn -> "posix_spawn"
-    | MacosSyscall.Pread -> "pread"
-    | MacosSyscall.PreadNocancel -> "pread_nocancel"
-    | MacosSyscall.Preadv -> "preadv"
-    | MacosSyscall.PreadvNocancel -> "preadv_nocancel"
-    | MacosSyscall.ProcInfo -> "proc_info"
-    | MacosSyscall.ProcInfoExtendedId -> "proc_info_extended_id"
-    | MacosSyscall.ProcRlimitControl -> "proc_rlimit_control"
-    | MacosSyscall.ProcTraceLog -> "proc_trace_log"
-    | MacosSyscall.ProcUuidPolicy -> "proc_uuid_policy"
-    | MacosSyscall.ProcessPolicy -> "process_policy"
-    | MacosSyscall.Pselect -> "pselect"
-    | MacosSyscall.PselectNocancel -> "pselect_nocancel"
-    | MacosSyscall.PsynchCvbroad -> "psynch_cvbroad"
-    | MacosSyscall.PsynchCvclrprepost -> "psynch_cvclrprepost"
-    | MacosSyscall.PsynchCvsignal -> "psynch_cvsignal"
-    | MacosSyscall.PsynchCvwait -> "psynch_cvwait"
-    | MacosSyscall.PsynchMutexdrop -> "psynch_mutexdrop"
-    | MacosSyscall.PsynchMutexwait -> "psynch_mutexwait"
-    | MacosSyscall.PsynchRwDowngrade -> "psynch_rw_downgrade"
-    | MacosSyscall.PsynchRwLongrdlock -> "psynch_rw_longrdlock"
-    | MacosSyscall.PsynchRwRdlock -> "psynch_rw_rdlock"
-    | MacosSyscall.PsynchRwUnlock -> "psynch_rw_unlock"
-    | MacosSyscall.PsynchRwUnlock2 -> "psynch_rw_unlock2"
-    | MacosSyscall.PsynchRwUpgrade -> "psynch_rw_upgrade"
-    | MacosSyscall.PsynchRwWrlock -> "psynch_rw_wrlock"
-    | MacosSyscall.PsynchRwYieldwrlock -> "psynch_rw_yieldwrlock"
-    | MacosSyscall.Ptrace -> "ptrace"
-    | MacosSyscall.Pwrite -> "pwrite"
-    | MacosSyscall.PwriteNocancel -> "pwrite_nocancel"
-    | MacosSyscall.Pwritev -> "pwritev"
-    | MacosSyscall.PwritevNocancel -> "pwritev_nocancel"
-    | MacosSyscall.Quotactl -> "quotactl"
-    | MacosSyscall.Read -> "read"
-    | MacosSyscall.ReadNocancel -> "read_nocancel"
-    | MacosSyscall.Readlink -> "readlink"
-    | MacosSyscall.Readlinkat -> "readlinkat"
-    | MacosSyscall.Readv -> "readv"
-    | MacosSyscall.ReadvNocancel -> "readv_nocancel"
-    | MacosSyscall.Reboot -> "reboot"
-    | MacosSyscall.RecordSystemEvent -> "record_system_event"
-    | MacosSyscall.Recvfrom -> "recvfrom"
-    | MacosSyscall.RecvfromNocancel -> "recvfrom_nocancel"
-    | MacosSyscall.Recvmsg -> "recvmsg"
-    | MacosSyscall.RecvmsgNocancel -> "recvmsg_nocancel"
-    | MacosSyscall.RecvmsgX -> "recvmsg_x"
-    | MacosSyscall.Removexattr -> "removexattr"
-    | MacosSyscall.Rename -> "rename"
-    | MacosSyscall.Renameat -> "renameat"
-    | MacosSyscall.RenameatxNp -> "renameatx_np"
-    | MacosSyscall.Revoke -> "revoke"
-    | MacosSyscall.Rmdir -> "rmdir"
-    | MacosSyscall.Searchfs -> "searchfs"
-    | MacosSyscall.Select -> "select"
-    | MacosSyscall.SelectNocancel -> "select_nocancel"
-    | MacosSyscall.SemClose -> "sem_close"
-    | MacosSyscall.SemOpen -> "sem_open"
-    | MacosSyscall.SemPost -> "sem_post"
-    | MacosSyscall.SemTrywait -> "sem_trywait"
-    | MacosSyscall.SemUnlink -> "sem_unlink"
-    | MacosSyscall.SemWait -> "sem_wait"
-    | MacosSyscall.SemWaitNocancel -> "sem_wait_nocancel"
-    | MacosSyscall.Semctl -> "semctl"
-    | MacosSyscall.Semget -> "semget"
-    | MacosSyscall.Semop -> "semop"
-    | MacosSyscall.Semsys -> "semsys"
-    | MacosSyscall.Sendfile -> "sendfile"
-    | MacosSyscall.Sendmsg -> "sendmsg"
-    | MacosSyscall.SendmsgNocancel -> "sendmsg_nocancel"
-    | MacosSyscall.SendmsgX -> "sendmsg_x"
-    | MacosSyscall.Sendto -> "sendto"
-    | MacosSyscall.SendtoNocancel -> "sendto_nocancel"
-    | MacosSyscall.Setattrlist -> "setattrlist"
-    | MacosSyscall.Setattrlistat -> "setattrlistat"
-    | MacosSyscall.SetauditAddr -> "setaudit_addr"
-    | MacosSyscall.Setauid -> "setauid"
-    | MacosSyscall.Setegid -> "setegid"
-    | MacosSyscall.Seteuid -> "seteuid"
-    | MacosSyscall.Setgid -> "setgid"
-    | MacosSyscall.Setgroups -> "setgroups"
-    | MacosSyscall.Setitimer -> "setitimer"
-    | MacosSyscall.Setlogin -> "setlogin"
-    | MacosSyscall.Setpgid -> "setpgid"
-    | MacosSyscall.Setpriority -> "setpriority"
-    | MacosSyscall.Setprivexec -> "setprivexec"
-    | MacosSyscall.Setregid -> "setregid"
-    | MacosSyscall.Setreuid -> "setreuid"
-    | MacosSyscall.Setrlimit -> "setrlimit"
-    | MacosSyscall.Setsgroups -> "setsgroups"
-    | MacosSyscall.Setsid -> "setsid"
-    | MacosSyscall.Setsockopt -> "setsockopt"
-    | MacosSyscall.Settid -> "settid"
-    | MacosSyscall.SettidWithPid -> "settid_with_pid"
-    | MacosSyscall.Settimeofday -> "settimeofday"
-    | MacosSyscall.Setuid -> "setuid"
-    | MacosSyscall.Setwgroups -> "setwgroups"
-    | MacosSyscall.Setxattr -> "setxattr"
-    | MacosSyscall.SfiCtl -> "sfi_ctl"
-    | MacosSyscall.SfiPidctl -> "sfi_pidctl"
-    | MacosSyscall.SharedRegionCheckNp -> "shared_region_check_np"
+    | MacosSyscall.MemorystatusControl ->
+      "memorystatus_control"
+    | MacosSyscall.MemorystatusGetLevel ->
+      "memorystatus_get_level"
+    | MacosSyscall.Microstackshot ->
+      "microstackshot"
+    | MacosSyscall.Mincore ->
+      "mincore"
+    | MacosSyscall.Minherit ->
+      "minherit"
+    | MacosSyscall.Mkdir ->
+      "mkdir"
+    | MacosSyscall.MkdirExtended ->
+      "mkdir_extended"
+    | MacosSyscall.Mkdirat ->
+      "mkdirat"
+    | MacosSyscall.Mkfifo ->
+      "mkfifo"
+    | MacosSyscall.MkfifoExtended ->
+      "mkfifo_extended"
+    | MacosSyscall.Mkfifoat ->
+      "mkfifoat"
+    | MacosSyscall.Mknod ->
+      "mknod"
+    | MacosSyscall.Mknodat ->
+      "mknodat"
+    | MacosSyscall.Mlock ->
+      "mlock"
+    | MacosSyscall.Mlockall ->
+      "mlockall"
+    | MacosSyscall.Mmap ->
+      "mmap"
+    | MacosSyscall.Mount ->
+      "mount"
+    | MacosSyscall.Mprotect ->
+      "mprotect"
+    | MacosSyscall.MremapEncrypted ->
+      "mremap_encrypted"
+    | MacosSyscall.Msgctl ->
+      "msgctl"
+    | MacosSyscall.Msgget ->
+      "msgget"
+    | MacosSyscall.Msgrcv ->
+      "msgrcv"
+    | MacosSyscall.MsgrcvNocancel ->
+      "msgrcv_nocancel"
+    | MacosSyscall.Msgsnd ->
+      "msgsnd"
+    | MacosSyscall.MsgsndNocancel ->
+      "msgsnd_nocancel"
+    | MacosSyscall.Msgsys ->
+      "msgsys"
+    | MacosSyscall.Msync ->
+      "msync"
+    | MacosSyscall.MsyncNocancel ->
+      "msync_nocancel"
+    | MacosSyscall.Munlock ->
+      "munlock"
+    | MacosSyscall.Munlockall ->
+      "munlockall"
+    | MacosSyscall.Munmap ->
+      "munmap"
+    | MacosSyscall.NecpClientAction ->
+      "necp_client_action"
+    | MacosSyscall.NecpMatchPolicy ->
+      "necp_match_policy"
+    | MacosSyscall.NecpOpen ->
+      "necp_open"
+    | MacosSyscall.NecpSessionAction ->
+      "necp_session_action"
+    | MacosSyscall.NecpSessionOpen ->
+      "necp_session_open"
+    | MacosSyscall.NetQosGuideline ->
+      "net_qos_guideline"
+    | MacosSyscall.NetagentTrigger ->
+      "netagent_trigger"
+    | MacosSyscall.Nfssvc ->
+      "nfssvc"
+    | MacosSyscall.NtpAdjtime ->
+      "ntp_adjtime"
+    | MacosSyscall.NtpGettime ->
+      "ntp_gettime"
+    | MacosSyscall.ObjcBpAssistCfgNp ->
+      "objc_bp_assist_cfg_np"
+    | MacosSyscall.Open ->
+      "open"
+    | MacosSyscall.OpenDprotectedNp ->
+      "open_dprotected_np"
+    | MacosSyscall.OpenExtended ->
+      "open_extended"
+    | MacosSyscall.OpenNocancel ->
+      "open_nocancel"
+    | MacosSyscall.Openat ->
+      "openat"
+    | MacosSyscall.OpenatDprotectedNp ->
+      "openat_dprotected_np"
+    | MacosSyscall.OpenatNocancel ->
+      "openat_nocancel"
+    | MacosSyscall.OpenbyidNp ->
+      "openbyid_np"
+    | MacosSyscall.OsFaultWithPayload ->
+      "os_fault_with_payload"
+    | MacosSyscall.OslogCoproc ->
+      "oslog_coproc"
+    | MacosSyscall.OslogCoprocReg ->
+      "oslog_coproc_reg"
+    | MacosSyscall.PanicWithData ->
+      "panic_with_data"
+    | MacosSyscall.Pathconf ->
+      "pathconf"
+    | MacosSyscall.Peeloff ->
+      "peeloff"
+    | MacosSyscall.Persona ->
+      "persona"
+    | MacosSyscall.PidHibernate ->
+      "pid_hibernate"
+    | MacosSyscall.PidResume ->
+      "pid_resume"
+    | MacosSyscall.PidShutdownSockets ->
+      "pid_shutdown_sockets"
+    | MacosSyscall.PidSuspend ->
+      "pid_suspend"
+    | MacosSyscall.Pipe ->
+      "pipe"
+    | MacosSyscall.PivotRoot ->
+      "pivot_root"
+    | MacosSyscall.Poll ->
+      "poll"
+    | MacosSyscall.PollNocancel ->
+      "poll_nocancel"
+    | MacosSyscall.PosixSpawn ->
+      "posix_spawn"
+    | MacosSyscall.Pread ->
+      "pread"
+    | MacosSyscall.PreadNocancel ->
+      "pread_nocancel"
+    | MacosSyscall.Preadv ->
+      "preadv"
+    | MacosSyscall.PreadvNocancel ->
+      "preadv_nocancel"
+    | MacosSyscall.ProcInfo ->
+      "proc_info"
+    | MacosSyscall.ProcInfoExtendedId ->
+      "proc_info_extended_id"
+    | MacosSyscall.ProcRlimitControl ->
+      "proc_rlimit_control"
+    | MacosSyscall.ProcTraceLog ->
+      "proc_trace_log"
+    | MacosSyscall.ProcUuidPolicy ->
+      "proc_uuid_policy"
+    | MacosSyscall.ProcessPolicy ->
+      "process_policy"
+    | MacosSyscall.Pselect ->
+      "pselect"
+    | MacosSyscall.PselectNocancel ->
+      "pselect_nocancel"
+    | MacosSyscall.PsynchCvbroad ->
+      "psynch_cvbroad"
+    | MacosSyscall.PsynchCvclrprepost ->
+      "psynch_cvclrprepost"
+    | MacosSyscall.PsynchCvsignal ->
+      "psynch_cvsignal"
+    | MacosSyscall.PsynchCvwait ->
+      "psynch_cvwait"
+    | MacosSyscall.PsynchMutexdrop ->
+      "psynch_mutexdrop"
+    | MacosSyscall.PsynchMutexwait ->
+      "psynch_mutexwait"
+    | MacosSyscall.PsynchRwDowngrade ->
+      "psynch_rw_downgrade"
+    | MacosSyscall.PsynchRwLongrdlock ->
+      "psynch_rw_longrdlock"
+    | MacosSyscall.PsynchRwRdlock ->
+      "psynch_rw_rdlock"
+    | MacosSyscall.PsynchRwUnlock ->
+      "psynch_rw_unlock"
+    | MacosSyscall.PsynchRwUnlock2 ->
+      "psynch_rw_unlock2"
+    | MacosSyscall.PsynchRwUpgrade ->
+      "psynch_rw_upgrade"
+    | MacosSyscall.PsynchRwWrlock ->
+      "psynch_rw_wrlock"
+    | MacosSyscall.PsynchRwYieldwrlock ->
+      "psynch_rw_yieldwrlock"
+    | MacosSyscall.Ptrace ->
+      "ptrace"
+    | MacosSyscall.Pwrite ->
+      "pwrite"
+    | MacosSyscall.PwriteNocancel ->
+      "pwrite_nocancel"
+    | MacosSyscall.Pwritev ->
+      "pwritev"
+    | MacosSyscall.PwritevNocancel ->
+      "pwritev_nocancel"
+    | MacosSyscall.Quotactl ->
+      "quotactl"
+    | MacosSyscall.Read ->
+      "read"
+    | MacosSyscall.ReadNocancel ->
+      "read_nocancel"
+    | MacosSyscall.Readlink ->
+      "readlink"
+    | MacosSyscall.Readlinkat ->
+      "readlinkat"
+    | MacosSyscall.Readv ->
+      "readv"
+    | MacosSyscall.ReadvNocancel ->
+      "readv_nocancel"
+    | MacosSyscall.Reboot ->
+      "reboot"
+    | MacosSyscall.RecordSystemEvent ->
+      "record_system_event"
+    | MacosSyscall.Recvfrom ->
+      "recvfrom"
+    | MacosSyscall.RecvfromNocancel ->
+      "recvfrom_nocancel"
+    | MacosSyscall.Recvmsg ->
+      "recvmsg"
+    | MacosSyscall.RecvmsgNocancel ->
+      "recvmsg_nocancel"
+    | MacosSyscall.RecvmsgX ->
+      "recvmsg_x"
+    | MacosSyscall.Removexattr ->
+      "removexattr"
+    | MacosSyscall.Rename ->
+      "rename"
+    | MacosSyscall.Renameat ->
+      "renameat"
+    | MacosSyscall.RenameatxNp ->
+      "renameatx_np"
+    | MacosSyscall.Revoke ->
+      "revoke"
+    | MacosSyscall.Rmdir ->
+      "rmdir"
+    | MacosSyscall.Searchfs ->
+      "searchfs"
+    | MacosSyscall.Select ->
+      "select"
+    | MacosSyscall.SelectNocancel ->
+      "select_nocancel"
+    | MacosSyscall.SemClose ->
+      "sem_close"
+    | MacosSyscall.SemOpen ->
+      "sem_open"
+    | MacosSyscall.SemPost ->
+      "sem_post"
+    | MacosSyscall.SemTrywait ->
+      "sem_trywait"
+    | MacosSyscall.SemUnlink ->
+      "sem_unlink"
+    | MacosSyscall.SemWait ->
+      "sem_wait"
+    | MacosSyscall.SemWaitNocancel ->
+      "sem_wait_nocancel"
+    | MacosSyscall.Semctl ->
+      "semctl"
+    | MacosSyscall.Semget ->
+      "semget"
+    | MacosSyscall.Semop ->
+      "semop"
+    | MacosSyscall.Semsys ->
+      "semsys"
+    | MacosSyscall.Sendfile ->
+      "sendfile"
+    | MacosSyscall.Sendmsg ->
+      "sendmsg"
+    | MacosSyscall.SendmsgNocancel ->
+      "sendmsg_nocancel"
+    | MacosSyscall.SendmsgX ->
+      "sendmsg_x"
+    | MacosSyscall.Sendto ->
+      "sendto"
+    | MacosSyscall.SendtoNocancel ->
+      "sendto_nocancel"
+    | MacosSyscall.Setattrlist ->
+      "setattrlist"
+    | MacosSyscall.Setattrlistat ->
+      "setattrlistat"
+    | MacosSyscall.SetauditAddr ->
+      "setaudit_addr"
+    | MacosSyscall.Setauid ->
+      "setauid"
+    | MacosSyscall.Setegid ->
+      "setegid"
+    | MacosSyscall.Seteuid ->
+      "seteuid"
+    | MacosSyscall.Setgid ->
+      "setgid"
+    | MacosSyscall.Setgroups ->
+      "setgroups"
+    | MacosSyscall.Setitimer ->
+      "setitimer"
+    | MacosSyscall.Setlogin ->
+      "setlogin"
+    | MacosSyscall.Setpgid ->
+      "setpgid"
+    | MacosSyscall.Setpriority ->
+      "setpriority"
+    | MacosSyscall.Setprivexec ->
+      "setprivexec"
+    | MacosSyscall.Setregid ->
+      "setregid"
+    | MacosSyscall.Setreuid ->
+      "setreuid"
+    | MacosSyscall.Setrlimit ->
+      "setrlimit"
+    | MacosSyscall.Setsgroups ->
+      "setsgroups"
+    | MacosSyscall.Setsid ->
+      "setsid"
+    | MacosSyscall.Setsockopt ->
+      "setsockopt"
+    | MacosSyscall.Settid ->
+      "settid"
+    | MacosSyscall.SettidWithPid ->
+      "settid_with_pid"
+    | MacosSyscall.Settimeofday ->
+      "settimeofday"
+    | MacosSyscall.Setuid ->
+      "setuid"
+    | MacosSyscall.Setwgroups ->
+      "setwgroups"
+    | MacosSyscall.Setxattr ->
+      "setxattr"
+    | MacosSyscall.SfiCtl ->
+      "sfi_ctl"
+    | MacosSyscall.SfiPidctl ->
+      "sfi_pidctl"
+    | MacosSyscall.SharedRegionCheckNp ->
+      "shared_region_check_np"
     | MacosSyscall.SharedRegionMapAndSlide2Np ->
       "shared_region_map_and_slide_2_np"
-    | MacosSyscall.ShmOpen -> "shm_open"
-    | MacosSyscall.ShmUnlink -> "shm_unlink"
-    | MacosSyscall.Shmat -> "shmat"
-    | MacosSyscall.Shmctl -> "shmctl"
-    | MacosSyscall.Shmdt -> "shmdt"
-    | MacosSyscall.Shmget -> "shmget"
-    | MacosSyscall.Shmsys -> "shmsys"
-    | MacosSyscall.Shutdown -> "shutdown"
-    | MacosSyscall.Sigaction -> "sigaction"
-    | MacosSyscall.Sigaltstack -> "sigaltstack"
-    | MacosSyscall.Sigpending -> "sigpending"
-    | MacosSyscall.Sigprocmask -> "sigprocmask"
-    | MacosSyscall.Sigreturn -> "sigreturn"
-    | MacosSyscall.Sigsuspend -> "sigsuspend"
-    | MacosSyscall.SigsuspendNocancel -> "sigsuspend_nocancel"
-    | MacosSyscall.Socket -> "socket"
-    | MacosSyscall.SocketDelegate -> "socket_delegate"
-    | MacosSyscall.Socketpair -> "socketpair"
-    | MacosSyscall.StackSnapshotWithConfig -> "stack_snapshot_with_config"
-    | MacosSyscall.Stat -> "stat"
-    | MacosSyscall.Stat64 -> "stat64"
-    | MacosSyscall.Stat64Extended -> "stat64_extended"
-    | MacosSyscall.StatExtended -> "stat_extended"
-    | MacosSyscall.Statfs -> "statfs"
-    | MacosSyscall.Statfs64 -> "statfs64"
-    | MacosSyscall.Swapon -> "swapon"
-    | MacosSyscall.Symlink -> "symlink"
-    | MacosSyscall.Symlinkat -> "symlinkat"
-    | MacosSyscall.Sync -> "sync"
-    | MacosSyscall.Sysctl -> "sysctl"
-    | MacosSyscall.Sysctlbyname -> "sysctlbyname"
-    | MacosSyscall.SystemOverride -> "system_override"
-    | MacosSyscall.TaskInspectForPid -> "task_inspect_for_pid"
-    | MacosSyscall.TaskReadForPid -> "task_read_for_pid"
-    | MacosSyscall.Telemetry -> "telemetry"
-    | MacosSyscall.TerminateWithPayload -> "terminate_with_payload"
-    | MacosSyscall.ThreadSelfcounts -> "thread_selfcounts"
-    | MacosSyscall.ThreadSelfid -> "thread_selfid"
-    | MacosSyscall.ThreadSelfusage -> "thread_selfusage"
-    | MacosSyscall.TrackerAction -> "tracker_action"
-    | MacosSyscall.Truncate -> "truncate"
-    | MacosSyscall.UlockWait -> "ulock_wait"
-    | MacosSyscall.UlockWait2 -> "ulock_wait2"
-    | MacosSyscall.UlockWake -> "ulock_wake"
-    | MacosSyscall.Umask -> "umask"
-    | MacosSyscall.UmaskExtended -> "umask_extended"
-    | MacosSyscall.Undelete -> "undelete"
-    | MacosSyscall.Ungraftdmg -> "ungraftdmg"
-    | MacosSyscall.Unlink -> "unlink"
-    | MacosSyscall.Unlinkat -> "unlinkat"
-    | MacosSyscall.Unmount -> "unmount"
-    | MacosSyscall.Usrctl -> "usrctl"
-    | MacosSyscall.Utimes -> "utimes"
-    | MacosSyscall.Vfork -> "vfork"
-    | MacosSyscall.VfsPurge -> "vfs_purge"
-    | MacosSyscall.VmPressureMonitor -> "vm_pressure_monitor"
-    | MacosSyscall.Wait4 -> "wait4"
-    | MacosSyscall.Wait4Nocancel -> "wait4_nocancel"
-    | MacosSyscall.Waitid -> "waitid"
-    | MacosSyscall.WaitidNocancel -> "waitid_nocancel"
-    | MacosSyscall.WorkIntervalCtl -> "work_interval_ctl"
-    | MacosSyscall.WorkqKernreturn -> "workq_kernreturn"
-    | MacosSyscall.WorkqOpen -> "workq_open"
-    | MacosSyscall.Write -> "write"
-    | MacosSyscall.WriteNocancel -> "write_nocancel"
-    | MacosSyscall.Writev -> "writev"
-    | MacosSyscall.WritevNocancel -> "writev_nocancel"
-    | _ -> raise UnhandledSyscallException
+    | MacosSyscall.ShmOpen ->
+      "shm_open"
+    | MacosSyscall.ShmUnlink ->
+      "shm_unlink"
+    | MacosSyscall.Shmat ->
+      "shmat"
+    | MacosSyscall.Shmctl ->
+      "shmctl"
+    | MacosSyscall.Shmdt ->
+      "shmdt"
+    | MacosSyscall.Shmget ->
+      "shmget"
+    | MacosSyscall.Shmsys ->
+      "shmsys"
+    | MacosSyscall.Shutdown ->
+      "shutdown"
+    | MacosSyscall.Sigaction ->
+      "sigaction"
+    | MacosSyscall.Sigaltstack ->
+      "sigaltstack"
+    | MacosSyscall.Sigpending ->
+      "sigpending"
+    | MacosSyscall.Sigprocmask ->
+      "sigprocmask"
+    | MacosSyscall.Sigreturn ->
+      "sigreturn"
+    | MacosSyscall.Sigsuspend ->
+      "sigsuspend"
+    | MacosSyscall.SigsuspendNocancel ->
+      "sigsuspend_nocancel"
+    | MacosSyscall.Socket ->
+      "socket"
+    | MacosSyscall.SocketDelegate ->
+      "socket_delegate"
+    | MacosSyscall.Socketpair ->
+      "socketpair"
+    | MacosSyscall.StackSnapshotWithConfig ->
+      "stack_snapshot_with_config"
+    | MacosSyscall.Stat ->
+      "stat"
+    | MacosSyscall.Stat64 ->
+      "stat64"
+    | MacosSyscall.Stat64Extended ->
+      "stat64_extended"
+    | MacosSyscall.StatExtended ->
+      "stat_extended"
+    | MacosSyscall.Statfs ->
+      "statfs"
+    | MacosSyscall.Statfs64 ->
+      "statfs64"
+    | MacosSyscall.Swapon ->
+      "swapon"
+    | MacosSyscall.Symlink ->
+      "symlink"
+    | MacosSyscall.Symlinkat ->
+      "symlinkat"
+    | MacosSyscall.Sync ->
+      "sync"
+    | MacosSyscall.Sysctl ->
+      "sysctl"
+    | MacosSyscall.Sysctlbyname ->
+      "sysctlbyname"
+    | MacosSyscall.SystemOverride ->
+      "system_override"
+    | MacosSyscall.TaskInspectForPid ->
+      "task_inspect_for_pid"
+    | MacosSyscall.TaskReadForPid ->
+      "task_read_for_pid"
+    | MacosSyscall.Telemetry ->
+      "telemetry"
+    | MacosSyscall.TerminateWithPayload ->
+      "terminate_with_payload"
+    | MacosSyscall.ThreadSelfcounts ->
+      "thread_selfcounts"
+    | MacosSyscall.ThreadSelfid ->
+      "thread_selfid"
+    | MacosSyscall.ThreadSelfusage ->
+      "thread_selfusage"
+    | MacosSyscall.TrackerAction ->
+      "tracker_action"
+    | MacosSyscall.Truncate ->
+      "truncate"
+    | MacosSyscall.UlockWait ->
+      "ulock_wait"
+    | MacosSyscall.UlockWait2 ->
+      "ulock_wait2"
+    | MacosSyscall.UlockWake ->
+      "ulock_wake"
+    | MacosSyscall.Umask ->
+      "umask"
+    | MacosSyscall.UmaskExtended ->
+      "umask_extended"
+    | MacosSyscall.Undelete ->
+      "undelete"
+    | MacosSyscall.Ungraftdmg ->
+      "ungraftdmg"
+    | MacosSyscall.Unlink ->
+      "unlink"
+    | MacosSyscall.Unlinkat ->
+      "unlinkat"
+    | MacosSyscall.Unmount ->
+      "unmount"
+    | MacosSyscall.Usrctl ->
+      "usrctl"
+    | MacosSyscall.Utimes ->
+      "utimes"
+    | MacosSyscall.Vfork ->
+      "vfork"
+    | MacosSyscall.VfsPurge ->
+      "vfs_purge"
+    | MacosSyscall.VmPressureMonitor ->
+      "vm_pressure_monitor"
+    | MacosSyscall.Wait4 ->
+      "wait4"
+    | MacosSyscall.Wait4Nocancel ->
+      "wait4_nocancel"
+    | MacosSyscall.Waitid ->
+      "waitid"
+    | MacosSyscall.WaitidNocancel ->
+      "waitid_nocancel"
+    | MacosSyscall.WorkIntervalCtl ->
+      "work_interval_ctl"
+    | MacosSyscall.WorkqKernreturn ->
+      "workq_kernreturn"
+    | MacosSyscall.WorkqOpen ->
+      "workq_open"
+    | MacosSyscall.Write ->
+      "write"
+    | MacosSyscall.WriteNocancel ->
+      "write_nocancel"
+    | MacosSyscall.Writev ->
+      "writev"
+    | MacosSyscall.WritevNocancel ->
+      "writev_nocancel"
+    | _ ->
+      raise UnhandledSyscallException
 
   /// Converts a string to a MacosSyscall.
   [<CompiledName "OfString">]
   let ofString = function
-    | "__channel_get_info" -> MacosSyscall.ChannelGetInfo
-    | "__channel_get_opt" -> MacosSyscall.ChannelGetOpt
-    | "__channel_open" -> MacosSyscall.ChannelOpen
-    | "__channel_set_opt" -> MacosSyscall.ChannelSetOpt
-    | "__channel_sync" -> MacosSyscall.ChannelSync
-    | "__disable_threadsignal" -> MacosSyscall.DisableThreadsignal
-    | "__mac_execve" -> MacosSyscall.MacExecve
-    | "__mac_get_fd" -> MacosSyscall.MacGetFd
-    | "__mac_get_file" -> MacosSyscall.MacGetFile
-    | "__mac_get_link" -> MacosSyscall.MacGetLink
-    | "__mac_get_mount" -> MacosSyscall.MacGetMount
-    | "__mac_get_pid" -> MacosSyscall.MacGetPid
-    | "__mac_get_proc" -> MacosSyscall.MacGetProc
-    | "__mac_getfsstat" -> MacosSyscall.MacGetfsstat
-    | "__mac_mount" -> MacosSyscall.MacMount
-    | "__mac_set_fd" -> MacosSyscall.MacSetFd
-    | "__mac_set_file" -> MacosSyscall.MacSetFile
-    | "__mac_set_link" -> MacosSyscall.MacSetLink
-    | "__mac_set_proc" -> MacosSyscall.MacSetProc
-    | "__mac_syscall" -> MacosSyscall.MacSyscall
-    | "__mach_bridge_remote_time" -> MacosSyscall.MachBridgeRemoteTime
-    | "__nexus_create" -> MacosSyscall.NexusCreate
-    | "__nexus_deregister" -> MacosSyscall.NexusDeregister
-    | "__nexus_destroy" -> MacosSyscall.NexusDestroy
-    | "__nexus_get_opt" -> MacosSyscall.NexusGetOpt
-    | "__nexus_open" -> MacosSyscall.NexusOpen
-    | "__nexus_register" -> MacosSyscall.NexusRegister
-    | "__nexus_set_opt" -> MacosSyscall.NexusSetOpt
-    | "__pthread_canceled" -> MacosSyscall.PthreadCanceled
-    | "__pthread_chdir" -> MacosSyscall.PthreadChdir
-    | "__pthread_fchdir" -> MacosSyscall.PthreadFchdir
-    | "__pthread_kill" -> MacosSyscall.PthreadKill
-    | "__pthread_markcancel" -> MacosSyscall.PthreadMarkcancel
-    | "__pthread_sigmask" -> MacosSyscall.PthreadSigmask
-    | "__semwait_signal" -> MacosSyscall.SemwaitSignal
-    | "__semwait_signal_nocancel" -> MacosSyscall.SemwaitSignalNocancel
-    | "__sigwait" -> MacosSyscall.Sigwait
-    | "__sigwait_nocancel" -> MacosSyscall.SigwaitNocancel
-    | "abort_with_payload" -> MacosSyscall.AbortWithPayload
-    | "accept" -> MacosSyscall.Accept
-    | "accept_nocancel" -> MacosSyscall.AcceptNocancel
-    | "access" -> MacosSyscall.Access
-    | "access_extended" -> MacosSyscall.AccessExtended
-    | "acct" -> MacosSyscall.Acct
-    | "adjtime" -> MacosSyscall.Adjtime
-    | "aio_cancel" -> MacosSyscall.AioCancel
-    | "aio_error" -> MacosSyscall.AioError
-    | "aio_fsync" -> MacosSyscall.AioFsync
-    | "aio_read" -> MacosSyscall.AioRead
-    | "aio_return" -> MacosSyscall.AioReturn
-    | "aio_suspend" -> MacosSyscall.AioSuspend
-    | "aio_suspend_nocancel" -> MacosSyscall.AioSuspendNocancel
-    | "aio_write" -> MacosSyscall.AioWrite
-    | "audit" -> MacosSyscall.Audit
-    | "audit_session_join" -> MacosSyscall.AuditSessionJoin
-    | "audit_session_port" -> MacosSyscall.AuditSessionPort
-    | "audit_session_self" -> MacosSyscall.AuditSessionSelf
-    | "auditctl" -> MacosSyscall.Auditctl
-    | "auditon" -> MacosSyscall.Auditon
-    | "bind" -> MacosSyscall.Bind
-    | "bsdthread_create" -> MacosSyscall.BsdthreadCreate
-    | "bsdthread_ctl" -> MacosSyscall.BsdthreadCtl
-    | "bsdthread_register" -> MacosSyscall.BsdthreadRegister
-    | "bsdthread_terminate" -> MacosSyscall.BsdthreadTerminate
-    | "change_fdguard_np" -> MacosSyscall.ChangeFdguardNp
-    | "chdir" -> MacosSyscall.Chdir
-    | "chflags" -> MacosSyscall.Chflags
-    | "chmod" -> MacosSyscall.Chmod
-    | "chmod_extended" -> MacosSyscall.ChmodExtended
-    | "chown" -> MacosSyscall.Chown
-    | "chroot" -> MacosSyscall.Chroot
-    | "clonefileat" -> MacosSyscall.Clonefileat
-    | "close" -> MacosSyscall.Close
-    | "close_nocancel" -> MacosSyscall.CloseNocancel
-    | "coalition" -> MacosSyscall.Coalition
-    | "coalition_info" -> MacosSyscall.CoalitionInfo
-    | "coalition_ledger" -> MacosSyscall.CoalitionLedger
-    | "coalition_policy_get" -> MacosSyscall.CoalitionPolicyGet
-    | "coalition_policy_set" -> MacosSyscall.CoalitionPolicySet
-    | "connect" -> MacosSyscall.Connect
-    | "connect_nocancel" -> MacosSyscall.ConnectNocancel
-    | "connectx" -> MacosSyscall.Connectx
-    | "copyfile" -> MacosSyscall.Copyfile
-    | "crossarch_trap" -> MacosSyscall.CrossarchTrap
-    | "csops" -> MacosSyscall.Csops
-    | "csops_audittoken" -> MacosSyscall.CsopsAudittoken
-    | "csrctl" -> MacosSyscall.Csrctl
-    | "debug_syscall_reject" -> MacosSyscall.DebugSyscallReject
-    | "debug_syscall_reject_config" -> MacosSyscall.DebugSyscallRejectConfig
-    | "delete" -> MacosSyscall.Delete
-    | "disconnectx" -> MacosSyscall.Disconnectx
-    | "dup" -> MacosSyscall.Dup
-    | "dup2" -> MacosSyscall.Dup2
-    | "exchangedata" -> MacosSyscall.Exchangedata
-    | "execve" -> MacosSyscall.Execve
-    | "exit" -> MacosSyscall.Exit
-    | "faccessat" -> MacosSyscall.Faccessat
-    | "fchdir" -> MacosSyscall.Fchdir
-    | "fchflags" -> MacosSyscall.Fchflags
-    | "fchmod" -> MacosSyscall.Fchmod
-    | "fchmod_extended" -> MacosSyscall.FchmodExtended
-    | "fchmodat" -> MacosSyscall.Fchmodat
-    | "fchown" -> MacosSyscall.Fchown
-    | "fchownat" -> MacosSyscall.Fchownat
-    | "fclonefileat" -> MacosSyscall.Fclonefileat
-    | "fcntl" -> MacosSyscall.Fcntl
-    | "fcntl_nocancel" -> MacosSyscall.FcntlNocancel
-    | "fdatasync" -> MacosSyscall.Fdatasync
-    | "ffsctl" -> MacosSyscall.Ffsctl
-    | "fgetattrlist" -> MacosSyscall.Fgetattrlist
-    | "fgetxattr" -> MacosSyscall.Fgetxattr
-    | "fhopen" -> MacosSyscall.Fhopen
-    | "fileport_makefd" -> MacosSyscall.FileportMakefd
-    | "fileport_makeport" -> MacosSyscall.FileportMakeport
-    | "flistxattr" -> MacosSyscall.Flistxattr
-    | "flock" -> MacosSyscall.Flock
-    | "fmount" -> MacosSyscall.Fmount
-    | "fork" -> MacosSyscall.Fork
-    | "fpathconf" -> MacosSyscall.Fpathconf
-    | "freadlink" -> MacosSyscall.Freadlink
-    | "fremovexattr" -> MacosSyscall.Fremovexattr
-    | "fs_snapshot" -> MacosSyscall.FsSnapshot
-    | "fsctl" -> MacosSyscall.Fsctl
-    | "fsetattrlist" -> MacosSyscall.Fsetattrlist
-    | "fsetxattr" -> MacosSyscall.Fsetxattr
-    | "fsgetpath" -> MacosSyscall.Fsgetpath
-    | "fsgetpath_ext" -> MacosSyscall.FsgetpathExt
-    | "fstat" -> MacosSyscall.Fstat
-    | "fstat64" -> MacosSyscall.Fstat64
-    | "fstat64_extended" -> MacosSyscall.Fstat64Extended
-    | "fstat_extended" -> MacosSyscall.FstatExtended
-    | "fstatat" -> MacosSyscall.Fstatat
-    | "fstatat64" -> MacosSyscall.Fstatat64
-    | "fstatfs" -> MacosSyscall.Fstatfs
-    | "fstatfs64" -> MacosSyscall.Fstatfs64
-    | "fsync" -> MacosSyscall.Fsync
-    | "fsync_nocancel" -> MacosSyscall.FsyncNocancel
-    | "ftruncate" -> MacosSyscall.Ftruncate
-    | "funmount" -> MacosSyscall.Funmount
-    | "futimes" -> MacosSyscall.Futimes
-    | "getattrlist" -> MacosSyscall.Getattrlist
-    | "getattrlistat" -> MacosSyscall.Getattrlistat
-    | "getattrlistbulk" -> MacosSyscall.Getattrlistbulk
-    | "getaudit_addr" -> MacosSyscall.GetauditAddr
-    | "getauid" -> MacosSyscall.Getauid
-    | "getdirentries" -> MacosSyscall.Getdirentries
-    | "getdirentries64" -> MacosSyscall.Getdirentries64
-    | "getdirentriesattr" -> MacosSyscall.Getdirentriesattr
-    | "getdtablesize" -> MacosSyscall.Getdtablesize
-    | "getegid" -> MacosSyscall.Getegid
-    | "getentropy" -> MacosSyscall.Getentropy
-    | "geteuid" -> MacosSyscall.Geteuid
-    | "getfh" -> MacosSyscall.Getfh
-    | "getfsstat" -> MacosSyscall.Getfsstat
-    | "getfsstat64" -> MacosSyscall.Getfsstat64
-    | "getgid" -> MacosSyscall.Getgid
-    | "getgroups" -> MacosSyscall.Getgroups
-    | "gethostuuid" -> MacosSyscall.Gethostuuid
-    | "getitimer" -> MacosSyscall.Getitimer
-    | "getlogin" -> MacosSyscall.Getlogin
-    | "getpeername" -> MacosSyscall.Getpeername
-    | "getpgid" -> MacosSyscall.Getpgid
-    | "getpgrp" -> MacosSyscall.Getpgrp
-    | "getpid" -> MacosSyscall.Getpid
-    | "getppid" -> MacosSyscall.Getppid
-    | "getpriority" -> MacosSyscall.Getpriority
-    | "getrlimit" -> MacosSyscall.Getrlimit
-    | "getrusage" -> MacosSyscall.Getrusage
-    | "getsgroups" -> MacosSyscall.Getsgroups
-    | "getsid" -> MacosSyscall.Getsid
-    | "getsockname" -> MacosSyscall.Getsockname
-    | "getsockopt" -> MacosSyscall.Getsockopt
-    | "gettid" -> MacosSyscall.Gettid
-    | "gettimeofday" -> MacosSyscall.Gettimeofday
-    | "getuid" -> MacosSyscall.Getuid
-    | "getwgroups" -> MacosSyscall.Getwgroups
-    | "getxattr" -> MacosSyscall.Getxattr
-    | "grab_pgo_data" -> MacosSyscall.GrabPgoData
-    | "graftdmg" -> MacosSyscall.Graftdmg
-    | "guarded_close_np" -> MacosSyscall.GuardedCloseNp
-    | "guarded_kqueue_np" -> MacosSyscall.GuardedKqueueNp
-    | "guarded_open_dprotected_np" -> MacosSyscall.GuardedOpenDprotectedNp
-    | "guarded_open_np" -> MacosSyscall.GuardedOpenNp
-    | "guarded_pwrite_np" -> MacosSyscall.GuardedPwriteNp
-    | "guarded_write_np" -> MacosSyscall.GuardedWriteNp
-    | "guarded_writev_np" -> MacosSyscall.GuardedWritevNp
-    | "identitysvc" -> MacosSyscall.Identitysvc
-    | "initgroups" -> MacosSyscall.Initgroups
-    | "ioctl" -> MacosSyscall.Ioctl
-    | "iopolicysys" -> MacosSyscall.Iopolicysys
-    | "issetugid" -> MacosSyscall.Issetugid
-    | "kas_info" -> MacosSyscall.KasInfo
-    | "kdebug_trace" -> MacosSyscall.KdebugTrace
-    | "kdebug_trace64" -> MacosSyscall.KdebugTrace64
-    | "kdebug_trace_string" -> MacosSyscall.KdebugTraceString
-    | "kdebug_typefilter" -> MacosSyscall.KdebugTypefilter
-    | "kevent" -> MacosSyscall.Kevent
-    | "kevent64" -> MacosSyscall.Kevent64
-    | "kevent_id" -> MacosSyscall.KeventId
-    | "kevent_qos" -> MacosSyscall.KeventQos
-    | "kill" -> MacosSyscall.Kill
-    | "kqueue" -> MacosSyscall.Kqueue
-    | "kqueue_workloop_ctl" -> MacosSyscall.KqueueWorkloopCtl
-    | "lchown" -> MacosSyscall.Lchown
-    | "ledger" -> MacosSyscall.Ledger
-    | "link" -> MacosSyscall.Link
-    | "linkat" -> MacosSyscall.Linkat
-    | "lio_listio" -> MacosSyscall.LioListio
-    | "listen" -> MacosSyscall.Listen
-    | "listxattr" -> MacosSyscall.Listxattr
-    | "log_data" -> MacosSyscall.LogData
-    | "lseek" -> MacosSyscall.Lseek
-    | "lstat" -> MacosSyscall.Lstat
-    | "lstat64" -> MacosSyscall.Lstat64
-    | "lstat64_extended" -> MacosSyscall.Lstat64Extended
-    | "lstat_extended" -> MacosSyscall.LstatExtended
-    | "mach_eventlink_signal" -> MacosSyscall.MachEventlinkSignal
+    | "__channel_get_info" ->
+      MacosSyscall.ChannelGetInfo
+    | "__channel_get_opt" ->
+      MacosSyscall.ChannelGetOpt
+    | "__channel_open" ->
+      MacosSyscall.ChannelOpen
+    | "__channel_set_opt" ->
+      MacosSyscall.ChannelSetOpt
+    | "__channel_sync" ->
+      MacosSyscall.ChannelSync
+    | "__disable_threadsignal" ->
+      MacosSyscall.DisableThreadsignal
+    | "__mac_execve" ->
+      MacosSyscall.MacExecve
+    | "__mac_get_fd" ->
+      MacosSyscall.MacGetFd
+    | "__mac_get_file" ->
+      MacosSyscall.MacGetFile
+    | "__mac_get_link" ->
+      MacosSyscall.MacGetLink
+    | "__mac_get_mount" ->
+      MacosSyscall.MacGetMount
+    | "__mac_get_pid" ->
+      MacosSyscall.MacGetPid
+    | "__mac_get_proc" ->
+      MacosSyscall.MacGetProc
+    | "__mac_getfsstat" ->
+      MacosSyscall.MacGetfsstat
+    | "__mac_mount" ->
+      MacosSyscall.MacMount
+    | "__mac_set_fd" ->
+      MacosSyscall.MacSetFd
+    | "__mac_set_file" ->
+      MacosSyscall.MacSetFile
+    | "__mac_set_link" ->
+      MacosSyscall.MacSetLink
+    | "__mac_set_proc" ->
+      MacosSyscall.MacSetProc
+    | "__mac_syscall" ->
+      MacosSyscall.MacSyscall
+    | "__mach_bridge_remote_time" ->
+      MacosSyscall.MachBridgeRemoteTime
+    | "__nexus_create" ->
+      MacosSyscall.NexusCreate
+    | "__nexus_deregister" ->
+      MacosSyscall.NexusDeregister
+    | "__nexus_destroy" ->
+      MacosSyscall.NexusDestroy
+    | "__nexus_get_opt" ->
+      MacosSyscall.NexusGetOpt
+    | "__nexus_open" ->
+      MacosSyscall.NexusOpen
+    | "__nexus_register" ->
+      MacosSyscall.NexusRegister
+    | "__nexus_set_opt" ->
+      MacosSyscall.NexusSetOpt
+    | "__pthread_canceled" ->
+      MacosSyscall.PthreadCanceled
+    | "__pthread_chdir" ->
+      MacosSyscall.PthreadChdir
+    | "__pthread_fchdir" ->
+      MacosSyscall.PthreadFchdir
+    | "__pthread_kill" ->
+      MacosSyscall.PthreadKill
+    | "__pthread_markcancel" ->
+      MacosSyscall.PthreadMarkcancel
+    | "__pthread_sigmask" ->
+      MacosSyscall.PthreadSigmask
+    | "__semwait_signal" ->
+      MacosSyscall.SemwaitSignal
+    | "__semwait_signal_nocancel" ->
+      MacosSyscall.SemwaitSignalNocancel
+    | "__sigwait" ->
+      MacosSyscall.Sigwait
+    | "__sigwait_nocancel" ->
+      MacosSyscall.SigwaitNocancel
+    | "abort_with_payload" ->
+      MacosSyscall.AbortWithPayload
+    | "accept" ->
+      MacosSyscall.Accept
+    | "accept_nocancel" ->
+      MacosSyscall.AcceptNocancel
+    | "access" ->
+      MacosSyscall.Access
+    | "access_extended" ->
+      MacosSyscall.AccessExtended
+    | "acct" ->
+      MacosSyscall.Acct
+    | "adjtime" ->
+      MacosSyscall.Adjtime
+    | "aio_cancel" ->
+      MacosSyscall.AioCancel
+    | "aio_error" ->
+      MacosSyscall.AioError
+    | "aio_fsync" ->
+      MacosSyscall.AioFsync
+    | "aio_read" ->
+      MacosSyscall.AioRead
+    | "aio_return" ->
+      MacosSyscall.AioReturn
+    | "aio_suspend" ->
+      MacosSyscall.AioSuspend
+    | "aio_suspend_nocancel" ->
+      MacosSyscall.AioSuspendNocancel
+    | "aio_write" ->
+      MacosSyscall.AioWrite
+    | "audit" ->
+      MacosSyscall.Audit
+    | "audit_session_join" ->
+      MacosSyscall.AuditSessionJoin
+    | "audit_session_port" ->
+      MacosSyscall.AuditSessionPort
+    | "audit_session_self" ->
+      MacosSyscall.AuditSessionSelf
+    | "auditctl" ->
+      MacosSyscall.Auditctl
+    | "auditon" ->
+      MacosSyscall.Auditon
+    | "bind" ->
+      MacosSyscall.Bind
+    | "bsdthread_create" ->
+      MacosSyscall.BsdthreadCreate
+    | "bsdthread_ctl" ->
+      MacosSyscall.BsdthreadCtl
+    | "bsdthread_register" ->
+      MacosSyscall.BsdthreadRegister
+    | "bsdthread_terminate" ->
+      MacosSyscall.BsdthreadTerminate
+    | "change_fdguard_np" ->
+      MacosSyscall.ChangeFdguardNp
+    | "chdir" ->
+      MacosSyscall.Chdir
+    | "chflags" ->
+      MacosSyscall.Chflags
+    | "chmod" ->
+      MacosSyscall.Chmod
+    | "chmod_extended" ->
+      MacosSyscall.ChmodExtended
+    | "chown" ->
+      MacosSyscall.Chown
+    | "chroot" ->
+      MacosSyscall.Chroot
+    | "clonefileat" ->
+      MacosSyscall.Clonefileat
+    | "close" ->
+      MacosSyscall.Close
+    | "close_nocancel" ->
+      MacosSyscall.CloseNocancel
+    | "coalition" ->
+      MacosSyscall.Coalition
+    | "coalition_info" ->
+      MacosSyscall.CoalitionInfo
+    | "coalition_ledger" ->
+      MacosSyscall.CoalitionLedger
+    | "coalition_policy_get" ->
+      MacosSyscall.CoalitionPolicyGet
+    | "coalition_policy_set" ->
+      MacosSyscall.CoalitionPolicySet
+    | "connect" ->
+      MacosSyscall.Connect
+    | "connect_nocancel" ->
+      MacosSyscall.ConnectNocancel
+    | "connectx" ->
+      MacosSyscall.Connectx
+    | "copyfile" ->
+      MacosSyscall.Copyfile
+    | "crossarch_trap" ->
+      MacosSyscall.CrossarchTrap
+    | "csops" ->
+      MacosSyscall.Csops
+    | "csops_audittoken" ->
+      MacosSyscall.CsopsAudittoken
+    | "csrctl" ->
+      MacosSyscall.Csrctl
+    | "debug_syscall_reject" ->
+      MacosSyscall.DebugSyscallReject
+    | "debug_syscall_reject_config" ->
+      MacosSyscall.DebugSyscallRejectConfig
+    | "delete" ->
+      MacosSyscall.Delete
+    | "disconnectx" ->
+      MacosSyscall.Disconnectx
+    | "dup" ->
+      MacosSyscall.Dup
+    | "dup2" ->
+      MacosSyscall.Dup2
+    | "exchangedata" ->
+      MacosSyscall.Exchangedata
+    | "execve" ->
+      MacosSyscall.Execve
+    | "exit" ->
+      MacosSyscall.Exit
+    | "faccessat" ->
+      MacosSyscall.Faccessat
+    | "fchdir" ->
+      MacosSyscall.Fchdir
+    | "fchflags" ->
+      MacosSyscall.Fchflags
+    | "fchmod" ->
+      MacosSyscall.Fchmod
+    | "fchmod_extended" ->
+      MacosSyscall.FchmodExtended
+    | "fchmodat" ->
+      MacosSyscall.Fchmodat
+    | "fchown" ->
+      MacosSyscall.Fchown
+    | "fchownat" ->
+      MacosSyscall.Fchownat
+    | "fclonefileat" ->
+      MacosSyscall.Fclonefileat
+    | "fcntl" ->
+      MacosSyscall.Fcntl
+    | "fcntl_nocancel" ->
+      MacosSyscall.FcntlNocancel
+    | "fdatasync" ->
+      MacosSyscall.Fdatasync
+    | "ffsctl" ->
+      MacosSyscall.Ffsctl
+    | "fgetattrlist" ->
+      MacosSyscall.Fgetattrlist
+    | "fgetxattr" ->
+      MacosSyscall.Fgetxattr
+    | "fhopen" ->
+      MacosSyscall.Fhopen
+    | "fileport_makefd" ->
+      MacosSyscall.FileportMakefd
+    | "fileport_makeport" ->
+      MacosSyscall.FileportMakeport
+    | "flistxattr" ->
+      MacosSyscall.Flistxattr
+    | "flock" ->
+      MacosSyscall.Flock
+    | "fmount" ->
+      MacosSyscall.Fmount
+    | "fork" ->
+      MacosSyscall.Fork
+    | "fpathconf" ->
+      MacosSyscall.Fpathconf
+    | "freadlink" ->
+      MacosSyscall.Freadlink
+    | "fremovexattr" ->
+      MacosSyscall.Fremovexattr
+    | "fs_snapshot" ->
+      MacosSyscall.FsSnapshot
+    | "fsctl" ->
+      MacosSyscall.Fsctl
+    | "fsetattrlist" ->
+      MacosSyscall.Fsetattrlist
+    | "fsetxattr" ->
+      MacosSyscall.Fsetxattr
+    | "fsgetpath" ->
+      MacosSyscall.Fsgetpath
+    | "fsgetpath_ext" ->
+      MacosSyscall.FsgetpathExt
+    | "fstat" ->
+      MacosSyscall.Fstat
+    | "fstat64" ->
+      MacosSyscall.Fstat64
+    | "fstat64_extended" ->
+      MacosSyscall.Fstat64Extended
+    | "fstat_extended" ->
+      MacosSyscall.FstatExtended
+    | "fstatat" ->
+      MacosSyscall.Fstatat
+    | "fstatat64" ->
+      MacosSyscall.Fstatat64
+    | "fstatfs" ->
+      MacosSyscall.Fstatfs
+    | "fstatfs64" ->
+      MacosSyscall.Fstatfs64
+    | "fsync" ->
+      MacosSyscall.Fsync
+    | "fsync_nocancel" ->
+      MacosSyscall.FsyncNocancel
+    | "ftruncate" ->
+      MacosSyscall.Ftruncate
+    | "funmount" ->
+      MacosSyscall.Funmount
+    | "futimes" ->
+      MacosSyscall.Futimes
+    | "getattrlist" ->
+      MacosSyscall.Getattrlist
+    | "getattrlistat" ->
+      MacosSyscall.Getattrlistat
+    | "getattrlistbulk" ->
+      MacosSyscall.Getattrlistbulk
+    | "getaudit_addr" ->
+      MacosSyscall.GetauditAddr
+    | "getauid" ->
+      MacosSyscall.Getauid
+    | "getdirentries" ->
+      MacosSyscall.Getdirentries
+    | "getdirentries64" ->
+      MacosSyscall.Getdirentries64
+    | "getdirentriesattr" ->
+      MacosSyscall.Getdirentriesattr
+    | "getdtablesize" ->
+      MacosSyscall.Getdtablesize
+    | "getegid" ->
+      MacosSyscall.Getegid
+    | "getentropy" ->
+      MacosSyscall.Getentropy
+    | "geteuid" ->
+      MacosSyscall.Geteuid
+    | "getfh" ->
+      MacosSyscall.Getfh
+    | "getfsstat" ->
+      MacosSyscall.Getfsstat
+    | "getfsstat64" ->
+      MacosSyscall.Getfsstat64
+    | "getgid" ->
+      MacosSyscall.Getgid
+    | "getgroups" ->
+      MacosSyscall.Getgroups
+    | "gethostuuid" ->
+      MacosSyscall.Gethostuuid
+    | "getitimer" ->
+      MacosSyscall.Getitimer
+    | "getlogin" ->
+      MacosSyscall.Getlogin
+    | "getpeername" ->
+      MacosSyscall.Getpeername
+    | "getpgid" ->
+      MacosSyscall.Getpgid
+    | "getpgrp" ->
+      MacosSyscall.Getpgrp
+    | "getpid" ->
+      MacosSyscall.Getpid
+    | "getppid" ->
+      MacosSyscall.Getppid
+    | "getpriority" ->
+      MacosSyscall.Getpriority
+    | "getrlimit" ->
+      MacosSyscall.Getrlimit
+    | "getrusage" ->
+      MacosSyscall.Getrusage
+    | "getsgroups" ->
+      MacosSyscall.Getsgroups
+    | "getsid" ->
+      MacosSyscall.Getsid
+    | "getsockname" ->
+      MacosSyscall.Getsockname
+    | "getsockopt" ->
+      MacosSyscall.Getsockopt
+    | "gettid" ->
+      MacosSyscall.Gettid
+    | "gettimeofday" ->
+      MacosSyscall.Gettimeofday
+    | "getuid" ->
+      MacosSyscall.Getuid
+    | "getwgroups" ->
+      MacosSyscall.Getwgroups
+    | "getxattr" ->
+      MacosSyscall.Getxattr
+    | "grab_pgo_data" ->
+      MacosSyscall.GrabPgoData
+    | "graftdmg" ->
+      MacosSyscall.Graftdmg
+    | "guarded_close_np" ->
+      MacosSyscall.GuardedCloseNp
+    | "guarded_kqueue_np" ->
+      MacosSyscall.GuardedKqueueNp
+    | "guarded_open_dprotected_np" ->
+      MacosSyscall.GuardedOpenDprotectedNp
+    | "guarded_open_np" ->
+      MacosSyscall.GuardedOpenNp
+    | "guarded_pwrite_np" ->
+      MacosSyscall.GuardedPwriteNp
+    | "guarded_write_np" ->
+      MacosSyscall.GuardedWriteNp
+    | "guarded_writev_np" ->
+      MacosSyscall.GuardedWritevNp
+    | "identitysvc" ->
+      MacosSyscall.Identitysvc
+    | "initgroups" ->
+      MacosSyscall.Initgroups
+    | "ioctl" ->
+      MacosSyscall.Ioctl
+    | "iopolicysys" ->
+      MacosSyscall.Iopolicysys
+    | "issetugid" ->
+      MacosSyscall.Issetugid
+    | "kas_info" ->
+      MacosSyscall.KasInfo
+    | "kdebug_trace" ->
+      MacosSyscall.KdebugTrace
+    | "kdebug_trace64" ->
+      MacosSyscall.KdebugTrace64
+    | "kdebug_trace_string" ->
+      MacosSyscall.KdebugTraceString
+    | "kdebug_typefilter" ->
+      MacosSyscall.KdebugTypefilter
+    | "kevent" ->
+      MacosSyscall.Kevent
+    | "kevent64" ->
+      MacosSyscall.Kevent64
+    | "kevent_id" ->
+      MacosSyscall.KeventId
+    | "kevent_qos" ->
+      MacosSyscall.KeventQos
+    | "kill" ->
+      MacosSyscall.Kill
+    | "kqueue" ->
+      MacosSyscall.Kqueue
+    | "kqueue_workloop_ctl" ->
+      MacosSyscall.KqueueWorkloopCtl
+    | "lchown" ->
+      MacosSyscall.Lchown
+    | "ledger" ->
+      MacosSyscall.Ledger
+    | "link" ->
+      MacosSyscall.Link
+    | "linkat" ->
+      MacosSyscall.Linkat
+    | "lio_listio" ->
+      MacosSyscall.LioListio
+    | "listen" ->
+      MacosSyscall.Listen
+    | "listxattr" ->
+      MacosSyscall.Listxattr
+    | "log_data" ->
+      MacosSyscall.LogData
+    | "lseek" ->
+      MacosSyscall.Lseek
+    | "lstat" ->
+      MacosSyscall.Lstat
+    | "lstat64" ->
+      MacosSyscall.Lstat64
+    | "lstat64_extended" ->
+      MacosSyscall.Lstat64Extended
+    | "lstat_extended" ->
+      MacosSyscall.LstatExtended
+    | "mach_eventlink_signal" ->
+      MacosSyscall.MachEventlinkSignal
     | "mach_eventlink_signal_wait_until" ->
       MacosSyscall.MachEventlinkSignalWaitUntil
-    | "mach_eventlink_wait_until" -> MacosSyscall.MachEventlinkWaitUntil
-    | "madvise" -> MacosSyscall.Madvise
-    | "map_with_linking_np" -> MacosSyscall.MapWithLinkingNp
+    | "mach_eventlink_wait_until" ->
+      MacosSyscall.MachEventlinkWaitUntil
+    | "madvise" ->
+      MacosSyscall.Madvise
+    | "map_with_linking_np" ->
+      MacosSyscall.MapWithLinkingNp
     | "memorystatus_available_memory" ->
       MacosSyscall.MemorystatusAvailableMemory
-    | "memorystatus_control" -> MacosSyscall.MemorystatusControl
-    | "memorystatus_get_level" -> MacosSyscall.MemorystatusGetLevel
-    | "microstackshot" -> MacosSyscall.Microstackshot
-    | "mincore" -> MacosSyscall.Mincore
-    | "minherit" -> MacosSyscall.Minherit
-    | "mkdir" -> MacosSyscall.Mkdir
-    | "mkdir_extended" -> MacosSyscall.MkdirExtended
-    | "mkdirat" -> MacosSyscall.Mkdirat
-    | "mkfifo" -> MacosSyscall.Mkfifo
-    | "mkfifo_extended" -> MacosSyscall.MkfifoExtended
-    | "mkfifoat" -> MacosSyscall.Mkfifoat
-    | "mknod" -> MacosSyscall.Mknod
-    | "mknodat" -> MacosSyscall.Mknodat
-    | "mlock" -> MacosSyscall.Mlock
-    | "mlockall" -> MacosSyscall.Mlockall
-    | "mmap" -> MacosSyscall.Mmap
-    | "mount" -> MacosSyscall.Mount
-    | "mprotect" -> MacosSyscall.Mprotect
-    | "mremap_encrypted" -> MacosSyscall.MremapEncrypted
-    | "msgctl" -> MacosSyscall.Msgctl
-    | "msgget" -> MacosSyscall.Msgget
-    | "msgrcv" -> MacosSyscall.Msgrcv
-    | "msgrcv_nocancel" -> MacosSyscall.MsgrcvNocancel
-    | "msgsnd" -> MacosSyscall.Msgsnd
-    | "msgsnd_nocancel" -> MacosSyscall.MsgsndNocancel
-    | "msgsys" -> MacosSyscall.Msgsys
-    | "msync" -> MacosSyscall.Msync
-    | "msync_nocancel" -> MacosSyscall.MsyncNocancel
-    | "munlock" -> MacosSyscall.Munlock
-    | "munlockall" -> MacosSyscall.Munlockall
-    | "munmap" -> MacosSyscall.Munmap
-    | "necp_client_action" -> MacosSyscall.NecpClientAction
-    | "necp_match_policy" -> MacosSyscall.NecpMatchPolicy
-    | "necp_open" -> MacosSyscall.NecpOpen
-    | "necp_session_action" -> MacosSyscall.NecpSessionAction
-    | "necp_session_open" -> MacosSyscall.NecpSessionOpen
-    | "net_qos_guideline" -> MacosSyscall.NetQosGuideline
-    | "netagent_trigger" -> MacosSyscall.NetagentTrigger
-    | "nfssvc" -> MacosSyscall.Nfssvc
-    | "ntp_adjtime" -> MacosSyscall.NtpAdjtime
-    | "ntp_gettime" -> MacosSyscall.NtpGettime
-    | "objc_bp_assist_cfg_np" -> MacosSyscall.ObjcBpAssistCfgNp
-    | "open" -> MacosSyscall.Open
-    | "open_dprotected_np" -> MacosSyscall.OpenDprotectedNp
-    | "open_extended" -> MacosSyscall.OpenExtended
-    | "open_nocancel" -> MacosSyscall.OpenNocancel
-    | "openat" -> MacosSyscall.Openat
-    | "openat_dprotected_np" -> MacosSyscall.OpenatDprotectedNp
-    | "openat_nocancel" -> MacosSyscall.OpenatNocancel
-    | "openbyid_np" -> MacosSyscall.OpenbyidNp
-    | "os_fault_with_payload" -> MacosSyscall.OsFaultWithPayload
-    | "oslog_coproc" -> MacosSyscall.OslogCoproc
-    | "oslog_coproc_reg" -> MacosSyscall.OslogCoprocReg
-    | "panic_with_data" -> MacosSyscall.PanicWithData
-    | "pathconf" -> MacosSyscall.Pathconf
-    | "peeloff" -> MacosSyscall.Peeloff
-    | "persona" -> MacosSyscall.Persona
-    | "pid_hibernate" -> MacosSyscall.PidHibernate
-    | "pid_resume" -> MacosSyscall.PidResume
-    | "pid_shutdown_sockets" -> MacosSyscall.PidShutdownSockets
-    | "pid_suspend" -> MacosSyscall.PidSuspend
-    | "pipe" -> MacosSyscall.Pipe
-    | "pivot_root" -> MacosSyscall.PivotRoot
-    | "poll" -> MacosSyscall.Poll
-    | "poll_nocancel" -> MacosSyscall.PollNocancel
-    | "posix_spawn" -> MacosSyscall.PosixSpawn
-    | "pread" -> MacosSyscall.Pread
-    | "pread_nocancel" -> MacosSyscall.PreadNocancel
-    | "preadv" -> MacosSyscall.Preadv
-    | "preadv_nocancel" -> MacosSyscall.PreadvNocancel
-    | "proc_info" -> MacosSyscall.ProcInfo
-    | "proc_info_extended_id" -> MacosSyscall.ProcInfoExtendedId
-    | "proc_rlimit_control" -> MacosSyscall.ProcRlimitControl
-    | "proc_trace_log" -> MacosSyscall.ProcTraceLog
-    | "proc_uuid_policy" -> MacosSyscall.ProcUuidPolicy
-    | "process_policy" -> MacosSyscall.ProcessPolicy
-    | "pselect" -> MacosSyscall.Pselect
-    | "pselect_nocancel" -> MacosSyscall.PselectNocancel
-    | "psynch_cvbroad" -> MacosSyscall.PsynchCvbroad
-    | "psynch_cvclrprepost" -> MacosSyscall.PsynchCvclrprepost
-    | "psynch_cvsignal" -> MacosSyscall.PsynchCvsignal
-    | "psynch_cvwait" -> MacosSyscall.PsynchCvwait
-    | "psynch_mutexdrop" -> MacosSyscall.PsynchMutexdrop
-    | "psynch_mutexwait" -> MacosSyscall.PsynchMutexwait
-    | "psynch_rw_downgrade" -> MacosSyscall.PsynchRwDowngrade
-    | "psynch_rw_longrdlock" -> MacosSyscall.PsynchRwLongrdlock
-    | "psynch_rw_rdlock" -> MacosSyscall.PsynchRwRdlock
-    | "psynch_rw_unlock" -> MacosSyscall.PsynchRwUnlock
-    | "psynch_rw_unlock2" -> MacosSyscall.PsynchRwUnlock2
-    | "psynch_rw_upgrade" -> MacosSyscall.PsynchRwUpgrade
-    | "psynch_rw_wrlock" -> MacosSyscall.PsynchRwWrlock
-    | "psynch_rw_yieldwrlock" -> MacosSyscall.PsynchRwYieldwrlock
-    | "ptrace" -> MacosSyscall.Ptrace
-    | "pwrite" -> MacosSyscall.Pwrite
-    | "pwrite_nocancel" -> MacosSyscall.PwriteNocancel
-    | "pwritev" -> MacosSyscall.Pwritev
-    | "pwritev_nocancel" -> MacosSyscall.PwritevNocancel
-    | "quotactl" -> MacosSyscall.Quotactl
-    | "read" -> MacosSyscall.Read
-    | "read_nocancel" -> MacosSyscall.ReadNocancel
-    | "readlink" -> MacosSyscall.Readlink
-    | "readlinkat" -> MacosSyscall.Readlinkat
-    | "readv" -> MacosSyscall.Readv
-    | "readv_nocancel" -> MacosSyscall.ReadvNocancel
-    | "reboot" -> MacosSyscall.Reboot
-    | "record_system_event" -> MacosSyscall.RecordSystemEvent
-    | "recvfrom" -> MacosSyscall.Recvfrom
-    | "recvfrom_nocancel" -> MacosSyscall.RecvfromNocancel
-    | "recvmsg" -> MacosSyscall.Recvmsg
-    | "recvmsg_nocancel" -> MacosSyscall.RecvmsgNocancel
-    | "recvmsg_x" -> MacosSyscall.RecvmsgX
-    | "removexattr" -> MacosSyscall.Removexattr
-    | "rename" -> MacosSyscall.Rename
-    | "renameat" -> MacosSyscall.Renameat
-    | "renameatx_np" -> MacosSyscall.RenameatxNp
-    | "revoke" -> MacosSyscall.Revoke
-    | "rmdir" -> MacosSyscall.Rmdir
-    | "searchfs" -> MacosSyscall.Searchfs
-    | "select" -> MacosSyscall.Select
-    | "select_nocancel" -> MacosSyscall.SelectNocancel
-    | "sem_close" -> MacosSyscall.SemClose
-    | "sem_open" -> MacosSyscall.SemOpen
-    | "sem_post" -> MacosSyscall.SemPost
-    | "sem_trywait" -> MacosSyscall.SemTrywait
-    | "sem_unlink" -> MacosSyscall.SemUnlink
-    | "sem_wait" -> MacosSyscall.SemWait
-    | "sem_wait_nocancel" -> MacosSyscall.SemWaitNocancel
-    | "semctl" -> MacosSyscall.Semctl
-    | "semget" -> MacosSyscall.Semget
-    | "semop" -> MacosSyscall.Semop
-    | "semsys" -> MacosSyscall.Semsys
-    | "sendfile" -> MacosSyscall.Sendfile
-    | "sendmsg" -> MacosSyscall.Sendmsg
-    | "sendmsg_nocancel" -> MacosSyscall.SendmsgNocancel
-    | "sendmsg_x" -> MacosSyscall.SendmsgX
-    | "sendto" -> MacosSyscall.Sendto
-    | "sendto_nocancel" -> MacosSyscall.SendtoNocancel
-    | "setattrlist" -> MacosSyscall.Setattrlist
-    | "setattrlistat" -> MacosSyscall.Setattrlistat
-    | "setaudit_addr" -> MacosSyscall.SetauditAddr
-    | "setauid" -> MacosSyscall.Setauid
-    | "setegid" -> MacosSyscall.Setegid
-    | "seteuid" -> MacosSyscall.Seteuid
-    | "setgid" -> MacosSyscall.Setgid
-    | "setgroups" -> MacosSyscall.Setgroups
-    | "setitimer" -> MacosSyscall.Setitimer
-    | "setlogin" -> MacosSyscall.Setlogin
-    | "setpgid" -> MacosSyscall.Setpgid
-    | "setpriority" -> MacosSyscall.Setpriority
-    | "setprivexec" -> MacosSyscall.Setprivexec
-    | "setregid" -> MacosSyscall.Setregid
-    | "setreuid" -> MacosSyscall.Setreuid
-    | "setrlimit" -> MacosSyscall.Setrlimit
-    | "setsgroups" -> MacosSyscall.Setsgroups
-    | "setsid" -> MacosSyscall.Setsid
-    | "setsockopt" -> MacosSyscall.Setsockopt
-    | "settid" -> MacosSyscall.Settid
-    | "settid_with_pid" -> MacosSyscall.SettidWithPid
-    | "settimeofday" -> MacosSyscall.Settimeofday
-    | "setuid" -> MacosSyscall.Setuid
-    | "setwgroups" -> MacosSyscall.Setwgroups
-    | "setxattr" -> MacosSyscall.Setxattr
-    | "sfi_ctl" -> MacosSyscall.SfiCtl
-    | "sfi_pidctl" -> MacosSyscall.SfiPidctl
-    | "shared_region_check_np" -> MacosSyscall.SharedRegionCheckNp
+    | "memorystatus_control" ->
+      MacosSyscall.MemorystatusControl
+    | "memorystatus_get_level" ->
+      MacosSyscall.MemorystatusGetLevel
+    | "microstackshot" ->
+      MacosSyscall.Microstackshot
+    | "mincore" ->
+      MacosSyscall.Mincore
+    | "minherit" ->
+      MacosSyscall.Minherit
+    | "mkdir" ->
+      MacosSyscall.Mkdir
+    | "mkdir_extended" ->
+      MacosSyscall.MkdirExtended
+    | "mkdirat" ->
+      MacosSyscall.Mkdirat
+    | "mkfifo" ->
+      MacosSyscall.Mkfifo
+    | "mkfifo_extended" ->
+      MacosSyscall.MkfifoExtended
+    | "mkfifoat" ->
+      MacosSyscall.Mkfifoat
+    | "mknod" ->
+      MacosSyscall.Mknod
+    | "mknodat" ->
+      MacosSyscall.Mknodat
+    | "mlock" ->
+      MacosSyscall.Mlock
+    | "mlockall" ->
+      MacosSyscall.Mlockall
+    | "mmap" ->
+      MacosSyscall.Mmap
+    | "mount" ->
+      MacosSyscall.Mount
+    | "mprotect" ->
+      MacosSyscall.Mprotect
+    | "mremap_encrypted" ->
+      MacosSyscall.MremapEncrypted
+    | "msgctl" ->
+      MacosSyscall.Msgctl
+    | "msgget" ->
+      MacosSyscall.Msgget
+    | "msgrcv" ->
+      MacosSyscall.Msgrcv
+    | "msgrcv_nocancel" ->
+      MacosSyscall.MsgrcvNocancel
+    | "msgsnd" ->
+      MacosSyscall.Msgsnd
+    | "msgsnd_nocancel" ->
+      MacosSyscall.MsgsndNocancel
+    | "msgsys" ->
+      MacosSyscall.Msgsys
+    | "msync" ->
+      MacosSyscall.Msync
+    | "msync_nocancel" ->
+      MacosSyscall.MsyncNocancel
+    | "munlock" ->
+      MacosSyscall.Munlock
+    | "munlockall" ->
+      MacosSyscall.Munlockall
+    | "munmap" ->
+      MacosSyscall.Munmap
+    | "necp_client_action" ->
+      MacosSyscall.NecpClientAction
+    | "necp_match_policy" ->
+      MacosSyscall.NecpMatchPolicy
+    | "necp_open" ->
+      MacosSyscall.NecpOpen
+    | "necp_session_action" ->
+      MacosSyscall.NecpSessionAction
+    | "necp_session_open" ->
+      MacosSyscall.NecpSessionOpen
+    | "net_qos_guideline" ->
+      MacosSyscall.NetQosGuideline
+    | "netagent_trigger" ->
+      MacosSyscall.NetagentTrigger
+    | "nfssvc" ->
+      MacosSyscall.Nfssvc
+    | "ntp_adjtime" ->
+      MacosSyscall.NtpAdjtime
+    | "ntp_gettime" ->
+      MacosSyscall.NtpGettime
+    | "objc_bp_assist_cfg_np" ->
+      MacosSyscall.ObjcBpAssistCfgNp
+    | "open" ->
+      MacosSyscall.Open
+    | "open_dprotected_np" ->
+      MacosSyscall.OpenDprotectedNp
+    | "open_extended" ->
+      MacosSyscall.OpenExtended
+    | "open_nocancel" ->
+      MacosSyscall.OpenNocancel
+    | "openat" ->
+      MacosSyscall.Openat
+    | "openat_dprotected_np" ->
+      MacosSyscall.OpenatDprotectedNp
+    | "openat_nocancel" ->
+      MacosSyscall.OpenatNocancel
+    | "openbyid_np" ->
+      MacosSyscall.OpenbyidNp
+    | "os_fault_with_payload" ->
+      MacosSyscall.OsFaultWithPayload
+    | "oslog_coproc" ->
+      MacosSyscall.OslogCoproc
+    | "oslog_coproc_reg" ->
+      MacosSyscall.OslogCoprocReg
+    | "panic_with_data" ->
+      MacosSyscall.PanicWithData
+    | "pathconf" ->
+      MacosSyscall.Pathconf
+    | "peeloff" ->
+      MacosSyscall.Peeloff
+    | "persona" ->
+      MacosSyscall.Persona
+    | "pid_hibernate" ->
+      MacosSyscall.PidHibernate
+    | "pid_resume" ->
+      MacosSyscall.PidResume
+    | "pid_shutdown_sockets" ->
+      MacosSyscall.PidShutdownSockets
+    | "pid_suspend" ->
+      MacosSyscall.PidSuspend
+    | "pipe" ->
+      MacosSyscall.Pipe
+    | "pivot_root" ->
+      MacosSyscall.PivotRoot
+    | "poll" ->
+      MacosSyscall.Poll
+    | "poll_nocancel" ->
+      MacosSyscall.PollNocancel
+    | "posix_spawn" ->
+      MacosSyscall.PosixSpawn
+    | "pread" ->
+      MacosSyscall.Pread
+    | "pread_nocancel" ->
+      MacosSyscall.PreadNocancel
+    | "preadv" ->
+      MacosSyscall.Preadv
+    | "preadv_nocancel" ->
+      MacosSyscall.PreadvNocancel
+    | "proc_info" ->
+      MacosSyscall.ProcInfo
+    | "proc_info_extended_id" ->
+      MacosSyscall.ProcInfoExtendedId
+    | "proc_rlimit_control" ->
+      MacosSyscall.ProcRlimitControl
+    | "proc_trace_log" ->
+      MacosSyscall.ProcTraceLog
+    | "proc_uuid_policy" ->
+      MacosSyscall.ProcUuidPolicy
+    | "process_policy" ->
+      MacosSyscall.ProcessPolicy
+    | "pselect" ->
+      MacosSyscall.Pselect
+    | "pselect_nocancel" ->
+      MacosSyscall.PselectNocancel
+    | "psynch_cvbroad" ->
+      MacosSyscall.PsynchCvbroad
+    | "psynch_cvclrprepost" ->
+      MacosSyscall.PsynchCvclrprepost
+    | "psynch_cvsignal" ->
+      MacosSyscall.PsynchCvsignal
+    | "psynch_cvwait" ->
+      MacosSyscall.PsynchCvwait
+    | "psynch_mutexdrop" ->
+      MacosSyscall.PsynchMutexdrop
+    | "psynch_mutexwait" ->
+      MacosSyscall.PsynchMutexwait
+    | "psynch_rw_downgrade" ->
+      MacosSyscall.PsynchRwDowngrade
+    | "psynch_rw_longrdlock" ->
+      MacosSyscall.PsynchRwLongrdlock
+    | "psynch_rw_rdlock" ->
+      MacosSyscall.PsynchRwRdlock
+    | "psynch_rw_unlock" ->
+      MacosSyscall.PsynchRwUnlock
+    | "psynch_rw_unlock2" ->
+      MacosSyscall.PsynchRwUnlock2
+    | "psynch_rw_upgrade" ->
+      MacosSyscall.PsynchRwUpgrade
+    | "psynch_rw_wrlock" ->
+      MacosSyscall.PsynchRwWrlock
+    | "psynch_rw_yieldwrlock" ->
+      MacosSyscall.PsynchRwYieldwrlock
+    | "ptrace" ->
+      MacosSyscall.Ptrace
+    | "pwrite" ->
+      MacosSyscall.Pwrite
+    | "pwrite_nocancel" ->
+      MacosSyscall.PwriteNocancel
+    | "pwritev" ->
+      MacosSyscall.Pwritev
+    | "pwritev_nocancel" ->
+      MacosSyscall.PwritevNocancel
+    | "quotactl" ->
+      MacosSyscall.Quotactl
+    | "read" ->
+      MacosSyscall.Read
+    | "read_nocancel" ->
+      MacosSyscall.ReadNocancel
+    | "readlink" ->
+      MacosSyscall.Readlink
+    | "readlinkat" ->
+      MacosSyscall.Readlinkat
+    | "readv" ->
+      MacosSyscall.Readv
+    | "readv_nocancel" ->
+      MacosSyscall.ReadvNocancel
+    | "reboot" ->
+      MacosSyscall.Reboot
+    | "record_system_event" ->
+      MacosSyscall.RecordSystemEvent
+    | "recvfrom" ->
+      MacosSyscall.Recvfrom
+    | "recvfrom_nocancel" ->
+      MacosSyscall.RecvfromNocancel
+    | "recvmsg" ->
+      MacosSyscall.Recvmsg
+    | "recvmsg_nocancel" ->
+      MacosSyscall.RecvmsgNocancel
+    | "recvmsg_x" ->
+      MacosSyscall.RecvmsgX
+    | "removexattr" ->
+      MacosSyscall.Removexattr
+    | "rename" ->
+      MacosSyscall.Rename
+    | "renameat" ->
+      MacosSyscall.Renameat
+    | "renameatx_np" ->
+      MacosSyscall.RenameatxNp
+    | "revoke" ->
+      MacosSyscall.Revoke
+    | "rmdir" ->
+      MacosSyscall.Rmdir
+    | "searchfs" ->
+      MacosSyscall.Searchfs
+    | "select" ->
+      MacosSyscall.Select
+    | "select_nocancel" ->
+      MacosSyscall.SelectNocancel
+    | "sem_close" ->
+      MacosSyscall.SemClose
+    | "sem_open" ->
+      MacosSyscall.SemOpen
+    | "sem_post" ->
+      MacosSyscall.SemPost
+    | "sem_trywait" ->
+      MacosSyscall.SemTrywait
+    | "sem_unlink" ->
+      MacosSyscall.SemUnlink
+    | "sem_wait" ->
+      MacosSyscall.SemWait
+    | "sem_wait_nocancel" ->
+      MacosSyscall.SemWaitNocancel
+    | "semctl" ->
+      MacosSyscall.Semctl
+    | "semget" ->
+      MacosSyscall.Semget
+    | "semop" ->
+      MacosSyscall.Semop
+    | "semsys" ->
+      MacosSyscall.Semsys
+    | "sendfile" ->
+      MacosSyscall.Sendfile
+    | "sendmsg" ->
+      MacosSyscall.Sendmsg
+    | "sendmsg_nocancel" ->
+      MacosSyscall.SendmsgNocancel
+    | "sendmsg_x" ->
+      MacosSyscall.SendmsgX
+    | "sendto" ->
+      MacosSyscall.Sendto
+    | "sendto_nocancel" ->
+      MacosSyscall.SendtoNocancel
+    | "setattrlist" ->
+      MacosSyscall.Setattrlist
+    | "setattrlistat" ->
+      MacosSyscall.Setattrlistat
+    | "setaudit_addr" ->
+      MacosSyscall.SetauditAddr
+    | "setauid" ->
+      MacosSyscall.Setauid
+    | "setegid" ->
+      MacosSyscall.Setegid
+    | "seteuid" ->
+      MacosSyscall.Seteuid
+    | "setgid" ->
+      MacosSyscall.Setgid
+    | "setgroups" ->
+      MacosSyscall.Setgroups
+    | "setitimer" ->
+      MacosSyscall.Setitimer
+    | "setlogin" ->
+      MacosSyscall.Setlogin
+    | "setpgid" ->
+      MacosSyscall.Setpgid
+    | "setpriority" ->
+      MacosSyscall.Setpriority
+    | "setprivexec" ->
+      MacosSyscall.Setprivexec
+    | "setregid" ->
+      MacosSyscall.Setregid
+    | "setreuid" ->
+      MacosSyscall.Setreuid
+    | "setrlimit" ->
+      MacosSyscall.Setrlimit
+    | "setsgroups" ->
+      MacosSyscall.Setsgroups
+    | "setsid" ->
+      MacosSyscall.Setsid
+    | "setsockopt" ->
+      MacosSyscall.Setsockopt
+    | "settid" ->
+      MacosSyscall.Settid
+    | "settid_with_pid" ->
+      MacosSyscall.SettidWithPid
+    | "settimeofday" ->
+      MacosSyscall.Settimeofday
+    | "setuid" ->
+      MacosSyscall.Setuid
+    | "setwgroups" ->
+      MacosSyscall.Setwgroups
+    | "setxattr" ->
+      MacosSyscall.Setxattr
+    | "sfi_ctl" ->
+      MacosSyscall.SfiCtl
+    | "sfi_pidctl" ->
+      MacosSyscall.SfiPidctl
+    | "shared_region_check_np" ->
+      MacosSyscall.SharedRegionCheckNp
     | "shared_region_map_and_slide_2_np" ->
       MacosSyscall.SharedRegionMapAndSlide2Np
-    | "shm_open" -> MacosSyscall.ShmOpen
-    | "shm_unlink" -> MacosSyscall.ShmUnlink
-    | "shmat" -> MacosSyscall.Shmat
-    | "shmctl" -> MacosSyscall.Shmctl
-    | "shmdt" -> MacosSyscall.Shmdt
-    | "shmget" -> MacosSyscall.Shmget
-    | "shmsys" -> MacosSyscall.Shmsys
-    | "shutdown" -> MacosSyscall.Shutdown
-    | "sigaction" -> MacosSyscall.Sigaction
-    | "sigaltstack" -> MacosSyscall.Sigaltstack
-    | "sigpending" -> MacosSyscall.Sigpending
-    | "sigprocmask" -> MacosSyscall.Sigprocmask
-    | "sigreturn" -> MacosSyscall.Sigreturn
-    | "sigsuspend" -> MacosSyscall.Sigsuspend
-    | "sigsuspend_nocancel" -> MacosSyscall.SigsuspendNocancel
-    | "socket" -> MacosSyscall.Socket
-    | "socket_delegate" -> MacosSyscall.SocketDelegate
-    | "socketpair" -> MacosSyscall.Socketpair
-    | "stack_snapshot_with_config" -> MacosSyscall.StackSnapshotWithConfig
-    | "stat" -> MacosSyscall.Stat
-    | "stat64" -> MacosSyscall.Stat64
-    | "stat64_extended" -> MacosSyscall.Stat64Extended
-    | "stat_extended" -> MacosSyscall.StatExtended
-    | "statfs" -> MacosSyscall.Statfs
-    | "statfs64" -> MacosSyscall.Statfs64
-    | "swapon" -> MacosSyscall.Swapon
-    | "symlink" -> MacosSyscall.Symlink
-    | "symlinkat" -> MacosSyscall.Symlinkat
-    | "sync" -> MacosSyscall.Sync
-    | "sysctl" -> MacosSyscall.Sysctl
-    | "sysctlbyname" -> MacosSyscall.Sysctlbyname
-    | "system_override" -> MacosSyscall.SystemOverride
-    | "task_inspect_for_pid" -> MacosSyscall.TaskInspectForPid
-    | "task_read_for_pid" -> MacosSyscall.TaskReadForPid
-    | "telemetry" -> MacosSyscall.Telemetry
-    | "terminate_with_payload" -> MacosSyscall.TerminateWithPayload
-    | "thread_selfcounts" -> MacosSyscall.ThreadSelfcounts
-    | "thread_selfid" -> MacosSyscall.ThreadSelfid
-    | "thread_selfusage" -> MacosSyscall.ThreadSelfusage
-    | "tracker_action" -> MacosSyscall.TrackerAction
-    | "truncate" -> MacosSyscall.Truncate
-    | "ulock_wait" -> MacosSyscall.UlockWait
-    | "ulock_wait2" -> MacosSyscall.UlockWait2
-    | "ulock_wake" -> MacosSyscall.UlockWake
-    | "umask" -> MacosSyscall.Umask
-    | "umask_extended" -> MacosSyscall.UmaskExtended
-    | "undelete" -> MacosSyscall.Undelete
-    | "ungraftdmg" -> MacosSyscall.Ungraftdmg
-    | "unlink" -> MacosSyscall.Unlink
-    | "unlinkat" -> MacosSyscall.Unlinkat
-    | "unmount" -> MacosSyscall.Unmount
-    | "usrctl" -> MacosSyscall.Usrctl
-    | "utimes" -> MacosSyscall.Utimes
-    | "vfork" -> MacosSyscall.Vfork
-    | "vfs_purge" -> MacosSyscall.VfsPurge
-    | "vm_pressure_monitor" -> MacosSyscall.VmPressureMonitor
-    | "wait4" -> MacosSyscall.Wait4
-    | "wait4_nocancel" -> MacosSyscall.Wait4Nocancel
-    | "waitid" -> MacosSyscall.Waitid
-    | "waitid_nocancel" -> MacosSyscall.WaitidNocancel
-    | "work_interval_ctl" -> MacosSyscall.WorkIntervalCtl
-    | "workq_kernreturn" -> MacosSyscall.WorkqKernreturn
-    | "workq_open" -> MacosSyscall.WorkqOpen
-    | "write" -> MacosSyscall.Write
-    | "write_nocancel" -> MacosSyscall.WriteNocancel
-    | "writev" -> MacosSyscall.Writev
-    | "writev_nocancel" -> MacosSyscall.WritevNocancel
-    | _ -> raise UnhandledSyscallException
+    | "shm_open" ->
+      MacosSyscall.ShmOpen
+    | "shm_unlink" ->
+      MacosSyscall.ShmUnlink
+    | "shmat" ->
+      MacosSyscall.Shmat
+    | "shmctl" ->
+      MacosSyscall.Shmctl
+    | "shmdt" ->
+      MacosSyscall.Shmdt
+    | "shmget" ->
+      MacosSyscall.Shmget
+    | "shmsys" ->
+      MacosSyscall.Shmsys
+    | "shutdown" ->
+      MacosSyscall.Shutdown
+    | "sigaction" ->
+      MacosSyscall.Sigaction
+    | "sigaltstack" ->
+      MacosSyscall.Sigaltstack
+    | "sigpending" ->
+      MacosSyscall.Sigpending
+    | "sigprocmask" ->
+      MacosSyscall.Sigprocmask
+    | "sigreturn" ->
+      MacosSyscall.Sigreturn
+    | "sigsuspend" ->
+      MacosSyscall.Sigsuspend
+    | "sigsuspend_nocancel" ->
+      MacosSyscall.SigsuspendNocancel
+    | "socket" ->
+      MacosSyscall.Socket
+    | "socket_delegate" ->
+      MacosSyscall.SocketDelegate
+    | "socketpair" ->
+      MacosSyscall.Socketpair
+    | "stack_snapshot_with_config" ->
+      MacosSyscall.StackSnapshotWithConfig
+    | "stat" ->
+      MacosSyscall.Stat
+    | "stat64" ->
+      MacosSyscall.Stat64
+    | "stat64_extended" ->
+      MacosSyscall.Stat64Extended
+    | "stat_extended" ->
+      MacosSyscall.StatExtended
+    | "statfs" ->
+      MacosSyscall.Statfs
+    | "statfs64" ->
+      MacosSyscall.Statfs64
+    | "swapon" ->
+      MacosSyscall.Swapon
+    | "symlink" ->
+      MacosSyscall.Symlink
+    | "symlinkat" ->
+      MacosSyscall.Symlinkat
+    | "sync" ->
+      MacosSyscall.Sync
+    | "sysctl" ->
+      MacosSyscall.Sysctl
+    | "sysctlbyname" ->
+      MacosSyscall.Sysctlbyname
+    | "system_override" ->
+      MacosSyscall.SystemOverride
+    | "task_inspect_for_pid" ->
+      MacosSyscall.TaskInspectForPid
+    | "task_read_for_pid" ->
+      MacosSyscall.TaskReadForPid
+    | "telemetry" ->
+      MacosSyscall.Telemetry
+    | "terminate_with_payload" ->
+      MacosSyscall.TerminateWithPayload
+    | "thread_selfcounts" ->
+      MacosSyscall.ThreadSelfcounts
+    | "thread_selfid" ->
+      MacosSyscall.ThreadSelfid
+    | "thread_selfusage" ->
+      MacosSyscall.ThreadSelfusage
+    | "tracker_action" ->
+      MacosSyscall.TrackerAction
+    | "truncate" ->
+      MacosSyscall.Truncate
+    | "ulock_wait" ->
+      MacosSyscall.UlockWait
+    | "ulock_wait2" ->
+      MacosSyscall.UlockWait2
+    | "ulock_wake" ->
+      MacosSyscall.UlockWake
+    | "umask" ->
+      MacosSyscall.Umask
+    | "umask_extended" ->
+      MacosSyscall.UmaskExtended
+    | "undelete" ->
+      MacosSyscall.Undelete
+    | "ungraftdmg" ->
+      MacosSyscall.Ungraftdmg
+    | "unlink" ->
+      MacosSyscall.Unlink
+    | "unlinkat" ->
+      MacosSyscall.Unlinkat
+    | "unmount" ->
+      MacosSyscall.Unmount
+    | "usrctl" ->
+      MacosSyscall.Usrctl
+    | "utimes" ->
+      MacosSyscall.Utimes
+    | "vfork" ->
+      MacosSyscall.Vfork
+    | "vfs_purge" ->
+      MacosSyscall.VfsPurge
+    | "vm_pressure_monitor" ->
+      MacosSyscall.VmPressureMonitor
+    | "wait4" ->
+      MacosSyscall.Wait4
+    | "wait4_nocancel" ->
+      MacosSyscall.Wait4Nocancel
+    | "waitid" ->
+      MacosSyscall.Waitid
+    | "waitid_nocancel" ->
+      MacosSyscall.WaitidNocancel
+    | "work_interval_ctl" ->
+      MacosSyscall.WorkIntervalCtl
+    | "workq_kernreturn" ->
+      MacosSyscall.WorkqKernreturn
+    | "workq_open" ->
+      MacosSyscall.WorkqOpen
+    | "write" ->
+      MacosSyscall.Write
+    | "write_nocancel" ->
+      MacosSyscall.WriteNocancel
+    | "writev" ->
+      MacosSyscall.Writev
+    | "writev_nocancel" ->
+      MacosSyscall.WritevNocancel
+    | _ ->
+      raise UnhandledSyscallException

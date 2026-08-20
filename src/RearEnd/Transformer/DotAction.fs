@@ -46,7 +46,8 @@ type DOTAction() =
     | CFG(addr, cfg) ->
       let name = Addr.toFuncName addr
       Serializer.ToDOT(cfg, name, vToStr, (fun e -> e.ToString()))
-    | NoCFG e -> $"Failed to construct CFG: {e}"
+    | NoCFG e ->
+      $"Failed to construct CFG: {e}"
 
   interface IAction with
     member _.ActionID with get() = "dot"

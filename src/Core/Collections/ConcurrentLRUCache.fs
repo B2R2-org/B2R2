@@ -47,12 +47,9 @@ type ConcurrentLRUCache<'K, 'V when 'K: equality and 'V: equality>
   /// Gets the number of entries currently stored in the cache.
   member _.Count with get() = size
 
-  member inline private _.AcquireLock() =
-    try Monitor.Enter lock
-    finally ()
+  member inline private _.AcquireLock() = try Monitor.Enter lock finally ()
 
-  member inline private _.ReleaseLock() =
-    Monitor.Exit lock
+  member inline private _.ReleaseLock() = Monitor.Exit lock
 
   member private _.InsertBack v =
     if isNull head then head <- v else tail.Next <- v
@@ -77,7 +74,8 @@ type ConcurrentLRUCache<'K, 'V when 'K: equality and 'V: equality>
         this.Remove v
         this.InsertBack v |> ignore
         Some v.Value
-      | _ -> None
+      | _ ->
+        None
     finally
       this.ReleaseLock()
 
@@ -88,7 +86,8 @@ type ConcurrentLRUCache<'K, 'V when 'K: equality and 'V: equality>
   /// returns the already cached value if another thread inserted it first.
   member this.GetOrAdd(key: 'K, factory: ICacheValueFactory<_, 'V>, arg) =
     match this.TryGetCached key with
-    | Some value -> value
+    | Some value ->
+      value
     | None ->
       let value = factory.Create arg
       this.AcquireLock()

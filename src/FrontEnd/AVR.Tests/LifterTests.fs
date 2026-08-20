@@ -267,14 +267,16 @@ type LifterTests() =
   member _.``a skip clears a four-byte successor test``() =
     "81ff0c941a09"
     ++ [| AST.intercjmp (AST.extract !.R24 1<rt> 1 == AST.b1)
-            (!.PC .+ numPC 6) (!.PC .+ numPC 2) |]
+            (!.PC .+ numPC 6)
+            (!.PC .+ numPC 2) |]
     |> test
 
   [<TestMethod>]
   member _.``a skip clears a two-byte successor test``() =
     "81ff0000"
     ++ [| AST.intercjmp (AST.extract !.R24 1<rt> 1 == AST.b1)
-            (!.PC .+ numPC 4) (!.PC .+ numPC 2) |]
+            (!.PC .+ numPC 4)
+            (!.PC .+ numPC 2) |]
     |> test
 
   (* SLEEP stops the core until something outside it intervenes. What that is,

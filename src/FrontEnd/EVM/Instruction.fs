@@ -115,8 +115,7 @@ type Instruction
     member this.GetNextInstrAddrs() =
       let fallthrough = this.Address + uint64 numBytes
       let acc = [| fallthrough |]
-      if (this :> IInstruction).IsExit then [||]
-      else acc
+      if (this :> IInstruction).IsExit then [||] else acc
 
     member _.InterruptNum(_num: byref<int64>) = Terminator.futureFeature ()
 

@@ -44,14 +44,16 @@ let private loadForm funct3 ins =
   match ins.Operands with
   | [ Rg d; Mem(offset, b) ] ->
     iType OpLoadFp funct3 (fpr d) (gpr b) (immediate12 offset)
-  | _ -> wrongOperands ins
+  | _ ->
+    wrongOperands ins
 
 /// A store out of a floating-point register.
 let private storeForm funct3 ins =
   match ins.Operands with
   | [ Rg s; Mem(offset, b) ] ->
     sType OpStoreFp funct3 (gpr b) (fpr s) (immediate12 offset)
-  | _ -> wrongOperands ins
+  | _ ->
+    wrongOperands ins
 
 /// <summary>
 /// A multiply whose product is added to a third register before it is rounded.
@@ -65,7 +67,8 @@ let private fusedForm opcode fmt ins =
   | Rg d :: Rg s1 :: Rg s2 :: Rg s3 :: rest ->
     let funct7 = (fpr s3 <<< 2) ||| fmt
     rType opcode (roundingOf rest) funct7 (fpr d) (fpr s1) (fpr s2)
-  | _ -> wrongOperands ins
+  | _ ->
+    wrongOperands ins
 
 /// An instruction computing from two floating-point registers into a third and
 /// rounding what it computed.
@@ -73,7 +76,8 @@ let private roundedForm funct7 ins =
   match ins.Operands with
   | Rg d :: Rg s1 :: Rg s2 :: rest ->
     rType OpFloat (roundingOf rest) funct7 (fpr d) (fpr s1) (fpr s2)
-  | _ -> wrongOperands ins
+  | _ ->
+    wrongOperands ins
 
 /// The same from one register rather than two, where what would name the second
 /// says which instruction it is instead.
@@ -81,7 +85,8 @@ let private unaryForm funct7 rs2 ins =
   match ins.Operands with
   | Rg d :: Rg s :: rest ->
     rType OpFloat (roundingOf rest) funct7 (fpr d) (fpr s) rs2
-  | _ -> wrongOperands ins
+  | _ ->
+    wrongOperands ins
 
 /// An instruction on two floating-point registers that rounds nothing, so that
 /// the field a rounding mode would fill says which instruction it is.
@@ -89,28 +94,32 @@ let private exactForm funct3 funct7 ins =
   match ins.Operands with
   | [ Rg d; Rg s1; Rg s2 ] ->
     rType OpFloat funct3 funct7 (fpr d) (fpr s1) (fpr s2)
-  | _ -> wrongOperands ins
+  | _ ->
+    wrongOperands ins
 
 /// A comparison, which answers into a general register.
 let private compareForm funct3 funct7 ins =
   match ins.Operands with
   | [ Rg d; Rg s1; Rg s2 ] ->
     rType OpFloat funct3 funct7 (gpr d) (fpr s1) (fpr s2)
-  | _ -> wrongOperands ins
+  | _ ->
+    wrongOperands ins
 
 /// An instruction reading a floating-point register and writing a general one.
 let private fromFloatForm funct7 rs2 ins =
   match ins.Operands with
   | Rg d :: Rg s :: rest ->
     rType OpFloat (roundingOf rest) funct7 (gpr d) (fpr s) rs2
-  | _ -> wrongOperands ins
+  | _ ->
+    wrongOperands ins
 
 /// An instruction reading a general register and writing a floating-point one.
 let private toFloatForm funct7 rs2 ins =
   match ins.Operands with
   | Rg d :: Rg s :: rest ->
     rType OpFloat (roundingOf rest) funct7 (fpr d) (gpr s) rs2
-  | _ -> wrongOperands ins
+  | _ ->
+    wrongOperands ins
 
 /// <summary>
 /// An instruction writing a general register from a floating-point one and

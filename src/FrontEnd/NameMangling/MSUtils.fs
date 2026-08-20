@@ -153,8 +153,8 @@ let makeFunParams (lst: string list) =
   else sprintf "(%s)" (List.reduce (fun x y -> x + "," + y) lst)
 
 let makeTemplateArgs (lst: string list) =
-  if lst.IsEmpty then "<>" else
-  sprintf "<%s>" (List.reduce (fun x y -> x + "," + y) lst)
+  if lst.IsEmpty then "<>"
+  else sprintf "<%s>" (List.reduce (fun x y -> x + "," + y) lst)
 
 /// Gets the preModifierString and postModifierString.
 /// For modifiers that appear before and after the pointer symbol.
@@ -181,7 +181,11 @@ let rec changeToNormalPointer (ptr: MSExpr) =
   match ptr with
   | PointerStrT(_, (pref, modifier), cvT) ->
       PointerStrT(NormalPointer, (pref, modifier), cvT)
-  | ModifiedType(typ, mods) -> ModifiedType(changeToNormalPointer typ, mods)
-  | PointerT(ptrStr, typ) -> PointerT(changeToNormalPointer ptrStr, typ)
-  | ConcatT lst -> List.map changeToNormalPointer lst |> ConcatT
-  | _ -> ptr
+  | ModifiedType(typ, mods) ->
+    ModifiedType(changeToNormalPointer typ, mods)
+  | PointerT(ptrStr, typ) ->
+    PointerT(changeToNormalPointer ptrStr, typ)
+  | ConcatT lst ->
+    List.map changeToNormalPointer lst |> ConcatT
+  | _ ->
+    ptr

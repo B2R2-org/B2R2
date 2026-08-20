@@ -68,20 +68,20 @@ module IntervalSet =
   let private rangeExists i tree =
     let rec loop tree =
       match Op.ViewL tree with
-      | Nil -> false
+      | Nil ->
+        false
       | Cons(x: IntervalSetElem, xs) ->
         if x.Min = i.Min then
-          if x.Max = i.Max then true
-          else loop xs
-        else false
+          if x.Max = i.Max then true else loop xs
+        else
+          false
     loop tree
 
   /// Adds an interval to the interval set. Overlapping intervals are allowed,
   /// but an exact duplicate range is not.
   [<CompiledName("Add")>]
   let add (i: AddrRange) (IntervalSet m) =
-    let l, r =
-      Op.Split((fun (e: InterMonoid<Addr>) -> Key i.Min <= e.Min), m)
+    let l, r = Op.Split((fun (e: InterMonoid<Addr>) -> Key i.Min <= e.Min), m)
     if rangeExists i r then raise InvalidAddrRangeException
     else IntervalSet <| Op.Concat(l, Op.Cons(IntervalSetElem i, r))
 
@@ -94,10 +94,10 @@ module IntervalSet =
     if Prio il <= ((s :> IMeasured<_>).Measurement).Max then
       let z = (s.Monoid :> IMonoid<InterMonoid<Addr>>).Zero
       let (_, x, _) =
-        Op.SplitTree((fun (e: InterMonoid<Addr>) -> Prio il <= e.Max),
-          z, s)
+        Op.SplitTree((fun (e: InterMonoid<Addr>) -> Prio il <= e.Max), z, s)
       x.Min <= ih
-    else false
+    else
+      false
 
   /// Finds all intervals that overlap with the given range. The returned list
   /// follows the interval tree traversal order.
@@ -150,17 +150,18 @@ module IntervalSet =
   /// when there is exactly one such interval.
   [<CompiledName("TryFindExactlyOneByMin")>]
   let tryFindExactlyOneByMin (addr: Addr) (IntervalSet s) =
-    let _, r =
-      Op.Split((fun (e: InterMonoid<Addr>) -> Key addr <= e.Min), s)
+    let _, r = Op.Split((fun (e: InterMonoid<Addr>) -> Key addr <= e.Min), s)
     let rec loop found xs =
       match Op.ViewL xs with
-      | Nil -> found
+      | Nil ->
+        found
       | Cons(x: IntervalSetElem, xs) ->
         if x.Min = addr then
           match found with
           | None -> loop (Some x.Val) xs
           | Some _ -> None
-        else found
+        else
+          found
     loop None r
 
   /// Finds the interval whose low bound (Min) equals the given address when
@@ -173,21 +174,17 @@ module IntervalSet =
 
   /// Checks whether the given address exists in the interval set.
   [<CompiledName("ContainsAddr")>]
-  let containsAddr addr s =
-    overlapsRange (AddrRange.singleton addr) s
+  let containsAddr addr s = overlapsRange (AddrRange.singleton addr) s
 
   /// Checks whether the exact interval exists in the interval set.
   [<CompiledName("ContainsRange")>]
   let containsRange (i: AddrRange) (IntervalSet s) =
-    let _, r =
-      Op.Split((fun (e: InterMonoid<Addr>) -> Key i.Min <= e.Min), s)
+    let _, r = Op.Split((fun (e: InterMonoid<Addr>) -> Key i.Min <= e.Min), s)
     let rec containLoop r =
       match Op.ViewL r with
       | Nil -> false
       | Cons(x: IntervalSetElem, _) when x.Min = i.Min && x.Max = i.Max -> true
-      | Cons(x, xs) ->
-        if i.Min = x.Min then containLoop xs
-        else false
+      | Cons(x, xs) -> if i.Min = x.Min then containLoop xs else false
     containLoop r
 
   /// Removes the interval that exactly matches the given range. Raises
@@ -198,7 +195,8 @@ module IntervalSet =
       Op.Split((fun (e: InterMonoid<Addr>) -> Key range.Min <= e.Min), s)
     let rec rmLoop l r =
       match Op.ViewL r with
-      | Nil -> raise InvalidAddrRangeException
+      | Nil ->
+        raise InvalidAddrRangeException
       | Cons(x: IntervalSetElem, xs)
         when x.Min = range.Min && x.Max = range.Max ->
         Op.Concat(l, xs)

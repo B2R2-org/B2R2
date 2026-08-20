@@ -168,7 +168,8 @@ type SSACFG private(g: IDiGraph<SSABasicBlock, CFGEdgeKind>) =
         | Def({ Kind = k }, _) when k = targetVarKind -> true
         | _ -> false)
     match stmtInfo with
-    | Some stmtInfo -> Some(snd stmtInfo)
+    | Some stmtInfo ->
+      Some(snd stmtInfo)
     | None ->
       match v.VData.ImmDominator with
       | Some idom -> this.FindDef(idom, targetVarKind)

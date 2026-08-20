@@ -33,7 +33,8 @@ open B2R2.MiddleEnd.ControlFlowAnalysis
 type PythonFunctionIdentification(binFile: PythonBinFile) =
   /// Traverses nested code objects in a bytecode and collects their addresses.
   let rec collectEntryPoints acc = function
-    | [] -> acc |> List.toArray
+    | [] ->
+      acc |> List.toArray
     | Python.PyCode(codeObj) :: rest ->
       let acc = (fst codeObj.Code) :: acc
       let objects =
@@ -45,7 +46,8 @@ type PythonFunctionIdentification(binFile: PythonBinFile) =
         |> Array.filter (fun obj -> obj.IsPyCode)
         |> Array.toList
       collectEntryPoints acc (nestedCodeObjs @ rest)
-    | obj -> failwithf "Unexpected object: %A" obj
+    | obj ->
+      failwithf "Unexpected object: %A" obj
 
   interface IFunctionIdentifiable with
     member _.Identify() = collectEntryPoints [] [ binFile.CodeObj ]

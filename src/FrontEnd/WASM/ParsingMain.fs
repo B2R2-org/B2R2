@@ -104,13 +104,15 @@ let private parseStore span reader pos opcode =
   struct (opcode, operands, uint32 nextPos)
 
 let rec private parseTypes span reader pos cnt ret =
-  if cnt = 0 then struct (ret, uint32 (pos + 1))
+  if cnt = 0 then
+    struct (ret, uint32 (pos + 1))
   else
     let struct (t, nextPos) = readType span reader pos
     parseTypes span reader nextPos (cnt - 1) (ret @ [ t ]) (* XXX *)
 
 let rec private parseIndices span reader pos cnt ret =
-  if cnt = 0 then struct (ret, uint32 (pos + 1))
+  if cnt = 0 then
+    struct (ret, uint32 (pos + 1))
   else
     let struct (index, nextPos) = readIndex span reader pos
     parseIndices span reader nextPos (cnt - 1) (ret @ [ index ]) (* XXX *)
@@ -155,8 +157,8 @@ let private parseAtomicNotify span reader pos opcode =
 
 let private parseAtomicFence (span: ByteSpan) (reader: IBinReader) pos opcode =
   let consistencyModel = reader.ReadUInt8(span, pos)
-  struct (opcode, OneOperand(consistencyModel |> ConsistencyModel),
-          uint32 pos + 1u)
+  let opr = OneOperand(consistencyModel |> ConsistencyModel)
+  struct (opcode, opr, uint32 pos + 1u)
 
 let private parseAtomicLoad span reader pos opcode =
   let struct (alignment, nextPos) = readAlignment span reader pos
@@ -182,37 +184,52 @@ let private parseInstruction (span: ByteSpan) (reader: IBinReader) =
   match span[0] with
   | 0xfcuy ->
     match span[1] with
-    | 0x00uy -> struct (I32TruncSatF32S, NoOperand, 2u)
-    | 0x01uy -> struct (I32TruncSatF32U, NoOperand, 2u)
-    | 0x02uy -> struct (I32TruncSatF64S, NoOperand, 2u)
-    | 0x03uy -> struct (I32TruncSatF64U, NoOperand, 2u)
-    | 0x04uy -> struct (I64TruncSatF32S, NoOperand, 2u)
-    | 0x05uy -> struct (I64TruncSatF32U, NoOperand, 2u)
-    | 0x06uy -> struct (I64TruncSatF64S, NoOperand, 2u)
-    | 0x07uy -> struct (I64TruncSatF64U, NoOperand, 2u)
+    | 0x00uy ->
+      struct (I32TruncSatF32S, NoOperand, 2u)
+    | 0x01uy ->
+      struct (I32TruncSatF32U, NoOperand, 2u)
+    | 0x02uy ->
+      struct (I32TruncSatF64S, NoOperand, 2u)
+    | 0x03uy ->
+      struct (I32TruncSatF64U, NoOperand, 2u)
+    | 0x04uy ->
+      struct (I64TruncSatF32S, NoOperand, 2u)
+    | 0x05uy ->
+      struct (I64TruncSatF32U, NoOperand, 2u)
+    | 0x06uy ->
+      struct (I64TruncSatF64S, NoOperand, 2u)
+    | 0x07uy ->
+      struct (I64TruncSatF64U, NoOperand, 2u)
     | 0x08uy ->
       let struct (segment, pos) = readIndex span reader 2
       let struct (memIndex, pos) = readIndex span reader pos
       struct (MemoryInit, TwoOperands(segment, memIndex), uint32 pos)
-    | 0x09uy -> parseIndex span reader 2 DataDrop
+    | 0x09uy ->
+      parseIndex span reader 2 DataDrop
     | 0x0auy ->
       let struct (destMemIndex, pos) = readIndex span reader 2
       let struct (srcMemIndex, pos) = readIndex span reader pos
       struct (MemoryCopy, TwoOperands(destMemIndex, srcMemIndex), uint32 pos)
-    | 0x0buy -> parseIndex span reader 2 MemoryFill
+    | 0x0buy ->
+      parseIndex span reader 2 MemoryFill
     | 0x0cuy ->
       let struct (segment, pos) = readIndex span reader 2
       let struct (tableIndex, pos) = readIndex span reader pos
       struct (TableInit, TwoOperands(segment, tableIndex), uint32 pos)
-    | 0x0duy -> struct (ElemDrop, NoOperand, 2u)
+    | 0x0duy ->
+      struct (ElemDrop, NoOperand, 2u)
     | 0x0euy ->
       let struct (destTable, pos) = readIndex span reader 2
       let struct (srcTable, pos) = readIndex span reader pos
       struct (TableCopy, TwoOperands(destTable, srcTable), uint32 pos)
-    | 0x0fuy -> parseIndex span reader 2 TableGrow
-    | 0x10uy -> parseIndex span reader 2 TableSize
-    | 0x11uy -> parseIndex span reader 2 TableFill
-    | _ -> raise ParsingFailureException
+    | 0x0fuy ->
+      parseIndex span reader 2 TableGrow
+    | 0x10uy ->
+      parseIndex span reader 2 TableSize
+    | 0x11uy ->
+      parseIndex span reader 2 TableFill
+    | _ ->
+      raise ParsingFailureException
   | 0xfduy ->
     match span[1] with
     | 0x00uy -> parseLoad span reader 2 V128Load
@@ -522,218 +539,414 @@ let private parseInstruction (span: ByteSpan) (reader: IBinReader) =
     | 0x4duy -> parseAtomicRmw span reader 2 I64AtomicRmw16CmpxchgU
     | 0x4euy -> parseAtomicRmw span reader 2 I64AtomicRmw32CmpxchgU
     | _ -> raise ParsingFailureException
-  | 0x00uy -> struct (Unreachable, NoOperand, 1u)
-  | 0x01uy -> struct (Nop, NoOperand, 1u)
-  | 0x02uy -> parseType span reader 1 Block
-  | 0x03uy -> parseType span reader 1 Loop
-  | 0x04uy -> parseType span reader 1 If
-  | 0x05uy -> struct (Else, NoOperand, 1u)
-  | 0x06uy -> parseType span reader 1 Try
-  | 0x07uy -> parseIndex span reader 1 Catch
-  | 0x08uy -> parseIndex span reader 1 Throw
-  | 0x09uy -> parseIndex span reader 1 Rethrow
-  | 0x0buy -> struct (End, NoOperand, 1u)
-  | 0x0cuy -> parseIndex span reader 1 Br
-  | 0x0duy -> parseIndex span reader 1 BrIf
+  | 0x00uy ->
+    struct (Unreachable, NoOperand, 1u)
+  | 0x01uy ->
+    struct (Nop, NoOperand, 1u)
+  | 0x02uy ->
+    parseType span reader 1 Block
+  | 0x03uy ->
+    parseType span reader 1 Loop
+  | 0x04uy ->
+    parseType span reader 1 If
+  | 0x05uy ->
+    struct (Else, NoOperand, 1u)
+  | 0x06uy ->
+    parseType span reader 1 Try
+  | 0x07uy ->
+    parseIndex span reader 1 Catch
+  | 0x08uy ->
+    parseIndex span reader 1 Throw
+  | 0x09uy ->
+    parseIndex span reader 1 Rethrow
+  | 0x0buy ->
+    struct (End, NoOperand, 1u)
+  | 0x0cuy ->
+    parseIndex span reader 1 Br
+  | 0x0duy ->
+    parseIndex span reader 1 BrIf
   | 0x0euy ->
     let struct (count, pos) = parseCount span reader 1
     let struct (operands, pos) = parseIndices span reader (int pos) count []
     struct (BrTable, Operands operands, pos)
-  | 0x0fuy -> struct (Return, NoOperand, 1u)
-  | 0x10uy -> parseIndex span reader 1 Call
+  | 0x0fuy ->
+    struct (Return, NoOperand, 1u)
+  | 0x10uy ->
+    parseIndex span reader 1 Call
   | 0x11uy ->
     let struct (sigIndex, pos) = readIndex span reader 1
     let struct (tableIndex, pos) = readIndex span reader pos
     struct (CallIndirect, TwoOperands(sigIndex, tableIndex), uint32 pos)
-  | 0x12uy -> parseIndex span reader 1 ReturnCall
+  | 0x12uy ->
+    parseIndex span reader 1 ReturnCall
   | 0x13uy ->
     let struct (sigIndex, pos) = readIndex span reader 1
     let struct (tableIndex, pos) = readIndex span reader pos
     struct (ReturnCallIndirect, TwoOperands(sigIndex, tableIndex), uint32 pos)
-  | 0x14uy -> struct (CallRef, NoOperand, 1u)
-  | 0x18uy -> parseIndex span reader 1 Delegate
-  | 0x19uy -> struct (CatchAll, NoOperand, 1u)
-  | 0x1auy -> struct (Drop, NoOperand, 1u)
-  | 0x1buy -> struct (Select, NoOperand, 1u)
+  | 0x14uy ->
+    struct (CallRef, NoOperand, 1u)
+  | 0x18uy ->
+    parseIndex span reader 1 Delegate
+  | 0x19uy ->
+    struct (CatchAll, NoOperand, 1u)
+  | 0x1auy ->
+    struct (Drop, NoOperand, 1u)
+  | 0x1buy ->
+    struct (Select, NoOperand, 1u)
   | 0x1cuy ->
     let struct (cnt, pos) = parseCount span reader 1
     let struct (operands, pos) = parseTypes span reader (int pos) cnt []
     struct (SelectT, Operands operands, pos)
-  | 0x20uy -> parseIndex span reader 1 LocalGet
-  | 0x21uy -> parseIndex span reader 1 LocalSet
-  | 0x22uy -> parseIndex span reader 1 LocalTee
-  | 0x23uy -> parseIndex span reader 1 GlobalGet
-  | 0x24uy -> parseIndex span reader 1 GlobalSet
-  | 0x28uy -> parseLoad span reader 1 I32Load
-  | 0x29uy -> parseLoad span reader 1 I64Load
-  | 0x2auy -> parseLoad span reader 1 F32Load
-  | 0x2buy -> parseLoad span reader 1 F64Load
-  | 0x2cuy -> parseLoad span reader 1 I32Load8S
-  | 0x2duy -> parseLoad span reader 1 I32Load8U
-  | 0x2euy -> parseLoad span reader 1 I32Load16S
-  | 0x2fuy -> parseLoad span reader 1 I32Load16U
-  | 0x30uy -> parseLoad span reader 1 I64Load8S
-  | 0x31uy -> parseLoad span reader 1 I64Load8U
-  | 0x32uy -> parseLoad span reader 1 I64Load16S
-  | 0x33uy -> parseLoad span reader 1 I64Load16U
-  | 0x34uy -> parseLoad span reader 1 I64Load32S
-  | 0x35uy -> parseLoad span reader 1 I64Load32U
-  | 0x36uy -> parseStore span reader 1 I32Store
-  | 0x37uy -> parseStore span reader 1 I64Store
-  | 0x38uy -> parseStore span reader 1 F32Store
-  | 0x39uy -> parseStore span reader 1 F64Store
-  | 0x3auy -> parseStore span reader 1 I32Store8
-  | 0x3buy -> parseStore span reader 1 I32Store16
-  | 0x3cuy -> parseStore span reader 1 I64Store8
-  | 0x3duy -> parseStore span reader 1 I64Store16
-  | 0x3euy -> parseStore span reader 1 I64Store32
-  | 0x3fuy -> parseIndex span reader 1 MemorySize
-  | 0x40uy -> parseIndex span reader 1 MemoryGrow
-  | 0x41uy -> parseU32LEB128 span reader 1 I32Const
-  | 0x42uy -> parseU64LEB128 span reader 1 I64Const
-  | 0x43uy -> parseF32 span reader 1 F32Const
-  | 0x44uy -> parseF64 span reader 1 F64Const
-  | 0x45uy -> struct (I32Eqz, NoOperand, 1u)
-  | 0x46uy -> struct (I32Eq, NoOperand, 1u)
-  | 0x47uy -> struct (I32Ne, NoOperand, 1u)
-  | 0x48uy -> struct (I32LtS, NoOperand, 1u)
-  | 0x49uy -> struct (I32LtU, NoOperand, 1u)
-  | 0x4auy -> struct (I32GtS, NoOperand, 1u)
-  | 0x4buy -> struct (I32GtU, NoOperand, 1u)
-  | 0x4cuy -> struct (I32LeS, NoOperand, 1u)
-  | 0x4duy -> struct (I32LeU, NoOperand, 1u)
-  | 0x4euy -> struct (I32GeS, NoOperand, 1u)
-  | 0x4fuy -> struct (I32GeU, NoOperand, 1u)
-  | 0x50uy -> struct (I64Eqz, NoOperand, 1u)
-  | 0x51uy -> struct (I64Eq, NoOperand, 1u)
-  | 0x52uy -> struct (I64Ne, NoOperand, 1u)
-  | 0x53uy -> struct (I64LtS, NoOperand, 1u)
-  | 0x54uy -> struct (I64LtU, NoOperand, 1u)
-  | 0x55uy -> struct (I64GtS, NoOperand, 1u)
-  | 0x56uy -> struct (I64GtU, NoOperand, 1u)
-  | 0x57uy -> struct (I64LeS, NoOperand, 1u)
-  | 0x58uy -> struct (I64LeU, NoOperand, 1u)
-  | 0x59uy -> struct (I64GeS, NoOperand, 1u)
-  | 0x5auy -> struct (I64GeU, NoOperand, 1u)
-  | 0x5buy -> struct (F32Eq, NoOperand, 1u)
-  | 0x5cuy -> struct (F32Ne, NoOperand, 1u)
-  | 0x5duy -> struct (F32Lt, NoOperand, 1u)
-  | 0x5euy -> struct (F32Gt, NoOperand, 1u)
-  | 0x5fuy -> struct (F32Le, NoOperand, 1u)
-  | 0x60uy -> struct (F32Ge, NoOperand, 1u)
-  | 0x61uy -> struct (F64Eq, NoOperand, 1u)
-  | 0x62uy -> struct (F64Ne, NoOperand, 1u)
-  | 0x63uy -> struct (F64Lt, NoOperand, 1u)
-  | 0x64uy -> struct (F64Gt, NoOperand, 1u)
-  | 0x65uy -> struct (F64Le, NoOperand, 1u)
-  | 0x66uy -> struct (F64Ge, NoOperand, 1u)
-  | 0x67uy -> struct (I32Clz, NoOperand, 1u)
-  | 0x68uy -> struct (I32Ctz, NoOperand, 1u)
-  | 0x69uy -> struct (I32Popcnt, NoOperand, 1u)
-  | 0x6auy -> struct (I32Add, NoOperand, 1u)
-  | 0x6buy -> struct (I32Sub, NoOperand, 1u)
-  | 0x6cuy -> struct (I32Mul, NoOperand, 1u)
-  | 0x6duy -> struct (I32DivS, NoOperand, 1u)
-  | 0x6euy -> struct (I32DivU, NoOperand, 1u)
-  | 0x6fuy -> struct (I32RemS, NoOperand, 1u)
-  | 0x70uy -> struct (I32RemU, NoOperand, 1u)
-  | 0x71uy -> struct (I32And, NoOperand, 1u)
-  | 0x72uy -> struct (I32Or, NoOperand, 1u)
-  | 0x73uy -> struct (I32Xor, NoOperand, 1u)
-  | 0x74uy -> struct (I32Shl, NoOperand, 1u)
-  | 0x75uy -> struct (I32ShrS, NoOperand, 1u)
-  | 0x76uy -> struct (I32ShrU, NoOperand, 1u)
-  | 0x77uy -> struct (I32Rotl, NoOperand, 1u)
-  | 0x78uy -> struct (I32Rotr, NoOperand, 1u)
-  | 0x79uy -> struct (I64Clz, NoOperand, 1u)
-  | 0x7auy -> struct (I64Ctz, NoOperand, 1u)
-  | 0x7buy -> struct (I64Popcnt, NoOperand, 1u)
-  | 0x7cuy -> struct (I64Add, NoOperand, 1u)
-  | 0x7duy -> struct (I64Sub, NoOperand, 1u)
-  | 0x7euy -> struct (I64Mul, NoOperand, 1u)
-  | 0x7fuy -> struct (I64DivS, NoOperand, 1u)
-  | 0x80uy -> struct (I64DivU, NoOperand, 1u)
-  | 0x81uy -> struct (I64RemS, NoOperand, 1u)
-  | 0x82uy -> struct (I64RemU, NoOperand, 1u)
-  | 0x83uy -> struct (I64And, NoOperand, 1u)
-  | 0x84uy -> struct (I64Or, NoOperand, 1u)
-  | 0x85uy -> struct (I64Xor, NoOperand, 1u)
-  | 0x86uy -> struct (I64Shl, NoOperand, 1u)
-  | 0x87uy -> struct (I64ShrS, NoOperand, 1u)
-  | 0x88uy -> struct (I64ShrU, NoOperand, 1u)
-  | 0x89uy -> struct (I64Rotl, NoOperand, 1u)
-  | 0x8auy -> struct (I64Rotr, NoOperand, 1u)
-  | 0x8buy -> struct (F32Abs, NoOperand, 1u)
-  | 0x8cuy -> struct (F32Neg, NoOperand, 1u)
-  | 0x8duy -> struct (F32Ceil, NoOperand, 1u)
-  | 0x8euy -> struct (F32Floor, NoOperand, 1u)
-  | 0x8fuy -> struct (F32Trunc, NoOperand, 1u)
-  | 0x90uy -> struct (F32Nearest, NoOperand, 1u)
-  | 0x91uy -> struct (F32Sqrt, NoOperand, 1u)
-  | 0x92uy -> struct (F32Add, NoOperand, 1u)
-  | 0x93uy -> struct (F32Sub, NoOperand, 1u)
-  | 0x94uy -> struct (F32Mul, NoOperand, 1u)
-  | 0x95uy -> struct (F32Div, NoOperand, 1u)
-  | 0x96uy -> struct (F32Min, NoOperand, 1u)
-  | 0x97uy -> struct (F32Max, NoOperand, 1u)
-  | 0x98uy -> struct (F32Copysign, NoOperand, 1u)
-  | 0x99uy -> struct (F64Abs, NoOperand, 1u)
-  | 0x9auy -> struct (F64Neg, NoOperand, 1u)
-  | 0x9buy -> struct (F64Ceil, NoOperand, 1u)
-  | 0x9cuy -> struct (F64Floor, NoOperand, 1u)
-  | 0x9duy -> struct (F64Trunc, NoOperand, 1u)
-  | 0x9euy -> struct (F64Nearest, NoOperand, 1u)
-  | 0x9fuy -> struct (F64Sqrt, NoOperand, 1u)
-  | 0xa0uy -> struct (F64Add, NoOperand, 1u)
-  | 0xa1uy -> struct (F64Sub, NoOperand, 1u)
-  | 0xa2uy -> struct (F64Mul, NoOperand, 1u)
-  | 0xa3uy -> struct (F64Div, NoOperand, 1u)
-  | 0xa4uy -> struct (F64Min, NoOperand, 1u)
-  | 0xa5uy -> struct (F64Max, NoOperand, 1u)
-  | 0xa6uy -> struct (F64Copysign, NoOperand, 1u)
-  | 0xa7uy -> struct (I32WrapI64, NoOperand, 1u)
-  | 0xa8uy -> struct (I32TruncF32S, NoOperand, 1u)
-  | 0xa9uy -> struct (I32TruncF32U, NoOperand, 1u)
-  | 0xaauy -> struct (I32TruncF64S, NoOperand, 1u)
-  | 0xabuy -> struct (I32TruncF64U, NoOperand, 1u)
-  | 0xacuy -> struct (I64ExtendI32S, NoOperand, 1u)
-  | 0xaduy -> struct (I64ExtendI32U, NoOperand, 1u)
-  | 0xaeuy -> struct (I64TruncF32S, NoOperand, 1u)
-  | 0xafuy -> struct (I64TruncF32U, NoOperand, 1u)
-  | 0xb0uy -> struct (I64TruncF64S, NoOperand, 1u)
-  | 0xb1uy -> struct (I64TruncF64U, NoOperand, 1u)
-  | 0xb2uy -> struct (F32ConvertI32S, NoOperand, 1u)
-  | 0xb3uy -> struct (F32ConvertI32U, NoOperand, 1u)
-  | 0xb4uy -> struct (F32ConvertI64S, NoOperand, 1u)
-  | 0xb5uy -> struct (F32ConvertI64U, NoOperand, 1u)
-  | 0xb6uy -> struct (F32DemoteF64, NoOperand, 1u)
-  | 0xb7uy -> struct (F64ConvertI32S, NoOperand, 1u)
-  | 0xb8uy -> struct (F64ConvertI32U, NoOperand, 1u)
-  | 0xb9uy -> struct (F64ConvertI64S, NoOperand, 1u)
-  | 0xbauy -> struct (F64ConvertI64U, NoOperand, 1u)
-  | 0xbbuy -> struct (F64PromoteF32, NoOperand, 1u)
-  | 0xbcuy -> struct (I32ReinterpretF32, NoOperand, 1u)
-  | 0xbduy -> struct (I64ReinterpretF64, NoOperand, 1u)
-  | 0xbeuy -> struct (F32ReinterpretI32, NoOperand, 1u)
-  | 0xbfuy -> struct (F64ReinterpretI64, NoOperand, 1u)
-  | 0xc0uy -> struct (I32Extend8S, NoOperand, 1u)
-  | 0xc1uy -> struct (I32Extend16S, NoOperand, 1u)
-  | 0xc2uy -> struct (I64Extend8S, NoOperand, 1u)
-  | 0xc3uy -> struct (I64Extend16S, NoOperand, 1u)
-  | 0xc4uy -> struct (I64Extend32S, NoOperand, 1u)
-  | 0xe0uy -> struct (InterpAlloca, NoOperand, 1u)
-  | 0xe1uy -> struct (InterpBrUnless, NoOperand, 1u)
-  | 0xe2uy -> struct (InterpCallImport, NoOperand, 1u)
-  | 0xe3uy -> struct (InterpData, NoOperand, 1u)
-  | 0xe4uy -> struct (InterpDropKeep, NoOperand, 1u)
-  | 0xe5uy -> struct (InterpCatchDrop, NoOperand, 1u)
-  | 0xe6uy -> struct (InterpAdjustFrameForReturnCall, NoOperand, 1u)
-  | 0x25uy -> parseIndex span reader 1 TableGet
-  | 0x26uy -> parseIndex span reader 1 TableSet
-  | 0xd0uy -> struct (RefNull, NoOperand, 1u)
-  | 0xd1uy -> struct (RefIsNull, NoOperand, 1u)
-  | 0xd2uy -> parseIndex span reader 1 RefFunc
-  | _ -> raise ParsingFailureException
+  | 0x20uy ->
+    parseIndex span reader 1 LocalGet
+  | 0x21uy ->
+    parseIndex span reader 1 LocalSet
+  | 0x22uy ->
+    parseIndex span reader 1 LocalTee
+  | 0x23uy ->
+    parseIndex span reader 1 GlobalGet
+  | 0x24uy ->
+    parseIndex span reader 1 GlobalSet
+  | 0x28uy ->
+    parseLoad span reader 1 I32Load
+  | 0x29uy ->
+    parseLoad span reader 1 I64Load
+  | 0x2auy ->
+    parseLoad span reader 1 F32Load
+  | 0x2buy ->
+    parseLoad span reader 1 F64Load
+  | 0x2cuy ->
+    parseLoad span reader 1 I32Load8S
+  | 0x2duy ->
+    parseLoad span reader 1 I32Load8U
+  | 0x2euy ->
+    parseLoad span reader 1 I32Load16S
+  | 0x2fuy ->
+    parseLoad span reader 1 I32Load16U
+  | 0x30uy ->
+    parseLoad span reader 1 I64Load8S
+  | 0x31uy ->
+    parseLoad span reader 1 I64Load8U
+  | 0x32uy ->
+    parseLoad span reader 1 I64Load16S
+  | 0x33uy ->
+    parseLoad span reader 1 I64Load16U
+  | 0x34uy ->
+    parseLoad span reader 1 I64Load32S
+  | 0x35uy ->
+    parseLoad span reader 1 I64Load32U
+  | 0x36uy ->
+    parseStore span reader 1 I32Store
+  | 0x37uy ->
+    parseStore span reader 1 I64Store
+  | 0x38uy ->
+    parseStore span reader 1 F32Store
+  | 0x39uy ->
+    parseStore span reader 1 F64Store
+  | 0x3auy ->
+    parseStore span reader 1 I32Store8
+  | 0x3buy ->
+    parseStore span reader 1 I32Store16
+  | 0x3cuy ->
+    parseStore span reader 1 I64Store8
+  | 0x3duy ->
+    parseStore span reader 1 I64Store16
+  | 0x3euy ->
+    parseStore span reader 1 I64Store32
+  | 0x3fuy ->
+    parseIndex span reader 1 MemorySize
+  | 0x40uy ->
+    parseIndex span reader 1 MemoryGrow
+  | 0x41uy ->
+    parseU32LEB128 span reader 1 I32Const
+  | 0x42uy ->
+    parseU64LEB128 span reader 1 I64Const
+  | 0x43uy ->
+    parseF32 span reader 1 F32Const
+  | 0x44uy ->
+    parseF64 span reader 1 F64Const
+  | 0x45uy ->
+    struct (I32Eqz, NoOperand, 1u)
+  | 0x46uy ->
+    struct (I32Eq, NoOperand, 1u)
+  | 0x47uy ->
+    struct (I32Ne, NoOperand, 1u)
+  | 0x48uy ->
+    struct (I32LtS, NoOperand, 1u)
+  | 0x49uy ->
+    struct (I32LtU, NoOperand, 1u)
+  | 0x4auy ->
+    struct (I32GtS, NoOperand, 1u)
+  | 0x4buy ->
+    struct (I32GtU, NoOperand, 1u)
+  | 0x4cuy ->
+    struct (I32LeS, NoOperand, 1u)
+  | 0x4duy ->
+    struct (I32LeU, NoOperand, 1u)
+  | 0x4euy ->
+    struct (I32GeS, NoOperand, 1u)
+  | 0x4fuy ->
+    struct (I32GeU, NoOperand, 1u)
+  | 0x50uy ->
+    struct (I64Eqz, NoOperand, 1u)
+  | 0x51uy ->
+    struct (I64Eq, NoOperand, 1u)
+  | 0x52uy ->
+    struct (I64Ne, NoOperand, 1u)
+  | 0x53uy ->
+    struct (I64LtS, NoOperand, 1u)
+  | 0x54uy ->
+    struct (I64LtU, NoOperand, 1u)
+  | 0x55uy ->
+    struct (I64GtS, NoOperand, 1u)
+  | 0x56uy ->
+    struct (I64GtU, NoOperand, 1u)
+  | 0x57uy ->
+    struct (I64LeS, NoOperand, 1u)
+  | 0x58uy ->
+    struct (I64LeU, NoOperand, 1u)
+  | 0x59uy ->
+    struct (I64GeS, NoOperand, 1u)
+  | 0x5auy ->
+    struct (I64GeU, NoOperand, 1u)
+  | 0x5buy ->
+    struct (F32Eq, NoOperand, 1u)
+  | 0x5cuy ->
+    struct (F32Ne, NoOperand, 1u)
+  | 0x5duy ->
+    struct (F32Lt, NoOperand, 1u)
+  | 0x5euy ->
+    struct (F32Gt, NoOperand, 1u)
+  | 0x5fuy ->
+    struct (F32Le, NoOperand, 1u)
+  | 0x60uy ->
+    struct (F32Ge, NoOperand, 1u)
+  | 0x61uy ->
+    struct (F64Eq, NoOperand, 1u)
+  | 0x62uy ->
+    struct (F64Ne, NoOperand, 1u)
+  | 0x63uy ->
+    struct (F64Lt, NoOperand, 1u)
+  | 0x64uy ->
+    struct (F64Gt, NoOperand, 1u)
+  | 0x65uy ->
+    struct (F64Le, NoOperand, 1u)
+  | 0x66uy ->
+    struct (F64Ge, NoOperand, 1u)
+  | 0x67uy ->
+    struct (I32Clz, NoOperand, 1u)
+  | 0x68uy ->
+    struct (I32Ctz, NoOperand, 1u)
+  | 0x69uy ->
+    struct (I32Popcnt, NoOperand, 1u)
+  | 0x6auy ->
+    struct (I32Add, NoOperand, 1u)
+  | 0x6buy ->
+    struct (I32Sub, NoOperand, 1u)
+  | 0x6cuy ->
+    struct (I32Mul, NoOperand, 1u)
+  | 0x6duy ->
+    struct (I32DivS, NoOperand, 1u)
+  | 0x6euy ->
+    struct (I32DivU, NoOperand, 1u)
+  | 0x6fuy ->
+    struct (I32RemS, NoOperand, 1u)
+  | 0x70uy ->
+    struct (I32RemU, NoOperand, 1u)
+  | 0x71uy ->
+    struct (I32And, NoOperand, 1u)
+  | 0x72uy ->
+    struct (I32Or, NoOperand, 1u)
+  | 0x73uy ->
+    struct (I32Xor, NoOperand, 1u)
+  | 0x74uy ->
+    struct (I32Shl, NoOperand, 1u)
+  | 0x75uy ->
+    struct (I32ShrS, NoOperand, 1u)
+  | 0x76uy ->
+    struct (I32ShrU, NoOperand, 1u)
+  | 0x77uy ->
+    struct (I32Rotl, NoOperand, 1u)
+  | 0x78uy ->
+    struct (I32Rotr, NoOperand, 1u)
+  | 0x79uy ->
+    struct (I64Clz, NoOperand, 1u)
+  | 0x7auy ->
+    struct (I64Ctz, NoOperand, 1u)
+  | 0x7buy ->
+    struct (I64Popcnt, NoOperand, 1u)
+  | 0x7cuy ->
+    struct (I64Add, NoOperand, 1u)
+  | 0x7duy ->
+    struct (I64Sub, NoOperand, 1u)
+  | 0x7euy ->
+    struct (I64Mul, NoOperand, 1u)
+  | 0x7fuy ->
+    struct (I64DivS, NoOperand, 1u)
+  | 0x80uy ->
+    struct (I64DivU, NoOperand, 1u)
+  | 0x81uy ->
+    struct (I64RemS, NoOperand, 1u)
+  | 0x82uy ->
+    struct (I64RemU, NoOperand, 1u)
+  | 0x83uy ->
+    struct (I64And, NoOperand, 1u)
+  | 0x84uy ->
+    struct (I64Or, NoOperand, 1u)
+  | 0x85uy ->
+    struct (I64Xor, NoOperand, 1u)
+  | 0x86uy ->
+    struct (I64Shl, NoOperand, 1u)
+  | 0x87uy ->
+    struct (I64ShrS, NoOperand, 1u)
+  | 0x88uy ->
+    struct (I64ShrU, NoOperand, 1u)
+  | 0x89uy ->
+    struct (I64Rotl, NoOperand, 1u)
+  | 0x8auy ->
+    struct (I64Rotr, NoOperand, 1u)
+  | 0x8buy ->
+    struct (F32Abs, NoOperand, 1u)
+  | 0x8cuy ->
+    struct (F32Neg, NoOperand, 1u)
+  | 0x8duy ->
+    struct (F32Ceil, NoOperand, 1u)
+  | 0x8euy ->
+    struct (F32Floor, NoOperand, 1u)
+  | 0x8fuy ->
+    struct (F32Trunc, NoOperand, 1u)
+  | 0x90uy ->
+    struct (F32Nearest, NoOperand, 1u)
+  | 0x91uy ->
+    struct (F32Sqrt, NoOperand, 1u)
+  | 0x92uy ->
+    struct (F32Add, NoOperand, 1u)
+  | 0x93uy ->
+    struct (F32Sub, NoOperand, 1u)
+  | 0x94uy ->
+    struct (F32Mul, NoOperand, 1u)
+  | 0x95uy ->
+    struct (F32Div, NoOperand, 1u)
+  | 0x96uy ->
+    struct (F32Min, NoOperand, 1u)
+  | 0x97uy ->
+    struct (F32Max, NoOperand, 1u)
+  | 0x98uy ->
+    struct (F32Copysign, NoOperand, 1u)
+  | 0x99uy ->
+    struct (F64Abs, NoOperand, 1u)
+  | 0x9auy ->
+    struct (F64Neg, NoOperand, 1u)
+  | 0x9buy ->
+    struct (F64Ceil, NoOperand, 1u)
+  | 0x9cuy ->
+    struct (F64Floor, NoOperand, 1u)
+  | 0x9duy ->
+    struct (F64Trunc, NoOperand, 1u)
+  | 0x9euy ->
+    struct (F64Nearest, NoOperand, 1u)
+  | 0x9fuy ->
+    struct (F64Sqrt, NoOperand, 1u)
+  | 0xa0uy ->
+    struct (F64Add, NoOperand, 1u)
+  | 0xa1uy ->
+    struct (F64Sub, NoOperand, 1u)
+  | 0xa2uy ->
+    struct (F64Mul, NoOperand, 1u)
+  | 0xa3uy ->
+    struct (F64Div, NoOperand, 1u)
+  | 0xa4uy ->
+    struct (F64Min, NoOperand, 1u)
+  | 0xa5uy ->
+    struct (F64Max, NoOperand, 1u)
+  | 0xa6uy ->
+    struct (F64Copysign, NoOperand, 1u)
+  | 0xa7uy ->
+    struct (I32WrapI64, NoOperand, 1u)
+  | 0xa8uy ->
+    struct (I32TruncF32S, NoOperand, 1u)
+  | 0xa9uy ->
+    struct (I32TruncF32U, NoOperand, 1u)
+  | 0xaauy ->
+    struct (I32TruncF64S, NoOperand, 1u)
+  | 0xabuy ->
+    struct (I32TruncF64U, NoOperand, 1u)
+  | 0xacuy ->
+    struct (I64ExtendI32S, NoOperand, 1u)
+  | 0xaduy ->
+    struct (I64ExtendI32U, NoOperand, 1u)
+  | 0xaeuy ->
+    struct (I64TruncF32S, NoOperand, 1u)
+  | 0xafuy ->
+    struct (I64TruncF32U, NoOperand, 1u)
+  | 0xb0uy ->
+    struct (I64TruncF64S, NoOperand, 1u)
+  | 0xb1uy ->
+    struct (I64TruncF64U, NoOperand, 1u)
+  | 0xb2uy ->
+    struct (F32ConvertI32S, NoOperand, 1u)
+  | 0xb3uy ->
+    struct (F32ConvertI32U, NoOperand, 1u)
+  | 0xb4uy ->
+    struct (F32ConvertI64S, NoOperand, 1u)
+  | 0xb5uy ->
+    struct (F32ConvertI64U, NoOperand, 1u)
+  | 0xb6uy ->
+    struct (F32DemoteF64, NoOperand, 1u)
+  | 0xb7uy ->
+    struct (F64ConvertI32S, NoOperand, 1u)
+  | 0xb8uy ->
+    struct (F64ConvertI32U, NoOperand, 1u)
+  | 0xb9uy ->
+    struct (F64ConvertI64S, NoOperand, 1u)
+  | 0xbauy ->
+    struct (F64ConvertI64U, NoOperand, 1u)
+  | 0xbbuy ->
+    struct (F64PromoteF32, NoOperand, 1u)
+  | 0xbcuy ->
+    struct (I32ReinterpretF32, NoOperand, 1u)
+  | 0xbduy ->
+    struct (I64ReinterpretF64, NoOperand, 1u)
+  | 0xbeuy ->
+    struct (F32ReinterpretI32, NoOperand, 1u)
+  | 0xbfuy ->
+    struct (F64ReinterpretI64, NoOperand, 1u)
+  | 0xc0uy ->
+    struct (I32Extend8S, NoOperand, 1u)
+  | 0xc1uy ->
+    struct (I32Extend16S, NoOperand, 1u)
+  | 0xc2uy ->
+    struct (I64Extend8S, NoOperand, 1u)
+  | 0xc3uy ->
+    struct (I64Extend16S, NoOperand, 1u)
+  | 0xc4uy ->
+    struct (I64Extend32S, NoOperand, 1u)
+  | 0xe0uy ->
+    struct (InterpAlloca, NoOperand, 1u)
+  | 0xe1uy ->
+    struct (InterpBrUnless, NoOperand, 1u)
+  | 0xe2uy ->
+    struct (InterpCallImport, NoOperand, 1u)
+  | 0xe3uy ->
+    struct (InterpData, NoOperand, 1u)
+  | 0xe4uy ->
+    struct (InterpDropKeep, NoOperand, 1u)
+  | 0xe5uy ->
+    struct (InterpCatchDrop, NoOperand, 1u)
+  | 0xe6uy ->
+    struct (InterpAdjustFrameForReturnCall, NoOperand, 1u)
+  | 0x25uy ->
+    parseIndex span reader 1 TableGet
+  | 0x26uy ->
+    parseIndex span reader 1 TableSet
+  | 0xd0uy ->
+    struct (RefNull, NoOperand, 1u)
+  | 0xd1uy ->
+    struct (RefIsNull, NoOperand, 1u)
+  | 0xd2uy ->
+    parseIndex span reader 1 RefFunc
+  | _ ->
+    raise ParsingFailureException
 
 let parse lifter (span: ByteSpan) (reader: IBinReader) addr =
   let struct (opcode, operands, instrLen) = parseInstruction span reader

@@ -153,11 +153,9 @@ with
   static member inline HashVar(rt: RegType, rid: RegisterID) =
     19 * (19 * int rt + int rid) + 1
 
-  static member inline HashPCVar(rt: RegType) =
-    19 * int rt + 2
+  static member inline HashPCVar(rt: RegType) = 19 * int rt + 2
 
-  static member inline HashTempVar(rt: RegType, n) =
-    19 * (19 * int rt + n) + 3
+  static member inline HashTempVar(rt: RegType, n) = 19 * (19 * int rt + n) + 3
 
   static member inline HashExprList(exprs: Expr list) =
     exprs
@@ -167,11 +165,9 @@ with
   static member inline HashUnOp(op: UnOpType, e: Expr) =
     19 * (19 * int op + e.Hash) + 4
 
-  static member inline HashJmpDest(lbl: Label) =
-    (19 * lbl.GetHashCode()) + 5
+  static member inline HashJmpDest(lbl: Label) = (19 * lbl.GetHashCode()) + 5
 
-  static member inline HashFuncName(s: string) =
-    (19 * s.GetHashCode()) + 6
+  static member inline HashFuncName(s: string) = (19 * s.GetHashCode()) + 6
 
   static member inline HashBinOp(op, rt, e1: Expr, e2: Expr) =
     19 * (19 * (19 * (19 * int op + int rt) + e1.Hash) + e2.Hash) + 7
@@ -361,8 +357,7 @@ with
 module Expr =
   /// Converts an expression to a string.
   [<CompiledName "ToString">]
-  let toString (expr: Expr) =
-    expr.ToString()
+  let toString (expr: Expr) = expr.ToString()
 
   /// Gets the type of an expression.
   [<CompiledName "TypeOf">]

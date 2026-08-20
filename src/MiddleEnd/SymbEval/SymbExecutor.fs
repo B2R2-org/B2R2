@@ -146,8 +146,10 @@ with
     match lhs, rhs with
     | AvoidAddresses addrs1, AvoidAddresses addrs2 ->
       AvoidAddresses(Set.union addrs1 addrs2)
-    | AvoidAddresses addrs, avoid when Set.isEmpty addrs -> avoid
-    | avoid, AvoidAddresses addrs when Set.isEmpty addrs -> avoid
+    | AvoidAddresses addrs, avoid when Set.isEmpty addrs ->
+      avoid
+    | avoid, AvoidAddresses addrs when Set.isEmpty addrs ->
+      avoid
     | avoid1, avoid2 ->
       AvoidState(fun point ->
         SymbRunOptions.MatchesAvoid(avoid1, point)
@@ -220,28 +222,24 @@ with
     { opts with Avoid = AvoidAddresses(Set.ofSeq addrs) }
 
   /// Uses the given avoid condition.
-  member opts.WithAvoid avoid =
-    { opts with Avoid = avoid }
+  member opts.WithAvoid avoid = { opts with Avoid = avoid }
 
   /// Adds one avoid condition.
   member opts.AddAvoid avoid =
     { opts with Avoid = SymbRunOptions.CombineAvoid(opts.Avoid, avoid) }
 
   /// Adds one state predicate to the avoid conditions.
-  member opts.AddAvoidState predicate =
-    opts.AddAvoid(AvoidState predicate)
+  member opts.AddAvoidState predicate = opts.AddAvoid(AvoidState predicate)
 
   /// Stops before evaluating call instructions.
-  member opts.StopAtCalls() =
-    { opts with Calls = StopAtCalls }
+  member opts.StopAtCalls() = { opts with Calls = StopAtCalls }
 
   /// Follows direct internal calls without using external-call hooks.
   member opts.FollowDirectInternalCalls() =
     { opts with Calls = FollowDirectInternalCalls }
 
   /// Uses a prepared call hook registry for external-call dispatch.
-  member opts.WithCallHooks hooks =
-    { opts with Calls = UseCallHooks hooks }
+  member opts.WithCallHooks hooks = { opts with Calls = UseCallHooks hooks }
 
   /// Registers a call hook and enables hook-based call handling.
   member opts.RegisterCallHook(target, hook) =
@@ -264,28 +262,23 @@ with
         Calls = UseCallHooks(registry.RegisterMany hooks) }
 
   /// Uses the given solver backend.
-  member opts.WithSolver solver =
-    { opts with Solver = solver }
+  member opts.WithSolver solver = { opts with Solver = solver }
 
   /// Enables solver-backed infeasible path pruning.
-  member opts.EnablePathPruning() =
-    { opts with PruneInfeasiblePaths = true }
+  member opts.EnablePathPruning() = { opts with PruneInfeasiblePaths = true }
 
   /// Disables solver-backed infeasible path pruning.
-  member opts.DisablePathPruning() =
-    { opts with PruneInfeasiblePaths = false }
+  member opts.DisablePathPruning() = { opts with PruneInfeasiblePaths = false }
 
   /// Stops exploration as soon as the first query answer is found.
-  member opts.EnableStopAtFirstAnswer() =
-    { opts with StopAtFirstAnswer = true }
+  member opts.EnableStopAtFirstAnswer() = { opts with StopAtFirstAnswer = true }
 
   /// Continues exploration after finding a query answer.
   member opts.DisableStopAtFirstAnswer() =
     { opts with StopAtFirstAnswer = false }
 
   /// Uses the given half-open address ranges for pre-lifting.
-  member opts.WithWarmUpRanges ranges =
-    { opts with WarmUpRanges = ranges }
+  member opts.WithWarmUpRanges ranges = { opts with WarmUpRanges = ranges }
 
 /// Represents a non-target state where exploration stopped.
 type SymbRunStopReason =
@@ -365,8 +358,10 @@ with
   /// Returns the first satisfiability answer, or raises when unavailable.
   member this.GetSatisfiabilityAnswer() =
     let rec loop = function
-      | Satisfiable(answer :: _) -> answer
-      | TimedOut(_, result) -> loop result
+      | Satisfiable(answer :: _) ->
+        answer
+      | TimedOut(_, result) ->
+        loop result
       | result ->
         raise
           (System.InvalidOperationException
@@ -413,8 +408,7 @@ with
   member ctx.MarkStateGenerated() =
     ctx.GeneratedStates <- ctx.GeneratedStates + 1
 
-  member ctx.Stop() =
-    ctx.StopExploration <- true
+  member ctx.Stop() = ctx.StopExploration <- true
 
   member ctx.MarkTimeout timeout =
     ctx.RunTimeout <- Some timeout
@@ -491,7 +485,8 @@ type SymbExecutor(hdl: BinHandle) =
 
   let tryGetLiftedInstruction addr =
     match liftCache.TryGetValue addr with
-    | true, result -> result
+    | true, result ->
+      result
     | false, _ ->
       tryParseAndLiftInstruction addr
       |> cacheLiftResult addr
@@ -503,7 +498,8 @@ type SymbExecutor(hdl: BinHandle) =
   let instructionAlignment () = uint64 lifter.InstructionAlignment
 
   let rec warmUpLiftCacheRange addr finishAddr =
-    if addr >= finishAddr then ()
+    if addr >= finishAddr then
+      ()
     else
       match liftCache.TryGetValue addr with
       | true, Ok lifted ->
@@ -512,8 +508,7 @@ type SymbExecutor(hdl: BinHandle) =
           finishAddr
       | true, Error _ ->
         warmUpLiftCacheRange
-          (advanceAddress addr (instructionAlignment ()) finishAddr)
-          finishAddr
+          (advanceAddress addr (instructionAlignment ()) finishAddr) finishAddr
       | false, _ ->
         match tryParseInstruction addr with
         | Ok ins ->
@@ -521,8 +516,7 @@ type SymbExecutor(hdl: BinHandle) =
           |> cacheLiftResult addr
           |> ignore
           warmUpLiftCacheRange
-            (advanceAddress addr (uint64 ins.Length) finishAddr)
-            finishAddr
+            (advanceAddress addr (uint64 ins.Length) finishAddr) finishAddr
         | Error e ->
           Error e
           |> cacheLiftResult addr
@@ -549,13 +543,15 @@ type SymbExecutor(hdl: BinHandle) =
 
   let tryGetCallTargetAddr (ins: IInstruction) (st: SymbState) =
     match tryGetDirectTargetAddr ins with
-    | Some target -> Some target
+    | Some target ->
+      Some target
     | None ->
       match hdl.ISA with
       | MIPS ->
         let rid = MIPS.Register.R25 |> MIPS.Register.toRegID
         tryGetConcreteReg rid st
-      | _ -> None
+      | _ ->
+        None
 
   let getCallFallThroughAddr addr (ins: IInstruction) =
     match hdl.ISA with
@@ -564,7 +560,8 @@ type SymbExecutor(hdl: BinHandle) =
       match tryParseInstruction delaySlotAddr with
       | Ok delaySlot -> delaySlotAddr + uint64 delaySlot.Length
       | Error _ -> delaySlotAddr + uint64 ins.Length
-    | _ -> addr + uint64 ins.Length
+    | _ ->
+      addr + uint64 ins.Length
 
   let isInternalTarget target = hdl.File.IsValidAddr target
 
@@ -611,29 +608,35 @@ type SymbExecutor(hdl: BinHandle) =
     | Ok retAddr ->
       let msg = $"Hook returned to unexpected address {retAddr:x}."
       SymbEvaluator.EvalError(UnsupportedOperation msg)
-    | Error e -> SymbEvaluator.EvalError e
+    | Error e ->
+      SymbEvaluator.EvalError e
 
   let dispatchCallHook callSite target returnAddress hook (st: SymbState) =
     let hookState = st.Clone()
     let ctx = mkCallContext callSite target returnAddress
     match pushReturnAddress returnAddress hookState with
-    | Error e -> [ SymbEvaluator.EvalError e ]
+    | Error e ->
+      [ SymbEvaluator.EvalError e ]
     | Ok() ->
       match hook ctx hookState with
       | Error e -> [ SymbEvaluator.EvalError e ]
-      | Ok states ->
-        states |> List.map (finishHookState returnAddress)
+      | Ok states -> states |> List.map (finishHookState returnAddress)
 
-  let handleCallInstruction addr (ins: IInstruction)
-                            (opts: SymbRunOptions) (st: SymbState) =
-    if not ins.IsCall then EvaluateInstruction
+  let handleCallInstruction addr
+                            (ins: IInstruction)
+                            (opts: SymbRunOptions)
+                            (st: SymbState) =
+    if not ins.IsCall then
+      EvaluateInstruction
     else
       let target = tryGetCallTargetAddr ins st
       match opts.Calls with
-      | StopAtCalls -> StopBeforeInstruction(StoppedAtCall(addr, target))
+      | StopAtCalls ->
+        StopBeforeInstruction(StoppedAtCall(addr, target))
       | FollowDirectInternalCalls ->
         match target with
-        | Some target when isInternalTarget target -> EvaluateInstruction
+        | Some target when isInternalTarget target ->
+          EvaluateInstruction
         | _ ->
           let msg = "Cannot follow call without a concrete internal target."
           SymbEvaluator.EvalError(UnsupportedOperation msg)
@@ -647,7 +650,8 @@ type SymbExecutor(hdl: BinHandle) =
             let returnAddress = getCallFallThroughAddr addr ins
             dispatchCallHook addr target returnAddress hook st
             |> SkipInstruction
-          | None when isInternalTarget target -> EvaluateInstruction
+          | None when isInternalTarget target ->
+            EvaluateInstruction
           | None ->
             let msg = $"No symbolic call hook for target {target:x}."
             SymbEvaluator.EvalError(UnsupportedOperation msg)
@@ -662,7 +666,8 @@ type SymbExecutor(hdl: BinHandle) =
   let solverFailure failure = SolverFailure failure |> Error
 
   let trySerialize fn =
-    try fn () |> Ok with
+    try
+      fn () |> Ok with
     | :? System.ArgumentException as ex ->
       SolverSerializationFailure ex.Message |> solverFailure
     | :? System.InvalidOperationException as ex ->
@@ -670,10 +675,12 @@ type SymbExecutor(hdl: BinHandle) =
 
   let parseSolverStatus stdout =
     match SolverOutputParser.parseStatus stdout with
-    | Ok status -> Ok status
+    | Ok status ->
+      Ok status
     | Error(SolverFailure(SolverOutputParseFailure(msg, _))) ->
       SolverOutputParseFailure(msg, stdout) |> solverFailure
-    | Error err -> Error err
+    | Error err ->
+      Error err
 
   let checkSmt2 (solver: ISolver) pathCond =
     trySerialize (fun () -> SMTLibSerializer.serializeAssertions pathCond [])
@@ -701,7 +708,8 @@ type SymbExecutor(hdl: BinHandle) =
 
   let createSolver (opts: SymbRunOptions) =
     match opts.Solver with
-    | NoSolver -> None
+    | NoSolver ->
+      None
     | CustomSolver solver ->
       Some
         { CheckSat = fun pathCond -> checkSmt2 solver pathCond
@@ -712,7 +720,8 @@ type SymbExecutor(hdl: BinHandle) =
     | timeout when timeout > 0
                 && stopwatch.ElapsedMilliseconds >= int64 timeout ->
       Some timeout
-    | _ -> None
+    | _ ->
+      None
 
   let isMaxDepthReached depth (opts: SymbRunOptions) =
     match opts.MaxDepth with
@@ -733,8 +742,10 @@ type SymbExecutor(hdl: BinHandle) =
     | limit when limit > 0 && count >= limit -> Error limit
     | _ -> Ok(Map.add addr (count + 1) visits)
 
-  let checkPathFeasibility (solver: SymbSolverRunner option) addr
-                           (opts: SymbRunOptions) (st: SymbState) =
+  let checkPathFeasibility (solver: SymbSolverRunner option)
+                           addr
+                           (opts: SymbRunOptions)
+                           (st: SymbState) =
     if opts.PruneInfeasiblePaths then
       match solver with
       | Some solver ->
@@ -742,8 +753,10 @@ type SymbExecutor(hdl: BinHandle) =
         | Ok SolverStatus.Unsat -> Error(InfeasiblePath addr)
         | Ok SolverStatus.Sat | Ok SolverStatus.Unknown -> Ok()
         | Error e -> Error(SolverPruningFailed(addr, e))
-      | None -> Ok()
-    else Ok()
+      | None ->
+        Ok()
+    else
+      Ok()
 
   let isUnknownStop = function
     | StoppedAtCall _
@@ -767,19 +780,18 @@ type SymbExecutor(hdl: BinHandle) =
     let failures =
       (stopped
        |> List.choose (fun (st, reason) ->
-         if isUnknownStop reason then Some(Stopped(st, reason))
-         else None))
+         if isUnknownStop reason then Some(Stopped(st, reason)) else None))
       @
       (pruned
        |> List.choose (fun (st, reason) ->
-         if isUnknownPrune reason then Some(Pruned(st, reason))
-         else None))
+         if isUnknownPrune reason then Some(Pruned(st, reason)) else None))
     if List.isEmpty failures then None
     else Some(SymbRunResult.Unknown(List.rev failures))
 
   let finishReachabilityRun answers stopped pruned =
     match List.rev answers with
-    | _ :: _ as answers -> SymbRunResult.Reachable answers
+    | _ :: _ as answers ->
+      SymbRunResult.Reachable answers
     | [] ->
       match makeUnknown stopped pruned with
       | Some result -> result
@@ -787,7 +799,8 @@ type SymbExecutor(hdl: BinHandle) =
 
   let finishSatisfiabilityRun answers stopped pruned =
     match List.rev answers with
-    | _ :: _ as answers -> SymbRunResult.Satisfiable answers
+    | _ :: _ as answers ->
+      SymbRunResult.Satisfiable answers
     | [] ->
       match makeUnknown stopped pruned with
       | Some result -> result
@@ -802,21 +815,28 @@ type SymbExecutor(hdl: BinHandle) =
 
   let solveReachabilityQuery (solver: SymbSolverRunner option) addr pathCond =
     match solver, pathCond with
-    | None, [] -> QueryReachable
-    | None, _ -> QueryUnknown(MissingSolverForQuery addr)
+    | None, [] ->
+      QueryReachable
+    | None, _ ->
+      QueryUnknown(MissingSolverForQuery addr)
     | Some solver, _ ->
       match solver.CheckSat pathCond with
-      | Ok SolverStatus.Sat -> QueryReachable
-      | Ok SolverStatus.Unsat -> QueryUnsat(InfeasiblePath addr)
+      | Ok SolverStatus.Sat ->
+        QueryReachable
+      | Ok SolverStatus.Unsat ->
+        QueryUnsat(InfeasiblePath addr)
       | Ok SolverStatus.Unknown ->
         SolverFailure SolverReturnedUnknown
         |> fun err -> QueryUnknown(SolverQueryFailed(addr, err))
-      | Error e -> QueryUnknown(SolverQueryFailed(addr, e))
+      | Error e ->
+        QueryUnknown(SolverQueryFailed(addr, e))
 
   let solveInputQuery (solver: SymbSolverRunner option) addr pathCond values =
     match solver, pathCond, values with
-    | None, [], [] -> QuerySatisfiable []
-    | None, _, _ -> QueryUnknown(MissingSolverForQuery addr)
+    | None, [], [] ->
+      QuerySatisfiable []
+    | None, _, _ ->
+      QueryUnknown(MissingSolverForQuery addr)
     | Some solver, _, _ ->
       match solver.GetModels(pathCond, values) with
       | Ok output when output.Status = SolverStatus.Sat ->
@@ -826,7 +846,8 @@ type SymbExecutor(hdl: BinHandle) =
       | Ok _ ->
         SolverFailure SolverReturnedUnknown
         |> fun err -> QueryUnknown(SolverQueryFailed(addr, err))
-      | Error e -> QueryUnknown(SolverQueryFailed(addr, e))
+      | Error e ->
+        QueryUnknown(SolverQueryFailed(addr, e))
 
   let makeStopPoint depth (st: SymbState) =
     let instruction =
@@ -843,22 +864,31 @@ type SymbExecutor(hdl: BinHandle) =
     match avoid with
     | AvoidAddresses addrs when Set.contains point.Address addrs ->
       Some(AvoidedAddress point.Address)
-    | AvoidAddresses _ -> None
-    | AvoidState pred when pred point -> Some(AvoidedState point.Address)
-    | AvoidState _ -> None
+    | AvoidAddresses _ ->
+      None
+    | AvoidState pred when pred point ->
+      Some(AvoidedState point.Address)
+    | AvoidState _ ->
+      None
 
   let tryMatchUserQuery (query: SymbQuery) (point: SymbStopPoint) =
     match query with
     | ReachAddress target when point.Address = target ->
       Some MatchedReachabilityQuery
-    | ReachAddress _ -> None
-    | ReachState pred when pred point -> Some MatchedReachabilityQuery
-    | ReachState _ -> None
+    | ReachAddress _ ->
+      None
+    | ReachState pred when pred point ->
+      Some MatchedReachabilityQuery
+    | ReachState _ ->
+      None
     | SatisfyAddress target when point.Address = target ->
       Some MatchedSatisfiabilityQuery
-    | SatisfyAddress _ -> None
-    | SatisfyState pred when pred point -> Some MatchedSatisfiabilityQuery
-    | SatisfyState _ -> None
+    | SatisfyAddress _ ->
+      None
+    | SatisfyState pred when pred point ->
+      Some MatchedSatisfiabilityQuery
+    | SatisfyState _ ->
+      None
 
   let solveMatchedUserQuery solver opts addr (st: SymbState) = function
     | MatchedReachabilityQuery ->
@@ -878,7 +908,8 @@ type SymbExecutor(hdl: BinHandle) =
     | Some limit ->
       Stopped(item.State, DepthLimitReached(addr, limit))
       |> Error
-    | None -> Ok item
+    | None ->
+      Ok item
 
   let tryUpdateVisitCountForItem opts item =
     let addr = item.State.PC
@@ -886,12 +917,15 @@ type SymbExecutor(hdl: BinHandle) =
     | Error limit ->
       Pruned(item.State, LoopBoundReached(addr, limit))
       |> Error
-    | Ok visits -> Ok visits
+    | Ok visits ->
+      Ok visits
 
   let tryGetInstructionStmts addr ins =
     match liftCache.TryGetValue addr with
-    | true, Ok lifted -> Ok lifted.Stmts
-    | true, Error e -> Error e
+    | true, Ok lifted ->
+      Ok lifted.Stmts
+    | true, Error e ->
+      Error e
     | false, _ ->
       tryLiftParsedInstruction ins
       |> cacheLiftResult addr
@@ -899,22 +933,27 @@ type SymbExecutor(hdl: BinHandle) =
 
   let rec evalStmtsFrom (st: SymbState) (stmts: Stmt[]) =
     let numStmts = Array.length stmts
-    if st.StmtIdx >= numStmts then [ SymbEvaluator.Continue st ]
+    if st.StmtIdx >= numStmts then
+      [ SymbEvaluator.Continue st ]
     elif st.IsInstrTerminated then
       if st.NeedToEvaluateIEMark then
         SymbEvaluator.evalStmt st stmts[numStmts - 1]
         |> evalSuccessor stmts
-      else [ SymbEvaluator.Continue st ]
+      else
+        [ SymbEvaluator.Continue st ]
     else
       SymbEvaluator.evalStmt st stmts[st.StmtIdx]
       |> evalSuccessor stmts
 
   and evalSuccessor stmts = function
-    | SymbEvaluator.Continue st -> evalStmtsFrom st stmts
+    | SymbEvaluator.Continue st ->
+      evalStmtsFrom st stmts
     | SymbEvaluator.Fork(trueState, falseState) ->
       evalStmtsFrom trueState stmts @ evalStmtsFrom falseState stmts
-    | SymbEvaluator.Stopped _ as stopped -> [ stopped ]
-    | SymbEvaluator.EvalError _ as error -> [ error ]
+    | SymbEvaluator.Stopped _ as stopped ->
+      [ stopped ]
+    | SymbEvaluator.EvalError _ as error ->
+      [ error ]
 
   let evalInstr addr (st: SymbState) stmts =
     syncPC addr st
@@ -923,11 +962,14 @@ type SymbExecutor(hdl: BinHandle) =
 
   let evaluateInstruction (opts: SymbRunOptions) addr (st: SymbState) =
     match tryParseInstruction addr with
-    | Error _ -> Error(InvalidInstructionStopped addr)
+    | Error _ ->
+      Error(InvalidInstructionStopped addr)
     | Ok ins ->
       match handleCallInstruction addr ins opts st with
-      | StopBeforeInstruction reason -> Error reason
-      | SkipInstruction successors -> Ok(false, successors)
+      | StopBeforeInstruction reason ->
+        Error reason
+      | SkipInstruction successors ->
+        Ok(false, successors)
       | EvaluateInstruction ->
         match tryGetInstructionStmts addr ins with
         | Error _ -> Error(InvalidInstructionStopped addr)
@@ -939,7 +981,8 @@ type SymbExecutor(hdl: BinHandle) =
       let item = worklist.Peek()
       onTimeout item timeout
       None
-    | None -> Some()
+    | None ->
+      Some()
 
   let tryDequeueNextItem (worklist: Queue<_>) = function
     | Some() -> worklist.Dequeue() |> Some
@@ -953,33 +996,41 @@ type SymbExecutor(hdl: BinHandle) =
       | Some result ->
         onQuery addr st result
         None
-      | None -> Some item
-    | None -> None
+      | None ->
+        Some item
+    | None ->
+      None
 
   let tryStopOnDepthLimit opts onFailure = function
     | Some item ->
       match tryCheckDepthLimit opts item with
-      | Ok item -> Some item
+      | Ok item ->
+        Some item
       | Error failure ->
         onFailure failure
         None
-    | None -> None
+    | None ->
+      None
 
   let tryStopOnLoopLimit opts onFailure = function
     | Some item ->
       match tryUpdateVisitCountForItem opts item with
-      | Ok visits -> Some(item, visits)
+      | Ok visits ->
+        Some(item, visits)
       | Error failure ->
         onFailure failure
         None
-    | None -> None
+    | None ->
+      None
 
   let handleRunFailure addStopped addPruned stopExploration = function
     | Stopped(st, (StateLimitReached _ as reason)) ->
       addStopped st reason
       stopExploration ()
-    | Stopped(st, reason) -> addStopped st reason
-    | Pruned(st, reason) -> addPruned st reason
+    | Stopped(st, reason) ->
+      addStopped st reason
+    | Pruned(st, reason) ->
+      addPruned st reason
 
   let run start (st: SymbState) (opts: SymbRunOptions) =
     warmUpLiftCache opts.WarmUpRanges
@@ -992,31 +1043,33 @@ type SymbExecutor(hdl: BinHandle) =
     let handleQuery addr (st: SymbState) = function
       | QueryReachable ->
         ctx.AddReachAnswer addr st
-        if opts.StopAtFirstAnswer then ctx.Stop()
-        else ()
+        if opts.StopAtFirstAnswer then ctx.Stop() else ()
       | QuerySatisfiable values ->
         ctx.AddSatAnswer addr st values
-        if opts.StopAtFirstAnswer then ctx.Stop()
-        else ()
-      | QueryUnsat reason -> ctx.AddPruned st reason
-      | QueryUnknown reason -> ctx.AddStopped st reason
+        if opts.StopAtFirstAnswer then ctx.Stop() else ()
+      | QueryUnsat reason ->
+        ctx.AddPruned st reason
+      | QueryUnknown reason ->
+        ctx.AddStopped st reason
     let enqueue checkedPathCondLen depth visits (st: SymbState) =
       let addr = st.PC
-      if ctx.StopExploration then ()
+      if ctx.StopExploration then
+        ()
       else
         match tryFindAvoid depth opts.Avoid st with
-        | Some reason -> ctx.AddPruned st reason
+        | Some reason ->
+          ctx.AddPruned st reason
         | None ->
           let pathCondLen = List.length st.PathCondition
           let shouldCheck =
             opts.PruneInfeasiblePaths
             && pathCondLen > checkedPathCondLen
           let pruning =
-            if shouldCheck then
-              checkPathFeasibility solver addr opts st
+            if shouldCheck then checkPathFeasibility solver addr opts st
             else Ok()
           match pruning with
-          | Error reason -> ctx.AddPruned st reason
+          | Error reason ->
+            ctx.AddPruned st reason
           | Ok() ->
             match isStateLimitReached ctx.GeneratedStates opts with
             | Some limit ->
@@ -1045,19 +1098,18 @@ type SymbExecutor(hdl: BinHandle) =
       |> List.iter
            (handleSuccessor addr item.CheckedPathCondLen item.Depth visits)
     let handleInstruction = function
-      | None -> ()
+      | None ->
+        ()
       | Some(item, visits) ->
         let st = item.State
         let addr = st.PC
         match evaluateInstruction opts addr st with
         | Error reason -> ctx.AddStopped st reason
-        | Ok(_, successors) ->
-          handleSuccessors item addr visits successors
+        | Ok(_, successors) -> handleSuccessors item addr visits successors
     let handleRunTimeout item timeout =
       ctx.AddStopped item.State (RunTimeoutReached timeout)
       ctx.MarkTimeout timeout
-    let handleFailure =
-      handleRunFailure ctx.AddStopped ctx.AddPruned ctx.Stop
+    let handleFailure = handleRunFailure ctx.AddStopped ctx.AddPruned ctx.Stop
     enqueue 0 0 Map.empty initialState
     while worklist.Count > 0 && not ctx.StopExploration do
       ()
@@ -1068,8 +1120,11 @@ type SymbExecutor(hdl: BinHandle) =
       |> tryStopOnLoopLimit opts handleFailure
       |> handleInstruction
     let result =
-      finishRun opts ctx.ReachAnswers ctx.SatAnswers
-                ctx.StoppedStates ctx.PrunedStates
+      finishRun opts
+                ctx.ReachAnswers
+                ctx.SatAnswers
+                ctx.StoppedStates
+                ctx.PrunedStates
     match ctx.RunTimeout with
     | Some timeout -> SymbRunResult.TimedOut(timeout, result)
     | None -> result

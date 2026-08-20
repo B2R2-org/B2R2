@@ -89,43 +89,80 @@ let getRegister64orSP oprSize = function
   | b -> getRegister64 oprSize b
 
 let getControlRegister = function (* 1:op0:op1:CRn:CRm:op2 *)
-  | 0b1100000010000001u -> R.ACTLREL1
-  | 0b1110000010000001u -> R.ACTLREL2
-  | 0b1111000010000001u -> R.ACTLREL3
-  | 0b1100001010001000u -> R.AFSR0EL1
-  | 0b1110001010001000u -> R.AFSR0EL2
-  | 0b1111001010001000u -> R.AFSR0EL3
-  | 0b1100001010001001u -> R.AFSR1EL1
-  | 0b1110001010001001u -> R.AFSR1EL2
-  | 0b1111001010001001u -> R.AFSR1EL3
-  | 0b1100100000000111u -> R.AIDREL1
-  | 0b1100010100011000u -> R.AMAIREL1
-  | 0b1110010100011000u -> R.AMAIREL2
-  | 0b1111010100011000u -> R.AMAIREL3
-  | 0b1100100000000000u -> R.CCSIDREL1
-  | 0b1100100000000001u -> R.CLIDREL1
-  | 0b1100011010000001u -> R.CONTEXTIDREL1
-  | 0b1100000010000010u -> R.CPACREL1
-  | 0b1110000010001010u -> R.CPTREL2
-  | 0b1111000010001010u -> R.CPTREL3
-  | 0b1101000000000000u -> R.CSSELREL1
-  | 0b1101100000000001u -> R.CTREL0
-  | 0b1110000110000000u -> R.DACR32EL2
-  | 0b1101100000000111u -> R.DCZIDEL0
-  | 0b1100001010010000u -> R.ESREL1
-  | 0b1110001010010000u -> R.ESREL2
-  | 0b1111001010010000u -> R.ESREL3
-  | 0b1110001100000100u -> R.HPFAREL2
-  | 0b1101111010000010u -> R.TPIDREL0
-  | 0b1101101000100000u -> R.FPCR
-  | 0b1101101000100001u -> R.FPSR
-  | 0b1100000000000000u -> R.MIDREL1
-  | 0b1101101000010000u -> R.NZCV
-  | 0b1110100110010000u -> R.S3_5_C3_C2_0
-  | 0b1011100100010111u -> R.S3_7_C2_C2_7
-  | 0b0000000101001011u -> R.S0_0_C2_C9_3
-  | 0b1011111000111110u -> R.S2_7_C12_C7_6
-  | 0b1101111100000010u -> R.CNTVCT_EL0 (* S3_3_C14_C0_2 *)
+  | 0b1100000010000001u ->
+    R.ACTLREL1
+  | 0b1110000010000001u ->
+    R.ACTLREL2
+  | 0b1111000010000001u ->
+    R.ACTLREL3
+  | 0b1100001010001000u ->
+    R.AFSR0EL1
+  | 0b1110001010001000u ->
+    R.AFSR0EL2
+  | 0b1111001010001000u ->
+    R.AFSR0EL3
+  | 0b1100001010001001u ->
+    R.AFSR1EL1
+  | 0b1110001010001001u ->
+    R.AFSR1EL2
+  | 0b1111001010001001u ->
+    R.AFSR1EL3
+  | 0b1100100000000111u ->
+    R.AIDREL1
+  | 0b1100010100011000u ->
+    R.AMAIREL1
+  | 0b1110010100011000u ->
+    R.AMAIREL2
+  | 0b1111010100011000u ->
+    R.AMAIREL3
+  | 0b1100100000000000u ->
+    R.CCSIDREL1
+  | 0b1100100000000001u ->
+    R.CLIDREL1
+  | 0b1100011010000001u ->
+    R.CONTEXTIDREL1
+  | 0b1100000010000010u ->
+    R.CPACREL1
+  | 0b1110000010001010u ->
+    R.CPTREL2
+  | 0b1111000010001010u ->
+    R.CPTREL3
+  | 0b1101000000000000u ->
+    R.CSSELREL1
+  | 0b1101100000000001u ->
+    R.CTREL0
+  | 0b1110000110000000u ->
+    R.DACR32EL2
+  | 0b1101100000000111u ->
+    R.DCZIDEL0
+  | 0b1100001010010000u ->
+    R.ESREL1
+  | 0b1110001010010000u ->
+    R.ESREL2
+  | 0b1111001010010000u ->
+    R.ESREL3
+  | 0b1110001100000100u ->
+    R.HPFAREL2
+  | 0b1101111010000010u ->
+    R.TPIDREL0
+  | 0b1101101000100000u ->
+    R.FPCR
+  | 0b1101101000100001u ->
+    R.FPSR
+  | 0b1100000000000000u ->
+    R.MIDREL1
+  | 0b1101101000010000u ->
+    R.NZCV
+  | 0b1110100110010000u ->
+    R.S3_5_C3_C2_0
+  | 0b1011100100010111u ->
+    R.S3_7_C2_C2_7
+  | 0b0000000101001011u ->
+    R.S0_0_C2_C9_3
+  | 0b1011111000111110u ->
+    R.S2_7_C12_C7_6
+  | 0b1101111100000010u ->
+    R.CNTVCT_EL0 (* S3_3_C14_C0_2 *)
   | _ ->
     (* D13.2 General system control registers. The table above covers only part
        of them, so the encoding may well be valid and simply undecodable here.
@@ -321,8 +358,7 @@ let getSIMDVectorBySize1 = function
   | _ -> raise InvalidOperandException
 
 let getSIMDVectorBySize2 value =
-  if value = 0b11u then TwoD
-  else raise InvalidOperandException
+  if value = 0b11u then TwoD else raise InvalidOperandException
 
 let getSIMDVectorBySz1 value = if value = 0b0u then FourS else TwoD
 
@@ -853,12 +889,9 @@ let tih value = getSIMDVectorByImmh value        (* immh *)
 let tihq value = getSIMDVectorByImmhQ value      (* immh:Q *)
 
 let chkReserved resLst v =
-  if List.contains v resLst then raise InvalidOperandException
-  else ()
+  if List.contains v resLst then raise InvalidOperandException else ()
 
-let chkRange max imm =
-  if max < imm then raise InvalidOperandException
-  else imm
+let chkRange max imm = if max < imm then raise InvalidOperandException else imm
 
 (* Load/store addressing modes (Register offset) *)
 let extRegOffset option amount = ExtRegOffset(getExtend option, amount)
@@ -1288,8 +1321,7 @@ let amt32Ones bin = if pickBit bin 12u = 0b0u then 8L else 16L
 
 let lAmt bin amtFn =
   let amt = amtFn bin
-  if amt = 0L then None
-  else Some(OprShift(LSL, Imm amt)) (* LSL #<amount> *)
+  if amt = 0L then None else Some(OprShift(LSL, Imm amt)) (* LSL #<amount> *)
 
 let mAmt bin = OprShift(MSL, Imm(amt32Ones bin))
 
@@ -1324,10 +1356,8 @@ let extamt bin =
   match oprSize with
   | 32<rt> when isRdOrRn11111 && (o = 0b010u) && amt = 0b000L -> None
   | 64<rt> when isRdOrRn11111 && (o = 0b011u) && amt = 0b000L -> None
-  | 32<rt> when isRdOrRn11111 && (o = 0b010u) ->
-    Some(ShiftOffset(LSL, Imm amt))
-  | 64<rt> when isRdOrRn11111 && (o = 0b011u) ->
-    Some(ShiftOffset(LSL, Imm amt))
+  | 32<rt> when isRdOrRn11111 && (o = 0b010u) -> Some(ShiftOffset(LSL, Imm amt))
+  | 64<rt> when isRdOrRn11111 && (o = 0b011u) -> Some(ShiftOffset(LSL, Imm amt))
   | _ -> Some(ExtRegOffset(getExtend o, Some amt))
   |> OprExtReg
 

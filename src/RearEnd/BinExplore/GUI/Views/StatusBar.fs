@@ -91,18 +91,22 @@ let private rangeSeparatorView model =
 
 let private addressRangeViews model range =
   if range.Start = range.End then
-    [ offsetTextView model model.Theme.StatusBar.HighlightForeground
+    [ offsetTextView model
+        model.Theme.StatusBar.HighlightForeground
         $"0x{range.Start:X8}" ]
   else
-    [ offsetTextView model model.Theme.StatusBar.HighlightForeground
+    [ offsetTextView model
+        model.Theme.StatusBar.HighlightForeground
         $"0x{range.Start:X8}"
       rangeSeparatorView model
-      offsetTextView model model.Theme.StatusBar.HighlightForeground
+      offsetTextView model
+        model.Theme.StatusBar.HighlightForeground
         $"0x{range.End:X8}" ]
 
 let private sectionRangeViews model sectionRange =
   match sectionRange with
-  | NoSection -> []
+  | NoSection ->
+    []
   | SingleSection name ->
     [ offsetTextView model model.Theme.StatusBar.MutedForeground " ("
       offsetTextView model model.Theme.StatusBar.PrimaryForeground name

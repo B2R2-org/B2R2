@@ -61,20 +61,16 @@ module PrintingUtils =
         else widths[i]
       let s = String.replicate width symbol
       Log.Out.Print(s)
-    if widths.Length > 0 then Log.Out.PrintLine()
-    else ()
+    if widths.Length > 0 then Log.Out.PrintLine() else ()
 
   /// Prints a single horizontal rule.
-  let printSingleHorizontalRule () =
-    printHorizontalRuleWith '-'
+  let printSingleHorizontalRule () = printHorizontalRuleWith '-'
 
   /// Prints a double horizontal rule.
-  let printDoubleHorizontalRule () =
-    printHorizontalRuleWith '='
+  let printDoubleHorizontalRule () = printHorizontalRuleWith '='
 
   /// Sets the column formats of the table.
-  let setTableColumnFormats colfmts =
-    Log.Out.TableConfig.Columns <- colfmts
+  let setTableColumnFormats colfmts = Log.Out.TableConfig.Columns <- colfmts
 
   /// Sets the table configuration according to the given configuration.
   let inline setTableConfig indent gap cols =
@@ -93,5 +89,4 @@ module PrintingUtils =
 
   /// Flushes the output buffer, ensuring that all pending output is written
   /// out.
-  let flush () =
-    Log.Out.Flush()
+  let flush () = Log.Out.Flush()

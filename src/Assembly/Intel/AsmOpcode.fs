@@ -138,8 +138,7 @@ let inline encRLI (wordSz: WordSize) ins r lbl op i immSz =
                  Label = lbl
                  IsBranch = false }
 
-let inline encFR (op: byte[]) r =
-  Resolved [| op[0]; op[1] + (regTo3Bit r) |]
+let inline encFR (op: byte[]) r = Resolved [| op[0]; op[1] + (regTo3Bit r) |]
 
 let inline encO ins wordSz pref rex op r =
   let op = [| op + (regTo3Bit r) |]
@@ -239,7 +238,8 @@ let private resolveMemSizeFromReg ins (wordSz: WordSize) =
     | TwoOperands(OprReg r, OprMem(b, s, d, 0<rt>)) ->
       let mOSz = RegisterHelper.toRegType wordSz r
       TwoOperands(OprReg r, OprMem(b, s, d, mOSz))
-    | _ -> ins.Operands
+    | _ ->
+      ins.Operands
   { ins with Operands = operands }
 
 let aaa (wordSz: WordSize) = function
@@ -247,16 +247,20 @@ let aaa (wordSz: WordSize) = function
   | _ -> raise <| EncodingFailureException "Unsupported operand type"
 
 let aad (wordSz: WordSize) = function
-  | NoOperand -> no64Arch wordSz; Resolved [| 0xD5uy; 0x0Auy |]
+  | NoOperand ->
+    no64Arch wordSz; Resolved [| 0xD5uy; 0x0Auy |]
   | OneOperand(OprImm(imm, _)) ->
     no64Arch wordSz; Resolved [| 0xD5uy; yield! immediate imm 8<rt> |]
-  | _ -> raise <| EncodingFailureException "Unsupported operand type"
+  | _ ->
+    raise <| EncodingFailureException "Unsupported operand type"
 
 let aam (wordSz: WordSize) = function
-  | NoOperand -> no64Arch wordSz; Resolved [| 0xD4uy; 0x0Auy |]
+  | NoOperand ->
+    no64Arch wordSz; Resolved [| 0xD4uy; 0x0Auy |]
   | OneOperand(OprImm(imm, _)) ->
     no64Arch wordSz; Resolved [| 0xD4uy; yield! immediate imm 8<rt> |]
-  | _ -> raise <| EncodingFailureException "Unsupported operand type"
+  | _ ->
+    raise <| EncodingFailureException "Unsupported operand type"
 
 let aas (wordSz: WordSize) = function
   | NoOperand -> no64Arch wordSz; Resolved [| 0x3Fuy |]
@@ -328,7 +332,8 @@ let arithmetic (wordSz: WordSize) ins baseOp regConstr =
     no32Arch wordSz
     encMI ins wordSz prefNormal rexW opImm b s d regConstr imm 32<rt>
   (* Mem - Reg *)
-  | TwoOperands(Label(lbl, _), OprReg r) -> encRL wordSz ins r lbl opMR8 opMR
+  | TwoOperands(Label(lbl, _), OprReg r) ->
+    encRL wordSz ins r lbl opMR8 opMR
   | TwoOperands(OprMem(b, s, d, 8<rt>), OprReg r) when isReg8 wordSz r ->
     encMR ins wordSz prefNormal rexNormal opMR8 b s d r
   | TwoOperands(OprMem(b, s, d, 16<rt>), OprReg r) when isReg16 wordSz r ->
@@ -353,7 +358,8 @@ let arithmetic (wordSz: WordSize) ins baseOp regConstr =
     no32Arch wordSz
     encRR ins wordSz prefNormal rexW opRM r1 r2
   (* Reg - Mem *)
-  | TwoOperands(OprReg r, Label(lbl, _)) -> encRL wordSz ins r lbl opRM8 opRM
+  | TwoOperands(OprReg r, Label(lbl, _)) ->
+    encRL wordSz ins r lbl opRM8 opRM
   | TwoOperands(OprReg r, OprMem(b, s, d, 8<rt>)) when isReg8 wordSz r ->
     encRM ins wordSz prefNormal rexNormal opRM8 r b s d
   | TwoOperands(OprReg r, OprMem(b, s, d, 16<rt>)) when isReg16 wordSz r ->
@@ -363,7 +369,8 @@ let arithmetic (wordSz: WordSize) ins baseOp regConstr =
   | TwoOperands(OprReg r, OprMem(b, s, d, 64<rt>)) when isReg64 wordSz r ->
     no32Arch wordSz
     encRM ins wordSz prefNormal rexW opRM r b s d
-  | _ -> raise <| EncodingFailureException "Unsupported operand type"
+  | _ ->
+    raise <| EncodingFailureException "Unsupported operand type"
 
 let adc wordSz ins = arithmetic wordSz ins 0x10uy 0b010uy
 
@@ -378,7 +385,8 @@ let sseRegRM (wordSz: WordSize) ins pref op memSz =
     encRR ins wordSz pref rexNormal op r1 r2
   | TwoOperands(OprReg r, OprMem(b, s, d, sz)) when isXMMReg r && sz = memSz ->
     encRM ins wordSz pref rexNormal op r b s d
-  | _ -> raise <| EncodingFailureException "Unsupported operand type"
+  | _ ->
+    raise <| EncodingFailureException "Unsupported operand type"
 
 let addpd wordSz ins = sseRegRM wordSz ins pref66 [| 0x0Fuy; 0x58uy |] 128<rt>
 
@@ -415,7 +423,8 @@ let bsr (wordSz: WordSize) ins =
   | TwoOperands(OprReg r, OprMem(b, s, d, 64<rt>)) when isReg64 wordSz r ->
     no32Arch wordSz
     encRM ins wordSz prefNormal rexW [| 0x0Fuy; 0xBDuy |] r b s d
-  | _ -> raise <| EncodingFailureException "Unsupported operand type"
+  | _ ->
+    raise <| EncodingFailureException "Unsupported operand type"
 
 let bt (wordSz: WordSize) ins =
   match ins.Operands with
@@ -441,24 +450,59 @@ let bt (wordSz: WordSize) ins =
   | TwoOperands(OprReg r, OprImm(imm, _)) when isReg16 wordSz r ->
     encRI ins wordSz pref66 rexNormal [| 0x0Fuy; 0xBAuy |] r 0b100uy imm 8<rt>
   | TwoOperands(OprReg r, OprImm(imm, _)) when isReg32 wordSz r ->
-    encRI ins wordSz prefNormal rexNormal
-      [| 0x0Fuy; 0xBAuy |] r 0b100uy imm 8<rt>
+    encRI ins
+          wordSz
+          prefNormal
+          rexNormal
+          [| 0x0Fuy; 0xBAuy |]
+          r
+          0b100uy
+          imm
+          8<rt>
   | TwoOperands(OprReg r, OprImm(imm, _)) when isReg64 wordSz r ->
     no32Arch wordSz
     encRI ins wordSz prefNormal rexW [| 0x0Fuy; 0xBAuy |] r 0b100uy imm 8<rt>
   | TwoOperands(Label(lbl, _), OprImm(imm, _)) ->
     encLI wordSz ins lbl 0b100uy imm 32<rt> [||] [| 0x0Fuy; 0xBAuy |]
   | TwoOperands(OprMem(b, s, d, 16<rt>), OprImm(imm, _)) ->
-    encMI ins wordSz pref66 rexNormal
-      [| 0x0Fuy; 0xBAuy |] b s d 0b100uy imm 8<rt>
+    encMI ins
+          wordSz
+          pref66
+          rexNormal
+          [| 0x0Fuy; 0xBAuy |]
+          b
+          s
+          d
+          0b100uy
+          imm
+          8<rt>
   | TwoOperands(OprMem(b, s, d, 32<rt>), OprImm(i, _)) ->
-    encMI ins wordSz
-      prefNormal rexNormal [| 0x0Fuy; 0xBAuy |] b s d 0b100uy i 8<rt>
+    encMI ins
+          wordSz
+          prefNormal
+          rexNormal
+          [| 0x0Fuy; 0xBAuy |]
+          b
+          s
+          d
+          0b100uy
+          i
+          8<rt>
   | TwoOperands(OprMem(b, s, d, 64<rt>), OprImm(imm, _)) ->
     no32Arch wordSz
-    encMI ins wordSz prefNormal rexW
-      [| 0x0Fuy; 0xBAuy |] b s d 0b100uy imm 8<rt>
-  | _ -> raise <| EncodingFailureException "Unsupported operand type"
+    encMI ins
+          wordSz
+          prefNormal
+          rexW
+          [| 0x0Fuy; 0xBAuy |]
+          b
+          s
+          d
+          0b100uy
+          imm
+          8<rt>
+  | _ ->
+    raise <| EncodingFailureException "Unsupported operand type"
 
 /// Describes how a branch with a relative target is encoded: its short (rel8)
 /// form, its near form, and the longest encoding it can produce. An empty form
@@ -521,7 +565,8 @@ let farBranch (wordSz: WordSize) ins digit =
   | OneOperand(OprMem(b, s, d, 80<rt>)) ->
     no32Arch wordSz
     encM ins wordSz prefNormal rexW [| 0xFFuy |] b s d digit
-  | _ -> raise <| EncodingFailureException "Unsupported operand type"
+  | _ ->
+    raise <| EncodingFailureException "Unsupported operand type"
 
 let nearCall (wordSz: WordSize) ins =
   let branch = relBranch Opcode.CALL
@@ -531,7 +576,8 @@ let nearCall (wordSz: WordSize) ins =
     encD ins wordSz pref66 rexNormal branch.NearForm rel 16<rt>
   | OneOperand(OprDirAddr(Relative rel)) when isInt32 rel ->
     encD ins wordSz prefNormal rexNormal branch.NearForm rel 32<rt>
-  | OneOperand(Label(lbl, _)) -> encLbl ins lbl
+  | OneOperand(Label(lbl, _)) ->
+    encLbl ins lbl
   | OneOperand(OprMem(b, s, d, 16<rt>)) ->
     no64Arch wordSz
     encM ins wordSz pref66 rexNormal [| 0xFFuy |] b s d 0b010uy
@@ -550,7 +596,8 @@ let nearCall (wordSz: WordSize) ins =
   | OneOperand(OprReg r) when isReg64 wordSz r ->
     no32Arch wordSz
     encR ins wordSz prefNormal rexNormal [| 0xFFuy |] r 0b010uy
-  | _ -> raise <| EncodingFailureException "Unsupported operand type"
+  | _ ->
+    raise <| EncodingFailureException "Unsupported operand type"
 
 /// Builds an encoder for a far branch to an absolute target, whose operand is a
 /// selector and an offset written straight into the instruction.
@@ -560,7 +607,8 @@ let private farAbsolute op wordSz ins =
     Resolved [| yield! prxRexOp ins wordSz prefNormal rexNormal [| op |]
                 yield! immediate (int64 addr) 32<rt>
                 yield! immediate (int64 sel) 16<rt> |]
-  | _ -> raise <| EncodingFailureException "Unsupported operand type"
+  | _ ->
+    raise <| EncodingFailureException "Unsupported operand type"
 
 let call wordSz ins =
   match ins.Operands with
@@ -601,7 +649,8 @@ let cmovcc (wordSz: WordSize) ins opcode =
   | TwoOperands(OprReg r, OprMem(b, s, d, 64<rt>)) when isReg64 wordSz r ->
     no32Arch wordSz
     encMR ins wordSz prefNormal rexW opcode b s d r
-  | _ -> raise <| EncodingFailureException "Unsupported operand type"
+  | _ ->
+    raise <| EncodingFailureException "Unsupported operand type"
 
 let cmova wordSz ins = cmovcc wordSz ins [| 0x0Fuy; 0x47uy |]
 
@@ -672,20 +721,23 @@ let cmpxchg (wordSz: WordSize) ins =
   | TwoOperands(OprMem(b, s, d, 64<rt>), OprReg r) when isReg64 wordSz r ->
     no32Arch wordSz
     encMR ins wordSz prefNormal rexW [| 0x0Fuy; 0xB1uy |] b s d r
-  | _ -> raise <| EncodingFailureException "Unsupported operand type"
+  | _ ->
+    raise <| EncodingFailureException "Unsupported operand type"
 
 let cmpxchg8b (wordSz: WordSize) ins =
   match ins.Operands with
   | OneOperand(OprMem(b, s, d, 64<rt>)) ->
     encM ins wordSz prefNormal rexNormal [| 0x0Fuy; 0xC7uy |] b s d 0b001uy
-  | _ -> raise <| EncodingFailureException "Unsupported operand type"
+  | _ ->
+    raise <| EncodingFailureException "Unsupported operand type"
 
 let cmpxchg16b (wordSz: WordSize) ins =
   match ins.Operands with
   | OneOperand(OprMem(b, s, d, 128<rt>)) ->
     no32Arch wordSz
     encM ins wordSz prefNormal rexW [| 0x0Fuy; 0xC7uy |] b s d 0b001uy
-  | _ -> raise <| EncodingFailureException "Unsupported operand type"
+  | _ ->
+    raise <| EncodingFailureException "Unsupported operand type"
 
 let cvtsd2ss wordSz ins = sseRegRM wordSz ins prefF2 [| 0x0Fuy; 0x5Auy |] 64<rt>
 
@@ -699,7 +751,8 @@ let cvtsi2sd (wordSz: WordSize) ins =
     encRR ins wordSz prefF2 rexW [| 0x0Fuy; 0x2Auy |] r1 r2
   | TwoOperands(OprReg r, OprMem(b, s, d, 64<rt>)) when isXMMReg r ->
     encRM ins wordSz prefF2 rexW [| 0x0Fuy; 0x2Auy |] r b s d
-  | _ -> raise <| EncodingFailureException "Unsupported operand type"
+  | _ ->
+    raise <| EncodingFailureException "Unsupported operand type"
 
 let cvtsi2ss (wordSz: WordSize) ins =
   match ins.Operands with
@@ -711,7 +764,8 @@ let cvtsi2ss (wordSz: WordSize) ins =
     encRR ins wordSz prefF3 rexW [| 0x0Fuy; 0x2Auy |] r1 r2
   | TwoOperands(OprReg r, OprMem(b, s, d, 64<rt>)) when isXMMReg r ->
     encRM ins wordSz prefF3 rexW [| 0x0Fuy; 0x2Auy |] r b s d
-  | _ -> raise <| EncodingFailureException "Unsupported operand type"
+  | _ ->
+    raise <| EncodingFailureException "Unsupported operand type"
 
 let cvtss2si (wordSz: WordSize) ins =
    match ins.Operands with
@@ -723,7 +777,8 @@ let cvtss2si (wordSz: WordSize) ins =
      encRR ins wordSz prefF3 rexW [| 0x0Fuy; 0x2Duy |] r1 r2
    | TwoOperands(OprReg r, OprMem(b, s, d, 32<rt>)) when isReg64 wordSz r ->
      encRM ins wordSz prefF3 rexW [| 0x0Fuy; 0x2Duy |] r b s d
-   | _ -> raise <| EncodingFailureException "Unsupported operand type"
+   | _ ->
+     raise <| EncodingFailureException "Unsupported operand type"
 
 let cvttss2si (wordSz: WordSize) ins =
   match ins.Operands with
@@ -735,7 +790,8 @@ let cvttss2si (wordSz: WordSize) ins =
     encRR ins wordSz prefF3 rexW [| 0x0Fuy; 0x2Cuy |] r1 r2
   | TwoOperands(OprReg r, OprMem(b, s, d, 32<rt>)) when isReg64 wordSz r ->
     encRM ins wordSz prefF3 rexW [| 0x0Fuy; 0x2Cuy |] r b s d
-  | _ -> raise <| EncodingFailureException "Unsupported operand type"
+  | _ ->
+    raise <| EncodingFailureException "Unsupported operand type"
 
 let cwde _wordSize = function
   | NoOperand -> Resolved [| 0x98uy |]
@@ -750,13 +806,15 @@ let dec (wordSz: WordSize) ins =
   | OneOperand(OprReg r) when isReg16 wordSz r ->
     if isClassicGPReg r && wordSz = WordSize.Bit32 then
       encClassicR true 0x48uy (regTo3Bit r)
-    else encR ins wordSz pref66 rexNormal [| 0xFFuy |] r 1uy
+    else
+      encR ins wordSz pref66 rexNormal [| 0xFFuy |] r 1uy
   | OneOperand(OprMem(b, s, d, 16<rt>)) ->
     encM ins wordSz pref66 rexNormal [| 0xFFuy |] b s d 1uy
   | OneOperand(OprReg r) when isReg32 wordSz r ->
     if isClassicGPReg r && wordSz = WordSize.Bit32 then
       encClassicR false 0x48uy (regTo3Bit r)
-    else encR ins wordSz prefNormal rexNormal [| 0xFFuy |] r 1uy
+    else
+      encR ins wordSz prefNormal rexNormal [| 0xFFuy |] r 1uy
   | OneOperand(OprMem(b, s, d, 32<rt>)) ->
     encM ins wordSz prefNormal rexNormal [| 0xFFuy |] b s d 1uy
   | OneOperand(OprReg r) when isReg64 wordSz r ->
@@ -765,7 +823,8 @@ let dec (wordSz: WordSize) ins =
   | OneOperand(OprMem(b, s, d, 64<rt>)) ->
     no32Arch wordSz
     encM ins wordSz prefNormal rexW [| 0xFFuy |] b s d 1uy
-  | _ -> raise <| EncodingFailureException "Unsupported operand type"
+  | _ ->
+    raise <| EncodingFailureException "Unsupported operand type"
 
 /// Encodes one of the unary group 3 instructions in its single-operand form:
 /// NOT, NEG, MUL, DIV and IDIV. They share one encoding layout and differ only
@@ -793,7 +852,8 @@ let unaryGrp3 (wordSz: WordSize) ins regConstr =
   | OneOperand(OprMem(b, s, d, 64<rt>)) ->
     no32Arch wordSz
     encM ins wordSz prefNormal rexW op b s d regConstr
-  | _ -> raise <| EncodingFailureException "Unsupported operand type"
+  | _ ->
+    raise <| EncodingFailureException "Unsupported operand type"
 
 let div wordSz ins = unaryGrp3 wordSz ins 0b110uy
 
@@ -817,7 +877,8 @@ let x87Arith (wordSz: WordSize) ins regConstr toSt0 fromSt0 =
     encFR [| 0xD8uy; toSt0 |] r
   | TwoOperands(OprReg r, OprReg Register.ST0) when isFPUReg r ->
     encFR [| 0xDCuy; fromSt0 |] r
-  | _ -> raise <| EncodingFailureException "Unsupported operand type"
+  | _ ->
+    raise <| EncodingFailureException "Unsupported operand type"
 
 let fadd wordSz ins = x87Arith wordSz ins 0b000uy 0xC0uy 0xC0uy
 
@@ -825,21 +886,26 @@ let fcmovb _wordSize ins =
   match ins.Operands with
   | TwoOperands(OprReg Register.ST0, OprReg r) when isFPUReg r ->
     encFR [| 0xDAuy; 0xC0uy |] r
-  | _ -> raise <| EncodingFailureException "Unsupported operand type"
+  | _ ->
+    raise <| EncodingFailureException "Unsupported operand type"
 
 let fdiv wordSz ins = x87Arith wordSz ins 0b110uy 0xF0uy 0xF8uy
 
 let fdivp _wordSize = function
-  | NoOperand -> Resolved [| 0xDEuy; 0xF9uy |]
+  | NoOperand ->
+    Resolved [| 0xDEuy; 0xF9uy |]
   | TwoOperands(OprReg r, OprReg Register.ST0) when isFPUReg r ->
     encFR [| 0xDEuy; 0xF8uy |] r
-  | _ -> raise <| EncodingFailureException "Unsupported operand type"
+  | _ ->
+    raise <| EncodingFailureException "Unsupported operand type"
 
 let fdivrp _wordSize = function
-  | NoOperand -> Resolved [| 0xDEuy; 0xF1uy |]
+  | NoOperand ->
+    Resolved [| 0xDEuy; 0xF1uy |]
   | TwoOperands(OprReg r, OprReg Register.ST0) when isFPUReg r ->
     encFR [| 0xDEuy; 0xF0uy |] r
-  | _ -> raise <| EncodingFailureException "Unsupported operand type"
+  | _ ->
+    raise <| EncodingFailureException "Unsupported operand type"
 
 let fild (wordSz: WordSize) ins =
   match ins.Operands with
@@ -849,7 +915,8 @@ let fild (wordSz: WordSize) ins =
     encM ins wordSz prefNormal rexNormal [| 0xDBuy |] b s d 0b000uy
   | OneOperand(OprMem(b, s, d, 64<rt>)) ->
     encM ins wordSz prefNormal rexNormal [| 0xDFuy |] b s d 0b101uy
-  | _ -> raise <| EncodingFailureException "Unsupported operand type"
+  | _ ->
+    raise <| EncodingFailureException "Unsupported operand type"
 
 let fistp (wordSz: WordSize) ins =
   match ins.Operands with
@@ -859,7 +926,8 @@ let fistp (wordSz: WordSize) ins =
     encM ins wordSz prefNormal rexNormal [| 0xDBuy |] b s d 0b011uy
   | OneOperand(OprMem(b, s, d, 64<rt>)) ->
     encM ins wordSz prefNormal rexNormal [| 0xDFuy |] b s d 0b111uy
-  | _ -> raise <| EncodingFailureException "Unsupported operand type"
+  | _ ->
+    raise <| EncodingFailureException "Unsupported operand type"
 
 let fld (wordSz: WordSize) ins =
   match ins.Operands with
@@ -869,8 +937,10 @@ let fld (wordSz: WordSize) ins =
     encM ins wordSz prefNormal rexNormal [| 0xDDuy |] b s d 0b000uy
   | OneOperand(OprMem(b, s, d, 80<rt>)) ->
     encM ins wordSz prefNormal rexNormal [| 0xDBuy |] b s d 0b101uy
-  | OneOperand(OprReg r) when isFPUReg r -> encFR [| 0xD9uy; 0xC0uy |] r
-  | _ -> raise <| EncodingFailureException "Unsupported operand type"
+  | OneOperand(OprReg r) when isFPUReg r ->
+    encFR [| 0xD9uy; 0xC0uy |] r
+  | _ ->
+    raise <| EncodingFailureException "Unsupported operand type"
 
 let fld1 _wordSize = function
   | NoOperand -> Resolved [| 0xD9uy; 0xE8uy |]
@@ -880,7 +950,8 @@ let fldcw (wordSz: WordSize) ins =
   match ins.Operands with
   | OneOperand(OprMem(b, s, d, 16<rt>)) ->
     encM ins wordSz prefNormal rexNormal [| 0xD9uy |] b s d 0b101uy
-  | _ -> raise <| EncodingFailureException "Unsupported operand type"
+  | _ ->
+    raise <| EncodingFailureException "Unsupported operand type"
 
 let fldz _wordSize = function
   | NoOperand -> Resolved [| 0xD9uy; 0xEEuy |]
@@ -889,16 +960,19 @@ let fldz _wordSize = function
 let fmul wordSz ins = x87Arith wordSz ins 0b001uy 0xC8uy 0xC8uy
 
 let fmulp _wordSize = function
-  | NoOperand -> Resolved [| 0xDEuy; 0xC9uy |]
+  | NoOperand ->
+    Resolved [| 0xDEuy; 0xC9uy |]
   | TwoOperands(OprReg r, OprReg Register.ST0) when isFPUReg r ->
     encFR [| 0xDEuy; 0xC8uy |] r
-  | _ -> raise <| EncodingFailureException "Unsupported operand type"
+  | _ ->
+    raise <| EncodingFailureException "Unsupported operand type"
 
 let fnstcw (wordSz: WordSize) ins =
   match ins.Operands with
   | OneOperand(OprMem(b, s, d, 16<rt>)) ->
     encM ins wordSz prefNormal rexNormal [| 0xD9uy |] b s d 0b111uy
-  | _ -> raise <| EncodingFailureException "Unsupported operand type"
+  | _ ->
+    raise <| EncodingFailureException "Unsupported operand type"
 
 let fstp (wordSz: WordSize) ins =
   match ins.Operands with
@@ -908,8 +982,10 @@ let fstp (wordSz: WordSize) ins =
     encM ins wordSz prefNormal rexNormal [| 0xDDuy |] b s d 0b011uy
   | OneOperand(OprMem(b, s, d, 80<rt>)) ->
     encM ins wordSz prefNormal rexNormal [| 0xDBuy |] b s d 0b111uy
-  | OneOperand(OprReg r) when isFPUReg r -> encFR [| 0xDDuy; 0xD8uy |] r
-  | _ -> raise <| EncodingFailureException "Unsupported operand type"
+  | OneOperand(OprReg r) when isFPUReg r ->
+    encFR [| 0xDDuy; 0xD8uy |] r
+  | _ ->
+    raise <| EncodingFailureException "Unsupported operand type"
 
 let fsub wordSz ins = x87Arith wordSz ins 0b100uy 0xE0uy 0xE8uy
 
@@ -918,12 +994,14 @@ let fsubr wordSz ins = x87Arith wordSz ins 0b101uy 0xE8uy 0xE0uy
 let fucomi _wordSize = function
   | TwoOperands(OprReg Register.ST0, OprReg r) when isFPUReg r ->
     encFR [| 0xDBuy; 0xE8uy |] r
-  | _ -> raise <| EncodingFailureException "Unsupported operand type"
+  | _ ->
+    raise <| EncodingFailureException "Unsupported operand type"
 
 let fucomip _wordSize = function
   | TwoOperands(OprReg Register.ST0, OprReg r) when isFPUReg r ->
     encFR [| 0xDFuy; 0xE8uy |] r
-  | _ -> raise <| EncodingFailureException "Unsupported operand type"
+  | _ ->
+    raise <| EncodingFailureException "Unsupported operand type"
 
 let fxch _wordSize = function
   | NoOperand -> Resolved [| 0xD9uy; 0xC9uy |]
@@ -1017,7 +1095,8 @@ let imul (wordSz: WordSize) ins =
     when isReg64 wordSz r ->
     no32Arch wordSz
     encRMI ins wordSz prefNormal rexW [| 0x69uy |] r b s d imm 32<rt>
-  | _ -> raise <| EncodingFailureException "Unsupported operand type"
+  | _ ->
+    raise <| EncodingFailureException "Unsupported operand type"
 
 let inc (wordSz: WordSize) ins =
   match ins.Operands with
@@ -1028,13 +1107,15 @@ let inc (wordSz: WordSize) ins =
   | OneOperand(OprReg r) when isReg16 wordSz r ->
     if isClassicGPReg r && wordSz = WordSize.Bit32 then
       encClassicR true 0x40uy (regTo3Bit r)
-    else encR ins wordSz pref66 rexNormal [| 0xFFuy |] r 0uy
+    else
+      encR ins wordSz pref66 rexNormal [| 0xFFuy |] r 0uy
   | OneOperand(OprMem(b, s, d, 16<rt>)) ->
     encM ins wordSz pref66 rexNormal [| 0xFFuy |] b s d 0uy
   | OneOperand(OprReg r) when isReg32 wordSz r ->
     if isClassicGPReg r && wordSz = WordSize.Bit32 then
       encClassicR false 0x40uy (regTo3Bit r)
-    else encR ins wordSz prefNormal rexNormal [| 0xFFuy |] r 0uy
+    else
+      encR ins wordSz prefNormal rexNormal [| 0xFFuy |] r 0uy
   | OneOperand(OprMem(b, s, d, 32<rt>)) ->
     encM ins wordSz prefNormal rexNormal [| 0xFFuy |] b s d 0uy
   | OneOperand(OprReg r) when isReg64 wordSz r ->
@@ -1043,12 +1124,12 @@ let inc (wordSz: WordSize) ins =
   | OneOperand(OprMem(b, s, d, 64<rt>)) ->
     no32Arch wordSz
     encM ins wordSz prefNormal rexW [| 0xFFuy |] b s d 0uy
-  | _ -> raise <| EncodingFailureException "Unsupported operand type"
+  | _ ->
+    raise <| EncodingFailureException "Unsupported operand type"
 
 let interrupt ins =
   match ins.Operands with
-  | OneOperand(OprImm(n, _)) when isUInt8 n ->
-    Resolved [| 0xcduy; byte n |]
+  | OneOperand(OprImm(n, _)) when isUInt8 n -> Resolved [| 0xcduy; byte n |]
   | _ -> raise <| EncodingFailureException "Unsupported operand type"
 
 let interrupt3 () = Resolved [| 0xccuy |]
@@ -1056,7 +1137,8 @@ let interrupt3 () = Resolved [| 0xccuy |]
 let jcc (wordSz: WordSize) ins =
   let branch = relBranch ins.Opcode
   match ins.Operands with
-  | OneOperand(Label(lbl, _)) -> encLbl ins lbl
+  | OneOperand(Label(lbl, _)) ->
+    encLbl ins lbl
   | OneOperand(OprDirAddr(Relative rel)) when isInt8 rel ->
     encD ins wordSz prefNormal rexNormal branch.ShortForm rel 8<rt>
   | OneOperand(OprDirAddr(Relative rel))
@@ -1064,12 +1146,14 @@ let jcc (wordSz: WordSize) ins =
     encD ins wordSz pref66 rexNormal branch.NearForm rel 16<rt>
   | OneOperand(OprDirAddr(Relative rel)) when isInt32 rel ->
     encD ins wordSz prefNormal rexNormal branch.NearForm rel 32<rt>
-  | _ -> raise <| EncodingFailureException "Unsupported operand type"
+  | _ ->
+    raise <| EncodingFailureException "Unsupported operand type"
 
 let nearJmp (wordSz: WordSize) ins =
   let branch = relBranch Opcode.JMP
   match ins.Operands with
-  | OneOperand(Label(lbl, _)) -> encLbl ins lbl
+  | OneOperand(Label(lbl, _)) ->
+    encLbl ins lbl
   | OneOperand(OprDirAddr(Relative rel)) when isInt8 rel ->
     encD ins wordSz prefNormal rexNormal branch.ShortForm rel 8<rt>
   | OneOperand(OprDirAddr(Relative rel)) when isInt32 rel ->
@@ -1092,7 +1176,8 @@ let nearJmp (wordSz: WordSize) ins =
   | OneOperand(OprMem(b, s, d, 64<rt>)) ->
     no32Arch wordSz
     encM ins wordSz prefNormal rexNormal [| 0xFFuy |] b s d 0b100uy
-  | _ -> raise <| EncodingFailureException "Unsupported operand type"
+  | _ ->
+    raise <| EncodingFailureException "Unsupported operand type"
 
 let jmp wordSz ins =
   match ins.Operands with
@@ -1115,7 +1200,8 @@ let lea (wordSz: WordSize) ins =
   | TwoOperands(OprReg r, OprMem(b, s, d, 64<rt>)) when isReg64 wordSz r ->
     no32Arch wordSz
     encRM ins wordSz prefNormal rexW [| 0x8Duy |] r b s d
-  | _ -> raise <| EncodingFailureException "Unsupported operand type"
+  | _ ->
+    raise <| EncodingFailureException "Unsupported operand type"
 
 let leave = function
   | NoOperand -> Resolved [| 0xC9uy |]
@@ -1235,7 +1321,8 @@ let mov wordSz ins =
   | TwoOperands(OprMem(b, s, d, 64<rt>), OprImm(imm, _)) ->
     no32Arch wordSz;
     encMI ins wordSz prefNormal rexW [| 0xC7uy |] b s d 0b000uy imm 32<rt>
-  | _ -> raise <| EncodingFailureException "Unsupported operand type"
+  | _ ->
+    raise <| EncodingFailureException "Unsupported operand type"
 
 /// Encodes an SSE move, which unlike the arithmetic above can also store to
 /// memory. The store opcode always follows the load opcode in the encoding
@@ -1248,7 +1335,8 @@ let sseMov (wordSz: WordSize) ins pref loadOp storeOp memSz =
     encRM ins wordSz pref rexNormal loadOp r b s d
   | TwoOperands(OprMem(b, s, d, sz), OprReg r) when isXMMReg r && sz = memSz ->
     encMR ins wordSz pref rexNormal storeOp b s d r
-  | _ -> raise <| EncodingFailureException "Unsupported operand type"
+  | _ ->
+    raise <| EncodingFailureException "Unsupported operand type"
 
 let movaps wordSz ins =
   sseMov wordSz ins prefNormal [| 0x0Fuy; 0x28uy |] [| 0x0Fuy; 0x29uy |] 128<rt>
@@ -1271,7 +1359,8 @@ let movd (wordSz: WordSize) ins =
     encRR ins wordSz pref66 rexMR [| 0x0Fuy; 0x7Euy |] r2 r1
   | TwoOperands(OprMem(b, s, d, 32<rt>), OprReg r) when isXMMReg r ->
     encMR ins wordSz pref66 rexNormal [| 0x0Fuy; 0x7Euy |] b s d r
-  | _ -> raise <| EncodingFailureException "Unsupported operand type"
+  | _ ->
+    raise <| EncodingFailureException "Unsupported operand type"
 
 let movdqa wordSz ins =
   sseMov wordSz ins pref66 [| 0x0Fuy; 0x6Fuy |] [| 0x0Fuy; 0x7Fuy |] 128<rt>
@@ -1281,14 +1370,16 @@ let movdqu wordSz ins =
 
 let movsd (wordSz: WordSize) ins =
   match ins.Operands with
-  | NoOperand -> stringOp wordSz ins prefNormal rexNormal 0xA5uy
+  | NoOperand ->
+    stringOp wordSz ins prefNormal rexNormal 0xA5uy
   | TwoOperands(OprReg r1, OprReg r2) when isXMMReg r1 && isXMMReg r2 ->
     encRR ins wordSz prefF2 rexNormal [| 0x0Fuy; 0x10uy |] r1 r2
   | TwoOperands(OprReg r, OprMem(b, s, d, 64<rt>)) when isXMMReg r ->
     encRM ins wordSz prefF2 rexNormal [| 0x0Fuy; 0x10uy |] r b s d
   | TwoOperands(OprMem(b, s, d, 64<rt>), OprReg r) when isXMMReg r ->
     encMR ins wordSz prefF2 rexNormal [| 0x0Fuy; 0x11uy |] b s d r
-  | _ -> raise <| EncodingFailureException "Unsupported operand type"
+  | _ ->
+    raise <| EncodingFailureException "Unsupported operand type"
 
 let movss wordSz ins =
   sseMov wordSz ins prefF3 [| 0x0Fuy; 0x10uy |] [| 0x0Fuy; 0x11uy |] 32<rt>
@@ -1331,7 +1422,8 @@ let movsx (wordSz: WordSize) ins =
   | TwoOperands(OprReg r, OprMem(b, s, d, 16<rt>)) when isReg64 wordSz r ->
     no32Arch wordSz
     encRM ins wordSz prefNormal rexW [| 0x0Fuy; 0xBFuy |] r b s d
-  | _ -> raise <| EncodingFailureException "Unsupported operand type"
+  | _ ->
+    raise <| EncodingFailureException "Unsupported operand type"
 
 let movsxd (wordSz: WordSize) ins =
   match ins.Operands with
@@ -1358,7 +1450,8 @@ let movsxd (wordSz: WordSize) ins =
   | TwoOperands(OprReg r, OprMem(b, s, d, 32<rt>)) when isReg64 wordSz r ->
     no32Arch wordSz
     encRM ins wordSz prefNormal rexW [| 0x63uy |] r b s d
-  | _ -> raise <| EncodingFailureException "Unsupported operand type"
+  | _ ->
+    raise <| EncodingFailureException "Unsupported operand type"
 
 let movups wordSz ins =
   sseMov wordSz ins prefNormal [| 0x0Fuy; 0x10uy |] [| 0x0Fuy; 0x11uy |] 128<rt>
@@ -1401,7 +1494,8 @@ let movzx (wordSz: WordSize) ins =
   | TwoOperands(OprReg r, OprMem(b, s, d, 16<rt>)) when isReg64 wordSz r ->
     no32Arch wordSz
     encRM ins wordSz prefNormal rexW [| 0x0Fuy; 0xB7uy |] r b s d
-  | _ -> raise <| EncodingFailureException "Unsupported operand type"
+  | _ ->
+    raise <| EncodingFailureException "Unsupported operand type"
 
 let mul wordSz ins = unaryGrp3 wordSz ins 0b100uy
 
@@ -1413,7 +1507,8 @@ let neg wordSz ins = unaryGrp3 wordSz ins 0b011uy
 
 let nop (wordSz: WordSize) ins =
   match ins.Operands with
-  | NoOperand -> Resolved [| 0x90uy |]
+  | NoOperand ->
+    Resolved [| 0x90uy |]
   | OneOperand(OprReg r) when isReg16 wordSz r ->
     encR ins wordSz pref66 rexNormal [| 0x0Fuy; 0x1Fuy |] r 0b000uy
   | OneOperand(OprMem(b, s, d, 16<rt>)) ->
@@ -1428,7 +1523,8 @@ let nop (wordSz: WordSize) ins =
   | OneOperand(OprMem(b, s, d, 64<rt>)) ->
     no32Arch wordSz
     encM ins wordSz prefNormal rexW [| 0x0Fuy; 0x1Fuy |] b s d 0b000uy
-  | _ -> raise <| EncodingFailureException "Unsupported operand type"
+  | _ ->
+    raise <| EncodingFailureException "Unsupported operand type"
 
 let not wordSz ins = unaryGrp3 wordSz ins 0b010uy
 
@@ -1447,32 +1543,65 @@ let mmxOrSseRegRM (wordSz: WordSize) ins op mmxMemSz =
   | TwoOperands(OprReg r, OprMem(b, s, d, sz))
     when isMMXReg r && sz = mmxMemSz ->
     encRM ins wordSz prefNormal rexNormal op r b s d
-  | _ -> sseRegRM wordSz ins pref66 op 128<rt>
+  | _ ->
+    sseRegRM wordSz ins pref66 op 128<rt>
 
-let paddd wordSz ins =
-  mmxOrSseRegRM wordSz ins [| 0x0Fuy; 0xFEuy |] 64<rt>
+let paddd wordSz ins = mmxOrSseRegRM wordSz ins [| 0x0Fuy; 0xFEuy |] 64<rt>
 
 let palignr (wordSz: WordSize) ins =
   match ins.Operands with
   (* Reg - Reg - Imm8 *)
   | ThreeOperands(OprReg r1, OprReg r2, OprImm(imm, _))
     when isMMXReg r1 && isMMXReg r2 ->
-    encRRI ins wordSz prefNormal rexNormal [| 0x0Fuy; 0x3Auy; 0x0Fuy |]
-      r1 r2 imm 8<rt>
+    encRRI ins
+           wordSz
+           prefNormal
+           rexNormal
+           [| 0x0Fuy; 0x3Auy; 0x0Fuy |]
+           r1
+           r2
+           imm
+           8<rt>
   | ThreeOperands(OprReg r1, OprReg r2, OprImm(imm, _))
     when isXMMReg r1 && isXMMReg r2 ->
-    encRRI ins wordSz pref66 rexNormal
-      [| 0x0Fuy; 0x3Auy; 0x0Fuy |] r1 r2 imm 8<rt>
+    encRRI ins
+           wordSz
+           pref66
+           rexNormal
+           [| 0x0Fuy; 0x3Auy; 0x0Fuy |]
+           r1
+           r2
+           imm
+           8<rt>
   (* Reg - Mem - Imm8 *)
   | ThreeOperands(OprReg r, OprMem(b, s, d, 64<rt>), OprImm(imm, _))
     when isMMXReg r ->
-    encRMI ins wordSz prefNormal rexNormal [| 0x0Fuy; 0x3Auy; 0x0Fuy |]
-      r b s d imm 8<rt>
+    encRMI ins
+           wordSz
+           prefNormal
+           rexNormal
+           [| 0x0Fuy; 0x3Auy; 0x0Fuy |]
+           r
+           b
+           s
+           d
+           imm
+           8<rt>
   | ThreeOperands(OprReg r, OprMem(b, s, d, 128<rt>), OprImm(imm, _))
     when isXMMReg r ->
-    encRMI ins wordSz
-      pref66 rexNormal [| 0x0Fuy; 0x3Auy; 0x0Fuy |] r b s d imm 8<rt>
-  | _ -> raise <| EncodingFailureException "Unsupported operand type"
+    encRMI ins
+           wordSz
+           pref66
+           rexNormal
+           [| 0x0Fuy; 0x3Auy; 0x0Fuy |]
+           r
+           b
+           s
+           d
+           imm
+           8<rt>
+  | _ ->
+    raise <| EncodingFailureException "Unsupported operand type"
 
 let pop (wordSz: WordSize) ins =
   match ins.Operands with
@@ -1482,8 +1611,10 @@ let pop (wordSz: WordSize) ins =
     no64Arch wordSz; Resolved [| 0x07uy |]
   | OneOperand(OprReg Register.SS) ->
     no64Arch wordSz; Resolved [| 0x17uy |]
-  | OneOperand(OprReg Register.FS) -> Resolved [| 0x0Fuy; 0xA1uy |]
-  | OneOperand(OprReg Register.GS) -> Resolved [| 0x0Fuy; 0xA9uy |]
+  | OneOperand(OprReg Register.FS) ->
+    Resolved [| 0x0Fuy; 0xA1uy |]
+  | OneOperand(OprReg Register.GS) ->
+    Resolved [| 0x0Fuy; 0xA9uy |]
   | OneOperand(OprReg r) when isReg16 wordSz r ->
     if isClassicGPReg r then encClassicR true 0x58uy (regTo3Bit r)
     else encR ins wordSz pref66 rexNormal [| 0x8Fuy |] r 0uy
@@ -1503,7 +1634,8 @@ let pop (wordSz: WordSize) ins =
   | OneOperand(OprMem(b, s, d, 64<rt>)) ->
     no32Arch wordSz
     encM ins wordSz prefNormal rexW [| 0x8Fuy |] b s d 0uy
-  | _ -> raise <| EncodingFailureException "Unsupported operand type"
+  | _ ->
+    raise <| EncodingFailureException "Unsupported operand type"
 
 let pshufd (wordSz: WordSize) ins =
   match ins.Operands with
@@ -1513,7 +1645,8 @@ let pshufd (wordSz: WordSize) ins =
   | ThreeOperands(OprReg r, OprMem(b, s, d, 128<rt>), OprImm(imm, _))
     when isXMMReg r ->
     encRMI ins wordSz pref66 rexNormal [| 0x0Fuy; 0x70uy |] r b s d imm 8<rt>
-  | _ -> raise <| EncodingFailureException "Unsupported operand type"
+  | _ ->
+    raise <| EncodingFailureException "Unsupported operand type"
 
 let punpckldq (wordSz: WordSize) ins =
   match ins.Operands with
@@ -1525,7 +1658,8 @@ let punpckldq (wordSz: WordSize) ins =
     encRR ins wordSz pref66 rexNormal [| 0x0Fuy; 0x62uy |] r1 r2
   | TwoOperands(OprReg r, OprMem(b, s, d, 128<rt>)) when isXMMReg r ->
     encRM ins wordSz pref66 rexNormal [| 0x0Fuy; 0x62uy |] r b s d
-  | _ -> raise <| EncodingFailureException "Unsupported operand type"
+  | _ ->
+    raise <| EncodingFailureException "Unsupported operand type"
 
 let push (wordSz: WordSize) ins =
   match ins.Operands with
@@ -1537,8 +1671,10 @@ let push (wordSz: WordSize) ins =
     no64Arch wordSz; Resolved [| 0x1Euy |]
   | OneOperand(OprReg Register.ES) ->
     no64Arch wordSz; Resolved [| 0x06uy |]
-  | OneOperand(OprReg Register.FS) -> Resolved [| 0x0Fuy; 0xA0uy |]
-  | OneOperand(OprReg Register.GS) -> Resolved [| 0x0Fuy; 0xA8uy |]
+  | OneOperand(OprReg Register.FS) ->
+    Resolved [| 0x0Fuy; 0xA0uy |]
+  | OneOperand(OprReg Register.GS) ->
+    Resolved [| 0x0Fuy; 0xA8uy |]
   | OneOperand(OprReg r) when isReg16 wordSz r ->
     if isClassicGPReg r then encClassicR true 0x50uy (regTo3Bit r)
     else encR ins wordSz pref66 rexNormal [| 0xFFuy |] r 0b110uy
@@ -1547,16 +1683,14 @@ let push (wordSz: WordSize) ins =
   | OneOperand(OprReg r) when isReg32 wordSz r ->
     no64Arch wordSz
     if isClassicGPReg r then encClassicR false 0x50uy (regTo3Bit r)
-    else
-      encR ins wordSz prefNormal rexNormal [| 0xFFuy |] r 0b110uy
+    else encR ins wordSz prefNormal rexNormal [| 0xFFuy |] r 0b110uy
   | OneOperand(OprMem(b, s, d, 32<rt>)) ->
     no64Arch wordSz
     encM ins wordSz prefNormal rexNormal [| 0xFFuy |] b s d 0b110uy
   | OneOperand(OprReg r) when isReg64 wordSz r ->
     no32Arch wordSz
     if isClassicGPReg r then encClassicR false 0x50uy (regTo3Bit r)
-    else
-      encR ins wordSz prefNormal rexNormal [| 0xFFuy |] r 0b110uy
+    else encR ins wordSz prefNormal rexNormal [| 0xFFuy |] r 0b110uy
   | OneOperand(OprMem(b, s, d, 64<rt>)) ->
     no32Arch wordSz
     encM ins wordSz prefNormal rexNormal [| 0xFFuy |] b s d 0b110uy
@@ -1566,7 +1700,8 @@ let push (wordSz: WordSize) ins =
     encImm ins wordSz pref66 rexNormal [| 0x68uy |] imm 16<rt>
   | OneOperand(OprImm(imm, _)) when isUInt32 imm ->
     encImm ins wordSz prefNormal rexNormal [| 0x68uy |] imm 32<rt>
-  | _ -> raise <| EncodingFailureException "Unsupported operand type"
+  | _ ->
+    raise <| EncodingFailureException "Unsupported operand type"
 
 let pxor (wordSz: WordSize) ins =
   match ins.Operands with
@@ -1578,7 +1713,8 @@ let pxor (wordSz: WordSize) ins =
     encRR ins wordSz pref66 rexNormal [| 0x0Fuy; 0xEFuy |] r1 r2
   | TwoOperands(OprReg r, OprMem(b, s, d, 128<rt>)) when isXMMReg r ->
     encRM ins wordSz pref66 rexNormal [| 0x0Fuy; 0xEFuy |] r b s d
-  | _ -> raise <| EncodingFailureException "Unsupported operand type"
+  | _ ->
+    raise <| EncodingFailureException "Unsupported operand type"
 
 let rotateOrShift (wordSz: WordSize) ins regConstr =
   match ins.Operands with
@@ -1638,7 +1774,8 @@ let rotateOrShift (wordSz: WordSize) ins regConstr =
   | TwoOperands(OprMem(b, s, d, 64<rt>), OprImm(imm, _)) ->
     no32Arch wordSz
     encMI ins wordSz prefNormal rexW [| 0xC1uy |] b s d regConstr imm 8<rt>
-  | _ -> raise <| EncodingFailureException "Unsupported operand type"
+  | _ ->
+    raise <| EncodingFailureException "Unsupported operand type"
 
 let rcl wordSz ins = rotateOrShift wordSz ins 0b010uy
 
@@ -1650,14 +1787,16 @@ let ror wordSz ins = rotateOrShift wordSz ins 0b001uy
 
 let ret (wordSz: WordSize) ins =
   match ins.Operands with
-  | NoOperand -> Resolved [| 0xC3uy |]
+  | NoOperand ->
+    Resolved [| 0xC3uy |]
   (* The parser offers a jump target to every branch opcode, RET included, but
      RET's operand is a count of bytes to pop rather than a displacement, so it
      is encoded as the immediate it is and not relative to anything. *)
   | OneOperand(OprDirAddr(Relative imm))
   | OneOperand(OprImm(imm, _)) ->
     encImm ins wordSz prefNormal rexNormal [| 0xC2uy |] imm 16<rt>
-  | _ -> raise <| EncodingFailureException "Unsupported operand type"
+  | _ ->
+    raise <| EncodingFailureException "Unsupported operand type"
 
 let sar wordSz ins = rotateOrShift wordSz ins 0b111uy
 
@@ -1687,7 +1826,8 @@ let setcc (wordSz: WordSize) ins op =
     encR ins wordSz prefNormal rexNormal [| 0x0Fuy; op |] r 0b000uy
   | OneOperand(OprMem(b, s, d, 8<rt>)) ->
     encM ins wordSz prefNormal rexNormal [| 0x0Fuy; op |] b s d 0b000uy
-  | _ -> raise <| EncodingFailureException "Unsupported operand type"
+  | _ ->
+    raise <| EncodingFailureException "Unsupported operand type"
 
 let seta wordSz ins = setcc wordSz ins 0x97uy
 
@@ -1743,8 +1883,17 @@ let shld (wordSz: WordSize) ins =
     encRRI ins wordSz prefNormal rexMR [| 0x0Fuy; 0xA4uy |] r2 r1 imm 8<rt>
   | ThreeOperands(OprMem(b, s, d, 32<rt>), OprReg r, OprImm(imm, _))
     when isReg32 wordSz r ->
-    encMRI ins wordSz prefNormal rexNormal
-      [| 0x0Fuy; 0xA4uy |] b s d r imm 8<rt>
+    encMRI ins
+           wordSz
+           prefNormal
+           rexNormal
+           [| 0x0Fuy; 0xA4uy |]
+           b
+           s
+           d
+           r
+           imm
+           8<rt>
   | ThreeOperands(OprReg r1, OprReg r2, OprReg Register.CL)
     when isReg32 wordSz r1 && isReg32 wordSz r2 ->
     encRR ins wordSz prefNormal rexMR [| 0x0Fuy; 0xA5uy |] r2 r1
@@ -1767,7 +1916,8 @@ let shld (wordSz: WordSize) ins =
     when isReg64 wordSz r ->
     no32Arch wordSz
     encMR ins wordSz prefNormal rexW [| 0x0Fuy; 0xA5uy |] b s d r
-  | _ -> raise <| EncodingFailureException "Unsupported operand type"
+  | _ ->
+    raise <| EncodingFailureException "Unsupported operand type"
 
 let stosb wordSz ins = stringOp wordSz ins prefNormal rexNormal 0xAAuy
 
@@ -1845,7 +1995,8 @@ let test (wordSz: WordSize) ins =
   | TwoOperands(OprMem(b, s, d, 64<rt>), OprReg r) when isReg64 wordSz r ->
     no32Arch wordSz
     encMR ins wordSz prefNormal rexW [| 0x85uy |] b s d r
-  | _ -> raise <| EncodingFailureException "Unsupported operand type"
+  | _ ->
+    raise <| EncodingFailureException "Unsupported operand type"
 
 let ucomiss wordSz ins =
   sseRegRM wordSz ins prefNormal [| 0x0Fuy; 0x2Euy |] 32<rt>
@@ -1864,7 +2015,8 @@ let vaddpd (wordSz: WordSize) ins =
   | ThreeOperands(OprReg r1, OprReg r2, OprMem(b, s, d, 256<rt>))
     when isYMMReg r1 && isYMMReg r2 ->
     encVexRRM wordSz (Some r2) vex256n66n0F [| 0x58uy |] r1 b s d
-  | _ -> raise <| EncodingFailureException "Unsupported operand type"
+  | _ ->
+    raise <| EncodingFailureException "Unsupported operand type"
 
 let vaddps (wordSz: WordSize) ins =
   match ins.Operands with
@@ -1880,7 +2032,8 @@ let vaddps (wordSz: WordSize) ins =
   | ThreeOperands(OprReg r1, OprReg r2, OprMem(b, s, d, 256<rt>))
     when isYMMReg r1 && isYMMReg r2 ->
     encVexRRM wordSz (Some r2) vex256n0F [| 0x58uy |] r1 b s d
-  | _ -> raise <| EncodingFailureException "Unsupported operand type"
+  | _ ->
+    raise <| EncodingFailureException "Unsupported operand type"
 
 let vaddsd (wordSz: WordSize) ins =
   match ins.Operands with
@@ -1890,7 +2043,8 @@ let vaddsd (wordSz: WordSize) ins =
   | ThreeOperands(OprReg r1, OprReg r2, OprMem(b, s, d, 64<rt>))
     when isXMMReg r1 && isXMMReg r2 ->
     encVexRRM wordSz (Some r2) vex128nF2n0F [| 0x58uy |] r1 b s d
-  | _ -> raise <| EncodingFailureException "Unsupported operand type"
+  | _ ->
+    raise <| EncodingFailureException "Unsupported operand type"
 
 let vaddss (wordSz: WordSize) ins =
   match ins.Operands with
@@ -1900,29 +2054,27 @@ let vaddss (wordSz: WordSize) ins =
   | ThreeOperands(OprReg r1, OprReg r2, OprMem(b, s, d, 32<rt>))
     when isXMMReg r1 && isXMMReg r2 ->
     encVexRRM wordSz (Some r2) vex128nF3n0F [| 0x58uy |] r1 b s d
-  | _ -> raise <| EncodingFailureException "Unsupported operand type"
+  | _ ->
+    raise <| EncodingFailureException "Unsupported operand type"
 
 let vpalignr (wordSz: WordSize) ins =
   match ins.Operands with
   (* Reg - Reg - Reg - Imm8 *)
   | FourOperands(OprReg r1, OprReg r2, OprReg r3, OprImm(imm, _))
     when isXMMReg r1 && isXMMReg r2 && isXMMReg r3 ->
-    encVexRRRI wordSz
-      (Some r2) vex128n66n0F3A [| 0x0Fuy |] r1 r3 imm 8<rt>
+    encVexRRRI wordSz (Some r2) vex128n66n0F3A [| 0x0Fuy |] r1 r3 imm 8<rt>
   | FourOperands(OprReg r1, OprReg r2, OprReg r3, OprImm(imm, _))
     when isYMMReg r1 && isYMMReg r2 && isYMMReg r3 ->
-    encVexRRRI wordSz
-      (Some r2) vex256n66n0F3A [| 0x0Fuy |] r1 r3 imm 8<rt>
+    encVexRRRI wordSz (Some r2) vex256n66n0F3A [| 0x0Fuy |] r1 r3 imm 8<rt>
   (* Reg - Reg - Mem - Imm8 *)
   | FourOperands(OprReg r1, OprReg r2, OprMem(b, s, d, 128<rt>), OprImm(imm, _))
     when isXMMReg r1 && isXMMReg r2 ->
-    encVexRRMI wordSz
-      (Some r2) vex128n66n0F3A [| 0x0Fuy |] r1 b s d imm 8<rt>
+    encVexRRMI wordSz (Some r2) vex128n66n0F3A [| 0x0Fuy |] r1 b s d imm 8<rt>
   | FourOperands(OprReg r1, OprReg r2, OprMem(b, s, d, 256<rt>), OprImm(imm, _))
     when isYMMReg r1 && isYMMReg r2 ->
-    encVexRRMI wordSz
-      (Some r2) vex256n66n0F3A [| 0x0Fuy |] r1 b s d imm 8<rt>
-  | _ -> raise <| EncodingFailureException "Unsupported operand type"
+    encVexRRMI wordSz (Some r2) vex256n66n0F3A [| 0x0Fuy |] r1 b s d imm 8<rt>
+  | _ ->
+    raise <| EncodingFailureException "Unsupported operand type"
 
 let xchg (wordSz: WordSize) ins =
   match ins.Operands with
@@ -1965,7 +2117,8 @@ let xchg (wordSz: WordSize) ins =
   | TwoOperands(OprReg r, OprMem(b, s, d, 64<rt>)) when isReg64 wordSz r ->
     no32Arch wordSz
     encMR ins wordSz prefNormal rexW [| 0x87uy |] b s d r
-  | _ -> raise <| EncodingFailureException "Unsupported operand type"
+  | _ ->
+    raise <| EncodingFailureException "Unsupported operand type"
 
 let xor wordSz ins = arithmetic wordSz ins 0x30uy 0b110uy
 
@@ -1990,7 +2143,8 @@ let private blend38 op wordSz ins =
   | ThreeOperands(o1, o2, OprReg Register.XMM0) ->
     let ins = { ins with Operands = TwoOperands(o1, o2) }
     sseRegRM wordSz ins pref66 [| 0x0Fuy; 0x38uy; op |] 128<rt>
-  | _ -> raise <| EncodingFailureException "Unsupported operand type"
+  | _ ->
+    raise <| EncodingFailureException "Unsupported operand type"
 
 /// The SSSE3, SSE4, SHA and AES instructions in the 0F 38 opcode map.
 /// Every one of them encodes through a shared register-or-memory path,
@@ -2066,7 +2220,8 @@ let private sse3A rex memSz op wordSz ins =
   | ThreeOperands(OprReg r, OprMem(b, s, d, sz), OprImm(imm, _))
     when isXMMReg r && sz = memSz ->
     encRMI ins wordSz pref66 rex [| 0x0Fuy; 0x3Auy; op |] r b s d imm 8<rt>
-  | _ -> raise <| EncodingFailureException "Unsupported operand type"
+  | _ ->
+    raise <| EncodingFailureException "Unsupported operand type"
 
 /// Builds an encoder for one of the extract instructions. These name their
 /// destination first even though it goes in ModRM.rm, so the register pair
@@ -2081,18 +2236,36 @@ let private extract3A quad memSz op wordSz ins =
   | ThreeOperands(OprMem(b, s, d, sz), OprReg r, OprImm(imm, _))
     when isXMMReg r && sz = memSz ->
     encMRI ins wordSz pref66 rexRM [| 0x0Fuy; 0x3Auy; op |] b s d r imm 8<rt>
-  | _ -> raise <| EncodingFailureException "Unsupported operand type"
+  | _ ->
+    raise <| EncodingFailureException "Unsupported operand type"
 
 /// SHA1RNDS4 is the one instruction in the 0F 3A map with no mandatory prefix.
 let private sha1rnds4 wordSz ins =
   match ins.Operands with
   | ThreeOperands(OprReg r1, OprReg r2, OprImm(imm, _)) ->
-    encRRI ins wordSz prefNormal rexNormal
-      [| 0x0Fuy; 0x3Auy; 0xCCuy |] r1 r2 imm 8<rt>
+    encRRI ins
+           wordSz
+           prefNormal
+           rexNormal
+           [| 0x0Fuy; 0x3Auy; 0xCCuy |]
+           r1
+           r2
+           imm
+           8<rt>
   | ThreeOperands(OprReg r, OprMem(b, s, d, 128<rt>), OprImm(imm, _)) ->
-    encRMI ins wordSz prefNormal rexNormal
-      [| 0x0Fuy; 0x3Auy; 0xCCuy |] r b s d imm 8<rt>
-  | _ -> raise <| EncodingFailureException "Unsupported operand type"
+    encRMI ins
+           wordSz
+           prefNormal
+           rexNormal
+           [| 0x0Fuy; 0x3Auy; 0xCCuy |]
+           r
+           b
+           s
+           d
+           imm
+           8<rt>
+  | _ ->
+    raise <| EncodingFailureException "Unsupported operand type"
 
 /// The SSE4 and crypto instructions in the 0F 3A opcode map, which all take an
 /// immediate as their last operand.
@@ -2144,7 +2317,8 @@ let private packedShift immOp digit rmOp wordSz ins =
     encRI ins wordSz prefNormal rexNormal [| 0x0Fuy; immOp |] r digit imm 8<rt>
   | TwoOperands(OprReg r, OprImm(imm, _)) when isXMMReg r ->
     encRI ins wordSz pref66 rexNormal [| 0x0Fuy; immOp |] r digit imm 8<rt>
-  | _ -> mmxOrSseRegRM wordSz ins [| 0x0Fuy; rmOp |] 64<rt>
+  | _ ->
+    mmxOrSseRegRM wordSz ins [| 0x0Fuy; rmOp |] 64<rt>
 
   /// The MMX and SSE packed integer instructions of the 0F map. Each has
 /// an MMX form with no mandatory prefix and an SSE form under 66, which
@@ -2276,7 +2450,8 @@ let private sseMovMem pref loadOp storeOp memSz wordSz ins =
     encRM ins wordSz pref rexNormal [| 0x0Fuy; loadOp |] r b s d
   | TwoOperands(OprMem(b, s, d, sz), OprReg r) when isXMMReg r && sz = memSz ->
     encMR ins wordSz pref rexNormal [| 0x0Fuy; storeOp |] b s d r
-  | _ -> raise <| EncodingFailureException "Unsupported operand type"
+  | _ ->
+    raise <| EncodingFailureException "Unsupported operand type"
 
 /// Builds an encoder for an SSE move that only ever names two registers, which
 /// is how the ModRM byte tells it apart from the memory form sharing its
@@ -2285,7 +2460,8 @@ let private sseRegOnly op wordSz ins =
   match ins.Operands with
   | TwoOperands(OprReg r1, OprReg r2) when isXMMReg r1 && isXMMReg r2 ->
     encRR ins wordSz prefNormal rexNormal [| 0x0Fuy; op |] r1 r2
-  | _ -> raise <| EncodingFailureException "Unsupported operand type"
+  | _ ->
+    raise <| EncodingFailureException "Unsupported operand type"
 
 /// PSLLDQ and PSRLDQ shift a whole XMM register by a count of bytes. They have
 /// no register-counted form, so unlike the other packed shifts they live at one
@@ -2294,7 +2470,8 @@ let private xmmShiftImm digit wordSz ins =
   match ins.Operands with
   | TwoOperands(OprReg r, OprImm(imm, _)) when isXMMReg r ->
     encRI ins wordSz pref66 rexNormal [| 0x0Fuy; 0x73uy |] r digit imm 8<rt>
-  | _ -> raise <| EncodingFailureException "Unsupported operand type"
+  | _ ->
+    raise <| EncodingFailureException "Unsupported operand type"
 
 /// MASKMOVQ names two MMX registers, its SSE counterpart MASKMOVDQU two XMM
 /// ones, and they share an opcode byte.
@@ -2302,7 +2479,8 @@ let private maskmovq wordSz ins =
   match ins.Operands with
   | TwoOperands(OprReg r1, OprReg r2) when isMMXReg r1 && isMMXReg r2 ->
     encRR ins wordSz prefNormal rexNormal [| 0x0Fuy; 0xF7uy |] r1 r2
-  | _ -> raise <| EncodingFailureException "Unsupported operand type"
+  | _ ->
+    raise <| EncodingFailureException "Unsupported operand type"
 
 /// The SSE moves that need a shape of their own rather than a table row,
 /// because a register operand means a different instruction at the same opcode
@@ -2344,7 +2522,8 @@ let private x87ToSt0 b1 b2 _wordSz ins =
   match ins.Operands with
   | TwoOperands(OprReg Register.ST0, OprReg r) when isFPUReg r ->
     encFR [| b1; b2 |] r
-  | _ -> raise <| EncodingFailureException "Unsupported operand type"
+  | _ ->
+    raise <| EncodingFailureException "Unsupported operand type"
 
 /// Builds an encoder for an x87 instruction naming ST0 as its source, the other
 /// way round from x87ToSt0.
@@ -2352,7 +2531,8 @@ let private x87FromSt0 b1 b2 _wordSz ins =
   match ins.Operands with
   | TwoOperands(OprReg r, OprReg Register.ST0) when isFPUReg r ->
     encFR [| b1; b2 |] r
-  | _ -> raise <| EncodingFailureException "Unsupported operand type"
+  | _ ->
+    raise <| EncodingFailureException "Unsupported operand type"
 
 /// Builds an encoder for an x87 instruction naming one stack register.
 let private x87OneSt b1 b2 _wordSz ins =
@@ -2370,7 +2550,8 @@ let private x87Mem forms digit wordSz ins =
     match List.tryFind (fun (w, _) -> w = sz) forms with
     | Some(_, op) -> encM ins wordSz prefNormal rexNormal [| op |] b s d digit
     | None -> raise <| EncodingFailureException "Unsupported operand type"
-  | _ -> raise <| EncodingFailureException "Unsupported operand type"
+  | _ ->
+    raise <| EncodingFailureException "Unsupported operand type"
 
 /// Builds an encoder for an x87 instruction that names either memory or one
 /// stack register, the two forms sharing nothing but the mnemonic.
@@ -2518,12 +2699,15 @@ let noOperandEncoders () =
 /// needs, for the instructions whose other operand is an immediate and so says
 /// nothing about the width.
 let private gprMemForm wordSz sz =
-  if sz = 16<rt> then Some(pref66, rexNormal)
-  elif sz = 32<rt> then Some(prefNormal, rexNormal)
+  if sz = 16<rt> then
+    Some(pref66, rexNormal)
+  elif sz = 32<rt> then
+    Some(prefNormal, rexNormal)
   elif sz = 64<rt> then
     no32Arch wordSz
     Some(prefNormal, rexW)
-  else None
+  else
+    None
 
 /// What a general-purpose operand of a given width needs: the width itself, the
 /// operand-size prefix, and the REX for each of the two argument orders. A
@@ -2556,7 +2740,8 @@ let private gprRegRM op wordSz ins =
     match gprForm wordSz r with
     | Some(w, pref, rex, _) when w = sz -> encRM ins wordSz pref rex op r b s d
     | _ -> raise <| EncodingFailureException "Unsupported operand type"
-  | _ -> raise <| EncodingFailureException "Unsupported operand type"
+  | _ ->
+    raise <| EncodingFailureException "Unsupported operand type"
 
 /// Builds an encoder for the bit-counting instructions, which carry F3 as a
 /// mandatory prefix and so have no 16-bit form to encode: the operand-size
@@ -2573,7 +2758,8 @@ let private gprRegRMRep op wordSz ins =
   | TwoOperands(OprReg r, OprMem(b, s, d, 64<rt>)) when isReg64 wordSz r ->
     no32Arch wordSz
     encRM ins wordSz prefF3 rexW op r b s d
-  | _ -> raise <| EncodingFailureException "Unsupported operand type"
+  | _ ->
+    raise <| EncodingFailureException "Unsupported operand type"
 
 /// Builds an encoder for a two-operand instruction written the other way round,
 /// with its destination in ModRM.rm and the register it reads in ModRM.reg.
@@ -2587,7 +2773,8 @@ let private gprRMReg op wordSz ins =
     match gprForm wordSz r with
     | Some(w, pref, rex, _) when w = sz -> encMR ins wordSz pref rex op b s d r
     | _ -> raise <| EncodingFailureException "Unsupported operand type"
-  | _ -> raise <| EncodingFailureException "Unsupported operand type"
+  | _ ->
+    raise <| EncodingFailureException "Unsupported operand type"
 
 /// Builds an encoder for a two-operand instruction naming a general register or
 /// memory and an immediate byte, picked out of a group by the ModRM.reg digit.
@@ -2595,22 +2782,21 @@ let private gprRMImm op digit wordSz ins =
   match ins.Operands with
   | TwoOperands(OprReg r, OprImm(imm, _)) ->
     match gprForm wordSz r with
-    | Some(_, pref, rex, _) ->
-      encRI ins wordSz pref rex op r digit imm 8<rt>
+    | Some(_, pref, rex, _) -> encRI ins wordSz pref rex op r digit imm 8<rt>
     | None -> raise <| EncodingFailureException "Unsupported operand type"
   | TwoOperands(OprMem(b, s, d, sz), OprImm(imm, _)) ->
     match gprMemForm wordSz sz with
     | Some(pref, rex) -> encMI ins wordSz pref rex op b s d digit imm 8<rt>
     | None -> raise <| EncodingFailureException "Unsupported operand type"
-  | _ -> raise <| EncodingFailureException "Unsupported operand type"
+  | _ ->
+    raise <| EncodingFailureException "Unsupported operand type"
 
 /// Builds an encoder for one of the bit-test instructions. Naming the bit in a
 /// register gives each of them an opcode byte of its own; naming it as an
 /// immediate puts all four at 0F BA, told apart by the ModRM.reg digit.
 let private bitTest regOp digit wordSz ins =
   match ins.Operands with
-  | TwoOperands(_, OprImm _) ->
-    gprRMImm [| 0x0Fuy; 0xBAuy |] digit wordSz ins
+  | TwoOperands(_, OprImm _) -> gprRMImm [| 0x0Fuy; 0xBAuy |] digit wordSz ins
   | _ -> gprRMReg [| 0x0Fuy; regOp |] wordSz ins
 
 /// XADD's byte-wide form has an opcode byte of its own, one below the byte the
@@ -2621,7 +2807,8 @@ let private xadd wordSz ins =
     encMR ins wordSz prefNormal rexNormal [| 0x0Fuy; 0xC0uy |] b s d r
   | TwoOperands(OprReg r1, OprReg r2) when isReg8 wordSz r1 ->
     encRR ins wordSz prefNormal rexMR [| 0x0Fuy; 0xC0uy |] r2 r1
-  | _ -> gprRMReg [| 0x0Fuy; 0xC1uy |] wordSz ins
+  | _ ->
+    gprRMReg [| 0x0Fuy; 0xC1uy |] wordSz ins
 
 /// BSWAP carries its register in the low three bits of the second opcode byte
 /// rather than in a ModRM byte.
@@ -2632,8 +2819,10 @@ let private bswap wordSz ins =
     | Some(_, pref, rex, _) ->
       let op = [| 0x0Fuy; 0xC8uy + regTo3Bit r |]
       Resolved(prxRexOp ins wordSz pref rex op)
-    | None -> raise <| EncodingFailureException "Unsupported operand type"
-  | _ -> raise <| EncodingFailureException "Unsupported operand type"
+    | None ->
+      raise <| EncodingFailureException "Unsupported operand type"
+  | _ ->
+    raise <| EncodingFailureException "Unsupported operand type"
 
 /// MOVNTI only ever stores, so unlike the rest of this family it has no
 /// register destination to encode.
@@ -2641,7 +2830,8 @@ let private movnti wordSz ins =
   match ins.Operands with
   | TwoOperands(OprMem(b, s, d, sz), OprReg r) when sz <> 16<rt> ->
     gprRMReg [| 0x0Fuy; 0xC3uy |] wordSz ins
-  | _ -> raise <| EncodingFailureException "Unsupported operand type"
+  | _ ->
+    raise <| EncodingFailureException "Unsupported operand type"
 
 /// Builds an encoder for a double shift, which names a destination, a source
 /// and a count. The destination goes in ModRM.rm and the source in ModRM.reg,
@@ -2653,23 +2843,28 @@ let private doubleShift immOp clOp wordSz ins =
     match gprForm wordSz r1 with
     | Some(_, pref, _, rex) ->
       encRRI ins wordSz pref rex [| 0x0Fuy; immOp |] r2 r1 imm 8<rt>
-    | None -> raise <| EncodingFailureException "Unsupported operand type"
+    | None ->
+      raise <| EncodingFailureException "Unsupported operand type"
   | ThreeOperands(OprMem(b, s, d, sz), OprReg r, OprImm(imm, _)) ->
     match gprForm wordSz r with
     | Some(w, pref, rex, _) when w = sz ->
       encMRI ins wordSz pref rex [| 0x0Fuy; immOp |] b s d r imm 8<rt>
-    | _ -> raise <| EncodingFailureException "Unsupported operand type"
+    | _ ->
+      raise <| EncodingFailureException "Unsupported operand type"
   | ThreeOperands(OprReg r1, OprReg r2, OprReg Register.CL) ->
     match gprForm wordSz r1 with
     | Some(_, pref, _, rex) ->
       encRR ins wordSz pref rex [| 0x0Fuy; clOp |] r2 r1
-    | None -> raise <| EncodingFailureException "Unsupported operand type"
+    | None ->
+      raise <| EncodingFailureException "Unsupported operand type"
   | ThreeOperands(OprMem(b, s, d, sz), OprReg r, OprReg Register.CL) ->
     match gprForm wordSz r with
     | Some(w, pref, rex, _) when w = sz ->
       encMR ins wordSz pref rex [| 0x0Fuy; clOp |] b s d r
-    | _ -> raise <| EncodingFailureException "Unsupported operand type"
-  | _ -> raise <| EncodingFailureException "Unsupported operand type"
+    | _ ->
+      raise <| EncodingFailureException "Unsupported operand type"
+  | _ ->
+    raise <| EncodingFailureException "Unsupported operand type"
 
 /// The general-purpose bit and count instructions, which between them use every
 /// order the ModRM byte offers but differ in nothing else.
@@ -2699,7 +2894,8 @@ let private sseImm pref memSz op wordSz ins =
   | ThreeOperands(OprReg r, OprMem(b, s, d, sz), OprImm(imm, _))
     when isXMMReg r && sz = memSz ->
     encRMI ins wordSz pref rexNormal [| 0x0Fuy; op |] r b s d imm 8<rt>
-  | _ -> raise <| EncodingFailureException "Unsupported operand type"
+  | _ ->
+    raise <| EncodingFailureException "Unsupported operand type"
 
 /// PSHUFW is the MMX member of the shuffle family, and the only one at its
 /// opcode byte with no mandatory prefix.
@@ -2709,9 +2905,19 @@ let private pshufw wordSz ins =
     encRRI ins wordSz prefNormal rexNormal [| 0x0Fuy; 0x70uy |] r1 r2 imm 8<rt>
   | ThreeOperands(OprReg r, OprMem(b, s, d, 64<rt>), OprImm(imm, _))
     when isMMXReg r ->
-    encRMI ins wordSz prefNormal rexNormal
-      [| 0x0Fuy; 0x70uy |] r b s d imm 8<rt>
-  | _ -> raise <| EncodingFailureException "Unsupported operand type"
+    encRMI ins
+           wordSz
+           prefNormal
+           rexNormal
+           [| 0x0Fuy; 0x70uy |]
+           r
+           b
+           s
+           d
+           imm
+           8<rt>
+  | _ ->
+    raise <| EncodingFailureException "Unsupported operand type"
 
 /// PINSRW reads a word from a general register or memory into one lane of an
 /// MMX or XMM register, the register file deciding the mandatory prefix.
@@ -2719,12 +2925,21 @@ let private pinsrw wordSz ins =
   let prefOf r = if isMMXReg r then prefNormal else pref66
   match ins.Operands with
   | ThreeOperands(OprReg r1, OprReg r2, OprImm(imm, _)) ->
-    encRRI ins wordSz (prefOf r1) rexNormal
-      [| 0x0Fuy; 0xC4uy |] r1 r2 imm 8<rt>
+    encRRI ins wordSz (prefOf r1) rexNormal [| 0x0Fuy; 0xC4uy |] r1 r2 imm 8<rt>
   | ThreeOperands(OprReg r, OprMem(b, s, d, 16<rt>), OprImm(imm, _)) ->
-    encRMI ins wordSz (prefOf r) rexNormal
-      [| 0x0Fuy; 0xC4uy |] r b s d imm 8<rt>
-  | _ -> raise <| EncodingFailureException "Unsupported operand type"
+    encRMI ins
+           wordSz
+           (prefOf r)
+           rexNormal
+           [| 0x0Fuy; 0xC4uy |]
+           r
+           b
+           s
+           d
+           imm
+           8<rt>
+  | _ ->
+    raise <| EncodingFailureException "Unsupported operand type"
 
 /// PEXTRW reads one lane out into a general register or, in the SSE4 form, into
 /// memory. The two live in different opcode maps, so one encoder has to cover
@@ -2734,11 +2949,11 @@ let private pinsrw wordSz ins =
 let private pextrw wordSz ins =
   match ins.Operands with
   | ThreeOperands(OprReg r1, OprReg r2, OprImm(imm, _)) when isMMXReg r2 ->
-    encRRI ins wordSz prefNormal rexNormal
-      [| 0x0Fuy; 0xC5uy |] r1 r2 imm 8<rt>
+    encRRI ins wordSz prefNormal rexNormal [| 0x0Fuy; 0xC5uy |] r1 r2 imm 8<rt>
   | ThreeOperands(OprReg r1, OprReg r2, OprImm(imm, _)) when isXMMReg r2 ->
     encRRI ins wordSz pref66 rexNormal [| 0x0Fuy; 0xC5uy |] r1 r2 imm 8<rt>
-  | _ -> extract3A false 16<rt> 0x15uy wordSz ins
+  | _ ->
+    extract3A false 16<rt> 0x15uy wordSz ins
 
 /// CMPSD names both the string compare, which takes no operand, and the scalar
 /// double compare, told apart by whether anything was written down.
@@ -2770,7 +2985,8 @@ let private grpMem op pref rex digit widths wordSz ins =
   match ins.Operands with
   | OneOperand(OprMem(b, s, d, sz)) when List.contains sz widths ->
     encM ins wordSz pref rex op b s d digit
-  | _ -> raise <| EncodingFailureException "Unsupported operand type"
+  | _ ->
+    raise <| EncodingFailureException "Unsupported operand type"
 
 /// Builds an encoder for a group instruction whose memory operand comes in more
 /// than one width. The width is not part of the encoding, so what has to match
@@ -2781,7 +2997,8 @@ let private grpMemSized op digit widths wordSz ins =
     match gprMemForm wordSz sz with
     | Some(pref, rex) -> encM ins wordSz pref rex op b s d digit
     | None -> raise <| EncodingFailureException "Unsupported operand type"
-  | _ -> raise <| EncodingFailureException "Unsupported operand type"
+  | _ ->
+    raise <| EncodingFailureException "Unsupported operand type"
 
 /// Builds an encoder for a group instruction naming a general register, whose
 /// width decides the operand-size prefix and REX.W. A mandatory prefix, where
@@ -2793,8 +3010,10 @@ let private grpReg op pref digit widths wordSz ins =
     match gprForm wordSz r with
     | Some(w, wpref, rex, _) when List.contains w widths ->
       encR ins wordSz (pref ||| wpref) rex op r digit
-    | _ -> raise <| EncodingFailureException "Unsupported operand type"
-  | _ -> raise <| EncodingFailureException "Unsupported operand type"
+    | _ ->
+      raise <| EncodingFailureException "Unsupported operand type"
+  | _ ->
+    raise <| EncodingFailureException "Unsupported operand type"
 
 /// Builds an encoder for a group instruction that names either a register or
 /// memory, the two differing in which widths they accept.
@@ -2896,7 +3115,8 @@ let private convertRegRM pref memSz op wordSz ins =
     encRR ins wordSz pref (rexOf r1) op r1 r2
   | TwoOperands(OprReg r, OprMem(b, s, d, sz)) when sz = memSz ->
     encRM ins wordSz pref (rexOf r) op r b s d
-  | _ -> raise <| EncodingFailureException "Unsupported operand type"
+  | _ ->
+    raise <| EncodingFailureException "Unsupported operand type"
 
 /// Builds an encoder for LAR and LSL, which read a descriptor through a word of
 /// memory whatever width their destination has.
@@ -2910,7 +3130,8 @@ let private accessRights op wordSz ins =
     match gprForm wordSz r with
     | Some(_, pref, rex, _) -> encRM ins wordSz pref rex op r b s d
     | None -> raise <| EncodingFailureException "Unsupported operand type"
-  | _ -> raise <| EncodingFailureException "Unsupported operand type"
+  | _ ->
+    raise <| EncodingFailureException "Unsupported operand type"
 
 /// Builds an encoder for one of the far-pointer loads. Their memory operand is
 /// a selector and an offset, so it is one word wider than the register it
@@ -2921,8 +3142,10 @@ let private loadFarPointer op wordSz ins =
     match gprForm wordSz r with
     | Some(w, pref, rex, _) when int sz = int w + 16 ->
       encRM ins wordSz pref rex op r b s d
-    | _ -> raise <| EncodingFailureException "Unsupported operand type"
-  | _ -> raise <| EncodingFailureException "Unsupported operand type"
+    | _ ->
+      raise <| EncodingFailureException "Unsupported operand type"
+  | _ ->
+    raise <| EncodingFailureException "Unsupported operand type"
 
 /// Builds an encoder for an instruction reading a general register or memory
 /// into a general register under a mandatory prefix, which is what keeps this
@@ -2931,14 +3154,14 @@ let private gprRegRMPref pref op wordSz ins =
   match ins.Operands with
   | TwoOperands(OprReg r1, OprReg r2) ->
     match gprForm wordSz r1 with
-    | Some(_, _, rex, _) ->
-      encRR ins wordSz pref rex op r1 r2
+    | Some(_, _, rex, _) -> encRR ins wordSz pref rex op r1 r2
     | None -> raise <| EncodingFailureException "Unsupported operand type"
   | TwoOperands(OprReg r, OprMem(b, s, d, sz)) ->
     match gprForm wordSz r with
     | Some(w, _, rex, _) when w = sz -> encRM ins wordSz pref rex op r b s d
     | _ -> raise <| EncodingFailureException "Unsupported operand type"
-  | _ -> raise <| EncodingFailureException "Unsupported operand type"
+  | _ ->
+    raise <| EncodingFailureException "Unsupported operand type"
 
 /// Builds an encoder for the same shape written the other way round, with the
 /// destination in ModRM.rm.
@@ -2946,14 +3169,14 @@ let private gprRMRegPref pref op wordSz ins =
   match ins.Operands with
   | TwoOperands(OprMem(b, s, d, sz), OprReg r) ->
     match gprForm wordSz r with
-    | Some(w, _, rex, _) when w = sz ->
-      encMR ins wordSz pref rex op b s d r
+    | Some(w, _, rex, _) when w = sz -> encMR ins wordSz pref rex op b s d r
     | _ -> raise <| EncodingFailureException "Unsupported operand type"
   | TwoOperands(OprReg r1, OprReg r2) ->
     match gprForm wordSz r1 with
     | Some(_, _, _, rex) -> encRR ins wordSz pref rex op r2 r1
     | None -> raise <| EncodingFailureException "Unsupported operand type"
-  | _ -> raise <| EncodingFailureException "Unsupported operand type"
+  | _ ->
+    raise <| EncodingFailureException "Unsupported operand type"
 
 /// CRC32 folds a byte, word, doubleword or quadword into a running checksum.
 /// The byte-wide source has an opcode byte of its own, and the destination is
@@ -2965,7 +3188,8 @@ let private crc32 wordSz ins =
     encRM ins wordSz prefF2 (rexOf r) [| 0x0Fuy; 0x38uy; 0xF0uy |] r b s d
   | TwoOperands(OprReg r1, OprReg r2) when isReg8 wordSz r2 ->
     encRR ins wordSz prefF2 (rexOf r1) [| 0x0Fuy; 0x38uy; 0xF0uy |] r1 r2
-  | _ -> gprRegRMPref prefF2 [| 0x0Fuy; 0x38uy; 0xF1uy |] wordSz ins
+  | _ ->
+    gprRegRMPref prefF2 [| 0x0Fuy; 0x38uy; 0xF1uy |] wordSz ins
 
 /// MOVBE swaps a value's byte order as it crosses between a register and
 /// memory, and which of the two it writes decides the opcode byte.
@@ -2973,7 +3197,8 @@ let private movbe wordSz ins =
   match ins.Operands with
   | TwoOperands(OprMem _, OprReg _) ->
     gprRMReg [| 0x0Fuy; 0x38uy; 0xF1uy |] wordSz ins
-  | _ -> gprRegRM [| 0x0Fuy; 0x38uy; 0xF0uy |] wordSz ins
+  | _ ->
+    gprRegRM [| 0x0Fuy; 0x38uy; 0xF0uy |] wordSz ins
 
 /// IN and OUT move a byte, word or doubleword through AL, AX or EAX, and the
 /// accumulator's width is what the operand-size prefix has to say. A quadword
@@ -2996,7 +3221,8 @@ let private portIO wordSz ins =
     Resolved(prxRexOp ins wordSz (portPrefix wordSz r) rexNormal (op 0xECuy r))
   | TwoOperands(OprReg Register.DX, OprReg r) ->
     Resolved(prxRexOp ins wordSz (portPrefix wordSz r) rexNormal (op 0xEEuy r))
-  | _ -> raise <| EncodingFailureException "Unsupported operand type"
+  | _ ->
+    raise <| EncodingFailureException "Unsupported operand type"
 
 /// ENTER sets up a stack frame, taking the frame size as a word and the nesting
 /// level as a byte.
@@ -3006,7 +3232,8 @@ let private enter wordSz ins =
     Resolved [| yield! prxRexOp ins wordSz prefNormal rexNormal [| 0xC8uy |]
                 yield! immediate size 16<rt>
                 yield! immediate level 8<rt> |]
-  | _ -> raise <| EncodingFailureException "Unsupported operand type"
+  | _ ->
+    raise <| EncodingFailureException "Unsupported operand type"
 
 /// MOVNTPS and MOVNTPD only ever store. The register form the decoder renders
 /// at their opcode byte does not exist, so the sweep leaves 0F 2B alone.
@@ -3014,7 +3241,8 @@ let private sseStore pref op wordSz ins =
   match ins.Operands with
   | TwoOperands(OprMem(b, s, d, 128<rt>), OprReg r) when isXMMReg r ->
     encMR ins wordSz pref rexNormal op b s d r
-  | _ -> raise <| EncodingFailureException "Unsupported operand type"
+  | _ ->
+    raise <| EncodingFailureException "Unsupported operand type"
 
 /// Builds an encoder for an SSE move from its prefix, its two opcode bytes and
 /// its width, taking them in the order a table row wants rather than the order
@@ -3027,6 +3255,8 @@ let private sseMovOf pref loadOp storeOp memSz wordSz ins =
 /// far-pointer loads, the byte-swapping and checksum pairs of the 0F 38 map,
 /// and the legacy port and frame instructions.
 let miscellaneousEncoders () =
+  let movapd = sseMovOf pref66 [| 0x0Fuy; 0x28uy |] [| 0x0Fuy; 0x29uy |] 128<rt>
+  let movupd = sseMovOf pref66 [| 0x0Fuy; 0x10uy |] [| 0x0Fuy; 0x11uy |] 128<rt>
   [ Opcode.CVTPI2PS, convertRegRM prefNormal 64<rt> [| 0x0Fuy; 0x2Auy |]
     Opcode.CVTPI2PD, convertRegRM pref66 64<rt> [| 0x0Fuy; 0x2Auy |]
     Opcode.CVTPS2PI, convertRegRM prefNormal 64<rt> [| 0x0Fuy; 0x2Duy |]
@@ -3044,10 +3274,8 @@ let miscellaneousEncoders () =
     Opcode.LDS, loadFarPointer [| 0xC5uy |]
     Opcode.BOUND, gprRegRM [| 0x62uy |]
     Opcode.ARPL, gprRMReg [| 0x63uy |]
-    Opcode.MOVAPD,
-      sseMovOf pref66 [| 0x0Fuy; 0x28uy |] [| 0x0Fuy; 0x29uy |] 128<rt>
-    Opcode.MOVUPD,
-      sseMovOf pref66 [| 0x0Fuy; 0x10uy |] [| 0x0Fuy; 0x11uy |] 128<rt>
+    Opcode.MOVAPD, movapd
+    Opcode.MOVUPD, movupd
     Opcode.CRC32, crc32
     Opcode.MOVBE, movbe
     Opcode.ADCX, gprRegRMPref pref66 [| 0x0Fuy; 0x38uy; 0xF6uy |]
@@ -3074,7 +3302,8 @@ let private maskExtract mmxPref ssePref op wordSz ins =
     encRR ins wordSz mmxPref (rexOf r1) op r1 r2
   | TwoOperands(OprReg r1, OprReg r2) when isXMMReg r2 ->
     encRR ins wordSz ssePref (rexOf r1) op r1 r2
-  | _ -> raise <| EncodingFailureException "Unsupported operand type"
+  | _ ->
+    raise <| EncodingFailureException "Unsupported operand type"
 
 /// Builds an encoder for a move between the MMX and XMM files, which likewise
 /// has no memory form however the decoder renders one.
@@ -3082,14 +3311,16 @@ let private crossFileMove pref op wordSz ins =
   match ins.Operands with
   | TwoOperands(OprReg r1, OprReg r2) ->
     encRR ins wordSz pref rexNormal op r1 r2
-  | _ -> raise <| EncodingFailureException "Unsupported operand type"
+  | _ ->
+    raise <| EncodingFailureException "Unsupported operand type"
 
 /// Builds an encoder for a non-temporal store of a whole register.
 let private nonTemporalStore pref memSz op wordSz ins =
   match ins.Operands with
   | TwoOperands(OprMem(b, s, d, sz), OprReg r) when sz = memSz ->
     encMR ins wordSz pref rexNormal op b s d r
-  | _ -> raise <| EncodingFailureException "Unsupported operand type"
+  | _ ->
+    raise <| EncodingFailureException "Unsupported operand type"
 
 /// MOVQ moves a quadword between every pair of files there is, and each pair
 /// has an opcode byte and prefix of its own: 0F 6E and 0F 7E carry it to and
@@ -3118,29 +3349,30 @@ let private movq wordSz ins =
     encMR ins wordSz prefNormal rexNormal [| 0x0Fuy; 0x7Fuy |] b s d r
   | TwoOperands(OprMem(b, s, d, 64<rt>), OprReg r) when isXMMReg r ->
     encMR ins wordSz pref66 rexNormal [| 0x0Fuy; 0xD6uy |] b s d r
-  | _ -> raise <| EncodingFailureException "Unsupported operand type"
+  | _ ->
+    raise <| EncodingFailureException "Unsupported operand type"
 
 /// EXTRQ and INSERTQ take their field position and length as two immediate
 /// bytes, which is the only place four operands appear outside AVX.
 let private extrq wordSz ins =
   match ins.Operands with
   | ThreeOperands(OprReg r, OprImm(i1, _), OprImm(i2, _)) ->
-    Resolved [| yield! prxRexOp ins wordSz pref66 rexNormal
-                          [| 0x0Fuy; 0x78uy |]
+    Resolved [| yield! prxRexOp ins wordSz pref66 rexNormal [| 0x0Fuy; 0x78uy |]
                 modrmRI r 0b000uy
                 yield! immediate i1 8<rt>
                 yield! immediate i2 8<rt> |]
-  | _ -> raise <| EncodingFailureException "Unsupported operand type"
+  | _ ->
+    raise <| EncodingFailureException "Unsupported operand type"
 
 let private insertq wordSz ins =
   match ins.Operands with
   | FourOperands(OprReg r1, OprReg r2, OprImm(i1, _), OprImm(i2, _)) ->
-    Resolved [| yield! prxRexOp ins wordSz prefF2 rexNormal
-                          [| 0x0Fuy; 0x78uy |]
+    Resolved [| yield! prxRexOp ins wordSz prefF2 rexNormal [| 0x0Fuy; 0x78uy |]
                 modrmRR r1 r2
                 yield! immediate i1 8<rt>
                 yield! immediate i2 8<rt> |]
-  | _ -> raise <| EncodingFailureException "Unsupported operand type"
+  | _ ->
+    raise <| EncodingFailureException "Unsupported operand type"
 
 /// Builds an encoder for one of the bounds checks, whose first operand is a
 /// bounds register and whose second is an address held in a general register or
@@ -3158,7 +3390,8 @@ let private bndCheck pref op wordSz ins =
     match gprMemForm wordSz sz with
     | Some(_, rex) -> encMR ins wordSz pref rex op b s d r
     | None -> raise <| EncodingFailureException "Unsupported operand type"
-  | _ -> raise <| EncodingFailureException "Unsupported operand type"
+  | _ ->
+    raise <| EncodingFailureException "Unsupported operand type"
 
 /// BNDSTX writes the bounds it names second through the address it names first,
 /// so unlike the checks its bounds register goes in ModRM.reg.
@@ -3167,7 +3400,8 @@ let private bndstx wordSz ins =
   | TwoOperands(OprReg r1, OprReg r2) ->
     let rex = if isReg64 wordSz r1 then rexWAndMR else rexMR
     encRR ins wordSz prefNormal rex [| 0x0Fuy; 0x1Buy |] r2 r1
-  | _ -> bndCheck prefNormal [| 0x0Fuy; 0x1Buy |] wordSz ins
+  | _ ->
+    bndCheck prefNormal [| 0x0Fuy; 0x1Buy |] wordSz ins
 
 /// BNDMOV moves a whole bounds pair, so its memory operand is as wide as the
 /// pair rather than as wide as an address, and REX.W says nothing here. Which
@@ -3180,7 +3414,8 @@ let private bndmov wordSz ins =
     encRM ins wordSz pref66 rexNormal [| 0x0Fuy; 0x1Auy |] r b s d
   | TwoOperands(OprReg r1, OprReg r2) ->
     encRR ins wordSz pref66 rexNormal [| 0x0Fuy; 0x1Auy |] r1 r2
-  | _ -> raise <| EncodingFailureException "Unsupported operand type"
+  | _ ->
+    raise <| EncodingFailureException "Unsupported operand type"
 
 /// The instructions whose encoding is a shape of its own: the mask extracts and
 /// cross-file moves that have no memory form, the quadword moves that span six

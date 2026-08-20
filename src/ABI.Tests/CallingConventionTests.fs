@@ -50,21 +50,26 @@ type CallingConventionTests() =
   [<TestMethod>]
   member _.``GetIntArgLocation returns register arguments``() =
     Assert.AreEqual<ArgLocation>(
-      ArgLocation.Reg(r 1), sampleCC.GetIntArgLocation(0))
+      ArgLocation.Reg(r 1), sampleCC.GetIntArgLocation(0)
+    )
     Assert.AreEqual<ArgLocation>(
-      ArgLocation.Reg(r 2), sampleCC.GetIntArgLocation(1))
+      ArgLocation.Reg(r 2), sampleCC.GetIntArgLocation(1)
+    )
 
   [<TestMethod>]
   member _.``GetIntArgLocation resolves stack spill offsets``() =
     Assert.AreEqual<ArgLocation>(
       ArgLocation.Stack { FirstOffset = 8; SlotSize = 8 },
-      sampleCC.GetIntArgLocation(2))
+      sampleCC.GetIntArgLocation(2)
+    )
     Assert.AreEqual<ArgLocation>(
       ArgLocation.Stack { FirstOffset = 16; SlotSize = 8 },
-      sampleCC.GetIntArgLocation(3))
+      sampleCC.GetIntArgLocation(3)
+    )
     Assert.AreEqual<ArgLocation>(
       ArgLocation.Stack { FirstOffset = 24; SlotSize = 8 },
-      sampleCC.GetIntArgLocation(4))
+      sampleCC.GetIntArgLocation(4)
+    )
 
   [<TestMethod>]
   member _.``GetIntArgLocation handles all-stack ABI``() =
@@ -73,10 +78,12 @@ type CallingConventionTests() =
           IntArgs = [| ArgLocation.Stack { FirstOffset = 4; SlotSize = 4 } |] }
     Assert.AreEqual<ArgLocation>(
       ArgLocation.Stack { FirstOffset = 4; SlotSize = 4 },
-      cc.GetIntArgLocation(0))
+      cc.GetIntArgLocation(0)
+    )
     Assert.AreEqual<ArgLocation>(
       ArgLocation.Stack { FirstOffset = 8; SlotSize = 4 },
-      cc.GetIntArgLocation(1))
+      cc.GetIntArgLocation(1)
+    )
 
   [<TestMethod>]
   member _.``IntReturnRegister extracts the return register``() =
@@ -90,9 +97,11 @@ type CallingConventionTests() =
   [<TestMethod>]
   member _.``GetFloatArgLocation returns float register arguments``() =
     Assert.AreEqual<ArgLocation>(
-      ArgLocation.Reg(r 5), sampleCC.GetFloatArgLocation(0))
+      ArgLocation.Reg(r 5), sampleCC.GetFloatArgLocation(0)
+    )
     Assert.AreEqual<ArgLocation>(
-      ArgLocation.Reg(r 6), sampleCC.GetFloatArgLocation(1))
+      ArgLocation.Reg(r 6), sampleCC.GetFloatArgLocation(1)
+    )
 
   [<TestMethod>]
   member _.``FloatArgRegister and FloatReturnRegister extract registers``() =
@@ -122,7 +131,8 @@ type CallingConventionTests() =
     let cc = CallingConvention.create OS.Linux (ISA Architecture.ARMv8)
     let lr = ARM64.Register.toRegID ARM64.Register.X30
     Assert.AreEqual<ReturnAddressLocation>(
-      InRegister lr, cc.ReturnAddressLocation)
+      InRegister lr, cc.ReturnAddressLocation
+    )
 
   [<TestMethod>]
   member _.``x64 System V passes floats in XMM independently``() =

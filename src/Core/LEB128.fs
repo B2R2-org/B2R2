@@ -47,11 +47,13 @@ module private LEB128Helper =
 
   let inline decode (bs: ReadOnlySpan<byte>) ([<InlineIfLambda>] cast) maxLen =
     let rec convLoop v offset = function
-      | [] -> v
+      | [] ->
+        v
       | b :: rest ->
         let v' = v ||| (cast (b &&& 0x7fuy) <<< (offset * 7))
         convLoop v' (offset + 1) rest
-    if bs.Length = 0 then invalidArg (nameof bs) "Invalid buffer length"
+    if bs.Length = 0 then
+      invalidArg (nameof bs) "Invalid buffer length"
     else
       let len = if bs.Length > maxLen then maxLen else bs.Length
       let bs, offset = decodeLoop [] bs 0 bs[0] len
@@ -75,8 +77,7 @@ let decodeUInt64 span = decode span uint64 Max64
 /// Decodes a LEB128-encoded unsigned integer into uint64 from a byte array.
 /// Returns a tuple of (the decoded value, the number of bytes consumed).
 [<CompiledName "DecodeUInt64Bytes">]
-let decodeUInt64Bytes (bytes: byte[]) =
-  decodeUInt64 (ReadOnlySpan<byte> bytes)
+let decodeUInt64Bytes (bytes: byte[]) = decodeUInt64 (ReadOnlySpan<byte> bytes)
 
 /// Decodes a LEB128-encoded unsigned integer into uint32. Returns a tuple of
 /// (the decoded value, the number of bytes consumed).
@@ -86,8 +87,7 @@ let decodeUInt32 span = decode span uint32 Max32
 /// Decodes a LEB128-encoded unsigned integer into uint32 from a byte array.
 /// Returns a tuple of (the decoded value, the number of bytes consumed).
 [<CompiledName "DecodeUInt32Bytes">]
-let decodeUInt32Bytes (bytes: byte[]) =
-  decodeUInt32 (ReadOnlySpan<byte> bytes)
+let decodeUInt32Bytes (bytes: byte[]) = decodeUInt32 (ReadOnlySpan<byte> bytes)
 
 /// Decodes a LEB128-encoded signed integer into int64. Returns a tuple of
 /// (the decoded value, the number of bytes consumed).
@@ -99,8 +99,7 @@ let decodeSInt64 (span: ReadOnlySpan<byte>) =
 /// Decodes a LEB128-encoded signed integer into int64 from a byte array.
 /// Returns a tuple of (the decoded value, the number of bytes consumed).
 [<CompiledName "DecodeSInt64Bytes">]
-let decodeSInt64Bytes (bytes: byte[]) =
-  decodeSInt64 (ReadOnlySpan<byte> bytes)
+let decodeSInt64Bytes (bytes: byte[]) = decodeSInt64 (ReadOnlySpan<byte> bytes)
 
 /// Decodes a LEB128-encoded signed integer into int32. Returns a tuple of
 /// (the decoded value, the number of bytes consumed).
@@ -112,5 +111,4 @@ let decodeSInt32 (span: ReadOnlySpan<byte>) =
 /// Decodes a LEB128-encoded signed integer into int32 from a byte array.
 /// Returns a tuple of (the decoded value, the number of bytes consumed).
 [<CompiledName "DecodeSInt32Bytes">]
-let decodeSInt32Bytes (bytes: byte[]) =
-  decodeSInt32 (ReadOnlySpan<byte> bytes)
+let decodeSInt32Bytes (bytes: byte[]) = decodeSInt32 (ReadOnlySpan<byte> bytes)

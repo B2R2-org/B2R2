@@ -74,7 +74,8 @@ let private nameSecFuncNames wm =
   match tryFindNameSection wm with
   | Some ns ->
     ns.FunctionNames |> Array.map (fun assoc -> assoc.Index, assoc.Name)
-  | None -> [||]
+  | None ->
+    [||]
 
 /// Maps each function's element offset (its address) to its name, preferring
 /// the "name" custom section and falling back to the export name.
@@ -90,7 +91,8 @@ let getFunctionNameMap wm =
         match Map.tryFind ii.Index nameByIdx with
         | Some name -> Some(uint64 ii.ElemOffset, name)
         | None -> None
-      else None)
+      else
+        None)
     |> Map.ofArray
 
 let getImports wm =

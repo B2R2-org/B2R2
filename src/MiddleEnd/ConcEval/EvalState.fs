@@ -52,12 +52,7 @@ type EvalState(regs, temps, lbls, mem, ignoreUndef) =
 
   /// This constructor will simply create a fresh new EvalState with the given
   /// memory.
-  new(mem) =
-    EvalState(Variables(),
-              Variables(),
-              Labels(),
-              mem,
-              false)
+  new(mem) = EvalState(Variables(), Variables(), Labels(), mem, false)
 
   /// This constructor will simply create a fresh new EvalState. Depending on
   /// the `ignoreUndef` parameter, the evaluator using this EvalState will

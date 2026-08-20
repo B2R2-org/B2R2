@@ -144,13 +144,16 @@ type Instruction
         | ThreeOperands(_, _, OprMemory(LiteralMode(ImmOffset(Lbl offs)))) ->
           addr <- (this.Address + uint64 offs)
           true
-        | _ -> false
-      else false
+        | _ ->
+          false
+      else
+        false
 
     member this.IndirectTrampolineAddr(_addr: byref<Addr>) =
       if (this :> IInstruction).IsIndirectBranch then
         Terminator.futureFeature ()
-      else false
+      else
+        false
 
     member _.MemoryDereferences(_: byref<Addr[]>) = Terminator.futureFeature ()
 

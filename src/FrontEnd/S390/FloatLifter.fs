@@ -175,7 +175,8 @@ let testDataClass ins insLen bld rt =
   let bit = numG 0x800L >> ((cls .+ cls) .+ sign)
   let selected = transMem bld o2 .& bit
   bld <+ (ccVar bld := AST.ite (selected == AST.num0 GRSize)
-                               (numCC 0) (numCC 1))
+                               (numCC 0)
+                               (numCC 1))
   bld --!> insLen
 
 /// The first two operands and the rounding mode of a conversion. The
@@ -274,8 +275,9 @@ let mulAdd ins insLen bld rt subtract =
   bld <+ (a := fpSrc bld rt o2)
   bld <+ (b := fpPart rt (oprRegVar bld o3))
   let prod = AST.fmul a b
-  let r = if subtract then AST.fsub prod (fpPart rt d) else
-            AST.fadd (fpPart rt d) prod
+  let r =
+    if subtract then AST.fsub prod (fpPart rt d)
+    else AST.fadd (fpPart rt d) prod
   bld <+ (fpPart rt d := r)
   bld --!> insLen
 
@@ -359,8 +361,8 @@ let private extIsZero hi lo =
 
 /// The condition code an extended value's standing against zero gives.
 let private setCCExt bld hi lo =
-  let neg = AST.ite ((hi >> numI64 63L 64<rt>) == AST.num1 64<rt>)
-                    (numCC 1) (numCC 2)
+  let neg =
+    AST.ite ((hi >> numI64 63L 64<rt>) == AST.num1 64<rt>) (numCC 1) (numCC 2)
   let ordered = AST.ite (extIsZero hi lo) (numCC 0) neg
   bld <+ (ccVar bld := AST.ite (extIsNaN hi lo) (numCC 3) ordered)
 
@@ -418,17 +420,16 @@ let extCompare ins insLen bld =
     let amag = ahi .& numI64 0x7fffffffffffffffL 64<rt>
     let bmag = bhi .& numI64 0x7fffffffffffffffL 64<rt>
     (* Magnitudes compare as the pair of unsigned words they are. *)
-    let magGreater =
-      (amag .> bmag) .| ((amag == bmag) .& (alo .> blo))
+    let magGreater = (amag .> bmag) .| ((amag == bmag) .& (alo .> blo))
     let magEqual = (amag == bmag) .& (alo == blo)
     let bothZero = extIsZero ahi alo .& extIsZero bhi blo
     let sameSign =
-      AST.ite magEqual (numCC 0)
+      AST.ite magEqual
+              (numCC 0)
               (AST.ite (magGreater != asign) (numCC 2) (numCC 1))
     let diffSign = AST.ite asign (numCC 1) (numCC 2)
     let ordered =
-      AST.ite bothZero (numCC 0)
-              (AST.ite (asign == bsign) sameSign diffSign)
+      AST.ite bothZero (numCC 0) (AST.ite (asign == bsign) sameSign diffSign)
     let unordered = extIsNaN ahi alo .| extIsNaN bhi blo
     bld <+ (ccVar bld := AST.ite unordered (numCC 3) ordered)
     bld --!> insLen
@@ -453,8 +454,8 @@ let extTestDataClass ins insLen bld =
       ((hi .& numI64 0x0000ffffffffffffL 64<rt>) == AST.num0 64<rt>)
       .& (lo == AST.num0 64<rt>)
     let quiet = (hi >> numI64 47L 64<rt>) .& AST.num1 64<rt>
-    let nan = AST.ite (quiet == AST.num1 64<rt>) (numI64 4L 64<rt>)
-                      (numI64 5L 64<rt>)
+    let nan =
+      AST.ite (quiet == AST.num1 64<rt>) (numI64 4L 64<rt>) (numI64 5L 64<rt>)
     let big = AST.ite fracZero (numI64 3L 64<rt>) nan
     let small = AST.ite fracZero (AST.num0 64<rt>) (numI64 2L 64<rt>)
     let high = AST.ite (expo == numI64 0x7fffL 64<rt>) big (AST.num1 64<rt>)
@@ -462,7 +463,8 @@ let extTestDataClass ins insLen bld =
     let bit = numI64 0x800L 64<rt> >> ((cls .+ cls) .+ sign)
     let selected = transMem bld o2 .& bit
     bld <+ (ccVar bld := AST.ite (selected == AST.num0 64<rt>)
-                                 (numCC 0) (numCC 1))
+                                 (numCC 0)
+                                 (numCC 1))
     bld --!> insLen
 
 /// Where a fraction of the given width sits in an extended value's two words:
@@ -472,14 +474,16 @@ let private extSplitFrac frac fbits =
   if fbits <= 48 then
     struct (frac << numI64 (48L - int64 fbits) 64<rt>, AST.num0 64<rt>)
   else
-    struct (frac >> numI64 (int64 fbits - 48L) 64<rt>,
-            frac << numI64 (112L - int64 fbits) 64<rt>)
+    let rshf = frac >> numI64 (int64 fbits - 48L) 64<rt>
+    let lshf = frac << numI64 (112L - int64 fbits) 64<rt>
+    struct (rshf, lshf)
 
 /// The reverse: the fraction of the given width the two words hold, cut rather
 /// than rounded when the width asked for is the narrower.
 let private extJoinFrac hi lo fbits =
   let top = hi .& numI64 0x0000ffffffffffffL 64<rt>
-  if fbits <= 48 then top >> numI64 (48L - int64 fbits) 64<rt>
+  if fbits <= 48 then
+    top >> numI64 (48L - int64 fbits) 64<rt>
   else
     (top << numI64 (int64 fbits - 48L) 64<rt>)
     .| (lo >> numI64 (112L - int64 fbits) 64<rt>)
@@ -571,7 +575,8 @@ let extFromInt ins insLen bld intW signed =
       else AST.zext 64<rt> (AST.xtlo intW src)
     bld <+ (raw := widened)
     if signed then
-      bld <+ (sign := AST.ite (raw ?< AST.num0 64<rt>) (AST.num1 64<rt>)
+      bld <+ (sign := AST.ite (raw ?< AST.num0 64<rt>)
+                              (AST.num1 64<rt>)
                               (AST.num0 64<rt>))
       bld <+ (mag := AST.ite (raw ?< AST.num0 64<rt>) (AST.neg raw) raw)
     else
@@ -663,9 +668,9 @@ let private extOfDouble src =
     .| (((expo .- numI64 1023L 64<rt> .+ numI64 16383L 64<rt>)
          .& numI64 0x7fffL 64<rt>) << numI64 48L 64<rt>)
     .| hiFrac
-  let zero = expo == AST.num0 64<rt>
-  struct (AST.ite zero (sign << numI64 63L 64<rt>) hi,
-          AST.ite zero (AST.num0 64<rt>) loFrac)
+  let zero1 = AST.ite (expo == AST.num0 64<rt>) (sign << numI64 63L 64<rt>) hi
+  let zero2 = AST.ite (expo == AST.num0 64<rt>) (AST.num0 64<rt>) loFrac
+  struct (zero1, zero2)
 
 /// Writes a double back to an extended register pair, which is where every
 /// operation below lands.

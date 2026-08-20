@@ -68,7 +68,8 @@ let private addresses table baseAddr instrs =
 /// was never defined is a mistake in the source, not a lookup that failed.
 let private findLabel state (addrs: Addr[]) lbl =
   match Map.tryFind lbl state.LabelMap with
-  | Some index when index < addrs.Length -> addrs[index]
+  | Some index when index < addrs.Length ->
+    addrs[index]
   | Some _ | None ->
     raise <| EncodingFailureException $"Undefined label '{lbl}'"
 

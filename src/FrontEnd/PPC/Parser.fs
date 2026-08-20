@@ -49,7 +49,5 @@ type PPCParser(wordSize: WordSize, reader) =
       (this :> IInstructionParsable).Parse(ReadOnlySpan bs, addr)
 
     member _.Parse(span: ByteSpan, addr) =
-      try
-        ParsingMain.parse lifter span reader addr rt :> IInstruction
-      with e when not (Terminator.isCritical e) ->
-        raise ParsingFailureException
+      try ParsingMain.parse lifter span reader addr rt :> IInstruction
+      with e when not (Terminator.isCritical e) -> raise ParsingFailureException

@@ -120,7 +120,8 @@ let private scalarThreeSame allowed u opcode ins =
     let size, d = scalarFields ins rd
     scalarHead u size ||| (1u <<< 21) ||| (simdNumber ins rm <<< 16)
     ||| (opcode <<< 11) ||| (1u <<< 10) ||| (simdNumber ins rn <<< 5) ||| d
-  | _ -> wrongOperands ins
+  | _ ->
+    wrongOperands ins
 
 /// The same, on floating-point elements, of which the size field says only
 /// whether they are doublewords.
@@ -133,7 +134,8 @@ let private scalarThreeSameFP u hi opcode ins =
     scalarHead u ((hi <<< 1) ||| sz) ||| (1u <<< 21)
     ||| (simdNumber ins rm <<< 16) ||| (opcode <<< 11) ||| (1u <<< 10)
     ||| (simdNumber ins rn <<< 5) ||| d
-  | _ -> wrongOperands ins
+  | _ ->
+    wrongOperands ins
 
 /// The bits an instruction reading one element into another shares.
 let private scalarTwoRegWith u size opcode rn rd =
@@ -148,7 +150,8 @@ let private scalarTwoReg allowed u opcode ins =
     checkWidth ins allowed rd
     let size, d = scalarFields ins rd
     scalarTwoRegWith u size opcode (simdNumber ins rn) d
-  | _ -> wrongOperands ins
+  | _ ->
+    wrongOperands ins
 
 /// The same, on floating-point elements.
 let private scalarTwoRegFP u hi opcode ins =
@@ -157,7 +160,8 @@ let private scalarTwoRegFP u hi opcode ins =
     sameWidth ins rd rn
     let sz, d = floatFields ins rd
     scalarTwoRegWith u ((hi <<< 1) ||| sz) opcode (simdNumber ins rn) d
-  | _ -> wrongOperands ins
+  | _ ->
+    wrongOperands ins
 
 /// <V><d>, <V><n>, #0, the comparisons against nothing.
 let private scalarCompareZero u opcode ins =
@@ -167,7 +171,8 @@ let private scalarCompareZero u opcode ins =
     checkWidth ins LongElement rd
     let size, d = scalarFields ins rd
     scalarTwoRegWith u size opcode (simdNumber ins rn) d
-  | _ -> wrongOperands ins
+  | _ ->
+    wrongOperands ins
 
 /// The same, on floating-point elements, whose nothing is written as one.
 let private scalarCompareZeroFP u hi opcode ins =
@@ -176,7 +181,8 @@ let private scalarCompareZeroFP u hi opcode ins =
     sameWidth ins rd rn
     let sz, d = floatFields ins rd
     scalarTwoRegWith u ((hi <<< 1) ||| sz) opcode (simdNumber ins rn) d
-  | _ -> wrongOperands ins
+  | _ ->
+    wrongOperands ins
 
 /// <V><d>, <V><n>, the ones whose destination is half as wide as what they
 /// read.
@@ -186,7 +192,8 @@ let private scalarNarrowing u opcode ins =
     checkWider ins rd rn
     let size, d = scalarFields ins rd
     scalarTwoRegWith u size opcode (simdNumber ins rn) d
-  | _ -> wrongOperands ins
+  | _ ->
+    wrongOperands ins
 
 /// FCVTXN, which reads a doubleword into a word and says which it is in the bit
 /// that says how wide one element is elsewhere.
@@ -196,7 +203,8 @@ let private scalarConvertNarrowing ins =
     checkWider ins rd rn
     let _, d = floatFields ins rd
     scalarTwoRegWith 1u 0b01u 0b10110u (simdNumber ins rn) d
-  | _ -> wrongOperands ins
+  | _ ->
+    wrongOperands ins
 
 /// <V><d>, <Vn>.<T>, the ones that read a pair of elements into one.
 let private scalarPairwise u opcode ins =
@@ -206,7 +214,8 @@ let private scalarPairwise u opcode ins =
     let size, d = scalarFields ins rd
     scalarHead u size ||| (0b11000u <<< 17) ||| (opcode <<< 12)
     ||| (0b10u <<< 10) ||| (vectorReg rn <<< 5) ||| d
-  | _ -> wrongOperands ins
+  | _ ->
+    wrongOperands ins
 
 /// <summary>
 /// The same, on floating-point elements, which read a pair of either width.
@@ -224,7 +233,8 @@ let private scalarPairwiseFP u hi opcode ins =
     else
       scalarHead u ((hi <<< 1) ||| sz) ||| (0b11000u <<< 17) ||| (opcode <<< 12)
       ||| (0b10u <<< 10) ||| (vectorReg rn <<< 5) ||| d
-  | _ -> wrongOperands ins
+  | _ ->
+    wrongOperands ins
 
 /// <V><d>, <V><n>, <V><m>, the ones whose destination is twice as wide as what
 /// they read.
@@ -237,7 +247,8 @@ let private scalarThreeDiff u opcode ins =
     let size, _ = scalarFields ins rn
     scalarHead u size ||| (1u <<< 21) ||| (simdNumber ins rm <<< 16)
     ||| (opcode <<< 12) ||| (simdNumber ins rn <<< 5) ||| simdNumber ins rd
-  | _ -> wrongOperands ins
+  | _ ->
+    wrongOperands ins
 
 /// The bits an instruction shifting one element by an immediate shares, whose
 /// immh and immb fields say both how wide the element is and how far to shift.
@@ -263,7 +274,8 @@ let private scalarShiftImm allowed u opcode toField ins =
     checkWidth ins allowed rd
     let field = toField ins (elementOf ins rd) amount
     scalarShiftWith u opcode field (simdNumber ins rn) (simdNumber ins rd)
-  | _ -> wrongOperands ins
+  | _ ->
+    wrongOperands ins
 
 /// The same, for the ones whose destination is half as wide as what they read
 /// and which count the shift in the narrower of the two.
@@ -273,7 +285,8 @@ let private scalarShiftNarrow u opcode ins =
     checkWider ins rd rn
     let field = rightShift ins (elementOf ins rd) amount
     scalarShiftWith u opcode field (simdNumber ins rn) (simdNumber ins rd)
-  | _ -> wrongOperands ins
+  | _ ->
+    wrongOperands ins
 
 /// <V><d>, <V><n>, #<fbits>, the conversions between a floating-point element
 /// and one holding a fraction of that many bits.
@@ -284,7 +297,8 @@ let private scalarConvertFixed u opcode ins =
     checkWidth ins WordOrLong rd
     let field = rightShift ins (elementOf ins rd) amount
     scalarShiftWith u opcode field (simdNumber ins rn) (simdNumber ins rd)
-  | _ -> wrongOperands ins
+  | _ ->
+    wrongOperands ins
 
 /// The bits an instruction reading one element of its second source shares.
 let private scalarIndexedWith u opcode size source rn rd =
@@ -301,7 +315,8 @@ let private scalarIndexed u opcode ins =
     let selected, source = indexedSource ins vec rm index
     if size <> selected then wrongOperands ins
     else scalarIndexedWith u opcode size source (simdNumber ins rn) d
-  | _ -> wrongOperands ins
+  | _ ->
+    wrongOperands ins
 
 /// The same, on floating-point elements.
 let private scalarIndexedFP u opcode ins =
@@ -310,11 +325,10 @@ let private scalarIndexedFP u opcode ins =
     sameWidth ins rd rn
     let sz, d = floatFields ins rd
     let selected, source = indexedSource ins vec rm index
-    if selected <> (0b10u ||| sz) then
-      wrongOperands ins
-    else
-      scalarIndexedWith u opcode (0b10u ||| sz) source (simdNumber ins rn) d
-  | _ -> wrongOperands ins
+    if selected <> (0b10u ||| sz) then wrongOperands ins
+    else scalarIndexedWith u opcode (0b10u ||| sz) source (simdNumber ins rn) d
+  | _ ->
+    wrongOperands ins
 
 /// The same, for the ones whose destination is twice as wide as what they read.
 let private scalarIndexedLong u opcode ins =
@@ -327,9 +341,14 @@ let private scalarIndexedLong u opcode ins =
     if size <> selected then
       wrongOperands ins
     else
-      scalarIndexedWith u opcode size source (simdNumber ins rn)
-                        (simdNumber ins rd)
-  | _ -> wrongOperands ins
+      scalarIndexedWith u
+        opcode
+        size
+        source
+        (simdNumber ins rn)
+        (simdNumber ins rd)
+  | _ ->
+    wrongOperands ins
 
 /// <V><d>, <Vn>.<Ts>[<index>], which reads one element into a register of its
 /// own width. The manual writes it as a move, which is what it is.
@@ -339,7 +358,8 @@ let private scalarCopy ins =
     (1u <<< 30) ||| (0b11110000u <<< 21)
     ||| (elementSelector ins vec index <<< 16) ||| (1u <<< 10)
     ||| (vectorReg rn <<< 5) ||| simdNumber ins rd
-  | _ -> wrongOperands ins
+  | _ ->
+    wrongOperands ins
 
 (* The instructions that scramble a hash. *)
 /// The bits every one of them that reads three registers shares.
@@ -353,14 +373,16 @@ let private shaScalar width opcode ins =
   match ins.Operands with
   | ThreeOperands(Rg rd, Rg rn, Vec(rm, FourS)) ->
     shaThreeReg opcode (simdReg width rn) rm (simdReg 128 rd)
-  | _ -> wrongOperands ins
+  | _ ->
+    wrongOperands ins
 
 /// The ones that read three whole registers.
 let private shaVector opcode ins =
   match ins.Operands with
   | ThreeOperands(Vec(rd, FourS), Vec(rn, FourS), Vec(rm, FourS)) ->
     shaThreeReg opcode (vectorReg rn) rm (vectorReg rd)
-  | _ -> wrongOperands ins
+  | _ ->
+    wrongOperands ins
 
 /// The ones that read one register into another.
 let private shaTwoReg opcode ins =
@@ -370,8 +392,10 @@ let private shaTwoReg opcode ins =
   match ins.Operands with
   | TwoOperands(Vec(rd, FourS), Vec(rn, FourS)) ->
     head (vectorReg rn) (vectorReg rd)
-  | TwoOperands(Rg rd, Rg rn) -> head (simdReg 32 rn) (simdReg 32 rd)
-  | _ -> wrongOperands ins
+  | TwoOperands(Rg rd, Rg rn) ->
+    head (simdReg 32 rn) (simdReg 32 rd)
+  | _ ->
+    wrongOperands ins
 
 (* The instructions on the floating-point registers. *)
 /// The two bits that say how wide a floating-point register is, of which a
@@ -389,8 +413,7 @@ let private floatWideType ins reg =
   floatType ins reg
 
 /// The bits every one of them shares.
-let private floatHead ty =
-  (0b11110u <<< 24) ||| (ty <<< 22) ||| (1u <<< 21)
+let private floatHead ty = (0b11110u <<< 24) ||| (ty <<< 22) ||| (1u <<< 21)
 
 /// <Vd>, <Vn>, the ones that read one register into another.
 let private floatOneSource opcode ins =
@@ -399,7 +422,8 @@ let private floatOneSource opcode ins =
     sameWidth ins rd rn
     floatHead (floatWideType ins rn) ||| (opcode <<< 15) ||| (0b10000u <<< 10)
     ||| (simdNumber ins rn <<< 5) ||| simdNumber ins rd
-  | _ -> wrongOperands ins
+  | _ ->
+    wrongOperands ins
 
 /// FCVT, whose destination is of a different width from its source, and which
 /// says which width that is in the bottom of its opcode.
@@ -409,7 +433,8 @@ let private convertFloat ins =
     floatHead (floatType ins rn) ||| ((0b0001u <<< 2) <<< 15)
     ||| (floatType ins rd <<< 15) ||| (0b10000u <<< 10)
     ||| (simdNumber ins rn <<< 5) ||| simdNumber ins rd
-  | _ -> wrongOperands ins
+  | _ ->
+    wrongOperands ins
 
 /// <Vd>, <Vn>, <Vm>, the ones that read two registers into one.
 let private floatTwoSource opcode ins =
@@ -420,7 +445,8 @@ let private floatTwoSource opcode ins =
     floatHead (floatWideType ins rd) ||| (simdNumber ins rm <<< 16)
     ||| (opcode <<< 12) ||| (0b10u <<< 10) ||| (simdNumber ins rn <<< 5)
     ||| simdNumber ins rd
-  | _ -> wrongOperands ins
+  | _ ->
+    wrongOperands ins
 
 /// <Vd>, <Vn>, <Vm>, <Va>, the ones that read three.
 let private floatThreeSource o1 o0 ins =
@@ -433,7 +459,8 @@ let private floatThreeSource o1 o0 ins =
     ||| (simdNumber ins rm <<< 16) ||| (o0 <<< 15)
     ||| (simdNumber ins ra <<< 10) ||| (simdNumber ins rn <<< 5)
     ||| simdNumber ins rd
-  | _ -> wrongOperands ins
+  | _ ->
+    wrongOperands ins
 
 /// <Vn>, <Vm>|#0.0, the comparisons, which name no destination and say in the
 /// bottom of their opcode whether they read a register at all.
@@ -446,7 +473,8 @@ let private floatCompare opcode2 ins =
   | TwoOperands(Rg rn, OprFPImm 0.0) ->
     floatHead (floatWideType ins rn) ||| (0b001000u <<< 10)
     ||| (simdNumber ins rn <<< 5) ||| opcode2 ||| 0b01000u
-  | _ -> wrongOperands ins
+  | _ ->
+    wrongOperands ins
 
 /// <Vn>, <Vm>, #<nzcv>, <cond>, the comparisons that run under a condition.
 let private floatCondCompare op ins =
@@ -456,7 +484,8 @@ let private floatCondCompare op ins =
     floatHead (floatWideType ins rn) ||| (simdNumber ins rm <<< 16)
     ||| (condField cond <<< 12) ||| (0b01u <<< 10)
     ||| (simdNumber ins rn <<< 5) ||| (op <<< 4) ||| unsignedImm 4 nzcv
-  | _ -> wrongOperands ins
+  | _ ->
+    wrongOperands ins
 
 /// <Vd>, <Vn>, <Vm>, <cond>, which reads one of its sources or the other.
 let private floatCondSelect ins =
@@ -467,7 +496,8 @@ let private floatCondSelect ins =
     floatHead (floatWideType ins rd) ||| (simdNumber ins rm <<< 16)
     ||| (condField cond <<< 12) ||| (0b11u <<< 10)
     ||| (simdNumber ins rn <<< 5) ||| simdNumber ins rd
-  | _ -> wrongOperands ins
+  | _ ->
+    wrongOperands ins
 
 /// <Vd>, #<imm>, a move of a value the eight bits of the encoding stand for.
 let private floatImmediate ins =
@@ -475,7 +505,8 @@ let private floatImmediate ins =
   | TwoOperands(Rg rd, OprFPImm value) ->
     floatHead (floatWideType ins rd) ||| (floatImm value <<< 13)
     ||| (0b100u <<< 10) ||| simdNumber ins rd
-  | _ -> wrongOperands ins
+  | _ ->
+    wrongOperands ins
 
 /// The bits a move between a floating-point register and a general one shares:
 /// the type field says how wide the floating-point side is and the sf bit how
@@ -488,10 +519,14 @@ let private convertWith sf ty rmode opcode rn rd =
 let private convertToGeneral rmode opcode ins =
   match ins.Operands with
   | TwoOperands(Rg rd, Rg rn) ->
-    convertWith (if is64Reg rd then 1u else 0u) (floatWideType ins rn) rmode
+    convertWith (if is64Reg rd then 1u else 0u)
+                (floatWideType ins rn)
+                rmode
                 opcode
-                (simdNumber ins rn) (coreReg rd)
-  | _ -> wrongOperands ins
+                (simdNumber ins rn)
+                (coreReg rd)
+  | _ ->
+    wrongOperands ins
 
 /// <Vd>, <Rn>, the ones that write one. Only the conversion of a signed number
 /// reaches a half-precision register, so what type the destination may be comes
@@ -499,9 +534,14 @@ let private convertToGeneral rmode opcode ins =
 let private convertToFloat toType rmode opcode ins =
   match ins.Operands with
   | TwoOperands(Rg rd, Rg rn) ->
-    convertWith (if is64Reg rn then 1u else 0u) (toType ins rd) rmode opcode
-                (coreReg rn) (simdNumber ins rd)
-  | _ -> wrongOperands ins
+    convertWith (if is64Reg rn then 1u else 0u)
+                (toType ins rd)
+                rmode
+                opcode
+                (coreReg rn)
+                (simdNumber ins rd)
+  | _ ->
+    wrongOperands ins
 
 /// <summary>
 /// The bits a conversion that keeps a count of fractional bits shares.
@@ -524,17 +564,29 @@ let private convertFixedWith general ty rmode opcode fbits rn rd =
 let private convertFixedToFloat toType rmode opcode ins =
   match ins.Operands with
   | ThreeOperands(Rg rd, Rg rn, Im fbits) ->
-    convertFixedWith rn (toType ins rd) rmode opcode fbits (coreReg rn)
+    convertFixedWith rn
+                     (toType ins rd)
+                     rmode
+                     opcode
+                     fbits
+                     (coreReg rn)
                      (simdNumber ins rd)
-  | _ -> wrongOperands ins
+  | _ ->
+    wrongOperands ins
 
 /// <Rd>, <Vn>, #<fbits>, which reads one the other way.
 let private convertFixedToGeneral rmode opcode ins =
   match ins.Operands with
   | ThreeOperands(Rg rd, Rg rn, Im fbits) ->
-    convertFixedWith rd (floatWideType ins rn) rmode opcode fbits
-                     (simdNumber ins rn) (coreReg rd)
-  | _ -> wrongOperands ins
+    convertFixedWith rd
+                     (floatWideType ins rn)
+                     rmode
+                     opcode
+                     fbits
+                     (simdNumber ins rn)
+                     (coreReg rd)
+  | _ ->
+    wrongOperands ins
 
 /// Rejects a floating-point register and a general one that are not of one
 /// width, which a move of the bits as they stand needs and a conversion does
@@ -556,8 +608,10 @@ let private checkPaired ins float general =
 /// </summary>
 let private move ins =
   match ins.Operands with
-  | TwoOperands(Vec _, OprFPImm _) -> moveFloatImm ins
-  | TwoOperands(Rg _, OprFPImm _) -> floatImmediate ins
+  | TwoOperands(Vec _, OprFPImm _) ->
+    moveFloatImm ins
+  | TwoOperands(Rg _, OprFPImm _) ->
+    floatImmediate ins
   | TwoOperands(Elem(rd, VecD, 1uy), Rg rn) ->
     convertWith 1u 0b10u 0b01u 0b111u (coreReg rn) (vectorReg rd)
   | TwoOperands(Rg rd, Elem(rn, VecD, 1uy)) ->
@@ -570,7 +624,8 @@ let private move ins =
   | TwoOperands(Rg rd, Rg rn) when (tryScalarWidth rn).IsSome ->
     checkPaired ins rn rd
     convertToGeneral 0b00u 0b110u ins
-  | _ -> wrongOperands ins
+  | _ ->
+    wrongOperands ins
 
 /// MOV, which reads one element of a vector either into a register of its own
 /// width or, where the manual writes it as something else, out of one.
@@ -590,21 +645,26 @@ let private convert toType u hi opcode rmode intOpcode toFloat ins =
   match getOperandsAsList ins.Operands with
   | [ Rg rd; Rg rn ] when tryScalarWidth rd = tryScalarWidth rn ->
     scalarTwoRegFP u hi opcode ins
-  | [ Rg _; Rg _ ] when toFloat -> convertToFloat toType rmode intOpcode ins
-  | [ Rg _; Rg _ ] -> convertToGeneral rmode intOpcode ins
+  | [ Rg _; Rg _ ] when toFloat ->
+    convertToFloat toType rmode intOpcode ins
+  | [ Rg _; Rg _ ] ->
+    convertToGeneral rmode intOpcode ins
   | [ Rg rd; Rg rn; Im _ ] when tryScalarWidth rd = tryScalarWidth rn ->
     scalarConvertFixed u scalarOpcode ins
   | [ Rg _; Rg _; Im _ ] when toFloat ->
     convertFixedToFloat toType rmode intOpcode ins
-  | [ Rg _; Rg _; Im _ ] -> convertFixedToGeneral rmode intOpcode ins
-  | _ -> wrongOperands ins
+  | [ Rg _; Rg _; Im _ ] ->
+    convertFixedToGeneral rmode intOpcode ins
+  | _ ->
+    wrongOperands ins
 
 /// The ones that reach both the element they read and a general register.
 let private convertOrRound u hi opcode rmode intOpcode ins =
   match ins.Operands with
   | TwoOperands(Rg rd, Rg rn) when tryScalarWidth rd = tryScalarWidth rn ->
     scalarTwoRegFP u hi opcode ins
-  | _ -> convertToGeneral rmode intOpcode ins
+  | _ ->
+    convertToGeneral rmode intOpcode ins
 
 /// The multiplies, which read either the whole of their second source or one
 /// element of it.
@@ -636,7 +696,8 @@ let private compareFP u hi opcode zeroU zeroHi zeroOpcode ins =
   match ins.Operands with
   | ThreeOperands(_, _, OprFPImm _) ->
     scalarCompareZeroFP zeroU zeroHi zeroOpcode ins
-  | _ -> scalarThreeSameFP u hi opcode ins
+  | _ ->
+    scalarThreeSameFP u hi opcode ins
 
 /// The saturating shifts, which shift by either another element or an
 /// immediate.
@@ -644,7 +705,8 @@ let private saturatingShift u sameOpcode shiftOpcode ins =
   match ins.Operands with
   | ThreeOperands(_, _, Im _) ->
     scalarShiftImm AnyElement u shiftOpcode leftShift ins
-  | _ -> scalarThreeSame AnyElement u sameOpcode ins
+  | _ ->
+    scalarThreeSame AnyElement u sameOpcode ins
 
 /// FMULX, which reads either the whole of its second source or one element.
 let private multiplyExtended ins =

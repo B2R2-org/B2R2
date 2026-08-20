@@ -55,12 +55,16 @@ module SolverOutputParser =
       if idx >= text.Length then parseFailure "Unterminated quoted symbol."
       else Ok(idx + 1, sb.ToString())
     let rec loop idx acc =
-      if idx >= text.Length then List.rev acc |> Ok
+      if idx >= text.Length then
+        List.rev acc |> Ok
       else
         match text[idx] with
-        | c when Char.IsWhiteSpace c -> loop (idx + 1) acc
-        | '(' -> loop (idx + 1) (LParen :: acc)
-        | ')' -> loop (idx + 1) (RParen :: acc)
+        | c when Char.IsWhiteSpace c ->
+          loop (idx + 1) acc
+        | '(' ->
+          loop (idx + 1) (LParen :: acc)
+        | ')' ->
+          loop (idx + 1) (RParen :: acc)
         | '|' ->
           match readQuoted (idx + 1) with
           | Ok(nextIdx, symbol) -> loop nextIdx (TokAtom symbol :: acc)
@@ -80,8 +84,10 @@ module SolverOutputParser =
     | LParen :: rest -> parseList [] rest
 
   and private parseList acc = function
-    | [] -> parseFailure "Unterminated S-expression list."
-    | RParen :: rest -> Ok(SList(List.rev acc), rest)
+    | [] ->
+      parseFailure "Unterminated S-expression list."
+    | RParen :: rest ->
+      Ok(SList(List.rev acc), rest)
     | tokens ->
       match parseOne tokens with
       | Ok(expr, rest) -> parseList (expr :: acc) rest
@@ -89,7 +95,8 @@ module SolverOutputParser =
 
   let private parseAll tokens =
     let rec loop acc = function
-      | [] -> List.rev acc |> Ok
+      | [] ->
+        List.rev acc |> Ok
       | tokens ->
         match parseOne tokens with
         | Ok(expr, rest) -> loop (expr :: acc) rest
@@ -103,15 +110,18 @@ module SolverOutputParser =
     else None
 
   let private parseUnsigned radix (text: string) =
-    if text.Length = 0 then parseFailure "Expected an unsigned integer."
+    if text.Length = 0 then
+      parseFailure "Expected an unsigned integer."
     else
       let rec loop idx (value: bigint) =
-        if idx = text.Length then Ok value
+        if idx = text.Length then
+          Ok value
         else
           match digitValue text[idx] with
           | Some digit when digit < radix ->
             loop (idx + 1) (value * bigint radix + bigint digit)
-          | _ -> parseFailure $"Invalid unsigned integer: {text}"
+          | _ ->
+            parseFailure $"Invalid unsigned integer: {text}"
       loop 0 0I
 
   let private toBitVector width (value: bigint) =
@@ -134,7 +144,8 @@ module SolverOutputParser =
     match Int32.TryParse widthText with
     | true, width ->
       parseUnsigned 10 valueText |> Result.bind (toBitVector width)
-    | false, _ -> parseFailure $"Invalid bit-vector width: {widthText}"
+    | false, _ ->
+      parseFailure $"Invalid bit-vector width: {widthText}"
 
   let private parseBitVector = function
     | SAtom atom when atom.StartsWith("#x", StringComparison.Ordinal) ->
@@ -144,7 +155,8 @@ module SolverOutputParser =
     | SList [ SAtom "_"; SAtom value; SAtom width ]
       when value.StartsWith("bv", StringComparison.Ordinal) ->
       parseDecimalBitVecLiteral value width
-    | expr -> parseFailure $"Unsupported bit-vector expression: {expr}"
+    | expr ->
+      parseFailure $"Unsupported bit-vector expression: {expr}"
 
   let private parseStatusAtom = function
     | "sat" | "SATISFIABLE" -> Ok Sat
@@ -163,17 +175,20 @@ module SolverOutputParser =
       parseBitVector value |> Result.map (fun value -> Some(name, value))
     | SList(SAtom "define-fun" :: _) ->
       parseFailure "Unsupported define-fun model entry."
-    | _ -> Ok None
+    | _ ->
+      Ok None
 
   let private collectModelValues sexprs =
     let rec collect acc sexpr =
       match parseModelValue sexpr with
-      | Ok(Some value) -> Ok(value :: acc)
+      | Ok(Some value) ->
+        Ok(value :: acc)
       | Ok None ->
         match sexpr with
         | SList sexprs -> List.fold folder (Ok acc) sexprs
         | SAtom _ -> Ok acc
-      | Error e -> Error e
+      | Error e ->
+        Error e
     and folder acc sexpr =
       match acc with
       | Ok values -> collect values sexpr
@@ -203,7 +218,8 @@ module SolverOutputParser =
 
   let private foldResult folder state values =
     let rec loop state = function
-      | [] -> Ok(List.rev state)
+      | [] ->
+        Ok(List.rev state)
       | value :: rest ->
         match folder state value with
         | Ok state -> loop state rest
@@ -222,10 +238,12 @@ module SolverOutputParser =
   /// Extract requested SymbEval values from raw solver model text.
   let extract values modelText =
     match requestedValues values with
-    | Error e -> Error e
+    | Error e ->
+      Error e
     | Ok requested ->
       match parseModel modelText with
-      | Error e -> Error e
+      | Error e ->
+        Error e
       | Ok model ->
         requested
         |> List.map (fun (name, typ) ->
@@ -238,5 +256,4 @@ module SolverOutputParser =
         |> Ok
 
   /// Validate requested SymbEval values before asking for a model.
-  let validate values =
-    requestedValues values |> Result.map ignore
+  let validate values = requestedValues values |> Result.map ignore

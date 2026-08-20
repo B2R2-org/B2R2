@@ -30,10 +30,10 @@ open B2R2.FrontEnd
 
 /// The builder for an external function, which is responsible storing auxiliary
 /// information about the function, such as caller information.
-type ExternalFnCFGBuilder<'FnCtx,
-                          'GlCtx when 'FnCtx :> IResettable
-                                  and 'FnCtx: (new: unit -> 'FnCtx)
-                                  and 'GlCtx: (new: unit -> 'GlCtx)>
+type ExternalFnCFGBuilder<'FnCtx, 'GlCtx
+  when 'FnCtx :> IResettable
+  and 'FnCtx: (new: unit -> 'FnCtx)
+  and 'GlCtx: (new: unit -> 'GlCtx)>
   public(hdl: BinHandle, exnInfo, entryPoint, name, noretStatus) =
 
   let ctx =

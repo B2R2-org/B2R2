@@ -146,21 +146,27 @@ module internal Sxabbreviation =
     | _ -> Unknown
 
   let toString = function
-    | Std -> "std"
-    | StdAllocator -> "std::allocator"
-    | StdBasicString -> "std::basic_string"
+    | Std ->
+      "std"
+    | StdAllocator ->
+      "std::allocator"
+    | StdBasicString ->
+      "std::basic_string"
     | StdBasicStringT ->
       "std::basic_string<char, std::char_traits<char>, std::allocator<char> >"
-    | StdBasicIstream -> "std::basic_istream<char, std::char_traits<char> >"
-    | StdBasicOstream -> "std::basic_ostream<char, std::char_traits<char> >"
-    | StdBasicIOStream -> "std::basic_iostream<char, std::char_traits<char> >"
-    | Unknown -> "???"
+    | StdBasicIstream ->
+      "std::basic_istream<char, std::char_traits<char> >"
+    | StdBasicOstream ->
+      "std::basic_ostream<char, std::char_traits<char> >"
+    | StdBasicIOStream ->
+      "std::basic_iostream<char, std::char_traits<char> >"
+    | Unknown ->
+      "???"
 
   let get = function
     | StdAllocator -> "allocator"
     | StdBasicString -> "basic_string"
-    | StdBasicStringT ->
-      "basic_string"
+    | StdBasicStringT -> "basic_string"
     | StdBasicIstream -> "basic_istream"
     | StdBasicOstream -> "basic_ostream"
     | StdBasicIOStream -> "basic_iostream"

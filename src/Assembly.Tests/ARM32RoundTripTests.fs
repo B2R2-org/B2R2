@@ -79,8 +79,7 @@ type ARM32RoundTripTests() =
 
   /// A Thumb parser and assembler of their own: which instruction set a line
   /// belongs to is settled when each is built, as nothing in the line says.
-  static let thumbParser =
-    ARM32Parser(isa, true, BinReader.Init Endian.Little)
+  static let thumbParser = ARM32Parser(isa, true, BinReader.Init Endian.Little)
 
   static let thumbAssembler =
     Assembler(ISA(Endian.Little, false, ARM32Mode.Thumb), 0UL) :> ILowerable
@@ -96,7 +95,8 @@ type ARM32RoundTripTests() =
   /// text stands in for the word a probe was decoded from.
   static let sourceRoundTrip (source: string) =
     match (try encodeFirst source with _ -> None) with
-    | None -> ARM32Unsupported
+    | None ->
+      ARM32Unsupported
     | Some encoded ->
       let actual = try disasm encoded with _ -> "<undecodable>"
       if actual = source then ARM32Preserved else ARM32Altered actual
@@ -108,7 +108,8 @@ type ARM32RoundTripTests() =
 
   static let thumbRoundTrip (source: string) =
     match (try thumbAssembler.Lower source with _ -> Error "raised") with
-    | Error _ | Ok [] -> ARM32Unsupported
+    | Error _ | Ok [] ->
+      ARM32Unsupported
     | Ok((_, bytes) :: _) ->
       let actual = try thumbDisasm 0UL bytes with _ -> "<undecodable>"
       if actual = source then ARM32Preserved else ARM32Altered actual
@@ -382,7 +383,8 @@ type ARM32RoundTripTests() =
       "",
       String.concat "\n" broken,
       "These instructions decode but no longer encode, or encode to a word \
-       that means something else.")
+       that means something else."
+    )
 
   [<TestMethod>]
   member _.``Every data-processing shape encodes correctly``() =
@@ -394,7 +396,8 @@ type ARM32RoundTripTests() =
     Assert.AreEqual<string>(
       "",
       String.concat "\n" wrong,
-      "These data-processing operand shapes no longer encode correctly.")
+      "These data-processing operand shapes no longer encode correctly."
+    )
 
   [<TestMethod>]
   member _.``Every load and store shape encodes correctly``() =
@@ -406,7 +409,8 @@ type ARM32RoundTripTests() =
     Assert.AreEqual<string>(
       "",
       String.concat "\n" wrong,
-      "These memory operand shapes no longer encode correctly.")
+      "These memory operand shapes no longer encode correctly."
+    )
 
   [<TestMethod>]
   [<TestCategory("Sweep")>]
@@ -424,7 +428,8 @@ type ARM32RoundTripTests() =
       "",
       String.concat "\n" broken,
       "These Thumb instructions decode but no longer encode, or encode to a \
-       halfword that means something else.")
+       halfword that means something else."
+    )
 
   [<TestMethod>]
   member _.``Every SIMD and floating-point shape encodes correctly``() =
@@ -436,7 +441,8 @@ type ARM32RoundTripTests() =
       "",
       String.concat "\n" wrong,
       "These SIMD and floating-point operand shapes no longer encode \
-       correctly.")
+       correctly."
+    )
 
   [<TestMethod>]
   member _.``An IT block says what the instructions in it run under``() =
@@ -447,7 +453,8 @@ type ARM32RoundTripTests() =
           let source = lines |> List.map (fun line -> "  " + line)
           let text = String.concat "\n" source
           match (try thumbAssembler.Lower text with _ -> Error "raised") with
-          | Error _ -> Some $"'{List.head lines}' does not assemble"
+          | Error _ ->
+            Some $"'{List.head lines}' does not assemble"
           | Ok encoded ->
             let read =
               try thumbDisasmSequence (List.map snd encoded)
@@ -460,7 +467,8 @@ type ARM32RoundTripTests() =
     Assert.AreEqual<string>(
       "",
       String.concat "\n" wrong,
-      "These blocks no longer say what the instructions in them run under.")
+      "These blocks no longer say what the instructions in them run under."
+    )
 
   [<TestMethod>]
   member _.``Branches to a label reach it in both directions``() =
@@ -471,7 +479,8 @@ type ARM32RoundTripTests() =
               opcode, source, index, target ]
         |> List.choose (fun (opcode, source, index, target) ->
           match (try assembler.Lower source with _ -> Error "raised") with
-          | Error _ -> Some $"'{opcode} L' does not assemble"
+          | Error _ ->
+            Some $"'{opcode} L' does not assemble"
           | Ok encoded ->
             let addr = uint64 (4 * index)
             let text =
@@ -484,4 +493,5 @@ type ARM32RoundTripTests() =
     Assert.AreEqual<string>(
       "",
       String.concat "\n" wrong,
-      "These branches no longer reach the instruction their label marks.")
+      "These branches no longer reach the instruction their label marks."
+    )

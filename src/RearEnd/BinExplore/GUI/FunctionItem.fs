@@ -39,8 +39,7 @@ type FunctionItem =
 
 [<RequireQualifiedAccess>]
 module FunctionItem =
-  let displayName (item: FunctionItem) =
-    $"{item.Address:X}: {item.Name}"
+  let displayName (item: FunctionItem) = $"{item.Address:X}: {item.Name}"
 
   let private computeMaxAddr (cfg: LowUIRCFG) =
     cfg.Vertices

@@ -64,5 +64,6 @@ let printRegisters showTemporary state regdelta =
   if showTemporary then
     printCyan "\nTemporary Registers:\n"
     printTRegStatusString state []
-  else ()
+  else
+    ()
   Console.WriteLine()

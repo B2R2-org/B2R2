@@ -51,5 +51,4 @@ type Log private() =
       ()
 
   /// Sets the log level for the main console printer.
-  static member SetLogLevel(level: LogLevel) =
-    out.SetLogLevel(level)
+  static member SetLogLevel(level: LogLevel) = out.SetLogLevel(level)

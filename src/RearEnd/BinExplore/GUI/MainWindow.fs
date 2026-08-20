@@ -35,9 +35,10 @@ open B2R2.FrontEnd.BinFile
 open B2R2.MiddleEnd.ControlFlowAnalysis
 open B2R2.RearEnd.BinExplore
 
-type MainWindow<'FnCtx, 'GlCtx when 'FnCtx :> IResettable
-                                and 'FnCtx: (new: unit -> 'FnCtx)
-                                and 'GlCtx: (new: unit -> 'GlCtx)>
+type MainWindow<'FnCtx, 'GlCtx
+  when 'FnCtx :> IResettable
+  and 'FnCtx: (new: unit -> 'FnCtx)
+  and 'GlCtx: (new: unit -> 'GlCtx)>
   public(arbiter: Arbiter<'FnCtx, 'GlCtx>, useDarkTheme) as this =
   inherit HostWindow()
 
@@ -153,8 +154,9 @@ type MainWindow<'FnCtx, 'GlCtx when 'FnCtx :> IResettable
             let defs =
               facts.RegConstDefs
               |> Array.map (fun (r, v) ->
-                brew.BinHandle.RegisterFactory.GetRegisterName r,
-                $"{v.ToValueString():X}")
+                let getRegName =
+                  brew.BinHandle.RegisterFactory.GetRegisterName r
+                getRegName, $"{v.ToValueString():X}")
             {| Stmts = stmts |> Array.map PrettyPrinter.ToString
                ReadAddrs = reads
                WriteAddrs = writes

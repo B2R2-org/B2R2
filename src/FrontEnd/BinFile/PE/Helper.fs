@@ -84,8 +84,7 @@ let getEntryPoint pe =
     None
   else
     let entry = pe.PEHeaders.PEHeader.AddressOfEntryPoint
-    if entry = 0 then None
-    else uint64 entry + pe.BaseAddr |> Some
+    if entry = 0 then None else uint64 entry + pe.BaseAddr |> Some
 
 /// Some PE files have a section header indicating that the corresponding
 /// section's size is zero even if it contains actual data, i.e.,

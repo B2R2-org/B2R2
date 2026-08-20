@@ -61,8 +61,7 @@ module HexDump =
       Array.append (bytes |> Array.map (fun b -> b.ToString("X2"))) padding
       |> Array.mapi addSpace
       |> Array.fold (+) ""
-    let ascii =
-      bytes |> Array.fold (fun arr b -> arr + Byte.toDisplayChar b) ""
+    let ascii = bytes |> Array.fold (fun arr b -> arr + Byte.toDisplayChar b) ""
     addrStr + ": " + hex + " | " + ascii
 
   let private dumpLine numBytes wordSize useColor addr lineIdx bytes =

@@ -80,7 +80,8 @@ type SPARCRoundTripTests() =
   /// text stands in for the word a probe was decoded from.
   static let roundTrip (source: string) =
     match (try encodeFirst assembler source with _ -> None) with
-    | None -> SPARCUnsupported
+    | None ->
+      SPARCUnsupported
     | Some encoded ->
       let actual = try disasm encoded with _ -> "<undecodable>"
       if actual = source then SPARCPreserved else SPARCAltered actual
@@ -188,7 +189,8 @@ type SPARCRoundTripTests() =
       "",
       String.concat "\n" broken,
       "These instructions decode but no longer encode, or encode to a word \
-       that means something else.")
+       that means something else."
+    )
 
   [<TestMethod>]
   member _.``Branches to a label reach it in both directions``() =
@@ -198,7 +200,8 @@ type SPARCRoundTripTests() =
             expected, source, index, distance ]
       |> List.choose (fun (expected, source, index, distance) ->
         match (try assembler.Lower source with _ -> Error "raised") with
-        | Error _ | Ok [] -> Some $"'{expected} L' does not assemble"
+        | Error _ | Ok [] ->
+          Some $"'{expected} L' does not assemble"
         | Ok encoded ->
           let addr = uint64 (4 * index)
           let text =
@@ -211,7 +214,8 @@ type SPARCRoundTripTests() =
     Assert.AreEqual<string>(
       "",
       String.concat "\n" wrong,
-      "These branches no longer reach the instruction their label marks.")
+      "These branches no longer reach the instruction their label marks."
+    )
 
   /// <summary>
   /// Checks that a source asking for what no encoding can say is refused rather
@@ -226,7 +230,8 @@ type SPARCRoundTripTests() =
       unencodableSources
       |> List.choose (fun source ->
         match (try encodeFirst assembler source with _ -> None) with
-        | None -> None
+        | None ->
+          None
         | Some bytes ->
           let text = try disasm bytes with _ -> "<undecodable>"
           Some $"'{source}' encoded as '{text}'")
@@ -234,7 +239,8 @@ type SPARCRoundTripTests() =
     Assert.AreEqual<string>(
       "",
       String.concat "\n" encoded,
-      "These ask for something no SPARC encoding can say.")
+      "These ask for something no SPARC encoding can say."
+    )
 
   /// Checks that a word comes out in the order the ISA stores its bytes in,
   /// which is the one thing about an encoding that the word itself cannot say.
@@ -247,7 +253,8 @@ type SPARCRoundTripTests() =
     match encodeFirst littleEndian source, encodeFirst assembler source with
     | Some little, Some big ->
       Assert.AreEqual<string>(hex (Array.rev big), hex little)
-    | _ -> Assert.Fail $"'{source}' does not assemble"
+    | _ ->
+      Assert.Fail $"'{source}' does not assemble"
 
   /// <summary>
   /// Checks that a source written the way a person writes one names the same
@@ -265,7 +272,8 @@ type SPARCRoundTripTests() =
       writtenSources
       |> List.choose (fun (source, expected) ->
         match (try encodeFirst assembler source with _ -> None) with
-        | None -> Some $"'{source}' does not assemble"
+        | None ->
+          Some $"'{source}' does not assemble"
         | Some bytes ->
           let text = try disasm bytes with _ -> "<undecodable>"
           if text = expected then None
@@ -274,7 +282,8 @@ type SPARCRoundTripTests() =
     Assert.AreEqual<string>(
       "",
       String.concat "\n" wrong,
-      "These are no longer read as the instruction they name.")
+      "These are no longer read as the instruction they name."
+    )
 
   /// Checks that a source the assembler refuses leaves it able to read the next
   /// one, which a parser keeping state across a failure would not.

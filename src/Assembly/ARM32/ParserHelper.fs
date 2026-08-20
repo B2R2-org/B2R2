@@ -288,12 +288,14 @@ let private splitOpcodeAndCondition (text: string) =
       None
     else
       match Map.tryFind text[0..len - 1] opcodes with
-      | Some opcode when len = text.Length -> Some(opcode, None)
+      | Some opcode when len = text.Length ->
+        Some(opcode, None)
       | Some opcode ->
         match Map.tryFind text[len..] conditions with
         | Some cond -> Some(opcode, Some cond)
         | None -> tryLength (len - 1)
-      | _ -> tryLength (len - 1)
+      | _ ->
+        tryLength (len - 1)
   tryLength text.Length
 
 /// Reads the dot-separated suffixes the disassembler appends to a mnemonic: a
@@ -316,12 +318,14 @@ let private splitSuffixes suffixes =
 /// an opcode, a condition suffix, a width qualifier and any SIMD data types.
 let decomposeMnemonic (mnemonic: string) =
   match mnemonic.ToLowerInvariant().Split '.' |> Array.toList with
-  | [] -> None
+  | [] ->
+    None
   | head :: suffixes ->
     match splitOpcodeAndCondition head, splitSuffixes suffixes with
     | Some(opcode, cond), Some(qualifier, dataTypes) ->
       Some(opcode, cond, qualifier, dataTypes)
-    | _ -> None
+    | _ ->
+      None
 
 /// Builds one instruction as written, in the A32 instruction set: which set a
 /// line belongs to is settled by the directives around it rather than by the

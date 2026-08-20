@@ -38,10 +38,10 @@ with
         member _.Unwrap env = a.Unwrap env >> b.Unwrap env }
 
 /// The environment for a CFG-based analysis.
-and CFGAnalysisEnv<'FnCtx,
-                    'GlCtx when 'FnCtx :> IResettable
-                            and 'FnCtx: (new: unit -> 'FnCtx)
-                            and 'GlCtx: (new: unit -> 'GlCtx)> =
+and CFGAnalysisEnv<'FnCtx, 'GlCtx
+  when 'FnCtx :> IResettable
+  and 'FnCtx: (new: unit -> 'FnCtx)
+  and 'GlCtx: (new: unit -> 'GlCtx)> =
   { Context: CFGBuildingContext<'FnCtx, 'GlCtx> }
 
 module ICFGAnalysis =

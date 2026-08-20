@@ -95,14 +95,13 @@ module private SymbolTables =
     | None -> 0UL
     | Some sec -> sec.SecOffset
 
-  let adjustSymAddr baseAddr addr =
-    if addr = 0UL then 0UL
-    else addr + baseAddr
+  let adjustSymAddr baseAddr addr = if addr = 0UL then 0UL else addr + baseAddr
 
   let readSymAddr baseAddr span reader cls parent txtOffset =
     let symAddr = readUIntByWordSize span reader cls (selectByWordSize cls 4 8)
     match (parent: SectionHeader option) with
-    | None -> symAddr
+    | None ->
+      symAddr
     | Some sec ->
       (* This is to give a meaningful address to static symbols in a relocatable
          object. We let .text section's address to be zero, and assume that the
@@ -110,7 +109,8 @@ module private SymbolTables =
          https://github.com/B2R2-org/B2R2/issues/25 for more details. *)
       if sec.SecAddr = baseAddr && sec.SecOffset > txtOffset then
         sec.SecOffset - txtOffset + symAddr
-      else symAddr
+      else
+        symAddr
     |> adjustSymAddr baseAddr
 
   let computeLinkerSymbolKind hdr symbolName =
@@ -119,13 +119,13 @@ module private SymbolTables =
       elif symbolName = "$t" then ARMLinkerSymbol.Thumb
       elif symbolName = "$d" then ARMLinkerSymbol.Data
       else ARMLinkerSymbol.None
-    else ARMLinkerSymbol.None
+    else
+      ARMLinkerSymbol.None
 
   let parseVersData (reader: IBinReader) symIdx verInfoTbl =
     let pos = symIdx * 2
     let versData = reader.ReadUInt16(span = verInfoTbl, offset = pos)
-    if versData > 1us then Some versData
-    else None
+    if versData > 1us then Some versData else None
 
   let retrieveVer (verTbl: Dictionary<_, _>) verData =
     let isHidden = verData &&& 0x8000us <> 0us
@@ -140,7 +140,8 @@ module private SymbolTables =
       let span = ReadOnlySpan(toolBox.Bytes, offset, size)
       parseVersData toolBox.Reader symIdx span
       |> Option.bind (retrieveVer verTbl)
-    | None -> None
+    | None ->
+      None
 
   /// For STT_SECTION symbols, the symbol name is actually the section name.
   /// This function adjusts the symbol name for such symbols.
@@ -209,7 +210,8 @@ module private SymbolTables =
       for sym in tbl do
         if sym.Addr > 0UL || sym.SymType = SymbolType.STT_FUNC then
           map[sym.Addr] <- sym
-        else ()
+        else
+          ()
     map
 
 /// Represents the main data structure for storing ELF symbol information.

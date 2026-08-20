@@ -134,7 +134,8 @@ type ELFBinFile(path, bytes: byte[], baseAddrOpt, rfOpt) =
     Some { new INameResolvable with
       member _.TryResolveName addr =
         match onSymbols.TryResolveName addr with
-        | Ok name -> Ok name
+        | Ok name ->
+          Ok name
         | Error e ->
           match NoOverlapIntervalMap.tryFindByAddr addr plt.Value with
           | Some entry when entry.TableAddress = addr -> Ok entry.Name
@@ -150,8 +151,7 @@ type ELFBinFile(path, bytes: byte[], baseAddrOpt, rfOpt) =
         [| for s in symbs.Value.DynamicSymbols do
               if Symbol.IsFunction s && Symbol.IsDefined s then s.Addr
               else () |]
-      let extraFuncs =
-        findExtraFnAddrs toolBox shdrs.Value relocs.Value
+      let extraFuncs = findExtraFnAddrs toolBox shdrs.Value relocs.Value
       Array.concat [| staticFuncs; dynamicFuncs; extraFuncs |]
       |> Array.distinct
       |> Array.sort
@@ -241,7 +241,8 @@ type ELFBinFile(path, bytes: byte[], baseAddrOpt, rfOpt) =
               s.SecAddr,
               s.SecAddr + s.SecSize - 1UL,
               int s.SecOffset,
-              int s.SecOffset + int s.SecSize - 1)
+              int s.SecOffset + int s.SecSize - 1
+            )
           | None ->
             BinFilePointer.Null
 
@@ -254,7 +255,8 @@ type ELFBinFile(path, bytes: byte[], baseAddrOpt, rfOpt) =
               sec.SecAddr,
               sec.SecAddr + sec.SecSize - 1UL,
               int sec.SecOffset,
-              int sec.SecOffset + int sec.SecSize - 1)
+              int sec.SecOffset + int sec.SecSize - 1
+            )
           | None ->
             BinFilePointer.Null
 
@@ -287,8 +289,7 @@ type ELFBinFile(path, bytes: byte[], baseAddrOpt, rfOpt) =
           | Some sec -> Ok sec.SecName
           | None -> Error ErrorCase.ItemNotFound
 
-      member _.FunctionAddresses =
-        functionAddrs.Value
+      member _.FunctionAddresses = functionAddrs.Value
     }
 
   let relocations =
@@ -301,8 +302,7 @@ type ELFBinFile(path, bytes: byte[], baseAddrOpt, rfOpt) =
             Addend = Some(int64 r.RelAddend) })
         |> Seq.toArray
 
-      member _.IsRelocationAddr addr =
-        relocs.Value.Contains addr
+      member _.IsRelocationAddr addr = relocs.Value.Contains addr
 
       member _.TryGetRelocatedAddr relocAddr =
         getRelocatedAddr relocs.Value relocAddr
@@ -354,8 +354,7 @@ type ELFBinFile(path, bytes: byte[], baseAddrOpt, rfOpt) =
 
   let importTable =
     Some { new IImportTable with
-      member _.Imports =
-        importEntries.Value
+      member _.Imports = importEntries.Value
 
       member _.IsInImportTable addr =
         NoOverlapIntervalMap.containsAddr addr plt.Value
@@ -469,7 +468,8 @@ type ELFBinFile(path, bytes: byte[], baseAddrOpt, rfOpt) =
       shdrs.Value
       |> Array.tryFind (fun s -> s.SecName = Section.GOT)
       |> Option.map (fun s -> s.SecAddr + 0x7ff0UL)
-    | _ -> None
+    | _ ->
+      None
 
   /// Try to find a section by its name.
   member internal _.TryFindSection(name: string) =
@@ -516,8 +516,7 @@ type ELFBinFile(path, bytes: byte[], baseAddrOpt, rfOpt) =
 
     member _.RunPath with get() = dynamicPaths DTag.DT_RUNPATH
 
-    member _.ProgramHeaderTable with get() =
-      programHeaderTable.Value
+    member _.ProgramHeaderTable with get() = programHeaderTable.Value
 
     member _.IsNXEnabled with get() =
       let predicate e = e.PHType = ProgramHeaderType.PT_GNU_STACK
@@ -599,7 +598,8 @@ type ELFBinFile(path, bytes: byte[], baseAddrOpt, rfOpt) =
             else
               offset <- maxOffset + 1
               maxAddr <- ph.PHAddr + ph.PHMemSize - 1UL
-          else idx <- idx + 1
+          else
+            idx <- idx + 1
         if found then
           if offset > maxOffset then BinFilePointer.CreateVirtual(addr, maxAddr)
           else BinFilePointer.CreateFileBacked(addr, maxAddr, offset, maxOffset)

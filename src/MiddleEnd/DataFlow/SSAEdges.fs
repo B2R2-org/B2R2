@@ -39,10 +39,8 @@ type SSAEdges(ssaCFG: IDiGraphAccessible<SSABasicBlock, CFGEdgeKind>) =
 
   let addUse var loc =
     match uses.TryGetValue var with
-    | true, set ->
-      uses[var] <- Set.add loc set
-    | false, _ ->
-      uses[var] <- Set.singleton loc
+    | true, set -> uses[var] <- Set.add loc set
+    | false, _ -> uses[var] <- Set.singleton loc
 
   let addUses vars loc = vars |> List.iter (fun v -> addUse v loc)
 
@@ -79,7 +77,8 @@ type SSAEdges(ssaCFG: IDiGraphAccessible<SSABasicBlock, CFGEdgeKind>) =
       computeUses loc e
     | SSA.ExprList es ->
       es |> List.iter (computeUses loc)
-    | _ -> ()
+    | _ ->
+      ()
 
   /// Computes SSA edge map (SSA Var -> a set of (VertexID, Stmt idx)). From a
   /// given ssa var, this function returns a set of SSA-edge destination.
@@ -89,14 +88,17 @@ type SSAEdges(ssaCFG: IDiGraphAccessible<SSABasicBlock, CFGEdgeKind>) =
       for idx = 0 to v.VData.Internals.Statements.Length - 1 do
         let stmt = snd v.VData.Internals.Statements[idx]
         match stmt with
-        | SSA.LMark _ -> ()
+        | SSA.LMark _ ->
+          ()
         | SSA.ExternalCall(expr, inVars, outVars) ->
           let loc = vid, idx
           computeUses loc expr
           addDefs outVars stmt loc
           addUses inVars loc
-        | SSA.SideEffect _ -> ()
-        | SSA.Jmp(SSA.IntraJmp _) -> ()
+        | SSA.SideEffect _ ->
+          ()
+        | SSA.Jmp(SSA.IntraJmp _) ->
+          ()
         | SSA.Jmp(SSA.IntraCJmp(cond, _, _)) ->
           computeUses (vid, idx) cond
         | SSA.Jmp(SSA.InterJmp(target)) ->

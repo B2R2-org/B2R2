@@ -65,16 +65,17 @@ and private evalLoad st endian t addr =
   match evalExpr st addr |> unwrap |> Result.map (fun bv -> bv.ToUInt64()) with
   | Ok addr ->
     match st.Memory.Read(addr, endian, t) with
-    | Ok v -> Ok(Def v)
+    | Ok v ->
+      Ok(Def v)
     | Error e ->
       st.OnLoadFailure(st.PC, addr, t, e)
       |> Result.map Def
-  | Error e -> Error e
+  | Error e ->
+    Error e
 
 and private evalIte st cond e1 e2 =
   match evalExpr st cond |> unwrap with
-  | Ok cond ->
-    if cond = tr then evalExpr st e1 else evalExpr st e2
+  | Ok cond -> if cond = tr then evalExpr st e1 else evalExpr st e2
   | Error e -> Error e
 
 and private evalBinOpConc st e1 e2 fn =
@@ -161,7 +162,8 @@ let private evalPCUpdate st rhs =
   | Ok(Def v) ->
     st.PC <- v.ToUInt64()
     Ok()
-  | _ -> Error ErrorCase.InvalidExprEvaluation
+  | _ ->
+    Error ErrorCase.InvalidExprEvaluation
 
 let private evalPut st lhs rhs =
   match evalExpr st rhs with
@@ -182,7 +184,8 @@ let private evalStore st endian addr v =
   | Ok addr, Ok v ->
     st.Memory.Write(addr, v, endian)
     Ok()
-  | Error e, _ | _, Error e -> Error e
+  | Error e, _ | _, Error e ->
+    Error e
 
 let private evalJmp (st: EvalState) target =
   match target with
@@ -191,8 +194,7 @@ let private evalJmp (st: EvalState) target =
 
 let private evalCJmp st cond t f =
   match evalExpr st cond |> unwrap with
-  | Ok cond ->
-    if cond = tr then evalJmp st t else evalJmp st f
+  | Ok cond -> if cond = tr then evalJmp st t else evalJmp st f
   | Error e -> Error e
 
 let private evalIntCJmp st cond t f =
@@ -205,24 +207,33 @@ let rec private concretizeArgs st acc = function
     match evalExpr st arg with
     | Ok(Def v) -> concretizeArgs st (v :: acc) tl
     | _ -> Error ErrorCase.InvalidExprEvaluation
-  | [] -> Ok acc
+  | [] ->
+    Ok acc
 
 let private evalArgs st args =
   match args with
   | BinOp(BinOpType.APP, _, _, ExprList(args, _), _) ->
     args |> concretizeArgs st []
-  | _ -> Terminator.impossible ()
+  | _ ->
+    Terminator.impossible ()
 
 /// Evaluates an IR statement.
 let evalStmt (st: EvalState) stmt =
   match stmt with
-  | ISMark(len, _) -> st.CurrentInsLen <- len; st.NextStmt() |> Ok
-  | IEMark(len, _) -> st.AdvancePC len; st.AbortInstr() |> Ok
-  | LMark _ -> st.NextStmt() |> Ok
-  | Put(lhs, rhs, _) -> evalPut st lhs rhs |> Result.map st.NextStmt
-  | Store(e, addr, v, _) -> evalStore st e addr v |> Result.map st.NextStmt
-  | Jmp(target, _) -> evalJmp st target
-  | CJmp(cond, t, f, _) -> evalCJmp st cond t f
+  | ISMark(len, _) ->
+    st.CurrentInsLen <- len; st.NextStmt() |> Ok
+  | IEMark(len, _) ->
+    st.AdvancePC len; st.AbortInstr() |> Ok
+  | LMark _ ->
+    st.NextStmt() |> Ok
+  | Put(lhs, rhs, _) ->
+    evalPut st lhs rhs |> Result.map st.NextStmt
+  | Store(e, addr, v, _) ->
+    evalStore st e addr v |> Result.map st.NextStmt
+  | Jmp(target, _) ->
+    evalJmp st target
+  | CJmp(cond, t, f, _) ->
+    evalCJmp st cond t f
   | InterJmp(target, _, _) ->
     evalPCUpdate st target |> Result.map st.AbortInstr
   | InterCJmp(c, t, f, _) ->
@@ -230,4 +241,5 @@ let evalStmt (st: EvalState) stmt =
   | ExternalCall(args, _) ->
     evalArgs st args
     |> Result.map (fun args -> st.OnExternalCall(args, st) |> st.NextStmt)
-  | SideEffect(eff, _) -> st.OnSideEffect(eff, st) |> ignore |> Ok
+  | SideEffect(eff, _) ->
+    st.OnSideEffect(eff, st) |> ignore |> Ok

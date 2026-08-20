@@ -54,8 +54,10 @@ type DataFlowTests() =
       | _, SSA.Phi(v, _) when v.Kind = kind ->
         if vaddr = addr then Some v
         else findVarDefFromStmts stmts vaddr (idx + 1) addr kind
-      | _ -> findVarDefFromStmts stmts vaddr (idx + 1) addr kind
-    else None
+      | _ ->
+        findVarDefFromStmts stmts vaddr (idx + 1) addr kind
+    else
+      None
 
   let rec findSSAVarDef (ssaCFG: SSACFG) vidx addr kind =
     if vidx < ssaCFG.Vertices.Length then
@@ -65,7 +67,8 @@ type DataFlowTests() =
       |> function
         | Some v -> v
         | None -> findSSAVarDef ssaCFG (vidx + 1) addr kind
-    else failwith $"variable {kind} @ {addr:x} not found"
+    else
+      failwith $"variable {kind} @ {addr:x} not found"
 
   let ssaReg ssaCFG r addr rt =
     let rid = Register.toRegID r

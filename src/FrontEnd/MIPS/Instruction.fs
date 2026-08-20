@@ -29,7 +29,14 @@ open B2R2.FrontEnd.BinLifter
 
 /// Represents an instruction for MIPS.
 type Instruction
-  internal(addr, numBytes, condition, fmt, op, opr, oprSize, wordSize,
+  internal(addr,
+           numBytes,
+           condition,
+           fmt,
+           op,
+           opr,
+           oprSize,
+           wordSize,
            lifter: ILiftable) =
 
   let hasConcJmpTarget () =
@@ -102,7 +109,8 @@ type Instruction
       match op with
       | Opcode.BAL | Opcode.BGEZAL | Opcode.JALR | Opcode.JALRHB | Opcode.JAL ->
         true
-      | _ -> false
+      | _ ->
+        false
 
     member _.IsRET =
       match op with
@@ -110,7 +118,8 @@ type Instruction
         match opr with
         | OneOperand(OpReg Register.R31) -> true
         | _ -> false
-      | _ -> false
+      | _ ->
+        false
 
     member _.IsPush = Terminator.futureFeature ()
 
@@ -149,8 +158,10 @@ type Instruction
         | OneOperand(OpImm(imm)) ->
           addr <- imm
           true
-        | _ -> false
-      else false
+        | _ ->
+          false
+      else
+        false
 
     member this.IndirectTrampolineAddr(_addr: byref<Addr>) =
       if (this :> IInstruction).IsIndirectBranch then

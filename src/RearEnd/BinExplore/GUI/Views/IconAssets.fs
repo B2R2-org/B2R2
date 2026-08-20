@@ -151,14 +151,12 @@ let private isBrightPrimaryText model =
 /// Returns the appropriate CFG icon based on the current theme mode and text
 /// color.
 let cfgIcon model =
-  if isBrightPrimaryText model then cfgIconDarkSource
-  else cfgIconLightSource
+  if isBrightPrimaryText model then cfgIconDarkSource else cfgIconLightSource
 
 /// Returns the appropriate list icon based on the current theme mode and text
 /// color.
 let listIcon model =
-  if isBrightPrimaryText model then listIconDarkSource
-  else listIconLightSource
+  if isBrightPrimaryText model then listIconDarkSource else listIconLightSource
 
 /// Returns the appropriate search icon based on the current theme mode and text
 /// color.
@@ -169,8 +167,7 @@ let searchIcon model =
 /// Returns the appropriate map icon based on the current theme mode and text
 /// color.
 let mapIcon model =
-  if isBrightPrimaryText model then mapIconDarkSource
-  else mapIconLightSource
+  if isBrightPrimaryText model then mapIconDarkSource else mapIconLightSource
 
 /// Returns the appropriate binary icon based on the current theme mode and text
 /// color.
@@ -193,8 +190,7 @@ let popoutIcon model =
 /// Returns the appropriate sync icon based on the current theme mode and text
 /// color.
 let syncIcon model =
-  if isBrightPrimaryText model then syncIconDarkSource
-  else syncIconLightSource
+  if isBrightPrimaryText model then syncIconDarkSource else syncIconLightSource
 
 /// Returns the appropriate linear icon based on the current theme mode and text
 /// color.

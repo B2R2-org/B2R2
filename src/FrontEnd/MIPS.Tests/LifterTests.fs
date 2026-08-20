@@ -91,11 +91,13 @@ type LifterTests() =
     ++ [| t := numI32 31 64<rt>
           AST.lmark lblLoop
           AST.cjmp (rs >> t == AST.num1 64<rt>)
-                   (AST.jmpDest lblEnd) (AST.jmpDest lblCont)
+                   (AST.jmpDest lblEnd)
+                   (AST.jmpDest lblCont)
           AST.lmark lblCont
           t := t .- AST.num1 64<rt>
           AST.cjmp (t == numI32 -1 64<rt>)
-                   (AST.jmpDest lblEnd) (AST.jmpDest lblLoop)
+                   (AST.jmpDest lblEnd)
+                   (AST.jmpDest lblLoop)
           AST.lmark lblEnd
           !.R2 := numI32 31 64<rt> .- t |]
     |> test isa
@@ -130,7 +132,8 @@ type LifterTests() =
     let sx e = AST.sext 64<rt> (AST.xtlo 32<rt> e)
     "0022001a"
     ++ [| !.R2 := AST.ite (!.R2 == numI64 0L 64<rt>)
-                          (AST.undef 64<rt> "UNPREDICTABLE") !.R2
+                          (AST.undef 64<rt> "UNPREDICTABLE")
+                          !.R2
           !.LO := sx (sx !.R1 ?/ sx !.R2)
           !.HI := sx (sx !.R1 ?% sx !.R2) |]
     |> test isa

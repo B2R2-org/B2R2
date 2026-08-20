@@ -34,10 +34,10 @@ open B2R2.MiddleEnd.ControlFlowAnalysis
 
 /// Base class for summarizing a function in a lightweight manner. One can
 /// extend this class to implement a more sophisticated function summarizer.
-type FunctionSummarizer<'FnCtx,
-                        'GlCtx when 'FnCtx :> IResettable
-                                and 'FnCtx: (new: unit -> 'FnCtx)
-                                and 'GlCtx: (new: unit -> 'GlCtx)>() =
+type FunctionSummarizer<'FnCtx, 'GlCtx
+  when 'FnCtx :> IResettable
+  and 'FnCtx: (new: unit -> 'FnCtx)
+  and 'GlCtx: (new: unit -> 'GlCtx)>() =
   let retrieveStackAdjustment (ins: IInstruction) =
     match ins.Immediate() with
     | true, v -> int v
@@ -81,7 +81,8 @@ type FunctionSummarizer<'FnCtx,
       let shiftAmount = BitVector(retAddrSize + adj, rt)
       let e = AST.binop BinOpType.ADD sp (AST.num shiftAmount)
       [| (sp, e) |]
-    | None -> [||]
+    | None ->
+      [||]
 
   let toRegExpr (hdl: BinHandle) register =
     Intel.Register.toRegID register
@@ -111,8 +112,10 @@ type FunctionSummarizer<'FnCtx,
       | Some var ->
         let e = genFreshStackVarExpr hdl
         [| (var, e) |]
-      | None -> [||]
-    | _ -> [||]
+      | None ->
+        [||]
+    | _ ->
+      [||]
 
   let computeLiveDefs ctx unwindingAmount =
     let hdl = ctx.BinHandle
@@ -143,14 +146,16 @@ type FunctionSummarizer<'FnCtx,
     let mutable amount = 0
     for exitV in ctx.CFG.Exits do
       let vData = exitV.VData :> ILowUIRBasicBlock
-      if vData.IsAbstract then ()
+      if vData.IsAbstract then
+        ()
       else
         let ins = vData.LastInstruction
         if ins.IsRET then
           let newAmount = retrieveStackAdjustment ins
           assert (amount <= newAmount) (* bad case *)
           amount <- newAmount
-        else ()
+        else
+          ()
     amount
 
   /// Simply over-approximate the function semantics. Particularly, we are

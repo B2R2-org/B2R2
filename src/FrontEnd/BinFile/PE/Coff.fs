@@ -111,8 +111,9 @@ let parseSymbName (span: ByteSpan) offset stroff =
 let parseSymType typ =
   let lsb = typ &&& 0xFs |> byte
   let msb = typ >>> 4 |> byte
-  LanguagePrimitives.EnumOfValue<byte, CoffSymbolTypeLSB>(lsb),
-  LanguagePrimitives.EnumOfValue<byte, CoffSymbolTypeMSB>(msb)
+  let symLsb = LanguagePrimitives.EnumOfValue<byte, CoffSymbolTypeLSB>(lsb)
+  let symMsb = LanguagePrimitives.EnumOfValue<byte, CoffSymbolTypeMSB>(msb)
+  symLsb, symMsb
 
 let parseStorageClass b = LanguagePrimitives.EnumOfValue<byte, StorageClass>(b)
 
@@ -130,7 +131,8 @@ let toPESymbol symb =
            Segment = symb.SecNumber |> uint16
            Name = symb.SymbName
            IsFunction = true }
-  | _ -> None
+  | _ ->
+    None
 
 let buildSymbolMap arr =
   let byAddr = Dictionary<Addr, Symbol>()

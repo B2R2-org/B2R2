@@ -190,11 +190,9 @@ type ConcExecutor(hdl: BinHandle) =
     || regFactory.IsStackPointer rid
     || isRegisterNamed [| "PC"; "NPC"; "SP"; "RSP"; "ESP" |] rid
 
-  let isReturnAddressRegister rid =
-    isRegisterNamed [| "LR"; "RA" |] rid
+  let isReturnAddressRegister rid = isRegisterNamed [| "LR"; "RA" |] rid
 
-  let isGlobalPointerRegister rid =
-    isRegisterNamed [| "GP" |] rid
+  let isGlobalPointerRegister rid = isRegisterNamed [| "GP" |] rid
 
   let isCallerContextRegister rid =
     not (isControlRegister rid)
@@ -207,11 +205,14 @@ type ConcExecutor(hdl: BinHandle) =
 
   let tryGetDefaultRegisterValue opts rid =
     match opts.UninitializedRegisters with
-    | StopOnUninitializedRegister -> None
+    | StopOnUninitializedRegister ->
+      None
     | ZeroCallerContext when isCallerContextRegister rid ->
       Some(zeroRegister rid)
-    | ZeroCallerContext -> None
-    | ZeroAnyRegister -> Some(zeroRegister rid)
+    | ZeroCallerContext ->
+      None
+    | ZeroAnyRegister ->
+      Some(zeroRegister rid)
 
   let mkResult reasons addr n st =
     { StopReasons = reasons
@@ -220,22 +221,27 @@ type ConcExecutor(hdl: BinHandle) =
       State = st }
 
   let collectStmtReadRegisters rset = function
-    | Put(_, rhs, _) -> AST.updateRegsUses rset rhs
+    | Put(_, rhs, _) ->
+      AST.updateRegsUses rset rhs
     | Store(_, addr, value, _) ->
       AST.updateRegsUses rset addr
       AST.updateRegsUses rset value
-    | CJmp(cond, _, _, _) -> AST.updateRegsUses rset cond
-    | InterJmp(target, _, _) -> AST.updateRegsUses rset target
+    | CJmp(cond, _, _, _) ->
+      AST.updateRegsUses rset cond
+    | InterJmp(target, _, _) ->
+      AST.updateRegsUses rset target
     | InterCJmp(cond, target1, target2, _) ->
       AST.updateRegsUses rset cond
       AST.updateRegsUses rset target1
       AST.updateRegsUses rset target2
-    | ExternalCall(args, _) -> AST.updateRegsUses rset args
+    | ExternalCall(args, _) ->
+      AST.updateRegsUses rset args
     | ISMark _
     | IEMark _
     | LMark _
     | Jmp _
-    | SideEffect _ -> ()
+    | SideEffect _ ->
+      ()
 
   let isUninitializedRegister (st: EvalState) rid =
     match st.TryGetReg rid with
@@ -260,8 +266,7 @@ type ConcExecutor(hdl: BinHandle) =
     | BinOp(_, _, e1, e2, _) -> hasUndefExpr e1 || hasUndefExpr e2
     | RelOp(_, e1, e2, _) -> hasUndefExpr e1 || hasUndefExpr e2
     | Load(_, _, addr, _) -> hasUndefExpr addr
-    | Ite(c, t, f, _) ->
-      hasUndefExpr c || hasUndefExpr t || hasUndefExpr f
+    | Ite(c, t, f, _) -> hasUndefExpr c || hasUndefExpr t || hasUndefExpr f
     | Cast(_, _, e, _) -> hasUndefExpr e
     | Extract(e, _, _, _) -> hasUndefExpr e
     | Num _
@@ -297,7 +302,8 @@ type ConcExecutor(hdl: BinHandle) =
       match SafeEvaluator.evalExpr st cond with
       | Ok(Def v) -> Some(v = EvalUtils.tr)
       | _ -> Some false
-    | _ -> None
+    | _ ->
+      None
 
   let isConditionalBranchTaken opts st stmts =
     Array.tryPick (tryEvalBranchCondition opts st) stmts
@@ -323,7 +329,8 @@ type ConcExecutor(hdl: BinHandle) =
          | StopAtCalls -> true
          | FollowDirectInternalCalls -> false
          | UseCallHooks -> false
-    else false
+    else
+      false
 
   let handleCallHooks (opts: ConcRunOptions<EvalState>) (ins: IInstruction) =
     if ins.IsCall then
@@ -335,12 +342,14 @@ type ConcExecutor(hdl: BinHandle) =
       *)
       | UseCallHooks -> Terminator.futureFeature ()
       | _ -> ()
-    else ()
+    else
+      ()
 
   let evalStmt (opts: ConcRunOptions<EvalState>) (st: EvalState) stmt =
     materializeReadRegisters opts st stmt
     match opts.UndefinedValues with
-    | StopOnUndefinedValue when isUndefWrite stmt -> EvalUndef
+    | StopOnUndefinedValue when isUndefWrite stmt ->
+      EvalUndef
     | IgnoreUndefinedWrites when isUndefWrite stmt ->
       st.NextStmt()
       EvalOk
@@ -362,19 +371,20 @@ type ConcExecutor(hdl: BinHandle) =
     let idx = st.StmtIdx
     if idx < numStmts then
       if st.IsInstrTerminated then
-        if st.NeedToEvaluateIEMark then
-          evalStmt opts st stmts[numStmts - 1]
+        if st.NeedToEvaluateIEMark then evalStmt opts st stmts[numStmts - 1]
         else EvalOk
       else
         match stmts[idx] with
-        | SideEffect(eff, _) when stopAtSideEffect opts -> EvalSideEffect eff
+        | SideEffect(eff, _) when stopAtSideEffect opts ->
+          EvalSideEffect eff
         | stmt ->
           match evalStmt opts st stmt with
           | EvalOk -> evalStmts opts st stmts
           | EvalError e -> EvalError e
           | EvalUndef -> EvalUndef
           | EvalSideEffect eff -> EvalSideEffect eff
-    else EvalOk
+    else
+      EvalOk
 
   let tryParseInstruction addr =
     if hdl.File.IsValidAddr addr then lifter.TryParseInstruction addr
@@ -386,11 +396,12 @@ type ConcExecutor(hdl: BinHandle) =
      everything did, and under the wrong error case at that. *)
   let tryLiftInstruction (ins: IInstruction) =
     try lifter.LiftInstruction ins |> Ok
-    with NotImplementedIRException _ ->
-      Result.Error ErrorCase.NotImplementedIR
+    with NotImplementedIRException _ -> Result.Error ErrorCase.NotImplementedIR
 
-  let collectPreInstrStopReasons (st: EvalState) addr n
-                               (opts: ConcRunOptions<EvalState>) =
+  let collectPreInstrStopReasons (st: EvalState)
+                                 addr
+                                 n
+                                 (opts: ConcRunOptions<EvalState>) =
     let point = { Address = addr; InstructionCount = n; State = st }
     opts.StopConditions
     |> List.choose (function
@@ -400,7 +411,8 @@ type ConcExecutor(hdl: BinHandle) =
         Some(InstructionLimitReached(addr, limit))
       | StopWhen predicate when predicate point ->
         Some(UserStopConditionMet addr)
-      | _ -> None)
+      | _ ->
+        None)
 
   let collectInstrStopReasons opts st addr (ins: IInstruction) stmts =
     [ if hasStopAtReturn opts && isReturnTaken opts st ins stmts then
@@ -419,10 +431,12 @@ type ConcExecutor(hdl: BinHandle) =
       |> List.choose (function
         | StopAfterAddress stopAddr when stopAddr = addr ->
           Some(StoppedAfterAddress addr)
-        | _ -> None)
+        | _ ->
+          None)
     if hasStopAfterReturn opts && isReturnTaken opts st ins stmts then
       reasons @ [ StoppedAfterReturn addr ]
-    else reasons
+    else
+      reasons
 
   let evalInstr opts (st: EvalState) stmts =
     st.PrepareInstrEval stmts
@@ -450,7 +464,8 @@ type ConcExecutor(hdl: BinHandle) =
               else mkResult postReasons st.PC (n + 1) st
             | EvalError e ->
               mkResult [ EvaluationError(addr, e) ] st.PC n st
-            | EvalUndef -> mkResult [ UndefinedValue addr ] st.PC n st
+            | EvalUndef ->
+              mkResult [ UndefinedValue addr ] st.PC n st
             | EvalSideEffect eff ->
               mkResult [ StoppedAtSideEffect(addr, eff) ] st.PC n st
           else
@@ -488,5 +503,4 @@ type ConcExecutor(hdl: BinHandle) =
     member this.CreateState options = this.CreateState options
 
     /// Run concrete execution from the given address.
-    member this.Run(start, state, options) =
-      this.Run(start, state, options)
+    member this.Run(start, state, options) = this.Run(start, state, options)

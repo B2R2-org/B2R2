@@ -43,8 +43,7 @@ type RawTests() =
     RawBinFile("raw", bytes, isa, Some 0x4000UL) :> IBinFile
 
   [<TestMethod>]
-  member _.``[Raw] format test``() =
-    Assert.AreEqual(RawBinary, rawFile.Format)
+  member _.``[Raw] format test``() = Assert.AreEqual(RawBinary, rawFile.Format)
 
   [<TestMethod>]
   member _.``[Raw] kind test``() =

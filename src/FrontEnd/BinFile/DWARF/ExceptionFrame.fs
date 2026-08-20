@@ -62,14 +62,16 @@ module internal ExceptionFrame =
       let len = reader.ReadUInt64(span, offset)
       let offset = offset + 8
       int len + offset, offset
-    else len + offset, offset
+    else
+      len + offset, offset
 
   let accumulateCFIs cfis cie fdes =
     match cie with
     | Some cie ->
       { CIE = cie
         FDEs = List.rev fdes |> List.toArray } :: cfis
-    | None -> cfis
+    | None ->
+      cfis
 
   /// Parses CFI records (a list of CIEs each followed by their FDEs) from a
   /// `.eh_frame`-equivalent section. The reloc callback supplies FDE

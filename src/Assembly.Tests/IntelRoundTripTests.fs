@@ -100,13 +100,15 @@ type IntelRoundTripTests() =
     match expected.Split(' '), actual.Split(' ') with
     | [| m1; a; b |], [| m2; c; d |] ->
       m1 = m2 && a.TrimEnd(',') = d && c.TrimEnd(',') = b
-    | _ -> false
+    | _ ->
+      false
 
   /// Encodes the given source and disassembles the result, so that a source
   /// text stands in for the bytes a probe was decoded from.
   static let sourceRoundTrip wordSize (source: string) =
     match (try encodeFirst wordSize source with _ -> None) with
-    | None -> Unsupported
+    | None ->
+      Unsupported
     | Some encoded ->
       let actual = try disasm wordSize encoded with _ -> "<undecodable>"
       if actual = source || swapsOperands source actual then Preserved
@@ -282,7 +284,8 @@ type IntelRoundTripTests() =
     try
       let ins = parser.Parse(Array.append bytes (Array.zeroCreate 16), 0UL)
       Some(int ins.Length, (ins.Disasm()).ToLowerInvariant())
-    with _ -> None
+    with _ ->
+      None
 
   /// The x87 arithmetic instructions sharing one encoding path. Their register
   /// forms are worth exercising in both operand orders, because the subtract
@@ -319,7 +322,8 @@ type IntelRoundTripTests() =
       "",
       String.concat "\n" broken,
       "These instructions decode but no longer encode, or encode to bytes \
-       that mean something else.")
+       that mean something else."
+    )
 
   [<TestMethod>]
   member _.``Every ALU opcode encodes every operand shape correctly``() =
@@ -330,7 +334,8 @@ type IntelRoundTripTests() =
     Assert.AreEqual<string>(
       "",
       String.concat "\n" wrong,
-      "These ALU operand shapes no longer encode correctly.")
+      "These ALU operand shapes no longer encode correctly."
+    )
 
   [<TestMethod>]
   member _.``Every group 3 unary opcode encodes every shape correctly``() =
@@ -341,7 +346,8 @@ type IntelRoundTripTests() =
     Assert.AreEqual<string>(
       "",
       String.concat "\n" wrong,
-      "These unary operand shapes no longer encode correctly.")
+      "These unary operand shapes no longer encode correctly."
+    )
 
   [<TestMethod>]
   member _.``Branches to a label encode as wide as their opcode claims``() =
@@ -354,25 +360,28 @@ type IntelRoundTripTests() =
           let asm =
             Assembler(ISA(Architecture.Intel, wordSize), 0UL) :> ILowerable
           match (try asm.Lower source with _ -> Result.Error "raised") with
-          | Result.Error _ -> [ $"'{source}' does not assemble" ]
+          | Result.Error _ ->
+            [ $"'{source}' does not assemble" ]
           | Ok encoded ->
             encoded
             |> List.choose (fun (_, bytes) ->
-              let hex =
-                bytes |> Array.map (sprintf "%02x") |> String.concat ""
+              let hex = bytes |> Array.map (sprintf "%02x") |> String.concat ""
               match decodedLength wordSize bytes with
-              | None -> Some $"{hex} does not decode"
+              | None ->
+                Some $"{hex} does not decode"
               | Some(length, text) when length <> bytes.Length ->
                 Some $"emitted {bytes.Length}B as {hex}, decoder reads \
                        {length}B as '{text}'"
-              | Some _ -> None)))
+              | Some _ ->
+                None)))
       |> List.distinct
       |> List.sort
     Assert.AreEqual<string>(
       "",
       String.concat "\n" wrong,
       "These encodings are narrower than the decoder expects, which makes \
-       every following instruction decode at the wrong offset.")
+       every following instruction decode at the wrong offset."
+    )
 
   [<TestMethod>]
   member _.``Every x87 arithmetic opcode encodes every shape correctly``() =
@@ -383,7 +392,8 @@ type IntelRoundTripTests() =
     Assert.AreEqual<string>(
       "",
       String.concat "\n" wrong,
-      "These x87 operand shapes no longer encode correctly.")
+      "These x87 operand shapes no longer encode correctly."
+    )
 
   [<TestMethod>]
   member _.``Every SSE and string opcode encodes every shape correctly``() =
@@ -410,7 +420,8 @@ type IntelRoundTripTests() =
     Assert.AreEqual<string>(
       "",
       String.concat "\n" wrong,
-      "These SSE or string operand shapes no longer encode correctly.")
+      "These SSE or string operand shapes no longer encode correctly."
+    )
 
   /// The control register moves select their register with the ModRM.reg field,
   /// and the indices the manual reserves - CR1, and CR5 to CR7 - name no
@@ -431,4 +442,5 @@ type IntelRoundTripTests() =
     Assert.AreEqual<string>(
       "",
       String.concat "\n" decoded,
-      "These name a register the manual reserves, so they must not decode.")
+      "These name a register the manual reserves, so they must not decode."
+    )

@@ -148,8 +148,7 @@ type Assembler(isa: ISA, baseAddr: Addr) =
 
   /// What is written where a register added to the base one would be, which is
   /// either such a register or how many bytes of storage are touched.
-  let pInner =
-    attempt (pNumber |>> Choice2Of2) <|> (pRegister |>> Choice1Of2)
+  let pInner = attempt (pNumber |>> Choice2Of2) <|> (pRegister |>> Choice1Of2)
 
   /// <summary>
   /// The rest of an address, once the number counted off the base register has
@@ -160,7 +159,8 @@ type Assembler(isa: ISA, baseAddr: Addr) =
   /// to it before it, or with how many bytes are touched written there instead.
   /// </summary>
   let pAddress disp =
-    between (pchar '(') (pchar ')')
+    between (pchar '(')
+      (pchar ')')
       (skipWhitespaces pInner
        .>>. opt (pchar ',' >>. skipWhitespaces pRegister))
     >>= fun (first, second) ->
@@ -228,6 +228,7 @@ type Assembler(isa: ISA, baseAddr: Addr) =
         |> assemble table us isa.WordSize baseAddr
         |> List.map (fun bytes -> isa, bytes)
         |> Result.Ok
-      | Failure(str, _, _) -> Result.Error str
+      | Failure(str, _, _) ->
+        Result.Error str
 
 // vim: set tw=80 sts=2 sw=2:

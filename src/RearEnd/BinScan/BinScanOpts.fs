@@ -68,50 +68,60 @@ with
                                     .Append(NoColor, "]"),
              descrPrinter = printcn,
              dummy = true)
-      CmdOpt(descr = noCol "",
-             dummy = true)
+      CmdOpt(descr = noCol "", dummy = true)
       CmdOpt(descr = noCol "Show this usage",
-             short = "-h", long = "--help",
+             short = "-h",
+             long = "--help",
              help = true)
       CmdOpt(descr = noCol "Verbose mode",
-             short = "-v", long = "--verbose",
+             short = "-v",
+             long = "--verbose",
              callback = fun opts _ -> { opts with Verbose = true })
       CmdOpt(descr = noCol "Specify the base <address> in hex (default=0)",
-             short = "-b", long = "--base-addr", extra = 1,
+             short = "-b",
+             long = "--base-addr",
+             extra = 1,
              callback = cbBaseAddress)
       CmdOpt(descr = noCol "Display all the file information",
-             short = "-a", long = "--all",
+             short = "-a",
+             long = "--all",
              callback = fun opts _ -> opts.Add DisplayAll)
       CmdOpt(descr = noCol "Display the file header",
-             short = "-H", long = "--file-header",
+             short = "-H",
+             long = "--file-header",
              callback = fun opts _ -> opts.Add DisplayFileHeader)
       CmdOpt(descr = noCol "Display the section headers",
-             short = "-S", long = "--section-headers",
+             short = "-S",
+             long = "--section-headers",
              callback = fun opts _ -> opts.Add DisplaySectionHeaders)
-      CmdOpt(descr = noCol "Display the <name> section details", extra = 1,
-             short = "-d", long = "--section-details",
+      CmdOpt(descr = noCol "Display the <name> section details",
+             extra = 1,
+             short = "-d",
+             long = "--section-details",
              callback = fun opts arg -> opts.Add(DisplaySectionDetails arg[0]))
       CmdOpt(descr = noCol "Display the symbols",
-             short = "-s", long = "--symbols",
+             short = "-s",
+             long = "--symbols",
              callback = fun opts _ -> opts.Add DisplaySymbols)
       CmdOpt(descr = noCol "Display the relocation section",
-             short = "-r", long = "--relocations",
+             short = "-r",
+             long = "--relocations",
              callback = fun opts _ -> opts.Add DisplayRelocations)
       CmdOpt(descr = noCol "Display the function symbols",
-             short = "-f", long = "--functions",
+             short = "-f",
+             long = "--functions",
              callback = fun opts _ -> opts.Add DisplayFunctions)
       CmdOpt(descr = noCol "Display the exception table",
-             short = "-x", long = "--exceptions",
+             short = "-x",
+             long = "--exceptions",
              callback = fun opts _ -> opts.Add DisplayExceptionTable)
-      CmdOpt(descr = noCol "",
-             dummy = true)
+      CmdOpt(descr = noCol "", dummy = true)
       CmdOpt(descr = ColoredString().Append(NoColor, "[")
                                     .Append(DarkCyan, "ELF options")
                                     .Append(NoColor, "]"),
              descrPrinter = printcn,
              dummy = true)
-      CmdOpt(descr = noCol "",
-             dummy = true)
+      CmdOpt(descr = noCol "", dummy = true)
       CmdOpt(descr = noCol "Display the program headers",
              long = "--program-headers",
              callback = fun opts _ -> opts.Add(DisplayELF ELFProgHeader))
@@ -130,15 +140,13 @@ with
       CmdOpt(descr = noCol "Display the debug information",
              long = "--debug",
              callback = fun opts _ -> opts.Add(DisplayELF ELFDebugInfo))
-      CmdOpt(descr = noCol "",
-             dummy = true)
+      CmdOpt(descr = noCol "", dummy = true)
       CmdOpt(descr = ColoredString().Append(NoColor, "[")
                                     .Append(DarkCyan, "PE options")
                                     .Append(NoColor, "]"),
              descrPrinter = printcn,
              dummy = true)
-      CmdOpt(descr = noCol "",
-             dummy = true)
+      CmdOpt(descr = noCol "", dummy = true)
       CmdOpt(descr = noCol "Display the import table",
              long = "--imports",
              callback = fun opts _ -> opts.Add(DisplayPE PEImports))
@@ -154,15 +162,13 @@ with
       CmdOpt(descr = noCol "Display the dependencies",
              long = "--dependencies",
              callback = fun opts _ -> opts.Add(DisplayPE PEDependencies))
-      CmdOpt(descr = noCol "",
-             dummy = true)
+      CmdOpt(descr = noCol "", dummy = true)
       CmdOpt(descr = ColoredString().Append(NoColor, "[")
                                     .Append(DarkCyan, "Mach-O options")
                                     .Append(NoColor, "]"),
              descrPrinter = printcn,
              dummy = true)
-      CmdOpt(descr = noCol "",
-             dummy = true)
+      CmdOpt(descr = noCol "", dummy = true)
       CmdOpt(descr = noCol "Display the archive header",
              long = "--archive-header",
              callback = fun opts _ -> opts.Add(DisplayMach MachArchiveHdr))
@@ -176,5 +182,7 @@ with
              long = "--shared-libs",
              callback = fun opts _ -> opts.Add(DisplayMach MachSharedLibs))
       CmdOpt(descr = noCol "Specify <ISA> (e.g., x86) for fat binaries",
-             short = "-i", long = "--isa", extra = 1,
+             short = "-i",
+             long = "--isa",
+             extra = 1,
              callback = fun opts arg -> { opts with ISA = ISA arg[0] }) ]

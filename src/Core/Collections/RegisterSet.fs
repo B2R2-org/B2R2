@@ -104,12 +104,10 @@ type RegisterSet(maxNumElems: int) =
     (arr[bucket] &&& (1L <<< offset)) <> 0L
 
   /// Checks if the set is empty.
-  member _.IsEmpty() =
-    arr |> Array.forall (fun x -> x = 0L)
+  member _.IsEmpty() = arr |> Array.forall (fun x -> x = 0L)
 
   /// Clears the set.
-  member _.Clear() =
-    Array.Clear arr
+  member _.Clear() = Array.Clear arr
 
   /// Iterates over the set and applies the given function to each element.
   member _.Iterate fn =

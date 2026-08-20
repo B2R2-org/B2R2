@@ -55,7 +55,8 @@ module DataFlowChain =
     |> Set.fold (fun map d ->
       let addr = d.ProgramPoint.Address
       match Map.tryFind addr map with
-      | None -> Map.add addr d map
+      | None ->
+        Map.add addr d map
       | Some old ->
         if old.ProgramPoint.Position > d.ProgramPoint.Position then map
         else Map.add addr d map) Map.empty
@@ -69,18 +70,26 @@ module DataFlowChain =
 
   let rec private extractUseFromExpr e acc =
     match e with
-    | Var(_, id, _, _) -> Regular id :: acc
-    | TempVar(_, n, _) -> Temporary n :: acc
-    | UnOp(_, e, _) -> extractUseFromExpr e acc
+    | Var(_, id, _, _) ->
+      Regular id :: acc
+    | TempVar(_, n, _) ->
+      Temporary n :: acc
+    | UnOp(_, e, _) ->
+      extractUseFromExpr e acc
     | BinOp(_, _, e1, e2, _) ->
       extractUseFromExpr e1 (extractUseFromExpr e2 acc)
-    | RelOp(_, e1, e2, _) -> extractUseFromExpr e1 (extractUseFromExpr e2 acc)
-    | Load(_, _, e, _) -> extractUseFromExpr e acc
+    | RelOp(_, e1, e2, _) ->
+      extractUseFromExpr e1 (extractUseFromExpr e2 acc)
+    | Load(_, _, e, _) ->
+      extractUseFromExpr e acc
     | Ite(c, e1, e2, _) ->
       extractUseFromExpr c (extractUseFromExpr e1 (extractUseFromExpr e2 acc))
-    | Cast(_, _, e, _) -> extractUseFromExpr e acc
-    | Extract(e, _, _, _) -> extractUseFromExpr e acc
-    | _ -> []
+    | Cast(_, _, e, _) ->
+      extractUseFromExpr e acc
+    | Extract(e, _, _, _) ->
+      extractUseFromExpr e acc
+    | _ ->
+      []
 
   let private extractUseFromStmt s =
     match s with
@@ -88,10 +97,12 @@ module DataFlowChain =
     | Store(_, _, e, _)
     | Jmp(e, _)
     | CJmp(e, _, _, _)
-    | InterJmp(e, _, _) -> extractUseFromExpr e []
+    | InterJmp(e, _, _) ->
+      extractUseFromExpr e []
     | InterCJmp(c, e1, e2, _) ->
       extractUseFromExpr c (extractUseFromExpr e1 (extractUseFromExpr e2 []))
-    | _ -> []
+    | _ ->
+      []
 
   let private extractUses stmt =
     extractUseFromStmt stmt
@@ -132,7 +143,8 @@ module DataFlowChain =
     { vp with ProgramPoint = ProgramPoint(addr, 0) }
 
   let private filterDisasm isDisasmLevel chain =
-    if not isDisasmLevel then chain
+    if not isDisasmLevel then
+      chain
     else
       chain
       |> Map.fold (fun map vp set ->

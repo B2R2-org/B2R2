@@ -53,7 +53,8 @@ type DiffData =
 /// The `diff` action.
 type DiffAction() =
   let rec findUniqId lineNum cnt lines (dict: Dictionary<_, int>) =
-    if lineNum = Array.length lines then dict
+    if lineNum = Array.length lines then
+      dict
     else
       let found, _ = dict.TryGetValue lines[lineNum]
       if not found then
@@ -72,8 +73,12 @@ type DiffAction() =
       else
         findChangedLines (lineNum - 1) (true :: rchg) lineToId lines
 
-  let rec matchIndices n lineID rindex
-                       (rchg: bool[]) (lineToId: Dictionary<_, int>) lines =
+  let rec matchIndices n
+                       lineID
+                       rindex
+                       (rchg: bool[])
+                       (lineToId: Dictionary<_, int>)
+                       lines =
     if n = Array.length lines then
       lineID, rindex
     elif rchg[n] then
@@ -89,10 +94,12 @@ type DiffAction() =
     else findDiffstart (n + 1) idA idB
 
   let rec findDiffend n idA idB =
-    if n >= min (Array.length idA) (Array.length idB) then 1
+    if n >= min (Array.length idA) (Array.length idB) then
+      1
     elif idA[(Array.length idA - 1) - n] <> idB[(Array.length idB - 1) - n] then
       n
-    else findDiffend (n + 1) idA idB
+    else
+      findDiffend (n + 1) idA idB
 
   let trim idA idB (lnumA: int[]) (lnumB: int[]) =
     let diffStart = findDiffstart 0 idA idB
@@ -111,14 +118,17 @@ type DiffAction() =
     let idA, lnumA = matchIndices 0 [||] [||] clnumA lineToIdA linesA
     let idB, lnumB = matchIndices 0 [||] [||] clnumB lineToIdA linesB
     let idA, idB, lnumA, lnumB = trim idA idB lnumA lnumB
-    { LineNo = lnumA
-      LineID = idA
-      ChangedLineNumbers = clnumA
-      Len = Array.length lnumA },
-    { LineNo = lnumB
-      LineID = idB
-      ChangedLineNumbers = clnumB
-      Len = Array.length lnumB }
+    let lnumA =
+      { LineNo = lnumA
+        LineID = idA
+        ChangedLineNumbers = clnumA
+        Len = Array.length lnumA }
+    let lnumB =
+      { LineNo = lnumB
+        LineID = idB
+        ChangedLineNumbers = clnumB
+        Len = Array.length lnumB }
+    lnumA, lnumB
 
   /// Initialize the external K value
   let adjustMin kvd idx min dmin value =
@@ -149,15 +159,18 @@ type DiffAction() =
   let rec takeSnakeForward x y boundX boundY (idA: int[]) (idB: int[]) =
     if x < boundX && y < boundY && idA[x] = idB[y] then
       takeSnakeForward (x + 1) (y + 1) boundX boundY idA idB
-    else x
+    else
+      x
 
   let rec takeSnakeBackward x y boundX boundY (idA: int[]) (idB: int[]) =
     if x > boundX && y > boundY && idA[x - 1] = idB[y - 1] then
       takeSnakeBackward (x - 1) (y - 1) boundX boundY idA idB
-    else x
+    else
+      x
 
   let rec traverseForward d fmin kvd idA idB box bmin bmax isOdd =
-    if d < fmin then None
+    if d < fmin then
+      None
     else
       let x =
         if kvd.XOffsets[kvd.IdxForward + d - 1]
@@ -167,30 +180,29 @@ type DiffAction() =
           kvd.XOffsets[kvd.IdxForward + d + 1]
       let x = takeSnakeForward x (x - d) box.XLim box.YLim idA idB
       kvd.XOffsets[kvd.IdxForward + d] <- x
-      if isOdd && bmin <= d && d <= bmax
+      if isOdd
+        && bmin <= d
+        && d <= bmax
         && kvd.XOffsets[kvd.IdxBackward + d] <= x
-      then
-        Some { X = x; Y = x - d }
-      else
-        traverseForward (d - 2) fmin kvd idA idB box bmin bmax isOdd
+      then Some { X = x; Y = x - d }
+      else traverseForward (d - 2) fmin kvd idA idB box bmin bmax isOdd
 
   let rec traverseBackward d bmin kvd idA idB box fmin fmax isOdd =
-    if d < bmin then None
+    if d < bmin then
+      None
     else
       let x =
         if kvd.XOffsets[kvd.IdxBackward + d - 1]
           < kvd.XOffsets[kvd.IdxBackward + d + 1]
-        then
-          kvd.XOffsets[kvd.IdxBackward + d - 1]
-        else
-          kvd.XOffsets[kvd.IdxBackward + d + 1] - 1
+        then kvd.XOffsets[kvd.IdxBackward + d - 1]
+        else kvd.XOffsets[kvd.IdxBackward + d + 1] - 1
       let x = takeSnakeBackward x (x - d) box.XOff box.YOff idA idB
       kvd.XOffsets[kvd.IdxBackward + d] <- x
-      if not isOdd && fmin <= d && d <= fmax
-        && x <= kvd.XOffsets[kvd.IdxForward + d] then
-        Some { X = x; Y = x - d }
-      else
-        traverseBackward (d - 2) bmin kvd idA idB box fmin fmax isOdd
+      if not isOdd
+        && fmin <= d
+        && d <= fmax
+        && x <= kvd.XOffsets[kvd.IdxForward + d] then Some { X = x; Y = x - d }
+      else traverseBackward (d - 2) bmin kvd idA idB box fmin fmax isOdd
 
   let rec splitBox kvd idA idB box fmin fmax bmin bmax isOdd =
     let dmin = box.XOff - box.YLim
@@ -224,7 +236,8 @@ type DiffAction() =
     if off < lim then
       dd.ChangedLineNumbers[dd.LineNo[off]] <- true
       markChangedLines dd (off + 1) lim
-    else ()
+    else
+      ()
 
   let shrinkBox idA idB box =
     let box' = walkThroughDiagonalSW idA idB box.XOff box.XLim box.YOff box.YLim
@@ -272,8 +285,9 @@ type DiffAction() =
   let colorResult bs color res =
     let hex = byteArrayToHexStringArray bs
     Array.mapi2 (fun idx hex needColor ->
-      (if needColor then color else NoColor),
-      (if idx = bs.Length - 1 then hex else hex + " ")
+      let isColor = if needColor then color else NoColor
+      let appendSpace = if idx = bs.Length - 1 then hex else hex + " "
+      isColor, appendSpace
     ) hex res
     |> padSpace
     |> Array.chunkBySize NumBytesPerLine
@@ -281,8 +295,11 @@ type DiffAction() =
   let equalizeLines lines1 lines2 =
     let maxlines = max (Array.length lines1) (Array.length lines2)
     let dummyLine = padSpace [| (NoColor, "  ") |]
-    Array.append lines1 (Array.replicate (maxlines - lines1.Length) dummyLine),
-    Array.append lines2 (Array.replicate (maxlines - lines2.Length) dummyLine)
+    let appendLines1 =
+      Array.append lines1 (Array.replicate (maxlines - lines1.Length) dummyLine)
+    let appendLines2 =
+      Array.append lines2 (Array.replicate (maxlines - lines2.Length) dummyLine)
+    appendLines1, appendLines2
 
   let diff bin1 bin2 =
     let hdl1, hdl2 = Binary.Handle bin1, Binary.Handle bin2
@@ -320,4 +337,5 @@ type DiffAction() =
         | [] ->
           let outstr = diff (unbox<Binary> bins[0]) (unbox<Binary> bins[1])
           { Values = [| box outstr |] }
-        | _ -> invalidArg (nameof DiffAction) "Invalid input to diff"
+        | _ ->
+          invalidArg (nameof DiffAction) "Invalid input to diff"

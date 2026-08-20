@@ -132,8 +132,7 @@ module internal S390Sweep =
 
   /// Whether the text is a written number, which is what tells an operand that
   /// names a value from one that names a register or a set of bits.
-  let private isNumber (text: string) =
-    text.Length > 0 && Char.IsDigit text[0]
+  let private isNumber (text: string) = text.Length > 0 && Char.IsDigit text[0]
 
   /// Whether the text is a set of bits selecting what an instruction does,
   /// which the disassembler writes out one bit at a time between quotes.
@@ -165,7 +164,8 @@ module internal S390Sweep =
   let private keyOf kind (text: string) =
     let marks = [| ' '; ','; '('; ')'; '+'; '-'; ';' |]
     match text.Split ' ' |> Array.toList with
-    | [] | [ _ ] -> text.Trim()
+    | [] | [ _ ] ->
+      text.Trim()
     | mnemonic :: rest ->
       let operands = String.concat " " rest
       operands.Split(marks, StringSplitOptions.RemoveEmptyEntries)
@@ -206,8 +206,7 @@ module internal S390Sweep =
   /// distinct operand shape.
   let probes () =
     let parser = parserFor WordSize.Bit64
-    let walked =
-      Seq.concat [ shortWords; mediumWords; pairWords; longWords ]
+    let walked = Seq.concat [ shortWords; mediumWords; pairWords; longWords ]
     let shape (probe: S390Probe) = keyOf shapeOfPart probe.Text
     let byForm = survey parser (fun probe -> keyOf kindOfPart probe.Text) walked
     let forms = byForm |> List.map (fun probe -> probe.Word)

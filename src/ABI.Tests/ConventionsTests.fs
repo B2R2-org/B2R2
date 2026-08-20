@@ -37,10 +37,13 @@ type ConventionsTests() =
     let conv = Conventions.create OS.Linux isa
     Assert.AreEqual<RegisterID>(
       (CallingConvention.create OS.Linux isa).IntReturnRegister,
-      conv.Calling.IntReturnRegister)
+      conv.Calling.IntReturnRegister
+    )
     Assert.AreEqual<int>(
       (StackConvention.create OS.Linux isa).RedZoneSize,
-      conv.Stack.RedZoneSize)
+      conv.Stack.RedZoneSize
+    )
     Assert.AreEqual<RegisterID>(
       (SyscallConvention.create OS.Linux isa).NumberRegister,
-      conv.Syscall.NumberRegister)
+      conv.Syscall.NumberRegister
+    )

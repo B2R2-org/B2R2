@@ -112,12 +112,10 @@ type LiftingUnit
           let span = rawBytes.Span.Slice(ptr.Offset, len)
           Ok <| parse span ptr.Addr
       with
-      | ParsingFailureException ->
-        Error ErrorCase.ParsingFailure
+      | ParsingFailureException -> Error ErrorCase.ParsingFailure
       (* A pointer can claim readable bytes past the end of the image, since
          nothing validates its bound against the file length. *)
-      | :? ArgumentOutOfRangeException ->
-        Error ErrorCase.InvalidMemoryRead
+      | :? ArgumentOutOfRangeException -> Error ErrorCase.InvalidMemoryRead
     match parsed with
     | Ok ins ->
       if ins.IsTerminator prevIns then
@@ -194,7 +192,8 @@ type LiftingUnit
       | Intel ->
         (parser :?> Intel.IntelParser).SetDisassemblySyntax syntax
         disasmSyntax <- syntax
-      | _ -> ()
+      | _ ->
+        ()
 
   /// <summary>
   /// Parses one instruction at the given address (addr), and return the
@@ -232,8 +231,7 @@ type LiftingUnit
   /// <exception cref='T:System.ArgumentException'>
   /// Thrown when the pointer reaches no readable bytes.
   /// </exception>
-  member _.ParseInstruction(ptr: BinFilePointer) =
-    parse (codeSpan ptr) ptr.Addr
+  member _.ParseInstruction(ptr: BinFilePointer) = parse (codeSpan ptr) ptr.Addr
 
   /// <summary>
   /// Parses one instruction from the given byte span (span), pretending that it
@@ -250,8 +248,7 @@ type LiftingUnit
   /// Thrown when the bytes in the span do not decode, which includes the span
   /// being too short to hold the instruction it starts.
   /// </exception>
-  member _.ParseInstruction(span: ByteSpan, addr: Addr) =
-    parse span addr
+  member _.ParseInstruction(span: ByteSpan, addr: Addr) = parse span addr
 
   /// <summary>
   /// Tries to parse one instruction at the given address (addr), and return the
@@ -264,7 +261,8 @@ type LiftingUnit
   member this.TryParseInstruction(addr: Addr) =
     (* Naming both cases rather than catching everything is what keeps a defect
        elsewhere from being reported as a property of the input. *)
-    try this.ParseInstruction addr |> Ok
+    try
+      this.ParseInstruction addr |> Ok
     with
     | ParsingFailureException -> Error ErrorCase.ParsingFailure
     | :? ArgumentException -> Error ErrorCase.InvalidMemoryRead
@@ -278,7 +276,8 @@ type LiftingUnit
   /// Parsed instruction if succeeded, ErrorCase if otherwise.
   /// </returns>
   member this.TryParseInstruction(ptr: BinFilePointer) =
-    try this.ParseInstruction ptr |> Ok
+    try
+      this.ParseInstruction ptr |> Ok
     with
     | ParsingFailureException -> Error ErrorCase.ParsingFailure
     | :? ArgumentException -> Error ErrorCase.InvalidMemoryRead
@@ -309,8 +308,7 @@ type LiftingUnit
   /// <returns>
   /// Returns a <see cref='T:B2R2.FrontEnd.BBlockParseResult'/>.
   /// </returns>
-  member _.ParseBBlock(ptr: BinFilePointer) =
-    parseBBLByPtr null ptr 0 []
+  member _.ParseBBlock(ptr: BinFilePointer) = parseBBLByPtr null ptr 0 []
 
   /// <summary>
   /// Lifts an instruction at the given address (addr) and return the lifted IR
@@ -324,8 +322,7 @@ type LiftingUnit
   /// <returns>
   /// Lifted IR statements.
   /// </returns>
-  member this.LiftInstruction(addr: Addr) =
-    this.LiftInstruction(addr, false)
+  member this.LiftInstruction(addr: Addr) = this.LiftInstruction(addr, false)
 
   /// <summary>
   /// Lifts an instruction at the given address (addr) and return the lifted IR

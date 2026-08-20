@@ -31,8 +31,7 @@ open B2R2
 #if DEBUG
 let checkVertexInGraph (g: IDiGraphAccessible<_, _>) (v: IVertex<_>) =
   let v' = g.FindVertexByData v.VData
-  if v.ID = v'.ID then ()
-  else raise VertexNotFoundException
+  if v.ID = v'.ID then () else raise VertexNotFoundException
 #endif
 
 /// Makes a dummy vertex for an analysis without having to use `AddVertex`

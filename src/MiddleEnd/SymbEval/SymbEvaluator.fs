@@ -57,16 +57,13 @@ let private conditionTypeError (expr: SymbExpr) =
   $"Invalid branch condition type: {RegType.toString expr.Type}"
   |> unsupportedOp
 
-let private falseCond cond =
-  SymbExpr.relop RelOpType.EQ cond SymbExpr.falseExpr
+let private falseCond cond = SymbExpr.relop RelOpType.EQ cond SymbExpr.falseExpr
 
 let private addTrueCond (st: SymbState) cond =
-  if cond <> SymbExpr.trueExpr then st.AddPathCondition cond
-  else ()
+  if cond <> SymbExpr.trueExpr then st.AddPathCondition cond else ()
 
 let private addFalseCond (st: SymbState) cond =
-  if cond <> SymbExpr.falseExpr then st.AddPathCondition(falseCond cond)
-  else ()
+  if cond <> SymbExpr.falseExpr then st.AddPathCondition(falseCond cond) else ()
 
 let private updatePC (st: SymbState) target =
   match target with
@@ -84,7 +81,8 @@ let private evalPut (st: SymbState) lhs rhs =
     | TempVar(_, idx, _) -> st.SetTmp(idx, value); Ok()
     | PCVar _ -> updatePC st value
     | _ -> UnsupportedExpression(Expr.toString lhs) |> Error
-  | Error e -> Error e
+  | Error e ->
+    Error e
 
 let private evalStore (st: SymbState) endian addr value =
   match SymbExprTranslator.translate st addr,
@@ -92,8 +90,10 @@ let private evalStore (st: SymbState) endian addr value =
   | Ok(Const addr), Ok value ->
     st.Memory.Store(addr.ToUInt64(), value, endian)
     Ok()
-  | Ok addr, Ok _ -> unsupportedSymbolicAddress addr
-  | Error e, _ | _, Error e -> Error e
+  | Ok addr, Ok _ ->
+    unsupportedSymbolicAddress addr
+  | Error e, _ | _, Error e ->
+    Error e
 
 let private evalJmp (st: SymbState) = function
   | JmpDest(lbl, _) -> st.GoToLabel lbl; Ok()
@@ -111,15 +111,18 @@ let private evalSymbolicCJmp (st: SymbState) cond trueTarget falseTarget =
     match evalJmp trueState trueTarget, evalJmp falseState falseTarget with
     | Ok(), Ok() -> Ok(Fork(trueState, falseState))
     | Error e, _ | _, Error e -> Error e
-  else conditionTypeError cond
+  else
+    conditionTypeError cond
 
 let private evalCJmp (st: SymbState) cond trueTarget falseTarget =
   match SymbExprTranslator.translate st cond with
   | Ok(Const cond) ->
     evalConcreteCJmp st cond.IsTrue trueTarget falseTarget
     |> Result.map (fun () -> Continue st)
-  | Ok cond -> evalSymbolicCJmp st cond trueTarget falseTarget
-  | Error e -> Error e
+  | Ok cond ->
+    evalSymbolicCJmp st cond trueTarget falseTarget
+  | Error e ->
+    Error e
 
 let private evalConcreteIntCJmp (st: SymbState) cond trueTarget falseTarget =
   if cond then evalPCUpdate st trueTarget else evalPCUpdate st falseTarget
@@ -137,8 +140,10 @@ let private evalSymbolicIntCJmp (st: SymbState) cond trueTarget falseTarget =
       trueState.AbortInstr()
       falseState.AbortInstr()
       Ok(Fork(trueState, falseState))
-    | Error e, _ | _, Error e -> Error e
-  else conditionTypeError cond
+    | Error e, _ | _, Error e ->
+      Error e
+  else
+    conditionTypeError cond
 
 let private evalIntCJmp (st: SymbState) cond trueTarget falseTarget =
   match SymbExprTranslator.translate st cond with
@@ -147,8 +152,10 @@ let private evalIntCJmp (st: SymbState) cond trueTarget falseTarget =
     |> Result.map (fun () ->
       st.AbortInstr()
       Continue st)
-  | Ok cond -> evalSymbolicIntCJmp st cond trueTarget falseTarget
-  | Error e -> Error e
+  | Ok cond ->
+    evalSymbolicIntCJmp st cond trueTarget falseTarget
+  | Error e ->
+    Error e
 
 /// Evaluates one LowUIR statement.
 let evalStmt (st: SymbState) stmt =
@@ -183,7 +190,8 @@ let evalStmt (st: SymbState) stmt =
         Continue st)
     | InterCJmp(cond, trueTarget, falseTarget, _) ->
       evalIntCJmp st cond trueTarget falseTarget
-    | ExternalCall _ -> unsupportedStmt stmt
+    | ExternalCall _ ->
+      unsupportedStmt stmt
     | SideEffect(effect, _) ->
       Ok(Stopped(st, SideEffectStop effect))
   match result with

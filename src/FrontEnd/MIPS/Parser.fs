@@ -49,4 +49,5 @@ type MIPSParser(isa: ISA, reader) =
     member _.Parse(span: ByteSpan, addr) =
       try
         ParsingMain.parse lifter span reader arch wordSize addr :> IInstruction
-      with e when not (Terminator.isCritical e) -> raise ParsingFailureException
+      with e when not (Terminator.isCritical e) ->
+        raise ParsingFailureException

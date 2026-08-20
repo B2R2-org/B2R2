@@ -45,7 +45,8 @@ type FunctionDependenceMap() =
 
   let getTGVertex addr =
     match tgVertices.TryGetValue addr with
-    | true, v -> v
+    | true, v ->
+      v
     | false, _ ->
       let v, _ = tg.AddVertex addr
       tgVertices[addr] <- v
@@ -53,14 +54,16 @@ type FunctionDependenceMap() =
 
   let getCGVertex addr =
     match cgVertices.TryGetValue addr with
-    | true, v -> v
+    | true, v ->
+      v
     | false, _ ->
       let v, _ = cg.AddVertex addr
       cgVertices[addr] <- v
       v
 
   let addTGDependency (caller: IVertex<Addr>) (callee: IVertex<Addr>) =
-    if caller = callee then () (* skip recursive call *)
+    if caller = callee then
+      () (* skip recursive call *)
     else
 #if CFGDEBUG
       dbglog ManagerTid "AddTGDependency"
@@ -69,7 +72,8 @@ type FunctionDependenceMap() =
       tg.AddEdge(caller, callee) |> ignore
 
   let addCGDependency (caller: IVertex<Addr>) (callee: IVertex<Addr>) =
-    if caller = callee then () (* skip recursive call *)
+    if caller = callee then
+      () (* skip recursive call *)
     else
 #if CFGDEBUG
       dbglog ManagerTid "AddCGDependency"
@@ -147,7 +151,8 @@ type FunctionDependenceMap() =
         let mutable i = 0
         for v in scc do arr[i] <- v.VData; i <- i + 1 done
         Some arr
-      else None)
+      else
+        None)
 
   /// Remove call edges (successors) from the given function from both the
   /// temporary and regular call graphs.

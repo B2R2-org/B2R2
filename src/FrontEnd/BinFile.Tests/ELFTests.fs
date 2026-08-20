@@ -32,8 +32,7 @@ open type FileFormat
 
 [<TestClass>]
 type ELFTests() =
-  static let isStripped (file: IBinFile) =
-    file.SymbolTable.Value.IsStripped
+  static let isStripped (file: IBinFile) = file.SymbolTable.Value.IsStripped
 
   static let parseFile fileName =
     let bytes = ZIPReader.readBytes ELFBinary (fileName + ".zip") fileName
@@ -190,10 +189,10 @@ type ELFTests() =
     match file.ProgramHeaderTable with
     | Some info ->
       Assert.AreEqual<Addr>(phdr.PHAddr, info.Address)
-      Assert.AreEqual<int>(int x64ExecFile.Header.PHdrEntrySize,
-                           info.EntrySize)
+      Assert.AreEqual<int>(int x64ExecFile.Header.PHdrEntrySize, info.EntrySize)
       Assert.AreEqual<int>(x64ExecFile.ProgramHeaders.Length, info.Count)
-    | None -> Assert.Fail "Expected ELF program header table information."
+    | None ->
+      Assert.Fail "Expected ELF program header table information."
 
   [<TestMethod>]
   member _.``[ELF] x64 exec IsNXEnabled test``() =
@@ -295,8 +294,7 @@ type ELFTests() =
 
   [<TestMethod>]
   member _.``[ELF] x64 obj Relro test``() =
-    Assert.AreEqual<Relro option>(Some NoRelro,
-                                  (x64ObjFile :> IBinFile).Relro)
+    Assert.AreEqual<Relro option>(Some NoRelro, (x64ObjFile :> IBinFile).Relro)
 
   [<TestMethod>]
   member _.``[ELF] x64 obj has no program headers test``() =

@@ -164,12 +164,10 @@ type ARM32EncodingTests() =
   /// </summary>
   let mixedVectors =
     [ ".thumb\n  mov r0, r1\n  nop", "0846 00bf"
-      ".thumb\n  mov r0, r1\n  nop\n.arm\n  mov r0, r1",
-      "0846 00bf 0100a0e1"
+      ".thumb\n  mov r0, r1\n  nop\n.arm\n  mov r0, r1", "0846 00bf 0100a0e1"
       (* A label is reached from either set, each measuring from where its own
          program counter reads: four bytes ahead in Thumb and eight in ARM. *)
-      ".thumb\n  b L\n  nop\n.arm\nL:\n  mov r0, r1",
-      "00e0 00bf 0100a0e1"
+      ".thumb\n  b L\n  nop\n.arm\nL:\n  mov r0, r1", "00e0 00bf 0100a0e1"
       ".arm\n  b L\n.thumb\nL:\n  nop", "ffffffea 00bf" ]
 
   /// Sources that must be refused rather than encoded.
@@ -218,7 +216,8 @@ type ARM32EncodingTests() =
         encoded
         |> List.map (snd >> Array.map (sprintf "%02x") >> String.concat "")
         |> String.concat " "
-      | Error _ -> "<cannot parse>"
+      | Error _ ->
+        "<cannot parse>"
     with
     | :? EncodingFailureException -> "<unsupported>"
     | :? NotImplementedException -> "<unsupported>"
@@ -238,7 +237,8 @@ type ARM32EncodingTests() =
       encoded
       |> List.map (fun (isa: ISA, _) -> isa.ToString())
       |> String.concat " "
-    | Error _ -> "<cannot parse>"
+    | Error _ ->
+      "<cannot parse>"
 
   let brokenWith encode vectors =
     mutingStderr (fun () ->
@@ -256,7 +256,8 @@ type ARM32EncodingTests() =
     Assert.AreEqual<string>(
       "",
       String.concat "\n" defects,
-      "These vectors no longer encode as specified.")
+      "These vectors no longer encode as specified."
+    )
 
   [<TestMethod>]
   member _.``A source may hold both instruction sets``() =
@@ -264,7 +265,8 @@ type ARM32EncodingTests() =
     Assert.AreEqual<string>(
       "",
       String.concat "\n" defects,
-      "These no longer encode as specified when the source switches sets.")
+      "These no longer encode as specified when the source switches sets."
+    )
 
   /// Two halfwords and one word look alike once they are bytes, so a caller
   /// handed only bytes cannot tell which instruction set to read them with.
@@ -276,7 +278,8 @@ type ARM32EncodingTests() =
     Assert.AreEqual<string>(
       "thumb thumb armv7 thumb",
       setsOf source,
-      "An instruction no longer says which instruction set it belongs to.")
+      "An instruction no longer says which instruction set it belongs to."
+    )
 
   [<TestMethod>]
   member _.``Thumb vectors encode exactly as specified``() =
@@ -284,7 +287,8 @@ type ARM32EncodingTests() =
     Assert.AreEqual<string>(
       "",
       String.concat "\n" defects,
-      "These Thumb vectors no longer encode as specified.")
+      "These Thumb vectors no longer encode as specified."
+    )
 
   [<TestMethod>]
   member _.``A source that cannot be encoded is refused``() =
@@ -299,4 +303,5 @@ type ARM32EncodingTests() =
     Assert.AreEqual<string>(
       "",
       String.concat "\n" accepted,
-      "These ask for something no A32 encoding can say.")
+      "These ask for something no A32 encoding can say."
+    )

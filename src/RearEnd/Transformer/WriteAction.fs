@@ -59,4 +59,5 @@ type WriteAction() =
         let fnames = collection.Values |> Array.mapi (fun i _ -> $"{fname}.{i}")
         Array.iter2 write fnames collection.Values
         { Values = [||] }
-      else invalidArg (nameof args) "Input lengths mismatch."
+      else
+        invalidArg (nameof args) "Input lengths mismatch."

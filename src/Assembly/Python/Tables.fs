@@ -39,7 +39,8 @@ let private lookup version (name: string) =
   let name = name.ToUpperInvariant()
   (* Enum.TryParse takes a number for a number, so a name that is all digits
      would resolve to whatever opcode holds that value rather than failing. *)
-  if name |> Seq.forall Char.IsDigit then None
+  if name |> Seq.forall Char.IsDigit then
+    None
   else
     match Enum.TryParse<Opcode> name with
     | true, op -> B2R2.FrontEnd.Python.Tables.encode version op

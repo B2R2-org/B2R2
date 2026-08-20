@@ -40,5 +40,4 @@ let splitByMatch (query: string) (s: string) =
         if idx > start then (false, s.Substring(start, idx - start)) :: acc
         else acc
       loop (idx + query.Length) ((true, s.Substring(idx, query.Length)) :: acc)
-  if String.IsNullOrEmpty query then [ false, s ]
-  else loop 0 []
+  if String.IsNullOrEmpty query then [ false, s ] else loop 0 []

@@ -62,25 +62,27 @@ type SymbStateAccessor(hdl: BinHandle, state: SymbState) as this =
 
   let byteType = 8<rt>
 
-  let registerByName (name: string) =
-    regFactory.GetRegisterID(name = name)
+  let registerByName (name: string) = regFactory.GetRegisterID(name = name)
 
   let getStackPointerRegister () =
     match regFactory.StackPointer with
-    | Some rid -> rid
+    | Some rid ->
+      rid
     | None ->
       raise (InvalidOperationException
         "Stack pointer register is unavailable.")
 
   let getFramePointerRegister () =
     match regFactory.FramePointer with
-    | Some rid -> rid
+    | Some rid ->
+      rid
     | None ->
       raise (InvalidOperationException
         "Frame pointer register is unavailable.")
 
   let getConcreteAddr = function
-    | SymbExpr.Const bv -> bv.ToUInt64()
+    | SymbExpr.Const bv ->
+      bv.ToUInt64()
     | expr ->
       raise (InvalidOperationException $"Expected concrete address: {expr}.")
 
@@ -112,14 +114,12 @@ type SymbStateAccessor(hdl: BinHandle, state: SymbState) as this =
     | None -> Error(UnsupportedOperation "Stack pointer is unavailable.")
 
   let setArgument idx value =
-    if idx < 0 then raise (ArgumentOutOfRangeException(nameof idx))
-    else ()
+    if idx < 0 then raise (ArgumentOutOfRangeException(nameof idx)) else ()
     let rid = cc.IntArgRegister idx
     state.SetReg(rid, value)
 
   let allocateStackBuffer size =
-    if size < 0 then raise (ArgumentOutOfRangeException(nameof size))
-    else ()
+    if size < 0 then raise (ArgumentOutOfRangeException(nameof size)) else ()
     let addr = getStackPointer () - uint64 size
     setStackPointer addr
     addr
@@ -132,7 +132,8 @@ type SymbStateAccessor(hdl: BinHandle, state: SymbState) as this =
 
   let tryPushToStack value =
     match tryGetStackPointer () with
-    | Error e -> Error e
+    | Error e ->
+      Error e
     | Ok sp ->
       let addr = sp - uint64 wordBytes
       trySetStackPointer addr
@@ -151,13 +152,15 @@ type SymbStateAccessor(hdl: BinHandle, state: SymbState) as this =
 
   let tryPopFromStack () =
     match tryGetStackPointer () with
-    | Error e -> Error e
+    | Error e ->
+      Error e
     | Ok addr ->
       match state.Memory.Load(addr, endian, wordType) with
       | Ok value ->
         trySetStackPointer (addr + uint64 wordBytes)
         |> Result.map (fun () -> value)
-      | Error e -> Error e
+      | Error e ->
+        Error e
 
   let checkBufferLength length =
     if length < 0 then raise (ArgumentOutOfRangeException(nameof length))
@@ -169,8 +172,7 @@ type SymbStateAccessor(hdl: BinHandle, state: SymbState) as this =
     else
       ()
 
-  let symbolicByte name idx =
-    SymbExpr.Var($"{name}_{idx}", byteType)
+  let symbolicByte name idx = SymbExpr.Var($"{name}_{idx}", byteType)
 
   let writeNullTerminator addr length =
     state.Memory.ByteWrite(addr + uint64 length, SymbExpr.zero byteType)
@@ -184,8 +186,7 @@ type SymbStateAccessor(hdl: BinHandle, state: SymbState) as this =
     bytes
     |> List.iteri (fun idx byte ->
       state.Memory.ByteWrite(addr + uint64 idx, byte))
-    if nullTerminate then writeNullTerminator addr length
-    else ()
+    if nullTerminate then writeNullTerminator addr length else ()
     { Name = name
       Address = addr
       Bytes = bytes
@@ -250,8 +251,7 @@ type SymbStateAccessor(hdl: BinHandle, state: SymbState) as this =
   member _.SetArgument(idx, value) = setArgument idx value
 
   /// Get the return value for the supported ABI.
-  member _.GetReturnValue() =
-    cc.IntReturnRegister |> state.GetReg
+  member _.GetReturnValue() = cc.IntReturnRegister |> state.GetReg
 
   /// Allocate a buffer from the current stack and return its address.
   member _.AllocateStackBuffer size = allocateStackBuffer size
@@ -323,8 +323,7 @@ type SymbStateAccessor(hdl: BinHandle, state: SymbState) as this =
 
   /// Allocates a symbolic C string and passes it as an argument.
   member this.SetArgumentSymbolicString(idx, name, maxLength) =
-    let buffer =
-      this.AllocateSymbolicBuffer(name, maxLength, true)
+    let buffer = this.AllocateSymbolicBuffer(name, maxLength, true)
     this.SetArgumentBuffer(idx, buffer)
     buffer
 
@@ -344,11 +343,9 @@ type SymbStateAccessor(hdl: BinHandle, state: SymbState) as this =
 
     member _.InitializeFramePointer() = this.InitializeFramePointer()
 
-    member _.SetRegister(name: string, value) =
-      this.SetRegister(name, value)
+    member _.SetRegister(name: string, value) = this.SetRegister(name, value)
 
-    member _.SetRegister(rid: RegisterID, value) =
-      this.SetRegister(rid, value)
+    member _.SetRegister(rid: RegisterID, value) = this.SetRegister(rid, value)
 
     member _.GetRegister(name: string) = this.GetRegister name
 

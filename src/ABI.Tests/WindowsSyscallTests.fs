@@ -42,32 +42,41 @@ type WindowsSyscallTests() =
   [<TestMethod>]
   member _.``Common x64 SSNs on Win10 2004 match j00ru's table``() =
     Assert.AreEqual<int>(
-      0x55, ssn64 WindowsBuild.Win10_2004 WindowsSyscall.NtCreateFile)
+      0x55, ssn64 WindowsBuild.Win10_2004 WindowsSyscall.NtCreateFile
+    )
     Assert.AreEqual<int>(
-      0x0f, ssn64 WindowsBuild.Win10_2004 WindowsSyscall.NtClose)
+      0x0f, ssn64 WindowsBuild.Win10_2004 WindowsSyscall.NtClose
+    )
     Assert.AreEqual<int>(
-      0x06, ssn64 WindowsBuild.Win10_2004 WindowsSyscall.NtReadFile)
+      0x06, ssn64 WindowsBuild.Win10_2004 WindowsSyscall.NtReadFile
+    )
 
   [<TestMethod>]
   member _.``Common x64 SSNs on Win11 22H2 match j00ru's table``() =
     Assert.AreEqual<int>(
-      0x55, ssn64 WindowsBuild.Win11_22H2 WindowsSyscall.NtCreateFile)
+      0x55, ssn64 WindowsBuild.Win11_22H2 WindowsSyscall.NtCreateFile
+    )
     Assert.AreEqual<int>(
-      0x26, ssn64 WindowsBuild.Win11_22H2 WindowsSyscall.NtOpenProcess)
+      0x26, ssn64 WindowsBuild.Win11_22H2 WindowsSyscall.NtOpenProcess
+    )
 
   [<TestMethod>]
   member _.``x86 SSNs differ from x64 and match j00ru's table``() =
     Assert.AreEqual<int>(
-      0x0178, ssn86 WindowsBuild.Win10_2004 WindowsSyscall.NtCreateFile)
+      0x0178, ssn86 WindowsBuild.Win10_2004 WindowsSyscall.NtCreateFile
+    )
     Assert.AreEqual<int>(
-      0x0019, ssn86 WindowsBuild.WinXP_SP1 WindowsSyscall.NtClose)
+      0x0019, ssn86 WindowsBuild.WinXP_SP1 WindowsSyscall.NtClose
+    )
 
   [<TestMethod>]
   member _.``NtAcceptConnectPort SSN differs across builds``() =
     Assert.AreEqual<int>(
-      0x60, ssn64 WindowsBuild.WinXP_SP1 WindowsSyscall.NtAcceptConnectPort)
+      0x60, ssn64 WindowsBuild.WinXP_SP1 WindowsSyscall.NtAcceptConnectPort
+    )
     Assert.AreEqual<int>(
-      0x02, ssn64 WindowsBuild.Win10_2004 WindowsSyscall.NtAcceptConnectPort)
+      0x02, ssn64 WindowsBuild.Win10_2004 WindowsSyscall.NtAcceptConnectPort
+    )
 
   [<TestMethod>]
   member _.``Syscall absent on a build raises``() =

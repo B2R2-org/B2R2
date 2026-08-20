@@ -72,8 +72,10 @@ module Pane =
     Leaf(paneID, emptyState)
 
   let rec tryFindLeaf paneID = function
-    | Leaf(id, state) when id = paneID -> Some state
-    | Leaf _ -> None
+    | Leaf(id, state) when id = paneID ->
+      Some state
+    | Leaf _ ->
+      None
     | Split(_, _, first, second) ->
       match tryFindLeaf paneID first with
       | Some state -> Some state

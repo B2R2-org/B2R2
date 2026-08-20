@@ -52,7 +52,8 @@ type InstructionCollection(collector: IInstructionCollectable) =
   let completion =
     Task.Factory.StartNew(
       (fun () -> collector.Collect(updateFn, cts.Token)),
-      TaskCreationOptions.LongRunning)
+      TaskCreationOptions.LongRunning
+    )
 
   /// <summary>
   /// A task that completes when the background sweep has finished or has been
@@ -78,14 +79,16 @@ type InstructionCollection(collector: IInstructionCollectable) =
   /// Find cached one or parse (and cache) the instruction at the given address.
   member this.TryFind(addr: Addr) =
     match dict.TryGetValue addr with
-    | true, candidate -> this.ExtractInstruction candidate
+    | true, candidate ->
+      this.ExtractInstruction candidate
     | false, _ ->
       match collector.ParseInstructionCandidate addr with
       | Ok candidate ->
         let ins = this.ExtractInstruction candidate
         if Result.isOk ins then dict.TryAdd(addr, candidate) |> ignore else ()
         ins
-      | Error e -> Error e
+      | Error e ->
+        Error e
 
   /// <summary>
   /// Gets the instruction at the given address, parsing it on demand when the

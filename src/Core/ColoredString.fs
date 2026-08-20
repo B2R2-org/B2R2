@@ -89,8 +89,7 @@ type ColoredString internal(inputSegs: IEnumerable<ColoredSegment>) =
 
   /// Renders the colored string by applying the given function to each colored
   /// segment.
-  member _.Render fn =
-    for col, s in segments do fn col s
+  member _.Render fn = for col, s in segments do fn col s
 
   override _.ToString() =
     let sb = Text.StringBuilder()

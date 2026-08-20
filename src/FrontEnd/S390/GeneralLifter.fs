@@ -59,7 +59,8 @@ let private hold bld rt o e =
     let t = tmpVar bld rt
     bld <+ (t := e)
     t
-  | _ -> e
+  | _ ->
+    e
 
 let ccNone _ _ _ _ = ()
 
@@ -403,12 +404,10 @@ let subBorrow ins insLen bld rt =
   bld --!> insLen
 
 /// The magnitude of a two's-complement value.
-let absValue e =
-  AST.ite (e ?< AST.num0 (Expr.typeOf e)) (AST.neg e) e
+let absValue e = AST.ite (e ?< AST.num0 (Expr.typeOf e)) (AST.neg e) e
 
 /// The negated magnitude, which is what LOAD NEGATIVE produces.
-let negAbsValue e =
-  AST.ite (e ?> AST.num0 (Expr.typeOf e)) (AST.neg e) e
+let negAbsValue e = AST.ite (e ?> AST.num0 (Expr.typeOf e)) (AST.neg e) e
 
 /// The one-input arithmetic loads: complement, positive, and negative, each of
 /// which reports the sign of what it produced.
@@ -549,7 +548,8 @@ let flogr ins insLen bld =
     bld <+ (bit := numG 0x8000000000000000L)
     bld <+ (AST.lmark body)
     bld <+ (AST.cjmp ((n == numG 64L) .| ((v .& bit) != AST.num0 GRSize))
-                     (AST.jmpDest out) (AST.jmpDest step))
+                     (AST.jmpDest out)
+                     (AST.jmpDest step))
     bld <+ (AST.lmark step)
     bld <+ (n := n .+ AST.num1 GRSize)
     bld <+ (bit := bit >> AST.num1 GRSize)
@@ -579,8 +579,7 @@ let popcnt ins insLen bld =
 
 /// The count a shift takes: the low six bits of the address its second operand
 /// names, which is an address only in how it is written.
-let private shiftCount bld o rt =
-  narrowTo rt (transMem bld o .& numG 63L)
+let private shiftCount bld o rt = narrowTo rt (transMem bld o .& numG 63L)
 
 /// The two-operand shifts, which shift a register's low word in place.
 let shift2 ins insLen bld f setsCC =
@@ -630,7 +629,8 @@ let rotate ins insLen bld rt =
 let private selectMask (start: int) (fin: int) =
   let bitAt i = 1UL <<< (63 - i)
   let rec ones i acc = if i > fin then acc else ones (i + 1) (acc ||| bitAt i)
-  if start <= fin then ones start 0UL
+  if start <= fin then
+    ones start 0UL
   else
     let rec upper i acc =
       if i > 63 then acc else upper (i + 1) (acc ||| bitAt i)
@@ -657,7 +657,8 @@ let rotateInsert (ins: Instruction) insLen bld f setsCC =
     if setsCC then setCCSign bld t else ()
     bld <+ (d := t)
     bld --!> insLen
-  | _ -> raise InvalidOperandException
+  | _ ->
+    raise InvalidOperandException
 
 /// ROTATE THEN combine SELECTED BITS: the rotated bits the mask selects are
 /// ORed, ANDed, or XORed into the first operand rather than replacing it, and
@@ -678,7 +679,8 @@ let rotateCombine (ins: Instruction) insLen bld f =
     setCCLogic bld (t .& numG (int64 mask))
     if testOnly then () else bld <+ (d := t)
     bld --!> insLen
-  | _ -> raise InvalidOperandException
+  | _ ->
+    raise InvalidOperandException
 
 /// A comparison, which reports how the first operand stands to the second and
 /// changes nothing else.
@@ -766,8 +768,10 @@ let branchRelative ins insLen bld =
   let m = oprMask o1
   let target = numG (int64 (codeAddr bld (relTarget ins.Address (oprImm o2))))
   bld <!-- (ins.Address, insLen)
-  if isNever m then ()
-  elif isAlways m then bld <+ AST.interjmp target InterJmpKind.Base
+  if isNever m then
+    ()
+  elif isAlways m then
+    bld <+ AST.interjmp target InterJmpKind.Base
   else
     let next = fallThrough bld ins insLen
     bld <+ AST.intercjmp (condOfMask bld m) target next
@@ -779,10 +783,12 @@ let branchOnCondition ins insLen bld =
   let struct (o1, o2) = getTwoOprs ins
   let m = oprMask o1
   bld <!-- ((ins: Instruction).Address, insLen)
-  if isNever m then ()
+  if isNever m then
+    ()
   else
     let target = transMem bld o2
-    if isAlways m then bld <+ AST.interjmp target InterJmpKind.Base
+    if isAlways m then
+      bld <+ AST.interjmp target InterJmpKind.Base
     else
       let next = fallThrough bld ins insLen
       bld <+ AST.intercjmp (condOfMask bld m) target next
@@ -797,12 +803,14 @@ let branchOnConditionReg ins insLen bld =
   let m = oprMask o1
   let r2 = oprReg o2
   bld <!-- ((ins: Instruction).Address, insLen)
-  if isNever m || r2 = Register.R0 then ()
+  if isNever m || r2 = Register.R0 then
+    ()
   else
     let target = maskAddr bld (reg bld r2)
     let kind =
       if r2 = Register.R14 then InterJmpKind.IsRet else InterJmpKind.Base
-    if isAlways m then bld <+ AST.interjmp target kind
+    if isAlways m then
+      bld <+ AST.interjmp target kind
     else
       let next = fallThrough bld ins insLen
       bld <+ AST.intercjmp (condOfMask bld m) target next
@@ -838,7 +846,8 @@ let branchAndSaveReg ins insLen bld =
   let r2 = oprReg o2
   let t = tmpVar bld GRSize
   bld <!-- ((ins: Instruction).Address, insLen)
-  if r2 = Register.R0 then bld <+ (d := linkValue bld ins insLen)
+  if r2 = Register.R0 then
+    bld <+ (d := linkValue bld ins insLen)
   else
     bld <+ (t := maskAddr bld (reg bld r2))
     bld <+ (d := linkValue bld ins insLen)
@@ -947,7 +956,8 @@ let compareAndBranchRel ins insLen bld rt signed =
   let m = oprMask o3
   let target = numG (int64 (codeAddr bld (relTarget ins.Address (oprImm o4))))
   bld <!-- (ins.Address, insLen)
-  if m &&& 0xeus = 0us then ()
+  if m &&& 0xeus = 0us then
+    ()
   else
     let a = srcReg rt (oprRegVar bld o1)
     let b =
@@ -966,7 +976,8 @@ let compareAndBranch ins insLen bld rt signed =
   let struct (o1, o2, o3, o4) = getFourOprs ins
   let m = oprMask o3
   bld <!-- ((ins: Instruction).Address, insLen)
-  if m &&& 0xeus = 0us then ()
+  if m &&& 0xeus = 0us then
+    ()
   else
     let target = transMem bld o4
     let a = srcReg rt (oprRegVar bld o1)
@@ -987,7 +998,8 @@ let compareAndTrap ins insLen bld rt signed =
   let struct (o1, o2, o3) = getThreeOprs ins
   let m = oprMask o3
   bld <!-- ((ins: Instruction).Address, insLen)
-  if m &&& 0xeus = 0us then ()
+  if m &&& 0xeus = 0us then
+    ()
   else
     let a = srcReg rt (oprRegVar bld o1)
     let b =
@@ -997,7 +1009,8 @@ let compareAndTrap ins insLen bld rt signed =
     let trap = label bld "Trap"
     let out = label bld "NoTrap"
     bld <+ (AST.cjmp (cmpCond m signed a b)
-                     (AST.jmpDest trap) (AST.jmpDest out))
+                     (AST.jmpDest trap)
+                     (AST.jmpDest out))
     bld <+ (AST.lmark trap)
     bld <+ AST.sideEffect (Exception IntegerOverflow)
     bld <+ (AST.lmark out)
@@ -1010,11 +1023,12 @@ let loadOnCondition ins insLen bld rt =
   let d = oprRegVar bld o1
   let m = oprMask o3
   bld <!-- ((ins: Instruction).Address, insLen)
-  if isNever m then ()
+  if isNever m then
+    ()
   else
     let v = srcOf bld rt o2
-    let value = if isAlways m then v else AST.ite (condOfMask bld m) v
-                                                  (srcReg rt d)
+    let value =
+      if isAlways m then v else AST.ite (condOfMask bld m) v (srcReg rt d)
     bld <+ (dst rt d := value)
   bld --!> insLen
 
@@ -1025,11 +1039,12 @@ let loadImmOnCondition ins insLen bld rt =
   let d = oprRegVar bld o1
   let m = oprMask o3
   bld <!-- ((ins: Instruction).Address, insLen)
-  if isNever m then ()
+  if isNever m then
+    ()
   else
     let v = numI64 (oprImm o2) rt
-    let value = if isAlways m then v else AST.ite (condOfMask bld m) v
-                                                  (srcReg rt d)
+    let value =
+      if isAlways m then v else AST.ite (condOfMask bld m) v (srcReg rt d)
     bld <+ (dst rt d := value)
   bld --!> insLen
 
@@ -1039,14 +1054,14 @@ let storeOnCondition ins insLen bld rt =
   let struct (o1, o2, o3) = getThreeOprs ins
   let m = oprMask o3
   bld <!-- ((ins: Instruction).Address, insLen)
-  if isNever m then ()
+  if isNever m then
+    ()
   elif isAlways m then
     bld <+ storeMem (transMem bld o2) (narrowTo rt (oprRegVar bld o1))
   else
     let doIt = label bld "StoreOnCond"
     let out = label bld "SkipStore"
-    bld <+ (AST.cjmp (condOfMask bld m)
-                     (AST.jmpDest doIt) (AST.jmpDest out))
+    bld <+ (AST.cjmp (condOfMask bld m) (AST.jmpDest doIt) (AST.jmpDest out))
     bld <+ (AST.lmark doIt)
     bld <+ storeMem (transMem bld o2) (narrowTo rt (oprRegVar bld o1))
     bld <+ (AST.lmark out)
@@ -1076,11 +1091,13 @@ let icm ins insLen bld half =
     bld <+ (v := loadMem 8<rt> (addr .+ numG (int64 k)))
     bld <+ (AST.extract d 8<rt> (at k) := v)
     bld <+ (acc := acc .| v)
-  if sel.Length = 0 then setCC bld 0
+  if sel.Length = 0 then
+    setCC bld 0
   else
     let first = AST.extract d 8<rt> (at 0)
     let neg = AST.ite ((first .& numI32 0x80 8<rt>) == AST.num0 8<rt>)
-                      (numCC 2) (numCC 1)
+                      (numCC 2)
+                      (numCC 1)
     bld <+ (ccVar bld := AST.ite (acc == AST.num0 8<rt>) (numCC 0) neg)
   bld --!> insLen
 
@@ -1106,7 +1123,8 @@ let clm ins insLen bld =
   let addr = tmpVar bld GRSize
   bld <!-- ((ins: Instruction).Address, insLen)
   bld <+ (addr := transMem bld o2)
-  if sel.Length = 0 then setCC bld 0
+  if sel.Length = 0 then
+    setCC bld 0
   else
     let out = label bld "ClmOut"
     setCC bld 0
@@ -1148,8 +1166,7 @@ let compareAndSwap ins insLen bld rt =
   bld <+ AST.sideEffect AtomicBegin
   bld <+ (addr := transMem bld o2)
   bld <+ (found := loadMem rt addr)
-  bld <+ (AST.cjmp (found == srcReg rt d) (AST.jmpDest swap)
-                   (AST.jmpDest out))
+  bld <+ (AST.cjmp (found == srcReg rt d) (AST.jmpDest swap) (AST.jmpDest out))
   bld <+ (AST.lmark swap)
   bld <+ storeMem addr (srcReg rt (oprRegVar bld o3))
   bld <+ (AST.lmark out)
@@ -1184,7 +1201,8 @@ let loadAndOp ins insLen bld rt f =
 /// register and so contributes nothing to an address.
 let private regOfField bld n =
   let rec pick i =
-    if i = 15 then reg bld Register.R15
+    if i = 15 then
+      reg bld Register.R15
     else
       let e = reg bld (enum<Register> i)
       AST.ite (n == numG (int64 i)) e (pick (i + 1))
@@ -1231,7 +1249,8 @@ let private emitTransTestLoop bld len d table backwards =
   let at = if backwards then d .- i else d .+ i
   bld <+ (fn := loadMem 8<rt> (table .+ zextTo GRSize (loadMem 8<rt> at)))
   bld <+ (AST.cjmp (fn == AST.num0 8<rt>)
-                   (AST.jmpDest step) (AST.jmpDest found))
+                   (AST.jmpDest step)
+                   (AST.jmpDest found))
   bld <+ (AST.lmark step)
   bld <+ (i := i .+ AST.num1 GRSize)
   bld <+ (AST.cjmp (i == len) (AST.jmpDest out) (AST.jmpDest body))
@@ -1239,7 +1258,8 @@ let private emitTransTestLoop bld len d table backwards =
   bld <+ (reg bld Register.R1 := at)
   bld <+ (AST.xtlo 8<rt> (reg bld Register.R2) := fn)
   bld <+ (ccVar bld := AST.ite (i == len .- AST.num1 GRSize)
-                               (numCC 2) (numCC 1))
+                               (numCC 2)
+                               (numCC 1))
   bld <+ (AST.lmark out)
 
 /// The half-byte move EXECUTE reaches through MOVE NUMERICS and MOVE ZONES,
@@ -1277,7 +1297,8 @@ let private executeAt ins insLen bld r1 target =
     let hit = label bld "ExHit"
     let miss = label bld "ExMiss"
     bld <+ (AST.cjmp (op == numI32 code 8<rt>)
-                     (AST.jmpDest hit) (AST.jmpDest miss))
+                     (AST.jmpDest hit)
+                     (AST.jmpDest miss))
     bld <+ (AST.lmark hit)
     body ()
     bld <+ (AST.jmp (AST.jmpDest lblOut))
@@ -1340,7 +1361,8 @@ let srst ins insLen bld =
   bld <+ (AST.cjmp (p == limit) (AST.jmpDest none) (AST.jmpDest step))
   bld <+ (AST.lmark step)
   bld <+ (AST.cjmp (loadMem 8<rt> p == terminator bld)
-                   (AST.jmpDest found) (AST.jmpDest cont))
+                   (AST.jmpDest found)
+                   (AST.jmpDest cont))
   bld <+ (AST.lmark cont)
   bld <+ (p := p .+ AST.num1 GRSize)
   bld <+ (AST.jmp (AST.jmpDest body))
@@ -1407,8 +1429,7 @@ let clst ins insLen bld =
   bld <+ (y := loadMem 8<rt> q)
   bld <+ (AST.cjmp (x == y) (AST.jmpDest same) (AST.jmpDest diff))
   bld <+ (AST.lmark same)
-  bld <+ (AST.cjmp (x == terminator bld) (AST.jmpDest out)
-                   (AST.jmpDest cont))
+  bld <+ (AST.cjmp (x == terminator bld) (AST.jmpDest out) (AST.jmpDest cont))
   bld <+ (AST.lmark cont)
   bld <+ (p := p .+ AST.num1 GRSize)
   bld <+ (q := q .+ AST.num1 GRSize)
@@ -1462,8 +1483,7 @@ let moveInverse ins insLen bld =
   bld <+ (AST.lmark body)
   bld <+ storeMem (d .+ i) (loadMem 8<rt> (s .- i))
   bld <+ (i := i .+ AST.num1 GRSize)
-  bld <+ (AST.cjmp (i == numG (int64 len))
-                   (AST.jmpDest out) (AST.jmpDest body))
+  bld <+ (AST.cjmp (i == numG (int64 len)) (AST.jmpDest out) (AST.jmpDest body))
   bld <+ (AST.lmark out)
   bld --!> insLen
 
@@ -1483,8 +1503,7 @@ let moveRightToLeft ins insLen bld =
   bld <+ (i := (zextTo GRSize (AST.xtlo 12<rt> (reg bld Register.R0))))
   bld <+ (AST.lmark body)
   bld <+ storeMem (d .+ i) (loadMem 8<rt> (s .+ i))
-  bld <+ (AST.cjmp (i == AST.num0 GRSize)
-                   (AST.jmpDest out) (AST.jmpDest body))
+  bld <+ (AST.cjmp (i == AST.num0 GRSize) (AST.jmpDest out) (AST.jmpDest body))
   bld <+ (i := i .- AST.num1 GRSize)
   bld <+ (AST.jmp (AST.jmpDest body))
   bld <+ (AST.lmark out)
@@ -1549,14 +1568,17 @@ let moveLongExtended ins insLen bld unit =
     let out = label bld "MvcleOut"
     bld <!-- ((ins: Instruction).Address, insLen)
     bld <+ (pad := AST.xtlo width (transMem bld o2))
-    bld <+ (cmp := AST.ite (dl == sl) (numCC 0)
+    bld <+ (cmp := AST.ite (dl == sl)
+                           (numCC 0)
                            (AST.ite (dl .< sl) (numCC 1) (numCC 2)))
     bld <+ (AST.lmark body)
     bld <+ (AST.cjmp (dl == AST.num0 GRSize)
-                     (AST.jmpDest out) (AST.jmpDest more))
+                     (AST.jmpDest out)
+                     (AST.jmpDest more))
     bld <+ (AST.lmark more)
     bld <+ (AST.cjmp (sl == AST.num0 GRSize)
-                     (AST.jmpDest fill) (AST.jmpDest copy))
+                     (AST.jmpDest fill)
+                     (AST.jmpDest copy))
     bld <+ (AST.lmark copy)
     bld <+ storeMem da (loadMem width sa)
     bld <+ (sa := sa .+ step)
@@ -1602,7 +1624,8 @@ let compareLongExtended ins insLen bld unit =
     setCC bld 0
     bld <+ (AST.lmark body)
     bld <+ (AST.cjmp ((al == AST.num0 GRSize) .& (bl == AST.num0 GRSize))
-                     (AST.jmpDest out) (AST.jmpDest more))
+                     (AST.jmpDest out)
+                     (AST.jmpDest more))
     bld <+ (AST.lmark more)
     bld <+ (x := AST.ite (al == AST.num0 GRSize) pad (loadMem width aa))
     bld <+ (y := AST.ite (bl == AST.num0 GRSize) pad (loadMem width ba))
@@ -1648,19 +1671,23 @@ let moveLong ins insLen bld =
     bld <+ (dl := dlr .& numG 0xffffffL)
     bld <+ (sl := slr .& numG 0xffffffL)
     bld <+ (pad := AST.extract slr 8<rt> 24)
-    bld <+ (cmp := AST.ite (dl == sl) (numCC 0)
+    bld <+ (cmp := AST.ite (dl == sl)
+                           (numCC 0)
                            (AST.ite (dl .< sl) (numCC 1) (numCC 2)))
     (* Destructive overlap: the destination begins inside the part of the source
        still to be read, so a byte-at-a-time move would read what it had already
        written. *)
     bld <+ (AST.cjmp ((da .> sa) .& (da .< (sa .+ sl)))
-                     (AST.jmpDest overlap) (AST.jmpDest body))
+                     (AST.jmpDest overlap)
+                     (AST.jmpDest body))
     bld <+ (AST.lmark body)
     bld <+ (AST.cjmp (dl == AST.num0 GRSize)
-                     (AST.jmpDest over) (AST.jmpDest more))
+                     (AST.jmpDest over)
+                     (AST.jmpDest more))
     bld <+ (AST.lmark more)
     bld <+ (AST.cjmp (sl == AST.num0 GRSize)
-                     (AST.jmpDest fill) (AST.jmpDest copy))
+                     (AST.jmpDest fill)
+                     (AST.jmpDest copy))
     bld <+ (AST.lmark copy)
     bld <+ storeMem da (loadMem 8<rt> sa)
     bld <+ (sa := sa .+ AST.num1 GRSize)
@@ -1713,7 +1740,8 @@ let compareLong ins insLen bld =
     setCC bld 0
     bld <+ (AST.lmark body)
     bld <+ (AST.cjmp ((al == AST.num0 GRSize) .& (bl == AST.num0 GRSize))
-                     (AST.jmpDest out) (AST.jmpDest more))
+                     (AST.jmpDest out)
+                     (AST.jmpDest more))
     bld <+ (AST.lmark more)
     bld <+ (x := AST.ite (al == AST.num0 GRSize) pad (loadMem 8<rt> aa))
     bld <+ (y := AST.ite (bl == AST.num0 GRSize) pad (loadMem 8<rt> ba))
@@ -1745,7 +1773,8 @@ let testAndSet ins insLen bld =
   bld <+ storeMem addr (numI32 0xff 8<rt>)
   bld <+ AST.sideEffect AtomicEnd
   bld <+ (ccVar bld := AST.ite ((v .& numI32 0x80 8<rt>) == AST.num0 8<rt>)
-                               (numCC 0) (numCC 1))
+                               (numCC 0)
+                               (numCC 1))
   bld --!> insLen
 
 /// TRANSLATE: each byte of the first operand is replaced by the byte the table
@@ -1854,7 +1883,8 @@ let mulCC ins insLen bld (rt: RegType) accW ext =
   let fits = AST.sext wide r == t
   bld <+ (ccVar bld := AST.ite fits (AST.ite (r == AST.num0 rt) (numCC 0)
                                              (AST.ite (r ?< AST.num0 rt)
-                                                      (numCC 1) (numCC 2)))
+                                                      (numCC 1)
+                                                      (numCC 2)))
                                (numCC 3))
   bld <+ (dst rt d := r)
   bld --!> insLen
@@ -2101,7 +2131,8 @@ let compareTrapStorage ins insLen bld rt =
   let struct (o1, o2, o3) = getThreeOprs ins
   let m = oprMask o3
   bld <!-- ((ins: Instruction).Address, insLen)
-  if m &&& 0xeus = 0us then ()
+  if m &&& 0xeus = 0us then
+    ()
   else
     let a = tmpVar bld rt
     let b = tmpVar bld rt
@@ -2125,11 +2156,13 @@ let branchIndirect ins insLen bld =
   let struct (o1, o2) = getTwoOprs ins
   let m = oprMask o1
   bld <!-- ((ins: Instruction).Address, insLen)
-  if isNever m then ()
+  if isNever m then
+    ()
   else
     let target = tmpVar bld GRSize
     bld <+ (target := loadMem GRSize (transMem bld o2))
-    if isAlways m then bld <+ AST.interjmp target InterJmpKind.Base
+    if isAlways m then
+      bld <+ AST.interjmp target InterJmpKind.Base
     else
       let next = numG (int64 (codeAddr bld (nextAddr ins.Address insLen)))
       bld <+ AST.intercjmp (condOfMask bld m) target next
@@ -2167,7 +2200,8 @@ let searchStringUnicode ins insLen bld =
   bld <+ (AST.cjmp (p .>= limit) (AST.jmpDest none) (AST.jmpDest step))
   bld <+ (AST.lmark step)
   bld <+ (AST.cjmp (loadMem 16<rt> p == AST.xtlo 16<rt> (reg bld Register.R0))
-                   (AST.jmpDest found) (AST.jmpDest cont))
+                   (AST.jmpDest found)
+                   (AST.jmpDest cont))
   bld <+ (AST.lmark cont)
   bld <+ (p := p .+ numG 2L)
   bld <+ (AST.jmp (AST.jmpDest body))
@@ -2203,11 +2237,13 @@ let translateExtended ins insLen bld =
     setCC bld 0
     bld <+ (AST.lmark body)
     bld <+ (AST.cjmp (len == AST.num0 GRSize)
-                     (AST.jmpDest out) (AST.jmpDest more))
+                     (AST.jmpDest out)
+                     (AST.jmpDest more))
     bld <+ (AST.lmark more)
     bld <+ (v := loadMem 8<rt> addr)
     bld <+ (AST.cjmp (v == AST.xtlo 8<rt> (reg bld Register.R0))
-                     (AST.jmpDest found) (AST.jmpDest step))
+                     (AST.jmpDest found)
+                     (AST.jmpDest step))
     bld <+ (AST.lmark step)
     bld <+ storeMem addr (loadMem 8<rt> (table .+ zextTo GRSize v))
     bld <+ (addr := addr .+ AST.num1 GRSize)
@@ -2249,10 +2285,12 @@ let translateUnits ins insLen bld srcW dstW =
     bld <+ (AST.lmark more)
     let index = zextTo GRSize (loadMem srcW sa) .* scale
     bld <+ (v := loadMem dstW (table .+ index))
-    if noTest then bld <+ (AST.jmp (AST.jmpDest step))
+    if noTest then
+      bld <+ (AST.jmp (AST.jmpDest step))
     else
       bld <+ (AST.cjmp (v == narrowTo dstW (reg bld Register.R0))
-                       (AST.jmpDest found) (AST.jmpDest step))
+                       (AST.jmpDest found)
+                     (AST.jmpDest step))
     bld <+ (AST.lmark step)
     bld <+ storeMem da v
     bld <+ (da := da .+ dstStep)
@@ -2296,7 +2334,8 @@ let translateTestExtended ins insLen bld backwards =
     let index = zextTo GRSize (loadMem argW addr) .* scale
     bld <+ (fn := loadMem fnW (table .+ index))
     bld <+ (AST.cjmp (fn == AST.num0 fnW)
-                     (AST.jmpDest step) (AST.jmpDest found))
+                     (AST.jmpDest step)
+                     (AST.jmpDest found))
     bld <+ (AST.lmark step)
     if backwards then bld <+ (addr := addr .- argStep)
     else bld <+ (addr := addr .+ argStep)
@@ -2377,8 +2416,7 @@ let extractPsw ins insLen bld =
   let r2 = oprReg o2
   bld <!-- ((ins: Instruction).Address, insLen)
   bld <+ (low (reg bld r1) := zextTo WSize (ccVar bld) << numW 12L)
-  if r2 <> Register.R0 then bld <+ (low (reg bld r2) := AST.num0 WSize)
-  else ()
+  if r2 <> Register.R0 then bld <+ (low (reg bld r2) := AST.num0 WSize) else ()
   bld --!> insLen
 
 /// LOAD COUNT TO BLOCK BOUNDARY, which says how many of the sixteen bytes a
@@ -2432,7 +2470,8 @@ let loadMultipleDisjoint (ins: Instruction) insLen bld =
       bld <+ (high (reg bld regs[i]) := loadMem WSize (at hi))
       bld <+ (low (reg bld regs[i]) := loadMem WSize (at lo))
     bld --!> insLen
-  | _ -> raise InvalidOperandException
+  | _ ->
+    raise InvalidOperandException
 
 /// COMPARE UNTIL SUBSTRING EQUAL, which looks for the first place the two
 /// operands agree over a whole substring, whose length R0 gives.
@@ -2463,7 +2502,8 @@ let compareUntilEqual ins insLen bld =
     bld <+ (AST.lmark body)
     (* Neither operand may run out before the substring could fit. *)
     bld <+ (AST.cjmp ((al .< n) .| (bl .< n))
-                     (AST.jmpDest out) (AST.jmpDest more))
+                     (AST.jmpDest out)
+                     (AST.jmpDest more))
     bld <+ (AST.lmark more)
     bld <+ (k := AST.num0 GRSize)
     bld <+ (ok := AST.b1)
@@ -2471,10 +2511,10 @@ let compareUntilEqual ins insLen bld =
     bld <+ (AST.cjmp (k == n) (AST.jmpDest found) (AST.jmpDest step))
     bld <+ (AST.lmark step)
     bld <+ (ok := AST.ite (loadMem 8<rt> (aa .+ k) == loadMem 8<rt> (ba .+ k))
-                          ok AST.b0)
+                          ok
+                          AST.b0)
     bld <+ (k := k .+ AST.num1 GRSize)
-    bld <+ (AST.cjmp (ok == AST.b1)
-                     (AST.jmpDest inner) (AST.jmpDest advance))
+    bld <+ (AST.cjmp (ok == AST.b1) (AST.jmpDest inner) (AST.jmpDest advance))
     bld <+ (AST.lmark advance)
     bld <+ (aa := aa .+ AST.num1 GRSize)
     bld <+ (al := al .- AST.num1 GRSize)

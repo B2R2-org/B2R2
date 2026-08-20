@@ -50,8 +50,7 @@ let inline isOne e =
   | Num(n, _) -> n.IsOne
   | _ -> false
 
-let isFlippable (x: BitVector) =
-  x.IsNegative && not x.IsSignedMin
+let isFlippable (x: BitVector) = x.IsNegative && not x.IsSignedMin
 
 let inline isMax ty e =
   match e with
@@ -78,17 +77,28 @@ let rec simplify expr =
 
 and simplifyBinOp op ty e1 e2 =
   match op, e1, e2 with
-  | BinOpType.XOR, _, _ when e1 = e2 -> zeroNum ty
-  | BinOpType.XOR, _, _ when isZero e1 -> simplify e2
-  | BinOpType.XOR, _, _ when isZero e2 -> simplify e1
-  | BinOpType.AND, _, _ when e1 = e2 -> simplify e1
-  | BinOpType.AND, _, _ when isMax ty e1 -> simplify e2
-  | BinOpType.AND, _, _ when isMax ty e2 -> simplify e1
-  | BinOpType.AND, _, _ when isZero e1 || isZero e2 -> zeroNum ty
-  | BinOpType.OR, _, _ when e1 = e2 -> simplify e1
-  | BinOpType.OR, _, _ when isZero e1 -> simplify e2
-  | BinOpType.OR, _, _ when isZero e2 -> simplify e1
-  | BinOpType.OR, _, _ when isMax ty e1 || isMax ty e2 -> maxNum ty
+  | BinOpType.XOR, _, _ when e1 = e2 ->
+    zeroNum ty
+  | BinOpType.XOR, _, _ when isZero e1 ->
+    simplify e2
+  | BinOpType.XOR, _, _ when isZero e2 ->
+    simplify e1
+  | BinOpType.AND, _, _ when e1 = e2 ->
+    simplify e1
+  | BinOpType.AND, _, _ when isMax ty e1 ->
+    simplify e2
+  | BinOpType.AND, _, _ when isMax ty e2 ->
+    simplify e1
+  | BinOpType.AND, _, _ when isZero e1 || isZero e2 ->
+    zeroNum ty
+  | BinOpType.OR, _, _ when e1 = e2 ->
+    simplify e1
+  | BinOpType.OR, _, _ when isZero e1 ->
+    simplify e2
+  | BinOpType.OR, _, _ when isZero e2 ->
+    simplify e1
+  | BinOpType.OR, _, _ when isMax ty e1 || isMax ty e2 ->
+    maxNum ty
   | op, _, _ when isZero e1 && (op = BinOpType.ADD || op = BinOpType.SUB) ->
     simplify e2
   | op, _, _ when isZero e2 && (op = BinOpType.ADD || op = BinOpType.SUB) ->
@@ -125,7 +135,8 @@ and simplifyBinOp op ty e1 e2 =
                    BinOp(BinOpType.SUB, _, e4, Num(n3, _), _) ->
     simplify (binSUB (binADD e2 e4) (addNum n1 n3))
   (* Num + Num *)
-  | BinOpType.ADD, Num(n1, _), Num(n2, _) -> addNum n1 n2
+  | BinOpType.ADD, Num(n1, _), Num(n2, _) ->
+    addNum n1 n2
   (* ADD + Num, Num + ADD *)
   | BinOpType.ADD, Num(n1, _), BinOp(BinOpType.ADD, _, Num(n2, _), e3, _)
   | BinOpType.ADD, Num(n1, _), BinOp(BinOpType.ADD, _, e3, Num(n2, _), _)
@@ -182,7 +193,8 @@ and simplifyBinOp op ty e1 e2 =
                    BinOp(BinOpType.SUB, _, e4, Num(n3, _), _) ->
     simplify (binSUB (binSUB e2 e4) (subNum n1 n3))
   (* Num - Num *)
-  | BinOpType.SUB, Num(n1, _), Num(n2, _) -> subNum n1 n2
+  | BinOpType.SUB, Num(n1, _), Num(n2, _) ->
+    subNum n1 n2
   (* ADD - Num, Num - ADD *)
   | BinOpType.SUB, BinOp(BinOpType.ADD, _, Num(n1, _), e2, _), Num(n3, _)
   | BinOpType.SUB, BinOp(BinOpType.ADD, _, e2, Num(n1, _), _), Num(n3, _) ->
@@ -220,11 +232,16 @@ and simplifyBinOp op ty e1 e2 =
   | BinOpType.SUB, BinOp(BinOpType.SUB, _, Num(n1, _), e2, _),
                    BinOp(BinOpType.ADD, _, e4, Num(n3, _), _) ->
     simplify (binSUB (subNum n1 n3) (binADD e2 e4))
-  | BinOpType.SUB, _, _ when e1 = e2 -> zeroNum ty
-  | BinOpType.MUL, _, _ when isOne e1 -> simplify e2
-  | BinOpType.MUL, _, _ when isOne e2 -> simplify e1
-  | BinOpType.MUL, _, _ when isZero e1 || isZero e2 -> zeroNum ty
-  | _, _, _ -> AST.binop op (simplify e1) (simplify e2)
+  | BinOpType.SUB, _, _ when e1 = e2 ->
+    zeroNum ty
+  | BinOpType.MUL, _, _ when isOne e1 ->
+    simplify e2
+  | BinOpType.MUL, _, _ when isOne e2 ->
+    simplify e1
+  | BinOpType.MUL, _, _ when isZero e1 || isZero e2 ->
+    zeroNum ty
+  | _, _, _ ->
+    AST.binop op (simplify e1) (simplify e2)
 
 and simplifyCast kind ty e1 =
   match kind, e1 with

@@ -38,9 +38,12 @@ type Instruction
 
   let getMaskVal (opr: Operands) =
     match opr with
-    | NoOperand -> None
-    | OneOperand op1 -> extractMask op1
-    | TwoOperands(op1, op2) -> [| op1; op2 |] |> Array.tryPick extractMask
+    | NoOperand ->
+      None
+    | OneOperand op1 ->
+      extractMask op1
+    | TwoOperands(op1, op2) ->
+      [| op1; op2 |] |> Array.tryPick extractMask
     | ThreeOperands(op1, op2, op3) ->
       [| op1; op2; op3 |] |> Array.tryPick extractMask
     | FourOperands(op1, op2, op3, op4) ->
@@ -117,7 +120,8 @@ type Instruction
         match opr with
         | TwoOperands(_, OpReg Register.R14) -> true
         | _ -> false
-      | _ -> false
+      | _ ->
+        false
 
     member _.IsPush = Terminator.futureFeature ()
 
@@ -155,7 +159,8 @@ type Instruction
         match getMaskVal opr with
         | Some value -> uint16 value &&& 0b1111us = 0us
         | None -> false
-      | _ -> false
+      | _ ->
+        false
 
     member _.IsInlinedAssembly = false
 

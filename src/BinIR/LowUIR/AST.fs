@@ -143,7 +143,8 @@ let inline label name id addr = Label(name, id, addr)
 [<CompiledName("UnOp")>]
 let unop op e =
   match e with
-  | Num(n, _) -> ValueOptimizer.unop n op |> num
+  | Num(n, _) ->
+    ValueOptimizer.unop n op |> num
 #if ! HASHCONS
   | _ -> UnOp(op, e, null)
 #else
@@ -166,7 +167,8 @@ let jmpDest symb =
 
 let private binopWithType op t e1 e2 =
   match e1, e2 with
-  | Num(n1, _), Num(n2, _) -> ValueOptimizer.binop n1 n2 op |> num
+  | Num(n1, _), Num(n2, _) ->
+    ValueOptimizer.binop n1 n2 op |> num
 #if ! HASHCONS
   | _ ->
     BinOp(op, t, e1, e2, null)
@@ -182,7 +184,8 @@ let private binopWithType op t e1 e2 =
 let binop op e1 e2 =
   let t =
     match op with
-    | BinOpType.CONCAT -> TypeCheck.concat e1 e2
+    | BinOpType.CONCAT ->
+      TypeCheck.concat e1 e2
     | _ ->
 #if DEBUG
       TypeCheck.binop e1 e2
@@ -235,7 +238,8 @@ let relop op e1 e2 =
   TypeCheck.binop e1 e2 |> ignore
 #endif
   match e1, e2 with
-  | Num(n1, _), Num(n2, _) -> ValueOptimizer.relop n1 n2 op |> num
+  | Num(n1, _), Num(n2, _) ->
+    ValueOptimizer.relop n1 n2 op |> num
 #if ! HASHCONS
   | _ ->
     RelOp(op, e1, e2, null)
@@ -251,7 +255,8 @@ let relop op e1 e2 =
 let load endian rt addr =
 #if DEBUG
   match addr with
-  | JmpDest _ -> raise InvalidExprException
+  | JmpDest _ ->
+    raise InvalidExprException
   | _ ->
 #endif
 #if ! HASHCONS
@@ -278,7 +283,8 @@ let ite cond e1 e2 =
   TypeCheck.checkEquivalence (Expr.typeOf e1) (Expr.typeOf e2)
 #endif
   match cond with
-  | Num(n, _) -> if n.IsZero then e2 else e1
+  | Num(n, _) ->
+    if n.IsZero then e2 else e1
   | _ ->
 #if ! HASHCONS
     Ite(cond, e1, e2, null)
@@ -292,7 +298,8 @@ let ite cond e1 e2 =
 [<CompiledName("Cast")>]
 let cast kind rt e =
   match e with
-  | Num(n, _) -> ValueOptimizer.cast rt n kind |> num
+  | Num(n, _) ->
+    ValueOptimizer.cast rt n kind |> num
   | _ ->
     if TypeCheck.canCast kind rt e then
 #if ! HASHCONS
@@ -302,7 +309,8 @@ let cast kind rt e =
       let e = Cast(kind, rt, e, hc)
       internExpr e hc (Expr.HashCast(kind, rt, e))
 #endif
-    else e (* Remove unnecessary casting . *)
+    else
+      e (* Remove unnecessary casting . *)
 
 /// <summary>
 /// Extract bits of the given size (<see cref='T:B2R2.RegType'/>) at the given
@@ -312,7 +320,8 @@ let cast kind rt e =
 let extract expr rt pos =
   TypeCheck.extract rt pos (Expr.typeOf expr)
   match expr with
-  | Num(n, _) -> ValueOptimizer.extract n rt pos |> num
+  | Num(n, _) ->
+    ValueOptimizer.extract n rt pos |> num
   | Extract(e, _, p, _) ->
     let pos = p + pos
 #if ! HASHCONS
@@ -497,8 +506,7 @@ let eq e1 e2 =
 #if ! HASHCONS
   relop RelOpType.EQ e1 e2
 #else
-  if e1 < e2 then relop RelOpType.EQ e1 e2
-  else relop RelOpType.EQ e2 e1
+  if e1 < e2 then relop RelOpType.EQ e1 e2 else relop RelOpType.EQ e2 e1
 #endif
 
 /// Not equal.
@@ -507,8 +515,7 @@ let neq e1 e2 =
 #if ! HASHCONS
   relop RelOpType.NEQ e1 e2
 #else
-  if e1 < e2 then relop RelOpType.NEQ e1 e2
-  else relop RelOpType.NEQ e2 e1
+  if e1 < e2 then relop RelOpType.NEQ e1 e2 else relop RelOpType.NEQ e2 e1
 #endif
 
 /// Unsigned greater than.
@@ -794,8 +801,10 @@ let private assignForExtractDst e1 e2 =
     let nMask = RegType.makeMask t - RegType.makeMask eTyp
     let mask = BitVector(nMask, t) |> num
     let src = cast CastKind.ZeroExt t e2
-    put e1 (binopWithType BinOpType.OR t
-              (binopWithType BinOpType.AND t e1 mask) src)
+    put e1 (binopWithType BinOpType.OR
+                          t
+                          (binopWithType BinOpType.AND t e1 mask)
+                          src)
   | Extract(Var(t, _, _, _) as e1, eTyp, pos, _)
   | Extract(TempVar(t, _, _) as e1, eTyp, pos, _) ->
     let nMask = RegType.makeMask t - (RegType.makeMask eTyp <<< pos)
@@ -803,8 +812,10 @@ let private assignForExtractDst e1 e2 =
     let src = cast CastKind.ZeroExt t e2
     let shift = BitVector(pos, t) |> num
     let src = binopWithType BinOpType.SHL t src shift
-    put e1 (binopWithType BinOpType.OR t
-              (binopWithType BinOpType.AND t e1 mask) src)
+    put e1 (binopWithType BinOpType.OR
+                          t
+                          (binopWithType BinOpType.AND t e1 mask)
+                          src)
   | e ->
 #if DEBUG
     eprintfn $"{e.ToString()}"

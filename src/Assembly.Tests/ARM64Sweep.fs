@@ -119,8 +119,7 @@ module internal ARM64Sweep =
       for l in 0u .. 1u do
         for name in 0u .. 65535u do
           for rt in [ 0u; 31u ] do
-            yield (0b1101010100u <<< 22) ||| (l <<< 21) ||| (name <<< 5)
-                  ||| rt
+            yield (0b1101010100u <<< 22) ||| (l <<< 21) ||| (name <<< 5) ||| rt
       for high in 0u .. 2047u do
         for mid in (if isSIMD high then [ 0u .. 63u ] else []) do
           for rm in 0u .. 31u do
@@ -163,10 +162,8 @@ module internal ARM64Sweep =
       ARM64Parser(BinReader.Init Endian.Little) :> IInstructionParsable
     [ for word in words do
         match decode parser word with
-        | Some(opcode, text) ->
-          yield { Opcode = opcode; Text = text }
-        | None ->
-          () ]
+        | Some(opcode, text) -> yield { Opcode = opcode; Text = text }
+        | None -> () ]
     |> List.distinctBy (fun probe -> shapeOf probe.Text)
 
 // vim: set tw=80 sts=2 sw=2:

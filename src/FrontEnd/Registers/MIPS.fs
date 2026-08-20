@@ -438,4 +438,5 @@ module Register =
       | Register.ExMonVal -> "exmonval"
       | Register.ULR -> "ulr"
       | _ -> Terminator.impossible ()
-    | _ -> Terminator.impossible ()
+    | _ ->
+      Terminator.impossible ()

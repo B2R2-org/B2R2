@@ -68,8 +68,7 @@ let dumpFileHeader (_: BinScanOpts) (file: ELFBinFile) =
   printsn ""
 
 let computeSectionEndAddr (s: SectionHeader) =
-  if s.SecSize = 0UL then s.SecAddr
-  else s.SecAddr + s.SecSize - 1UL
+  if s.SecSize = 0UL then s.SecAddr else s.SecAddr + s.SecSize - 1UL
 
 let makeSectionHeadersFormatVerbose addrColumn =
   [| LeftAligned 4
@@ -296,7 +295,8 @@ let dumpFunctions _ (elf: ELFBinFile) =
       printsr
       <| [| Addr.toString (elf: IBinFile).ISA.WordSize symb.Addr
             normalizeEmpty symb.SymName |]
-    | Error _ -> ()
+    | Error _ ->
+      ()
   printDoubleHorizontalRule ()
   printsn ""
 
@@ -496,7 +496,8 @@ let ruleToString (hdl: BinHandle) (rule: UnwindingRule) =
     rule
     |> Map.fold (fun s k v ->
       match k with
-      | ReturnAddress -> s + "(ra:" + UnwindingAction.ToString v + ")"
+      | ReturnAddress ->
+        s + "(ra:" + UnwindingAction.ToString v + ")"
       | NormalReg rid ->
         let reg = hdl.RegisterFactory.GetRegisterName rid
         s + "(" + reg + ":" + UnwindingAction.ToString v + ")") ""
@@ -549,8 +550,7 @@ let dumpGccExceptTable _hdl (elf: ELFBinFile) =
   printDoubleHorizontalRule ()
   printsn ""
 
-let dumpNotes _hdl (_file: ELFBinFile) =
-  Terminator.futureFeature ()
+let dumpNotes _hdl (_file: ELFBinFile) = Terminator.futureFeature ()
 
 let dumpDebugInfo _hdl (file: ELFBinFile) =
   for die in file.DebugInfo do

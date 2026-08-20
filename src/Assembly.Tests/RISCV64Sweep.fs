@@ -122,8 +122,7 @@ module internal RISCV64Sweep =
   /// whether it is below zero, because its value beyond that is not what an
   /// encoder gets wrong.
   let private shapeOfPart (part: string) =
-    if isNumber part then (if isNegative part then "imm-" else "imm+")
-    else part
+    if isNumber part then (if isNegative part then "imm-" else "imm+") else part
 
   /// What an operand names and nothing else, which is the coarser of the two
   /// keys: one form is worth reaching once however many registers it is written
@@ -150,7 +149,8 @@ module internal RISCV64Sweep =
   /// The key a probe is kept once for, given how much of an operand it keeps.
   let private keyOf kind (text: string) =
     match text.Split ' ' |> Array.toList with
-    | [] | [ _ ] -> text
+    | [] | [ _ ] ->
+      text
     | mnemonic :: rest ->
       (String.concat " " rest).Split ','
       |> Array.map (describe kind)
@@ -166,8 +166,8 @@ module internal RISCV64Sweep =
 
   /// The four fields of a word of full width that say which instruction it is.
   let private formOf (probe: uint32) =
-    probe &&& 0x7Fu, (probe >>> 12) &&& 0x7u, probe >>> 25,
-    (probe >>> 20) &&& 0x1Fu
+    let bit7 = probe &&& 0x7Fu
+    bit7, (probe >>> 12) &&& 0x7u, probe >>> 25, (probe >>> 20) &&& 0x1Fu
 
   /// Probes the whole space this sweep covers, keeping one instruction per
   /// distinct operand shape.

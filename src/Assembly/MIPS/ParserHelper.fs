@@ -164,14 +164,16 @@ let formats = suffixNames<FPRFormat> ()
 /// most one of each and in that order.
 let private trySuffixes (parts: string[]) =
   match parts with
-  | [||] -> Some(None, None)
+  | [||] ->
+    Some(None, None)
   | [| fmt |] ->
     Map.tryFind fmt formats |> Option.map (fun fmt -> None, Some fmt)
   | [| cond; fmt |] ->
     match Map.tryFind cond conditions, Map.tryFind fmt formats with
     | Some cond, Some fmt -> Some(Some cond, Some fmt)
     | _ -> None
-  | _ -> None
+  | _ ->
+    None
 
 /// <summary>
 /// The opcode, the condition and the format a written mnemonic names.
@@ -183,7 +185,8 @@ let private trySuffixes (parts: string[]) =
 let decomposeMnemonic (mnemonic: string) =
   let parts = mnemonic.ToLowerInvariant().Split '.'
   let rec tryPrefix length =
-    if length = 0 then None
+    if length = 0 then
+      None
     else
       let name = String.Join('.', parts[..length - 1])
       match Map.tryFind name opcodes |> Option.map (fun opcode ->
@@ -221,8 +224,7 @@ let accessLength opcode wordSize =
   | Opcode.LB | Opcode.LBU | Opcode.SB -> 8<rt>
   | Opcode.LH | Opcode.LHU | Opcode.SH -> 16<rt>
   | Opcode.LD | Opcode.LDL | Opcode.LDR | Opcode.LLD | Opcode.SCD
-  | Opcode.SD | Opcode.SDL | Opcode.SDR | Opcode.LDXC1 | Opcode.SDXC1 ->
-    64<rt>
+  | Opcode.SD | Opcode.SDL | Opcode.SDR | Opcode.LDXC1 | Opcode.SDXC1 -> 64<rt>
   | Opcode.LDC1 | Opcode.SDC1 -> WordSize.toRegType wordSize
   | _ -> 32<rt>
 
@@ -239,8 +241,10 @@ let markPlace opcode (pc: Addr) operands =
     match List.rev operands with
     | OpImm target :: rest ->
       OpAddr(Relative(int64 (target - pc))) :: rest |> List.rev
-    | _ -> operands
-  else operands
+    | _ ->
+      operands
+  else
+    operands
 
 /// Builds one instruction as written.
 let newInfo opcode cond fmt operands =

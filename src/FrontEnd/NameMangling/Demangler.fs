@@ -52,4 +52,5 @@ type Demangler =
       (MSDemangler() :> IDemanglable).Demangle str
     elif ItaniumDemangler.IsWellFormed str then
       (ItaniumDemangler() :> IDemanglable).Demangle str
-    else Ok str
+    else
+      Ok str

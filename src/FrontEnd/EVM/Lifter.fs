@@ -219,8 +219,7 @@ let swap (ins: Instruction) bld pos =
 let callExternFunc (ins: Instruction) bld name argCount doesRet =
   let args = List.init argCount (fun _ -> popFromStack bld)
   let expr = AST.app name args OperationSize.regType
-  if doesRet then pushToStack bld expr
-  else bld <+ (AST.extCall expr)
+  if doesRet then pushToStack bld expr else bld <+ (AST.extCall expr)
   updateGas bld ins.GAS
 
 let call (ins: Instruction) bld fname =

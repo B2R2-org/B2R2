@@ -42,12 +42,14 @@ type BinSectionSymbMemory(hdl: BinHandle, mem: ISymbMemory, isBacked: bool) =
 
     member _.ByteRead addr =
       match mem.ByteRead addr with
-      | Ok value -> Ok value
+      | Ok value ->
+        Ok value
       | Error _ when isBacked && hdl.File.IsValidAddr addr ->
         match hdl.TryReadBytes(addr, 1) with
         | Ok bs -> Ok(SymbExpr.Const(BitVector(uint32 bs[0], 8<rt>)))
         | Error _ -> Error(InvalidMemoryRead addr)
-      | Error e -> Error e
+      | Error e ->
+        Error e
 
     member _.ByteWrite(addr, value) = mem.ByteWrite(addr, value)
 

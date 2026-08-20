@@ -51,4 +51,5 @@ let rec buildNgram acc n (span: ByteSpan) idx =
     let bs = span.Slice(idx, n).ToArray()
     let h = XxHash32.Hash bs |> BitConverter.ToInt32
     buildNgram ((h, idx) :: acc) n span (idx + 1)
-  else List.rev acc |> List.toArray
+  else
+    List.rev acc |> List.toArray

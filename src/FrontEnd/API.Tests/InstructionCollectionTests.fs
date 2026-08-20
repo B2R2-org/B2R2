@@ -45,8 +45,7 @@ type InstructionCollectionTests() =
   static let failing =
     { new IInstructionCollectable with
         member _.Collect(_, _) = failwith "sweep blew up"
-        member _.ParseInstructionCandidate _ =
-          Error ErrorCase.ParsingFailure }
+        member _.ParseInstructionCandidate _ = Error ErrorCase.ParsingFailure }
 
   [<TestMethod>]
   member _.``[InstructionCollection] count is final after completion test``() =

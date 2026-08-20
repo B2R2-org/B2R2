@@ -31,10 +31,10 @@ open B2R2.MiddleEnd.ControlFlowGraph
 
 /// Interface for summarizing a function based on the given context to abstract
 /// data.
-type IFunctionSummarizable<'FnCtx,
-                           'GlCtx when 'FnCtx :> IResettable
-                                   and 'FnCtx: (new: unit -> 'FnCtx)
-                                   and 'GlCtx: (new: unit -> 'GlCtx)> =
+type IFunctionSummarizable<'FnCtx, 'GlCtx
+  when 'FnCtx :> IResettable
+  and 'FnCtx: (new: unit -> 'FnCtx)
+  and 'GlCtx: (new: unit -> 'GlCtx)> =
   /// Summarize a function based on the given context. The `ins` is the call
   /// instruction that calls the function.
   abstract Summarize:
