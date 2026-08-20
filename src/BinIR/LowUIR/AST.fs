@@ -146,7 +146,8 @@ let unop op e =
   | Num(n, _) ->
     ValueOptimizer.unop n op |> num
 #if ! HASHCONS
-  | _ -> UnOp(op, e, null)
+  | _ ->
+    UnOp(op, e, null)
 #else
   | _ ->
     let hc = HashConsingInfo()
