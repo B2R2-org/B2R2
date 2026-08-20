@@ -36,22 +36,29 @@ type CooperDominanceFrontier<'V, 'E when 'V: equality and 'E: equality>() =
       else dom.ImmediateDominator
     let frontiers = Dictionary<IVertex<_>, HashSet<IVertex<_>>>()
     let roots = g.GetRoots()
+    (* A vertex unreachable from the roots has no dominance information, so the
+       edges leaving it are not real control flow and thus are ignored. *)
+    let reachables = GraphUtils.computeReachables g
     for v in g.Vertices do frontiers[v] <- HashSet<IVertex<_>>()
     for v in g.Vertices do
-      let preds = g.GetPreds v
-      let isRoot = Array.contains v roots
-      if not isRoot && preds.Length < 2 || isRoot && preds.Length = 0 then
-        ()
-      else
+      let preds = g.GetPreds v |> Array.filter (fun p -> reachables.Contains p)
+      let isJoin =
+        if Array.contains v roots then preds.Length > 0 else preds.Length > 1
+      if isJoin then
+        let idomV = idom v
         for p in preds do
           let mutable runner = p
-          while runner <> idom v do
+          while runner <> idomV do
             frontiers[runner].Add v |> ignore
             runner <- idom runner
+      else
+        ()
     frontiers
 
   interface IDominanceFrontierProvider<'V, 'E> with
     member _.CreateIDominanceFrontier(g, dom, isPostDominance) =
       let frontiers = computeDF g dom isPostDominance
       { new IDominanceFrontier<'V, 'E> with
-          member _.DominanceFrontier(v) = frontiers[v] }
+          member _.DominanceFrontier(v) =
+            GraphUtils.checkVertexInGraph g v
+            frontiers[v] }

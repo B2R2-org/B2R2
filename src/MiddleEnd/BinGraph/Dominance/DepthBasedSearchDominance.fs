@@ -354,42 +354,30 @@ let private createDominance fwG
   let mutable pdfProvider = null
   { new IDominance<'V, 'E> with
       member _.Dominators v =
-#if DEBUG
         GraphUtils.checkVertexInGraph fwG v
-#endif
         doms fwG fwInfo v
       member _.ImmediateDominator v =
-#if DEBUG
         GraphUtils.checkVertexInGraph fwG v
-#endif
         idom fwG fwInfo v
       member _.DominatorTree = fwDT.Value
       member this.DominanceFrontier v =
-#if DEBUG
         GraphUtils.checkVertexInGraph fwG v
-#endif
         if isNull dfProvider then
           dfProvider <- dfp.CreateIDominanceFrontier(fwG, this, false)
         else
           ()
         dfProvider.DominanceFrontier v
       member _.PostDominators v =
-#if DEBUG
         GraphUtils.checkVertexInGraph bwG.Value v
-#endif
         doms bwG.Value bwInfo.Value v
         |> Seq.map (findOriginalVertex fwG)
       member _.ImmediatePostDominator v =
-#if DEBUG
         GraphUtils.checkVertexInGraph bwG.Value v
-#endif
         idom bwG.Value bwInfo.Value v
         |> findOriginalVertex fwG
       member _.PostDominatorTree = bwDT.Value
       member this.PostDominanceFrontier v =
-#if DEBUG
         GraphUtils.checkVertexInGraph bwG.Value v
-#endif
         if isNull pdfProvider then
           pdfProvider <- dfp.CreateIDominanceFrontier(bwG.Value, this, true)
         else

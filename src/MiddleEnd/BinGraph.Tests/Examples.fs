@@ -227,3 +227,14 @@ let digraph11 t =
   let g = addEdge g 9 1
   let g = addEdge g 10 7
   g, vmap
+
+/// Arbitrarily generated example, where the vertex 5 is unreachable from the
+/// root (1) while it has an edge into the reachable part. Exits: 4
+let digraph12 t =
+  let g, vmap, addEdge = prepare 5 t
+  let g = addEdge g 1 2
+  let g = addEdge g 1 3
+  let g = addEdge g 2 4
+  let g = addEdge g 3 4
+  let g = addEdge g 5 3
+  g, vmap

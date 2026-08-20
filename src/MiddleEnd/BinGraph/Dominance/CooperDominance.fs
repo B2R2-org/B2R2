@@ -53,6 +53,15 @@ let private initDomInfo (g: IDiGraphAccessible<_, _>) =
     Roots = g.GetRoots()
     DummyRoot = GraphUtils.makeDummyVertex () }
 
+(* A predecessor unreachable from the roots has no number assigned, so it
+   cannot take part in the computation below. *)
+let private getPredNums (g: IDiGraphAccessible<_, _>) info v =
+  g.GetPreds v
+  |> Array.choose (fun p ->
+    match info.NumMap.TryGetValue p.ID with
+    | true, n -> Some n
+    | false, _ -> None)
+
 let private prepareWithDummyRoot g info =
   let realRoots = info.Roots
   let n =
@@ -75,13 +84,8 @@ let private prepareWithDummyRoot g info =
   for i = 0 to n - 1 do
     let v = info.Vertex[i]
     let preds =
-      if realRoots |> Array.contains v then
-        [| n
-           yield! (g: IDiGraphAccessible<_, _>).GetPreds v
-                  |> Array.map (fun p -> info.NumMap[p.ID]) |]
-      else
-        g.GetPreds v
-        |> Array.map (fun p -> info.NumMap[p.ID])
+      if realRoots |> Array.contains v then [| n; yield! getPredNums g info v |]
+      else getPredNums g info v
     info.Preds[i] <- preds
   n
 
@@ -152,42 +156,30 @@ let private createDominance fwG
   let mutable pdfProvider = null
   { new IDominance<'V, 'E> with
     member _.Dominators v =
-#if DEBUG
       GraphUtils.checkVertexInGraph fwG v
-#endif
       domsAux [ v ] v fwInfo
     member _.ImmediateDominator v =
-#if DEBUG
       GraphUtils.checkVertexInGraph fwG v
-#endif
       idomAux fwInfo v
     member _.DominatorTree = fwDT.Value
     member this.DominanceFrontier v =
-#if DEBUG
       GraphUtils.checkVertexInGraph fwG v
-#endif
       if isNull pdfProvider then
         pdfProvider <- dfp.CreateIDominanceFrontier(fwG, this, false)
       else
         ()
       pdfProvider.DominanceFrontier v
     member _.PostDominators v =
-#if DEBUG
       GraphUtils.checkVertexInGraph bwG.Value v
-#endif
       domsAux [ v ] v bwInfo.Value
       |> Seq.map (findOriginalVertex fwG)
     member _.ImmediatePostDominator v =
-#if DEBUG
       GraphUtils.checkVertexInGraph bwG.Value v
-#endif
       idomAux bwInfo.Value v
       |> findOriginalVertex fwG
     member _.PostDominatorTree = bwDT.Value
     member this.PostDominanceFrontier v =
-#if DEBUG
       GraphUtils.checkVertexInGraph bwG.Value v
-#endif
       if isNull dfProvider then
         dfProvider <- dfp.CreateIDominanceFrontier(bwG.Value, this, true)
       else

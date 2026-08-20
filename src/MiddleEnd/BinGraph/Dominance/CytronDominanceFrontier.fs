@@ -49,22 +49,29 @@ type CytronDominanceFrontier<'V, 'E when 'V: equality and 'E: equality>() =
       else
         dom.DominatorTree, dom.ImmediateDominator
     let frontiers = Dictionary<IVertex<_>, HashSet<IVertex<_>>>()
-    let root = domTree.GetRoot()
-    for v in traverseBottomUp domTree root do
-      let df = HashSet<IVertex<_>>()
-      for succ in g.GetSuccs v do
-        if idom succ <> v then df.Add succ |> ignore else ()
-      done
-      for child in domTree.GetChildren v do
-        for node in frontiers[child] do
-          if idom node <> v then df.Add node |> ignore else ()
+    (* A vertex unreachable from the roots has no dominance information, hence
+       no dominance frontier of its own. *)
+    let reachables = GraphUtils.computeReachables g
+    for v in g.Vertices do frontiers[v] <- HashSet<IVertex<_>>()
+    for v in traverseBottomUp domTree (domTree.GetRoot()) do
+      if reachables.Contains v then
+        let df = frontiers[v]
+        for succ in g.GetSuccs v do
+          if idom succ <> v then df.Add succ |> ignore else ()
         done
-      done
-      frontiers[v] <- df
+        for child in domTree.GetChildren v do
+          for node in frontiers[child] do
+            if idom node <> v then df.Add node |> ignore else ()
+          done
+        done
+      else
+        ()
     frontiers
 
   interface IDominanceFrontierProvider<'V, 'E> with
     member _.CreateIDominanceFrontier(g, dom, isPostDominance) =
       let frontiers = computeDF g dom isPostDominance
       { new IDominanceFrontier<'V, 'E> with
-          member _.DominanceFrontier(v) = frontiers[v] }
+          member _.DominanceFrontier(v) =
+            GraphUtils.checkVertexInGraph g v
+            frontiers[v] }

@@ -40,11 +40,11 @@ let raiseVertexNotFoundByData data =
 let raiseVertexNotFoundByPredicate () =
   raise <| VertexNotFoundException "No vertex satisfying the predicate"
 
-#if DEBUG
+/// Raises `VertexNotFoundException` when the given vertex does not belong to
+/// the given graph. Analyses use this to reject foreign vertices up front,
+/// rather than failing later with an obscure lookup error.
 let checkVertexInGraph (g: IDiGraphAccessible<_, _>) (v: IVertex<_>) =
-  let v' = g.FindVertexByData v.VData
-  if v.ID = v'.ID then () else raiseVertexNotFoundByID v.ID
-#endif
+  if g.HasVertex v.ID then () else raiseVertexNotFoundByID v.ID
 
 /// Makes a dummy vertex for an analysis without having to use `AddVertex`
 /// method of a graph. With this, we don't have to modify the graph itself.
@@ -72,6 +72,14 @@ let reverse (inGraph: IDiGraphAccessible<_, _>) roots outGraph =
       assert (inGraph.HasVertex root.ID)
       outGraph.FindVertexByID root.ID)
     |> outGraph.SetRoots
+
+/// Collects the vertices that are reachable from the roots of the given graph.
+let computeReachables (g: IDiGraphAccessible<_, _>) =
+  let reachables = HashSet<IVertex<_>>()
+  let roots = g.GetRoots() |> Array.toList
+  Traversal.DFS.iterPreorderWithRoots g roots (fun v ->
+    reachables.Add v |> ignore)
+  reachables
 
 let computeDepthFirstNumbers (g: IDiGraphAccessible<_, _>) =
   let dfNums = Dictionary<IVertex<_>, int>()

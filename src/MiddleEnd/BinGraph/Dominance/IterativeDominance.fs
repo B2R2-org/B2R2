@@ -36,21 +36,31 @@ module B2R2.MiddleEnd.BinGraph.Dominance.IterativeDominance
 open System.Collections.Generic
 open B2R2.MiddleEnd.BinGraph
 
-let private computeDoms (g: IDiGraphAccessible<_, _>) =
+(* A vertex unreachable from the roots has no dominator, so we compute the
+   dominators of the reachable vertices only. Note that the predecessors of a
+   reachable vertex may be unreachable, in which case they carry no dominance
+   information and thus should not participate in the intersection below. *)
+let private computeDoms (g: IDiGraphAccessible<_, _>) reachables =
   let doms = Dictionary<IVertex<_>, Set<IVertex<_>>>()
-  let roots = g.GetRoots()
-  let allButRoots = List()
-  let all = Set g.Vertices
-  for r in roots do doms[r] <- Set.singleton r
-  for v in g.Vertices do
+  let nonRoots = List()
+  let all = Set.ofSeq (reachables: HashSet<IVertex<_>>)
+  for r in g.GetRoots() do doms[r] <- Set.singleton r
+  for v in reachables do
     if doms.ContainsKey v then ()
-    else doms[v] <- all; allButRoots.Add v |> ignore
+    else
+      doms[v] <- all
+      nonRoots.Add v
   let mutable changed = true
   while changed do
     changed <- false
-    for v in allButRoots do
-      let predDoms = Set.intersectMany [ for p in g.GetPreds v -> doms[p] ]
-      let newDoms = Set.add v predDoms
+    for v in nonRoots do
+      let predDoms =
+        g.GetPreds v
+        |> Array.filter (fun p -> reachables.Contains p)
+        |> Array.map (fun p -> doms[p])
+      let newDoms =
+        if Array.isEmpty predDoms then Set.singleton v
+        else Set.add v (Set.intersectMany predDoms)
       if newDoms <> doms[v] then
         doms[v] <- newDoms
         changed <- true
@@ -59,19 +69,19 @@ let private computeDoms (g: IDiGraphAccessible<_, _>) =
   doms
 
 let private computeIDoms g (doms: Dictionary<_, _>) =
-  let roots = (g: IDiGraphAccessible<_, _>).GetRoots()
   let idoms = Dictionary<IVertex<_>, IVertex<_> | null>()
   let tmps = Dictionary<IVertex<_>, Set<IVertex<_> | null>>()
-  for v in g.Vertices do tmps[v] <- Set.remove v doms[v]
-  for r in roots do idoms[r] <- null
-  for v in g.Vertices do
-    if idoms.ContainsKey v then
-      ()
+  let vertices = Array.ofSeq doms.Keys
+  for v in vertices do tmps[v] <- Set.remove v doms[v]
+  for r in (g: IDiGraphAccessible<_, _>).GetRoots() do idoms[r] <- null
+  for v in vertices do
+    if idoms.ContainsKey v then ()
     else
       for s in tmps[v] do
         for t in Set.remove s tmps[v] do
-          if Set.contains t tmps[s] then tmps[v] <- Set.remove t tmps[v] else ()
-  for v in g.Vertices do
+          if Set.contains t tmps[s] then tmps[v] <- Set.remove t tmps[v]
+          else ()
+  for v in vertices do
     if idoms.ContainsKey v then
       ()
     else
@@ -79,11 +89,22 @@ let private computeIDoms g (doms: Dictionary<_, _>) =
       idoms[v] <- if Set.isEmpty tmps[v] then null else tmps[v].MinimumElement
   idoms
 
+(* An unreachable vertex has no entry in the tables, in which case it only
+   dominates itself and has no immediate dominator. *)
+let private findDoms (doms: Dictionary<_, _>) v =
+  match doms.TryGetValue v with
+  | true, ds -> ds
+  | false, _ -> Set.singleton v
+
+let private findIDom (idoms: Dictionary<_, _>) v: IVertex<'V> | null =
+  match idoms.TryGetValue v with
+  | true, idom -> idom
+  | false, _ -> null
+
 let private createDomInfo g (dfp: IDominanceFrontierProvider<_, _>) =
-  let doms = lazy computeDoms g
+  let doms = lazy computeDoms g (GraphUtils.computeReachables g)
   let idoms = lazy computeIDoms g doms.Value
-  let idom v = idoms.Value[v]
-  let domTree = lazy DominatorTree(g, idom)
+  let domTree = lazy DominatorTree(g, findIDom idoms.Value)
   doms, idoms, domTree
 
 type private IterativeDominance<'V, 'E when 'V: equality and 'E: equality>
@@ -103,23 +124,17 @@ type private IterativeDominance<'V, 'E when 'V: equality and 'E: equality>
       domTree.Value
 
     member _.Dominators v =
-#if DEBUG
       GraphUtils.checkVertexInGraph g v
-#endif
       let doms, _, _ = forward
-      doms.Value[v]
+      findDoms doms.Value v
 
     member _.ImmediateDominator v =
-#if DEBUG
       GraphUtils.checkVertexInGraph g v
-#endif
       let _, idoms, _ = forward
-      idoms.Value[v]
+      findIDom idoms.Value v
 
     member this.DominanceFrontier v =
-#if DEBUG
       GraphUtils.checkVertexInGraph g v
-#endif
       if isNull dfProvider then
         dfProvider <- dfp.CreateIDominanceFrontier(g, this, false)
       else
@@ -127,26 +142,20 @@ type private IterativeDominance<'V, 'E when 'V: equality and 'E: equality>
       dfProvider.DominanceFrontier v
 
     member _.PostDominators v =
-#if DEBUG
       GraphUtils.checkVertexInGraph g v
-#endif
       let doms, _, _ = backward.Value
-      doms.Value[v]
+      findDoms doms.Value v
       |> Set.map (findOriginalVertex g)
       |> Set.toSeq
 
     member _.ImmediatePostDominator v =
-#if DEBUG
       GraphUtils.checkVertexInGraph g v
-#endif
       let _, idoms, _ = backward.Value
-      idoms.Value[v]
+      findIDom idoms.Value v
       |> findOriginalVertex g
 
     member this.PostDominanceFrontier v =
-#if DEBUG
       GraphUtils.checkVertexInGraph g v
-#endif
       if isNull pdfProvider then
         pdfProvider <-
           dfp.CreateIDominanceFrontier(backwardG.Value, this, true)

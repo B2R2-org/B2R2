@@ -102,11 +102,13 @@ let private prepareWithDummyRoot g info =
   info.DFPre.Add(info.DummyRoot.ID, 0)
   info.Roots |> Array.map (fun v -> 0, v) |> Array.toList |> prepare g info 1
 
-let private getPreds g info v =
-  if info.Roots |> Array.contains v then
-    [| info.DummyRoot; yield! (g: IDiGraphAccessible<_, _>).GetPreds v |]
-  else
-    g.GetPreds v
+(* A predecessor unreachable from the roots has no DFPre number assigned, so it
+   cannot take part in the computation below. *)
+let private getPreds (g: IDiGraphAccessible<_, _>) info v =
+  let preds =
+    g.GetPreds v |> Array.filter (fun p -> info.DFPre.ContainsKey p.ID)
+  if info.Roots |> Array.contains v then [| info.DummyRoot; yield! preds |]
+  else preds
 
 let rec private compress info v =
   let a = info.Ancestor[v]
@@ -223,42 +225,30 @@ let private createDominance fwG
   let mutable pdfProvider = null
   { new IDominance<'V, 'E> with
     member _.Dominators v =
-#if DEBUG
       GraphUtils.checkVertexInGraph fwG v
-#endif
       domsAux [ v ] v fwInfo
     member _.ImmediateDominator v =
-#if DEBUG
       GraphUtils.checkVertexInGraph fwG v
-#endif
       idomAux fwInfo v
     member _.DominatorTree = fwDT.Value
     member this.DominanceFrontier v =
-#if DEBUG
       GraphUtils.checkVertexInGraph fwG v
-#endif
       if isNull pdfProvider then
         pdfProvider <- dfp.CreateIDominanceFrontier(fwG, this, false)
       else
         ()
       pdfProvider.DominanceFrontier v
     member _.PostDominators v =
-#if DEBUG
       GraphUtils.checkVertexInGraph bwG.Value v
-#endif
       domsAux [ v ] v bwInfo.Value
       |> Seq.map (findOriginalVertex fwG)
     member _.ImmediatePostDominator v =
-#if DEBUG
       GraphUtils.checkVertexInGraph bwG.Value v
-#endif
       idomAux bwInfo.Value v
       |> findOriginalVertex fwG
     member _.PostDominatorTree = bwDT.Value
     member this.PostDominanceFrontier v =
-#if DEBUG
       GraphUtils.checkVertexInGraph bwG.Value v
-#endif
       if isNull dfProvider then
         dfProvider <- dfp.CreateIDominanceFrontier(bwG.Value, this, true)
       else
