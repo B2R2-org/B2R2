@@ -43,7 +43,11 @@ exception DummyDataAccessException
 /// expected.
 exception MultipleRootVerticesException
 
-/// Represents a vertex of a graph.
+/// Represents a vertex of a graph. A vertex belongs to exactly one graph (or,
+/// for a persistent graph, to one chain of snapshots), and graph operations
+/// only accept the vertices of the graph they are invoked on. Note that
+/// equality and hashing go by `ID` alone, so two vertices of different graphs
+/// can compare equal; graphs themselves do not rely on that.
 type IVertex<'V when 'V: equality> =
   inherit System.IComparable
   inherit System.IFormattable

@@ -28,26 +28,40 @@ open System.Collections.Generic
 
 /// Represents an imperative directed graph.
 type ImperativeDiGraph<'V, 'E when 'V: equality and 'E: equality>() =
-  let vertices = Dictionary<VertexID, ImperativeVertex<'V>>()
+  let vertices = Dictionary<VertexID, Vertex<'V>>()
 
   let edges = Dictionary<VertexID * VertexID, Edge<'V, 'E>>()
 
-  let unreachables = HashSet<ImperativeVertex<'V>>()
+  let preds = Dictionary<VertexID, List<Vertex<'V>>>()
 
-  let exits = HashSet<ImperativeVertex<'V>>()
+  let succs = Dictionary<VertexID, List<Vertex<'V>>>()
+
+  let unreachables = HashSet<Vertex<'V>>()
+
+  let exits = HashSet<Vertex<'V>>()
 
   let mutable id = 0
 
-  let roots = List<ImperativeVertex<'V>>()
+  let roots = List<Vertex<'V>>()
 
-  let checkVertexExistence (v: IVertex<'V>) =
-    if vertices.ContainsKey v.ID then ()
+  (* A vertex belongs to this graph only when it is the very object we store
+     for its ID. Comparing IDs is not enough, because vertices compare by ID,
+     so a vertex of another graph can carry an ID we also use. *)
+  let isOwnVertex (v: IVertex<'V>) =
+    match vertices.TryGetValue v.ID with
+    | true, v' -> obj.ReferenceEquals(v', v)
+    | false, _ -> false
+
+  let findOwnVertex (v: IVertex<'V>) =
+    if isOwnVertex v then vertices[v.ID]
     else GraphUtils.raiseVertexNotFoundByID v.ID
 
   let addVertex (data: VertexData<'V>) (vid: VertexID) =
-    let v = ImperativeVertex(vid, data)
+    let v = Vertex(vid, data)
     if roots.Count = 0 then roots.Add v else ()
     vertices.Add(vid, v) |> ignore
+    preds.Add(vid, List())
+    succs.Add(vid, List())
     unreachables.Add v |> ignore
     exits.Add v |> ignore
     v :> IVertex<'V>
@@ -61,33 +75,29 @@ type ImperativeDiGraph<'V, 'E when 'V: equality and 'E: equality>() =
     addVertex data vid
 
   let addEdge (src: IVertex<'V>) (dst: IVertex<'V>) label =
-    let src = src :?> ImperativeVertex<'V>
-    let dst = dst :?> ImperativeVertex<'V>
-    checkVertexExistence src
-    checkVertexExistence dst
-    let srcID = (src :> IVertex<_>).ID
-    let dstID = (dst :> IVertex<_>).ID
+    let src = findOwnVertex src
+    let dst = findOwnVertex dst
+    let srcID = src.ID
+    let dstID = dst.ID
     if edges.ContainsKey(srcID, dstID) then
       ()
     else
       edges[(srcID, dstID)] <- Edge(src, dst, label)
-      src.Succs.Add dst
-      dst.Preds.Add src
+      succs[srcID].Add dst
+      preds[dstID].Add src
       unreachables.Remove dst |> ignore
       exits.Remove src |> ignore
 
   let removeEdge (src: IVertex<'V>) (dst: IVertex<'V>) =
-    let src = src :?> ImperativeVertex<'V>
-    let dst = dst :?> ImperativeVertex<'V>
-    checkVertexExistence src
-    checkVertexExistence dst
-    let srcid = src.ID
-    let dstid = dst.ID
-    src.Succs.RemoveAll(fun s -> s.ID = dstid) |> ignore
-    dst.Preds.RemoveAll(fun p -> p.ID = srcid) |> ignore
-    if dst.Preds.Count = 0 then unreachables.Add dst |> ignore else ()
-    if src.Succs.Count = 0 then exits.Add src |> ignore else ()
-    edges.Remove((srcid, dstid)) |> ignore
+    let src = findOwnVertex src
+    let dst = findOwnVertex dst
+    let srcID = src.ID
+    let dstID = dst.ID
+    succs[srcID].RemoveAll(fun s -> s.ID = dstID) |> ignore
+    preds[dstID].RemoveAll(fun p -> p.ID = srcID) |> ignore
+    if preds[dstID].Count = 0 then unreachables.Add dst |> ignore else ()
+    if succs[srcID].Count = 0 then exits.Add src |> ignore else ()
+    edges.Remove((srcID, dstID)) |> ignore
 
   let tryFindVertexBy fn =
     vertices.Values
@@ -98,6 +108,12 @@ type ImperativeDiGraph<'V, 'E when 'V: equality and 'E: equality>() =
     match tryFindVertexBy fn with
     | Some v -> v
     | None -> GraphUtils.raiseVertexNotFoundByPredicate ()
+
+  let getPredVertices (v: IVertex<'V>) =
+    if isOwnVertex v then Seq.toArray preds[v.ID] else [||]
+
+  let getSuccVertices (v: IVertex<'V>) =
+    if isOwnVertex v then Seq.toArray succs[v.ID] else [||]
 
   let clone () =
     let g = ImperativeDiGraph<'V, 'E>()
@@ -178,23 +194,19 @@ type ImperativeDiGraph<'V, 'E when 'V: equality and 'E: equality>() =
       | false, _ -> None
 
     member _.GetPreds(v: IVertex<'V>) =
-      (v :?> ImperativeVertex<'V>).Preds
-      |> Seq.toArray
+      getPredVertices v
       |> Array.map (fun v -> v :> IVertex<'V>)
 
     member _.GetPredEdges(v: IVertex<'V>) =
-      (v :?> ImperativeVertex<'V>).Preds
-      |> Seq.toArray
+      getPredVertices v
       |> Array.map (fun pred -> edges[(pred.ID, v.ID)])
 
     member _.GetSuccs(v: IVertex<'V>) =
-      (v :?> ImperativeVertex<'V>).Succs
-      |> Seq.toArray
+      getSuccVertices v
       |> Array.map (fun v -> v :> IVertex<'V>)
 
     member _.GetSuccEdges(v: IVertex<'V>) =
-      (v :?> ImperativeVertex<'V>).Succs
-      |> Seq.toArray
+      getSuccVertices v
       |> Array.map (fun succ -> edges[(v.ID, succ.ID)])
 
     member _.GetRoots() =
@@ -225,11 +237,13 @@ type ImperativeDiGraph<'V, 'E when 'V: equality and 'E: equality>() =
     member this.AddVertex() = addVertexWithData null, this
 
     member this.RemoveVertex v =
-      let v = v :?> ImperativeVertex<'V>
-      checkVertexExistence v
-      v.Preds |> Seq.toArray |> Array.iter (fun p -> removeEdge p v)
-      v.Succs |> Seq.toArray |> Array.iter (fun s -> removeEdge v s)
-      vertices.Remove v.ID |> ignore
+      let v = findOwnVertex v
+      let vid = v.ID
+      preds[vid] |> Seq.toArray |> Array.iter (fun p -> removeEdge p v)
+      succs[vid] |> Seq.toArray |> Array.iter (fun s -> removeEdge v s)
+      vertices.Remove vid |> ignore
+      preds.Remove vid |> ignore
+      succs.Remove vid |> ignore
       unreachables.Remove v |> ignore
       exits.Remove v |> ignore
       roots.Remove v |> ignore
@@ -252,16 +266,14 @@ type ImperativeDiGraph<'V, 'E when 'V: equality and 'E: equality>() =
       this
 
     member this.AddRoot(v) =
-      let v = v :?> ImperativeVertex<'V>
-      assert (vertices.ContainsKey v.ID)
+      let v = findOwnVertex v
       if roots.Contains v then () else roots.Add v
       this
 
     member this.SetRoots(vs) =
+      let vs = vs |> Seq.map findOwnVertex |> Seq.toArray
       roots.Clear()
-      for v in vs do
-        assert (vertices.ContainsKey v.ID)
-        roots.Add(v :?> ImperativeVertex<'V>)
+      roots.AddRange vs
       this
 
     member this.Reverse(vs) = GraphUtils.reverse this vs (ImperativeDiGraph())

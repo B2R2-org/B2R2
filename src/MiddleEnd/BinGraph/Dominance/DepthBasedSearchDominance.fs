@@ -63,11 +63,11 @@ let private addVertex (g: IDiGraph<_, _>) (v: IVertex<_>) =
   g
 
 let private addEdge (g: IDiGraph<_, _>) (edge: Edge<_, _>) =
-  let src = edge.First
-  let dst = edge.Second
-  let g = if g.HasVertex src.ID then g else addVertex g src
-  let g = if g.HasVertex dst.ID then g else addVertex g dst
-  g.AddEdge(src, dst, edge.Label)
+  let srcID = edge.First.ID
+  let dstID = edge.Second.ID
+  let g = if g.HasVertex srcID then g else addVertex g edge.First
+  let g = if g.HasVertex dstID then g else addVertex g edge.Second
+  g.AddEdge(g.FindVertexByID srcID, g.FindVertexByID dstID, edge.Label)
 
 let private initDynamicDomInfo g dfp algo =
   let dummyRoot = GraphUtils.makeDummyVertex ()
@@ -208,7 +208,7 @@ let rec private constructSubGraphAux g info visited (h, bEdges) = function
 let private constructSubGraph (g: IDiGraphAccessible<_, _>) info dst =
   let h = PersistentDiGraph<'V, 'E>() :> IDiGraph<_, _>
   let h = addVertex h dst
-  let h = h.SetRoots [| dst |]
+  let h = h.SetRoots [| h.FindVertexByID dst.ID |]
   let visited = HashSet()
   visited.Add dst.ID |> ignore
   let stack = g.GetSuccEdges dst |> Array.toList
@@ -256,7 +256,7 @@ let private insert (g: IDiGraphAccessible<_, _>) info (edge: Edge<_, _>) =
     | _ ->
       let subG, bEdges = constructSubGraph g info dst
       let subDom = computeStaticDom info subG
-      mergeDomTree info src dst subDom
+      mergeDomTree info src (subG.FindVertexByID dst.ID) subDom
       bEdges
       |> Array.iter (fun edge ->
         let dst' = edge.Second

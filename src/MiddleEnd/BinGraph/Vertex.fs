@@ -27,8 +27,9 @@ namespace B2R2.MiddleEnd.BinGraph
 open System.Globalization
 open B2R2
 
-/// Represents a persistent vertex.
-type PersistentVertex<'V when 'V: equality>
+/// Represents a vertex of a graph. Graphs, not vertices, own the adjacency
+/// information, so a vertex is just an ID paired with its data.
+type Vertex<'V when 'V: equality>
   internal(id, vData: VertexData<'V> | null) =
 
   /// Gets the unique identifier of this vertex.
@@ -48,7 +49,7 @@ type PersistentVertex<'V when 'V: equality>
       | _ -> Terminator.impossible ()
 
   interface System.IFormattable with
-    member _.ToString(_, _) = $"{nameof PersistentVertex}({vData.ToString ()})"
+    member _.ToString(_, _) = $"{nameof Vertex}({vData.ToString ()})"
 
   override _.GetHashCode() = id
 

@@ -54,6 +54,29 @@ type PersistentDiGraph<'V, 'E
     | Some v -> v
     | None -> GraphUtils.raiseVertexNotFoundByPredicate ()
 
+  let findEdges vid (map: Map<VertexID, Edge<'V, 'E> list>) =
+    match Map.tryFind vid map with
+    | Some edges -> edges
+    | None -> GraphUtils.raiseVertexNotFoundByID vid
+
+  (* A vertex belongs to this graph only when it is the very object we store
+     for its ID. Comparing IDs is not enough, because vertices compare by ID,
+     so a vertex of another graph can carry an ID we also use. Snapshots of one
+     graph share their vertex objects, so they all agree here. *)
+  let isOwnVertex (v: IVertex<'V>) =
+    match Map.tryFind v.ID vertices with
+    | Some v' -> obj.ReferenceEquals(v', v)
+    | None -> false
+
+  let checkVertexExistence (v: IVertex<'V>) =
+    if isOwnVertex v then () else GraphUtils.raiseVertexNotFoundByID v.ID
+
+  let getPredEdges (v: IVertex<'V>) =
+    if isOwnVertex v then findEdges v.ID preds else []
+
+  let getSuccEdges (v: IVertex<'V>) =
+    if isOwnVertex v then findEdges v.ID succs else []
+
   let removeSuccEdge succs (edge: Edge<'V, 'E>) =
     let isElseThen targetID (edge: Edge<'V, 'E>) = edge.Second.ID <> targetID
     succs
@@ -69,7 +92,7 @@ type PersistentDiGraph<'V, 'E
       else preds)
 
   let addVertex (data: VertexData<'V>) vid nextvid =
-    let v = PersistentVertex(vid, data)
+    let v = Vertex(vid, data)
     let roots = if List.isEmpty roots then [ v :> IVertex<'V> ] else roots
     let vertices = Map.add vid v vertices
     let preds = Map.add vid [] preds
@@ -83,22 +106,15 @@ type PersistentDiGraph<'V, 'E
 
   let addVertexWithDataAndID data vid = addVertex data vid (max id vid)
 
-  let findEdges vid (map: Map<VertexID, Edge<'V, 'E> list>) =
-    match Map.tryFind vid map with
-    | Some edges -> edges
-    | None -> GraphUtils.raiseVertexNotFoundByID vid
-
   let addEdge (src: IVertex<'V>) (dst: IVertex<'V>) label =
+    checkVertexExistence src
+    checkVertexExistence dst
     let srcid = src.ID
     let dstid = dst.ID
     let edge = Edge(src, dst, label)
     let succs = Map.add srcid (edge :: findEdges srcid succs) succs
     let preds = Map.add dstid (edge :: findEdges dstid preds) preds
     PersistentDiGraph(roots, vertices, preds, succs, id)
-
-  let checkVertexExistence (v: IVertex<'V>) =
-    if Map.containsKey v.ID vertices then ()
-    else GraphUtils.raiseVertexNotFoundByID v.ID
 
   new() = PersistentDiGraph([], Map.empty, Map.empty, Map.empty, 0)
 
@@ -181,26 +197,18 @@ type PersistentDiGraph<'V, 'E
         None
 
     member _.GetPreds(v: IVertex<'V>) =
-      Map.tryFind v.ID preds
-      |> Option.defaultValue []
-      |> List.fold (fun acc e -> (e.First :> IVertex<'V>) :: acc) []
+      getPredEdges v
+      |> List.fold (fun acc e -> e.First :: acc) []
       |> List.toArray
 
-    member _.GetPredEdges(v: IVertex<'V>) =
-      Map.tryFind v.ID preds
-      |> Option.defaultValue []
-      |> List.toArray
+    member _.GetPredEdges(v: IVertex<'V>) = getPredEdges v |> List.toArray
 
     member _.GetSuccs(v: IVertex<'V>) =
-      Map.tryFind v.ID succs
-      |> Option.defaultValue []
-      |> List.fold (fun acc e -> (e.Second :> IVertex<'V>) :: acc) []
+      getSuccEdges v
+      |> List.fold (fun acc e -> e.Second :: acc) []
       |> List.toArray
 
-    member _.GetSuccEdges(v: IVertex<'V>) =
-      Map.tryFind v.ID succs
-      |> Option.defaultValue []
-      |> List.toArray
+    member _.GetSuccEdges(v: IVertex<'V>) = getSuccEdges v |> List.toArray
 
     member _.GetRoots() = roots |> List.toArray
 
@@ -237,6 +245,7 @@ type PersistentDiGraph<'V, 'E
       v, g
 
     member _.RemoveVertex v =
+      checkVertexExistence v
       let succs = findEdges v.ID preds |> List.fold removeSuccEdge succs
       let preds = findEdges v.ID succs |> List.fold removePredEdge preds
       let vertices = Map.remove v.ID vertices
@@ -263,13 +272,13 @@ type PersistentDiGraph<'V, 'E
       PersistentDiGraph(roots, vertices, preds, succs, id)
 
     member _.AddRoot(v) =
-      assert (vertices.ContainsKey v.ID)
+      checkVertexExistence v
       let roots = if List.contains v roots then roots else v :: roots
       PersistentDiGraph(roots, vertices, preds, succs, id)
 
     member _.SetRoots(vs) =
-      for v in vs do assert (vertices.ContainsKey v.ID)
       let roots = Seq.toList vs
+      roots |> List.iter checkVertexExistence
       PersistentDiGraph(roots, vertices, preds, succs, id)
 
     member this.Reverse(vs) = GraphUtils.reverse this vs (PersistentDiGraph())

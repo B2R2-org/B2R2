@@ -136,6 +136,27 @@ type BasicTests() =
 
   [<TestMethod>]
   [<DynamicData(nameof BasicTests.GraphTypes)>]
+  member _.``Foreign Vertex Test``(t) =
+    let g, _ = digraph1 t
+    let _, vmap = digraph3 t
+    let foreign = vmap[3] (* Same ID, but a vertex of another graph. *)
+    Assert.AreEqual<int>(0, (g.GetPreds foreign).Length)
+    Assert.AreEqual<int>(0, (g.GetPredEdges foreign).Length)
+    Assert.AreEqual<int>(0, (g.GetSuccs foreign).Length)
+    Assert.AreEqual<int>(0, (g.GetSuccEdges foreign).Length)
+    Assert.Throws<VertexNotFoundException>(fun () ->
+      g.RemoveVertex foreign |> ignore)
+    |> ignore
+    Assert.Throws<VertexNotFoundException>(fun () ->
+      g.AddRoot foreign |> ignore)
+    |> ignore
+    Assert.Throws<VertexNotFoundException>(fun () ->
+      g.SetRoots [| foreign |] |> ignore)
+    |> ignore
+    CollectionAssert.AreEqual([| 1 |], g.GetRoots() |> Array.map (_.VData))
+
+  [<TestMethod>]
+  [<DynamicData(nameof BasicTests.GraphTypes)>]
   member _.``Mutation With Removed Vertex Test``(t) =
     let g, vmap = digraph1 t
     let removed = vmap[3]

@@ -67,12 +67,16 @@ type IDiGraph<'V, 'E when 'V: equality and 'E: equality> =
 
   /// Adds a root vertex to this graph explicitly. `AddVertex` will
   /// automatically set the root vertex to the first vertex added to the graph,
-  /// but this function allows the user to add root vertices explicitly.
+  /// but this function allows the user to add root vertices explicitly. This
+  /// raises `VertexNotFoundException` when the given vertex is not in the
+  /// graph.
   abstract AddRoot: IVertex<'V> -> IDiGraph<'V, 'E>
 
   /// Sets root vertices for this graph. `AddVertex` will automatically set the
   /// root vertex to the first vertex added to the graph, but this function
-  /// allows the user to set root vertices explicitly.
+  /// allows the user to set root vertices explicitly. This raises
+  /// `VertexNotFoundException` when any of the given vertices is not in the
+  /// graph, and leaves the current roots untouched in that case.
   abstract SetRoots: IEnumerable<IVertex<'V>> -> IDiGraph<'V, 'E>
 
   /// Returns a new transposed (i.e., reversed) graph. The given set of vertices
