@@ -39,7 +39,8 @@ type IMutableDiGraph<'V, 'E when 'V: equality and 'E: equality> =
 
   /// Adds a vertex to the graph using a data value and a vertex ID, and returns
   /// a reference to the added vertex. This function assumes that the vertex ID
-  /// is unique in the graph, thus it needs to be used with caution.
+  /// is unique in the graph, thus it needs to be used with caution. It raises
+  /// `ArgumentException` for -1, an ID this package keeps for itself.
   abstract AddVertex: data: 'V * vid: VertexID -> IVertex<'V>
 
   /// Adds a vertex to the graph without any data attached to it.
@@ -49,7 +50,8 @@ type IMutableDiGraph<'V, 'E when 'V: equality and 'E: equality> =
   /// this graph. The copy keeps the ID of the given vertex as well as the
   /// absence of its data, which is what copying a graph requires. This
   /// function assumes that the vertex ID is unique in the graph, thus it
-  /// needs to be used with caution.
+  /// needs to be used with caution. It raises `ArgumentException` when the
+  /// vertex carries -1, an ID this package keeps for itself.
   abstract AddVertexCopy: v: IVertex<'V> -> IVertex<'V>
 
   /// Removes the given vertex from the graph. This raises

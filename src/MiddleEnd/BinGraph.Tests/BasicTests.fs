@@ -125,6 +125,17 @@ type BasicTests() =
 
   [<TestMethod>]
   [<DynamicData(nameof BasicTests.GraphTypes)>]
+  member _.``Reserved Vertex ID Test``(t) =
+    let g = emptyDigraph t
+    Assert.Throws<System.ArgumentException>(fun () ->
+      g.AddVertex(1, -1) |> ignore)
+    |> ignore
+    Assert.AreEqual<int>(0, g.Size)
+    let v = g.AddVertex(1, 42)
+    Assert.AreEqual<int>(42, v.ID)
+
+  [<TestMethod>]
+  [<DynamicData(nameof BasicTests.GraphTypes)>]
   member _.``Single Root Lookup Test``(t) =
     let empty = emptyDigraph t
     Assert.Throws<NoRootVertexException>(fun () ->

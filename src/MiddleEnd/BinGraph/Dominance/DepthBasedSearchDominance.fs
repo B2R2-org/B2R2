@@ -34,9 +34,7 @@ open B2R2.MiddleEnd.BinGraph
 /// internal, visible only to the dynamic-dominance benchmark, which updates a
 /// dominance edge by edge.
 type internal DBSDomInfo<'V, 'E when 'V: equality and 'E: equality> =
-  { /// Dummy root ID
-    DummyRootID: VertexID
-    /// Static dominance algorithm.
+  { /// Static dominance algorithm.
     StaticAlgo: StaticDominanceAlgorithm
     /// Dominance frontier provider.
     DFP: IDominanceFrontierProvider<'V, 'E>
@@ -60,7 +58,6 @@ let private addEdge (g: IMutableDiGraph<_, _>) (edge: Edge<_, _>) =
   g.AddEdge(g.FindVertexByID srcID, g.FindVertexByID dstID, edge.Label)
 
 let private initDynamicDomInfo g dfp algo =
-  let dummyRoot = GraphUtils.makeDummyVertex ()
   let roots = (g: IDiGraphAccessible<_, _>).GetRoots()
   let rootIDs = roots |> Array.map (fun v -> v.ID)
   let children = Dictionary<VertexID, HashSet<VertexID>>()
@@ -69,11 +66,10 @@ let private initDynamicDomInfo g dfp algo =
   for v in rootIDs do
     children.[v] <- HashSet()
     depth.[v] <- 0
-    iDom.[v] <- dummyRoot.ID
-  children.[dummyRoot.ID] <- HashSet(rootIDs)
-  depth.[dummyRoot.ID] <- -1
-  { DummyRootID = dummyRoot.ID
-    StaticAlgo = algo
+    iDom.[v] <- GraphUtils.DummyVertexID
+  children.[GraphUtils.DummyVertexID] <- HashSet(rootIDs)
+  depth.[GraphUtils.DummyVertexID] <- -1
+  { StaticAlgo = algo
     DFP = dfp
     Reachable = HashSet rootIDs
     IDom = iDom
@@ -81,7 +77,6 @@ let private initDynamicDomInfo g dfp algo =
     Depth = depth }
 
 let private initDomInfo g dfp algo =
-  let dummyRoot = GraphUtils.makeDummyVertex ()
   let roots = (g: IDiGraphAccessible<_, _>).GetRoots()
   let rootIDs = roots |> Array.map (fun v -> v.ID)
   let children = Dictionary<VertexID, HashSet<VertexID>>()
@@ -90,11 +85,10 @@ let private initDomInfo g dfp algo =
   for v in rootIDs do
     children.[v] <- HashSet()
     depth.[v] <- 0
-    iDom.[v] <- dummyRoot.ID
-  children.[dummyRoot.ID] <- HashSet rootIDs
-  depth.[dummyRoot.ID] <- -1
-  { DummyRootID = dummyRoot.ID
-    StaticAlgo = algo
+    iDom.[v] <- GraphUtils.DummyVertexID
+  children.[GraphUtils.DummyVertexID] <- HashSet rootIDs
+  depth.[GraphUtils.DummyVertexID] <- -1
+  { StaticAlgo = algo
     DFP = dfp
     Reachable = HashSet()
     IDom = iDom
@@ -258,7 +252,7 @@ let private computeDomDyn (g: IDiGraphAccessible<_, _>) info =
 let private idom (g: IDiGraphAccessible<_, _>) info (v: IVertex<'V>) =
   if info.IDom.ContainsKey v.ID then
     let idomID = info.IDom[v.ID]
-    if idomID = info.DummyRootID then null
+    if idomID = GraphUtils.DummyVertexID then null
     else g.FindVertexByID idomID: IVertex<'V> | null
   else
     null
@@ -268,7 +262,7 @@ let rec private domsAux acc info vid =
   | false, _ ->
     acc
   | true, idomID ->
-    if idomID = info.DummyRootID then acc
+    if idomID = GraphUtils.DummyVertexID then acc
     else domsAux (idomID :: acc) info idomID
 
 let private doms (g: IDiGraphAccessible<_, _>) info (v: IVertex<'V>) =
@@ -290,12 +284,12 @@ let private copyDomTree g info immediateDominator =
       if info.Children.ContainsKey v.ID then ()
       else info.Children.Add(v.ID, HashSet()) |> ignore
       let idom: IVertex<_> | null = immediateDominator v
-      let idomID = if isNull idom then info.DummyRootID else idom.ID
+      let idomID = if isNull idom then GraphUtils.DummyVertexID else idom.ID
       info.IDom[v.ID] <- idomID
       match info.Children.ContainsKey idomID with
       | false -> info.Children.Add(idomID, HashSet [ v.ID ]) |> ignore
       | true -> info.Children.[idomID].Add v.ID |> ignore)
-  updateDepth -1 info info.DummyRootID
+  updateDepth -1 info GraphUtils.DummyVertexID
 
 let rec private initReachableAux (g: IDiGraphAccessible<_, _>) info = function
   | [] ->

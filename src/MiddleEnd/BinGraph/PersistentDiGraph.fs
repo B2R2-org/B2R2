@@ -114,7 +114,9 @@ type PersistentDiGraph<'V, 'E
     let vid = id + 1
     addVertex data vid vid
 
-  let addVertexWithDataAndID data vid = addVertex data vid (max id vid)
+  let addVertexWithDataAndID data vid =
+    GraphUtils.checkVertexIDNotReserved vid
+    addVertex data vid (max id vid)
 
   (* A graph holds at most one edge for an ordered pair of vertices, hence
      adding an edge that is already there changes nothing, and the label of the

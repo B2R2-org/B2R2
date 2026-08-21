@@ -77,6 +77,7 @@ type MutableDiGraph<'V, 'E when 'V: equality and 'E: equality>
     addVertex data id
 
   let addVertexWithDataAndID (data: VertexData<'V>) (vid: VertexID) =
+    GraphUtils.checkVertexIDNotReserved vid
     id <- max id vid
     addVertex data vid
 

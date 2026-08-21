@@ -26,7 +26,20 @@
 module internal B2R2.MiddleEnd.BinGraph.GraphUtils
 
 open System.Collections.Generic
-open B2R2
+
+/// Identifies the dummy root, the node that an analysis puts above every root
+/// of a graph so that a graph of many roots reads as one of a single root. It
+/// belongs to no graph, hence this is the one ID a graph never hands out; a
+/// caller that picks IDs itself, through `AddVertex(data, vid)`, has to leave
+/// it alone.
+[<Literal>]
+let DummyVertexID = -1
+
+/// Raises `ArgumentException` when the given ID is the reserved one, so that
+/// no vertex of a graph ever collides with the dummy root of an analysis.
+let checkVertexIDNotReserved (vid: VertexID) =
+  if vid <> DummyVertexID then ()
+  else invalidArg (nameof vid) $"Vertex ID {vid} is reserved"
 
 /// Raises `VertexNotFoundException` for a vertex looked up by its ID.
 let raiseVertexNotFoundByID (vid: VertexID) =
@@ -48,19 +61,6 @@ let raiseVertexNotFoundByPredicate () =
 /// shares nothing but its ID.
 let checkVertexInGraph (g: IDiGraphAccessible<_, _>) (v: IVertex<_>) =
   if g.HasVertexByID v.ID then () else raiseVertexNotFoundByID v.ID
-
-/// Makes a dummy vertex for an analysis without having to use `AddVertex`
-/// method of a graph. With this, we don't have to modify the graph itself.
-let makeDummyVertex<'V when 'V: equality> () =
-  { new IVertex<'V> with
-      member _.ID = -1
-      member _.VData = Terminator.impossible ()
-      member _.HasData = false
-      member this.CompareTo(other: obj) =
-        match other with
-        | :? IVertex<'V> as other -> this.ID.CompareTo other.ID
-        | _ -> Terminator.impossible ()
-      member _.ToString(_, _) = "DummyVertex" }
 
 /// Collects the vertices that are reachable from the roots of the given graph.
 let computeReachables (g: IDiGraphAccessible<_, _>) =
