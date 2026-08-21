@@ -83,7 +83,7 @@ type BasicTests() =
   member _.``DiGraph Removal Test``(t) =
     let g1, _ = digraph1 t
     let g2 = g1.Clone()
-    let g2 = g2.FindVertexByData 3 |> g2.RemoveVertex
+    g2.FindVertexByData 3 |> g2.RemoveVertex
     let s1 = DFS.foldPreorder g1 sum 0
     let s2 = DFS.foldPreorder g2 sum 0
     Assert.AreEqual<int>(6, g1.Size)
@@ -132,13 +132,13 @@ type BasicTests() =
     |> ignore
     let g, vmap = digraph1 t
     Assert.AreEqual<int>(1, g.SingleRoot.VData)
-    let multi = g.SetRoots [| vmap[1]; vmap[2] |]
+    g.SetRoots [| vmap[1]; vmap[2] |]
     Assert.Throws<MultipleRootVerticesException>(fun () ->
-      multi.SingleRoot |> ignore)
+      g.SingleRoot |> ignore)
     |> ignore
-    let rootless = multi.SetRoots [||]
+    g.SetRoots [||]
     Assert.Throws<NoRootVertexException>(fun () ->
-      rootless.SingleRoot |> ignore)
+      g.SingleRoot |> ignore)
     |> ignore
 
   [<TestMethod>]
@@ -146,7 +146,7 @@ type BasicTests() =
   member _.``Adjacency Lookup Of Removed Vertex Test``(t) =
     let g, vmap = digraph1 t
     let v = vmap[3]
-    let g = g.RemoveVertex v
+    g.RemoveVertex v
     Assert.AreEqual<int>(0, (g.GetPreds v).Length)
     Assert.AreEqual<int>(0, (g.GetPredEdges v).Length)
     Assert.AreEqual<int>(0, (g.GetSuccs v).Length)
@@ -163,13 +163,13 @@ type BasicTests() =
     Assert.AreEqual<int>(0, (g.GetSuccs foreign).Length)
     Assert.AreEqual<int>(0, (g.GetSuccEdges foreign).Length)
     Assert.Throws<VertexNotFoundException>(fun () ->
-      g.RemoveVertex foreign |> ignore)
+      g.RemoveVertex foreign)
     |> ignore
     Assert.Throws<VertexNotFoundException>(fun () ->
-      g.AddRoot foreign |> ignore)
+      g.AddRoot foreign)
     |> ignore
     Assert.Throws<VertexNotFoundException>(fun () ->
-      g.SetRoots [| foreign |] |> ignore)
+      g.SetRoots [| foreign |])
     |> ignore
     CollectionAssert.AreEqual([| 1 |], g.GetRoots() |> Array.map (_.VData))
 
@@ -179,21 +179,21 @@ type BasicTests() =
     let g, vmap = digraph1 t
     let removed = vmap[3]
     let other = vmap[1]
-    let g = g.RemoveVertex removed
+    g.RemoveVertex removed
     Assert.Throws<VertexNotFoundException>(fun () ->
-      g.AddEdge(removed, other) |> ignore)
+      g.AddEdge(removed, other))
     |> ignore
     Assert.Throws<VertexNotFoundException>(fun () ->
-      g.AddEdge(other, removed) |> ignore)
+      g.AddEdge(other, removed))
     |> ignore
     Assert.Throws<VertexNotFoundException>(fun () ->
-      g.RemoveEdge(removed, other) |> ignore)
+      g.RemoveEdge(removed, other))
     |> ignore
     Assert.Throws<VertexNotFoundException>(fun () ->
-      g.RemoveEdge(other, removed) |> ignore)
+      g.RemoveEdge(other, removed))
     |> ignore
     Assert.Throws<VertexNotFoundException>(fun () ->
-      g.RemoveVertex removed |> ignore)
+      g.RemoveVertex removed)
     |> ignore
 
   [<TestMethod>]
@@ -203,7 +203,7 @@ type BasicTests() =
     let src, dst = vmap[1], vmap[2]
     (* Adding an edge that is already there is a no-op; the label of the
        existing edge is kept, too. *)
-    let g = g.AddEdge(src, dst, 99)
+    g.AddEdge(src, dst, 99)
     Assert.AreEqual<int>(7, g.Edges.Length)
     Assert.AreEqual<int>(28, g.FoldEdge(inc, 0))
     Assert.AreEqual<int>(1, (g.GetSuccEdges src).Length)
@@ -214,7 +214,7 @@ type BasicTests() =
   [<DynamicData(nameof BasicTests.GraphTypes)>]
   member _.``Clone Preservation Test``(t) =
     let g1, vmap = digraph1 t
-    let g1 = g1.SetRoots [| vmap[1]; vmap[4] |]
+    g1.SetRoots [| vmap[1]; vmap[4] |]
     let g2 = g1.Clone()
     let vertexIDs (g: IDiGraphAccessible<_, _>) =
       g.Vertices |> Array.map (fun v -> v.ID) |> Array.sort
@@ -229,17 +229,17 @@ type BasicTests() =
     CollectionAssert.AreEqual(edgeTriples g1, edgeTriples g2)
     Assert.AreEqual<int>(3, (g2.FindVertexByID vmap[3].ID).VData)
     (* A clone continues to number its vertices where the original left off. *)
-    let v1, _ = g1.AddVertex 7
-    let v2, _ = g2.AddVertex 7
+    let v1 = g1.AddVertex 7
+    let v2 = g2.AddVertex 7
     Assert.AreEqual<VertexID>(v1.ID, v2.ID)
 
   [<TestMethod>]
   [<DynamicData(nameof BasicTests.GraphTypes)>]
   member _.``Clone Dummy Test``(t) =
     let g = emptyDigraph t
-    let v1, g = g.AddVertex 1
-    let v2, g = g.AddVertex()
-    let g = g.AddEdge(v1, v2)
+    let v1 = g.AddVertex 1
+    let v2 = g.AddVertex()
+    g.AddEdge(v1, v2)
     let g2 = g.Clone()
     let v1 = g2.FindVertexByID v1.ID
     let v2 = g2.FindVertexByID v2.ID
@@ -254,10 +254,10 @@ type BasicTests() =
     let g, vmap = digraph1 t
     (* Re-adding an edge moves it to the end of the adjacency lists of its
        endpoints, and a clone has to follow that order, too. *)
-    let g = g.RemoveEdge(vmap[2], vmap[3])
-    let g = g.AddEdge(vmap[2], vmap[3], 2)
-    let g = g.RemoveEdge(vmap[3], vmap[5])
-    let g = g.AddEdge(vmap[3], vmap[5], 5)
+    g.RemoveEdge(vmap[2], vmap[3])
+    g.AddEdge(vmap[2], vmap[3], 2)
+    g.RemoveEdge(vmap[3], vmap[5])
+    g.AddEdge(vmap[3], vmap[5], 5)
     let g2 = g.Clone()
     let succIDs (g: IDiGraphAccessible<_, _>) v =
       g.GetSuccs v |> Array.map (fun s -> s.ID)
@@ -274,9 +274,9 @@ type BasicTests() =
   [<DynamicData(nameof BasicTests.GraphTypes)>]
   member _.``Reverse Dummy Test``(t) =
     let g = emptyDigraph t
-    let v1, g = g.AddVertex 1
-    let v2, g = g.AddVertex()
-    let g = g.AddEdge(v1, v2)
+    let v1 = g.AddVertex 1
+    let v2 = g.AddVertex()
+    g.AddEdge(v1, v2)
     let r = g.Reverse [ v2 ]
     let v1 = r.FindVertexByID v1.ID
     let v2 = r.FindVertexByID v2.ID

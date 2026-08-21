@@ -1842,7 +1842,7 @@ type DominanceTests() =
   member _.``Foreign Vertex Query Test``(t, domAlgo, dfAlgo, sAlgo) =
     let g, vmap = digraph1 t
     let removed = vmap[6]
-    let g = g.RemoveVertex removed
+    g.RemoveVertex removed
     let dom: IDominance<_, _> = instantiate g domAlgo dfAlgo sAlgo
     assertVertexNotFound (fun () -> dom.Dominators removed |> ignore)
     assertVertexNotFound (fun () -> dom.ImmediateDominator removed |> ignore)
