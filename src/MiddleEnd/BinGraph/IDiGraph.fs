@@ -91,9 +91,5 @@ type IDiGraph<'V, 'E when 'V: equality and 'E: equality> =
   /// graph, and leaves the current roots untouched in that case.
   abstract SetRoots: IEnumerable<IVertex<'V>> -> IDiGraph<'V, 'E>
 
-  /// Returns a new transposed (i.e., reversed) graph. The given set of vertices
-  /// will be used to set the root vertices of the transposed graph.
-  abstract Reverse: IEnumerable<IVertex<'V>> -> IDiGraph<'V, 'E>
-
   /// Returns a cloned copy of this graph.
   abstract Clone: unit -> IDiGraph<'V, 'E>

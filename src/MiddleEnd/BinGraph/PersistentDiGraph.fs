@@ -242,7 +242,10 @@ type PersistentDiGraph<'V, 'E
 
     member _.GetRoots() = roots |> List.toArray
 
-    member this.Reverse(vs) = GraphUtils.reverse this vs (PersistentDiGraph())
+    member this.Reverse(vs) =
+      let out = MutablePersistentDiGraph(PersistentDiGraph<'V, 'E>())
+      DiGraph.reverseInto this vs out
+      out.Snapshot
 
     member _.FoldVertex(fn, acc) =
       vertices.Values
@@ -296,8 +299,6 @@ type PersistentDiGraph<'V, 'E
     member _.AddRoot v = addRoot v
 
     member _.SetRoots vs = setRoots vs
-
-    member this.Reverse(vs) = GraphUtils.reverse this vs (PersistentDiGraph())
 
     member this.Clone() = this
 

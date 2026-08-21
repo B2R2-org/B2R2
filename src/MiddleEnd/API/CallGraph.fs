@@ -30,52 +30,50 @@ open B2R2.MiddleEnd.BinGraph
 open B2R2.MiddleEnd.ControlFlowGraph
 open B2R2.MiddleEnd.ControlFlowAnalysis
 
-/// A lens that converts a BinaryBrew to a CallCFG.
+/// Provides a lens that converts a BinaryBrew to a CallCFG.
 [<RequireQualifiedAccess>]
 module CallGraph =
-  /// A mapping from an address to a CallCFG vertex.
+  /// Represents a mapping from an address to a CallCFG vertex.
   type private CallVMap = Dictionary<Addr, IVertex<CallBasicBlock>>
 
-  let private getVertex (brew: BinaryBrew<_, _>) vMap addr g =
+  let private getVertex (brew: BinaryBrew<_, _>) vMap (callCFG: CallCFG) addr =
     match (vMap: CallVMap).TryGetValue addr with
     | false, _ ->
       let fn = brew.Functions[addr]
       let name = fn.Name
       // let ext = fn.FunctionKind <> FunctionKind.Regular
       let blk = CallBasicBlock(addr, name, false)
-      let v, g = (g: IDiGraph<_, _>).AddVertex blk
+      let v = callCFG.AddVertex blk
       vMap.Add(addr, v)
-      v, g
+      v
     | true, v ->
-      v, g
+      v
 
-  let private addEdge brew vMap entryPoint target callCFG =
-    let src, callCFG = getVertex brew vMap entryPoint callCFG
-    let dst, callCFG = getVertex brew vMap target callCFG
+  let private addEdge brew vMap (callCFG: CallCFG) entryPoint target =
+    let src = getVertex brew vMap callCFG entryPoint
+    let dst = getVertex brew vMap callCFG target
     callCFG.AddEdge(src, dst, CallEdge)
 
   let private buildCG callCFG vMap (brew: BinaryBrew<_, _>) =
-    brew.Functions.Sequence
-    |> Seq.fold (fun callCFG func ->
-      if isNull func.Callees then Seq.empty else func.Callees
-      |> Seq.fold (fun callCFG (KeyValue(_, callee)) ->
-        match callee with
-        | RegularCallee target ->
-          addEdge brew vMap func.EntryPoint target callCFG
-        | IndirectCallees targets ->
-          targets
-          |> Set.fold (fun callCFG target ->
-            addEdge brew vMap func.EntryPoint target callCFG
-          ) callCFG
-        | SyscallCallee _
-        | UnresolvedIndirectCallees
-        | NullCallee ->
-          callCFG
-      ) callCFG) callCFG
+    for func in brew.Functions.Sequence do
+      if isNull func.Callees then
+        ()
+      else
+        for KeyValue(_, callee) in func.Callees do
+          match callee with
+          | RegularCallee target ->
+            addEdge brew vMap callCFG func.EntryPoint target
+          | IndirectCallees targets ->
+            for target in targets do
+              addEdge brew vMap callCFG func.EntryPoint target
+          | SyscallCallee _
+          | UnresolvedIndirectCallees
+          | NullCallee ->
+            ()
 
-  /// Create a CallCFG from a BinaryBrew.
+  /// Creates a CallCFG from a BinaryBrew.
   [<CompiledName "Create">]
   let create implType brew =
     let callGraph = CallCFG implType
-    let vMap = CallVMap()
-    buildCG callGraph vMap brew
+    buildCG callGraph (CallVMap()) brew
+    callGraph

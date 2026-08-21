@@ -27,15 +27,16 @@ namespace B2R2.MiddleEnd.ControlFlowGraph
 open B2R2.MiddleEnd.BinGraph
 
 /// Call graph, where each node represents a function. This is essentially a
-/// wrapper class of `IDiGraph<CallBasicBlock, CFGEdgeKind>`, which provides a
-/// uniform interface for both mutable and persistent graphs.
+/// wrapper class of `IMutableDiGraph<CallBasicBlock, CFGEdgeKind>`, which
+/// provides a uniform interface for both mutable and persistent graphs.
 type CallCFG(t: ImplementationType) =
   let g =
     match t with
     | Mutable ->
-      MutableDiGraph<CallBasicBlock, CFGEdgeKind>() :> IDiGraph<_, _>
+      MutableDiGraph<CallBasicBlock, CFGEdgeKind>() :> IMutableDiGraph<_, _>
     | Persistent ->
-      PersistentDiGraph<CallBasicBlock, CFGEdgeKind>() :> IDiGraph<_, _>
+      let g = PersistentDiGraph<CallBasicBlock, CFGEdgeKind>()
+      MutablePersistentDiGraph g :> IMutableDiGraph<_, _>
 
   /// Number of vertices.
   member _.Size with get() = g.Size
@@ -57,6 +58,13 @@ type CallCFG(t: ImplementationType) =
 
   /// Is this empty? A CFG is empty when there is no vertex.
   member _.IsEmpty() = g.IsEmpty()
+
+  /// Add a vertex containing this BBL to this CFG, and return the added vertex.
+  member _.AddVertex blk = g.AddVertex blk
+
+  /// Add an edge between the given source and destination vertices with a
+  /// label.
+  member _.AddEdge(src, dst, label) = g.AddEdge(src, dst, label)
 
   /// Fold the vertices of this CFG with the given function and accumulator.
   member _.FoldVertex(fn, acc) = g.FoldVertex(fn, acc)
@@ -99,7 +107,7 @@ type CallCFG(t: ImplementationType) =
     member _.FoldEdge(fn, acc) = g.FoldEdge(fn, acc)
     member _.IterEdge fn = g.IterEdge fn
 
-  interface IDiGraph<CallBasicBlock, CFGEdgeKind> with
+  interface IMutableDiGraph<CallBasicBlock, CFGEdgeKind> with
     member _.AddVertex data = g.AddVertex data
     member _.AddVertex(data, vid) = g.AddVertex(data, vid)
     member _.AddVertex() = g.AddVertex()
@@ -111,7 +119,6 @@ type CallCFG(t: ImplementationType) =
     member _.RemoveEdge edge = g.RemoveEdge edge
     member _.AddRoot v = g.AddRoot v
     member _.SetRoots vs = g.SetRoots vs
-    member _.Reverse vs = g.Reverse vs
     member _.Clone() = g.Clone()
 
   interface ISCCEnumerable<CallBasicBlock> with

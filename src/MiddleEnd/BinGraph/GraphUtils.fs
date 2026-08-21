@@ -59,21 +59,6 @@ let makeDummyVertex<'V when 'V: equality> () =
         | _ -> Terminator.impossible ()
       member _.ToString(_, _) = "DummyVertex" }
 
-let reverse (inGraph: IDiGraphAccessible<_, _>) roots outGraph =
-  inGraph.FoldVertex((fun (outGraph: IDiGraph<_, _>) v ->
-    outGraph.AddVertexCopy v |> snd), outGraph)
-  |> fun outGraph ->
-    inGraph.FoldEdge((fun (outGraph: IDiGraph<_, _>) edge ->
-      let src = outGraph.FindVertexByID edge.First.ID
-      let dst = outGraph.FindVertexByID edge.Second.ID
-      if edge.HasLabel then outGraph.AddEdge(dst, src, edge.Label)
-      else outGraph.AddEdge(dst, src)), outGraph)
-  |> fun outGraph -> (* renew root vertices *)
-    roots |> Seq.map (fun (root: IVertex<_>) ->
-      assert (inGraph.HasVertex root.ID)
-      outGraph.FindVertexByID root.ID)
-    |> outGraph.SetRoots
-
 /// Collects the vertices that are reachable from the roots of the given graph.
 let computeReachables (g: IDiGraphAccessible<_, _>) =
   let reachables = HashSet<IVertex<_>>()

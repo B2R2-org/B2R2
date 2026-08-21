@@ -28,24 +28,21 @@ open B2R2.BinIR.SSA
 open B2R2.MiddleEnd.BinGraph
 
 /// SSA-based CFG, where each node contains SSA-based basic blocks. This is a
-/// wrapper class of `IDiGraph<SSABasicBlock, CFGEdgeKind>`, which provides a
-/// uniform interface for both mutable and persistent graphs.
-type SSACFG private(g: IDiGraph<SSABasicBlock, CFGEdgeKind>) =
-  let mutable g = g
+/// wrapper class of `IMutableDiGraph<SSABasicBlock, CFGEdgeKind>`, which
+/// provides a uniform interface for both mutable and persistent graphs.
+type SSACFG private(g: IMutableDiGraph<SSABasicBlock, CFGEdgeKind>) =
 
-  let addVertex (v, g') = g <- g'; v
-
-  let update g' = g <- g'
+  /// Creates an empty graph of the given implementation type.
+  static let empty t =
+    match t with
+    | Mutable ->
+      MutableDiGraph<SSABasicBlock, CFGEdgeKind>() :> IMutableDiGraph<_, _>
+    | Persistent ->
+      let g = PersistentDiGraph<SSABasicBlock, CFGEdgeKind>()
+      MutablePersistentDiGraph g :> IMutableDiGraph<_, _>
 
   /// Create a new CFG with the given implementation type.
-  new(t: ImplementationType) =
-    let g =
-      match t with
-      | Mutable ->
-        MutableDiGraph<SSABasicBlock, CFGEdgeKind>() :> IDiGraph<_, _>
-      | Persistent ->
-        PersistentDiGraph<SSABasicBlock, CFGEdgeKind>() :> IDiGraph<_, _>
-    SSACFG g
+  new(t: ImplementationType) = SSACFG(empty t)
 
   /// Number of vertices.
   member _.Size with get() = g.Size
@@ -81,10 +78,10 @@ type SSACFG private(g: IDiGraph<SSABasicBlock, CFGEdgeKind>) =
   member _.IsEmpty() = g.IsEmpty()
 
   /// Add a vertex containing this BBL to this CFG, and return the added vertex.
-  member _.AddVertex bbl = g.AddVertex bbl |> addVertex
+  member _.AddVertex bbl = g.AddVertex bbl
 
   /// Remove the given vertex from this CFG.
-  member _.RemoveVertex v = g.RemoveVertex v |> update
+  member _.RemoveVertex v = g.RemoveVertex v
 
   /// Check the existence of the given vertex from this CFG.
   member _.HasVertex vid = g.HasVertex vid
@@ -105,17 +102,17 @@ type SSACFG private(g: IDiGraph<SSABasicBlock, CFGEdgeKind>) =
   member _.TryFindVertex fn = g.TryFindVertexBy fn
 
   /// Add an edge between the given source and destination vertices.
-  member _.AddEdge(src, dst) = g.AddEdge(src, dst) |> update
+  member _.AddEdge(src, dst) = g.AddEdge(src, dst)
 
   /// Add an edge between the given source and destination vertices with a
   /// label.
-  member _.AddEdge(src, dst, label) = g.AddEdge(src, dst, label) |> update
+  member _.AddEdge(src, dst, label) = g.AddEdge(src, dst, label)
 
   /// Remove an edge between the given source and destination vertices.
-  member _.RemoveEdge(src, dst) = g.RemoveEdge(src, dst) |> update
+  member _.RemoveEdge(src, dst) = g.RemoveEdge(src, dst)
 
   /// Remove an edge from this CFG.
-  member _.RemoveEdge edge = g.RemoveEdge edge |> update
+  member _.RemoveEdge edge = g.RemoveEdge edge
 
   /// Find an edge between the given source and destination vertices.
   member _.FindEdge(src, dst) = g.FindEdge(src, dst)
@@ -138,10 +135,10 @@ type SSACFG private(g: IDiGraph<SSABasicBlock, CFGEdgeKind>) =
   member _.GetSuccEdges v = g.GetSuccEdges v
 
   /// Add a root vertex to this CFG.
-  member _.AddRoot v = g.AddRoot v |> update
+  member _.AddRoot v = g.AddRoot v
 
   /// Set root vertices of this CFG.
-  member _.SetRoots vs = g.SetRoots vs |> update
+  member _.SetRoots vs = g.SetRoots vs
 
   /// Fold the vertices of this CFG with the given function and an accumulator.
   member _.FoldVertex(fn, acc) = g.FoldVertex(fn, acc)
@@ -157,7 +154,10 @@ type SSACFG private(g: IDiGraph<SSABasicBlock, CFGEdgeKind>) =
 
   /// Reverse the direction of the edges in this CFG while making the given
   /// vertices as root vertices.
-  member _.Reverse roots = g.Reverse roots |> SSACFG
+  member _.Reverse roots =
+    let out = empty g.ImplementationType
+    DiGraph.reverseInto g roots out
+    SSACFG out
 
   /// Clone this CFG.
   member _.Clone() = g.Clone() |> SSACFG
@@ -217,7 +217,7 @@ type SSACFG private(g: IDiGraph<SSABasicBlock, CFGEdgeKind>) =
     member _.FoldEdge(fn, acc) = g.FoldEdge(fn, acc)
     member _.IterEdge fn = g.IterEdge fn
 
-  interface IDiGraph<SSABasicBlock, CFGEdgeKind> with
+  interface IMutableDiGraph<SSABasicBlock, CFGEdgeKind> with
     member _.AddVertex data = g.AddVertex data
     member _.AddVertex(data, vid) = g.AddVertex(data, vid)
     member _.AddVertex() = g.AddVertex()
@@ -229,5 +229,4 @@ type SSACFG private(g: IDiGraph<SSABasicBlock, CFGEdgeKind>) =
     member _.RemoveEdge edge = g.RemoveEdge edge
     member _.AddRoot v = g.AddRoot v
     member _.SetRoots vs = g.SetRoots vs
-    member _.Reverse vs = g.Reverse vs
     member _.Clone() = g.Clone()

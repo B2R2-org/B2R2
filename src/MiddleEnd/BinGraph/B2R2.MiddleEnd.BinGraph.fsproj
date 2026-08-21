@@ -13,6 +13,7 @@
     <Compile Include="IPersistentDiGraph.fs" />
     <Compile Include="IDiGraph.fs" />
     <Compile Include="MutablePersistentDiGraph.fs" />
+    <Compile Include="DiGraph.fs" />
     <Compile Include="Traversal.fs" />
     <Compile Include="GraphUtils.fs" />
     <Compile Include="SerializableGraph.fs" />

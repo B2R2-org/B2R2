@@ -255,7 +255,10 @@ type MutableDiGraph<'V, 'E when 'V: equality and 'E: equality>
       |> Seq.toArray
       |> Array.map (fun v -> v :> IVertex<'V>)
 
-    member this.Reverse vs = GraphUtils.reverse this vs (MutableDiGraph())
+    member this.Reverse vs =
+      let out = MutableDiGraph<'V, 'E>()
+      DiGraph.reverseInto this vs out
+      out
 
     member _.FoldVertex(fn, acc) =
       vertices.Values |> Seq.fold (fun acc v -> fn acc (v :> IVertex<'V>)) acc
@@ -308,8 +311,6 @@ type MutableDiGraph<'V, 'E when 'V: equality and 'E: equality>
     member this.SetRoots(vs) =
       setRoots vs
       this
-
-    member this.Reverse(vs) = GraphUtils.reverse this vs (MutableDiGraph())
 
     member _.Clone() = clone ()
 
