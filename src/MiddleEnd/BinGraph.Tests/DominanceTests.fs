@@ -1856,9 +1856,9 @@ type DominanceTests() =
   [<TestMethod>]
   [<DynamicData(nameof DominanceTests.ComparisonData)>]
   member _.``Comparison: Dominators Test``(domAlgo, fileName, sAlgo) =
-    let constructor () = ImperativeDiGraph() :> IDiGraph<string, string>
     let json = System.IO.File.ReadAllText("TestData/" + fileName)
-    let g = Serializer.FromJson(json, constructor, id, id)
+    let empty = ImperativeDiGraph<string, string>()
+    let g = Serializer.FromJson(json, empty, id, id)
     let naiveDom: IDominance<_, _> = instantiate g DomIterative DFCytron None
     let testDom: IDominance<_, _> = instantiate g domAlgo DFCytron sAlgo
     for v in g.Vertices do
@@ -1869,9 +1869,9 @@ type DominanceTests() =
   [<TestMethod>]
   [<DynamicData(nameof DominanceTests.ComparisonData)>]
   member _.``Comparison: Immediate Dominator Test``(domAlgo, fileName, sAlgo) =
-    let constructor () = ImperativeDiGraph() :> IDiGraph<string, string>
     let json = System.IO.File.ReadAllText("TestData/" + fileName)
-    let g = Serializer.FromJson(json, constructor, id, id)
+    let empty = ImperativeDiGraph<string, string>()
+    let g = Serializer.FromJson(json, empty, id, id)
     let naiveDom: IDominance<_, _> = instantiate g DomIterative DFCytron None
     let testDom: IDominance<_, _> = instantiate g domAlgo DFCytron sAlgo
     for v in g.Vertices do

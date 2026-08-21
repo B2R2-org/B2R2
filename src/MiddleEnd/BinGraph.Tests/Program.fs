@@ -35,7 +35,7 @@ module DBS = DepthBasedSearchDominance
 
 let private buildTestPersistentGraphs fileName size =
   let rng = System.Random 42
-  let rec loop acc (g: IDiGraph<_, _>) = function
+  let rec loop acc (g: IPersistentDiGraph<_, _>) = function
     | 0 ->
       g, acc
     | i ->
@@ -43,9 +43,8 @@ let private buildTestPersistentGraphs fileName size =
       let edge = edges[rng.Next(0, edges.Length)]
       let h = g.RemoveEdge edge
       loop ((g, edge) :: acc) h (i - 1)
-  let constructor () = PersistentDiGraph() :> IDiGraph<string, string>
   let json = System.IO.File.ReadAllText("TestData/Benchmark/Vertex/" + fileName)
-  let g = Serializer.FromJson(json, constructor, id, id)
+  let g = Serializer.FromJson(json, PersistentDiGraph<string, string>(), id, id)
   let h, testList = loop [] g size
   g, h, testList
 
@@ -74,10 +73,10 @@ type StaticDoms() =
 
   [<GlobalSetup>]
   member this.GlobalSetup() =
-    let constructor () = ImperativeDiGraph() :> IDiGraph<_, _>
     let json =
       System.IO.File.ReadAllText("TestData/Benchmark/Vertex/" + this.FileName)
-    g <- Serializer.FromJson(json, constructor, id, id)
+    let empty = ImperativeDiGraph<string, string>()
+    g <- Serializer.FromJson(json, empty, id, id)
 
   [<Benchmark(Baseline = true)>]
   member _.IterativeAlgorithm() =
@@ -197,10 +196,10 @@ type DominanceFrontier() =
 
   [<GlobalSetup>]
   member this.GlobalSetup() =
-    let constructor () = ImperativeDiGraph() :> IDiGraph<_, _>
     let json =
       System.IO.File.ReadAllText("TestData/Benchmark/Vertex/" + this.FileName)
-    g <- Serializer.FromJson(json, constructor, id, id)
+    let empty = ImperativeDiGraph<string, string>()
+    g <- Serializer.FromJson(json, empty, id, id)
 
   [<Benchmark(Baseline = true)>]
   member _.CytronDF() =

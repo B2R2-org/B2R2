@@ -158,32 +158,31 @@ type DisasmCFG(disasmBuilder, ircfg: LowUIRCFG) =
   let getDisasmVertex g (vMap: DisasmVMap) (tempVMap: TempDisasmVMap) addr =
     match vMap.TryGetValue(addr) with
     | true, v ->
-      v, g
+      v
     | false, _ ->
       let tmpV = tempVMap[addr]
       let ppoint = ProgramPoint(tmpV.Address, 0)
       let instrs = tmpV.Instructions.Values |> Seq.toArray
       let bbl = DisasmBasicBlock(disasmBuilder, ppoint, instrs)
-      let v, g = (g: IDiGraph<_, _>).AddVertex(bbl)
+      let v = (g: IMutableDiGraph<_, _>).AddVertex(bbl)
       vMap[addr] <- v
-      v, g
+      v
 
-  let updateDisasmCFG (tempVMap: TempDisasmVMap) newGraph =
+  let updateDisasmCFG (tempVMap: TempDisasmVMap) (g: IMutableDiGraph<_, _>) =
     let vMap = DisasmVMap()
     tempVMap.Values
     |> Seq.distinctBy (fun v -> v.Address)
-    |> Seq.fold (fun (g: IDiGraph<_, _>) tmpV ->
-      let srcDisasmV, g = getDisasmVertex g vMap tempVMap tmpV.Address
-      tmpV.Successors |> Seq.fold (fun g (dst, label) ->
-        let dstDisasmV, g = getDisasmVertex g vMap tempVMap dst
-        g.AddEdge(srcDisasmV, dstDisasmV, label)
-      ) g
-    ) newGraph
+    |> Seq.iter (fun tmpV ->
+      let srcDisasmV = getDisasmVertex g vMap tempVMap tmpV.Address
+      tmpV.Successors |> Seq.iter (fun (dst, label) ->
+        let dstDisasmV = getDisasmVertex g vMap tempVMap dst
+        g.AddEdge(srcDisasmV, dstDisasmV, label)))
+    g
 
   let createEmptyDisasmCFGByType (implType: ImplementationType) =
     match implType with
-    | Imperative -> ImperativeDiGraph() :> IDiGraph<_, _>
-    | Persistent -> PersistentDiGraph() :> IDiGraph<_, _>
+    | Imperative -> ImperativeDiGraph() :> IMutableDiGraph<_, _>
+    | Persistent -> MutablePersistentDiGraph(PersistentDiGraph())
 
   let createDisasmCFG tempVMap =
     createEmptyDisasmCFGByType ircfg.ImplementationType

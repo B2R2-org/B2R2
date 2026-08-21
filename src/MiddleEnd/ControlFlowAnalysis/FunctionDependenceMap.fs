@@ -32,13 +32,13 @@ open B2R2.MiddleEnd.BinGraph
 /// thread-safe, and thus should be used only by TaskManager.
 type FunctionDependenceMap() =
   /// A temporary call graph that only contains unconfirmed edges.
-  let tg = ImperativeDiGraph<Addr, unit>() :> IDiGraph<Addr, unit>
+  let tg = ImperativeDiGraph<Addr, unit>() :> IMutableDiGraph<Addr, unit>
 
   /// Vertices in the temporary graph.
   let tgVertices = Dictionary<Addr, IVertex<Addr>>()
 
   /// A regular inter-procedural call graph.
-  let cg = ImperativeDiGraph<Addr, uint>() :> IDiGraph<Addr, uint>
+  let cg = ImperativeDiGraph<Addr, uint>() :> IMutableDiGraph<Addr, uint>
 
   /// Vertices in the call graph.
   let cgVertices = Dictionary<Addr, IVertex<Addr>>()
@@ -48,7 +48,7 @@ type FunctionDependenceMap() =
     | true, v ->
       v
     | false, _ ->
-      let v, _ = tg.AddVertex addr
+      let v = tg.AddVertex addr
       tgVertices[addr] <- v
       v
 
@@ -57,7 +57,7 @@ type FunctionDependenceMap() =
     | true, v ->
       v
     | false, _ ->
-      let v, _ = cg.AddVertex addr
+      let v = cg.AddVertex addr
       cgVertices[addr] <- v
       v
 
@@ -69,7 +69,7 @@ type FunctionDependenceMap() =
       dbglog ManagerTid "AddTGDependency"
       <| $"{caller.VData:x} -> {callee.VData:x}"
 #endif
-      tg.AddEdge(caller, callee) |> ignore
+      tg.AddEdge(caller, callee)
 
   let addCGDependency (caller: IVertex<Addr>) (callee: IVertex<Addr>) =
     if caller = callee then
@@ -79,21 +79,21 @@ type FunctionDependenceMap() =
       dbglog ManagerTid "AddCGDependency"
       <| $"{caller.VData:x} -> {callee.VData:x}"
 #endif
-      cg.AddEdge(caller, callee) |> ignore
+      cg.AddEdge(caller, callee)
 
   let removeTGVertex (v: IVertex<Addr>) =
 #if CFGDEBUG
     dbglog ManagerTid "RemoveTGVertex" $"{v.VData:x}"
 #endif
     tgVertices.Remove v.VData |> ignore
-    tg.RemoveVertex v |> ignore
+    tg.RemoveVertex v
 
   let removeCGVertex (v: IVertex<Addr>) =
 #if CFGDEBUG
     dbglog ManagerTid "RemoveCGVertex" $"{v.VData:x}"
 #endif
     cgVertices.Remove v.VData |> ignore
-    cg.RemoveVertex v |> ignore
+    cg.RemoveVertex v
 
   let filterOutNonRecursiveCallers calleeAddr callers =
     callers
@@ -160,6 +160,6 @@ type FunctionDependenceMap() =
     let tgV = getTGVertex entryAddr
     let cgV = getCGVertex entryAddr
     tg.GetSuccs tgV
-    |> Array.iter (fun succV -> tg.RemoveEdge(tgV, succV) |> ignore)
+    |> Array.iter (fun succV -> tg.RemoveEdge(tgV, succV))
     cg.GetSuccs cgV
-    |> Array.iter (fun succV -> cg.RemoveEdge(cgV, succV) |> ignore)
+    |> Array.iter (fun succV -> cg.RemoveEdge(cgV, succV))

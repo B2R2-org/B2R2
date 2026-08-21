@@ -769,9 +769,9 @@ let private restoreBackEdges (g: VisGraph) backEdgeList =
   backEdgeList
   |> List.iter (fun (src, dst, edge) ->
     match g.TryFindEdge(dst, src) with
-    | Some e when e.Label.IsBackEdge -> g.RemoveEdge(dst, src) |> ignore
+    | Some e when e.Label.IsBackEdge -> g.RemoveEdge(dst, src)
     | _ -> ()
-    g.AddEdge(src, dst, edge) |> ignore
+    g.AddEdge(src, dst, edge)
   )
 
 let private routeEdges layout (edgeSet, portMap) =

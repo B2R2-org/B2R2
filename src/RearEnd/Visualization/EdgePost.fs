@@ -753,12 +753,12 @@ let private runStage3 plans =
 
 let private applyEdgePlan (g: VisGraph) (plan: EdgePlan) =
   plan.ChainInfos
-  |> List.iter (fun (src, dst, _) -> g.RemoveEdge(src, dst) |> ignore)
+  |> List.iter (fun (src, dst, _) -> g.RemoveEdge(src, dst))
   let newEdge = VisEdge plan.Edge.Type
   newEdge.IsBackEdge <- plan.Edge.IsBackEdge
   newEdge.Points <- plan.FinalPoints
-  g.AddEdge(plan.Src, plan.Dst, newEdge) |> ignore
-  plan.Dummies |> List.iter (g.RemoveVertex >> ignore)
+  g.AddEdge(plan.Src, plan.Dst, newEdge)
+  plan.Dummies |> List.iter g.RemoveVertex
 
 let postprocessEdges (g: VisGraph) dummyMap =
   let realVertices =

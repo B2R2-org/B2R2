@@ -137,48 +137,67 @@ type Serializer =
                                                             eConstructor) =
     let vertices, edges, roots =
       Serializer.Validate(inGraph: SerializableGraph)
+    let outGraph: IMutableDiGraph<'V, 'E> = outGraph
     let vMap = Dictionary<VertexID, IVertex<'V>>()
-    vertices
-    |> Array.fold (fun (outGraph: IDiGraph<'V, 'E>) v ->
+    for v in vertices do
       let data = vConstructor (Serializer.NullToEmptyLabel v.Label)
-      let v', outGraph = outGraph.AddVertex(data, v.ID)
-      vMap[v.ID] <- v'
-      outGraph
-    ) outGraph
-    |> fun outGraph ->
-      edges
-      |> Array.fold (fun (outGraph: IDiGraph<'V, 'E>) e ->
-        (* Validated above: every ID an edge or a root refers to is in vMap. *)
-        let data = eConstructor (Serializer.NullToEmptyLabel e.Label)
-        outGraph.AddEdge(vMap[e.From], vMap[e.To], data)
-      ) outGraph
-      |> fun outGraph ->
-        roots
-        |> Array.map (fun id -> vMap[id])
-        |> outGraph.SetRoots
+      vMap[v.ID] <- outGraph.AddVertex(data, v.ID)
+    for e in edges do
+      (* Validated above: every ID an edge or a root refers to is in vMap. *)
+      let data = eConstructor (Serializer.NullToEmptyLabel e.Label)
+      outGraph.AddEdge(vMap[e.From], vMap[e.To], data)
+    roots |> Array.map (fun id -> vMap[id]) |> outGraph.SetRoots
 
   /// <summary>
-  /// Imports the graph from the given JSON string.
+  /// Imports the graph from the given JSON string into the given empty graph,
+  /// and returns that very graph.
   /// </summary>
   /// <param name="json">The JSON string that contains a serialized
   /// graph.</param>
-  /// <param name="gConstructor">Constructs an empty graph.</param>
+  /// <param name="g">An empty graph to fill in.</param>
   /// <param name="vConstructor">Constructs vertex data from a vertex
   /// label.</param>
   /// <param name="eConstructor">Constructs edge data from an edge
   /// label.</param>
   /// <exception
   ///   cref="T:B2R2.MiddleEnd.BinGraph.InvalidSerializedGraphException">
-  /// Thrown when the given JSON string does not represent a valid graph.
+  /// Thrown when the given JSON string does not represent a valid graph. The
+  /// given graph stays empty in that case, as the check precedes any filling
+  /// in.
   /// </exception>
-  static member FromJson<'V, 'E when 'V: equality
-                                 and 'E: equality>(json: string,
-                                                   gConstructor,
-                                                   vConstructor,
-                                                   eConstructor) =
+  static member FromJson(json: string,
+                         g: IMutableDiGraph<'V, 'E>,
+                         vConstructor,
+                         eConstructor) =
     let sg = Serializer.Deserialize json
-    let g: IDiGraph<'V, 'E> = gConstructor ()
     Serializer.CopyGraph(sg, g, vConstructor, eConstructor)
+    g
+
+  /// <summary>
+  /// Imports the graph from the given JSON string into the given empty graph,
+  /// and returns the resulting graph.
+  /// </summary>
+  /// <param name="json">The JSON string that contains a serialized
+  /// graph.</param>
+  /// <param name="g">An empty graph to fill in.</param>
+  /// <param name="vConstructor">Constructs vertex data from a vertex
+  /// label.</param>
+  /// <param name="eConstructor">Constructs edge data from an edge
+  /// label.</param>
+  /// <exception
+  ///   cref="T:B2R2.MiddleEnd.BinGraph.InvalidSerializedGraphException">
+  /// Thrown when the given JSON string does not represent a valid graph. The
+  /// given graph stays empty in that case, as the check precedes any filling
+  /// in.
+  /// </exception>
+  static member FromJson(json: string,
+                         g: IPersistentDiGraph<'V, 'E>,
+                         vConstructor,
+                         eConstructor) =
+    let sg = Serializer.Deserialize json
+    let g = MutablePersistentDiGraph g
+    Serializer.CopyGraph(sg, g, vConstructor, eConstructor)
+    g.Snapshot
 
   /// Exports the given graph to a string in the DOT format.
   static member ToDOT(g: IDiGraphAccessible<_, _>, name) =

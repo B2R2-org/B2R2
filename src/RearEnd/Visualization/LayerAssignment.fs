@@ -42,18 +42,18 @@ let rec addDummy (g: VisGraph) (backEdges, dummies) k parWidth src dst e cnt =
   if cnt = 0 then
     let edge = VisEdge((e: VisEdge).Type)
     edge.IsBackEdge <- e.IsBackEdge
-    g.AddEdge(src, dst, edge) |> ignore
+    g.AddEdge(src, dst, edge)
     let backEdges =
       if edge.IsBackEdge then (dst, src, edge) :: backEdges else backEdges
     backEdges, dummies
   else
     let vNode = VisBBlock(src.VData, true)
-    let dummy, _ = g.AddVertex vNode
+    let dummy = g.AddVertex vNode
     dummy.VData.Width <- parWidth
     VisGraph.setLayer dummy <| VisGraph.getLayer src + 1
     let edge = VisEdge e.Type
     edge.IsBackEdge <- e.IsBackEdge
-    g.AddEdge(src, dummy, edge) |> ignore
+    g.AddEdge(src, dummy, edge)
     let backEdges =
       if edge.IsBackEdge then (dummy, src, edge) :: backEdges else backEdges
     let eData, vertices = Map.find k dummies
@@ -74,7 +74,7 @@ let collectLongEdges (backEdges, longEdges) (edge: Edge<_, VisEdge>) =
     backEdges, longEdges
 
 let addDummyNodesLongEdge vGraph (backEdges, dummies) (src, dst, edge, delta) =
-  (vGraph: VisGraph).RemoveEdge(src, dst) |> ignore
+  (vGraph: VisGraph).RemoveEdge(src, dst)
   let k =
     if (edge: Edge<_, VisEdge>).Label.IsBackEdge then dst, src else src, dst
   let dummies = Map.add k (edge.Label, []) dummies

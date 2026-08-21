@@ -58,15 +58,14 @@ type DBSDomInfo<'V, 'E when 'V: equality and 'E: equality> =
     /// Vertex ID -> Depth of the vertex in the dominance tree.
     Depth: Dictionary<VertexID, int> }
 
-let private addVertex (g: IDiGraph<_, _>) (v: IVertex<_>) =
-  let _, g = g.AddVertex(v.VData, v.ID)
-  g
+let private addVertex (g: IMutableDiGraph<_, _>) (v: IVertex<_>) =
+  g.AddVertex(v.VData, v.ID) |> ignore
 
-let private addEdge (g: IDiGraph<_, _>) (edge: Edge<_, _>) =
+let private addEdge (g: IMutableDiGraph<_, _>) (edge: Edge<_, _>) =
   let srcID = edge.First.ID
   let dstID = edge.Second.ID
-  let g = if g.HasVertex srcID then g else addVertex g edge.First
-  let g = if g.HasVertex dstID then g else addVertex g edge.Second
+  if g.HasVertex srcID then () else addVertex g edge.First
+  if g.HasVertex dstID then () else addVertex g edge.Second
   g.AddEdge(g.FindVertexByID srcID, g.FindVertexByID dstID, edge.Label)
 
 let private initDynamicDomInfo g dfp algo =
@@ -182,37 +181,39 @@ let private updateDomTree g info srcID dstID =
     affected
     |> Array.iter (updateIDom nca info)
 
-let rec private constructSubGraphAux g info visited (h, bEdges) = function
+let rec private constructSubGraphAux g info visited h bEdges = function
   | [] ->
-    h, bEdges |> Array.ofList
+    bEdges |> Array.ofList
   | edge: Edge<_, _> :: stack ->
     let w = edge.Second
     if (visited: HashSet<VertexID>).Contains w.ID then
-      let h = addEdge h edge
-      constructSubGraphAux g info visited (h, bEdges) stack
+      addEdge h edge
+      constructSubGraphAux g info visited h bEdges stack
     else
       if info.Reachable.Contains w.ID then
-        constructSubGraphAux g info visited (h, edge :: bEdges) stack
+        constructSubGraphAux g info visited h (edge :: bEdges) stack
       else
         visited.Add w.ID |> ignore
-        let h = addVertex h w
-        let h = addEdge h edge
+        addVertex h w
+        addEdge h edge
         let stack =
           (g: IDiGraphAccessible<_, _>).GetSuccEdges w
           |> Array.toList
           |> List.append stack
-        constructSubGraphAux g info visited (h, bEdges) stack
+        constructSubGraphAux g info visited h bEdges stack
 
 /// Construct the subgraph with root dst whose vertices are unreachable from
 /// main graph.
 let private constructSubGraph (g: IDiGraphAccessible<_, _>) info dst =
-  let h = PersistentDiGraph<'V, 'E>() :> IDiGraph<_, _>
-  let h = addVertex h dst
-  let h = h.SetRoots [| h.FindVertexByID dst.ID |]
+  let h = MutablePersistentDiGraph(PersistentDiGraph<'V, 'E>())
+  let ih = h :> IMutableDiGraph<_, _>
+  addVertex ih dst
+  ih.SetRoots [| ih.FindVertexByID dst.ID |]
   let visited = HashSet()
   visited.Add dst.ID |> ignore
   let stack = g.GetSuccEdges dst |> Array.toList
-  constructSubGraphAux g info visited (h, []) stack
+  let bEdges = constructSubGraphAux g info visited ih [] stack
+  h.Snapshot, bEdges
 
 let private computeStaticDom info g =
   let dfp = info.DFP

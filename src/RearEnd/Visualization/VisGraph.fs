@@ -28,7 +28,7 @@ open System.Collections.Generic
 open B2R2.MiddleEnd.BinGraph
 
 /// The main graph type for visualization.
-type VisGraph = IDiGraph<VisBBlock, VisEdge>
+type VisGraph = IMutableDiGraph<VisBBlock, VisEdge>
 
 [<RequireQualifiedAccess>]
 module VisGraph =
@@ -44,13 +44,13 @@ module VisGraph =
         ()
       else
         let blk = VisBBlock(v.VData, charWidth, charHeight, false)
-        let v', _ = newGraph.AddVertex blk
+        let v' = newGraph.AddVertex blk
         vblocks[v.ID] <- v'
     for e in g.Edges do
       let srcV = vblocks[e.First.ID]
       let dstV = vblocks[e.Second.ID]
       let edge = VisEdge e.Label
-      newGraph.AddEdge(srcV, dstV, edge) |> ignore
+      newGraph.AddEdge(srcV, dstV, edge)
     newGraph
 
   let getID (v: IVertex<_>) = v.ID

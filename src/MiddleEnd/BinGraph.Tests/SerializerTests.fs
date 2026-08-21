@@ -31,15 +31,23 @@ open B2R2.MiddleEnd.BinGraph.Tests.Examples
 
 [<TestClass>]
 type SerializerTests() =
-  let makeGraph t =
-    match t with
-    | Imperative -> ImperativeDiGraph<int, int>() :> IDiGraph<int, int>
-    | Persistent -> PersistentDiGraph<int, int>() :> IDiGraph<int, int>
+  let strToInt (s: string) = Convert.ToInt32 s
 
-  let importGraph t (json: string) =
-    let graphConstructor = fun () -> makeGraph t
-    let strToInt (s: string) = if s = "" then -1 else Convert.ToInt32 s
-    Serializer.FromJson(json, graphConstructor, strToInt, strToInt)
+  let strToIntOrDefault (s: string) = if s = "" then -1 else Convert.ToInt32 s
+
+  (* Which of the two protocols the import takes is what the implementation
+     type decides here; what comes out of it is only ever read. *)
+  let importWith t labelToData (json: string) =
+    match t with
+    | Imperative ->
+      let empty = ImperativeDiGraph<int, int>()
+      Serializer.FromJson(json, empty, labelToData, labelToData)
+      :> IDiGraphAccessible<int, int>
+    | Persistent ->
+      let empty = PersistentDiGraph<int, int>()
+      Serializer.FromJson(json, empty, labelToData, labelToData)
+
+  let importGraph t json = importWith t strToIntOrDefault json
 
   let assertInvalidGraph f =
     Assert.Throws<InvalidSerializedGraphException>(Action f) |> ignore
@@ -51,9 +59,7 @@ type SerializerTests() =
   member _.``Import/Export test 1``(t) =
     let g, _ = digraph1 t
     let json = Serializer.ToJson g
-    let graphConstructor = fun () -> makeGraph t
-    let strToInt (s: string) = Convert.ToInt32 s
-    let g' = Serializer.FromJson(json, graphConstructor, strToInt, strToInt)
+    let g' = importWith t strToInt json
     let expected = Traversal.DFS.foldPreorder g (fun acc v -> v.VData + acc) 0
     let actual = Traversal.DFS.foldPreorder g' (fun acc v -> v.VData + acc) 0
     Assert.AreEqual<int>(expected, actual)
@@ -63,9 +69,7 @@ type SerializerTests() =
   member _.``Import/Export test 2``(t) =
     let g, _ = digraph4 t
     let json = Serializer.ToJson g
-    let graphConstructor = fun () -> makeGraph t
-    let strToInt (s: string) = Convert.ToInt32 s
-    let g' = Serializer.FromJson(json, graphConstructor, strToInt, strToInt)
+    let g' = importWith t strToInt json
     let expected = g.Vertices |> Array.map (fun v -> v.VData)
     let actual = g'.Vertices |> Array.map (fun v -> v.VData)
     CollectionAssert.AreEqual(expected, actual)
@@ -122,14 +126,20 @@ type SerializerTests() =
   [<TestMethod>]
   [<DynamicData(nameof SerializerTests.GraphTypes)>]
   member _.``Leave the output graph intact on a failed import``(t) =
-    let g = makeGraph t
-    let graphConstructor = fun () -> g
-    let strToInt (s: string) = Convert.ToInt32 s
     let json = """{ "roots": [ 1 ],
                     "vertices": [ { "id": 1, "label": "1" },
                                   { "id": 2, "label": "2" } ],
                     "edges": [ { "from": 1, "to": 9, "label": "1" } ] }"""
-    let import () =
-      Serializer.FromJson(json, graphConstructor, strToInt, strToInt) |> ignore
-    assertInvalidGraph import
+    let g =
+      match t with
+      | Imperative ->
+        let g = ImperativeDiGraph<int, int>()
+        assertInvalidGraph (fun () ->
+          Serializer.FromJson(json, g, strToInt, strToInt) |> ignore)
+        g :> IDiGraphAccessible<int, int>
+      | Persistent ->
+        let g = PersistentDiGraph<int, int>()
+        assertInvalidGraph (fun () ->
+          Serializer.FromJson(json, g, strToInt, strToInt) |> ignore)
+        g
     Assert.AreEqual<int>(0, g.Size)
