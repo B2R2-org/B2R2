@@ -29,6 +29,7 @@ module B2R2.MiddleEnd.BinGraph.DiGraph
 /// the given graph, and uses the given vertices as the roots of the result.
 /// Every vertex keeps its ID, so that a vertex of the one graph and its
 /// counterpart in the other are found by the same ID.
+[<CompiledName "ReverseInto">]
 let reverseInto g roots (out: IMutableDiGraph<'V, 'E>) =
   let g: IDiGraphAccessible<'V, 'E> = g
   g.IterVertex(fun v -> out.AddVertexCopy v |> ignore)

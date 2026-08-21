@@ -98,6 +98,7 @@ module Tarjan =
       ()
 
   /// Computes strongly connected components of the given directed graph.
+  [<CompiledName "Compute">]
   let compute (g: IDiGraphAccessible<_, _>) =
     let status = initSCCStatus g
     for v in g.Vertices do
