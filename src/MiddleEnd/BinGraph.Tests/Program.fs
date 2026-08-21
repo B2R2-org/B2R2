@@ -149,9 +149,9 @@ type DynamicDoms() =
 
   [<Benchmark(Baseline = true)>]
   member _.DepthBasedSearchAlgorithm() =
-    let fwInitInfo = DBS.computeInfoFromDom h initialDom dfp DBS.SemiNCA true
+    let fwInitInfo = DBS.computeInfoFromDom h initialDom dfp SemiNCA true
     let bwInitInfo =
-      Lazy(DBS.computeInfoFromDom h initialDom dfp DBS.SemiNCA false)
+      Lazy(DBS.computeInfoFromDom h initialDom dfp SemiNCA false)
     testList
     |> List.fold (fun (fwInfo, bwInfo) (f, edge) ->
       let updatedInfo = DBS.updateInfo f fwInfo edge

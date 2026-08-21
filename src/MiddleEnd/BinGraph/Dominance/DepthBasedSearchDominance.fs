@@ -29,19 +29,6 @@ module B2R2.MiddleEnd.BinGraph.Dominance.DepthBasedSearchDominance
 open System.Collections.Generic
 open B2R2.MiddleEnd.BinGraph
 
-/// Static dominator algorithm used for sub dominator tree construction.
-type StaticAlgo =
-  /// Iterative dominator algorithm.
-  | Iterative
-  /// Simple Lengauer-Tarjan algorithm.
-  | SLT
-  /// Lengauer-Tarjan algorithm with tree balancing.
-  | LT
-  /// Semi-NCA algorithm.
-  | SemiNCA
-  /// Cooper's algorithm.
-  | Cooper
-
 /// Represents the dominator tree that this module maintains incrementally.
 /// Mutating it silently invalidates the dominance computed from it, so it stays
 /// internal, visible only to the dynamic-dominance benchmark, which updates a
@@ -50,7 +37,7 @@ type internal DBSDomInfo<'V, 'E when 'V: equality and 'E: equality> =
   { /// Dummy root ID
     DummyRootID: VertexID
     /// Static dominance algorithm.
-    StaticAlgo: StaticAlgo
+    StaticAlgo: StaticDominanceAlgorithm
     /// Dominance frontier provider.
     DFP: IDominanceFrontierProvider<'V, 'E>
     /// Vertex ID of reachable vertices.
@@ -220,13 +207,7 @@ let private constructSubGraph (g: IDiGraphAccessible<_, _>) info dst =
   h.Snapshot, bEdges
 
 let private computeStaticDom info g =
-  let dfp = info.DFP
-  match info.StaticAlgo with
-  | Iterative -> IterativeDominance.create g dfp
-  | SLT -> SimpleLengauerTarjanDominance.create g dfp
-  | LT -> LengauerTarjanDominance.create g dfp
-  | SemiNCA -> SemiNCADominance.create g dfp
-  | Cooper -> CooperDominance.create g dfp
+  StaticDominance.create g info.DFP info.StaticAlgo
 
 let rec private mergeDomTreeAux info subDomTree = function
   | [] ->
