@@ -18,9 +18,8 @@ jobs:
       uses: actions/setup-dotnet@v5
     - name: Lint files
       run: |
-        git clone --depth 1 https://github.com/B2R2-org/FSLint.git
-        dotnet build FSLint
-        dotnet run --project FSLint/src/FSLint -- src/ --strict
+        dotnet tool restore
+        dotnet fslint src --strict
 
   notify-failure:
 
