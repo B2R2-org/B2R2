@@ -31,12 +31,10 @@ exception EdgeNotFoundException
 type Edge<'V, 'E when 'V: equality and 'E: equality>
   internal(fst, snd, label: EdgeLabel<'E> | null) =
 
-  /// Returns source vertex of the edge. For undirected graphs, this is the
-  /// first vertex that was added to the edge.
+  /// Returns the source vertex of the edge.
   member _.First with get(): IVertex<'V> = fst
 
-  /// Returns target vertex of the edge. For undirected graphs, this is the
-  /// second vertex that was added to the edge.
+  /// Returns the target vertex of the edge.
   member _.Second with get(): IVertex<'V> = snd
 
   /// Returns the label of the edge. This can raise `DummyDataAccessException`
