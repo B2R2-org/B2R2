@@ -306,11 +306,11 @@ module private SSALifterFactory =
     for _, stmt in v.VData.Internals.Statements do renameStmt count stack stmt
     for succ in (g: IDiGraphAccessible<_, _>).GetSuccs v do
       renamePhi g stack v succ
-    for child in (domTree: DominatorTree<_, _>).GetChildren v do
+    for child in (domTree: DominatorTree<_>).GetChildren v do
       rename g domTree count stack child
     for _, stmt in v.VData.Internals.Statements do popStack stack stmt
 
-  let renameVars g defSites (dom: IDominance<_, _>) =
+  let renameVars g defSites (dom: IForwardDominance<_>) =
     let domTree = dom.DominatorTree
     let count = VarCountMap()
     let stack = IDStack()

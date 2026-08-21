@@ -31,7 +31,7 @@ open B2R2.MiddleEnd.BinGraph
 /// their paper "Efficiently Computing Static Single Assignment Form and the
 /// Control Dependence Graph", TOPLAS 1991.
 type CytronDominanceFrontier<'V, 'E when 'V: equality and 'E: equality>() =
-  let traverseBottomUp (domTree: DominatorTree<_, _>) root =
+  let traverseBottomUp (domTree: DominatorTree<_>) root =
     let stack1, stack2 = Stack(), Stack()
     domTree.GetChildren root
     |> Seq.iter stack1.Push
@@ -42,12 +42,9 @@ type CytronDominanceFrontier<'V, 'E when 'V: equality and 'E: equality>() =
     stack2
 
   /// Compute dominance frontiers.
-  let computeDF (g: IDiGraphAccessible<_, _>) dom isPostDominance =
-    let domTree, idom =
-      if isPostDominance then
-        (dom: IDominance<_, _>).PostDominatorTree, dom.ImmediatePostDominator
-      else
-        dom.DominatorTree, dom.ImmediateDominator
+  let computeDF (g: IDiGraphAccessible<_, _>) dom =
+    let domTree = (dom: IForwardDominance<_>).DominatorTree
+    let idom = dom.ImmediateDominator
     let frontiers = Dictionary<IVertex<_>, HashSet<IVertex<_>>>()
     (* A vertex unreachable from the roots has no dominance information, hence
        no dominance frontier of its own. *)
@@ -69,9 +66,9 @@ type CytronDominanceFrontier<'V, 'E when 'V: equality and 'E: equality>() =
     frontiers
 
   interface IDominanceFrontierProvider<'V, 'E> with
-    member _.CreateIDominanceFrontier(g, dom, isPostDominance) =
-      let frontiers = computeDF g dom isPostDominance
-      { new IDominanceFrontier<'V, 'E> with
+    member _.CreateIDominanceFrontier(g, dom) =
+      let frontiers = computeDF g dom
+      { new IDominanceFrontier<'V> with
           member _.DominanceFrontier(v) =
             GraphUtils.checkVertexInGraph g v
             frontiers[v] }

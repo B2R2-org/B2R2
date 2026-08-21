@@ -32,6 +32,24 @@ let findOriginalVertex g v: IVertex<'V> | null =
   | null -> null
   | v -> (g: IDiGraphAccessible<_, _>).FindVertexByID (v: IVertex<_>).ID
 
+/// Composes the dominance of a graph with the dominance of its transposed
+/// graph, the latter answering every post-dominance query. A vertex the
+/// transposed graph reports is a counterpart sharing nothing but an ID with the
+/// one the caller knows, so it is mapped back before it leaves.
+let combineDominance g fw (bw: Lazy<IForwardDominance<'V>>) =
+  { new IDominance<'V> with
+      member _.Dominators v = (fw: IForwardDominance<'V>).Dominators v
+      member _.ImmediateDominator v = fw.ImmediateDominator v
+      member _.DominatorTree = fw.DominatorTree
+      member _.DominanceFrontier v = fw.DominanceFrontier v
+      member _.PostDominators v =
+        bw.Value.Dominators v |> Seq.map (findOriginalVertex g)
+      member _.ImmediatePostDominator v =
+        bw.Value.ImmediateDominator v |> findOriginalVertex g
+      member _.PostDominatorTree = bw.Value.DominatorTree
+      member _.PostDominanceFrontier v =
+        bw.Value.DominanceFrontier v |> Seq.map (findOriginalVertex g) }
+
 
 
 

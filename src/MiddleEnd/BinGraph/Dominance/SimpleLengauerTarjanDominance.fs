@@ -214,55 +214,34 @@ let private idomAux info v =
   else
     null
 
-let private createDominance fwG
-                            (bwG: Lazy<IDiGraphAccessible<_, _>>)
-                            fwInfo
-                            (fwDT: Lazy<DominatorTree<_, _>>)
-                            (bwInfo: Lazy<LTDomInfo<_>>)
-                            (bwDT: Lazy<DominatorTree<_, _>>)
-                            (dfp: IDominanceFrontierProvider<_, _>) =
+let private createForwardDominance g info dfp =
+  let g: IDiGraphAccessible<_, _> = g
+  let dfp: IDominanceFrontierProvider<_, _> = dfp
+  let dt = lazy DominatorTree(g.Vertices, idomAux info)
   let mutable dfProvider = null
-  let mutable pdfProvider = null
-  { new IDominance<'V, 'E> with
-    member _.Dominators v =
-      GraphUtils.checkVertexInGraph fwG v
-      domsAux [ v ] v fwInfo
-    member _.ImmediateDominator v =
-      GraphUtils.checkVertexInGraph fwG v
-      idomAux fwInfo v
-    member _.DominatorTree = fwDT.Value
-    member this.DominanceFrontier v =
-      GraphUtils.checkVertexInGraph fwG v
-      if isNull pdfProvider then
-        pdfProvider <- dfp.CreateIDominanceFrontier(fwG, this, false)
-      else
-        ()
-      pdfProvider.DominanceFrontier v
-    member _.PostDominators v =
-      GraphUtils.checkVertexInGraph bwG.Value v
-      domsAux [ v ] v bwInfo.Value
-      |> Seq.map (findOriginalVertex fwG)
-    member _.ImmediatePostDominator v =
-      GraphUtils.checkVertexInGraph bwG.Value v
-      idomAux bwInfo.Value v
-      |> findOriginalVertex fwG
-    member _.PostDominatorTree = bwDT.Value
-    member this.PostDominanceFrontier v =
-      GraphUtils.checkVertexInGraph bwG.Value v
-      if isNull dfProvider then
-        dfProvider <- dfp.CreateIDominanceFrontier(bwG.Value, this, true)
-      else
-        ()
-      dfProvider.DominanceFrontier v
-      |> Seq.map (findOriginalVertex fwG) }
+  { new IForwardDominance<'V> with
+      member _.Dominators v =
+        GraphUtils.checkVertexInGraph g v
+        domsAux [ v ] v info
+      member _.ImmediateDominator v =
+        GraphUtils.checkVertexInGraph g v
+        idomAux info v
+      member _.DominatorTree = dt.Value
+      member this.DominanceFrontier v =
+        GraphUtils.checkVertexInGraph g v
+        if isNull dfProvider then
+          dfProvider <- dfp.CreateIDominanceFrontier(g, this)
+        else
+          ()
+        dfProvider.DominanceFrontier v }
 
 let private computeDominance g (dfp: IDominanceFrontierProvider<_, _>) =
   let fwInfo = computeDomInfo g
-  let fwDT = lazy DominatorTree(g, idomAux fwInfo)
   let bwG = lazy (GraphUtils.findExits g |> g.Reverse)
   let bwInfo = lazy (computeDomInfo bwG.Value)
-  let bwDT = lazy DominatorTree(bwG.Value, idomAux bwInfo.Value)
-  createDominance g bwG fwInfo fwDT bwInfo bwDT dfp, fwInfo, bwInfo
+  let fw = createForwardDominance g fwInfo dfp
+  let bw = lazy (createForwardDominance bwG.Value bwInfo.Value dfp)
+  combineDominance g fw bw, fwInfo, bwInfo
 
 /// <summary>
 /// Creates an IDominance instance that computes dominance information using the

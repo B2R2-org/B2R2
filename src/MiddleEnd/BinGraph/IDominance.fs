@@ -27,8 +27,16 @@ namespace B2R2.MiddleEnd.BinGraph
 open System.Collections.Generic
 
 /// Represents an interface for computing dominance relationships of nodes in
-/// digraphs.
-type IDominance<'V, 'E when 'V: equality and 'E: equality> =
+/// digraphs, in both directions.
+type IDominance<'V when 'V: equality> =
+  inherit IForwardDominance<'V>
+  inherit IPostDominance<'V>
+
+/// Represents an interface for computing the dominance relationships that read
+/// the edges of a digraph in their own direction. Ask for this rather than for
+/// IDominance wherever post-dominance is of no interest, so that the signature
+/// says as much.
+and IForwardDominance<'V when 'V: equality> =
   /// Gets the dominators of the given vertex.
   abstract Dominators: IVertex<'V> -> IEnumerable<IVertex<'V>>
 
@@ -37,11 +45,15 @@ type IDominance<'V, 'E when 'V: equality and 'E: equality> =
   abstract ImmediateDominator: IVertex<'V> -> IVertex<'V> | null
 
   /// Gets the dominator tree.
-  abstract DominatorTree: DominatorTree<'V, 'E>
+  abstract DominatorTree: DominatorTree<'V>
 
   /// Gets the dominance frontier of the given vertex.
   abstract DominanceFrontier: IVertex<'V> -> IEnumerable<IVertex<'V>>
 
+/// Represents an interface for computing the dominance relationships that read
+/// the edges of a digraph backwards. Every one of these costs a transposed
+/// graph, which an implementation is free to build only when first asked.
+and IPostDominance<'V when 'V: equality> =
   /// Gets the post-dominators of the given vertex.
   abstract PostDominators: IVertex<'V> -> IEnumerable<IVertex<'V>>
 
@@ -50,14 +62,14 @@ type IDominance<'V, 'E when 'V: equality and 'E: equality> =
   abstract ImmediatePostDominator: IVertex<'V> -> IVertex<'V> | null
 
   /// Gets the post-dominator tree.
-  abstract PostDominatorTree: DominatorTree<'V, 'E>
+  abstract PostDominatorTree: DominatorTree<'V>
 
   /// Gets the post-dominance frontier of the given vertex.
   abstract PostDominanceFrontier: IVertex<'V> -> IEnumerable<IVertex<'V>>
 
 /// Represents an interface for computing dominance frontier of nodes in
 /// digraphs.
-and IDominanceFrontier<'V, 'E when 'V: equality and 'E: equality> =
+and IDominanceFrontier<'V when 'V: equality> =
   /// Gets the dominance frontier of a vertex, which is the set of all vertices
   /// that are not strictly dominated by the vertex but are reachable from the
   /// vertex.
@@ -65,19 +77,19 @@ and IDominanceFrontier<'V, 'E when 'V: equality and 'E: equality> =
 
 /// Represents an interface for providing dominance frontier instances.
 and IDominanceFrontierProvider<'V, 'E when 'V: equality and 'E: equality> =
-  /// Returns an IDominanceFrontier instance using the given graph and the
-  /// IDominance instance. The third argument `isPostDominance` is a boolean
-  /// flag indicating whether the dominance frontier is for post-dominance.
+  /// Returns an IDominanceFrontier instance for the given graph, reading the
+  /// dominance of that same graph from the given IForwardDominance. Ask for the
+  /// post-dominance frontiers of a graph by passing the transposed graph along
+  /// with the dominance of the transposed graph.
   abstract CreateIDominanceFrontier:
       g: IDiGraphAccessible<'V, 'E>
-    * dom: IDominance<'V, 'E>
-    * isPostDominance: bool
-   -> IDominanceFrontier<'V, 'E>
+    * dom: IForwardDominance<'V>
+   -> IDominanceFrontier<'V>
 
 /// Represents a dominator tree interface. A dominator tree is a tree where each
 /// node's children are those nodes it immediately dominates.
-and DominatorTree<'V, 'E when 'V: equality and 'E: equality>
-  public(g: IDiGraphAccessible<'V, 'E>,
+and DominatorTree<'V when 'V: equality>
+  public(vertices: IEnumerable<IVertex<'V>>,
          getIDom: IVertex<'V> -> IVertex<'V> | null) =
 
   let domTree = Dictionary<IVertex<'V>, List<IVertex<'V>>>()
@@ -85,11 +97,11 @@ and DominatorTree<'V, 'E when 'V: equality and 'E: equality>
 
   do
     domTree[dummyRoot] <- List()
-    g.IterVertex(fun v ->
+    for v in vertices do
       let idom = getIDom v
       if isNull idom then domTree[dummyRoot].Add v
       elif domTree.ContainsKey idom then domTree[idom].Add v
-      else domTree[idom] <- List [ v ])
+      else domTree[idom] <- List [ v ]
 
   /// Gets the dummy root. Dummy root points to all the roots of the dominator
   /// tree.

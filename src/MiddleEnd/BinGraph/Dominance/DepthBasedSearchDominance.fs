@@ -215,13 +215,13 @@ let rec private mergeDomTreeAux info subDomTree = function
   | (parent: IVertex<_>, current: IVertex<_>) :: stack ->
     updateIDom parent.ID info current.ID
     let stack =
-      (subDomTree: DominatorTree<_, _>).GetChildren current
+      (subDomTree: DominatorTree<_>).GetChildren current
       |> Seq.map (fun child -> current, child)
       |> Seq.toList
       |> List.append stack
     mergeDomTreeAux info subDomTree stack
 
-let private mergeDomTree info src dst (subDom: IDominance<_, _>) =
+let private mergeDomTree info src dst (subDom: IForwardDominance<_>) =
   let subDomTree = subDom.DominatorTree
   mergeDomTreeAux info subDomTree [ (src, dst) ]
 
@@ -322,62 +322,41 @@ let private copyDominance g dom dfp staticAlgo isForward =
   let info = initDomInfo g dfp staticAlgo
   initReachable g info
   let immediateDominator =
-    if isForward then (dom: IDominance<_, _>).ImmediateDominator
+    if isForward then (dom: IDominance<_>).ImmediateDominator
     else dom.ImmediatePostDominator
   copyDomTree g info immediateDominator
   info
 
 let private updateDomInfo g info edge = insert g info edge
 
-let private createDominance fwG
-                            (bwG: Lazy<IDiGraphAccessible<_, _>>)
-                            fwInfo
-                            (fwDT: Lazy<DominatorTree<_, _>>)
-                            (bwInfo: Lazy<DBSDomInfo<_, _>>)
-                            (bwDT: Lazy<DominatorTree<_, _>>)
-                            (dfp: IDominanceFrontierProvider<_, _>) =
+let private createForwardDominance g info dfp =
+  let g: IDiGraphAccessible<_, _> = g
+  let dfp: IDominanceFrontierProvider<_, _> = dfp
+  let dt = lazy DominatorTree(g.Vertices, idom g info)
   let mutable dfProvider = null
-  let mutable pdfProvider = null
-  { new IDominance<'V, 'E> with
+  { new IForwardDominance<'V> with
       member _.Dominators v =
-        GraphUtils.checkVertexInGraph fwG v
-        doms fwG fwInfo v
+        GraphUtils.checkVertexInGraph g v
+        doms g info v
       member _.ImmediateDominator v =
-        GraphUtils.checkVertexInGraph fwG v
-        idom fwG fwInfo v
-      member _.DominatorTree = fwDT.Value
+        GraphUtils.checkVertexInGraph g v
+        idom g info v
+      member _.DominatorTree = dt.Value
       member this.DominanceFrontier v =
-        GraphUtils.checkVertexInGraph fwG v
+        GraphUtils.checkVertexInGraph g v
         if isNull dfProvider then
-          dfProvider <- dfp.CreateIDominanceFrontier(fwG, this, false)
+          dfProvider <- dfp.CreateIDominanceFrontier(g, this)
         else
           ()
-        dfProvider.DominanceFrontier v
-      member _.PostDominators v =
-        GraphUtils.checkVertexInGraph bwG.Value v
-        doms bwG.Value bwInfo.Value v
-        |> Seq.map (findOriginalVertex fwG)
-      member _.ImmediatePostDominator v =
-        GraphUtils.checkVertexInGraph bwG.Value v
-        idom bwG.Value bwInfo.Value v
-        |> findOriginalVertex fwG
-      member _.PostDominatorTree = bwDT.Value
-      member this.PostDominanceFrontier v =
-        GraphUtils.checkVertexInGraph bwG.Value v
-        if isNull pdfProvider then
-          pdfProvider <- dfp.CreateIDominanceFrontier(bwG.Value, this, true)
-        else
-          ()
-        pdfProvider.DominanceFrontier v
-        |> Seq.map (findOriginalVertex fwG) }
+        dfProvider.DominanceFrontier v }
 
 let private computeDominance g dfp staticAlgo =
   let fwInfo = computeDomInfo g dfp staticAlgo
-  let fwDT = lazy DominatorTree(g, idom g fwInfo)
   let bwG = lazy (GraphUtils.findExits g |> g.Reverse)
   let bwInfo = lazy (computeDomInfo bwG.Value dfp staticAlgo)
-  let bwDT = lazy DominatorTree(bwG.Value, idom bwG.Value bwInfo.Value)
-  createDominance g bwG fwInfo fwDT bwInfo bwDT dfp, fwInfo, bwInfo
+  let fw = createForwardDominance g fwInfo dfp
+  let bw = lazy (createForwardDominance bwG.Value bwInfo.Value dfp)
+  combineDominance g fw bw, fwInfo, bwInfo
 
 /// <summary>
 /// Creates an IDominance instance that computes dominance information using
@@ -409,10 +388,10 @@ let internal createWithInfo g dfp staticAlgo =
 /// that computeInfoFromDom or updateInfo produced, skipping the initial
 /// analysis.
 let internal createFromInfo g fwInfo (bwInfo: Lazy<DBSDomInfo<_, _>>) dfp =
-  let fwDT = lazy DominatorTree(g, idom g fwInfo)
   let bwG = lazy (GraphUtils.findExits g |> g.Reverse)
-  let bwDT = lazy DominatorTree(bwG.Value, idom bwG.Value bwInfo.Value)
-  createDominance g bwG fwInfo fwDT bwInfo bwDT dfp
+  let fw = createForwardDominance g fwInfo dfp
+  let bw = lazy (createForwardDominance bwG.Value bwInfo.Value dfp)
+  combineDominance g fw bw
 
 /// Builds this module's dominator tree state from an already computed
 /// dominance, which lets a dominance from any other algorithm serve as the

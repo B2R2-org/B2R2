@@ -564,7 +564,8 @@ module internal AnalysisCore = begin
     | _ -> Error ErrorCase.InvalidExprEvaluation
 
   /// Linear time algorithm to compute the inverse dominance frontier.
-  let computeInverseDF (g: IDiGraphAccessible<_, _>) (dom: IDominance<_, _>) v =
+  let computeInverseDF g (dom: IForwardDominance<_>) v =
+    let g: IDiGraphAccessible<_, _> = g
     let s = HashSet()
     for pred in g.GetPreds v do
       let mutable x = pred
@@ -623,7 +624,7 @@ module internal AnalysisCore = begin
 
   /// We do not calculate all dominance frontier sets, but only those that are
   /// selectively used to insert phi nodes.
-  let placePhis g state (dom: IDominance<_, _>) =
+  let placePhis g state (dom: IForwardDominance<_>) =
     let memo = Dictionary()
     for v in collectPhiInsertionCandidates g state do
       for affectingVertex in computeInverseDF g dom v do
@@ -790,7 +791,7 @@ module internal AnalysisCore = begin
     visited.Add v |> ignore
     let ins = updateIncomingDefsWithPhis state v ins
     let outs = updateChainsWithBBLStmts g state v ins
-    for child in (domTree: DominatorTree<_, _>).GetChildren v do
+    for child in (domTree: DominatorTree<_>).GetChildren v do
       update g state domTree visited child outs
     state.PerVertexIncomingDefs[v] <- ins
     state.PerVertexOutgoingDefs[v] <- outs
@@ -801,7 +802,7 @@ module internal AnalysisCore = begin
     | true, defs -> defs
 
   /// We only visit the vertices that have changed and update data-flow chains.
-  let rec incrementalUpdate g state visited (dom: IDominance<_, _>) v =
+  let rec incrementalUpdate g state visited (dom: IForwardDominance<_>) v =
     if (visited: HashSet<_>).Contains v then
       ()
     elif (state: State<_>).IsVertexPending v

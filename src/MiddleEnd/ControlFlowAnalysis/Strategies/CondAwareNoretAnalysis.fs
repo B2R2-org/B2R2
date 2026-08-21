@@ -207,7 +207,7 @@ type CondAwareNoretAnalysis([<Optional; DefaultParameterValue(true)>] strict) =
       | NoRet ->
         Terminator.impossible ())
 
-  let tryFindCondNoRetDom (dom: IDominance<_, _>) absVSet v =
+  let tryFindCondNoRetDom (dom: IForwardDominance<_>) absVSet v =
     dom.Dominators v
     |> Seq.filter (fun v -> Set.contains v absVSet)
     |> fun doms ->

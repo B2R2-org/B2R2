@@ -30,10 +30,8 @@ open B2R2.MiddleEnd.BinGraph
 /// Represents the Cooper et al.'s dominance frontier algorithm presented in
 /// their paper "A Simple, Fast Dominance Algorithm", SPE 2001.
 type CooperDominanceFrontier<'V, 'E when 'V: equality and 'E: equality>() =
-  let computeDF (g: IDiGraphAccessible<_, _>) dom isPostDominance =
-    let idom =
-      if isPostDominance then (dom: IDominance<_, _>).ImmediatePostDominator
-      else dom.ImmediateDominator
+  let computeDF (g: IDiGraphAccessible<_, _>) dom =
+    let idom = (dom: IForwardDominance<_>).ImmediateDominator
     let frontiers = Dictionary<IVertex<_>, HashSet<IVertex<_>>>()
     let roots = g.GetRoots()
     (* A vertex unreachable from the roots has no dominance information, so the
@@ -56,9 +54,9 @@ type CooperDominanceFrontier<'V, 'E when 'V: equality and 'E: equality>() =
     frontiers
 
   interface IDominanceFrontierProvider<'V, 'E> with
-    member _.CreateIDominanceFrontier(g, dom, isPostDominance) =
-      let frontiers = computeDF g dom isPostDominance
-      { new IDominanceFrontier<'V, 'E> with
+    member _.CreateIDominanceFrontier(g, dom) =
+      let frontiers = computeDF g dom
+      { new IDominanceFrontier<'V> with
           member _.DominanceFrontier(v) =
             GraphUtils.checkVertexInGraph g v
             frontiers[v] }
