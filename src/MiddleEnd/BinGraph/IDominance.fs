@@ -97,17 +97,24 @@ and DominatorTree<'V when 'V: equality>
   let domTree = Dictionary<IVertex<'V>, List<IVertex<'V>>>()
   let roots = List<IVertex<'V>>()
 
+  (* Every vertex gets its list of children up front, so that GetChildren
+     hands one back rather than building one on every call for a vertex that
+     has none. Analyses walk this tree vertex by vertex, and most vertices of
+     a dominator tree are leaves. Adding to a list leaves the dictionary
+     itself untouched, hence the second pass may read the keys as it goes. *)
   do
     for v in vertices do
+      domTree[v] <- List()
+    for v in domTree.Keys do
       let idom = getIDom v
-      if isNull idom then roots.Add v
-      elif domTree.ContainsKey idom then domTree[idom].Add v
-      else domTree[idom] <- List [ v ]
+      if isNull idom then roots.Add v else domTree[idom].Add v
 
   /// Gets the vertices that nothing dominates, i.e., the roots of this forest.
   member _.GetRoots() = roots
 
-  /// Gets the children of a vertex in the dominator tree.
+  /// Gets the children of a vertex in the dominator tree. Every vertex of the
+  /// graph has a list of its own, so only a vertex of another graph reaches
+  /// the empty case here.
   member _.GetChildren(v: IVertex<'V>) =
     match domTree.TryGetValue v with
     | true, children -> children

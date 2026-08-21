@@ -1769,6 +1769,16 @@ type DominanceTests() =
 
   [<TestMethod>]
   [<DynamicData(nameof DominanceTests.TestData)>]
+  member _.``Dominator Tree Childless Vertex Test``(t, domAlgo, dfAlgo) =
+    let g, vmap = digraph1 t
+    let dom: IDominance<_> = DominanceFactory.create g domAlgo dfAlgo
+    let tree = dom.DominatorTree
+    let leaf = vmap[3]
+    Assert.AreEqual<int>(0, (tree.GetChildren leaf).Count)
+    Assert.AreSame(tree.GetChildren leaf, tree.GetChildren leaf)
+
+  [<TestMethod>]
+  [<DynamicData(nameof DominanceTests.TestData)>]
   member _.``Foreign Vertex Query Test``(t, domAlgo, dfAlgo) =
     let g, vmap = digraph1 t
     let removed = vmap[6]
