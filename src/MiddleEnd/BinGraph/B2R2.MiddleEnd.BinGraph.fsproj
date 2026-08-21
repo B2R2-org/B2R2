@@ -13,7 +13,8 @@
     <Compile Include="IPersistentDiGraph.fs" />
     <Compile Include="MutablePersistentDiGraph.fs" />
     <Compile Include="DiGraph.fs" />
-    <Compile Include="Traversal.fs" />
+    <Compile Include="Traversal\DFS.fs" />
+    <Compile Include="Traversal\BFS.fs" />
     <Compile Include="GraphUtils.fs" />
     <Compile Include="SerializableGraph.fs" />
     <Compile Include="Serializer.fs" />
@@ -21,7 +22,7 @@
     <Compile Include="MutableDiGraph.fs" />
     <Compile Include="PersistentDiGraph.fs" />
     <Compile Include="ISCCEnumerable.fs" />
-    <Compile Include="SCC.fs" />
+    <Compile Include="SCC\Tarjan.fs" />
     <Compile Include="DominanceAlgorithm.fs" />
     <Compile Include="IDominance.fs" />
     <Compile Include="Dominance\DominanceHelper.fs" />

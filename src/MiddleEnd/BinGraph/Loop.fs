@@ -23,6 +23,7 @@
 *)
 
 /// Provides algorithms for loop detection in directed graphs.
+[<RequireQualifiedAccess>]
 module B2R2.MiddleEnd.BinGraph.Loop
 
 open System.Collections.Generic

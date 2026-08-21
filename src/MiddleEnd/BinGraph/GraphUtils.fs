@@ -23,6 +23,7 @@
 *)
 
 /// Several useful functions for directed graphs.
+[<RequireQualifiedAccess>]
 module internal B2R2.MiddleEnd.BinGraph.GraphUtils
 
 open System.Collections.Generic

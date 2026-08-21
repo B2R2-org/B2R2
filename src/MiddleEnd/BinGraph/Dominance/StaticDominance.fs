@@ -26,6 +26,7 @@
 /// dominance it names. Both DominanceFactory and the depth-based search
 /// algorithm dispatch through here, so an algorithm added to the enumeration
 /// needs one line added below and nowhere else.
+[<RequireQualifiedAccess>]
 module internal B2R2.MiddleEnd.BinGraph.Dominance.StaticDominance
 
 open B2R2.MiddleEnd.BinGraph

@@ -23,6 +23,7 @@
 *)
 
 /// Provides functions that build a new directed graph out of an existing one.
+[<RequireQualifiedAccess>]
 module B2R2.MiddleEnd.BinGraph.DiGraph
 
 /// Fills in the given empty graph with the transpose (i.e., the reverse) of

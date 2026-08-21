@@ -24,6 +24,7 @@
 
 /// Provides Georgiadis et al.'s algorithm for dynamic dominance computation
 /// presented in "An Experimental Study of Dynamic Dominators", ESA 2012.
+[<RequireQualifiedAccess>]
 module B2R2.MiddleEnd.BinGraph.Dominance.DepthBasedSearchDominance
 
 open System.Collections.Generic

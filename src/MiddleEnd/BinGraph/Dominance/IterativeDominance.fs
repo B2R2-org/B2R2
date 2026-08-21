@@ -37,6 +37,7 @@
 /// <summary>
 /// Provides a simplistic iterative dominance algorithm.
 /// </summary>
+[<RequireQualifiedAccess>]
 module B2R2.MiddleEnd.BinGraph.Dominance.IterativeDominance
 
 open System.Collections.Generic

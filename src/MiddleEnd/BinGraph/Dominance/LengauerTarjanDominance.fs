@@ -26,6 +26,7 @@
 /// dominator computation presented in "A fast algorithm for finding dominators
 /// in a flow graph", TOPLAS 1979. This sophisticated version balances when
 /// constructing the ancestor forest.
+[<RequireQualifiedAccess>]
 module B2R2.MiddleEnd.BinGraph.Dominance.LengauerTarjanDominance
 
 open System.Collections.Generic

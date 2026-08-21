@@ -24,6 +24,7 @@
 
 /// Provides the Cooper et al.'s algorithm for dominance computation presented
 /// in "A Simple, Fast Dominance Algorithm", SPE 2001.
+[<RequireQualifiedAccess>]
 module B2R2.MiddleEnd.BinGraph.Dominance.CooperDominance
 
 open System.Collections.Generic
