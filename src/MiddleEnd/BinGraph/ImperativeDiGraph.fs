@@ -27,7 +27,9 @@ namespace B2R2.MiddleEnd.BinGraph
 open System.Collections.Generic
 
 /// Represents an imperative directed graph.
-type ImperativeDiGraph<'V, 'E when 'V: equality and 'E: equality>() =
+type ImperativeDiGraph<'V, 'E when 'V: equality and 'E: equality>
+  private(initialID: VertexID) =
+
   let vertices = Dictionary<VertexID, Vertex<'V>>()
 
   let edges = Dictionary<VertexID * VertexID, Edge<'V, 'E>>()
@@ -38,7 +40,7 @@ type ImperativeDiGraph<'V, 'E when 'V: equality and 'E: equality>() =
 
   let exits = HashSet<Vertex<'V>>()
 
-  let mutable id = 0
+  let mutable id = initialID
 
   let roots = List<Vertex<'V>>()
 
@@ -111,20 +113,49 @@ type ImperativeDiGraph<'V, 'E when 'V: equality and 'E: equality>() =
     if isOwnVertex v then Seq.toArray succs[v.ID] else [||]
 
   let clone () =
-    let g = ImperativeDiGraph<'V, 'E>()
-    let ig = g :> IDiGraph<_, _>
-    let dictOldToNew = Dictionary<VertexID, VertexID>()
-    vertices.Values |> Seq.iter (fun v ->
-      let v', _ = ig.AddVertex((v :> IVertex<_>).VData)
-      dictOldToNew.Add(v.ID, v'.ID))
-    (* Every edge endpoint is a vertex of this graph, hence mapped above. *)
-    edges.Values |> Seq.iter (fun e ->
-      assert (dictOldToNew.ContainsKey e.First.ID)
-      assert (dictOldToNew.ContainsKey e.Second.ID)
-      let src = ig.FindVertexByID dictOldToNew[e.First.ID]
-      let dst = ig.FindVertexByID dictOldToNew[e.Second.ID]
-      ig.AddEdge(src, dst, e.Label) |> ignore)
+    let g = ImperativeDiGraph<'V, 'E>(id)
+    for v in vertices.Values do g.CopyVertexFrom v
+    for e in edges.Values do g.CopyEdgeFrom e
+    for KeyValue(vid, ss) in succs do g.CopyAdjacencyOrder(vid, ss, preds[vid])
+    g.CopyRootsFrom roots
     g
+
+  new() = ImperativeDiGraph 0
+
+  /// Adds a copy of the given vertex, keeping its ID as well as the absence of
+  /// its data. This runs on the clone being built, not on the original.
+  member private _.CopyVertexFrom(v: IVertex<'V>) =
+    if v.HasData then
+      addVertexWithDataAndID (VertexData v.VData) v.ID |> ignore
+    else
+      addVertexWithDataAndID null v.ID |> ignore
+
+  /// Adds a copy of the given edge, keeping the absence of its label.
+  member private this.CopyEdgeFrom(e: Edge<'V, 'E>) =
+    let g = this :> IDiGraphAccessible<'V, 'E>
+    let src = g.FindVertexByID e.First.ID
+    let dst = g.FindVertexByID e.Second.ID
+    if e.HasLabel then addEdge src dst (EdgeLabel e.Label)
+    else addEdge src dst null
+
+  /// Rewrites the adjacency lists of the given vertex to follow the order of
+  /// the given ones. Copying the edges above adds them in whatever order the
+  /// edge table hands them out, which is not the order the original was built
+  /// in, and adjacency order is what a traversal order follows.
+  member private _.CopyAdjacencyOrder(vid, ss: List<Vertex<'V>>, ps) =
+    let reorder (dst: List<Vertex<'V>>) (src: List<Vertex<'V>>) =
+      dst.Clear()
+      for v in src do dst.Add vertices[v.ID]
+    reorder succs[vid] ss
+    reorder preds[vid] ps
+
+  /// Replaces the roots of this graph with the ones matching the given.
+  member private this.CopyRootsFrom(roots: List<Vertex<'V>>) =
+    let g = this :> IDiGraph<'V, 'E>
+    roots
+    |> Seq.map (fun r -> g.FindVertexByID r.ID)
+    |> g.SetRoots
+    |> ignore
 
   interface IDiGraphAccessible<'V, 'E> with
 

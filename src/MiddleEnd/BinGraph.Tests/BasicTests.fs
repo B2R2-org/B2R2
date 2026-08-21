@@ -195,3 +195,63 @@ type BasicTests() =
     Assert.Throws<VertexNotFoundException>(fun () ->
       g.RemoveVertex removed |> ignore)
     |> ignore
+
+  [<TestMethod>]
+  [<DynamicData(nameof BasicTests.GraphTypes)>]
+  member _.``Clone Preservation Test``(t) =
+    let g1, vmap = digraph1 t
+    let g1 = g1.SetRoots [| vmap[1]; vmap[4] |]
+    let g2 = g1.Clone()
+    let vertexIDs (g: IDiGraphAccessible<_, _>) =
+      g.Vertices |> Array.map (fun v -> v.ID) |> Array.sort
+    let rootIDs (g: IDiGraphAccessible<_, _>) =
+      g.GetRoots() |> Array.map (fun v -> v.ID)
+    let edgeTriples (g: IDiGraphAccessible<_, _>) =
+      g.Edges
+      |> Array.map (fun e -> e.First.ID, e.Second.ID, e.Label)
+      |> Array.sort
+    CollectionAssert.AreEqual(vertexIDs g1, vertexIDs g2)
+    CollectionAssert.AreEqual(rootIDs g1, rootIDs g2)
+    CollectionAssert.AreEqual(edgeTriples g1, edgeTriples g2)
+    Assert.AreEqual<int>(3, (g2.FindVertexByID vmap[3].ID).VData)
+    (* A clone continues to number its vertices where the original left off. *)
+    let v1, _ = g1.AddVertex 7
+    let v2, _ = g2.AddVertex 7
+    Assert.AreEqual<VertexID>(v1.ID, v2.ID)
+
+  [<TestMethod>]
+  [<DynamicData(nameof BasicTests.GraphTypes)>]
+  member _.``Clone Dummy Test``(t) =
+    let g = emptyDigraph t
+    let v1, g = g.AddVertex 1
+    let v2, g = g.AddVertex()
+    let g = g.AddEdge(v1, v2)
+    let g2 = g.Clone()
+    let v1 = g2.FindVertexByID v1.ID
+    let v2 = g2.FindVertexByID v2.ID
+    let e = g2.FindEdge(v1, v2)
+    Assert.AreEqual<bool>(true, v1.HasData)
+    Assert.AreEqual<bool>(false, v2.HasData)
+    Assert.AreEqual<bool>(false, e.HasLabel)
+
+  [<TestMethod>]
+  [<DynamicData(nameof BasicTests.GraphTypes)>]
+  member _.``Clone Adjacency Order Test``(t) =
+    let g, vmap = digraph1 t
+    (* Re-adding an edge moves it to the end of the adjacency lists of its
+       endpoints, and a clone has to follow that order, too. *)
+    let g = g.RemoveEdge(vmap[2], vmap[3])
+    let g = g.AddEdge(vmap[2], vmap[3], 2)
+    let g = g.RemoveEdge(vmap[3], vmap[5])
+    let g = g.AddEdge(vmap[3], vmap[5], 5)
+    let g2 = g.Clone()
+    let succIDs (g: IDiGraphAccessible<_, _>) v =
+      g.GetSuccs v |> Array.map (fun s -> s.ID)
+    let predIDs (g: IDiGraphAccessible<_, _>) v =
+      g.GetPreds v |> Array.map (fun p -> p.ID)
+    CollectionAssert.AreEqual([| 4; 6; 3 |], succIDs g vmap[2])
+    CollectionAssert.AreEqual([| 4; 3 |], predIDs g vmap[5])
+    for v in g.Vertices do
+      let v2 = g2.FindVertexByID v.ID
+      CollectionAssert.AreEqual(succIDs g v, succIDs g2 v2)
+      CollectionAssert.AreEqual(predIDs g v, predIDs g2 v2)
