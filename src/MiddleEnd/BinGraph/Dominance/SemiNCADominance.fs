@@ -257,7 +257,7 @@ let createWithInfo g dfp =
   let dom, fw, bw = computeDominance g dfp
   dom, fw, bw
 
-let creatFromInfo g fwInfo (bwInfo: Lazy<LTDomInfo<_>>) dfp =
+let createFromInfo g fwInfo (bwInfo: Lazy<LTDomInfo<_>>) dfp =
   let fwDT = lazy DominatorTree(g, idomAux fwInfo)
   let bwG = lazy (GraphUtils.findExits g |> g.Reverse)
   let bwDT = lazy DominatorTree(bwG.Value, idomAux bwInfo.Value)

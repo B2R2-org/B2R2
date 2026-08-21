@@ -403,13 +403,13 @@ let createWithInfo g dfp staticAlgo =
   let dom, fw, bw = computeDominance g dfp staticAlgo
   dom, fw, bw
 
-let creatFromInfo g fwInfo (bwInfo: Lazy<DBSDomInfo<_, _>>) dfp =
+let createFromInfo g fwInfo (bwInfo: Lazy<DBSDomInfo<_, _>>) dfp =
   let fwDT = lazy DominatorTree(g, idom g fwInfo)
   let bwG = lazy (GraphUtils.findExits g |> g.Reverse)
   let bwDT = lazy DominatorTree(bwG.Value, idom bwG.Value bwInfo.Value)
   createDominance g bwG fwInfo fwDT bwInfo bwDT dfp
 
-let createInfoFromDom g dom dfp staticAlgo fw =
+let computeInfoFromDom g dom dfp staticAlgo fw =
   copyDominance g dom dfp staticAlgo fw
 
 let updateInfo g info (edge: Edge<_, _>) =

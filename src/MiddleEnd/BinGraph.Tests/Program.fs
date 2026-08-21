@@ -149,13 +149,13 @@ type DynamicDoms() =
 
   [<Benchmark(Baseline = true)>]
   member _.DepthBasedSearchAlgorithm() =
-    let fwInitInfo = DBS.createInfoFromDom h initialDom dfp DBS.SemiNCA true
+    let fwInitInfo = DBS.computeInfoFromDom h initialDom dfp DBS.SemiNCA true
     let bwInitInfo =
-      Lazy(DBS.createInfoFromDom h initialDom dfp DBS.SemiNCA false)
+      Lazy(DBS.computeInfoFromDom h initialDom dfp DBS.SemiNCA false)
     testList
     |> List.fold (fun (fwInfo, bwInfo) (f, edge) ->
       let updatedInfo = DBS.updateInfo f fwInfo edge
-      let dom = DBS.creatFromInfo f updatedInfo bwInfo dfp
+      let dom = DBS.createFromInfo f updatedInfo bwInfo dfp
       let v = f.Vertices[0]
       dom.Dominators v |> ignore
       updatedInfo, bwInfo
@@ -166,7 +166,7 @@ type DynamicDoms() =
     testList
     |> List.fold (fun (fwInfo, bwInfo) (f, edge) ->
       let updatedInfo = SemiNCADominance.updateInfo f fwInfo edge
-      let dom = SemiNCADominance.creatFromInfo f updatedInfo bwInfo dfp
+      let dom = SemiNCADominance.createFromInfo f updatedInfo bwInfo dfp
       let v = f.Vertices[0]
       dom.Dominators v |> ignore
       updatedInfo, bwInfo
