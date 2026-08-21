@@ -49,7 +49,7 @@ type LoopTests() =
   member _.``Natural Loop Test``(t) =
     let g, vmap = digraph11 t
     let dict =
-      Loop.getNaturalLoops g
+      Loop.NaturalLoop.findAll g
       |> Seq.map toTuple
       |> Seq.toArray
       |> Array.sortBy (fun (k, _) -> k.First.ID)

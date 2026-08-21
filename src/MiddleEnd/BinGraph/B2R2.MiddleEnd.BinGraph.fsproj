@@ -36,7 +36,7 @@
     <Compile Include="Dominance\CytronDominanceFrontier.fs" />
     <Compile Include="Dominance\CooperDominanceFrontier.fs" />
     <Compile Include="DominanceFactory.fs" />
-    <Compile Include="Loop.fs" />
+    <Compile Include="Loop\NaturalLoop.fs" />
   </ItemGroup>
 
   <ItemGroup>

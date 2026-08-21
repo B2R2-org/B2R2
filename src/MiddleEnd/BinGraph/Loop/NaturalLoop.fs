@@ -22,13 +22,25 @@
   SOFTWARE.
 *)
 
-/// Provides algorithms for loop detection in directed graphs.
+/// <namespacedoc>
+///   <summary>
+///   Contains loop analyses for directed graphs. Each module here identifies
+///   one kind of loop structure.
+///   </summary>
+/// </namespacedoc>
+///
+/// <summary>
+/// Provides the identification of natural loops, the loops that a back edge
+/// closes: an edge whose head dominates its tail, and thus the one entry point
+/// that every path into the loop goes through.
+/// </summary>
 [<RequireQualifiedAccess>]
-module B2R2.MiddleEnd.BinGraph.Loop
+module B2R2.MiddleEnd.BinGraph.Loop.NaturalLoop
 
 open System.Collections.Generic
+open B2R2.MiddleEnd.BinGraph
 
-let private getBackEdges g =
+let private findBackEdges g =
   let df = Dominance.CytronDominanceFrontier()
   let dom = Dominance.LengauerTarjanDominance.create g df
   g.FoldEdge((fun acc edge ->
@@ -51,10 +63,11 @@ let private findNaturalLoopBody g (edge: Edge<_, _>) =
       ()
   body
 
-/// Gets the natural loops in the given directed graph.
-[<CompiledName "GetNaturalLoops">]
-let getNaturalLoops (g: IDiGraphAccessible<_, _>) =
+/// Finds every natural loop of the given directed graph, as a map from each
+/// back edge to the body of the loop that the edge closes.
+[<CompiledName "FindAll">]
+let findAll (g: IDiGraphAccessible<_, _>) =
   let dict = Dictionary()
-  for edge in getBackEdges g do
+  for edge in findBackEdges g do
     dict[edge] <- findNaturalLoopBody g edge
   dict
