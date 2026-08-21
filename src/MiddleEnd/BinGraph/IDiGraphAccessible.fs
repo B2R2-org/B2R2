@@ -61,10 +61,17 @@ type IDiGraphAccessible<'V, 'E when 'V: equality and 'E: equality> =
   /// the graph.
   abstract IsEmpty: unit -> bool
 
-  /// Checks the existence of the given vertex from the graph.
-  abstract HasVertex: VertexID -> bool
+  /// Checks whether this very vertex belongs to this graph. A vertex of
+  /// another graph can carry an ID this graph also uses, and vertices compare
+  /// by ID, which is why this asks of the vertex rather than of its ID.
+  abstract Contains: IVertex<'V> -> bool
 
-  /// Checks the existence of the given edge from the graph.
+  /// Checks whether a vertex of the given ID belongs to this graph. Use
+  /// `Contains` instead when a vertex, not an ID, is what one has at hand.
+  abstract HasVertexByID: VertexID -> bool
+
+  /// Checks the existence of the edge from src to dst. Both of them have to
+  /// be the very vertices of this graph, as in `Contains`.
   abstract HasEdge: src: IVertex<'V> * dst: IVertex<'V> -> bool
 
   /// Finds a vertex by its VertexID. This function raises
@@ -92,11 +99,14 @@ type IDiGraphAccessible<'V, 'E when 'V: equality and 'E: equality> =
   /// Finds a vertex by the given function without raising an exception.
   abstract TryFindVertexBy: (IVertex<'V> -> bool) -> IVertex<'V> option
 
-  /// Finds the edge from src to dst. This function raises
+  /// Finds the edge from src to dst, both of which have to be the very
+  /// vertices of this graph, as in `Contains`. This function raises
   /// `EdgeNotFoundException` when there is no such an edge.
   abstract FindEdge: src: IVertex<'V> * dst: IVertex<'V> -> Edge<'V, 'E>
 
-  /// Finds the edge from src to dst. This function returns an Option type.
+  /// Finds the edge from src to dst, both of which have to be the very
+  /// vertices of this graph, as in `Contains`. This function returns an Option
+  /// type.
   abstract TryFindEdge:
     src: IVertex<'V> * dst: IVertex<'V> -> Edge<'V, 'E> option
 

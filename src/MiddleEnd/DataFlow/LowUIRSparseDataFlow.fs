@@ -579,7 +579,7 @@ module internal AnalysisCore = begin
   let collectPhiInsertionCandidates g state =
     let workset = HashSet()
     for v in (state: State<_>).PendingVertices do
-      if not <| (g: IDiGraphAccessible<_, _>).HasVertex v.ID then
+      if not <| (g: IDiGraphAccessible<_, _>).Contains v then
         ()
       else
         workset.Add v |> ignore
@@ -805,7 +805,7 @@ module internal AnalysisCore = begin
     if (visited: HashSet<_>).Contains v then
       ()
     elif (state: State<_>).IsVertexPending v
-         && (g: IDiGraphAccessible<_, _>).HasVertex v.ID then
+         && (g: IDiGraphAccessible<_, _>).Contains v then
       let idom = dom.ImmediateDominator v
       let defs = if isNull idom then Map.empty else getOutgoingDefs state idom
       update g state dom.DominatorTree visited v defs

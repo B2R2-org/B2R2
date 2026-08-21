@@ -53,6 +53,12 @@ type MutableDiGraph<'V, 'E when 'V: equality and 'E: equality>
     | true, v' -> obj.ReferenceEquals(v', v)
     | false, _ -> false
 
+  (* An edge is this graph's own only when its endpoints are the very objects
+     the given ones are, for the same reason. *)
+  let hasOwnEnds (edge: Edge<'V, 'E>) src dst =
+    obj.ReferenceEquals(edge.First, src)
+    && obj.ReferenceEquals(edge.Second, dst)
+
   let findOwnVertex (v: IVertex<'V>) =
     if isOwnVertex v then vertices[v.ID]
     else GraphUtils.raiseVertexNotFoundByID v.ID
@@ -197,9 +203,14 @@ type MutableDiGraph<'V, 'E when 'V: equality and 'E: equality>
 
     member _.IsEmpty() = vertices.Count = 0
 
-    member _.HasVertex vid = vertices.ContainsKey vid
+    member _.Contains v = isOwnVertex v
 
-    member _.HasEdge(src, dst) = edges.ContainsKey((src.ID, dst.ID))
+    member _.HasVertexByID vid = vertices.ContainsKey vid
+
+    member _.HasEdge(src, dst) =
+      match edges.TryGetValue(key = (src.ID, dst.ID)) with
+      | true, edge -> hasOwnEnds edge src dst
+      | false, _ -> false
 
     member _.FindVertexBy fn = findVertexBy fn
 
@@ -225,13 +236,13 @@ type MutableDiGraph<'V, 'E when 'V: equality and 'E: equality>
 
     member _.FindEdge(src: IVertex<'V>, dst: IVertex<'V>) =
       match edges.TryGetValue(key = (src.ID, dst.ID)) with
-      | true, edge -> edge
-      | false, _ -> raise EdgeNotFoundException
+      | true, edge when hasOwnEnds edge src dst -> edge
+      | _ -> raise EdgeNotFoundException
 
     member _.TryFindEdge(src: IVertex<'V>, dst: IVertex<'V>) =
       match edges.TryGetValue(key = (src.ID, dst.ID)) with
-      | true, edge -> Some edge
-      | false, _ -> None
+      | true, edge when hasOwnEnds edge src dst -> Some edge
+      | _ -> None
 
     member _.GetPreds(v: IVertex<'V>) =
       getPredVertices v
@@ -274,7 +285,7 @@ type MutableDiGraph<'V, 'E when 'V: equality and 'E: equality>
     member _.AddVertex v = addVertexWithData (VertexData v)
 
     member this.AddVertex(v, vid) =
-      assert ((this: IMutableDiGraph<_, _>).HasVertex vid |> not)
+      assert ((this: IMutableDiGraph<_, _>).HasVertexByID vid |> not)
       addVertexWithDataAndID (VertexData v) vid
 
     member _.AddVertex() = addVertexWithData null

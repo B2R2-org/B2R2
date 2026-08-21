@@ -66,17 +66,17 @@ type PersistentDiGraphTests() =
     let withoutVertex = g.RemoveVertex v3
     Assert.AreEqual<int>(3, g.Size)
     Assert.AreEqual<int>(2, withoutVertex.Size)
-    Assert.AreEqual<bool>(true, g.HasVertex v3.ID)
-    Assert.AreEqual<bool>(false, withoutVertex.HasVertex v3.ID)
+    Assert.AreEqual<bool>(true, g.Contains v3)
+    Assert.AreEqual<bool>(false, withoutVertex.Contains v3)
 
   [<TestMethod>]
   member _.``A New Vertex Belongs To The New Graph Only Test``() =
     let g = empty ()
     let v, g' = g.AddVertex 1
     Assert.AreEqual<int>(0, g.Size)
-    Assert.AreEqual<bool>(false, g.HasVertex v.ID)
+    Assert.AreEqual<bool>(false, g.Contains v)
     Assert.AreEqual<int>(1, g'.Size)
-    Assert.AreEqual<bool>(true, g'.HasVertex v.ID)
+    Assert.AreEqual<bool>(true, g'.Contains v)
 
   [<TestMethod>]
   member _.``Two Branches Of One Snapshot Are Independent Test``() =

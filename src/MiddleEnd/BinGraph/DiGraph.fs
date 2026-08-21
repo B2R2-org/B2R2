@@ -41,6 +41,6 @@ let reverseInto g roots (out: IMutableDiGraph<'V, 'E>) =
       out.AddEdge(dst, src))
   roots
   |> Seq.map (fun (root: IVertex<'V>) ->
-    assert (g.HasVertex root.ID)
+    assert (g.Contains root)
     out.FindVertexByID root.ID)
   |> out.SetRoots

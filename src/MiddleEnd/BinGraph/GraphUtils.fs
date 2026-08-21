@@ -40,11 +40,14 @@ let raiseVertexNotFoundByData data =
 let raiseVertexNotFoundByPredicate () =
   raise <| VertexNotFoundException "No vertex satisfying the predicate"
 
-/// Raises `VertexNotFoundException` when the given vertex does not belong to
-/// the given graph. Analyses use this to reject foreign vertices up front,
-/// rather than failing later with an obscure lookup error.
+/// Raises `VertexNotFoundException` when no vertex of the given vertex's ID
+/// belongs to the given graph. Analyses use this to reject a vertex of another
+/// graph up front, rather than failing later with an obscure lookup error. It
+/// asks of the ID rather than of the vertex, since a post-dominance query is
+/// answered on the transposed graph, where the counterpart of the given vertex
+/// shares nothing but its ID.
 let checkVertexInGraph (g: IDiGraphAccessible<_, _>) (v: IVertex<_>) =
-  if g.HasVertex v.ID then () else raiseVertexNotFoundByID v.ID
+  if g.HasVertexByID v.ID then () else raiseVertexNotFoundByID v.ID
 
 /// Makes a dummy vertex for an analysis without having to use `AddVertex`
 /// method of a graph. With this, we don't have to modify the graph itself.

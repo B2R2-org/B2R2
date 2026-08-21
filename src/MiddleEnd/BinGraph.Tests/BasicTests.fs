@@ -158,6 +158,9 @@ type BasicTests() =
     let g, _ = digraph1 t
     let _, vmap = digraph3 t
     let foreign = vmap[3] (* Same ID, but a vertex of another graph. *)
+    (* Membership is of the vertex, not of the ID it carries. *)
+    Assert.AreEqual<bool>(false, g.Contains foreign)
+    Assert.AreEqual<bool>(true, g.HasVertexByID foreign.ID)
     Assert.AreEqual<int>(0, (g.GetPreds foreign).Length)
     Assert.AreEqual<int>(0, (g.GetPredEdges foreign).Length)
     Assert.AreEqual<int>(0, (g.GetSuccs foreign).Length)
@@ -172,6 +175,22 @@ type BasicTests() =
       g.SetRoots [| foreign |])
     |> ignore
     CollectionAssert.AreEqual([| 1 |], g.GetRoots() |> Array.map (_.VData))
+
+  [<TestMethod>]
+  [<DynamicData(nameof BasicTests.GraphTypes)>]
+  member _.``Foreign Edge Test``(t) =
+    let g, _ = digraph1 t
+    let _, vmap = digraph3 t
+    (* The two carry the IDs of an edge this graph does have, yet they are the
+       vertices of another graph. *)
+    let src, dst = vmap[1], vmap[2]
+    Assert.AreEqual<bool>(true, g.HasEdge(g.FindVertexByID src.ID,
+                                          g.FindVertexByID dst.ID))
+    Assert.AreEqual<bool>(false, g.HasEdge(src, dst))
+    Assert.AreEqual<bool>(true, (g.TryFindEdge(src, dst)).IsNone)
+    Assert.Throws<EdgeNotFoundException>(fun () ->
+      g.FindEdge(src, dst) |> ignore)
+    |> ignore
 
   [<TestMethod>]
   [<DynamicData(nameof BasicTests.GraphTypes)>]

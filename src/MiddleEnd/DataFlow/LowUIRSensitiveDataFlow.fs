@@ -882,13 +882,13 @@ module internal AnalysisCore = begin
   let prepareQueue (state: State<_, _>) g =
     let queue = UniqueQueue()
     for s, d in state.PendingEdges do
-      if not <| (g: IDiGraphAccessible<_, _>).HasVertex d.ID then
+      if not <| (g: IDiGraphAccessible<_, _>).Contains d then
         ()
       elif s = null then (* Root node has been created. *)
         let s = s, state.Scheme.DefaultExecutionContext
         let d = d
         queue.Enqueue(s, d)
-      elif g.HasVertex s.ID then
+      elif g.Contains s then
         for inSP in getPossibleExeCtxs state s do
           let s = s, inSP
           let d = d

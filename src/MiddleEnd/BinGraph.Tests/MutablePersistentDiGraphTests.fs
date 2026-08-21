@@ -61,8 +61,8 @@ type MutablePersistentDiGraphTests() =
     Assert.AreEqual<int>(1, ig.Edges.Length)
     Assert.AreEqual<int>(2, taken.Size)
     let v3 = ig.AddVertex 3
-    Assert.AreEqual<bool>(false, taken.HasVertex v3.ID)
-    Assert.AreEqual<bool>(true, ig.HasVertex v3.ID)
+    Assert.AreEqual<bool>(false, taken.Contains v3)
+    Assert.AreEqual<bool>(true, ig.Contains v3)
 
   [<TestMethod>]
   member _.``Clone Is Independent Test``() =

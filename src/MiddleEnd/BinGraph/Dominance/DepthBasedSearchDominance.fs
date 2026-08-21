@@ -64,8 +64,8 @@ let private addVertex (g: IMutableDiGraph<_, _>) (v: IVertex<_>) =
 let private addEdge (g: IMutableDiGraph<_, _>) (edge: Edge<_, _>) =
   let srcID = edge.First.ID
   let dstID = edge.Second.ID
-  if g.HasVertex srcID then () else addVertex g edge.First
-  if g.HasVertex dstID then () else addVertex g edge.Second
+  if g.HasVertexByID srcID then () else addVertex g edge.First
+  if g.HasVertexByID dstID then () else addVertex g edge.Second
   g.AddEdge(g.FindVertexByID srcID, g.FindVertexByID dstID, edge.Label)
 
 let private initDynamicDomInfo g dfp algo =

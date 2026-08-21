@@ -61,7 +61,9 @@ type MutablePersistentDiGraph<'V, 'E when 'V: equality and 'E: equality>
 
     member _.IsEmpty() = g.IsEmpty()
 
-    member _.HasVertex vid = g.HasVertex vid
+    member _.Contains v = g.Contains v
+
+    member _.HasVertexByID vid = g.HasVertexByID vid
 
     member _.HasEdge(src, dst) = g.HasEdge(src, dst)
 

@@ -72,6 +72,12 @@ type PersistentDiGraph<'V, 'E
     | Some v' -> obj.ReferenceEquals(v', v)
     | None -> false
 
+  (* An edge is this graph's own only when its endpoints are the very objects
+     the given ones are, for the same reason. *)
+  let hasOwnEnds (edge: Edge<'V, 'E>) src dst =
+    obj.ReferenceEquals(edge.First, src)
+    && obj.ReferenceEquals(edge.Second, dst)
+
   let checkVertexExistence (v: IVertex<'V>) =
     if isOwnVertex v then () else GraphUtils.raiseVertexNotFoundByID v.ID
 
@@ -181,12 +187,14 @@ type PersistentDiGraph<'V, 'E
 
     member _.IsEmpty() = vertices.Count = 0
 
-    member _.HasVertex vid = vertices |> Map.containsKey vid
+    member _.Contains v = isOwnVertex v
+
+    member _.HasVertexByID vid = vertices |> Map.containsKey vid
 
     member _.HasEdge(src, dst) =
       match succs.TryFind src.ID with
       | None -> false
-      | Some edges -> edges |> List.exists (fun edge -> edge.Second.ID = dst.ID)
+      | Some edges -> edges |> List.exists (fun e -> hasOwnEnds e src dst)
 
     member _.FindVertexByID vid =
       match Map.tryFind vid vertices with
@@ -211,19 +219,17 @@ type PersistentDiGraph<'V, 'E
     member _.TryFindVertexBy fn = tryFindVertexBy fn
 
     member _.FindEdge(src: IVertex<'V>, dst: IVertex<'V>) =
-      let dstID = dst.ID
       match Map.tryFind src.ID succs with
       | Some edges ->
-        match edges |> List.tryFind (fun edge -> edge.Second.ID = dstID) with
+        match edges |> List.tryFind (fun e -> hasOwnEnds e src dst) with
         | Some edge -> edge
         | None -> raise EdgeNotFoundException
       | None ->
         raise EdgeNotFoundException
 
     member _.TryFindEdge(src: IVertex<'V>, dst: IVertex<'V>) =
-      let dstID = dst.ID
       match Map.tryFind src.ID succs with
-      | Some edges -> edges |> List.tryFind (fun edge -> edge.Second.ID = dstID)
+      | Some edges -> edges |> List.tryFind (fun e -> hasOwnEnds e src dst)
       | None -> None
 
     member _.GetPreds(v: IVertex<'V>) =
@@ -269,7 +275,7 @@ type PersistentDiGraph<'V, 'E
       v, g
 
     member this.AddVertex(value, vid: VertexID) =
-      assert ((this: IPersistentDiGraph<_, _>).HasVertex vid |> not)
+      assert ((this: IPersistentDiGraph<_, _>).HasVertexByID vid |> not)
       let struct (v, g) = addVertexWithDataAndID (VertexData value) vid
       v, g
 

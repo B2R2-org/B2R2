@@ -83,8 +83,11 @@ type SSACFG private(g: IMutableDiGraph<SSABasicBlock, CFGEdgeKind>) =
   /// Remove the given vertex from this CFG.
   member _.RemoveVertex v = g.RemoveVertex v
 
-  /// Check the existence of the given vertex from this CFG.
-  member _.HasVertex vid = g.HasVertex vid
+  /// Check whether this very vertex belongs to this CFG.
+  member _.Contains v = g.Contains v
+
+  /// Check whether a vertex of the given ID belongs to this CFG.
+  member _.HasVertexByID vid = g.HasVertexByID vid
 
   /// Find a vertex by its VertexID. This function raises an exception when
   /// there is no such a vertex.
@@ -196,7 +199,8 @@ type SSACFG private(g: IMutableDiGraph<SSABasicBlock, CFGEdgeKind>) =
     member _.SingleRoot = g.SingleRoot
     member _.ImplementationType = g.ImplementationType
     member _.IsEmpty() = g.IsEmpty()
-    member _.HasVertex vid = g.HasVertex vid
+    member _.Contains v = g.Contains v
+    member _.HasVertexByID vid = g.HasVertexByID vid
     member _.HasEdge(src, dst) = g.HasEdge(src, dst)
     member _.FindVertexByID vid = g.FindVertexByID vid
     member _.TryFindVertexByID vid = g.TryFindVertexByID vid
