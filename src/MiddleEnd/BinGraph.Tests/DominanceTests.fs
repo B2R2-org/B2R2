@@ -1758,6 +1758,17 @@ type DominanceTests() =
 
   [<TestMethod>]
   [<DynamicData(nameof DominanceTests.TestData)>]
+  member _.``Dominator Tree Roots Test``(t, domAlgo, dfAlgo) =
+    let g, vmap = digraph10 t
+    g.SetRoots [ vmap[1]; vmap[4] ]
+    let dom: IDominance<_> = DominanceFactory.create g domAlgo dfAlgo
+    let tree = dom.DominatorTree
+    assertSetEqual g [ 1; 4 ] (tree.GetRoots())
+    assertSetEqual g [ 2 ] (tree.GetChildren vmap[1])
+    assertSetEqual g [ 5 ] (tree.GetChildren vmap[4])
+
+  [<TestMethod>]
+  [<DynamicData(nameof DominanceTests.TestData)>]
   member _.``Foreign Vertex Query Test``(t, domAlgo, dfAlgo) =
     let g, vmap = digraph1 t
     let removed = vmap[6]

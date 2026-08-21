@@ -86,26 +86,26 @@ and IDominanceFrontierProvider<'V, 'E when 'V: equality and 'E: equality> =
     * dom: IForwardDominance<'V>
    -> IDominanceFrontier<'V>
 
-/// Represents a dominator tree interface. A dominator tree is a tree where each
-/// node's children are those nodes it immediately dominates.
+/// Represents a dominator tree, in which the children of a node are the nodes
+/// it immediately dominates. A graph with more than one root, or with a vertex
+/// no root reaches, has more than one node that nothing dominates, so this is a
+/// forest, and `GetRoots` returns the nodes it grows from.
 and DominatorTree<'V when 'V: equality>
   public(vertices: IEnumerable<IVertex<'V>>,
          getIDom: IVertex<'V> -> IVertex<'V> | null) =
 
   let domTree = Dictionary<IVertex<'V>, List<IVertex<'V>>>()
-  let dummyRoot = GraphUtils.makeDummyVertex ()
+  let roots = List<IVertex<'V>>()
 
   do
-    domTree[dummyRoot] <- List()
     for v in vertices do
       let idom = getIDom v
-      if isNull idom then domTree[dummyRoot].Add v
+      if isNull idom then roots.Add v
       elif domTree.ContainsKey idom then domTree[idom].Add v
       else domTree[idom] <- List [ v ]
 
-  /// Gets the dummy root. Dummy root points to all the roots of the dominator
-  /// tree.
-  member _.GetRoot() = dummyRoot
+  /// Gets the vertices that nothing dominates, i.e., the roots of this forest.
+  member _.GetRoots() = roots
 
   /// Gets the children of a vertex in the dominator tree.
   member _.GetChildren(v: IVertex<'V>) =

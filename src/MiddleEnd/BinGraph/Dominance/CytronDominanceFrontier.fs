@@ -31,10 +31,9 @@ open B2R2.MiddleEnd.BinGraph
 /// their paper "Efficiently Computing Static Single Assignment Form and the
 /// Control Dependence Graph", TOPLAS 1991.
 type CytronDominanceFrontier<'V, 'E when 'V: equality and 'E: equality>() =
-  let traverseBottomUp (domTree: DominatorTree<_>) root =
+  let traverseBottomUp (domTree: DominatorTree<_>) =
     let stack1, stack2 = Stack(), Stack()
-    domTree.GetChildren root
-    |> Seq.iter stack1.Push
+    domTree.GetRoots() |> Seq.iter stack1.Push
     while stack1.Count > 0 do
       let v = stack1.Pop()
       stack2.Push v
@@ -50,7 +49,7 @@ type CytronDominanceFrontier<'V, 'E when 'V: equality and 'E: equality>() =
        no dominance frontier of its own. *)
     let reachables = GraphUtils.computeReachables g
     for v in g.Vertices do frontiers[v] <- HashSet<IVertex<_>>()
-    for v in traverseBottomUp domTree (domTree.GetRoot()) do
+    for v in traverseBottomUp domTree do
       if reachables.Contains v then
         let df = frontiers[v]
         for succ in g.GetSuccs v do
