@@ -36,6 +36,30 @@ type TraversalTests() =
   let makeAnswer lst =
     List.rev lst |> List.map (fun (v: IVertex<int>) -> v.VData)
 
+  let addVertexID acc (v: IVertex<_>) = Set.add v.ID acc
+
+  (* Only the vertices reachable from the roots take part in a WithRoots
+     traversal, so they are the ones the two postorders must agree on. *)
+  let reachableIDs (g: IMutableDiGraph<_, _>) =
+    let roots = g.GetRoots() |> Array.toList
+    DFS.foldPreorderWithRoots g roots addVertexID Set.empty
+
+  let examples =
+    [ digraph1
+      digraph2
+      digraph3
+      digraph4
+      digraph5
+      digraph6
+      digraph7
+      digraph8
+      digraph9
+      digraph10
+      digraph11
+      digraph12
+      digraph13
+      digraph14 ]
+
   static member GraphTypes = [| [| box Persistent |]; [| box Mutable |] |]
 
   [<TestMethod>]
@@ -86,3 +110,33 @@ type TraversalTests() =
     let expected = [ 4; 2; 5; 3; 1 ]
     Assert.AreEqual(expected, actual)
 
+  [<TestMethod>]
+  [<DynamicData(nameof TraversalTests.GraphTypes)>]
+  member _.``Postorder traversal test 4``(t) =
+    let g, _ = digraph14 t
+    let actual = DFS.foldPostorder g accumulate [] |> makeAnswer
+    let expected = [ 3; 2; 1 ]
+    Assert.AreEqual(expected, actual)
+
+  [<TestMethod>]
+  [<DynamicData(nameof TraversalTests.GraphTypes)>]
+  member _.``Postorder with roots traversal test``(t) =
+    let g, _ = digraph14 t
+    let roots = g.GetRoots()
+    let actual = DFS.foldPostorderWithRoots g roots accumulate [] |> makeAnswer
+    let expected = [ 3; 2; 1 ]
+    Assert.AreEqual(expected, actual)
+
+  [<TestMethod>]
+  [<DynamicData(nameof TraversalTests.GraphTypes)>]
+  member _.``Postorder with roots agrees with postorder``(t) =
+    for makeExample in examples do
+      let g, _ = makeExample t
+      let reachable = reachableIDs g
+      let expected =
+        DFS.foldPostorder g accumulate []
+        |> List.filter (fun (v: IVertex<_>) -> Set.contains v.ID reachable)
+        |> makeAnswer
+      let actual =
+        DFS.foldPostorderWithRoots g (g.GetRoots()) accumulate [] |> makeAnswer
+      Assert.AreEqual(expected, actual)

@@ -252,3 +252,13 @@ let digraph13 t =
   addEdge 3 1
   addEdge 3 2
   g, vmap
+
+/// Smallest example where a successor of the root is also reachable through a
+/// longer path, which distinguishes a depth-first postorder from a breadth-wise
+/// one. Exits: 3
+let digraph14 t =
+  let g, vmap, addEdge = prepare 3 t
+  addEdge 1 2
+  addEdge 1 3
+  addEdge 2 3
+  g, vmap

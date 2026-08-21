@@ -54,25 +54,34 @@ module DFS =
       visited.Add v.ID |> ignore
       foldPreorderLoop visited g fn (fn acc v) (prependSuccessors g tovisit v)
 
-  let rec internal foldPostorderLoop visited g fn acc vstack = function
-    | [] ->
-      acc
-    | v: IVertex<_> :: tovisit when (visited: HashSet<_>).Contains v.ID ->
-      foldPostorderLoop visited g fn acc vstack tovisit
-    | v :: tovisit ->
-      visited.Add v.ID |> ignore
-      let struct (acc, vstack) = consume visited g fn acc (v :: vstack)
-      foldPostorderLoop visited g fn acc vstack (prependSuccessors g tovisit v)
+  let private pushSuccs (g: IDiGraphAccessible<_, _>) (stack: Stack<_>) v =
+    stack.Push(struct (v, g.GetSuccs v, 0))
 
-  and private consume visited g fn acc = function
-    | [] ->
-      struct (acc, [])
-    | v :: rest ->
-      let allSuccsVisited =
-        g.GetSuccs v
-        |> Seq.forall (fun s -> visited.Contains s.ID)
-      if allSuccsVisited then consume visited g fn (fn acc v) rest
-      else struct (acc, v :: rest)
+  (* Walks the given vertices in a depth-first postorder, sharing the visited
+     set with the caller so that several walks can extend the same traversal. A
+     vertex is marked visited only when the walk actually descends into it, for
+     otherwise a successor that is merely queued would be mistaken for a
+     finished one, and a deeper path reaching it later could not claim it as its
+     own child. Each stack entry carries the successors of its vertex along with
+     the index of the one to descend into next, so a vertex is folded only once
+     its successors are exhausted. *)
+  let private foldPostorderCore visited g fn acc vs =
+    let stack = Stack<struct (IVertex<_> * IVertex<_>[] * int)>()
+    let mutable acc = acc
+    for v: IVertex<_> in vs do
+      if (visited: HashSet<_>).Add v.ID then
+        pushSuccs g stack v
+        while stack.Count > 0 do
+          let struct (v, succs, i) = stack.Pop()
+          if i = succs.Length then
+            acc <- fn acc v
+          else
+            stack.Push(struct (v, succs, i + 1))
+            let s = succs[i]
+            if visited.Add s.ID then pushSuccs g stack s else ()
+      else
+        ()
+    acc
 
   /// Folds vertices of the graph in a depth-first manner with the preorder
   /// traversal, starting from the given root vertices.
@@ -108,24 +117,9 @@ module DFS =
   /// Folds vertices of the graph in a depth-first manner with the postorder
   /// traversal, starting from the given root vertices.
   [<CompiledName "FoldPostorderWithRoots">]
-  let foldPostorderWithRoots (g: IDiGraphAccessible<_, _>) roots fn acc =
+  let foldPostorderWithRoots g roots fn acc =
     let visited = HashSet<VertexID>()
-    let mutable acc = acc
-    let stack = Stack<struct (IVertex<_> * bool)>()
-    for root: IVertex<_> in roots do
-      if visited.Add root.ID then
-        stack.Push(root, false)
-        while stack.Count > 0 do
-          let struct (v, visitedChildren) = stack.Pop()
-          if visitedChildren then
-            acc <- fn acc v
-          else
-            stack.Push(v, true)
-            for succ in Seq.rev (g.GetSuccs v) do
-              if visited.Add succ.ID then stack.Push(succ, false) else ()
-      else
-        ()
-    acc
+    foldPostorderCore visited g fn acc roots
 
   /// Folds vertices of the graph in a depth-first manner with the postorder
   /// traversal. This function visits every vertex in the graph including
@@ -133,11 +127,9 @@ module DFS =
   [<CompiledName "FoldPostorder">]
   let foldPostorder (g: IDiGraphAccessible<_, _>) fn acc =
     let visited = HashSet<VertexID>()
-    let roots = g.GetRoots() |> Array.toList
-    let acc = foldPostorderLoop visited g fn acc [] roots
-    g.Vertices
-    |> Array.toList
-    |> foldPostorderLoop visited g fn acc []
+    let acc = foldPostorderCore visited g fn acc (g.GetRoots())
+    (* fold unreachable vertices, too. *)
+    foldPostorderCore visited g fn acc g.Vertices
 
   /// Iterates vertices of the graph in a depth-first manner with the postorder
   /// traversal, starting from the given root vertices.
