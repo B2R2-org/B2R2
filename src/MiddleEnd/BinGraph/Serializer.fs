@@ -106,7 +106,7 @@ type Serializer =
     else Serializer.RaiseInvalidGraph $"{what} refers to unknown ID {id}"
 
   /// Ensures that a graph having vertices also has at least one root, which
-  /// every graph built through `IDiGraph` maintains.
+  /// every graph of this package maintains.
   static member private CheckRoots(vertices: 'a[], roots: 'b[]) =
     if vertices.Length = 0 || roots.Length > 0 then ()
     else Serializer.RaiseInvalidGraph "A non-empty graph has no root"

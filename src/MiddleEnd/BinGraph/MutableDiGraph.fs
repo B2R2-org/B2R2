@@ -135,7 +135,7 @@ type MutableDiGraph<'V, 'E when 'V: equality and 'E: equality>
 
   let clone () =
     let g = MutableDiGraph<'V, 'E>(id)
-    let ig = g :> IDiGraph<'V, 'E>
+    let ig = g :> IMutableDiGraph<'V, 'E>
     for v in vertices.Values do ig.AddVertexCopy v |> ignore
     for e in edges.Values do g.CopyEdgeFrom e
     for KeyValue(vid, ss) in succs do g.CopyAdjacencyOrder(vid, ss, preds[vid])
@@ -165,11 +165,10 @@ type MutableDiGraph<'V, 'E when 'V: equality and 'E: equality>
 
   /// Replaces the roots of this graph with the ones matching the given.
   member private this.CopyRootsFrom(roots: List<Vertex<'V>>) =
-    let g = this :> IDiGraph<'V, 'E>
+    let g = this :> IMutableDiGraph<'V, 'E>
     roots
     |> Seq.map (fun r -> g.FindVertexByID r.ID)
     |> g.SetRoots
-    |> ignore
 
   interface IDiGraphAccessible<'V, 'E> with
 
@@ -269,50 +268,6 @@ type MutableDiGraph<'V, 'E when 'V: equality and 'E: equality>
     member _.FoldEdge(fn, acc) = edges.Values |> Seq.fold fn acc
 
     member _.IterEdge fn = edges.Values |> Seq.iter fn
-
-  interface IDiGraph<'V, 'E> with
-
-    member this.AddVertex v = addVertexWithData (VertexData v), this
-
-    member this.AddVertex(v, vid) =
-      assert ((this: IDiGraph<_, _>).HasVertex vid |> not)
-      addVertexWithDataAndID (VertexData v) vid, this
-
-    member this.AddVertex() = addVertexWithData null, this
-
-    member this.AddVertexCopy(v: IVertex<'V>) =
-      if v.HasData then addVertexWithDataAndID (VertexData v.VData) v.ID, this
-      else addVertexWithDataAndID null v.ID, this
-
-    member this.RemoveVertex v =
-      removeVertex v
-      this
-
-    member this.AddEdge(src: IVertex<'V>, dst: IVertex<'V>, label) =
-      addEdge src dst (EdgeLabel label)
-      this
-
-    member this.AddEdge(src: IVertex<'V>, dst: IVertex<'V>) =
-      addEdge src dst null
-      this
-
-    member this.RemoveEdge(src: IVertex<'V>, dst: IVertex<'V>) =
-      removeEdge src dst
-      this
-
-    member this.RemoveEdge(edge: Edge<'V, 'E>) =
-      removeEdge edge.First edge.Second
-      this
-
-    member this.AddRoot(v) =
-      addRoot v
-      this
-
-    member this.SetRoots(vs) =
-      setRoots vs
-      this
-
-    member _.Clone() = clone ()
 
   interface IMutableDiGraph<'V, 'E> with
 

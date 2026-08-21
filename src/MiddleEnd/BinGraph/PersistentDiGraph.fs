@@ -262,46 +262,6 @@ type PersistentDiGraph<'V, 'E
     member _.IterEdge fn =
       succs.Values |> Seq.iter (fun edges -> List.iter fn edges)
 
-  interface IDiGraph<'V, 'E> with
-
-    member _.AddVertex value =
-      let struct (v, g) = addVertexWithData (VertexData value)
-      v, g
-
-    member this.AddVertex(value, vid: VertexID) =
-      assert ((this: IDiGraph<_, _>).HasVertex vid |> not)
-      let struct (v, g) = addVertexWithDataAndID (VertexData value) vid
-      v, g
-
-    member _.AddVertex() =
-      let struct (v, g) = addVertexWithData null
-      v, g
-
-    member _.AddVertexCopy(v: IVertex<'V>) =
-      let struct (v', g) =
-        if v.HasData then addVertexWithDataAndID (VertexData v.VData) v.ID
-        else addVertexWithDataAndID null v.ID
-      v', g
-
-    member _.RemoveVertex v = removeVertex v
-
-    member _.AddEdge(src: IVertex<'V>, dst: IVertex<'V>, label) =
-      addEdge src dst (EdgeLabel label)
-
-    member _.AddEdge(src: IVertex<'V>, dst: IVertex<'V>) =
-      addEdge src dst null
-
-    member _.RemoveEdge(src: IVertex<'V>, dst: IVertex<'V>) =
-      removeEdge (Edge(src, dst, null))
-
-    member _.RemoveEdge(edge: Edge<'V, 'E>) = removeEdge edge
-
-    member _.AddRoot v = addRoot v
-
-    member _.SetRoots vs = setRoots vs
-
-    member this.Clone() = this
-
   interface IPersistentDiGraph<'V, 'E> with
 
     member _.AddVertex value =
