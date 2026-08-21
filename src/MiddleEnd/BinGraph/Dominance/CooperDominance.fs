@@ -70,7 +70,7 @@ let private prepareWithDummyRoot g info =
 #if COOPER_USE_DFS
     Traversal.DFS.foldPostorderWithRoots g
 #else
-    Traversal.BFS.reverseFoldWithRoots g
+    Traversal.BFS.foldRevWithRoots g
 #endif
       (realRoots |> Array.toList)
       (fun n v ->
