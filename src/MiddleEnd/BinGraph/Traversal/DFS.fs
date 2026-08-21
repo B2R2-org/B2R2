@@ -91,6 +91,23 @@ let private foldPostorderCore visited g fn acc vs =
       ()
   acc
 
+(* Collects the given walk into a buffer, which read back to front is the
+   reverse of the walk. Prepending the vertices onto a list gives that order
+   just as well, but puts a cell on the heap for every vertex, where a buffer
+   grows in place. *)
+let private toBuffer walk =
+  let buf = List<IVertex<_>>()
+  walk buf.Add
+  buf
+
+let private foldInReverse fn acc (buf: List<IVertex<_>>) =
+  let mutable acc = acc
+  for i in buf.Count - 1 .. -1 .. 0 do acc <- fn acc buf[i]
+  acc
+
+let private iterInReverse fn (buf: List<IVertex<_>>) =
+  for i in buf.Count - 1 .. -1 .. 0 do fn buf[i]
+
 /// Folds vertices of the graph in a depth-first manner with the preorder
 /// traversal, starting from the given root vertices.
 [<CompiledName "FoldPreorderWithRoots">]
@@ -153,24 +170,21 @@ let iterPostorder g fn = foldPostorder g (fun () v -> fn v) ()
 /// postorder traversal, starting from the given root vertices.
 [<CompiledName "FoldRevPostorderWithRoots">]
 let foldRevPostorderWithRoots g roots fn acc =
-  foldPostorderWithRoots g roots (fun acc v -> v :: acc) []
-  |> List.fold fn acc
+  toBuffer (iterPostorderWithRoots g roots) |> foldInReverse fn acc
 
 /// Folds vertices of the graph in a depth-first manner with the reverse
 /// postorder traversal. This function visits every vertex in the graph
 /// including unreachable ones. For those unreachable vertices, the order is
 /// random.
 [<CompiledName "FoldRevPostorder">]
-let foldRevPostorder (g: IDiGraphAccessible<_, _>) fn acc =
-  foldPostorder g (fun acc v -> v :: acc) []
-  |> List.fold fn acc
+let foldRevPostorder g fn acc =
+  toBuffer (iterPostorder g) |> foldInReverse fn acc
 
 /// Iterates vertices of the graph in a depth-first manner with the reverse
 /// postorder traversal, starting from the given root vertices.
 [<CompiledName "IterRevPostorderWithRoots">]
 let iterRevPostorderWithRoots g roots fn =
-  foldPostorderWithRoots g roots (fun acc v -> v :: acc) []
-  |> List.iter fn
+  toBuffer (iterPostorderWithRoots g roots) |> iterInReverse fn
 
 /// Iterates vertices of the graph in a depth-first manner with the reverse
 /// postorder traversal. This function visits every vertex in the graph
@@ -178,5 +192,4 @@ let iterRevPostorderWithRoots g roots fn =
 /// random.
 [<CompiledName "IterRevPostorder">]
 let iterRevPostorder g fn =
-  foldPostorder g (fun acc v -> v :: acc) []
-  |> List.iter fn
+  toBuffer (iterPostorder g) |> iterInReverse fn

@@ -163,6 +163,25 @@ type TraversalTests() =
 
   [<TestMethod>]
   [<DynamicData(nameof TraversalTests.GraphTypes)>]
+  member _.``Reverse postorder reverses the walk``(t) =
+    for makeExample in examples do
+      let g, _ = makeExample t
+      let roots = g.GetRoots()
+      let forward =
+        DFS.foldPostorderWithRoots g roots accumulate [] |> makeAnswer
+      let backward =
+        DFS.foldRevPostorderWithRoots g roots accumulate [] |> makeAnswer
+      let iterBack = iterated (DFS.iterRevPostorderWithRoots g roots)
+      Assert.AreEqual(List.rev forward, backward)
+      Assert.AreEqual(backward, iterBack)
+      let forwardAll = DFS.foldPostorder g accumulate [] |> makeAnswer
+      let backwardAll = DFS.foldRevPostorder g accumulate [] |> makeAnswer
+      let iterBackAll = iterated (DFS.iterRevPostorder g)
+      Assert.AreEqual(List.rev forwardAll, backwardAll)
+      Assert.AreEqual(backwardAll, iterBackAll)
+
+  [<TestMethod>]
+  [<DynamicData(nameof TraversalTests.GraphTypes)>]
   member _.``Breadth-first traversal test 1``(t) =
     let g, _ = digraph1 t
     let actual = BFS.foldWithRoots g (g.GetRoots()) accumulate [] |> makeAnswer
