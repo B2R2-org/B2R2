@@ -38,21 +38,29 @@ module B2R2.MiddleEnd.BinGraph.Traversal.DFS
 open System.Collections.Generic
 open B2R2.MiddleEnd.BinGraph
 
-let rec private reversePrependTo lst (arr: _[]) idx =
-  if idx >= 0 then reversePrependTo (arr[idx] :: lst) arr (idx - 1) else lst
-
-let private prependSuccessors (g: IDiGraphAccessible<_, _>) lst v =
+let private pushSuccsRev (g: IDiGraphAccessible<_, _>) (stack: Stack<_>) v =
   let succs = g.GetSuccs v
-  reversePrependTo lst succs (succs.Length - 1)
+  for i in succs.Length - 1 .. -1 .. 0 do stack.Push succs[i]
 
-let rec private foldPreorderLoop visited g fn acc = function
-  | [] ->
-    acc
-  | v: IVertex<_> :: tovisit when (visited: HashSet<_>).Contains v.ID ->
-    foldPreorderLoop visited g fn acc tovisit
-  | v :: tovisit ->
-    visited.Add v.ID |> ignore
-    foldPreorderLoop visited g fn (fn acc v) (prependSuccessors g tovisit v)
+(* Walks the given vertices in a depth-first preorder, sharing the visited set
+   with the caller so that several walks can extend the same traversal. The
+   successors of a vertex go onto the stack in reverse, so that the first of
+   them is the first to come back off, and a vertex is folded the moment the
+   walk reaches it. Each of the given vertices is walked out in full before
+   the next one is pushed, for the stack is empty by then. *)
+let private foldPreorderCore visited g fn acc vs =
+  let stack = Stack<IVertex<_>>()
+  let mutable acc = acc
+  for v: IVertex<_> in vs do
+    stack.Push v
+    while stack.Count > 0 do
+      let v = stack.Pop()
+      if (visited: HashSet<_>).Add v.ID then
+        acc <- fn acc v
+        pushSuccsRev g stack v
+      else
+        ()
+  acc
 
 let private pushSuccs (g: IDiGraphAccessible<_, _>) (stack: Stack<_>) v =
   stack.Push(struct (v, g.GetSuccs v, 0))
@@ -86,9 +94,9 @@ let private foldPostorderCore visited g fn acc vs =
 /// Folds vertices of the graph in a depth-first manner with the preorder
 /// traversal, starting from the given root vertices.
 [<CompiledName "FoldPreorderWithRoots">]
-let foldPreorderWithRoots (g: IDiGraphAccessible<_, _>) roots fn acc =
+let foldPreorderWithRoots g roots fn acc =
   let visited = HashSet<VertexID>()
-  foldPreorderLoop visited g fn acc roots
+  foldPreorderCore visited g fn acc roots
 
 /// Folds vertices of the graph in a depth-first manner with the preorder
 /// traversal. This function visits every vertex in the graph including
@@ -96,11 +104,9 @@ let foldPreorderWithRoots (g: IDiGraphAccessible<_, _>) roots fn acc =
 [<CompiledName "FoldPreorder">]
 let foldPreorder (g: IDiGraphAccessible<_, _>) fn acc =
   let visited = HashSet<VertexID>()
-  let roots = g.GetRoots() |> Array.toList
-  let acc = foldPreorderLoop visited g fn acc roots
-  g.Vertices (* fold unreachable vertices, too. *)
-  |> Array.toList
-  |> foldPreorderLoop visited g fn acc
+  let acc = foldPreorderCore visited g fn acc (g.GetRoots())
+  (* fold unreachable vertices, too. *)
+  foldPreorderCore visited g fn acc g.Vertices
 
 /// Iterates vertices of the graph in a depth-first manner with the preorder
 /// traversal, starting from the given root vertices.

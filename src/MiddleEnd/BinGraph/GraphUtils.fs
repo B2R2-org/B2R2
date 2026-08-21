@@ -91,8 +91,7 @@ let checkVertexInGraph (g: IDiGraphAccessible<_, _>) (v: IVertex<_>) =
 /// Collects the vertices that are reachable from the roots of the given graph.
 let computeReachables (g: IDiGraphAccessible<_, _>) =
   let reachables = HashSet<IVertex<_>>()
-  let roots = g.GetRoots() |> Array.toList
-  Traversal.DFS.iterPreorderWithRoots g roots (fun v ->
+  Traversal.DFS.iterPreorderWithRoots g (g.GetRoots()) (fun v ->
     reachables.Add v |> ignore)
   reachables
 

@@ -41,8 +41,7 @@ type TraversalTests() =
   (* Only the vertices reachable from the roots take part in a WithRoots
      traversal, so they are the ones the two postorders must agree on. *)
   let reachableIDs (g: IMutableDiGraph<_, _>) =
-    let roots = g.GetRoots() |> Array.toList
-    DFS.foldPreorderWithRoots g roots addVertexID Set.empty
+    DFS.foldPreorderWithRoots g (g.GetRoots()) addVertexID Set.empty
 
   (* Runs the given iterating function and reports the data it walked over, so
      that it can be held against what the matching fold returns. *)
@@ -92,6 +91,20 @@ type TraversalTests() =
     let actual = DFS.foldPreorder g accumulate [] |> makeAnswer
     let expected = [ 1; 2; 4; 3; 5 ]
     Assert.AreEqual(expected, actual)
+
+  [<TestMethod>]
+  [<DynamicData(nameof TraversalTests.GraphTypes)>]
+  member _.``Preorder with roots agrees with preorder``(t) =
+    for makeExample in examples do
+      let g, _ = makeExample t
+      let reachable = reachableIDs g
+      let expected =
+        DFS.foldPreorder g accumulate []
+        |> List.filter (fun (v: IVertex<_>) -> Set.contains v.ID reachable)
+        |> makeAnswer
+      let roots = g.GetRoots()
+      let actual = DFS.foldPreorderWithRoots g roots accumulate [] |> makeAnswer
+      Assert.AreEqual(expected, actual)
 
   [<TestMethod>]
   [<DynamicData(nameof TraversalTests.GraphTypes)>]
