@@ -29,7 +29,11 @@ module B2R2.MiddleEnd.BinGraph.Dominance.SemiNCADominance
 open System.Collections.Generic
 open B2R2.MiddleEnd.BinGraph
 
-type LTDomInfo<'V when 'V: equality> =
+/// Represents the working state of this module's analysis. Mutating any of its
+/// arrays silently invalidates the dominance computed from it, so it stays
+/// internal, visible only to the dynamic-dominance benchmark, which recomputes
+/// a dominance from a state it has updated.
+type internal LTDomInfo<'V when 'V: equality> =
   { /// Vertex ID -> DFPre
     DFPre: Dictionary<VertexID, int>
     /// DFPre -> Vertex
@@ -253,16 +257,24 @@ let create g dfp =
   let dom, _, _ = computeDominance g dfp
   dom
 
-let createWithInfo g dfp =
+/// Computes the dominance of the given graph, and also returns the working
+/// state of the analysis for both directions, so that updateInfo and
+/// createFromInfo can recompute a dominance from it.
+let internal createWithInfo g dfp =
   let dom, fw, bw = computeDominance g dfp
   dom, fw, bw
 
-let createFromInfo g fwInfo (bwInfo: Lazy<LTDomInfo<_>>) dfp =
+/// Computes the dominance of the given graph from the working state that
+/// createWithInfo or updateInfo produced, skipping the initial analysis.
+let internal createFromInfo g fwInfo (bwInfo: Lazy<LTDomInfo<_>>) dfp =
   let fwDT = lazy DominatorTree(g, idomAux fwInfo)
   let bwG = lazy (GraphUtils.findExits g |> g.Reverse)
   let bwDT = lazy DominatorTree(bwG.Value, idomAux bwInfo.Value)
   createDominance g bwG fwInfo fwDT bwInfo bwDT dfp
 
-let updateInfo g info (edge: Edge<_, _>) =
+/// Recomputes the working state after the given edge has been added to the
+/// graph. An edge leaving an unreachable vertex cannot change any dominance
+/// relation, so the state is returned untouched in that case.
+let internal updateInfo g info (edge: Edge<_, _>) =
   let src = edge.First
   if checkUnreachable info src then info else computeDomInfo g

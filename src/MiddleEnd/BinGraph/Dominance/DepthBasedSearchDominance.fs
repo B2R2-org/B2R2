@@ -42,7 +42,11 @@ type StaticAlgo =
   /// Cooper's algorithm.
   | Cooper
 
-type DBSDomInfo<'V, 'E when 'V: equality and 'E: equality> =
+/// Represents the dominator tree that this module maintains incrementally.
+/// Mutating it silently invalidates the dominance computed from it, so it stays
+/// internal, visible only to the dynamic-dominance benchmark, which updates a
+/// dominance edge by edge.
+type internal DBSDomInfo<'V, 'E when 'V: equality and 'E: equality> =
   { /// Dummy root ID
     DummyRootID: VertexID
     /// Static dominance algorithm.
@@ -399,19 +403,31 @@ let create g dfp staticAlgo =
   let dom, _, _ = computeDominance g dfp staticAlgo
   dom
 
-let createWithInfo g dfp staticAlgo =
+/// Computes the dominance of the given graph, and also returns the dominator
+/// tree state for both directions, so that updateInfo and createFromInfo can
+/// keep a dominance up to date without recomputing it.
+let internal createWithInfo g dfp staticAlgo =
   let dom, fw, bw = computeDominance g dfp staticAlgo
   dom, fw, bw
 
-let createFromInfo g fwInfo (bwInfo: Lazy<DBSDomInfo<_, _>>) dfp =
+/// Computes the dominance of the given graph from the dominator tree state
+/// that computeInfoFromDom or updateInfo produced, skipping the initial
+/// analysis.
+let internal createFromInfo g fwInfo (bwInfo: Lazy<DBSDomInfo<_, _>>) dfp =
   let fwDT = lazy DominatorTree(g, idom g fwInfo)
   let bwG = lazy (GraphUtils.findExits g |> g.Reverse)
   let bwDT = lazy DominatorTree(bwG.Value, idom bwG.Value bwInfo.Value)
   createDominance g bwG fwInfo fwDT bwInfo bwDT dfp
 
-let computeInfoFromDom g dom dfp staticAlgo fw =
+/// Builds this module's dominator tree state from an already computed
+/// dominance, which lets a dominance from any other algorithm serve as the
+/// starting point of the incremental updates. Pass false for fw to build the
+/// state of the reversed (i.e., post-dominance) direction.
+let internal computeInfoFromDom g dom dfp staticAlgo fw =
   copyDominance g dom dfp staticAlgo fw
 
-let updateInfo g info (edge: Edge<_, _>) =
+/// Updates the dominator tree state in place for the given edge that has been
+/// added to the graph, and returns it.
+let internal updateInfo g info (edge: Edge<_, _>) =
   updateDomInfo g info edge
   info

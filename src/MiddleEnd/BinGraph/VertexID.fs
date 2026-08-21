@@ -24,6 +24,11 @@
 
 namespace B2R2.MiddleEnd.BinGraph
 
+open System.Runtime.CompilerServices
+
+[<assembly: InternalsVisibleTo("B2R2.MiddleEnd.BinGraph.Tests")>]
+do ()
+
 /// <namespacedoc>
 ///   <summary>
 ///   Contains graph data structures and algorithms used throughout B2R2's
