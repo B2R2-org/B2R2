@@ -24,11 +24,13 @@
 
 namespace B2R2.MiddleEnd.BinGraph
 
-/// Represents a graph implementation type, which can be either imperative or
-/// persistent.
+/// Represents how a graph stores its state. This says nothing of the protocol
+/// a graph takes: `MutablePersistentDiGraph` is modified in place, yet stores
+/// its state persistently and reports `Persistent` here.
 [<Struct>]
 type ImplementationType =
-  /// Imperative graph.
-  | Imperative
-  /// Persistent graph.
+  /// A graph that keeps its state in mutable containers of its own.
+  | Mutable
+  /// A graph that keeps its state in an immutable value, which it shares with
+  /// every graph a modification of it returns.
   | Persistent

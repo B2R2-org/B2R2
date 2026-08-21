@@ -42,7 +42,7 @@ type LoopTests() =
     Assert.AreEqual<VertexID>(edge.Second.ID, dst) (* backedge dst *)
     Assert.AreEqual(true, expectedVS.SetEquals vertices)
 
-  static member GraphTypes = [| [| box Persistent |]; [| box Imperative |] |]
+  static member GraphTypes = [| [| box Persistent |]; [| box Mutable |] |]
 
   [<TestMethod>]
   [<DynamicData(nameof LoopTests.GraphTypes)>]

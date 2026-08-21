@@ -32,13 +32,13 @@ open B2R2.MiddleEnd.BinGraph
 /// thread-safe, and thus should be used only by TaskManager.
 type FunctionDependenceMap() =
   /// A temporary call graph that only contains unconfirmed edges.
-  let tg = ImperativeDiGraph<Addr, unit>() :> IMutableDiGraph<Addr, unit>
+  let tg = MutableDiGraph<Addr, unit>() :> IMutableDiGraph<Addr, unit>
 
   /// Vertices in the temporary graph.
   let tgVertices = Dictionary<Addr, IVertex<Addr>>()
 
   /// A regular inter-procedural call graph.
-  let cg = ImperativeDiGraph<Addr, uint>() :> IMutableDiGraph<Addr, uint>
+  let cg = MutableDiGraph<Addr, uint>() :> IMutableDiGraph<Addr, uint>
 
   /// Vertices in the call graph.
   let cgVertices = Dictionary<Addr, IVertex<Addr>>()

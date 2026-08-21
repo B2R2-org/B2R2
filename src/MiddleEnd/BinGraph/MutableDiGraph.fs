@@ -26,8 +26,9 @@ namespace B2R2.MiddleEnd.BinGraph
 
 open System.Collections.Generic
 
-/// Represents an imperative directed graph.
-type ImperativeDiGraph<'V, 'E when 'V: equality and 'E: equality>
+/// Represents a directed graph that is modified in place, keeping its state
+/// in hash tables of its own.
+type MutableDiGraph<'V, 'E when 'V: equality and 'E: equality>
   private(initialID: VertexID) =
 
   let vertices = Dictionary<VertexID, Vertex<'V>>()
@@ -133,7 +134,7 @@ type ImperativeDiGraph<'V, 'E when 'V: equality and 'E: equality>
     if isOwnVertex v then Seq.toArray succs[v.ID] else [||]
 
   let clone () =
-    let g = ImperativeDiGraph<'V, 'E>(id)
+    let g = MutableDiGraph<'V, 'E>(id)
     let ig = g :> IDiGraph<'V, 'E>
     for v in vertices.Values do ig.AddVertexCopy v |> ignore
     for e in edges.Values do g.CopyEdgeFrom e
@@ -141,7 +142,7 @@ type ImperativeDiGraph<'V, 'E when 'V: equality and 'E: equality>
     g.CopyRootsFrom roots
     g
 
-  new() = ImperativeDiGraph 0
+  new() = MutableDiGraph 0
 
   /// Adds a copy of the given edge, keeping the absence of its label.
   member private this.CopyEdgeFrom(e: Edge<'V, 'E>) =
@@ -193,7 +194,7 @@ type ImperativeDiGraph<'V, 'E when 'V: equality and 'E: equality>
       | 0 -> raise NoRootVertexException
       | _ -> raise MultipleRootVerticesException
 
-    member _.ImplementationType with get() = Imperative
+    member _.ImplementationType with get() = Mutable
 
     member _.IsEmpty() = vertices.Count = 0
 
@@ -254,7 +255,7 @@ type ImperativeDiGraph<'V, 'E when 'V: equality and 'E: equality>
       |> Seq.toArray
       |> Array.map (fun v -> v :> IVertex<'V>)
 
-    member this.Reverse vs = GraphUtils.reverse this vs (ImperativeDiGraph())
+    member this.Reverse vs = GraphUtils.reverse this vs (MutableDiGraph())
 
     member _.FoldVertex(fn, acc) =
       vertices.Values |> Seq.fold (fun acc v -> fn acc (v :> IVertex<'V>)) acc
@@ -308,7 +309,7 @@ type ImperativeDiGraph<'V, 'E when 'V: equality and 'E: equality>
       setRoots vs
       this
 
-    member this.Reverse(vs) = GraphUtils.reverse this vs (ImperativeDiGraph())
+    member this.Reverse(vs) = GraphUtils.reverse this vs (MutableDiGraph())
 
     member _.Clone() = clone ()
 

@@ -29,7 +29,7 @@ open B2R2.MiddleEnd.BinGraph
 
 /// SSA-based CFG, where each node contains SSA-based basic blocks. This is a
 /// wrapper class of `IDiGraph<SSABasicBlock, CFGEdgeKind>`, which provides a
-/// uniform interface for both imperative and persistent graphs.
+/// uniform interface for both mutable and persistent graphs.
 type SSACFG private(g: IDiGraph<SSABasicBlock, CFGEdgeKind>) =
   let mutable g = g
 
@@ -41,8 +41,8 @@ type SSACFG private(g: IDiGraph<SSABasicBlock, CFGEdgeKind>) =
   new(t: ImplementationType) =
     let g =
       match t with
-      | Imperative ->
-        ImperativeDiGraph<SSABasicBlock, CFGEdgeKind>() :> IDiGraph<_, _>
+      | Mutable ->
+        MutableDiGraph<SSABasicBlock, CFGEdgeKind>() :> IDiGraph<_, _>
       | Persistent ->
         PersistentDiGraph<SSABasicBlock, CFGEdgeKind>() :> IDiGraph<_, _>
     SSACFG g

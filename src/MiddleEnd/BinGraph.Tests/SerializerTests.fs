@@ -39,8 +39,8 @@ type SerializerTests() =
      type decides here; what comes out of it is only ever read. *)
   let importWith t labelToData (json: string) =
     match t with
-    | Imperative ->
-      let empty = ImperativeDiGraph<int, int>()
+    | Mutable ->
+      let empty = MutableDiGraph<int, int>()
       Serializer.FromJson(json, empty, labelToData, labelToData)
       :> IDiGraphAccessible<int, int>
     | Persistent ->
@@ -52,7 +52,7 @@ type SerializerTests() =
   let assertInvalidGraph f =
     Assert.Throws<InvalidSerializedGraphException>(Action f) |> ignore
 
-  static member GraphTypes = [| [| box Persistent |]; [| box Imperative |] |]
+  static member GraphTypes = [| [| box Persistent |]; [| box Mutable |] |]
 
   [<TestMethod>]
   [<DynamicData(nameof SerializerTests.GraphTypes)>]
@@ -132,8 +132,8 @@ type SerializerTests() =
                     "edges": [ { "from": 1, "to": 9, "label": "1" } ] }"""
     let g =
       match t with
-      | Imperative ->
-        let g = ImperativeDiGraph<int, int>()
+      | Mutable ->
+        let g = MutableDiGraph<int, int>()
         assertInvalidGraph (fun () ->
           Serializer.FromJson(json, g, strToInt, strToInt) |> ignore)
         g :> IDiGraphAccessible<int, int>

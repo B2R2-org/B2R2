@@ -108,24 +108,24 @@ type DominanceTests() =
   static member TestData =
     [| [| box Persistent; box DomIterative; box DFCytron; box None |]
        [| box Persistent; box DomIterative; box DFCooper; box None |]
-       [| box Imperative; box DomIterative; box DFCytron; box None |]
-       [| box Imperative; box DomIterative; box DFCooper; box None |]
+       [| box Mutable; box DomIterative; box DFCytron; box None |]
+       [| box Mutable; box DomIterative; box DFCooper; box None |]
        [| box Persistent; box DomLengauer; box DFCytron; box None |]
        [| box Persistent; box DomLengauer; box DFCooper; box None |]
-       [| box Imperative; box DomLengauer; box DFCytron; box None |]
-       [| box Imperative; box DomLengauer; box DFCooper; box None |]
+       [| box Mutable; box DomLengauer; box DFCytron; box None |]
+       [| box Mutable; box DomLengauer; box DFCooper; box None |]
        [| box Persistent; box DomSimpleLengauer; box DFCytron; box None |]
        [| box Persistent; box DomSimpleLengauer; box DFCooper; box None |]
-       [| box Imperative; box DomSimpleLengauer; box DFCytron; box None |]
-       [| box Imperative; box DomSimpleLengauer; box DFCooper; box None |]
+       [| box Mutable; box DomSimpleLengauer; box DFCytron; box None |]
+       [| box Mutable; box DomSimpleLengauer; box DFCooper; box None |]
        [| box Persistent; box DomSNCA; box DFCytron; box None |]
        [| box Persistent; box DomSNCA; box DFCooper; box None |]
-       [| box Imperative; box DomSNCA; box DFCytron; box None |]
-       [| box Imperative; box DomSNCA; box DFCooper; box None |]
+       [| box Mutable; box DomSNCA; box DFCytron; box None |]
+       [| box Mutable; box DomSNCA; box DFCooper; box None |]
        [| box Persistent; box DomCooper; box DFCytron; box None |]
        [| box Persistent; box DomCooper; box DFCooper; box None |]
-       [| box Imperative; box DomCooper; box DFCytron; box None |]
-       [| box Imperative; box DomCooper; box DFCooper; box None |]
+       [| box Mutable; box DomCooper; box DFCytron; box None |]
+       [| box Mutable; box DomCooper; box DFCooper; box None |]
        [| box Persistent
           box DBS
           box DFCytron
@@ -134,11 +134,11 @@ type DominanceTests() =
           box DBS
           box DFCooper
           box (Some DepthBasedSearchDominance.SemiNCA) |]
-       [| box Imperative
+       [| box Mutable
           box DBS
           box DFCytron
           box (Some DepthBasedSearchDominance.SemiNCA) |]
-       [| box Imperative
+       [| box Mutable
           box DBS
           box DFCooper
           box (Some DepthBasedSearchDominance.SemiNCA) |] |]
@@ -1857,7 +1857,7 @@ type DominanceTests() =
   [<DynamicData(nameof DominanceTests.ComparisonData)>]
   member _.``Comparison: Dominators Test``(domAlgo, fileName, sAlgo) =
     let json = System.IO.File.ReadAllText("TestData/" + fileName)
-    let empty = ImperativeDiGraph<string, string>()
+    let empty = MutableDiGraph<string, string>()
     let g = Serializer.FromJson(json, empty, id, id)
     let naiveDom: IDominance<_, _> = instantiate g DomIterative DFCytron None
     let testDom: IDominance<_, _> = instantiate g domAlgo DFCytron sAlgo
@@ -1870,7 +1870,7 @@ type DominanceTests() =
   [<DynamicData(nameof DominanceTests.ComparisonData)>]
   member _.``Comparison: Immediate Dominator Test``(domAlgo, fileName, sAlgo) =
     let json = System.IO.File.ReadAllText("TestData/" + fileName)
-    let empty = ImperativeDiGraph<string, string>()
+    let empty = MutableDiGraph<string, string>()
     let g = Serializer.FromJson(json, empty, id, id)
     let naiveDom: IDominance<_, _> = instantiate g DomIterative DFCytron None
     let testDom: IDominance<_, _> = instantiate g domAlgo DFCytron sAlgo

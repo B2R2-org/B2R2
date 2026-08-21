@@ -33,7 +33,7 @@ type VisGraph = IMutableDiGraph<VisBBlock, VisEdge>
 [<RequireQualifiedAccess>]
 module VisGraph =
   let init () =
-    ImperativeDiGraph<VisBBlock, VisEdge>()
+    MutableDiGraph<VisBBlock, VisEdge>()
     :> VisGraph
 
   let ofCFG (g: IDiGraphAccessible<_, _>) charWidth charHeight =

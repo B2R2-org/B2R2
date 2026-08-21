@@ -29,7 +29,7 @@ open B2R2.MiddleEnd.BinGraph
 let private makeGraph (t: ImplementationType) =
   match t with
   | Persistent -> PersistentDiGraph<int, int>() :> IDiGraph<_, _>
-  | Imperative -> ImperativeDiGraph<int, int>() :> IDiGraph<_, _>
+  | Mutable -> MutableDiGraph<int, int>() :> IDiGraph<_, _>
 
 /// Add `count` number of nodes to the graph.
 let private addNodes count g =

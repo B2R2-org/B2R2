@@ -35,7 +35,7 @@ type BasicTests() =
 
   let inc acc (edge: Edge<_, _>) = acc + edge.Label
 
-  static member GraphTypes = [| [| box Persistent |]; [| box Imperative |] |]
+  static member GraphTypes = [| [| box Persistent |]; [| box Mutable |] |]
 
   [<TestMethod>]
   [<DynamicData(nameof BasicTests.GraphTypes)>]

@@ -31,7 +31,7 @@ open B2R2.MiddleEnd.BinGraph
 /// CFG where each node is an IR-level basic block. This is the main data
 /// structure that we use to represent the control flow graph of a function.
 /// This is essentially a wrapper class of `IDiGraph<LowUIRBasicBlock,
-/// CFGEdgeKind>`, which provides a uniform interface for both imperative and
+/// CFGEdgeKind>`, which provides a uniform interface for both mutable and
 /// persistent graphs.
 type LowUIRCFG private(g: IDiGraph<LowUIRBasicBlock, CFGEdgeKind>) =
   let mutable g = g
@@ -50,8 +50,8 @@ type LowUIRCFG private(g: IDiGraph<LowUIRBasicBlock, CFGEdgeKind>) =
   new(t: ImplementationType) =
     let g =
       match t with
-      | Imperative ->
-        ImperativeDiGraph<LowUIRBasicBlock, CFGEdgeKind>() :> IDiGraph<_, _>
+      | Mutable ->
+        MutableDiGraph<LowUIRBasicBlock, CFGEdgeKind>() :> IDiGraph<_, _>
       | Persistent ->
         PersistentDiGraph<LowUIRBasicBlock, CFGEdgeKind>() :> IDiGraph<_, _>
     LowUIRCFG g

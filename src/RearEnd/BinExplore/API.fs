@@ -107,7 +107,7 @@ module API =
 
   let private getCallGraph (brew: BinaryBrew<_, _>) =
     try
-      let g = CallGraph.create BinGraph.Imperative brew
+      let g = CallGraph.create BinGraph.Mutable brew
       let cw, ch = Visualizer.CharWidth, Visualizer.CharHeight
       Visualizer.toVisGraph g cw ch
       |> Ok

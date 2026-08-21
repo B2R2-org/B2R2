@@ -75,7 +75,7 @@ type StaticDoms() =
   member this.GlobalSetup() =
     let json =
       System.IO.File.ReadAllText("TestData/Benchmark/Vertex/" + this.FileName)
-    let empty = ImperativeDiGraph<string, string>()
+    let empty = MutableDiGraph<string, string>()
     g <- Serializer.FromJson(json, empty, id, id)
 
   [<Benchmark(Baseline = true)>]
@@ -198,7 +198,7 @@ type DominanceFrontier() =
   member this.GlobalSetup() =
     let json =
       System.IO.File.ReadAllText("TestData/Benchmark/Vertex/" + this.FileName)
-    let empty = ImperativeDiGraph<string, string>()
+    let empty = MutableDiGraph<string, string>()
     g <- Serializer.FromJson(json, empty, id, id)
 
   [<Benchmark(Baseline = true)>]

@@ -36,7 +36,7 @@ type TraversalTests() =
   let makeAnswer lst =
     List.rev lst |> List.map (fun (v: IVertex<int>) -> v.VData)
 
-  static member GraphTypes = [| [| box Persistent |]; [| box Imperative |] |]
+  static member GraphTypes = [| [| box Persistent |]; [| box Mutable |] |]
 
   [<TestMethod>]
   [<DynamicData(nameof TraversalTests.GraphTypes)>]

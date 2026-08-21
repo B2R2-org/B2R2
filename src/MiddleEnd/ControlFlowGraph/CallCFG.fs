@@ -28,12 +28,12 @@ open B2R2.MiddleEnd.BinGraph
 
 /// Call graph, where each node represents a function. This is essentially a
 /// wrapper class of `IDiGraph<CallBasicBlock, CFGEdgeKind>`, which provides a
-/// uniform interface for both imperative and persistent graphs.
+/// uniform interface for both mutable and persistent graphs.
 type CallCFG(t: ImplementationType) =
   let g =
     match t with
-    | Imperative ->
-      ImperativeDiGraph<CallBasicBlock, CFGEdgeKind>() :> IDiGraph<_, _>
+    | Mutable ->
+      MutableDiGraph<CallBasicBlock, CFGEdgeKind>() :> IDiGraph<_, _>
     | Persistent ->
       PersistentDiGraph<CallBasicBlock, CFGEdgeKind>() :> IDiGraph<_, _>
 

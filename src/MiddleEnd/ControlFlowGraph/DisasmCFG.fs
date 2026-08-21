@@ -181,7 +181,7 @@ type DisasmCFG(disasmBuilder, ircfg: LowUIRCFG) =
 
   let createEmptyDisasmCFGByType (implType: ImplementationType) =
     match implType with
-    | Imperative -> ImperativeDiGraph() :> IMutableDiGraph<_, _>
+    | Mutable -> MutableDiGraph() :> IMutableDiGraph<_, _>
     | Persistent -> MutablePersistentDiGraph(PersistentDiGraph())
 
   let createDisasmCFG tempVMap =

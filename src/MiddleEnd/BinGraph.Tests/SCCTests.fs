@@ -31,7 +31,7 @@ open B2R2.MiddleEnd.BinGraph.Tests.Examples
 
 [<TestClass>]
 type SCCTests() =
-  static member GraphTypes = [| [| box Persistent |]; [| box Imperative |] |]
+  static member GraphTypes = [| [| box Persistent |]; [| box Mutable |] |]
 
   [<TestMethod>]
   [<DynamicData(nameof SCCTests.GraphTypes)>]
