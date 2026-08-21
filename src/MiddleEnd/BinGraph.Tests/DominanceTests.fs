@@ -74,22 +74,22 @@ type DominanceTests() =
       failwithf "Invalid test: %A, %A, %A" domAlgo dfAlgo algo
 
   let getDominators dom g i =
-    (g: IDiGraph<_, _>).FindVertexByData i
+    (g: IDiGraphAccessible<_, _>).FindVertexByData i
     |> (dom: IDominance<_, _>).Dominators
     |> Set.ofSeq
 
   let getDominanceFrontier dom g i =
-    (g: IDiGraph<_, _>).FindVertexByData i
+    (g: IDiGraphAccessible<_, _>).FindVertexByData i
     |> (dom: IDominance<_, _>).DominanceFrontier
     |> Set.ofSeq
 
   let getPostDominators dom g i =
-    (g: IDiGraph<_, _>).FindVertexByData i
+    (g: IDiGraphAccessible<_, _>).FindVertexByData i
     |> (dom: IDominance<_, _>).PostDominators
     |> Set.ofSeq
 
   let getPostDominanceFrontier dom g i =
-    (g: IDiGraph<_, _>).FindVertexByData i
+    (g: IDiGraphAccessible<_, _>).FindVertexByData i
     |> (dom: IDominance<_, _>).PostDominanceFrontier
     |> Set.ofSeq
 

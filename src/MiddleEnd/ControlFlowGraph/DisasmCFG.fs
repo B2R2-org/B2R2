@@ -123,8 +123,8 @@ type DisasmCFG(disasmBuilder, ircfg: LowUIRCFG) =
     else (* Otherwise, connect them. *)
       connect tempVMap srcTmpV dst e
 
-  let collectFreshSuccEdges (visited: HashSet<_>) (g: IDiGraph<_, _>) v =
-    g.GetSuccEdges(v)
+  let collectFreshSuccEdges (visited: HashSet<_>) g v =
+    (g: IDiGraphAccessible<_, _>).GetSuccEdges(v)
     |> Array.filter (not << visited.Contains)
     |> Array.toList
 

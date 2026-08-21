@@ -55,9 +55,9 @@ module VisGraph =
 
   let getID (v: IVertex<_>) = v.ID
 
-  let getPreds (vGraph: IDiGraph<_, _>) (v: IVertex<_>) = vGraph.GetPreds v
+  let getPreds (vGraph: IDiGraphAccessible<_, _>) v = vGraph.GetPreds v
 
-  let getSuccs (vGraph: IDiGraph<_, _>) (v: IVertex<_>) = vGraph.GetSuccs v
+  let getSuccs (vGraph: IDiGraphAccessible<_, _>) v = vGraph.GetSuccs v
 
   let getVData (v: IVertex<_>) = v.VData
 

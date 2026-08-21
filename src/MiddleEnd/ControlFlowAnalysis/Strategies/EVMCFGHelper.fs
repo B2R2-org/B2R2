@@ -169,7 +169,7 @@ let findRootVarsFromExpr state e =
   extractVarsFromExpr e
   |> findRootVars state []
 
-let getDefSiteVertex (g: IDiGraph<_, _>) (state: State<_, _>) var =
+let getDefSiteVertex (g: IDiGraphAccessible<_, _>) (state: State<_, _>) var =
   let svp = state.SSAVarToDefSVP var
   let spp = svp.SensitiveProgramPoint
   let pp = spp.ProgramPoint

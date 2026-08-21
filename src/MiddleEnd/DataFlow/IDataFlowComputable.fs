@@ -42,7 +42,7 @@ type IDataFlowComputable<'AbsLoc, 'AbsVal, 'Provider, 'V
   and 'V: equality> =
   /// Performs the dataflow analysis on the given CFG until a fixed point is
   /// reached.
-  abstract Compute: cfg: IDiGraph<'V, CFGEdgeKind> -> 'Provider
+  abstract Compute: cfg: IDiGraphAccessible<'V, CFGEdgeKind> -> 'Provider
 
 /// Represents an interface for a lattice used in abstract interpretation.
 type ILattice<'AbsVal when 'AbsVal: equality> =

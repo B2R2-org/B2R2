@@ -51,7 +51,7 @@ let private findNaturalLoopBody g (edge: Edge<_, _>) =
   body
 
 /// Gets the natural loops in the given directed graph.
-let getNaturalLoops (g: IDiGraph<_, _>) =
+let getNaturalLoops (g: IDiGraphAccessible<_, _>) =
   let dict = Dictionary()
   for edge in getBackEdges g do
     dict[edge] <- findNaturalLoopBody g edge

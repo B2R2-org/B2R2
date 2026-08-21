@@ -564,7 +564,7 @@ module internal AnalysisCore = begin
     | _ -> Error ErrorCase.InvalidExprEvaluation
 
   /// Linear time algorithm to compute the inverse dominance frontier.
-  let computeInverseDF (g: IDiGraph<_, _>) (dom: IDominance<_, _>) v =
+  let computeInverseDF (g: IDiGraphAccessible<_, _>) (dom: IDominance<_, _>) v =
     let s = HashSet()
     for pred in g.GetPreds v do
       let mutable x = pred
@@ -579,7 +579,7 @@ module internal AnalysisCore = begin
   let collectPhiInsertionCandidates g state =
     let workset = HashSet()
     for v in (state: State<_>).PendingVertices do
-      if not <| (g: IDiGraph<_, _>).HasVertex v.ID then
+      if not <| (g: IDiGraphAccessible<_, _>).HasVertex v.ID then
         ()
       else
         workset.Add v |> ignore
@@ -771,7 +771,7 @@ module internal AnalysisCore = begin
   let updateChainsWithBBLStmts g (state: State<_>) v defs =
     let blkAddr = (v: IVertex<LowUIRBasicBlock>).VData.Internals.PPoint.Address
     let intraBlockContinues =
-      (g: IDiGraph<_, _>).GetSuccEdges v
+      (g: IDiGraphAccessible<_, _>).GetSuccEdges v
       |> Array.exists (fun e -> isIntraEdge e.Label)
     let stmtInfos = state.GetStmtInfos v
     let mutable outs = defs
@@ -805,7 +805,7 @@ module internal AnalysisCore = begin
     if (visited: HashSet<_>).Contains v then
       ()
     elif (state: State<_>).IsVertexPending v
-         && (g: IDiGraph<_, _>).HasVertex v.ID then
+         && (g: IDiGraphAccessible<_, _>).HasVertex v.ID then
       let idom = dom.ImmediateDominator v
       let defs = if isNull idom then Map.empty else getOutgoingDefs state idom
       update g state dom.DominatorTree visited v defs
@@ -819,7 +819,7 @@ module internal AnalysisCore = begin
     | false, _ ->
       true
     | true, phiInfo ->
-      let predCount = (g: IDiGraph<_, _>).GetPreds v |> Seq.length
+      let predCount = (g: IDiGraphAccessible<_, _>).GetPreds v |> Seq.length
       phiInfo.Values |> Seq.forall (fun d -> d.Count <= predCount)
   #endif
 
@@ -849,7 +849,7 @@ module internal AnalysisCore = begin
     for v in visited do
       match state.PhiInfos.TryGetValue v with
       | true, phiInfo ->
-        for pred in (g: IDiGraph<_, _>).GetPreds v do
+        for pred in (g: IDiGraphAccessible<_, _>).GetPreds v do
           let outDefs = getOutgoingDefs state pred
           for (KeyValue(vk, inDefs)) in phiInfo do
             let def =
@@ -981,7 +981,7 @@ module internal AnalysisCore = begin
     | true, phiInfo ->
       transferPhi state subState phiInfo v.VData.Internals.PPoint
     for stmt in state.GetStmtInfos v do fnTransfer state stmt done
-    (g: IDiGraph<_, _>).GetSuccs v
+    (g: IDiGraphAccessible<_, _>).GetSuccs v
     |> Array.map (fun succ -> v, succ)
     |> Array.iter subState.FlowQueue.Enqueue
 
@@ -993,7 +993,7 @@ module internal AnalysisCore = begin
       if not <| subState.ExecutedFlows.Add(src, dst) then
         ()
       else
-        match (g: IDiGraph<_, _>).TryFindVertexByID dst.ID with
+        match (g: IDiGraphAccessible<_, _>).TryFindVertexByID dst.ID with
         | Some v -> transferFlow state subState g v fnTransfer
         | None -> ()
 
