@@ -103,6 +103,7 @@ type CallCFG(t: ImplementationType) =
     member _.AddVertex data = g.AddVertex data
     member _.AddVertex(data, vid) = g.AddVertex(data, vid)
     member _.AddVertex() = g.AddVertex()
+    member _.AddVertexCopy v = g.AddVertexCopy v
     member _.RemoveVertex v = g.RemoveVertex v
     member _.AddEdge(src, dst) = g.AddEdge(src, dst)
     member _.AddEdge(src, dst, label) = g.AddEdge(src, dst, label)

@@ -240,6 +240,12 @@ type PersistentDiGraph<'V, 'E
       let struct (v, g) = addVertexWithData null
       v, g
 
+    member _.AddVertexCopy(v: IVertex<'V>) =
+      let struct (v', g) =
+        if v.HasData then addVertexWithDataAndID (VertexData v.VData) v.ID
+        else addVertexWithDataAndID null v.ID
+      v', g
+
     member _.RemoveVertex v =
       checkVertexExistence v
       let succs = findEdges v.ID preds |> List.fold removeSuccEdge succs

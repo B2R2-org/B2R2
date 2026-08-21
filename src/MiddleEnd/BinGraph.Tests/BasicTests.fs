@@ -255,3 +255,19 @@ type BasicTests() =
       let v2 = g2.FindVertexByID v.ID
       CollectionAssert.AreEqual(succIDs g v, succIDs g2 v2)
       CollectionAssert.AreEqual(predIDs g v, predIDs g2 v2)
+
+  [<TestMethod>]
+  [<DynamicData(nameof BasicTests.GraphTypes)>]
+  member _.``Reverse Dummy Test``(t) =
+    let g = emptyDigraph t
+    let v1, g = g.AddVertex 1
+    let v2, g = g.AddVertex()
+    let g = g.AddEdge(v1, v2)
+    let r = g.Reverse [ v2 ]
+    let v1 = r.FindVertexByID v1.ID
+    let v2 = r.FindVertexByID v2.ID
+    let e = r.FindEdge(v2, v1)
+    Assert.AreEqual<bool>(true, v1.HasData)
+    Assert.AreEqual<bool>(false, v2.HasData)
+    Assert.AreEqual<bool>(false, e.HasLabel)
+    CollectionAssert.AreEqual([| v2.ID |], r.GetRoots() |> Array.map (_.ID))

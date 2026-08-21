@@ -42,6 +42,13 @@ type IDiGraph<'V, 'E when 'V: equality and 'E: equality> =
   /// Adds a vertex to the graph without any data attached to it.
   abstract AddVertex: unit -> IVertex<'V> * IDiGraph<'V, 'E>
 
+  /// Adds a copy of the given vertex, which may come from another graph, to
+  /// this graph. The copy keeps the ID of the given vertex as well as the
+  /// absence of its data, which is what copying a graph requires. This
+  /// function assumes that the vertex ID is unique in the graph, thus it
+  /// needs to be used with caution.
+  abstract AddVertexCopy: v: IVertex<'V> -> IVertex<'V> * IDiGraph<'V, 'E>
+
   /// Removes the given vertex from the graph. This raises
   /// `VertexNotFoundException` when the given vertex is not in the graph.
   abstract RemoveVertex: IVertex<'V> -> IDiGraph<'V, 'E>

@@ -61,12 +61,13 @@ let makeDummyVertex<'V when 'V: equality> () =
 
 let reverse (inGraph: IDiGraphAccessible<_, _>) roots outGraph =
   inGraph.FoldVertex((fun (outGraph: IDiGraph<_, _>) v ->
-    outGraph.AddVertex(v.VData, v.ID) |> snd), outGraph)
+    outGraph.AddVertexCopy v |> snd), outGraph)
   |> fun outGraph ->
     inGraph.FoldEdge((fun (outGraph: IDiGraph<_, _>) edge ->
       let src = outGraph.FindVertexByID edge.First.ID
       let dst = outGraph.FindVertexByID edge.Second.ID
-      outGraph.AddEdge(dst, src, edge.Label)), outGraph)
+      if edge.HasLabel then outGraph.AddEdge(dst, src, edge.Label)
+      else outGraph.AddEdge(dst, src)), outGraph)
   |> fun outGraph -> (* renew root vertices *)
     roots |> Seq.map (fun (root: IVertex<_>) ->
       assert (inGraph.HasVertex root.ID)
