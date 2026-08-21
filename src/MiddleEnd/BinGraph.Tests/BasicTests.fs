@@ -198,6 +198,20 @@ type BasicTests() =
 
   [<TestMethod>]
   [<DynamicData(nameof BasicTests.GraphTypes)>]
+  member _.``Duplicate Edge Test``(t) =
+    let g, vmap = digraph1 t
+    let src, dst = vmap[1], vmap[2]
+    (* Adding an edge that is already there is a no-op; the label of the
+       existing edge is kept, too. *)
+    let g = g.AddEdge(src, dst, 99)
+    Assert.AreEqual<int>(7, g.Edges.Length)
+    Assert.AreEqual<int>(28, g.FoldEdge(inc, 0))
+    Assert.AreEqual<int>(1, (g.GetSuccEdges src).Length)
+    Assert.AreEqual<int>(2, (g.GetPredEdges dst).Length)
+    Assert.AreEqual<int>(1, g.FindEdge(src, dst).Label)
+
+  [<TestMethod>]
+  [<DynamicData(nameof BasicTests.GraphTypes)>]
   member _.``Clone Preservation Test``(t) =
     let g1, vmap = digraph1 t
     let g1 = g1.SetRoots [| vmap[1]; vmap[4] |]

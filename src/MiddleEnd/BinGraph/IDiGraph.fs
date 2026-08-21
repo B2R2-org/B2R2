@@ -53,12 +53,17 @@ type IDiGraph<'V, 'E when 'V: equality and 'E: equality> =
   /// `VertexNotFoundException` when the given vertex is not in the graph.
   abstract RemoveVertex: IVertex<'V> -> IDiGraph<'V, 'E>
 
-  /// Adds an edge from src to dst. This raises `VertexNotFoundException` when
-  /// either src or dst is not in the graph.
+  /// Adds an edge from src to dst. A graph holds at most one edge for an
+  /// ordered pair of vertices, so this does nothing when such an edge is
+  /// already there. This raises `VertexNotFoundException` when either src or
+  /// dst is not in the graph.
   abstract AddEdge: src: IVertex<'V> * dst: IVertex<'V> -> IDiGraph<'V, 'E>
 
-  /// Adds an edge from src to dst with the given label. This raises
-  /// `VertexNotFoundException` when either src or dst is not in the graph.
+  /// Adds an edge from src to dst with the given label. A graph holds at most
+  /// one edge for an ordered pair of vertices, so this does nothing when such
+  /// an edge is already there, which means the label of the existing edge is
+  /// the one that stays. This raises `VertexNotFoundException` when either src
+  /// or dst is not in the graph.
   abstract AddEdge:
     src: IVertex<'V> * dst: IVertex<'V> * label: 'E -> IDiGraph<'V, 'E>
 

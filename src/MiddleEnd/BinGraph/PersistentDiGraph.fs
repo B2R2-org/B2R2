@@ -110,15 +110,22 @@ type PersistentDiGraph<'V, 'E
 
   let addVertexWithDataAndID data vid = addVertex data vid (max id vid)
 
+  (* A graph holds at most one edge for an ordered pair of vertices, hence
+     adding an edge that is already there changes nothing, and the label of the
+     existing edge is the one that stays. *)
   let addEdge (src: IVertex<'V>) (dst: IVertex<'V>) label =
     checkVertexExistence src
     checkVertexExistence dst
     let srcid = src.ID
     let dstid = dst.ID
-    let edge = Edge(src, dst, label)
-    let succs = Map.add srcid (edge :: findEdges srcid succs) succs
-    let preds = Map.add dstid (edge :: findEdges dstid preds) preds
-    PersistentDiGraph(roots, vertices, preds, succs, id)
+    let outgoings = findEdges srcid succs
+    if outgoings |> List.exists (fun e -> e.Second.ID = dstid) then
+      PersistentDiGraph(roots, vertices, preds, succs, id)
+    else
+      let edge = Edge(src, dst, label)
+      let succs = Map.add srcid (edge :: outgoings) succs
+      let preds = Map.add dstid (edge :: findEdges dstid preds) preds
+      PersistentDiGraph(roots, vertices, preds, succs, id)
 
   new() = PersistentDiGraph([], Map.empty, Map.empty, Map.empty, 0)
 
