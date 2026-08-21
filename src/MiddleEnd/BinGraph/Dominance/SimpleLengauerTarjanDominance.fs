@@ -264,6 +264,15 @@ let private computeDominance g (dfp: IDominanceFrontierProvider<_, _>) =
   let bwDT = lazy DominatorTree(bwG.Value, idomAux bwInfo.Value)
   createDominance g bwG fwInfo fwDT bwInfo bwDT dfp, fwInfo, bwInfo
 
+/// <summary>
+/// Creates an IDominance instance that computes dominance information using the
+/// simple Lengauer-Tarjan algorithm, which runs in O(m log n) time on a graph
+/// of n vertices and m edges. LengauerTarjanDominance computes the same
+/// dominance faster; this variant is here for its simpler ancestor forest.
+/// </summary>
+/// <param name="g">The graph to compute the dominance of.</param>
+/// <param name="dfp">Provides the dominance frontier implementation, which is
+/// created only when a frontier is first requested.</param>
 [<CompiledName "Create">]
 let create g (dfp: IDominanceFrontierProvider<_, _>) =
   let dom, _, _ = computeDominance g dfp

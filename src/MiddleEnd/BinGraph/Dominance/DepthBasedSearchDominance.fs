@@ -398,6 +398,20 @@ let private computeDominance g dfp staticAlgo =
   let bwDT = lazy DominatorTree(bwG.Value, idom bwG.Value bwInfo.Value)
   createDominance g bwG fwInfo fwDT bwInfo bwDT dfp, fwInfo, bwInfo
 
+/// <summary>
+/// Creates an IDominance instance that computes dominance information using
+/// Georgiadis et al.'s dynamic algorithm, inserting the edges of the graph one
+/// at a time. That is how the algorithm builds a dominator tree able to absorb
+/// further insertions, but the incremental use it exists for is not exposed
+/// yet, so the other modules in this namespace compute a dominance of a graph
+/// that never changes faster than this one does.
+/// </summary>
+/// <param name="g">The graph to compute the dominance of.</param>
+/// <param name="dfp">Provides the dominance frontier implementation, which is
+/// created only when a frontier is first requested.</param>
+/// <param name="staticAlgo">Selects the algorithm that computes the dominance
+/// of a subgraph, which this algorithm needs whenever an inserted edge makes a
+/// group of unreachable vertices reachable.</param>
 [<CompiledName "Create">]
 let create g dfp staticAlgo =
   let dom, _, _ = computeDominance g dfp staticAlgo

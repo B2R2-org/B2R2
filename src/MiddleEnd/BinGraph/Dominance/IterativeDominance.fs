@@ -25,6 +25,12 @@
 /// <namespacedoc>
 ///   <summary>
 ///   Contains implementations of dominance algorithms for directed graphs.
+///   Every module here exposes a single <c>create</c> function returning an
+///   IDominance, and they differ only in how they arrive at it.
+///   LengauerTarjanDominance is the safe default, since its worst case is
+///   near-linear; SemiNCADominance is usually faster on a control-flow graph;
+///   CooperDominance and IterativeDominance are the simple ones; and
+///   DepthBasedSearchDominance is the one built to absorb edge insertions.
 ///   </summary>
 /// </namespacedoc>
 ///
@@ -165,8 +171,16 @@ type private IterativeDominance<'V, 'E when 'V: equality and 'E: equality>
       pdfProvider.DominanceFrontier v
       |> Seq.map (findOriginalVertex g)
 
+/// <summary>
 /// Creates an IDominance instance that computes dominance information using a
-/// simplistic iterative algorithm.
+/// simplistic iterative algorithm, which intersects the dominator sets of the
+/// predecessors of every vertex until no set changes any more. Being the
+/// textbook formulation, it is the easiest to trust and the slowest to run;
+/// reach for it when a reference implementation is worth more than speed.
+/// </summary>
+/// <param name="g">The graph to compute the dominance of.</param>
+/// <param name="dfp">Provides the dominance frontier implementation, which is
+/// created only when a frontier is first requested.</param>
 [<CompiledName "Create">]
 let create g (dfp: IDominanceFrontierProvider<_, _>) =
   IterativeDominance(g, dfp) :> IDominance<'V, 'E>

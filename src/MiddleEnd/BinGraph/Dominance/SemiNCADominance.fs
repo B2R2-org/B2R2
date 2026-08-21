@@ -252,6 +252,15 @@ let private checkUnreachable info (src: IVertex<_>) =
   | true, -1 -> true
   | _ -> false
 
+/// <summary>
+/// Creates an IDominance instance that computes dominance information using the
+/// Semi-NCA algorithm. Its O(mn) worst case is worse than the Lengauer-Tarjan
+/// bound, but the ESA 2004 study measured it as the faster of the two on the
+/// graphs met in practice, which makes it a good fit for a control-flow graph.
+/// </summary>
+/// <param name="g">The graph to compute the dominance of.</param>
+/// <param name="dfp">Provides the dominance frontier implementation, which is
+/// created only when a frontier is first requested.</param>
 [<CompiledName "Create">]
 let create g dfp =
   let dom, _, _ = computeDominance g dfp

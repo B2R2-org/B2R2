@@ -195,6 +195,16 @@ let private computeDominance g (dfp: IDominanceFrontierProvider<_, _>) =
   let bwDT = lazy DominatorTree(bwG.Value, idomAux bwInfo.Value)
   createDominance g bwG fwInfo fwDT bwInfo bwDT dfp, fwInfo, bwInfo
 
+/// <summary>
+/// Creates an IDominance instance that computes dominance information using
+/// Cooper et al.'s algorithm, which iterates like IterativeDominance but keeps
+/// only the immediate dominator of each vertex instead of a whole dominator
+/// set. Its authors measured it as beating Lengauer-Tarjan on the control-flow
+/// graphs of real programs, which are small and mostly reducible.
+/// </summary>
+/// <param name="g">The graph to compute the dominance of.</param>
+/// <param name="dfp">Provides the dominance frontier implementation, which is
+/// created only when a frontier is first requested.</param>
 [<CompiledName "Create">]
 let create g (dfp: IDominanceFrontierProvider<_, _>) =
   let dom, _, _ = computeDominance g dfp
