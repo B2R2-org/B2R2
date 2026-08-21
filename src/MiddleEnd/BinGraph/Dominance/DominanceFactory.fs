@@ -24,11 +24,11 @@
 
 /// Provides the entry point that builds an IDominance from the algorithms
 /// named by value, for a caller that picks its algorithm at run time rather
-/// than by reaching for one of the modules of the Dominance namespace.
+/// than by reaching for one of the algorithm modules beside it.
 [<RequireQualifiedAccess>]
-module B2R2.MiddleEnd.BinGraph.DominanceFactory
+module B2R2.MiddleEnd.BinGraph.Dominance.DominanceFactory
 
-open B2R2.MiddleEnd.BinGraph.Dominance
+open B2R2.MiddleEnd.BinGraph
 
 /// <summary>
 /// Computes the dominance of the given graph using the given algorithm and the

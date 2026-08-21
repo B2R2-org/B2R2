@@ -24,12 +24,6 @@
 
 namespace B2R2.MiddleEnd.BinGraph
 
-/// <namespacedoc>
-///   <summary>
-///   Contains graph data structures and algorithms used throughout B2R2's
-///   middle-end analyses.
-///   </summary>
-/// </namespacedoc>
 /// <summary>
 /// Raised when a vertex is not found in the graph. The carried message
 /// describes the key that was used to look the vertex up.

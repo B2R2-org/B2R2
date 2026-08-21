@@ -31,10 +31,13 @@ do ()
 
 /// <namespacedoc>
 ///   <summary>
-///   Contains graph data structures and algorithms used throughout B2R2's
-///   middle-end analyses.
+///   Contains the graph data structures that B2R2's middle-end analyses are
+///   built on, along with the interfaces over them. The algorithms live one
+///   level down, in a namespace of their own for each family: Traversal, SCC,
+///   Dominance, and Loop.
 ///   </summary>
 /// </namespacedoc>
+///
 /// <summary>
 /// Represents a unique ID for a vertex.
 /// </summary>
