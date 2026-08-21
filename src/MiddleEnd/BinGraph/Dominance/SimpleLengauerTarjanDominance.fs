@@ -58,9 +58,7 @@ type private LTDomInfo<'V when 'V: equality> =
     /// Length of the arrays.
     MaxLength: int
     /// Real roots of graph
-    Roots: IVertex<'V>[]
-    /// Dummy root
-    DummyRoot: IVertex<'V> }
+    Roots: IVertex<'V>[] }
 
 let private initDomInfo (g: IDiGraphAccessible<_, _>) =
   (* To reserve a room for entry (dummy) node. *)
@@ -79,8 +77,7 @@ let private initDomInfo (g: IDiGraphAccessible<_, _>) =
 #endif
     IDom = Array.create len 0
     MaxLength = len
-    Roots = g.GetRoots()
-    DummyRoot = GraphUtils.makeDummyVertex () }
+    Roots = g.GetRoots() }
 
 let inline private dfpre (info: LTDomInfo<_>) (v: IVertex<_>) = info.DFPre[v.ID]
 
@@ -98,17 +95,20 @@ let rec private prepare (g: IDiGraphAccessible<_, _>) info n = function
   | [] ->
     n - 1
 
-let private prepareWithDummyRoot g info =
-  info.DFPre.Add(info.DummyRoot.ID, 0)
+(* Every root enters with 0 as its parent, that being the DFNum of the dummy
+   root sitting above them all. No vertex of the graph takes it. *)
+let private prepareFromRoots g info =
   info.Roots |> Array.map (fun v -> 0, v) |> Array.toList |> prepare g info 1
 
 (* A predecessor unreachable from the roots has no DFPre number assigned, so it
-   cannot take part in the computation below. *)
-let private getPreds (g: IDiGraphAccessible<_, _>) info v =
-  let preds =
-    g.GetPreds v |> Array.filter (fun p -> info.DFPre.ContainsKey p.ID)
-  if info.Roots |> Array.contains v then [| info.DummyRoot; yield! preds |]
-  else preds
+   cannot take part in the computation below. The dummy root above the roots is
+   no vertex of the graph, hence it enters as its number, 0, alone. *)
+let private predNums (g: IDiGraphAccessible<_, _>) info v =
+  let nums =
+    g.GetPreds v
+    |> Array.filter (fun p -> info.DFPre.ContainsKey p.ID)
+    |> Array.map (dfpre info)
+  if info.Roots |> Array.contains v then [| 0; yield! nums |] else nums
 
 let rec private compress info v =
   let a = info.Ancestor[v]
@@ -169,7 +169,7 @@ let private computeDom info v =
 
 let private prepareDomInfo (g: IDiGraphAccessible<_, _>) =
   let info = initDomInfo g
-  let n = prepareWithDummyRoot g info
+  let n = prepareFromRoots g info
   info, n
 
 let private computeIDom g info n =
@@ -177,8 +177,7 @@ let private computeIDom g info n =
     computeDom info i
     let v = info.Vertex[i]
     let p = info.Parent[i]
-    getPreds g info v
-    |> Array.map (dfpre info)
+    predNums g info v
     |> Array.toList
     |> computeSemiDom info i
 #if LT_USE_SET_BUCKET
