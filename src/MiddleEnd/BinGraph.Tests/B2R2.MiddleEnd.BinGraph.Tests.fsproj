@@ -11,6 +11,7 @@
     <Compile Include="TraversalTests.fs" />
     <Compile Include="SCCTests.fs" />
     <Compile Include="BasicTests.fs" />
+    <Compile Include="MutablePersistentDiGraphTests.fs" />
     <Compile Include="DominanceTests.fs" />
     <Compile Include="LoopTests.fs" />
     <Compile Include="Program.fs" />

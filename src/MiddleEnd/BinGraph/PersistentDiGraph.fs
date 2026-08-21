@@ -127,6 +127,33 @@ type PersistentDiGraph<'V, 'E
       let preds = Map.add dstid (edge :: findEdges dstid preds) preds
       PersistentDiGraph(roots, vertices, preds, succs, id)
 
+  let removeVertex (v: IVertex<'V>) =
+    checkVertexExistence v
+    let succs = findEdges v.ID preds |> List.fold removeSuccEdge succs
+    let preds = findEdges v.ID succs |> List.fold removePredEdge preds
+    let vertices = Map.remove v.ID vertices
+    let preds = Map.remove v.ID preds
+    let succs = Map.remove v.ID succs
+    let roots = List.filter (fun r -> r <> v) roots
+    PersistentDiGraph(roots, vertices, preds, succs, id)
+
+  let removeEdge (edge: Edge<'V, 'E>) =
+    checkVertexExistence edge.First
+    checkVertexExistence edge.Second
+    let preds = removePredEdge preds edge
+    let succs = removeSuccEdge succs edge
+    PersistentDiGraph(roots, vertices, preds, succs, id)
+
+  let addRoot v =
+    checkVertexExistence v
+    let roots = if List.contains v roots then roots else v :: roots
+    PersistentDiGraph(roots, vertices, preds, succs, id)
+
+  let setRoots vs =
+    let roots = Seq.toList vs
+    roots |> List.iter checkVertexExistence
+    PersistentDiGraph(roots, vertices, preds, succs, id)
+
   new() = PersistentDiGraph([], Map.empty, Map.empty, Map.empty, 0)
 
   interface IDiGraphAccessible<'V, 'E> with
@@ -253,15 +280,7 @@ type PersistentDiGraph<'V, 'E
         else addVertexWithDataAndID null v.ID
       v', g
 
-    member _.RemoveVertex v =
-      checkVertexExistence v
-      let succs = findEdges v.ID preds |> List.fold removeSuccEdge succs
-      let preds = findEdges v.ID succs |> List.fold removePredEdge preds
-      let vertices = Map.remove v.ID vertices
-      let preds = Map.remove v.ID preds
-      let succs = Map.remove v.ID succs
-      let roots = List.filter (fun r -> r <> v) roots
-      PersistentDiGraph(roots, vertices, preds, succs, id)
+    member _.RemoveVertex v = removeVertex v
 
     member _.AddEdge(src: IVertex<'V>, dst: IVertex<'V>, label) =
       addEdge src dst (EdgeLabel label)
@@ -269,27 +288,53 @@ type PersistentDiGraph<'V, 'E
     member _.AddEdge(src: IVertex<'V>, dst: IVertex<'V>) =
       addEdge src dst null
 
-    member this.RemoveEdge(src: IVertex<'V>, dst: IVertex<'V>) =
-      let edge = Edge(src, dst, null)
-      (this :> IDiGraph<_, _>).RemoveEdge edge
+    member _.RemoveEdge(src: IVertex<'V>, dst: IVertex<'V>) =
+      removeEdge (Edge(src, dst, null))
 
-    member _.RemoveEdge(edge: Edge<'V, 'E>) =
-      checkVertexExistence edge.First
-      checkVertexExistence edge.Second
-      let preds = removePredEdge preds edge
-      let succs = removeSuccEdge succs edge
-      PersistentDiGraph(roots, vertices, preds, succs, id)
+    member _.RemoveEdge(edge: Edge<'V, 'E>) = removeEdge edge
 
-    member _.AddRoot(v) =
-      checkVertexExistence v
-      let roots = if List.contains v roots then roots else v :: roots
-      PersistentDiGraph(roots, vertices, preds, succs, id)
+    member _.AddRoot v = addRoot v
 
-    member _.SetRoots(vs) =
-      let roots = Seq.toList vs
-      roots |> List.iter checkVertexExistence
-      PersistentDiGraph(roots, vertices, preds, succs, id)
+    member _.SetRoots vs = setRoots vs
 
     member this.Reverse(vs) = GraphUtils.reverse this vs (PersistentDiGraph())
 
     member this.Clone() = this
+
+  interface IPersistentDiGraph<'V, 'E> with
+
+    member _.AddVertex value =
+      let struct (v, g) = addVertexWithData (VertexData value)
+      v, g
+
+    member this.AddVertex(value, vid: VertexID) =
+      assert ((this: IPersistentDiGraph<_, _>).HasVertex vid |> not)
+      let struct (v, g) = addVertexWithDataAndID (VertexData value) vid
+      v, g
+
+    member _.AddVertex() =
+      let struct (v, g) = addVertexWithData null
+      v, g
+
+    member _.AddVertexCopy(v: IVertex<'V>) =
+      let struct (v', g) =
+        if v.HasData then addVertexWithDataAndID (VertexData v.VData) v.ID
+        else addVertexWithDataAndID null v.ID
+      v', g
+
+    member _.RemoveVertex v = removeVertex v
+
+    member _.AddEdge(src: IVertex<'V>, dst: IVertex<'V>, label) =
+      addEdge src dst (EdgeLabel label)
+
+    member _.AddEdge(src: IVertex<'V>, dst: IVertex<'V>) =
+      addEdge src dst null
+
+    member _.RemoveEdge(src: IVertex<'V>, dst: IVertex<'V>) =
+      removeEdge (Edge(src, dst, null))
+
+    member _.RemoveEdge(edge: Edge<'V, 'E>) = removeEdge edge
+
+    member _.AddRoot v = addRoot v
+
+    member _.SetRoots vs = setRoots vs

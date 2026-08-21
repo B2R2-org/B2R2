@@ -96,6 +96,26 @@ type ImperativeDiGraph<'V, 'E when 'V: equality and 'E: equality>
     if succs[srcID].Count = 0 then exits.Add src |> ignore else ()
     edges.Remove((srcID, dstID)) |> ignore
 
+  let removeVertex v =
+    let v = findOwnVertex v
+    let vid = v.ID
+    preds[vid] |> Seq.toArray |> Array.iter (fun p -> removeEdge p v)
+    succs[vid] |> Seq.toArray |> Array.iter (fun s -> removeEdge v s)
+    vertices.Remove vid |> ignore
+    preds.Remove vid |> ignore
+    succs.Remove vid |> ignore
+    exits.Remove v |> ignore
+    roots.Remove v |> ignore
+
+  let addRoot v =
+    let v = findOwnVertex v
+    if roots.Contains v then () else roots.Add v
+
+  let setRoots vs =
+    let vs = vs |> Seq.map findOwnVertex |> Seq.toArray
+    roots.Clear()
+    roots.AddRange vs
+
   let tryFindVertexBy fn =
     vertices.Values
     |> Seq.tryFind fn
@@ -261,15 +281,7 @@ type ImperativeDiGraph<'V, 'E when 'V: equality and 'E: equality>
       else addVertexWithDataAndID null v.ID, this
 
     member this.RemoveVertex v =
-      let v = findOwnVertex v
-      let vid = v.ID
-      preds[vid] |> Seq.toArray |> Array.iter (fun p -> removeEdge p v)
-      succs[vid] |> Seq.toArray |> Array.iter (fun s -> removeEdge v s)
-      vertices.Remove vid |> ignore
-      preds.Remove vid |> ignore
-      succs.Remove vid |> ignore
-      exits.Remove v |> ignore
-      roots.Remove v |> ignore
+      removeVertex v
       this
 
     member this.AddEdge(src: IVertex<'V>, dst: IVertex<'V>, label) =
@@ -289,16 +301,47 @@ type ImperativeDiGraph<'V, 'E when 'V: equality and 'E: equality>
       this
 
     member this.AddRoot(v) =
-      let v = findOwnVertex v
-      if roots.Contains v then () else roots.Add v
+      addRoot v
       this
 
     member this.SetRoots(vs) =
-      let vs = vs |> Seq.map findOwnVertex |> Seq.toArray
-      roots.Clear()
-      roots.AddRange vs
+      setRoots vs
       this
 
     member this.Reverse(vs) = GraphUtils.reverse this vs (ImperativeDiGraph())
+
+    member _.Clone() = clone ()
+
+  interface IMutableDiGraph<'V, 'E> with
+
+    member _.AddVertex v = addVertexWithData (VertexData v)
+
+    member this.AddVertex(v, vid) =
+      assert ((this: IMutableDiGraph<_, _>).HasVertex vid |> not)
+      addVertexWithDataAndID (VertexData v) vid
+
+    member _.AddVertex() = addVertexWithData null
+
+    member _.AddVertexCopy(v: IVertex<'V>) =
+      if v.HasData then addVertexWithDataAndID (VertexData v.VData) v.ID
+      else addVertexWithDataAndID null v.ID
+
+    member _.RemoveVertex v = removeVertex v
+
+    member _.AddEdge(src: IVertex<'V>, dst: IVertex<'V>, label) =
+      addEdge src dst (EdgeLabel label)
+
+    member _.AddEdge(src: IVertex<'V>, dst: IVertex<'V>) =
+      addEdge src dst null
+
+    member _.RemoveEdge(src: IVertex<'V>, dst: IVertex<'V>) =
+      removeEdge src dst
+
+    member _.RemoveEdge(edge: Edge<'V, 'E>) =
+      removeEdge edge.First edge.Second
+
+    member _.AddRoot v = addRoot v
+
+    member _.SetRoots vs = setRoots vs
 
     member _.Clone() = clone ()
