@@ -40,8 +40,10 @@ type private CPDomInfo<'V when 'V: equality> =
     Preds: int[][]
     /// Real roots of graph
     Roots: IVertex<'V>[]
-    /// Dummy root
-    DummyRoot: IVertex<'V> }
+    /// Num of the dummy root, which sits above every real root. Only the
+    /// numbering pass knows it, as it is the last number handed out; until
+    /// then this holds a number no vertex can take.
+    mutable DummyNum: int }
 
 let private initDomInfo (g: IDiGraphAccessible<_, _>) =
   (* To reserve a room for entry (dummy) node. *)
@@ -51,7 +53,7 @@ let private initDomInfo (g: IDiGraphAccessible<_, _>) =
     IDom = Array.create len -1
     Preds = Array.zeroCreate len
     Roots = g.GetRoots()
-    DummyRoot = GraphUtils.makeDummyVertex () }
+    DummyNum = len }
 
 (* A predecessor unreachable from the roots has no number assigned, so it
    cannot take part in the computation below. *)
@@ -76,8 +78,7 @@ let private prepareWithDummyRoot g info =
        info.Vertex[n] <- v
        n + 1)
       0
-  info.NumMap[info.DummyRoot.ID] <- n
-  info.Vertex[n] <- info.DummyRoot
+  info.DummyNum <- n
   for r in realRoots |> Array.map (fun v -> info.NumMap[v.ID]) do
     info.IDom[r] <- n
   info.IDom[n] <- n
@@ -106,8 +107,7 @@ let private intersect (idoms: array<int>) b1 b2 =
 let rec private domsAux acc v info =
   if info.NumMap.ContainsKey((v: IVertex<'V>).ID) then
     let idom = info.IDom[info.NumMap[v.ID]]
-    if idom = -1 || idom = info.NumMap[info.DummyRoot.ID]
-    then acc |> List.toArray
+    if idom = -1 || idom = info.DummyNum then acc |> List.toArray
     else domsAux (info.Vertex[idom] :: acc) info.Vertex[idom] info
   else
     acc |> List.toArray
@@ -115,8 +115,7 @@ let rec private domsAux acc v info =
 let private idomAux info v =
   if info.NumMap.ContainsKey((v: IVertex<'V>).ID) then
     let num = info.IDom[info.NumMap[v.ID]]
-    if num <> -1 && num <> info.NumMap[info.DummyRoot.ID] then info.Vertex[num]
-    else null
+    if num <> -1 && num <> info.DummyNum then info.Vertex[num] else null
   else
     null
 
