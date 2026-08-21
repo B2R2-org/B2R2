@@ -28,6 +28,31 @@ module internal B2R2.MiddleEnd.BinGraph.GraphUtils
 
 open System.Collections.Generic
 
+/// Copies the given collection into an array of its own. `Seq.toArray` grows
+/// a buffer as it goes unless the collection happens to tell it a count, and
+/// the accessors that use this sit inside the traversal loops, where the one
+/// allocation of the result is all that can be afforded.
+let toArray (xs: #ICollection<'T>) =
+  let arr: 'T[] = Array.zeroCreate xs.Count
+  xs.CopyTo(arr, 0)
+  arr
+
+/// Copies the given list into an array back to front, applying the given
+/// mapping. An adjacency list that grows at its front holds its neighbors in
+/// the reverse of the order they were added, and this is what hands them back
+/// in that order without a second list to reverse them through.
+let toArrayInReverse mapping xs =
+  let arr = Array.zeroCreate (List.length xs)
+  let mutable i = arr.Length - 1
+  for x in xs do
+    arr[i] <- mapping x
+    i <- i - 1
+  arr
+
+/// Copies the given list into an array back to front, as `toArrayInReverse`
+/// does, with nothing read out of its elements.
+let toReversedArray xs = toArrayInReverse id xs
+
 /// Identifies the dummy root, the node that an analysis puts above every root
 /// of a graph so that a graph of many roots reads as one of a single root. It
 /// belongs to no graph, hence this is the one ID a graph never hands out; a

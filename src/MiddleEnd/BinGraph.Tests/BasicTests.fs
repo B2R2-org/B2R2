@@ -302,6 +302,24 @@ type BasicTests() =
 
   [<TestMethod>]
   [<DynamicData(nameof BasicTests.GraphTypes)>]
+  member _.``Adjacency Edge Order Test``(t) =
+    let g, _ = digraph1 t
+    (* The edges of a vertex come in the order its neighbors do, so that a
+       caller can read one accessor against the other. *)
+    let succIDs (g: IDiGraphAccessible<_, _>) v =
+      g.GetSuccs v |> Array.map (fun s -> s.ID)
+    let succEdgeIDs (g: IDiGraphAccessible<_, _>) v =
+      g.GetSuccEdges v |> Array.map (fun e -> e.Second.ID)
+    let predIDs (g: IDiGraphAccessible<_, _>) v =
+      g.GetPreds v |> Array.map (fun p -> p.ID)
+    let predEdgeIDs (g: IDiGraphAccessible<_, _>) v =
+      g.GetPredEdges v |> Array.map (fun e -> e.First.ID)
+    for v in g.Vertices do
+      CollectionAssert.AreEqual(succIDs g v, succEdgeIDs g v)
+      CollectionAssert.AreEqual(predIDs g v, predEdgeIDs g v)
+
+  [<TestMethod>]
+  [<DynamicData(nameof BasicTests.GraphTypes)>]
   member _.``Reverse Dummy Test``(t) =
     let g = emptyDigraph t
     let v1 = g.AddVertex 1

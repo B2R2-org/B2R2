@@ -31,19 +31,38 @@ open System.Collections.Generic
 type MutableDiGraph<'V, 'E when 'V: equality and 'E: equality>
   private(initialID: VertexID) =
 
-  let vertices = Dictionary<VertexID, Vertex<'V>>()
+  let vertices = Dictionary<VertexID, IVertex<'V>>()
 
-  let edges = Dictionary<VertexID * VertexID, Edge<'V, 'E>>()
+  (* The key is a struct tuple, for a reference tuple would put one allocation
+     on every lookup, and looking an edge up is what most of the modifying
+     operations start with. *)
+  let edges = Dictionary<struct (VertexID * VertexID), Edge<'V, 'E>>()
 
-  let preds = Dictionary<VertexID, List<Vertex<'V>>>()
+  (* The adjacency lists hold the edges rather than their far endpoints, which
+     is what lets the edges of a vertex be handed out without a lookup of
+     their own, and is what the persistent graph holds, too. *)
+  let preds = Dictionary<VertexID, List<Edge<'V, 'E>>>()
 
-  let succs = Dictionary<VertexID, List<Vertex<'V>>>()
+  let succs = Dictionary<VertexID, List<Edge<'V, 'E>>>()
 
-  let exits = HashSet<Vertex<'V>>()
+  let exits = HashSet<IVertex<'V>>()
 
   let mutable id = initialID
 
-  let roots = List<Vertex<'V>>()
+  let roots = List<IVertex<'V>>()
+
+  (* Reading the endpoints out of an adjacency list one by one is what keeps
+     an accessor to the single allocation of its result; mapping over the list
+     would add one more. *)
+  let toSrcArray (es: List<Edge<'V, 'E>>) =
+    let arr = Array.zeroCreate es.Count
+    for i in 0 .. es.Count - 1 do arr[i] <- es[i].First
+    arr
+
+  let toDstArray (es: List<Edge<'V, 'E>>) =
+    let arr = Array.zeroCreate es.Count
+    for i in 0 .. es.Count - 1 do arr[i] <- es[i].Second
+    arr
 
   (* A vertex belongs to this graph only when it is the very object we store
      for its ID. Comparing IDs is not enough, because vertices compare by ID,
@@ -64,13 +83,13 @@ type MutableDiGraph<'V, 'E when 'V: equality and 'E: equality>
     else GraphUtils.raiseVertexNotFoundByID v.ID
 
   let addVertex (data: VertexData<'V>) (vid: VertexID) =
-    let v = Vertex(vid, data)
+    let v = Vertex(vid, data) :> IVertex<'V>
     if roots.Count = 0 then roots.Add v else ()
     vertices.Add(vid, v) |> ignore
     preds.Add(vid, List())
     succs.Add(vid, List())
     exits.Add v |> ignore
-    v :> IVertex<'V>
+    v
 
   let addVertexWithData (data: VertexData<'V>) =
     id <- id + 1
@@ -84,14 +103,14 @@ type MutableDiGraph<'V, 'E when 'V: equality and 'E: equality>
   let addEdge (src: IVertex<'V>) (dst: IVertex<'V>) label =
     let src = findOwnVertex src
     let dst = findOwnVertex dst
-    let srcID = src.ID
-    let dstID = dst.ID
-    if edges.ContainsKey(srcID, dstID) then
+    let key = struct (src.ID, dst.ID)
+    if edges.ContainsKey key then
       ()
     else
-      edges[(srcID, dstID)] <- Edge(src, dst, label)
-      succs[srcID].Add dst
-      preds[dstID].Add src
+      let edge = Edge(src, dst, label)
+      edges[key] <- edge
+      succs[src.ID].Add edge
+      preds[dst.ID].Add edge
       exits.Remove src |> ignore
 
   let removeEdge (src: IVertex<'V>) (dst: IVertex<'V>) =
@@ -99,16 +118,16 @@ type MutableDiGraph<'V, 'E when 'V: equality and 'E: equality>
     let dst = findOwnVertex dst
     let srcID = src.ID
     let dstID = dst.ID
-    succs[srcID].RemoveAll(fun s -> s.ID = dstID) |> ignore
-    preds[dstID].RemoveAll(fun p -> p.ID = srcID) |> ignore
+    succs[srcID].RemoveAll(fun e -> e.Second.ID = dstID) |> ignore
+    preds[dstID].RemoveAll(fun e -> e.First.ID = srcID) |> ignore
     if succs[srcID].Count = 0 then exits.Add src |> ignore else ()
-    edges.Remove((srcID, dstID)) |> ignore
+    edges.Remove(struct (srcID, dstID)) |> ignore
 
   let removeVertex v =
     let v = findOwnVertex v
     let vid = v.ID
-    preds[vid] |> Seq.toArray |> Array.iter (fun p -> removeEdge p v)
-    succs[vid] |> Seq.toArray |> Array.iter (fun s -> removeEdge v s)
+    preds[vid] |> Seq.toArray |> Array.iter (fun e -> removeEdge e.First v)
+    succs[vid] |> Seq.toArray |> Array.iter (fun e -> removeEdge v e.Second)
     vertices.Remove vid |> ignore
     preds.Remove vid |> ignore
     succs.Remove vid |> ignore
@@ -124,21 +143,12 @@ type MutableDiGraph<'V, 'E when 'V: equality and 'E: equality>
     roots.Clear()
     roots.AddRange vs
 
-  let tryFindVertexBy fn =
-    vertices.Values
-    |> Seq.tryFind fn
-    |> Option.map (fun v -> v :> IVertex<'V>)
+  let tryFindVertexBy fn = vertices.Values |> Seq.tryFind fn
 
   let findVertexBy fn =
     match tryFindVertexBy fn with
     | Some v -> v
     | None -> GraphUtils.raiseVertexNotFoundByPredicate ()
-
-  let getPredVertices (v: IVertex<'V>) =
-    if isOwnVertex v then Seq.toArray preds[v.ID] else [||]
-
-  let getSuccVertices (v: IVertex<'V>) =
-    if isOwnVertex v then Seq.toArray succs[v.ID] else [||]
 
   let clone () =
     let g = MutableDiGraph<'V, 'E>(id)
@@ -163,15 +173,15 @@ type MutableDiGraph<'V, 'E when 'V: equality and 'E: equality>
   /// the given ones. Copying the edges above adds them in whatever order the
   /// edge table hands them out, which is not the order the original was built
   /// in, and adjacency order is what a traversal order follows.
-  member private _.CopyAdjacencyOrder(vid, ss: List<Vertex<'V>>, ps) =
-    let reorder (dst: List<Vertex<'V>>) (src: List<Vertex<'V>>) =
+  member private _.CopyAdjacencyOrder(vid, ss: List<Edge<'V, 'E>>, ps) =
+    let reorder (dst: List<Edge<'V, 'E>>) (src: List<Edge<'V, 'E>>) =
       dst.Clear()
-      for v in src do dst.Add vertices[v.ID]
+      for e in src do dst.Add edges[struct (e.First.ID, e.Second.ID)]
     reorder succs[vid] ss
     reorder preds[vid] ps
 
   /// Replaces the roots of this graph with the ones matching the given.
-  member private this.CopyRootsFrom(roots: List<Vertex<'V>>) =
+  member private this.CopyRootsFrom(roots: List<IVertex<'V>>) =
     let g = this :> IMutableDiGraph<'V, 'E>
     roots
     |> Seq.map (fun r -> g.FindVertexByID r.ID)
@@ -181,18 +191,11 @@ type MutableDiGraph<'V, 'E when 'V: equality and 'E: equality>
 
     member _.Size with get() = vertices.Count
 
-    member _.Vertices with get() =
-      vertices.Values |> Seq.map (fun v -> v :> IVertex<'V>) |> Seq.toArray
+    member _.Vertices with get() = GraphUtils.toArray vertices.Values
 
-    member _.Edges with get() =
-      edges
-      |> Seq.toArray
-      |> Array.map (fun (KeyValue(_, edge)) -> edge)
+    member _.Edges with get() = GraphUtils.toArray edges.Values
 
-    member _.Exits with get() =
-      exits
-      |> Seq.toArray
-      |> Array.map (fun v -> v :> IVertex<'V>)
+    member _.Exits with get() = GraphUtils.toArray exits
 
     member _.SingleRoot with get() =
       match roots.Count with
@@ -209,7 +212,7 @@ type MutableDiGraph<'V, 'E when 'V: equality and 'E: equality>
     member _.HasVertexByID vid = vertices.ContainsKey vid
 
     member _.HasEdge(src, dst) =
-      match edges.TryGetValue(key = (src.ID, dst.ID)) with
+      match edges.TryGetValue(key = struct (src.ID, dst.ID)) with
       | true, edge -> hasOwnEnds edge src dst
       | false, _ -> false
 
@@ -219,7 +222,7 @@ type MutableDiGraph<'V, 'E when 'V: equality and 'E: equality>
 
     member _.FindVertexByID vid =
       match vertices.TryGetValue vid with
-      | true, v -> v :> IVertex<'V>
+      | true, v -> v
       | false, _ -> GraphUtils.raiseVertexNotFoundByID vid
 
     member _.TryFindVertexByID vid =
@@ -228,54 +231,45 @@ type MutableDiGraph<'V, 'E when 'V: equality and 'E: equality>
       | true, v -> Some v
 
     member _.FindVertexByData data =
-      match tryFindVertexBy (fun v -> (v :> IVertex<'V>).VData = data) with
+      match tryFindVertexBy (fun v -> v.VData = data) with
       | Some v -> v
       | None -> GraphUtils.raiseVertexNotFoundByData data
 
     member _.TryFindVertexByData data =
-      tryFindVertexBy (fun v -> (v :> IVertex<'V>).VData = data)
+      tryFindVertexBy (fun v -> v.VData = data)
 
     member _.FindEdge(src: IVertex<'V>, dst: IVertex<'V>) =
-      match edges.TryGetValue(key = (src.ID, dst.ID)) with
+      match edges.TryGetValue(key = struct (src.ID, dst.ID)) with
       | true, edge when hasOwnEnds edge src dst -> edge
       | _ -> raise EdgeNotFoundException
 
     member _.TryFindEdge(src: IVertex<'V>, dst: IVertex<'V>) =
-      match edges.TryGetValue(key = (src.ID, dst.ID)) with
+      match edges.TryGetValue(key = struct (src.ID, dst.ID)) with
       | true, edge when hasOwnEnds edge src dst -> Some edge
       | _ -> None
 
     member _.GetPreds(v: IVertex<'V>) =
-      getPredVertices v
-      |> Array.map (fun v -> v :> IVertex<'V>)
+      if isOwnVertex v then toSrcArray preds[v.ID] else [||]
 
     member _.GetPredEdges(v: IVertex<'V>) =
-      getPredVertices v
-      |> Array.map (fun pred -> edges[(pred.ID, v.ID)])
+      if isOwnVertex v then GraphUtils.toArray preds[v.ID] else [||]
 
     member _.GetSuccs(v: IVertex<'V>) =
-      getSuccVertices v
-      |> Array.map (fun v -> v :> IVertex<'V>)
+      if isOwnVertex v then toDstArray succs[v.ID] else [||]
 
     member _.GetSuccEdges(v: IVertex<'V>) =
-      getSuccVertices v
-      |> Array.map (fun succ -> edges[(v.ID, succ.ID)])
+      if isOwnVertex v then GraphUtils.toArray succs[v.ID] else [||]
 
-    member _.GetRoots() =
-      roots
-      |> Seq.toArray
-      |> Array.map (fun v -> v :> IVertex<'V>)
+    member _.GetRoots() = GraphUtils.toArray roots
 
     member this.Reverse vs =
       let out = MutableDiGraph<'V, 'E>()
       DiGraph.reverseInto this vs out
       out
 
-    member _.FoldVertex(fn, acc) =
-      vertices.Values |> Seq.fold (fun acc v -> fn acc (v :> IVertex<'V>)) acc
+    member _.FoldVertex(fn, acc) = vertices.Values |> Seq.fold fn acc
 
-    member _.IterVertex fn =
-      vertices.Values |> Seq.iter (fun v -> fn (v :> IVertex<'V>))
+    member _.IterVertex fn = vertices.Values |> Seq.iter fn
 
     member _.FoldEdge(fn, acc) = edges.Values |> Seq.fold fn acc
 

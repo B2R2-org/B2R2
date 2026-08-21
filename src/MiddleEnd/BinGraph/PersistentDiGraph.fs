@@ -28,7 +28,7 @@ namespace B2R2.MiddleEnd.BinGraph
 type PersistentDiGraph<'V, 'E
   when 'V: equality
   and 'E: equality>(roots, vs, preds, succs, id) =
-  let vertices = vs
+  let vertices: Map<VertexID, IVertex<'V>> = vs
 
   let preds: Map<VertexID, Edge<'V, 'E> list> = preds
 
@@ -39,7 +39,7 @@ type PersistentDiGraph<'V, 'E
   (* The vertices, preds, and succs maps always share the same key set. *)
   let findVertex vid =
     assert (Map.containsKey vid vertices)
-    Map.find vid vertices :> IVertex<'V>
+    Map.find vid vertices
 
   let verticesWithNoEdge (map: Map<VertexID, Edge<'V, 'E> list>) =
     map
@@ -49,9 +49,7 @@ type PersistentDiGraph<'V, 'E
 
   let tryFindVertexBy fn =
     vertices
-    |> Map.tryPick (fun _ v ->
-      let v = v :> IVertex<'V>
-      if fn v then Some v else None)
+    |> Map.tryPick (fun _ v -> if fn v then Some v else None)
 
   let findVertexBy fn =
     match tryFindVertexBy fn with
@@ -102,8 +100,8 @@ type PersistentDiGraph<'V, 'E
       else preds)
 
   let addVertex (data: VertexData<'V>) vid nextvid =
-    let v = Vertex(vid, data)
-    let roots = if List.isEmpty roots then [ v :> IVertex<'V> ] else roots
+    let v = Vertex(vid, data) :> IVertex<'V>
+    let roots = if List.isEmpty roots then [ v ] else roots
     let vertices = Map.add vid v vertices
     let preds = Map.add vid [] preds
     let succs = Map.add vid [] succs
@@ -168,14 +166,9 @@ type PersistentDiGraph<'V, 'E
 
     member _.Size with get() = vertices.Count
 
-    member _.Vertices with get() =
-      vertices.Values |> Seq.map (fun v -> v :> IVertex<'V>) |> Seq.toArray
+    member _.Vertices with get() = GraphUtils.toArray vertices.Values
 
-    member _.Edges with get() =
-      succs
-      |> Map.toSeq
-      |> Seq.collect snd
-      |> Seq.toArray
+    member _.Edges with get() = succs.Values |> Seq.concat |> Seq.toArray
 
     member _.Exits with get() = verticesWithNoEdge succs
 
@@ -200,13 +193,10 @@ type PersistentDiGraph<'V, 'E
 
     member _.FindVertexByID vid =
       match Map.tryFind vid vertices with
-      | Some v -> v :> IVertex<'V>
+      | Some v -> v
       | None -> GraphUtils.raiseVertexNotFoundByID vid
 
-    member _.TryFindVertexByID vid =
-      vertices
-      |> Map.tryFind vid
-      |> Option.map (fun v -> v :> IVertex<'V>)
+    member _.TryFindVertexByID vid = Map.tryFind vid vertices
 
     member _.FindVertexByData data =
       match tryFindVertexBy (fun v -> v.VData = data) with
@@ -235,18 +225,16 @@ type PersistentDiGraph<'V, 'E
       | None -> None
 
     member _.GetPreds(v: IVertex<'V>) =
-      getPredEdges v
-      |> List.fold (fun acc e -> e.First :: acc) []
-      |> List.toArray
+      getPredEdges v |> GraphUtils.toArrayInReverse (fun e -> e.First)
 
-    member _.GetPredEdges(v: IVertex<'V>) = getPredEdges v |> List.toArray
+    member _.GetPredEdges(v: IVertex<'V>) =
+      getPredEdges v |> GraphUtils.toReversedArray
 
     member _.GetSuccs(v: IVertex<'V>) =
-      getSuccEdges v
-      |> List.fold (fun acc e -> e.Second :: acc) []
-      |> List.toArray
+      getSuccEdges v |> GraphUtils.toArrayInReverse (fun e -> e.Second)
 
-    member _.GetSuccEdges(v: IVertex<'V>) = getSuccEdges v |> List.toArray
+    member _.GetSuccEdges(v: IVertex<'V>) =
+      getSuccEdges v |> GraphUtils.toReversedArray
 
     member _.GetRoots() = roots |> List.toArray
 
@@ -255,12 +243,9 @@ type PersistentDiGraph<'V, 'E
       DiGraph.reverseInto this vs out
       out.Snapshot
 
-    member _.FoldVertex(fn, acc) =
-      vertices.Values
-      |> Seq.fold (fun acc v -> fn acc (v :> IVertex<'V>)) acc
+    member _.FoldVertex(fn, acc) = vertices.Values |> Seq.fold fn acc
 
-    member _.IterVertex fn =
-      vertices.Values |> Seq.iter (fun v -> fn (v :> IVertex<'V>))
+    member _.IterVertex fn = vertices.Values |> Seq.iter fn
 
     member _.FoldEdge(fn, acc) =
       succs.Values
