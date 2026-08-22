@@ -41,13 +41,10 @@ type internal SubDiGraph<'V, 'E when 'V: equality and 'E: equality>
 
   let incoming = Dictionary<IVertex<'V>, Edge<'V, 'E>[]>()
 
-  let byID = Dictionary<VertexID, IVertex<'V>>()
-
   let mutable edgeCount = 0
 
   do
     let held = HashSet<IVertex<'V>> vs
-    for v in vs do byID[v.ID] <- v
     let isHeldSucc (e: Edge<'V, 'E>) = held.Contains e.Second
     let isHeldPred (e: Edge<'V, 'E>) = held.Contains e.First
     for v in vs do
@@ -118,23 +115,11 @@ type internal SubDiGraph<'V, 'E when 'V: equality and 'E: equality>
 
     member _.Contains v = outgoing.ContainsKey v
 
-    member _.HasVertexByID vid = byID.ContainsKey vid
-
     member _.HasEdge(src, dst) = (tryFindEdge src dst).IsSome
 
     member _.FindVertexBy fn = findVertexBy fn
 
     member _.TryFindVertexBy fn = tryFindVertexBy fn
-
-    member _.FindVertexByID vid =
-      match byID.TryGetValue vid with
-      | true, v -> v
-      | false, _ -> GraphUtils.raiseVertexNotFoundByID vid
-
-    member _.TryFindVertexByID vid =
-      match byID.TryGetValue vid with
-      | true, v -> Some v
-      | false, _ -> None
 
     member _.FindVertexByData data =
       match tryFindVertexBy (fun v -> v.VData = data) with

@@ -661,12 +661,10 @@ let private approachSegsHitDstBox (dst: IVertex<VisBBlock>)
 let private buildRawPlans (g: VisGraph) dummyMap =
   dummyMap
   |> Map.toList
-  |> List.choose (fun ((srcID, dstID), (edge: VisEdge, dummies)) ->
+  |> List.choose (fun (_, ((src, dst), edge: VisEdge, dummies)) ->
     if List.isEmpty dummies then
       None
     else
-      let src = (g: VisGraph).FindVertexByID srcID
-      let dst = g.FindVertexByID dstID
       let chainInfos = collectChainEdgeInfos g src dst dummies
       let chainEdges = chainInfos |> List.map (fun (_, _, e) -> e)
       let merged = collectMergedPoints chainInfos |> dedupAndCollapse

@@ -59,8 +59,8 @@ type PersistentDiGraphTests() =
 
   [<TestMethod>]
   member _.``Modification Leaves The Original Intact Test``() =
-    let g, v1, _, v3 = build ()
-    let withoutEdge = g.RemoveEdge(v1, g.FindVertexByID 2)
+    let g, v1, v2, v3 = build ()
+    let withoutEdge = g.RemoveEdge(v1, v2)
     Assert.AreEqual<int>(2, g.Edges.Length)
     Assert.AreEqual<int>(1, withoutEdge.Edges.Length)
     let withoutVertex = g.RemoveVertex v3
@@ -115,7 +115,7 @@ type PersistentDiGraphTests() =
     let r = g.Reverse [ v3 ]
     (* A transpose is a view over this graph rather than a graph of either
        protocol, and it holds the very vertices this one holds. *)
-    Assert.AreSame(v1, r.FindVertexByID v1.ID)
+    Assert.AreEqual<bool>(true, r.Contains v1)
     Assert.AreEqual<ImplementationType>(Persistent, r.ImplementationType)
     CollectionAssert.AreEqual([| v3.ID |], rootIDs r)
     CollectionAssert.AreEqual([| (2, 1, 12); (3, 2, 23) |], edgeTriples r)

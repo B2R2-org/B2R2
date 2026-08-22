@@ -89,17 +89,6 @@ type SSACFG private(g: IMutableDiGraph<SSABasicBlock, CFGEdgeKind>) =
   /// Check whether this very vertex belongs to this CFG.
   member _.Contains v = g.Contains v
 
-  /// Check whether a vertex of the given ID belongs to this CFG.
-  member _.HasVertexByID vid = g.HasVertexByID vid
-
-  /// Find a vertex by its VertexID. This function raises an exception when
-  /// there is no such a vertex.
-  member _.FindVertex vid = g.FindVertexByID vid
-
-  /// Find a vertex by its VertexID. This function returns an Option type.
-  /// If there is no such a vertex, it returns None.
-  member _.TryFindVertex vid = g.TryFindVertexByID vid
-
   /// Find a vertex that satisfies the given predicate function.
   member _.FindVertex fn = g.FindVertexBy fn
 
@@ -185,10 +174,7 @@ type SSACFG private(g: IMutableDiGraph<SSABasicBlock, CFGEdgeKind>) =
     member _.ImplementationType = g.ImplementationType
     member _.IsEmpty with get() = g.IsEmpty
     member _.Contains v = g.Contains v
-    member _.HasVertexByID vid = g.HasVertexByID vid
     member _.HasEdge(src, dst) = g.HasEdge(src, dst)
-    member _.FindVertexByID vid = g.FindVertexByID vid
-    member _.TryFindVertexByID vid = g.TryFindVertexByID vid
     member _.FindVertexByData vdata = g.FindVertexByData vdata
     member _.TryFindVertexByData vdata = g.TryFindVertexByData vdata
     member _.FindVertexBy fn = g.FindVertexBy fn

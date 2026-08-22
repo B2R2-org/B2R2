@@ -56,8 +56,8 @@ let rec addDummy (g: VisGraph) (backEdges, dummies) k parWidth src dst e cnt =
     g.AddEdge(src, dummy, edge)
     let backEdges =
       if edge.IsBackEdge then (dummy, src, edge) :: backEdges else backEdges
-    let eData, vertices = Map.find k dummies
-    let dummies = Map.add k (eData, dummy :: vertices) dummies
+    let ends, eData, vertices = Map.find k dummies
+    let dummies = Map.add k (ends, eData, dummy :: vertices) dummies
     addDummy g (backEdges, dummies) k parWidth dummy dst e (cnt - 1)
 
 let collectLongEdges (backEdges, longEdges) (edge: Edge<_, VisEdge>) =
@@ -75,12 +75,13 @@ let collectLongEdges (backEdges, longEdges) (edge: Edge<_, VisEdge>) =
 
 let addDummyNodesLongEdge vGraph (backEdges, dummies) (src, dst, edge, delta) =
   (vGraph: VisGraph).RemoveEdge(src, dst)
-  let k =
-    if (edge: Edge<_, VisEdge>).Label.IsBackEdge then
-      dst.ID, src.ID
-    else
-      src.ID, dst.ID
-  let dummies = Map.add k (edge.Label, []) dummies
+  (* A chain is named by the IDs of the pair it spans, which orders the chains
+     for a reader; the pair itself rides along, there being no looking a vertex
+     up by name any more. *)
+  let ends =
+    if (edge: Edge<_, VisEdge>).Label.IsBackEdge then dst, src else src, dst
+  let k = (fst ends).ID, (snd ends).ID
+  let dummies = Map.add k (ends, edge.Label, []) dummies
   let width = src.VData.Width
   let backEdges, dummies =
     addDummy vGraph (backEdges, dummies) k width src dst edge.Label (delta - 1)
@@ -88,8 +89,8 @@ let addDummyNodesLongEdge vGraph (backEdges, dummies) (src, dst, edge, delta) =
     if edge.Label.IsBackEdge then
       dummies
     else
-      let eData, vertices = Map.find k dummies
-      Map.add k (eData, List.rev vertices) dummies
+      let ends, eData, vertices = Map.find k dummies
+      Map.add k (ends, eData, List.rev vertices) dummies
   backEdges, dummies
 
 let addDummyNodesRemovedBackEdge vGraph (backEdges, dummies) (src, dst, edge) =
@@ -97,7 +98,7 @@ let addDummyNodesRemovedBackEdge vGraph (backEdges, dummies) (src, dst, edge) =
   let dagDst = src
   let delta = VisGraph.getLayer dagDst - VisGraph.getLayer dagSrc
   let k = src.ID, dst.ID
-  let dummies = Map.add k (edge, []) dummies
+  let dummies = Map.add k ((src, dst), edge, []) dummies
   let width = dagSrc.VData.Width
   addDummy vGraph (backEdges, dummies) k width dagSrc dagDst edge (delta - 1)
 

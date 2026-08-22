@@ -121,7 +121,7 @@ type SerializerTests() =
     let json = """{ "roots": [ 1 ], "vertices": [ { "id": 1 } ] }"""
     let g = importGraph t json
     Assert.AreEqual<int>(1, g.VertexCount)
-    Assert.AreEqual<int>(-1, (g.FindVertexByID 1).VData)
+    Assert.AreEqual<int>(-1, g.Vertices[0].VData)
 
   [<TestMethod>]
   [<DynamicData(nameof SerializerTests.GraphTypes)>]

@@ -179,6 +179,23 @@ type PersistentDiGraph<'V, 'E
 
   new() = PersistentDiGraph([], Map.empty, Map.empty, Map.empty, 0, 0)
 
+  /// Checks whether a vertex of the given ID belongs to this graph. An ID
+  /// names a vertex only within the chain of snapshots that handed it out,
+  /// hence this is a service of a graph holding a name index rather than of a
+  /// graph as such. Use `Contains` when a vertex is what one has at hand.
+  member _.HasVertexByID(vid) = vertices |> Map.containsKey vid
+
+  /// Finds the vertex of the given ID, raising `VertexNotFoundException` when
+  /// this graph holds no such vertex.
+  member _.FindVertexByID(vid) =
+    match Map.tryFind vid vertices with
+    | Some v -> v
+    | None -> GraphUtils.raiseVertexNotFoundByID vid
+
+  /// Finds the vertex of the given ID, answering None when this graph holds no
+  /// such vertex.
+  member _.TryFindVertexByID(vid) = Map.tryFind vid vertices
+
   interface IDiGraph<'V, 'E> with
 
     member _.VertexCount with get() = vertices.Count
@@ -205,19 +222,10 @@ type PersistentDiGraph<'V, 'E
 
     member _.Contains v = isOwnVertex v
 
-    member _.HasVertexByID vid = vertices |> Map.containsKey vid
-
     member _.HasEdge(src, dst) =
       match succs.TryFind src.ID with
       | None -> false
       | Some edges -> edges |> List.exists (fun e -> hasOwnEnds e src dst)
-
-    member _.FindVertexByID vid =
-      match Map.tryFind vid vertices with
-      | Some v -> v
-      | None -> GraphUtils.raiseVertexNotFoundByID vid
-
-    member _.TryFindVertexByID vid = Map.tryFind vid vertices
 
     member _.FindVertexByData data =
       match tryFindVertexBy (fun v -> v.VData = data) with
@@ -265,8 +273,8 @@ type PersistentDiGraph<'V, 'E
       let struct (v, g) = addVertexWithData (VertexData value)
       v, g
 
-    member this.AddVertex(value, vid: VertexID) =
-      assert ((this: IPersistentDiGraph<_, _>).HasVertexByID vid |> not)
+    member _.AddVertex(value, vid: VertexID) =
+      assert (vertices |> Map.containsKey vid |> not)
       let struct (v, g) = addVertexWithDataAndID (VertexData value) vid
       v, g
 

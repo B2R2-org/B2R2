@@ -75,7 +75,7 @@ type MutablePersistentDiGraphTests() =
        so the fork holds the very vertices this graph does, no copy having
        been made, and yet it moves on without this graph. *)
     let forked = MutablePersistentDiGraph g.Snapshot :> IMutableDiGraph<_, _>
-    Assert.AreSame(v1, forked.FindVertexByID v1.ID)
+    Assert.AreEqual<bool>(true, forked.Contains v1)
     Assert.AreEqual<bool>(true, forked.Contains v1)
     forked.RemoveVertex v2
     Assert.AreEqual<int>(2, ig.VertexCount)

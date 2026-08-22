@@ -164,16 +164,35 @@ type MutableDiGraph<'V, 'E when 'V: equality and 'E: equality>
   /// Returns a copy of this graph, which can be modified without affecting
   /// this graph. The copy holds vertices of its own, each carrying the ID of
   /// the one it stands for, so a vertex of this graph crosses over to the copy
-  /// by `FindVertexByID`. A persistent graph forks by taking a snapshot
+  /// by its name. A persistent graph forks by taking a snapshot
   /// instead, which costs no copy at all, hence this is not an operation both
   /// of the protocols offer.
   member _.Clone() = clone ()
 
+  /// Checks whether a vertex of the given ID belongs to this graph. An ID
+  /// names a vertex only within the graph that handed it out, hence this is a
+  /// service of a graph holding a name index rather than of a graph as such.
+  /// Use `Contains` when a vertex, not an ID, is what one has at hand.
+  member _.HasVertexByID(vid) = vertices.ContainsKey vid
+
+  /// Finds the vertex of the given ID, raising `VertexNotFoundException` when
+  /// this graph holds no such vertex.
+  member _.FindVertexByID(vid) =
+    match vertices.TryGetValue vid with
+    | true, v -> v
+    | false, _ -> GraphUtils.raiseVertexNotFoundByID vid
+
+  /// Finds the vertex of the given ID, answering None when this graph holds no
+  /// such vertex.
+  member _.TryFindVertexByID(vid) =
+    match vertices.TryGetValue vid with
+    | true, v -> Some v
+    | false, _ -> None
+
   /// Adds a copy of the given edge, keeping the absence of its label.
-  member private this.CopyEdgeFrom(e: Edge<'V, 'E>) =
-    let g = this :> IDiGraph<'V, 'E>
-    let src = g.FindVertexByID e.First.ID
-    let dst = g.FindVertexByID e.Second.ID
+  member private _.CopyEdgeFrom(e: Edge<'V, 'E>) =
+    let src = vertices[e.First.ID]
+    let dst = vertices[e.Second.ID]
     if e.HasLabel then addEdge src dst (EdgeLabel e.Label)
     else addEdge src dst null
 
@@ -189,11 +208,8 @@ type MutableDiGraph<'V, 'E when 'V: equality and 'E: equality>
     reorder preds[vid] ps
 
   /// Replaces the roots of this graph with the ones matching the given.
-  member private this.CopyRootsFrom(roots: List<IVertex<'V>>) =
-    let g = this :> IMutableDiGraph<'V, 'E>
-    roots
-    |> Seq.map (fun r -> g.FindVertexByID r.ID)
-    |> g.SetRoots
+  member private _.CopyRootsFrom(rs: List<IVertex<'V>>) =
+    rs |> Seq.map (fun r -> vertices[r.ID]) |> setRoots
 
   interface IDiGraph<'V, 'E> with
 
@@ -221,8 +237,6 @@ type MutableDiGraph<'V, 'E when 'V: equality and 'E: equality>
 
     member _.Contains v = isOwnVertex v
 
-    member _.HasVertexByID vid = vertices.ContainsKey vid
-
     member _.HasEdge(src, dst) =
       match edges.TryGetValue(key = struct (src.ID, dst.ID)) with
       | true, edge -> hasOwnEnds edge src dst
@@ -231,16 +245,6 @@ type MutableDiGraph<'V, 'E when 'V: equality and 'E: equality>
     member _.FindVertexBy fn = findVertexBy fn
 
     member _.TryFindVertexBy fn = tryFindVertexBy fn
-
-    member _.FindVertexByID vid =
-      match vertices.TryGetValue vid with
-      | true, v -> v
-      | false, _ -> GraphUtils.raiseVertexNotFoundByID vid
-
-    member _.TryFindVertexByID vid =
-      match vertices.TryGetValue vid with
-      | false, _ -> None
-      | true, v -> Some v
 
     member _.FindVertexByData data =
       match tryFindVertexBy (fun v -> v.VData = data) with
@@ -278,8 +282,8 @@ type MutableDiGraph<'V, 'E when 'V: equality and 'E: equality>
 
     member _.AddVertex v = addVertexWithData (VertexData v)
 
-    member this.AddVertex(v, vid) =
-      assert ((this: IMutableDiGraph<_, _>).HasVertexByID vid |> not)
+    member _.AddVertex(v, vid) =
+      assert (vertices.ContainsKey vid |> not)
       addVertexWithDataAndID (VertexData v) vid
 
     member _.AddVertex() = addVertexWithData null

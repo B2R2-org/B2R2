@@ -67,13 +67,7 @@ type MutablePersistentDiGraph<'V, 'E when 'V: equality and 'E: equality>
 
     member _.Contains v = g.Contains v
 
-    member _.HasVertexByID vid = g.HasVertexByID vid
-
     member _.HasEdge(src, dst) = g.HasEdge(src, dst)
-
-    member _.FindVertexByID vid = g.FindVertexByID vid
-
-    member _.TryFindVertexByID vid = g.TryFindVertexByID vid
 
     member _.FindVertexByData data = g.FindVertexByData data
 

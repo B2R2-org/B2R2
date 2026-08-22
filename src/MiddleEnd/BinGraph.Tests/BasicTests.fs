@@ -129,7 +129,7 @@ type BasicTests() =
     CollectionAssert.AreEqual([| 3 |], sub.GetSuccs vmap[2] |> Array.map (_.ID))
     CollectionAssert.AreEqual([| 5 |], sub.GetPreds vmap[2] |> Array.map (_.ID))
     (* The vertices and the edges are the very ones of the graph it views. *)
-    Assert.AreSame(vmap[3], sub.FindVertexByID 3)
+    Assert.AreEqual<bool>(true, sub.Contains vmap[3])
     Assert.AreSame(g.FindEdge(vmap[2], vmap[3]),
                    sub.FindEdge(vmap[2], vmap[3]))
     (* A vertex the set leaves out is no vertex of this graph. *)
@@ -164,15 +164,12 @@ type BasicTests() =
   member _.``Vertex Lookup Failure Test``(t) =
     let g, _ = digraph1 t
     Assert.Throws<VertexNotFoundException>(fun () ->
-      g.FindVertexByID 42 |> ignore)
-    |> ignore
-    Assert.Throws<VertexNotFoundException>(fun () ->
       g.FindVertexByData 42 |> ignore)
     |> ignore
     Assert.Throws<VertexNotFoundException>(fun () ->
       g.FindVertexBy(fun v -> v.VData = 42) |> ignore)
     |> ignore
-    Assert.IsNull(g.TryFindVertexByID 42 |> Option.toObj)
+    Assert.IsNull(g.TryFindVertexBy(fun v -> v.VData = 42) |> Option.toObj)
 
   [<TestMethod>]
   [<DynamicData(nameof BasicTests.GraphTypes)>]
@@ -222,7 +219,6 @@ type BasicTests() =
     let foreign = vmap[3] (* Same ID, but a vertex of another graph. *)
     (* Membership is of the vertex, not of the ID it carries. *)
     Assert.AreEqual<bool>(false, g.Contains foreign)
-    Assert.AreEqual<bool>(true, g.HasVertexByID foreign.ID)
     Assert.AreEqual<int>(0, (g.GetPreds foreign).Length)
     Assert.AreEqual<int>(0, (g.GetPredEdges foreign).Length)
     Assert.AreEqual<int>(0, (g.GetSuccs foreign).Length)
@@ -283,14 +279,13 @@ type BasicTests() =
   member _.``Own Vertex Identity Test``(t) =
     let g, vmap = digraph1 t
     let v = vmap[2]
-    Assert.AreSame(v, g.FindVertexByID v.ID)
-    Assert.AreEqual<IVertex<int>>(v, g.FindVertexByID v.ID)
+    Assert.AreSame(v, g.FindVertexBy(fun w -> w.VData = 2))
     Assert.AreEqual<bool>(true, g.Contains v)
     (* A transpose holds the very vertices of the graph it was taken from, so
        a post-dominance query has nothing to look up to cross over to it. *)
     let r = g.Reverse [ v ]
-    Assert.AreSame(v, r.FindVertexByID v.ID)
     Assert.AreEqual<bool>(true, r.Contains v)
+    Assert.AreSame(v, r.FindVertexBy(fun w -> w.VData = 2))
 
   [<TestMethod>]
   [<DynamicData(nameof BasicTests.GraphTypes)>]
@@ -330,13 +325,12 @@ type BasicTests() =
   [<TestMethod>]
   [<DynamicData(nameof BasicTests.GraphTypes)>]
   member _.``Foreign Edge Test``(t) =
-    let g, _ = digraph1 t
+    let g, gmap = digraph1 t
     let _, vmap = digraph3 t
     (* The two carry the IDs of an edge this graph does have, yet they are the
        vertices of another graph. *)
     let src, dst = vmap[1], vmap[2]
-    Assert.AreEqual<bool>(true, g.HasEdge(g.FindVertexByID src.ID,
-                                          g.FindVertexByID dst.ID))
+    Assert.AreEqual<bool>(true, g.HasEdge(gmap[1], gmap[2]))
     Assert.AreEqual<bool>(false, g.HasEdge(src, dst))
     Assert.AreEqual<bool>(true, (g.TryFindEdge(src, dst)).IsNone)
     Assert.Throws<EdgeNotFoundException>(fun () ->
@@ -386,7 +380,7 @@ type BasicTests() =
     g1.SetRoots [| vmap[1]; vmap[4] |]
     let g2 = cloneOf g1
     let vertexIDs (g: IDiGraph<_, _>) =
-      g.Vertices |> Array.map (fun v -> v.ID) |> Array.sort
+      g.Vertices |> Array.map (fun v -> v.ID, v.VData) |> Array.sort
     let rootIDs (g: IDiGraph<_, _>) =
       g.Roots |> Array.map (fun v -> v.ID)
     let edgeTriples (g: IDiGraph<_, _>) =
@@ -396,7 +390,6 @@ type BasicTests() =
     CollectionAssert.AreEqual(vertexIDs g1, vertexIDs g2)
     CollectionAssert.AreEqual(rootIDs g1, rootIDs g2)
     CollectionAssert.AreEqual(edgeTriples g1, edgeTriples g2)
-    Assert.AreEqual<int>(3, (g2.FindVertexByID vmap[3].ID).VData)
     (* A clone continues to number its vertices where the original left off. *)
     let v1 = g1.AddVertex 7
     let v2 = g2.AddVertex 7
@@ -409,12 +402,10 @@ type BasicTests() =
     let v2 = g.AddVertex()
     g.AddEdge(v1, v2)
     let g2 = cloneOf g
-    let v1 = g2.FindVertexByID v1.ID
-    let v2 = g2.FindVertexByID v2.ID
-    let e = g2.FindEdge(v1, v2)
-    Assert.AreEqual<bool>(true, v1.HasData)
-    Assert.AreEqual<bool>(false, v2.HasData)
-    Assert.AreEqual<bool>(false, e.HasLabel)
+    let v1 = g2.FindVertexBy(fun v -> v.HasData)
+    let v2 = g2.FindVertexBy(fun v -> not v.HasData)
+    Assert.AreEqual<int>(1, v1.VData)
+    Assert.AreEqual<bool>(false, (g2.FindEdge(v1, v2)).HasLabel)
 
   [<TestMethod>]
   member _.``Clone Adjacency Order Test``() =
@@ -432,10 +423,12 @@ type BasicTests() =
       g.GetPreds v |> Array.map (fun p -> p.ID)
     CollectionAssert.AreEqual([| 4; 6; 3 |], succIDs g vmap[2])
     CollectionAssert.AreEqual([| 4; 3 |], predIDs g vmap[5])
-    for v in g.Vertices do
-      let v2 = g2.FindVertexByID v.ID
+    let byName (g: IDiGraph<_, _>) =
+      g.Vertices |> Array.sortBy (fun v -> v.ID)
+    Array.iter2 (fun v v2 ->
       CollectionAssert.AreEqual(succIDs g v, succIDs g2 v2)
-      CollectionAssert.AreEqual(predIDs g v, predIDs g2 v2)
+      CollectionAssert.AreEqual(predIDs g v, predIDs g2 v2)) (byName g)
+                                                             (byName g2)
 
   [<TestMethod>]
   [<DynamicData(nameof BasicTests.GraphTypes)>]
@@ -463,8 +456,6 @@ type BasicTests() =
     let v2 = g.AddVertex()
     g.AddEdge(v1, v2)
     let r = g.Reverse [ v2 ]
-    let v1 = r.FindVertexByID v1.ID
-    let v2 = r.FindVertexByID v2.ID
     let e = r.FindEdge(v2, v1)
     Assert.AreEqual<bool>(true, v1.HasData)
     Assert.AreEqual<bool>(false, v2.HasData)

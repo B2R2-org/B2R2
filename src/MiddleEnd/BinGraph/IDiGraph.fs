@@ -74,20 +74,9 @@ type IDiGraph<'V, 'E when 'V: equality and 'E: equality> =
   /// also uses, which is why this asks of the vertex rather than of its ID.
   abstract Contains: IVertex<'V> -> bool
 
-  /// Checks whether a vertex of the given ID belongs to this graph. Use
-  /// `Contains` instead when a vertex, not an ID, is what one has at hand.
-  abstract HasVertexByID: VertexID -> bool
-
   /// Checks the existence of the edge from src to dst. Both of them have to
   /// be the very vertices of this graph, as in `Contains`.
   abstract HasEdge: src: IVertex<'V> * dst: IVertex<'V> -> bool
-
-  /// Finds a vertex by its VertexID. This function raises
-  /// `VertexNotFoundException` when there is no such a vertex.
-  abstract FindVertexByID: VertexID -> IVertex<'V>
-
-  /// Finds a vertex by its VertexID. This function returns an Option type.
-  abstract TryFindVertexByID: VertexID -> IVertex<'V> option
 
   /// Finds a vertex that has the given data value from the graph. It raises
   /// `VertexNotFoundException` if such a vertex does not exist. Note that this

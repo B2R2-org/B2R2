@@ -49,13 +49,10 @@ type internal ReversedDiGraph<'V, 'E when 'V: equality and 'E: equality>
 
   let incoming = Dictionary<IVertex<'V>, Edge<'V, 'E>[]>()
 
-  let byID = Dictionary<VertexID, IVertex<'V>>()
-
   do
     for v in vertices do
       outgoing[v] <- orig.GetPredEdges v
       incoming[v] <- orig.GetSuccEdges v
-      byID[v.ID] <- v
     for r in roots do
       if outgoing.ContainsKey r then ()
       else GraphUtils.raiseVertexNotFoundByID r.ID
@@ -149,23 +146,11 @@ type internal ReversedDiGraph<'V, 'E when 'V: equality and 'E: equality>
 
     member _.Contains v = outgoing.ContainsKey v
 
-    member _.HasVertexByID vid = byID.ContainsKey vid
-
     member _.HasEdge(src, dst) = (tryFindEdge src dst).IsSome
 
     member _.FindVertexBy fn = findVertexBy fn
 
     member _.TryFindVertexBy fn = tryFindVertexBy fn
-
-    member _.FindVertexByID vid =
-      match byID.TryGetValue vid with
-      | true, v -> v
-      | false, _ -> GraphUtils.raiseVertexNotFoundByID vid
-
-    member _.TryFindVertexByID vid =
-      match byID.TryGetValue vid with
-      | true, v -> Some v
-      | false, _ -> None
 
     member _.FindVertexByData data =
       match tryFindVertexBy (fun v -> v.VData = data) with
