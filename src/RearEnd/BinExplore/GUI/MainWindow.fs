@@ -134,6 +134,8 @@ type MainWindow<'FnCtx, 'GlCtx
       Update.setSyncEnabled arbiter model enabled
     | UpdateStatusMsg msg ->
       Update.updateStatusMsg model msg
+    | ClearStatusMsg ->
+      Update.clearStatusMsg arbiter model
     | UpdateStatusOffsetCtx(sOff, eOff, sects) ->
       Update.updateStatusOffsetCtx model sOff eOff sects
     | ExitApplication ->

@@ -103,6 +103,9 @@ type Message =
   | SetSyncEnabled of bool
   /// Message to update the status message in the status bar.
   | UpdateStatusMsg of string
+  /// Message to drop the current status message, restoring the status bar to
+  /// the information of the loaded binary.
+  | ClearStatusMsg
   /// Message to update the file offset context (range and section) shown in the
   /// status bar.
   | UpdateStatusOffsetCtx of sOff: uint32 * eOff: uint32 * sects: string list

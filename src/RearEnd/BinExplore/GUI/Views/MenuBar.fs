@@ -40,21 +40,23 @@ let private tryGetHostTopLevel (source: obj) =
   | _ ->
     null
 
+let private pickBinary (topLevel: TopLevel) =
+  FilePickerOpenOptions(Title = "Open Binary", AllowMultiple = false)
+  |> topLevel.StorageProvider.OpenFilePickerAsync
+  |> Async.AwaitTask
+
 let private openBinaryDialog dispatch (source: obj) =
   let topLevel = tryGetHostTopLevel source
   if isNull topLevel then
-    ()
+    dispatch (UpdateStatusMsg "No window can host the file dialog.")
   else
     async {
+      dispatch (UpdateStatusMsg "Opening the system file dialog ...")
       try
-        let! files =
-          FilePickerOpenOptions(Title = "Open Binary", AllowMultiple = false)
-          |> topLevel.StorageProvider.OpenFilePickerAsync
-          |> Async.AwaitTask
-        files
-        |> Seq.tryHead
-        |> Option.iter (fun file ->
-          dispatch (OpenBinary file.Path.LocalPath))
+        let! files = pickBinary topLevel
+        match Seq.tryHead files with
+        | Some file -> dispatch (OpenBinary file.Path.LocalPath)
+        | None -> dispatch ClearStatusMsg
       with ex ->
         dispatch (UpdateStatusMsg $"Failed to open file dialog: {ex.Message}")
     } |> Async.StartImmediate

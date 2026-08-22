@@ -1847,6 +1847,14 @@ let updateCFG arbiter (model: Model) msg =
 let updateStatusMsg (model: Model) msg =
   { model with StatusBarState = MessageOnly msg }, Elmish.Cmd.none
 
+let clearStatusMsg (arbiter: Arbiter<_, _>) (model: Model) =
+  match model.LoadedBinary, API.getFileFormat arbiter with
+  | Some path, Ok fmt ->
+    let status = FileLoaded(path, FileFormat.toString fmt)
+    { model with StatusBarState = status }, Elmish.Cmd.none
+  | _ ->
+    { model with StatusBarState = EmptyStatus }, Elmish.Cmd.none
+
 let updateStatusOffsetCtx (model: Model) sOff eOff sections =
   let selection = Some(mkOffsetRangeInfo sOff eOff sections)
   { model with
