@@ -20,6 +20,7 @@
     <Compile Include="Serializer.fs" />
     <Compile Include="Vertex.fs" />
     <Compile Include="ReversedDiGraph.fs" />
+    <Compile Include="SubDiGraph.fs" />
     <Compile Include="MutableDiGraph.fs" />
     <Compile Include="PersistentDiGraph.fs" />
     <Compile Include="ISCCEnumerable.fs" />

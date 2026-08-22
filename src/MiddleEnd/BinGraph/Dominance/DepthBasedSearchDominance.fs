@@ -48,16 +48,6 @@ type internal DBSDomInfo<'V, 'E when 'V: equality and 'E: equality> =
     /// Vertex ID -> Depth of the vertex in the dominance tree.
     Depth: Dictionary<VertexID, int> }
 
-let private addVertex (g: IMutableDiGraph<_, _>) (v: IVertex<_>) =
-  g.AddVertex(v.VData, v.ID) |> ignore
-
-let private addEdge (g: IMutableDiGraph<_, _>) (edge: Edge<_, _>) =
-  let srcID = edge.First.ID
-  let dstID = edge.Second.ID
-  if g.HasVertexByID srcID then () else addVertex g edge.First
-  if g.HasVertexByID dstID then () else addVertex g edge.Second
-  g.AddEdge(g.FindVertexByID srcID, g.FindVertexByID dstID, edge.Label)
-
 let private initDynamicDomInfo g dfp algo =
   let roots = (g: IDiGraph<_, _>).Roots
   let rootIDs = roots |> Array.map (fun v -> v.ID)
@@ -167,38 +157,34 @@ let private updateDomTree g info srcID dstID =
     affected
     |> Array.iter (updateIDom nca info)
 
-(* Walks the vertices the given edges lead to, copying the ones unreachable
-   from the roots into the subgraph, and answers the edges that leave it for
-   the reachable part. The pending edges wait in a queue, for appending them
-   onto a list copies the whole list on every step. *)
-let private constructSubGraphAux g info visited h (queue: Queue<Edge<_, _>>) =
+(* Walks the vertices the given edges lead to, collecting the ones no root
+   reaches yet, and answers the edges that leave them for the reachable part.
+   The pending edges wait in a queue, for appending them onto a list copies
+   the whole list on every step. *)
+let private collectSubGraphAux g info visited (queue: Queue<Edge<_, _>>) =
   let mutable bEdges = []
   while queue.Count > 0 do
     let edge = queue.Dequeue()
     let w = edge.Second
-    if (visited: HashSet<VertexID>).Contains w.ID then
-      addEdge h edge
+    if (visited: HashSet<IVertex<_>>).Contains w then
+      ()
     elif info.Reachable.Contains w.ID then
       bEdges <- edge :: bEdges
     else
-      visited.Add w.ID |> ignore
-      addVertex h w
-      addEdge h edge
+      visited.Add w |> ignore
       for e in (g: IDiGraph<_, _>).GetSuccEdges w do queue.Enqueue e
   bEdges |> Array.ofList
 
-/// Construct the subgraph with root dst whose vertices are unreachable from
-/// main graph.
+/// Views the subgraph rooted at dst that the vertices unreachable from the
+/// roots of the main graph induce, and answers the edges leaving it. Every
+/// edge among those vertices is one of the subgraph, which is what lets the
+/// walk collect the vertices alone.
 let private constructSubGraph (g: IDiGraph<_, _>) info dst =
-  let h = MutablePersistentDiGraph(PersistentDiGraph<'V, 'E>())
-  let ih = h :> IMutableDiGraph<_, _>
-  addVertex ih dst
-  ih.SetRoots [| ih.FindVertexByID dst.ID |]
-  let visited = HashSet()
-  visited.Add dst.ID |> ignore
+  let visited = HashSet [ dst ]
   let queue = Queue(g.GetSuccEdges dst)
-  let bEdges = constructSubGraphAux g info visited ih queue
-  h.Snapshot, bEdges
+  let bEdges = collectSubGraphAux g info visited queue
+  let vs = GraphUtils.toArray visited
+  SubDiGraph(g, vs, [| dst |]) :> IDiGraph<_, _>, bEdges
 
 let private computeStaticDom info g =
   StaticDominance.create g info.DFP info.StaticAlgo
@@ -232,7 +218,7 @@ let private insert (g: IDiGraph<_, _>) info (edge: Edge<_, _>) =
     | _ ->
       let subG, bEdges = constructSubGraph g info dst
       let subDom = computeStaticDom info subG
-      mergeDomTree info src (subG.FindVertexByID dst.ID) subDom
+      mergeDomTree info src dst subDom
       bEdges
       |> Array.iter (fun edge ->
         let dst' = edge.Second

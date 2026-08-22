@@ -117,6 +117,32 @@ type BasicTests() =
 
   [<TestMethod>]
   [<DynamicData(nameof BasicTests.GraphTypes)>]
+  member _.``Induced Subgraph View Test``(t) =
+    let g, vmap = digraph1 t
+    (* Of the seven edges, the three among 2, 3 and 5 are the ones this set
+       induces: 2 -> 3, 3 -> 5 and 5 -> 2. *)
+    let vs = [| vmap[2]; vmap[3]; vmap[5] |]
+    let sub = SubDiGraph(g, vs, [| vmap[2] |]) :> IDiGraph<int, int>
+    Assert.AreEqual<int>(3, sub.VertexCount)
+    Assert.AreEqual<int>(3, sub.EdgeCount)
+    Assert.AreEqual<int>(3, sub.Edges.Length)
+    CollectionAssert.AreEqual([| 3 |], sub.GetSuccs vmap[2] |> Array.map (_.ID))
+    CollectionAssert.AreEqual([| 5 |], sub.GetPreds vmap[2] |> Array.map (_.ID))
+    (* The vertices and the edges are the very ones of the graph it views. *)
+    Assert.AreSame(vmap[3], sub.FindVertexByID 3)
+    Assert.AreSame(g.FindEdge(vmap[2], vmap[3]),
+                   sub.FindEdge(vmap[2], vmap[3]))
+    (* A vertex the set leaves out is no vertex of this graph. *)
+    Assert.AreEqual<bool>(false, sub.Contains vmap[1])
+    Assert.AreEqual<int>(0, (sub.GetSuccs vmap[1]).Length)
+    Assert.AreEqual<bool>(false, sub.HasEdge(vmap[2], vmap[4]))
+    (* It reads the state the graph was in when it was taken. *)
+    g.RemoveEdge(vmap[2], vmap[3])
+    Assert.AreEqual<int>(3, sub.EdgeCount)
+    Assert.AreEqual<int>(6, g.EdgeCount)
+
+  [<TestMethod>]
+  [<DynamicData(nameof BasicTests.GraphTypes)>]
   member _.``Graph Transposition Test``(t) =
     let g1, g1vmap = digraph1 t
     let g2 = g1.Reverse [ g1vmap[6] ]
