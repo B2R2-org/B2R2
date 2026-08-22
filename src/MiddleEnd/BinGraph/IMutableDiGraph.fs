@@ -95,7 +95,3 @@ type IMutableDiGraph<'V, 'E when 'V: equality and 'E: equality> =
   /// `VertexNotFoundException` when any of the given vertices is not in the
   /// graph, and leaves the current roots untouched in that case.
   abstract SetRoots: IEnumerable<IVertex<'V>> -> unit
-
-  /// Returns a cloned copy of this graph, which can be modified without
-  /// affecting this graph.
-  abstract Clone: unit -> IMutableDiGraph<'V, 'E>

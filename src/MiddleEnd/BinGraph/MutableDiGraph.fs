@@ -161,6 +161,14 @@ type MutableDiGraph<'V, 'E when 'V: equality and 'E: equality>
 
   new() = MutableDiGraph 0
 
+  /// Returns a copy of this graph, which can be modified without affecting
+  /// this graph. The copy holds vertices of its own, each carrying the ID of
+  /// the one it stands for, so a vertex of this graph crosses over to the copy
+  /// by `FindVertexByID`. A persistent graph forks by taking a snapshot
+  /// instead, which costs no copy at all, hence this is not an operation both
+  /// of the protocols offer.
+  member _.Clone() = clone ()
+
   /// Adds a copy of the given edge, keeping the absence of its label.
   member private this.CopyEdgeFrom(e: Edge<'V, 'E>) =
     let g = this :> IDiGraph<'V, 'E>
@@ -300,5 +308,3 @@ type MutableDiGraph<'V, 'E when 'V: equality and 'E: equality>
     member _.AddRoot v = addRoot v
 
     member _.SetRoots vs = setRoots vs
-
-    member _.Clone() = clone ()

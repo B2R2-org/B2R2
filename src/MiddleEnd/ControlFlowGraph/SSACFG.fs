@@ -153,9 +153,6 @@ type SSACFG private(g: IMutableDiGraph<SSABasicBlock, CFGEdgeKind>) =
     DiGraph.reverseInto g roots out
     SSACFG out
 
-  /// Clone this CFG.
-  member _.Clone() = g.Clone() |> SSACFG
-
   /// Find the definition of the given variable kind (targetVarKind) at the
   /// given node v. We simply follow the dominator tree of the given SSACFG
   /// until we find a definition.
@@ -224,4 +221,3 @@ type SSACFG private(g: IMutableDiGraph<SSABasicBlock, CFGEdgeKind>) =
     member _.RemoveEdge edge = g.RemoveEdge edge
     member _.AddRoot v = g.AddRoot v
     member _.SetRoots vs = g.SetRoots vs
-    member _.Clone() = g.Clone()

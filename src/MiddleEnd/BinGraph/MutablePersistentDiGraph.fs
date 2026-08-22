@@ -119,5 +119,3 @@ type MutablePersistentDiGraph<'V, 'E when 'V: equality and 'E: equality>
     member _.AddRoot v = g.AddRoot v |> update
 
     member _.SetRoots vs = g.SetRoots vs |> update
-
-    member _.Clone() = MutablePersistentDiGraph g

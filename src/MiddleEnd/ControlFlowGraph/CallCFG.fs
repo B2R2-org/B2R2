@@ -111,7 +111,6 @@ type CallCFG(t: ImplementationType) =
     member _.RemoveEdge edge = g.RemoveEdge edge
     member _.AddRoot v = g.AddRoot v
     member _.SetRoots vs = g.SetRoots vs
-    member _.Clone() = g.Clone()
 
   interface ISCCEnumerable<CallBasicBlock> with
     member _.GetSCCEnumerator() = SCC.Tarjan.compute g

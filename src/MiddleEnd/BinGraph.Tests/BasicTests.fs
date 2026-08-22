@@ -36,6 +36,12 @@ type BasicTests() =
 
   let inc acc (edge: Edge<_, _>) = acc + edge.Label
 
+  (* Copying is the mutable implementation's own operation rather than one of
+     the graph protocols, so a test of it reaches past the interface the
+     examples are built against. *)
+  let cloneOf (g: IMutableDiGraph<int, int>) =
+    (g :?> MutableDiGraph<int, int>).Clone() :> IMutableDiGraph<int, int>
+
   static member GraphTypes = [| [| box Persistent |]; [| box Mutable |] |]
 
   [<TestMethod>]
@@ -83,7 +89,7 @@ type BasicTests() =
   [<DynamicData(nameof BasicTests.GraphTypes)>]
   member _.``DiGraph Removal Test``(t) =
     let g1, _ = digraph1 t
-    let g2 = g1.Clone()
+    let g2, _ = digraph1 t
     g2.FindVertexByData 3 |> g2.RemoveVertex
     let s1 = DFS.foldPreorder g1 sum 0
     let s2 = DFS.foldPreorder g2 sum 0
@@ -332,11 +338,10 @@ type BasicTests() =
     Assert.AreEqual<int>(1, g.FindEdge(src, dst).Label)
 
   [<TestMethod>]
-  [<DynamicData(nameof BasicTests.GraphTypes)>]
-  member _.``Clone Preservation Test``(t) =
-    let g1, vmap = digraph1 t
+  member _.``Clone Preservation Test``() =
+    let g1, vmap = digraph1 Mutable
     g1.SetRoots [| vmap[1]; vmap[4] |]
-    let g2 = g1.Clone()
+    let g2 = cloneOf g1
     let vertexIDs (g: IDiGraph<_, _>) =
       g.Vertices |> Array.map (fun v -> v.ID) |> Array.sort
     let rootIDs (g: IDiGraph<_, _>) =
@@ -355,13 +360,12 @@ type BasicTests() =
     Assert.AreEqual<VertexID>(v1.ID, v2.ID)
 
   [<TestMethod>]
-  [<DynamicData(nameof BasicTests.GraphTypes)>]
-  member _.``Clone Dummy Test``(t) =
-    let g = emptyDigraph t
+  member _.``Clone Dummy Test``() =
+    let g = emptyDigraph Mutable
     let v1 = g.AddVertex 1
     let v2 = g.AddVertex()
     g.AddEdge(v1, v2)
-    let g2 = g.Clone()
+    let g2 = cloneOf g
     let v1 = g2.FindVertexByID v1.ID
     let v2 = g2.FindVertexByID v2.ID
     let e = g2.FindEdge(v1, v2)
@@ -370,16 +374,15 @@ type BasicTests() =
     Assert.AreEqual<bool>(false, e.HasLabel)
 
   [<TestMethod>]
-  [<DynamicData(nameof BasicTests.GraphTypes)>]
-  member _.``Clone Adjacency Order Test``(t) =
-    let g, vmap = digraph1 t
+  member _.``Clone Adjacency Order Test``() =
+    let g, vmap = digraph1 Mutable
     (* Re-adding an edge moves it to the end of the adjacency lists of its
        endpoints, and a clone has to follow that order, too. *)
     g.RemoveEdge(vmap[2], vmap[3])
     g.AddEdge(vmap[2], vmap[3], 2)
     g.RemoveEdge(vmap[3], vmap[5])
     g.AddEdge(vmap[3], vmap[5], 5)
-    let g2 = g.Clone()
+    let g2 = cloneOf g
     let succIDs (g: IDiGraph<_, _>) v =
       g.GetSuccs v |> Array.map (fun s -> s.ID)
     let predIDs (g: IDiGraph<_, _>) v =

@@ -65,20 +65,26 @@ type MutablePersistentDiGraphTests() =
     Assert.AreEqual<bool>(true, ig.Contains v3)
 
   [<TestMethod>]
-  member _.``Clone Is Independent Test``() =
-    let g = makeGraph ()
-    let v1 = g.AddVertex 1
-    let v2 = g.AddVertex 2
-    g.AddEdge(v1, v2, 10)
-    let g2 = g.Clone()
-    g2.RemoveVertex(g2.FindVertexByID v2.ID)
-    Assert.AreEqual<int>(2, g.VertexCount)
-    Assert.AreEqual<int>(1, g2.VertexCount)
-    Assert.AreEqual<int>(1, g.Edges.Length)
-    Assert.AreEqual<int>(0, g2.Edges.Length)
-    (* A clone continues to number its vertices where the original left off. *)
-    let v3 = g.AddVertex 3
-    let v3' = g2.AddVertex 3
+  member _.``Fork Is Independent Test``() =
+    let g = MutablePersistentDiGraph(PersistentDiGraph<int, int>())
+    let ig = g :> IMutableDiGraph<int, int>
+    let v1 = ig.AddVertex 1
+    let v2 = ig.AddVertex 2
+    ig.AddEdge(v1, v2, 10)
+    (* Forking a persistent graph is taking a snapshot and wrapping it anew,
+       so the fork holds the very vertices this graph does, no copy having
+       been made, and yet it moves on without this graph. *)
+    let forked = MutablePersistentDiGraph g.Snapshot :> IMutableDiGraph<_, _>
+    Assert.AreSame(v1, forked.FindVertexByID v1.ID)
+    Assert.AreEqual<bool>(true, forked.Contains v1)
+    forked.RemoveVertex v2
+    Assert.AreEqual<int>(2, ig.VertexCount)
+    Assert.AreEqual<int>(1, forked.VertexCount)
+    Assert.AreEqual<int>(1, ig.Edges.Length)
+    Assert.AreEqual<int>(0, forked.Edges.Length)
+    (* A fork continues to number its vertices where this graph left off. *)
+    let v3 = ig.AddVertex 3
+    let v3' = forked.AddVertex 3
     Assert.AreEqual<VertexID>(v3.ID, v3'.ID)
 
   [<TestMethod>]

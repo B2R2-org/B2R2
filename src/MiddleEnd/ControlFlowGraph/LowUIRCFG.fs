@@ -162,9 +162,6 @@ type LowUIRCFG private(g: IMutableDiGraph<LowUIRBasicBlock, CFGEdgeKind>) =
     DiGraph.reverseInto g roots out
     LowUIRCFG out
 
-  /// Clone this CFG.
-  member _.Clone() = g.Clone() |> LowUIRCFG
-
   interface IDiGraph<LowUIRBasicBlock, CFGEdgeKind> with
     member _.VertexCount = g.VertexCount
 
@@ -207,4 +204,3 @@ type LowUIRCFG private(g: IMutableDiGraph<LowUIRBasicBlock, CFGEdgeKind>) =
     member _.RemoveEdge edge = g.RemoveEdge edge
     member _.AddRoot v = g.AddRoot v
     member _.SetRoots vs = g.SetRoots vs
-    member _.Clone() = g.Clone()
