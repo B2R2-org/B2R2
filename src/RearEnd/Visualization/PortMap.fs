@@ -24,7 +24,6 @@
 
 namespace B2R2.RearEnd.Visualization
 
-open B2R2.MiddleEnd.BinGraph
 open System.Collections.Generic
 
 /// Maintains the port assignments for either forward or backward edges.
@@ -33,7 +32,6 @@ open System.Collections.Generic
 type PortMap =
   { FwdOutPorts: Dictionary<VisEdge, float>
     FwdInPorts: Dictionary<VisEdge, float>
-    FwdEdgeSlot: Dictionary<VertexID * bool, int>
     BwdOutPorts: Dictionary<VisEdge, float>
     BwdInPorts: Dictionary<VisEdge, float>
     SelfOutPort: Dictionary<VisEdge, float>
@@ -44,7 +42,6 @@ with
   static member Empty =
     { FwdOutPorts = Dictionary()
       FwdInPorts = Dictionary()
-      FwdEdgeSlot = Dictionary()
       BwdOutPorts = Dictionary()
       BwdInPorts = Dictionary()
       SelfOutPort = Dictionary()
