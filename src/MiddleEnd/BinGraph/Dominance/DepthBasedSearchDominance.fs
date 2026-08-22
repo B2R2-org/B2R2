@@ -39,52 +39,58 @@ type internal DBSDomInfo<'V, 'E when 'V: equality and 'E: equality> =
     StaticAlgo: StaticDominanceAlgorithm
     /// Dominance frontier provider.
     DFP: IDominanceFrontierProvider<'V, 'E>
-    /// Vertex ID of reachable vertices.
-    Reachable: HashSet<VertexID>
-    /// Vertex ID -> Vertex ID of an immediate dominator.
-    IDom: Dictionary<VertexID, VertexID>
-    /// Vertex ID -> Vertex ID Set of children in the dominator tree.
-    Children: Dictionary<VertexID, HashSet<VertexID>>
-    /// Vertex ID -> Depth of the vertex in the dominance tree.
-    Depth: Dictionary<VertexID, int> }
+    /// Vertex -> Num.
+    Num: Dictionary<IVertex<'V>, int>
+    /// Num -> Vertex. The dummy root takes the number after them all, and it
+    /// has no vertex, hence no room here.
+    Vertex: IVertex<'V>[]
+    /// Num -> whether a root reaches the vertex.
+    Reachable: bool[]
+    /// Num -> Num of an immediate dominator, or -1 where there is none yet.
+    IDom: int[]
+    /// Num -> Nums of the children in the dominator tree.
+    Children: HashSet<int>[]
+    /// Num -> depth in the dominator tree, or -2 where the vertex has no place
+    /// in it yet.
+    Depth: int[]
+    /// Num of the dummy root, which sits above every real root so that a graph
+    /// of many roots reads as one of a single root.
+    DummyNum: int }
 
-let private initDynamicDomInfo g dfp algo =
-  let roots = (g: IDiGraph<_, _>).Roots
-  let rootIDs = roots |> Array.map (fun v -> v.ID)
-  let children = Dictionary<VertexID, HashSet<VertexID>>()
-  let depth = Dictionary<VertexID, int>()
-  let iDom = Dictionary<VertexID, VertexID>()
-  for v in rootIDs do
-    children.[v] <- HashSet()
-    depth.[v] <- 0
-    iDom.[v] <- GraphUtils.DummyVertexID
-  children.[GraphUtils.DummyVertexID] <- HashSet(rootIDs)
-  depth.[GraphUtils.DummyVertexID] <- -1
-  { StaticAlgo = algo
-    DFP = dfp
-    Reachable = HashSet rootIDs
-    IDom = iDom
-    Children = children
-    Depth = depth }
+(* Numbers every vertex of the graph, the ones no root reaches included, for an
+   inserted edge can bring one of those into the tree later on. *)
+let private numberVertices (g: IDiGraph<_, _>) =
+  let vertices = g.Vertices
+  let num = Dictionary<IVertex<_>, int>()
+  for i in 0 .. vertices.Length - 1 do num[vertices[i]] <- i
+  num, vertices
 
-let private initDomInfo g dfp algo =
-  let roots = (g: IDiGraph<_, _>).Roots
-  let rootIDs = roots |> Array.map (fun v -> v.ID)
-  let children = Dictionary<VertexID, HashSet<VertexID>>()
-  let depth = Dictionary<VertexID, int>()
-  let iDom = Dictionary<VertexID, VertexID>()
-  for v in rootIDs do
-    children.[v] <- HashSet()
-    depth.[v] <- 0
-    iDom.[v] <- GraphUtils.DummyVertexID
-  children.[GraphUtils.DummyVertexID] <- HashSet rootIDs
-  depth.[GraphUtils.DummyVertexID] <- -1
-  { StaticAlgo = algo
-    DFP = dfp
-    Reachable = HashSet()
-    IDom = iDom
-    Children = children
-    Depth = depth }
+let private initInfo g dfp algo seedRoots =
+  let num, vertices = numberVertices g
+  let len = vertices.Length + 1
+  let dummy = vertices.Length
+  let info =
+    { StaticAlgo = algo
+      DFP = dfp
+      Num = num
+      Vertex = vertices
+      Reachable = Array.zeroCreate len
+      IDom = Array.create len -1
+      Children = Array.init len (fun _ -> HashSet<int>())
+      Depth = Array.create len -2
+      DummyNum = dummy }
+  info.Depth[dummy] <- -1
+  for r in (g: IDiGraph<_, _>).Roots do
+    let n = num[r]
+    info.Depth[n] <- 0
+    info.IDom[n] <- dummy
+    info.Children[dummy].Add n |> ignore
+    if seedRoots then info.Reachable[n] <- true else ()
+  info
+
+let private initDynamicDomInfo g dfp algo = initInfo g dfp algo true
+
+let private initDomInfo g dfp algo = initInfo g dfp algo false
 
 let private getNCA info v w =
   let rec bothUp v w = if v = w then v else bothUp info.IDom[v] info.IDom[w]
@@ -98,22 +104,21 @@ let private getNCA info v w =
 let rec private computeTriggers g info visited nca trig state = function
   | [] ->
     state
-  | vID :: stack ->
+  | n :: stack ->
     let affected, trigs = state
-    (visited: HashSet<VertexID>).Add vID |> ignore
-    let v = (g: IDiGraph<_, _>).FindVertexByID vID
+    (visited: HashSet<int>).Add n |> ignore
     let newAffected, newTrigs, newStack =
-      g.GetSuccs v
+      (g: IDiGraph<_, _>).GetSuccs info.Vertex[n]
       |> Array.fold (fun (affected, trigs, stack) w ->
-        let wID = w.ID
-        if visited.Contains wID then
+        let wn = info.Num[w]
+        if visited.Contains wn then
           affected, trigs, stack
         else
-          visited.Add wID |> ignore
-          if info.Depth[wID] > info.Depth[trig] then
-            affected, trigs, wID :: stack
-          else if info.Depth[nca] + 1 < info.Depth[wID] then
-            wID :: affected, wID :: trigs, stack
+          visited.Add wn |> ignore
+          if info.Depth[wn] > info.Depth[trig] then
+            affected, trigs, wn :: stack
+          else if info.Depth[nca] + 1 < info.Depth[wn] then
+            wn :: affected, wn :: trigs, stack
           else
             affected, trigs, stack) (affected, trigs, stack)
     computeTriggers g info visited nca trig (newAffected, newTrigs) newStack
@@ -136,24 +141,20 @@ let rec private updateDepth depth info v =
 
 let private updateIDom newIDom info v =
   info.Children[newIDom].Add v |> ignore
-  match info.IDom.TryGetValue v with
-  | false, _ -> ()
-  | true, oldIDom -> info.Children[oldIDom].Remove v |> ignore
-  match info.Children.TryGetValue v with
-  | false, _ -> info.Children.Add(v, HashSet()) |> ignore
-  | true, _ -> ()
+  let oldIDom = info.IDom[v]
+  if oldIDom = -1 then () else info.Children[oldIDom].Remove v |> ignore
   info.IDom[v] <- newIDom
   let depth = info.Depth[newIDom] + 1
   updateDepth depth info v
 
 /// Update dominator tree when an edge from src to dst is added where
 /// src and dst are both reachable from roots.
-let private updateDomTree g info srcID dstID =
-  let nca = getNCA info srcID dstID
-  if nca = info.IDom[dstID] || nca = dstID then
+let private updateDomTree g info src dst =
+  let nca = getNCA info src dst
+  if nca = info.IDom[dst] || nca = dst then
     ()
   else
-    let affected = computeAffected g info nca dstID
+    let affected = computeAffected g info nca dst
     affected
     |> Array.iter (updateIDom nca info)
 
@@ -168,7 +169,7 @@ let private collectSubGraphAux g info visited (queue: Queue<Edge<_, _>>) =
     let w = edge.Second
     if (visited: HashSet<IVertex<_>>).Contains w then
       ()
-    elif info.Reachable.Contains w.ID then
+    elif info.Reachable[info.Num[w]] then
       bEdges <- edge :: bEdges
     else
       visited.Add w |> ignore
@@ -193,64 +194,60 @@ let private computeStaticDom info g =
    the whole list on every step. *)
 let private mergeDomTree info src dst (subDom: IForwardDominance<_>) =
   let subDomTree = subDom.DominatorTree
-  let queue = Queue<struct (IVertex<_> * IVertex<_>)>()
+  let queue = Queue<struct (int * IVertex<_>)>()
   queue.Enqueue(struct (src, dst))
   while queue.Count > 0 do
     let struct (parent, current) = queue.Dequeue()
-    updateIDom (parent: IVertex<_>).ID info (current: IVertex<_>).ID
+    let n = info.Num[current]
+    updateIDom parent info n
     for child in subDomTree.GetChildren current do
-      queue.Enqueue(struct (current, child))
+      queue.Enqueue(struct (n, child))
 
 /// insert an edge into the graph and update the dominator tree
 let private insert (g: IDiGraph<_, _>) info (edge: Edge<_, _>) =
-  let src = edge.First
+  let src = info.Num[edge.First]
   let dst = edge.Second
-  match info.Reachable.Contains src.ID, info.Reachable.Contains dst.ID with
+  let dstNum = info.Num[dst]
+  match info.Reachable[src], info.Reachable[dstNum] with
   | false, _ ->
     ()
   | true, true ->
-    updateDomTree g info src.ID dst.ID
+    updateDomTree g info src dstNum
   | true, false ->
     match g.GetSuccs dst with
     | [||] ->
-      info.Reachable.Add dst.ID |> ignore
-      updateIDom src.ID info dst.ID
+      info.Reachable[dstNum] <- true
+      updateIDom src info dstNum
     | _ ->
       let subG, bEdges = constructSubGraph g info dst
       let subDom = computeStaticDom info subG
       mergeDomTree info src dst subDom
       bEdges
       |> Array.iter (fun edge ->
-        let dst' = edge.Second
-        updateDomTree g info src.ID dst'.ID)
+        updateDomTree g info src info.Num[edge.Second])
       subG.Vertices
       |> Array.iter (fun v ->
-        info.Reachable.Add v.ID |> ignore)
+        info.Reachable[info.Num[v]] <- true)
 
 let private computeDomDyn (g: IDiGraph<_, _>) info =
   g.Edges
   |> Array.iter (insert g info)
 
-let private idom (g: IDiGraph<_, _>) info (v: IVertex<'V>) =
-  if info.IDom.ContainsKey v.ID then
-    let idomID = info.IDom[v.ID]
-    if idomID = GraphUtils.DummyVertexID then null
-    else g.FindVertexByID idomID: IVertex<'V> | null
-  else
-    null
+let private idom info (v: IVertex<'V>) =
+  let n = info.Num[v]
+  let d = info.IDom[n]
+  if d = -1 || d = info.DummyNum then null
+  else info.Vertex[d]: IVertex<'V> | null
 
-let rec private domsAux acc info vid =
-  match info.IDom.TryGetValue vid with
-  | false, _ ->
-    acc
-  | true, idomID ->
-    if idomID = GraphUtils.DummyVertexID then acc
-    else domsAux (idomID :: acc) info idomID
+let rec private domsAux acc info n =
+  let d = info.IDom[n]
+  if d = -1 || d = info.DummyNum then acc else domsAux (d :: acc) info d
 
-let private doms (g: IDiGraph<_, _>) info (v: IVertex<'V>) =
-  domsAux [ v.ID ] info v.ID
+let private doms info (v: IVertex<'V>) =
+  let n = info.Num[v]
+  domsAux [ n ] info n
   |> List.toArray
-  |> Array.map g.FindVertexByID
+  |> Array.map (fun i -> info.Vertex[i])
 
 let private computeDomInfo g dfp staticAlgo =
   let info = initDynamicDomInfo g dfp staticAlgo
@@ -260,18 +257,15 @@ let private computeDomInfo g dfp staticAlgo =
 let private copyDomTree g info immediateDominator =
   (g: IDiGraph<_, _>).Vertices
   |> Array.iter (fun v ->
-    if info.Reachable.Contains v.ID |> not then
+    let n = info.Num[v]
+    if not info.Reachable[n] then
       ()
     else
-      if info.Children.ContainsKey v.ID then ()
-      else info.Children.Add(v.ID, HashSet()) |> ignore
       let idom: IVertex<_> | null = immediateDominator v
-      let idomID = if isNull idom then GraphUtils.DummyVertexID else idom.ID
-      info.IDom[v.ID] <- idomID
-      match info.Children.ContainsKey idomID with
-      | false -> info.Children.Add(idomID, HashSet [ v.ID ]) |> ignore
-      | true -> info.Children.[idomID].Add v.ID |> ignore)
-  updateDepth -1 info GraphUtils.DummyVertexID
+      let d = if isNull idom then info.DummyNum else info.Num[idom]
+      info.IDom[n] <- d
+      info.Children[d].Add n |> ignore)
+  updateDepth -1 info info.DummyNum
 
 (* The pending vertices wait in a queue, for appending them onto a list copies
    the whole list on every step. *)
@@ -279,12 +273,12 @@ let private initReachable (g: IDiGraph<_, _>) info =
   let queue = Queue(g.Roots)
   while queue.Count > 0 do
     let v = queue.Dequeue()
-    if info.Reachable.Contains v.ID then
+    if info.Reachable[info.Num[v]] then
       ()
     else
-      info.Reachable.Add v.ID |> ignore
+      info.Reachable[info.Num[v]] <- true
       for w in g.GetSuccs v do
-        if info.Reachable.Contains w.ID then () else queue.Enqueue w
+        if info.Reachable[info.Num[w]] then () else queue.Enqueue w
 
 let private copyDominance g dom dfp staticAlgo isForward =
   let info = initDomInfo g dfp staticAlgo
@@ -300,15 +294,15 @@ let private updateDomInfo g info edge = insert g info edge
 let private createForwardDominance g info dfp =
   let g: IDiGraph<_, _> = g
   let dfp: IDominanceFrontierProvider<_, _> = dfp
-  let dt = lazy DominatorTree(g.Vertices, idom g info)
+  let dt = lazy DominatorTree(g.Vertices, idom info)
   let mutable dfProvider = null
   { new IForwardDominance<'V> with
       member _.Dominators v =
         GraphUtils.checkVertexInGraph g v
-        doms g info v
+        doms info v
       member _.ImmediateDominator v =
         GraphUtils.checkVertexInGraph g v
-        idom g info v
+        idom info v
       member _.DominatorTree = dt.Value
       member this.DominanceFrontier v =
         GraphUtils.checkVertexInGraph g v
