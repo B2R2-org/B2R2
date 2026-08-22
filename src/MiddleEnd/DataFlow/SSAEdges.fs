@@ -32,7 +32,7 @@ open B2R2.MiddleEnd.ControlFlowGraph
 type private SSAStmtLocation = VertexID * int
 
 /// Represents SSA edges in a CFG.
-type SSAEdges(ssaCFG: IDiGraphAccessible<SSABasicBlock, CFGEdgeKind>) =
+type SSAEdges(ssaCFG: IDiGraph<SSABasicBlock, CFGEdgeKind>) =
   let uses = Dictionary<SSA.Variable, Set<SSAStmtLocation>>()
   let defs = Dictionary<SSA.Variable, SSA.Stmt>()
   let defSites = Dictionary<SSA.Variable, SSAStmtLocation>()
@@ -82,7 +82,7 @@ type SSAEdges(ssaCFG: IDiGraphAccessible<SSABasicBlock, CFGEdgeKind>) =
 
   /// Computes SSA edge map (SSA Var -> a set of (VertexID, Stmt idx)). From a
   /// given ssa var, this function returns a set of SSA-edge destination.
-  let compute (ssaCFG: IDiGraphAccessible<SSABasicBlock, _>) =
+  let compute (ssaCFG: IDiGraph<SSABasicBlock, _>) =
     ssaCFG |> DiGraph.iterVertex (fun v ->
       let vid = v.ID
       for idx = 0 to v.VData.Internals.Statements.Length - 1 do

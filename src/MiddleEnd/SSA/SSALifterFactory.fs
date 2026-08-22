@@ -157,7 +157,7 @@ module private SSALifterFactory =
       updateGlobals globals varKill e
 
   let findDefVars ssaCFG (defSites: DefSites) =
-    let ssaCFG = ssaCFG :> IDiGraphAccessible<SSABasicBlock, _>
+    let ssaCFG = ssaCFG :> IDiGraph<SSABasicBlock, _>
     let globals = HashSet()
     let varKill = HashSet()
     for v in ssaCFG.Vertices do
@@ -193,7 +193,7 @@ module private SSALifterFactory =
             | TempVar _ when df.VData.Internals.PPoint.Position = 0 ->
               ()
             | _ ->
-              let preds = (g: IDiGraphAccessible<_, _>).GetPreds df
+              let preds = (g: IDiGraph<_, _>).GetPreds df
               df.VData.Internals.PrependPhi(variable, preds.Length)
               phiSites.Add df |> ignore
               workList.Enqueue df
@@ -290,7 +290,7 @@ module private SSALifterFactory =
     for _, stmt in succ.VData.Internals.Statements do
       match stmt with
       | Phi(def, nums) ->
-        let preds = (g: IDiGraphAccessible<_, _>).GetPreds succ
+        let preds = (g: IDiGraph<_, _>).GetPreds succ
         let idx = preds |> Array.findIndex (fun v -> v.VData = parent.VData)
         nums[idx] <- List.head stack[def.Kind]
       | _ ->
@@ -304,7 +304,7 @@ module private SSALifterFactory =
 
   let rec rename g domTree count stack (v: SSAVertex) =
     for _, stmt in v.VData.Internals.Statements do renameStmt count stack stmt
-    for succ in (g: IDiGraphAccessible<_, _>).GetSuccs v do
+    for succ in (g: IDiGraph<_, _>).GetSuccs v do
       renamePhi g stack v succ
     for child in (domTree: DominatorTree<_>).GetChildren v do
       rename g domTree count stack child

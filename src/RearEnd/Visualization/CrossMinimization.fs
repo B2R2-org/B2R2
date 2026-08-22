@@ -65,7 +65,7 @@ let private computeBarycenterFromNeighbors neighbors =
 
 let private computeBarycenter g isDown v =
   let fnGetNeighbors =
-    if isDown then (g: IDiGraphAccessible<_, _>).GetPreds else g.GetSuccs
+    if isDown then (g: IDiGraph<_, _>).GetPreds else g.GetSuccs
   let neighbors = fnGetNeighbors v
   let barycenter = computeBarycenterFromNeighbors neighbors
   barycenter, v
@@ -105,7 +105,7 @@ let private hasBilayerEdgeCrossing g layout isDown layerNum =
   let vertices =
     if isDown then (layout: _[][])[layerNum - 1] else layout[layerNum + 1]
   let fnGetNeighbors =
-    if isDown then (g: IDiGraphAccessible<_, _>).GetSuccs else g.GetPreds
+    if isDown then (g: IDiGraph<_, _>).GetSuccs else g.GetPreds
   let mutable found = false
   let mutable prefixMax = -1
   let mutable i = 0
@@ -129,7 +129,7 @@ let private hasBilayerEdgeCrossing g layout isDown layerNum =
 let private countBilayerEdgeCrossings g (layout: _[][]) isDown layerNum =
   let vertices = if isDown then layout[layerNum - 1] else layout[layerNum + 1]
   let fnGetNeighbors =
-    if isDown then (g: IDiGraphAccessible<_, _>).GetSuccs else g.GetPreds
+    if isDown then (g: IDiGraph<_, _>).GetSuccs else g.GetPreds
   let targetCount = layout[layerNum].Length
   let bit = Array.zeroCreate (targetCount + 1)
   let inline add idx =

@@ -179,7 +179,7 @@ type PersistentDiGraph<'V, 'E
 
   new() = PersistentDiGraph([], Map.empty, Map.empty, Map.empty, 0, 0)
 
-  interface IDiGraphAccessible<'V, 'E> with
+  interface IDiGraph<'V, 'E> with
 
     member _.VertexCount with get() = vertices.Count
 

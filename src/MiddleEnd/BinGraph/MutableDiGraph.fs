@@ -163,7 +163,7 @@ type MutableDiGraph<'V, 'E when 'V: equality and 'E: equality>
 
   /// Adds a copy of the given edge, keeping the absence of its label.
   member private this.CopyEdgeFrom(e: Edge<'V, 'E>) =
-    let g = this :> IDiGraphAccessible<'V, 'E>
+    let g = this :> IDiGraph<'V, 'E>
     let src = g.FindVertexByID e.First.ID
     let dst = g.FindVertexByID e.Second.ID
     if e.HasLabel then addEdge src dst (EdgeLabel e.Label)
@@ -187,7 +187,7 @@ type MutableDiGraph<'V, 'E when 'V: equality and 'E: equality>
     |> Seq.map (fun r -> g.FindVertexByID r.ID)
     |> g.SetRoots
 
-  interface IDiGraphAccessible<'V, 'E> with
+  interface IDiGraph<'V, 'E> with
 
     member _.VertexCount with get() = vertices.Count
 

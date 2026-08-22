@@ -26,10 +26,11 @@ namespace B2R2.MiddleEnd.BinGraph
 
 open System.Collections.Generic
 
-/// Represents a read-only directed graph information accessor. This interface
-/// provides a way to access the information of a directed graph without
-/// modifying it.
-type IDiGraphAccessible<'V, 'E when 'V: equality and 'E: equality> =
+/// Represents a read-only directed graph. This interface provides a way to
+/// access the information of a directed graph without modifying it. The two
+/// interfaces that do modify one, `IMutableDiGraph` and `IPersistentDiGraph`,
+/// both build on this one.
+type IDiGraph<'V, 'E when 'V: equality and 'E: equality> =
   /// Gets the number of vertices.
   abstract VertexCount: int
 
@@ -135,4 +136,4 @@ type IDiGraphAccessible<'V, 'E when 'V: equality and 'E: equality> =
 
   /// Returns a new transposed (i.e., reversed) graph. The given set of vertices
   /// will be used to set the root vertices of the transposed graph.
-  abstract Reverse: IEnumerable<IVertex<'V>> -> IDiGraphAccessible<'V, 'E>
+  abstract Reverse: IEnumerable<IVertex<'V>> -> IDiGraph<'V, 'E>

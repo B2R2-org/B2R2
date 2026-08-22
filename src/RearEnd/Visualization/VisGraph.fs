@@ -36,7 +36,7 @@ module VisGraph =
     MutableDiGraph<VisBBlock, VisEdge>()
     :> VisGraph
 
-  let ofCFG (g: IDiGraphAccessible<_, _>) charWidth charHeight =
+  let ofCFG (g: IDiGraph<_, _>) charWidth charHeight =
     let newGraph = init ()
     let vblocks = Dictionary<VertexID, IVertex<VisBBlock>>()
     for v in g.Vertices do
@@ -55,9 +55,9 @@ module VisGraph =
 
   let getID (v: IVertex<_>) = v.ID
 
-  let getPreds (vGraph: IDiGraphAccessible<_, _>) v = vGraph.GetPreds v
+  let getPreds (vGraph: IDiGraph<_, _>) v = vGraph.GetPreds v
 
-  let getSuccs (vGraph: IDiGraphAccessible<_, _>) v = vGraph.GetSuccs v
+  let getSuccs (vGraph: IDiGraph<_, _>) v = vGraph.GetSuccs v
 
   let getVData (v: IVertex<_>) = v.VData
 

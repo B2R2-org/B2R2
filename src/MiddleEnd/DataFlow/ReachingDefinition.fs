@@ -61,7 +61,7 @@ type ReachingDefinitionAnalysis() =
       ) list
     ) []
 
-  let initGensAndKills (g: IDiGraphAccessible<LowUIRBasicBlock, _>) =
+  let initGensAndKills (g: IDiGraph<LowUIRBasicBlock, _>) =
     let vpPerVar = Dictionary<VarKind, Set<VarPoint>>()
     let vpPerVertex = Dictionary<VertexID, VarPoint list>()
     g |> DiGraph.iterVertex (fun v ->
@@ -95,7 +95,7 @@ type ReachingDefinitionAnalysis() =
 
   let st = ReachingDefinitionState lattice
 
-  let analysis (g: IDiGraphAccessible<_, _>) =
+  let analysis (g: IDiGraph<_, _>) =
     { new WorklistDataFlow.IScheme<VertexID, InsAndOuts> with
         member _.Transfer vid =
           let ins =

@@ -82,9 +82,7 @@ and IDominanceFrontierProvider<'V, 'E when 'V: equality and 'E: equality> =
   /// post-dominance frontiers of a graph by passing the transposed graph along
   /// with the dominance of the transposed graph.
   abstract CreateIDominanceFrontier:
-      g: IDiGraphAccessible<'V, 'E>
-    * dom: IForwardDominance<'V>
-   -> IDominanceFrontier<'V>
+    g: IDiGraph<'V, 'E> * dom: IForwardDominance<'V> -> IDominanceFrontier<'V>
 
 /// Represents a dominator tree, in which the children of a node are the nodes
 /// it immediately dominates. A graph with more than one root, or with a vertex

@@ -59,7 +59,7 @@ let private findNaturalLoopBody g (edge: Edge<_, _>) =
     let v = stack.Pop()
     if not (body.Contains v) then
       body.Add v |> ignore
-      for pred in (g: IDiGraphAccessible<_, _>).GetPreds v do stack.Push pred
+      for pred in (g: IDiGraph<_, _>).GetPreds v do stack.Push pred
     else
       ()
   body
@@ -67,7 +67,7 @@ let private findNaturalLoopBody g (edge: Edge<_, _>) =
 /// Finds every natural loop of the given directed graph, as a map from each
 /// back edge to the body of the loop that the edge closes.
 [<CompiledName "FindAll">]
-let findAll (g: IDiGraphAccessible<_, _>) =
+let findAll (g: IDiGraph<_, _>) =
   let dict = Dictionary()
   for edge in findBackEdges g do
     dict[edge] <- findNaturalLoopBody g edge

@@ -290,11 +290,11 @@ type BasicTests() =
     let g1, vmap = digraph1 t
     g1.SetRoots [| vmap[1]; vmap[4] |]
     let g2 = g1.Clone()
-    let vertexIDs (g: IDiGraphAccessible<_, _>) =
+    let vertexIDs (g: IDiGraph<_, _>) =
       g.Vertices |> Array.map (fun v -> v.ID) |> Array.sort
-    let rootIDs (g: IDiGraphAccessible<_, _>) =
+    let rootIDs (g: IDiGraph<_, _>) =
       g.Roots |> Array.map (fun v -> v.ID)
-    let edgeTriples (g: IDiGraphAccessible<_, _>) =
+    let edgeTriples (g: IDiGraph<_, _>) =
       g.Edges
       |> Array.map (fun e -> e.First.ID, e.Second.ID, e.Label)
       |> Array.sort
@@ -333,9 +333,9 @@ type BasicTests() =
     g.RemoveEdge(vmap[3], vmap[5])
     g.AddEdge(vmap[3], vmap[5], 5)
     let g2 = g.Clone()
-    let succIDs (g: IDiGraphAccessible<_, _>) v =
+    let succIDs (g: IDiGraph<_, _>) v =
       g.GetSuccs v |> Array.map (fun s -> s.ID)
-    let predIDs (g: IDiGraphAccessible<_, _>) v =
+    let predIDs (g: IDiGraph<_, _>) v =
       g.GetPreds v |> Array.map (fun p -> p.ID)
     CollectionAssert.AreEqual([| 4; 6; 3 |], succIDs g vmap[2])
     CollectionAssert.AreEqual([| 4; 3 |], predIDs g vmap[5])
@@ -350,13 +350,13 @@ type BasicTests() =
     let g, _ = digraph1 t
     (* The edges of a vertex come in the order its neighbors do, so that a
        caller can read one accessor against the other. *)
-    let succIDs (g: IDiGraphAccessible<_, _>) v =
+    let succIDs (g: IDiGraph<_, _>) v =
       g.GetSuccs v |> Array.map (fun s -> s.ID)
-    let succEdgeIDs (g: IDiGraphAccessible<_, _>) v =
+    let succEdgeIDs (g: IDiGraph<_, _>) v =
       g.GetSuccEdges v |> Array.map (fun e -> e.Second.ID)
-    let predIDs (g: IDiGraphAccessible<_, _>) v =
+    let predIDs (g: IDiGraph<_, _>) v =
       g.GetPreds v |> Array.map (fun p -> p.ID)
-    let predEdgeIDs (g: IDiGraphAccessible<_, _>) v =
+    let predEdgeIDs (g: IDiGraph<_, _>) v =
       g.GetPredEdges v |> Array.map (fun e -> e.First.ID)
     for v in g.Vertices do
       CollectionAssert.AreEqual(succIDs g v, succEdgeIDs g v)

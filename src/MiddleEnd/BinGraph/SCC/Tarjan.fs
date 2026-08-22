@@ -53,7 +53,7 @@ type private SCCStatus<'V when 'V: equality> =
     /// List of strongly connected components.
     SCCs: List<HashSet<IVertex<'V>>> }
 
-let private initSCCStatus (g: IDiGraphAccessible<_, _>) =
+let private initSCCStatus (g: IDiGraph<_, _>) =
   let len = g.VertexCount
   { CurrentDFNum = 0
     DFNums = Dictionary<_, _>()
@@ -72,7 +72,7 @@ let rec private computeSCC g status (v: IVertex<_>) =
   status.CurrentDFNum <- dfnum + 1
   status.Stack.Push v
   status.OnStackStatus[dfnum] <- true
-  for succ in (g: IDiGraphAccessible<_, _>).GetSuccs v do
+  for succ in (g: IDiGraph<_, _>).GetSuccs v do
     updateLowLink g status dfnum succ
   if status.LowLinks[dfnum] = dfnum then
     let scc = HashSet<IVertex<_>>()
@@ -99,7 +99,7 @@ and private updateLowLink g status vNum (w: IVertex<_>) =
 
 /// Computes strongly connected components of the given directed graph.
 [<CompiledName "Compute">]
-let compute (g: IDiGraphAccessible<_, _>) =
+let compute (g: IDiGraph<_, _>) =
   let status = initSCCStatus g
   for v in g.Vertices do
     if status.DFNums.ContainsKey v then () else computeSCC g status v

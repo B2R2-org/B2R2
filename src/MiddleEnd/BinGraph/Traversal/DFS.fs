@@ -38,7 +38,7 @@ module B2R2.MiddleEnd.BinGraph.Traversal.DFS
 open System.Collections.Generic
 open B2R2.MiddleEnd.BinGraph
 
-let private pushSuccsRev (g: IDiGraphAccessible<_, _>) (stack: Stack<_>) v =
+let private pushSuccsRev (g: IDiGraph<_, _>) (stack: Stack<_>) v =
   let succs = g.GetSuccs v
   for i in succs.Length - 1 .. -1 .. 0 do stack.Push succs[i]
 
@@ -62,7 +62,7 @@ let private foldPreorderCore visited g fn acc vs =
         ()
   acc
 
-let private pushSuccs (g: IDiGraphAccessible<_, _>) (stack: Stack<_>) v =
+let private pushSuccs (g: IDiGraph<_, _>) (stack: Stack<_>) v =
   stack.Push(struct (v, g.GetSuccs v, 0))
 
 (* Walks the given vertices in a depth-first postorder, sharing the visited
@@ -119,7 +119,7 @@ let foldPreorderWithRoots g roots fn acc =
 /// traversal. This function visits every vertex in the graph including
 /// unreachable ones. For those unreachable vertices, the order is random.
 [<CompiledName "FoldPreorder">]
-let foldPreorder (g: IDiGraphAccessible<_, _>) fn acc =
+let foldPreorder (g: IDiGraph<_, _>) fn acc =
   let visited = HashSet<VertexID>()
   let acc = foldPreorderCore visited g fn acc (g.Roots)
   (* fold unreachable vertices, too. *)
@@ -148,7 +148,7 @@ let foldPostorderWithRoots g roots fn acc =
 /// traversal. This function visits every vertex in the graph including
 /// unreachable ones. For those unreachable vertices, the order is random.
 [<CompiledName "FoldPostorder">]
-let foldPostorder (g: IDiGraphAccessible<_, _>) fn acc =
+let foldPostorder (g: IDiGraph<_, _>) fn acc =
   let visited = HashSet<VertexID>()
   let acc = foldPostorderCore visited g fn acc (g.Roots)
   (* fold unreachable vertices, too. *)

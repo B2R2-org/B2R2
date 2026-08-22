@@ -109,7 +109,7 @@ module DataFlowChain =
     |> Set.ofList
 
   let private initUDChain cfg (provider: IAbsValProvider<_, _>) =
-    (cfg: IDiGraphAccessible<LowUIRBasicBlock, _>)
+    (cfg: IDiGraph<LowUIRBasicBlock, _>)
     |> DiGraph.foldVertex (fun map v ->
       v.VData.Internals.LiftedInstructions
       |> Array.fold (fun map lifted ->

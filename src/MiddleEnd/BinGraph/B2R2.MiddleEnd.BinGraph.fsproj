@@ -8,7 +8,7 @@
     <Compile Include="IVertex.fs" />
     <Compile Include="Edge.fs" />
     <Compile Include="ImplementationType.fs" />
-    <Compile Include="IDiGraphAccessible.fs" />
+    <Compile Include="IDiGraph.fs" />
     <Compile Include="IMutableDiGraph.fs" />
     <Compile Include="IPersistentDiGraph.fs" />
     <Compile Include="MutablePersistentDiGraph.fs" />

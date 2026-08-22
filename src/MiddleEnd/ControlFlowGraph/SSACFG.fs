@@ -182,7 +182,7 @@ type SSACFG private(g: IMutableDiGraph<SSABasicBlock, CFGEdgeKind>) =
     | Some idom -> this.FindDef(idom, targetVarKind)
     | None -> None
 
-  interface IDiGraphAccessible<SSABasicBlock, CFGEdgeKind> with
+  interface IDiGraph<SSABasicBlock, CFGEdgeKind> with
     member _.VertexCount = g.VertexCount
 
     member _.EdgeCount = g.EdgeCount

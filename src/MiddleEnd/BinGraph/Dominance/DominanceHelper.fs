@@ -30,7 +30,7 @@ open B2R2.MiddleEnd.BinGraph
 let findOriginalVertex g v: IVertex<'V> | null =
   match (v: IVertex<_> | null) with
   | null -> null
-  | v -> (g: IDiGraphAccessible<_, _>).FindVertexByID (v: IVertex<_>).ID
+  | v -> (g: IDiGraph<_, _>).FindVertexByID (v: IVertex<_>).ID
 
 /// Composes the dominance of a graph with the dominance of its transposed
 /// graph, the latter answering every post-dominance query. A vertex the

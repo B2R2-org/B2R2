@@ -46,15 +46,15 @@ type PersistentDiGraphTests() =
     let g = g.AddEdge(v2, v3, 23)
     g, v1, v2, v3
 
-  let ids (g: IDiGraphAccessible<_, _>) =
+  let ids (g: IDiGraph<_, _>) =
     g.Vertices |> Array.map (_.ID) |> Array.sort
 
-  let edgeTriples (g: IDiGraphAccessible<_, _>) =
+  let edgeTriples (g: IDiGraph<_, _>) =
     g.Edges
     |> Array.map (fun e -> e.First.ID, e.Second.ID, e.Label)
     |> Array.sort
 
-  let rootIDs (g: IDiGraphAccessible<_, _>) =
+  let rootIDs (g: IDiGraph<_, _>) =
     g.Roots |> Array.map (_.ID)
 
   [<TestMethod>]

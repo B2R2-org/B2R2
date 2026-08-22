@@ -31,7 +31,7 @@ open B2R2.MiddleEnd.BinGraph
 
 (* Drains the queue, appending every vertex to the given collection as it is
    dequeued and enqueueing the successors that no walk has reached yet. *)
-let private drainQueue (g: IDiGraphAccessible<_, _>) visited queue ordered =
+let private drainQueue (g: IDiGraph<_, _>) visited queue ordered =
   while (queue: Queue<IVertex<_>>).Count > 0 do
     let v = queue.Dequeue()
     (ordered: ResizeArray<_>).Add v
@@ -51,7 +51,7 @@ let private orderFromRoots g roots =
   ordered
 
 (* Every vertex of the graph, the ones reachable from its roots first. *)
-let private orderOfEveryVertex (g: IDiGraphAccessible<_, _>) =
+let private orderOfEveryVertex (g: IDiGraph<_, _>) =
   let visited = HashSet<VertexID>()
   let queue = Queue<IVertex<_>>()
   let ordered = ResizeArray<IVertex<_>>()

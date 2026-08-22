@@ -124,7 +124,7 @@ type DisasmCFG(disasmBuilder, ircfg: LowUIRCFG) =
       connect tempVMap srcTmpV dst e
 
   let collectFreshSuccEdges (visited: HashSet<_>) g v =
-    (g: IDiGraphAccessible<_, _>).GetSuccEdges(v)
+    (g: IDiGraph<_, _>).GetSuccEdges(v)
     |> Array.filter (not << visited.Contains)
     |> Array.toList
 
@@ -249,7 +249,7 @@ type DisasmCFG(disasmBuilder, ircfg: LowUIRCFG) =
   /// Get the successor edges of the given vertex.
   member _.GetSuccEdges v = g.GetSuccEdges v
 
-  interface IDiGraphAccessible<DisasmBasicBlock, CFGEdgeKind> with
+  interface IDiGraph<DisasmBasicBlock, CFGEdgeKind> with
     member _.VertexCount = g.VertexCount
 
     member _.EdgeCount = g.EdgeCount

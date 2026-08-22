@@ -61,7 +61,7 @@ type private LTDomInfo<'V when 'V: equality> =
     /// Real roots of graph
     Roots: IVertex<'V>[] }
 
-let private initDomInfo (g: IDiGraphAccessible<_, _>) =
+let private initDomInfo (g: IDiGraph<_, _>) =
   (* To reserve a room for entry (dummy) node. *)
   let len = g.VertexCount + 1
   { DFPre = Dictionary<VertexID, int>()
@@ -88,7 +88,7 @@ let inline private dfpre (info: LTDomInfo<_>) (v: IVertex<_>) = info.DFPre[v.ID]
    sitting above them all; no vertex of the graph takes it. The roots go onto
    the stack in reverse, so that the first of them is the first to come back
    off, and a vertex carries its own number down to its successors. *)
-let private prepare (g: IDiGraphAccessible<_, _>) info =
+let private prepare (g: IDiGraph<_, _>) info =
   let stack = Stack<struct (int * IVertex<_>)>()
   let roots = info.Roots
   for i in roots.Length - 1 .. -1 .. 0 do stack.Push(struct (0, roots[i]))
@@ -110,7 +110,7 @@ let private prepare (g: IDiGraphAccessible<_, _>) info =
 (* A predecessor unreachable from the roots has no DFPre number assigned, so it
    cannot take part in the computation below. The dummy root above the roots is
    no vertex of the graph, hence it enters as its number, 0, alone. *)
-let private predNums (g: IDiGraphAccessible<_, _>) info v =
+let private predNums (g: IDiGraph<_, _>) info v =
   let nums =
     g.GetPreds v
     |> Array.filter (fun p -> info.DFPre.ContainsKey p.ID)
@@ -174,7 +174,7 @@ let private computeDom info v =
   if w = -1 then () else computeDomAux info w v
 #endif
 
-let private prepareDomInfo (g: IDiGraphAccessible<_, _>) =
+let private prepareDomInfo (g: IDiGraph<_, _>) =
   let info = initDomInfo g
   let n = prepare g info
   info, n
@@ -221,7 +221,7 @@ let private idomAux info v =
     null
 
 let private createForwardDominance g info dfp =
-  let g: IDiGraphAccessible<_, _> = g
+  let g: IDiGraph<_, _> = g
   let dfp: IDominanceFrontierProvider<_, _> = dfp
   let dt = lazy DominatorTree(g.Vertices, idomAux info)
   let mutable dfProvider = null

@@ -45,7 +45,7 @@ type CondAwareNoretAnalysis([<Optional; DefaultParameterValue(true)>] strict) =
 
   let hasNoReturnFallThrough g (v: IVertex<LowUIRBasicBlock>) =
     assert (v.VData.Internals.IsAbstract)
-    let succEdges = (g: IDiGraphAccessible<_, _>).GetSuccEdges v
+    let succEdges = (g: IDiGraph<_, _>).GetSuccEdges v
     match succEdges |> Array.tryExactlyOne with
     | Some(e) -> e.Label = NoReturnFallThroughEdge
     | None -> false
@@ -277,7 +277,7 @@ type CondAwareNoretAnalysis([<Optional; DefaultParameterValue(true)>] strict) =
     let rname = hdl.RegisterFactory.GetRegisterName(rid)
     let varKind = SSA.RegVar(rt, rid, rname)
     let pp = (v: IVertex<LowUIRBasicBlock>).VData.Internals.PPoint
-    let ssaV = (g: IDiGraphAccessible<SSABasicBlock, _>).FindVertexBy(fun v ->
+    let ssaV = (g: IDiGraph<SSABasicBlock, _>).FindVertexBy(fun v ->
       v.VData.Internals.PPoint = pp)
     match tryFindDef g varKind ssaV with
     | None ->

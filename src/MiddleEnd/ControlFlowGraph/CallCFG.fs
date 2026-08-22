@@ -69,7 +69,7 @@ type CallCFG(t: ImplementationType) =
   /// label.
   member _.AddEdge(src, dst, label) = g.AddEdge(src, dst, label)
 
-  interface IDiGraphAccessible<CallBasicBlock, CFGEdgeKind> with
+  interface IDiGraph<CallBasicBlock, CFGEdgeKind> with
     member _.VertexCount = g.VertexCount
 
     member _.EdgeCount = g.EdgeCount

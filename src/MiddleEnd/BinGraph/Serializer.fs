@@ -33,7 +33,7 @@ type Serializer =
   static member private NewGraph<'V, 'E when 'V: equality
                                          and 'E: equality>(g) =
     let roots =
-      (g: IDiGraphAccessible<'V, 'E>).Roots |> Array.map (fun v -> v.ID)
+      (g: IDiGraph<'V, 'E>).Roots |> Array.map (fun v -> v.ID)
     let vertices =
       g.Vertices
       |> Array.map (fun v -> { ID = v.ID; Label = v.VData.ToString() })
@@ -47,7 +47,7 @@ type Serializer =
   static member private NewGraph<'V, 'E when 'V: equality
                                          and 'E: equality>(g, vFn, edgeFn) =
     let roots =
-      (g: IDiGraphAccessible<'V, 'E>).Roots |> Array.map (fun v -> v.ID)
+      (g: IDiGraph<'V, 'E>).Roots |> Array.map (fun v -> v.ID)
     let vertices =
       g.Vertices
       |> Array.map (fun v -> { ID = v.ID; Label = vFn v })
@@ -200,14 +200,14 @@ type Serializer =
     g.Snapshot
 
   /// Exports the given graph to a string in the DOT format.
-  static member ToDOT(g: IDiGraphAccessible<_, _>, name) =
+  static member ToDOT(g: IDiGraph<_, _>, name) =
     let vertexFn v = v.ToString()
     let edgeFn e = e.ToString()
     Serializer.ToDOT(g, name, vertexFn, edgeFn)
 
   /// Exports the given graph to a string in the DOT format using the given
   /// vertex and edge label functions.
-  static member ToDOT(g: IDiGraphAccessible<_, _>, name, vertexFn, edgeFn) =
+  static member ToDOT(g: IDiGraph<_, _>, name, vertexFn, edgeFn) =
     let (!!) (sb: StringBuilder) (s: string) = sb.Append s |> ignore
     let sb = StringBuilder()
     let vertexToString (v: IVertex<_>) =

@@ -42,7 +42,7 @@ type SerializerTests() =
     | Mutable ->
       let empty = MutableDiGraph<int, int>()
       Serializer.FromJson(json, empty, labelToData, labelToData)
-      :> IDiGraphAccessible<int, int>
+      :> IDiGraph<int, int>
     | Persistent ->
       let empty = PersistentDiGraph<int, int>()
       Serializer.FromJson(json, empty, labelToData, labelToData)
@@ -136,7 +136,7 @@ type SerializerTests() =
         let g = MutableDiGraph<int, int>()
         assertInvalidGraph (fun () ->
           Serializer.FromJson(json, g, strToInt, strToInt) |> ignore)
-        g :> IDiGraphAccessible<int, int>
+        g :> IDiGraph<int, int>
       | Persistent ->
         let g = PersistentDiGraph<int, int>()
         assertInvalidGraph (fun () ->

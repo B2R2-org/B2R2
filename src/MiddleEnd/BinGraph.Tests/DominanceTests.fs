@@ -33,31 +33,31 @@ open B2R2.MiddleEnd.BinGraph.Tests.Examples
 [<TestClass>]
 type DominanceTests() =
   let getDominators dom g i =
-    (g: IDiGraphAccessible<_, _>).FindVertexByData i
+    (g: IDiGraph<_, _>).FindVertexByData i
     |> (dom: IDominance<_>).Dominators
     |> Set.ofSeq
 
   let getDominanceFrontier dom g i =
-    (g: IDiGraphAccessible<_, _>).FindVertexByData i
+    (g: IDiGraph<_, _>).FindVertexByData i
     |> (dom: IDominance<_>).DominanceFrontier
     |> Set.ofSeq
 
   let getPostDominators dom g i =
-    (g: IDiGraphAccessible<_, _>).FindVertexByData i
+    (g: IDiGraph<_, _>).FindVertexByData i
     |> (dom: IDominance<_>).PostDominators
     |> Set.ofSeq
 
   let getPostDominanceFrontier dom g i =
-    (g: IDiGraphAccessible<_, _>).FindVertexByData i
+    (g: IDiGraph<_, _>).FindVertexByData i
     |> (dom: IDominance<_>).PostDominanceFrontier
     |> Set.ofSeq
 
-  let assertEqual (g: IDiGraphAccessible<_, _>) expectedValue v =
+  let assertEqual (g: IDiGraph<_, _>) expectedValue v =
     let expectedVertex = g.FindVertexByData expectedValue
     Assert.AreEqual(expectedVertex, v)
     Assert.AreEqual(expectedValue, v.VData)
 
-  let assertSetEqual (g: IDiGraphAccessible<_, _>) expectedValues vertices =
+  let assertSetEqual (g: IDiGraph<_, _>) expectedValues vertices =
     let expectedVertices = expectedValues |> Seq.map g.FindVertexByData
     Assert.AreEqual(Set.ofSeq expectedVertices, Set.ofSeq vertices)
 

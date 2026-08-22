@@ -31,7 +31,7 @@ open System.Collections.Generic
 /// `IPersistentDiGraph`, which leaves this graph untouched and returns a new
 /// one.
 type IMutableDiGraph<'V, 'E when 'V: equality and 'E: equality> =
-  inherit IDiGraphAccessible<'V, 'E>
+  inherit IDiGraph<'V, 'E>
 
   /// Adds a vertex to the graph using a data value, and returns a reference to
   /// the added vertex.

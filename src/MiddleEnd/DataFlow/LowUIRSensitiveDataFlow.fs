@@ -882,7 +882,7 @@ module internal AnalysisCore = begin
   let prepareQueue (state: State<_, _>) g =
     let queue = UniqueQueue()
     for s, d in state.PendingEdges do
-      if not <| (g: IDiGraphAccessible<_, _>).Contains d then
+      if not <| (g: IDiGraph<_, _>).Contains d then
         ()
       elif s = null then (* Root node has been created. *)
         let s = s, state.Scheme.DefaultExecutionContext
@@ -977,7 +977,7 @@ module internal AnalysisCore = begin
       state.PerVertexIncomingDefs[dstKey] <- dstDefs
       state.PerVertexOutgoingDefs[dstKey] <- dstOutDefs'
       state.InvalidateSSAStmts(dst, dstExeCtx) (* Caches can be obsolete. *)
-      for succ in (g: IDiGraphAccessible<_, _>).GetSuccs dst do
+      for succ in (g: IDiGraph<_, _>).GetSuccs dst do
         (queue: UniqueQueue<_>).Enqueue((dst, dstExeCtx), succ)
 
   /// Compute the successor execution context and the reaching definitions for
@@ -987,7 +987,7 @@ module internal AnalysisCore = begin
     if isNull src then
       Some(st.Scheme.DefaultExecutionContext, Map.empty)
     else
-      let edge = (g: IDiGraphAccessible<_, _>).FindEdge(src, dst)
+      let edge = (g: IDiGraph<_, _>).FindEdge(src, dst)
       let kind = edge.Label
       match st.Scheme.TryComputeExecutionContext(src, srcExeCtx, dst, kind) with
       | None ->
@@ -1074,14 +1074,14 @@ module internal AnalysisCore = begin
     let key = v, exeCtx
     subState.ExecutedVertices.Add key |> ignore
     for stmt in state.GetStmtInfos v do fnTransfer state exeCtx stmt done
-    (g: IDiGraphAccessible<_, _>).GetSuccs v
+    (g: IDiGraph<_, _>).GetSuccs v
     |> Array.map (fun succ -> v, exeCtx, succ)
     |> Array.iter subState.FlowQueue.Enqueue
 
   let tryGetSuccessorExeCtx g (state: State<_, _>) src srcExeCtx dst =
     if isNull src then
       Some state.Scheme.DefaultExecutionContext
-    elif not <| (g: IDiGraphAccessible<_, _>).HasEdge(src, dst) then
+    elif not <| (g: IDiGraph<_, _>).HasEdge(src, dst) then
       None
     else
       let edge = g.FindEdge(src, dst)
@@ -1097,7 +1097,7 @@ module internal AnalysisCore = begin
       if not <| subState.ExecutedFlows.Add(src, srcExeCtx, dst) then
         ()
       else
-        match (g: IDiGraphAccessible<_, _>).TryFindVertexByID dst.ID with
+        match (g: IDiGraph<_, _>).TryFindVertexByID dst.ID with
         | Some dst ->
           match tryGetSuccessorExeCtx g state src srcExeCtx dst with
           | None ->

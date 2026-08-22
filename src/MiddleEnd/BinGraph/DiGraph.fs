@@ -29,22 +29,22 @@ module B2R2.MiddleEnd.BinGraph.DiGraph
 
 /// Folds every vertex of the given graph. The order can be arbitrary.
 [<CompiledName "FoldVertex">]
-let foldVertex fn acc (g: #IDiGraphAccessible<'V, 'E>) =
+let foldVertex fn acc (g: #IDiGraph<'V, 'E>) =
   Array.fold fn acc g.Vertices
 
 /// Iterates every vertex of the given graph. The order can be arbitrary.
 [<CompiledName "IterVertex">]
-let iterVertex fn (g: #IDiGraphAccessible<'V, 'E>) =
+let iterVertex fn (g: #IDiGraph<'V, 'E>) =
   Array.iter fn g.Vertices
 
 /// Folds every edge of the given graph. The order can be arbitrary.
 [<CompiledName "FoldEdge">]
-let foldEdge fn acc (g: #IDiGraphAccessible<'V, 'E>) =
+let foldEdge fn acc (g: #IDiGraph<'V, 'E>) =
   Array.fold fn acc g.Edges
 
 /// Iterates every edge of the given graph. The order can be arbitrary.
 [<CompiledName "IterEdge">]
-let iterEdge fn (g: #IDiGraphAccessible<'V, 'E>) = Array.iter fn g.Edges
+let iterEdge fn (g: #IDiGraph<'V, 'E>) = Array.iter fn g.Edges
 
 /// Fills in the given empty graph with the transpose (i.e., the reverse) of
 /// the given graph, and uses the given vertices as the roots of the result.
@@ -52,7 +52,7 @@ let iterEdge fn (g: #IDiGraphAccessible<'V, 'E>) = Array.iter fn g.Edges
 /// counterpart in the other are found by the same ID.
 [<CompiledName "ReverseInto">]
 let reverseInto g roots (out: IMutableDiGraph<'V, 'E>) =
-  let g: IDiGraphAccessible<'V, 'E> = g
+  let g: IDiGraph<'V, 'E> = g
   g |> iterVertex (fun v -> out.AddVertexCopy v |> ignore)
   g |> iterEdge (fun e ->
     let src = out.FindVertexByID e.First.ID

@@ -124,7 +124,7 @@ module private EVMCFGRecovery =
     push srcV []
     while Option.isNone foundPath && q.Count > 0 do
       let v, p = q.Dequeue()
-      for succ in (g: IDiGraphAccessible<_, _>).GetSuccs v do
+      for succ in (g: IDiGraph<_, _>).GetSuccs v do
         if succ = dstV then foundPath <- Some(dstV :: p) else push succ p
     Option.map List.rev foundPath
 
@@ -170,7 +170,7 @@ module private EVMCFGRecovery =
         |> findRootVarsFromExpr state
         |> hasMultipleDefSites state
 
-  let collectPolyJumpsFromReachables (g: IDiGraphAccessible<_, _>) state start =
+  let collectPolyJumpsFromReachables (g: IDiGraph<_, _>) state start =
     let q = Queue()
     let visited = HashSet()
     let push v = if not <| visited.Add v then () else q.Enqueue v
@@ -793,7 +793,7 @@ module private EVMCFGRecovery =
     else
       fn ()
 
-  let findBackEdges (backEdges: HashSet<_>) (g: IDiGraphAccessible<_, _>) =
+  let findBackEdges (backEdges: HashSet<_>) (g: IDiGraph<_, _>) =
     let seen = HashSet()
     let onStack = Dictionary()
     let rec dfs u =
@@ -828,13 +828,13 @@ module private EVMCFGRecovery =
     | v :: rest ->
       (visited: HashSet<_>).Add v |> ignore
       (* For recalculation. *)
-      for pred in (g: IDiGraphAccessible<_, _>).GetPreds v do
+      for pred in (g: IDiGraph<_, _>).GetPreds v do
         pendingFn pred v
       if v = g.SingleRoot then pendingFn null v else ()
       if not <| removalFn v then
         traverseForRemovalMark visited g pendingFn removalFn rest
       else
-        let succs = (g: IDiGraphAccessible<_, _>).GetSuccs v
+        let succs = (g: IDiGraph<_, _>).GetSuccs v
         let succs = succs |> Array.filter (not << visited.Contains)
         let rest = succs |> Array.toList |> List.append rest
         traverseForRemovalMark visited g pendingFn removalFn rest

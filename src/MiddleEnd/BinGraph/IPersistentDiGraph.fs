@@ -32,7 +32,7 @@ open System.Collections.Generic
 /// use afterwards; the graph this modification was asked of remains a valid
 /// snapshot of the state before it.
 type IPersistentDiGraph<'V, 'E when 'V: equality and 'E: equality> =
-  inherit IDiGraphAccessible<'V, 'E>
+  inherit IDiGraph<'V, 'E>
 
   /// Adds a vertex to the graph using a data value, and returns a reference to
   /// the added vertex along with the resulting graph.

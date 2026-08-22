@@ -47,7 +47,7 @@ open B2R2.MiddleEnd.BinGraph
    dominators of the reachable vertices only. Note that the predecessors of a
    reachable vertex may be unreachable, in which case they carry no dominance
    information and thus should not participate in the intersection below. *)
-let private computeDoms (g: IDiGraphAccessible<_, _>) reachables =
+let private computeDoms (g: IDiGraph<_, _>) reachables =
   let doms = Dictionary<IVertex<_>, Set<IVertex<_>>>()
   let nonRoots = List()
   let all = Set.ofSeq (reachables: HashSet<IVertex<_>>)
@@ -81,7 +81,7 @@ let private computeIDoms g (doms: Dictionary<_, _>) =
   let tmps = Dictionary<IVertex<_>, Set<IVertex<_> | null>>()
   let vertices = Array.ofSeq doms.Keys
   for v in vertices do tmps[v] <- Set.remove v doms[v]
-  for r in (g: IDiGraphAccessible<_, _>).Roots do idoms[r] <- null
+  for r in (g: IDiGraph<_, _>).Roots do idoms[r] <- null
   for v in vertices do
     if idoms.ContainsKey v then
       ()
@@ -110,7 +110,7 @@ let private findIDom (idoms: Dictionary<_, _>) v: IVertex<'V> | null =
   | false, _ -> null
 
 let private createForwardDominance g (dfp: IDominanceFrontierProvider<_, _>) =
-  let g: IDiGraphAccessible<_, _> = g
+  let g: IDiGraph<_, _> = g
   let doms = lazy computeDoms g (GraphUtils.computeReachables g)
   let idoms = lazy computeIDoms g doms.Value
   let dt = lazy DominatorTree(g.Vertices, findIDom idoms.Value)

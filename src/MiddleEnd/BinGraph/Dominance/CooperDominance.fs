@@ -46,7 +46,7 @@ type private CPDomInfo<'V when 'V: equality> =
     /// then this holds a number no vertex can take.
     mutable DummyNum: int }
 
-let private initDomInfo (g: IDiGraphAccessible<_, _>) =
+let private initDomInfo (g: IDiGraph<_, _>) =
   (* To reserve a room for entry (dummy) node. *)
   let len = g.VertexCount + 1
   { NumMap = Dictionary<VertexID, int>()
@@ -58,7 +58,7 @@ let private initDomInfo (g: IDiGraphAccessible<_, _>) =
 
 (* A predecessor unreachable from the roots has no number assigned, so it
    cannot take part in the computation below. *)
-let private getPredNums (g: IDiGraphAccessible<_, _>) info v =
+let private getPredNums (g: IDiGraph<_, _>) info v =
   g.GetPreds v
   |> Array.choose (fun p ->
     match info.NumMap.TryGetValue p.ID with
@@ -120,7 +120,7 @@ let private idomAux info v =
   else
     null
 
-let private prepareDomInfo (g: IDiGraphAccessible<_, _>) =
+let private prepareDomInfo (g: IDiGraph<_, _>) =
   let info = initDomInfo g
   let n = prepareWithDummyRoot g info
   info, n
@@ -146,7 +146,7 @@ let private computeDomInfo g =
   computeIDom info n
 
 let private createForwardDominance g info dfp =
-  let g: IDiGraphAccessible<_, _> = g
+  let g: IDiGraph<_, _> = g
   let dfp: IDominanceFrontierProvider<_, _> = dfp
   let dt = lazy DominatorTree(g.Vertices, idomAux info)
   let mutable dfProvider = null

@@ -59,7 +59,7 @@ let private addEdge (g: IMutableDiGraph<_, _>) (edge: Edge<_, _>) =
   g.AddEdge(g.FindVertexByID srcID, g.FindVertexByID dstID, edge.Label)
 
 let private initDynamicDomInfo g dfp algo =
-  let roots = (g: IDiGraphAccessible<_, _>).Roots
+  let roots = (g: IDiGraph<_, _>).Roots
   let rootIDs = roots |> Array.map (fun v -> v.ID)
   let children = Dictionary<VertexID, HashSet<VertexID>>()
   let depth = Dictionary<VertexID, int>()
@@ -78,7 +78,7 @@ let private initDynamicDomInfo g dfp algo =
     Depth = depth }
 
 let private initDomInfo g dfp algo =
-  let roots = (g: IDiGraphAccessible<_, _>).Roots
+  let roots = (g: IDiGraph<_, _>).Roots
   let rootIDs = roots |> Array.map (fun v -> v.ID)
   let children = Dictionary<VertexID, HashSet<VertexID>>()
   let depth = Dictionary<VertexID, int>()
@@ -111,7 +111,7 @@ let rec private computeTriggers g info visited nca trig state = function
   | vID :: stack ->
     let affected, trigs = state
     (visited: HashSet<VertexID>).Add vID |> ignore
-    let v = (g: IDiGraphAccessible<_, _>).FindVertexByID vID
+    let v = (g: IDiGraph<_, _>).FindVertexByID vID
     let newAffected, newTrigs, newStack =
       g.GetSuccs v
       |> Array.fold (fun (affected, trigs, stack) w ->
@@ -184,12 +184,12 @@ let private constructSubGraphAux g info visited h (queue: Queue<Edge<_, _>>) =
       visited.Add w.ID |> ignore
       addVertex h w
       addEdge h edge
-      for e in (g: IDiGraphAccessible<_, _>).GetSuccEdges w do queue.Enqueue e
+      for e in (g: IDiGraph<_, _>).GetSuccEdges w do queue.Enqueue e
   bEdges |> Array.ofList
 
 /// Construct the subgraph with root dst whose vertices are unreachable from
 /// main graph.
-let private constructSubGraph (g: IDiGraphAccessible<_, _>) info dst =
+let private constructSubGraph (g: IDiGraph<_, _>) info dst =
   let h = MutablePersistentDiGraph(PersistentDiGraph<'V, 'E>())
   let ih = h :> IMutableDiGraph<_, _>
   addVertex ih dst
@@ -216,7 +216,7 @@ let private mergeDomTree info src dst (subDom: IForwardDominance<_>) =
       queue.Enqueue(struct (current, child))
 
 /// insert an edge into the graph and update the dominator tree
-let private insert (g: IDiGraphAccessible<_, _>) info (edge: Edge<_, _>) =
+let private insert (g: IDiGraph<_, _>) info (edge: Edge<_, _>) =
   let src = edge.First
   let dst = edge.Second
   match info.Reachable.Contains src.ID, info.Reachable.Contains dst.ID with
@@ -241,11 +241,11 @@ let private insert (g: IDiGraphAccessible<_, _>) info (edge: Edge<_, _>) =
       |> Array.iter (fun v ->
         info.Reachable.Add v.ID |> ignore)
 
-let private computeDomDyn (g: IDiGraphAccessible<_, _>) info =
+let private computeDomDyn (g: IDiGraph<_, _>) info =
   g.Edges
   |> Array.iter (insert g info)
 
-let private idom (g: IDiGraphAccessible<_, _>) info (v: IVertex<'V>) =
+let private idom (g: IDiGraph<_, _>) info (v: IVertex<'V>) =
   if info.IDom.ContainsKey v.ID then
     let idomID = info.IDom[v.ID]
     if idomID = GraphUtils.DummyVertexID then null
@@ -261,7 +261,7 @@ let rec private domsAux acc info vid =
     if idomID = GraphUtils.DummyVertexID then acc
     else domsAux (idomID :: acc) info idomID
 
-let private doms (g: IDiGraphAccessible<_, _>) info (v: IVertex<'V>) =
+let private doms (g: IDiGraph<_, _>) info (v: IVertex<'V>) =
   domsAux [ v.ID ] info v.ID
   |> List.toArray
   |> Array.map g.FindVertexByID
@@ -272,7 +272,7 @@ let private computeDomInfo g dfp staticAlgo =
   info
 
 let private copyDomTree g info immediateDominator =
-  (g: IDiGraphAccessible<_, _>).Vertices
+  (g: IDiGraph<_, _>).Vertices
   |> Array.iter (fun v ->
     if info.Reachable.Contains v.ID |> not then
       ()
@@ -289,7 +289,7 @@ let private copyDomTree g info immediateDominator =
 
 (* The pending vertices wait in a queue, for appending them onto a list copies
    the whole list on every step. *)
-let private initReachable (g: IDiGraphAccessible<_, _>) info =
+let private initReachable (g: IDiGraph<_, _>) info =
   let queue = Queue(g.Roots)
   while queue.Count > 0 do
     let v = queue.Dequeue()
@@ -312,7 +312,7 @@ let private copyDominance g dom dfp staticAlgo isForward =
 let private updateDomInfo g info edge = insert g info edge
 
 let private createForwardDominance g info dfp =
-  let g: IDiGraphAccessible<_, _> = g
+  let g: IDiGraph<_, _> = g
   let dfp: IDominanceFrontierProvider<_, _> = dfp
   let dt = lazy DominatorTree(g.Vertices, idom g info)
   let mutable dfProvider = null

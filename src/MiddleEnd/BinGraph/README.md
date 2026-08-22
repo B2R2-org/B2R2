@@ -15,8 +15,8 @@ are dependent on this package.
 
 The graph types and the interfaces over them sit directly in
 `B2R2.MiddleEnd.BinGraph`, so a single `open` of it covers `IVertex`, `Edge`,
-`IDiGraphAccessible`, and the graph implementations. The algorithms live one
-level down, one namespace per family and one module per concrete algorithm:
+`IDiGraph`, and the graph implementations. The algorithms live one level down,
+one namespace per family and one module per concrete algorithm:
 
 - `B2R2.MiddleEnd.BinGraph.Traversal` — `DFS` and `BFS`.
 - `B2R2.MiddleEnd.BinGraph.SCC` — `Tarjan`.

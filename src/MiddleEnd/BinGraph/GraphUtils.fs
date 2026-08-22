@@ -85,17 +85,17 @@ let raiseVertexNotFoundByPredicate () =
 /// asks of the ID rather than of the vertex, since a post-dominance query is
 /// answered on the transposed graph, where the counterpart of the given vertex
 /// shares nothing but its ID.
-let checkVertexInGraph (g: IDiGraphAccessible<_, _>) (v: IVertex<_>) =
+let checkVertexInGraph (g: IDiGraph<_, _>) (v: IVertex<_>) =
   if g.HasVertexByID v.ID then () else raiseVertexNotFoundByID v.ID
 
 /// Collects the vertices that are reachable from the roots of the given graph.
-let computeReachables (g: IDiGraphAccessible<_, _>) =
+let computeReachables (g: IDiGraph<_, _>) =
   let reachables = HashSet<IVertex<_>>()
   Traversal.DFS.iterPreorderWithRoots g (g.Roots) (fun v ->
     reachables.Add v |> ignore)
   reachables
 
-let computeDepthFirstNumbers (g: IDiGraphAccessible<_, _>) =
+let computeDepthFirstNumbers (g: IDiGraph<_, _>) =
   let dfNums = Dictionary<IVertex<_>, int>()
   Traversal.DFS.foldRevPostorder g (fun cnt v ->
     dfNums[v] <- cnt
@@ -106,7 +106,7 @@ let computeDepthFirstNumbers (g: IDiGraphAccessible<_, _>) =
 /// Collects the back edges of the given graph, each of them identified by the
 /// IDs of its endpoints. A vertex can be the source of more than one back
 /// edge, hence the edges, not their sources, are what the result holds.
-let findBackEdges (g: IDiGraphAccessible<_, _>) =
+let findBackEdges (g: IDiGraph<_, _>) =
   let dfNums = computeDepthFirstNumbers g
   let backEdges = HashSet<VertexID * VertexID>()
   g |> DiGraph.iterEdge (fun e ->
@@ -114,12 +114,12 @@ let findBackEdges (g: IDiGraphAccessible<_, _>) =
     else backEdges.Add(e.First.ID, e.Second.ID) |> ignore)
   backEdges
 
-let findRegularExits (g: IDiGraphAccessible<_, _>) =
+let findRegularExits (g: IDiGraph<_, _>) =
   g.Vertices
   |> Array.fold (fun acc v ->
     if (g.GetSuccs v).Length = 0 then v :: acc else acc) []
 
-let findExitsAfterRemovingBackEdges (g: IDiGraphAccessible<_, _>) =
+let findExitsAfterRemovingBackEdges (g: IDiGraph<_, _>) =
   let backEdges = findBackEdges g
   let isBackEdge (e: Edge<_, _>) =
     backEdges.Contains(e.First.ID, e.Second.ID)
@@ -132,7 +132,7 @@ let findExitsAfterRemovingBackEdges (g: IDiGraphAccessible<_, _>) =
 /// edges. In case the given graph has no such exit nodes (e.g., infinite
 /// loops), we remove back edges and find exit nodes again, in which case we
 /// consider loop tails as exit nodes.
-let findExits (g: IDiGraphAccessible<_, _>) =
+let findExits (g: IDiGraph<_, _>) =
   findRegularExits g
   |> function
     | [] -> findExitsAfterRemovingBackEdges g

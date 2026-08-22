@@ -127,21 +127,21 @@ type State<'Lattice when 'Lattice: equality>
 
   /// Gets the list of executed source vertices.
   member _.GetExecutedSources(ssaCFG, blk: IVertex<_>, srcIDs) =
-    let preds = (ssaCFG: IDiGraphAccessible<_, _>).GetPreds blk |> Seq.toArray
+    let preds = (ssaCFG: IDiGraph<_, _>).GetPreds blk |> Seq.toArray
     srcIDs
     |> Array.mapi (fun i srcID ->
       if executedEdges.Contains(preds[i].ID, blk.ID) then Some srcID else None)
     |> Array.choose id
 
   member _.MarkSuccessorsExecutable(ssaCFG, blk: IVertex<_>) =
-    for succ in (ssaCFG: IDiGraphAccessible<_, _>).GetSuccs blk do
+    for succ in (ssaCFG: IDiGraph<_, _>).GetSuccs blk do
       markExecutable blk.ID succ.ID
 
   member _.MarkExecutable(src, dst) = markExecutable src dst
 
   member _.GetNumIncomingExecutedEdges(ssaCFG, blk: IVertex<_>) =
     let mutable count = 0
-    for pred in (ssaCFG: IDiGraphAccessible<_, _>).GetPreds blk do
+    for pred in (ssaCFG: IDiGraph<_, _>).GetPreds blk do
       if executedEdges.Contains(pred.ID, blk.ID) then count <- count + 1 else ()
     count
 
@@ -163,7 +163,7 @@ and IScheme<'Lattice when 'Lattice: equality> =
   /// current abstract value by executing the given 'WorkUnit.
   abstract Transfer:
       Stmt
-    * IDiGraphAccessible<SSABasicBlock, CFGEdgeKind>
+    * IDiGraph<SSABasicBlock, CFGEdgeKind>
     * IVertex<SSABasicBlock>
     -> unit
 
@@ -192,7 +192,7 @@ let processFlow (state: State<_>) ssaCFG =
     ()
   | true, (parentId, myId) ->
     state.ExecutedEdges.Add(parentId, myId) |> ignore
-    let g = ssaCFG :> IDiGraphAccessible<SSABasicBlock, _>
+    let g = ssaCFG :> IDiGraph<SSABasicBlock, _>
     let blk = g.FindVertexByID myId
     blk.VData.Internals.Statements
     |> Array.iter (fun (_, stmt) ->
@@ -214,7 +214,7 @@ let processSSA (state: State<_>) ssaCFG =
       ()
     | _, uses ->
       for (vid, idx) in uses do
-        let g = ssaCFG :> IDiGraphAccessible<SSABasicBlock, _>
+        let g = ssaCFG :> IDiGraph<SSABasicBlock, _>
         let v = g.FindVertexByID vid
         if state.GetNumIncomingExecutedEdges(ssaCFG, v) > 0 then
           let _, stmt = v.VData.Internals.Statements[idx]

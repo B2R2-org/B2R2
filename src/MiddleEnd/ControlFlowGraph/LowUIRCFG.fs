@@ -165,7 +165,7 @@ type LowUIRCFG private(g: IMutableDiGraph<LowUIRBasicBlock, CFGEdgeKind>) =
   /// Clone this CFG.
   member _.Clone() = g.Clone() |> LowUIRCFG
 
-  interface IDiGraphAccessible<LowUIRBasicBlock, CFGEdgeKind> with
+  interface IDiGraph<LowUIRBasicBlock, CFGEdgeKind> with
     member _.VertexCount = g.VertexCount
 
     member _.EdgeCount = g.EdgeCount
