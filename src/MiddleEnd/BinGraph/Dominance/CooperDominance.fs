@@ -31,9 +31,9 @@ open System.Collections.Generic
 open B2R2.MiddleEnd.BinGraph
 
 type private CPDomInfo<'V when 'V: equality> =
-  { /// Vertex ID -> Num
-    NumMap: Dictionary<VertexID, int>
-    /// Num -> Vertex ID
+  { /// Vertex -> Num
+    NumMap: Dictionary<IVertex<'V>, int>
+    /// Num -> Vertex
     Vertex: (IVertex<'V> | null)[]
     /// Num -> Num of the immediate dominator.
     IDom: int[]
@@ -49,7 +49,7 @@ type private CPDomInfo<'V when 'V: equality> =
 let private initDomInfo (g: IDiGraph<_, _>) =
   (* To reserve a room for entry (dummy) node. *)
   let len = g.VertexCount + 1
-  { NumMap = Dictionary<VertexID, int>()
+  { NumMap = Dictionary<IVertex<_>, int>()
     Vertex = Array.zeroCreate len
     IDom = Array.create len -1
     Preds = Array.zeroCreate len
@@ -61,7 +61,7 @@ let private initDomInfo (g: IDiGraph<_, _>) =
 let private getPredNums (g: IDiGraph<_, _>) info v =
   g.GetPreds v
   |> Array.choose (fun p ->
-    match info.NumMap.TryGetValue p.ID with
+    match info.NumMap.TryGetValue p with
     | true, n -> Some n
     | false, _ -> None)
 
@@ -75,12 +75,12 @@ let private prepareWithDummyRoot g info =
 #endif
       (realRoots |> Array.toList)
       (fun n v ->
-       info.NumMap[v.ID] <- n
+       info.NumMap[v] <- n
        info.Vertex[n] <- v
        n + 1)
       0
   info.DummyNum <- n
-  for r in realRoots |> Array.map (fun v -> info.NumMap[v.ID]) do
+  for r in realRoots |> Array.map (fun v -> info.NumMap[v]) do
     info.IDom[r] <- n
   info.IDom[n] <- n
   for i = 0 to n - 1 do
@@ -106,16 +106,16 @@ let private intersect (idoms: array<int>) b1 b2 =
   f1
 
 let rec private domsAux acc v info =
-  if info.NumMap.ContainsKey((v: IVertex<'V>).ID) then
-    let idom = info.IDom[info.NumMap[v.ID]]
+  if info.NumMap.ContainsKey(v: IVertex<'V>) then
+    let idom = info.IDom[info.NumMap[v]]
     if idom = -1 || idom = info.DummyNum then acc |> List.toArray
     else domsAux (info.Vertex[idom] :: acc) info.Vertex[idom] info
   else
     acc |> List.toArray
 
 let private idomAux info v =
-  if info.NumMap.ContainsKey((v: IVertex<'V>).ID) then
-    let num = info.IDom[info.NumMap[v.ID]]
+  if info.NumMap.ContainsKey(v: IVertex<'V>) then
+    let num = info.IDom[info.NumMap[v]]
     if num <> -1 && num <> info.DummyNum then info.Vertex[num] else null
   else
     null
