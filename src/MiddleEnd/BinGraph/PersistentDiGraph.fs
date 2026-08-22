@@ -257,10 +257,7 @@ type PersistentDiGraph<'V, 'E
     member _.GetSuccEdges(v: IVertex<'V>) =
       getSuccEdges v |> GraphUtils.toReversedArray
 
-    member this.Reverse(vs) =
-      let out = MutablePersistentDiGraph(PersistentDiGraph<'V, 'E>())
-      DiGraph.reverseInto this vs out
-      out.Snapshot
+    member this.Reverse(vs) = ReversedDiGraph(this, Seq.toArray vs)
 
   interface IPersistentDiGraph<'V, 'E> with
 

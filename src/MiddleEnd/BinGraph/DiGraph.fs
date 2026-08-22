@@ -45,24 +45,3 @@ let foldEdge fn acc (g: #IDiGraph<'V, 'E>) =
 /// Iterates every edge of the given graph. The order can be arbitrary.
 [<CompiledName "IterEdge">]
 let iterEdge fn (g: #IDiGraph<'V, 'E>) = Array.iter fn g.Edges
-
-/// Fills in the given empty graph with the transpose (i.e., the reverse) of
-/// the given graph, and uses the given vertices as the roots of the result.
-/// Every vertex keeps its ID, so that a vertex of the one graph and its
-/// counterpart in the other are found by the same ID.
-[<CompiledName "ReverseInto">]
-let reverseInto g roots (out: IMutableDiGraph<'V, 'E>) =
-  let g: IDiGraph<'V, 'E> = g
-  g |> iterVertex (fun v -> out.AddVertexCopy v |> ignore)
-  g |> iterEdge (fun e ->
-    let src = out.FindVertexByID e.First.ID
-    let dst = out.FindVertexByID e.Second.ID
-    if e.HasLabel then
-      out.AddEdge(dst, src, e.Label)
-    else
-      out.AddEdge(dst, src))
-  roots
-  |> Seq.map (fun (root: IVertex<'V>) ->
-    assert (g.Contains root)
-    out.FindVertexByID root.ID)
-  |> out.SetRoots

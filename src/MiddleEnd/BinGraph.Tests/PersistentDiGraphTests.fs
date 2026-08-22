@@ -110,10 +110,12 @@ type PersistentDiGraphTests() =
     Assert.AreEqual<int>(12, g'.FindEdge(v1, v2).Label)
 
   [<TestMethod>]
-  member _.``Reverse Keeps The Graph Persistent Test``() =
+  member _.``Reverse Views The Graph Test``() =
     let g, v1, v2, v3 = build ()
     let r = g.Reverse [ v3 ]
-    Assert.AreEqual<bool>(true, r :? IPersistentDiGraph<int, int>)
+    (* A transpose is a view over this graph rather than a graph of either
+       protocol, and it holds the very vertices this one holds. *)
+    Assert.AreSame(v1, r.FindVertexByID v1.ID)
     Assert.AreEqual<ImplementationType>(Persistent, r.ImplementationType)
     CollectionAssert.AreEqual([| v3.ID |], rootIDs r)
     CollectionAssert.AreEqual([| (2, 1, 12); (3, 2, 23) |], edgeTriples r)

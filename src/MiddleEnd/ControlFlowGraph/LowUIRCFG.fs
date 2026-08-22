@@ -155,13 +155,6 @@ type LowUIRCFG private(g: IMutableDiGraph<LowUIRBasicBlock, CFGEdgeKind>) =
   /// Set root vertices of this CFG.
   member _.SetRoots vs = g.SetRoots vs
 
-  /// Reverse the direction of the edges in this CFG while making the given
-  /// vertices as root vertices.
-  member _.Reverse roots =
-    let out = empty g.ImplementationType
-    DiGraph.reverseInto g roots out
-    LowUIRCFG out
-
   interface IDiGraph<LowUIRBasicBlock, CFGEdgeKind> with
     member _.VertexCount = g.VertexCount
 

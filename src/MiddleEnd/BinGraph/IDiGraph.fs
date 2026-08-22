@@ -134,6 +134,10 @@ type IDiGraph<'V, 'E when 'V: equality and 'E: equality> =
   /// when the given vertex does not belong to this graph.
   abstract GetSuccEdges: IVertex<'V> -> Edge<'V, 'E>[]
 
-  /// Returns a new transposed (i.e., reversed) graph. The given set of vertices
-  /// will be used to set the root vertices of the transposed graph.
+  /// Returns the transpose (i.e., the reverse) of this graph, holding the very
+  /// vertices this graph holds, so that a vertex of the one is a vertex of the
+  /// other with nothing to look up in between. An implementation has to keep to
+  /// that, for the post-dominance of a graph is read off its transpose. The
+  /// given vertices become the roots of the result, whose edges are its own:
+  /// an edge and the reverse of it are two different pairs.
   abstract Reverse: IEnumerable<IVertex<'V>> -> IDiGraph<'V, 'E>

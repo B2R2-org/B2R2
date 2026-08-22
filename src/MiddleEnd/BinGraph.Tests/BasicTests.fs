@@ -100,6 +100,23 @@ type BasicTests() =
 
   [<TestMethod>]
   [<DynamicData(nameof BasicTests.GraphTypes)>]
+  member _.``Reverse Reads One State Test``(t) =
+    let g, vmap = digraph1 t
+    let r = g.Reverse [ vmap[6] ]
+    let succIDs () =
+      r.GetSuccs vmap[2] |> Array.map (fun v -> v.ID) |> Array.sort
+    CollectionAssert.AreEqual([| 1; 5 |], succIDs ())
+    (* A transpose reads the state the graph was in when it was taken, so what
+       becomes of the graph afterwards is no concern of its. Its edges are made
+       only once asked for, and they follow the same state, not a later one. *)
+    g.RemoveEdge(vmap[1], vmap[2])
+    CollectionAssert.AreEqual([| 1; 5 |], succIDs ())
+    Assert.AreEqual<int>(7, r.EdgeCount)
+    Assert.AreEqual<int>(7, r.Edges.Length)
+    Assert.AreEqual<int>(6, g.EdgeCount)
+
+  [<TestMethod>]
+  [<DynamicData(nameof BasicTests.GraphTypes)>]
   member _.``Graph Transposition Test``(t) =
     let g1, g1vmap = digraph1 t
     let g2 = g1.Reverse [ g1vmap[6] ]
@@ -243,11 +260,11 @@ type BasicTests() =
     Assert.AreSame(v, g.FindVertexByID v.ID)
     Assert.AreEqual<IVertex<int>>(v, g.FindVertexByID v.ID)
     Assert.AreEqual<bool>(true, g.Contains v)
-    (* A transposed graph carries the IDs of the original and none of its
-       vertices, which is why a post-dominance query maps a vertex across. *)
+    (* A transpose holds the very vertices of the graph it was taken from, so
+       a post-dominance query has nothing to look up to cross over to it. *)
     let r = g.Reverse [ v ]
-    Assert.AreNotEqual<IVertex<int>>(v, r.FindVertexByID v.ID)
-    Assert.AreEqual<bool>(false, r.Contains v)
+    Assert.AreSame(v, r.FindVertexByID v.ID)
+    Assert.AreEqual<bool>(true, r.Contains v)
 
   [<TestMethod>]
   [<DynamicData(nameof BasicTests.GraphTypes)>]

@@ -208,7 +208,7 @@ let private computeDominance g (dfp: IDominanceFrontierProvider<_, _>) =
   let bwInfo = lazy (computeDomInfo bwG.Value)
   let fw = createForwardDominance g fwInfo dfp
   let bw = lazy (createForwardDominance bwG.Value bwInfo.Value dfp)
-  combineDominance g bwG fw bw, fwInfo, bwInfo
+  combineDominance fw bw, fwInfo, bwInfo
 
 let private checkUnreachable info (src: IVertex<_>) =
   match info.DFPre.TryGetValue src with
@@ -243,7 +243,7 @@ let internal createFromInfo g fwInfo (bwInfo: Lazy<LTDomInfo<_>>) dfp =
   let bwG = lazy (GraphUtils.findExits g |> g.Reverse)
   let fw = createForwardDominance g fwInfo dfp
   let bw = lazy (createForwardDominance bwG.Value bwInfo.Value dfp)
-  combineDominance g bwG fw bw
+  combineDominance fw bw
 
 /// Recomputes the working state after the given edge has been added to the
 /// graph. An edge leaving an unreachable vertex cannot change any dominance

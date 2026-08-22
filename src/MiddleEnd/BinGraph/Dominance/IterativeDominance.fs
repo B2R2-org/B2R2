@@ -169,4 +169,4 @@ let create g dfp =
   let bwG = lazy (GraphUtils.findExits g |> g.Reverse)
   let fw = createForwardDominance g dfp
   let bw = lazy (createForwardDominance bwG.Value dfp)
-  combineDominance g bwG fw bw
+  combineDominance fw bw

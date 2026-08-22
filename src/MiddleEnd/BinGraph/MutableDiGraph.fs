@@ -272,10 +272,7 @@ type MutableDiGraph<'V, 'E when 'V: equality and 'E: equality>
     member _.GetSuccEdges(v: IVertex<'V>) =
       if isOwnVertex v then GraphUtils.toArray succs[v.ID] else [||]
 
-    member this.Reverse vs =
-      let out = MutableDiGraph<'V, 'E>()
-      DiGraph.reverseInto this vs out
-      out
+    member this.Reverse vs = ReversedDiGraph(this, Seq.toArray vs)
 
   interface IMutableDiGraph<'V, 'E> with
 

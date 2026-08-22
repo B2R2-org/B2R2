@@ -146,13 +146,6 @@ type SSACFG private(g: IMutableDiGraph<SSABasicBlock, CFGEdgeKind>) =
   /// Set root vertices of this CFG.
   member _.SetRoots vs = g.SetRoots vs
 
-  /// Reverse the direction of the edges in this CFG while making the given
-  /// vertices as root vertices.
-  member _.Reverse roots =
-    let out = empty g.ImplementationType
-    DiGraph.reverseInto g roots out
-    SSACFG out
-
   /// Find the definition of the given variable kind (targetVarKind) at the
   /// given node v. We simply follow the dominator tree of the given SSACFG
   /// until we find a definition.
