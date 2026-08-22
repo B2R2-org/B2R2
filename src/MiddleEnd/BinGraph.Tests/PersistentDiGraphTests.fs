@@ -55,7 +55,7 @@ type PersistentDiGraphTests() =
     |> Array.sort
 
   let rootIDs (g: IDiGraphAccessible<_, _>) =
-    g.GetRoots() |> Array.map (_.ID)
+    g.Roots |> Array.map (_.ID)
 
   [<TestMethod>]
   member _.``Modification Leaves The Original Intact Test``() =
@@ -64,8 +64,8 @@ type PersistentDiGraphTests() =
     Assert.AreEqual<int>(2, g.Edges.Length)
     Assert.AreEqual<int>(1, withoutEdge.Edges.Length)
     let withoutVertex = g.RemoveVertex v3
-    Assert.AreEqual<int>(3, g.Size)
-    Assert.AreEqual<int>(2, withoutVertex.Size)
+    Assert.AreEqual<int>(3, g.VertexCount)
+    Assert.AreEqual<int>(2, withoutVertex.VertexCount)
     Assert.AreEqual<bool>(true, g.Contains v3)
     Assert.AreEqual<bool>(false, withoutVertex.Contains v3)
 
@@ -73,9 +73,9 @@ type PersistentDiGraphTests() =
   member _.``A New Vertex Belongs To The New Graph Only Test``() =
     let g = empty ()
     let v, g' = g.AddVertex 1
-    Assert.AreEqual<int>(0, g.Size)
+    Assert.AreEqual<int>(0, g.VertexCount)
     Assert.AreEqual<bool>(false, g.Contains v)
-    Assert.AreEqual<int>(1, g'.Size)
+    Assert.AreEqual<int>(1, g'.VertexCount)
     Assert.AreEqual<bool>(true, g'.Contains v)
 
   [<TestMethod>]
@@ -83,11 +83,11 @@ type PersistentDiGraphTests() =
     let g, v1, _, v3 = build ()
     let branch1 = g.AddEdge(v1, v3, 13)
     let branch2 = g.RemoveVertex v3
-    Assert.AreEqual<int>(3, g.Size)
+    Assert.AreEqual<int>(3, g.VertexCount)
     Assert.AreEqual<int>(2, g.Edges.Length)
-    Assert.AreEqual<int>(3, branch1.Size)
+    Assert.AreEqual<int>(3, branch1.VertexCount)
     Assert.AreEqual<int>(3, branch1.Edges.Length)
-    Assert.AreEqual<int>(2, branch2.Size)
+    Assert.AreEqual<int>(2, branch2.VertexCount)
     Assert.AreEqual<int>(1, branch2.Edges.Length)
 
   [<TestMethod>]

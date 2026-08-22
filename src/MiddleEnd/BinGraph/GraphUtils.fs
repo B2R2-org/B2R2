@@ -91,7 +91,7 @@ let checkVertexInGraph (g: IDiGraphAccessible<_, _>) (v: IVertex<_>) =
 /// Collects the vertices that are reachable from the roots of the given graph.
 let computeReachables (g: IDiGraphAccessible<_, _>) =
   let reachables = HashSet<IVertex<_>>()
-  Traversal.DFS.iterPreorderWithRoots g (g.GetRoots()) (fun v ->
+  Traversal.DFS.iterPreorderWithRoots g (g.Roots) (fun v ->
     reachables.Add v |> ignore)
   reachables
 
@@ -109,7 +109,7 @@ let computeDepthFirstNumbers (g: IDiGraphAccessible<_, _>) =
 let findBackEdges (g: IDiGraphAccessible<_, _>) =
   let dfNums = computeDepthFirstNumbers g
   let backEdges = HashSet<VertexID * VertexID>()
-  g.IterEdge(fun e ->
+  g |> DiGraph.iterEdge (fun e ->
     if dfNums[e.First] < dfNums[e.Second] then ()
     else backEdges.Add(e.First.ID, e.Second.ID) |> ignore)
   backEdges

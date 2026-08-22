@@ -55,7 +55,7 @@ let private orderOfEveryVertex (g: IDiGraphAccessible<_, _>) =
   let visited = HashSet<VertexID>()
   let queue = Queue<IVertex<_>>()
   let ordered = ResizeArray<IVertex<_>>()
-  for r in g.GetRoots() do
+  for r in g.Roots do
     if visited.Add r.ID then queue.Enqueue r else ()
   drainQueue g visited queue ordered
   (* walk the unreachable vertices, too. *)

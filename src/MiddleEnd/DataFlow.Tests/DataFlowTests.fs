@@ -28,6 +28,7 @@ open Microsoft.VisualStudio.TestTools.UnitTesting
 open B2R2
 open B2R2.FrontEnd.Intel
 open B2R2.BinIR
+open B2R2.MiddleEnd.BinGraph
 open B2R2.MiddleEnd.DataFlow
 open B2R2.MiddleEnd.SSA
 open B2R2.MiddleEnd.ControlFlowGraph
@@ -228,7 +229,7 @@ type DataFlowTests() =
     let roots = cfg.Roots
     let uva = UntouchedValueAnalysis(brew.BinHandle, roots)
     let dfa = uva :> IDataFlowComputable<_, _, _, _>
-    cfg.IterVertex uva.MarkVertexAsPending
+    cfg |> DiGraph.iterVertex uva.MarkVertexAsPending
     let state = dfa.Compute cfg
     let rbp = -8 (* stack offset of old rbp *)
     [ irStk 0xcUL 1 (rbp - 0x14) |> cmp <| mkUntouchedReg Register.RDI

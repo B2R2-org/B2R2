@@ -224,7 +224,7 @@ let processSSA (state: State<_>) ssaCFG =
 
 let compute cfg (state: State<_>) =
   state.SSAEdges <- SSAEdges cfg
-  cfg.GetRoots()
+  cfg.Roots
   |> Seq.iter (fun root -> state.FlowWorkList.Enqueue(0, root.ID))
   while state.FlowWorkList.Count > 0 || state.SSAWorkList.Count > 0 do
     processFlow state cfg

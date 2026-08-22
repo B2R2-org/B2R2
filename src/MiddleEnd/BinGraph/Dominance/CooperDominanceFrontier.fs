@@ -33,7 +33,7 @@ type CooperDominanceFrontier<'V, 'E when 'V: equality and 'E: equality>() =
   let computeDF (g: IDiGraphAccessible<_, _>) dom =
     let idom = (dom: IForwardDominance<_>).ImmediateDominator
     let frontiers = Dictionary<IVertex<_>, HashSet<IVertex<_>>>()
-    let roots = g.GetRoots()
+    let roots = g.Roots
     (* A vertex unreachable from the roots has no dominance information, so the
        edges leaving it are not real control flow and thus are ignored. *)
     let reachables = GraphUtils.computeReachables g

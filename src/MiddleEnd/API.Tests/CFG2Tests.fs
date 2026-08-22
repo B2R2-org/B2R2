@@ -29,6 +29,7 @@ open B2R2
 open B2R2.FrontEnd
 open B2R2.FrontEnd.BinLifter
 open B2R2.MiddleEnd
+open B2R2.MiddleEnd.BinGraph
 open B2R2.MiddleEnd.SSA
 open B2R2.MiddleEnd.ControlFlowGraph
 open B2R2.MiddleEnd.ControlFlowAnalysis
@@ -241,8 +242,8 @@ type CFG2Tests() =
   member _.``CFG Vertex Test: _start``() =
     let brew = BinaryBrew hdl
     let cfg = brew.Functions[0x0UL].CFG
-    Assert.AreEqual<int>(7, cfg.Size)
-    let vMap = cfg.FoldVertex(foldVertexNoFake, Map.empty)
+    Assert.AreEqual<int>(7, cfg.VertexCount)
+    let vMap = cfg |> DiGraph.foldVertex foldVertexNoFake Map.empty
     Assert.AreEqual<int>(6, vMap.Count)
     let leaders =
       [| ProgramPoint(0x00UL, 0)
@@ -266,7 +267,7 @@ type CFG2Tests() =
   member _.``CFG Edge Test: _start``() =
     let brew = BinaryBrew hdl
     let cfg = brew.Functions[0x0UL].CFG
-    let vMap = cfg.FoldVertex(foldVertexNoFake, Map.empty)
+    let vMap = cfg |> DiGraph.foldVertex foldVertexNoFake Map.empty
     let leaders =
       [| ProgramPoint(0x00UL, 0)
          ProgramPoint(0x0CUL, 0)
@@ -275,9 +276,9 @@ type CFG2Tests() =
          ProgramPoint(0x1CUL, 8)
          ProgramPoint(0x1EUL, 0) |]
     let vertices = leaders |> Array.map (fun l -> Map.find l vMap)
-    let eMap = cfg.FoldEdge(foldEdge, Map.empty)
+    let eMap = cfg |> DiGraph.foldEdge foldEdge Map.empty
     Assert.AreEqual<int>(7, eMap.Count)
-    let eMap = cfg.FoldEdge(foldEdgeNoFake, Map.empty)
+    let eMap = cfg |> DiGraph.foldEdge foldEdgeNoFake Map.empty
     Assert.AreEqual<int>(5, eMap.Count)
     let actual =
       [| cfg.FindEdge(vertices[1], vertices[2]).Label
@@ -300,16 +301,18 @@ type CFG2Tests() =
     let cfg = brew.Functions[0x0UL].CFG
     let disasm = StringDisasmBuilder(false, null, hdl.ISA.WordSize)
     let dcfg = DisasmCFG(disasm, cfg)
-    Assert.AreEqual<int>(3, dcfg.Size)
-    let vMap = dcfg.FoldVertex((fun m v ->
-      Map.add v.VData.Internals.PPoint.Address v m), Map.empty)
+    Assert.AreEqual<int>(3, dcfg.VertexCount)
+    let vMap =
+      dcfg |> DiGraph.foldVertex (fun m v ->
+        Map.add v.VData.Internals.PPoint.Address v m) Map.empty
     let v = Map.find 0x00UL vMap
     Assert.AreEqual<int>(8, v.VData.Internals.Disassemblies.Length)
-    let eMap = dcfg.FoldEdge((fun m e ->
-      let v1, v2 = e.First, e.Second
-      let key =
-        v1.VData.Internals.PPoint.Address, v2.VData.Internals.PPoint.Address
-      Map.add key e m), Map.empty)
+    let eMap =
+      dcfg |> DiGraph.foldEdge (fun m e ->
+        let v1, v2 = e.First, e.Second
+        let key =
+          v1.VData.Internals.PPoint.Address, v2.VData.Internals.PPoint.Address
+        Map.add key e m) Map.empty
     Assert.AreEqual<int>(3, eMap.Count)
 
   [<TestMethod>]
@@ -318,4 +321,4 @@ type CFG2Tests() =
     let cfg = brew.Functions[0x0UL].CFG
     let ssaLifter = SSALifterFactory.Create hdl
     let ssacfg = ssaLifter.Lift cfg
-    Assert.AreEqual<int>(7, ssacfg.Size)
+    Assert.AreEqual<int>(7, ssacfg.VertexCount)

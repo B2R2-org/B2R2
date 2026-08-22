@@ -54,7 +54,7 @@ type private SCCStatus<'V when 'V: equality> =
     SCCs: List<HashSet<IVertex<'V>>> }
 
 let private initSCCStatus (g: IDiGraphAccessible<_, _>) =
-  let len = g.Size
+  let len = g.VertexCount
   { CurrentDFNum = 0
     DFNums = Dictionary<_, _>()
     Vertices = Array.zeroCreate len

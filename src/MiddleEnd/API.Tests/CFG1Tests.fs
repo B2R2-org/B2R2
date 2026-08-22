@@ -29,6 +29,7 @@ open B2R2
 open B2R2.FrontEnd
 open B2R2.FrontEnd.BinLifter
 open B2R2.MiddleEnd
+open B2R2.MiddleEnd.BinGraph
 open B2R2.MiddleEnd.SSA
 open B2R2.MiddleEnd.ControlFlowGraph
 open B2R2.MiddleEnd.ControlFlowAnalysis
@@ -421,8 +422,8 @@ type CFG1Tests() =
   member _.``CFG Vertex Test: _start``() =
     let brew = BinaryBrew hdl
     let cfg = brew.Functions[0x0UL].CFG
-    Assert.AreEqual<int>(9, cfg.Size)
-    let vMap = cfg.FoldVertex(foldVertexNoFake, Map.empty)
+    Assert.AreEqual<int>(9, cfg.VertexCount)
+    let vMap = cfg |> DiGraph.foldVertex foldVertexNoFake Map.empty
     Assert.AreEqual<int>(6, vMap.Count)
     let leaders =
       [| ProgramPoint(0x00UL, 0)
@@ -446,7 +447,7 @@ type CFG1Tests() =
   member _.``CFG Edge Test: _start``() =
     let brew = BinaryBrew hdl
     let cfg = brew.Functions[0x0UL].CFG
-    let vMap = cfg.FoldVertex(foldVertexNoFake, Map.empty)
+    let vMap = cfg |> DiGraph.foldVertex foldVertexNoFake Map.empty
     let leaders =
       [| ProgramPoint(0x00UL, 0)
          ProgramPoint(0x19UL, 0)
@@ -455,9 +456,9 @@ type CFG1Tests() =
          ProgramPoint(0x52UL, 0)
          ProgramPoint(0x55UL, 0) |]
     let vertices = leaders |> Array.map (fun l -> Map.find l vMap)
-    let eMap = cfg.FoldEdge(foldEdge, Map.empty)
+    let eMap = cfg |> DiGraph.foldEdge foldEdge Map.empty
     Assert.AreEqual<int>(9, eMap.Count)
-    let eMap = cfg.FoldEdge(foldEdgeNoFake, Map.empty)
+    let eMap = cfg |> DiGraph.foldEdge foldEdgeNoFake Map.empty
     Assert.AreEqual<int>(4, eMap.Count)
     let actual =
       [| cfg.FindEdge(vertices[1], vertices[2]).Label
@@ -472,8 +473,8 @@ type CFG1Tests() =
   member _.``CFG Vertex Test: foo``() =
     let brew = BinaryBrew hdl
     let cfg = brew.Functions[0x62UL].CFG
-    Assert.AreEqual<int>(1, cfg.Size)
-    let vMap = cfg.FoldVertex(foldVertexNoFake, Map.empty)
+    Assert.AreEqual<int>(1, cfg.VertexCount)
+    let vMap = cfg |> DiGraph.foldVertex foldVertexNoFake Map.empty
     let leaders = [| ProgramPoint(0x62UL, 0) |]
     let actual =
       leaders |> Array.map (fun l -> (Map.find l vMap).VData.Internals.Range)
@@ -484,15 +485,15 @@ type CFG1Tests() =
   member _.``CFG Edge Test: foo``() =
     let brew = BinaryBrew hdl
     let cfg = brew.Functions[0x62UL].CFG
-    let eMap = cfg.FoldEdge(foldEdge, Map.empty)
+    let eMap = cfg |> DiGraph.foldEdge foldEdge Map.empty
     Assert.AreEqual<int>(0, eMap.Count)
 
   [<TestMethod>]
   member _.``CFG Vertex Test: bar``() =
     let brew = BinaryBrew hdl
     let cfg = brew.Functions[0x71UL].CFG
-    Assert.AreEqual<int>(2, cfg.Size)
-    let vMap = cfg.FoldVertex(foldVertexNoFake, Map.empty)
+    Assert.AreEqual<int>(2, cfg.VertexCount)
+    let vMap = cfg |> DiGraph.foldVertex foldVertexNoFake Map.empty
     let leaders = [| ProgramPoint(0x71UL, 0) |]
     let actual =
       leaders |> Array.map (fun l -> (Map.find l vMap).VData.Internals.Range)
@@ -503,7 +504,7 @@ type CFG1Tests() =
   member _.``CFG Edge Test: bar``() =
     let brew = BinaryBrew hdl
     let cfg = brew.Functions[0x71UL].CFG
-    let eMap = cfg.FoldEdge(foldEdge, Map.empty)
+    let eMap = cfg |> DiGraph.foldEdge foldEdge Map.empty
     Assert.AreEqual<int>(1, eMap.Count)
 
   [<TestMethod>]
@@ -512,4 +513,4 @@ type CFG1Tests() =
     let cfg = brew.Functions[0x0UL].CFG
     let ssaLifter = SSALifterFactory.Create hdl
     let ssacfg = ssaLifter.Lift(cfg)
-    Assert.AreEqual<int>(9, ssacfg.Size)
+    Assert.AreEqual<int>(9, ssacfg.VertexCount)

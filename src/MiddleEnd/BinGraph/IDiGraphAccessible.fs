@@ -31,7 +31,10 @@ open System.Collections.Generic
 /// modifying it.
 type IDiGraphAccessible<'V, 'E when 'V: equality and 'E: equality> =
   /// Gets the number of vertices.
-  abstract Size: int
+  abstract VertexCount: int
+
+  /// Gets the number of edges.
+  abstract EdgeCount: int
 
   /// Gets an array of all vertices in the graph.
   abstract Vertices: IVertex<'V>[]
@@ -41,6 +44,10 @@ type IDiGraphAccessible<'V, 'E when 'V: equality and 'E: equality> =
 
   /// Gets an array of exit vertices in the graph.
   abstract Exits: IVertex<'V>[]
+
+  /// Gets the root vertices of this graph. When there is no root, this is an
+  /// empty array.
+  abstract Roots: IVertex<'V>[]
 
   /// <summary>
   /// Gets exactly one root vertex of this graph.
@@ -59,7 +66,7 @@ type IDiGraphAccessible<'V, 'E when 'V: equality and 'E: equality> =
 
   /// Checks if this graph is empty. A graph is empty when there is no vertex in
   /// the graph.
-  abstract IsEmpty: unit -> bool
+  abstract IsEmpty: bool
 
   /// Checks whether this very vertex belongs to this graph. A vertex of
   /// another graph can carry an ID this graph also uses, and vertices compare
@@ -125,22 +132,6 @@ type IDiGraphAccessible<'V, 'E when 'V: equality and 'E: equality> =
   /// Gets the successor edges of the given vertex. This returns an empty array
   /// when the given vertex does not belong to this graph.
   abstract GetSuccEdges: IVertex<'V> -> Edge<'V, 'E>[]
-
-  /// Gets the root vertices of this graph. When there's no root, this will
-  /// return an empty collection.
-  abstract GetRoots: unit -> IVertex<'V>[]
-
-  /// Folds every vertex (the order can be arbitrary).
-  abstract FoldVertex: ('a -> IVertex<'V> -> 'a) * 'a -> 'a
-
-  /// Iterates every vertex (the order can be arbitrary).
-  abstract IterVertex: (IVertex<'V> -> unit) -> unit
-
-  /// Folds every edge in the graph (the order can be arbitrary).
-  abstract FoldEdge: ('a -> Edge<'V, 'E> -> 'a) * 'a -> 'a
-
-  /// Iterates every edge in the graph (the order can be arbitrary).
-  abstract IterEdge: (Edge<'V, 'E> -> unit) -> unit
 
   /// Returns a new transposed (i.e., reversed) graph. The given set of vertices
   /// will be used to set the root vertices of the transposed graph.

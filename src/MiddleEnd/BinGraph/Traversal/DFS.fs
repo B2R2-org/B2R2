@@ -121,7 +121,7 @@ let foldPreorderWithRoots g roots fn acc =
 [<CompiledName "FoldPreorder">]
 let foldPreorder (g: IDiGraphAccessible<_, _>) fn acc =
   let visited = HashSet<VertexID>()
-  let acc = foldPreorderCore visited g fn acc (g.GetRoots())
+  let acc = foldPreorderCore visited g fn acc (g.Roots)
   (* fold unreachable vertices, too. *)
   foldPreorderCore visited g fn acc g.Vertices
 
@@ -150,7 +150,7 @@ let foldPostorderWithRoots g roots fn acc =
 [<CompiledName "FoldPostorder">]
 let foldPostorder (g: IDiGraphAccessible<_, _>) fn acc =
   let visited = HashSet<VertexID>()
-  let acc = foldPostorderCore visited g fn acc (g.GetRoots())
+  let acc = foldPostorderCore visited g fn acc (g.Roots)
   (* fold unreachable vertices, too. *)
   foldPostorderCore visited g fn acc g.Vertices
 

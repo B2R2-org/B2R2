@@ -39,7 +39,10 @@ type CallCFG(t: ImplementationType) =
       MutablePersistentDiGraph g :> IMutableDiGraph<_, _>
 
   /// Number of vertices.
-  member _.Size with get() = g.Size
+  member _.VertexCount with get() = g.VertexCount
+
+  /// Number of edges.
+  member _.EdgeCount with get() = g.EdgeCount
 
   /// Get an array of all vertices in this CFG.
   member _.Vertices with get() = g.Vertices
@@ -51,13 +54,13 @@ type CallCFG(t: ImplementationType) =
   member _.Exits with get() = g.Exits
 
   /// Get the root vertices of this CFG.
-  member _.Roots with get() = g.GetRoots()
+  member _.Roots with get() = g.Roots
 
   /// Get the implementation type of this CFG.
   member _.ImplementationType with get() = g.ImplementationType
 
   /// Is this empty? A CFG is empty when there is no vertex.
-  member _.IsEmpty() = g.IsEmpty()
+  member _.IsEmpty with get() = g.IsEmpty
 
   /// Add a vertex containing this BBL to this CFG, and return the added vertex.
   member _.AddVertex blk = g.AddVertex blk
@@ -66,26 +69,18 @@ type CallCFG(t: ImplementationType) =
   /// label.
   member _.AddEdge(src, dst, label) = g.AddEdge(src, dst, label)
 
-  /// Fold the vertices of this CFG with the given function and accumulator.
-  member _.FoldVertex(fn, acc) = g.FoldVertex(fn, acc)
-
-  /// Iterate over the vertices of this CFG with the given function.
-  member _.IterVertex fn = g.IterVertex fn
-
-  /// Fold the edges of this CFG with the given function and accumulator.
-  member _.FoldEdge(fn, acc) = g.FoldEdge(fn, acc)
-
-  /// Iterate over the edges of this CFG with the given function.
-  member _.IterEdge fn = g.IterEdge fn
-
   interface IDiGraphAccessible<CallBasicBlock, CFGEdgeKind> with
-    member _.Size = g.Size
+    member _.VertexCount = g.VertexCount
+
+    member _.EdgeCount = g.EdgeCount
     member _.Vertices = g.Vertices
     member _.Edges = g.Edges
     member _.Exits = g.Exits
+
+    member _.Roots = g.Roots
     member _.SingleRoot = g.SingleRoot
     member _.ImplementationType = g.ImplementationType
-    member _.IsEmpty() = g.IsEmpty()
+    member _.IsEmpty with get() = g.IsEmpty
     member _.Contains v = g.Contains v
     member _.HasVertexByID vid = g.HasVertexByID vid
     member _.HasEdge(src, dst) = g.HasEdge(src, dst)
@@ -101,12 +96,8 @@ type CallCFG(t: ImplementationType) =
     member _.GetPredEdges v = g.GetPredEdges v
     member _.GetSuccs v = g.GetSuccs v
     member _.GetSuccEdges v = g.GetSuccEdges v
-    member _.GetRoots() = g.GetRoots()
+
     member _.Reverse vs = g.Reverse vs
-    member _.FoldVertex(fn, acc) = g.FoldVertex(fn, acc)
-    member _.IterVertex fn = g.IterVertex fn
-    member _.FoldEdge(fn, acc) = g.FoldEdge(fn, acc)
-    member _.IterEdge fn = g.IterEdge fn
 
   interface IMutableDiGraph<CallBasicBlock, CFGEdgeKind> with
     member _.AddVertex data = g.AddVertex data

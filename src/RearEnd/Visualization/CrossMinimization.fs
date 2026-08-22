@@ -31,7 +31,8 @@ open B2R2.MiddleEnd.BinGraph
 let [<Literal>] private MaxTrials = 128
 
 let private computeMaxLayer (g: VisGraph) =
-  g.FoldVertex((fun maxLayer v -> max (VisGraph.getLayer v) maxLayer), 0)
+  g |> DiGraph.foldVertex (fun maxLayer v ->
+    max (VisGraph.getLayer v) maxLayer) 0
 
 let private addVertexToLayer (layout: ResizeArray<_>[]) v =
   layout[VisGraph.getLayer v].Add(v)
@@ -42,7 +43,7 @@ let private createInitialLayout g =
   let maxLayer = computeMaxLayer g
   let layerCount = maxLayer + 1
   let layout = Array.init layerCount (fun _ -> ResizeArray())
-  g.IterVertex(addVertexToLayer layout)
+  g |> DiGraph.iterVertex (addVertexToLayer layout)
   layout
   |> Array.map (fun layer ->
     Array.init layer.Count (fun i ->

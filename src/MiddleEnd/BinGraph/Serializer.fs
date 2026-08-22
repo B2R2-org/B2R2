@@ -33,7 +33,7 @@ type Serializer =
   static member private NewGraph<'V, 'E when 'V: equality
                                          and 'E: equality>(g) =
     let roots =
-      (g: IDiGraphAccessible<'V, 'E>).GetRoots() |> Array.map (fun v -> v.ID)
+      (g: IDiGraphAccessible<'V, 'E>).Roots |> Array.map (fun v -> v.ID)
     let vertices =
       g.Vertices
       |> Array.map (fun v -> { ID = v.ID; Label = v.VData.ToString() })
@@ -47,7 +47,7 @@ type Serializer =
   static member private NewGraph<'V, 'E when 'V: equality
                                          and 'E: equality>(g, vFn, edgeFn) =
     let roots =
-      (g: IDiGraphAccessible<'V, 'E>).GetRoots() |> Array.map (fun v -> v.ID)
+      (g: IDiGraphAccessible<'V, 'E>).Roots |> Array.map (fun v -> v.ID)
     let vertices =
       g.Vertices
       |> Array.map (fun v -> { ID = v.ID; Label = vFn v })
@@ -217,6 +217,6 @@ type Serializer =
       !!sb $"  {e.First.ID} -> {e.Second.ID} [label=\"{edgeFn e}\"];\n"
     !!sb $"digraph {name} {{\n"
     !!sb $"  node[shape=box]\n"
-    g.IterVertex vertexToString
-    g.IterEdge edgeToString
+    g |> DiGraph.iterVertex vertexToString
+    g |> DiGraph.iterEdge edgeToString
     sb.Append("}\n").ToString()

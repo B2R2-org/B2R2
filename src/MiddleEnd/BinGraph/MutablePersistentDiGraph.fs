@@ -47,7 +47,9 @@ type MutablePersistentDiGraph<'V, 'E when 'V: equality and 'E: equality>
 
   interface IMutableDiGraph<'V, 'E> with
 
-    member _.Size = g.Size
+    member _.VertexCount = g.VertexCount
+
+    member _.EdgeCount = g.EdgeCount
 
     member _.Vertices = g.Vertices
 
@@ -55,11 +57,13 @@ type MutablePersistentDiGraph<'V, 'E when 'V: equality and 'E: equality>
 
     member _.Exits = g.Exits
 
+    member _.Roots = g.Roots
+
     member _.SingleRoot = g.SingleRoot
 
     member _.ImplementationType = g.ImplementationType
 
-    member _.IsEmpty() = g.IsEmpty()
+    member _.IsEmpty with get() = g.IsEmpty
 
     member _.Contains v = g.Contains v
 
@@ -91,17 +95,7 @@ type MutablePersistentDiGraph<'V, 'E when 'V: equality and 'E: equality>
 
     member _.GetSuccEdges v = g.GetSuccEdges v
 
-    member _.GetRoots() = g.GetRoots()
-
     member _.Reverse vs = g.Reverse vs
-
-    member _.FoldVertex(fn, acc) = g.FoldVertex(fn, acc)
-
-    member _.IterVertex fn = g.IterVertex fn
-
-    member _.FoldEdge(fn, acc) = g.FoldEdge(fn, acc)
-
-    member _.IterEdge fn = g.IterEdge fn
 
     member _.AddVertex(data: 'V) = g.AddVertex data |> addVertex
 

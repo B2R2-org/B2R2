@@ -41,7 +41,7 @@ type TraversalTests() =
   (* Only the vertices reachable from the roots take part in a WithRoots
      traversal, so they are the ones the two postorders must agree on. *)
   let reachableIDs (g: IMutableDiGraph<_, _>) =
-    DFS.foldPreorderWithRoots g (g.GetRoots()) addVertexID Set.empty
+    DFS.foldPreorderWithRoots g (g.Roots) addVertexID Set.empty
 
   (* Runs the given iterating function and reports the data it walked over, so
      that it can be held against what the matching fold returns. *)
@@ -102,7 +102,7 @@ type TraversalTests() =
         DFS.foldPreorder g accumulate []
         |> List.filter (fun (v: IVertex<_>) -> Set.contains v.ID reachable)
         |> makeAnswer
-      let roots = g.GetRoots()
+      let roots = g.Roots
       let actual = DFS.foldPreorderWithRoots g roots accumulate [] |> makeAnswer
       Assert.AreEqual(expected, actual)
 
@@ -142,7 +142,7 @@ type TraversalTests() =
   [<DynamicData(nameof TraversalTests.GraphTypes)>]
   member _.``Postorder with roots traversal test``(t) =
     let g, _ = digraph14 t
-    let roots = g.GetRoots()
+    let roots = g.Roots
     let actual = DFS.foldPostorderWithRoots g roots accumulate [] |> makeAnswer
     let expected = [ 3; 2; 1 ]
     Assert.AreEqual(expected, actual)
@@ -158,7 +158,7 @@ type TraversalTests() =
         |> List.filter (fun (v: IVertex<_>) -> Set.contains v.ID reachable)
         |> makeAnswer
       let actual =
-        DFS.foldPostorderWithRoots g (g.GetRoots()) accumulate [] |> makeAnswer
+        DFS.foldPostorderWithRoots g (g.Roots) accumulate [] |> makeAnswer
       Assert.AreEqual(expected, actual)
 
   [<TestMethod>]
@@ -166,7 +166,7 @@ type TraversalTests() =
   member _.``Reverse postorder reverses the walk``(t) =
     for makeExample in examples do
       let g, _ = makeExample t
-      let roots = g.GetRoots()
+      let roots = g.Roots
       let forward =
         DFS.foldPostorderWithRoots g roots accumulate [] |> makeAnswer
       let backward =
@@ -184,7 +184,7 @@ type TraversalTests() =
   [<DynamicData(nameof TraversalTests.GraphTypes)>]
   member _.``Breadth-first traversal test 1``(t) =
     let g, _ = digraph1 t
-    let actual = BFS.foldWithRoots g (g.GetRoots()) accumulate [] |> makeAnswer
+    let actual = BFS.foldWithRoots g (g.Roots) accumulate [] |> makeAnswer
     let expected = [ 1; 2; 3; 4; 6; 5 ]
     Assert.AreEqual(expected, actual)
 
@@ -192,7 +192,7 @@ type TraversalTests() =
   [<DynamicData(nameof TraversalTests.GraphTypes)>]
   member _.``Breadth-first traversal test 2``(t) =
     let g, _ = digraph2 t
-    let actual = BFS.foldWithRoots g (g.GetRoots()) accumulate [] |> makeAnswer
+    let actual = BFS.foldWithRoots g (g.Roots) accumulate [] |> makeAnswer
     let expected = [ 1; 2; 3; 4; 5; 6 ]
     Assert.AreEqual(expected, actual)
 
@@ -200,7 +200,7 @@ type TraversalTests() =
   [<DynamicData(nameof TraversalTests.GraphTypes)>]
   member _.``Breadth-first traversal reaches unreachable vertices``(t) =
     let g, _ = digraph12 t
-    let roots = g.GetRoots()
+    let roots = g.Roots
     let reachable = BFS.foldWithRoots g roots accumulate [] |> makeAnswer
     let every = BFS.fold g accumulate [] |> makeAnswer
     Assert.AreEqual([ 1; 2; 3; 4 ], reachable)
@@ -212,15 +212,15 @@ type TraversalTests() =
     for makeExample in examples do
       let g, _ = makeExample t
       let folded = BFS.fold g accumulate [] |> makeAnswer
-      Assert.AreEqual(g.Size, List.length folded)
-      Assert.AreEqual(g.Size, List.distinct folded |> List.length)
+      Assert.AreEqual(g.VertexCount, List.length folded)
+      Assert.AreEqual(g.VertexCount, List.distinct folded |> List.length)
 
   [<TestMethod>]
   [<DynamicData(nameof TraversalTests.GraphTypes)>]
   member _.``Reverse breadth-first order reverses the walk``(t) =
     for makeExample in examples do
       let g, _ = makeExample t
-      let roots = g.GetRoots()
+      let roots = g.Roots
       let forward = BFS.foldWithRoots g roots accumulate [] |> makeAnswer
       let backward = BFS.foldRevWithRoots g roots accumulate [] |> makeAnswer
       Assert.AreEqual(List.rev forward, backward)
@@ -233,7 +233,7 @@ type TraversalTests() =
   member _.``Breadth-first iteration agrees with folding``(t) =
     for makeExample in examples do
       let g, _ = makeExample t
-      let roots = g.GetRoots()
+      let roots = g.Roots
       Assert.AreEqual(BFS.foldWithRoots g roots accumulate [] |> makeAnswer,
                       iterated (fun fn -> BFS.iterWithRoots g roots fn))
       Assert.AreEqual(BFS.fold g accumulate [] |> makeAnswer,

@@ -64,7 +64,7 @@ type ReachingDefinitionAnalysis() =
   let initGensAndKills (g: IDiGraphAccessible<LowUIRBasicBlock, _>) =
     let vpPerVar = Dictionary<VarKind, Set<VarPoint>>()
     let vpPerVertex = Dictionary<VertexID, VarPoint list>()
-    g.IterVertex(fun v ->
+    g |> DiGraph.iterVertex (fun v ->
       let vid = v.ID
       let defs = findDefs v
       gens[vid] <- defs |> Set.ofList
@@ -74,7 +74,7 @@ type ReachingDefinitionAnalysis() =
         else vpPerVar[v] <- Set.singleton vp
       )
     )
-    g.IterVertex(fun v ->
+    g |> DiGraph.iterVertex (fun v ->
       let vid = v.ID
       let defVarPoints = vpPerVertex[vid]
       let vars = defVarPoints |> List.map (fun vp -> vp.VarKind)

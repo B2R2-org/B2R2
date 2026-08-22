@@ -59,7 +59,7 @@ let private addEdge (g: IMutableDiGraph<_, _>) (edge: Edge<_, _>) =
   g.AddEdge(g.FindVertexByID srcID, g.FindVertexByID dstID, edge.Label)
 
 let private initDynamicDomInfo g dfp algo =
-  let roots = (g: IDiGraphAccessible<_, _>).GetRoots()
+  let roots = (g: IDiGraphAccessible<_, _>).Roots
   let rootIDs = roots |> Array.map (fun v -> v.ID)
   let children = Dictionary<VertexID, HashSet<VertexID>>()
   let depth = Dictionary<VertexID, int>()
@@ -78,7 +78,7 @@ let private initDynamicDomInfo g dfp algo =
     Depth = depth }
 
 let private initDomInfo g dfp algo =
-  let roots = (g: IDiGraphAccessible<_, _>).GetRoots()
+  let roots = (g: IDiGraphAccessible<_, _>).Roots
   let rootIDs = roots |> Array.map (fun v -> v.ID)
   let children = Dictionary<VertexID, HashSet<VertexID>>()
   let depth = Dictionary<VertexID, int>()
@@ -290,7 +290,7 @@ let private copyDomTree g info immediateDominator =
 (* The pending vertices wait in a queue, for appending them onto a list copies
    the whole list on every step. *)
 let private initReachable (g: IDiGraphAccessible<_, _>) info =
-  let queue = Queue(g.GetRoots())
+  let queue = Queue(g.Roots)
   while queue.Count > 0 do
     let v = queue.Dequeue()
     if info.Reachable.Contains v.ID then

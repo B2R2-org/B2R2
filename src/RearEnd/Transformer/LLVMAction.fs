@@ -25,6 +25,7 @@
 namespace B2R2.RearEnd.Transformer
 
 open B2R2.MiddleEnd
+open B2R2.MiddleEnd.BinGraph
 open B2R2.MiddleEnd.ControlFlowAnalysis
 open B2R2.MiddleEnd.LLVM
 
@@ -33,7 +34,7 @@ type LLVMAction() =
 
   let printOut hdl (fn: Function) =
     let builder = LLVMTranslator.createBuilder hdl fn.EntryPoint
-    fn.CFG.IterVertex(fun bbl ->
+    fn.CFG |> DiGraph.iterVertex (fun bbl ->
       let succs =
         fn.CFG.GetSuccs bbl
         |> Array.map (fun s -> s.VData.Internals.PPoint.Address)

@@ -109,7 +109,8 @@ module DataFlowChain =
     |> Set.ofList
 
   let private initUDChain cfg (provider: IAbsValProvider<_, _>) =
-    (cfg: IDiGraphAccessible<LowUIRBasicBlock, _>).FoldVertex((fun map v ->
+    (cfg: IDiGraphAccessible<LowUIRBasicBlock, _>)
+    |> DiGraph.foldVertex (fun map v ->
       v.VData.Internals.LiftedInstructions
       |> Array.fold (fun map lifted ->
         lifted.Stmts
@@ -127,7 +128,7 @@ module DataFlowChain =
             Map.add usepoint set map
           ) map
         ) map
-      ) map), Map.empty)
+      ) map) Map.empty
 
   let private initDUChain udchain =
     udchain

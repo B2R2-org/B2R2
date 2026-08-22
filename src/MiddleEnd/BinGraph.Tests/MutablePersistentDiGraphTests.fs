@@ -39,12 +39,12 @@ type MutablePersistentDiGraphTests() =
     let v1 = g.AddVertex 1
     let v2 = g.AddVertex 2
     g.AddEdge(v1, v2, 10)
-    Assert.AreEqual<int>(2, g.Size)
+    Assert.AreEqual<int>(2, g.VertexCount)
     Assert.AreEqual<int>(1, g.Edges.Length)
     Assert.AreEqual<int>(10, g.FindEdge(v1, v2).Label)
     CollectionAssert.AreEqual([| v2.ID |], g.GetSuccs v1 |> Array.map (_.ID))
     g.RemoveVertex v2
-    Assert.AreEqual<int>(1, g.Size)
+    Assert.AreEqual<int>(1, g.VertexCount)
     Assert.AreEqual<int>(0, g.Edges.Length)
 
   [<TestMethod>]
@@ -59,7 +59,7 @@ type MutablePersistentDiGraphTests() =
        graph it was taken from has moved on. *)
     Assert.AreEqual<int>(0, taken.Edges.Length)
     Assert.AreEqual<int>(1, ig.Edges.Length)
-    Assert.AreEqual<int>(2, taken.Size)
+    Assert.AreEqual<int>(2, taken.VertexCount)
     let v3 = ig.AddVertex 3
     Assert.AreEqual<bool>(false, taken.Contains v3)
     Assert.AreEqual<bool>(true, ig.Contains v3)
@@ -72,8 +72,8 @@ type MutablePersistentDiGraphTests() =
     g.AddEdge(v1, v2, 10)
     let g2 = g.Clone()
     g2.RemoveVertex(g2.FindVertexByID v2.ID)
-    Assert.AreEqual<int>(2, g.Size)
-    Assert.AreEqual<int>(1, g2.Size)
+    Assert.AreEqual<int>(2, g.VertexCount)
+    Assert.AreEqual<int>(1, g2.VertexCount)
     Assert.AreEqual<int>(1, g.Edges.Length)
     Assert.AreEqual<int>(0, g2.Edges.Length)
     (* A clone continues to number its vertices where the original left off. *)
@@ -93,9 +93,9 @@ type MutablePersistentDiGraphTests() =
     Assert.AreEqual<int>(1, g.Edges.Length)
     Assert.AreEqual<int>(10, g.FindEdge(v1, v2).Label)
     (* The first vertex added becomes the root, as in any other graph. *)
-    CollectionAssert.AreEqual([| v1.ID |], g.GetRoots() |> Array.map (_.ID))
+    CollectionAssert.AreEqual([| v1.ID |], g.Roots |> Array.map (_.ID))
     g.SetRoots [| v2 |]
-    CollectionAssert.AreEqual([| v2.ID |], g.GetRoots() |> Array.map (_.ID))
+    CollectionAssert.AreEqual([| v2.ID |], g.Roots |> Array.map (_.ID))
     Assert.AreEqual<ImplementationType>(Persistent, g.ImplementationType)
 
   [<TestMethod>]

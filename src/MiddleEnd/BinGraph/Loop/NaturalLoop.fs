@@ -43,10 +43,11 @@ open B2R2.MiddleEnd.BinGraph
 let private findBackEdges g =
   let df = Dominance.CytronDominanceFrontier()
   let dom = Dominance.LengauerTarjanDominance.create g df
-  g.FoldEdge((fun acc edge ->
+  let collect acc (edge: Edge<_, _>) =
     match dom.Dominators edge.First with
     | ds when ds |> Seq.exists (fun v -> v = edge.Second) -> edge :: acc
-    | _ -> acc), [])
+    | _ -> acc
+  g |> DiGraph.foldEdge collect []
 
 let private findNaturalLoopBody g (edge: Edge<_, _>) =
   let body = HashSet()

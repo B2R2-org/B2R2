@@ -27,7 +27,7 @@ namespace B2R2.MiddleEnd.BinGraph
 /// Represents a persistent directed graph.
 type PersistentDiGraph<'V, 'E
   when 'V: equality
-  and 'E: equality>(roots, vs, preds, succs, id) =
+  and 'E: equality> private(roots, vs, preds, succs, id, edges) =
   let vertices: Map<VertexID, IVertex<'V>> = vs
 
   let preds: Map<VertexID, Edge<'V, 'E> list> = preds
@@ -35,6 +35,11 @@ type PersistentDiGraph<'V, 'E
   let succs: Map<VertexID, Edge<'V, 'E> list> = succs
 
   let id: VertexID = id
+
+  (* Counting the edges of the adjacency maps would walk every one of them, so
+     the count rides along instead, every operation below handing on the one
+     it leaves behind. *)
+  let edgeCount: int = edges
 
   (* The vertices, preds, and succs maps always share the same key set. *)
   let findVertex vid =
@@ -105,7 +110,8 @@ type PersistentDiGraph<'V, 'E
     let vertices = Map.add vid v vertices
     let preds = Map.add vid [] preds
     let succs = Map.add vid [] succs
-    let g = PersistentDiGraph(roots, vertices, preds, succs, nextvid)
+    let g =
+      PersistentDiGraph(roots, vertices, preds, succs, nextvid, edgeCount)
     struct (v, g)
 
   let addVertexWithData (data: VertexData<'V>) =
@@ -126,51 +132,66 @@ type PersistentDiGraph<'V, 'E
     let dstid = dst.ID
     let outgoings = findEdges srcid succs
     if outgoings |> List.exists (fun e -> e.Second.ID = dstid) then
-      PersistentDiGraph(roots, vertices, preds, succs, id)
+      PersistentDiGraph(roots, vertices, preds, succs, id, edgeCount)
     else
       let edge = Edge(src, dst, label)
       let succs = Map.add srcid (edge :: outgoings) succs
       let preds = Map.add dstid (edge :: findEdges dstid preds) preds
-      PersistentDiGraph(roots, vertices, preds, succs, id)
+      PersistentDiGraph(roots, vertices, preds, succs, id, edgeCount + 1)
 
+  (* A self-loop is gone once the incoming edges are, hence taking the length
+     of the outgoing ones afterwards counts it but the once. *)
   let removeVertex (v: IVertex<'V>) =
     checkVertexExistence v
-    let succs = findEdges v.ID preds |> List.fold removeSuccEdge succs
-    let preds = findEdges v.ID succs |> List.fold removePredEdge preds
+    let incoming = findEdges v.ID preds
+    let succs = incoming |> List.fold removeSuccEdge succs
+    let outgoing = findEdges v.ID succs
+    let preds = outgoing |> List.fold removePredEdge preds
     let vertices = Map.remove v.ID vertices
     let preds = Map.remove v.ID preds
     let succs = Map.remove v.ID succs
     let roots = List.filter (fun r -> r <> v) roots
-    PersistentDiGraph(roots, vertices, preds, succs, id)
+    let gone = List.length incoming + List.length outgoing
+    PersistentDiGraph(roots, vertices, preds, succs, id, edgeCount - gone)
 
+  (* Removing an edge that is not there changes nothing, the count included. *)
   let removeEdge (edge: Edge<'V, 'E>) =
     checkVertexExistence edge.First
     checkVertexExistence edge.Second
+    let dstid = edge.Second.ID
+    let existed =
+      findEdges edge.First.ID succs
+      |> List.exists (fun e -> e.Second.ID = dstid)
     let preds = removePredEdge preds edge
     let succs = removeSuccEdge succs edge
-    PersistentDiGraph(roots, vertices, preds, succs, id)
+    let n = if existed then edgeCount - 1 else edgeCount
+    PersistentDiGraph(roots, vertices, preds, succs, id, n)
 
   let addRoot v =
     checkVertexExistence v
     let roots = if List.contains v roots then roots else v :: roots
-    PersistentDiGraph(roots, vertices, preds, succs, id)
+    PersistentDiGraph(roots, vertices, preds, succs, id, edgeCount)
 
   let setRoots vs =
     let roots = Seq.toList vs
     roots |> List.iter checkVertexExistence
-    PersistentDiGraph(roots, vertices, preds, succs, id)
+    PersistentDiGraph(roots, vertices, preds, succs, id, edgeCount)
 
-  new() = PersistentDiGraph([], Map.empty, Map.empty, Map.empty, 0)
+  new() = PersistentDiGraph([], Map.empty, Map.empty, Map.empty, 0, 0)
 
   interface IDiGraphAccessible<'V, 'E> with
 
-    member _.Size with get() = vertices.Count
+    member _.VertexCount with get() = vertices.Count
+
+    member _.EdgeCount with get() = edgeCount
 
     member _.Vertices with get() = GraphUtils.toArray vertices.Values
 
     member _.Edges with get() = succs.Values |> Seq.concat |> Seq.toArray
 
     member _.Exits with get() = verticesWithNoEdge succs
+
+    member _.Roots with get() = List.toArray roots
 
     member _.SingleRoot with get() =
       match roots with
@@ -180,7 +201,7 @@ type PersistentDiGraph<'V, 'E
 
     member _.ImplementationType with get() = Persistent
 
-    member _.IsEmpty() = vertices.Count = 0
+    member _.IsEmpty with get() = vertices.Count = 0
 
     member _.Contains v = isOwnVertex v
 
@@ -236,24 +257,10 @@ type PersistentDiGraph<'V, 'E
     member _.GetSuccEdges(v: IVertex<'V>) =
       getSuccEdges v |> GraphUtils.toReversedArray
 
-    member _.GetRoots() = roots |> List.toArray
-
     member this.Reverse(vs) =
       let out = MutablePersistentDiGraph(PersistentDiGraph<'V, 'E>())
       DiGraph.reverseInto this vs out
       out.Snapshot
-
-    member _.FoldVertex(fn, acc) = vertices.Values |> Seq.fold fn acc
-
-    member _.IterVertex fn = vertices.Values |> Seq.iter fn
-
-    member _.FoldEdge(fn, acc) =
-      succs.Values
-      |> Seq.fold (fun acc edges ->
-        List.fold fn acc edges) acc
-
-    member _.IterEdge fn =
-      succs.Values |> Seq.iter (fun edges -> List.iter fn edges)
 
   interface IPersistentDiGraph<'V, 'E> with
 

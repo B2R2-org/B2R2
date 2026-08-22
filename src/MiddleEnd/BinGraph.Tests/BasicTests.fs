@@ -44,8 +44,8 @@ type BasicTests() =
     let s1 = DFS.foldPostorder g sum 0
     let s2 = DFS.foldRevPostorder g sum 0
     let s3 = DFS.foldPreorder g sum 0
-    let s4 = g.FoldVertex(sum, 0)
-    let s5 = g.FoldEdge(inc, 0)
+    let s4 = g |> DiGraph.foldVertex sum 0
+    let s5 = g |> DiGraph.foldEdge inc 0
     Assert.AreEqual<int>(21, s1)
     Assert.AreEqual<int>(21, s2)
     Assert.AreEqual<int>(21, s3)
@@ -86,8 +86,8 @@ type BasicTests() =
     g2.FindVertexByData 3 |> g2.RemoveVertex
     let s1 = DFS.foldPreorder g1 sum 0
     let s2 = DFS.foldPreorder g2 sum 0
-    Assert.AreEqual<int>(6, g1.Size)
-    Assert.AreEqual<int>(5, g2.Size)
+    Assert.AreEqual<int>(6, g1.VertexCount)
+    Assert.AreEqual<int>(5, g2.VertexCount)
     Assert.AreEqual<int>(21, s1)
     Assert.AreEqual<int>(18, s2)
 
@@ -99,11 +99,12 @@ type BasicTests() =
     let s1 = DFS.foldPreorder g1 sum 0
     let s2 = DFS.foldPreorder g2 sum 0
     let lst =
-      g2.FoldEdge((fun acc e -> (e.First.VData, e.Second.VData) :: acc), [])
+      g2 |> DiGraph.foldEdge (fun acc e ->
+        (e.First.VData, e.Second.VData) :: acc) []
     let edges = List.sort lst |> List.toArray
     let solution = [| (2, 1); (2, 5); (3, 2); (4, 2); (5, 3); (5, 4); (6, 2) |]
-    Assert.AreEqual<int>(6, g1.Size)
-    Assert.AreEqual<int>(6, g2.Size)
+    Assert.AreEqual<int>(6, g1.VertexCount)
+    Assert.AreEqual<int>(6, g2.VertexCount)
     Assert.AreEqual<int>(21, s1)
     Assert.AreEqual<int>(21, s2)
     CollectionAssert.AreEqual(edges, solution)
@@ -130,7 +131,7 @@ type BasicTests() =
     Assert.Throws<System.ArgumentException>(fun () ->
       g.AddVertex(1, -1) |> ignore)
     |> ignore
-    Assert.AreEqual<int>(0, g.Size)
+    Assert.AreEqual<int>(0, g.VertexCount)
     let v = g.AddVertex(1, 42)
     Assert.AreEqual<int>(42, v.ID)
 
@@ -185,7 +186,30 @@ type BasicTests() =
     Assert.Throws<VertexNotFoundException>(fun () ->
       g.SetRoots [| foreign |])
     |> ignore
-    CollectionAssert.AreEqual([| 1 |], g.GetRoots() |> Array.map (_.VData))
+    CollectionAssert.AreEqual([| 1 |], g.Roots |> Array.map (_.VData))
+
+  [<TestMethod>]
+  [<DynamicData(nameof BasicTests.GraphTypes)>]
+  member _.``Edge Count Test``(t) =
+    (* The persistent graph carries its edge count along rather than walking
+       the adjacency lists for it, so every operation has to hand on the count
+       it leaves behind. *)
+    let g, vmap = digraph1 t
+    let check () = Assert.AreEqual<int>(g.Edges.Length, g.EdgeCount)
+    check ()
+    g.AddEdge(vmap[1], vmap[3], 99)
+    check ()
+    g.AddEdge(vmap[1], vmap[3], 100)
+    check ()
+    g.RemoveEdge(vmap[1], vmap[3])
+    check ()
+    g.RemoveEdge(vmap[1], vmap[3])
+    check ()
+    g.AddEdge(vmap[2], vmap[2], 101)
+    check ()
+    g.RemoveVertex vmap[2]
+    check ()
+    Assert.AreEqual<int>(0, (emptyDigraph t).EdgeCount)
 
   [<TestMethod>]
   [<DynamicData(nameof BasicTests.GraphTypes)>]
@@ -255,7 +279,7 @@ type BasicTests() =
        existing edge is kept, too. *)
     g.AddEdge(src, dst, 99)
     Assert.AreEqual<int>(7, g.Edges.Length)
-    Assert.AreEqual<int>(28, g.FoldEdge(inc, 0))
+    Assert.AreEqual<int>(28, g |> DiGraph.foldEdge inc 0)
     Assert.AreEqual<int>(1, (g.GetSuccEdges src).Length)
     Assert.AreEqual<int>(2, (g.GetPredEdges dst).Length)
     Assert.AreEqual<int>(1, g.FindEdge(src, dst).Label)
@@ -269,7 +293,7 @@ type BasicTests() =
     let vertexIDs (g: IDiGraphAccessible<_, _>) =
       g.Vertices |> Array.map (fun v -> v.ID) |> Array.sort
     let rootIDs (g: IDiGraphAccessible<_, _>) =
-      g.GetRoots() |> Array.map (fun v -> v.ID)
+      g.Roots |> Array.map (fun v -> v.ID)
     let edgeTriples (g: IDiGraphAccessible<_, _>) =
       g.Edges
       |> Array.map (fun e -> e.First.ID, e.Second.ID, e.Label)
@@ -352,4 +376,4 @@ type BasicTests() =
     Assert.AreEqual<bool>(true, v1.HasData)
     Assert.AreEqual<bool>(false, v2.HasData)
     Assert.AreEqual<bool>(false, e.HasLabel)
-    CollectionAssert.AreEqual([| v2.ID |], r.GetRoots() |> Array.map (_.ID))
+    CollectionAssert.AreEqual([| v2.ID |], r.Roots |> Array.map (_.ID))

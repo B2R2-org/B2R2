@@ -99,7 +99,8 @@ let addDummyNodesRemovedBackEdge vGraph (backEdges, dummies) (src, dst, edge) =
   addDummy vGraph (backEdges, dummies) k width dagSrc dagDst edge (delta - 1)
 
 let assignDummyNodes (vGraph: VisGraph) backEdges =
-  let backEdges, longEdges = vGraph.FoldEdge(collectLongEdges, (backEdges, []))
+  let backEdges, longEdges =
+    vGraph |> DiGraph.foldEdge collectLongEdges (backEdges, [])
   let removedLongBackEdges, backEdges =
     backEdges
     |> List.partition (fun (s: IVertex<VisBBlock>, d: IVertex<VisBBlock>, e) ->

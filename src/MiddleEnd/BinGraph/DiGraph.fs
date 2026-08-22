@@ -22,9 +22,29 @@
   SOFTWARE.
 *)
 
-/// Provides functions that build a new directed graph out of an existing one.
+/// Provides functions over a directed graph: ones that walk it, and ones that
+/// build a new graph out of it.
 [<RequireQualifiedAccess>]
 module B2R2.MiddleEnd.BinGraph.DiGraph
+
+/// Folds every vertex of the given graph. The order can be arbitrary.
+[<CompiledName "FoldVertex">]
+let foldVertex fn acc (g: #IDiGraphAccessible<'V, 'E>) =
+  Array.fold fn acc g.Vertices
+
+/// Iterates every vertex of the given graph. The order can be arbitrary.
+[<CompiledName "IterVertex">]
+let iterVertex fn (g: #IDiGraphAccessible<'V, 'E>) =
+  Array.iter fn g.Vertices
+
+/// Folds every edge of the given graph. The order can be arbitrary.
+[<CompiledName "FoldEdge">]
+let foldEdge fn acc (g: #IDiGraphAccessible<'V, 'E>) =
+  Array.fold fn acc g.Edges
+
+/// Iterates every edge of the given graph. The order can be arbitrary.
+[<CompiledName "IterEdge">]
+let iterEdge fn (g: #IDiGraphAccessible<'V, 'E>) = Array.iter fn g.Edges
 
 /// Fills in the given empty graph with the transpose (i.e., the reverse) of
 /// the given graph, and uses the given vertices as the roots of the result.
@@ -33,8 +53,8 @@ module B2R2.MiddleEnd.BinGraph.DiGraph
 [<CompiledName "ReverseInto">]
 let reverseInto g roots (out: IMutableDiGraph<'V, 'E>) =
   let g: IDiGraphAccessible<'V, 'E> = g
-  g.IterVertex(fun v -> out.AddVertexCopy v |> ignore)
-  g.IterEdge(fun e ->
+  g |> iterVertex (fun v -> out.AddVertexCopy v |> ignore)
+  g |> iterEdge (fun e ->
     let src = out.FindVertexByID e.First.ID
     let dst = out.FindVertexByID e.Second.ID
     if e.HasLabel then

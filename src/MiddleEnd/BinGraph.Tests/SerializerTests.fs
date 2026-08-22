@@ -117,10 +117,10 @@ type SerializerTests() =
   [<DynamicData(nameof SerializerTests.GraphTypes)>]
   member _.``Import a graph having missing fields``(t) =
     let empty = importGraph t "{}"
-    Assert.AreEqual<int>(0, empty.Size)
+    Assert.AreEqual<int>(0, empty.VertexCount)
     let json = """{ "roots": [ 1 ], "vertices": [ { "id": 1 } ] }"""
     let g = importGraph t json
-    Assert.AreEqual<int>(1, g.Size)
+    Assert.AreEqual<int>(1, g.VertexCount)
     Assert.AreEqual<int>(-1, (g.FindVertexByID 1).VData)
 
   [<TestMethod>]
@@ -142,4 +142,4 @@ type SerializerTests() =
         assertInvalidGraph (fun () ->
           Serializer.FromJson(json, g, strToInt, strToInt) |> ignore)
         g
-    Assert.AreEqual<int>(0, g.Size)
+    Assert.AreEqual<int>(0, g.VertexCount)

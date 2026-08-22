@@ -56,7 +56,7 @@ type internal LTDomInfo<'V when 'V: equality> =
 
 let private initDomInfo (g: IDiGraphAccessible<_, _>) =
   (* To reserve a room for entry (dummy) node. *)
-  let len = g.Size + 1
+  let len = g.VertexCount + 1
   { DFPre = Dictionary<VertexID, int>()
     Vertex = Array.zeroCreate len
     Label = Array.create len 0
@@ -65,7 +65,7 @@ let private initDomInfo (g: IDiGraphAccessible<_, _>) =
     Semi = Array.create len 0
     IDom = Array.create len -1
     MaxLength = len
-    Roots = g.GetRoots() }
+    Roots = g.Roots }
 
 let inline private dfpre (info: LTDomInfo<_>) (v: IVertex<_>) = info.DFPre[v.ID]
 

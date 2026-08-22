@@ -132,7 +132,7 @@ let private vAlign (vGraph: VisGraph) vLayout maxLayer conflicts vDir hDir =
     | Bottommost -> [ (maxLayer - 1) .. -1 .. 0 ], vGraph.GetSuccs
   let root = VertexMap()
   let align = VertexMap()
-  vGraph.IterVertex(fun v -> root[v] <- v; align[v] <- v)
+  vGraph |> DiGraph.iterVertex (fun v -> root[v] <- v; align[v] <- v)
   layers
   |> List.iter (fun i ->
     let vertices = getLayerByDirection vLayout i hDir
@@ -231,7 +231,7 @@ let hCompact vGraph vLayout root align hDir =
   let shift = FloatMap()
   let xs = FloatMap()
   let blockMaxWidths = computeBlockMaxWidths root align
-  (vGraph: VisGraph).IterVertex(fun v ->
+  (vGraph: VisGraph) |> DiGraph.iterVertex (fun v ->
     sink[v] <- v
     shift[v] <-
       if hDir = Leftmost then Double.PositiveInfinity
@@ -240,14 +240,14 @@ let hCompact vGraph vLayout root align hDir =
   )
   (* The first iteration for (1) initializing the shift values and (2)
      x-coordinates of the root blocks. *)
-  vGraph.IterVertex(fun v ->
+  vGraph |> DiGraph.iterVertex (fun v ->
     if root[v] = v
     then placeBlock vLayout hDir root align sink shift xs blockMaxWidths v
     else ()
   )
   (* The second iteration for assigning the x-coordinates to all blocks. *)
   let newXs = FloatMap()
-  vGraph.IterVertex(fun v ->
+  vGraph |> DiGraph.iterVertex (fun v ->
     let s = shift[sink[root[v]]]
     let x = xs[root[v]]
     newXs[v] <- if Double.IsFinite(s) then x + s else x
@@ -375,10 +375,10 @@ let private adjustIsolatedLayerNodePosition (vGraph: VisGraph) vLayout =
 
 let adjustCoordinates (vGraph: VisGraph) vLayout =
   adjustIsolatedLayerNodePosition vGraph vLayout
-  let leftMost = vGraph.FoldVertex(getLeftCoordinate, []) |> List.min
-  let rightMost = vGraph.FoldVertex(getRightCoordinate, []) |> List.max
+  let leftMost = vGraph |> DiGraph.foldVertex getLeftCoordinate [] |> List.min
+  let rightMost = vGraph |> DiGraph.foldVertex getRightCoordinate [] |> List.max
   let width = rightMost - leftMost
-  shiftXCoordinate (rightMost - width / 2.0) |> vGraph.IterVertex
+  vGraph |> DiGraph.iterVertex (shiftXCoordinate (rightMost - width / 2.0))
 
 let run vGraph vLayout =
   assignXCoordinates vGraph vLayout

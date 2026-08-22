@@ -48,12 +48,12 @@ type private CPDomInfo<'V when 'V: equality> =
 
 let private initDomInfo (g: IDiGraphAccessible<_, _>) =
   (* To reserve a room for entry (dummy) node. *)
-  let len = g.Size + 1
+  let len = g.VertexCount + 1
   { NumMap = Dictionary<VertexID, int>()
     Vertex = Array.zeroCreate len
     IDom = Array.create len -1
     Preds = Array.zeroCreate len
-    Roots = g.GetRoots()
+    Roots = g.Roots
     DummyNum = len }
 
 (* A predecessor unreachable from the roots has no number assigned, so it

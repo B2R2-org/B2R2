@@ -44,7 +44,7 @@ let private convert iGraph charWidth charHeight =
 
 /// Converts the given graph to JSON format.
 let toJSON (iGraph: IDiGraphAccessible<_, _>) roots charWidth charHeight =
-  if iGraph.Size = 0 then
+  if iGraph.VertexCount = 0 then
     "{}"
   else
     match convert iGraph charWidth charHeight with
@@ -53,7 +53,7 @@ let toJSON (iGraph: IDiGraphAccessible<_, _>) roots charWidth charHeight =
 
 /// Converts the given graph to a VisGraph for visualization.
 let toVisGraph (iGraph: IDiGraphAccessible<_, _>) charWidth charHeight =
-  if iGraph.Size = 0 then
+  if iGraph.VertexCount = 0 then
     VisGraph.init ()
   else
 #if DEBUG

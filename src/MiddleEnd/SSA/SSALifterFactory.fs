@@ -111,17 +111,17 @@ module private SSALifterFactory =
 #else
     getVertex stmtProcessor vMap ssaCFG cfg.Roots[0] |> ignore
 #endif
-    cfg.IterEdge(fun e ->
+    cfg |> DiGraph.iterEdge (fun e ->
       let src, dst = e.First, e.Second
       let srcV = getVertex stmtProcessor vMap ssaCFG src
       let dstV = getVertex stmtProcessor vMap ssaCFG dst
       ssaCFG.AddEdge(srcV, dstV, e.Label)
     )
 
-  let computeDominatorInfo g =
+  let computeDominatorInfo (g: SSACFG) =
     let df = Dominance.CooperDominanceFrontier()
     let dom = Dominance.LengauerTarjanDominance.create g df
-    g.IterVertex(fun (v: SSAVertex) ->
+    g |> DiGraph.iterVertex (fun (v: SSAVertex) ->
       let idom = dom.ImmediateDominator v
       v.VData.ImmDominator <- if isNull idom then None else Some idom
       v.VData.DomFrontier <- Seq.toList (dom.DominanceFrontier v))
@@ -320,7 +320,7 @@ module private SSALifterFactory =
 #if DEBUG
     rename g domTree count stack g.SingleRoot
 #else
-    rename g domTree count stack (g.GetRoots()[0])
+    rename g domTree count stack (g.Roots[0])
 #endif
 
   /// Add phis and rename all the variables in the SSACFG.
@@ -435,10 +435,12 @@ module private SSALifterFactory =
           convertToSSA stmtProcessor cfg ssaCFG
           let dom = computeDominatorInfo ssaCFG
           updatePhis ssaCFG dom
-          ssaCFG.IterVertex(fun v -> v.VData.Internals.UpdatePPoints())
+          ssaCFG |> DiGraph.iterVertex (fun v ->
+            v.VData.Internals.UpdatePPoints())
           promote hdl ssaCFG callback
           updatePhis ssaCFG dom
-          ssaCFG.IterVertex(fun v -> v.VData.Internals.UpdatePPoints())
+          ssaCFG |> DiGraph.iterVertex (fun v ->
+            v.VData.Internals.UpdatePPoints())
           ssaCFG }
 
 /// The factory for SSA lifter.

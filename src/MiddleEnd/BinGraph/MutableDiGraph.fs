@@ -189,13 +189,17 @@ type MutableDiGraph<'V, 'E when 'V: equality and 'E: equality>
 
   interface IDiGraphAccessible<'V, 'E> with
 
-    member _.Size with get() = vertices.Count
+    member _.VertexCount with get() = vertices.Count
+
+    member _.EdgeCount with get() = edges.Count
 
     member _.Vertices with get() = GraphUtils.toArray vertices.Values
 
     member _.Edges with get() = GraphUtils.toArray edges.Values
 
     member _.Exits with get() = GraphUtils.toArray exits
+
+    member _.Roots with get() = GraphUtils.toArray roots
 
     member _.SingleRoot with get() =
       match roots.Count with
@@ -205,7 +209,7 @@ type MutableDiGraph<'V, 'E when 'V: equality and 'E: equality>
 
     member _.ImplementationType with get() = Mutable
 
-    member _.IsEmpty() = vertices.Count = 0
+    member _.IsEmpty with get() = vertices.Count = 0
 
     member _.Contains v = isOwnVertex v
 
@@ -260,20 +264,10 @@ type MutableDiGraph<'V, 'E when 'V: equality and 'E: equality>
     member _.GetSuccEdges(v: IVertex<'V>) =
       if isOwnVertex v then GraphUtils.toArray succs[v.ID] else [||]
 
-    member _.GetRoots() = GraphUtils.toArray roots
-
     member this.Reverse vs =
       let out = MutableDiGraph<'V, 'E>()
       DiGraph.reverseInto this vs out
       out
-
-    member _.FoldVertex(fn, acc) = vertices.Values |> Seq.fold fn acc
-
-    member _.IterVertex fn = vertices.Values |> Seq.iter fn
-
-    member _.FoldEdge(fn, acc) = edges.Values |> Seq.fold fn acc
-
-    member _.IterEdge fn = edges.Values |> Seq.iter fn
 
   interface IMutableDiGraph<'V, 'E> with
 

@@ -83,21 +83,21 @@ module JSONExport =
       |> List.map (fun r -> (r.VData :> IVisualizable).BlockAddress)
       |> List.toArray
     let nodes =
-      g.FoldVertex((fun acc v ->
+      g |> DiGraph.foldVertex (fun acc v ->
         let vData = v.VData :> IVisualizable
         { PPoint = vData.BlockAddress
           Terms = vData.Visualize() |> getJSONTerms
           Width = v.VData.Width
           Height = v.VData.Height
           Coordinate = { X = v.VData.Coordinate.X
-                         Y = v.VData.Coordinate.Y } } :: acc), [])
+                         Y = v.VData.Coordinate.Y } } :: acc) []
       |> List.toArray
     let edges =
-      g.FoldEdge((fun acc e ->
+      g |> DiGraph.foldEdge (fun acc e ->
         let e = e.Label
         { Type = CFGEdgeKind.toString e.Type
           Points = e.Points |> Array.map (fun p -> { X = p.X; Y = p.Y })
-          IsBackEdge = e.IsBackEdge } :: acc), [])
+          IsBackEdge = e.IsBackEdge } :: acc) []
       |> List.toArray
     { Roots = roots; Nodes = nodes; Edges = edges }
 
