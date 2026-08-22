@@ -55,7 +55,7 @@ let private foldPreorderCore visited g fn acc vs =
     stack.Push v
     while stack.Count > 0 do
       let v = stack.Pop()
-      if (visited: HashSet<_>).Add v.ID then
+      if (visited: HashSet<_>).Add v then
         acc <- fn acc v
         pushSuccsRev g stack v
       else
@@ -77,7 +77,7 @@ let private foldPostorderCore visited g fn acc vs =
   let stack = Stack<struct (IVertex<_> * IVertex<_>[] * int)>()
   let mutable acc = acc
   for v: IVertex<_> in vs do
-    if (visited: HashSet<_>).Add v.ID then
+    if (visited: HashSet<_>).Add v then
       pushSuccs g stack v
       while stack.Count > 0 do
         let struct (v, succs, i) = stack.Pop()
@@ -86,7 +86,7 @@ let private foldPostorderCore visited g fn acc vs =
         else
           stack.Push(struct (v, succs, i + 1))
           let s = succs[i]
-          if visited.Add s.ID then pushSuccs g stack s else ()
+          if visited.Add s then pushSuccs g stack s else ()
     else
       ()
   acc
@@ -112,7 +112,7 @@ let private iterInReverse fn (buf: List<IVertex<_>>) =
 /// traversal, starting from the given root vertices.
 [<CompiledName "FoldPreorderWithRoots">]
 let foldPreorderWithRoots g roots fn acc =
-  let visited = HashSet<VertexID>()
+  let visited = HashSet<IVertex<_>>()
   foldPreorderCore visited g fn acc roots
 
 /// Folds vertices of the graph in a depth-first manner with the preorder
@@ -120,7 +120,7 @@ let foldPreorderWithRoots g roots fn acc =
 /// unreachable ones. For those unreachable vertices, the order is random.
 [<CompiledName "FoldPreorder">]
 let foldPreorder (g: IDiGraph<_, _>) fn acc =
-  let visited = HashSet<VertexID>()
+  let visited = HashSet<IVertex<_>>()
   let acc = foldPreorderCore visited g fn acc (g.Roots)
   (* fold unreachable vertices, too. *)
   foldPreorderCore visited g fn acc g.Vertices
@@ -141,7 +141,7 @@ let iterPreorder g fn = foldPreorder g (fun () v -> fn v) ()
 /// traversal, starting from the given root vertices.
 [<CompiledName "FoldPostorderWithRoots">]
 let foldPostorderWithRoots g roots fn acc =
-  let visited = HashSet<VertexID>()
+  let visited = HashSet<IVertex<_>>()
   foldPostorderCore visited g fn acc roots
 
 /// Folds vertices of the graph in a depth-first manner with the postorder
@@ -149,7 +149,7 @@ let foldPostorderWithRoots g roots fn acc =
 /// unreachable ones. For those unreachable vertices, the order is random.
 [<CompiledName "FoldPostorder">]
 let foldPostorder (g: IDiGraph<_, _>) fn acc =
-  let visited = HashSet<VertexID>()
+  let visited = HashSet<IVertex<_>>()
   let acc = foldPostorderCore visited g fn acc (g.Roots)
   (* fold unreachable vertices, too. *)
   foldPostorderCore visited g fn acc g.Vertices

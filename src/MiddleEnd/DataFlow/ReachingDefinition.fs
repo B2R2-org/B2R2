@@ -40,9 +40,9 @@ type InsAndOuts =
 
 /// Computes reaching definitions for each vertex in a CFG.
 type ReachingDefinitionAnalysis() =
-  let gens = Dictionary<VertexID, Set<VarPoint>>()
+  let gens = Dictionary<IVertex<LowUIRBasicBlock>, Set<VarPoint>>()
 
-  let kills = Dictionary<VertexID, Set<VarPoint>>()
+  let kills = Dictionary<IVertex<LowUIRBasicBlock>, Set<VarPoint>>()
 
   let findDefs (v: IVertex<LowUIRBasicBlock>) =
     v.VData.Internals.LiftedInstructions
@@ -63,25 +63,23 @@ type ReachingDefinitionAnalysis() =
 
   let initGensAndKills (g: IDiGraph<LowUIRBasicBlock, _>) =
     let vpPerVar = Dictionary<VarKind, Set<VarPoint>>()
-    let vpPerVertex = Dictionary<VertexID, VarPoint list>()
+    let vpPerVertex = Dictionary<IVertex<LowUIRBasicBlock>, VarPoint list>()
     g |> DiGraph.iterVertex (fun v ->
-      let vid = v.ID
       let defs = findDefs v
-      gens[vid] <- defs |> Set.ofList
-      vpPerVertex[vid] <- defs
+      gens[v] <- defs |> Set.ofList
+      vpPerVertex[v] <- defs
       defs |> List.iter (fun ({ VarKind = v } as vp) ->
         if vpPerVar.ContainsKey v then vpPerVar[v] <- Set.add vp vpPerVar[v]
         else vpPerVar[v] <- Set.singleton vp
       )
     )
     g |> DiGraph.iterVertex (fun v ->
-      let vid = v.ID
-      let defVarPoints = vpPerVertex[vid]
+      let defVarPoints = vpPerVertex[v]
       let vars = defVarPoints |> List.map (fun vp -> vp.VarKind)
       let vps = defVarPoints |> Set.ofList
       let alldefs =
         vars |> List.fold (fun acc v -> Set.union acc vpPerVar[v]) Set.empty
-      kills[vid] <- Set.difference alldefs vps
+      kills[v] <- Set.difference alldefs vps
     )
 
   let lattice =
@@ -96,31 +94,31 @@ type ReachingDefinitionAnalysis() =
   let st = ReachingDefinitionState lattice
 
   let analysis (g: IDiGraph<_, _>) =
-    { new WorklistDataFlow.IScheme<VertexID, InsAndOuts> with
-        member _.Transfer vid =
+    { new WorklistDataFlow.IScheme<IVertex<LowUIRBasicBlock>, InsAndOuts> with
+        member _.Transfer v =
           let ins =
-            g.FindVertexByID vid
-            |> g.GetPreds
+            g.GetPreds v
             |> Seq.fold (fun acc pred ->
-              let vid = pred.ID
-              let absValue = (st :> IAbsValProvider<_, _>).GetAbsValue vid
+              let absValue = (st :> IAbsValProvider<_, _>).GetAbsValue pred
               let outs = absValue.Outs
               Set.union acc outs) Set.empty
-          let outs = Set.union gens[vid] (Set.difference ins kills[vid])
+          let outs = Set.union gens[v] (Set.difference ins kills[v])
           { Ins = ins; Outs = outs }
 
-        member _.GetNextWorks(vid) = [| vid |] }
+        member _.GetNextWorks(v) = [| v |] }
 
-  interface IDataFlowComputable<VertexID,
+  interface IDataFlowComputable<IVertex<LowUIRBasicBlock>,
                                 InsAndOuts,
                                 ReachingDefinitionState,
                                 LowUIRBasicBlock> with
     member _.Compute cfg =
       initGensAndKills cfg
-      let lst = List<VertexID>()
-      Traversal.DFS.iterRevPostorder cfg (fun v -> lst.Add v.ID)
+      let lst = List<IVertex<LowUIRBasicBlock>>()
+      Traversal.DFS.iterRevPostorder cfg lst.Add
       WorklistDataFlow.compute lst lattice (analysis cfg) st
 
 /// Type alias for the state of the reaching definition analysis.
 and internal ReachingDefinitionState =
-  WorklistDataFlow.State<VertexID, InsAndOuts, LowUIRBasicBlock>
+  WorklistDataFlow.State<IVertex<LowUIRBasicBlock>,
+                         InsAndOuts,
+                         LowUIRBasicBlock>

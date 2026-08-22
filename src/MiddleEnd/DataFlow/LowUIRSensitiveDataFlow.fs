@@ -1094,18 +1094,18 @@ module internal AnalysisCore = begin
     | false, _ ->
       ()
     | true, (src, srcExeCtx, dst) ->
+      (* A flow queued before the graph was rebuilt can name a vertex the
+         graph no longer holds, and such a flow leads nowhere. *)
       if not <| subState.ExecutedFlows.Add(src, srcExeCtx, dst) then
         ()
+      elif not <| (g: IDiGraph<_, _>).Contains dst then
+        ()
       else
-        match (g: IDiGraph<_, _>).TryFindVertexByID dst.ID with
-        | Some dst ->
-          match tryGetSuccessorExeCtx g state src srcExeCtx dst with
-          | None ->
-            () (* Prune infeasible flow. *)
-          | Some dstExeCtx ->
-            transferFlow g state subState dst dstExeCtx fnTransfer
+        match tryGetSuccessorExeCtx g state src srcExeCtx dst with
         | None ->
-          ()
+          () (* Prune infeasible flow. *)
+        | Some dstExeCtx ->
+          transferFlow g state subState dst dstExeCtx fnTransfer
 
   let registerPendingVertices state subState =
     let subState = subState :> SubState<_, _>

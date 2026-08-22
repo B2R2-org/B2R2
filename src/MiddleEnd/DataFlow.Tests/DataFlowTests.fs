@@ -118,7 +118,8 @@ type DataFlowTests() =
     let dfa = ReachingDefinitionAnalysis() :> IDataFlowComputable<_, _, _, _>
     let state = dfa.Compute cfg
     let v = cfg.FindVertex(fun b -> b.VData.Internals.PPoint.Address = 0xEUL)
-    let rd = (state :> IAbsValProvider<_, _>).GetAbsValue v.ID (* 2nd vertex *)
+    (* v is the second vertex of the CFG. *)
+    let rd = (state :> IAbsValProvider<_, _>).GetAbsValue v
     let ins = rd.Ins |> Set.filter isRegular
     let solution =
       [ reg 0x0UL 1 Register.EDX

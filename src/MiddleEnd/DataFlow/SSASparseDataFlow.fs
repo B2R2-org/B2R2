@@ -35,6 +35,11 @@ open B2R2.FrontEnd
 open B2R2.MiddleEnd.BinGraph
 open B2R2.MiddleEnd.ControlFlowGraph
 
+/// Represents an edge of an SSA CFG as the pair of its endpoints. The source
+/// is absent for the edge into a root, which comes from no vertex at all.
+type private SSAFlowEdge =
+  (IVertex<SSABasicBlock> | null) * IVertex<SSABasicBlock>
+
 /// Represents an SSA-variable-based data flow state.
 type State<'Lattice when 'Lattice: equality>
   public(hdl: BinHandle,
@@ -54,13 +59,13 @@ type State<'Lattice when 'Lattice: equality>
 
   /// Executable edges from a vertex to another. If there is no element in this
   /// set, the edge is not executable.
-  let executableEdges = HashSet<VertexID * VertexID>()
+  let executableEdges = HashSet<SSAFlowEdge>()
 
   /// Executed edges from a vertex to another.
-  let executedEdges = HashSet<VertexID * VertexID>()
+  let executedEdges = HashSet<SSAFlowEdge>()
 
   /// Worklist for blocks.
-  let flowWorkList = Queue<VertexID * VertexID>()
+  let flowWorkList = Queue<SSAFlowEdge>()
 
   /// Represents a worklist for SSA statements, this stack stores a list of def
   /// variables, and we will use SSAEdges to find all related SSA statements.
@@ -130,19 +135,19 @@ type State<'Lattice when 'Lattice: equality>
     let preds = (ssaCFG: IDiGraph<_, _>).GetPreds blk |> Seq.toArray
     srcIDs
     |> Array.mapi (fun i srcID ->
-      if executedEdges.Contains(preds[i].ID, blk.ID) then Some srcID else None)
+      if executedEdges.Contains(preds[i], blk) then Some srcID else None)
     |> Array.choose id
 
   member _.MarkSuccessorsExecutable(ssaCFG, blk: IVertex<_>) =
     for succ in (ssaCFG: IDiGraph<_, _>).GetSuccs blk do
-      markExecutable blk.ID succ.ID
+      markExecutable blk succ
 
   member _.MarkExecutable(src, dst) = markExecutable src dst
 
   member _.GetNumIncomingExecutedEdges(ssaCFG, blk: IVertex<_>) =
     let mutable count = 0
     for pred in (ssaCFG: IDiGraph<_, _>).GetPreds blk do
-      if executedEdges.Contains(pred.ID, blk.ID) then count <- count + 1 else ()
+      if executedEdges.Contains(pred, blk) then count <- count + 1 else ()
     count
 
   member _.EvalExpr expr = scheme.EvalExpr expr
@@ -190,10 +195,8 @@ let processFlow (state: State<_>) ssaCFG =
   match state.FlowWorkList.TryDequeue() with
   | false, _ ->
     ()
-  | true, (parentId, myId) ->
-    state.ExecutedEdges.Add(parentId, myId) |> ignore
-    let g = ssaCFG :> IDiGraph<SSABasicBlock, _>
-    let blk = g.FindVertexByID myId
+  | true, (parent, blk) ->
+    state.ExecutedEdges.Add(parent, blk) |> ignore
     blk.VData.Internals.Statements
     |> Array.iter (fun (_, stmt) ->
       state.Scheme.Transfer(stmt, ssaCFG, blk))
@@ -202,7 +205,7 @@ let processFlow (state: State<_>) ssaCFG =
       ()
     | _ -> (* Fall-through cases. *)
       ssaCFG.GetSuccs blk
-      |> Seq.iter (fun succ -> state.MarkExecutable(myId, succ.ID))
+      |> Seq.iter (fun succ -> state.MarkExecutable(blk, succ))
 
 let processSSA (state: State<_>) ssaCFG =
   match state.SSAWorkList.TryDequeue() with
@@ -213,9 +216,7 @@ let processSSA (state: State<_>) ssaCFG =
     | false, _ ->
       ()
     | _, uses ->
-      for (vid, idx) in uses do
-        let g = ssaCFG :> IDiGraph<SSABasicBlock, _>
-        let v = g.FindVertexByID vid
+      for (v, idx) in uses do
         if state.GetNumIncomingExecutedEdges(ssaCFG, v) > 0 then
           let _, stmt = v.VData.Internals.Statements[idx]
           state.Scheme.Transfer(stmt, ssaCFG, v)
@@ -225,7 +226,7 @@ let processSSA (state: State<_>) ssaCFG =
 let compute cfg (state: State<_>) =
   state.SSAEdges <- SSAEdges cfg
   cfg.Roots
-  |> Seq.iter (fun root -> state.FlowWorkList.Enqueue(0, root.ID))
+  |> Seq.iter (fun root -> state.FlowWorkList.Enqueue(null, root))
   while state.FlowWorkList.Count > 0 || state.SSAWorkList.Count > 0 do
     processFlow state cfg
     processSSA state cfg

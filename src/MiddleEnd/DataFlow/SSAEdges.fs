@@ -29,18 +29,18 @@ open B2R2.BinIR
 open B2R2.MiddleEnd.BinGraph
 open B2R2.MiddleEnd.ControlFlowGraph
 
-type private SSAStmtLocation = VertexID * int
+type private SSAStmtLocation = IVertex<SSABasicBlock> * int
 
 /// Represents SSA edges in a CFG.
 type SSAEdges(ssaCFG: IDiGraph<SSABasicBlock, CFGEdgeKind>) =
-  let uses = Dictionary<SSA.Variable, Set<SSAStmtLocation>>()
+  let uses = Dictionary<SSA.Variable, HashSet<SSAStmtLocation>>()
   let defs = Dictionary<SSA.Variable, SSA.Stmt>()
   let defSites = Dictionary<SSA.Variable, SSAStmtLocation>()
 
   let addUse var loc =
     match uses.TryGetValue var with
-    | true, set -> uses[var] <- Set.add loc set
-    | false, _ -> uses[var] <- Set.singleton loc
+    | true, set -> set.Add loc |> ignore
+    | false, _ -> uses[var] <- HashSet [ loc ]
 
   let addUses vars loc = vars |> List.iter (fun v -> addUse v loc)
 
@@ -80,18 +80,17 @@ type SSAEdges(ssaCFG: IDiGraph<SSABasicBlock, CFGEdgeKind>) =
     | _ ->
       ()
 
-  /// Computes SSA edge map (SSA Var -> a set of (VertexID, Stmt idx)). From a
+  /// Computes SSA edge map (SSA Var -> a set of (Vertex, Stmt idx)). From a
   /// given ssa var, this function returns a set of SSA-edge destination.
   let compute (ssaCFG: IDiGraph<SSABasicBlock, _>) =
-    ssaCFG |> DiGraph.iterVertex (fun v ->
-      let vid = v.ID
-      for idx = 0 to v.VData.Internals.Statements.Length - 1 do
-        let stmt = snd v.VData.Internals.Statements[idx]
+    ssaCFG |> DiGraph.iterVertex (fun blk ->
+      for idx = 0 to blk.VData.Internals.Statements.Length - 1 do
+        let stmt = snd blk.VData.Internals.Statements[idx]
         match stmt with
         | SSA.LMark _ ->
           ()
         | SSA.ExternalCall(expr, inVars, outVars) ->
-          let loc = vid, idx
+          let loc = blk, idx
           computeUses loc expr
           addDefs outVars stmt loc
           addUses inVars loc
@@ -100,20 +99,20 @@ type SSAEdges(ssaCFG: IDiGraph<SSABasicBlock, CFGEdgeKind>) =
         | SSA.Jmp(SSA.IntraJmp _) ->
           ()
         | SSA.Jmp(SSA.IntraCJmp(cond, _, _)) ->
-          computeUses (vid, idx) cond
+          computeUses (blk, idx) cond
         | SSA.Jmp(SSA.InterJmp(target)) ->
-          computeUses (vid, idx) target
+          computeUses (blk, idx) target
         | SSA.Jmp(SSA.InterCJmp(cond, t1, t2)) ->
-          let loc = vid, idx
+          let loc = blk, idx
           computeUses loc cond
           computeUses loc t1
           computeUses loc t2
         | SSA.Def(v, e) ->
-          let loc = vid, idx
+          let loc = blk, idx
           addDef v stmt loc
           computeUses loc e
         | SSA.Phi(v, ns) ->
-          let loc = vid, idx
+          let loc = blk, idx
           addDef v stmt loc
           ns
           |> Array.iter (fun n -> addUse { v with Identifier = n } loc)
@@ -127,5 +126,5 @@ type SSAEdges(ssaCFG: IDiGraph<SSABasicBlock, CFGEdgeKind>) =
   /// Gets a mapping from an SSA var to its def stmt.
   member _.Defs with get() = defs
 
-  /// Gets a mapping from an SSA var to its def site (VertexID, Stmt idx).
+  /// Gets a mapping from an SSA var to its def site (Vertex, Stmt idx).
   member _.DefSites with get() = defSites

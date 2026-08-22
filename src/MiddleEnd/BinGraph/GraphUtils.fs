@@ -103,15 +103,15 @@ let computeDepthFirstNumbers (g: IDiGraph<_, _>) =
   ) 0 |> ignore
   dfNums
 
-/// Collects the back edges of the given graph, each of them identified by the
-/// IDs of its endpoints. A vertex can be the source of more than one back
-/// edge, hence the edges, not their sources, are what the result holds.
+/// Collects the back edges of the given graph. A vertex can be the source of
+/// more than one back edge, hence the edges, not their sources, are what the
+/// result holds.
 let findBackEdges (g: IDiGraph<_, _>) =
   let dfNums = computeDepthFirstNumbers g
-  let backEdges = HashSet<VertexID * VertexID>()
+  let backEdges = HashSet<Edge<_, _>>()
   g |> DiGraph.iterEdge (fun e ->
     if dfNums[e.First] < dfNums[e.Second] then ()
-    else backEdges.Add(e.First.ID, e.Second.ID) |> ignore)
+    else backEdges.Add e |> ignore)
   backEdges
 
 let findRegularExits (g: IDiGraph<_, _>) =
@@ -121,8 +121,7 @@ let findRegularExits (g: IDiGraph<_, _>) =
 
 let findExitsAfterRemovingBackEdges (g: IDiGraph<_, _>) =
   let backEdges = findBackEdges g
-  let isBackEdge (e: Edge<_, _>) =
-    backEdges.Contains(e.First.ID, e.Second.ID)
+  let isBackEdge (e: Edge<_, _>) = backEdges.Contains e
   g.Vertices
   |> Array.fold (fun exits v ->
     if g.GetSuccEdges v |> Array.forall isBackEdge then v :: exits else exits

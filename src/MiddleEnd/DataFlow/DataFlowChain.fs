@@ -116,7 +116,7 @@ module DataFlowChain =
         lifted.Stmts
         |> Array.foldi (fun map idx stmt ->
           let pp = ProgramPoint(lifted.Original.Address, idx)
-          let abs = provider.GetAbsValue v.ID
+          let abs = provider.GetAbsValue v
           let uses = extractUses stmt
           uses |> Set.fold (fun map u ->
             let usepoint = { ProgramPoint = pp; VarKind = u }

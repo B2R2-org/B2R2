@@ -36,31 +36,31 @@ let private drainQueue (g: IDiGraph<_, _>) visited queue ordered =
     let v = queue.Dequeue()
     (ordered: ResizeArray<_>).Add v
     for s in g.GetSuccs v do
-      if (visited: HashSet<_>).Add s.ID then queue.Enqueue s else ()
+      if (visited: HashSet<_>).Add s then queue.Enqueue s else ()
 
 (* The vertices reachable from the given ones, in breadth-first order. They
    are all sources of a single walk, so they make up its first level however
    many of them there are. *)
 let private orderFromRoots g roots =
-  let visited = HashSet<VertexID>()
+  let visited = HashSet<IVertex<_>>()
   let queue = Queue<IVertex<_>>()
   let ordered = ResizeArray<IVertex<_>>()
   for r: IVertex<_> in roots do
-    if visited.Add r.ID then queue.Enqueue r else ()
+    if visited.Add r then queue.Enqueue r else ()
   drainQueue g visited queue ordered
   ordered
 
 (* Every vertex of the graph, the ones reachable from its roots first. *)
 let private orderOfEveryVertex (g: IDiGraph<_, _>) =
-  let visited = HashSet<VertexID>()
+  let visited = HashSet<IVertex<_>>()
   let queue = Queue<IVertex<_>>()
   let ordered = ResizeArray<IVertex<_>>()
   for r in g.Roots do
-    if visited.Add r.ID then queue.Enqueue r else ()
+    if visited.Add r then queue.Enqueue r else ()
   drainQueue g visited queue ordered
   (* walk the unreachable vertices, too. *)
   for v in g.Vertices do
-    if visited.Add v.ID then
+    if visited.Add v then
       queue.Enqueue v
       drainQueue g visited queue ordered
     else

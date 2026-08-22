@@ -991,12 +991,14 @@ module internal AnalysisCore = begin
     | false, _ ->
       ()
     | true, (src, dst) ->
+      (* A flow queued before the graph was rebuilt can name a vertex the
+         graph no longer holds, and such a flow leads nowhere. *)
       if not <| subState.ExecutedFlows.Add(src, dst) then
         ()
+      elif not <| (g: IDiGraph<_, _>).Contains dst then
+        ()
       else
-        match (g: IDiGraph<_, _>).TryFindVertexByID dst.ID with
-        | Some v -> transferFlow state subState g v fnTransfer
-        | None -> ()
+        transferFlow state subState g dst fnTransfer
 
   let registerPendingVertices state (subState: ISubstate<_>) =
     (state: State<_>).EnqueuePendingVertices subState
