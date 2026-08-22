@@ -33,8 +33,8 @@ open System.Collections.Generic
 open B2R2.MiddleEnd.BinGraph
 
 type private LTDomInfo<'V when 'V: equality> =
-  { /// Vertex ID -> DFNum
-    DFPre: Dictionary<VertexID, int>
+  { /// Vertex -> DFNum
+    DFPre: Dictionary<IVertex<'V>, int>
     /// DFNum -> Vertex
     Vertex: (IVertex<'V> | null)[]
     /// DFNum -> DFNum in the ancestor chain s.t. DFNum of its Semi is minimal.
@@ -68,7 +68,7 @@ type private LTDomInfo<'V when 'V: equality> =
 let private initDomInfo (g: IDiGraph<_, _>) =
   (* To reserve a room for entry (dummy) node. *)
   let len = g.VertexCount + 1
-  { DFPre = Dictionary<VertexID, int>()
+  { DFPre = Dictionary<IVertex<_>, int>()
     Vertex = Array.zeroCreate len
     Label = Array.create len 0
     Parent = Array.create len 0
@@ -87,8 +87,8 @@ let private initDomInfo (g: IDiGraph<_, _>) =
     Roots = g.Roots }
 
 let inline private dfpre (info: LTDomInfo<_>) (v: IVertex<_>) =
-  assert (info.DFPre.ContainsKey v.ID)
-  info.DFPre[v.ID]
+  assert (info.DFPre.ContainsKey v)
+  info.DFPre[v]
 
 (* Numbers the vertices in a depth-first preorder, filling in the arrays the
    computation below reads, and answers how many of them were numbered. Every
@@ -103,8 +103,8 @@ let private prepare (g: IDiGraph<_, _>) info =
   let mutable n = 1
   while stack.Count > 0 do
     let struct (p, v) = stack.Pop()
-    if not <| info.DFPre.ContainsKey v.ID then
-      info.DFPre.Add(v.ID, n)
+    if not <| info.DFPre.ContainsKey v then
+      info.DFPre.Add(v, n)
       info.Semi[n] <- n
       info.Vertex[n] <- v
       info.Label[n] <- n
@@ -121,7 +121,7 @@ let private prepare (g: IDiGraph<_, _>) info =
 let private predNums (g: IDiGraph<_, _>) info v =
   let nums =
     g.GetPreds v
-    |> Array.filter (fun p -> info.DFPre.ContainsKey p.ID)
+    |> Array.filter (fun p -> info.DFPre.ContainsKey p)
     |> Array.map (dfpre info)
   if info.Roots |> Array.contains v then [| 0; yield! nums |] else nums
 
@@ -234,7 +234,7 @@ let private computeDomInfo g =
   computeIDom g info n
 
 let rec private domsAux acc v info =
-  if info.DFPre.ContainsKey((v: IVertex<'V>).ID) then
+  if info.DFPre.ContainsKey(v: IVertex<'V>) then
     let id = info.IDom[dfpre info v]
     if id > 0 then domsAux (info.Vertex[id] :: acc) info.Vertex[id] info
     else acc |> List.toArray
@@ -242,7 +242,7 @@ let rec private domsAux acc v info =
     acc |> List.toArray
 
 let private idomAux info v =
-  if info.DFPre.ContainsKey((v: IVertex<'V>).ID) then
+  if info.DFPre.ContainsKey(v: IVertex<'V>) then
     let id = info.IDom[dfpre info v]
     if id >= 1 then info.Vertex[id] else null
   else
@@ -275,7 +275,7 @@ let private computeDominance g (dfp: IDominanceFrontierProvider<_, _>) =
   let bwInfo = lazy (computeDomInfo bwG.Value)
   let fw = createForwardDominance g fwInfo dfp
   let bw = lazy (createForwardDominance bwG.Value bwInfo.Value dfp)
-  combineDominance g fw bw, fwInfo, bwInfo
+  combineDominance g bwG fw bw, fwInfo, bwInfo
 
 /// <summary>
 /// Creates an IDominance instance that computes dominance information using the

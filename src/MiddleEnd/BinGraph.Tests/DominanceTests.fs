@@ -24,6 +24,7 @@
 
 namespace B2R2.MiddleEnd.BinGraph.Tests
 
+open System.Collections.Generic
 open System.Diagnostics
 open Microsoft.VisualStudio.TestTools.UnitTesting
 open B2R2.MiddleEnd.BinGraph
@@ -35,31 +36,37 @@ type DominanceTests() =
   let getDominators dom g i =
     (g: IDiGraph<_, _>).FindVertexByData i
     |> (dom: IDominance<_>).Dominators
-    |> Set.ofSeq
+    |> HashSet
 
   let getDominanceFrontier dom g i =
     (g: IDiGraph<_, _>).FindVertexByData i
     |> (dom: IDominance<_>).DominanceFrontier
-    |> Set.ofSeq
+    |> HashSet
 
   let getPostDominators dom g i =
     (g: IDiGraph<_, _>).FindVertexByData i
     |> (dom: IDominance<_>).PostDominators
-    |> Set.ofSeq
+    |> HashSet
 
   let getPostDominanceFrontier dom g i =
     (g: IDiGraph<_, _>).FindVertexByData i
     |> (dom: IDominance<_>).PostDominanceFrontier
-    |> Set.ofSeq
+    |> HashSet
 
   let assertEqual (g: IDiGraph<_, _>) expectedValue v =
     let expectedVertex = g.FindVertexByData expectedValue
     Assert.AreEqual(expectedVertex, v)
     Assert.AreEqual(expectedValue, v.VData)
 
+  (* Two answers over the vertices of one graph agree when they name the same
+     vertices, whatever order each of them comes in. *)
+  let assertSameVertices (expected: seq<IVertex<_>>) actual =
+    let ids (vs: seq<IVertex<_>>) =
+      vs |> Seq.map (fun v -> v.ID) |> Seq.distinct |> Seq.sort |> Seq.toArray
+    CollectionAssert.AreEqual(ids expected, ids actual)
+
   let assertSetEqual (g: IDiGraph<_, _>) expectedValues vertices =
-    let expectedVertices = expectedValues |> Seq.map g.FindVertexByData
-    Assert.AreEqual(Set.ofSeq expectedVertices, Set.ofSeq vertices)
+    assertSameVertices (expectedValues |> Seq.map g.FindVertexByData) vertices
 
   (* Seeds the incremental algorithm on the given graph short of the given
      edge, then hands it that edge, and answers the dominance it arrives at.
@@ -143,9 +150,7 @@ type DominanceTests() =
     let dfp: IDominanceFrontierProvider<_, _> = CytronDominanceFrontier()
     let df = dfp.CreateIDominanceFrontier(g, forwardOnly)
     for v in g.Vertices do
-      let expected = dom.DominanceFrontier v |> Set.ofSeq
-      let actual = df.DominanceFrontier v |> Set.ofSeq
-      Assert.AreEqual<Set<IVertex<int>>>(expected, actual)
+      assertSameVertices (dom.DominanceFrontier v) (df.DominanceFrontier v)
 
   [<TestMethod>]
   [<DynamicData(nameof DominanceTests.TestData)>]
@@ -189,7 +194,7 @@ type DominanceTests() =
     let g, _ = digraph1 t
     let dom: IDominance<_> = DominanceFactory.create g domAlgo dfAlgo
     let df = getDominanceFrontier dom g 1
-    Assert.AreEqual<int>(0, Set.count df)
+    Assert.AreEqual<int>(0, df.Count)
     let df = getDominanceFrontier dom g 2
     assertSetEqual g [ 2 ] df
     let df = getDominanceFrontier dom g 3
@@ -199,7 +204,7 @@ type DominanceTests() =
     let df = getDominanceFrontier dom g 5
     assertSetEqual g [ 2 ] df
     let df = getDominanceFrontier dom g 6
-    Assert.AreEqual<int>(0, Set.count df)
+    Assert.AreEqual<int>(0, df.Count)
 
   [<TestMethod>]
   [<DynamicData(nameof DominanceTests.TestData)>]
@@ -243,7 +248,7 @@ type DominanceTests() =
     let g, _ = digraph1 t
     let dom: IDominance<_> = DominanceFactory.create g domAlgo dfAlgo
     let df = getPostDominanceFrontier dom g 1
-    Assert.AreEqual<int>(0, Set.count df)
+    Assert.AreEqual<int>(0, df.Count)
     let df = getPostDominanceFrontier dom g 2
     assertSetEqual g [ 2 ] df
     let df = getPostDominanceFrontier dom g 3
@@ -253,7 +258,7 @@ type DominanceTests() =
     let df = getPostDominanceFrontier dom g 5
     assertSetEqual g [ 2 ] df
     let df = getPostDominanceFrontier dom g 6
-    Assert.AreEqual<int>(0, Set.count df)
+    Assert.AreEqual<int>(0, df.Count)
 
   [<TestMethod>]
   [<DynamicData(nameof DominanceTests.TestData)>]
@@ -297,15 +302,15 @@ type DominanceTests() =
     let g, _ = digraph2 t
     let dom: IDominance<_> = DominanceFactory.create g domAlgo dfAlgo
     let df = getDominanceFrontier dom g 1
-    Assert.AreEqual<int>(0, Set.count df)
+    Assert.AreEqual<int>(0, df.Count)
     let df = getDominanceFrontier dom g 2
-    Assert.AreEqual<int>(0, Set.count df)
+    Assert.AreEqual<int>(0, df.Count)
     let df = getDominanceFrontier dom g 3
-    Assert.AreEqual<int>(0, Set.count df)
+    Assert.AreEqual<int>(0, df.Count)
     let df = getDominanceFrontier dom g 4
     assertSetEqual g [ 4 ] df
     let df = getDominanceFrontier dom g 5
-    Assert.AreEqual<int>(0, Set.count df)
+    Assert.AreEqual<int>(0, df.Count)
     let df = getDominanceFrontier dom g 6
     assertSetEqual g [ 4 ] df
 
@@ -351,7 +356,7 @@ type DominanceTests() =
     let g, _ = digraph2 t
     let dom: IDominance<_> = DominanceFactory.create g domAlgo dfAlgo
     let df = getPostDominanceFrontier dom g 1
-    Assert.AreEqual<int>(0, Set.count df)
+    Assert.AreEqual<int>(0, df.Count)
     let df = getPostDominanceFrontier dom g 2
     assertSetEqual g [ 1 ] df
     let df = getPostDominanceFrontier dom g 3
@@ -401,15 +406,15 @@ type DominanceTests() =
     let g, _ = digraph3 t
     let dom: IDominance<_> = DominanceFactory.create g domAlgo dfAlgo
     let df = getDominanceFrontier dom g 1
-    Assert.AreEqual<int>(0, Set.count df)
+    Assert.AreEqual<int>(0, df.Count)
     let df = getDominanceFrontier dom g 2
     assertSetEqual g [ 4 ] df
     let df = getDominanceFrontier dom g 3
     assertSetEqual g [ 4 ] df
     let df = getDominanceFrontier dom g 4
-    Assert.AreEqual<int>(0, Set.count df)
+    Assert.AreEqual<int>(0, df.Count)
     let df = getDominanceFrontier dom g 5
-    Assert.AreEqual<int>(0, Set.count df)
+    Assert.AreEqual<int>(0, df.Count)
 
   [<TestMethod>]
   [<DynamicData(nameof DominanceTests.TestData)>]
@@ -449,7 +454,7 @@ type DominanceTests() =
     let g, _ = digraph3 t
     let dom: IDominance<_> = DominanceFactory.create g domAlgo dfAlgo
     let df = getPostDominanceFrontier dom g 1
-    Assert.AreEqual<int>(0, Set.count df)
+    Assert.AreEqual<int>(0, df.Count)
     let df = getPostDominanceFrontier dom g 2
     assertSetEqual g [ 1 ] df
     let df = getPostDominanceFrontier dom g 3
@@ -529,7 +534,7 @@ type DominanceTests() =
     let g, _ = digraph4 t
     let dom: IDominance<_> = DominanceFactory.create g domAlgo dfAlgo
     let df = getDominanceFrontier dom g 1
-    Assert.AreEqual<int>(0, Set.count df)
+    Assert.AreEqual<int>(0, df.Count)
     let df = getDominanceFrontier dom g 2
     assertSetEqual g [ 4 ] df
     let df = getDominanceFrontier dom g 3
@@ -553,7 +558,7 @@ type DominanceTests() =
     let df = getDominanceFrontier dom g 12
     assertSetEqual g [ 13 ] df
     let df = getDominanceFrontier dom g 13
-    Assert.AreEqual<int>(0, Set.count df)
+    Assert.AreEqual<int>(0, df.Count)
 
   [<TestMethod>]
   [<DynamicData(nameof DominanceTests.TestData)>]
@@ -625,7 +630,7 @@ type DominanceTests() =
     let g, _ = digraph4 t
     let dom: IDominance<_> = DominanceFactory.create g domAlgo dfAlgo
     let df = getPostDominanceFrontier dom g 1
-    Assert.AreEqual<int>(0, Set.count df)
+    Assert.AreEqual<int>(0, df.Count)
     let df = getPostDominanceFrontier dom g 2
     assertSetEqual g [ 1 ] df
     let df = getPostDominanceFrontier dom g 3
@@ -649,7 +654,7 @@ type DominanceTests() =
     let df = getPostDominanceFrontier dom g 12
     assertSetEqual g [ 1; 7 ] df
     let df = getPostDominanceFrontier dom g 13
-    Assert.AreEqual<int>(0, Set.count df)
+    Assert.AreEqual<int>(0, df.Count)
 
   [<TestMethod>]
   [<DynamicData(nameof DominanceTests.TestData)>]
@@ -869,7 +874,7 @@ type DominanceTests() =
     let g, _ = digraph6 t
     let dom: IDominance<_> = DominanceFactory.create g domAlgo dfAlgo
     let df = getDominanceFrontier dom g 1
-    Assert.AreEqual<int>(0, Set.count df)
+    Assert.AreEqual<int>(0, df.Count)
     let df = getDominanceFrontier dom g 2
     assertSetEqual g [ 19; 22 ] df
     let df = getDominanceFrontier dom g 3
@@ -879,7 +884,7 @@ type DominanceTests() =
     let df = getDominanceFrontier dom g 5
     assertSetEqual g [ 19 ] df
     let df = getDominanceFrontier dom g 6
-    Assert.AreEqual<int>(0, Set.count df)
+    Assert.AreEqual<int>(0, df.Count)
     let df = getDominanceFrontier dom g 7
     assertSetEqual g [ 19; 22 ] df
     let df = getDominanceFrontier dom g 8
@@ -911,9 +916,9 @@ type DominanceTests() =
     let df = getDominanceFrontier dom g 21
     assertSetEqual g [ 22 ] df
     let df = getDominanceFrontier dom g 22
-    Assert.AreEqual<int>(0, Set.count df)
+    Assert.AreEqual<int>(0, df.Count)
     let df = getDominanceFrontier dom g 23
-    Assert.AreEqual<int>(0, Set.count df)
+    Assert.AreEqual<int>(0, df.Count)
 
   [<TestMethod>]
   [<DynamicData(nameof DominanceTests.TestData)>]
@@ -1025,7 +1030,7 @@ type DominanceTests() =
     let g, _ = digraph6 t
     let dom: IDominance<_> = DominanceFactory.create g domAlgo dfAlgo
     let df = getPostDominanceFrontier dom g 1
-    Assert.AreEqual<int>(0, Set.count df)
+    Assert.AreEqual<int>(0, df.Count)
     let df = getPostDominanceFrontier dom g 2
     assertSetEqual g [ 1 ] df
     let df = getPostDominanceFrontier dom g 3
@@ -1109,15 +1114,15 @@ type DominanceTests() =
     let g, _ = digraph7 t
     let dom: IDominance<_> = DominanceFactory.create g domAlgo dfAlgo
     let df = getDominanceFrontier dom g 1
-    Assert.AreEqual<int>(0, Set.count df)
+    Assert.AreEqual<int>(0, df.Count)
     let df = getDominanceFrontier dom g 2
     assertSetEqual g [ 4 ] df
     let df = getDominanceFrontier dom g 3
     assertSetEqual g [ 4 ] df
     let df = getDominanceFrontier dom g 4
-    Assert.AreEqual<int>(0, Set.count df)
+    Assert.AreEqual<int>(0, df.Count)
     let df = getDominanceFrontier dom g 5
-    Assert.AreEqual<int>(0, Set.count df)
+    Assert.AreEqual<int>(0, df.Count)
 
   [<TestMethod>]
   [<DynamicData(nameof DominanceTests.TestData)>]
@@ -1157,7 +1162,7 @@ type DominanceTests() =
     let g, _ = digraph7 t
     let dom: IDominance<_> = DominanceFactory.create g domAlgo dfAlgo
     let df = getPostDominanceFrontier dom g 1
-    Assert.AreEqual<int>(0, Set.count df)
+    Assert.AreEqual<int>(0, df.Count)
     let df = getPostDominanceFrontier dom g 2
     assertSetEqual g [ 1 ] df
     let df = getPostDominanceFrontier dom g 3
@@ -1217,7 +1222,7 @@ type DominanceTests() =
     let g, _ = digraph8 t
     let dom: IDominance<_> = DominanceFactory.create g domAlgo dfAlgo
     let df = getDominanceFrontier dom g 1
-    Assert.AreEqual<int>(0, Set.count df)
+    Assert.AreEqual<int>(0, df.Count)
     let df = getDominanceFrontier dom g 2
     assertSetEqual g [ 2 ] df
     let df = getDominanceFrontier dom g 3
@@ -1231,7 +1236,7 @@ type DominanceTests() =
     let df = getDominanceFrontier dom g 7
     assertSetEqual g [ 2 ] df
     let df = getDominanceFrontier dom g 8
-    Assert.AreEqual<int>(0, Set.count df)
+    Assert.AreEqual<int>(0, df.Count)
 
   [<TestMethod>]
   [<DynamicData(nameof DominanceTests.TestData)>]
@@ -1283,7 +1288,7 @@ type DominanceTests() =
     let g, _ = digraph8 t
     let dom: IDominance<_> = DominanceFactory.create g domAlgo dfAlgo
     let df = getPostDominanceFrontier dom g 1
-    Assert.AreEqual<int>(0, Set.count df)
+    Assert.AreEqual<int>(0, df.Count)
     let df = getPostDominanceFrontier dom g 2
     assertSetEqual g [ 5; 7 ] df
     let df = getPostDominanceFrontier dom g 3
@@ -1297,7 +1302,7 @@ type DominanceTests() =
     let df = getPostDominanceFrontier dom g 7
     assertSetEqual g [ 7 ] df
     let df = getPostDominanceFrontier dom g 8
-    Assert.AreEqual<int>(0, Set.count df)
+    Assert.AreEqual<int>(0, df.Count)
 
   [<TestMethod>]
   [<DynamicData(nameof DominanceTests.TestData)>]
@@ -1697,15 +1702,15 @@ type DominanceTests() =
     let g, _ = digraph12 t
     let dom: IDominance<_> = DominanceFactory.create g domAlgo dfAlgo
     let df = getDominanceFrontier dom g 1
-    Assert.AreEqual<int>(0, Set.count df)
+    Assert.AreEqual<int>(0, df.Count)
     let df = getDominanceFrontier dom g 2
     assertSetEqual g [ 4 ] df
     let df = getDominanceFrontier dom g 3
     assertSetEqual g [ 4 ] df
     let df = getDominanceFrontier dom g 4
-    Assert.AreEqual<int>(0, Set.count df)
+    Assert.AreEqual<int>(0, df.Count)
     let df = getDominanceFrontier dom g 5
-    Assert.AreEqual<int>(0, Set.count df)
+    Assert.AreEqual<int>(0, df.Count)
 
   [<TestMethod>]
   [<DynamicData(nameof DominanceTests.TestData)>]
@@ -1745,15 +1750,15 @@ type DominanceTests() =
     let g, _ = digraph12 t
     let dom: IDominance<_> = DominanceFactory.create g domAlgo dfAlgo
     let df = getPostDominanceFrontier dom g 1
-    Assert.AreEqual<int>(0, Set.count df)
+    Assert.AreEqual<int>(0, df.Count)
     let df = getPostDominanceFrontier dom g 2
     assertSetEqual g [ 1 ] df
     let df = getPostDominanceFrontier dom g 3
     assertSetEqual g [ 1 ] df
     let df = getPostDominanceFrontier dom g 4
-    Assert.AreEqual<int>(0, Set.count df)
+    Assert.AreEqual<int>(0, df.Count)
     let df = getPostDominanceFrontier dom g 5
-    Assert.AreEqual<int>(0, Set.count df)
+    Assert.AreEqual<int>(0, df.Count)
 
   [<TestMethod>]
   [<DynamicData(nameof DominanceTests.TestData)>]
@@ -1804,6 +1809,23 @@ type DominanceTests() =
 
   [<TestMethod>]
   [<DynamicData(nameof DominanceTests.TestData)>]
+  member _.``Post-Dominator Tree Test``(t, domAlgo, dfAlgo) =
+    let g, vmap = digraph1 t
+    let dom: IDominance<_> = DominanceFactory.create g domAlgo dfAlgo
+    let tree = dom.PostDominatorTree
+    (* Vertex 6 is the one exit, so it post-dominates the whole graph. *)
+    assertSameVertices [ vmap[6] ] (tree.GetRoots())
+    assertSameVertices [ vmap[2] ] (tree.GetChildren vmap[6])
+    assertSameVertices [ vmap[1]; vmap[5] ] (tree.GetChildren vmap[2])
+    assertSameVertices [ vmap[3]; vmap[4] ] (tree.GetChildren vmap[5])
+    Assert.AreEqual<int>(0, (tree.GetChildren vmap[3]).Count)
+    (* The tree is grown over the vertices the caller knows, not over those of
+       the transposed graph the post-dominance is read from. *)
+    for v in tree.GetChildren vmap[2] do
+      Assert.AreEqual<bool>(true, g.Contains v)
+
+  [<TestMethod>]
+  [<DynamicData(nameof DominanceTests.TestData)>]
   member _.``Dominator Tree Childless Vertex Test``(t, domAlgo, dfAlgo) =
     let g, vmap = digraph1 t
     let dom: IDominance<_> = DominanceFactory.create g domAlgo dfAlgo
@@ -1839,9 +1861,7 @@ type DominanceTests() =
     let testDom: IDominance<_> =
       DominanceFactory.create g domAlgo CytronFrontier
     for v in g.Vertices do
-      let expected = naiveDom.Dominators v |> Set.ofSeq
-      let actual = testDom.Dominators v |> Set.ofSeq
-      Assert.AreEqual<Set<IVertex<_>>>(expected, actual)
+      assertSameVertices (naiveDom.Dominators v) (testDom.Dominators v)
 
   [<TestMethod>]
   [<DynamicData(nameof DominanceTests.ComparisonData)>]
@@ -1872,6 +1892,4 @@ type DominanceTests() =
         let whole: IDominance<_> =
           DominanceFactory.create g (Static SemiNCA) CytronFrontier
         for v in g.Vertices do
-          let expected = whole.Dominators v |> Set.ofSeq
-          let actual = dom.Dominators v |> Set.ofSeq
-          Assert.AreEqual<Set<IVertex<int>>>(expected, actual)
+          assertSameVertices (whole.Dominators v) (dom.Dominators v)

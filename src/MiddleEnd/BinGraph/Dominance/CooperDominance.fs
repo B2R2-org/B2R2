@@ -172,7 +172,7 @@ let private computeDominance g (dfp: IDominanceFrontierProvider<_, _>) =
   let bwInfo = lazy (computeDomInfo bwG.Value)
   let fw = createForwardDominance g fwInfo dfp
   let bw = lazy (createForwardDominance bwG.Value bwInfo.Value dfp)
-  combineDominance g fw bw, fwInfo, bwInfo
+  combineDominance g bwG fw bw, fwInfo, bwInfo
 
 /// <summary>
 /// Creates an IDominance instance that computes dominance information using

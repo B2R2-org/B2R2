@@ -24,6 +24,7 @@
 
 namespace B2R2.MiddleEnd.ControlFlowAnalysis.Strategies
 
+open System.Collections.Generic
 open System.Runtime.InteropServices
 open B2R2
 open B2R2.BinIR
@@ -209,7 +210,7 @@ type CondAwareNoretAnalysis([<Optional; DefaultParameterValue(true)>] strict) =
 
   let tryFindCondNoRetDom (dom: IForwardDominance<_>) absVSet v =
     dom.Dominators v
-    |> Seq.filter (fun v -> Set.contains v absVSet)
+    |> Seq.filter (fun v -> (absVSet: HashSet<_>).Contains v)
     |> fun doms ->
       if Seq.isEmpty doms then
         None
@@ -219,10 +220,10 @@ type CondAwareNoretAnalysis([<Optional; DefaultParameterValue(true)>] strict) =
            callee. *)
         Some <| Seq.head doms
 
-  let getStatusFromDominators dom absVSet argNumMap exit =
+  let getStatusFromDominators dom absVSet (argNumMap: Dictionary<_, _>) exit =
     match tryFindCondNoRetDom dom absVSet exit with
     | None -> NotNoRet
-    | Some dom -> ConditionalNoRet <| Map.find dom argNumMap
+    | Some dom -> ConditionalNoRet argNumMap[dom]
 
   let isStackPointer ctx dst =
     let regFactory = ctx.BinHandle.RegisterFactory
@@ -301,8 +302,8 @@ type CondAwareNoretAnalysis([<Optional; DefaultParameterValue(true)>] strict) =
     let df = Dominance.CooperDominanceFrontier()
     let dom = Dominance.LengauerTarjanDominance.create ctx.CFG df
     let exits = ctx.CFG.Exits
-    let absVSet = condNoRetCalls |> List.map fst |> Set.ofList
-    let argNumMap = condNoRetCalls |> Map.ofSeq
+    let absVSet = HashSet(condNoRetCalls |> List.map fst)
+    let argNumMap = Dictionary(condNoRetCalls |> Seq.map KeyValuePair)
     let mutable status = UnknownNoRet
     let mutable i = 0
     let updateStatus foundStatus = status <- meet status foundStatus

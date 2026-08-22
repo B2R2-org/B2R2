@@ -338,7 +338,7 @@ let private computeDominance g dfp staticAlgo =
   let bwInfo = lazy (computeDomInfo bwG.Value dfp staticAlgo)
   let fw = createForwardDominance g fwInfo dfp
   let bw = lazy (createForwardDominance bwG.Value bwInfo.Value dfp)
-  combineDominance g fw bw, fwInfo, bwInfo
+  combineDominance g bwG fw bw, fwInfo, bwInfo
 
 /// <summary>
 /// Creates an IDominance instance that computes dominance information using
@@ -373,7 +373,7 @@ let internal createFromInfo g fwInfo (bwInfo: Lazy<DBSDomInfo<_, _>>) dfp =
   let bwG = lazy (GraphUtils.findExits g |> g.Reverse)
   let fw = createForwardDominance g fwInfo dfp
   let bw = lazy (createForwardDominance bwG.Value bwInfo.Value dfp)
-  combineDominance g fw bw
+  combineDominance g bwG fw bw
 
 /// Builds this module's dominator tree state from an already computed
 /// dominance, which lets a dominance from any other algorithm serve as the

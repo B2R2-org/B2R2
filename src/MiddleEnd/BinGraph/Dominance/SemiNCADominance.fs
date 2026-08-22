@@ -35,8 +35,8 @@ open B2R2.MiddleEnd.BinGraph
 /// internal, visible only to the dynamic-dominance benchmark, which recomputes
 /// a dominance from a state it has updated.
 type internal LTDomInfo<'V when 'V: equality> =
-  { /// Vertex ID -> DFPre
-    DFPre: Dictionary<VertexID, int>
+  { /// Vertex -> DFPre
+    DFPre: Dictionary<IVertex<'V>, int>
     /// DFPre -> Vertex
     Vertex: (IVertex<'V> | null)[]
     /// DFPre -> DFPre in the ancestor chain s.t. DFPre of its Semi is minimal.
@@ -57,7 +57,7 @@ type internal LTDomInfo<'V when 'V: equality> =
 let private initDomInfo (g: IDiGraph<_, _>) =
   (* To reserve a room for entry (dummy) node. *)
   let len = g.VertexCount + 1
-  { DFPre = Dictionary<VertexID, int>()
+  { DFPre = Dictionary<IVertex<_>, int>()
     Vertex = Array.zeroCreate len
     Label = Array.create len 0
     Parent = Array.create len 0
@@ -67,7 +67,7 @@ let private initDomInfo (g: IDiGraph<_, _>) =
     MaxLength = len
     Roots = g.Roots }
 
-let inline private dfpre (info: LTDomInfo<_>) (v: IVertex<_>) = info.DFPre[v.ID]
+let inline private dfpre (info: LTDomInfo<_>) (v: IVertex<_>) = info.DFPre[v]
 
 (* Numbers the vertices in a depth-first preorder, filling in the arrays the
    computation below reads, and answers how many of them were numbered. Every
@@ -82,8 +82,8 @@ let private prepare (g: IDiGraph<_, _>) info =
   let mutable n = 1
   while stack.Count > 0 do
     let struct (p, v) = stack.Pop()
-    if not <| info.DFPre.ContainsKey v.ID then
-      info.DFPre.Add(v.ID, n)
+    if not <| info.DFPre.ContainsKey v then
+      info.DFPre.Add(v, n)
       info.Semi[n] <- n
       info.Vertex[n] <- v
       info.Label[n] <- n
@@ -100,7 +100,7 @@ let private prepare (g: IDiGraph<_, _>) info =
 let private predNums (g: IDiGraph<_, _>) info v =
   let nums =
     g.GetPreds v
-    |> Array.filter (fun p -> info.DFPre.ContainsKey p.ID)
+    |> Array.filter (fun p -> info.DFPre.ContainsKey p)
     |> Array.map (dfpre info)
   if info.Roots |> Array.contains v then [| 0; yield! nums |] else nums
 
@@ -167,7 +167,7 @@ let private computeDomInfo g =
   computeIDom g info n
 
 let rec private domsAux acc v info =
-  if info.DFPre.ContainsKey((v: IVertex<'V>).ID) then
+  if info.DFPre.ContainsKey(v: IVertex<'V>) then
     let id = info.IDom[dfpre info v]
     if id > 0 then domsAux (info.Vertex[id] :: acc) info.Vertex[id] info
     else acc |> List.toArray
@@ -175,7 +175,7 @@ let rec private domsAux acc v info =
     acc |> List.toArray
 
 let private idomAux info v =
-  if info.DFPre.ContainsKey((v: IVertex<'V>).ID) then
+  if info.DFPre.ContainsKey(v: IVertex<'V>) then
     let id = info.IDom[dfpre info v]
     if id >= 1 then info.Vertex[id] else null
   else
@@ -208,10 +208,10 @@ let private computeDominance g (dfp: IDominanceFrontierProvider<_, _>) =
   let bwInfo = lazy (computeDomInfo bwG.Value)
   let fw = createForwardDominance g fwInfo dfp
   let bw = lazy (createForwardDominance bwG.Value bwInfo.Value dfp)
-  combineDominance g fw bw, fwInfo, bwInfo
+  combineDominance g bwG fw bw, fwInfo, bwInfo
 
 let private checkUnreachable info (src: IVertex<_>) =
-  match info.DFPre.TryGetValue src.ID with
+  match info.DFPre.TryGetValue src with
   | false, _
   | true, -1 -> true
   | _ -> false
@@ -243,7 +243,7 @@ let internal createFromInfo g fwInfo (bwInfo: Lazy<LTDomInfo<_>>) dfp =
   let bwG = lazy (GraphUtils.findExits g |> g.Reverse)
   let fw = createForwardDominance g fwInfo dfp
   let bw = lazy (createForwardDominance bwG.Value bwInfo.Value dfp)
-  combineDominance g fw bw
+  combineDominance g bwG fw bw
 
 /// Recomputes the working state after the given edge has been added to the
 /// graph. An edge leaving an unreachable vertex cannot change any dominance

@@ -29,7 +29,7 @@ open B2R2.MiddleEnd.BinGraph
 
 let private collectBackEdge vGraph order backEdgeList (edge: Edge<_, VisEdge>) =
   let src, dst = edge.First, edge.Second
-  if Map.find src order > Map.find dst order then (* BackEdge *)
+  if Map.find src.ID order > Map.find dst.ID order then (* BackEdge *)
     edge.Label.IsBackEdge <- true
     match (vGraph: VisGraph).TryFindEdge(dst, src) with
     | Some _ -> (src, dst, edge, false) :: backEdgeList
@@ -40,7 +40,7 @@ let private collectBackEdge vGraph order backEdgeList (edge: Edge<_, VisEdge>) =
 let private dfsCollectBackEdges vGraph backEdgeList =
   let _, orderMap =
     Traversal.DFS.foldRevPostorder vGraph (fun (cnt, map) v ->
-      cnt + 1, Map.add v cnt map) (0, Map.empty)
+      cnt + 1, Map.add v.ID cnt map) (0, Map.empty)
   vGraph |> DiGraph.foldEdge (collectBackEdge vGraph orderMap) backEdgeList
 
 let private collectSelfCycle backEdgeList (edge: Edge<_, VisEdge>) =

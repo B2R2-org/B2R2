@@ -69,9 +69,9 @@ type IDiGraph<'V, 'E when 'V: equality and 'E: equality> =
   /// the graph.
   abstract IsEmpty: bool
 
-  /// Checks whether this very vertex belongs to this graph. A vertex of
-  /// another graph can carry an ID this graph also uses, and vertices compare
-  /// by ID, which is why this asks of the vertex rather than of its ID.
+  /// Checks whether this very vertex belongs to this graph. A vertex is the
+  /// object it is, and a vertex of another graph can carry an ID this graph
+  /// also uses, which is why this asks of the vertex rather than of its ID.
   abstract Contains: IVertex<'V> -> bool
 
   /// Checks whether a vertex of the given ID belongs to this graph. Use

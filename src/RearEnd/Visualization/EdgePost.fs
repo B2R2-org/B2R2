@@ -661,10 +661,12 @@ let private approachSegsHitDstBox (dst: IVertex<VisBBlock>)
 let private buildRawPlans (g: VisGraph) dummyMap =
   dummyMap
   |> Map.toList
-  |> List.choose (fun ((src, dst), (edge: VisEdge, dummies)) ->
+  |> List.choose (fun ((srcID, dstID), (edge: VisEdge, dummies)) ->
     if List.isEmpty dummies then
       None
     else
+      let src = (g: VisGraph).FindVertexByID srcID
+      let dst = g.FindVertexByID dstID
       let chainInfos = collectChainEdgeInfos g src dst dummies
       let chainEdges = chainInfos |> List.map (fun (_, _, e) -> e)
       let merged = collectMergedPoints chainInfos |> dedupAndCollapse
@@ -703,13 +705,13 @@ let private runStage2 cache safeBoxes plans =
     plans
     |> List.filter (fun plan -> plan.Edge.IsBackEdge)
     |> List.groupBy (fun plan -> plan.Dst)
-    |> Map.ofList
+    |> dict
   plans
   |> List.map (fun plan ->
     if not plan.Edge.IsBackEdge then
       plan
     else
-      let groupPlans = Map.find plan.Dst backGroups
+      let groupPlans = backGroups[plan.Dst]
       let groupEdges = groupPlans |> List.collect (fun p -> p.ChainEdges)
       let ignoredEdges = buildIgnoredEdgeSet groupEdges
       let pts =
@@ -731,16 +733,18 @@ let private runStage3 plans =
     plans
     |> List.filter (fun p -> p.Edge.IsBackEdge)
     |> List.groupBy (fun p -> p.Dst)
-    |> Map.ofList
+    |> dict
   plans
   |> List.map (fun plan ->
     if not plan.Edge.IsBackEdge then
       plan
     else
-      match Map.tryFind plan.Dst backGroupsMap with
-      | None | Some [] | Some [ _ ] ->
+      match backGroupsMap.TryGetValue plan.Dst with
+      | false, _ ->
         plan
-      | Some groupPlans ->
+      | true, ([] | [ _ ]) ->
+        plan
+      | true, groupPlans ->
         let hasCrossing =
           groupPlans |> List.exists (fun other ->
             not (obj.ReferenceEquals(other.Edge, plan.Edge)) &&

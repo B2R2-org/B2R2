@@ -83,10 +83,11 @@ type IPersistentDiGraph<'V, 'E when 'V: equality and 'E: equality> =
   abstract RemoveEdge:
     src: IVertex<'V> * dst: IVertex<'V> -> IPersistentDiGraph<'V, 'E>
 
-  /// Removes the given edge from the graph. The input edge does not need to
-  /// have the same label as the one in the graph; we only check the source and
-  /// destination vertices to perform this operation. This raises
-  /// `VertexNotFoundException` when either vertex is not in the graph.
+  /// Removes the edge that spans the endpoints of the given edge, which only
+  /// names the pair: neither its label nor the edge object itself takes any
+  /// part, so a freshly made edge naming a pair of this graph's own vertices
+  /// does. This raises `VertexNotFoundException` when either endpoint is not
+  /// in the graph.
   abstract RemoveEdge: edge: Edge<'V, 'E> -> IPersistentDiGraph<'V, 'E>
 
   /// Adds a root vertex to this graph explicitly. `AddVertex` will

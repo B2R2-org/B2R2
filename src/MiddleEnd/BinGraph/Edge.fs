@@ -46,21 +46,24 @@ type Edge<'V, 'E when 'V: equality and 'E: equality>
   /// not raise `DummyDataAccessException`.
   member _.HasLabel with get() = not (isNull label)
 
-  (* An edge is the ordered pair of its endpoints and nothing else. A graph
-     holds at most one edge for a pair, and RemoveEdge already reads an edge
-     that way, taking nothing from the label of the one it is handed. *)
+  (* An edge is the ordered pair of its endpoints and nothing else, and an
+     endpoint is the object it is, so the edge of another graph that spans a
+     pair carrying the same IDs is another edge. Within one graph there is at
+     most one edge for a pair, which is what lets RemoveEdge be handed a
+     freshly made edge that does no more than name the pair. *)
+  member private _.HasEnds(first: IVertex<'V>, second: IVertex<'V>) =
+    obj.ReferenceEquals(fst, first) && obj.ReferenceEquals(snd, second)
+
   interface System.IEquatable<Edge<'V, 'E>> with
-    member _.Equals(other: Edge<'V, 'E>) =
-      fst.ID = other.First.ID && snd.ID = other.Second.ID
+    member this.Equals(other: Edge<'V, 'E>) =
+      this.HasEnds(other.First, other.Second)
 
   override _.GetHashCode() = System.HashCode.Combine(fst.ID, snd.ID)
 
-  override _.Equals(other) =
+  override this.Equals(other) =
     match other with
-    | :? Edge<'V, 'E> as other ->
-      fst.ID = other.First.ID && snd.ID = other.Second.ID
-    | _ ->
-      false
+    | :? Edge<'V, 'E> as other -> this.HasEnds(other.First, other.Second)
+    | _ -> false
 
   override _.ToString() = if isNull label then "" else $"{label}"
 

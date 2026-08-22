@@ -86,7 +86,7 @@ let raiseVertexNotFoundByPredicate () =
 /// answered on the transposed graph, where the counterpart of the given vertex
 /// shares nothing but its ID.
 let checkVertexInGraph (g: IDiGraph<_, _>) (v: IVertex<_>) =
-  if g.HasVertexByID v.ID then () else raiseVertexNotFoundByID v.ID
+  if g.Contains v then () else raiseVertexNotFoundByID v.ID
 
 /// Collects the vertices that are reachable from the roots of the given graph.
 let computeReachables (g: IDiGraph<_, _>) =

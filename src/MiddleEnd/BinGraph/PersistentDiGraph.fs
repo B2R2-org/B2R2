@@ -67,8 +67,8 @@ type PersistentDiGraph<'V, 'E
     | None -> GraphUtils.raiseVertexNotFoundByID vid
 
   (* A vertex belongs to this graph only when it is the very object we store
-     for its ID. Comparing IDs is not enough, because vertices compare by ID,
-     so a vertex of another graph can carry an ID we also use. Snapshots of one
+     for its ID. Comparing IDs is not enough, because a vertex of another
+     graph can carry an ID we also use. Snapshots of one
      graph share their vertex objects, so they all agree here. *)
   let isOwnVertex (v: IVertex<'V>) =
     match Map.tryFind v.ID vertices with

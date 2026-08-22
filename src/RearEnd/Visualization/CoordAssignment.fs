@@ -67,7 +67,7 @@ let private findIncidentInnerSegmentNode vGraph (v: IVertex<VisBBlock>) =
     None
 
 let private pairID (u: IVertex<VisBBlock>) (v: IVertex<VisBBlock>) =
-  if u.VData.Layer > v.VData.Layer then u, v else v, u
+  if u.VData.Layer > v.VData.Layer then u.ID, v.ID else v.ID, u.ID
 
 let private addConflict u v conflicts = Set.add (pairID u v) conflicts
 
@@ -291,26 +291,27 @@ let alignToSmallestWidth vLayout xAlignments =
   xAlignments
   |> List.map fst
 
-let collectX xPerV (xs: FloatMap) =
-  xs.Keys
-  |> Seq.fold (fun xPerV v ->
-    match Map.tryFind v xPerV with
-    | Some(acc) -> Map.add v (xs[v] :: acc) xPerV
-    | None -> Map.add v [ xs[v] ] xPerV) xPerV
+let collectX (xPerV: Dictionary<IVertex<VisBBlock>, float list>) xs =
+  for v in (xs: FloatMap).Keys do
+    match xPerV.TryGetValue v with
+    | true, acc -> xPerV[v] <- xs[v] :: acc
+    | false, _ -> xPerV[v] <- [ xs[v] ]
+  xPerV
 
 let setXPos (v: IVertex<VisBBlock>) x = v.VData.Coordinate.X <- x
 
+(* The median of the four alignments, taken per vertex and then shifted so
+   that the whole layout is centred on nothing in particular. *)
 let averageMedian (xAlignments: FloatMap list) =
-  let xPerV = List.fold collectX Map.empty xAlignments
-  let xPerV = Map.map (fun v xs -> List.toArray xs) xPerV
-  let xPerV = Map.map (fun v xs -> Array.sort xs) xPerV
-  let medians = Map.map (fun v (xs: float[]) -> (xs[1] + xs[2]) / 2.0) xPerV
-  let xs = Map.fold (fun xs _ x -> x :: xs) [] medians
-  let minX = List.min xs
-  let maxX = List.max xs
+  let xPerV = List.fold collectX (Dictionary()) xAlignments
+  let medians = FloatMap()
+  for KeyValue(v, xs) in xPerV do
+    let xs = xs |> List.toArray |> Array.sort
+    medians[v] <- (xs[1] + xs[2]) / 2.0
+  let minX = medians.Values |> Seq.min
+  let maxX = medians.Values |> Seq.max
   let mid = (minX + maxX) / 2.0
-  let medians = Map.map (fun _ xs -> xs - mid) medians
-  Map.iter setXPos medians
+  for KeyValue(v, x) in medians do setXPos v (x - mid)
 
 /// This algorithm is from Brandes et al., Fast and Simple Horizontal Coordinate
 /// Assignment.

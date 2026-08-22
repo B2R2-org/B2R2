@@ -25,7 +25,6 @@
 namespace B2R2.MiddleEnd.BinGraph
 
 open System.Globalization
-open B2R2
 
 /// Represents a vertex of a graph. Graphs, not vertices, own the adjacency
 /// information, so a vertex is just an ID paired with its data.
@@ -43,20 +42,16 @@ type Vertex<'V when 'V: equality>
 
     member _.HasData = not (isNull vData)
 
-    member _.CompareTo(other: obj) =
-      match other with
-      | :? IVertex<'V> as other -> id.CompareTo other.ID
-      | _ -> Terminator.impossible ()
-
   interface System.IFormattable with
     member _.ToString(_, _) = $"{nameof Vertex}({vData.ToString ()})"
 
+  (* A vertex is the object it is. The graph that made one hands out that very
+     object every time, so a vertex of another graph is another vertex even
+     when the two of them carry one ID. Hashing still goes by the ID, that
+     being the cheapest hash reference equality allows. *)
   override _.GetHashCode() = id
 
-  override _.Equals(other) =
-    match other with
-    | :? IVertex<'V> as other -> id = other.ID
-    | _ -> false
+  override this.Equals(other) = obj.ReferenceEquals(this, other)
 
   override this.ToString() =
     (this :> System.IFormattable).ToString(null, CultureInfo.CurrentCulture)

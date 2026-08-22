@@ -183,11 +183,11 @@ module private EVMCFGRecovery =
       else for succ in g.GetSuccs v do push succ
     polyJumps
 
-  /// Find the intersection of two pathes. Time complexity is O((n+m)*log(n))
-  /// where n and m are the lengths of the two pathes.
-  let intersectPathes p1 p2 =
-    let p1Set = Set.ofList p1
-    List.filter (fun v -> Set.contains v p1Set) p2
+  /// Find the intersection of two pathes. Time complexity is O(n+m) where n
+  /// and m are the lengths of the two pathes.
+  let intersectPathes (p1: IVertex<_> list) p2 =
+    let p1Set = HashSet p1
+    List.filter (fun v -> p1Set.Contains v) p2
 
   let removeReachableVertices ctx cfgRec root =
     let removals = HashSet()

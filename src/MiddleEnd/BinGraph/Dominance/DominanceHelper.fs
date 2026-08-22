@@ -27,30 +27,35 @@ module internal B2R2.MiddleEnd.BinGraph.Dominance.DominanceHelper
 
 open B2R2.MiddleEnd.BinGraph
 
-let findOriginalVertex g v: IVertex<'V> | null =
-  match (v: IVertex<_> | null) with
+/// Finds the vertex of the given graph that carries the ID of the given one.
+/// A vertex is the object it is, so a graph and the transpose built from it
+/// share none of their vertices, only the names; a vertex crosses from the one
+/// graph to the other by being looked up under the name they agree on.
+let crossTo g (v: IVertex<'V>) =
+  (g: IDiGraph<_, _>).FindVertexByID v.ID
+
+let private crossToOrNull g (v: IVertex<'V> | null): IVertex<'V> | null =
+  match v with
   | null -> null
-  | v -> (g: IDiGraph<_, _>).FindVertexByID (v: IVertex<_>).ID
+  | v -> crossTo g v
 
 /// Composes the dominance of a graph with the dominance of its transposed
-/// graph, the latter answering every post-dominance query. A vertex the
-/// transposed graph reports is a counterpart sharing nothing but an ID with the
-/// one the caller knows, so it is mapped back before it leaves.
-let combineDominance g fw (bw: Lazy<IForwardDominance<'V>>) =
+/// graph, the latter answering every post-dominance query. Every vertex such a
+/// query takes or hands back crosses the boundary between the two graphs, the
+/// post-dominator tree included, which is why the tree is grown anew over the
+/// vertices the caller knows rather than handed over as the transpose has it.
+let combineDominance g bwG fw (bw: Lazy<IForwardDominance<'V>>) =
+  let toBw v = crossTo (bwG: Lazy<IDiGraph<'V, _>>).Value v
+  let ipdom v = bw.Value.ImmediateDominator(toBw v) |> crossToOrNull g
+  let pdt = lazy DominatorTree((g: IDiGraph<'V, _>).Vertices, ipdom)
   { new IDominance<'V> with
       member _.Dominators v = (fw: IForwardDominance<'V>).Dominators v
       member _.ImmediateDominator v = fw.ImmediateDominator v
       member _.DominatorTree = fw.DominatorTree
       member _.DominanceFrontier v = fw.DominanceFrontier v
       member _.PostDominators v =
-        bw.Value.Dominators v |> Seq.map (findOriginalVertex g)
-      member _.ImmediatePostDominator v =
-        bw.Value.ImmediateDominator v |> findOriginalVertex g
-      member _.PostDominatorTree = bw.Value.DominatorTree
+        bw.Value.Dominators(toBw v) |> Seq.map (crossTo g)
+      member _.ImmediatePostDominator v = ipdom v
+      member _.PostDominatorTree = pdt.Value
       member _.PostDominanceFrontier v =
-        bw.Value.DominanceFrontier v |> Seq.map (findOriginalVertex g) }
-
-
-
-
-
+        bw.Value.DominanceFrontier(toBw v) |> Seq.map (crossTo g) }

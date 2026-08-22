@@ -65,8 +65,8 @@ type MutableDiGraph<'V, 'E when 'V: equality and 'E: equality>
     arr
 
   (* A vertex belongs to this graph only when it is the very object we store
-     for its ID. Comparing IDs is not enough, because vertices compare by ID,
-     so a vertex of another graph can carry an ID we also use. *)
+     for its ID. Comparing IDs is not enough, because a vertex of another
+     graph can carry an ID we also use. *)
   let isOwnVertex (v: IVertex<'V>) =
     match vertices.TryGetValue v.ID with
     | true, v' -> obj.ReferenceEquals(v', v)

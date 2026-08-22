@@ -24,6 +24,7 @@
 
 namespace B2R2.MiddleEnd.BinGraph.Tests
 
+open System.Collections.Generic
 open Microsoft.VisualStudio.TestTools.UnitTesting
 open B2R2.MiddleEnd.BinGraph
 open B2R2.MiddleEnd.BinGraph.Traversal
@@ -213,23 +214,69 @@ type BasicTests() =
 
   [<TestMethod>]
   [<DynamicData(nameof BasicTests.GraphTypes)>]
+  member _.``Vertex Identity Test``(t) =
+    (* A vertex is the object it is: a graph hands out the very same object
+       every time, and the vertex of another graph that carries the same ID is
+       another vertex. Hashing still goes by the ID, so the two of them do
+       land in one bucket. *)
+    let _, vmap1 = digraph1 t
+    let _, vmap2 = digraph1 t
+    let v1, v2 = vmap1[2], vmap2[2]
+    Assert.AreEqual<VertexID>(v1.ID, v2.ID)
+    Assert.AreNotEqual<IVertex<int>>(v1, v2)
+    Assert.AreEqual<int>(v1.GetHashCode(), v2.GetHashCode())
+    let dict = Dictionary<IVertex<int>, int>()
+    dict[v1] <- 1
+    Assert.AreEqual<bool>(false, dict.ContainsKey v2)
+
+  [<TestMethod>]
+  [<DynamicData(nameof BasicTests.GraphTypes)>]
+  member _.``Own Vertex Identity Test``(t) =
+    let g, vmap = digraph1 t
+    let v = vmap[2]
+    Assert.AreSame(v, g.FindVertexByID v.ID)
+    Assert.AreEqual<IVertex<int>>(v, g.FindVertexByID v.ID)
+    Assert.AreEqual<bool>(true, g.Contains v)
+    (* A transposed graph carries the IDs of the original and none of its
+       vertices, which is why a post-dominance query maps a vertex across. *)
+    let r = g.Reverse [ v ]
+    Assert.AreNotEqual<IVertex<int>>(v, r.FindVertexByID v.ID)
+    Assert.AreEqual<bool>(false, r.Contains v)
+
+  [<TestMethod>]
+  [<DynamicData(nameof BasicTests.GraphTypes)>]
   member _.``Edge Equality Test``(t) =
-    (* An edge is the ordered pair of its endpoints and nothing else, which is
-       how RemoveEdge already reads one, so an edge of another graph spanning
-       the same pair is the same edge and the label takes no part. *)
+    (* An edge is the ordered pair of its endpoints and nothing else, so a
+       freshly made edge naming a pair of this graph's vertices is the edge
+       that spans them, whatever label either of the two carries. *)
     let g1, vmap1 = digraph1 t
-    let g2, vmap2 = digraph1 t
     let e1 = g1.FindEdge(vmap1[1], vmap1[2])
-    let e2 = g2.FindEdge(vmap2[1], vmap2[2])
-    Assert.AreNotSame(e1, e2)
-    Assert.AreEqual<Edge<int, int>>(e1, e2)
-    let dict = System.Collections.Generic.Dictionary<Edge<int, int>, int>()
+    let named = Edge<int, int>(vmap1[1], vmap1[2], null)
+    Assert.AreNotSame(e1, named)
+    Assert.AreEqual<Edge<int, int>>(e1, named)
+    let dict = Dictionary<Edge<int, int>, int>()
     dict[e1] <- 1
-    Assert.AreEqual<int>(1, dict[e2])
+    Assert.AreEqual<int>(1, dict[named])
     g1.RemoveEdge(vmap1[1], vmap1[2])
     g1.AddEdge(vmap1[1], vmap1[2], 99)
     Assert.AreEqual<Edge<int, int>>(e1, g1.FindEdge(vmap1[1], vmap1[2]))
     Assert.AreNotEqual<Edge<int, int>>(e1, g1.FindEdge(vmap1[2], vmap1[3]))
+
+  [<TestMethod>]
+  [<DynamicData(nameof BasicTests.GraphTypes)>]
+  member _.``Foreign Edge Equality Test``(t) =
+    (* An endpoint is the object it is, so the edge of another graph that spans
+       a pair carrying the same IDs is another edge. *)
+    let g1, vmap1 = digraph1 t
+    let g2, vmap2 = digraph1 t
+    let e1 = g1.FindEdge(vmap1[1], vmap1[2])
+    let e2 = g2.FindEdge(vmap2[1], vmap2[2])
+    Assert.AreEqual<VertexID>(e1.First.ID, e2.First.ID)
+    Assert.AreEqual<VertexID>(e1.Second.ID, e2.Second.ID)
+    Assert.AreNotEqual<Edge<int, int>>(e1, e2)
+    let dict = Dictionary<Edge<int, int>, int>()
+    dict[e1] <- 1
+    Assert.AreEqual<bool>(false, dict.ContainsKey e2)
 
   [<TestMethod>]
   [<DynamicData(nameof BasicTests.GraphTypes)>]

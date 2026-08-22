@@ -76,7 +76,10 @@ let collectLongEdges (backEdges, longEdges) (edge: Edge<_, VisEdge>) =
 let addDummyNodesLongEdge vGraph (backEdges, dummies) (src, dst, edge, delta) =
   (vGraph: VisGraph).RemoveEdge(src, dst)
   let k =
-    if (edge: Edge<_, VisEdge>).Label.IsBackEdge then dst, src else src, dst
+    if (edge: Edge<_, VisEdge>).Label.IsBackEdge then
+      dst.ID, src.ID
+    else
+      src.ID, dst.ID
   let dummies = Map.add k (edge.Label, []) dummies
   let width = src.VData.Width
   let backEdges, dummies =
@@ -93,7 +96,7 @@ let addDummyNodesRemovedBackEdge vGraph (backEdges, dummies) (src, dst, edge) =
   let dagSrc = dst
   let dagDst = src
   let delta = VisGraph.getLayer dagDst - VisGraph.getLayer dagSrc
-  let k = src, dst
+  let k = src.ID, dst.ID
   let dummies = Map.add k (edge, []) dummies
   let width = dagSrc.VData.Width
   addDummy vGraph (backEdges, dummies) k width dagSrc dagDst edge (delta - 1)

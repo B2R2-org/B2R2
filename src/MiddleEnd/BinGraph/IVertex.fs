@@ -43,14 +43,15 @@ exception MultipleRootVerticesException
 
 /// Represents a vertex of a graph. A vertex belongs to exactly one graph (or,
 /// for a persistent graph, to one chain of snapshots), and graph operations
-/// only accept the vertices of the graph they are invoked on. Note that
-/// equality and hashing go by `ID` alone, so two vertices of different graphs
-/// can compare equal; graphs themselves do not rely on that.
+/// only accept the vertices of the graph they are invoked on, which is what
+/// `IDiGraph.Contains` answers.
 type IVertex<'V when 'V: equality> =
-  inherit System.IComparable
   inherit System.IFormattable
 
-  /// Unique ID of the vertex.
+  /// Name of the vertex, unique among the vertices of its own graph. A graph
+  /// built alongside another one, such as a transposed graph, deliberately
+  /// gives a vertex the ID of the one it stands for, so an ID names a vertex
+  /// only together with the graph it is read against.
   abstract ID: VertexID
 
   /// Data attached to the vertex. This can raise `DummyDataAccessException`
