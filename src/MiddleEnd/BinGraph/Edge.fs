@@ -46,6 +46,22 @@ type Edge<'V, 'E when 'V: equality and 'E: equality>
   /// not raise `DummyDataAccessException`.
   member _.HasLabel with get() = not (isNull label)
 
+  (* An edge is the ordered pair of its endpoints and nothing else. A graph
+     holds at most one edge for a pair, and RemoveEdge already reads an edge
+     that way, taking nothing from the label of the one it is handed. *)
+  interface System.IEquatable<Edge<'V, 'E>> with
+    member _.Equals(other: Edge<'V, 'E>) =
+      fst.ID = other.First.ID && snd.ID = other.Second.ID
+
+  override _.GetHashCode() = System.HashCode.Combine(fst.ID, snd.ID)
+
+  override _.Equals(other) =
+    match other with
+    | :? Edge<'V, 'E> as other ->
+      fst.ID = other.First.ID && snd.ID = other.Second.ID
+    | _ ->
+      false
+
   override _.ToString() = if isNull label then "" else $"{label}"
 
 and internal EdgeLabel<'E when 'E: equality>(value: 'E) =

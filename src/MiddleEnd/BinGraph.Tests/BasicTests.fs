@@ -189,6 +189,26 @@ type BasicTests() =
 
   [<TestMethod>]
   [<DynamicData(nameof BasicTests.GraphTypes)>]
+  member _.``Edge Equality Test``(t) =
+    (* An edge is the ordered pair of its endpoints and nothing else, which is
+       how RemoveEdge already reads one, so an edge of another graph spanning
+       the same pair is the same edge and the label takes no part. *)
+    let g1, vmap1 = digraph1 t
+    let g2, vmap2 = digraph1 t
+    let e1 = g1.FindEdge(vmap1[1], vmap1[2])
+    let e2 = g2.FindEdge(vmap2[1], vmap2[2])
+    Assert.AreNotSame(e1, e2)
+    Assert.AreEqual<Edge<int, int>>(e1, e2)
+    let dict = System.Collections.Generic.Dictionary<Edge<int, int>, int>()
+    dict[e1] <- 1
+    Assert.AreEqual<int>(1, dict[e2])
+    g1.RemoveEdge(vmap1[1], vmap1[2])
+    g1.AddEdge(vmap1[1], vmap1[2], 99)
+    Assert.AreEqual<Edge<int, int>>(e1, g1.FindEdge(vmap1[1], vmap1[2]))
+    Assert.AreNotEqual<Edge<int, int>>(e1, g1.FindEdge(vmap1[2], vmap1[3]))
+
+  [<TestMethod>]
+  [<DynamicData(nameof BasicTests.GraphTypes)>]
   member _.``Foreign Edge Test``(t) =
     let g, _ = digraph1 t
     let _, vmap = digraph3 t
