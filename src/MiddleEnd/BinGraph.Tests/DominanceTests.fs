@@ -61,8 +61,43 @@ type DominanceTests() =
     let expectedVertices = expectedValues |> Seq.map g.FindVertexByData
     Assert.AreEqual(Set.ofSeq expectedVertices, Set.ofSeq vertices)
 
+  (* Seeds the incremental algorithm on the given graph short of the given
+     edge, then hands it that edge, and answers the dominance it arrives at.
+     Only the forward direction is seeded anew, that being the one an
+     insertion updates. *)
+  let insertIncrementally (g: IMutableDiGraph<_, _>) (src, dst, label) =
+    let dfp = CytronDominanceFrontier()
+    g.RemoveEdge(src, dst)
+    let before: IDominance<_> =
+      DominanceFactory.create g (Static SemiNCA) CytronFrontier
+    let fwInfo =
+      DepthBasedSearchDominance.computeInfoFromDom g before dfp SemiNCA true
+    let bwInfo =
+      lazy DepthBasedSearchDominance.computeInfoFromDom
+             g before dfp SemiNCA false
+    g.AddEdge(src, dst, label)
+    let fwInfo =
+      DepthBasedSearchDominance.updateInfo g fwInfo (g.FindEdge(src, dst))
+    DepthBasedSearchDominance.createFromInfo g fwInfo bwInfo dfp
+
   let assertVertexNotFound f =
     Assert.Throws<VertexNotFoundException>(System.Action f) |> ignore
+
+  static member Examples =
+    [ digraph1
+      digraph2
+      digraph3
+      digraph4
+      digraph5
+      digraph6
+      digraph7
+      digraph8
+      digraph9
+      digraph10
+      digraph11
+      digraph12
+      digraph13
+      digraph14 ]
 
   static member TestData =
     let algos =
@@ -1822,3 +1857,21 @@ type DominanceTests() =
       let expected = naiveDom.ImmediateDominator v
       let actual = testDom.ImmediateDominator v
       Assert.AreEqual<IVertex<string>>(expected, actual)
+
+  [<TestMethod>]
+  member _.``Depth-based search absorbs an inserted edge``() =
+    (* Handing the incremental algorithm an edge it has not seen has to land
+       it where a static algorithm lands on the whole graph. Every edge of
+       every example takes its turn as the one held back. *)
+    for makeExample in DominanceTests.Examples do
+      let g, _ = makeExample Mutable
+      for label in g.Edges |> Array.map (fun e -> e.Label) do
+        let g, _ = makeExample Mutable
+        let edge = g.Edges |> Array.find (fun e -> e.Label = label)
+        let dom = insertIncrementally g (edge.First, edge.Second, label)
+        let whole: IDominance<_> =
+          DominanceFactory.create g (Static SemiNCA) CytronFrontier
+        for v in g.Vertices do
+          let expected = whole.Dominators v |> Set.ofSeq
+          let actual = dom.Dominators v |> Set.ofSeq
+          Assert.AreEqual<Set<IVertex<int>>>(expected, actual)

@@ -69,45 +69,30 @@ let private initDomInfo (g: IDiGraphAccessible<_, _>) =
 
 let inline private dfpre (info: LTDomInfo<_>) (v: IVertex<_>) = info.DFPre[v.ID]
 
-let rec private computePostorderAux g (post: Dictionary<_, _>) n = function
-  | v: IVertex<_> :: stack when not <| post.ContainsKey v.ID ->
-    post.Add(v.ID, -1)
-    let stack = v :: stack
-    let stack =
-      (g: IDiGraphAccessible<_, _>).GetSuccs v
-      |> Seq.fold (fun acc s -> s :: acc) stack
-    computePostorderAux g post n stack
-  | v: IVertex<_> :: stack ->
-    if post[v.ID] = -1 then
-      post[v.ID] <- n
-      computePostorderAux g post (n + 1) stack
+(* Numbers the vertices in a depth-first preorder, filling in the arrays the
+   computation below reads, and answers how many of them were numbered. Every
+   root enters with 0 as its parent, that being the DFNum of the dummy root
+   sitting above them all; no vertex of the graph takes it. The roots go onto
+   the stack in reverse, so that the first of them is the first to come back
+   off, and a vertex carries its own number down to its successors. *)
+let private prepare (g: IDiGraphAccessible<_, _>) info =
+  let stack = Stack<struct (int * IVertex<_>)>()
+  let roots = info.Roots
+  for i in roots.Length - 1 .. -1 .. 0 do stack.Push(struct (0, roots[i]))
+  let mutable n = 1
+  while stack.Count > 0 do
+    let struct (p, v) = stack.Pop()
+    if not <| info.DFPre.ContainsKey v.ID then
+      info.DFPre.Add(v.ID, n)
+      info.Semi[n] <- n
+      info.Vertex[n] <- v
+      info.Label[n] <- n
+      info.Parent[n] <- p
+      for s in g.GetSuccs v do stack.Push(struct (n, s))
+      n <- n + 1
     else
-      computePostorderAux g post n stack
-  | [] ->
-    ()
-
-let private computePostorder (g: IDiGraphAccessible<_, _>) order =
-  let stack = g.GetRoots() |> Array.toList
-  computePostorderAux g order 1 stack
-
-let rec private prepare (g: IDiGraphAccessible<_, _>) info n = function
-  | (p, v : IVertex<_>) :: stack when not <| info.DFPre.ContainsKey v.ID ->
-    info.DFPre.Add(v.ID, n)
-    info.Semi[n] <- n
-    info.Vertex[n] <- v
-    info.Label[n] <- n
-    info.Parent[n] <- p
-    let stack' = g.GetSuccs v |> Seq.fold (fun acc s -> (n, s) :: acc) stack
-    prepare g info (n + 1) stack'
-  | _ :: stack ->
-    prepare g info n stack
-  | [] ->
-    n - 1
-
-(* Every root enters with 0 as its parent, that being the DFNum of the dummy
-   root sitting above them all. No vertex of the graph takes it. *)
-let private prepareFromRoots g info =
-  info.Roots |> Array.map (fun v -> 0, v) |> Array.toList |> prepare g info 1
+      ()
+  n - 1
 
 (* A predecessor unreachable from the roots has no DFPre number assigned, so it
    cannot take part in the computation below. The dummy root above the roots is
@@ -158,7 +143,7 @@ let rec private computeDom info p s =
 
 let private prepareDomInfo (g: IDiGraphAccessible<_, _>) =
   let info = initDomInfo g
-  let n = prepareFromRoots g info
+  let n = prepare g info
   info, n
 
 let private computeIDom g info n =

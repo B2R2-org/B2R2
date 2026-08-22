@@ -167,26 +167,25 @@ let private updateDomTree g info srcID dstID =
     affected
     |> Array.iter (updateIDom nca info)
 
-let rec private constructSubGraphAux g info visited h bEdges = function
-  | [] ->
-    bEdges |> Array.ofList
-  | edge: Edge<_, _> :: stack ->
+(* Walks the vertices the given edges lead to, copying the ones unreachable
+   from the roots into the subgraph, and answers the edges that leave it for
+   the reachable part. The pending edges wait in a queue, for appending them
+   onto a list copies the whole list on every step. *)
+let private constructSubGraphAux g info visited h (queue: Queue<Edge<_, _>>) =
+  let mutable bEdges = []
+  while queue.Count > 0 do
+    let edge = queue.Dequeue()
     let w = edge.Second
     if (visited: HashSet<VertexID>).Contains w.ID then
       addEdge h edge
-      constructSubGraphAux g info visited h bEdges stack
+    elif info.Reachable.Contains w.ID then
+      bEdges <- edge :: bEdges
     else
-      if info.Reachable.Contains w.ID then
-        constructSubGraphAux g info visited h (edge :: bEdges) stack
-      else
-        visited.Add w.ID |> ignore
-        addVertex h w
-        addEdge h edge
-        let stack =
-          (g: IDiGraphAccessible<_, _>).GetSuccEdges w
-          |> Array.toList
-          |> List.append stack
-        constructSubGraphAux g info visited h bEdges stack
+      visited.Add w.ID |> ignore
+      addVertex h w
+      addEdge h edge
+      for e in (g: IDiGraphAccessible<_, _>).GetSuccEdges w do queue.Enqueue e
+  bEdges |> Array.ofList
 
 /// Construct the subgraph with root dst whose vertices are unreachable from
 /// main graph.
@@ -197,28 +196,24 @@ let private constructSubGraph (g: IDiGraphAccessible<_, _>) info dst =
   ih.SetRoots [| ih.FindVertexByID dst.ID |]
   let visited = HashSet()
   visited.Add dst.ID |> ignore
-  let stack = g.GetSuccEdges dst |> Array.toList
-  let bEdges = constructSubGraphAux g info visited ih [] stack
+  let queue = Queue(g.GetSuccEdges dst)
+  let bEdges = constructSubGraphAux g info visited ih queue
   h.Snapshot, bEdges
 
 let private computeStaticDom info g =
   StaticDominance.create g info.DFP info.StaticAlgo
 
-let rec private mergeDomTreeAux info subDomTree = function
-  | [] ->
-    ()
-  | (parent: IVertex<_>, current: IVertex<_>) :: stack ->
-    updateIDom parent.ID info current.ID
-    let stack =
-      (subDomTree: DominatorTree<_>).GetChildren current
-      |> Seq.map (fun child -> current, child)
-      |> Seq.toList
-      |> List.append stack
-    mergeDomTreeAux info subDomTree stack
-
+(* The pending pairs wait in a queue, for appending them onto a list copies
+   the whole list on every step. *)
 let private mergeDomTree info src dst (subDom: IForwardDominance<_>) =
   let subDomTree = subDom.DominatorTree
-  mergeDomTreeAux info subDomTree [ (src, dst) ]
+  let queue = Queue<struct (IVertex<_> * IVertex<_>)>()
+  queue.Enqueue(struct (src, dst))
+  while queue.Count > 0 do
+    let struct (parent, current) = queue.Dequeue()
+    updateIDom (parent: IVertex<_>).ID info (current: IVertex<_>).ID
+    for child in subDomTree.GetChildren current do
+      queue.Enqueue(struct (current, child))
 
 /// insert an edge into the graph and update the dominator tree
 let private insert (g: IDiGraphAccessible<_, _>) info (edge: Edge<_, _>) =
@@ -292,26 +287,18 @@ let private copyDomTree g info immediateDominator =
       | true -> info.Children.[idomID].Add v.ID |> ignore)
   updateDepth -1 info GraphUtils.DummyVertexID
 
-let rec private initReachableAux (g: IDiGraphAccessible<_, _>) info = function
-  | [] ->
-    ()
-  | v: IVertex<_> :: stack ->
+(* The pending vertices wait in a queue, for appending them onto a list copies
+   the whole list on every step. *)
+let private initReachable (g: IDiGraphAccessible<_, _>) info =
+  let queue = Queue(g.GetRoots())
+  while queue.Count > 0 do
+    let v = queue.Dequeue()
     if info.Reachable.Contains v.ID then
-      initReachableAux g info stack
+      ()
     else
       info.Reachable.Add v.ID |> ignore
-      let stack =
-        g.GetSuccs v
-        |> Array.filter (fun w -> info.Reachable.Contains w.ID |> not)
-        |> Array.toList
-        |> List.append stack
-      initReachableAux g info stack
-
-let private initReachable (g: IDiGraphAccessible<_, _>) info =
-  let stack =
-    g.GetRoots()
-    |> Seq.toList
-  initReachableAux g info stack
+      for w in g.GetSuccs v do
+        if info.Reachable.Contains w.ID then () else queue.Enqueue w
 
 let private copyDominance g dom dfp staticAlgo isForward =
   let info = initDomInfo g dfp staticAlgo
