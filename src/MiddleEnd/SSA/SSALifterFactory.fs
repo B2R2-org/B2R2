@@ -106,11 +106,7 @@ module private SSALifterFactory =
 
   let convertToSSA stmtProcessor (cfg: LowUIRCFG) (ssaCFG: SSACFG) =
     let vMap = SSAVMap()
-#if DEBUG
     getVertex stmtProcessor vMap ssaCFG cfg.SingleRoot |> ignore
-#else
-    getVertex stmtProcessor vMap ssaCFG cfg.Roots[0] |> ignore
-#endif
     cfg |> DiGraph.iterEdge (fun e ->
       let src, dst = e.First, e.Second
       let srcV = getVertex stmtProcessor vMap ssaCFG src
@@ -317,11 +313,7 @@ module private SSALifterFactory =
     for variable in (defSites: DefSites).Keys do
       count[variable] <- 0
       stack[variable] <- [0]
-#if DEBUG
     rename g domTree count stack g.SingleRoot
-#else
-    rename g domTree count stack (g.Roots[0])
-#endif
 
   /// Add phis and rename all the variables in the SSACFG.
   let updatePhis ssaCFG dom =
