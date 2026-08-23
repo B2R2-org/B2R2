@@ -62,6 +62,10 @@ type RegisterFactory(isa: ISA) =
   let regBasic reg regString =
     AST.var (WordSize.toRegType wordSize) reg regString
 
+  let reg256 a b c d = AST.revConcat [| a; b; c; d |]
+
+  let reg512 a b c d e f g h = AST.revConcat [| a; b; c; d; e; f; g; h |]
+
 #if DEBUG
   let assert64Bit wordSize =
     if wordSize = Bit64 then () else raise InvalidRegisterException
@@ -191,6 +195,14 @@ type RegisterFactory(isa: ISA) =
   let st6b = AST.var 16<rt> (Register.toRegID ST6B) "ST6B"
   let st7a = AST.var 64<rt> (Register.toRegID ST7A) "ST7A"
   let st7b = AST.var 16<rt> (Register.toRegID ST7B) "ST7B"
+  let st0 = AST.concat st0b st0a
+  let st1 = AST.concat st1b st1a
+  let st2 = AST.concat st2b st2a
+  let st3 = AST.concat st3b st3a
+  let st4 = AST.concat st4b st4a
+  let st5 = AST.concat st5b st5a
+  let st6 = AST.concat st6b st6a
+  let st7 = AST.concat st7b st7a
   let ftop =
     AST.shr (AST.``and`` fsw (numI32 0x3800 16<rt>)) (numI32 11 16<rt>)
     |> AST.xtlo 8<rt>
@@ -350,6 +362,54 @@ type RegisterFactory(isa: ISA) =
   let zmm15f = AST.var 64<rt> (Register.toRegID ZMM15F) "ZMM15F"
   let zmm15g = AST.var 64<rt> (Register.toRegID ZMM15G) "ZMM15G"
   let zmm15h = AST.var 64<rt> (Register.toRegID ZMM15H) "ZMM15H"
+  let xmm0 = AST.concat zmm0b zmm0a
+  let xmm1 = AST.concat zmm1b zmm1a
+  let xmm2 = AST.concat zmm2b zmm2a
+  let xmm3 = AST.concat zmm3b zmm3a
+  let xmm4 = AST.concat zmm4b zmm4a
+  let xmm5 = AST.concat zmm5b zmm5a
+  let xmm6 = AST.concat zmm6b zmm6a
+  let xmm7 = AST.concat zmm7b zmm7a
+  let xmm8 = AST.concat zmm8b zmm8a
+  let xmm9 = AST.concat zmm9b zmm9a
+  let xmm10 = AST.concat zmm10b zmm10a
+  let xmm11 = AST.concat zmm11b zmm11a
+  let xmm12 = AST.concat zmm12b zmm12a
+  let xmm13 = AST.concat zmm13b zmm13a
+  let xmm14 = AST.concat zmm14b zmm14a
+  let xmm15 = AST.concat zmm15b zmm15a
+  let ymm0 = reg256 zmm0a zmm0b zmm0c zmm0d
+  let ymm1 = reg256 zmm1a zmm1b zmm1c zmm1d
+  let ymm2 = reg256 zmm2a zmm2b zmm2c zmm2d
+  let ymm3 = reg256 zmm3a zmm3b zmm3c zmm3d
+  let ymm4 = reg256 zmm4a zmm4b zmm4c zmm4d
+  let ymm5 = reg256 zmm5a zmm5b zmm5c zmm5d
+  let ymm6 = reg256 zmm6a zmm6b zmm6c zmm6d
+  let ymm7 = reg256 zmm7a zmm7b zmm7c zmm7d
+  let ymm8 = reg256 zmm8a zmm8b zmm8c zmm8d
+  let ymm9 = reg256 zmm9a zmm9b zmm9c zmm9d
+  let ymm10 = reg256 zmm10a zmm10b zmm10c zmm10d
+  let ymm11 = reg256 zmm11a zmm11b zmm11c zmm11d
+  let ymm12 = reg256 zmm12a zmm12b zmm12c zmm12d
+  let ymm13 = reg256 zmm13a zmm13b zmm13c zmm13d
+  let ymm14 = reg256 zmm14a zmm14b zmm14c zmm14d
+  let ymm15 = reg256 zmm15a zmm15b zmm15c zmm15d
+  let zmm0 = reg512 zmm0a zmm0b zmm0c zmm0d zmm0e zmm0f zmm0g zmm0h
+  let zmm1 = reg512 zmm1a zmm1b zmm1c zmm1d zmm1e zmm1f zmm1g zmm1h
+  let zmm2 = reg512 zmm2a zmm2b zmm2c zmm2d zmm2e zmm2f zmm2g zmm2h
+  let zmm3 = reg512 zmm3a zmm3b zmm3c zmm3d zmm3e zmm3f zmm3g zmm3h
+  let zmm4 = reg512 zmm4a zmm4b zmm4c zmm4d zmm4e zmm4f zmm4g zmm4h
+  let zmm5 = reg512 zmm5a zmm5b zmm5c zmm5d zmm5e zmm5f zmm5g zmm5h
+  let zmm6 = reg512 zmm6a zmm6b zmm6c zmm6d zmm6e zmm6f zmm6g zmm6h
+  let zmm7 = reg512 zmm7a zmm7b zmm7c zmm7d zmm7e zmm7f zmm7g zmm7h
+  let zmm8 = reg512 zmm8a zmm8b zmm8c zmm8d zmm8e zmm8f zmm8g zmm8h
+  let zmm9 = reg512 zmm9a zmm9b zmm9c zmm9d zmm9e zmm9f zmm9g zmm9h
+  let zmm10 = reg512 zmm10a zmm10b zmm10c zmm10d zmm10e zmm10f zmm10g zmm10h
+  let zmm11 = reg512 zmm11a zmm11b zmm11c zmm11d zmm11e zmm11f zmm11g zmm11h
+  let zmm12 = reg512 zmm12a zmm12b zmm12c zmm12d zmm12e zmm12f zmm12g zmm12h
+  let zmm13 = reg512 zmm13a zmm13b zmm13c zmm13d zmm13e zmm13f zmm13g zmm13h
+  let zmm14 = reg512 zmm14a zmm14b zmm14c zmm14d zmm14e zmm14f zmm14g zmm14h
+  let zmm15 = reg512 zmm15a zmm15b zmm15c zmm15d zmm15e zmm15f zmm15g zmm15h
   let bnd0a = AST.var 64<rt> (Register.toRegID BND0A) "BND0A"
   let bnd0b = AST.var 64<rt> (Register.toRegID BND0B) "BND0B"
   let bnd1a = AST.var 64<rt> (Register.toRegID BND1A) "BND1A"
@@ -358,6 +418,10 @@ type RegisterFactory(isa: ISA) =
   let bnd2b = AST.var 64<rt> (Register.toRegID BND2B) "BND2B"
   let bnd3a = AST.var 64<rt> (Register.toRegID BND3A) "BND3A"
   let bnd3b = AST.var 64<rt> (Register.toRegID BND3B) "BND3B"
+  let bnd0 = AST.concat bnd0b bnd0a
+  let bnd1 = AST.concat bnd1b bnd1a
+  let bnd2 = AST.concat bnd2b bnd2a
+  let bnd3 = AST.concat bnd3b bnd3a
   let mxcsr = AST.var 32<rt> (Register.toRegID MXCSR) "MXCSR"
   let mxcsrmask = AST.var 32<rt> (Register.toRegID MXCSRMASK) "MXCSR_MASK"
   let pkru = AST.var 32<rt> (Register.toRegID PKRU) "PKRU"
@@ -809,21 +873,197 @@ type RegisterFactory(isa: ISA) =
       | R.PKRU ->
         pkru
       | R.ST0 ->
-        AST.concat st0b st0a
+        st0
       | R.ST1 ->
-        AST.concat st1b st1a
+        st1
       | R.ST2 ->
-        AST.concat st2b st2a
+        st2
       | R.ST3 ->
-        AST.concat st3b st3a
+        st3
       | R.ST4 ->
-        AST.concat st4b st4a
+        st4
       | R.ST5 ->
-        AST.concat st5b st5a
+        st5
       | R.ST6 ->
-        AST.concat st6b st6a
+        st6
       | R.ST7 ->
-        AST.concat st7b st7a
+        st7
+      | R.XMM0 ->
+        xmm0
+      | R.XMM1 ->
+        xmm1
+      | R.XMM2 ->
+        xmm2
+      | R.XMM3 ->
+        xmm3
+      | R.XMM4 ->
+        xmm4
+      | R.XMM5 ->
+        xmm5
+      | R.XMM6 ->
+        xmm6
+      | R.XMM7 ->
+        xmm7
+      | R.XMM8 ->
+#if DEBUG
+        assert64Bit wordSize
+#endif
+        xmm8
+      | R.XMM9 ->
+#if DEBUG
+        assert64Bit wordSize
+#endif
+        xmm9
+      | R.XMM10 ->
+#if DEBUG
+        assert64Bit wordSize
+#endif
+        xmm10
+      | R.XMM11 ->
+#if DEBUG
+        assert64Bit wordSize
+#endif
+        xmm11
+      | R.XMM12 ->
+#if DEBUG
+        assert64Bit wordSize
+#endif
+        xmm12
+      | R.XMM13 ->
+#if DEBUG
+        assert64Bit wordSize
+#endif
+        xmm13
+      | R.XMM14 ->
+#if DEBUG
+        assert64Bit wordSize
+#endif
+        xmm14
+      | R.XMM15 ->
+#if DEBUG
+        assert64Bit wordSize
+#endif
+        xmm15
+      | R.YMM0 ->
+        ymm0
+      | R.YMM1 ->
+        ymm1
+      | R.YMM2 ->
+        ymm2
+      | R.YMM3 ->
+        ymm3
+      | R.YMM4 ->
+        ymm4
+      | R.YMM5 ->
+        ymm5
+      | R.YMM6 ->
+        ymm6
+      | R.YMM7 ->
+        ymm7
+      | R.YMM8 ->
+#if DEBUG
+        assert64Bit wordSize
+#endif
+        ymm8
+      | R.YMM9 ->
+#if DEBUG
+        assert64Bit wordSize
+#endif
+        ymm9
+      | R.YMM10 ->
+#if DEBUG
+        assert64Bit wordSize
+#endif
+        ymm10
+      | R.YMM11 ->
+#if DEBUG
+        assert64Bit wordSize
+#endif
+        ymm11
+      | R.YMM12 ->
+#if DEBUG
+        assert64Bit wordSize
+#endif
+        ymm12
+      | R.YMM13 ->
+#if DEBUG
+        assert64Bit wordSize
+#endif
+        ymm13
+      | R.YMM14 ->
+#if DEBUG
+        assert64Bit wordSize
+#endif
+        ymm14
+      | R.YMM15 ->
+#if DEBUG
+        assert64Bit wordSize
+#endif
+        ymm15
+      | R.ZMM0 ->
+        zmm0
+      | R.ZMM1 ->
+        zmm1
+      | R.ZMM2 ->
+        zmm2
+      | R.ZMM3 ->
+        zmm3
+      | R.ZMM4 ->
+        zmm4
+      | R.ZMM5 ->
+        zmm5
+      | R.ZMM6 ->
+        zmm6
+      | R.ZMM7 ->
+        zmm7
+      | R.ZMM8 ->
+#if DEBUG
+        assert64Bit wordSize
+#endif
+        zmm8
+      | R.ZMM9 ->
+#if DEBUG
+        assert64Bit wordSize
+#endif
+        zmm9
+      | R.ZMM10 ->
+#if DEBUG
+        assert64Bit wordSize
+#endif
+        zmm10
+      | R.ZMM11 ->
+#if DEBUG
+        assert64Bit wordSize
+#endif
+        zmm11
+      | R.ZMM12 ->
+#if DEBUG
+        assert64Bit wordSize
+#endif
+        zmm12
+      | R.ZMM13 ->
+#if DEBUG
+        assert64Bit wordSize
+#endif
+        zmm13
+      | R.ZMM14 ->
+#if DEBUG
+        assert64Bit wordSize
+#endif
+        zmm14
+      | R.ZMM15 ->
+#if DEBUG
+        assert64Bit wordSize
+#endif
+        zmm15
+      | R.BND0 ->
+        bnd0
+      | R.BND1 ->
+        bnd1
+      | R.BND2 ->
+        bnd2
+      | R.BND3 ->
+        bnd3
       | R.K0 ->
         k0
       | R.K1 ->
@@ -997,6 +1237,14 @@ type RegisterFactory(isa: ISA) =
       | "K5" -> k5
       | "K6" -> k6
       | "K7" -> k7
+      | "ST0" -> st0
+      | "ST1" -> st1
+      | "ST2" -> st2
+      | "ST3" -> st3
+      | "ST4" -> st4
+      | "ST5" -> st5
+      | "ST6" -> st6
+      | "ST7" -> st7
       | "ST0A" -> st0a
       | "ST0B" -> st0b
       | "ST1A" -> st1a
@@ -1036,6 +1284,54 @@ type RegisterFactory(isa: ISA) =
       | "FSWC3" -> fswc3
       | "MXCSR" -> mxcsr
       | "MXCSRMASK" -> mxcsrmask
+      | "XMM0" -> xmm0
+      | "XMM1" -> xmm1
+      | "XMM2" -> xmm2
+      | "XMM3" -> xmm3
+      | "XMM4" -> xmm4
+      | "XMM5" -> xmm5
+      | "XMM6" -> xmm6
+      | "XMM7" -> xmm7
+      | "XMM8" -> xmm8
+      | "XMM9" -> xmm9
+      | "XMM10" -> xmm10
+      | "XMM11" -> xmm11
+      | "XMM12" -> xmm12
+      | "XMM13" -> xmm13
+      | "XMM14" -> xmm14
+      | "XMM15" -> xmm15
+      | "YMM0" -> ymm0
+      | "YMM1" -> ymm1
+      | "YMM2" -> ymm2
+      | "YMM3" -> ymm3
+      | "YMM4" -> ymm4
+      | "YMM5" -> ymm5
+      | "YMM6" -> ymm6
+      | "YMM7" -> ymm7
+      | "YMM8" -> ymm8
+      | "YMM9" -> ymm9
+      | "YMM10" -> ymm10
+      | "YMM11" -> ymm11
+      | "YMM12" -> ymm12
+      | "YMM13" -> ymm13
+      | "YMM14" -> ymm14
+      | "YMM15" -> ymm15
+      | "ZMM0" -> zmm0
+      | "ZMM1" -> zmm1
+      | "ZMM2" -> zmm2
+      | "ZMM3" -> zmm3
+      | "ZMM4" -> zmm4
+      | "ZMM5" -> zmm5
+      | "ZMM6" -> zmm6
+      | "ZMM7" -> zmm7
+      | "ZMM8" -> zmm8
+      | "ZMM9" -> zmm9
+      | "ZMM10" -> zmm10
+      | "ZMM11" -> zmm11
+      | "ZMM12" -> zmm12
+      | "ZMM13" -> zmm13
+      | "ZMM14" -> zmm14
+      | "ZMM15" -> zmm15
       | "ZMM0A" -> zmm0a
       | "ZMM0B" -> zmm0b
       | "ZMM0C" -> zmm0c
@@ -1164,6 +1460,10 @@ type RegisterFactory(isa: ISA) =
       | "ZMM15F" -> zmm15f
       | "ZMM15G" -> zmm15g
       | "ZMM15H" -> zmm15h
+      | "BND0" -> bnd0
+      | "BND1" -> bnd1
+      | "BND2" -> bnd2
+      | "BND3" -> bnd3
       | "PKRU" -> pkru
       | "DR0" -> dr0
       | "DR1" -> dr1
