@@ -323,7 +323,7 @@ module private SSALifterFactory =
        from every tree of the forest, hence no vertex is left unrenamed. Each of
        them leaves the stack as it found it, so the order they come in does not
        matter. *)
-    for root in domTree.GetRoots() do
+    for root in domTree.Roots do
       rename g domTree count stack root
 
   /// Add phis and rename all the variables in the SSACFG.

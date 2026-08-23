@@ -1803,7 +1803,7 @@ type DominanceTests() =
     g.SetRoots [ vmap[1]; vmap[4] ]
     let dom: IDominance<_> = DominanceFactory.create g domAlgo dfAlgo
     let tree = dom.DominatorTree
-    assertSetEqual g [ 1; 4 ] (tree.GetRoots())
+    assertSetEqual g [ 1; 4 ] tree.Roots
     assertSetEqual g [ 2 ] (tree.GetChildren vmap[1])
     assertSetEqual g [ 5 ] (tree.GetChildren vmap[4])
 
@@ -1814,7 +1814,7 @@ type DominanceTests() =
     let dom: IDominance<_> = DominanceFactory.create g domAlgo dfAlgo
     let tree = dom.PostDominatorTree
     (* Vertex 6 is the one exit, so it post-dominates the whole graph. *)
-    assertSameVertices [ vmap[6] ] (tree.GetRoots())
+    assertSameVertices [ vmap[6] ] tree.Roots
     assertSameVertices [ vmap[2] ] (tree.GetChildren vmap[6])
     assertSameVertices [ vmap[1]; vmap[5] ] (tree.GetChildren vmap[2])
     assertSameVertices [ vmap[3]; vmap[4] ] (tree.GetChildren vmap[5])

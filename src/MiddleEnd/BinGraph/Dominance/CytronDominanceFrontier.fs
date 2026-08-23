@@ -33,7 +33,7 @@ open B2R2.MiddleEnd.BinGraph
 type CytronDominanceFrontier<'V, 'E when 'V: equality and 'E: equality>() =
   let traverseBottomUp (domTree: DominatorTree<_>) =
     let stack1, stack2 = Stack(), Stack()
-    domTree.GetRoots() |> Seq.iter stack1.Push
+    domTree.Roots |> Seq.iter stack1.Push
     while stack1.Count > 0 do
       let v = stack1.Pop()
       stack2.Push v
