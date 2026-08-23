@@ -68,7 +68,7 @@ type Function(entryPoint,
   member _.Callers with get(): HashSet<Addr> = callers
 
   /// Jump tables associated with this function.
-  member _.JumpTables with get(): List<JmpTableInfo> = jmptbls
+  member _.JumpTables with get(): JmpTableInfo[] = jmptbls
 
   /// Whether this function is an external function.
   member _.IsExternal with get(): bool = isExtern

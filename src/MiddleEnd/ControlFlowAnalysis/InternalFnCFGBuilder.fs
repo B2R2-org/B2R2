@@ -136,7 +136,7 @@ type InternalFnCFGBuilder<'FnCtx, 'GlCtx
         BBLFactory = bblFactory
         NonReturningStatus = UnknownNoRet
         JumpTableRecoveryStatus = Stack()
-        JumpTables = List()
+        JumpTables = Dictionary()
         GapToAnalyze = None
         GapBlacklist = HashSet()
         Callers = HashSet()
@@ -208,11 +208,12 @@ type InternalFnCFGBuilder<'FnCtx, 'GlCtx
 
     member _.ToFunction() =
       assert (state = Finished)
+      let jmptbls = Seq.toArray ctx.JumpTables.Values
       Function(ctx.FunctionAddress,
                ctx.FunctionName,
                ctx.CFG,
                ctx.NonReturningStatus,
                ctx.IntraCallTable.Callees,
                ctx.Callers,
-               ctx.JumpTables,
+               jmptbls,
                false)

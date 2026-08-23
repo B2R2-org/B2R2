@@ -122,7 +122,7 @@ module private CFGRecovery =
         <| $"{jmptbl.InsAddr:x}[{idx}] @ {ctx.FunctionAddress:x}"
 #endif
         jmptbl.NumEntries <- idx + 1
-        ctx.JumpTables.Add jmptbl
+        ctx.JumpTables[jmptbl.TableAddress] <- jmptbl
         ctx.JumpTableRecoveryStatus.Pop() |> ignore
         sendJmpTblRecoverySuccess ctx queue jmptbl idx
       | UpdateCallEdges(calleeAddr, calleeInfo) ->

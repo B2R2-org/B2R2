@@ -72,8 +72,10 @@ type CFGBuildingContext<'FnCtx, 'GlCtx
     /// addresses to this blacklist, we prevent performing gap analysis on
     /// these addresses again.
     GapBlacklist: HashSet<Addr>
-    /// Jump tables associated with this function.
-    JumpTables: List<JmpTableInfo>
+    /// Jump tables associated with this function, keyed by table address.
+    /// Recovery records a table once per entry it expands, so keying on the
+    /// address keeps one slot per table.
+    JumpTables: Dictionary<Addr, JmpTableInfo>
     /// Table for maintaining intra-function call information of this function.
     IntraCallTable: IntraCallTable
     /// Set of callers of this function.

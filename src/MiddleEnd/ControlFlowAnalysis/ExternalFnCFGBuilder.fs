@@ -107,5 +107,5 @@ type ExternalFnCFGBuilder<'FnCtx, 'GlCtx
                name,
                ctx.NonReturningStatus,
                ctx.Callers,
-               ctx.JumpTables,
+               [||],
                true)
