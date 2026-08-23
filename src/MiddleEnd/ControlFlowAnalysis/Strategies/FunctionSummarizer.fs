@@ -51,12 +51,21 @@ type FunctionSummarizer<'FnCtx, 'GlCtx
     let e = AST.undef rt "ret"
     [| (retReg, e) |]
 
+  /// Collects the definitions that cover the given return value register. A
+  /// concatenated register variable, such as ST0 or XMM0, cannot be a
+  /// definition target, so we define each of the chunks it concatenates.
+  let rec returnValueDefs acc e =
+    match e with
+    | BinOp(BinOpType.CONCAT, _, hi, lo, _) ->
+      returnValueDefs (returnValueDefs acc hi) lo
+    | _ ->
+      (e, AST.undef (Expr.typeOf e) "ret") :: acc
+
   let floatReturnValueDef (hdl: BinHandle) =
-    let rid = hdl.Conventions.Calling.FloatReturnRegister
-    let retReg = hdl.RegisterFactory.GetRegVar rid
-    let rt = hdl.RegisterFactory.GetRegType rid
-    let e = AST.undef rt "ret"
-    [| (retReg, e) |]
+    hdl.Conventions.Calling.FloatReturnRegister
+    |> hdl.RegisterFactory.GetRegVar
+    |> returnValueDefs []
+    |> List.toArray
 
   let callerSavedValueDefs (hdl: BinHandle) =
     let cc = hdl.Conventions.Calling
