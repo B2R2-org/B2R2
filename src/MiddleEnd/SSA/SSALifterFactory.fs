@@ -104,15 +104,20 @@ module private SSALifterFactory =
       vMap[irV] <- ssaV
       ssaV
 
+  (* Every root of the given CFG becomes a root of the SSA CFG, for a CFG of
+     more than one root is an ordinary outcome of a gap analysis, whose dead
+     code blocks enter the graph as roots of their own. The roots are the first
+     vertices to be translated, so that they keep their order in the SSA CFG. *)
   let convertToSSA stmtProcessor (cfg: LowUIRCFG) (ssaCFG: SSACFG) =
     let vMap = SSAVMap()
-    getVertex stmtProcessor vMap ssaCFG cfg.SingleRoot |> ignore
+    let roots = cfg.Roots |> Array.map (getVertex stmtProcessor vMap ssaCFG)
     cfg |> DiGraph.iterEdge (fun e ->
       let src, dst = e.First, e.Second
       let srcV = getVertex stmtProcessor vMap ssaCFG src
       let dstV = getVertex stmtProcessor vMap ssaCFG dst
       ssaCFG.AddEdge(srcV, dstV, e.Label)
     )
+    ssaCFG.SetRoots roots
 
   let computeDominatorInfo (g: SSACFG) =
     let df = Dominance.CooperDominanceFrontier()
@@ -313,7 +318,13 @@ module private SSALifterFactory =
     for variable in (defSites: DefSites).Keys do
       count[variable] <- 0
       stack[variable] <- [0]
-    rename g domTree count stack g.SingleRoot
+    (* The dominator tree of a graph of more than one root is a forest, and so
+       is that of a graph holding a vertex that no root reaches. Renaming starts
+       from every tree of the forest, hence no vertex is left unrenamed. Each of
+       them leaves the stack as it found it, so the order they come in does not
+       matter. *)
+    for root in domTree.GetRoots() do
+      rename g domTree count stack root
 
   /// Add phis and rename all the variables in the SSACFG.
   let updatePhis ssaCFG dom =

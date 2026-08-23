@@ -514,3 +514,42 @@ type CFG1Tests() =
     let ssaLifter = SSALifterFactory.Create hdl
     let ssacfg = ssaLifter.Lift(cfg)
     Assert.AreEqual<int>(9, ssacfg.VertexCount)
+
+  /// Builds a CFG of two roots, each flowing into a block they share, which is
+  /// the shape a gap analysis leaves behind when its dead code blocks enter the
+  /// CFG as roots of their own.
+  member private _.BuildMultiRootCFG() =
+    let bblFactory = BBLFactory(hdl, instrs)
+    scanBBLs bblFactory [| 0x00UL; 0x62UL; 0x71UL |]
+    let cfg = LowUIRCFG Mutable
+    let v1 = cfg.AddVertex(bblFactory.Find(ProgramPoint(0x00UL, 0)))
+    let v2 = cfg.AddVertex(bblFactory.Find(ProgramPoint(0x62UL, 0)))
+    let v3 = cfg.AddVertex(bblFactory.Find(ProgramPoint(0x71UL, 0)))
+    cfg.AddEdge(v1, v3, FallThroughEdge)
+    cfg.AddEdge(v2, v3, FallThroughEdge)
+    cfg.SetRoots [ v1; v2 ]
+    cfg
+
+  [<TestMethod>]
+  member this.``CFG SSAGraph Multiple Roots Test``() =
+    let cfg = this.BuildMultiRootCFG()
+    let ssaLifter = SSALifterFactory.Create hdl
+    let ssacfg = ssaLifter.Lift cfg
+    Assert.AreEqual<int>(3, ssacfg.VertexCount)
+    Assert.AreEqual<int>(2, ssacfg.Roots.Length)
+
+  [<TestMethod>]
+  member this.``CFG SSAGraph Multiple Roots Renaming Test``() =
+    let cfg = this.BuildMultiRootCFG()
+    let ssaLifter = SSALifterFactory.Create hdl
+    let ssacfg = ssaLifter.Lift cfg
+    let ids =
+      ssacfg.Vertices
+      |> Array.collect (fun v -> v.VData.Internals.Statements)
+      |> Array.choose (fun (_, stmt) ->
+        match stmt with
+        | BinIR.SSA.Phi(def, _) -> Some def.Identifier
+        | _ -> None)
+    let unrenamed = ids |> Array.filter (fun id -> id <= 0)
+    Assert.AreNotEqual<int>(0, ids.Length)
+    Assert.AreEqual<int>(0, unrenamed.Length)
