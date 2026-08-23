@@ -28,7 +28,7 @@ jobs:
     # rest. A changed version falls back to the newest cache there is and
     # downloads only what moved.
     - name: Cache NuGet packages
-      uses: actions/cache@v4
+      uses: actions/cache@v6
       with:
         path: ~/.nuget/packages
         key: nuget-${{ hashFiles('**/*.fsproj', '**/Directory.Build.props') }}
@@ -41,7 +41,7 @@ jobs:
       # here, and the other workflows build those.
       run: dotnet build src/Assembly.Tests --no-restore
     - name: Upload the test binaries
-      uses: actions/upload-artifact@v4
+      uses: actions/upload-artifact@v7
       with:
         name: assembly-test-binaries
         path: src/Assembly.Tests/bin/Debug/net10.0
@@ -77,7 +77,7 @@ jobs:
     - name: Setup .NET
       uses: actions/setup-dotnet@v5
     - name: Download the test binaries
-      uses: actions/download-artifact@v4
+      uses: actions/download-artifact@v8
       with:
         name: assembly-test-binaries
         path: bin

@@ -35,7 +35,7 @@ jobs:
     # rest. A changed version falls back to the newest cache there is and
     # downloads only what moved.
     - name: Cache NuGet packages
-      uses: actions/cache@v4
+      uses: actions/cache@v6
       with:
         key: nuget-${{ hashFiles('**/*.fsproj', '**/Directory.Build.props') }}
         path: ~/.nuget/packages

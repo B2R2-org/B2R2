@@ -15,7 +15,7 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - name: Apply labels
-        uses: actions/github-script@v7.0.1
+        uses: actions/github-script@v9
         if: toJSON(github.event.issue.labels) == '[]'
         with:
           script: |
@@ -26,7 +26,7 @@ jobs:
               labels: ['needs-Triage']
             })
       - name: Apply milestones
-        uses: actions/github-script@v7.0.1
+        uses: actions/github-script@v9
         if: github.event_name == 'issues' && github.event.action == 'opened' && github.event.issue.milestone == null
         with:
           script: |
