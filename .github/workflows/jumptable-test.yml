@@ -1,0 +1,98 @@
+name: jumptable-test
+
+# Scores B2R2's jump table recovery against the JumpTableBench ground truth,
+# so that a middle-end change that loses a table or invents one shows up as a
+# failing check rather than as a quietly worse CFG. The architectures are a
+# matrix because they are independent measurements: which one regressed is the
+# first thing worth knowing, and running them side by side costs one
+# architecture's wall clock rather than the sum.
+
+on:
+  push:
+    branches: [ "*" ]
+  pull_request:
+    branches: [ "main" ]
+
+env:
+  DATASET_REPO: https://github.com/B2R2-org/JumpTableBench
+  # One tag pins all three pieces -- the binaries, the ground truth and the
+  # checksums -- so upgrading the dataset is a reviewable commit here instead
+  # of a silent shift in what the check measures.
+  DATASET_TAG: v0.1
+
+jobs:
+  score:
+
+    runs-on: ubuntu-latest
+    timeout-minutes: 60
+
+    strategy:
+      fail-fast: false
+      matrix:
+        arch:
+        - x86
+        - x64
+
+    steps:
+    - uses: actions/checkout@v5
+    - name: Setup .NET
+      uses: actions/setup-dotnet@v5
+    # The key is what the package versions are written in, and is shared with
+    # the other workflows, so whichever of them runs first warms it for the
+    # rest. A changed version falls back to the newest cache there is and
+    # downloads only what moved.
+    - name: Cache NuGet packages
+      uses: actions/cache@v4
+      with:
+        key: nuget-${{ hashFiles('**/*.fsproj', '**/Directory.Build.props') }}
+        path: ~/.nuget/packages
+        restore-keys: nuget-
+    - name: Restore dependencies
+      run: dotnet restore
+    # Release, because that is the output the script references and scoring a
+    # hundred binaries per architecture is CPU bound. It reads the build of
+    # this commit rather than a published package, which is the whole point of
+    # scoring per push.
+    - name: Build
+      run: dotnet build -c Release --no-restore
+    # The source archive of the tag carries the ground truth and SHA256SUMS;
+    # git holds them, so they arrive with the commit rather than as a release
+    # asset someone can replace.
+    - name: Download ground truth
+      run: |
+        curl -sSLf "$DATASET_REPO/archive/refs/tags/$DATASET_TAG.tar.gz" \
+          -o dataset.tar.gz
+        mkdir dataset
+        tar -xzf dataset.tar.gz --strip-components=1 -C dataset
+    - name: Download binaries
+      env:
+        ARCH: ${{ matrix.arch }}
+      run: |
+        curl -sSLf \
+          "$DATASET_REPO/releases/download/$DATASET_TAG/binaries-$ARCH.tar.gz" \
+          -o binaries.tar.gz
+        tar -xzf binaries.tar.gz -C dataset
+    # The checksums come from git and the binaries from the release, which is
+    # what makes this worth doing: a replaced release asset fails against the
+    # hash recorded in history. --ignore-missing is for the other
+    # architectures this job never downloaded, and it still fails when nothing
+    # at all matched, which is what catches a wrong extraction path.
+    - name: Verify checksums
+      working-directory: dataset
+      run: sha256sum --ignore-missing -c SHA256SUMS
+    # Exit 1 means a table or a target was missed or invented; exit 2 means the
+    # dataset itself did not line up and nothing was scored.
+    - name: Score
+      env:
+        ARCH: ${{ matrix.arch }}
+      run: >
+        dotnet fsi .github/jumptable-test.fsx
+        "dataset/binaries/$ARCH" "dataset/ground-truth/$ARCH"
+
+  notify-failure:
+
+    needs: score
+    if: failure()
+
+    uses: ./.github/workflows/notify-failure.yml
+    secrets: inherit
