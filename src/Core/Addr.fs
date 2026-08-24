@@ -45,12 +45,15 @@ module Addr =
   /// <param name="wordSize">The word size of the target architecture.</param>
   /// <param name="addr">The address to convert.</param>
   /// <returns>
-  /// A zero-padded lowercase hex string without a "0x" prefix. 8 digits for
-  /// 32-bit word size, 16 digits for 64-bit.
+  /// A zero-padded lowercase hex string without a "0x" prefix: at least 8
+  /// digits for a 32-bit word size and at least 16 for any other. The width is
+  /// the least an address is written out to and never the most, so an address
+  /// too wide for the given word size is written out in full rather than cut
+  /// down, a cut address being another address.
   /// </returns>
   [<CompiledName "ToString">]
   let toString wordSize (addr: Addr) =
-    if wordSize = WordSize.Bit32 then (uint32 addr).ToString "x8"
+    if wordSize = WordSize.Bit32 then addr.ToString "x8"
     else addr.ToString "x16"
 
   /// <summary>
