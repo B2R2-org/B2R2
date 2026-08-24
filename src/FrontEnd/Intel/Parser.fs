@@ -723,11 +723,19 @@ type IntelParser(wordSz, reader) =
     | DefaultSyntax -> disasm <- Disasm.Delegate Disasm.IntelSyntax.disasm
     | ATTSyntax -> disasm <- Disasm.Delegate Disasm.ATTSyntax.disasm
 
-  member inline private _.ParsePrefix(span: ByteSpan) =
-    let mutable pos = 0
-    let mutable pref = Prefix.None
-    let mutable b = span[0]
-    while ((prefixCheck[(int b >>> 5)] >>> (int b &&& 0b11111)) &&& 1u) > 0u do
+  member inline private _.IsPrefixByte(b: byte) =
+    ((prefixCheck[(int b >>> 5)] >>> (int b &&& 0b11111)) &&& 1u) > 0u
+
+  /// In 64-bit mode 40h through 4Fh are REX prefixes; below it they are the
+  /// one-byte INC and DEC forms and no prefix at all.
+  member inline private _.IsREXByte(b: byte) =
+    wordSz <> WordSize.Bit32 && (int b &&& 0b11110000) = 0b01000000
+
+  member inline private this.ParsePrefix(span: ByteSpan, startPos, startPref) =
+    let mutable pos = startPos
+    let mutable pref = startPref
+    let mutable b = span[pos]
+    while this.IsPrefixByte b do
       match b with
       | 0xF0uy -> pref <- Prefix.LOCK ||| (Prefix.ClearGrp1PrefMask &&& pref)
       | 0xF2uy -> pref <- Prefix.REPNZ ||| (Prefix.ClearGrp1PrefMask &&& pref)
@@ -802,8 +810,18 @@ type IntelParser(wordSz, reader) =
       try
         let mutable rex = REXPrefix.NOREX
         let mutable vex = None
-        let prefEndPos = this.ParsePrefix span
-        let rexEndPos = this.ParseREX(span, prefEndPos, &rex)
+        let mutable prefEndPos = this.ParsePrefix(span, 0, Prefix.None)
+        let mutable rexEndPos = this.ParseREX(span, prefEndPos, &rex)
+        (* SDM Vol 2A 2.2.1: a REX prefix has to sit immediately before the
+           opcode, so one that another prefix follows is ignored and the scan
+           carries on past it. Two REX bytes in a row read the same way: only
+           the last one is doing anything. *)
+        while rexEndPos > prefEndPos
+              && (this.IsPrefixByte(span[rexEndPos])
+                  || this.IsREXByte(span[rexEndPos])) do
+          rex <- REXPrefix.NOREX
+          prefEndPos <- this.ParsePrefix(span, rexEndPos, phlp.Prefixes)
+          rexEndPos <- this.ParseREX(span, prefEndPos, &rex)
         let nextPos = this.ParseVEX(span, rexEndPos, &rex, &vex)
         phlp.VEXInfo <- None
         phlp.IsFar <- false

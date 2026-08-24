@@ -91,6 +91,9 @@ type ParserTests() =
   let testX64NoPrefixNoSeg (bytes: byte[]) (opcode, operands) =
     test Prefix.None None WordSize.Bit64 opcode operands bytes
 
+  let testX64Prefix pref (bytes: byte[]) (opcode, operands) =
+    test pref None WordSize.Bit64 opcode operands bytes
+
   let operandsFromArray oprList =
     let oprArray = Array.ofList oprList
     match oprArray.Length with
@@ -2610,4 +2613,21 @@ type ParserTests() =
     "c4e37919c100"
     ++ VEXTRACTF128 ** [ O.Reg R.XMM1; O.Reg R.YMM0; O.Imm(0L, 8<rt>) ]
     ||> testException testX64NoPrefixNoSeg
+
+  (* A REX prefix only counts where it sits immediately before the opcode.
+     Put another prefix after one and the hardware ignores it, so 41h here
+     leaves 66h to pick the 16-bit form on its own. *)
+  [<TestMethod>]
+  member _.``REX that another prefix follows (1)``() =
+    "416689c8"
+    ++ MOV ** [ O.Reg R.AX; O.Reg R.CX ]
+    ||> testX64Prefix Prefix.OPSIZE
+
+  (* Two REX bytes in a row are the same rule: 41h is ignored and 48h, the
+     one against the opcode, brings the 64-bit form. *)
+  [<TestMethod>]
+  member _.``REX that another prefix follows (2)``() =
+    "414889c8"
+    ++ MOV ** [ O.Reg R.RAX; O.Reg R.RCX ]
+    ||> testX64NoPrefixNoSeg
 #endif
