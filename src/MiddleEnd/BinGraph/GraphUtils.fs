@@ -103,44 +103,25 @@ let computeReachables (g: IDiGraph<_, _>) =
     reachables.Add v |> ignore)
   reachables
 
-let computeDepthFirstNumbers (g: IDiGraph<_, _>) =
-  let dfNums = Dictionary<IVertex<_>, int>()
-  Traversal.DFS.foldRevPostorder g (fun cnt v ->
-    dfNums[v] <- cnt
-    cnt + 1
-  ) 0 |> ignore
-  dfNums
-
-/// Collects the back edges of the given graph. A vertex can be the source of
-/// more than one back edge, hence the edges, not their sources, are what the
-/// result holds.
-let findBackEdges (g: IDiGraph<_, _>) =
-  let dfNums = computeDepthFirstNumbers g
-  let backEdges = HashSet<Edge<_, _>>()
-  g |> DiGraph.iterEdge (fun e ->
-    if dfNums[e.First] < dfNums[e.Second] then ()
-    else backEdges.Add e |> ignore)
-  backEdges
-
 let findRegularExits (g: IDiGraph<_, _>) =
   g.Vertices
   |> Array.fold (fun acc v ->
     if (g.GetSuccs v).Length = 0 then v :: acc else acc) []
 
-let findExitsAfterRemovingBackEdges (g: IDiGraph<_, _>) =
-  let backEdges = findBackEdges g
-  let isBackEdge (e: Edge<_, _>) = backEdges.Contains e
+let findExitsAfterRemovingRetreatingEdges (g: IDiGraph<_, _>) =
+  let retreating = Loop.RetreatingEdge.findAll g
+  let isRetreating (e: Edge<_, _>) = retreating.Contains e
   g.Vertices
   |> Array.fold (fun exits v ->
-    if g.GetSuccEdges v |> Array.forall isBackEdge then v :: exits else exits
+    if g.GetSuccEdges v |> Array.forall isRetreating then v :: exits else exits
   ) []
 
 /// Finds exit nodes of a digraph. An exit node is a node that has no outgoing
 /// edges. In case the given graph has no such exit nodes (e.g., infinite
-/// loops), we remove back edges and find exit nodes again, in which case we
-/// consider loop tails as exit nodes.
+/// loops), we remove retreating edges and find exit nodes again, in which case
+/// we consider loop tails as exit nodes.
 let findExits (g: IDiGraph<_, _>) =
   findRegularExits g
   |> function
-    | [] -> findExitsAfterRemovingBackEdges g
+    | [] -> findExitsAfterRemovingRetreatingEdges g
     | exits -> exits

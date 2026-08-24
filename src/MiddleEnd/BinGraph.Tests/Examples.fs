@@ -262,3 +262,14 @@ let digraph14 t =
   addEdge 1 3
   addEdge 2 3
   g, vmap
+
+/// Smallest irreducible example, where the cycle between 2 and 3 has two
+/// entries, so neither of the two dominates the other and the cycle closes no
+/// natural loop. Exits: none
+let digraph15 t =
+  let g, vmap, addEdge = prepare 3 t
+  addEdge 1 2
+  addEdge 1 3
+  addEdge 2 3
+  addEdge 3 2
+  g, vmap

@@ -59,3 +59,55 @@ type LoopTests() =
     assertLoop dict[2] <| (8, 3, toSet vmap [ 3; 4; 5; 6; 7; 8; 10 ])
     assertLoop dict[3] <| (9, 1, toSet vmap [ 1; 2; 3; 4; 5; 6; 7; 8; 9; 10 ])
     assertLoop dict[4] <| (10, 7, toSet vmap [ 7; 8; 10 ])
+
+  [<TestMethod>]
+  [<DynamicData(nameof LoopTests.GraphTypes)>]
+  member _.``Irreducible Natural Loop Test``(t) =
+    let g, _ = digraph15 t
+    let dict = Loop.NaturalLoop.findAll g
+    Assert.AreEqual<int>(0, dict.Count)
+
+  [<TestMethod>]
+  [<DynamicData(nameof LoopTests.GraphTypes)>]
+  member _.``Reducible Retreating Edge Test``(t) =
+    let g, _ = digraph11 t
+    let edges =
+      Loop.RetreatingEdge.findAll g
+      |> Seq.map (fun e -> e.First.ID, e.Second.ID)
+      |> Seq.sort
+      |> Seq.toArray
+    (* The graph is reducible, hence its retreating edges are exactly the back
+       edges that the natural loops close. *)
+    let expected = [| 4, 3; 7, 4; 8, 3; 9, 1; 10, 7 |]
+    CollectionAssert.AreEqual(expected, edges)
+
+  [<TestMethod>]
+  [<DynamicData(nameof LoopTests.GraphTypes)>]
+  member _.``Irreducible Retreating Edge Test``(t) =
+    let g, _ = digraph15 t
+    let edges = Loop.RetreatingEdge.findAll g
+    (* One of the two edges of the cycle retreats, which one depending on the
+       order the traversal reaches its vertices in, while neither closes a
+       natural loop. *)
+    Assert.AreEqual<int>(1, edges.Count)
+    let e = Seq.head edges
+    let ids = HashSet [ e.First.ID; e.Second.ID ]
+    Assert.AreEqual(true, ids.SetEquals [ 2; 3 ])
+
+  [<TestMethod>]
+  [<DynamicData(nameof LoopTests.GraphTypes)>]
+  member _.``Unreachable Natural Loop Test``(t) =
+    let g, vmap = digraph10 t
+    let dict = Loop.NaturalLoop.findAll g
+    (* Nothing dominates a vertex no root reaches, hence the cycle between 4
+       and 5 closes no natural loop, while the one through 3 does. *)
+    Assert.AreEqual<int>(1, dict.Count)
+    let edge, vertices = dict |> Seq.head |> toTuple
+    assertLoop (edge, vertices) (3, 1, toSet vmap [ 1; 2; 3 ])
+
+  [<TestMethod>]
+  [<DynamicData(nameof LoopTests.GraphTypes)>]
+  member _.``Acyclic Natural Loop Test``(t) =
+    let g, _ = digraph12 t
+    let dict = Loop.NaturalLoop.findAll g
+    Assert.AreEqual<int>(0, dict.Count)

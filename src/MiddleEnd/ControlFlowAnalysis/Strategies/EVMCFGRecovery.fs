@@ -793,30 +793,14 @@ module private EVMCFGRecovery =
     else
       fn ()
 
-  let findBackEdges (backEdges: HashSet<_>) (g: IDiGraph<_, _>) =
-    let seen = HashSet()
-    let onStack = Dictionary()
-    let rec dfs u =
-      seen.Add u |> ignore
-      onStack[u] <- true
-      for v in g.GetSuccs u do
-        if not <| seen.Contains v then
-          dfs v
-        elif onStack.ContainsKey v && onStack[v] then
-          backEdges.Add(u, v) |> ignore
-        else
-          ()
-      onStack[u] <- false
-    for v in g.Vertices do
-      if not <| seen.Contains v then dfs v else ()
-
   /// Update the back-edges of the current function.
   /// TODO: We can use the dynamic DFS algorithm by Yang et al. (VLDB '19).
   let updateBackEdges ctx _srcV _dstV =
     let usrCtx = ctx.UserContext :> EVMFuncUserContext
     let backEdges = usrCtx.BackEdges
     backEdges.Clear()
-    findBackEdges backEdges ctx.CFG
+    for e in Loop.RetreatingEdge.findAll ctx.CFG do
+      backEdges.Add(e.First, e.Second) |> ignore
 
   /// Traverses the graph `g` starting from the vertex `v`, and mark vertices
   /// as removal, as every vertex affected by the removal of `v` should be

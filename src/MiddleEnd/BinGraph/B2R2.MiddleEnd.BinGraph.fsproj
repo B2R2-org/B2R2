@@ -15,6 +15,7 @@
     <Compile Include="DiGraph.fs" />
     <Compile Include="Traversal\DFS.fs" />
     <Compile Include="Traversal\BFS.fs" />
+    <Compile Include="Loop\RetreatingEdge.fs" />
     <Compile Include="GraphUtils.fs" />
     <Compile Include="SerializableGraph.fs" />
     <Compile Include="Serializer.fs" />
