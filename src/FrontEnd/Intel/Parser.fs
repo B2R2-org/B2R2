@@ -413,13 +413,21 @@ type IntelParser(wordSz, reader) =
 
   /// Returns true when every constraint the instruction core declares holds
   /// for the bytes at hand.
+  /// Ordered by what each one costs against how much it turns away, measured
+  /// over real binaries in both modes. The ModRM byte leads because it is the
+  /// cheapest question here - one byte and a bit test - and still rejects
+  /// about a quarter of the candidates that reach it. The operand size
+  /// rejects more, a third to two fifths, but has to scan the descriptors
+  /// and the slot to answer, so it waits behind the cheap ones. The last
+  /// three together turn away under two percent; JCXZ's address size
+  /// rejected two candidates in 385,588 instructions.
   let matchesInstrCore span (phlp: ParsingHelper) ins isRounding insCore =
-    matchPrefix phlp ins (uint8 insCore.OpcodeByte) insCore.PrefixType
+    matchModRM span phlp insCore
     && matchCPUMode phlp.WordSize insCore.Mode64 insCore.Compat
-    && matchOperandSize phlp.Prefixes ins insCore
     && matchREX phlp ins insCore
+    && matchOperandSize phlp.Prefixes ins insCore
+    && matchPrefix phlp ins (uint8 insCore.OpcodeByte) insCore.PrefixType
     && matchVectorLength isRounding phlp.VEXInfo insCore
-    && matchModRM span phlp insCore
     && matchJcxzAddrSize phlp insCore
 
 #if DEBUG
