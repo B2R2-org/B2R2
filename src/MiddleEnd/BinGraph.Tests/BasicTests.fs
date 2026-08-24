@@ -184,6 +184,35 @@ type BasicTests() =
 
   [<TestMethod>]
   [<DynamicData(nameof BasicTests.GraphTypes)>]
+  member _.``Duplicate Vertex ID Test``(t) =
+    let g = emptyDigraph t
+    let v1 = g.AddVertex(1, 7)
+    let v2 = g.AddVertex(2, 8)
+    g.AddEdge(v1, v2, 1)
+    Assert.Throws<System.ArgumentException>(fun () ->
+      g.AddVertex(3, 8) |> ignore)
+    |> ignore
+    Assert.Throws<System.ArgumentException>(fun () ->
+      g.AddVertexCopy v2 |> ignore)
+    |> ignore
+    (* A rejected vertex leaves the graph as it was, so the vertex it would
+       have taken the place of is still the one the edge into it leads to. *)
+    Assert.AreEqual<int>(2, g.VertexCount)
+    Assert.AreEqual<int>(1, g.EdgeCount)
+    Assert.AreEqual<bool>(true, g.Contains v2)
+    CollectionAssert.AreEqual([| v2 |], g.GetSuccs v1)
+
+  [<TestMethod>]
+  [<DynamicData(nameof BasicTests.GraphTypes)>]
+  member _.``Dummy Vertex ToString Test``(t) =
+    let g = emptyDigraph t
+    let v1 = g.AddVertex 1
+    let v2 = g.AddVertex()
+    Assert.AreEqual<string>("Vertex(1)", v1.ToString())
+    Assert.AreEqual<string>($"Vertex(#{v2.ID})", v2.ToString())
+
+  [<TestMethod>]
+  [<DynamicData(nameof BasicTests.GraphTypes)>]
   member _.``Single Root Lookup Test``(t) =
     let empty = emptyDigraph t
     Assert.Throws<NoRootVertexException>(fun () ->

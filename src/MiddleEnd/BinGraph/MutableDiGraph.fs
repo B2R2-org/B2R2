@@ -97,6 +97,7 @@ type MutableDiGraph<'V, 'E when 'V: equality and 'E: equality>
 
   let addVertexWithDataAndID (data: VertexData<'V>) (vid: VertexID) =
     GraphUtils.checkVertexIDNotReserved vid
+    GraphUtils.checkVertexIDNotTaken (vertices.ContainsKey vid) vid
     id <- max id vid
     addVertex data vid
 
@@ -282,9 +283,7 @@ type MutableDiGraph<'V, 'E when 'V: equality and 'E: equality>
 
     member _.AddVertex v = addVertexWithData (VertexData v)
 
-    member _.AddVertex(v, vid) =
-      assert (vertices.ContainsKey vid |> not)
-      addVertexWithDataAndID (VertexData v) vid
+    member _.AddVertex(v, vid) = addVertexWithDataAndID (VertexData v) vid
 
     member _.AddVertex() = addVertexWithData null
 

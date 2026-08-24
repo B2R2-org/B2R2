@@ -42,8 +42,13 @@ type Vertex<'V when 'V: equality>
 
     member _.HasData = not (isNull vData)
 
+  (* A vertex carrying no data has nothing but its ID to be named by, hence
+     that is what it reads as, marked with a '#' so that it is not taken for
+     the data of a vertex that has some. *)
   interface System.IFormattable with
-    member _.ToString(_, _) = $"{nameof Vertex}({vData.ToString ()})"
+    member _.ToString(_, _) =
+      if isNull vData then $"{nameof Vertex}(#{id})"
+      else $"{nameof Vertex}({vData.ToString()})"
 
   (* A vertex is the object it is. The graph that made one hands out that very
      object every time, so a vertex of another graph is another vertex even

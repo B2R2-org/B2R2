@@ -36,7 +36,9 @@ type Serializer =
       (g: IDiGraph<'V, 'E>).Roots |> Array.map (fun v -> v.ID)
     let vertices =
       g.Vertices
-      |> Array.map (fun v -> { ID = v.ID; Label = v.VData.ToString() })
+      |> Array.map (fun v ->
+        let lbl = if v.HasData then v.VData.ToString() else ""
+        { ID = v.ID; Label = lbl })
     let edges =
       g.Edges
       |> Array.map (fun e ->
@@ -199,22 +201,48 @@ type Serializer =
     Serializer.CopyGraph(sg, g, vConstructor, eConstructor)
     g.Snapshot
 
-  /// Exports the given graph to a string in the DOT format.
-  static member ToDOT(g: IDiGraph<_, _>, name) =
-    let vertexFn v = v.ToString()
-    let edgeFn e = e.ToString()
-    Serializer.ToDOT(g, name, vertexFn, edgeFn)
+  /// Escapes the given text so that it reads back as one DOT label. A label is
+  /// a quoted string, in which a backslash and a quote each stand for
+  /// themselves only when escaped, and a line break has to be written out.
+  static member private EscapeDOTLabel(s: string) =
+    let sb = StringBuilder()
+    for ch in s do
+      match ch with
+      | '\\' -> sb.Append("\\\\") |> ignore
+      | '"' -> sb.Append("\\\"") |> ignore
+      | '\n' -> sb.Append("\\n") |> ignore
+      | '\r' -> ()
+      | _ -> sb.Append(ch) |> ignore
+    sb.ToString()
 
-  /// Exports the given graph to a string in the DOT format using the given
-  /// vertex and edge label functions.
-  static member ToDOT(g: IDiGraph<_, _>, name, vertexFn, edgeFn) =
+  /// Exports the given graph to a string in the DOT format, labeling every
+  /// vertex and every edge with its own string representation.
+  static member ToDOT(g: IDiGraph<_, _>, name) =
+    let vertexAttrFn (v: IVertex<_>) =
+      $"[label=\"{Serializer.EscapeDOTLabel(v.ToString())}\"]"
+    let edgeLabelFn (e: Edge<_, _>) = e.ToString()
+    Serializer.ToDOT(g, name, vertexAttrFn, edgeLabelFn)
+
+  /// <summary>
+  /// Exports the given graph to a string in the DOT format.
+  /// </summary>
+  /// <param name="g">The graph to export.</param>
+  /// <param name="name">The name the resulting DOT graph carries.</param>
+  /// <param name="vertexAttrFn">Returns the attribute list of a vertex,
+  /// brackets and all, e.g. <c>[label="entry"]</c>. It goes into the output
+  /// as it is, hence a label of its own making is this function's to escape.
+  /// The overload taking no function does that escaping itself.</param>
+  /// <param name="edgeLabelFn">Returns the label of an edge as plain text,
+  /// which this function escapes and puts into a label attribute of its
+  /// own.</param>
+  static member ToDOT(g: IDiGraph<_, _>, name, vertexAttrFn, edgeLabelFn) =
     let (!!) (sb: StringBuilder) (s: string) = sb.Append s |> ignore
     let sb = StringBuilder()
     let vertexToString (v: IVertex<_>) =
-      let lbl = vertexFn v
-      !!sb $"  {v.ID}{lbl};\n"
+      !!sb $"  {v.ID} {vertexAttrFn v};\n"
     let edgeToString (e: Edge<_, _>) =
-      !!sb $"  {e.First.ID} -> {e.Second.ID} [label=\"{edgeFn e}\"];\n"
+      let lbl = Serializer.EscapeDOTLabel(edgeLabelFn e)
+      !!sb $"  {e.First.ID} -> {e.Second.ID} [label=\"{lbl}\"];\n"
     !!sb $"digraph {name} {{\n"
     !!sb $"  node[shape=box]\n"
     g |> DiGraph.iterVertex vertexToString

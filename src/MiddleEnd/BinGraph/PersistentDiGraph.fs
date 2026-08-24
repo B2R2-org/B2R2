@@ -120,6 +120,7 @@ type PersistentDiGraph<'V, 'E
 
   let addVertexWithDataAndID data vid =
     GraphUtils.checkVertexIDNotReserved vid
+    GraphUtils.checkVertexIDNotTaken (Map.containsKey vid vertices) vid
     addVertex data vid (max id vid)
 
   (* A graph holds at most one edge for an ordered pair of vertices, hence
@@ -274,7 +275,6 @@ type PersistentDiGraph<'V, 'E
       v, g
 
     member _.AddVertex(value, vid: VertexID) =
-      assert (vertices |> Map.containsKey vid |> not)
       let struct (v, g) = addVertexWithDataAndID (VertexData value) vid
       v, g
 

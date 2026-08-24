@@ -67,6 +67,14 @@ let checkVertexIDNotReserved (vid: VertexID) =
   if vid <> DummyVertexID then ()
   else invalidArg (nameof vid) $"Vertex ID {vid} is reserved"
 
+/// Raises `ArgumentException` when a vertex of the given ID already belongs to
+/// the graph. Letting the new vertex take the place of the old one would leave
+/// the edges of the old one behind, each of them still spanning a vertex the
+/// graph no longer holds.
+let checkVertexIDNotTaken taken (vid: VertexID) =
+  if not taken then ()
+  else invalidArg (nameof vid) $"Vertex ID {vid} is already in use"
+
 /// Raises `VertexNotFoundException` for a vertex looked up by its ID.
 let raiseVertexNotFoundByID (vid: VertexID) =
   raise <| VertexNotFoundException $"No vertex with ID {vid}"

@@ -39,10 +39,9 @@ type IPersistentDiGraph<'V, 'E when 'V: equality and 'E: equality> =
   abstract AddVertex: data: 'V -> IVertex<'V> * IPersistentDiGraph<'V, 'E>
 
   /// Adds a vertex to the graph using a data value and a vertex ID, and returns
-  /// a reference to the added vertex along with the resulting graph. This
-  /// function assumes that the vertex ID is unique in the graph, thus it needs
-  /// to be used with caution. It raises `ArgumentException` for -1, an ID this
-  /// package keeps for itself.
+  /// a reference to the added vertex along with the resulting graph. It raises
+  /// `ArgumentException` when the given ID is one the graph already holds a
+  /// vertex for, and when it is -1, an ID this package keeps for itself.
   abstract AddVertex:
     data: 'V * vid: VertexID -> IVertex<'V> * IPersistentDiGraph<'V, 'E>
 
@@ -51,10 +50,9 @@ type IPersistentDiGraph<'V, 'E when 'V: equality and 'E: equality> =
 
   /// Adds a copy of the given vertex, which may come from another graph, to
   /// this graph. The copy keeps the ID of the given vertex as well as the
-  /// absence of its data, which is what copying a graph requires. This
-  /// function assumes that the vertex ID is unique in the graph, thus it
-  /// needs to be used with caution. It raises `ArgumentException` when the
-  /// vertex carries -1, an ID this package keeps for itself.
+  /// absence of its data, which is what copying a graph requires. It raises
+  /// `ArgumentException` when this graph already holds a vertex of that ID,
+  /// and when the ID is -1, one this package keeps for itself.
   abstract AddVertexCopy:
     v: IVertex<'V> -> IVertex<'V> * IPersistentDiGraph<'V, 'E>
 

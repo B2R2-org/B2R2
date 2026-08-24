@@ -76,6 +76,50 @@ type SerializerTests() =
 
   [<TestMethod>]
   [<DynamicData(nameof SerializerTests.GraphTypes)>]
+  member _.``Export a graph carrying no data``(t) =
+    let g = emptyDigraph t
+    let v1 = g.AddVertex 1
+    let v2 = g.AddVertex()
+    g.AddEdge(v1, v2)
+    (* A vertex with no data and an edge with no label both export as the
+       empty label, which is the very thing the import reads back as one. *)
+    let g' = Serializer.ToJson g |> importGraph t
+    Assert.AreEqual<int>(2, g'.VertexCount)
+    Assert.AreEqual<int>(1, g'.EdgeCount)
+    let data = g'.Vertices |> Array.map (fun v -> v.VData) |> Array.sort
+    CollectionAssert.AreEqual([| -1; 1 |], data)
+
+  [<TestMethod>]
+  [<DynamicData(nameof SerializerTests.GraphTypes)>]
+  member _.``Export to DOT``(t) =
+    let g = emptyDigraph t
+    let v1 = g.AddVertex 1
+    let v2 = g.AddVertex()
+    g.AddEdge(v1, v2, 3)
+    let dot = Serializer.ToDOT(g, "test")
+    StringAssert.StartsWith(dot, "digraph test {\n")
+    StringAssert.EndsWith(dot, "}\n")
+    StringAssert.Contains(dot, $"  {v1.ID} [label=\"Vertex(1)\"];\n")
+    StringAssert.Contains(dot, $"  {v2.ID} [label=\"Vertex(#{v2.ID})\"];\n")
+    StringAssert.Contains(dot, $"  {v1.ID} -> {v2.ID} [label=\"3\"];\n")
+
+  [<TestMethod>]
+  member _.``Escape a DOT label``() =
+    let g = MutableDiGraph<string, string>() :> IMutableDiGraph<_, _>
+    let v1 = g.AddVertex "a\"b"
+    let v2 = g.AddVertex "c\\d"
+    g.AddVertex "e\r\nf" |> ignore
+    g.AddEdge(v1, v2, "g\"h")
+    let dot = Serializer.ToDOT(g, "test")
+    StringAssert.Contains(dot, "[label=\"Vertex(a\\\"b)\"]")
+    StringAssert.Contains(dot, "[label=\"Vertex(c\\\\d)\"]")
+    StringAssert.Contains(dot, "[label=\"g\\\"h\"]")
+    (* A line break inside a label is written out rather than breaking the
+       statement that the label sits in. *)
+    StringAssert.Contains(dot, "[label=\"Vertex(e\\nf)\"]")
+
+  [<TestMethod>]
+  [<DynamicData(nameof SerializerTests.GraphTypes)>]
   member _.``Reject an edge referring to an undefined vertex``(t) =
     let json = """{ "roots": [ 1 ],
                     "vertices": [ { "id": 1, "label": "1" } ],
