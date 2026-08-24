@@ -27,9 +27,10 @@ namespace B2R2.MiddleEnd.ControlFlowGraph
 open B2R2.BinIR.SSA
 open B2R2.MiddleEnd.BinGraph
 
-/// SSA-based CFG, where each node contains SSA-based basic blocks. This is a
-/// wrapper class of `IMutableDiGraph<SSABasicBlock, CFGEdgeKind>`, which
-/// provides a uniform interface for both mutable and persistent graphs.
+/// Represents an SSA-based CFG, where each node contains an SSA-based basic
+/// block. This is a wrapper class of `IMutableDiGraph<SSABasicBlock,
+/// CFGEdgeKind>`, which provides a uniform interface for both mutable and
+/// persistent graphs.
 type SSACFG private(g: IMutableDiGraph<SSABasicBlock, CFGEdgeKind>) =
 
   /// Creates an empty graph of the given implementation type.
@@ -41,26 +42,26 @@ type SSACFG private(g: IMutableDiGraph<SSABasicBlock, CFGEdgeKind>) =
       let g = PersistentDiGraph<SSABasicBlock, CFGEdgeKind>()
       MutablePersistentDiGraph g :> IMutableDiGraph<_, _>
 
-  /// Create a new CFG with the given implementation type.
+  /// Creates a new CFG with the given implementation type.
   new(t: ImplementationType) = SSACFG(empty t)
 
-  /// Number of vertices.
+  /// Gets the number of vertices.
   member _.VertexCount with get() = g.VertexCount
 
-  /// Number of edges.
+  /// Gets the number of edges.
   member _.EdgeCount with get() = g.EdgeCount
 
-  /// Get an array of all vertices in this CFG.
+  /// Gets an array of all vertices in this CFG.
   member _.Vertices with get() = g.Vertices
 
-  /// Get an array of all edges in this CFG.
+  /// Gets an array of all edges in this CFG.
   member _.Edges with get() = g.Edges
 
-  /// Get an array of exit vertices in this CFG.
+  /// Gets an array of exit vertices in this CFG.
   member _.Exits with get() = g.Exits
 
   /// <summary>
-  /// Get exactly one root vertex of this CFG.
+  /// Gets exactly one root vertex of this CFG.
   /// </summary>
   /// <exception cref='T:B2R2.MiddleEnd.BinGraph.NoRootVertexException'>
   /// Thrown when this CFG has no root vertex.
@@ -71,71 +72,71 @@ type SSACFG private(g: IMutableDiGraph<SSABasicBlock, CFGEdgeKind>) =
   /// </exception>
   member _.SingleRoot with get() = g.SingleRoot
 
-  /// Get the root vertices of this CFG.
+  /// Gets the root vertices of this CFG.
   member _.Roots with get() = g.Roots
 
-  /// Get the implementation type of this CFG.
+  /// Gets the implementation type of this CFG.
   member _.ImplementationType with get() = g.ImplementationType
 
-  /// Is this empty? A CFG is empty when there is no vertex.
+  /// Checks if this CFG is empty. A CFG is empty when there is no vertex.
   member _.IsEmpty with get() = g.IsEmpty
 
-  /// Add a vertex containing this BBL to this CFG, and return the added vertex.
+  /// Adds a vertex containing the given BBL to this CFG, and returns the added
+  /// vertex.
   member _.AddVertex bbl = g.AddVertex bbl
 
-  /// Remove the given vertex from this CFG.
+  /// Removes the given vertex from this CFG.
   member _.RemoveVertex v = g.RemoveVertex v
 
-  /// Check whether this very vertex belongs to this CFG.
+  /// Checks whether this very vertex belongs to this CFG.
   member _.Contains v = g.Contains v
 
-  /// Find a vertex that satisfies the given predicate function.
+  /// Finds a vertex that satisfies the given predicate function.
   member _.FindVertex fn = g.FindVertexBy fn
 
-  /// Find a vertex that satisfies the given predicate function. This function
-  /// returns an Option type. If there is no such a vertex, it returns None.
+  /// Finds a vertex that satisfies the given predicate function, answering
+  /// None when there is no such vertex.
   member _.TryFindVertex fn = g.TryFindVertexBy fn
 
-  /// Add an edge between the given source and destination vertices.
+  /// Adds an edge between the given source and destination vertices.
   member _.AddEdge(src, dst) = g.AddEdge(src, dst)
 
-  /// Add an edge between the given source and destination vertices with a
+  /// Adds an edge between the given source and destination vertices with a
   /// label.
   member _.AddEdge(src, dst, label) = g.AddEdge(src, dst, label)
 
-  /// Remove an edge between the given source and destination vertices.
+  /// Removes the edge between the given source and destination vertices.
   member _.RemoveEdge(src, dst) = g.RemoveEdge(src, dst)
 
-  /// Remove an edge from this CFG.
+  /// Removes the given edge from this CFG.
   member _.RemoveEdge edge = g.RemoveEdge edge
 
-  /// Find an edge between the given source and destination vertices.
+  /// Finds the edge between the given source and destination vertices.
   member _.FindEdge(src, dst) = g.FindEdge(src, dst)
 
-  /// Find an edge between the given source and destination vertices. This
-  /// function returns an Option type. If there is no such an edge, it returns
-  /// None.
+  /// Finds the edge between the given source and destination vertices,
+  /// answering None when there is no such edge.
   member _.TryFindEdge(src, dst) = g.TryFindEdge(src, dst)
 
-  /// Get the predecessors of the given vertex.
+  /// Gets the predecessors of the given vertex.
   member _.GetPreds v = g.GetPreds v
 
-  /// Get the predecessor edges of the given vertex.
+  /// Gets the predecessor edges of the given vertex.
   member _.GetPredEdges v = g.GetPredEdges v
 
-  /// Get the successors of the given vertex.
+  /// Gets the successors of the given vertex.
   member _.GetSuccs v = g.GetSuccs v
 
-  /// Get the successor edges of the given vertex.
+  /// Gets the successor edges of the given vertex.
   member _.GetSuccEdges v = g.GetSuccEdges v
 
-  /// Add a root vertex to this CFG.
+  /// Adds a root vertex to this CFG.
   member _.AddRoot v = g.AddRoot v
 
-  /// Set root vertices of this CFG.
+  /// Sets the root vertices of this CFG.
   member _.SetRoots vs = g.SetRoots vs
 
-  /// Find the definition of the given variable kind (targetVarKind) at the
+  /// Finds the definition of the given variable kind (targetVarKind) at the
   /// given node v. We simply follow the dominator tree of the given SSACFG
   /// until we find a definition.
   member this.FindDef(v: IVertex<SSABasicBlock>, targetVarKind) =
@@ -153,9 +154,9 @@ type SSACFG private(g: IMutableDiGraph<SSABasicBlock, CFGEdgeKind>) =
       | Some idom -> this.FindDef(idom, targetVarKind)
       | None -> None
 
-  /// Find the reaching definition of the given variable kind (targetVarKind) at
-  /// the entry of node v. We simply follow the dominator tree of the given
-  /// SSACFG until we find a definition.
+  /// Finds the reaching definition of the given variable kind
+  /// (targetVarKind) at the entry of node v. We simply follow the dominator
+  /// tree of the given SSACFG until we find a definition.
   member this.FindReachingDef(v: IVertex<SSABasicBlock>, targetVarKind) =
     match v.VData.ImmDominator with
     | Some idom -> this.FindDef(idom, targetVarKind)

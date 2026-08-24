@@ -30,9 +30,10 @@ open B2R2.FrontEnd.BinLifter
 open B2R2.MiddleEnd.BinGraph
 open B2R2.MiddleEnd.ControlFlowGraph
 
-/// Disassembly-based CFG, where each node contains disassembly code. This is
-/// the most user-friendly CFG, although we do not use this for internal
-/// analyses. Therefore, this class does not provide ways to modify the CFG.
+/// Represents a disassembly-based CFG, where each node contains disassembly
+/// code. This is the most user-friendly CFG, although we do not use this for
+/// internal analyses. Therefore, this class does not provide ways to modify
+/// the CFG.
 type DisasmCFG(disasmBuilder, ircfg: LowUIRCFG) =
   let isAbsVertex (v: IVertex<LowUIRBasicBlock>) = v.VData.Internals.IsAbstract
 
@@ -141,7 +142,8 @@ type DisasmCFG(disasmBuilder, ircfg: LowUIRCFG) =
         ()
       dfs g tempVMap visited <| (collectFreshSuccEdges visited g d) @ rest
 
-  /// Prepare DisasmCFG information while doing the following transformations:
+  /// Prepares DisasmCFG information while doing the following
+  /// transformations.
   /// - Remove intra-node edges by merging the corresponding nodes.
   /// - Remove abstract nodes by connecting their predecessors and successors.
   /// - Merge consecutive nodes.
@@ -193,23 +195,23 @@ type DisasmCFG(disasmBuilder, ircfg: LowUIRCFG) =
     |> prepareDisasmCFGInfo
     |> createDisasmCFG
 
-  /// Number of vertices.
+  /// Gets the number of vertices.
   member _.VertexCount with get() = g.VertexCount
 
-  /// Number of edges.
+  /// Gets the number of edges.
   member _.EdgeCount with get() = g.EdgeCount
 
-  /// Get an array of all vertices in this CFG.
+  /// Gets an array of all vertices in this CFG.
   member _.Vertices with get() = g.Vertices
 
-  /// Get an array of all edges in this CFG.
+  /// Gets an array of all edges in this CFG.
   member _.Edges with get() = g.Edges
 
-  /// Get an array of exit vertices in this CFG.
+  /// Gets an array of exit vertices in this CFG.
   member _.Exits with get() = g.Exits
 
   /// <summary>
-  /// Get exactly one root vertex of this CFG.
+  /// Gets exactly one root vertex of this CFG.
   /// </summary>
   /// <exception cref='T:B2R2.MiddleEnd.BinGraph.NoRootVertexException'>
   /// Thrown when this CFG has no root vertex.
@@ -220,33 +222,32 @@ type DisasmCFG(disasmBuilder, ircfg: LowUIRCFG) =
   /// </exception>
   member _.SingleRoot with get() = g.SingleRoot
 
-  /// Get the root vertices of this CFG.
+  /// Gets the root vertices of this CFG.
   member _.Roots with get() = g.Roots
 
-  /// Get the implementation type of this CFG.
+  /// Gets the implementation type of this CFG.
   member _.ImplementationType with get() = g.ImplementationType
 
-  /// Is this empty? A CFG is empty when there is no vertex.
+  /// Checks if this CFG is empty. A CFG is empty when there is no vertex.
   member _.IsEmpty with get() = g.IsEmpty
 
-  /// Find an edge between the given source and destination vertices.
+  /// Finds the edge between the given source and destination vertices.
   member _.FindEdge(src, dst) = g.FindEdge(src, dst)
 
-  /// Find an edge between the given source and destination vertices. This
-  /// function returns an Option type. If there is no such an edge, it returns
-  /// None.
+  /// Finds the edge between the given source and destination vertices,
+  /// answering None when there is no such edge.
   member _.TryFindEdge(src, dst) = g.TryFindEdge(src, dst)
 
-  /// Get the predecessors of the given vertex.
+  /// Gets the predecessors of the given vertex.
   member _.GetPreds v = g.GetPreds v
 
-  /// Get the predecessor edges of the given vertex.
+  /// Gets the predecessor edges of the given vertex.
   member _.GetPredEdges v = g.GetPredEdges v
 
-  /// Get the successors of the given vertex.
+  /// Gets the successors of the given vertex.
   member _.GetSuccs v = g.GetSuccs v
 
-  /// Get the successor edges of the given vertex.
+  /// Gets the successor edges of the given vertex.
   member _.GetSuccEdges v = g.GetSuccEdges v
 
   interface IDiGraph<DisasmBasicBlock, CFGEdgeKind> with
@@ -279,7 +280,7 @@ type DisasmCFG(disasmBuilder, ircfg: LowUIRCFG) =
   interface ISCCEnumerable<DisasmBasicBlock> with
     member _.GetSCCEnumerator() = SCC.Tarjan.compute g
 
-/// Temporarily stores vertex information for creating DisasmCFG.
+/// Represents the vertex information held while a DisasmCFG is built.
 and private TemporaryDisasmVertex =
   { /// An address of this vertex.
     Address: Addr
@@ -291,8 +292,8 @@ and private TemporaryDisasmVertex =
     /// merging vertices, which is guaranteed by our depth-first traversal.
     IRVertex: IVertex<LowUIRBasicBlock> }
 
-/// Mapping from address to TemporaryDisasmVertex.
+/// Represents a mapping from an address to a TemporaryDisasmVertex.
 and private TempDisasmVMap = Dictionary<Addr, TemporaryDisasmVertex>
 
-/// Mapping from address to TemporaryDisasmVertex.
+/// Represents a mapping from an address to a DisasmCFG vertex.
 and private DisasmVMap = Dictionary<Addr, IVertex<DisasmBasicBlock>>

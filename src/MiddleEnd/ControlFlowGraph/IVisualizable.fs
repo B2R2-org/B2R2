@@ -27,15 +27,15 @@ namespace B2R2.MiddleEnd.ControlFlowGraph
 open B2R2
 open B2R2.FrontEnd.BinLifter
 
-/// Interface for a visualizable basic block.
+/// Represents a visualizable basic block.
 type IVisualizable =
-  /// Basic block address.
+  /// Gets the address of the basic block.
   abstract BlockAddress: Addr
 
-  /// Address ranges of the lines in this basic block.
+  /// Gets the address ranges of the lines in this basic block.
   abstract LineAddrRanges: AddrRange[]
 
-  /// Convert this basic block to a visual representation. The first dimension
-  /// of the array represents the line number, and the second dimension
+  /// Converts this basic block to a visual representation. The first
+  /// dimension of the array represents the line number, and the second one
   /// represents the words in each line.
   abstract Visualize: unit -> AsmWord[][]

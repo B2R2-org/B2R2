@@ -26,33 +26,35 @@ namespace B2R2.MiddleEnd.ControlFlowGraph
 
 open B2R2
 
-/// An abstract information about a function to be used in an intra-procedural
-/// CFG. This exists per function call, not per function definition. Therefore,
-/// one function can have multiple `FunctionAbstraction` instances.
+/// Represents abstract information about a function, to be used in an
+/// intra-procedural CFG. This exists per function call, not per function
+/// definition. Therefore, one function can have multiple
+/// `FunctionAbstraction` instances.
 type FunctionAbstraction<'Stmt>(entryPoint,
                                 unwindingBytes,
                                 rundown,
                                 isExternal,
                                 returningStatus) =
-  /// Entry point of this function.
+  /// Gets the entry point of this function.
   member _.EntryPoint with get(): Addr = entryPoint
 
-  /// How many bytes of the stack does this function unwind when return?
+  /// Gets how many bytes of the stack this function unwinds on return.
   member _.UnwindingBytes with get(): int = unwindingBytes
 
-  /// A rundown of the function in SSA form.
+  /// Gets a rundown of the function in SSA form.
   member _.Rundown with get(): Rundown<'Stmt> = rundown
 
-  /// Is this an external function?
+  /// Checks if this is an external function.
   member _.IsExternal with get(): bool = isExternal
 
+  /// Gets what the non-returning function analysis found for this function.
   member _.ReturningStatus with get(): NonReturningStatus = returningStatus
 
-/// A rundown of a function is really just an array of statements, summarizing
-/// the function.
+/// Represents a rundown of a function, which is really just an array of
+/// statements summarizing the function.
 and Rundown<'Stmt> = 'Stmt array
 
-/// The result of non-returning function analysis.
+/// Represents the result of the non-returning function analysis.
 and NonReturningStatus =
   /// This function will never return. For example, the "exit" function should
   /// have this property.

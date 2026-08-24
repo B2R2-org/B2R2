@@ -27,19 +27,19 @@ namespace B2R2.MiddleEnd.ControlFlowGraph
 open B2R2
 open B2R2.FrontEnd.BinLifter
 
-/// Basic block type for a call graph (CallCFG). The word size is the one of
-/// the binary this block belongs to, which every address of it is written out
-/// to the width of.
+/// Represents a basic block of a call graph (CallCFG). The word size is the
+/// one of the binary this block belongs to, and every address the block shows
+/// is written out to that width.
 type CallBasicBlock(wordSize, addr, name, isExternal) =
-  /// Return the `ICallBasicBlock` interface to access the internal
+  /// Returns the `ICallBasicBlock` interface to access the internal
   /// representation of the basic block.
   member this.Internals with get() = this :> ICallBasicBlock
 
   /// Gets the name of the function this block stands for.
   member _.Name with get(): string = name
 
-  /// Checks if the function this block stands for belongs to
-  /// another binary.
+  /// Checks if the function this block stands for belongs to another
+  /// binary.
   member _.IsExternal with get(): bool = isExternal
 
   override _.ToString() = $"{nameof CallBasicBlock}({addr:x})"
@@ -61,6 +61,7 @@ type CallBasicBlock(wordSize, addr, name, isExternal) =
             { AsmWordKind = AsmWordKind.Value
               AsmWordValue = name } |] |]
 
+/// Represents a basic block of a call graph.
 and ICallBasicBlock =
   inherit IAddressable
   inherit IVisualizable

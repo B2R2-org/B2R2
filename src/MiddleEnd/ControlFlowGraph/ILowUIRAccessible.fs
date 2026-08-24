@@ -28,22 +28,21 @@ open B2R2
 open B2R2.BinIR
 open B2R2.FrontEnd.BinLifter
 
-/// Interface for a basic block, which contains a sequence of lifted IR
-/// statements.
+/// Represents a basic block containing a sequence of lifted IR statements.
 type ILowUIRAccessible =
-  /// Lifted instructions. The array could be empty if the basic block is
-  /// abstract.
+  /// Gets the lifted instructions. The array could be empty if the basic
+  /// block is abstract.
   abstract LiftedInstructions: LiftedInstruction[]
 
-  /// Terminator statement of the basic block.
+  /// Gets the terminator statement of the basic block.
   abstract Terminator: LowUIR.Stmt
 
-  /// Does this basic block starts with a semantically no-op instruction? By
-  /// semantically no-op, we mean that the instruction does not change the
-  /// CPU state except for the program counter.
+  /// Checks if this basic block starts with a semantically no-op
+  /// instruction. By semantically no-op, we mean that the instruction does
+  /// not change the CPU state except for the program counter.
   abstract StartsWithNop: bool
 
-/// A lifted instruction.
+/// Represents a lifted instruction.
 and LiftedInstruction =
   { /// Original assembly instruction.
     Original: IInstruction

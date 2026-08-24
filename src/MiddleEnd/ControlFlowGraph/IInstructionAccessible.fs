@@ -26,13 +26,13 @@ namespace B2R2.MiddleEnd.ControlFlowGraph
 
 open B2R2.FrontEnd.BinLifter
 
-/// Interface for a basic block containing a sequence of instructions.
+/// Represents a basic block containing a sequence of instructions.
 type IInstructionAccessible =
-  /// Instructions in the basic block.
+  /// Gets the instructions in the basic block.
   abstract Instructions: IInstruction[]
 
-  /// Last instruction in the basic block.
+  /// Gets the last instruction in the basic block.
   abstract LastInstruction: IInstruction
 
-  /// Disassembled instruction strings.
+  /// Gets the disassembled instruction strings.
   abstract Disassemblies: string[]

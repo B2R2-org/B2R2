@@ -30,7 +30,7 @@ open B2R2.FrontEnd.BinLifter
 open B2R2.BinIR
 open B2R2.BinIR.LowUIR
 
-/// Basic block type for IR-level CFGs.
+/// Represents a basic block of an IR-level CFG.
 type LowUIRBasicBlock internal(pp, funcAbs, liftedInss, lblMap) =
   /// Dominating jump table.
   let mutable domJT = None
@@ -52,37 +52,41 @@ type LowUIRBasicBlock internal(pp, funcAbs, liftedInss, lblMap) =
     else
       true
 
-  /// Return the `ILowUIRBasicBlock` interface to access the internal
+  /// Returns the `ILowUIRBasicBlock` interface to access the internal
   /// representation of the basic block.
   member inline this.Internals with get() = this :> ILowUIRBasicBlock
 
-  /// Intra-instruction label information, which is a mapping from a label to
-  /// the corresponding program point.
+  /// Gets the intra-instruction label information, which is a mapping from a
+  /// label to the corresponding program point.
   member _.LabelMap
     with get(): ImmutableDictionary<Label, ProgramPoint> = lblMap
 
-  /// Dominating jump table entry (tbl address and index) is a jump table entry
-  /// that dominates this basic block. In other words, this basic block is
-  /// dominated by the indirect jump instruction that uses this jump table
-  /// entry. This property is None if there's no such dominating jump table
-  /// entry.
+  /// Gets or sets the dominating jump table entry (tbl address and index),
+  /// which is a jump table entry that dominates this basic block. In other
+  /// words, this basic block is dominated by the indirect jump instruction
+  /// that uses this jump table entry. This property is None if there's no
+  /// such dominating jump table entry.
   member _.DominatingJumpTableEntry
     with get(): (Addr * int) option = domJT
      and set(v) = domJT <- v
 
+  /// Creates a regular basic block out of the given lifted instructions.
   static member CreateRegular(liftedInss, pp) =
     LowUIRBasicBlock(pp, None, liftedInss, ImmutableDictionary.Empty)
 
+  /// Creates a regular basic block out of the given lifted instructions
+  /// and intra-instruction label map.
   static member CreateRegular(liftedInss, pp, lblMap) =
     LowUIRBasicBlock(pp, None, liftedInss, lblMap)
 
+  /// Creates an abstract basic block located at the given program point.
   static member CreateAbstract(pp, summary) =
     LowUIRBasicBlock(pp, Some summary, [||], ImmutableDictionary.Empty)
 
-  /// Cut the basic block at the given address and return the two new basic
-  /// blocks. This function does not modify the original basic block. We assume
-  /// that the given address is within the range of the basic block. Otherwise,
-  /// this function will raise an exception.
+  /// Cuts the basic block at the given address and returns the two new basic
+  /// blocks. This function does not modify the original basic block. We
+  /// assume that the given address is within the range of the basic block.
+  /// Otherwise, this function will raise an exception.
   member this.Cut(cutPoint: Addr) =
     if Option.isNone funcAbs then
       assert ((this :> IAddressable).Range.IsIncluding cutPoint)
@@ -127,7 +131,6 @@ type LowUIRBasicBlock internal(pp, funcAbs, liftedInss, lblMap) =
       let stmts = liftedInss[0].Stmts
       isSemanticallyNop stmts stmts.Length 0
 
-    /// Terminator statement of the basic block.
     member _.Terminator with get() =
       assert ((Option.isNone funcAbs && not <| Array.isEmpty liftedInss)
            || (Option.isSome funcAbs &&
@@ -173,7 +176,7 @@ type LowUIRBasicBlock internal(pp, funcAbs, liftedInss, lblMap) =
       else
         [||]
 
-/// Interface for a basic block containing a sequence of lifted LowUIR
+/// Represents a basic block containing a sequence of lifted LowUIR
 /// statements.
 and ILowUIRBasicBlock =
   inherit IAddressable

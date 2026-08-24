@@ -31,8 +31,8 @@ open B2R2.BinIR.SSA
 open B2R2.FrontEnd.BinLifter
 open B2R2.MiddleEnd.BinGraph
 
-/// Basic block type for an SSA-based CFG (SSACFG). It holds an array of
-/// (ProgramPoint * Stmt).
+/// Represents a basic block of an SSA-based CFG (SSACFG). It holds an array
+/// of (ProgramPoint * Stmt).
 type SSABasicBlock private(ppoint, lastAddr, stmts: _[], funcAbs) =
   let mutable idom: IVertex<SSABasicBlock> option = None
 
@@ -49,20 +49,21 @@ type SSABasicBlock private(ppoint, lastAddr, stmts: _[], funcAbs) =
     | _ ->
       ppoint.Next()
 
-  /// Return the `ISSABasicBlock` interface to access the internal
+  /// Returns the `ISSABasicBlock` interface to access the internal
   /// representation of the basic block.
   member this.Internals with get() = this :> ISSABasicBlock
 
-  /// Immediate dominator of this block.
+  /// Gets or sets the immediate dominator of this block.
   member _.ImmDominator with get() = idom and set(d) = idom <- d
 
-  /// Dominance frontier of this block.
+  /// Gets or sets the dominance frontier of this block.
   member _.DomFrontier with get() = frontier and set(f) = frontier <- f
 
+  /// Creates a regular basic block out of the given SSA statements.
   static member CreateRegular(stmts, ppoint, lastAddr) =
     SSABasicBlock(ppoint, lastAddr, stmts, None)
 
-  /// Create an abstract basic block located at `ppoint`.
+  /// Creates an abstract basic block located at `ppoint`.
   static member CreateAbstract(ppoint, abs: FunctionAbstraction<SSA.Stmt>) =
     let rundown = abs.Rundown |> Array.map (fun s -> ProgramPoint.Fake, s)
     SSABasicBlock(ppoint, 0UL, rundown, Some abs)
@@ -115,7 +116,7 @@ type SSABasicBlock private(ppoint, lastAddr, stmts: _[], funcAbs) =
       else
         [||]
 
-/// Interafce for a basic block containing a sequence of SSA statements.
+/// Represents a basic block containing a sequence of SSA statements.
 and ISSABasicBlock =
   inherit IAddressable
   inherit IAbstractable<SSA.Stmt>

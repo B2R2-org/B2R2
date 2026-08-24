@@ -27,11 +27,11 @@ namespace B2R2.MiddleEnd.ControlFlowGraph
 open B2R2
 open B2R2.FrontEnd.BinLifter
 
-/// Basic block type for a disassembly-based CFG (DisasmCFG).
+/// Represents a basic block of a disassembly-based CFG (DisasmCFG).
 type DisasmBasicBlock(disasmBuilder: IDisasmBuilder,
                       ppoint: ProgramPoint,
                       instrs: IInstruction[]) =
-  /// Return the `IDisasmBasicBlock` interface.
+  /// Returns the `IDisasmBasicBlock` interface.
   member this.Internals with get() = this :> IDisasmBasicBlock
 
   override _.ToString() = $"{nameof DisasmBasicBlock}({ppoint.Address:x})"
@@ -63,7 +63,7 @@ type DisasmBasicBlock(disasmBuilder: IDisasmBuilder,
       instrs
       |> Array.map (fun ins -> ins.Decompose disasmBuilder)
 
-/// Interface for a basic block containing disassembled instructions.
+/// Represents a basic block containing disassembled instructions.
 and IDisasmBasicBlock =
   inherit IAddressable
   inherit IInstructionAccessible

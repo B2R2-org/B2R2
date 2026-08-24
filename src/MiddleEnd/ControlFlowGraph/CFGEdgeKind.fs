@@ -24,8 +24,8 @@
 
 namespace B2R2.MiddleEnd.ControlFlowGraph
 
-/// CFG edge types. We distinguish CFG edges by classifying them into several
-/// different kinds.
+/// Represents the kind of a CFG edge. Every edge of a CFG carries one, which
+/// is what tells the control transfer it stands for from the others.
 type CFGEdgeKind =
   /// An edge of a direct jump, e.g., JMP +0x42.
   | InterJmpEdge
@@ -79,7 +79,9 @@ type CFGEdgeKind =
   /// Unknown edge type. This should be an error case.
   | UnknownEdge
 
+/// Provides functions over the CFGEdgeKind type.
 module CFGEdgeKind =
+  /// Returns the name of the given edge kind.
   let toString = function
     | InterJmpEdge -> "InterJmpEdge"
     | InterCJmpTrueEdge -> "InterCJmpTrueEdge"

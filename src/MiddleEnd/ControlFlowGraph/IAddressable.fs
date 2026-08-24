@@ -26,13 +26,13 @@ namespace B2R2.MiddleEnd.ControlFlowGraph
 
 open B2R2
 
-/// Interface for an addressable basic block.
+/// Represents an addressable basic block.
 type IAddressable =
-  /// The start position (ProgramPoint) of the basic block.
+  /// Gets the start position (ProgramPoint) of the basic block.
   abstract PPoint: ProgramPoint
 
-  /// The instruction address range of the basic block. Even if the block
-  /// contains a partial IR statements of an instruction, the range of the
+  /// Gets the instruction address range of the basic block. Even if the
+  /// block contains partial IR statements of an instruction, the range of the
   /// instruction is considered.
   abstract Range: AddrRange
 

@@ -26,9 +26,10 @@ namespace B2R2.MiddleEnd.ControlFlowGraph
 
 open B2R2.MiddleEnd.BinGraph
 
-/// Call graph, where each node represents a function. This is essentially a
-/// wrapper class of `IMutableDiGraph<CallBasicBlock, CFGEdgeKind>`, which
-/// provides a uniform interface for both mutable and persistent graphs.
+/// Represents a call graph, where each node stands for a function. This is
+/// essentially a wrapper class of `IMutableDiGraph<CallBasicBlock,
+/// CFGEdgeKind>`, which provides a uniform interface for both mutable and
+/// persistent graphs.
 type CallCFG(t: ImplementationType) =
   let g =
     match t with
@@ -38,34 +39,35 @@ type CallCFG(t: ImplementationType) =
       let g = PersistentDiGraph<CallBasicBlock, CFGEdgeKind>()
       MutablePersistentDiGraph g :> IMutableDiGraph<_, _>
 
-  /// Number of vertices.
+  /// Gets the number of vertices.
   member _.VertexCount with get() = g.VertexCount
 
-  /// Number of edges.
+  /// Gets the number of edges.
   member _.EdgeCount with get() = g.EdgeCount
 
-  /// Get an array of all vertices in this CFG.
+  /// Gets an array of all vertices in this CFG.
   member _.Vertices with get() = g.Vertices
 
-  /// Get an array of all edges in this CFG.
+  /// Gets an array of all edges in this CFG.
   member _.Edges with get() = g.Edges
 
-  /// Get an array of exit vertices in this CFG.
+  /// Gets an array of exit vertices in this CFG.
   member _.Exits with get() = g.Exits
 
-  /// Get the root vertices of this CFG.
+  /// Gets the root vertices of this CFG.
   member _.Roots with get() = g.Roots
 
-  /// Get the implementation type of this CFG.
+  /// Gets the implementation type of this CFG.
   member _.ImplementationType with get() = g.ImplementationType
 
-  /// Is this empty? A CFG is empty when there is no vertex.
+  /// Checks if this CFG is empty. A CFG is empty when there is no vertex.
   member _.IsEmpty with get() = g.IsEmpty
 
-  /// Add a vertex containing this BBL to this CFG, and return the added vertex.
+  /// Adds a vertex containing the given BBL to this CFG, and returns the added
+  /// vertex.
   member _.AddVertex blk = g.AddVertex blk
 
-  /// Add an edge between the given source and destination vertices with a
+  /// Adds an edge between the given source and destination vertices with a
   /// label.
   member _.AddEdge(src, dst, label) = g.AddEdge(src, dst, label)
 

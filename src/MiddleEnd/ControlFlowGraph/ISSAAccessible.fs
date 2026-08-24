@@ -27,19 +27,20 @@ namespace B2R2.MiddleEnd.ControlFlowGraph
 open B2R2
 open B2R2.BinIR
 
-/// Interface for a basic block containing a sequence of SSA statements.
+/// Represents a basic block containing a sequence of SSA statements.
 type ISSAAccessible =
-  /// Return a sequence of SSA statements along with their program points.
+  /// Returns a sequence of SSA statements along with their program points.
   abstract Statements: (ProgramPoint * SSA.Stmt)[]
 
-  /// Get the last SSA statement of the basic block.
+  /// Gets the last SSA statement of the basic block.
   abstract LastStmt: SSA.Stmt
 
-  /// Prepend a phi statement to the basic block.
+  /// Prepends a phi statement to the basic block.
   abstract PrependPhi: SSA.VariableKind * count: int -> unit
 
-  /// Update SSA statements.
+  /// Updates the SSA statements.
   abstract UpdateStatements: (ProgramPoint * SSA.Stmt)[] -> unit
 
-  /// Update program points. This must be called after updating SSA stmts.
+  /// Updates the program points. This must be called after updating the SSA
+  /// statements.
   abstract UpdatePPoints: unit -> unit

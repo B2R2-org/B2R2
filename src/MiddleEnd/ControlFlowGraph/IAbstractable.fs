@@ -24,18 +24,18 @@
 
 namespace B2R2.MiddleEnd.ControlFlowGraph
 
-/// Interface for an abstractable basic block.
+/// Represents an abstractable basic block.
 type IAbstractable<'Stmt> =
-  /// Return if this is an abstract basic block inserted by our analysis. We
+  /// Checks if this is an abstract basic block inserted by our analysis. We
   /// create an abstract block to represent a function in a CFG.
   abstract IsAbstract: bool
 
-  /// The abstract content of the basic block summarizing a function. If the
-  /// block is not an abstract one, this property raises
+  /// Gets the abstract content of the basic block summarizing a function. If
+  /// the block is not an abstract one, this property raises
   /// `AbstractBlockAccessException`.
   abstract AbstractContent: FunctionAbstraction<'Stmt>
 
-/// This exception is thrown when an abstract basic block is accessed as if it
-/// is a regular block.
+/// Raised when an abstract basic block is accessed as if it is a regular
+/// block.
 exception AbstractBlockAccessException
 
