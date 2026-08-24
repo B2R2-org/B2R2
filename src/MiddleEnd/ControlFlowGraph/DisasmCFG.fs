@@ -152,10 +152,12 @@ type DisasmCFG(disasmBuilder, ircfg: LowUIRCFG) =
   let prepareDisasmCFGInfo (g: LowUIRCFG) =
     let tempVMap = TempDisasmVMap()
     let visited = HashSet()
+    let rootAddrs = List()
     for root in g.Roots do
+      rootAddrs.Add root.VData.Internals.PPoint.Address
       getTempVertex tempVMap root |> ignore
       dfs g tempVMap visited (g.GetSuccEdges(root) |> Array.toList)
-    tempVMap
+    tempVMap, rootAddrs
 
   let getDisasmVertex g (vMap: DisasmVMap) (tempVMap: TempDisasmVMap) addr =
     match vMap.TryGetValue(addr) with
@@ -170,15 +172,29 @@ type DisasmCFG(disasmBuilder, ircfg: LowUIRCFG) =
       vMap[addr] <- v
       v
 
-  let updateDisasmCFG (tempVMap: TempDisasmVMap) (g: IMutableDiGraph<_, _>) =
+  /// Finds the vertex that each root of the original graph ended up in. A root
+  /// merged into the block ahead of it is no vertex of its own any more, hence
+  /// the map answers which block holds it rather than the address being used
+  /// as it stands. Two roots can land in the one block, which the graph must
+  /// not hear of twice.
+  let getRootVertices (tempVMap: TempDisasmVMap) (vMap: DisasmVMap) rootAddrs =
+    rootAddrs
+    |> Seq.map (fun addr -> vMap[tempVMap[addr].Address])
+    |> Seq.distinct
+    |> Seq.toArray
+
+  let updateDisasmCFG tempVMap rootAddrs (g: IMutableDiGraph<_, _>) =
     let vMap = DisasmVMap()
-    tempVMap.Values
+    (tempVMap: TempDisasmVMap).Values
     |> Seq.distinctBy (fun v -> v.Address)
     |> Seq.iter (fun tmpV ->
       let srcDisasmV = getDisasmVertex g vMap tempVMap tmpV.Address
       tmpV.Successors |> Seq.iter (fun (dst, label) ->
         let dstDisasmV = getDisasmVertex g vMap tempVMap dst
         g.AddEdge(srcDisasmV, dstDisasmV, label)))
+    (* Every vertex is in place by now, hence the roots can be named rather
+       than left to whichever vertex the graph happened to take in first. *)
+    g.SetRoots(getRootVertices tempVMap vMap rootAddrs)
     g
 
   let createEmptyDisasmCFGByType (implType: ImplementationType) =
@@ -186,9 +202,9 @@ type DisasmCFG(disasmBuilder, ircfg: LowUIRCFG) =
     | Mutable -> MutableDiGraph() :> IMutableDiGraph<_, _>
     | Persistent -> MutablePersistentDiGraph(PersistentDiGraph())
 
-  let createDisasmCFG tempVMap =
+  let createDisasmCFG (tempVMap, rootAddrs) =
     createEmptyDisasmCFGByType ircfg.ImplementationType
-    |> updateDisasmCFG tempVMap
+    |> updateDisasmCFG tempVMap rootAddrs
 
   let g =
     ircfg

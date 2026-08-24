@@ -515,13 +515,15 @@ type CFG1Tests() =
     let ssacfg = ssaLifter.Lift(cfg)
     Assert.AreEqual<int>(9, ssacfg.VertexCount)
 
+  static member GraphTypes = [| [| box Persistent |]; [| box Mutable |] |]
+
   /// Builds a CFG of two roots, each flowing into a block they share, which is
   /// the shape a gap analysis leaves behind when its dead code blocks enter the
   /// CFG as roots of their own.
-  member private _.BuildMultiRootCFG() =
+  member private _.BuildMultiRootCFG(t) =
     let bblFactory = BBLFactory(hdl, instrs)
     scanBBLs bblFactory [| 0x00UL; 0x62UL; 0x71UL |]
-    let cfg = LowUIRCFG Mutable
+    let cfg = LowUIRCFG t
     let v1 = cfg.AddVertex(bblFactory.Find(ProgramPoint(0x00UL, 0)))
     let v2 = cfg.AddVertex(bblFactory.Find(ProgramPoint(0x62UL, 0)))
     let v3 = cfg.AddVertex(bblFactory.Find(ProgramPoint(0x71UL, 0)))
@@ -532,7 +534,7 @@ type CFG1Tests() =
 
   [<TestMethod>]
   member this.``CFG SSAGraph Multiple Roots Test``() =
-    let cfg = this.BuildMultiRootCFG()
+    let cfg = this.BuildMultiRootCFG Mutable
     let ssaLifter = SSALifterFactory.Create hdl
     let ssacfg = ssaLifter.Lift cfg
     Assert.AreEqual<int>(3, ssacfg.VertexCount)
@@ -540,7 +542,7 @@ type CFG1Tests() =
 
   [<TestMethod>]
   member this.``CFG SSAGraph Multiple Roots Renaming Test``() =
-    let cfg = this.BuildMultiRootCFG()
+    let cfg = this.BuildMultiRootCFG Mutable
     let ssaLifter = SSALifterFactory.Create hdl
     let ssacfg = ssaLifter.Lift cfg
     let ids =
@@ -553,3 +555,24 @@ type CFG1Tests() =
     let unrenamed = ids |> Array.filter (fun id -> id <= 0)
     Assert.AreNotEqual<int>(0, ids.Length)
     Assert.AreEqual<int>(0, unrenamed.Length)
+
+  [<TestMethod>]
+  [<DynamicData(nameof CFG1Tests.GraphTypes)>]
+  member this.``DisasmCFG Multiple Roots Test``(t) =
+    let cfg = this.BuildMultiRootCFG t
+    let disasm = StringDisasmBuilder(false, null, hdl.ISA.WordSize)
+    let dcfg = DisasmCFG(disasm, cfg)
+    let roots =
+      dcfg.Roots
+      |> Array.map (fun v -> v.VData.Internals.PPoint.Address)
+      |> Array.sort
+    CollectionAssert.AreEqual([| 0x00UL; 0x62UL |], roots)
+
+  [<TestMethod>]
+  member _.``DisasmCFG Single Root Test``() =
+    let brew = BinaryBrew hdl
+    let cfg = brew.Functions[0x0UL].CFG
+    let disasm = StringDisasmBuilder(false, null, hdl.ISA.WordSize)
+    let dcfg = DisasmCFG(disasm, cfg)
+    let root = dcfg.SingleRoot
+    Assert.AreEqual<Addr>(0x0UL, root.VData.Internals.PPoint.Address)
