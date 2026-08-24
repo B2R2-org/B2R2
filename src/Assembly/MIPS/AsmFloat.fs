@@ -57,7 +57,7 @@ let private convertFormat ins =
   | Some FPRFormat.L -> 0b10101u
   | _ -> floatFormat ins
 
-/// <fd>, <fs>, <ft>: the arithmetic on two floating-point numbers.
+/// Encodes <fd>, <fs>, <ft>: the arithmetic on two floating-point numbers.
 let private arith3 func ins =
   match ins.Operands with
   | ThreeOperands(Rg fd, Rg fs, Rg ft) ->
@@ -65,8 +65,8 @@ let private arith3 func ins =
   | _ ->
     wrongOperands ins
 
-/// <fd>, <fs>: the arithmetic on one of them, and the truncations towards zero
-/// that turn one into a fixed-point number.
+/// Encodes <fd>, <fs>: the arithmetic on one of them, and the truncations
+/// towards zero that turn one into a fixed-point number.
 let private arith2 func ins =
   match ins.Operands with
   | TwoOperands(Rg fd, Rg fs) ->
@@ -74,9 +74,9 @@ let private arith2 func ins =
   | _ ->
     wrongOperands ins
 
-/// <fd>, <fs>: turning a number of one kind into a number of another. The
-/// name says which kind it becomes and the suffix says which kind it was, so
-/// the two cannot be the same.
+/// Encodes <fd>, <fs>: turning a number of one kind into a number of another.
+/// The name says which kind it becomes and the suffix says which kind it was,
+/// so the two cannot be the same.
 let private convert into func ins =
   match ins.Operands with
   | TwoOperands(Rg fd, Rg fs) ->
@@ -86,8 +86,8 @@ let private convert into func ins =
   | _ ->
     wrongOperands ins
 
-/// <fd>, <fs>, <cc>: a move that happens only where the condition the source
-/// names holds, or only where it does not.
+/// Encodes <fd>, <fs>, <cc>: a move that happens only where the condition the
+/// source names holds, or only where it does not.
 let private moveOnCondition tf ins =
   match ins.Operands with
   | ThreeOperands(Rg fd, Rg fs, Im cc) ->
@@ -96,8 +96,8 @@ let private moveOnCondition tf ins =
   | _ ->
     wrongOperands ins
 
-/// <fd>, <fs>, <rt>: a move that happens only where a general register holds
-/// zero, or only where it does not.
+/// Encodes <fd>, <fs>, <rt>: a move that happens only where a general register
+/// holds zero, or only where it does not.
 let private moveOnZero func ins =
   match ins.Operands with
   | ThreeOperands(Rg fd, Rg fs, Rg rt) ->
@@ -105,9 +105,9 @@ let private moveOnZero func ins =
   | _ ->
     wrongOperands ins
 
-/// <fs>, <ft> and <cc>, <fs>, <ft>: the compare, which writes what it found
-/// into one of the eight places the unit keeps a condition in and names that
-/// place only where it is not the first of them.
+/// Encodes <fs>, <ft> and <cc>, <fs>, <ft>: the compare, which writes what it
+/// found into one of the eight places the unit keeps a condition in and names
+/// that place only where it is not the first of them.
 let private compare ins =
   let func =
     match ins.Condition with
@@ -122,17 +122,17 @@ let private compare ins =
   | _ ->
     wrongOperands ins
 
-/// <rt>, <fs>: the moves of a word between a general register and a register
-/// of the unit, and the reads and the writes of the registers that say how the
-/// unit is set up.
+/// Encodes <rt>, <fs>: the moves of a word between a general register and a
+/// register of the unit, and the reads and the writes of the registers that say
+/// how the unit is set up.
 let private moveBetween rs ins =
   match ins.Operands with
   | TwoOperands(Rg rt, Rg fs) -> word 0b010001u rs (gpr rt) (fpr fs) 0u 0u
   | _ -> wrongOperands ins
 
-/// <place> and <cc>, <place>: a branch on a condition the unit found earlier,
-/// which names which of the eight places for one it reads only where that is
-/// not the first of them.
+/// Encodes <place> and <cc>, <place>: a branch on a condition the unit found
+/// earlier, which names which of the eight places for one it reads only where
+/// that is not the first of them.
 let private branchOnFP tf ins =
   match ins.Operands with
   | OneOperand(Place distance) ->
@@ -147,8 +147,8 @@ let private branchOnFP tf ins =
    holds and multiplies three numbers at once. Its instructions say the format
    they are read in at the bottom of the word rather than above the registers,
    because what sits above them there is a register of its own. *)
-/// <fd>, <index>(<base>): the loads that name where to read in a register
-/// rather than in the instruction.
+/// Encodes <fd>, <index>(<base>): the loads that name where to read in a
+/// register rather than in the instruction.
 let private loadIndexed func ins =
   match ins.Operands with
   | TwoOperands(Rg fd, MemIdx(baseReg, index)) ->
@@ -156,7 +156,7 @@ let private loadIndexed func ins =
   | _ ->
     wrongOperands ins
 
-/// <fs>, <index>(<base>): the stores that name it the same way.
+/// Encodes <fs>, <index>(<base>): the stores that name it the same way.
 let private storeIndexed func ins =
   match ins.Operands with
   | TwoOperands(Rg fs, MemIdx(baseReg, index)) ->
@@ -165,8 +165,8 @@ let private storeIndexed func ins =
     wrongOperands ins
 
 /// <summary>
-/// <hint>, <index>(<base>): the word that a place is about to be read, which
-/// names it the same way.
+/// Encodes &lt;hint&gt;, &lt;index&gt;(&lt;base&gt;): the word that a place is
+/// about to be read, which names it the same way.
 ///
 /// What to do with the place and which register holds the distance to it are
 /// one field, so a source naming two different things there asks for an
@@ -194,8 +194,8 @@ let private wideFormat ins =
   | Some fmt -> fail $"{ins.Opcode} is not read in the {fmt} format"
   | None -> fail $"{ins.Opcode} is written with the format it reads"
 
-/// <fd>, <fr>, <fs>, <ft>: a multiply whose product is added to a third number
-/// before anything is rounded.
+/// Encodes <fd>, <fr>, <fs>, <ft>: a multiply whose product is added to a third
+/// number before anything is rounded.
 let private multiplyAdd func ins =
   match ins.Operands with
   | FourOperands(Rg fd, Rg fr, Rg fs, Rg ft) ->

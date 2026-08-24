@@ -62,8 +62,8 @@ let private dataProc opcode s ins =
   | _ ->
     wrongOperands ins
 
-/// <Rn>, <operand2>, the form of the instructions that only set the flags and
-/// so name no destination.
+/// Encodes <Rn>, <operand2>, the form of the instructions that only set the
+/// flags and so name no destination.
 let private testAndCompare opcode ins =
   match getOperandsAsList ins.Operands with
   | OprReg rn :: operands ->
@@ -71,7 +71,7 @@ let private testAndCompare opcode ins =
   | _ ->
     wrongOperands ins
 
-/// <Rd>, <operand2>, the form of the moves, which read no first source.
+/// Encodes <Rd>, <operand2>, the form of the moves, which read no first source.
 let private moveOperand2 opcode s ins =
   match getOperandsAsList ins.Operands with
   | OprReg rd :: operands ->
@@ -133,7 +133,7 @@ let private moveHalfword opcodeBits ins =
 let private mulHead opcodeBits ins =
   cond ins ||| (opcodeBits <<< 20) ||| (0b1001u <<< 4)
 
-/// <Rd>, <Rn>, <Rm>, which writes Rd where other instructions write Rn.
+/// Encodes <Rd>, <Rn>, <Rm>, which writes Rd where other instructions write Rn.
 let private mul3 opcodeBits ins =
   match ins.Operands with
   | ThreeOperands(OprReg rd, OprReg rn, OprReg rm) ->
@@ -142,7 +142,7 @@ let private mul3 opcodeBits ins =
   | _ ->
     wrongOperands ins
 
-/// <Rd>, <Rn>, <Rm>, <Ra>, the accumulating form.
+/// Encodes <Rd>, <Rn>, <Rm>, <Ra>, the accumulating form.
 let private mul4 opcodeBits ins =
   match ins.Operands with
   | FourOperands(OprReg rd, OprReg rn, OprReg rm, OprReg ra) ->
@@ -151,7 +151,8 @@ let private mul4 opcodeBits ins =
   | _ ->
     wrongOperands ins
 
-/// <RdLo>, <RdHi>, <Rn>, <Rm>, the form whose result is sixty-four bits wide.
+/// Encodes <RdLo>, <RdHi>, <Rn>, <Rm>, the form whose result is sixty-four bits
+/// wide.
 let private mulLong opcodeBits ins =
   match ins.Operands with
   | FourOperands(OprReg rdLo, OprReg rdHi, OprReg rn, OprReg rm) ->

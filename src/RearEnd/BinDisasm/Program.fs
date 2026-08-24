@@ -245,8 +245,8 @@ let private validateHexStringLength (hdl: BinHandle) isThumb hexstr =
 /// object carries, so the parser wants a `.pyc` around the bytes rather than
 /// the bytes alone -- which is why a hex string used to be the one input this
 /// architecture had no answer for. The smallest file that can hold the given
-/// bytecode is built around it here, so `-i python -s <hexstring>` reads the
-/// same way every other architecture's does; the code then starts wherever
+/// bytecode is built around it here, so `-i python -s &lt;hexstring&gt;` reads
+/// the same way every other architecture's does; the code then starts wherever
 /// that file put it rather than at zero.
 /// </summary>
 let private loadHexString (opts: BinDisasmOpts) baseAddr =

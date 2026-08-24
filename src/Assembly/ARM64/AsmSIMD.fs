@@ -93,8 +93,8 @@ let private threeSameWith u size opcode q rd rn rm =
   ||| (1u <<< 21) ||| (vectorReg rm <<< 16) ||| (opcode <<< 11) ||| (1u <<< 10)
   ||| (vectorReg rn <<< 5) ||| vectorReg rd
 
-/// <Vd>.<T>, <Vn>.<T>, <Vm>.<T>, whose elements are as wide as the arrangement
-/// says.
+/// Encodes <Vd>.<T>, <Vn>.<T>, <Vm>.<T>, whose elements are as wide as the
+/// arrangement says.
 let private threeSame allowed u opcode ins =
   match ins.Operands with
   | ThreeOperands(Vec(rd, t), Vec(rn, tn), Vec(rm, tm)) ->
@@ -136,8 +136,8 @@ let private threeSameLogical u size ins =
     wrongOperands ins
 
 (* The operations that read two vectors and interleave them. *)
-/// <Vd>.<T>, <Vn>.<T>, <Vm>.<T>, which take the elements of their sources in
-/// an order of their own.
+/// Encodes <Vd>.<T>, <Vn>.<T>, <Vm>.<T>, which take the elements of their
+/// sources in an order of their own.
 let private permute opcode ins =
   match ins.Operands with
   | ThreeOperands(Vec(rd, t), Vec(rn, tn), Vec(rm, tm)) ->
@@ -151,8 +151,8 @@ let private permute opcode ins =
   | _ ->
     wrongOperands ins
 
-/// <Vd>.<T>, <Vn>.<T>, <Vm>.<T>, #<index>, which reads one run of elements
-/// spanning two registers.
+/// Encodes <Vd>.<T>, <Vn>.<T>, <Vm>.<T>, #<index>, which reads one run of
+/// elements spanning two registers.
 let private extract ins =
   match ins.Operands with
   | FourOperands(Vec(rd, t), Vec(rn, tn), Vec(rm, tm), Im index) ->
@@ -172,8 +172,8 @@ let private extract ins =
   | _ ->
     wrongOperands ins
 
-/// <Vd>.<Ta>, { <Vn>.16B ... }, <Vm>.<Ta>, which reads its result out of a
-/// table of up to four registers.
+/// Encodes <Vd>.<Ta>, { <Vn>.16B ... }, <Vm>.<Ta>, which reads its result out
+/// of a table of up to four registers.
 let private tableLookup op ins =
   match ins.Operands with
   | ThreeOperands(Vec(rd, t), OprSIMDList table, Vec(rm, tm)) ->
@@ -334,7 +334,7 @@ let private twoRegWith u size opcode q rd rn =
   ||| (0b10000u <<< 17) ||| (opcode <<< 12) ||| (0b10u <<< 10)
   ||| (vectorReg rn <<< 5) ||| vectorReg rd
 
-/// <Vd>.<T>, <Vn>.<T>
+/// Encodes <Vd>.<T>, <Vn>.<T>
 let private twoReg allowed u opcode ins =
   match ins.Operands with
   | TwoOperands(Vec(rd, t), Vec(rn, tn)) ->
@@ -371,7 +371,7 @@ let private twoRegFP allowed u hi opcode ins =
   | _ ->
     wrongOperands ins
 
-/// <Vd>.<T>, <Vn>.<T>, #0, the comparisons against nothing.
+/// Encodes <Vd>.<T>, <Vn>.<T>, #0, the comparisons against nothing.
 let private compareZero u opcode ins =
   match ins.Operands with
   | ThreeOperands(Vec(rd, t), Vec(rn, tn), Im 0L) ->
@@ -392,8 +392,8 @@ let private compareZeroFP u hi opcode ins =
   | _ ->
     wrongOperands ins
 
-/// <Vd>.<Ta>, <Vn>.<Tb>, the operations that write elements twice as wide as
-/// the ones they read.
+/// Encodes <Vd>.<Ta>, <Vn>.<Tb>, the operations that write elements twice as
+/// wide as the ones they read.
 let private twoRegWidening u opcode ins =
   match ins.Operands with
   | TwoOperands(Vec(rd, t), Vec(rn, tn)) ->
@@ -404,8 +404,8 @@ let private twoRegWidening u opcode ins =
   | _ ->
     wrongOperands ins
 
-/// <Vd>.<Tb>, <Vn>.<Ta>, the operations that write elements half as wide as
-/// the ones they read, of which the second half writes the top of its
+/// Encodes <Vd>.<Tb>, <Vn>.<Ta>, the operations that write elements half as
+/// wide as the ones they read, of which the second half writes the top of its
 /// destination and says so in its name.
 let private twoRegNarrowing u opcode ins =
   match ins.Operands with
@@ -464,8 +464,8 @@ let private acrossWith u size opcode q rd rn =
 /// The width in bits of one element of an arrangement.
 let private elementWidth vec = 8 <<< int (fst (arrangement vec))
 
-/// <V><d>, <Vn>.<T>, whose destination is one element as wide as the ones it
-/// read.
+/// Encodes <V><d>, <Vn>.<T>, whose destination is one element as wide as the
+/// ones it read.
 let private across u opcode ins =
   match ins.Operands with
   | TwoOperands(Rg rd, Vec(rn, tn)) ->
@@ -503,8 +503,8 @@ let private threeDiffWith u size opcode q rd rn rm =
   ||| (1u <<< 21) ||| (vectorReg rm <<< 16) ||| (opcode <<< 12)
   ||| (vectorReg rn <<< 5) ||| vectorReg rd
 
-/// <Vd>.<Ta>, <Vn>.<Tb>, <Vm>.<Tb>, which writes elements twice as wide as the
-/// ones it reads.
+/// Encodes <Vd>.<Ta>, <Vn>.<Tb>, <Vm>.<Tb>, which writes elements twice as wide
+/// as the ones it reads.
 let private threeDiffLong allowed u opcode ins =
   match ins.Operands with
   | ThreeOperands(Vec(rd, t), Vec(rn, tn), Vec(rm, tm)) ->
@@ -516,8 +516,8 @@ let private threeDiffLong allowed u opcode ins =
   | _ ->
     wrongOperands ins
 
-/// <Vd>.<Ta>, <Vn>.<Ta>, <Vm>.<Tb>, which reads one source at the width it
-/// writes and the other at half of it.
+/// Encodes <Vd>.<Ta>, <Vn>.<Ta>, <Vm>.<Tb>, which reads one source at the width
+/// it writes and the other at half of it.
 let private threeDiffWide u opcode ins =
   match ins.Operands with
   | ThreeOperands(Vec(rd, t), Vec(rn, tn), Vec(rm, tm)) ->
@@ -529,8 +529,8 @@ let private threeDiffWide u opcode ins =
   | _ ->
     wrongOperands ins
 
-/// <Vd>.<Tb>, <Vn>.<Ta>, <Vm>.<Ta>, which writes elements half as wide as the
-/// ones it reads.
+/// Encodes <Vd>.<Tb>, <Vn>.<Ta>, <Vm>.<Ta>, which writes elements half as wide
+/// as the ones it reads.
 let private threeDiffNarrow u opcode ins =
   match ins.Operands with
   | ThreeOperands(Vec(rd, t), Vec(rn, tn), Vec(rm, tm)) ->
@@ -688,7 +688,7 @@ let leftShift ins vec amount =
   else
     uint32 (width + amount)
 
-/// <Vd>.<T>, <Vn>.<T>, #<shift>
+/// Encodes <Vd>.<T>, <Vn>.<T>, #<shift>
 let private shiftImm u opcode toField ins =
   match ins.Operands with
   | ThreeOperands(Vec(rd, t), Vec(rn, tn), Im amount) ->
@@ -699,8 +699,8 @@ let private shiftImm u opcode toField ins =
   | _ ->
     wrongOperands ins
 
-/// <Vd>.<Tb>, <Vn>.<Ta>, #<shift>, which writes elements half as wide as the
-/// ones it reads and counts the shift in the narrower of the two.
+/// Encodes <Vd>.<Tb>, <Vn>.<Ta>, #<shift>, which writes elements half as wide
+/// as the ones it reads and counts the shift in the narrower of the two.
 let private shiftImmNarrow u opcode ins =
   match ins.Operands with
   | ThreeOperands(Vec(rd, t), Vec(rn, tn), Im amount) ->
@@ -711,7 +711,7 @@ let private shiftImmNarrow u opcode ins =
   | _ ->
     wrongOperands ins
 
-/// <Vd>.<Ta>, <Vn>.<Tb>, #<shift>, which writes elements twice as wide.
+/// Encodes <Vd>.<Ta>, <Vn>.<Tb>, #<shift>, which writes elements twice as wide.
 let private shiftImmLong u opcode ins =
   match ins.Operands with
   | ThreeOperands(Vec(rd, t), Vec(rn, tn), Im amount) ->
@@ -722,8 +722,8 @@ let private shiftImmLong u opcode ins =
   | _ ->
     wrongOperands ins
 
-/// <Vd>.<T>, <Vn>.<T>, #<fbits>, the conversions between a floating-point
-/// element and one holding a fraction of that many bits.
+/// Encodes <Vd>.<T>, <Vn>.<T>, #<fbits>, the conversions between a
+/// floating-point element and one holding a fraction of that many bits.
 let private convertFixed u opcode ins =
   match ins.Operands with
   | ThreeOperands(Vec(rd, t), Vec(rn, tn), Im amount) ->
@@ -765,7 +765,7 @@ let private indexedWith u opcode q size source rd rn =
   (q <<< 30) ||| (u <<< 29) ||| (0b01111u <<< 24) ||| (size <<< 22) ||| source
   ||| (opcode <<< 12) ||| (vectorReg rn <<< 5) ||| vectorReg rd
 
-/// <Vd>.<T>, <Vn>.<T>, <Vm>.<Ts>[<index>]
+/// Encodes <Vd>.<T>, <Vn>.<T>, <Vm>.<Ts>[<index>]
 let private indexed u opcode ins =
   match ins.Operands with
   | ThreeOperands(Vec(rd, t), Vec(rn, tn), Elem(rm, vec, index)) ->
@@ -791,8 +791,8 @@ let private indexedFP u opcode ins =
   | _ ->
     wrongOperands ins
 
-/// <Vd>.<Ta>, <Vn>.<Tb>, <Vm>.<Ts>[<index>], which writes elements twice as
-/// wide as the ones it reads.
+/// Encodes <Vd>.<Ta>, <Vn>.<Tb>, <Vm>.<Ts>[<index>], which writes elements
+/// twice as wide as the ones it reads.
 let private indexedLong u opcode ins =
   match ins.Operands with
   | ThreeOperands(Vec(rd, t), Vec(rn, tn), Elem(rm, vec, index)) ->

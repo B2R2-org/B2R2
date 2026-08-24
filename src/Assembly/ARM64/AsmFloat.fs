@@ -110,7 +110,7 @@ let private checkWider ins rd rn =
 let private scalarHead u size =
   (1u <<< 30) ||| (u <<< 29) ||| (0b11110u <<< 24) ||| (size <<< 22)
 
-/// <V><d>, <V><n>, <V><m>
+/// Encodes <V><d>, <V><n>, <V><m>
 let private scalarThreeSame allowed u opcode ins =
   match ins.Operands with
   | ThreeOperands(Rg rd, Rg rn, Rg rm) ->
@@ -142,7 +142,7 @@ let private scalarTwoRegWith u size opcode rn rd =
   scalarHead u size ||| (0b10000u <<< 17) ||| (opcode <<< 12) ||| (0b10u <<< 10)
   ||| (rn <<< 5) ||| rd
 
-/// <V><d>, <V><n>
+/// Encodes <V><d>, <V><n>
 let private scalarTwoReg allowed u opcode ins =
   match ins.Operands with
   | TwoOperands(Rg rd, Rg rn) ->
@@ -163,7 +163,7 @@ let private scalarTwoRegFP u hi opcode ins =
   | _ ->
     wrongOperands ins
 
-/// <V><d>, <V><n>, #0, the comparisons against nothing.
+/// Encodes <V><d>, <V><n>, #0, the comparisons against nothing.
 let private scalarCompareZero u opcode ins =
   match ins.Operands with
   | ThreeOperands(Rg rd, Rg rn, Im 0L) ->
@@ -184,8 +184,8 @@ let private scalarCompareZeroFP u hi opcode ins =
   | _ ->
     wrongOperands ins
 
-/// <V><d>, <V><n>, the ones whose destination is half as wide as what they
-/// read.
+/// Encodes <V><d>, <V><n>, the ones whose destination is half as wide as what
+/// they read.
 let private scalarNarrowing u opcode ins =
   match ins.Operands with
   | TwoOperands(Rg rd, Rg rn) ->
@@ -206,7 +206,7 @@ let private scalarConvertNarrowing ins =
   | _ ->
     wrongOperands ins
 
-/// <V><d>, <Vn>.<T>, the ones that read a pair of elements into one.
+/// Encodes <V><d>, <Vn>.<T>, the ones that read a pair of elements into one.
 let private scalarPairwise u opcode ins =
   match ins.Operands with
   | TwoOperands(Rg rd, Vec(rn, TwoD)) ->
@@ -236,8 +236,8 @@ let private scalarPairwiseFP u hi opcode ins =
   | _ ->
     wrongOperands ins
 
-/// <V><d>, <V><n>, <V><m>, the ones whose destination is twice as wide as what
-/// they read.
+/// Encodes <V><d>, <V><n>, <V><m>, the ones whose destination is twice as wide
+/// as what they read.
 let private scalarThreeDiff u opcode ins =
   match ins.Operands with
   | ThreeOperands(Rg rd, Rg rn, Rg rm) ->
@@ -266,7 +266,7 @@ let private elementOf ins reg =
   | Some 64 -> OneD
   | _ -> wrongOperands ins
 
-/// <V><d>, <V><n>, #<shift>
+/// Encodes <V><d>, <V><n>, #<shift>
 let private scalarShiftImm allowed u opcode toField ins =
   match ins.Operands with
   | ThreeOperands(Rg rd, Rg rn, Im amount) ->
@@ -288,8 +288,8 @@ let private scalarShiftNarrow u opcode ins =
   | _ ->
     wrongOperands ins
 
-/// <V><d>, <V><n>, #<fbits>, the conversions between a floating-point element
-/// and one holding a fraction of that many bits.
+/// Encodes <V><d>, <V><n>, #<fbits>, the conversions between a floating-point
+/// element and one holding a fraction of that many bits.
 let private scalarConvertFixed u opcode ins =
   match ins.Operands with
   | ThreeOperands(Rg rd, Rg rn, Im amount) ->
@@ -305,7 +305,7 @@ let private scalarIndexedWith u opcode size source rn rd =
   (1u <<< 30) ||| (u <<< 29) ||| (0b11111u <<< 24) ||| (size <<< 22) ||| source
   ||| (opcode <<< 12) ||| (rn <<< 5) ||| rd
 
-/// <V><d>, <V><n>, <Vm>.<Ts>[<index>]
+/// Encodes <V><d>, <V><n>, <Vm>.<Ts>[<index>]
 let private scalarIndexed u opcode ins =
   match ins.Operands with
   | ThreeOperands(Rg rd, Rg rn, Elem(rm, vec, index)) ->
@@ -350,8 +350,8 @@ let private scalarIndexedLong u opcode ins =
   | _ ->
     wrongOperands ins
 
-/// <V><d>, <Vn>.<Ts>[<index>], which reads one element into a register of its
-/// own width. The manual writes it as a move, which is what it is.
+/// Encodes <V><d>, <Vn>.<Ts>[<index>], which reads one element into a register
+/// of its own width. The manual writes it as a move, which is what it is.
 let private scalarCopy ins =
   match ins.Operands with
   | TwoOperands(Rg rd, Elem(rn, vec, index)) ->
@@ -415,7 +415,7 @@ let private floatWideType ins reg =
 /// The bits every one of them shares.
 let private floatHead ty = (0b11110u <<< 24) ||| (ty <<< 22) ||| (1u <<< 21)
 
-/// <Vd>, <Vn>, the ones that read one register into another.
+/// Encodes <Vd>, <Vn>, the ones that read one register into another.
 let private floatOneSource opcode ins =
   match ins.Operands with
   | TwoOperands(Rg rd, Rg rn) ->
@@ -436,7 +436,7 @@ let private convertFloat ins =
   | _ ->
     wrongOperands ins
 
-/// <Vd>, <Vn>, <Vm>, the ones that read two registers into one.
+/// Encodes <Vd>, <Vn>, <Vm>, the ones that read two registers into one.
 let private floatTwoSource opcode ins =
   match ins.Operands with
   | ThreeOperands(Rg rd, Rg rn, Rg rm) ->
@@ -448,7 +448,7 @@ let private floatTwoSource opcode ins =
   | _ ->
     wrongOperands ins
 
-/// <Vd>, <Vn>, <Vm>, <Va>, the ones that read three.
+/// Encodes <Vd>, <Vn>, <Vm>, <Va>, the ones that read three.
 let private floatThreeSource o1 o0 ins =
   match ins.Operands with
   | FourOperands(Rg rd, Rg rn, Rg rm, Rg ra) ->
@@ -462,8 +462,8 @@ let private floatThreeSource o1 o0 ins =
   | _ ->
     wrongOperands ins
 
-/// <Vn>, <Vm>|#0.0, the comparisons, which name no destination and say in the
-/// bottom of their opcode whether they read a register at all.
+/// Encodes <Vn>, <Vm>|#0.0, the comparisons, which name no destination and say
+/// in the bottom of their opcode whether they read a register at all.
 let private floatCompare opcode2 ins =
   match ins.Operands with
   | TwoOperands(Rg rn, Rg rm) ->
@@ -476,7 +476,8 @@ let private floatCompare opcode2 ins =
   | _ ->
     wrongOperands ins
 
-/// <Vn>, <Vm>, #<nzcv>, <cond>, the comparisons that run under a condition.
+/// Encodes <Vn>, <Vm>, #<nzcv>, <cond>, the comparisons that run under a
+/// condition.
 let private floatCondCompare op ins =
   match ins.Operands with
   | FourOperands(Rg rn, Rg rm, Im nzcv, OprCond cond) ->
@@ -487,7 +488,8 @@ let private floatCondCompare op ins =
   | _ ->
     wrongOperands ins
 
-/// <Vd>, <Vn>, <Vm>, <cond>, which reads one of its sources or the other.
+/// Encodes <Vd>, <Vn>, <Vm>, <cond>, which reads one of its sources or the
+/// other.
 let private floatCondSelect ins =
   match ins.Operands with
   | FourOperands(Rg rd, Rg rn, Rg rm, OprCond cond) ->
@@ -499,7 +501,8 @@ let private floatCondSelect ins =
   | _ ->
     wrongOperands ins
 
-/// <Vd>, #<imm>, a move of a value the eight bits of the encoding stand for.
+/// Encodes <Vd>, #<imm>, a move of a value the eight bits of the encoding stand
+/// for.
 let private floatImmediate ins =
   match ins.Operands with
   | TwoOperands(Rg rd, OprFPImm value) ->
@@ -515,7 +518,8 @@ let private convertWith sf ty rmode opcode rn rd =
   (sf <<< 31) ||| floatHead ty ||| (rmode <<< 19) ||| (opcode <<< 16)
   ||| (rn <<< 5) ||| rd
 
-/// <Rd>, <Vn>, the ones that read a floating-point register into a general one.
+/// Encodes <Rd>, <Vn>, the ones that read a floating-point register into a
+/// general one.
 let private convertToGeneral rmode opcode ins =
   match ins.Operands with
   | TwoOperands(Rg rd, Rg rn) ->
@@ -528,9 +532,9 @@ let private convertToGeneral rmode opcode ins =
   | _ ->
     wrongOperands ins
 
-/// <Vd>, <Rn>, the ones that write one. Only the conversion of a signed number
-/// reaches a half-precision register, so what type the destination may be comes
-/// from the caller.
+/// Encodes <Vd>, <Rn>, the ones that write one. Only the conversion of a signed
+/// number reaches a half-precision register, so what type the destination may
+/// be comes from the caller.
 let private convertToFloat toType rmode opcode ins =
   match ins.Operands with
   | TwoOperands(Rg rd, Rg rn) ->
@@ -559,8 +563,8 @@ let private convertFixedWith general ty rmode opcode fbits rn rd =
     ||| (ty <<< 22) ||| (rmode <<< 19) ||| (opcode <<< 16)
     ||| (unsignedImm 6 (64L - fbits) <<< 10) ||| (rn <<< 5) ||| rd
 
-/// <Vd>, <Rn>, #<fbits>, which reads a whole number into a floating-point
-/// register.
+/// Encodes <Vd>, <Rn>, #<fbits>, which reads a whole number into a
+/// floating-point register.
 let private convertFixedToFloat toType rmode opcode ins =
   match ins.Operands with
   | ThreeOperands(Rg rd, Rg rn, Im fbits) ->
@@ -574,7 +578,7 @@ let private convertFixedToFloat toType rmode opcode ins =
   | _ ->
     wrongOperands ins
 
-/// <Rd>, <Vn>, #<fbits>, which reads one the other way.
+/// Encodes <Rd>, <Vn>, #<fbits>, which reads one the other way.
 let private convertFixedToGeneral rmode opcode ins =
   match ins.Operands with
   | ThreeOperands(Rg rd, Rg rn, Im fbits) ->

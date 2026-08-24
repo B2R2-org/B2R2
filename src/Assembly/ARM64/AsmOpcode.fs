@@ -77,7 +77,7 @@ let private addSubImmWith op s ins rd rn imm rest =
   (op <<< 30) ||| (s <<< 29) ||| (0b100010u <<< 23) ||| (shift <<< 22)
   ||| (unsignedImm 12 imm <<< 10) ||| (coreRegSP rn <<< 5) ||| rd
 
-/// <Rd|SP>, <Rn|SP>, #<imm>{, LSL #12}
+/// Encodes <Rd|SP>, <Rn|SP>, #<imm>{, LSL #12}
 let private addSubImm op ins =
   match getOperandsAsList ins.Operands with
   | Rg rd :: Rg rn :: Im imm :: rest ->
@@ -85,7 +85,7 @@ let private addSubImm op ins =
   | _ ->
     wrongOperands ins
 
-/// <Rd>, <Rn|SP>, #<imm>{, LSL #12}, the form that sets the flags.
+/// Encodes <Rd>, <Rn|SP>, #<imm>{, LSL #12}, the form that sets the flags.
 let private addSubImmFlags op ins =
   match getOperandsAsList ins.Operands with
   | Rg rd :: Rg rn :: Im imm :: rest ->
@@ -93,7 +93,7 @@ let private addSubImmFlags op ins =
   | _ ->
     wrongOperands ins
 
-/// <Rn|SP>, #<imm>{, LSL #12}, the form that only sets them.
+/// Encodes <Rn|SP>, #<imm>{, LSL #12}, the form that only sets them.
 let private compareImm op ins =
   match getOperandsAsList ins.Operands with
   | Rg rn :: Im imm :: rest ->
@@ -107,7 +107,7 @@ let private logicalImmWith opc ins rd rn imm =
   (opc <<< 29) ||| (0b100100u <<< 23) ||| (n <<< 22) ||| (immr <<< 16)
   ||| (imms <<< 10) ||| (coreReg rn <<< 5) ||| rd
 
-/// <Rd|SP>, <Rn>, #<imm>
+/// Encodes <Rd|SP>, <Rn>, #<imm>
 let private logicalImmediate opc ins =
   match ins.Operands with
   | ThreeOperands(Rg rd, Rg rn, Im imm) ->
@@ -115,7 +115,7 @@ let private logicalImmediate opc ins =
   | _ ->
     wrongOperands ins
 
-/// <Rd>, <Rn>, #<imm>, the form that sets the flags.
+/// Encodes <Rd>, <Rn>, #<imm>, the form that sets the flags.
 let private logicalImmediateFlags opc ins =
   match ins.Operands with
   | ThreeOperands(Rg rd, Rg rn, Im imm) ->
@@ -134,7 +134,7 @@ let private halfwordShift is64 amount =
   | 48L when is64 -> 3u
   | amount -> fail $"a wide immediate cannot be shifted by #{amount}"
 
-/// <Rd>, #<imm>{, LSL #<amount>}
+/// Encodes <Rd>, #<imm>{, LSL #<amount>}
 let private moveWide opc ins =
   match getOperandsAsList ins.Operands with
   | Rg rd :: Im imm :: rest ->
@@ -152,7 +152,7 @@ let private bitfieldWith opc rd rn immr imms =
   ||| ((if is64 then 1u else 0u) <<< 22) ||| (unsignedImm 6 immr <<< 16)
   ||| (unsignedImm 6 imms <<< 10) ||| (coreReg rn <<< 5) ||| coreReg rd
 
-/// <Rd>, <Rn>, #<immr>, #<imms>
+/// Encodes <Rd>, <Rn>, #<immr>, #<imms>
 let private bitfield opc ins =
   match ins.Operands with
   | FourOperands(Rg rd, Rg rn, Im immr, Im imms) ->
@@ -221,7 +221,7 @@ let private logicalShiftedWith opc n ins rd rn rm rest =
   ||| (n <<< 21) ||| (coreReg rm <<< 16) ||| (unsignedImm width amount <<< 10)
   ||| (coreReg rn <<< 5) ||| coreReg rd
 
-/// <Rd>, <Rn>, <Rm>{, <shift> #<amount>}
+/// Encodes <Rd>, <Rn>, <Rm>{, <shift> #<amount>}
 let private logicalShifted opc n ins =
   match getOperandsAsList ins.Operands with
   | Rg rd :: Rg rn :: Rg rm :: rest ->
@@ -302,7 +302,8 @@ let private addSubReg op s ins =
 /// the aliases naming one register fewer read or write in its place.
 let private zeroLike reg = if is64Reg reg then Register.XZR else Register.WZR
 
-/// <Rn|SP>, <Rm>{, <extend>|<shift>}, the form that names no destination.
+/// Encodes <Rn|SP>, <Rm>{, <extend>|<shift>}, the form that names no
+/// destination.
 let private compareReg op ins =
   match getOperandsAsList ins.Operands with
   | Rg rn :: Rg rm :: rest ->
@@ -316,7 +317,8 @@ let private compareReg op ins =
   | _ ->
     wrongOperands ins
 
-/// <Rd>, <Rm>{, <shift> #<amount>}, which subtracts from the zero register.
+/// Encodes <Rd>, <Rm>{, <shift> #<amount>}, which subtracts from the zero
+/// register.
 let private negate s ins =
   match getOperandsAsList ins.Operands with
   | Rg rd :: Rg rm :: rest ->
@@ -334,7 +336,8 @@ let private addSubCarry op s ins =
   | ThreeOperands(Rg rd, Rg rn, Rg rm) -> addSubCarryWith op s rd rn rm
   | _ -> wrongOperands ins
 
-/// <Rd>, <Rm>, which subtracts from the zero register with the carry flag.
+/// Encodes <Rd>, <Rm>, which subtracts from the zero register with the carry
+/// flag.
 let private negateCarry s ins =
   match ins.Operands with
   | TwoOperands(Rg rd, Rg rm) -> addSubCarryWith 1u s rd rd rm ||| (31u <<< 5)
@@ -347,7 +350,7 @@ let private condCompareWith op rn cond nzcv isImm second =
   ||| ((if isImm then 1u else 0u) <<< 11) ||| (coreReg rn <<< 5)
   ||| unsignedImm 4 nzcv
 
-/// <Rn>, <Rm>|#<imm>, #<nzcv>, <cond>
+/// Encodes <Rn>, <Rm>|#<imm>, #<nzcv>, <cond>
 let private condCompare op ins =
   match ins.Operands with
   | FourOperands(Rg rn, Im imm, Im nzcv, OprCond cond) ->
@@ -362,7 +365,7 @@ let private condSelectWith op op2 rd rn rm cond =
   sfBit rd ||| (op <<< 30) ||| (0b11010100u <<< 21) ||| (coreReg rm <<< 16)
   ||| (cond <<< 12) ||| (op2 <<< 10) ||| (coreReg rn <<< 5) ||| coreReg rd
 
-/// <Rd>, <Rn>, <Rm>, <cond>
+/// Encodes <Rd>, <Rn>, <Rm>, <cond>
 let private condSelect op op2 ins =
   match ins.Operands with
   | FourOperands(Rg rd, Rg rn, Rg rm, OprCond cond) ->
@@ -391,13 +394,13 @@ let private mulWith op31 o0 rd rn rm ra =
   sfBit rd ||| (0b11011u <<< 24) ||| (op31 <<< 21) ||| (coreReg rm <<< 16)
   ||| (o0 <<< 15) ||| (coreReg ra <<< 10) ||| (coreReg rn <<< 5) ||| coreReg rd
 
-/// <Rd>, <Rn>, <Rm>, <Ra>
+/// Encodes <Rd>, <Rn>, <Rm>, <Ra>
 let private mulAccumulate op31 o0 ins =
   match ins.Operands with
   | FourOperands(Rg rd, Rg rn, Rg rm, Rg ra) -> mulWith op31 o0 rd rn rm ra
   | _ -> wrongOperands ins
 
-/// <Rd>, <Rn>, <Rm>, which accumulates into the zero register.
+/// Encodes <Rd>, <Rn>, <Rm>, which accumulates into the zero register.
 let private multiply op31 o0 ins =
   match ins.Operands with
   | ThreeOperands(Rg rd, Rg rn, Rg rm) -> mulWith op31 o0 rd rn rm (zeroLike rd)
@@ -408,7 +411,7 @@ let private dataProc2SrcWith opcode rd rn rm =
   sfBit rd ||| (0b11010110u <<< 21) ||| (coreReg rm <<< 16)
   ||| (opcode <<< 10) ||| (coreReg rn <<< 5) ||| coreReg rd
 
-/// <Rd>, <Rn>, <Rm>
+/// Encodes <Rd>, <Rn>, <Rm>
 let private dataProc2Src opcode ins =
   match ins.Operands with
   | ThreeOperands(Rg rd, Rg rn, Rg rm) -> dataProc2SrcWith opcode rd rn rm
@@ -425,7 +428,7 @@ let private crc32 opcode ins =
   | _ ->
     wrongOperands ins
 
-/// <Rd>, <Rn>, the instructions that read one register into another.
+/// Encodes <Rd>, <Rn>, the instructions that read one register into another.
 let private dataProc1Src opcode ins =
   match ins.Operands with
   | TwoOperands(Rg rd, Rg rn) ->
@@ -894,7 +897,7 @@ let private registerOffset access ins rt rn rm shift =
     ||| (extendType ext <<< 13) ||| (s <<< 12) ||| (0b10u <<< 10)
     ||| (coreRegSP rn <<< 5) ||| field
 
-/// <Rt>, <label>, which reads what sits a distance away from here.
+/// Encodes <Rt>, <label>, which reads what sits a distance away from here.
 let private loadLiteral opc v ins rt offset =
   let field =
     match rt with
@@ -986,7 +989,8 @@ let private pairWith kind l ins rt1 rt2 rn offset fields =
   ||| (pairReg v bytes rt2 <<< 10) ||| (coreRegSP rn <<< 5)
   ||| pairReg v bytes rt1
 
-/// <Rt1>, <Rt2>, [<Xn|SP>{, #<imm>}] and the two forms that keep the sum.
+/// Encodes <Rt1>, <Rt2>, [<Xn|SP>{, #<imm>}] and the two forms that keep the
+/// sum.
 let private loadStorePair l ins =
   let fields rt = pairFields ins rt
   match ins.Operands with
@@ -1051,7 +1055,7 @@ let private exclusiveWith size o2 l o1 o0 rs rt2 rn rt =
 /// that the register it moves says instead.
 let private accessSize rt = if is64Reg rt then 0b11u else 0b10u
 
-/// <Rt>, [<Xn|SP>], the accesses that name one register and a place.
+/// Encodes <Rt>, [<Xn|SP>], the accesses that name one register and a place.
 let private exclusiveOne size o2 l o0 ins =
   match ins.Operands with
   | TwoOperands(Rg rt, mem) ->
@@ -1060,7 +1064,7 @@ let private exclusiveOne size o2 l o0 ins =
   | _ ->
     wrongOperands ins
 
-/// <Ws>, <Rt>, [<Xn|SP>], the stores that say whether they succeeded.
+/// Encodes <Ws>, <Rt>, [<Xn|SP>], the stores that say whether they succeeded.
 let private exclusiveStore size o0 ins =
   match ins.Operands with
   | ThreeOperands(Rg rs, Rg rt, mem) ->
@@ -1077,7 +1081,7 @@ let private exclusiveStore size o0 ins =
   | _ ->
     wrongOperands ins
 
-/// <Rt1>, <Rt2>, [<Xn|SP>], the loads that read a pair at once.
+/// Encodes <Rt1>, <Rt2>, [<Xn|SP>], the loads that read a pair at once.
 let private exclusivePairLoad o0 ins =
   match ins.Operands with
   | ThreeOperands(Rg rt1, Rg rt2, mem) ->
@@ -1093,7 +1097,7 @@ let private exclusivePairLoad o0 ins =
   | _ ->
     wrongOperands ins
 
-/// <Ws>, <Rt1>, <Rt2>, [<Xn|SP>], the stores that write a pair at once.
+/// Encodes <Ws>, <Rt1>, <Rt2>, [<Xn|SP>], the stores that write a pair at once.
 let private exclusivePairStore o0 ins =
   match ins.Operands with
   | FourOperands(Rg rs, Rg rt1, Rg rt2, mem) ->
@@ -1109,7 +1113,7 @@ let private exclusivePairStore o0 ins =
   | _ ->
     wrongOperands ins
 
-/// <Rs>, <Rt>, [<Xn|SP>], the compare-and-swap accesses, whose size the
+/// Encodes <Rs>, <Rt>, [<Xn|SP>], the compare-and-swap accesses, whose size the
 /// registers say and whose mnemonic says only how ordered they are.
 let private compareAndSwap l o0 ins =
   match ins.Operands with

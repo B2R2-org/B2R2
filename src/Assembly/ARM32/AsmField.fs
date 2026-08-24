@@ -252,6 +252,7 @@ let simdReg (reg: Register) =
 /// <summary>
 /// Whether the register is a quadword one, which is what the Q bit of a SIMD
 /// instruction says.
+/// </summary>
 let isQuadReg (reg: Register) =
   int reg >= int Register.Q0 && int reg <= int Register.Q15
 
@@ -261,6 +262,7 @@ let isQuadReg (reg: Register) =
 let isSingleReg (reg: Register) =
   int reg >= int Register.S0 && int reg <= int Register.S31
 
+/// <summary>
 /// Places a SIMD register in one of the three fields that hold one, together
 /// with the bit that carries its top bit.
 ///

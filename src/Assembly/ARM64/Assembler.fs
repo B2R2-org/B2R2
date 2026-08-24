@@ -222,13 +222,13 @@ type Assembler(isa: ISA, baseAddr: Addr) =
 
   let pAmount = pchar '#' >>. pNumber
 
-  /// <shift> #<amount>, which shifts what was written before it.
+  /// Parses <shift> #<amount>, which shifts what was written before it.
   let pOprShift =
     pShiftName .>> whitespace .>>. opt pAmount
     |>> fun (shift, amount) -> OprShift(shift, Imm(defaultArg amount 0L))
 
-  /// <extend> {#<amount>}, which reads a part of what was written before it and
-  /// may shift what it read.
+  /// Parses <extend> {#<amount>}, which reads a part of what was written before
+  /// it and may shift what it read.
   let pOprExtend =
     pExtendName .>> whitespace .>>. opt pAmount
     |>> fun (ext, amount) -> OprExtReg(Some(ExtRegOffset(ext, amount)))

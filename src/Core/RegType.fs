@@ -27,8 +27,8 @@ namespace B2R2
 /// Raised when an invalid RegType is encountered.
 exception InvalidRegTypeException
 
-/// A unit of measure for register types.
 /// <exclude/>
+/// <summary>A unit of measure for register types.</summary>
 [<Measure>]
 type rt
 

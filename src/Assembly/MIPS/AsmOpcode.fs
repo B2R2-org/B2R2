@@ -44,8 +44,8 @@ let private noOperand sa func ins =
   | NoOperand -> word 0u 0u 0u 0u sa func
   | _ -> wrongOperands ins
 
-/// <rd>, <rt>, <sa>: a shift by a written distance. Which shift it is, the
-/// field above the registers says as well as the function field.
+/// Encodes <rd>, <rt>, <sa>: a shift by a written distance. Which shift it is,
+/// the field above the registers says as well as the function field.
 let private shiftImm rs func ins =
   match ins.Operands with
   | ThreeOperands(Rg rd, Rg rt, Im sa) ->
@@ -53,7 +53,7 @@ let private shiftImm rs func ins =
   | _ ->
     wrongOperands ins
 
-/// <rd>, <rt>, <rs>: a shift by a distance a register holds.
+/// Encodes <rd>, <rt>, <rs>: a shift by a distance a register holds.
 let private shiftReg sa func ins =
   match ins.Operands with
   | ThreeOperands(Rg rd, Rg rt, Rg rs) ->
@@ -61,7 +61,7 @@ let private shiftReg sa func ins =
   | _ ->
     wrongOperands ins
 
-/// <rd>, <rs>, <rt>: the arithmetic and the logic on two registers.
+/// Encodes <rd>, <rs>, <rt>: the arithmetic and the logic on two registers.
 let private threeReg func ins =
   match ins.Operands with
   | ThreeOperands(Rg rd, Rg rs, Rg rt) ->
@@ -69,18 +69,18 @@ let private threeReg func ins =
   | _ ->
     wrongOperands ins
 
-/// <rs>, <rt>: the multiplies and the divides that write the pair of registers
-/// a product too wide for one of them needs, and the trap that compares two.
-/// The number a trap leaves behind for whatever handles it is not printed by
-/// the disassembler, so nothing written here can say one and it comes out as
-/// zero.
+/// Encodes <rs>, <rt>: the multiplies and the divides that write the pair of
+/// registers a product too wide for one of them needs, and the trap that
+/// compares two. The number a trap leaves behind for whatever handles it is not
+/// printed by the disassembler, so nothing written here can say one and it
+/// comes out as zero.
 let private twoReg func ins =
   match ins.Operands with
   | TwoOperands(Rg rs, Rg rt) -> word 0u (gpr rs) (gpr rt) 0u 0u func
   | _ -> wrongOperands ins
 
-/// <rs>, <rt> and <rd>, <rs>, <rt>: the unsigned divide, which is written both
-/// ways and is a different instruction under each.
+/// Encodes <rs>, <rt> and <rd>, <rs>, <rt>: the unsigned divide, which is
+/// written both ways and is a different instruction under each.
 let private divideUnsigned ins =
   match ins.Operands with
   | TwoOperands(Rg rs, Rg rt) ->
@@ -90,19 +90,20 @@ let private divideUnsigned ins =
   | _ ->
     wrongOperands ins
 
-/// <rd>: the reads of the pair of registers a multiply writes.
+/// Encodes <rd>: the reads of the pair of registers a multiply writes.
 let private readReg func ins =
   match ins.Operands with
   | OneOperand(Rg rd) -> word 0u 0u 0u (gpr rd) 0u func
   | _ -> wrongOperands ins
 
-/// <rs>: the writes of that pair, and the jumps to a place a register holds.
+/// Encodes <rs>: the writes of that pair, and the jumps to a place a register
+/// holds.
 let private oneReg sa func ins =
   match ins.Operands with
   | OneOperand(Rg rs) -> word 0u (gpr rs) 0u 0u sa func
   | _ -> wrongOperands ins
 
-/// <rd>, <rs>, <cc>: a move that happens only where the condition the
+/// Encodes <rd>, <rs>, <cc>: a move that happens only where the condition the
 /// floating-point unit last tested holds, or only where it does not.
 let private moveOnCondition tf ins =
   match ins.Operands with
@@ -121,14 +122,15 @@ let private sync ins =
   | OneOperand(Im stype) -> word 0u 0u 0u 0u (unsigned 5 stype) 0b001111u
   | _ -> wrongOperands ins
 
-/// <rs>, <rt>: the multiplies that add what they yield to the pair of
+/// Encodes <rs>, <rt>: the multiplies that add what they yield to the pair of
 /// registers a multiply writes rather than replacing it.
 let private multiplyAccumulate func ins =
   match ins.Operands with
   | TwoOperands(Rg rs, Rg rt) -> word 0b011100u (gpr rs) (gpr rt) 0u 0u func
   | _ -> wrongOperands ins
 
-/// <rd>, <rs>, <rt>: the multiply that writes one register rather than two.
+/// Encodes <rd>, <rs>, <rt>: the multiply that writes one register rather than
+/// two.
 let private multiplyToReg ins =
   match ins.Operands with
   | ThreeOperands(Rg rd, Rg rs, Rg rt) ->
@@ -136,8 +138,8 @@ let private multiplyToReg ins =
   | _ ->
     wrongOperands ins
 
-/// <rd>, <rs>: counting the zeroes a word or a doubleword starts with. The
-/// manual writes the destination into both of the fields the instructions
+/// Encodes <rd>, <rs>: counting the zeroes a word or a doubleword starts with.
+/// The manual writes the destination into both of the fields the instructions
 /// beside this one keep a register in.
 let private countLeadingZeros func ins =
   match ins.Operands with
@@ -154,10 +156,10 @@ let private extractEnd bias _pos (size: uint32) = size - 1u - bias
 /// field starts as well.
 let private insertEnd bias pos (size: uint32) = pos + size - 1u - bias
 
-/// <rt>, <rs>, <pos>, <size>: the instructions that read or write one field of
-/// a register. What they hold is where the field starts and where it ends,
-/// and every member of the family works the end out differently, so the caller
-/// says how.
+/// Encodes <rt>, <rs>, <pos>, <size>: the instructions that read or write one
+/// field of a register. What they hold is where the field starts and where it
+/// ends, and every member of the family works the end out differently, so the
+/// caller says how.
 let private bitfield func lsbBias endOf ins =
   match ins.Operands with
   | FourOperands(Rg rt, Rg rs, Im pos, Im size) ->
@@ -168,15 +170,15 @@ let private bitfield func lsbBias endOf ins =
   | _ ->
     wrongOperands ins
 
-/// <rd>, <rt>: the instructions that shuffle the bytes or the bits of a
+/// Encodes <rd>, <rt>: the instructions that shuffle the bytes or the bits of a
 /// register, which the field a shift keeps its distance in tells apart.
 let private shuffle func sa ins =
   match ins.Operands with
   | TwoOperands(Rg rd, Rg rt) -> word 0b011111u 0u (gpr rt) (gpr rd) sa func
   | _ -> wrongOperands ins
 
-/// <rd>, <rs>, <rt>, <bp>: taking a run of bytes that straddles two registers,
-/// which starts at the byte the last operand names.
+/// Encodes <rd>, <rs>, <rt>, <bp>: taking a run of bytes that straddles two
+/// registers, which starts at the byte the last operand names.
 let private align func width ins =
   match ins.Operands with
   | FourOperands(Rg rd, Rg rs, Rg rt, Im bp) ->
@@ -185,8 +187,8 @@ let private align func width ins =
   | _ ->
     wrongOperands ins
 
-/// <rt>, <rd>, <sel>: reading one of the registers the hardware shows to a
-/// program that cannot reach the ones the system keeps.
+/// Encodes <rt>, <rd>, <sel>: reading one of the registers the hardware shows
+/// to a program that cannot reach the ones the system keeps.
 let private readHardware ins =
   match ins.Operands with
   | ThreeOperands(Rg rt, Rg rd, Im sel) ->
@@ -194,8 +196,8 @@ let private readHardware ins =
   | _ ->
     wrongOperands ins
 
-/// <rt>, <rs>, <imm>: the arithmetic that takes a written number, which it
-/// reads as a signed one.
+/// Encodes <rt>, <rs>, <imm>: the arithmetic that takes a written number, which
+/// it reads as a signed one.
 let private arithImm op ins =
   match ins.Operands with
   | ThreeOperands(Rg rt, Rg rs, Im value) ->
@@ -203,8 +205,8 @@ let private arithImm op ins =
   | _ ->
     wrongOperands ins
 
-/// <rt>, <rs>, <imm>: the logic that takes one, which it reads as a count of
-/// bits set rather than as a number that may be below zero.
+/// Encodes <rt>, <rs>, <imm>: the logic that takes one, which it reads as a
+/// count of bits set rather than as a number that may be below zero.
 let private logicImm op ins =
   match ins.Operands with
   | ThreeOperands(Rg rt, Rg rs, Im value) ->
@@ -212,8 +214,8 @@ let private logicImm op ins =
   | _ ->
     wrongOperands ins
 
-/// <rt>, <imm>: writing a number into the upper half of a register, which is
-/// how the halves of a whole word are written one after the other.
+/// Encodes <rt>, <imm>: writing a number into the upper half of a register,
+/// which is how the halves of a whole word are written one after the other.
 let private loadUpper ins =
   match ins.Operands with
   | TwoOperands(Rg rt, Im value) ->
@@ -313,13 +315,13 @@ let arithmeticEncoders () =
 (* The branches and the jumps. A branch holds how far the place it names is
    from the instruction after it; a jump holds one word of the region it sits
    in, which is as far as it reaches. *)
-/// <place>: the branches that name a place and nothing else.
+/// Encodes <place>: the branches that name a place and nothing else.
 let private branchAlways op rs rt ins =
   match ins.Operands with
   | OneOperand(Place distance) -> immWord op rs rt (branchOffset distance)
   | _ -> wrongOperands ins
 
-/// <rs>, <rt>, <place>: the branches that compare two registers.
+/// Encodes <rs>, <rt>, <place>: the branches that compare two registers.
 let private branchOnPair op ins =
   match ins.Operands with
   | ThreeOperands(Rg rs, Rg rt, Place distance) ->
@@ -327,9 +329,9 @@ let private branchOnPair op ins =
   | _ ->
     wrongOperands ins
 
-/// <rs>, <place>: a branch that compares one register against zero. Which one
-/// it is lies partly in the opcode and partly in the field a branch on two
-/// registers keeps the other of them in.
+/// Encodes <rs>, <place>: a branch that compares one register against zero.
+/// Which one it is lies partly in the opcode and partly in the field a branch
+/// on two registers keeps the other of them in.
 let private branchOnZero op rt ins =
   match ins.Operands with
   | TwoOperands(Rg rs, Place distance) ->
@@ -337,21 +339,22 @@ let private branchOnZero op rt ins =
   | _ ->
     wrongOperands ins
 
-/// <target>: a jump to a place in the region it sits in.
+/// Encodes <target>: a jump to a place in the region it sits in.
 let private jump op ins =
   match ins.Operands with
   | OneOperand(Im target) -> immWord op 0u 0u (jumpTarget target)
   | _ -> wrongOperands ins
 
-/// <rs> and <rd>, <rs>: a jump that keeps where it came from, which names the
-/// register it keeps it in only where that is not the usual one.
+/// Encodes <rs> and <rd>, <rs>: a jump that keeps where it came from, which
+/// names the register it keeps it in only where that is not the usual one.
 let private jumpAndLink hint ins =
   match ins.Operands with
   | OneOperand(Rg rs) -> word 0u (gpr rs) 0u 31u hint 0b001001u
   | TwoOperands(Rg rd, Rg rs) -> word 0u (gpr rs) 0u (gpr rd) hint 0b001001u
   | _ -> wrongOperands ins
 
-/// <rs>, <imm>: the trap that compares a register against a written number.
+/// Encodes <rs>, <imm>: the trap that compares a register against a written
+/// number.
 let private trapImm rt ins =
   match ins.Operands with
   | TwoOperands(Rg rs, Im value) ->
@@ -386,7 +389,8 @@ let branchEncoders () =
 (* The loads and the stores. Every one of them reads memory at a distance from
    a register, and what says how wide the access is is the instruction rather
    than anything the source writes. *)
-/// <rt>, <offset>(<base>): the loads and the stores of a general register.
+/// Encodes <rt>, <offset>(<base>): the loads and the stores of a general
+/// register.
 let private memory op ins =
   match ins.Operands with
   | TwoOperands(Rg rt, Mem(baseReg, offset)) ->
@@ -394,7 +398,7 @@ let private memory op ins =
   | _ ->
     wrongOperands ins
 
-/// <ft>, <offset>(<base>): the loads and the stores of a floating-point
+/// Encodes <ft>, <offset>(<base>): the loads and the stores of a floating-point
 /// register, which name one where the others name a general register.
 let private memoryFP op ins =
   match ins.Operands with
@@ -403,8 +407,8 @@ let private memoryFP op ins =
   | _ ->
     wrongOperands ins
 
-/// <hint>, <offset>(<base>): the word that a place is about to be read or
-/// written, which says what to do with it where the others name a register.
+/// Encodes <hint>, <offset>(<base>): the word that a place is about to be read
+/// or written, which says what to do with it where the others name a register.
 let private prefetch ins =
   match ins.Operands with
   | TwoOperands(Im hint, Mem(baseReg, offset)) ->
