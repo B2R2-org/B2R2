@@ -40,9 +40,8 @@ module CallGraph =
     match (vMap: CallVMap).TryGetValue addr with
     | false, _ ->
       let fn = brew.Functions[addr]
-      let name = fn.Name
-      // let ext = fn.FunctionKind <> FunctionKind.Regular
-      let blk = CallBasicBlock(addr, name, false)
+      let wordSize = brew.BinHandle.ISA.WordSize
+      let blk = CallBasicBlock(wordSize, addr, fn.Name, fn.IsExternal)
       let v = callCFG.AddVertex blk
       vMap.Add(addr, v)
       v

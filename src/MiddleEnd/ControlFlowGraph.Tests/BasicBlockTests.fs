@@ -28,6 +28,7 @@ open System.Collections.Generic
 open Microsoft.VisualStudio.TestTools.UnitTesting
 open B2R2
 open B2R2.BinIR
+open B2R2.FrontEnd.BinLifter
 open B2R2.MiddleEnd.ControlFlowGraph
 
 [<TestClass>]
@@ -59,7 +60,7 @@ type BasicBlockTests() =
 
   let disasmBlock addr = DisasmBasicBlock(null, ProgramPoint(addr, 0), [||])
 
-  let callBlock addr = CallBasicBlock(addr, "f", false)
+  let callBlock addr = CallBasicBlock(WordSize.Bit64, addr, "f", false)
 
   [<TestMethod>]
   member _.``LowUIR Basic Block Identity Test``() =
@@ -76,3 +77,14 @@ type BasicBlockTests() =
   [<TestMethod>]
   member _.``Call Basic Block Identity Test``() =
     assertComparedByIdentity (callBlock 0x100UL) (callBlock 0x100UL)
+
+  (* A call graph reads the addresses of one binary against one another, so
+     the width every one of them takes is the width of that binary's word,
+     whatever the address happens to fit in. *)
+  [<TestMethod>]
+  member _.``Call Basic Block Address Width Test``() =
+    let words = (callBlock 0x555555554000UL).Internals.Visualize()
+    Assert.AreEqual<int>(1, words.Length)
+    let addrWord = words[0][0]
+    Assert.AreEqual<AsmWordKind>(AsmWordKind.Address, addrWord.AsmWordKind)
+    Assert.AreEqual<string>("0000555555554000", addrWord.AsmWordValue)
