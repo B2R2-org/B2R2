@@ -28,6 +28,7 @@
   <Project Path="SymbEval.Tests/B2R2.MiddleEnd.SymbEval.Tests.fsproj" />
   <Project Path="SymbEval/B2R2.MiddleEnd.SymbEval.fsproj" />
   <Project Path="ControlFlowAnalysis/B2R2.MiddleEnd.ControlFlowAnalysis.fsproj" />
+  <Project Path="ControlFlowGraph.Tests/B2R2.MiddleEnd.ControlFlowGraph.Tests.fsproj" />
   <Project Path="ControlFlowGraph/B2R2.MiddleEnd.ControlFlowGraph.fsproj" />
   <Project Path="DataFlow.Tests/B2R2.MiddleEnd.DataFlow.Tests.fsproj" />
   <Project Path="DataFlow/B2R2.MiddleEnd.DataFlow.fsproj" />

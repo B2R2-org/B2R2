@@ -24,7 +24,6 @@
 
 namespace B2R2.MiddleEnd.ControlFlowGraph
 
-open System
 open System.Collections.Immutable
 open B2R2
 open B2R2.FrontEnd.BinLifter
@@ -173,10 +172,6 @@ type LowUIRBasicBlock internal(pp, funcAbs, liftedInss, lblMap) =
                AsmWordValue = PrettyPrinter.ToString stmt } |])
       else
         [||]
-
-  interface IEquatable<LowUIRBasicBlock> with
-    member this.Equals(other: LowUIRBasicBlock) =
-      (this :> IAddressable).PPoint = (other :> IAddressable).PPoint
 
 /// Interface for a basic block containing a sequence of lifted LowUIR
 /// statements.

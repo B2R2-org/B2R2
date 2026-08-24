@@ -71,6 +71,7 @@
   <Project Path="src/MiddleEnd/SymbEval.Tests/B2R2.MiddleEnd.SymbEval.Tests.fsproj" />
   <Project Path="src/MiddleEnd/SymbEval/B2R2.MiddleEnd.SymbEval.fsproj" />
   <Project Path="src/MiddleEnd/ControlFlowAnalysis/B2R2.MiddleEnd.ControlFlowAnalysis.fsproj" />
+  <Project Path="src/MiddleEnd/ControlFlowGraph.Tests/B2R2.MiddleEnd.ControlFlowGraph.Tests.fsproj" />
   <Project Path="src/MiddleEnd/ControlFlowGraph/B2R2.MiddleEnd.ControlFlowGraph.fsproj" />
   <Project Path="src/MiddleEnd/DataFlow.Tests/B2R2.MiddleEnd.DataFlow.Tests.fsproj" />
   <Project Path="src/MiddleEnd/DataFlow/B2R2.MiddleEnd.DataFlow.fsproj" />
