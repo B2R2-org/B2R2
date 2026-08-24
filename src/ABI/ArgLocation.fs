@@ -26,8 +26,20 @@ namespace B2R2.ABI
 
 open B2R2
 
+/// <namespacedoc>
+///   <summary>
+///   Contains the ABI knowledge that B2R2 needs at function and system-call
+///   boundaries: where arguments and return addresses live, how the stack
+///   frame is shaped around a call, and how each OS numbers its system calls,
+///   along with the factories that build the conventions for a given OS and
+///   ISA.
+///   </summary>
+/// </namespacedoc>
+///
+/// <summary>
 /// Represents where a single function or syscall argument is located at the
 /// moment control reaches the callee.
+/// </summary>
 [<RequireQualifiedAccess>]
 type ArgLocation =
   /// In a single register.
