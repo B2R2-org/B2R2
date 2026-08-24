@@ -24,6 +24,7 @@
 build/
 artifacts/
 .fsdocs/
+output/
 
 b2r2.log
 .fake
