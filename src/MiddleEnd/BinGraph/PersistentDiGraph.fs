@@ -90,19 +90,19 @@ type PersistentDiGraph<'V, 'E
   let getSuccEdges (v: IVertex<'V>) =
     if isOwnVertex v then findEdges v.ID succs else []
 
+  (* Only the adjacency list of the one endpoint changes, hence only its key
+     is rewritten. Mapping over the whole table would rebuild every node of it
+     and leave the resulting snapshot sharing nothing with the one it came
+     from, which is the very thing a persistent graph is held in a map for. *)
   let removeSuccEdge succs (edge: Edge<'V, 'E>) =
-    let isElseThen targetID (edge: Edge<'V, 'E>) = edge.Second.ID <> targetID
-    succs
-    |> Map.map (fun id succs ->
-      if edge.First.ID = id then List.filter (isElseThen edge.Second.ID) succs
-      else succs)
+    let dstID = edge.Second.ID
+    let isElseThen (e: Edge<'V, 'E>) = e.Second.ID <> dstID
+    succs |> Map.change edge.First.ID (Option.map (List.filter isElseThen))
 
   let removePredEdge preds (edge: Edge<'V, 'E>) =
-    let isElseThen targetID (edge: Edge<'V, 'E>) = edge.First.ID <> targetID
-    preds
-    |> Map.map (fun id preds ->
-      if edge.Second.ID = id then List.filter (isElseThen edge.First.ID) preds
-      else preds)
+    let srcID = edge.First.ID
+    let isElseThen (e: Edge<'V, 'E>) = e.First.ID <> srcID
+    preds |> Map.change edge.Second.ID (Option.map (List.filter isElseThen))
 
   let addVertex (data: VertexData<'V>) vid nextvid =
     let v = Vertex(vid, data) :> IVertex<'V>
