@@ -143,20 +143,30 @@ module IntelSyntax = begin
     | 128<rt> -> "xmmword ptr"
     | 256<rt> -> "ymmword ptr"
     | 512<rt> -> "zmmword ptr"
-    | 224<rt> | 864<rt> -> "" (* x87 FPU state *)
+    (* Intel syntax has no directive this wide: the x87 state areas FLDENV
+       and FRSTOR read, and the 48-byte Key Locker handle. objdump prints
+       these bare too. *)
+    | 224<rt> | 384<rt> | 864<rt> -> ""
     | _ -> Terminator.impossible ()
+
+  /// Opens a memory operand, leaving out the separating space when the width
+  /// brings no directive for it to separate.
+  let private openMemOperand (builder: IDisasmBuilder) ptrDirective =
+    if ptrDirective = "" then
+      builder.Accumulate(AsmWordKind.String, "[")
+    else
+      builder.Accumulate(AsmWordKind.String, ptrDirective)
+      builder.Accumulate(AsmWordKind.String, " [")
 
   let mToString (ins: Instruction) (builder: IDisasmBuilder) b si d oprSz =
     let ptrDirective = ptrDirectiveString (isFar ins) oprSz
     match Prefix.getSegment ins.Prefixes with
     | None ->
-      builder.Accumulate(AsmWordKind.String, ptrDirective)
-      builder.Accumulate(AsmWordKind.String, " [")
+      openMemOperand builder ptrDirective
       memAddrToStr b si d builder.WordSize builder
       builder.Accumulate(AsmWordKind.String, "]")
     | Some seg ->
-      builder.Accumulate(AsmWordKind.String, ptrDirective)
-      builder.Accumulate(AsmWordKind.String, " [")
+      openMemOperand builder ptrDirective
       builder.Accumulate(AsmWordKind.Variable, Register.toString seg)
       builder.Accumulate(AsmWordKind.String, ":")
       memAddrToStr b si d builder.WordSize builder

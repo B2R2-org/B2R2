@@ -110,3 +110,24 @@ type DisassemblerTests() =
     ++ [| "add dword ptr [eax+ebx*2+0x100], 0xa"
           "addl $0xa, +0x100(%eax, %ebx, 2)" |]
     |> testX64
+
+  (* A Key Locker handle is 48 bytes wide and Intel syntax names no directive
+     that wide, so the operand prints bare. *)
+  [<TestMethod>]
+  member _.``X64 AESENC128KL instruction test``() =
+    "f30f38dc00"
+    ++ [| "aesenc128kl xmm0, [rax]"; "aesenc128kl (%rax), %xmm0" |]
+    |> testX64
+
+  [<TestMethod>]
+  member _.``X64 AESENCWIDE128KL instruction test``() =
+    "f30f38d800"
+    ++ [| "aesencwide128kl [rax]"; "aesencwide128kl (%rax)" |]
+    |> testX64
+
+  (* The x87 state areas are the same case, and used to print a stray space
+     where the directive would have gone. *)
+  [<TestMethod>]
+  member _.``X64 FLDENV instruction test``() =
+    "d920" ++ [| "fldenv [rax]"; "fldenv (%rax)" |]
+    |> testX64
