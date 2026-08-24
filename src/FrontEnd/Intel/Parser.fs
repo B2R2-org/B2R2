@@ -104,11 +104,18 @@ type IntelParser(wordSz, reader) =
     |> Array.distinct
 
   /// Returns true when every operand is 8-bit, meaning REX semantics do not
-  /// apply to this instruction.
-  let isAllOprSize8 oprSz =
-    match oprSz with
-    | [| Some 8<rt> |] -> true
-    | _ -> false
+  /// apply to this instruction. Reads the descriptors directly rather than
+  /// the distinct sizes: this is the first thing matchREX asks, so it runs
+  /// once per candidate of every instruction, and building an array to ask
+  /// it cost more than the question.
+  let isAllOprSize8 (operands: OperandType[]) =
+    operands.Length > 0
+    && operands
+       |> Array.forall (fun o ->
+         match o with
+         | RM sz | Reg(sz, _) | Mem sz | Imm sz | Rel sz | Moffs sz
+         | Far sz -> sz = 8<rt>
+         | _ -> false)
 
   /// Returns true when REX.W picks nothing out of this slot and so rides
   /// along inert. A row has to ask for the wider form before W is doing any
@@ -127,7 +134,7 @@ type IntelParser(wordSz, reader) =
   let matchREX (phlp: ParsingHelper) ins (insCore: InstructionCore) =
     let insREX = insCore.REXPrefixType
     match phlp.REXPrefix with
-    | _ when isAllOprSize8 (collectDistinctOpSizes insCore.Operands) -> true
+    | _ when isAllOprSize8 insCore.Operands -> true
     | REXPrefix.NOREX ->
       (insREX = REXPrefixType.WIG) || (insREX = REXPrefixType.W0) ||
       (insREX = REXPrefixType.NOREX)
@@ -241,19 +248,49 @@ type IntelParser(wordSz, reader) =
     | Opcode.IRET -> true
     | _ -> false
 
+  /// The width a descriptor declares. A negative stands in for "declares
+  /// none", so that the sizes below can be compared without wrapping each in
+  /// an option: zero is a real width here, carried by an operand the manual
+  /// gives no size for.
+  let noWidth = -1<rt>
+
+  let declaredWidth = function
+    | RM sz | Reg(sz, _) | Mem sz | Imm sz | Rel sz | Moffs sz
+    | Far sz -> sz
+    | FixedReg Register.AX -> 16<rt>
+    | _ -> noWidth
+
+  /// How many distinct widths the descriptors declare and what the first two
+  /// are. Only those three facts decide whether 66h is required, and a scan
+  /// finds them without the two arrays Array.distinct would build on every
+  /// candidate of every instruction.
+  let firstTwoWidths (operands: OperandType[]) =
+    let mutable count = 0
+    let mutable first = noWidth
+    let mutable second = noWidth
+    for o in operands do
+      let w = declaredWidth o
+      if count = 0 then
+        count <- 1
+        first <- w
+      elif count = 1 && w <> first then
+        second <- w
+        count <- 2
+      elif count >= 2 && w <> first && w <> second then
+        count <- count + 1
+      else ()
+    struct (count, first, second)
+
   /// Returns true when this instruction variant requires the 66h prefix. Some
   /// opcodes are excluded because their 16-bit form omits it.
-  let needs66hPrefix oprSz op =
-    match oprSz with
-    | [| Some 16<rt> |] when op = Opcode.RET -> false
-    | [| Some 16<rt>; _ |] when op = Opcode.ENTER -> false
-    | [| None; Some 16<rt> |] when op = Opcode.MOV -> false
-    | [| Some 8<rt>; Some 16<rt> |] when op = Opcode.OUT -> true
-    | [| None |] when hasImplicit16BitOprSize op -> true
-    | [| Some 16<rt> |]
-    | [| Some 16<rt>; _ |]
-    | [| None; Some 16<rt> |] (* Temp *) -> true
-    | _ -> false
+  let needs66hPrefix (operands: OperandType[]) op =
+    let struct (count, first, second) = firstTwoWidths operands
+    if count = 1 && first = 16<rt> then op <> Opcode.RET
+    elif count = 2 && first = 16<rt> then op <> Opcode.ENTER
+    elif count = 2 && first = noWidth && second = 16<rt> then op <> Opcode.MOV
+    elif count = 2 && first = 8<rt> && second = 16<rt> then op = Opcode.OUT
+    elif count = 1 && first = noWidth then hasImplicit16BitOprSize op
+    else false
 
   /// The width a fixed-register operand implies. Segment registers give
   /// 0<rt>: an operand-size prefix never selects between them.
@@ -297,8 +334,8 @@ type IntelParser(wordSz, reader) =
   let matchOperandSize pref ins (insCore: InstructionCore) =
     if insCore.OpEn = OpEn.None then true
     else
-      let oprSz = collectDistinctOpSizes insCore.Operands
-      if needs66hPrefix oprSz insCore.Opcode && is66hSelector ins insCore then
+      if needs66hPrefix insCore.Operands insCore.Opcode
+         && is66hSelector ins insCore then
         pref &&& Prefix.OPSIZE = Prefix.OPSIZE
       else true
 
