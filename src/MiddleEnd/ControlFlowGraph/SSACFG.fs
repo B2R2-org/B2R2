@@ -40,13 +40,7 @@ type SSACFG = IMutableDiGraph<SSABasicBlock, CFGEdgeKind>
 [<RequireQualifiedAccess>]
 module SSACFG =
   /// Creates an empty CFG of the given implementation type.
-  let create t: SSACFG =
-    match t with
-    | Mutable ->
-      MutableDiGraph<SSABasicBlock, CFGEdgeKind>() :> IMutableDiGraph<_, _>
-    | Persistent ->
-      let g = PersistentDiGraph<SSABasicBlock, CFGEdgeKind>()
-      MutablePersistentDiGraph g :> IMutableDiGraph<_, _>
+  let create t: SSACFG = GraphFactory.create t
 
   /// Finds the definition of the given variable kind (targetVarKind) at the
   /// given node v. We simply follow the dominator tree until we find a

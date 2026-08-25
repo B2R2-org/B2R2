@@ -22,20 +22,21 @@
   SOFTWARE.
 *)
 
-namespace B2R2.MiddleEnd.ControlFlowGraph
-
-open B2R2.MiddleEnd.BinGraph
-
-/// Represents a call graph, where each node stands for a function. This is the
-/// graph interface itself, so that a call graph is a mutable graph or a
-/// persistent one without a caller having to know which.
-type CallCFG = IMutableDiGraph<CallBasicBlock, CFGEdgeKind>
+/// Provides the entry point that builds a graph from the implementations named
+/// by value, for a caller that picks its implementation at run time rather
+/// than by reaching for one of the graph types beside it.
+[<RequireQualifiedAccess>]
+module B2R2.MiddleEnd.BinGraph.GraphFactory
 
 /// <summary>
-/// Provides a way to create a
-/// <see cref="T:B2R2.MiddleEnd.ControlFlowGraph.CallCFG"/>.
+/// Creates an empty graph of the given implementation type. The result is
+/// modified in place either way: a persistent graph comes back wrapped in a
+/// MutablePersistentDiGraph, which replaces its snapshot on every
+/// modification.
 /// </summary>
-[<RequireQualifiedAccess>]
-module CallCFG =
-  /// Creates an empty call graph of the given implementation type.
-  let create t: CallCFG = GraphFactory.create t
+/// <param name="t">The implementation type to create a graph of.</param>
+[<CompiledName "Create">]
+let create t =
+  match t with
+  | Mutable -> MutableDiGraph() :> IMutableDiGraph<_, _>
+  | Persistent -> MutablePersistentDiGraph(PersistentDiGraph())

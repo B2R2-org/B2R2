@@ -39,10 +39,4 @@ type LowUIRCFG = IMutableDiGraph<LowUIRBasicBlock, CFGEdgeKind>
 [<RequireQualifiedAccess>]
 module LowUIRCFG =
   /// Creates an empty CFG of the given implementation type.
-  let create t: LowUIRCFG =
-    match t with
-    | Mutable ->
-      MutableDiGraph<LowUIRBasicBlock, CFGEdgeKind>() :> IMutableDiGraph<_, _>
-    | Persistent ->
-      let g = PersistentDiGraph<LowUIRBasicBlock, CFGEdgeKind>()
-      MutablePersistentDiGraph g :> IMutableDiGraph<_, _>
+  let create t: LowUIRCFG = GraphFactory.create t

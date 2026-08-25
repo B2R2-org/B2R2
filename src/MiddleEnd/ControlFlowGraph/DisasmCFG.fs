@@ -221,15 +221,10 @@ module DisasmCFG =
        than left to whichever vertex the graph happened to take in first. *)
     g.SetRoots(getRootVertices tempVMap vMap rootAddrs)
 
-  let private createEmptyDisasmCFG (implType: ImplementationType) =
-    match implType with
-    | Mutable -> MutableDiGraph() :> IMutableDiGraph<_, _>
-    | Persistent -> MutablePersistentDiGraph(PersistentDiGraph())
-
   /// Creates a disassembly-based CFG out of the given IR-level CFG, whose
   /// implementation type the result keeps.
   let create disasmBuilder (ircfg: LowUIRCFG): DisasmCFG =
     let tempVMap, rootAddrs = prepareDisasmCFGInfo ircfg
-    let g = createEmptyDisasmCFG ircfg.ImplementationType
+    let g = GraphFactory.create ircfg.ImplementationType
     updateDisasmCFG disasmBuilder tempVMap rootAddrs g
     g

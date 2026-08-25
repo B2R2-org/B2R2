@@ -22,20 +22,24 @@
   SOFTWARE.
 *)
 
-namespace B2R2.MiddleEnd.ControlFlowGraph
+namespace B2R2.MiddleEnd.BinGraph.Tests
 
+open Microsoft.VisualStudio.TestTools.UnitTesting
 open B2R2.MiddleEnd.BinGraph
 
-/// Represents a call graph, where each node stands for a function. This is the
-/// graph interface itself, so that a call graph is a mutable graph or a
-/// persistent one without a caller having to know which.
-type CallCFG = IMutableDiGraph<CallBasicBlock, CFGEdgeKind>
+[<TestClass>]
+type GraphFactoryTests() =
+  static member GraphTypes = [| [| box Persistent |]; [| box Mutable |] |]
 
-/// <summary>
-/// Provides a way to create a
-/// <see cref="T:B2R2.MiddleEnd.ControlFlowGraph.CallCFG"/>.
-/// </summary>
-[<RequireQualifiedAccess>]
-module CallCFG =
-  /// Creates an empty call graph of the given implementation type.
-  let create t: CallCFG = GraphFactory.create t
+  (* The implementation type a caller names is the one that comes back, and
+     the graph is modified in place either way: a persistent one arrives
+     wrapped in the graph that replaces its snapshot on every modification. *)
+  [<TestMethod>]
+  [<DynamicData(nameof GraphFactoryTests.GraphTypes)>]
+  member _.``Graph Creation Test``(t) =
+    let g: IMutableDiGraph<int, int> = GraphFactory.create t
+    Assert.AreEqual<ImplementationType>(t, g.ImplementationType)
+    Assert.AreEqual<bool>(true, g.IsEmpty)
+    let v = g.AddVertex 1
+    Assert.AreEqual<int>(1, g.VertexCount)
+    Assert.AreEqual<int>(1, v.VData)

@@ -26,13 +26,7 @@ module B2R2.MiddleEnd.BinGraph.Tests.Examples
 
 open B2R2.MiddleEnd.BinGraph
 
-let private makeGraph (t: ImplementationType) =
-  match t with
-  | Persistent ->
-    let g = PersistentDiGraph<int, int>()
-    MutablePersistentDiGraph g :> IMutableDiGraph<_, _>
-  | Mutable ->
-    MutableDiGraph<int, int>() :> IMutableDiGraph<_, _>
+let private makeGraph t: IMutableDiGraph<int, int> = GraphFactory.create t
 
 /// Adds `count` number of nodes to the given graph.
 let private addNodes count (g: IMutableDiGraph<_, _>) =
