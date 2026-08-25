@@ -28,13 +28,17 @@ open B2R2.MiddleEnd.BinGraph
 open B2R2.MiddleEnd.ControlFlowGraph
 open B2R2.MiddleEnd.DataFlow
 
-/// Callback interface for SSA vertex creation.
+/// Represents a callback the SSA lifter fires on each vertex of the graph it
+/// lifts.
 type ISSAVertexCallback =
-  /// When a new SSA vertex is created, this callback is called. The current
-  /// SSACFG, its dominance, and the stack pointer propagation analysis are all
-  /// provided for the callback so that one can use them to easily compute
-  /// stack local variables. The dominance is that of the very SSACFG given,
-  /// since the callback fires while the lifter still holds both.
+  /// Fires on one vertex of the SSACFG, while the lifter promotes the graph,
+  /// and therefore after every vertex of the graph has been created. The
+  /// SSACFG, its dominance, and the stack pointer propagation analysis are
+  /// all handed over so that stack local variables are cheap to compute. The
+  /// dominance is that of the very SSACFG given, since the callback fires
+  /// while the lifter still holds both. The vertices are promoted in turn and
+  /// this fires on each of them before that one is promoted, so the graph it
+  /// reads is one that is only partly promoted.
   abstract OnVertexCreation:
       SSACFG
     * IForwardDominance<SSABasicBlock>

@@ -32,23 +32,23 @@ open B2R2.MiddleEnd.BinGraph
 open B2R2.MiddleEnd.ControlFlowGraph
 open B2R2.MiddleEnd.DataFlow
 
-/// SSACFG's vertex.
+/// Represents a vertex of an SSACFG.
 type SSAVertex = IVertex<SSABasicBlock>
 
-/// A mapping from an IRCFG vertex to an SSACFG vertex.
+/// Represents a mapping from a LowUIR CFG vertex to an SSACFG vertex.
 type SSAVMap = Dictionary<IVertex<LowUIRBasicBlock>, SSAVertex>
 
-/// Mapping from a variable to a set of defining SSA basic blocks.
+/// Represents a mapping from a variable to the SSA basic blocks defining it.
 type DefSites = Dictionary<VariableKind, HashSet<IVertex<SSABasicBlock>>>
 
-/// Counter for each variable.
+/// Represents how many definitions each variable has been given so far.
 type VarCountMap = Dictionary<VariableKind, int>
 
-/// Variable ID stack.
+/// Represents the identifiers in scope for each variable, innermost first.
 type IDStack = Dictionary<VariableKind, int list>
 
 module private SSALifterFactory =
-  /// Lift the given LowUIR statements to SSA statements.
+  /// Lifts the given LowUIR statements to SSA statements.
   let liftStmts (stmtProcessor: IStmtPostProcessor) liftedInstrs =
     let wordSize = stmtProcessor.WordSize |> WordSize.toRegType
     (liftedInstrs: LiftedInstruction[])
@@ -205,9 +205,9 @@ module private SSALifterFactory =
   let renameVarList stack vars = vars |> List.iter (renameVar stack)
 
   let rec renameExpr stack = function
-    | Num(_)
-    | Undefined(_)
-    | FuncName(_) ->
+    | Num _
+    | Undefined _
+    | FuncName _ ->
       ()
     | Var v ->
       renameVar stack v
@@ -243,7 +243,7 @@ module private SSALifterFactory =
       ()
     | IntraCJmp(expr, _, _) ->
       renameExpr stack expr
-    | InterJmp(expr) ->
+    | InterJmp expr ->
       renameExpr stack expr
     | InterCJmp(cond, target1, target2) ->
       renameExpr stack cond
@@ -327,12 +327,15 @@ module private SSALifterFactory =
     for root in domTree.Roots do
       rename g domTree count stack root
 
-  /// Add phis and rename all the variables in the SSACFG.
-  let updatePhis ssaCFG dom =
+  /// Places the phis of the given SSACFG and renames every variable of it,
+  /// then puts the program point of every statement back in step with the
+  /// phis those two steps leave behind.
+  let buildSSAForm ssaCFG dom =
     let defSites = DefSites()
     let globals = findDefVars ssaCFG defSites
     placePhis ssaCFG defSites globals dom
     renameVars ssaCFG defSites dom
+    ssaCFG |> DiGraph.iterVertex (fun v -> v.VData.Internals.UpdatePPoints())
 
   let memStore pp rt addr src =
     match addr with
@@ -438,18 +441,18 @@ module private SSALifterFactory =
           let ssaCFG = SSACFG.create cfg.ImplementationType
           convertToSSA stmtProcessor cfg ssaCFG
           let dom = createDominance ssaCFG
-          updatePhis ssaCFG dom
-          ssaCFG |> DiGraph.iterVertex (fun v ->
-            v.VData.Internals.UpdatePPoints())
+          buildSSAForm ssaCFG dom
+          (* Promotion reads the SSA form to find the stack slots it turns
+             into variables of their own, and it drops every phi it meets on
+             the way, so the form has to be built a second time over the
+             definitions promotion leaves behind. *)
           promote hdl ssaCFG dom callback
-          updatePhis ssaCFG dom
-          ssaCFG |> DiGraph.iterVertex (fun v ->
-            v.VData.Internals.UpdatePPoints())
+          buildSSAForm ssaCFG dom
           ssaCFG, dom }
 
-/// The factory for SSA lifter.
+/// Provides ways to create an SSA lifter.
 type SSALifterFactory =
-  /// Create an SSA lifter with a binary handle.
+  /// Creates an SSA lifter with a binary handle.
   static member Create(hdl: BinHandle) =
     let wordSize = hdl.ISA.WordSize
     SSALifterFactory.create hdl
@@ -459,14 +462,14 @@ type SSALifterFactory =
       { new ISSAVertexCallback with
           member _.OnVertexCreation(_, _, _, _) = () }
 
-  /// Create an SSA lifter with a binary handle and a statement processor.
+  /// Creates an SSA lifter with a binary handle and a statement processor.
   static member Create(hdl, stmtProcessor) =
     SSALifterFactory.create hdl
       stmtProcessor
       { new ISSAVertexCallback with
           member _.OnVertexCreation(_, _, _, _) = () }
 
-  /// Create an SSA lifter with a binary handle and a callback for SSA vertex
+  /// Creates an SSA lifter with a binary handle and a callback for SSA vertex
   /// creation.
   static member Create(hdl: BinHandle, callback) =
     let wordSize = hdl.ISA.WordSize
@@ -476,7 +479,7 @@ type SSALifterFactory =
           member _.PostProcess stmt = stmt }
       callback
 
-  /// Create an SSA lifter with a binary handle, a statement processor, and a
+  /// Creates an SSA lifter with a binary handle, a statement processor, and a
   /// callback for SSA vertex creation.
   static member Create(hdl, stmtProcessor, callback) =
     SSALifterFactory.create hdl stmtProcessor callback

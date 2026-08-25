@@ -26,10 +26,10 @@ namespace B2R2.MiddleEnd.SSA
 
 open B2R2.MiddleEnd.ControlFlowGraph
 
-/// The interface for lifting an IRCFG to an SSACFG.
+/// Represents a lifter that turns a LowUIR CFG into an SSACFG.
 type ISSALiftable =
-  /// Lifts the given IRCFG to an SSACFG, answering the dominance of the SSACFG
-  /// alongside it. The dominator tree is what a reaching definition is read
-  /// off, and the lifter is where it is computed, so a caller that wants one
-  /// takes it from here rather than computing it a second time.
+  /// Lifts the given LowUIR CFG to an SSACFG, answering the dominance of the
+  /// SSACFG alongside it. The dominator tree is what a reaching definition is
+  /// read off, and the lifter is where it is computed, so a caller that wants
+  /// one takes it from here rather than computing it a second time.
   abstract Lift: LowUIRCFG -> SSACFGWithDominance
