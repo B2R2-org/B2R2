@@ -93,8 +93,10 @@ type CFGEdgeKind =
   | UnknownEdge
 
 /// Provides functions over the CFGEdgeKind type.
+[<RequireQualifiedAccess>]
 module CFGEdgeKind =
   /// Returns the name of the given edge kind.
+  [<CompiledName "ToString">]
   let toString = function
     | InterJmpEdge -> "InterJmpEdge"
     | InterCJmpTrueEdge -> "InterCJmpTrueEdge"
