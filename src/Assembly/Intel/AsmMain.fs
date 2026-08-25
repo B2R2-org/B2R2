@@ -41,11 +41,12 @@ type UserState =
     CurIndex: int }
 
 /// The instructions whose memory operand has no width to write down. MOV takes
-/// its width from the other operand; the x87 state-saving instructions read or
-/// write a region whose size follows from the processor mode, which is why the
-/// disassembler prints no size directive for them either.
+/// its width from the other operand; LEA reads no memory at all, so its
+/// destination register decides; the x87 state-saving instructions read or
+/// write a region whose size follows from the processor mode. The disassembler
+/// prints no size directive for any of them either.
 let private isMemorySizeExceptionOpcode = function
-  | Opcode.MOV
+  | Opcode.MOV | Opcode.LEA
   | Opcode.FLDENV | Opcode.FNSTENV | Opcode.FRSTOR | Opcode.FNSAVE -> true
   | _ -> false
 

@@ -131,3 +131,23 @@ type DisassemblerTests() =
   member _.``X64 FLDENV instruction test``() =
     "d920" ++ [| "fldenv [rax]"; "fldenv (%rax)" |]
     |> testX64
+
+  (* LEA computes an address and reads no memory, so there is no access width
+     to name. Vol 2A tables 3-57 and 3-58 give it an operand size and an
+     address size, and the destination and base registers already show both. *)
+  [<TestMethod>]
+  member _.``X64 LEA instruction test``() =
+    "488d4508" ++ [| "lea rax, [rbp+0x8]"; "leaq +0x8(%rbp), %rax" |]
+    |> testX64
+
+  (* With 67h the address narrows to 32 bits while the destination stays 64,
+     so a directive naming the destination would read as the address width. *)
+  [<TestMethod>]
+  member _.``X64 LEA instruction test (address-size prefix)``() =
+    "67488d4508" ++ [| "lea rax, [ebp+0x8]"; "leaq +0x8(%ebp), %rax" |]
+    |> testX64
+
+  [<TestMethod>]
+  member _.``X86 LEA instruction test``() =
+    "8d4508" ++ [| "lea eax, [ebp+0x8]"; "leal +0x8(%ebp), %eax" |]
+    |> testX86

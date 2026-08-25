@@ -159,7 +159,16 @@ module IntelSyntax = begin
       builder.Accumulate(AsmWordKind.String, " [")
 
   let mToString (ins: Instruction) (builder: IDisasmBuilder) b si d oprSz =
-    let ptrDirective = ptrDirectiveString (isFar ins) oprSz
+    (* LEA computes an address and reads no memory, so no access width is being
+       named. Vol 2A tables 3-57 and 3-58 give it an operand size and an address
+       size, which the destination and base registers already show, and neither
+       is a width read from memory. objdump and Capstone print it bare, and GNU
+       as encodes the same bytes whichever directive is written there. *)
+    let ptrDirective =
+      if ins.Opcode = Opcode.LEA then
+        ""
+      else
+        ptrDirectiveString (isFar ins) oprSz
     match Prefix.getSegment ins.Prefixes with
     | None ->
       openMemOperand builder ptrDirective

@@ -1189,15 +1189,19 @@ let lahf = function
   | NoOperand -> Resolved [| 0x9Fuy |]
   | _ -> raise <| EncodingFailureException "Unsupported operand type"
 
+/// The memory operand names no width of its own, because LEA reads nothing
+/// there: the destination register alone gives the operand size, which is what
+/// the guards below read. A directive written in the source is therefore
+/// ignored rather than matched on, as GNU as ignores it too.
 let lea (wordSz: WordSize) ins =
   match ins.Operands with
   | TwoOperands(OprReg r, Label(lbl, _)) ->
     encRL wordSz ins r lbl [||] [| 0x8Duy |]
-  | TwoOperands(OprReg r, OprMem(b, s, d, 16<rt>)) when isReg16 wordSz r ->
+  | TwoOperands(OprReg r, OprMem(b, s, d, _)) when isReg16 wordSz r ->
     encRM ins wordSz pref66 rexNormal [| 0x8Duy |] r b s d
-  | TwoOperands(OprReg r, OprMem(b, s, d, 32<rt>)) when isReg32 wordSz r ->
+  | TwoOperands(OprReg r, OprMem(b, s, d, _)) when isReg32 wordSz r ->
     encRM ins wordSz prefNormal rexNormal [| 0x8Duy |] r b s d
-  | TwoOperands(OprReg r, OprMem(b, s, d, 64<rt>)) when isReg64 wordSz r ->
+  | TwoOperands(OprReg r, OprMem(b, s, d, _)) when isReg64 wordSz r ->
     no32Arch wordSz
     encRM ins wordSz prefNormal rexW [| 0x8Duy |] r b s d
   | _ ->
