@@ -134,8 +134,13 @@ type FunctionSummarizer<'FnCtx, 'GlCtx
          yield! callerSavedValueDefs hdl
          yield! stackPointerDef hdl unwindingAmount |]
     else
-      [| yield! intReturnValueDef hdl
-         yield! initializeLiveVarMap hdl ctx.FunctionAddress
+      let liveVarDefs = initializeLiveVarMap hdl ctx.FunctionAddress
+      [| if Array.isEmpty liveVarDefs then
+           yield! intReturnValueDef hdl
+           yield! floatReturnValueDef hdl
+           yield! callerSavedValueDefs hdl
+         else
+           yield! liveVarDefs
          yield! stackPointerDef hdl unwindingAmount |]
 
   /// Compute how many bytes are unwound by this function.
