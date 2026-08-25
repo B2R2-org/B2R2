@@ -50,9 +50,9 @@ type IDStack = Dictionary<VariableKind, int list>
 module private SSALifterFactory =
   /// Lift the given LowUIR statements to SSA statements.
   let liftStmts (stmtProcessor: IStmtPostProcessor) liftedInstrs =
+    let wordSize = stmtProcessor.WordSize |> WordSize.toRegType
     (liftedInstrs: LiftedInstruction[])
     |> Array.collect (fun liftedIns ->
-      let wordSize = stmtProcessor.WordSize |> WordSize.toRegType
       let stmts = liftedIns.Stmts
       let address = liftedIns.Original.Address
       AST.translateStmts wordSize address stmtProcessor stmts)
@@ -63,17 +63,19 @@ module private SSALifterFactory =
     let lastAddr = bbl.LastInstruction.Address
     let endPoint = lastAddr + uint64 bbl.LastInstruction.Length - 1UL
     let ppoint = bbl.PPoint
-    let blk = SSABasicBlock.CreateRegular(stmts, ppoint, endPoint)
-    blk
+    SSABasicBlock.CreateRegular(stmts, ppoint, endPoint)
 
   let liftRundown stmtProcessor rundown =
     if Array.isEmpty rundown then
       [||]
     else
       let memVar = { Kind = MemVar; Identifier = -1 }
-      [| (* safe approximation: memory is always defined. (optional?) *)
+      [| (* Safe approximation: memory is always defined. *)
          Def(memVar, Var memVar)
-         (* addr should not matter*)
+         (* The word size and the address are read only where an ISMark is
+            translated, and an ISMark exists only where a real instruction
+            was lifted. A rundown is a summary this analysis synthesizes
+            rather than lifted code, so neither argument is ever read. *)
          yield! AST.translateStmts 64<rt> 0UL stmtProcessor rundown |]
 
   let translateAbstractBlock stmtProcessor (bbl: ILowUIRBasicBlock) =
@@ -85,8 +87,7 @@ module private SSALifterFactory =
                                            rundown,
                                            absContent.IsExternal,
                                            absContent.ReturningStatus)
-    let blk = SSABasicBlock.CreateAbstract(calleePpoint, absContent)
-    blk
+    SSABasicBlock.CreateAbstract(calleePpoint, absContent)
 
   let translateBlock stmtProcessor irBlk =
     if (irBlk: ILowUIRBasicBlock).IsAbstract then
@@ -163,8 +164,9 @@ module private SSALifterFactory =
         | Def({ Kind = k }, srcExpr) ->
           updateGlobals globals varKill srcExpr
           varKill.Add k |> ignore
-          if defSites.ContainsKey k then defSites[k].Add v |> ignore
-          else defSites[k] <- HashSet [v]
+          match defSites.TryGetValue k with
+          | true, sites -> sites.Add v |> ignore
+          | false, _ -> defSites[k] <- HashSet [v]
         | _ ->
           ()
     globals
@@ -173,8 +175,9 @@ module private SSALifterFactory =
     let phiSites = HashSet()
     for variable in globals do
       let workList =
-        if defSites.ContainsKey variable then Queue defSites[variable]
-        else Queue()
+        match defSites.TryGetValue variable with
+        | true, sites -> Queue sites
+        | false, _ -> Queue()
       phiSites.Clear()
       while workList.Count <> 0 do
         let node = workList.Dequeue()
@@ -199,9 +202,7 @@ module private SSALifterFactory =
     | false, _ -> v.Identifier <- 0
     | true, ids -> v.Identifier <- List.head ids
 
-  let rec renameVarList stack = function
-    | [] -> ()
-    | v :: vs -> renameVar stack v; renameVarList stack vs
+  let renameVarList stack vars = vars |> List.iter (renameVar stack)
 
   let rec renameExpr stack = function
     | Num(_)
@@ -250,19 +251,16 @@ module private SSALifterFactory =
       renameExpr stack target2
 
   let introduceDef (count: VarCountMap) (stack: IDStack) (v: Variable) =
-    if not <| count.ContainsKey v.Kind then (* Lazy initialization *)
-      count.Add(v.Kind, 0)
-      stack.Add(v.Kind, [ 0 ])
-    else
-      ()
-    count[v.Kind] <- count[v.Kind] + 1
-    let i = count[v.Kind]
-    stack[v.Kind] <- i :: stack[v.Kind]
+    let i, ids =
+      match count.TryGetValue v.Kind with
+      | true, n -> n + 1, stack[v.Kind]
+      | false, _ -> 1, [ 0 ] (* Lazy initialization *)
+    count[v.Kind] <- i
+    stack[v.Kind] <- i :: ids
     v.Identifier <- i
 
-  let rec introduceDefList count stack = function
-    | [] -> ()
-    | v :: vs -> introduceDef count stack v; introduceDefList count stack vs
+  let introduceDefList count stack vars =
+    vars |> List.iter (introduceDef count stack)
 
   let renameStmt count stack stmt =
     match stmt with
@@ -283,11 +281,19 @@ module private SSALifterFactory =
       introduceDef count stack def
 
   let renamePhi g (stack: IDStack) (parent: SSAVertex) (succ: SSAVertex) =
+    (* Which phi operand this parent fills in is its index among the
+       predecessors of the successor, which is one and the same for every phi
+       there, so the predecessors are worth reading only once, and only once a
+       phi has asked for them. *)
+    let mutable idx = -1
     for _, stmt in succ.VData.Internals.Statements do
       match stmt with
       | Phi(def, nums) ->
-        let preds = (g: IDiGraph<_, _>).GetPreds succ
-        let idx = preds |> Array.findIndex (fun v -> v.VData = parent.VData)
+        if idx < 0 then
+          let preds = (g: IDiGraph<_, _>).GetPreds succ
+          idx <- preds |> Array.findIndex (fun v -> v.VData = parent.VData)
+        else
+          ()
         nums[idx] <- List.head stack[def.Kind]
       | _ ->
         ()
@@ -328,7 +334,7 @@ module private SSALifterFactory =
     placePhis ssaCFG defSites globals dom
     renameVars ssaCFG defSites dom
 
-  let memStore ((pp, _) as stmtInfo) rt addr src =
+  let memStore pp rt addr src =
     match addr with
     | StackPointerDomain.ConstSP addr ->
       let addr = addr.ToUInt64()
@@ -406,7 +412,7 @@ module private SSALifterFactory =
     | Def({ Kind = MemVar } as dstMemVar, Store(memVar, rt, addrExpr, src)) ->
       let addr = (state: SSASparseDataFlow.State<_>).EvalExpr addrExpr
       let src = replaceLoad state src |> Option.defaultValue src
-      match memStore stmtInfo rt addr src with
+      match memStore pp rt addr src with
       | Some stmtInfo -> Some stmtInfo
       | None -> Some(pp, Def(dstMemVar, Store(memVar, rt, addrExpr, src)))
     | Def(dstVar, e) ->
