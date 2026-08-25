@@ -255,49 +255,6 @@ type CondAwareNoretAnalysis([<Optional; DefaultParameterValue(true)>] strict) =
 #endif
       true
 
-  let rec tryFindDef g varKind v =
-    (v: IVertex<SSABasicBlock>).VData.Internals.Statements
-    |> Array.tryFindBack (fun (_, stmt) ->
-      match stmt with
-      | SSA.Def(var, _) -> var.Kind = varKind
-      | _ -> false)
-    |> function
-      | None ->
-        match v.VData.ImmDominator with
-        | Some(idom) -> tryFindDef g varKind v
-        | None -> None
-      | Some(_, defStmt) ->
-        Some(defStmt)
-
-  /// SSACFG version of hasUndecidableReturnTarget.
-  let hasUndecidableReturnTargetInSSACFG ctx hdl g state v =
-    let state =
-      state :> Lazy<SSASparseDataFlow.State<StackPointerDomain.Lattice>>
-    let rid = (hdl: BinHandle).RegisterFactory.StackPointer.Value
-    let rt = hdl.RegisterFactory.GetRegType(rid)
-    let rname = hdl.RegisterFactory.GetRegisterName(rid)
-    let varKind = SSA.RegVar(rt, rid, rname)
-    let pp = (v: IVertex<LowUIRBasicBlock>).VData.Internals.PPoint
-    let ssaV = (g: IDiGraph<SSABasicBlock, _>).FindVertexBy(fun v ->
-      v.VData.Internals.PPoint = pp)
-    match tryFindDef g varKind ssaV with
-    | None ->
-      false (* There was no definition in the reachable pathes. *)
-    | Some(SSA.Def(var, _)) ->
-      match state.Value.GetRegValue(var) with
-      | StackPointerDomain.ConstSP(_) ->
-        false
-      | _ ->
-#if CFGDEBUG
-        let blkAddr = v.VData.Internals.PPoint.Address
-        let fnAddr = ctx.FunctionAddress
-        dbglog ctx.ThreadID (nameof CondAwareNoretAnalysis)
-        <| $"[*] Undecidable return: {blkAddr:x} @ {fnAddr}"
-#endif
-        true
-    | _ ->
-      Terminator.impossible ()
-
   let analyze ctx condNoRetCalls =
     let df = Dominance.CooperDominanceFrontier()
     let dom = Dominance.LengauerTarjanDominance.create ctx.CFG df
