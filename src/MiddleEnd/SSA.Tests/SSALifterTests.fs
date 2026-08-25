@@ -44,14 +44,14 @@ type SSALifterTests() =
           member _.PostProcess stmt = seen.Add stmt; stmt }
     processor, seen
 
-  /// Records the vertices a callback is fired on, along with the graph and the
-  /// dominance it is handed for each of them.
-  let recordingCallback () =
-    let seen = List<SSACFG * IForwardDominance<SSABasicBlock> * SSAVertex>()
-    let callback =
-      { new ISSAVertexCallback with
-          member _.OnVertexCreation(g, dom, _, v) = seen.Add(g, dom, v) }
-    callback, seen
+  /// Records the graph and the dominance an observer is handed, once per time
+  /// it is called.
+  let recordingObserver () =
+    let seen = List<SSACFG * IForwardDominance<SSABasicBlock>>()
+    let observer =
+      { new ISSAStackPointerObserver with
+          member _.Observe(g, dom, _) = seen.Add(g, dom) }
+    observer, seen
 
   /// Nests a load of the address inside the address of every store, which is
   /// the shape a store through a pointer held in a stack slot takes. No
@@ -79,7 +79,7 @@ type SSALifterTests() =
   member _.``Lift keeps the shape of the given CFG``(t) =
     let cfg = buildDiamondCFG t
     let lifter = SSALifterFactory.Create hdl
-    let ssaCFG, _ = lifter.Lift cfg
+    let ssaCFG = (lifter.Lift cfg).Graph
     Assert.AreEqual<int>(cfg.VertexCount, ssaCFG.VertexCount)
     Assert.AreEqual<int>(cfg.EdgeCount, ssaCFG.EdgeCount)
     Assert.AreEqual<int>(cfg.Roots.Length, ssaCFG.Roots.Length)
@@ -92,7 +92,7 @@ type SSALifterTests() =
        frontier at all, so every phi of this graph belongs to it. *)
     let cfg = buildDiamondCFG Mutable
     let lifter = SSALifterFactory.Create hdl
-    let ssaCFG, _ = lifter.Lift cfg
+    let ssaCFG = (lifter.Lift cfg).Graph
     let counts =
       ssaCFG.Vertices
       |> Array.map (fun v -> v.VData.Internals.PPoint.Address, phiCountOf v)
@@ -111,7 +111,7 @@ type SSALifterTests() =
        with, so a negative identifier anywhere is renaming that did not run. *)
     let cfg = buildDiamondCFG t
     let lifter = SSALifterFactory.Create hdl
-    let ssaCFG, _ = lifter.Lift cfg
+    let ssaCFG = (lifter.Lift cfg).Graph
     let variables =
       statementsOf ssaCFG |> Array.collect (variablesOf >> List.toArray)
     let unrenamed = variables |> Array.filter (fun v -> v.Identifier < 0)
@@ -122,7 +122,7 @@ type SSALifterTests() =
   member _.``Lift runs the given statement post-processor``() =
     let processor, seen = recordingProcessor hdl.ISA.WordSize
     let lifter = SSALifterFactory.Create(hdl, processor)
-    let ssaCFG, _ = lifter.Lift(buildDiamondCFG Mutable)
+    let ssaCFG = (lifter.Lift(buildDiamondCFG Mutable)).Graph
     Assert.AreNotEqual<int>(0, seen.Count)
     Assert.AreEqual<int>(4, ssaCFG.VertexCount)
 
@@ -133,7 +133,7 @@ type SSALifterTests() =
        tell whether the lifter asked it at all. *)
     let processor, _ = recordingProcessor WordSize.Bit32
     let lifter = SSALifterFactory.Create(hdl, processor)
-    let ssaCFG, _ = lifter.Lift(buildDiamondCFG Mutable)
+    let ssaCFG = (lifter.Lift(buildDiamondCFG Mutable)).Graph
     let pcRegTypes =
       statementsOf ssaCFG
       |> Array.collect (variablesOf >> List.toArray)
@@ -151,7 +151,7 @@ type SSALifterTests() =
        sits. The address of a store is a place it sits. *)
     let processor = wrappingProcessor hdl.ISA.WordSize
     let lifter = SSALifterFactory.Create(hdl, processor)
-    let ssaCFG, _ = lifter.Lift(buildDiamondCFG Mutable)
+    let ssaCFG = (lifter.Lift(buildDiamondCFG Mutable)).Graph
     let addrs = storeAddressesOf ssaCFG
     let unpromoted =
       addrs |> Array.filter (fun e ->
@@ -162,26 +162,26 @@ type SSALifterTests() =
     Assert.AreEqual<int>(0, unpromoted.Length)
 
   [<TestMethod>]
-  member _.``Lift reports every vertex of the graph it returns``() =
-    let callback, seen = recordingCallback ()
-    let lifter = SSALifterFactory.Create(hdl, callback)
-    let ssaCFG, dom = lifter.Lift(buildDiamondCFG Mutable)
-    let reported = seen |> Seq.map (fun (_, _, v) -> v) |> Seq.toArray
-    Assert.AreEqual<int>(ssaCFG.VertexCount, reported.Length)
-    Assert.AreEqual<int>(reported.Length, (Array.distinct reported).Length)
-    CollectionAssert.AreEquivalent(ssaCFG.Vertices, reported)
-    for g, d, _ in seen do
-      Assert.AreSame(ssaCFG, g)
-      Assert.AreSame(dom, d)
+  member _.``Lift shows the propagation once, on the graph it returns``() =
+    (* One call, not one per vertex, so that every reader of the propagation
+       sees one and the same graph rather than one rewritten up to wherever
+       the promotion has got to. *)
+    let observer, seen = recordingObserver ()
+    let lifter = SSALifterFactory.Create(hdl, observer)
+    let result = lifter.Lift(buildDiamondCFG Mutable)
+    Assert.AreEqual<int>(1, seen.Count)
+    let g, dom = seen[0]
+    Assert.AreSame(result.Graph, g)
+    Assert.AreSame(result.Dominance, dom)
 
   [<TestMethod>]
-  member _.``Lift runs both a post-processor and a callback``() =
+  member _.``Lift runs both a post-processor and an observer``() =
     let processor, stmts = recordingProcessor hdl.ISA.WordSize
-    let callback, vertices = recordingCallback ()
-    let lifter = SSALifterFactory.Create(hdl, processor, callback)
-    let ssaCFG, _ = lifter.Lift(buildDiamondCFG Mutable)
+    let observer, seen = recordingObserver ()
+    let lifter = SSALifterFactory.Create(hdl, processor, observer)
+    lifter.Lift(buildDiamondCFG Mutable) |> ignore
     Assert.AreNotEqual<int>(0, stmts.Count)
-    Assert.AreEqual<int>(ssaCFG.VertexCount, vertices.Count)
+    Assert.AreEqual<int>(1, seen.Count)
 
   [<TestMethod>]
   member _.``Lift answers the dominance of the graph it returns``() =
@@ -189,7 +189,8 @@ type SSALifterTests() =
        reached from both arms, so the entry is what immediately dominates it. *)
     let cfg = buildDiamondCFG Mutable
     let lifter = SSALifterFactory.Create hdl
-    let ssaCFG, dom = lifter.Lift cfg
+    let result = lifter.Lift cfg
+    let ssaCFG, dom = result.Graph, result.Dominance
     let entry = vertexAt ssaCFG 0x00UL
     let join = vertexAt ssaCFG joinAddr
     Assert.AreEqual<int>(1, dom.DominatorTree.Roots.Count)
@@ -201,8 +202,8 @@ type SSALifterTests() =
     (* The lifter holds no state of a lift, so one is reusable, and each lift
        answers a graph of its own rather than the one before it. *)
     let lifter = SSALifterFactory.Create hdl
-    let first, _ = lifter.Lift(buildDiamondCFG Mutable)
-    let second, _ = lifter.Lift(buildDiamondCFG Mutable)
+    let first = (lifter.Lift(buildDiamondCFG Mutable)).Graph
+    let second = (lifter.Lift(buildDiamondCFG Mutable)).Graph
     Assert.AreNotSame(first, second)
     Assert.AreEqual<int>(first.VertexCount, second.VertexCount)
     Assert.AreEqual<int>(first.EdgeCount, second.EdgeCount)

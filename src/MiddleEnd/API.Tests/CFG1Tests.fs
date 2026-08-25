@@ -512,7 +512,7 @@ type CFG1Tests() =
     let brew = BinaryBrew hdl
     let cfg = brew.Functions[0x0UL].CFG
     let ssaLifter = SSALifterFactory.Create hdl
-    let ssacfg, _ = ssaLifter.Lift cfg
+    let ssacfg = (ssaLifter.Lift cfg).Graph
     Assert.AreEqual<int>(9, ssacfg.VertexCount)
 
   [<TestMethod>]
@@ -554,7 +554,7 @@ type CFG1Tests() =
   member this.``CFG SSAGraph Multiple Roots Test``() =
     let cfg = this.BuildMultiRootCFG Mutable
     let ssaLifter = SSALifterFactory.Create hdl
-    let ssacfg, _ = ssaLifter.Lift cfg
+    let ssacfg = (ssaLifter.Lift cfg).Graph
     Assert.AreEqual<int>(3, ssacfg.VertexCount)
     Assert.AreEqual<int>(2, ssacfg.Roots.Length)
 
@@ -562,7 +562,7 @@ type CFG1Tests() =
   member this.``CFG SSAGraph Multiple Roots Renaming Test``() =
     let cfg = this.BuildMultiRootCFG Mutable
     let ssaLifter = SSALifterFactory.Create hdl
-    let ssacfg, _ = ssaLifter.Lift cfg
+    let ssacfg = (ssaLifter.Lift cfg).Graph
     let ids =
       ssacfg.Vertices
       |> Array.collect (fun v -> v.VData.Internals.Statements)
@@ -581,7 +581,7 @@ type CFG1Tests() =
        so every phi of this graph belongs to it and neither root carries one. *)
     let cfg = this.BuildMultiRootCFG Mutable
     let ssaLifter = SSALifterFactory.Create hdl
-    let ssacfg, _ = ssaLifter.Lift cfg
+    let ssacfg = (ssaLifter.Lift cfg).Graph
     let phiCountOf (v: IVertex<SSABasicBlock>) =
       v.VData.Internals.Statements
       |> Array.sumBy (fun (_, stmt) ->

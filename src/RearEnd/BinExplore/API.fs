@@ -77,7 +77,7 @@ module API =
         |> Ok
       | CFGKind.SSA ->
         let factory = SSA.SSALifterFactory.Create brew.BinHandle
-        let ssaCFG, _ = factory.Lift g
+        let ssaCFG = (factory.Lift g).Graph
         Visualizer.toVisGraph ssaCFG cw ch
         |> Ok
       | _ ->

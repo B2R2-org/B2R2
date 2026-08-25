@@ -26,6 +26,7 @@ namespace B2R2.MiddleEnd.ControlFlowAnalysis.Strategies
 
 open System
 open B2R2
+open B2R2.MiddleEnd.ControlFlowGraph
 open B2R2.MiddleEnd.ControlFlowAnalysis
 open B2R2.MiddleEnd.ControlFlowAnalysis.Strategies.CFGRecoveryCommon
 
@@ -223,7 +224,8 @@ type CFGRecovery<'FnCtx, 'GlCtx
     let jmptblAnalysis, postAnalysis =
       if useSSA then
         let ssaLifter = SSALifter() :> ICFGAnalysis<_>
-        let ssaOnly = ICFGAnalysis.map fst ssaLifter
+        let onlyGraph (r: SSACFGWithDominance) = r.Graph
+        let ssaOnly = ICFGAnalysis.map onlyGraph ssaLifter
         let jmpTableAnalysis =
           JmpTableAnalysis(Some ssaOnly) :> IJmpTableAnalyzable<_, _>
         jmpTableAnalysis, ssaLifter <+> CondAwareNoretAnalysis()

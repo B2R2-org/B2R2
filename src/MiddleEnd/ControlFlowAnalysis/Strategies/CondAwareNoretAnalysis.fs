@@ -308,8 +308,9 @@ type CondAwareNoretAnalysis([<Optional; DefaultParameterValue(true)>] strict) =
   interface ICFGAnalysis<SSACFGWithDominance -> unit> with
     member _.Unwrap env =
       let ctx = env.Context
-      fun (g, dom) ->
-        let condNoRetCalls = collectConditionalNoRetCallsFromSSACFG ctx g dom
+      fun (r: SSACFGWithDominance) ->
+        let condNoRetCalls =
+          collectConditionalNoRetCallsFromSSACFG ctx r.Graph r.Dominance
         match analyze ctx condNoRetCalls with
         | UnknownNoRet -> ctx.NonReturningStatus <- defaultStatus
         | status -> ctx.NonReturningStatus <- status

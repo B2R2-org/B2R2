@@ -39,7 +39,12 @@ and SSAVertex = IVertex<SSABasicBlock>
 /// a CFG to SSA form computes the dominance on the way, and a reaching
 /// definition is read off the dominator tree, so the two travel together
 /// rather than a caller computing the dominance a second time.
-and SSACFGWithDominance = SSACFG * IForwardDominance<SSABasicBlock>
+and SSACFGWithDominance(g: SSACFG, dom: IForwardDominance<SSABasicBlock>) =
+  /// Gets the SSA CFG.
+  member _.Graph with get() = g
+
+  /// Gets the dominance of the graph, computed while lifting it.
+  member _.Dominance with get() = dom
 
 /// <summary>
 /// Provides ways to create an

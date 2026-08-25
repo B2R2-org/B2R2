@@ -6,7 +6,7 @@
 
   <ItemGroup>
     <Compile Include="ISSALiftable.fs" />
-    <Compile Include="ISSAVertexCallback.fs" />
+    <Compile Include="ISSAStackPointerObserver.fs" />
     <Compile Include="SSALifterFactory.fs" />
   </ItemGroup>
 

@@ -76,18 +76,19 @@ type SSALifter() =
     | None ->
       ()
 
-  let createCallback ctx =
-    { new ISSAVertexCallback with
-        member _.OnVertexCreation(ssaCFG, dom, state, v) =
-          if (v.VData :> IAbstractable<_>).IsAbstract then
-            updateFrameDistance ctx ssaCFG dom state v
-          else
-            () }
+  let createObserver ctx =
+    { new ISSAStackPointerObserver with
+        member _.Observe(ssaCFG, dom, state) =
+          for v in ssaCFG.Vertices do
+            if (v.VData :> IAbstractable<_>).IsAbstract then
+              updateFrameDistance ctx ssaCFG dom state v
+            else
+              () }
 
   interface ICFGAnalysis<unit -> SSACFGWithDominance> with
     member _.Unwrap env =
       let ctx = env.Context
       fun () ->
-        let vCallback = createCallback ctx
-        let ssaLifter = SSALifterFactory.Create(ctx.BinHandle, vCallback)
+        let observer = createObserver ctx
+        let ssaLifter = SSALifterFactory.Create(ctx.BinHandle, observer)
         ssaLifter.Lift ctx.CFG

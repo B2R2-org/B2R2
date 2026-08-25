@@ -426,30 +426,39 @@ module private SSALifterFactory =
     | _ ->
       Some stmtInfo
 
-  let promote hdl ssaCFG dom (callback: ISSAVertexCallback) =
+  /// Propagates the stack pointer through the given SSACFG.
+  let propagateStackPointer hdl ssaCFG =
     let spp = SSAStackPointerPropagation hdl
     let dfa = spp :> IDataFlowComputable<_, _, _, _>
-    let state = dfa.Compute ssaCFG
-    for v in ssaCFG.Vertices do
-      callback.OnVertexCreation(ssaCFG, dom, state, v)
+    dfa.Compute ssaCFG
+
+  /// Rewrites every stack slot the given propagation knows the address of
+  /// into a variable of its own.
+  let promote state ssaCFG =
+    for v in (ssaCFG: SSACFG).Vertices do
       v.VData.Internals.Statements
       |> Array.choose (stmtChooser state)
       |> v.VData.Internals.UpdateStatements
 
-  let create hdl stmtProcessor callback =
+  let create hdl stmtProcessor (observer: ISSAStackPointerObserver) =
     { new ISSALiftable with
         member _.Lift cfg =
           let ssaCFG = SSACFG.create cfg.ImplementationType
           convertToSSA stmtProcessor cfg ssaCFG
           let dom = createDominance ssaCFG
           buildSSAForm ssaCFG dom
-          (* Promotion reads the SSA form to find the stack slots it turns
-             into variables of their own, and it drops every phi it meets on
-             the way, so the form has to be built a second time over the
-             definitions promotion leaves behind. *)
-          promote hdl ssaCFG dom callback
+          let state = propagateStackPointer hdl ssaCFG
+          (* The propagation is observed on the graph it read, and before the
+             renaming below mutates the very variables it is keyed under.
+             Later than here it is unreadable. *)
+          observer.Observe(ssaCFG, dom, state)
+          promote state ssaCFG
+          (* Promotion turns stack slots into variables the round of phi
+             placement above knew nothing about, and it drops every phi that
+             round placed, so the form is built a second time over what
+             promotion leaves behind. *)
           buildSSAForm ssaCFG dom
-          ssaCFG, dom }
+          SSACFGWithDominance(ssaCFG, dom) }
 
 /// Provides ways to create an SSA lifter.
 type SSALifterFactory =
@@ -460,27 +469,27 @@ type SSALifterFactory =
       { new IStmtPostProcessor with
           member _.WordSize with get() = wordSize
           member _.PostProcess stmt = stmt }
-      { new ISSAVertexCallback with
-          member _.OnVertexCreation(_, _, _, _) = () }
+      { new ISSAStackPointerObserver with
+          member _.Observe(_, _, _) = () }
 
   /// Creates an SSA lifter with a binary handle and a statement processor.
   static member Create(hdl, stmtProcessor) =
     SSALifterFactory.create hdl
       stmtProcessor
-      { new ISSAVertexCallback with
-          member _.OnVertexCreation(_, _, _, _) = () }
+      { new ISSAStackPointerObserver with
+          member _.Observe(_, _, _) = () }
 
-  /// Creates an SSA lifter with a binary handle and a callback for SSA vertex
-  /// creation.
-  static member Create(hdl: BinHandle, callback) =
+  /// Creates an SSA lifter with a binary handle and an observer of the stack
+  /// pointer propagation.
+  static member Create(hdl: BinHandle, observer) =
     let wordSize = hdl.ISA.WordSize
     SSALifterFactory.create hdl
       { new IStmtPostProcessor with
           member _.WordSize with get() = wordSize
           member _.PostProcess stmt = stmt }
-      callback
+      observer
 
-  /// Creates an SSA lifter with a binary handle, a statement processor, and a
-  /// callback for SSA vertex creation.
-  static member Create(hdl, stmtProcessor, callback) =
-    SSALifterFactory.create hdl stmtProcessor callback
+  /// Creates an SSA lifter with a binary handle, a statement processor, and
+  /// an observer of the stack pointer propagation.
+  static member Create(hdl, stmtProcessor, observer) =
+    SSALifterFactory.create hdl stmtProcessor observer

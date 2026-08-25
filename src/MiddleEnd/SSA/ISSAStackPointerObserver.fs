@@ -28,20 +28,16 @@ open B2R2.MiddleEnd.BinGraph
 open B2R2.MiddleEnd.ControlFlowGraph
 open B2R2.MiddleEnd.DataFlow
 
-/// Represents a callback the SSA lifter fires on each vertex of the graph it
-/// lifts.
-type ISSAVertexCallback =
-  /// Fires on one vertex of the SSACFG, while the lifter promotes the graph,
-  /// and therefore after every vertex of the graph has been created. The
-  /// SSACFG, its dominance, and the stack pointer propagation analysis are
-  /// all handed over so that stack local variables are cheap to compute. The
-  /// dominance is that of the very SSACFG given, since the callback fires
-  /// while the lifter still holds both. The vertices are promoted in turn and
-  /// this fires on each of them before that one is promoted, so the graph it
-  /// reads is one that is only partly promoted.
-  abstract OnVertexCreation:
+/// Represents an observer of the stack pointer propagation of an SSACFG. The
+/// propagation is keyed by SSA variable, and the SSA form is built once more
+/// after the one point an observer is handed it, mutating the very keys it is
+/// held under, so an observer takes what it needs there and nowhere else.
+type ISSAStackPointerObserver =
+  /// Observes the given stack pointer propagation of the given SSACFG,
+  /// together with the dominance of that same graph. The graph is the one the
+  /// propagation read, which is to say the one promotion has yet to rewrite.
+  abstract Observe:
       SSACFG
     * IForwardDominance<SSABasicBlock>
     * SSASparseDataFlow.State<StackPointerDomain.Lattice>
-    * SSAVertex
     -> unit
