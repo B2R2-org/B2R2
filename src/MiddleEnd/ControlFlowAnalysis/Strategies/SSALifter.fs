@@ -90,5 +90,6 @@ type SSALifter() =
       let ctx = env.Context
       fun () ->
         let observer = createObserver ctx
-        let ssaLifter = SSALifterFactory.Create(ctx.BinHandle, observer)
-        ssaLifter.Lift ctx.CFG
+        let lifter = SSALifterFactory.Create ctx.BinHandle
+        let promoter = SSAPromoterFactory.Create(ctx.BinHandle, observer)
+        lifter.Lift ctx.CFG |> promoter.Promote

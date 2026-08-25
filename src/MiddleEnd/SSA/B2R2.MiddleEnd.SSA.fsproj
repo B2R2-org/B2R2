@@ -6,8 +6,11 @@
 
   <ItemGroup>
     <Compile Include="ISSALiftable.fs" />
+    <Compile Include="ISSAPromotable.fs" />
     <Compile Include="ISSAStackPointerObserver.fs" />
+    <Compile Include="SSAForm.fs" />
     <Compile Include="SSALifterFactory.fs" />
+    <Compile Include="SSAPromoterFactory.fs" />
   </ItemGroup>
 
   <ItemGroup>

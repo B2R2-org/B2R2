@@ -121,7 +121,7 @@ type SSALifterTests() =
   [<TestMethod>]
   member _.``Lift runs the given statement post-processor``() =
     let processor, seen = recordingProcessor hdl.ISA.WordSize
-    let lifter = SSALifterFactory.Create(hdl, processor)
+    let lifter = SSALifterFactory.Create processor
     let ssaCFG = (lifter.Lift(buildDiamondCFG Mutable)).Graph
     Assert.AreNotEqual<int>(0, seen.Count)
     Assert.AreEqual<int>(4, ssaCFG.VertexCount)
@@ -132,7 +132,7 @@ type SSALifterTests() =
        so a processor that answers 32 bits over a 64-bit binary is enough to
        tell whether the lifter asked it at all. *)
     let processor, _ = recordingProcessor WordSize.Bit32
-    let lifter = SSALifterFactory.Create(hdl, processor)
+    let lifter = SSALifterFactory.Create processor
     let ssaCFG = (lifter.Lift(buildDiamondCFG Mutable)).Graph
     let pcRegTypes =
       statementsOf ssaCFG
@@ -145,13 +145,14 @@ type SSALifterTests() =
     CollectionAssert.AreEqual([| 32<rt> |], pcRegTypes)
 
   [<TestMethod>]
-  member _.``Lift promotes a stack load in the address of a store``() =
+  member _.``Promote reaches a stack load in the address of a store``() =
     (* A load whose address the stack pointer analysis knows reads a stack
        slot, and promotion turns it into a variable of that slot wherever it
        sits. The address of a store is a place it sits. *)
-    let processor = wrappingProcessor hdl.ISA.WordSize
-    let lifter = SSALifterFactory.Create(hdl, processor)
-    let ssaCFG = (lifter.Lift(buildDiamondCFG Mutable)).Graph
+    let lifter = SSALifterFactory.Create(wrappingProcessor hdl.ISA.WordSize)
+    let promoter = SSAPromoterFactory.Create hdl
+    let lifted = lifter.Lift(buildDiamondCFG Mutable)
+    let ssaCFG = (promoter.Promote lifted).Graph
     let addrs = storeAddressesOf ssaCFG
     let unpromoted =
       addrs |> Array.filter (fun e ->
@@ -162,26 +163,39 @@ type SSALifterTests() =
     Assert.AreEqual<int>(0, unpromoted.Length)
 
   [<TestMethod>]
-  member _.``Lift shows the propagation once, on the graph it returns``() =
+  member _.``Promote shows the propagation once, on the graph it answers``() =
     (* One call, not one per vertex, so that every reader of the propagation
        sees one and the same graph rather than one rewritten up to wherever
        the promotion has got to. *)
     let observer, seen = recordingObserver ()
-    let lifter = SSALifterFactory.Create(hdl, observer)
-    let result = lifter.Lift(buildDiamondCFG Mutable)
+    let lifter = SSALifterFactory.Create hdl
+    let promoter = SSAPromoterFactory.Create(hdl, observer)
+    let result = lifter.Lift(buildDiamondCFG Mutable) |> promoter.Promote
     Assert.AreEqual<int>(1, seen.Count)
     let g, dom = seen[0]
     Assert.AreSame(result.Graph, g)
     Assert.AreSame(result.Dominance, dom)
 
   [<TestMethod>]
-  member _.``Lift runs both a post-processor and an observer``() =
-    let processor, stmts = recordingProcessor hdl.ISA.WordSize
+  member _.``Lift alone leaves the stack alone``() =
+    (* Promotion is what turns a stack slot into a variable of its own, so a
+       caller that only lifts pays for none of it and sees none of it. *)
     let observer, seen = recordingObserver ()
-    let lifter = SSALifterFactory.Create(hdl, processor, observer)
-    lifter.Lift(buildDiamondCFG Mutable) |> ignore
-    Assert.AreNotEqual<int>(0, stmts.Count)
+    let lifter = SSALifterFactory.Create hdl
+    let promoter = SSAPromoterFactory.Create(hdl, observer)
+    let lifted = lifter.Lift(buildDiamondCFG Mutable)
+    let stackVarsOf (g: SSACFG) =
+      statementsOf g
+      |> Array.collect (variablesOf >> List.toArray)
+      |> Array.filter (fun v ->
+        match v.Kind with
+        | StackVar _ -> true
+        | _ -> false)
+    Assert.AreEqual<int>(0, seen.Count)
+    Assert.AreEqual<int>(0, (stackVarsOf lifted.Graph).Length)
+    let promoted = promoter.Promote lifted
     Assert.AreEqual<int>(1, seen.Count)
+    Assert.AreNotEqual<int>(0, (stackVarsOf promoted.Graph).Length)
 
   [<TestMethod>]
   member _.``Lift answers the dominance of the graph it returns``() =
