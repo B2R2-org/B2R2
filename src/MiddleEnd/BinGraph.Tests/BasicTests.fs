@@ -117,6 +117,29 @@ type BasicTests() =
 
   [<TestMethod>]
   [<DynamicData(nameof BasicTests.GraphTypes)>]
+  member _.``Double Transposition Test``(t) =
+    let g, vmap = digraph1 t
+    let r = (g.Reverse [ vmap[6] ]).Reverse [ vmap[1] ]
+    (* The transpose of a transpose spans the pairs the graph spans, and it
+       spans them with the very edges of that graph, a pair turned around
+       twice being the pair it was. *)
+    let succIDs = r.GetSuccs vmap[2] |> Array.map (_.ID) |> Array.sort
+    CollectionAssert.AreEqual([| 3; 4; 6 |], succIDs)
+    Assert.AreSame(vmap[2], r.FindVertexByData 2)
+    Assert.AreSame(g.FindEdge(vmap[1], vmap[2]),
+                   r.FindEdge(vmap[1], vmap[2]))
+    Assert.AreEqual<int>(7, r.EdgeCount)
+    CollectionAssert.AreEqual([| 1 |], r.Roots |> Array.map (_.ID))
+    (* It is not that graph, though, and it cannot be: it takes its roots
+       anew, and it answers for the state the graph was in when the first
+       transpose was taken, not for a later one. *)
+    Assert.AreNotSame(box g, box r)
+    g.RemoveEdge(vmap[1], vmap[2])
+    Assert.AreEqual<int>(7, r.EdgeCount)
+    Assert.AreEqual<int>(6, g.EdgeCount)
+
+  [<TestMethod>]
+  [<DynamicData(nameof BasicTests.GraphTypes)>]
   member _.``Induced Subgraph View Test``(t) =
     let g, vmap = digraph1 t
     (* Of the seven edges, the three among 2, 3 and 5 are the ones this set

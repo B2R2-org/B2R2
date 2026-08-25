@@ -26,6 +26,23 @@ namespace B2R2.MiddleEnd.BinGraph
 
 open System.Collections.Generic
 
+/// Builds the adjacency tables of the subgraph a set of vertices induces.
+module private InducedTables =
+  let build (orig: IDiGraph<'V, 'E>) (vs: IVertex<'V>[]) roots =
+    let outgoing = Dictionary<IVertex<'V>, Edge<'V, 'E>[]>()
+    let incoming = Dictionary<IVertex<'V>, Edge<'V, 'E>[]>()
+    let held = HashSet<IVertex<'V>> vs
+    let isHeldSucc (e: Edge<'V, 'E>) = held.Contains e.Second
+    let isHeldPred (e: Edge<'V, 'E>) = held.Contains e.First
+    for v in vs do
+      outgoing[v] <- orig.GetSuccEdges v |> Array.filter isHeldSucc
+      incoming[v] <- orig.GetPredEdges v |> Array.filter isHeldPred
+    { Vertices = vs
+      Outgoing = outgoing
+      Incoming = incoming
+      Roots = roots
+      ImplType = orig.ImplementationType }
+
 /// Represents the subgraph a set of vertices induces in a directed graph, read
 /// as a view over that graph rather than built as a copy of it. The vertices
 /// are the very ones of that graph, and so are the edges, an induced subgraph
@@ -33,116 +50,5 @@ open System.Collections.Generic
 /// graph it reads once, at construction, so that it answers for the state the
 /// graph was in when it was taken.
 type internal SubDiGraph<'V, 'E when 'V: equality and 'E: equality>
-  (orig: IDiGraph<'V, 'E>, vs: IVertex<'V>[], roots: IVertex<'V>[]) =
-
-  let implType = orig.ImplementationType
-
-  let outgoing = Dictionary<IVertex<'V>, Edge<'V, 'E>[]>()
-
-  let incoming = Dictionary<IVertex<'V>, Edge<'V, 'E>[]>()
-
-  let mutable edgeCount = 0
-
-  do
-    let held = HashSet<IVertex<'V>> vs
-    let isHeldSucc (e: Edge<'V, 'E>) = held.Contains e.Second
-    let isHeldPred (e: Edge<'V, 'E>) = held.Contains e.First
-    for v in vs do
-      let outs = orig.GetSuccEdges v |> Array.filter isHeldSucc
-      outgoing[v] <- outs
-      incoming[v] <- orig.GetPredEdges v |> Array.filter isHeldPred
-      edgeCount <- edgeCount + outs.Length
-    for r in roots do
-      if held.Contains r then () else GraphUtils.raiseVertexNotFoundByID r.ID
-
-  let toSuccArray (es: Edge<'V, 'E>[]) =
-    let arr = Array.zeroCreate es.Length
-    for i in 0 .. es.Length - 1 do arr[i] <- es[i].Second
-    arr
-
-  let toPredArray (es: Edge<'V, 'E>[]) =
-    let arr = Array.zeroCreate es.Length
-    for i in 0 .. es.Length - 1 do arr[i] <- es[i].First
-    arr
-
-  let exits =
-    lazy (vs |> Array.filter (fun v -> outgoing[v].Length = 0))
-
-  let tryFindEdge (src: IVertex<'V>) (dst: IVertex<'V>) =
-    match outgoing.TryGetValue src with
-    | true, es ->
-      es |> Array.tryFind (fun e -> obj.ReferenceEquals(e.Second, dst))
-    | false, _ ->
-      None
-
-  let tryFindVertexBy fn = vs |> Array.tryFind fn
-
-  interface IDiGraph<'V, 'E> with
-
-    member _.VertexCount with get() = vs.Length
-
-    member _.EdgeCount with get() = edgeCount
-
-    member _.Vertices with get() = Array.copy vs
-
-    member _.Edges with get() =
-      let arr = Array.zeroCreate edgeCount
-      let mutable i = 0
-      for v in vs do
-        for e in outgoing[v] do
-          arr[i] <- e
-          i <- i + 1
-      arr
-
-    member _.Exits with get() = Array.copy exits.Value
-
-    member _.Roots with get() = Array.copy roots
-
-    member _.SingleRoot with get() = GraphUtils.singleRoot roots
-
-    member _.ImplementationType with get() = implType
-
-    member _.IsEmpty with get() = vs.Length = 0
-
-    member _.Contains v = outgoing.ContainsKey v
-
-    member _.HasEdge(src, dst) = (tryFindEdge src dst).IsSome
-
-    member _.FindVertexBy fn = GraphUtils.findVertexBy tryFindVertexBy fn
-
-    member _.TryFindVertexBy fn = tryFindVertexBy fn
-
-    member _.FindVertexByData data =
-      GraphUtils.findVertexByData tryFindVertexBy data
-
-    member _.TryFindVertexByData data =
-      GraphUtils.tryFindVertexByData tryFindVertexBy data
-
-    member _.FindEdge(src, dst) =
-      match tryFindEdge src dst with
-      | Some edge -> edge
-      | None -> raise EdgeNotFoundException
-
-    member _.TryFindEdge(src, dst) = tryFindEdge src dst
-
-    member _.GetPreds(v: IVertex<'V>) =
-      match incoming.TryGetValue v with
-      | true, es -> toPredArray es
-      | false, _ -> [||]
-
-    member _.GetPredEdges(v: IVertex<'V>) =
-      match incoming.TryGetValue v with
-      | true, es -> Array.copy es
-      | false, _ -> [||]
-
-    member _.GetSuccs(v: IVertex<'V>) =
-      match outgoing.TryGetValue v with
-      | true, es -> toSuccArray es
-      | false, _ -> [||]
-
-    member _.GetSuccEdges(v: IVertex<'V>) =
-      match outgoing.TryGetValue v with
-      | true, es -> Array.copy es
-      | false, _ -> [||]
-
-    member this.Reverse vs = ReversedDiGraph(this, Seq.toArray vs)
+  (orig: IDiGraph<'V, 'E>, vs, roots) =
+  inherit SnapshotDiGraph<'V, 'E>(InducedTables.build orig vs roots)

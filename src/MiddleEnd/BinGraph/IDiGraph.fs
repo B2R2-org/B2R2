@@ -128,5 +128,11 @@ type IDiGraph<'V, 'E when 'V: equality and 'E: equality> =
   /// other with nothing to look up in between. An implementation has to keep to
   /// that, for the post-dominance of a graph is read off its transpose. The
   /// given vertices become the roots of the result, whose edges are its own:
-  /// an edge and the reverse of it are two different pairs.
+  /// an edge and the reverse of it are two different pairs. Taking the
+  /// transpose twice hands the very edges of this graph back, no new pair
+  /// being needed for a pair turned around twice, but it does not hand this
+  /// graph back: a transpose answers for the state its graph was in when it
+  /// was taken, and takes its roots anew, so the two part ways the moment
+  /// this graph moves on. An implementation must not cut that round trip
+  /// short by returning the graph a transpose was taken from.
   abstract Reverse: IEnumerable<IVertex<'V>> -> IDiGraph<'V, 'E>
