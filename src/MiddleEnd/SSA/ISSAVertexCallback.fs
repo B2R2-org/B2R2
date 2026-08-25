@@ -43,5 +43,5 @@ type ISSAVertexCallback =
       SSACFG
     * IForwardDominance<SSABasicBlock>
     * SSASparseDataFlow.State<StackPointerDomain.Lattice>
-    * IVertex<SSABasicBlock>
+    * SSAVertex
     -> unit

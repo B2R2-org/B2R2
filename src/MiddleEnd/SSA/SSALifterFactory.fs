@@ -32,22 +32,19 @@ open B2R2.MiddleEnd.BinGraph
 open B2R2.MiddleEnd.ControlFlowGraph
 open B2R2.MiddleEnd.DataFlow
 
-/// Represents a vertex of an SSACFG.
-type SSAVertex = IVertex<SSABasicBlock>
-
-/// Represents a mapping from a LowUIR CFG vertex to an SSACFG vertex.
-type SSAVMap = Dictionary<IVertex<LowUIRBasicBlock>, SSAVertex>
-
-/// Represents a mapping from a variable to the SSA basic blocks defining it.
-type DefSites = Dictionary<VariableKind, HashSet<IVertex<SSABasicBlock>>>
-
-/// Represents how many definitions each variable has been given so far.
-type VarCountMap = Dictionary<VariableKind, int>
-
-/// Represents the identifiers in scope for each variable, innermost first.
-type IDStack = Dictionary<VariableKind, int list>
-
 module private SSALifterFactory =
+  /// Represents a mapping from a LowUIR CFG vertex to an SSACFG vertex.
+  type SSAVMap = Dictionary<IVertex<LowUIRBasicBlock>, SSAVertex>
+
+  /// Represents a mapping from a variable to the SSA basic blocks defining it.
+  type DefSites = Dictionary<VariableKind, HashSet<SSAVertex>>
+
+  /// Represents how many definitions each variable has been given so far.
+  type VarCountMap = Dictionary<VariableKind, int>
+
+  /// Represents the identifiers in scope for each variable, innermost first.
+  type IDStack = Dictionary<VariableKind, int list>
+
   /// Lifts the given LowUIR statements to SSA statements.
   let liftStmts (stmtProcessor: IStmtPostProcessor) liftedInstrs =
     let wordSize = stmtProcessor.WordSize |> WordSize.toRegType

@@ -32,6 +32,9 @@ open B2R2.MiddleEnd.BinGraph
 /// or a persistent one without a caller having to know which.
 type SSACFG = IMutableDiGraph<SSABasicBlock, CFGEdgeKind>
 
+/// Represents a vertex of an SSACFG.
+and SSAVertex = IVertex<SSABasicBlock>
+
 /// Represents an SSACFG paired with the dominance of that very graph. Lifting
 /// a CFG to SSA form computes the dominance on the way, and a reaching
 /// definition is read off the dominator tree, so the two travel together
@@ -52,7 +55,7 @@ module SSACFG =
   /// given node v, following the dominator tree of the given dominance until a
   /// definition is found. The dominance has to be that of the graph v belongs
   /// to, which is what makes the walk this reads off the right one.
-  let rec findDef dom (v: IVertex<SSABasicBlock>) targetVarKind =
+  let rec findDef dom (v: SSAVertex) targetVarKind =
     let stmtInfo =
       v.VData.Internals.Statements
       |> Array.tryFindBack (fun (_, stmt) ->
@@ -69,7 +72,7 @@ module SSACFG =
 
   /// Finds the reaching definition of the given variable kind (targetVarKind)
   /// at the entry of node v, as `findDef` does from the dominator of v.
-  let findReachingDef dom (v: IVertex<SSABasicBlock>) targetVarKind =
+  let findReachingDef dom (v: SSAVertex) targetVarKind =
     match (dom: IForwardDominance<_>).ImmediateDominator v with
     | null -> None
     | idom -> findDef dom idom targetVarKind
