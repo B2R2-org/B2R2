@@ -50,12 +50,12 @@ type BasicBlockTests() =
 
   let lowUIRBlock addr =
     let rundown: LowUIR.Stmt[] = [||]
-    let abs = FunctionAbstraction(addr, 0, rundown, false, UnknownNoRet)
+    let abs = FunctionSummary(addr, 0, rundown, false, UnknownNoRet)
     LowUIRBasicBlock.CreateAbstract(ProgramPoint(addr, 0), abs)
 
   let ssaBlock addr =
     let rundown: SSA.Stmt[] = [||]
-    let abs = FunctionAbstraction(addr, 0, rundown, false, UnknownNoRet)
+    let abs = FunctionSummary(addr, 0, rundown, false, UnknownNoRet)
     SSABasicBlock.CreateAbstract(ProgramPoint(addr, 0), abs)
 
   let disasmBlock addr = DisasmBasicBlock(null, ProgramPoint(addr, 0), [||])

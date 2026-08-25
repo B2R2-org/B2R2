@@ -6,7 +6,7 @@
 
   <ItemGroup>
     <Compile Include="CFGEdgeKind.fs" />
-    <Compile Include="FunctionAbstraction.fs" />
+    <Compile Include="FunctionSummary.fs" />
     <Compile Include="IAddressable.fs" />
     <Compile Include="IAbstractable.fs" />
     <Compile Include="ILowUIRAccessible.fs" />

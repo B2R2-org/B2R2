@@ -33,7 +33,7 @@ open B2R2.MiddleEnd.BinGraph
 
 /// Represents a basic block of an SSA-based CFG (SSACFG). It holds an array
 /// of (ProgramPoint * Stmt).
-type SSABasicBlock private(ppoint, lastAddr, stmts: _[], funcAbs) =
+type SSABasicBlock private(ppoint, lastAddr, stmts: _[], summary) =
   let mutable idom: IVertex<SSABasicBlock> option = None
 
   let mutable frontier: IVertex<SSABasicBlock> list = []
@@ -64,9 +64,9 @@ type SSABasicBlock private(ppoint, lastAddr, stmts: _[], funcAbs) =
     SSABasicBlock(ppoint, lastAddr, stmts, None)
 
   /// Creates an abstract basic block located at `ppoint`.
-  static member CreateAbstract(ppoint, abs: FunctionAbstraction<SSA.Stmt>) =
-    let rundown = abs.Rundown |> Array.map (fun s -> ProgramPoint.Fake, s)
-    SSABasicBlock(ppoint, 0UL, rundown, Some abs)
+  static member CreateAbstract(ppoint, summary: FunctionSummary<SSA.Stmt>) =
+    let rundown = summary.Rundown |> Array.map (fun s -> ProgramPoint.Fake, s)
+    SSABasicBlock(ppoint, 0UL, rundown, Some summary)
 
   override _.ToString() = $"{nameof SSABasicBlock}({ppoint})"
 
@@ -74,14 +74,14 @@ type SSABasicBlock private(ppoint, lastAddr, stmts: _[], funcAbs) =
     member _.PPoint with get() = ppoint
 
     member _.Range with get() =
-      if Option.isNone funcAbs then AddrRange.create ppoint.Address lastAddr
+      if Option.isNone summary then AddrRange.create ppoint.Address lastAddr
       else AddrRange.singleton ppoint.Address
 
-    member _.IsAbstract with get() = Option.isSome funcAbs
+    member _.IsAbstract with get() = Option.isSome summary
 
     member _.AbstractContent with get() =
-      if Option.isNone funcAbs then raise AbstractBlockAccessException
-      else funcAbs.Value
+      if Option.isNone summary then raise AbstractBlockAccessException
+      else summary.Value
 
     member _.Statements with get() = stmts
 
@@ -108,7 +108,7 @@ type SSABasicBlock private(ppoint, lastAddr, stmts: _[], funcAbs) =
       |> ignore
 
     member _.Visualize() =
-      if Option.isNone funcAbs then
+      if Option.isNone summary then
         stmts
         |> Array.map (fun (_, stmt) ->
           [| { AsmWordKind = AsmWordKind.String

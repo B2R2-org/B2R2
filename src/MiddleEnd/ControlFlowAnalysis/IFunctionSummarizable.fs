@@ -42,13 +42,13 @@ type IFunctionSummarizable<'FnCtx, 'GlCtx
      * retStatus: NonReturningStatus
      * unwindingBytes: int
      * ins: IInstruction
-    -> FunctionAbstraction<LowUIR.Stmt>
+    -> FunctionSummary<LowUIR.Stmt>
 
-  /// Make a dummy function abstraction for an unknown function.
-  abstract MakeUnknownFunctionAbstraction:
+  /// Makes a dummy function summary for an unknown function.
+  abstract MakeUnknownFunctionSummary:
        hdl: BinHandle
      * ins: IInstruction
-    -> FunctionAbstraction<LowUIR.Stmt>
+    -> FunctionSummary<LowUIR.Stmt>
 
   /// Compute the stack unwinding amount of a function based on the given
   /// context.

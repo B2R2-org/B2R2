@@ -45,4 +45,4 @@ type ISyscallAnalyzable =
        ctx: CFGBuildingContext<'FnCtx, 'GlCtx>
      * TargetVertex: IVertex<LowUIRBasicBlock>
      * IsExit: bool
-    -> FunctionAbstraction<LowUIR.Stmt>
+    -> FunctionSummary<LowUIR.Stmt>

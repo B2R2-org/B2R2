@@ -31,7 +31,7 @@ open B2R2.BinIR
 open B2R2.BinIR.LowUIR
 
 /// Represents a basic block of an IR-level CFG.
-type LowUIRBasicBlock internal(pp, funcAbs, liftedInss, lblMap) =
+type LowUIRBasicBlock internal(pp, summary, liftedInss, lblMap) =
   /// Dominating jump table.
   let mutable domJT = None
 
@@ -88,7 +88,7 @@ type LowUIRBasicBlock internal(pp, funcAbs, liftedInss, lblMap) =
   /// assume that the given address is within the range of the basic block.
   /// Otherwise, this function will raise an exception.
   member this.Cut(cutPoint: Addr) =
-    if Option.isNone funcAbs then
+    if Option.isNone summary then
       assert ((this :> IAddressable).Range.IsIncluding cutPoint)
       let fstInstrs, sndInstrs =
         liftedInss
@@ -112,18 +112,18 @@ type LowUIRBasicBlock internal(pp, funcAbs, liftedInss, lblMap) =
     member _.PPoint with get() = pp
 
     member _.Range with get() =
-      if Option.isNone funcAbs then
+      if Option.isNone summary then
         let lastIns = liftedInss[liftedInss.Length - 1].Original
         let lastAddr = lastIns.Address + uint64 lastIns.Length
         AddrRange.create pp.Address (lastAddr - 1UL)
       else
         AddrRange.singleton pp.Address
 
-    member _.IsAbstract with get() = Option.isSome funcAbs
+    member _.IsAbstract with get() = Option.isSome summary
 
     member _.AbstractContent with get() =
-      if Option.isNone funcAbs then raise AbstractBlockAccessException
-      else funcAbs.Value
+      if Option.isNone summary then raise AbstractBlockAccessException
+      else summary.Value
 
     member _.LiftedInstructions with get() = liftedInss
 
@@ -132,15 +132,15 @@ type LowUIRBasicBlock internal(pp, funcAbs, liftedInss, lblMap) =
       isSemanticallyNop stmts stmts.Length 0
 
     member _.Terminator with get() =
-      assert ((Option.isNone funcAbs && not <| Array.isEmpty liftedInss)
-           || (Option.isSome funcAbs &&
-               not <| Array.isEmpty funcAbs.Value.Rundown))
+      assert ((Option.isNone summary && not <| Array.isEmpty liftedInss)
+           || (Option.isSome summary &&
+               not <| Array.isEmpty summary.Value.Rundown))
       let stmts =
-        if Option.isNone funcAbs then
+        if Option.isNone summary then
           let stmts = liftedInss[liftedInss.Length - 1].Stmts
           stmts[stmts.Length - 2..]
         else
-          funcAbs.Value.Rundown
+          summary.Value.Rundown
       stmts
       |> Array.filter isTerminatingStmt
       |> Array.tryExactlyOne
@@ -167,7 +167,7 @@ type LowUIRBasicBlock internal(pp, funcAbs, liftedInss, lblMap) =
         AddrRange.create insAddr insEndAddr)
 
     member _.Visualize() =
-      if Option.isNone funcAbs then
+      if Option.isNone summary then
         liftedInss
         |> Array.collect (fun liftedIns -> liftedIns.Stmts)
         |> Array.map (fun stmt ->

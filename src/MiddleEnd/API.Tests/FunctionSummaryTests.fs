@@ -34,11 +34,11 @@ open B2R2.FrontEnd
 open B2R2.MiddleEnd
 open B2R2.MiddleEnd.ControlFlowGraph
 
-/// Tests the function abstractions that summarize calls to external functions.
+/// Tests the function summaries that stand for calls to external functions.
 /// The x86-64 float return register is XMM0, which no single variable holds, so
 /// these make sure that such a register is defined chunk by chunk.
 [<TestClass>]
-type FunctionAbstractionTests() =
+type FunctionSummaryTests() =
   (* We reuse the ELF fixtures that live next to the BinFile tests. *)
   let elfDir =
     System.AppDomain.CurrentDomain.BaseDirectory
@@ -61,7 +61,7 @@ type FunctionAbstractionTests() =
     else
       [||]
 
-  let abstractionDefs =
+  let summaryDefs =
     let bytes = readZippedBinary "elf_x64_exec"
     let hdl = BinHandle.LoadFileBytes(bytes, ISA "x64")
     [| for fn in BinaryBrew(hdl).Functions.Sequence do
@@ -70,8 +70,8 @@ type FunctionAbstractionTests() =
 
   [<TestMethod>]
   member _.``External calls define registers through plain variables``() =
-    Assert.AreNotEqual<int>(0, abstractionDefs.Length)
-    for dst in abstractionDefs do
+    Assert.AreNotEqual<int>(0, summaryDefs.Length)
+    for dst in summaryDefs do
       match dst with
       | Var _ | TempVar _ | PCVar _ -> ()
       | _ -> Assert.Fail(PrettyPrinter.ToString dst)
@@ -79,7 +79,7 @@ type FunctionAbstractionTests() =
   [<TestMethod>]
   member _.``Float return register is defined chunk by chunk``() =
     let names =
-      abstractionDefs
+      summaryDefs
       |> Array.choose (fun dst ->
         match dst with
         | Var(_, _, name, _) -> Some name

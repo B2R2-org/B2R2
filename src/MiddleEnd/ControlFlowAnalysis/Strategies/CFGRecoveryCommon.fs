@@ -525,11 +525,11 @@ module internal CFGRecoveryCommon =
     done
     result
 
-  let getFunctionAbstraction ctx
-                             (summarizer: IFunctionSummarizable<_, _>)
-                             callIns
-                             calleeAddr
-                             calleeInfo =
+  let getFunctionSummary ctx
+                         (summarizer: IFunctionSummarizable<_, _>)
+                         callIns
+                         calleeAddr
+                         calleeInfo =
     match ctx.ManagerChannel.GetBuildingContext calleeAddr with
     | FinalCtx calleeCtx
     | StillBuilding calleeCtx ->
@@ -553,7 +553,7 @@ module internal CFGRecoveryCommon =
     let unwindingAmount = BitVector(wordSize, rt) |> LowUIR.AST.num
     let src = LowUIR.AST.binop BinOpType.ADD sp unwindingAmount
     let rundown = [| LowUIR.AST.assign dst src |]
-    FunctionAbstraction(0UL, 0, rundown, false, NotNoRet)
+    FunctionSummary(0UL, 0, rundown, false, NotNoRet)
 
   let connectAbsVertex ctx cfgRec caller calleeAddr isTail abs =
     let callerBBL = (caller: IVertex<LowUIRBasicBlock>).VData.Internals
@@ -593,7 +593,7 @@ module internal CFGRecoveryCommon =
                         calleeInfo =
     let lastIns =
       (caller: IVertex<LowUIRBasicBlock>).VData.Internals.LastInstruction
-    getFunctionAbstraction ctx cfgRec.Summarizer lastIns calleeAddr calleeInfo
+    getFunctionSummary ctx cfgRec.Summarizer lastIns calleeAddr calleeInfo
     |> Result.map (connectAbsVertex ctx cfgRec caller calleeAddr false)
     |> Result.bind (connectRet ctx cfgRec)
     |> Result.bind (fun _ -> connectExnEdge ctx cfgRec lastIns.Address)
@@ -606,7 +606,7 @@ module internal CFGRecoveryCommon =
                            calleeInfo =
     let lastIns =
       (caller: IVertex<LowUIRBasicBlock>).VData.Internals.LastInstruction
-    getFunctionAbstraction ctx cfgRec.Summarizer lastIns calleeAddr calleeInfo
+    getFunctionSummary ctx cfgRec.Summarizer lastIns calleeAddr calleeInfo
     |> Result.map (connectAbsVertex ctx cfgRec caller calleeAddr false)
     |> Result.bind (fun _ -> connectExnEdge ctx cfgRec lastIns.Address)
     |> toCFGResult
@@ -620,7 +620,7 @@ module internal CFGRecoveryCommon =
     let caller = ctx.CallerVertices[callsiteAddr]
     if isTailCall then
       let lastIns = caller.VData.Internals.LastInstruction
-      getFunctionAbstraction ctx cfgRec.Summarizer lastIns callee calleeInfo
+      getFunctionSummary ctx cfgRec.Summarizer lastIns callee calleeInfo
       |> Result.map (connectAbsVertex ctx cfgRec caller callee true)
       |> toCFGResult
     elif ctx.FunctionAddress = callee then
@@ -651,7 +651,7 @@ module internal CFGRecoveryCommon =
     let callSiteAddr = callIns.Address
     let callSite = LeafCallSite callSiteAddr
     let summarizer = (cfgRec: ICFGRecovery<_, _>).Summarizer
-    let abs = summarizer.MakeUnknownFunctionAbstraction(ctx.BinHandle, callIns)
+    let abs = summarizer.MakeUnknownFunctionSummary(ctx.BinHandle, callIns)
     let absV = getAbsVertex ctx cfgRec callSite None abs
     connectEdge ctx cfgRec caller absV CallEdge
     connectRet ctx cfgRec (absV, callSiteAddr + uint64 callIns.Length)

@@ -30,10 +30,10 @@ type IAbstractable<'Stmt> =
   /// create an abstract block to represent a function in a CFG.
   abstract IsAbstract: bool
 
-  /// Gets the abstract content of the basic block summarizing a function. If
-  /// the block is not an abstract one, this property raises
+  /// Gets the summary of the function that this abstract basic block stands
+  /// for. If the block is not an abstract one, this property raises
   /// `AbstractBlockAccessException`.
-  abstract AbstractContent: FunctionAbstraction<'Stmt>
+  abstract AbstractContent: FunctionSummary<'Stmt>
 
 /// Raised when an abstract basic block is accessed as if it is a regular
 /// block.

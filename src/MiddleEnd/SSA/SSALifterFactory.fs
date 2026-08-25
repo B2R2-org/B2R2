@@ -80,11 +80,11 @@ module private SSALifterFactory =
     let calleePpoint = bbl.PPoint
     let absContent = bbl.AbstractContent
     let rundown = absContent.Rundown |> liftRundown stmtProcessor
-    let absContent = FunctionAbstraction<Stmt>(absContent.EntryPoint,
-                                               absContent.UnwindingBytes,
-                                               rundown,
-                                               absContent.IsExternal,
-                                               absContent.ReturningStatus)
+    let absContent = FunctionSummary<Stmt>(absContent.EntryPoint,
+                                           absContent.UnwindingBytes,
+                                           rundown,
+                                           absContent.IsExternal,
+                                           absContent.ReturningStatus)
     let blk = SSABasicBlock.CreateAbstract(calleePpoint, absContent)
     blk
 

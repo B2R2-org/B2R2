@@ -69,6 +69,6 @@ type SyscallAnalysis() =
         let reg = hdl.RegisterFactory.GetRegVar rid
         let e = LowUIR.AST.undef rt "ret"
         let rundown = [| LowUIR.AST.put reg e |]
-        FunctionAbstraction(addr, 0, rundown, true, returningStatus)
+        FunctionSummary(addr, 0, rundown, true, returningStatus)
       | _ ->
-        FunctionAbstraction(addr, 0, [||], true, returningStatus)
+        FunctionSummary(addr, 0, [||], true, returningStatus)

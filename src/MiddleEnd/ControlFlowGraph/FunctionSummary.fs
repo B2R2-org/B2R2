@@ -26,15 +26,15 @@ namespace B2R2.MiddleEnd.ControlFlowGraph
 
 open B2R2
 
-/// Represents abstract information about a function, to be used in an
-/// intra-procedural CFG. This exists per function call, not per function
-/// definition. Therefore, one function can have multiple
-/// `FunctionAbstraction` instances.
-type FunctionAbstraction<'Stmt>(entryPoint,
-                                unwindingBytes,
-                                rundown,
-                                isExternal,
-                                returningStatus) =
+/// Represents what an intra-procedural CFG knows about a function it calls,
+/// summarizing the callee in place of its body. This exists per function call,
+/// not per function definition. Therefore, one function can have multiple
+/// `FunctionSummary` instances.
+type FunctionSummary<'Stmt>(entryPoint,
+                            unwindingBytes,
+                            rundown,
+                            isExternal,
+                            returningStatus) =
   /// Gets the entry point of this function.
   member _.EntryPoint with get(): Addr = entryPoint
 

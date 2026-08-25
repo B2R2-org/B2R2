@@ -36,8 +36,8 @@ open B2R2.MiddleEnd.DataFlow.LowUIRSensitiveDataFlow
 open B2R2.MiddleEnd.BinGraph
 
 /// Summarizes a function in the EVM context. Thanks to the powerful
-/// expressiveness of B2R2's IR, we can easily express a function's
-/// abstraction, including its unwinding behavior and return behavior.
+/// expressiveness of B2R2's IR, we can easily express a function's summary,
+/// including its unwinding behavior and return behavior.
 type EVMFunctionSummarizer<'FnCtx, 'GlCtx
   when 'FnCtx :> EVMFuncUserContext
   and 'FnCtx: (new: unit -> 'FnCtx)
@@ -67,10 +67,10 @@ type EVMFunctionSummarizer<'FnCtx, 'GlCtx
       let returnTargetStackOff = ctx.UserContext.ReturnTargetStackOff
       let hdl = ctx.BinHandle
       let rundown = makeRundown hdl ret unwinding returnTargetStackOff
-      let abs = FunctionAbstraction(entryPoint, unwinding, rundown, false, ret)
+      let abs = FunctionSummary(entryPoint, unwinding, rundown, false, ret)
       abs
 
-    member _.MakeUnknownFunctionAbstraction(_, _) = Terminator.impossible ()
+    member _.MakeUnknownFunctionSummary(_, _) = Terminator.impossible ()
 
     member _.ComputeUnwindingAmount _ = Terminator.impossible ()
 

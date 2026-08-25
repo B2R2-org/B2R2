@@ -35,7 +35,7 @@ open B2R2.MiddleEnd.ControlFlowGraph
 type CFGTests() =
   let lowUIRBlock addr =
     let rundown: LowUIR.Stmt[] = [||]
-    let abs = FunctionAbstraction(addr, 0, rundown, false, UnknownNoRet)
+    let abs = FunctionSummary(addr, 0, rundown, false, UnknownNoRet)
     LowUIRBasicBlock.CreateAbstract(ProgramPoint(addr, 0), abs)
 
   let ssaBlock addr stmts =

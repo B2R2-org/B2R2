@@ -181,13 +181,13 @@ type FunctionSummarizer<'FnCtx, 'GlCtx
 
   interface IFunctionSummarizable<'FnCtx, 'GlCtx> with
     member this.Summarize(ctx, retStatus, unwindingBytes, ins) =
-      FunctionAbstraction(ctx.FunctionAddress,
-                          unwindingBytes,
-                          this.Summarize(ctx, ins, unwindingBytes),
-                          ctx.IsExternal,
-                          retStatus)
+      FunctionSummary(ctx.FunctionAddress,
+                      unwindingBytes,
+                      this.Summarize(ctx, ins, unwindingBytes),
+                      ctx.IsExternal,
+                      retStatus)
 
-    member _.MakeUnknownFunctionAbstraction(hdl, callIns) =
+    member _.MakeUnknownFunctionSummary(hdl, callIns) =
       let returnAddress = callIns.Address + uint64 callIns.Length
       let wordSize = hdl.ISA.WordSize
       let regType = wordSize |> WordSize.toRegType
@@ -197,6 +197,6 @@ type FunctionSummarizer<'FnCtx, 'GlCtx
         stackPointerDef hdl 0
         |> Array.map (fun (dst, src) -> AST.put dst src)
       let ssaRundown = [| yield! stmts; yield jmpToFallThrough |]
-      FunctionAbstraction(0UL, 0, ssaRundown, false, NotNoRet)
+      FunctionSummary(0UL, 0, ssaRundown, false, NotNoRet)
 
     member this.ComputeUnwindingAmount ctx = this.ComputeUnwindingAmount ctx
