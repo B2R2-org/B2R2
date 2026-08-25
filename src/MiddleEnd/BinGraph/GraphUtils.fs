@@ -87,6 +87,37 @@ let raiseVertexNotFoundByData data =
 let raiseVertexNotFoundByPredicate () =
   raise <| VertexNotFoundException "No vertex satisfying the predicate"
 
+/// Answers the one root of a graph whose roots are the given ones, raising
+/// `NoRootVertexException` or `MultipleRootVerticesException` when there is
+/// not exactly one of them. Every graph owes a caller this, and what differs
+/// between them is no more than the collection its roots sit in.
+let singleRoot (roots: #IReadOnlyList<IVertex<'V>>) =
+  match roots.Count with
+  | 1 -> roots[0]
+  | 0 -> raise NoRootVertexException
+  | _ -> raise MultipleRootVerticesException
+
+/// Finds the vertex the given predicate answers true for, out of the ones the
+/// given lookup reaches, raising `VertexNotFoundException` when there is no
+/// such vertex. Scanning a collection of its own is all of this that belongs
+/// to a graph rather than to the protocol every graph answers.
+let findVertexBy (tryFind: (IVertex<'V> -> bool) -> _ option) fn =
+  match tryFind fn with
+  | Some v -> v
+  | None -> raiseVertexNotFoundByPredicate ()
+
+/// Finds the vertex carrying the given data, out of the ones the given lookup
+/// reaches, answering None when there is no such vertex.
+let tryFindVertexByData (tryFind: (IVertex<'V> -> bool) -> _ option) data =
+  tryFind (fun v -> v.VData = data)
+
+/// Finds the vertex carrying the given data, as `tryFindVertexByData` does,
+/// raising `VertexNotFoundException` when there is no such vertex.
+let findVertexByData tryFind data =
+  match tryFindVertexByData tryFind data with
+  | Some v -> v
+  | None -> raiseVertexNotFoundByData data
+
 /// Raises `VertexNotFoundException` when no vertex of the given vertex's ID
 /// belongs to the given graph. Analyses use this to reject a vertex of another
 /// graph up front, rather than failing later with an obscure lookup error. It

@@ -146,11 +146,6 @@ type MutableDiGraph<'V, 'E when 'V: equality and 'E: equality>
 
   let tryFindVertexBy fn = vertices.Values |> Seq.tryFind fn
 
-  let findVertexBy fn =
-    match tryFindVertexBy fn with
-    | Some v -> v
-    | None -> GraphUtils.raiseVertexNotFoundByPredicate ()
-
   let clone () =
     let g = MutableDiGraph<'V, 'E>(id)
     let ig = g :> IMutableDiGraph<'V, 'E>
@@ -226,11 +221,7 @@ type MutableDiGraph<'V, 'E when 'V: equality and 'E: equality>
 
     member _.Roots with get() = GraphUtils.toArray roots
 
-    member _.SingleRoot with get() =
-      match roots.Count with
-      | 1 -> roots[0]
-      | 0 -> raise NoRootVertexException
-      | _ -> raise MultipleRootVerticesException
+    member _.SingleRoot with get() = GraphUtils.singleRoot roots
 
     member _.ImplementationType with get() = Mutable
 
@@ -243,17 +234,15 @@ type MutableDiGraph<'V, 'E when 'V: equality and 'E: equality>
       | true, edge -> hasOwnEnds edge src dst
       | false, _ -> false
 
-    member _.FindVertexBy fn = findVertexBy fn
+    member _.FindVertexBy fn = GraphUtils.findVertexBy tryFindVertexBy fn
 
     member _.TryFindVertexBy fn = tryFindVertexBy fn
 
     member _.FindVertexByData data =
-      match tryFindVertexBy (fun v -> v.VData = data) with
-      | Some v -> v
-      | None -> GraphUtils.raiseVertexNotFoundByData data
+      GraphUtils.findVertexByData tryFindVertexBy data
 
     member _.TryFindVertexByData data =
-      tryFindVertexBy (fun v -> v.VData = data)
+      GraphUtils.tryFindVertexByData tryFindVertexBy data
 
     member _.FindEdge(src: IVertex<'V>, dst: IVertex<'V>) =
       match edges.TryGetValue(key = struct (src.ID, dst.ID)) with

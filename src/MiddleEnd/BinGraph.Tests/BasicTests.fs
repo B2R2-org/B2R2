@@ -231,6 +231,34 @@ type BasicTests() =
 
   [<TestMethod>]
   [<DynamicData(nameof BasicTests.GraphTypes)>]
+  member _.``Derived Graph Vertex Lookup Test``(t) =
+    (* A subgraph view and a transpose answer a lookup out of the vertices
+       they hold, which are not the vertices of the graph they were taken
+       from. *)
+    let g, vmap = digraph1 t
+    let vs = [| vmap[2]; vmap[3]; vmap[5] |]
+    let sub = SubDiGraph(g, vs, [| vmap[2] |]) :> IDiGraph<int, int>
+    Assert.AreSame(vmap[2], sub.SingleRoot)
+    Assert.AreSame(vmap[3], sub.FindVertexByData 3)
+    Assert.AreSame(vmap[5], sub.FindVertexBy(fun v -> v.VData = 5))
+    Assert.IsNull(sub.TryFindVertexByData 1 |> Option.toObj)
+    Assert.IsNull(sub.TryFindVertexBy(fun v -> v.VData = 1) |> Option.toObj)
+    Assert.Throws<VertexNotFoundException>(fun () ->
+      sub.FindVertexByData 1 |> ignore)
+    |> ignore
+    Assert.Throws<NoRootVertexException>(fun () ->
+      (SubDiGraph(g, vs, [||]) :> IDiGraph<int, int>).SingleRoot |> ignore)
+    |> ignore
+    let rev = g.Reverse [ vmap[3]; vmap[5] ]
+    Assert.AreSame(vmap[1], rev.FindVertexByData 1)
+    Assert.IsNull(rev.TryFindVertexByData 42 |> Option.toObj)
+    Assert.Throws<MultipleRootVerticesException>(fun () ->
+      rev.SingleRoot |> ignore)
+    |> ignore
+    Assert.AreSame(vmap[3], (g.Reverse [ vmap[3] ]).SingleRoot)
+
+  [<TestMethod>]
+  [<DynamicData(nameof BasicTests.GraphTypes)>]
   member _.``Adjacency Lookup Of Removed Vertex Test``(t) =
     let g, vmap = digraph1 t
     let v = vmap[3]

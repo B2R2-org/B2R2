@@ -56,11 +56,6 @@ type PersistentDiGraph<'V, 'E
     vertices
     |> Map.tryPick (fun _ v -> if fn v then Some v else None)
 
-  let findVertexBy fn =
-    match tryFindVertexBy fn with
-    | Some v -> v
-    | None -> GraphUtils.raiseVertexNotFoundByPredicate ()
-
   let findEdges vid (map: Map<VertexID, Edge<'V, 'E> list>) =
     match Map.tryFind vid map with
     | Some edges -> edges
@@ -211,11 +206,7 @@ type PersistentDiGraph<'V, 'E
 
     member _.Roots with get() = List.toArray roots
 
-    member _.SingleRoot with get() =
-      match roots with
-      | [ r ] -> r
-      | [] -> raise NoRootVertexException
-      | _ -> raise MultipleRootVerticesException
+    member _.SingleRoot with get() = GraphUtils.singleRoot roots
 
     member _.ImplementationType with get() = Persistent
 
@@ -229,14 +220,12 @@ type PersistentDiGraph<'V, 'E
       | Some edges -> edges |> List.exists (fun e -> hasOwnEnds e src dst)
 
     member _.FindVertexByData data =
-      match tryFindVertexBy (fun v -> v.VData = data) with
-      | Some v -> v
-      | None -> GraphUtils.raiseVertexNotFoundByData data
+      GraphUtils.findVertexByData tryFindVertexBy data
 
     member _.TryFindVertexByData data =
-      tryFindVertexBy (fun v -> v.VData = data)
+      GraphUtils.tryFindVertexByData tryFindVertexBy data
 
-    member _.FindVertexBy fn = findVertexBy fn
+    member _.FindVertexBy fn = GraphUtils.findVertexBy tryFindVertexBy fn
 
     member _.TryFindVertexBy fn = tryFindVertexBy fn
 

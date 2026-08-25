@@ -77,11 +77,6 @@ type internal SubDiGraph<'V, 'E when 'V: equality and 'E: equality>
 
   let tryFindVertexBy fn = vs |> Array.tryFind fn
 
-  let findVertexBy fn =
-    match tryFindVertexBy fn with
-    | Some v -> v
-    | None -> GraphUtils.raiseVertexNotFoundByPredicate ()
-
   interface IDiGraph<'V, 'E> with
 
     member _.VertexCount with get() = vs.Length
@@ -103,11 +98,7 @@ type internal SubDiGraph<'V, 'E when 'V: equality and 'E: equality>
 
     member _.Roots with get() = Array.copy roots
 
-    member _.SingleRoot with get() =
-      match roots.Length with
-      | 1 -> roots[0]
-      | 0 -> raise NoRootVertexException
-      | _ -> raise MultipleRootVerticesException
+    member _.SingleRoot with get() = GraphUtils.singleRoot roots
 
     member _.ImplementationType with get() = implType
 
@@ -117,17 +108,15 @@ type internal SubDiGraph<'V, 'E when 'V: equality and 'E: equality>
 
     member _.HasEdge(src, dst) = (tryFindEdge src dst).IsSome
 
-    member _.FindVertexBy fn = findVertexBy fn
+    member _.FindVertexBy fn = GraphUtils.findVertexBy tryFindVertexBy fn
 
     member _.TryFindVertexBy fn = tryFindVertexBy fn
 
     member _.FindVertexByData data =
-      match tryFindVertexBy (fun v -> v.VData = data) with
-      | Some v -> v
-      | None -> GraphUtils.raiseVertexNotFoundByData data
+      GraphUtils.findVertexByData tryFindVertexBy data
 
     member _.TryFindVertexByData data =
-      tryFindVertexBy (fun v -> v.VData = data)
+      GraphUtils.tryFindVertexByData tryFindVertexBy data
 
     member _.FindEdge(src, dst) =
       match tryFindEdge src dst with
