@@ -24,8 +24,21 @@
 
 namespace B2R2.MiddleEnd.ControlFlowGraph
 
+/// <namespacedoc>
+///   <summary>
+///   Contains the control-flow graphs that B2R2's middle-end analyses run on,
+///   built out of the graph data structures of
+///   <c>B2R2.MiddleEnd.BinGraph</c>. A CFG comes in one flavor per program
+///   representation -- LowUIR, disassembly, SSA, and the call graph -- each
+///   with its own kind of basic block, but all sharing the same edge kind and
+///   the same abstraction for the functions a call reaches.
+///   </summary>
+/// </namespacedoc>
+///
+/// <summary>
 /// Represents the kind of a CFG edge. Every edge of a CFG carries one, which
 /// is what tells the control transfer it stands for from the others.
+/// </summary>
 type CFGEdgeKind =
   /// An edge of a direct jump, e.g., JMP +0x42.
   | InterJmpEdge
