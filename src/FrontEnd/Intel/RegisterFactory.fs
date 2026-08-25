@@ -57,7 +57,7 @@ type RegisterFactory(isa: ISA) =
     AST.extract (if wordSize = Bit32 then r32 else r64) 8<rt> 8
 
   let regL8ext wordSize name r64 =
-    if wordSize = Bit32 then AST.undef 16<rt> name else AST.xtlo 8<rt> r64
+    if wordSize = Bit32 then AST.undef 8<rt> name else AST.xtlo 8<rt> r64
 
   let regBasic reg regString =
     AST.var (WordSize.toRegType wordSize) reg regString
