@@ -24,7 +24,6 @@
     <Compile Include="SubDiGraph.fs" />
     <Compile Include="MutableDiGraph.fs" />
     <Compile Include="PersistentDiGraph.fs" />
-    <Compile Include="ISCCEnumerable.fs" />
     <Compile Include="SCC\Tarjan.fs" />
     <Compile Include="DominanceAlgorithm.fs" />
     <Compile Include="IDominance.fs" />

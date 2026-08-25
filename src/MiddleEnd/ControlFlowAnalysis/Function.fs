@@ -26,6 +26,7 @@ namespace B2R2.MiddleEnd.ControlFlowAnalysis
 
 open System.Collections.Generic
 open B2R2
+open B2R2.MiddleEnd.BinGraph
 open B2R2.MiddleEnd.ControlFlowGraph
 
 /// Represents a function in a binary, which is essentially a continuous chunk
@@ -42,7 +43,7 @@ type Function(entryPoint,
               isExtern) =
 
   new(entryPoint, name, noret, callers, jmptbls, isExtern) =
-    let dummy = LowUIRCFG()
+    let dummy = LowUIRCFG.create Persistent
     Function(entryPoint, name, dummy, noret, null, callers, jmptbls, isExtern)
 
   /// Function entry point address.

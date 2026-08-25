@@ -523,7 +523,7 @@ type CFG1Tests() =
   member private _.BuildMultiRootCFG(t) =
     let bblFactory = BBLFactory(hdl, instrs)
     scanBBLs bblFactory [| 0x00UL; 0x62UL; 0x71UL |]
-    let cfg = LowUIRCFG t
+    let cfg = LowUIRCFG.create t
     let v1 = cfg.AddVertex(bblFactory.Find(ProgramPoint(0x00UL, 0)))
     let v2 = cfg.AddVertex(bblFactory.Find(ProgramPoint(0x62UL, 0)))
     let v3 = cfg.AddVertex(bblFactory.Find(ProgramPoint(0x71UL, 0)))
@@ -561,7 +561,7 @@ type CFG1Tests() =
   member this.``DisasmCFG Multiple Roots Test``(t) =
     let cfg = this.BuildMultiRootCFG t
     let disasm = StringDisasmBuilder(false, null, hdl.ISA.WordSize)
-    let dcfg = DisasmCFG(disasm, cfg)
+    let dcfg = DisasmCFG.create disasm cfg
     let roots =
       dcfg.Roots
       |> Array.map (fun v -> v.VData.Internals.PPoint.Address)
@@ -573,6 +573,6 @@ type CFG1Tests() =
     let brew = BinaryBrew hdl
     let cfg = brew.Functions[0x0UL].CFG
     let disasm = StringDisasmBuilder(false, null, hdl.ISA.WordSize)
-    let dcfg = DisasmCFG(disasm, cfg)
+    let dcfg = DisasmCFG.create disasm cfg
     let root = dcfg.SingleRoot
     Assert.AreEqual<Addr>(0x0UL, root.VData.Internals.PPoint.Address)

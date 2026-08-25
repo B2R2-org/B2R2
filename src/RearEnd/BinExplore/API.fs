@@ -72,7 +72,7 @@ module API =
       | CFGKind.Disasm ->
         let file = brew.BinHandle.File
         let disasmBuilder = getDisasmBuilder file
-        let g = DisasmCFG(disasmBuilder, g)
+        let g = DisasmCFG.create disasmBuilder g
         Visualizer.toVisGraph g cw ch
         |> Ok
       | CFGKind.SSA ->

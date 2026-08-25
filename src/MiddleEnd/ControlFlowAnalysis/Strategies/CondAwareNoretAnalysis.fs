@@ -141,10 +141,10 @@ type CondAwareNoretAnalysis([<Optional; DefaultParameterValue(true)>] strict) =
       | NoRet ->
         Terminator.impossible ())
 
-  let untouchedArgIndexX86FromSSACFG (ssa: SSACFG) frameDist absV state nth =
+  let untouchedArgIndexX86FromSSACFG frameDist absV state nth =
     let argOff = frameDist - 4 * nth
     let varKind = SSA.StackVar(32<rt>, argOff)
-    ssa.FindReachingDef(absV, varKind)
+    SSACFG.findReachingDef absV varKind
     |> Option.bind (function
       | SSA.Def(var, _) ->
         match (state: SSASparseDataFlow.State<_>).GetRegValue var with
@@ -155,11 +155,11 @@ type CondAwareNoretAnalysis([<Optional; DefaultParameterValue(true)>] strict) =
       | _ ->
         None)
 
-  let untouchedArgIndexX64FromSSACFG hdl (ssa: SSACFG) absV state nth =
+  let untouchedArgIndexX64FromSSACFG hdl absV state nth =
     let argReg = (hdl: BinHandle).Conventions.Calling.IntArgRegister(nth - 1)
     let name = hdl.RegisterFactory.GetRegisterName argReg
     let varKind = SSA.RegVar(64<rt>, argReg, name)
-    match ssa.FindReachingDef(absV, varKind) with
+    match SSACFG.findReachingDef absV varKind with
     | Some(SSA.Def(var, _)) ->
       match (state: SSASparseDataFlow.State<_>).GetRegValue var with
       | UntouchedValueDomain.Untouched(RegisterTag(Regular rid)) ->
@@ -172,7 +172,7 @@ type CondAwareNoretAnalysis([<Optional; DefaultParameterValue(true)>] strict) =
       Some nth
 
   let findSSAVertexByAddr (ssa: SSACFG) addr =
-    ssa.FindVertex(fun v ->
+    ssa.FindVertexBy(fun v ->
       if v.VData.Internals.IsAbstract then false
       else v.VData.Internals.Range.IsIncluding addr)
 
@@ -184,9 +184,9 @@ type CondAwareNoretAnalysis([<Optional; DefaultParameterValue(true)>] strict) =
     let isa = (ctx: CFGBuildingContext<_, _>).BinHandle.ISA
     match ctx.IntraCallTable.TryGetFrameDistance callSite with
     | true, frameDist when isa.IsX86 ->
-      untouchedArgIndexX86FromSSACFG ssa frameDist absSSAV state nth
+      untouchedArgIndexX86FromSSACFG frameDist absSSAV state nth
     | true, _ when isa.IsX64 ->
-      untouchedArgIndexX64FromSSACFG ctx.BinHandle ssa absSSAV state nth
+      untouchedArgIndexX64FromSSACFG ctx.BinHandle absSSAV state nth
     | _ ->
       None
 

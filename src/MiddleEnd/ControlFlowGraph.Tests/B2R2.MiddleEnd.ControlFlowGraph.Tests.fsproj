@@ -6,6 +6,7 @@
 
   <ItemGroup>
     <Compile Include="BasicBlockTests.fs" />
+    <Compile Include="CFGTests.fs" />
   </ItemGroup>
 
   <ItemGroup>

@@ -300,7 +300,7 @@ type CFG2Tests() =
     let brew = BinaryBrew hdl
     let cfg = brew.Functions[0x0UL].CFG
     let disasm = StringDisasmBuilder(false, null, hdl.ISA.WordSize)
-    let dcfg = DisasmCFG(disasm, cfg)
+    let dcfg = DisasmCFG.create disasm cfg
     Assert.AreEqual<int>(3, dcfg.VertexCount)
     let vMap =
       dcfg |> DiGraph.foldVertex (fun m v ->

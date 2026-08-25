@@ -41,8 +41,8 @@ type SSALifter() =
     | Def(v, _) -> v
     | _ -> Terminator.impossible ()
 
-  let findLastStackDef (ssaCFG: SSACFG) v targetVarKind =
-    ssaCFG.FindReachingDef(v, targetVarKind)
+  let findLastStackDef v targetVarKind =
+    SSACFG.findReachingDef v targetVarKind
     |> Option.map extractStackVar
 
   let updateIfStackValueIsConstant ctx (ssaCFG: SSACFG) state v sp =
@@ -70,7 +70,7 @@ type SSALifter() =
       let spName = hdl.RegisterFactory.GetRegisterName rid
       let rt = hdl.ISA.WordSize |> WordSize.toRegType
       let spRegKind = RegVar(rt, rid, spName)
-      match findLastStackDef ssaCFG v spRegKind with
+      match findLastStackDef v spRegKind with
       | Some sp -> updateIfStackValueIsConstant ctx ssaCFG state v sp
       | None -> ()
     | None ->

@@ -73,6 +73,6 @@ module CallGraph =
   /// Creates a CallCFG from a BinaryBrew.
   [<CompiledName "Create">]
   let create implType brew =
-    let callGraph = CallCFG implType
+    let callGraph = CallCFG.create implType
     buildCG callGraph (CallVMap()) brew
     callGraph

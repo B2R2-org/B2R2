@@ -434,7 +434,7 @@ module private SSALifterFactory =
   let create hdl stmtProcessor callback =
     { new ISSALiftable with
         member _.Lift cfg =
-          let ssaCFG = SSACFG cfg.ImplementationType
+          let ssaCFG = SSACFG.create cfg.ImplementationType
           convertToSSA stmtProcessor cfg ssaCFG
           let dom = computeDominatorInfo ssaCFG
           updatePhis ssaCFG dom

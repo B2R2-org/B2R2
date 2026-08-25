@@ -80,7 +80,7 @@ module Helper =
     |> Array.concat
 
   let getDisasmVertexRanges disasmBuilder (cfg: LowUIRCFG) =
-    let dcfg = DisasmCFG(disasmBuilder, cfg)
+    let dcfg = DisasmCFG.create disasmBuilder cfg
     dcfg.Vertices
     |> Array.map (fun v ->
       v.VData.Internals.Range.Min, v.VData.Internals.Range.Max)

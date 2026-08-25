@@ -805,7 +805,7 @@ module internal CFGRecoveryCommon =
       Terminator.impossible ()
 
   let hasReturnNode (ctx: CFGBuildingContext<'FnCtx, 'GlCtx>) =
-    ctx.CFG.TryFindVertex(fun v ->
+    ctx.CFG.TryFindVertexBy(fun v ->
       if v.VData.Internals.IsAbstract then
         v.VData.Internals.AbstractContent.ReturningStatus = NotNoRet
       else

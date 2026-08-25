@@ -31,7 +31,7 @@ Every module named above carries `[<RequireQualifiedAccess>]`, so the family
 prefix stays visible at the call site.
 
 An interface that an algorithm returns belongs with the data structures rather
-than with the algorithm, which is why `IDominance` and `ISCCEnumerable` are in
-the root namespace while nothing that implements them is. A new algorithm is
+than with the algorithm, which is why `IDominance` is in the root namespace
+while nothing that implements it is. A new algorithm is
 one more file and one more module in the family it belongs to; only utilities
 over the data structures themselves, such as `DiGraph`, stay at the root.

@@ -28,21 +28,46 @@ open System.Collections.Generic
 open B2R2
 open B2R2.FrontEnd.BinLifter
 open B2R2.MiddleEnd.BinGraph
-open B2R2.MiddleEnd.ControlFlowGraph
 
 /// Represents a disassembly-based CFG, where each node contains disassembly
 /// code. This is the most user-friendly CFG, although we do not use this for
-/// internal analyses. Therefore, this class does not provide ways to modify
-/// the CFG.
-type DisasmCFG(disasmBuilder, ircfg: LowUIRCFG) =
-  let isAbsVertex (v: IVertex<LowUIRBasicBlock>) = v.VData.Internals.IsAbstract
+/// internal analyses. This is a read-only graph: it is built out of a
+/// LowUIRCFG and is not modified afterwards.
+type DisasmCFG = IDiGraph<DisasmBasicBlock, CFGEdgeKind>
 
-  let haveSameAddresses v1 v2 =
+/// Represents the vertex information held while a DisasmCFG is built.
+and private TemporaryDisasmVertex =
+  { /// An address of this vertex.
+    Address: Addr
+    /// Instructions that will be gathered while merging vertices.
+    Instructions: SortedList<Addr, IInstruction>
+    /// Successor addresses along with edge kinds.
+    Successors: List<Addr * CFGEdgeKind>
+    /// Corresponding IR-level vertex. This represents the original vertex when
+    /// merging vertices, which is guaranteed by our depth-first traversal.
+    IRVertex: IVertex<LowUIRBasicBlock> }
+
+/// Represents a mapping from an address to a TemporaryDisasmVertex.
+and private TempDisasmVMap = Dictionary<Addr, TemporaryDisasmVertex>
+
+/// Represents a mapping from an address to a DisasmCFG vertex.
+and private DisasmVMap = Dictionary<Addr, IVertex<DisasmBasicBlock>>
+
+/// <summary>
+/// Provides a way to create a
+/// <see cref="T:B2R2.MiddleEnd.ControlFlowGraph.DisasmCFG"/>.
+/// </summary>
+[<RequireQualifiedAccess>]
+module DisasmCFG =
+  let private isAbsVertex (v: IVertex<LowUIRBasicBlock>) =
+    v.VData.Internals.IsAbstract
+
+  let private haveSameAddresses v1 v2 =
     let addr1 = (v1: IVertex<LowUIRBasicBlock>).VData.Internals.PPoint.Address
     let addr2 = (v2: IVertex<LowUIRBasicBlock>).VData.Internals.PPoint.Address
     addr1 = addr2
 
-  let getInstructions (v: IVertex<LowUIRBasicBlock>) =
+  let private getInstructions (v: IVertex<LowUIRBasicBlock>) =
     let insList = SortedList()
     v.VData.Internals.LiftedInstructions
     |> Array.iter (fun lifted ->
@@ -51,8 +76,8 @@ type DisasmCFG(disasmBuilder, ircfg: LowUIRCFG) =
       else insList.Add(ins.Address, ins))
     insList
 
-  let getTempVertex (vMap: TempDisasmVMap) (v: IVertex<LowUIRBasicBlock>) =
-    let addr = v.VData.Internals.PPoint.Address
+  let private getTempVertex (vMap: TempDisasmVMap) v =
+    let addr = (v: IVertex<LowUIRBasicBlock>).VData.Internals.PPoint.Address
     match vMap.TryGetValue(addr) with
     | true, tmpV ->
       tmpV
@@ -65,49 +90,49 @@ type DisasmCFG(disasmBuilder, ircfg: LowUIRCFG) =
       vMap[addr] <- tmpV
       tmpV
 
-  let connect tempVMap srcTmpV (dst: IVertex<LowUIRBasicBlock>) edgeKind =
+  let private connect tempVMap srcTmpV (dst: IVertex<LowUIRBasicBlock>) e =
     let dstAddr = dst.VData.Internals.PPoint.Address
-    srcTmpV.Successors.Add(dstAddr, edgeKind)
+    srcTmpV.Successors.Add(dstAddr, e)
     getTempVertex tempVMap dst |> ignore
 
-  let merge (tempVMap: TempDisasmVMap) src dstTmpV =
+  let private merge (tempVMap: TempDisasmVMap) src dstTmpV =
     let srcInss = getInstructions src
     for (KeyValue(addr, ins)) in srcInss do dstTmpV.Instructions.Add(addr, ins)
     tempVMap[src.VData.Internals.PPoint.Address] <- dstTmpV
 
-  let isIntraEdge = function
+  let private isIntraEdge = function
     | IntraJmpEdge | IntraCJmpTrueEdge | IntraCJmpFalseEdge -> true
     | _ -> false
 
-  let areConsecutive (srcTmpV: TemporaryDisasmVertex) (dst: IVertex<_>) =
-    let lastIns = srcTmpV.Instructions.Values |> Seq.last
+  let private areConsecutive srcTmpV (dst: IVertex<LowUIRBasicBlock>) =
+    let insList = (srcTmpV: TemporaryDisasmVertex).Instructions
+    let lastIns = insList.Values |> Seq.last
     let fallthroughAddr = lastIns.Address + uint64 lastIns.Length
-    let nextAddr = (dst.VData: LowUIRBasicBlock).Internals.PPoint.Address
-    fallthroughAddr = nextAddr
+    fallthroughAddr = dst.VData.Internals.PPoint.Address
 
-  let hasOnePred (g: LowUIRCFG) (v: IVertex<_>) =
+  let private hasOnePred (g: LowUIRCFG) (v: IVertex<_>) =
     g.GetPredEdges(v)
     |> Array.filter (fun e -> not <| isIntraEdge e.Label)
     |> Array.length = 1
 
-  let hasOneSucc (g: LowUIRCFG) (v: IVertex<_>) =
+  let private hasOneSucc (g: LowUIRCFG) (v: IVertex<_>) =
     g.GetSuccEdges(v)
     |> Array.filter (fun e -> not <| isIntraEdge e.Label)
     |> Array.length = 1
 
-  let hasIntraBackEdge (g: LowUIRCFG) (v: IVertex<_>) =
+  let private hasIntraBackEdge (g: LowUIRCFG) (v: IVertex<_>) =
     g.GetPredEdges(v)
     |> Array.exists (fun e -> haveSameAddresses e.First e.Second)
 
-  let areMergable g src (srcTmpV: TemporaryDisasmVertex) dst =
+  let private areMergable g src (srcTmpV: TemporaryDisasmVertex) dst =
     areConsecutive srcTmpV dst
     && hasOnePred g dst
     && hasOneSucc g src
     (* We should check this to handle self-loops with intra-jumps. *)
     && not <| hasIntraBackEdge g srcTmpV.IRVertex
 
-  let rec skipAbsVertices (g: LowUIRCFG) (v: IVertex<LowUIRBasicBlock>) =
-    if not v.VData.Internals.IsAbstract then
+  let rec private skipAbsVertices (g: LowUIRCFG) v =
+    if not (v: IVertex<LowUIRBasicBlock>).VData.Internals.IsAbstract then
       v
     else
       match g.GetSuccs(v) with
@@ -115,7 +140,7 @@ type DisasmCFG(disasmBuilder, ircfg: LowUIRCFG) =
       | [| succ |] -> skipAbsVertices g succ
       | _ -> Terminator.impossible ()
 
-  let connectOrMerge tempVMap g src dst e =
+  let private connectOrMerge tempVMap g src dst e =
     let srcTmpV = getTempVertex tempVMap src
     if isAbsVertex dst || isIntraEdge e then (* Ignore calls and intra-jumps. *)
       ()
@@ -124,12 +149,12 @@ type DisasmCFG(disasmBuilder, ircfg: LowUIRCFG) =
     else (* Otherwise, connect them. *)
       connect tempVMap srcTmpV dst e
 
-  let collectFreshSuccEdges (visited: HashSet<_>) g v =
+  let private collectFreshSuccEdges (visited: HashSet<_>) g v =
     (g: IDiGraph<_, _>).GetSuccEdges(v)
     |> Array.filter (not << visited.Contains)
     |> Array.toList
 
-  let rec dfs g tempVMap (visited: HashSet<_>) edges =
+  let rec private dfs g tempVMap (visited: HashSet<_>) edges =
     match edges with
     | [] ->
       ()
@@ -149,7 +174,7 @@ type DisasmCFG(disasmBuilder, ircfg: LowUIRCFG) =
   /// - Merge consecutive nodes.
   /// This has a time complexity of O(|V| + |E|), as we do a DFS traversal of
   /// the given LowUIRCFG.
-  let prepareDisasmCFGInfo (g: LowUIRCFG) =
+  let private prepareDisasmCFGInfo (g: LowUIRCFG) =
     let tempVMap = TempDisasmVMap()
     let visited = HashSet()
     let rootAddrs = List()
@@ -159,15 +184,15 @@ type DisasmCFG(disasmBuilder, ircfg: LowUIRCFG) =
       dfs g tempVMap visited (g.GetSuccEdges(root) |> Array.toList)
     tempVMap, rootAddrs
 
-  let getDisasmVertex g (vMap: DisasmVMap) (tempVMap: TempDisasmVMap) addr =
+  let private getDisasmVertex builder g (vMap: DisasmVMap) tempVMap addr =
     match vMap.TryGetValue(addr) with
     | true, v ->
       v
     | false, _ ->
-      let tmpV = tempVMap[addr]
+      let tmpV = (tempVMap: TempDisasmVMap)[addr]
       let ppoint = ProgramPoint(tmpV.Address, 0)
       let instrs = tmpV.Instructions.Values |> Seq.toArray
-      let bbl = DisasmBasicBlock(disasmBuilder, ppoint, instrs)
+      let bbl = DisasmBasicBlock(builder, ppoint, instrs)
       let v = (g: IMutableDiGraph<_, _>).AddVertex(bbl)
       vMap[addr] <- v
       v
@@ -177,139 +202,34 @@ type DisasmCFG(disasmBuilder, ircfg: LowUIRCFG) =
   /// the map answers which block holds it rather than the address being used
   /// as it stands. Two roots can land in the one block, which the graph must
   /// not hear of twice.
-  let getRootVertices (tempVMap: TempDisasmVMap) (vMap: DisasmVMap) rootAddrs =
+  let private getRootVertices (tempVMap: TempDisasmVMap) vMap rootAddrs =
     rootAddrs
-    |> Seq.map (fun addr -> vMap[tempVMap[addr].Address])
+    |> Seq.map (fun addr -> (vMap: DisasmVMap)[tempVMap[addr].Address])
     |> Seq.distinct
     |> Seq.toArray
 
-  let updateDisasmCFG tempVMap rootAddrs (g: IMutableDiGraph<_, _>) =
+  let private updateDisasmCFG builder tempVMap rootAddrs g =
     let vMap = DisasmVMap()
     (tempVMap: TempDisasmVMap).Values
     |> Seq.distinctBy (fun v -> v.Address)
     |> Seq.iter (fun tmpV ->
-      let srcDisasmV = getDisasmVertex g vMap tempVMap tmpV.Address
+      let srcDisasmV = getDisasmVertex builder g vMap tempVMap tmpV.Address
       tmpV.Successors |> Seq.iter (fun (dst, label) ->
-        let dstDisasmV = getDisasmVertex g vMap tempVMap dst
-        g.AddEdge(srcDisasmV, dstDisasmV, label)))
+        let dstDisasmV = getDisasmVertex builder g vMap tempVMap dst
+        (g: IMutableDiGraph<_, _>).AddEdge(srcDisasmV, dstDisasmV, label)))
     (* Every vertex is in place by now, hence the roots can be named rather
        than left to whichever vertex the graph happened to take in first. *)
     g.SetRoots(getRootVertices tempVMap vMap rootAddrs)
-    g
 
-  let createEmptyDisasmCFGByType (implType: ImplementationType) =
+  let private createEmptyDisasmCFG (implType: ImplementationType) =
     match implType with
     | Mutable -> MutableDiGraph() :> IMutableDiGraph<_, _>
     | Persistent -> MutablePersistentDiGraph(PersistentDiGraph())
 
-  let createDisasmCFG (tempVMap, rootAddrs) =
-    createEmptyDisasmCFGByType ircfg.ImplementationType
-    |> updateDisasmCFG tempVMap rootAddrs
-
-  let g =
-    ircfg
-    |> prepareDisasmCFGInfo
-    |> createDisasmCFG
-
-  /// Gets the number of vertices.
-  member _.VertexCount with get() = g.VertexCount
-
-  /// Gets the number of edges.
-  member _.EdgeCount with get() = g.EdgeCount
-
-  /// Gets an array of all vertices in this CFG.
-  member _.Vertices with get() = g.Vertices
-
-  /// Gets an array of all edges in this CFG.
-  member _.Edges with get() = g.Edges
-
-  /// Gets an array of exit vertices in this CFG.
-  member _.Exits with get() = g.Exits
-
-  /// <summary>
-  /// Gets exactly one root vertex of this CFG.
-  /// </summary>
-  /// <exception cref='T:B2R2.MiddleEnd.BinGraph.NoRootVertexException'>
-  /// Thrown when this CFG has no root vertex.
-  /// </exception>
-  /// <exception
-  ///   cref='T:B2R2.MiddleEnd.BinGraph.MultipleRootVerticesException'>
-  /// Thrown when this CFG has more than one root vertex.
-  /// </exception>
-  member _.SingleRoot with get() = g.SingleRoot
-
-  /// Gets the root vertices of this CFG.
-  member _.Roots with get() = g.Roots
-
-  /// Gets the implementation type of this CFG.
-  member _.ImplementationType with get() = g.ImplementationType
-
-  /// Checks if this CFG is empty. A CFG is empty when there is no vertex.
-  member _.IsEmpty with get() = g.IsEmpty
-
-  /// Finds the edge between the given source and destination vertices.
-  member _.FindEdge(src, dst) = g.FindEdge(src, dst)
-
-  /// Finds the edge between the given source and destination vertices,
-  /// answering None when there is no such edge.
-  member _.TryFindEdge(src, dst) = g.TryFindEdge(src, dst)
-
-  /// Gets the predecessors of the given vertex.
-  member _.GetPreds v = g.GetPreds v
-
-  /// Gets the predecessor edges of the given vertex.
-  member _.GetPredEdges v = g.GetPredEdges v
-
-  /// Gets the successors of the given vertex.
-  member _.GetSuccs v = g.GetSuccs v
-
-  /// Gets the successor edges of the given vertex.
-  member _.GetSuccEdges v = g.GetSuccEdges v
-
-  interface IDiGraph<DisasmBasicBlock, CFGEdgeKind> with
-    member _.VertexCount = g.VertexCount
-
-    member _.EdgeCount = g.EdgeCount
-    member _.Vertices = g.Vertices
-    member _.Edges = g.Edges
-    member _.Exits = g.Exits
-
-    member _.Roots = g.Roots
-    member _.SingleRoot = g.SingleRoot
-    member _.ImplementationType = g.ImplementationType
-    member _.IsEmpty with get() = g.IsEmpty
-    member _.Contains v = g.Contains v
-    member _.HasEdge(src, dst) = g.HasEdge(src, dst)
-    member _.FindVertexByData vdata = g.FindVertexByData vdata
-    member _.TryFindVertexByData vdata = g.TryFindVertexByData vdata
-    member _.FindVertexBy fn = g.FindVertexBy fn
-    member _.TryFindVertexBy fn = g.TryFindVertexBy fn
-    member _.FindEdge(src, dst) = g.FindEdge(src, dst)
-    member _.TryFindEdge(src, dst) = g.TryFindEdge(src, dst)
-    member _.GetPreds v = g.GetPreds v
-    member _.GetPredEdges v = g.GetPredEdges v
-    member _.GetSuccs v = g.GetSuccs v
-    member _.GetSuccEdges v = g.GetSuccEdges v
-
-    member _.Reverse vs = g.Reverse vs
-
-  interface ISCCEnumerable<DisasmBasicBlock> with
-    member _.GetSCCEnumerator() = SCC.Tarjan.compute g
-
-/// Represents the vertex information held while a DisasmCFG is built.
-and private TemporaryDisasmVertex =
-  { /// An address of this vertex.
-    Address: Addr
-    /// Instructions that will be gathered while merging vertices.
-    Instructions: SortedList<Addr, IInstruction>
-    /// Successor addresses along with edge kinds.
-    Successors: List<Addr * CFGEdgeKind>
-    /// Corresponding IR-level vertex. This represents the original vertex when
-    /// merging vertices, which is guaranteed by our depth-first traversal.
-    IRVertex: IVertex<LowUIRBasicBlock> }
-
-/// Represents a mapping from an address to a TemporaryDisasmVertex.
-and private TempDisasmVMap = Dictionary<Addr, TemporaryDisasmVertex>
-
-/// Represents a mapping from an address to a DisasmCFG vertex.
-and private DisasmVMap = Dictionary<Addr, IVertex<DisasmBasicBlock>>
+  /// Creates a disassembly-based CFG out of the given IR-level CFG, whose
+  /// implementation type the result keeps.
+  let create disasmBuilder (ircfg: LowUIRCFG): DisasmCFG =
+    let tempVMap, rootAddrs = prepareDisasmCFGInfo ircfg
+    let g = createEmptyDisasmCFG ircfg.ImplementationType
+    updateDisasmCFG disasmBuilder tempVMap rootAddrs g
+    g

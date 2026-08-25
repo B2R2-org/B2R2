@@ -117,7 +117,7 @@ type DataFlowTests() =
     let cfg = brew.Functions[0UL].CFG
     let dfa = ReachingDefinitionAnalysis() :> IDataFlowComputable<_, _, _, _>
     let state = dfa.Compute cfg
-    let v = cfg.FindVertex(fun b -> b.VData.Internals.PPoint.Address = 0xEUL)
+    let v = cfg.FindVertexBy(fun b -> b.VData.Internals.PPoint.Address = 0xEUL)
     (* v is the second vertex of the CFG. *)
     let rd = (state :> IAbsValProvider<_, _>).GetAbsValue v
     let ins = rd.Ins |> Set.filter isRegular

@@ -59,13 +59,13 @@ type JmpTableAnalysis<'FnCtx, 'GlCtx
 
   let findIndBranchExprFromIRCFG (g: LowUIRCFG) state addr =
     (* Since there could be multiple SSA vertices, search for the right one. *)
-    let v = g.FindVertex(fun v -> v.VData.Internals.BlockAddress = addr)
+    let v = g.FindVertexBy(fun v -> v.VData.Internals.BlockAddress = addr)
     let stmExtractor = (state: LowUIRSparseDataFlow.State<_>).GetTerminatorInSSA
     findJumpExpr stmExtractor g v [ v ]
 
   let findIndBranchExprFromSSACFG (ssaCFG: SSACFG) addr =
     (* Since there could be multiple SSA vertices, search for the right one. *)
-    let v = ssaCFG.FindVertex(fun v -> v.VData.Internals.BlockAddress = addr)
+    let v = ssaCFG.FindVertexBy(fun v -> v.VData.Internals.BlockAddress = addr)
     let stmExtractor (v: IVertex<SSABasicBlock>) = v.VData.Internals.LastStmt
     findJumpExpr stmExtractor ssaCFG v [ v ]
 
