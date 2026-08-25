@@ -96,13 +96,15 @@ type LowUIRBasicBlock internal(pp, summary, liftedInss, lblMap) =
       let sndInstrs =
         sndInstrs |> Array.map (fun ins -> { ins with BBLAddr = cutPoint })
       let cutPPoint = ProgramPoint(cutPoint, 0)
-      let fstLabelMap = ImmutableDictionary.CreateRange [||]
-      let sndLabelMap = ImmutableDictionary.CreateRange(Seq.toArray lblMap)
-      let createFstIns =
-        LowUIRBasicBlock.CreateRegular(fstInstrs, pp, fstLabelMap)
-      let createSndIns =
-        LowUIRBasicBlock.CreateRegular(sndInstrs, cutPPoint, sndLabelMap)
-      createFstIns, createSndIns
+      (* Labels always come from the terminator of the last instruction, and
+         that instruction always lands in the latter block, so the whole map
+         belongs to the latter block and the former one needs no label. *)
+      assert (lblMap.Values |> Seq.forall (fun p -> p.Address >= cutPoint))
+      let fstBBL =
+        LowUIRBasicBlock.CreateRegular(fstInstrs, pp, ImmutableDictionary.Empty)
+      let sndBBL =
+        LowUIRBasicBlock.CreateRegular(sndInstrs, cutPPoint, lblMap)
+      fstBBL, sndBBL
     else
       raise AbstractBlockAccessException
 
