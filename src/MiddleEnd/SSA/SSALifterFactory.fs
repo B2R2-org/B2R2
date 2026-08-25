@@ -416,8 +416,12 @@ module private SSALifterFactory =
       let addr = (state: SSASparseDataFlow.State<_>).EvalExpr addrExpr
       let src = replaceLoad state src |> Option.defaultValue src
       match memStore pp rt addr src with
-      | Some stmtInfo -> Some stmtInfo
-      | None -> Some(pp, Def(dstMemVar, Store(memVar, rt, addrExpr, src)))
+      | Some stmtInfo ->
+        Some stmtInfo
+      | None ->
+        let addrExpr =
+          replaceLoad state addrExpr |> Option.defaultValue addrExpr
+        Some(pp, Def(dstMemVar, Store(memVar, rt, addrExpr, src)))
     | Def(dstVar, e) ->
       match replaceLoad state e with
       | Some e -> Some(pp, Def(dstVar, e))

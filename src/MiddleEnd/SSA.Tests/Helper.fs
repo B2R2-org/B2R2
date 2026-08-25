@@ -93,6 +93,14 @@ module Helper =
     |> Array.collect (fun v -> v.VData.Internals.Statements)
     |> Array.map snd
 
+  /// Returns the address expression of every memory store of the given graph.
+  let storeAddressesOf g =
+    statementsOf g
+    |> Array.choose (fun stmt ->
+      match stmt with
+      | Def(_, Store(_, _, addr, _)) -> Some addr
+      | _ -> None)
+
   /// Returns how many phis the given vertex carries.
   let phiCountOf (v: IVertex<SSABasicBlock>) =
     v.VData.Internals.Statements

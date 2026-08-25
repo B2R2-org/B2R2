@@ -53,6 +53,21 @@ type SSALifterTests() =
           member _.OnVertexCreation(g, dom, _, v) = seen.Add(g, dom, v) }
     callback, seen
 
+  /// Nests a load of the address inside the address of every store, which is
+  /// the shape a store through a pointer held in a stack slot takes. No
+  /// lifter of this repository emits it today, but a post-processor is free
+  /// to, and the promotion has to read the load it holds either way.
+  let wrappingProcessor wordSize =
+    let rt = wordSize |> WordSize.toRegType
+    { new IStmtPostProcessor with
+        member _.WordSize with get() = wordSize
+        member _.PostProcess stmt =
+          match stmt with
+          | Def(dst, Store(mem, storeRt, addr, src)) ->
+            Def(dst, Store(mem, storeRt, Load(mem, rt, addr), src))
+          | _ ->
+            stmt }
+
   let vertexAt (g: SSACFG) addr =
     g.Vertices
     |> Array.find (fun v -> v.VData.Internals.PPoint.Address = addr)
@@ -128,6 +143,23 @@ type SSALifterTests() =
         | _ -> None)
       |> Array.distinct
     CollectionAssert.AreEqual([| 32<rt> |], pcRegTypes)
+
+  [<TestMethod>]
+  member _.``Lift promotes a stack load in the address of a store``() =
+    (* A load whose address the stack pointer analysis knows reads a stack
+       slot, and promotion turns it into a variable of that slot wherever it
+       sits. The address of a store is a place it sits. *)
+    let processor = wrappingProcessor hdl.ISA.WordSize
+    let lifter = SSALifterFactory.Create(hdl, processor)
+    let ssaCFG, _ = lifter.Lift(buildDiamondCFG Mutable)
+    let addrs = storeAddressesOf ssaCFG
+    let unpromoted =
+      addrs |> Array.filter (fun e ->
+        match e with
+        | Load _ -> true
+        | _ -> false)
+    Assert.AreNotEqual<int>(0, addrs.Length)
+    Assert.AreEqual<int>(0, unpromoted.Length)
 
   [<TestMethod>]
   member _.``Lift reports every vertex of the graph it returns``() =
