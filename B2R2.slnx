@@ -76,6 +76,7 @@
   <Project Path="src/MiddleEnd/DataFlow.Tests/B2R2.MiddleEnd.DataFlow.Tests.fsproj" />
   <Project Path="src/MiddleEnd/DataFlow/B2R2.MiddleEnd.DataFlow.fsproj" />
   <Project Path="src/MiddleEnd/LLVM/B2R2.MiddleEnd.LLVM.fsproj" />
+  <Project Path="src/MiddleEnd/SSA.Tests/B2R2.MiddleEnd.SSA.Tests.fsproj" />
   <Project Path="src/MiddleEnd/SSA/B2R2.MiddleEnd.SSA.fsproj" />
   <Project Path="src/RearEnd/Assembler/B2R2.RearEnd.Assembler.fsproj" />
   <Project Path="src/RearEnd/BinScan/B2R2.RearEnd.BinScan.fsproj" />

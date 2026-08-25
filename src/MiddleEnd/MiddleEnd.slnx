@@ -33,5 +33,6 @@
   <Project Path="DataFlow.Tests/B2R2.MiddleEnd.DataFlow.Tests.fsproj" />
   <Project Path="DataFlow/B2R2.MiddleEnd.DataFlow.fsproj" />
   <Project Path="LLVM/B2R2.MiddleEnd.LLVM.fsproj" />
+  <Project Path="SSA.Tests/B2R2.MiddleEnd.SSA.Tests.fsproj" />
   <Project Path="SSA/B2R2.MiddleEnd.SSA.fsproj" />
 </Solution>
