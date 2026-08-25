@@ -141,10 +141,10 @@ type CondAwareNoretAnalysis([<Optional; DefaultParameterValue(true)>] strict) =
       | NoRet ->
         Terminator.impossible ())
 
-  let untouchedArgIndexX86FromSSACFG frameDist absV state nth =
+  let untouchedArgIndexX86FromSSACFG dom frameDist absV state nth =
     let argOff = frameDist - 4 * nth
     let varKind = SSA.StackVar(32<rt>, argOff)
-    SSACFG.findReachingDef absV varKind
+    SSACFG.findReachingDef dom absV varKind
     |> Option.bind (function
       | SSA.Def(var, _) ->
         match (state: SSASparseDataFlow.State<_>).GetRegValue var with
@@ -155,11 +155,11 @@ type CondAwareNoretAnalysis([<Optional; DefaultParameterValue(true)>] strict) =
       | _ ->
         None)
 
-  let untouchedArgIndexX64FromSSACFG hdl absV state nth =
+  let untouchedArgIndexX64FromSSACFG hdl dom absV state nth =
     let argReg = (hdl: BinHandle).Conventions.Calling.IntArgRegister(nth - 1)
     let name = hdl.RegisterFactory.GetRegisterName argReg
     let varKind = SSA.RegVar(64<rt>, argReg, name)
-    match SSACFG.findReachingDef absV varKind with
+    match SSACFG.findReachingDef dom absV varKind with
     | Some(SSA.Def(var, _)) ->
       match (state: SSASparseDataFlow.State<_>).GetRegValue var with
       | UntouchedValueDomain.Untouched(RegisterTag(Regular rid)) ->
@@ -176,7 +176,7 @@ type CondAwareNoretAnalysis([<Optional; DefaultParameterValue(true)>] strict) =
       if v.VData.Internals.IsAbstract then false
       else v.VData.Internals.Range.IsIncluding addr)
 
-  let tryGetConnectedArgumentFromSSACFG ctx (ssa: SSACFG) state pp nth =
+  let tryGetConnectedArgumentFromSSACFG ctx (ssa: SSACFG) dom state pp nth =
     let callSite = (pp: ProgramPoint).CallSite |> Option.get
     let callSiteAddr = callSite.CallSiteAddress
     let callerSSAV = findSSAVertexByAddr ssa callSiteAddr
@@ -184,16 +184,16 @@ type CondAwareNoretAnalysis([<Optional; DefaultParameterValue(true)>] strict) =
     let isa = (ctx: CFGBuildingContext<_, _>).BinHandle.ISA
     match ctx.IntraCallTable.TryGetFrameDistance callSite with
     | true, frameDist when isa.IsX86 ->
-      untouchedArgIndexX86FromSSACFG frameDist absSSAV state nth
+      untouchedArgIndexX86FromSSACFG dom frameDist absSSAV state nth
     | true, _ when isa.IsX64 ->
-      untouchedArgIndexX64FromSSACFG ctx.BinHandle absSSAV state nth
+      untouchedArgIndexX64FromSSACFG ctx.BinHandle dom absSSAV state nth
     | _ ->
       None
 
   let getLazyDataFlowState g (dfa: IDataFlowComputable<_, _, _, _>) =
     lazy (dfa.Compute g)
 
-  let collectConditionalNoRetCallsFromSSACFG ctx ssaCFG =
+  let collectConditionalNoRetCallsFromSSACFG ctx ssaCFG dom =
     let hdl = ctx.BinHandle
     let state = SSAUntouchedValueAnalysis hdl |> getLazyDataFlowState ssaCFG
     collectReturningAbsPPs ctx
@@ -201,7 +201,7 @@ type CondAwareNoretAnalysis([<Optional; DefaultParameterValue(true)>] strict) =
       let absV = ctx.Vertices[pp]
       match absV.VData.Internals.AbstractContent.ReturningStatus with
       | ConditionalNoRet nth ->
-        tryGetConnectedArgumentFromSSACFG ctx ssaCFG state.Value pp nth
+        tryGetConnectedArgumentFromSSACFG ctx ssaCFG dom state.Value pp nth
         |> Option.bind (fun nth' -> Some(absV, nth'))
       | NotNoRet | UnknownNoRet ->
         None
@@ -305,11 +305,11 @@ type CondAwareNoretAnalysis([<Optional; DefaultParameterValue(true)>] strict) =
 #endif
 
   (* Non-returning function identification for SSA-based CFG. *)
-  interface ICFGAnalysis<SSACFG -> unit> with
+  interface ICFGAnalysis<SSACFGWithDominance -> unit> with
     member _.Unwrap env =
       let ctx = env.Context
-      fun g ->
-        let condNoRetCalls = collectConditionalNoRetCallsFromSSACFG ctx g
+      fun (g, dom) ->
+        let condNoRetCalls = collectConditionalNoRetCallsFromSSACFG ctx g dom
         match analyze ctx condNoRetCalls with
         | UnknownNoRet -> ctx.NonReturningStatus <- defaultStatus
         | status -> ctx.NonReturningStatus <- status

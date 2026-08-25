@@ -88,9 +88,9 @@ type CFGTests() =
     g'.AddVertexCopy v1 |> ignore
     Assert.AreEqual<int>(1, g'.VertexCount)
 
-  (* The reaching definition of a variable is read off the dominator tree
-     alone, so the function asking for it takes the vertex it starts from and
-     nothing else. *)
+  (* The reaching definition of a variable is read off the dominator tree, so
+     the function asking for it takes the dominance of the graph it walks
+     rather than trusting each block to carry its own dominator. *)
   [<TestMethod>]
   member _.``SSA Reaching Definition Test``() =
     let g = SSACFG.create Mutable
@@ -98,7 +98,9 @@ type CFGTests() =
     let v1 = g.AddVertex(ssaBlock 0x100UL [| defStmt |])
     let v2 = g.AddVertex(ssaBlock 0x200UL [| def (TempVar(32<rt>, 1)) 7 |])
     g.AddEdge(v1, v2, FallThroughEdge)
-    v2.VData.ImmDominator <- Some v1
-    let reaching = SSACFG.findReachingDef v2 varKind
+    g.SetRoots [ v1 ]
+    let df = Dominance.CooperDominanceFrontier()
+    let dom = Dominance.LengauerTarjanDominance.create g df
+    let reaching = SSACFG.findReachingDef dom v2 varKind
     Assert.AreEqual<Stmt option>(Some(snd defStmt), reaching)
-    Assert.AreEqual<Stmt option>(None, SSACFG.findReachingDef v1 varKind)
+    Assert.AreEqual<Stmt option>(None, SSACFG.findReachingDef dom v1 varKind)

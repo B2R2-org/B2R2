@@ -41,8 +41,8 @@ type SSALifter() =
     | Def(v, _) -> v
     | _ -> Terminator.impossible ()
 
-  let findLastStackDef v targetVarKind =
-    SSACFG.findReachingDef v targetVarKind
+  let findLastStackDef dom v targetVarKind =
+    SSACFG.findReachingDef dom v targetVarKind
     |> Option.map extractStackVar
 
   let updateIfStackValueIsConstant ctx (ssaCFG: SSACFG) state v sp =
@@ -63,14 +63,14 @@ type SSALifter() =
     | _ ->
       ()
 
-  let updateFrameDistance ctx ssaCFG state (v: IVertex<SSABasicBlock>) =
+  let updateFrameDistance ctx ssaCFG dom state (v: IVertex<SSABasicBlock>) =
     let hdl = (ctx: CFGBuildingContext<_, _>).BinHandle
     match hdl.RegisterFactory.StackPointer with
     | Some rid ->
       let spName = hdl.RegisterFactory.GetRegisterName rid
       let rt = hdl.ISA.WordSize |> WordSize.toRegType
       let spRegKind = RegVar(rt, rid, spName)
-      match findLastStackDef v spRegKind with
+      match findLastStackDef dom v spRegKind with
       | Some sp -> updateIfStackValueIsConstant ctx ssaCFG state v sp
       | None -> ()
     | None ->
@@ -78,13 +78,13 @@ type SSALifter() =
 
   let createCallback ctx =
     { new ISSAVertexCallback with
-        member _.OnVertexCreation(ssaCFG, state, v) =
+        member _.OnVertexCreation(ssaCFG, dom, state, v) =
           if (v.VData :> IAbstractable<_>).IsAbstract then
-            updateFrameDistance ctx ssaCFG state v
+            updateFrameDistance ctx ssaCFG dom state v
           else
             () }
 
-  interface ICFGAnalysis<unit -> SSACFG> with
+  interface ICFGAnalysis<unit -> SSACFGWithDominance> with
     member _.Unwrap env =
       let ctx = env.Context
       fun () ->

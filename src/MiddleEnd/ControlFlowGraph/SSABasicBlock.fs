@@ -34,10 +34,6 @@ open B2R2.MiddleEnd.BinGraph
 /// Represents a basic block of an SSA-based CFG (SSACFG). It holds an array
 /// of (ProgramPoint * Stmt).
 type SSABasicBlock private(ppoint, lastAddr, stmts: _[], summary) =
-  let mutable idom: IVertex<SSABasicBlock> option = None
-
-  let mutable frontier: IVertex<SSABasicBlock> list = []
-
   /// (ProgramPoint * SSA.Stmt) array.
   let mutable stmts = stmts
 
@@ -52,12 +48,6 @@ type SSABasicBlock private(ppoint, lastAddr, stmts: _[], summary) =
   /// Returns the `ISSABasicBlock` interface to access the internal
   /// representation of the basic block.
   member this.Internals with get() = this :> ISSABasicBlock
-
-  /// Gets or sets the immediate dominator of this block.
-  member _.ImmDominator with get() = idom and set(d) = idom <- d
-
-  /// Gets or sets the dominance frontier of this block.
-  member _.DomFrontier with get() = frontier and set(f) = frontier <- f
 
   /// Creates a regular basic block out of the given SSA statements.
   static member CreateRegular(stmts, ppoint, lastAddr) =

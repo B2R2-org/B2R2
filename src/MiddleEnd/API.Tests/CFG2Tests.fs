@@ -320,5 +320,5 @@ type CFG2Tests() =
     let brew = BinaryBrew hdl
     let cfg = brew.Functions[0x0UL].CFG
     let ssaLifter = SSALifterFactory.Create hdl
-    let ssacfg = ssaLifter.Lift cfg
+    let ssacfg, _ = ssaLifter.Lift cfg
     Assert.AreEqual<int>(7, ssacfg.VertexCount)

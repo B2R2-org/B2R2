@@ -512,8 +512,26 @@ type CFG1Tests() =
     let brew = BinaryBrew hdl
     let cfg = brew.Functions[0x0UL].CFG
     let ssaLifter = SSALifterFactory.Create hdl
-    let ssacfg = ssaLifter.Lift(cfg)
+    let ssacfg, _ = ssaLifter.Lift cfg
     Assert.AreEqual<int>(9, ssacfg.VertexCount)
+
+  [<TestMethod>]
+  member _.``CFG Recovery With SSA Test``() =
+    (* The SSA-based recovery reads its reaching definitions off the dominance
+       the lifter hands back, which is the one path that dominance travels
+       out of the lifter. It recovers what the plain recovery recovers. *)
+    let strategy =
+      Strategies.CFGRecovery<Strategies.DummyContext,
+                             Strategies.DummyContext>(false, true)
+    let ssaBrew = BinaryBrew(hdl, ExceptionInfo hdl, strategy)
+    let plainBrew = BinaryBrew hdl
+    let entryPointsOf (brew: BinaryBrew) =
+      brew.Functions.Sequence |> Seq.map (_.EntryPoint) |> Seq.toArray
+    CollectionAssert.AreEqual(entryPointsOf plainBrew, entryPointsOf ssaBrew)
+    let ssaCFG = ssaBrew.Functions[0x0UL].CFG
+    let plainCFG = plainBrew.Functions[0x0UL].CFG
+    Assert.AreEqual<int>(plainCFG.VertexCount, ssaCFG.VertexCount)
+    Assert.AreEqual<int>(plainCFG.EdgeCount, ssaCFG.EdgeCount)
 
   static member GraphTypes = [| [| box Persistent |]; [| box Mutable |] |]
 
@@ -536,7 +554,7 @@ type CFG1Tests() =
   member this.``CFG SSAGraph Multiple Roots Test``() =
     let cfg = this.BuildMultiRootCFG Mutable
     let ssaLifter = SSALifterFactory.Create hdl
-    let ssacfg = ssaLifter.Lift cfg
+    let ssacfg, _ = ssaLifter.Lift cfg
     Assert.AreEqual<int>(3, ssacfg.VertexCount)
     Assert.AreEqual<int>(2, ssacfg.Roots.Length)
 
@@ -544,7 +562,7 @@ type CFG1Tests() =
   member this.``CFG SSAGraph Multiple Roots Renaming Test``() =
     let cfg = this.BuildMultiRootCFG Mutable
     let ssaLifter = SSALifterFactory.Create hdl
-    let ssacfg = ssaLifter.Lift cfg
+    let ssacfg, _ = ssaLifter.Lift cfg
     let ids =
       ssacfg.Vertices
       |> Array.collect (fun v -> v.VData.Internals.Statements)
@@ -555,6 +573,30 @@ type CFG1Tests() =
     let unrenamed = ids |> Array.filter (fun id -> id <= 0)
     Assert.AreNotEqual<int>(0, ids.Length)
     Assert.AreEqual<int>(0, unrenamed.Length)
+
+  [<TestMethod>]
+  member this.``CFG SSAGraph Phi Placement Test``() =
+    (* A phi goes where the dominance frontier says it goes. Of the three
+       blocks, only the one the two roots join into is in a frontier at all,
+       so every phi of this graph belongs to it and neither root carries one. *)
+    let cfg = this.BuildMultiRootCFG Mutable
+    let ssaLifter = SSALifterFactory.Create hdl
+    let ssacfg, _ = ssaLifter.Lift cfg
+    let phiCountOf (v: IVertex<SSABasicBlock>) =
+      v.VData.Internals.Statements
+      |> Array.sumBy (fun (_, stmt) ->
+        match stmt with
+        | BinIR.SSA.Phi _ -> 1
+        | _ -> 0)
+    let counts =
+      ssacfg.Vertices
+      |> Array.map (fun v -> v.VData.Internals.PPoint.Address, phiCountOf v)
+      |> Array.sortBy fst
+    let joined = counts |> Array.filter (fun (addr, _) -> addr = 0x71UL)
+    let roots = counts |> Array.filter (fun (addr, _) -> addr <> 0x71UL)
+    CollectionAssert.AreEqual([| 0x00UL, 0; 0x62UL, 0 |], roots)
+    Assert.AreEqual<int>(1, joined.Length)
+    Assert.AreNotEqual<int>(0, snd joined[0])
 
   [<TestMethod>]
   [<DynamicData(nameof CFG1Tests.GraphTypes)>]

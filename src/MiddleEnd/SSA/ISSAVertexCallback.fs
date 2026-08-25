@@ -31,11 +31,13 @@ open B2R2.MiddleEnd.DataFlow
 /// Callback interface for SSA vertex creation.
 type ISSAVertexCallback =
   /// When a new SSA vertex is created, this callback is called. The current
-  /// SSACFG as well as the stack pointer propagation analysis is also provided
-  /// for the callback so that one can use it to easily compute stack local
-  /// variables.
+  /// SSACFG, its dominance, and the stack pointer propagation analysis are all
+  /// provided for the callback so that one can use them to easily compute
+  /// stack local variables. The dominance is that of the very SSACFG given,
+  /// since the callback fires while the lifter still holds both.
   abstract OnVertexCreation:
       SSACFG
+    * IForwardDominance<SSABasicBlock>
     * SSASparseDataFlow.State<StackPointerDomain.Lattice>
     * IVertex<SSABasicBlock>
     -> unit

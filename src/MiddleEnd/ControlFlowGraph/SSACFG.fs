@@ -32,6 +32,12 @@ open B2R2.MiddleEnd.BinGraph
 /// or a persistent one without a caller having to know which.
 type SSACFG = IMutableDiGraph<SSABasicBlock, CFGEdgeKind>
 
+/// Represents an SSACFG paired with the dominance of that very graph. Lifting
+/// a CFG to SSA form computes the dominance on the way, and a reaching
+/// definition is read off the dominator tree, so the two travel together
+/// rather than a caller computing the dominance a second time.
+and SSACFGWithDominance = SSACFG * IForwardDominance<SSABasicBlock>
+
 /// <summary>
 /// Provides ways to create an
 /// <see cref="T:B2R2.MiddleEnd.ControlFlowGraph.SSACFG"/> and to read
@@ -43,9 +49,10 @@ module SSACFG =
   let create t: SSACFG = GraphFactory.create t
 
   /// Finds the definition of the given variable kind (targetVarKind) at the
-  /// given node v. We simply follow the dominator tree until we find a
-  /// definition.
-  let rec findDef (v: IVertex<SSABasicBlock>) targetVarKind =
+  /// given node v, following the dominator tree of the given dominance until a
+  /// definition is found. The dominance has to be that of the graph v belongs
+  /// to, which is what makes the walk this reads off the right one.
+  let rec findDef dom (v: IVertex<SSABasicBlock>) targetVarKind =
     let stmtInfo =
       v.VData.Internals.Statements
       |> Array.tryFindBack (fun (_, stmt) ->
@@ -56,14 +63,13 @@ module SSACFG =
     | Some stmtInfo ->
       Some(snd stmtInfo)
     | None ->
-      match v.VData.ImmDominator with
-      | Some idom -> findDef idom targetVarKind
-      | None -> None
+      match (dom: IForwardDominance<_>).ImmediateDominator v with
+      | null -> None
+      | idom -> findDef dom idom targetVarKind
 
   /// Finds the reaching definition of the given variable kind (targetVarKind)
-  /// at the entry of node v. We simply follow the dominator tree until we find
-  /// a definition.
-  let findReachingDef (v: IVertex<SSABasicBlock>) targetVarKind =
-    match v.VData.ImmDominator with
-    | Some idom -> findDef idom targetVarKind
-    | None -> None
+  /// at the entry of node v, as `findDef` does from the dominator of v.
+  let findReachingDef dom (v: IVertex<SSABasicBlock>) targetVarKind =
+    match (dom: IForwardDominance<_>).ImmediateDominator v with
+    | null -> None
+    | idom -> findDef dom idom targetVarKind

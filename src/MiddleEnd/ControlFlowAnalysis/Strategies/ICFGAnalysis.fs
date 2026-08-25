@@ -50,11 +50,17 @@ module ICFGAnalysis =
     { new ICFGAnalysis<_> with
         member _.Unwrap _ = ignore }
 
+  /// Maps the output of the given CFG-based analysis through the given
+  /// function. An analysis answering more than the next one in a chain takes
+  /// is narrowed to what that one takes by this, rather than by every analysis
+  /// downstream carrying what it has no use for.
+  let map fn (a: ICFGAnalysis<_>) =
+    { new ICFGAnalysis<_> with
+        member _.Unwrap env = a.Unwrap env >> fn }
+
   /// Finalize the CFG-based analysis, which ignores the output of the previous
   /// CFG-based analysis.
-  let finalize (a: ICFGAnalysis<_>) =
-    { new ICFGAnalysis<_> with
-        member _.Unwrap env = a.Unwrap env >> ignore }
+  let finalize a = map ignore a
 
   /// Run the combined CFG-based analysis, which should take `unit` as input and
   /// returns `unit` as output.

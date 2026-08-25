@@ -119,14 +119,9 @@ module private SSALifterFactory =
     )
     ssaCFG.SetRoots roots
 
-  let computeDominatorInfo (g: SSACFG) =
-    let df = Dominance.CooperDominanceFrontier()
-    let dom = Dominance.LengauerTarjanDominance.create g df
-    g |> DiGraph.iterVertex (fun (v: SSAVertex) ->
-      let idom = dom.ImmediateDominator v
-      v.VData.ImmDominator <- if isNull idom then None else Some idom
-      v.VData.DomFrontier <- Seq.toList (dom.DominanceFrontier v))
-    dom
+  let createDominance (g: SSACFG) =
+    Dominance.LengauerTarjanDominance.create g
+    <| Dominance.CooperDominanceFrontier()
 
   let inline updateGlobalName (globals: HashSet<_>) (varKill: HashSet<_>) v =
     if varKill.Contains v then () else globals.Add v |> ignore
@@ -174,7 +169,7 @@ module private SSALifterFactory =
           ()
     globals
 
-  let placePhis g (defSites: DefSites) globals =
+  let placePhis g (defSites: DefSites) globals (dom: IForwardDominance<_>) =
     let phiSites = HashSet()
     for variable in globals do
       let workList =
@@ -183,7 +178,7 @@ module private SSALifterFactory =
       phiSites.Clear()
       while workList.Count <> 0 do
         let node = workList.Dequeue()
-        for df in node.VData.DomFrontier do
+        for df in dom.DominanceFrontier node do
           if phiSites.Contains df then
             ()
           else
@@ -330,7 +325,7 @@ module private SSALifterFactory =
   let updatePhis ssaCFG dom =
     let defSites = DefSites()
     let globals = findDefVars ssaCFG defSites
-    placePhis ssaCFG defSites globals
+    placePhis ssaCFG defSites globals dom
     renameVars ssaCFG defSites dom
 
   let memStore ((pp, _) as stmtInfo) rt addr src =
@@ -421,12 +416,12 @@ module private SSALifterFactory =
     | _ ->
       Some stmtInfo
 
-  let promote hdl ssaCFG (callback: ISSAVertexCallback) =
+  let promote hdl ssaCFG dom (callback: ISSAVertexCallback) =
     let spp = SSAStackPointerPropagation hdl
     let dfa = spp :> IDataFlowComputable<_, _, _, _>
     let state = dfa.Compute ssaCFG
     for v in ssaCFG.Vertices do
-      callback.OnVertexCreation(ssaCFG, state, v)
+      callback.OnVertexCreation(ssaCFG, dom, state, v)
       v.VData.Internals.Statements
       |> Array.choose (stmtChooser state)
       |> v.VData.Internals.UpdateStatements
@@ -436,15 +431,15 @@ module private SSALifterFactory =
         member _.Lift cfg =
           let ssaCFG = SSACFG.create cfg.ImplementationType
           convertToSSA stmtProcessor cfg ssaCFG
-          let dom = computeDominatorInfo ssaCFG
+          let dom = createDominance ssaCFG
           updatePhis ssaCFG dom
           ssaCFG |> DiGraph.iterVertex (fun v ->
             v.VData.Internals.UpdatePPoints())
-          promote hdl ssaCFG callback
+          promote hdl ssaCFG dom callback
           updatePhis ssaCFG dom
           ssaCFG |> DiGraph.iterVertex (fun v ->
             v.VData.Internals.UpdatePPoints())
-          ssaCFG }
+          ssaCFG, dom }
 
 /// The factory for SSA lifter.
 type SSALifterFactory =
@@ -455,13 +450,15 @@ type SSALifterFactory =
       { new IStmtPostProcessor with
           member _.WordSize with get() = wordSize
           member _.PostProcess stmt = stmt }
-      { new ISSAVertexCallback with member _.OnVertexCreation(_, _, _) = () }
+      { new ISSAVertexCallback with
+          member _.OnVertexCreation(_, _, _, _) = () }
 
   /// Create an SSA lifter with a binary handle and a statement processor.
   static member Create(hdl, stmtProcessor) =
     SSALifterFactory.create hdl
       stmtProcessor
-      { new ISSAVertexCallback with member _.OnVertexCreation(_, _, _) = () }
+      { new ISSAVertexCallback with
+          member _.OnVertexCreation(_, _, _, _) = () }
 
   /// Create an SSA lifter with a binary handle and a callback for SSA vertex
   /// creation.

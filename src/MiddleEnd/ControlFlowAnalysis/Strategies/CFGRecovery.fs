@@ -223,8 +223,9 @@ type CFGRecovery<'FnCtx, 'GlCtx
     let jmptblAnalysis, postAnalysis =
       if useSSA then
         let ssaLifter = SSALifter() :> ICFGAnalysis<_>
+        let ssaOnly = ICFGAnalysis.map fst ssaLifter
         let jmpTableAnalysis =
-          JmpTableAnalysis(Some ssaLifter) :> IJmpTableAnalyzable<_, _>
+          JmpTableAnalysis(Some ssaOnly) :> IJmpTableAnalyzable<_, _>
         jmpTableAnalysis, ssaLifter <+> CondAwareNoretAnalysis()
       else
         let jmpTableAnalysis =
