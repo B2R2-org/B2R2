@@ -26,7 +26,22 @@ namespace B2R2.MiddleEnd.SSA
 
 open B2R2.MiddleEnd.ControlFlowGraph
 
+/// <namespacedoc>
+///   <summary>
+///   Contains the two operations that put a CFG of B2R2's middle-end into SSA
+///   form: lifting a LowUIR CFG into an SSA one, and promoting the stack slots
+///   of such a graph into variables of their own. The graphs themselves belong
+///   to <c>B2R2.MiddleEnd.ControlFlowGraph</c>, and the stack pointer
+///   propagation that promotion reads belongs to
+///   <c>B2R2.MiddleEnd.DataFlow</c>; what is here is the lifter and the
+///   promoter that drive them, and the one interface through which that
+///   propagation can be read while it lasts.
+///   </summary>
+/// </namespacedoc>
+///
+/// <summary>
 /// Represents a lifter that turns a LowUIR CFG into an SSACFG.
+/// </summary>
 type ISSALiftable =
   /// Lifts the given LowUIR CFG to an SSACFG, answering the dominance of the
   /// SSACFG alongside it. The dominator tree is what a reaching definition is
