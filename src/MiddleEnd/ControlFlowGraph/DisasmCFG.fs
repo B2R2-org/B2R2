@@ -95,10 +95,10 @@ module DisasmCFG =
     srcTmpV.Successors.Add(dstAddr, e)
     getTempVertex tempVMap dst |> ignore
 
-  let private merge (tempVMap: TempDisasmVMap) src dstTmpV =
-    let srcInss = getInstructions src
-    for (KeyValue(addr, ins)) in srcInss do dstTmpV.Instructions.Add(addr, ins)
-    tempVMap[src.VData.Internals.PPoint.Address] <- dstTmpV
+  let private merge (tempVMap: TempDisasmVMap) absorbed hostTmpV =
+    let inss = getInstructions absorbed
+    for (KeyValue(addr, ins)) in inss do hostTmpV.Instructions.Add(addr, ins)
+    tempVMap[absorbed.VData.Internals.PPoint.Address] <- hostTmpV
 
   let private isIntraEdge = function
     | IntraJmpEdge | IntraCJmpTrueEdge | IntraCJmpFalseEdge -> true
