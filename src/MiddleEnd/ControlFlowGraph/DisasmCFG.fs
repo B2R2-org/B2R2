@@ -149,23 +149,25 @@ module DisasmCFG =
     else (* Otherwise, connect them. *)
       connect tempVMap srcTmpV dst e
 
-  let private collectFreshSuccEdges (visited: HashSet<_>) g v =
-    (g: IDiGraph<_, _>).GetSuccEdges(v)
-    |> Array.filter (not << visited.Contains)
-    |> Array.toList
-
-  let rec private dfs g tempVMap (visited: HashSet<_>) edges =
-    match edges with
-    | [] ->
+  (* Expands a vertex only the first time it is reached, so that each edge is
+     pushed exactly once. The edges go on in reverse so that they come off in
+     the order the graph hands them out. *)
+  let private pushSuccEdges (stack: Stack<_>) (visited: HashSet<_>) g v =
+    if visited.Add v then
+      let succs = (g: IDiGraph<_, _>).GetSuccEdges(v)
+      for i = succs.Length - 1 downto 0 do stack.Push succs[i]
+    else
       ()
-    | (e: Edge<LowUIRBasicBlock, _>) :: rest ->
-      visited.Add(e) |> ignore
-      let s, d, e = e.First, e.Second, e.Label
+
+  let private dfs g tempVMap visited (stack: Stack<Edge<LowUIRBasicBlock, _>>) =
+    while stack.Count > 0 do
+      let edge = stack.Pop()
+      let s, d, e = edge.First, edge.Second, edge.Label
       if not <| isAbsVertex s then
         connectOrMerge tempVMap g s (skipAbsVertices g d) e
       else
         ()
-      dfs g tempVMap visited <| (collectFreshSuccEdges visited g d) @ rest
+      pushSuccEdges stack visited g d
 
   /// Prepares DisasmCFG information while doing the following
   /// transformations.
@@ -177,11 +179,13 @@ module DisasmCFG =
   let private prepareDisasmCFGInfo (g: LowUIRCFG) =
     let tempVMap = TempDisasmVMap()
     let visited = HashSet()
+    let stack = Stack()
     let rootAddrs = List()
     for root in g.Roots do
       rootAddrs.Add root.VData.Internals.PPoint.Address
       getTempVertex tempVMap root |> ignore
-      dfs g tempVMap visited (g.GetSuccEdges(root) |> Array.toList)
+      pushSuccEdges stack visited g root
+      dfs g tempVMap visited stack
     tempVMap, rootAddrs
 
   let private getDisasmVertex builder g (vMap: DisasmVMap) tempVMap addr =
