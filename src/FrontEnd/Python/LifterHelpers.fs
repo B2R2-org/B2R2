@@ -1155,6 +1155,49 @@ let containsOp (ins: Instruction) bld =
   pushToStack bld result
   bld --!> ins.Length
 
+/// The operator a BINARY_OP argument names. Zero to twelve are the plain
+/// operators and thirteen to twenty-five their in-place forms (`+=`, `-=`,
+/// ...), each thirteen past the plain one it matches. The in-place ones
+/// dispatch to `__iadd__` and can mutate in place, so -- unlike a generic
+/// binary lifter -- they must not be folded into the plain operator: they are
+/// named apart so that a store recovers them as AugAssign (see makeAssign).
+/// Matrix multiply splits the same way as everything else here (`@` at 4,
+/// `@=` at 17 = 4 + 13).
+///
+/// 3.14 folded the subscript in as well: `a[b]` arrives as BINARY_OP one past
+/// the in-place operators, where every version before it had a BINARY_SUBSCR
+/// of its own. It keeps that opcode's name, so nothing downstream has to know
+/// which spelling it came from.
+let private binaryOpName addr = function
+  | 0 -> "+"
+  | 1 -> "&"
+  | 2 -> "//"
+  | 3 -> "<<"
+  | 4 -> "@"
+  | 5 -> "*"
+  | 6 -> "%"
+  | 7 -> "|"
+  | 8 -> "**"
+  | 9 -> ">>"
+  | 10 -> "-"
+  | 11 -> "/"
+  | 12 -> "^"
+  | 13 -> "IADD"
+  | 14 -> "IBITAND"
+  | 15 -> "IFLOORDIV"
+  | 16 -> "ILSHIFT"
+  | 17 -> "IMATMUL"
+  | 18 -> "IMUL"
+  | 19 -> "IMOD"
+  | 20 -> "IBITOR"
+  | 21 -> "IPOW"
+  | 22 -> "IRSHIFT"
+  | 23 -> "ISUB"
+  | 24 -> "IDIV"
+  | 25 -> "IBITXOR"
+  | 26 -> "BINARY_SUBSCR"
+  | n -> failwithf "Invalid BINARY_OP arg %d at %A" n addr
+
 (* BINARY_OP: pop right (TOS) and left (TOS1), apply operator, push result.
    arg directly indexes the operation; inplace variants (arg >= 13) share
    the same index offset as their non-inplace counterparts. *)
@@ -1162,49 +1205,8 @@ let binaryOp (ins: Instruction) bld =
   bld <!-- (ins.Address, ins.Length)
   let right = popFromStack bld
   let left = popFromStack bld
-  let result =
-    (* CPython BINARY_OP arg: 0-12 are the plain ops, 13-25 the matching
-       in-place (`+=`, `-=`, ...) variants (regular + 13). The in-place ones
-       dispatch to `__iadd__` etc. and can mutate in place, so -- unlike a
-       generic binary lifter -- we must NOT fold them into the plain op; they
-       are lifted to distinct named apps that a store recovers as AugAssign
-       (see makeAssign). Matrix-multiply follows the same plain/in-place
-       split as every other operator here (`@` at 4, `@=` at 17 = 4 + 13). *)
-    match getIntArg ins with
-    | 0 -> opApp "+" left right
-    | 1 -> opApp "&" left right
-    | 2 -> opApp "//" left right
-    | 3 -> opApp "<<" left right
-    | 4 -> opApp "@" left right
-    | 5 -> opApp "*" left right
-    | 6 -> opApp "%" left right
-    | 7 -> opApp "|" left right
-    | 8 -> opApp "**" left right
-    | 9 -> opApp ">>" left right
-    | 10 -> opApp "-" left right
-    | 11 -> opApp "/" left right
-    | 12 -> opApp "^" left right
-    | 13 -> opApp "IADD" left right
-    | 14 -> opApp "IBITAND" left right
-    | 15 -> opApp "IFLOORDIV" left right
-    | 16 -> opApp "ILSHIFT" left right
-    | 17 -> opApp "IMATMUL" left right
-    | 18 -> opApp "IMUL" left right
-    | 19 -> opApp "IMOD" left right
-    | 20 -> opApp "IBITOR" left right
-    | 21 -> opApp "IPOW" left right
-    | 22 -> opApp "IRSHIFT" left right
-    | 23 -> opApp "ISUB" left right
-    | 24 -> opApp "IDIV" left right
-    | 25 -> opApp "IBITXOR" left right
-    (* 3.14 folded the subscript into this instruction: `a[b]` is BINARY_OP
-       with an argument one past the in-place operators, where every version
-       before it had BINARY_SUBSCR of its own. It is named as that opcode
-       still, so nothing downstream has to know which spelling it came
-       from. *)
-    | 26 -> AST.app "BINARY_SUBSCR" [ left; right ] rt
-    | n -> failwithf "Invalid BINARY_OP arg %d at %A" n ins.Address
-  pushToStack bld result
+  let name = binaryOpName ins.Address (getIntArg ins)
+  pushToStack bld (opApp name left right)
   bld --!> ins.Length
 
 let binarySubscr (ins: Instruction) bld =

@@ -2865,23 +2865,28 @@ let sxtw ins insLen bld addr =
   let src = transOprToExpr ins bld addr src |> unwrapReg
   sbfm ins insLen bld addr dst src (OprImm 0L) (OprImm 31L)
 
+/// The registers a table lookup reads, low half then high half of each, in
+/// the order the operand list names them. A lookup index walks this array
+/// eight bytes at a time, which is why each register arrives as two halves.
+let private tableRegsOf ins bld addr src1 =
+  match src1 with
+  | OprSIMDList simds ->
+    simds
+    |> List.toArray
+    |> Array.collect (fun simd ->
+      let struct (hi, lo) = transOprToExpr128 ins bld addr (OprSIMD simd)
+      [| lo; hi |]
+    )
+  | _ ->
+    raise InvalidOperandException
+
 let tbl (ins: Instruction) insLen bld addr = (* FIMXE *)
   bld <!-- (ins.Address, insLen)
   let struct (dst, src1, src2) = getThreeOprs ins
   let struct (eSize, dataSize, _) = getElemDataSzAndElems dst
   let elements = dataSize / 8<rt>
   let struct (dstB, dstA) = transOprToExpr128 ins bld addr dst
-  let src =
-    let oprs =
-      match src1 with
-      | OprSIMDList simds ->
-        Array.map (fun simd ->
-          let struct (dstB, dstA) =
-            transOprToExpr128 ins bld addr (OprSIMD simd)
-          [| dstA; dstB |]) (List.toArray simds)
-      | _ ->
-        raise InvalidOperandException
-    oprs |> Array.concat
+  let src = tableRegsOf ins bld addr src1
   let indices = transSIMDOprToExpr bld 8<rt> dataSize elements src2
   let n8 = numI32 8 8<rt>
   let nFF = numI32 -1 8<rt> |> AST.zext 64<rt>
@@ -2900,52 +2905,12 @@ let tbl (ins: Instruction) insLen bld addr = (* FIMXE *)
       |> AST.xtlo 8<rt>
     AST.ite (index .< lenExpr) (elem expr index) dst
   let getElem i idx =
-    if len = 2 then
-      AST.ite (idx .< numI32 8 8<rt>)
-        (limit i src[0] idx)
-        (AST.ite (idx .< numI32 16 8<rt>) (limit i src[1] idx) zeros)
-    elif len = 4 then
-      AST.ite (idx .< numI32 8 8<rt>)
-              (limit i src[0] idx)
-              (AST.ite (idx .< numI32 16 8<rt>)
-                       (limit i src[1] idx)
-                       (AST.ite (idx .< numI32 24 8<rt>)
-                                (limit i src[2] idx)
-                                (AST.ite (idx .< numI32 32 8<rt>)
-                                         (limit i src[3] idx)
-                                         zeros)))
-    elif len = 6 then
-      AST.ite (idx .< numI32 8 8<rt>)
-        (limit i src[0] idx)
-        (AST.ite (idx .< numI32 16 8<rt>)
-          (limit i src[1] idx)
-          (AST.ite (idx .< numI32 24 8<rt>)
-            (limit i src[2] idx)
-            (AST.ite (idx .< numI32 32 8<rt>)
-              (limit i src[3] idx)
-              (AST.ite (idx .< numI32 40 8<rt>)
-                (limit i src[4] idx)
-                (AST.ite (idx .< numI32 48 8<rt>)
-                  (limit i src[5] idx)
-                  zeros)))))
-    elif len = 8 then
-      AST.ite (idx .< numI32 8 8<rt>)
-        (limit i src[0] idx)
-        (AST.ite (idx .< numI32 16 8<rt>)
-          (limit i src[1] idx)
-          (AST.ite (idx .< numI32 24 8<rt>)
-            (limit i src[2] idx)
-            (AST.ite (idx .< numI32 32 8<rt>)
-              (limit i src[3] idx)
-              (AST.ite (idx .< numI32 40 8<rt>)
-                (limit i src[4] idx)
-                (AST.ite (idx .< numI32 48 8<rt>)
-                  (limit i src[5] idx)
-                  (AST.ite (idx .< numI32 56 8<rt>)
-                    (limit i src[6] idx)
-                    (AST.ite (idx .< numI32 64 8<rt>)
-                      (limit i src[7] idx)
-                      zeros)))))))
+    if len = 2 || len = 4 || len = 6 || len = 8 then
+      (* each register covers eight indices, and past the last of them the
+         lookup gives zero *)
+      Array.foldBack (fun k rest ->
+        AST.ite (idx .< numI32 (8 * (k + 1)) 8<rt>) (limit i src[k] idx) rest
+      ) [| 0 .. len - 1 |] zeros
     else
       failwith "Invalid number of registers."
   let result = Array.init elements (fun _ -> tmpVar bld eSize)
@@ -3741,6 +3706,37 @@ let shiftSLeftLong (ins: Instruction) insLen bld addr =
   dstAssignForSIMD dstA dstB result 128<rt> elements bld
   bld --!> insLen
 
+/// One element of an unsigned rounding shift left. A negative amount shifts
+/// the other way, and rounds by adding half a place before it does; shifting
+/// right by more than the element is wide leaves nothing. At sixty-four bits
+/// that rounded sum can carry out of the element, so the bit it lost is put
+/// back at the top before the shift.
+let private urshlElem bld eSize bounds e1 e2 =
+  let n0, n1 = bounds
+  let struct (rndCst, shf, elem, res) = tmpVars4 bld 64<rt>
+  let cond = tmpVar bld 1<rt>
+  bld <+ (shf := AST.xtlo 8<rt> e2 |> AST.sext 64<rt>)
+  bld <+ (cond := shf ?< n0)
+  bld <+ (rndCst := AST.ite cond (n1 << (AST.neg shf .- n1)) n0)
+  bld <+ (elem := AST.zext 64<rt> e1 .+ rndCst)
+  let isOver = AST.neg shf .> numI32 (int eSize) 64<rt>
+  if eSize = 64<rt> then
+    let isCarry = e1 .> elem
+    let cElem = tmpVar bld 64<rt>
+    bld <+ (cElem := (elem >> n1) .| numU64 0x8000000000000000UL 64<rt>)
+    bld <+ (res := AST.ite cond
+                   (AST.ite isOver
+                     n0
+                     (AST.ite isCarry
+                       (cElem >> (AST.neg shf .- n1))
+                       (elem >> AST.neg shf)))
+                       (elem << shf))
+  else
+    bld <+ (res := AST.ite cond
+                           (AST.ite isOver n0 (elem >> AST.neg shf))
+                           (elem << shf))
+  AST.xtlo eSize res
+
 let urshl (ins: Instruction) insLen bld addr =
   bld <!-- (ins.Address, insLen)
   let struct (dst, src, shift) = getThreeOprs ins
@@ -3748,30 +3744,7 @@ let urshl (ins: Instruction) insLen bld addr =
   let struct (n0, n1) = tmpVars2 bld 64<rt>
   bld <+ (n0 := AST.num0 64<rt>)
   bld <+ (n1 := AST.num1 64<rt>)
-  let inline shiftRndLeft e1 e2 =
-    let struct (rndCst, shf, elem, res) = tmpVars4 bld 64<rt>
-    let cond = tmpVar bld 1<rt>
-    bld <+ (shf := AST.xtlo 8<rt> e2 |> AST.sext 64<rt>)
-    bld <+ (cond := shf ?< n0)
-    bld <+ (rndCst := AST.ite cond (n1 << (AST.neg shf .- n1)) n0)
-    bld <+ (elem := AST.zext 64<rt> e1 .+ rndCst)
-    let isOver = AST.neg shf .> numI32 (int eSize) 64<rt>
-    if eSize = 64<rt> then
-      let isCarry = e1 .> elem
-      let cElem = tmpVar bld 64<rt>
-      bld <+ (cElem := (elem >> n1) .| numU64 0x8000000000000000UL 64<rt>)
-      bld <+ (res := AST.ite cond
-                     (AST.ite isOver
-                       n0
-                       (AST.ite isCarry
-                         (cElem >> (AST.neg shf .- n1))
-                         (elem >> AST.neg shf)))
-                         (elem << shf))
-    else
-      bld <+ (res := AST.ite cond
-                             (AST.ite isOver n0 (elem >> AST.neg shf))
-                             (elem << shf))
-    AST.xtlo eSize res
+  let shiftRndLeft e1 e2 = urshlElem bld eSize (n0, n1) e1 e2
   match ins.Operands with
   | ThreeOperands(OprSIMD(ScalarReg _), _, _) ->
     let src = transOprToExpr ins bld addr src

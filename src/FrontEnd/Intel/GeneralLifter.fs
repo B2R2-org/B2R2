@@ -502,7 +502,25 @@ let bndmov32 (ins: Instruction) insLen bld =
 let bndmov ins insLen bld =
   if is64bit bld then bndmov64 ins insLen bld else bndmov32 ins insLen bld
 
-let bsf (ins: Instruction) insLen bld =
+/// The flags a bit scan leaves undefined. Under EMULATION they are worked out
+/// lazily instead, from the operation the condition codes last came from --
+/// which is the only thing the builder is asked for there, so its type is
+/// named rather than left to be read off a use that compilation removed.
+let private setBitScanUndefFlags (bld: ILowUIRBuilder) =
+#if !EMULATION
+  bld <+ (regVar bld R.CF := undefCF)
+  bld <+ (regVar bld R.OF := undefOF)
+  bld <+ (regVar bld R.AF := undefAF)
+  bld <+ (regVar bld R.SF := undefSF)
+  bld <+ (regVar bld R.PF := undefPF)
+#else
+  bld.ConditionCodeOp <- ConditionCodeOp.EFlags
+#endif
+
+/// Walks the source a bit at a time until a set bit turns up, and hands back
+/// where it was. `isForward` says which end to start from and which way to
+/// step; that, and nothing else, is what separates `bsf` from `bsr`.
+let private liftBitScan (ins: Instruction) insLen bld isForward =
   bld <!-- (ins.Address, insLen)
   let lblL0 = label bld "L0"
   let lblL1 = label bld "L1"
@@ -515,6 +533,10 @@ let bsf (ins: Instruction) insLen bld =
   let cond = src == AST.num0 oprSize
   let zf = regVar bld R.ZF
   let t = tmpVar bld oprSize
+  let start =
+    if isForward then AST.num0 oprSize
+    else numOprSize oprSize .- AST.num1 oprSize
+  let step = if isForward then t .+ AST.num1 oprSize else t .- AST.num1 oprSize
 #if EMULATION
   genDynamicFlagsUpdate bld
 #endif
@@ -527,74 +549,25 @@ let bsf (ins: Instruction) insLen bld =
   bld <+ (AST.jmp (AST.jmpDest lblEnd))
   bld <+ (AST.lmark lblL1)
   bld <+ (zf := AST.b0)
-  bld <+ (t := AST.num0 oprSize)
+  bld <+ (t := start)
   bld <+ (AST.lmark lblLoopCond)
   bld <+ (AST.cjmp ((AST.xtlo 1<rt> (src >> t)) == AST.b0)
                    (AST.jmpDest lblLoop)
                    (AST.jmpDest lblLE))
   bld <+ (AST.lmark lblLoop)
-  bld <+ (t := t .+ AST.num1 oprSize)
+  bld <+ (t := step)
   bld <+ (AST.jmp (AST.jmpDest lblLoopCond))
   bld <+ (AST.lmark lblLE)
   bld <+ (dstAssign oprSize dst t)
   bld <+ (AST.lmark lblEnd)
-#if !EMULATION
-  bld <+ (regVar bld R.CF := undefCF)
-  bld <+ (regVar bld R.OF := undefOF)
-  bld <+ (regVar bld R.AF := undefAF)
-  bld <+ (regVar bld R.SF := undefSF)
-  bld <+ (regVar bld R.PF := undefPF)
-#else
-  bld.ConditionCodeOp <- ConditionCodeOp.EFlags
-#endif
+  setBitScanUndefFlags bld
   bld --!> insLen
 
-let bsr (ins: Instruction) insLen bld =
-  bld <!-- (ins.Address, insLen)
-  let lblL0 = label bld "L0"
-  let lblL1 = label bld "L1"
-  let lblEnd = label bld "End"
-  let lblLoopCond = label bld "LoopCond"
-  let lblLE = label bld "LoopEnd"
-  let lblLoop = label bld "Loop"
-  let struct (dst, src) = transTwoOprs bld true ins insLen
-  let oprSize = getOperationSize ins
-  let cond = src == AST.num0 oprSize
-  let zf = regVar bld R.ZF
-  let t = tmpVar bld oprSize
-#if EMULATION
-  genDynamicFlagsUpdate bld
-#endif
-  bld <+ (AST.cjmp cond (AST.jmpDest lblL0) (AST.jmpDest lblL1))
-  bld <+ (AST.lmark lblL0)
-  bld <+ (zf := AST.b1)
-#if !EMULATION
-  bld <+ (dst := AST.undef oprSize "DEST is undefined.")
-#endif
-  bld <+ (AST.jmp (AST.jmpDest lblEnd))
-  bld <+ (AST.lmark lblL1)
-  bld <+ (zf := AST.b0)
-  bld <+ (t := numOprSize oprSize .- AST.num1 oprSize)
-  bld <+ (AST.lmark lblLoopCond)
-  bld <+ (AST.cjmp ((AST.xtlo 1<rt> (src >> t)) == AST.b0)
-                   (AST.jmpDest lblLoop)
-                   (AST.jmpDest lblLE))
-  bld <+ (AST.lmark lblLoop)
-  bld <+ (t := t .- AST.num1 oprSize)
-  bld <+ (AST.jmp (AST.jmpDest lblLoopCond))
-  bld <+ (AST.lmark lblLE)
-  bld <+ (dstAssign oprSize dst t)
-  bld <+ (AST.lmark lblEnd)
-#if !EMULATION
-  bld <+ (regVar bld R.CF := undefCF)
-  bld <+ (regVar bld R.OF := undefOF)
-  bld <+ (regVar bld R.AF := undefAF)
-  bld <+ (regVar bld R.SF := undefSF)
-  bld <+ (regVar bld R.PF := undefPF)
-#else
-  bld.ConditionCodeOp <- ConditionCodeOp.EFlags
-#endif
-  bld --!> insLen
+/// Scans for the least significant set bit.
+let bsf (ins: Instruction) insLen bld = liftBitScan ins insLen bld true
+
+/// Scans for the most significant set bit.
+let bsr (ins: Instruction) insLen bld = liftBitScan ins insLen bld false
 
 let bswap (ins: Instruction) insLen bld =
   bld <!-- (ins.Address, insLen)
@@ -2242,6 +2215,17 @@ let pushf ins insLen bld =
   auxPush oprSize bld e
   bld --!> insLen
 
+/// How many places a rotate-through-carry actually turns. The count is masked
+/// to five bits (six on 64-bit operands) and, for the narrow sizes, taken
+/// modulo the width of the operand plus the carry bit it rotates through.
+let private rotateThroughCarryCount oprSize count =
+  match oprSize with
+  | 8<rt> -> (count .& numI32 0x1f oprSize) .% numI32 9 oprSize
+  | 16<rt> -> (count .& numI32 0x1f oprSize) .% numI32 17 oprSize
+  | 32<rt> -> count .& numI32 0x1f oprSize
+  | 64<rt> -> count .& numI32 0x3f oprSize
+  | _ -> raise InvalidOperandSizeException
+
 let rcl (ins: Instruction) insLen bld =
   bld <!-- (ins.Address, insLen)
   let struct (dst, count) = transTwoOprs bld true ins insLen
@@ -2251,13 +2235,7 @@ let rcl (ins: Instruction) insLen bld =
   let tmpCF = tmpVar bld 1<rt>
   let count = AST.zext oprSize count
   let tmpCnt = tmpVar bld oprSize
-  let cnt =
-    match oprSize with
-    | 8<rt> -> (count .& numI32 0x1f oprSize) .% numI32 9 oprSize
-    | 16<rt> -> (count .& numI32 0x1f oprSize) .% numI32 17 oprSize
-    | 32<rt> -> count .& numI32 0x1f oprSize
-    | 64<rt> -> count .& numI32 0x3f oprSize
-    | _ -> raise InvalidOperandSizeException
+  let cnt = rotateThroughCarryCount oprSize count
   bld <+ (tmpCnt := cnt)
   let cond1 = tmpCnt != AST.num0 oprSize
   let cntMask = numI32 (if oprSize = 64<rt> then 0x3F else 0x1F) oprSize
@@ -2296,13 +2274,7 @@ let rcr (ins: Instruction) insLen bld =
   let struct (tmpCF, tmpOF) = tmpVars2 bld 1<rt>
   let count = AST.zext oprSize count
   let tmpCnt = tmpVar bld oprSize
-  let cnt =
-    match oprSize with
-    | 8<rt> -> (count .& numI32 0x1f oprSize) .% numI32 9 oprSize
-    | 16<rt> -> (count .& numI32 0x1f oprSize) .% numI32 17 oprSize
-    | 32<rt> -> count .& numI32 0x1f oprSize
-    | 64<rt> -> count .& numI32 0x3f oprSize
-    | _ -> raise InvalidOperandSizeException
+  let cnt = rotateThroughCarryCount oprSize count
   bld <+ (tmpCnt := cnt)
   let cond1 = tmpCnt != AST.num0 oprSize
   let cntMask = numI32 (if oprSize = 64<rt> then 0x3F else 0x1F) oprSize
@@ -2645,36 +2617,18 @@ let setcc (ins: Instruction) insLen bld =
   bld <+ (dstAssign oprSize dst cond)
   bld --!> insLen
 
-let shiftDblPrec (ins: Instruction) insLen bld fnDst fnSrc isShl =
-  bld <!-- (ins.Address, insLen)
-  let oprSz = getOperationSize ins
-  let exprOprSz = numI32 (int oprSz) oprSz
-  let struct (dst, src, cnt) = transThreeOprs bld false ins insLen
-  let struct (count, size, tDst, tSrc) = tmpVars4 bld oprSz
-  let struct (cond1, cond2, cond3) = tmpVars3 bld 1<rt>
-  let org = tmpVar bld oprSz
+/// The flags a double-precision shift leaves behind. CF is the last bit
+/// shifted out of the original destination, OF flips only where a single
+/// place was shifted, and SF, ZF and PF read off the result. `conds` carries
+/// the three cases the count falls into: no places at all, which leaves
+/// every flag alone; more places than the operand is wide, which leaves them
+/// undefined; and exactly one place, which is the only one OF answers for.
+let private setShiftDblPrecFlags bld oprSz dst org count size conds isShl =
+  let cond1, cond2, cond3 = conds
   let cF = regVar bld R.CF
   let oF = regVar bld R.OF
   let sf = regVar bld R.SF
   let zf = regVar bld R.ZF
-  let wordSize = numI32 (if REXPrefix.hasW ins.REXPrefix then 64 else 32) oprSz
-  bld <+ (count := (AST.zext oprSz cnt .% wordSize))
-  bld <+ (size := exprOprSz)
-  bld <+ (cond1 := count == AST.num0 oprSz)
-  bld <+ (cond2 := count .> size)
-  bld <+ (cond3 := count == AST.num1 oprSz)
-  bld <+ (org := dst)
-  bld <+ (tDst := dst)
-  bld <+ (tSrc := src)
-  bld <+ (tDst := fnDst tDst count)
-  bld <+ (tSrc := fnSrc tSrc (size .- count))
-#if !EMULATION
-  let undefDEST = AST.undef oprSz "DEST is undefined."
-  let fallThrough = AST.ite cond2 undefDEST (tDst .| tSrc)
-  bld <+ (dstAssign oprSz dst (AST.ite cond1 org fallThrough))
-#else
-  bld <+ (dstAssign oprSz dst (AST.ite (cond1 .| cond2) org (tDst .| tSrc)))
-#endif
   let amount = if isShl then size .- count else count .- AST.num1 oprSz
 #if !EMULATION
   let fallThrough = AST.ite cond2 undefCF (AST.xtlo 1<rt> (org >> amount))
@@ -2702,6 +2656,35 @@ let shiftDblPrec (ins: Instruction) insLen bld fnDst fnSrc isShl =
   bld <+ (zf := AST.ite (cond1 .| cond2) zf (dst == AST.num0 oprSz))
 #endif
   buildPF bld dst oprSz (Some(cond1 .| cond2))
+
+let shiftDblPrec (ins: Instruction) insLen bld fnDst fnSrc isShl =
+  bld <!-- (ins.Address, insLen)
+  let oprSz = getOperationSize ins
+  let exprOprSz = numI32 (int oprSz) oprSz
+  let struct (dst, src, cnt) = transThreeOprs bld false ins insLen
+  let struct (count, size, tDst, tSrc) = tmpVars4 bld oprSz
+  let struct (cond1, cond2, cond3) = tmpVars3 bld 1<rt>
+  let conds = cond1, cond2, cond3
+  let org = tmpVar bld oprSz
+  let wordSize = numI32 (if REXPrefix.hasW ins.REXPrefix then 64 else 32) oprSz
+  bld <+ (count := (AST.zext oprSz cnt .% wordSize))
+  bld <+ (size := exprOprSz)
+  bld <+ (cond1 := count == AST.num0 oprSz)
+  bld <+ (cond2 := count .> size)
+  bld <+ (cond3 := count == AST.num1 oprSz)
+  bld <+ (org := dst)
+  bld <+ (tDst := dst)
+  bld <+ (tSrc := src)
+  bld <+ (tDst := fnDst tDst count)
+  bld <+ (tSrc := fnSrc tSrc (size .- count))
+#if !EMULATION
+  let undefDEST = AST.undef oprSz "DEST is undefined."
+  let fallThrough = AST.ite cond2 undefDEST (tDst .| tSrc)
+  bld <+ (dstAssign oprSz dst (AST.ite cond1 org fallThrough))
+#else
+  bld <+ (dstAssign oprSz dst (AST.ite (cond1 .| cond2) org (tDst .| tSrc)))
+#endif
+  setShiftDblPrecFlags bld oprSz dst org count size conds isShl
   bld --!> insLen
 
 let shld ins insLen bld = shiftDblPrec ins insLen bld (<<) (>>) true
@@ -2818,6 +2801,23 @@ let test (ins: Instruction) insLen bld =
 #endif
   bld --!> insLen
 
+/// Narrows the source to the half it still has bits in, counting the halves
+/// that went. Each step shifts away the top half of what is left: if anything
+/// survives, that is where the set bits are, and the width shifted past is
+/// added to the count. The widths run from half the operand down to four,
+/// which is as far as halving goes before the nibble table below takes over.
+let private narrowByHalves bld oprSize (t1, t2, res) z =
+  let widths =
+    match oprSize with
+    | 16<rt> -> [ 8; 4 ]
+    | 32<rt> -> [ 16; 8; 4 ]
+    | 64<rt> -> [ 32; 16; 8; 4 ]
+    | _ -> raise InvalidOperandSizeException
+  for w in widths do
+    bld <+ (t2 := t1 >> numI32 w oprSize)
+    bld <+ (t1 := AST.ite (t2 != z) t2 t1)
+    bld <+ (res := AST.ite (t2 != z) (res .+ numI32 w oprSize) res)
+
 let tzcnt ins insLen bld =
   let oprSize = getOperationSize ins
   let struct (dst, src) = transTwoOprs bld true ins insLen
@@ -2836,39 +2836,7 @@ let tzcnt ins insLen bld =
   bld <+ (AST.lmark lblCnt)
   bld <+ (res := z)
   bld <+ (t1 := t1 .& (t1 .* numI32 0xFFFFFFFF oprSize))
-  match oprSize with
-  | 16<rt> ->
-    bld <+ (t2 := t1 >> numI32 8 16<rt>)
-    bld <+ (t1 := AST.ite (t2 != z) t2 t1)
-    bld <+ (res := AST.ite (t2 != z) (res .+ numI32 8 16<rt>) res)
-    bld <+ (t2 := t1 >> numI32 4 16<rt>)
-    bld <+ (t1 := AST.ite (t2 != z) t2 t1)
-    bld <+ (res := AST.ite (t2 != z) (res .+ numI32 4 16<rt>) res)
-  | 32<rt> ->
-    bld <+ (t2 := t1 >> numI32 16 32<rt>)
-    bld <+ (t1 := AST.ite (t2 != z) t2 t1)
-    bld <+ (res := AST.ite (t2 != z) (res .+ numI32 16 32<rt>) res)
-    bld <+ (t2 := t1 >> numI32 8 32<rt>)
-    bld <+ (t1 := AST.ite (t2 != z) t2 t1)
-    bld <+ (res := AST.ite (t2 != z) (res .+ numI32 8 32<rt>) res)
-    bld <+ (t2 := t1 >> numI32 4 32<rt>)
-    bld <+ (t1 := AST.ite (t2 != z) t2 t1)
-    bld <+ (res := AST.ite (t2 != z) (res .+ numI32 4 32<rt>) res)
-  | 64<rt> ->
-    bld <+ (t2 := t1 >> numI32 32 64<rt>)
-    bld <+ (t1 := AST.ite (t2 != z) t2 t1)
-    bld <+ (res := AST.ite (t2 != z) (res .+ numI32 32 64<rt>) res)
-    bld <+ (t2 := t1 >> numI32 16 64<rt>)
-    bld <+ (t1 := AST.ite (t2 != z) t2 t1)
-    bld <+ (res := AST.ite (t2 != z) (res .+ numI32 16 64<rt>) res)
-    bld <+ (t2 := t1 >> numI32 8 64<rt>)
-    bld <+ (t1 := AST.ite (t2 != z) t2 t1)
-    bld <+ (res := AST.ite (t2 != z) (res .+ numI32 8 64<rt>) res)
-    bld <+ (t2 := t1 >> numI32 4 64<rt>)
-    bld <+ (t1 := AST.ite (t2 != z) t2 t1)
-    bld <+ (res := AST.ite (t2 != z) (res .+ numI32 4 64<rt>) res)
-  | _ ->
-    raise InvalidOperandSizeException
+  narrowByHalves bld oprSize (t1, t2, res) z
   let v = (res .+ ((t1 >> numI32 1 oprSize) .- (t1 >> numI32 3 oprSize)))
   bld <+ (dstAssign oprSize dst v)
   bld <+ (AST.lmark lblEnd)

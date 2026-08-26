@@ -111,21 +111,15 @@ let private downShiftLayers layers deltaY =
   else
     ()
 
-let private expandLayerGap (edgeSet: EdgeSet) (layout: IVertex<VisBBlock>[][]) =
-  let layerCount = layout.Length
-  let maxInDegrees = layout |> Array.map (getMaxDegree edgeSet.GetInEdges)
-  let maxOutDegrees = layout |> Array.map (getMaxDegree edgeSet.GetOutEdges)
-  let layerBounds = layout |> Array.map layerY
-  let bwdOutCounts =
-    layout
-    |> Array.map (fun layer ->
-      layer |> Array.sumBy (fun v -> edgeSet.GetBwdOutEdges v |> List.length))
-  let bwdInCounts =
-    layout
-    |> Array.map (fun layer ->
-      layer |> Array.sumBy (fun v -> edgeSet.GetBwdInEdges v |> List.length))
-  let degreeShifts = Array.zeroCreate<float> layerCount
-  let gapShifts = Array.zeroCreate<float> layerCount
+/// How far down each layer has to move to make room for the edges meeting it.
+/// A layer with many edges arriving needs room above it and one with many
+/// leaving needs room below, and either way everything after it moves down
+/// too, so the shift accumulates as the layers are walked. The last layer has
+/// nothing under it, so what leaves it asks for nothing.
+let private degreeShiftsOf (maxInDegrees: int[])
+                           (maxOutDegrees: int[])
+                           layerCount =
+  let shifts = Array.zeroCreate<float> layerCount
   let mutable cumulativeShift = 0.0
   for layerIdx in 0 .. layerCount - 1 do
     let inDeg = maxInDegrees[layerIdx]
@@ -133,12 +127,25 @@ let private expandLayerGap (edgeSet: EdgeSet) (layout: IVertex<VisBBlock>[][]) =
       cumulativeShift <- cumulativeShift + EdgeOffset * float inDeg
     else
       ()
-    degreeShifts[layerIdx] <- cumulativeShift
+    shifts[layerIdx] <- cumulativeShift
     let outDeg = maxOutDegrees[layerIdx]
     if outDeg >= LayerHeightExpansionThreshold && layerIdx + 1 < layerCount then
       cumulativeShift <- cumulativeShift + EdgeOffset * float outDeg
     else
       ()
+  shifts
+
+/// How far each band between two layers has to open up for the backward edges
+/// routed through it. Those edges stand side by side inside the band, with a
+/// margin at either end, and where the gap already there -- the degree shifts
+/// counted in -- does not reach that, the difference is made up. Opening one
+/// band pushes every band after it down as well.
+let private gapShiftsOf (layerBounds: (float * float)[])
+                        (bwdOutCounts: int[])
+                        (bwdInCounts: int[])
+                        (degreeShifts: float[])
+                        layerCount =
+  let shifts = Array.zeroCreate<float> layerCount
   let mutable cumulativeGapShift = 0.0
   for bandIdx in 0 .. layerCount - 2 do
     let _, curLayerBottom = layerBounds[bandIdx]
@@ -154,7 +161,25 @@ let private expandLayerGap (edgeSet: EdgeSet) (layout: IVertex<VisBBlock>[][]) =
       else ()
     else
       ()
-    gapShifts[bandIdx + 1] <- cumulativeGapShift
+    shifts[bandIdx + 1] <- cumulativeGapShift
+  shifts
+
+let private expandLayerGap (edgeSet: EdgeSet) (layout: IVertex<VisBBlock>[][]) =
+  let layerCount = layout.Length
+  let maxInDegrees = layout |> Array.map (getMaxDegree edgeSet.GetInEdges)
+  let maxOutDegrees = layout |> Array.map (getMaxDegree edgeSet.GetOutEdges)
+  let layerBounds = layout |> Array.map layerY
+  let bwdOutCounts =
+    layout
+    |> Array.map (fun layer ->
+      layer |> Array.sumBy (fun v -> edgeSet.GetBwdOutEdges v |> List.length))
+  let bwdInCounts =
+    layout
+    |> Array.map (fun layer ->
+      layer |> Array.sumBy (fun v -> edgeSet.GetBwdInEdges v |> List.length))
+  let degreeShifts = degreeShiftsOf maxInDegrees maxOutDegrees layerCount
+  let gapShifts =
+    gapShiftsOf layerBounds bwdOutCounts bwdInCounts degreeShifts layerCount
   for layerIdx in 0 .. layerCount - 1 do
     let deltaY = degreeShifts[layerIdx] + gapShifts[layerIdx]
     if deltaY > 0.0 then

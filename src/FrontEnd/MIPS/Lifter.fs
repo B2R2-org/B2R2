@@ -363,6 +363,33 @@ let divNormal oprSz src1 src2 result bld =
                         qNaNWithSign
                         (AST.ite sNan sNaNWithSign result)))
 
+/// The signalling and the quiet NaN a width normalizes to, each followed by
+/// its negative.
+let private nanValuesOf oprSz =
+  match oprSz with
+  | 32<rt> ->
+    let sVal = numU32 0x7fffffffu 32<rt>
+    let negSVal = numU32 0xffffffffu 32<rt>
+    let qVal = numU32 0x7fbfffffu 32<rt>
+    let negQVal = numU32 0xffbfffffu 32<rt>
+    struct (sVal, negSVal, qVal, negQVal)
+  | _ ->
+    let sVal = numU64 0x7fffffffffffffffUL 64<rt>
+    let negSVal = numU64 0xffffffffffffffffUL 64<rt>
+    let qVal = numU64 0x7ff7ffffffffffffUL 64<rt>
+    let negQVal = numU64 0xfff7ffffffffffffUL 64<rt>
+    struct (sVal, negSVal, qVal, negQVal)
+
+/// Positive and negative infinity in the same width.
+let private infinitiesOf oprSz =
+  match oprSz with
+  | 32<rt> ->
+    struct (numU32 0x7f800000u 32<rt>, numU32 0xff800000u 32<rt>)
+  | _ ->
+    let p = numU64 0x7ff0000000000000UL 64<rt>
+    let m = numU64 0xfff0000000000000UL 64<rt>
+    struct (p, m)
+
 let private normalizeValue oprSz result bld =
   let struct (qNaNBox, sNaNBox, infBox, exponent) = tmpVars4 bld 1<rt>
   let struct (isNaNCheck, sign) = tmpVars2 bld 1<rt>
@@ -378,28 +405,8 @@ let private normalizeValue oprSz result bld =
   let condBox = qNaNBox .| sNaNBox .| infBox
   bld <+ (result :=
     AST.ite condBox (
-      let struct (sNaNVal, negSNaNVal, qNaNVal, negQNaNVal) =
-        match oprSz with
-        | 32<rt> ->
-          let sVal = numU32 0x7fffffffu 32<rt>
-          let negSVal = numU32 0xffffffffu 32<rt>
-          let qVal = numU32 0x7fbfffffu 32<rt>
-          let negQVal = numU32 0xffbfffffu 32<rt>
-          struct (sVal, negSVal, qVal, negQVal)
-        | _ ->
-          let sVal = numU64 0x7fffffffffffffffUL 64<rt>
-          let negSVal = numU64 0xffffffffffffffffUL 64<rt>
-          let qVal = numU64 0x7ff7ffffffffffffUL 64<rt>
-          let negQVal = numU64 0xfff7ffffffffffffUL 64<rt>
-          struct (sVal, negSVal, qVal, negQVal)
-      let struct (pInf, mInf) =
-        match oprSz with
-        | 32<rt> ->
-          struct (numU32 0x7f800000u 32<rt>, numU32 0xff800000u 32<rt>)
-        | _ ->
-          let p = numU64 0x7ff0000000000000UL 64<rt>
-          let m = numU64 0xfff0000000000000UL 64<rt>
-          struct (p, m)
+      let struct (sNaNVal, negSNaNVal, qNaNVal, negQNaNVal) = nanValuesOf oprSz
+      let struct (pInf, mInf) = infinitiesOf oprSz
       let qNanWithSign = AST.ite sign negQNaNVal qNaNVal
       let sNanWithSign = AST.ite sign negSNaNVal sNaNVal
       let infWithSign = AST.ite sign mInf pInf
@@ -764,6 +771,21 @@ let private getCCondOpr (ins: Instruction) bld =
   | _ ->
     raise InvalidOperandException
 
+/// Which of the three comparison outcomes the condition asks about: unordered,
+/// equal and less, one bit each. A signalling form asks the same question as
+/// the quiet form beside it, and differs only in the trap it would raise.
+let private conditionBitsOf condition num0 num1 =
+  match condition with
+  | Some Condition.F | Some Condition.SF -> num0, num0, num0
+  | Some Condition.UN | Some Condition.NGLE -> num1, num0, num0
+  | Some Condition.EQ | Some Condition.SEQ -> num0, num1, num0
+  | Some Condition.UEQ | Some Condition.NGL -> num1, num1, num0
+  | Some Condition.OLT | Some Condition.LT -> num0, num0, num1
+  | Some Condition.ULT | Some Condition.NGE -> num1, num0, num1
+  | Some Condition.OLE | Some Condition.LE -> num0, num1, num1
+  | Some Condition.ULE | Some Condition.NGT -> num1, num1, num1
+  | _ -> raise InvalidOperandException
+
 let cCond ins insLen bld =
   let oprSz, cc, fs, ft, sameReg = getCCondOpr ins bld
   let num0 = AST.num0 oprSz
@@ -771,17 +793,7 @@ let cCond ins insLen bld =
   let struct (tFs, tFt, mantissa) = tmpVars3 bld oprSz
   let struct (less, equal, unordered, condition) = tmpVars4 bld oprSz
   let struct (condNaN, exponent) = tmpVars2 bld 1<rt>
-  let bit0, bit1, bit2 =
-    match ins.Condition with
-    | Some Condition.F | Some Condition.SF -> num0, num0, num0
-    | Some Condition.UN | Some Condition.NGLE -> num1, num0, num0
-    | Some Condition.EQ | Some Condition.SEQ -> num0, num1, num0
-    | Some Condition.UEQ | Some Condition.NGL -> num1, num1, num0
-    | Some Condition.OLT | Some Condition.LT -> num0, num0, num1
-    | Some Condition.ULT | Some Condition.NGE -> num1, num0, num1
-    | Some Condition.OLE | Some Condition.LE -> num0, num1, num1
-    | Some Condition.ULE | Some Condition.NGT -> num1, num1, num1
-    | _ -> raise InvalidOperandException
+  let bit0, bit1, bit2 = conditionBitsOf ins.Condition num0 num1
   bld <!-- (ins.Address, insLen)
   if sameReg then
     bld <+ (tFs := fs)

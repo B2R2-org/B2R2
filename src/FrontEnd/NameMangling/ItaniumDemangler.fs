@@ -524,6 +524,9 @@ type ItaniumDemangler() =
     attempt (opt (many (pConstVolatile))) .>>. (pPointer)
     |>> FunctionBegin
 
+  (* Tying the knot: every parser written above in terms of one of these ref
+     cells now gets the real thing. Names and templates come first, since the
+     rest are written in terms of them. *)
   do
     pTemplateref.Value <-
       saveandreturn (
@@ -545,6 +548,8 @@ type ItaniumDemangler() =
       |>> fun (a, (b, c)) -> (a, b :: c)
       |>> NestedName
 
+  (* What a function's parameter list can hold. *)
+  do
     pPointerArgref.Value <-
       (pstring "P" .>>. (opt (pRCVqualifier <|> pCVqualifier)
       ) .>>. (pNormalArg <|> pLambda <|> pUnnamedType <|> pDecltype))
@@ -564,6 +569,9 @@ type ItaniumDemangler() =
       (attempt pNormalArg <|> pfunc <|> pLambda <|> pDecltype)
       |>> RefArg >>= addargumenttolist
 
+  (* Expressions, the scopes around them, and the statement a whole mangled
+     name comes down to. *)
+  do
     pExpressionRef.Value <-
       attempt pBinaryExpr <|> attempt pUnaryExpr <|> attempt pCallExpr
       <|> attempt pConversionOneArg <|> pDotExpr <|> pDotPointerExpr

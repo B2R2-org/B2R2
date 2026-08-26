@@ -440,6 +440,15 @@ type private SymbLiftedInstruction =
   { Instruction: IInstruction
     Stmts: Stmt[] }
 
+/// What one run of the executor carries along: the solver it was given, the
+/// options it was asked for, the answers and counts it accumulates as it goes,
+/// and the states still waiting to be explored.
+type private SymbRunKit =
+  { Solver: SymbSolverRunner option
+    Opts: SymbRunOptions
+    Ctx: SymbRunContext
+    Worklist: Queue<SymbRunWorkItem> }
+
 /// Represents a symbolic executor over SymbEval's evaluation state.
 type SymbExecutor(hdl: BinHandle) =
   let lifter = hdl.NewLiftingUnit()
@@ -1032,93 +1041,124 @@ type SymbExecutor(hdl: BinHandle) =
     | Pruned(st, reason) ->
       addPruned st reason
 
+  /// What an answered query means for the run: the answer is recorded, and
+  /// where the run wanted only one it stops there. A path the solver calls
+  /// unsatisfiable is pruned, and one it cannot decide is stopped.
+  let answerQuery (kit: SymbRunKit) addr (st: SymbState) = function
+    | QueryReachable ->
+      kit.Ctx.AddReachAnswer addr st
+      if kit.Opts.StopAtFirstAnswer then kit.Ctx.Stop() else ()
+    | QuerySatisfiable values ->
+      kit.Ctx.AddSatAnswer addr st values
+      if kit.Opts.StopAtFirstAnswer then kit.Ctx.Stop() else ()
+    | QueryUnsat reason ->
+      kit.Ctx.AddPruned st reason
+    | QueryUnknown reason ->
+      kit.Ctx.AddStopped st reason
+
+  /// Puts a state on the worklist unless something rules it out: it stands on
+  /// a path being avoided, the solver finds its path condition infeasible, or
+  /// the run has already generated as many states as it was allowed. The
+  /// feasibility check costs a solver call, so it is made only where the path
+  /// condition has actually grown since it was last checked.
+  let enqueueState (kit: SymbRunKit) checkedPathCondLen depth visits st =
+    let addr = (st: SymbState).PC
+    if kit.Ctx.StopExploration then
+      ()
+    else
+      match tryFindAvoid depth kit.Opts.Avoid st with
+      | Some reason ->
+        kit.Ctx.AddPruned st reason
+      | None ->
+        let pathCondLen = List.length st.PathCondition
+        let shouldCheck =
+          kit.Opts.PruneInfeasiblePaths
+          && pathCondLen > checkedPathCondLen
+        let pruning =
+          if shouldCheck then checkPathFeasibility kit.Solver addr kit.Opts st
+          else Ok()
+        match pruning with
+        | Error reason ->
+          kit.Ctx.AddPruned st reason
+        | Ok() ->
+          match isStateLimitReached kit.Ctx.GeneratedStates kit.Opts with
+          | Some limit ->
+            kit.Ctx.AddStopped st (StateLimitReached limit)
+            kit.Ctx.Stop()
+          | None ->
+            kit.Worklist.Enqueue
+              { State = st
+                Depth = depth
+                Visits = visits
+                CheckedPathCondLen =
+                  if shouldCheck then pathCondLen else checkedPathCondLen }
+            kit.Ctx.MarkStateGenerated()
+
+  /// Where one successor of an instruction goes: a plain one carries on a step
+  /// deeper, a fork puts both sides on the worklist, and one that stopped or
+  /// failed is recorded against the address it stopped at.
+  ///
+  /// A failed evaluation has no successor state to record, so it is charged to
+  /// `callerState` -- the state handed to `run`, before it was cloned and moved
+  /// to the starting address. That state is not the one the exploration began
+  /// from and its PC is whatever the caller left it at; what it does offer is
+  /// that nothing here mutates it, where the run's own initial state is
+  /// advanced in place as the first path is walked.
+  let handleSuccessor kit callerState addr item visits successor =
+    let condLen = (item: SymbRunWorkItem).CheckedPathCondLen
+    let depth = item.Depth + 1
+    match successor with
+    | SymbEvaluator.Continue st ->
+      enqueueState kit condLen depth visits st
+    | SymbEvaluator.Fork(trueState, falseState) ->
+      enqueueState kit condLen depth visits trueState
+      enqueueState kit condLen depth visits falseState
+    | SymbEvaluator.Stopped(st, SymbEvaluator.SideEffectStop eff) ->
+      (kit: SymbRunKit).Ctx.AddStopped st (SideEffectStopped(addr, eff))
+    | SymbEvaluator.EvalError e ->
+      kit.Ctx.AddStopped callerState (EvaluationFailed(addr, e))
+
+  /// One instruction taken off the worklist: evaluate it and route each
+  /// successor, or record why it could not be evaluated at all. Nothing to do
+  /// means an earlier step in the pipeline has already answered for this item.
+  /// `callerState` is only passed through, for `handleSuccessor` to charge an
+  /// evaluation failure to.
+  let handleInstruction kit callerState = function
+    | None ->
+      ()
+    | Some(item: SymbRunWorkItem, visits) ->
+      let st = item.State
+      let addr = st.PC
+      match evaluateInstruction (kit: SymbRunKit).Opts addr st with
+      | Error reason ->
+        kit.Ctx.AddStopped st reason
+      | Ok(_, successors) ->
+        successors
+        |> List.iter (handleSuccessor kit callerState addr item visits)
+
   let run start (st: SymbState) (opts: SymbRunOptions) =
     warmUpLiftCache opts.WarmUpRanges
     let worklist = Queue<SymbRunWorkItem>()
     let stopwatch = Stopwatch.StartNew()
     let solver = createSolver opts
     let ctx = SymbRunContext.Init()
+    let kit =
+      { Solver = solver; Opts = opts; Ctx = ctx; Worklist = worklist }
     let initialState = st.Clone()
     initialState.PC <- start
-    let handleQuery addr (st: SymbState) = function
-      | QueryReachable ->
-        ctx.AddReachAnswer addr st
-        if opts.StopAtFirstAnswer then ctx.Stop() else ()
-      | QuerySatisfiable values ->
-        ctx.AddSatAnswer addr st values
-        if opts.StopAtFirstAnswer then ctx.Stop() else ()
-      | QueryUnsat reason ->
-        ctx.AddPruned st reason
-      | QueryUnknown reason ->
-        ctx.AddStopped st reason
-    let enqueue checkedPathCondLen depth visits (st: SymbState) =
-      let addr = st.PC
-      if ctx.StopExploration then
-        ()
-      else
-        match tryFindAvoid depth opts.Avoid st with
-        | Some reason ->
-          ctx.AddPruned st reason
-        | None ->
-          let pathCondLen = List.length st.PathCondition
-          let shouldCheck =
-            opts.PruneInfeasiblePaths
-            && pathCondLen > checkedPathCondLen
-          let pruning =
-            if shouldCheck then checkPathFeasibility solver addr opts st
-            else Ok()
-          match pruning with
-          | Error reason ->
-            ctx.AddPruned st reason
-          | Ok() ->
-            match isStateLimitReached ctx.GeneratedStates opts with
-            | Some limit ->
-              ctx.AddStopped st (StateLimitReached limit)
-              ctx.Stop()
-            | None ->
-              worklist.Enqueue
-                { State = st
-                  Depth = depth
-                  Visits = visits
-                  CheckedPathCondLen =
-                    if shouldCheck then pathCondLen else checkedPathCondLen }
-              ctx.MarkStateGenerated()
-    let handleSuccessor addr checkedPathCondLen depth visits = function
-      | SymbEvaluator.Continue st ->
-        enqueue checkedPathCondLen (depth + 1) visits st
-      | SymbEvaluator.Fork(trueState, falseState) ->
-        enqueue checkedPathCondLen (depth + 1) visits trueState
-        enqueue checkedPathCondLen (depth + 1) visits falseState
-      | SymbEvaluator.Stopped(st, SymbEvaluator.SideEffectStop eff) ->
-        ctx.AddStopped st (SideEffectStopped(addr, eff))
-      | SymbEvaluator.EvalError e ->
-        ctx.AddStopped st (EvaluationFailed(addr, e))
-    let handleSuccessors item addr visits successors =
-      successors
-      |> List.iter
-           (handleSuccessor addr item.CheckedPathCondLen item.Depth visits)
-    let handleInstruction = function
-      | None ->
-        ()
-      | Some(item, visits) ->
-        let st = item.State
-        let addr = st.PC
-        match evaluateInstruction opts addr st with
-        | Error reason -> ctx.AddStopped st reason
-        | Ok(_, successors) -> handleSuccessors item addr visits successors
     let handleRunTimeout item timeout =
       ctx.AddStopped item.State (RunTimeoutReached timeout)
       ctx.MarkTimeout timeout
     let handleFailure = handleRunFailure ctx.AddStopped ctx.AddPruned ctx.Stop
-    enqueue 0 0 Map.empty initialState
+    enqueueState kit 0 0 Map.empty initialState
     while worklist.Count > 0 && not ctx.StopExploration do
       ()
       |> tryStopOnRunTimeout stopwatch opts worklist handleRunTimeout
       |> tryDequeueNextItem worklist
-      |> tryAnswerUserQuery solver opts handleQuery
+      |> tryAnswerUserQuery solver opts (answerQuery kit)
       |> tryStopOnDepthLimit opts handleFailure
       |> tryStopOnLoopLimit opts handleFailure
-      |> handleInstruction
+      |> handleInstruction kit st
     let result =
       finishRun opts
                 ctx.ReachAnswers

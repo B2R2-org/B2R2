@@ -1285,6 +1285,50 @@ let fpDiv bld dataSize src1 src2 =
   bld <+ (AST.lmark lblEnd)
   res
 
+/// Positive and negative one half, in the width being converted from. Ties
+/// away from zero go up once the fraction reaches one of these.
+let private halvesOf srcSz =
+  match srcSz with
+  | 32<rt> ->
+    numI32 0x3F000000 srcSz, numI32 0xBF000000 srcSz
+  | 64<rt> ->
+    numI64 0x3FE0000000000000L srcSz, numI64 0xBFE0000000000000L srcSz
+  | _ ->
+    raise InvalidOperandSizeException
+
+/// The fixed-point form of a value already scaled by its fraction bits: cast
+/// it to an integer, cut it down where the destination is the narrower of the
+/// two, and widen it back with or without a sign.
+let private fpFixed sizes unsigned bigint cast =
+  let dstSz, srcSz = sizes
+  match dstSz, srcSz with
+  | d, s when d >= s -> cast bigint
+  | _ -> cast bigint |> AST.xtlo dstSz
+  |> if unsigned then AST.zext dstSz else AST.sext dstSz
+
+/// A conversion guarded against the values that have no fixed-point form: a
+/// NaN comes out zero, an infinity comes out at the bound it is nearest to.
+/// Everything else goes through `convert`.
+let private fpGuardSpecials bld sizes src fbits convert =
+  let dstSz, srcSz = sizes
+  let res = tmpVar bld dstSz
+  let struct (checkNan, checkInf, checkfbit) = tmpVars3 bld 1<rt>
+  let lblNan = label bld "NaN"
+  let lblCon = label bld "Continue"
+  let lblEnd = label bld "End"
+  bld <+ (checkNan := isNaN srcSz src)
+  bld <+ (checkInf := isInfinity srcSz src)
+  bld <+ (checkfbit := AST.zext srcSz fbits == AST.num0 srcSz)
+  bld <+ (AST.cjmp (checkNan .| checkInf) (AST.jmpDest lblNan)
+                                          (AST.jmpDest lblCon))
+  bld <+ (AST.lmark lblNan)
+  bld <+ (res := AST.ite checkNan (AST.num0 dstSz) (fpMinMax src dstSz))
+  bld <+ (AST.jmp (AST.jmpDest lblEnd))
+  bld <+ (AST.lmark lblCon)
+  bld <+ (res := convert ())
+  bld <+ (AST.lmark lblEnd)
+  res
+
 /// shared/functions/float/FPToFixed
 /// FPToFixed()
 /// ======
@@ -1308,44 +1352,15 @@ let fpToFixed dstSz src fbits unsigned round bld =
   let mulBits =
     AST.cast CastKind.UIntToFloat srcSz (numU64 0x1UL srcSz << convertBit)
   let bigint = AST.fmul src mulBits
-  let fpFix cast =
-    match dstSz, srcSz with
-    | d, s when d >= s -> cast bigint
-    | _ -> cast bigint |> AST.xtlo dstSz
-    |> if unsigned then AST.zext dstSz else AST.sext dstSz
   let fpcheck cast =
-    let res = tmpVar bld dstSz
-    let struct (checkNan, checkInf, checkfbit) = tmpVars3 bld 1<rt>
-    let lblNan = label bld "NaN"
-    let lblCon = label bld "Continue"
-    let lblEnd = label bld "End"
-    bld <+ (checkNan := isNaN srcSz src)
-    bld <+ (checkInf := isInfinity srcSz src)
-    bld <+ (checkfbit := AST.zext srcSz fbits == AST.num0 srcSz)
-    bld <+ (AST.cjmp (checkNan .| checkInf) (AST.jmpDest lblNan)
-                                            (AST.jmpDest lblCon))
-    bld <+ (AST.lmark lblNan)
-    bld <+ (res := AST.ite checkNan (AST.num0 dstSz) (fpMinMax src dstSz))
-    bld <+ (AST.jmp (AST.jmpDest lblEnd))
-    bld <+ (AST.lmark lblCon)
-    bld <+ (res := fpFix cast)
-    bld <+ (AST.lmark lblEnd)
-    res
+    fpGuardSpecials bld (dstSz, srcSz) src fbits (fun () ->
+      fpFixed (dstSz, srcSz) unsigned bigint cast)
   match round with
   | FPRounding_TIEEVEN ->
     fpcheck (AST.cast CastKind.FtoIRound srcSz)
   | FPRounding_TIEAWAY ->
     let t = tmpVar bld srcSz
-    let comp1 =
-      match srcSz with
-      | 32<rt> -> numI32 0x3F000000 srcSz (* 0.5 *)
-      | 64<rt> -> numI64 0x3FE0000000000000L srcSz (* 0.5 *)
-      | _ -> raise InvalidOperandSizeException
-    let comp2 =
-      match srcSz with
-      | 32<rt> -> numI32 0xBF000000 srcSz (* -0.5 *)
-      | 64<rt> -> numI64 0xBFE0000000000000L srcSz (* -0.5 *)
-      | _ -> raise InvalidOperandSizeException
+    let comp1, comp2 = halvesOf srcSz
     bld <+ (t := AST.fsub src trunc)
     let ceil = fpcheck (AST.cast CastKind.FtoICeil srcSz)
     let floor = fpcheck (AST.cast CastKind.FtoIFloor srcSz)

@@ -553,6 +553,30 @@ let extToNarrow ins insLen bld toRt =
     bld <+ (fpPart toRt d := narrowTo toRt out)
     bld --!> insLen
 
+/// Splits a widened integer into a sign bit and a magnitude. An unsigned value
+/// is its own magnitude and carries no sign.
+let private splitSignAndMagnitude bld signed raw parts =
+  let sign, mag = parts
+  if signed then
+    bld <+ (sign := AST.ite (raw ?< AST.num0 64<rt>)
+                            (AST.num1 64<rt>)
+                            (AST.num0 64<rt>))
+    bld <+ (mag := AST.ite (raw ?< AST.num0 64<rt>) (AST.neg raw) raw)
+  else
+    bld <+ (sign := AST.num0 64<rt>)
+    bld <+ (mag := raw)
+
+/// Where the leftmost one bit stands. Every bit above the first is tried, and
+/// the highest one that is set is the answer; a magnitude of zero has none and
+/// the answer stays at zero.
+let private highestSetBit mag =
+  let mutable pos = AST.num0 64<rt>
+  for i in 1 .. 63 do
+    let isOne =
+      ((mag >> numI64 (int64 i) 64<rt>) .& AST.num1 64<rt>) == AST.num1 64<rt>
+    pos <- AST.ite isOne (numI64 (int64 i) 64<rt>) pos
+  pos
+
 /// A conversion from a fixed-point value to the extended format, which is exact
 /// -- a 112-bit fraction holds any integer a register can.
 let extFromInt ins insLen bld intW signed =
@@ -574,22 +598,10 @@ let extFromInt ins insLen bld intW signed =
       elif signed then AST.sext 64<rt> (AST.xtlo intW src)
       else AST.zext 64<rt> (AST.xtlo intW src)
     bld <+ (raw := widened)
-    if signed then
-      bld <+ (sign := AST.ite (raw ?< AST.num0 64<rt>)
-                              (AST.num1 64<rt>)
-                              (AST.num0 64<rt>))
-      bld <+ (mag := AST.ite (raw ?< AST.num0 64<rt>) (AST.neg raw) raw)
-    else
-      bld <+ (sign := AST.num0 64<rt>)
-      bld <+ (mag := raw)
-    (* The leftmost one bit fixes the exponent, and the bits below it become the
-       fraction, left-aligned in the field. *)
-    let mutable pos = AST.num0 64<rt>
-    for i in 1 .. 63 do
-      let isOne =
-        ((mag >> numI64 (int64 i) 64<rt>) .& AST.num1 64<rt>) == AST.num1 64<rt>
-      pos <- AST.ite isOne (numI64 (int64 i) 64<rt>) pos
-    bld <+ (shift := pos)
+    splitSignAndMagnitude bld signed raw (sign, mag)
+    (* the leftmost one bit fixes the exponent, and the bits below it become
+       the fraction, left-aligned in the field *)
+    bld <+ (shift := highestSetBit mag)
     let expo = numI64 16383L 64<rt> .+ shift
     let frac = mag .& ((AST.num1 64<rt> << shift) .- AST.num1 64<rt>)
     (* Forty-eight of the fraction's bits live in the even register and the rest

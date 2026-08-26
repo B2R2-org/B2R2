@@ -552,6 +552,8 @@ type private LinearRenderLayer() =
       headerBg,
       Rect(0.0, headerTop, bounds.Width, headerHeight)
     )
+    (* a section header is ruled off above as well, since it opens a region
+       rather than sitting inside one *)
     match headerKind with
     | SectionHeaderVisual ->
       ctx.DrawLine(
@@ -559,26 +561,14 @@ type private LinearRenderLayer() =
         Point(common.PaddingX, headerTop),
         Point(bounds.Width - common.PaddingX, headerTop)
       )
-      ctx.DrawLine(
-        borderPen,
-        Point(common.PaddingX, headerTop + headerHeight - 1.0),
-        Point(bounds.Width - common.PaddingX, headerTop + headerHeight - 1.0)
-      )
-      ctx.DrawText(txt, Point(common.PaddingX, titleY))
-    | FunctionHeaderVisual ->
-      ctx.DrawLine(
-        borderPen,
-        Point(common.PaddingX, headerTop + headerHeight - 1.0),
-        Point(bounds.Width - common.PaddingX, headerTop + headerHeight - 1.0)
-      )
-      ctx.DrawText(txt, Point(common.PaddingX, titleY))
-    | LinkageTableHeaderVisual ->
-      ctx.DrawLine(
-        borderPen,
-        Point(common.PaddingX, headerTop + headerHeight - 1.0),
-        Point(bounds.Width - common.PaddingX, headerTop + headerHeight - 1.0)
-      )
-      ctx.DrawText(txt, Point(common.PaddingX, titleY))
+    | FunctionHeaderVisual | LinkageTableHeaderVisual ->
+      ()
+    ctx.DrawLine(
+      borderPen,
+      Point(common.PaddingX, headerTop + headerHeight - 1.0),
+      Point(bounds.Width - common.PaddingX, headerTop + headerHeight - 1.0)
+    )
+    ctx.DrawText(txt, Point(common.PaddingX, titleY))
 
   override this.OnPropertyChanged change =
     base.OnPropertyChanged change
