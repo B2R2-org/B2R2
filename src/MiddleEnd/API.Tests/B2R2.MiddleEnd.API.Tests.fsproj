@@ -8,6 +8,7 @@
     <Compile Include="Helper.fs" />
     <Compile Include="CFG1Tests.fs" />
     <Compile Include="CFG2Tests.fs" />
+    <Compile Include="BBLCutTests.fs" />
     <Compile Include="FunctionSummaryTests.fs" />
   </ItemGroup>
 
