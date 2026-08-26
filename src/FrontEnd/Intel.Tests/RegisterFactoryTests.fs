@@ -42,6 +42,9 @@ type RegisterFactoryTests() =
 
   let regType (reg: Register) = Register.toRegID reg |> regFactory.GetRegType
 
+  let tryRegVar (factory: IRegisterFactory) reg =
+    try Some(Register.toRegID reg |> factory.GetRegVar) with _ -> None
+
   let regs (first: Register) count =
     [| for n in 0 .. count - 1 ->
          LanguagePrimitives.EnumOfValue(int first + n) |]
@@ -57,6 +60,19 @@ type RegisterFactoryTests() =
   member _.``Composite registers have their full width``() =
     for reg in compositeRegs do
       Assert.AreEqual<RegType>(regType reg, Expr.typeOf (regVar reg))
+
+  [<TestMethod>]
+  member _.``Every register variable has a matching register type``() =
+    for wordSize in [| WordSize.Bit32; WordSize.Bit64 |] do
+      let isa = ISA(Architecture.Intel, wordSize)
+      let factory = RegisterFactory isa :> IRegisterFactory
+      for reg in System.Enum.GetValues<Register>() do
+        match tryRegVar factory reg with
+        | Some v ->
+          let rt = Register.toRegID reg |> factory.GetRegType
+          Assert.AreEqual<RegType>(Expr.typeOf v, rt)
+        | None ->
+          ()
 
   [<TestMethod>]
   member _.``Composite registers concatenate their chunks in order``() =

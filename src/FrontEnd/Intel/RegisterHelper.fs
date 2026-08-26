@@ -171,9 +171,11 @@ module internal RegisterHelper = begin
     | R.ZMM4H | R.ZMM5H | R.ZMM6H | R.ZMM7H
     | R.ZMM8H | R.ZMM9H | R.ZMM10H | R.ZMM11H
     | R.ZMM12H | R.ZMM13H | R.ZMM14H | R.ZMM15H
-    | R.FIP | R.FDP -> 64<rt>
+    | R.FIP | R.FDP
+    | R.K0 | R.K1 | R.K2 | R.K3 | R.K4 | R.K5 | R.K6 | R.K7 -> 64<rt>
     | R.R8D | R.R9D | R.R10D | R.R11D
     | R.R12D | R.R13D | R.R14D | R.R15D
+    | R.DR0 | R.DR1 | R.DR2 | R.DR3 | R.DR6 | R.DR7
     | R.EAX | R.EBX | R.ECX | R.EDX
     | R.ESP | R.EBP | R.ESI | R.EDI | R.EIP | R.PKRU
     | R.MXCSR | R.MXCSRMASK -> 32<rt>
@@ -182,8 +184,7 @@ module internal RegisterHelper = begin
     | R.ST0B | R.ST1B | R.ST2B | R.ST3B | R.ST4B | R.ST5B | R.ST6B | R.ST7B
     | R.ES | R.CS | R.SS | R.DS | R.FS | R.GS
     | R.AX | R.BX | R.CX | R.DX | R.SP | R.BP | R.SI | R.DI
-    | R.FCW | R.FSW | R.FTW | R.FOP | R.FCS | R.FDS
-    | R.K0 | R.K1 | R.K2 | R.K3 | R.K4 | R.K5 | R.K6 | R.K7 -> 16<rt>
+    | R.FCW | R.FSW | R.FTW | R.FOP | R.FCS | R.FDS -> 16<rt>
     | R.R8B | R.R9B | R.R10B | R.R11B
     | R.R12B | R.R13B | R.R14B | R.R15B
     | R.SPL | R.BPL | R.SIL | R.DIL
@@ -202,12 +203,13 @@ module internal RegisterHelper = begin
     | R.ZMM8 | R.ZMM9 | R.ZMM10 | R.ZMM11
     | R.ZMM12 | R.ZMM13 | R.ZMM14 | R.ZMM15 -> 512<rt>
     | R.ST0 | R.ST1 | R.ST2 | R.ST3 | R.ST4 | R.ST5 | R.ST6 | R.ST7 -> 80<rt>
-    | R.DF | R.CF | R.PF | R.AF | R.ZF | R.SF | R.OF | R.IF
+    | R.DF | R.CF | R.PF | R.AF | R.ZF | R.SF | R.OF | R.IF | R.TF
     | R.FSWC0 | R.FSWC1 | R.FSWC2 | R.FSWC3 -> 1<rt>
     | R.FTW0 | R.FTW1 | R.FTW2 | R.FTW3
     | R.FTW4 | R.FTW5 | R.FTW6 | R.FTW7
     | R.FTOP -> 8<rt>
-    | R.FSBase | R.GSBase -> WordSize.toRegType wordSize
+    | R.ESBase | R.CSBase | R.SSBase | R.DSBase | R.FSBase | R.GSBase
+    | R.CR0 | R.CR2 | R.CR3 | R.CR4 | R.CR8 -> WordSize.toRegType wordSize
     | _ -> raise InvalidRegisterException
 
   let extendRegister32 = function
