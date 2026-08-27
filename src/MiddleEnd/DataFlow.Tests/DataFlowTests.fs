@@ -245,3 +245,24 @@ type DataFlowTests() =
     |> List.iter (fun (vp, ans) ->
       let out = (state :> IAbsValProvider<_, _>).GetAbsValue vp
       Assert.AreEqual<UntouchedValueDomain.Lattice>(ans, out))
+
+  [<TestMethod>]
+  member _.``Sensitive Constant Propagation EvalExpr 1``() =
+    let brew = Binaries.loadOne Binaries.sample1
+    let scheme =
+      { new LowUIRSensitiveDataFlow.IScheme<ConstantDomain.Lattice, int> with
+          member _.DefaultExecutionContext = 0
+          member _.TryComputeExecutionContext(_, exeCtx, _, _) = Some exeCtx
+          member _.OnVertexNewlyAnalyzed _ = ()
+          member _.OnRemoveVertex _ = () }
+    let cp = LowUIRSensitiveConstantPropagation(brew.BinHandle, scheme)
+    let spp: LowUIRSensitiveDataFlow.SensitiveProgramPoint<int> =
+      { ProgramPoint = ProgramPoint(0x1234UL, 0); ExecutionContext = 0 }
+    let n42 = LowUIR.AST.num (BitVector(42u, 32<rt>))
+    let n8 = LowUIR.AST.num (BitVector(8u, 32<rt>))
+    [ n42, mkConst 42u 32<rt>
+      LowUIR.AST.add n42 n8, mkConst 50u 32<rt>
+      LowUIR.AST.pcvar 32<rt> "EIP", mkConst 0x1234u 32<rt> ]
+    |> List.iter (fun (e, ans) ->
+      let out = cp.EvalExpr(spp, e)
+      Assert.AreEqual<ConstantDomain.Lattice>(ans, out))

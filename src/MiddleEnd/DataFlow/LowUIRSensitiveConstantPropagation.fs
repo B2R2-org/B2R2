@@ -116,7 +116,8 @@ type LowUIRSensitiveConstantPropagation<'ExeCtx when 'ExeCtx: comparison>
 
   member _.State with get() = state
 
-  member _.EvalExpr(pp, e) = evaluateExpr pp e
+  /// Evaluates the given expression at the given sensitive program point.
+  member _.EvalExpr(spp, e) = evaluateExpr state spp e
 
   member _.Reset() = state.Reset()
 
