@@ -393,3 +393,79 @@ let private code4 =
      0xC3uy |]
 
 let sample4 = Binary(code4, Architecture.Intel, WordSize.Bit32)
+
+(*
+  Example 5: Two values loaded from memory, each joined with a constant right
+  after. The first load is word-sized and aligned, so it is answered by the
+  scheme's UpdateMemFromBinaryFile; the second is narrower than a word, so
+  GetMemValue turns it down. Both values are unknown, so neither join may
+  come out as a constant.
+
+  00000000: 48 B8 00 10 00 00 00 00 00 00   mov  rax,1000h
+  0000000A: 48 8B 00                        mov  rax,qword ptr [rax]
+  0000000D: 85 D2                           test edx,edx
+  0000000F: 74 07                           je   00000018
+  00000011: 48 C7 C0 03 00 00 00            mov  rax,3
+  00000018: 48 01 C1                        add  rcx,rax
+  0000001B: 48 BB 00 20 00 00 00 00 00 00   mov  rbx,2000h
+  00000025: 8B 1B                           mov  ebx,dword ptr [rbx]
+  00000027: 85 D2                           test edx,edx
+  00000029: 74 05                           je   00000030
+  0000002B: BB 07 00 00 00                  mov  ebx,7
+  00000030: 01 D9                           add  ecx,ebx
+  00000032: C3                              ret
+*)
+let private code5 =
+  [| 0x48uy
+     0xB8uy
+     0x00uy
+     0x10uy
+     0x00uy
+     0x00uy
+     0x00uy
+     0x00uy
+     0x00uy
+     0x00uy
+     0x48uy
+     0x8Buy
+     0x00uy
+     0x85uy
+     0xD2uy
+     0x74uy
+     0x07uy
+     0x48uy
+     0xC7uy
+     0xC0uy
+     0x03uy
+     0x00uy
+     0x00uy
+     0x00uy
+     0x48uy
+     0x01uy
+     0xC1uy
+     0x48uy
+     0xBBuy
+     0x00uy
+     0x20uy
+     0x00uy
+     0x00uy
+     0x00uy
+     0x00uy
+     0x00uy
+     0x00uy
+     0x8Buy
+     0x1Buy
+     0x85uy
+     0xD2uy
+     0x74uy
+     0x05uy
+     0xBBuy
+     0x07uy
+     0x00uy
+     0x00uy
+     0x00uy
+     0x01uy
+     0xD9uy
+     0xC3uy |]
+
+let sample5 = Binary(code5, Architecture.Intel, WordSize.Bit64)

@@ -223,6 +223,24 @@ type DataFlowTests() =
       let out = (state :> IAbsValProvider<_, _>).GetAbsValue var
       Assert.AreEqual<ConstantDomain.Lattice>(ans, out))
 
+  [<TestMethod>]
+  member _.``SSA Constant Propagation Test 2``() =
+    let brew = Binaries.loadOne Binaries.sample5
+    let cfg = brew.Functions[0UL].CFG
+    let lifter = SSALifterFactory.Create brew.BinHandle
+    let promoter = SSAPromoterFactory.Create brew.BinHandle
+    let g = (lifter.Lift cfg |> promoter.Promote).Graph
+    let cp = SSAConstantPropagation brew.BinHandle
+    let dfa = cp :> IDataFlowComputable<_, _, _, _>
+    let state = dfa.Compute g
+    (* A value read from memory is unknown, so joining it with a constant
+       must not come out as that constant. *)
+    [ ssaReg g Register.RAX 0x18UL 64<rt> |> cmp <| ConstantDomain.NotAConst
+      ssaReg g Register.RBX 0x30UL 64<rt> |> cmp <| ConstantDomain.NotAConst ]
+    |> List.iter (fun (var, ans) ->
+      let out = (state :> IAbsValProvider<_, _>).GetAbsValue var
+      Assert.AreEqual<ConstantDomain.Lattice>(ans, out))
+
 #if !EMULATION
   [<TestMethod>]
   member _.``Constant Propagation Test 1``() =

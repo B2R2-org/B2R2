@@ -110,7 +110,8 @@ type SSAStackPointerPropagation(hdl: BinHandle) =
           | Phi(var, ns) -> evalPhi state ssaCFG blk var ns
           | Jmp _ -> evalJmp state ssaCFG blk
           | LMark _ | ExternalCall _ | SideEffect _ -> ()
-        member _.UpdateMemFromBinaryFile(_rt, _addr) = StackPointerDomain.Undef
+        member _.UpdateMemFromBinaryFile(_rt, _addr) =
+          StackPointerDomain.NotConstSP
         member _.EvalExpr e = evalExpr state e }
 
   and state =

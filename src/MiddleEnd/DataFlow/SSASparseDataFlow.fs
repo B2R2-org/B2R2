@@ -119,16 +119,14 @@ type State<'Lattice when 'Lattice: equality>
       regValues[var] <- lattice.Join(regValues[var], value)
       ssaWorkList.Enqueue var
 
-  /// Tries to get memory value. Unaligned access will always return Bottom.
+  /// Returns the abstract value of the memory cell at the given address. An
+  /// access that the value map cannot answer is handed over to the scheme.
   member _.GetMemValue(var: Variable, rt: RegType, addr: Addr) =
     assert (isMemVar var)
-    if isAligned rt addr then
-      match memValues.TryGetValue var.Identifier with
-      | true, map -> Map.tryFind addr map
-      | false, _ -> None
-      |> Option.defaultWith (fun () -> scheme.UpdateMemFromBinaryFile(rt, addr))
-    else
-      lattice.Bottom
+    match memValues.TryGetValue var.Identifier with
+    | true, map when isAligned rt addr -> Map.tryFind addr map
+    | _ -> None
+    |> Option.defaultWith (fun () -> scheme.UpdateMemFromBinaryFile(rt, addr))
 
   /// Gets the list of executed source vertices.
   member _.GetExecutedSources(ssaCFG, blk: IVertex<_>, srcIDs) =
@@ -172,8 +170,11 @@ and IScheme<'Lattice when 'Lattice: equality> =
     * IVertex<SSABasicBlock>
     -> unit
 
-  /// Update memory value by reading constant values from a binary file when
-  /// the memory value is not found in the memory value map.
+  /// Returns the abstract value of the memory cell at the given address, which
+  /// a scheme may read off the binary file. A scheme that cannot tell must
+  /// return the top of its lattice: a memory cell never receives a definition
+  /// that would later raise a bottom, so a bottom here stays bottom and gets
+  /// absorbed by every join.
   abstract UpdateMemFromBinaryFile: RegType * Addr -> 'Lattice
 
   /// Evaluate the given expression based on the current abstract state.

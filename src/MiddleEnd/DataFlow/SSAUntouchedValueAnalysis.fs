@@ -115,7 +115,7 @@ type SSAUntouchedValueAnalysis(hdl: BinHandle) =
           | Jmp _ -> evalJmp state ssaCFG blk
           | LMark _ | ExternalCall _ | SideEffect _ -> ()
         member _.UpdateMemFromBinaryFile(_rt, _addr) =
-          UntouchedValueDomain.Undef
+          UntouchedValueDomain.Touched
         member _.EvalExpr e = evalExpr state e }
 
   and state =

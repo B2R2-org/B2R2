@@ -111,7 +111,8 @@ type SSAConstantPropagation(hdl: BinHandle) =
           | Phi(var, ns) -> evalPhi state ssaCFG blk var ns
           | Jmp _ -> evalJmp state ssaCFG blk
           | LMark _ | ExternalCall _ | SideEffect _ -> ()
-        member _.UpdateMemFromBinaryFile(_rt, _addr) = ConstantDomain.Undef
+        member _.UpdateMemFromBinaryFile(_rt, _addr) =
+          ConstantDomain.NotAConst
         member _.EvalExpr e = evalExpr state e }
 
   and state =
