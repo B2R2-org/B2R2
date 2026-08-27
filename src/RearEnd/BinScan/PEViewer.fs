@@ -265,7 +265,8 @@ let dirEntToString (dirent: DirectoryEntry) =
   let size = String.wrapParen (HexString.ofInt32 dirent.Size)
   rva + " " + size
 
-let dumpExistingOptionalHeader (hdr: PEHeader) (pe: PEBinFile) =
+/// The optional header's standard fields, which every COFF image carries.
+let private dumpStandardFields (hdr: PEHeader) =
   let magicValue = HexString.ofUInt64 (uint64 hdr.Magic)
   let magicString = String.wrapParen <| hdr.Magic.ToString()
   let majorLinkerVer = hdr.MajorLinkerVersion.ToString()
@@ -273,8 +274,20 @@ let dumpExistingOptionalHeader (hdr: PEHeader) (pe: PEBinFile) =
   let sizeOfInitData = HexString.ofUInt64 (uint64 hdr.SizeOfInitializedData)
   let sizeOfUninitData = HexString.ofUInt64 (uint64 hdr.SizeOfUninitializedData)
   let imgBase = hdr.ImageBase
-  let sizeOfImage = uint64 hdr.SizeOfImage
   let entryPoint = HexString.ofUInt64 (imgBase + uint64 hdr.AddressOfEntryPoint)
+  printsr [| "Magic:"; magicValue + " " + magicString |]
+  printsr [| "Linker version:"; majorLinkerVer + "." + minorLinkerVer |]
+  printsr [| "Size of code:"; HexString.ofUInt64 (uint64 hdr.SizeOfCode) |]
+  printsr [| "Size of initialized data:"; sizeOfInitData |]
+  printsr [| "Size of uninitialized data:"; sizeOfUninitData |]
+  printsr [| "Entry point:"; entryPoint |]
+  printsr [| "Base of code:"; HexString.ofUInt64 (uint64 hdr.BaseOfCode) |]
+
+/// The Windows-specific fields that follow them, which say where the image
+/// wants to be loaded and how it is to be run.
+let private dumpWindowsFields (hdr: PEHeader) =
+  let imgBase = hdr.ImageBase
+  let sizeOfImage = uint64 hdr.SizeOfImage
   let startImage = HexString.ofUInt64 imgBase
   let endImage = HexString.ofUInt64 (imgBase + sizeOfImage - uint64 1)
   let imgRange = String.wrapParen (startImage + " to " + endImage)
@@ -291,29 +304,6 @@ let dumpExistingOptionalHeader (hdr: PEHeader) (pe: PEBinFile) =
   let stackCommit = HexString.ofUInt64 hdr.SizeOfStackCommit
   let heapReserve = HexString.ofUInt64 hdr.SizeOfHeapReserve
   let heapCommit = HexString.ofUInt64 hdr.SizeOfHeapCommit
-  let exportDir = dirEntToString hdr.ExportTableDirectory
-  let importDir = dirEntToString hdr.ImportTableDirectory
-  let resourceDir = dirEntToString hdr.ResourceTableDirectory
-  let exceptionDir = dirEntToString hdr.ExceptionTableDirectory
-  let certificateDir = dirEntToString hdr.CertificateTableDirectory
-  let baseRelocDir = dirEntToString hdr.BaseRelocationTableDirectory
-  let debugDir = dirEntToString hdr.DebugTableDirectory
-  let architectureDir = dirEntToString hdr.CopyrightTableDirectory
-  let globalPtrDir = dirEntToString hdr.GlobalPointerTableDirectory
-  let threadLoStorDir = dirEntToString hdr.ThreadLocalStorageTableDirectory
-  let loadConfigDir = dirEntToString hdr.ThreadLocalStorageTableDirectory
-  let boundImpDir = dirEntToString hdr.BoundImportTableDirectory
-  let importAddrDir = dirEntToString hdr.ImportAddressTableDirectory
-  let delayImpDir = dirEntToString hdr.DelayImportTableDirectory
-  let comDescDir = dirEntToString hdr.CorHeaderTableDirectory
-  setTableColumnFormats [| RightAligned 45; LeftAligned 40 |]
-  printsr [| "Magic:"; magicValue + " " + magicString |]
-  printsr [| "Linker version:"; majorLinkerVer + "." + minorLinkerVer |]
-  printsr [| "Size of code:"; HexString.ofUInt64 (uint64 hdr.SizeOfCode) |]
-  printsr [| "Size of initialized data:"; sizeOfInitData |]
-  printsr [| "Size of uninitialized data:"; sizeOfUninitData |]
-  printsr [| "Entry point:"; entryPoint |]
-  printsr [| "Base of code:"; HexString.ofUInt64 (uint64 hdr.BaseOfCode) |]
   printsr [| "Image base:"; HexString.ofUInt64 imgBase + " " + imgRange |]
   printsr [| "Section alignment:"; HexString.ofInt32 hdr.SectionAlignment |]
   printsr [| "File Alignment:"; HexString.ofInt32 hdr.FileAlignment |]
@@ -332,6 +322,25 @@ let dumpExistingOptionalHeader (hdr: PEHeader) (pe: PEBinFile) =
   printsr [| "Size of heap reserve:"; heapReserve |]
   printsr [| "Size of heap commit:"; heapCommit |]
   printsr [| "Number of directories:"; hdr.NumberOfRvaAndSizes.ToString() |]
+
+/// The data directories the header ends with, each named by its RVA and the
+/// size that follows it.
+let private dumpDataDirectories (hdr: PEHeader) =
+  let exportDir = dirEntToString hdr.ExportTableDirectory
+  let importDir = dirEntToString hdr.ImportTableDirectory
+  let resourceDir = dirEntToString hdr.ResourceTableDirectory
+  let exceptionDir = dirEntToString hdr.ExceptionTableDirectory
+  let certificateDir = dirEntToString hdr.CertificateTableDirectory
+  let baseRelocDir = dirEntToString hdr.BaseRelocationTableDirectory
+  let debugDir = dirEntToString hdr.DebugTableDirectory
+  let architectureDir = dirEntToString hdr.CopyrightTableDirectory
+  let globalPtrDir = dirEntToString hdr.GlobalPointerTableDirectory
+  let threadLoStorDir = dirEntToString hdr.ThreadLocalStorageTableDirectory
+  let loadConfigDir = dirEntToString hdr.ThreadLocalStorageTableDirectory
+  let boundImpDir = dirEntToString hdr.BoundImportTableDirectory
+  let importAddrDir = dirEntToString hdr.ImportAddressTableDirectory
+  let delayImpDir = dirEntToString hdr.DelayImportTableDirectory
+  let comDescDir = dirEntToString hdr.CorHeaderTableDirectory
   printsr [| "RVA (size) of Export Directory:"; exportDir |]
   printsr [| "RVA (size) of Import Directory:"; importDir |]
   printsr [| "RVA (size) of Resource Directory:"; resourceDir |]
@@ -348,6 +357,12 @@ let dumpExistingOptionalHeader (hdr: PEHeader) (pe: PEBinFile) =
   printsr [| "RVA (size) of Delay Import Table Directory:"; delayImpDir |]
   printsr [| "RVA (size) of COM Descriptor Directory:"; comDescDir |]
   printsn ""
+
+let dumpExistingOptionalHeader (hdr: PEHeader) (_pe: PEBinFile) =
+  setTableColumnFormats [| RightAligned 45; LeftAligned 40 |]
+  dumpStandardFields hdr
+  dumpWindowsFields hdr
+  dumpDataDirectories hdr
 
 let dumpOptionalHeader _ (pe: PEBinFile) =
   let hdr = pe.PEHeaders.PEHeader

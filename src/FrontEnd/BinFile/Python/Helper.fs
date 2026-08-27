@@ -492,6 +492,48 @@ let private getCodeLen = function
   | PyString bytes -> Array.length bytes |> uint64
   | _ -> 0UL
 
+/// Every code object reachable from one, itself first and then whatever its
+/// constants hold. A nested code object arrives either directly or behind a
+/// reference, and either way it is walked.
+let private collectCodeObjects (root: PyCodeObject) =
+  let allCodeObjs = ResizeArray<PyCodeObject>()
+  let rec collectConstsObj = function
+    | PyCode nested -> collect nested
+    | PyREF(_, obj) -> collectConstsObj obj
+    | _ -> ()
+  and collect (co: PyCodeObject) =
+    allCodeObjs.Add co
+    match co.Consts with
+    | PyTuple objs -> Array.iter collectConstsObj objs
+    | PyREF(_, PyTuple objs) -> Array.iter collectConstsObj objs
+    | _ -> ()
+  collect root
+  allCodeObjs
+
+/// The same tree with every remapped code object standing at the address it
+/// was given. Objects that were not remapped are rebuilt as they were, so
+/// that a constant holding a rebuilt object names the rebuilt one.
+let private rebuildWithRemap (remap: Dictionary<PyCodeObject, Addr>) root =
+  let rec rebuildConstsObj = function
+    | PyCode nested -> PyCode(rebuild nested)
+    | PyREF(n, obj) -> PyREF(n, rebuildConstsObj obj)
+    | other -> other
+  and rebuild (co: PyCodeObject) =
+    let newConsts =
+      match co.Consts with
+      | PyTuple objs ->
+        PyTuple(Array.map rebuildConstsObj objs)
+      | PyREF(n, PyTuple objs) ->
+        PyREF(n, PyTuple(Array.map rebuildConstsObj objs))
+      | other ->
+        other
+    match remap.TryGetValue co with
+    | true, newAddr ->
+      { co with Code = (newAddr, snd co.Code); Consts = newConsts }
+    | false, _ ->
+      { co with Consts = newConsts }
+  rebuild root
+
 (* Pre-3.11 marshal dedups a code object's `co_code` string by identity:
    the SECOND (and later) occurrence of a byte-identical `co_code` is
    written as a TYPE_REF backreference to the first's already-written
@@ -516,18 +558,7 @@ let private getCodeLen = function
    caller must use as the file's own bytes/address space from here on)
    together with the corrected tree. *)
 let deduplicateCodeOffsets (bytes: byte[]) (root: PyCodeObject) =
-  let allCodeObjs = ResizeArray<PyCodeObject>()
-  let rec collectConstsObj = function
-    | PyCode nested -> collect nested
-    | PyREF(_, obj) -> collectConstsObj obj
-    | _ -> ()
-  and collect (co: PyCodeObject) =
-    allCodeObjs.Add co
-    match co.Consts with
-    | PyTuple objs -> Array.iter collectConstsObj objs
-    | PyREF(_, PyTuple objs) -> Array.iter collectConstsObj objs
-    | _ -> ()
-  collect root
+  let allCodeObjs = collectCodeObjects root
   let seenAddrs = HashSet<Addr>()
   let remap = Dictionary<PyCodeObject, Addr>(HashIdentity.Reference)
   let appended = ResizeArray<byte>()
@@ -547,25 +578,7 @@ let deduplicateCodeOffsets (bytes: byte[]) (root: PyCodeObject) =
   if appended.Count = 0 then
     bytes, root
   else
-    let rec rebuildConstsObj = function
-      | PyCode nested -> PyCode(rebuild nested)
-      | PyREF(n, obj) -> PyREF(n, rebuildConstsObj obj)
-      | other -> other
-    and rebuild (co: PyCodeObject) =
-      let newConsts =
-        match co.Consts with
-        | PyTuple objs ->
-          PyTuple(Array.map rebuildConstsObj objs)
-        | PyREF(n, PyTuple objs) ->
-          PyREF(n, PyTuple(Array.map rebuildConstsObj objs))
-        | other ->
-          other
-      match remap.TryGetValue co with
-      | true, newAddr ->
-        { co with Code = (newAddr, snd co.Code); Consts = newConsts }
-      | false, _ ->
-        { co with Consts = newConsts }
-    let newRoot = rebuild root
+    let newRoot = rebuildWithRemap remap root
     let newBytes = Array.append bytes (appended.ToArray())
     newBytes, newRoot
 

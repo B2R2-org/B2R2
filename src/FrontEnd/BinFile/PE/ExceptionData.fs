@@ -356,6 +356,28 @@ let private parseFuncInfo4 ctx span funcBeginRva funcEndRva funcInfoRva =
           t <- t + 1
         List.ofSeq records
 
+/// The personality routine and the handlers one entry's unwind information
+/// names. A function whose unwind data carries no handler at all has neither.
+/// Otherwise the scope table is read first, and where a function has no scopes
+/// its handlers are described by a FuncInfo instead, in either of the two
+/// layouts the compiler emits.
+let private parseHandlerInfo ctx (span: ByteSpan) unwindRva beginRva endRva =
+  match resolveHandlerData ctx span unwindRva 0 with
+  | Some dataOff ->
+    let p = addrFromRVA ctx.BaseAddr (ctx.Reader.ReadInt32(span, dataOff))
+    let scope = parseScopeTable ctx span (dataOff + 4) beginRva endRva
+    let h =
+      if not (List.isEmpty scope) then
+        scope
+      else
+        let fiRva = ctx.Reader.ReadInt32(span, dataOff + 4)
+        match parseFuncInfo ctx span beginRva endRva fiRva with
+        | [] -> parseFuncInfo4 ctx span beginRva endRva fiRva
+        | fh3 -> fh3
+    Some p, h
+  | None ->
+    None, []
+
 let parse (pe: PE) (bytes: byte[]) =
   let frames = ResizeArray<FrameInfo>()
   let hdrs = pe.PEHeaders
@@ -378,22 +400,7 @@ let parse (pe: PE) (bytes: byte[]) =
         let endRva = ctx.Reader.ReadInt32(span, entryOff + 4)
         let unwindRva = ctx.Reader.ReadInt32(span, entryOff + 8)
         let personality, handlers =
-          match resolveHandlerData ctx span unwindRva 0 with
-          | Some dataOff ->
-            let p =
-              addrFromRVA ctx.BaseAddr (ctx.Reader.ReadInt32(span, dataOff))
-            let scope = parseScopeTable ctx span (dataOff + 4) beginRva endRva
-            let h =
-              if not (List.isEmpty scope) then
-                scope
-              else
-                let fiRva = ctx.Reader.ReadInt32(span, dataOff + 4)
-                match parseFuncInfo ctx span beginRva endRva fiRva with
-                | [] -> parseFuncInfo4 ctx span beginRva endRva fiRva
-                | fh3 -> fh3
-            Some p, h
-          | None ->
-            None, []
+          parseHandlerInfo ctx span unwindRva beginRva endRva
         frames.Add
           { FuncStart = addrFromRVA ctx.BaseAddr beginRva
             FuncEnd = addrFromRVA ctx.BaseAddr endRva

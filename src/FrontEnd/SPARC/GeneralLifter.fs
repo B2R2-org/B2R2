@@ -684,6 +684,168 @@ let cast128to64 bld src1 src2 dst =
   bld <+ (tmpExp := computedExp)
   bld <+ (dst := (sign .| exponent .| significand))
 
+/// Rounds a 64-bit result the way FSR's RD field asks for. The mode sits in
+/// bits 31 and 30, and every lifter below that hands back a rounded value
+/// walks this same cascade.
+let roundByFSR bld res64 rounded regSize =
+  let fsr = regVar bld Register.FSR
+  let fsr30 = AST.extract fsr 1<rt> 30
+  let fsr31 = AST.extract fsr 1<rt> 31
+  let lblL0 = label bld "L0"
+  let lblL1 = label bld "L1"
+  let lblL2 = label bld "L2"
+  let lblL3 = label bld "L3"
+  let lblL4 = label bld "L4"
+  let lblL5 = label bld "L5"
+  let lblEnd = label bld "End"
+  let cond0 = (fsr31 == AST.b0) .& (fsr30 == AST.b0)
+  let cond1 = (fsr31 == AST.b0) .& (fsr30 == AST.b1)
+  let cond2 = (fsr31 == AST.b1) .& (fsr30 == AST.b0)
+  bld <+ (AST.cjmp cond0 (AST.jmpDest lblL0) (AST.jmpDest lblL1))
+  bld <+ (AST.lmark lblL0)
+  bld <+ (rounded := AST.cast CastKind.FtoFRound regSize res64)
+  bld <+ (AST.jmp (AST.jmpDest lblEnd))
+  bld <+ (AST.lmark lblL1)
+  bld <+ (AST.cjmp cond1 (AST.jmpDest lblL2) (AST.jmpDest lblL3))
+  bld <+ (AST.lmark lblL2)
+  bld <+ (rounded := AST.cast CastKind.FtoFTrunc regSize res64)
+  bld <+ (AST.jmp (AST.jmpDest lblEnd))
+  bld <+ (AST.lmark lblL3)
+  bld <+ (AST.cjmp cond2 (AST.jmpDest lblL4) (AST.jmpDest lblL5))
+  bld <+ (AST.lmark lblL4)
+  bld <+ (rounded := AST.cast CastKind.FtoFCeil regSize res64)
+  bld <+ (AST.jmp (AST.jmpDest lblEnd))
+  bld <+ (AST.lmark lblL5)
+  bld <+ (rounded := AST.cast CastKind.FtoFFloor regSize res64)
+  bld <+ (AST.lmark lblEnd)
+
+/// A quad-precision operation carried out in 64-bit: both operands are
+/// narrowed, `fop` runs on them, and the result is rounded and widened back.
+/// Only the operation tells `faddq`, `fsubq`, `fmulq` and `fdivq` apart.
+/// Which FSR field the given condition code register writes to. The four
+/// fcc fields are not laid out contiguously, so the positions are listed.
+let fccPosition bld cc =
+  let fcc0 = getCCVar bld ConditionCode.Fcc0
+  let fcc1 = getCCVar bld ConditionCode.Fcc1
+  let fcc2 = getCCVar bld ConditionCode.Fcc2
+  let fcc3 = getCCVar bld ConditionCode.Fcc3
+  if cc = fcc0 then 10
+  elif cc = fcc1 then 32
+  elif cc = fcc2 then 34
+  elif cc = fcc3 then 36
+  else raise InvalidOperandException
+
+/// Compares two floats and writes the verdict into the FSR field at `pos`:
+/// 0 equal, 1 less, 2 greater, 3 unordered. Only how the operands are read
+/// tells `fcmps`, `fcmpd` and `fcmpq` apart.
+/// Which FSR field a conditional float move reads. `fccPosition` answers the
+/// same question for a compare, but raises a different exception, so the two
+/// are kept apart.
+/// The condition codes a 32-bit divide leaves behind: the reserved nibble and
+/// C cleared, N and Z read off the quotient's low word.
+let setDivCC bld ccr quotient =
+  bld <+ (AST.extract ccr 4<rt> 4 := AST.num0 4<rt>)
+  bld <+ (AST.extract ccr 1<rt> 3 :=
+    AST.ite (AST.extract quotient 1<rt> 31 == AST.b1) AST.b1 AST.b0)
+  bld <+ (AST.extract ccr 1<rt> 2 :=
+    AST.ite (AST.extract quotient 32<rt> 0 == AST.num0 32<rt>) AST.b1 AST.b0)
+  bld <+ (AST.extract ccr 1<rt> 0 := AST.b0)
+
+/// Whether a signed quotient fits 32 bits, and what it saturates to when it
+/// does not: INT32_MIN or INT32_MAX by its sign. Overflow (V) is that case.
+let signedDivResult quotient =
+  let lo = AST.extract quotient 32<rt> 0
+  let fits = AST.sext 64<rt> lo == quotient
+  let saturated =
+    AST.ite fits (AST.sext 64<rt> lo)
+      (AST.ite (AST.extract quotient 1<rt> 63 == AST.b1)
+               (numU64 0x80000000UL 64<rt>)
+               (numU64 0x7fffffffUL 64<rt>))
+  struct (fits, saturated)
+
+/// The same for an unsigned quotient, which fits while its high word is zero
+/// and saturates to UINT32_MAX otherwise.
+let unsignedDivResult quotient =
+  let fits = AST.extract quotient 32<rt> 32 == AST.num0 32<rt>
+  let saturated =
+    AST.ite fits
+      (AST.zext 64<rt> (AST.extract quotient 32<rt> 0))
+      (numU64 0xFFFFFFFFUL 64<rt>)
+  struct (fits, saturated)
+
+let fccMovePosition bld cc =
+  if cc = getCCVar bld ConditionCode.Fcc0 then 10
+  elif cc = getCCVar bld ConditionCode.Fcc1 then 32
+  elif cc = getCCVar bld ConditionCode.Fcc2 then 34
+  elif cc = getCCVar bld ConditionCode.Fcc3 then 36
+  else raise InvalidRegisterException
+
+/// The four verdicts held in the FSR field at `pos`: equal, less, greater and
+/// unordered.
+let fccFlags bld pos =
+  let fsr = regVar bld Register.FSR
+  let fsr0 = AST.extract fsr 1<rt> pos
+  let fsr1 = AST.extract fsr 1<rt> (pos + 1)
+  let e = (fsr1 == AST.b0 .& fsr0 == AST.b0)
+  let l = (fsr1 == AST.b0 .& fsr0 == AST.b1)
+  let g = (fsr1 == AST.b1 .& fsr0 == AST.b0)
+  let u = (fsr1 == AST.b1 .& fsr0 == AST.b1)
+  struct (e, l, g, u)
+
+let compareFloatsInto bld pos op op1 =
+  let fsr = regVar bld Register.FSR
+  let lblL0 = label bld "L0"
+  let lblL1 = label bld "L1"
+  let lblL2 = label bld "L2"
+  let lblL3 = label bld "L3"
+  let lblL4 = label bld "L4"
+  let lblL5 = label bld "L5"
+  let lblEnd = label bld "End"
+  let cond0 = AST.feq op op1
+  let cond1 = AST.flt op op1 == AST.b1
+  let cond2 = AST.fgt op op1 == AST.b1
+  bld <+ (AST.cjmp cond0 (AST.jmpDest lblL0) (AST.jmpDest lblL1))
+  bld <+ (AST.lmark lblL0)
+  bld <+ (AST.extract fsr 2<rt> pos := numI32 0 2<rt>)
+  bld <+ (AST.jmp (AST.jmpDest lblEnd))
+  bld <+ (AST.lmark lblL1)
+  bld <+ (AST.cjmp cond1 (AST.jmpDest lblL2) (AST.jmpDest lblL3))
+  bld <+ (AST.lmark lblL2)
+  bld <+ (AST.extract fsr 2<rt> pos := numI32 1 2<rt>)
+  bld <+ (AST.jmp (AST.jmpDest lblEnd))
+  bld <+ (AST.lmark lblL3)
+  bld <+ (AST.cjmp cond2 (AST.jmpDest lblL4) (AST.jmpDest lblL5))
+  bld <+ (AST.lmark lblL4)
+  bld <+ (AST.extract fsr 2<rt> pos := numI32 2 2<rt>)
+  bld <+ (AST.jmp (AST.jmpDest lblEnd))
+  bld <+ (AST.lmark lblL5)
+  bld <+ (AST.extract fsr 2<rt> pos := numI32 3 2<rt>)
+  bld <+ (AST.lmark lblEnd)
+
+let liftQFloatBinOp ins insLen bld fop =
+  let struct (src, src1, dst) = transThreeOprs ins insLen bld
+  let regSize = 64<rt>
+  let res1 = tmpVar bld regSize
+  let res2 = tmpVar bld regSize
+  let op01 = tmpVar bld regSize
+  let op02 = tmpVar bld regSize
+  let op11 = tmpVar bld regSize
+  let op12 = tmpVar bld regSize
+  let op64 = tmpVar bld 64<rt>
+  let op164 = tmpVar bld 64<rt>
+  let res64 = tmpVar bld 64<rt>
+  let rounded = tmpVar bld regSize
+  bld <!-- (ins.Address, insLen)
+  getQFloatOp bld src op01 op02
+  getQFloatOp bld src1 op11 op12
+  cast128to64 bld op01 op02 op64
+  cast128to64 bld op11 op12 op164
+  bld <+ (res64 := fop op64 op164)
+  roundByFSR bld res64 rounded regSize
+  cast64To128 bld rounded res1 res2
+  setQFloatOp bld dst res1 res2
+  bld --!> insLen
+
 let add ins insLen bld =
   let struct (src, src1, dst) = transThreeOprs ins insLen bld
   let oprSize = 64<rt>
@@ -1202,58 +1364,9 @@ let faddd ins insLen bld =
   setDFloatOp bld dst rounded
   bld --!> insLen
 
+/// Adds two quad-precision operands.
 let faddq ins insLen bld =
-  let struct (src, src1, dst) = transThreeOprs ins insLen bld
-  let fsr = regVar bld Register.FSR
-  let fsr30 = AST.extract fsr 1<rt> 30
-  let fsr31 = AST.extract fsr 1<rt> 31
-  let regSize = 64<rt>
-  let res1 = tmpVar bld regSize
-  let res2 = tmpVar bld regSize
-  let op01 = tmpVar bld regSize
-  let op02 = tmpVar bld regSize
-  let op11 = tmpVar bld regSize
-  let op12 = tmpVar bld regSize
-  let op64 = tmpVar bld 64<rt>
-  let op164 = tmpVar bld 64<rt>
-  let res64 = tmpVar bld 64<rt>
-  let rounded = tmpVar bld regSize
-  let lblL0 = label bld "L0"
-  let lblL1 = label bld "L1"
-  let lblL2 = label bld "L2"
-  let lblL3 = label bld "L3"
-  let lblL4 = label bld "L4"
-  let lblL5 = label bld "L5"
-  let lblEnd = label bld "End"
-  let cond0 = (fsr31 == AST.b0) .& (fsr30 == AST.b0)
-  let cond1 = (fsr31 == AST.b0) .& (fsr30 == AST.b1)
-  let cond2 = (fsr31 == AST.b1) .& (fsr30 == AST.b0)
-  bld <!-- (ins.Address, insLen)
-  getQFloatOp bld src op01 op02
-  getQFloatOp bld src1 op11 op12
-  cast128to64 bld op01 op02 op64
-  cast128to64 bld op11 op12 op164
-  bld <+ (res64 := (AST.fadd op64 op164))
-  bld <+ (AST.cjmp cond0 (AST.jmpDest lblL0) (AST.jmpDest lblL1))
-  bld <+ (AST.lmark lblL0)
-  bld <+ (rounded := AST.cast CastKind.FtoFRound regSize (res64))
-  bld <+ (AST.jmp (AST.jmpDest lblEnd))
-  bld <+ (AST.lmark lblL1)
-  bld <+ (AST.cjmp cond1 (AST.jmpDest lblL2) (AST.jmpDest lblL3))
-  bld <+ (AST.lmark lblL2)
-  bld <+ (rounded := AST.cast CastKind.FtoFTrunc regSize (res64))
-  bld <+ (AST.jmp (AST.jmpDest lblEnd))
-  bld <+ (AST.lmark lblL3)
-  bld <+ (AST.cjmp cond2 (AST.jmpDest lblL4) (AST.jmpDest lblL5))
-  bld <+ (AST.lmark lblL4)
-  bld <+ (rounded := AST.cast CastKind.FtoFCeil regSize (res64))
-  bld <+ (AST.jmp (AST.jmpDest lblEnd))
-  bld <+ (AST.lmark lblL5)
-  bld <+ (rounded := AST.cast CastKind.FtoFFloor regSize (res64))
-  bld <+ (AST.lmark lblEnd)
-  cast64To128 bld rounded res1 res2
-  setQFloatOp bld dst res1 res2
-  bld --!> insLen
+  liftQFloatBinOp ins insLen bld AST.fadd
 
 let fbranchfcc ins insLen bld =
   let struct (an, label) = transTwoOprs ins insLen bld
@@ -1329,151 +1442,46 @@ let fbranchpfcc ins insLen bld =
   branchTo bld an branchCond jumpTarget (pc .+ numI32PC 8)
   bld --!> insLen
 
+/// Compares two single-precision operands.
 let fcmps ins insLen bld =
   let struct (cc, src, src1) = transThreeOprs ins insLen bld
-  let fsr = regVar bld Register.FSR
-  let fcc0 = getCCVar bld ConditionCode.Fcc0
-  let fcc1 = getCCVar bld ConditionCode.Fcc1
-  let fcc2 = getCCVar bld ConditionCode.Fcc2
-  let fcc3 = getCCVar bld ConditionCode.Fcc3
-  let pos =
-    if cc = fcc0 then 10
-    elif cc = fcc1 then 32
-    elif cc = fcc2 then 34
-    elif cc = fcc3 then 36
-    else raise InvalidOperandException
+  let pos = fccPosition bld cc
   let op = AST.extract src 32<rt> 0
   let op1 = AST.extract src1 32<rt> 0
   bld <!-- (ins.Address, insLen)
-  let lblL0 = label bld "L0"
-  let lblL1 = label bld "L1"
-  let lblL2 = label bld "L2"
-  let lblL3 = label bld "L3"
-  let lblL4 = label bld "L4"
-  let lblL5 = label bld "L5"
-  let lblEnd = label bld "End"
-  let cond0 = (AST.feq op op1)
-  let cond1 = ((AST.flt op op1) == AST.b1)
-  let cond2 = ((AST.fgt op op1) == AST.b1)
-  bld <+ (AST.cjmp cond0 (AST.jmpDest lblL0) (AST.jmpDest lblL1))
-  bld <+ (AST.lmark lblL0)
-  bld <+ ((AST.extract fsr 2<rt> pos) := (numI32 0 2<rt>))
-  bld <+ (AST.jmp (AST.jmpDest lblEnd))
-  bld <+ (AST.lmark lblL1)
-  bld <+ (AST.cjmp cond1 (AST.jmpDest lblL2) (AST.jmpDest lblL3))
-  bld <+ (AST.lmark lblL2)
-  bld <+ ((AST.extract fsr 2<rt> pos) := (numI32 1 2<rt>))
-  bld <+ (AST.jmp (AST.jmpDest lblEnd))
-  bld <+ (AST.lmark lblL3)
-  bld <+ (AST.cjmp cond2 (AST.jmpDest lblL4) (AST.jmpDest lblL5))
-  bld <+ (AST.lmark lblL4)
-  bld <+ ((AST.extract fsr 2<rt> pos) := (numI32 2 2<rt>))
-  bld <+ (AST.jmp (AST.jmpDest lblEnd))
-  bld <+ (AST.lmark lblL5)
-  bld <+ ((AST.extract fsr 2<rt> pos) := (numI32 3 2<rt>))
-  bld <+ (AST.lmark lblEnd)
+  compareFloatsInto bld pos op op1
   bld --!> insLen
 
+/// Compares two double-precision operands.
 let fcmpd ins insLen bld =
   let struct (cc, src, src1) = transThreeOprs ins insLen bld
   let regSize = 64<rt>
-  let fsr = regVar bld Register.FSR
-  let fcc0 = getCCVar bld ConditionCode.Fcc0
-  let fcc1 = getCCVar bld ConditionCode.Fcc1
-  let fcc2 = getCCVar bld ConditionCode.Fcc2
-  let fcc3 = getCCVar bld ConditionCode.Fcc3
-  let pos =
-    if cc = fcc0 then 10
-    elif cc = fcc1 then 32
-    elif cc = fcc2 then 34
-    elif cc = fcc3 then 36
-    else raise InvalidOperandException
+  let pos = fccPosition bld cc
   let op = tmpVar bld regSize
   let op1 = tmpVar bld regSize
-  let lblL0 = label bld "L0"
-  let lblL1 = label bld "L1"
-  let lblL2 = label bld "L2"
-  let lblL3 = label bld "L3"
-  let lblL4 = label bld "L4"
-  let lblL5 = label bld "L5"
-  let lblEnd = label bld "End"
   bld <!-- (ins.Address, insLen)
   getDFloatOp bld src op
   getDFloatOp bld src1 op1
-  let cond0 = AST.feq op op1
-  let cond1 = AST.flt op op1 == AST.b1
-  let cond2 = AST.fgt op op1 == AST.b1
-  bld <+ (AST.cjmp cond0 (AST.jmpDest lblL0) (AST.jmpDest lblL1))
-  bld <+ (AST.lmark lblL0)
-  bld <+ ((AST.extract fsr 2<rt> pos) := (numI32 0 2<rt>))
-  bld <+ (AST.jmp (AST.jmpDest lblEnd))
-  bld <+ (AST.lmark lblL1)
-  bld <+ (AST.cjmp cond1 (AST.jmpDest lblL2) (AST.jmpDest lblL3))
-  bld <+ (AST.lmark lblL2)
-  bld <+ ((AST.extract fsr 2<rt> pos) := (numI32 1 2<rt>))
-  bld <+ (AST.jmp (AST.jmpDest lblEnd))
-  bld <+ (AST.lmark lblL3)
-  bld <+ (AST.cjmp cond2 (AST.jmpDest lblL4) (AST.jmpDest lblL5))
-  bld <+ (AST.lmark lblL4)
-  bld <+ ((AST.extract fsr 2<rt> pos) := (numI32 2 2<rt>))
-  bld <+ (AST.jmp (AST.jmpDest lblEnd))
-  bld <+ (AST.lmark lblL5)
-  bld <+ ((AST.extract fsr 2<rt> pos) := (numI32 3 2<rt>))
-  bld <+ (AST.lmark lblEnd)
+  compareFloatsInto bld pos op op1
   bld --!> insLen
 
+/// Compares two quad-precision operands, narrowed to 64-bit first.
 let fcmpq ins insLen bld =
   let struct (cc, src, src1) = transThreeOprs ins insLen bld
   let regSize = 64<rt>
-  let fsr = regVar bld Register.FSR
-  let fcc0 = getCCVar bld ConditionCode.Fcc0
-  let fcc1 = getCCVar bld ConditionCode.Fcc1
-  let fcc2 = getCCVar bld ConditionCode.Fcc2
-  let fcc3 = getCCVar bld ConditionCode.Fcc3
-  let pos =
-    if (cc = fcc0) then 10
-    elif (cc = fcc1) then 32
-    elif (cc = fcc2) then 34
-    elif (cc = fcc3) then 36
-    else raise InvalidOperandException
+  let pos = fccPosition bld cc
   let op01 = tmpVar bld regSize
   let op02 = tmpVar bld regSize
   let op11 = tmpVar bld regSize
   let op12 = tmpVar bld regSize
   let op64 = tmpVar bld regSize
   let op164 = tmpVar bld regSize
-  let lblL0 = label bld "L0"
-  let lblL1 = label bld "L1"
-  let lblL2 = label bld "L2"
-  let lblL3 = label bld "L3"
-  let lblL4 = label bld "L4"
-  let lblL5 = label bld "L5"
-  let lblEnd = label bld "End"
   bld <!-- (ins.Address, insLen)
   getQFloatOp bld src op01 op02
   getQFloatOp bld src1 op11 op12
   cast128to64 bld op01 op02 op64
   cast128to64 bld op11 op12 op164
-  let cond0 = (AST.feq op64 op164)
-  let cond1 = ((AST.flt op64 op164) == AST.b1)
-  let cond2 = ((AST.fgt op64 op164) == AST.b1)
-  bld <+ (AST.cjmp cond0 (AST.jmpDest lblL0) (AST.jmpDest lblL1))
-  bld <+ (AST.lmark lblL0)
-  bld <+ ((AST.extract fsr 2<rt> pos) := (numI32 0 2<rt>))
-  bld <+ (AST.jmp (AST.jmpDest lblEnd))
-  bld <+ (AST.lmark lblL1)
-  bld <+ (AST.cjmp cond1 (AST.jmpDest lblL2) (AST.jmpDest lblL3))
-  bld <+ (AST.lmark lblL2)
-  bld <+ ((AST.extract fsr 2<rt> pos) := (numI32 1 2<rt>))
-  bld <+ (AST.jmp (AST.jmpDest lblEnd))
-  bld <+ (AST.lmark lblL3)
-  bld <+ (AST.cjmp cond2 (AST.jmpDest lblL4) (AST.jmpDest lblL5))
-  bld <+ (AST.lmark lblL4)
-  bld <+ ((AST.extract fsr 2<rt> pos) := (numI32 2 2<rt>))
-  bld <+ (AST.jmp (AST.jmpDest lblEnd))
-  bld <+ (AST.lmark lblL5)
-  bld <+ ((AST.extract fsr 2<rt> pos) := (numI32 3 2<rt>))
-  bld <+ (AST.lmark lblEnd)
+  compareFloatsInto bld pos op64 op164
   bld --!> insLen
 
 let fdivs ins insLen bld =
@@ -1558,58 +1566,9 @@ let fdivd ins insLen bld =
   setDFloatOp bld dst rounded
   bld --!> insLen
 
+/// Divides one quad-precision operand by another.
 let fdivq ins insLen bld =
-  let struct (src, src1, dst) = transThreeOprs ins insLen bld
-  let fsr = regVar bld Register.FSR
-  let fsr30 = AST.extract fsr 1<rt> 30
-  let fsr31 = AST.extract fsr 1<rt> 31
-  let regSize = 64<rt>
-  let res1 = tmpVar bld regSize
-  let res2 = tmpVar bld regSize
-  let op01 = tmpVar bld regSize
-  let op02 = tmpVar bld regSize
-  let op11 = tmpVar bld regSize
-  let op12 = tmpVar bld regSize
-  let op64 = tmpVar bld 64<rt>
-  let op164 = tmpVar bld 64<rt>
-  let res64 = tmpVar bld 64<rt>
-  let rounded = tmpVar bld regSize
-  let lblL0 = label bld "L0"
-  let lblL1 = label bld "L1"
-  let lblL2 = label bld "L2"
-  let lblL3 = label bld "L3"
-  let lblL4 = label bld "L4"
-  let lblL5 = label bld "L5"
-  let lblEnd = label bld "End"
-  let cond0 = (fsr31 == AST.b0) .& (fsr30 == AST.b0)
-  let cond1 = (fsr31 == AST.b0) .& (fsr30 == AST.b1)
-  let cond2 = (fsr31 == AST.b1) .& (fsr30 == AST.b0)
-  bld <!-- (ins.Address, insLen)
-  getQFloatOp bld src op01 op02
-  getQFloatOp bld src1 op11 op12
-  cast128to64 bld op01 op02 op64
-  cast128to64 bld op11 op12 op164
-  bld <+ (res64 := (AST.fdiv op64 op164))
-  bld <+ (AST.cjmp cond0 (AST.jmpDest lblL0) (AST.jmpDest lblL1))
-  bld <+ (AST.lmark lblL0)
-  bld <+ (rounded := AST.cast CastKind.FtoFRound regSize (res64))
-  bld <+ (AST.jmp (AST.jmpDest lblEnd))
-  bld <+ (AST.lmark lblL1)
-  bld <+ (AST.cjmp cond1 (AST.jmpDest lblL2) (AST.jmpDest lblL3))
-  bld <+ (AST.lmark lblL2)
-  bld <+ (rounded := AST.cast CastKind.FtoFTrunc regSize (res64))
-  bld <+ (AST.jmp (AST.jmpDest lblEnd))
-  bld <+ (AST.lmark lblL3)
-  bld <+ (AST.cjmp cond2 (AST.jmpDest lblL4) (AST.jmpDest lblL5))
-  bld <+ (AST.lmark lblL4)
-  bld <+ (rounded := AST.cast CastKind.FtoFCeil regSize (res64))
-  bld <+ (AST.jmp (AST.jmpDest lblEnd))
-  bld <+ (AST.lmark lblL5)
-  bld <+ (rounded := AST.cast CastKind.FtoFFloor regSize (res64))
-  bld <+ (AST.lmark lblEnd)
-  cast64To128 bld rounded res1 res2
-  setQFloatOp bld dst res1 res2
-  bld --!> insLen
+  liftQFloatBinOp ins insLen bld AST.fdiv
 
 let fmovscc ins insLen bld =
   let struct (cc, fsrc, fdst) = transThreeOprs ins insLen bld
@@ -1776,21 +1735,12 @@ let fmovfscc ins insLen bld =
     bld <+ (fdst := AST.ite (cond) (fsrc) (fdst))
     bld --!> insLen
 
+/// Moves a double-precision float register when the FSR condition the opcode
+/// names holds.
 let fmovfdcc ins insLen bld =
   let struct (cc, fsrc, fdst) = transThreeOprs ins insLen bld
-  let fsr = regVar bld Register.FSR
-  let pos =
-    if (cc = getCCVar bld ConditionCode.Fcc0) then 10
-    elif (cc = getCCVar bld ConditionCode.Fcc1) then 32
-    elif (cc = getCCVar bld ConditionCode.Fcc2) then 34
-    elif (cc = getCCVar bld ConditionCode.Fcc3) then 36
-    else raise InvalidRegisterException
-  let fsr0 = AST.extract fsr 1<rt> pos
-  let fsr1 = AST.extract fsr 1<rt> (pos + 1)
-  let e = (fsr1 == AST.b0 .& fsr0 == AST.b0)
-  let l = (fsr1 == AST.b0 .& fsr0 == AST.b1)
-  let g = (fsr1 == AST.b1 .& fsr0 == AST.b0)
-  let u = (fsr1 == AST.b1 .& fsr0 == AST.b1)
+  let pos = fccMovePosition bld cc
+  let struct (e, l, g, u) = fccFlags bld pos
   let cond =
     match ins.Opcode with
     | Opcode.FMOVFdA -> AST.b1
@@ -1825,21 +1775,12 @@ let fmovfdcc ins insLen bld =
     bld <+ (AST.lmark lblEnd)
     bld --!> insLen
 
+/// Moves a quad-precision float register when the FSR condition the opcode
+/// names holds.
 let fmovfqcc ins insLen bld =
   let struct (cc, fsrc, fdst) = transThreeOprs ins insLen bld
-  let fsr = regVar bld Register.FSR
-  let pos =
-    if (cc = getCCVar bld ConditionCode.Fcc0) then 10
-    elif (cc = getCCVar bld ConditionCode.Fcc1) then 32
-    elif (cc = getCCVar bld ConditionCode.Fcc2) then 34
-    elif (cc = getCCVar bld ConditionCode.Fcc3) then 36
-    else raise InvalidRegisterException
-  let fsr0 = AST.extract fsr 1<rt> pos
-  let fsr1 = AST.extract fsr 1<rt> (pos + 1)
-  let e = (fsr1 == AST.b0 .& fsr0 == AST.b0)
-  let l = (fsr1 == AST.b0 .& fsr0 == AST.b1)
-  let g = (fsr1 == AST.b1 .& fsr0 == AST.b0)
-  let u = (fsr1 == AST.b1 .& fsr0 == AST.b1)
+  let pos = fccMovePosition bld cc
+  let struct (e, l, g, u) = fccFlags bld pos
   let cond =
     match ins.Opcode with
     | Opcode.FMOVFqA -> AST.b1
@@ -2019,58 +1960,9 @@ let fmuld ins insLen bld =
   setDFloatOp bld dst rounded
   bld --!> insLen
 
+/// Multiplies two quad-precision operands.
 let fmulq ins insLen bld =
-  let struct (src, src1, dst) = transThreeOprs ins insLen bld
-  let fsr = regVar bld Register.FSR
-  let fsr30 = AST.extract fsr 1<rt> 30
-  let fsr31 = AST.extract fsr 1<rt> 31
-  let regSize = 64<rt>
-  let res1 = tmpVar bld regSize
-  let res2 = tmpVar bld regSize
-  let op01 = tmpVar bld regSize
-  let op02 = tmpVar bld regSize
-  let op11 = tmpVar bld regSize
-  let op12 = tmpVar bld regSize
-  let op64 = tmpVar bld 64<rt>
-  let op164 = tmpVar bld 64<rt>
-  let res64 = tmpVar bld 64<rt>
-  let rounded = tmpVar bld regSize
-  let lblL0 = label bld "L0"
-  let lblL1 = label bld "L1"
-  let lblL2 = label bld "L2"
-  let lblL3 = label bld "L3"
-  let lblL4 = label bld "L4"
-  let lblL5 = label bld "L5"
-  let lblEnd = label bld "End"
-  let cond0 = (fsr31 == AST.b0) .& (fsr30 == AST.b0)
-  let cond1 = (fsr31 == AST.b0) .& (fsr30 == AST.b1)
-  let cond2 = (fsr31 == AST.b1) .& (fsr30 == AST.b0)
-  bld <!-- (ins.Address, insLen)
-  getQFloatOp bld src op01 op02
-  getQFloatOp bld src1 op11 op12
-  cast128to64 bld op01 op02 op64
-  cast128to64 bld op11 op12 op164
-  bld <+ (res64 := (AST.fmul op64 op164))
-  bld <+ (AST.cjmp cond0 (AST.jmpDest lblL0) (AST.jmpDest lblL1))
-  bld <+ (AST.lmark lblL0)
-  bld <+ (rounded := AST.cast CastKind.FtoFRound regSize (res64))
-  bld <+ (AST.jmp (AST.jmpDest lblEnd))
-  bld <+ (AST.lmark lblL1)
-  bld <+ (AST.cjmp cond1 (AST.jmpDest lblL2) (AST.jmpDest lblL3))
-  bld <+ (AST.lmark lblL2)
-  bld <+ (rounded := AST.cast CastKind.FtoFTrunc regSize (res64))
-  bld <+ (AST.jmp (AST.jmpDest lblEnd))
-  bld <+ (AST.lmark lblL3)
-  bld <+ (AST.cjmp cond2 (AST.jmpDest lblL4) (AST.jmpDest lblL5))
-  bld <+ (AST.lmark lblL4)
-  bld <+ (rounded := AST.cast CastKind.FtoFCeil regSize (res64))
-  bld <+ (AST.jmp (AST.jmpDest lblEnd))
-  bld <+ (AST.lmark lblL5)
-  bld <+ (rounded := AST.cast CastKind.FtoFFloor regSize (res64))
-  bld <+ (AST.lmark lblEnd)
-  cast64To128 bld rounded res1 res2
-  setQFloatOp bld dst res1 res2
-  bld --!> insLen
+  liftQFloatBinOp ins insLen bld AST.fmul
 
 let fsmuld ins insLen bld =
   let struct (src, src1, dst) = transThreeOprs ins insLen bld
@@ -2114,11 +2006,9 @@ let fsmuld ins insLen bld =
   setDFloatOp bld dst rounded
   bld --!> insLen
 
+/// Multiplies two double-precision operands into a quad-precision result.
 let fdmulq ins insLen bld =
   let struct (src, src1, dst) = transThreeOprs ins insLen bld
-  let fsr = regVar bld Register.FSR
-  let fsr30 = AST.extract fsr 1<rt> 30
-  let fsr31 = AST.extract fsr 1<rt> 31
   let regSize = 64<rt>
   let res = tmpVar bld regSize
   let res1 = tmpVar bld regSize
@@ -2126,37 +2016,11 @@ let fdmulq ins insLen bld =
   let op = tmpVar bld regSize
   let op1 = tmpVar bld regSize
   let rounded = tmpVar bld regSize
-  let lblL0 = label bld "L0"
-  let lblL1 = label bld "L1"
-  let lblL2 = label bld "L2"
-  let lblL3 = label bld "L3"
-  let lblL4 = label bld "L4"
-  let lblL5 = label bld "L5"
-  let lblEnd = label bld "End"
-  let cond0 = (fsr31 == AST.b0) .& (fsr30 == AST.b0)
-  let cond1 = (fsr31 == AST.b0) .& (fsr30 == AST.b1)
-  let cond2 = (fsr31 == AST.b1) .& (fsr30 == AST.b0)
   bld <!-- (ins.Address, insLen)
   getDFloatOp bld src op
   getDFloatOp bld src1 op1
-  bld <+ (res := (AST.fmul op op1))
-  bld <+ (AST.cjmp cond0 (AST.jmpDest lblL0) (AST.jmpDest lblL1))
-  bld <+ (AST.lmark lblL0)
-  bld <+ (rounded := AST.cast CastKind.FtoFRound regSize (res))
-  bld <+ (AST.jmp (AST.jmpDest lblEnd))
-  bld <+ (AST.lmark lblL1)
-  bld <+ (AST.cjmp cond1 (AST.jmpDest lblL2) (AST.jmpDest lblL3))
-  bld <+ (AST.lmark lblL2)
-  bld <+ (rounded := AST.cast CastKind.FtoFTrunc regSize (res))
-  bld <+ (AST.jmp (AST.jmpDest lblEnd))
-  bld <+ (AST.lmark lblL3)
-  bld <+ (AST.cjmp cond2 (AST.jmpDest lblL4) (AST.jmpDest lblL5))
-  bld <+ (AST.lmark lblL4)
-  bld <+ (rounded := AST.cast CastKind.FtoFCeil regSize (res))
-  bld <+ (AST.jmp (AST.jmpDest lblEnd))
-  bld <+ (AST.lmark lblL5)
-  bld <+ (rounded := AST.cast CastKind.FtoFFloor regSize (res))
-  bld <+ (AST.lmark lblEnd)
+  bld <+ (res := AST.fmul op op1)
+  roundByFSR bld res rounded regSize
   cast64To128 bld rounded res1 res2
   setQFloatOp bld dst res1 res2
   bld --!> insLen
@@ -2241,11 +2105,10 @@ let fsqrtd ins insLen bld =
   setDFloatOp bld dst rounded
   bld --!> insLen
 
+/// Takes the square root of a quad-precision operand. The one operand aside,
+/// this is what `liftQFloatBinOp` does.
 let fsqrtq ins insLen bld =
   let struct (src, dst) = transTwoOprs ins insLen bld
-  let fsr = regVar bld Register.FSR
-  let fsr30 = AST.extract fsr 1<rt> 30
-  let fsr31 = AST.extract fsr 1<rt> 31
   let regSize = 64<rt>
   let res1 = tmpVar bld regSize
   let res2 = tmpVar bld regSize
@@ -2254,37 +2117,11 @@ let fsqrtq ins insLen bld =
   let op64 = tmpVar bld 64<rt>
   let res64 = tmpVar bld 64<rt>
   let rounded = tmpVar bld regSize
-  let lblL0 = label bld "L0"
-  let lblL1 = label bld "L1"
-  let lblL2 = label bld "L2"
-  let lblL3 = label bld "L3"
-  let lblL4 = label bld "L4"
-  let lblL5 = label bld "L5"
-  let lblEnd = label bld "End"
-  let cond0 = (fsr31 == AST.b0) .& (fsr30 == AST.b0)
-  let cond1 = (fsr31 == AST.b0) .& (fsr30 == AST.b1)
-  let cond2 = (fsr31 == AST.b1) .& (fsr30 == AST.b0)
   bld <!-- (ins.Address, insLen)
   getQFloatOp bld src op01 op02
   cast128to64 bld op01 op02 op64
-  bld <+ (res64 := (AST.fsqrt op64))
-  bld <+ (AST.cjmp cond0 (AST.jmpDest lblL0) (AST.jmpDest lblL1))
-  bld <+ (AST.lmark lblL0)
-  bld <+ (rounded := AST.cast CastKind.FtoFRound regSize (res64))
-  bld <+ (AST.jmp (AST.jmpDest lblEnd))
-  bld <+ (AST.lmark lblL1)
-  bld <+ (AST.cjmp cond1 (AST.jmpDest lblL2) (AST.jmpDest lblL3))
-  bld <+ (AST.lmark lblL2)
-  bld <+ (rounded := AST.cast CastKind.FtoFTrunc regSize (res64))
-  bld <+ (AST.jmp (AST.jmpDest lblEnd))
-  bld <+ (AST.lmark lblL3)
-  bld <+ (AST.cjmp cond2 (AST.jmpDest lblL4) (AST.jmpDest lblL5))
-  bld <+ (AST.lmark lblL4)
-  bld <+ (rounded := AST.cast CastKind.FtoFCeil regSize (res64))
-  bld <+ (AST.jmp (AST.jmpDest lblEnd))
-  bld <+ (AST.lmark lblL5)
-  bld <+ (rounded := AST.cast CastKind.FtoFFloor regSize (res64))
-  bld <+ (AST.lmark lblEnd)
+  bld <+ (res64 := AST.fsqrt op64)
+  roundByFSR bld res64 rounded regSize
   cast64To128 bld rounded res1 res2
   setQFloatOp bld dst res1 res2
   bld --!> insLen
@@ -2631,58 +2468,9 @@ let fsubd ins insLen bld =
   setDFloatOp bld dst rounded
   bld --!> insLen
 
+/// Subtracts one quad-precision operand from another.
 let fsubq ins insLen bld =
-  let struct (src, src1, dst) = transThreeOprs ins insLen bld
-  let fsr = regVar bld Register.FSR
-  let fsr30 = AST.extract fsr 1<rt> 30
-  let fsr31 = AST.extract fsr 1<rt> 31
-  let regSize = 64<rt>
-  let res1 = tmpVar bld regSize
-  let res2 = tmpVar bld regSize
-  let op01 = tmpVar bld regSize
-  let op02 = tmpVar bld regSize
-  let op11 = tmpVar bld regSize
-  let op12 = tmpVar bld regSize
-  let op64 = tmpVar bld 64<rt>
-  let op164 = tmpVar bld 64<rt>
-  let res64 = tmpVar bld 64<rt>
-  let rounded = tmpVar bld regSize
-  let lblL0 = label bld "L0"
-  let lblL1 = label bld "L1"
-  let lblL2 = label bld "L2"
-  let lblL3 = label bld "L3"
-  let lblL4 = label bld "L4"
-  let lblL5 = label bld "L5"
-  let lblEnd = label bld "End"
-  let cond0 = (fsr31 == AST.b0) .& (fsr30 == AST.b0)
-  let cond1 = (fsr31 == AST.b0) .& (fsr30 == AST.b1)
-  let cond2 = (fsr31 == AST.b1) .& (fsr30 == AST.b0)
-  bld <!-- (ins.Address, insLen)
-  getQFloatOp bld src op01 op02
-  getQFloatOp bld src1 op11 op12
-  cast128to64 bld op01 op02 op64
-  cast128to64 bld op11 op12 op164
-  bld <+ (res64 := (AST.fsub op64 op164))
-  bld <+ (AST.cjmp cond0 (AST.jmpDest lblL0) (AST.jmpDest lblL1))
-  bld <+ (AST.lmark lblL0)
-  bld <+ (rounded := AST.cast CastKind.FtoFRound regSize (res64))
-  bld <+ (AST.jmp (AST.jmpDest lblEnd))
-  bld <+ (AST.lmark lblL1)
-  bld <+ (AST.cjmp cond1 (AST.jmpDest lblL2) (AST.jmpDest lblL3))
-  bld <+ (AST.lmark lblL2)
-  bld <+ (rounded := AST.cast CastKind.FtoFTrunc regSize (res64))
-  bld <+ (AST.jmp (AST.jmpDest lblEnd))
-  bld <+ (AST.lmark lblL3)
-  bld <+ (AST.cjmp cond2 (AST.jmpDest lblL4) (AST.jmpDest lblL5))
-  bld <+ (AST.lmark lblL4)
-  bld <+ (rounded := AST.cast CastKind.FtoFCeil regSize (res64))
-  bld <+ (AST.jmp (AST.jmpDest lblEnd))
-  bld <+ (AST.lmark lblL5)
-  bld <+ (rounded := AST.cast CastKind.FtoFFloor regSize (res64))
-  bld <+ (AST.lmark lblEnd)
-  cast64To128 bld rounded res1 res2
-  setQFloatOp bld dst res1 res2
-  bld --!> insLen
+  liftQFloatBinOp ins insLen bld AST.fsub
 
 let fxtos ins insLen bld =
   let struct (src, dst) = transTwoOprs ins insLen bld
@@ -2764,26 +2552,13 @@ let fitos ins insLen bld =
   bld <+ (AST.lmark lblEnd)
   bld --!> insLen
 
+/// Converts a 64-bit integer to double precision.
 let fxtod ins insLen bld =
   let struct (src, dst) = transTwoOprs ins insLen bld
   let oprSize = 64<rt>
-  let fsr = regVar bld Register.FSR
-  let fsr30 = AST.extract fsr 1<rt> 30
-  let fsr31 = AST.extract fsr 1<rt> 31
   let op = tmpVar bld oprSize
   let res = tmpVar bld oprSize
   let rounded = tmpVar bld oprSize
-  let regSize = 64<rt>
-  let lblL0 = label bld "L0"
-  let lblL1 = label bld "L1"
-  let lblL2 = label bld "L2"
-  let lblL3 = label bld "L3"
-  let lblL4 = label bld "L4"
-  let lblL5 = label bld "L5"
-  let lblEnd = label bld "End"
-  let cond0 = (fsr31 == AST.b0) .& (fsr30 == AST.b0)
-  let cond1 = (fsr31 == AST.b0) .& (fsr30 == AST.b1)
-  let cond2 = (fsr31 == AST.b1) .& (fsr30 == AST.b0)
   bld <!-- (ins.Address, insLen)
   (* The 64-bit source integer occupies a double register (an even/odd %f pair
      on %f0-%f31), so assemble it with getDFloatOp; reading the operand register
@@ -2791,23 +2566,7 @@ let fxtod ins insLen bld =
      silently converts small integers to 0.0. *)
   getDFloatOp bld src op
   bld <+ (res := AST.cast CastKind.SIntToFloat oprSize op)
-  bld <+ (AST.cjmp cond0 (AST.jmpDest lblL0) (AST.jmpDest lblL1))
-  bld <+ (AST.lmark lblL0)
-  bld <+ (rounded := AST.cast CastKind.FtoFRound regSize (res))
-  bld <+ (AST.jmp (AST.jmpDest lblEnd))
-  bld <+ (AST.lmark lblL1)
-  bld <+ (AST.cjmp cond1 (AST.jmpDest lblL2) (AST.jmpDest lblL3))
-  bld <+ (AST.lmark lblL2)
-  bld <+ (rounded := AST.cast CastKind.FtoFTrunc regSize (res))
-  bld <+ (AST.jmp (AST.jmpDest lblEnd))
-  bld <+ (AST.lmark lblL3)
-  bld <+ (AST.cjmp cond2 (AST.jmpDest lblL4) (AST.jmpDest lblL5))
-  bld <+ (AST.lmark lblL4)
-  bld <+ (rounded := AST.cast CastKind.FtoFCeil regSize (res))
-  bld <+ (AST.jmp (AST.jmpDest lblEnd))
-  bld <+ (AST.lmark lblL5)
-  bld <+ (rounded := AST.cast CastKind.FtoFFloor regSize (res))
-  bld <+ (AST.lmark lblEnd)
+  roundByFSR bld res rounded oprSize
   setDFloatOp bld dst rounded
   bld --!> insLen
 
@@ -3785,6 +3544,7 @@ let sdiv ins insLen bld =
     bld <+ (dst := saturated)
   bld --!> insLen
 
+/// Signed 32-bit divide, setting the condition codes.
 let sdivcc ins insLen bld =
   let struct (src, src1, dst) = transThreeOprs ins insLen bld
   let lblL0 = label bld "L0"
@@ -3795,15 +3555,7 @@ let sdivcc ins insLen bld =
   let quotient = tmpVar bld 64<rt>
   let y = regVar bld Register.Y
   let ccr = regVar bld Register.CCR
-  let lo = AST.extract quotient 32<rt> 0
-  (* signed division; overflow (V) when the quotient does not fit signed 32-bit,
-     in which case the result saturates to INT32_MIN/INT32_MAX by its sign. *)
-  let fits = (AST.sext 64<rt> lo) == quotient
-  let saturated =
-    AST.ite fits (AST.sext 64<rt> lo)
-      (AST.ite (AST.extract quotient 1<rt> 63 == AST.b1)
-               (numU64 0x80000000UL 64<rt>)
-               (numU64 0x7fffffffUL 64<rt>))
+  let struct (fits, saturated) = signedDivResult quotient
   bld <!-- (ins.Address, insLen)
   bld <+ (divisor := AST.extract src1 32<rt> 0)
   bld <+ (dividend := AST.concat (AST.extract y 32<rt> 0)
@@ -3828,12 +3580,7 @@ let sdivcc ins insLen bld =
     bld <+ (quotient := dividend ?/ (AST.sext 64<rt> divisor))
     bld <+ (dst := saturated)
     bld <+ (AST.extract ccr 1<rt> 1 := AST.ite fits (AST.b0) (AST.b1))
-  bld <+ (AST.extract ccr 4<rt> 4 := AST.num0 4<rt>)
-  bld <+ (AST.extract ccr 1<rt> 3 := AST.ite
-    ((AST.extract quotient 1<rt> 31) == AST.b1) (AST.b1) (AST.b0))
-  bld <+ (AST.extract ccr 1<rt> 2 := AST.ite
-    ((AST.extract quotient 32<rt> 0) == AST.num0 32<rt>) (AST.b1) (AST.b0))
-  bld <+ (AST.extract ccr 1<rt> 0 := AST.b0)
+  setDivCC bld ccr quotient
   bld --!> insLen
 
 let sdivx ins insLen bld =
@@ -4178,6 +3925,7 @@ let udiv ins insLen bld =
       (numU64 0xFFFFFFFFUL 64<rt>))
   bld --!> insLen
 
+/// Unsigned 32-bit divide, setting the condition codes.
 let udivcc ins insLen bld =
   let struct (src, src1, dst) = transThreeOprs ins insLen bld
   let lblL0 = label bld "L0"
@@ -4188,6 +3936,7 @@ let udivcc ins insLen bld =
   let quotient = tmpVar bld 64<rt>
   let y = regVar bld Register.Y
   let ccr = regVar bld Register.CCR
+  let struct (fits, saturated) = unsignedDivResult quotient
   bld <!-- (ins.Address, insLen)
   bld <+ (divisor := AST.extract src1 32<rt> 0)
   bld <+ (dividend := AST.concat (AST.extract y 32<rt> 0)
@@ -4202,28 +3951,17 @@ let udivcc ins insLen bld =
       bld <+ (quotient := dividend ./ (AST.zext 64<rt> divisor))
     else
       ()
-    bld <+ (dst := AST.ite ((AST.extract quotient 32<rt> 32) == AST.num0 32<rt>)
-      (AST.zext 64<rt> (AST.extract quotient 32<rt> 0))
-      (numU64 0xFFFFFFFFUL 64<rt>))
-    bld <+ (AST.extract ccr 1<rt> 1 := AST.ite
-      ((AST.extract quotient 32<rt> 32) == AST.num0 32<rt>) (AST.b0) (AST.b1))
+    bld <+ (dst := saturated)
+    bld <+ (AST.extract ccr 1<rt> 1 := AST.ite fits (AST.b0) (AST.b1))
     bld <+ (AST.jmp (AST.jmpDest lblEnd))
     bld <+ (AST.lmark lblL0)
     bld <+ (AST.sideEffect (Exception DivideError))
     bld <+ (AST.lmark lblEnd)
   else
     bld <+ (quotient := dividend ./ (AST.zext 64<rt> divisor))
-    bld <+ (dst := AST.ite ((AST.extract quotient 32<rt> 32) == AST.num0 32<rt>)
-      (AST.zext 64<rt> (AST.extract quotient 32<rt> 0))
-      (numU64 0xFFFFFFFFUL 64<rt>))
-    bld <+ (AST.extract ccr 1<rt> 1 := AST.ite
-      ((AST.extract quotient 32<rt> 32) == AST.num0 32<rt>) (AST.b0) (AST.b1))
-  bld <+ (AST.extract ccr 4<rt> 4 := AST.num0 4<rt>)
-  bld <+ (AST.extract ccr 1<rt> 3 := AST.ite
-    ((AST.extract quotient 1<rt> 31) == AST.b1) (AST.b1) (AST.b0))
-  bld <+ (AST.extract ccr 1<rt> 2 := AST.ite
-    ((AST.extract quotient 32<rt> 0) == AST.num0 32<rt>) (AST.b1) (AST.b0))
-  bld <+ (AST.extract ccr 1<rt> 0 := AST.b0)
+    bld <+ (dst := saturated)
+    bld <+ (AST.extract ccr 1<rt> 1 := AST.ite fits (AST.b0) (AST.b1))
+  setDivCC bld ccr quotient
   bld --!> insLen
 
 let udivx ins insLen bld =

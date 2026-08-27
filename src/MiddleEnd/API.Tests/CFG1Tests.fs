@@ -206,6 +206,8 @@ type CFG1Tests() =
   let hdl = BinHandle.LoadRawImage(binary, isa)
   let instrs = InstructionCollection(LinearSweepInstructionCollector hdl)
 
+  static member GraphTypes = [| [| box Persistent |]; [| box Mutable |] |]
+
   [<TestMethod>]
   member _.``InstructionCollection Test 1``() =
     instrs.Completion.Wait()
@@ -532,8 +534,6 @@ type CFG1Tests() =
     let plainCFG = plainBrew.Functions[0x0UL].CFG
     Assert.AreEqual<int>(plainCFG.VertexCount, ssaCFG.VertexCount)
     Assert.AreEqual<int>(plainCFG.EdgeCount, ssaCFG.EdgeCount)
-
-  static member GraphTypes = [| [| box Persistent |]; [| box Mutable |] |]
 
   /// Builds a CFG of two roots, each flowing into a block they share, which is
   /// the shape a gap analysis leaves behind when its dead code blocks enter the

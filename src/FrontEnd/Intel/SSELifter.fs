@@ -1930,26 +1930,23 @@ let private overrideIfDataInvalid bld ctrl aInval bInval boolRes =
     let cond2 = (aInval .& AST.not bInval) .| (aInval .& bInval)
     bld <+ (boolRes := AST.ite cond1 AST.b0 (AST.ite cond2 AST.b1 boolRes))
 
-let pcmpstr (ins: Instruction) insLen bld =
-  bld <!-- (ins.Address, insLen)
-  let struct (s1, s2, imm) = getThreeOprs ins
-  let imm = transOprToExpr bld false ins insLen imm
-  let ctrl = getPcmpstrInfo ins.Opcode imm
-  let oprSz = getOperationSize ins
-  let packSize = ctrl.PackSize
-  let nElem = int ctrl.NumElems
-  let elemSz = RegType.fromBitWidth nElem
-  let upperBound = nElem - 1
-  let pNum = 64<rt> / packSize
-  let src1 = transOprToArr bld true ins insLen packSize pNum oprSz s1
-  let src2 = transOprToArr bld true ins insLen packSize pNum oprSz s2
-  let boolRes = Array2D.init nElem nElem (fun _ _ -> tmpVar bld 1<rt>)
-  let n0 = AST.num0 packSize
-  let regSize, ax, dx =
-    if REXPrefix.hasW ins.REXPrefix then
-      64<rt>, regVar bld R.RAX, regVar bld R.RDX
-    else
-      32<rt>, regVar bld R.EAX, regVar bld R.EDX
+/// Sets every bit of an aggregation result to the same starting value.
+let private initIntRes bld initVal = Array.iter (fun r -> bld <+ (r := initVal))
+
+/// Compares every character of one operand against every character of the
+/// other, noting as it goes where each string has run out: an implicit length
+/// ends at a null character, an explicit one at the index held in AX or DX.
+/// `Ranges` reads the first operand two at a time, as the low and the high
+/// bound of a range; every other aggregation compares for equality.
+let private comparePcmpstrChars bld
+                                ctrl
+                                (src1: Expr[])
+                                (src2: Expr[])
+                                (boolRes: Expr array2d)
+                                regs =
+  let regSize, ax, dx = regs
+  let upperBound = int ctrl.NumElems - 1
+  let n0 = AST.num0 ctrl.PackSize
   let struct (aInval, bInval) = tmpVars2 bld 1<rt>
   bld <+ (aInval := AST.b0)
   let (.<=), (.>=) =
@@ -1974,20 +1971,26 @@ let pcmpstr (ins: Instruction) insLen bld =
       overrideIfDataInvalid bld ctrl aInval bInval boolRes[i, j]
     done
   done
-  let inline initIntRes initVal = Array.iter (fun r -> bld <+ (r := initVal))
-  let intRes1 = Array.init nElem (fun _ -> tmpVar bld 1<rt>)
-  let intRes2 = Array.init nElem (fun _ -> tmpVar bld 1<rt>)
-  (* aggregate results. *)
+  bInval
+
+/// Reduces the grid of character comparisons to one bit per element, the way
+/// the aggregation asks: any match anywhere, a match inside either range, a
+/// match at the same index, or a run of matches starting at that index.
+let private aggregatePcmpstrResult bld
+                                   ctrl
+                                   (boolRes: Expr array2d)
+                                   (intRes1: Expr[]) =
+  let upperBound = int ctrl.NumElems - 1
   match ctrl.Agg with
   | EqualAny ->
-    initIntRes AST.b0 intRes1
+    initIntRes bld AST.b0 intRes1
     for i in 0 .. upperBound do
       for j in 0 .. upperBound do
         bld <+ (intRes1[i] := intRes1[i] .| boolRes[j, i])
       done
     done
   | Ranges ->
-    initIntRes AST.b0 intRes1
+    initIntRes bld AST.b0 intRes1
     for i in 0 .. upperBound do
       for j in 0 .. 2 .. upperBound do
         bld
@@ -1995,12 +1998,12 @@ let pcmpstr (ins: Instruction) insLen bld =
       done
     done
   | EqualEach ->
-    initIntRes AST.b0 intRes1
+    initIntRes bld AST.b0 intRes1
     for i in 0 .. upperBound do
       bld <+ (intRes1[i] := boolRes[i, i])
     done
   | EqualOrdered ->
-    initIntRes AST.b1 intRes1
+    initIntRes bld AST.b1 intRes1
     let mutable k = 0
     for i in 0 .. upperBound do
       k <- i
@@ -2009,8 +2012,21 @@ let pcmpstr (ins: Instruction) insLen bld =
         k <- k + 1
       done
     done
-  (* optionally negate results. *)
-  initIntRes AST.b0 intRes2
+
+/// Negates the aggregated bits where the polarity asks for it. A masked
+/// polarity negates only the elements still inside the second string, so the
+/// bits past its end come through as they stood.
+let private negatePcmpstrResult bld
+                                ctrl
+                                (src2: Expr[])
+                                (results: Expr[] * Expr[])
+                                bInval
+                                regs =
+  let intRes1, intRes2 = results
+  let regSize, _, dx = regs
+  let upperBound = int ctrl.NumElems - 1
+  let n0 = AST.num0 ctrl.PackSize
+  initIntRes bld AST.b0 intRes2
   for i in 0 .. upperBound do
     match ctrl.Polarity with
     | PosPolarity | PosMasked ->
@@ -2026,9 +2042,21 @@ let pcmpstr (ins: Instruction) insLen bld =
         let not = AST.not intRes1[i]
         bld <+ (intRes2[i] := AST.ite (numI32 i regSize .>= dx) intRes1[i] not)
   done
-  (* output. *)
-  let iRes2 = tmpVar bld elemSz
-  bld <+ (iRes2 := combineBits elemSz intRes2)
+
+/// Writes the bits out the way the opcode asks: as a mask in XMM0, one bit or
+/// one whole element wide, or as the index of the first or the last bit set,
+/// which is the element count where nothing matched at all.
+let private writePcmpstrResult bld
+                               (ins: Instruction)
+                               ctrl
+                               (intRes2: Expr[])
+                               iRes2 =
+  let packSize = ctrl.PackSize
+  let nElem = int ctrl.NumElems
+  let elemSz = RegType.fromBitWidth nElem
+  let upperBound = nElem - 1
+  let pNum = 64<rt> / packSize
+  let n0 = AST.num0 packSize
   match ctrl.Ret with
   | Mask ->
     let struct (dstB, dstA) = pseudoRegVar128 bld R.XMM0
@@ -2058,6 +2086,34 @@ let pcmpstr (ins: Instruction) insLen bld =
       |> AST.zext 32<rt>
     let idx = AST.ite (iRes2 == n0) (numI32 nElem 32<rt>) idx
     bld <+ (dstAssign outSz cx idx)
+
+let pcmpstr (ins: Instruction) insLen bld =
+  bld <!-- (ins.Address, insLen)
+  let struct (s1, s2, imm) = getThreeOprs ins
+  let imm = transOprToExpr bld false ins insLen imm
+  let ctrl = getPcmpstrInfo ins.Opcode imm
+  let oprSz = getOperationSize ins
+  let packSize = ctrl.PackSize
+  let nElem = int ctrl.NumElems
+  let elemSz = RegType.fromBitWidth nElem
+  let pNum = 64<rt> / packSize
+  let src1 = transOprToArr bld true ins insLen packSize pNum oprSz s1
+  let src2 = transOprToArr bld true ins insLen packSize pNum oprSz s2
+  let boolRes = Array2D.init nElem nElem (fun _ _ -> tmpVar bld 1<rt>)
+  let regs =
+    if REXPrefix.hasW ins.REXPrefix then
+      64<rt>, regVar bld R.RAX, regVar bld R.RDX
+    else
+      32<rt>, regVar bld R.EAX, regVar bld R.EDX
+  let bInval = comparePcmpstrChars bld ctrl src1 src2 boolRes regs
+  let intRes1 = Array.init nElem (fun _ -> tmpVar bld 1<rt>)
+  let intRes2 = Array.init nElem (fun _ -> tmpVar bld 1<rt>)
+  aggregatePcmpstrResult bld ctrl boolRes intRes1
+  negatePcmpstrResult bld ctrl src2 (intRes1, intRes2) bInval regs
+  (* output. *)
+  let iRes2 = tmpVar bld elemSz
+  bld <+ (iRes2 := combineBits elemSz intRes2)
+  writePcmpstrResult bld ins ctrl intRes2 iRes2
   bld <+ (regVar bld R.CF := iRes2 != AST.num0 elemSz)
   setZFSFOfPCMPSTR bld ctrl src1 src2
   bld <+ (regVar bld R.OF := intRes2[0])

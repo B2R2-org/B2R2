@@ -666,6 +666,16 @@ let replicate expr regType lsb width value =
 /// All-ones bitstring, on page AppxP-2652.
 let ones rt = BitVector(RegType.makeMask rt, rt) |> AST.num
 
+/// A mode the write is not allowed to name. Where the condition holds the
+/// architecture calls the instruction unpredictable, which is reported as
+/// undefined for now; where it does not, the write carries on. The two labels
+/// are passed in because the IR names them, and every guard needs its own.
+let private unpredictableWhen bld cond lblHolds lblCarriesOn =
+  bld <+ (AST.cjmp cond (AST.jmpDest lblHolds) (AST.jmpDest lblCarriesOn))
+  bld <+ (AST.lmark lblHolds)
+  bld <+ (AST.sideEffect UndefinedInstruction) // FIXME: (use UNPREDICTABLE)
+  bld <+ (AST.lmark lblCarriesOn)
+
 let writeModeBits bld value isExcptReturn =
   let lblL8 = label bld "L8"
   let lblL9 = label bld "L9"
@@ -687,22 +697,10 @@ let writeModeBits bld value isExcptReturn =
   let cond3 = chkSecure .& (valueM == num11010)
   let cond4 = chkSecure .& (cpsrM != num11010) .& (valueM == num11010)
   let cond5 = (cpsrM == num11010) .& (valueM != num11010)
-  bld <+ (AST.cjmp cond1 (AST.jmpDest lblL8) (AST.jmpDest lblL9))
-  bld <+ (AST.lmark lblL8)
-  bld <+ (AST.sideEffect UndefinedInstruction) // FIXME: (use UNPREDICTABLE)
-  bld <+ (AST.lmark lblL9)
-  bld <+ (AST.cjmp cond2 (AST.jmpDest lblL10) (AST.jmpDest lblL11))
-  bld <+ (AST.lmark lblL10)
-  bld <+ (AST.sideEffect UndefinedInstruction) // FIXME: (use UNPREDICTABLE)
-  bld <+ (AST.lmark lblL11)
-  bld <+ (AST.cjmp cond3 (AST.jmpDest lblL12) (AST.jmpDest lblL13))
-  bld <+ (AST.lmark lblL12)
-  bld <+ (AST.sideEffect UndefinedInstruction) // FIXME: (use UNPREDICTABLE)
-  bld <+ (AST.lmark lblL13)
-  bld <+ (AST.cjmp cond4 (AST.jmpDest lblL14) (AST.jmpDest lblL15))
-  bld <+ (AST.lmark lblL14)
-  bld <+ (AST.sideEffect UndefinedInstruction) // FIXME: (use UNPREDICTABLE)
-  bld <+ (AST.lmark lblL15)
+  unpredictableWhen bld cond1 lblL8 lblL9
+  unpredictableWhen bld cond2 lblL10 lblL11
+  unpredictableWhen bld cond3 lblL12 lblL13
+  unpredictableWhen bld cond4 lblL14 lblL15
   bld <+ (AST.cjmp cond5 (AST.jmpDest lblL16) (AST.jmpDest lblL17))
   bld <+ (AST.lmark lblL16)
   if Operators.not isExcptReturn then

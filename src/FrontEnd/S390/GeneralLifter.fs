@@ -1542,6 +1542,36 @@ let moveWithOffset ins insLen bld =
 /// which the second-operand address's rightmost byte names.
 let private padOf bld o = AST.xtlo 8<rt> (transMem bld o)
 
+/// The loop both padded moves run: while the destination still has room, take
+/// one unit from the source and store it, and once the source has run out pad
+/// the rest of the destination instead. Both lengths count down as they go, so
+/// what the registers hold on the way out is what has yet to be moved.
+let private moveLoop bld width step dst src pad labels =
+  let da, dl = dst
+  let sa, sl = src
+  let body, more, copy, fill, out = labels
+  bld <+ (AST.lmark body)
+  bld <+ (AST.cjmp (dl == AST.num0 GRSize)
+                   (AST.jmpDest out)
+                   (AST.jmpDest more))
+  bld <+ (AST.lmark more)
+  bld <+ (AST.cjmp (sl == AST.num0 GRSize)
+                   (AST.jmpDest fill)
+                   (AST.jmpDest copy))
+  bld <+ (AST.lmark copy)
+  bld <+ storeMem da (loadMem width sa)
+  bld <+ (sa := sa .+ step)
+  bld <+ (sl := sl .- step)
+  bld <+ (da := da .+ step)
+  bld <+ (dl := dl .- step)
+  bld <+ (AST.jmp (AST.jmpDest body))
+  bld <+ (AST.lmark fill)
+  bld <+ storeMem da pad
+  bld <+ (da := da .+ step)
+  bld <+ (dl := dl .- step)
+  bld <+ (AST.jmp (AST.jmpDest body))
+  bld <+ (AST.lmark out)
+
 /// MOVE LONG EXTENDED: the first operand is filled from the second, and once
 /// the second runs out the rest takes a pad byte. Both addresses and lengths
 /// live in register pairs, which are left naming what has yet to be moved so
@@ -1571,27 +1601,8 @@ let moveLongExtended ins insLen bld unit =
     bld <+ (cmp := AST.ite (dl == sl)
                            (numCC 0)
                            (AST.ite (dl .< sl) (numCC 1) (numCC 2)))
-    bld <+ (AST.lmark body)
-    bld <+ (AST.cjmp (dl == AST.num0 GRSize)
-                     (AST.jmpDest out)
-                     (AST.jmpDest more))
-    bld <+ (AST.lmark more)
-    bld <+ (AST.cjmp (sl == AST.num0 GRSize)
-                     (AST.jmpDest fill)
-                     (AST.jmpDest copy))
-    bld <+ (AST.lmark copy)
-    bld <+ storeMem da (loadMem width sa)
-    bld <+ (sa := sa .+ step)
-    bld <+ (sl := sl .- step)
-    bld <+ (da := da .+ step)
-    bld <+ (dl := dl .- step)
-    bld <+ (AST.jmp (AST.jmpDest body))
-    bld <+ (AST.lmark fill)
-    bld <+ storeMem da pad
-    bld <+ (da := da .+ step)
-    bld <+ (dl := dl .- step)
-    bld <+ (AST.jmp (AST.jmpDest body))
-    bld <+ (AST.lmark out)
+    let labels = body, more, copy, fill, out
+    moveLoop bld width step (da, dl) (sa, sl) pad labels
     bld <+ (ccVar bld := cmp)
     bld --!> insLen
 
@@ -1641,6 +1652,22 @@ let compareLongExtended ins insLen bld unit =
     bld <+ (AST.lmark out)
     bld --!> insLen
 
+/// What MOVE LONG leaves behind: the lengths still outstanding written back
+/// into the rightmost twenty-four bits of the odd registers, and the condition
+/// code the two lengths were compared for beforehand. A destructive overlap
+/// arrives here having moved nothing, and reports the fourth code instead.
+let private finishMoveLong bld dst src cmp labels =
+  let dlr, dl = dst
+  let slr, sl = src
+  let overlap, out = labels
+  bld <+ (dlr := (dlr .& numG ~~~0xffffffL) .| dl)
+  bld <+ (slr := (slr .& numG ~~~0xffffffL) .| sl)
+  bld <+ (ccVar bld := cmp)
+  bld <+ (AST.jmp (AST.jmpDest out))
+  bld <+ (AST.lmark overlap)
+  setCC bld 3
+  bld <+ (AST.lmark out)
+
 /// MOVE LONG, the older form, whose lengths are the rightmost twenty-four bits
 /// of the odd registers and whose pad byte travels in the source length
 /// register. Operands that overlap so that the move would destroy what it has
@@ -1680,35 +1707,38 @@ let moveLong ins insLen bld =
     bld <+ (AST.cjmp ((da .> sa) .& (da .< (sa .+ sl)))
                      (AST.jmpDest overlap)
                      (AST.jmpDest body))
-    bld <+ (AST.lmark body)
-    bld <+ (AST.cjmp (dl == AST.num0 GRSize)
-                     (AST.jmpDest over)
-                     (AST.jmpDest more))
-    bld <+ (AST.lmark more)
-    bld <+ (AST.cjmp (sl == AST.num0 GRSize)
-                     (AST.jmpDest fill)
-                     (AST.jmpDest copy))
-    bld <+ (AST.lmark copy)
-    bld <+ storeMem da (loadMem 8<rt> sa)
-    bld <+ (sa := sa .+ AST.num1 GRSize)
-    bld <+ (sl := sl .- AST.num1 GRSize)
-    bld <+ (da := da .+ AST.num1 GRSize)
-    bld <+ (dl := dl .- AST.num1 GRSize)
-    bld <+ (AST.jmp (AST.jmpDest body))
-    bld <+ (AST.lmark fill)
-    bld <+ storeMem da pad
-    bld <+ (da := da .+ AST.num1 GRSize)
-    bld <+ (dl := dl .- AST.num1 GRSize)
-    bld <+ (AST.jmp (AST.jmpDest body))
-    bld <+ (AST.lmark over)
-    bld <+ (dlr := (dlr .& numG ~~~0xffffffL) .| dl)
-    bld <+ (slr := (slr .& numG ~~~0xffffffL) .| sl)
-    bld <+ (ccVar bld := cmp)
-    bld <+ (AST.jmp (AST.jmpDest out))
-    bld <+ (AST.lmark overlap)
-    setCC bld 3
-    bld <+ (AST.lmark out)
+    let labels = body, more, copy, fill, over
+    moveLoop bld 8<rt> (AST.num1 GRSize) (da, dl) (sa, sl) pad labels
+    finishMoveLong bld (dlr, dl) (slr, sl) cmp (overlap, out)
     bld --!> insLen
+
+/// The loop the padded comparison runs: while either operand has units left,
+/// take one from each -- the pad byte standing in for whichever has run out --
+/// and stop at the first pair that differs, which is what decides the
+/// condition code. Only an operand still holding units walks on, so the
+/// addresses and lengths left behind name the pair that decided it.
+let private compareLoop bld a b pad bytes labels =
+  let aa, al = a
+  let ba, bl = b
+  let x, y = bytes
+  let body, more, same, diff, out = labels
+  bld <+ (AST.lmark body)
+  bld <+ (AST.cjmp ((al == AST.num0 GRSize) .& (bl == AST.num0 GRSize))
+                   (AST.jmpDest out)
+                   (AST.jmpDest more))
+  bld <+ (AST.lmark more)
+  bld <+ (x := AST.ite (al == AST.num0 GRSize) pad (loadMem 8<rt> aa))
+  bld <+ (y := AST.ite (bl == AST.num0 GRSize) pad (loadMem 8<rt> ba))
+  bld <+ (AST.cjmp (x == y) (AST.jmpDest same) (AST.jmpDest diff))
+  bld <+ (AST.lmark same)
+  bld <+ (aa := AST.ite (al == AST.num0 GRSize) aa (aa .+ AST.num1 GRSize))
+  bld <+ (al := AST.ite (al == AST.num0 GRSize) al (al .- AST.num1 GRSize))
+  bld <+ (ba := AST.ite (bl == AST.num0 GRSize) ba (ba .+ AST.num1 GRSize))
+  bld <+ (bl := AST.ite (bl == AST.num0 GRSize) bl (bl .- AST.num1 GRSize))
+  bld <+ (AST.jmp (AST.jmpDest body))
+  bld <+ (AST.lmark diff)
+  bld <+ (ccVar bld := AST.ite (x .< y) (numCC 1) (numCC 2))
+  bld <+ (AST.lmark out)
 
 /// COMPARE LOGICAL LONG, the older form of the padded comparison, whose
 /// lengths and pad byte sit in the odd registers as MOVE LONG's do.
@@ -1738,23 +1768,8 @@ let compareLong ins insLen bld =
     bld <+ (bl := blr .& numG 0xffffffL)
     bld <+ (pad := AST.extract blr 8<rt> 24)
     setCC bld 0
-    bld <+ (AST.lmark body)
-    bld <+ (AST.cjmp ((al == AST.num0 GRSize) .& (bl == AST.num0 GRSize))
-                     (AST.jmpDest out)
-                     (AST.jmpDest more))
-    bld <+ (AST.lmark more)
-    bld <+ (x := AST.ite (al == AST.num0 GRSize) pad (loadMem 8<rt> aa))
-    bld <+ (y := AST.ite (bl == AST.num0 GRSize) pad (loadMem 8<rt> ba))
-    bld <+ (AST.cjmp (x == y) (AST.jmpDest same) (AST.jmpDest diff))
-    bld <+ (AST.lmark same)
-    bld <+ (aa := AST.ite (al == AST.num0 GRSize) aa (aa .+ AST.num1 GRSize))
-    bld <+ (al := AST.ite (al == AST.num0 GRSize) al (al .- AST.num1 GRSize))
-    bld <+ (ba := AST.ite (bl == AST.num0 GRSize) ba (ba .+ AST.num1 GRSize))
-    bld <+ (bl := AST.ite (bl == AST.num0 GRSize) bl (bl .- AST.num1 GRSize))
-    bld <+ (AST.jmp (AST.jmpDest body))
-    bld <+ (AST.lmark diff)
-    bld <+ (ccVar bld := AST.ite (x .< y) (numCC 1) (numCC 2))
-    bld <+ (AST.lmark out)
+    let labels = body, more, same, diff, out
+    compareLoop bld (aa, al) (ba, bl) pad (x, y) labels
     bld <+ (alr := (alr .& numG ~~~0xffffffL) .| al)
     bld <+ (blr := (blr .& numG ~~~0xffffffL) .| bl)
     bld --!> insLen
@@ -2473,6 +2488,22 @@ let loadMultipleDisjoint (ins: Instruction) insLen bld =
   | _ ->
     raise InvalidOperandException
 
+/// The inner walk: compare the two substrings a byte at a time from where the
+/// outer scan stands, and give this position up the moment a byte differs.
+/// Reaching the full length means they agree, which is what was looked for.
+let private compareSubstring bld operands counters labels =
+  let aa, ba = operands
+  let n, k, ok = counters
+  let inner, step, advance, found = labels
+  bld <+ (AST.lmark inner)
+  bld <+ (AST.cjmp (k == n) (AST.jmpDest found) (AST.jmpDest step))
+  bld <+ (AST.lmark step)
+  bld <+ (ok := AST.ite (loadMem 8<rt> (aa .+ k) == loadMem 8<rt> (ba .+ k))
+                        ok
+                        AST.b0)
+  bld <+ (k := k .+ AST.num1 GRSize)
+  bld <+ (AST.cjmp (ok == AST.b1) (AST.jmpDest inner) (AST.jmpDest advance))
+
 /// COMPARE UNTIL SUBSTRING EQUAL, which looks for the first place the two
 /// operands agree over a whole substring, whose length R0 gives.
 let compareUntilEqual ins insLen bld =
@@ -2507,14 +2538,7 @@ let compareUntilEqual ins insLen bld =
     bld <+ (AST.lmark more)
     bld <+ (k := AST.num0 GRSize)
     bld <+ (ok := AST.b1)
-    bld <+ (AST.lmark inner)
-    bld <+ (AST.cjmp (k == n) (AST.jmpDest found) (AST.jmpDest step))
-    bld <+ (AST.lmark step)
-    bld <+ (ok := AST.ite (loadMem 8<rt> (aa .+ k) == loadMem 8<rt> (ba .+ k))
-                          ok
-                          AST.b0)
-    bld <+ (k := k .+ AST.num1 GRSize)
-    bld <+ (AST.cjmp (ok == AST.b1) (AST.jmpDest inner) (AST.jmpDest advance))
+    compareSubstring bld (aa, ba) (n, k, ok) (inner, step, advance, found)
     bld <+ (AST.lmark advance)
     bld <+ (aa := aa .+ AST.num1 GRSize)
     bld <+ (al := al .- AST.num1 GRSize)

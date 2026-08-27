@@ -28,6 +28,72 @@ open System
 open System.Reflection
 open B2R2
 
+/// What `b2r2 scan` does, as the usage text puts it.
+let private scanHelp = """
+  This is a file format scanner that is similar to readelf or otool.
+  You can read various file format information using this app. To
+  learn more about the tool, type the following command:
+
+  $ b2r2 scan --help
+"""
+
+/// What `b2r2 disasm` does, as the usage text puts it.
+let private disasmHelp = """
+  This is a linear-sweep disassembler similar to objdump, although
+  this app is more powerful and versatile. To learn more about the
+  tool, type the following command:
+
+  $ b2r2 disasm --help
+"""
+
+/// What `b2r2 explore` does, as the usage text puts it.
+let private exploreHelp = """
+  This is a recursive-descent disassembler that provides a web-based
+  GUI as well as its own CLI terminal. To learn more about the tool,
+  type the following command:
+
+  $ b2r2 explore --help
+"""
+
+/// What `b2r2 repl` does, as the usage text puts it.
+let private replHelp = """
+  This is a REPL (Read Evaluate Print Loop) for our binary IR as well
+  as binary assembly languages. To learn more about the tool type the
+  following command:
+
+  $ b2r2 repl --help
+"""
+
+/// What `b2r2 asm` does, as the usage text puts it.
+let private asmHelp = """
+  This is a simple cross-platform assembler. To learn more about the
+  tool, type the following command:
+
+  $ b2r2 asm --help
+"""
+
+/// Every app the launcher can invoke: the name it is asked for, the longer
+/// name it also answers to, and what it does.
+let private apps =
+  [ "scan", Some "binscan", scanHelp
+    "disasm", Some "bindisasm", disasmHelp
+    "explore", Some "binexplore", exploreHelp
+    "repl", None, replHelp
+    "asm", Some "assembler", asmHelp ]
+
+/// One entry in the list of apps, named and then described.
+let private printApp (name, alias, description) =
+  printcn
+  <| match alias with
+     | Some alias ->
+       ColoredString().Append(NoColor, "- ")
+                      .Append(DarkYellow, name)
+                      .Append(NoColor, $" (a.k.a. {alias})")
+     | None ->
+       ColoredString().Append(NoColor, "- ")
+                      .Append(DarkYellow, name)
+  printsn description
+
 let showUsage () =
   printsn
   <| $"""
@@ -54,59 +120,7 @@ B2R2, please visit our official website: https://b2r2.org/."""
   printsn """
 [Available Apps]
 """
-  printcn
-  <| ColoredString().Append(NoColor, "- ")
-                    .Append(DarkYellow, "scan")
-                    .Append(NoColor, " (a.k.a. binscan)")
-  printsn """
-  This is a file format scanner that is similar to readelf or otool.
-  You can read various file format information using this app. To
-  learn more about the tool, type the following command:
-
-  $ b2r2 scan --help
-"""
-  printcn
-  <| ColoredString().Append(NoColor, "- ")
-                    .Append(DarkYellow, "disasm")
-                    .Append(NoColor, " (a.k.a. bindisasm)")
-  printsn """
-  This is a linear-sweep disassembler similar to objdump, although
-  this app is more powerful and versatile. To learn more about the
-  tool, type the following command:
-
-  $ b2r2 disasm --help
-"""
-  printcn
-  <| ColoredString().Append(NoColor, "- ")
-                    .Append(DarkYellow, "explore")
-                    .Append(NoColor, " (a.k.a. binexplore)")
-  printsn """
-  This is a recursive-descent disassembler that provides a web-based
-  GUI as well as its own CLI terminal. To learn more about the tool,
-  type the following command:
-
-  $ b2r2 explore --help
-"""
-  printcn
-  <| ColoredString().Append(NoColor, "- ")
-                    .Append(DarkYellow, "repl")
-  printsn """
-  This is a REPL (Read Evaluate Print Loop) for our binary IR as well
-  as binary assembly languages. To learn more about the tool type the
-  following command:
-
-  $ b2r2 repl --help
-"""
-  printcn
-  <| ColoredString().Append(NoColor, "- ")
-                    .Append(DarkYellow, "asm")
-                    .Append(NoColor, " (a.k.a. assembler)")
-  printsn """
-  This is a simple cross-platform assembler. To learn more about the
-  tool, type the following command:
-
-  $ b2r2 asm --help
-"""
+  apps |> List.iter printApp
 
 let printMyVersion () = printsn <| "v" + (Meta.getVersion ())
 

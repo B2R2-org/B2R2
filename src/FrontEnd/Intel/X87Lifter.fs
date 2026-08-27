@@ -751,6 +751,43 @@ let isInf isDouble expr =
 
 let isUnordered isDouble expr = isNan isDouble expr .| isInf isDouble expr
 
+/// The remainder where one step of the division reaches it: divide, take the
+/// quotient down to a whole number, and subtract that many divisors. The
+/// quotient's low three bits come back in C1, C3 and C0, and C2 says the
+/// reduction is finished. `caster` is what rounds the quotient, and is the
+/// only thing telling `fprem` from `fprem1`.
+let private fpremWholeQuotient bld caster sts srcs tmps =
+  let st0b, st0a = sts
+  let tmp0, tmp1 = srcs
+  let divres, intres, tmpres, _ = tmps
+  bld <+ (divres := AST.fdiv tmp0 tmp1)
+  bld <+ (intres := AST.cast caster 64<rt> divres)
+  bld <+ (tmpres := AST.fsub tmp0 (AST.fmul tmp1 (castToF64 intres)))
+  castTo80Bit bld st0b st0a tmpres
+  bld <+ (regVar bld R.FSWC2 := AST.b0)
+  bld <+ (regVar bld R.FSWC1 := AST.xtlo 1<rt> intres)
+  bld <+ (regVar bld R.FSWC3 := AST.extract intres 1<rt> 1)
+  bld <+ (regVar bld R.FSWC0 := AST.extract intres 1<rt> 2)
+
+/// The partial remainder where the exponents stand sixty-four or more apart,
+/// which is further than one step reaches. The divisor is scaled up by two to
+/// the difference less sixty-three, and what comes back is the remainder of
+/// that scaled divide. C2 is set to say the reduction is unfinished, and the
+/// instruction is meant to be run again on what is left.
+let private fpremScaledQuotient bld sts srcs expDiff tmps =
+  let st0b, st0a = sts
+  let tmp0, tmp1 = srcs
+  let divres, intres, tmpres, divider = tmps
+  let n2 = numI32 2 64<rt> |> castToF64
+  bld <+ (regVar bld R.FSWC2 := AST.b1)
+  bld <+ (tmpres := AST.fsub (castToF64 expDiff) (castToF64 (numI32 63 64<rt>)))
+  bld <+ (divider := AST.fpow n2 tmpres)
+  bld <+ (divres := AST.fdiv (AST.fdiv tmp0 tmp1) divider)
+  bld <+ (intres := AST.cast CastKind.FtoITrunc 64<rt> divres)
+  bld <+ (tmpres :=
+    AST.fsub tmp0 (AST.fmul tmp1 (AST.fmul (castToF64 intres) divider)))
+  castTo80Bit bld st0b st0a tmpres
+
 let fprem (ins: Instruction) insLen bld round =
   let struct (st0b, st0a) = getFPUPseudoRegVars bld R.ST0
   let struct (st1b, st1a) = getFPUPseudoRegVars bld R.ST1
@@ -764,8 +801,10 @@ let fprem (ins: Instruction) insLen bld round =
   let expDiff = tmpVar bld 16<rt>
   let expMask = numI32 0x7fff 16<rt>
   let n64 = numI32 64 16<rt>
-  let n2 = numI32 2 64<rt> |> castToF64
   let struct (divres, intres, tmpres, divider) = tmpVars4 bld 64<rt>
+  let sts = st0b, st0a
+  let srcs = tmp0, tmp1
+  let tmps = divres, intres, tmpres, divider
   bld <!-- (ins.Address, insLen)
   castFrom80Bit tmp0 64<rt> st0b st0a bld
   castFrom80Bit tmp1 64<rt> st1b st1a bld
@@ -783,24 +822,10 @@ let fprem (ins: Instruction) insLen bld round =
                    (AST.jmpDest lblLT64)
                    (AST.jmpDest lblGE64))
   bld <+ (AST.lmark lblLT64) (* D < 64 *)
-  bld <+ (divres := AST.fdiv tmp0 tmp1)
-  bld <+ (intres := AST.cast caster 64<rt> divres)
-  bld <+ (tmpres := AST.fsub tmp0 (AST.fmul tmp1 (castToF64 intres)))
-  castTo80Bit bld st0b st0a tmpres
-  bld <+ (regVar bld R.FSWC2 := AST.b0)
-  bld <+ (regVar bld R.FSWC1 := AST.xtlo 1<rt> intres)
-  bld <+ (regVar bld R.FSWC3 := AST.extract intres 1<rt> 1)
-  bld <+ (regVar bld R.FSWC0 := AST.extract intres 1<rt> 2)
+  fpremWholeQuotient bld caster sts srcs tmps
   bld <+ (AST.jmp (AST.jmpDest lblExit))
   bld <+ (AST.lmark lblGE64) (* ELSE *)
-  bld <+ (regVar bld R.FSWC2 := AST.b1)
-  bld <+ (tmpres := AST.fsub (castToF64 expDiff) (castToF64 (numI32 63 64<rt>)))
-  bld <+ (divider := AST.fpow n2 tmpres)
-  bld <+ (divres := AST.fdiv (AST.fdiv tmp0 tmp1) divider)
-  bld <+ (intres := AST.cast CastKind.FtoITrunc 64<rt> divres)
-  bld <+ (tmpres :=
-    AST.fsub tmp0 (AST.fmul tmp1 (AST.fmul (castToF64 intres) divider)))
-  castTo80Bit bld st0b st0a tmpres
+  fpremScaledQuotient bld sts srcs expDiff tmps
   bld <+ (AST.lmark lblExit)
   bld --!> insLen
 
@@ -1523,88 +1548,49 @@ let fnop (ins: Instruction) insLen bld =
 #endif
   bld --!> insLen
 
+/// The x87 stack registers, in the order FXSAVE lays them out: eighty bits
+/// each, on a sixteen-byte stride, starting thirty-two bytes in.
+let private fxsaveStackRegs =
+  [ R.ST0; R.ST1; R.ST2; R.ST3; R.ST4; R.ST5; R.ST6; R.ST7 ]
+
+/// The SSE registers FXSAVE always lays out, on the same stride from one
+/// hundred and sixty bytes in.
+let private fxsaveXmmRegs =
+  [ R.XMM0; R.XMM1; R.XMM2; R.XMM3; R.XMM4; R.XMM5; R.XMM6; R.XMM7 ]
+
+/// The eight more it lays out in 64-bit mode, carrying on from there.
+let private fxsaveXmmRegs64 =
+  [ R.XMM8; R.XMM9; R.XMM10; R.XMM11; R.XMM12; R.XMM13; R.XMM14; R.XMM15 ]
+
 let private fxsaveInternal bld dstAddr addrSize is64bit =
+  let storeAt off e = bld <+ (storeLE (dstAddr .+ (numI32 off addrSize)) e)
   bld <+ (storeLE (dstAddr) (regVar bld R.FCW))
-  bld <+ (storeLE (dstAddr .+ (numI32 2 addrSize)) (regVar bld R.FSW))
-  bld <+ (storeLE (dstAddr .+ (numI32 4 addrSize)) (regVar bld R.FTW))
-  bld <+ (storeLE (dstAddr .+ (numI32 6 addrSize)) (regVar bld R.FOP))
-  bld <+ (storeLE (dstAddr .+ (numI32 8 addrSize)) (regVar bld R.FIP))
-  bld <+ (storeLE (dstAddr .+ (numI32 16 addrSize)) (regVar bld R.FDP))
-  bld <+ (storeLE (dstAddr .+ (numI32 24 addrSize)) (regVar bld R.MXCSR))
-  bld <+ (storeLE (dstAddr .+ (numI32 28 addrSize)) (regVar bld R.MXCSRMASK))
-  let struct (stb, sta) = getFPUPseudoRegVars bld R.ST0
-  bld <+ (storeLE (dstAddr .+ (numI32 32 addrSize)) sta)
-  bld <+ (storeLE (dstAddr .+ (numI32 40 addrSize)) stb)
-  let struct (stb, sta) = getFPUPseudoRegVars bld R.ST1
-  bld <+ (storeLE (dstAddr .+ (numI32 48 addrSize)) sta)
-  bld <+ (storeLE (dstAddr .+ (numI32 56 addrSize)) stb)
-  let struct (stb, sta) = getFPUPseudoRegVars bld R.ST2
-  bld <+ (storeLE (dstAddr .+ (numI32 64 addrSize)) sta)
-  bld <+ (storeLE (dstAddr .+ (numI32 72 addrSize)) stb)
-  let struct (stb, sta) = getFPUPseudoRegVars bld R.ST3
-  bld <+ (storeLE (dstAddr .+ (numI32 80 addrSize)) sta)
-  bld <+ (storeLE (dstAddr .+ (numI32 88 addrSize)) stb)
-  let struct (stb, sta) = getFPUPseudoRegVars bld R.ST4
-  bld <+ (storeLE (dstAddr .+ (numI32 96 addrSize)) sta)
-  bld <+ (storeLE (dstAddr .+ (numI32 104 addrSize)) stb)
-  let struct (stb, sta) = getFPUPseudoRegVars bld R.ST5
-  bld <+ (storeLE (dstAddr .+ (numI32 112 addrSize)) sta)
-  bld <+ (storeLE (dstAddr .+ (numI32 120 addrSize)) stb)
-  let struct (stb, sta) = getFPUPseudoRegVars bld R.ST6
-  bld <+ (storeLE (dstAddr .+ (numI32 128 addrSize)) sta)
-  bld <+ (storeLE (dstAddr .+ (numI32 136 addrSize)) stb)
-  let struct (stb, sta) = getFPUPseudoRegVars bld R.ST7
-  bld <+ (storeLE (dstAddr .+ (numI32 144 addrSize)) sta)
-  bld <+ (storeLE (dstAddr .+ (numI32 152 addrSize)) stb)
-  let struct (xmmb, xmma) = pseudoRegVar128 bld R.XMM0
-  bld <+ (storeLE (dstAddr .+ (numI32 160 addrSize)) xmma)
-  bld <+ (storeLE (dstAddr .+ (numI32 168 addrSize)) xmmb)
-  let struct (xmmb, xmma) = pseudoRegVar128 bld R.XMM1
-  bld <+ (storeLE (dstAddr .+ (numI32 176 addrSize)) xmma)
-  bld <+ (storeLE (dstAddr .+ (numI32 184 addrSize)) xmmb)
-  let struct (xmmb, xmma) = pseudoRegVar128 bld R.XMM2
-  bld <+ (storeLE (dstAddr .+ (numI32 192 addrSize)) xmma)
-  bld <+ (storeLE (dstAddr .+ (numI32 200 addrSize)) xmmb)
-  let struct (xmmb, xmma) = pseudoRegVar128 bld R.XMM3
-  bld <+ (storeLE (dstAddr .+ (numI32 208 addrSize)) xmma)
-  bld <+ (storeLE (dstAddr .+ (numI32 216 addrSize)) xmmb)
-  let struct (xmmb, xmma) = pseudoRegVar128 bld R.XMM4
-  bld <+ (storeLE (dstAddr .+ (numI32 224 addrSize)) xmma)
-  bld <+ (storeLE (dstAddr .+ (numI32 232 addrSize)) xmmb)
-  let struct (xmmb, xmma) = pseudoRegVar128 bld R.XMM5
-  bld <+ (storeLE (dstAddr .+ (numI32 240 addrSize)) xmma)
-  bld <+ (storeLE (dstAddr .+ (numI32 248 addrSize)) xmmb)
-  let struct (xmmb, xmma) = pseudoRegVar128 bld R.XMM6
-  bld <+ (storeLE (dstAddr .+ (numI32 256 addrSize)) xmma)
-  bld <+ (storeLE (dstAddr .+ (numI32 264 addrSize)) xmmb)
-  let struct (xmmb, xmma) = pseudoRegVar128 bld R.XMM7
-  bld <+ (storeLE (dstAddr .+ (numI32 272 addrSize)) xmma)
-  bld <+ (storeLE (dstAddr .+ (numI32 280 addrSize)) xmmb)
+  storeAt 2 (regVar bld R.FSW)
+  storeAt 4 (regVar bld R.FTW)
+  storeAt 6 (regVar bld R.FOP)
+  storeAt 8 (regVar bld R.FIP)
+  storeAt 16 (regVar bld R.FDP)
+  storeAt 24 (regVar bld R.MXCSR)
+  storeAt 28 (regVar bld R.MXCSRMASK)
+  fxsaveStackRegs
+  |> List.iteri (fun i st ->
+    let struct (stb, sta) = getFPUPseudoRegVars bld st
+    storeAt (32 + 16 * i) sta
+    storeAt (40 + 16 * i) stb
+  )
+  fxsaveXmmRegs
+  |> List.iteri (fun i xmm ->
+    let struct (xmmb, xmma) = pseudoRegVar128 bld xmm
+    storeAt (160 + 16 * i) xmma
+    storeAt (168 + 16 * i) xmmb
+  )
   if is64bit then
-    let struct (xmmb, xmma) = pseudoRegVar128 bld R.XMM8
-    bld <+ (storeLE (dstAddr .+ (numI32 288 addrSize)) xmma)
-    bld <+ (storeLE (dstAddr .+ (numI32 296 addrSize)) xmmb)
-    let struct (xmmb, xmma) = pseudoRegVar128 bld R.XMM9
-    bld <+ (storeLE (dstAddr .+ (numI32 304 addrSize)) xmma)
-    bld <+ (storeLE (dstAddr .+ (numI32 312 addrSize)) xmmb)
-    let struct (xmmb, xmma) = pseudoRegVar128 bld R.XMM10
-    bld <+ (storeLE (dstAddr .+ (numI32 320 addrSize)) xmma)
-    bld <+ (storeLE (dstAddr .+ (numI32 328 addrSize)) xmmb)
-    let struct (xmmb, xmma) = pseudoRegVar128 bld R.XMM11
-    bld <+ (storeLE (dstAddr .+ (numI32 336 addrSize)) xmma)
-    bld <+ (storeLE (dstAddr .+ (numI32 344 addrSize)) xmmb)
-    let struct (xmmb, xmma) = pseudoRegVar128 bld R.XMM12
-    bld <+ (storeLE (dstAddr .+ (numI32 352 addrSize)) xmma)
-    bld <+ (storeLE (dstAddr .+ (numI32 360 addrSize)) xmmb)
-    let struct (xmmb, xmma) = pseudoRegVar128 bld R.XMM13
-    bld <+ (storeLE (dstAddr .+ (numI32 368 addrSize)) xmma)
-    bld <+ (storeLE (dstAddr .+ (numI32 376 addrSize)) xmmb)
-    let struct (xmmb, xmma) = pseudoRegVar128 bld R.XMM14
-    bld <+ (storeLE (dstAddr .+ (numI32 384 addrSize)) xmma)
-    bld <+ (storeLE (dstAddr .+ (numI32 392 addrSize)) xmmb)
-    let struct (xmmb, xmma) = pseudoRegVar128 bld R.XMM15
-    bld <+ (storeLE (dstAddr .+ (numI32 400 addrSize)) xmma)
-    bld <+ (storeLE (dstAddr .+ (numI32 408 addrSize)) xmmb)
+    fxsaveXmmRegs64
+    |> List.iteri (fun i xmm ->
+      let struct (xmmb, xmma) = pseudoRegVar128 bld xmm
+      storeAt (288 + 16 * i) xmma
+      storeAt (296 + 16 * i) xmmb
+    )
   else
     ()
 
@@ -1616,89 +1602,34 @@ let fxsave (ins: Instruction) insLen bld =
   bld --!> insLen
 
 let private fxrstoreInternal bld srcAddr addrSz is64bit =
+  let loadAt sz off = AST.loadLE sz (srcAddr .+ (numI32 off addrSz))
   bld <+ (regVar bld R.FCW := AST.loadLE 16<rt> (srcAddr))
-  bld <+ (regVar bld R.FSW := AST.loadLE 16<rt> (srcAddr .+ (numI32 2 addrSz)))
-  bld <+ (regVar bld R.FTW := AST.loadLE 16<rt> (srcAddr .+ (numI32 4 addrSz)))
-  bld <+ (regVar bld R.FOP := AST.loadLE 16<rt> (srcAddr .+ (numI32 6 addrSz)))
-  bld <+ (regVar bld R.FIP := AST.loadLE 64<rt> (srcAddr .+ (numI32 8 addrSz)))
-  bld <+ (regVar bld R.FDP := AST.loadLE 64<rt> (srcAddr .+ (numI32 16 addrSz)))
-  bld <+ (regVar bld R.MXCSR :=
-            AST.loadLE 32<rt> (srcAddr .+ (numI32 24 addrSz)))
-  bld <+ (regVar bld R.MXCSRMASK :=
-            AST.loadLE 32<rt> (srcAddr .+ (numI32 28 addrSz)))
-  let struct (stb, sta) = getFPUPseudoRegVars bld R.ST0
-  bld <+ (sta := AST.loadLE 64<rt> (srcAddr .+ (numI32 32 addrSz)))
-  bld <+ (stb := AST.loadLE 16<rt> (srcAddr .+ (numI32 40 addrSz)))
-  let struct (stb, sta) = getFPUPseudoRegVars bld R.ST1
-  bld <+ (sta := AST.loadLE 64<rt> (srcAddr .+ (numI32 48 addrSz)))
-  bld <+ (stb := AST.loadLE 16<rt> (srcAddr .+ (numI32 56 addrSz)))
-  let struct (stb, sta) = getFPUPseudoRegVars bld R.ST2
-  bld <+ (sta := AST.loadLE 64<rt> (srcAddr .+ (numI32 64 addrSz)))
-  bld <+ (stb := AST.loadLE 16<rt> (srcAddr .+ (numI32 72 addrSz)))
-  let struct (stb, sta) = getFPUPseudoRegVars bld R.ST3
-  bld <+ (sta := AST.loadLE 64<rt> (srcAddr .+ (numI32 80 addrSz)))
-  bld <+ (stb := AST.loadLE 16<rt> (srcAddr .+ (numI32 88 addrSz)))
-  let struct (stb, sta) = getFPUPseudoRegVars bld R.ST4
-  bld <+ (sta := AST.loadLE 64<rt> (srcAddr .+ (numI32 96 addrSz)))
-  bld <+ (stb := AST.loadLE 16<rt> (srcAddr .+ (numI32 104 addrSz)))
-  let struct (stb, sta) = getFPUPseudoRegVars bld R.ST5
-  bld <+ (sta := AST.loadLE 64<rt> (srcAddr .+ (numI32 112 addrSz)))
-  bld <+ (stb := AST.loadLE 16<rt> (srcAddr .+ (numI32 120 addrSz)))
-  let struct (stb, sta) = getFPUPseudoRegVars bld R.ST6
-  bld <+ (sta := AST.loadLE 64<rt> (srcAddr .+ (numI32 128 addrSz)))
-  bld <+ (stb := AST.loadLE 16<rt> (srcAddr .+ (numI32 136 addrSz)))
-  let struct (stb, sta) = getFPUPseudoRegVars bld R.ST7
-  bld <+ (sta := AST.loadLE 64<rt> (srcAddr .+ (numI32 144 addrSz)))
-  bld <+ (stb := AST.loadLE 16<rt> (srcAddr .+ (numI32 152 addrSz)))
-  let struct (xmmb, xmma) = pseudoRegVar128 bld R.XMM0
-  bld <+ (xmma := AST.loadLE 64<rt> (srcAddr .+ (numI32 160 addrSz)))
-  bld <+ (xmmb := AST.loadLE 64<rt> (srcAddr .+ (numI32 168 addrSz)))
-  let struct (xmmb, xmma) = pseudoRegVar128 bld R.XMM1
-  bld <+ (xmma := AST.loadLE 64<rt> (srcAddr .+ (numI32 176 addrSz)))
-  bld <+ (xmmb := AST.loadLE 64<rt> (srcAddr .+ (numI32 184 addrSz)))
-  let struct (xmmb, xmma) = pseudoRegVar128 bld R.XMM2
-  bld <+ (xmma := AST.loadLE 64<rt> (srcAddr .+ (numI32 192 addrSz)))
-  bld <+ (xmmb := AST.loadLE 64<rt> (srcAddr .+ (numI32 200 addrSz)))
-  let struct (xmmb, xmma) = pseudoRegVar128 bld R.XMM3
-  bld <+ (xmma := AST.loadLE 64<rt> (srcAddr .+ (numI32 208 addrSz)))
-  bld <+ (xmmb := AST.loadLE 64<rt> (srcAddr .+ (numI32 216 addrSz)))
-  let struct (xmmb, xmma) = pseudoRegVar128 bld R.XMM4
-  bld <+ (xmma := AST.loadLE 64<rt> (srcAddr .+ (numI32 224 addrSz)))
-  bld <+ (xmmb := AST.loadLE 64<rt> (srcAddr .+ (numI32 232 addrSz)))
-  let struct (xmmb, xmma) = pseudoRegVar128 bld R.XMM5
-  bld <+ (xmma := AST.loadLE 64<rt> (srcAddr .+ (numI32 240 addrSz)))
-  bld <+ (xmmb := AST.loadLE 64<rt> (srcAddr .+ (numI32 248 addrSz)))
-  let struct (xmmb, xmma) = pseudoRegVar128 bld R.XMM6
-  bld <+ (xmma := AST.loadLE 64<rt> (srcAddr .+ (numI32 256 addrSz)))
-  bld <+ (xmmb := AST.loadLE 64<rt> (srcAddr .+ (numI32 264 addrSz)))
-  let struct (xmmb, xmma) = pseudoRegVar128 bld R.XMM7
-  bld <+ (xmma := AST.loadLE 64<rt> (srcAddr .+ (numI32 272 addrSz)))
-  bld <+ (xmmb := AST.loadLE 64<rt> (srcAddr .+ (numI32 280 addrSz)))
+  bld <+ (regVar bld R.FSW := loadAt 16<rt> 2)
+  bld <+ (regVar bld R.FTW := loadAt 16<rt> 4)
+  bld <+ (regVar bld R.FOP := loadAt 16<rt> 6)
+  bld <+ (regVar bld R.FIP := loadAt 64<rt> 8)
+  bld <+ (regVar bld R.FDP := loadAt 64<rt> 16)
+  bld <+ (regVar bld R.MXCSR := loadAt 32<rt> 24)
+  bld <+ (regVar bld R.MXCSRMASK := loadAt 32<rt> 28)
+  fxsaveStackRegs
+  |> List.iteri (fun i st ->
+    let struct (stb, sta) = getFPUPseudoRegVars bld st
+    bld <+ (sta := loadAt 64<rt> (32 + 16 * i))
+    bld <+ (stb := loadAt 16<rt> (40 + 16 * i))
+  )
+  fxsaveXmmRegs
+  |> List.iteri (fun i xmm ->
+    let struct (xmmb, xmma) = pseudoRegVar128 bld xmm
+    bld <+ (xmma := loadAt 64<rt> (160 + 16 * i))
+    bld <+ (xmmb := loadAt 64<rt> (168 + 16 * i))
+  )
   if is64bit then
-    let struct (xmmb, xmma) = pseudoRegVar128 bld R.XMM8
-    bld <+ (xmma := AST.loadLE 64<rt> (srcAddr .+ (numI32 288 addrSz)))
-    bld <+ (xmmb := AST.loadLE 64<rt> (srcAddr .+ (numI32 296 addrSz)))
-    let struct (xmmb, xmma) = pseudoRegVar128 bld R.XMM9
-    bld <+ (xmma := AST.loadLE 64<rt> (srcAddr .+ (numI32 304 addrSz)))
-    bld <+ (xmmb := AST.loadLE 64<rt> (srcAddr .+ (numI32 312 addrSz)))
-    let struct (xmmb, xmma) = pseudoRegVar128 bld R.XMM10
-    bld <+ (xmma := AST.loadLE 64<rt> (srcAddr .+ (numI32 320 addrSz)))
-    bld <+ (xmmb := AST.loadLE 64<rt> (srcAddr .+ (numI32 328 addrSz)))
-    let struct (xmmb, xmma) = pseudoRegVar128 bld R.XMM11
-    bld <+ (xmma := AST.loadLE 64<rt> (srcAddr .+ (numI32 336 addrSz)))
-    bld <+ (xmmb := AST.loadLE 64<rt> (srcAddr .+ (numI32 344 addrSz)))
-    let struct (xmmb, xmma) = pseudoRegVar128 bld R.XMM12
-    bld <+ (xmma := AST.loadLE 64<rt> (srcAddr .+ (numI32 352 addrSz)))
-    bld <+ (xmmb := AST.loadLE 64<rt> (srcAddr .+ (numI32 360 addrSz)))
-    let struct (xmmb, xmma) = pseudoRegVar128 bld R.XMM13
-    bld <+ (xmma := AST.loadLE 64<rt> (srcAddr .+ (numI32 368 addrSz)))
-    bld <+ (xmmb := AST.loadLE 64<rt> (srcAddr .+ (numI32 376 addrSz)))
-    let struct (xmmb, xmma) = pseudoRegVar128 bld R.XMM14
-    bld <+ (xmma := AST.loadLE 64<rt> (srcAddr .+ (numI32 384 addrSz)))
-    bld <+ (xmmb := AST.loadLE 64<rt> (srcAddr .+ (numI32 392 addrSz)))
-    let struct (xmmb, xmma) = pseudoRegVar128 bld R.XMM15
-    bld <+ (xmma := AST.loadLE 64<rt> (srcAddr .+ (numI32 400 addrSz)))
-    bld <+ (xmmb := AST.loadLE 64<rt> (srcAddr .+ (numI32 408 addrSz)))
+    fxsaveXmmRegs64
+    |> List.iteri (fun i xmm ->
+      let struct (xmmb, xmma) = pseudoRegVar128 bld xmm
+      bld <+ (xmma := loadAt 64<rt> (288 + 16 * i))
+      bld <+ (xmmb := loadAt 64<rt> (296 + 16 * i))
+    )
   else
     ()
 

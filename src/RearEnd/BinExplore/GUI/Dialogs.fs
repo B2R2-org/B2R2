@@ -30,6 +30,16 @@ open Avalonia.Layout
 open Avalonia.Media
 open Avalonia.Threading
 
+/// A dialog button, sized and centred the way every one of them is.
+let private dialogButton (content: string) =
+  Button(
+    Content = content,
+    Width = 90.0,
+    Margin = Thickness 4.0,
+    HorizontalContentAlignment = HorizontalAlignment.Center,
+    VerticalContentAlignment = VerticalAlignment.Center
+  )
+
 let confirm (owner: Window) text yesStr noStr fnOnYes =
   Dispatcher.UIThread.Post(fun () ->
     let mutable result = false
@@ -45,20 +55,8 @@ let confirm (owner: Window) text yesStr noStr fnOnYes =
         TextWrapping = TextWrapping.Wrap,
         Margin = Thickness 16.0
       )
-    let yesButton =
-      Button(
-        Content = yesStr,
-        Width = 90.0,
-        Margin = Thickness 4.0,
-        HorizontalContentAlignment = HorizontalAlignment.Center,
-        VerticalContentAlignment = VerticalAlignment.Center
-      )
-    let noButton =
-      Button(Content = noStr,
-             Width = 90.0,
-             Margin = Thickness 4.0,
-             HorizontalContentAlignment = HorizontalAlignment.Center,
-             VerticalContentAlignment = VerticalAlignment.Center)
+    let yesButton = dialogButton yesStr
+    let noButton = dialogButton noStr
     yesButton.Click.Add(fun _ ->
       result <- true
       dialog.Close())

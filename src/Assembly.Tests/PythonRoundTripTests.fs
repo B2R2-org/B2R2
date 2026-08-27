@@ -173,6 +173,35 @@ type PythonRoundTripTests() =
           None
       Some(parts[0], arg)
 
+  /// What one encoded instruction, read back from where it was laid down, has
+  /// to say for itself: nothing at all where it round-tripped, and otherwise
+  /// how it failed to. It would not encode, it would not decode, it came back
+  /// a different length than was written, or it came back reading differently.
+  static let roundTripFailure (unit: LiftingUnit)
+                             version
+                             (at: Addr)
+                             (source, bytes) =
+    match bytes with
+    | None ->
+      Some $"{version} '{source}' is not encodable"
+    | Some(bs: byte[]) ->
+      let read =
+        try
+          let ins = unit.ParseInstruction at
+          Some(ins.Disasm(), int ins.Length)
+        with _ ->
+          None
+      match read with
+      | None ->
+        Some $"{version} '{source}' did not decode"
+      | Some(text, len) ->
+        if len <> bs.Length then
+          Some $"{version} '{source}' wrote {bs.Length}, read {len}"
+        elif split text <> split source then
+          Some $"{version} '{source}' read back as '{text}'"
+        else
+          None
+
   /// <summary>
   /// Every instruction that takes an argument, tried holding each width, for
   /// one version.
@@ -207,28 +236,11 @@ type PythonRoundTripTests() =
     let unit = hdl.NewLiftingUnit()
     match (hdl.File :?> PythonBinFile).CodeObj with
     | PyCode co ->
-      [ for i, (source, bytes) in List.indexed encoded do
-          match bytes with
-          | None ->
-            yield $"{version} '{source}' is not encodable"
-          | Some bs ->
-            let at = fst co.Code + uint64 (i * stride)
-            let read =
-              try
-                let ins = unit.ParseInstruction at
-                Some(ins.Disasm(), int ins.Length)
-              with _ ->
-                None
-            match read with
-            | None ->
-              yield $"{version} '{source}' did not decode"
-            | Some(text, len) ->
-              if len <> bs.Length then
-                yield $"{version} '{source}' wrote {bs.Length}, read {len}"
-              elif split text <> split source then
-                yield $"{version} '{source}' read back as '{text}'"
-              else
-                () ]
+      encoded
+      |> List.indexed
+      |> List.choose (fun (i, entry) ->
+        let at = fst co.Code + uint64 (i * stride)
+        roundTripFailure unit version at entry)
     | _ ->
       [ $"{version} produced no code object" ]
 

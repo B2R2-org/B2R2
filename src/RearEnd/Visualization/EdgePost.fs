@@ -37,6 +37,13 @@ type private Box = float * float * float * float
 
 /// Cached polyline segments for a graph edge. Computed once per
 /// postprocess pass and reused across all crossing checks.
+/// Which edges were caught by the box a key names, and which vertex each of
+/// them left from. The key is the box rounded to whole numbers, so that two
+/// vertices standing in the same place are one entry.
+type private BigBoxHits =
+  Dictionary<struct (int * int * int * int),
+             ResizeArray<IVertex<VisBBlock> * VisEdge>>
+
 type private SegCacheEntry =
   { Edge: VisEdge
     Second: IVertex<VisBBlock>
@@ -294,12 +301,14 @@ let private countCrossings (cache: SegCacheEntry array)
       ()
   n
 
-let private forwardEdgeAvoidNeighborBigBox (g: VisGraph) realVertices =
-  let vertexBoxes = realVertices |> Array.map vertexBox
-  let hitMap =
-    Dictionary<struct (int * int * int * int),
-               ResizeArray<IVertex<VisBBlock> * VisEdge>>()
-  let requiredYMap = Dictionary<VisEdge, float>(HashIdentity.Reference)
+/// Which boxes each forward edge's first two segments cut through. A dummy at
+/// either end means the edge is one leg of a longer chain, which is routed
+/// elsewhere, and an edge is never counted against the box of the vertex it
+/// leaves or the one it arrives at.
+let private collectBigBoxHits (g: VisGraph)
+                              (realVertices: IVertex<VisBBlock>[])
+                              (vertexBoxes: Box[]) =
+  let hitMap = BigBoxHits()
   let boxKey ((l, r, t, b): Box) = struct (int l, int r, int t, int b)
   for e in g.Edges do
     let src = e.First
@@ -333,6 +342,14 @@ let private forwardEdgeAvoidNeighborBigBox (g: VisGraph) realVertices =
           ()
     else
       ()
+  hitMap
+
+/// How far down each edge's stub has to sit to clear the boxes it ran into.
+/// Edges leaving the same vertex through the same box are stacked one offset
+/// apart, in the order they leave it, and an edge caught by more than one box
+/// takes the lowest of what those boxes each ask for.
+let private requiredStubYOf (hitMap: BigBoxHits) =
+  let requiredYMap = Dictionary<VisEdge, float>(HashIdentity.Reference)
   for kv in hitMap do
     let struct (_, _, _, bInt) = kv.Key
     let boxBottom = float bInt
@@ -349,6 +366,12 @@ let private forwardEdgeAvoidNeighborBigBox (g: VisGraph) realVertices =
         match requiredYMap.TryGetValue edge with
         | true, oldY -> requiredYMap[edge] <- max oldY requiredY
         | _ -> requiredYMap[edge] <- requiredY))
+  requiredYMap
+
+let private forwardEdgeAvoidNeighborBigBox (g: VisGraph) realVertices =
+  let vertexBoxes = realVertices |> Array.map vertexBox
+  let hitMap = collectBigBoxHits g realVertices vertexBoxes
+  let requiredYMap = requiredStubYOf hitMap
   for kv in requiredYMap do
     let edge = kv.Key
     let newStubY = kv.Value
