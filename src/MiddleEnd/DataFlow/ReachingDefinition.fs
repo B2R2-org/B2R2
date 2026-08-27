@@ -105,7 +105,7 @@ type ReachingDefinitionAnalysis() =
           let outs = Set.union gens[v] (Set.difference ins kills[v])
           { Ins = ins; Outs = outs }
 
-        member _.GetNextWorks(v) = [| v |] }
+        member _.GetNextWorks v = g.GetSuccs v }
 
   interface IDataFlowComputable<IVertex<LowUIRBasicBlock>,
                                 InsAndOuts,

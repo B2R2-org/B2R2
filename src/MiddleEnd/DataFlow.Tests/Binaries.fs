@@ -327,3 +327,69 @@ let private code3 =
      0xc3uy |]
 
 let sample3 = Binary(code3, Architecture.Intel, WordSize.Bit64)
+
+(*
+  Example 4: A nested loop whose outer header is the function entry. The only
+  definition of ECX sits in the innermost block, so it has to travel two edges
+  (0x15 -> 0xe -> 0x0) before it can reach the exit block at 0x21.
+
+  00000000: B8 01 00 00 00     mov         eax,1
+  00000005: BA 02 00 00 00     mov         edx,2
+  0000000A: 85 C0              test        eax,eax
+  0000000C: 74 13              je          00000021
+  0000000E: B8 03 00 00 00     mov         eax,3
+  00000013: 75 EB              jne         00000000
+  00000015: B9 04 00 00 00     mov         ecx,4
+  0000001A: B8 04 00 00 00     mov         eax,4
+  0000001F: EB ED              jmp         0000000E
+  00000021: BA 05 00 00 00     mov         edx,5
+  00000026: 89 C8              mov         eax,ecx
+  00000028: C3                 ret
+
+  B801000000BA0200000085C07413B80300000075EB
+  B904000000B804000000EBEDBA0500000089C8C3
+*)
+let private code4 =
+  [| 0xB8uy
+     0x01uy
+     0x00uy
+     0x00uy
+     0x00uy
+     0xBAuy
+     0x02uy
+     0x00uy
+     0x00uy
+     0x00uy
+     0x85uy
+     0xC0uy
+     0x74uy
+     0x13uy
+     0xB8uy
+     0x03uy
+     0x00uy
+     0x00uy
+     0x00uy
+     0x75uy
+     0xEBuy
+     0xB9uy
+     0x04uy
+     0x00uy
+     0x00uy
+     0x00uy
+     0xB8uy
+     0x04uy
+     0x00uy
+     0x00uy
+     0x00uy
+     0xEBuy
+     0xEDuy
+     0xBAuy
+     0x05uy
+     0x00uy
+     0x00uy
+     0x00uy
+     0x89uy
+     0xC8uy
+     0xC3uy |]
+
+let sample4 = Binary(code4, Architecture.Intel, WordSize.Bit32)

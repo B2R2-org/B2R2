@@ -142,6 +142,20 @@ type DataFlowTests() =
 #endif
 
   [<TestMethod>]
+  member _.``Reaching Definitions Test 2``() =
+    let brew = Binaries.loadOne Binaries.sample4
+    let cfg = brew.Functions[0UL].CFG
+    let dfa = ReachingDefinitionAnalysis() :> IDataFlowComputable<_, _, _, _>
+    let state = dfa.Compute cfg
+    let v = cfg.FindVertexBy(fun b -> b.VData.Internals.PPoint.Address = 0x21UL)
+    (* The sole definition of ECX lives in the innermost block, so it reaches
+       the exit block only after two rounds of propagation. *)
+    let rd = (state :> IAbsValProvider<_, _>).GetAbsValue v
+    let ecx = Regular(Register.toRegID Register.ECX)
+    let ins = rd.Ins |> Set.filter (fun vp -> vp.VarKind = ecx)
+    Assert.AreEqual(Set.singleton (reg 0x15UL 1 Register.ECX), ins)
+
+  [<TestMethod>]
   member _.``Use-Def Test 1``() =
     let brew = Binaries.loadOne Binaries.sample1
     let cfg = brew.Functions[0UL].CFG
