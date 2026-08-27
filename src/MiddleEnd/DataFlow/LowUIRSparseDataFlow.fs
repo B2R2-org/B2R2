@@ -690,7 +690,6 @@ module internal AnalysisCore = begin
       |> Result.iter (fun loc ->
         let offset = toFrameOffset loc
         updateChains state (StackLocal offset) defs pp)
-      updateWithExpr state defs pp expr
     | UnOp(_, expr, _) ->
       updateWithExpr state defs pp expr
     | BinOp(_, _, expr1, expr2, _) ->

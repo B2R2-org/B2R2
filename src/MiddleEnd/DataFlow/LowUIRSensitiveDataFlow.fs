@@ -727,7 +727,6 @@ module internal AnalysisCore = begin
       |> Result.iter (fun loc ->
         let offset = toFrameOffset loc
         updateChains state (StackLocal offset) defs tpp)
-      updateWithExpr state defs tpp expr
     | UnOp(_, expr, _) ->
       updateWithExpr state defs tpp expr
     | BinOp(_, _, expr1, expr2, _) ->
@@ -842,7 +841,6 @@ module internal AnalysisCore = begin
         let tpp = { ProgramPoint = pp; ExecutionContext = exeCtx }
         let tvp = { SensitiveProgramPoint = tpp; VarKind = varKind }
         updateWithExpr state outDefs tpp src
-        updateWithExpr state outDefs tpp dst
         updateStackPointer state tpp varKind src
         outDefs <- strongUpdateReachingDef outDefs varKind tvp
       | Store(_, addr, value, _) ->

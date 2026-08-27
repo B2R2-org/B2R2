@@ -30,6 +30,7 @@ open B2R2.FrontEnd.Intel
 open B2R2.BinIR
 open B2R2.MiddleEnd.BinGraph
 open B2R2.MiddleEnd.DataFlow
+open B2R2.MiddleEnd.DataFlow.LowUIRSensitiveDataFlow
 open B2R2.MiddleEnd.SSA
 open B2R2.MiddleEnd.ControlFlowGraph
 
@@ -102,6 +103,11 @@ type DataFlowTests() =
     let pp = ProgramPoint(addr, idx)
     let varKind = StackLocal offset
     { ProgramPoint = pp; VarKind = varKind }
+
+  let svp addr idx varKind: SensitiveVarPoint<int> =
+    let spp: SensitiveProgramPoint<int> =
+      { ProgramPoint = ProgramPoint(addr, idx); ExecutionContext = 0 }
+    { SensitiveProgramPoint = spp; VarKind = varKind }
 
   let mkUntouchedReg r =
     Regular(Register.toRegID r)
@@ -280,3 +286,24 @@ type DataFlowTests() =
     |> List.iter (fun (e, ans) ->
       let out = cp.EvalExpr(spp, e)
       Assert.AreEqual<ConstantDomain.Lattice>(ans, out))
+
+  [<TestMethod>]
+  member _.``Sensitive Data Flow Chains 1``() =
+    let brew = Binaries.loadOne Binaries.sample3
+    let cfg = brew.Functions[0UL].CFG
+    let scheme =
+      { new LowUIRSensitiveDataFlow.IScheme<ConstantDomain.Lattice, int> with
+          member _.DefaultExecutionContext = 0
+          member _.TryComputeExecutionContext(_, exeCtx, _, _) = Some exeCtx
+          member _.OnVertexNewlyAnalyzed _ = ()
+          member _.OnRemoveVertex _ = () }
+    let cp = LowUIRSensitiveConstantPropagation(brew.BinHandle, scheme)
+    let state = cp.State
+    for root in cfg.Roots do state.MarkEdgeAsPending(null, root)
+    for e in cfg.Edges do state.MarkEdgeAsPending(e.First, e.Second)
+    (cp :> IDataFlowComputable<_, _, _, _>).Compute cfg |> ignore
+    (* Reading a stack slot registers a use of that slot. *)
+    Assert.IsTrue(state.UseDefMap.ContainsKey(svp 0x32UL 1 (StackLocal -12)))
+    (* The destination of a Put is a definition, never a use of itself. *)
+    let rbp = Regular(Register.toRegID Register.RBP)
+    Assert.IsFalse(state.UseDefMap.ContainsKey(svp 0x5UL 1 rbp))
