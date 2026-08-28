@@ -2646,4 +2646,38 @@ type ParserTests() =
     "62f27d08a004c8"
     ++ VPSCATTERDD ** [ O.Reg R.XMM0; O.Reg R.XMM1 ]
     ||> testException testX64NoPrefixNoSeg
+
+  (* The manual's LOCK page: the prefix goes only on ADD, ADC, AND, BTC, BTR,
+     BTS, CMPXCHG, CMPXCH8B, CMPXCHG16B, DEC, INC, NEG, NOT, OR, SBB, SUB,
+     XOR, XADD and XCHG, and only on the forms whose destination is memory.
+     Everything else is #UD, which the hardware raises. *)
+  [<TestMethod>]
+  member _.``LOCK on an instruction outside the list``() =
+    "f0c10000"
+    ++ ROL ** [ O.Reg R.EAX; O.Imm(0L, 8<rt>) ]
+    ||> testException testX64NoPrefixNoSeg
+
+  [<TestMethod>]
+  member _.``LOCK on MOV, which the list leaves out``() =
+    "f08900"
+    ++ MOV ** [ O.Reg R.EAX; O.Reg R.EAX ]
+    ||> testException testX64NoPrefixNoSeg
+
+  [<TestMethod>]
+  member _.``LOCK where the destination is a register``() =
+    "f001d8"
+    ++ ADD ** [ O.Reg R.EAX; O.Reg R.EBX ]
+    ||> testException testX64NoPrefixNoSeg
+
+  [<TestMethod>]
+  member _.``LOCK where only the source is memory``() =
+    "f00300"
+    ++ ADD ** [ O.Reg R.EAX; O.Reg R.EAX ]
+    ||> testException testX64NoPrefixNoSeg
+
+  [<TestMethod>]
+  member _.``LOCK on the short XCHG, which names two registers``() =
+    "f087d8"
+    ++ XCHG ** [ O.Reg R.EAX; O.Reg R.EBX ]
+    ||> testException testX64NoPrefixNoSeg
 #endif

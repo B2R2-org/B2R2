@@ -449,6 +449,38 @@ type IntelParser(wordSz, reader) =
       | _ -> true
     | None -> true
 
+  /// The instructions a LOCK prefix may be prepended to, transcribed from the
+  /// manual's LOCK page. That page also states the second half of the rule,
+  /// which the caller checks: "The LOCK prefix can be prepended only to the
+  /// following instructions and only to those forms of the instructions where
+  /// the destination operand is a memory operand." Anything else raises #UD,
+  /// which the hardware does.
+  let takesLock = function
+    | Opcode.ADD | Opcode.ADC | Opcode.AND | Opcode.BTC | Opcode.BTR
+    | Opcode.BTS | Opcode.CMPXCHG | Opcode.CMPXCHG8B | Opcode.CMPXCHG16B
+    | Opcode.DEC | Opcode.INC | Opcode.NEG | Opcode.NOT | Opcode.OR
+    | Opcode.SBB | Opcode.SUB | Opcode.XOR | Opcode.XADD | Opcode.XCHG -> true
+    | _ -> false
+
+  /// Returns true when the row's destination, which is its first operand, is
+  /// one that can name memory. XCHG reaches here from 90h+rd as well, where
+  /// both operands are registers and no ModRM byte follows, so this settles
+  /// those before the ModRM byte would be read.
+  let destCanBeMemory (operands: OperandType[]) =
+    operands.Length > 0
+    && (match operands[0] with
+        | RM _ | RMdiff _ | Mem _ | MM _ | BM _ | KM _ -> true
+        | _ -> false)
+
+  /// Returns true unless a LOCK prefix sits where it cannot: on an
+  /// instruction outside the list, or on a form whose destination is a
+  /// register rather than memory.
+  let matchLock (span: ByteSpan) (phlp: ParsingHelper)
+    (insCore: InstructionCore) =
+    not (Prefix.hasLock phlp.Prefixes)
+    || (takesLock insCore.Opcode
+        && destCanBeMemory insCore.Operands
+        && Operands.modIsMemory span[phlp.CurrPos])
   /// Returns true when every constraint the instruction core declares holds
   /// for the bytes at hand.
   /// Ordered by what each one costs against how much it turns away, measured
@@ -469,6 +501,7 @@ type IntelParser(wordSz, reader) =
     && matchJcxzAddrSize phlp insCore
     && matchNopAlias phlp insCore
     && matchGatherMask phlp.VEXInfo insCore
+    && matchLock span phlp insCore
 
 #if DEBUG
   /// Reports each constraint's verdict on one entry. matchesInstrCore stops
