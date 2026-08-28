@@ -151,3 +151,30 @@ type DisassemblerTests() =
   member _.``X86 LEA instruction test``() =
     "8d4508" ++ [| "lea eax, [ebp+0x8]"; "leal +0x8(%ebp), %eax" |]
     |> testX86
+
+  (* NOP at 90h is, in the manual's own words, an alias mnemonic for the
+     XCHG (E)AX, (E)AX instruction. REX.B moves the second register to r8, so
+     the bytes exchange rather than do nothing, which the hardware confirms. *)
+  [<TestMethod>]
+  member _.``X64 XCHG instruction test (REX.B on 90h)``() =
+    "4190" ++ [| "xchg eax, r8d"; "xchg %r8d, %eax" |]
+    |> testX64
+
+  [<TestMethod>]
+  member _.``X64 NOP instruction test``() =
+    "90" ++ [| "nop"; "nop" |]
+    |> testX64
+
+  (* PAUSE shares the byte but is a separate instruction the F3 prefix names,
+     so REX.B rides along inert there. *)
+  [<TestMethod>]
+  member _.``X64 PAUSE instruction test (REX.B on F3 90h)``() =
+    "f34190" ++ [| "pause"; "pause" |]
+    |> testX64
+
+  (* The multi-byte NOP does take a ModRM byte, where REX.B extends the r/m
+     register as it does anywhere else. *)
+  [<TestMethod>]
+  member _.``X64 NOP instruction test (multi-byte with REX.B)``() =
+    "410f1f00" ++ [| "nop dword ptr [r8]"; "nopl (%r8)" |]
+    |> testX64

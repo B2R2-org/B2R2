@@ -411,6 +411,18 @@ type IntelParser(wordSz, reader) =
       | 64<rt>, Opcode.JRCXZ -> true
       | _ -> false
 
+  /// Returns true unless the row is the one-byte NOP answering an encoding
+  /// that sets REX.B. NOP at 90h is, in the manual's own words, an alias
+  /// mnemonic for the XCHG (E)AX, (E)AX instruction, and REX.B moves the
+  /// second register to r8, so those bytes exchange rather than do nothing.
+  /// The multi-byte NOP carries a ModRM byte, where REX.B extends the r/m
+  /// register as it does anywhere else, and PAUSE shares the opcode byte but
+  /// is a separate instruction the F3 prefix names, so REX.B is inert there.
+  let matchNopAlias (phlp: ParsingHelper) (insCore: InstructionCore) =
+    insCore.Opcode <> Opcode.NOP
+    || insCore.ModRM <> ModRMType.NoModRM
+    || (phlp.REXPrefix &&& REXPrefix.REXB) <> REXPrefix.REXB
+
   /// Returns true when every constraint the instruction core declares holds
   /// for the bytes at hand.
   /// Ordered by what each one costs against how much it turns away, measured
@@ -429,6 +441,7 @@ type IntelParser(wordSz, reader) =
     && matchPrefix phlp ins (uint8 insCore.OpcodeByte) insCore.PrefixType
     && matchVectorLength isRounding phlp.VEXInfo insCore
     && matchJcxzAddrSize phlp insCore
+    && matchNopAlias phlp insCore
 
 #if DEBUG
   /// Reports each constraint's verdict on one entry. matchesInstrCore stops
