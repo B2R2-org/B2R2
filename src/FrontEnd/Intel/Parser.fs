@@ -423,6 +423,32 @@ type IntelParser(wordSz, reader) =
     || insCore.ModRM <> ModRMType.NoModRM
     || (phlp.REXPrefix &&& REXPrefix.REXB) <> REXPrefix.REXB
 
+  /// Returns true when the row reads memory through VSIB, the vector index
+  /// form the gather and scatter families address with.
+  let usesVSIB (operands: OperandType[]) =
+    let mutable i = 0
+    let mutable found = false
+    while not found && i < operands.Length do
+      match operands[i] with
+      | MemVSIB _ -> found <- true
+      | _ -> i <- i + 1
+    found
+
+  /// Returns true unless the row is an EVEX gather or scatter answering an
+  /// encoding whose opmask is k0. Those instructions take the mask as a
+  /// completion record, writing an element only where its bit is set and
+  /// clearing the bit as they go, so k0 cannot serve: it reads as all ones and
+  /// has nowhere to record progress. Every one of their pages gives #UD for
+  /// EVEX.aaa = 0, and the hardware raises it. The VEX forms at the same
+  /// opcodes take a vector register as the mask instead and are left alone.
+  let matchGatherMask (vex: VEXInfo option) (insCore: InstructionCore) =
+    match vex with
+    | Some v ->
+      match v.EVEXPrx with
+      | Some evex when evex.AAA = 0uy -> not (usesVSIB insCore.Operands)
+      | _ -> true
+    | None -> true
+
   /// Returns true when every constraint the instruction core declares holds
   /// for the bytes at hand.
   /// Ordered by what each one costs against how much it turns away, measured
@@ -442,6 +468,7 @@ type IntelParser(wordSz, reader) =
     && matchVectorLength isRounding phlp.VEXInfo insCore
     && matchJcxzAddrSize phlp insCore
     && matchNopAlias phlp insCore
+    && matchGatherMask phlp.VEXInfo insCore
 
 #if DEBUG
   /// Reports each constraint's verdict on one entry. matchesInstrCore stops

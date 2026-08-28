@@ -2630,4 +2630,20 @@ type ParserTests() =
     "414889c8"
     ++ MOV ** [ O.Reg R.RAX; O.Reg R.RCX ]
     ||> testX64NoPrefixNoSeg
+
+  (* EVEX gather and scatter take the opmask as a completion record, writing
+     an element only where its bit is set and clearing that bit as they go.
+     k0 cannot serve, so the manual gives them #UD when EVEX.aaa is zero and
+     the hardware raises it. *)
+  [<TestMethod>]
+  member _.``EVEX gather with k0 ParsingFailure Test``() =
+    "62f27d089204c8"
+    ++ VGATHERDPS ** [ O.Reg R.XMM0; O.Reg R.XMM1 ]
+    ||> testException testX64NoPrefixNoSeg
+
+  [<TestMethod>]
+  member _.``EVEX scatter with k0 ParsingFailure Test``() =
+    "62f27d08a004c8"
+    ++ VPSCATTERDD ** [ O.Reg R.XMM0; O.Reg R.XMM1 ]
+    ||> testException testX64NoPrefixNoSeg
 #endif
