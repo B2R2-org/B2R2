@@ -98,7 +98,7 @@ type State<'Lattice when 'Lattice: equality>
   let domainGetAbsValue vp =
     match domainAbsValues.TryGetValue vp with
     | true, v -> v
-    | false, _ when vp.ProgramPoint.IsFake -> lattice.Bottom
+    | false, _ when vp.ProgramPoint.IsFake -> scheme.GetBaseCase vp.VarKind
     | false, _ -> lattice.Bottom
 
   let spGetInitialAbsValue varKind =
@@ -539,6 +539,12 @@ and private PhiInfo = Dictionary<VarKind, Dictionary<ProgramPoint, VarPoint>>
 /// Represents how we perform LowUIR-based sparse dataflow analysis.
 and IScheme<'Lattice when 'Lattice: equality> =
   inherit IExprEvaluatable<ProgramPoint, 'Lattice>
+
+  /// Returns the abstract value of a variable that the function never defines,
+  /// i.e. one that comes in from the outside. Such a variable never receives a
+  /// definition that would raise a bottom, so this must be a sound
+  /// over-approximation.
+  abstract GetBaseCase: VarKind -> 'Lattice
 
 [<AutoOpen>]
 module internal AnalysisCore = begin

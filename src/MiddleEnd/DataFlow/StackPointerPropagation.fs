@@ -61,7 +61,6 @@ type StackPointerPropagation(hdl: BinHandle, vs) =
   let evaluateVarPoint (state: StackPointerPropagationState) pp varKind =
     let vp = { ProgramPoint = pp; VarKind = varKind }
     match state.UseDefMap.TryGetValue vp with
-    | true, defVp when defVp.ProgramPoint.IsFake -> getBaseCase varKind
     | true, defVp -> state.DomainSubState.GetAbsValue defVp
     | false, _ -> StackPointerDomain.Undef
 
@@ -104,6 +103,7 @@ type StackPointerPropagation(hdl: BinHandle, vs) =
 
   let rec scheme =
     { new LowUIRSparseDataFlow.IScheme<StackPointerDomain.Lattice> with
+        member _.GetBaseCase varKind = getBaseCase varKind
         member _.EvalExpr(pp, expr) = evaluateExpr state pp expr }
 
   and state =

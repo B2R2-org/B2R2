@@ -113,6 +113,7 @@ type SSAConstantPropagation(hdl: BinHandle) =
           | LMark _ | ExternalCall _ | SideEffect _ -> ()
         member _.UpdateMemFromBinaryFile(_rt, _addr) =
           ConstantDomain.NotAConst
+        member _.GetBaseCase _ = ConstantDomain.NotAConst
         member _.EvalExpr e = evalExpr state e }
 
   and state =

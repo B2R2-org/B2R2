@@ -56,19 +56,16 @@ type SSAUntouchedValueAnalysis(hdl: BinHandle) =
     | None ->
       state
 
-  let evalVar (state: State<_>) v =
-    if state.IsRegSet v then
-      state.GetRegValue v
-    else
-      if v.Identifier = 0 then
-        let kind = VarKind.ofSSAVarKind v.Kind
-        UntouchedValueDomain.Untouched(RegisterTag kind) (* Init here. *)
-      else
-        UntouchedValueDomain.Touched
+  let getBaseCase (v: Variable) =
+    match v.Kind with
+    | MemVar | PCVar _ ->
+      UntouchedValueDomain.Touched
+    | kind ->
+      UntouchedValueDomain.Untouched(RegisterTag(VarKind.ofSSAVarKind kind))
 
   let rec evalExpr state = function
     | Var v ->
-      evalVar state v
+      (state: State<_>).GetRegValue v
     | Extract(e, _, _)
     | Cast(CastKind.ZeroExt, _, e)
     | Cast(CastKind.SignExt, _, e) ->
@@ -116,6 +113,7 @@ type SSAUntouchedValueAnalysis(hdl: BinHandle) =
           | LMark _ | ExternalCall _ | SideEffect _ -> ()
         member _.UpdateMemFromBinaryFile(_rt, _addr) =
           UntouchedValueDomain.Touched
+        member _.GetBaseCase v = getBaseCase v
         member _.EvalExpr e = evalExpr state e }
 
   and state =

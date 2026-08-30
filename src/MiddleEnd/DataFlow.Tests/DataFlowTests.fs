@@ -204,7 +204,7 @@ type DataFlowTests() =
     let dfa = cp :> IDataFlowComputable<_, _, _, _>
     let state = dfa.Compute g
     [ ssaRegInitial Register.RSP 64<rt> |> cmp <| mkConst 0x80000000u 64<rt>
-      ssaRegInitial Register.RBP 64<rt> |> cmp <| ConstantDomain.Undef
+      ssaRegInitial Register.RBP 64<rt> |> cmp <| ConstantDomain.NotAConst
       ssaReg g Register.RSP 0x4UL 64<rt> |> cmp <| mkConst 0x7ffffff8u 64<rt>
       ssaReg g Register.RBP 0x5UL 64<rt> |> cmp <| mkConst 0x7ffffff8u 64<rt>
       ssaStk g (8 + 0xc) 0x11UL 32<rt> |> cmp <| mkConst 0x2u 32<rt>
@@ -216,7 +216,7 @@ type DataFlowTests() =
       ssaReg g Register.RAX 0x32UL 64<rt> |> cmp <| ConstantDomain.NotAConst
       ssaReg g Register.RDX 0x2fUL 64<rt> |> cmp <| ConstantDomain.NotAConst
       ssaReg g Register.RAX 0x35UL 64<rt> |> cmp <| ConstantDomain.NotAConst
-      ssaReg g Register.RBP 0x3bUL 64<rt> |> cmp <| ConstantDomain.Undef
+      ssaReg g Register.RBP 0x3bUL 64<rt> |> cmp <| ConstantDomain.NotAConst
       ssaReg g Register.RSP 0x3bUL 64<rt> |> cmp <| mkConst 0x80000000u 64<rt>
       ssaReg g Register.RSP 0x3CUL 64<rt> |> cmp <| mkConst 0x80000008u 64<rt> ]
     |> List.iter (fun (var, ans) ->
@@ -241,6 +241,21 @@ type DataFlowTests() =
       let out = (state :> IAbsValProvider<_, _>).GetAbsValue var
       Assert.AreEqual<ConstantDomain.Lattice>(ans, out))
 
+  [<TestMethod>]
+  member _.``SSA Constant Propagation Test 3``() =
+    let brew = Binaries.loadOne Binaries.sample6
+    let cfg = brew.Functions[0UL].CFG
+    let lifter = SSALifterFactory.Create brew.BinHandle
+    let promoter = SSAPromoterFactory.Create brew.BinHandle
+    let g = (lifter.Lift cfg |> promoter.Promote).Graph
+    let cp = SSAConstantPropagation brew.BinHandle
+    let state = (cp :> IDataFlowComputable<_, _, _, _>).Compute g
+    (* EAX comes in from the caller on one path, so joining it with 3 must
+       not come out as 3. *)
+    let vp = ssaReg g Register.EAX 0x9UL 32<rt>
+    let out = (state :> IAbsValProvider<_, _>).GetAbsValue vp
+    Assert.AreEqual<ConstantDomain.Lattice>(ConstantDomain.NotAConst, out)
+
 #if !EMULATION
   [<TestMethod>]
   member _.``Constant Propagation Test 1``() =
@@ -260,6 +275,18 @@ type DataFlowTests() =
     |> List.iter (fun (vp, ans) ->
       let out = (state :> IAbsValProvider<_, _>).GetAbsValue vp
       Assert.AreEqual<ConstantDomain.Lattice>(ans, out))
+
+  [<TestMethod>]
+  member _.``Constant Propagation Test 2``() =
+    let brew = Binaries.loadOne Binaries.sample6
+    let cfg = brew.Functions[0UL].CFG
+    let cp = ConstantPropagation(brew.BinHandle, cfg.Vertices)
+    let state = (cp :> IDataFlowComputable<_, _, _, _>).Compute cfg
+    (* Same as above, on the LowUIR framework: the phi at 0x9 joins the
+       caller's EAX with 3. *)
+    let vp = irReg 0x9UL 0 Register.EAX
+    let out = (state :> IAbsValProvider<_, _>).GetAbsValue vp
+    Assert.AreEqual<ConstantDomain.Lattice>(ConstantDomain.NotAConst, out)
 #endif
 
   [<TestMethod>]

@@ -469,3 +469,31 @@ let private code5 =
      0xC3uy |]
 
 let sample5 = Binary(code5, Architecture.Intel, WordSize.Bit64)
+
+(*
+  Example 6: EAX is whatever the caller left there when the branch is taken,
+  and 3 when it is not, so it is not a constant at 0x9.
+
+  00000000: 85 D2              test        edx,edx
+  00000002: 74 05              je          00000009
+  00000004: B8 03 00 00 00     mov         eax,3
+  00000009: 01 C1              add         ecx,eax
+  0000000B: C3                 ret
+
+  85D27405B80300000001C1C3
+*)
+let private code6 =
+  [| 0x85uy
+     0xD2uy
+     0x74uy
+     0x05uy
+     0xB8uy
+     0x03uy
+     0x00uy
+     0x00uy
+     0x00uy
+     0x01uy
+     0xC1uy
+     0xC3uy |]
+
+let sample6 = Binary(code6, Architecture.Intel, WordSize.Bit32)
