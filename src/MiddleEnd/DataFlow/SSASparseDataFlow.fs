@@ -99,6 +99,7 @@ type State<'Lattice when 'Lattice: equality>
   member _.GetRegValue(var: Variable) =
     match regValues.TryGetValue var with
     | true, v -> v
+    | false, _ when var.Identifier = 0 -> scheme.GetBaseCase var
     | false, _ -> lattice.Bottom
 
   /// Sets register value without adding it to the worklist.
@@ -176,6 +177,12 @@ and IScheme<'Lattice when 'Lattice: equality> =
   /// that would later raise a bottom, so a bottom here stays bottom and gets
   /// absorbed by every join.
   abstract UpdateMemFromBinaryFile: RegType * Addr -> 'Lattice
+
+  /// Returns the abstract value of a variable that the function never defines,
+  /// i.e. one that comes in from the outside. Such a variable never receives a
+  /// definition that would raise a bottom, so this must be a sound
+  /// over-approximation.
+  abstract GetBaseCase: Variable -> 'Lattice
 
   /// Evaluate the given expression based on the current abstract state.
   abstract EvalExpr: Expr -> 'Lattice

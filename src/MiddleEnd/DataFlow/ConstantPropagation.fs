@@ -145,6 +145,7 @@ type ConstantPropagation(hdl, vs) =
 
   let rec scheme =
     { new LowUIRSparseDataFlow.IScheme<ConstantDomain.Lattice> with
+        member _.GetBaseCase _ = ConstantDomain.NotAConst
         member _.EvalExpr(pp, expr) = evaluateExpr state pp expr }
 
   and state =

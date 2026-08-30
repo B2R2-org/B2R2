@@ -52,7 +52,6 @@ type UntouchedValueAnalysis(hdl: BinHandle, vs) =
   let evaluateVarPoint (state: UntouchedValueState) pp varKind =
     let vp = { ProgramPoint = pp; VarKind = varKind }
     match state.UseDefMap.TryGetValue vp with
-    | true, defVp when defVp.ProgramPoint.IsFake -> getBaseCase varKind
     | true, defVp -> state.DomainSubState.GetAbsValue defVp
     | false, _ -> UntouchedValueDomain.Undef
 
@@ -83,6 +82,7 @@ type UntouchedValueAnalysis(hdl: BinHandle, vs) =
 
   let rec scheme =
     { new LowUIRSparseDataFlow.IScheme<UntouchedValueLattice> with
+        member _.GetBaseCase varKind = getBaseCase varKind
         member _.EvalExpr(pp, expr) = evaluateExpr state pp expr }
 
   and state =
