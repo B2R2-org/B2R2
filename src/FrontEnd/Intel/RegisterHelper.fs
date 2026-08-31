@@ -347,38 +347,70 @@ module internal RegisterHelper = begin
     | e -> e
 
   let getAliases = function
-    | R.RAX | R.EAX | R.AX | R.AL | R.AH -> [| R.RAX; R.EAX; R.AX; R.AL; R.AH |]
-    | R.RBX | R.EBX | R.BX | R.BL | R.BH -> [| R.RBX; R.EBX; R.BX; R.BL; R.BH |]
-    | R.RCX | R.ECX | R.CX | R.CL | R.CH -> [| R.RCX; R.ECX; R.CX; R.CL; R.CH |]
-    | R.RDX | R.EDX | R.DX | R.DL | R.DH -> [| R.RDX; R.EDX; R.DX; R.DL; R.DH |]
-    | R.RSP | R.ESP | R.SP | R.SPL -> [| R.RSP; R.ESP; R.SP; R.SPL |]
-    | R.RBP | R.EBP | R.BP | R.BPL -> [| R.RBP; R.EBP; R.BP; R.BPL |]
-    | R.RSI | R.ESI | R.SI | R.SIL -> [| R.RSI; R.ESI; R.SI; R.SIL |]
-    | R.RDI | R.EDI | R.DI | R.DIL -> [| R.RDI; R.EDI; R.DI; R.DIL |]
-    | R.R8  | R.R8D | R.R8B | R.R8W -> [| R.R8; R.R8D; R.R8B; R.R8W |]
-    | R.R9  | R.R9D | R.R9B | R.R9W -> [| R.R9; R.R9D; R.R9B; R.R9W |]
-    | R.R10  | R.R10D | R.R10B | R.R10W -> [| R.R10; R.R10D; R.R10B; R.R10W |]
-    | R.R11  | R.R11D | R.R11B | R.R11W -> [| R.R11; R.R11D; R.R11B; R.R11W |]
-    | R.R12  | R.R12D | R.R12B | R.R12W -> [| R.R12; R.R12D; R.R12B; R.R12W |]
-    | R.R13  | R.R13D | R.R13B | R.R13W -> [| R.R13; R.R13D; R.R13B; R.R13W |]
-    | R.R14  | R.R14D | R.R14B | R.R14W -> [| R.R14; R.R14D; R.R14B; R.R14W |]
-    | R.R15  | R.R15D | R.R15B | R.R15W -> [| R.R15; R.R15D; R.R15B; R.R15W |]
-    | R.XMM0 | R.YMM0 | R.ZMM0 -> [| R.XMM0; R.YMM0; R.ZMM0 |]
-    | R.XMM1 | R.YMM1 | R.ZMM1 -> [| R.XMM1; R.YMM1; R.ZMM1 |]
-    | R.XMM2 | R.YMM2 | R.ZMM2 -> [| R.XMM2; R.YMM2; R.ZMM2 |]
-    | R.XMM3 | R.YMM3 | R.ZMM3 -> [| R.XMM3; R.YMM3; R.ZMM3 |]
-    | R.XMM4 | R.YMM4 | R.ZMM4 -> [| R.XMM4; R.YMM4; R.ZMM4 |]
-    | R.XMM5 | R.YMM5 | R.ZMM5 -> [| R.XMM5; R.YMM5; R.ZMM5 |]
-    | R.XMM6 | R.YMM6 | R.ZMM6 -> [| R.XMM6; R.YMM6; R.ZMM6 |]
-    | R.XMM7 | R.YMM7 | R.ZMM7 -> [| R.XMM7; R.YMM7; R.ZMM7 |]
-    | R.XMM8 | R.YMM8 | R.ZMM8 -> [| R.XMM8; R.YMM8; R.ZMM8 |]
-    | R.XMM9 | R.YMM9 | R.ZMM9 -> [| R.XMM9; R.YMM9; R.ZMM9 |]
-    | R.XMM10 | R.YMM10 | R.ZMM10 -> [| R.XMM10; R.YMM10; R.ZMM10 |]
-    | R.XMM11 | R.YMM11 | R.ZMM11 -> [| R.XMM11; R.YMM11; R.ZMM11 |]
-    | R.XMM12 | R.YMM12 | R.ZMM12 -> [| R.XMM12; R.YMM12; R.ZMM12 |]
-    | R.XMM13 | R.YMM13 | R.ZMM13 -> [| R.XMM13; R.YMM13; R.ZMM13 |]
-    | R.XMM14 | R.YMM14 | R.ZMM14 -> [| R.XMM14; R.YMM14; R.ZMM14 |]
-    | R.XMM15 | R.YMM15 | R.ZMM15 -> [| R.XMM15; R.YMM15; R.ZMM15 |]
+    | R.RAX | R.EAX | R.AX | R.AL | R.AH ->
+      [| R.RAX; R.EAX; R.AX; R.AL; R.AH |]
+    | R.RBX | R.EBX | R.BX | R.BL | R.BH ->
+      [| R.RBX; R.EBX; R.BX; R.BL; R.BH |]
+    | R.RCX | R.ECX | R.CX | R.CL | R.CH ->
+      [| R.RCX; R.ECX; R.CX; R.CL; R.CH |]
+    | R.RDX | R.EDX | R.DX | R.DL | R.DH ->
+      [| R.RDX; R.EDX; R.DX; R.DL; R.DH |]
+    | R.RSP | R.ESP | R.SP | R.SPL ->
+      [| R.RSP; R.ESP; R.SP; R.SPL |]
+    | R.RBP | R.EBP | R.BP | R.BPL ->
+      [| R.RBP; R.EBP; R.BP; R.BPL |]
+    | R.RSI | R.ESI | R.SI | R.SIL ->
+      [| R.RSI; R.ESI; R.SI; R.SIL |]
+    | R.RDI | R.EDI | R.DI | R.DIL ->
+      [| R.RDI; R.EDI; R.DI; R.DIL |]
+    | R.R8  | R.R8D | R.R8B | R.R8W ->
+      [| R.R8; R.R8D; R.R8B; R.R8W |]
+    | R.R9  | R.R9D | R.R9B | R.R9W ->
+      [| R.R9; R.R9D; R.R9B; R.R9W |]
+    | R.R10  | R.R10D | R.R10B | R.R10W ->
+      [| R.R10; R.R10D; R.R10B; R.R10W |]
+    | R.R11  | R.R11D | R.R11B | R.R11W ->
+      [| R.R11; R.R11D; R.R11B; R.R11W |]
+    | R.R12  | R.R12D | R.R12B | R.R12W ->
+      [| R.R12; R.R12D; R.R12B; R.R12W |]
+    | R.R13  | R.R13D | R.R13B | R.R13W ->
+      [| R.R13; R.R13D; R.R13B; R.R13W |]
+    | R.R14  | R.R14D | R.R14B | R.R14W ->
+      [| R.R14; R.R14D; R.R14B; R.R14W |]
+    | R.R15  | R.R15D | R.R15B | R.R15W ->
+      [| R.R15; R.R15D; R.R15B; R.R15W |]
+    | R.XMM0 | R.YMM0 | R.ZMM0 ->
+      [| R.XMM0; R.YMM0; R.ZMM0 |]
+    | R.XMM1 | R.YMM1 | R.ZMM1 ->
+      [| R.XMM1; R.YMM1; R.ZMM1 |]
+    | R.XMM2 | R.YMM2 | R.ZMM2 ->
+      [| R.XMM2; R.YMM2; R.ZMM2 |]
+    | R.XMM3 | R.YMM3 | R.ZMM3 ->
+      [| R.XMM3; R.YMM3; R.ZMM3 |]
+    | R.XMM4 | R.YMM4 | R.ZMM4 ->
+      [| R.XMM4; R.YMM4; R.ZMM4 |]
+    | R.XMM5 | R.YMM5 | R.ZMM5 ->
+      [| R.XMM5; R.YMM5; R.ZMM5 |]
+    | R.XMM6 | R.YMM6 | R.ZMM6 ->
+      [| R.XMM6; R.YMM6; R.ZMM6 |]
+    | R.XMM7 | R.YMM7 | R.ZMM7 ->
+      [| R.XMM7; R.YMM7; R.ZMM7 |]
+    | R.XMM8 | R.YMM8 | R.ZMM8 ->
+      [| R.XMM8; R.YMM8; R.ZMM8 |]
+    | R.XMM9 | R.YMM9 | R.ZMM9 ->
+      [| R.XMM9; R.YMM9; R.ZMM9 |]
+    | R.XMM10 | R.YMM10 | R.ZMM10 ->
+      [| R.XMM10; R.YMM10; R.ZMM10 |]
+    | R.XMM11 | R.YMM11 | R.ZMM11 ->
+      [| R.XMM11; R.YMM11; R.ZMM11 |]
+    | R.XMM12 | R.YMM12 | R.ZMM12 ->
+      [| R.XMM12; R.YMM12; R.ZMM12 |]
+    | R.XMM13 | R.YMM13 | R.ZMM13 ->
+      [| R.XMM13; R.YMM13; R.ZMM13 |]
+    | R.XMM14 | R.YMM14 | R.ZMM14 ->
+      [| R.XMM14; R.YMM14; R.ZMM14 |]
+    | R.XMM15 | R.YMM15 | R.ZMM15 ->
+      [| R.XMM15; R.YMM15; R.ZMM15 |]
     | R.XMM16 | R.YMM16 | R.ZMM16 ->
       [| R.XMM16; R.YMM16; R.ZMM16 |]
     | R.XMM17 | R.YMM17 | R.ZMM17 ->
@@ -411,8 +443,10 @@ module internal RegisterHelper = begin
       [| R.XMM30; R.YMM30; R.ZMM30 |]
     | R.XMM31 | R.YMM31 | R.ZMM31 ->
       [| R.XMM31; R.YMM31; R.ZMM31 |]
-    | R.EIP | R.RIP -> [| R.EIP; R.RIP |]
-    | r -> [| r |]
+    | R.EIP | R.RIP ->
+      [| R.EIP; R.RIP |]
+    | r ->
+      [| r |]
 
   let regToPseudoReg = function
     | R.XMM0 -> [ R.ZMM0B; R.ZMM0A ]
