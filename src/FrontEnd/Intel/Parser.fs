@@ -121,16 +121,36 @@ type IntelParser(wordSz, reader) =
          | Far sz -> sz = 8<rt>
          | _ -> false)
 
-  /// Returns true when REX.W picks nothing out of this slot and so rides
-  /// along inert. A row has to ask for the wider form before W is doing any
-  /// work: TEST's 64-bit row asks at 85h and so keeps the 32-bit row from
-  /// answering the prefixed bytes, while nothing asks at A8h, where the
-  /// operand is a byte and there is no width to switch to. VEX and EVEX
-  /// carry a W of their own, which this leaves alone.
-  let ignoresREXW (phlp: ParsingHelper) (ins: InstructionCore[]) =
+  /// The ModRM.reg digit a row spends on naming itself, or -1 where it spends
+  /// none. Rows that name different digits are different instructions sharing
+  /// an opcode byte, so neither answers the other's bytes.
+  let groupDigit = function
+    | ModRMType.ModRMOp0 _ -> 0
+    | ModRMType.ModRMOp1 _ -> 1
+    | ModRMType.ModRMOp2 _ -> 2
+    | ModRMType.ModRMOp3 _ -> 3
+    | ModRMType.ModRMOp4 _ -> 4
+    | ModRMType.ModRMOp5 _ -> 5
+    | ModRMType.ModRMOp6 _ -> 6
+    | ModRMType.ModRMOp7 _ -> 7
+    | _ -> -1
+
+  /// Returns true when REX.W picks nothing out of the rows that could still
+  /// answer these bytes, and so rides along inert. A row has to ask for the
+  /// wider form before W is doing any work: TEST's 64-bit row asks at 85h and
+  /// so keeps the 32-bit row from answering the prefixed bytes, while nothing
+  /// asks at A8h, where the operand is a byte and there is no width to switch
+  /// to. The question is put to the rows sharing this one's group digit, not
+  /// to the whole slot: FF holds CALL at /2 and the far CALL at /3, and the
+  /// far form's REX.W says nothing about the near one, which has no wider
+  /// form to switch to and is written with a REX.W by MSVC all the same. VEX
+  /// and EVEX carry a W of their own, which this leaves alone.
+  let ignoresREXW (phlp: ParsingHelper) ins (insCore: InstructionCore) =
+    let digit = groupDigit insCore.ModRM
     let asksForW (i: InstructionCore) =
-      i.REXPrefixType = REXPrefixType.W1
-      || i.REXPrefixType = REXPrefixType.REXW
+      (i.REXPrefixType = REXPrefixType.W1
+       || i.REXPrefixType = REXPrefixType.REXW)
+      && groupDigit i.ModRM = digit
     phlp.VEXInfo.IsNone && not (Array.exists asksForW ins)
 
   /// Returns true when the observed REX prefix satisfies the constraint
@@ -146,7 +166,7 @@ type IntelParser(wordSz, reader) =
     | r when (r &&& REXPrefix.REXW) = REXPrefix.REXW ->
       (insREX = REXPrefixType.WIG) || (insREX = REXPrefixType.W1) ||
       (insREX = REXPrefixType.REXW) ||
-      (insREX = REXPrefixType.NOREX && ignoresREXW phlp ins)
+      (insREX = REXPrefixType.NOREX && ignoresREXW phlp ins insCore)
     | _ ->
       (* A prefix with W clear. It still extends registers, so a row that says
          nothing about W matches; one that asks for W1 does not, and letting it

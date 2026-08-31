@@ -3193,6 +3193,12 @@ let private prefetchWidth = [ 8<rt> ]
 /// The widths a general register drawn at random comes in.
 let private randomWidths = [ 16<rt>; 32<rt>; 64<rt> ]
 
+/// The widths INVLPG's operand can be written with. It names a page, not a
+/// value, so no width belongs to it at all; nothing at its ModRM digit has a
+/// wider form for REX.W to select either, which leaves all three carried by
+/// the prefix the disassembler reads the width back from.
+let private invlpgWidths = [ 16<rt>; 32<rt>; 64<rt> ]
+
 /// The widths the base-register and trace instructions read: a doubleword, or
 /// a quadword that REX.W names. There is no 16-bit form to fall back to.
 let private dqWidths = [ 32<rt>; 64<rt> ]
@@ -3298,7 +3304,7 @@ let digitGroupEncoders () =
     Opcode.LGDT, grpMem zeroOne prefNormal rexNormal 0b010uy descriptorWidths
     Opcode.LIDT, grpMem zeroOne prefNormal rexNormal 0b011uy descriptorWidths
     Opcode.RSTORSSP, grpMem zeroOne prefF3 rexNormal 0b101uy [ 64<rt> ]
-    Opcode.INVLPG, grpMemSized zeroOne 0b111uy stateWidths
+    Opcode.INVLPG, grpMemSized zeroOne 0b111uy invlpgWidths
     Opcode.SMSW, grpRegMem zeroOne 0b100uy statusWidths [ 16<rt> ]
     Opcode.LMSW, grpRegMem zeroOne 0b110uy [ 16<rt> ] [ 16<rt> ]
     Opcode.SLDT, grpRegMem zeroZero 0b000uy statusWidths [ 16<rt> ]

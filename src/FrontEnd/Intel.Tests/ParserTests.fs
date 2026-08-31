@@ -244,6 +244,40 @@ type ParserTests() =
     ++ INT ** [ O.Imm(1L, 8<rt>) ]
     ||> testX86NoPrefixNoSeg
 
+  (* FF holds seven instructions apart by ModRM digit, and only the far forms
+     at /3 and /5 have a wider variant for REX.W to select. On the near call
+     at /2 there is nothing to switch to -- the operand size is already 64
+     bits in 64-bit mode -- so a REX.W is redundant rather than meaningless,
+     and MSVC writes one on every call through the import table. Asking the
+     whole slot whether anything wants W let the far form speak for the near
+     one and refused 4,412 instructions in kernel32.dll alone. *)
+  [<TestMethod>]
+  member _.``5.1.7 Control Transfer Instructions (6)``() =
+    "48ff1510000000"
+    ++ CALL ** [ O.Mem(R.RIP, 16L, 64<rt>) ]
+    ||> testX64NoPrefixNoSeg
+
+  [<TestMethod>]
+  member _.``5.1.7 Control Transfer Instructions (7)``() =
+    "48ff2510000000"
+    ++ JMP ** [ O.Mem(R.RIP, 16L, 64<rt>) ]
+    ||> testX64NoPrefixNoSeg
+
+  [<TestMethod>]
+  member _.``5.1.7 Control Transfer Instructions (8)``() =
+    "48ffd0"
+    ++ CALL ** [ O.Reg R.RAX ]
+    ||> testX64NoPrefixNoSeg
+
+  (* The other half of the same rule: where the digit does have a wider form,
+     REX.W still has to select it. CWDE and CDQE share an opcode byte with no
+     ModRM at all, so nothing but the prefix tells them apart. *)
+  [<TestMethod>]
+  member _.``5.1.7 Control Transfer Instructions (9)``() =
+    "4898"
+    ++ CDQE ** []
+    ||> testX64NoPrefixNoSeg
+
   (* The SDM writes the SETcc opcode column as "0F 94", leaving out the "/r"
      that every other ModRM instruction carries, so the r/m8 operand is the
      only thing saying a ModRM byte follows. *)
