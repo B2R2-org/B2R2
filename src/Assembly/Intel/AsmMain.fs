@@ -47,7 +47,11 @@ type UserState =
 /// prints no size directive for any of them either.
 let private isMemorySizeExceptionOpcode = function
   | Opcode.MOV | Opcode.LEA
-  | Opcode.FLDENV | Opcode.FNSTENV | Opcode.FRSTOR | Opcode.FNSAVE -> true
+  | Opcode.FLDENV | Opcode.FNSTENV | Opcode.FRSTOR | Opcode.FNSAVE
+  (* A 128-bit key handle is 384 bits wide, which has no size directive to
+     write, so the disassembler prints none and the assembler reads none. *)
+  | Opcode.AESENC128KL | Opcode.AESDEC128KL
+  | Opcode.AESENCWIDE128KL | Opcode.AESDECWIDE128KL -> true
   | _ -> false
 
 let private checkMissingMemoryOperandSize (ins: AsmInsInfo) =

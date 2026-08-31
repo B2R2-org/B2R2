@@ -94,6 +94,13 @@ type IntelEncodingTests() =
       WordSize.Bit32, "movsd", "a5"
       WordSize.Bit32, "repz movsd", "f3a5"
       WordSize.Bit32, "movsd xmm0, xmm1", "f20f10c1"
+      (* A Key Locker handle is 384 bits wide, and 384 has no size directive,
+         so these forms carry no width for the sweep to hand back. *)
+      WordSize.Bit32, "aesenc128kl xmm0, [ecx]", "f30f38dc01"
+      WordSize.Bit32, "aesdec128kl xmm0, [ecx]", "f30f38dd01"
+      WordSize.Bit32, "aesencwide128kl [ecx]", "f30f38d801"
+      WordSize.Bit32, "aesdecwide128kl [ecx]", "f30f38d809"
+      WordSize.Bit64, "aesenc128kl xmm0, [rcx]", "f30f38dc01"
       (* RET's operand is a count of bytes to pop, not a displacement, so it
          must not have the instruction length subtracted from it. *)
       WordSize.Bit32, "ret", "c3"
