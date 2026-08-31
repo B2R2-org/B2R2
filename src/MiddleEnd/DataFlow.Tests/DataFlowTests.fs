@@ -348,7 +348,8 @@ type DataFlowTests() =
     for e in cfg.Edges do state.MarkEdgeAsPending(e.First, e.Second)
     (cp :> IDataFlowComputable<_, _, _, _>).Compute cfg |> ignore
     (* Reading a stack slot registers a use of that slot. *)
-    Assert.IsTrue(state.UseDefMap.ContainsKey(svp 0x32UL 1 (StackLocal -12)))
+    Assert.AreEqual(state.UseDefMap.ContainsKey(svp 0x32UL 1 (StackLocal -12)),
+                    true)
     (* The destination of a Put is a definition, never a use of itself. *)
     let rbp = Regular(Register.toRegID Register.RBP)
-    Assert.IsFalse(state.UseDefMap.ContainsKey(svp 0x5UL 1 rbp))
+    Assert.AreEqual(state.UseDefMap.ContainsKey(svp 0x5UL 1 rbp), false)
