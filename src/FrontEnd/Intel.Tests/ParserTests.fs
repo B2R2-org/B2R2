@@ -1037,6 +1037,17 @@ type ParserTests() =
     ++ GETSEC ** []
     ||> testX86NoPrefixNoSeg
 
+  (* SENDUIPI names its register in ModRM.rm, which is the only field left: /6
+     spends ModRM.reg on the digit that picks the instruction out of the group.
+     Reading reg instead would name whichever register shares the digit, and
+     the manual writes r64, so the width is not the doubleword a missing REX.W
+     would suggest. *)
+  [<TestMethod>]
+  member _.``5.19 System Instructions (12)``() =
+    "f30fc7f1"
+    ++ SENDUIPI ** [ O.Reg R.RCX ]
+    ||> testX64NoPrefixNoSeg
+
   [<TestMethod>]
   member _.``Intel Memory Protection Extension Instruction (1)``() =
     "660f1b842400020000"
