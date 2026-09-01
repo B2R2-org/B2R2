@@ -150,23 +150,27 @@ type IntelParser(wordSz, reader) =
   /// declared in the instruction core (NOREX / W0 / W1 / WIG / REXW).
   let matchREX (phlp: ParsingHelper) ins (insCore: InstructionCore) =
     let insREX = insCore.REXPrefixType
+    (* An all-8-bit row answers whatever REX says, because there is no wider
+       form for W to select. It sits last in each arm rather than first: the
+       question costs a walk of the descriptors, while the ones beside it are
+       an enum compare, and they answer most rows before it is asked. *)
     match phlp.REXPrefix with
-    | _ when isAllOprSize8 insCore.Operands ->
-      true
     | REXPrefix.NOREX ->
       (insREX = REXPrefixType.WIG) || (insREX = REXPrefixType.W0) ||
-      (insREX = REXPrefixType.NOREX)
+      (insREX = REXPrefixType.NOREX) || isAllOprSize8 insCore.Operands
     | r when (r &&& REXPrefix.REXW) = REXPrefix.REXW ->
       (insREX = REXPrefixType.WIG) || (insREX = REXPrefixType.W1) ||
       (insREX = REXPrefixType.REXW) ||
-      (insREX = REXPrefixType.NOREX && ignoresREXW phlp ins insCore)
+      (insREX = REXPrefixType.NOREX && ignoresREXW phlp ins insCore) ||
+      isAllOprSize8 insCore.Operands
     | _ ->
       (* A prefix with W clear. It still extends registers, so a row that says
          nothing about W matches; one that asks for W1 does not, and letting it
          through leaves VFMADD132PS and VFMADD132PD both matching their shared
          opcode byte with nothing but table order to tell them apart. *)
       (insREX = REXPrefixType.WIG) || (insREX = REXPrefixType.W0) ||
-      (insREX = REXPrefixType.NOREX) || (insREX = REXPrefixType.REX)
+      (insREX = REXPrefixType.NOREX) || (insREX = REXPrefixType.REX) ||
+      isAllOprSize8 insCore.Operands
 
   /// Returns true when pref satisfies insPref, treating Legacy NP as a fallback
   /// for Mandatory NP.
