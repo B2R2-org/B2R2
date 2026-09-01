@@ -25,6 +25,7 @@
 namespace B2R2.MiddleEnd.DataFlow
 
 open B2R2
+open B2R2.BinIR
 
 /// Defines the constant domain and its operations for constant propagation
 /// analysis.
@@ -154,3 +155,51 @@ module ConstantDomain =
   let zeroExt rt c = cast BitVector.ZExt rt c
 
   let extract c rt pos = unOp (fun bv -> BitVector.Extract(bv, rt, pos)) c
+
+  /// Evaluates the given unary operator in this domain.
+  let internal evalUnOp op c =
+    match op with
+    | UnOpType.NEG -> neg c
+    | UnOpType.NOT -> not c
+    | _ -> NotAConst
+
+  /// Evaluates the given binary operator in this domain.
+  let internal evalBinOp op c1 c2 =
+    match op with
+    | BinOpType.ADD -> add c1 c2
+    | BinOpType.SUB -> sub c1 c2
+    | BinOpType.MUL -> mul c1 c2
+    | BinOpType.DIV -> div c1 c2
+    | BinOpType.SDIV -> sdiv c1 c2
+    | BinOpType.MOD -> ``mod`` c1 c2
+    | BinOpType.SMOD -> smod c1 c2
+    | BinOpType.SHL -> shl c1 c2
+    | BinOpType.SHR -> shr c1 c2
+    | BinOpType.SAR -> sar c1 c2
+    | BinOpType.AND -> ``and`` c1 c2
+    | BinOpType.OR -> ``or`` c1 c2
+    | BinOpType.XOR -> xor c1 c2
+    | BinOpType.CONCAT -> concat c1 c2
+    | _ -> NotAConst
+
+  /// Evaluates the given relational operator in this domain.
+  let internal evalRelOp op c1 c2 =
+    match op with
+    | RelOpType.EQ -> eq c1 c2
+    | RelOpType.NEQ -> neq c1 c2
+    | RelOpType.GT -> gt c1 c2
+    | RelOpType.GE -> ge c1 c2
+    | RelOpType.SGT -> sgt c1 c2
+    | RelOpType.SGE -> sge c1 c2
+    | RelOpType.LT -> lt c1 c2
+    | RelOpType.LE -> le c1 c2
+    | RelOpType.SLT -> slt c1 c2
+    | RelOpType.SLE -> sle c1 c2
+    | _ -> NotAConst
+
+  /// Evaluates the given cast operator in this domain.
+  let internal evalCast op rt c =
+    match op with
+    | CastKind.SignExt -> signExt rt c
+    | CastKind.ZeroExt -> zeroExt rt c
+    | _ -> NotAConst

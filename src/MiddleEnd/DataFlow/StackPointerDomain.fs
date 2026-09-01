@@ -25,6 +25,7 @@
 namespace B2R2.MiddleEnd.DataFlow
 
 open B2R2
+open B2R2.BinIR
 
 /// Defines the stack pointer domain and its operations for stack pointer
 /// propagation analysis.
@@ -67,4 +68,12 @@ module StackPointerDomain =
     match c1, c2 with
     | Undef, _ | _, Undef -> Undef
     | ConstSP bv1, ConstSP bv2 -> ConstSP(BitVector.And(bv1, bv2))
+    | _ -> NotConstSP
+
+  /// Evaluates the given binary operator in this domain.
+  let internal evalBinOp op c1 c2 =
+    match op with
+    | BinOpType.ADD -> add c1 c2
+    | BinOpType.SUB -> sub c1 c2
+    | BinOpType.AND -> ``and`` c1 c2
     | _ -> NotConstSP

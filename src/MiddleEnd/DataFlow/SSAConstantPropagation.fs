@@ -49,15 +49,15 @@ type SSAConstantPropagation(hdl: BinHandle) =
     | Load(m, rt, addr) ->
       evalExpr state addr |> evalLoad state m rt
     | UnOp(op, _, e) ->
-      evalExpr state e |> ConstantPropagation.evalUnOp op
+      evalExpr state e |> ConstantDomain.evalUnOp op
     | BinOp(op, _, e1, e2) ->
       let c1 = evalExpr state e1
       let c2 = evalExpr state e2
-      ConstantPropagation.evalBinOp op c1 c2
+      ConstantDomain.evalBinOp op c1 c2
     | RelOp(op, _, e1, e2) ->
       let c1 = evalExpr state e1
       let c2 = evalExpr state e2
-      ConstantPropagation.evalRelOp op c1 c2
+      ConstantDomain.evalRelOp op c1 c2
     | Ite(e1, _, e2, e3) ->
       let c1 = evalExpr state e1
       let c2 = evalExpr state e2
@@ -65,7 +65,7 @@ type SSAConstantPropagation(hdl: BinHandle) =
       ConstantDomain.ite c1 c2 c3
     | Cast(op, rt, e) ->
       let c = evalExpr state e
-      ConstantPropagation.evalCast op rt c
+      ConstantDomain.evalCast op rt c
     | Extract(e, rt, pos) ->
       let c = evalExpr state e
       ConstantDomain.extract c rt pos

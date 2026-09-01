@@ -25,19 +25,10 @@
 namespace B2R2.MiddleEnd.DataFlow
 
 open B2R2
-open B2R2.BinIR
 open B2R2.BinIR.LowUIR
 open B2R2.FrontEnd
 open B2R2.MiddleEnd.DataFlow
 open B2R2.MiddleEnd.ControlFlowGraph
-
-module internal StackPointerPropagation =
-  let evalBinOp op c1 c2 =
-    match op with
-    | BinOpType.ADD -> StackPointerDomain.add c1 c2
-    | BinOpType.SUB -> StackPointerDomain.sub c1 c2
-    | BinOpType.AND -> StackPointerDomain.``and`` c1 c2
-    | _ -> StackPointerDomain.NotConstSP
 
 /// Performs sparse stack pointer propagation over the LowUIR representation.
 type StackPointerPropagation(hdl: BinHandle, vs) =
@@ -81,7 +72,7 @@ type StackPointerPropagation(hdl: BinHandle, vs) =
     | BinOp(op, _, e1, e2, _) ->
       let c1 = evaluateExpr state pp e1
       let c2 = evaluateExpr state pp e2
-      StackPointerPropagation.evalBinOp op c1 c2
+      StackPointerDomain.evalBinOp op c1 c2
     | RelOp _ ->
       StackPointerDomain.NotConstSP
     | Ite _ ->

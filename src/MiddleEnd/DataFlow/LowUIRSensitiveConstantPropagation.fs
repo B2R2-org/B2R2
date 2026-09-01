@@ -84,15 +84,15 @@ type LowUIRSensitiveConstantPropagation<'ExeCtx when 'ExeCtx: comparison>
         ConstantDomain.Undef
     | UnOp(op, e, _) ->
       evaluateExpr state spp e
-      |> ConstantPropagation.evalUnOp op
+      |> ConstantDomain.evalUnOp op
     | BinOp(op, _, e1, e2, _) ->
       let c1 = evaluateExpr state spp e1
       let c2 = evaluateExpr state spp e2
-      ConstantPropagation.evalBinOp op c1 c2
+      ConstantDomain.evalBinOp op c1 c2
     | RelOp(op, e1, e2, _) ->
       let c1 = evaluateExpr state spp e1
       let c2 = evaluateExpr state spp e2
-      ConstantPropagation.evalRelOp op c1 c2
+      ConstantDomain.evalRelOp op c1 c2
     | Ite(e1, e2, e3, _) ->
       let c1 = evaluateExpr state spp e1
       let c2 = evaluateExpr state spp e2
@@ -100,7 +100,7 @@ type LowUIRSensitiveConstantPropagation<'ExeCtx when 'ExeCtx: comparison>
       ConstantDomain.ite c1 c2 c3
     | Cast(op, rt, e, _) ->
       let c = evaluateExpr state spp e
-      ConstantPropagation.evalCast op rt c
+      ConstantDomain.evalCast op rt c
     | Extract(e, rt, pos, _) ->
       let c = evaluateExpr state spp e
       ConstantDomain.extract c rt pos

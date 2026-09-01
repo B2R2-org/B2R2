@@ -49,7 +49,7 @@ type SSAStackPointerPropagation(hdl: BinHandle) =
     | BinOp(op, _, e1, e2) ->
       let c1 = evalExpr state e1
       let c2 = evalExpr state e2
-      StackPointerPropagation.evalBinOp op c1 c2
+      StackPointerDomain.evalBinOp op c1 c2
     | RelOp _ ->
       StackPointerDomain.NotConstSP
     | Ite _ ->
