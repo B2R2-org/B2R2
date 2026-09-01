@@ -6,6 +6,7 @@
 
   <ItemGroup>
     <Compile Include="Binaries.fs" />
+    <Compile Include="DomainTests.fs" />
     <Compile Include="DataFlowTests.fs" />
   </ItemGroup>
 
