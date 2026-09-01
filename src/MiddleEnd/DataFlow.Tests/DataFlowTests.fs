@@ -104,10 +104,11 @@ type DataFlowTests() =
     let varKind = StackLocal offset
     { ProgramPoint = pp; VarKind = varKind }
 
+  let spp addr idx: SensitiveProgramPoint<int> =
+    { ProgramPoint = ProgramPoint(addr, idx); ExecutionContext = 0 }
+
   let svp addr idx varKind: SensitiveVarPoint<int> =
-    let spp: SensitiveProgramPoint<int> =
-      { ProgramPoint = ProgramPoint(addr, idx); ExecutionContext = 0 }
-    { SensitiveProgramPoint = spp; VarKind = varKind }
+    { SensitiveProgramPoint = spp addr idx; VarKind = varKind }
 
   let mkUntouchedReg r =
     Regular(Register.toRegID r)
@@ -353,3 +354,24 @@ type DataFlowTests() =
     (* The destination of a Put is a definition, never a use of itself. *)
     let rbp = Regular(Register.toRegID Register.RBP)
     Assert.AreEqual(state.UseDefMap.ContainsKey(svp 0x5UL 1 rbp), false)
+
+  [<TestMethod>]
+  member _.``Sensitive Constant Propagation Test 1``() =
+    let brew = Binaries.loadOne Binaries.sample6
+    let cfg = brew.Functions[0UL].CFG
+    let scheme =
+      { new LowUIRSensitiveDataFlow.IScheme<ConstantDomain.Lattice, int> with
+          member _.DefaultExecutionContext = 0
+          member _.TryComputeExecutionContext(_, exeCtx, _, _) = Some exeCtx
+          member _.OnVertexNewlyAnalyzed _ = ()
+          member _.OnRemoveVertex _ = () }
+    let cp = LowUIRSensitiveConstantPropagation(brew.BinHandle, scheme)
+    let state = cp.State
+    for root in cfg.Roots do state.MarkEdgeAsPending(null, root)
+    for e in cfg.Edges do state.MarkEdgeAsPending(e.First, e.Second)
+    (cp :> IDataFlowComputable<_, _, _, _>).Compute cfg |> ignore
+    (* The path that skips 0x4 brings in the caller's EAX, so the read at 0x9
+       must not see 3. *)
+    let eax = brew.BinHandle.RegisterFactory.GetRegVar "EAX"
+    let out = cp.EvalExpr(spp 0x9UL 2, eax)
+    Assert.AreEqual<ConstantDomain.Lattice>(ConstantDomain.NotAConst, out)
