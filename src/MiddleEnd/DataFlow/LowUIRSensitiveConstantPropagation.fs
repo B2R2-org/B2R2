@@ -36,6 +36,14 @@ open B2R2.MiddleEnd.DataFlow.LowUIRSensitiveDataFlow
 type LowUIRSensitiveConstantPropagation<'ExeCtx when 'ExeCtx: comparison>
   public(hdl: BinHandle, scheme: IScheme<ConstantDomain.Lattice, 'ExeCtx>) =
 
+  /// A definition coming in from outside the function is unknown, so it must
+  /// not be answered with the lattice bottom, which every join would absorb.
+  let evaluateDef (state: State<_, _>) (defSvp: SensitiveVarPoint<_>) =
+    if defSvp.SensitiveProgramPoint.ProgramPoint.IsFake then
+      ConstantDomain.NotAConst
+    else
+      (state :> IAbsValProvider<_, _>).GetAbsValue defSvp
+
   let evaluateVarPoint (state: State<_, _>) spp varKind =
     let svp = { SensitiveProgramPoint = spp; VarKind = varKind }
     match state.UseDefMap.TryGetValue svp with
@@ -44,7 +52,7 @@ type LowUIRSensitiveConstantPropagation<'ExeCtx when 'ExeCtx: comparison>
     | true, rds ->
       rds
       |> Seq.fold (fun acc defSvp ->
-        (state: IAbsValProvider<_, _>).GetAbsValue defSvp
+        evaluateDef state defSvp
         |> ConstantDomain.join acc) ConstantDomain.Undef
 
   let rec evaluateExpr state spp e =

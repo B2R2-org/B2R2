@@ -791,7 +791,15 @@ module internal AnalysisCore = begin
     | StackPointerDomain.ConstSP bv -> bv.ToUInt64() |> toFrameOffset
     | _ -> Terminator.impossible ()
 
-  /// Join the two reaching definition maps. We filter out temporary variables
+  /// Returns true if the given variable kind does not survive a join into a
+  /// vertex whose incoming stack pointer sits at the given frame offset.
+  let isPrunedVarKind dstInStackOff vk =
+    match vk with
+    | Temporary _ -> true
+    | StackLocal offset when offset < dstInStackOff -> true
+    | _ -> false
+
+  /// Joins the two reaching definition maps. We filter out temporary variables
   /// here.
   /// TODO: check if it is propagated through intra-block edges like
   /// `VarBasedDataFlowAnalysis`.
@@ -799,12 +807,7 @@ module internal AnalysisCore = begin
                        (m2: SensitiveReachingDefs<_>) =
     let dstInStackOff = stackPointerToFrameOffset dstInSP
     m1 |> Map.fold (fun (changed, acc) vk defs ->
-      let shouldBePruned =
-        match vk with
-        | Temporary _ -> true
-        | StackLocal offset when offset < dstInStackOff -> true
-        | _ -> false
-      if shouldBePruned then
+      if isPrunedVarKind dstInStackOff vk then
         changed, acc
       else
         match Map.tryFind vk m2 with
@@ -895,7 +898,20 @@ module internal AnalysisCore = begin
         ()
     queue
 
-  let tryJoinRDs state src srcExeCtx dst dstExeCtx =
+  /// A variable that one side never defines still flows through that side,
+  /// carrying whatever value it held on function entry. `updateChains`
+  /// introduces a fake definition when a variable is absent from the map;
+  /// this function handles variables defined on one side but not the other
+  /// at a merge point.
+  let introduceFakeDefsAtMergePoint exeCtx dstInStackOff m1 m2 =
+    let introduceMissingFakeDefs other m =
+      (m, Map.keys other)
+      ||> Seq.fold (fun m vk ->
+        if Map.containsKey vk m || isPrunedVarKind dstInStackOff vk then m
+        else Map.add vk (Set.singleton (makeFakeDefSvp exeCtx vk)) m)
+    introduceMissingFakeDefs m2 m1, introduceMissingFakeDefs m1 m2
+
+  let tryJoinRDs (state: State<_, _>) src srcExeCtx dst dstExeCtx =
     let srcOutDefs = getOutgoingDefs state src srcExeCtx
     let dstInDefs = getIncomingDefs state dst dstExeCtx
     let dstInSP =
@@ -906,6 +922,12 @@ module internal AnalysisCore = begin
         |> StackPointerDomain.ConstSP
       else
         snd state.PerVertexStackPointerInfos[src, srcExeCtx]
+    let srcOutDefs, dstInDefs =
+      if state.PerVertexIncomingDefs.ContainsKey(dst, dstExeCtx) then
+        let off = stackPointerToFrameOffset dstInSP
+        introduceFakeDefsAtMergePoint dstExeCtx off srcOutDefs dstInDefs
+      else
+        srcOutDefs, dstInDefs
     match joinDefs dstInSP srcOutDefs dstInDefs with
     | true, dstInDefs' -> Some dstInDefs'
     (* This can happen when this was the first visit to the vertex. *)
