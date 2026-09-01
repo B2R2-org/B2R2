@@ -34,8 +34,13 @@ module ConstantDomain =
 
   /// Represents a lattice element in the constant propagation domain.
   type Lattice =
+    /// Represents a value that is not a constant, i.e., the top of the
+    /// lattice.
     | NotAConst
+    /// Represents a value known to be the given constant.
     | Const of BitVector
+    /// Represents a value that is not known yet, i.e., the bottom of the
+    /// lattice.
     | Undef
 
   /// Checks if the first lattice element subsumes the second, i.e., whether
@@ -48,7 +53,7 @@ module ConstantDomain =
     | Const _, Undef -> true
     | _ -> false
 
-  /// Joins two constant domains.
+  /// Joins the two lattice elements.
   let join a b =
     match a, b with
     | Undef, c | c, Undef -> c

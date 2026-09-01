@@ -33,16 +33,22 @@ module UntouchedValueDomain =
 
   /// Represents a lattice element in the untouched value domain.
   type Lattice =
-    /// Touched means the value is redefined.
+    /// Represents a value that is redefined within the function, i.e., the
+    /// top of the lattice.
     | Touched
-    /// This value is never defined within the function.
+    /// Represents a value that is never redefined within the function, tagged
+    /// with the origin it came from.
     | Untouched of UntouchedTag
+    /// Represents a value that is not known yet, i.e., the bottom of the
+    /// lattice.
     | Undef
 
   /// Identifies the origin of an untouched value as a register or a memory
   /// location.
   and UntouchedTag =
+    /// Represents a value that came from the given register.
     | RegisterTag of VarKind
+    /// Represents a value that came from the given memory location.
     | MemoryTag of Addr
 
   /// Checks if the first lattice element subsumes the second, i.e., whether

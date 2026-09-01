@@ -34,8 +34,13 @@ module StackPointerDomain =
 
   /// Represents a lattice element in the stack pointer propagation domain.
   type Lattice =
+    /// Represents a stack pointer value that is not a constant, i.e., the top
+    /// of the lattice.
     | NotConstSP
+    /// Represents a stack pointer value known to be the given constant.
     | ConstSP of BitVector
+    /// Represents a stack pointer value that is not known yet, i.e., the
+    /// bottom of the lattice.
     | Undef
 
   /// Checks if the first lattice element subsumes the second, i.e., whether

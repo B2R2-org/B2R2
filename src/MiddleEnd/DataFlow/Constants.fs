@@ -22,7 +22,20 @@
   SOFTWARE.
 *)
 
+/// <namespacedoc>
+///   <summary>
+///   Contains the data-flow analyses that B2R2's middle-end runs over a CFG,
+///   along with the pieces they are assembled from. An analysis pairs one of
+///   the abstract domains (constant, stack pointer, untouched value, and
+///   variable definition) with one of the fixpoint engines: a worklist engine
+///   that iterates over whole vertices, a sparse engine over LowUIR that
+///   builds its own def-use chains, and a sparse engine over an SSA CFG.
+///   </summary>
+/// </namespacedoc>
+///
+/// <summary>
 /// Provides constants used in data flow analyses.
+/// </summary>
 module B2R2.MiddleEnd.DataFlow.Constants
 
 /// Defines the default stack pointer value used in data flow analyses.

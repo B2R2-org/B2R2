@@ -399,6 +399,7 @@ type State<'L, 'ExeCtx
     resetSubState spSubState
     resetSubState domainSubState
 
+  /// Returns the scheme used for this data flow analysis.
   member _.Scheme with get() = scheme
 
   /// Maps a CFG vertex to the execution contexts it may run under.
@@ -459,7 +460,7 @@ type State<'L, 'ExeCtx
   /// Returns the binary handle given to this state.
   member _.BinHandle with get() = hdl
 
-  /// Marks the given vertex as pending, which means that the vertex needs to be
+  /// Marks the given edge as pending, which means that the edge needs to be
   /// processed.
   member _.MarkEdgeAsPending(s, d) = edgesForProcessing.Add(s, d) |> ignore
 
@@ -468,10 +469,10 @@ type State<'L, 'ExeCtx
   /// marked.
   member _.TryMarkVertexAsRemoval v = verticesForRemoval.Add v
 
-  /// Checks if the given vertex is pending for processing.
+  /// Checks if the given edge is pending for processing.
   member _.IsEdgePending(src, dst) = edgesForProcessing.Contains(src, dst)
 
-  /// Clears the pending vertices.
+  /// Clears the pending edges.
   member _.ClearPendingEdges() = edgesForProcessing.Clear()
 
   /// Clears the vertices to be removed.
@@ -480,6 +481,8 @@ type State<'L, 'ExeCtx
   /// Returns the array of StmtInfos of the given vertex.
   member _.GetStmtInfos v = getStatements v
 
+  /// Returns the SSA statements of the given vertex under the given execution
+  /// context, computing them on the first request and caching them.
   member _.GetSSAStmts(v: IVertex<LowUIRBasicBlock>, exeCtx: 'ExeCtx) =
     let vWithCtx = v, exeCtx
     match ssaStmtCache.TryGetValue vWithCtx with
@@ -508,16 +511,23 @@ type State<'L, 'ExeCtx
       perVertexPossibleExeCtxs.Remove v |> ignore
     stmtCache.Remove v
 
+  /// Returns the SSA statement that defines the given SSA variable. This
+  /// returns None when the definition sits at a fake program point, which has
+  /// no statement behind it.
   member _.TryFindSSADefStmtFromSSAVar var =
     let svp = getDefSvpFromSSAVar var
     let spp = svp.SensitiveProgramPoint
     let pp = spp.ProgramPoint
     if pp.IsFake then None else Some <| getSSAStmt pp spp.ExecutionContext
 
+  /// Returns the SSA statement that defines the given SSA variable. This
+  /// raises an exception when there is no such statement.
   member this.FindSSADefStmtFromSSAVar var =
     this.TryFindSSADefStmtFromSSAVar var
     |> Option.get
 
+  /// Invalidates the cached SSA statements of the given vertex under the given
+  /// execution context.
   member _.InvalidateSSAStmts(v, exeCtx) = invalidateSSAStmts v exeCtx
 
   /// Returns the sensitive variable point that defines the given SSA
@@ -528,6 +538,8 @@ type State<'L, 'ExeCtx
   /// one when the definition has none yet.
   member _.GetSSAVarFromDefSvp svp = getSSAVarFromDefSvp svp
 
+  /// Returns the abstract value of the given expression at the given sensitive
+  /// program point.
   member _.EvalExpr(pp, expr) = evaluator.EvalExpr(pp, expr)
 
   /// Resets this state.
@@ -586,6 +598,8 @@ and IScheme<'ExeCtx when 'ExeCtx: equality and 'ExeCtx: comparison> =
   /// Runs when a vertex is removed.
   abstract OnRemoveVertex: IVertex<LowUIRBasicBlock> -> unit
 
+/// Represents the reaching definitions of each variable in the sensitive
+/// data-flow analysis.
 and SensitiveReachingDefs<'ExeCtx
   when 'ExeCtx: equality
   and 'ExeCtx: comparison> =
@@ -1049,6 +1063,7 @@ module internal AnalysisCore = begin
 
 end (* End of AnalysisCore *)
 
+/// Computes the data flow incrementally.
 let compute g state =
   removeInvalidChains state
   calculateChains g state
