@@ -28,11 +28,10 @@ module B2R2.MiddleEnd.DataFlow.WorklistDataFlow
 open System.Collections.Generic
 
 /// Represents a state used in worklist-based dataflow analysis.
-type State<'WorkUnit, 'Lattice, 'V
+type State<'WorkUnit, 'AbsVal
   when 'WorkUnit: equality
-  and 'Lattice: equality
-  and 'V: equality>
-  public(lattice: ILattice<'Lattice>) =
+  and 'AbsVal: equality>
+  public(lattice: ILattice<'AbsVal>) =
 
   let workList = Queue<'WorkUnit>()
 
@@ -51,7 +50,7 @@ type State<'WorkUnit, 'Lattice, 'V
     workSet.Remove work |> ignore
     work
 
-  let absValues = Dictionary<'WorkUnit, 'Lattice>()
+  let absValues = Dictionary<'WorkUnit, 'AbsVal>()
 
   /// Returns true when the work list still has a work unit to process. The
   /// work list itself stays hidden because it is kept in sync with a set that
@@ -61,6 +60,11 @@ type State<'WorkUnit, 'Lattice, 'V
   /// Maps a work unit to the abstract value the analysis has settled on for
   /// it.
   member _.AbsValues with get() = absValues :> IReadOnlyDictionary<_, _>
+
+  /// Checks whether the first abstract value subsumes the second under the
+  /// lattice this state was built on, which is the only lattice the analysis
+  /// gets to judge the order by.
+  member internal _.Subsume(a, b) = lattice.Subsume(a, b)
 
   /// Records the abstract value that the given work unit settled on.
   member internal _.SetAbsValue(work, absValue) = absValues[work] <- absValue
@@ -78,7 +82,7 @@ type State<'WorkUnit, 'Lattice, 'V
     workSet.Clear()
     absValues.Clear()
 
-  interface IAbsValProvider<'WorkUnit, 'Lattice> with
+  interface IAbsValProvider<'WorkUnit, 'AbsVal> with
     member _.GetAbsValue absLoc =
       match absValues.TryGetValue absLoc with
       | false, _ -> lattice.Bottom
@@ -97,13 +101,13 @@ type IScheme<'WorkUnit, 'AbsVal
   abstract Transfer: 'WorkUnit -> 'AbsVal
 
 /// Runs the worklist-based dataflow analysis on the given initial work list.
-let compute initialWorkList (lattice: ILattice<_>) (sch: IScheme<_, _>) state =
-  for work in initialWorkList do (state: State<_, _, _>).PushWork work
+let compute initialWorkList (sch: IScheme<_, _>) state =
+  for work in initialWorkList do (state: State<_, _>).PushWork work
   while state.HasWork do
     let work = state.PopWork()
     let absValue = (state :> IAbsValProvider<_, _>).GetAbsValue work
     let transferedAbsValue = sch.Transfer work
-    if lattice.Subsume(absValue, transferedAbsValue) then
+    if state.Subsume(absValue, transferedAbsValue) then
       ()
     else
       state.SetAbsValue(work, transferedAbsValue)

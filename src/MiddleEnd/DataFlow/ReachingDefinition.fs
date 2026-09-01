@@ -119,10 +119,8 @@ type ReachingDefinitionAnalysis() =
       initGensAndKills cfg
       let lst = List<IVertex<LowUIRBasicBlock>>()
       Traversal.DFS.iterRevPostorder cfg lst.Add
-      WorklistDataFlow.compute lst lattice (analysis cfg) st
+      WorklistDataFlow.compute lst (analysis cfg) st
 
 /// Represents the state of the reaching definition analysis.
 and internal ReachingDefinitionState =
-  WorklistDataFlow.State<IVertex<LowUIRBasicBlock>,
-                         InsAndOuts,
-                         LowUIRBasicBlock>
+  WorklistDataFlow.State<IVertex<LowUIRBasicBlock>, InsAndOuts>
