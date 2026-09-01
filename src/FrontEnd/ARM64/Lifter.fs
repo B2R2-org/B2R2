@@ -1472,20 +1472,20 @@ let private isVecIdxOrLD1ST1 (ins: Instruction) opr =
   isVecIdx || (ins.Opcode = Opcode.LD1) || (ins.Opcode = Opcode.ST1)
 
 let private fillZeroHigh64 (ins: Instruction) bld opr =
-    if ins.OprSize = 64<rt> then
-      match opr with
-      | OprSIMDList simds ->
-        List.iter (fun simd ->
-          match simd with
-          | VecReg(reg, _) ->
-            let regB = pseudoRegVar bld reg 2
-            bld <+ (regB := AST.num0 64<rt>)
-          | _ ->
-            ()) simds
-      | _ ->
-        ()
-    else
+  if ins.OprSize = 64<rt> then
+    match opr with
+    | OprSIMDList simds ->
+      List.iter (fun simd ->
+        match simd with
+        | VecReg(reg, _) ->
+          let regB = pseudoRegVar bld reg 2
+          bld <+ (regB := AST.num0 64<rt>)
+        | _ ->
+          ()) simds
+    | _ ->
       ()
+  else
+    ()
 
 let loadStoreList (ins: Instruction) insLen bld addr isLoad =
   let isWBack, _ = getIsWBackAndIsPostIndex ins.Operands

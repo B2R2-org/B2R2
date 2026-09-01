@@ -129,12 +129,12 @@ and CFGBuilderState =
   | Finished
 
 and CFGBuilderActivation =
-   /// The builder has been once scheduled (i.e., activated).
-   | Activated
-   /// The builder has not been scheduled and built; it is waiting to be
-   /// scheduled but may remain deactivated until then (e.g., when we are not
-   /// interested in building this function at all).
-   | Deactivated
+  /// The builder has been once scheduled (i.e., activated).
+  | Activated
+  /// The builder has not been scheduled and built; it is waiting to be
+  /// scheduled but may remain deactivated until then (e.g., when we are not
+  /// interested in building this function at all).
+  | Deactivated
 
 /// A strategy that defines how CFGActions are handled to build a function. This
 /// interface will be accessed in parallel by multiple threads, so every

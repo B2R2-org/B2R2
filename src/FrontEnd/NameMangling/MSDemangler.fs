@@ -214,8 +214,8 @@ type MSDemangler() =
 
   /// Parsed an Enumerated type.
   let enumType =
-     pchar 'W' >>. digit .>>. fullName .>> pchar '@' |>>
-     (fun (c, name) -> EnumType(EnumTypeKind.fromChar c, name))
+    pchar 'W' >>. digit .>>. fullName .>> pchar '@' |>>
+      (fun (c, name) -> EnumType(EnumTypeKind.fromChar c, name))
   /// Complex Type can be either a union, struct, class or cointerface.
   let complexType =
     complexTypeIndicator .>>. fullName .>> pchar '@'
@@ -388,7 +388,7 @@ type MSDemangler() =
   /// ones that don't. The function information parser parses all the
   /// information about the function except the name.
   let fInfo =
-     opt (pstring "$$F") >>. opt (pchar '_') >>. (attempt pReqMod <|> pNoMod)
+    opt (pstring "$$F") >>. opt (pchar '_') >>. (attempt pReqMod <|> pNoMod)
 
   (*---------------Unique Template Argument types---------------------*)
   let ignored = pchar '$' >>. (pchar 'Z' <|> pchar 'V') >>% IgnoredType
