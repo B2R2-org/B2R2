@@ -208,6 +208,31 @@ type BitVectorTests() =
     Assert.AreEqual<string>(Shl(n5, n6).ToString(), "0x0:I128")
 
   [<TestMethod>]
+  member _.``Arithmetic Shift Right Fills With the Sign``() =
+    let b (v: bigint) = BitVector(v, 256<rt>)
+    (* A negative operand must come back negative, sign bit included. *)
+    Assert.AreEqual<BitVector>(b (-1I), Sar(b (-2I), b 1I))
+    Assert.AreEqual<BitVector>(b (-2I), Sar(b (-4I), b 1I))
+    Assert.AreEqual<BitVector>(b (-4I), Sar(b (-16I), b 2I))
+    Assert.AreEqual<BitVector>(b (-(1I <<< 254)), Sar(b (1I <<< 255), b 1I))
+    (* A positive operand must not pick up a sign fill, even past the width. *)
+    Assert.AreEqual<BitVector>(b 4I, Sar(b 16I, b 2I))
+    Assert.AreEqual<BitVector>(b 0I, Sar(b 1I, b 256I))
+    let zero64 = BitVector(0UL, 64<rt>)
+    let one64 = BitVector(1UL, 64<rt>)
+    Assert.AreEqual<BitVector>(zero64, Sar(one64, BitVector(64UL, 64<rt>)))
+    Assert.AreEqual<BitVector>(zero64, Sar(one64, BitVector(200UL, 64<rt>)))
+
+  [<TestMethod>]
+  member _.``Shift by an Amount Wider Than 16 Bits``() =
+    let b (v: bigint) = BitVector(v, 256<rt>)
+    (* The amount used to be read as a uint16, so 65536 became a no-op. *)
+    Assert.AreEqual<BitVector>(b 0I, Shl(b 1I, b 65536I))
+    Assert.AreEqual<BitVector>(b 0I, Shl(b 1I, b (1I <<< 32)))
+    Assert.AreEqual<BitVector>(b 0I, Shr(b (1I <<< 255), b 65536I))
+    Assert.AreEqual<BitVector>(b (-1I), Sar(b (1I <<< 255), b 65536I))
+
+  [<TestMethod>]
   member _.``Unsigned Modulo``() =
     let n1 = BitVector(5ul, 32<rt>)
     let n2 = BitVector(-3l, 32<rt>)

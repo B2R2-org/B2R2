@@ -447,7 +447,8 @@ module private BitVector = begin
         let v2 = rhs.SmallValue
         (* In .NET, 1UL >>> 63 = 0, but 1UL >>> 64 = 1 *)
         if v2 >= 64UL then
-          BitVectorSmall(UInt64.MaxValue |> adaptSmall len, len) :> IBV
+          if isSmallPositive len v1 then BitVectorSmall(0UL, len) :> IBV
+          else BitVectorSmall(UInt64.MaxValue |> adaptSmall len, len) :> IBV
         else
           let res = v1 >>> (int v2)
           if len = 1<rt> then
@@ -1024,28 +1025,31 @@ module private BitVector = begin
       member _.Shl(rhs: IBV) =
         if len <> rhs.Length then raise RegTypeMismatchException else ()
         let v1 = n
-        let v2 = rhs.SmallValue |> uint16 |> int
-        BitVectorBig(adaptBig len (v1 <<< v2), len) :> IBV
+        let v2 = rhs.BigValue
+        if v2 >= bigint (int len) then BitVectorBig(0I, len) :> IBV
+        else BitVectorBig(adaptBig len (v1 <<< int v2), len) :> IBV
 
       member _.Shr(rhs: IBV) =
         if len <> rhs.Length then raise RegTypeMismatchException else ()
         let v1 = n
-        let v2 = rhs.SmallValue |> uint16 |> int
-        BitVectorBig(v1 >>> v2, len) :> IBV
+        let v2 = rhs.BigValue
+        if v2 >= bigint (int len) then BitVectorBig(0I, len) :> IBV
+        else BitVectorBig(v1 >>> int v2, len) :> IBV
 
       member _.Sar(rhs: IBV) =
         if len <> rhs.Length then raise RegTypeMismatchException else ()
         let v1 = n
-        let v2 = rhs.SmallValue |> uint16 |> int
-        if v2 >= int len then
-          BitVectorBig((1I <<< int len) - 1I, len) :> IBV
+        let v2 = rhs.BigValue
+        let ones = (1I <<< int len) - 1I
+        if isBigPositive len v1 then
+          if v2 >= bigint (int len) then BitVectorBig(0I, len) :> IBV
+          else BitVectorBig(v1 >>> int v2, len) :> IBV
+        elif v2 >= bigint (int len) then
+          BitVectorBig(ones, len) :> IBV
         else
-          let res = v1 >>> v2
-          if isBigPositive len v1 then
-            BitVectorBig(res, len) :> IBV
-          else
-            let pad = ((1I <<< int len) - 1I) - ((1I <<< (int len - v2)))
-            BitVectorBig(res ||| pad, len) :> IBV
+          let shift = int v2
+          let pad = ones - ((1I <<< (int len - shift)) - 1I)
+          BitVectorBig((v1 >>> shift) ||| pad, len) :> IBV
 
       member _.Not() = BitVectorBig((1I <<< (int len)) - 1I - n, len) :> IBV
 
