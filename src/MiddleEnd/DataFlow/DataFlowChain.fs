@@ -37,6 +37,15 @@ type DataFlowChain =
     /// Def-use chain.
     DefUseChain: Map<VarPoint, Set<VarPoint>> }
 
+/// Represents the granularity at which a data-flow chain relates variables.
+and ChainGranularity =
+  /// Every LowUIR statement is its own program point, so a chain distinguishes
+  /// the statements of a single instruction.
+  | IRLevel
+  /// Every LowUIR statement of an instruction collapses into the instruction's
+  /// program point, so a chain relates instructions rather than statements.
+  | DisasmLevel
+
 /// Builds Use-Def and Def-Use chains from reaching definition analysis.
 [<RequireQualifiedAccess>]
 module DataFlowChain =
@@ -143,24 +152,26 @@ module DataFlowChain =
     let addr = vp.ProgramPoint.Address
     { vp with ProgramPoint = ProgramPoint(addr, 0) }
 
-  let private filterDisasm isDisasmLevel chain =
-    if not isDisasmLevel then
-      chain
-    else
-      chain
-      |> Map.fold (fun map vp set ->
-        let vp = normalizeVP vp
-        let newSet = set |> Set.map normalizeVP
-        match Map.tryFind vp map with
-        | None -> Map.add vp newSet map
-        | Some old -> Map.add vp (Set.union old newSet) map) Map.empty
+  let private normalizeChain chain =
+    chain
+    |> Map.fold (fun map vp set ->
+      let vp = normalizeVP vp
+      let newSet = set |> Set.map normalizeVP
+      match Map.tryFind vp map with
+      | None -> Map.add vp newSet map
+      | Some old -> Map.add vp (Set.union old newSet) map) Map.empty
+
+  let private applyGranularity granularity chain =
+    match granularity with
+    | IRLevel -> chain
+    | DisasmLevel -> normalizeChain chain
 
   /// Computes Use-Def and Def-Use chains for the given CFG using reaching
   /// definition analysis.
   [<CompiledName("Compute")>]
-  let compute cfg isDisasmLevel =
+  let compute cfg granularity =
     let rd = ReachingDefinitionAnalysis() :> IDataFlowComputable<_, _, _>
     let provider = rd.Compute cfg
-    let udchain = initUDChain cfg provider |> filterDisasm isDisasmLevel
-    let duchain = initDUChain udchain |> filterDisasm isDisasmLevel
+    let udchain = initUDChain cfg provider |> applyGranularity granularity
+    let duchain = initDUChain udchain |> applyGranularity granularity
     { UseDefChain = udchain; DefUseChain = duchain }
