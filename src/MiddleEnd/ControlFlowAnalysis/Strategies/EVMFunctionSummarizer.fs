@@ -108,7 +108,7 @@ and EVMFuncUserContext() =
     (hdl: BinHandle).RegisterFactory.StackPointer.Value
 
   let convertStackPointerToInt32 (bv: BitVector) =
-    bv.ToUInt64() |> toFrameOffset
+    bv.ToUInt64() |> LowUIRStackPointer.toFrameOffset
 
   /// Assuming that the stack pointer is always computed only using the
   /// stack pointer register, we use a lightweight manner to compute the stack

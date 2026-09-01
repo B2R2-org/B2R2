@@ -34,10 +34,6 @@ open B2R2.Collections
 open B2R2.MiddleEnd.ControlFlowGraph
 open B2R2.MiddleEnd.BinGraph
 
-/// Translates the given stack pointer address to a local frame offset.
-let inline toFrameOffset stackAddr =
-  LowUIRStackPointer.toFrameOffset stackAddr
-
 /// Represents a state used in LowUIR-based sensitive dataflow analysis.
 type State<'L, 'ExeCtx
   when 'L: equality
@@ -241,7 +237,8 @@ type State<'L, 'ExeCtx
       let spp = { ProgramPoint = pp; ExecutionContext = exeCtx }
       match spEvaluateExpr spp e with
       | StackPointerDomain.ConstSP bv ->
-        let varKind = bv.ToUInt64() |> toFrameOffset |> StackLocal
+        let varKind =
+          bv.ToUInt64() |> LowUIRStackPointer.toFrameOffset |> StackLocal
         let useSvp = { SensitiveProgramPoint = spp; VarKind = varKind }
         convertUseToReachingDefSSAExpr useSvp exeCtx varKind
       | _ ->
@@ -278,7 +275,7 @@ type State<'L, 'ExeCtx
       let spp = { ProgramPoint = pp; ExecutionContext = exeCtx }
       match spEvaluateExpr spp dstExpr with
       | StackPointerDomain.ConstSP bv ->
-        let offset = bv.ToUInt64() |> toFrameOffset
+        let offset = bv.ToUInt64() |> LowUIRStackPointer.toFrameOffset
         let varKind = StackLocal offset
         let svp = { SensitiveProgramPoint = spp; VarKind = varKind }
         let var = getSSAVarFromDefSvp svp
@@ -645,7 +642,7 @@ module internal AnalysisCore = begin
     let onVarRead vk = updateChains state vk defs spp
     let tryStackOffset e =
       match getStackValue state.StackPointerSubState spp e with
-      | Ok loc -> Some(toFrameOffset loc)
+      | Ok loc -> Some(LowUIRStackPointer.toFrameOffset loc)
       | Error _ -> None
     VarKind.iterUses onVarRead tryStackOffset expr
 
@@ -668,8 +665,10 @@ module internal AnalysisCore = begin
 
   let stackPointerToFrameOffset sp =
     match sp with
-    | StackPointerDomain.ConstSP bv -> bv.ToUInt64() |> toFrameOffset
-    | _ -> Terminator.impossible ()
+    | StackPointerDomain.ConstSP bv ->
+      bv.ToUInt64() |> LowUIRStackPointer.toFrameOffset
+    | _ ->
+      Terminator.impossible ()
 
   /// Returns true if the given variable kind does not survive a join into a
   /// vertex whose incoming stack pointer sits at the given frame offset.
@@ -733,7 +732,7 @@ module internal AnalysisCore = begin
         match state.StackPointerSubState.EvalExpr(spp, addr) with
         | StackPointerDomain.ConstSP bv ->
           let loc = bv.ToUInt64()
-          let offset = toFrameOffset loc
+          let offset = LowUIRStackPointer.toFrameOffset loc
           let varKind = StackLocal offset
           let spp = { ProgramPoint = pp; ExecutionContext = exeCtx }
           let svp = { SensitiveProgramPoint = spp; VarKind = varKind }
@@ -933,7 +932,7 @@ module internal AnalysisCore = begin
       match state.StackPointerSubState.EvalExpr(spp, addr) with
       | StackPointerDomain.ConstSP bv ->
         let loc = bv.ToUInt64()
-        let offset = toFrameOffset loc
+        let offset = LowUIRStackPointer.toFrameOffset loc
         let varKind = StackLocal offset
         let svp = { SensitiveProgramPoint = spp; VarKind = varKind }
         let subState = state.DomainSubState

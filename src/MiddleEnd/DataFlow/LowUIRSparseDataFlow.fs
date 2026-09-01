@@ -34,10 +34,6 @@ open B2R2.FrontEnd
 open B2R2.MiddleEnd.ControlFlowGraph
 open B2R2.MiddleEnd.BinGraph
 
-/// Translates the given stack pointer address to a local frame offset.
-let inline internal toFrameOffset stackAddr =
-  LowUIRStackPointer.toFrameOffset stackAddr
-
 /// Represents a state used in LowUIR-based sparse dataflow analysis.
 type State<'Lattice when 'Lattice: equality>
   public(hdl: BinHandle,
@@ -178,7 +174,7 @@ type State<'Lattice when 'Lattice: equality>
     | Load(_, rt, addr, _) ->
       match spEvaluateExpr pp addr with
       | StackPointerDomain.ConstSP bv ->
-        let offset = bv.ToUInt64() |> toFrameOffset
+        let offset = bv.ToUInt64() |> LowUIRStackPointer.toFrameOffset
         let vk = StackLocal offset
         let ssaVar = getSSAVarFromUse pp vk
         SSA.Var ssaVar
@@ -236,7 +232,7 @@ type State<'Lattice when 'Lattice: equality>
     | Store(_, addr, value, _) ->
       match spEvaluateExpr pp addr with
       | StackPointerDomain.ConstSP bv ->
-        let offset = bv.ToUInt64() |> toFrameOffset
+        let offset = bv.ToUInt64() |> LowUIRStackPointer.toFrameOffset
         let vk = StackLocal offset
         let vp = { ProgramPoint = pp; VarKind = vk }
         let v = getSSAVar vp
@@ -572,7 +568,7 @@ module internal AnalysisCore = begin
         | Store(_, addr, _, _) ->
           getStackValue state pp addr
           |> Result.iter (fun loc ->
-            let offset = toFrameOffset loc
+            let offset = LowUIRStackPointer.toFrameOffset loc
             let vk = StackLocal offset
             varKinds.Add vk |> ignore)
         | _ ->
@@ -635,7 +631,7 @@ module internal AnalysisCore = begin
     let onVarRead vk = updateChains state vk defs pp
     let tryStackOffset e =
       match getStackValue state pp e with
-      | Ok loc -> Some(toFrameOffset loc)
+      | Ok loc -> Some(LowUIRStackPointer.toFrameOffset loc)
       | Error _ -> None
     VarKind.iterUses onVarRead tryStackOffset expr
 
@@ -673,7 +669,7 @@ module internal AnalysisCore = begin
       updateWithExpr state defs pp value
       match getStackValue state pp addr with
       | Ok loc ->
-        let offset = toFrameOffset loc
+        let offset = LowUIRStackPointer.toFrameOffset loc
         let kind = StackLocal offset
         let vp = { ProgramPoint = pp; VarKind = kind }
         defs <- Map.add kind vp defs
@@ -862,7 +858,7 @@ module internal AnalysisCore = begin
       match state.EvaluateStackPointerExpr(pp, addr) with
       | StackPointerDomain.ConstSP bv ->
         let loc = bv.ToUInt64()
-        let offset = toFrameOffset loc
+        let offset = LowUIRStackPointer.toFrameOffset loc
         let varKind = StackLocal offset
         let vp = { ProgramPoint = pp; VarKind = varKind }
         let subState = state.DomainSubState
