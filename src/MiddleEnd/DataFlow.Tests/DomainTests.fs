@@ -36,6 +36,8 @@ type DomainTests() =
 
   let c64 (v: uint64) = ConstantDomain.Const(BitVector(v, 64<rt>))
 
+  let c256 (v: bigint) = ConstantDomain.Const(BitVector(v, 256<rt>))
+
   let sp (v: uint32) = StackPointerDomain.ConstSP(BitVector(v, 32<rt>))
 
   let untouched r =
@@ -144,8 +146,28 @@ type DomainTests() =
     let one = c64 1UL
     eqC (c64 4UL) (ConstantDomain.shl one (c64 2UL))
     eqC (c64 0UL) (ConstantDomain.shr one (c64 2UL))
-    eqC ConstantDomain.NotAConst (ConstantDomain.shl one (c64 0x100000000UL))
-    eqC ConstantDomain.NotAConst (ConstantDomain.shr one (c64 0x100000000UL))
+    eqC (c64 0UL) (ConstantDomain.sar one (c64 2UL))
+    (* BitVector reads a shift amount as a uint64, so an amount too wide for
+       that must never reach it. This bites only on words wider than 64 bits,
+       e.g. an EVM word. Arithmetic shift is no exception. *)
+    let huge = c256 (1I <<< 64)
+    let shifts =
+      [ ConstantDomain.shl; ConstantDomain.shr; ConstantDomain.sar ]
+    for shift in shifts do
+      eqC ConstantDomain.NotAConst (shift (c256 1I) huge)
+
+  [<TestMethod>]
+  member _.``Constant domain folds a shift on a wide word``() =
+    (* An arithmetic shift carries the sign of a 256-bit operand. *)
+    eqC (c256 (-1I)) (ConstantDomain.sar (c256 (-2I)) (c256 1I))
+    eqC (c256 (-4I)) (ConstantDomain.sar (c256 (-16I)) (c256 2I))
+    eqC (c256 4I) (ConstantDomain.sar (c256 16I) (c256 2I))
+    (* An amount past the word width still folds; only one that overflows a
+       uint64 gives up, so the largest amount that fits must go through. *)
+    eqC (c256 0I) (ConstantDomain.shl (c256 1I) (c256 65536I))
+    eqC (c256 0I) (ConstantDomain.shr (c256 1I) (c256 (1I <<< 32)))
+    eqC (c256 (-1I)) (ConstantDomain.sar (c256 (-2I)) (c256 (1I <<< 32)))
+    eqC (c256 0I) (ConstantDomain.shl (c256 1I) (c256 ((1I <<< 64) - 1I)))
 
   [<TestMethod>]
   member _.``Constant domain resolves an ite by its condition``() =

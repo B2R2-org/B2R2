@@ -96,7 +96,7 @@ module ConstantDomain =
     match c with
     | Const bv ->
       let rt = bv.Length
-      let upperBound = BitVector(0xFFFFFFFFUL, rt)
+      let upperBound = BitVector(0xFFFFFFFFFFFFFFFFUL, rt)
       let isOkay = BitVector.Le(bv, upperBound).IsTrue
       if isOkay then c else NotAConst
     | _ ->
@@ -106,7 +106,7 @@ module ConstantDomain =
 
   let shr c1 c2 = binOp BitVector.Shr c1 (adjustShiftOperand c2)
 
-  let sar c1 c2 = binOp BitVector.Sar c1 c2
+  let sar c1 c2 = binOp BitVector.Sar c1 (adjustShiftOperand c2)
 
   let ``and`` c1 c2 = binOp BitVector.And c1 c2
 
