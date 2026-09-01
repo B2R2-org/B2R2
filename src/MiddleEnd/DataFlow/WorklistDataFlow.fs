@@ -53,7 +53,10 @@ type State<'WorkUnit, 'Lattice, 'V
 
   let absValues = Dictionary<'WorkUnit, 'Lattice>()
 
-  member _.WorkList with get() = workList
+  /// Returns true when the work list still has a work unit to process. The
+  /// work list itself stays hidden because it is kept in sync with a set that
+  /// an outside enqueue would not update.
+  member _.HasWork with get() = workList.Count > 0
 
   member _.AbsValues with get() = absValues
 
@@ -82,7 +85,7 @@ type IScheme<'WorkUnit, 'AbsVal
 /// Runs the worklist-based dataflow analysis on the given initial work list.
 let compute initialWorkList (lattice: ILattice<_>) (sch: IScheme<_, _>) state =
   for work in initialWorkList do (state: State<_, _, _>).PushWork work
-  while not <| Seq.isEmpty state.WorkList do
+  while state.HasWork do
     let work = state.PopWork()
     let absValue = (state :> IAbsValProvider<_, _>).GetAbsValue work
     let transferedAbsValue = sch.Transfer work
