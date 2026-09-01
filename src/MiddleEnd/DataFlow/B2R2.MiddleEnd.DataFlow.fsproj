@@ -13,6 +13,7 @@
     <Compile Include="VarDefDomain.fs" />
     <Compile Include="IDataFlowComputable.fs" />
     <Compile Include="Stmts.fs" />
+    <Compile Include="LowUIRStackPointer.fs" />
     <Compile Include="WorklistDataFlow.fs" />
     <Compile Include="ReachingDefinition.fs" />
     <Compile Include="DataFlowChain.fs" />

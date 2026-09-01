@@ -36,7 +36,7 @@ open B2R2.MiddleEnd.BinGraph
 
 /// Translates the given stack pointer address to a local frame offset.
 let inline internal toFrameOffset stackAddr =
-  int (stackAddr - Constants.InitialStackPointer)
+  LowUIRStackPointer.toFrameOffset stackAddr
 
 /// Represents a state used in LowUIR-based sparse dataflow analysis.
 type State<'Lattice when 'Lattice: equality>
@@ -45,19 +45,10 @@ type State<'Lattice when 'Lattice: equality>
          scheme: IScheme<'Lattice>) =
 
   /// Initial stack pointer value in the stack pointer domain.
-  let spInitial =
-    match hdl.RegisterFactory.StackPointer with
-    | None ->
-      None
-    | Some rid ->
-      let rt = hdl.RegisterFactory.GetRegType rid
-      let varKind = Regular rid
-      let bv = BitVector(Constants.InitialStackPointer, rt)
-      let c = StackPointerDomain.ConstSP bv
-      Some(varKind, c)
+  let spInitial = LowUIRStackPointer.initialValue hdl
 
-  /// Mapping from a CFG vertex to its StmtInfo array.
-  let stmtInfoCache = Dictionary<IVertex<LowUIRBasicBlock>, StmtInfo[]>()
+  /// Statements of every CFG vertex, along with their program points.
+  let stmtCache = LowUIRStmtCache()
 
   /// Mapping from a VarPoint to its abstract value in the user's domain.
   let domainAbsValues = Dictionary<VarPoint, 'Lattice>()
@@ -76,8 +67,6 @@ type State<'Lattice when 'Lattice: equality>
   let defUseMap = Dictionary<VarPoint, HashSet<VarPoint>>()
 
   let useDefMap = Dictionary<VarPoint, VarPoint>()
-
-  let stmtOfBBLs = Dictionary<ProgramPoint, StmtOfBBL>()
 
   /// Set of vertices that need to be analyzed for reconstructing data flow
   /// information.
@@ -118,58 +107,9 @@ type State<'Lattice when 'Lattice: equality>
     | true, defVp -> spGetAbsValue defVp
     | false, _ -> StackPointerDomain.Undef
 
-  let rec spEvaluateExpr pp (e: Expr) =
-    match e with
-    | Num(bv, _) ->
-      StackPointerDomain.ConstSP bv
-    | Var _ | TempVar _ ->
-      spEvaluateVar (VarKind.ofIRExpr e) pp
-    | Load(_, _, addr, _) ->
-      match spEvaluateExpr pp addr with
-      | StackPointerDomain.ConstSP bv ->
-        let offset = bv.ToUInt64() |> toFrameOffset
-        spEvaluateVar (StackLocal offset) pp
-      | c ->
-        c
-    | BinOp(binOpType, _, e1, e2, _) ->
-      let v1 = spEvaluateExpr pp e1
-      let v2 = spEvaluateExpr pp e2
-      match binOpType with
-      | BinOpType.ADD -> StackPointerDomain.add v1 v2
-      | BinOpType.SUB -> StackPointerDomain.sub v1 v2
-      | BinOpType.AND -> StackPointerDomain.``and`` v1 v2
-      | _ -> StackPointerDomain.NotConstSP
-    | _ ->
-      StackPointerDomain.NotConstSP
+  let spEvaluateExpr pp e = LowUIRStackPointer.evalExpr spEvaluateVar pp e
 
-  /// Updates the mapping from a program point to its corresponding statements.
-  let updatePPToStmts stmts v =
-    Array.iter (fun (stmt, pp) -> stmtOfBBLs[pp] <- (stmt, v)) stmts
-
-  let rec getStatements (v: IVertex<LowUIRBasicBlock>) =
-    match stmtInfoCache.TryGetValue v with
-    | true, stmts ->
-      stmts
-    | false, _ ->
-      let pp = v.VData.Internals.PPoint
-      let stmts = getStatementsAux v pp
-      updatePPToStmts stmts v
-      stmtInfoCache[v] <- stmts
-      stmts
-
-  and getStatementsAux (v: IVertex<LowUIRBasicBlock>) (pp: ProgramPoint) =
-    if not v.VData.Internals.IsAbstract then (* regular vertex *)
-      let startPos = pp.Position
-      v.VData.Internals.LiftedInstructions
-      |> Array.collect (fun ins ->
-        ins.Stmts |> Array.mapi (fun i stmt ->
-          stmt, ProgramPoint(ins.Original.Address, startPos + i)))
-    else (* abstract vertex *)
-      let startPos = 1 (* we reserve 0 for phi definitions. *)
-      let cs = Option.get pp.CallSite
-      let addr = pp.Address
-      v.VData.Internals.AbstractContent.Rundown
-      |> Array.mapi (fun i s -> s, ProgramPoint(cs, addr, startPos + i))
+  let getStatements v = stmtCache.GetStmtInfos v
 
   /// Returns a fresh identifier for the given variable kind and increments the
   /// identifier.
@@ -345,7 +285,7 @@ type State<'Lattice when 'Lattice: equality>
 
   /// Generates a phi statement for the given variable point.
   let generatePhiSSAStmt vp =
-    let _, v = stmtOfBBLs[vp.ProgramPoint]
+    let _, v = stmtCache.StmtOfBBLs[vp.ProgramPoint]
     let phiInfo = phiInfos[v]
     let varKind = vp.VarKind
     let defs = phiInfo[varKind]
@@ -392,7 +332,7 @@ type State<'Lattice when 'Lattice: equality>
     subState.ExecutedVertices.Clear()
 
   let reset () =
-    stmtInfoCache.Clear()
+    stmtCache.Clear()
     domainAbsValues.Clear()
     spAbsValues.Clear()
     phiInfos.Clear()
@@ -400,7 +340,6 @@ type State<'Lattice when 'Lattice: equality>
     perVertexOutgoingDefs.Clear()
     defUseMap.Clear()
     useDefMap.Clear()
-    stmtOfBBLs.Clear()
     verticesForProcessing.Clear()
     vpToSSAVar.Clear()
     ssaVarCounter <- 0
@@ -434,7 +373,7 @@ type State<'Lattice when 'Lattice: equality>
 
   /// Mapping from a program point to `StmtOfBBL`, which is a pair of a Low-UIR
   /// statement and its corresponding vertex that contains the statement.
-  member _.StmtOfBBLs with get() = stmtOfBBLs
+  member _.StmtOfBBLs with get() = stmtCache.StmtOfBBLs
 
   /// Sub-state for the stack-pointer domain.
   member internal _.StackPointerSubState with get() = spSubState
@@ -477,6 +416,9 @@ type State<'Lattice when 'Lattice: equality>
   /// Return the array of StmtInfos of the given vertex.
   member _.GetStmtInfos v = getStatements v
 
+  /// Forget the statements of the given vertex.
+  member internal _.RemoveStmtsOf v = stmtCache.Remove v
+
   /// Return the terminator statment of the given vertex in an SSA form.
   member _.GetTerminatorInSSA v =
     getStatements v
@@ -490,7 +432,7 @@ type State<'Lattice when 'Lattice: equality>
     else
       let vp = ssaVarToVp[v]
       let pp = vp.ProgramPoint
-      let stmt, v = stmtOfBBLs[pp]
+      let stmt, v = stmtCache.StmtOfBBLs[pp]
       let pp' = v.VData.Internals.PPoint
       let isPhi = pp = pp'
       if not isPhi then
@@ -553,8 +495,7 @@ module internal AnalysisCore = begin
   let rec removeInvalidChains (state: State<_>) =
     match state.DequeueVertexForRemoval() with
     | true, v when state.PerVertexIncomingDefs.ContainsKey v ->
-      for (_, pp) in state.GetStmtInfos v do
-        state.StmtOfBBLs.Remove pp |> ignore
+      state.RemoveStmtsOf v
       state.PhiInfos.Remove v |> ignore
       state.PerVertexIncomingDefs.Remove v |> ignore
       state.PerVertexOutgoingDefs.Remove v |> ignore
@@ -679,41 +620,13 @@ module internal AnalysisCore = begin
     updateDefUseChain state useVp defVp
     updateUseDefChain state useVp defVp
 
-  let rec updateWithExpr state defs (pp: ProgramPoint) = function
-    | Num(_)
-    | Undefined(_)
-    | FuncName(_) ->
-      ()
-    | Var(_rt, rid, _rstr, _) ->
-      updateChains state (Regular rid) defs pp
-    | TempVar(_, n, _) ->
-      updateChains state (Temporary n) defs pp
-    | ExprList(exprs, _) ->
-      exprs |> List.iter (updateWithExpr state defs pp)
-    | Load(_, _, expr, _) ->
-      updateWithExpr state defs pp expr
-      getStackValue state pp expr
-      |> Result.iter (fun loc ->
-        let offset = toFrameOffset loc
-        updateChains state (StackLocal offset) defs pp)
-    | UnOp(_, expr, _) ->
-      updateWithExpr state defs pp expr
-    | BinOp(_, _, expr1, expr2, _) ->
-      updateWithExpr state defs pp expr1
-      updateWithExpr state defs pp expr2
-    | RelOp(_, expr1, expr2, _) ->
-      updateWithExpr state defs pp expr1
-      updateWithExpr state defs pp expr2
-    | Ite(expr1, expr2, expr3, _) ->
-      updateWithExpr state defs pp expr1
-      updateWithExpr state defs pp expr2
-      updateWithExpr state defs pp expr3
-    | Cast(_, _, expr, _) ->
-      updateWithExpr state defs pp expr
-    | Extract(expr, _, _, _) ->
-      updateWithExpr state defs pp expr
-    | _ ->
-      ()
+  let updateWithExpr state defs (pp: ProgramPoint) expr =
+    let onVarRead vk = updateChains state vk defs pp
+    let tryStackOffset e =
+      match getStackValue state pp e with
+      | Ok loc -> Some(toFrameOffset loc)
+      | Error _ -> None
+    VarKind.iterUses onVarRead tryStackOffset expr
 
   let updateWithJmp state defs pp = function
     | Jmp(expr, _) ->

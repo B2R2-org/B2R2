@@ -34,9 +34,9 @@ open B2R2.Collections
 open B2R2.MiddleEnd.ControlFlowGraph
 open B2R2.MiddleEnd.BinGraph
 
-/// Translate the given stack pointer address to a local frame offset.
+/// Translates the given stack pointer address to a local frame offset.
 let inline toFrameOffset stackAddr =
-  int (stackAddr - Constants.InitialStackPointer)
+  LowUIRStackPointer.toFrameOffset stackAddr
 
 /// Represents a state used in LowUIR-based sensitive dataflow analysis.
 type State<'L, 'ExeCtx
@@ -63,23 +63,14 @@ type State<'L, 'ExeCtx
     Dictionary<SensitiveProgramPoint<'ExeCtx>, SSA.Stmt>()
 
   /// Initial stack pointer value in the stack pointer domain.
-  let spInitial =
-    match (hdl: BinHandle).RegisterFactory.StackPointer with
-    | None ->
-      None
-    | Some rid ->
-      let rt = hdl.RegisterFactory.GetRegType rid
-      let varKind = Regular rid
-      let bv = BitVector(Constants.InitialStackPointer, rt)
-      let c = StackPointerDomain.ConstSP bv
-      Some(varKind, c)
+  let spInitial = LowUIRStackPointer.initialValue hdl
 
   let perVertexStackPointerInfos =
     Dictionary<IVertex<LowUIRBasicBlock> * 'ExeCtx,
                StackPointerDomain.Lattice * StackPointerDomain.Lattice>()
 
-  /// Mapping from a CFG vertex to its StmtInfo array.
-  let stmtInfoCache = Dictionary<IVertex<LowUIRBasicBlock>, StmtInfo[]>()
+  /// Statements of every CFG vertex, along with their program points.
+  let stmtCache = LowUIRStmtCache()
 
   /// Mapping from a MyVarPoint to its abstract value in the user's domain.
   let domainAbsValues = Dictionary<SensitiveVarPoint<'ExeCtx>, 'L>()
@@ -102,8 +93,6 @@ type State<'L, 'ExeCtx
 
   let useDefMap = Dictionary<SensitiveVarPoint<'ExeCtx>,
                              Set<SensitiveVarPoint<'ExeCtx>>>()
-
-  let stmtOfBBLs = Dictionary<ProgramPoint, StmtOfBBL>()
 
   let edgesForProcessing =
     HashSet<IVertex<LowUIRBasicBlock> | null * IVertex<LowUIRBasicBlock>>()
@@ -140,58 +129,9 @@ type State<'L, 'ExeCtx
           let defAbsValue = spGetAbsValue defSvp
           StackPointerDomain.join acc defAbsValue) StackPointerDomain.Undef
 
-  let rec spEvaluateExpr myPp (e: Expr) =
-    match e with
-    | Num(bv, _) ->
-      StackPointerDomain.ConstSP bv
-    | Var _ | TempVar _ ->
-      spEvaluateVar (VarKind.ofIRExpr e) myPp
-    | Load(_, _, addr, _) ->
-      match spEvaluateExpr myPp addr with
-      | StackPointerDomain.ConstSP bv ->
-        let offset = bv.ToUInt64() |> toFrameOffset
-        spEvaluateVar (StackLocal offset) myPp
-      | c ->
-        c
-    | BinOp(binOpType, _, e1, e2, _) ->
-      let v1 = spEvaluateExpr myPp e1
-      let v2 = spEvaluateExpr myPp e2
-      match binOpType with
-      | BinOpType.ADD -> StackPointerDomain.add v1 v2
-      | BinOpType.SUB -> StackPointerDomain.sub v1 v2
-      | BinOpType.AND -> StackPointerDomain.``and`` v1 v2
-      | _ -> StackPointerDomain.NotConstSP
-    | _ ->
-      StackPointerDomain.NotConstSP
+  let spEvaluateExpr spp e = LowUIRStackPointer.evalExpr spEvaluateVar spp e
 
-  /// Updates the mapping from a program point to its corresponding statements.
-  let updatePPToStmts stmts v =
-    Array.iter (fun (stmt, pp) -> stmtOfBBLs[pp] <- (stmt, v)) stmts
-
-  let rec getStatements (v: IVertex<LowUIRBasicBlock>) =
-    match stmtInfoCache.TryGetValue v with
-    | true, stmts ->
-      stmts
-    | false, _ ->
-      let pp = v.VData.Internals.PPoint
-      let stmts = getStatementsAux v pp
-      updatePPToStmts stmts v
-      stmtInfoCache[v] <- stmts
-      stmts
-
-  and getStatementsAux (v: IVertex<LowUIRBasicBlock>) (pp: ProgramPoint) =
-    if not v.VData.Internals.IsAbstract then (* regular vertex *)
-      let startPos = pp.Position
-      v.VData.Internals.LiftedInstructions
-      |> Array.collect (fun ins ->
-        ins.Stmts |> Array.mapi (fun i stmt ->
-          stmt, ProgramPoint(ins.Original.Address, startPos + i)))
-    else (* abstract vertex *)
-      let startPos = 1 (* we reserve 0 for phi definitions. *)
-      let cs = Option.get pp.CallSite
-      let addr = pp.Address
-      v.VData.Internals.AbstractContent.Rundown
-      |> Array.mapi (fun i s -> s, ProgramPoint(cs, addr, startPos + i))
+  let getStatements v = stmtCache.GetStmtInfos v
 
   let tryGetReachingDefIdsFromUseId id =
     match useDefMap.TryGetValue id with
@@ -377,8 +317,8 @@ type State<'L, 'ExeCtx
       sstmts
     | false, _ ->
       assert (not pp.IsFake)
-      assert (stmtOfBBLs.ContainsKey pp)
-      let stmt, _ = stmtOfBBLs[pp]
+      assert (stmtCache.StmtOfBBLs.ContainsKey pp)
+      let stmt, _ = stmtCache.StmtOfBBLs[pp]
       let sstmt = computeSSAStmt stmt pp exeCtx
       perPointSSAStmtCache[tpp] <- sstmt
       sstmt
@@ -397,13 +337,9 @@ type State<'L, 'ExeCtx
   let invalidateSSAStmts (v: IVertex<LowUIRBasicBlock>) (exeCtx: 'ExeCtx) =
     let vWithExeCtx = v, exeCtx
     ssaStmtCache.Remove vWithExeCtx |> ignore
-    match stmtInfoCache.TryGetValue v with
-    | false, _ ->
-      Terminator.impossible ()
-    | true, stmtInfos ->
-      for _stmt, pp in stmtInfos do
-        let tpp = { ProgramPoint = pp; ExecutionContext = exeCtx }
-        perPointSSAStmtCache.Remove tpp |> ignore
+    for _stmt, pp in stmtCache.GetStmtInfos v do
+      let tpp = { ProgramPoint = pp; ExecutionContext = exeCtx }
+      perPointSSAStmtCache.Remove tpp |> ignore
 
   let domainSubState =
     let flowQueue = UniqueQueue()
@@ -446,7 +382,7 @@ type State<'L, 'ExeCtx
     subState.ExecutedVertices.Clear()
 
   let reset () =
-    stmtInfoCache.Clear()
+    stmtCache.Clear()
     ssaStmtCache.Clear()
     perPointSSAStmtCache.Clear()
     domainAbsValues.Clear()
@@ -455,7 +391,6 @@ type State<'L, 'ExeCtx
     perVertexOutgoingDefs.Clear()
     defUseMap.Clear()
     useDefMap.Clear()
-    stmtOfBBLs.Clear()
     edgesForProcessing.Clear()
     defSvpToSSAVar.Clear()
     ssaVarToDefSvp.Clear()
@@ -485,7 +420,7 @@ type State<'L, 'ExeCtx
 
   /// Mapping from a program point to `StmtOfBBL`, which is a pair of a Low-UIR
   /// statement and its corresponding vertex that contains the statement.
-  member _.StmtOfBBLs with get() = stmtOfBBLs
+  member _.StmtOfBBLs with get() = stmtCache.StmtOfBBLs
 
   /// Sub-state for the stack-pointer domain.
   member _.StackPointerSubState with get() = spSubState
@@ -551,13 +486,7 @@ type State<'L, 'ExeCtx
         perVertexStackPointerInfos.Remove key |> ignore
         invalidateSSAStmts v exeCtx
       perVertexPossibleExeCtxs.Remove v |> ignore
-    match stmtInfoCache.TryGetValue v with
-    | false, _ ->
-      ()
-    | true, stmtInfos ->
-      for (_, pp) in stmtInfos do
-        stmtOfBBLs.Remove pp |> ignore
-      stmtInfoCache.Remove v |> ignore
+    stmtCache.Remove v
 
   member _.TryFindSSADefStmtFromSSAVar var =
     let svp = getDefSvpFromSSAVar var
@@ -709,65 +638,13 @@ module internal AnalysisCore = begin
       for defSvp in rds do updateDefUseChain state useSvp defSvp
       updateUseDefChain state useSvp rds
 
-  let rec updateWithExpr state defs (tpp: SensitiveProgramPoint<_>) = function
-    | Num(_)
-    | Undefined(_)
-    | FuncName(_) ->
-      ()
-    | Var(_rt, rid, _rstr, _) ->
-      updateChains state (Regular rid) defs tpp
-    | TempVar(_, n, _) ->
-      updateChains state (Temporary n) defs tpp
-    | ExprList(exprs, _) ->
-      for expr in exprs do
-        updateWithExpr state defs tpp expr
-    | Load(_, _, expr, _) ->
-      updateWithExpr state defs tpp expr
-      getStackValue state.StackPointerSubState tpp expr
-      |> Result.iter (fun loc ->
-        let offset = toFrameOffset loc
-        updateChains state (StackLocal offset) defs tpp)
-    | UnOp(_, expr, _) ->
-      updateWithExpr state defs tpp expr
-    | BinOp(_, _, expr1, expr2, _) ->
-      updateWithExpr state defs tpp expr1
-      updateWithExpr state defs tpp expr2
-    | RelOp(_, expr1, expr2, _) ->
-      updateWithExpr state defs tpp expr1
-      updateWithExpr state defs tpp expr2
-    | Ite(expr1, expr2, expr3, _) ->
-      updateWithExpr state defs tpp expr1
-      updateWithExpr state defs tpp expr2
-      updateWithExpr state defs tpp expr3
-    | Cast(_, _, expr, _) ->
-      updateWithExpr state defs tpp expr
-    | Extract(expr, _, _, _) ->
-      updateWithExpr state defs tpp expr
-    | _ ->
-      ()
-
-  let updateWithJmp state defs pp = function
-    | Jmp(expr, _) ->
-      updateWithExpr state defs pp expr
-    | CJmp(expr, target1, target2, _) ->
-      updateWithExpr state defs pp expr
-      updateWithExpr state defs pp target1
-      updateWithExpr state defs pp target2
-    | InterJmp(expr, _jmpKind, _) ->
-      updateWithExpr state defs pp expr
-    | InterCJmp(cond, target1, target2, _) ->
-      updateWithExpr state defs pp cond
-      updateWithExpr state defs pp target1
-      updateWithExpr state defs pp target2
-    | _ ->
-      Terminator.impossible ()
-
-  let isIntraEdge lbl =
-    match lbl with
-    | IntraCJmpTrueEdge
-    | IntraCJmpFalseEdge
-    | IntraJmpEdge -> true
-    | _ -> false
+  let updateWithExpr state defs (tpp: SensitiveProgramPoint<_>) expr =
+    let onVarRead vk = updateChains state vk defs tpp
+    let tryStackOffset e =
+      match getStackValue state.StackPointerSubState tpp e with
+      | Ok loc -> Some(toFrameOffset loc)
+      | Error _ -> None
+    VarKind.iterUses onVarRead tryStackOffset expr
 
   let getIncomingDefs (state: State<_, _>) v exeCtx =
     let k = v, exeCtx

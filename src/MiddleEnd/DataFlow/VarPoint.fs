@@ -68,3 +68,34 @@ module VarKind =
     match kind with
     | Temporary _ -> true
     | _ -> false
+
+  /// Walks the given expression and hands the kind of every variable it reads
+  /// to `onVarRead`. A load reads a stack slot too whenever `tryStackOffset`
+  /// can turn its address into a frame offset.
+  let rec iterUses onVarRead tryStackOffset (e: LowUIR.Expr) =
+    match e with
+    | LowUIR.Var(_, rid, _, _) ->
+      onVarRead (Regular rid)
+    | LowUIR.TempVar(_, n, _) ->
+      onVarRead (Temporary n)
+    | LowUIR.ExprList(exprs, _) ->
+      for e in exprs do iterUses onVarRead tryStackOffset e
+    | LowUIR.Load(_, _, addr, _) ->
+      iterUses onVarRead tryStackOffset addr
+      match tryStackOffset addr with
+      | Some offset -> onVarRead (StackLocal offset)
+      | None -> ()
+    | LowUIR.UnOp(_, e, _)
+    | LowUIR.Cast(_, _, e, _)
+    | LowUIR.Extract(e, _, _, _) ->
+      iterUses onVarRead tryStackOffset e
+    | LowUIR.BinOp(_, _, e1, e2, _)
+    | LowUIR.RelOp(_, e1, e2, _) ->
+      iterUses onVarRead tryStackOffset e1
+      iterUses onVarRead tryStackOffset e2
+    | LowUIR.Ite(e1, e2, e3, _) ->
+      iterUses onVarRead tryStackOffset e1
+      iterUses onVarRead tryStackOffset e2
+      iterUses onVarRead tryStackOffset e3
+    | _ ->
+      ()
