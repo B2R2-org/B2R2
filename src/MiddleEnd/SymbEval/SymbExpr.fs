@@ -27,10 +27,28 @@ namespace B2R2.MiddleEnd.SymbEval
 open B2R2
 open B2R2.BinIR
 
-/// Represents a symbolic bit-vector value.
+/// <namespacedoc>
+///   <summary>
+///   Contains B2R2's symbolic evaluation engine, which runs LowUIR over
+///   symbolic bit-vector expressions rather than concrete values. A state
+///   carries the registers, temporaries and memory of a run along with the
+///   path condition collected so far, and evaluating a statement either
+///   continues from one state or forks into two when a branch turns on a
+///   symbolic condition. Above that sits a bounded symbolic executor that
+///   answers reachability and satisfiability queries about a binary. Path
+///   conditions go out as SMT-LIB and come back as a model, through a solver
+///   the caller supplies: this namespace ships none of its own.
+///   </summary>
+/// </namespacedoc>
 ///
+/// <summary>
+/// Represents a symbolic bit-vector value.
+/// <para>
 /// SymbEval keeps LowUIR condition values as 1-bit bit-vectors. Path
-/// conditions contain expressions that are interpreted as the 1-bit true value.
+/// conditions contain expressions that are interpreted as the 1-bit true
+/// value.
+/// </para>
+/// </summary>
 type SymbExpr =
   /// A concrete bit-vector constant.
   | Const of BitVector

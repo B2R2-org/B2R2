@@ -29,9 +29,9 @@ namespace B2R2.MiddleEnd.ControlFlowGraph
 ///   Contains the control-flow graphs that B2R2's middle-end analyses run on,
 ///   built out of the graph data structures of
 ///   <c>B2R2.MiddleEnd.BinGraph</c>. A CFG comes in one flavor per program
-///   representation -- LowUIR, disassembly, SSA, and the call graph -- each
-///   with its own kind of basic block, but all sharing the same edge kind and
-///   the same abstraction for the functions a call reaches.
+///   representation (LowUIR, disassembly, SSA, and the call graph), each with
+///   its own kind of basic block, but all sharing the same edge kind and the
+///   same abstraction for the functions a call reaches.
 ///   </summary>
 /// </namespacedoc>
 ///
