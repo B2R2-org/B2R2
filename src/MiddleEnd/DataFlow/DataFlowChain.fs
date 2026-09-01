@@ -49,13 +49,17 @@ and ChainGranularity =
 /// Builds Use-Def and Def-Use chains from reaching definition analysis.
 [<RequireQualifiedAccess>]
 module DataFlowChain =
+  /// Returns the definition of u that reaches pp from within the same block,
+  /// which is the one sitting at the largest program point before pp.
   let private computeInBlockDefs pp u (outset: Set<VarPoint>) =
     outset
-    |> Seq.filter (fun vp ->
-      vp.VarKind = u
-      && vp.ProgramPoint < (pp: ProgramPoint))
-    |> Seq.sortBy (fun vp -> vp.ProgramPoint)
-    |> Seq.tryLast (* Picking the def that has the largest position idx *)
+    |> Set.fold (fun (best: VarPoint option) vp ->
+      if vp.VarKind <> u || vp.ProgramPoint >= (pp: ProgramPoint) then
+        best
+      else
+        match best with
+        | Some b when b.ProgramPoint > vp.ProgramPoint -> best
+        | _ -> Some vp) None
 
   /// When there are more than one defs for the same variable, we should choose
   /// the last one.
@@ -120,12 +124,12 @@ module DataFlowChain =
   let private initUDChain cfg (provider: IAbsValProvider<_, _>) =
     (cfg: IDiGraph<LowUIRBasicBlock, _>)
     |> DiGraph.foldVertex (fun map v ->
+      let abs = provider.GetAbsValue v
       v.VData.Internals.LiftedInstructions
       |> Array.fold (fun map lifted ->
         lifted.Stmts
         |> Array.foldi (fun map idx stmt ->
           let pp = ProgramPoint(lifted.Original.Address, idx)
-          let abs = provider.GetAbsValue v
           let uses = extractUses stmt
           uses |> Set.fold (fun map u ->
             let usepoint = { ProgramPoint = pp; VarKind = u }
