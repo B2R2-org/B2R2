@@ -401,21 +401,44 @@ type State<'L, 'ExeCtx
 
   member _.Scheme with get() = scheme
 
-  member _.PerVertexPossibleExeCtxs with get() = perVertexPossibleExeCtxs
+  /// Maps a CFG vertex to the execution contexts it may run under.
+  member _.PerVertexPossibleExeCtxs
+    with get() = perVertexPossibleExeCtxs :> IReadOnlyDictionary<_, _>
 
-  member _.PerVertexStackPointerInfos with get() = perVertexStackPointerInfos
+  member internal _.MutablePerVertexPossibleExeCtxs
+    with get() = perVertexPossibleExeCtxs
+
+  /// Maps a CFG vertex and an execution context to its incoming and outgoing
+  /// stack pointer values.
+  member _.PerVertexStackPointerInfos
+    with get() = perVertexStackPointerInfos :> IReadOnlyDictionary<_, _>
+
+  member internal _.MutablePerVertexStackPointerInfos
+    with get() = perVertexStackPointerInfos
 
   /// Maps a CFG vertex to its incoming definitions.
-  member _.PerVertexIncomingDefs with get() = perVertexIncomingDefs
+  member _.PerVertexIncomingDefs
+    with get() = perVertexIncomingDefs :> IReadOnlyDictionary<_, _>
+
+  member internal _.MutablePerVertexIncomingDefs
+    with get() = perVertexIncomingDefs
 
   /// Maps a CFG vertex to its outgoing definitions.
-  member _.PerVertexOutgoingDefs with get() = perVertexOutgoingDefs
+  member _.PerVertexOutgoingDefs
+    with get() = perVertexOutgoingDefs :> IReadOnlyDictionary<_, _>
+
+  member internal _.MutablePerVertexOutgoingDefs
+    with get() = perVertexOutgoingDefs
 
   /// Maps a variable def to its uses.
-  member _.DefUseMap with get() = defUseMap
+  member _.DefUseMap with get() = defUseMap :> IReadOnlyDictionary<_, _>
+
+  member internal _.MutableDefUseMap with get() = defUseMap
 
   /// Maps a variable use to its definition.
-  member _.UseDefMap with get() = useDefMap
+  member _.UseDefMap with get() = useDefMap :> IReadOnlyDictionary<_, _>
+
+  member internal _.MutableUseDefMap with get() = useDefMap
 
   /// Maps a program point to `StmtOfBBL`, which is a pair of a Low-UIR
   /// statement and its corresponding vertex that contains the statement.
@@ -601,24 +624,24 @@ module internal AnalysisCore = begin
     | true, prevDefIds ->
       for prevDefId in prevDefIds do
         (* Erase the old def-use. *)
-        let prevDefUses = state.DefUseMap[prevDefId]
-        state.DefUseMap[prevDefId] <- Set.remove useId prevDefUses
+        let prevDefUses = state.MutableDefUseMap[prevDefId]
+        state.MutableDefUseMap[prevDefId] <- Set.remove useId prevDefUses
         (* Erase the old use-def which will be overwritten by the new def. *)
-      state.UseDefMap.Remove useId |> ignore
+      state.MutableUseDefMap.Remove useId |> ignore
     | _ ->
       ()
 
   /// Adds a new def-use chain.
   let updateDefUseChain (state: State<_, _>) useId defId =
-    match state.DefUseMap.TryGetValue defId with
-    | false, _ -> state.DefUseMap[defId] <- Set.singleton useId
-    | true, uses -> state.DefUseMap[defId] <- Set.add useId uses
+    match state.MutableDefUseMap.TryGetValue defId with
+    | false, _ -> state.MutableDefUseMap[defId] <- Set.singleton useId
+    | true, uses -> state.MutableDefUseMap[defId] <- Set.add useId uses
 
   /// Overwrites the use-def chain. Unlike `updateDefUseChain`, this strongly
   /// updates the existing use-def chain, as we already know exactly which
   /// definitions are used by the use at the moment.
   let updateUseDefChain (state: State<_, _>) id defs =
-    state.UseDefMap[id] <- defs
+    state.MutableUseDefMap[id] <- defs
 
   let makeFakeDefSvp exeCtx vk =
     let fakePp = ProgramPoint.Fake
@@ -814,7 +837,7 @@ module internal AnalysisCore = begin
     | _ -> None
 
   let addPossibleExeCtx (state: State<_, _>) v exeCtx =
-    let possibleExeCtxs = state.PerVertexPossibleExeCtxs
+    let possibleExeCtxs = state.MutablePerVertexPossibleExeCtxs
     let hasSet = possibleExeCtxs.ContainsKey v
     if not hasSet then
       possibleExeCtxs[v] <- HashSet [ exeCtx ]
@@ -872,9 +895,9 @@ module internal AnalysisCore = begin
       let srcOutSP = getOutSP state src srcExeCtx
       let dstOutSP = evaluateRecentSP state dstOutDefs'
       let dstSPInfo = srcOutSP, dstOutSP
-      state.PerVertexStackPointerInfos[dstKey] <- dstSPInfo
-      state.PerVertexIncomingDefs[dstKey] <- dstDefs
-      state.PerVertexOutgoingDefs[dstKey] <- dstOutDefs'
+      state.MutablePerVertexStackPointerInfos[dstKey] <- dstSPInfo
+      state.MutablePerVertexIncomingDefs[dstKey] <- dstDefs
+      state.MutablePerVertexOutgoingDefs[dstKey] <- dstOutDefs'
       state.InvalidateSSAStmts(dst, dstExeCtx) (* Caches can be obsolete. *)
       for succ in (g: IDiGraph<_, _>).GetSuccs dst do
         (queue: UniqueQueue<_>).Enqueue((dst, dstExeCtx), succ)
@@ -908,7 +931,7 @@ module internal AnalysisCore = begin
       ()
     else
       subState.SetAbsValue(svp, subState.Join(prev, curr))
-      match (defUseMap: Dictionary<_, _>).TryGetValue svp with
+      match (defUseMap: IReadOnlyDictionary<_, _>).TryGetValue svp with
       | false, _ ->
         ()
       | true, uses ->

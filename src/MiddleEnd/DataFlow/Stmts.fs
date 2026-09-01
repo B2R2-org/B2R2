@@ -54,7 +54,7 @@ type LowUIRStmtCache() =
 
   /// Maps a program point to `StmtOfBBL`, which is a pair of a Low-UIR
   /// statement and the vertex that contains the statement.
-  member _.StmtOfBBLs with get() = stmtOfBBLs
+  member _.StmtOfBBLs with get() = stmtOfBBLs :> IReadOnlyDictionary<_, _>
 
   /// Returns the statements of the given vertex, lifting them on the first
   /// request and remembering them afterwards.

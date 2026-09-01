@@ -351,22 +351,36 @@ type State<'Lattice when 'Lattice: equality>
   member _.Scheme with get() = scheme
 
   /// Maps a CFG vertex to its phi information.
-  member _.PhiInfos with get() = phiInfos
+  member _.PhiInfos with get() = phiInfos :> IReadOnlyDictionary<_, _>
+
+  member internal _.MutablePhiInfos with get() = phiInfos
 
   /// Maps a CFG vertex to its incoming definitions.
-  member _.PerVertexIncomingDefs with get() = perVertexIncomingDefs
+  member _.PerVertexIncomingDefs
+    with get() = perVertexIncomingDefs :> IReadOnlyDictionary<_, _>
+
+  member internal _.MutablePerVertexIncomingDefs
+    with get() = perVertexIncomingDefs
 
   /// Maps a CFG vertex to its outgoing definitions.
-  member _.PerVertexOutgoingDefs with get() = perVertexOutgoingDefs
+  member _.PerVertexOutgoingDefs
+    with get() = perVertexOutgoingDefs :> IReadOnlyDictionary<_, _>
+
+  member internal _.MutablePerVertexOutgoingDefs
+    with get() = perVertexOutgoingDefs
 
   /// Maps a variable def to its uses.
-  member _.DefUseMap with get() = defUseMap
+  member _.DefUseMap with get() = defUseMap :> IReadOnlyDictionary<_, _>
+
+  member internal _.MutableDefUseMap with get() = defUseMap
 
   /// Maps a variable use to its definition.
-  member _.UseDefMap with get() = useDefMap
+  member _.UseDefMap with get() = useDefMap :> IReadOnlyDictionary<_, _>
+
+  member internal _.MutableUseDefMap with get() = useDefMap
 
   /// Maps an SSA variable to its corresponding variable point.
-  member _.SSAVarToVp with get() = ssaVarToVp
+  member _.SSAVarToVp with get() = ssaVarToVp :> IReadOnlyDictionary<_, _>
 
   /// Maps a program point to `StmtOfBBL`, which is a pair of a Low-UIR
   /// statement and its corresponding vertex that contains the statement.
@@ -503,9 +517,9 @@ module internal AnalysisCore = begin
     match state.DequeueVertexForRemoval() with
     | true, v when state.PerVertexIncomingDefs.ContainsKey v ->
       state.RemoveStmtsOf v
-      state.PhiInfos.Remove v |> ignore
-      state.PerVertexIncomingDefs.Remove v |> ignore
-      state.PerVertexOutgoingDefs.Remove v |> ignore
+      state.MutablePhiInfos.Remove v |> ignore
+      state.MutablePerVertexIncomingDefs.Remove v |> ignore
+      state.MutablePerVertexOutgoingDefs.Remove v |> ignore
       removeInvalidChains state
     | true, _ ->
       removeInvalidChains state
@@ -544,7 +558,7 @@ module internal AnalysisCore = begin
     workset
 
   let placePhi state v varKind =
-    let phiInfos = (state: State<_>).PhiInfos
+    let phiInfos = (state: State<_>).MutablePhiInfos
     if not <| phiInfos.ContainsKey v then phiInfos[v] <- PhiInfo () else ()
     let phiInfo = phiInfos[v]
     if not <| phiInfo.ContainsKey varKind then phiInfo[varKind] <- Dictionary ()
@@ -601,19 +615,19 @@ module internal AnalysisCore = begin
     match (state: State<_>).UseDefMap.TryGetValue useVp with
     | true, prevDef when prevDef.ProgramPoint <> defVp.ProgramPoint ->
       (* Erase the old def-use. *)
-      state.DefUseMap[prevDef].Remove useVp |> ignore
+      state.MutableDefUseMap[prevDef].Remove useVp |> ignore
       (* Erase the old use-def which will be overwritten by the new def. *)
-      state.UseDefMap.Remove useVp |> ignore
+      state.MutableUseDefMap.Remove useVp |> ignore
     | _ ->
       ()
 
   let updateDefUseChain state useVp defVp =
-    match (state: State<_>).DefUseMap.TryGetValue defVp with
-    | false, _ -> state.DefUseMap[defVp] <- HashSet [ useVp ]
+    match (state: State<_>).MutableDefUseMap.TryGetValue defVp with
+    | false, _ -> state.MutableDefUseMap[defVp] <- HashSet [ useVp ]
     | true, uses -> uses.Add useVp |> ignore
 
   let updateUseDefChain state useVp defVp =
-    (state: State<_>).UseDefMap[useVp] <- defVp
+    (state: State<_>).MutableUseDefMap[useVp] <- defVp
 
   /// Gets a fake variable point for the given variable kind. This is used when
   /// there is no definition for the given variable kind (e.g., function
@@ -718,8 +732,8 @@ module internal AnalysisCore = begin
     let outs = updateChainsWithBBLStmts g state v ins
     for child in (domTree: DominatorTree<_>).GetChildren v do
       update g state domTree visited child outs
-    state.PerVertexIncomingDefs[v] <- ins
-    state.PerVertexOutgoingDefs[v] <- outs
+    state.MutablePerVertexIncomingDefs[v] <- ins
+    state.MutablePerVertexOutgoingDefs[v] <- outs
 
   let getOutgoingDefs (state: State<_>) v =
     match state.PerVertexOutgoingDefs.TryGetValue v with
@@ -761,7 +775,8 @@ module internal AnalysisCore = begin
     | true, oldDef when oldDef = incomingDef ->
       () (* already added *)
     | true, oldDef ->
-      state.DefUseMap[oldDef].Remove useSite |> ignore (* remove the old one *)
+      (* Remove the old one. *)
+      state.MutableDefUseMap[oldDef].Remove useSite |> ignore
       inDefs[incomingPP] <- incomingDef
       updateDefUseChain state useSite incomingDef
     | false, _ ->
@@ -810,7 +825,7 @@ module internal AnalysisCore = begin
       ()
     else
       subState.SetAbsValue(vp, subState.Join(prev, curr))
-      match (defUseMap: Dictionary<_, _>).TryGetValue vp with
+      match (defUseMap: IReadOnlyDictionary<_, _>).TryGetValue vp with
       | false, _ ->
         ()
       | true, defs ->

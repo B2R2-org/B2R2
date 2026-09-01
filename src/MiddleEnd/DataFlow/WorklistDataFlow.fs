@@ -60,7 +60,10 @@ type State<'WorkUnit, 'Lattice, 'V
 
   /// Maps a work unit to the abstract value the analysis has settled on for
   /// it.
-  member _.AbsValues with get() = absValues
+  member _.AbsValues with get() = absValues :> IReadOnlyDictionary<_, _>
+
+  /// Records the abstract value that the given work unit settled on.
+  member internal _.SetAbsValue(work, absValue) = absValues[work] <- absValue
 
   /// Enqueues the given work unit unless it is already waiting.
   member _.PushWork work = pushWork work
@@ -103,6 +106,6 @@ let compute initialWorkList (lattice: ILattice<_>) (sch: IScheme<_, _>) state =
     if lattice.Subsume(absValue, transferedAbsValue) then
       ()
     else
-      state.AbsValues[work] <- transferedAbsValue
+      state.SetAbsValue(work, transferedAbsValue)
       for work in sch.GetNextWorks work do state.PushWork work
   state
