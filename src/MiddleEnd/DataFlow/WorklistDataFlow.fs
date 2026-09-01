@@ -58,11 +58,22 @@ type State<'WorkUnit, 'Lattice, 'V
   /// an outside enqueue would not update.
   member _.HasWork with get() = workList.Count > 0
 
+  /// Maps a work unit to the abstract value the analysis has settled on for
+  /// it.
   member _.AbsValues with get() = absValues
 
+  /// Enqueues the given work unit unless it is already waiting.
   member _.PushWork work = pushWork work
 
+  /// Takes the next work unit off the work list.
   member _.PopWork() = popWork ()
+
+  /// Forgets every abstract value along with any work left over, so that the
+  /// next run starts from the bottom of the lattice again.
+  member _.Reset() =
+    workList.Clear()
+    workSet.Clear()
+    absValues.Clear()
 
   interface IAbsValProvider<'WorkUnit, 'Lattice> with
     member _.GetAbsValue absLoc =

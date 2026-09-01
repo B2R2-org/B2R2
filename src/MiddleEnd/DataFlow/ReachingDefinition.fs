@@ -38,7 +38,8 @@ type InsAndOuts =
     /// The set of variable points that are defined at the current vertex.
     Outs: Set<VarPoint> }
 
-/// Computes reaching definitions for each vertex in a CFG.
+/// Computes reaching definitions for each vertex in a CFG. Each call to
+/// `Compute` starts over, so one instance can serve a CFG that keeps changing.
 type ReachingDefinitionAnalysis() =
   let gens = Dictionary<IVertex<LowUIRBasicBlock>, Set<VarPoint>>()
 
@@ -62,6 +63,8 @@ type ReachingDefinitionAnalysis() =
     ) []
 
   let initGensAndKills (g: IDiGraph<LowUIRBasicBlock, _>) =
+    gens.Clear()
+    kills.Clear()
     let vpPerVar = Dictionary<VarKind, Set<VarPoint>>()
     let vpPerVertex = Dictionary<IVertex<LowUIRBasicBlock>, VarPoint list>()
     g |> DiGraph.iterVertex (fun v ->
@@ -112,6 +115,7 @@ type ReachingDefinitionAnalysis() =
                                 InsAndOuts,
                                 LowUIRBasicBlock> with
     member _.Compute cfg =
+      st.Reset()
       initGensAndKills cfg
       let lst = List<IVertex<LowUIRBasicBlock>>()
       Traversal.DFS.iterRevPostorder cfg lst.Add

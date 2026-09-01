@@ -163,6 +163,23 @@ type DataFlowTests() =
     Assert.AreEqual(Set.singleton (reg 0x15UL 1 Register.ECX), ins)
 
   [<TestMethod>]
+  member _.``Reaching Definitions Test 3``() =
+    let brew = Binaries.loadOne Binaries.sample4
+    let cfg = brew.Functions[0UL].CFG
+    let at addr =
+      cfg.FindVertexBy(fun b -> b.VData.Internals.PPoint.Address = addr)
+    let dfa = ReachingDefinitionAnalysis() :> IDataFlowComputable<_, _, _>
+    dfa.Compute cfg |> ignore
+    cfg.RemoveEdge(at 0x15UL, at 0xEUL)
+    (* Cutting the back edge strands the sole definition of ECX, so reusing the
+       instance must not carry the answer of the older graph over. *)
+    let state = dfa.Compute cfg
+    let rd = state.GetAbsValue(at 0x21UL)
+    let ecx = Regular(Register.toRegID Register.ECX)
+    let ins = rd.Ins |> Set.filter (fun vp -> vp.VarKind = ecx)
+    Assert.AreEqual<Set<VarPoint>>(Set.empty, ins)
+
+  [<TestMethod>]
   member _.``Use-Def Test 1``() =
     let brew = Binaries.loadOne Binaries.sample1
     let cfg = brew.Functions[0UL].CFG
