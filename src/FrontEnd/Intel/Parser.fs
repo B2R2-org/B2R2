@@ -104,13 +104,15 @@ type IntelParser(wordSz, reader) =
   /// once per candidate of every instruction, and building an array to ask
   /// it cost more than the question.
   let isAllOprSize8 (operands: OperandType[]) =
-    operands.Length > 0
-    && operands
-       |> Array.forall (fun o ->
-         match o with
-         | RM sz | Reg(sz, _) | Mem sz | Imm sz | Rel sz | Moffs sz
-         | Far sz -> sz = 8<rt>
-         | _ -> false)
+    let mutable allEight = operands.Length > 0
+    let mutable i = 0
+    while allEight && i < operands.Length do
+      (match operands[i] with
+       | RM sz | Reg(sz, _) | Mem sz | Imm sz | Rel sz | Moffs sz
+       | Far sz -> allEight <- sz = 8<rt>
+       | _ -> allEight <- false)
+      i <- i + 1
+    allEight
 
   /// The ModRM.reg digit a row spends on naming itself, or -1 where it spends
   /// none. Rows that name different digits are different instructions sharing
@@ -338,7 +340,11 @@ type IntelParser(wordSz, reader) =
   /// Returns the widest declared operand size in the descriptors, or 0<rt>
   /// when none of them carries one.
   let maxOprSize (insCore: InstructionCore) =
-    insCore.Operands |> Array.fold (fun acc o -> max acc (oprWidth o)) 0<rt>
+    let operands = insCore.Operands
+    let mutable widest = 0<rt>
+    for i = 0 to operands.Length - 1 do
+      widest <- max widest (oprWidth operands[i])
+    widest
 
   /// Returns true when 66h is what picks this variant out of its slot, i.e.
   /// the slot also holds the same opcode with a wider operand. Opcodes whose
