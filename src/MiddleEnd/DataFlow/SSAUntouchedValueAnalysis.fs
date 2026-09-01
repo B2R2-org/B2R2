@@ -43,7 +43,7 @@ type SSAUntouchedValueAnalysis(hdl: BinHandle) =
       let str = hdl.RegisterFactory.GetRegisterName rid
       let var = { Kind = RegVar(rt, rid, str); Identifier = 0 }
       let vkind = VarKind.ofSSAVarKind var.Kind
-      state.SetRegValueWithoutAdding(var,
+      state.SeedRegValue(var,
         UntouchedValueDomain.Untouched(RegisterTag vkind))
     )
     match hdl.RegisterFactory.StackPointer with
@@ -51,7 +51,7 @@ type SSAUntouchedValueAnalysis(hdl: BinHandle) =
       let rt = hdl.RegisterFactory.GetRegType sp
       let str = hdl.RegisterFactory.GetRegisterName sp
       let var = { Kind = RegVar(rt, sp, str); Identifier = 0 }
-      state.SetRegValueWithoutAdding(var, UntouchedValueDomain.Touched)
+      state.SeedRegValue(var, UntouchedValueDomain.Touched)
       state
     | None ->
       state
@@ -111,7 +111,7 @@ type SSAUntouchedValueAnalysis(hdl: BinHandle) =
           | Phi(var, ns) -> evalPhi state ssaCFG blk var ns
           | Jmp _ -> evalJmp state ssaCFG blk
           | LMark _ | ExternalCall _ | SideEffect _ -> ()
-        member _.UpdateMemFromBinaryFile(_rt, _addr) =
+        member _.ReadMemFromBinaryFile(_rt, _addr) =
           UntouchedValueDomain.Touched
         member _.GetBaseCase v = getBaseCase v
         member _.EvalExpr e = evalExpr state e }

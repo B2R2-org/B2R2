@@ -397,7 +397,7 @@ let sample4 = Binary(code4, Architecture.Intel, WordSize.Bit32)
 (*
   Example 5: Two values loaded from memory, each joined with a constant right
   after. The first load is word-sized and aligned, so it is answered by the
-  scheme's UpdateMemFromBinaryFile; the second is narrower than a word, so
+  scheme's ReadMemFromBinaryFile; the second is narrower than a word, so
   GetMemValue turns it down. Both values are unknown, so neither join may
   come out as a constant.
 

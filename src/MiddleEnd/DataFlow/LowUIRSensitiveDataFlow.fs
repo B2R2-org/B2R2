@@ -443,9 +443,10 @@ type State<'L, 'ExeCtx
   /// processed.
   member _.MarkEdgeAsPending(s, d) = edgesForProcessing.Add(s, d) |> ignore
 
-  /// Marks the given vertex as removal, which means that the vertex needs to be
-  /// removed. Returns false if the vertex is already marked for removal.
-  member _.MarkVertexAsRemoval v = verticesForRemoval.Add v
+  /// Marks the given vertex for removal, so that the next run forgets what
+  /// it knows of the vertex. It returns false when the vertex was already
+  /// marked.
+  member _.TryMarkVertexAsRemoval v = verticesForRemoval.Add v
 
   /// Checks if the given vertex is pending for processing.
   member _.IsEdgePending(src, dst) = edgesForProcessing.Contains(src, dst)
@@ -499,9 +500,13 @@ type State<'L, 'ExeCtx
 
   member _.InvalidateSSAStmts(v, exeCtx) = invalidateSSAStmts v exeCtx
 
-  member _.SSAVarToDefSVP var = getDefSvpFromSSAVar var
+  /// Returns the sensitive variable point that defines the given SSA
+  /// variable.
+  member _.GetDefSvpFromSSAVar var = getDefSvpFromSSAVar var
 
-  member _.DefSVPToSSAVar svp = getSSAVarFromDefSvp svp
+  /// Returns the SSA variable standing for the given definition, minting
+  /// one when the definition has none yet.
+  member _.GetSSAVarFromDefSvp svp = getSSAVarFromDefSvp svp
 
   member _.EvalExpr(pp, expr) = evaluator.EvalExpr(pp, expr)
 

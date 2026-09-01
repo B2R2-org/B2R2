@@ -153,7 +153,7 @@ module private EVMCFGRecovery =
   let hasMultipleDefSites (state: State<_, _>) vars =
     vars
     |> Seq.distinctBy (fun var ->
-      let svp = state.SSAVarToDefSVP var
+      let svp = state.GetDefSvpFromSSAVar var
       let spp = svp.SensitiveProgramPoint
       spp.ProgramPoint)
     |> Seq.length > 1
@@ -424,7 +424,7 @@ module private EVMCFGRecovery =
       let fakeSPP = { ProgramPoint = fakePP; ExecutionContext = dummyExeCtx }
       let dummyVarKind = Temporary -1
       let fakeSVP = { SensitiveProgramPoint = fakeSPP; VarKind = dummyVarKind }
-      let fakeVar = state.DefSVPToSSAVar fakeSVP
+      let fakeVar = state.GetSSAVarFromDefSvp fakeSVP
       tryExtractPathCondition state fakeVar cond
     | _ ->
       Terminator.impossible ()
@@ -508,7 +508,7 @@ module private EVMCFGRecovery =
         None
       | Some(var, b, _isConstant) ->
         let b = if kind.IsInterCJmpFalseEdge then not b else b
-        let defSvp = state.SSAVarToDefSVP var
+        let defSvp = state.GetDefSvpFromSSAVar var
         let defPP = defSvp.SensitiveProgramPoint.ProgramPoint
         let key = defPP
         let prevConditions = exeCtx.Conditions
@@ -828,7 +828,7 @@ module private EVMCFGRecovery =
     let visited = HashSet()
     let state = ctx.UserContext.CP.State
     let pendingFn s d = state.MarkEdgeAsPending(s, d)
-    let removalFn v = state.MarkVertexAsRemoval v
+    let removalFn v = state.TryMarkVertexAsRemoval v
     traverseForRemovalMark visited g pendingFn removalFn [ v ]
 
   let resumeAnalysis ctx pp callbackAction =

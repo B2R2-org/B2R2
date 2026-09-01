@@ -170,7 +170,7 @@ let findRootVarsFromExpr state e =
   |> findRootVars state []
 
 let getDefSiteVertex (g: IDiGraph<_, _>) (state: State<_, _>) var =
-  let svp = state.SSAVarToDefSVP var
+  let svp = state.GetDefSvpFromSSAVar var
   let spp = svp.SensitiveProgramPoint
   let pp = spp.ProgramPoint
   if pp.IsFake then
@@ -191,7 +191,7 @@ let constantFoldSensitiveVPs (state: State<_, _>) vars =
 
 let constantFoldSSAVars (state: State<_, _>) vars =
   vars
-  |> List.map state.SSAVarToDefSVP
+  |> List.map state.GetDefSvpFromSSAVar
   |> constantFoldSensitiveVPs state
 
 let private tryJoinExprs e1 e2 =

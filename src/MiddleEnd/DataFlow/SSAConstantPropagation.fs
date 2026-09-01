@@ -111,7 +111,7 @@ type SSAConstantPropagation(hdl: BinHandle) =
           | Phi(var, ns) -> evalPhi state ssaCFG blk var ns
           | Jmp _ -> evalJmp state ssaCFG blk
           | LMark _ | ExternalCall _ | SideEffect _ -> ()
-        member _.UpdateMemFromBinaryFile(_rt, _addr) =
+        member _.ReadMemFromBinaryFile(_rt, _addr) =
           ConstantDomain.NotAConst
         member _.GetBaseCase _ = ConstantDomain.NotAConst
         member _.EvalExpr e = evalExpr state e }
@@ -125,7 +125,7 @@ type SSAConstantPropagation(hdl: BinHandle) =
         let str = hdl.RegisterFactory.GetRegisterName sp
         let var = { Kind = RegVar(rt, sp, str); Identifier = 0 }
         let spVal = BitVector(InitialStackPointer, rt)
-        state.SetRegValueWithoutAdding(var, ConstantDomain.Const spVal)
+        state.SeedRegValue(var, ConstantDomain.Const spVal)
         state
       | None ->
         state

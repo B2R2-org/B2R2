@@ -131,8 +131,9 @@ type State<'Lattice when 'Lattice: equality>
     | false, _ when var.Identifier = 0 -> scheme.GetBaseCase var
     | false, _ -> lattice.Bottom
 
-  /// Sets register value without adding it to the worklist.
-  member _.SetRegValueWithoutAdding(var: Variable, value: 'Lattice) =
+  /// Seeds the abstract value of the given register without waking the
+  /// worklist, which is how an analysis states what holds on entry.
+  member _.SeedRegValue(var: Variable, value: 'Lattice) =
     regValues[var] <- value
 
   /// Checks if the register has been initialized.
@@ -156,7 +157,7 @@ type State<'Lattice when 'Lattice: equality>
     match memValues.TryGetValue var.Identifier with
     | true, map when isAligned rt addr -> Map.tryFind addr map
     | _ -> None
-    |> Option.defaultWith (fun () -> scheme.UpdateMemFromBinaryFile(rt, addr))
+    |> Option.defaultWith (fun () -> scheme.ReadMemFromBinaryFile(rt, addr))
 
   /// Gets the list of executed source vertices.
   member _.GetExecutedSources(ssaCFG, blk: IVertex<_>, srcIDs) =
@@ -211,7 +212,7 @@ and IScheme<'Lattice when 'Lattice: equality> =
   /// return the top of its lattice: a memory cell never receives a definition
   /// that would later raise a bottom, so a bottom here stays bottom and gets
   /// absorbed by every join.
-  abstract UpdateMemFromBinaryFile: RegType * Addr -> 'Lattice
+  abstract ReadMemFromBinaryFile: RegType * Addr -> 'Lattice
 
   /// Returns the abstract value of a variable that the function never defines,
   /// i.e. one that comes in from the outside. Such a variable never receives a
