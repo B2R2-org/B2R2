@@ -129,8 +129,10 @@ type SSAStackPointerPropagation(hdl: BinHandle) =
       | None ->
         state
 
+  /// Returns the underlying state of this analysis.
+  member _.State with get() = state
+
   interface IDataFlowComputable<SSAVarPoint,
                                 StackPointerDomain.Lattice,
-                                State<StackPointerDomain.Lattice>,
                                 SSABasicBlock> with
     member _.Compute cfg = compute cfg state

@@ -55,7 +55,7 @@ type State<'Lattice when 'Lattice: equality>
   /// its own mapping because SSA expressions do not track data dependencies
   /// between memory cells. That is, memory cells (even though their addresses
   /// are constant) do not have an SSA edge to its dependent memory cells.
-  let memValues = Dictionary<SSAMemID, Map<Addr, 'Lattice>>()
+  let memValues = Dictionary<int, Map<Addr, 'Lattice>>()
 
   /// Executable edges from a vertex to another. If there is no element in this
   /// set, the edge is not executable.
@@ -193,11 +193,9 @@ and SSAVarPoint =
   /// etc.
   | RegularSSAVar of Variable
   /// Memory variable. Since SSA.Variable doesn't have a field for address, we
-  /// use this type to represent a memory variable at a specific address.
-  | MemorySSAVar of SSAMemID * Addr
-
-/// An ID of an SSA memory instance.
-and private SSAMemID = int
+  /// use this type to represent a memory variable at a specific address. The
+  /// first field is the ID of the SSA memory instance.
+  | MemorySSAVar of memId: int * addr: Addr
 
 let processFlow (state: State<_>) ssaCFG =
   match state.FlowWorkList.TryDequeue() with

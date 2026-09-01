@@ -130,8 +130,10 @@ type SSAConstantPropagation(hdl: BinHandle) =
       | None ->
         state
 
+  /// Returns the underlying state of this analysis.
+  member _.State with get() = state
+
   interface IDataFlowComputable<SSAVarPoint,
                                 ConstantDomain.Lattice,
-                                State<ConstantDomain.Lattice>,
                                 SSABasicBlock> with
     member _.Compute cfg = compute cfg state

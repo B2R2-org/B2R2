@@ -159,7 +159,7 @@ module DataFlowChain =
   /// definition analysis.
   [<CompiledName("Compute")>]
   let compute cfg isDisasmLevel =
-    let rd = ReachingDefinitionAnalysis() :> IDataFlowComputable<_, _, _, _>
+    let rd = ReachingDefinitionAnalysis() :> IDataFlowComputable<_, _, _>
     let provider = rd.Compute cfg
     let udchain = initUDChain cfg provider |> filterDisasm isDisasmLevel
     let duchain = initDUChain udchain |> filterDisasm isDisasmLevel

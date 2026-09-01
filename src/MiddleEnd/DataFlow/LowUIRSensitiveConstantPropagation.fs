@@ -122,15 +122,13 @@ type LowUIRSensitiveConstantPropagation<'ExeCtx when 'ExeCtx: comparison>
                              ConstantDomain.Lattice> with
           member _.EvalExpr(pp, expr) = evaluateExpr state pp expr }
 
+  /// Returns the underlying state of this analysis.
   member _.State with get() = state
 
   /// Evaluates the given expression at the given sensitive program point.
   member _.EvalExpr(spp, e) = evaluateExpr state spp e
 
-  member _.Reset() = state.Reset()
-
   interface IDataFlowComputable<SensitiveVarPoint<'ExeCtx>,
                                 ConstantDomain.Lattice,
-                                State<ConstantDomain.Lattice, 'ExeCtx>,
                                 LowUIRBasicBlock> with
     member _.Compute cfg = compute cfg state

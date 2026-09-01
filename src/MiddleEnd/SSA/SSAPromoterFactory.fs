@@ -127,8 +127,9 @@ module private SSAPromoterFactory =
   /// Propagates the stack pointer through the given SSACFG.
   let propagateStackPointer hdl ssaCFG =
     let spp = SSAStackPointerPropagation hdl
-    let dfa = spp :> IDataFlowComputable<_, _, _, _>
-    dfa.Compute ssaCFG
+    let dfa = spp :> IDataFlowComputable<_, _, _>
+    dfa.Compute ssaCFG |> ignore
+    spp.State
 
   /// Rewrites every stack slot the given propagation knows the address of
   /// into a variable of its own.

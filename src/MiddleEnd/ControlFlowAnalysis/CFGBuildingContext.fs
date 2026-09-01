@@ -107,7 +107,7 @@ with
     this.Vertices.Clear()
     this.CallerVertices.Clear()
     this.CFG <- LowUIRCFG.create this.CFG.ImplementationType
-    this.CP.Reset()
+    this.CP.State.Reset()
     (* N.B. We should keep the value of `NonReturningStatus` (i.e., leave the
        below line commented out) because we should be able to compare the
        difference before/after rebuilding the CFG. *)

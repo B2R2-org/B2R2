@@ -36,13 +36,13 @@ type IAbsValProvider<'AbsLoc, 'AbsVal when 'AbsLoc: equality> =
 /// Represents a data-flow analysis that runs under the abstract interpretation
 /// framework, where abstract values of type 'AbsVal are stored at abstract
 /// locations of type 'AbsLoc.
-type IDataFlowComputable<'AbsLoc, 'AbsVal, 'Provider, 'V
+type IDataFlowComputable<'AbsLoc, 'AbsVal, 'V
   when 'AbsLoc: equality
-  and 'Provider :> IAbsValProvider<'AbsLoc, 'AbsVal>
   and 'V: equality> =
   /// Performs the dataflow analysis on the given CFG until a fixed point is
   /// reached.
-  abstract Compute: cfg: IDiGraph<'V, CFGEdgeKind> -> 'Provider
+  abstract Compute:
+    cfg: IDiGraph<'V, CFGEdgeKind> -> IAbsValProvider<'AbsLoc, 'AbsVal>
 
 /// Represents an interface for a lattice used in abstract interpretation.
 type ILattice<'AbsVal when 'AbsVal: equality> =

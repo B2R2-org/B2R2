@@ -122,11 +122,11 @@ type DataFlowTests() =
   member _.``Reaching Definitions Test 1``() =
     let brew = Binaries.loadOne Binaries.sample1
     let cfg = brew.Functions[0UL].CFG
-    let dfa = ReachingDefinitionAnalysis() :> IDataFlowComputable<_, _, _, _>
+    let dfa = ReachingDefinitionAnalysis() :> IDataFlowComputable<_, _, _>
     let state = dfa.Compute cfg
     let v = cfg.FindVertexBy(fun b -> b.VData.Internals.PPoint.Address = 0xEUL)
     (* v is the second vertex of the CFG. *)
-    let rd = (state :> IAbsValProvider<_, _>).GetAbsValue v
+    let rd = state.GetAbsValue v
     let ins = rd.Ins |> Set.filter isRegular
     let solution =
       [ reg 0x0UL 1 Register.EDX
@@ -152,12 +152,12 @@ type DataFlowTests() =
   member _.``Reaching Definitions Test 2``() =
     let brew = Binaries.loadOne Binaries.sample4
     let cfg = brew.Functions[0UL].CFG
-    let dfa = ReachingDefinitionAnalysis() :> IDataFlowComputable<_, _, _, _>
+    let dfa = ReachingDefinitionAnalysis() :> IDataFlowComputable<_, _, _>
     let state = dfa.Compute cfg
     let v = cfg.FindVertexBy(fun b -> b.VData.Internals.PPoint.Address = 0x21UL)
     (* The sole definition of ECX lives in the innermost block, so it reaches
        the exit block only after two rounds of propagation. *)
-    let rd = (state :> IAbsValProvider<_, _>).GetAbsValue v
+    let rd = state.GetAbsValue v
     let ecx = Regular(Register.toRegID Register.ECX)
     let ins = rd.Ins |> Set.filter (fun vp -> vp.VarKind = ecx)
     Assert.AreEqual(Set.singleton (reg 0x15UL 1 Register.ECX), ins)
@@ -202,7 +202,7 @@ type DataFlowTests() =
     let promoter = SSAPromoterFactory.Create brew.BinHandle
     let g = (lifter.Lift cfg |> promoter.Promote).Graph
     let cp = SSAConstantPropagation brew.BinHandle
-    let dfa = cp :> IDataFlowComputable<_, _, _, _>
+    let dfa = cp :> IDataFlowComputable<_, _, _>
     let state = dfa.Compute g
     [ ssaRegInitial Register.RSP 64<rt> |> cmp <| mkConst 0x80000000u 64<rt>
       ssaRegInitial Register.RBP 64<rt> |> cmp <| ConstantDomain.NotAConst
@@ -221,7 +221,7 @@ type DataFlowTests() =
       ssaReg g Register.RSP 0x3bUL 64<rt> |> cmp <| mkConst 0x80000000u 64<rt>
       ssaReg g Register.RSP 0x3CUL 64<rt> |> cmp <| mkConst 0x80000008u 64<rt> ]
     |> List.iter (fun (var, ans) ->
-      let out = (state :> IAbsValProvider<_, _>).GetAbsValue var
+      let out = state.GetAbsValue var
       Assert.AreEqual<ConstantDomain.Lattice>(ans, out))
 
   [<TestMethod>]
@@ -232,14 +232,14 @@ type DataFlowTests() =
     let promoter = SSAPromoterFactory.Create brew.BinHandle
     let g = (lifter.Lift cfg |> promoter.Promote).Graph
     let cp = SSAConstantPropagation brew.BinHandle
-    let dfa = cp :> IDataFlowComputable<_, _, _, _>
+    let dfa = cp :> IDataFlowComputable<_, _, _>
     let state = dfa.Compute g
     (* A value read from memory is unknown, so joining it with a constant
        must not come out as that constant. *)
     [ ssaReg g Register.RAX 0x18UL 64<rt> |> cmp <| ConstantDomain.NotAConst
       ssaReg g Register.RBX 0x30UL 64<rt> |> cmp <| ConstantDomain.NotAConst ]
     |> List.iter (fun (var, ans) ->
-      let out = (state :> IAbsValProvider<_, _>).GetAbsValue var
+      let out = state.GetAbsValue var
       Assert.AreEqual<ConstantDomain.Lattice>(ans, out))
 
   [<TestMethod>]
@@ -250,11 +250,11 @@ type DataFlowTests() =
     let promoter = SSAPromoterFactory.Create brew.BinHandle
     let g = (lifter.Lift cfg |> promoter.Promote).Graph
     let cp = SSAConstantPropagation brew.BinHandle
-    let state = (cp :> IDataFlowComputable<_, _, _, _>).Compute g
+    let state = (cp :> IDataFlowComputable<_, _, _>).Compute g
     (* EAX comes in from the caller on one path, so joining it with 3 must
        not come out as 3. *)
     let vp = ssaReg g Register.EAX 0x9UL 32<rt>
-    let out = (state :> IAbsValProvider<_, _>).GetAbsValue vp
+    let out = state.GetAbsValue vp
     Assert.AreEqual<ConstantDomain.Lattice>(ConstantDomain.NotAConst, out)
 
 #if !EMULATION
@@ -264,7 +264,7 @@ type DataFlowTests() =
     let hdl = brew.BinHandle
     let cfg = brew.Functions[0UL].CFG
     let varDfa = ConstantPropagation(hdl, cfg.Vertices)
-    let dfa = varDfa :> IDataFlowComputable<_, _, _, _>
+    let dfa = varDfa :> IDataFlowComputable<_, _, _>
     let state = dfa.Compute cfg
     let rbp = -8 (* stack offset of old rbp *)
     [ irStk 0xbUL 1 rbp |> cmp <| ConstantDomain.Undef
@@ -274,7 +274,7 @@ type DataFlowTests() =
       irStk 0x28UL 1 (rbp - 0x8) |> cmp <| mkConst 0x2u 32<rt>
       irReg 0x2fUL 1 Register.RDX |> cmp <| ConstantDomain.NotAConst ]
     |> List.iter (fun (vp, ans) ->
-      let out = (state :> IAbsValProvider<_, _>).GetAbsValue vp
+      let out = state.GetAbsValue vp
       Assert.AreEqual<ConstantDomain.Lattice>(ans, out))
 
   [<TestMethod>]
@@ -282,11 +282,11 @@ type DataFlowTests() =
     let brew = Binaries.loadOne Binaries.sample6
     let cfg = brew.Functions[0UL].CFG
     let cp = ConstantPropagation(brew.BinHandle, cfg.Vertices)
-    let state = (cp :> IDataFlowComputable<_, _, _, _>).Compute cfg
+    let state = (cp :> IDataFlowComputable<_, _, _>).Compute cfg
     (* Same as above, on the LowUIR framework: the phi at 0x9 joins the
        caller's EAX with 3. *)
     let vp = irReg 0x9UL 0 Register.EAX
-    let out = (state :> IAbsValProvider<_, _>).GetAbsValue vp
+    let out = state.GetAbsValue vp
     Assert.AreEqual<ConstantDomain.Lattice>(ConstantDomain.NotAConst, out)
 #endif
 
@@ -296,8 +296,8 @@ type DataFlowTests() =
     let cfg = brew.Functions[0UL].CFG
     let roots = cfg.Roots
     let uva = UntouchedValueAnalysis(brew.BinHandle, roots)
-    let dfa = uva :> IDataFlowComputable<_, _, _, _>
-    cfg |> DiGraph.iterVertex uva.MarkVertexAsPending
+    let dfa = uva :> IDataFlowComputable<_, _, _>
+    cfg |> DiGraph.iterVertex uva.State.MarkVertexAsPending
     let state = dfa.Compute cfg
     let rbp = -8 (* stack offset of old rbp *)
     [ irStk 0xcUL 1 (rbp - 0x14) |> cmp <| mkUntouchedReg Register.RDI
@@ -309,7 +309,7 @@ type DataFlowTests() =
       irReg 0x38UL 1 Register.RSI |> cmp <| UntouchedValueDomain.Touched
       irReg 0x3bUL 1 Register.RAX |> cmp <| mkUntouchedReg Register.RDI ]
     |> List.iter (fun (vp, ans) ->
-      let out = (state :> IAbsValProvider<_, _>).GetAbsValue vp
+      let out = state.GetAbsValue vp
       Assert.AreEqual<UntouchedValueDomain.Lattice>(ans, out))
 
   [<TestMethod>]
@@ -347,7 +347,7 @@ type DataFlowTests() =
     let state = cp.State
     for root in cfg.Roots do state.MarkEdgeAsPending(null, root)
     for e in cfg.Edges do state.MarkEdgeAsPending(e.First, e.Second)
-    (cp :> IDataFlowComputable<_, _, _, _>).Compute cfg |> ignore
+    (cp :> IDataFlowComputable<_, _, _>).Compute cfg |> ignore
     (* Reading a stack slot registers a use of that slot. *)
     Assert.AreEqual(state.UseDefMap.ContainsKey(svp 0x32UL 1 (StackLocal -12)),
                     true)
@@ -369,7 +369,7 @@ type DataFlowTests() =
     let state = cp.State
     for root in cfg.Roots do state.MarkEdgeAsPending(null, root)
     for e in cfg.Edges do state.MarkEdgeAsPending(e.First, e.Second)
-    (cp :> IDataFlowComputable<_, _, _, _>).Compute cfg |> ignore
+    (cp :> IDataFlowComputable<_, _, _>).Compute cfg |> ignore
     (* The path that skips 0x4 brings in the caller's EAX, so the read at 0x9
        must not see 3. *)
     let eax = brew.BinHandle.RegisterFactory.GetRegVar "EAX"

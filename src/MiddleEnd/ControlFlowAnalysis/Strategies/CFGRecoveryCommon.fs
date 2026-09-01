@@ -35,11 +35,12 @@ open B2R2.MiddleEnd.ControlFlowAnalysis
 
 /// Contains common functions for CFG recovery strategies.
 module internal CFGRecoveryCommon =
-  let inline markVertexAsPendingForAnalysis ctx v = ctx.CP.MarkVertexAsPending v
+  let inline markVertexAsPendingForAnalysis ctx v =
+    ctx.CP.State.MarkVertexAsPending v
 
   let inline markVertexAsRemovalForAnalysis ctx v =
-    ctx.CP.MarkVertexAsRemoval v
-    ctx.CFG.GetSuccs v |> Seq.iter ctx.CP.MarkVertexAsPending
+    ctx.CP.State.MarkVertexAsRemoval v
+    ctx.CFG.GetSuccs v |> Seq.iter ctx.CP.State.MarkVertexAsPending
 
   let prioritizer =
     { new IPrioritizable with

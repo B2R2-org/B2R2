@@ -109,7 +109,6 @@ type ReachingDefinitionAnalysis() =
 
   interface IDataFlowComputable<IVertex<LowUIRBasicBlock>,
                                 InsAndOuts,
-                                ReachingDefinitionState,
                                 LowUIRBasicBlock> with
     member _.Compute cfg =
       initGensAndKills cfg
@@ -117,7 +116,7 @@ type ReachingDefinitionAnalysis() =
       Traversal.DFS.iterRevPostorder cfg lst.Add
       WorklistDataFlow.compute lst lattice (analysis cfg) st
 
-/// Type alias for the state of the reaching definition analysis.
+/// Represents the state of the reaching definition analysis.
 and internal ReachingDefinitionState =
   WorklistDataFlow.State<IVertex<LowUIRBasicBlock>,
                          InsAndOuts,

@@ -365,9 +365,9 @@ module private EVMCFGRecovery =
 
   let computeCPState ctx =
     let userCtx = ctx.UserContext :> EVMFuncUserContext
-    let dfa = userCtx.CP :> IDataFlowComputable<_, _, _, _>
-    let cpState = dfa.Compute ctx.CFG
-    cpState
+    let dfa = userCtx.CP :> IDataFlowComputable<_, _, _>
+    dfa.Compute ctx.CFG |> ignore
+    userCtx.CP.State
 
   /// Summarize the callee's context.
   let summarize ctx calleeInfo =

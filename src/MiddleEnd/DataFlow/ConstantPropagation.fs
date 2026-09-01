@@ -77,10 +77,10 @@ module internal ConstantPropagation =
 
 /// Performs sparse constant propagation over the LowUIR representation.
 type ConstantPropagation(hdl, vs) =
-  let evaluateVarPoint (state: ConstantPropagationState) pp varKind =
+  let evaluateVarPoint (state: LowUIRSparseDataFlow.State<_>) pp varKind =
     let vp = { ProgramPoint = pp; VarKind = varKind }
     match state.UseDefMap.TryGetValue vp with
-    | true, defVp -> (state: IAbsValProvider<_, _>).GetAbsValue defVp
+    | true, defVp -> state.DomainSubState.GetAbsValue defVp
     | false, _ -> ConstantDomain.Undef
 
   let rec evaluateExpr state pp e =
@@ -149,22 +149,15 @@ type ConstantPropagation(hdl, vs) =
         member _.EvalExpr(pp, expr) = evaluateExpr state pp expr }
 
   and state =
-    ConstantPropagationState(hdl, lattice, scheme)
+    LowUIRSparseDataFlow.State(hdl, lattice, scheme)
     |> fun state ->
       for v in vs do state.MarkVertexAsPending v done
       state
 
-  member _.Reset() = state.Reset()
-
-  member _.MarkVertexAsPending v = state.MarkVertexAsPending v
-
-  member _.MarkVertexAsRemoval v = state.MarkVertexAsRemoval v
+  /// Returns the underlying state of this analysis.
+  member _.State with get() = state
 
   interface IDataFlowComputable<VarPoint,
                                 ConstantDomain.Lattice,
-                                ConstantPropagationState,
                                 LowUIRBasicBlock> with
     member _.Compute cfg = LowUIRSparseDataFlow.compute cfg state
-
-and internal ConstantPropagationState =
-  LowUIRSparseDataFlow.State<ConstantDomain.Lattice>

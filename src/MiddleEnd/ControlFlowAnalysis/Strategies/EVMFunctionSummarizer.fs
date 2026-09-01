@@ -186,7 +186,7 @@ and EVMFuncUserContext() =
 
   interface IResettable with
     member _.Reset() =
-      cp.Reset()
+      cp.State.Reset()
       perVertexStackPointerDelta.Clear()
       verticesPostponed.Clear()
       verticesResumable.Clear()

@@ -446,13 +446,13 @@ type JmpTableAnalysis<'FnCtx, 'GlCtx
       | Some ssaLifter ->
         let ssaCFG = ssaLifter.Unwrap { Context = ctx } ()
         let cp = SSAConstantPropagation ctx.BinHandle
-        let dfa = cp :> IDataFlowComputable<_, _, _, _>
-        let state = dfa.Compute ssaCFG
-        analyzeSymbolicallyWithSSACFG ctx ssaCFG state insAddr bblAddr
+        let dfa = cp :> IDataFlowComputable<_, _, _>
+        dfa.Compute ssaCFG |> ignore
+        analyzeSymbolicallyWithSSACFG ctx ssaCFG cp.State insAddr bblAddr
         |> checkValidity ctx
       | None ->
         let cp = ctx.CP
-        let dfa = cp :> IDataFlowComputable<_, _, _, _>
-        let state = dfa.Compute ctx.CFG
-        analyzeSymbolicallyWithIRCFG ctx state insAddr bblAddr
+        let dfa = cp :> IDataFlowComputable<_, _, _>
+        dfa.Compute ctx.CFG |> ignore
+        analyzeSymbolicallyWithIRCFG ctx cp.State insAddr bblAddr
         |> checkValidity ctx

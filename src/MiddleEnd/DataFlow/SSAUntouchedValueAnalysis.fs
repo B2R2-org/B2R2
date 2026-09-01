@@ -120,8 +120,10 @@ type SSAUntouchedValueAnalysis(hdl: BinHandle) =
     State<UntouchedValueDomain.Lattice>(hdl, lattice, scheme)
     |> initRegisters
 
+  /// Returns the underlying state of this analysis.
+  member _.State with get() = state
+
   interface IDataFlowComputable<SSAVarPoint,
                                 UntouchedValueDomain.Lattice,
-                                State<UntouchedValueDomain.Lattice>,
                                 SSABasicBlock> with
     member _.Compute cfg = compute cfg state

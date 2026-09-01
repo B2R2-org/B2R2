@@ -49,7 +49,7 @@ type UntouchedValueAnalysis(hdl: BinHandle, vs) =
     | Regular _ -> mkUntouched varKind
     | _ -> UntouchedValueDomain.Undef
 
-  let evaluateVarPoint (state: UntouchedValueState) pp varKind =
+  let evaluateVarPoint (state: LowUIRSparseDataFlow.State<_>) pp varKind =
     let vp = { ProgramPoint = pp; VarKind = varKind }
     match state.UseDefMap.TryGetValue vp with
     | true, defVp -> state.DomainSubState.GetAbsValue defVp
@@ -75,31 +75,26 @@ type UntouchedValueAnalysis(hdl: BinHandle, vs) =
       UntouchedValueDomain.Touched
 
   let lattice =
-    { new ILattice<UntouchedValueLattice> with
+    { new ILattice<UntouchedValueDomain.Lattice> with
         member _.Bottom = UntouchedValueDomain.Undef
         member _.Join(a, b) = UntouchedValueDomain.join a b
         member _.Subsume(a, b) = UntouchedValueDomain.subsume a b }
 
   let rec scheme =
-    { new LowUIRSparseDataFlow.IScheme<UntouchedValueLattice> with
+    { new LowUIRSparseDataFlow.IScheme<UntouchedValueDomain.Lattice> with
         member _.GetBaseCase varKind = getBaseCase varKind
         member _.EvalExpr(pp, expr) = evaluateExpr state pp expr }
 
   and state =
-    UntouchedValueState(hdl, lattice, scheme)
+    LowUIRSparseDataFlow.State(hdl, lattice, scheme)
     |> fun state ->
       for v in vs do state.MarkVertexAsPending v done
       state
 
-  member _.MarkVertexAsPending v = state.MarkVertexAsPending v
+  /// Returns the underlying state of this analysis.
+  member _.State with get() = state
 
   interface IDataFlowComputable<VarPoint,
-                                UntouchedValueLattice,
-                                UntouchedValueState,
+                                UntouchedValueDomain.Lattice,
                                 LowUIRBasicBlock> with
     member _.Compute cfg = LowUIRSparseDataFlow.compute cfg state
-
-and internal UntouchedValueState =
-  LowUIRSparseDataFlow.State<UntouchedValueLattice>
-
-and private UntouchedValueLattice = UntouchedValueDomain.Lattice

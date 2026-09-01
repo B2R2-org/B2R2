@@ -58,13 +58,13 @@ type StackPointerPropagation(hdl: BinHandle, vs) =
     | Regular rid when isStackPointer rid -> initialStackPointerValue
     | _ -> StackPointerDomain.Undef
 
-  let evaluateVarPoint (state: StackPointerPropagationState) pp varKind =
+  let evaluateVarPoint (state: LowUIRSparseDataFlow.State<_>) pp varKind =
     let vp = { ProgramPoint = pp; VarKind = varKind }
     match state.UseDefMap.TryGetValue vp with
     | true, defVp -> state.DomainSubState.GetAbsValue defVp
     | false, _ -> StackPointerDomain.Undef
 
-  let rec evaluateExpr (state: StackPointerPropagationState) pp e =
+  let rec evaluateExpr (state: LowUIRSparseDataFlow.State<_>) pp e =
     match e with
     | Num(bv, _) ->
       StackPointerDomain.ConstSP bv
@@ -107,16 +107,15 @@ type StackPointerPropagation(hdl: BinHandle, vs) =
         member _.EvalExpr(pp, expr) = evaluateExpr state pp expr }
 
   and state =
-    StackPointerPropagationState(hdl, lattice, scheme)
+    LowUIRSparseDataFlow.State(hdl, lattice, scheme)
     |> fun state ->
       for v in vs do state.MarkVertexAsPending v done
       state
 
+  /// Returns the underlying state of this analysis.
+  member _.State with get() = state
+
   interface IDataFlowComputable<VarPoint,
                                 StackPointerDomain.Lattice,
-                                StackPointerPropagationState,
                                 LowUIRBasicBlock> with
     member _.Compute cfg = LowUIRSparseDataFlow.compute cfg state
-
-and internal StackPointerPropagationState =
-  LowUIRSparseDataFlow.State<StackPointerDomain.Lattice>

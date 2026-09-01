@@ -190,12 +190,17 @@ type CondAwareNoretAnalysis([<Optional; DefaultParameterValue(true)>] strict) =
     | _ ->
       None
 
-  let getLazyDataFlowState g (dfa: IDataFlowComputable<_, _, _, _>) =
-    lazy (dfa.Compute g)
+  let getLazySSAState g (uva: SSAUntouchedValueAnalysis) =
+    lazy ((uva :> IDataFlowComputable<_, _, _>).Compute g |> ignore
+          uva.State)
+
+  let getLazyIRState g (uva: UntouchedValueAnalysis) =
+    lazy ((uva :> IDataFlowComputable<_, _, _>).Compute g |> ignore
+          uva.State)
 
   let collectConditionalNoRetCallsFromSSACFG ctx ssaCFG dom =
     let hdl = ctx.BinHandle
-    let state = SSAUntouchedValueAnalysis hdl |> getLazyDataFlowState ssaCFG
+    let state = SSAUntouchedValueAnalysis hdl |> getLazySSAState ssaCFG
     collectReturningAbsPPs ctx
     |> List.choose (fun pp ->
       let absV = ctx.Vertices[pp]
@@ -293,8 +298,7 @@ type CondAwareNoretAnalysis([<Optional; DefaultParameterValue(true)>] strict) =
       fun () ->
         let hdl = ctx.BinHandle
         let g = ctx.CFG
-        let state =
-          UntouchedValueAnalysis(hdl, g.Vertices) |> getLazyDataFlowState g
+        let state = UntouchedValueAnalysis(hdl, g.Vertices) |> getLazyIRState g
         let condNoRetCalls = collectConditionalNoRetCallsFromIRCFG ctx g state
         match analyze ctx condNoRetCalls with
         | UnknownNoRet -> ctx.NonReturningStatus <- defaultStatus
