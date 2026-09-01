@@ -316,7 +316,7 @@ type DataFlowTests() =
   member _.``Sensitive Constant Propagation EvalExpr 1``() =
     let brew = Binaries.loadOne Binaries.sample1
     let scheme =
-      { new LowUIRSensitiveDataFlow.IScheme<ConstantDomain.Lattice, int> with
+      { new LowUIRSensitiveDataFlow.IScheme<int> with
           member _.DefaultExecutionContext = 0
           member _.TryComputeExecutionContext(_, exeCtx, _, _) = Some exeCtx
           member _.OnVertexNewlyAnalyzed _ = ()
@@ -338,7 +338,7 @@ type DataFlowTests() =
     let brew = Binaries.loadOne Binaries.sample3
     let cfg = brew.Functions[0UL].CFG
     let scheme =
-      { new LowUIRSensitiveDataFlow.IScheme<ConstantDomain.Lattice, int> with
+      { new LowUIRSensitiveDataFlow.IScheme<int> with
           member _.DefaultExecutionContext = 0
           member _.TryComputeExecutionContext(_, exeCtx, _, _) = Some exeCtx
           member _.OnVertexNewlyAnalyzed _ = ()
@@ -360,7 +360,7 @@ type DataFlowTests() =
     let brew = Binaries.loadOne Binaries.sample6
     let cfg = brew.Functions[0UL].CFG
     let scheme =
-      { new LowUIRSensitiveDataFlow.IScheme<ConstantDomain.Lattice, int> with
+      { new LowUIRSensitiveDataFlow.IScheme<int> with
           member _.DefaultExecutionContext = 0
           member _.TryComputeExecutionContext(_, exeCtx, _, _) = Some exeCtx
           member _.OnVertexNewlyAnalyzed _ = ()

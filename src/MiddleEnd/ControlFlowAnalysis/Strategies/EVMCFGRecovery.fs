@@ -963,7 +963,7 @@ type EVMCFGRecovery(fnCallback) as this =
     member _.OnCreate(ctx) =
       if isNull ctx.UserContext.CP then
         let scheme =
-          { new IScheme<ConstantDomain.Lattice, EVMExeCtx> with
+          { new IScheme<EVMExeCtx> with
               member _.DefaultExecutionContext =
                 { StackOffset = 0; Conditions = Map.empty }
               member _.OnRemoveVertex v =

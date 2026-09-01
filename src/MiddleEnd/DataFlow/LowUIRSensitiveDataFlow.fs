@@ -43,9 +43,10 @@ type State<'L, 'ExeCtx
   when 'L: equality
   and 'ExeCtx: equality
   and 'ExeCtx: comparison>
-  public(hdl, lattice: ILattice<'L>, scheme: IScheme<'L, 'ExeCtx>) =
-
-  let mutable evaluator: IExprEvaluatable<_, _> | null = null
+  public(hdl,
+         lattice: ILattice<'L>,
+         scheme: IScheme<'ExeCtx>,
+         evaluator: IExprEvaluatable<SensitiveProgramPoint<'ExeCtx>, 'L>) =
 
   let mutable freshSSAVarId = 1
 
@@ -346,7 +347,7 @@ type State<'L, 'ExeCtx
     let defSiteQueue = UniqueQueue()
     let executedFlows = HashSet()
     let executedVertices = HashSet()
-    { new SubState<'L, 'ExeCtx> with
+    { new ISubState<'L, 'ExeCtx> with
         member _.FlowQueue = flowQueue
         member _.DefSiteQueue = defSiteQueue
         member _.ExecutedFlows = executedFlows
@@ -363,7 +364,7 @@ type State<'L, 'ExeCtx
     let defSiteQueue = UniqueQueue()
     let executedFlows = HashSet()
     let executedVertices = HashSet()
-    { new SubState<StackPointerDomain.Lattice, 'ExeCtx> with
+    { new ISubState<StackPointerDomain.Lattice, 'ExeCtx> with
         member _.FlowQueue = flowQueue
         member _.DefSiteQueue = defSiteQueue
         member _.ExecutedFlows = executedFlows
@@ -375,7 +376,7 @@ type State<'L, 'ExeCtx
         member _.Subsume(a, b) = StackPointerDomain.subsume a b
         member _.EvalExpr(myPp, expr) = spEvaluateExpr myPp expr }
 
-  let resetSubState (subState: SubState<_, _>) =
+  let resetSubState (subState: ISubState<_, _>) =
     subState.FlowQueue.Clear()
     subState.DefSiteQueue.Clear()
     subState.ExecutedFlows.Clear()
@@ -423,16 +424,13 @@ type State<'L, 'ExeCtx
   member _.StmtOfBBLs with get() = stmtCache.StmtOfBBLs
 
   /// Sub-state for the stack-pointer domain.
-  member _.StackPointerSubState with get() = spSubState
+  member internal _.StackPointerSubState with get() = spSubState
 
   /// Sub-state for the user's domain.
   member _.DomainSubState with get() = domainSubState
 
   /// Currently pending vertices for processing.
   member _.PendingEdges with get(): IEnumerable<_> = edgesForProcessing
-
-  /// A setter for the evaluator.
-  member _.Evaluator with set v = evaluator <- v
 
   /// Returns a sequence of vertices that are pending for removal.
   member _.VerticesForRemoval with get() = verticesForRemoval: IEnumerable<_>
@@ -513,7 +511,7 @@ type State<'L, 'ExeCtx
     member _.GetAbsValue absLoc = domainGetAbsValue absLoc
 
 /// Represents a sub-state for the context-sensitive data-flow analysis.
-and SubState<'L, 'ExeCtx
+and ISubState<'L, 'ExeCtx
   when 'L: equality
   and 'ExeCtx: equality
   and 'ExeCtx: comparison> =
@@ -541,10 +539,7 @@ and SubState<'L, 'ExeCtx
   abstract SetAbsValue: vp: SensitiveVarPoint<'ExeCtx> * 'L -> unit
 
 /// Represents the main interface for a sensitive data-flow analysis.
-and IScheme<'L, 'ExeCtx
-  when 'L: equality
-  and 'ExeCtx: equality
-  and 'ExeCtx: comparison> =
+and IScheme<'ExeCtx when 'ExeCtx: equality and 'ExeCtx: comparison> =
   /// A default execution context that a root node in a CFG can have.
   abstract DefaultExecutionContext: 'ExeCtx
 
@@ -591,7 +586,7 @@ module internal AnalysisCore = begin
     state.ClearRemovalVertices()
 
   let getStackValue state pp e =
-    match (state: SubState<_, _>).EvalExpr(pp, e) with
+    match (state: ISubState<_, _>).EvalExpr(pp, e) with
     | StackPointerDomain.ConstSP bv -> Ok <| bv.ToUInt64()
     | _ -> Error ErrorCase.InvalidExprEvaluation
 
@@ -902,7 +897,7 @@ module internal AnalysisCore = begin
         executeAndPropagateRDs state q g src dst srcExeCtx dstExeCtx defs)
 
   let updateAbsValue subState defUseMap svp prev curr =
-    if (subState: SubState<_, _>).Subsume(prev, curr) then
+    if (subState: ISubState<_, _>).Subsume(prev, curr) then
       ()
     else
       subState.SetAbsValue(svp, subState.Join(prev, curr))
@@ -943,7 +938,7 @@ module internal AnalysisCore = begin
     | _ ->
       ()
 
-  let isExecuted (state: State<_, _>) (subState: SubState<_, _>) spp =
+  let isExecuted (state: State<_, _>) (subState: ISubState<_, _>) spp =
     let pp = (spp: SensitiveProgramPoint<_>).ProgramPoint
     let exeCtx = spp.ExecutionContext
     match state.StmtOfBBLs.TryGetValue pp with
@@ -951,7 +946,7 @@ module internal AnalysisCore = begin
     | true, (_, v) -> subState.ExecutedVertices.Contains(v, exeCtx)
 
   let processDefSite (state: State<_, _>)
-                     (subState: SubState<_, _>)
+                     (subState: ISubState<_, _>)
                      fnTransfer =
     match subState.DefSiteQueue.TryDequeue() with
     | true, myPp when isExecuted state subState myPp ->
@@ -964,7 +959,7 @@ module internal AnalysisCore = begin
 
   let transferFlow g
                    (state: State<_, _>)
-                   (subState: SubState<_, _>)
+                   (subState: ISubState<_, _>)
                    v
                    exeCtx
                    fnTransfer =
@@ -986,7 +981,7 @@ module internal AnalysisCore = begin
       state.Scheme.TryComputeExecutionContext(src, srcExeCtx, dst, edgeKind)
 
   let processFlow g state subState fnTransfer =
-    let subState = subState :> SubState<_, _>
+    let subState = subState :> ISubState<_, _>
     match subState.FlowQueue.TryDequeue() with
     | false, _ ->
       ()
@@ -1005,7 +1000,7 @@ module internal AnalysisCore = begin
           transferFlow g state subState dst dstExeCtx fnTransfer
 
   let registerPendingVertices state subState =
-    let subState = subState :> SubState<_, _>
+    let subState = subState :> ISubState<_, _>
     for s, d in (state: State<_, _>).PendingEdges do
       if isNull s then
         let exeCtx = state.Scheme.DefaultExecutionContext

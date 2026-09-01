@@ -34,7 +34,7 @@ open B2R2.MiddleEnd.DataFlow.LowUIRSensitiveDataFlow
 /// analysis is aware of stack pointers on basic blocks and distinguishes each
 /// basic block by its stack pointer value.
 type LowUIRSensitiveConstantPropagation<'ExeCtx when 'ExeCtx: comparison>
-  public(hdl: BinHandle, scheme: IScheme<ConstantDomain.Lattice, 'ExeCtx>) =
+  public(hdl: BinHandle, scheme: IScheme<'ExeCtx>) =
 
   /// A definition coming in from outside the function is unknown, so it must
   /// not be answered with the lattice bottom, which every join would absorb.
@@ -115,12 +115,12 @@ type LowUIRSensitiveConstantPropagation<'ExeCtx when 'ExeCtx: comparison>
         member _.Join(a, b) = ConstantDomain.join a b
         member _.Subsume(a, b) = ConstantDomain.subsume a b  }
 
-  let state = State<_, _>(hdl, lattice, scheme)
+  let rec evaluator =
+    { new IExprEvaluatable<SensitiveProgramPoint<'ExeCtx>,
+                           ConstantDomain.Lattice> with
+        member _.EvalExpr(pp, expr) = evaluateExpr state pp expr }
 
-  do state.Evaluator <-
-      { new IExprEvaluatable<SensitiveProgramPoint<'ExeCtx>,
-                             ConstantDomain.Lattice> with
-          member _.EvalExpr(pp, expr) = evaluateExpr state pp expr }
+  and state = State<_, _>(hdl, lattice, scheme, evaluator)
 
   /// Returns the underlying state of this analysis.
   member _.State with get() = state

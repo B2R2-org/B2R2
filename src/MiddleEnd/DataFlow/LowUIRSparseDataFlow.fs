@@ -298,7 +298,7 @@ type State<'Lattice when 'Lattice: equality>
     let defSiteQueue = UniqueQueue()
     let executedFlows = HashSet()
     let executedVertices = HashSet()
-    { new ISubstate<'Lattice> with
+    { new ISubState<'Lattice> with
         member _.FlowQueue = flowQueue
         member _.DefSiteQueue = defSiteQueue
         member _.ExecutedFlows = executedFlows
@@ -314,7 +314,7 @@ type State<'Lattice when 'Lattice: equality>
     let defSiteQueue = UniqueQueue()
     let executedFlows = HashSet()
     let executedVertices = HashSet()
-    { new ISubstate<StackPointerDomain.Lattice> with
+    { new ISubState<StackPointerDomain.Lattice> with
         member _.FlowQueue = flowQueue
         member _.DefSiteQueue = defSiteQueue
         member _.ExecutedFlows = executedFlows
@@ -325,7 +325,7 @@ type State<'Lattice when 'Lattice: equality>
         member _.Join(a, b) = StackPointerDomain.join a b
         member _.Subsume(a, b) = StackPointerDomain.subsume a b }
 
-  let resetSubState (subState: ISubstate<_>) =
+  let resetSubState (subState: ISubState<_>) =
     subState.FlowQueue.Clear()
     subState.DefSiteQueue.Clear()
     subState.ExecutedFlows.Clear()
@@ -405,7 +405,7 @@ type State<'Lattice when 'Lattice: equality>
   member _.ClearPendingVertices() = verticesForProcessing.Clear()
 
   /// Enqueue the pending vertices to the given sub-state.
-  member internal _.EnqueuePendingVertices(subState: ISubstate<_>) =
+  member internal _.EnqueuePendingVertices(subState: ISubState<_>) =
     for v in verticesForProcessing do
       subState.FlowQueue.Enqueue(null, v)
 
@@ -451,7 +451,7 @@ type State<'Lattice when 'Lattice: equality>
     member _.GetAbsValue absLoc = domainGetAbsValue absLoc
 
 /// Represents a substate for the LowUIR-based sparse dataflow analysis.
-and ISubstate<'Lattice when 'Lattice: equality> =
+and ISubState<'Lattice when 'Lattice: equality> =
   inherit IAbsValProvider<VarPoint, 'Lattice>
   inherit ILattice<'Lattice>
 
@@ -797,7 +797,7 @@ module internal AnalysisCore = begin
     || hdl.RegisterFactory.IsFramePointer rid
 
   let updateAbsValue subState defUseMap vp prev curr =
-    if (subState: ISubstate<_>).Subsume(prev, curr) then
+    if (subState: ISubState<_>).Subsume(prev, curr) then
       ()
     else
       subState.SetAbsValue(vp, subState.Join(prev, curr))
@@ -866,19 +866,19 @@ module internal AnalysisCore = begin
     phiInfo
     |> Seq.iter (fun (KeyValue(varKind, defs: Dictionary<_, _>)) ->
       let vp = { ProgramPoint = defPp; VarKind = varKind }
-      let prev = (subState: ISubstate<_>).GetAbsValue vp
+      let prev = (subState: ISubState<_>).GetAbsValue vp
       let curr =
         defs.Values |> Seq.fold (fun c (def: VarPoint) ->
           subState.Join(c, subState.GetAbsValue def)) subState.Bottom
       let defUseMap = (state: State<_>).DefUseMap
       updateAbsValue subState defUseMap vp prev curr)
 
-  let isExecuted state (subState: ISubstate<_>) defPp =
+  let isExecuted state (subState: ISubState<_>) defPp =
     match (state: State<_>).StmtOfBBLs.TryGetValue defPp with
     | false, _ -> false
     | true, (_, v) -> subState.ExecutedVertices.Contains v
 
-  let processDefSite state (subState: ISubstate<_>) fnTransfer =
+  let processDefSite state (subState: ISubState<_>) fnTransfer =
     match subState.DefSiteQueue.TryDequeue() with
     | true, defPp when isExecuted state subState defPp ->
       if defPp.Position <> 0 then (* non-phi *)
@@ -892,7 +892,7 @@ module internal AnalysisCore = begin
       ()
 
   let transferFlow state subState g v fnTransfer =
-    (subState: ISubstate<_>).ExecutedVertices.Add v |> ignore
+    (subState: ISubState<_>).ExecutedVertices.Add v |> ignore
     (* Execute phis first. *)
     match (state: State<_>).PhiInfos.TryGetValue v with
     | false, _ ->
@@ -905,7 +905,7 @@ module internal AnalysisCore = begin
     |> Array.iter subState.FlowQueue.Enqueue
 
   let processFlow g state subState fnTransfer =
-    match (subState: ISubstate<_>).FlowQueue.TryDequeue() with
+    match (subState: ISubState<_>).FlowQueue.TryDequeue() with
     | false, _ ->
       ()
     | true, (src, dst) ->
@@ -918,7 +918,7 @@ module internal AnalysisCore = begin
       else
         transferFlow state subState g dst fnTransfer
 
-  let registerPendingVertices state (subState: ISubstate<_>) =
+  let registerPendingVertices state (subState: ISubState<_>) =
     (state: State<_>).EnqueuePendingVertices subState
 
   let propagateAux g state subState fnTransfer =
