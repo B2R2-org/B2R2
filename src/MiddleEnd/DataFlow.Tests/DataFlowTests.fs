@@ -242,6 +242,24 @@ type DataFlowTests() =
       Assert.AreEqual<ConstantDomain.Lattice>(ans, out))
 
   [<TestMethod>]
+  member _.``SSA Def Lookup Test``() =
+    let brew = Binaries.loadOne Binaries.sample2
+    let cfg = brew.Functions[0UL].CFG
+    let lifter = SSALifterFactory.Create brew.BinHandle
+    let promoter = SSAPromoterFactory.Create brew.BinHandle
+    let g = (lifter.Lift cfg |> promoter.Promote).Graph
+    let cp = SSAConstantPropagation brew.BinHandle
+    let rid = Register.toRegID Register.RSP
+    let kind = SSA.RegVar(64<rt>, rid, Register.toString Register.RSP)
+    (* Asking before Compute must answer None rather than trip over the SSA
+       edges that the analysis has yet to build. *)
+    let early = cp.State.TryGetSSADef { Kind = kind; Identifier = 1 }
+    Assert.AreEqual<bool>(true, Option.isNone early)
+    (cp :> IDataFlowComputable<_, _, _>).Compute g |> ignore
+    let var = findSSAVarDef g 0 0x4UL kind
+    Assert.AreEqual<bool>(true, cp.State.TryGetSSADef var |> Option.isSome)
+
+  [<TestMethod>]
   member _.``SSA Constant Propagation Test 2``() =
     let brew = Binaries.loadOne Binaries.sample5
     let cfg = brew.Functions[0UL].CFG

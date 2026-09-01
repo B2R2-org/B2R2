@@ -384,9 +384,7 @@ type JmpTableAnalysis<'FnCtx, 'GlCtx
     state.GetRegValue v
 
   let findDefFromSSACFG (state: SSASparseDataFlow.State<_>) v =
-    match state.SSAEdges.Defs.TryGetValue v with
-    | true, def -> Some def
-    | false, _ -> None
+    state.TryGetSSADef v
 
   let varToBV findConst var id =
     let v = { var with Identifier = id }

@@ -89,8 +89,8 @@ type State<'Lattice when 'Lattice: equality>
   member _.Scheme with get() = scheme
 
   /// Gets or sets the SSA edges of the CFG under analysis. It is null until
-  /// the analysis starts.
-  member _.SSAEdges with get() = ssaEdges and set v = ssaEdges <- v
+  /// the analysis starts, so it stays hidden behind the accessors below.
+  member internal _.SSAEdges with get() = ssaEdges and set v = ssaEdges <- v
 
   /// Gets the worklist of CFG edges that are executable but not yet executed.
   member _.FlowWorkList with get() = flowWorkList
@@ -101,6 +101,28 @@ type State<'Lattice when 'Lattice: equality>
 
   /// Gets the set of CFG edges that the analysis has already executed.
   member _.ExecutedEdges with get() = executedEdges
+
+  /// Tries to get the statement that defines the given SSA variable. It
+  /// returns None when the analysis has yet to build its SSA edges.
+  member _.TryGetSSADef var =
+    match ssaEdges with
+    | null ->
+      None
+    | edges ->
+      match edges.Defs.TryGetValue var with
+      | true, stmt -> Some stmt
+      | false, _ -> None
+
+  /// Returns the locations that use the given SSA variable, which is empty
+  /// when the analysis has yet to build its SSA edges.
+  member internal _.GetSSAUses var =
+    match ssaEdges with
+    | null ->
+      Seq.empty
+    | edges ->
+      match edges.Uses.TryGetValue var with
+      | true, uses -> uses :> seq<_>
+      | false, _ -> Seq.empty
 
   /// Gets register value.
   member _.GetRegValue(var: Variable) =
@@ -236,16 +258,12 @@ let processSSA (state: State<_>) ssaCFG =
   | false, _ ->
     ()
   | true, def ->
-    match state.SSAEdges.Uses.TryGetValue def with
-    | false, _ ->
-      ()
-    | _, uses ->
-      for (v, idx) in uses do
-        if state.GetNumIncomingExecutedEdges(ssaCFG, v) > 0 then
-          let _, stmt = v.VData.Internals.Statements[idx]
-          state.Scheme.Transfer(stmt, ssaCFG, v)
-        else
-          ()
+    for (v, idx) in state.GetSSAUses def do
+      if state.GetNumIncomingExecutedEdges(ssaCFG, v) > 0 then
+        let _, stmt = v.VData.Internals.Statements[idx]
+        state.Scheme.Transfer(stmt, ssaCFG, v)
+      else
+        ()
 
 /// Runs the sparse data flow analysis on the given SSA CFG until both
 /// worklists are exhausted, and returns the resulting state.
