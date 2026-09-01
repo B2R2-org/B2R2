@@ -36,8 +36,9 @@ open B2R2.MiddleEnd.DataFlow.LowUIRSensitiveDataFlow
 type LowUIRSensitiveConstantPropagation<'ExeCtx when 'ExeCtx: comparison>
   public(hdl: BinHandle, scheme: IScheme<'ExeCtx>) =
 
-  /// A definition coming in from outside the function is unknown, so it must
-  /// not be answered with the lattice bottom, which every join would absorb.
+  /// Returns the abstract value of the given definition. A definition coming
+  /// in from outside the function is unknown, so it must not be answered with
+  /// the lattice bottom, which every join would absorb.
   let evaluateDef (state: State<_, _>) (defSvp: SensitiveVarPoint<_>) =
     if defSvp.SensitiveProgramPoint.ProgramPoint.IsFake then
       ConstantDomain.NotAConst

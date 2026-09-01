@@ -63,20 +63,21 @@ type State<'L, 'ExeCtx
   let perPointSSAStmtCache =
     Dictionary<SensitiveProgramPoint<'ExeCtx>, SSA.Stmt>()
 
-  /// Initial stack pointer value in the stack pointer domain.
+  /// Holds the initial stack pointer value in the stack pointer domain.
   let spInitial = LowUIRStackPointer.initialValue hdl
 
   let perVertexStackPointerInfos =
     Dictionary<IVertex<LowUIRBasicBlock> * 'ExeCtx,
                StackPointerDomain.Lattice * StackPointerDomain.Lattice>()
 
-  /// Statements of every CFG vertex, along with their program points.
+  /// Caches the statements of every CFG vertex, along with their program
+  /// points.
   let stmtCache = LowUIRStmtCache()
 
-  /// Mapping from a MyVarPoint to its abstract value in the user's domain.
+  /// Maps a SensitiveVarPoint to its abstract value in the user's domain.
   let domainAbsValues = Dictionary<SensitiveVarPoint<'ExeCtx>, 'L>()
 
-  /// Mapping from a MyVarPoint to its abstract value in the stack-pointer
+  /// Maps a SensitiveVarPoint to its abstract value in the stack-pointer
   /// domain.
   let spAbsValues =
     Dictionary<SensitiveVarPoint<'ExeCtx>, StackPointerDomain.Lattice>()
@@ -98,7 +99,7 @@ type State<'L, 'ExeCtx
   let edgesForProcessing =
     HashSet<IVertex<LowUIRBasicBlock> | null * IVertex<LowUIRBasicBlock>>()
 
-  /// Queue of vertices that need to be removed.
+  /// Holds the vertices that need to be removed.
   let verticesForRemoval = HashSet<IVertex<LowUIRBasicBlock>>()
 
   let domainGetAbsValue vp =
@@ -116,9 +117,9 @@ type State<'L, 'ExeCtx
     | Some(stackVar, c) when varKind = stackVar -> c
     | _ -> StackPointerDomain.Undef
 
-  let spEvaluateVar varKind tpp =
-    let tvp = { SensitiveProgramPoint = tpp; VarKind = varKind }
-    match useDefMap.TryGetValue tvp with
+  let spEvaluateVar varKind spp =
+    let svp = { SensitiveProgramPoint = spp; VarKind = varKind }
+    match useDefMap.TryGetValue svp with
     | false, _ ->
       spGetInitialAbsValue varKind
     | true, defs ->
@@ -260,7 +261,7 @@ type State<'L, 'ExeCtx
     | JmpDest(_, _) ->
       Terminator.impossible ()
 
-  /// Comptues the pseudo-SSA statement for the given statement at the given
+  /// Computes the pseudo-SSA statement for the given statement at the given
   /// program point and execution context. Note that this function actually does
   /// not compute the exact SSA statement (e.g. it does not compute phi nodes
   /// and does not introduce fresh memory variables).
@@ -274,12 +275,12 @@ type State<'L, 'ExeCtx
       let var = getSSAVarFromDefSvp svp
       SSA.Def(var, expr)
     | Store(_, dstExpr, srcExpr, _) ->
-      let tpp = { ProgramPoint = pp; ExecutionContext = exeCtx }
-      match spEvaluateExpr tpp dstExpr with
+      let spp = { ProgramPoint = pp; ExecutionContext = exeCtx }
+      match spEvaluateExpr spp dstExpr with
       | StackPointerDomain.ConstSP bv ->
         let offset = bv.ToUInt64() |> toFrameOffset
         let varKind = StackLocal offset
-        let svp = { SensitiveProgramPoint = tpp; VarKind = varKind }
+        let svp = { SensitiveProgramPoint = spp; VarKind = varKind }
         let var = getSSAVarFromDefSvp svp
         let srcExpr = computeSSAExpr pp exeCtx srcExpr
         SSA.Def(var, srcExpr)
@@ -312,8 +313,8 @@ type State<'L, 'ExeCtx
       Terminator.impossible ()
 
   let getSSAStmt pp exeCtx =
-    let tpp = { ProgramPoint = pp; ExecutionContext = exeCtx }
-    match perPointSSAStmtCache.TryGetValue tpp with
+    let spp = { ProgramPoint = pp; ExecutionContext = exeCtx }
+    match perPointSSAStmtCache.TryGetValue spp with
     | true, sstmts ->
       sstmts
     | false, _ ->
@@ -321,7 +322,7 @@ type State<'L, 'ExeCtx
       assert (stmtCache.StmtOfBBLs.ContainsKey pp)
       let stmt, _ = stmtCache.StmtOfBBLs[pp]
       let sstmt = computeSSAStmt stmt pp exeCtx
-      perPointSSAStmtCache[tpp] <- sstmt
+      perPointSSAStmtCache[spp] <- sstmt
       sstmt
 
   let isNoOpStmt = function
@@ -339,8 +340,8 @@ type State<'L, 'ExeCtx
     let vWithExeCtx = v, exeCtx
     ssaStmtCache.Remove vWithExeCtx |> ignore
     for _stmt, pp in stmtCache.GetStmtInfos v do
-      let tpp = { ProgramPoint = pp; ExecutionContext = exeCtx }
-      perPointSSAStmtCache.Remove tpp |> ignore
+      let spp = { ProgramPoint = pp; ExecutionContext = exeCtx }
+      perPointSSAStmtCache.Remove spp |> ignore
 
   let domainSubState =
     let flowQueue = UniqueQueue()
@@ -374,7 +375,7 @@ type State<'L, 'ExeCtx
         member _.SetAbsValue(vp, absVal) = spAbsValues[vp] <- absVal
         member _.Join(a, b) = StackPointerDomain.join a b
         member _.Subsume(a, b) = StackPointerDomain.subsume a b
-        member _.EvalExpr(myPp, expr) = spEvaluateExpr myPp expr }
+        member _.EvalExpr(spp, expr) = spEvaluateExpr spp expr }
 
   let resetSubState (subState: ISubState<_, _>) =
     subState.FlowQueue.Clear()
@@ -407,55 +408,55 @@ type State<'L, 'ExeCtx
 
   member _.PerVertexStackPointerInfos with get() = perVertexStackPointerInfos
 
-  /// Mapping from a CFG vertex to its incoming definitions.
+  /// Maps a CFG vertex to its incoming definitions.
   member _.PerVertexIncomingDefs with get() = perVertexIncomingDefs
 
-  /// Mapping from a CFG vertex to its outgoing definitions.
+  /// Maps a CFG vertex to its outgoing definitions.
   member _.PerVertexOutgoingDefs with get() = perVertexOutgoingDefs
 
-  /// Mapping from a variable def to its uses.
+  /// Maps a variable def to its uses.
   member _.DefUseMap with get() = defUseMap
 
-  /// Mapping from a variable use to its definition.
+  /// Maps a variable use to its definition.
   member _.UseDefMap with get() = useDefMap
 
-  /// Mapping from a program point to `StmtOfBBL`, which is a pair of a Low-UIR
+  /// Maps a program point to `StmtOfBBL`, which is a pair of a Low-UIR
   /// statement and its corresponding vertex that contains the statement.
   member _.StmtOfBBLs with get() = stmtCache.StmtOfBBLs
 
-  /// Sub-state for the stack-pointer domain.
+  /// Returns the sub-state for the stack-pointer domain.
   member internal _.StackPointerSubState with get() = spSubState
 
-  /// Sub-state for the user's domain.
+  /// Returns the sub-state for the user's domain.
   member _.DomainSubState with get() = domainSubState
 
-  /// Currently pending vertices for processing.
+  /// Returns the edges that are currently pending for processing.
   member _.PendingEdges with get(): IEnumerable<_> = edgesForProcessing
 
   /// Returns a sequence of vertices that are pending for removal.
   member _.VerticesForRemoval with get() = verticesForRemoval: IEnumerable<_>
 
-  /// The given binary handle.
+  /// Returns the binary handle given to this state.
   member _.BinHandle with get() = hdl
 
-  /// Mark the given vertex as pending, which means that the vertex needs to be
+  /// Marks the given vertex as pending, which means that the vertex needs to be
   /// processed.
   member _.MarkEdgeAsPending(s, d) = edgesForProcessing.Add(s, d) |> ignore
 
-  /// Mark the given vertex as removal, which means that the vertex needs to be
+  /// Marks the given vertex as removal, which means that the vertex needs to be
   /// removed. Returns false if the vertex is already marked for removal.
   member _.MarkVertexAsRemoval v = verticesForRemoval.Add v
 
-  /// Check if the given vertex is pending for processing.
+  /// Checks if the given vertex is pending for processing.
   member _.IsEdgePending(src, dst) = edgesForProcessing.Contains(src, dst)
 
-  /// Clear the pending vertices.
+  /// Clears the pending vertices.
   member _.ClearPendingEdges() = edgesForProcessing.Clear()
 
-  /// Clear the vertices to be removed.
+  /// Clears the vertices to be removed.
   member _.ClearRemovalVertices() = verticesForRemoval.Clear()
 
-  /// Return the array of StmtInfos of the given vertex.
+  /// Returns the array of StmtInfos of the given vertex.
   member _.GetStmtInfos v = getStatements v
 
   member _.GetSSAStmts(v: IVertex<LowUIRBasicBlock>, exeCtx: 'ExeCtx) =
@@ -468,7 +469,7 @@ type State<'L, 'ExeCtx
       ssaStmtCache[vWithCtx] <- stmts
       stmts
 
-  /// Invalidate the given vertex, which means that all the information
+  /// Invalidates the given vertex, which means that all the information
   /// associated with the vertex is removed from the state. The order of
   /// the removal is important, and it should be done in the current order.
   member _.InvalidateVertex(v: IVertex<LowUIRBasicBlock>) =
@@ -504,7 +505,7 @@ type State<'L, 'ExeCtx
 
   member _.EvalExpr(pp, expr) = evaluator.EvalExpr(pp, expr)
 
-  /// Reset this state.
+  /// Resets this state.
   member _.Reset() = reset ()
 
   interface IAbsValProvider<SensitiveVarPoint<'ExeCtx>, 'L> with
@@ -519,31 +520,32 @@ and ISubState<'L, 'ExeCtx
   inherit ILattice<'L>
   inherit IExprEvaluatable<SensitiveProgramPoint<'ExeCtx>, 'L>
 
-  /// The edge queue for calculating the data flow.
+  /// Returns the edge queue for calculating the data flow.
   abstract FlowQueue:
     UniqueQueue<IVertex<LowUIRBasicBlock> | null
               * 'ExeCtx
               * IVertex<LowUIRBasicBlock>>
 
-  /// The definition site queue for calculating the data flow.
+  /// Returns the definition site queue for calculating the data flow.
   abstract DefSiteQueue: UniqueQueue<SensitiveProgramPoint<'ExeCtx>>
 
-  /// Executed edges during the data flow calculation.
+  /// Returns the edges executed during the data flow calculation.
   abstract ExecutedFlows:
     HashSet<IVertex<LowUIRBasicBlock> * 'ExeCtx * IVertex<LowUIRBasicBlock>>
 
-  /// Executed vertices during the data flow calculation.
+  /// Returns the vertices executed during the data flow calculation.
   abstract ExecutedVertices: HashSet<IVertex<LowUIRBasicBlock> * 'ExeCtx>
 
-  /// Get the abstract value at the given location.
+  /// Sets the abstract value at the given location.
   abstract SetAbsValue: vp: SensitiveVarPoint<'ExeCtx> * 'L -> unit
 
 /// Represents the main interface for a sensitive data-flow analysis.
 and IScheme<'ExeCtx when 'ExeCtx: equality and 'ExeCtx: comparison> =
-  /// A default execution context that a root node in a CFG can have.
+  /// Returns the default execution context that a root node in a CFG can
+  /// have.
   abstract DefaultExecutionContext: 'ExeCtx
 
-  /// Compute an execution context that the successor can have from the current
+  /// Computes an execution context that the successor can have from the current
   /// context. This returns None if the edge should be pruned (e.g.
   /// path-sensitive analysis).
   abstract TryComputeExecutionContext:
@@ -553,10 +555,10 @@ and IScheme<'ExeCtx when 'ExeCtx: equality and 'ExeCtx: comparison> =
     * CFGEdgeKind
     -> 'ExeCtx option
 
-  /// Called when a vertex is newly analyzed.
+  /// Runs when a vertex is newly analyzed.
   abstract OnVertexNewlyAnalyzed: IVertex<LowUIRBasicBlock> -> unit
 
-  /// Called when a vertex is removed.
+  /// Runs when a vertex is removed.
   abstract OnRemoveVertex: IVertex<LowUIRBasicBlock> -> unit
 
 and SensitiveReachingDefs<'ExeCtx
@@ -579,7 +581,8 @@ and SensitiveVarPoint<'ExeCtx when 'ExeCtx: equality and 'ExeCtx: comparison> =
 [<AutoOpen>]
 module internal AnalysisCore = begin
 
-  /// Dataflow chains become invalid when a vertex is removed from the graph.
+  /// Invalidates the dataflow chains of the vertices that are pending
+  /// removal, since a vertex leaving the graph makes its chains invalid.
   let removeInvalidChains (state: State<_, _>) =
     for v in state.VerticesForRemoval do
       state.InvalidateVertex v
@@ -590,7 +593,7 @@ module internal AnalysisCore = begin
     | StackPointerDomain.ConstSP bv -> Ok <| bv.ToUInt64()
     | _ -> Error ErrorCase.InvalidExprEvaluation
 
-  /// When a use is removed, we need to remove all the old chains.
+  /// Removes all the old chains of the given use.
   let removeOldChains (state: State<_, _>) useId =
     match state.UseDefMap.TryGetValue useId with
     | true, prevDefIds ->
@@ -603,13 +606,13 @@ module internal AnalysisCore = begin
     | _ ->
       ()
 
-  /// Add a new def-use chain.
+  /// Adds a new def-use chain.
   let updateDefUseChain (state: State<_, _>) useId defId =
     match state.DefUseMap.TryGetValue defId with
     | false, _ -> state.DefUseMap[defId] <- Set.singleton useId
     | true, uses -> state.DefUseMap[defId] <- Set.add useId uses
 
-  /// Overwrite the use-def chain. Unlike `updateDefUseChain`, this strongly
+  /// Overwrites the use-def chain. Unlike `updateDefUseChain`, this strongly
   /// updates the existing use-def chain, as we already know exactly which
   /// definitions are used by the use at the moment.
   let updateUseDefChain (state: State<_, _>) id defs =
@@ -620,23 +623,23 @@ module internal AnalysisCore = begin
     let fakeSpp = { ProgramPoint = fakePp; ExecutionContext = exeCtx }
     { SensitiveProgramPoint = fakeSpp; VarKind = vk }
 
-  let updateChains (state: State<_, _>) vk defs tpp =
+  let updateChains (state: State<_, _>) vk defs spp =
     match Map.tryFind vk defs with
     | None -> (* Uses function arguments. *)
-      let useSvp = { SensitiveProgramPoint = tpp; VarKind = vk }
-      let defSvp = makeFakeDefSvp tpp.ExecutionContext vk
+      let useSvp = { SensitiveProgramPoint = spp; VarKind = vk }
+      let defSvp = makeFakeDefSvp spp.ExecutionContext vk
       updateDefUseChain state useSvp defSvp
       updateUseDefChain state useSvp (Set.singleton defSvp)
     | Some rds ->
-      let useSvp = { SensitiveProgramPoint = tpp; VarKind = vk }
+      let useSvp = { SensitiveProgramPoint = spp; VarKind = vk }
       removeOldChains state useSvp
       for defSvp in rds do updateDefUseChain state useSvp defSvp
       updateUseDefChain state useSvp rds
 
-  let updateWithExpr state defs (tpp: SensitiveProgramPoint<_>) expr =
-    let onVarRead vk = updateChains state vk defs tpp
+  let updateWithExpr state defs (spp: SensitiveProgramPoint<_>) expr =
+    let onVarRead vk = updateChains state vk defs spp
     let tryStackOffset e =
-      match getStackValue state.StackPointerSubState tpp e with
+      match getStackValue state.StackPointerSubState spp e with
       | Ok loc -> Some(toFrameOffset loc)
       | Error _ -> None
     VarKind.iterUses onVarRead tryStackOffset expr
@@ -674,7 +677,7 @@ module internal AnalysisCore = begin
   /// Joins the two reaching definition maps. We filter out temporary variables
   /// here.
   /// TODO: check if it is propagated through intra-block edges like
-  /// `VarBasedDataFlowAnalysis`.
+  /// `LowUIRSparseDataFlow`.
   let joinDefs dstInSP (m1: SensitiveReachingDefs<_>)
                        (m2: SensitiveReachingDefs<_>) =
     let dstInStackOff = stackPointerToFrameOffset dstInSP
@@ -697,15 +700,15 @@ module internal AnalysisCore = begin
   /// Strongly updates the stack pointer value for the given tagged variable.
   /// We assume that the stack pointer value is always a constant value in a
   /// single vertex with a single execution context (sensitivity).
-  let updateStackPointer (state: State<_, _>) tpp vk e =
+  let updateStackPointer (state: State<_, _>) spp vk e =
     let subState = state.StackPointerSubState
-    let spValue = subState.EvalExpr(tpp, e)
-    let tvp = { SensitiveProgramPoint = tpp; VarKind = vk }
-    subState.SetAbsValue(tvp, spValue)
+    let spValue = subState.EvalExpr(spp, e)
+    let svp = { SensitiveProgramPoint = spp; VarKind = vk }
+    subState.SetAbsValue(svp, spValue)
 
-  /// (1) Compute the (outgoing) reaching definitions for the given vertex.
-  /// (2) Update the def-use/use-def chains on the fly.
-  /// (3) We update every stack pointer values while executing the vertex.
+  /// Executes the given vertex, which (1) computes its outgoing reaching
+  /// definitions, (2) updates the def-use/use-def chains on the fly, and (3)
+  /// updates every stack pointer value along the way.
   let execute state (v: IVertex<LowUIRBasicBlock>) exeCtx inDefs =
     let stmtInfos = (state: State<_, _>).GetStmtInfos v
     let mutable outDefs = inDefs
@@ -713,37 +716,37 @@ module internal AnalysisCore = begin
       match stmt with
       | Put(dst, src, _) ->
         let varKind = VarKind.ofIRExpr dst
-        let tpp = { ProgramPoint = pp; ExecutionContext = exeCtx }
-        let tvp = { SensitiveProgramPoint = tpp; VarKind = varKind }
-        updateWithExpr state outDefs tpp src
-        updateStackPointer state tpp varKind src
-        outDefs <- strongUpdateReachingDef outDefs varKind tvp
+        let spp = { ProgramPoint = pp; ExecutionContext = exeCtx }
+        let svp = { SensitiveProgramPoint = spp; VarKind = varKind }
+        updateWithExpr state outDefs spp src
+        updateStackPointer state spp varKind src
+        outDefs <- strongUpdateReachingDef outDefs varKind svp
       | Store(_, addr, value, _) ->
-        let tpp = { ProgramPoint = pp; ExecutionContext = exeCtx }
-        updateWithExpr state outDefs tpp addr
-        updateWithExpr state outDefs tpp value
-        match state.StackPointerSubState.EvalExpr(tpp, addr) with
+        let spp = { ProgramPoint = pp; ExecutionContext = exeCtx }
+        updateWithExpr state outDefs spp addr
+        updateWithExpr state outDefs spp value
+        match state.StackPointerSubState.EvalExpr(spp, addr) with
         | StackPointerDomain.ConstSP bv ->
           let loc = bv.ToUInt64()
           let offset = toFrameOffset loc
           let varKind = StackLocal offset
-          let tpp = { ProgramPoint = pp; ExecutionContext = exeCtx }
-          let tvp = { SensitiveProgramPoint = tpp; VarKind = varKind }
-          // updateStackPointer state tpp varKind value
-          outDefs <- strongUpdateReachingDef outDefs varKind tvp
+          let spp = { ProgramPoint = pp; ExecutionContext = exeCtx }
+          let svp = { SensitiveProgramPoint = spp; VarKind = varKind }
+          // updateStackPointer state spp varKind value
+          outDefs <- strongUpdateReachingDef outDefs varKind svp
         | _ ->
           ()
       | InterJmp(dstExpr, _, _) ->
-        let tpp = { ProgramPoint = pp; ExecutionContext = exeCtx }
-        updateWithExpr state outDefs tpp dstExpr
+        let spp = { ProgramPoint = pp; ExecutionContext = exeCtx }
+        updateWithExpr state outDefs spp dstExpr
       | InterCJmp(condExpr, tExpr, fExpr, _) ->
-        let tpp = { ProgramPoint = pp; ExecutionContext = exeCtx }
-        updateWithExpr state outDefs tpp condExpr
-        updateWithExpr state outDefs tpp tExpr
-        updateWithExpr state outDefs tpp fExpr
+        let spp = { ProgramPoint = pp; ExecutionContext = exeCtx }
+        updateWithExpr state outDefs spp condExpr
+        updateWithExpr state outDefs spp tExpr
+        updateWithExpr state outDefs spp fExpr
       | ExternalCall(e, _) ->
-        let tpp = { ProgramPoint = pp; ExecutionContext = exeCtx }
-        updateWithExpr state outDefs tpp e
+        let spp = { ProgramPoint = pp; ExecutionContext = exeCtx }
+        updateWithExpr state outDefs spp e
       | Jmp _ | CJmp _ ->
         Terminator.futureFeature ()
       | SideEffect _ ->
@@ -770,11 +773,11 @@ module internal AnalysisCore = begin
         ()
     queue
 
-  /// A variable that one side never defines still flows through that side,
-  /// carrying whatever value it held on function entry. `updateChains`
-  /// introduces a fake definition when a variable is absent from the map;
-  /// this function handles variables defined on one side but not the other
-  /// at a merge point.
+  /// Introduces a fake definition for a variable that one side of a merge
+  /// point defines and the other does not. Such a variable still flows through
+  /// the side that never defines it, carrying whatever value it held on
+  /// function entry. `updateChains` covers a variable absent from the map;
+  /// this function covers the merge point.
   let introduceFakeDefsAtMergePoint exeCtx dstInStackOff m1 m2 =
     let introduceMissingFakeDefs other m =
       (m, Map.keys other)
@@ -872,7 +875,7 @@ module internal AnalysisCore = begin
       for succ in (g: IDiGraph<_, _>).GetSuccs dst do
         (queue: UniqueQueue<_>).Enqueue((dst, dstExeCtx), succ)
 
-  /// Compute the successor execution context and the reaching definitions for
+  /// Computes the successor execution context and the reaching definitions for
   /// the given edge. If the edge is infeasible or the reaching definitions do
   /// not change, return None.
   let tryComputeSuccessorExeCtxAndDefs g (st: State<_, _>) src srcExeCtx dst =
@@ -949,9 +952,9 @@ module internal AnalysisCore = begin
                      (subState: ISubState<_, _>)
                      fnTransfer =
     match subState.DefSiteQueue.TryDequeue() with
-    | true, myPp when isExecuted state subState myPp ->
-      let pp = myPp.ProgramPoint
-      let exeCtx = myPp.ExecutionContext
+    | true, spp when isExecuted state subState spp ->
+      let pp = spp.ProgramPoint
+      let exeCtx = spp.ExecutionContext
       let stmt, _ = state.StmtOfBBLs[pp]
       fnTransfer state exeCtx (stmt, pp)
     | _ ->

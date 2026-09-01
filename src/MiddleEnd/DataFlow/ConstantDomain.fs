@@ -38,10 +38,10 @@ module ConstantDomain =
     | Const of BitVector
     | Undef
 
-  /// Checks if the transition from the old domain to the new domain is
-  /// non-monotonic or the same.
-  let subsume oldDomain newDomain =
-    match oldDomain, newDomain with
+  /// Checks if the first lattice element subsumes the second, i.e., whether
+  /// joining the second into the first would leave the first unchanged.
+  let subsume a b =
+    match a, b with
     | a, b when a = b -> true
     | NotAConst, Const _
     | NotAConst, Undef
@@ -59,8 +59,10 @@ module ConstantDomain =
     | Const bv -> Const(op bv)
     | c -> c
 
+  /// Negates the given lattice element.
   let neg c = unOp BitVector.Neg c
 
+  /// Applies bitwise negation to the given lattice element.
   let not c = unOp BitVector.Not c
 
   let private binOp op c1 c2 =
@@ -69,10 +71,13 @@ module ConstantDomain =
     | Const bv1, Const bv2 -> Const(op (bv1, bv2))
     | _ -> NotAConst
 
+  /// Adds the two lattice elements.
   let add c1 c2 = binOp BitVector.Add c1 c2
 
+  /// Subtracts the second lattice element from the first.
   let sub c1 c2 = binOp BitVector.Sub c1 c2
 
+  /// Multiplies the two lattice elements.
   let mul c1 c2 = binOp BitVector.Mul c1 c2
 
   let private divAux divop c1 c2 =
@@ -84,12 +89,20 @@ module ConstantDomain =
     | _ ->
       NotAConst
 
+  /// Divides the first lattice element by the second, unsigned. A division
+  /// by zero is not a constant.
   let div c1 c2 = divAux BitVector.Div c1 c2
 
+  /// Divides the first lattice element by the second, signed. A division by
+  /// zero is not a constant.
   let sdiv c1 c2 = divAux BitVector.SDiv c1 c2
 
+  /// Computes the unsigned remainder of the first lattice element divided by
+  /// the second. A division by zero is not a constant.
   let ``mod`` c1 c2 = divAux BitVector.Modulo c1 c2
 
+  /// Computes the signed remainder of the first lattice element divided by the
+  /// second. A division by zero is not a constant.
   let smod c1 c2 = divAux BitVector.SModulo c1 c2
 
   let private adjustShiftOperand c =
@@ -102,52 +115,79 @@ module ConstantDomain =
     | _ ->
       c
 
+  /// Shifts the first lattice element left by the second.
   let shl c1 c2 = binOp BitVector.Shl c1 (adjustShiftOperand c2)
 
+  /// Shifts the first lattice element right by the second, unsigned.
   let shr c1 c2 = binOp BitVector.Shr c1 (adjustShiftOperand c2)
 
+  /// Shifts the first lattice element right by the second, signed.
   let sar c1 c2 = binOp BitVector.Sar c1 (adjustShiftOperand c2)
 
+  /// Computes the bitwise AND of the two lattice elements.
   let ``and`` c1 c2 = binOp BitVector.And c1 c2
 
+  /// Computes the bitwise OR of the two lattice elements.
   let ``or`` c1 c2 = binOp BitVector.Or c1 c2
 
+  /// Computes the bitwise XOR of the two lattice elements.
   let xor c1 c2 = binOp BitVector.Xor c1 c2
 
+  /// Concatenates the two lattice elements.
   let concat c1 c2 = binOp BitVector.Concat c1 c2
 
+  /// Checks if the two lattice elements are equal.
   let eq c1 c2 = binOp BitVector.Eq c1 c2
 
+  /// Checks if the two lattice elements are not equal.
   let neq c1 c2 = binOp BitVector.Neq c1 c2
 
+  /// Checks if the first lattice element is greater than the second, unsigned.
   let gt c1 c2 = binOp BitVector.Gt c1 c2
 
+  /// Checks if the first lattice element is greater than or equal to the
+  /// second, unsigned.
   let ge c1 c2 = binOp BitVector.Ge c1 c2
 
+  /// Checks if the first lattice element is greater than the second, signed.
   let sgt c1 c2 = binOp BitVector.SGt c1 c2
 
+  /// Checks if the first lattice element is greater than or equal to the
+  /// second, signed.
   let sge c1 c2 = binOp BitVector.SGe c1 c2
 
+  /// Checks if the first lattice element is less than the second, unsigned.
   let lt c1 c2 = binOp BitVector.Lt c1 c2
 
+  /// Checks if the first lattice element is less than or equal to the second,
+  /// unsigned.
   let le c1 c2 = binOp BitVector.Le c1 c2
 
+  /// Checks if the first lattice element is less than the second, signed.
   let slt c1 c2 = binOp BitVector.SLt c1 c2
 
+  /// Checks if the first lattice element is less than or equal to the second,
+  /// signed.
   let sle c1 c2 = binOp BitVector.SLe c1 c2
 
+  /// Selects one of the two lattice elements by the given condition. A
+  /// condition that is not a constant joins both.
   let ite cond c1 c2 =
     match cond with
     | Undef -> Undef
     | Const bv -> if bv.IsZero then c2 else c1
     | NotAConst -> join c1 c2
 
+  /// Casts the given lattice element to the given type with the given operator.
   let cast op rt c = unOp (fun bv -> op (bv, rt)) c
 
+  /// Sign-extends the given lattice element to the given type.
   let signExt rt c = cast BitVector.SExt rt c
 
+  /// Zero-extends the given lattice element to the given type.
   let zeroExt rt c = cast BitVector.ZExt rt c
 
+  /// Extracts a sub-element of the given type at the given bit position.
   let extract c rt pos = unOp (fun bv -> BitVector.Extract(bv, rt, pos)) c
 
   /// Evaluates the given unary operator in this domain.

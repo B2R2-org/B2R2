@@ -61,8 +61,8 @@ module DataFlowChain =
         | Some b when b.ProgramPoint > vp.ProgramPoint -> best
         | _ -> Some vp) None
 
-  /// When there are more than one defs for the same variable, we should choose
-  /// the last one.
+  /// Keeps only the last def at each instruction address, since a later def
+  /// of the same variable overwrites an earlier one.
   let private filterLastDefInBlock defs =
     defs
     |> Set.fold (fun map d ->

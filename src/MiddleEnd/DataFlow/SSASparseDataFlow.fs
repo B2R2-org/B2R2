@@ -57,14 +57,14 @@ type State<'Lattice when 'Lattice: equality>
   /// are constant) do not have an SSA edge to its dependent memory cells.
   let memValues = Dictionary<int, Map<Addr, 'Lattice>>()
 
-  /// Executable edges from a vertex to another. If there is no element in this
-  /// set, the edge is not executable.
+  /// Holds the executable edges from a vertex to another. If there is no
+  /// element in this set, the edge is not executable.
   let executableEdges = HashSet<SSAFlowEdge>()
 
-  /// Executed edges from a vertex to another.
+  /// Holds the executed edges from a vertex to another.
   let executedEdges = HashSet<SSAFlowEdge>()
 
-  /// Worklist for blocks.
+  /// Holds the worklist of blocks.
   let flowWorkList = Queue<SSAFlowEdge>()
 
   /// Represents a worklist for SSA statements, this stack stores a list of def
@@ -85,14 +85,21 @@ type State<'Lattice when 'Lattice: equality>
     let align = RegType.toByteWidth rt |> uint64
     (rt = defaultRegType) && (addr % align = 0UL)
 
+  /// Gets the scheme that drives this analysis.
   member _.Scheme with get() = scheme
 
+  /// Gets or sets the SSA edges of the CFG under analysis. It is null until
+  /// the analysis starts.
   member _.SSAEdges with get() = ssaEdges and set v = ssaEdges <- v
 
+  /// Gets the worklist of CFG edges that are executable but not yet executed.
   member _.FlowWorkList with get() = flowWorkList
 
+  /// Gets the worklist of SSA variables whose definitions have changed, and
+  /// whose uses therefore need to be revisited.
   member _.SSAWorkList with get() = ssaWorkList
 
+  /// Gets the set of CFG edges that the analysis has already executed.
   member _.ExecutedEdges with get() = executedEdges
 
   /// Gets register value.
@@ -137,18 +144,24 @@ type State<'Lattice when 'Lattice: equality>
       if executedEdges.Contains(preds[i], blk) then Some srcID else None)
     |> Array.choose id
 
+  /// Marks every outgoing edge of the given vertex as executable.
   member _.MarkSuccessorsExecutable(ssaCFG, blk: IVertex<_>) =
     for succ in (ssaCFG: IDiGraph<_, _>).GetSuccs blk do
       markExecutable blk succ
 
+  /// Marks the edge from the given source to the given destination as
+  /// executable, and enqueues it when it was not already marked.
   member _.MarkExecutable(src, dst) = markExecutable src dst
 
+  /// Returns how many of the incoming edges of the given vertex have been
+  /// executed.
   member _.GetNumIncomingExecutedEdges(ssaCFG, blk: IVertex<_>) =
     let mutable count = 0
     for pred in (ssaCFG: IDiGraph<_, _>).GetPreds blk do
       if executedEdges.Contains(pred, blk) then count <- count + 1 else ()
     count
 
+  /// Evaluates the given expression in the current abstract state.
   member _.EvalExpr expr = scheme.EvalExpr expr
 
   interface IAbsValProvider<SSAVarPoint, 'Lattice> with
@@ -163,8 +176,8 @@ type State<'Lattice when 'Lattice: equality>
 
 /// Represents the core interface for SSA-based data flow analysis.
 and IScheme<'Lattice when 'Lattice: equality> =
-  /// The transfer function, which computes the next abstract value from the
-  /// current abstract value by executing the given 'WorkUnit.
+  /// Computes the next abstract value from the current abstract value by
+  /// executing the given statement.
   abstract Transfer:
       Stmt
     * IDiGraph<SSABasicBlock, CFGEdgeKind>
@@ -184,7 +197,7 @@ and IScheme<'Lattice when 'Lattice: equality> =
   /// over-approximation.
   abstract GetBaseCase: Variable -> 'Lattice
 
-  /// Evaluate the given expression based on the current abstract state.
+  /// Evaluates the given expression based on the current abstract state.
   abstract EvalExpr: Expr -> 'Lattice
 
 /// Represents an SSA variable point.
@@ -197,6 +210,9 @@ and SSAVarPoint =
   /// first field is the ID of the SSA memory instance.
   | MemorySSAVar of memId: int * addr: Addr
 
+/// Takes one executable edge off the flow worklist, runs the transfer function
+/// over every statement of its destination, and marks the fall-through
+/// successors executable.
 let processFlow (state: State<_>) ssaCFG =
   match state.FlowWorkList.TryDequeue() with
   | false, _ ->
@@ -213,6 +229,8 @@ let processFlow (state: State<_>) ssaCFG =
       ssaCFG.GetSuccs blk
       |> Seq.iter (fun succ -> state.MarkExecutable(blk, succ))
 
+/// Takes one changed definition off the SSA worklist and runs the transfer
+/// function over each of its uses that sits in an already executed vertex.
 let processSSA (state: State<_>) ssaCFG =
   match state.SSAWorkList.TryDequeue() with
   | false, _ ->
@@ -229,6 +247,8 @@ let processSSA (state: State<_>) ssaCFG =
         else
           ()
 
+/// Runs the sparse data flow analysis on the given SSA CFG until both
+/// worklists are exhausted, and returns the resulting state.
 let compute cfg (state: State<_>) =
   state.SSAEdges <- SSAEdges cfg
   cfg.Roots

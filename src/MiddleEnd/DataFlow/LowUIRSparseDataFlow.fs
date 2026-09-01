@@ -44,16 +44,17 @@ type State<'Lattice when 'Lattice: equality>
          lattice: ILattice<'Lattice>,
          scheme: IScheme<'Lattice>) =
 
-  /// Initial stack pointer value in the stack pointer domain.
+  /// Holds the initial stack pointer value in the stack pointer domain.
   let spInitial = LowUIRStackPointer.initialValue hdl
 
-  /// Statements of every CFG vertex, along with their program points.
+  /// Caches the statements of every CFG vertex, along with their program
+  /// points.
   let stmtCache = LowUIRStmtCache()
 
-  /// Mapping from a VarPoint to its abstract value in the user's domain.
+  /// Maps a VarPoint to its abstract value in the user's domain.
   let domainAbsValues = Dictionary<VarPoint, 'Lattice>()
 
-  /// Mapping from a VarPoint to its abstract value in the stack-pointer domain.
+  /// Maps a VarPoint to its abstract value in the stack-pointer domain.
   let spAbsValues = Dictionary<VarPoint, StackPointerDomain.Lattice>()
 
   let phiInfos = Dictionary<IVertex<LowUIRBasicBlock>, PhiInfo>()
@@ -68,20 +69,20 @@ type State<'Lattice when 'Lattice: equality>
 
   let useDefMap = Dictionary<VarPoint, VarPoint>()
 
-  /// Set of vertices that need to be analyzed for reconstructing data flow
+  /// Holds the vertices that need to be analyzed for reconstructing data flow
   /// information.
   let verticesForProcessing = HashSet<IVertex<LowUIRBasicBlock>>()
 
-  /// Queue of vertices that need to be removed.
+  /// Holds the vertices that need to be removed.
   let verticesForRemoval = Queue<IVertex<LowUIRBasicBlock>>()
 
-  /// SSA variable identifier counter.
+  /// Counts up to give every SSA variable a fresh identifier.
   let mutable ssaVarCounter = 0
 
-  /// A mapping from a variable point to its corresponding SSA variable.
+  /// Maps a variable point to its corresponding SSA variable.
   let vpToSSAVar = Dictionary<VarPoint, SSA.Variable>()
 
-  /// A mapping from an SSA variable to its corresponding variable point.
+  /// Maps an SSA variable to its corresponding variable point.
   let ssaVarToVp = Dictionary<SSA.Variable, VarPoint>()
 
   let domainGetAbsValue vp =
@@ -222,8 +223,8 @@ type State<'Lattice when 'Lattice: equality>
     | Undefined(_, s, _) -> AST.label s -1 addr
     | _ -> raise InvalidExprException
 
-  /// Translate an ordinary IR statement to an SSA statement. It returns a dummy
-  /// exception statement if the given IR statement is invalid.
+  /// Translates an ordinary IR statement to an SSA statement. It returns a
+  /// dummy exception statement if the given IR statement is invalid.
   let translateToSSAStmt pp stmt =
     match stmt with
     | Put(dst, src, _) ->
@@ -347,85 +348,85 @@ type State<'Lattice when 'Lattice: equality>
     resetSubState spSubState
     resetSubState domainSubState
 
-  /// Binary handle associated with this state.
+  /// Returns the binary handle associated with this state.
   member _.BinHandle with get() = hdl
 
-  /// Scheme used for this data flow analysis.
+  /// Returns the scheme used for this data flow analysis.
   member _.Scheme with get() = scheme
 
-  /// Mapping from a CFG vertex to its phi information.
+  /// Maps a CFG vertex to its phi information.
   member _.PhiInfos with get() = phiInfos
 
-  /// Mapping from a CFG vertex to its incoming definitions.
+  /// Maps a CFG vertex to its incoming definitions.
   member _.PerVertexIncomingDefs with get() = perVertexIncomingDefs
 
-  /// Mapping from a CFG vertex to its outgoing definitions.
+  /// Maps a CFG vertex to its outgoing definitions.
   member _.PerVertexOutgoingDefs with get() = perVertexOutgoingDefs
 
-  /// Mapping from a variable def to its uses.
+  /// Maps a variable def to its uses.
   member _.DefUseMap with get() = defUseMap
 
-  /// Mapping from a variable use to its definition.
+  /// Maps a variable use to its definition.
   member _.UseDefMap with get() = useDefMap
 
-  /// Mapping from a SSA variable to its corresponding variable point.
+  /// Maps an SSA variable to its corresponding variable point.
   member _.SSAVarToVp with get() = ssaVarToVp
 
-  /// Mapping from a program point to `StmtOfBBL`, which is a pair of a Low-UIR
+  /// Maps a program point to `StmtOfBBL`, which is a pair of a Low-UIR
   /// statement and its corresponding vertex that contains the statement.
   member _.StmtOfBBLs with get() = stmtCache.StmtOfBBLs
 
-  /// Sub-state for the stack-pointer domain.
+  /// Returns the sub-state for the stack-pointer domain.
   member internal _.StackPointerSubState with get() = spSubState
 
-  /// Sub-state for the user's domain.
+  /// Returns the sub-state for the user's domain.
   member _.DomainSubState with get() = domainSubState
 
-  /// Currently pending vertices for processing.
+  /// Returns the vertices that are currently pending for processing.
   member _.PendingVertices with get(): IEnumerable<IVertex<LowUIRBasicBlock>> =
     verticesForProcessing
 
-  /// Evaluate the given expression at the given program point in the
+  /// Evaluates the given expression at the given program point in the
   /// stack-pointer domain in order to retrieve a concrete stack pointer value
   /// if exists.
   member _.EvaluateStackPointerExpr(pp, e: Expr) = spEvaluateExpr pp e
 
-  /// Mark the given vertex as pending, which means that the vertex needs to be
+  /// Marks the given vertex as pending, which means that the vertex needs to be
   /// processed.
   member _.MarkVertexAsPending v = verticesForProcessing.Add v |> ignore
 
-  /// Mark the given vertex as removal, which means that the vertex needs to be
+  /// Marks the given vertex as removal, which means that the vertex needs to be
   /// removed.
   member _.MarkVertexAsRemoval v = verticesForRemoval.Enqueue v |> ignore
 
-  /// Check if the given vertex is pending for processing.
+  /// Checks if the given vertex is pending for processing.
   member _.IsVertexPending v = verticesForProcessing.Contains v
 
-  /// Clear the pending vertices.
+  /// Clears the pending vertices.
   member _.ClearPendingVertices() = verticesForProcessing.Clear()
 
-  /// Enqueue the pending vertices to the given sub-state.
+  /// Enqueues the pending vertices to the given sub-state.
   member internal _.EnqueuePendingVertices(subState: ISubState<_>) =
     for v in verticesForProcessing do
       subState.FlowQueue.Enqueue(null, v)
 
-  /// Dequeue the vertex for removal. When there is no vertex to remove, it
+  /// Dequeues the vertex for removal. When there is no vertex to remove, it
   /// returns `false`.
   member _.DequeueVertexForRemoval() = verticesForRemoval.TryDequeue()
 
-  /// Return the array of StmtInfos of the given vertex.
+  /// Returns the array of StmtInfos of the given vertex.
   member _.GetStmtInfos v = getStatements v
 
-  /// Forget the statements of the given vertex.
+  /// Forgets the statements of the given vertex.
   member internal _.RemoveStmtsOf v = stmtCache.Remove v
 
-  /// Return the terminator statment of the given vertex in an SSA form.
+  /// Returns the terminator statement of the given vertex in an SSA form.
   member _.GetTerminatorInSSA v =
     getStatements v
     |> Array.last
     |> fun (irStmt, pp) -> translateToSSAStmt pp irStmt
 
-  /// Try to get the definition of the given SSA variable in an SSA form.
+  /// Tries to get the definition of the given SSA variable in an SSA form.
   member _.TryGetSSADef v =
     if not <| ssaVarToVp.ContainsKey v then
       None
@@ -444,7 +445,7 @@ type State<'Lattice when 'Lattice: equality>
 
   member _.GetAbsValue v = domainGetAbsValue ssaVarToVp[v]
 
-  /// Reset this state.
+  /// Resets this state.
   member _.Reset() = reset ()
 
   interface IAbsValProvider<VarPoint, 'Lattice> with
@@ -455,27 +456,27 @@ and ISubState<'Lattice when 'Lattice: equality> =
   inherit IAbsValProvider<VarPoint, 'Lattice>
   inherit ILattice<'Lattice>
 
-  /// The edge queue for calculating the data flow.
+  /// Returns the edge queue for calculating the data flow.
   abstract FlowQueue:
     UniqueQueue<IVertex<LowUIRBasicBlock> | null * IVertex<LowUIRBasicBlock>>
 
-  /// The definition site queue for calculating the data flow.
+  /// Returns the definition site queue for calculating the data flow.
   abstract DefSiteQueue: UniqueQueue<ProgramPoint>
 
-  /// Executed edges during the data flow calculation.
+  /// Returns the edges executed during the data flow calculation.
   abstract ExecutedFlows:
     HashSet<IVertex<LowUIRBasicBlock> * IVertex<LowUIRBasicBlock>>
 
-  /// Executed vertices during the data flow calculation.
+  /// Returns the vertices executed during the data flow calculation.
   abstract ExecutedVertices: HashSet<IVertex<LowUIRBasicBlock>>
 
-  /// Get the abstract value at the given location.
+  /// Sets the abstract value at the given location.
   abstract SetAbsValue: vp: VarPoint * 'Lattice -> unit
 
-/// A mapping from a variable kind of a phi to its definitions. We represent
-/// each definition as a mapping from predecessor's program point to a variable
-/// point. This way, a definition from the same predecessor can be replaced by
-/// the latest definition.
+/// Represents a mapping from a variable kind of a phi to its definitions. We
+/// represent each definition as a mapping from a predecessor's program point
+/// to a variable point. This way, a definition from the same predecessor can
+/// be replaced by the latest definition.
 and private PhiInfo = Dictionary<VarKind, Dictionary<ProgramPoint, VarPoint>>
 
 /// Represents how we perform LowUIR-based sparse dataflow analysis.
@@ -491,7 +492,8 @@ and IScheme<'Lattice when 'Lattice: equality> =
 [<AutoOpen>]
 module internal AnalysisCore = begin
 
-  /// Dataflow chains become invalid when a vertex is removed from the graph.
+  /// Invalidates the dataflow chains of the vertices that are pending
+  /// removal, since a vertex leaving the graph makes its chains invalid.
   let rec removeInvalidChains (state: State<_>) =
     match state.DequeueVertexForRemoval() with
     | true, v when state.PerVertexIncomingDefs.ContainsKey v ->
@@ -510,7 +512,7 @@ module internal AnalysisCore = begin
     | StackPointerDomain.ConstSP bv -> Ok <| bv.ToUInt64()
     | _ -> Error ErrorCase.InvalidExprEvaluation
 
-  /// Linear time algorithm to compute the inverse dominance frontier.
+  /// Computes the inverse dominance frontier in linear time.
   let computeInverseDF g (dom: IForwardDominance<_>) v =
     let g: IDiGraph<_, _> = g
     let s = HashSet()
@@ -521,7 +523,7 @@ module internal AnalysisCore = begin
         x <- dom.ImmediateDominator x
     s
 
-  /// Collect the vertices that are candidates for phi insertion at this point.
+  /// Collects the vertices that are candidates for phi insertion at this point.
   /// We reduce the search space to only those vertices that are possibly
   /// affected by the changes in the graph.
   let collectPhiInsertionCandidates g state =
@@ -569,8 +571,8 @@ module internal AnalysisCore = begin
       memo[v] <- varKinds
       varKinds
 
-  /// We do not calculate all dominance frontier sets, but only those that are
-  /// selectively used to insert phi nodes.
+  /// Places the phi nodes. We do not calculate all dominance frontier sets,
+  /// but only those that are selectively used to insert phi nodes.
   let placePhis g state (dom: IForwardDominance<_>) =
     let memo = Dictionary()
     for v in collectPhiInsertionCandidates g state do
@@ -608,7 +610,7 @@ module internal AnalysisCore = begin
   let updateUseDefChain state useVp defVp =
     (state: State<_>).UseDefMap[useVp] <- defVp
 
-  /// Get a fake variable point for the given variable kind. This is used when
+  /// Gets a fake variable point for the given variable kind. This is used when
   /// there is no definition for the given variable kind (e.g., function
   /// arguments).
   let getFakeVarPoint vk = { ProgramPoint = ProgramPoint.Fake; VarKind = vk }
@@ -644,7 +646,7 @@ module internal AnalysisCore = begin
     | _ ->
       Terminator.impossible ()
 
-  /// Update DU/UD chains stored in the state as well as the out variables by
+  /// Updates DU/UD chains stored in the state as well as the out variables by
   /// executing the given statement. The `defs` stores every definition
   /// including temporary variables, but the `outs` only stores the
   /// non-temporary variables.
@@ -685,7 +687,7 @@ module internal AnalysisCore = begin
     | IntraJmpEdge -> true
     | _ -> false
 
-  /// Update the DU/UD chains for the given basic block and return the defined
+  /// Updates the DU/UD chains for the given basic block and return the defined
   /// variables in the block.
   let updateChainsWithBBLStmts g (state: State<_>) v defs =
     let blkAddr = (v: IVertex<LowUIRBasicBlock>).VData.Internals.PPoint.Address
@@ -703,7 +705,7 @@ module internal AnalysisCore = begin
       prevAddr <- pp.Address
     if intraBlockContinues then defs else outs
 
-  /// Update the def-use/use-def chains for the vertices in the dominator tree.
+  /// Updates the def-use/use-def chains for the vertices in the dominator tree.
   let rec update g state domTree (visited: HashSet<_>) v ins =
     assert (not <| visited.Contains v)
     visited.Add v |> ignore
@@ -719,7 +721,8 @@ module internal AnalysisCore = begin
     | false, _ -> Map.empty
     | true, defs -> defs
 
-  /// We only visit the vertices that have changed and update data-flow chains.
+  /// Updates the data-flow chains, visiting only the vertices that have
+  /// changed.
   let rec incrementalUpdate g state visited (dom: IForwardDominance<_>) v =
     if (visited: HashSet<_>).Contains v then
       ()
@@ -760,7 +763,7 @@ module internal AnalysisCore = begin
       inDefs[incomingPP] <- incomingDef
       updateDefUseChain state useSite incomingDef
 
-  /// Update the dataflow information of phis. Unlike Cytron's approach though,
+  /// Updates the dataflow information of phis. Unlike Cytron's approach though,
   /// the update process is done **after** the dominator tree traversal. This is
   /// to ensure that the predecessors of phi insertion points are executed
   /// before updating the phi information.
@@ -781,7 +784,8 @@ module internal AnalysisCore = begin
       assert (hasProperPhiOperandNumbers state g v)
   #endif
 
-  /// This is a modification of Cytron's algorithm that uses the dominator tree
+  /// Calculates the def-use/use-def chains. This is a modification of
+  /// Cytron's algorithm that uses the dominator tree
   /// to calculate the def-use/use-def chains. This has theoretically the same
   /// worst-case time complexity as the original algorithm, but it is more
   /// efficient for incremental changes in practice since its search space is
@@ -936,7 +940,7 @@ module internal AnalysisCore = begin
 
 end (* end of AnalysisCore *)
 
-/// Compute the data flow incrementally.
+/// Computes the data flow incrementally.
 let compute g (state: State<_>) =
   let df = Dominance.CooperDominanceFrontier()
   let dom = Dominance.LengauerTarjanDominance.create g df

@@ -89,7 +89,8 @@ type ReachingDefinitionAnalysis() =
         member _.Join(a, b) =
           { Ins = Set.union a.Ins b.Ins; Outs = Set.union a.Outs b.Outs }
 
-        member _.Subsume(a, b) = a.Ins = b.Ins && a.Outs = b.Outs }
+        member _.Subsume(a, b) =
+          Set.isSuperset a.Ins b.Ins && Set.isSuperset a.Outs b.Outs }
 
   let st = ReachingDefinitionState lattice
 

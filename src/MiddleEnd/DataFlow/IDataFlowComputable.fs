@@ -46,15 +46,18 @@ type IDataFlowComputable<'AbsLoc, 'AbsVal, 'V
 
 /// Represents an interface for a lattice used in abstract interpretation.
 type ILattice<'AbsVal when 'AbsVal: equality> =
-  /// The initial abstract value representing the bottom of the lattice. Our
-  /// analysis starts with this value until it reaches a fixed point.
+  /// Represents the initial abstract value, i.e. the bottom of the lattice.
+  /// Our analysis starts with this value until it reaches a fixed point.
   abstract Bottom: 'AbsVal
 
   /// Joins two abstract values.
   abstract Join: 'AbsVal * 'AbsVal -> 'AbsVal
 
-  /// The subsume operator, which checks if the first lattice subsumes the
-  /// second. This is to know if the analysis should stop or not.
+  /// Checks if the first abstract value subsumes the second, i.e., whether
+  /// joining the second into the first would leave the first unchanged. The
+  /// analysis stops propagating once it does. An implementation may
+  /// under-approximate this and answer false where the order does hold, which
+  /// only costs an extra round of propagation.
   abstract Subsume: 'AbsVal * 'AbsVal -> bool
 
 /// Represents an interface for evaluating expressions in the given context.

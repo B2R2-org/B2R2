@@ -45,14 +45,18 @@ module UntouchedValueDomain =
     | RegisterTag of VarKind
     | MemoryTag of Addr
 
-  let subsume fromV toV =
-    match fromV, toV with
+  /// Checks if the first lattice element subsumes the second, i.e., whether
+  /// joining the second into the first would leave the first unchanged.
+  let subsume a b =
+    match a, b with
     | a, b when a = b -> true
     | Untouched _, Undef
     | Touched, Undef
     | Touched, Untouched _ -> true
     | _ -> false
 
+  /// Joins the two lattice elements. Two untouched values of different
+  /// origins join into a touched one.
   let join c1 c2 =
     match c1, c2 with
     | Undef, c | c, Undef -> c

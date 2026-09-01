@@ -32,20 +32,26 @@ module VarDefDomain =
   /// Represents a lattice element in the variable definition domain.
   type Lattice = Map<VarKind, Set<VarPoint>>
 
+  /// Represents the empty map, which defines no variable at all.
   let empty = Map.empty
 
+  /// Returns the definitions that reach the given variable kind, or the empty
+  /// set when the map has none for it.
   let get varKind rd =
     match Map.tryFind varKind rd with
     | None -> Set.empty
     | Some pps -> pps
 
+  /// Returns the definitions that reach the memory cell at the given address.
   let load addr rd = get (Memory addr) rd
 
+  /// Adds the given definition to the memory cell at the given address.
   let store addr pp rd =
     let pps = load addr rd
     let pps = Set.add pp pps
     Map.add (Memory addr) pps rd
 
+  /// Joins the two maps by unioning the definitions of every variable kind.
   let join rd1 rd2 =
     Map.keys rd2
     |> Seq.fold (fun acc k ->

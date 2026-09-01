@@ -38,32 +38,38 @@ module StackPointerDomain =
     | ConstSP of BitVector
     | Undef
 
-  let subsume fromV toV =
-    match fromV, toV with
+  /// Checks if the first lattice element subsumes the second, i.e., whether
+  /// joining the second into the first would leave the first unchanged.
+  let subsume a b =
+    match a, b with
     | a, b when a = b -> true
     | ConstSP _, Undef
     | NotConstSP, Undef
     | NotConstSP, ConstSP _ -> true
     | _ -> false
 
+  /// Joins the two lattice elements.
   let join c1 c2 =
     match c1, c2 with
     | Undef, c | c, Undef -> c
     | ConstSP bv1, ConstSP bv2 -> if bv1 = bv2 then c1 else NotConstSP
     | _ -> NotConstSP
 
+  /// Adds the two lattice elements.
   let add c1 c2 =
     match c1, c2 with
     | Undef, _ | _, Undef -> Undef
     | ConstSP bv1, ConstSP bv2 -> ConstSP(BitVector.Add(bv1, bv2))
     | _ -> NotConstSP
 
+  /// Subtracts the second lattice element from the first.
   let sub c1 c2 =
     match c1, c2 with
     | Undef, _ | _, Undef -> Undef
     | ConstSP bv1, ConstSP bv2 -> ConstSP(BitVector.Sub(bv1, bv2))
     | _ -> NotConstSP
 
+  /// Computes the bitwise AND of the two lattice elements.
   let ``and`` c1 c2 =
     match c1, c2 with
     | Undef, _ | _, Undef -> Undef
