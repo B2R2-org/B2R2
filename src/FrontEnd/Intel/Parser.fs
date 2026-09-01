@@ -98,15 +98,6 @@ type IntelParser(wordSz, reader) =
 
   /// Returns the distinct operand sizes from an instruction's descriptors.
   /// None entries represent operands with no explicit size.
-  let collectDistinctOpSizes operands =
-    Array.map (fun o ->
-      match o with
-      | RM sz | Reg(sz, _) | Mem sz | Imm sz | Rel sz | Moffs sz
-      | Far sz -> Some sz
-      | FixedReg(Register.AX) -> Some 16<rt>
-      | _ -> None) operands
-    |> Array.distinct
-
   /// Returns true when every operand is 8-bit, meaning REX semantics do not
   /// apply to this instruction. Reads the descriptors directly rather than
   /// the distinct sizes: this is the first thing matchREX asks, so it runs
@@ -595,12 +586,14 @@ type IntelParser(wordSz, reader) =
 
   /// Returns the RegType size for a FixedImm operand inferred from the
   /// surrounding operand size array.
-  let getFixedImmSize = function
-    | [| Some 8<rt>; None |] -> 8<rt>
-    | [| Some 16<rt>; None |] -> 16<rt>
-    | [| Some 32<rt>; None |] -> 32<rt>
-    | [| Some 64<rt>; None |] -> 64<rt>
-    | _ -> 0<rt> // Temp
+  let getFixedImmSize widths =
+    let struct (count, first, second) = widths
+    let isGprWidth =
+      first = 8<rt> || first = 16<rt> || first = 32<rt> || first = 64<rt>
+    if count = 2 && second = noWidth && isGprWidth then
+      first
+    else
+      0<rt> // Temp
 
   /// Writes addrSz, regSz, and memSz into the parsing-helper context for use by
   /// subsequent operand parsers.
@@ -635,15 +628,16 @@ type IntelParser(wordSz, reader) =
 
   /// Returns true when the immediate is narrower than the effective operand
   /// width and must be sign-extended (includes PUSH imm8).
-  let hasSignExtendedImmediateSizeMismatch opcode szs =
-    match szs with
-    (* Implicit accumulator + imm8; no widening. *)
-    | [| None; Some 8<rt> |] -> false
-    (* PUSH imm8 is sign-extended to the stack operand width. *)
-    | [| Some _ |] when opcode = Opcode.PUSH -> true
-    (* Single-size operand shape; no sign-extension case. *)
-    | [| None |] | [| Some _ |] -> false
-    | _ -> true
+  let hasSignExtendedImmediateSizeMismatch opcode widths =
+    let struct (count, first, second) = widths
+    if count = 2 && first = noWidth && second = 8<rt> then
+      false (* Implicit accumulator + imm8; no widening. *)
+    elif count = 1 && first <> noWidth && opcode = Opcode.PUSH then
+      true (* PUSH imm8 is sign-extended to the stack operand width. *)
+    elif count = 1 then
+      false (* Single-size operand shape; no sign-extension case. *)
+    else
+      true
 
   /// The register index a mask or MMX operand names. These registers have no
   /// extension bit, so the raw three-bit field is the whole index.
@@ -661,7 +655,7 @@ type IntelParser(wordSz, reader) =
 
   /// Parses one operand descriptor into a concrete Operand value and updates
   /// the context so subsequent operands derive the correct width.
-  let parseOperand span (phlp: ParsingHelper) szs modRM ic o =
+  let parseOperand span (phlp: ParsingHelper) widths modRM ic o =
     match o with
     (* {er} and {sae} decorate the operand without changing how it is read;
        the variant they select was already settled by matchVectorLength. *)
@@ -727,7 +721,7 @@ type IntelParser(wordSz, reader) =
     | Imm sz ->
       setupOprContextFromPrefixes phlp ic.SzCond
       if supportsSignExtendedImmediate ic.Opcode
-         && hasSignExtendedImmediateSizeMismatch ic.Opcode szs then
+         && hasSignExtendedImmediateSizeMismatch ic.Opcode widths then
         OperandParsers.parseOprSImm span phlp sz
       else
         OperandParsers.parseOprImm span phlp sz
@@ -767,7 +761,7 @@ type IntelParser(wordSz, reader) =
         setupOprContextWithEffAddr phlp sz sz
         OperandParsers.parseMemory modRM span phlp
     | FixedImm imm ->
-      OprImm(int64 imm, getFixedImmSize szs)
+      OprImm(int64 imm, getFixedImmSize widths)
     | Moffs sz ->
       setupOprContextWithEffAddr phlp sz sz
       OperandParsers.parseOprOnlyDisp span phlp
@@ -810,16 +804,6 @@ type IntelParser(wordSz, reader) =
     | o ->
       failwithf "Unsupported operand type: %A" o
 
-  /// Wraps a concrete operand array into the Operands discriminated union
-  /// (NoOperand / OneOperand / … / FourOperands).
-  let buildOperands = function
-    | [||] -> Operands.NoOperand
-    | [| op1 |] -> Operands.OneOperand(op1)
-    | [| op1; op2 |] -> Operands.TwoOperands(op1, op2)
-    | [| op1; op2; op3 |] -> Operands.ThreeOperands(op1, op2, op3)
-    | [| op1; op2; op3; op4 |] -> Operands.FourOperands(op1, op2, op3, op4)
-    | _ -> failwith "Invalid number of operands."
-
   /// Reads the ModRM byte where one follows the opcode. The table is the only
   /// authority on whether it does: reading one that is not there overstates
   /// the length and swallows the instruction after it, as GETSEC showed.
@@ -839,11 +823,33 @@ type IntelParser(wordSz, reader) =
       setupOprContextFromPrefixes phlp ic.SzCond
       Operands.NoOperand
     | operandTypes ->
-      let szs = collectDistinctOpSizes operandTypes
-      let operands = Array.zeroCreate operandTypes.Length
-      for i = 0 to operandTypes.Length - 1 do
-        operands[i] <- parseOperand span phlp szs modRM ic operandTypes[i]
-      buildOperands operands
+      (* Each parse reads its own bytes and leaves the width the next one
+         starts from, so every operand is bound where it is read rather than
+         handed to a constructor that says nothing about the order. *)
+      let w = firstTwoWidths operandTypes
+      match operandTypes.Length with
+      | 1 ->
+        let op1 = parseOperand span phlp w modRM ic operandTypes[0]
+        Operands.OneOperand op1
+      | 2 ->
+        let op1 = parseOperand span phlp w modRM ic operandTypes[0]
+        let op2 = parseOperand span phlp w modRM ic operandTypes[1]
+        Operands.TwoOperands(op1, op2)
+      | 3 ->
+        let op1 = parseOperand span phlp w modRM ic operandTypes[0]
+        let op2 = parseOperand span phlp w modRM ic operandTypes[1]
+        let op3 = parseOperand span phlp w modRM ic operandTypes[2]
+        Operands.ThreeOperands(op1, op2, op3)
+      | 4 ->
+        let op1 = parseOperand span phlp w modRM ic operandTypes[0]
+        let op2 = parseOperand span phlp w modRM ic operandTypes[1]
+        let op3 = parseOperand span phlp w modRM ic operandTypes[2]
+        let op4 = parseOperand span phlp w modRM ic operandTypes[3]
+        Operands.FourOperands(op1, op2, op3, op4)
+      | 0 ->
+        Operands.NoOperand
+      | _ ->
+        failwith "Invalid number of operands."
 
   /// Removes the prefixes the matched instruction consumed as opcode
   /// selectors, leaving the ones that kept their ordinary meaning.
