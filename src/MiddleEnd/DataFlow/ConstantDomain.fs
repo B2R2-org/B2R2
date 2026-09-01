@@ -69,11 +69,7 @@ module ConstantDomain =
     | Const bv1, Const bv2 -> Const(op (bv1, bv2))
     | _ -> NotAConst
 
-  let add c1 c2 =
-    match c1, c2 with
-    | Undef, _ | _, Undef -> Undef
-    | Const bv1, Const bv2 -> Const(BitVector.Add(bv1, bv2))
-    | _ -> NotAConst
+  let add c1 c2 = binOp BitVector.Add c1 c2
 
   let sub c1 c2 = binOp BitVector.Sub c1 c2
 
@@ -120,27 +116,25 @@ module ConstantDomain =
 
   let concat c1 c2 = binOp BitVector.Concat c1 c2
 
-  let relOp op c1 c2 = binOp op c1 c2
+  let eq c1 c2 = binOp BitVector.Eq c1 c2
 
-  let eq c1 c2 = relOp BitVector.Eq c1 c2
+  let neq c1 c2 = binOp BitVector.Neq c1 c2
 
-  let neq c1 c2 = relOp BitVector.Neq c1 c2
+  let gt c1 c2 = binOp BitVector.Gt c1 c2
 
-  let gt c1 c2 = relOp BitVector.Gt c1 c2
+  let ge c1 c2 = binOp BitVector.Ge c1 c2
 
-  let ge c1 c2 = relOp BitVector.Ge c1 c2
+  let sgt c1 c2 = binOp BitVector.SGt c1 c2
 
-  let sgt c1 c2 = relOp BitVector.SGt c1 c2
+  let sge c1 c2 = binOp BitVector.SGe c1 c2
 
-  let sge c1 c2 = relOp BitVector.SGe c1 c2
+  let lt c1 c2 = binOp BitVector.Lt c1 c2
 
-  let lt c1 c2 = relOp BitVector.Lt c1 c2
+  let le c1 c2 = binOp BitVector.Le c1 c2
 
-  let le c1 c2 = relOp BitVector.Le c1 c2
+  let slt c1 c2 = binOp BitVector.SLt c1 c2
 
-  let slt c1 c2 = relOp BitVector.SLt c1 c2
-
-  let sle c1 c2 = relOp BitVector.SLe c1 c2
+  let sle c1 c2 = binOp BitVector.SLe c1 c2
 
   let ite cond c1 c2 =
     match cond with
