@@ -24,16 +24,18 @@
 
 namespace B2R2.MiddleEnd.DataFlow
 
-open B2R2.MiddleEnd.BinGraph
-open B2R2.MiddleEnd.ControlFlowGraph
+/// Represents an interface for a lattice used in abstract interpretation.
+type ILattice<'AbsVal when 'AbsVal: equality> =
+  /// Represents the initial abstract value, i.e. the bottom of the lattice.
+  /// Our analysis starts with this value until it reaches a fixed point.
+  abstract Bottom: 'AbsVal
 
-/// Represents a data-flow analysis that runs under the abstract interpretation
-/// framework, where abstract values of type 'AbsVal are stored at abstract
-/// locations of type 'AbsLoc.
-type IDataFlowComputable<'AbsLoc, 'AbsVal, 'V
-  when 'AbsLoc: equality
-  and 'V: equality> =
-  /// Performs the dataflow analysis on the given CFG until a fixed point is
-  /// reached.
-  abstract Compute:
-    cfg: IDiGraph<'V, CFGEdgeKind> -> IAbsValProvider<'AbsLoc, 'AbsVal>
+  /// Joins two abstract values.
+  abstract Join: 'AbsVal * 'AbsVal -> 'AbsVal
+
+  /// Checks if the first abstract value subsumes the second, i.e., whether
+  /// joining the second into the first would leave the first unchanged. The
+  /// analysis stops propagating once it does. An implementation may
+  /// under-approximate this and answer false where the order does hold, which
+  /// only costs an extra round of propagation.
+  abstract Subsume: 'AbsVal * 'AbsVal -> bool

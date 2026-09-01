@@ -7,11 +7,14 @@
   <ItemGroup>
     <Compile Include="Constants.fs" />
     <Compile Include="VarPoint.fs" />
+    <Compile Include="ILattice.fs" />
+    <Compile Include="IAbsValProvider.fs" />
+    <Compile Include="IExprEvaluatable.fs" />
+    <Compile Include="IDataFlowComputable.fs" />
     <Compile Include="ConstantDomain.fs" />
     <Compile Include="StackPointerDomain.fs" />
     <Compile Include="UntouchedValueDomain.fs" />
     <Compile Include="VarDefDomain.fs" />
-    <Compile Include="IDataFlowComputable.fs" />
     <Compile Include="Stmts.fs" />
     <Compile Include="LowUIRStackPointer.fs" />
     <Compile Include="WorklistDataFlow.fs" />
