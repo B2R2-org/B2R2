@@ -160,7 +160,7 @@ module internal SymbolStore =
     indices
 
   let private isUndefinedEntry entry =
-     entry = IndirectSymbolLocal || entry = IndirectSymbolABS
+    entry = IndirectSymbolLocal || entry = IndirectSymbolABS
 
   let rec private parseSymbStub map symbols dynsymtbl sec idx len cnt =
     if cnt = 0UL then

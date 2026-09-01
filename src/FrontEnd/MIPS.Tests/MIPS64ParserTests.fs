@@ -91,57 +91,57 @@ type MIPS64ParserTests() =
 
   [<TestMethod>]
   member _.``[MIPS64] Arithmetic operations Parse Test (3)``() =
-      "0229d02f"
-      ++ DSUBU ** [ O.Reg R26; O.Reg R17; O.Reg R9 ]
-      ||> test64R2
+    "0229d02f"
+    ++ DSUBU ** [ O.Reg R26; O.Reg R17; O.Reg R9 ]
+    ||> test64R2
 
   [<TestMethod>]
   member _.``[MIPS64] Shift And Rotate operations Parse Test (1)``() =
-      "002df6ba"
-      ++ DROTR ** [ O.Reg R30; O.Reg R13; O.Shift 0x1aUL ]
-      ||> test64R2
+    "002df6ba"
+    ++ DROTR ** [ O.Reg R30; O.Reg R13; O.Shift 0x1aUL ]
+    ||> test64R2
 
   [<TestMethod>]
   member _.``[MIPS64] Shift And Rotate operations Parse Test (2)``() =
-      "000eeef8"
-      ++ DSLL ** [ O.Reg R29; O.Reg R14; O.Shift 0x1bUL ]
-      ||> test64R2
+    "000eeef8"
+    ++ DSLL ** [ O.Reg R29; O.Reg R14; O.Shift 0x1bUL ]
+    ||> test64R2
 
   [<TestMethod>]
   member _.``[MIPS64] Shift And Rotate operations Parse Test (3)``() =
-      "0011e57c"
-      ++ DSLL32 ** [ O.Reg R28; O.Reg R17; O.Shift 0x15UL ]
-      ||> test64R2
+    "0011e57c"
+    ++ DSLL32 ** [ O.Reg R28; O.Reg R17; O.Shift 0x15UL ]
+    ||> test64R2
 
   [<TestMethod>]
   member _.``[MIPS64] Shift And Rotate operations Parse Test (4)``() =
-      "02baf014"
-      ++ DSLLV ** [ O.Reg R30; O.Reg R26; O.Reg R21 ]
-      ||> test64R2
+    "02baf014"
+    ++ DSLLV ** [ O.Reg R30; O.Reg R26; O.Reg R21 ]
+    ||> test64R2
 
   [<TestMethod>]
   member _.``[MIPS64] Shift And Rotate operations Parse Test (5)``() =
-      "000ef7fb"
-      ++ DSRA ** [ O.Reg R30; O.Reg R14; O.Shift 0x1fUL ]
-      ||> test64R2
+    "000ef7fb"
+    ++ DSRA ** [ O.Reg R30; O.Reg R14; O.Shift 0x1fUL ]
+    ||> test64R2
 
   [<TestMethod>]
   member _.``[MIPS64] Shift And Rotate operations Parse Test (6)``() =
-      "000fd1ff"
-      ++ DSRA32 ** [ O.Reg R26; O.Reg R15; O.Shift 0x7UL ]
-      ||> test64R2
+    "000fd1ff"
+    ++ DSRA32 ** [ O.Reg R26; O.Reg R15; O.Shift 0x7UL ]
+    ||> test64R2
 
   [<TestMethod>]
   member _.``[MIPS64] Logical and Bit-Field operations Parse Test (1)``() =
     "7d5d6883"
-      ++ DEXT ** [ O.Reg R29; O.Reg R10; O.Imm 0x2UL; O.Imm 0xeUL ]
-      ||> test64R2
+    ++ DEXT ** [ O.Reg R29; O.Reg R10; O.Imm 0x2UL; O.Imm 0xeUL ]
+    ||> test64R2
 
   [<TestMethod>]
   member _.``[MIPS64] Logical and Bit-Field operations Parse Test (2)``() =
     "7df5ca47"
-      ++ DINS ** [ O.Reg R21; O.Reg R15; O.Imm 0x9UL; O.Imm 0x11UL ]
-      ||> test64R2
+    ++ DINS ** [ O.Reg R21; O.Reg R15; O.Imm 0x9UL; O.Imm 0x11UL ]
+    ||> test64R2
 
   [<TestMethod>]
   member _.``[MIPS64] Multiply and Divide operations Parse Test (1)``() =
@@ -163,9 +163,9 @@ type MIPS64ParserTests() =
 
   [<TestMethod>]
   member _.``[MIPS64] Load and Store operations Parse Test (1)``() =
-   "df5d2afd"
-     ++ LD ** [ O.Reg R29; O.Mem(R26, 0x2afdL, 64<rt>) ]
-     ||> test64R2
+    "df5d2afd"
+    ++ LD ** [ O.Reg R29; O.Mem(R26, 0x2afdL, 64<rt>) ]
+    ||> test64R2
 
   [<TestMethod>]
   member _.``[MIPS64] Load and Store operations Parse Test (2)``() =

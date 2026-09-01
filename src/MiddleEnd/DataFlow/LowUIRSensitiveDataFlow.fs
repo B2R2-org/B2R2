@@ -922,10 +922,10 @@ module internal AnalysisCore = begin
       possibleExeCtxs[v].Add exeCtx |> ignore
 
   let getInitialStackPointer (state: State<_, _>) =
-      let spRid = state.BinHandle.RegisterFactory.StackPointer.Value
-      let spRegType = state.BinHandle.RegisterFactory.GetRegType spRid
-      BitVector(Constants.InitialStackPointer, spRegType)
-      |> StackPointerDomain.ConstSP
+    let spRid = state.BinHandle.RegisterFactory.StackPointer.Value
+    let spRegType = state.BinHandle.RegisterFactory.GetRegType spRid
+    BitVector(Constants.InitialStackPointer, spRegType)
+    |> StackPointerDomain.ConstSP
 
   let getOutSP (state: State<_, _>) v exeCtx =
     if isNull v then getInitialStackPointer state

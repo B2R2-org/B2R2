@@ -768,17 +768,17 @@ let cvtsi2ss (wordSz: WordSize) ins =
     raise <| EncodingFailureException "Unsupported operand type"
 
 let cvtss2si (wordSz: WordSize) ins =
-   match ins.Operands with
-   | TwoOperands(OprReg r1, OprReg r2) when isReg32 wordSz r1 && isXMMReg r2 ->
-     encRR ins wordSz prefF3 rexNormal [| 0x0Fuy; 0x2Duy |] r1 r2
-   | TwoOperands(OprReg r, OprMem(b, s, d, 32<rt>)) when isReg32 wordSz r ->
-     encRM ins wordSz prefF3 rexNormal [| 0x0Fuy; 0x2Duy |] r b s d
-   | TwoOperands(OprReg r1, OprReg r2) when isReg64 wordSz r1 && isXMMReg r2 ->
-     encRR ins wordSz prefF3 rexW [| 0x0Fuy; 0x2Duy |] r1 r2
-   | TwoOperands(OprReg r, OprMem(b, s, d, 32<rt>)) when isReg64 wordSz r ->
-     encRM ins wordSz prefF3 rexW [| 0x0Fuy; 0x2Duy |] r b s d
-   | _ ->
-     raise <| EncodingFailureException "Unsupported operand type"
+  match ins.Operands with
+  | TwoOperands(OprReg r1, OprReg r2) when isReg32 wordSz r1 && isXMMReg r2 ->
+    encRR ins wordSz prefF3 rexNormal [| 0x0Fuy; 0x2Duy |] r1 r2
+  | TwoOperands(OprReg r, OprMem(b, s, d, 32<rt>)) when isReg32 wordSz r ->
+    encRM ins wordSz prefF3 rexNormal [| 0x0Fuy; 0x2Duy |] r b s d
+  | TwoOperands(OprReg r1, OprReg r2) when isReg64 wordSz r1 && isXMMReg r2 ->
+    encRR ins wordSz prefF3 rexW [| 0x0Fuy; 0x2Duy |] r1 r2
+  | TwoOperands(OprReg r, OprMem(b, s, d, 32<rt>)) when isReg64 wordSz r ->
+    encRM ins wordSz prefF3 rexW [| 0x0Fuy; 0x2Duy |] r b s d
+  | _ ->
+    raise <| EncodingFailureException "Unsupported operand type"
 
 let cvttss2si (wordSz: WordSize) ins =
   match ins.Operands with
