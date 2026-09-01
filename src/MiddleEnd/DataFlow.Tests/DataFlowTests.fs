@@ -326,6 +326,25 @@ type DataFlowTests() =
 #endif
 
   [<TestMethod>]
+  member _.``SSA Var Abstract Value Lookup Test``() =
+    let brew = Binaries.loadOne Binaries.sample2
+    let cfg = brew.Functions[0UL].CFG
+    let cp = ConstantPropagation(brew.BinHandle, cfg.Vertices)
+    (cp :> IDataFlowComputable<_, _, _>).Compute cfg |> ignore
+    let state = cp.State
+    for v in cfg.Vertices do
+      if v.VData.Internals.IsAbstract then ()
+      else state.GetTerminatorInSSA v |> ignore
+    let known = state.SSAVarToVp.Keys |> Seq.head
+    (* A variable coming in from outside the function never gets registered,
+       so the lookup must answer None instead of throwing. *)
+    let outside = { known with Identifier = 0 }
+    let hit = state.TryGetAbsValueOfSSAVar known
+    let miss = state.TryGetAbsValueOfSSAVar outside
+    Assert.AreEqual<bool>(true, Option.isSome hit)
+    Assert.AreEqual<bool>(true, Option.isNone miss)
+
+  [<TestMethod>]
   member _.``Untouched Value Analysis 1``() =
     let brew = Binaries.loadOne Binaries.sample3
     let cfg = brew.Functions[0UL].CFG

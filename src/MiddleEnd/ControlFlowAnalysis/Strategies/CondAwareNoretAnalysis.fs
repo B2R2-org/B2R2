@@ -66,7 +66,7 @@ type CondAwareNoretAnalysis([<Optional; DefaultParameterValue(true)>] strict) =
   let tryGetValue (state: LowUIRSparseDataFlow.State<_>) v varKind =
     let defs = state.PerVertexIncomingDefs[v]
     match Map.tryFind varKind defs with
-    | Some defVp -> (state :> IAbsValProvider<_, _>).GetAbsValue defVp |> Some
+    | Some defVp -> state.GetAbsValue defVp |> Some
     | None -> None
 
   let untouchedArgIndexX86FromIRCFG ctx frameDist pp state nth =

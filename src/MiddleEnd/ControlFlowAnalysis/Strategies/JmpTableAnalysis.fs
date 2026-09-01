@@ -360,7 +360,8 @@ type JmpTableAnalysis<'FnCtx, 'GlCtx
         Error ErrorCase.ItemNotFound
 
   let findConstFromIRCFG (state: LowUIRSparseDataFlow.State<_>) v =
-    state.GetAbsValue(v = v)
+    state.TryGetAbsValueOfSSAVar v
+    |> Option.defaultValue ConstantDomain.NotAConst
 
   let findDefFromIRCFG (state: LowUIRSparseDataFlow.State<_>) v =
     state.TryGetSSADef v

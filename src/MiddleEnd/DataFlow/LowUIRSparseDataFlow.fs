@@ -443,7 +443,16 @@ type State<'Lattice when 'Lattice: equality>
       else
         generatePhiSSAStmt vp |> Some
 
-  member _.GetAbsValue v = domainGetAbsValue ssaVarToVp[v]
+  /// Returns the abstract value at the given variable point.
+  member _.GetAbsValue vp = domainGetAbsValue vp
+
+  /// Tries to get the abstract value of the given SSA variable. It returns
+  /// None for a variable that the analysis never defined, such as one that
+  /// comes in from outside the function.
+  member _.TryGetAbsValueOfSSAVar v =
+    match ssaVarToVp.TryGetValue v with
+    | true, vp -> Some <| domainGetAbsValue vp
+    | false, _ -> None
 
   /// Resets this state.
   member _.Reset() = reset ()
