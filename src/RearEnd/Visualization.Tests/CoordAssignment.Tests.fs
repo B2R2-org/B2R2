@@ -60,19 +60,29 @@ type CoordAssignmentTests() =
     [| wide; narrow; middling |], xs, narrow[0]
 
   let boundOf vLayout xs hDir =
-    let bound, _, _ = CoordAssignment.getBound vLayout (xs, hDir)
-    bound
+    let _, left, right, _, _ = CoordAssignment.getBound vLayout (xs, hDir)
+    match hDir with
+    | CoordAssignment.Leftmost -> left
+    | CoordAssignment.Rightmost -> right
+
+  /// Adds a dummy vertex of the given width standing at the given x. A dummy
+  /// shows nothing, so the width it takes up is its own to say rather than
+  /// something a line it holds answers for.
+  let dummyVertex addr x width =
+    let v = g.AddVertex(VisBBlock(FakeBlock addr, width))
+    v.VData.Coordinate.X <- x
+    v
 
   [<TestMethod>]
   member _.``getBound reads the left edge of the narrowest layer``() =
     let vLayout, xs, _ = buildLayout ()
-    Assert.AreEqual<float>(5.0, boundOf vLayout xs CoordAssignment.Leftmost)
+    Assert.AreEqual<float>(0.0, boundOf vLayout xs CoordAssignment.Leftmost)
 
   [<TestMethod>]
   member _.``getBound reads the right edge of the narrowest layer``() =
     let vLayout, xs, narrow = buildLayout ()
     let hDir = CoordAssignment.Rightmost
-    let expected = 5.0 + narrow.VData.Width
+    let expected = 200.0 + narrow.VData.Width
     Assert.AreEqual<float>(expected, boundOf vLayout xs hDir)
 
   [<TestMethod>]
@@ -99,26 +109,40 @@ type CoordAssignmentTests() =
   member _.``adjustCoordinates centres the real vertices``() =
     let a = realVertex 0x1000UL 0.0 10
     let b = realVertex 0x2000UL 100.0 10
-    (* Both stand in one layer, which the singleton pull leaves alone. They
-       span from a's left edge to b's right one, and everything shifts left by
-       the midpoint of that span. *)
+    (* The two span from a's left edge to b's right one, and everything shifts
+       left by the midpoint of that span. *)
     let shift = (100.0 + b.VData.Width) / 2.0
-    CoordAssignment.adjustCoordinates g [| [| a; b |] |]
+    CoordAssignment.adjustCoordinates g
     Assert.AreEqual<float>(-shift, a.VData.Coordinate.X)
     Assert.AreEqual<float>(100.0 - shift, b.VData.Coordinate.X)
 
   [<TestMethod>]
+  member _.``adjustCoordinates measures nothing but the real vertices``() =
+    let a = realVertex 0x1000UL 0.0 10
+    let b = realVertex 0x2000UL 100.0 10
+    (* Either dummy lies well outside the two real vertices, and neither is
+       measured, so the span centred on is still a's left edge to b's right
+       one. A dummy is carried along by the shift like anything else, which is
+       what tells being left out of the measuring from being left alone. *)
+    let left = dummyVertex 0x3000UL -500.0 40.0
+    let right = dummyVertex 0x4000UL 500.0 40.0
+    let shift = (100.0 + b.VData.Width) / 2.0
+    CoordAssignment.adjustCoordinates g
+    Assert.AreEqual<float>(-shift, a.VData.Coordinate.X)
+    Assert.AreEqual<float>(100.0 - shift, b.VData.Coordinate.X)
+    Assert.AreEqual<float>(-500.0 - shift, left.VData.Coordinate.X)
+    Assert.AreEqual<float>(500.0 - shift, right.VData.Coordinate.X)
+
+  [<TestMethod>]
   member _.``adjustCoordinates takes a graph of nothing but dummies``() =
-    (* A dummy has no width to be measured by, so a graph of nothing else has
-       no extent to be centred on. *)
-    let a = g.AddVertex(VisBBlock(FakeBlock 0x1000UL, 0.0))
-    let b = g.AddVertex(VisBBlock(FakeBlock 0x2000UL, 0.0))
-    g.AddEdge(a, b, VisEdge CFGEdgeKind.FallThroughEdge)
-    VisGraph.setLayer a 0
-    VisGraph.setLayer b 1
-    CoordAssignment.adjustCoordinates g [| [| a |]; [| b |] |]
-    Assert.AreEqual<float>(0.0, a.VData.Coordinate.X)
-    Assert.AreEqual<float>(0.0, b.VData.Coordinate.X)
+    (* A dummy is never measured, whatever width it takes up, so a graph of
+       nothing else has no extent to be centred on and every vertex is left
+       standing where it was. *)
+    let a = dummyVertex 0x1000UL 30.0 40.0
+    let b = dummyVertex 0x2000UL 70.0 40.0
+    CoordAssignment.adjustCoordinates g
+    Assert.AreEqual<float>(30.0, a.VData.Coordinate.X)
+    Assert.AreEqual<float>(70.0, b.VData.Coordinate.X)
 
   [<TestMethod>]
   member _.``the layout indexes every vertex by its place in its layer``() =
