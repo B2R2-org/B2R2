@@ -603,6 +603,11 @@ type TaskScheduler<'FnCtx, 'GlCtx
         builders.TryGetBuilder addr
         |> toBuilderMessage
         |> ch.Reply
+      | GetExternalBuildingContext(reference, name, ch) ->
+        builders.GetOrCreateExternalBuilder(reference, name)
+        |> Ok
+        |> toBuilderMessage
+        |> ch.Reply
       | GetNextFunctionAddress(addr, ch) ->
         builders[addr].NextFunctionAddress
         |> ch.Reply

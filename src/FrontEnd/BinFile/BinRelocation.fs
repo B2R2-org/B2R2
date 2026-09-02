@@ -43,3 +43,11 @@ type BinRelocation =
     /// Constant addend applied when computing the relocated value, if the
     /// format carries one. None for PE base relocations.
     Addend: int64 option }
+
+/// Represents a format-agnostic target resolved from a relocation.
+[<RequireQualifiedAccess>]
+type BinRelocationTarget =
+  /// A concrete virtual address computed by the relocation.
+  | Address of Addr
+  /// A symbol whose address the loader selects when applying the relocation.
+  | Symbol of name: string

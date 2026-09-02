@@ -159,6 +159,18 @@ type ELFTests() =
   /// it needs of its own.
   static let x64SonameFile = parseFile "elf_x64_soname"
 
+  /// A small x86-64 PIE with a function pointer variable in .data and a
+  /// read-only table of function pointers in .data.rel.ro, both filled by
+  /// RELATIVE relocations, plus GLOB_DAT slots in .got. The loader fills them
+  /// all, but only .data.rel.ro and .got are read-only once the loading is
+  /// done, as GNU_RELRO covers them.
+  static let x64RelocTargetFile = parseFile "elf_x64_reloc_target"
+
+  /// Checks the target that a relocation target lookup returned.
+  static let assertRelocTarget
+    (expected: Result<BinRelocationTarget, ErrorCase>) actual =
+    Assert.AreEqual<Result<BinRelocationTarget, ErrorCase>>(expected, actual)
+
   /// Parses a C++ binary with try/catch, so it carries DWARF CFI in .eh_frame
   /// and an LSDA table in .gcc_except_table. Exception parsing needs a register
   /// factory. This returns a fresh instance every time, as the laziness tests
@@ -1165,6 +1177,28 @@ type ELFTests() =
     Assert.AreEqual<bool>(false, relocs.IsRelocationAddr 0x3c54UL)
     Assert.AreEqual(Ok 0x1140UL, relocs.TryGetRelocatedAddr 0x3c50UL)
     Assert.AreEqual(Ok 0x4008UL, relocs.TryGetRelocatedAddr 0x4008UL)
+
+  [<TestMethod>]
+  member _.``[ELF] x64 reloc target of a read-only slot test``() =
+    let relocs = (x64RelocTargetFile :> IBinFile).Relocations.Value
+    (* .data.rel.ro is in the range that GNU_RELRO protects. *)
+    assertRelocTarget (Ok(BinRelocationTarget.Address 0x1129UL))
+                      (relocs.TryGetRelocationTarget 0x3df0UL)
+    assertRelocTarget (Ok(BinRelocationTarget.Address 0x113cUL))
+                      (relocs.TryGetRelocationTarget 0x3df8UL)
+    (* .got is in that range, too, and the loader selects the symbol. *)
+    assertRelocTarget (Ok(BinRelocationTarget.Symbol "__libc_start_main"))
+                      (relocs.TryGetRelocationTarget 0x3fd8UL)
+
+  [<TestMethod>]
+  member _.``[ELF] x64 reloc target of a writable slot test``() =
+    let relocs = (x64RelocTargetFile :> IBinFile).Relocations.Value
+    (* The variable in .data can be overwritten, so what the loader wrote tells
+       nothing about a call through it. The relocated address is still the
+       value that the loader writes. *)
+    assertRelocTarget (Error ErrorCase.ItemNotFound)
+                      (relocs.TryGetRelocationTarget 0x4010UL)
+    Assert.AreEqual(Ok 0x1129UL, relocs.TryGetRelocatedAddr 0x4010UL)
 
   [<TestMethod>]
   member _.``[ELF] x64 relr rebased test``() =

@@ -320,6 +320,47 @@ type ELFBinFile(path, bytes: byte[], baseAddrOpt, rfOpt) =
           Addend = Some(int64 r.RelAddend) })
       |> Seq.toArray
 
+  /// Tells whether a slot keeps the value that the loader writes into it. This
+  /// is the case only if the loader leaves the slot read-only: it is either in
+  /// a segment that is not writable, or in the range that GNU_RELRO makes
+  /// read-only once the relocation is done. Any other slot, e.g., a variable
+  /// in .data, can be overwritten by the program later.
+  let isReadOnlyAfterLoading addr =
+    let contains (ph: ProgramHeader) =
+      ph.PHAddr <= addr && addr < ph.PHAddr + ph.PHMemSize
+    let isRelro (ph: ProgramHeader) =
+      ph.PHType = ProgramHeaderType.PT_GNU_RELRO && contains ph
+    let isReadOnlySegment (ph: ProgramHeader) =
+      let perm = ProgramHeader.FlagsToPerm ph.PHFlags
+      contains ph && not (perm.HasFlag Permission.Writable)
+    Array.exists isRelro phdrs.Value
+    || Array.exists isReadOnlySegment loadables.Value
+
+  let tryGetRelocationTarget relocAddr =
+    match relocs.Value.TryFind relocAddr with
+    | Ok _ when not (isReadOnlyAfterLoading relocAddr) ->
+      Error ErrorCase.ItemNotFound
+    (* GLOB_DATA makes the loader write the address selected for `name` into
+       this GOT slot. The selected definition may belong to this ELF image or
+       another shared object because normal symbol interposition applies. *)
+    | Ok({ RelKind = RelocationKind(MachineType.EM_X86_64, kind)
+           RelSymbol = Some({ SymName = name }) })
+      when kind = uint64 RelocationX64.R_X86_64_GLOB_DATA ->
+      Ok(BinRelocationTarget.Symbol name)
+    (* RELATIVE writes loadBase + addend without symbol lookup. IRELATIVE is
+       intentionally excluded because its addend names a resolver, not the
+       address ultimately written into the slot. *)
+    | Ok({ RelKind = RelocationKind(MachineType.EM_386, kind)
+           RelAddend = target })
+      when kind = uint64 RelocationX86.R_386_RELATIVE && target <> 0UL ->
+      Ok(BinRelocationTarget.Address(toolBox.BaseAddress + target))
+    | Ok({ RelKind = RelocationKind(MachineType.EM_X86_64, kind)
+           RelAddend = target })
+      when kind = uint64 RelocationX64.R_X86_64_RELATIVE && target <> 0UL ->
+      Ok(BinRelocationTarget.Address(toolBox.BaseAddress + target))
+    | _ ->
+      Error ErrorCase.ItemNotFound
+
   let relocations =
     Some { new IRelocationTable with
       (* The cached array is never handed out as is, so callers cannot make
@@ -330,6 +371,9 @@ type ELFBinFile(path, bytes: byte[], baseAddrOpt, rfOpt) =
 
       member _.TryGetRelocatedAddr relocAddr =
         getRelocatedAddr toolBox relocs.Value relocAddr
+
+      member _.TryGetRelocationTarget relocAddr =
+        tryGetRelocationTarget relocAddr
 
       member _.TryGetInternalFunctionAddr relocAddr =
         match relocs.Value.TryFind relocAddr with

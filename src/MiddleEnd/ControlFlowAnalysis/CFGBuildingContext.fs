@@ -256,6 +256,23 @@ with
 /// target the same callee. The callee address can be None for an indirect call.
 and AbsCallEdge = Addr * Addr option
 
+/// Describes the binary location used to refer to an external function.
+/// This is a reference location, not necessarily the entry address of code in
+/// the external library.
+and ExternalFunctionReference =
+  /// An executable import trampoline. For ELF binaries this is a PLT entry,
+  /// whose address can be the direct target of a call instruction.
+  | PLTTrampoline of trampolineAddress: Addr
+  /// A non-executable relocation slot. The loader fills this slot with the
+  /// external function's address, and an indirect call reads it from the slot.
+  | RelocationSlot of slotAddress: Addr
+with
+  /// Address in this binary at which the external function is referenced.
+  member this.ReferenceAddress =
+    match this with
+    | PLTTrampoline addr
+    | RelocationSlot addr -> addr
+
 /// The interface for accessing the state of the TaskManager.
 and IManagerAccessible<'FnCtx, 'GlCtx
   when 'FnCtx :> IResettable
@@ -281,6 +298,12 @@ and IManagerAccessible<'FnCtx, 'GlCtx
   /// return None.
   abstract GetBuildingContext:
        addr: Addr
+    -> BuildingCtxMsg<'FnCtx, 'GlCtx>
+
+  /// Get or create the builder of an external function.
+  abstract GetExternalBuildingContext:
+       reference: ExternalFunctionReference
+     * name: string
     -> BuildingCtxMsg<'FnCtx, 'GlCtx>
 
   /// Get the next function address of the given function address. If there's no

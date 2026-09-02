@@ -29,6 +29,7 @@ open B2R2
 open B2R2.BinIR
 open B2R2.BinIR.LowUIR
 open B2R2.FrontEnd
+open B2R2.FrontEnd.BinFile
 open B2R2.MiddleEnd.BinGraph
 open B2R2.MiddleEnd.ControlFlowGraph
 open B2R2.MiddleEnd.ControlFlowAnalysis
@@ -290,6 +291,29 @@ module internal CFGRecoveryCommon =
 
   let makeCalleeInfoFromCtx ctx = ctx.NonReturningStatus, ctx.UnwindingBytes
 
+  let handleResolvedCall ctx cfgRec callerPPoint callsite calleeAddr action =
+    let fnAddr = ctx.FunctionAddress
+    let actionQueue = ctx.ActionQueue
+    addCallerVertex ctx callsite (getVertex ctx cfgRec callerPPoint)
+    ctx.IntraCallTable.AddRegularCall(callsite, calleeAddr)
+    if fnAddr = calleeAddr then (* self-recursion *)
+      actionQueue.Push(prioritizer, action)
+    else
+      match ctx.ManagerChannel.AddDependency(fnAddr, calleeAddr) with
+      (* Wait for the callee to finish. *)
+      | StillBuilding _
+      | FailedBuilding ->
+        postponeActionOnCallee ctx calleeAddr action
+      (* Directly push the given action into its action queue. *)
+      | FinalCtx calleeCtx ->
+        let calleeInfo = makeCalleeInfoFromCtx calleeCtx
+        match action with
+        | MakeCall _ -> MakeCall(callsite, calleeAddr, calleeInfo)
+        | MakeTlCall _ -> MakeTlCall(callsite, calleeAddr, calleeInfo)
+        | _ -> action
+        |> pushAction ctx
+    MoveOn
+
   let handleCall ctx cfgRec srcVertex callsite calleeAddr action =
     let srcBBL: ILowUIRBasicBlock = (srcVertex: IVertex<_>).VData
     (* When a caller node is split into multiple nodes, we can detect the same
@@ -308,29 +332,47 @@ module internal CFGRecoveryCommon =
       pushAction ctx <| MakeIndCall(callsite)
       MoveOn
     elif isExecutableAddr ctx calleeAddr then
-      let fnAddr = ctx.FunctionAddress
-      let actionQueue = ctx.ActionQueue
-      addCallerVertex ctx callsite (getVertex ctx cfgRec srcBBL.PPoint)
-      ctx.IntraCallTable.AddRegularCall(callsite, calleeAddr)
-      if fnAddr = calleeAddr then (* self-recursion *)
-        actionQueue.Push(prioritizer, action)
-      else
-        match ctx.ManagerChannel.AddDependency(fnAddr, calleeAddr) with
-        (* Wait for the callee to finish *)
-        | StillBuilding _
-        | FailedBuilding ->
-          postponeActionOnCallee ctx calleeAddr action
-        (* Directly push the given action into its action queue. *)
-        | FinalCtx calleeCtx ->
-          let calleeInfo = makeCalleeInfoFromCtx calleeCtx
-          match action with
-          | MakeCall _ -> MakeCall(callsite, calleeAddr, calleeInfo)
-          | MakeTlCall _ -> MakeTlCall(callsite, calleeAddr, calleeInfo)
-          | _ -> action
-          |> pushAction ctx
-      MoveOn
+      handleResolvedCall ctx cfgRec srcBBL.PPoint callsite calleeAddr action
     else
       FailStop ErrorCase.FailedToRecoverCFG
+
+  /// Resolves a call whose target is loaded from a PC-relative relocation
+  /// slot.
+  let tryHandleRelocationBackedCall
+      ctx cfgRec srcVertex ppoint callsite isTailCall e =
+    let callsiteAddr = (callsite: CallSite).CallSiteAddress
+    match e with
+    | Load(Addr = BinOp(Op = BinOpType.ADD; Left = PCVar _; Right = Num bv)) ->
+      let relocationSlotAddr = callsiteAddr + bv.ToUInt64()
+      match BinFileOps.tryGetRelocationTarget
+              ctx.BinHandle.File relocationSlotAddr with
+      | Ok(BinFile.BinRelocationTarget.Symbol name) ->
+        let ch = ctx.ManagerChannel
+        let reference = RelocationSlot relocationSlotAddr
+        match ch.GetExternalBuildingContext(reference, name) with
+        | FinalCtx calleeCtx ->
+          let calleeInfo = makeCalleeInfoFromCtx calleeCtx
+          let action =
+            if isTailCall then
+              MakeTlCall(callsite, relocationSlotAddr, calleeInfo)
+            else
+              MakeCall(callsite, relocationSlotAddr, calleeInfo)
+          action
+          |> handleResolvedCall ctx cfgRec ppoint callsite relocationSlotAddr
+          |> Some
+        | _ ->
+          Terminator.impossible ()
+      | Ok(BinFile.BinRelocationTarget.Address target) ->
+        let action =
+          if isTailCall then
+            MakeTlCall(callsite, target, (UnknownNoRet, 0))
+          else
+            MakeCall(callsite, target, (UnknownNoRet, 0))
+        Some(handleCall ctx cfgRec srcVertex callsite target action)
+      | Error _ ->
+        None
+    | _ ->
+      None
 
   /// Try to get a vertex (which is either cached or newly created).
   let tryGetVertex ctx cfgRec ppoint =
@@ -498,14 +540,23 @@ module internal CFGRecoveryCommon =
           let fpp = maskedPPoint ctx (fv.ToUInt64())
           connectEdgeIfValid ctx cfgRec queue srcVertex InterCJmpTrueEdge tpp
           connectEdgeIfValid ctx cfgRec queue srcVertex InterCJmpFalseEdge fpp
-        | InterJmp(Kind = InterJmpKind.Base) -> (* Indirect jumps *)
-          cfgRec.AnalyzeIndirectJump(ctx, queue, ppoint, srcVertex)
-          |> Option.iter (fun r -> result <- r)
-        | InterJmp(Kind = InterJmpKind.IsCall) -> (* Indirect calls *)
+        | InterJmp(Target = e; Kind = InterJmpKind.Base) -> (* Indirect jmp *)
+          let callsite = LeafCallSite srcData.LastInstruction.Address
+          match tryHandleRelocationBackedCall ctx cfgRec srcVertex ppoint
+                                               callsite true e with
+          | Some r -> result <- r
+          | None ->
+            cfgRec.AnalyzeIndirectJump(ctx, queue, ppoint, srcVertex)
+            |> Option.iter (fun r -> result <- r)
+        | InterJmp(Target = e; Kind = InterJmpKind.IsCall) -> (* Ind call *)
           let callsiteAddr = srcData.LastInstruction.Address
           let callsite = LeafCallSite callsiteAddr
-          addCallerVertex ctx callsite srcVertex
-          actionQueue.Push(prioritizer, MakeIndCall(callsite))
+          match tryHandleRelocationBackedCall ctx cfgRec srcVertex ppoint
+                                               callsite false e with
+          | Some r -> result <- r
+          | None ->
+            addCallerVertex ctx callsite srcVertex
+            actionQueue.Push(prioritizer, MakeIndCall(callsite))
         | InterCJmp _ -> (* Indirect cond jumps *)
           cfgRec.AnalyzeIndirectCondJump(ctx, queue, ppoint, srcVertex)
           |> Option.iter (fun r -> result <- r)
@@ -520,6 +571,7 @@ module internal CFGRecoveryCommon =
         | CJmp _
         | InterJmp _
         | InterCJmp _
+        | SideEffect(Effect = UndefinedInstruction)
         | SideEffect(Effect = Exception _)
         | SideEffect(Effect = Terminate)
         | SideEffect(Effect = Breakpoint) ->

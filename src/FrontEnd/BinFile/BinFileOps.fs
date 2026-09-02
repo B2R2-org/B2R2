@@ -200,6 +200,13 @@ let tryGetRelocatedAddr (file: IBinFile) relocAddr =
   | Some relocs -> relocs.TryGetRelocatedAddr relocAddr
   | None -> Error ErrorCase.ItemNotFound
 
+/// Tries to resolve the target represented by a relocation.
+[<CompiledName "TryGetRelocationTarget">]
+let tryGetRelocationTarget (file: IBinFile) relocAddr =
+  match file.Relocations with
+  | Some relocs -> relocs.TryGetRelocationTarget relocAddr
+  | None -> Error ErrorCase.ItemNotFound
+
 /// Tries to resolve the relocation at the given address to an internal
 /// function defined within the given binary file itself.
 [<CompiledName "TryGetInternalFunctionAddr">]

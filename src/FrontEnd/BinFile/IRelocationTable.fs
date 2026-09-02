@@ -52,6 +52,20 @@ type IRelocationTable =
   abstract TryGetRelocatedAddr: relocAddr: Addr -> Result<Addr, ErrorCase>
 
   /// <summary>
+  /// Tries to resolve the target represented by the relocation at the given
+  /// address. A target can be either a concrete address or a symbol whose
+  /// address is selected by the loader. A slot that the program can overwrite
+  /// after loading has no target, as what the loader wrote is no longer what a
+  /// call through the slot reaches.
+  /// </summary>
+  /// <param name="relocAddr">Virtual address to be relocated.</param>
+  /// <returns>
+  /// Returns the format-agnostic relocation target on success.
+  /// </returns>
+  abstract TryGetRelocationTarget:
+    relocAddr: Addr -> Result<BinRelocationTarget, ErrorCase>
+
+  /// <summary>
   /// Tries to resolve the relocation at the given address to a function that
   /// is defined within this binary itself (rather than imported from another
   /// module). This covers a relocation targeting a locally-defined function

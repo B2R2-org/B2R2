@@ -68,6 +68,17 @@ type CFGBuilderTable<'FnCtx, 'GlCtx
       updateNextFunctionAddrs builder addr
       builder
 
+  let getOrCreateExternalBuilder (reference: ExternalFunctionReference) name =
+    let addr = reference.ReferenceAddress
+    match builders.TryGetValue addr with
+    | true, builder -> builder
+    | false, _ ->
+      let isNoRet = ELF.getNoReturnStatusFromKnownFunc name
+      let builder =
+        ExternalFnCFGBuilder(hdl, exnInfo, reference, name, isNoRet)
+      builders[addr] <- builder
+      builder
+
   let loadFromImportTable (file: IBinFile) (tbl: IImportTable) =
     for entry in tbl.Imports do
       match BinFileOps.tryGetInternalFunctionAddr file entry.TableAddress with
@@ -82,7 +93,9 @@ type CFGBuilderTable<'FnCtx, 'GlCtx
         | Some addr ->
           let name = entry.Name
           let isNoRet = ELF.getNoReturnStatusFromKnownFunc name
-          let builder = ExternalFnCFGBuilder(hdl, exnInfo, addr, name, isNoRet)
+          let reference = PLTTrampoline addr
+          let builder =
+            ExternalFnCFGBuilder(hdl, exnInfo, reference, name, isNoRet)
           builders[addr] <- builder
         | None ->
           ()
@@ -115,6 +128,10 @@ type CFGBuilderTable<'FnCtx, 'GlCtx
   /// Get or create a function builder by its address.
   member _.GetOrCreateBuilder(managerMsgbox, addr) =
     getOrCreateInternalBuilder managerMsgbox addr
+
+  /// Get or create an external function builder for the given reference.
+  member _.GetOrCreateExternalBuilder(reference, name) =
+    getOrCreateExternalBuilder reference name
 
   /// Update existing function builder to have a new manager msgbox.
   member _.Reload(builder: ICFGBuildable<_, _>, managerMsgbox) =
