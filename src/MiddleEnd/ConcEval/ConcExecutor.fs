@@ -25,6 +25,7 @@
 namespace B2R2.MiddleEnd.ConcEval
 
 open B2R2
+open B2R2.ABI
 open B2R2.Collections
 open B2R2.BinIR
 open B2R2.BinIR.LowUIR
@@ -110,7 +111,9 @@ type ConcUndefinedValuePolicy =
 type UninitializedRegisterPolicy =
   /// Treat uninitialized register reads as evaluation failures.
   | StopOnUninitializedRegister
-  /// Materialize caller-provided context registers as zero on first read.
+  /// Materialize caller-provided context registers as zero on first read. The
+  /// program counter, the stack pointer, and the register that holds the
+  /// return address under the binary's ABI are left uninitialized.
   | ZeroCallerContext
   /// Materialize any uninitialized register as zero on first read.
   | ZeroAnyRegister
@@ -181,23 +184,17 @@ type ConcExecutor(hdl: BinHandle) =
     st.InitializeContext(start, opts.Registers)
     st
 
-  let isRegisterNamed names rid =
-    let name = regFactory.GetRegisterName rid
-    names |> Array.exists ((=) name)
+  let returnAddressRegister =
+    match hdl.Conventions.Calling.ReturnAddressLocation with
+    | InRegister rid -> Some rid
+    | OnStack -> None
 
-  let isControlRegister rid =
-    regFactory.IsProgramCounter rid
-    || regFactory.IsStackPointer rid
-    || isRegisterNamed [| "PC"; "NPC"; "SP"; "RSP"; "ESP" |] rid
-
-  let isReturnAddressRegister rid = isRegisterNamed [| "LR"; "RA" |] rid
-
-  let isGlobalPointerRegister rid = isRegisterNamed [| "GP" |] rid
+  let isReturnAddressRegister rid = returnAddressRegister = Some rid
 
   let isCallerContextRegister rid =
-    not (isControlRegister rid)
+    not (regFactory.IsProgramCounter rid)
+    && not (regFactory.IsStackPointer rid)
     && not (isReturnAddressRegister rid)
-    && not (isGlobalPointerRegister rid)
 
   let zeroRegister rid =
     regFactory.GetRegType rid

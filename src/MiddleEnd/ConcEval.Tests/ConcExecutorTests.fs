@@ -31,18 +31,44 @@ open B2R2.MiddleEnd.ConcEval
 
 [<TestClass>]
 type ConcExecutorTests() =
-  (* syscall; nop; nop *)
-  let bytes = [| 0x0fuy; 0x05uy; 0x90uy; 0x90uy |]
+  let loadRawImage (bytes: byte[]) arch (ws: WordSize) =
+    BinHandle.LoadRawImage(bytes, ISA(arch, ws), OS.Linux)
 
-  let newExecutor () =
-    let isa = ISA(Architecture.Intel, WordSize.Bit64)
-    BinHandle.LoadRawImage(bytes, isa, OS.Linux) |> ConcExecutor
+  let runOneInstruction (hdl: BinHandle) =
+    let exec = ConcExecutor hdl
+    let st = exec.CreateState()
+    exec.Run(0UL, st, ConcRunOptions.Default(StopAfterInstructionCount 1))
+    |> ignore
+    st
 
   [<TestMethod>]
   [<Timeout(10000)>]
   member _.``Run makes progress past a side-effect instruction``() =
-    let exec = newExecutor ()
+    (* syscall; nop; nop *)
+    let bytes = [| 0x0fuy; 0x05uy; 0x90uy; 0x90uy |]
+    let hdl = loadRawImage bytes Architecture.Intel WordSize.Bit64
+    let exec = ConcExecutor hdl
     let st = exec.CreateState()
     let res = exec.Run(0UL, st, ConcRunOptions.Default(StopAfterAddress 0x3UL))
     Assert.AreEqual<Addr>(0x4UL, res.FinalAddress)
     Assert.AreEqual<int>(3, res.InstructionCount)
+
+  [<TestMethod>]
+  member _.``Return address register is not zeroed as caller context``() =
+    (* ret *)
+    let bytes = [| 0xc0uy; 0x03uy; 0x5fuy; 0xd6uy |]
+    let hdl = loadRawImage bytes Architecture.ARMv8 WordSize.Bit64
+    let st = runOneInstruction hdl
+    match st.TryGetReg(hdl.RegisterFactory.GetRegisterID "x30") with
+    | Undef -> ()
+    | Def v -> Assert.Fail $"The return address register was zeroed to {v}."
+
+  [<TestMethod>]
+  member _.``Caller context registers are zeroed``() =
+    (* add rax, rbx *)
+    let bytes = [| 0x48uy; 0x01uy; 0xd8uy |]
+    let hdl = loadRawImage bytes Architecture.Intel WordSize.Bit64
+    let st = runOneInstruction hdl
+    match st.TryGetReg(hdl.RegisterFactory.GetRegisterID "RBX") with
+    | Def v -> Assert.AreEqual<uint64>(0UL, v.ToUInt64())
+    | Undef -> Assert.Fail "RBX was not materialized."
