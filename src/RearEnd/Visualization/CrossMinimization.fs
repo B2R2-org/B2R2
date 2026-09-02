@@ -25,10 +25,30 @@
 [<RequireQualifiedAccess>]
 module internal B2R2.RearEnd.Visualization.CrossMinimization
 
+open System.Collections.Generic
 open B2R2.MiddleEnd.BinGraph
 
 /// The maximum number of iterations.
 let [<Literal>] private MaxTrials = 128
+
+/// Holds the neighbours of every vertex, both ways round. The graph does not
+/// change while the layers are being reordered, and every sweep asks after the
+/// same neighbours again, so the graph is made to copy them out but once.
+type private Neighbors(g: VisGraph) =
+  let preds = Dictionary<IVertex<VisBBlock>, IVertex<VisBBlock>[]>()
+
+  let succs = Dictionary<IVertex<VisBBlock>, IVertex<VisBBlock>[]>()
+
+  do
+    for v in g.Vertices do
+      preds[v] <- g.GetPreds v
+      succs[v] <- g.GetSuccs v
+
+  /// Returns the predecessors of the given vertex.
+  member _.Preds v = preds[v]
+
+  /// Returns the successors of the given vertex.
+  member _.Succs v = succs[v]
 
 let private computeMaxLayer (g: VisGraph) =
   g |> DiGraph.foldVertex (fun maxLayer v ->
@@ -63,9 +83,9 @@ let private computeBarycenterFromNeighbors neighbors =
     let neighborCount = neighbors.Length
     float sum / float neighborCount
 
-let private computeBarycenter g isDown v =
+let private computeBarycenter nb isDown v =
   let fnGetNeighbors =
-    if isDown then (g: IDiGraph<_, _>).GetPreds else g.GetSuccs
+    if isDown then (nb: Neighbors).Preds else nb.Succs
   let neighbors = fnGetNeighbors v
   let barycenter = computeBarycenterFromNeighbors neighbors
   barycenter, v
@@ -82,30 +102,30 @@ let private writeVerticesToLayer (layer: _[]) (vertices: _[]) =
     v.VData.Index <- i
   changed
 
-let private reorderLayerByBarycenter g (layout: _[][]) isDown layer =
+let private reorderLayerByBarycenter nb (layout: _[][]) isDown layer =
   let vertices = layout[layer]
-  let barycenters = vertices |> Array.map (computeBarycenter g isDown)
+  let barycenters = vertices |> Array.map (computeBarycenter nb isDown)
   barycenters |> Array.sortInPlaceBy barycenterSortKey
   barycenters |> Array.map snd |> writeVerticesToLayer vertices
 
-let private phase1 g layout isDown from maxLayer =
+let private phase1 nb layout isDown from maxLayer =
   let mutable changed = false
   if isDown then
     for layer = from to maxLayer do
-      changed <- reorderLayerByBarycenter g layout isDown layer || changed
+      changed <- reorderLayerByBarycenter nb layout isDown layer || changed
   else
     for layer = from downto 0 do
-      changed <- reorderLayerByBarycenter g layout isDown layer || changed
+      changed <- reorderLayerByBarycenter nb layout isDown layer || changed
   changed
 
 /// Checks if there is an edge crossing between two adjacent layers in the
 /// layout. We only need a boolean answer in phase2, so tracking the running
 /// maximum target index is enough.
-let private hasBilayerEdgeCrossing g layout isDown layerNum =
+let private hasBilayerEdgeCrossing nb layout isDown layerNum =
   let vertices =
     if isDown then (layout: _[][])[layerNum - 1] else layout[layerNum + 1]
   let fnGetNeighbors =
-    if isDown then (g: IDiGraph<_, _>).GetSuccs else g.GetPreds
+    if isDown then (nb: Neighbors).Succs else nb.Preds
   let mutable found = false
   let mutable prefixMax = -1
   let mutable i = 0
@@ -126,10 +146,10 @@ let private hasBilayerEdgeCrossing g layout isDown layerNum =
     i <- i + 1
   found
 
-let private countBilayerEdgeCrossings g (layout: _[][]) isDown layerNum =
+let private countBilayerEdgeCrossings nb (layout: _[][]) isDown layerNum =
   let vertices = if isDown then layout[layerNum - 1] else layout[layerNum + 1]
   let fnGetNeighbors =
-    if isDown then (g: IDiGraph<_, _>).GetSuccs else g.GetPreds
+    if isDown then (nb: Neighbors).Succs else nb.Preds
   let targetCount = layout[layerNum].Length
   let bit = Array.zeroCreate (targetCount + 1)
   let inline add idx =
@@ -181,52 +201,56 @@ let private buildReversedTieLayer (baryCenters: _[]) =
     start <- finish
   hasTie, reordered
 
-let private reverseOneLayer g layout isDown maxLayer layerNum =
-  if not (hasBilayerEdgeCrossing g layout isDown layerNum) then
+let private reverseOneLayer nb layout isDown maxLayer layerNum =
+  if not (hasBilayerEdgeCrossing nb layout isDown layerNum) then
     false
   else
     let layer = layout[layerNum]
-    let baryCenters = Array.map (computeBarycenter g isDown) layer
+    let baryCenters = Array.map (computeBarycenter nb isDown) layer
     baryCenters |> Array.sortInPlaceBy barycenterSortKey
     let hasTie, candidate = buildReversedTieLayer baryCenters
     if not hasTie then
       false
     else
-      let before = countBilayerEdgeCrossings g layout isDown layerNum
+      let before = countBilayerEdgeCrossings nb layout isDown layerNum
       let original = Array.copy layer
       let changed = writeVerticesToLayer layer candidate
       if not changed then
         false
       else
-        let after = countBilayerEdgeCrossings g layout isDown layerNum
+        let after = countBilayerEdgeCrossings nb layout isDown layerNum
         if after >= before then
           writeVerticesToLayer layer original |> ignore
           false
         else
-          phase1 g layout isDown layerNum maxLayer || changed
+          phase1 nb layout isDown layerNum maxLayer || changed
 
-let private phase2 g layout isDown maxLayer =
+let private phase2 nb layout isDown maxLayer =
   let mutable changed = false
   if isDown then
     for layer = 1 to maxLayer do
-      changed <- reverseOneLayer g layout isDown maxLayer layer || changed
+      changed <- reverseOneLayer nb layout isDown maxLayer layer || changed
   else
     for layer = maxLayer - 1 downto 0 do
-      changed <- reverseOneLayer g layout isDown maxLayer layer || changed
+      changed <- reverseOneLayer nb layout isDown maxLayer layer || changed
   changed
 
-let rec private performSugiyamaReorder g trials layout =
+let rec private performSugiyamaReorder nb trials layout =
   if trials = MaxTrials then
     layout
   else
     let maxLayer = Array.length layout - 1
-    let changed1 = phase1 g layout true 1 maxLayer
-    let changed2 = phase1 g layout false (maxLayer - 1) maxLayer
-    let changed3 = phase2 g layout false maxLayer
-    let changed4 = phase2 g layout true maxLayer
+    let changed1 = phase1 nb layout true 1 maxLayer
+    let changed2 = phase1 nb layout false (maxLayer - 1) maxLayer
+    let changed3 = phase2 nb layout false maxLayer
+    let changed4 = phase2 nb layout true maxLayer
     let changed = changed1 || changed2 || changed3 || changed4
-    if not changed then layout else performSugiyamaReorder g (trials + 1) layout
+    if not changed then
+      layout
+    else
+      performSugiyamaReorder nb (trials + 1) layout
 
 let run g =
+  let nb = Neighbors g
   createInitialLayout g
-  |> performSugiyamaReorder g 0
+  |> performSugiyamaReorder nb 0
