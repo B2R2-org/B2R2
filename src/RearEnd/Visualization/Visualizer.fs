@@ -29,43 +29,41 @@ open B2R2
 #endif
 open B2R2.MiddleEnd.BinGraph
 
+(* Whatever the layout runs into is left to reach the caller. Answering an
+   empty graph instead would read as a function of no blocks, which is a thing
+   a binary really has, and the caller deciding what to make of a failure is
+   the caller's to do. *)
 let private convert iGraph charWidth charHeight =
-  try
-    let vGraph = VisGraph.ofCFG iGraph charWidth charHeight
-    let backEdgeList = CycleRemoval.run vGraph
-    let backEdgeList, dummyMap = LayerAssignment.run vGraph backEdgeList
-    let vLayout = CrossMinimization.run vGraph
-    CoordAssignment.run vGraph vLayout
-    EdgeDrawing.drawEdges vGraph vLayout backEdgeList dummyMap
-    Some vGraph
-  with e ->
-    eprintfn "%s" <| e.ToString()
-    None
+  let vGraph = VisGraph.ofCFG iGraph charWidth charHeight
+  let backEdgeList = CycleRemoval.run vGraph
+  let backEdgeList, dummyMap = LayerAssignment.run vGraph backEdgeList
+  let vLayout = CrossMinimization.run vGraph
+  CoordAssignment.run vGraph vLayout
+  EdgeDrawing.drawEdges vGraph vLayout backEdgeList dummyMap
+  vGraph
 
-/// Converts the given graph to JSON format.
+/// Converts the given graph to JSON format, raising whatever laying it out
+/// runs into.
 let toJSON (iGraph: IDiGraph<_, _>) roots charWidth charHeight =
   if iGraph.VertexCount = 0 then
     "{}"
   else
-    match convert iGraph charWidth charHeight with
-    | Some vGraph -> JSONExport.toStr roots vGraph
-    | None -> "{}"
+    convert iGraph charWidth charHeight |> JSONExport.toStr roots
 
-/// Converts the given graph to a VisGraph for visualization.
+/// Converts the given graph to a VisGraph for visualization, raising whatever
+/// laying it out runs into.
 let toVisGraph (iGraph: IDiGraph<_, _>) charWidth charHeight =
   if iGraph.VertexCount = 0 then
     VisGraph.init ()
   else
 #if DEBUG
     let sw = System.Diagnostics.Stopwatch.StartNew()
-#endif
+    let vGraph = convert iGraph charWidth charHeight
+    sw.Stop()
+    printsn $"[*] Visualization took {sw.Elapsed.TotalSeconds} sec."
+    vGraph
+#else
     convert iGraph charWidth charHeight
-    |> Option.defaultValue (VisGraph.init ())
-#if DEBUG
-    |> fun g ->
-      sw.Stop()
-      printsn $"[*] Visualization took {sw.Elapsed.TotalSeconds} sec."
-      g
 #endif
 
 /// Default character width used for layout calculations.

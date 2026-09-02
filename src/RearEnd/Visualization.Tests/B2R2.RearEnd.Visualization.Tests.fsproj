@@ -8,6 +8,7 @@
     <Compile Include="TestHelper.fs" />
     <Compile Include="VisGraph.Tests.fs" />
     <Compile Include="CoordAssignment.Tests.fs" />
+    <Compile Include="Visualizer.Tests.fs" />
   </ItemGroup>
 
   <ItemGroup>
