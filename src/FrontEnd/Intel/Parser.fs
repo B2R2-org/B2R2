@@ -25,6 +25,7 @@
 namespace B2R2.FrontEnd.Intel
 
 open System
+open System.Runtime.CompilerServices
 open B2R2
 open B2R2.FrontEnd.BinLifter
 open B2R2.FrontEnd.Intel.ParsingFunctions
@@ -247,7 +248,9 @@ type IntelParser(wordSz, reader) =
   /// constraints; raises if no variant matches. modRM is the byte after the
   /// opcode, or 0 where the bytes end there: a row that needs one then fails
   /// to read it whichever row is picked, as it did when the byte was read
-  /// here.
+  /// here. Inlined into Parse: the JIT leaves a method with a loop alone, and
+  /// the frame it cost was paid by every instruction.
+  [<MethodImpl(MethodImplOptions.AggressiveInlining)>]
   let selectInstrVariant (phlp: ParsingHelper) modRM (head: Row) =
     if isNull (box head) then
       failwith "Error: Instruction core array is empty."

@@ -122,18 +122,16 @@ let getEVEXInfo (span: ByteSpan) (rex: byref<REXPrefix>) pos =
     EVEXPrx = e }
 
 let inline newInstruction (phlp: ParsingHelper) opcode oprs =
-  Instruction(phlp.InsAddr,
-              uint32 (phlp.ParsedLen()),
-              phlp.WordSize,
-              phlp.Prefixes,
-              phlp.REXPrefix,
-              phlp.VEXInfo,
-              opcode,
-              oprs,
-              phlp.OperationSize,
-              phlp.MemEffAddrSize,
-              phlp.IsFar,
-              phlp.Lifter)
+  let packed =
+    Instruction.Pack(uint32 (phlp.ParsedLen()),
+                     phlp.WordSize,
+                     phlp.Prefixes,
+                     phlp.REXPrefix,
+                     opcode,
+                     phlp.OperationSize,
+                     phlp.MemEffAddrSize,
+                     phlp.IsFar)
+  Instruction(phlp.InsAddr, packed, phlp.VEXInfo, oprs, phlp.Lifter)
 
 /// Some instructions use 66/F2/F3 prefix as a mandatory prefix. When both
 /// VEX.pp and old-style prefix are used, the VEX.pp is used to select the

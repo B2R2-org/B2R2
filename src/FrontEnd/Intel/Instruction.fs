@@ -28,36 +28,7 @@ open B2R2
 open B2R2.FrontEnd.BinLifter
 
 /// Represents an instruction for Intel x86 and x86-64 architectures.
-type Instruction
-  internal(addr,
-           len,
-           wordSz,
-           pref,
-           rex,
-           vex,
-           opcode,
-           oprs,
-           opsz,
-           psz,
-           isFar,
-           lifter: ILiftable) =
-
-  (* The scalar fields packed into one word. An instruction is allocated for
-     every one parsed, and as eight separate fields these cost three times the
-     space and a third of the parsing time. Widths: the length in bits 3:0
-     (at most 15), the opcode in 15:4, the prefixes in 27:16, REX in 34:28, the
-     operation size in 44:35 (the widest operand, the x87 state, is 864 bits),
-     the pointer size in 52:45, the far flag in 53, and the word size in 62:54.
-     Every property below unpacks its own. *)
-  let packed =
-    (uint64 (len: uint32) &&& 0xFUL)
-    ||| ((uint64 (int (opcode: Opcode)) &&& 0xFFFUL) <<< 4)
-    ||| ((uint64 (int (pref: Prefix)) &&& 0xFFFUL) <<< 16)
-    ||| ((uint64 (int (rex: REXPrefix)) &&& 0x7FUL) <<< 28)
-    ||| ((uint64 (int (opsz: RegType)) &&& 0x3FFUL) <<< 35)
-    ||| ((uint64 (int (psz: RegType)) &&& 0xFFUL) <<< 45)
-    ||| ((if isFar then 1UL else 0UL) <<< 53)
-    ||| ((uint64 (int (wordSz: WordSize)) &&& 0x1FFUL) <<< 54)
+type Instruction internal(addr, packed: uint64, vex, oprs, lifter: ILiftable) =
 
   let hasConcJmpTarget () =
     match oprs with
@@ -108,6 +79,30 @@ type Instruction
   /// The word size of the mode the instruction was parsed in.
   member private _.WordSize with get(): WordSize =
     LanguagePrimitives.EnumOfValue(int ((packed >>> 54) &&& 0x1FFUL))
+
+  /// The scalar fields packed into one word. An instruction is allocated for
+  /// every one parsed, and as eight separate fields these cost three times the
+  /// space and a third of the parsing time. Widths: the length in bits 3:0
+  /// (at most 15), the opcode in 15:4, the prefixes in 27:16, REX in 34:28,
+  /// the operation size in 44:35 (the widest operand, the x87 state, is 864
+  /// bits), the pointer size in 52:45, the far flag in 53, and the word size
+  /// in 62:54. Every property below unpacks its own.
+  static member inline internal Pack(len: uint32,
+                                     wordSz: WordSize,
+                                     pref: Prefix,
+                                     rex: REXPrefix,
+                                     opcode: Opcode,
+                                     opsz: RegType,
+                                     psz: RegType,
+                                     isFar: bool) =
+    (uint64 len &&& 0xFUL)
+    ||| ((uint64 (int opcode) &&& 0xFFFUL) <<< 4)
+    ||| ((uint64 (int pref) &&& 0xFFFUL) <<< 16)
+    ||| ((uint64 (int rex) &&& 0x7FUL) <<< 28)
+    ||| ((uint64 (int opsz) &&& 0x3FFUL) <<< 35)
+    ||| ((uint64 (int psz) &&& 0xFFUL) <<< 45)
+    ||| ((if isFar then 1UL else 0UL) <<< 53)
+    ||| ((uint64 (int wordSz) &&& 0x1FFUL) <<< 54)
 
   member private this.AddBranchTargetIfExist addrs =
     match (this :> IInstruction).DirectBranchTarget() with
