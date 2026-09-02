@@ -17,6 +17,7 @@
     <Compile Include="SafeEvaluator.fs" />
     <Compile Include="Evaluator.fs" />
     <Compile Include="ConcStateAccessor.fs" />
+    <Compile Include="ConcCallHook.fs" />
     <Compile Include="ConcExecutor.fs" />
   </ItemGroup>
 

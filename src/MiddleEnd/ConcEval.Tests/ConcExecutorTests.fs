@@ -24,7 +24,6 @@
 
 namespace B2R2.MiddleEnd.ConcEval.Tests
 
-open System
 open Microsoft.VisualStudio.TestTools.UnitTesting
 open B2R2
 open B2R2.FrontEnd
@@ -38,6 +37,16 @@ type ConcExecutorTests() =
 
   (* mul rax : the lifter marks SF as undefined *)
   let mulBytes = [| 0x48uy; 0xf7uy; 0xe0uy |]
+
+  (* call rel32 1 (target 0x6) ; nop ; ret *)
+  let hookedCall = [| 0xe8uy; 0x01uy; 0x00uy; 0x00uy; 0x00uy; 0x90uy; 0xc3uy |]
+
+  (* call rel32 0x100 (target 0x105, outside the image) ; nop *)
+  let externalCall = [| 0xe8uy; 0x00uy; 0x01uy; 0x00uy; 0x00uy; 0x90uy |]
+
+  (* jal 0x20 ; nop (delay slot) ; nop -- a MIPS nop is a zero word *)
+  let mipsCall =
+    Array.append [| 0x0cuy; 0x00uy; 0x00uy; 0x08uy |] (Array.zeroCreate 8)
 
   let runMulWithPresetSF policy =
     let hdl = loadRawImage mulBytes Architecture.Intel WordSize.Bit64
@@ -145,17 +154,71 @@ type ConcExecutorTests() =
       Assert.Fail "SF was unset."
 
   [<TestMethod>]
-  member _.``Call hooks report themselves as unimplemented``() =
-    (* call rel32 0 ; nop *)
-    let bytes = [| 0xe8uy; 0x00uy; 0x00uy; 0x00uy; 0x00uy; 0x90uy |]
-    let hdl = loadRawImage bytes Architecture.Intel WordSize.Bit64
+  member _.``A call hook stands in for the call``() =
+    let hdl = loadRawImage hookedCall Architecture.Intel WordSize.Bit64
     let exec = ConcExecutor hdl
     let st = exec.CreateState()
-    let opts = { ConcRunOptions.Default [] with Calls = UseCallHooks }
-    let message =
-      try
-        exec.Run(0UL, st, opts) |> ignore
-        ""
-      with :? NotImplementedException as e ->
-        e.Message
-    Assert.AreEqual<bool>(true, message.Contains "UseCallHooks")
+    ConcStateAccessor(hdl, st).InitializeDefaultStack()
+    let hook (ctx: ConcCallContext) (st: EvalState) =
+      st.SetReg(ctx.ReturnRegister, BitVector(0x2aUL, ctx.WordType))
+      Ok()
+    let hooks = ConcCallHookRegistry().Register(0x6UL, hook)
+    let opts =
+      { ConcRunOptions.Default [] with
+          MaxInstructions = 1
+          Calls = UseCallHooks hooks }
+    let res = exec.Run(0UL, st, opts)
+    Assert.AreEqual<Addr>(0x5UL, res.FinalAddress)
+    match st.TryGetReg(hdl.RegisterFactory.GetRegisterID "RAX") with
+    | Def v ->
+      Assert.AreEqual<uint64>(0x2aUL, v.ToUInt64())
+    | Undef ->
+      Assert.Fail "The hook did not set the return register."
+
+  [<TestMethod>]
+  member _.``An unhooked external call is reported``() =
+    let hdl = loadRawImage externalCall Architecture.Intel WordSize.Bit64
+    let exec = ConcExecutor hdl
+    let st = exec.CreateState()
+    let opts =
+      { ConcRunOptions.Default [] with
+          Calls = UseCallHooks(ConcCallHookRegistry()) }
+    let res = exec.Run(0UL, st, opts)
+    match res.StopReasons with
+    | [ CallHandlingFailure(callSite, target, _) ] ->
+      Assert.AreEqual<Addr>(0UL, callSite)
+      Assert.AreEqual<Addr option>(Some 0x105UL, target)
+    | reasons ->
+      Assert.Fail $"Unexpected stop reasons: {reasons}"
+
+  [<TestMethod>]
+  member _.``A direct call leaving the binary is reported``() =
+    let hdl = loadRawImage externalCall Architecture.Intel WordSize.Bit64
+    let exec = ConcExecutor hdl
+    let st = exec.CreateState()
+    let res = exec.Run(0UL, st, ConcRunOptions.Default [])
+    match res.StopReasons with
+    | [ CallHandlingFailure(callSite, target, _) ] ->
+      Assert.AreEqual<Addr>(0UL, callSite)
+      Assert.AreEqual<Addr option>(Some 0x105UL, target)
+    | reasons ->
+      Assert.Fail $"Unexpected stop reasons: {reasons}"
+
+  [<TestMethod>]
+  member _.``A hooked MIPS call returns past its delay slot``() =
+    let hdl = loadRawImage mipsCall Architecture.MIPS WordSize.Bit32
+    let exec = ConcExecutor hdl
+    let st = exec.CreateState()
+    ConcStateAccessor(hdl, st).InitializeDefaultStack()
+    let seen = ResizeArray<Addr>()
+    let hook (ctx: ConcCallContext) (_: EvalState) =
+      seen.Add ctx.ReturnAddress
+      Ok()
+    let hooks = ConcCallHookRegistry().Register(0x20UL, hook)
+    let opts =
+      { ConcRunOptions.Default [] with
+          MaxInstructions = 1
+          Calls = UseCallHooks hooks }
+    let res = exec.Run(0UL, st, opts)
+    Assert.AreEqual<Addr>(0x8UL, res.FinalAddress)
+    Assert.AreEqual<Addr>(0x8UL, Seq.exactlyOne seen)

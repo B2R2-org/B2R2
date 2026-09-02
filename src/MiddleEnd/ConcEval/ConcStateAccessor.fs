@@ -101,6 +101,43 @@ type ConcStateAccessor(hdl: BinHandle, state: EvalState) as this =
     setStackPointer (addr + uint64 wordBytes)
     value
 
+  let tryGetStackPointer () =
+    match regFactory.StackPointer with
+    | Some rid ->
+      match state.TryGetReg rid with
+      | Def v -> Ok(v.ToUInt64())
+      | Undef -> Error ErrorCase.InvalidRegister
+    | None ->
+      Error ErrorCase.InvalidRegister
+
+  let trySetStackPointer addr =
+    match regFactory.StackPointer with
+    | Some rid -> state.SetReg(rid, wordValue addr) |> Ok
+    | None -> Error ErrorCase.InvalidRegister
+
+  let tryPushToStack value =
+    match tryGetStackPointer () with
+    | Error e ->
+      Error e
+    | Ok sp ->
+      let addr = sp - uint64 wordBytes
+      trySetStackPointer addr
+      |> Result.map (fun () ->
+        state.Memory.Write(addr, value, endian)
+        addr)
+
+  let tryPopFromStack () =
+    match tryGetStackPointer () with
+    | Error e ->
+      Error e
+    | Ok addr ->
+      match state.Memory.Read(addr, endian, wordType) with
+      | Ok value ->
+        trySetStackPointer (addr + uint64 wordBytes)
+        |> Result.map (fun () -> value)
+      | Error e ->
+        Error e
+
   let initializeFramePointer () =
     let fp = getFramePointerRegister ()
     state.SetReg(fp, wordValue (getStackPointer ()))
@@ -196,6 +233,14 @@ type ConcStateAccessor(hdl: BinHandle, state: EvalState) as this =
 
   /// Pop a word-sized value from the stack.
   member _.PopFromStack() = popFromStack ()
+
+  /// Pushes a word-sized value to the stack and returns its address, failing
+  /// instead of raising when the stack pointer is unavailable.
+  member _.TryPushToStack value = tryPushToStack value
+
+  /// Pops a word-sized value from the stack, failing instead of raising when
+  /// the stack pointer is unavailable or the memory read fails.
+  member _.TryPopFromStack() = tryPopFromStack ()
 
   /// Push a word-sized pointer value to the stack and return its address.
   member _.PushPointer(value: Addr) = wordValue value |> pushToStack

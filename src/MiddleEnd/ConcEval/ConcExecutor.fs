@@ -24,7 +24,6 @@
 
 namespace B2R2.MiddleEnd.ConcEval
 
-open System
 open B2R2
 open B2R2.ABI
 open B2R2.Collections
@@ -84,18 +83,21 @@ type ConcStopReason =
   | UserStopConditionMet of addr: Addr
   /// No instruction could be fetched or lifted at the given address.
   | InvalidInstructionAddress of addr: Addr
+  /// A call could not be handled under the configured call policy. The target
+  /// is absent when the call is indirect.
+  | CallHandlingFailure of callSite: Addr * target: Addr option * reason: string
 
 /// Represents how the concrete executor should handle call instructions.
 type ConcCallPolicy =
   /// Stop when any call instruction is observed.
   | StopAtCalls
-  /// Follow direct calls whose target is inside the current binary.
+  /// Follow calls, but reject a direct call whose target lies outside the
+  /// current binary. An indirect call is followed wherever its concrete target
+  /// leads, since only the direct target is known before the call runs.
   | FollowDirectInternalCalls
-  /// Invoke registered call hooks when a matching target is observed. Not
-  /// implemented yet: the case carries no registry, so there is no way to
-  /// register a hook, and Run raises NotImplementedException at the first call
-  /// instruction.
-  | UseCallHooks
+  /// Dispatch a registered hook in place of a call to a matching target, and
+  /// follow a call to an unhooked internal target.
+  | UseCallHooks of hooks: ConcCallHookRegistry
 
 /// Represents how concrete execution should handle undefined values.
 type ConcUndefinedValuePolicy =
@@ -168,11 +170,23 @@ type private InstructionEvalResult =
   | EvalError of ErrorCase
   | EvalUndef
   | EvalSideEffect of SideEffect
+  | EvalStopped of ConcStopReason
 
 /// Represents a concrete executor over ConcEval's evaluation state.
 type ConcExecutor(hdl: BinHandle) =
   let lifter = hdl.NewLiftingUnit()
   let regFactory = hdl.RegisterFactory
+  let wordType = hdl.ISA.WordSize |> WordSize.toRegType
+  let endian = hdl.ISA.Endian
+  let cc = hdl.Conventions.Calling
+  (* An ABI that passes every integer argument on the stack, such as x86 cdecl,
+     contributes no register here, so a hook reads those from the stack. *)
+  let argumentRegisters =
+    [| 0 .. 5 |]
+    |> Array.choose (fun idx ->
+      match cc.GetIntArgLocation idx with
+      | ArgLocation.Reg rid -> Some rid
+      | _ -> None)
   let defaultStateCreationOptions =
     { Memory = BinSectionBackedMemory
       Registers = [||] }
@@ -329,23 +343,9 @@ type ConcExecutor(hdl: BinHandle) =
       || match opts.Calls with
          | StopAtCalls -> true
          | FollowDirectInternalCalls -> false
-         | UseCallHooks -> false
+         | UseCallHooks _ -> false
     else
       false
-
-  (* TODO: ConcCallPolicy.UseCallHooks carries no registry, so there is nothing
-     to dispatch yet. Port SymbEval's SymbCallHookRegistry and dispatch the
-     matching hook here instead of evaluating the original call. *)
-  let handleCallHooks (opts: ConcRunOptions<EvalState>) (ins: IInstruction) =
-    if ins.IsCall then
-      match opts.Calls with
-      | UseCallHooks ->
-        let msg = "ConcCallPolicy.UseCallHooks is not implemented yet."
-        raise (NotImplementedException msg)
-      | _ ->
-        ()
-    else
-      ()
 
   (* A register or temporary with no entry reads back as Undef, so unsetting
      the target is all it takes to record that it now holds an undefined value.
@@ -387,9 +387,7 @@ type ConcExecutor(hdl: BinHandle) =
         | stmt ->
           match evalStmt opts st stmt with
           | EvalOk -> evalStmts opts st stmts
-          | EvalError e -> EvalError e
-          | EvalUndef -> EvalUndef
-          | EvalSideEffect eff -> EvalSideEffect eff
+          | result -> result
     else
       EvalOk
 
@@ -453,6 +451,90 @@ type ConcExecutor(hdl: BinHandle) =
     st.PrepareInstrEval stmts
     evalStmts opts st stmts
 
+  let isInternalTarget target = hdl.File.IsValidAddr target
+
+  (* A MIPS call transfers control only after its delay slot has run, so the
+     callee returns past that slot rather than to the next address. *)
+  let getCallFallThroughAddr addr (ins: IInstruction) =
+    match hdl.ISA with
+    | MIPS ->
+      let delaySlotAddr = addr + uint64 ins.Length
+      match tryParseInstruction delaySlotAddr with
+      | Ok delaySlot -> delaySlotAddr + uint64 delaySlot.Length
+      | Result.Error _ -> delaySlotAddr + uint64 ins.Length
+    | _ ->
+      addr + uint64 ins.Length
+
+  let mkCallContext callSite target returnAddress =
+    { CallSite = callSite
+      Target = target
+      ReturnAddress = returnAddress
+      WordType = wordType
+      Endian = endian
+      ArgumentRegisters = argumentRegisters
+      ReturnRegister = cc.IntReturnRegister }
+
+  let callFailure (ctx: ConcCallContext) msg =
+    CallHandlingFailure(ctx.CallSite, Some ctx.Target, msg) |> Result.Error
+
+  let pushReturnAddress (ctx: ConcCallContext) (st: EvalState) =
+    let accessor = ConcStateAccessor(hdl, st)
+    match accessor.TryPushToStack(accessor.WordValue ctx.ReturnAddress) with
+    | Ok _ -> Ok()
+    | Result.Error e -> callFailure ctx $"Cannot push a return address: {e}."
+
+  let finishHook (ctx: ConcCallContext) (st: EvalState) =
+    match ConcStateAccessor(hdl, st).TryPopFromStack() with
+    | Ok v ->
+      let retAddr = v.ToUInt64()
+      if retAddr = ctx.ReturnAddress then
+        st.PC <- ctx.ReturnAddress
+        Ok()
+      else
+        callFailure ctx $"A hook returned to {retAddr:x}."
+    | Result.Error e ->
+      callFailure ctx $"A hook left the stack unbalanced: {e}."
+
+  let dispatchCallHook (ctx: ConcCallContext) hook (st: EvalState) =
+    match pushReturnAddress ctx st with
+    | Result.Error reason ->
+      Result.Error reason
+    | Ok() ->
+      match hook ctx st with
+      | Ok() -> finishHook ctx st
+      | Result.Error msg -> callFailure ctx msg
+
+  let tryHandleCall (opts: ConcRunOptions<EvalState>) st addr ins =
+    if not (ins: IInstruction).IsCall then
+      None
+    else
+      let target = tryGetDirectTarget ins
+      match opts.Calls, target with
+      | FollowDirectInternalCalls, Some t when not (isInternalTarget t) ->
+        let msg = $"A direct call targets {t:x}, outside the binary."
+        Some(CallHandlingFailure(addr, target, msg) |> Result.Error)
+      | UseCallHooks hooks, Some t ->
+        match hooks.TryFind t with
+        | Some hook ->
+          let ctx = mkCallContext addr t (getCallFallThroughAddr addr ins)
+          Some(dispatchCallHook ctx hook st)
+        | None when isInternalTarget t ->
+          None
+        | None ->
+          let msg = $"No call hook is registered for {t:x}."
+          Some(CallHandlingFailure(addr, target, msg) |> Result.Error)
+      | UseCallHooks _, None ->
+        let msg = "Cannot dispatch a call hook without a direct target."
+        Some(CallHandlingFailure(addr, None, msg) |> Result.Error)
+      | _ ->
+        None
+
+  let evalCallOrInstr opts st addr ins stmts =
+    match tryHandleCall opts st addr ins with
+    | Some(Ok()) -> EvalOk
+    | Some(Result.Error reason) -> EvalStopped reason
+    | None -> evalInstr opts st stmts
+
   let run start (st: EvalState) (opts: ConcRunOptions<EvalState>) =
     let rec loop n =
       let addr = st.PC
@@ -468,11 +550,12 @@ type ConcExecutor(hdl: BinHandle) =
           let reasons = reasons @ collectInstrStopReasons opts st addr ins stmts
           let postReasons = collectPostInstrStopReasons opts st addr ins stmts
           if List.isEmpty reasons then
-            handleCallHooks opts ins
-            match evalInstr opts st stmts with
+            match evalCallOrInstr opts st addr ins stmts with
             | EvalOk ->
               if List.isEmpty postReasons then loop (n + 1)
               else mkResult postReasons st.PC (n + 1) st
+            | EvalStopped reason ->
+              mkResult [ reason ] st.PC n st
             | EvalError e ->
               mkResult [ EvaluationError(addr, e) ] st.PC n st
             | EvalUndef ->
