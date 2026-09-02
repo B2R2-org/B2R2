@@ -703,6 +703,11 @@ type IntelParser(wordSz, reader) =
       let count = vl / max elemSz dataSz
       let idxVl = max 128<rt> (count * elemSz)
       let memSz = count * dataSz
+      (* A vector index lives in the SIB byte, and only r/m = 100b brings one.
+         Any other r/m is #UD; reading a SIB that is not there invented an
+         index and swallowed the byte after the instruction. *)
+      if Operands.getRM modRM <> 0b100 then failwith "VSIB without a SIB byte."
+      else ()
       setupOprContextWithEffAddr phlp memSz memSz
       let modVal = modRM &&& 0b11000000uy
       OperandParsers.parseOprMemVSIB span phlp modVal idxVl
