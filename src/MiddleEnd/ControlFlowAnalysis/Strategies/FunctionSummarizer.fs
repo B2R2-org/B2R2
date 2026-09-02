@@ -158,7 +158,12 @@ type FunctionSummarizer<'FnCtx, 'GlCtx
   /// "ret NN" instructions are used, compute how many bytes are unwound.
   default _.ComputeUnwindingAmount ctx =
     let mutable amount = 0
-    for exitV in ctx.CFG.Exits do
+    let exits = ctx.CFG.Exits
+    let reachableExits =
+      exits
+      |> Seq.filter (fun v ->
+        not <| ctx.GapAnalysisVertices.Contains v.VData.Internals.PPoint)
+    for exitV in reachableExits do
       let vData = exitV.VData :> ILowUIRBasicBlock
       if vData.IsAbstract then
         ()
