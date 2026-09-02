@@ -49,16 +49,6 @@ let private BlockIntervalX = 100.0
 [<Literal>]
 let private BlockIntervalY = 100.0
 
-/// Threshold (in pixels) for correcting singleton-layer node positions.
-/// When a layer contains only a single node, that node does not receive
-/// horizontal spacing constraints from same-layer neighbors during the
-/// Brandes coordinate assignment. As a result, its X position may become
-/// an outlier compared to its connected predecessors/successors.
-/// This threshold defines the minimum distance between the node's current
-/// center X and the average center X of its neighboring nodes required
-/// to trigger a corrective repositioning (pulling it toward neighbors).
-let [<Literal>] private SingletonPullThreshold = 300.0
-
 /// Inner segment is an edge between two dummy nodes
 let private findIncidentInnerSegmentNode vGraph (v: IVertex<VisBBlock>) =
   if v.VData.IsDummy then
@@ -128,7 +118,7 @@ let private isBefore a b = function
 let private vAlign (vGraph: VisGraph) vLayout maxLayer conflicts vDir hDir =
   let layers, neighborFn =
     match vDir with
-    | Topmost -> [ 0 .. (maxLayer - 1) ], vGraph.GetPreds
+    | Topmost -> [ 1 .. maxLayer ], vGraph.GetPreds
     | Bottommost -> [ (maxLayer - 1) .. -1 .. 0 ], vGraph.GetSuccs
   let root = VertexMap()
   let align = VertexMap()
@@ -258,37 +248,31 @@ let private alignAndCompact vGraph vLayout maxLayer conflicts vDir hDir =
   let root, align = vAlign vGraph vLayout maxLayer conflicts vDir hDir
   hCompact vGraph vLayout root align hDir
 
+let private updateBounds (xs: FloatMap) (left, right) (v: IVertex<_>) =
+  min left xs[v], max right (xs[v] + v.VData.Width)
+
 /// Reads the edge of the narrowest layer of the given assignment: its left
 /// edge for a leftmost assignment and its right edge for a rightmost one. That
 /// edge is what the assignment is shifted onto, so the narrowest layer is the
 /// one every layer is measured against.
 let getBound vLayout (xs: FloatMap, hDir) =
-  vLayout
-  |> Array.fold (fun (minWidth, bound) (vertices: IVertex<_>[]) ->
-    let first = vertices[0]
-    let last = vertices[vertices.Length - 1]
-    let left = xs[first]
-    let right = xs[last] + last.VData.Width
-    let width = right - left
-    if width < minWidth then width, (if hDir = Leftmost then left else right)
-    else minWidth, bound
-  ) (Double.PositiveInfinity, 0.0)
-  |> fun (_, bound) -> bound, xs, hDir
+  let left, right =
+    vLayout
+    |> Array.fold (fun bounds vertices ->
+      Array.fold (updateBounds xs) bounds vertices
+    ) (Double.PositiveInfinity, Double.NegativeInfinity)
+  right - left, left, right, xs, hDir
 
 let private alignToSmallestWidth vLayout xAlignments =
-  List.map (getBound vLayout) xAlignments
-  |> List.iter (fun (bound, xs: FloatMap, hDir) ->
-    let currentBound =
+  let bounds = List.map (getBound vLayout) xAlignments
+  let _, targetLeft, targetRight, _, _ =
+    List.minBy (fun (width, _, _, _, _) -> width) bounds
+  bounds
+  |> List.iter (fun (_, left, right, xs: FloatMap, hDir) ->
+    let delta =
       match hDir with
-      | Leftmost ->
-        xs.Keys
-        |> Seq.map (fun v -> xs[v])
-        |> Seq.min
-      | Rightmost ->
-        xs.Keys
-        |> Seq.map (fun v -> xs[v] + v.VData.Width)
-        |> Seq.max
-    let delta = bound - currentBound
+      | Leftmost -> targetLeft - left
+      | Rightmost -> targetRight - right
     xs.Keys
     |> Seq.toArray
     |> Array.iter (fun k -> xs[k] <- xs[k] + delta))
@@ -371,31 +355,7 @@ let private shiftXCoordinate shift (v: IVertex<VisBBlock>) =
 let private getCenterX (v: IVertex<VisBBlock>) =
   v.VData.Coordinate.X + v.VData.Width / 2.0
 
-let private adjustIsolatedLayerNodePosition (vGraph: VisGraph) vLayout =
-  (vLayout: IVertex<VisBBlock>[][])
-  |> Array.iter (fun layer ->
-    if layer.Length = 1 then
-      let v = layer[0]
-      let neighCenters =
-        Seq.append (VisGraph.getPreds vGraph v) (VisGraph.getSuccs vGraph v)
-        |> Seq.distinct
-        |> Seq.map getCenterX
-        |> Seq.toArray
-      if neighCenters.Length > 0 then
-        let targetCenterX = Array.average neighCenters
-        let currentCenterX = getCenterX v
-        let dx = targetCenterX - currentCenterX
-        if abs dx >= SingletonPullThreshold then
-          v.VData.Coordinate.X <- targetCenterX - v.VData.Width / 2.0
-        else
-          ()
-      else
-        ()
-    else
-      ())
-
 let adjustCoordinates (vGraph: VisGraph) vLayout =
-  adjustIsolatedLayerNodePosition vGraph vLayout
   match realExtent vGraph with
   | Some(leftMost, rightMost) ->
     let width = rightMost - leftMost

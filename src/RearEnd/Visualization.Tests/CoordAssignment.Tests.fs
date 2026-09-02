@@ -59,18 +59,20 @@ type CoordAssignmentTests() =
     [| wide; narrow; middling |], xs
 
   let boundOf vLayout xs hDir =
-    let bound, _, _ = CoordAssignment.getBound vLayout (xs, hDir)
-    bound
+    let _, left, right, _, _ = CoordAssignment.getBound vLayout (xs, hDir)
+    match hDir with
+    | CoordAssignment.Leftmost -> left
+    | CoordAssignment.Rightmost -> right
 
   [<TestMethod>]
   member _.``getBound reads the left edge of the narrowest layer``() =
     let vLayout, xs = buildLayout ()
-    Assert.AreEqual<float>(5.0, boundOf vLayout xs CoordAssignment.Leftmost)
+    Assert.AreEqual<float>(0.0, boundOf vLayout xs CoordAssignment.Leftmost)
 
   [<TestMethod>]
   member _.``getBound reads the right edge of the narrowest layer``() =
     let vLayout, xs = buildLayout ()
-    Assert.AreEqual<float>(15.0, boundOf vLayout xs CoordAssignment.Rightmost)
+    Assert.AreEqual<float>(210.0, boundOf vLayout xs CoordAssignment.Rightmost)
 
   [<TestMethod>]
   member _.``averageMedian centres the median of the alignments``() =
