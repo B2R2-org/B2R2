@@ -67,3 +67,14 @@ type VisGraphTests() =
     let g = build [ 0x1000UL; 0x2000UL; 0x3000UL ] [ 0x1000UL; 0x2000UL ] edges
     let vGraph = VisGraph.ofCFG g charWidth charHeight
     CollectionAssert.AreEqual([| 0x1000UL; 0x2000UL |], rootAddrsOf vGraph)
+
+  [<TestMethod>]
+  member _.``ofCFG takes a block that is not addressable``() =
+    (* Visualizing a block asks nothing of it but that it be visualizable. *)
+    let g = MutableDiGraph<PlainBlock, CFGEdgeKind>() :> IMutableDiGraph<_, _>
+    let src = g.AddVertex(PlainBlock 0x1000UL)
+    let dst = g.AddVertex(PlainBlock 0x2000UL)
+    g.AddEdge(src, dst, CFGEdgeKind.FallThroughEdge)
+    g.SetRoots [ src ]
+    let vGraph = VisGraph.ofCFG (g :> IDiGraph<_, _>) charWidth charHeight
+    Assert.AreEqual<int>(2, vGraph.VertexCount)

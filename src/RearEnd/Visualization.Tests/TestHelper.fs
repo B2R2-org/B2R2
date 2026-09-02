@@ -44,3 +44,15 @@ type FakeBlock(addr: Addr) =
     member _.PPoint with get() = ProgramPoint(addr, 0)
 
     member _.Range with get() = { Min = addr; Max = addr }
+
+/// A block that is visualizable but not addressable, which is all that the
+/// visualization asks of a block.
+type PlainBlock(addr: Addr) =
+  interface IVisualizable with
+    member _.BlockAddress with get() = addr
+
+    member _.LineAddrRanges with get() = [| { Min = addr; Max = addr } |]
+
+    member _.Visualize() =
+      let value = $"plain{addr}"
+      [| [| { AsmWordKind = AsmWordKind.String; AsmWordValue = value } |] |]
