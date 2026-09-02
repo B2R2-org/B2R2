@@ -49,22 +49,16 @@ type UntouchedValueAnalysis(hdl: BinHandle, vs) =
     | Regular _ -> mkUntouched varKind
     | _ -> UntouchedValueDomain.Undef
 
-  let evaluateVarPoint (state: LowUIRSparseDataFlow.State<_>) pp varKind =
-    let vp = { ProgramPoint = pp; VarKind = varKind }
-    match state.UseDefMap.TryGetValue vp with
-    | true, defVp -> state.DomainSubState.GetAbsValue defVp
-    | false, _ -> UntouchedValueDomain.Undef
-
-  let rec evaluateExpr state pp e =
+  let rec evaluateExpr (state: LowUIRSparseDataFlow.State<_>) pp e =
     match e with
     | Var _ | TempVar _ ->
-      evaluateVarPoint state pp (VarKind.ofIRExpr e)
+      state.GetAbsValueOfUse(pp, VarKind.ofIRExpr e)
     | Load(_, _, addr, _) ->
       match state.EvaluateStackPointerExpr(pp, addr) with
       | StackPointerDomain.ConstSP bv ->
         let addr = bv.ToUInt64()
         let offset = LowUIRStackPointer.toFrameOffset addr
-        evaluateVarPoint state pp (StackLocal offset)
+        state.GetAbsValueOfUse(pp, StackLocal offset)
       | _ ->
         UntouchedValueDomain.Touched
     | Extract(e, _, _, _)

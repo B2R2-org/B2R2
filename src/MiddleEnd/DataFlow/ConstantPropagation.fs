@@ -31,13 +31,7 @@ open B2R2.MiddleEnd.ControlFlowGraph
 
 /// Performs sparse constant propagation over the LowUIR representation.
 type ConstantPropagation(hdl, vs) =
-  let evaluateVarPoint (state: LowUIRSparseDataFlow.State<_>) pp varKind =
-    let vp = { ProgramPoint = pp; VarKind = varKind }
-    match state.UseDefMap.TryGetValue vp with
-    | true, defVp -> state.DomainSubState.GetAbsValue defVp
-    | false, _ -> ConstantDomain.Undef
-
-  let rec evaluateExpr state pp e =
+  let rec evaluateExpr (state: LowUIRSparseDataFlow.State<_>) pp e =
     match e with
     | PCVar(rt, _, _) ->
       let addr = (pp: ProgramPoint).Address
@@ -46,13 +40,13 @@ type ConstantPropagation(hdl, vs) =
     | Num(bv, _) ->
       ConstantDomain.Const bv
     | Var _ | TempVar _ ->
-      evaluateVarPoint state pp (VarKind.ofIRExpr e)
+      state.GetAbsValueOfUse(pp, VarKind.ofIRExpr e)
     | Load(_m, rt, addr, _) ->
       match state.EvaluateStackPointerExpr(pp, addr) with
       | StackPointerDomain.ConstSP bv ->
         let addr = bv.ToUInt64()
         let offset = LowUIRStackPointer.toFrameOffset addr
-        let c = evaluateVarPoint state pp (StackLocal offset)
+        let c = state.GetAbsValueOfUse(pp, StackLocal offset)
         match c with
         | ConstantDomain.Const bv when bv.Length < rt ->
           ConstantDomain.Const <| BitVector.ZExt(bv, rt)

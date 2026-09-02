@@ -49,18 +49,12 @@ type StackPointerPropagation(hdl: BinHandle, vs) =
     | Regular rid when isStackPointer rid -> initialStackPointerValue
     | _ -> StackPointerDomain.Undef
 
-  let evaluateVarPoint (state: LowUIRSparseDataFlow.State<_>) pp varKind =
-    let vp = { ProgramPoint = pp; VarKind = varKind }
-    match state.UseDefMap.TryGetValue vp with
-    | true, defVp -> state.DomainSubState.GetAbsValue defVp
-    | false, _ -> StackPointerDomain.Undef
-
   let rec evaluateExpr (state: LowUIRSparseDataFlow.State<_>) pp e =
     match e with
     | Num(bv, _) ->
       StackPointerDomain.ConstSP bv
     | Var _ | TempVar _ ->
-      evaluateVarPoint state pp (VarKind.ofIRExpr e)
+      state.GetAbsValueOfUse(pp, VarKind.ofIRExpr e)
     | ExprList _ ->
       StackPointerDomain.NotConstSP
     | Load _ ->

@@ -390,7 +390,7 @@ type State<'Lattice when 'Lattice: equality>
   member internal _.StackPointerSubState with get() = spSubState
 
   /// Returns the sub-state for the user's domain.
-  member _.DomainSubState with get() = domainSubState
+  member internal _.DomainSubState with get() = domainSubState
 
   /// Returns the vertices that are currently pending for processing.
   member _.PendingVertices with get(): IEnumerable<IVertex<LowUIRBasicBlock>> =
@@ -455,6 +455,13 @@ type State<'Lattice when 'Lattice: equality>
 
   /// Returns the abstract value at the given variable point.
   member _.GetAbsValue vp = domainGetAbsValue vp
+
+  /// Returns the abstract value of the definition that reaches the given use,
+  /// or the bottom of the lattice when no definition reaches it.
+  member _.GetAbsValueOfUse(pp, varKind) =
+    match useDefMap.TryGetValue { ProgramPoint = pp; VarKind = varKind } with
+    | true, defVp -> domainGetAbsValue defVp
+    | false, _ -> lattice.Bottom
 
   /// Tries to get the abstract value of the given SSA variable. It returns
   /// None for a variable that the analysis never defined, such as one that
