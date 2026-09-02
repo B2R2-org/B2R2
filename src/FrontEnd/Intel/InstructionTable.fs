@@ -154,6 +154,20 @@ module internal MatchContext =
     let p = int pref
     ((p >>> 8) &&& 0b100) ||| ((p >>> 2) &&& 0b010) ||| ((p >>> 1) &&& 0b001)
 
+/// The layout of Row.MatchWord above the ModRM mask and value.
+module internal MatchWord =
+  /// The row takes only a memory form, whatever else the mask says.
+  let [<Literal>] NotReg = 0x10000UL
+
+  /// The row takes any ModRM byte, or none: nothing to compare.
+  let [<Literal>] Any = 0x20000UL
+
+  /// None of the constraints the accept mask leaves for parse time applies
+  /// to the row: it is neither JCXZ nor the one-byte NOP and constrains no
+  /// vector length. Under no LOCK and no VEX prefix, such a row has nothing
+  /// left to be asked once its ModRM byte and accept mask agree.
+  let [<Literal>] Plain = 0x40000UL
+
 /// One row of the opcode table together with every fact about it that depends
 /// on nothing but the table, laid out flat so that a candidate costs one load
 /// of one object. The matcher used to work these facts out again for every
@@ -166,32 +180,25 @@ module internal MatchContext =
 /// index into.
 [<ReferenceEquality>]
 type internal Row =
-  { /// What the ModRM byte has to satisfy for the row to answer, as one masked
-    /// comparison: the byte, masked, has to equal ModRMValue. A /digit row
-    /// masks bits 5:3, a fixed byte masks all eight, an ST(i) row masks all
-    /// but the three that select the register, and a row that takes any
-    /// ModRM byte, or none, masks nothing. The union the generated table
-    /// carries took two pointer hops and a nine-way switch to read, and this
-    /// is asked of every candidate.
-    ModRMMask: byte
-    ModRMValue: byte
-    /// The row takes only a memory form, whatever else the mask says.
-    ModRMNotReg: bool
-    /// The row takes any ModRM byte, or none: nothing to compare.
-    ModRMAny: bool
+  { /// What the ModRM byte has to satisfy for the row to answer, packed into
+    /// one word so that a candidate reads it beside Accept in one cache
+    /// line: the mask in bits 7:0, the value the masked byte has to equal in
+    /// bits 15:8, and three flags above them (see MatchWord). A /digit row
+    /// masks bits 5:3 of the byte, a fixed byte masks all eight, an ST(i) row
+    /// masks all but the three that select the register, and a row that takes
+    /// any ModRM byte, or none, masks nothing.
+    MatchWord: uint64
     /// The match contexts (see MatchContext) whose REX and mandatory prefix
-    /// the row answers in 32-bit mode, one bit apiece.
+    /// the row answers in the mode of the chain it sits in, one bit apiece.
+    /// Zero until the row is chained.
+    Accept: uint64
+    /// The same for 32-bit mode, as the table settles it.
     Accept32: uint64
     /// The same for 64-bit mode.
     Accept64: uint64
     /// 66h is what picks this row out of its slot: it declares a 16-bit form
     /// and the slot also holds the same opcode wider.
     Requires66h: bool
-    /// None of the constraints the accept mask leaves for parse time applies
-    /// to the row: it is neither JCXZ nor the one-byte NOP and constrains no
-    /// vector length. Under no LOCK and no VEX prefix, such a row has nothing
-    /// left to be asked once its ModRM byte and accept mask agree.
-    Plain: bool
     VectorLength: VectorLength
     /// The row offers embedded rounding, which is what gives EVEX.b its {er}
     /// meaning.
@@ -869,18 +876,22 @@ module internal InstructionTable =
     let isE3 = isOneByteMap && core.OpcodeByte = 0xE3u
     let isPlainNop =
       core.Opcode = Opcode.NOP && core.ModRM = ModRMType.NoModRM
+    let plain =
+      not isE3 && not isPlainNop && core.VectorLength = VectorLength.None
+    let matchWord =
+      uint64 modRMMask
+      ||| (uint64 modRMValue <<< 8)
+      ||| (if modRMNotReg then MatchWord.NotReg else 0UL)
+      ||| (if modRMMask = 0uy && not modRMNotReg then MatchWord.Any else 0UL)
+      ||| (if plain then MatchWord.Plain else 0UL)
     let struct (opWidthKind, opWidth, opWidthMem, opWidthReg) =
       operationWidth core
     let specs = core.Operands |> Array.map (oprSpec core.Opcode)
-    { ModRMMask = modRMMask
-      ModRMValue = modRMValue
-      ModRMNotReg = modRMNotReg
-      ModRMAny = modRMMask = 0uy && not modRMNotReg
+    { MatchWord = matchWord
+      Accept = 0UL
       Accept32 = if okIn32 core then accept else 0UL
       Accept64 = if okIn64 core then accept else 0UL
       Requires66h = requires66h
-      Plain =
-        not isE3 && not isPlainNop && core.VectorLength = VectorLength.None
       VectorLength = core.VectorLength
       DeclaresER = declaresStaticRounding core
       IsE3 = isE3
@@ -1019,8 +1030,8 @@ module internal InstructionTable =
   /// given mode reads them, or null for an empty list. A row sits in up to
   /// eight lists with a different successor in each, so every list gets
   /// copies of its own; copies of a row are the same row for every purpose
-  /// but their place in a chain. Lists that are the same array are chained
-  /// once and shared.
+  /// but their place in a chain and the mode's accept mask they carry. Lists
+  /// that are the same array are chained once and shared.
   let private chain is64 (shared: Dictionary<Row[], Row>) (rows: Row[]) =
     match shared.TryGetValue rows with
     | true, head ->
@@ -1028,7 +1039,8 @@ module internal InstructionTable =
     | _ ->
       let mutable next = Unchecked.defaultof<Row>
       for row in Array.rev (orderForMode is64 rows) do
-        next <- { row with Next = next }
+        let accept = if is64 then row.Accept64 else row.Accept32
+        next <- { row with Accept = accept; Next = next }
       shared[rows] <- next
       next
 
@@ -1051,22 +1063,24 @@ module internal InstructionTable =
   /// The legacy maps as a 64-bit parser reads them.
   let legacy64 = legacy true
 
-  (* No VEX row answers the plainest state, so the mode leaves their order
-     alone and both modes read the same chains. *)
-  let vexTwo = chains true [| vexTwoRows |]
+  /// The VEX and EVEX maps, in the order VEXType numbers them: the two-byte
+  /// map, 0F 38, 0F 3A, map 5 and map 6, with the EVEX-only maps after the
+  /// VEX ones. One copy per mode, carrying the mode's accept masks.
+  let private vex is64 =
+    [| vexTwoRows
+       vexThree38Rows
+       vexThree3ARows
+       evexTwoRows
+       evexThree38Rows
+       evexThree3ARows
+       evexMap5Rows
+       evexMap6Rows |]
+    |> Array.map (fun rows -> chains is64 [| rows |])
 
-  let vexThree38 = chains true [| vexThree38Rows |]
+  /// The VEX and EVEX maps as a 32-bit parser reads them.
+  let vex32 = vex false
 
-  let vexThree3A = chains true [| vexThree3ARows |]
-
-  let evexTwo = chains true [| evexTwoRows |]
-
-  let evexThree38 = chains true [| evexThree38Rows |]
-
-  let evexThree3A = chains true [| evexThree3ARows |]
-
-  let evexMap5 = chains true [| evexMap5Rows |]
-
-  let evexMap6 = chains true [| evexMap6Rows |]
+  /// The VEX and EVEX maps as a 64-bit parser reads them.
+  let vex64 = vex true
 
 // vim: set tw=80 sts=2 sw=2:

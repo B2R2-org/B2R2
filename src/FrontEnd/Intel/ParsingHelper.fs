@@ -24,9 +24,14 @@
 
 namespace B2R2.FrontEnd.Intel
 
+open System.Buffers.Binary
 open B2R2
 open B2R2.FrontEnd.BinLifter
 
+/// The per-instruction parsing state. Intel code is little-endian whatever
+/// the reader says, so the reads below go straight to the bytes: a call
+/// through the reader's interface for every immediate and displacement was
+/// paid by every instruction.
 type internal ParsingHelper(reader: IBinReader,
                             addr,
                             cpos,
@@ -43,7 +48,6 @@ type internal ParsingHelper(reader: IBinReader,
   let mutable wordSize: WordSize = wordSz
   let mutable memOprSz = 0<rt>
   let mutable memAddrSz = 0<rt>
-  let mutable memRegSz = 0<rt>
   let mutable regSz = 0<rt>
   let mutable operationSz = 0<rt>
   let mutable tupleType = TupleType.NA
@@ -63,7 +67,9 @@ type internal ParsingHelper(reader: IBinReader,
   member _.WordSize with get(): WordSize = wordSize and set w = wordSize <- w
   member _.MemEffOprSize with get() = memOprSz and set s = memOprSz <- s
   member _.MemEffAddrSize with get() = memAddrSz and set s = memAddrSz <- s
-  member _.MemEffRegSize with get() = memRegSz and set s = memRegSz <- s
+  /// The register width; the register form of a register-or-memory operand
+  /// is read at the same width as any other register operand.
+  member _.MemEffRegSize with get() = regSz
   member _.RegSize with get() = regSz and set(s) = regSz <- s
   member _.OperationSize with get() = operationSz and set s = operationSz <- s
   member _.TupleType
@@ -149,42 +155,42 @@ type internal ParsingHelper(reader: IBinReader,
     v
 
   member inline this.ReadInt8(span: ByteSpan) =
-    let v = reader.ReadInt8(span, cpos)
+    let v = int8 span[cpos]
     this.ModCPos 1
     v
 
   member inline this.ReadInt16(span: ByteSpan) =
-    let v = reader.ReadInt16(span, cpos)
+    let v = BinaryPrimitives.ReadInt16LittleEndian(span.Slice cpos)
     this.ModCPos 2
     v
 
   member inline this.ReadInt32(span: ByteSpan) =
-    let v = reader.ReadInt32(span, cpos)
+    let v = BinaryPrimitives.ReadInt32LittleEndian(span.Slice cpos)
     this.ModCPos 4
     v
 
   member inline this.ReadInt64(span: ByteSpan) =
-    let v = reader.ReadInt64(span, cpos)
+    let v = BinaryPrimitives.ReadInt64LittleEndian(span.Slice cpos)
     this.ModCPos 8
     v
 
   member inline this.ReadUInt8(span: ByteSpan) =
-    let v = reader.ReadUInt8(span, cpos)
+    let v = span[cpos]
     this.ModCPos 1
     v
 
   member inline this.ReadUInt16(span: ByteSpan) =
-    let v = reader.ReadUInt16(span, cpos)
+    let v = BinaryPrimitives.ReadUInt16LittleEndian(span.Slice cpos)
     this.ModCPos 2
     v
 
   member inline this.ReadUInt32(span: ByteSpan) =
-    let v = reader.ReadUInt32(span, cpos)
+    let v = BinaryPrimitives.ReadUInt32LittleEndian(span.Slice cpos)
     this.ModCPos 4
     v
 
   member inline this.ReadUInt64(span: ByteSpan) =
-    let v = reader.ReadUInt64(span, cpos)
+    let v = BinaryPrimitives.ReadUInt64LittleEndian(span.Slice cpos)
     this.ModCPos 8
     v
 

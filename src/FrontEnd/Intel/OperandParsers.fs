@@ -407,14 +407,14 @@ let parseOprImm span (phlp: ParsingHelper) immSize =
   phlp.MarkHashEnd()
 #endif
   let imm = parseUnsignedImm span phlp (RegType.toByteWidth immSize)
-  OprImm(int64 imm, immSize)
+  Operands.oprImm (int64 imm) immSize
 
 let parseOprSImm span (phlp: ParsingHelper) immSize =
 #if LCACHE
   phlp.MarkHashEnd()
 #endif
   let imm = parseSignedImm span phlp (RegType.toByteWidth immSize)
-  OprImm(imm, immSize)
+  Operands.oprImm imm immSize
 
 /// The first 24 rows of Table 2-1. of the manual Vol. 2A.
 /// The index of this tbl is a number that is a concatenation of (mod) and
@@ -565,43 +565,22 @@ let parseOprRIPRelativeMem span (phlp: ParsingHelper) disp =
   else
     parseOprMem span phlp None None disp
 
-/// The first 24 rows of Table 2-2. of the manual Vol. 2A. The index of this
-/// tbl is a number that is a concatenation of (mod) and (r/m) field of the
-/// ModR/M byte. Each element is a tuple of (MemLookupType, and the size of
-/// the displacement). If the first value of the tuple (register group) is
-/// None, it means we need to look up the SIB tbl (Table 2-3). If not, then it
-/// represents the reg group of the base reigster.
+/// The displacement width each value of ModRM.mod brings: none, a byte, a
+/// doubleword; mod = 11 names a register and never reaches here.
+let private dispSizes = [| 0; 1; 4 |]
+
+/// The first 24 rows of Table 2-2. of the manual Vol. 2A, read off the fields
+/// rather than through a 24-way table: r/m = 100 brings a SIB byte, mod = 00
+/// with r/m = 101 is a displacement alone (relative to RIP in 64-bit mode),
+/// and every other row names the base register r/m selects and reads the
+/// displacement mod calls for.
 let parseMEM32 span phlp modRM =
   let modVal = modRM &&& 0b11000000uy
-  match modVal >>> 3 ||| (modRM &&& 0b00000111uy) with
-  (* Mod 00b *)
-  | 0uy -> parseOprMem span phlp (baseRMReg phlp RG0) None 0
-  | 1uy -> parseOprMem span phlp (baseRMReg phlp RG1) None 0
-  | 2uy -> parseOprMem span phlp (baseRMReg phlp RG2) None 0
-  | 3uy -> parseOprMem span phlp (baseRMReg phlp RG3) None 0
-  | 4uy -> parseOprMemWithSIB span phlp modVal 0
-  | 5uy -> parseOprRIPRelativeMem span phlp 4
-  | 6uy -> parseOprMem span phlp (baseRMReg phlp RG6) None 0
-  | 7uy -> parseOprMem span phlp (baseRMReg phlp RG7) None 0
-  (* Mod 01b *)
-  | 8uy -> parseOprMem span phlp (baseRMReg phlp RG0) None 1
-  | 9uy -> parseOprMem span phlp (baseRMReg phlp RG1) None 1
-  | 10uy -> parseOprMem span phlp (baseRMReg phlp RG2) None 1
-  | 11uy -> parseOprMem span phlp (baseRMReg phlp RG3) None 1
-  | 12uy -> parseOprMemWithSIB span phlp modVal 1
-  | 13uy -> parseOprMem span phlp (baseRMReg phlp RG5) None 1
-  | 14uy -> parseOprMem span phlp (baseRMReg phlp RG6) None 1
-  | 15uy -> parseOprMem span phlp (baseRMReg phlp RG7) None 1
-  (* Mod 10b *)
-  | 16uy -> parseOprMem span phlp (baseRMReg phlp RG0) None 4
-  | 17uy -> parseOprMem span phlp (baseRMReg phlp RG1) None 4
-  | 18uy -> parseOprMem span phlp (baseRMReg phlp RG2) None 4
-  | 19uy -> parseOprMem span phlp (baseRMReg phlp RG3) None 4
-  | 20uy -> parseOprMemWithSIB span phlp modVal 4
-  | 21uy -> parseOprMem span phlp (baseRMReg phlp RG5) None 4
-  | 22uy -> parseOprMem span phlp (baseRMReg phlp RG6) None 4
-  | 23uy -> parseOprMem span phlp (baseRMReg phlp RG7) None 4
-  | _ -> raise ParsingFailureException
+  let m = Operands.getMod modRM
+  let rm = Operands.getRM modRM
+  if rm = 0b100 then parseOprMemWithSIB span phlp modVal dispSizes[m]
+  elif m = 0 && rm = 0b101 then parseOprRIPRelativeMem span phlp 4
+  else parseOprMem span phlp (baseRMReg phlp rm) None dispSizes[m]
 
 let parseMemory modRM span (phlp: ParsingHelper) =
   if phlp.MemEffAddrSize = 16<rt> then parseMEM16 span phlp modRM
@@ -726,7 +705,7 @@ let getImmZ (phlp: ParsingHelper) =
 let opGprImm span phlp regGrp =
   let o1 = getOprFromRegGrpREX (int regGrp) phlp
   let o2 = parseOprSImm span phlp phlp.MemEffOprSize
-  TwoOperands(o1, o2)
+  Operands.twoOperands o1 o2
 
 let parseOprForRelJmp span (phlp: ParsingHelper) immSz =
 #if LCACHE
@@ -735,5 +714,5 @@ let parseOprForRelJmp span (phlp: ParsingHelper) immSz =
   let immSz = RegType.toByteWidth immSz
   let offset = parseSignedImm span phlp immSz
   let relOffset = offset + int64 (phlp.ParsedLen())
-  OprDirAddr(Relative(relOffset))
+  Operands.relTarget relOffset
 

@@ -54,6 +54,9 @@ type IntelParser(wordSz, reader) =
   let legacyMaps =
     if is64 then InstructionTable.legacy64 else InstructionTable.legacy32
 
+  /// The VEX and EVEX maps for this parser's mode.
+  let vexMaps = if is64 then InstructionTable.vex64 else InstructionTable.vex32
+
   let mutable disasm = Disasm.Delegate Disasm.IntelSyntax.disasm
 
   let lifter =
@@ -115,10 +118,9 @@ type IntelParser(wordSz, reader) =
       MatchContext.index rexState 0 (MatchContext.prefState phlp.Prefixes)
 
   /// Returns true when the row answers the REX and mandatory prefix state of
-  /// the instruction at hand, in the CPU mode at hand.
-  let matchREXAndPrefix is64 ctxBit (row: Row) =
-    let accept = if is64 then row.Accept64 else row.Accept32
-    accept &&& ctxBit <> 0UL
+  /// the instruction at hand; the row already carries the mask of the CPU
+  /// mode at hand.
+  let matchREXAndPrefix ctxBit (row: Row) = row.Accept &&& ctxBit <> 0UL
 
   /// Returns true for the one opcode that deviates from the standard
   /// mandatory-prefix rules: F3 90 is PAUSE, a separate instruction the F3
@@ -149,9 +151,10 @@ type IntelParser(wordSz, reader) =
   /// constraint too: the mod field is what separates MOVHLPS (register only)
   /// from MOVLPS (memory only), which share opcode 0F 12.
   let matchModRM modRM (row: Row) =
-    row.ModRMAny
-    || (modRM &&& row.ModRMMask = row.ModRMValue
-        && not (row.ModRMNotReg && Operands.modIsReg modRM))
+    let w = row.MatchWord
+    (w &&& MatchWord.Any) <> 0UL
+    || ((uint64 modRM &&& w &&& 0xFFUL) = ((w >>> 8) &&& 0xFFUL)
+        && not ((w &&& MatchWord.NotReg) <> 0UL && Operands.modIsReg modRM))
 
   /// JCXZ/JECXZ/JRCXZ share opcode 0xE3 and are selected by the effective
   /// address size determined by the current mode and the 67h prefix:
@@ -219,10 +222,10 @@ type IntelParser(wordSz, reader) =
   /// and the CPU mode at once. A plain row under a simple state, one with no
   /// LOCK and no VEX prefix, has nothing left to be asked; the rest go through
   /// the remaining constraints one by one.
-  let matchesRow phlp ctxBit isRounding simple is64 modRM (row: Row) =
+  let matchesRow phlp ctxBit isRounding simple modRM (row: Row) =
     matchModRM modRM row
-    && matchREXAndPrefix is64 ctxBit row
-    && ((simple && row.Plain)
+    && matchREXAndPrefix ctxBit row
+    && ((simple && (row.MatchWord &&& MatchWord.Plain) <> 0UL)
         || matchRareConstraints phlp isRounding modRM row)
 
 #if DEBUG
@@ -233,7 +236,7 @@ type IntelParser(wordSz, reader) =
     printfn
       "%A rex+pref+size+mode=%b modrm=%b rare=%b"
       (row: Row).Opcode
-      (matchREXAndPrefix is64 ctxBit row)
+      (matchREXAndPrefix ctxBit row)
       (matchModRM modRM row)
       (matchRareConstraints phlp isRounding modRM row)
 #endif
@@ -256,7 +259,7 @@ type IntelParser(wordSz, reader) =
 #if DEBUG
         traceInstrCore phlp ctxBit isRounding modRM row
 #endif
-        if matchesRow phlp ctxBit isRounding simple is64 modRM row then
+        if matchesRow phlp ctxBit isRounding simple modRM row then
           found <- row
         else
           row <- row.Next
@@ -273,11 +276,7 @@ type IntelParser(wordSz, reader) =
   /// settled once after every operand has been.
   let setupOprContext (phlp: ParsingHelper) regSz memSz =
     phlp.MemEffOprSize <- memSz
-    phlp.MemEffRegSize <- regSz
     phlp.RegSize <- regSz
-    (* Cleared here so a broadcast width never outlives its operand; the
-       RMBcst cases set it again right after this call. *)
-    phlp.BroadcastSize <- 0<rt>
 
   /// Sizes an operand that carries no width of its own from the prefixes and
   /// the CPU mode, under the given size condition.
@@ -436,7 +435,7 @@ type IntelParser(wordSz, reader) =
         setupOprContext phlp o.Size o.Size
         OperandParsers.parseMemory modRM span phlp
     | OprKind.FixedImm ->
-      OprImm(int64 o.Value, row.FixedImmSize)
+      Operands.oprImm (int64 o.Value) row.FixedImmSize
     | OprKind.Moffs ->
       setupOprContext phlp o.Size o.Size
       OperandParsers.parseOprOnlyDisp span phlp
@@ -486,7 +485,7 @@ type IntelParser(wordSz, reader) =
     let rmSz = row.Size1
     setupOprContext phlp rmSz rmSz
     let rm = OperandParsers.parseMemOrReg modRM span phlp
-    Operands.TwoOperands(reg, rm)
+    Operands.twoOperands reg rm
 
   /// Parses a register-or-memory operand followed by a register named by
   /// ModRM.reg, the same way.
@@ -497,7 +496,7 @@ type IntelParser(wordSz, reader) =
     let regSz = row.Size1
     setupOprContext phlp regSz regSz
     let reg = OperandParsers.findRegReg regSz modRM phlp |> Operands.oprReg
-    Operands.TwoOperands(rm, reg)
+    Operands.twoOperands rm reg
 
   /// Parses a register-or-memory operand followed by an immediate, the way
   /// parseOperand would read the two descriptors.
@@ -509,7 +508,7 @@ type IntelParser(wordSz, reader) =
     let imm =
       if row.SignExtendsImm then OperandParsers.parseOprSImm span phlp row.Size1
       else OperandParsers.parseOprImm span phlp row.Size1
-    Operands.TwoOperands(rm, imm)
+    Operands.twoOperands rm imm
 
   /// Parses the one operand of a row whose shape is read by code of its own,
   /// the way parseOperand would read its descriptor.
@@ -547,9 +546,9 @@ type IntelParser(wordSz, reader) =
         let operandTypes = row.OprSpecs
         let op1 = parseOperand span phlp row modRM operandTypes[0]
         let op2 = parseOperand span phlp row modRM operandTypes[1]
-        Operands.TwoOperands(op1, op2)
+        Operands.twoOperands op1 op2
     | 1 ->
-      Operands.OneOperand(parseSingleOperand span phlp modRM row)
+      Operands.oneOperand (parseSingleOperand span phlp modRM row)
     | 3 ->
       let operandTypes = row.OprSpecs
       let op1 = parseOperand span phlp row modRM operandTypes[0]
@@ -573,6 +572,9 @@ type IntelParser(wordSz, reader) =
   let parseAllOperands span (phlp: ParsingHelper) (row: Row) =
     let modRM = readModRM span phlp row
     phlp.MemEffAddrSize <- ParsingHelper.GetEffAddrSize phlp
+    (* Cleared once here: only a memory operand reads a broadcast width, an
+       instruction has at most one, and the RMBroadcast case sets it. *)
+    phlp.BroadcastSize <- 0<rt>
     if row.IsFarRet then phlp.IsFar <- true else ()
     if row.OperandCount = 0 then
       (* Nothing else sizes an operand-less instruction, yet the lifter still
@@ -596,17 +598,17 @@ type IntelParser(wordSz, reader) =
   let vexMap (vInfo: VEXInfo) =
     if vInfo.VEXType &&& VEXType.EVEX = VEXType.EVEX then
       match vInfo.VEXType &&& (~~~VEXType.EVEX) with
-      | VEXType.TwoByteOp -> InstructionTable.evexTwo
-      | VEXType.ThreeByteOpOne -> InstructionTable.evexThree38
-      | VEXType.ThreeByteOpTwo -> InstructionTable.evexThree3A
-      | VEXType.Map5 -> InstructionTable.evexMap5
-      | VEXType.Map6 -> InstructionTable.evexMap6
+      | VEXType.TwoByteOp -> vexMaps[3]
+      | VEXType.ThreeByteOpOne -> vexMaps[4]
+      | VEXType.ThreeByteOpTwo -> vexMaps[5]
+      | VEXType.Map5 -> vexMaps[6]
+      | VEXType.Map6 -> vexMaps[7]
       | _ -> raise ParsingFailureException
     else
       match vInfo.VEXType with
-      | VEXType.TwoByteOp -> InstructionTable.vexTwo
-      | VEXType.ThreeByteOpOne -> InstructionTable.vexThree38
-      | VEXType.ThreeByteOpTwo -> InstructionTable.vexThree3A
+      | VEXType.TwoByteOp -> vexMaps[0]
+      | VEXType.ThreeByteOpOne -> vexMaps[1]
+      | VEXType.ThreeByteOpTwo -> vexMaps[2]
       | _ -> raise ParsingFailureException
 
   member _.SetDisassemblySyntax syntax =
