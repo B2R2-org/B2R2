@@ -25,17 +25,25 @@
 namespace B2R2.RearEnd.Visualization.Tests
 
 open Microsoft.VisualStudio.TestTools.UnitTesting
+open B2R2.MiddleEnd.ControlFlowGraph
 open B2R2.RearEnd.Visualization
 
 [<TestClass>]
 type CoordAssignmentTests() =
   let g = VisGraph.init ()
 
-  /// Adds a vertex of the given width, noting its x position in the given map,
-  /// so that a layout and the coordinates of its vertices are built together.
-  let place (xs: CoordAssignment.FloatMap) addr x width =
+  /// Adds a real vertex of the given width, standing at the given x position.
+  let realVertex addr x width =
     let v = g.AddVertex(VisBBlock(FakeBlock addr, 7.5, 14.0, false))
     v.VData.Width <- width
+    v.VData.Coordinate.X <- x
+    v
+
+  /// Adds a real vertex as `realVertex` does, noting its x position in the
+  /// given map, so that a layout and the coordinates of its vertices are built
+  /// together.
+  let place (xs: CoordAssignment.FloatMap) addr x width =
+    let v = realVertex addr x width
     xs[v] <- x
     v
 
@@ -83,3 +91,26 @@ type CoordAssignmentTests() =
     |> CoordAssignment.averageMedian
     Assert.AreEqual<float>(-67.5, a.VData.Coordinate.X)
     Assert.AreEqual<float>(67.5, b.VData.Coordinate.X)
+
+  [<TestMethod>]
+  member _.``adjustCoordinates centres the real vertices``() =
+    let a = realVertex 0x1000UL 0.0 10.0
+    let b = realVertex 0x2000UL 100.0 20.0
+    (* Both stand in one layer, which the singleton pull leaves alone. They
+       span 0 to 120, so everything shifts left by that span's midpoint. *)
+    CoordAssignment.adjustCoordinates g [| [| a; b |] |]
+    Assert.AreEqual<float>(-60.0, a.VData.Coordinate.X)
+    Assert.AreEqual<float>(40.0, b.VData.Coordinate.X)
+
+  [<TestMethod>]
+  member _.``adjustCoordinates takes a graph of nothing but dummies``() =
+    (* A dummy has no width to be measured by, so a graph of nothing else has
+       no extent to be centred on. *)
+    let a = g.AddVertex(VisBBlock(FakeBlock 0x1000UL, true))
+    let b = g.AddVertex(VisBBlock(FakeBlock 0x2000UL, true))
+    g.AddEdge(a, b, VisEdge CFGEdgeKind.FallThroughEdge)
+    VisGraph.setLayer a 0
+    VisGraph.setLayer b 1
+    CoordAssignment.adjustCoordinates g [| [| a |]; [| b |] |]
+    Assert.AreEqual<float>(0.0, a.VData.Coordinate.X)
+    Assert.AreEqual<float>(0.0, b.VData.Coordinate.X)

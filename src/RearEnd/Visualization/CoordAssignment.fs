@@ -349,13 +349,20 @@ let assignYCoordinates vLayout =
   List.map (fun layer -> vLayout[layer]) [ 0 .. maxLayer ]
   |> List.fold assignYCoordinate 0.0 |> ignore
 
-let getLeftCoordinate xs (v: IVertex<VisBBlock>) =
-  let blk = v.VData
-  if blk.IsDummy then xs else blk.Coordinate.X :: xs
-
-let getRightCoordinate xs (v: IVertex<VisBBlock>) =
-  let blk = v.VData
-  if blk.IsDummy then xs else (blk.Coordinate.X + blk.Width) :: xs
+/// The horizontal extent of the real vertices of the graph, a dummy having no
+/// width to be measured by. Answers None for a graph of nothing but dummies,
+/// there being no extent to speak of then.
+let private realExtent (vGraph: VisGraph) =
+  let mutable leftMost = Double.PositiveInfinity
+  let mutable rightMost = Double.NegativeInfinity
+  vGraph |> DiGraph.iterVertex (fun (v: IVertex<VisBBlock>) ->
+    let blk = v.VData
+    if blk.IsDummy then
+      ()
+    else
+      leftMost <- min leftMost blk.Coordinate.X
+      rightMost <- max rightMost (blk.Coordinate.X + blk.Width))
+  if leftMost > rightMost then None else Some(leftMost, rightMost)
 
 let shiftXCoordinate shift (v: IVertex<VisBBlock>) =
   let blk = v.VData
@@ -389,10 +396,12 @@ let private adjustIsolatedLayerNodePosition (vGraph: VisGraph) vLayout =
 
 let adjustCoordinates (vGraph: VisGraph) vLayout =
   adjustIsolatedLayerNodePosition vGraph vLayout
-  let leftMost = vGraph |> DiGraph.foldVertex getLeftCoordinate [] |> List.min
-  let rightMost = vGraph |> DiGraph.foldVertex getRightCoordinate [] |> List.max
-  let width = rightMost - leftMost
-  vGraph |> DiGraph.iterVertex (shiftXCoordinate (rightMost - width / 2.0))
+  match realExtent vGraph with
+  | Some(leftMost, rightMost) ->
+    let width = rightMost - leftMost
+    vGraph |> DiGraph.iterVertex (shiftXCoordinate (rightMost - width / 2.0))
+  | None ->
+    ()
 
 let run vGraph vLayout =
   assignXCoordinates vGraph vLayout
