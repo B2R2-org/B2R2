@@ -429,3 +429,31 @@ type DataFlowTests() =
     let eax = brew.BinHandle.RegisterFactory.GetRegVar "EAX"
     let out = cp.EvalExpr(spp 0x9UL 2, eax)
     Assert.AreEqual<ConstantDomain.Lattice>(ConstantDomain.NotAConst, out)
+
+  [<TestMethod>]
+  member _.``Sparse Data Flow Reset Test 1``() =
+    let brew = Binaries.loadOne Binaries.sample1
+    let cfg = brew.Functions[0UL].CFG
+    let cp = ConstantPropagation(brew.BinHandle, cfg.Vertices)
+    let state = cp.State
+    for v in cfg.Vertices do state.MarkVertexAsRemoval v
+    state.Reset()
+    (* A reset state must not invalidate the discarded graph's vertices. *)
+    Assert.AreEqual<bool>(false, fst <| state.DequeueVertexForRemoval())
+
+  [<TestMethod>]
+  member _.``Sensitive Data Flow Reset Test 1``() =
+    let brew = Binaries.loadOne Binaries.sample3
+    let cfg = brew.Functions[0UL].CFG
+    let scheme =
+      { new LowUIRSensitiveDataFlow.IScheme<int> with
+          member _.DefaultExecutionContext = 0
+          member _.TryComputeExecutionContext(_, exeCtx, _, _) = Some exeCtx
+          member _.OnVertexNewlyAnalyzed _ = ()
+          member _.OnRemoveVertex _ = () }
+    let cp = LowUIRSensitiveConstantPropagation(brew.BinHandle, scheme)
+    let state = cp.State
+    for v in cfg.Vertices do state.TryMarkVertexAsRemoval v |> ignore
+    state.Reset()
+    (* A reset state must not invalidate the discarded graph's vertices. *)
+    Assert.AreEqual<bool>(true, Seq.isEmpty state.VerticesForRemoval)

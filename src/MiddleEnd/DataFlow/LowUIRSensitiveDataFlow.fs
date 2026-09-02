@@ -391,6 +391,7 @@ type State<'L, 'ExeCtx
     defUseMap.Clear()
     useDefMap.Clear()
     edgesForProcessing.Clear()
+    verticesForRemoval.Clear()
     defSvpToSSAVar.Clear()
     ssaVarToDefSvp.Clear()
     perVertexPossibleExeCtxs.Clear()

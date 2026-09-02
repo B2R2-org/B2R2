@@ -338,6 +338,7 @@ type State<'Lattice when 'Lattice: equality>
     defUseMap.Clear()
     useDefMap.Clear()
     verticesForProcessing.Clear()
+    verticesForRemoval.Clear()
     vpToSSAVar.Clear()
     ssaVarCounter <- 0
     ssaVarToVp.Clear()
