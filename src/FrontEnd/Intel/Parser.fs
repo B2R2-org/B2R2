@@ -140,10 +140,15 @@ type IntelParser(wordSz, reader) =
   /// and EVEX carry a W of their own, which this leaves alone.
   let ignoresREXW (phlp: ParsingHelper) ins (insCore: InstructionCore) =
     let digit = groupDigit insCore.ModRM
+    (* Only a row W could have chosen instead of this one counts, so it has to
+       share both the digit and the mandatory prefix. CVTTSD2SI asks for W
+       under F2 and CVTTPS2PI sits at the same opcode byte under no prefix;
+       reading the F2 row as a rival left REX.W + 0F 2C decoding as nothing. *)
     let asksForW (i: InstructionCore) =
       (i.REXPrefixType = REXPrefixType.W1
        || i.REXPrefixType = REXPrefixType.REXW)
       && groupDigit i.ModRM = digit
+      && i.PrefixType = insCore.PrefixType
     phlp.VEXInfo.IsNone && not (Array.exists asksForW ins)
 
   /// Returns true when the observed REX prefix satisfies the constraint
