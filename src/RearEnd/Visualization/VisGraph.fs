@@ -27,11 +27,14 @@ namespace B2R2.RearEnd.Visualization
 open System.Collections.Generic
 open B2R2.MiddleEnd.BinGraph
 
-/// The main graph type for visualization.
+/// Represents a graph laid out for visualization.
 type VisGraph = IMutableDiGraph<VisBBlock, VisEdge>
 
+/// Provides the means of building a graph for visualization and of reading
+/// the geometry the layout gives its vertices.
 [<RequireQualifiedAccess>]
 module VisGraph =
+  /// Creates an empty graph for visualization.
   let init () =
     MutableDiGraph<VisBBlock, VisEdge>()
     :> VisGraph
@@ -61,24 +64,35 @@ module VisGraph =
     if Array.isEmpty roots then () else newGraph.SetRoots roots
     newGraph
 
+  /// Returns the ID of the given vertex.
   let getID (v: IVertex<_>) = v.ID
 
+  /// Returns the predecessors of the given vertex.
   let getPreds (vGraph: IDiGraph<_, _>) v = vGraph.GetPreds v
 
+  /// Returns the successors of the given vertex.
   let getSuccs (vGraph: IDiGraph<_, _>) v = vGraph.GetSuccs v
 
+  /// Returns the data that the given vertex carries.
   let getVData (v: IVertex<_>) = v.VData
 
+  /// Returns the index of the given vertex within its layer.
   let getIndex (v: IVertex<VisBBlock>) = v.VData.Index
 
+  /// Returns the layer that the given vertex belongs to.
   let getLayer (v: IVertex<VisBBlock>) = v.VData.Layer
 
+  /// Sets the layer that the given vertex belongs to.
   let setLayer (v: IVertex<VisBBlock>) layer = v.VData.Layer <- layer
 
+  /// Returns the width of the given vertex.
   let getWidth (v: IVertex<VisBBlock>) = v.VData.Width
 
+  /// Returns the height of the given vertex.
   let getHeight (v: IVertex<VisBBlock>) = v.VData.Height
 
+  /// Returns the x position of the given vertex.
   let getXPos (v: IVertex<VisBBlock>) = v.VData.Coordinate.X
 
+  /// Returns the y position of the given vertex.
   let getYPos (v: IVertex<VisBBlock>) = v.VData.Coordinate.Y

@@ -26,13 +26,19 @@ namespace B2R2.RearEnd.Visualization
 
 open B2R2.MiddleEnd.ControlFlowGraph
 
-/// The main edge data type for visualization.
+/// Represents an edge of a graph laid out for visualization.
 type VisEdge(ty) =
   let mutable isBackEdge = false
   let mutable points: VisPosition[] = [||]
 
+  /// Gets the kind of control flow that this edge stands for.
   member _.Type: CFGEdgeKind = ty
 
+  /// Gets or sets whether this edge runs against the layering, that is, from
+  /// a lower layer back up to a higher one.
   member _.IsBackEdge with get() = isBackEdge and set(v) = isBackEdge <- v
 
+  /// Gets or sets the points of the polyline that this edge is drawn as, from
+  /// the port it leaves its source by to the port it arrives at its
+  /// destination by, in the coordinates the nodes are laid out in.
   member _.Points with get() = points and set(v) = points <- v

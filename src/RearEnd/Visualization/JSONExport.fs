@@ -33,45 +33,65 @@ open B2R2.FrontEnd.BinLifter
 open B2R2.MiddleEnd.BinGraph
 open B2R2.MiddleEnd.ControlFlowGraph
 
+/// Represents an x-y coordinate as the JSON output carries it.
 [<CLIMutable>]
 type JSONCoordinate =
-  { [<JsonPropertyName("x")>]
+  { /// The x position, growing to the right.
+    [<JsonPropertyName("x")>]
     X: float
+    /// The y position, growing downwards.
     [<JsonPropertyName("y")>]
     Y: float }
 
+/// Represents a node of the graph as the JSON output carries it.
 [<CLIMutable>]
 type JSONNode =
-  { [<JsonPropertyName("pPoint")>]
+  { /// The address of the basic block that this node stands for.
+    [<JsonPropertyName("pPoint")>]
     PPoint: Addr
+    /// The assembly words of the block, by line and then by word within the
+    /// line, each word being its text paired with the name of its kind.
     [<JsonPropertyName("terms")>]
     Terms: string[][][]
+    /// The width of the node.
     [<JsonPropertyName("width")>]
     Width: float
+    /// The height of the node.
     [<JsonPropertyName("height")>]
     Height: float
+    /// The top-left corner of the node.
     [<JsonPropertyName("coordinate")>]
     Coordinate: JSONCoordinate }
 
+/// Represents an edge of the graph as the JSON output carries it.
 [<CLIMutable>]
 type JSONEdge =
-  { [<JsonPropertyName("type")>]
+  { /// The name of the kind of control flow that this edge stands for.
+    [<JsonPropertyName("type")>]
     Type: string
+    /// The points of the polyline that the edge is drawn as, from its source
+    /// port to its destination port.
     [<JsonPropertyName("points")>]
     Points: JSONCoordinate[]
+    /// Whether the edge runs against the layering.
     [<JsonPropertyName("isBackEdge")>]
     IsBackEdge: bool }
 
-/// This is Visualization module's final output type.
+/// Represents a whole laid-out graph as the JSON output carries it. This is
+/// what the visualization finally answers.
 [<CLIMutable>]
 type JSONGraph =
-  { [<JsonPropertyName("roots")>]
+  { /// The addresses of the blocks that the graph is rooted at.
+    [<JsonPropertyName("roots")>]
     Roots: Addr[]
+    /// The nodes of the graph, in no particular order.
     [<JsonPropertyName("nodes")>]
     Nodes: JSONNode[]
+    /// The edges of the graph, in no particular order.
     [<JsonPropertyName("edges")>]
     Edges: JSONEdge[] }
 
+/// Provides the JSON rendering of a laid-out graph.
 module JSONExport =
   let private getJSONTerms (visualizableAsm: AsmWord[][]) =
     visualizableAsm

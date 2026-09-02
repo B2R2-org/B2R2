@@ -29,11 +29,13 @@ open System.Runtime.CompilerServices
 [<assembly: InternalsVisibleTo("B2R2.RearEnd.Visualization.Tests")>]
 do ()
 
-/// X-Y position of nodes and edges for visualization.
+/// Represents the x-y position of a node, or of one point along an edge, in a
+/// laid-out graph.
 type VisPosition =
-  { /// X position.
+  { /// The x position, growing to the right.
     mutable X: float
-    /// Y position.
+    /// The y position, growing downwards.
     mutable Y: float }
 with
+  /// Creates a position at the given x and y.
   static member Create(x, y) = { X = x; Y = y }

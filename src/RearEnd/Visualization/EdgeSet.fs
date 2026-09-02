@@ -108,7 +108,8 @@ with
     reverseEdges sets.SelfCycleEdge
     sets
 
-/// Which way a vertex's edges run, an edge set holding the two apart.
+/// Represents which way a vertex's edges run, an edge set holding the two
+/// apart.
 [<RequireQualifiedAccess>]
 type internal EdgeFlow =
   | Incoming

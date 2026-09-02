@@ -27,7 +27,8 @@ namespace B2R2.RearEnd.Visualization
 open B2R2.FrontEnd.BinLifter
 open B2R2.MiddleEnd.ControlFlowGraph
 
-/// The main vertex type used for visualization.
+/// Represents a vertex of a graph laid out for visualization, pairing the
+/// basic block it stands for with the geometry the layout gives it.
 type VisBBlock(blk: IVisualizable, charWidth, charHeight, isDummy) =
   let mutable layer = -1
 
@@ -72,23 +73,27 @@ type VisBBlock(blk: IVisualizable, charWidth, charHeight, isDummy) =
        text even though we are using a fixed-width font. *)
     VisBBlock(blk, 7.5, 14.0, isDummy)
 
+  /// Gets whether this node is a dummy, that is, a placeholder standing on a
+  /// layer that a long edge merely passes through.
   member _.IsDummy with get() = isDummy
 
-  /// The width of the node.
+  /// Gets or sets the width of the node.
   member _.Width with get() = width and set(v) = width <- v
 
-  /// The height of the node.
+  /// Gets the height of the node.
   member _.Height with get() = height
 
-  /// The layer that this node belongs to.
+  /// Gets or sets the layer that this node belongs to.
   member _.Layer with get() = layer and set(v) = layer <- v
 
-  /// Relative index in a layer (from left to right).
+  /// Gets or sets the index of this node within its layer, counted from the
+  /// left.
   member _.Index with get() = index and set(v) = index <- v
 
-  /// X-Y coordinate in the visualized graph.
+  /// Gets the x-y coordinate of this node in the laid-out graph.
   member _.Coordinate with get() = pos
 
+  /// Gets the address of the basic block that this node stands for.
   member _.BlockAddress with get() = blk.BlockAddress
 
   interface IVisualizable with

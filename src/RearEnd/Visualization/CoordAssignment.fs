@@ -302,9 +302,9 @@ let private collectX (xPerV: Dictionary<IVertex<VisBBlock>, float list>) xs =
     | false, _ -> xPerV[v] <- [ xs[v] ]
   xPerV
 
-/// The median of the given sorted values, which for an even count is the
-/// average of the two in the middle. How many alignments there are to take the
-/// median of is for the caller enumerating them to know, not for this.
+/// Returns the median of the given sorted values, which for an even count is
+/// the average of the two in the middle. How many alignments there are to take
+/// the median of is for the caller enumerating them to know, not for this.
 let private medianOf (sorted: float[]) =
   let n = sorted.Length
   if n % 2 = 0 then (sorted[n / 2 - 1] + sorted[n / 2]) / 2.0
@@ -349,9 +349,9 @@ let private assignYCoordinates vLayout =
   List.map (fun layer -> vLayout[layer]) [ 0 .. maxLayer ]
   |> List.fold assignYCoordinate 0.0 |> ignore
 
-/// The horizontal extent of the real vertices of the graph, a dummy having no
-/// width to be measured by. Answers None for a graph of nothing but dummies,
-/// there being no extent to speak of then.
+/// Returns the horizontal extent of the real vertices of the graph, a dummy
+/// having no width to be measured by. Answers None for a graph of nothing but
+/// dummies, there being no extent to speak of then.
 let private realExtent (vGraph: VisGraph) =
   let mutable leftMost = Double.PositiveInfinity
   let mutable rightMost = Double.NegativeInfinity

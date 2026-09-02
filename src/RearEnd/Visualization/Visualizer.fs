@@ -22,6 +22,7 @@
   SOFTWARE.
 *)
 
+/// Provides the entry points that lay a control flow graph out for viewing.
 module B2R2.RearEnd.Visualization.Visualizer
 
 #if DEBUG
@@ -69,8 +70,8 @@ let toVisGraph (iGraph: IDiGraph<_, _>) charWidth charHeight =
     convert iGraph charWidth charHeight
 #endif
 
-/// Default character width used for layout calculations.
+/// Represents the default character width used for layout calculations.
 let [<Literal>] CharWidth = 7.5
 
-/// Default character height used for layout calculations.
+/// Represents the default character height used for layout calculations.
 let [<Literal>] CharHeight = 14.0
