@@ -172,7 +172,7 @@ module DataFlowChain =
 
   /// Computes Use-Def and Def-Use chains for the given CFG using reaching
   /// definition analysis.
-  [<CompiledName("Compute")>]
+  [<CompiledName "Compute">]
   let compute cfg granularity =
     let rd = ReachingDefinitionAnalysis() :> IDataFlowComputable<_, _, _>
     let provider = rd.Compute cfg

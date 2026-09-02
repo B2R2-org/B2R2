@@ -101,6 +101,7 @@ type IScheme<'WorkUnit, 'AbsVal
   abstract Transfer: 'WorkUnit -> 'AbsVal
 
 /// Runs the worklist-based dataflow analysis on the given initial work list.
+[<CompiledName "Compute">]
 let compute initialWorkList (sch: IScheme<_, _>) state =
   for work in initialWorkList do (state: State<_, _>).PushWork work
   while state.HasWork do

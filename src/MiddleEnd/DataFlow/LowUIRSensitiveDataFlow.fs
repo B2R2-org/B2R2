@@ -1064,6 +1064,7 @@ module internal AnalysisCore = begin
 end (* End of AnalysisCore *)
 
 /// Computes the data flow incrementally.
+[<CompiledName "Compute">]
 let compute g state =
   removeInvalidChains state
   calculateChains g state

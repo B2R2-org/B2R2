@@ -236,7 +236,7 @@ and SSAVarPoint =
 /// Takes one executable edge off the flow worklist, runs the transfer function
 /// over every statement of its destination, and marks the fall-through
 /// successors executable.
-let processFlow (state: State<_>) ssaCFG =
+let private processFlow (state: State<_>) ssaCFG =
   match state.FlowWorkList.TryDequeue() with
   | false, _ ->
     ()
@@ -254,7 +254,7 @@ let processFlow (state: State<_>) ssaCFG =
 
 /// Takes one changed definition off the SSA worklist and runs the transfer
 /// function over each of its uses that sits in an already executed vertex.
-let processSSA (state: State<_>) ssaCFG =
+let private processSSA (state: State<_>) ssaCFG =
   match state.SSAWorkList.TryDequeue() with
   | false, _ ->
     ()
@@ -268,6 +268,7 @@ let processSSA (state: State<_>) ssaCFG =
 
 /// Runs the sparse data flow analysis on the given SSA CFG until both
 /// worklists are exhausted, and returns the resulting state.
+[<CompiledName "Compute">]
 let compute cfg (state: State<_>) =
   state.SSAEdges <- SSAEdges cfg
   cfg.Roots

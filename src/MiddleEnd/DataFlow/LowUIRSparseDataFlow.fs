@@ -961,6 +961,7 @@ module internal AnalysisCore = begin
 end (* end of AnalysisCore *)
 
 /// Computes the data flow incrementally.
+[<CompiledName "Compute">]
 let compute g (state: State<_>) =
   let df = Dominance.CooperDominanceFrontier()
   let dom = Dominance.LengauerTarjanDominance.create g df
