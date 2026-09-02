@@ -27,7 +27,7 @@ module internal B2R2.RearEnd.Visualization.LayerAssignment
 
 open B2R2.MiddleEnd.BinGraph
 
-let assignLayerFromPred (vGraph: VisGraph) (v: IVertex<VisBBlock>) =
+let private assignLayerFromPred (vGraph: VisGraph) (v: IVertex<VisBBlock>) =
   let preds = VisGraph.getPreds vGraph v
   if preds.Length = 0 then
     VisGraph.setLayer v 0
@@ -35,14 +35,14 @@ let assignLayerFromPred (vGraph: VisGraph) (v: IVertex<VisBBlock>) =
     let maxLayer = preds |> Array.maxBy VisGraph.getLayer |> VisGraph.getLayer
     VisGraph.setLayer v (maxLayer + 1)
 
-let kahnAssignLayers (vGraph: VisGraph) =
+let private kahnAssignLayers (vGraph: VisGraph) =
   Traversal.DFS.iterRevPostorder vGraph (assignLayerFromPred vGraph)
 
-let rec addDummy (g: VisGraph) (backEdges, dummies) k parWidth src dst e cnt =
+let rec private addDummy g (backEdges, dummies) k parWidth src dst e cnt =
   if cnt = 0 then
     let edge = VisEdge((e: VisEdge).Type)
     edge.IsBackEdge <- e.IsBackEdge
-    g.AddEdge(src, dst, edge)
+    (g: VisGraph).AddEdge(src, dst, edge)
     let backEdges =
       if edge.IsBackEdge then (dst, src, edge) :: backEdges else backEdges
     backEdges, dummies
@@ -60,7 +60,7 @@ let rec addDummy (g: VisGraph) (backEdges, dummies) k parWidth src dst e cnt =
     let dummies = Map.add k (ends, eData, dummy :: vertices) dummies
     addDummy g (backEdges, dummies) k parWidth dummy dst e (cnt - 1)
 
-let collectLongEdges (backEdges, longEdges) (edge: Edge<_, VisEdge>) =
+let private collectLongEdges (backEdges, longEdges) (edge: Edge<_, VisEdge>) =
   let src, dst = edge.First, edge.Second
   let delta = VisGraph.getLayer dst - VisGraph.getLayer src
   if delta > 1 then
@@ -73,7 +73,8 @@ let collectLongEdges (backEdges, longEdges) (edge: Edge<_, VisEdge>) =
   else
     backEdges, longEdges
 
-let addDummyNodesLongEdge vGraph (backEdges, dummies) (src, dst, edge, delta) =
+let private addDummyNodesLongEdge vGraph (backEdges, dummies) longEdge =
+  let src, dst, edge, delta = longEdge
   (vGraph: VisGraph).RemoveEdge(src, dst)
   (* A chain is named by the IDs of the pair it spans, which orders the chains
      for a reader; the pair itself rides along, there being no looking a vertex
@@ -93,7 +94,8 @@ let addDummyNodesLongEdge vGraph (backEdges, dummies) (src, dst, edge, delta) =
       Map.add k (ends, eData, List.rev vertices) dummies
   backEdges, dummies
 
-let addDummyNodesRemovedBackEdge vGraph (backEdges, dummies) (src, dst, edge) =
+let private addDummyNodesRemovedBackEdge vGraph (backEdges, dummies) backEdge =
+  let src, dst, edge = backEdge
   let dagSrc = dst
   let dagDst = src
   let delta = VisGraph.getLayer dagDst - VisGraph.getLayer dagSrc
@@ -102,7 +104,7 @@ let addDummyNodesRemovedBackEdge vGraph (backEdges, dummies) (src, dst, edge) =
   let width = dagSrc.VData.Width
   addDummy vGraph (backEdges, dummies) k width dagSrc dagDst edge (delta - 1)
 
-let assignDummyNodes (vGraph: VisGraph) backEdges =
+let private assignDummyNodes (vGraph: VisGraph) backEdges =
   let backEdges, longEdges =
     vGraph |> DiGraph.foldEdge collectLongEdges (backEdges, [])
   let removedLongBackEdges, backEdges =

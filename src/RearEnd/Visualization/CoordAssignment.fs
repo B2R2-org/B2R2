@@ -29,7 +29,7 @@ open System
 open System.Collections.Generic
 open B2R2.MiddleEnd.BinGraph
 
-type VDirection =
+type private VDirection =
   | Topmost
   | Bottommost
 
@@ -37,7 +37,7 @@ type HDirection =
   | Leftmost
   | Rightmost
 
-type VertexMap = Dictionary<IVertex<VisBBlock>, IVertex<VisBBlock>>
+type private VertexMap = Dictionary<IVertex<VisBBlock>, IVertex<VisBBlock>>
 
 type FloatMap = Dictionary<IVertex<VisBBlock>, float>
 
@@ -107,11 +107,11 @@ let private findTypeOneConflicts vGraph vLayout =
   Array.mapi (fun layer vertices -> layer, vertices) vLayout
   |> Array.fold (addTypeOneConflicts vGraph vLayout) Set.empty
 
-let getLayerByDirection (vLayout: IVertex<_>[][]) idx = function
+let private getLayerByDirection (vLayout: IVertex<_>[][]) idx = function
   | Leftmost -> vLayout[idx]
   | Rightmost -> Array.rev vLayout[idx]
 
-let getMedianNeighbors (sortedNeighbors: IVertex<VisBBlock>[]) hDir =
+let private getMedianNeighbors (sortedNeighbors: IVertex<VisBBlock>[]) hDir =
   let middle = float (sortedNeighbors.Length - 1) / 2.0
   let a = int (floor middle)
   let b = int (ceil middle)
@@ -120,7 +120,7 @@ let getMedianNeighbors (sortedNeighbors: IVertex<VisBBlock>[]) hDir =
   | Leftmost -> [ a; b ]
   | Rightmost -> [ b; a ]
 
-let isBefore a b = function
+let private isBefore a b = function
   | Leftmost -> a < b
   | Rightmost -> a > b
 
@@ -163,17 +163,17 @@ let private vAlign (vGraph: VisGraph) vLayout maxLayer conflicts vDir hDir =
     done)
   root, align
 
-let inBound (v: IVertex<VisBBlock>) counts = function
+let private inBound (v: IVertex<VisBBlock>) counts = function
   | Leftmost -> v.VData.Index > 0
   | Rightmost -> v.VData.Index < counts - 1
 
-let getPred (vertices: IVertex<VisBBlock>[]) idx = function
+let private getPred (vertices: IVertex<VisBBlock>[]) idx = function
   | Leftmost -> vertices[idx - 1]
   | Rightmost -> vertices[idx + 1]
 
 /// Compute the maximum width of blocks in the same block. Returns a map from
 /// the root block to the maximum width of nodes in the same block.
-let computeBlockMaxWidths (root: VertexMap) (align: VertexMap) =
+let private computeBlockMaxWidths (root: VertexMap) (align: VertexMap) =
   let roots = root.Values |> Seq.distinct
   let blockMaxWidths = FloatMap()
   for root in roots do
@@ -195,7 +195,7 @@ let fixShift (xs: FloatMap) (shift: FloatMap) (sink: VertexMap) u v delta =
   | Leftmost -> shift[sink[u]] <- min (shift[sink[u]]) (xs[v] - xs[u] - delta)
   | Rightmost -> shift[sink[u]] <- max (shift[sink[u]]) (xs[v] - xs[u] + delta)
 
-let adjustX (xs: FloatMap) u v delta = function
+let private adjustX (xs: FloatMap) u v delta = function
   | Leftmost -> xs[v] <- max xs[v] (xs[u] + delta)
   | Rightmost -> xs[v] <- min xs[v] (xs[u] - delta)
 
@@ -226,7 +226,7 @@ and updateBlock vLayout hDir root (align: VertexMap) sink shift xs maxW v w =
     ()
 
 /// Alg 3 of Brandes et al.
-let hCompact vGraph vLayout root align hDir =
+let private hCompact vGraph vLayout root align hDir =
   let sink = VertexMap()
   let shift = FloatMap()
   let xs = FloatMap()
@@ -254,7 +254,7 @@ let hCompact vGraph vLayout root align hDir =
   )
   newXs, hDir
 
-let alignAndCompact vGraph vLayout maxLayer conflicts vDir hDir =
+let private alignAndCompact vGraph vLayout maxLayer conflicts vDir hDir =
   let root, align = vAlign vGraph vLayout maxLayer conflicts vDir hDir
   hCompact vGraph vLayout root align hDir
 
@@ -275,7 +275,7 @@ let getBound vLayout (xs: FloatMap, hDir) =
   ) (Double.PositiveInfinity, 0.0)
   |> fun (_, bound) -> bound, xs, hDir
 
-let alignToSmallestWidth vLayout xAlignments =
+let private alignToSmallestWidth vLayout xAlignments =
   List.map (getBound vLayout) xAlignments
   |> List.iter (fun (bound, xs: FloatMap, hDir) ->
     let currentBound =
@@ -295,7 +295,7 @@ let alignToSmallestWidth vLayout xAlignments =
   xAlignments
   |> List.map fst
 
-let collectX (xPerV: Dictionary<IVertex<VisBBlock>, float list>) xs =
+let private collectX (xPerV: Dictionary<IVertex<VisBBlock>, float list>) xs =
   for v in (xs: FloatMap).Keys do
     match xPerV.TryGetValue v with
     | true, acc -> xPerV[v] <- xs[v] :: acc
@@ -310,7 +310,7 @@ let private medianOf (sorted: float[]) =
   if n % 2 = 0 then (sorted[n / 2 - 1] + sorted[n / 2]) / 2.0
   else sorted[n / 2]
 
-let setXPos (v: IVertex<VisBBlock>) x = v.VData.Coordinate.X <- x
+let private setXPos (v: IVertex<VisBBlock>) x = v.VData.Coordinate.X <- x
 
 (* The median of the alignments, taken per vertex and then shifted so that the
    whole layout is centred on nothing in particular. *)
@@ -338,13 +338,13 @@ let private assignXCoordinates (vGraph: VisGraph) vLayout =
   |> alignToSmallestWidth vLayout
   |> averageMedian
 
-let assignYCoordinate y vertices =
+let private assignYCoordinate y vertices =
   Array.iter (fun (v: IVertex<VisBBlock>) ->
     v.VData.Coordinate.Y <- y) vertices
   let maxHeight = Array.map VisGraph.getHeight vertices |> Array.max
   y + maxHeight + BlockIntervalY
 
-let assignYCoordinates vLayout =
+let private assignYCoordinates vLayout =
   let maxLayer = Array.length vLayout - 1
   List.map (fun layer -> vLayout[layer]) [ 0 .. maxLayer ]
   |> List.fold assignYCoordinate 0.0 |> ignore
@@ -364,7 +364,7 @@ let private realExtent (vGraph: VisGraph) =
       rightMost <- max rightMost (blk.Coordinate.X + blk.Width))
   if leftMost > rightMost then None else Some(leftMost, rightMost)
 
-let shiftXCoordinate shift (v: IVertex<VisBBlock>) =
+let private shiftXCoordinate shift (v: IVertex<VisBBlock>) =
   let blk = v.VData
   blk.Coordinate.X <- blk.Coordinate.X - shift
 

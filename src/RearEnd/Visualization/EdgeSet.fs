@@ -27,10 +27,10 @@ namespace B2R2.RearEnd.Visualization
 open B2R2.MiddleEnd.BinGraph
 open System.Collections.Generic
 
-type VertexEdge = IVertex<VisBBlock> * VisEdge
+type internal VertexEdge = IVertex<VisBBlock> * VisEdge
 
 /// Maintains the edge flow assignments for either forward or backward edges.
-type EdgeSet =
+type internal EdgeSet =
   { FwdOutEdges: Dictionary<IVertex<VisBBlock>, VertexEdge list>
     FwdInEdges: Dictionary<IVertex<VisBBlock>, VertexEdge list>
     BwdInEdges: Dictionary<IVertex<VisBBlock>, VertexEdge list>
@@ -108,6 +108,8 @@ with
     reverseEdges sets.SelfCycleEdge
     sets
 
-and [<RequireQualifiedAccess>] EdgeFlow =
+/// Which way a vertex's edges run, an edge set holding the two apart.
+[<RequireQualifiedAccess>]
+type internal EdgeFlow =
   | Incoming
   | Outgoing

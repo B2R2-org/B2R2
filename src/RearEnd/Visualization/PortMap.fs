@@ -29,7 +29,7 @@ open System.Collections.Generic
 /// Maintains the port assignments for either forward or backward edges.
 /// TODO: This can be extended to support more information such as the actual
 /// routing points, etc. if necessary.
-type PortMap =
+type internal PortMap =
   { FwdOutPorts: Dictionary<VisEdge, float>
     FwdInPorts: Dictionary<VisEdge, float>
     BwdOutPorts: Dictionary<VisEdge, float>
@@ -48,7 +48,7 @@ with
       SelfInPort = Dictionary()
       BwdEdgeBendPoints = Dictionary() }
 
-and BendPoint =
+and internal BendPoint =
   | FromSourceToDest of isSrcLeft: bool * isDstLeft: bool
   | FromSourceToDummy of isSrcLeft: bool
   | FromDummyToDest of isDstLeft: bool
