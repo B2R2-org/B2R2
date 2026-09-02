@@ -604,14 +604,35 @@ module internal CFGRecoveryCommon =
   /// introduce this abstraction only after a function call and thus we can
   /// simply unwind the stack by the size of a single element for the return
   /// address pushed by the call instruction.
-  let getExceptionAbstraction (hdl: BinHandle) =
+  /// Computes how far the stack pointer moves between a call site and the
+  /// landing pad it unwinds to. The two canonical frame addresses tell us how
+  /// deep each point is in the frame; on top of that difference the return
+  /// address pushed by the call is also popped. Falls back to unwinding just
+  /// the return address when the CFAs are not both stack-pointer-relative.
+  let getExceptionUnwindingAmount (hdl: BinHandle) callsiteAddr lpAddr =
+    let wordSize = hdl.ISA.WordSize |> WordSize.toByteWidth
+    match hdl.File with
+    | :? BinFile.ELFBinFile as elf ->
+      let csCFA = elf.TryFindCFARegOffset callsiteAddr
+      let lpCFA = elf.TryFindCFARegOffset lpAddr
+      match csCFA, lpCFA with
+      | Some(rid1, off1), Some(rid2, off2) when
+          hdl.RegisterFactory.IsStackPointer rid1
+          && hdl.RegisterFactory.IsStackPointer rid2 ->
+        off1 - off2 + wordSize
+      | _ ->
+        wordSize
+    | _ ->
+      wordSize
+
+  let getExceptionAbstraction (hdl: BinHandle) callsiteAddr lpAddr =
     let rid = hdl.RegisterFactory.StackPointer.Value
     let rname = hdl.RegisterFactory.GetRegisterName(rid)
     let rt = hdl.RegisterFactory.GetRegType(rid)
     let dst = LowUIR.AST.var rt rid rname
     let sp = LowUIR.AST.var rt rid rname
-    let wordSize = hdl.ISA.WordSize |> WordSize.toByteWidth
-    let unwindingAmount = BitVector(wordSize, rt) |> LowUIR.AST.num
+    let unwinding = getExceptionUnwindingAmount hdl callsiteAddr lpAddr
+    let unwindingAmount = BitVector(unwinding, rt) |> LowUIR.AST.num
     let src = LowUIR.AST.binop BinOpType.ADD sp unwindingAmount
     let rundown = [| LowUIR.AST.assign dst src |]
     FunctionSummary(0UL, 0, rundown, false, NotNoRet)
@@ -637,7 +658,7 @@ module internal CFGRecoveryCommon =
   let connectExnEdge ctx cfgRec (callsiteAddr: Addr) =
     match ctx.ExnInfo.TryFindExceptionTarget(callsiteAddr) with
     | Some(landingPad) ->
-      let abs = getExceptionAbstraction ctx.BinHandle
+      let abs = getExceptionAbstraction ctx.BinHandle callsiteAddr landingPad
       let absV = getAbsVertex ctx cfgRec (LeafCallSite callsiteAddr) None abs
       (* Necessary to lookup the caller again as bbls could be divided *)
       let callsite = LeafCallSite(callsiteAddr)
