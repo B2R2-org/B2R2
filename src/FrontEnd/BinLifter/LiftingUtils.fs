@@ -53,8 +53,9 @@ let inline tmpVars3 (builder: ILowUIRBuilder) rt =
 
 /// Creates four new temporary variables with the given type.
 let inline tmpVars4 (builder: ILowUIRBuilder) rt =
-  let rt = tmpVar builder rt
-  struct (rt, rt, rt, rt)
+  let struct (t1, t2) = tmpVars2 builder rt
+  let struct (t3, t4) = tmpVars2 builder rt
+  struct (t1, t2, t3, t4)
 
 /// Creates a new label with the given name.
 let inline label (builder: ILowUIRBuilder) name = builder.Stream.NewLabel name

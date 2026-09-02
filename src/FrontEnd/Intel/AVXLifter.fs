@@ -1400,13 +1400,48 @@ let vpermd ins insLen bld =
   getSrc tmp (xthi dstD) tmp1A tmp2A tmp1B tmp2B tmp1C tmp2C tmp1D tmp2D bld
   bld --!> insLen
 
+let private transQwords bld (ins: Instruction) insLen oprSize opr =
+  let isBcst = haveEVEXPrx ins.VEXInfo && (getEVEXPrx ins.VEXInfo).B = 1uy
+  if isMemOpr opr && isBcst then
+    let t = tmpVar bld 64<rt>
+    bld <+ (t := transOprToExpr bld false ins insLen opr)
+    Array.create (oprSize / 64<rt>) t
+  else
+    transOprToArr bld true ins insLen 64<rt> 1 oprSize opr
+
+let private permuteQwordsByImm oprSize (src: Expr[]) imm =
+  let imm = getImmValue imm |> int
+  let sel j = (j / 4) * 4 + ((imm >>> ((j % 4) * 2)) &&& 0b11)
+  Array.init (oprSize / 64<rt>) (fun j -> src[sel j])
+
+let private permuteQwordsByIdx (src: Expr[]) idx =
+  let kl = Array.length src
+  let idx = idx .& numI32 (kl - 1) 64<rt>
+  let pick i acc = AST.ite (idx == numI32 i 64<rt>) src[i] acc
+  Array.foldBack pick [| 1 .. kl - 1 |] src[0]
+
+let private maskQwordsWithEVEX bld (ins: Instruction) insLen oprSize dst res =
+  if haveEVEXPrx ins.VEXInfo then
+    let ePrx = getEVEXPrx ins.VEXInfo
+    let k = regVar bld (ePrx.AAA |> int |> RegisterHelper.opmask)
+    let eDst = transOprToArr bld false ins insLen 64<rt> 1 oprSize dst
+    makeAssignWithMask bld ePrx k oprSize 64<rt> eDst res false
+  else
+    res
+
 let vpermq (ins: Instruction) insLen bld =
   bld <!-- (ins.Address, insLen)
   let oprSize = getOperationSize ins
-  let struct (dst, src, imm) = getThreeOprs ins
-  let src = transOprToArr bld true ins insLen 64<rt> 1 oprSize src
-  let imm = getImmValue imm |> int
-  let result = Array.init 4 (fun i -> src[(imm >>> (i * 2)) &&& 0b11])
+  let struct (dst, src1, src2) = getThreeOprs ins
+  let src1 = transQwords bld ins insLen oprSize src1
+  let result =
+    match src2 with
+    | OprImm _ ->
+      permuteQwordsByImm oprSize src1 src2
+    | _ ->
+      let src2 = transQwords bld ins insLen oprSize src2
+      Array.map (permuteQwordsByIdx src1) src2
+  let result = maskQwordsWithEVEX bld ins insLen oprSize dst result
   assignPackedInstr bld false ins insLen 1 oprSize dst result
   fillZeroFromVLToMaxVL bld dst oprSize 512
   bld --!> insLen
