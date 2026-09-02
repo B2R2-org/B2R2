@@ -52,9 +52,11 @@ type IntelParser(wordSz, reader) =
   /// The legacy opcode maps end to end, in the order ParseVEX numbers them,
   /// as ordered for this parser's mode.
   let legacyMaps =
-    if is64 then InstructionTable.legacy64 else InstructionTable.legacy32
+    if is64 then InstructionTable.legacy64.Value
+    else InstructionTable.legacy32.Value
 
-  /// The VEX and EVEX maps for this parser's mode.
+  /// The VEX and EVEX maps for this parser's mode, each built when the first
+  /// VEX prefix selecting it shows up.
   let vexMaps = if is64 then InstructionTable.vex64 else InstructionTable.vex32
 
   let mutable disasm = Disasm.Delegate Disasm.IntelSyntax.disasm
@@ -598,17 +600,17 @@ type IntelParser(wordSz, reader) =
   let vexMap (vInfo: VEXInfo) =
     if vInfo.VEXType &&& VEXType.EVEX = VEXType.EVEX then
       match vInfo.VEXType &&& (~~~VEXType.EVEX) with
-      | VEXType.TwoByteOp -> vexMaps[3]
-      | VEXType.ThreeByteOpOne -> vexMaps[4]
-      | VEXType.ThreeByteOpTwo -> vexMaps[5]
-      | VEXType.Map5 -> vexMaps[6]
-      | VEXType.Map6 -> vexMaps[7]
+      | VEXType.TwoByteOp -> vexMaps[3].Value
+      | VEXType.ThreeByteOpOne -> vexMaps[4].Value
+      | VEXType.ThreeByteOpTwo -> vexMaps[5].Value
+      | VEXType.Map5 -> vexMaps[6].Value
+      | VEXType.Map6 -> vexMaps[7].Value
       | _ -> raise ParsingFailureException
     else
       match vInfo.VEXType with
-      | VEXType.TwoByteOp -> vexMaps[0]
-      | VEXType.ThreeByteOpOne -> vexMaps[1]
-      | VEXType.ThreeByteOpTwo -> vexMaps[2]
+      | VEXType.TwoByteOp -> vexMaps[0].Value
+      | VEXType.ThreeByteOpOne -> vexMaps[1].Value
+      | VEXType.ThreeByteOpTwo -> vexMaps[2].Value
       | _ -> raise ParsingFailureException
 
   member _.SetDisassemblySyntax syntax =

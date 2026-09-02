@@ -262,7 +262,10 @@ type internal Row =
     mutable Next: Row }
 
 /// Builds the opcode tables the parser reads: the generated rows, each paired
-/// with the facts about it that never change.
+/// with the facts about it that never change. Written with plain loops rather
+/// than the Array combinators: every closure and every generic instantiation
+/// here is a method the JIT compiles before the first instruction can be
+/// read, and the table is built once per process.
 module internal InstructionTable =
   let private prefixSel = function
     | Legacy NP -> PrefixSel.LegacyNP
@@ -282,13 +285,16 @@ module internal InstructionTable =
 
   /// Returns true when every operand is 8-bit, meaning REX semantics do not
   /// apply to this instruction.
+  let private isOprSize8 = function
+    | RM sz | Reg(sz, _) | Mem sz | Imm sz | Rel sz | Moffs sz
+    | Far sz -> sz = 8<rt>
+    | _ -> false
+
   let private isAllOprSize8 (operands: OperandType[]) =
-    operands.Length > 0
-    && operands
-       |> Array.forall (function
-         | RM sz | Reg(sz, _) | Mem sz | Imm sz | Rel sz | Moffs sz
-         | Far sz -> sz = 8<rt>
-         | _ -> false)
+    let mutable all = operands.Length > 0
+    for o in operands do
+      all <- all && isOprSize8 o
+    all
 
   /// The ModRM.reg digit a row spends on naming itself, or -1 where it spends
   /// none. Rows that name different digits are different instructions sharing
@@ -316,14 +322,17 @@ module internal InstructionTable =
   /// mandatory prefix counts, too: CVTTSD2SI asks for W under F2 and
   /// CVTTPS2PI sits at the same opcode byte under no prefix, and reading the
   /// F2 row as a rival left REX.W + 0F 2C decoding as nothing.
-  let private noRivalAsksForW slot (core: InstructionCore) =
-    let digit = groupDigit core.ModRM
-    let asksForW (i: InstructionCore) =
-      (i.REXPrefixType = REXPrefixType.W1
-       || i.REXPrefixType = REXPrefixType.REXW)
-      && groupDigit i.ModRM = digit
-      && i.PrefixType = core.PrefixType
-    not (Array.exists asksForW slot)
+  let private noRivalAsksForW (slot: InstructionCore[]) core =
+    let digit = groupDigit (core: InstructionCore).ModRM
+    let mutable rival = false
+    for i in slot do
+      rival <-
+        rival
+        || ((i.REXPrefixType = REXPrefixType.W1
+             || i.REXPrefixType = REXPrefixType.REXW)
+            && groupDigit i.ModRM = digit
+            && i.PrefixType = core.PrefixType)
+    not rival
 
   /// Returns true for opcodes that implicitly operate on 16-bit operands
   /// without encoding an explicit size (e.g., MOVSW, PUSHF, IRET).
@@ -402,18 +411,23 @@ module internal InstructionTable =
   /// Returns the widest declared operand size in the descriptors, or 0<rt>
   /// when none of them carries one.
   let private maxOprSize (core: InstructionCore) =
-    core.Operands |> Array.fold (fun w o -> max w (oprWidth o)) 0<rt>
+    let mutable widest = 0<rt>
+    for o in core.Operands do
+      widest <- max widest (oprWidth o)
+    widest
 
   /// Returns true when 66h is what picks this variant out of its slot, i.e.
   /// the slot also holds the same opcode with a wider operand. Opcodes whose
   /// 16-bit form encodes no explicit size (MOVSW, PUSHF, ...) have nothing to
   /// compare, and hasImplicit16BitOprSize already names them.
-  let private is66hSelector slot (core: InstructionCore) =
+  let private is66hSelector (slot: InstructionCore[]) core =
     let sz = maxOprSize core
-    sz = 0<rt>
-    || slot
-       |> Array.exists (fun (i: InstructionCore) ->
-         i.Opcode = core.Opcode && maxOprSize i > sz)
+    let mutable wider = false
+    for i in slot do
+      wider <-
+        wider
+        || (i.Opcode = (core: InstructionCore).Opcode && maxOprSize i > sz)
+    sz = 0<rt> || wider
 
   /// Returns true when the row names a vector or an MMX register. The SIMD
   /// opcodes spend 66h, F2h and F3h on naming the instruction, so a
@@ -421,32 +435,44 @@ module internal InstructionTable =
   /// bytes stay ordinary prefixes and the unprefixed row answers. The
   /// processor draws the line exactly here: F2 0F BC runs BSF while F2 0F 28
   /// raises #UD.
+  let private isVectorOperand = function
+    | MMXReg _ | MM _ | KM _ | MemVSIB _ ->
+      true
+    | RM sz | Reg(sz, _) | RegSae sz | Mem sz | Moffs sz
+    | RMdiff(sz, _) | RMEr(sz, _) | RMSae(sz, _)
+    | RMBcst(sz, _, _) | RMBcstEr(sz, _, _) | RMBcstSae(sz, _, _) ->
+      sz >= 128<rt>
+    | _ ->
+      false
+
   let private namesAVectorRegister (core: InstructionCore) =
-    core.Operands
-    |> Array.exists (function
-      | MMXReg _ | MM _ | KM _ | MemVSIB _ ->
-        true
-      | RM sz | Reg(sz, _) | RegSae sz | Mem sz | Moffs sz
-      | RMdiff(sz, _) | RMEr(sz, _) | RMSae(sz, _)
-      | RMBcst(sz, _, _) | RMBcstEr(sz, _, _) | RMBcstSae(sz, _, _) ->
-        sz >= 128<rt>
-      | _ ->
-        false)
+    let mutable found = false
+    for o in core.Operands do
+      found <- found || isVectorOperand o
+    found
 
   /// Returns true when the instruction offers embedded rounding, which is what
   /// gives EVEX.b its {er} meaning. {sae} alone does not: it leaves L'L as the
   /// vector length.
   let private declaresStaticRounding (core: InstructionCore) =
-    core.Operands
-    |> Array.exists (function
-      | RMEr _ | RMBcstEr _ -> true
-      | _ -> false)
+    let mutable found = false
+    for o in core.Operands do
+      found <-
+        found
+        || (match o with
+            | RMEr _ | RMBcstEr _ -> true
+            | _ -> false)
+    found
 
   let private usesVSIB (core: InstructionCore) =
-    core.Operands
-    |> Array.exists (function
-      | MemVSIB _ -> true
-      | _ -> false)
+    let mutable found = false
+    for o in core.Operands do
+      found <-
+        found
+        || (match o with
+            | MemVSIB _ -> true
+            | _ -> false)
+    found
 
   /// The instructions a LOCK prefix may be prepended to, transcribed from the
   /// manual's LOCK page. That page also states the second half of the rule,
@@ -574,10 +600,15 @@ module internal InstructionTable =
   /// the operands differ: MOV r/m8, imm8 runs at eight bits however wide the
   /// prefixes would read a bare immediate.
   let private operationWidth (core: InstructionCore) =
-    core.Operands
-    |> Array.tryPick operandOperationWidth
-    |> Option.defaultValue
-      (struct (OpWidthKind.FromPrefixes, 0<rt>, 0<rt>, Register.EAX))
+    let operands = core.Operands
+    let mutable i = 0
+    let mutable found = None
+    while found.IsNone && i < operands.Length do
+      found <- operandOperationWidth operands[i]
+      i <- i + 1
+    match found with
+    | Some width -> width
+    | None -> struct (OpWidthKind.FromPrefixes, 0<rt>, 0<rt>, Register.EAX)
 
   /// A register descriptor of the given width, read from the given field.
   let private regSpec sz field =
@@ -701,6 +732,34 @@ module internal InstructionTable =
     | ModRMType.STiModRM _ -> -1
     | modRM -> groupDigit modRM
 
+  /// The facts about a slot as a whole that every row of it carries.
+  type private SlotFacts =
+    { Has66: bool
+      Has66F2: bool
+      HasF3: bool
+      HasF2: bool
+      DeclaresER: bool }
+
+  let private slotFacts (slot: InstructionCore[]) =
+    let mutable has66 = false
+    let mutable has66F2 = false
+    let mutable hasF3 = false
+    let mutable hasF2 = false
+    let mutable er = false
+    for core in slot do
+      match prefixSel core.PrefixType with
+      | PrefixSel.Mandatory66 -> has66 <- true
+      | PrefixSel.Mandatory66F2 -> has66F2 <- true
+      | PrefixSel.MandatoryF3 -> hasF3 <- true
+      | PrefixSel.MandatoryF2 -> hasF2 <- true
+      | _ -> ()
+      er <- er || declaresStaticRounding core
+    { Has66 = has66
+      Has66F2 = has66F2
+      HasF3 = hasF3
+      HasF2 = hasF2
+      DeclaresER = er }
+
   /// The facts about a row and its slot that the REX and mandatory-prefix
   /// checks read.
   type private Asks =
@@ -822,12 +881,15 @@ module internal InstructionTable =
     let mutable mask = 0UL
     for rexState in 0 .. 2 do
       for vexPresent in 0 .. 1 do
-        for prefState in 0 .. 7 do
-          if accepts asks rexState vexPresent prefState then
-            let i = MatchContext.index rexState vexPresent prefState
-            mask <- mask ||| (1UL <<< i)
-          else
-            ()
+        if acceptsREX asks rexState vexPresent then
+          for prefState in 0 .. 7 do
+            if accepts asks rexState vexPresent prefState then
+              let i = MatchContext.index rexState vexPresent prefState
+              mask <- mask ||| (1UL <<< i)
+            else
+              ()
+        else
+          ()
     mask
 
   /// The shape of the operands, where it is one read by code of its own.
@@ -841,74 +903,86 @@ module internal InstructionTable =
     | [| Reg(_, OpRd) |] -> OprShape.RegOpRdOnly
     | _ -> OprShape.Other
 
-  let private buildRow map (slot: InstructionCore[]) (core: InstructionCore) =
+  let private isOneByteMap = function
+    | OpcodeClass.Normal OpcodeMap.OneByte -> true
+    | _ -> false
+
+  let private isThreeByteMap = function
+    | OpcodeClass.Normal ThreeBytes38 | OpcodeClass.Normal ThreeBytes3A -> true
+    | _ -> false
+
+  /// What the REX and mandatory-prefix checks ask of a row.
+  let private asksOf map slot (facts: SlotFacts) widths core =
+    { PrefixSel = prefixSel (core: InstructionCore).PrefixType
+      REXType = core.REXPrefixType
+      Requires66h =
+        core.OpEn <> OpEn.None
+        && needs66hPrefix widths core.Opcode
+        && is66hSelector slot core
+      AllOpr8 = isAllOprSize8 core.Operands
+      NoRivalAsksForW = noRivalAsksForW slot core
+      NamesVector = namesAVectorRegister core
+      IsNopOrPause = isOneByteMap map && core.OpcodeByte = 0x90u
+      IsThreeByteMap = isThreeByteMap map
+      SlotHas66 = facts.Has66
+      SlotHas66F2 = facts.Has66F2
+      SlotHasF3 = facts.HasF3
+      SlotHasF2 = facts.HasF2 }
+
+  /// The ModRM test of a row and its flags, packed (see MatchWord).
+  let private matchWordOf core isE3 isPlainNop =
+    let struct (mask, value, notReg) = modRMTest core
+    let plain =
+      not isE3 && not isPlainNop
+      && (core: InstructionCore).VectorLength = VectorLength.None
+    uint64 mask
+    ||| (uint64 value <<< 8)
+    ||| (if notReg then MatchWord.NotReg else 0UL)
+    ||| (if mask = 0uy && not notReg then MatchWord.Any else 0UL)
+    ||| (if plain then MatchWord.Plain else 0UL)
+
+  /// The flat operand descriptors of a row.
+  let private oprSpecsOf (core: InstructionCore) =
+    let specs = Array.zeroCreate core.Operands.Length
+    for i in 0 .. specs.Length - 1 do
+      specs[i] <- oprSpec core.Opcode core.Operands[i]
+    specs
+
+  let private buildRow map slot facts (core: InstructionCore) =
     let widths = firstTwoWidths core.Operands
     let isFarRet = isFarReturn core
-    let struct (modRMMask, modRMValue, modRMNotReg) = modRMTest core
-    let digit = groupDigit core.ModRM
-    let prefixSels = slot |> Array.map (fun c -> prefixSel c.PrefixType)
-    let isOneByteMap =
-      match map with
-      | OpcodeClass.Normal OpcodeMap.OneByte -> true
-      | _ -> false
-    let requires66h =
-      core.OpEn <> OpEn.None
-      && needs66hPrefix widths core.Opcode
-      && is66hSelector slot core
-    let asks =
-      { PrefixSel = prefixSel core.PrefixType
-        REXType = core.REXPrefixType
-        Requires66h = requires66h
-        AllOpr8 = isAllOprSize8 core.Operands
-        NoRivalAsksForW = noRivalAsksForW slot core
-        NamesVector = namesAVectorRegister core
-        IsNopOrPause = isOneByteMap && core.OpcodeByte = 0x90u
-        IsThreeByteMap =
-          (match map with
-           | OpcodeClass.Normal ThreeBytes38
-           | OpcodeClass.Normal ThreeBytes3A -> true
-           | _ -> false)
-        SlotHas66 = Array.contains PrefixSel.Mandatory66 prefixSels
-        SlotHas66F2 = Array.contains PrefixSel.Mandatory66F2 prefixSels
-        SlotHasF3 = Array.contains PrefixSel.MandatoryF3 prefixSels
-        SlotHasF2 = Array.contains PrefixSel.MandatoryF2 prefixSels }
+    let asks = asksOf map slot facts widths core
     let accept = acceptMask asks
-    let isE3 = isOneByteMap && core.OpcodeByte = 0xE3u
+    let isE3 = isOneByteMap map && core.OpcodeByte = 0xE3u
     let isPlainNop =
       core.Opcode = Opcode.NOP && core.ModRM = ModRMType.NoModRM
-    let plain =
-      not isE3 && not isPlainNop && core.VectorLength = VectorLength.None
-    let matchWord =
-      uint64 modRMMask
-      ||| (uint64 modRMValue <<< 8)
-      ||| (if modRMNotReg then MatchWord.NotReg else 0UL)
-      ||| (if modRMMask = 0uy && not modRMNotReg then MatchWord.Any else 0UL)
-      ||| (if plain then MatchWord.Plain else 0UL)
     let struct (opWidthKind, opWidth, opWidthMem, opWidthReg) =
       operationWidth core
-    let specs = core.Operands |> Array.map (oprSpec core.Opcode)
-    { MatchWord = matchWord
+    let specs = oprSpecsOf core
+    { MatchWord = matchWordOf core isE3 isPlainNop
       Accept = 0UL
       Accept32 = if okIn32 core then accept else 0UL
       Accept64 = if okIn64 core then accept else 0UL
-      Requires66h = requires66h
+      Requires66h = asks.Requires66h
       VectorLength = core.VectorLength
       DeclaresER = declaresStaticRounding core
       IsE3 = isE3
       IsPlainNop = isPlainNop
       UsesVSIB = usesVSIB core
       LockableDest = takesLock core.Opcode && destCanBeMemory core.Operands
-      SlotDeclaresER = Array.exists declaresStaticRounding slot
+      SlotDeclaresER = facts.DeclaresER
       Opcode = core.Opcode
       OpcodeByte = byte core.OpcodeByte
       OprSpecs = specs
       OperandCount =
-        if core.Operands = [| NoOpr |] then 0 else core.Operands.Length
+        (match core.Operands with
+         | [| NoOpr |] -> 0
+         | operands -> operands.Length)
       Shape = oprShape core.Operands
       Size0 = if specs.Length > 0 then specs[0].Size else 0<rt>
       Size1 = if specs.Length > 1 then specs[1].Size else 0<rt>
       HasModRM = core.ModRM <> ModRMType.NoModRM
-      IsGroupExtension = digit >= 0
+      IsGroupExtension = groupDigit core.ModRM >= 0
       TupleType = core.TupleType
       SzCond = core.SzCond
       EffSzCond = if isFarRet then SzCond.Normal else core.SzCond
@@ -926,13 +1000,25 @@ module internal InstructionTable =
       OpWidthReg = opWidthReg
       Next = Unchecked.defaultof<Row> }
 
+  /// Returns true when the ModRM.reg digit leaves the row in play.
+  let private inPlay digit core =
+    let d = digitInPlay core
+    d < 0 || d = digit
+
   /// The rows of one slot that a ModRM.reg digit leaves in play, in order.
   let private rowsForDigit (slot: InstructionCore[]) (rows: Row[]) digit =
-    Array.zip slot rows
-    |> Array.filter (fun (core, _) ->
-      let d = digitInPlay core
-      d < 0 || d = digit)
-    |> Array.map snd
+    let mutable n = 0
+    for core in slot do
+      if inPlay digit core then n <- n + 1 else ()
+    let picked = Array.zeroCreate n
+    let mutable k = 0
+    for i in 0 .. slot.Length - 1 do
+      if inPlay digit slot[i] then
+        picked[k] <- rows[i]
+        k <- k + 1
+      else
+        ()
+    picked
 
   /// One opcode map in table order: the rows a ModRM.reg digit leaves in
   /// play for each opcode byte, at index (byte <<< 3) ||| digit. A row that
@@ -945,51 +1031,78 @@ module internal InstructionTable =
   /// rows go on to read an immediate the bytes have no room for either, so
   /// that instruction fails to parse as it did when digit rows led. The
   /// eight lists of a byte no digit narrows are one and the same array.
-  let private buildTable map (slots: InstructionCore[][]) =
-    let rows =
-      slots |> Array.map (fun slot -> Array.map (buildRow map slot) slot)
-    Array.init (256 * 8) (fun i ->
-      let b, digit = i >>> 3, i &&& 0b111
-      if Array.exists (fun core -> digitInPlay core >= 0) slots[b] then
-        rowsForDigit slots[b] rows[b] digit
-      else
-        rows[b])
+  let private buildSlot map (slot: InstructionCore[]) =
+    let facts = slotFacts slot
+    let rows = Array.zeroCreate slot.Length
+    for i in 0 .. slot.Length - 1 do
+      rows[i] <- buildRow map slot facts slot[i]
+    rows
 
+  let private needsDigit (slot: InstructionCore[]) =
+    let mutable needs = false
+    for core in slot do
+      needs <- needs || digitInPlay core >= 0
+    needs
+
+  let private buildTable map (slots: InstructionCore[][]) =
+    let table = Array.zeroCreate (256 * 8)
+    for b in 0 .. 255 do
+      let rows = buildSlot map slots[b]
+      let needs = needsDigit slots[b]
+      for digit in 0 .. 7 do
+        table[(b <<< 3) ||| digit] <-
+          if needs then rowsForDigit slots[b] rows digit else rows
+    table
+
+  (* Each map is built the first time it is asked for: a process that reads
+     one mode's legacy code, which is most of them, then pays for those four
+     maps alone, and for the VEX and EVEX maps only once a VEX prefix shows
+     up. *)
   let private norOne =
-    buildTable (OpcodeClass.Normal OpcodeMap.OneByte) InstructionArrays.norOne
+    lazy (buildTable (OpcodeClass.Normal OpcodeMap.OneByte)
+                     InstructionArrays.norOne)
 
   let private norTwo =
-    buildTable (OpcodeClass.Normal OpcodeMap.TwoBytes) InstructionArrays.norTwo
+    lazy (buildTable (OpcodeClass.Normal OpcodeMap.TwoBytes)
+                     InstructionArrays.norTwo)
 
   let private norThree38 =
-    buildTable (OpcodeClass.Normal ThreeBytes38) InstructionArrays.norThree38
+    lazy (buildTable (OpcodeClass.Normal ThreeBytes38)
+                     InstructionArrays.norThree38)
 
   let private norThree3A =
-    buildTable (OpcodeClass.Normal ThreeBytes3A) InstructionArrays.norThree3A
+    lazy (buildTable (OpcodeClass.Normal ThreeBytes3A)
+                     InstructionArrays.norThree3A)
 
   let private vexTwoRows =
-    buildTable (OpcodeClass.VEX OpcodeMap.TwoBytes) InstructionArrays.vexTwo
+    lazy (buildTable (OpcodeClass.VEX OpcodeMap.TwoBytes)
+                     InstructionArrays.vexTwo)
 
   let private vexThree38Rows =
-    buildTable (OpcodeClass.VEX ThreeBytes38) InstructionArrays.vexThree38
+    lazy (buildTable (OpcodeClass.VEX ThreeBytes38)
+                     InstructionArrays.vexThree38)
 
   let private vexThree3ARows =
-    buildTable (OpcodeClass.VEX ThreeBytes3A) InstructionArrays.vexThree3A
+    lazy (buildTable (OpcodeClass.VEX ThreeBytes3A)
+                     InstructionArrays.vexThree3A)
 
   let private evexTwoRows =
-    buildTable (OpcodeClass.EVEX OpcodeMap.TwoBytes) InstructionArrays.evexTwo
+    lazy (buildTable (OpcodeClass.EVEX OpcodeMap.TwoBytes)
+                     InstructionArrays.evexTwo)
 
   let private evexThree38Rows =
-    buildTable (OpcodeClass.EVEX ThreeBytes38) InstructionArrays.evexThree38
+    lazy (buildTable (OpcodeClass.EVEX ThreeBytes38)
+                     InstructionArrays.evexThree38)
 
   let private evexThree3ARows =
-    buildTable (OpcodeClass.EVEX ThreeBytes3A) InstructionArrays.evexThree3A
+    lazy (buildTable (OpcodeClass.EVEX ThreeBytes3A)
+                     InstructionArrays.evexThree3A)
 
   let private evexMap5Rows =
-    buildTable (OpcodeClass.EVEX MAP5) InstructionArrays.evexMap5
+    lazy (buildTable (OpcodeClass.EVEX MAP5) InstructionArrays.evexMap5)
 
   let private evexMap6Rows =
-    buildTable (OpcodeClass.EVEX MAP6) InstructionArrays.evexMap6
+    lazy (buildTable (OpcodeClass.EVEX MAP6) InstructionArrays.evexMap6)
 
   /// Returns true when some encoding could match both rows in the given mode,
   /// which is when their accept masks intersect. Two rows that no encoding
@@ -1037,8 +1150,10 @@ module internal InstructionTable =
     | true, head ->
       head
     | _ ->
+      let ordered = orderForMode is64 rows
       let mutable next = Unchecked.defaultof<Row>
-      for row in Array.rev (orderForMode is64 rows) do
+      for i = ordered.Length - 1 downto 0 do
+        let row = ordered[i]
         let accept = if is64 then row.Accept64 else row.Accept32
         next <- { row with Accept = accept; Next = next }
       shared[rows] <- next
@@ -1048,36 +1163,43 @@ module internal InstructionTable =
   /// opcode byte and ModRM.reg digit, the rest chained behind it.
   let private chains is64 (tables: Row[][][]) =
     let shared = Dictionary<Row[], Row>(HashIdentity.Reference)
-    tables |> Array.concat |> Array.map (chain is64 shared)
+    let result = Array.zeroCreate (tables.Length * 2048)
+    for t in 0 .. tables.Length - 1 do
+      for i in 0 .. 2047 do
+        result[t * 2048 + i] <- chain is64 shared (tables[t][i])
+    result
 
   /// The four legacy maps end to end, so that the parser reaches a slot of
   /// any of them through one array: the map's number goes in bits 13:11,
   /// above the opcode byte and the digit. One copy per mode, each ordered
   /// for it.
   let private legacy is64 =
-    chains is64 [| norOne; norTwo; norThree38; norThree3A |]
+    chains is64
+      [| norOne.Value; norTwo.Value; norThree38.Value; norThree3A.Value |]
 
   /// The legacy maps as a 32-bit parser reads them.
-  let legacy32 = legacy false
+  let legacy32 = lazy (legacy false)
 
   /// The legacy maps as a 64-bit parser reads them.
-  let legacy64 = legacy true
+  let legacy64 = lazy (legacy true)
 
   /// The VEX and EVEX maps, in the order VEXType numbers them: the two-byte
   /// map, 0F 38, 0F 3A, map 5 and map 6, with the EVEX-only maps after the
-  /// VEX ones. One copy per mode, carrying the mode's accept masks.
+  /// VEX ones. One copy per mode, carrying the mode's accept masks, and each
+  /// built the first time a prefix selects it: a process rarely meets more
+  /// than two of the eight.
   let private vex is64 =
-    [| vexTwoRows
-       vexThree38Rows
-       vexThree3ARows
-       evexTwoRows
-       evexThree38Rows
-       evexThree3ARows
-       evexMap5Rows
-       evexMap6Rows |]
-    |> Array.map (fun rows -> chains is64 [| rows |])
+    [| lazy (chains is64 [| vexTwoRows.Value |])
+       lazy (chains is64 [| vexThree38Rows.Value |])
+       lazy (chains is64 [| vexThree3ARows.Value |])
+       lazy (chains is64 [| evexTwoRows.Value |])
+       lazy (chains is64 [| evexThree38Rows.Value |])
+       lazy (chains is64 [| evexThree3ARows.Value |])
+       lazy (chains is64 [| evexMap5Rows.Value |])
+       lazy (chains is64 [| evexMap6Rows.Value |]) |]
 
-  /// The VEX and EVEX maps as a 32-bit parser reads them.
+  /// The VEX and EVEX maps as a 32-bit parser reads them, each built when
+  /// first asked for.
   let vex32 = vex false
 
   /// The VEX and EVEX maps as a 64-bit parser reads them.

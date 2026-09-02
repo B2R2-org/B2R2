@@ -8,654 +8,1802 @@ open B2R2
    and a quarter of a second to JIT before the first
    instruction could be read. *)
 
-let private oprLists: OperandType[][] =
+(* The operand descriptors of every row, as data: each descriptor is one
+   integer holding its tag in bits 55:48 and up to three values in the three
+   16-bit fields below it, and oprListStart says where each row's list begins.
+   Written out as one array literal apiece, the lists were a static
+   initializer of 28 KB that took the JIT twenty milliseconds before the first
+   instruction could be read. *)
+let private oprCodes: int64[] =
   [|
-    [| RM 8<rt>; Reg(8<rt>, RegBit) |]
-    [| RM 16<rt>; Reg(16<rt>, RegBit) |]
-    [| RM 32<rt>; Reg(32<rt>, RegBit) |]
-    [| RM 64<rt>; Reg(64<rt>, RegBit) |]
-    [| Reg(8<rt>, RegBit); RM 8<rt> |]
-    [| Reg(16<rt>, RegBit); RM 16<rt> |]
-    [| Reg(32<rt>, RegBit); RM 32<rt> |]
-    [| Reg(64<rt>, RegBit); RM 64<rt> |]
-    [| FixedReg(Register.AL); Imm 8<rt> |]
-    [| FixedReg(Register.AX); Imm 16<rt> |]
-    [| FixedReg(Register.EAX); Imm 32<rt> |]
-    [| FixedReg(Register.RAX); Imm 32<rt> |]
-    [| FixedReg(Register.ES) |]
-    [| FixedReg(Register.CS) |]
-    [| FixedReg(Register.SS) |]
-    [| FixedReg(Register.DS) |]
-    [| NoOpr |]
-    [| Reg(16<rt>, OpRd) |]
-    [| Reg(32<rt>, OpRd) |]
-    [| Reg(64<rt>, OpRd) |]
-    [| Reg(16<rt>, RegBit); Mem 32<rt> |]
-    [| Reg(32<rt>, RegBit); Mem 64<rt> |]
-    [| Reg(64<rt>, RegBit); RM 32<rt> |]
-    [| Imm 16<rt> |]
-    [| Imm 32<rt> |]
-    [| Reg(16<rt>, RegBit); RM 16<rt>; Imm 16<rt> |]
-    [| Reg(32<rt>, RegBit); RM 32<rt>; Imm 32<rt> |]
-    [| Reg(64<rt>, RegBit); RM 64<rt>; Imm 32<rt> |]
-    [| Imm 8<rt> |]
-    [| Reg(16<rt>, RegBit); RM 16<rt>; Imm 8<rt> |]
-    [| Reg(32<rt>, RegBit); RM 32<rt>; Imm 8<rt> |]
-    [| Reg(64<rt>, RegBit); RM 64<rt>; Imm 8<rt> |]
-    [| Rel 8<rt> |]
-    [| RM 8<rt>; Imm 8<rt> |]
-    [| RM 16<rt>; Imm 16<rt> |]
-    [| RM 32<rt>; Imm 32<rt> |]
-    [| RM 64<rt>; Imm 32<rt> |]
-    [| RM 16<rt>; Imm 8<rt> |]
-    [| RM 32<rt>; Imm 8<rt> |]
-    [| RM 64<rt>; Imm 8<rt> |]
-    [| RM 16<rt>; Sreg |]
-    [| RMdiff(32<rt>, 16<rt>); Sreg |]
-    [| RMdiff(64<rt>, 16<rt>); Sreg |]
-    [| Reg(16<rt>, RegBit); Mem 0<rt> |]
-    [| Reg(32<rt>, RegBit); Mem 0<rt> |]
-    [| Reg(64<rt>, RegBit); Mem 0<rt> |]
-    [| Sreg; RM 16<rt> |]
-    [| Sreg; RMdiff(64<rt>, 16<rt>) |]
-    [| RM 16<rt> |]
-    [| RM 32<rt> |]
-    [| RM 64<rt> |]
-    [| FixedReg(Register.AX); Reg(16<rt>, OpRd) |]
-    [| Reg(16<rt>, OpRd); FixedReg(Register.AX) |]
-    [| FixedReg(Register.EAX); Reg(32<rt>, OpRd) |]
-    [| FixedReg(Register.RAX); Reg(64<rt>, OpRd) |]
-    [| Reg(32<rt>, OpRd); FixedReg(Register.EAX) |]
-    [| Reg(64<rt>, OpRd); FixedReg(Register.RAX) |]
-    [| Far 16<rt> |]
-    [| Far 32<rt> |]
-    [| FixedReg(Register.AL); Moffs 8<rt> |]
-    [| FixedReg(Register.AX); Moffs 16<rt> |]
-    [| FixedReg(Register.EAX); Moffs 32<rt> |]
-    [| FixedReg(Register.RAX); Moffs 64<rt> |]
-    [| Moffs 8<rt>; FixedReg(Register.AL) |]
-    [| Moffs 16<rt>; FixedReg(Register.AX) |]
-    [| Moffs 32<rt>; FixedReg(Register.EAX) |]
-    [| Moffs 64<rt>; FixedReg(Register.RAX) |]
-    [| Reg(8<rt>, OpRd); Imm 8<rt> |]
-    [| Reg(16<rt>, OpRd); Imm 16<rt> |]
-    [| Reg(32<rt>, OpRd); Imm 32<rt> |]
-    [| Reg(64<rt>, OpRd); Imm 64<rt> |]
-    [| Reg(32<rt>, RegBit); Mem 48<rt> |]
-    [| Rel 16<rt> |]
-    [| Rel 32<rt> |]
-    [| Imm 16<rt>; Imm 8<rt> |]
-    [| RM 8<rt>; FixedImm 1 |]
-    [| RM 16<rt>; FixedImm 1 |]
-    [| RM 32<rt>; FixedImm 1 |]
-    [| RM 64<rt>; FixedImm 1 |]
-    [| RM 8<rt>; FixedReg(Register.CL) |]
-    [| RM 16<rt>; FixedReg(Register.CL) |]
-    [| RM 32<rt>; FixedReg(Register.CL) |]
-    [| RM 64<rt>; FixedReg(Register.CL) |]
-    [| Mem 32<rt> |]
-    [| STReg(Some Register.ST0); STReg None |]
-    [| STReg None |]
-    [| Mem 16<rt> |]
-    [| Mem 224<rt> |]
-    [| Mem 80<rt> |]
-    [| Mem 64<rt> |]
-    [| STReg None; STReg(Some Register.ST0) |]
-    [| Mem 864<rt> |]
-    [| FixedReg(Register.AX) |]
-    [| FixedReg(Register.AX); Imm 8<rt> |]
-    [| FixedReg(Register.EAX); Imm 8<rt> |]
-    [| Imm 8<rt>; FixedReg(Register.AL) |]
-    [| Imm 8<rt>; FixedReg(Register.AX) |]
-    [| Imm 8<rt>; FixedReg(Register.EAX) |]
-    [| FixedReg(Register.AL); FixedReg(Register.DX) |]
-    [| FixedReg(Register.AX); FixedReg(Register.DX) |]
-    [| FixedReg(Register.EAX); FixedReg(Register.DX) |]
-    [| FixedReg(Register.DX); FixedReg(Register.AL) |]
-    [| FixedReg(Register.DX); FixedReg(Register.AX) |]
-    [| FixedReg(Register.DX); FixedReg(Register.EAX) |]
-    [| RM 8<rt> |]
-    [| Far 64<rt> |]
-    [| Mem 0<rt> |]
-    [| Mem 48<rt> |]
-    [| RMdiff(32<rt>, 16<rt>) |]
-    [| RMdiff(64<rt>, 16<rt>) |]
-    [| Reg(32<rt>, RegBit); RMdiff(32<rt>, 16<rt>) |]
-    [| Reg(64<rt>, RegBit); RMdiff(32<rt>, 16<rt>) |]
-    [| Mem 8<rt> |]
-    [| Reg(128<rt>, RegBit); RMdiff(128<rt>, 64<rt>) |]
-    [| Reg(128<rt>, RegBit); Mem 64<rt> |]
-    [| Reg(128<rt>, RegBit); RMdiff(128<rt>, 32<rt>) |]
-    [| Reg(128<rt>, RegBit); Mem 32<rt> |]
-    [| Reg(128<rt>, RegBit); RM 128<rt> |]
-    [| RMdiff(128<rt>, 64<rt>); Reg(128<rt>, RegBit) |]
-    [| RMdiff(128<rt>, 32<rt>); Reg(128<rt>, RegBit) |]
-    [| RM 128<rt>; Reg(128<rt>, RegBit) |]
-    [| Reg(128<rt>, RegBit); Reg(128<rt>, RMBit) |]
-    [| Mem 64<rt>; Reg(128<rt>, RegBit) |]
-    [| BndReg; RM 32<rt> |]
-    [| BndReg; RM 64<rt> |]
-    [| BndReg; Mem 0<rt> |]
-    [| BndReg; BM 64<rt> |]
-    [| BndReg; BM 128<rt> |]
-    [| BndReg; Mem 32<rt> |]
-    [| BndReg; Mem 64<rt> |]
-    [| BM 64<rt>; BndReg |]
-    [| BM 128<rt>; BndReg |]
-    [| Mem 0<rt>; BndReg |]
-    [| Reg(32<rt>, RMBit) |]
-    [| Reg(64<rt>, RMBit) |]
-    [| Reg(32<rt>, RMBit); CtrlReg |]
-    [| Reg(64<rt>, RMBit); CtrlReg |]
-    [| Reg(32<rt>, RMBit); DebugReg |]
-    [| Reg(64<rt>, RMBit); DebugReg |]
-    [| CtrlReg; Reg(32<rt>, RMBit) |]
-    [| CtrlReg; Reg(64<rt>, RMBit) |]
-    [| DebugReg; Reg(32<rt>, RMBit) |]
-    [| DebugReg; Reg(64<rt>, RMBit) |]
-    [| Reg(128<rt>, RegBit); MM 64<rt> |]
-    [| Reg(128<rt>, RegBit); RM 32<rt> |]
-    [| Reg(128<rt>, RegBit); RM 64<rt> |]
-    [| Mem 128<rt>; Reg(128<rt>, RegBit) |]
-    [| MMXReg(RegBit); RM 128<rt> |]
-    [| MMXReg(RegBit); RMdiff(128<rt>, 64<rt>) |]
-    [| Reg(32<rt>, RegBit); RMdiff(128<rt>, 64<rt>) |]
-    [| Reg(64<rt>, RegBit); RMdiff(128<rt>, 64<rt>) |]
-    [| Reg(32<rt>, RegBit); RMdiff(128<rt>, 32<rt>) |]
-    [| Reg(64<rt>, RegBit); RMdiff(128<rt>, 32<rt>) |]
-    [| Reg(32<rt>, RegBit); Reg(128<rt>, RMBit) |]
-    [| MMXReg(RegBit); MM 32<rt> |]
-    [| MMXReg(RegBit); MM 64<rt> |]
-    [| MMXReg(RegBit); RM 32<rt> |]
-    [| MMXReg(RegBit); RM 64<rt> |]
-    [| Reg(128<rt>, RegBit); RM 128<rt>; Imm 8<rt> |]
-    [| MMXReg(RegBit); MM 64<rt>; Imm 8<rt> |]
-    [| MMXReg(RMBit); Imm 8<rt> |]
-    [| Reg(128<rt>, RMBit); Imm 8<rt> |]
-    [| RM 32<rt>; MMXReg(RegBit) |]
-    [| RM 64<rt>; MMXReg(RegBit) |]
-    [| RM 32<rt>; Reg(128<rt>, RegBit) |]
-    [| RM 64<rt>; Reg(128<rt>, RegBit) |]
-    [| MM 64<rt>; MMXReg(RegBit) |]
-    [| FixedReg(Register.FS) |]
-    [| RM 16<rt>; Reg(16<rt>, RegBit); Imm 8<rt> |]
-    [| RM 32<rt>; Reg(32<rt>, RegBit); Imm 8<rt> |]
-    [| RM 64<rt>; Reg(64<rt>, RegBit); Imm 8<rt> |]
-    [| RM 16<rt>; Reg(16<rt>, RegBit); FixedReg(Register.CL) |]
-    [| RM 32<rt>; Reg(32<rt>, RegBit); FixedReg(Register.CL) |]
-    [| RM 64<rt>; Reg(64<rt>, RegBit); FixedReg(Register.CL) |]
-    [| FixedReg(Register.GS) |]
-    [| Reg(32<rt>, RMBit); FixedReg(Register.EDX); FixedReg(Register.EAX) |]
-    [| RegAddr |]
-    [| Reg(64<rt>, RegBit); Mem 80<rt> |]
-    [| Reg(16<rt>, RegBit); RM 8<rt> |]
-    [| Reg(32<rt>, RegBit); RM 8<rt> |]
-    [| Reg(64<rt>, RegBit); RM 8<rt> |]
-    [| Reg(32<rt>, RegBit); RM 16<rt> |]
-    [| Reg(64<rt>, RegBit); RM 16<rt> |]
-    [| Reg(128<rt>, RegBit); RMdiff(128<rt>, 64<rt>); Imm 8<rt> |]
-    [| Reg(128<rt>, RegBit); RMdiff(128<rt>, 32<rt>); Imm 8<rt> |]
-    [| Mem 32<rt>; Reg(32<rt>, RegBit) |]
-    [| Mem 64<rt>; Reg(64<rt>, RegBit) |]
-    [| MMXReg(RegBit); RMdiff(32<rt>, 16<rt>); Imm 8<rt> |]
-    [| Reg(128<rt>, RegBit); RMdiff(32<rt>, 16<rt>); Imm 8<rt> |]
-    [| Reg(32<rt>, RegBit); MMXReg(RMBit); Imm 8<rt> |]
-    [| Reg(32<rt>, RegBit); Reg(128<rt>, RMBit); Imm 8<rt> |]
-    [| Mem 128<rt> |]
-    [| Reg(16<rt>, RMBit) |]
-    [| MMXReg(RegBit); Reg(128<rt>, RMBit) |]
-    [| Reg(128<rt>, RegBit); MMXReg(RMBit) |]
-    [| Reg(32<rt>, RegBit); MMXReg(RMBit) |]
-    [| Mem 64<rt>; MMXReg(RegBit) |]
-    [| Reg(128<rt>, RegBit); Mem 0<rt> |]
-    [| MMXReg(RegBit); MMXReg(RMBit) |]
-    [| Reg(128<rt>, RegBit); RM 128<rt>; FixedReg(Register.XMM0) |]
-    [| Reg(128<rt>, RegBit); RMdiff(128<rt>, 16<rt>) |]
-    [| Reg(128<rt>, RegBit); Mem 128<rt> |]
-    [| Reg(32<rt>, RegBit); Mem 128<rt> |]
-    [| Reg(64<rt>, RegBit); Mem 128<rt> |]
-    [| Mem 384<rt> |]
-    [| Mem 512<rt> |]
-    [| Reg(128<rt>, RegBit); Mem 384<rt> |]
-    [| Reg(128<rt>, RegBit)
-       Reg(128<rt>, RMBit)
-       FixedReg(Register.EAX)
-       FixedReg(Register.XMM0) |]
-    [| Reg(128<rt>, RegBit); Mem 512<rt> |]
-    [| Reg(16<rt>, RegBit); Mem 16<rt> |]
-    [| Reg(32<rt>, RegBit); Mem 32<rt> |]
-    [| Reg(64<rt>, RegBit); Mem 64<rt> |]
-    [| Mem 16<rt>; Reg(16<rt>, RegBit) |]
-    [| RegAddr; Mem 512<rt> |]
-    [| Reg(32<rt>, RegBit); Reg(32<rt>, RMBit) |]
-    [| RMdiff(32<rt>, 8<rt>); Reg(128<rt>, RegBit); Imm 8<rt> |]
-    [| RMdiff(32<rt>, 16<rt>); Reg(128<rt>, RegBit); Imm 8<rt> |]
-    [| RM 32<rt>; Reg(128<rt>, RegBit); Imm 8<rt> |]
-    [| RM 64<rt>; Reg(128<rt>, RegBit); Imm 8<rt> |]
-    [| Reg(128<rt>, RegBit); RMdiff(32<rt>, 8<rt>); Imm 8<rt> |]
-    [| Reg(128<rt>, RegBit); RM 32<rt>; Imm 8<rt> |]
-    [| Reg(128<rt>, RegBit); RM 64<rt>; Imm 8<rt> |]
-    [| Reg(128<rt>, RegBit); Reg(128<rt>, VVVV); Reg(128<rt>, RMBit) |]
-    [| Reg(256<rt>, RegBit); RM 256<rt> |]
-    [| Reg(128<rt>, RMBit); Reg(128<rt>, VVVV); Reg(128<rt>, RegBit) |]
-    [| Mem 32<rt>; Reg(128<rt>, RegBit) |]
-    [| RM 256<rt>; Reg(256<rt>, RegBit) |]
-    [| Reg(128<rt>, RegBit); Reg(128<rt>, VVVV); Mem 64<rt> |]
-    [| Reg(128<rt>, RegBit); Reg(128<rt>, VVVV); RM 128<rt> |]
-    [| Reg(256<rt>, RegBit); Reg(256<rt>, VVVV); RM 256<rt> |]
-    [| Reg(128<rt>, RegBit); Reg(128<rt>, VVVV); RM 32<rt> |]
-    [| Reg(128<rt>, RegBit); Reg(128<rt>, VVVV); RM 64<rt> |]
-    [| Mem 256<rt>; Reg(256<rt>, RegBit) |]
-    [| OpMaskReg(RegBit); OpMaskReg(VVVV); OpMaskReg(RMBit) |]
-    [| OpMaskReg(RegBit); OpMaskReg(RMBit) |]
-    [| Reg(32<rt>, RegBit); Reg(256<rt>, RMBit) |]
-    [| Reg(128<rt>, RegBit); Reg(128<rt>, VVVV); RMdiff(128<rt>, 64<rt>) |]
-    [| Reg(128<rt>, RegBit); Reg(128<rt>, VVVV); RMdiff(128<rt>, 32<rt>) |]
-    [| Reg(128<rt>, RegBit); RM 256<rt> |]
-    [| Reg(256<rt>, RegBit); RM 128<rt> |]
-    [| Reg(256<rt>, RegBit); RM 256<rt>; Imm 8<rt> |]
-    [| Reg(128<rt>, VVVV); Reg(128<rt>, RMBit); Imm 8<rt> |]
-    [| Reg(256<rt>, VVVV); Reg(256<rt>, RMBit); Imm 8<rt> |]
-    [| OpMaskReg(RegBit); KM 16<rt> |]
-    [| OpMaskReg(RegBit); KM 8<rt> |]
-    [| OpMaskReg(RegBit); KM 64<rt> |]
-    [| OpMaskReg(RegBit); KM 32<rt> |]
-    [| Mem 16<rt>; OpMaskReg(RegBit) |]
-    [| Mem 8<rt>; OpMaskReg(RegBit) |]
-    [| Mem 64<rt>; OpMaskReg(RegBit) |]
-    [| Mem 32<rt>; OpMaskReg(RegBit) |]
-    [| OpMaskReg(RegBit); Reg(32<rt>, RMBit) |]
-    [| OpMaskReg(RegBit); Reg(64<rt>, RMBit) |]
-    [| Reg(32<rt>, RegBit); OpMaskReg(RMBit) |]
-    [| Reg(64<rt>, RegBit); OpMaskReg(RMBit) |]
-    [| Reg(128<rt>, RegBit); Reg(128<rt>, VVVV); RM 128<rt>; Imm 8<rt> |]
-    [| Reg(256<rt>, RegBit); Reg(256<rt>, VVVV); RM 256<rt>; Imm 8<rt> |]
-    [| Reg(128<rt>, RegBit)
-       Reg(128<rt>, VVVV)
-       RMdiff(128<rt>, 64<rt>)
-       Imm 8<rt> |]
-    [| Reg(128<rt>, RegBit)
-       Reg(128<rt>, VVVV)
-       RMdiff(128<rt>, 32<rt>)
-       Imm 8<rt> |]
-    [| Reg(128<rt>, RegBit)
-       Reg(128<rt>, VVVV)
-       RMdiff(32<rt>, 16<rt>)
-       Imm 8<rt> |]
-    [| Reg(256<rt>, RegBit); Reg(256<rt>, VVVV); RM 128<rt> |]
-    [| Reg(256<rt>, RegBit); Mem 256<rt> |]
-    [| Reg(256<rt>, RegBit); Mem 32<rt> |]
-    [| Reg(256<rt>, RegBit); Reg(128<rt>, RMBit) |]
-    [| Reg(256<rt>, RegBit); Mem 64<rt> |]
-    [| Reg(256<rt>, RegBit); Mem 128<rt> |]
-    [| Reg(256<rt>, RegBit); RMdiff(128<rt>, 64<rt>) |]
-    [| Reg(256<rt>, RegBit); RMdiff(128<rt>, 32<rt>) |]
-    [| Reg(128<rt>, RegBit); Reg(128<rt>, VVVV); Mem 128<rt> |]
-    [| Reg(256<rt>, RegBit); Reg(256<rt>, VVVV); Mem 256<rt> |]
-    [| Mem 128<rt>; Reg(128<rt>, VVVV); Reg(128<rt>, RegBit) |]
-    [| Mem 256<rt>; Reg(256<rt>, VVVV); Reg(256<rt>, RegBit) |]
-    [| Reg(1024<rt>, RegBit) |]
-    [| Reg(1024<rt>, RegBit); Mem 0<rt> |]
-    [| Mem 0<rt>; Reg(1024<rt>, RegBit) |]
-    [| Reg(1024<rt>, RegBit); Reg(1024<rt>, RMBit); Reg(1024<rt>, VVVV) |]
-    [| Reg(128<rt>, RegBit); RMdiff(128<rt>, 8<rt>) |]
-    [| Reg(256<rt>, RegBit); RMdiff(128<rt>, 8<rt>) |]
-    [| Reg(256<rt>, RegBit); RMdiff(128<rt>, 16<rt>) |]
-    [| Reg(128<rt>, RegBit); MemVSIB 32<rt>; Reg(128<rt>, VVVV) |]
-    [| Reg(256<rt>, RegBit); MemVSIB 32<rt>; Reg(256<rt>, VVVV) |]
-    [| Reg(128<rt>, RegBit); MemVSIB 64<rt>; Reg(128<rt>, VVVV) |]
-    [| Reg(256<rt>, RegBit); MemVSIB 64<rt>; Reg(256<rt>, VVVV) |]
-    [| Reg(128<rt>, RegBit); Mem 16<rt> |]
-    [| Reg(256<rt>, RegBit); Mem 16<rt> |]
-    [| Reg(256<rt>, RegBit); Reg(256<rt>, VVVV); Reg(128<rt>, RMBit) |]
-    [| Reg(256<rt>, RegBit); Reg(256<rt>, RMBit) |]
-    [| Mem 32<rt>; Reg(32<rt>, RegBit); Reg(32<rt>, VVVV) |]
-    [| Mem 64<rt>; Reg(64<rt>, RegBit); Reg(64<rt>, VVVV) |]
-    [| Reg(32<rt>, RegBit); Reg(32<rt>, VVVV); RM 32<rt> |]
-    [| Reg(64<rt>, RegBit); Reg(64<rt>, VVVV); RM 64<rt> |]
-    [| Reg(32<rt>, VVVV); RM 32<rt> |]
-    [| Reg(64<rt>, VVVV); RM 64<rt> |]
-    [| Reg(32<rt>, RegBit); RM 32<rt>; Reg(32<rt>, VVVV) |]
-    [| Reg(64<rt>, RegBit); RM 64<rt>; Reg(64<rt>, VVVV) |]
-    [| Reg(256<rt>, RegBit); Reg(256<rt>, VVVV); RM 128<rt>; Imm 8<rt> |]
-    [| RM 128<rt>; Reg(256<rt>, RegBit); Imm 8<rt> |]
-    [| RMdiff(128<rt>, 64<rt>); Reg(128<rt>, RegBit); Imm 8<rt> |]
-    [| Reg(128<rt>, RegBit)
-       Reg(128<rt>, VVVV)
-       RMdiff(32<rt>, 8<rt>)
-       Imm 8<rt> |]
-    [| Reg(128<rt>, RegBit); Reg(128<rt>, VVVV); RM 32<rt>; Imm 8<rt> |]
-    [| Reg(128<rt>, RegBit); Reg(128<rt>, VVVV); RM 64<rt>; Imm 8<rt> |]
-    [| OpMaskReg(RegBit); OpMaskReg(RMBit); Imm 8<rt> |]
-    [| Reg(128<rt>, RegBit)
-       Reg(128<rt>, VVVV)
-       RM 128<rt>
-       Reg(128<rt>, IS4) |]
-    [| Reg(256<rt>, RegBit)
-       Reg(256<rt>, VVVV)
-       RM 256<rt>
-       Reg(256<rt>, IS4) |]
-    [| Reg(512<rt>, RegBit); RM 512<rt> |]
-    [| RM 512<rt>; Reg(512<rt>, RegBit) |]
-    [| Reg(128<rt>, RegBit)
-       Reg(128<rt>, VVVV)
-       RMBcst(128<rt>, 128<rt>, 64<rt>) |]
-    [| Reg(256<rt>, RegBit)
-       Reg(256<rt>, VVVV)
-       RMBcst(256<rt>, 256<rt>, 64<rt>) |]
-    [| Reg(512<rt>, RegBit)
-       Reg(512<rt>, VVVV)
-       RMBcst(512<rt>, 512<rt>, 64<rt>) |]
-    [| Reg(128<rt>, RegBit)
-       Reg(128<rt>, VVVV)
-       RMBcst(128<rt>, 128<rt>, 32<rt>) |]
-    [| Reg(256<rt>, RegBit)
-       Reg(256<rt>, VVVV)
-       RMBcst(256<rt>, 256<rt>, 32<rt>) |]
-    [| Reg(512<rt>, RegBit)
-       Reg(512<rt>, VVVV)
-       RMBcst(512<rt>, 512<rt>, 32<rt>) |]
-    [| Reg(128<rt>, RegBit); Reg(128<rt>, VVVV); RMEr(64<rt>, 64<rt>) |]
-    [| Reg(128<rt>, RegBit); Reg(128<rt>, VVVV); RMEr(32<rt>, 32<rt>) |]
-    [| Mem 512<rt>; Reg(512<rt>, RegBit) |]
-    [| Reg(32<rt>, RegBit); RMSae(128<rt>, 64<rt>) |]
-    [| Reg(64<rt>, RegBit); RMSae(128<rt>, 64<rt>) |]
-    [| Reg(32<rt>, RegBit); RMSae(128<rt>, 32<rt>) |]
-    [| Reg(64<rt>, RegBit); RMSae(128<rt>, 32<rt>) |]
-    [| Reg(32<rt>, RegBit); RMEr(128<rt>, 64<rt>) |]
-    [| Reg(64<rt>, RegBit); RMEr(128<rt>, 64<rt>) |]
-    [| Reg(32<rt>, RegBit); RMEr(128<rt>, 32<rt>) |]
-    [| Reg(64<rt>, RegBit); RMEr(128<rt>, 32<rt>) |]
-    [| Reg(128<rt>, RegBit); RMSae(128<rt>, 64<rt>) |]
-    [| Reg(128<rt>, RegBit); RMSae(128<rt>, 32<rt>) |]
-    [| Reg(128<rt>, RegBit); RMBcst(128<rt>, 128<rt>, 64<rt>) |]
-    [| Reg(256<rt>, RegBit); RMBcst(256<rt>, 256<rt>, 64<rt>) |]
-    [| Reg(512<rt>, RegBit); RMBcstEr(512<rt>, 512<rt>, 64<rt>) |]
-    [| Reg(128<rt>, RegBit); RMBcst(128<rt>, 128<rt>, 32<rt>) |]
-    [| Reg(256<rt>, RegBit); RMBcst(256<rt>, 256<rt>, 32<rt>) |]
-    [| Reg(512<rt>, RegBit); RMBcstEr(512<rt>, 512<rt>, 32<rt>) |]
-    [| Reg(128<rt>, RegBit); Reg(128<rt>, VVVV); RMEr(128<rt>, 64<rt>) |]
-    [| Reg(128<rt>, RegBit); Reg(128<rt>, VVVV); RMEr(128<rt>, 32<rt>) |]
-    [| Reg(512<rt>, RegBit)
-       Reg(512<rt>, VVVV)
-       RMBcstEr(512<rt>, 512<rt>, 64<rt>) |]
-    [| Reg(512<rt>, RegBit)
-       Reg(512<rt>, VVVV)
-       RMBcstEr(512<rt>, 512<rt>, 32<rt>) |]
-    [| Reg(128<rt>, RegBit); RMBcst(256<rt>, 256<rt>, 64<rt>) |]
-    [| Reg(256<rt>, RegBit); RMBcstEr(512<rt>, 512<rt>, 64<rt>) |]
-    [| Reg(128<rt>, RegBit); RMBcst(128<rt>, 64<rt>, 32<rt>) |]
-    [| Reg(256<rt>, RegBit); RMBcst(128<rt>, 128<rt>, 32<rt>) |]
-    [| Reg(512<rt>, RegBit); RMBcstSae(256<rt>, 256<rt>, 32<rt>) |]
-    [| Reg(128<rt>, RegBit); Reg(128<rt>, VVVV); RMSae(128<rt>, 32<rt>) |]
-    [| Reg(512<rt>, RegBit); RMBcstSae(512<rt>, 512<rt>, 32<rt>) |]
-    [| Reg(512<rt>, RegBit)
-       Reg(512<rt>, VVVV)
-       RMBcstSae(512<rt>, 512<rt>, 64<rt>) |]
-    [| Reg(512<rt>, RegBit)
-       Reg(512<rt>, VVVV)
-       RMBcstSae(512<rt>, 512<rt>, 32<rt>) |]
-    [| Reg(128<rt>, RegBit); Reg(128<rt>, VVVV); RMSae(128<rt>, 64<rt>) |]
-    [| Reg(512<rt>, RegBit); Reg(512<rt>, VVVV); RM 512<rt> |]
-    [| OpMaskReg(RegBit); Reg(128<rt>, VVVV); RM 128<rt> |]
-    [| OpMaskReg(RegBit); Reg(256<rt>, VVVV); RM 256<rt> |]
-    [| OpMaskReg(RegBit); Reg(512<rt>, VVVV); RM 512<rt> |]
-    [| OpMaskReg(RegBit)
-       Reg(128<rt>, VVVV)
-       RMBcst(128<rt>, 128<rt>, 32<rt>) |]
-    [| OpMaskReg(RegBit)
-       Reg(256<rt>, VVVV)
-       RMBcst(256<rt>, 256<rt>, 32<rt>) |]
-    [| OpMaskReg(RegBit)
-       Reg(512<rt>, VVVV)
-       RMBcst(512<rt>, 512<rt>, 32<rt>) |]
-    [| Reg(128<rt>, RegBit); RMBcst(128<rt>, 128<rt>, 32<rt>); Imm 8<rt> |]
-    [| Reg(256<rt>, RegBit); RMBcst(256<rt>, 256<rt>, 32<rt>); Imm 8<rt> |]
-    [| Reg(512<rt>, RegBit); RMBcst(512<rt>, 512<rt>, 32<rt>); Imm 8<rt> |]
-    [| Reg(512<rt>, RegBit); RM 512<rt>; Imm 8<rt> |]
-    [| Reg(128<rt>, VVVV); RM 128<rt>; Imm 8<rt> |]
-    [| Reg(256<rt>, VVVV); RM 256<rt>; Imm 8<rt> |]
-    [| Reg(512<rt>, VVVV); RM 512<rt>; Imm 8<rt> |]
-    [| Reg(128<rt>, VVVV); RMBcst(128<rt>, 128<rt>, 32<rt>); Imm 8<rt> |]
-    [| Reg(256<rt>, VVVV); RMBcst(256<rt>, 256<rt>, 32<rt>); Imm 8<rt> |]
-    [| Reg(512<rt>, VVVV); RMBcst(512<rt>, 512<rt>, 32<rt>); Imm 8<rt> |]
-    [| Reg(128<rt>, VVVV); RMBcst(128<rt>, 128<rt>, 64<rt>); Imm 8<rt> |]
-    [| Reg(256<rt>, VVVV); RMBcst(256<rt>, 256<rt>, 64<rt>); Imm 8<rt> |]
-    [| Reg(512<rt>, VVVV); RMBcst(512<rt>, 512<rt>, 64<rt>); Imm 8<rt> |]
-    [| Reg(256<rt>, RegBit); RMBcstSae(512<rt>, 512<rt>, 64<rt>) |]
-    [| Reg(512<rt>, RegBit); RMBcstSae(512<rt>, 512<rt>, 64<rt>) |]
-    [| Reg(512<rt>, RegBit); RMBcstEr(256<rt>, 256<rt>, 32<rt>) |]
-    [| Reg(512<rt>, RegBit); RMBcst(256<rt>, 256<rt>, 32<rt>) |]
-    [| OpMaskReg(RegBit)
-       Reg(128<rt>, VVVV)
-       RMBcst(128<rt>, 128<rt>, 64<rt>)
-       Imm 8<rt> |]
-    [| OpMaskReg(RegBit)
-       Reg(256<rt>, VVVV)
-       RMBcst(256<rt>, 256<rt>, 64<rt>)
-       Imm 8<rt> |]
-    [| OpMaskReg(RegBit)
-       Reg(512<rt>, VVVV)
-       RMBcstSae(512<rt>, 512<rt>, 64<rt>)
-       Imm 8<rt> |]
-    [| OpMaskReg(RegBit)
-       Reg(128<rt>, VVVV)
-       RMBcst(128<rt>, 128<rt>, 32<rt>)
-       Imm 8<rt> |]
-    [| OpMaskReg(RegBit)
-       Reg(256<rt>, VVVV)
-       RMBcst(256<rt>, 256<rt>, 32<rt>)
-       Imm 8<rt> |]
-    [| OpMaskReg(RegBit)
-       Reg(512<rt>, VVVV)
-       RMBcstSae(512<rt>, 512<rt>, 32<rt>)
-       Imm 8<rt> |]
-    [| OpMaskReg(RegBit)
-       Reg(128<rt>, VVVV)
-       RMSae(128<rt>, 64<rt>)
-       Imm 8<rt> |]
-    [| OpMaskReg(RegBit)
-       Reg(128<rt>, VVVV)
-       RMSae(128<rt>, 32<rt>)
-       Imm 8<rt> |]
-    [| Reg(128<rt>, RegBit)
-       Reg(128<rt>, VVVV)
-       RMBcst(128<rt>, 128<rt>, 64<rt>)
-       Imm 8<rt> |]
-    [| Reg(256<rt>, RegBit)
-       Reg(256<rt>, VVVV)
-       RMBcst(256<rt>, 256<rt>, 64<rt>)
-       Imm 8<rt> |]
-    [| Reg(512<rt>, RegBit)
-       Reg(512<rt>, VVVV)
-       RMBcst(512<rt>, 512<rt>, 64<rt>)
-       Imm 8<rt> |]
-    [| Reg(128<rt>, RegBit)
-       Reg(128<rt>, VVVV)
-       RMBcst(128<rt>, 128<rt>, 32<rt>)
-       Imm 8<rt> |]
-    [| Reg(256<rt>, RegBit)
-       Reg(256<rt>, VVVV)
-       RMBcst(256<rt>, 256<rt>, 32<rt>)
-       Imm 8<rt> |]
-    [| Reg(512<rt>, RegBit)
-       Reg(512<rt>, VVVV)
-       RMBcst(512<rt>, 512<rt>, 32<rt>)
-       Imm 8<rt> |]
-    [| Reg(512<rt>, RegBit); Reg(512<rt>, VVVV); RM 128<rt> |]
-    [| RM 128<rt>; Reg(256<rt>, RegBit) |]
-    [| RM 256<rt>; Reg(512<rt>, RegBit) |]
-    [| RMdiff(128<rt>, 64<rt>); Reg(256<rt>, RegBit) |]
-    [| RM 128<rt>; Reg(512<rt>, RegBit) |]
-    [| RMdiff(128<rt>, 16<rt>); Reg(128<rt>, RegBit) |]
-    [| RMdiff(128<rt>, 32<rt>); Reg(256<rt>, RegBit) |]
-    [| RMdiff(128<rt>, 64<rt>); Reg(512<rt>, RegBit) |]
-    [| Reg(512<rt>, RegBit); RMSae(256<rt>, 256<rt>) |]
-    [| Reg(512<rt>, RegBit); RMdiff(128<rt>, 32<rt>) |]
-    [| Reg(512<rt>, RegBit); RMdiff(128<rt>, 64<rt>) |]
-    [| Reg(512<rt>, RegBit); Mem 128<rt> |]
-    [| Reg(512<rt>, RegBit); Mem 256<rt> |]
-    [| Reg(512<rt>, RegBit); RMBcst(512<rt>, 512<rt>, 32<rt>) |]
-    [| Reg(512<rt>, RegBit); RMBcst(512<rt>, 512<rt>, 64<rt>) |]
-    [| Reg(512<rt>, RegBit); RM 256<rt> |]
-    [| Reg(512<rt>, RegBit); RM 128<rt> |]
-    [| OpMaskReg(RegBit)
-       Reg(128<rt>, VVVV)
-       RMBcst(128<rt>, 128<rt>, 64<rt>) |]
-    [| OpMaskReg(RegBit)
-       Reg(256<rt>, VVVV)
-       RMBcst(256<rt>, 256<rt>, 64<rt>) |]
-    [| OpMaskReg(RegBit)
-       Reg(512<rt>, VVVV)
-       RMBcst(512<rt>, 512<rt>, 64<rt>) |]
-    [| Reg(128<rt>, RegBit); OpMaskReg(RMBit) |]
-    [| Reg(256<rt>, RegBit); OpMaskReg(RMBit) |]
-    [| Reg(512<rt>, RegBit); OpMaskReg(RMBit) |]
-    [| OpMaskReg(RegBit); Reg(128<rt>, RMBit) |]
-    [| OpMaskReg(RegBit); Reg(256<rt>, RMBit) |]
-    [| OpMaskReg(RegBit); Reg(512<rt>, RMBit) |]
-    [| Reg(512<rt>, RegBit); Mem 512<rt> |]
-    [| Reg(512<rt>, RegBit); Reg(512<rt>, VVVV); Mem 128<rt> |]
-    [| Reg(512<rt>, RegBit); Reg(512<rt>, RMBit) |]
-    [| Reg(128<rt>, RMBit); Reg(128<rt>, RegBit) |]
-    [| Reg(256<rt>, RMBit); Reg(256<rt>, RegBit) |]
-    [| Reg(512<rt>, RMBit); Reg(512<rt>, RegBit) |]
-    [| Reg(128<rt>, RegBit); RMBcst(256<rt>, 256<rt>, 32<rt>) |]
-    [| Reg(256<rt>, RegBit); RMBcst(512<rt>, 512<rt>, 32<rt>) |]
-    [| Reg(512<rt>, RegBit); RMdiff(128<rt>, 8<rt>) |]
-    [| Reg(512<rt>, RegBit); RMdiff(128<rt>, 16<rt>) |]
-    [| Reg(128<rt>, RegBit); Reg(32<rt>, RMBit) |]
-    [| Reg(256<rt>, RegBit); Reg(32<rt>, RMBit) |]
-    [| Reg(512<rt>, RegBit); Reg(32<rt>, RMBit) |]
-    [| Reg(128<rt>, RegBit); Reg(64<rt>, RMBit) |]
-    [| Reg(256<rt>, RegBit); Reg(64<rt>, RMBit) |]
-    [| Reg(512<rt>, RegBit); Reg(64<rt>, RMBit) |]
-    [| Reg(128<rt>, RegBit); MemVSIB 32<rt> |]
-    [| Reg(256<rt>, RegBit); MemVSIB 32<rt> |]
-    [| Reg(512<rt>, RegBit); MemVSIB 32<rt> |]
-    [| Reg(128<rt>, RegBit); MemVSIB 64<rt> |]
-    [| Reg(256<rt>, RegBit); MemVSIB 64<rt> |]
-    [| Reg(512<rt>, RegBit); MemVSIB 64<rt> |]
-    [| MemVSIB 32<rt>; Reg(128<rt>, RegBit) |]
-    [| MemVSIB 32<rt>; Reg(256<rt>, RegBit) |]
-    [| MemVSIB 32<rt>; Reg(512<rt>, RegBit) |]
-    [| MemVSIB 64<rt>; Reg(128<rt>, RegBit) |]
-    [| MemVSIB 64<rt>; Reg(256<rt>, RegBit) |]
-    [| MemVSIB 64<rt>; Reg(512<rt>, RegBit) |]
-    [| MemVSIB 32<rt> |]
-    [| MemVSIB 64<rt> |]
-    [| Reg(256<rt>, RegBit); RMBcst(256<rt>, 256<rt>, 64<rt>); Imm 8<rt> |]
-    [| Reg(512<rt>, RegBit); RMBcst(512<rt>, 512<rt>, 64<rt>); Imm 8<rt> |]
-    [| Reg(128<rt>, RegBit); RMBcst(128<rt>, 128<rt>, 64<rt>); Imm 8<rt> |]
-    [| Reg(128<rt>, RegBit); RMBcst(128<rt>, 128<rt>, 16<rt>); Imm 8<rt> |]
-    [| Reg(256<rt>, RegBit); RMBcst(256<rt>, 256<rt>, 16<rt>); Imm 8<rt> |]
-    [| Reg(512<rt>, RegBit); RMBcstSae(512<rt>, 512<rt>, 16<rt>); Imm 8<rt> |]
-    [| Reg(512<rt>, RegBit); RMBcstSae(512<rt>, 512<rt>, 32<rt>); Imm 8<rt> |]
-    [| Reg(512<rt>, RegBit); RMBcstSae(512<rt>, 512<rt>, 64<rt>); Imm 8<rt> |]
-    [| Reg(128<rt>, RegBit)
-       Reg(128<rt>, VVVV)
-       RMSae(128<rt>, 16<rt>)
-       Imm 8<rt> |]
-    [| Reg(128<rt>, RegBit)
-       Reg(128<rt>, VVVV)
-       RMSae(128<rt>, 32<rt>)
-       Imm 8<rt> |]
-    [| Reg(128<rt>, RegBit)
-       Reg(128<rt>, VVVV)
-       RMSae(128<rt>, 64<rt>)
-       Imm 8<rt> |]
-    [| Reg(512<rt>, RegBit); Reg(512<rt>, VVVV); RM 512<rt>; Imm 8<rt> |]
-    [| Reg(512<rt>, RegBit); Reg(512<rt>, VVVV); RM 128<rt>; Imm 8<rt> |]
-    [| RM 128<rt>; Reg(512<rt>, RegBit); Imm 8<rt> |]
-    [| Reg(512<rt>, RegBit); Reg(512<rt>, VVVV); RM 256<rt>; Imm 8<rt> |]
-    [| RM 256<rt>; Reg(512<rt>, RegBit); Imm 8<rt> |]
-    [| RM 256<rt>; RegSae 512<rt>; Imm 8<rt> |]
-    [| OpMaskReg(RegBit)
-       Reg(512<rt>, VVVV)
-       RMBcst(512<rt>, 512<rt>, 32<rt>)
-       Imm 8<rt> |]
-    [| OpMaskReg(RegBit)
-       Reg(512<rt>, VVVV)
-       RMBcst(512<rt>, 512<rt>, 64<rt>)
-       Imm 8<rt> |]
-    [| OpMaskReg(RegBit); Reg(128<rt>, VVVV); RM 128<rt>; Imm 8<rt> |]
-    [| OpMaskReg(RegBit); Reg(256<rt>, VVVV); RM 256<rt>; Imm 8<rt> |]
-    [| OpMaskReg(RegBit); Reg(512<rt>, VVVV); RM 512<rt>; Imm 8<rt> |]
-    [| Reg(512<rt>, RegBit)
-       Reg(512<rt>, VVVV)
-       RMBcstSae(512<rt>, 512<rt>, 64<rt>)
-       Imm 8<rt> |]
-    [| Reg(512<rt>, RegBit)
-       Reg(512<rt>, VVVV)
-       RMBcstSae(512<rt>, 512<rt>, 32<rt>)
-       Imm 8<rt> |]
-    [| OpMaskReg(RegBit); RMBcst(128<rt>, 128<rt>, 64<rt>); Imm 8<rt> |]
-    [| OpMaskReg(RegBit); RMBcst(256<rt>, 256<rt>, 64<rt>); Imm 8<rt> |]
-    [| OpMaskReg(RegBit); RMBcst(512<rt>, 512<rt>, 64<rt>); Imm 8<rt> |]
-    [| OpMaskReg(RegBit); RMBcst(128<rt>, 128<rt>, 16<rt>); Imm 8<rt> |]
-    [| OpMaskReg(RegBit); RMBcst(256<rt>, 256<rt>, 16<rt>); Imm 8<rt> |]
-    [| OpMaskReg(RegBit); RMBcst(512<rt>, 512<rt>, 16<rt>); Imm 8<rt> |]
-    [| OpMaskReg(RegBit); RMBcst(128<rt>, 128<rt>, 32<rt>); Imm 8<rt> |]
-    [| OpMaskReg(RegBit); RMBcst(256<rt>, 256<rt>, 32<rt>); Imm 8<rt> |]
-    [| OpMaskReg(RegBit); RMBcst(512<rt>, 512<rt>, 32<rt>); Imm 8<rt> |]
-    [| OpMaskReg(RegBit); RMdiff(128<rt>, 64<rt>); Imm 8<rt> |]
-    [| OpMaskReg(RegBit); RMdiff(128<rt>, 16<rt>); Imm 8<rt> |]
-    [| OpMaskReg(RegBit); RMdiff(128<rt>, 32<rt>); Imm 8<rt> |]
-    [| OpMaskReg(RegBit)
-       Reg(128<rt>, VVVV)
-       RMBcst(128<rt>, 128<rt>, 16<rt>)
-       Imm 8<rt> |]
-    [| OpMaskReg(RegBit)
-       Reg(256<rt>, VVVV)
-       RMBcst(256<rt>, 256<rt>, 16<rt>)
-       Imm 8<rt> |]
-    [| OpMaskReg(RegBit)
-       Reg(512<rt>, VVVV)
-       RMBcstSae(512<rt>, 512<rt>, 16<rt>)
-       Imm 8<rt> |]
-    [| OpMaskReg(RegBit)
-       Reg(128<rt>, VVVV)
-       RMSae(128<rt>, 16<rt>)
-       Imm 8<rt> |]
-    [| Mem 16<rt>; Reg(128<rt>, RegBit) |]
-    [| Reg(256<rt>, RegBit); RMBcstEr(512<rt>, 512<rt>, 32<rt>) |]
-    [| Reg(32<rt>, RegBit); RMSae(128<rt>, 16<rt>) |]
-    [| Reg(64<rt>, RegBit); RMSae(128<rt>, 16<rt>) |]
-    [| Reg(32<rt>, RegBit); RMEr(128<rt>, 16<rt>) |]
-    [| Reg(64<rt>, RegBit); RMEr(128<rt>, 16<rt>) |]
-    [| Reg(128<rt>, RegBit); RMSae(128<rt>, 16<rt>) |]
-    [| Reg(128<rt>, RegBit); RMBcst(128<rt>, 128<rt>, 16<rt>) |]
-    [| Reg(256<rt>, RegBit); RMBcst(256<rt>, 256<rt>, 16<rt>) |]
-    [| Reg(512<rt>, RegBit); RMBcstEr(512<rt>, 512<rt>, 16<rt>) |]
-    [| Reg(128<rt>, RegBit); Reg(128<rt>, VVVV); RMEr(128<rt>, 16<rt>) |]
-    [| Reg(128<rt>, RegBit)
-       Reg(128<rt>, VVVV)
-       RMBcst(128<rt>, 128<rt>, 16<rt>) |]
-    [| Reg(256<rt>, RegBit)
-       Reg(256<rt>, VVVV)
-       RMBcst(256<rt>, 256<rt>, 16<rt>) |]
-    [| Reg(512<rt>, RegBit)
-       Reg(512<rt>, VVVV)
-       RMBcstEr(512<rt>, 512<rt>, 16<rt>) |]
-    [| Reg(128<rt>, RegBit); RMBcstEr(512<rt>, 512<rt>, 64<rt>) |]
-    [| Reg(128<rt>, RegBit); RMBcst(128<rt>, 32<rt>, 16<rt>) |]
-    [| Reg(256<rt>, RegBit); RMBcst(128<rt>, 64<rt>, 16<rt>) |]
-    [| Reg(512<rt>, RegBit); RMBcstSae(128<rt>, 128<rt>, 16<rt>) |]
-    [| Reg(128<rt>, RegBit); Reg(128<rt>, VVVV); RMSae(128<rt>, 16<rt>) |]
-    [| Reg(128<rt>, RegBit); RMBcst(128<rt>, 64<rt>, 16<rt>) |]
-    [| Reg(256<rt>, RegBit); RMBcst(128<rt>, 128<rt>, 16<rt>) |]
-    [| Reg(512<rt>, RegBit); RMBcstEr(256<rt>, 256<rt>, 16<rt>) |]
-    [| Reg(512<rt>, RegBit); RMBcstSae(256<rt>, 256<rt>, 16<rt>) |]
-    [| Reg(512<rt>, RegBit)
-       Reg(512<rt>, VVVV)
-       RMBcstSae(512<rt>, 512<rt>, 16<rt>) |]
-    [| Reg(128<rt>, RegBit); RMdiff(32<rt>, 16<rt>) |]
-    [| Reg(512<rt>, RegBit); RMBcstEr(128<rt>, 128<rt>, 16<rt>) |]
-    [| Reg(512<rt>, RegBit); RMBcstSae(512<rt>, 512<rt>, 16<rt>) |]
-    [| RMdiff(32<rt>, 16<rt>); Reg(128<rt>, RegBit) |]
-    [| Reg(512<rt>, RegBit); RMBcst(512<rt>, 512<rt>, 16<rt>) |]
-    [| Reg(128<rt>, RegBit); Reg(128<rt>, VVVV); RMdiff(128<rt>, 16<rt>) |]
+    0x800000000L
+    0x8000800000000L
+    0x1000000000L
+    0x8001000000000L
+    0x2000000000L
+    0x8002000000000L
+    0x4000000000L
+    0x8004000000000L
+    0x8000800000000L
+    0x800000000L
+    0x8001000000000L
+    0x1000000000L
+    0x8002000000000L
+    0x2000000000L
+    0x8004000000000L
+    0x4000000000L
+    0xF000000000000L
+    0x1A000800000000L
+    0xF000100000000L
+    0x1A001000000000L
+    0xF000200000000L
+    0x1A002000000000L
+    0xF000300000000L
+    0x1A002000000000L
+    0xF000400000000L
+    0xF000500000000L
+    0xF000600000000L
+    0xF000700000000L
+    0x1D000000000000L
+    0x8001000040000L
+    0x8002000040000L
+    0x8004000040000L
+    0x8001000000000L
+    0x16002000000000L
+    0x8002000000000L
+    0x16004000000000L
+    0x8004000000000L
+    0x2000000000L
+    0x1A001000000000L
+    0x1A002000000000L
+    0x8001000000000L
+    0x1000000000L
+    0x1A001000000000L
+    0x8002000000000L
+    0x2000000000L
+    0x1A002000000000L
+    0x8004000000000L
+    0x4000000000L
+    0x1A002000000000L
+    0x1A000800000000L
+    0x8001000000000L
+    0x1000000000L
+    0x1A000800000000L
+    0x8002000000000L
+    0x2000000000L
+    0x1A000800000000L
+    0x8004000000000L
+    0x4000000000L
+    0x1A000800000000L
+    0x1C000800000000L
+    0x800000000L
+    0x1A000800000000L
+    0x1000000000L
+    0x1A001000000000L
+    0x2000000000L
+    0x1A002000000000L
+    0x4000000000L
+    0x1A002000000000L
+    0x1000000000L
+    0x1A000800000000L
+    0x2000000000L
+    0x1A000800000000L
+    0x4000000000L
+    0x1A000800000000L
+    0x1000000000L
+    0xC000000000000L
+    0x1002000100000L
+    0xC000000000000L
+    0x1004000100000L
+    0xC000000000000L
+    0x8001000000000L
+    0x16000000000000L
+    0x8002000000000L
+    0x16000000000000L
+    0x8004000000000L
+    0x16000000000000L
+    0xC000000000000L
+    0x1000000000L
+    0xC000000000000L
+    0x1004000100000L
+    0x1000000000L
+    0x2000000000L
+    0x4000000000L
+    0xF000100000000L
+    0x8001000040000L
+    0x8001000040000L
+    0xF000100000000L
+    0xF000200000000L
+    0x8002000040000L
+    0xF000300000000L
+    0x8004000040000L
+    0x8002000040000L
+    0xF000200000000L
+    0x8004000040000L
+    0xF000300000000L
+    0x19001000000000L
+    0x19002000000000L
+    0xF000000000000L
+    0x18000800000000L
+    0xF000100000000L
+    0x18001000000000L
+    0xF000200000000L
+    0x18002000000000L
+    0xF000300000000L
+    0x18004000000000L
+    0x18000800000000L
+    0xF000000000000L
+    0x18001000000000L
+    0xF000100000000L
+    0x18002000000000L
+    0xF000200000000L
+    0x18004000000000L
+    0xF000300000000L
+    0x8000800040000L
+    0x1A000800000000L
+    0x8001000040000L
+    0x1A001000000000L
+    0x8002000040000L
+    0x1A002000000000L
+    0x8004000040000L
+    0x1A004000000000L
+    0x8002000000000L
+    0x16003000000000L
+    0x1C001000000000L
+    0x1C002000000000L
+    0x1A001000000000L
+    0x1A000800000000L
+    0x800000000L
+    0x1B000100000000L
+    0x1000000000L
+    0x1B000100000000L
+    0x2000000000L
+    0x1B000100000000L
+    0x4000000000L
+    0x1B000100000000L
+    0x800000000L
+    0xF000800000000L
+    0x1000000000L
+    0xF000800000000L
+    0x2000000000L
+    0xF000800000000L
+    0x4000000000L
+    0xF000800000000L
+    0x16002000000000L
+    0x11000900000000L
+    0x10000000000000L
+    0x10000000000000L
+    0x16001000000000L
+    0x1600E000000000L
+    0x16005000000000L
+    0x16004000000000L
+    0x10000000000000L
+    0x11000900000000L
+    0x16036000000000L
+    0xF000100000000L
+    0xF000100000000L
+    0x1A000800000000L
+    0xF000200000000L
+    0x1A000800000000L
+    0x1A000800000000L
+    0xF000000000000L
+    0x1A000800000000L
+    0xF000100000000L
+    0x1A000800000000L
+    0xF000200000000L
+    0xF000000000000L
+    0xF000A00000000L
+    0xF000100000000L
+    0xF000A00000000L
+    0xF000200000000L
+    0xF000A00000000L
+    0xF000A00000000L
+    0xF000000000000L
+    0xF000A00000000L
+    0xF000100000000L
+    0xF000A00000000L
+    0xF000200000000L
+    0x800000000L
+    0x19004000000000L
+    0x16000000000000L
+    0x16003000000000L
+    0x1002000100000L
+    0x1004000100000L
+    0x8002000000000L
+    0x1002000100000L
+    0x8004000000000L
+    0x1002000100000L
+    0x16000800000000L
+    0x8008000000000L
+    0x1008000400000L
+    0x8008000000000L
+    0x16004000000000L
+    0x8008000000000L
+    0x1008000200000L
+    0x8008000000000L
+    0x16002000000000L
+    0x8008000000000L
+    0x8000000000L
+    0x1008000400000L
+    0x8008000000000L
+    0x1008000200000L
+    0x8008000000000L
+    0x8000000000L
+    0x8008000000000L
+    0x8008000000000L
+    0x8008000010000L
+    0x16004000000000L
+    0x8008000000000L
+    0x13000000000000L
+    0x2000000000L
+    0x13000000000000L
+    0x4000000000L
+    0x13000000000000L
+    0x16000000000000L
+    0x13000000000000L
+    0x12004000000000L
+    0x13000000000000L
+    0x12008000000000L
+    0x13000000000000L
+    0x16002000000000L
+    0x13000000000000L
+    0x16004000000000L
+    0x12004000000000L
+    0x13000000000000L
+    0x12008000000000L
+    0x13000000000000L
+    0x16000000000000L
+    0x13000000000000L
+    0x8002000010000L
+    0x8004000010000L
+    0x8002000010000L
+    0xD000000000000L
+    0x8004000010000L
+    0xD000000000000L
+    0x8002000010000L
+    0xE000000000000L
+    0x8004000010000L
+    0xE000000000000L
+    0xD000000000000L
+    0x8002000010000L
+    0xD000000000000L
+    0x8004000010000L
+    0xE000000000000L
+    0x8002000010000L
+    0xE000000000000L
+    0x8004000010000L
+    0x8008000000000L
+    0x14004000000000L
+    0x8008000000000L
+    0x2000000000L
+    0x8008000000000L
+    0x4000000000L
+    0x16008000000000L
+    0x8008000000000L
+    0x15000000000000L
+    0x8000000000L
+    0x15000000000000L
+    0x1008000400000L
+    0x8002000000000L
+    0x1008000400000L
+    0x8004000000000L
+    0x1008000400000L
+    0x8002000000000L
+    0x1008000200000L
+    0x8004000000000L
+    0x1008000200000L
+    0x8002000000000L
+    0x8008000010000L
+    0x15000000000000L
+    0x14002000000000L
+    0x15000000000000L
+    0x14004000000000L
+    0x15000000000000L
+    0x2000000000L
+    0x15000000000000L
+    0x4000000000L
+    0x8008000000000L
+    0x8000000000L
+    0x1A000800000000L
+    0x15000000000000L
+    0x14004000000000L
+    0x1A000800000000L
+    0x15000100000000L
+    0x1A000800000000L
+    0x8008000010000L
+    0x1A000800000000L
+    0x2000000000L
+    0x15000000000000L
+    0x4000000000L
+    0x15000000000000L
+    0x2000000000L
+    0x8008000000000L
+    0x4000000000L
+    0x8008000000000L
+    0x14004000000000L
+    0x15000000000000L
+    0xF000B00000000L
+    0x1000000000L
+    0x8001000000000L
+    0x1A000800000000L
+    0x2000000000L
+    0x8002000000000L
+    0x1A000800000000L
+    0x4000000000L
+    0x8004000000000L
+    0x1A000800000000L
+    0x1000000000L
+    0x8001000000000L
+    0xF000800000000L
+    0x2000000000L
+    0x8002000000000L
+    0xF000800000000L
+    0x4000000000L
+    0x8004000000000L
+    0xF000800000000L
+    0xF000C00000000L
+    0x8002000010000L
+    0xF000D00000000L
+    0xF000200000000L
+    0x9000000000000L
+    0x8004000000000L
+    0x16005000000000L
+    0x8001000000000L
+    0x800000000L
+    0x8002000000000L
+    0x800000000L
+    0x8004000000000L
+    0x800000000L
+    0x8002000000000L
+    0x1000000000L
+    0x8004000000000L
+    0x1000000000L
+    0x8008000000000L
+    0x1008000400000L
+    0x1A000800000000L
+    0x8008000000000L
+    0x1008000200000L
+    0x1A000800000000L
+    0x16002000000000L
+    0x8002000000000L
+    0x16004000000000L
+    0x8004000000000L
+    0x15000000000000L
+    0x1002000100000L
+    0x1A000800000000L
+    0x8008000000000L
+    0x1002000100000L
+    0x1A000800000000L
+    0x8002000000000L
+    0x15000100000000L
+    0x1A000800000000L
+    0x8002000000000L
+    0x8008000010000L
+    0x1A000800000000L
+    0x16008000000000L
+    0x8001000010000L
+    0x15000000000000L
+    0x8008000010000L
+    0x8008000000000L
+    0x15000100000000L
+    0x8002000000000L
+    0x15000100000000L
+    0x16004000000000L
+    0x15000000000000L
+    0x8008000000000L
+    0x16000000000000L
+    0x15000000000000L
+    0x15000100000000L
+    0x8008000000000L
+    0x8000000000L
+    0xF000E00000000L
+    0x8008000000000L
+    0x1008000100000L
+    0x8008000000000L
+    0x16008000000000L
+    0x8002000000000L
+    0x16008000000000L
+    0x8004000000000L
+    0x16008000000000L
+    0x16018000000000L
+    0x16020000000000L
+    0x8008000000000L
+    0x16018000000000L
+    0x8008000000000L
+    0x8008000010000L
+    0xF000200000000L
+    0xF000E00000000L
+    0x8008000000000L
+    0x16020000000000L
+    0x8001000000000L
+    0x16001000000000L
+    0x8002000000000L
+    0x16002000000000L
+    0x8004000000000L
+    0x16004000000000L
+    0x16001000000000L
+    0x8001000000000L
+    0x9000000000000L
+    0x16020000000000L
+    0x8002000000000L
+    0x8002000010000L
+    0x1002000080000L
+    0x8008000000000L
+    0x1A000800000000L
+    0x1002000100000L
+    0x8008000000000L
+    0x1A000800000000L
+    0x2000000000L
+    0x8008000000000L
+    0x1A000800000000L
+    0x4000000000L
+    0x8008000000000L
+    0x1A000800000000L
+    0x8008000000000L
+    0x1002000080000L
+    0x1A000800000000L
+    0x8008000000000L
+    0x2000000000L
+    0x1A000800000000L
+    0x8008000000000L
+    0x4000000000L
+    0x1A000800000000L
+    0x8008000000000L
+    0x8008000020000L
+    0x8008000010000L
+    0x8010000000000L
+    0x10000000000L
+    0x8008000010000L
+    0x8008000020000L
+    0x8008000000000L
+    0x16002000000000L
+    0x8008000000000L
+    0x10000000000L
+    0x8010000000000L
+    0x8008000000000L
+    0x8008000020000L
+    0x16004000000000L
+    0x8008000000000L
+    0x8008000020000L
+    0x8000000000L
+    0x8010000000000L
+    0x8010000020000L
+    0x10000000000L
+    0x8008000000000L
+    0x8008000020000L
+    0x2000000000L
+    0x8008000000000L
+    0x8008000020000L
+    0x4000000000L
+    0x16010000000000L
+    0x8010000000000L
+    0xA000000000000L
+    0xA000200000000L
+    0xA000100000000L
+    0xA000000000000L
+    0xA000100000000L
+    0x8002000000000L
+    0x8010000010000L
+    0x8008000000000L
+    0x8008000020000L
+    0x1008000400000L
+    0x8008000000000L
+    0x8008000020000L
+    0x1008000200000L
+    0x8008000000000L
+    0x10000000000L
+    0x8010000000000L
+    0x8000000000L
+    0x8010000000000L
+    0x10000000000L
+    0x1A000800000000L
+    0x8008000020000L
+    0x8008000010000L
+    0x1A000800000000L
+    0x8010000020000L
+    0x8010000010000L
+    0x1A000800000000L
+    0xA000000000000L
+    0xB001000000000L
+    0xA000000000000L
+    0xB000800000000L
+    0xA000000000000L
+    0xB004000000000L
+    0xA000000000000L
+    0xB002000000000L
+    0x16001000000000L
+    0xA000000000000L
+    0x16000800000000L
+    0xA000000000000L
+    0x16004000000000L
+    0xA000000000000L
+    0x16002000000000L
+    0xA000000000000L
+    0xA000000000000L
+    0x8002000010000L
+    0xA000000000000L
+    0x8004000010000L
+    0x8002000000000L
+    0xA000100000000L
+    0x8004000000000L
+    0xA000100000000L
+    0x8008000000000L
+    0x8008000020000L
+    0x8000000000L
+    0x1A000800000000L
+    0x8010000000000L
+    0x8010000020000L
+    0x10000000000L
+    0x1A000800000000L
+    0x8008000000000L
+    0x8008000020000L
+    0x1008000400000L
+    0x1A000800000000L
+    0x8008000000000L
+    0x8008000020000L
+    0x1008000200000L
+    0x1A000800000000L
+    0x8008000000000L
+    0x8008000020000L
+    0x1002000100000L
+    0x1A000800000000L
+    0x8010000000000L
+    0x8010000020000L
+    0x8000000000L
+    0x8010000000000L
+    0x16010000000000L
+    0x8010000000000L
+    0x16002000000000L
+    0x8010000000000L
+    0x8008000010000L
+    0x8010000000000L
+    0x16004000000000L
+    0x8010000000000L
+    0x16008000000000L
+    0x8010000000000L
+    0x1008000400000L
+    0x8010000000000L
+    0x1008000200000L
+    0x8008000000000L
+    0x8008000020000L
+    0x16008000000000L
+    0x8010000000000L
+    0x8010000020000L
+    0x16010000000000L
+    0x16008000000000L
+    0x8008000020000L
+    0x8008000000000L
+    0x16010000000000L
+    0x8010000020000L
+    0x8010000000000L
+    0x8040000000000L
+    0x8040000000000L
+    0x16000000000000L
+    0x16000000000000L
+    0x8040000000000L
+    0x8040000000000L
+    0x8040000010000L
+    0x8040000020000L
+    0x8008000000000L
+    0x1008000080000L
+    0x8010000000000L
+    0x1008000080000L
+    0x8010000000000L
+    0x1008000100000L
+    0x8008000000000L
+    0x17002000000000L
+    0x8008000020000L
+    0x8010000000000L
+    0x17002000000000L
+    0x8010000020000L
+    0x8008000000000L
+    0x17004000000000L
+    0x8008000020000L
+    0x8010000000000L
+    0x17004000000000L
+    0x8010000020000L
+    0x8008000000000L
+    0x16001000000000L
+    0x8010000000000L
+    0x16001000000000L
+    0x8010000000000L
+    0x8010000020000L
+    0x8008000010000L
+    0x8010000000000L
+    0x8010000010000L
+    0x16002000000000L
+    0x8002000000000L
+    0x8002000020000L
+    0x16004000000000L
+    0x8004000000000L
+    0x8004000020000L
+    0x8002000000000L
+    0x8002000020000L
+    0x2000000000L
+    0x8004000000000L
+    0x8004000020000L
+    0x4000000000L
+    0x8002000020000L
+    0x2000000000L
+    0x8004000020000L
+    0x4000000000L
+    0x8002000000000L
+    0x2000000000L
+    0x8002000020000L
+    0x8004000000000L
+    0x4000000000L
+    0x8004000020000L
+    0x8010000000000L
+    0x8010000020000L
+    0x8000000000L
+    0x1A000800000000L
+    0x8000000000L
+    0x8010000000000L
+    0x1A000800000000L
+    0x1008000400000L
+    0x8008000000000L
+    0x1A000800000000L
+    0x8008000000000L
+    0x8008000020000L
+    0x1002000080000L
+    0x1A000800000000L
+    0x8008000000000L
+    0x8008000020000L
+    0x2000000000L
+    0x1A000800000000L
+    0x8008000000000L
+    0x8008000020000L
+    0x4000000000L
+    0x1A000800000000L
+    0xA000000000000L
+    0xA000100000000L
+    0x1A000800000000L
+    0x8008000000000L
+    0x8008000020000L
+    0x8000000000L
+    0x8008000030000L
+    0x8010000000000L
+    0x8010000020000L
+    0x10000000000L
+    0x8010000030000L
+    0x8020000000000L
+    0x20000000000L
+    0x20000000000L
+    0x8020000000000L
+    0x8008000000000L
+    0x8008000020000L
+    0x4008000800040L
+    0x8010000000000L
+    0x8010000020000L
+    0x4010001000040L
+    0x8020000000000L
+    0x8020000020000L
+    0x4020002000040L
+    0x8008000000000L
+    0x8008000020000L
+    0x4008000800020L
+    0x8010000000000L
+    0x8010000020000L
+    0x4010001000020L
+    0x8020000000000L
+    0x8020000020000L
+    0x4020002000020L
+    0x8008000000000L
+    0x8008000020000L
+    0x2004000400000L
+    0x8008000000000L
+    0x8008000020000L
+    0x2002000200000L
+    0x16020000000000L
+    0x8020000000000L
+    0x8002000000000L
+    0x3008000400000L
+    0x8004000000000L
+    0x3008000400000L
+    0x8002000000000L
+    0x3008000200000L
+    0x8004000000000L
+    0x3008000200000L
+    0x8002000000000L
+    0x2008000400000L
+    0x8004000000000L
+    0x2008000400000L
+    0x8002000000000L
+    0x2008000200000L
+    0x8004000000000L
+    0x2008000200000L
+    0x8008000000000L
+    0x3008000400000L
+    0x8008000000000L
+    0x3008000200000L
+    0x8008000000000L
+    0x4008000800040L
+    0x8010000000000L
+    0x4010001000040L
+    0x8020000000000L
+    0x5020002000040L
+    0x8008000000000L
+    0x4008000800020L
+    0x8010000000000L
+    0x4010001000020L
+    0x8020000000000L
+    0x5020002000020L
+    0x8008000000000L
+    0x8008000020000L
+    0x2008000400000L
+    0x8008000000000L
+    0x8008000020000L
+    0x2008000200000L
+    0x8020000000000L
+    0x8020000020000L
+    0x5020002000040L
+    0x8020000000000L
+    0x8020000020000L
+    0x5020002000020L
+    0x8008000000000L
+    0x4010001000040L
+    0x8010000000000L
+    0x5020002000040L
+    0x8008000000000L
+    0x4008000400020L
+    0x8010000000000L
+    0x4008000800020L
+    0x8020000000000L
+    0x6010001000020L
+    0x8008000000000L
+    0x8008000020000L
+    0x3008000200000L
+    0x8020000000000L
+    0x6020002000020L
+    0x8020000000000L
+    0x8020000020000L
+    0x6020002000040L
+    0x8020000000000L
+    0x8020000020000L
+    0x6020002000020L
+    0x8008000000000L
+    0x8008000020000L
+    0x3008000400000L
+    0x8020000000000L
+    0x8020000020000L
+    0x20000000000L
+    0xA000000000000L
+    0x8008000020000L
+    0x8000000000L
+    0xA000000000000L
+    0x8010000020000L
+    0x10000000000L
+    0xA000000000000L
+    0x8020000020000L
+    0x20000000000L
+    0xA000000000000L
+    0x8008000020000L
+    0x4008000800020L
+    0xA000000000000L
+    0x8010000020000L
+    0x4010001000020L
+    0xA000000000000L
+    0x8020000020000L
+    0x4020002000020L
+    0x8008000000000L
+    0x4008000800020L
+    0x1A000800000000L
+    0x8010000000000L
+    0x4010001000020L
+    0x1A000800000000L
+    0x8020000000000L
+    0x4020002000020L
+    0x1A000800000000L
+    0x8020000000000L
+    0x20000000000L
+    0x1A000800000000L
+    0x8008000020000L
+    0x8000000000L
+    0x1A000800000000L
+    0x8010000020000L
+    0x10000000000L
+    0x1A000800000000L
+    0x8020000020000L
+    0x20000000000L
+    0x1A000800000000L
+    0x8008000020000L
+    0x4008000800020L
+    0x1A000800000000L
+    0x8010000020000L
+    0x4010001000020L
+    0x1A000800000000L
+    0x8020000020000L
+    0x4020002000020L
+    0x1A000800000000L
+    0x8008000020000L
+    0x4008000800040L
+    0x1A000800000000L
+    0x8010000020000L
+    0x4010001000040L
+    0x1A000800000000L
+    0x8020000020000L
+    0x4020002000040L
+    0x1A000800000000L
+    0x8010000000000L
+    0x6020002000040L
+    0x8020000000000L
+    0x6020002000040L
+    0x8020000000000L
+    0x5010001000020L
+    0x8020000000000L
+    0x4010001000020L
+    0xA000000000000L
+    0x8008000020000L
+    0x4008000800040L
+    0x1A000800000000L
+    0xA000000000000L
+    0x8010000020000L
+    0x4010001000040L
+    0x1A000800000000L
+    0xA000000000000L
+    0x8020000020000L
+    0x6020002000040L
+    0x1A000800000000L
+    0xA000000000000L
+    0x8008000020000L
+    0x4008000800020L
+    0x1A000800000000L
+    0xA000000000000L
+    0x8010000020000L
+    0x4010001000020L
+    0x1A000800000000L
+    0xA000000000000L
+    0x8020000020000L
+    0x6020002000020L
+    0x1A000800000000L
+    0xA000000000000L
+    0x8008000020000L
+    0x3008000400000L
+    0x1A000800000000L
+    0xA000000000000L
+    0x8008000020000L
+    0x3008000200000L
+    0x1A000800000000L
+    0x8008000000000L
+    0x8008000020000L
+    0x4008000800040L
+    0x1A000800000000L
+    0x8010000000000L
+    0x8010000020000L
+    0x4010001000040L
+    0x1A000800000000L
+    0x8020000000000L
+    0x8020000020000L
+    0x4020002000040L
+    0x1A000800000000L
+    0x8008000000000L
+    0x8008000020000L
+    0x4008000800020L
+    0x1A000800000000L
+    0x8010000000000L
+    0x8010000020000L
+    0x4010001000020L
+    0x1A000800000000L
+    0x8020000000000L
+    0x8020000020000L
+    0x4020002000020L
+    0x1A000800000000L
+    0x8020000000000L
+    0x8020000020000L
+    0x8000000000L
+    0x8000000000L
+    0x8010000000000L
+    0x10000000000L
+    0x8020000000000L
+    0x1008000400000L
+    0x8010000000000L
+    0x8000000000L
+    0x8020000000000L
+    0x1008000100000L
+    0x8008000000000L
+    0x1008000200000L
+    0x8010000000000L
+    0x1008000400000L
+    0x8020000000000L
+    0x8020000000000L
+    0x3010001000000L
+    0x8020000000000L
+    0x1008000200000L
+    0x8020000000000L
+    0x1008000400000L
+    0x8020000000000L
+    0x16008000000000L
+    0x8020000000000L
+    0x16010000000000L
+    0x8020000000000L
+    0x4020002000020L
+    0x8020000000000L
+    0x4020002000040L
+    0x8020000000000L
+    0x10000000000L
+    0x8020000000000L
+    0x8000000000L
+    0xA000000000000L
+    0x8008000020000L
+    0x4008000800040L
+    0xA000000000000L
+    0x8010000020000L
+    0x4010001000040L
+    0xA000000000000L
+    0x8020000020000L
+    0x4020002000040L
+    0x8008000000000L
+    0xA000100000000L
+    0x8010000000000L
+    0xA000100000000L
+    0x8020000000000L
+    0xA000100000000L
+    0xA000000000000L
+    0x8008000010000L
+    0xA000000000000L
+    0x8010000010000L
+    0xA000000000000L
+    0x8020000010000L
+    0x8020000000000L
+    0x16020000000000L
+    0x8020000000000L
+    0x8020000020000L
+    0x16008000000000L
+    0x8020000000000L
+    0x8020000010000L
+    0x8008000010000L
+    0x8008000000000L
+    0x8010000010000L
+    0x8010000000000L
+    0x8020000010000L
+    0x8020000000000L
+    0x8008000000000L
+    0x4010001000020L
+    0x8010000000000L
+    0x4020002000020L
+    0x8020000000000L
+    0x1008000080000L
+    0x8020000000000L
+    0x1008000100000L
+    0x8008000000000L
+    0x8002000010000L
+    0x8010000000000L
+    0x8002000010000L
+    0x8020000000000L
+    0x8002000010000L
+    0x8008000000000L
+    0x8004000010000L
+    0x8010000000000L
+    0x8004000010000L
+    0x8020000000000L
+    0x8004000010000L
+    0x8008000000000L
+    0x17002000000000L
+    0x8010000000000L
+    0x17002000000000L
+    0x8020000000000L
+    0x17002000000000L
+    0x8008000000000L
+    0x17004000000000L
+    0x8010000000000L
+    0x17004000000000L
+    0x8020000000000L
+    0x17004000000000L
+    0x17002000000000L
+    0x8008000000000L
+    0x17002000000000L
+    0x8010000000000L
+    0x17002000000000L
+    0x8020000000000L
+    0x17004000000000L
+    0x8008000000000L
+    0x17004000000000L
+    0x8010000000000L
+    0x17004000000000L
+    0x8020000000000L
+    0x17002000000000L
+    0x17004000000000L
+    0x8010000000000L
+    0x4010001000040L
+    0x1A000800000000L
+    0x8020000000000L
+    0x4020002000040L
+    0x1A000800000000L
+    0x8008000000000L
+    0x4008000800040L
+    0x1A000800000000L
+    0x8008000000000L
+    0x4008000800010L
+    0x1A000800000000L
+    0x8010000000000L
+    0x4010001000010L
+    0x1A000800000000L
+    0x8020000000000L
+    0x6020002000010L
+    0x1A000800000000L
+    0x8020000000000L
+    0x6020002000020L
+    0x1A000800000000L
+    0x8020000000000L
+    0x6020002000040L
+    0x1A000800000000L
+    0x8008000000000L
+    0x8008000020000L
+    0x3008000100000L
+    0x1A000800000000L
+    0x8008000000000L
+    0x8008000020000L
+    0x3008000200000L
+    0x1A000800000000L
+    0x8008000000000L
+    0x8008000020000L
+    0x3008000400000L
+    0x1A000800000000L
+    0x8020000000000L
+    0x8020000020000L
+    0x20000000000L
+    0x1A000800000000L
+    0x8020000000000L
+    0x8020000020000L
+    0x8000000000L
+    0x1A000800000000L
+    0x8000000000L
+    0x8020000000000L
+    0x1A000800000000L
+    0x8020000000000L
+    0x8020000020000L
+    0x10000000000L
+    0x1A000800000000L
+    0x10000000000L
+    0x8020000000000L
+    0x1A000800000000L
+    0x10000000000L
+    0x7020000000000L
+    0x1A000800000000L
+    0xA000000000000L
+    0x8020000020000L
+    0x4020002000020L
+    0x1A000800000000L
+    0xA000000000000L
+    0x8020000020000L
+    0x4020002000040L
+    0x1A000800000000L
+    0xA000000000000L
+    0x8008000020000L
+    0x8000000000L
+    0x1A000800000000L
+    0xA000000000000L
+    0x8010000020000L
+    0x10000000000L
+    0x1A000800000000L
+    0xA000000000000L
+    0x8020000020000L
+    0x20000000000L
+    0x1A000800000000L
+    0x8020000000000L
+    0x8020000020000L
+    0x6020002000040L
+    0x1A000800000000L
+    0x8020000000000L
+    0x8020000020000L
+    0x6020002000020L
+    0x1A000800000000L
+    0xA000000000000L
+    0x4008000800040L
+    0x1A000800000000L
+    0xA000000000000L
+    0x4010001000040L
+    0x1A000800000000L
+    0xA000000000000L
+    0x4020002000040L
+    0x1A000800000000L
+    0xA000000000000L
+    0x4008000800010L
+    0x1A000800000000L
+    0xA000000000000L
+    0x4010001000010L
+    0x1A000800000000L
+    0xA000000000000L
+    0x4020002000010L
+    0x1A000800000000L
+    0xA000000000000L
+    0x4008000800020L
+    0x1A000800000000L
+    0xA000000000000L
+    0x4010001000020L
+    0x1A000800000000L
+    0xA000000000000L
+    0x4020002000020L
+    0x1A000800000000L
+    0xA000000000000L
+    0x1008000400000L
+    0x1A000800000000L
+    0xA000000000000L
+    0x1008000100000L
+    0x1A000800000000L
+    0xA000000000000L
+    0x1008000200000L
+    0x1A000800000000L
+    0xA000000000000L
+    0x8008000020000L
+    0x4008000800010L
+    0x1A000800000000L
+    0xA000000000000L
+    0x8010000020000L
+    0x4010001000010L
+    0x1A000800000000L
+    0xA000000000000L
+    0x8020000020000L
+    0x6020002000010L
+    0x1A000800000000L
+    0xA000000000000L
+    0x8008000020000L
+    0x3008000100000L
+    0x1A000800000000L
+    0x16001000000000L
+    0x8008000000000L
+    0x8010000000000L
+    0x5020002000020L
+    0x8002000000000L
+    0x3008000100000L
+    0x8004000000000L
+    0x3008000100000L
+    0x8002000000000L
+    0x2008000100000L
+    0x8004000000000L
+    0x2008000100000L
+    0x8008000000000L
+    0x3008000100000L
+    0x8008000000000L
+    0x4008000800010L
+    0x8010000000000L
+    0x4010001000010L
+    0x8020000000000L
+    0x5020002000010L
+    0x8008000000000L
+    0x8008000020000L
+    0x2008000100000L
+    0x8008000000000L
+    0x8008000020000L
+    0x4008000800010L
+    0x8010000000000L
+    0x8010000020000L
+    0x4010001000010L
+    0x8020000000000L
+    0x8020000020000L
+    0x5020002000010L
+    0x8008000000000L
+    0x5020002000040L
+    0x8008000000000L
+    0x4008000200010L
+    0x8010000000000L
+    0x4008000400010L
+    0x8020000000000L
+    0x6008000800010L
+    0x8008000000000L
+    0x8008000020000L
+    0x3008000100000L
+    0x8008000000000L
+    0x4008000400010L
+    0x8010000000000L
+    0x4008000800010L
+    0x8020000000000L
+    0x5010001000010L
+    0x8020000000000L
+    0x6010001000010L
+    0x8020000000000L
+    0x8020000020000L
+    0x6020002000010L
+    0x8008000000000L
+    0x1002000100000L
+    0x8020000000000L
+    0x5008000800010L
+    0x8020000000000L
+    0x6020002000010L
+    0x1002000100000L
+    0x8008000000000L
+    0x8020000000000L
+    0x4020002000010L
+    0x8008000000000L
+    0x8008000020000L
+    0x1008000100000L
   |]
+
+let private oprListStart: int32[] =
+  [|
+    0
+    2
+    4
+    6
+    8
+    10
+    12
+    14
+    16
+    18
+    20
+    22
+    24
+    25
+    26
+    27
+    28
+    29
+    30
+    31
+    32
+    34
+    36
+    38
+    39
+    40
+    43
+    46
+    49
+    50
+    53
+    56
+    59
+    60
+    62
+    64
+    66
+    68
+    70
+    72
+    74
+    76
+    78
+    80
+    82
+    84
+    86
+    88
+    90
+    91
+    92
+    93
+    95
+    97
+    99
+    101
+    103
+    105
+    106
+    107
+    109
+    111
+    113
+    115
+    117
+    119
+    121
+    123
+    125
+    127
+    129
+    131
+    133
+    134
+    135
+    137
+    139
+    141
+    143
+    145
+    147
+    149
+    151
+    153
+    154
+    156
+    157
+    158
+    159
+    160
+    161
+    163
+    164
+    165
+    167
+    169
+    171
+    173
+    175
+    177
+    179
+    181
+    183
+    185
+    187
+    188
+    189
+    190
+    191
+    192
+    193
+    195
+    197
+    198
+    200
+    202
+    204
+    206
+    208
+    210
+    212
+    214
+    216
+    218
+    220
+    222
+    224
+    226
+    228
+    230
+    232
+    234
+    236
+    238
+    239
+    240
+    242
+    244
+    246
+    248
+    250
+    252
+    254
+    256
+    258
+    260
+    262
+    264
+    266
+    268
+    270
+    272
+    274
+    276
+    278
+    280
+    282
+    284
+    286
+    289
+    292
+    294
+    296
+    298
+    300
+    302
+    304
+    306
+    307
+    310
+    313
+    316
+    319
+    322
+    325
+    326
+    329
+    330
+    332
+    334
+    336
+    338
+    340
+    342
+    345
+    348
+    350
+    352
+    355
+    358
+    361
+    364
+    365
+    366
+    368
+    370
+    372
+    374
+    376
+    378
+    381
+    383
+    385
+    387
+    389
+    390
+    391
+    393
+    397
+    399
+    401
+    403
+    405
+    407
+    409
+    411
+    414
+    417
+    420
+    423
+    426
+    429
+    432
+    435
+    437
+    440
+    442
+    444
+    447
+    450
+    453
+    456
+    459
+    461
+    464
+    466
+    468
+    471
+    474
+    476
+    478
+    481
+    484
+    487
+    489
+    491
+    493
+    495
+    497
+    499
+    501
+    503
+    505
+    507
+    509
+    511
+    515
+    519
+    523
+    527
+    531
+    534
+    536
+    538
+    540
+    542
+    544
+    546
+    548
+    551
+    554
+    557
+    560
+    561
+    563
+    565
+    568
+    570
+    572
+    574
+    577
+    580
+    583
+    586
+    588
+    590
+    593
+    595
+    598
+    601
+    604
+    607
+    609
+    611
+    614
+    617
+    621
+    624
+    627
+    631
+    635
+    639
+    642
+    646
+    650
+    652
+    654
+    657
+    660
+    663
+    666
+    669
+    672
+    675
+    678
+    680
+    682
+    684
+    686
+    688
+    690
+    692
+    694
+    696
+    698
+    700
+    702
+    704
+    706
+    708
+    710
+    712
+    715
+    718
+    721
+    724
+    726
+    728
+    730
+    732
+    734
+    737
+    739
+    742
+    745
+    748
+    751
+    754
+    757
+    760
+    763
+    766
+    769
+    772
+    775
+    778
+    781
+    784
+    787
+    790
+    793
+    796
+    799
+    802
+    805
+    808
+    810
+    812
+    814
+    816
+    820
+    824
+    828
+    832
+    836
+    840
+    844
+    848
+    852
+    856
+    860
+    864
+    868
+    872
+    875
+    877
+    879
+    881
+    883
+    885
+    887
+    889
+    891
+    893
+    895
+    897
+    899
+    901
+    903
+    905
+    907
+    910
+    913
+    916
+    918
+    920
+    922
+    924
+    926
+    928
+    930
+    933
+    935
+    937
+    939
+    941
+    943
+    945
+    947
+    949
+    951
+    953
+    955
+    957
+    959
+    961
+    963
+    965
+    967
+    969
+    971
+    973
+    975
+    977
+    979
+    981
+    983
+    985
+    986
+    987
+    990
+    993
+    996
+    999
+    1002
+    1005
+    1008
+    1011
+    1015
+    1019
+    1023
+    1027
+    1031
+    1034
+    1038
+    1041
+    1044
+    1048
+    1052
+    1056
+    1060
+    1064
+    1068
+    1072
+    1075
+    1078
+    1081
+    1084
+    1087
+    1090
+    1093
+    1096
+    1099
+    1102
+    1105
+    1108
+    1112
+    1116
+    1120
+    1124
+    1126
+    1128
+    1130
+    1132
+    1134
+    1136
+    1138
+    1140
+    1142
+    1144
+    1147
+    1150
+    1153
+    1156
+    1158
+    1160
+    1162
+    1164
+    1167
+    1169
+    1171
+    1173
+    1175
+    1178
+    1180
+    1182
+    1184
+    1186
+    1188
+    1191
+  |]
+
+/// The registers a fixed-register descriptor can name, by the index the
+/// descriptor carries.
+let private fixedRegs: Register[] =
+  [|
+    Register.AL
+    Register.AX
+    Register.EAX
+    Register.RAX
+    Register.ES
+    Register.CS
+    Register.SS
+    Register.DS
+    Register.CL
+    Register.ST0
+    Register.DX
+    Register.FS
+    Register.GS
+    Register.EDX
+    Register.XMM0
+  |]
+
+/// The fields a register descriptor can be read from, by the index the
+/// descriptor carries.
+let private regFields: OprRegType[] =
+  [|
+    RegBit
+    RMBit
+    VVVV
+    IS4
+    OpRd
+    Unused
+  |]
+
+let inline private rt (n: int) = LanguagePrimitives.Int32WithMeasure<rt> n
+
+/// Reads one operand descriptor back out of its integer.
+let private decodeOpr (code: int64) =
+  let a = int ((code >>> 32) &&& 0xFFFFL)
+  let b = int ((code >>> 16) &&& 0xFFFFL)
+  let c = int (code &&& 0xFFFFL)
+  match int (code >>> 48) with
+  | 0 -> RM(rt a)
+  | 1 -> RMdiff(rt a, rt b)
+  | 2 -> RMEr(rt a, rt b)
+  | 3 -> RMSae(rt a, rt b)
+  | 4 -> RMBcst(rt a, rt b, rt c)
+  | 5 -> RMBcstEr(rt a, rt b, rt c)
+  | 6 -> RMBcstSae(rt a, rt b, rt c)
+  | 7 -> RegSae(rt a)
+  | 8 -> Reg(rt a, regFields[b])
+  | 9 -> RegAddr
+  | 10 -> OpMaskReg regFields[a]
+  | 11 -> KM(rt a)
+  | 12 -> Sreg
+  | 13 -> CtrlReg
+  | 14 -> DebugReg
+  | 15 -> FixedReg fixedRegs[a]
+  | 16 -> STReg None
+  | 17 -> STReg(Some fixedRegs[a])
+  | 18 -> BM(rt a)
+  | 19 -> BndReg
+  | 20 -> MM(rt a)
+  | 21 -> MMXReg regFields[a]
+  | 22 -> Mem(rt a)
+  | 23 -> MemVSIB(rt a)
+  | 24 -> Moffs(rt a)
+  | 25 -> Far(rt a)
+  | 26 -> Imm(rt a)
+  | 27 -> FixedImm a
+  | 28 -> Rel(rt a)
+  | 29 -> NoOpr
+  | _ -> Unknown "bad operand code"
+
+let private oprLists: OperandType[][] =
+  let lists = Array.zeroCreate (oprListStart.Length - 1)
+  for i in 0 .. lists.Length - 1 do
+    let operands = Array.zeroCreate (oprListStart[i + 1] - oprListStart[i])
+    for j in 0 .. operands.Length - 1 do
+      operands[j] <- decodeOpr oprCodes[oprListStart[i] + j]
+    lists[i] <- operands
+  lists
 
 let private modRMs: ModRMType[] =
   [|
@@ -12463,11 +13611,15 @@ let private decodeRow i =
 
 /// The 256 slots of one opcode map.
 let private buildMap (mapIdx: int) =
-  Array.init 256 (fun slot ->
+  let map = Array.zeroCreate 256
+  for slot in 0 .. 255 do
     let k = mapIdx * 256 + slot
     let first = slotStart[k]
-    Array.init (slotStart[k + 1] - first) (fun j ->
-      decodeRow (first + j)))
+    let rows = Array.zeroCreate (slotStart[k + 1] - first)
+    for j in 0 .. rows.Length - 1 do
+      rows[j] <- decodeRow (first + j)
+    map[slot] <- rows
+  map
 
 let (norOne: InstructionCore[][]) = buildMap 0
 let (norTwo: InstructionCore[][]) = buildMap 1
