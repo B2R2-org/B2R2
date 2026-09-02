@@ -81,10 +81,13 @@ type IntelParser(wordSz, reader) =
   /// Returns true when the VEX/EVEX vector length satisfies the instruction's
   /// vector-length constraint (or the constraint is absent).
   let matchVectorLength isRounding (vex: VEXInfo option) (i: InstructionCore) =
-    if i.VectorLength = VectorLength.None then
-      true
-    elif isRounding then
+    if isRounding then
+      (* Asked first now that an ignored length also reads as None: EVEX.b
+         spends L'L on the rounding mode, so the row offering {er} answers
+         whether or not the row constrains the length. *)
       declaresStaticRounding i
+    elif i.VectorLength = VectorLength.None then
+      true
     else
       match vex with
       | Some v ->
