@@ -203,9 +203,48 @@ type IntelParser(wordSz, reader) =
       if Prefix.hasREPNZ mPref then Mandatory P66F2 else Mandatory P66
     ins |> Array.exists (fun i -> i.PrefixType = asked)
 
+  /// Returns true when the row names a vector or an MMX register. The SIMD
+  /// opcodes spend 66h, F2h and F3h on naming the instruction, so a
+  /// combination no row asks for is invalid there; everywhere else those
+  /// bytes stay ordinary prefixes and the unprefixed row answers. The
+  /// processor draws the line exactly here: F2 0F BC runs BSF while F2 0F 28
+  /// raises #UD.
+  let namesAVectorRegister (insCore: InstructionCore) =
+    insCore.Operands
+    |> Array.exists (function
+      | MMXReg _ | MM _ | KM _ | MemVSIB _ ->
+        true
+      | RM sz | Reg(sz, _) | RegSae sz | Mem sz | Moffs sz
+      | RMdiff(sz, _) | RMEr(sz, _) | RMSae(sz, _)
+      | RMBcst(sz, _, _) | RMBcstEr(sz, _, _) | RMBcstSae(sz, _, _) ->
+        sz >= 128<rt>
+      | _ ->
+        false)
+
+  /// The three-byte maps arrived with the SIMD extensions and spend the
+  /// repeat prefixes on naming instructions throughout them, GPR opcodes
+  /// included: F3 0F 38 F1 is not MOVBE with a repeat in front of it, it is
+  /// invalid, while F3 0F C8 is BSWAP with one.
+  let isThreeByteMap = function
+    | OpcodeClass.Normal ThreeBytes38 | OpcodeClass.Normal ThreeBytes3A ->
+      true
+    | _ ->
+      false
+
+  /// Returns true when a repeat prefix is naming the instruction rather than
+  /// repeating it. It names one where a row asks for it, and it names one on
+  /// a SIMD opcode or anywhere in the three-byte maps whether or not a row
+  /// asks: there an unclaimed prefix is invalid rather than ignored.
+  let isRepOpcodeSelector (phlp: ParsingHelper) ins insCore asked =
+    phlp.VEXInfo.IsSome
+    || isThreeByteMap phlp.OpcodeClass
+    || namesAVectorRegister insCore
+    || (ins |> Array.exists (fun i -> i.PrefixType = asked))
+
   /// Returns true when the current prefix state satisfies insPref, with Legacy
   /// NP as a fallback for Mandatory NP.
-  let matchPrefixWithLegacyFallback (phlp: ParsingHelper) ins insPref =
+  let matchPrefixWithLegacyFallback (phlp: ParsingHelper) ins insCore =
+    let insPref = (insCore: InstructionCore).PrefixType
     let pref =
       match phlp.VEXInfo with
       | Some v -> v.VPrefixes
@@ -224,8 +263,12 @@ type IntelParser(wordSz, reader) =
       insPref = Mandatory P66 || insPref = Legacy NP
     elif Prefix.hasREPZ mPref then
       insPref = Mandatory F3 || insPref = Legacy NP
+      || (insPref = Mandatory NP
+          && not (isRepOpcodeSelector phlp ins insCore (Mandatory F3)))
     elif Prefix.hasREPNZ mPref then
       insPref = Mandatory F2 || insPref = Legacy NP
+      || (insPref = Mandatory NP
+          && not (isRepOpcodeSelector phlp ins insCore (Mandatory F2)))
     elif mPref = Prefix.None then
       insPref = Legacy NP || insPref = Mandatory NP
     else
@@ -246,10 +289,10 @@ type IntelParser(wordSz, reader) =
 
   /// Returns true when the current prefix satisfies the instruction's
   /// requirement, applying special-case resolution where needed.
-  let matchPrefix (phlp: ParsingHelper) ins opByte insPref =
+  let matchPrefix (phlp: ParsingHelper) ins opByte insCore =
     match tryResolveSpecialPrefix phlp opByte with
-    | Some pref -> matchPrefixType pref insPref
-    | None -> matchPrefixWithLegacyFallback phlp ins insPref
+    | Some pref -> matchPrefixType pref (insCore: InstructionCore).PrefixType
+    | None -> matchPrefixWithLegacyFallback phlp ins insCore
 
   /// The prefixes a row named, which are the ones that picked it out rather
   /// than describing its operands. Dropping the rest would lose what they
@@ -557,7 +600,7 @@ type IntelParser(wordSz, reader) =
     && matchCPUMode phlp.WordSize insCore.Mode64 insCore.Compat
     && matchREX phlp ins insCore
     && matchOperandSize phlp ins insCore
-    && matchPrefix phlp ins (uint8 insCore.OpcodeByte) insCore.PrefixType
+    && matchPrefix phlp ins (uint8 insCore.OpcodeByte) insCore
     && matchVectorLength isRounding phlp.VEXInfo insCore
     && matchJcxzAddrSize phlp insCore
     && matchNopAlias phlp insCore
@@ -573,7 +616,7 @@ type IntelParser(wordSz, reader) =
       "[%d] %A pref=%b mode=%b size=%b rex=%b vlen=%b modrm=%b addrsz=%b"
       i
       insCore.Opcode
-      (matchPrefix phlp ins (uint8 insCore.OpcodeByte) insCore.PrefixType)
+      (matchPrefix phlp ins (uint8 insCore.OpcodeByte) insCore)
       (matchCPUMode phlp.WordSize insCore.Mode64 insCore.Compat)
       (matchOperandSize phlp ins insCore)
       (matchREX phlp ins insCore)
