@@ -258,6 +258,10 @@ let alignAndCompact vGraph vLayout maxLayer conflicts vDir hDir =
   let root, align = vAlign vGraph vLayout maxLayer conflicts vDir hDir
   hCompact vGraph vLayout root align hDir
 
+/// Reads the edge of the narrowest layer of the given assignment: its left
+/// edge for a leftmost assignment and its right edge for a rightmost one. That
+/// edge is what the assignment is shifted onto, so the narrowest layer is the
+/// one every layer is measured against.
 let getBound vLayout (xs: FloatMap, hDir) =
   vLayout
   |> Array.fold (fun (minWidth, bound) (vertices: IVertex<_>[]) ->
@@ -266,7 +270,7 @@ let getBound vLayout (xs: FloatMap, hDir) =
     let left = xs[first]
     let right = xs[last] + last.VData.Width
     let width = right - left
-    if width < minWidth then minWidth, (if hDir = Leftmost then left else right)
+    if width < minWidth then width, (if hDir = Leftmost then left else right)
     else minWidth, bound
   ) (Double.PositiveInfinity, 0.0)
   |> fun (_, bound) -> bound, xs, hDir

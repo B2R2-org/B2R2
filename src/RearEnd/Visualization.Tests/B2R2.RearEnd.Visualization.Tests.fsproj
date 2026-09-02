@@ -5,7 +5,9 @@
   </PropertyGroup>
 
   <ItemGroup>
+    <Compile Include="TestHelper.fs" />
     <Compile Include="VisGraph.Tests.fs" />
+    <Compile Include="CoordAssignment.Tests.fs" />
   </ItemGroup>
 
   <ItemGroup>

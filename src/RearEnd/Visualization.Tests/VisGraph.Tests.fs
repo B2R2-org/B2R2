@@ -25,28 +25,9 @@
 namespace B2R2.RearEnd.Visualization.Tests
 
 open Microsoft.VisualStudio.TestTools.UnitTesting
-open B2R2
-open B2R2.FrontEnd.BinLifter
 open B2R2.MiddleEnd.BinGraph
 open B2R2.MiddleEnd.ControlFlowGraph
 open B2R2.RearEnd.Visualization
-
-/// A minimal basic block standing in for a real one, carrying nothing but the
-/// address that names it.
-type private FakeBlock(addr: Addr) =
-  interface IVisualizable with
-    member _.BlockAddress with get() = addr
-
-    member _.LineAddrRanges with get() = [| { Min = addr; Max = addr } |]
-
-    member _.Visualize() =
-      let value = $"blk{addr}"
-      [| [| { AsmWordKind = AsmWordKind.String; AsmWordValue = value } |] |]
-
-  interface IAddressable with
-    member _.PPoint with get() = ProgramPoint(addr, 0)
-
-    member _.Range with get() = { Min = addr; Max = addr }
 
 [<TestClass>]
 type VisGraphTests() =

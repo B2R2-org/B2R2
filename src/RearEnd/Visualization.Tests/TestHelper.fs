@@ -22,18 +22,25 @@
   SOFTWARE.
 *)
 
-namespace B2R2.RearEnd.Visualization
+namespace B2R2.RearEnd.Visualization.Tests
 
-open System.Runtime.CompilerServices
+open B2R2
+open B2R2.FrontEnd.BinLifter
+open B2R2.MiddleEnd.ControlFlowGraph
 
-[<assembly: InternalsVisibleTo("B2R2.RearEnd.Visualization.Tests")>]
-do ()
+/// A minimal basic block standing in for a real one, carrying nothing but the
+/// address that names it.
+type FakeBlock(addr: Addr) =
+  interface IVisualizable with
+    member _.BlockAddress with get() = addr
 
-/// X-Y position of nodes and edges for visualization.
-type VisPosition =
-  { /// X position.
-    mutable X: float
-    /// Y position.
-    mutable Y: float }
-with
-  static member Create(x, y) = { X = x; Y = y }
+    member _.LineAddrRanges with get() = [| { Min = addr; Max = addr } |]
+
+    member _.Visualize() =
+      let value = $"blk{addr}"
+      [| [| { AsmWordKind = AsmWordKind.String; AsmWordValue = value } |] |]
+
+  interface IAddressable with
+    member _.PPoint with get() = ProgramPoint(addr, 0)
+
+    member _.Range with get() = { Min = addr; Max = addr }
