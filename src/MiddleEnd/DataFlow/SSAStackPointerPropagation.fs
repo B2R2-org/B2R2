@@ -96,11 +96,7 @@ type SSAStackPointerPropagation(hdl: BinHandle) =
   let evalJmp (state: State<_>) ssaCFG blk =
     state.MarkSuccessorsExecutable(ssaCFG, blk)
 
-  let lattice =
-    { new ILattice<StackPointerDomain.Lattice> with
-        member _.Bottom = StackPointerDomain.Undef
-        member _.Join(a, b) = StackPointerDomain.join a b
-        member _.Subsume(a, b) = StackPointerDomain.subsume a b }
+  let lattice = StackPointerDomain.createLattice ()
 
   let rec scheme =
     { new IScheme<StackPointerDomain.Lattice> with

@@ -60,6 +60,13 @@ module ConstantDomain =
     | Const x, Const y when x = y -> a
     | _ -> NotAConst
 
+  /// Creates the lattice of this domain.
+  let createLattice () =
+    { new ILattice<Lattice> with
+        member _.Bottom = Undef
+        member _.Join(a, b) = join a b
+        member _.Subsume(a, b) = subsume a b }
+
   let private unOp op = function
     | Const bv -> Const(op bv)
     | c -> c

@@ -110,11 +110,7 @@ type LowUIRSensitiveConstantPropagation<'ExeCtx when 'ExeCtx: comparison>
     | _ ->
       Terminator.impossible ()
 
-  let lattice =
-    { new ILattice<ConstantDomain.Lattice> with
-        member _.Bottom = ConstantDomain.Undef
-        member _.Join(a, b) = ConstantDomain.join a b
-        member _.Subsume(a, b) = ConstantDomain.subsume a b  }
+  let lattice = ConstantDomain.createLattice ()
 
   let rec evaluator =
     { new IExprEvaluatable<SensitiveProgramPoint<'ExeCtx>,

@@ -74,11 +74,7 @@ type UntouchedValueAnalysis(hdl: BinHandle, vs) =
     | _ ->
       UntouchedValueDomain.Touched
 
-  let lattice =
-    { new ILattice<UntouchedValueDomain.Lattice> with
-        member _.Bottom = UntouchedValueDomain.Undef
-        member _.Join(a, b) = UntouchedValueDomain.join a b
-        member _.Subsume(a, b) = UntouchedValueDomain.subsume a b }
+  let lattice = UntouchedValueDomain.createLattice ()
 
   let rec scheme =
     { new LowUIRSparseDataFlow.IScheme<UntouchedValueDomain.Lattice> with

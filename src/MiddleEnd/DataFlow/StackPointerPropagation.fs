@@ -86,11 +86,7 @@ type StackPointerPropagation(hdl: BinHandle, vs) =
     | _ ->
       Terminator.impossible ()
 
-  let lattice =
-    { new ILattice<StackPointerDomain.Lattice> with
-        member _.Bottom = StackPointerDomain.Undef
-        member _.Join(a, b) = StackPointerDomain.join a b
-        member _.Subsume(a, b) = StackPointerDomain.subsume a b }
+  let lattice = StackPointerDomain.createLattice ()
 
   let rec scheme =
     { new LowUIRSparseDataFlow.IScheme<StackPointerDomain.Lattice> with

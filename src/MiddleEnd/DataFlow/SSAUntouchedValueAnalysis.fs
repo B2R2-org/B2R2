@@ -97,11 +97,7 @@ type SSAUntouchedValueAnalysis(hdl: BinHandle) =
   let evalJmp (state: State<_>) ssaCFG blk =
     state.MarkSuccessorsExecutable(ssaCFG, blk)
 
-  let lattice =
-    { new ILattice<UntouchedValueDomain.Lattice> with
-        member _.Bottom = UntouchedValueDomain.Undef
-        member _.Join(a, b) = UntouchedValueDomain.join a b
-        member _.Subsume(a, b) = UntouchedValueDomain.subsume a b }
+  let lattice = UntouchedValueDomain.createLattice ()
 
   let rec scheme =
     { new IScheme<UntouchedValueDomain.Lattice> with

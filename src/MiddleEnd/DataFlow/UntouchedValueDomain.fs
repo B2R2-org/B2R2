@@ -69,3 +69,10 @@ module UntouchedValueDomain =
     | Untouched t1, Untouched t2 when t1 = t2 -> c1
     | Untouched _, Untouched _ -> Touched
     | _ -> Touched
+
+  /// Creates the lattice of this domain.
+  let createLattice () =
+    { new ILattice<Lattice> with
+        member _.Bottom = Undef
+        member _.Join(a, b) = join a b
+        member _.Subsume(a, b) = subsume a b }

@@ -97,11 +97,7 @@ type SSAConstantPropagation(hdl: BinHandle) =
   let evalJmp (state: State<_>) cfg blk =
     state.MarkSuccessorsExecutable(cfg, blk)
 
-  let lattice =
-    { new ILattice<ConstantDomain.Lattice> with
-        member _.Bottom = ConstantDomain.Undef
-        member _.Join(a, b) = ConstantDomain.join a b
-        member _.Subsume(a, b) = ConstantDomain.subsume a b }
+  let lattice = ConstantDomain.createLattice ()
 
   let rec scheme =
     { new IScheme<ConstantDomain.Lattice> with

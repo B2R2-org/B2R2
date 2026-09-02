@@ -60,6 +60,13 @@ module StackPointerDomain =
     | ConstSP bv1, ConstSP bv2 -> if bv1 = bv2 then c1 else NotConstSP
     | _ -> NotConstSP
 
+  /// Creates the lattice of this domain.
+  let createLattice () =
+    { new ILattice<Lattice> with
+        member _.Bottom = Undef
+        member _.Join(a, b) = join a b
+        member _.Subsume(a, b) = subsume a b }
+
   /// Adds the two lattice elements.
   let add c1 c2 =
     match c1, c2 with
