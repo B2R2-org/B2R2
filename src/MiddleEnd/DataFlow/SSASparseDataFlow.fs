@@ -136,6 +136,20 @@ type State<'Lattice when 'Lattice: equality>
   member _.SeedRegValue(var: Variable, value: 'Lattice) =
     regValues[var] <- value
 
+  /// Seeds the entry definition of the stack pointer register with the
+  /// initial stack pointer value, mapped into this domain by the given
+  /// function. An architecture without a stack pointer seeds nothing.
+  member this.SeedStackPointer(toAbsVal) =
+    match hdl.RegisterFactory.StackPointer with
+    | Some sp ->
+      let rt = hdl.RegisterFactory.GetRegType sp
+      let str = hdl.RegisterFactory.GetRegisterName sp
+      let var = { Kind = RegVar(rt, sp, str); Identifier = 0 }
+      let spVal = BitVector(Constants.InitialStackPointer, rt)
+      this.SeedRegValue(var, toAbsVal spVal)
+    | None ->
+      ()
+
   /// Checks if the register has been initialized.
   member _.IsRegSet(var: Variable) = regValues.ContainsKey var
 

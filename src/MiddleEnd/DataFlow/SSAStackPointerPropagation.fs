@@ -28,7 +28,6 @@ open B2R2
 open B2R2.BinIR.SSA
 open B2R2.FrontEnd
 open B2R2.MiddleEnd.ControlFlowGraph
-open B2R2.MiddleEnd.DataFlow.Constants
 open B2R2.MiddleEnd.DataFlow.SSASparseDataFlow
 
 /// Performs stack pointer propagation analysis over an SSA CFG.
@@ -112,18 +111,9 @@ type SSAStackPointerPropagation(hdl: BinHandle) =
         member _.EvalExpr e = evalExpr state e }
 
   and state =
-    State<StackPointerDomain.Lattice>(hdl, lattice, scheme)
-    |> fun state ->
-      match hdl.RegisterFactory.StackPointer with
-      | Some sp ->
-        let rt = hdl.RegisterFactory.GetRegType sp
-        let str = hdl.RegisterFactory.GetRegisterName sp
-        let var = { Kind = RegVar(rt, sp, str); Identifier = 0 }
-        let spVal = BitVector(InitialStackPointer, rt)
-        state.SeedRegValue(var, StackPointerDomain.ConstSP spVal)
-        state
-      | None ->
-        state
+    let state = State<StackPointerDomain.Lattice>(hdl, lattice, scheme)
+    state.SeedStackPointer(StackPointerDomain.ConstSP)
+    state
 
   /// Returns the underlying state of this analysis.
   member _.State with get() = state

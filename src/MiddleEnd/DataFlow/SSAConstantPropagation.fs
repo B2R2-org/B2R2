@@ -28,7 +28,6 @@ open B2R2
 open B2R2.BinIR.SSA
 open B2R2.FrontEnd
 open B2R2.MiddleEnd.ControlFlowGraph
-open B2R2.MiddleEnd.DataFlow.Constants
 open B2R2.MiddleEnd.DataFlow.SSASparseDataFlow
 
 /// Performs sparse conditional constant propagation over an SSA CFG.
@@ -113,18 +112,9 @@ type SSAConstantPropagation(hdl: BinHandle) =
         member _.EvalExpr e = evalExpr state e }
 
   and state =
-    State<ConstantDomain.Lattice>(hdl, lattice, scheme)
-    |> fun state ->
-      match hdl.RegisterFactory.StackPointer with
-      | Some sp ->
-        let rt = hdl.RegisterFactory.GetRegType sp
-        let str = hdl.RegisterFactory.GetRegisterName sp
-        let var = { Kind = RegVar(rt, sp, str); Identifier = 0 }
-        let spVal = BitVector(InitialStackPointer, rt)
-        state.SeedRegValue(var, ConstantDomain.Const spVal)
-        state
-      | None ->
-        state
+    let state = State<ConstantDomain.Lattice>(hdl, lattice, scheme)
+    state.SeedStackPointer(ConstantDomain.Const)
+    state
 
   /// Returns the underlying state of this analysis.
   member _.State with get() = state

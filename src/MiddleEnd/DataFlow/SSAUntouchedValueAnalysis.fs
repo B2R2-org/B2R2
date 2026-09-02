@@ -46,15 +46,8 @@ type SSAUntouchedValueAnalysis(hdl: BinHandle) =
       state.SeedRegValue(var,
         UntouchedValueDomain.Untouched(RegisterTag vkind))
     )
-    match hdl.RegisterFactory.StackPointer with
-    | Some sp ->
-      let rt = hdl.RegisterFactory.GetRegType sp
-      let str = hdl.RegisterFactory.GetRegisterName sp
-      let var = { Kind = RegVar(rt, sp, str); Identifier = 0 }
-      state.SeedRegValue(var, UntouchedValueDomain.Touched)
-      state
-    | None ->
-      state
+    state.SeedStackPointer(fun _ -> UntouchedValueDomain.Touched)
+    state
 
   let getBaseCase (v: Variable) =
     match v.Kind with
