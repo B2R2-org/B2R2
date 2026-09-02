@@ -37,8 +37,8 @@ type ConcExecutorTests() =
   let runOneInstruction (hdl: BinHandle) =
     let exec = ConcExecutor hdl
     let st = exec.CreateState()
-    exec.Run(0UL, st, ConcRunOptions.Default(StopAfterInstructionCount 1))
-    |> ignore
+    let opts = { ConcRunOptions.Default [] with MaxInstructions = 1 }
+    exec.Run(0UL, st, opts) |> ignore
     st
 
   [<TestMethod>]
@@ -62,6 +62,27 @@ type ConcExecutorTests() =
     match st.TryGetReg(hdl.RegisterFactory.GetRegisterID "x30") with
     | Undef -> ()
     | Def v -> Assert.Fail $"The return address register was zeroed to {v}."
+
+  [<TestMethod>]
+  member _.``Instruction limit is honored as given``() =
+    (* jmp $ *)
+    let bytes = [| 0xebuy; 0xfeuy |]
+    let hdl = loadRawImage bytes Architecture.Intel WordSize.Bit64
+    let exec = ConcExecutor hdl
+    let st = exec.CreateState()
+    let opts = { ConcRunOptions.Default [] with MaxInstructions = 7 }
+    let res = exec.Run(0UL, st, opts)
+    Assert.AreEqual<int>(7, res.InstructionCount)
+    match res.StopReasons with
+    | [ InstructionLimitReached(_, limit) ] ->
+      Assert.AreEqual<int>(7, limit)
+    | reasons ->
+      Assert.Fail $"Unexpected stop reasons: {reasons}"
+
+  [<TestMethod>]
+  member _.``Default options carry an instruction limit``() =
+    let opts: ConcRunOptions<EvalState> = ConcRunOptions.Default []
+    Assert.AreEqual<int>(50000, opts.MaxInstructions)
 
   [<TestMethod>]
   member _.``Evaluation failure ends the run without a stop condition``() =

@@ -56,8 +56,6 @@ type ConcStopCondition<'State> =
   | StopAtCall
   /// Stop when a side-effect statement is observed.
   | StopAtSideEffect
-  /// Stop after executing the given number of machine instructions.
-  | StopAfterInstructionCount of count: int
   /// Stop when a user-provided predicate holds.
   | StopWhen of predicate: (ConcStopPoint<'State> -> bool)
 
@@ -124,6 +122,8 @@ type ConcRunOptions<'State> =
     UndefinedValues: ConcUndefinedValuePolicy
     /// Uninitialized register read handling policy.
     UninitializedRegisters: UninitializedRegisterPolicy
+    /// Maximum machine instructions to execute. Zero means unlimited.
+    MaxInstructions: int
     /// Stop conditions used by Run.
     StopConditions: ConcStopCondition<'State> list }
 with
@@ -131,7 +131,8 @@ with
     { Calls = FollowDirectInternalCalls
       UndefinedValues = IgnoreUndefinedWrites
       UninitializedRegisters = ZeroCallerContext
-      StopConditions = stopConditions @ [ StopAfterInstructionCount 50000 ] }
+      MaxInstructions = 50000
+      StopConditions = stopConditions }
 
   static member Default(stopCondition: ConcStopCondition<'State>) =
     ConcRunOptions.Default [ stopCondition ]
@@ -390,21 +391,25 @@ type ConcExecutor(hdl: BinHandle) =
     try lifter.LiftInstruction ins |> Ok
     with NotImplementedIRException _ -> Result.Error ErrorCase.NotImplementedIR
 
-  let collectPreInstrStopReasons (st: EvalState)
-                                 addr
-                                 n
-                                 (opts: ConcRunOptions<EvalState>) =
+  let isInstructionLimitReached n (opts: ConcRunOptions<EvalState>) =
+    match opts.MaxInstructions with
+    | limit when limit > 0 && n >= limit -> Some limit
+    | _ -> None
+
+  let collectPreInstrStopReasons st addr n (opts: ConcRunOptions<EvalState>) =
     let point = { Address = addr; InstructionCount = n; State = st }
-    opts.StopConditions
-    |> List.choose (function
-      | StopAtAddress stopAddr when stopAddr = addr ->
-        Some(StoppedAtAddress addr)
-      | StopAfterInstructionCount limit when n >= limit ->
-        Some(InstructionLimitReached(addr, limit))
-      | StopWhen predicate when predicate point ->
-        Some(UserStopConditionMet addr)
-      | _ ->
-        None)
+    let reasons =
+      opts.StopConditions
+      |> List.choose (function
+        | StopAtAddress stopAddr when stopAddr = addr ->
+          Some(StoppedAtAddress addr)
+        | StopWhen predicate when predicate point ->
+          Some(UserStopConditionMet addr)
+        | _ ->
+          None)
+    match isInstructionLimitReached n opts with
+    | Some limit -> reasons @ [ InstructionLimitReached(addr, limit) ]
+    | None -> reasons
 
   let collectInstrStopReasons opts st addr (ins: IInstruction) stmts =
     [ if hasStopAtReturn opts && isReturnTaken opts st ins stmts then
