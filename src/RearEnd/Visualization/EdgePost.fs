@@ -28,8 +28,8 @@ open System.Collections.Generic
 open B2R2.MiddleEnd.BinGraph
 
 let [<Literal>] private CoordEpsilon = 0.001
-let [<Literal>] private EdgeOffset = 4.0
-let [<Literal>] private StubMargin = 30.0
+let [<Literal>] private EdgeOffset = Constants.EdgeOffset
+let [<Literal>] private StubMargin = Constants.StubMargin
 let [<Literal>] private SafeMargin = 15.0
 
 /// Axis-aligned rectangle as (left, right, top, bottom).

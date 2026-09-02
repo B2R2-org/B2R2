@@ -50,7 +50,7 @@ module VisGraph =
       if vblocks.ContainsKey v.ID then
         ()
       else
-        let blk = VisBBlock(v.VData, charWidth, charHeight, false)
+        let blk = VisBBlock(v.VData, charWidth, charHeight)
         let v' = newGraph.AddVertex blk
         vblocks[v.ID] <- v'
     for e in g.Edges do

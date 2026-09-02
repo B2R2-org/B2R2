@@ -28,57 +28,66 @@ open B2R2.FrontEnd.BinLifter
 open B2R2.MiddleEnd.ControlFlowGraph
 
 /// Represents a vertex of a graph laid out for visualization, pairing the
-/// basic block it stands for with the geometry the layout gives it.
-type VisBBlock(blk: IVisualizable, charWidth, charHeight, isDummy) =
+/// basic block it stands for with the geometry the layout gives it. A dummy
+/// carries a width of its own; anything else is measured by what it shows.
+type VisBBlock private(blk: IVisualizable, charWidth, charHeight, dummy) =
+  let [<Literal>] Padding = 4.0
+
+  let [<Literal>] Border = 1.0
+
   let mutable layer = -1
 
   let mutable index = -1
 
   let pos = { X = 0.0; Y = 0.0 }
 
-  let [<Literal>] Padding = 4.0
+  let isDummy = Option.isSome dummy
 
-  let [<Literal>] Border = 1.0
-
+  (* A dummy stands on a layer that a long edge merely passes through. It
+     shows nothing and is measured by nothing, so the block it was made from
+     is never rendered for one. *)
   let visualizableAsm =
-    let block = blk.Visualize()
-    if block.Length = 0 then
-      [| [| { AsmWordKind = AsmWordKind.String
-              AsmWordValue = $"# fake block @ {blk.BlockAddress:x}" } |] |]
+    if isDummy then
+      [||]
     else
-      block
+      let block = blk.Visualize()
+      if block.Length = 0 then
+        [| [| { AsmWordKind = AsmWordKind.String
+                AsmWordValue = $"# fake block @ {blk.BlockAddress:x}" } |] |]
+      else
+        block
 
-  let lineWidth asmLine =
-    asmLine |> Array.fold (fun width term -> width + AsmWord.Width term) 0
-
-  let maxNumChars =
-    visualizableAsm
-    |> Array.maxBy lineWidth
-    |> lineWidth
-    |> float
-
-  let mutable width =
-    if isDummy then 0.0
-    else maxNumChars * charWidth + Padding * 2.0 + Border * 2.0
-
-  let numLines = visualizableAsm |> Array.length
+  let width =
+    match dummy with
+    | Some dummyWidth ->
+      dummyWidth
+    | None ->
+      let widest = VisBBlock.MaxLineWidth visualizableAsm
+      float widest * charWidth + Padding * 2.0 + Border * 2.0
 
   let height =
-    if isDummy then 0.0
-    else float numLines * charHeight + Padding * 2.0 + Border * 2.0
+    if isDummy then
+      0.0
+    else
+      let lines = float visualizableAsm.Length
+      lines * charHeight + Padding * 2.0 + Border * 2.0
 
-  new(blk, isDummy) =
-    (* These numbers (7.5 and 14) are empirically obtained with the current
-       font. For some reasons, we cannot precisely determine the width of each
-       text even though we are using a fixed-width font. *)
-    VisBBlock(blk, 7.5, 14.0, isDummy)
+  /// Creates a node for the given block, laid out for a font of the given
+  /// character width and height.
+  new(blk, charWidth, charHeight) =
+    VisBBlock(blk, charWidth, charHeight, None)
+
+  /// Creates a dummy node of the given width. A dummy is never shown, so the
+  /// font it would be laid out for does not come into it.
+  new(blk, dummyWidth: float) =
+    VisBBlock(blk, 0.0, 0.0, Some dummyWidth)
 
   /// Gets whether this node is a dummy, that is, a placeholder standing on a
   /// layer that a long edge merely passes through.
   member _.IsDummy with get() = isDummy
 
-  /// Gets or sets the width of the node.
-  member _.Width with get() = width and set(v) = width <- v
+  /// Gets the width of the node.
+  member _.Width with get() = width
 
   /// Gets the height of the node.
   member _.Height with get() = height
@@ -95,6 +104,12 @@ type VisBBlock(blk: IVisualizable, charWidth, charHeight, isDummy) =
 
   /// Gets the address of the basic block that this node stands for.
   member _.BlockAddress with get() = blk.BlockAddress
+
+  /// Returns the width, in characters, of the widest of the given lines.
+  static member private MaxLineWidth lines =
+    let lineWidth line =
+      Array.fold (fun width term -> width + AsmWord.Width term) 0 line
+    Array.fold (fun widest line -> max widest (lineWidth line)) 0 lines
 
   interface IVisualizable with
     member _.BlockAddress with get() = blk.BlockAddress

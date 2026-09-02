@@ -31,10 +31,10 @@ open B2R2
 open B2R2.MiddleEnd.BinGraph
 
 /// TODO: move all constants in this project into a separate module.
-let [<Literal>] private StubMargin = 30.0
+let [<Literal>] private StubMargin = Constants.StubMargin
 
 /// Minimum separation between parallel backward edge rails.
-let [<Literal>] private EdgeOffset = 4.0
+let [<Literal>] private EdgeOffset = Constants.EdgeOffset
 
 /// If the number of incoming/outgoing edges of a layer exceeds this threshold,
 /// then we expand the layer's height.

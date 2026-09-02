@@ -47,9 +47,8 @@ let rec private addDummy g (backEdges, dummies) k parWidth src dst e cnt =
       if edge.IsBackEdge then (dst, src, edge) :: backEdges else backEdges
     backEdges, dummies
   else
-    let vNode = VisBBlock(src.VData, true)
+    let vNode = VisBBlock(src.VData, parWidth)
     let dummy = g.AddVertex vNode
-    dummy.VData.Width <- parWidth
     VisGraph.setLayer dummy <| VisGraph.getLayer src + 1
     let edge = VisEdge e.Type
     edge.IsBackEdge <- e.IsBackEdge

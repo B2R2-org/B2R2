@@ -6,6 +6,7 @@
 
   <ItemGroup>
     <Compile Include="TestHelper.fs" />
+    <Compile Include="VisBBlock.Tests.fs" />
     <Compile Include="VisGraph.Tests.fs" />
     <Compile Include="CoordAssignment.Tests.fs" />
     <Compile Include="Visualizer.Tests.fs" />

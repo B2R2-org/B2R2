@@ -28,17 +28,19 @@ open B2R2
 open B2R2.FrontEnd.BinLifter
 open B2R2.MiddleEnd.ControlFlowGraph
 
-/// A minimal basic block standing in for a real one, carrying nothing but the
-/// address that names it.
-type FakeBlock(addr: Addr) =
+/// A minimal basic block standing in for a real one, showing the one line of
+/// text it is made with, so that what it measures is the test's to say.
+type FakeBlock(addr: Addr, text: string) =
+  /// Creates a block whose one line names the address it stands at.
+  new(addr) = FakeBlock(addr, $"blk{addr}")
+
   interface IVisualizable with
     member _.BlockAddress with get() = addr
 
     member _.LineAddrRanges with get() = [| { Min = addr; Max = addr } |]
 
     member _.Visualize() =
-      let value = $"blk{addr}"
-      [| [| { AsmWordKind = AsmWordKind.String; AsmWordValue = value } |] |]
+      [| [| { AsmWordKind = AsmWordKind.String; AsmWordValue = text } |] |]
 
   interface IAddressable with
     member _.PPoint with get() = ProgramPoint(addr, 0)
@@ -55,4 +57,22 @@ type PlainBlock(addr: Addr) =
 
     member _.Visualize() =
       let value = $"plain{addr}"
+      [| [| { AsmWordKind = AsmWordKind.String; AsmWordValue = value } |] |]
+
+/// A block that counts how many times it is asked to visualize itself, so
+/// that work done on a block nothing shows can be told from work not done.
+type CountingBlock(addr: Addr) =
+  let mutable visualizeCount = 0
+
+  /// Gets how many times this block has been visualized.
+  member _.VisualizeCount with get() = visualizeCount
+
+  interface IVisualizable with
+    member _.BlockAddress with get() = addr
+
+    member _.LineAddrRanges with get() = [| { Min = addr; Max = addr } |]
+
+    member _.Visualize() =
+      visualizeCount <- visualizeCount + 1
+      let value = $"count{addr}"
       [| [| { AsmWordKind = AsmWordKind.String; AsmWordValue = value } |] |]

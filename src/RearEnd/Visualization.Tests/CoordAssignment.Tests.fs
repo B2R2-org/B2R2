@@ -32,18 +32,20 @@ open B2R2.RearEnd.Visualization
 type CoordAssignmentTests() =
   let g = VisGraph.init ()
 
-  /// Adds a real vertex of the given width, standing at the given x position.
-  let realVertex addr x width =
-    let v = g.AddVertex(VisBBlock(FakeBlock addr, 7.5, 14.0, false))
-    v.VData.Width <- width
+  /// Adds a real vertex standing at the given x, showing a line of the given
+  /// number of characters. A character is one wide here, so the count is that
+  /// line's share of the node's width.
+  let realVertex addr x chars =
+    let text = System.String('x', chars)
+    let v = g.AddVertex(VisBBlock(FakeBlock(addr, text), 1.0, 1.0))
     v.VData.Coordinate.X <- x
     v
 
   /// Adds a real vertex as `realVertex` does, noting its x position in the
   /// given map, so that a layout and the coordinates of its vertices are built
   /// together.
-  let place (xs: CoordAssignment.FloatMap) addr x width =
-    let v = realVertex addr x width
+  let place (xs: CoordAssignment.FloatMap) addr x chars =
+    let v = realVertex addr x chars
     xs[v] <- x
     v
 
@@ -52,11 +54,10 @@ type CoordAssignmentTests() =
   /// Layer 0 spans 0..210, layer 1 spans 5..15, and layer 2 spans 0..110.
   let buildLayout () =
     let xs = CoordAssignment.FloatMap()
-    let wide = [| place xs 0x1000UL 0.0 10.0; place xs 0x1001UL 200.0 10.0 |]
-    let narrow = [| place xs 0x2000UL 5.0 10.0 |]
-    let middling =
-      [| place xs 0x3000UL 0.0 10.0; place xs 0x3001UL 100.0 10.0 |]
-    [| wide; narrow; middling |], xs
+    let wide = [| place xs 0x1000UL 0.0 10; place xs 0x1001UL 200.0 10 |]
+    let narrow = [| place xs 0x2000UL 5.0 10 |]
+    let middling = [| place xs 0x3000UL 0.0 10; place xs 0x3001UL 100.0 10 |]
+    [| wide; narrow; middling |], xs, narrow[0]
 
   let boundOf vLayout xs hDir =
     let bound, _, _ = CoordAssignment.getBound vLayout (xs, hDir)
@@ -64,18 +65,20 @@ type CoordAssignmentTests() =
 
   [<TestMethod>]
   member _.``getBound reads the left edge of the narrowest layer``() =
-    let vLayout, xs = buildLayout ()
+    let vLayout, xs, _ = buildLayout ()
     Assert.AreEqual<float>(5.0, boundOf vLayout xs CoordAssignment.Leftmost)
 
   [<TestMethod>]
   member _.``getBound reads the right edge of the narrowest layer``() =
-    let vLayout, xs = buildLayout ()
-    Assert.AreEqual<float>(15.0, boundOf vLayout xs CoordAssignment.Rightmost)
+    let vLayout, xs, narrow = buildLayout ()
+    let hDir = CoordAssignment.Rightmost
+    let expected = 5.0 + narrow.VData.Width
+    Assert.AreEqual<float>(expected, boundOf vLayout xs hDir)
 
   [<TestMethod>]
   member _.``averageMedian centres the median of the alignments``() =
-    let a = g.AddVertex(VisBBlock(FakeBlock 0x1000UL, 7.5, 14.0, false))
-    let b = g.AddVertex(VisBBlock(FakeBlock 0x2000UL, 7.5, 14.0, false))
+    let a = g.AddVertex(VisBBlock(FakeBlock 0x1000UL, 7.5, 14.0))
+    let b = g.AddVertex(VisBBlock(FakeBlock 0x2000UL, 7.5, 14.0))
     let alignment (xa, xb) =
       let xs = CoordAssignment.FloatMap()
       xs[a] <- xa
@@ -94,20 +97,22 @@ type CoordAssignmentTests() =
 
   [<TestMethod>]
   member _.``adjustCoordinates centres the real vertices``() =
-    let a = realVertex 0x1000UL 0.0 10.0
-    let b = realVertex 0x2000UL 100.0 20.0
+    let a = realVertex 0x1000UL 0.0 10
+    let b = realVertex 0x2000UL 100.0 10
     (* Both stand in one layer, which the singleton pull leaves alone. They
-       span 0 to 120, so everything shifts left by that span's midpoint. *)
+       span from a's left edge to b's right one, and everything shifts left by
+       the midpoint of that span. *)
+    let shift = (100.0 + b.VData.Width) / 2.0
     CoordAssignment.adjustCoordinates g [| [| a; b |] |]
-    Assert.AreEqual<float>(-60.0, a.VData.Coordinate.X)
-    Assert.AreEqual<float>(40.0, b.VData.Coordinate.X)
+    Assert.AreEqual<float>(-shift, a.VData.Coordinate.X)
+    Assert.AreEqual<float>(100.0 - shift, b.VData.Coordinate.X)
 
   [<TestMethod>]
   member _.``adjustCoordinates takes a graph of nothing but dummies``() =
     (* A dummy has no width to be measured by, so a graph of nothing else has
        no extent to be centred on. *)
-    let a = g.AddVertex(VisBBlock(FakeBlock 0x1000UL, true))
-    let b = g.AddVertex(VisBBlock(FakeBlock 0x2000UL, true))
+    let a = g.AddVertex(VisBBlock(FakeBlock 0x1000UL, 0.0))
+    let b = g.AddVertex(VisBBlock(FakeBlock 0x2000UL, 0.0))
     g.AddEdge(a, b, VisEdge CFGEdgeKind.FallThroughEdge)
     VisGraph.setLayer a 0
     VisGraph.setLayer b 1
