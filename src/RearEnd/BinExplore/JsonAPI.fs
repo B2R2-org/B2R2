@@ -65,9 +65,7 @@ let getDisasmCFG arbiter (functionString: string) cwString chString =
   let cw = toDouble cwString Visualizer.CharWidth
   let ch = toDouble chString Visualizer.CharHeight
   API.getDisasmCFG arbiter fnAddr cw ch
-  |> Result.map (fun g ->
-    let roots = g.Roots |> List.ofArray
-    JSONExport.toStr roots g)
+  |> Result.map JSONExport.toStr
   |> toJson
 
 let getLowUIRCFG arbiter (functionString: string) cwString chString =
@@ -75,9 +73,7 @@ let getLowUIRCFG arbiter (functionString: string) cwString chString =
   let cw = toDouble cwString Visualizer.CharWidth
   let ch = toDouble chString Visualizer.CharHeight
   API.getLowUIRCFG arbiter fnAddr cw ch
-  |> Result.map (fun g ->
-    let roots = g.Roots |> List.ofArray
-    JSONExport.toStr roots g)
+  |> Result.map JSONExport.toStr
   |> toJson
 
 let getSSACFG arbiter (functionString: string) cwString chString =
@@ -85,16 +81,12 @@ let getSSACFG arbiter (functionString: string) cwString chString =
   let cw = toDouble cwString Visualizer.CharWidth
   let ch = toDouble chString Visualizer.CharHeight
   API.getSSACFG arbiter fnAddr cw ch
-  |> Result.map (fun g ->
-    let roots = g.Roots |> List.ofArray
-    JSONExport.toStr roots g)
+  |> Result.map JSONExport.toStr
   |> toJson
 
 let getCallCFG arbiter =
   API.getCallCFG arbiter
-  |> Result.map (fun g ->
-    let roots = g.Roots |> List.ofArray
-    JSONExport.toStr roots g)
+  |> Result.map JSONExport.toStr
   |> toJson
 
 let getFunctions arbiter isInternal =

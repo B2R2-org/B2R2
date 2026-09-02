@@ -9,6 +9,7 @@
     <Compile Include="VisGraph.Tests.fs" />
     <Compile Include="CoordAssignment.Tests.fs" />
     <Compile Include="Visualizer.Tests.fs" />
+    <Compile Include="JSONExport.Tests.fs" />
   </ItemGroup>
 
   <ItemGroup>

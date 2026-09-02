@@ -77,11 +77,9 @@ module JSONExport =
     visualizableAsm
     |> Array.map (Array.map AsmWord.ToStringArray)
 
-  let private ofVisGraph (g: VisGraph) (roots: IVertex<_> list) =
+  let private ofVisGraph (g: VisGraph) =
     let roots =
-      roots
-      |> List.map (fun r -> (r.VData :> IVisualizable).BlockAddress)
-      |> List.toArray
+      g.Roots |> Array.map (fun r -> (r.VData :> IVisualizable).BlockAddress)
     let nodes =
       g |> DiGraph.foldVertex (fun acc v ->
         let vData = v.VData :> IVisualizable
@@ -101,10 +99,16 @@ module JSONExport =
       |> List.toArray
     { Roots = roots; Nodes = nodes; Edges = edges }
 
-  let toStr roots g =
-    ofVisGraph g roots
+  /// Renders the given laid-out graph as the JSON a viewer reads. What the
+  /// graph is rooted at rides along in it, so there is nothing to say about
+  /// the roots that the graph does not already answer.
+  let toStr g =
+    ofVisGraph g
     |> JsonSerializer.Serialize
 
-  let toFile path roots g =
-    let jsonStr = toStr roots g
+  /// Writes the JSON of the given laid-out graph to the given path. Nothing in
+  /// the repository calls this; it is here for dumping a graph by hand when a
+  /// layout wants looking at.
+  let toFile path g =
+    let jsonStr = toStr g
     File.WriteAllText(path, jsonStr, Encoding.UTF8)

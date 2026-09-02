@@ -43,12 +43,15 @@ let private convert iGraph charWidth charHeight =
   vGraph
 
 /// Converts the given graph to JSON format, raising whatever laying it out
-/// runs into.
-let toJSON (iGraph: IDiGraph<_, _>) roots charWidth charHeight =
+/// runs into. A graph of no vertices answers the same shape as any other, so
+/// that a reader never has two of them to tell apart. Nothing in the
+/// repository calls this; it is here for dumping a graph by hand when a layout
+/// wants looking at.
+let toJSON (iGraph: IDiGraph<_, _>) charWidth charHeight =
   if iGraph.VertexCount = 0 then
-    "{}"
+    JSONExport.toStr (VisGraph.init ())
   else
-    convert iGraph charWidth charHeight |> JSONExport.toStr roots
+    convert iGraph charWidth charHeight |> JSONExport.toStr
 
 /// Converts the given graph to a VisGraph for visualization, raising whatever
 /// laying it out runs into.
