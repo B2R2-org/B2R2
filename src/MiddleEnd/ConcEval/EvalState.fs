@@ -114,7 +114,10 @@ type EvalState(regs, temps, lbls, mem, ignoreUndef) =
   member _.ExternalCallEventHandler
     with get() = externalCallEventHdl and set(f) = externalCallEventHdl <- f
 
-  /// Side-effect event handler.
+  /// Side-effect event handler. A handler that does not terminate the current
+  /// instruction on its own leaves the evaluator to terminate it and advance
+  /// the PC past the instruction; a handler that sets the PC itself must call
+  /// `AbortInstr()` to keep it.
   member _.SideEffectEventHandler
     with get() = sideEffectHdl and set(f) = sideEffectHdl <- f
 

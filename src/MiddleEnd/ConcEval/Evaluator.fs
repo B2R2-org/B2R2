@@ -219,3 +219,4 @@ let evalStmt (st: EvalState) stmt =
     st.OnExternalCall(evalArgs st args, st) |> st.NextStmt
   | SideEffect(eff, _) ->
     st.OnSideEffect(eff, st)
+    if st.IsInstrTerminated then () else st.AbortInstr true

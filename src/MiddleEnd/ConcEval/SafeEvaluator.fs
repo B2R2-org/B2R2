@@ -242,4 +242,6 @@ let evalStmt (st: EvalState) stmt =
     evalArgs st args
     |> Result.map (fun args -> st.OnExternalCall(args, st) |> st.NextStmt)
   | SideEffect(eff, _) ->
-    st.OnSideEffect(eff, st) |> ignore |> Ok
+    st.OnSideEffect(eff, st)
+    if st.IsInstrTerminated then () else st.AbortInstr true
+    Ok()
