@@ -98,7 +98,7 @@ module internal Operands =
   /// instance serves every instruction that names the register, and a fresh
   /// one per register operand was an allocation for a value that never
   /// changes.
-  let private oprRegs =
+  let oprRegs =
     let regs = System.Enum.GetValues typeof<Register> :?> Register[]
     Array.init ((regs |> Array.map int |> Array.max) + 1) (fun i ->
       OprReg(LanguagePrimitives.EnumOfValue<int, Register> i))
