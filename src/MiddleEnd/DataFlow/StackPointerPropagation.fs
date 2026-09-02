@@ -32,21 +32,11 @@ open B2R2.MiddleEnd.ControlFlowGraph
 
 /// Performs sparse stack pointer propagation over the LowUIR representation.
 type StackPointerPropagation(hdl: BinHandle, vs) =
-  let initialStackPointerValue =
-    hdl.RegisterFactory.StackPointer
-    |> Option.get
-    |> hdl.RegisterFactory.GetRegType
-    |> fun rt -> BitVector(Constants.InitialStackPointer, rt)
-    |> StackPointerDomain.ConstSP
-
-  let isStackPointer rid =
-    match hdl.RegisterFactory.StackPointer with
-    | Some spRid -> rid = spRid
-    | None -> false
+  let spInitial = LowUIRStackPointer.initialValue hdl
 
   let getBaseCase varKind =
-    match varKind with
-    | Regular rid when isStackPointer rid -> initialStackPointerValue
+    match spInitial with
+    | Some(stackVar, c) when varKind = stackVar -> c
     | _ -> StackPointerDomain.Undef
 
   let rec evaluateExpr (state: LowUIRSparseDataFlow.State<_>) pp e =
