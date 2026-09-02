@@ -214,8 +214,10 @@ let rec placeBlock vLayout hDir root align sink shift (xs: FloatMap) maxW v =
 and updateBlock vLayout hDir root (align: VertexMap) sink shift xs maxW v w =
   let vertices = (vLayout: IVertex<_>[][])[VisGraph.getLayer w]
   if inBound w vertices.Length hDir then
-    let idx = Array.findIndex (fun v -> v = w) vertices
-    let pred = getPred vertices idx hDir
+    (* A vertex's index is its place in its layer, which is what `inBound`
+       just read it for; scanning the layer to find that place again would be
+       a generic comparison per vertex for an answer already at hand. *)
+    let pred = getPred vertices (VisGraph.getIndex w) hDir
     let u = (root: VertexMap)[pred]
     let delta = getDelta maxW u v hDir
     placeBlock vLayout hDir root align sink shift xs maxW u

@@ -119,3 +119,24 @@ type CoordAssignmentTests() =
     CoordAssignment.adjustCoordinates g [| [| a |]; [| b |] |]
     Assert.AreEqual<float>(0.0, a.VData.Coordinate.X)
     Assert.AreEqual<float>(0.0, b.VData.Coordinate.X)
+
+  [<TestMethod>]
+  member _.``the layout indexes every vertex by its place in its layer``() =
+    (* The coordinate assignment reads a vertex's index for its place in its
+       layer, so this is what the layout owes it. *)
+    let mk addr layer =
+      let v = g.AddVertex(VisBBlock(FakeBlock addr, 1.0, 1.0))
+      VisGraph.setLayer v layer
+      v
+    let a = mk 0x1000UL 0
+    let b = mk 0x2000UL 1
+    let c = mk 0x3000UL 1
+    let d = mk 0x4000UL 2
+    let edge () = VisEdge CFGEdgeKind.FallThroughEdge
+    g.AddEdge(a, b, edge ())
+    g.AddEdge(a, c, edge ())
+    g.AddEdge(b, d, edge ())
+    g.AddEdge(c, d, edge ())
+    for layer in CrossMinimization.run g do
+      for i in 0 .. layer.Length - 1 do
+        Assert.AreEqual<int>(i, layer[i].VData.Index)

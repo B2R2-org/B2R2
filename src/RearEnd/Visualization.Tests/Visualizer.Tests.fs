@@ -52,3 +52,27 @@ type VisualizerTests() =
       Visualizer.toVisGraph (g :> IDiGraph<_, _>) charWidth charHeight
       |> ignore)
     |> ignore
+
+  [<TestMethod>]
+  member _.``toVisGraph lays a layer out without overlap``() =
+    (* The long edge from a to d is what puts a dummy between the layers and
+       sends the coordinate pass through its block placement. *)
+    let g = emptyGraph ()
+    let a = g.AddVertex(PlainBlock 0x1000UL)
+    let b = g.AddVertex(PlainBlock 0x2000UL)
+    let c = g.AddVertex(PlainBlock 0x3000UL)
+    let d = g.AddVertex(PlainBlock 0x4000UL)
+    let edge = CFGEdgeKind.FallThroughEdge
+    for src, dst in [ a, b; a, c; b, d; c, d; a, d ] do
+      g.AddEdge(src, dst, edge)
+    g.SetRoots [ a ]
+    let vGraph = Visualizer.toVisGraph (g :> IDiGraph<_, _>) 7.5 14.0
+    Assert.AreEqual<int>(4, vGraph.VertexCount)
+    for _, layer in Array.groupBy VisGraph.getLayer vGraph.Vertices do
+      let sorted = Array.sortBy VisGraph.getXPos layer
+      for i in 0 .. sorted.Length - 2 do
+        let left = sorted[i]
+        let right = sorted[i + 1]
+        let rightEdgeOfLeft = VisGraph.getXPos left + VisGraph.getWidth left
+        let gap = VisGraph.getXPos right - rightEdgeOfLeft
+        Assert.AreEqual<bool>(true, gap >= 0.0, $"nodes overlap by {-gap}")
