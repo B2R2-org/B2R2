@@ -24,15 +24,34 @@
 
 namespace B2R2.MiddleEnd.ConcEval.Tests
 
+open System
 open Microsoft.VisualStudio.TestTools.UnitTesting
 open B2R2
 open B2R2.FrontEnd
+open B2R2.MiddleEnd.Executor
 open B2R2.MiddleEnd.ConcEval
 
 [<TestClass>]
 type ConcExecutorTests() =
   let loadRawImage (bytes: byte[]) arch (ws: WordSize) =
     BinHandle.LoadRawImage(bytes, ISA(arch, ws), OS.Linux)
+
+  (* mul rax : the lifter marks SF as undefined *)
+  let mulBytes = [| 0x48uy; 0xf7uy; 0xe0uy |]
+
+  let runMulWithPresetSF policy =
+    let hdl = loadRawImage mulBytes Architecture.Intel WordSize.Bit64
+    let exec = ConcExecutor hdl
+    let sf = hdl.RegisterFactory.GetRegisterID "SF"
+    let st =
+      exec.CreateState { Memory = BinSectionBackedMemory
+                         Registers = [| sf, BitVector.One 1<rt> |] }
+    let opts =
+      { ConcRunOptions.Default [] with
+          MaxInstructions = 1
+          UndefinedValues = policy }
+    exec.Run(0UL, st, opts) |> ignore
+    st.TryGetReg sf
 
   let runOneInstruction (hdl: BinHandle) =
     let exec = ConcExecutor hdl
@@ -108,3 +127,35 @@ type ConcExecutorTests() =
     match st.TryGetReg(hdl.RegisterFactory.GetRegisterID "RBX") with
     | Def v -> Assert.AreEqual<uint64>(0UL, v.ToUInt64())
     | Undef -> Assert.Fail "RBX was not materialized."
+
+  [<TestMethod>]
+  member _.``Undefined writes leave the target undefined``() =
+    match runMulWithPresetSF PreserveUndefinedValues with
+    | Undef ->
+      ()
+    | Def v ->
+      Assert.Fail $"SF kept a stale value {v}."
+
+  [<TestMethod>]
+  member _.``Ignored undefined writes keep the previous value``() =
+    match runMulWithPresetSF IgnoreUndefinedWrites with
+    | Def v ->
+      Assert.AreEqual<uint64>(1UL, v.ToUInt64())
+    | Undef ->
+      Assert.Fail "SF was unset."
+
+  [<TestMethod>]
+  member _.``Call hooks report themselves as unimplemented``() =
+    (* call rel32 0 ; nop *)
+    let bytes = [| 0xe8uy; 0x00uy; 0x00uy; 0x00uy; 0x00uy; 0x90uy |]
+    let hdl = loadRawImage bytes Architecture.Intel WordSize.Bit64
+    let exec = ConcExecutor hdl
+    let st = exec.CreateState()
+    let opts = { ConcRunOptions.Default [] with Calls = UseCallHooks }
+    let message =
+      try
+        exec.Run(0UL, st, opts) |> ignore
+        ""
+      with :? NotImplementedException as e ->
+        e.Message
+    Assert.AreEqual<bool>(true, message.Contains "UseCallHooks")

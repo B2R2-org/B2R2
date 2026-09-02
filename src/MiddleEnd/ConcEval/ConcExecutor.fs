@@ -24,6 +24,7 @@
 
 namespace B2R2.MiddleEnd.ConcEval
 
+open System
 open B2R2
 open B2R2.ABI
 open B2R2.Collections
@@ -90,16 +91,23 @@ type ConcCallPolicy =
   | StopAtCalls
   /// Follow direct calls whose target is inside the current binary.
   | FollowDirectInternalCalls
-  /// Invoke registered call hooks when a matching target is observed.
+  /// Invoke registered call hooks when a matching target is observed. Not
+  /// implemented yet: the case carries no registry, so there is no way to
+  /// register a hook, and Run raises NotImplementedException at the first call
+  /// instruction.
   | UseCallHooks
 
 /// Represents how concrete execution should handle undefined values.
 type ConcUndefinedValuePolicy =
   /// Treat undefined values as evaluation failures.
   | StopOnUndefinedValue
-  /// Ignore writes whose right-hand side is undefined.
+  /// Ignore writes whose right-hand side is undefined, leaving the target with
+  /// whatever value it held before.
   | IgnoreUndefinedWrites
-  /// Preserve undefined values in the concrete evaluator state.
+  /// Unset the register or temporary that an undefined write targets, so that
+  /// it reads back as undefined instead of keeping a stale value. A store of
+  /// an undefined value is skipped, since IMemory cannot mark a cell
+  /// undefined.
   | PreserveUndefinedValues
 
 /// Represents how concrete execution should handle uninitialized register
@@ -325,18 +333,28 @@ type ConcExecutor(hdl: BinHandle) =
     else
       false
 
+  (* TODO: ConcCallPolicy.UseCallHooks carries no registry, so there is nothing
+     to dispatch yet. Port SymbEval's SymbCallHookRegistry and dispatch the
+     matching hook here instead of evaluating the original call. *)
   let handleCallHooks (opts: ConcRunOptions<EvalState>) (ins: IInstruction) =
     if ins.IsCall then
       match opts.Calls with
-      (*
-        TODO: IExecutor does not yet define how call hooks are registered or
-        dispatched. Once the hook API is available, dispatch the matching hook
-        here instead of lifting and evaluating the original call.
-      *)
-      | UseCallHooks -> Terminator.futureFeature ()
-      | _ -> ()
+      | UseCallHooks ->
+        let msg = "ConcCallPolicy.UseCallHooks is not implemented yet."
+        raise (NotImplementedException msg)
+      | _ ->
+        ()
     else
       ()
+
+  (* A register or temporary with no entry reads back as Undef, so unsetting
+     the target is all it takes to record that it now holds an undefined value.
+     A memory cell has no such encoding: dropping it would expose whatever
+     backs the address underneath, so an undefined store is left alone. *)
+  let unsetUndefTarget (st: EvalState) = function
+    | Put(Var(_, n, _, _), _, _) -> st.UnsetReg n
+    | Put(TempVar(_, n, _), _, _) -> st.UnsetTmp n
+    | _ -> ()
 
   let evalStmt (opts: ConcRunOptions<EvalState>) (st: EvalState) stmt =
     materializeReadRegisters opts st stmt
@@ -346,14 +364,10 @@ type ConcExecutor(hdl: BinHandle) =
     | IgnoreUndefinedWrites when isUndefWrite stmt ->
       st.NextStmt()
       EvalOk
-    (*
-      TODO: EvalState stores only BitVector values, so it cannot remember that
-      a register, temporary, or memory cell currently holds an undefined value.
-      To preserve undefined values, we need to change EvalState's value domain
-      or track undefined registers/memory locally in ConcExecutor.
-    *)
     | PreserveUndefinedValues when isUndefWrite stmt ->
-      Terminator.futureFeature ()
+      unsetUndefTarget st stmt
+      st.NextStmt()
+      EvalOk
     | _ ->
       match SafeEvaluator.evalStmt st stmt with
       | Ok() -> EvalOk
