@@ -94,7 +94,19 @@ module internal Operands =
 
   let inline getRM (byte: byte) = (int byte) &&& 0b111
 
-  let inline getSTReg n = RegisterHelper.streg n |> OprReg
+  /// OprReg r for every register, made once. An operand is immutable, so one
+  /// instance serves every instruction that names the register, and a fresh
+  /// one per register operand was an allocation for a value that never
+  /// changes.
+  let private oprRegs =
+    let regs = System.Enum.GetValues typeof<Register> :?> Register[]
+    Array.init ((regs |> Array.map int |> Array.max) + 1) (fun i ->
+      OprReg(LanguagePrimitives.EnumOfValue<int, Register> i))
+
+  /// The register operand naming the given register.
+  let inline oprReg (r: Register) = oprRegs[int r]
+
+  let inline getSTReg n = RegisterHelper.streg n |> oprReg
 
   let inline modIsMemory b = (getMod b) <> 0b11
 

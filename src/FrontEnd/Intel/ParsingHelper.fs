@@ -48,7 +48,6 @@ type internal ParsingHelper(reader: IBinReader,
   let mutable operationSz = 0<rt>
   let mutable tupleType = TupleType.NA
   let mutable bcstSz = 0<rt>
-  let mutable opcodeClass = OpcodeClass.Normal OpcodeMap.OneByte
   let mutable isFar = false
 
   new(reader, wordSz, lifter) =
@@ -74,8 +73,6 @@ type internal ParsingHelper(reader: IBinReader,
   /// REX.W cannot stand in for this: an FP16 element is 16 bits wide with
   /// either setting of W.
   member _.BroadcastSize with get() = bcstSz and set s = bcstSz <- s
-  member _.OpcodeClass
-    with get(): OpcodeClass = opcodeClass and set c = opcodeClass <- c
   member _.Lifter with get(): ILiftable = lifter
   member _.IsFar with get() = isFar and set f = isFar <- f
 

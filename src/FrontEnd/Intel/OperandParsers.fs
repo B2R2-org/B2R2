@@ -25,6 +25,7 @@
 [<RequireQualifiedAccess>]
 module internal B2R2.FrontEnd.Intel.OperandParsers
 
+open System
 open B2R2
 open B2R2.FrontEnd.BinLifter
 open B2R2.FrontEnd.Intel.RegGroup
@@ -179,23 +180,32 @@ type RegGrp =
 
 open type RegGrp
 
-/// Find a specific reg. The bitmask will be used to extract a specific REX
-/// bit (R/X/B).
-/// The register of the given width at the given index. Vector registers go
-/// through the helpers because 16 to 31 sit outside the 0 to 15 run.
+/// The register of the given width at the given index. The general-purpose
+/// widths come first, being asked for most; the vector registers go through
+/// the helpers because 16 to 31 sit outside the 0 to 15 run.
 let inline private regOfIndex sz (n: int) =
   match sz with
+  | 32<rt> -> int R.EAX + n |> LanguagePrimitives.EnumOfValue<int, Register>
+  | 64<rt> -> int R.RAX + n |> LanguagePrimitives.EnumOfValue<int, Register>
+  | 8<rt> -> int R.AL + n |> LanguagePrimitives.EnumOfValue<int, Register>
+  | 16<rt> -> int R.AX + n |> LanguagePrimitives.EnumOfValue<int, Register>
   | 128<rt> -> RegisterHelper.xmm n
   | 256<rt> -> RegisterHelper.ymm n
   | 512<rt> -> RegisterHelper.zmm n
-  | _ -> int (grpEAX sz) + n |> LanguagePrimitives.EnumOfValue<int, Register>
+  | _ -> raise ParsingFailureException
 
+/// Find a specific reg. The bitmask will be used to extract a specific REX
+/// bit (R/X/B). The index is settled first and mapped to a register once:
+/// mapping it on every branch had the compiler split the match into
+/// continuation methods, and a call for every register read.
 let inline private findReg sz rex bitmask (n: int) =
-  if rex = REXPrefix.NOREX then regOfIndex sz n
-  elif (int rex &&& bitmask) > 0 then regOfIndex sz (n + 8)
-  elif sz > 8<rt> || ((n &&& 4) = 0) then regOfIndex sz n
-  (* SPL/BPL/SIL/DIL displace AH/CH/DH/BH once a REX byte is present. *)
-  else regOfIndex sz (n + 12)
+  let n =
+    if rex = REXPrefix.NOREX then n
+    elif (int rex &&& bitmask) > 0 then n + 8
+    elif sz > 8<rt> || ((n &&& 4) = 0) then n
+    (* SPL/BPL/SIL/DIL displace AH/CH/DH/BH once a REX byte is present. *)
+    else n + 12
+  regOfIndex sz n
 
 /// Registers defined by the SIB index field.
 let findRegSIBIdx sz rex (n: int) = findReg sz rex 2 n
@@ -219,20 +229,46 @@ let findRegIS4 wordSize sz (n: int) =
 /// make use of its opcode to represent the REG bit. REX bits *cannot* change
 /// the symbol.
 let findRegNoREX sz rex (n: int): Register =
-  let r = int (grpEAX sz) + n
-  let r =
-    if rex = REXPrefix.NOREX then
-      r
-    else
-      if sz > 8<rt> || ((n &&& 4) = 0) then r
-      else r + 12
-  LanguagePrimitives.EnumOfValue<int, Register> r
+  let n =
+    if rex = REXPrefix.NOREX then n
+    elif sz > 8<rt> || ((n &&& 4) = 0) then n
+    else n + 12
+  regOfIndex sz n
 
 let inline getOprFromRegGrpNoREX rgrp (phlp: ParsingHelper) =
-  findRegNoREX phlp.RegSize phlp.REXPrefix rgrp |> OprReg
+  findRegNoREX phlp.RegSize phlp.REXPrefix rgrp |> Operands.oprReg
 
 let inline getOprFromRegGrpREX rgrp (phlp: ParsingHelper) =
-  findRegRmAndSIBBase phlp.RegSize phlp.REXPrefix rgrp |> OprReg
+  findRegRmAndSIBBase phlp.RegSize phlp.REXPrefix rgrp |> Operands.oprReg
+
+/// Some r for every register, made once. A memory operand names its base
+/// register through an option, and a fresh one for every operand was a heap
+/// allocation for a value that never changes.
+let private someRegs =
+  let regs = Enum.GetValues typeof<Register> :?> Register[]
+  Array.init ((regs |> Array.map int |> Array.max) + 1) (fun i ->
+    Some(LanguagePrimitives.EnumOfValue<int, Register> i))
+
+let inline private someReg (r: Register) = someRegs[int r]
+
+/// Some (r, scale) for every register and scale, made once for the same
+/// reason. Indexed by the two-bit SIB.scale field, then by the register.
+let private someScaledIndexes =
+  Array.init 4 (fun s ->
+    someRegs
+    |> Array.mapi (fun i _ ->
+      let r: Register = LanguagePrimitives.EnumOfValue i
+      Some(r, LanguagePrimitives.EnumOfValue<int, Scale>(1 <<< s))))
+
+let inline private someScaledIndex (r: Register) s = someScaledIndexes[s][int r]
+
+/// Some d for every displacement a byte can hold, made once. Most memory
+/// operands carry one, and a fresh option per operand was an allocation for
+/// one of 256 values.
+let private someDisp8 = Array.init 256 (fun i -> Some(int64 (i - 128)))
+
+let inline private someDisp (d: int64) =
+  if d >= -128L && d <= 127L then someDisp8[int d + 128] else Some d
 
 let parseSignedImm span (phlp: ParsingHelper) = function
   | 1 -> phlp.ReadInt8 span |> int64
@@ -350,21 +386,21 @@ let parseOprMem span (phlp: ParsingHelper) b s dispSz =
     | 1, _ ->
       let disp = parseSignedImm span phlp dispSz
       let disp, memSz = uncompressedDisp phlp disp
-      OprMem(b, s, Some disp, memSz)
+      OprMem(b, s, someDisp disp, memSz)
     | 4, true ->
       let disp = parseSignedImm span phlp dispSz
       let memSz = broadcastElemSize phlp
-      OprMem(b, s, Some disp, memSz)
+      OprMem(b, s, someDisp disp, memSz)
     | _, _ ->
       let disp = parseSignedImm span phlp dispSz
-      OprMem(b, s, Some disp, memSz)
+      OprMem(b, s, someDisp disp, memSz)
   else
     match dispSz with
     | 0 ->
       OprMem(b, s, None, memSz)
     | _ ->
       let disp = parseSignedImm span phlp dispSz
-      OprMem(b, s, Some disp, memSz)
+      OprMem(b, s, someDisp disp, memSz)
 
 let parseOprImm span (phlp: ParsingHelper) immSize =
 #if LCACHE
@@ -388,33 +424,35 @@ let parseOprSImm span (phlp: ParsingHelper) immSize =
 let parseMEM16 span phlp modRM =
   let m = Operands.getMod modRM
   let rm = Operands.getRM modRM
+  let bx, bp, si, di = someReg R.BX, someReg R.BP, someReg R.SI, someReg R.DI
+  let si1, di1 = someScaledIndex R.SI 0, someScaledIndex R.DI 0
   match (m <<< 3) ||| rm with (* Concatenation of mod and rm bit *)
-  | 0 -> parseOprMem span phlp (Some R.BX) (Some(R.SI, Scale.X1)) 0
-  | 1 -> parseOprMem span phlp (Some R.BX) (Some(R.DI, Scale.X1)) 0
-  | 2 -> parseOprMem span phlp (Some R.BP) (Some(R.SI, Scale.X1)) 0
-  | 3 -> parseOprMem span phlp (Some R.BP) (Some(R.DI, Scale.X1)) 0
-  | 4 -> parseOprMem span phlp (Some R.SI) None 0
-  | 5 -> parseOprMem span phlp (Some R.DI) None 0
+  | 0 -> parseOprMem span phlp bx si1 0
+  | 1 -> parseOprMem span phlp bx di1 0
+  | 2 -> parseOprMem span phlp bp si1 0
+  | 3 -> parseOprMem span phlp bp di1 0
+  | 4 -> parseOprMem span phlp si None 0
+  | 5 -> parseOprMem span phlp di None 0
   | 6 -> parseOprMem span phlp None None 2
-  | 7 -> parseOprMem span phlp (Some R.BX) None 0
+  | 7 -> parseOprMem span phlp bx None 0
   (* Mod 01b *)
-  | 8 -> parseOprMem span phlp (Some R.BX) (Some(R.SI, Scale.X1)) 1
-  | 9 -> parseOprMem span phlp (Some R.BX) (Some(R.DI, Scale.X1)) 1
-  | 10 -> parseOprMem span phlp (Some R.BP) (Some(R.SI, Scale.X1)) 1
-  | 11 -> parseOprMem span phlp (Some R.BP) (Some(R.DI, Scale.X1)) 1
-  | 12 -> parseOprMem span phlp (Some R.SI) None 1
-  | 13 -> parseOprMem span phlp (Some R.DI) None 1
-  | 14 -> parseOprMem span phlp (Some R.BP) None 1
-  | 15 -> parseOprMem span phlp (Some R.BX) None 1
+  | 8 -> parseOprMem span phlp bx si1 1
+  | 9 -> parseOprMem span phlp bx di1 1
+  | 10 -> parseOprMem span phlp bp si1 1
+  | 11 -> parseOprMem span phlp bp di1 1
+  | 12 -> parseOprMem span phlp si None 1
+  | 13 -> parseOprMem span phlp di None 1
+  | 14 -> parseOprMem span phlp bp None 1
+  | 15 -> parseOprMem span phlp bx None 1
   (* Mod 10b *)
-  | 16 -> parseOprMem span phlp (Some R.BX) (Some(R.SI, Scale.X1)) 2
-  | 17 -> parseOprMem span phlp (Some R.BX) (Some(R.DI, Scale.X1)) 2
-  | 18 -> parseOprMem span phlp (Some R.BP) (Some(R.SI, Scale.X1)) 2
-  | 19 -> parseOprMem span phlp (Some R.BP) (Some(R.DI, Scale.X1)) 2
-  | 20 -> parseOprMem span phlp (Some R.SI) None 2
-  | 21 -> parseOprMem span phlp (Some R.DI) None 2
-  | 22 -> parseOprMem span phlp (Some R.BP) None 2
-  | 23 -> parseOprMem span phlp (Some R.BX) None 2
+  | 16 -> parseOprMem span phlp bx si1 2
+  | 17 -> parseOprMem span phlp bx di1 2
+  | 18 -> parseOprMem span phlp bp si1 2
+  | 19 -> parseOprMem span phlp bp di1 2
+  | 20 -> parseOprMem span phlp si None 2
+  | 21 -> parseOprMem span phlp di None 2
+  | 22 -> parseOprMem span phlp bp None 2
+  | 23 -> parseOprMem span phlp bx None 2
   | _ -> raise ParsingFailureException
 
 let inline hasREXX rexPref = rexPref &&& REXPrefix.REXX = REXPrefix.REXX
@@ -425,14 +463,13 @@ let getScaledIndex s i (phlp: ParsingHelper) =
   if i = 0b100 && (not <| hasREXX rexPref) then
     None
   else
-    let r = findRegSIBIdx phlp.MemEffAddrSize rexPref i
-    Some(r, LanguagePrimitives.EnumOfValue<int, Scale>(1 <<< s))
+    someScaledIndex (findRegSIBIdx phlp.MemEffAddrSize rexPref i) s
 
 /// See Notes 1 of Table 2-3 of the manual Vol. 2A
 let getSIBBaseReg b (phlp: ParsingHelper) modVal =
   let rexPref = phlp.REXPrefix
   if b = int RegGrp.RG5 && modVal = 0b00uy then None
-  else Some(findRegRmAndSIBBase phlp.MemEffAddrSize rexPref b)
+  else someReg (findRegRmAndSIBBase phlp.MemEffAddrSize rexPref b)
 
 let inline private getSIB b =
   struct ((b >>> 6) &&& 0b11, (b >>> 3) &&& 0b111, b &&& 0b111)
@@ -444,7 +481,8 @@ let parseSIB span (phlp: ParsingHelper) modVal =
   struct (si, baseReg, b)
 
 let baseRMReg (phlp: ParsingHelper) regGrp =
-  findRegRmAndSIBBase phlp.MemEffAddrSize phlp.REXPrefix (int regGrp) |> Some
+  findRegRmAndSIBBase phlp.MemEffAddrSize phlp.REXPrefix (int regGrp)
+  |> someReg
 
 let sibWithDisp span (phlp: ParsingHelper) b s dispSz memSz =
 #if LCACHE
@@ -461,21 +499,21 @@ let sibWithDisp span (phlp: ParsingHelper) b s dispSz memSz =
     | 1, _ ->
       let disp = parseSignedImm span phlp dispSz
       let disp, memSz = uncompressedDisp phlp disp
-      OprMem(b, s, Some disp, memSz)
+      OprMem(b, s, someDisp disp, memSz)
     | 4, true ->
       let disp = parseSignedImm span phlp dispSz
       let memSz = broadcastElemSize phlp
-      OprMem(b, s, Some disp, memSz)
+      OprMem(b, s, someDisp disp, memSz)
     | _, _ ->
       let disp = parseSignedImm span phlp dispSz
-      OprMem(b, s, Some disp, memSz)
+      OprMem(b, s, someDisp disp, memSz)
   else
     match dispSz with
     | 0 ->
       OprMem(b, s, None, memSz)
     | _ ->
       let disp = parseSignedImm span phlp dispSz
-      OprMem(b, s, Some disp, memSz)
+      OprMem(b, s, someDisp disp, memSz)
 
 let parseOprMemWithSIB span phlp modVal dispSz =
   let struct (si, b, bgrp) = parseSIB span phlp modVal
@@ -495,8 +533,7 @@ let parseOprMemWithSIB span phlp modVal dispSz =
 /// exception for ESP), so the index operand is always present.
 let getScaledIndexVSIB s i vl (phlp: ParsingHelper) =
   let i = i + REXPrefix.highBit (REXPrefix.hasEVEXV phlp.REXPrefix)
-  let r = findRegSIBIdx vl phlp.REXPrefix i
-  Some(r, LanguagePrimitives.EnumOfValue<int, Scale>(1 <<< s))
+  someScaledIndex (findRegSIBIdx vl phlp.REXPrefix i) s
 
 let parseSIBForVSIB span (phlp: ParsingHelper) modVal vl =
   let struct (s, i, b) = phlp.ReadByte span |> int |> getSIB
@@ -522,9 +559,9 @@ let parseOprMemVSIB span (phlp: ParsingHelper) modVal vl =
 let parseOprRIPRelativeMem span (phlp: ParsingHelper) disp =
   if phlp.WordSize = WordSize.Bit64 then
     if Prefix.hasAddrSz phlp.Prefixes then
-      parseOprMem span phlp (Some R.EIP) None disp
+      parseOprMem span phlp (someReg R.EIP) None disp
     else
-      parseOprMem span phlp (Some R.RIP) None disp
+      parseOprMem span phlp (someReg R.RIP) None disp
   else
     parseOprMem span phlp None None disp
 
@@ -587,7 +624,7 @@ let findRegRM modRM (phlp: ParsingHelper) =
 
 let parseMemOrReg modRM span (phlp: ParsingHelper) =
   if modRM &&& 0b11000000uy = 0b11000000uy then
-    findRegRM modRM phlp |> OprReg
+    findRegRM modRM phlp |> Operands.oprReg
   else
     parseMemory modRM span phlp
 
@@ -604,9 +641,9 @@ let parseVVVVReg (phlp: ParsingHelper) =
       int vInfo.VVVV
       + REXPrefix.highBit (REXPrefix.hasEVEXV phlp.REXPrefix)
     match phlp.RegSize with
-    | 512<rt> -> RegisterHelper.zmm n |> OprReg
-    | 256<rt> -> RegisterHelper.ymm n |> OprReg
-    | _ -> RegisterHelper.xmm n |> OprReg
+    | 512<rt> -> RegisterHelper.zmm n |> Operands.oprReg
+    | 256<rt> -> RegisterHelper.ymm n |> Operands.oprReg
+    | _ -> RegisterHelper.xmm n |> Operands.oprReg
 
 /// FIXME
 let parseVVVVRegRC isReg (phlp: ParsingHelper) =
@@ -616,12 +653,12 @@ let parseVVVVRegRC isReg (phlp: ParsingHelper) =
   | Some vInfo ->
     match vInfo.EVEXPrx with
     | Some evex when evex.B = 1uy && isReg ->
-      RegisterHelper.zmm (int vInfo.VVVV) |> OprReg
+      RegisterHelper.zmm (int vInfo.VVVV) |> Operands.oprReg
     | _ ->
       match vInfo.VectorLength with
-      | 512<rt> -> RegisterHelper.zmm (int vInfo.VVVV) |> OprReg
-      | 256<rt> -> RegisterHelper.ymm (int vInfo.VVVV) |> OprReg
-      | 128<rt> -> RegisterHelper.xmm (int vInfo.VVVV) |> OprReg
+      | 512<rt> -> RegisterHelper.zmm (int vInfo.VVVV) |> Operands.oprReg
+      | 256<rt> -> RegisterHelper.ymm (int vInfo.VVVV) |> Operands.oprReg
+      | 128<rt> -> RegisterHelper.xmm (int vInfo.VVVV) |> Operands.oprReg
       | _ -> raise ParsingFailureException
 
 let parseVEXtoGPR (phlp: ParsingHelper) =
@@ -632,16 +669,16 @@ let parseVEXtoGPR (phlp: ParsingHelper) =
     let grp = (int vInfo.VVVV) &&& 0b1111
     int (grpEAX phlp.RegSize) + grp
     |> LanguagePrimitives.EnumOfValue<int, Register>
-    |> OprReg
+    |> Operands.oprReg
 
-let parseMMXReg n = RegisterHelper.mm n |> OprReg
+let parseMMXReg n = RegisterHelper.mm n |> Operands.oprReg
 
 let parseSegReg n =
-  if n < 6 then RegisterHelper.seg n |> OprReg
+  if n < 6 then RegisterHelper.seg n |> Operands.oprReg
   else raise ParsingFailureException
 
 let parseBoundRegister n =
-  if n < 4 then RegisterHelper.bound n |> OprReg
+  if n < 4 then RegisterHelper.bound n |> Operands.oprReg
   else raise ParsingFailureException
 
 /// The index a control or debug register move selects its register with: the
@@ -655,11 +692,11 @@ let sysRegIndex modRM (rex: REXPrefix) =
 /// raises #UD rather than selecting a register for it.
 let parseControlReg n =
   match n with
-  | 0 -> OprReg R.CR0
-  | 2 -> OprReg R.CR2
-  | 3 -> OprReg R.CR3
-  | 4 -> OprReg R.CR4
-  | 8 -> OprReg R.CR8
+  | 0 -> Operands.oprReg R.CR0
+  | 2 -> Operands.oprReg R.CR2
+  | 3 -> Operands.oprReg R.CR3
+  | 4 -> Operands.oprReg R.CR4
+  | 8 -> Operands.oprReg R.CR8
   | _ -> raise ParsingFailureException
 
 /// The debug register of the given index. Indices 4 and 5 name DR4 and DR5,
@@ -668,15 +705,15 @@ let parseControlReg n =
 /// upwards, which only REX.R reaches, names nothing: a processor raises #UD.
 let parseDebugReg n =
   match n with
-  | 0 -> OprReg R.DR0
-  | 1 -> OprReg R.DR1
-  | 2 -> OprReg R.DR2
-  | 3 -> OprReg R.DR3
-  | 4 | 6 -> OprReg R.DR6
-  | 5 | 7 -> OprReg R.DR7
+  | 0 -> Operands.oprReg R.DR0
+  | 1 -> Operands.oprReg R.DR1
+  | 2 -> Operands.oprReg R.DR2
+  | 3 -> Operands.oprReg R.DR3
+  | 4 | 6 -> Operands.oprReg R.DR6
+  | 5 | 7 -> Operands.oprReg R.DR7
   | _ -> raise ParsingFailureException
 
-let parseOpMaskReg n = RegisterHelper.opmask n |> OprReg
+let parseOpMaskReg n = RegisterHelper.opmask n |> Operands.oprReg
 
 let parseOprOnlyDisp span (phlp: ParsingHelper) =
   let dispSz = RegType.toByteWidth phlp.MemEffAddrSize
