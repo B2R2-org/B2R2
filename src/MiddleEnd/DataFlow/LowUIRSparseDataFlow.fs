@@ -43,6 +43,8 @@ type State<'Lattice when 'Lattice: equality>
   /// Holds the initial stack pointer value in the stack pointer domain.
   let spInitial = LowUIRStackPointer.initialValue hdl
 
+  let initialValueProvider = RegisterInitialValueProvider.create hdl
+
   /// Caches the statements of every CFG vertex, along with their program
   /// points.
   let stmtCache = LowUIRStmtCache()
@@ -90,7 +92,11 @@ type State<'Lattice when 'Lattice: equality>
   let spGetInitialAbsValue varKind =
     match spInitial with
     | Some(stackVar, c) when varKind = stackVar -> c
-    | _ -> StackPointerDomain.Undef
+    | _ ->
+      match RegisterInitialValueProvider.tryGetInitialVarValue
+              initialValueProvider varKind with
+      | Some bv -> StackPointerDomain.ConstSP bv
+      | None -> StackPointerDomain.Undef
 
   let spGetAbsValue vp =
     match spAbsValues.TryGetValue vp with

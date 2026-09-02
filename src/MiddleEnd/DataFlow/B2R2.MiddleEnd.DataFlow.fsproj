@@ -13,6 +13,8 @@
     <Compile Include="IDataFlowComputable.fs" />
     <Compile Include="ConstantDomain.fs" />
     <Compile Include="StackPointerDomain.fs" />
+    <Compile Include="IRegisterInitialValueProvider.fs" />
+    <Compile Include="RegisterInitialValueProvider.fs" />
     <Compile Include="UntouchedValueDomain.fs" />
     <Compile Include="VarDefDomain.fs" />
     <Compile Include="Stmts.fs" />
