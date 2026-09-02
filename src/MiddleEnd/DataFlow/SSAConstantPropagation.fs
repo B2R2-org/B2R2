@@ -78,34 +78,17 @@ type SSAConstantPropagation(hdl: BinHandle) =
     | MemVar -> ()
     | _ -> state.SetRegValue(var, evalExpr state e)
 
-  let evalPhi (state: State<_>) cfg blk dst srcIDs =
-    match state.GetExecutedSources(cfg, blk, srcIDs) with
-    | [||] ->
-      ()
-    | executedSrcIDs ->
-      match dst.Kind with
-      | MemVar ->
-        ()
-      | _ ->
-        executedSrcIDs
-        |> Array.map (fun i ->
-          { dst with Identifier = i } |> state.GetRegValue)
-        |> Array.reduce ConstantDomain.join
-        |> fun merged -> state.SetRegValue(dst, merged)
-
-  let evalJmp (state: State<_>) cfg blk =
-    state.MarkSuccessorsExecutable(cfg, blk)
+  let isPhiTarget (var: Variable) =
+    match var.Kind with
+    | MemVar -> false
+    | _ -> true
 
   let lattice = ConstantDomain.createLattice ()
 
   let rec scheme =
     { new IScheme<ConstantDomain.Lattice> with
-        member _.Transfer(stmt, ssaCFG, blk) =
-          match stmt with
-          | Def(var, e) -> evalDef state var e
-          | Phi(var, ns) -> evalPhi state ssaCFG blk var ns
-          | Jmp _ -> evalJmp state ssaCFG blk
-          | LMark _ | ExternalCall _ | SideEffect _ -> ()
+        member _.EvalDef(var, e) = evalDef state var e
+        member _.IsPhiTarget var = isPhiTarget var
         member _.ReadMemFromBinaryFile(_rt, _addr) =
           ConstantDomain.NotAConst
         member _.GetBaseCase _ = ConstantDomain.NotAConst

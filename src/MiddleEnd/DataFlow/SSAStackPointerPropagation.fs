@@ -77,34 +77,17 @@ type SSAStackPointerPropagation(hdl: BinHandle) =
     | _ ->
       ()
 
-  let evalPhi (state: State<_>) ssaCFG blk dst srcIDs =
-    match state.GetExecutedSources(ssaCFG, blk, srcIDs) with
-    | [||] ->
-      ()
-    | executedSrcIDs ->
-      match dst.Kind with
-      | RegVar _ | TempVar _ ->
-        executedSrcIDs
-        |> Array.map (fun i ->
-          { dst with Identifier = i } |> state.GetRegValue)
-        |> Array.reduce StackPointerDomain.join
-        |> fun merged -> state.SetRegValue(dst, merged)
-      | _ ->
-        ()
-
-  let evalJmp (state: State<_>) ssaCFG blk =
-    state.MarkSuccessorsExecutable(ssaCFG, blk)
+  let isPhiTarget (var: Variable) =
+    match var.Kind with
+    | RegVar _ | TempVar _ -> true
+    | _ -> false
 
   let lattice = StackPointerDomain.createLattice ()
 
   let rec scheme =
     { new IScheme<StackPointerDomain.Lattice> with
-        member _.Transfer(stmt, ssaCFG, blk) =
-          match stmt with
-          | Def(var, e) -> evalDef state var e
-          | Phi(var, ns) -> evalPhi state ssaCFG blk var ns
-          | Jmp _ -> evalJmp state ssaCFG blk
-          | LMark _ | ExternalCall _ | SideEffect _ -> ()
+        member _.EvalDef(var, e) = evalDef state var e
+        member _.IsPhiTarget var = isPhiTarget var
         member _.ReadMemFromBinaryFile(_rt, _addr) =
           StackPointerDomain.NotConstSP
         member _.GetBaseCase _ = StackPointerDomain.NotConstSP

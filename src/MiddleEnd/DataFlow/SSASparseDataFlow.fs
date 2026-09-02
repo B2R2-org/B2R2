@@ -173,6 +173,12 @@ type State<'Lattice when 'Lattice: equality>
     | _ -> None
     |> Option.defaultWith (fun () -> scheme.ReadMemFromBinaryFile(rt, addr))
 
+  /// Joins the abstract values that reach the given phi over its executed
+  /// sources into the phi's destination.
+  member this.EvalPhi(ssaCFG, blk, dst: Variable, srcIDs) =
+    for i in this.GetExecutedSources(ssaCFG, blk, srcIDs) do
+      this.SetRegValue(dst, this.GetRegValue { dst with Identifier = i })
+
   /// Gets the list of executed source vertices.
   member _.GetExecutedSources(ssaCFG, blk: IVertex<_>, srcIDs) =
     let preds = (ssaCFG: IDiGraph<_, _>).GetPreds blk |> Seq.toArray
@@ -213,13 +219,12 @@ type State<'Lattice when 'Lattice: equality>
 
 /// Represents the core interface for SSA-based data flow analysis.
 and IScheme<'Lattice when 'Lattice: equality> =
-  /// Computes the next abstract value from the current abstract value by
-  /// executing the given statement.
-  abstract Transfer:
-      Stmt
-    * IDiGraph<SSABasicBlock, CFGEdgeKind>
-    * IVertex<SSABasicBlock>
-    -> unit
+  /// Updates the abstract state with the effect of the given definition.
+  abstract EvalDef: Variable * Expr -> unit
+
+  /// Checks if the given phi destination is a variable that this analysis
+  /// tracks. A phi that defines any other variable is left alone.
+  abstract IsPhiTarget: Variable -> bool
 
   /// Returns the abstract value of the memory cell at the given address, which
   /// a scheme may read off the binary file. A scheme that cannot tell must
@@ -247,6 +252,20 @@ and SSAVarPoint =
   /// first field is the ID of the SSA memory instance.
   | MemorySSAVar of memId: int * addr: Addr
 
+/// Runs the effect of the given statement on the state. Every statement but a
+/// definition acts alike in every analysis, so the scheme only sees the ones
+/// that need its domain.
+let private transfer (state: State<_>) ssaCFG blk stmt =
+  match stmt with
+  | Def(var, e) ->
+    state.Scheme.EvalDef(var, e)
+  | Phi(dst, srcIDs) when state.Scheme.IsPhiTarget dst ->
+    state.EvalPhi(ssaCFG, blk, dst, srcIDs)
+  | Jmp _ ->
+    state.MarkSuccessorsExecutable(ssaCFG, blk)
+  | Phi _ | LMark _ | ExternalCall _ | SideEffect _ ->
+    ()
+
 /// Takes one executable edge off the flow worklist, runs the transfer function
 /// over every statement of its destination, and marks the fall-through
 /// successors executable.
@@ -258,7 +277,7 @@ let private processFlow (state: State<_>) ssaCFG =
     state.ExecutedEdges.Add(parent, blk) |> ignore
     blk.VData.Internals.Statements
     |> Array.iter (fun (_, stmt) ->
-      state.Scheme.Transfer(stmt, ssaCFG, blk))
+      transfer state ssaCFG blk stmt)
     match blk.VData.Internals.LastStmt with
     | Jmp _ ->
       ()
@@ -276,7 +295,7 @@ let private processSSA (state: State<_>) ssaCFG =
     for (v, idx) in state.GetSSAUses def do
       if state.GetNumIncomingExecutedEdges(ssaCFG, v) > 0 then
         let _, stmt = v.VData.Internals.Statements[idx]
-        state.Scheme.Transfer(stmt, ssaCFG, v)
+        transfer state ssaCFG v stmt
       else
         ()
 

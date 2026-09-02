@@ -72,34 +72,17 @@ type SSAUntouchedValueAnalysis(hdl: BinHandle) =
     | PCVar _ -> () (* Just ignore PCVar as it will always be "touched". *)
     | _ -> state.SetRegValue(var, evalExpr state e)
 
-  let evalPhi (state: State<_>) ssaCFG blk dst srcIDs =
-    match state.GetExecutedSources(ssaCFG, blk, srcIDs) with
-    | [||] ->
-      ()
-    | executedSrcIDs ->
-      match dst.Kind with
-      | MemVar | PCVar _ ->
-        ()
-      | _ ->
-        executedSrcIDs
-        |> Array.map (fun i ->
-          { dst with Identifier = i } |> state.GetRegValue)
-        |> Array.reduce UntouchedValueDomain.join
-        |> fun merged -> state.SetRegValue(dst, merged)
-
-  let evalJmp (state: State<_>) ssaCFG blk =
-    state.MarkSuccessorsExecutable(ssaCFG, blk)
+  let isPhiTarget (var: Variable) =
+    match var.Kind with
+    | MemVar | PCVar _ -> false
+    | _ -> true
 
   let lattice = UntouchedValueDomain.createLattice ()
 
   let rec scheme =
     { new IScheme<UntouchedValueDomain.Lattice> with
-        member _.Transfer(stmt, ssaCFG, blk) =
-          match stmt with
-          | Def(var, e) -> evalDef state var e
-          | Phi(var, ns) -> evalPhi state ssaCFG blk var ns
-          | Jmp _ -> evalJmp state ssaCFG blk
-          | LMark _ | ExternalCall _ | SideEffect _ -> ()
+        member _.EvalDef(var, e) = evalDef state var e
+        member _.IsPhiTarget var = isPhiTarget var
         member _.ReadMemFromBinaryFile(_rt, _addr) =
           UntouchedValueDomain.Touched
         member _.GetBaseCase v = getBaseCase v
