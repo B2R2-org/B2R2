@@ -70,7 +70,7 @@ type EVMFunctionSummarizer<'FnCtx, 'GlCtx
       let abs = FunctionSummary(entryPoint, unwinding, rundown, false, ret)
       abs
 
-    member _.MakeUnknownFunctionSummary(_, _) = Terminator.impossible ()
+    member _.MakeUnknownFunctionSummary(_, _, _) = Terminator.impossible ()
 
     member _.ComputeUnwindingAmount _ = Terminator.impossible ()
 

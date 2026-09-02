@@ -48,6 +48,7 @@ type IFunctionSummarizable<'FnCtx, 'GlCtx
   abstract MakeUnknownFunctionSummary:
        hdl: BinHandle
      * ins: IInstruction
+     * unwindingBytes: int
     -> FunctionSummary<LowUIR.Stmt>
 
   /// Compute the stack unwinding amount of a function based on the given

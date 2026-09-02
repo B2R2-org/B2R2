@@ -197,16 +197,16 @@ type FunctionSummarizer<'FnCtx, 'GlCtx
                       ctx.IsExternal,
                       retStatus)
 
-    member _.MakeUnknownFunctionSummary(hdl, callIns) =
+    member _.MakeUnknownFunctionSummary(hdl, callIns, unwindingBytes) =
       let returnAddress = callIns.Address + uint64 callIns.Length
       let wordSize = hdl.ISA.WordSize
       let regType = wordSize |> WordSize.toRegType
       let fallThrough = AST.num <| BitVector(returnAddress, regType)
       let jmpToFallThrough = AST.interjmp fallThrough InterJmpKind.Base
       let stmts =
-        stackPointerDef hdl 0
+        stackPointerDef hdl unwindingBytes
         |> Array.map (fun (dst, src) -> AST.put dst src)
       let ssaRundown = [| yield! stmts; yield jmpToFallThrough |]
-      FunctionSummary(0UL, 0, ssaRundown, false, NotNoRet)
+      FunctionSummary(0UL, unwindingBytes, ssaRundown, false, NotNoRet)
 
     member this.ComputeUnwindingAmount ctx = this.ComputeUnwindingAmount ctx
