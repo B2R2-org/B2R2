@@ -29,8 +29,24 @@ open System.Runtime.CompilerServices
 [<assembly: InternalsVisibleTo("B2R2.RearEnd.Visualization.Tests")>]
 do ()
 
+/// <namespacedoc>
+///   <summary>
+///   Contains the layout algorithm that arranges a control flow graph for
+///   drawing, along with the types that carry the arrangement. A graph goes
+///   through the Sugiyama passes in turn: its cycles are broken, its vertices
+///   are dealt out into layers, the layers are reordered to leave fewer edges
+///   crossing, coordinates are assigned by the method of Brandes et al., and
+///   the edges are last routed around what has been placed. What comes out is
+///   a VisGraph, whose vertices and edges carry the geometry a drawing needs.
+///   Visualizer is the way in, and JSONExport renders a laid-out graph for a
+///   viewer to read.
+///   </summary>
+/// </namespacedoc>
+///
+/// <summary>
 /// Represents the x-y position of a node, or of one point along an edge, in a
 /// laid-out graph.
+/// </summary>
 type VisPosition =
   { /// The x position, growing to the right.
     mutable X: float
