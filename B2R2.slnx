@@ -89,5 +89,6 @@
   <Project Path="src/RearEnd/ROP/B2R2.RearEnd.ROP.fsproj" />
   <Project Path="src/RearEnd/Transformer/B2R2.RearEnd.Transformer.fsproj" />
   <Project Path="src/RearEnd/Utils/B2R2.RearEnd.Utils.fsproj" />
+  <Project Path="src/RearEnd/Visualization.Tests/B2R2.RearEnd.Visualization.Tests.fsproj" />
   <Project Path="src/RearEnd/Visualization/B2R2.RearEnd.Visualization.fsproj" />
 </Solution>

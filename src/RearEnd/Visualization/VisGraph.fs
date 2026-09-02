@@ -36,6 +36,10 @@ module VisGraph =
     MutableDiGraph<VisBBlock, VisEdge>()
     :> VisGraph
 
+  /// Builds a graph for visualization out of the given CFG, laying its blocks
+  /// out for a font of the given character width and height. The roots of the
+  /// given graph carry over, since what a graph is rooted at is what the
+  /// layering reads it from.
   let ofCFG (g: IDiGraph<_, _>) charWidth charHeight =
     let newGraph = init ()
     let vblocks = Dictionary<VertexID, IVertex<VisBBlock>>()
@@ -51,6 +55,10 @@ module VisGraph =
       let dstV = vblocks[e.Second.ID]
       let edge = VisEdge e.Label
       newGraph.AddEdge(srcV, dstV, edge)
+    (* A graph names its own first vertex as its root when it is told of no
+       other, which is whichever vertex came first out of the given graph. *)
+    let roots = g.Roots |> Array.map (fun r -> vblocks[r.ID])
+    if Array.isEmpty roots then () else newGraph.SetRoots roots
     newGraph
 
   let getID (v: IVertex<_>) = v.ID
