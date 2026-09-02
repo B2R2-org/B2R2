@@ -25,6 +25,7 @@
 [<RequireQualifiedAccess>]
 module internal B2R2.RearEnd.Visualization.LayerAssignment
 
+open System.Collections.Generic
 open B2R2.MiddleEnd.BinGraph
 
 let private assignLayerFromPred (vGraph: VisGraph) (v: IVertex<VisBBlock>) =
@@ -59,18 +60,17 @@ let rec private addDummy g (backEdges, dummies) k parWidth src dst e cnt =
     let dummies = Map.add k (ends, eData, dummy :: vertices) dummies
     addDummy g (backEdges, dummies) k parWidth dummy dst e (cnt - 1)
 
-let private collectLongEdges (backEdges, longEdges) (edge: Edge<_, VisEdge>) =
-  let src, dst = edge.First, edge.Second
+(* A long back edge is routed as a chain of its own, so it drops out of the
+   list of back edges. Which ones to drop is noted as they are met and the list
+   is filtered once, rather than walked afresh for every one of them. *)
+let private collectLongEdges (spanning: HashSet<_>) longEdges edge =
+  let src, dst = (edge: Edge<_, VisEdge>).First, edge.Second
   let delta = VisGraph.getLayer dst - VisGraph.getLayer src
   if delta > 1 then
-    let backEdges =
-      if edge.Label.IsBackEdge
-      then List.filter (fun (_, _, e) -> e <> edge.Label) backEdges
-      else backEdges
-    let longEdges = (src, dst, edge, delta) :: longEdges
-    backEdges, longEdges
+    if edge.Label.IsBackEdge then spanning.Add edge.Label |> ignore else ()
+    (src, dst, edge, delta) :: longEdges
   else
-    backEdges, longEdges
+    longEdges
 
 let private addDummyNodesLongEdge vGraph (backEdges, dummies) longEdge =
   let src, dst, edge, delta = longEdge
@@ -104,8 +104,12 @@ let private addDummyNodesRemovedBackEdge vGraph (backEdges, dummies) backEdge =
   addDummy vGraph (backEdges, dummies) k width dagSrc dagDst edge (delta - 1)
 
 let private assignDummyNodes (vGraph: VisGraph) backEdges =
-  let backEdges, longEdges =
-    vGraph |> DiGraph.foldEdge collectLongEdges (backEdges, [])
+  let spanning = HashSet<VisEdge>(HashIdentity.Reference)
+  let longEdges =
+    vGraph |> DiGraph.foldEdge (collectLongEdges spanning) []
+  let backEdges =
+    if spanning.Count = 0 then backEdges
+    else backEdges |> List.filter (fun (_, _, e) -> not (spanning.Contains e))
   let removedLongBackEdges, backEdges =
     backEdges
     |> List.partition (fun (s: IVertex<VisBBlock>, d: IVertex<VisBBlock>, e) ->

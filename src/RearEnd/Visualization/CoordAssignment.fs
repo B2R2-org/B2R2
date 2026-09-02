@@ -66,46 +66,54 @@ let private findIncidentInnerSegmentNode vGraph (v: IVertex<VisBBlock>) =
   else
     None
 
+(* A conflict is named by the pair of vertices that make it, the one on the
+   lower layer first. Only membership is ever asked of the set, so it is a hash
+   set of struct pairs rather than a tree of boxed ones. *)
+type private ConflictSet = HashSet<struct (VertexID * VertexID)>
+
 let private pairID (u: IVertex<VisBBlock>) (v: IVertex<VisBBlock>) =
-  if u.VData.Layer > v.VData.Layer then u.ID, v.ID else v.ID, u.ID
+  if u.VData.Layer > v.VData.Layer then struct (u.ID, v.ID)
+  else struct (v.ID, u.ID)
 
-let private addConflict u v conflicts = Set.add (pairID u v) conflicts
+let private addConflict u v (conflicts: ConflictSet) =
+  conflicts.Add(pairID u v) |> ignore
 
-let private checkConflict u v conflicts = Set.contains (pairID u v) conflicts
+let private checkConflict u v (conflicts: ConflictSet) =
+  conflicts.Contains(pairID u v)
 
 /// Type1 conflict means inner segment and non-inner segment are crossing
 let private markTypeOneConflict vGraph k0 k1 conflicts (v: IVertex<_>) =
-  let mark conflicts u =
+  for u in VisGraph.getPreds vGraph v do
     let k = VisGraph.getIndex u
-    if k < k0 || k1 < k then addConflict u v conflicts else conflicts
-  Seq.fold mark conflicts <| VisGraph.getPreds vGraph v
+    if k < k0 || k1 < k then addConflict u v conflicts else ()
 
 let rec private scanConflicts vGraph upperLen vertices conflicts l k0 l1 =
   if l1 = Array.length vertices then
-    conflicts
+    ()
   else
-    let v = vertices[l1]
+    let v = (vertices: IVertex<_>[])[l1]
     let w = findIncidentInnerSegmentNode vGraph v
     if w.IsSome || l1 = Array.length vertices - 1 then
       let k1 = if w.IsSome then Option.get w |> VisGraph.getIndex else upperLen
-      let conflicts =
-        vertices[l..l1]
-        |> Array.fold (markTypeOneConflict vGraph k0 k1) conflicts
+      for i in l .. l1 do
+        markTypeOneConflict vGraph k0 k1 conflicts vertices[i]
       scanConflicts vGraph upperLen vertices conflicts (l1 + 1) k1 (l1 + 1)
     else
       scanConflicts vGraph upperLen vertices conflicts l k0 (l1 + 1)
 
-let private addTypeOneConflicts vGraph vLayout conflicts (layer, vertices) =
+let private addTypeOneConflicts vGraph vLayout conflicts layer vertices =
   if layer > 0 && layer < Array.length vLayout - 1 then
-    let nUpperVertices = Array.length vLayout[layer - 1]
-    scanConflicts vGraph nUpperVertices vertices conflicts 0 -1 0
+    let upper = Array.get vLayout (layer - 1)
+    scanConflicts vGraph (Array.length upper) vertices conflicts 0 -1 0
   else
-    conflicts
+    ()
 
 /// Alg 1 of Brandes et al.
 let private findTypeOneConflicts vGraph vLayout =
-  Array.mapi (fun layer vertices -> layer, vertices) vLayout
-  |> Array.fold (addTypeOneConflicts vGraph vLayout) Set.empty
+  let conflicts = ConflictSet()
+  vLayout
+  |> Array.iteri (addTypeOneConflicts vGraph vLayout conflicts)
+  conflicts
 
 let private getLayerByDirection (vLayout: IVertex<_>[][]) idx = function
   | Leftmost -> vLayout[idx]
