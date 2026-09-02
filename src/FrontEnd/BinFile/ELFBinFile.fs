@@ -75,6 +75,23 @@ type ELFBinFile(path, bytes: byte[], baseAddrOpt, rfOpt) =
 
   let exn = lazy ExceptionData.parse toolBox shdrs.Value rfOpt relocs.Value
 
+  /// Holds the FDEs sorted by the address they begin at, so that the FDE
+  /// covering a given address can be found by binary search.
+  let sortedFDEs = lazy ExceptionData.getFDEs exn.Value.ExceptionFrame
+
+  /// Finds the FDE covering the given address, which is the last FDE beginning
+  /// at or before the address, provided that the address is before its end.
+  let findCoveringFDE (fdes: FDE[]) addr =
+    if Array.isEmpty fdes || fdes[0].PCBegin > addr then
+      None
+    else
+      let mutable lo = 0
+      let mutable hi = fdes.Length - 1
+      while lo < hi do
+        let mid = lo + (hi - lo + 1) / 2
+        if fdes[mid].PCBegin <= addr then lo <- mid else hi <- mid - 1
+      if addr < fdes[lo].PCEnd then Some fdes[lo] else None
+
   let notInMemRanges = lazy invalidRangesByVM hdr loadables.Value
 
   let notInFileRanges = lazy invalidRangesByFileBounds hdr loadables.Value
@@ -542,9 +559,6 @@ type ELFBinFile(path, bytes: byte[], baseAddrOpt, rfOpt) =
   /// LSDA table.
   member internal _.LSDATable with get() = exn.Value.LSDATable
 
-  /// Unwinding table.
-  member internal _.UnwindingTable with get() = exn.Value.UnwindingTbl.Value
-
   /// ELF symbol information.
   member internal _.Symbols with get() = symbs.Value
 
@@ -585,6 +599,20 @@ type ELFBinFile(path, bytes: byte[], baseAddrOpt, rfOpt) =
 
   /// Find a section by its index.
   member internal _.FindSection(idx: int) = shdrs.Value[idx]
+
+  /// Returns the canonical frame address in effect at the given address as a
+  /// (register, offset) pair. The answer is the last unwinding row of the FDE
+  /// covering the address that starts at or before the address; None when no
+  /// FDE covers the address or the CFA is not of the register-plus-offset form.
+  member _.TryFindCFARegOffset(addr: Addr) =
+    findCoveringFDE sortedFDEs.Value addr
+    |> Option.bind (fun fde ->
+      fde.UnwindingInfo.Value
+      |> List.tryFindBack (fun row -> row.Location <= addr))
+    |> Option.bind (fun row ->
+      match row.CanonicalFrameAddress with
+      | RegPlusOffset(rid, off) -> Some(rid, off)
+      | _ -> None)
 
   interface IBinFile with
     member _.Reader with get() = toolBox.Reader

@@ -182,6 +182,10 @@ type ELFTests() =
     let regFactory = FrontEnd.Intel.RegisterFactory isa :> IRegisterFactory
     ELFBinFile(fileName, bytes, None, Some regFactory)
 
+  /// Checks the (register, offset) pair that a CFA lookup returned.
+  static let assertCFA (expected: (RegisterID * int) option) actual =
+    Assert.AreEqual<(RegisterID * int) option>(expected, actual)
+
   /// The shared instance of the .eh_frame fixture, for tests that do not care
   /// about which parts of it have already been evaluated.
   static let x64EhFrameFile = parseEhFrameFile ()
@@ -1993,8 +1997,8 @@ type ELFTests() =
 
   [<TestMethod>]
   member _.``[ELF] x64 frame lookup keeps unwinding unevaluated``() =
-    (* An unevaluated FDE also proves that the unified unwinding table stayed
-       unevaluated, as building it forces every FDE of the file. *)
+    (* An unevaluated FDE also proves that looking up frames does not decode
+       any unwinding. *)
     let file = parseEhFrameFile ()
     (file :> IBinFile).ExceptionTable.Value.Frames |> ignore
     let fdes =
@@ -2027,17 +2031,54 @@ type ELFTests() =
     let first = fde.UnwindingInfo.Value
     let second = fde.UnwindingInfo.Value
     Assert.AreEqual<bool>(true, obj.ReferenceEquals(first, second))
-    let tbl = file.UnwindingTable
-    Assert.AreEqual<bool>(true, obj.ReferenceEquals(tbl, file.UnwindingTable))
 
   [<TestMethod>]
-  member _.``[ELF] x64 unwinding table does not depend on the FDE order``() =
+  member _.``[ELF] x64 CFA lookup does not depend on the FDE order``() =
     let file = parseEhFrameFile ()
     for cfi in file.ExceptionFrame do
       for fde in Array.rev cfi.FDEs do
         fde.UnwindingInfo.Value |> ignore
-    let expected = x64EhFrameFile.UnwindingTable
-    Assert.AreEqual<bool>(true, file.UnwindingTable = expected)
+    for cfi in x64EhFrameFile.ExceptionFrame do
+      for fde in cfi.FDEs do
+        for row in fde.UnwindingInfo.Value do
+          let expected = x64EhFrameFile.TryFindCFARegOffset row.Location
+          assertCFA expected (file.TryFindCFARegOffset row.Location)
+
+  [<TestMethod>]
+  member _.``[ELF] x64 CFA lookup finds the row in effect``() =
+    let file = parseEhFrameFile ()
+    let isa = ISA(Architecture.Intel, Endian.Little, WordSize.Bit64)
+    let rsp = DWRegister.toRegID isa 7uy
+    let cfaOf (row: UnwindingEntry) =
+      match row.CanonicalFrameAddress with
+      | RegPlusOffset(rid, off) -> Some(rid, off)
+      | _ -> None
+    let startsAtRspPlus8 (fde: FDE) =
+      cfaOf (List.head fde.UnwindingInfo.Value) = Some(rsp, 8)
+    let fde =
+      file.ExceptionFrame
+      |> List.collect (fun cfi -> List.ofArray cfi.FDEs)
+      |> List.find (fun fde ->
+        List.length fde.UnwindingInfo.Value > 1 && startsAtRspPlus8 fde)
+    let rows = fde.UnwindingInfo.Value
+    let first, last = List.head rows, List.last rows
+    assertCFA (Some(rsp, 8)) (file.TryFindCFARegOffset fde.PCBegin)
+    assertCFA (cfaOf first) (file.TryFindCFARegOffset first.Location)
+    assertCFA (cfaOf last) (file.TryFindCFARegOffset last.Location)
+
+  [<TestMethod>]
+  member _.``[ELF] x64 CFA lookup finds nothing outside the FDEs``() =
+    let file = parseEhFrameFile ()
+    let fdes =
+      file.ExceptionFrame
+      |> List.collect (fun cfi -> List.ofArray cfi.FDEs)
+      |> List.sortBy (fun fde -> fde.PCBegin)
+    let first, last = List.head fdes, List.last fdes
+    assertCFA None (file.TryFindCFARegOffset(first.PCBegin - 1UL))
+    assertCFA None (file.TryFindCFARegOffset last.PCEnd)
+    let hasGap (a: FDE, b: FDE) = a.PCEnd < b.PCBegin
+    let gapStart = (fdes |> List.pairwise |> List.find hasGap |> fst).PCEnd
+    assertCFA None (file.TryFindCFARegOffset gapStart)
 
   [<TestMethod>]
   member _.``[ELF] x64 CIE initial unwinding matches the ABI``() =
@@ -2093,7 +2134,8 @@ type ELFTests() =
     let empty =
       fdes |> List.forall (fun f -> List.isEmpty f.UnwindingInfo.Value)
     Assert.AreEqual<bool>(true, empty)
-    Assert.AreEqual<int>(0, Map.count arm32ExidxFile.UnwindingTable)
+    for fde in fdes do
+      assertCFA None (arm32ExidxFile.TryFindCFARegOffset fde.PCBegin)
 
   [<TestMethod>]
   member _.``[ELF] x86 ISA test``() =

@@ -33,22 +33,20 @@ type internal ExceptionData =
   { /// Exception frames.
     ExceptionFrame: ExceptionFrame
     /// LSDA (Language Specific Data Area) table is a collection of LSDAs.
-    LSDATable: LSDATable
-    /// Unwinding info table, lazily merged from the FDEs' unwinding entries.
-    UnwindingTbl: Lazy<Map<Addr, UnwindingEntry>> }
+    LSDATable: LSDATable }
 
 module internal ExceptionData =
   let [<Literal>] private EHFrameSection = ".eh_frame"
 
   let [<Literal>] private GccExceptTableSection = ".gcc_except_table"
 
-  let private computeUnwindingTable exns =
+  /// Returns the FDEs of the given exception frames, sorted by the address
+  /// they begin at.
+  let getFDEs (exns: ExceptionFrame) =
     exns
-    |> List.fold (fun tbl (f: CFI) ->
-      f.FDEs |> Array.fold (fun tbl fde ->
-        fde.UnwindingInfo.Value |> List.fold (fun tbl i ->
-          Map.add i.Location i tbl) tbl
-        ) tbl) Map.empty
+    |> List.toArray
+    |> Array.collect (fun cfi -> cfi.FDEs)
+    |> Array.sortBy (fun fde -> fde.PCBegin)
 
   /// Builds a relocation resolver for the FDE begin addresses of the given
   /// frame section. Only relocatable objects (ET_REL) carry such relocations;
@@ -99,10 +97,8 @@ module internal ExceptionData =
     | [] when isa.Arch = Architecture.ARMv7 ->
       let struct (exns, lsdas) = ARMExceptionData.parse toolBox cls shdrs
       { ExceptionFrame = exns
-        LSDATable = lsdas
-        UnwindingTbl = lazy Map.empty }
+        LSDATable = lsdas }
     | _ ->
       { ExceptionFrame = exns
-        LSDATable = lsdas
-        UnwindingTbl = lazy (computeUnwindingTable exns) }
+        LSDATable = lsdas }
 
