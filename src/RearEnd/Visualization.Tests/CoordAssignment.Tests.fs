@@ -63,3 +63,23 @@ type CoordAssignmentTests() =
   member _.``getBound reads the right edge of the narrowest layer``() =
     let vLayout, xs = buildLayout ()
     Assert.AreEqual<float>(15.0, boundOf vLayout xs CoordAssignment.Rightmost)
+
+  [<TestMethod>]
+  member _.``averageMedian centres the median of the alignments``() =
+    let a = g.AddVertex(VisBBlock(FakeBlock 0x1000UL, 7.5, 14.0, false))
+    let b = g.AddVertex(VisBBlock(FakeBlock 0x2000UL, 7.5, 14.0, false))
+    let alignment (xa, xb) =
+      let xs = CoordAssignment.FloatMap()
+      xs[a] <- xa
+      xs[b] <- xb
+      xs
+    (* A is seen at 0, 10, 20 and 30, whose median is 15; B at 100, 200, 100
+       and 200, whose median is 150. The two are then centred on 82.5, the
+       midpoint of the medians. *)
+    [ alignment (0.0, 100.0)
+      alignment (10.0, 200.0)
+      alignment (20.0, 100.0)
+      alignment (30.0, 200.0) ]
+    |> CoordAssignment.averageMedian
+    Assert.AreEqual<float>(-67.5, a.VData.Coordinate.X)
+    Assert.AreEqual<float>(67.5, b.VData.Coordinate.X)

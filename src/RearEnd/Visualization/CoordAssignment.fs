@@ -302,16 +302,25 @@ let collectX (xPerV: Dictionary<IVertex<VisBBlock>, float list>) xs =
     | false, _ -> xPerV[v] <- [ xs[v] ]
   xPerV
 
+/// The median of the given sorted values, which for an even count is the
+/// average of the two in the middle. How many alignments there are to take the
+/// median of is for the caller enumerating them to know, not for this.
+let private medianOf (sorted: float[]) =
+  let n = sorted.Length
+  if n % 2 = 0 then (sorted[n / 2 - 1] + sorted[n / 2]) / 2.0
+  else sorted[n / 2]
+
 let setXPos (v: IVertex<VisBBlock>) x = v.VData.Coordinate.X <- x
 
-(* The median of the four alignments, taken per vertex and then shifted so
-   that the whole layout is centred on nothing in particular. *)
+(* The median of the alignments, taken per vertex and then shifted so that the
+   whole layout is centred on nothing in particular. *)
 let averageMedian (xAlignments: FloatMap list) =
   let xPerV = List.fold collectX (Dictionary()) xAlignments
   let medians = FloatMap()
   for KeyValue(v, xs) in xPerV do
-    let xs = xs |> List.toArray |> Array.sort
-    medians[v] <- (xs[1] + xs[2]) / 2.0
+    let xs = List.toArray xs
+    Array.sortInPlace xs
+    medians[v] <- medianOf xs
   let minX = medians.Values |> Seq.min
   let maxX = medians.Values |> Seq.max
   let mid = (minX + maxX) / 2.0
