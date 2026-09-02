@@ -45,20 +45,25 @@ with
       Columns = [| RightAligned PrinterConst.ColWidth
                    LeftAligned PrinterConst.ColWidth |] }
 
-  member private this.Render(converter, padder, renderer, lst) =
-    let lastIdx = this.Columns.Length - 1
+  /// Renders one row, cell by cell. A row has to bring one cell per column,
+  /// as it always had to. Written as a plain loop: a dumper renders millions
+  /// of rows, and the arrays and closures the combinators cost were a tenth
+  /// of its time.
+  member private this.Render(converter, padder, renderer, lst: _[]) =
+    let columns = this.Columns
+    if lst.Length <> columns.Length then
+      invalidArg (nameof lst) "A row needs one cell per column."
+    else
+      ()
+    let lastIdx = columns.Length - 1
     if this.Indentation > 0 then
       String(' ', this.Indentation) |> converter |> renderer
     else
       ()
-    Array.zip this.Columns lst
-    |> Array.iteri (fun i (colfmt, s) ->
-      if i > 0 && this.ColumnGap > 0 then
-        String(' ', this.ColumnGap) |> converter |> renderer
-      else
-        ()
-      let isLast = i = lastIdx
-      padder colfmt isLast s |> renderer)
+    let gap = String(' ', this.ColumnGap) |> converter
+    for i in 0 .. lastIdx do
+      if i > 0 && this.ColumnGap > 0 then renderer gap else ()
+      padder columns[i] (i = lastIdx) lst[i] |> renderer
     Environment.NewLine |> converter |> renderer
 
   /// Renders a row of the table using the given renderer function.

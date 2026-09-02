@@ -25,14 +25,17 @@
 namespace B2R2.Logging
 
 open System
+open System.IO
 open System.Text
 open B2R2
 
 /// Represents a printer that prints out non-colored strings only when the Flush
 /// method is called. All the colored strings will be normalized to plain
 /// strings. It will simply stack up all the output candidates before Flush is
-/// called. This is useful for performance-critical applications.
-type ConsoleCachedPrinter(myLevel: LogLevel) =
+/// called. This is useful for performance-critical applications. Given a
+/// stream, it writes the cache to that stream directly; given none, it writes
+/// through Console.Out, which honours Console.SetOut.
+type ConsoleCachedPrinter private(myLevel: LogLevel, stream: Stream option) =
 
   let mutable myLevel = myLevel
 
@@ -42,8 +45,42 @@ type ConsoleCachedPrinter(myLevel: LogLevel) =
 
   let errorPrefix = Severity.toPrefix Severity.Error
 
+  (* Console.Out hands what it is given to the console 256 characters at a
+     time, encoding and writing each piece with a system call of its own, so
+     a full cache cost it sixty-five thousand of each. Given a stream, two
+     writers of our own over it take the cache in a few large writes instead.
+     One encodes as the console does, less the byte-order mark a UTF-8 console
+     encoding carries, which Console.Out drops as well. The other is for a
+     cache that is all ASCII, which nearly every one is: the console's
+     encoding is often a legacy code page that the operating system converts
+     a character at a time, and ASCII comes out the same under any of them. *)
+  let consoleOut =
+    lazy (
+      let encoding = Console.OutputEncoding
+      let encoding =
+        if encoding.CodePage = 65001 then UTF8Encoding false :> Encoding
+        else encoding
+      new StreamWriter(stream.Value, encoding, 1 <<< 20))
+
+  let asciiOut = lazy (new StreamWriter(stream.Value, Encoding.ASCII, 1 <<< 20))
+
+  let isAscii (sb: StringBuilder) =
+    let mutable ascii = true
+    for chunk in sb.GetChunks() do
+      ascii <- ascii && Ascii.IsValid chunk.Span
+    ascii
+
+  let writeCache () =
+    match stream with
+    | None ->
+      Console.Out.Write cache
+    | Some _ ->
+      let out = if isAscii cache then asciiOut.Value else consoleOut.Value
+      out.Write cache
+      out.Flush()
+
   let flush () =
-    cache.ToString() |> Console.Write
+    writeCache ()
     cache.Clear() |> ignore
 
   let add (s: string) =
@@ -70,6 +107,13 @@ type ConsoleCachedPrinter(myLevel: LogLevel) =
       ()
 
   new() = new ConsoleCachedPrinter(LogLevel.L2)
+
+  /// A printer writing through Console.Out.
+  new(myLevel) = new ConsoleCachedPrinter(myLevel, None)
+
+  /// A printer writing to the given stream, which is the standard output
+  /// stream for a tool that wants its output out fast.
+  new(myLevel, stream: Stream) = new ConsoleCachedPrinter(myLevel, Some stream)
 
   interface IPrinter with
     member _.TableConfig with get() = mycfg

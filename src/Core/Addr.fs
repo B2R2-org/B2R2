@@ -53,8 +53,19 @@ module Addr =
   /// </returns>
   [<CompiledName "ToString">]
   let toString wordSize (addr: Addr) =
-    if wordSize = WordSize.Bit32 then addr.ToString "x8"
-    else addr.ToString "x16"
+    (* Written out by hand rather than through a format string: a dumper
+       formats one address per instruction, and the general formatter was a
+       twentieth of its time. *)
+    let minWidth = if wordSize = WordSize.Bit32 then 8 else 16
+    let digits =
+      (67 - System.Numerics.BitOperations.LeadingZeroCount(addr ||| 1UL)) / 4
+    let width = max minWidth digits
+    let chars = Array.zeroCreate<char> width
+    let mutable v = addr
+    for i = width - 1 downto 0 do
+      chars[i] <- "0123456789abcdef"[int (v &&& 0xFUL)]
+      v <- v >>> 4
+    System.String chars
 
   /// <summary>
   /// Converts an address (<see cref='T:B2R2.Addr'/>) to a function name, which

@@ -33,12 +33,16 @@ type Log private() =
   /// Gets the main console printer.
   static member Out = out
 
-  /// Enables caching for the main console printer.
+  /// Enables caching for the main console printer. The cache goes to the
+  /// standard output stream directly, in large writes: caching is asked for
+  /// by tools that print a great deal, and going through Console.Out cost
+  /// them a system call every 256 characters.
   static member EnableCaching() =
     if isCached then
       ()
     else
-      out <- new ConsoleCachedPrinter(out.LogLevel) :> IPrinter
+      let stream = System.Console.OpenStandardOutput()
+      out <- new ConsoleCachedPrinter(out.LogLevel, stream) :> IPrinter
       isCached <- true
 
   /// Disables caching for the main console printer.
