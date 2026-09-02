@@ -5,6 +5,7 @@
   </PropertyGroup>
 
   <ItemGroup>
+    <Compile Include="Exceptions.fs" />
     <Compile Include="ConcEvalValue.fs" />
     <Compile Include="IMemory.fs" />
     <Compile Include="NonsharableMemory.fs" />

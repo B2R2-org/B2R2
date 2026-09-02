@@ -26,13 +26,17 @@ namespace B2R2.MiddleEnd.ConcEval
 
 open B2R2
 
+/// <namespacedoc>
+///   <summary>
+///   Contains types and functions for concrete evaluation of LowUIR statements.
+///   </summary>
+/// </namespacedoc>
+///
 /// <summary>
-/// Represents a value that can be evaluated in the context of concrete
-/// evaluation of LowUIR statements, which can be either defined or undefined.
+/// Raised when the evaluator encounters an undefined expression.
 /// </summary>
-[<Struct>]
-type ConcEvalValue =
-  /// Undefined value.
-  | Undef
-  /// Concrete value.
-  | Def of BitVector
+exception UndefinedExprException
+
+/// Raised when the evaluator loads from an address that no memory backs. It
+/// carries the address that failed.
+exception InvalidMemoryReadException of Addr

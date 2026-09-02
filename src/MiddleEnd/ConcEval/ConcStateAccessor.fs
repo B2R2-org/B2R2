@@ -28,7 +28,6 @@ open System
 open System.Text
 open B2R2
 open B2R2.FrontEnd
-open B2R2.MiddleEnd.ConcEval.EvalUtils
 open B2R2.MiddleEnd.Executor
 
 /// Provides structured access to a concrete EvalState.
@@ -56,8 +55,10 @@ type ConcStateAccessor(hdl: BinHandle, state: EvalState) as this =
 
   let readByte addr =
     match state.Memory.ByteRead addr with
-    | Ok b -> b
-    | Error _ -> raise (InvalidMemException addr)
+    | Ok b ->
+      b
+    | Error _ ->
+      raise (InvalidOperationException $"Cannot read memory at {addr:x}.")
 
   let getStackPointerRegister () =
     match regFactory.StackPointer with
@@ -93,8 +94,10 @@ type ConcStateAccessor(hdl: BinHandle, state: EvalState) as this =
     let addr = getStackPointer ()
     let value =
       match state.Memory.Read(addr, endian, wordType) with
-      | Ok v -> v
-      | Error _ -> raise (InvalidMemException addr)
+      | Ok v ->
+        v
+      | Error _ ->
+        raise (InvalidOperationException $"Stack pop failed at {addr:x}.")
     setStackPointer (addr + uint64 wordBytes)
     value
 
@@ -209,8 +212,10 @@ type ConcStateAccessor(hdl: BinHandle, state: EvalState) as this =
   /// Read a word-sized pointer value from memory.
   member _.ReadPointer(addr: Addr) =
     match state.Memory.Read(addr, endian, wordType) with
-    | Ok v -> v.ToUInt64()
-    | Error _ -> raise (InvalidMemException addr)
+    | Ok v ->
+      v.ToUInt64()
+    | Error _ ->
+      raise (InvalidOperationException $"Cannot read a pointer at {addr:x}.")
 
   /// Write a concrete integer value to memory.
   member _.WriteInteger(addr: Addr, value: uint64, typ: RegType) =

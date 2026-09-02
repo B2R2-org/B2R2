@@ -22,7 +22,11 @@
   SOFTWARE.
 *)
 
-/// Represents a concrete evaluation module for LowUIR.
+/// Represents a concrete evaluation module for LowUIR. Failure is signalled by
+/// raising: UndefinedExprException for an undefined expression,
+/// InvalidMemoryReadException for a load no memory backs,
+/// KeyNotFoundException for a register or temporary that has no value, and
+/// BinIR's InvalidExprException or IllegalASTTypeException for a malformed AST.
 module B2R2.MiddleEnd.ConcEval.Evaluator
 
 open B2R2
@@ -58,7 +62,7 @@ let rec evalExpr (st: EvalState) e =
   | Extract(e, t, p, _) ->
     BitVector.Extract(evalExpr st e, t, p)
   | Undefined _ ->
-    raise UndefExpException
+    raise UndefinedExprException
   | _ ->
     raise InvalidExprException
 
@@ -71,7 +75,7 @@ and private evalLoad st endian t addr =
   | Error e ->
     match st.OnLoadFailure(st.PC, addr, t, e) with
     | Ok v -> v
-    | Error _ -> raise (InvalidMemException addr)
+    | Error _ -> raise (InvalidMemoryReadException addr)
 
 and private evalCast st t e = function
   | CastKind.SignExt -> BitVector.SExt(evalExpr st e, t)
@@ -156,7 +160,7 @@ let private evalPut st lhs rhs =
     | PCVar _ -> st.PC <- v.ToUInt64()
     | _ -> raise InvalidExprException
   with
-    | UndefExpException
+    | UndefinedExprException
     | :? System.Collections.Generic.KeyNotFoundException -> ()
 
 let private evalStore st endian addr v =

@@ -25,6 +25,7 @@
 namespace B2R2.MiddleEnd.ConcEval.Tests
 
 open Microsoft.VisualStudio.TestTools.UnitTesting
+open B2R2
 open B2R2.BinIR
 open B2R2.BinIR.LowUIR
 open B2R2.MiddleEnd.ConcEval
@@ -52,6 +53,30 @@ type EvaluatorTests() =
     let st = newState ()
     Evaluator.evalStmt st (AST.sideEffect SysCall)
     assertTerminatedWithIEMark st
+
+  [<TestMethod>]
+  member _.``Undefined expression raises a catchable exception``() =
+    let st = newState ()
+    let raised =
+      try
+        Evaluator.evalExpr st (AST.undef 32<rt> "t") |> ignore
+        false
+      with :? UndefinedExprException ->
+        true
+    Assert.AreEqual<bool>(true, raised)
+
+  [<TestMethod>]
+  member _.``An unbacked load raises a catchable exception``() =
+    let st = newState ()
+    let addr = 0xdeadbeefUL
+    let expr = AST.loadLE 32<rt> (AST.num (BitVector(addr, 64<rt>)))
+    let failed =
+      try
+        Evaluator.evalExpr st expr |> ignore
+        None
+      with InvalidMemoryReadException failedAddr ->
+        Some failedAddr
+    Assert.AreEqual<Addr option>(Some addr, failed)
 
   [<TestMethod>]
   member _.``Side effect handler keeps its own termination``() =
