@@ -58,8 +58,6 @@ type ConcStopCondition<'State> =
   | StopAtSideEffect
   /// Stop after executing the given number of machine instructions.
   | StopAfterInstructionCount of count: int
-  /// Stop when expression or statement evaluation fails.
-  | StopOnEvaluationError
   /// Stop when a user-provided predicate holds.
   | StopWhen of predicate: (ConcStopPoint<'State> -> bool)
 
@@ -133,10 +131,7 @@ with
     { Calls = FollowDirectInternalCalls
       UndefinedValues = IgnoreUndefinedWrites
       UninitializedRegisters = ZeroCallerContext
-      StopConditions =
-        stopConditions
-        @ [ StopAfterInstructionCount 50000
-            StopOnEvaluationError ] }
+      StopConditions = stopConditions @ [ StopAfterInstructionCount 50000 ] }
 
   static member Default(stopCondition: ConcStopCondition<'State>) =
     ConcRunOptions.Default [ stopCondition ]
@@ -478,10 +473,14 @@ type ConcExecutor(hdl: BinHandle) =
   /// PC to zero here; Run will set it to the actual start address.
   member _.CreateState options = initializeState 0UL options
 
-  /// Run concrete execution from the given address.
+  /// Runs concrete execution from the given address. Besides the configured
+  /// stop conditions, a run always ends when an instruction cannot be parsed
+  /// or lifted, when statement evaluation fails, or when an undefined value is
+  /// observed under StopOnUndefinedValue; the stop reason says which.
   member _.Run(start, state, options) = run start state options
 
-  /// Run concrete execution from the given address.
+  /// Runs concrete execution from the given address with the default options
+  /// for the given stop condition.
   member _.Run(start, state, stopCondition: ConcStopCondition<EvalState>) =
     ConcRunOptions.Default stopCondition
     |> run start state

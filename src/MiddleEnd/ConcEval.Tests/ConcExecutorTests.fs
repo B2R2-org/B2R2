@@ -64,6 +64,21 @@ type ConcExecutorTests() =
     | Def v -> Assert.Fail $"The return address register was zeroed to {v}."
 
   [<TestMethod>]
+  member _.``Evaluation failure ends the run without a stop condition``() =
+    (* ret *)
+    let bytes = [| 0xc0uy; 0x03uy; 0x5fuy; 0xd6uy |]
+    let hdl = loadRawImage bytes Architecture.ARMv8 WordSize.Bit64
+    let exec = ConcExecutor hdl
+    let st = exec.CreateState()
+    let res = exec.Run(0UL, st, ConcRunOptions.Default(StopAtAddress 0xffffUL))
+    match res.StopReasons with
+    | [ EvaluationError(addr, e) ] ->
+      Assert.AreEqual<Addr>(0UL, addr)
+      Assert.AreEqual<ErrorCase>(ErrorCase.InvalidExprEvaluation, e)
+    | reasons ->
+      Assert.Fail $"Unexpected stop reasons: {reasons}"
+
+  [<TestMethod>]
   member _.``Caller context registers are zeroed``() =
     (* add rax, rbx *)
     let bytes = [| 0x48uy; 0x01uy; 0xd8uy |]
