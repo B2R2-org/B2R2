@@ -365,13 +365,17 @@ type IntelParser(wordSz, reader) =
 
   /// Returns true when the current prefix is compatible with the operand size
   /// implied by the instruction's descriptors.
-  let matchOperandSize pref ins (insCore: InstructionCore) =
+  let matchOperandSize (phlp: ParsingHelper) ins (insCore: InstructionCore) =
     if insCore.OpEn = OpEn.None then
       true
     else
       if needs66hPrefix insCore.Operands insCore.Opcode
          && is66hSelector ins insCore then
-        pref &&& Prefix.OPSIZE = Prefix.OPSIZE
+        (* REX.W settles the operand size by itself and outranks 66h, so the
+           row only 66h can select is not the one an encoding carrying both
+           asked for. SDM Vol. 2A, 2.2.1.2. *)
+        phlp.Prefixes &&& Prefix.OPSIZE = Prefix.OPSIZE
+        && not (REXPrefix.hasW phlp.REXPrefix)
       else
         true
 
@@ -544,7 +548,7 @@ type IntelParser(wordSz, reader) =
     matchModRM span phlp insCore
     && matchCPUMode phlp.WordSize insCore.Mode64 insCore.Compat
     && matchREX phlp ins insCore
-    && matchOperandSize phlp.Prefixes ins insCore
+    && matchOperandSize phlp ins insCore
     && matchPrefix phlp ins (uint8 insCore.OpcodeByte) insCore.PrefixType
     && matchVectorLength isRounding phlp.VEXInfo insCore
     && matchJcxzAddrSize phlp insCore
@@ -563,7 +567,7 @@ type IntelParser(wordSz, reader) =
       insCore.Opcode
       (matchPrefix phlp ins (uint8 insCore.OpcodeByte) insCore.PrefixType)
       (matchCPUMode phlp.WordSize insCore.Mode64 insCore.Compat)
-      (matchOperandSize phlp.Prefixes ins insCore)
+      (matchOperandSize phlp ins insCore)
       (matchREX phlp ins insCore)
       (matchVectorLength isRounding phlp.VEXInfo insCore)
       (matchModRM span phlp insCore)
@@ -799,6 +803,7 @@ type IntelParser(wordSz, reader) =
       let oprSz = sz + 16<rt>
       setupOprContextWithEffAddr phlp sz oprSz
       phlp.OperationSize <- oprSz
+      phlp.IsFar <- true
       if ic.ModRM = ModRMType.NoModRM then
         (* ptr16:16 or ptr16:32, spelled out in the instruction (9A, EA). *)
         let addrValue =
@@ -807,7 +812,6 @@ type IntelParser(wordSz, reader) =
         OprDirAddr(Absolute(selector, addrValue, sz))
       else
         (* m16:16, m16:32 or m16:64, read through ModRM (FF /3, FF /5). *)
-        phlp.IsFar <- true
         OperandParsers.parseMemory modRM span phlp
     (* NoOpr among other operands, or an Unknown the extractor could not
        classify. Neither occurs in the generated tables today. *)
@@ -822,44 +826,120 @@ type IntelParser(wordSz, reader) =
     | ModRMType.NoModRM -> 0uy
     | _ -> phlp.ReadByte span (* every other kind, FixedModRM included *)
 
+  /// The width a fixed register lends the operation. A segment register lends
+  /// none: PUSH FS runs at the width of the stack, not at the sixteen bits
+  /// the selector occupies.
+  let fixedRegOperationWidth wordSize reg =
+    match reg with
+    | Register.ES | Register.CS | Register.SS
+    | Register.DS | Register.FS | Register.GS -> noWidth
+    | _ -> RegisterHelper.toRegType wordSize reg
+
+  /// The width an operand descriptor lends to the instruction as a whole, or
+  /// noWidth when it lends none. An immediate or a relative offset is read at
+  /// the width the opcode gives it and says nothing about how wide the
+  /// operation runs, so neither answers here.
+  let operationWidth (phlp: ParsingHelper) modRM = function
+    | RM sz | RegSae sz | Reg(sz, _) | KM sz | MM sz | BM sz | Moffs sz
+    | Mem sz ->
+      sz
+    | RMdiff(regSz, memSz) ->
+      (* r32/m16 and its kin run at the width of the side ModRM picked: MOV
+         m16, Sreg stores a selector, MOV r32, Sreg fills a whole register. *)
+      if Operands.modIsReg modRM then regSz else memSz
+    | RMEr(sz, _) | RMSae(sz, _)
+    | RMBcst(sz, _, _) | RMBcstEr(sz, _, _) | RMBcstSae(sz, _, _) ->
+      sz
+    | Far sz ->
+      sz + 16<rt>
+    | MMXReg _ ->
+      64<rt> (* An MMX register is a whole 64 bits wide. *)
+    | Sreg ->
+      16<rt> (* A selector is sixteen bits wherever it is written. *)
+    | FixedReg reg ->
+      fixedRegOperationWidth phlp.WordSize reg
+    | RegAddr ->
+      ParsingHelper.GetEffAddrSize phlp
+    | _ ->
+      noWidth
+
+  /// The string instructions the manual writes with a B suffix always move a
+  /// byte at a time, whatever the operand-size prefix says. The table leaves
+  /// their operands implicit, so the mnemonic is the only thing left to ask.
+  /// The far returns. The SDM writes CB and C3 both as "RET" over an empty
+  /// operand column, and CA and C2 both as "RET imm16", so nothing the table
+  /// carries tells a return that crosses a segment from one that does not and
+  /// the opcode byte is all that is left to ask. Being far costs the row its
+  /// d64 default too: the opcode maps annotate RETN with d64 and leave RETF
+  /// alone. SDM Vol. 2D, Table A-2.
+  let isFarReturn (ic: InstructionCore) =
+    ic.Opcode = Opcode.RET && (ic.OpcodeByte = 0xCAu || ic.OpcodeByte = 0xCBu)
+
+  let isByteStringOp = function
+    | Opcode.INSB | Opcode.OUTSB | Opcode.MOVSB | Opcode.CMPSB
+    | Opcode.STOSB | Opcode.LODSB | Opcode.SCASB -> true
+    | _ -> false
+
+  /// The width the whole operation runs at. Parsing leaves behind whatever
+  /// the last operand happened to need, which is the wrong answer wherever
+  /// the operands differ: MOV r/m8, imm8 runs at eight bits however wide the
+  /// prefixes would read a bare immediate. The first operand to declare a
+  /// width is the one the manual sizes the instruction by; only when none
+  /// declares one do the prefixes decide.
+  let operationSize (phlp: ParsingHelper) modRM szCond (operandTypes: _[]) =
+    let mutable i = 0
+    let mutable sz = noWidth
+    while sz <= noWidth && i < operandTypes.Length do
+      sz <- operationWidth phlp modRM operandTypes[i]
+      i <- i + 1
+    if sz <= noWidth then ParsingHelper.GetEffOprSize(phlp, szCond) else sz
+
   /// Reads the ModRM byte if required, then parses all operand descriptors
   /// and returns the assembled Operands value.
   let parseAllOperands span (phlp: ParsingHelper) (ic: InstructionCore) =
     let modRM = readModRM span phlp ic
+    let isFar = isFarReturn ic
+    if isFar then phlp.IsFar <- true else ()
+    let szCond = if isFar then SzCond.Normal else ic.SzCond
     match ic.Operands with
     | [| NoOpr |] ->
       (* Nothing else sizes an operand-less instruction, yet the lifter still
          reads OperationSize: auxPop needs it for RET and LEAVE. *)
-      setupOprContextFromPrefixes phlp ic.SzCond
+      setupOprContextFromPrefixes phlp szCond
+      if isByteStringOp ic.Opcode then phlp.OperationSize <- 8<rt>
+      else ()
       Operands.NoOperand
     | operandTypes ->
       (* Each parse reads its own bytes and leaves the width the next one
          starts from, so every operand is bound where it is read rather than
          handed to a constructor that says nothing about the order. *)
       let w = firstTwoWidths operandTypes
-      match operandTypes.Length with
-      | 1 ->
-        let op1 = parseOperand span phlp w modRM ic operandTypes[0]
-        Operands.OneOperand op1
-      | 2 ->
-        let op1 = parseOperand span phlp w modRM ic operandTypes[0]
-        let op2 = parseOperand span phlp w modRM ic operandTypes[1]
-        Operands.TwoOperands(op1, op2)
-      | 3 ->
-        let op1 = parseOperand span phlp w modRM ic operandTypes[0]
-        let op2 = parseOperand span phlp w modRM ic operandTypes[1]
-        let op3 = parseOperand span phlp w modRM ic operandTypes[2]
-        Operands.ThreeOperands(op1, op2, op3)
-      | 4 ->
-        let op1 = parseOperand span phlp w modRM ic operandTypes[0]
-        let op2 = parseOperand span phlp w modRM ic operandTypes[1]
-        let op3 = parseOperand span phlp w modRM ic operandTypes[2]
-        let op4 = parseOperand span phlp w modRM ic operandTypes[3]
-        Operands.FourOperands(op1, op2, op3, op4)
-      | 0 ->
-        Operands.NoOperand
-      | _ ->
-        failwith "Invalid number of operands."
+      let operands =
+        match operandTypes.Length with
+        | 1 ->
+          let op1 = parseOperand span phlp w modRM ic operandTypes[0]
+          Operands.OneOperand op1
+        | 2 ->
+          let op1 = parseOperand span phlp w modRM ic operandTypes[0]
+          let op2 = parseOperand span phlp w modRM ic operandTypes[1]
+          Operands.TwoOperands(op1, op2)
+        | 3 ->
+          let op1 = parseOperand span phlp w modRM ic operandTypes[0]
+          let op2 = parseOperand span phlp w modRM ic operandTypes[1]
+          let op3 = parseOperand span phlp w modRM ic operandTypes[2]
+          Operands.ThreeOperands(op1, op2, op3)
+        | 4 ->
+          let op1 = parseOperand span phlp w modRM ic operandTypes[0]
+          let op2 = parseOperand span phlp w modRM ic operandTypes[1]
+          let op3 = parseOperand span phlp w modRM ic operandTypes[2]
+          let op4 = parseOperand span phlp w modRM ic operandTypes[3]
+          Operands.FourOperands(op1, op2, op3, op4)
+        | 0 ->
+          Operands.NoOperand
+        | _ ->
+          failwith "Invalid number of operands."
+      phlp.OperationSize <- operationSize phlp modRM szCond operandTypes
+      operands
 
   /// Removes the prefixes the matched instruction consumed as opcode
   /// selectors, leaving the ones that kept their ordinary meaning.

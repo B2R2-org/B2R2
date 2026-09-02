@@ -93,4 +93,52 @@ type LifterTests() =
           "T_6:I32 := (T_5:I32 ^ (T_5:I32 >> 0x2:I32))"
           "PF := (~ ((T_6:I32 ^ (T_6:I32 >> 0x1:I32))[0:0]))"
           "} // 5" |]
+
+  [<TestMethod>]
+  member _.``[X86] MOV instruction lift Test (1)``() =
+    testX86 "C6456400"
+    <| [| "(4) {"
+          "[(EBP + 0x64:I32)] := 0x0:I8"
+          "} // 4" |]
+
+  [<TestMethod>]
+  member _.``[X86] CMPSB instruction lift Test (1)``() =
+    testX86 "A6"
+    <| [| "(1) {"
+          "T_1:I8 := [ESI]:I8"
+          "T_2:I8 := [EDI]:I8"
+          "T_3:I8 := (T_1:I8 - T_2:I8)"
+          "ESI := ((DF) ? ((ESI - 0x1:I32)) : ((ESI + 0x1:I32)))"
+          "EDI := ((DF) ? ((EDI - 0x1:I32)) : ((EDI + 0x1:I32)))"
+          "CF := (T_1:I8 < T_2:I8)"
+          "OF := (((T_1:I8 ^ T_2:I8) & (T_1:I8 ^ T_3:I8))[7:7])"
+          "AF := ((((T_3:I8 ^ T_1:I8) ^ T_2:I8) & 0x10:I8) = 0x10:I8)"
+          "SF := (T_3:I8[7:7])"
+          "ZF := (T_3:I8 = 0x0:I8)"
+          "T_4:I8 := (T_3:I8 ^ (T_3:I8 >> 0x4:I8))"
+          "T_5:I8 := (T_4:I8 ^ (T_4:I8 >> 0x2:I8))"
+          "PF := (~ ((T_5:I8 ^ (T_5:I8 >> 0x1:I8))[0:0]))"
+          "} // 1" |]
+
+  [<TestMethod>]
+  member _.``[X64] MOV instruction lift Test (1)``() =
+    testX64 "488EC1"
+    <| [| "(3) {"
+          "ES := (RCX[15:0])"
+          "} // 3" |]
+
+  [<TestMethod>]
+  member _.``[X64] PUSH instruction lift Test (1)``() =
+    testX64 "664850"
+    <| [| "(3) {"
+          "RSP := (RSP - 0x8:I64)"
+          "[RSP] := RAX"
+          "} // 3" |]
+
+  [<TestMethod>]
+  member _.``[X64] RET instruction lift Test (1)``() =
+    testX64 "CB"
+    <| [| "(1) {"
+          "!!UnsupportedInstruction"
+          "} // 1" |]
 #endif
