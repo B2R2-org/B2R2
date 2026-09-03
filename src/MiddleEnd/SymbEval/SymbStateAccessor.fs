@@ -46,128 +46,54 @@ with
   interface IQueryExpr with
     member this.QueryValues = this.Bytes
 
-/// Provides convenience helpers for a symbolic state.
+/// Provides convenience helpers for a symbolic state. What the shared
+/// machinery needs of the symbolic value domain is the object below; the
+/// members of this type beyond IStateAccessor are what only a symbolic state
+/// can answer, which is every access that lays out symbolic bytes.
 type SymbStateAccessor(hdl: BinHandle, state: SymbState) =
   static let defaultStringBound = 64
 
-  let regFactory = hdl.RegisterFactory
   let endian = hdl.ISA.Endian
-  let wordType = hdl.ISA.WordSize |> WordSize.toRegType
-  let wordBytes = RegType.toByteWidth wordType
-  let cc = hdl.Conventions.Calling
-
-  (* The conventional Linux stack top for the word size: the end of the user
-     address space, less a guard page. A word-size-independent constant would
-     silently truncate on a narrower ISA, leaving a stack pointer that does not
-     match what this accessor advertises. *)
-  let defaultStackTop =
-    match hdl.ISA.WordSize with
-    | WordSize.Bit64 -> 0x7fffffffe000UL
-    | _ -> 0xbfffe000UL
+  let wordType = StateAccess.wordType hdl
+  let byteType = 8<rt>
 
   let wordValue (addr: Addr) = SymbExpr.Const(BitVector(addr, wordType))
 
-  let byteType = 8<rt>
+  let domain =
+    { new IStateDomain<SymbState, SymbExpr, SymbEvalError> with
 
-  let registerByName (name: string) = regFactory.GetRegisterID(name = name)
+        member _.State = state
 
-  let getStackPointerRegister () =
-    match regFactory.StackPointer with
-    | Some rid ->
-      rid
-    | None ->
-      raise (InvalidOperationException
-        "Stack pointer register is unavailable.")
+        member _.WordValue value = wordValue value
 
-  let getFramePointerRegister () =
-    match regFactory.FramePointer with
-    | Some rid ->
-      rid
-    | None ->
-      raise (InvalidOperationException
-        "Frame pointer register is unavailable.")
+        member _.Zero typ = SymbExpr.zero typ
 
-  let getConcreteAddr = function
-    | SymbExpr.Const bv ->
-      bv.ToUInt64()
-    | expr ->
-      raise (InvalidOperationException $"Expected concrete address: {expr}.")
+        member _.TryGetRegisterValue rid =
+          match state.TryGetReg rid with
+          | ValueSome value -> Ok value
+          | ValueNone -> Error(UninitializedRegister rid)
 
-  let tryGetConcreteAddr = function
-    | SymbExpr.Const bv -> Ok(bv.ToUInt64())
-    | expr -> Error(UnsupportedSymbolicAddress expr)
+        member _.SetRegisterValue(rid, value) = state.SetReg(rid, value)
 
-  let tryGetConcreteReg rid =
-    match state.TryGetReg rid with
-    | ValueSome value -> tryGetConcreteAddr value
-    | ValueNone -> Error(UninitializedRegister rid)
+        member _.TryReadValue(addr, typ) =
+          SymbMemoryOperation.load addr endian typ state.Memory
 
-  let getStackPointer () =
-    getStackPointerRegister ()
-    |> state.GetReg
-    |> getConcreteAddr
+        member _.WriteValue(addr, value) =
+          SymbMemoryOperation.store addr value endian state.Memory
 
-  let tryGetStackPointer () =
-    match regFactory.StackPointer with
-    | Some rid -> tryGetConcreteReg rid
-    | None -> Error(UnsupportedOperation "Stack pointer is unavailable.")
+        (* A symbolic value stands for an address only when it has folded to a
+           constant; anything else names no cell this accessor can reach. *)
+        member _.TryGetAddr value =
+          match value with
+          | Const bv -> Ok(bv.ToUInt64())
+          | expr -> Error(UnsupportedSymbolicAddress expr)
 
-  let setStackPointer addr =
-    state.SetReg(getStackPointerRegister (), wordValue addr)
+        member _.RegisterUnavailable role =
+          UnsupportedOperation $"{role} is unavailable."
 
-  let trySetStackPointer addr =
-    match regFactory.StackPointer with
-    | Some rid -> state.SetReg(rid, wordValue addr); Ok()
-    | None -> Error(UnsupportedOperation "Stack pointer is unavailable.")
+        member _.FormatError error = $"{error}" }
 
-  let setArgument idx value =
-    if idx < 0 then raise (ArgumentOutOfRangeException(nameof idx)) else ()
-    let rid = cc.IntArgRegister idx
-    state.SetReg(rid, value)
-
-  let allocateStackBuffer size =
-    if size < 0 then raise (ArgumentOutOfRangeException(nameof size)) else ()
-    let addr = getStackPointer () - uint64 size
-    setStackPointer addr
-    addr
-
-  let pushToStack value =
-    let addr = getStackPointer () - uint64 wordBytes
-    setStackPointer addr
-    SymbMemoryOperation.store addr value endian state.Memory
-    addr
-
-  let tryPushToStack value =
-    match tryGetStackPointer () with
-    | Error e ->
-      Error e
-    | Ok sp ->
-      let addr = sp - uint64 wordBytes
-      trySetStackPointer addr
-      |> Result.map (fun () ->
-        SymbMemoryOperation.store addr value endian state.Memory
-        addr)
-
-  let popFromStack () =
-    let addr = getStackPointer ()
-    match SymbMemoryOperation.load addr endian wordType state.Memory with
-    | Ok value ->
-      setStackPointer (addr + uint64 wordBytes)
-      value
-    | Error e ->
-      raise (InvalidOperationException $"Stack pop failed: {e}.")
-
-  let tryPopFromStack () =
-    match tryGetStackPointer () with
-    | Error e ->
-      Error e
-    | Ok addr ->
-      match SymbMemoryOperation.load addr endian wordType state.Memory with
-      | Ok value ->
-        trySetStackPointer (addr + uint64 wordBytes)
-        |> Result.map (fun () -> value)
-      | Error e ->
-        Error e
+  let shared = StateAccess.create hdl domain
 
   let checkBufferLength length =
     if length < 0 then raise (ArgumentOutOfRangeException(nameof length))
@@ -202,10 +128,6 @@ type SymbStateAccessor(hdl: BinHandle, state: SymbState) =
   /// Default maximum symbolic C-string payload size.
   static member DefaultStringBound = defaultStringBound
 
-  /// Stack top that InitializeDefaultStack starts the stack at. The value
-  /// depends on the word size of the binary this accessor was built from.
-  member _.DefaultStackTop = defaultStackTop
-
   /// The underlying symbolic state.
   member _.State = state
 
@@ -213,62 +135,87 @@ type SymbStateAccessor(hdl: BinHandle, state: SymbState) =
   member _.WordType = wordType
 
   /// Target word size in bytes.
-  member _.WordBytes = wordBytes
+  member _.WordBytes = shared.WordBytes
 
   /// Current stack pointer value.
-  member _.StackPointer = getStackPointer ()
+  member _.StackPointer = shared.StackPointer
 
-  /// Set the current stack pointer value.
-  member _.SetStackPointer addr = setStackPointer addr
+  /// Stack top that InitializeDefaultStack starts the stack at. The value
+  /// depends on the word size of the binary this accessor was built from.
+  member _.DefaultStackTop = shared.DefaultStackTop
 
-  /// Initialize the stack pointer with the given stack top.
-  member _.InitializeStack stackTop = setStackPointer stackTop
+  /// Creates a word-sized concrete symbolic expression.
+  member _.WordValue addr = wordValue addr
 
-  /// Initialize the stack pointer with the default stack top.
-  member _.InitializeDefaultStack() = setStackPointer defaultStackTop
+  /// Sets the current stack pointer value.
+  member _.SetStackPointer addr = shared.SetStackPointer addr
 
-  /// Initialize the frame pointer with the current stack pointer.
-  member _.InitializeFramePointer() =
-    state.SetReg(getFramePointerRegister (), wordValue (getStackPointer ()))
+  /// Initializes the stack pointer with the given stack top.
+  member _.InitializeStack stackTop = shared.InitializeStack stackTop
 
-  /// Set a register value by name.
-  member _.SetRegister(name: string, value) =
-    state.SetReg(registerByName name, value)
+  /// Initializes the stack pointer with the default stack top.
+  member _.InitializeDefaultStack() = shared.InitializeDefaultStack()
 
-  /// Set a register value by register ID.
-  member _.SetRegister(rid: RegisterID, value) = state.SetReg(rid, value)
+  /// Initializes the frame pointer with the current stack pointer.
+  member _.InitializeFramePointer() = shared.InitializeFramePointer()
 
-  /// Get a register value by name.
-  member _.GetRegister(name: string) = registerByName name |> state.GetReg
+  /// Sets a register value by name.
+  member _.SetRegister(name: string, value) = shared.SetRegister(name, value)
 
-  /// Get a register value by register ID.
-  member _.GetRegister(rid: RegisterID) = state.GetReg rid
+  /// Sets a register value by register ID.
+  member _.SetRegister(rid: RegisterID, value) =
+    shared.SetRegister(rid, value)
 
-  /// Clear selected registers to zero.
-  member _.ZeroRegisters(names: string[]) =
-    names
-    |> Array.iter (fun name ->
-      state.SetReg(registerByName name, SymbExpr.zero wordType))
+  /// Gets a register value by name.
+  member _.GetRegister(name: string) = shared.GetRegister name
 
-  /// Clear selected registers to zero.
-  member _.ZeroRegisters(rids: RegisterID[]) =
-    rids
-    |> Array.iter (fun rid -> state.SetReg(rid, SymbExpr.zero wordType))
+  /// Gets a register value by register ID.
+  member _.GetRegister(rid: RegisterID) = shared.GetRegister rid
 
-  /// Set an integer or pointer argument for the supported ABI.
-  member _.SetArgument(idx, value) = setArgument idx value
+  /// Sets the selected registers to zero by name.
+  member _.ZeroRegisters(names: string[]) = shared.ZeroRegisters names
 
-  /// Get the return value for the supported ABI.
-  member _.GetReturnValue() = cc.IntReturnRegister |> state.GetReg
+  /// Sets the selected registers to zero by register ID.
+  member _.ZeroRegisters(rids: RegisterID[]) = shared.ZeroRegisters rids
 
-  /// Allocate a buffer from the current stack and return its address.
-  member _.AllocateStackBuffer size = allocateStackBuffer size
+  /// Sets an integer or pointer argument for the supported ABI.
+  member _.SetArgument(idx, value) = shared.SetArgument(idx, value)
 
-  /// Push a word-sized value to the stack and return its address.
-  member _.PushToStack value = pushToStack value
+  /// Gets the return value for the supported ABI.
+  member _.GetReturnValue() = shared.GetReturnValue()
 
-  /// Pop a word-sized value from the stack.
-  member _.PopFromStack() = popFromStack ()
+  /// Allocates a buffer from the current stack and returns its address.
+  member _.AllocateStackBuffer size = shared.AllocateStackBuffer size
+
+  /// Pushes a word-sized value to the stack and returns its address.
+  member _.PushToStack value = shared.PushToStack value
+
+  /// Pops a word-sized value from the stack.
+  member _.PopFromStack() = shared.PopFromStack()
+
+  /// Reads a value of the given type from memory.
+  member _.ReadValue(addr: Addr, typ: RegType) = shared.ReadValue(addr, typ)
+
+  /// Writes a value to memory, using the type the value carries.
+  member _.WriteValue(addr: Addr, value: SymbExpr) =
+    shared.WriteValue(addr, value)
+
+  /// Reads the stack pointer as a concrete address.
+  member _.TryGetStackPointer() = shared.TryGetStackPointer()
+
+  /// Sets the stack pointer when the architecture provides one.
+  member _.TrySetStackPointer addr = shared.TrySetStackPointer addr
+
+  /// Pushes a word-sized value to the stack without throwing on failure.
+  member _.TryPushToStack value = shared.TryPushToStack value
+
+  /// Pops a word-sized value from the stack without throwing on failure.
+  member _.TryPopFromStack() = shared.TryPopFromStack()
+
+  /// Reads a register as a concrete address.
+  member _.TryGetConcreteRegister rid =
+    domain.TryGetRegisterValue rid
+    |> Result.bind (fun value -> domain.TryGetAddr value)
 
   /// Creates symbolic byte variables without writing them to memory.
   member _.CreateSymbolicBytes(name, length) =
@@ -276,36 +223,6 @@ type SymbStateAccessor(hdl: BinHandle, state: SymbState) =
     checkBufferLength length
     [ 0 .. length - 1 ]
     |> List.map (symbolicByte name)
-
-  /// Creates a word-sized concrete symbolic expression.
-  member _.WordValue addr = wordValue addr
-
-  /// Reads a value of the given type from memory.
-  member _.ReadValue(addr: Addr, typ: RegType) =
-    match SymbMemoryOperation.load addr endian typ state.Memory with
-    | Ok value ->
-      value
-    | Error e ->
-      raise (InvalidOperationException $"Cannot read a value: {e}.")
-
-  /// Writes a value to memory, using the type the value carries.
-  member _.WriteValue(addr: Addr, value: SymbExpr) =
-    SymbMemoryOperation.store addr value endian state.Memory
-
-  /// Reads a register as a concrete address.
-  member _.TryGetConcreteRegister rid = tryGetConcreteReg rid
-
-  /// Reads the stack pointer as a concrete address.
-  member _.TryGetStackPointer() = tryGetStackPointer ()
-
-  /// Sets the stack pointer when the architecture provides one.
-  member _.TrySetStackPointer addr = trySetStackPointer addr
-
-  /// Pushes a word-sized value to the stack without throwing on failure.
-  member _.TryPushToStack value = tryPushToStack value
-
-  /// Pops a word-sized value from the stack without throwing on failure.
-  member _.TryPopFromStack() = tryPopFromStack ()
 
   /// Writes a symbolic byte buffer to memory at a concrete address.
   member _.WriteSymbolicBuffer(name, addr, length) =
@@ -320,14 +237,14 @@ type SymbStateAccessor(hdl: BinHandle, state: SymbState) =
     this.AllocateSymbolicBuffer(name, length, false)
 
   /// Allocates a stack buffer and fills it with symbolic bytes.
-  member this.AllocateSymbolicBuffer(name, length, nullTerminate) =
+  member _.AllocateSymbolicBuffer(name, length, nullTerminate) =
     let size = length + if nullTerminate then 1 else 0
-    this.AllocateStackBuffer size
+    shared.AllocateStackBuffer size
     |> fun addr -> writeSymbolicBuffer name addr length nullTerminate
 
   /// Sets an argument register to point to a symbolic byte buffer.
-  member this.SetArgumentBuffer(idx, buffer: SymbByteBuffer) =
-    this.SetArgument(idx, wordValue buffer.Address)
+  member _.SetArgumentBuffer(idx, buffer: SymbByteBuffer) =
+    shared.SetArgument(idx, wordValue buffer.Address)
 
   /// Allocates a null-terminated symbolic C-string buffer on the stack.
   member this.AllocateSymbolicString(name) =
@@ -349,57 +266,57 @@ type SymbStateAccessor(hdl: BinHandle, state: SymbState) =
 
   interface IStateAccessor<SymbState, SymbExpr, SymbEvalError> with
 
-    member this.State = this.State
+    member _.State = state
 
-    member this.WordType = this.WordType
+    member _.WordType = wordType
 
-    member this.WordBytes = this.WordBytes
+    member _.WordBytes = shared.WordBytes
 
-    member this.StackPointer = this.StackPointer
+    member _.StackPointer = shared.StackPointer
 
-    member this.DefaultStackTop = this.DefaultStackTop
+    member _.DefaultStackTop = shared.DefaultStackTop
 
-    member this.WordValue value = this.WordValue value
+    member _.WordValue value = wordValue value
 
-    member this.SetStackPointer addr = this.SetStackPointer addr
+    member _.SetStackPointer addr = shared.SetStackPointer addr
 
-    member this.InitializeStack stackTop = this.InitializeStack stackTop
+    member _.InitializeStack stackTop = shared.InitializeStack stackTop
 
-    member this.InitializeDefaultStack() = this.InitializeDefaultStack()
+    member _.InitializeDefaultStack() = shared.InitializeDefaultStack()
 
-    member this.InitializeFramePointer() = this.InitializeFramePointer()
+    member _.InitializeFramePointer() = shared.InitializeFramePointer()
 
-    member this.SetRegister(name: string, value) = this.SetRegister(name, value)
+    member _.SetRegister(name: string, value) = shared.SetRegister(name, value)
 
-    member this.SetRegister(rid: RegisterID, value) =
-      this.SetRegister(rid, value)
+    member _.SetRegister(rid: RegisterID, value) =
+      shared.SetRegister(rid, value)
 
-    member this.GetRegister(name: string) = this.GetRegister name
+    member _.GetRegister(name: string) = shared.GetRegister name
 
-    member this.GetRegister(rid: RegisterID) = this.GetRegister rid
+    member _.GetRegister(rid: RegisterID) = shared.GetRegister rid
 
-    member this.ZeroRegisters(names: string[]) = this.ZeroRegisters names
+    member _.ZeroRegisters(names: string[]) = shared.ZeroRegisters names
 
-    member this.ZeroRegisters(rids: RegisterID[]) = this.ZeroRegisters rids
+    member _.ZeroRegisters(rids: RegisterID[]) = shared.ZeroRegisters rids
 
-    member this.SetArgument(idx, value) = this.SetArgument(idx, value)
+    member _.SetArgument(idx, value) = shared.SetArgument(idx, value)
 
-    member this.GetReturnValue() = this.GetReturnValue()
+    member _.GetReturnValue() = shared.GetReturnValue()
 
-    member this.AllocateStackBuffer size = this.AllocateStackBuffer size
+    member _.AllocateStackBuffer size = shared.AllocateStackBuffer size
 
-    member this.PushToStack value = this.PushToStack value
+    member _.PushToStack value = shared.PushToStack value
 
-    member this.PopFromStack() = this.PopFromStack()
+    member _.PopFromStack() = shared.PopFromStack()
 
-    member this.ReadValue(addr, typ) = this.ReadValue(addr, typ)
+    member _.ReadValue(addr, typ) = shared.ReadValue(addr, typ)
 
-    member this.WriteValue(addr, value) = this.WriteValue(addr, value)
+    member _.WriteValue(addr, value) = shared.WriteValue(addr, value)
 
-    member this.TryGetStackPointer() = this.TryGetStackPointer()
+    member _.TryGetStackPointer() = shared.TryGetStackPointer()
 
-    member this.TrySetStackPointer addr = this.TrySetStackPointer addr
+    member _.TrySetStackPointer addr = shared.TrySetStackPointer addr
 
-    member this.TryPushToStack value = this.TryPushToStack value
+    member _.TryPushToStack value = shared.TryPushToStack value
 
-    member this.TryPopFromStack() = this.TryPopFromStack()
+    member _.TryPopFromStack() = shared.TryPopFromStack()

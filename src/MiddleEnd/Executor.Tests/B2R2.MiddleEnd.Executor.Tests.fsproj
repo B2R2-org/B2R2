@@ -10,6 +10,7 @@
     <Compile Include="StmtLoopTests.fs" />
     <Compile Include="LiftCacheTests.fs" />
     <Compile Include="CallContextTests.fs" />
+    <Compile Include="StateAccessTests.fs" />
   </ItemGroup>
 
   <ItemGroup>

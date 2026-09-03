@@ -30,35 +30,46 @@ open B2R2
 open B2R2.FrontEnd
 open B2R2.MiddleEnd.Executor
 
-/// Provides structured access to a concrete state.
-type ConcStateAccessor(hdl: BinHandle, state: ConcState) as this =
-  let regFactory = hdl.RegisterFactory
-  let wordType = hdl.ISA.WordSize |> WordSize.toRegType
-  let wordBytes = RegType.toByteWidth wordType
+/// Provides structured access to a concrete state. What the shared machinery
+/// needs of the concrete value domain is the object below; the members of
+/// this type beyond IStateAccessor are what only a concrete state can answer,
+/// which is every access that reads or writes bytes.
+type ConcStateAccessor(hdl: BinHandle, state: ConcState) =
   let endian = hdl.ISA.Endian
-  let cc = hdl.Conventions.Calling
+  let wordType = StateAccess.wordType hdl
+  let wordValue (value: Addr) = BitVector(value, wordType)
 
-  (* The conventional Linux stack top for the word size: the end of the user
-     address space, less a guard page. A word-size-independent constant would
-     silently truncate on a narrower ISA, leaving a stack pointer that does not
-     match what this accessor advertises. *)
-  let defaultStackTop =
-    match hdl.ISA.WordSize with
-    | WordSize.Bit64 -> 0x7fffffffe000UL
-    | _ -> 0xbfffe000UL
+  let domain =
+    { new IStateDomain<ConcState, BitVector, ErrorCase> with
 
-  let wordValue (value: uint64) = BitVector(value, wordType)
+        member _.State = state
 
-  let registerByName (name: string) =
-    regFactory.GetRegisterID(name = name.ToUpperInvariant())
+        member _.WordValue value = wordValue value
 
-  let getDefinedReg rid =
-    match state.TryGetReg rid with
-    | Def v ->
-      v
-    | Undef ->
-      let name = regFactory.GetRegisterName rid
-      raise (InvalidOperationException $"Register {name} is not initialized.")
+        member _.Zero typ = BitVector.Zero typ
+
+        member _.TryGetRegisterValue rid =
+          match state.TryGetReg rid with
+          | Def v -> Ok v
+          | Undef -> Error ErrorCase.InvalidRegister
+
+        member _.SetRegisterValue(rid, value) = state.SetReg(rid, value)
+
+        member _.TryReadValue(addr, typ) =
+          Memory.read addr endian typ state.Memory
+
+        member _.WriteValue(addr, value) =
+          Memory.write addr value endian state.Memory
+
+        (* Every concrete value is an address already, so reading one as an
+           address is the one primitive that cannot fail in this domain. *)
+        member _.TryGetAddr value = Ok(value.ToUInt64())
+
+        member _.RegisterUnavailable _ = ErrorCase.InvalidRegister
+
+        member _.FormatError error = ErrorCase.toMessage error }
+
+  let shared = StateAccess.create hdl domain
 
   let readByte addr =
     match state.Memory.ByteRead addr with
@@ -66,111 +77,6 @@ type ConcStateAccessor(hdl: BinHandle, state: ConcState) as this =
       b
     | ValueNone ->
       raise (InvalidOperationException $"Cannot read memory at {addr:x}.")
-
-  let getStackPointerRegister () =
-    match regFactory.StackPointer with
-    | Some rid ->
-      rid
-    | None ->
-      raise (InvalidOperationException
-        "Stack pointer register is unavailable.")
-
-  let getFramePointerRegister () =
-    match regFactory.FramePointer with
-    | Some rid ->
-      rid
-    | None ->
-      raise (InvalidOperationException
-        "Frame pointer register is unavailable.")
-
-  let getStackPointer () =
-    let bv = getStackPointerRegister () |> getDefinedReg
-    bv.ToUInt64()
-
-  let setStackPointer addr =
-    let sp = getStackPointerRegister ()
-    state.SetReg(sp, wordValue addr)
-
-  let pushToStack value =
-    let addr = getStackPointer () - uint64 wordBytes
-    setStackPointer addr
-    Memory.write addr value endian state.Memory
-    addr
-
-  let popFromStack () =
-    let addr = getStackPointer ()
-    let value =
-      match Memory.read addr endian wordType state.Memory with
-      | Ok v ->
-        v
-      | Error _ ->
-        raise (InvalidOperationException $"Stack pop failed at {addr:x}.")
-    setStackPointer (addr + uint64 wordBytes)
-    value
-
-  let tryGetStackPointer () =
-    match regFactory.StackPointer with
-    | Some rid ->
-      match state.TryGetReg rid with
-      | Def v -> Ok(v.ToUInt64())
-      | Undef -> Error ErrorCase.InvalidRegister
-    | None ->
-      Error ErrorCase.InvalidRegister
-
-  let trySetStackPointer addr =
-    match regFactory.StackPointer with
-    | Some rid -> state.SetReg(rid, wordValue addr) |> Ok
-    | None -> Error ErrorCase.InvalidRegister
-
-  let tryPushToStack value =
-    match tryGetStackPointer () with
-    | Error e ->
-      Error e
-    | Ok sp ->
-      let addr = sp - uint64 wordBytes
-      trySetStackPointer addr
-      |> Result.map (fun () ->
-        Memory.write addr value endian state.Memory
-        addr)
-
-  let tryPopFromStack () =
-    match tryGetStackPointer () with
-    | Error e ->
-      Error e
-    | Ok addr ->
-      match Memory.read addr endian wordType state.Memory with
-      | Ok value ->
-        trySetStackPointer (addr + uint64 wordBytes)
-        |> Result.map (fun () -> value)
-      | Error e ->
-        Error e
-
-  let initializeFramePointer () =
-    let fp = getFramePointerRegister ()
-    state.SetReg(fp, wordValue (getStackPointer ()))
-
-  let setRegisterByName name value = state.SetReg(registerByName name, value)
-
-  let setRegister rid value = state.SetReg(rid, value)
-
-  let getRegisterByName name = registerByName name |> getDefinedReg
-
-  let getRegister rid = getDefinedReg rid
-
-  let zeroRegistersByName names =
-    let zero = BitVector.Zero wordType
-    names |> Array.iter (fun name -> setRegisterByName name zero)
-
-  let zeroRegisters rids =
-    let zero = BitVector.Zero wordType
-    rids |> Array.iter (fun rid -> setRegister rid zero)
-
-  let setArgument idx value =
-    if idx < 0 then raise (ArgumentOutOfRangeException(nameof idx)) else ()
-    let rid = cc.IntArgRegister idx
-    state.SetReg(rid, value)
-
-  let getReturnValue () = cc.IntReturnRegister |> getDefinedReg
 
   let tryReadByte addr =
     match state.Memory.ByteRead addr with
@@ -191,16 +97,6 @@ type ConcStateAccessor(hdl: BinHandle, state: ConcState) as this =
     else ()
     collectCString (ResizeArray<byte>()) addr 0 maxLength
 
-  let allocateStackBuffer size =
-    if size < 0 then raise (ArgumentOutOfRangeException(nameof size)) else ()
-    let addr = getStackPointer () - uint64 size
-    setStackPointer addr
-    addr
-
-  /// Stack top that InitializeDefaultStack starts the stack at. The value
-  /// depends on the word size of the binary this accessor was built from.
-  member _.DefaultStackTop = defaultStackTop
-
   /// The underlying concrete state.
   member _.State = state
 
@@ -208,123 +104,117 @@ type ConcStateAccessor(hdl: BinHandle, state: ConcState) as this =
   member _.WordType = wordType
 
   /// Target word size in bytes.
-  member _.WordBytes = wordBytes
+  member _.WordBytes = shared.WordBytes
 
   /// Current stack pointer value.
-  member _.StackPointer = getStackPointer ()
+  member _.StackPointer = shared.StackPointer
+
+  /// Stack top that InitializeDefaultStack starts the stack at. The value
+  /// depends on the word size of the binary this accessor was built from.
+  member _.DefaultStackTop = shared.DefaultStackTop
 
   /// Creates a word-sized concrete value.
   member _.WordValue value = wordValue value
 
-  /// Set the current stack pointer value.
-  member _.SetStackPointer addr = setStackPointer addr
+  /// Sets the current stack pointer value.
+  member _.SetStackPointer addr = shared.SetStackPointer addr
 
-  /// Initialize the stack pointer with the given stack top.
-  member _.InitializeStack stackTop = setStackPointer stackTop
+  /// Initializes the stack pointer with the given stack top.
+  member _.InitializeStack stackTop = shared.InitializeStack stackTop
 
-  /// Initialize the stack pointer with the default stack top.
-  member _.InitializeDefaultStack() = setStackPointer defaultStackTop
+  /// Initializes the stack pointer with the default stack top.
+  member _.InitializeDefaultStack() = shared.InitializeDefaultStack()
 
-  /// Initialize the frame pointer with the current stack pointer.
-  member _.InitializeFramePointer() = initializeFramePointer ()
+  /// Initializes the frame pointer with the current stack pointer.
+  member _.InitializeFramePointer() = shared.InitializeFramePointer()
 
-  /// Set a register value by name.
-  member _.SetRegister(name: string, value) = setRegisterByName name value
+  /// Sets a register value by name.
+  member _.SetRegister(name: string, value) = shared.SetRegister(name, value)
 
-  /// Set a register value by register ID.
-  member _.SetRegister(rid: RegisterID, value) = setRegister rid value
+  /// Sets a register value by register ID.
+  member _.SetRegister(rid: RegisterID, value) =
+    shared.SetRegister(rid, value)
 
-  /// Get a register value by name.
-  member _.GetRegister(name: string) = getRegisterByName name
+  /// Gets a register value by name.
+  member _.GetRegister(name: string) = shared.GetRegister name
 
-  /// Get a register value by register ID.
-  member _.GetRegister(rid: RegisterID) = getRegister rid
+  /// Gets a register value by register ID.
+  member _.GetRegister(rid: RegisterID) = shared.GetRegister rid
 
-  /// Clear selected registers to zero.
-  member _.ZeroRegisters(names: string[]) = zeroRegistersByName names
+  /// Sets the selected registers to zero by name.
+  member _.ZeroRegisters(names: string[]) = shared.ZeroRegisters names
 
-  /// Clear selected registers to zero.
-  member _.ZeroRegisters(rids: RegisterID[]) = zeroRegisters rids
+  /// Sets the selected registers to zero by register ID.
+  member _.ZeroRegisters(rids: RegisterID[]) = shared.ZeroRegisters rids
 
-  /// Set an integer or pointer argument for the supported ABI.
-  member _.SetArgument(idx, value) = setArgument idx value
+  /// Sets an integer or pointer argument for the supported ABI.
+  member _.SetArgument(idx, value) = shared.SetArgument(idx, value)
 
-  /// Get the return value for the supported ABI.
-  member _.GetReturnValue() = getReturnValue ()
+  /// Gets the return value for the supported ABI.
+  member _.GetReturnValue() = shared.GetReturnValue()
 
-  /// Allocate a buffer from the current stack and return its address.
-  member _.AllocateStackBuffer size = allocateStackBuffer size
+  /// Allocates a buffer from the current stack and returns its address.
+  member _.AllocateStackBuffer size = shared.AllocateStackBuffer size
 
-  /// Push a word-sized value to the stack and return its address.
-  member _.PushToStack value = pushToStack value
+  /// Pushes a word-sized value to the stack and returns its address.
+  member _.PushToStack value = shared.PushToStack value
 
-  /// Pop a word-sized value from the stack.
-  member _.PopFromStack() = popFromStack ()
-
-  /// Current stack pointer value, failing instead of raising when the stack
-  /// pointer register is unavailable.
-  member _.TryGetStackPointer() = tryGetStackPointer ()
-
-  /// Sets the current stack pointer value, failing instead of raising when the
-  /// stack pointer register is unavailable.
-  member _.TrySetStackPointer addr = trySetStackPointer addr
-
-  /// Pushes a word-sized value to the stack and returns its address, failing
-  /// instead of raising when the stack pointer is unavailable.
-  member _.TryPushToStack value = tryPushToStack value
-
-  /// Pops a word-sized value from the stack, failing instead of raising when
-  /// the stack pointer is unavailable or the memory read fails.
-  member _.TryPopFromStack() = tryPopFromStack ()
-
-  /// Push a word-sized pointer value to the stack and return its address.
-  member _.PushPointer(value: Addr) = wordValue value |> pushToStack
-
-  /// Pop a word-sized pointer value from the stack.
-  member _.PopPointer() =
-    let bv = popFromStack ()
-    bv.ToUInt64()
-
-  /// Write a word-sized pointer value to memory.
-  member _.WritePointer(addr: Addr, value: Addr) =
-    Memory.write addr (wordValue value) endian state.Memory
-
-  /// Read a word-sized pointer value from memory.
-  member _.ReadPointer(addr: Addr) =
-    match Memory.read addr endian wordType state.Memory with
-    | Ok v ->
-      v.ToUInt64()
-    | Error _ ->
-      raise (InvalidOperationException $"Cannot read a pointer at {addr:x}.")
+  /// Pops a word-sized value from the stack.
+  member _.PopFromStack() = shared.PopFromStack()
 
   /// Reads a value of the given type from memory.
-  member _.ReadValue(addr: Addr, typ: RegType) =
-    match Memory.read addr endian typ state.Memory with
-    | Ok v ->
-      v
-    | Error _ ->
-      raise (InvalidOperationException $"Cannot read a value at {addr:x}.")
+  member _.ReadValue(addr: Addr, typ: RegType) = shared.ReadValue(addr, typ)
 
   /// Writes a value to memory, using the type the value carries.
   member _.WriteValue(addr: Addr, value: BitVector) =
-    Memory.write addr value endian state.Memory
+    shared.WriteValue(addr, value)
 
-  /// Write a concrete integer value to memory.
+  /// Current stack pointer value, failing instead of raising when the stack
+  /// pointer register is unavailable.
+  member _.TryGetStackPointer() = shared.TryGetStackPointer()
+
+  /// Sets the current stack pointer value, failing instead of raising when the
+  /// stack pointer register is unavailable.
+  member _.TrySetStackPointer addr = shared.TrySetStackPointer addr
+
+  /// Pushes a word-sized value to the stack and returns its address, failing
+  /// instead of raising.
+  member _.TryPushToStack value = shared.TryPushToStack value
+
+  /// Pops a word-sized value from the stack, failing instead of raising when
+  /// the stack pointer is unavailable or the memory read fails.
+  member _.TryPopFromStack() = shared.TryPopFromStack()
+
+  /// Pushes a word-sized pointer value to the stack and returns its address.
+  member _.PushPointer(value: Addr) = wordValue value |> shared.PushToStack
+
+  /// Pops a word-sized pointer value from the stack.
+  member _.PopPointer() = shared.PopFromStack().ToUInt64()
+
+  /// Writes a word-sized pointer value to memory.
+  member _.WritePointer(addr: Addr, value: Addr) =
+    shared.WriteValue(addr, wordValue value)
+
+  /// Reads a word-sized pointer value from memory.
+  member _.ReadPointer(addr: Addr) =
+    shared.ReadValue(addr, wordType).ToUInt64()
+
+  /// Writes a concrete integer value to memory.
   member _.WriteInteger(addr: Addr, value: uint64, typ: RegType) =
-    Memory.write addr (BitVector(value, typ)) endian state.Memory
+    shared.WriteValue(addr, BitVector(value, typ))
 
-  /// Write concrete bytes to memory.
+  /// Writes concrete bytes to memory.
   member _.WriteBytes(addr: Addr, bytes: byte[]) =
     bytes
     |> Array.iteri (fun idx b -> state.Memory.ByteWrite(addr + uint64 idx, b))
 
-  /// Read concrete bytes from memory.
+  /// Reads concrete bytes from memory.
   member _.ReadBytes(addr: Addr, length: int) =
     if length < 0 then raise (ArgumentOutOfRangeException(nameof length))
     else ()
     Array.init length (fun idx -> readByte (addr + uint64 idx))
 
-  /// Read a null-terminated ASCII string from memory. Reaching maxLength
+  /// Reads a null-terminated ASCII string from memory. Reaching maxLength
   /// without a terminator is an error, not a truncation.
   member _.ReadCString(addr: Addr, maxLength: int) =
     match readCString addr maxLength with
@@ -342,56 +232,57 @@ type ConcStateAccessor(hdl: BinHandle, state: ConcState) as this =
 
   interface IStateAccessor<ConcState, BitVector, ErrorCase> with
 
-    member _.State = this.State
+    member _.State = state
 
-    member _.WordType = this.WordType
+    member _.WordType = wordType
 
-    member _.WordBytes = this.WordBytes
+    member _.WordBytes = shared.WordBytes
 
-    member _.StackPointer = this.StackPointer
+    member _.StackPointer = shared.StackPointer
 
-    member _.DefaultStackTop = this.DefaultStackTop
+    member _.DefaultStackTop = shared.DefaultStackTop
 
-    member _.WordValue value = this.WordValue value
+    member _.WordValue value = wordValue value
 
-    member _.SetStackPointer addr = this.SetStackPointer addr
+    member _.SetStackPointer addr = shared.SetStackPointer addr
 
-    member _.InitializeStack stackTop = this.InitializeStack stackTop
+    member _.InitializeStack stackTop = shared.InitializeStack stackTop
 
-    member _.InitializeDefaultStack() = this.InitializeDefaultStack()
+    member _.InitializeDefaultStack() = shared.InitializeDefaultStack()
 
-    member _.InitializeFramePointer() = this.InitializeFramePointer()
+    member _.InitializeFramePointer() = shared.InitializeFramePointer()
 
-    member _.SetRegister(name: string, value) = this.SetRegister(name, value)
+    member _.SetRegister(name: string, value) = shared.SetRegister(name, value)
 
-    member _.SetRegister(rid: RegisterID, value) = this.SetRegister(rid, value)
+    member _.SetRegister(rid: RegisterID, value) =
+      shared.SetRegister(rid, value)
 
-    member _.GetRegister(name: string) = this.GetRegister name
+    member _.GetRegister(name: string) = shared.GetRegister name
 
-    member _.GetRegister(rid: RegisterID) = this.GetRegister rid
+    member _.GetRegister(rid: RegisterID) = shared.GetRegister rid
 
-    member _.ZeroRegisters(names: string[]) = this.ZeroRegisters names
+    member _.ZeroRegisters(names: string[]) = shared.ZeroRegisters names
 
-    member _.ZeroRegisters(rids: RegisterID[]) = this.ZeroRegisters rids
+    member _.ZeroRegisters(rids: RegisterID[]) = shared.ZeroRegisters rids
 
-    member _.SetArgument(idx, value) = this.SetArgument(idx, value)
+    member _.SetArgument(idx, value) = shared.SetArgument(idx, value)
 
-    member _.GetReturnValue() = this.GetReturnValue()
+    member _.GetReturnValue() = shared.GetReturnValue()
 
-    member _.AllocateStackBuffer size = this.AllocateStackBuffer size
+    member _.AllocateStackBuffer size = shared.AllocateStackBuffer size
 
-    member _.PushToStack value = this.PushToStack value
+    member _.PushToStack value = shared.PushToStack value
 
-    member _.PopFromStack() = this.PopFromStack()
+    member _.PopFromStack() = shared.PopFromStack()
 
-    member _.ReadValue(addr, typ) = this.ReadValue(addr, typ)
+    member _.ReadValue(addr, typ) = shared.ReadValue(addr, typ)
 
-    member _.WriteValue(addr, value) = this.WriteValue(addr, value)
+    member _.WriteValue(addr, value) = shared.WriteValue(addr, value)
 
-    member _.TryGetStackPointer() = this.TryGetStackPointer()
+    member _.TryGetStackPointer() = shared.TryGetStackPointer()
 
-    member _.TrySetStackPointer addr = this.TrySetStackPointer addr
+    member _.TrySetStackPointer addr = shared.TrySetStackPointer addr
 
-    member _.TryPushToStack value = this.TryPushToStack value
+    member _.TryPushToStack value = shared.TryPushToStack value
 
-    member _.TryPopFromStack() = this.TryPopFromStack()
+    member _.TryPopFromStack() = shared.TryPopFromStack()

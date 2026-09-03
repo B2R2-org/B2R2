@@ -5,7 +5,9 @@
 
   <ItemGroup>
     <Compile Include="IStateAccessor.fs" />
+    <Compile Include="IStateDomain.fs" />
     <Compile Include="StopPoint.fs" />
+    <Compile Include="StateAccess.fs" />
     <Compile Include="CallContext.fs" />
     <Compile Include="CallPolicy.fs" />
     <Compile Include="Variables.fs" />
