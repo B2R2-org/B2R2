@@ -37,10 +37,10 @@ type ConcStateAccessorTests() =
 
   let newAccessor arch (ws: WordSize) =
     let hdl = BinHandle.LoadRawImage([| 0x90uy |], ISA(arch, ws), OS.Linux)
-    ConcStateAccessor(hdl, EvalState())
+    ConcStateAccessor(hdl, ConcState())
 
   let newInterface arch ws =
-    newAccessor arch ws :> IStateAccessor<EvalState, BitVector, ErrorCase>
+    newAccessor arch ws :> IStateAccessor<ConcState, BitVector, ErrorCase>
 
   let accessorWith arch ws bytes =
     let accessor = newAccessor arch ws

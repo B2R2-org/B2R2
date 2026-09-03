@@ -50,9 +50,9 @@ type ConcExecutor(hdl: BinHandle) =
 
   let createState (memory: InitialMemory<IMemory<byte>>) =
     match memory with
-    | EmptyMemory -> EvalState()
-    | PreinitializedMemory mem -> EvalState mem
-    | BinSectionBackedMemory -> EvalState(BinSectionMemory hdl)
+    | EmptyMemory -> ConcState()
+    | PreinitializedMemory mem -> ConcState mem
+    | BinSectionBackedMemory -> ConcState(BinSectionMemory hdl)
 
   let initializeState start opts =
     let st = createState opts.Memory
@@ -113,12 +113,12 @@ type ConcExecutor(hdl: BinHandle) =
     | SideEffect _ ->
       ()
 
-  let isUninitializedRegister (st: EvalState) rid =
+  let isUninitializedRegister (st: ConcState) rid =
     match st.TryGetReg rid with
     | Undef -> true
     | Def _ -> false
 
-  let materializeRegister opts (st: EvalState) ridx =
+  let materializeRegister opts (st: ConcState) ridx =
     let rid = RegisterID.create ridx
     match tryGetDefaultRegisterValue opts rid with
     | Some v when isUninitializedRegister st rid -> st.SetReg(rid, v)
@@ -160,7 +160,7 @@ type ConcExecutor(hdl: BinHandle) =
   let hasStopAfterReturn (opts: ConcRunOptions) =
     opts.StopConditions |> List.contains ConcStopCondition.StopAfterReturn
 
-  let tryEvalBranchCondition opts (st: EvalState) = function
+  let tryEvalBranchCondition opts (st: ConcState) = function
     | CJmp(cond, _, _, _)
     | InterCJmp(cond, _, _, _) ->
       let rset = RegisterSet()
@@ -176,7 +176,7 @@ type ConcExecutor(hdl: BinHandle) =
     Array.tryPick (tryEvalBranchCondition opts st) stmts
     |> Option.defaultValue false
 
-  let isReturnTaken opts (st: EvalState) (ins: IInstruction) stmts =
+  let isReturnTaken opts (st: ConcState) (ins: IInstruction) stmts =
     ins.IsRET
     && (not ins.IsCondBranch || isConditionalBranchTaken opts st stmts)
 
@@ -196,12 +196,12 @@ type ConcExecutor(hdl: BinHandle) =
      the target is all it takes to record that it now holds an undefined value.
      A memory cell has no such encoding: dropping it would expose whatever
      backs the address underneath, so an undefined store is left alone. *)
-  let unsetUndefTarget (st: EvalState) = function
+  let unsetUndefTarget (st: ConcState) = function
     | Put(Var(_, n, _, _), _, _) -> st.UnsetReg n
     | Put(TempVar(_, n, _), _, _) -> st.UnsetTmp n
     | _ -> ()
 
-  let evalStmt (opts: ConcRunOptions) (st: EvalState) stmt =
+  let evalStmt (opts: ConcRunOptions) (st: ConcState) stmt =
     materializeReadRegisters opts st stmt
     match opts.UndefinedValues with
     | ConcUndefinedValuePolicy.StopOnUndefinedValue when isUndefWrite stmt ->
@@ -273,7 +273,7 @@ type ConcExecutor(hdl: BinHandle) =
     else
       reasons
 
-  let evalInstr opts (st: EvalState) stmts =
+  let evalInstr opts (st: ConcState) stmts =
     st.PrepareInstrEval stmts
     match StmtLoop.run (step opts) StmtLoop.whileOk st stmts with
     | Interrupted(Result.Error stop) -> stop
@@ -285,13 +285,13 @@ type ConcExecutor(hdl: BinHandle) =
     ConcStopReason.CallHandlingFailure(ctx.CallSite, Some ctx.Target, msg)
     |> Result.Error
 
-  let pushReturnAddress (ctx: CallContext) (st: EvalState) =
+  let pushReturnAddress (ctx: CallContext) (st: ConcState) =
     let accessor = ConcStateAccessor(hdl, st)
     match accessor.TryPushToStack(accessor.WordValue ctx.ReturnAddress) with
     | Ok _ -> Ok()
     | Result.Error e -> callFailure ctx $"Cannot push a return address: {e}."
 
-  let finishHook (ctx: CallContext) (st: EvalState) =
+  let finishHook (ctx: CallContext) (st: ConcState) =
     match ConcStateAccessor(hdl, st).TryPopFromStack() with
     | Ok v ->
       let retAddr = v.ToUInt64()
@@ -303,7 +303,7 @@ type ConcExecutor(hdl: BinHandle) =
     | Result.Error e ->
       callFailure ctx $"A hook left the stack unbalanced: {e}."
 
-  let dispatchCallHook (ctx: CallContext) hook (st: EvalState) =
+  let dispatchCallHook (ctx: CallContext) hook (st: ConcState) =
     match pushReturnAddress ctx st with
     | Result.Error reason ->
       Result.Error reason
@@ -352,7 +352,7 @@ type ConcExecutor(hdl: BinHandle) =
     | Some(Result.Error reason) -> EvalStopped reason
     | None -> evalInstr opts st stmts
 
-  let run start (st: EvalState) (opts: ConcRunOptions) =
+  let run start (st: ConcState) (opts: ConcRunOptions) =
     let invalidInstr reasons addr n =
       let reason = ConcStopReason.InvalidInstructionAddress addr
       mkResult (reasons @ [ reason ]) addr n st
@@ -413,7 +413,7 @@ type ConcExecutor(hdl: BinHandle) =
     ConcRunOptions.Default stopCondition
     |> run start state
 
-  interface IExecutor<EvalState,
+  interface IExecutor<ConcState,
                       IMemory<byte>,
                       BitVector,
                       ConcRunOptions,

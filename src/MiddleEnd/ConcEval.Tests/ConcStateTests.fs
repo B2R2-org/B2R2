@@ -29,35 +29,35 @@ open B2R2
 open B2R2.MiddleEnd.ConcEval
 
 [<TestClass>]
-type EvalStateTests() =
+type ConcStateTests() =
   let value n = BitVector(uint64 n, 32<rt>)
 
   [<TestMethod>]
   member _.``An undefined register reads as Undef``() =
-    let st = EvalState()
+    let st = ConcState()
     Assert.AreEqual<ConcEvalValue>(Undef, st.TryGetReg(RegisterID.create 3))
 
   [<TestMethod>]
   member _.``A defined register reads back as Def``() =
-    let st = EvalState()
+    let st = ConcState()
     let rid = RegisterID.create 3
     st.SetReg(rid, value 1)
     Assert.AreEqual<ConcEvalValue>(Def(value 1), st.TryGetReg rid)
 
   [<TestMethod>]
   member _.``An undefined temporary reads as Undef``() =
-    let st = EvalState()
+    let st = ConcState()
     Assert.AreEqual<ConcEvalValue>(Undef, st.TryGetTmp 0)
 
   [<TestMethod>]
   member _.``A defined temporary reads back as Def``() =
-    let st = EvalState()
+    let st = ConcState()
     st.SetTmp(0, value 1)
     Assert.AreEqual<ConcEvalValue>(Def(value 1), st.TryGetTmp 0)
 
   [<TestMethod>]
   member _.``Registers come out of ToArray keyed by RegisterID``() =
-    let st = EvalState()
+    let st = ConcState()
     let rid = RegisterID.create 3
     st.SetReg(rid, value 7)
     let arr: (RegisterID * BitVector)[] = st.Registers.ToArray()
@@ -66,7 +66,7 @@ type EvalStateTests() =
 
   [<TestMethod>]
   member _.``Temporaries come out of ToArray keyed by their number``() =
-    let st = EvalState()
+    let st = ConcState()
     st.SetTmp(3, value 7)
     let arr: (int * BitVector)[] = st.Temporaries.ToArray()
     Assert.AreEqual<int>(1, arr.Length)

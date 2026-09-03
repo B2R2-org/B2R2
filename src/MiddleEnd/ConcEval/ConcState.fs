@@ -29,10 +29,10 @@ open B2R2
 open B2R2.BinIR
 open B2R2.MiddleEnd.Executor
 
-/// Represents the main evaluation state that will be updated by evaluating
-/// every LowUIR statement encountered during the course of execution. This can
-/// be considered as a single-threaded CPU context.
-type EvalState(regs, temps, lbls, mem, ignoreUndef) =
+/// Represents the main concrete evaluation state that will be updated by
+/// evaluating every LowUIR statement encountered during the course of
+/// execution. This can be considered as a single-threaded CPU context.
+type ConcState(regs, temps, lbls, mem, ignoreUndef) =
   let mutable ignoreUndef = ignoreUndef
   let mutable pc = 0UL
   let mutable stmtIdx = 0
@@ -42,17 +42,17 @@ type EvalState(regs, temps, lbls, mem, ignoreUndef) =
   let mutable externalCallEventHdl = ExternalCallEventHandler(fun _ _ -> ())
   let mutable sideEffectHdl = SideEffectEventHandler(fun _ _ -> ())
 
-  /// This constructor will simply create a fresh new EvalState.
+  /// This constructor will simply create a fresh new ConcState.
   new() =
-    EvalState(Variables(),
+    ConcState(Variables(),
               Variables(),
               Labels(),
               DictionaryMemory() :> IMemory<byte>,
               false)
 
-  /// This constructor will simply create a fresh new EvalState with the given
+  /// This constructor will simply create a fresh new ConcState with the given
   /// memory.
-  new(mem) = EvalState(Variables(), Variables(), Labels(), mem, false)
+  new(mem) = ConcState(Variables(), Variables(), Labels(), mem, false)
 
   /// Current PC.
   member _.PC with get() = pc and set(addr) = pc <- addr
@@ -177,10 +177,10 @@ type EvalState(regs, temps, lbls, mem, ignoreUndef) =
   member internal this.OnSideEffect(eff, st) =
     this.SideEffectEventHandler.Invoke(eff, st)
 
-  /// Makes a copy of this EvalState that uses the given memory instead of
+  /// Makes a copy of this ConcState that uses the given memory instead of
   /// this one's.
   member _.Clone(newMem) =
-    EvalState(regs.Clone(),
+    ConcState(regs.Clone(),
               temps.Clone(),
               lbls.Clone(),
               newMem,
@@ -193,7 +193,7 @@ type EvalState(regs, temps, lbls, mem, ignoreUndef) =
               ExternalCallEventHandler = externalCallEventHdl,
               SideEffectEventHandler = sideEffectHdl)
 
-  /// Makes an independent copy of this EvalState, including its memory.
+  /// Makes an independent copy of this ConcState, including its memory.
   member this.Clone() = this.Clone(mem.Clone())
 
   interface IStmtCursor with
@@ -209,9 +209,9 @@ and LoadFailureEventHandler =
 /// Represents a callback function that is invoked when an external call is
 /// encountered during the evaluation.
 and ExternalCallEventHandler =
-  delegate of BitVector list * EvalState -> unit
+  delegate of BitVector list * ConcState -> unit
 
 /// Represents a callback function that is invoked when a side effect is
 /// encountered during the evaluation.
 and SideEffectEventHandler =
-  delegate of SideEffect * EvalState -> unit
+  delegate of SideEffect * ConcState -> unit

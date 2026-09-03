@@ -34,7 +34,7 @@ open B2R2.MiddleEnd.ConcEval
 [<TestClass>]
 type EvaluatorTests() =
   let newState () =
-    let st = EvalState()
+    let st = ConcState()
     st.CurrentInsLen <- 2u
     st
 
@@ -45,7 +45,7 @@ type EvaluatorTests() =
     hdl, lu.LiftInstruction(lu.ParseInstruction 0UL)
 
   let stateWithEveryRegisterSet (hdl: BinHandle) =
-    let st = EvalState()
+    let st = ConcState()
     let rf = hdl.RegisterFactory
     rf.GetAllRegVars()
     |> Array.iter (fun v ->
@@ -77,7 +77,7 @@ type EvaluatorTests() =
     | [] -> ()
     | ks -> Assert.Fail $"The evaluators disagree on registers {ks}."
 
-  let assertTerminatedWithPCAdvanced (st: EvalState) =
+  let assertTerminatedWithPCAdvanced (st: ConcState) =
     Assert.AreEqual<bool>(true, st.IsInstrTerminated)
     Assert.AreEqual<Addr>(2UL, st.PC)
 
@@ -158,7 +158,7 @@ type EvaluatorTests() =
   member _.``evalInstr advances the PC past a side effect``() =
     (* syscall *)
     let _, stmts = liftIntel [| 0x0fuy; 0x05uy |]
-    let st = EvalState()
+    let st = ConcState()
     match SafeEvaluator.evalInstr st stmts with
     | Ok() -> Assert.AreEqual<Addr>(2UL, st.PC)
     | Error e -> Assert.Fail $"Failed to evaluate: {e}"
@@ -167,7 +167,7 @@ type EvaluatorTests() =
   member _.``evalInstr skips failing statements when told to``() =
     (* add rax, rbx, over a state where both operands are uninitialized *)
     let _, stmts = liftIntel [| 0x48uy; 0x01uy; 0xd8uy |]
-    let st = EvalState()
+    let st = ConcState()
     st.IgnoreUndef <- true
     match SafeEvaluator.evalInstr st stmts with
     | Ok() -> ()
@@ -176,7 +176,7 @@ type EvaluatorTests() =
   [<TestMethod>]
   member _.``evalInstr reports a failure when not ignoring undef``() =
     let _, stmts = liftIntel [| 0x48uy; 0x01uy; 0xd8uy |]
-    match SafeEvaluator.evalInstr (EvalState()) stmts with
+    match SafeEvaluator.evalInstr (ConcState()) stmts with
     | Error _ -> ()
     | Ok() -> Assert.Fail "An uninitialized operand evaluated fine."
 
@@ -198,7 +198,7 @@ type EvaluatorTests() =
       [| AST.ismark 4u
          AST.sideEffect SysCall
          AST.interjmp target InterJmpKind.Base |]
-    let st = EvalState()
+    let st = ConcState()
     match SafeEvaluator.evalInstr st stmts with
     | Ok() -> Assert.AreEqual<Addr>(4UL, st.PC)
     | Error e -> Assert.Fail $"Failed to evaluate: {e}"

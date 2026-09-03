@@ -181,7 +181,7 @@ type ConcExecutorTests() =
     let exec = ConcExecutor hdl
     let st = exec.CreateState()
     ConcStateAccessor(hdl, st).InitializeDefaultStack()
-    let hook (ctx: CallContext) (st: EvalState) =
+    let hook (ctx: CallContext) (st: ConcState) =
       st.SetReg(ctx.ReturnRegister, BitVector(0x2aUL, ctx.WordType))
       Ok()
     let opts =
@@ -229,7 +229,7 @@ type ConcExecutorTests() =
     let st = exec.CreateState()
     ConcStateAccessor(hdl, st).InitializeDefaultStack()
     let seen = ResizeArray<Addr>()
-    let hook (ctx: CallContext) (_: EvalState) =
+    let hook (ctx: CallContext) (_: ConcState) =
       seen.Add ctx.ReturnAddress
       Ok()
     let opts =
@@ -270,7 +270,7 @@ type ConcExecutorTests() =
 
   [<TestMethod>]
   member _.``Registering a hook enables hook-based call handling``() =
-    let hook (_: CallContext) (_: EvalState) = Ok()
+    let hook (_: CallContext) (_: ConcState) = Ok()
     let opts = ConcRunOptions.Default().RegisterCallHook(0x6UL, hook)
     match opts.Calls with
     | CallPolicy.UseCallHooks hooks ->
@@ -380,7 +380,7 @@ type ConcExecutorTests() =
 
   [<TestMethod>]
   member _.``Registering many hooks enables hook-based call handling``() =
-    let hook (_: CallContext) (_: EvalState) = Ok()
+    let hook (_: CallContext) (_: ConcState) = Ok()
     let opts =
       ConcRunOptions.Default().RegisterCallHooks [ 0x6UL, hook; 0x8UL, hook ]
     match opts.Calls with

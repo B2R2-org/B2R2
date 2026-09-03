@@ -34,7 +34,7 @@ type ParserState =
   | BinParser of Architecture
 
 type ReplState(isa: ISA, regFactory: IRegisterFactory, doFiltering) =
-  let rstate = EvalState()
+  let rstate = ConcState()
   let mutable parser = BinParser isa.Arch
   do
     rstate.SideEffectEventHandler <-

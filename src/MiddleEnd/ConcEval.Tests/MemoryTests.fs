@@ -118,15 +118,15 @@ type MemoryTests() =
     assertReads (ValueSome imageByte) (mem.Clone()) imageAddr
 
   [<TestMethod>]
-  member _.``A cloned EvalState owns its memory``() =
-    let st = EvalState()
+  member _.``A cloned ConcState owns its memory``() =
+    let st = ConcState()
     let clone = st.Clone()
     clone.Memory.ByteWrite(addr, 0x42uy)
     assertReads ValueNone st.Memory addr
 
   [<TestMethod>]
-  member _.``A cloned EvalState can share a given memory``() =
-    let st = EvalState()
+  member _.``A cloned ConcState can share a given memory``() =
+    let st = ConcState()
     let clone = st.Clone st.Memory
     clone.Memory.ByteWrite(addr, 0x42uy)
     assertReads (ValueSome 0x42uy) st.Memory addr

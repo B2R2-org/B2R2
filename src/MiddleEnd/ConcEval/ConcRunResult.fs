@@ -35,7 +35,7 @@ type ConcRunResult =
     /// Number of executed machine instructions.
     InstructionCount: int
     /// Final concrete executor state.
-    State: EvalState }
+    State: ConcState }
 with
   /// Returns true when execution stopped before the given address.
   member this.IsStoppedAtAddress addr =

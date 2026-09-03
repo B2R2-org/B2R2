@@ -57,7 +57,7 @@ let private obtainFramePointerDef (hdl: BinHandle) =
   | None -> [||]
 
 let private initState hdl pc =
-  let st = EvalState()
+  let st = ConcState()
   st.IgnoreUndef <- true
   st.LoadFailureEventHandler <- memoryReader hdl
   [| obtainStackDef hdl; obtainFramePointerDef hdl |]
@@ -67,7 +67,7 @@ let private initState hdl pc =
 
 let rec private evalBlockLoop idx (blk: Stmt[][]) result =
   match result with
-  | Ok(st: EvalState) ->
+  | Ok(st: ConcState) ->
     if idx < blk.Length then
       SafeEvaluator.evalInstr st blk[idx]
       |> Result.map (fun () -> st)
@@ -79,7 +79,7 @@ let rec private evalBlockLoop idx (blk: Stmt[][]) result =
 
 /// Evaluates a series of statement arrays, assuming that each array is obtained
 /// from a single machine instruction.
-let private evalBlock (st: EvalState) pc blk =
+let private evalBlock (st: ConcState) pc blk =
   st.PC <- pc
   evalBlockLoop 0 blk (Ok st)
 

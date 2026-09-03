@@ -326,7 +326,7 @@ type CondAwareNoretAnalysis([<Optional; DefaultParameterValue(true)>] strict) =
 module CondAwareNoretAnalysis =
   let private hasNonZeroOnX86 st nth =
     let esp = Intel.Register.ESP |> Intel.Register.toRegID
-    match (st: EvalState).TryGetReg esp with
+    match (st: ConcState).TryGetReg esp with
     | Def esp ->
       let p = esp + BitVector(4 * nth, 32<rt>)
       let endian = Endian.Little
@@ -338,7 +338,7 @@ module CondAwareNoretAnalysis =
 
   let private hasNonZeroOnX64 (hdl: BinHandle) st nth =
     let reg = hdl.Conventions.Calling.IntArgRegister(nth - 1)
-    match (st: EvalState).TryGetReg reg with
+    match (st: ConcState).TryGetReg reg with
     | Def bv -> not bv.IsZero
     | _ -> false
 

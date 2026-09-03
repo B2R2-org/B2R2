@@ -32,7 +32,7 @@ let tr = BitVector.One 1<rt>
 
 /// Unsets the register or temporary that the given assignment target names, so
 /// that it reads back as undefined rather than keeping a stale value.
-let markUndefAfterFailure (st: EvalState) lhs =
+let markUndefAfterFailure (st: ConcState) lhs =
   match lhs with
   | Var(_, n, _, _) -> st.UnsetReg n
   | TempVar(_, n, _) -> st.UnsetTmp n

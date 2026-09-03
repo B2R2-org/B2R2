@@ -9,7 +9,7 @@
     <Compile Include="ConcEvalValue.fs" />
     <Compile Include="Memory.fs" />
     <Compile Include="BinSectionMemory.fs" />
-    <Compile Include="EvalState.fs" />
+    <Compile Include="ConcState.fs" />
     <Compile Include="EvalUtils.fs" />
     <Compile Include="SafeEvaluator.fs" />
     <Compile Include="Evaluator.fs" />

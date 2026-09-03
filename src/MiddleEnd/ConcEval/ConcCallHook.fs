@@ -32,4 +32,4 @@ open B2R2.MiddleEnd.Executor
 /// itself in the Error case when it cannot model the call. The executor pushes
 /// the return address before the hook runs and pops it afterwards, so a hook
 /// sees the frame the callee would have seen and must leave the stack balanced.
-type ConcCallHook = CallContext -> EvalState -> Result<unit, string>
+type ConcCallHook = CallContext -> ConcState -> Result<unit, string>

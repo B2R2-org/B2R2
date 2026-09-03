@@ -40,7 +40,7 @@ open B2R2.MiddleEnd.Executor
 
 /// Evaluates a given expression in the context of the provided evaluation
 /// state.
-let rec evalExpr (st: EvalState) e =
+let rec evalExpr (st: ConcState) e =
   match e with
   | Num(n, _) ->
     n
@@ -174,7 +174,7 @@ let private evalStore st endian addr v =
   let v = evalExpr st v
   Memory.write addr v endian st.Memory
 
-let private evalJmp (st: EvalState) target =
+let private evalJmp (st: ConcState) target =
   match target with
   | JmpDest(n, _) -> st.GoToLabel n
   | _ -> raise InvalidExprException
@@ -201,9 +201,9 @@ let private evalArgs st args =
   | _ ->
     Terminator.impossible ()
 
-/// Evaluates a single statement in the context of the given EvalState. This
+/// Evaluates a single statement in the context of the given ConcState. This
 /// does not consult IgnoreUndef; a lone statement has nothing to skip.
-let evalStmt (st: EvalState) stmt =
+let evalStmt (st: ConcState) stmt =
   match stmt with
   | ISMark(len, _) ->
     st.CurrentInsLen <- len; st.NextStmt()
@@ -231,7 +231,7 @@ let evalStmt (st: EvalState) stmt =
     st.OnSideEffect(eff, st)
     if st.IsInstrTerminated then () else st.AbortInstr true
 
-let private evalStmtOrSkip (st: EvalState) stmt =
+let private evalStmtOrSkip (st: ConcState) stmt =
   try
     evalStmt st stmt
   with
@@ -242,7 +242,7 @@ let private evalStmtOrSkip (st: EvalState) stmt =
 /// the statement loop so that a caller does not have to. When the state has
 /// IgnoreUndef set, a statement that raises over an undefined value is skipped
 /// and evaluation carries on.
-let evalInstr (st: EvalState) stmts =
+let evalInstr (st: ConcState) stmts =
   st.PrepareInstrEval stmts
   let step = if st.IgnoreUndef then evalStmtOrSkip else evalStmt
   StmtLoop.run step StmtLoop.carryOn st stmts |> ignore

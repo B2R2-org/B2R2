@@ -51,7 +51,7 @@ let private unwrap = function
 
 /// Evaluates a given expression in the context of the provided evaluation
 /// state.
-let rec evalExpr (st: EvalState) e =
+let rec evalExpr (st: ConcState) e =
   match e with
   | Num(n, _) -> Def n |> Ok
   | Var(_, n, _, _) -> st.TryGetReg n |> Ok
@@ -186,7 +186,7 @@ let private evalStore st endian addr v =
   | Error e, _ | _, Error e ->
     Error e
 
-let private evalJmp (st: EvalState) target =
+let private evalJmp (st: ConcState) target =
   match target with
   | JmpDest(n, _) -> st.TryGoToLabel n
   | _ -> Error ErrorCase.InvalidExprEvaluation
@@ -218,7 +218,7 @@ let private evalArgs st args =
 
 /// Evaluates an IR statement. This does not consult IgnoreUndef; a lone
 /// statement has nothing to skip.
-let evalStmt (st: EvalState) stmt =
+let evalStmt (st: ConcState) stmt =
   match stmt with
   | ISMark(len, _) ->
     st.CurrentInsLen <- len; st.NextStmt() |> Ok
@@ -246,7 +246,7 @@ let evalStmt (st: EvalState) stmt =
     if st.IsInstrTerminated then () else st.AbortInstr true
     Ok()
 
-let private evalStmtOrSkip (st: EvalState) stmt =
+let private evalStmtOrSkip (st: ConcState) stmt =
   match evalStmt st stmt with
   | Ok() ->
     Ok()
@@ -261,7 +261,7 @@ let private evalStmtOrSkip (st: EvalState) stmt =
 /// the statement loop so that a caller does not have to. When the state has
 /// IgnoreUndef set, a statement that fails to evaluate is skipped and
 /// evaluation carries on.
-let evalInstr (st: EvalState) stmts =
+let evalInstr (st: ConcState) stmts =
   st.PrepareInstrEval stmts
   match StmtLoop.run evalStmtOrSkip StmtLoop.whileOk st stmts with
   | Completed _ -> Ok()

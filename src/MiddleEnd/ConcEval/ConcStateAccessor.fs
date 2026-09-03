@@ -30,8 +30,8 @@ open B2R2
 open B2R2.FrontEnd
 open B2R2.MiddleEnd.Executor
 
-/// Provides structured access to a concrete EvalState.
-type ConcStateAccessor(hdl: BinHandle, state: EvalState) as this =
+/// Provides structured access to a concrete state.
+type ConcStateAccessor(hdl: BinHandle, state: ConcState) as this =
   let regFactory = hdl.RegisterFactory
   let wordType = hdl.ISA.WordSize |> WordSize.toRegType
   let wordBytes = RegType.toByteWidth wordType
@@ -340,7 +340,7 @@ type ConcStateAccessor(hdl: BinHandle, state: EvalState) as this =
   member _.TryReadCString(addr: Addr, maxLength: int) =
     readCString addr maxLength
 
-  interface IStateAccessor<EvalState, BitVector, ErrorCase> with
+  interface IStateAccessor<ConcState, BitVector, ErrorCase> with
 
     member _.State = this.State
 

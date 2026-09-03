@@ -41,4 +41,4 @@ type ConcStopCondition =
   /// Stop when a side-effect statement is observed.
   | StopAtSideEffect
   /// Stop when a user-provided predicate holds.
-  | StopWhen of predicate: StopPredicate<EvalState>
+  | StopWhen of predicate: StopPredicate<ConcState>
