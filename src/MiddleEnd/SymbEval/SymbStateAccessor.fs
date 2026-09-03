@@ -47,7 +47,7 @@ with
     member this.QueryValues = this.Bytes
 
 /// Provides convenience helpers for a symbolic state.
-type SymbStateAccessor(hdl: BinHandle, state: SymbState) as this =
+type SymbStateAccessor(hdl: BinHandle, state: SymbState) =
   static let defaultStringBound = 64
 
   let regFactory = hdl.RegisterFactory
@@ -320,13 +320,13 @@ type SymbStateAccessor(hdl: BinHandle, state: SymbState) as this =
     this.AllocateSymbolicBuffer(name, length, false)
 
   /// Allocates a stack buffer and fills it with symbolic bytes.
-  member _.AllocateSymbolicBuffer(name, length, nullTerminate) =
+  member this.AllocateSymbolicBuffer(name, length, nullTerminate) =
     let size = length + if nullTerminate then 1 else 0
     this.AllocateStackBuffer size
     |> fun addr -> writeSymbolicBuffer name addr length nullTerminate
 
   /// Sets an argument register to point to a symbolic byte buffer.
-  member _.SetArgumentBuffer(idx, buffer: SymbByteBuffer) =
+  member this.SetArgumentBuffer(idx, buffer: SymbByteBuffer) =
     this.SetArgument(idx, wordValue buffer.Address)
 
   /// Allocates a null-terminated symbolic C-string buffer on the stack.
@@ -349,56 +349,57 @@ type SymbStateAccessor(hdl: BinHandle, state: SymbState) as this =
 
   interface IStateAccessor<SymbState, SymbExpr, SymbEvalError> with
 
-    member _.State = this.State
+    member this.State = this.State
 
-    member _.WordType = this.WordType
+    member this.WordType = this.WordType
 
-    member _.WordBytes = this.WordBytes
+    member this.WordBytes = this.WordBytes
 
-    member _.StackPointer = this.StackPointer
+    member this.StackPointer = this.StackPointer
 
-    member _.DefaultStackTop = this.DefaultStackTop
+    member this.DefaultStackTop = this.DefaultStackTop
 
-    member _.WordValue value = this.WordValue value
+    member this.WordValue value = this.WordValue value
 
-    member _.SetStackPointer addr = this.SetStackPointer addr
+    member this.SetStackPointer addr = this.SetStackPointer addr
 
-    member _.InitializeStack stackTop = this.InitializeStack stackTop
+    member this.InitializeStack stackTop = this.InitializeStack stackTop
 
-    member _.InitializeDefaultStack() = this.InitializeDefaultStack()
+    member this.InitializeDefaultStack() = this.InitializeDefaultStack()
 
-    member _.InitializeFramePointer() = this.InitializeFramePointer()
+    member this.InitializeFramePointer() = this.InitializeFramePointer()
 
-    member _.SetRegister(name: string, value) = this.SetRegister(name, value)
+    member this.SetRegister(name: string, value) = this.SetRegister(name, value)
 
-    member _.SetRegister(rid: RegisterID, value) = this.SetRegister(rid, value)
+    member this.SetRegister(rid: RegisterID, value) =
+      this.SetRegister(rid, value)
 
-    member _.GetRegister(name: string) = this.GetRegister name
+    member this.GetRegister(name: string) = this.GetRegister name
 
-    member _.GetRegister(rid: RegisterID) = this.GetRegister rid
+    member this.GetRegister(rid: RegisterID) = this.GetRegister rid
 
-    member _.ZeroRegisters(names: string[]) = this.ZeroRegisters names
+    member this.ZeroRegisters(names: string[]) = this.ZeroRegisters names
 
-    member _.ZeroRegisters(rids: RegisterID[]) = this.ZeroRegisters rids
+    member this.ZeroRegisters(rids: RegisterID[]) = this.ZeroRegisters rids
 
-    member _.SetArgument(idx, value) = this.SetArgument(idx, value)
+    member this.SetArgument(idx, value) = this.SetArgument(idx, value)
 
-    member _.GetReturnValue() = this.GetReturnValue()
+    member this.GetReturnValue() = this.GetReturnValue()
 
-    member _.AllocateStackBuffer size = this.AllocateStackBuffer size
+    member this.AllocateStackBuffer size = this.AllocateStackBuffer size
 
-    member _.PushToStack value = this.PushToStack value
+    member this.PushToStack value = this.PushToStack value
 
-    member _.PopFromStack() = this.PopFromStack()
+    member this.PopFromStack() = this.PopFromStack()
 
-    member _.ReadValue(addr, typ) = this.ReadValue(addr, typ)
+    member this.ReadValue(addr, typ) = this.ReadValue(addr, typ)
 
-    member _.WriteValue(addr, value) = this.WriteValue(addr, value)
+    member this.WriteValue(addr, value) = this.WriteValue(addr, value)
 
-    member _.TryGetStackPointer() = this.TryGetStackPointer()
+    member this.TryGetStackPointer() = this.TryGetStackPointer()
 
-    member _.TrySetStackPointer addr = this.TrySetStackPointer addr
+    member this.TrySetStackPointer addr = this.TrySetStackPointer addr
 
-    member _.TryPushToStack value = this.TryPushToStack value
+    member this.TryPushToStack value = this.TryPushToStack value
 
-    member _.TryPopFromStack() = this.TryPopFromStack()
+    member this.TryPopFromStack() = this.TryPopFromStack()
