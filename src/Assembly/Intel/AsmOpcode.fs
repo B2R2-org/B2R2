@@ -1189,15 +1189,19 @@ let lahf = function
   | NoOperand -> Resolved [| 0x9Fuy |]
   | _ -> raise <| EncodingFailureException "Unsupported operand type"
 
+/// The memory operand names no width of its own, because LEA reads nothing
+/// there: the destination register alone gives the operand size, which is what
+/// the guards below read. A directive written in the source is therefore
+/// ignored rather than matched on, as GNU as ignores it too.
 let lea (wordSz: WordSize) ins =
   match ins.Operands with
   | TwoOperands(OprReg r, Label(lbl, _)) ->
     encRL wordSz ins r lbl [||] [| 0x8Duy |]
-  | TwoOperands(OprReg r, OprMem(b, s, d, 16<rt>)) when isReg16 wordSz r ->
+  | TwoOperands(OprReg r, OprMem(b, s, d, _)) when isReg16 wordSz r ->
     encRM ins wordSz pref66 rexNormal [| 0x8Duy |] r b s d
-  | TwoOperands(OprReg r, OprMem(b, s, d, 32<rt>)) when isReg32 wordSz r ->
+  | TwoOperands(OprReg r, OprMem(b, s, d, _)) when isReg32 wordSz r ->
     encRM ins wordSz prefNormal rexNormal [| 0x8Duy |] r b s d
-  | TwoOperands(OprReg r, OprMem(b, s, d, 64<rt>)) when isReg64 wordSz r ->
+  | TwoOperands(OprReg r, OprMem(b, s, d, _)) when isReg64 wordSz r ->
     no32Arch wordSz
     encRM ins wordSz prefNormal rexW [| 0x8Duy |] r b s d
   | _ ->
@@ -1242,6 +1246,8 @@ let mov wordSz ins =
   (* Reg - Sreg *)
   | TwoOperands(OprReg r1, OprReg r2) when isReg16 wordSz r1 && isSegReg r2 ->
     encRR ins wordSz pref66 rexMR [| 0x8Cuy |] r2 r1
+  | TwoOperands(OprReg r1, OprReg r2) when isReg32 wordSz r1 && isSegReg r2 ->
+    encRR ins wordSz prefNormal rexMR [| 0x8Cuy |] r2 r1
   | TwoOperands(OprReg r1, OprReg r2) when isReg64 wordSz r1 && isSegReg r2 ->
     encRR ins wordSz prefNormal rexWAndMR [| 0x8Cuy |] r2 r1
   (* Mem - Sreg *)
@@ -1255,6 +1261,9 @@ let mov wordSz ins =
   | TwoOperands(OprReg r1, OprReg r2)
     when isSegReg r1 && not (isSegReg r2) && isReg16 wordSz r2 ->
     encRR ins wordSz prefNormal rexNormal [| 0x8Euy |] r1 r2
+  | TwoOperands(OprReg r1, OprReg r2)
+    when isSegReg r1 && not (isSegReg r2) && isReg64 wordSz r2 ->
+    encRR ins wordSz prefNormal rexW [| 0x8Euy |] r1 r2
   | TwoOperands(OprReg r, OprMem(b, s, d, 16<rt>)) when isSegReg r ->
     encRM ins wordSz prefNormal rexNormal [| 0x8Euy |] r b s d
   (* Mem - Reg *)
@@ -1428,10 +1437,10 @@ let movsx (wordSz: WordSize) ins =
 let movsxd (wordSz: WordSize) ins =
   match ins.Operands with
   | TwoOperands(OprReg r1, OprReg r2)
-    when isReg16 wordSz r1 && isReg32 wordSz r2 ->
+    when isReg16 wordSz r1 && isReg16 wordSz r2 ->
     no32Arch wordSz
     encRR ins wordSz pref66 rexNormal [| 0x63uy |] r1 r2
-  | TwoOperands(OprReg r, OprMem(b, s, d, 32<rt>)) when isReg16 wordSz r ->
+  | TwoOperands(OprReg r, OprMem(b, s, d, 16<rt>)) when isReg16 wordSz r ->
     no32Arch wordSz
     encRM ins wordSz pref66 rexNormal [| 0x63uy |] r b s d
   | TwoOperands(OprReg r1, OprReg r2)
@@ -2146,6 +2155,98 @@ let private blend38 op wordSz ins =
   | _ ->
     raise <| EncodingFailureException "Unsupported operand type"
 
+/// SHA256RNDS2 names XMM0 as a third operand, which the encoding leaves
+/// implicit exactly as the blends do. The two-operand spelling is the one the
+/// manual writes, so both reach the same bytes.
+let private sha256rnds2 wordSz ins =
+  match ins.Operands with
+  | ThreeOperands(o1, o2, OprReg Register.XMM0) ->
+    let ins = { ins with Operands = TwoOperands(o1, o2) }
+    sseRegRM wordSz ins prefNormal [| 0x0Fuy; 0x38uy; 0xCBuy |] 128<rt>
+  | _ ->
+    sse38 prefNormal 128<rt> 0xCBuy wordSz ins
+
+/// Builds an encoder for a Key Locker instruction reading a handle out of
+/// memory into an XMM register. A 128-bit handle is 384 bits wide and a
+/// 256-bit one 512, and 384 has no size directive to write, so that form
+/// arrives with no width at all.
+let private keyLocker memSz op wordSz ins =
+  match ins.Operands with
+  | TwoOperands(OprReg r, OprMem(b, s, d, sz)) when isXMMReg r && sz = memSz ->
+    encRM ins wordSz prefF3 rexNormal [| 0x0Fuy; 0x38uy; op |] r b s d
+  | _ ->
+    raise <| EncodingFailureException "Unsupported operand type"
+
+/// Builds an encoder for one of the wide Key Locker rounds, which name the
+/// handle alone and pick each other out by a ModRM digit under 0F 38 D8.
+let private keyLockerWide memSz digit wordSz ins =
+  match ins.Operands with
+  | OneOperand(OprMem(b, s, d, sz)) when sz = memSz ->
+    encM ins wordSz prefF3 rexNormal [| 0x0Fuy; 0x38uy; 0xD8uy |] b s d digit
+  | _ ->
+    raise <| EncodingFailureException "Unsupported operand type"
+
+/// Builds an encoder for a Key Locker key-encoding instruction, which names two
+/// general registers and leaves the XMM registers it also reads implicit.
+let private encodeKey op wordSz ins =
+  match ins.Operands with
+  | TwoOperands(OprReg r1, OprReg r2) when isReg32 wordSz r1 ->
+    encRR ins wordSz prefF3 rexNormal [| 0x0Fuy; 0x38uy; op |] r1 r2
+  | _ ->
+    raise <| EncodingFailureException "Unsupported operand type"
+
+/// LOADIWKEY names two XMM registers and leaves EAX and XMM0 implicit. It
+/// shares 0F 38 DC with AESENC128KL, which is the memory form of the same
+/// byte, so the register ModRM is what tells them apart.
+let private loadiwkey wordSz ins =
+  let encode r1 r2 =
+    let ins = { ins with Operands = TwoOperands(OprReg r1, OprReg r2) }
+    encRR ins wordSz prefF3 rexNormal [| 0x0Fuy; 0x38uy; 0xDCuy |] r1 r2
+  let isImplicitPair o3 o4 =
+    o3 = OprReg Register.EAX && o4 = OprReg Register.XMM0
+  match ins.Operands with
+  | TwoOperands(OprReg r1, OprReg r2) ->
+    encode r1 r2
+  | FourOperands(OprReg r1, OprReg r2, o3, o4) when isImplicitPair o3 o4 ->
+    encode r1 r2
+  | _ ->
+    raise <| EncodingFailureException "Unsupported operand type"
+
+/// Builds an encoder for a direct store, which writes a general register to
+/// memory of its own width. REX.W names the quadword form.
+let private directStore pref op memSz wordSz ins =
+  match ins.Operands with
+  | TwoOperands(OprMem(b, s, d, sz), OprReg r) when sz = memSz ->
+    let rex =
+      if memSz = 64<rt> then
+        no32Arch wordSz
+        rexW
+      else
+        rexNormal
+    encMR ins wordSz pref rex [| 0x0Fuy; 0x38uy; op |] b s d r
+  | _ ->
+    raise <| EncodingFailureException "Unsupported operand type"
+
+/// Builds an encoder for one of the 64-byte stores, whose first operand is the
+/// destination address in the register the mode's address size gives it. The
+/// width is what the mode already says, so no REX.W follows from it.
+let private wideStore pref op wordSz ins =
+  let isModeWidth r =
+    if wordSz = WordSize.Bit32 then isReg32 wordSz r else isReg64 wordSz r
+  match ins.Operands with
+  | TwoOperands(OprReg r, OprMem(b, s, d, 512<rt>)) when isModeWidth r ->
+    encRM ins wordSz pref rexNormal [| 0x0Fuy; 0x38uy; op |] r b s d
+  | _ ->
+    raise <| EncodingFailureException "Unsupported operand type"
+
+/// MOVDIRI stores a doubleword or, under REX.W, a quadword.
+let private movdiri wordSz ins =
+  match ins.Operands with
+  | TwoOperands(OprMem(_, _, _, 64<rt>), _) ->
+    directStore prefNormal 0xF9uy 64<rt> wordSz ins
+  | _ ->
+    directStore prefNormal 0xF9uy 32<rt> wordSz ins
+
 /// The SSSE3, SSE4, SHA and AES instructions in the 0F 38 opcode map.
 /// Every one of them encodes through a shared register-or-memory path,
 /// so the whole map is a table of which path and which opcode byte
@@ -2200,14 +2301,30 @@ let threeByte38Encoders () =
     Opcode.SHA1NEXTE, sse38 prefNormal 128<rt> 0xC8uy
     Opcode.SHA1MSG1, sse38 prefNormal 128<rt> 0xC9uy
     Opcode.SHA1MSG2, sse38 prefNormal 128<rt> 0xCAuy
-    Opcode.SHA256RNDS2, sse38 prefNormal 128<rt> 0xCBuy
+    Opcode.SHA256RNDS2, sha256rnds2
     Opcode.SHA256MSG1, sse38 prefNormal 128<rt> 0xCCuy
     Opcode.SHA256MSG2, sse38 prefNormal 128<rt> 0xCDuy
     Opcode.AESIMC, sse38 pref66 128<rt> 0xDBuy
     Opcode.AESENC, sse38 pref66 128<rt> 0xDCuy
     Opcode.AESENCLAST, sse38 pref66 128<rt> 0xDDuy
     Opcode.AESDEC, sse38 pref66 128<rt> 0xDEuy
-    Opcode.AESDECLAST, sse38 pref66 128<rt> 0xDFuy ]
+    Opcode.AESDECLAST, sse38 pref66 128<rt> 0xDFuy
+    Opcode.GF2P8MULB, sse38 pref66 128<rt> 0xCFuy
+    Opcode.AESENCWIDE128KL, keyLockerWide 0<rt> 0b000uy
+    Opcode.AESDECWIDE128KL, keyLockerWide 0<rt> 0b001uy
+    Opcode.AESENCWIDE256KL, keyLockerWide 512<rt> 0b010uy
+    Opcode.AESDECWIDE256KL, keyLockerWide 512<rt> 0b011uy
+    Opcode.AESENC128KL, keyLocker 0<rt> 0xDCuy
+    Opcode.AESDEC128KL, keyLocker 0<rt> 0xDDuy
+    Opcode.AESENC256KL, keyLocker 512<rt> 0xDEuy
+    Opcode.AESDEC256KL, keyLocker 512<rt> 0xDFuy
+    Opcode.LOADIWKEY, loadiwkey
+    Opcode.ENCODEKEY128, encodeKey 0xFAuy
+    Opcode.ENCODEKEY256, encodeKey 0xFBuy
+    Opcode.MOVDIRI, movdiri
+    Opcode.MOVDIR64B, wideStore pref66 0xF8uy
+    Opcode.ENQCMD, wideStore prefF2 0xF8uy
+    Opcode.ENQCMDS, wideStore prefF3 0xF8uy ]
 
 /// Builds an encoder for a 0F 3A instruction whose last operand is an
 /// immediate and whose destination is an XMM register. The source is either a
@@ -2294,7 +2411,9 @@ let threeByte3AEncoders () =
     Opcode.PCMPISTRM, sse3A rexNormal 128<rt> 0x62uy
     Opcode.PCMPISTRI, sse3A rexNormal 128<rt> 0x63uy
     Opcode.SHA1RNDS4, sha1rnds4
-    Opcode.AESKEYGENASSIST, sse3A rexNormal 128<rt> 0xDFuy ]
+    Opcode.AESKEYGENASSIST, sse3A rexNormal 128<rt> 0xDFuy
+    Opcode.GF2P8AFFINEQB, sse3A rexNormal 128<rt> 0xCEuy
+    Opcode.GF2P8AFFINEINVQB, sse3A rexNormal 128<rt> 0xCFuy ]
 
 /// Builds an encoder for a packed instruction in the 0F map that comes in both
 /// an MMX and an SSE form, from the width of the MMX memory operand and the
@@ -2626,6 +2745,12 @@ let private fixedBytes bytes (_: WordSize) ins =
   | NoOperand -> Resolved bytes
   | _ -> raise <| EncodingFailureException "Unsupported operand type"
 
+/// Builds an encoder for a fixed encoding that only 64-bit mode has. Outside
+/// it the byte means something else, so there is nothing to fall back to.
+let private fixedBytes64 bytes wordSz ins =
+  no32Arch wordSz
+  fixedBytes bytes wordSz ins
+
 /// Every instruction whose whole encoding is fixed, which is most of the
 /// legacy flag, cache and string operations.
 let noOperandEncoders () =
@@ -2651,8 +2776,12 @@ let noOperandEncoders () =
     Opcode.INVD, fixedBytes [| 0x0Fuy; 0x08uy |]
     Opcode.IRETD, fixedBytes [| 0xCFuy |]
     Opcode.IRETQ, fixedBytes [| 0x48uy; 0xCFuy |]
+    Opcode.IRET, fixedBytes [| 0x66uy; 0xCFuy |]
     Opcode.IRETW, fixedBytes [| 0x66uy; 0xCFuy |]
     Opcode.LFENCE, fixedBytes [| 0x0Fuy; 0xAEuy; 0xE8uy |]
+    Opcode.WBNOINVD, fixedBytes [| 0xF3uy; 0x0Fuy; 0x09uy |]
+    Opcode.XRESLDTRK, fixedBytes [| 0xF2uy; 0x0Fuy; 0x01uy; 0xE9uy |]
+    Opcode.UDB, fixedBytes64 [| 0xD6uy |]
     Opcode.LODSB, fixedBytes [| 0xACuy |]
     Opcode.LODSD, fixedBytes [| 0xADuy |]
     Opcode.LODSQ, fixedBytes [| 0x48uy; 0xADuy |]
@@ -3022,6 +3151,25 @@ let private grpRegMem op digit regWidths memWidths wordSz ins =
   | OneOperand(OprReg _) -> grpReg op prefNormal digit regWidths wordSz ins
   | _ -> grpMemSized op digit memWidths wordSz ins
 
+/// Builds an encoder for the same shape under a mandatory prefix, which the
+/// width-derived operand-size prefix cannot stand in for: REX.W is what says
+/// the operand is a quadword while the prefix byte says which instruction it
+/// is.
+let private grpRegMemPref op pref digit widths wordSz ins =
+  match ins.Operands with
+  | OneOperand(OprReg _) ->
+    grpReg op pref digit widths wordSz ins
+  | OneOperand(OprMem(b, s, d, sz)) when List.contains sz widths ->
+    let rex =
+      if sz = 64<rt> then
+        no32Arch wordSz
+        rexW
+      else
+        rexNormal
+    encM ins wordSz pref rex op b s d digit
+  | _ ->
+    raise <| EncodingFailureException "Unsupported operand type"
+
 /// The widths a descriptor-table or segment-limit operand comes in: a far
 /// pointer is 16:32 in 32-bit mode and 16:64 in 64-bit mode, which the
 /// disassembler spells "fword ptr" and "tbyte ptr".
@@ -3029,16 +3177,31 @@ let private descriptorWidths = [ 48<rt>; 80<rt> ]
 
 /// The widths the extended-state instructions accept. Their operand is a region
 /// whose real size depends on which features are enabled, so the width says
-/// nothing about the encoding and any of these is the same instruction.
-let private stateWidths = [ 32<rt>; 64<rt> ]
+/// nothing about the encoding and any of these is the same instruction. REX.W
+/// is not among them: it names the separate 64-bit mnemonic instead.
+let private stateWidths = [ 16<rt>; 32<rt> ]
 
 /// The widths a status or descriptor-table register is read into. A word is all
 /// it holds, but the wider destinations encode too.
 let private statusWidths = [ 16<rt>; 32<rt>; 64<rt> ]
 
-/// The prefetch hints take memory of any width, and the decoder renders a
-/// register operand for them too even though the manual has none.
-let private prefetchWidths = [ 16<rt>; 32<rt>; 64<rt> ]
+/// A prefetch hint names one byte. Nothing in its encoding says how much is
+/// brought in - the line size decides that - so the manual writes m8 and any
+/// other width would be a directive the bytes cannot carry back.
+let private prefetchWidth = [ 8<rt> ]
+
+/// The widths a general register drawn at random comes in.
+let private randomWidths = [ 16<rt>; 32<rt>; 64<rt> ]
+
+/// The widths INVLPG's operand can be written with. It names a page, not a
+/// value, so no width belongs to it at all; nothing at its ModRM digit has a
+/// wider form for REX.W to select either, which leaves all three carried by
+/// the prefix the disassembler reads the width back from.
+let private invlpgWidths = [ 16<rt>; 32<rt>; 64<rt> ]
+
+/// The widths the base-register and trace instructions read: a doubleword, or
+/// a quadword that REX.W names. There is no 16-bit form to fall back to.
+let private dqWidths = [ 32<rt>; 64<rt> ]
 
 let private ae = [| 0x0Fuy; 0xAEuy |]
 
@@ -3052,6 +3215,45 @@ let private zeroD = [| 0x0Fuy; 0x0Duy |]
 
 let private one8 = [| 0x0Fuy; 0x18uy |]
 
+let private oneC = [| 0x0Fuy; 0x1Cuy |]
+
+/// Builds an encoder for a prefetch hint. The one byte it names is the whole
+/// operand, and no prefix follows from it.
+let private prefetch op digit wordSz ins =
+  grpMem op prefNormal rexNormal digit prefetchWidth wordSz ins
+
+/// Builds an encoder for a group instruction naming the register the mode
+/// already decides the width of, which REX.W has no part in: 32 bits outside
+/// 64-bit mode and 64 bits inside it, so writing the width down changes no
+/// byte and the wider form needs no REX.
+let private grpAddrReg op pref digit wordSz ins =
+  let isModeWidth r =
+    if wordSz = WordSize.Bit32 then isReg32 wordSz r else isReg64 wordSz r
+  match ins.Operands with
+  | OneOperand(OprReg r) when isModeWidth r ->
+    encR ins wordSz pref rexNormal op r digit
+  | _ ->
+    raise <| EncodingFailureException "Unsupported operand type"
+
+/// Builds an encoder for the same shape where only 64-bit mode has the
+/// instruction at all.
+let private grpAddrReg64 op pref digit wordSz ins =
+  no32Arch wordSz
+  grpAddrReg op pref digit wordSz ins
+
+/// Builds an encoder for one of the user-level wait instructions. The manual
+/// writes their timestamp pair in angle brackets, meaning the encoding names
+/// neither: only the first operand reaches a byte, so the pair is accepted
+/// where the disassembler wrote it and dropped either way.
+let private userWait pref digit wordSz ins =
+  match ins.Operands with
+  | OneOperand(OprReg r)
+  | ThreeOperands(OprReg r, OprReg Register.EDX, OprReg Register.EAX) ->
+    let ins = { ins with Operands = OneOperand(OprReg r) }
+    grpReg ae pref digit [ 32<rt> ] wordSz ins
+  | _ ->
+    raise <| EncodingFailureException "Unsupported operand type"
+
 /// The instructions encoded as a ModRM.reg digit under one opcode byte: the
 /// descriptor tables, the extended-state saves, the cache and shadow-stack
 /// operations, and the prefetch hints.
@@ -3063,32 +3265,46 @@ let digitGroupEncoders () =
     Opcode.LDMXCSR, grpMem ae prefNormal rexNormal 0b010uy [ 32<rt> ]
     Opcode.STMXCSR, grpMem ae prefNormal rexNormal 0b011uy [ 32<rt> ]
     Opcode.XSAVE, grpMemSized ae 0b100uy stateWidths
+    Opcode.XSAVE64, grpMem ae prefNormal rexW 0b100uy [ 64<rt> ]
     Opcode.XRSTOR, grpMemSized ae 0b101uy stateWidths
+    Opcode.XRSTOR64, grpMem ae prefNormal rexW 0b101uy [ 64<rt> ]
     Opcode.XSAVEOPT, grpMemSized ae 0b110uy stateWidths
+    Opcode.XSAVEOPT64, grpMem ae prefNormal rexW 0b110uy [ 64<rt> ]
     Opcode.CLFLUSH, grpMem ae prefNormal rexNormal 0b111uy [ 8<rt> ]
     Opcode.CLFLUSHOPT, grpMem ae pref66 rexNormal 0b111uy [ 8<rt> ]
     Opcode.CLWB, grpMem ae pref66 rexNormal 0b110uy [ 8<rt> ]
     Opcode.CLRSSBSY, grpMem ae prefF3 rexNormal 0b110uy [ 64<rt> ]
+    Opcode.RDFSBASE, grpReg ae prefF3 0b000uy dqWidths
+    Opcode.RDGSBASE, grpReg ae prefF3 0b001uy dqWidths
+    Opcode.WRFSBASE, grpReg ae prefF3 0b010uy dqWidths
+    Opcode.WRGSBASE, grpReg ae prefF3 0b011uy dqWidths
+    Opcode.PTWRITE, grpRegMemPref ae prefF3 0b100uy dqWidths
+    Opcode.UMONITOR, grpAddrReg ae prefF3 0b110uy
+    Opcode.TPAUSE, userWait pref66 0b110uy
+    Opcode.UMWAIT, userWait prefF2 0b110uy
+    Opcode.RDPID, grpAddrReg c7 prefF3 0b111uy
+    Opcode.SENDUIPI, grpAddrReg64 c7 prefF3 0b110uy
+    Opcode.CLDEMOTE, prefetch oneC 0b000uy
     Opcode.INCSSPD, grpReg ae prefF3 0b101uy [ 32<rt> ]
     Opcode.INCSSPQ, grpReg ae prefF3 0b101uy [ 64<rt> ]
     Opcode.RDSSPD, grpReg [| 0x0Fuy; 0x1Euy |] prefF3 0b001uy [ 32<rt> ]
     Opcode.RDSSPQ, grpReg [| 0x0Fuy; 0x1Euy |] prefF3 0b001uy [ 64<rt> ]
-    Opcode.XRSTORS, grpMem c7 prefNormal rexNormal 0b011uy [ 64<rt> ]
+    Opcode.XRSTORS, grpMemSized c7 0b011uy stateWidths
     Opcode.XRSTORS64, grpMem c7 prefNormal rexW 0b011uy [ 64<rt> ]
-    Opcode.XSAVEC, grpMem c7 prefNormal rexNormal 0b100uy [ 64<rt> ]
+    Opcode.XSAVEC, grpMemSized c7 0b100uy stateWidths
     Opcode.XSAVEC64, grpMem c7 prefNormal rexW 0b100uy [ 64<rt> ]
-    Opcode.XSAVES, grpMem c7 prefNormal rexNormal 0b101uy [ 64<rt> ]
+    Opcode.XSAVES, grpMemSized c7 0b101uy stateWidths
     Opcode.XSAVES64, grpMem c7 prefNormal rexW 0b101uy [ 64<rt> ]
     Opcode.VMPTRLD, grpMem c7 prefNormal rexNormal 0b110uy [ 64<rt> ]
     Opcode.VMCLEAR, grpMem c7 pref66 rexNormal 0b110uy [ 64<rt> ]
-    Opcode.RDRAND, grpReg c7 prefNormal 0b110uy stateWidths
-    Opcode.RDSEED, grpReg c7 prefNormal 0b111uy prefetchWidths
+    Opcode.RDRAND, grpReg c7 prefNormal 0b110uy randomWidths
+    Opcode.RDSEED, grpReg c7 prefNormal 0b111uy randomWidths
     Opcode.SGDT, grpMem zeroOne prefNormal rexNormal 0b000uy descriptorWidths
     Opcode.SIDT, grpMem zeroOne prefNormal rexNormal 0b001uy descriptorWidths
     Opcode.LGDT, grpMem zeroOne prefNormal rexNormal 0b010uy descriptorWidths
     Opcode.LIDT, grpMem zeroOne prefNormal rexNormal 0b011uy descriptorWidths
     Opcode.RSTORSSP, grpMem zeroOne prefF3 rexNormal 0b101uy [ 64<rt> ]
-    Opcode.INVLPG, grpMem zeroOne prefNormal rexNormal 0b111uy [ 16<rt> ]
+    Opcode.INVLPG, grpMemSized zeroOne 0b111uy invlpgWidths
     Opcode.SMSW, grpRegMem zeroOne 0b100uy statusWidths [ 16<rt> ]
     Opcode.LMSW, grpRegMem zeroOne 0b110uy [ 16<rt> ] [ 16<rt> ]
     Opcode.SLDT, grpRegMem zeroZero 0b000uy statusWidths [ 16<rt> ]
@@ -3097,12 +3313,14 @@ let digitGroupEncoders () =
     Opcode.LTR, grpRegMem zeroZero 0b011uy [ 16<rt> ] [ 16<rt> ]
     Opcode.VERR, grpRegMem zeroZero 0b100uy [ 16<rt> ] [ 16<rt> ]
     Opcode.VERW, grpRegMem zeroZero 0b101uy [ 16<rt> ] [ 16<rt> ]
-    Opcode.PREFETCHW, grpMemSized zeroD 0b001uy prefetchWidths
-    Opcode.PREFETCHWT1, grpMemSized zeroD 0b010uy prefetchWidths
-    Opcode.PREFETCHNTA, grpRegMem one8 0b000uy prefetchWidths prefetchWidths
-    Opcode.PREFETCHT0, grpRegMem one8 0b001uy prefetchWidths prefetchWidths
-    Opcode.PREFETCHT1, grpRegMem one8 0b010uy prefetchWidths prefetchWidths
-    Opcode.PREFETCHT2, grpRegMem one8 0b011uy prefetchWidths prefetchWidths ]
+    Opcode.PREFETCHW, prefetch zeroD 0b001uy
+    Opcode.PREFETCHWT1, prefetch zeroD 0b010uy
+    Opcode.PREFETCHNTA, prefetch one8 0b000uy
+    Opcode.PREFETCHT0, prefetch one8 0b001uy
+    Opcode.PREFETCHT1, prefetch one8 0b010uy
+    Opcode.PREFETCHT2, prefetch one8 0b011uy
+    Opcode.PREFETCHIT1, prefetch one8 0b110uy
+    Opcode.PREFETCHIT0, prefetch one8 0b111uy ]
 
 /// Builds an encoder for a conversion between register files. The register
 /// kinds say nothing about which encoding it is - the mandatory prefix does -
@@ -3130,6 +3348,19 @@ let private accessRights op wordSz ins =
     match gprForm wordSz r with
     | Some(_, pref, rex, _) -> encRM ins wordSz pref rex op r b s d
     | None -> raise <| EncodingFailureException "Unsupported operand type"
+  | _ ->
+    raise <| EncodingFailureException "Unsupported operand type"
+
+/// BOUND checks a register against a pair of bounds held next to each other in
+/// memory, so the memory operand is twice the register wide. 64-bit mode has
+/// the byte for EVEX instead.
+let private bound wordSz ins =
+  no64Arch wordSz
+  match ins.Operands with
+  | TwoOperands(OprReg r, OprMem(b, s, d, 32<rt>)) when isReg16 wordSz r ->
+    encRM ins wordSz pref66 rexNormal [| 0x62uy |] r b s d
+  | TwoOperands(OprReg r, OprMem(b, s, d, 64<rt>)) when isReg32 wordSz r ->
+    encRM ins wordSz prefNormal rexNormal [| 0x62uy |] r b s d
   | _ ->
     raise <| EncodingFailureException "Unsupported operand type"
 
@@ -3272,7 +3503,7 @@ let miscellaneousEncoders () =
     Opcode.LGS, loadFarPointer [| 0x0Fuy; 0xB5uy |]
     Opcode.LES, loadFarPointer [| 0xC4uy |]
     Opcode.LDS, loadFarPointer [| 0xC5uy |]
-    Opcode.BOUND, gprRegRM [| 0x62uy |]
+    Opcode.BOUND, bound
     Opcode.ARPL, gprRMReg [| 0x63uy |]
     Opcode.MOVAPD, movapd
     Opcode.MOVUPD, movupd
@@ -3280,8 +3511,8 @@ let miscellaneousEncoders () =
     Opcode.MOVBE, movbe
     Opcode.ADCX, gprRegRMPref pref66 [| 0x0Fuy; 0x38uy; 0xF6uy |]
     Opcode.ADOX, gprRegRMPref prefF3 [| 0x0Fuy; 0x38uy; 0xF6uy |]
-    Opcode.WRSSD, gprRegRMPref prefNormal [| 0x0Fuy; 0x38uy; 0xF6uy |]
-    Opcode.WRSSQ, gprRegRMPref prefNormal [| 0x0Fuy; 0x38uy; 0xF6uy |]
+    Opcode.WRSSD, directStore prefNormal 0xF6uy 32<rt>
+    Opcode.WRSSQ, directStore prefNormal 0xF6uy 64<rt>
     Opcode.WRUSSD, gprRMRegPref pref66 [| 0x0Fuy; 0x38uy; 0xF5uy |]
     Opcode.WRUSSQ, gprRMRegPref pref66 [| 0x0Fuy; 0x38uy; 0xF5uy |]
     Opcode.INVPCID, convertRegRM pref66 128<rt> [| 0x0Fuy; 0x38uy; 0x82uy |]

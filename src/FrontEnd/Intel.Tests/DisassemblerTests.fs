@@ -110,3 +110,71 @@ type DisassemblerTests() =
     ++ [| "add dword ptr [eax+ebx*2+0x100], 0xa"
           "addl $0xa, +0x100(%eax, %ebx, 2)" |]
     |> testX64
+
+  (* A Key Locker handle is 48 bytes wide and Intel syntax names no directive
+     that wide, so the operand prints bare. *)
+  [<TestMethod>]
+  member _.``X64 AESENC128KL instruction test``() =
+    "f30f38dc00"
+    ++ [| "aesenc128kl xmm0, [rax]"; "aesenc128kl (%rax), %xmm0" |]
+    |> testX64
+
+  [<TestMethod>]
+  member _.``X64 AESENCWIDE128KL instruction test``() =
+    "f30f38d800"
+    ++ [| "aesencwide128kl [rax]"; "aesencwide128kl (%rax)" |]
+    |> testX64
+
+  (* The x87 state areas are the same case, and used to print a stray space
+     where the directive would have gone. *)
+  [<TestMethod>]
+  member _.``X64 FLDENV instruction test``() =
+    "d920" ++ [| "fldenv [rax]"; "fldenv (%rax)" |]
+    |> testX64
+
+  (* LEA computes an address and reads no memory, so there is no access width
+     to name. Vol 2A tables 3-57 and 3-58 give it an operand size and an
+     address size, and the destination and base registers already show both. *)
+  [<TestMethod>]
+  member _.``X64 LEA instruction test``() =
+    "488d4508" ++ [| "lea rax, [rbp+0x8]"; "leaq +0x8(%rbp), %rax" |]
+    |> testX64
+
+  (* With 67h the address narrows to 32 bits while the destination stays 64,
+     so a directive naming the destination would read as the address width. *)
+  [<TestMethod>]
+  member _.``X64 LEA instruction test (address-size prefix)``() =
+    "67488d4508" ++ [| "lea rax, [ebp+0x8]"; "leaq +0x8(%ebp), %rax" |]
+    |> testX64
+
+  [<TestMethod>]
+  member _.``X86 LEA instruction test``() =
+    "8d4508" ++ [| "lea eax, [ebp+0x8]"; "leal +0x8(%ebp), %eax" |]
+    |> testX86
+
+  (* NOP at 90h is, in the manual's own words, an alias mnemonic for the
+     XCHG (E)AX, (E)AX instruction. REX.B moves the second register to r8, so
+     the bytes exchange rather than do nothing, which the hardware confirms. *)
+  [<TestMethod>]
+  member _.``X64 XCHG instruction test (REX.B on 90h)``() =
+    "4190" ++ [| "xchg eax, r8d"; "xchg %r8d, %eax" |]
+    |> testX64
+
+  [<TestMethod>]
+  member _.``X64 NOP instruction test``() =
+    "90" ++ [| "nop"; "nop" |]
+    |> testX64
+
+  (* PAUSE shares the byte but is a separate instruction the F3 prefix names,
+     so REX.B rides along inert there. *)
+  [<TestMethod>]
+  member _.``X64 PAUSE instruction test (REX.B on F3 90h)``() =
+    "f34190" ++ [| "pause"; "pause" |]
+    |> testX64
+
+  (* The multi-byte NOP does take a ModRM byte, where REX.B extends the r/m
+     register as it does anywhere else. *)
+  [<TestMethod>]
+  member _.``X64 NOP instruction test (multi-byte with REX.B)``() =
+    "410f1f00" ++ [| "nop dword ptr [r8]"; "nopl (%r8)" |]
+    |> testX64

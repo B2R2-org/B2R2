@@ -143,20 +143,39 @@ module IntelSyntax = begin
     | 128<rt> -> "xmmword ptr"
     | 256<rt> -> "ymmword ptr"
     | 512<rt> -> "zmmword ptr"
-    | 224<rt> | 864<rt> -> "" (* x87 FPU state *)
+    (* Intel syntax has no directive this wide: the x87 state areas FLDENV
+       and FRSTOR read, and the 48-byte Key Locker handle. objdump prints
+       these bare too. *)
+    | 224<rt> | 384<rt> | 864<rt> -> ""
     | _ -> Terminator.impossible ()
 
-  let mToString (ins: Instruction) (builder: IDisasmBuilder) b si d oprSz =
-    let ptrDirective = ptrDirectiveString (isFar ins) oprSz
-    match Prefix.getSegment ins.Prefixes with
-    | None ->
+  /// Opens a memory operand, leaving out the separating space when the width
+  /// brings no directive for it to separate.
+  let private openMemOperand (builder: IDisasmBuilder) ptrDirective =
+    if ptrDirective = "" then
+      builder.Accumulate(AsmWordKind.String, "[")
+    else
       builder.Accumulate(AsmWordKind.String, ptrDirective)
       builder.Accumulate(AsmWordKind.String, " [")
+
+  let mToString (ins: Instruction) (builder: IDisasmBuilder) b si d oprSz =
+    (* LEA computes an address and reads no memory, so no access width is being
+       named. Vol 2A tables 3-57 and 3-58 give it an operand size and an address
+       size, which the destination and base registers already show, and neither
+       is a width read from memory. objdump and Capstone print it bare, and GNU
+       as encodes the same bytes whichever directive is written there. *)
+    let ptrDirective =
+      if ins.Opcode = Opcode.LEA then
+        ""
+      else
+        ptrDirectiveString (isFar ins) oprSz
+    match Prefix.getSegment ins.Prefixes with
+    | None ->
+      openMemOperand builder ptrDirective
       memAddrToStr b si d builder.WordSize builder
       builder.Accumulate(AsmWordKind.String, "]")
     | Some seg ->
-      builder.Accumulate(AsmWordKind.String, ptrDirective)
-      builder.Accumulate(AsmWordKind.String, " [")
+      openMemOperand builder ptrDirective
       builder.Accumulate(AsmWordKind.Variable, Register.toString seg)
       builder.Accumulate(AsmWordKind.String, ":")
       memAddrToStr b si d builder.WordSize builder

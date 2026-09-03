@@ -50,11 +50,19 @@ type BinCodeDumper(hdl, isTable, showSymbol, showColor, dumpMode) =
     if isTable then FunctionSymbols.ofLinkageTable hdl
     else FunctionSymbols.ofText hdl
 
-  let convertToHexStr bytes =
-    bytes
-    |> Array.fold (fun s (b: byte) ->
-      if String.length s = 0 then b.ToString("X2")
-      else s + " " + b.ToString("X2")) ""
+  (* The bytes as "AA BB CC", built in one go: formatting and joining them a
+     byte at a time allocated a string per byte per instruction. *)
+  let convertToHexStr (bytes: byte[]) =
+    if bytes.Length = 0 then
+      ""
+    else
+      let chars = Array.zeroCreate<char>(bytes.Length * 3 - 1)
+      for i in 0 .. bytes.Length - 1 do
+        let b = int bytes[i]
+        if i > 0 then chars[i * 3 - 1] <- ' ' else ()
+        chars[i * 3] <- "0123456789ABCDEF"[b >>> 4]
+        chars[i * 3 + 1] <- "0123456789ABCDEF"[b &&& 0xF]
+      System.String chars
 
   let printLowUIR (lowUIRStr: string) bytes =
     let hexStr = convertToHexStr bytes |> String.wrapSquareBracket

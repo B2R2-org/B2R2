@@ -176,3 +176,30 @@ type LoggingTests() =
         p.PrintWarnLine "careful")
     Assert.AreEqual<string>("normal" + nl, out)
     Assert.AreEqual<string>("[*] Warning: careful" + nl, err)
+
+  (* A tool that prints a great deal hands the printer its standard output
+     stream, and the cache then reaches the stream as the very bytes the
+     console's encoding gives the text, whether or not the text is all ASCII
+     and whatever that encoding makes of a character it cannot write. *)
+  [<TestMethod>]
+  member _.``ConsoleCachedPrinter writes a given stream the console bytes``() =
+    let text = "plain" + nl + "caf\u00e9" + nl
+    use stream = new MemoryStream()
+    let printer = new ConsoleCachedPrinter(LogLevel.L2, stream) :> IPrinter
+    printer.PrintLine("plain", LogLevel.L2)
+    printer.PrintLine("caf\u00e9", LogLevel.L2)
+    printer.Flush()
+    let expected = Console.OutputEncoding.GetBytes text
+    CollectionAssert.AreEqual(expected, stream.ToArray())
+
+  (* All-ASCII text, which is nearly all of it, takes a faster path; the bytes
+     have to come out the same. *)
+  [<TestMethod>]
+  member _.``ConsoleCachedPrinter writes ASCII text as the same bytes``() =
+    use stream = new MemoryStream()
+    let printer = new ConsoleCachedPrinter(LogLevel.L2, stream) :> IPrinter
+    printer.PrintRow [| "00401000:"; "push rbp" |]
+    printer.Flush()
+    let text = Console.OutputEncoding.GetString(stream.ToArray())
+    let expected = String(' ', 15) + "00401000:" + " push rbp" + nl
+    Assert.AreEqual<string>(expected, text)

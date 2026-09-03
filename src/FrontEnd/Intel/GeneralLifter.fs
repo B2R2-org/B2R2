@@ -1824,7 +1824,12 @@ let mov (ins: Instruction) insLen bld =
   bld <!-- (ins.Address, insLen)
   let struct (dst, src) = transTwoOprs bld false ins insLen
   let oprSize = getOperationSize ins
-  bld <+ (dstAssign oprSize dst (AST.zext oprSize src))
+  (* MOV Sreg, r/m64 names a whole register and keeps only the selector-wide
+     half of it, so here alone the source is wider than the operation. *)
+  let src =
+    if Expr.typeOf src > oprSize then AST.xtlo oprSize src
+    else AST.zext oprSize src
+  bld <+ (dstAssign oprSize dst src)
   bld --!> insLen
 
 let movbe (ins: Instruction) insLen bld =

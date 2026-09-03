@@ -65,6 +65,16 @@ type IntelEncodingTests() =
       (* ORPD takes a 128-bit memory operand, like ANDPD. *)
       WordSize.Bit32, "orpd xmm0, xmmword ptr [eax]", "660f5600"
       WordSize.Bit32, "andpd xmm0, xmmword ptr [eax]", "660f5400"
+      (* LEA reads no memory, so its operand carries no width and the
+         destination register decides the operand size. GNU as reads any
+         directive written there and encodes the same bytes, so one that
+         disagrees with the register is ignored rather than refused. *)
+      WordSize.Bit64, "lea rax, [rbp+8]", "488d4508"
+      WordSize.Bit64, "lea rax, qword ptr [rbp+8]", "488d4508"
+      WordSize.Bit64, "lea rax, dword ptr [rbp+8]", "488d4508"
+      WordSize.Bit64, "lea eax, [rbp+8]", "8d4508"
+      WordSize.Bit32, "lea eax, [ebp+8]", "8d4508"
+      WordSize.Bit32, "lea ax, [ebp+8]", "668d4508"
       (* Every classic ALU opcode accepts a label operand. *)
       WordSize.Bit32, "add eax, L\nL:\nret", "030506000000 c3"
       WordSize.Bit32, "sub eax, L\nL:\nret", "2b0506000000 c3"
@@ -84,6 +94,13 @@ type IntelEncodingTests() =
       WordSize.Bit32, "movsd", "a5"
       WordSize.Bit32, "repz movsd", "f3a5"
       WordSize.Bit32, "movsd xmm0, xmm1", "f20f10c1"
+      (* A Key Locker handle is 384 bits wide, and 384 has no size directive,
+         so these forms carry no width for the sweep to hand back. *)
+      WordSize.Bit32, "aesenc128kl xmm0, [ecx]", "f30f38dc01"
+      WordSize.Bit32, "aesdec128kl xmm0, [ecx]", "f30f38dd01"
+      WordSize.Bit32, "aesencwide128kl [ecx]", "f30f38d801"
+      WordSize.Bit32, "aesdecwide128kl [ecx]", "f30f38d809"
+      WordSize.Bit64, "aesenc128kl xmm0, [rcx]", "f30f38dc01"
       (* RET's operand is a count of bytes to pop, not a displacement, so it
          must not have the instruction length subtracted from it. *)
       WordSize.Bit32, "ret", "c3"
