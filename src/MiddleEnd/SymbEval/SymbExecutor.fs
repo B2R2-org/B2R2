@@ -940,16 +940,13 @@ type SymbExecutor(hdl: BinHandle) =
       |> cacheLiftResult addr
       |> Result.map (fun lifted -> lifted.Stmts)
 
+  (* A statement advances StmtIdx itself, so this loop never does, and a
+     statement that ends the instruction is the end of it. Optimization trims a
+     trailing IEMark that follows an inter-jump, so no statement position can
+     be relied on here. *)
   let rec evalStmtsFrom (st: SymbState) (stmts: Stmt[]) =
-    let numStmts = Array.length stmts
-    if st.StmtIdx >= numStmts then
+    if st.StmtIdx >= Array.length stmts || st.IsInstrTerminated then
       [ SymbEvaluator.Continue st ]
-    elif st.IsInstrTerminated then
-      if st.NeedToEvaluateIEMark then
-        SymbEvaluator.evalStmt st stmts[numStmts - 1]
-        |> evalSuccessor stmts
-      else
-        [ SymbEvaluator.Continue st ]
     else
       SymbEvaluator.evalStmt st stmts[st.StmtIdx]
       |> evalSuccessor stmts

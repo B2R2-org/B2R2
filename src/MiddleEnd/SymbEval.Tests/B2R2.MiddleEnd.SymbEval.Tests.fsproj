@@ -5,6 +5,7 @@
   </PropertyGroup>
 
   <ItemGroup>
+    <Compile Include="SymbStateTests.fs" />
     <Compile Include="SMTLibPipelineTests.fs" />
   </ItemGroup>
 

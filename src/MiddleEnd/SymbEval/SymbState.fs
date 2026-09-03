@@ -35,7 +35,6 @@ type SymbState(regs, temps, lbls, mem: ISymbMemory, pathCond: SymbExpr list) =
   let mutable stmtIdx = 0
   let mutable currentInsLen = 0u
   let mutable isInstrTerminated = false
-  let mutable needToEvaluateIEMark = false
   let mutable regs = regs
   let mutable temps = temps
   let mutable lbls = lbls
@@ -71,15 +70,16 @@ type SymbState(regs, temps, lbls, mem: ISymbMemory, pathCond: SymbExpr list) =
   member _.IsInstrTerminated
     with get() = isInstrTerminated and set(f) = isInstrTerminated <- f
 
-  member _.NeedToEvaluateIEMark
-    with get() = needToEvaluateIEMark and set(f) = needToEvaluateIEMark <- f
-
   member inline this.NextStmt() = this.StmtIdx <- this.StmtIdx + 1
 
+  /// Stops evaluating further statements of the current instruction. A
+  /// statement that ends the instruction without setting the PC itself passes
+  /// true, which advances the PC past the current instruction the way its
+  /// IEMark would have.
   member this.AbortInstr([<Optional; DefaultParameterValue(false)>]
                          needToUpdatePC: bool) =
+    if needToUpdatePC then pc <- pc + uint64 currentInsLen else ()
     isInstrTerminated <- true
-    needToEvaluateIEMark <- needToUpdatePC
     this.NextStmt()
 
   member _.SetReg(rid: RegisterID, value) = regs.Set(int rid, value)
@@ -104,7 +104,6 @@ type SymbState(regs, temps, lbls, mem: ISymbMemory, pathCond: SymbExpr list) =
 
   member inline this.PrepareInstrEval stmts =
     this.IsInstrTerminated <- false
-    this.NeedToEvaluateIEMark <- false
     this.Labels.Update stmts
     this.StmtIdx <- 0
 
@@ -117,8 +116,7 @@ type SymbState(regs, temps, lbls, mem: ISymbMemory, pathCond: SymbExpr list) =
              PC = pc,
              StmtIdx = stmtIdx,
              CurrentInsLen = currentInsLen,
-             IsInstrTerminated = isInstrTerminated,
-             NeedToEvaluateIEMark = needToEvaluateIEMark)
+             IsInstrTerminated = isInstrTerminated)
 
   member this.InitializeContext(pc, registers: (RegisterID * SymbExpr)[]) =
     this.PC <- pc
