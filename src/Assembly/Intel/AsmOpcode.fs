@@ -2198,7 +2198,7 @@ let private encodeKey op wordSz ins =
 /// LOADIWKEY names two XMM registers and leaves EAX and XMM0 implicit. It
 /// shares 0F 38 DC with AESENC128KL, which is the memory form of the same
 /// byte, so the register ModRM is what tells them apart.
-let private loadiwkey wordSz ins =
+let private loadiwkey wordSz (ins: AsmInsInfo) =
   let encode r1 r2 =
     let ins = { ins with Operands = TwoOperands(OprReg r1, OprReg r2) }
     encRR ins wordSz prefF3 rexNormal [| 0x0Fuy; 0x38uy; 0xDCuy |] r1 r2
