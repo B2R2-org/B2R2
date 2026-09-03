@@ -77,7 +77,8 @@ type ConcExecutorTests() =
     let hdl = loadRawImage bytes Architecture.Intel WordSize.Bit64
     let exec = ConcExecutor hdl
     let st = exec.CreateState()
-    let res = exec.Run(0UL, st, ConcRunOptions.Default(StopAfterAddress 0x3UL))
+    let stopCondition = ConcStopCondition.StopAfterAddress 0x3UL
+    let res = exec.Run(0UL, st, ConcRunOptions.Default stopCondition)
     Assert.AreEqual<Addr>(0x4UL, res.FinalAddress)
     Assert.AreEqual<int>(3, res.InstructionCount)
 
@@ -102,7 +103,7 @@ type ConcExecutorTests() =
     let res = exec.Run(0UL, st, opts)
     Assert.AreEqual<int>(7, res.InstructionCount)
     match res.StopReasons with
-    | [ InstructionLimitReached(_, limit) ] ->
+    | [ ConcStopReason.InstructionLimitReached(_, limit) ] ->
       Assert.AreEqual<int>(7, limit)
     | reasons ->
       Assert.Fail $"Unexpected stop reasons: {reasons}"
@@ -115,11 +116,14 @@ type ConcExecutorTests() =
     let exec = ConcExecutor hdl
     let st = exec.CreateState()
     let predicate = ConcStopPredicate(fun point -> point.InstructionCount = 3)
-    let res = exec.Run(0UL, st, ConcRunOptions.Default(StopWhen predicate))
+    let stopCondition = ConcStopCondition.StopWhen predicate
+    let res = exec.Run(0UL, st, ConcRunOptions.Default stopCondition)
     Assert.AreEqual<int>(3, res.InstructionCount)
     match res.StopReasons with
-    | [ UserStopConditionMet addr ] -> Assert.AreEqual<Addr>(0UL, addr)
-    | reasons -> Assert.Fail $"Unexpected stop reasons: {reasons}"
+    | [ ConcStopReason.UserStopConditionMet addr ] ->
+      Assert.AreEqual<Addr>(0UL, addr)
+    | reasons ->
+      Assert.Fail $"Unexpected stop reasons: {reasons}"
 
   [<TestMethod>]
   member _.``Default options carry an instruction limit``() =
@@ -133,9 +137,10 @@ type ConcExecutorTests() =
     let hdl = loadRawImage bytes Architecture.ARMv8 WordSize.Bit64
     let exec = ConcExecutor hdl
     let st = exec.CreateState()
-    let res = exec.Run(0UL, st, ConcRunOptions.Default(StopAtAddress 0xffffUL))
+    let stopCondition = ConcStopCondition.StopAtAddress 0xffffUL
+    let res = exec.Run(0UL, st, ConcRunOptions.Default stopCondition)
     match res.StopReasons with
-    | [ EvaluationError(addr, e) ] ->
+    | [ ConcStopReason.EvaluationError(addr, e) ] ->
       Assert.AreEqual<Addr>(0UL, addr)
       Assert.AreEqual<ErrorCase>(ErrorCase.InvalidExprEvaluation, e)
     | reasons ->
@@ -153,7 +158,8 @@ type ConcExecutorTests() =
 
   [<TestMethod>]
   member _.``Undefined writes leave the target undefined``() =
-    match runMulWithPresetSF PreserveUndefinedValues with
+    let policy = ConcUndefinedValuePolicy.PreserveUndefinedValues
+    match runMulWithPresetSF policy with
     | Undef ->
       ()
     | Def v ->
@@ -161,7 +167,7 @@ type ConcExecutorTests() =
 
   [<TestMethod>]
   member _.``Ignored undefined writes keep the previous value``() =
-    match runMulWithPresetSF IgnoreUndefinedWrites with
+    match runMulWithPresetSF ConcUndefinedValuePolicy.IgnoreUndefinedWrites with
     | Def v ->
       Assert.AreEqual<uint64>(1UL, v.ToUInt64())
     | Undef ->
@@ -180,7 +186,7 @@ type ConcExecutorTests() =
     let opts =
       { ConcRunOptions.Default [] with
           MaxInstructions = 1
-          Calls = UseCallHooks hooks }
+          Calls = ConcCallPolicy.UseCallHooks hooks }
     let res = exec.Run(0UL, st, opts)
     Assert.AreEqual<Addr>(0x5UL, res.FinalAddress)
     match st.TryGetReg(hdl.RegisterFactory.GetRegisterID "RAX") with
@@ -196,10 +202,10 @@ type ConcExecutorTests() =
     let st = exec.CreateState()
     let opts =
       { ConcRunOptions.Default [] with
-          Calls = UseCallHooks(ConcCallHookRegistry()) }
+          Calls = ConcCallPolicy.UseCallHooks(ConcCallHookRegistry()) }
     let res = exec.Run(0UL, st, opts)
     match res.StopReasons with
-    | [ CallHandlingFailure(callSite, target, _) ] ->
+    | [ ConcStopReason.CallHandlingFailure(callSite, target, _) ] ->
       Assert.AreEqual<Addr>(0UL, callSite)
       Assert.AreEqual<Addr option>(Some 0x105UL, target)
     | reasons ->
@@ -212,7 +218,7 @@ type ConcExecutorTests() =
     let st = exec.CreateState()
     let res = exec.Run(0UL, st, ConcRunOptions.Default [])
     match res.StopReasons with
-    | [ CallHandlingFailure(callSite, target, _) ] ->
+    | [ ConcStopReason.CallHandlingFailure(callSite, target, _) ] ->
       Assert.AreEqual<Addr>(0UL, callSite)
       Assert.AreEqual<Addr option>(Some 0x105UL, target)
     | reasons ->
@@ -232,7 +238,7 @@ type ConcExecutorTests() =
     let opts =
       { ConcRunOptions.Default [] with
           MaxInstructions = 1
-          Calls = UseCallHooks hooks }
+          Calls = ConcCallPolicy.UseCallHooks hooks }
     let res = exec.Run(0UL, st, opts)
     Assert.AreEqual<Addr>(0x8UL, res.FinalAddress)
     Assert.AreEqual<Addr>(0x8UL, Seq.exactlyOne seen)

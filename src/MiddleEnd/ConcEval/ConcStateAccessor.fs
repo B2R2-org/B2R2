@@ -32,13 +32,20 @@ open B2R2.MiddleEnd.Executor
 
 /// Provides structured access to a concrete EvalState.
 type ConcStateAccessor(hdl: BinHandle, state: EvalState) as this =
-  static let defaultStackTop = 0x7fffffffe000UL
-
   let regFactory = hdl.RegisterFactory
   let wordType = hdl.ISA.WordSize |> WordSize.toRegType
   let wordBytes = RegType.toByteWidth wordType
   let endian = hdl.ISA.Endian
   let cc = hdl.Conventions.Calling
+
+  (* The conventional Linux stack top for the word size: the end of the user
+     address space, less a guard page. A word-size-independent constant would
+     silently truncate on a narrower ISA, leaving a stack pointer that does not
+     match what this accessor advertises. *)
+  let defaultStackTop =
+    match hdl.ISA.WordSize with
+    | WordSize.Bit64 -> 0x7fffffffe000UL
+    | _ -> 0xbfffe000UL
 
   let wordValue (value: uint64) = BitVector(value, wordType)
 
@@ -165,14 +172,34 @@ type ConcStateAccessor(hdl: BinHandle, state: EvalState) as this =
 
   let getReturnValue () = cc.IntReturnRegister |> getDefinedReg
 
+  let tryReadByte addr =
+    match state.Memory.ByteRead addr with
+    | Ok b -> Ok b
+    | Error _ -> Error ErrorCase.InvalidMemoryRead
+
+  let rec collectCString (bytes: ResizeArray<byte>) addr idx maxLength =
+    if idx >= maxLength then
+      Error ErrorCase.InvalidFormat
+    else
+      match tryReadByte (addr + uint64 idx) with
+      | Ok 0uy -> Ok(Encoding.ASCII.GetString(bytes.ToArray()))
+      | Ok b -> bytes.Add b; collectCString bytes addr (idx + 1) maxLength
+      | Error e -> Error e
+
+  let readCString addr maxLength =
+    if maxLength < 0 then raise (ArgumentOutOfRangeException(nameof maxLength))
+    else ()
+    collectCString (ResizeArray<byte>()) addr 0 maxLength
+
   let allocateStackBuffer size =
     if size < 0 then raise (ArgumentOutOfRangeException(nameof size)) else ()
     let addr = getStackPointer () - uint64 size
     setStackPointer addr
     addr
 
-  /// Default stack top used by concrete states.
-  static member DefaultStackTop = defaultStackTop
+  /// Stack top that InitializeDefaultStack starts the stack at. The value
+  /// depends on the word size of the binary this accessor was built from.
+  member _.DefaultStackTop = defaultStackTop
 
   /// The underlying concrete state.
   member _.State = state
@@ -234,6 +261,14 @@ type ConcStateAccessor(hdl: BinHandle, state: EvalState) as this =
   /// Pop a word-sized value from the stack.
   member _.PopFromStack() = popFromStack ()
 
+  /// Current stack pointer value, failing instead of raising when the stack
+  /// pointer register is unavailable.
+  member _.TryGetStackPointer() = tryGetStackPointer ()
+
+  /// Sets the current stack pointer value, failing instead of raising when the
+  /// stack pointer register is unavailable.
+  member _.TrySetStackPointer addr = trySetStackPointer addr
+
   /// Pushes a word-sized value to the stack and returns its address, failing
   /// instead of raising when the stack pointer is unavailable.
   member _.TryPushToStack value = tryPushToStack value
@@ -262,6 +297,18 @@ type ConcStateAccessor(hdl: BinHandle, state: EvalState) as this =
     | Error _ ->
       raise (InvalidOperationException $"Cannot read a pointer at {addr:x}.")
 
+  /// Reads a value of the given type from memory.
+  member _.ReadValue(addr: Addr, typ: RegType) =
+    match Memory.read addr endian typ state.Memory with
+    | Ok v ->
+      v
+    | Error _ ->
+      raise (InvalidOperationException $"Cannot read a value at {addr:x}.")
+
+  /// Writes a value to memory, using the type the value carries.
+  member _.WriteValue(addr: Addr, value: BitVector) =
+    Memory.write addr value endian state.Memory
+
   /// Write a concrete integer value to memory.
   member _.WriteInteger(addr: Addr, value: uint64, typ: RegType) =
     Memory.write addr (BitVector(value, typ)) endian state.Memory
@@ -277,23 +324,23 @@ type ConcStateAccessor(hdl: BinHandle, state: EvalState) as this =
     else ()
     Array.init length (fun idx -> readByte (addr + uint64 idx))
 
-  /// Read a null-terminated ASCII string from memory.
+  /// Read a null-terminated ASCII string from memory. Reaching maxLength
+  /// without a terminator is an error, not a truncation.
   member _.ReadCString(addr: Addr, maxLength: int) =
-    if maxLength < 0 then raise (ArgumentOutOfRangeException(nameof maxLength))
-    else ()
-    let bytes = ResizeArray<byte>()
-    let mutable idx = 0
-    let mutable finished = false
-    while not finished && idx < maxLength do
-      match readByte (addr + uint64 idx) with
-      | 0uy ->
-        finished <- true
-      | b ->
-        bytes.Add b
-        idx <- idx + 1
-    Encoding.ASCII.GetString(bytes.ToArray())
+    match readCString addr maxLength with
+    | Ok str ->
+      str
+    | Error _ ->
+      raise (InvalidOperationException
+        $"No string terminator within {maxLength} bytes at {addr:x}.")
 
-  interface IStateAccessor<EvalState, BitVector> with
+  /// Reads a null-terminated ASCII string from memory, failing instead of
+  /// raising when the memory is unreadable or has no terminator within
+  /// maxLength bytes.
+  member _.TryReadCString(addr: Addr, maxLength: int) =
+    readCString addr maxLength
+
+  interface IStateAccessor<EvalState, BitVector, ErrorCase> with
 
     member _.State = this.State
 
@@ -303,9 +350,15 @@ type ConcStateAccessor(hdl: BinHandle, state: EvalState) as this =
 
     member _.StackPointer = this.StackPointer
 
+    member _.DefaultStackTop = this.DefaultStackTop
+
+    member _.WordValue value = this.WordValue value
+
     member _.SetStackPointer addr = this.SetStackPointer addr
 
     member _.InitializeStack stackTop = this.InitializeStack stackTop
+
+    member _.InitializeDefaultStack() = this.InitializeDefaultStack()
 
     member _.InitializeFramePointer() = this.InitializeFramePointer()
 
@@ -330,3 +383,15 @@ type ConcStateAccessor(hdl: BinHandle, state: EvalState) as this =
     member _.PushToStack value = this.PushToStack value
 
     member _.PopFromStack() = this.PopFromStack()
+
+    member _.ReadValue(addr, typ) = this.ReadValue(addr, typ)
+
+    member _.WriteValue(addr, value) = this.WriteValue(addr, value)
+
+    member _.TryGetStackPointer() = this.TryGetStackPointer()
+
+    member _.TrySetStackPointer addr = this.TrySetStackPointer addr
+
+    member _.TryPushToStack value = this.TryPushToStack value
+
+    member _.TryPopFromStack() = this.TryPopFromStack()

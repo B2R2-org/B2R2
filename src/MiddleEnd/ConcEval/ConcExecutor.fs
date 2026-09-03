@@ -43,6 +43,7 @@ type ConcStopPoint =
     State: EvalState }
 
 /// Represents a concrete execution stop condition.
+[<RequireQualifiedAccess>]
 type ConcStopCondition =
   /// Stop before executing the instruction at the given address.
   | StopAtAddress of addr: Addr
@@ -52,8 +53,6 @@ type ConcStopCondition =
   | StopAtReturn
   /// Stop after executing a function return.
   | StopAfterReturn
-  /// Stop when a call instruction is observed.
-  | StopAtCall
   /// Stop when a side-effect statement is observed.
   | StopAtSideEffect
   /// Stop when a user-provided predicate holds.
@@ -64,6 +63,7 @@ type ConcStopCondition =
 and ConcStopPredicate = delegate of ConcStopPoint -> bool
 
 /// Represents the reason why concrete execution stopped.
+[<RequireQualifiedAccess>]
 type ConcStopReason =
   /// Execution reached an address requested by a stop condition.
   | StoppedAtAddress of addr: Addr
@@ -92,6 +92,7 @@ type ConcStopReason =
   | CallHandlingFailure of callSite: Addr * target: Addr option * reason: string
 
 /// Represents how the concrete executor should handle call instructions.
+[<RequireQualifiedAccess>]
 type ConcCallPolicy =
   /// Stop when any call instruction is observed.
   | StopAtCalls
@@ -104,6 +105,7 @@ type ConcCallPolicy =
   | UseCallHooks of hooks: ConcCallHookRegistry
 
 /// Represents how concrete execution should handle undefined values.
+[<RequireQualifiedAccess>]
 type ConcUndefinedValuePolicy =
   /// Treat undefined values as evaluation failures.
   | StopOnUndefinedValue
@@ -118,7 +120,8 @@ type ConcUndefinedValuePolicy =
 
 /// Represents how concrete execution should handle uninitialized register
 /// reads.
-type UninitializedRegisterPolicy =
+[<RequireQualifiedAccess>]
+type ConcUninitializedRegisterPolicy =
   /// Treat uninitialized register reads as evaluation failures.
   | StopOnUninitializedRegister
   /// Materialize caller-provided context registers as zero on first read. The
@@ -135,16 +138,16 @@ type ConcRunOptions =
     /// Undefined-value handling policy.
     UndefinedValues: ConcUndefinedValuePolicy
     /// Uninitialized register read handling policy.
-    UninitializedRegisters: UninitializedRegisterPolicy
+    UninitializedRegisters: ConcUninitializedRegisterPolicy
     /// Maximum machine instructions to execute. Zero means unlimited.
     MaxInstructions: int
     /// Stop conditions used by Run.
     StopConditions: ConcStopCondition list }
 with
   static member Default(stopConditions: ConcStopCondition list) =
-    { Calls = FollowDirectInternalCalls
-      UndefinedValues = IgnoreUndefinedWrites
-      UninitializedRegisters = ZeroCallerContext
+    { Calls = ConcCallPolicy.FollowDirectInternalCalls
+      UndefinedValues = ConcUndefinedValuePolicy.IgnoreUndefinedWrites
+      UninitializedRegisters = ConcUninitializedRegisterPolicy.ZeroCallerContext
       MaxInstructions = 50000
       StopConditions = stopConditions }
 
@@ -166,7 +169,7 @@ with
   member this.IsStoppedAtAddress addr =
     this.StopReasons
     |> List.exists (function
-      | StoppedAtAddress stoppedAddr when stoppedAddr = addr -> true
+      | ConcStopReason.StoppedAtAddress stopped -> stopped = addr
       | _ -> false)
 
 type private InstructionEvalResult =
@@ -224,13 +227,11 @@ type ConcExecutor(hdl: BinHandle) =
 
   let tryGetDefaultRegisterValue opts rid =
     match opts.UninitializedRegisters with
-    | StopOnUninitializedRegister ->
+    | ConcUninitializedRegisterPolicy.StopOnUninitializedRegister ->
       None
-    | ZeroCallerContext when isCallerContextRegister rid ->
-      Some(zeroRegister rid)
-    | ZeroCallerContext ->
-      None
-    | ZeroAnyRegister ->
+    | ConcUninitializedRegisterPolicy.ZeroCallerContext ->
+      if isCallerContextRegister rid then Some(zeroRegister rid) else None
+    | ConcUninitializedRegisterPolicy.ZeroAnyRegister ->
       Some(zeroRegister rid)
 
   let mkResult reasons addr n st =
@@ -301,16 +302,13 @@ type ConcExecutor(hdl: BinHandle) =
     | _ -> false
 
   let stopAtSideEffect (opts: ConcRunOptions) =
-    opts.StopConditions
-    |> List.exists (function StopAtSideEffect -> true | _ -> false)
+    opts.StopConditions |> List.contains ConcStopCondition.StopAtSideEffect
 
   let hasStopAtReturn (opts: ConcRunOptions) =
-    opts.StopConditions
-    |> List.exists (function StopAtReturn -> true | _ -> false)
+    opts.StopConditions |> List.contains ConcStopCondition.StopAtReturn
 
   let hasStopAfterReturn (opts: ConcRunOptions) =
-    opts.StopConditions
-    |> List.exists (function StopAfterReturn -> true | _ -> false)
+    opts.StopConditions |> List.contains ConcStopCondition.StopAfterReturn
 
   let tryEvalBranchCondition opts (st: EvalState) = function
     | CJmp(cond, _, _, _)
@@ -332,24 +330,17 @@ type ConcExecutor(hdl: BinHandle) =
     ins.IsRET
     && (not ins.IsCondBranch || isConditionalBranchTaken opts st stmts)
 
-  let hasStopAtCall (opts: ConcRunOptions) =
-    opts.StopConditions
-    |> List.exists (function StopAtCall -> true | _ -> false)
-
   let tryGetDirectTarget (ins: IInstruction) =
     match ins.DirectBranchTarget() with
     | true, target -> Some target
     | false, _ -> None
 
   let stopAtCall (opts: ConcRunOptions) (ins: IInstruction) =
-    if ins.IsCall then
-      hasStopAtCall opts
-      || match opts.Calls with
-         | StopAtCalls -> true
-         | FollowDirectInternalCalls -> false
-         | UseCallHooks _ -> false
-    else
-      false
+    ins.IsCall
+    && match opts.Calls with
+       | ConcCallPolicy.StopAtCalls -> true
+       | ConcCallPolicy.FollowDirectInternalCalls -> false
+       | ConcCallPolicy.UseCallHooks _ -> false
 
   (* A register or temporary with no entry reads back as Undef, so unsetting
      the target is all it takes to record that it now holds an undefined value.
@@ -363,12 +354,12 @@ type ConcExecutor(hdl: BinHandle) =
   let evalStmt (opts: ConcRunOptions) (st: EvalState) stmt =
     materializeReadRegisters opts st stmt
     match opts.UndefinedValues with
-    | StopOnUndefinedValue when isUndefWrite stmt ->
+    | ConcUndefinedValuePolicy.StopOnUndefinedValue when isUndefWrite stmt ->
       EvalUndef
-    | IgnoreUndefinedWrites when isUndefWrite stmt ->
+    | ConcUndefinedValuePolicy.IgnoreUndefinedWrites when isUndefWrite stmt ->
       st.NextStmt()
       EvalOk
-    | PreserveUndefinedValues when isUndefWrite stmt ->
+    | ConcUndefinedValuePolicy.PreserveUndefinedValues when isUndefWrite stmt ->
       unsetUndefTarget st stmt
       st.NextStmt()
       EvalOk
@@ -408,24 +399,26 @@ type ConcExecutor(hdl: BinHandle) =
     let reasons =
       opts.StopConditions
       |> List.choose (function
-        | StopAtAddress stopAddr when stopAddr = addr ->
-          Some(StoppedAtAddress addr)
-        | StopWhen predicate when predicate.Invoke point ->
-          Some(UserStopConditionMet addr)
+        | ConcStopCondition.StopAtAddress stopAddr when stopAddr = addr ->
+          Some(ConcStopReason.StoppedAtAddress addr)
+        | ConcStopCondition.StopWhen predicate when predicate.Invoke point ->
+          Some(ConcStopReason.UserStopConditionMet addr)
         | _ ->
           None)
     match isInstructionLimitReached n opts with
-    | Some limit -> reasons @ [ InstructionLimitReached(addr, limit) ]
-    | None -> reasons
+    | Some limit ->
+      reasons @ [ ConcStopReason.InstructionLimitReached(addr, limit) ]
+    | None ->
+      reasons
 
   let collectInstrStopReasons opts st addr (ins: IInstruction) stmts =
     [ if hasStopAtReturn opts && isReturnTaken opts st ins stmts then
-        StoppedAtReturn addr
+        ConcStopReason.StoppedAtReturn addr
       else
         ()
       if stopAtCall opts ins then
         let target = tryGetDirectTarget ins
-        StoppedAtCall(addr, target)
+        ConcStopReason.StoppedAtCall(addr, target)
       else
         () ]
 
@@ -433,12 +426,12 @@ type ConcExecutor(hdl: BinHandle) =
     let reasons =
       opts.StopConditions
       |> List.choose (function
-        | StopAfterAddress stopAddr when stopAddr = addr ->
-          Some(StoppedAfterAddress addr)
+        | ConcStopCondition.StopAfterAddress stopAddr when stopAddr = addr ->
+          Some(ConcStopReason.StoppedAfterAddress addr)
         | _ ->
           None)
     if hasStopAfterReturn opts && isReturnTaken opts st ins stmts then
-      reasons @ [ StoppedAfterReturn addr ]
+      reasons @ [ ConcStopReason.StoppedAfterReturn addr ]
     else
       reasons
 
@@ -472,7 +465,8 @@ type ConcExecutor(hdl: BinHandle) =
       ReturnRegister = cc.IntReturnRegister }
 
   let callFailure (ctx: ConcCallContext) msg =
-    CallHandlingFailure(ctx.CallSite, Some ctx.Target, msg) |> Result.Error
+    ConcStopReason.CallHandlingFailure(ctx.CallSite, Some ctx.Target, msg)
+    |> Result.Error
 
   let pushReturnAddress (ctx: ConcCallContext) (st: EvalState) =
     let accessor = ConcStateAccessor(hdl, st)
@@ -501,16 +495,24 @@ type ConcExecutor(hdl: BinHandle) =
       | Ok() -> finishHook ctx st
       | Result.Error msg -> callFailure ctx msg
 
+  let isExternalTarget target = not (isInternalTarget target)
+
+  let callHandlingFailure addr target msg =
+    ConcStopReason.CallHandlingFailure(addr, target, msg)
+    |> Result.Error
+    |> Some
+
   let tryHandleCall (opts: ConcRunOptions) st addr ins =
     if not (ins: IInstruction).IsCall then
       None
     else
       let target = tryGetDirectTarget ins
       match opts.Calls, target with
-      | FollowDirectInternalCalls, Some t when not (isInternalTarget t) ->
+      | ConcCallPolicy.FollowDirectInternalCalls, Some t
+        when isExternalTarget t ->
         let msg = $"A direct call targets {t:x}, outside the binary."
-        Some(CallHandlingFailure(addr, target, msg) |> Result.Error)
-      | UseCallHooks hooks, Some t ->
+        callHandlingFailure addr target msg
+      | ConcCallPolicy.UseCallHooks hooks, Some t ->
         match hooks.TryFind t with
         | Some hook ->
           let ctx = mkCallContext addr t (getCallFallThroughAddr addr ins)
@@ -519,10 +521,10 @@ type ConcExecutor(hdl: BinHandle) =
           None
         | None ->
           let msg = $"No call hook is registered for {t:x}."
-          Some(CallHandlingFailure(addr, target, msg) |> Result.Error)
-      | UseCallHooks _, None ->
+          callHandlingFailure addr target msg
+      | ConcCallPolicy.UseCallHooks _, None ->
         let msg = "Cannot dispatch a call hook without a direct target."
-        Some(CallHandlingFailure(addr, None, msg) |> Result.Error)
+        callHandlingFailure addr None msg
       | _ ->
         None
 
@@ -533,16 +535,19 @@ type ConcExecutor(hdl: BinHandle) =
     | None -> evalInstr opts st stmts
 
   let run start (st: EvalState) (opts: ConcRunOptions) =
+    let invalidInstr reasons addr n =
+      let reason = ConcStopReason.InvalidInstructionAddress addr
+      mkResult (reasons @ [ reason ]) addr n st
     let rec loop n =
       let addr = st.PC
       let reasons = collectPreInstrStopReasons st addr n opts
       match tryParseInstruction addr with
       | Result.Error _ ->
-        mkResult (reasons @ [ InvalidInstructionAddress addr ]) addr n st
+        invalidInstr reasons addr n
       | Ok ins ->
         match tryLiftInstruction ins with
         | Result.Error _ ->
-          mkResult (reasons @ [ InvalidInstructionAddress addr ]) addr n st
+          invalidInstr reasons addr n
         | Ok stmts ->
           let reasons = reasons @ collectInstrStopReasons opts st addr ins stmts
           let postReasons = collectPostInstrStopReasons opts st addr ins stmts
@@ -554,11 +559,12 @@ type ConcExecutor(hdl: BinHandle) =
             | EvalStopped reason ->
               mkResult [ reason ] st.PC n st
             | EvalError e ->
-              mkResult [ EvaluationError(addr, e) ] st.PC n st
+              mkResult [ ConcStopReason.EvaluationError(addr, e) ] st.PC n st
             | EvalUndef ->
-              mkResult [ UndefinedValue addr ] st.PC n st
+              mkResult [ ConcStopReason.UndefinedValue addr ] st.PC n st
             | EvalSideEffect eff ->
-              mkResult [ StoppedAtSideEffect(addr, eff) ] st.PC n st
+              let reason = ConcStopReason.StoppedAtSideEffect(addr, eff)
+              mkResult [ reason ] st.PC n st
           else
             mkResult reasons addr n st
     st.PC <- start

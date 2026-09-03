@@ -33,9 +33,12 @@ open B2R2
 /// </namespacedoc>
 ///
 /// <summary>
-/// Provides structured access to an executor-specific state.
+/// Provides structured access to an executor-specific state. The contract
+/// covers what every executor can express in terms of its own value type;
+/// byte-oriented memory access is deliberately absent, because a symbolic
+/// state has no bytes to hand back.
 /// </summary>
-type IStateAccessor<'State, 'Value> =
+type IStateAccessor<'State, 'Value, 'Error> =
   /// The underlying executor-specific state.
   abstract State: 'State
 
@@ -48,11 +51,20 @@ type IStateAccessor<'State, 'Value> =
   /// Current stack pointer value.
   abstract StackPointer: Addr
 
+  /// Stack top that InitializeDefaultStack starts the stack at.
+  abstract DefaultStackTop: Addr
+
+  /// Create a word-sized value out of the given integer.
+  abstract WordValue: value: Addr -> 'Value
+
   /// Set the current stack pointer value.
   abstract SetStackPointer: addr: Addr -> unit
 
   /// Initialize the stack pointer with the given stack top.
   abstract InitializeStack: stackTop: Addr -> unit
+
+  /// Initialize the stack pointer with the default stack top.
+  abstract InitializeDefaultStack: unit -> unit
 
   /// Initialize the frame pointer with the current stack pointer.
   abstract InitializeFramePointer: unit -> unit
@@ -89,3 +101,24 @@ type IStateAccessor<'State, 'Value> =
 
   /// Pop a word-sized value from the stack.
   abstract PopFromStack: unit -> 'Value
+
+  /// Read a value of the given type from memory.
+  abstract ReadValue: addr: Addr * typ: RegType -> 'Value
+
+  /// Write a value to memory, using the type the value carries.
+  abstract WriteValue: addr: Addr * value: 'Value -> unit
+
+  /// Current stack pointer value, failing instead of raising when the stack
+  /// pointer register is unavailable.
+  abstract TryGetStackPointer: unit -> Result<Addr, 'Error>
+
+  /// Set the current stack pointer value, failing instead of raising when the
+  /// stack pointer register is unavailable.
+  abstract TrySetStackPointer: addr: Addr -> Result<unit, 'Error>
+
+  /// Push a word-sized value to the stack and return its address, failing
+  /// instead of raising.
+  abstract TryPushToStack: value: 'Value -> Result<Addr, 'Error>
+
+  /// Pop a word-sized value from the stack, failing instead of raising.
+  abstract TryPopFromStack: unit -> Result<'Value, 'Error>

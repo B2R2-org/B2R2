@@ -50,13 +50,20 @@ with
 type SymbStateAccessor(hdl: BinHandle, state: SymbState) as this =
   static let defaultStringBound = 64
 
-  static let defaultStackTop = 0x7fffffffe000UL
-
   let regFactory = hdl.RegisterFactory
   let endian = hdl.ISA.Endian
   let wordType = hdl.ISA.WordSize |> WordSize.toRegType
   let wordBytes = RegType.toByteWidth wordType
   let cc = hdl.Conventions.Calling
+
+  (* The conventional Linux stack top for the word size: the end of the user
+     address space, less a guard page. A word-size-independent constant would
+     silently truncate on a narrower ISA, leaving a stack pointer that does not
+     match what this accessor advertises. *)
+  let defaultStackTop =
+    match hdl.ISA.WordSize with
+    | WordSize.Bit64 -> 0x7fffffffe000UL
+    | _ -> 0xbfffe000UL
 
   let wordValue (addr: Addr) = SymbExpr.Const(BitVector(addr, wordType))
 
@@ -195,8 +202,9 @@ type SymbStateAccessor(hdl: BinHandle, state: SymbState) as this =
   /// Default maximum symbolic C-string payload size.
   static member DefaultStringBound = defaultStringBound
 
-  /// Default stack top used by symbolic states.
-  static member DefaultStackTop = defaultStackTop
+  /// Stack top that InitializeDefaultStack starts the stack at. The value
+  /// depends on the word size of the binary this accessor was built from.
+  member _.DefaultStackTop = defaultStackTop
 
   /// The underlying symbolic state.
   member _.State = state
@@ -272,6 +280,18 @@ type SymbStateAccessor(hdl: BinHandle, state: SymbState) as this =
   /// Creates a word-sized concrete symbolic expression.
   member _.WordValue addr = wordValue addr
 
+  /// Reads a value of the given type from memory.
+  member _.ReadValue(addr: Addr, typ: RegType) =
+    match SymbMemoryOperation.load addr endian typ state.Memory with
+    | Ok value ->
+      value
+    | Error e ->
+      raise (InvalidOperationException $"Cannot read a value: {e}.")
+
+  /// Writes a value to memory, using the type the value carries.
+  member _.WriteValue(addr: Addr, value: SymbExpr) =
+    SymbMemoryOperation.store addr value endian state.Memory
+
   /// Reads a register as a concrete address.
   member _.TryGetConcreteRegister rid = tryGetConcreteReg rid
 
@@ -327,7 +347,7 @@ type SymbStateAccessor(hdl: BinHandle, state: SymbState) as this =
     this.SetArgumentBuffer(idx, buffer)
     buffer
 
-  interface IStateAccessor<SymbState, SymbExpr> with
+  interface IStateAccessor<SymbState, SymbExpr, SymbEvalError> with
 
     member _.State = this.State
 
@@ -337,9 +357,15 @@ type SymbStateAccessor(hdl: BinHandle, state: SymbState) as this =
 
     member _.StackPointer = this.StackPointer
 
+    member _.DefaultStackTop = this.DefaultStackTop
+
+    member _.WordValue value = this.WordValue value
+
     member _.SetStackPointer addr = this.SetStackPointer addr
 
     member _.InitializeStack stackTop = this.InitializeStack stackTop
+
+    member _.InitializeDefaultStack() = this.InitializeDefaultStack()
 
     member _.InitializeFramePointer() = this.InitializeFramePointer()
 
@@ -364,3 +390,15 @@ type SymbStateAccessor(hdl: BinHandle, state: SymbState) as this =
     member _.PushToStack value = this.PushToStack value
 
     member _.PopFromStack() = this.PopFromStack()
+
+    member _.ReadValue(addr, typ) = this.ReadValue(addr, typ)
+
+    member _.WriteValue(addr, value) = this.WriteValue(addr, value)
+
+    member _.TryGetStackPointer() = this.TryGetStackPointer()
+
+    member _.TrySetStackPointer addr = this.TrySetStackPointer addr
+
+    member _.TryPushToStack value = this.TryPushToStack value
+
+    member _.TryPopFromStack() = this.TryPopFromStack()

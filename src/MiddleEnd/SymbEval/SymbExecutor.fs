@@ -77,6 +77,7 @@ type SymbSolver =
   | CustomSolver of solver: ISolver
 
 /// Represents how the symbolic executor should handle call instructions.
+[<RequireQualifiedAccess>]
 type SymbCallPolicy =
   /// Stop before evaluating any call instruction.
   | StopAtCalls
@@ -114,7 +115,7 @@ type SymbRunOptions =
     WarmUpRanges: (Addr * Addr) list }
 with
   static member Default(query: SymbQuery, solver: SymbSolver) =
-    { Calls = FollowDirectInternalCalls
+    { Calls = SymbCallPolicy.FollowDirectInternalCalls
       Query = query
       QueryValues = (QueryExpr.Empty :> IQueryExpr)
       Avoid = AvoidAddresses Set.empty
@@ -232,34 +233,35 @@ with
   member opts.AddAvoidState predicate = opts.AddAvoid(AvoidState predicate)
 
   /// Stops before evaluating call instructions.
-  member opts.StopAtCalls() = { opts with Calls = StopAtCalls }
+  member opts.StopAtCalls() = { opts with Calls = SymbCallPolicy.StopAtCalls }
 
   /// Follows direct internal calls without using external-call hooks.
   member opts.FollowDirectInternalCalls() =
-    { opts with Calls = FollowDirectInternalCalls }
+    { opts with Calls = SymbCallPolicy.FollowDirectInternalCalls }
 
   /// Uses a prepared call hook registry for external-call dispatch.
-  member opts.WithCallHooks hooks = { opts with Calls = UseCallHooks hooks }
+  member opts.WithCallHooks hooks =
+    { opts with Calls = SymbCallPolicy.UseCallHooks hooks }
 
   /// Registers a call hook and enables hook-based call handling.
   member opts.RegisterCallHook(target, hook) =
     let hooks =
       match opts.Calls with
-      | UseCallHooks hooks -> hooks
-      | StopAtCalls
-      | FollowDirectInternalCalls -> SymbCallHookRegistry()
+      | SymbCallPolicy.UseCallHooks hooks -> hooks
+      | SymbCallPolicy.StopAtCalls
+      | SymbCallPolicy.FollowDirectInternalCalls -> SymbCallHookRegistry()
     { opts with
-        Calls = UseCallHooks(hooks.Register(target, hook)) }
+        Calls = SymbCallPolicy.UseCallHooks(hooks.Register(target, hook)) }
 
   /// Registers call hooks and enables hook-based call handling.
   member opts.RegisterCallHooks hooks =
     let registry =
       match opts.Calls with
-      | UseCallHooks registry -> registry
-      | StopAtCalls
-      | FollowDirectInternalCalls -> SymbCallHookRegistry()
+      | SymbCallPolicy.UseCallHooks registry -> registry
+      | SymbCallPolicy.StopAtCalls
+      | SymbCallPolicy.FollowDirectInternalCalls -> SymbCallHookRegistry()
     { opts with
-        Calls = UseCallHooks(registry.RegisterMany hooks) }
+        Calls = SymbCallPolicy.UseCallHooks(registry.RegisterMany hooks) }
 
   /// Uses the given solver backend.
   member opts.WithSolver solver = { opts with Solver = solver }
@@ -281,6 +283,7 @@ with
   member opts.WithWarmUpRanges ranges = { opts with WarmUpRanges = ranges }
 
 /// Represents a non-target state where exploration stopped.
+[<RequireQualifiedAccess>]
 type SymbRunStopReason =
   /// Exploration reached a call according to the configured call policy.
   | StoppedAtCall of callSite: Addr * target: Addr option
@@ -640,9 +643,9 @@ type SymbExecutor(hdl: BinHandle) =
     else
       let target = tryGetCallTargetAddr ins st
       match opts.Calls with
-      | StopAtCalls ->
-        StopBeforeInstruction(StoppedAtCall(addr, target))
-      | FollowDirectInternalCalls ->
+      | SymbCallPolicy.StopAtCalls ->
+        StopBeforeInstruction(SymbRunStopReason.StoppedAtCall(addr, target))
+      | SymbCallPolicy.FollowDirectInternalCalls ->
         match target with
         | Some target when isInternalTarget target ->
           EvaluateInstruction
@@ -651,7 +654,7 @@ type SymbExecutor(hdl: BinHandle) =
           SymbEvaluator.EvalError(UnsupportedOperation msg)
           |> List.singleton
           |> SkipInstruction
-      | UseCallHooks hooks ->
+      | SymbCallPolicy.UseCallHooks hooks ->
         match target with
         | Some target ->
           match hooks.TryFind target with
@@ -768,15 +771,15 @@ type SymbExecutor(hdl: BinHandle) =
       Ok()
 
   let isUnknownStop = function
-    | StoppedAtCall _
-    | DepthLimitReached _
-    | StateLimitReached _
-    | InvalidInstructionStopped _
-    | SideEffectStopped _
-    | EvaluationFailed _
-    | MissingSolverForQuery _
-    | SolverQueryFailed _
-    | RunTimeoutReached _ -> true
+    | SymbRunStopReason.StoppedAtCall _
+    | SymbRunStopReason.DepthLimitReached _
+    | SymbRunStopReason.StateLimitReached _
+    | SymbRunStopReason.InvalidInstructionStopped _
+    | SymbRunStopReason.SideEffectStopped _
+    | SymbRunStopReason.EvaluationFailed _
+    | SymbRunStopReason.MissingSolverForQuery _
+    | SymbRunStopReason.SolverQueryFailed _
+    | SymbRunStopReason.RunTimeoutReached _ -> true
 
   let isUnknownPrune = function
     | AvoidedAddress _
@@ -827,7 +830,7 @@ type SymbExecutor(hdl: BinHandle) =
     | None, [] ->
       QueryReachable
     | None, _ ->
-      QueryUnknown(MissingSolverForQuery addr)
+      QueryUnknown(SymbRunStopReason.MissingSolverForQuery addr)
     | Some solver, _ ->
       match solver.CheckSat pathCond with
       | Ok SolverStatus.Sat ->
@@ -835,17 +838,17 @@ type SymbExecutor(hdl: BinHandle) =
       | Ok SolverStatus.Unsat ->
         QueryUnsat(InfeasiblePath addr)
       | Ok SolverStatus.Unknown ->
-        SolverFailure SolverReturnedUnknown
-        |> fun err -> QueryUnknown(SolverQueryFailed(addr, err))
+        let err = SolverFailure SolverReturnedUnknown
+        QueryUnknown(SymbRunStopReason.SolverQueryFailed(addr, err))
       | Error e ->
-        QueryUnknown(SolverQueryFailed(addr, e))
+        QueryUnknown(SymbRunStopReason.SolverQueryFailed(addr, e))
 
   let solveInputQuery (solver: SymbSolverRunner option) addr pathCond values =
     match solver, pathCond, values with
     | None, [], [] ->
       QuerySatisfiable []
     | None, _, _ ->
-      QueryUnknown(MissingSolverForQuery addr)
+      QueryUnknown(SymbRunStopReason.MissingSolverForQuery addr)
     | Some solver, _, _ ->
       match solver.GetModels(pathCond, values) with
       | Ok output when output.Status = SolverStatus.Sat ->
@@ -853,10 +856,10 @@ type SymbExecutor(hdl: BinHandle) =
       | Ok output when output.Status = SolverStatus.Unsat ->
         QueryUnsat(InfeasiblePath addr)
       | Ok _ ->
-        SolverFailure SolverReturnedUnknown
-        |> fun err -> QueryUnknown(SolverQueryFailed(addr, err))
+        let err = SolverFailure SolverReturnedUnknown
+        QueryUnknown(SymbRunStopReason.SolverQueryFailed(addr, err))
       | Error e ->
-        QueryUnknown(SolverQueryFailed(addr, e))
+        QueryUnknown(SymbRunStopReason.SolverQueryFailed(addr, e))
 
   let makeStopPoint depth (st: SymbState) =
     let instruction =
@@ -915,7 +918,7 @@ type SymbExecutor(hdl: BinHandle) =
     let addr = item.State.PC
     match isMaxDepthReached item.Depth opts with
     | Some limit ->
-      Stopped(item.State, DepthLimitReached(addr, limit))
+      Stopped(item.State, SymbRunStopReason.DepthLimitReached(addr, limit))
       |> Error
     | None ->
       Ok item
@@ -969,7 +972,7 @@ type SymbExecutor(hdl: BinHandle) =
   let evaluateInstruction (opts: SymbRunOptions) addr (st: SymbState) =
     match tryParseInstruction addr with
     | Error _ ->
-      Error(InvalidInstructionStopped addr)
+      Error(SymbRunStopReason.InvalidInstructionStopped addr)
     | Ok ins ->
       match handleCallInstruction addr ins opts st with
       | StopBeforeInstruction reason ->
@@ -978,7 +981,7 @@ type SymbExecutor(hdl: BinHandle) =
         Ok(false, successors)
       | EvaluateInstruction ->
         match tryGetInstructionStmts addr ins with
-        | Error _ -> Error(InvalidInstructionStopped addr)
+        | Error _ -> Error(SymbRunStopReason.InvalidInstructionStopped addr)
         | Ok stmts -> Ok(true, evalInstr addr st stmts)
 
   let tryStopOnRunTimeout stopwatch opts (worklist: Queue<_>) onTimeout () =
@@ -1030,7 +1033,7 @@ type SymbExecutor(hdl: BinHandle) =
       None
 
   let handleRunFailure addStopped addPruned stopExploration = function
-    | Stopped(st, (StateLimitReached _ as reason)) ->
+    | Stopped(st, (SymbRunStopReason.StateLimitReached _ as reason)) ->
       addStopped st reason
       stopExploration ()
     | Stopped(st, reason) ->
@@ -1080,7 +1083,7 @@ type SymbExecutor(hdl: BinHandle) =
         | Ok() ->
           match isStateLimitReached kit.Ctx.GeneratedStates kit.Opts with
           | Some limit ->
-            kit.Ctx.AddStopped st (StateLimitReached limit)
+            kit.Ctx.AddStopped st (SymbRunStopReason.StateLimitReached limit)
             kit.Ctx.Stop()
           | None ->
             kit.Worklist.Enqueue
@@ -1111,9 +1114,11 @@ type SymbExecutor(hdl: BinHandle) =
       enqueueState kit condLen depth visits trueState
       enqueueState kit condLen depth visits falseState
     | SymbEvaluator.Stopped(st, SymbEvaluator.SideEffectStop eff) ->
-      (kit: SymbRunKit).Ctx.AddStopped st (SideEffectStopped(addr, eff))
+      let reason = SymbRunStopReason.SideEffectStopped(addr, eff)
+      (kit: SymbRunKit).Ctx.AddStopped st reason
     | SymbEvaluator.EvalError e ->
-      kit.Ctx.AddStopped callerState (EvaluationFailed(addr, e))
+      let reason = SymbRunStopReason.EvaluationFailed(addr, e)
+      kit.Ctx.AddStopped callerState reason
 
   /// One instruction taken off the worklist: evaluate it and route each
   /// successor, or record why it could not be evaluated at all. Nothing to do
@@ -1144,7 +1149,7 @@ type SymbExecutor(hdl: BinHandle) =
     let initialState = st.Clone()
     initialState.PC <- start
     let handleRunTimeout item timeout =
-      ctx.AddStopped item.State (RunTimeoutReached timeout)
+      ctx.AddStopped item.State (SymbRunStopReason.RunTimeoutReached timeout)
       ctx.MarkTimeout timeout
     let handleFailure = handleRunFailure ctx.AddStopped ctx.AddPruned ctx.Stop
     enqueueState kit 0 0 Map.empty initialState
