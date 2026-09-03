@@ -44,9 +44,7 @@ type ReplState(isa: ISA, regFactory: IRegisterFactory, doFiltering) =
     |> Array.map (fun r ->
       (regFactory.GetRegisterID r, BitVector(0, Expr.typeOf r)))
     |> fun regs -> rstate.InitializeContext(0UL, regs)
-  let mutable prevReg =
-    rstate.Registers.ToArray()
-    |> Array.map (fun (i, v) -> RegisterID.create i, v)
+  let mutable prevReg = rstate.Registers.ToArray()
   let mutable prevTmp = rstate.Temporaries.ToArray()
   let generalRegs =
     regFactory.GetGeneralRegVars()
@@ -70,16 +68,15 @@ type ReplState(isa: ISA, regFactory: IRegisterFactory, doFiltering) =
     Evaluator.evalInstr rstate stmts
 
   member private _.ComputeDelta(prev, curr) =
-    Array.fold2 (fun acc t1 t2 ->
-      if t1 <> t2 then fst t1 :: acc else acc
-    ) [] prev curr
+    let prev = Map.ofArray prev
+    curr
+    |> Array.fold (fun acc (r, v) ->
+      if Map.tryFind r prev = Some v then acc else r :: acc) []
 
   /// Update the state and return deltas.
   member this.Update stmts =
     try this.EvaluateStmts stmts with exc -> printfn "%s" (describeFailure exc)
-    let currReg =
-      rstate.Registers.ToArray()
-      |> Array.map (fun (i, v) -> RegisterID.create i, v)
+    let currReg = rstate.Registers.ToArray()
     let currTmp = rstate.Temporaries.ToArray()
     let regdelta = this.ComputeDelta(prevReg, currReg)
     prevReg <- currReg
