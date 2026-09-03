@@ -92,8 +92,8 @@ type SymbStateAccessor(hdl: BinHandle, state: SymbState) as this =
 
   let tryGetConcreteReg rid =
     match state.TryGetReg rid with
-    | Ok value -> tryGetConcreteAddr value
-    | Error _ -> Error(UninitializedRegister rid)
+    | ValueSome value -> tryGetConcreteAddr value
+    | ValueNone -> Error(UninitializedRegister rid)
 
   let getStackPointer () =
     getStackPointerRegister ()

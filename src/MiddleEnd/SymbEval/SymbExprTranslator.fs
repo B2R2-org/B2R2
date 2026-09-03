@@ -188,13 +188,13 @@ module SymbExprTranslator =
 
   let private evalRegister (state: SymbState) rid =
     match state.TryGetReg rid with
-    | Ok value -> Ok value
-    | Error _ -> Error(UninitializedRegister rid)
+    | ValueSome value -> Ok value
+    | ValueNone -> Error(UninitializedRegister rid)
 
   let private evalTemporary (state: SymbState) idx =
     match state.TryGetTmp idx with
-    | Ok value -> Ok value
-    | Error _ -> Error(UninitializedTemporary idx)
+    | ValueSome value -> Ok value
+    | ValueNone -> Error(UninitializedTemporary idx)
 
   /// Translates a LowUIR expression in the context of the provided symbolic
   /// state.

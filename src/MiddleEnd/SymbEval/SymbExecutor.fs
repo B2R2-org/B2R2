@@ -547,7 +547,7 @@ type SymbExecutor(hdl: BinHandle) =
 
   let tryGetConcreteReg rid (st: SymbState) =
     match st.TryGetReg rid with
-    | Ok(Const bv) -> Some(bv.ToUInt64())
+    | ValueSome(Const bv) -> Some(bv.ToUInt64())
     | _ -> None
 
   let tryGetCallTargetAddr (ins: IInstruction) (st: SymbState) =

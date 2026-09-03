@@ -57,9 +57,9 @@ type SymbState(regs, temps, lbls, mem: ISymbMemory, pathCond: SymbExpr list) =
   member _.CurrentInsLen
     with get() = currentInsLen and set(l) = currentInsLen <- l
 
-  member _.Registers with get() = regs
+  member _.Registers with get(): SymbVariables<RegisterID> = regs
 
-  member _.Temporaries with get() = temps
+  member _.Temporaries with get(): SymbVariables<int> = temps
 
   member _.Labels with get() = lbls
 
@@ -82,11 +82,11 @@ type SymbState(regs, temps, lbls, mem: ISymbMemory, pathCond: SymbExpr list) =
     isInstrTerminated <- true
     this.NextStmt()
 
-  member _.SetReg(rid: RegisterID, value) = regs.Set(int rid, value)
+  member _.SetReg(rid: RegisterID, value) = regs.Set(rid, value)
 
-  member _.TryGetReg(rid: RegisterID) = regs.TryGet(int rid)
+  member _.TryGetReg(rid: RegisterID) = regs.TryGet rid
 
-  member _.GetReg(rid: RegisterID) = regs.Get(int rid)
+  member _.GetReg(rid: RegisterID) = regs.Get rid
 
   member _.SetTmp(idx, value) = temps.Set(idx, value)
 

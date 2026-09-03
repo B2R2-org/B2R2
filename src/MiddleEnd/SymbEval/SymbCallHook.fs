@@ -103,8 +103,8 @@ module SymbCallHooks =
 
   let private getArgument (ctx: SymbCallContext) (st: SymbState) =
     match st.TryGetReg ctx.ArgumentRegisters[0] with
-    | Ok expr -> concreteAddr expr
-    | Error _ -> Error(UninitializedRegister ctx.ArgumentRegisters[0])
+    | ValueSome expr -> concreteAddr expr
+    | ValueNone -> Error(UninitializedRegister ctx.ArgumentRegisters[0])
 
   let private canBeNull = function
     | SymbExpr.Const bv -> bv.ToUInt64() = 0UL

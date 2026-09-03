@@ -25,28 +25,43 @@
 namespace B2R2.MiddleEnd.SymbEval
 
 open System.Collections.Generic
-open B2R2
 
 /// Represents a collection of symbolic variables used in the evaluation state.
-type SymbVariables(vars) =
-  let vars: Dictionary<int, SymbExpr> = vars
+/// The key type decides what kind of variables the collection holds: registers
+/// are keyed by their <see cref='T:B2R2.RegisterID'/>, and temporaries by the
+/// integer that names them.
+type SymbVariables<'K when 'K: equality> private(vars) =
+  let vars: Dictionary<'K, SymbExpr> = vars
 
+  /// Instantiates an empty collection of symbolic variables.
   new() = SymbVariables(Dictionary())
 
+  /// Returns the number of the variables that are currently defined.
+  member _.Count with get() = vars.Count
+
+  /// Returns the value of the given variable, or `ValueNone` when the variable
+  /// is not defined.
   member _.TryGet k =
     match vars.TryGetValue k with
-    | true, v -> Ok v
-    | false, _ -> Error ErrorCase.InvalidRegister
+    | true, v -> ValueSome v
+    | false, _ -> ValueNone
 
+  /// Returns the value of the given variable, raising an exception when the
+  /// variable is not defined.
   member _.Get k = vars[k]
 
+  /// Defines the given variable to have the given value, overwriting any
+  /// value it already had.
   member _.Set(k, v) = vars[k] <- v
 
+  /// Undefines the given variable; undefining one that is not defined does
+  /// nothing.
   member _.Unset k = vars.Remove k |> ignore
 
-  member _.Count() = vars.Count
-
+  /// Returns every defined variable as an array of key and value pairs, in no
+  /// particular order.
   member _.ToArray() =
     vars |> Seq.map (fun (KeyValue(k, v)) -> k, v) |> Seq.toArray
 
+  /// Returns an independent copy of this collection of symbolic variables.
   member _.Clone() = SymbVariables(Dictionary(vars))

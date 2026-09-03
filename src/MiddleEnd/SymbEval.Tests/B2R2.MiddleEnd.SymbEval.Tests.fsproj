@@ -6,6 +6,7 @@
 
   <ItemGroup>
     <Compile Include="SymbMemoryTests.fs" />
+    <Compile Include="SymbVariablesTests.fs" />
     <Compile Include="SymbStateTests.fs" />
     <Compile Include="SMTLibPipelineTests.fs" />
   </ItemGroup>
