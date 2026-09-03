@@ -26,6 +26,7 @@ namespace B2R2.MiddleEnd.ConcEval.Tests
 
 open Microsoft.VisualStudio.TestTools.UnitTesting
 open B2R2
+open B2R2.FrontEnd
 open B2R2.MiddleEnd.ConcEval
 
 [<TestClass>]
@@ -33,6 +34,17 @@ type MemoryTests() =
   let addr = 0x1000UL
 
   let value = BitVector(0x11223344UL, 32<rt>)
+
+  let imageAddr = 0x3000UL
+
+  let imageByte = 0x90uy
+
+  let newHandle () =
+    let isa = ISA(Architecture.Intel, WordSize.Bit64)
+    let bytes = Array.create 16 imageByte
+    BinHandle.LoadRawImage(bytes, isa, imageAddr, OS.Linux)
+
+  let sectionMemory () = BinSectionMemory(newHandle ())
 
   let assertRoundTrip endian (mem: IMemory) =
     Memory.write addr value endian mem
@@ -76,4 +88,29 @@ type MemoryTests() =
     let mem = NonsharableMemory() :> IMemory
     match Memory.read addr Endian.Little 32<rt> mem with
     | Ok v -> Assert.Fail $"Read {v} from an unwritten address."
+    | Error e -> Assert.AreEqual<ErrorCase>(ErrorCase.InvalidMemoryRead, e)
+
+  [<TestMethod>]
+  member _.``Clearing a section-backed memory keeps its backing``() =
+    let mem = sectionMemory () :> IMemory
+    mem.ByteWrite(imageAddr, 0uy)
+    mem.Clear()
+    match mem.ByteRead imageAddr with
+    | Ok b -> Assert.AreEqual<byte>(imageByte, b)
+    | Error e -> Assert.Fail $"Lost the section backing: {e}"
+
+  [<TestMethod>]
+  member _.``Clearing a section-backed memory discards its writes``() =
+    let mem = sectionMemory () :> IMemory
+    mem.ByteWrite(0x2000UL, 0x42uy)
+    mem.Clear()
+    match mem.ByteRead 0x2000UL with
+    | Ok b -> Assert.Fail $"Kept a written byte {b} after Clear()."
+    | Error e -> Assert.AreEqual<ErrorCase>(ErrorCase.InvalidMemoryRead, e)
+
+  [<TestMethod>]
+  member _.``An unbacked section memory reads no section byte``() =
+    let mem = BinSectionMemory(newHandle (), false) :> IMemory
+    match mem.ByteRead imageAddr with
+    | Ok b -> Assert.Fail $"Read a section byte {b} without a backing."
     | Error e -> Assert.AreEqual<ErrorCase>(ErrorCase.InvalidMemoryRead, e)

@@ -27,10 +27,17 @@ namespace B2R2.MiddleEnd.ConcEval
 open B2R2
 open B2R2.FrontEnd
 
-/// Represents a memory backed by binary file sections.
-type BinSectionMemory(hdl: BinHandle) =
-  let mem = NonsharableMemory() :> IMemory
-  let mutable isBacked = true
+/// Represents a memory backed by binary file sections. Whether the sections
+/// back this memory is fixed at construction: Clear() discards the values
+/// written to this memory, but leaves the backing bytes readable.
+type BinSectionMemory(hdl: BinHandle, mem: IMemory, isBacked: bool) =
+
+  new(hdl) = BinSectionMemory(hdl, NonsharableMemory() :> IMemory, true)
+
+  new(hdl, mem) = BinSectionMemory(hdl, mem, true)
+
+  new(hdl, isBacked) =
+    BinSectionMemory(hdl, NonsharableMemory() :> IMemory, isBacked)
 
   interface IMemory with
 
@@ -47,6 +54,4 @@ type BinSectionMemory(hdl: BinHandle) =
 
     member _.ByteWrite(addr, b) = mem.ByteWrite(addr, b)
 
-    member _.Clear() =
-      isBacked <- false
-      mem.Clear()
+    member _.Clear() = mem.Clear()
