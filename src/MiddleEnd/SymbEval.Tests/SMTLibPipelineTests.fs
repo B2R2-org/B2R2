@@ -52,7 +52,7 @@ type SMTLibPipelineTests() =
     |> fun v -> v.Value
 
   let translateLowUIR state expr =
-    match SymbExprTranslator.translate state expr with
+    match SymbExprEvaluator.eval state expr with
     | Ok expr -> expr
     | Error err -> Assert.Fail $"Failed to translate LowUIR: {err}"; failwith ""
 

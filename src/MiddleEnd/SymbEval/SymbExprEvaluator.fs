@@ -28,9 +28,9 @@ open B2R2
 open B2R2.BinIR
 open B2R2.BinIR.LowUIR
 
-/// Translates LowUIR expressions into symbolic expressions.
+/// Evaluates LowUIR expressions into symbolic expressions.
 [<RequireQualifiedAccess>]
-module SymbExprTranslator =
+module SymbExprEvaluator =
   let private unsupportedExpr expr =
     Expr.toString expr |> UnsupportedExpression |> Error
 
@@ -196,9 +196,9 @@ module SymbExprTranslator =
     | ValueSome value -> Ok value
     | ValueNone -> Error(UninitializedTemporary idx)
 
-  /// Translates a LowUIR expression in the context of the provided symbolic
+  /// Evaluates a LowUIR expression in the context of the provided symbolic
   /// state.
-  let rec translate (state: SymbState) (expr: Expr) =
+  let rec eval (state: SymbState) (expr: Expr) =
     match expr with
     | Num(n, _) ->
       SymbExpr.Const n |> Ok
@@ -209,13 +209,13 @@ module SymbExprTranslator =
     | TempVar(_, idx, _) ->
       evalTemporary state idx
     | UnOp(op, expr, _) ->
-      translate state expr |> Result.bind (foldUnOp op)
+      eval state expr |> Result.bind (foldUnOp op)
     | BinOp(op, typ, lhs, rhs, _) ->
-      bind2 (foldBinOp op typ) (translate state lhs) (translate state rhs)
+      bind2 (foldBinOp op typ) (eval state lhs) (eval state rhs)
     | RelOp(op, lhs, rhs, _) ->
-      bind2 (foldRelOp op) (translate state lhs) (translate state rhs)
+      bind2 (foldRelOp op) (eval state lhs) (eval state rhs)
     | Load(endian, typ, addr, _) ->
-      match translate state addr with
+      match eval state addr with
       | Ok(Const bv) ->
         SymbMemoryOperation.load (bv.ToUInt64()) endian typ state.Memory
       | Ok addr ->
@@ -223,13 +223,13 @@ module SymbExprTranslator =
       | Error e ->
         Error e
     | Ite(cond, thenExpr, elseExpr, _) ->
-      match translate state cond with
+      match eval state cond with
       | Ok(Const bv) when bv.IsTrue ->
-        translate state thenExpr
+        eval state thenExpr
       | Ok(Const bv) when bv.IsFalse ->
-        translate state elseExpr
+        eval state elseExpr
       | Ok cond when SymbExpr.isCondition cond ->
-        match translate state thenExpr, translate state elseExpr with
+        match eval state thenExpr, eval state elseExpr with
         | Ok thenExpr, Ok elseExpr -> SymbExpr.ite cond thenExpr elseExpr |> Ok
         | Error e, _ | _, Error e -> Error e
       | Ok cond ->
@@ -238,9 +238,9 @@ module SymbExprTranslator =
       | Error e ->
         Error e
     | Cast(kind, typ, expr, _) ->
-      translate state expr |> Result.bind (foldCast kind typ)
+      eval state expr |> Result.bind (foldCast kind typ)
     | Extract(expr, typ, pos, _) ->
-      translate state expr |> Result.bind (foldExtract typ pos)
+      eval state expr |> Result.bind (foldExtract typ pos)
     | Undefined(typ, reason, _) ->
       SymbExpr.undef typ reason |> Ok
     | _ ->

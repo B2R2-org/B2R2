@@ -22,8 +22,8 @@
   SOFTWARE.
 *)
 
-/// Represents a symbolic evaluation module for LowUIR.
-module B2R2.MiddleEnd.SymbEval.SymbEvaluator
+/// Evaluates LowUIR statements in the symbolic domain.
+module B2R2.MiddleEnd.SymbEval.SymbStmtEvaluator
 
 open B2R2
 open B2R2.BinIR
@@ -71,10 +71,10 @@ let private updatePC (st: SymbState) target =
   | target -> unsupportedSymbolicAddress target
 
 let private evalPCUpdate (st: SymbState) target =
-  SymbExprTranslator.translate st target |> Result.bind (updatePC st)
+  SymbExprEvaluator.eval st target |> Result.bind (updatePC st)
 
 let private evalPut (st: SymbState) lhs rhs =
-  match SymbExprTranslator.translate st rhs with
+  match SymbExprEvaluator.eval st rhs with
   | Ok value ->
     match lhs with
     | Var(_, rid, _, _) -> st.SetReg(rid, value); Ok()
@@ -85,8 +85,8 @@ let private evalPut (st: SymbState) lhs rhs =
     Error e
 
 let private evalStore (st: SymbState) endian addr value =
-  match SymbExprTranslator.translate st addr,
-        SymbExprTranslator.translate st value with
+  match SymbExprEvaluator.eval st addr,
+        SymbExprEvaluator.eval st value with
   | Ok(Const addr), Ok value ->
     SymbMemoryOperation.store (addr.ToUInt64()) value endian st.Memory
     Ok()
@@ -115,7 +115,7 @@ let private evalSymbolicCJmp (st: SymbState) cond trueTarget falseTarget =
     conditionTypeError cond
 
 let private evalCJmp (st: SymbState) cond trueTarget falseTarget =
-  match SymbExprTranslator.translate st cond with
+  match SymbExprEvaluator.eval st cond with
   | Ok(Const cond) ->
     evalConcreteCJmp st cond.IsTrue trueTarget falseTarget
     |> Result.map (fun () -> Continue st)
@@ -146,7 +146,7 @@ let private evalSymbolicIntCJmp (st: SymbState) cond trueTarget falseTarget =
     conditionTypeError cond
 
 let private evalIntCJmp (st: SymbState) cond trueTarget falseTarget =
-  match SymbExprTranslator.translate st cond with
+  match SymbExprEvaluator.eval st cond with
   | Ok(Const cond) ->
     evalConcreteIntCJmp st cond.IsTrue trueTarget falseTarget
     |> Result.map (fun () ->

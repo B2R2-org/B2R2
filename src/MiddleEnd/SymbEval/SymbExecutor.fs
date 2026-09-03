@@ -98,7 +98,7 @@ type private SymbSolverRunner =
 
 type private SymbInstructionAction =
   | EvaluateInstruction
-  | SkipInstruction of SymbEvaluator.SymbEvalSuccessor list
+  | SkipInstruction of SymbStmtEvaluator.SymbEvalSuccessor list
   | StopBeforeInstruction of SymbStopReason
 
 /// What one run of the executor carries along: the solver it was given, the
@@ -173,22 +173,22 @@ type SymbExecutor(hdl: BinHandle) =
     match popReturnAddress st with
     | Ok retAddr when retAddr = returnAddress ->
       st.PC <- returnAddress
-      SymbEvaluator.Continue st
+      SymbStmtEvaluator.Continue st
     | Ok retAddr ->
       let msg = $"Hook returned to unexpected address {retAddr:x}."
-      SymbEvaluator.EvalError(UnsupportedOperation msg)
+      SymbStmtEvaluator.EvalError(UnsupportedOperation msg)
     | Error e ->
-      SymbEvaluator.EvalError e
+      SymbStmtEvaluator.EvalError e
 
   let dispatchCallHook callSite target returnAddress hook (st: SymbState) =
     let hookState = st.Clone()
     let ctx = CallContext.Create(hdl, callSite, target, returnAddress)
     match pushReturnAddress returnAddress hookState with
     | Error e ->
-      [ SymbEvaluator.EvalError e ]
+      [ SymbStmtEvaluator.EvalError e ]
     | Ok() ->
       match hook ctx hookState with
-      | Error e -> [ SymbEvaluator.EvalError e ]
+      | Error e -> [ SymbStmtEvaluator.EvalError e ]
       | Ok states -> states |> List.map (finishHookState returnAddress)
 
   let handleCallInstruction addr
@@ -208,7 +208,7 @@ type SymbExecutor(hdl: BinHandle) =
           EvaluateInstruction
         | _ ->
           let msg = "Cannot follow call without a concrete internal target."
-          SymbEvaluator.EvalError(UnsupportedOperation msg)
+          SymbStmtEvaluator.EvalError(UnsupportedOperation msg)
           |> List.singleton
           |> SkipInstruction
       | CallPolicy.UseCallHooks hooks ->
@@ -223,12 +223,12 @@ type SymbExecutor(hdl: BinHandle) =
             EvaluateInstruction
           | None ->
             let msg = $"No symbolic call hook for target {target:x}."
-            SymbEvaluator.EvalError(UnsupportedOperation msg)
+            SymbStmtEvaluator.EvalError(UnsupportedOperation msg)
             |> List.singleton
             |> SkipInstruction
         | None ->
           let msg = "Cannot dispatch call hook without a concrete target."
-          SymbEvaluator.EvalError(UnsupportedOperation msg)
+          SymbStmtEvaluator.EvalError(UnsupportedOperation msg)
           |> List.singleton
           |> SkipInstruction
 
@@ -474,14 +474,14 @@ type SymbExecutor(hdl: BinHandle) =
       Ok visits
 
   let whileContinuing _ = function
-    | SymbEvaluator.Continue st -> ValueSome st
+    | SymbStmtEvaluator.Continue st -> ValueSome st
     | _ -> ValueNone
 
   let rec evalStmtsFrom (st: SymbState) stmts =
-    match StmtLoop.run SymbEvaluator.evalStmt whileContinuing st stmts with
+    match StmtLoop.run SymbStmtEvaluator.evalStmt whileContinuing st stmts with
     | Completed st ->
-      [ SymbEvaluator.Continue st ]
-    | Interrupted(SymbEvaluator.Fork(trueState, falseState)) ->
+      [ SymbStmtEvaluator.Continue st ]
+    | Interrupted(SymbStmtEvaluator.Fork(trueState, falseState)) ->
       evalStmtsFrom trueState stmts @ evalStmtsFrom falseState stmts
     | Interrupted outcome ->
       [ outcome ]
@@ -631,15 +631,15 @@ type SymbExecutor(hdl: BinHandle) =
     let condLen = (item: SymbRunWorkItem).CheckedPathCondLen
     let depth = item.Depth + 1
     match successor with
-    | SymbEvaluator.Continue st ->
+    | SymbStmtEvaluator.Continue st ->
       enqueueState kit condLen depth visits st
-    | SymbEvaluator.Fork(trueState, falseState) ->
+    | SymbStmtEvaluator.Fork(trueState, falseState) ->
       enqueueState kit condLen depth visits trueState
       enqueueState kit condLen depth visits falseState
-    | SymbEvaluator.Stopped(st, SymbEvaluator.SideEffectStop eff) ->
+    | SymbStmtEvaluator.Stopped(st, SymbStmtEvaluator.SideEffectStop eff) ->
       let reason = SymbStopReason.StoppedAtSideEffect(addr, eff)
       (kit: SymbRunKit).Ctx.AddStopped st reason
-    | SymbEvaluator.EvalError e ->
+    | SymbStmtEvaluator.EvalError e ->
       let reason = SymbStopReason.EvaluationError(addr, e)
       kit.Ctx.AddStopped callerState reason
 

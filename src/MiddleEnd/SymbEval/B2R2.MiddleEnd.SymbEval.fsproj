@@ -10,8 +10,8 @@
     <Compile Include="BinSectionSymbMemory.fs" />
     <Compile Include="SymbState.fs" />
     <Compile Include="SymbStateAccessor.fs" />
-    <Compile Include="SymbExprTranslator.fs" />
-    <Compile Include="SymbEvaluator.fs" />
+    <Compile Include="SymbExprEvaluator.fs" />
+    <Compile Include="SymbStmtEvaluator.fs" />
     <Compile Include="SMTLibSerializer.fs" />
     <Compile Include="ISolver.fs" />
     <Compile Include="SymbModel.fs" />
