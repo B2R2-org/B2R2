@@ -108,6 +108,20 @@ type ConcExecutorTests() =
       Assert.Fail $"Unexpected stop reasons: {reasons}"
 
   [<TestMethod>]
+  member _.``A user stop predicate ends the run``() =
+    (* jmp $ *)
+    let bytes = [| 0xebuy; 0xfeuy |]
+    let hdl = loadRawImage bytes Architecture.Intel WordSize.Bit64
+    let exec = ConcExecutor hdl
+    let st = exec.CreateState()
+    let predicate = ConcStopPredicate(fun point -> point.InstructionCount = 3)
+    let res = exec.Run(0UL, st, ConcRunOptions.Default(StopWhen predicate))
+    Assert.AreEqual<int>(3, res.InstructionCount)
+    match res.StopReasons with
+    | [ UserStopConditionMet addr ] -> Assert.AreEqual<Addr>(0UL, addr)
+    | reasons -> Assert.Fail $"Unexpected stop reasons: {reasons}"
+
+  [<TestMethod>]
   member _.``Default options carry an instruction limit``() =
     let opts: ConcRunOptions = ConcRunOptions.Default []
     Assert.AreEqual<int>(50000, opts.MaxInstructions)

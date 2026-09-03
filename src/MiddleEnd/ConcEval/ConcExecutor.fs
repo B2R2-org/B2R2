@@ -57,7 +57,11 @@ type ConcStopCondition =
   /// Stop when a side-effect statement is observed.
   | StopAtSideEffect
   /// Stop when a user-provided predicate holds.
-  | StopWhen of predicate: (ConcStopPoint -> bool)
+  | StopWhen of predicate: ConcStopPredicate
+
+/// Represents a user-provided predicate that decides whether concrete
+/// execution should stop at the given stop point.
+and ConcStopPredicate = delegate of ConcStopPoint -> bool
 
 /// Represents the reason why concrete execution stopped.
 type ConcStopReason =
@@ -406,7 +410,7 @@ type ConcExecutor(hdl: BinHandle) =
       |> List.choose (function
         | StopAtAddress stopAddr when stopAddr = addr ->
           Some(StoppedAtAddress addr)
-        | StopWhen predicate when predicate point ->
+        | StopWhen predicate when predicate.Invoke point ->
           Some(UserStopConditionMet addr)
         | _ ->
           None)
