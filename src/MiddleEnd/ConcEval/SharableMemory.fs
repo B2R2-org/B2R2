@@ -29,7 +29,10 @@ open System.Collections.Concurrent
 open System.Collections.Generic
 open B2R2
 
-/// Represents a thread-safe (sharable) memory.
+/// Represents a thread-safe (sharable) memory. Only a single-byte access is
+/// atomic. A multi-byte access is a sequence of ByteRead/ByteWrite calls, so a
+/// concurrent writer can make a reader observe a mix of old and new bytes; a
+/// caller that needs one to be atomic serializes it on its own.
 type SharableMemory(mem: IDictionary<Addr, byte>) =
   let mem = ConcurrentDictionary<Addr, byte>(mem)
 
