@@ -42,8 +42,8 @@ type SymbRunOptionsTests() =
   [<TestMethod>]
   member _.``A state predicate becomes an avoid condition``() =
     let predicate = StopPredicate(fun point -> point.Address = 0x1UL)
-    match defaultOptions.AvoidState(predicate).AvoidConditions with
-    | [ SymbAvoidCondition.AvoidState pred ] ->
+    match defaultOptions.AvoidWhen(predicate).AvoidConditions with
+    | [ SymbAvoidCondition.AvoidWhen pred ] ->
       Assert.AreEqual<bool>(true, pred.Invoke(pointAt 0x1UL))
       Assert.AreEqual<bool>(false, pred.Invoke(pointAt 0x2UL))
     | conditions ->

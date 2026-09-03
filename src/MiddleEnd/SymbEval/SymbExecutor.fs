@@ -39,7 +39,7 @@ type SymbAvoidCondition =
   /// Discard states whose PC reaches the given address.
   | AvoidAddress of addr: Addr
   /// Discard states satisfying the given predicate.
-  | AvoidState of predicate: StopPredicate<SymbState>
+  | AvoidWhen of predicate: StopPredicate<SymbState>
 
 /// Represents a symbolic query evaluated by SymbExecutor.Run.
 [<RequireQualifiedAccess>]
@@ -47,11 +47,11 @@ type SymbQuery =
   /// Ask whether execution can reach the given address.
   | ReachAddress of target: Addr
   /// Ask whether execution can reach a state satisfying the predicate.
-  | ReachState of predicate: StopPredicate<SymbState>
+  | ReachWhen of predicate: StopPredicate<SymbState>
   /// Ask for concrete symbolic-input values reaching the given address.
   | SatisfyAddress of target: Addr
   /// Ask for concrete symbolic-input values reaching a matching state.
-  | SatisfyState of predicate: StopPredicate<SymbState>
+  | SatisfyWhen of predicate: StopPredicate<SymbState>
 
 /// Represents a symbolic query and the values to extract for model queries.
 type SymbQueryRequest =
@@ -192,8 +192,8 @@ with
     |> opts.AddAvoidConditions
 
   /// Discards states satisfying the given predicate.
-  member opts.AvoidState predicate =
-    opts.AddAvoidCondition(SymbAvoidCondition.AvoidState predicate)
+  member opts.AvoidWhen predicate =
+    opts.AddAvoidCondition(SymbAvoidCondition.AvoidWhen predicate)
 
   /// Stops before evaluating call instructions.
   member opts.StopAtCalls() = { opts with Calls = CallPolicy.StopAtCalls }
@@ -673,10 +673,10 @@ type SymbExecutor(hdl: BinHandle) =
   let finishRun (opts: SymbRunOptions) reachAnswers satAnswers stopped pruned =
     match opts.Query with
     | SymbQuery.ReachAddress _
-    | SymbQuery.ReachState _ ->
+    | SymbQuery.ReachWhen _ ->
       finishReachabilityRun reachAnswers stopped pruned
     | SymbQuery.SatisfyAddress _
-    | SymbQuery.SatisfyState _ ->
+    | SymbQuery.SatisfyWhen _ ->
       finishSatisfiabilityRun satAnswers stopped pruned
 
   let solveReachabilityQuery (solver: SymbSolverRunner option) addr pathCond =
@@ -731,7 +731,7 @@ type SymbExecutor(hdl: BinHandle) =
     |> List.tryPick (function
       | SymbAvoidCondition.AvoidAddress addr when addr = point.Address ->
         Some(SymbPruneReason.AvoidedAddress point.Address)
-      | SymbAvoidCondition.AvoidState pred when pred.Invoke point ->
+      | SymbAvoidCondition.AvoidWhen pred when pred.Invoke point ->
         Some(SymbPruneReason.AvoidedState point.Address)
       | _ ->
         None)
@@ -742,17 +742,17 @@ type SymbExecutor(hdl: BinHandle) =
       Some MatchedReachabilityQuery
     | SymbQuery.ReachAddress _ ->
       None
-    | SymbQuery.ReachState pred when pred.Invoke point ->
+    | SymbQuery.ReachWhen pred when pred.Invoke point ->
       Some MatchedReachabilityQuery
-    | SymbQuery.ReachState _ ->
+    | SymbQuery.ReachWhen _ ->
       None
     | SymbQuery.SatisfyAddress target when point.Address = target ->
       Some MatchedSatisfiabilityQuery
     | SymbQuery.SatisfyAddress _ ->
       None
-    | SymbQuery.SatisfyState pred when pred.Invoke point ->
+    | SymbQuery.SatisfyWhen pred when pred.Invoke point ->
       Some MatchedSatisfiabilityQuery
-    | SymbQuery.SatisfyState _ ->
+    | SymbQuery.SatisfyWhen _ ->
       None
 
   let solveMatchedUserQuery solver opts addr (st: SymbState) = function
