@@ -6,8 +6,7 @@
 
   <ItemGroup>
     <Compile Include="SymbExpr.fs" />
-    <Compile Include="ISymbMemory.fs" />
-    <Compile Include="SymbMemory.fs" />
+    <Compile Include="SymbMemoryOperation.fs" />
     <Compile Include="BinSectionSymbMemory.fs" />
     <Compile Include="SymbState.fs" />
     <Compile Include="SymbStateAccessor.fs" />

@@ -25,43 +25,27 @@
 namespace B2R2.MiddleEnd.ConcEval
 
 open B2R2
-
-/// Represents a memory used in the evaluation.
-type IMemory =
-  /// Reads a byte from the memory.
-  abstract ByteRead: Addr -> Result<byte, ErrorCase>
-
-  /// Writes a byte to the memory. Every address is writable and an unmapped
-  /// address becomes mapped on write, so a write never fails; a read fails
-  /// only because an unmapped address has no value to return.
-  abstract ByteWrite: Addr * byte -> unit
-
-  /// Returns an independent copy of this memory.
-  abstract Clone: unit -> IMemory
-
-  /// Clears up the memory contents; discards every value written to the
-  /// memory.
-  abstract Clear: unit -> unit
+open B2R2.MiddleEnd.Executor
 
 /// Provides the multi-byte accesses that every memory derives from its
 /// single-byte primitives.
 [<RequireQualifiedAccess>]
 module Memory =
-  let rec private readLE acc addr i (mem: IMemory) =
+  let rec private readLE acc addr i (mem: IMemory<byte>) =
     if i <= 0UL then
       Ok acc
     else
       match mem.ByteRead(addr + i - 1UL) with
-      | Ok b -> readLE (b :: acc) addr (i - 1UL) mem
-      | Error e -> Error e
+      | ValueSome b -> readLE (b :: acc) addr (i - 1UL) mem
+      | ValueNone -> Error ErrorCase.InvalidMemoryRead
 
-  let rec private readBE acc len addr i (mem: IMemory) =
+  let rec private readBE acc len addr i (mem: IMemory<byte>) =
     if i >= len then
       Ok acc
     else
       match mem.ByteRead(addr + i) with
-      | Ok b -> readBE (b :: acc) len addr (i + 1UL) mem
-      | Error e -> Error e
+      | ValueSome b -> readBE (b :: acc) len addr (i + 1UL) mem
+      | ValueNone -> Error ErrorCase.InvalidMemoryRead
 
   /// Reads a bitvector value from the memory.
   [<CompiledName "Read">]
@@ -76,7 +60,7 @@ module Memory =
 
   /// Writes a bitvector value to the memory.
   [<CompiledName "Write">]
-  let write addr (v: BitVector) endian (mem: IMemory) =
+  let write addr (v: BitVector) endian (mem: IMemory<byte>) =
     let len = v.Length |> RegType.toByteWidth |> int
     let v = v.ToBigInt()
     if endian = Endian.Big then

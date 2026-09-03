@@ -62,9 +62,9 @@ type ConcStateAccessor(hdl: BinHandle, state: EvalState) as this =
 
   let readByte addr =
     match state.Memory.ByteRead addr with
-    | Ok b ->
+    | ValueSome b ->
       b
-    | Error _ ->
+    | ValueNone ->
       raise (InvalidOperationException $"Cannot read memory at {addr:x}.")
 
   let getStackPointerRegister () =
@@ -174,8 +174,8 @@ type ConcStateAccessor(hdl: BinHandle, state: EvalState) as this =
 
   let tryReadByte addr =
     match state.Memory.ByteRead addr with
-    | Ok b -> Ok b
-    | Error _ -> Error ErrorCase.InvalidMemoryRead
+    | ValueSome b -> Ok b
+    | ValueNone -> Error ErrorCase.InvalidMemoryRead
 
   let rec collectCString (bytes: ResizeArray<byte>) addr idx maxLength =
     if idx >= maxLength then

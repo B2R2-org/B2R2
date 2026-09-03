@@ -24,37 +24,13 @@
 
 namespace B2R2.MiddleEnd.SymbEval
 
-open B2R2
 open B2R2.FrontEnd
+open B2R2.MiddleEnd.Executor
 
-/// Represents symbolic memory backed by binary file sections. Whether the
-/// sections back this memory is fixed at construction: Clear() discards the
-/// values written to this memory, but leaves the backing bytes readable.
-type BinSectionSymbMemory(hdl: BinHandle, mem: ISymbMemory, isBacked: bool) =
+/// Represents symbolic memory backed by binary file sections.
+type BinSectionSymbMemory(hdl: BinHandle, mem) =
+  inherit BackedMemory<SymbExpr>(hdl, SymbExpr.ofByte, mem)
 
-  new(hdl) = BinSectionSymbMemory(hdl, SymbMemory() :> ISymbMemory, true)
-
-  new(hdl, mem) = BinSectionSymbMemory(hdl, mem, true)
-
-  new(hdl, isBacked) =
-    BinSectionSymbMemory(hdl, SymbMemory() :> ISymbMemory, isBacked)
-
-  interface ISymbMemory with
-
-    member _.ByteRead addr =
-      match mem.ByteRead addr with
-      | Ok value ->
-        Ok value
-      | Error _ when isBacked && hdl.File.IsValidAddr addr ->
-        match hdl.TryReadBytes(addr, 1) with
-        | Ok bs -> Ok(SymbExpr.Const(BitVector(uint32 bs[0], 8<rt>)))
-        | Error _ -> Error(InvalidMemoryRead addr)
-      | Error e ->
-        Error e
-
-    member _.ByteWrite(addr, value) = mem.ByteWrite(addr, value)
-
-    member _.Clone() =
-      BinSectionSymbMemory(hdl, mem.Clone(), isBacked) :> ISymbMemory
-
-    member _.Clear() = mem.Clear()
+  /// Instantiates a section-backed symbolic memory that holds its writes in a
+  /// plain dictionary.
+  new(hdl) = BinSectionSymbMemory(hdl, DictionaryMemory())

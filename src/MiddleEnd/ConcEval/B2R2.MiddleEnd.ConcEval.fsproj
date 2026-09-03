@@ -7,9 +7,7 @@
   <ItemGroup>
     <Compile Include="Exceptions.fs" />
     <Compile Include="ConcEvalValue.fs" />
-    <Compile Include="IMemory.fs" />
-    <Compile Include="NonsharableMemory.fs" />
-    <Compile Include="SharableMemory.fs" />
+    <Compile Include="Memory.fs" />
     <Compile Include="BinSectionMemory.fs" />
     <Compile Include="EvalState.fs" />
     <Compile Include="EvalUtils.fs" />

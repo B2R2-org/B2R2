@@ -6,6 +6,7 @@
 
   <ItemGroup>
     <Compile Include="VariablesTests.fs" />
+    <Compile Include="MemoryTests.fs" />
   </ItemGroup>
 
   <ItemGroup>

@@ -1,4 +1,3 @@
-
 (*
   B2R2 - the Next-Generation Reversing Platform
 
@@ -23,29 +22,29 @@
   SOFTWARE.
 *)
 
-namespace B2R2.MiddleEnd.ConcEval
+namespace B2R2.MiddleEnd.Executor
 
-open System.Collections.Concurrent
 open System.Collections.Generic
 open B2R2
 
-/// Represents a thread-safe (sharable) memory. Only a single-byte access is
-/// atomic. A multi-byte access is a sequence of ByteRead/ByteWrite calls, so a
-/// concurrent writer can make a reader observe a mix of old and new bytes; a
-/// caller that needs one to be atomic serializes it on its own.
-type SharableMemory(mem: IDictionary<Addr, byte>) =
-  let mem = ConcurrentDictionary<Addr, byte>(mem)
+/// Represents a memory that holds its values in a plain dictionary. An
+/// evaluation that shares its memory across threads uses a sharable memory
+/// instead.
+type DictionaryMemory<'V>(mem: IDictionary<Addr, 'V>) =
+  let mem = Dictionary<Addr, 'V>(mem)
 
-  new() = SharableMemory(Dictionary())
+  /// Instantiates an empty memory.
+  new() = DictionaryMemory(Dictionary())
 
-  interface IMemory with
+  interface IMemory<'V> with
 
-    member _.ByteRead(addr) =
-      if mem.ContainsKey addr then Ok mem[addr]
-      else Error ErrorCase.InvalidMemoryRead
+    member _.ByteRead addr =
+      match mem.TryGetValue addr with
+      | true, v -> ValueSome v
+      | false, _ -> ValueNone
 
-    member _.ByteWrite(addr, b) = mem[addr] <- b
+    member _.ByteWrite(addr, v) = mem[addr] <- v
 
-    member _.Clone() = SharableMemory(mem) :> IMemory
+    member _.Clone() = DictionaryMemory(mem) :> IMemory<'V>
 
     member _.Clear() = mem.Clear()

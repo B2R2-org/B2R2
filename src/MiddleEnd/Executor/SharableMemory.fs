@@ -22,15 +22,31 @@
   SOFTWARE.
 *)
 
-namespace B2R2.MiddleEnd.ConcEval
+namespace B2R2.MiddleEnd.Executor
 
-open B2R2.FrontEnd
-open B2R2.MiddleEnd.Executor
+open System.Collections.Concurrent
+open System.Collections.Generic
+open B2R2
 
-/// Represents a memory backed by binary file sections.
-type BinSectionMemory(hdl: BinHandle, mem) =
-  inherit BackedMemory<byte>(hdl, id, mem)
+/// Represents a thread-safe (sharable) memory. Only a single-byte access is
+/// atomic. A multi-byte access is a sequence of ByteRead/ByteWrite calls, so a
+/// concurrent writer can make a reader observe a mix of old and new bytes; a
+/// caller that needs one to be atomic serializes it on its own.
+type SharableMemory<'V>(mem: IDictionary<Addr, 'V>) =
+  let mem = ConcurrentDictionary<Addr, 'V>(mem)
 
-  /// Instantiates a section-backed memory that holds its writes in a plain
-  /// dictionary.
-  new(hdl) = BinSectionMemory(hdl, DictionaryMemory())
+  /// Instantiates an empty memory.
+  new() = SharableMemory(Dictionary())
+
+  interface IMemory<'V> with
+
+    member _.ByteRead addr =
+      match mem.TryGetValue addr with
+      | true, v -> ValueSome v
+      | false, _ -> ValueNone
+
+    member _.ByteWrite(addr, v) = mem[addr] <- v
+
+    member _.Clone() = SharableMemory(mem) :> IMemory<'V>
+
+    member _.Clear() = mem.Clear()

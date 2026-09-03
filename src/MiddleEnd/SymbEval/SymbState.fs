@@ -29,7 +29,7 @@ open B2R2
 open B2R2.MiddleEnd.Executor
 
 /// Represents the main symbolic evaluation state.
-type SymbState(regs, temps, lbls, mem: ISymbMemory, pathCond: SymbExpr list) =
+type SymbState(regs, temps, lbls, mem, pathCond) =
 
   let mutable pc = 0UL
   let mutable stmtIdx = 0
@@ -38,14 +38,14 @@ type SymbState(regs, temps, lbls, mem: ISymbMemory, pathCond: SymbExpr list) =
   let mutable regs = regs
   let mutable temps = temps
   let mutable lbls = lbls
-  let mutable mem = mem
-  let mutable pathCond = pathCond
+  let mutable mem: IMemory<SymbExpr> = mem
+  let mutable pathCond: SymbExpr list = pathCond
 
   new() =
     SymbState(Variables(),
               Variables(),
               Labels(),
-              SymbMemory() :> ISymbMemory,
+              DictionaryMemory() :> IMemory<SymbExpr>,
               [])
 
   new(mem) = SymbState(Variables(), Variables(), Labels(), mem, [])

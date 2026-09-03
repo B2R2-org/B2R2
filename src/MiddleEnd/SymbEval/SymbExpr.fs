@@ -161,6 +161,9 @@ module SymbExpr =
 
   let one typ = Const(BitVector.One typ)
 
+  /// Returns the 8-bit constant that stands for the given byte.
+  let ofByte (b: byte) = Const(BitVector(uint32 b, 8<rt>))
+
   /// The 1-bit bit-vector true value used for LowUIR conditions.
   let trueExpr = Const BitVector.T
 

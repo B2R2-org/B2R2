@@ -9,6 +9,10 @@
     <Compile Include="CallContext.fs" />
     <Compile Include="CallPolicy.fs" />
     <Compile Include="Variables.fs" />
+    <Compile Include="IMemory.fs" />
+    <Compile Include="DictionaryMemory.fs" />
+    <Compile Include="SharableMemory.fs" />
+    <Compile Include="BackedMemory.fs" />
     <Compile Include="Labels.fs" />
     <Compile Include="IExecutor.fs" />
   </ItemGroup>

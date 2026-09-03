@@ -22,26 +22,27 @@
   SOFTWARE.
 *)
 
-namespace B2R2.MiddleEnd.SymbEval
+namespace B2R2.MiddleEnd.Executor
 
-open System.Collections.Generic
 open B2R2
 
-/// Represents symbolic memory indexed by concrete addresses.
-type SymbMemory(mem: IDictionary<Addr, SymbExpr>) =
-  let mem = Dictionary<Addr, SymbExpr>(mem)
+/// Represents a byte-addressed memory used in an evaluation. The value type
+/// decides what a cell holds: a concrete evaluation holds bytes, and a
+/// symbolic one holds 8-bit expressions.
+type IMemory<'V> =
+  /// Reads the value at the given address, or `ValueNone` when the address
+  /// holds no value.
+  abstract ByteRead: Addr -> 'V voption
 
-  new() = SymbMemory(Dictionary<_, _>() :> IDictionary<Addr, SymbExpr>)
+  /// Writes the given value to the given address. Every address is writable
+  /// and an unmapped address becomes mapped on write, so a write never fails;
+  /// a read comes back empty only because an unmapped address has no value to
+  /// return.
+  abstract ByteWrite: Addr * 'V -> unit
 
-  interface ISymbMemory with
+  /// Returns an independent copy of this memory.
+  abstract Clone: unit -> IMemory<'V>
 
-    member _.ByteRead addr =
-      match mem.TryGetValue addr with
-      | true, value -> Ok value
-      | false, _ -> Error(InvalidMemoryRead addr)
-
-    member _.ByteWrite(addr, value) = mem[addr] <- value
-
-    member _.Clone() = SymbMemory(Dictionary<_, _>(mem)) :> ISymbMemory
-
-    member _.Clear() = mem.Clear()
+  /// Clears up the memory contents; discards every value written to the
+  /// memory.
+  abstract Clear: unit -> unit

@@ -85,7 +85,10 @@ module SymbCallHooks =
     setReturn ctx length st
 
   let private readByte addr offset (st: SymbState) =
-    st.Memory.ByteRead(addr + uint64 offset)
+    let addr = addr + uint64 offset
+    match st.Memory.ByteRead addr with
+    | ValueSome byte -> Ok byte
+    | ValueNone -> Error(InvalidMemoryRead addr)
 
   let private collectStrlenStates maxScan ctx addr (st: SymbState) =
     let rec loop offset prefix acc =

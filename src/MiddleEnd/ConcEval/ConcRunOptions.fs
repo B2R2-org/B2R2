@@ -170,7 +170,7 @@ and [<RequireQualifiedAccess>] ConcUndefinedValuePolicy =
   | IgnoreUndefinedWrites
   /// Unset the register or temporary that an undefined write targets, so that
   /// it reads back as undefined instead of keeping a stale value. A store of
-  /// an undefined value is skipped, since IMemory cannot mark a cell
+  /// an undefined value is skipped, since a memory cannot mark a cell
   /// undefined.
   | PreserveUndefinedValues
 

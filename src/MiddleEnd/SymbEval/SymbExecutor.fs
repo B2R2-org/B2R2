@@ -1164,7 +1164,7 @@ type SymbExecutor(hdl: BinHandle) =
     run start state options
 
   interface IExecutor<SymbState,
-                      ISymbMemory,
+                      IMemory<SymbExpr>,
                       SymbExpr,
                       SymbRunOptions,
                       SymbRunResult> with

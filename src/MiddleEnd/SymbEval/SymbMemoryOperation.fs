@@ -26,21 +26,7 @@ namespace B2R2.MiddleEnd.SymbEval
 
 open B2R2
 open B2R2.BinIR
-
-/// Represents a symbolic memory used in the evaluation.
-type ISymbMemory =
-  /// Reads a symbolic byte from a concrete address.
-  abstract ByteRead: Addr -> Result<SymbExpr, SymbEvalError>
-
-  /// Stores a symbolic byte at a concrete address.
-  abstract ByteWrite: Addr * SymbExpr -> unit
-
-  /// Returns an independent copy of this memory object.
-  abstract Clone: unit -> ISymbMemory
-
-  /// Clears up the memory contents; discards every value written to the
-  /// memory.
-  abstract Clear: unit -> unit
+open B2R2.MiddleEnd.Executor
 
 /// Provides the multi-byte accesses that every symbolic memory derives from
 /// its single-byte primitives.
@@ -64,16 +50,21 @@ module SymbMemoryOperation =
     | [] -> Error(UnsupportedOperation "Cannot load zero bytes from memory.")
     | byte :: bytes -> List.fold concat byte bytes |> Ok
 
+  let private readByte (mem: IMemory<SymbExpr>) addr =
+    match mem.ByteRead addr with
+    | ValueSome byte -> Ok byte
+    | ValueNone -> Error(InvalidMemoryRead addr)
+
   /// Loads a symbolic value from concrete addresses.
   [<CompiledName "Load">]
-  let load addr endian typ (mem: ISymbMemory) =
+  let load addr endian typ mem =
     let len = RegType.toByteWidth typ
     let bytes =
       [ 0 .. len - 1 ]
       |> List.fold (fun acc offset ->
         match acc with
         | Ok bytes ->
-          mem.ByteRead(addr + uint64 offset)
+          readByte mem (addr + uint64 offset)
           |> Result.map (fun byte -> byte :: bytes)
         | Error e ->
           Error e) (Ok [])
@@ -89,7 +80,7 @@ module SymbMemoryOperation =
 
   /// Stores a symbolic value at concrete addresses.
   [<CompiledName "Store">]
-  let store addr (value: SymbExpr) endian (mem: ISymbMemory) =
+  let store addr (value: SymbExpr) endian (mem: IMemory<SymbExpr>) =
     let len = RegType.toByteWidth value.Type
     for offset = 0 to len - 1 do
       let pos =

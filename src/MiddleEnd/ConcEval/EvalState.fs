@@ -47,7 +47,7 @@ type EvalState(regs, temps, lbls, mem, ignoreUndef) =
     EvalState(Variables(),
               Variables(),
               Labels(),
-              NonsharableMemory() :> IMemory,
+              DictionaryMemory() :> IMemory<byte>,
               false)
 
   /// This constructor will simply create a fresh new EvalState with the given

@@ -59,7 +59,7 @@ type ConcExecutor(hdl: BinHandle) =
     { Memory = BinSectionBackedMemory
       Registers = [||] }
 
-  let createState (memory: InitialMemory<IMemory>) =
+  let createState (memory: InitialMemory<IMemory<byte>>) =
     match memory with
     | EmptyMemory -> EvalState()
     | PreinitializedMemory mem -> EvalState mem
@@ -456,7 +456,7 @@ type ConcExecutor(hdl: BinHandle) =
     |> run start state
 
   interface IExecutor<EvalState,
-                      IMemory,
+                      IMemory<byte>,
                       BitVector,
                       ConcRunOptions,
                       ConcRunResult> with

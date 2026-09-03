@@ -27,6 +27,7 @@ namespace B2R2.MiddleEnd.SymbEval.Tests
 open Microsoft.VisualStudio.TestTools.UnitTesting
 open B2R2
 open B2R2.FrontEnd
+open B2R2.MiddleEnd.Executor
 open B2R2.MiddleEnd.SymbEval
 
 [<TestClass>]
@@ -46,10 +47,11 @@ type SymbMemoryTests() =
     let bytes = Array.create 16 imageByte
     BinHandle.LoadRawImage(bytes, isa, imageAddr, OS.Linux)
 
-  let sectionMemory () = BinSectionSymbMemory(newHandle ()) :> ISymbMemory
+  let sectionMemory () =
+    BinSectionSymbMemory(newHandle ()) :> IMemory<SymbExpr>
 
   let assertRoundTrip endian =
-    let mem = SymbMemory() :> ISymbMemory
+    let mem = DictionaryMemory() :> IMemory<SymbExpr>
     SymbMemoryOperation.store addr value endian mem
     match SymbMemoryOperation.load addr endian 32<rt> mem with
     | Ok loaded -> Assert.AreEqual<SymbExpr>(value, loaded)
@@ -64,25 +66,30 @@ type SymbMemoryTests() =
     assertRoundTrip Endian.Big
 
   [<TestMethod>]
+  member _.``Loading an unwritten address names the failing address``() =
+    let mem = DictionaryMemory() :> IMemory<SymbExpr>
+    match SymbMemoryOperation.load addr Endian.Little 32<rt> mem with
+    | Ok loaded -> Assert.Fail $"Loaded {loaded} from an unwritten address."
+    | Error e -> Assert.AreEqual<SymbEvalError>(InvalidMemoryRead addr, e)
+
+  [<TestMethod>]
+  member _.``A section-backed memory reads a section byte``() =
+    let expected = ValueSome(SymbExpr.ofByte imageByte)
+    let read = (sectionMemory ()).ByteRead imageAddr
+    Assert.AreEqual<SymbExpr voption>(expected, read)
+
+  [<TestMethod>]
   member _.``Clearing a section-backed memory keeps its backing``() =
     let mem = sectionMemory ()
     mem.ByteWrite(imageAddr, SymbExpr.zero 8<rt>)
     mem.Clear()
-    match mem.ByteRead imageAddr with
-    | Ok(Const bv) ->
-      Assert.AreEqual<uint64>(uint64 imageByte, bv.ToUInt64())
-    | Ok value ->
-      Assert.Fail $"Read a non-constant byte {value}."
-    | Error e ->
-      Assert.Fail $"Lost the section backing: {e}"
+    let expected = ValueSome(SymbExpr.ofByte imageByte)
+    Assert.AreEqual<SymbExpr voption>(expected, mem.ByteRead imageAddr)
 
   [<TestMethod>]
   member _.``Clearing a section-backed memory discards its writes``() =
     let mem = sectionMemory ()
     mem.ByteWrite(unwrittenAddr, SymbExpr.zero 8<rt>)
     mem.Clear()
-    match mem.ByteRead unwrittenAddr with
-    | Ok value ->
-      Assert.Fail $"Kept a written byte {value} after Clear()."
-    | Error e ->
-      Assert.AreEqual<SymbEvalError>(InvalidMemoryRead unwrittenAddr, e)
+    let read = mem.ByteRead unwrittenAddr
+    Assert.AreEqual<SymbExpr voption>(ValueNone, read)
