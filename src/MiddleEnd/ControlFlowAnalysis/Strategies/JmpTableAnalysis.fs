@@ -308,6 +308,7 @@ type JmpTableAnalysis<'FnCtx, 'GlCtx
            TableAddress = tblAddr
            EntrySize = RegType.toByteWidth rt
            NumEntries = 0
+           WaitingInstructions = []
            IsSingleEntry = singleEntry
            IsFunctionPointerTable = false })
     | _ ->

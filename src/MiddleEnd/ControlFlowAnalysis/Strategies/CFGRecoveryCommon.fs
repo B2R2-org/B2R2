@@ -733,6 +733,8 @@ module internal CFGRecoveryCommon =
 
   let pushJmpTblRecoveryAction ctx queue bblAddr jmptbl idx =
     let targetAddr = readJumpTable ctx jmptbl idx
+    if idx = 0 then ctx.JumpTables[jmptbl.TableAddress] <- jmptbl
+    else ()
     (queue: CFGActionQueue).Push(prioritizer,
       StartTblRec(jmptbl, idx, bblAddr, targetAddr))
     queue.Push(prioritizer, EndTblRec(jmptbl, idx))
@@ -872,7 +874,30 @@ module internal CFGRecoveryCommon =
         v.VData.Internals.LastInstruction.IsRET)
     |> Option.isSome
 
+  /// Copy the recovered edges to other indirect branches that use the same
+  /// jump table. The table owner performs the actual recovery only once.
+  let connectDelayedJumpTableEdges ctx (cfgRec: ICFGRecovery<_, _>) =
+    let tryFindVertexByInstruction addr =
+      ctx.CFG.TryFindVertexBy(fun v ->
+        not v.VData.Internals.IsAbstract
+        && v.VData.Internals.Range.IsIncluding addr)
+    for jmptbl in ctx.JumpTables.Values do
+      match jmptbl.WaitingInstructions with
+      | [] -> ()
+      | waitingInstructions ->
+        match tryFindVertexByInstruction jmptbl.InsAddr with
+        | None -> ()
+        | Some originalVertex ->
+          let recoveredEdges = ctx.CFG.GetSuccEdges originalVertex
+          for insAddr in waitingInstructions do
+            match tryFindVertexByInstruction insAddr with
+            | None -> ()
+            | Some waitingVertex ->
+              for edge in recoveredEdges do
+                connectEdge ctx cfgRec waitingVertex edge.Second edge.Label
+
   let finalizeRecovery ctx (cfgRec: ICFGRecovery<_, _>) postAnalysis =
+    connectDelayedJumpTableEdges ctx cfgRec
     let oldNoRetStatus = ctx.NonReturningStatus
     ICFGAnalysis.run { Context = ctx } postAnalysis
     let newNoRetStatus = ctx.NonReturningStatus

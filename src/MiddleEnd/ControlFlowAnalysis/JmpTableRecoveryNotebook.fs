@@ -81,7 +81,8 @@ type JmpTableRecoveryNotebook() =
             EntrySize = jmptbl.EntrySize
             StartingPoint = tblAddr
             ConfirmedEndPoint = tblAddr
-            PotentialEndPoint = potentialEndPoint }
+            PotentialEndPoint = potentialEndPoint
+            WaitingFunctions = HashSet() }
         notes[tblAddr] <- note
         syncAfterRegistration tblAddr note
         RegistrationSucceeded
@@ -93,8 +94,14 @@ type JmpTableRecoveryNotebook() =
     match notes.TryGetValue tblAddr with
     | true, note when note.HostFunctionAddr = fnAddr ->
       notes.Remove tblAddr |> ignore
+      note.WaitingFunctions |> Seq.toArray
     | _ ->
-      ()
+      Array.empty
+
+  /// Record another function that recovers the same jump table without owning
+  /// its global recovery note.
+  member _.AddWaitingFunction(tblAddr, fnAddr) =
+    notes[tblAddr].WaitingFunctions.Add(fnAddr) |> ignore
 
   /// Check if the given index is expandable within the jump table.
   member _.IsExpandable(tblAddr, idx) =
@@ -172,4 +179,6 @@ and JmpTableRecoveryNote =
     mutable ConfirmedEndPoint: Addr
     /// Potential end point (the upperbound) of the jump table. We use inclusive
     /// range.
-    mutable PotentialEndPoint: Addr }
+    mutable PotentialEndPoint: Addr
+    /// Functions that recover this table while another function owns its note.
+    WaitingFunctions: HashSet<Addr> }
