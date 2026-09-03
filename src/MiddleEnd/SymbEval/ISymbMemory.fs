@@ -32,19 +32,20 @@ type ISymbMemory =
   /// Reads a symbolic byte from a concrete address.
   abstract ByteRead: Addr -> Result<SymbExpr, SymbEvalError>
 
-  /// Store a symbolic byte at a concrete address.
+  /// Stores a symbolic byte at a concrete address.
   abstract ByteWrite: Addr * SymbExpr -> unit
 
   /// Loads a symbolic value from concrete addresses.
   abstract Load: Addr * Endian * RegType -> Result<SymbExpr, SymbEvalError>
 
-  /// Store a symbolic value at concrete addresses.
+  /// Stores a symbolic value at concrete addresses.
   abstract Store: Addr * SymbExpr * Endian -> unit
 
-  /// Return an independent copy of this memory object.
+  /// Returns an independent copy of this memory object.
   abstract Clone: unit -> ISymbMemory
 
-  /// Clears up the memory contents; make the whole memory empty.
+  /// Clears up the memory contents; discards every value written to the
+  /// memory.
   abstract Clear: unit -> unit
 
 [<RequireQualifiedAccess>]

@@ -27,9 +27,10 @@ namespace B2R2.MiddleEnd.SymbEval
 open B2R2
 open B2R2.FrontEnd
 
-/// Represents symbolic memory backed by binary file sections.
+/// Represents symbolic memory backed by binary file sections. Whether the
+/// sections back this memory is fixed at construction: Clear() discards the
+/// values written to this memory, but leaves the backing bytes readable.
 type BinSectionSymbMemory(hdl: BinHandle, mem: ISymbMemory, isBacked: bool) =
-  let mutable isBacked = isBacked
 
   new(hdl) = BinSectionSymbMemory(hdl, SymbMemory() :> ISymbMemory, true)
 
@@ -62,6 +63,4 @@ type BinSectionSymbMemory(hdl: BinHandle, mem: ISymbMemory, isBacked: bool) =
     member _.Clone() =
       BinSectionSymbMemory(hdl, mem.Clone(), isBacked) :> ISymbMemory
 
-    member _.Clear() =
-      isBacked <- false
-      mem.Clear()
+    member _.Clear() = mem.Clear()
