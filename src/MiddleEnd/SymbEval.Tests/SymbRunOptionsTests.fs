@@ -40,25 +40,38 @@ type SymbRunOptionsTests() =
       State = SymbState() }
 
   [<TestMethod>]
-  member _.``A state predicate becomes the avoid condition``() =
+  member _.``A state predicate becomes an avoid condition``() =
     let predicate = StopPredicate(fun point -> point.Address = 0x1UL)
-    match defaultOptions.AddAvoidState(predicate).Avoid with
-    | SymbAvoid.AvoidState pred ->
+    match defaultOptions.AvoidState(predicate).AvoidConditions with
+    | [ SymbAvoidCondition.AvoidState pred ] ->
       Assert.AreEqual<bool>(true, pred.Invoke(pointAt 0x1UL))
       Assert.AreEqual<bool>(false, pred.Invoke(pointAt 0x2UL))
-    | avoid ->
-      Assert.Fail $"Unexpected avoid condition: {avoid}"
+    | conditions ->
+      Assert.Fail $"Unexpected avoid conditions: {conditions}"
 
   [<TestMethod>]
-  member _.``Two state predicates combine disjunctively``() =
+  member _.``Avoid conditions accumulate in the order they are added``() =
     let opts =
       defaultOptions
-        .AddAvoidState(StopPredicate(fun point -> point.Address = 0x1UL))
-        .AddAvoidState(StopPredicate(fun point -> point.Address = 0x2UL))
-    match opts.Avoid with
-    | SymbAvoid.AvoidState pred ->
-      Assert.AreEqual<bool>(true, pred.Invoke(pointAt 0x1UL))
-      Assert.AreEqual<bool>(true, pred.Invoke(pointAt 0x2UL))
-      Assert.AreEqual<bool>(false, pred.Invoke(pointAt 0x3UL))
-    | avoid ->
-      Assert.Fail $"Unexpected avoid condition: {avoid}"
+        .AvoidAddress(0x1UL)
+        .AvoidAddresses([ 0x2UL; 0x3UL ])
+        .AvoidAddress(0x4UL)
+    let expected =
+      [ SymbAvoidCondition.AvoidAddress 0x1UL
+        SymbAvoidCondition.AvoidAddress 0x2UL
+        SymbAvoidCondition.AvoidAddress 0x3UL
+        SymbAvoidCondition.AvoidAddress 0x4UL ]
+    Assert.AreEqual<SymbAvoidCondition list>(expected, opts.AvoidConditions)
+
+  [<TestMethod>]
+  member _.``Avoid conditions can be replaced wholesale``() =
+    let opts =
+      defaultOptions
+        .AvoidAddress(0x1UL)
+        .WithAvoidConditions [ SymbAvoidCondition.AvoidAddress 0x2UL ]
+    let expected = [ SymbAvoidCondition.AvoidAddress 0x2UL ]
+    Assert.AreEqual<SymbAvoidCondition list>(expected, opts.AvoidConditions)
+
+  [<TestMethod>]
+  member _.``No avoid condition is configured by default``() =
+    Assert.AreEqual<SymbAvoidCondition list>([], defaultOptions.AvoidConditions)

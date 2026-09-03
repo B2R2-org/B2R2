@@ -33,11 +33,11 @@ open B2R2.FrontEnd
 open B2R2.FrontEnd.BinLifter
 open B2R2.MiddleEnd.Executor
 
-/// Represents an avoid condition used by SymbExecutor.Run.
+/// Represents a symbolic execution avoid condition.
 [<RequireQualifiedAccess>]
-type SymbAvoid =
-  /// Discard states whose PC reaches one of the given addresses.
-  | AvoidAddresses of addrs: Set<Addr>
+type SymbAvoidCondition =
+  /// Discard states whose PC reaches the given address.
+  | AvoidAddress of addr: Addr
   /// Discard states satisfying the given predicate.
   | AvoidState of predicate: StopPredicate<SymbState>
 
@@ -76,8 +76,8 @@ type SymbRunOptions =
     Query: SymbQuery
     /// Symbolic values to extract for satisfiability queries.
     QueryValues: IQueryExpr
-    /// Address or state predicates to discard before further exploration.
-    Avoid: SymbAvoid
+    /// Conditions on which to discard a state before exploring it further.
+    AvoidConditions: SymbAvoidCondition list
     /// Maximum instructions to execute per path. Zero means unlimited.
     MaxDepth: int
     /// Maximum number of states to expand. Zero means unlimited.
@@ -100,7 +100,7 @@ with
     { Calls = CallPolicy.FollowDirectInternalCalls
       Query = query
       QueryValues = (QueryExpr.Empty :> IQueryExpr)
-      Avoid = SymbAvoid.AvoidAddresses Set.empty
+      AvoidConditions = []
       MaxDepth = 500
       MaxStates = 4096
       LoopBound = 1
@@ -119,24 +119,6 @@ with
 
   static member Default(query: SymbQueryRequest) =
     SymbRunOptions.Default(query, NoSolver)
-
-  static member private MatchesAvoid(avoid, point) =
-    match avoid with
-    | SymbAvoid.AvoidAddresses addrs -> Set.contains point.Address addrs
-    | SymbAvoid.AvoidState pred -> pred.Invoke point
-
-  static member private CombineAvoid(lhs, rhs) =
-    match lhs, rhs with
-    | SymbAvoid.AvoidAddresses addrs1, SymbAvoid.AvoidAddresses addrs2 ->
-      SymbAvoid.AvoidAddresses(Set.union addrs1 addrs2)
-    | SymbAvoid.AvoidAddresses addrs, avoid when Set.isEmpty addrs ->
-      avoid
-    | avoid, SymbAvoid.AvoidAddresses addrs when Set.isEmpty addrs ->
-      avoid
-    | avoid1, avoid2 ->
-      SymbAvoid.AvoidState(StopPredicate(fun point ->
-        SymbRunOptions.MatchesAvoid(avoid1, point)
-        || SymbRunOptions.MatchesAvoid(avoid2, point)))
 
   /// Adds one symbolic value to solver value extraction.
   member opts.AddQueryValue value =
@@ -186,30 +168,32 @@ with
         QueryValues =
           QueryExpr.Values(opts.QueryValues :: buffers) }
 
-  /// Adds one address to the avoid set.
-  member opts.AddAvoidAddress addr =
-    let avoid = SymbAvoid.AvoidAddresses(Set.singleton addr)
-    { opts with Avoid = SymbRunOptions.CombineAvoid(opts.Avoid, avoid) }
+  /// Adds one avoid condition, after the ones already configured.
+  member opts.AddAvoidCondition condition =
+    { opts with AvoidConditions = opts.AvoidConditions @ [ condition ] }
 
-  /// Adds addresses to the avoid set.
-  member opts.AddAvoidAddresses addrs =
-    let avoid = SymbAvoid.AvoidAddresses(Set.ofSeq addrs)
-    { opts with Avoid = SymbRunOptions.CombineAvoid(opts.Avoid, avoid) }
+  /// Adds avoid conditions, after the ones already configured.
+  member opts.AddAvoidConditions conditions =
+    { opts with
+        AvoidConditions = opts.AvoidConditions @ List.ofSeq conditions }
 
-  /// Replaces the avoid set.
-  member opts.WithAvoidAddresses addrs =
-    { opts with Avoid = SymbAvoid.AvoidAddresses(Set.ofSeq addrs) }
+  /// Replaces the configured avoid conditions.
+  member opts.WithAvoidConditions conditions =
+    { opts with AvoidConditions = List.ofSeq conditions }
 
-  /// Uses the given avoid condition.
-  member opts.WithAvoid avoid = { opts with Avoid = avoid }
+  /// Discards states whose PC reaches the given address.
+  member opts.AvoidAddress addr =
+    opts.AddAvoidCondition(SymbAvoidCondition.AvoidAddress addr)
 
-  /// Adds one avoid condition.
-  member opts.AddAvoid avoid =
-    { opts with Avoid = SymbRunOptions.CombineAvoid(opts.Avoid, avoid) }
+  /// Discards states whose PC reaches any of the given addresses.
+  member opts.AvoidAddresses addrs =
+    addrs
+    |> Seq.map SymbAvoidCondition.AvoidAddress
+    |> opts.AddAvoidConditions
 
-  /// Adds one state predicate to the avoid conditions.
-  member opts.AddAvoidState predicate =
-    opts.AddAvoid(SymbAvoid.AvoidState predicate)
+  /// Discards states satisfying the given predicate.
+  member opts.AvoidState predicate =
+    opts.AddAvoidCondition(SymbAvoidCondition.AvoidState predicate)
 
   /// Stops before evaluating call instructions.
   member opts.StopAtCalls() = { opts with Calls = CallPolicy.StopAtCalls }
@@ -741,17 +725,16 @@ type SymbExecutor(hdl: BinHandle) =
       Instruction = instruction
       State = st }
 
-  let tryFindAvoid depth (avoid: SymbAvoid) (st: SymbState) =
+  let tryFindAvoid depth (opts: SymbRunOptions) (st: SymbState) =
     let point = makeStopPoint depth st
-    match avoid with
-    | SymbAvoid.AvoidAddresses addrs when Set.contains point.Address addrs ->
-      Some(SymbPruneReason.AvoidedAddress point.Address)
-    | SymbAvoid.AvoidAddresses _ ->
-      None
-    | SymbAvoid.AvoidState pred when pred.Invoke point ->
-      Some(SymbPruneReason.AvoidedState point.Address)
-    | SymbAvoid.AvoidState _ ->
-      None
+    opts.AvoidConditions
+    |> List.tryPick (function
+      | SymbAvoidCondition.AvoidAddress addr when addr = point.Address ->
+        Some(SymbPruneReason.AvoidedAddress point.Address)
+      | SymbAvoidCondition.AvoidState pred when pred.Invoke point ->
+        Some(SymbPruneReason.AvoidedState point.Address)
+      | _ ->
+        None)
 
   let tryMatchUserQuery (query: SymbQuery) (point: StopPoint<SymbState>) =
     match query with
@@ -918,7 +901,7 @@ type SymbExecutor(hdl: BinHandle) =
     if kit.Ctx.StopExploration then
       ()
     else
-      match tryFindAvoid depth kit.Opts.Avoid st with
+      match tryFindAvoid depth kit.Opts st with
       | Some reason ->
         kit.Ctx.AddPruned st reason
       | None ->
