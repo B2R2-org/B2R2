@@ -28,6 +28,7 @@ module B2R2.MiddleEnd.SymbEval.SymbStmtEvaluator
 open B2R2
 open B2R2.BinIR
 open B2R2.BinIR.LowUIR
+open B2R2.MiddleEnd.Executor
 
 let private unsupportedStmt stmt =
   Stmt.toString stmt |> UnsupportedStatement |> Error
@@ -141,6 +142,10 @@ let private evalIntCJmp (st: SymbState) cond trueTarget falseTarget =
   | Error e ->
     Error e
 
+let private whileContinuing _ = function
+  | SymbEvalSuccessor.Continue st -> ValueSome st
+  | _ -> ValueNone
+
 /// Evaluates one LowUIR statement.
 let evalStmt (st: SymbState) stmt =
   let result =
@@ -181,3 +186,22 @@ let evalStmt (st: SymbState) stmt =
   match result with
   | Ok result -> result
   | Error e -> SymbEvalSuccessor.EvalError e
+
+(* A fork leaves two states where the loop had one, and the statements after
+   it have to run on both, so each side walks the rest of the instruction on
+   its own. *)
+let rec private evalStmtsFrom (st: SymbState) stmts =
+  match StmtLoop.run evalStmt whileContinuing st stmts with
+  | Completed st ->
+    [ SymbEvalSuccessor.Continue st ]
+  | Interrupted(SymbEvalSuccessor.Fork(trueState, falseState)) ->
+    evalStmtsFrom trueState stmts @ evalStmtsFrom falseState stmts
+  | Interrupted outcome ->
+    [ outcome ]
+
+/// Evaluates the statements lifted from a single machine instruction, driving
+/// the statement loop so that a caller does not have to. One instruction can
+/// leave several successors behind, since a symbolic condition forks.
+let evalInstr (st: SymbState) stmts =
+  st.PrepareInstrEval stmts
+  evalStmtsFrom st stmts

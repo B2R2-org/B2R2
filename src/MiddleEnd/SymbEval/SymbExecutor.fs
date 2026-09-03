@@ -473,24 +473,6 @@ type SymbExecutor(hdl: BinHandle) =
     | Ok visits ->
       Ok visits
 
-  let whileContinuing _ = function
-    | SymbEvalSuccessor.Continue st -> ValueSome st
-    | _ -> ValueNone
-
-  let rec evalStmtsFrom (st: SymbState) stmts =
-    match StmtLoop.run SymbStmtEvaluator.evalStmt whileContinuing st stmts with
-    | Completed st ->
-      [ SymbEvalSuccessor.Continue st ]
-    | Interrupted(SymbEvalSuccessor.Fork(trueState, falseState)) ->
-      evalStmtsFrom trueState stmts @ evalStmtsFrom falseState stmts
-    | Interrupted outcome ->
-      [ outcome ]
-
-  let evalInstr addr (st: SymbState) stmts =
-    syncPC addr st
-    st.PrepareInstrEval stmts
-    evalStmtsFrom st stmts
-
   let evaluateInstruction (opts: SymbRunOptions) addr (st: SymbState) =
     match liftCache.TryParse addr with
     | Error _ ->
@@ -503,8 +485,11 @@ type SymbExecutor(hdl: BinHandle) =
         Ok(false, successors)
       | EvaluateInstruction ->
         match liftCache.TryLift addr with
-        | Error _ -> Error(SymbStopReason.InvalidInstructionAddress addr)
-        | Ok lifted -> Ok(true, evalInstr addr st lifted.Stmts)
+        | Error _ ->
+          Error(SymbStopReason.InvalidInstructionAddress addr)
+        | Ok lifted ->
+          syncPC addr st
+          Ok(true, SymbStmtEvaluator.evalInstr st lifted.Stmts)
 
   let tryStopOnRunTimeout stopwatch opts (worklist: Queue<_>) onTimeout () =
     match isRunTimeoutReached stopwatch opts with
