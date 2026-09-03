@@ -8,6 +8,7 @@
     <Compile Include="SymbMemoryTests.fs" />
     <Compile Include="SymbStateTests.fs" />
     <Compile Include="SymbStateAccessorTests.fs" />
+    <Compile Include="SymbPruneReasonTests.fs" />
     <Compile Include="SymbRunOptionsTests.fs" />
     <Compile Include="SymbExecutorTests.fs" />
     <Compile Include="SMTLibPipelineTests.fs" />

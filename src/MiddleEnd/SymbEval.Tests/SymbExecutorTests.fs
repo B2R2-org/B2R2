@@ -43,7 +43,8 @@ type SymbExecutorTests() =
     let st = exec.CreateState()
     SymbStateAccessor(hdl, st).InitializeDefaultStack()
     let opts =
-      SymbRunOptions.Default(ReachAddress 0x5UL).RegisterCallHook(0x6UL, hook)
+      SymbRunOptions.Default(SymbQuery.ReachAddress 0x5UL)
+        .RegisterCallHook(0x6UL, hook)
     exec.Run(0UL, st, opts)
 
   [<TestMethod>]
@@ -55,7 +56,7 @@ type SymbExecutorTests() =
       seen.Add ctx.ArgumentRegisters
       Ok [ st ]
     match runHookedCall hdl hook with
-    | Reachable _ ->
+    | SymbRunResult.Reachable _ ->
       Assert.AreEqual<int>(1, seen.Count)
       Assert.AreEqual<int>(0, Array.length seen[0])
     | result ->
@@ -70,7 +71,7 @@ type SymbExecutorTests() =
       seen.Add ctx.ArgumentRegisters
       Ok [ st ]
     match runHookedCall hdl hook with
-    | Reachable _ ->
+    | SymbRunResult.Reachable _ ->
       Assert.AreEqual<int>(1, seen.Count)
       Assert.AreEqual<int>(6, Array.length seen[0])
     | result ->

@@ -34,6 +34,7 @@ open B2R2.FrontEnd.BinLifter
 open B2R2.MiddleEnd.Executor
 
 /// Represents an avoid condition used by SymbExecutor.Run.
+[<RequireQualifiedAccess>]
 type SymbAvoid =
   /// Discard states whose PC reaches one of the given addresses.
   | AvoidAddresses of addrs: Set<Addr>
@@ -41,6 +42,7 @@ type SymbAvoid =
   | AvoidState of predicate: StopPredicate<SymbState>
 
 /// Represents a symbolic query evaluated by SymbExecutor.Run.
+[<RequireQualifiedAccess>]
 type SymbQuery =
   /// Ask whether execution can reach the given address.
   | ReachAddress of target: Addr
@@ -98,7 +100,7 @@ with
     { Calls = CallPolicy.FollowDirectInternalCalls
       Query = query
       QueryValues = (QueryExpr.Empty :> IQueryExpr)
-      Avoid = AvoidAddresses Set.empty
+      Avoid = SymbAvoid.AvoidAddresses Set.empty
       MaxDepth = 500
       MaxStates = 4096
       LoopBound = 1
@@ -120,19 +122,19 @@ with
 
   static member private MatchesAvoid(avoid, point) =
     match avoid with
-    | AvoidAddresses addrs -> Set.contains point.Address addrs
-    | AvoidState pred -> pred.Invoke point
+    | SymbAvoid.AvoidAddresses addrs -> Set.contains point.Address addrs
+    | SymbAvoid.AvoidState pred -> pred.Invoke point
 
   static member private CombineAvoid(lhs, rhs) =
     match lhs, rhs with
-    | AvoidAddresses addrs1, AvoidAddresses addrs2 ->
-      AvoidAddresses(Set.union addrs1 addrs2)
-    | AvoidAddresses addrs, avoid when Set.isEmpty addrs ->
+    | SymbAvoid.AvoidAddresses addrs1, SymbAvoid.AvoidAddresses addrs2 ->
+      SymbAvoid.AvoidAddresses(Set.union addrs1 addrs2)
+    | SymbAvoid.AvoidAddresses addrs, avoid when Set.isEmpty addrs ->
       avoid
-    | avoid, AvoidAddresses addrs when Set.isEmpty addrs ->
+    | avoid, SymbAvoid.AvoidAddresses addrs when Set.isEmpty addrs ->
       avoid
     | avoid1, avoid2 ->
-      AvoidState(StopPredicate(fun point ->
+      SymbAvoid.AvoidState(StopPredicate(fun point ->
         SymbRunOptions.MatchesAvoid(avoid1, point)
         || SymbRunOptions.MatchesAvoid(avoid2, point)))
 
@@ -186,21 +188,17 @@ with
 
   /// Adds one address to the avoid set.
   member opts.AddAvoidAddress addr =
-    { opts with
-        Avoid =
-          SymbRunOptions.CombineAvoid(opts.Avoid,
-                                     AvoidAddresses(Set.singleton addr)) }
+    let avoid = SymbAvoid.AvoidAddresses(Set.singleton addr)
+    { opts with Avoid = SymbRunOptions.CombineAvoid(opts.Avoid, avoid) }
 
   /// Adds addresses to the avoid set.
   member opts.AddAvoidAddresses addrs =
-    { opts with
-        Avoid =
-          SymbRunOptions.CombineAvoid(opts.Avoid,
-                                     AvoidAddresses(Set.ofSeq addrs)) }
+    let avoid = SymbAvoid.AvoidAddresses(Set.ofSeq addrs)
+    { opts with Avoid = SymbRunOptions.CombineAvoid(opts.Avoid, avoid) }
 
   /// Replaces the avoid set.
   member opts.WithAvoidAddresses addrs =
-    { opts with Avoid = AvoidAddresses(Set.ofSeq addrs) }
+    { opts with Avoid = SymbAvoid.AvoidAddresses(Set.ofSeq addrs) }
 
   /// Uses the given avoid condition.
   member opts.WithAvoid avoid = { opts with Avoid = avoid }
@@ -210,7 +208,8 @@ with
     { opts with Avoid = SymbRunOptions.CombineAvoid(opts.Avoid, avoid) }
 
   /// Adds one state predicate to the avoid conditions.
-  member opts.AddAvoidState predicate = opts.AddAvoid(AvoidState predicate)
+  member opts.AddAvoidState predicate =
+    opts.AddAvoid(SymbAvoid.AvoidState predicate)
 
   /// Stops before evaluating call instructions.
   member opts.StopAtCalls() = { opts with Calls = CallPolicy.StopAtCalls }
@@ -264,7 +263,7 @@ with
 
 /// Represents a non-target state where exploration stopped.
 [<RequireQualifiedAccess>]
-type SymbRunStopReason =
+type SymbStopReason =
   /// Exploration reached a call according to the configured call policy.
   | StoppedAtCall of callSite: Addr * target: Addr option
   /// Exploration reached the configured maximum path depth.
@@ -285,7 +284,8 @@ type SymbRunStopReason =
   | RunTimeoutReached of timeout: int
 
 /// Represents a state that was discarded before further exploration.
-type SymbRunPruneReason =
+[<RequireQualifiedAccess>]
+type SymbPruneReason =
   /// The state reached an avoided instruction address.
   | AvoidedAddress of addr: Addr
   /// The state matched an avoided state predicate.
@@ -296,6 +296,14 @@ type SymbRunPruneReason =
   | InfeasiblePath of addr: Addr
   /// Solver pruning failed while checking the state's path condition.
   | SolverPruningFailed of addr: Addr * error: SymbEvalError
+with
+  /// Whether this reason leaves the query's answer inconclusive, as opposed
+  /// to the user asking for the path to die, or the solver proving it dead.
+  member this.IsInconclusive =
+    match this with
+    | SymbPruneReason.LoopBoundReached _
+    | SymbPruneReason.SolverPruningFailed _ -> true
+    | _ -> false
 
 /// Represents one positive answer to a reachability query.
 type SymbReachabilityAnswer =
@@ -317,13 +325,15 @@ with
   member this.Model = SymbModel this.Values
 
 /// Represents why a symbolic query could not be fully answered.
+[<RequireQualifiedAccess>]
 type SymbRunFailure =
   /// A state stopped before it could reach a target.
-  | Stopped of SymbState * SymbRunStopReason
+  | Stopped of SymbState * SymbStopReason
   /// A state was pruned before it could reach a target.
-  | Pruned of SymbState * SymbRunPruneReason
+  | Pruned of SymbState * SymbPruneReason
 
 /// Represents the answer to a bounded symbolic execution query.
+[<RequireQualifiedAccess>]
 type SymbRunResult =
   /// One or more states reached the requested target.
   | Reachable of SymbReachabilityAnswer list
@@ -341,9 +351,9 @@ with
   /// Returns the first satisfiability answer, or raises when unavailable.
   member this.GetSatisfiabilityAnswer() =
     let rec loop = function
-      | Satisfiable(answer :: _) ->
+      | SymbRunResult.Satisfiable(answer :: _) ->
         answer
-      | TimedOut(_, result) ->
+      | SymbRunResult.TimedOut(_, result) ->
         loop result
       | result ->
         raise
@@ -360,8 +370,8 @@ type private SymbRunWorkItem =
 type private SymbRunContext =
   { mutable ReachAnswers: SymbReachabilityAnswer list
     mutable SatAnswers: SymbSatisfiabilityAnswer list
-    mutable StoppedStates: (SymbState * SymbRunStopReason) list
-    mutable PrunedStates: (SymbState * SymbRunPruneReason) list
+    mutable StoppedStates: (SymbState * SymbStopReason) list
+    mutable PrunedStates: (SymbState * SymbPruneReason) list
     mutable GeneratedStates: int
     mutable StopExploration: bool
     mutable RunTimeout: int option }
@@ -400,8 +410,8 @@ with
 type private SymbQueryEvalResult =
   | QueryReachable
   | QuerySatisfiable of SolverValue list
-  | QueryUnsat of SymbRunPruneReason
-  | QueryUnknown of SymbRunStopReason
+  | QueryUnsat of SymbPruneReason
+  | QueryUnknown of SymbStopReason
 
 type private SymbMatchedQuery =
   | MatchedReachabilityQuery
@@ -417,7 +427,7 @@ type private SymbSolverRunner =
 type private SymbInstructionAction =
   | EvaluateInstruction
   | SkipInstruction of SymbEvaluator.SymbEvalSuccessor list
-  | StopBeforeInstruction of SymbRunStopReason
+  | StopBeforeInstruction of SymbStopReason
 
 /// What one run of the executor carries along: the solver it was given, the
 /// options it was asked for, the answers and counts it accumulates as it goes,
@@ -519,7 +529,7 @@ type SymbExecutor(hdl: BinHandle) =
       let target = tryGetCallTargetAddr ins st
       match opts.Calls with
       | CallPolicy.StopAtCalls ->
-        StopBeforeInstruction(SymbRunStopReason.StoppedAtCall(addr, target))
+        StopBeforeInstruction(SymbStopReason.StoppedAtCall(addr, target))
       | CallPolicy.FollowDirectInternalCalls ->
         match target with
         | Some target when isInternalTarget target ->
@@ -637,43 +647,26 @@ type SymbExecutor(hdl: BinHandle) =
       match solver with
       | Some solver ->
         match solver.CheckSat st.PathCondition with
-        | Ok SolverStatus.Unsat -> Error(InfeasiblePath addr)
+        | Ok SolverStatus.Unsat -> Error(SymbPruneReason.InfeasiblePath addr)
         | Ok SolverStatus.Sat | Ok SolverStatus.Unknown -> Ok()
-        | Error e -> Error(SolverPruningFailed(addr, e))
+        | Error e -> Error(SymbPruneReason.SolverPruningFailed(addr, e))
       | None ->
         Ok()
     else
       Ok()
 
-  let isUnknownStop = function
-    | SymbRunStopReason.StoppedAtCall _
-    | SymbRunStopReason.DepthLimitReached _
-    | SymbRunStopReason.StateLimitReached _
-    | SymbRunStopReason.InvalidInstructionAddress _
-    | SymbRunStopReason.StoppedAtSideEffect _
-    | SymbRunStopReason.EvaluationError _
-    | SymbRunStopReason.MissingSolverForQuery _
-    | SymbRunStopReason.SolverQueryFailed _
-    | SymbRunStopReason.RunTimeoutReached _ -> true
-
-  let isUnknownPrune = function
-    | AvoidedAddress _
-    | AvoidedState _
-    | InfeasiblePath _ -> false
-    | LoopBoundReached _
-    | SolverPruningFailed _ -> true
-
+  (* A state that stopped was neither shown to reach a target nor shown unable
+     to reach one, so every stop reason leaves the answer inconclusive; only a
+     pruned state can have died for a reason that settles it. *)
   let makeUnknown stopped pruned =
-    let failures =
-      (stopped
-       |> List.choose (fun (st, reason) ->
-         if isUnknownStop reason then Some(Stopped(st, reason)) else None))
-      @
-      (pruned
-       |> List.choose (fun (st, reason) ->
-         if isUnknownPrune reason then Some(Pruned(st, reason)) else None))
-    if List.isEmpty failures then None
-    else Some(SymbRunResult.Unknown(List.rev failures))
+    let stoppedFailures = stopped |> List.map SymbRunFailure.Stopped
+    let prunedFailures =
+      pruned
+      |> List.filter (fun (_, reason: SymbPruneReason) -> reason.IsInconclusive)
+      |> List.map SymbRunFailure.Pruned
+    match stoppedFailures @ prunedFailures with
+    | [] -> None
+    | failures -> Some(SymbRunResult.Unknown(List.rev failures))
 
   let finishReachabilityRun answers stopped pruned =
     match List.rev answers with
@@ -695,46 +688,48 @@ type SymbExecutor(hdl: BinHandle) =
 
   let finishRun (opts: SymbRunOptions) reachAnswers satAnswers stopped pruned =
     match opts.Query with
-    | ReachAddress _
-    | ReachState _ -> finishReachabilityRun reachAnswers stopped pruned
-    | SatisfyAddress _
-    | SatisfyState _ -> finishSatisfiabilityRun satAnswers stopped pruned
+    | SymbQuery.ReachAddress _
+    | SymbQuery.ReachState _ ->
+      finishReachabilityRun reachAnswers stopped pruned
+    | SymbQuery.SatisfyAddress _
+    | SymbQuery.SatisfyState _ ->
+      finishSatisfiabilityRun satAnswers stopped pruned
 
   let solveReachabilityQuery (solver: SymbSolverRunner option) addr pathCond =
     match solver, pathCond with
     | None, [] ->
       QueryReachable
     | None, _ ->
-      QueryUnknown(SymbRunStopReason.MissingSolverForQuery addr)
+      QueryUnknown(SymbStopReason.MissingSolverForQuery addr)
     | Some solver, _ ->
       match solver.CheckSat pathCond with
       | Ok SolverStatus.Sat ->
         QueryReachable
       | Ok SolverStatus.Unsat ->
-        QueryUnsat(InfeasiblePath addr)
+        QueryUnsat(SymbPruneReason.InfeasiblePath addr)
       | Ok SolverStatus.Unknown ->
         let err = SolverFailure SolverReturnedUnknown
-        QueryUnknown(SymbRunStopReason.SolverQueryFailed(addr, err))
+        QueryUnknown(SymbStopReason.SolverQueryFailed(addr, err))
       | Error e ->
-        QueryUnknown(SymbRunStopReason.SolverQueryFailed(addr, e))
+        QueryUnknown(SymbStopReason.SolverQueryFailed(addr, e))
 
   let solveInputQuery (solver: SymbSolverRunner option) addr pathCond values =
     match solver, pathCond, values with
     | None, [], [] ->
       QuerySatisfiable []
     | None, _, _ ->
-      QueryUnknown(SymbRunStopReason.MissingSolverForQuery addr)
+      QueryUnknown(SymbStopReason.MissingSolverForQuery addr)
     | Some solver, _, _ ->
       match solver.GetModels(pathCond, values) with
       | Ok output when output.Status = SolverStatus.Sat ->
         QuerySatisfiable output.Values
       | Ok output when output.Status = SolverStatus.Unsat ->
-        QueryUnsat(InfeasiblePath addr)
+        QueryUnsat(SymbPruneReason.InfeasiblePath addr)
       | Ok _ ->
         let err = SolverFailure SolverReturnedUnknown
-        QueryUnknown(SymbRunStopReason.SolverQueryFailed(addr, err))
+        QueryUnknown(SymbStopReason.SolverQueryFailed(addr, err))
       | Error e ->
-        QueryUnknown(SymbRunStopReason.SolverQueryFailed(addr, e))
+        QueryUnknown(SymbStopReason.SolverQueryFailed(addr, e))
 
   let makeStopPoint depth (st: SymbState) =
     let instruction =
@@ -749,32 +744,32 @@ type SymbExecutor(hdl: BinHandle) =
   let tryFindAvoid depth (avoid: SymbAvoid) (st: SymbState) =
     let point = makeStopPoint depth st
     match avoid with
-    | AvoidAddresses addrs when Set.contains point.Address addrs ->
-      Some(AvoidedAddress point.Address)
-    | AvoidAddresses _ ->
+    | SymbAvoid.AvoidAddresses addrs when Set.contains point.Address addrs ->
+      Some(SymbPruneReason.AvoidedAddress point.Address)
+    | SymbAvoid.AvoidAddresses _ ->
       None
-    | AvoidState pred when pred.Invoke point ->
-      Some(AvoidedState point.Address)
-    | AvoidState _ ->
+    | SymbAvoid.AvoidState pred when pred.Invoke point ->
+      Some(SymbPruneReason.AvoidedState point.Address)
+    | SymbAvoid.AvoidState _ ->
       None
 
   let tryMatchUserQuery (query: SymbQuery) (point: StopPoint<SymbState>) =
     match query with
-    | ReachAddress target when point.Address = target ->
+    | SymbQuery.ReachAddress target when point.Address = target ->
       Some MatchedReachabilityQuery
-    | ReachAddress _ ->
+    | SymbQuery.ReachAddress _ ->
       None
-    | ReachState pred when pred.Invoke point ->
+    | SymbQuery.ReachState pred when pred.Invoke point ->
       Some MatchedReachabilityQuery
-    | ReachState _ ->
+    | SymbQuery.ReachState _ ->
       None
-    | SatisfyAddress target when point.Address = target ->
+    | SymbQuery.SatisfyAddress target when point.Address = target ->
       Some MatchedSatisfiabilityQuery
-    | SatisfyAddress _ ->
+    | SymbQuery.SatisfyAddress _ ->
       None
-    | SatisfyState pred when pred.Invoke point ->
+    | SymbQuery.SatisfyState pred when pred.Invoke point ->
       Some MatchedSatisfiabilityQuery
-    | SatisfyState _ ->
+    | SymbQuery.SatisfyState _ ->
       None
 
   let solveMatchedUserQuery solver opts addr (st: SymbState) = function
@@ -793,8 +788,8 @@ type SymbExecutor(hdl: BinHandle) =
     let addr = item.State.PC
     match isMaxDepthReached item.Depth opts with
     | Some limit ->
-      Stopped(item.State, SymbRunStopReason.DepthLimitReached(addr, limit))
-      |> Error
+      let reason = SymbStopReason.DepthLimitReached(addr, limit)
+      Error(SymbRunFailure.Stopped(item.State, reason))
     | None ->
       Ok item
 
@@ -802,8 +797,8 @@ type SymbExecutor(hdl: BinHandle) =
     let addr = item.State.PC
     match tryUpdateVisitCount addr item.Visits opts with
     | Error limit ->
-      Pruned(item.State, LoopBoundReached(addr, limit))
-      |> Error
+      let reason = SymbPruneReason.LoopBoundReached(addr, limit)
+      Error(SymbRunFailure.Pruned(item.State, reason))
     | Ok visits ->
       Ok visits
 
@@ -828,7 +823,7 @@ type SymbExecutor(hdl: BinHandle) =
   let evaluateInstruction (opts: SymbRunOptions) addr (st: SymbState) =
     match liftCache.TryParse addr with
     | Error _ ->
-      Error(SymbRunStopReason.InvalidInstructionAddress addr)
+      Error(SymbStopReason.InvalidInstructionAddress addr)
     | Ok ins ->
       match handleCallInstruction addr ins opts st with
       | StopBeforeInstruction reason ->
@@ -837,7 +832,7 @@ type SymbExecutor(hdl: BinHandle) =
         Ok(false, successors)
       | EvaluateInstruction ->
         match liftCache.TryLift addr with
-        | Error _ -> Error(SymbRunStopReason.InvalidInstructionAddress addr)
+        | Error _ -> Error(SymbStopReason.InvalidInstructionAddress addr)
         | Ok lifted -> Ok(true, evalInstr addr st lifted.Stmts)
 
   let tryStopOnRunTimeout stopwatch opts (worklist: Queue<_>) onTimeout () =
@@ -889,12 +884,13 @@ type SymbExecutor(hdl: BinHandle) =
       None
 
   let handleRunFailure addStopped addPruned stopExploration = function
-    | Stopped(st, (SymbRunStopReason.StateLimitReached _ as reason)) ->
+    | SymbRunFailure.Stopped(st,
+                             (SymbStopReason.StateLimitReached _ as reason)) ->
       addStopped st reason
       stopExploration ()
-    | Stopped(st, reason) ->
+    | SymbRunFailure.Stopped(st, reason) ->
       addStopped st reason
-    | Pruned(st, reason) ->
+    | SymbRunFailure.Pruned(st, reason) ->
       addPruned st reason
 
   /// What an answered query means for the run: the answer is recorded, and
@@ -939,7 +935,7 @@ type SymbExecutor(hdl: BinHandle) =
         | Ok() ->
           match isStateLimitReached kit.Ctx.GeneratedStates kit.Opts with
           | Some limit ->
-            kit.Ctx.AddStopped st (SymbRunStopReason.StateLimitReached limit)
+            kit.Ctx.AddStopped st (SymbStopReason.StateLimitReached limit)
             kit.Ctx.Stop()
           | None ->
             kit.Worklist.Enqueue
@@ -970,10 +966,10 @@ type SymbExecutor(hdl: BinHandle) =
       enqueueState kit condLen depth visits trueState
       enqueueState kit condLen depth visits falseState
     | SymbEvaluator.Stopped(st, SymbEvaluator.SideEffectStop eff) ->
-      let reason = SymbRunStopReason.StoppedAtSideEffect(addr, eff)
+      let reason = SymbStopReason.StoppedAtSideEffect(addr, eff)
       (kit: SymbRunKit).Ctx.AddStopped st reason
     | SymbEvaluator.EvalError e ->
-      let reason = SymbRunStopReason.EvaluationError(addr, e)
+      let reason = SymbStopReason.EvaluationError(addr, e)
       kit.Ctx.AddStopped callerState reason
 
   /// One instruction taken off the worklist: evaluate it and route each
@@ -1005,7 +1001,7 @@ type SymbExecutor(hdl: BinHandle) =
     let initialState = st.Clone()
     initialState.PC <- start
     let handleRunTimeout item timeout =
-      ctx.AddStopped item.State (SymbRunStopReason.RunTimeoutReached timeout)
+      ctx.AddStopped item.State (SymbStopReason.RunTimeoutReached timeout)
       ctx.MarkTimeout timeout
     let handleFailure = handleRunFailure ctx.AddStopped ctx.AddPruned ctx.Stop
     enqueueState kit 0 0 Map.empty initialState

@@ -25,40 +25,29 @@
 namespace B2R2.MiddleEnd.SymbEval.Tests
 
 open Microsoft.VisualStudio.TestTools.UnitTesting
-open B2R2
-open B2R2.MiddleEnd.Executor
 open B2R2.MiddleEnd.SymbEval
 
 [<TestClass>]
-type SymbRunOptionsTests() =
-  let defaultOptions = SymbRunOptions.Default(SymbQuery.ReachAddress 0x1000UL)
-
-  let pointAt addr =
-    { Address = addr
-      InstructionCount = 0
-      Instruction = None
-      State = SymbState() }
+type SymbPruneReasonTests() =
+  [<TestMethod>]
+  member _.``A loop bound leaves the query's answer inconclusive``() =
+    let reason = SymbPruneReason.LoopBoundReached(0x1000UL, 1)
+    Assert.AreEqual<bool>(true, reason.IsInconclusive)
 
   [<TestMethod>]
-  member _.``A state predicate becomes the avoid condition``() =
-    let predicate = StopPredicate(fun point -> point.Address = 0x1UL)
-    match defaultOptions.AddAvoidState(predicate).Avoid with
-    | SymbAvoid.AvoidState pred ->
-      Assert.AreEqual<bool>(true, pred.Invoke(pointAt 0x1UL))
-      Assert.AreEqual<bool>(false, pred.Invoke(pointAt 0x2UL))
-    | avoid ->
-      Assert.Fail $"Unexpected avoid condition: {avoid}"
+  member _.``A failed solver check leaves the answer inconclusive``() =
+    let error = UnsupportedOperation "no solver"
+    let reason = SymbPruneReason.SolverPruningFailed(0x1000UL, error)
+    Assert.AreEqual<bool>(true, reason.IsInconclusive)
 
   [<TestMethod>]
-  member _.``Two state predicates combine disjunctively``() =
-    let opts =
-      defaultOptions
-        .AddAvoidState(StopPredicate(fun point -> point.Address = 0x1UL))
-        .AddAvoidState(StopPredicate(fun point -> point.Address = 0x2UL))
-    match opts.Avoid with
-    | SymbAvoid.AvoidState pred ->
-      Assert.AreEqual<bool>(true, pred.Invoke(pointAt 0x1UL))
-      Assert.AreEqual<bool>(true, pred.Invoke(pointAt 0x2UL))
-      Assert.AreEqual<bool>(false, pred.Invoke(pointAt 0x3UL))
-    | avoid ->
-      Assert.Fail $"Unexpected avoid condition: {avoid}"
+  member _.``A path the user asked to avoid settles the answer``() =
+    let byAddress = SymbPruneReason.AvoidedAddress 0x1000UL
+    let byPredicate = SymbPruneReason.AvoidedState 0x1000UL
+    Assert.AreEqual<bool>(false, byAddress.IsInconclusive)
+    Assert.AreEqual<bool>(false, byPredicate.IsInconclusive)
+
+  [<TestMethod>]
+  member _.``A path the solver proved dead settles the answer``() =
+    let reason = SymbPruneReason.InfeasiblePath 0x1000UL
+    Assert.AreEqual<bool>(false, reason.IsInconclusive)
