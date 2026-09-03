@@ -28,6 +28,7 @@ open Microsoft.VisualStudio.TestTools.UnitTesting
 open B2R2
 open B2R2.BinIR
 open B2R2.BinIR.LowUIR
+open B2R2.FrontEnd
 open B2R2.MiddleEnd.ConcEval
 
 [<TestClass>]
@@ -36,6 +37,45 @@ type EvaluatorTests() =
     let st = EvalState()
     st.CurrentInsLen <- 2u
     st
+
+  let liftIntel (bytes: byte[]) =
+    let isa = ISA(Architecture.Intel, WordSize.Bit64)
+    let hdl = BinHandle.LoadRawImage(bytes, isa, OS.Linux)
+    let lu = hdl.NewLiftingUnit()
+    hdl, lu.LiftInstruction(lu.ParseInstruction 0UL)
+
+  let stateWithEveryRegisterSet (hdl: BinHandle) =
+    let st = EvalState()
+    let rf = hdl.RegisterFactory
+    rf.GetAllRegVars()
+    |> Array.iter (fun v ->
+      let rid = rf.GetRegisterID v
+      st.SetReg(rid, BitVector(1UL, rf.GetRegType rid)))
+    st
+
+  let registersAfter evalOne hdl (stmts: Stmt[]) =
+    let st = stateWithEveryRegisterSet hdl
+    st.PrepareInstrEval stmts
+    stmts |> Array.iter (evalOne st)
+    st.Registers.ToArray() |> Map.ofArray
+
+  let differingRegisters unsafeRegs safeRegs =
+    let unsafeKeys = Map.keys unsafeRegs |> Set.ofSeq
+    Map.keys safeRegs
+    |> Set.ofSeq
+    |> Set.union unsafeKeys
+    |> Set.filter (fun k -> Map.tryFind k unsafeRegs <> Map.tryFind k safeRegs)
+    |> Set.toList
+
+  let assertEvaluatorsAgree bytes =
+    let hdl, stmts = liftIntel bytes
+    let viaUnsafe = registersAfter Evaluator.evalStmt hdl stmts
+    let viaSafe =
+      registersAfter (fun st s -> SafeEvaluator.evalStmt st s |> ignore) hdl
+                     stmts
+    match differingRegisters viaUnsafe viaSafe with
+    | [] -> ()
+    | ks -> Assert.Fail $"The evaluators disagree on registers {ks}."
 
   let assertTerminatedWithIEMark (st: EvalState) =
     Assert.AreEqual<bool>(true, st.IsInstrTerminated)
@@ -88,3 +128,28 @@ type EvaluatorTests() =
       Assert.AreEqual<bool>(false, st.NeedToEvaluateIEMark)
     | Error e ->
       Assert.Fail $"Failed to evaluate a side effect: {e}"
+
+  [<TestMethod>]
+  member _.``Both evaluators agree on a defined instruction``() =
+    (* add rax, rbx *)
+    assertEvaluatorsAgree [| 0x48uy; 0x01uy; 0xd8uy |]
+
+  [<TestMethod>]
+  member _.``Both evaluators agree on an undefining instruction``() =
+    (* mul rax : the lifter marks SF, ZF, AF and PF as undefined *)
+    assertEvaluatorsAgree [| 0x48uy; 0xf7uy; 0xe0uy |]
+
+  [<TestMethod>]
+  member _.``An application expression is not evaluable``() =
+    let st = newState ()
+    match SafeEvaluator.evalExpr st (AST.app "f" [] 64<rt>) with
+    | Error _ -> ()
+    | Ok v -> Assert.Fail $"An application evaluated to {v}."
+
+  [<TestMethod>]
+  member _.``A jump to an unknown label fails instead of raising``() =
+    let st = newState ()
+    let target = Label("nowhere", 0, 0UL) |> AST.jmpDest
+    match SafeEvaluator.evalStmt st (AST.jmp target) with
+    | Error _ -> ()
+    | Ok() -> Assert.Fail "The jump to an unknown label succeeded."

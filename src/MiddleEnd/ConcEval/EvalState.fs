@@ -174,6 +174,11 @@ type EvalState(regs, temps, lbls, mem, ignoreUndef) =
   /// Go to the statement of the given label.
   member inline this.GoToLabel lbl = this.StmtIdx <- this.Labels.Index lbl
 
+  /// Goes to the statement of the given label, failing instead of raising when
+  /// the label does not belong to the statements currently loaded.
+  member inline this.TryGoToLabel lbl =
+    this.Labels.TryIndex lbl |> Result.map (fun idx -> this.StmtIdx <- idx)
+
   /// Get ready for evaluating a new instruction.
   member inline this.PrepareInstrEval stmts =
     this.IsInstrTerminated <- false

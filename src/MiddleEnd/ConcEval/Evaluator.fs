@@ -22,11 +22,14 @@
   SOFTWARE.
 *)
 
-/// Represents a concrete evaluation module for LowUIR. Failure is signalled by
-/// raising: UndefinedExprException for an undefined expression,
-/// InvalidMemoryReadException for a load no memory backs,
-/// KeyNotFoundException for a register or temporary that has no value, and
-/// BinIR's InvalidExprException or IllegalASTTypeException for a malformed AST.
+/// Represents a concrete evaluation module for LowUIR that evaluates to a
+/// plain BitVector. Failure is signalled by raising: UndefinedExprException
+/// for an undefined expression, InvalidMemoryReadException for a load no
+/// memory backs, KeyNotFoundException for a register or temporary that has no
+/// value, and BinIR's InvalidExprException or IllegalASTTypeException for a
+/// malformed AST. SafeEvaluator reports the same failures in its return value
+/// instead, for roughly 2.5x the cost; the operator tables are a deliberate
+/// duplicate across the two, so a new operator has to be added to both.
 module B2R2.MiddleEnd.ConcEval.Evaluator
 
 open B2R2
@@ -161,7 +164,8 @@ let private evalPut st lhs rhs =
     | _ -> raise InvalidExprException
   with
     | UndefinedExprException
-    | :? System.Collections.Generic.KeyNotFoundException -> ()
+    | :? System.Collections.Generic.KeyNotFoundException ->
+      markUndefAfterFailure st lhs
 
 let private evalStore st endian addr v =
   let bv = evalExpr st addr
@@ -205,8 +209,8 @@ let evalStmt (st: EvalState) stmt =
     st.AdvancePC len; st.AbortInstr()
   | LMark _ ->
     st.NextStmt()
-  | Put(_, Undefined _, _) ->
-    st.NextStmt()
+  | Put(lhs, Undefined _, _) ->
+    markUndefAfterFailure st lhs; st.NextStmt()
   | Put(lhs, rhs, _) ->
     evalPut st lhs rhs |> st.NextStmt
   | Store(e, addr, v, _) ->

@@ -24,6 +24,7 @@
 
 namespace B2R2.MiddleEnd.Executor
 
+open B2R2
 open B2R2.BinIR
 open B2R2.BinIR.LowUIR
 open System.Collections.Generic
@@ -42,5 +43,12 @@ type Labels(lbls) =
       | _ -> ()
 
   member _.Index sym = lbls[sym]
+
+  /// Returns the statement index of the given label, or an error when the
+  /// label does not belong to the statements currently loaded.
+  member _.TryIndex sym =
+    match lbls.TryGetValue sym with
+    | true, idx -> Ok idx
+    | false, _ -> Error ErrorCase.ItemNotFound
 
   member _.Clone() = Labels(Dictionary(lbls))

@@ -22,8 +22,13 @@
   SOFTWARE.
 *)
 
-/// Represents a safe concrete evaluation module for LowUIR. Unlike Evaluator,
-/// it does not raise exceptions, although it may be little bit slower.
+/// Represents a concrete evaluation module for LowUIR that reports failure in
+/// its return value instead of raising. Its value domain is ConcEvalValue, so
+/// an uninitialized register or an Undefined node evaluates to Undef where
+/// Evaluator raises; that difference, not the error channel alone, is what
+/// separates the two. It costs roughly 2.5x what Evaluator does on a path with
+/// no undefined value, and its operator tables are a deliberate duplicate of
+/// Evaluator's, so a new operator has to be added to both.
 module B2R2.MiddleEnd.ConcEval.SafeEvaluator
 
 open B2R2
@@ -98,7 +103,7 @@ and private evalCast st t e = function
   | CastKind.FtoIFloor -> evalExpr st e |> map1 BitVector.FtoiFloor t
   | CastKind.FtoIRound -> evalExpr st e |> map1 BitVector.FtoiRound t
   | CastKind.FtoITrunc -> evalExpr st e |> map1 BitVector.FtoiTrunc t
-  | _ -> raise IllegalASTTypeException
+  | _ -> Error ErrorCase.InvalidExprEvaluation
 
 and private evalUnOp st e = function
   | UnOpType.NEG -> evalUnOpConc st e BitVector.Neg
@@ -108,7 +113,7 @@ and private evalUnOp st e = function
   | UnOpType.FSIN -> evalUnOpConc st e BitVector.FSin
   | UnOpType.FTAN -> evalUnOpConc st e BitVector.FTan
   | UnOpType.FATAN -> evalUnOpConc st e BitVector.FAtan
-  | _ -> raise IllegalASTTypeException
+  | _ -> Error ErrorCase.InvalidExprEvaluation
 
 and private evalBinOp st e1 e2 = function
   | BinOpType.ADD -> evalBinOpConc st e1 e2 BitVector.Add
@@ -131,8 +136,7 @@ and private evalBinOp st e1 e2 = function
   | BinOpType.FDIV -> evalBinOpConc st e1 e2 BitVector.FDiv
   | BinOpType.FPOW -> evalBinOpConc st e1 e2 BitVector.FPow
   | BinOpType.FLOG -> evalBinOpConc st e1 e2 BitVector.FLog
-  | BinOpType.APP -> Ok Undef
-  | _ -> raise IllegalASTTypeException
+  | _ -> Error ErrorCase.InvalidExprEvaluation
 
 and private evalRelOp st e1 e2 = function
   | RelOpType.EQ -> evalBinOpConc st e1 e2 BitVector.Eq
@@ -149,13 +153,7 @@ and private evalRelOp st e1 e2 = function
   | RelOpType.FLE -> evalBinOpConc st e1 e2 BitVector.FLe
   | RelOpType.FGT -> evalBinOpConc st e1 e2 BitVector.FGt
   | RelOpType.FGE -> evalBinOpConc st e1 e2 BitVector.FGe
-  | _ -> raise IllegalASTTypeException
-
-let private markUndefAfterFailure (st: EvalState) lhs =
-  match lhs with
-  | Var(_, n, _, _) -> st.UnsetReg n
-  | TempVar(_, n, _) -> st.UnsetTmp n
-  | _ -> ()
+  | _ -> Error ErrorCase.InvalidExprEvaluation
 
 let private evalPCUpdate st rhs =
   match evalExpr st rhs with
@@ -189,7 +187,7 @@ let private evalStore st endian addr v =
 
 let private evalJmp (st: EvalState) target =
   match target with
-  | JmpDest(n, _) -> st.GoToLabel n |> Ok
+  | JmpDest(n, _) -> st.TryGoToLabel n
   | _ -> Error ErrorCase.InvalidExprEvaluation
 
 let private evalCJmp st cond t f =
@@ -215,7 +213,7 @@ let private evalArgs st args =
   | BinOp(BinOpType.APP, _, _, ExprList(args, _), _) ->
     args |> concretizeArgs st []
   | _ ->
-    Terminator.impossible ()
+    Error ErrorCase.InvalidExprEvaluation
 
 /// Evaluates an IR statement.
 let evalStmt (st: EvalState) stmt =

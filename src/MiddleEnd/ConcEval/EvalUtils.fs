@@ -25,6 +25,15 @@
 module internal B2R2.MiddleEnd.ConcEval.EvalUtils
 
 open B2R2
+open B2R2.BinIR.LowUIR
 
 /// The one-bit true value that evaluated conditions are tested against.
 let tr = BitVector.One 1<rt>
+
+/// Unsets the register or temporary that the given assignment target names, so
+/// that it reads back as undefined rather than keeping a stale value.
+let markUndefAfterFailure (st: EvalState) lhs =
+  match lhs with
+  | Var(_, n, _, _) -> st.UnsetReg n
+  | TempVar(_, n, _) -> st.UnsetTmp n
+  | _ -> ()
