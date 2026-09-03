@@ -75,6 +75,20 @@ type LiftCache(hdl: BinHandle) =
       memoize liftResults addr (fun () -> lift ins)
       |> Result.map (fun stmts -> { Instruction = ins; Stmts = stmts }))
 
+  (* A MIPS call transfers control only after its delay slot has run, so the
+     callee returns past that slot rather than to the next address. *)
+  /// Returns the address that a callee returns to, given the address and the
+  /// length of the call instruction it was called from.
+  member this.FallThroughAddr(addr, length: uint32) =
+    match hdl.ISA with
+    | MIPS ->
+      let delaySlotAddr = addr + uint64 length
+      match this.TryParse delaySlotAddr with
+      | Ok delaySlot -> delaySlotAddr + uint64 delaySlot.Length
+      | Error _ -> delaySlotAddr + uint64 length
+    | _ ->
+      addr + uint64 length
+
   /// Parses and lifts every instruction in the given half-open address ranges,
   /// so that a run over them finds each instruction already lifted.
   member this.WarmUp(ranges: (Addr * Addr) list) =

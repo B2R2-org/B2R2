@@ -27,7 +27,6 @@ namespace B2R2.MiddleEnd.SymbEval
 open System.Collections.Generic
 open System.Diagnostics
 open B2R2
-open B2R2.ABI
 open B2R2.BinIR
 open B2R2.BinIR.LowUIR
 open B2R2.FrontEnd
@@ -468,45 +467,13 @@ type SymbExecutor(hdl: BinHandle) =
       | _ ->
         None
 
-  let getCallFallThroughAddr addr (ins: IInstruction) =
-    match hdl.ISA with
-    | MIPS ->
-      let delaySlotAddr = addr + uint64 ins.Length
-      match liftCache.TryParse delaySlotAddr with
-      | Ok delaySlot -> delaySlotAddr + uint64 delaySlot.Length
-      | Error _ -> delaySlotAddr + uint64 ins.Length
-    | _ ->
-      addr + uint64 ins.Length
-
   let isInternalTarget target = hdl.File.IsValidAddr target
 
   let wordType = hdl.ISA.WordSize |> WordSize.toRegType
 
-  let endian = hdl.ISA.Endian
-
-  let cc = hdl.Conventions.Calling
-
   let syncPC (addr: Addr) (st: SymbState) =
     st.SetReg(hdl.RegisterFactory.ProgramCounter,
               SymbExpr.Const(BitVector(addr, wordType)))
-
-  (* The argument slots the ABI itself declares: one that passes its argument
-     on the stack, as x86 cdecl passes every one of them, contributes no
-     register here, so a hook reads that argument from the stack. *)
-  let argumentRegisters =
-    cc.IntArgs
-    |> Array.choose (function
-      | ArgLocation.Reg rid -> Some rid
-      | _ -> None)
-
-  let mkCallContext callSite target returnAddress =
-    { CallSite = callSite
-      Target = target
-      ReturnAddress = returnAddress
-      WordType = wordType
-      Endian = endian
-      ArgumentRegisters = argumentRegisters
-      ReturnRegister = cc.IntReturnRegister }
 
   let pushReturnAddress returnAddress (st: SymbState) =
     let accessor = SymbStateAccessor(hdl, st)
@@ -533,7 +500,7 @@ type SymbExecutor(hdl: BinHandle) =
 
   let dispatchCallHook callSite target returnAddress hook (st: SymbState) =
     let hookState = st.Clone()
-    let ctx = mkCallContext callSite target returnAddress
+    let ctx = CallContext.Create(hdl, callSite, target, returnAddress)
     match pushReturnAddress returnAddress hookState with
     | Error e ->
       [ SymbEvaluator.EvalError e ]
@@ -567,7 +534,7 @@ type SymbExecutor(hdl: BinHandle) =
         | Some target ->
           match hooks.TryFind target with
           | Some hook ->
-            let returnAddress = getCallFallThroughAddr addr ins
+            let returnAddress = liftCache.FallThroughAddr(addr, ins.Length)
             dispatchCallHook addr target returnAddress hook st
             |> SkipInstruction
           | None when isInternalTarget target ->

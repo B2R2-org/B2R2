@@ -44,17 +44,6 @@ type private InstructionEvalResult =
 type ConcExecutor(hdl: BinHandle) =
   let liftCache = LiftCache hdl
   let regFactory = hdl.RegisterFactory
-  let wordType = hdl.ISA.WordSize |> WordSize.toRegType
-  let endian = hdl.ISA.Endian
-  let cc = hdl.Conventions.Calling
-  (* An ABI that passes every integer argument on the stack, such as x86 cdecl,
-     contributes no register here, so a hook reads those from the stack. *)
-  let argumentRegisters =
-    [| 0 .. 5 |]
-    |> Array.choose (fun idx ->
-      match cc.GetIntArgLocation idx with
-      | ArgLocation.Reg rid -> Some rid
-      | _ -> None)
   let defaultStateCreationOptions =
     { Memory = BinSectionBackedMemory
       Registers = [||] }
@@ -292,27 +281,6 @@ type ConcExecutor(hdl: BinHandle) =
 
   let isInternalTarget target = hdl.File.IsValidAddr target
 
-  (* A MIPS call transfers control only after its delay slot has run, so the
-     callee returns past that slot rather than to the next address. *)
-  let getCallFallThroughAddr addr (ins: IInstruction) =
-    match hdl.ISA with
-    | MIPS ->
-      let delaySlotAddr = addr + uint64 ins.Length
-      match liftCache.TryParse delaySlotAddr with
-      | Ok delaySlot -> delaySlotAddr + uint64 delaySlot.Length
-      | Result.Error _ -> delaySlotAddr + uint64 ins.Length
-    | _ ->
-      addr + uint64 ins.Length
-
-  let mkCallContext callSite target returnAddress =
-    { CallSite = callSite
-      Target = target
-      ReturnAddress = returnAddress
-      WordType = wordType
-      Endian = endian
-      ArgumentRegisters = argumentRegisters
-      ReturnRegister = cc.IntReturnRegister }
-
   let callFailure (ctx: CallContext) msg =
     ConcStopReason.CallHandlingFailure(ctx.CallSite, Some ctx.Target, msg)
     |> Result.Error
@@ -364,7 +332,8 @@ type ConcExecutor(hdl: BinHandle) =
       | CallPolicy.UseCallHooks hooks, Some t ->
         match hooks.TryFind t with
         | Some hook ->
-          let ctx = mkCallContext addr t (getCallFallThroughAddr addr ins)
+          let returnAddress = liftCache.FallThroughAddr(addr, ins.Length)
+          let ctx = CallContext.Create(hdl, addr, t, returnAddress)
           Some(dispatchCallHook ctx hook st)
         | None when isInternalTarget t ->
           None

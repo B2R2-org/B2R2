@@ -25,6 +25,8 @@
 namespace B2R2.MiddleEnd.Executor
 
 open B2R2
+open B2R2.ABI
+open B2R2.FrontEnd
 
 /// Represents the calling-convention information passed to a call hook.
 type CallContext =
@@ -43,3 +45,24 @@ type CallContext =
     ArgumentRegisters: RegisterID[]
     /// Register ID used for the function return value.
     ReturnRegister: RegisterID }
+with
+  /// Builds the context for a hook that stands in for the call at the given
+  /// site, whose callee returns to the given address.
+  static member Create(hdl: BinHandle, callSite, target, returnAddress) =
+    let cc = hdl.Conventions.Calling
+    (* The argument slots the ABI itself declares: one that passes its
+       argument on the stack, as x86 cdecl passes every one of them,
+       contributes no register here, so a hook reads that argument from the
+       stack. *)
+    let argumentRegisters =
+      cc.IntArgs
+      |> Array.choose (function
+        | ArgLocation.Reg rid -> Some rid
+        | _ -> None)
+    { CallSite = callSite
+      Target = target
+      ReturnAddress = returnAddress
+      WordType = hdl.ISA.WordSize |> WordSize.toRegType
+      Endian = hdl.ISA.Endian
+      ArgumentRegisters = argumentRegisters
+      ReturnRegister = cc.IntReturnRegister }
