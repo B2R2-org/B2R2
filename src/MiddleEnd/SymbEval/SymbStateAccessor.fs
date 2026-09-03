@@ -127,7 +127,7 @@ type SymbStateAccessor(hdl: BinHandle, state: SymbState) as this =
   let pushToStack value =
     let addr = getStackPointer () - uint64 wordBytes
     setStackPointer addr
-    state.Memory.Store(addr, value, endian)
+    SymbMemoryOperation.store addr value endian state.Memory
     addr
 
   let tryPushToStack value =
@@ -138,12 +138,12 @@ type SymbStateAccessor(hdl: BinHandle, state: SymbState) as this =
       let addr = sp - uint64 wordBytes
       trySetStackPointer addr
       |> Result.map (fun () ->
-        state.Memory.Store(addr, value, endian)
+        SymbMemoryOperation.store addr value endian state.Memory
         addr)
 
   let popFromStack () =
     let addr = getStackPointer ()
-    match state.Memory.Load(addr, endian, wordType) with
+    match SymbMemoryOperation.load addr endian wordType state.Memory with
     | Ok value ->
       setStackPointer (addr + uint64 wordBytes)
       value
@@ -155,7 +155,7 @@ type SymbStateAccessor(hdl: BinHandle, state: SymbState) as this =
     | Error e ->
       Error e
     | Ok addr ->
-      match state.Memory.Load(addr, endian, wordType) with
+      match SymbMemoryOperation.load addr endian wordType state.Memory with
       | Ok value ->
         trySetStackPointer (addr + uint64 wordBytes)
         |> Result.map (fun () -> value)

@@ -35,12 +35,6 @@ type ISymbMemory =
   /// Stores a symbolic byte at a concrete address.
   abstract ByteWrite: Addr * SymbExpr -> unit
 
-  /// Loads a symbolic value from concrete addresses.
-  abstract Load: Addr * Endian * RegType -> Result<SymbExpr, SymbEvalError>
-
-  /// Stores a symbolic value at concrete addresses.
-  abstract Store: Addr * SymbExpr * Endian -> unit
-
   /// Returns an independent copy of this memory object.
   abstract Clone: unit -> ISymbMemory
 
@@ -48,8 +42,10 @@ type ISymbMemory =
   /// memory.
   abstract Clear: unit -> unit
 
+/// Provides the multi-byte accesses that every symbolic memory derives from
+/// its single-byte primitives.
 [<RequireQualifiedAccess>]
-module internal SymbMemoryOperation =
+module SymbMemoryOperation =
   let private byteType = 8<rt>
 
   let private concat (lhs: SymbExpr) (rhs: SymbExpr) =
@@ -68,6 +64,8 @@ module internal SymbMemoryOperation =
     | [] -> Error(UnsupportedOperation "Cannot load zero bytes from memory.")
     | byte :: bytes -> List.fold concat byte bytes |> Ok
 
+  /// Loads a symbolic value from concrete addresses.
+  [<CompiledName "Load">]
   let load addr endian typ (mem: ISymbMemory) =
     let len = RegType.toByteWidth typ
     let bytes =
@@ -89,6 +87,8 @@ module internal SymbMemoryOperation =
     | Error e ->
       Error e
 
+  /// Stores a symbolic value at concrete addresses.
+  [<CompiledName "Store">]
   let store addr (value: SymbExpr) endian (mem: ISymbMemory) =
     let len = RegType.toByteWidth value.Type
     for offset = 0 to len - 1 do

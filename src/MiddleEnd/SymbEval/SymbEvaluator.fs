@@ -88,7 +88,7 @@ let private evalStore (st: SymbState) endian addr value =
   match SymbExprTranslator.translate st addr,
         SymbExprTranslator.translate st value with
   | Ok(Const addr), Ok value ->
-    st.Memory.Store(addr.ToUInt64(), value, endian)
+    SymbMemoryOperation.store (addr.ToUInt64()) value endian st.Memory
     Ok()
   | Ok addr, Ok _ ->
     unsupportedSymbolicAddress addr

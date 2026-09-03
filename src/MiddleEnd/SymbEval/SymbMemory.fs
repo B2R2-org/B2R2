@@ -42,12 +42,6 @@ type SymbMemory(mem: IDictionary<Addr, SymbExpr>) =
 
     member _.ByteWrite(addr, value) = mem[addr] <- value
 
-    member this.Load(addr, endian, typ) =
-      SymbMemoryOperation.load addr endian typ this
-
-    member this.Store(addr, value, endian) =
-      SymbMemoryOperation.store addr value endian this
-
     member _.Clone() = SymbMemory(Dictionary<_, _>(mem)) :> ISymbMemory
 
     member _.Clear() = mem.Clear()

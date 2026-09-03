@@ -216,9 +216,12 @@ module SymbExprTranslator =
       bind2 (foldRelOp op) (translate state lhs) (translate state rhs)
     | Load(endian, typ, addr, _) ->
       match translate state addr with
-      | Ok(Const bv) -> state.Memory.Load(bv.ToUInt64(), endian, typ)
-      | Ok addr -> Error(UnsupportedSymbolicAddress addr)
-      | Error e -> Error e
+      | Ok(Const bv) ->
+        SymbMemoryOperation.load (bv.ToUInt64()) endian typ state.Memory
+      | Ok addr ->
+        Error(UnsupportedSymbolicAddress addr)
+      | Error e ->
+        Error e
     | Ite(cond, thenExpr, elseExpr, _) ->
       match translate state cond with
       | Ok(Const bv) when bv.IsTrue ->
