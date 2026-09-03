@@ -15,6 +15,7 @@
     <Compile Include="BackedMemory.fs" />
     <Compile Include="Labels.fs" />
     <Compile Include="StmtLoop.fs" />
+    <Compile Include="LiftCache.fs" />
     <Compile Include="IExecutor.fs" />
   </ItemGroup>
 

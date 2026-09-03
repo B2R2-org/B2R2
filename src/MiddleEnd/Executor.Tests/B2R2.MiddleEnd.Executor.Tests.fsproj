@@ -8,6 +8,7 @@
     <Compile Include="VariablesTests.fs" />
     <Compile Include="MemoryTests.fs" />
     <Compile Include="StmtLoopTests.fs" />
+    <Compile Include="LiftCacheTests.fs" />
   </ItemGroup>
 
   <ItemGroup>

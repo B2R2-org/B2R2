@@ -419,10 +419,6 @@ type private SymbInstructionAction =
   | SkipInstruction of SymbEvaluator.SymbEvalSuccessor list
   | StopBeforeInstruction of SymbRunStopReason
 
-type private SymbLiftedInstruction =
-  { Instruction: IInstruction
-    Stmts: Stmt[] }
-
 /// What one run of the executor carries along: the solver it was given, the
 /// options it was asked for, the answers and counts it accumulates as it goes,
 /// and the states still waiting to be explored.
@@ -434,8 +430,7 @@ type private SymbRunKit =
 
 /// Represents a symbolic executor over SymbEval's evaluation state.
 type SymbExecutor(hdl: BinHandle) =
-  let lifter = hdl.NewLiftingUnit()
-  let liftCache = Dictionary<Addr, Result<SymbLiftedInstruction, ErrorCase>>()
+  let liftCache = LiftCache hdl
   let defaultStateCreationOptions =
     { Memory = BinSectionBackedMemory
       Registers = [||] }
@@ -449,79 +444,6 @@ type SymbExecutor(hdl: BinHandle) =
     let st = createState opts.Memory
     st.InitializeContext(start, opts.Registers)
     st
-
-  let tryParseInstruction addr =
-    if hdl.File.IsValidAddr addr then lifter.TryParseInstruction addr
-    else Error ErrorCase.ParsingFailure
-
-  (* Parsing already accepted the bytes, so a lifter that cannot express this
-     instruction is the one expected failure; naming it keeps a defect in a
-     lifter from being reported as a property of the input, which catching
-     everything did, and under the wrong error case at that. *)
-  let tryLiftInstruction (ins: IInstruction) =
-    try lifter.LiftInstruction ins |> Ok
-    with NotImplementedIRException _ -> Error ErrorCase.NotImplementedIR
-
-  let cacheLiftResult addr result =
-    liftCache[addr] <- result
-    result
-
-  let tryLiftParsedInstruction (ins: IInstruction) =
-    tryLiftInstruction ins
-    |> Result.map (fun stmts -> { Instruction = ins; Stmts = stmts })
-
-  let tryParseAndLiftInstruction addr =
-    match tryParseInstruction addr with
-    | Error e -> Error e
-    | Ok ins -> tryLiftParsedInstruction ins
-
-  let tryGetLiftedInstruction addr =
-    match liftCache.TryGetValue addr with
-    | true, result ->
-      result
-    | false, _ ->
-      tryParseAndLiftInstruction addr
-      |> cacheLiftResult addr
-
-  let advanceAddress addr amount finishAddr =
-    let nextAddr = addr + amount
-    if nextAddr <= addr then finishAddr else nextAddr
-
-  let instructionAlignment () = uint64 lifter.InstructionAlignment
-
-  let rec warmUpLiftCacheRange addr finishAddr =
-    if addr >= finishAddr then
-      ()
-    else
-      match liftCache.TryGetValue addr with
-      | true, Ok lifted ->
-        warmUpLiftCacheRange
-          (advanceAddress addr (uint64 lifted.Instruction.Length) finishAddr)
-          finishAddr
-      | true, Error _ ->
-        warmUpLiftCacheRange
-          (advanceAddress addr (instructionAlignment ()) finishAddr) finishAddr
-      | false, _ ->
-        match tryParseInstruction addr with
-        | Ok ins ->
-          tryLiftParsedInstruction ins
-          |> cacheLiftResult addr
-          |> ignore
-          warmUpLiftCacheRange
-            (advanceAddress addr (uint64 ins.Length) finishAddr) finishAddr
-        | Error e ->
-          Error e
-          |> cacheLiftResult addr
-          |> ignore
-          warmUpLiftCacheRange
-            (advanceAddress addr (instructionAlignment ()) finishAddr)
-            finishAddr
-
-  let warmUpLiftCache (ranges: (Addr * Addr) list) =
-    ranges
-    |> List.iter (fun (startAddr, finishAddr) ->
-      if startAddr >= finishAddr then ()
-      else warmUpLiftCacheRange startAddr finishAddr)
 
   let tryGetDirectTargetAddr (ins: IInstruction) =
     match ins.DirectBranchTarget() with
@@ -549,7 +471,7 @@ type SymbExecutor(hdl: BinHandle) =
     match hdl.ISA with
     | MIPS ->
       let delaySlotAddr = addr + uint64 ins.Length
-      match tryParseInstruction delaySlotAddr with
+      match liftCache.TryParse delaySlotAddr with
       | Ok delaySlot -> delaySlotAddr + uint64 delaySlot.Length
       | Error _ -> delaySlotAddr + uint64 ins.Length
     | _ ->
@@ -843,8 +765,8 @@ type SymbExecutor(hdl: BinHandle) =
 
   let makeStopPoint depth (st: SymbState) =
     let instruction =
-      match tryGetLiftedInstruction st.PC with
-      | Ok lifted -> Some lifted.Instruction
+      match liftCache.TryParse st.PC with
+      | Ok ins -> Some ins
       | Error _ -> None
     { Address = st.PC
       InstructionCount = depth
@@ -912,17 +834,6 @@ type SymbExecutor(hdl: BinHandle) =
     | Ok visits ->
       Ok visits
 
-  let tryGetInstructionStmts addr ins =
-    match liftCache.TryGetValue addr with
-    | true, Ok lifted ->
-      Ok lifted.Stmts
-    | true, Error e ->
-      Error e
-    | false, _ ->
-      tryLiftParsedInstruction ins
-      |> cacheLiftResult addr
-      |> Result.map (fun lifted -> lifted.Stmts)
-
   let whileContinuing _ = function
     | SymbEvaluator.Continue st -> ValueSome st
     | _ -> ValueNone
@@ -942,7 +853,7 @@ type SymbExecutor(hdl: BinHandle) =
     evalStmtsFrom st stmts
 
   let evaluateInstruction (opts: SymbRunOptions) addr (st: SymbState) =
-    match tryParseInstruction addr with
+    match liftCache.TryParse addr with
     | Error _ ->
       Error(SymbRunStopReason.InvalidInstructionAddress addr)
     | Ok ins ->
@@ -952,9 +863,9 @@ type SymbExecutor(hdl: BinHandle) =
       | SkipInstruction successors ->
         Ok(false, successors)
       | EvaluateInstruction ->
-        match tryGetInstructionStmts addr ins with
+        match liftCache.TryLift addr with
         | Error _ -> Error(SymbRunStopReason.InvalidInstructionAddress addr)
-        | Ok stmts -> Ok(true, evalInstr addr st stmts)
+        | Ok lifted -> Ok(true, evalInstr addr st lifted.Stmts)
 
   let tryStopOnRunTimeout stopwatch opts (worklist: Queue<_>) onTimeout () =
     match isRunTimeoutReached stopwatch opts with
@@ -1111,7 +1022,7 @@ type SymbExecutor(hdl: BinHandle) =
         |> List.iter (handleSuccessor kit callerState addr item visits)
 
   let run start (st: SymbState) (opts: SymbRunOptions) =
-    warmUpLiftCache opts.WarmUpRanges
+    liftCache.WarmUp opts.WarmUpRanges
     let worklist = Queue<SymbRunWorkItem>()
     let stopwatch = Stopwatch.StartNew()
     let solver = createSolver opts

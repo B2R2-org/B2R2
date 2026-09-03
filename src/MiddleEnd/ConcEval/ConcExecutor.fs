@@ -42,7 +42,7 @@ type private InstructionEvalResult =
 
 /// Represents a concrete executor over ConcEval's evaluation state.
 type ConcExecutor(hdl: BinHandle) =
-  let lifter = hdl.NewLiftingUnit()
+  let liftCache = LiftCache hdl
   let regFactory = hdl.RegisterFactory
   let wordType = hdl.ISA.WordSize |> WordSize.toRegType
   let endian = hdl.ISA.Endian
@@ -238,18 +238,6 @@ type ConcExecutor(hdl: BinHandle) =
       | EvalOk -> Ok()
       | stop -> Result.Error stop
 
-  let tryParseInstruction addr =
-    if hdl.File.IsValidAddr addr then lifter.TryParseInstruction addr
-    else Result.Error ErrorCase.ParsingFailure
-
-  (* Parsing already accepted the bytes, so a lifter that cannot express this
-     instruction is the one expected failure; naming it keeps a defect in a
-     lifter from being reported as a property of the input, which catching
-     everything did, and under the wrong error case at that. *)
-  let tryLiftInstruction (ins: IInstruction) =
-    try lifter.LiftInstruction ins |> Ok
-    with NotImplementedIRException _ -> Result.Error ErrorCase.NotImplementedIR
-
   let isInstructionLimitReached n (opts: ConcRunOptions) =
     match opts.MaxInstructions with
     | limit when limit > 0 && n >= limit -> Some limit
@@ -310,7 +298,7 @@ type ConcExecutor(hdl: BinHandle) =
     match hdl.ISA with
     | MIPS ->
       let delaySlotAddr = addr + uint64 ins.Length
-      match tryParseInstruction delaySlotAddr with
+      match liftCache.TryParse delaySlotAddr with
       | Ok delaySlot -> delaySlotAddr + uint64 delaySlot.Length
       | Result.Error _ -> delaySlotAddr + uint64 ins.Length
     | _ ->
@@ -403,17 +391,18 @@ type ConcExecutor(hdl: BinHandle) =
       { Address = addr; InstructionCount = n; Instruction = ins; State = st }
     let rec loop n =
       let addr = st.PC
-      let parsed = tryParseInstruction addr
+      let parsed = liftCache.TryParse addr
       let point = mkStopPoint addr n (Result.toOption parsed)
       let reasons = collectPreInstrStopReasons point opts
       match parsed with
       | Result.Error _ ->
         invalidInstr reasons addr n
       | Ok ins ->
-        match tryLiftInstruction ins with
+        match liftCache.TryLift addr with
         | Result.Error _ ->
           invalidInstr reasons addr n
-        | Ok stmts ->
+        | Ok lifted ->
+          let stmts = lifted.Stmts
           let reasons = reasons @ collectInstrStopReasons opts st addr ins stmts
           let postReasons = collectPostInstrStopReasons opts st addr ins stmts
           if List.isEmpty reasons then
