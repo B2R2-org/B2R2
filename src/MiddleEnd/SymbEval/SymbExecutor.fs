@@ -316,34 +316,86 @@ type SymbRunFailure =
   /// A state was pruned before it could reach a target.
   | Pruned of SymbState * SymbPruneReason
 
-/// Represents the answer to a bounded symbolic execution query.
-[<RequireQualifiedAccess>]
+/// Represents the result of a bounded symbolic execution run.
 type SymbRunResult =
+  { /// Answer to the query this run asked.
+    Answer: SymbAnswer
+    /// States that stopped before reaching a target, and why.
+    StopReasons: (SymbState * SymbStopReason) list
+    /// States discarded before further exploration, and why.
+    PruneReasons: (SymbState * SymbPruneReason) list
+    /// Number of states the run put on its worklist.
+    StateCount: int
+    /// Timeout that ended the run, when one did.
+    Timeout: int option }
+with
+  /// Whether one or more states reached the requested target.
+  member this.IsReachable =
+    match this.Answer with
+    | SymbAnswer.Reachable _ -> true
+    | _ -> false
+
+  /// Whether one or more concrete assignments reach the requested target.
+  member this.IsSatisfiable =
+    match this.Answer with
+    | SymbAnswer.Satisfiable _ -> true
+    | _ -> false
+
+  /// Whether the run ran out of the time it was given.
+  member this.IsTimedOut = Option.isSome this.Timeout
+
+  /// Whether the run could settle the query neither way.
+  member this.IsFailed =
+    match this.Answer with
+    | SymbAnswer.Unknown _ -> true
+    | _ -> false
+
+  /// Returns the first reason the query could not be settled, if any.
+  member this.TryGetFailure() =
+    match this.Answer with
+    | SymbAnswer.Unknown(failure :: _) -> Some failure
+    | _ -> None
+
+  /// Positive answers to a reachability query, empty when there are none.
+  member this.ReachabilityAnswers =
+    match this.Answer with
+    | SymbAnswer.Reachable answers -> answers
+    | _ -> []
+
+  /// Concrete-input answers to a satisfiability query, empty when there are
+  /// none.
+  member this.SatisfiabilityAnswers =
+    match this.Answer with
+    | SymbAnswer.Satisfiable answers -> answers
+    | _ -> []
+
+  /// Returns the first satisfiability answer, if any.
+  member this.TryGetSatisfiabilityAnswer() =
+    List.tryHead this.SatisfiabilityAnswers
+
+  /// Returns the first satisfiability answer, or raises when there is none.
+  member this.GetSatisfiabilityAnswer() =
+    match this.TryGetSatisfiabilityAnswer() with
+    | Some answer ->
+      answer
+    | None ->
+      raise
+        (System.InvalidOperationException
+          $"Satisfiability answer is unavailable: {this.Answer}.")
+
+/// Represents the answer to a bounded symbolic execution query.
+and [<RequireQualifiedAccess>] SymbAnswer =
   /// One or more states reached the requested target.
-  | Reachable of SymbReachabilityAnswer list
+  | Reachable of answers: SymbReachabilityAnswer list
   /// No state reached the requested target in the explored state space.
   | Unreachable
   /// One or more concrete assignments satisfy the requested target.
-  | Satisfiable of SymbSatisfiabilityAnswer list
+  | Satisfiable of answers: SymbSatisfiabilityAnswer list
   /// No concrete assignment satisfies the requested target.
   | Unsatisfiable
-  /// Execution could not prove satisfiability or unsatisfiability.
-  | Unknown of SymbRunFailure list
-  /// Execution timed out and produced the given partial result.
-  | TimedOut of timeout: int * result: SymbRunResult
-with
-  /// Returns the first satisfiability answer, or raises when unavailable.
-  member this.GetSatisfiabilityAnswer() =
-    let rec loop = function
-      | SymbRunResult.Satisfiable(answer :: _) ->
-        answer
-      | SymbRunResult.TimedOut(_, result) ->
-        loop result
-      | result ->
-        raise
-          (System.InvalidOperationException
-            $"Satisfiability answer is unavailable: {result}.")
-    loop this
+  /// The run could prove neither that a target is out of reach nor that it is
+  /// reachable, for the reasons it carries.
+  | Unknown of failures: SymbRunFailure list
 
 type private SymbRunWorkItem =
   { State: SymbState
@@ -650,34 +702,34 @@ type SymbExecutor(hdl: BinHandle) =
       |> List.map SymbRunFailure.Pruned
     match stoppedFailures @ prunedFailures with
     | [] -> None
-    | failures -> Some(SymbRunResult.Unknown(List.rev failures))
+    | failures -> Some(SymbAnswer.Unknown(List.rev failures))
 
-  let finishReachabilityRun answers stopped pruned =
+  let answerReachability answers stopped pruned =
     match List.rev answers with
     | _ :: _ as answers ->
-      SymbRunResult.Reachable answers
+      SymbAnswer.Reachable answers
     | [] ->
       match makeUnknown stopped pruned with
-      | Some result -> result
-      | None -> SymbRunResult.Unreachable
+      | Some answer -> answer
+      | None -> SymbAnswer.Unreachable
 
-  let finishSatisfiabilityRun answers stopped pruned =
+  let answerSatisfiability answers stopped pruned =
     match List.rev answers with
     | _ :: _ as answers ->
-      SymbRunResult.Satisfiable answers
+      SymbAnswer.Satisfiable answers
     | [] ->
       match makeUnknown stopped pruned with
-      | Some result -> result
-      | None -> SymbRunResult.Unsatisfiable
+      | Some answer -> answer
+      | None -> SymbAnswer.Unsatisfiable
 
-  let finishRun (opts: SymbRunOptions) reachAnswers satAnswers stopped pruned =
+  let makeAnswer (opts: SymbRunOptions) reachAnswers satAnswers stopped pruned =
     match opts.Query with
     | SymbQuery.ReachAddress _
     | SymbQuery.ReachWhen _ ->
-      finishReachabilityRun reachAnswers stopped pruned
+      answerReachability reachAnswers stopped pruned
     | SymbQuery.SatisfyAddress _
     | SymbQuery.SatisfyWhen _ ->
-      finishSatisfiabilityRun satAnswers stopped pruned
+      answerSatisfiability satAnswers stopped pruned
 
   let solveReachabilityQuery (solver: SymbSolverRunner option) addr pathCond =
     match solver, pathCond with
@@ -996,15 +1048,17 @@ type SymbExecutor(hdl: BinHandle) =
       |> tryStopOnDepthLimit opts handleFailure
       |> tryStopOnLoopLimit opts handleFailure
       |> handleInstruction kit st
-    let result =
-      finishRun opts
-                ctx.ReachAnswers
-                ctx.SatAnswers
-                ctx.StoppedStates
-                ctx.PrunedStates
-    match ctx.RunTimeout with
-    | Some timeout -> SymbRunResult.TimedOut(timeout, result)
-    | None -> result
+    let answer =
+      makeAnswer opts
+                 ctx.ReachAnswers
+                 ctx.SatAnswers
+                 ctx.StoppedStates
+                 ctx.PrunedStates
+    { Answer = answer
+      StopReasons = List.rev ctx.StoppedStates
+      PruneReasons = List.rev ctx.PrunedStates
+      StateCount = ctx.GeneratedStates
+      Timeout = ctx.RunTimeout }
 
   member _.CreateState() = initializeState 0UL defaultStateCreationOptions
 

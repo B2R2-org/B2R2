@@ -55,12 +55,10 @@ type SymbExecutorTests() =
     let hook (ctx: CallContext) (st: SymbState) =
       seen.Add ctx.ArgumentRegisters
       Ok [ st ]
-    match runHookedCall hdl hook with
-    | SymbRunResult.Reachable _ ->
-      Assert.AreEqual<int>(1, seen.Count)
-      Assert.AreEqual<int>(0, Array.length seen[0])
-    | result ->
-      Assert.Fail $"The hooked call did not reach the return address: {result}."
+    let result = runHookedCall hdl hook
+    Assert.AreEqual<bool>(true, result.IsReachable)
+    Assert.AreEqual<int>(1, seen.Count)
+    Assert.AreEqual<int>(0, Array.length seen[0])
 
   [<TestMethod>]
   [<Timeout(10000)>]
@@ -70,9 +68,7 @@ type SymbExecutorTests() =
     let hook (ctx: CallContext) (st: SymbState) =
       seen.Add ctx.ArgumentRegisters
       Ok [ st ]
-    match runHookedCall hdl hook with
-    | SymbRunResult.Reachable _ ->
-      Assert.AreEqual<int>(1, seen.Count)
-      Assert.AreEqual<int>(6, Array.length seen[0])
-    | result ->
-      Assert.Fail $"The hooked call did not reach the return address: {result}."
+    let result = runHookedCall hdl hook
+    Assert.AreEqual<bool>(true, result.IsReachable)
+    Assert.AreEqual<int>(1, seen.Count)
+    Assert.AreEqual<int>(6, Array.length seen[0])
