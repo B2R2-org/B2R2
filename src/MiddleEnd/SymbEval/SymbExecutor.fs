@@ -281,11 +281,11 @@ type SymbRunStopReason =
   /// Exploration reached the configured maximum expanded-state count.
   | StateLimitReached of limit: int
   /// No instruction could be fetched or lifted at the given address.
-  | InvalidInstructionStopped of addr: Addr
+  | InvalidInstructionAddress of addr: Addr
   /// Evaluation reached a LowUIR statement with architectural side effects.
-  | SideEffectStopped of addr: Addr * sideEffect: SideEffect
+  | StoppedAtSideEffect of addr: Addr * sideEffect: SideEffect
   /// Evaluation failed while executing the instruction at the given address.
-  | EvaluationFailed of addr: Addr * error: SymbEvalError
+  | EvaluationError of addr: Addr * error: SymbEvalError
   /// A query needed a solver, but none was available.
   | MissingSolverForQuery of addr: Addr
   /// Solver query failed at a matching state.
@@ -763,9 +763,9 @@ type SymbExecutor(hdl: BinHandle) =
     | SymbRunStopReason.StoppedAtCall _
     | SymbRunStopReason.DepthLimitReached _
     | SymbRunStopReason.StateLimitReached _
-    | SymbRunStopReason.InvalidInstructionStopped _
-    | SymbRunStopReason.SideEffectStopped _
-    | SymbRunStopReason.EvaluationFailed _
+    | SymbRunStopReason.InvalidInstructionAddress _
+    | SymbRunStopReason.StoppedAtSideEffect _
+    | SymbRunStopReason.EvaluationError _
     | SymbRunStopReason.MissingSolverForQuery _
     | SymbRunStopReason.SolverQueryFailed _
     | SymbRunStopReason.RunTimeoutReached _ -> true
@@ -961,7 +961,7 @@ type SymbExecutor(hdl: BinHandle) =
   let evaluateInstruction (opts: SymbRunOptions) addr (st: SymbState) =
     match tryParseInstruction addr with
     | Error _ ->
-      Error(SymbRunStopReason.InvalidInstructionStopped addr)
+      Error(SymbRunStopReason.InvalidInstructionAddress addr)
     | Ok ins ->
       match handleCallInstruction addr ins opts st with
       | StopBeforeInstruction reason ->
@@ -970,7 +970,7 @@ type SymbExecutor(hdl: BinHandle) =
         Ok(false, successors)
       | EvaluateInstruction ->
         match tryGetInstructionStmts addr ins with
-        | Error _ -> Error(SymbRunStopReason.InvalidInstructionStopped addr)
+        | Error _ -> Error(SymbRunStopReason.InvalidInstructionAddress addr)
         | Ok stmts -> Ok(true, evalInstr addr st stmts)
 
   let tryStopOnRunTimeout stopwatch opts (worklist: Queue<_>) onTimeout () =
@@ -1103,10 +1103,10 @@ type SymbExecutor(hdl: BinHandle) =
       enqueueState kit condLen depth visits trueState
       enqueueState kit condLen depth visits falseState
     | SymbEvaluator.Stopped(st, SymbEvaluator.SideEffectStop eff) ->
-      let reason = SymbRunStopReason.SideEffectStopped(addr, eff)
+      let reason = SymbRunStopReason.StoppedAtSideEffect(addr, eff)
       (kit: SymbRunKit).Ctx.AddStopped st reason
     | SymbEvaluator.EvalError e ->
-      let reason = SymbRunStopReason.EvaluationFailed(addr, e)
+      let reason = SymbRunStopReason.EvaluationError(addr, e)
       kit.Ctx.AddStopped callerState reason
 
   /// One instruction taken off the worklist: evaluate it and route each
