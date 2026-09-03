@@ -26,47 +26,11 @@ namespace B2R2.MiddleEnd.SymbEval
 
 open B2R2
 open B2R2.BinIR
-
-/// Represents the calling-convention information passed to a call hook.
-type SymbCallContext =
-  { /// Address of the call instruction.
-    CallSite: Addr
-    /// Concrete target address selected for hook dispatch.
-    Target: Addr
-    /// Fall-through address after the call instruction.
-    ReturnAddress: Addr
-    /// Word type for the current binary.
-    WordType: RegType
-    /// Endian used by the current binary.
-    Endian: Endian
-    /// Register IDs for the first calling-convention arguments.
-    ArgumentRegisters: RegisterID[]
-    /// Register ID used for the function return value.
-    ReturnRegister: RegisterID }
+open B2R2.MiddleEnd.Executor
 
 /// Represents a symbolic external-call hook.
 type SymbCallHook =
-  SymbCallContext -> SymbState -> Result<SymbState list, SymbEvalError>
-
-/// Represents a target-address-based call hook registry.
-type SymbCallHookRegistry(hooks: Map<Addr, SymbCallHook>) =
-  /// Creates an empty call hook registry.
-  new() = SymbCallHookRegistry Map.empty
-
-  /// Creates a call hook registry from target-hook pairs.
-  new(hooks: seq<Addr * SymbCallHook>) = SymbCallHookRegistry(Map.ofSeq hooks)
-
-  /// Registers a hook for a concrete target address.
-  member _.Register(target, hook) =
-    SymbCallHookRegistry(Map.add target hook hooks)
-
-  /// Registers hooks for concrete target addresses.
-  member this.RegisterMany(hooks: seq<Addr * SymbCallHook>) =
-    Seq.fold (fun (registry: SymbCallHookRegistry) (target, hook) ->
-      registry.Register(target, hook)) this hooks
-
-  /// Finds a hook for a concrete target address.
-  member _.TryFind target = Map.tryFind target hooks
+  CallContext -> SymbState -> Result<SymbState list, SymbEvalError>
 
 /// Built-in symbolic call hook models.
 module SymbCallHooks =
@@ -96,12 +60,12 @@ module SymbCallHooks =
     if isConcreteZero byte then ()
     else st.AddPathCondition(SymbExpr.relop RelOpType.EQ byte byteZero)
 
-  let private setReturn (ctx: SymbCallContext) length (st: SymbState) =
+  let private setReturn (ctx: CallContext) length (st: SymbState) =
     st.SetReg(ctx.ReturnRegister, wordConst ctx.WordType length)
     st.PC <- ctx.ReturnAddress
     st
 
-  let private getArgument (ctx: SymbCallContext) (st: SymbState) =
+  let private getArgument (ctx: CallContext) (st: SymbState) =
     match st.TryGetReg ctx.ArgumentRegisters[0] with
     | ValueSome expr -> concreteAddr expr
     | ValueNone -> Error(UninitializedRegister ctx.ArgumentRegisters[0])
@@ -143,7 +107,7 @@ module SymbCallHooks =
 
   /// Default maximum symbolic C-string payload size.
   /// Models strlen by generating possible null-terminator positions.
-  let strlenBounded maxScan (ctx: SymbCallContext) (st: SymbState) =
+  let strlenBounded maxScan (ctx: CallContext) (st: SymbState) =
     if maxScan < 0 then
       Error(UnsupportedOperation "Negative strlen bound.")
     elif Array.isEmpty ctx.ArgumentRegisters then

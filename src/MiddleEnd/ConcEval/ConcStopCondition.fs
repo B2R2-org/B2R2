@@ -27,9 +27,18 @@ namespace B2R2.MiddleEnd.ConcEval
 open B2R2
 open B2R2.MiddleEnd.Executor
 
-/// Represents a concrete external-call hook. A hook stands in for the call it
-/// is registered against, updating the given state in place, and explains
-/// itself in the Error case when it cannot model the call. The executor pushes
-/// the return address before the hook runs and pops it afterwards, so a hook
-/// sees the frame the callee would have seen and must leave the stack balanced.
-type ConcCallHook = CallContext -> EvalState -> Result<unit, string>
+/// Represents a concrete execution stop condition.
+[<RequireQualifiedAccess>]
+type ConcStopCondition =
+  /// Stop before executing the instruction at the given address.
+  | StopAtAddress of addr: Addr
+  /// Stop after executing the instruction at the given address.
+  | StopAfterAddress of addr: Addr
+  /// Stop when a function return is observed.
+  | StopAtReturn
+  /// Stop after executing a function return.
+  | StopAfterReturn
+  /// Stop when a side-effect statement is observed.
+  | StopAtSideEffect
+  /// Stop when a user-provided predicate holds.
+  | StopWhen of predicate: StopPredicate<EvalState>

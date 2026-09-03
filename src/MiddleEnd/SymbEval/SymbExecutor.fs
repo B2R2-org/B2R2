@@ -66,19 +66,10 @@ type SymbSolver =
   | CustomSolver of solver: ISolver
 
 /// Represents how the symbolic executor should handle call instructions.
-[<RequireQualifiedAccess>]
-type SymbCallPolicy =
-  /// Stop before evaluating any call instruction.
-  | StopAtCalls
-  /// Follow direct calls whose target belongs to the current binary.
-  | FollowDirectInternalCalls
-  /// Dispatch matching call hooks, and follow direct internal calls otherwise.
-  | UseCallHooks of hooks: SymbCallHookRegistry
-
 /// Represents options for bounded symbolic execution.
 type SymbRunOptions =
   { /// Call-handling policy.
-    Calls: SymbCallPolicy
+    Calls: CallPolicy<SymbCallHook>
     /// Query to answer.
     Query: SymbQuery
     /// Symbolic values to extract for satisfiability queries.
@@ -104,7 +95,7 @@ type SymbRunOptions =
     WarmUpRanges: (Addr * Addr) list }
 with
   static member Default(query: SymbQuery, solver: SymbSolver) =
-    { Calls = SymbCallPolicy.FollowDirectInternalCalls
+    { Calls = CallPolicy.FollowDirectInternalCalls
       Query = query
       QueryValues = (QueryExpr.Empty :> IQueryExpr)
       Avoid = AvoidAddresses Set.empty
@@ -222,35 +213,35 @@ with
   member opts.AddAvoidState predicate = opts.AddAvoid(AvoidState predicate)
 
   /// Stops before evaluating call instructions.
-  member opts.StopAtCalls() = { opts with Calls = SymbCallPolicy.StopAtCalls }
+  member opts.StopAtCalls() = { opts with Calls = CallPolicy.StopAtCalls }
 
   /// Follows direct internal calls without using external-call hooks.
   member opts.FollowDirectInternalCalls() =
-    { opts with Calls = SymbCallPolicy.FollowDirectInternalCalls }
+    { opts with Calls = CallPolicy.FollowDirectInternalCalls }
 
   /// Uses a prepared call hook registry for external-call dispatch.
   member opts.WithCallHooks hooks =
-    { opts with Calls = SymbCallPolicy.UseCallHooks hooks }
+    { opts with Calls = CallPolicy.UseCallHooks hooks }
 
   /// Registers a call hook and enables hook-based call handling.
   member opts.RegisterCallHook(target, hook) =
     let hooks =
       match opts.Calls with
-      | SymbCallPolicy.UseCallHooks hooks -> hooks
-      | SymbCallPolicy.StopAtCalls
-      | SymbCallPolicy.FollowDirectInternalCalls -> SymbCallHookRegistry()
+      | CallPolicy.UseCallHooks hooks -> hooks
+      | CallPolicy.StopAtCalls
+      | CallPolicy.FollowDirectInternalCalls -> CallHookRegistry()
     { opts with
-        Calls = SymbCallPolicy.UseCallHooks(hooks.Register(target, hook)) }
+        Calls = CallPolicy.UseCallHooks(hooks.Register(target, hook)) }
 
   /// Registers call hooks and enables hook-based call handling.
   member opts.RegisterCallHooks hooks =
     let registry =
       match opts.Calls with
-      | SymbCallPolicy.UseCallHooks registry -> registry
-      | SymbCallPolicy.StopAtCalls
-      | SymbCallPolicy.FollowDirectInternalCalls -> SymbCallHookRegistry()
+      | CallPolicy.UseCallHooks registry -> registry
+      | CallPolicy.StopAtCalls
+      | CallPolicy.FollowDirectInternalCalls -> CallHookRegistry()
     { opts with
-        Calls = SymbCallPolicy.UseCallHooks(registry.RegisterMany hooks) }
+        Calls = CallPolicy.UseCallHooks(registry.RegisterMany hooks) }
 
   /// Uses the given solver backend.
   member opts.WithSolver solver = { opts with Solver = solver }
@@ -632,9 +623,9 @@ type SymbExecutor(hdl: BinHandle) =
     else
       let target = tryGetCallTargetAddr ins st
       match opts.Calls with
-      | SymbCallPolicy.StopAtCalls ->
+      | CallPolicy.StopAtCalls ->
         StopBeforeInstruction(SymbRunStopReason.StoppedAtCall(addr, target))
-      | SymbCallPolicy.FollowDirectInternalCalls ->
+      | CallPolicy.FollowDirectInternalCalls ->
         match target with
         | Some target when isInternalTarget target ->
           EvaluateInstruction
@@ -643,7 +634,7 @@ type SymbExecutor(hdl: BinHandle) =
           SymbEvaluator.EvalError(UnsupportedOperation msg)
           |> List.singleton
           |> SkipInstruction
-      | SymbCallPolicy.UseCallHooks hooks ->
+      | CallPolicy.UseCallHooks hooks ->
         match target with
         | Some target ->
           match hooks.TryFind target with

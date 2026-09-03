@@ -33,74 +33,6 @@ open B2R2.FrontEnd
 open B2R2.FrontEnd.BinLifter
 open B2R2.MiddleEnd.Executor
 
-/// Represents a concrete execution stop condition.
-[<RequireQualifiedAccess>]
-type ConcStopCondition =
-  /// Stop before executing the instruction at the given address.
-  | StopAtAddress of addr: Addr
-  /// Stop after executing the instruction at the given address.
-  | StopAfterAddress of addr: Addr
-  /// Stop when a function return is observed.
-  | StopAtReturn
-  /// Stop after executing a function return.
-  | StopAfterReturn
-  /// Stop when a side-effect statement is observed.
-  | StopAtSideEffect
-  /// Stop when a user-provided predicate holds.
-  | StopWhen of predicate: StopPredicate<EvalState>
-
-/// Represents the reason why concrete execution stopped.
-[<RequireQualifiedAccess>]
-type ConcStopReason =
-  /// Execution reached an address requested by a stop condition.
-  | StoppedAtAddress of addr: Addr
-  /// Execution completed an instruction at the requested address.
-  | StoppedAfterAddress of addr: Addr
-  /// Execution reached a function return.
-  | StoppedAtReturn of addr: Addr
-  /// Execution completed a function return.
-  | StoppedAfterReturn of addr: Addr
-  /// Execution reached a call instruction. The target may be unknown.
-  | StoppedAtCall of callSite: Addr * target: Addr option
-  /// Execution reached a side-effect statement.
-  | StoppedAtSideEffect of addr: Addr * sideEffect: SideEffect
-  /// Execution stopped because an undefined value was observed.
-  | UndefinedValue of addr: Addr
-  /// Execution reached the configured instruction limit.
-  | InstructionLimitReached of addr: Addr * limit: int
-  /// Evaluation failed with a B2R2 error case.
-  | EvaluationError of addr: Addr * error: ErrorCase
-  /// A user-defined stop predicate requested termination.
-  | UserStopConditionMet of addr: Addr
-  /// No instruction could be fetched or lifted at the given address.
-  | InvalidInstructionAddress of addr: Addr
-  /// A call could not be handled under the configured call policy. The target
-  /// is absent when the call is indirect.
-  | CallHandlingFailure of callSite: Addr * target: Addr option * reason: string
-with
-  /// Whether execution stopped because it could not go on, as opposed to
-  /// stopping where it was asked to.
-  member this.IsFailure =
-    match this with
-    | ConcStopReason.UndefinedValue _
-    | ConcStopReason.EvaluationError _
-    | ConcStopReason.InvalidInstructionAddress _
-    | ConcStopReason.CallHandlingFailure _ -> true
-    | _ -> false
-
-/// Represents how the concrete executor should handle call instructions.
-[<RequireQualifiedAccess>]
-type ConcCallPolicy =
-  /// Stop when any call instruction is observed.
-  | StopAtCalls
-  /// Follow calls, but reject a direct call whose target lies outside the
-  /// current binary. An indirect call is followed wherever its concrete target
-  /// leads, since only the direct target is known before the call runs.
-  | FollowDirectInternalCalls
-  /// Dispatch a registered hook in place of a call to a matching target, and
-  /// follow a call to an unhooked internal target.
-  | UseCallHooks of hooks: ConcCallHookRegistry
-
 /// Represents how concrete execution should handle undefined values.
 [<RequireQualifiedAccess>]
 type ConcUndefinedValuePolicy =
@@ -131,7 +63,7 @@ type ConcUninitializedRegisterPolicy =
 /// Represents concrete execution configuration.
 type ConcRunOptions =
   { /// Call-handling policy.
-    Calls: ConcCallPolicy
+    Calls: CallPolicy<ConcCallHook>
     /// Undefined-value handling policy.
     UndefinedValues: ConcUndefinedValuePolicy
     /// Uninitialized register read handling policy.
@@ -142,7 +74,7 @@ type ConcRunOptions =
     StopConditions: ConcStopCondition list }
 with
   static member Default(stopConditions: ConcStopCondition list) =
-    { Calls = ConcCallPolicy.FollowDirectInternalCalls
+    { Calls = CallPolicy.FollowDirectInternalCalls
       UndefinedValues = ConcUndefinedValuePolicy.IgnoreUndefinedWrites
       UninitializedRegisters = ConcUninitializedRegisterPolicy.ZeroCallerContext
       MaxInstructions = 50000
@@ -155,9 +87,9 @@ with
 
   static member private HookRegistry calls =
     match calls with
-    | ConcCallPolicy.UseCallHooks hooks -> hooks
-    | ConcCallPolicy.StopAtCalls
-    | ConcCallPolicy.FollowDirectInternalCalls -> ConcCallHookRegistry()
+    | CallPolicy.UseCallHooks hooks -> hooks
+    | CallPolicy.StopAtCalls
+    | CallPolicy.FollowDirectInternalCalls -> CallHookRegistry()
 
   /// Uses the given maximum machine instruction count.
   member opts.WithMaxInstructions count =
@@ -165,27 +97,27 @@ with
 
   /// Stops before evaluating call instructions.
   member opts.StopAtCalls() =
-    { opts with Calls = ConcCallPolicy.StopAtCalls }
+    { opts with Calls = CallPolicy.StopAtCalls }
 
   /// Follows direct internal calls without using external-call hooks.
   member opts.FollowDirectInternalCalls() =
-    { opts with Calls = ConcCallPolicy.FollowDirectInternalCalls }
+    { opts with Calls = CallPolicy.FollowDirectInternalCalls }
 
   /// Uses a prepared call hook registry for external-call dispatch.
   member opts.WithCallHooks hooks =
-    { opts with Calls = ConcCallPolicy.UseCallHooks hooks }
+    { opts with Calls = CallPolicy.UseCallHooks hooks }
 
   /// Registers a call hook and enables hook-based call handling.
   member opts.RegisterCallHook(target, hook) =
     let hooks = ConcRunOptions.HookRegistry opts.Calls
     { opts with
-        Calls = ConcCallPolicy.UseCallHooks(hooks.Register(target, hook)) }
+        Calls = CallPolicy.UseCallHooks(hooks.Register(target, hook)) }
 
   /// Registers call hooks and enables hook-based call handling.
   member opts.RegisterCallHooks hooks =
     let registry = ConcRunOptions.HookRegistry opts.Calls
     { opts with
-        Calls = ConcCallPolicy.UseCallHooks(registry.RegisterMany hooks) }
+        Calls = CallPolicy.UseCallHooks(registry.RegisterMany hooks) }
 
   /// Treats undefined values as evaluation failures.
   member opts.StopOnUndefinedValue() =
@@ -486,9 +418,9 @@ type ConcExecutor(hdl: BinHandle) =
   let stopAtCall (opts: ConcRunOptions) (ins: IInstruction) =
     ins.IsCall
     && match opts.Calls with
-       | ConcCallPolicy.StopAtCalls -> true
-       | ConcCallPolicy.FollowDirectInternalCalls -> false
-       | ConcCallPolicy.UseCallHooks _ -> false
+       | CallPolicy.StopAtCalls -> true
+       | CallPolicy.FollowDirectInternalCalls -> false
+       | CallPolicy.UseCallHooks _ -> false
 
   (* A register or temporary with no entry reads back as Undef, so unsetting
      the target is all it takes to record that it now holds an undefined value.
@@ -612,17 +544,17 @@ type ConcExecutor(hdl: BinHandle) =
       ArgumentRegisters = argumentRegisters
       ReturnRegister = cc.IntReturnRegister }
 
-  let callFailure (ctx: ConcCallContext) msg =
+  let callFailure (ctx: CallContext) msg =
     ConcStopReason.CallHandlingFailure(ctx.CallSite, Some ctx.Target, msg)
     |> Result.Error
 
-  let pushReturnAddress (ctx: ConcCallContext) (st: EvalState) =
+  let pushReturnAddress (ctx: CallContext) (st: EvalState) =
     let accessor = ConcStateAccessor(hdl, st)
     match accessor.TryPushToStack(accessor.WordValue ctx.ReturnAddress) with
     | Ok _ -> Ok()
     | Result.Error e -> callFailure ctx $"Cannot push a return address: {e}."
 
-  let finishHook (ctx: ConcCallContext) (st: EvalState) =
+  let finishHook (ctx: CallContext) (st: EvalState) =
     match ConcStateAccessor(hdl, st).TryPopFromStack() with
     | Ok v ->
       let retAddr = v.ToUInt64()
@@ -634,7 +566,7 @@ type ConcExecutor(hdl: BinHandle) =
     | Result.Error e ->
       callFailure ctx $"A hook left the stack unbalanced: {e}."
 
-  let dispatchCallHook (ctx: ConcCallContext) hook (st: EvalState) =
+  let dispatchCallHook (ctx: CallContext) hook (st: EvalState) =
     match pushReturnAddress ctx st with
     | Result.Error reason ->
       Result.Error reason
@@ -656,11 +588,11 @@ type ConcExecutor(hdl: BinHandle) =
     else
       let target = tryGetDirectTarget ins
       match opts.Calls, target with
-      | ConcCallPolicy.FollowDirectInternalCalls, Some t
+      | CallPolicy.FollowDirectInternalCalls, Some t
         when isExternalTarget t ->
         let msg = $"A direct call targets {t:x}, outside the binary."
         callHandlingFailure addr target msg
-      | ConcCallPolicy.UseCallHooks hooks, Some t ->
+      | CallPolicy.UseCallHooks hooks, Some t ->
         match hooks.TryFind t with
         | Some hook ->
           let ctx = mkCallContext addr t (getCallFallThroughAddr addr ins)
@@ -670,7 +602,7 @@ type ConcExecutor(hdl: BinHandle) =
         | None ->
           let msg = $"No call hook is registered for {t:x}."
           callHandlingFailure addr target msg
-      | ConcCallPolicy.UseCallHooks _, None ->
+      | CallPolicy.UseCallHooks _, None ->
         let msg = "Cannot dispatch a call hook without a direct target."
         callHandlingFailure addr None msg
       | _ ->

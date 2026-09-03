@@ -181,7 +181,7 @@ type ConcExecutorTests() =
     let exec = ConcExecutor hdl
     let st = exec.CreateState()
     ConcStateAccessor(hdl, st).InitializeDefaultStack()
-    let hook (ctx: ConcCallContext) (st: EvalState) =
+    let hook (ctx: CallContext) (st: EvalState) =
       st.SetReg(ctx.ReturnRegister, BitVector(0x2aUL, ctx.WordType))
       Ok()
     let opts =
@@ -200,7 +200,7 @@ type ConcExecutorTests() =
     let hdl = loadRawImage externalCall Architecture.Intel WordSize.Bit64
     let exec = ConcExecutor hdl
     let st = exec.CreateState()
-    let opts = ConcRunOptions.Default().WithCallHooks(ConcCallHookRegistry())
+    let opts = ConcRunOptions.Default().WithCallHooks(CallHookRegistry())
     let res = exec.Run(0UL, st, opts)
     match res.StopReasons with
     | [ ConcStopReason.CallHandlingFailure(callSite, target, _) ] ->
@@ -229,7 +229,7 @@ type ConcExecutorTests() =
     let st = exec.CreateState()
     ConcStateAccessor(hdl, st).InitializeDefaultStack()
     let seen = ResizeArray<Addr>()
-    let hook (ctx: ConcCallContext) (_: EvalState) =
+    let hook (ctx: CallContext) (_: EvalState) =
       seen.Add ctx.ReturnAddress
       Ok()
     let opts =
@@ -241,12 +241,12 @@ type ConcExecutorTests() =
 
   [<TestMethod>]
   member _.``Fluent options build what a record update builds``() =
-    let hooks = ConcCallHookRegistry()
+    let hooks = CallHookRegistry()
     let zeroAny = ConcUninitializedRegisterPolicy.ZeroAnyRegister
     let expected =
       { ConcRunOptions.Default [] with
           MaxInstructions = 3
-          Calls = ConcCallPolicy.UseCallHooks hooks
+          Calls = CallPolicy.UseCallHooks hooks
           UndefinedValues = ConcUndefinedValuePolicy.StopOnUndefinedValue
           UninitializedRegisters = zeroAny }
     let actual =
@@ -270,10 +270,10 @@ type ConcExecutorTests() =
 
   [<TestMethod>]
   member _.``Registering a hook enables hook-based call handling``() =
-    let hook (_: ConcCallContext) (_: EvalState) = Ok()
+    let hook (_: CallContext) (_: EvalState) = Ok()
     let opts = ConcRunOptions.Default().RegisterCallHook(0x6UL, hook)
     match opts.Calls with
-    | ConcCallPolicy.UseCallHooks hooks ->
+    | CallPolicy.UseCallHooks hooks ->
       Assert.AreEqual<bool>(true, (hooks.TryFind 0x6UL).IsSome)
     | policy ->
       Assert.Fail $"Unexpected call policy: {policy}"
@@ -321,11 +321,11 @@ type ConcExecutorTests() =
   [<TestMethod>]
   member _.``Every call policy setter selects the policy it names``() =
     let opts = ConcRunOptions.Default()
-    let follow = ConcCallPolicy.FollowDirectInternalCalls
-    Assert.AreEqual<ConcCallPolicy>(ConcCallPolicy.StopAtCalls,
-                                    opts.StopAtCalls().Calls)
-    Assert.AreEqual<ConcCallPolicy>(follow,
-                                    opts.FollowDirectInternalCalls().Calls)
+    let assertPolicy expected (opts: ConcRunOptions) =
+      Assert.AreEqual<CallPolicy<ConcCallHook>>(expected, opts.Calls)
+    assertPolicy CallPolicy.StopAtCalls (opts.StopAtCalls())
+    assertPolicy CallPolicy.FollowDirectInternalCalls
+                 (opts.FollowDirectInternalCalls())
 
   [<TestMethod>]
   member _.``Every undefined value setter selects the policy it names``() =
@@ -380,11 +380,11 @@ type ConcExecutorTests() =
 
   [<TestMethod>]
   member _.``Registering many hooks enables hook-based call handling``() =
-    let hook (_: ConcCallContext) (_: EvalState) = Ok()
+    let hook (_: CallContext) (_: EvalState) = Ok()
     let opts =
       ConcRunOptions.Default().RegisterCallHooks [ 0x6UL, hook; 0x8UL, hook ]
     match opts.Calls with
-    | ConcCallPolicy.UseCallHooks hooks ->
+    | CallPolicy.UseCallHooks hooks ->
       Assert.AreEqual<bool>(true, (hooks.TryFind 0x8UL).IsSome)
     | policy ->
       Assert.Fail $"Unexpected call policy: {policy}"

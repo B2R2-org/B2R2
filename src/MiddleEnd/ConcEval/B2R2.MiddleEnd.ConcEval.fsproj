@@ -18,6 +18,8 @@
     <Compile Include="Evaluator.fs" />
     <Compile Include="ConcStateAccessor.fs" />
     <Compile Include="ConcCallHook.fs" />
+    <Compile Include="ConcStopCondition.fs" />
+    <Compile Include="ConcStopReason.fs" />
     <Compile Include="ConcExecutor.fs" />
   </ItemGroup>
 

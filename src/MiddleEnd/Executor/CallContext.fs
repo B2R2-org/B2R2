@@ -22,14 +22,24 @@
   SOFTWARE.
 *)
 
-namespace B2R2.MiddleEnd.ConcEval
+namespace B2R2.MiddleEnd.Executor
 
 open B2R2
-open B2R2.MiddleEnd.Executor
 
-/// Represents a concrete external-call hook. A hook stands in for the call it
-/// is registered against, updating the given state in place, and explains
-/// itself in the Error case when it cannot model the call. The executor pushes
-/// the return address before the hook runs and pops it afterwards, so a hook
-/// sees the frame the callee would have seen and must leave the stack balanced.
-type ConcCallHook = CallContext -> EvalState -> Result<unit, string>
+/// Represents the calling-convention information passed to a call hook.
+type CallContext =
+  { /// Address of the call instruction.
+    CallSite: Addr
+    /// Concrete target address selected for hook dispatch.
+    Target: Addr
+    /// Fall-through address after the call instruction.
+    ReturnAddress: Addr
+    /// Word type for the current binary.
+    WordType: RegType
+    /// Endian used by the current binary.
+    Endian: Endian
+    /// Register IDs for the first calling-convention arguments. Empty when the
+    /// ABI passes every integer argument on the stack.
+    ArgumentRegisters: RegisterID[]
+    /// Register ID used for the function return value.
+    ReturnRegister: RegisterID }
