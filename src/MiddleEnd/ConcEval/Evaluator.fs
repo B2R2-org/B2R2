@@ -72,7 +72,7 @@ let rec evalExpr (st: EvalState) e =
 and private evalLoad st endian t addr =
   let bv = evalExpr st addr
   let addr = bv.ToUInt64()
-  match st.Memory.Read(addr, endian, t) with
+  match Memory.read addr endian t st.Memory with
   | Ok v ->
     v
   | Error e ->
@@ -171,7 +171,7 @@ let private evalStore st endian addr v =
   let bv = evalExpr st addr
   let addr = bv.ToUInt64()
   let v = evalExpr st v
-  st.Memory.Write(addr, v, endian)
+  Memory.write addr v endian st.Memory
 
 let private evalJmp (st: EvalState) target =
   match target with

@@ -87,13 +87,13 @@ type ConcStateAccessor(hdl: BinHandle, state: EvalState) as this =
   let pushToStack value =
     let addr = getStackPointer () - uint64 wordBytes
     setStackPointer addr
-    state.Memory.Write(addr, value, endian)
+    Memory.write addr value endian state.Memory
     addr
 
   let popFromStack () =
     let addr = getStackPointer ()
     let value =
-      match state.Memory.Read(addr, endian, wordType) with
+      match Memory.read addr endian wordType state.Memory with
       | Ok v ->
         v
       | Error _ ->
@@ -123,7 +123,7 @@ type ConcStateAccessor(hdl: BinHandle, state: EvalState) as this =
       let addr = sp - uint64 wordBytes
       trySetStackPointer addr
       |> Result.map (fun () ->
-        state.Memory.Write(addr, value, endian)
+        Memory.write addr value endian state.Memory
         addr)
 
   let tryPopFromStack () =
@@ -131,7 +131,7 @@ type ConcStateAccessor(hdl: BinHandle, state: EvalState) as this =
     | Error e ->
       Error e
     | Ok addr ->
-      match state.Memory.Read(addr, endian, wordType) with
+      match Memory.read addr endian wordType state.Memory with
       | Ok value ->
         trySetStackPointer (addr + uint64 wordBytes)
         |> Result.map (fun () -> value)
@@ -252,11 +252,11 @@ type ConcStateAccessor(hdl: BinHandle, state: EvalState) as this =
 
   /// Write a word-sized pointer value to memory.
   member _.WritePointer(addr: Addr, value: Addr) =
-    state.Memory.Write(addr, wordValue value, endian)
+    Memory.write addr (wordValue value) endian state.Memory
 
   /// Read a word-sized pointer value from memory.
   member _.ReadPointer(addr: Addr) =
-    match state.Memory.Read(addr, endian, wordType) with
+    match Memory.read addr endian wordType state.Memory with
     | Ok v ->
       v.ToUInt64()
     | Error _ ->
@@ -264,7 +264,7 @@ type ConcStateAccessor(hdl: BinHandle, state: EvalState) as this =
 
   /// Write a concrete integer value to memory.
   member _.WriteInteger(addr: Addr, value: uint64, typ: RegType) =
-    state.Memory.Write(addr, BitVector(value, typ), endian)
+    Memory.write addr (BitVector(value, typ)) endian state.Memory
 
   /// Write concrete bytes to memory.
   member _.WriteBytes(addr: Addr, bytes: byte[]) =

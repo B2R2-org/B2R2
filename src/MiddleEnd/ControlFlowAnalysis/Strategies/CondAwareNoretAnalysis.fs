@@ -330,7 +330,7 @@ module CondAwareNoretAnalysis =
     | Def esp ->
       let p = esp + BitVector(4 * nth, 32<rt>)
       let endian = Endian.Little
-      match st.Memory.Read(p.ToUInt64(), endian, 32<rt>) with
+      match Memory.read (p.ToUInt64()) endian 32<rt> st.Memory with
       | Ok v -> not v.IsZero
       | _ -> false
     | _ ->

@@ -31,20 +31,20 @@ type IMemory =
   /// Reads a byte from the memory.
   abstract ByteRead: Addr -> Result<byte, ErrorCase>
 
-  /// Writes a byte from the memory.
+  /// Writes a byte to the memory. Every address is writable and an unmapped
+  /// address becomes mapped on write, so a write never fails; a read fails
+  /// only because an unmapped address has no value to return.
   abstract ByteWrite: Addr * byte -> unit
 
-  /// Reads a bitvector value from the memory.
-  abstract Read: Addr * Endian * RegType -> Result<BitVector, ErrorCase>
-
-  /// Writes a bitvector value to the memory.
-  abstract Write: Addr * BitVector * Endian -> unit
-
-  /// Clears up the memory contents; make the whole memory empty.
+  /// Clears up the memory contents; discards every value written to the
+  /// memory.
   abstract Clear: unit -> unit
 
-module private Memory =
-  let rec readLE acc addr i (mem: IMemory) =
+/// Provides the multi-byte accesses that every memory derives from its
+/// single-byte primitives.
+[<RequireQualifiedAccess>]
+module Memory =
+  let rec private readLE acc addr i (mem: IMemory) =
     if i <= 0UL then
       Ok acc
     else
@@ -52,7 +52,7 @@ module private Memory =
       | Ok b -> readLE (b :: acc) addr (i - 1UL) mem
       | Error e -> Error e
 
-  let rec readBE acc len addr i (mem: IMemory) =
+  let rec private readBE acc len addr i (mem: IMemory) =
     if i >= len then
       Ok acc
     else
@@ -61,6 +61,7 @@ module private Memory =
       | Error e -> Error e
 
   /// Reads a bitvector value from the memory.
+  [<CompiledName "Read">]
   let read addr endian typ mem =
     let len = RegType.toByteWidth typ |> uint64
     match endian with
@@ -71,6 +72,7 @@ module private Memory =
       | Error e -> Error e
 
   /// Writes a bitvector value to the memory.
+  [<CompiledName "Write">]
   let write addr (v: BitVector) endian (mem: IMemory) =
     let len = v.Length |> RegType.toByteWidth |> int
     let v = v.ToBigInt()

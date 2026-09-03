@@ -47,10 +47,6 @@ type BinSectionMemory(hdl: BinHandle) =
 
     member _.ByteWrite(addr, b) = mem.ByteWrite(addr, b)
 
-    member this.Read(addr, endian, typ) = Memory.read addr endian typ this
-
-    member this.Write(addr, v, endian) = Memory.write addr v endian this
-
     member _.Clear() =
       isBacked <- false
       mem.Clear()
