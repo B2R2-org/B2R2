@@ -17,6 +17,12 @@
     <Compile Include="SymbModel.fs" />
     <Compile Include="SolverOutputParser.fs" />
     <Compile Include="SymbCallHook.fs" />
+    <Compile Include="SymbAvoidCondition.fs" />
+    <Compile Include="SymbQuery.fs" />
+    <Compile Include="SymbStopReason.fs" />
+    <Compile Include="SymbPruneReason.fs" />
+    <Compile Include="SymbRunOptions.fs" />
+    <Compile Include="SymbRunResult.fs" />
     <Compile Include="SymbExecutor.fs" />
   </ItemGroup>
 
