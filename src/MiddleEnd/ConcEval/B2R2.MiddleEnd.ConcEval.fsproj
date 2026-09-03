@@ -20,6 +20,8 @@
     <Compile Include="ConcCallHook.fs" />
     <Compile Include="ConcStopCondition.fs" />
     <Compile Include="ConcStopReason.fs" />
+    <Compile Include="ConcRunOptions.fs" />
+    <Compile Include="ConcRunResult.fs" />
     <Compile Include="ConcExecutor.fs" />
   </ItemGroup>
 
