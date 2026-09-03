@@ -215,7 +215,8 @@ let private evalArgs st args =
   | _ ->
     Error ErrorCase.InvalidExprEvaluation
 
-/// Evaluates an IR statement.
+/// Evaluates an IR statement. This does not consult IgnoreUndef; a lone
+/// statement has nothing to skip.
 let evalStmt (st: EvalState) stmt =
   match stmt with
   | ISMark(len, _) ->
@@ -243,3 +244,22 @@ let evalStmt (st: EvalState) stmt =
     st.OnSideEffect(eff, st)
     if st.IsInstrTerminated then () else st.AbortInstr true
     Ok()
+
+let private evalStmtOrSkip (st: EvalState) stmt =
+  match evalStmt st stmt with
+  | Ok() ->
+    Ok()
+  | Error e ->
+    if st.IgnoreUndef then
+      st.NextStmt()
+      Ok()
+    else
+      Error e
+
+/// Evaluates the statements lifted from a single machine instruction, driving
+/// the statement loop so that a caller does not have to. When the state has
+/// IgnoreUndef set, a statement that fails to evaluate is skipped and
+/// evaluation carries on.
+let evalInstr (st: EvalState) stmts =
+  st.PrepareInstrEval stmts
+  tryEvalStmtsWith evalStmtOrSkip st stmts

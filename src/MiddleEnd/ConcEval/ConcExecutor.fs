@@ -373,23 +373,14 @@ type ConcExecutor(hdl: BinHandle) =
       | Ok() -> EvalOk
       | Result.Error e -> EvalError e
 
-  let rec evalStmts opts (st: EvalState) (stmts: Stmt[]) =
-    let numStmts = Array.length stmts
-    let idx = st.StmtIdx
-    if idx < numStmts then
-      if st.IsInstrTerminated then
-        if st.NeedToEvaluateIEMark then evalStmt opts st stmts[numStmts - 1]
-        else EvalOk
-      else
-        match stmts[idx] with
-        | SideEffect(eff, _) when stopAtSideEffect opts ->
-          EvalSideEffect eff
-        | stmt ->
-          match evalStmt opts st stmt with
-          | EvalOk -> evalStmts opts st stmts
-          | result -> result
-    else
-      EvalOk
+  let step opts st stmt =
+    match stmt with
+    | SideEffect(eff, _) when stopAtSideEffect opts ->
+      Result.Error(EvalSideEffect eff)
+    | _ ->
+      match evalStmt opts st stmt with
+      | EvalOk -> Ok()
+      | stop -> Result.Error stop
 
   let tryParseInstruction addr =
     if hdl.File.IsValidAddr addr then lifter.TryParseInstruction addr
@@ -449,7 +440,9 @@ type ConcExecutor(hdl: BinHandle) =
 
   let evalInstr opts (st: EvalState) stmts =
     st.PrepareInstrEval stmts
-    evalStmts opts st stmts
+    match EvalUtils.tryEvalStmtsWith (step opts) st stmts with
+    | Ok() -> EvalOk
+    | Result.Error stop -> stop
 
   let isInternalTarget target = hdl.File.IsValidAddr target
 

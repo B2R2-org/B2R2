@@ -200,7 +200,8 @@ let private evalArgs st args =
   | _ ->
     Terminator.impossible ()
 
-/// Evaluates a single statement in the context of the given EvalState.
+/// Evaluates a single statement in the context of the given EvalState. This
+/// does not consult IgnoreUndef; a lone statement has nothing to skip.
 let evalStmt (st: EvalState) stmt =
   match stmt with
   | ISMark(len, _) ->
@@ -228,3 +229,19 @@ let evalStmt (st: EvalState) stmt =
   | SideEffect(eff, _) ->
     st.OnSideEffect(eff, st)
     if st.IsInstrTerminated then () else st.AbortInstr true
+
+let private evalStmtOrSkip (st: EvalState) stmt =
+  try
+    evalStmt st stmt
+  with
+    | UndefinedExprException
+    | :? System.Collections.Generic.KeyNotFoundException -> st.NextStmt()
+
+/// Evaluates the statements lifted from a single machine instruction, driving
+/// the statement loop so that a caller does not have to. When the state has
+/// IgnoreUndef set, a statement that raises over an undefined value is skipped
+/// and evaluation carries on.
+let evalInstr (st: EvalState) stmts =
+  st.PrepareInstrEval stmts
+  let step = if st.IgnoreUndef then evalStmtOrSkip else evalStmt
+  evalStmtsWith step st stmts

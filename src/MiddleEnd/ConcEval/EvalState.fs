@@ -33,11 +33,11 @@ open B2R2.MiddleEnd.Executor
 /// every LowUIR statement encountered during the course of execution. This can
 /// be considered as a single-threaded CPU context.
 type EvalState(regs, temps, lbls, mem, ignoreUndef) =
+  let mutable ignoreUndef = ignoreUndef
   let mutable pc = 0UL
   let mutable stmtIdx = 0
   let mutable currentInsLen = 0u
   let mutable isInstrTerminated = false
-  let mutable needToEvaluateIEMark = false
   let mutable loadFailureHdl = LoadFailureEventHandler(fun _ _ _ e -> Error e)
   let mutable externalCallEventHdl = ExternalCallEventHandler(fun _ _ -> ())
   let mutable sideEffectHdl = SideEffectEventHandler(fun _ _ -> ())
@@ -53,17 +53,6 @@ type EvalState(regs, temps, lbls, mem, ignoreUndef) =
   /// This constructor will simply create a fresh new EvalState with the given
   /// memory.
   new(mem) = EvalState(Variables(), Variables(), Labels(), mem, false)
-
-  /// This constructor will simply create a fresh new EvalState. Depending on
-  /// the `ignoreUndef` parameter, the evaluator using this EvalState will
-  /// silently ignore Undef values. Such a feature is only useful for some
-  /// static analyses.
-  new(ignoreUndef) =
-    EvalState(Variables(),
-              Variables(),
-              Labels(),
-              NonsharableMemory() :> IMemory,
-              ignoreUndef)
 
   /// Current PC.
   member _.PC with get() = pc and set(addr) = pc <- addr
@@ -95,16 +84,12 @@ type EvalState(regs, temps, lbls, mem, ignoreUndef) =
   member _.IsInstrTerminated
     with get() = isInstrTerminated and set(f) = isInstrTerminated <- f
 
-  /// Indicate whether to evaluate IEMark while ignoring the other instructions.
-  /// This means, the evaluation of the instruction is over, but we need to
-  /// advance the PC to the next instruction using IEMark. Thus, this flag is
-  /// only meaningful when `IsInstrTerminated` is true.
-  member _.NeedToEvaluateIEMark
-    with get() = needToEvaluateIEMark and set(f) = needToEvaluateIEMark <- f
-
-  /// Whether to ignore statements that cannot be evaluated due to undef values.
-  /// This is particularly useful to quickly check some constants.
-  member _.IgnoreUndef with get() = ignoreUndef
+  /// Whether an instruction-level evaluation skips a statement it cannot
+  /// evaluate and carries on, which is what lets a static analysis get through
+  /// code whose values it does not have. Only the evalInstr functions consult
+  /// this; evaluating a lone statement with evalStmt has nothing to skip.
+  member _.IgnoreUndef
+    with get() = ignoreUndef and set(f) = ignoreUndef <- f
 
   /// Memory load failure (access violation) event handler.
   member _.LoadFailureEventHandler
@@ -125,11 +110,13 @@ type EvalState(regs, temps, lbls, mem, ignoreUndef) =
   member inline this.NextStmt() = this.StmtIdx <- this.StmtIdx + 1
 
   /// Stop evaluating further statements of the current instruction, and move on
-  /// the next instruction.
+  /// the next instruction. A statement that ends the instruction without
+  /// setting the PC itself passes true, which advances the PC past the current
+  /// instruction the way its IEMark would have.
   member this.AbortInstr([<Optional; DefaultParameterValue(false)>]
                          needToUpdatePC: bool) =
+    if needToUpdatePC then pc <- pc + uint64 currentInsLen else ()
     isInstrTerminated <- true
-    needToEvaluateIEMark <- needToUpdatePC
     this.NextStmt()
 
   /// Get the value of the given temporary variable.
@@ -182,7 +169,6 @@ type EvalState(regs, temps, lbls, mem, ignoreUndef) =
   /// Get ready for evaluating a new instruction.
   member inline this.PrepareInstrEval stmts =
     this.IsInstrTerminated <- false
-    this.NeedToEvaluateIEMark <- false
     this.Labels.Update stmts
     this.StmtIdx <- 0
 
@@ -206,7 +192,6 @@ type EvalState(regs, temps, lbls, mem, ignoreUndef) =
               StmtIdx = stmtIdx,
               CurrentInsLen = currentInsLen,
               IsInstrTerminated = isInstrTerminated,
-              NeedToEvaluateIEMark = needToEvaluateIEMark,
               LoadFailureEventHandler = loadFailureHdl,
               ExternalCallEventHandler = externalCallEventHdl,
               SideEffectEventHandler = sideEffectHdl)

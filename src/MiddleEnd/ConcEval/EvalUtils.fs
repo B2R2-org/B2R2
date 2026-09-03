@@ -37,3 +37,25 @@ let markUndefAfterFailure (st: EvalState) lhs =
   | Var(_, n, _, _) -> st.UnsetReg n
   | TempVar(_, n, _) -> st.UnsetTmp n
   | _ -> ()
+
+(* The statement loop of a single instruction, which both evaluators drive and
+   which no consumer should have to rebuild. Two rules are easy to get wrong: a
+   statement advances StmtIdx itself, so the loop never does; and a statement
+   that ends the instruction is the end of it, which is why the loop reads no
+   statement by position and holds no belief about which one comes last. The
+   two loops below differ only in how a step reports failure, and are kept side
+   by side so that the rules cannot drift apart. *)
+let rec evalStmtsWith step (st: EvalState) (stmts: Stmt[]) =
+  if st.StmtIdx >= Array.length stmts || st.IsInstrTerminated then
+    ()
+  else
+    step st stmts[st.StmtIdx]
+    evalStmtsWith step st stmts
+
+let rec tryEvalStmtsWith step (st: EvalState) (stmts: Stmt[]) =
+  if st.StmtIdx >= Array.length stmts || st.IsInstrTerminated then
+    Ok()
+  else
+    match step st stmts[st.StmtIdx] with
+    | Ok() -> tryEvalStmtsWith step st stmts
+    | error -> error

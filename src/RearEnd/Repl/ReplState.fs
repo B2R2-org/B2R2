@@ -53,31 +53,11 @@ type ReplState(isa: ISA, regFactory: IRegisterFactory, doFiltering) =
     |> Array.map regFactory.GetRegisterID
     |> Set.ofArray
 
-  let tryEvaluate stmt st =
-    try
-      Evaluator.evalStmt st stmt
-    with _ ->
-      if st.IgnoreUndef then st.NextStmt()
-      else failwith "Undefined expression encountered."
-
-  /// Evaluates a sequence of statements, assuming that the statements are
-  /// lifted from a single instruction.
-  let rec evalStmts stmts (st: EvalState) =
-    let idx = st.StmtIdx
-    let numStmts = Array.length stmts
-    if numStmts > idx then
-      if st.IsInstrTerminated then
-        if st.NeedToEvaluateIEMark then
-          let stmt = stmts[numStmts - 1]
-          tryEvaluate stmt st
-        else
-          ()
-      else
-        let stmt = stmts[idx]
-        tryEvaluate stmt st
-        evalStmts stmts st
-    else
-      ()
+  let describeFailure (e: exn) =
+    match e with
+    | UndefinedExprException -> "Undefined expression encountered."
+    | InvalidMemoryReadException addr -> $"Invalid memory access at {addr:x}."
+    | e -> e.Message
 
   member _.CurrentParser with get() = parser
 
@@ -87,8 +67,7 @@ type ReplState(isa: ISA, regFactory: IRegisterFactory, doFiltering) =
     | LowUIRParser -> "LowUIR> "
 
   member private _.EvaluateStmts(stmts: Stmt[]) =
-    rstate.PrepareInstrEval stmts
-    evalStmts stmts rstate
+    Evaluator.evalInstr rstate stmts
 
   member private _.ComputeDelta(prev, curr) =
     Array.fold2 (fun acc t1 t2 ->
@@ -97,7 +76,7 @@ type ReplState(isa: ISA, regFactory: IRegisterFactory, doFiltering) =
 
   /// Update the state and return deltas.
   member this.Update stmts =
-    try this.EvaluateStmts stmts with exc -> printfn "%s" exc.Message
+    try this.EvaluateStmts stmts with exc -> printfn "%s" (describeFailure exc)
     let currReg =
       rstate.Registers.ToArray()
       |> Array.map (fun (i, v) -> RegisterID.create i, v)

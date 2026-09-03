@@ -77,22 +77,22 @@ type EvaluatorTests() =
     | [] -> ()
     | ks -> Assert.Fail $"The evaluators disagree on registers {ks}."
 
-  let assertTerminatedWithIEMark (st: EvalState) =
+  let assertTerminatedWithPCAdvanced (st: EvalState) =
     Assert.AreEqual<bool>(true, st.IsInstrTerminated)
-    Assert.AreEqual<bool>(true, st.NeedToEvaluateIEMark)
+    Assert.AreEqual<Addr>(2UL, st.PC)
 
   [<TestMethod>]
   member _.``Safe side effect terminates the instruction by default``() =
     let st = newState ()
     match SafeEvaluator.evalStmt st (AST.sideEffect SysCall) with
-    | Ok() -> assertTerminatedWithIEMark st
+    | Ok() -> assertTerminatedWithPCAdvanced st
     | Error e -> Assert.Fail $"Failed to evaluate a side effect: {e}"
 
   [<TestMethod>]
   member _.``Unsafe side effect terminates the instruction by default``() =
     let st = newState ()
     Evaluator.evalStmt st (AST.sideEffect SysCall)
-    assertTerminatedWithIEMark st
+    assertTerminatedWithPCAdvanced st
 
   [<TestMethod>]
   member _.``Undefined expression raises a catchable exception``() =
@@ -125,7 +125,7 @@ type EvaluatorTests() =
     match SafeEvaluator.evalStmt st (AST.sideEffect SysCall) with
     | Ok() ->
       Assert.AreEqual<bool>(true, st.IsInstrTerminated)
-      Assert.AreEqual<bool>(false, st.NeedToEvaluateIEMark)
+      Assert.AreEqual<Addr>(0UL, st.PC)
     | Error e ->
       Assert.Fail $"Failed to evaluate a side effect: {e}"
 
@@ -153,3 +153,52 @@ type EvaluatorTests() =
     match SafeEvaluator.evalStmt st (AST.jmp target) with
     | Error _ -> ()
     | Ok() -> Assert.Fail "The jump to an unknown label succeeded."
+
+  [<TestMethod>]
+  member _.``evalInstr advances the PC past a side effect``() =
+    (* syscall *)
+    let _, stmts = liftIntel [| 0x0fuy; 0x05uy |]
+    let st = EvalState()
+    match SafeEvaluator.evalInstr st stmts with
+    | Ok() -> Assert.AreEqual<Addr>(2UL, st.PC)
+    | Error e -> Assert.Fail $"Failed to evaluate: {e}"
+
+  [<TestMethod>]
+  member _.``evalInstr skips failing statements when told to``() =
+    (* add rax, rbx, over a state where both operands are uninitialized *)
+    let _, stmts = liftIntel [| 0x48uy; 0x01uy; 0xd8uy |]
+    let st = EvalState()
+    st.IgnoreUndef <- true
+    match SafeEvaluator.evalInstr st stmts with
+    | Ok() -> ()
+    | Error e -> Assert.Fail $"Failed to evaluate: {e}"
+
+  [<TestMethod>]
+  member _.``evalInstr reports a failure when not ignoring undef``() =
+    let _, stmts = liftIntel [| 0x48uy; 0x01uy; 0xd8uy |]
+    match SafeEvaluator.evalInstr (EvalState()) stmts with
+    | Error _ -> ()
+    | Ok() -> Assert.Fail "An uninitialized operand evaluated fine."
+
+  [<TestMethod>]
+  member _.``The raising evalInstr drives a whole instruction``() =
+    let hdl, stmts = liftIntel [| 0x48uy; 0x01uy; 0xd8uy |]
+    let st = stateWithEveryRegisterSet hdl
+    Evaluator.evalInstr st stmts
+    match st.TryGetReg(hdl.RegisterFactory.GetRegisterID "RAX") with
+    | Def v -> Assert.AreEqual<uint64>(2UL, v.ToUInt64())
+    | Undef -> Assert.Fail "RAX was not written."
+
+  [<TestMethod>]
+  member _.``A terminated instruction leaves its later statements alone``() =
+    (* Optimization trims a trailing IEMark that follows an inter-jump, so the
+       last statement of an instruction is not always its IEMark. *)
+    let target = AST.num (BitVector(0xdeadUL, 64<rt>))
+    let stmts =
+      [| AST.ismark 4u
+         AST.sideEffect SysCall
+         AST.interjmp target InterJmpKind.Base |]
+    let st = EvalState()
+    match SafeEvaluator.evalInstr st stmts with
+    | Ok() -> Assert.AreEqual<Addr>(4UL, st.PC)
+    | Error e -> Assert.Fail $"Failed to evaluate: {e}"

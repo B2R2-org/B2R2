@@ -57,44 +57,20 @@ let private obtainFramePointerDef (hdl: BinHandle) =
   | None -> [||]
 
 let private initState hdl pc =
-  let st = EvalState true
+  let st = EvalState()
+  st.IgnoreUndef <- true
   st.LoadFailureEventHandler <- memoryReader hdl
   [| obtainStackDef hdl; obtainFramePointerDef hdl |]
   |> Array.concat
   |> fun regs -> st.InitializeContext(pc, regs)
   st
 
-let private tryEvaluate stmt st =
-  match SafeEvaluator.evalStmt st stmt with
-  | Ok() -> Ok st
-  | Error e -> if st.IgnoreUndef then st.NextStmt(); Ok st else Error e
-
-/// Evaluate a sequence of statements, which is lifted from a single
-/// instruction.
-let rec private evalStmts stmts result =
-  match result with
-  | Ok(st: EvalState) ->
-    let idx = st.StmtIdx
-    let numStmts = Array.length stmts
-    if numStmts > idx then
-      if st.IsInstrTerminated then
-        if st.NeedToEvaluateIEMark then tryEvaluate stmts[numStmts - 1] st
-        else Ok st
-      else
-        let stmt = stmts[idx]
-        evalStmts stmts (tryEvaluate stmt st)
-    else
-      Ok st
-  | Error _ ->
-    result
-
 let rec private evalBlockLoop idx (blk: Stmt[][]) result =
   match result with
   | Ok(st: EvalState) ->
     if idx < blk.Length then
-      let stmts = blk[idx]
-      st.PrepareInstrEval stmts
-      evalStmts stmts (Ok st)
+      SafeEvaluator.evalInstr st blk[idx]
+      |> Result.map (fun () -> st)
       |> evalBlockLoop (idx + 1) blk
     else
       result
@@ -106,9 +82,6 @@ let rec private evalBlockLoop idx (blk: Stmt[][]) result =
 let private evalBlock (st: EvalState) pc blk =
   st.PC <- pc
   evalBlockLoop 0 blk (Ok st)
-  |> function
-    | Ok st -> Ok st
-    | Error e -> Error e
 
 /// Concretely evaluate a basic block from an arbitrarily generated state.
 let evalBlockFromScratch hdl (blk: IVertex<LowUIRBasicBlock>) =
