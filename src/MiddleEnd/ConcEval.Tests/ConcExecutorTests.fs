@@ -109,7 +109,7 @@ type ConcExecutorTests() =
 
   [<TestMethod>]
   member _.``Default options carry an instruction limit``() =
-    let opts: ConcRunOptions<EvalState> = ConcRunOptions.Default []
+    let opts: ConcRunOptions = ConcRunOptions.Default []
     Assert.AreEqual<int>(50000, opts.MaxInstructions)
 
   [<TestMethod>]

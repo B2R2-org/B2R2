@@ -34,16 +34,16 @@ open B2R2.FrontEnd.BinLifter
 open B2R2.MiddleEnd.Executor
 
 /// Represents a concrete stop point observed by a user-defined predicate.
-type ConcStopPoint<'State> =
+type ConcStopPoint =
   { /// Current instruction address.
     Address: Addr
     /// Number of executed machine instructions.
     InstructionCount: int
     /// Concrete executor state.
-    State: 'State }
+    State: EvalState }
 
 /// Represents a concrete execution stop condition.
-type ConcStopCondition<'State> =
+type ConcStopCondition =
   /// Stop before executing the instruction at the given address.
   | StopAtAddress of addr: Addr
   /// Stop after executing the instruction at the given address.
@@ -57,7 +57,7 @@ type ConcStopCondition<'State> =
   /// Stop when a side-effect statement is observed.
   | StopAtSideEffect
   /// Stop when a user-provided predicate holds.
-  | StopWhen of predicate: (ConcStopPoint<'State> -> bool)
+  | StopWhen of predicate: (ConcStopPoint -> bool)
 
 /// Represents the reason why concrete execution stopped.
 type ConcStopReason =
@@ -125,7 +125,7 @@ type UninitializedRegisterPolicy =
   | ZeroAnyRegister
 
 /// Represents concrete execution configuration.
-type ConcRunOptions<'State> =
+type ConcRunOptions =
   { /// Call-handling policy.
     Calls: ConcCallPolicy
     /// Undefined-value handling policy.
@@ -135,20 +135,20 @@ type ConcRunOptions<'State> =
     /// Maximum machine instructions to execute. Zero means unlimited.
     MaxInstructions: int
     /// Stop conditions used by Run.
-    StopConditions: ConcStopCondition<'State> list }
+    StopConditions: ConcStopCondition list }
 with
-  static member Default(stopConditions: ConcStopCondition<'State> list) =
+  static member Default(stopConditions: ConcStopCondition list) =
     { Calls = FollowDirectInternalCalls
       UndefinedValues = IgnoreUndefinedWrites
       UninitializedRegisters = ZeroCallerContext
       MaxInstructions = 50000
       StopConditions = stopConditions }
 
-  static member Default(stopCondition: ConcStopCondition<'State>) =
+  static member Default(stopCondition: ConcStopCondition) =
     ConcRunOptions.Default [ stopCondition ]
 
 /// Represents the result of a concrete execution run.
-type ConcRunResult<'State> =
+type ConcRunResult =
   { /// Reasons why execution stopped.
     StopReasons: ConcStopReason list
     /// Final instruction address or program counter.
@@ -156,7 +156,7 @@ type ConcRunResult<'State> =
     /// Number of executed machine instructions.
     InstructionCount: int
     /// Final concrete executor state.
-    State: 'State }
+    State: EvalState }
 with
   /// Returns true when execution stopped before the given address.
   member this.IsStoppedAtAddress addr =
@@ -296,15 +296,15 @@ type ConcExecutor(hdl: BinHandle) =
     | Store(_, _, value, _) -> hasUndefExpr value
     | _ -> false
 
-  let stopAtSideEffect (opts: ConcRunOptions<EvalState>) =
+  let stopAtSideEffect (opts: ConcRunOptions) =
     opts.StopConditions
     |> List.exists (function StopAtSideEffect -> true | _ -> false)
 
-  let hasStopAtReturn (opts: ConcRunOptions<EvalState>) =
+  let hasStopAtReturn (opts: ConcRunOptions) =
     opts.StopConditions
     |> List.exists (function StopAtReturn -> true | _ -> false)
 
-  let hasStopAfterReturn (opts: ConcRunOptions<EvalState>) =
+  let hasStopAfterReturn (opts: ConcRunOptions) =
     opts.StopConditions
     |> List.exists (function StopAfterReturn -> true | _ -> false)
 
@@ -328,7 +328,7 @@ type ConcExecutor(hdl: BinHandle) =
     ins.IsRET
     && (not ins.IsCondBranch || isConditionalBranchTaken opts st stmts)
 
-  let hasStopAtCall (opts: ConcRunOptions<EvalState>) =
+  let hasStopAtCall (opts: ConcRunOptions) =
     opts.StopConditions
     |> List.exists (function StopAtCall -> true | _ -> false)
 
@@ -337,7 +337,7 @@ type ConcExecutor(hdl: BinHandle) =
     | true, target -> Some target
     | false, _ -> None
 
-  let stopAtCall (opts: ConcRunOptions<EvalState>) (ins: IInstruction) =
+  let stopAtCall (opts: ConcRunOptions) (ins: IInstruction) =
     if ins.IsCall then
       hasStopAtCall opts
       || match opts.Calls with
@@ -356,7 +356,7 @@ type ConcExecutor(hdl: BinHandle) =
     | Put(TempVar(_, n, _), _, _) -> st.UnsetTmp n
     | _ -> ()
 
-  let evalStmt (opts: ConcRunOptions<EvalState>) (st: EvalState) stmt =
+  let evalStmt (opts: ConcRunOptions) (st: EvalState) stmt =
     materializeReadRegisters opts st stmt
     match opts.UndefinedValues with
     | StopOnUndefinedValue when isUndefWrite stmt ->
@@ -394,12 +394,12 @@ type ConcExecutor(hdl: BinHandle) =
     try lifter.LiftInstruction ins |> Ok
     with NotImplementedIRException _ -> Result.Error ErrorCase.NotImplementedIR
 
-  let isInstructionLimitReached n (opts: ConcRunOptions<EvalState>) =
+  let isInstructionLimitReached n (opts: ConcRunOptions) =
     match opts.MaxInstructions with
     | limit when limit > 0 && n >= limit -> Some limit
     | _ -> None
 
-  let collectPreInstrStopReasons st addr n (opts: ConcRunOptions<EvalState>) =
+  let collectPreInstrStopReasons st addr n (opts: ConcRunOptions) =
     let point = { Address = addr; InstructionCount = n; State = st }
     let reasons =
       opts.StopConditions
@@ -497,7 +497,7 @@ type ConcExecutor(hdl: BinHandle) =
       | Ok() -> finishHook ctx st
       | Result.Error msg -> callFailure ctx msg
 
-  let tryHandleCall (opts: ConcRunOptions<EvalState>) st addr ins =
+  let tryHandleCall (opts: ConcRunOptions) st addr ins =
     if not (ins: IInstruction).IsCall then
       None
     else
@@ -528,7 +528,7 @@ type ConcExecutor(hdl: BinHandle) =
     | Some(Result.Error reason) -> EvalStopped reason
     | None -> evalInstr opts st stmts
 
-  let run start (st: EvalState) (opts: ConcRunOptions<EvalState>) =
+  let run start (st: EvalState) (opts: ConcRunOptions) =
     let rec loop n =
       let addr = st.PC
       let reasons = collectPreInstrStopReasons st addr n opts
@@ -576,15 +576,15 @@ type ConcExecutor(hdl: BinHandle) =
 
   /// Runs concrete execution from the given address with the default options
   /// for the given stop condition.
-  member _.Run(start, state, stopCondition: ConcStopCondition<EvalState>) =
+  member _.Run(start, state, stopCondition: ConcStopCondition) =
     ConcRunOptions.Default stopCondition
     |> run start state
 
   interface IExecutor<EvalState,
                       IMemory,
                       BitVector,
-                      ConcRunOptions<EvalState>,
-                      ConcRunResult<EvalState>> with
+                      ConcRunOptions,
+                      ConcRunResult> with
     /// Create a fresh concrete evaluation state.
     member this.CreateState() = this.CreateState()
 
