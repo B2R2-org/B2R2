@@ -65,7 +65,7 @@ type ConcExecutorTests() =
   let runOneInstruction (hdl: BinHandle) =
     let exec = ConcExecutor hdl
     let st = exec.CreateState()
-    let opts = { ConcRunOptions.Default [] with MaxInstructions = 1 }
+    let opts = ConcRunOptions.Default().WithMaxInstructions 1
     exec.Run(0UL, st, opts) |> ignore
     st
 
@@ -77,8 +77,9 @@ type ConcExecutorTests() =
     let hdl = loadRawImage bytes Architecture.Intel WordSize.Bit64
     let exec = ConcExecutor hdl
     let st = exec.CreateState()
-    let stopCondition = ConcStopCondition.StopAfterAddress 0x3UL
-    let res = exec.Run(0UL, st, ConcRunOptions.Default stopCondition)
+    let opts = ConcRunOptions.Default().StopAfterAddress 0x3UL
+    let res = exec.Run(0UL, st, opts)
+    Assert.AreEqual<bool>(true, res.IsStoppedAfterAddress 0x3UL)
     Assert.AreEqual<Addr>(0x4UL, res.FinalAddress)
     Assert.AreEqual<int>(3, res.InstructionCount)
 
@@ -99,7 +100,7 @@ type ConcExecutorTests() =
     let hdl = loadRawImage bytes Architecture.Intel WordSize.Bit64
     let exec = ConcExecutor hdl
     let st = exec.CreateState()
-    let opts = { ConcRunOptions.Default [] with MaxInstructions = 7 }
+    let opts = ConcRunOptions.Default().WithMaxInstructions 7
     let res = exec.Run(0UL, st, opts)
     Assert.AreEqual<int>(7, res.InstructionCount)
     match res.StopReasons with
@@ -116,9 +117,10 @@ type ConcExecutorTests() =
     let exec = ConcExecutor hdl
     let st = exec.CreateState()
     let predicate = ConcStopPredicate(fun point -> point.InstructionCount = 3)
-    let stopCondition = ConcStopCondition.StopWhen predicate
-    let res = exec.Run(0UL, st, ConcRunOptions.Default stopCondition)
+    let opts = ConcRunOptions.Default().StopWhen predicate
+    let res = exec.Run(0UL, st, opts)
     Assert.AreEqual<int>(3, res.InstructionCount)
+    Assert.AreEqual<bool>(true, res.IsUserStopConditionMet)
     match res.StopReasons with
     | [ ConcStopReason.UserStopConditionMet addr ] ->
       Assert.AreEqual<Addr>(0UL, addr)
@@ -137,8 +139,8 @@ type ConcExecutorTests() =
     let hdl = loadRawImage bytes Architecture.ARMv8 WordSize.Bit64
     let exec = ConcExecutor hdl
     let st = exec.CreateState()
-    let stopCondition = ConcStopCondition.StopAtAddress 0xffffUL
-    let res = exec.Run(0UL, st, ConcRunOptions.Default stopCondition)
+    let opts = ConcRunOptions.Default().StopAtAddress 0xffffUL
+    let res = exec.Run(0UL, st, opts)
     match res.StopReasons with
     | [ ConcStopReason.EvaluationError(addr, e) ] ->
       Assert.AreEqual<Addr>(0UL, addr)
@@ -182,11 +184,9 @@ type ConcExecutorTests() =
     let hook (ctx: ConcCallContext) (st: EvalState) =
       st.SetReg(ctx.ReturnRegister, BitVector(0x2aUL, ctx.WordType))
       Ok()
-    let hooks = ConcCallHookRegistry().Register(0x6UL, hook)
     let opts =
-      { ConcRunOptions.Default [] with
-          MaxInstructions = 1
-          Calls = ConcCallPolicy.UseCallHooks hooks }
+      ConcRunOptions.Default().WithMaxInstructions(1)
+        .RegisterCallHook(0x6UL, hook)
     let res = exec.Run(0UL, st, opts)
     Assert.AreEqual<Addr>(0x5UL, res.FinalAddress)
     match st.TryGetReg(hdl.RegisterFactory.GetRegisterID "RAX") with
@@ -200,9 +200,7 @@ type ConcExecutorTests() =
     let hdl = loadRawImage externalCall Architecture.Intel WordSize.Bit64
     let exec = ConcExecutor hdl
     let st = exec.CreateState()
-    let opts =
-      { ConcRunOptions.Default [] with
-          Calls = ConcCallPolicy.UseCallHooks(ConcCallHookRegistry()) }
+    let opts = ConcRunOptions.Default().WithCallHooks(ConcCallHookRegistry())
     let res = exec.Run(0UL, st, opts)
     match res.StopReasons with
     | [ ConcStopReason.CallHandlingFailure(callSite, target, _) ] ->
@@ -234,11 +232,187 @@ type ConcExecutorTests() =
     let hook (ctx: ConcCallContext) (_: EvalState) =
       seen.Add ctx.ReturnAddress
       Ok()
-    let hooks = ConcCallHookRegistry().Register(0x20UL, hook)
     let opts =
-      { ConcRunOptions.Default [] with
-          MaxInstructions = 1
-          Calls = ConcCallPolicy.UseCallHooks hooks }
+      ConcRunOptions.Default().WithMaxInstructions(1)
+        .RegisterCallHook(0x20UL, hook)
     let res = exec.Run(0UL, st, opts)
     Assert.AreEqual<Addr>(0x8UL, res.FinalAddress)
     Assert.AreEqual<Addr>(0x8UL, Seq.exactlyOne seen)
+
+  [<TestMethod>]
+  member _.``Fluent options build what a record update builds``() =
+    let hooks = ConcCallHookRegistry()
+    let zeroAny = ConcUninitializedRegisterPolicy.ZeroAnyRegister
+    let expected =
+      { ConcRunOptions.Default [] with
+          MaxInstructions = 3
+          Calls = ConcCallPolicy.UseCallHooks hooks
+          UndefinedValues = ConcUndefinedValuePolicy.StopOnUndefinedValue
+          UninitializedRegisters = zeroAny }
+    let actual =
+      ConcRunOptions.Default()
+        .WithMaxInstructions(3)
+        .WithCallHooks(hooks)
+        .StopOnUndefinedValue()
+        .ZeroAnyRegister()
+    Assert.AreEqual<ConcRunOptions>(expected, actual)
+
+  [<TestMethod>]
+  member _.``Stop conditions accumulate in the order they are added``() =
+    let opts =
+      ConcRunOptions.Default().StopAtAddress(0x1UL).StopAtReturn()
+        .StopAfterAddress(0x2UL)
+    let expected =
+      [ ConcStopCondition.StopAtAddress 0x1UL
+        ConcStopCondition.StopAtReturn
+        ConcStopCondition.StopAfterAddress 0x2UL ]
+    Assert.AreEqual<ConcStopCondition list>(expected, opts.StopConditions)
+
+  [<TestMethod>]
+  member _.``Registering a hook enables hook-based call handling``() =
+    let hook (_: ConcCallContext) (_: EvalState) = Ok()
+    let opts = ConcRunOptions.Default().RegisterCallHook(0x6UL, hook)
+    match opts.Calls with
+    | ConcCallPolicy.UseCallHooks hooks ->
+      Assert.AreEqual<bool>(true, (hooks.TryFind 0x6UL).IsSome)
+    | policy ->
+      Assert.Fail $"Unexpected call policy: {policy}"
+
+  [<TestMethod>]
+  member _.``A result answers where it stopped without matching``() =
+    (* syscall; nop; nop *)
+    let bytes = [| 0x0fuy; 0x05uy; 0x90uy; 0x90uy |]
+    let hdl = loadRawImage bytes Architecture.Intel WordSize.Bit64
+    let exec = ConcExecutor hdl
+    let st = exec.CreateState()
+    let opts = ConcRunOptions.Default().StopAtSideEffect()
+    let res = exec.Run(0UL, st, opts)
+    Assert.AreEqual<bool>(true, res.IsStoppedAtSideEffect)
+    Assert.AreEqual<bool>(false, res.IsStoppedAtReturn)
+    Assert.AreEqual<bool>(false, res.IsFailed)
+
+  [<TestMethod>]
+  member _.``A result hands back the reason it could not go on``() =
+    (* ret *)
+    let bytes = [| 0xc0uy; 0x03uy; 0x5fuy; 0xd6uy |]
+    let hdl = loadRawImage bytes Architecture.ARMv8 WordSize.Bit64
+    let exec = ConcExecutor hdl
+    let st = exec.CreateState()
+    let res = exec.Run(0UL, st, ConcRunOptions.Default())
+    Assert.AreEqual<bool>(true, res.IsFailed)
+    match res.TryGetFailure() with
+    | Some(ConcStopReason.EvaluationError(addr, _)) ->
+      Assert.AreEqual<Addr>(0UL, addr)
+    | failure ->
+      Assert.Fail $"Unexpected failure: {failure}"
+
+  [<TestMethod>]
+  member _.``An instruction limit is not counted as a failure``() =
+    (* jmp $ *)
+    let bytes = [| 0xebuy; 0xfeuy |]
+    let hdl = loadRawImage bytes Architecture.Intel WordSize.Bit64
+    let exec = ConcExecutor hdl
+    let st = exec.CreateState()
+    let res = exec.Run(0UL, st, ConcRunOptions.Default().WithMaxInstructions 2)
+    Assert.AreEqual<bool>(true, res.IsInstructionLimitReached)
+    Assert.AreEqual<bool>(false, res.IsFailed)
+    Assert.AreEqual<Option<ConcStopReason>>(None, res.TryGetFailure())
+
+  [<TestMethod>]
+  member _.``Every call policy setter selects the policy it names``() =
+    let opts = ConcRunOptions.Default()
+    let follow = ConcCallPolicy.FollowDirectInternalCalls
+    Assert.AreEqual<ConcCallPolicy>(ConcCallPolicy.StopAtCalls,
+                                    opts.StopAtCalls().Calls)
+    Assert.AreEqual<ConcCallPolicy>(follow,
+                                    opts.FollowDirectInternalCalls().Calls)
+
+  [<TestMethod>]
+  member _.``Every undefined value setter selects the policy it names``() =
+    let opts = ConcRunOptions.Default()
+    let assertPolicy expected (opts: ConcRunOptions) =
+      Assert.AreEqual<ConcUndefinedValuePolicy>(expected, opts.UndefinedValues)
+    assertPolicy ConcUndefinedValuePolicy.StopOnUndefinedValue
+                 (opts.StopOnUndefinedValue())
+    assertPolicy ConcUndefinedValuePolicy.IgnoreUndefinedWrites
+                 (opts.IgnoreUndefinedWrites())
+    assertPolicy ConcUndefinedValuePolicy.PreserveUndefinedValues
+                 (opts.PreserveUndefinedValues())
+
+  [<TestMethod>]
+  member _.``Every register setter selects the policy it names``() =
+    let opts = ConcRunOptions.Default()
+    let policyOf (opts: ConcRunOptions) = opts.UninitializedRegisters
+    let stopOn = ConcUninitializedRegisterPolicy.StopOnUninitializedRegister
+    let caller = ConcUninitializedRegisterPolicy.ZeroCallerContext
+    let anyReg = ConcUninitializedRegisterPolicy.ZeroAnyRegister
+    let assertPolicy expected actual =
+      Assert.AreEqual<ConcUninitializedRegisterPolicy>(expected, actual)
+    assertPolicy stopOn (policyOf (opts.StopOnUninitializedRegister()))
+    assertPolicy caller (policyOf (opts.ZeroCallerContext()))
+    assertPolicy anyReg (policyOf (opts.ZeroAnyRegister()))
+
+  [<TestMethod>]
+  member _.``Every stop condition shortcut adds the case it names``() =
+    let opts =
+      ConcRunOptions.Default()
+        .StopAtAddresses([ 0x1UL; 0x2UL ])
+        .StopAfterAddress(0x3UL)
+        .StopAtReturn()
+        .StopAfterReturn()
+        .StopAtSideEffect()
+    let expected =
+      [ ConcStopCondition.StopAtAddress 0x1UL
+        ConcStopCondition.StopAtAddress 0x2UL
+        ConcStopCondition.StopAfterAddress 0x3UL
+        ConcStopCondition.StopAtReturn
+        ConcStopCondition.StopAfterReturn
+        ConcStopCondition.StopAtSideEffect ]
+    Assert.AreEqual<ConcStopCondition list>(expected, opts.StopConditions)
+
+  [<TestMethod>]
+  member _.``Replacing stop conditions drops the previous ones``() =
+    let opts =
+      ConcRunOptions.Default().StopAtReturn()
+        .WithStopConditions [ ConcStopCondition.StopAtSideEffect ]
+    let expected = [ ConcStopCondition.StopAtSideEffect ]
+    Assert.AreEqual<ConcStopCondition list>(expected, opts.StopConditions)
+
+  [<TestMethod>]
+  member _.``Registering many hooks enables hook-based call handling``() =
+    let hook (_: ConcCallContext) (_: EvalState) = Ok()
+    let opts =
+      ConcRunOptions.Default().RegisterCallHooks [ 0x6UL, hook; 0x8UL, hook ]
+    match opts.Calls with
+    | ConcCallPolicy.UseCallHooks hooks ->
+      Assert.AreEqual<bool>(true, (hooks.TryFind 0x8UL).IsSome)
+    | policy ->
+      Assert.Fail $"Unexpected call policy: {policy}"
+
+  [<TestMethod>]
+  member _.``A call policy stop is reported as a call stop``() =
+    let hdl = loadRawImage externalCall Architecture.Intel WordSize.Bit64
+    let exec = ConcExecutor hdl
+    let st = exec.CreateState()
+    let res = exec.Run(0UL, st, ConcRunOptions.Default().StopAtCalls())
+    Assert.AreEqual<bool>(true, res.IsStoppedAtCall)
+    Assert.AreEqual<bool>(false, res.IsFailed)
+
+  [<TestMethod>]
+  member _.``A return is reported both before and after it executes``() =
+    (* ret; nop *)
+    let bytes = [| 0xc3uy; 0x90uy |]
+    let hdl = loadRawImage bytes Architecture.Intel WordSize.Bit64
+    let exec = ConcExecutor hdl
+    let atState = exec.CreateState()
+    ConcStateAccessor(hdl, atState).InitializeDefaultStack()
+    let opts = ConcRunOptions.Default().StopAtReturn()
+    let atRes = exec.Run(0UL, atState, opts)
+    Assert.AreEqual<bool>(true, atRes.IsStoppedAtReturn)
+    let afterState = exec.CreateState()
+    let accessor = ConcStateAccessor(hdl, afterState)
+    accessor.InitializeDefaultStack()
+    accessor.PushPointer 0x1UL |> ignore
+    let opts = ConcRunOptions.Default().StopAfterReturn()
+    let res = exec.Run(0UL, afterState, opts)
+    Assert.AreEqual<bool>(true, res.IsStoppedAfterReturn)

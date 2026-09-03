@@ -90,6 +90,16 @@ type ConcStopReason =
   /// A call could not be handled under the configured call policy. The target
   /// is absent when the call is indirect.
   | CallHandlingFailure of callSite: Addr * target: Addr option * reason: string
+with
+  /// Whether execution stopped because it could not go on, as opposed to
+  /// stopping where it was asked to.
+  member this.IsFailure =
+    match this with
+    | ConcStopReason.UndefinedValue _
+    | ConcStopReason.EvaluationError _
+    | ConcStopReason.InvalidInstructionAddress _
+    | ConcStopReason.CallHandlingFailure _ -> true
+    | _ -> false
 
 /// Represents how the concrete executor should handle call instructions.
 [<RequireQualifiedAccess>]
@@ -154,6 +164,118 @@ with
   static member Default(stopCondition: ConcStopCondition) =
     ConcRunOptions.Default [ stopCondition ]
 
+  static member Default() = ConcRunOptions.Default []
+
+  static member private HookRegistry calls =
+    match calls with
+    | ConcCallPolicy.UseCallHooks hooks -> hooks
+    | ConcCallPolicy.StopAtCalls
+    | ConcCallPolicy.FollowDirectInternalCalls -> ConcCallHookRegistry()
+
+  /// Uses the given maximum machine instruction count.
+  member opts.WithMaxInstructions count =
+    { opts with MaxInstructions = count }
+
+  /// Stops before evaluating call instructions.
+  member opts.StopAtCalls() =
+    { opts with Calls = ConcCallPolicy.StopAtCalls }
+
+  /// Follows direct internal calls without using external-call hooks.
+  member opts.FollowDirectInternalCalls() =
+    { opts with Calls = ConcCallPolicy.FollowDirectInternalCalls }
+
+  /// Uses a prepared call hook registry for external-call dispatch.
+  member opts.WithCallHooks hooks =
+    { opts with Calls = ConcCallPolicy.UseCallHooks hooks }
+
+  /// Registers a call hook and enables hook-based call handling.
+  member opts.RegisterCallHook(target, hook) =
+    let hooks = ConcRunOptions.HookRegistry opts.Calls
+    { opts with
+        Calls = ConcCallPolicy.UseCallHooks(hooks.Register(target, hook)) }
+
+  /// Registers call hooks and enables hook-based call handling.
+  member opts.RegisterCallHooks hooks =
+    let registry = ConcRunOptions.HookRegistry opts.Calls
+    { opts with
+        Calls = ConcCallPolicy.UseCallHooks(registry.RegisterMany hooks) }
+
+  /// Treats undefined values as evaluation failures.
+  member opts.StopOnUndefinedValue() =
+    { opts with
+        UndefinedValues = ConcUndefinedValuePolicy.StopOnUndefinedValue }
+
+  /// Ignores writes whose right-hand side is undefined.
+  member opts.IgnoreUndefinedWrites() =
+    { opts with
+        UndefinedValues = ConcUndefinedValuePolicy.IgnoreUndefinedWrites }
+
+  /// Unsets the target of a write whose right-hand side is undefined.
+  member opts.PreserveUndefinedValues() =
+    { opts with
+        UndefinedValues = ConcUndefinedValuePolicy.PreserveUndefinedValues }
+
+  /// Treats uninitialized register reads as evaluation failures.
+  member opts.StopOnUninitializedRegister() =
+    { opts with
+        UninitializedRegisters =
+          ConcUninitializedRegisterPolicy.StopOnUninitializedRegister }
+
+  /// Materializes caller-provided context registers as zero on first read.
+  member opts.ZeroCallerContext() =
+    { opts with
+        UninitializedRegisters =
+          ConcUninitializedRegisterPolicy.ZeroCallerContext }
+
+  /// Materializes any uninitialized register as zero on first read.
+  member opts.ZeroAnyRegister() =
+    { opts with
+        UninitializedRegisters =
+          ConcUninitializedRegisterPolicy.ZeroAnyRegister }
+
+  /// Adds one stop condition, after the ones already configured.
+  member opts.AddStopCondition condition =
+    { opts with StopConditions = opts.StopConditions @ [ condition ] }
+
+  /// Adds stop conditions, after the ones already configured.
+  member opts.AddStopConditions conditions =
+    { opts with
+        StopConditions = opts.StopConditions @ List.ofSeq conditions }
+
+  /// Replaces the configured stop conditions.
+  member opts.WithStopConditions conditions =
+    { opts with StopConditions = List.ofSeq conditions }
+
+  /// Stops before executing the instruction at the given address.
+  member opts.StopAtAddress addr =
+    opts.AddStopCondition(ConcStopCondition.StopAtAddress addr)
+
+  /// Stops before executing the instruction at any of the given addresses.
+  member opts.StopAtAddresses addrs =
+    addrs
+    |> Seq.map ConcStopCondition.StopAtAddress
+    |> opts.AddStopConditions
+
+  /// Stops after executing the instruction at the given address.
+  member opts.StopAfterAddress addr =
+    opts.AddStopCondition(ConcStopCondition.StopAfterAddress addr)
+
+  /// Stops when a function return is observed.
+  member opts.StopAtReturn() =
+    opts.AddStopCondition ConcStopCondition.StopAtReturn
+
+  /// Stops after executing a function return.
+  member opts.StopAfterReturn() =
+    opts.AddStopCondition ConcStopCondition.StopAfterReturn
+
+  /// Stops when a side-effect statement is observed.
+  member opts.StopAtSideEffect() =
+    opts.AddStopCondition ConcStopCondition.StopAtSideEffect
+
+  /// Stops when the given predicate holds.
+  member opts.StopWhen predicate =
+    opts.AddStopCondition(ConcStopCondition.StopWhen predicate)
+
 /// Represents the result of a concrete execution run.
 type ConcRunResult =
   { /// Reasons why execution stopped.
@@ -171,6 +293,45 @@ with
     |> List.exists (function
       | ConcStopReason.StoppedAtAddress stopped -> stopped = addr
       | _ -> false)
+
+  /// Returns true when execution stopped after the given address.
+  member this.IsStoppedAfterAddress addr =
+    this.StopReasons
+    |> List.exists (function
+      | ConcStopReason.StoppedAfterAddress stopped -> stopped = addr
+      | _ -> false)
+
+  /// Returns true when execution stopped at a function return.
+  member this.IsStoppedAtReturn =
+    this.StopReasons |> List.exists (fun r -> r.IsStoppedAtReturn)
+
+  /// Returns true when execution stopped after a function return.
+  member this.IsStoppedAfterReturn =
+    this.StopReasons |> List.exists (fun r -> r.IsStoppedAfterReturn)
+
+  /// Returns true when execution stopped at a call instruction.
+  member this.IsStoppedAtCall =
+    this.StopReasons |> List.exists (fun r -> r.IsStoppedAtCall)
+
+  /// Returns true when execution stopped at a side-effect statement.
+  member this.IsStoppedAtSideEffect =
+    this.StopReasons |> List.exists (fun r -> r.IsStoppedAtSideEffect)
+
+  /// Returns true when execution reached the configured instruction limit.
+  member this.IsInstructionLimitReached =
+    this.StopReasons |> List.exists (fun r -> r.IsInstructionLimitReached)
+
+  /// Returns true when a user-defined stop predicate ended the run.
+  member this.IsUserStopConditionMet =
+    this.StopReasons |> List.exists (fun r -> r.IsUserStopConditionMet)
+
+  /// Returns true when execution stopped because it could not go on.
+  member this.IsFailed =
+    this.StopReasons |> List.exists (fun r -> r.IsFailure)
+
+  /// Returns the first reason execution could not go on, if any.
+  member this.TryGetFailure() =
+    this.StopReasons |> List.tryFind (fun r -> r.IsFailure)
 
 type private InstructionEvalResult =
   | EvalOk
