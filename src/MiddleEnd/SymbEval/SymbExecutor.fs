@@ -27,6 +27,7 @@ namespace B2R2.MiddleEnd.SymbEval
 open System.Collections.Generic
 open System.Diagnostics
 open B2R2
+open B2R2.ABI
 open B2R2.BinIR
 open B2R2.BinIR.LowUIR
 open B2R2.FrontEnd
@@ -489,9 +490,14 @@ type SymbExecutor(hdl: BinHandle) =
     st.SetReg(hdl.RegisterFactory.ProgramCounter,
               SymbExpr.Const(BitVector(addr, wordType)))
 
-  let getArgumentRegisters () =
-    [| 0 .. 5 |]
-    |> Array.map (fun idx -> cc.IntArgRegister idx)
+  (* The argument slots the ABI itself declares: one that passes its argument
+     on the stack, as x86 cdecl passes every one of them, contributes no
+     register here, so a hook reads that argument from the stack. *)
+  let argumentRegisters =
+    cc.IntArgs
+    |> Array.choose (function
+      | ArgLocation.Reg rid -> Some rid
+      | _ -> None)
 
   let mkCallContext callSite target returnAddress =
     { CallSite = callSite
@@ -499,7 +505,7 @@ type SymbExecutor(hdl: BinHandle) =
       ReturnAddress = returnAddress
       WordType = wordType
       Endian = endian
-      ArgumentRegisters = getArgumentRegisters ()
+      ArgumentRegisters = argumentRegisters
       ReturnRegister = cc.IntReturnRegister }
 
   let pushReturnAddress returnAddress (st: SymbState) =
