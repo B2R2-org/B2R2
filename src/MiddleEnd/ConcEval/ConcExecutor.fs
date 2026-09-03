@@ -33,15 +33,6 @@ open B2R2.FrontEnd
 open B2R2.FrontEnd.BinLifter
 open B2R2.MiddleEnd.Executor
 
-/// Represents a concrete stop point observed by a user-defined predicate.
-type ConcStopPoint =
-  { /// Current instruction address.
-    Address: Addr
-    /// Number of executed machine instructions.
-    InstructionCount: int
-    /// Concrete executor state.
-    State: EvalState }
-
 /// Represents a concrete execution stop condition.
 [<RequireQualifiedAccess>]
 type ConcStopCondition =
@@ -56,11 +47,7 @@ type ConcStopCondition =
   /// Stop when a side-effect statement is observed.
   | StopAtSideEffect
   /// Stop when a user-provided predicate holds.
-  | StopWhen of predicate: ConcStopPredicate
-
-/// Represents a user-provided predicate that decides whether concrete
-/// execution should stop at the given stop point.
-and ConcStopPredicate = delegate of ConcStopPoint -> bool
+  | StopWhen of predicate: StopPredicate<EvalState>
 
 /// Represents the reason why concrete execution stopped.
 [<RequireQualifiedAccess>]
@@ -555,8 +542,8 @@ type ConcExecutor(hdl: BinHandle) =
     | limit when limit > 0 && n >= limit -> Some limit
     | _ -> None
 
-  let collectPreInstrStopReasons st addr n (opts: ConcRunOptions) =
-    let point = { Address = addr; InstructionCount = n; State = st }
+  let collectPreInstrStopReasons point (opts: ConcRunOptions) =
+    let addr, n = point.Address, point.InstructionCount
     let reasons =
       opts.StopConditions
       |> List.choose (function
@@ -699,10 +686,14 @@ type ConcExecutor(hdl: BinHandle) =
     let invalidInstr reasons addr n =
       let reason = ConcStopReason.InvalidInstructionAddress addr
       mkResult (reasons @ [ reason ]) addr n st
+    let mkStopPoint addr n ins =
+      { Address = addr; InstructionCount = n; Instruction = ins; State = st }
     let rec loop n =
       let addr = st.PC
-      let reasons = collectPreInstrStopReasons st addr n opts
-      match tryParseInstruction addr with
+      let parsed = tryParseInstruction addr
+      let point = mkStopPoint addr n (Result.toOption parsed)
+      let reasons = collectPreInstrStopReasons point opts
+      match parsed with
       | Result.Error _ ->
         invalidInstr reasons addr n
       | Ok ins ->

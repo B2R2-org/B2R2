@@ -5,6 +5,7 @@
 
   <ItemGroup>
     <Compile Include="IStateAccessor.fs" />
+    <Compile Include="StopPoint.fs" />
     <Compile Include="Labels.fs" />
     <Compile Include="IExecutor.fs" />
   </ItemGroup>

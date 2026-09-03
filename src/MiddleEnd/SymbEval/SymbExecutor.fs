@@ -33,34 +33,23 @@ open B2R2.FrontEnd
 open B2R2.FrontEnd.BinLifter
 open B2R2.MiddleEnd.Executor
 
-/// Represents a symbolic execution point inspected by SymbExecutor queries.
-type SymbStopPoint =
-  { /// Address of the symbolic state.
-    Address: Addr
-    /// Number of instructions executed before reaching the state.
-    InstructionCount: int
-    /// Instruction about to execute at the stop point, if parsable.
-    Instruction: IInstruction option
-    /// Symbolic state at the stop point.
-    State: SymbState }
-
 /// Represents an avoid condition used by SymbExecutor.Run.
 type SymbAvoid =
   /// Discard states whose PC reaches one of the given addresses.
   | AvoidAddresses of addrs: Set<Addr>
   /// Discard states satisfying the given predicate.
-  | AvoidState of predicate: (SymbStopPoint -> bool)
+  | AvoidState of predicate: StopPredicate<SymbState>
 
 /// Represents a symbolic query evaluated by SymbExecutor.Run.
 type SymbQuery =
   /// Ask whether execution can reach the given address.
   | ReachAddress of target: Addr
   /// Ask whether execution can reach a state satisfying the predicate.
-  | ReachState of predicate: (SymbStopPoint -> bool)
+  | ReachState of predicate: StopPredicate<SymbState>
   /// Ask for concrete symbolic-input values reaching the given address.
   | SatisfyAddress of target: Addr
   /// Ask for concrete symbolic-input values reaching a matching state.
-  | SatisfyState of predicate: (SymbStopPoint -> bool)
+  | SatisfyState of predicate: StopPredicate<SymbState>
 
 /// Represents a symbolic query and the values to extract for model queries.
 type SymbQueryRequest =
@@ -141,7 +130,7 @@ with
   static member private MatchesAvoid(avoid, point) =
     match avoid with
     | AvoidAddresses addrs -> Set.contains point.Address addrs
-    | AvoidState pred -> pred point
+    | AvoidState pred -> pred.Invoke point
 
   static member private CombineAvoid(lhs, rhs) =
     match lhs, rhs with
@@ -152,9 +141,9 @@ with
     | avoid, AvoidAddresses addrs when Set.isEmpty addrs ->
       avoid
     | avoid1, avoid2 ->
-      AvoidState(fun point ->
+      AvoidState(StopPredicate(fun point ->
         SymbRunOptions.MatchesAvoid(avoid1, point)
-        || SymbRunOptions.MatchesAvoid(avoid2, point))
+        || SymbRunOptions.MatchesAvoid(avoid2, point)))
 
   /// Adds one symbolic value to solver value extraction.
   member opts.AddQueryValue value =
@@ -878,18 +867,18 @@ type SymbExecutor(hdl: BinHandle) =
       Some(AvoidedAddress point.Address)
     | AvoidAddresses _ ->
       None
-    | AvoidState pred when pred point ->
+    | AvoidState pred when pred.Invoke point ->
       Some(AvoidedState point.Address)
     | AvoidState _ ->
       None
 
-  let tryMatchUserQuery (query: SymbQuery) (point: SymbStopPoint) =
+  let tryMatchUserQuery (query: SymbQuery) (point: StopPoint<SymbState>) =
     match query with
     | ReachAddress target when point.Address = target ->
       Some MatchedReachabilityQuery
     | ReachAddress _ ->
       None
-    | ReachState pred when pred point ->
+    | ReachState pred when pred.Invoke point ->
       Some MatchedReachabilityQuery
     | ReachState _ ->
       None
@@ -897,7 +886,7 @@ type SymbExecutor(hdl: BinHandle) =
       Some MatchedSatisfiabilityQuery
     | SatisfyAddress _ ->
       None
-    | SatisfyState pred when pred point ->
+    | SatisfyState pred when pred.Invoke point ->
       Some MatchedSatisfiabilityQuery
     | SatisfyState _ ->
       None

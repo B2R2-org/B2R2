@@ -9,6 +9,7 @@
     <Compile Include="SymbVariablesTests.fs" />
     <Compile Include="SymbStateTests.fs" />
     <Compile Include="SymbStateAccessorTests.fs" />
+    <Compile Include="SymbRunOptionsTests.fs" />
     <Compile Include="SMTLibPipelineTests.fs" />
   </ItemGroup>
 

@@ -116,7 +116,7 @@ type ConcExecutorTests() =
     let hdl = loadRawImage bytes Architecture.Intel WordSize.Bit64
     let exec = ConcExecutor hdl
     let st = exec.CreateState()
-    let predicate = ConcStopPredicate(fun point -> point.InstructionCount = 3)
+    let predicate = StopPredicate(fun point -> point.InstructionCount = 3)
     let opts = ConcRunOptions.Default().StopWhen predicate
     let res = exec.Run(0UL, st, opts)
     Assert.AreEqual<int>(3, res.InstructionCount)
@@ -416,3 +416,34 @@ type ConcExecutorTests() =
     let opts = ConcRunOptions.Default().StopAfterReturn()
     let res = exec.Run(0UL, afterState, opts)
     Assert.AreEqual<bool>(true, res.IsStoppedAfterReturn)
+
+  [<TestMethod>]
+  member _.``A stop point carries the instruction about to execute``() =
+    (* jmp $ *)
+    let bytes = [| 0xebuy; 0xfeuy |]
+    let hdl = loadRawImage bytes Architecture.Intel WordSize.Bit64
+    let exec = ConcExecutor hdl
+    let st = exec.CreateState()
+    let lengths = ResizeArray<uint32>()
+    let predicate =
+      StopPredicate(fun point ->
+        point.Instruction |> Option.iter (fun ins -> lengths.Add ins.Length)
+        false)
+    let opts = ConcRunOptions.Default().StopWhen predicate
+    exec.Run(0UL, st, opts.WithMaxInstructions 2) |> ignore
+    Assert.AreEqual<uint32>(2u, Seq.head lengths)
+
+  [<TestMethod>]
+  member _.``A stop point has no instruction where none parses``() =
+    (* jmp $ *)
+    let bytes = [| 0xebuy; 0xfeuy |]
+    let hdl = loadRawImage bytes Architecture.Intel WordSize.Bit64
+    let exec = ConcExecutor hdl
+    let st = exec.CreateState()
+    let seen = ResizeArray<bool>()
+    let predicate =
+      StopPredicate(fun point -> seen.Add point.Instruction.IsSome; false)
+    let opts = ConcRunOptions.Default().StopWhen predicate
+    let res = exec.Run(0x100UL, st, opts)
+    Assert.AreEqual<bool>(false, Seq.head seen)
+    Assert.AreEqual<bool>(true, res.IsFailed)
