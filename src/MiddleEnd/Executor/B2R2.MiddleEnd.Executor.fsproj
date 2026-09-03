@@ -14,6 +14,7 @@
     <Compile Include="SharableMemory.fs" />
     <Compile Include="BackedMemory.fs" />
     <Compile Include="Labels.fs" />
+    <Compile Include="StmtLoop.fs" />
     <Compile Include="IExecutor.fs" />
   </ItemGroup>
 

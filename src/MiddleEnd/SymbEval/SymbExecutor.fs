@@ -923,26 +923,18 @@ type SymbExecutor(hdl: BinHandle) =
       |> cacheLiftResult addr
       |> Result.map (fun lifted -> lifted.Stmts)
 
-  (* A statement advances StmtIdx itself, so this loop never does, and a
-     statement that ends the instruction is the end of it. Optimization trims a
-     trailing IEMark that follows an inter-jump, so no statement position can
-     be relied on here. *)
-  let rec evalStmtsFrom (st: SymbState) (stmts: Stmt[]) =
-    if st.StmtIdx >= Array.length stmts || st.IsInstrTerminated then
-      [ SymbEvaluator.Continue st ]
-    else
-      SymbEvaluator.evalStmt st stmts[st.StmtIdx]
-      |> evalSuccessor stmts
+  let whileContinuing _ = function
+    | SymbEvaluator.Continue st -> ValueSome st
+    | _ -> ValueNone
 
-  and evalSuccessor stmts = function
-    | SymbEvaluator.Continue st ->
-      evalStmtsFrom st stmts
-    | SymbEvaluator.Fork(trueState, falseState) ->
+  let rec evalStmtsFrom (st: SymbState) stmts =
+    match StmtLoop.run SymbEvaluator.evalStmt whileContinuing st stmts with
+    | Completed st ->
+      [ SymbEvaluator.Continue st ]
+    | Interrupted(SymbEvaluator.Fork(trueState, falseState)) ->
       evalStmtsFrom trueState stmts @ evalStmtsFrom falseState stmts
-    | SymbEvaluator.Stopped _ as stopped ->
-      [ stopped ]
-    | SymbEvaluator.EvalError _ as error ->
-      [ error ]
+    | Interrupted outcome ->
+      [ outcome ]
 
   let evalInstr addr (st: SymbState) stmts =
     syncPC addr st

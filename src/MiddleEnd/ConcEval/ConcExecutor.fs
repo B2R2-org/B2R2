@@ -298,9 +298,9 @@ type ConcExecutor(hdl: BinHandle) =
 
   let evalInstr opts (st: EvalState) stmts =
     st.PrepareInstrEval stmts
-    match EvalUtils.tryEvalStmtsWith (step opts) st stmts with
-    | Ok() -> EvalOk
-    | Result.Error stop -> stop
+    match StmtLoop.run (step opts) StmtLoop.whileOk st stmts with
+    | Interrupted(Result.Error stop) -> stop
+    | _ -> EvalOk
 
   let isInternalTarget target = hdl.File.IsValidAddr target
 

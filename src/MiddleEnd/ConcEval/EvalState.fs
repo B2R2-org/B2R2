@@ -196,6 +196,12 @@ type EvalState(regs, temps, lbls, mem, ignoreUndef) =
   /// Makes an independent copy of this EvalState, including its memory.
   member this.Clone() = this.Clone(mem.Clone())
 
+  interface IStmtCursor with
+
+    member _.StmtIdx = stmtIdx
+
+    member _.IsInstrTerminated = isInstrTerminated
+
 /// Represents a callback function that is invoked when a memory load fails.
 and LoadFailureEventHandler =
   delegate of Addr * Addr * RegType * ErrorCase -> Result<BitVector, ErrorCase>

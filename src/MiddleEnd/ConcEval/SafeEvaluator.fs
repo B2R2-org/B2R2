@@ -35,6 +35,7 @@ open B2R2
 open B2R2.BinIR
 open B2R2.BinIR.LowUIR
 open B2R2.MiddleEnd.ConcEval.EvalUtils
+open B2R2.MiddleEnd.Executor
 
 let private map1 fn p1 = function
   | Ok(Def bv) -> Def(fn (bv, p1)) |> Ok
@@ -262,4 +263,6 @@ let private evalStmtOrSkip (st: EvalState) stmt =
 /// evaluation carries on.
 let evalInstr (st: EvalState) stmts =
   st.PrepareInstrEval stmts
-  tryEvalStmtsWith evalStmtOrSkip st stmts
+  match StmtLoop.run evalStmtOrSkip StmtLoop.whileOk st stmts with
+  | Completed _ -> Ok()
+  | Interrupted error -> error

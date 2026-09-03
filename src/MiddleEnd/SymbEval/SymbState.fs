@@ -107,6 +107,12 @@ type SymbState(regs, temps, lbls, mem, pathCond) =
     this.Labels.Update stmts
     this.StmtIdx <- 0
 
+  interface IStmtCursor with
+
+    member _.StmtIdx = stmtIdx
+
+    member _.IsInstrTerminated = isInstrTerminated
+
   member _.Clone() =
     SymbState(regs.Clone(),
              temps.Clone(),
