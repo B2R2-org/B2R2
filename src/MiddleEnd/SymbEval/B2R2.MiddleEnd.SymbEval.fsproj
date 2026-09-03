@@ -11,6 +11,7 @@
     <Compile Include="SymbState.fs" />
     <Compile Include="SymbStateAccessor.fs" />
     <Compile Include="SymbExprEvaluator.fs" />
+    <Compile Include="SymbEvalSuccessor.fs" />
     <Compile Include="SymbStmtEvaluator.fs" />
     <Compile Include="SMTLibSerializer.fs" />
     <Compile Include="ISolver.fs" />

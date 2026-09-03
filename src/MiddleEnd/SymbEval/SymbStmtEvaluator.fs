@@ -29,22 +29,6 @@ open B2R2
 open B2R2.BinIR
 open B2R2.BinIR.LowUIR
 
-/// Represents a symbolic evaluation stop reason.
-type SymbEvalStopReason =
-  /// Evaluation reached a LowUIR statement with architectural side effects.
-  | SideEffectStop of SideEffect
-
-/// Represents the successor relation produced by symbolic evaluation.
-type SymbEvalSuccessor =
-  /// Evaluation can continue from the given state.
-  | Continue of SymbState
-  /// Evaluation forked on a symbolic condition.
-  | Fork of trueState: SymbState * falseState: SymbState
-  /// Evaluation stopped before completing the current run.
-  | Stopped of SymbState * SymbEvalStopReason
-  /// Evaluation failed.
-  | EvalError of SymbEvalError
-
 let private unsupportedStmt stmt =
   Stmt.toString stmt |> UnsupportedStatement |> Error
 
@@ -109,7 +93,7 @@ let private evalSymbolicCJmp (st: SymbState) cond trueTarget falseTarget =
     addTrueCond trueState cond
     addFalseCond falseState cond
     match evalJmp trueState trueTarget, evalJmp falseState falseTarget with
-    | Ok(), Ok() -> Ok(Fork(trueState, falseState))
+    | Ok(), Ok() -> Ok(SymbEvalSuccessor.Fork(trueState, falseState))
     | Error e, _ | _, Error e -> Error e
   else
     conditionTypeError cond
@@ -118,7 +102,7 @@ let private evalCJmp (st: SymbState) cond trueTarget falseTarget =
   match SymbExprEvaluator.eval st cond with
   | Ok(Const cond) ->
     evalConcreteCJmp st cond.IsTrue trueTarget falseTarget
-    |> Result.map (fun () -> Continue st)
+    |> Result.map (fun () -> SymbEvalSuccessor.Continue st)
   | Ok cond ->
     evalSymbolicCJmp st cond trueTarget falseTarget
   | Error e ->
@@ -139,7 +123,7 @@ let private evalSymbolicIntCJmp (st: SymbState) cond trueTarget falseTarget =
     | Ok(), Ok() ->
       trueState.AbortInstr()
       falseState.AbortInstr()
-      Ok(Fork(trueState, falseState))
+      Ok(SymbEvalSuccessor.Fork(trueState, falseState))
     | Error e, _ | _, Error e ->
       Error e
   else
@@ -151,7 +135,7 @@ let private evalIntCJmp (st: SymbState) cond trueTarget falseTarget =
     evalConcreteIntCJmp st cond.IsTrue trueTarget falseTarget
     |> Result.map (fun () ->
       st.AbortInstr()
-      Continue st)
+      SymbEvalSuccessor.Continue st)
   | Ok cond ->
     evalSymbolicIntCJmp st cond trueTarget falseTarget
   | Error e ->
@@ -164,36 +148,36 @@ let evalStmt (st: SymbState) stmt =
     | ISMark(len, _) ->
       st.CurrentInsLen <- len
       st.NextStmt()
-      Ok(Continue st)
+      Ok(SymbEvalSuccessor.Continue st)
     | IEMark(len, _) ->
       st.AdvancePC len
       st.AbortInstr()
-      Ok(Continue st)
+      Ok(SymbEvalSuccessor.Continue st)
     | LMark _ ->
       st.NextStmt()
-      Ok(Continue st)
+      Ok(SymbEvalSuccessor.Continue st)
     | Put(lhs, rhs, _) ->
       evalPut st lhs rhs |> Result.map (fun () ->
         st.NextStmt()
-        Continue st)
+        SymbEvalSuccessor.Continue st)
     | Store(endian, addr, value, _) ->
       evalStore st endian addr value |> Result.map (fun () ->
         st.NextStmt()
-        Continue st)
+        SymbEvalSuccessor.Continue st)
     | Jmp(target, _) ->
-      evalJmp st target |> Result.map (fun () -> Continue st)
+      evalJmp st target |> Result.map (fun () -> SymbEvalSuccessor.Continue st)
     | CJmp(cond, trueTarget, falseTarget, _) ->
       evalCJmp st cond trueTarget falseTarget
     | InterJmp(target, _, _) ->
       evalPCUpdate st target |> Result.map (fun () ->
         st.AbortInstr()
-        Continue st)
+        SymbEvalSuccessor.Continue st)
     | InterCJmp(cond, trueTarget, falseTarget, _) ->
       evalIntCJmp st cond trueTarget falseTarget
     | ExternalCall _ ->
       unsupportedStmt stmt
     | SideEffect(effect, _) ->
-      Ok(Stopped(st, SideEffectStop effect))
+      Ok(SymbEvalSuccessor.StoppedAtSideEffect(st, effect))
   match result with
   | Ok result -> result
-  | Error e -> EvalError e
+  | Error e -> SymbEvalSuccessor.EvalError e
