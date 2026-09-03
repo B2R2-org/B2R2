@@ -181,7 +181,8 @@ type EvalState(regs, temps, lbls, mem, ignoreUndef) =
   member internal this.OnSideEffect(eff, st) =
     this.SideEffectEventHandler.Invoke(eff, st)
 
-  /// Make a copy of this EvalState with a given new Memory.
+  /// Makes a copy of this EvalState that uses the given memory instead of
+  /// this one's.
   member _.Clone(newMem) =
     EvalState(regs.Clone(),
               temps.Clone(),
@@ -196,8 +197,8 @@ type EvalState(regs, temps, lbls, mem, ignoreUndef) =
               ExternalCallEventHandler = externalCallEventHdl,
               SideEffectEventHandler = sideEffectHdl)
 
-  /// Make a copy of this EvalState.
-  member this.Clone() = this.Clone(mem)
+  /// Makes an independent copy of this EvalState, including its memory.
+  member this.Clone() = this.Clone(mem.Clone())
 
 /// Represents a callback function that is invoked when a memory load fails.
 and LoadFailureEventHandler =

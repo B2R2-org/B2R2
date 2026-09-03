@@ -28,8 +28,10 @@ open System.Collections.Generic
 open B2R2
 
 /// Represents a non-sharable memory.
-type NonsharableMemory() =
-  let mem = Dictionary<Addr, byte>()
+type NonsharableMemory(mem: IDictionary<Addr, byte>) =
+  let mem = Dictionary<Addr, byte>(mem)
+
+  new() = NonsharableMemory(Dictionary())
 
   interface IMemory with
 
@@ -38,5 +40,7 @@ type NonsharableMemory() =
       else Error ErrorCase.InvalidMemoryRead
 
     member _.ByteWrite(addr, b) = mem[addr] <- b
+
+    member _.Clone() = NonsharableMemory(mem) :> IMemory
 
     member _.Clear() = mem.Clear()

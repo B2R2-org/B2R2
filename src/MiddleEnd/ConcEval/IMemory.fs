@@ -36,6 +36,9 @@ type IMemory =
   /// only because an unmapped address has no value to return.
   abstract ByteWrite: Addr * byte -> unit
 
+  /// Returns an independent copy of this memory.
+  abstract Clone: unit -> IMemory
+
   /// Clears up the memory contents; discards every value written to the
   /// memory.
   abstract Clear: unit -> unit

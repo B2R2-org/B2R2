@@ -26,11 +26,14 @@
 namespace B2R2.MiddleEnd.ConcEval
 
 open System.Collections.Concurrent
+open System.Collections.Generic
 open B2R2
 
 /// Represents a thread-safe (sharable) memory.
-type SharableMemory() =
-  let mem = ConcurrentDictionary<Addr, byte>()
+type SharableMemory(mem: IDictionary<Addr, byte>) =
+  let mem = ConcurrentDictionary<Addr, byte>(mem)
+
+  new() = SharableMemory(Dictionary())
 
   interface IMemory with
 
@@ -39,5 +42,7 @@ type SharableMemory() =
       else Error ErrorCase.InvalidMemoryRead
 
     member _.ByteWrite(addr, b) = mem[addr] <- b
+
+    member _.Clone() = SharableMemory(mem) :> IMemory
 
     member _.Clear() = mem.Clear()

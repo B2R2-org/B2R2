@@ -54,4 +54,7 @@ type BinSectionMemory(hdl: BinHandle, mem: IMemory, isBacked: bool) =
 
     member _.ByteWrite(addr, b) = mem.ByteWrite(addr, b)
 
+    member _.Clone() =
+      BinSectionMemory(hdl, mem.Clone(), isBacked) :> IMemory
+
     member _.Clear() = mem.Clear()

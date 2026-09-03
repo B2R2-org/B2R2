@@ -61,6 +61,10 @@ type MemoryTests() =
         | Error e -> Assert.Fail $"Failed to read a byte: {e}"; 0uy)
     CollectionAssert.AreEqual(expected, bytes)
 
+  let assertUnwritten (mem: IMemory) addr =
+    let expected = Error ErrorCase.InvalidMemoryRead
+    Assert.AreEqual<Result<byte, ErrorCase>>(expected, mem.ByteRead addr)
+
   [<TestMethod>]
   member _.``A little-endian value reads back as itself``() =
     assertRoundTrip Endian.Little (NonsharableMemory())
@@ -114,3 +118,50 @@ type MemoryTests() =
     match mem.ByteRead imageAddr with
     | Ok b -> Assert.Fail $"Read a section byte {b} without a backing."
     | Error e -> Assert.AreEqual<ErrorCase>(ErrorCase.InvalidMemoryRead, e)
+
+  [<TestMethod>]
+  member _.``A cloned memory keeps the contents of its origin``() =
+    let mem = NonsharableMemory() :> IMemory
+    mem.ByteWrite(addr, 0x42uy)
+    match mem.Clone().ByteRead addr with
+    | Ok b -> Assert.AreEqual<byte>(0x42uy, b)
+    | Error e -> Assert.Fail $"Lost the cloned contents: {e}"
+
+  [<TestMethod>]
+  member _.``A cloned memory does not share later writes``() =
+    let mem = NonsharableMemory() :> IMemory
+    let clone = mem.Clone()
+    clone.ByteWrite(addr, 0x42uy)
+    mem.ByteWrite(addr + 1UL, 0x43uy)
+    assertUnwritten mem addr
+    assertUnwritten clone (addr + 1UL)
+
+  [<TestMethod>]
+  member _.``A cloned sharable memory does not share later writes``() =
+    let mem = SharableMemory() :> IMemory
+    let clone = mem.Clone()
+    clone.ByteWrite(addr, 0x42uy)
+    assertUnwritten mem addr
+
+  [<TestMethod>]
+  member _.``A cloned section memory keeps its backing``() =
+    let mem = sectionMemory () :> IMemory
+    match mem.Clone().ByteRead imageAddr with
+    | Ok b -> Assert.AreEqual<byte>(imageByte, b)
+    | Error e -> Assert.Fail $"Lost the section backing: {e}"
+
+  [<TestMethod>]
+  member _.``A cloned EvalState owns its memory``() =
+    let st = EvalState()
+    let clone = st.Clone()
+    clone.Memory.ByteWrite(addr, 0x42uy)
+    assertUnwritten st.Memory addr
+
+  [<TestMethod>]
+  member _.``A cloned EvalState can share a given memory``() =
+    let st = EvalState()
+    let clone = st.Clone st.Memory
+    clone.Memory.ByteWrite(addr, 0x42uy)
+    match st.Memory.ByteRead addr with
+    | Ok b -> Assert.AreEqual<byte>(0x42uy, b)
+    | Error e -> Assert.Fail $"Failed to share the memory: {e}"
