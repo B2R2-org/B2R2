@@ -22,19 +22,20 @@
   SOFTWARE.
 *)
 
-namespace B2R2.MiddleEnd.SymbEval
+namespace B2R2.MiddleEnd.Executor
 
 open System.Collections.Generic
 
-/// Represents a collection of symbolic variables used in the evaluation state.
-/// The key type decides what kind of variables the collection holds: registers
-/// are keyed by their <see cref='T:B2R2.RegisterID'/>, and temporaries by the
-/// integer that names them.
-type SymbVariables<'K when 'K: equality> private(vars) =
-  let vars: Dictionary<'K, SymbExpr> = vars
+/// Represents a collection of variables used in an evaluation state. The key
+/// type decides what kind of variables the collection holds: registers are
+/// keyed by their <see cref='T:B2R2.RegisterID'/>, and temporaries by the
+/// integer that names them. The value type decides what an evaluation binds
+/// them to: a concrete one binds bit-vectors, a symbolic one expressions.
+type Variables<'K, 'V when 'K: equality> private(vars) =
+  let vars: Dictionary<'K, 'V> = vars
 
-  /// Instantiates an empty collection of symbolic variables.
-  new() = SymbVariables(Dictionary())
+  /// Instantiates an empty collection of variables.
+  new() = Variables(Dictionary())
 
   /// Returns the number of the variables that are currently defined.
   member _.Count with get() = vars.Count
@@ -63,5 +64,5 @@ type SymbVariables<'K when 'K: equality> private(vars) =
   member _.ToArray() =
     vars |> Seq.map (fun (KeyValue(k, v)) -> k, v) |> Seq.toArray
 
-  /// Returns an independent copy of this collection of symbolic variables.
-  member _.Clone() = SymbVariables(Dictionary(vars))
+  /// Returns an independent copy of this collection of variables.
+  member _.Clone() = Variables(Dictionary(vars))

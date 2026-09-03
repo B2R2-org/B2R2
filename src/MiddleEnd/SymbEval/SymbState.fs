@@ -42,13 +42,13 @@ type SymbState(regs, temps, lbls, mem: ISymbMemory, pathCond: SymbExpr list) =
   let mutable pathCond = pathCond
 
   new() =
-    SymbState(SymbVariables(),
-             SymbVariables(),
-             Labels(),
-             SymbMemory() :> ISymbMemory,
-             [])
+    SymbState(Variables(),
+              Variables(),
+              Labels(),
+              SymbMemory() :> ISymbMemory,
+              [])
 
-  new(mem) = SymbState(SymbVariables(), SymbVariables(), Labels(), mem, [])
+  new(mem) = SymbState(Variables(), Variables(), Labels(), mem, [])
 
   member _.PC with get() = pc and set(addr) = pc <- addr
 
@@ -57,9 +57,9 @@ type SymbState(regs, temps, lbls, mem: ISymbMemory, pathCond: SymbExpr list) =
   member _.CurrentInsLen
     with get() = currentInsLen and set(l) = currentInsLen <- l
 
-  member _.Registers with get(): SymbVariables<RegisterID> = regs
+  member _.Registers with get(): Variables<RegisterID, SymbExpr> = regs
 
-  member _.Temporaries with get(): SymbVariables<int> = temps
+  member _.Temporaries with get(): Variables<int, SymbExpr> = temps
 
   member _.Labels with get() = lbls
 

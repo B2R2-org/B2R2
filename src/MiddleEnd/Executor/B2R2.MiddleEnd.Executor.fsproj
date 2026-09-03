@@ -8,6 +8,7 @@
     <Compile Include="StopPoint.fs" />
     <Compile Include="CallContext.fs" />
     <Compile Include="CallPolicy.fs" />
+    <Compile Include="Variables.fs" />
     <Compile Include="Labels.fs" />
     <Compile Include="IExecutor.fs" />
   </ItemGroup>

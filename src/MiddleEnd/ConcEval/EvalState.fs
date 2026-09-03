@@ -67,10 +67,10 @@ type EvalState(regs, temps, lbls, mem, ignoreUndef) =
     with get() = currentInsLen and set(l) = currentInsLen <- l
 
   /// Named register values.
-  member _.Registers with get(): Variables<RegisterID> = regs
+  member _.Registers with get(): Variables<RegisterID, BitVector> = regs
 
   /// Temporary variable values.
-  member _.Temporaries with get(): Variables<int> = temps
+  member _.Temporaries with get(): Variables<int, BitVector> = temps
 
   /// Memory.
   member _.Memory with get() = mem
@@ -120,7 +120,8 @@ type EvalState(regs, temps, lbls, mem, ignoreUndef) =
     this.NextStmt()
 
   /// Get the value of the given temporary variable.
-  member inline this.TryGetTmp n = this.Temporaries.TryGet n
+  member inline this.TryGetTmp n =
+    ConcEvalValue.TryGetOrUndef(this.Temporaries, n)
 
   /// Get the value of the given temporary variable.
   member inline this.GetTmp n = this.Temporaries.Get(n)
@@ -132,7 +133,8 @@ type EvalState(regs, temps, lbls, mem, ignoreUndef) =
   member inline this.UnsetTmp n = this.Temporaries.Unset n
 
   /// Get the value of the given register.
-  member inline this.TryGetReg(r: RegisterID) = this.Registers.TryGet r
+  member inline this.TryGetReg(r: RegisterID) =
+    ConcEvalValue.TryGetOrUndef(this.Registers, r)
 
   /// Get the value of the given register.
   member inline this.GetReg(r: RegisterID) = this.Registers.Get r

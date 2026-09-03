@@ -25,6 +25,7 @@
 namespace B2R2.MiddleEnd.ConcEval
 
 open B2R2
+open B2R2.MiddleEnd.Executor
 
 /// <summary>
 /// Represents a value that can be evaluated in the context of concrete
@@ -36,3 +37,10 @@ type ConcEvalValue =
   | Undef
   /// Concrete value.
   | Def of BitVector
+
+  /// Returns the value of the given variable, or `Undef` when the variable is
+  /// not defined.
+  static member TryGetOrUndef(vars: Variables<'K, BitVector>, k) =
+    match vars.TryGet k with
+    | ValueSome v -> Def v
+    | ValueNone -> Undef

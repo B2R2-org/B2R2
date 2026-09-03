@@ -9,7 +9,6 @@
     <Compile Include="ISymbMemory.fs" />
     <Compile Include="SymbMemory.fs" />
     <Compile Include="BinSectionSymbMemory.fs" />
-    <Compile Include="SymbVariables.fs" />
     <Compile Include="SymbState.fs" />
     <Compile Include="SymbStateAccessor.fs" />
     <Compile Include="SymbExprTranslator.fs" />

@@ -6,7 +6,7 @@
 
   <ItemGroup>
     <Compile Include="MemoryTests.fs" />
-    <Compile Include="VariablesTests.fs" />
+    <Compile Include="EvalStateTests.fs" />
     <Compile Include="ConcStateAccessorTests.fs" />
     <Compile Include="EvaluatorTests.fs" />
     <Compile Include="ConcExecutorTests.fs" />

@@ -22,58 +22,52 @@
   SOFTWARE.
 *)
 
-namespace B2R2.MiddleEnd.SymbEval.Tests
+namespace B2R2.MiddleEnd.ConcEval.Tests
 
 open Microsoft.VisualStudio.TestTools.UnitTesting
 open B2R2
-open B2R2.MiddleEnd.SymbEval
+open B2R2.MiddleEnd.ConcEval
 
 [<TestClass>]
-type SymbVariablesTests() =
-  let value n = SymbExpr.Const(BitVector(uint64 n, 32<rt>))
+type EvalStateTests() =
+  let value n = BitVector(uint64 n, 32<rt>)
 
   [<TestMethod>]
-  member _.``An undefined variable reads as ValueNone``() =
-    let vars = SymbVariables<int>()
-    Assert.AreEqual<SymbExpr voption>(ValueNone, vars.TryGet 0)
+  member _.``An undefined register reads as Undef``() =
+    let st = EvalState()
+    Assert.AreEqual<ConcEvalValue>(Undef, st.TryGetReg(RegisterID.create 3))
 
   [<TestMethod>]
-  member _.``A defined variable reads back as itself``() =
-    let vars = SymbVariables<int>()
-    vars.Set(0, value 1)
-    Assert.AreEqual<SymbExpr voption>(ValueSome(value 1), vars.TryGet 0)
+  member _.``A defined register reads back as Def``() =
+    let st = EvalState()
+    let rid = RegisterID.create 3
+    st.SetReg(rid, value 1)
+    Assert.AreEqual<ConcEvalValue>(Def(value 1), st.TryGetReg rid)
 
   [<TestMethod>]
-  member _.``Unsetting a variable makes it undefined again``() =
-    let vars = SymbVariables<int>()
-    vars.Set(0, value 1)
-    vars.Unset 0
-    Assert.AreEqual<SymbExpr voption>(ValueNone, vars.TryGet 0)
-    Assert.AreEqual<int>(0, vars.Count)
+  member _.``An undefined temporary reads as Undef``() =
+    let st = EvalState()
+    Assert.AreEqual<ConcEvalValue>(Undef, st.TryGetTmp 0)
 
   [<TestMethod>]
-  member _.``A clone does not share its updates with the origin``() =
-    let vars = SymbVariables<int>()
-    vars.Set(0, value 1)
-    let clone = vars.Clone()
-    clone.Set(0, value 2)
-    clone.Set(1, value 3)
-    Assert.AreEqual<SymbExpr voption>(ValueSome(value 1), vars.TryGet 0)
-    Assert.AreEqual<int>(1, vars.Count)
+  member _.``A defined temporary reads back as Def``() =
+    let st = EvalState()
+    st.SetTmp(0, value 1)
+    Assert.AreEqual<ConcEvalValue>(Def(value 1), st.TryGetTmp 0)
 
   [<TestMethod>]
   member _.``Registers come out of ToArray keyed by RegisterID``() =
-    let st = SymbState()
+    let st = EvalState()
     let rid = RegisterID.create 3
     st.SetReg(rid, value 7)
-    let arr: (RegisterID * SymbExpr)[] = st.Registers.ToArray()
+    let arr: (RegisterID * BitVector)[] = st.Registers.ToArray()
     Assert.AreEqual<int>(1, arr.Length)
-    Assert.AreEqual<RegisterID * SymbExpr>((rid, value 7), arr[0])
+    Assert.AreEqual<RegisterID * BitVector>((rid, value 7), arr[0])
 
   [<TestMethod>]
   member _.``Temporaries come out of ToArray keyed by their number``() =
-    let st = SymbState()
+    let st = EvalState()
     st.SetTmp(3, value 7)
-    let arr: (int * SymbExpr)[] = st.Temporaries.ToArray()
+    let arr: (int * BitVector)[] = st.Temporaries.ToArray()
     Assert.AreEqual<int>(1, arr.Length)
-    Assert.AreEqual<int * SymbExpr>((3, value 7), arr[0])
+    Assert.AreEqual<int * BitVector>((3, value 7), arr[0])

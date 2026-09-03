@@ -5,11 +5,7 @@
   </PropertyGroup>
 
   <ItemGroup>
-    <Compile Include="SymbMemoryTests.fs" />
-    <Compile Include="SymbStateTests.fs" />
-    <Compile Include="SymbStateAccessorTests.fs" />
-    <Compile Include="SymbRunOptionsTests.fs" />
-    <Compile Include="SMTLibPipelineTests.fs" />
+    <Compile Include="VariablesTests.fs" />
   </ItemGroup>
 
   <ItemGroup>
@@ -18,7 +14,7 @@
   </ItemGroup>
 
   <ItemGroup>
-    <ProjectReference Include="..\SymbEval\B2R2.MiddleEnd.SymbEval.fsproj" />
+    <ProjectReference Include="..\Executor\B2R2.MiddleEnd.Executor.fsproj" />
   </ItemGroup>
 
 </Project>

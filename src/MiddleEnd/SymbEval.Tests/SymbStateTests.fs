@@ -45,3 +45,36 @@ type SymbStateTests() =
     st.AbortInstr()
     Assert.AreEqual<Addr>(0UL, st.PC)
     Assert.AreEqual<bool>(true, st.IsInstrTerminated)
+
+  [<TestMethod>]
+  member _.``An undefined register reads as ValueNone``() =
+    let st = SymbState()
+    let v = st.TryGetReg(RegisterID.create 3)
+    Assert.AreEqual<SymbExpr voption>(ValueNone, v)
+
+  [<TestMethod>]
+  member _.``A defined register reads back as itself``() =
+    let st = SymbState()
+    let rid = RegisterID.create 3
+    let v = SymbExpr.Const(BitVector(1UL, 32<rt>))
+    st.SetReg(rid, v)
+    Assert.AreEqual<SymbExpr voption>(ValueSome v, st.TryGetReg rid)
+
+  [<TestMethod>]
+  member _.``Registers come out of ToArray keyed by RegisterID``() =
+    let st = SymbState()
+    let rid = RegisterID.create 3
+    let v = SymbExpr.Const(BitVector(7UL, 32<rt>))
+    st.SetReg(rid, v)
+    let arr: (RegisterID * SymbExpr)[] = st.Registers.ToArray()
+    Assert.AreEqual<int>(1, arr.Length)
+    Assert.AreEqual<RegisterID * SymbExpr>((rid, v), arr[0])
+
+  [<TestMethod>]
+  member _.``Temporaries come out of ToArray keyed by their number``() =
+    let st = SymbState()
+    let v = SymbExpr.Const(BitVector(7UL, 32<rt>))
+    st.SetTmp(3, v)
+    let arr: (int * SymbExpr)[] = st.Temporaries.ToArray()
+    Assert.AreEqual<int>(1, arr.Length)
+    Assert.AreEqual<int * SymbExpr>((3, v), arr[0])

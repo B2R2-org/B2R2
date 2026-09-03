@@ -11,7 +11,6 @@
     <Compile Include="NonsharableMemory.fs" />
     <Compile Include="SharableMemory.fs" />
     <Compile Include="BinSectionMemory.fs" />
-    <Compile Include="Variables.fs" />
     <Compile Include="EvalState.fs" />
     <Compile Include="EvalUtils.fs" />
     <Compile Include="SafeEvaluator.fs" />
