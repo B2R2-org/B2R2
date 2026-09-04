@@ -51,12 +51,6 @@ with
 
   static member Default() = ConcRunOptions.Default []
 
-  static member private HookRegistry calls =
-    match calls with
-    | CallPolicy.UseCallHooks hooks -> hooks
-    | CallPolicy.StopAtCalls
-    | CallPolicy.FollowDirectInternalCalls -> CallHookRegistry()
-
   /// Uses the given maximum machine instruction count.
   member opts.WithMaxInstructions count =
     { opts with MaxInstructions = count }
@@ -75,15 +69,11 @@ with
 
   /// Registers a call hook and enables hook-based call handling.
   member opts.RegisterCallHook(target, hook) =
-    let hooks = ConcRunOptions.HookRegistry opts.Calls
-    { opts with
-        Calls = CallPolicy.UseCallHooks(hooks.Register(target, hook)) }
+    { opts with Calls = CallPolicy.register target hook opts.Calls }
 
   /// Registers call hooks and enables hook-based call handling.
   member opts.RegisterCallHooks hooks =
-    let registry = ConcRunOptions.HookRegistry opts.Calls
-    { opts with
-        Calls = CallPolicy.UseCallHooks(registry.RegisterMany hooks) }
+    { opts with Calls = CallPolicy.registerMany hooks opts.Calls }
 
   /// Treats undefined values as evaluation failures.
   member opts.StopOnUndefinedValue() =

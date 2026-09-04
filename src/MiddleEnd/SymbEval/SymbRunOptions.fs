@@ -167,23 +167,11 @@ with
 
   /// Registers a call hook and enables hook-based call handling.
   member opts.RegisterCallHook(target, hook) =
-    let hooks =
-      match opts.Calls with
-      | CallPolicy.UseCallHooks hooks -> hooks
-      | CallPolicy.StopAtCalls
-      | CallPolicy.FollowDirectInternalCalls -> CallHookRegistry()
-    { opts with
-        Calls = CallPolicy.UseCallHooks(hooks.Register(target, hook)) }
+    { opts with Calls = CallPolicy.register target hook opts.Calls }
 
   /// Registers call hooks and enables hook-based call handling.
   member opts.RegisterCallHooks hooks =
-    let registry =
-      match opts.Calls with
-      | CallPolicy.UseCallHooks registry -> registry
-      | CallPolicy.StopAtCalls
-      | CallPolicy.FollowDirectInternalCalls -> CallHookRegistry()
-    { opts with
-        Calls = CallPolicy.UseCallHooks(registry.RegisterMany hooks) }
+    { opts with Calls = CallPolicy.registerMany hooks opts.Calls }
 
   /// Uses the given solver backend.
   member opts.WithSolver solver = { opts with Solver = solver }

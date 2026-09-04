@@ -58,3 +58,24 @@ and CallHookRegistry<'Hook>(hooks: Map<Addr, 'Hook>) =
 
   /// Finds a hook for a concrete target address.
   member _.TryFind target = Map.tryFind target hooks
+
+/// Provides the hook registry that a call policy carries.
+[<RequireQualifiedAccess>]
+module CallPolicy =
+  /// Hook registry the given policy carries, empty when it carries none.
+  let registry = function
+    | CallPolicy.UseCallHooks hooks ->
+      hooks
+    | CallPolicy.StopAtCalls
+    | CallPolicy.FollowDirectInternalCalls ->
+      CallHookRegistry()
+
+  /// Registers a hook against the given policy, switching it to hook-based
+  /// dispatch when it was not there already.
+  let register target hook policy =
+    CallPolicy.UseCallHooks((registry policy).Register(target, hook))
+
+  /// Registers hooks against the given policy, switching it to hook-based
+  /// dispatch when it was not there already.
+  let registerMany hooks policy =
+    CallPolicy.UseCallHooks((registry policy).RegisterMany hooks)
