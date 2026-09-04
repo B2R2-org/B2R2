@@ -33,6 +33,22 @@ type ConcStateTests() =
   let value n = BitVector(uint64 n, 32<rt>)
 
   [<TestMethod>]
+  member _.``Aborting an instruction can advance the PC``() =
+    let st = ConcState()
+    st.CurrentInsLen <- 4u
+    st.AbortInstr true
+    Assert.AreEqual<Addr>(4UL, st.PC)
+    Assert.AreEqual<bool>(true, st.IsInstrTerminated)
+
+  [<TestMethod>]
+  member _.``Aborting an instruction leaves the PC alone by default``() =
+    let st = ConcState()
+    st.CurrentInsLen <- 4u
+    st.AbortInstr()
+    Assert.AreEqual<Addr>(0UL, st.PC)
+    Assert.AreEqual<bool>(true, st.IsInstrTerminated)
+
+  [<TestMethod>]
   member _.``An undefined register reads as Undef``() =
     let st = ConcState()
     Assert.AreEqual<ConcEvalValue>(Undef, st.TryGetReg(RegisterID.create 3))
