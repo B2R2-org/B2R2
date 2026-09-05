@@ -224,7 +224,7 @@ let translate (ins: Instruction) bld =
   | Opcode.FMAX ->
     fmaxmin ins bld AST.fgt
   | Opcode.FMAXNM ->
-    sideEffects ins bld UnsupportedInstruction
+    unsupported ins bld
   | Opcode.FMIN ->
     fmaxmin ins bld AST.flt
   | Opcode.FMLS ->

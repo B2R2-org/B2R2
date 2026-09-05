@@ -39,6 +39,10 @@ let sideEffects ins bld name =
     AST.sideEffect name
   }
 
+/// An instruction that is valid but outside what this lifter models, left to
+/// the emulator to report rather than silently mis-executed.
+let unsupported ins bld = sideEffects ins bld UnsupportedInstruction
+
 let adc ins bld =
   lift bld ins {
     let dst, src1, src2 = transThreeOprs ins bld

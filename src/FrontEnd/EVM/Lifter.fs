@@ -37,7 +37,7 @@ let inline private updateGas bld gas =
     gasReg := gasReg .+ numI32 gas 64<rt>
   }
 
-let sideEffects name bld =
+let sideEffects bld name =
   append bld { AST.sideEffect name }
 
 let private getSPSize size = numI32 (32 * size) 256<rt>
@@ -195,7 +195,7 @@ let jump (ins: Instruction) bld =
     }
   with
     :? System.InvalidOperationException -> (* Special case: terminate func. *)
-      sideEffects Terminate bld
+      sideEffects bld Terminate
 
 let jumpi (ins: Instruction) bld =
   append bld {
@@ -252,10 +252,10 @@ let call (ins: Instruction) bld fname =
 
 let callAndTerminate ins name argCount bld =
   callExternFunc ins bld name argCount false
-  sideEffects Terminate bld
+  sideEffects bld Terminate
 
 let private translateOpcode ins bld = function
-  | STOP -> sideEffects Terminate bld
+  | STOP -> sideEffects bld Terminate
   | ADD -> add ins bld
   | MUL -> mul ins bld
   | SUB -> sub ins bld
@@ -400,7 +400,7 @@ let private translateOpcode ins bld = function
   | DELEGATECALL -> callExternFunc ins bld "delegatecall" 6 true
   | CREATE2 -> callExternFunc ins bld "create2" 4 true
   | STATICCALL -> callExternFunc ins bld "staticcall" 6 true
-  | INVALID -> sideEffects Terminate bld
+  | INVALID -> sideEffects bld Terminate
   | SELFDESTRUCT -> callAndTerminate ins "selfdestruct" 1 bld
 
 let translate (ins: Instruction) bld =

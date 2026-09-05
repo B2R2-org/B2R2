@@ -56,7 +56,7 @@ let translate (core: AVRCore) pcMask (ins: Instruction) builder =
   (* A BREAK is what a debugger plants, so it stops the run rather than
      reporting anything about the processor. *)
   | Opcode.BREAK ->
-    sideEffects ins Breakpoint builder
+    sideEffects ins builder Breakpoint
   | Opcode.BST ->
     bst ins builder
   | Opcode.CALL ->
@@ -91,11 +91,11 @@ let translate (core: AVRCore) pcMask (ins: Instruction) builder =
      this translation can say: whether anything can wake the core again, and
      what does, is the platform's to answer. *)
   | Opcode.SLEEP ->
-    sideEffects ins Terminate builder
+    sideEffects ins builder Terminate
   (* Still to do: SPM writes program memory. Reporting it rather than letting it
      pass keeps a program that reaches one from running on silently. *)
   | Opcode.SPM ->
-    sideEffects ins UnsupportedInstruction builder
+    unsupported ins builder
   | Opcode.CLC ->
     clc ins builder
   | Opcode.CLH ->
@@ -206,7 +206,7 @@ let translate (core: AVRCore) pcMask (ins: Instruction) builder =
   (* A watchdog reset needs a watchdog to reset. Reporting it is what keeps a
      guest that relies on one from looking like it ran correctly. *)
   | Opcode.WDR ->
-    sideEffects ins UnsupportedInstruction builder
+    unsupported ins builder
   | Opcode.XCH ->
     xch ins builder
   (* No parser produces this opcode: an undecodable encoding is reported as a

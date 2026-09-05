@@ -170,6 +170,14 @@ let sideEffects (ins: Instruction) bld name =
     AST.sideEffect name
   }
 
+/// An instruction that is valid but outside what this lifter models, left to
+/// the emulator to report rather than silently mis-executed.
+let unsupported ins bld = sideEffects ins bld UnsupportedInstruction
+
+/// An encoding the architecture itself leaves undefined, illegal, or
+/// reserved, so faulting is what the instruction means.
+let undefined ins bld = sideEffects ins bld UndefinedInstruction
+
 let nop (ins: Instruction) bld =
   lift bld ins {
   }

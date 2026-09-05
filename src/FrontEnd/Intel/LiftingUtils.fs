@@ -671,7 +671,7 @@ let getMask oprSize =
   | 64<rt> -> numI64 0xffffffffffffffffL oprSize
   | _ -> raise InvalidOperandSizeException
 
-let sideEffects bld (ins: Instruction) name =
+let sideEffects (ins: Instruction) bld name =
   lift bld ins {
 #if EMULATION
     if bld.ConditionCodeOp <> ConditionCodeOp.TraceStart then
@@ -682,6 +682,14 @@ let sideEffects bld (ins: Instruction) name =
 #endif
     AST.sideEffect name
   }
+
+/// An instruction that is valid but outside what this lifter models, left to
+/// the emulator to report rather than silently mis-executed.
+let unsupported ins bld = sideEffects ins bld UnsupportedInstruction
+
+/// An encoding the architecture itself leaves undefined, illegal, or
+/// reserved, so faulting is what the instruction means.
+let undefined ins bld = sideEffects ins bld UndefinedInstruction
 
 let hasStackPtr (ins: Instruction) =
   match ins.Operands with

@@ -353,7 +353,7 @@ let mrc (ins: Instruction) bld =
       putEndLabel bld lblIgnore
     }
   | _ ->
-    sideEffects ins bld UnsupportedInstruction
+    unsupported ins bld
 
 type ParsingInfo =
   { EBytes: int

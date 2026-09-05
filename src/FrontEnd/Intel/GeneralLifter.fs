@@ -1525,7 +1525,7 @@ let interrupt ins bld =
   match transOneOpr ins bld with
   | Num(n, _) ->
     Interrupt(n.ToInt32())
-    |> sideEffects bld ins
+    |> sideEffects ins bld
   | _ ->
     raise InvalidOperandException
 

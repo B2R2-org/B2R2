@@ -86,7 +86,7 @@ let translate (ins: Instruction) bld =
   | Op.MCRR | Op.MCRR2 | Op.MRC2 | Op.MRRC | Op.MRRC2 | Op.STC
   | Op.STC2 | Op.STC2L | Op.STCL ->
     (* coprocessor instructions *)
-    sideEffects ins bld UnsupportedInstruction
+    unsupported ins bld
   | Op.CLZ ->
     clz ins bld
   | Op.CMN ->
@@ -100,7 +100,7 @@ let translate (ins: Instruction) bld =
   | Op.EORS ->
     eors true ins bld
   | Op.ERET ->
-    sideEffects ins bld UnsupportedInstruction
+    unsupported ins bld
   | Op.IT | Op.ITT | Op.ITE | Op.ITTT | Op.ITET | Op.ITTE | Op.ITEE | Op.ITTTT
   | Op.ITETT | Op.ITTET | Op.ITEET | Op.ITTTE | Op.ITETE | Op.ITTEE
   | Op.ITEEE ->
@@ -166,7 +166,7 @@ let translate (ins: Instruction) bld =
   | Op.MOVT ->
     movt ins bld
   | Op.MSR | Op.MRS ->
-    sideEffects ins bld UndefinedInstruction
+    undefined ins bld
   | Op.MRC ->
     mrc ins bld
   | Op.MUL ->
@@ -391,7 +391,7 @@ let translate (ins: Instruction) bld =
     vand ins bld
   | Op.VCEQ | Op.VCGE | Op.VCGT | Op.VCLE | Op.VCLT
     when isF32orF64 ins.SIMDTyp ->
-    sideEffects ins bld UnsupportedInstruction
+    unsupported ins bld
   | Op.VCEQ ->
     vceq ins bld
   | Op.VCGE ->
@@ -405,9 +405,9 @@ let translate (ins: Instruction) bld =
   | Op.VCLZ ->
     vclz ins bld
   | Op.VCMLA ->
-    sideEffects ins bld UnsupportedInstruction
+    unsupported ins bld
   | Op.VACGE | Op.VACGT | Op.VACLE | Op.VACLT | Op.VCVTR ->
-    sideEffects ins bld UnsupportedInstruction
+    unsupported ins bld
   | Op.VFMA ->
     vfpMulAcc ins bld (fun _ d p -> AST.fadd d p)
   | Op.VFMS ->
@@ -451,7 +451,7 @@ let translate (ins: Instruction) bld =
   | Op.VLDR ->
     vldr ins bld
   | Op.VMAX | Op.VMIN when isF32orF64 ins.SIMDTyp ->
-    sideEffects ins bld UnsupportedInstruction
+    unsupported ins bld
   | Op.VMAX ->
     vmaxmin ins bld true
   | Op.VMIN ->
@@ -493,7 +493,7 @@ let translate (ins: Instruction) bld =
   | Op.VORR ->
     vorr ins bld
   | Op.VPADD when isF32orF64 ins.SIMDTyp ->
-    sideEffects ins bld UnsupportedInstruction
+    unsupported ins bld
   | Op.VPADD ->
     vpadd ins bld
   | Op.VPOP ->
@@ -503,7 +503,7 @@ let translate (ins: Instruction) bld =
   | Op.VRHADD ->
     vrhadd ins bld
   | Op.VRINTP ->
-    sideEffects ins bld UnsupportedInstruction
+    unsupported ins bld
   | Op.VRSHR ->
     vrshr ins bld
   | Op.VRSHRN ->

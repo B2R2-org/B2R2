@@ -333,7 +333,7 @@ let translate (ins: Instruction) (bld: LowUIRBuilder) =
   | Op.WSBH ->
     wsbh ins bld
   | Op.BC3F | Op.BC3FL | Op.BC3T | Op.BC3TL ->
-    sideEffects ins bld UnsupportedInstruction
+    unsupported ins bld
   | o ->
 #if DEBUG
          eprintfn "%A" o
