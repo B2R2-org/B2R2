@@ -126,11 +126,14 @@ and [<Struct>] LiftBuilder =
 
   (* Sticky: once the body has ended the instruction, nothing downstream can
      put the IEMark back. Without this a `return NoEndMark` anywhere but the
-     very end would be discarded, and nothing would say so. *)
+     very end would be discarded, and nothing would say so. Evaluate the
+     inline continuation outside the match: putting it in both arms makes the
+     Release optimizer duplicate the rest of large lifters. *)
   member inline _.Combine(c, [<InlineIfLambda>] f: unit -> Closing) =
+    let next = f ()
     match c with
-    | NoEndMark -> f () |> ignore; NoEndMark
-    | EndMark -> f ()
+    | NoEndMark -> NoEndMark
+    | EndMark -> next
 
   member inline this.Yield(stmt: Stmt) =
     this.Bld.Stream.Append stmt
