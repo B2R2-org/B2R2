@@ -37,23 +37,23 @@ let private movdRegToReg ins bld r1 r2 =
   match RegisterHelper.getKind r1, RegisterHelper.getKind r2 with
   | RegisterHelper.Kind.XMM, _ ->
     append bld {
-      pseudoRegVar bld r1 1 := AST.zext 64<rt> (regVar bld r2)
-      pseudoRegVar bld r1 2 := AST.num0 64<rt>
+      direct (pseudoRegVar bld r1 1) := AST.zext 64<rt> (regVar bld r2)
+      direct (pseudoRegVar bld r1 2) := AST.num0 64<rt>
     }
   | _, RegisterHelper.Kind.XMM ->
     append bld {
-      tmp := AST.xtlo 32<rt> (pseudoRegVar bld r2 1)
-      dstAssign 32<rt> (regVar bld r1) tmp
+      direct tmp := AST.xtlo 32<rt> (pseudoRegVar bld r2 1)
+      sized 32<rt> (regVar bld r1) := tmp
     }
   | RegisterHelper.Kind.MMX, _ ->
     append bld {
-      regVar bld r1 := AST.zext 64<rt> (regVar bld r2)
+      direct (regVar bld r1) := AST.zext 64<rt> (regVar bld r2)
     }
     fillOnesToMMXHigh16 bld ins
   | _, RegisterHelper.Kind.MMX ->
     append bld {
-      tmp := AST.xtlo 32<rt> (regVar bld r2)
-      dstAssign 32<rt> (regVar bld r1) tmp
+      direct tmp := AST.xtlo 32<rt> (regVar bld r2)
+      sized 32<rt> (regVar bld r1) := tmp
     }
   | _, _ ->
     Terminator.impossible ()
@@ -62,11 +62,11 @@ let private movdRegToMem bld dst r =
   match RegisterHelper.getKind r with
   | RegisterHelper.Kind.XMM ->
     append bld {
-      dst := AST.xtlo 32<rt> (pseudoRegVar bld r 1)
+      direct dst := AST.xtlo 32<rt> (pseudoRegVar bld r 1)
     }
   | RegisterHelper.Kind.MMX ->
     append bld {
-      dst := AST.xtlo 32<rt> (regVar bld r)
+      direct dst := AST.xtlo 32<rt> (regVar bld r)
     }
   | _ ->
     Terminator.impossible ()
@@ -75,12 +75,12 @@ let private movdMemToReg ins bld src r =
   match RegisterHelper.getKind r with
   | RegisterHelper.Kind.XMM ->
     append bld {
-      pseudoRegVar bld r 1 := AST.zext 64<rt> src
-      pseudoRegVar bld r 2 := AST.num0 64<rt>
+      direct (pseudoRegVar bld r 1) := AST.zext 64<rt> src
+      direct (pseudoRegVar bld r 2) := AST.num0 64<rt>
     }
   | RegisterHelper.Kind.MMX ->
     append bld {
-      regVar bld r := AST.zext 64<rt> src
+      direct (regVar bld r) := AST.zext 64<rt> src
     }
     fillOnesToMMXHigh16 bld ins
   | _ ->
@@ -106,47 +106,47 @@ let private movqRegToReg ins bld r1 r2 =
   match RegisterHelper.getKind r1, RegisterHelper.getKind r2 with
   | RegisterHelper.Kind.XMM, RegisterHelper.Kind.XMM ->
     append bld {
-      pseudoRegVar bld r1 1 := pseudoRegVar bld r2 1
-      pseudoRegVar bld r1 2 := AST.num0 64<rt>
+      direct (pseudoRegVar bld r1 1) := pseudoRegVar bld r2 1
+      direct (pseudoRegVar bld r1 2) := AST.num0 64<rt>
     }
   | RegisterHelper.Kind.XMM, _ ->
     append bld {
-      pseudoRegVar bld r1 1 := regVar bld r2
-      pseudoRegVar bld r1 2 := AST.num0 64<rt>
+      direct (pseudoRegVar bld r1 1) := regVar bld r2
+      direct (pseudoRegVar bld r1 2) := AST.num0 64<rt>
     }
   | RegisterHelper.Kind.GP, RegisterHelper.Kind.XMM ->
     append bld {
-      regVar bld r1 := pseudoRegVar bld r2 1
+      direct (regVar bld r1) := pseudoRegVar bld r2 1
     }
   | RegisterHelper.Kind.MMX, RegisterHelper.Kind.MMX
   | RegisterHelper.Kind.MMX, RegisterHelper.Kind.GP ->
     append bld {
-      regVar bld r1 := regVar bld r2
+      direct (regVar bld r1) := regVar bld r2
     }
     fillOnesToMMXHigh16 bld ins
   | RegisterHelper.Kind.GP, RegisterHelper.Kind.MMX ->
     append bld {
-      regVar bld r1 := regVar bld r2
+      direct (regVar bld r1) := regVar bld r2
     }
   | _ ->
     raise InvalidOperandException
 
 let private movqRegToMem bld dst r =
   match RegisterHelper.getKind r with
-  | RegisterHelper.Kind.XMM -> append bld { dst := pseudoRegVar bld r 1 }
-  | RegisterHelper.Kind.MMX -> append bld { dst := regVar bld r }
+  | RegisterHelper.Kind.XMM -> append bld { direct dst := pseudoRegVar bld r 1 }
+  | RegisterHelper.Kind.MMX -> append bld { direct dst := regVar bld r }
   | _ -> raise InvalidOperandException
 
 let private movqMemToReg ins bld src r =
   match RegisterHelper.getKind r with
   | RegisterHelper.Kind.XMM ->
     append bld {
-      pseudoRegVar bld r 1 := src
-      pseudoRegVar bld r 2 := AST.num0 64<rt>
+      direct (pseudoRegVar bld r 1) := src
+      direct (pseudoRegVar bld r 2) := AST.num0 64<rt>
     }
   | RegisterHelper.Kind.MMX ->
     append bld {
-      regVar bld r := src
+      direct (regVar bld r) := src
     }
     fillOnesToMMXHigh16 bld ins
   | _ ->
@@ -279,8 +279,8 @@ let fillZeroHigh128 bld dst =
     let dst = r128to256 dst
     let dstC, dstD = pseudoRegVar bld dst 3, pseudoRegVar bld dst 4
     let n0 = AST.num0 64<rt>
-    dstC := n0
-    dstD := n0
+    direct dstC := n0
+    direct dstD := n0
   }
 
 let fillZeroHigh256 bld dst =
@@ -290,10 +290,10 @@ let fillZeroHigh256 bld dst =
       let pseudoRegVar = pseudoRegVar bld dst
       pseudoRegVar 3, pseudoRegVar 4, pseudoRegVar 5, pseudoRegVar 6
     let n0 = AST.num0 64<rt>
-    dstE := n0
-    dstF := n0
-    dstG := n0
-    dstH := n0
+    direct dstE := n0
+    direct dstF := n0
+    direct dstG := n0
+    direct dstH := n0
   }
 
 let fillZeroFromVLToMaxVL bld dst vl maxVl =
@@ -307,12 +307,12 @@ let fillZeroFromVLToMaxVL bld dst vl maxVl =
         let regVar = pseudoRegVar bld dst
         regVar 3, regVar 4, regVar 5, regVar 6, regVar 7, regVar 8
       append bld {
-        dstC := n0
-        dstD := n0
-        dstE := n0
-        dstF := n0
-        dstG := n0
-        dstH := n0
+        direct dstC := n0
+        direct dstD := n0
+        direct dstE := n0
+        direct dstF := n0
+        direct dstG := n0
+        direct dstH := n0
       }
     | 512, 256<rt> ->
       let dst = r256to512 dst
@@ -320,10 +320,10 @@ let fillZeroFromVLToMaxVL bld dst vl maxVl =
         let pseudoRegVar = pseudoRegVar bld dst
         pseudoRegVar 5, pseudoRegVar 6, pseudoRegVar 7, pseudoRegVar 8
       append bld {
-        dstE := n0
-        dstF := n0
-        dstG := n0
-        dstH := n0
+        direct dstE := n0
+        direct dstF := n0
+        direct dstG := n0
+        direct dstH := n0
       }
     | 512, 512<rt> ->
       ()
@@ -462,9 +462,9 @@ let private packedBinIntrinsic (ins: Instruction) insLen bld name =
     let t = tmpVar bld 128<rt>
     let s1 = AST.concat dstB dstA
     let s2 = AST.concat srcB srcA
-    t := AST.app name [ s1; s2 ] 128<rt>
-    dstA := AST.xtlo 64<rt> t
-    dstB := AST.xthi 64<rt> t
+    direct t := AST.app name [ s1; s2 ] 128<rt>
+    direct dstA := AST.xtlo 64<rt> t
+    direct dstB := AST.xthi 64<rt> t
   }
 
 let punpckhbw ins insLen bld =
@@ -712,14 +712,14 @@ let pxor (ins: Instruction) insLen bld =
     match oprSize with
     | 64<rt> ->
       let struct (dst, src) = transTwoOprs bld false ins insLen
-      dst := dst <+> src
+      direct dst := dst <+> src
       fillOnesToMMXHigh16 bld ins
     | 128<rt> ->
       let struct (dst, src) = getTwoOprs ins
       let struct (dstB, dstA) = transOprToExpr128 bld false ins insLen dst
       let struct (srcB, srcA) = transOprToExpr128 bld false ins insLen src
-      dstA := dstA <+> srcA
-      dstB := dstB <+> srcB
+      direct dstA := dstA <+> srcA
+      direct dstB := dstB <+> srcB
     | _ ->
       raise InvalidOperandSizeException
   }
@@ -791,5 +791,5 @@ let psrad ins insLen bld = buildPackedInstr ins insLen bld false 32<rt> opPsrad
 
 let emms (ins: Instruction) insLen bld =
   lift bld ins insLen {
-    regVar bld R.FTW := maxNum 16<rt>
+    direct (regVar bld R.FTW) := maxNum 16<rt>
   }

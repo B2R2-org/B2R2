@@ -117,7 +117,7 @@ let private transOprToFPPairConcat bld = function
   | _ ->
     raise InvalidOperandException
 
-let private dstAssignForFP dstB dstA result bld =
+let private writeFPResult dstB dstA result bld =
   append bld {
     if is32Bit bld then
       let srcB = AST.xthi 32<rt> result
@@ -559,14 +559,14 @@ let abs ins insLen bld =
       let fsB, fsA = transOprToFPPair bld fs
       let mask = numU64 0x7FFFFFFFFFFFFFFFUL 64<rt>
       let res = (AST.concat fsB fsA) .& mask
-      dstAssignForFP fdB fdA res bld
+      writeFPResult fdB fdA res bld
     | Some Fmt.PS when is32Bit ->
       let fdB, fdA = transOprToFPPair bld fd
       let fsB, fsA = transOprToFPPair bld fs
       let mask = numU64 0x7FFFFFFFUL 32<rt>
       let resA = fsA .& mask
       let resB = fsB .& mask
-      dstAssignForFP fdB fdA (AST.concat resB resA) bld
+      writeFPResult fdB fdA (AST.concat resB resA) bld
     | Some Fmt.PS ->
       let fd, fs = transTwoOprs ins bld (fd, fs)
       let mask = numU64 0x7FFFFFFFUL 32<rt>
@@ -650,7 +650,7 @@ let add (ins: Instruction) insLen bld =
       reDupSrc src1 src2 fs ft tSrc1 tSrc2 bld
       result := AST.fadd tSrc1 tSrc2
       normalizeValue 64<rt> result bld
-      dstAssignForFP fdB fdA result bld
+      writeFPResult fdB fdA result bld
   }
 
 let addiu ins insLen bld =
@@ -960,7 +960,7 @@ let cvtd ins insLen bld =
       let fs = transOprToFPPairConcat bld fs
       result := AST.cast CastKind.SIntToFloat 64<rt> fs
     normalizeValue 64<rt> result bld
-    dstAssignForFP fdB fdA result bld
+    writeFPResult fdB fdA result bld
   }
 
 let cvtw ins insLen bld =
@@ -1038,7 +1038,7 @@ let cvtl ins insLen bld =
     eval := roundToInt bld src 64<rt>
     let outOfRange = AST.sgt eval intMax .| AST.slt eval intMin
     eval := AST.ite (outOfRange .| inf .| nan) intMax eval
-    dstAssignForFP fdB fdA eval bld
+    writeFPResult fdB fdA eval bld
   }
 
 let cvts ins insLen bld =
@@ -1144,7 +1144,7 @@ let dmtc1 ins insLen bld =
     let rt, fs = getTwoOprs ins
     let rt = transOprToExpr ins bld rt
     let fsB, fsA = transOprToFPPair bld fs
-    dstAssignForFP fsB fsA rt bld
+    writeFPResult fsB fsA rt bld
   }
 
 let ddivu ins insLen bld =
@@ -1312,7 +1312,7 @@ let div (ins: Instruction) insLen bld =
       reDupSrc fs ft src1 src2 tSrc1 tSrc2 bld
       result := AST.fdiv tSrc1 tSrc2
       divNormal 64<rt> tSrc1 tSrc2 result bld
-      dstAssignForFP fdB fdA result bld
+      writeFPResult fdB fdA result bld
     | _ ->
       let fd, fs, ft = getThreeOprs ins
       let dst, src1, src2 = transThreeSingleFP bld (fd, fs, ft)
@@ -1549,7 +1549,7 @@ let sldc1 ins insLen bld stORld =
     if stORld then
       loadMem := if is32Bit bld then AST.concat ftB ftA else ftA
     else
-      dstAssignForFP ftB ftA memory bld
+      writeFPResult ftB ftA memory bld
   }
 
 let slwc1 ins insLen bld stORld =
@@ -1613,7 +1613,7 @@ let mAddSub (ins: Instruction) insLen bld opFn =
       let fdB, fdA = transOprToFPPair bld fd
       let fr, fs, ft = transFPConcatThreeOprs bld (fr, fs, ft)
       let result = op (AST.fmul fs ft) fr
-      dstAssignForFP fdB fdA result bld
+      writeFPResult fdB fdA result bld
     | _ ->
       let op = if opFn then AST.fadd else AST.fsub
       let fd, fr, fs, ft = getFourOprs ins |> transFourSingleFP bld
@@ -1704,7 +1704,7 @@ let mov ins insLen bld =
       let fs = transOprToFPPairConcat bld fs
       let result = tmpVar bld 64<rt>
       result := fs
-      dstAssignForFP fdB fdA result bld
+      writeFPResult fdB fdA result bld
     | _ ->
       raise InvalidOperandException
   }
@@ -1804,7 +1804,7 @@ let mul ins insLen bld =
       reDupSrc src1 src2 fs ft tSrc1 tSrc2 bld
       result := AST.fmul tSrc1 tSrc2
       normalizeValue 64<rt> result bld
-      dstAssignForFP dstB dstA result bld
+      writeFPResult dstB dstA result bld
     | _ ->
       raise InvalidOperandException
   }
@@ -1865,14 +1865,14 @@ let neg ins insLen bld =
       let fsB, fsA = transOprToFPPair bld fs
       let mask = numU64 0x8000000000000000UL 64<rt>
       let res = (AST.concat fsB fsA) <+> mask
-      dstAssignForFP fdB fdA res bld
+      writeFPResult fdB fdA res bld
     | Some Fmt.PS when is32Bit ->
       let fdB, fdA = transOprToFPPair bld fd
       let fsB, fsA = transOprToFPPair bld fs
       let mask = numU64 0x80000000UL 32<rt>
       let resA = fsA <+> mask
       let resB = fsB <+> mask
-      dstAssignForFP fdB fdA (AST.concat resB resA) bld
+      writeFPResult fdB fdA (AST.concat resB resA) bld
     | Some Fmt.PS ->
       let fd, fs = transTwoOprs ins bld (fd, fs)
       let mask = numU64 0x80000000UL 32<rt>
@@ -1910,7 +1910,7 @@ let nmadd ins insLen bld =
       result := numU64 0x8000000000000000UL 64<rt> <+>
         (AST.fadd tSrc1 <| AST.fmul tSrc2 tSrc3)
       normalizeValue 64<rt> result bld
-      dstAssignForFP fdB fdA result bld
+      writeFPResult fdB fdA result bld
     | _ ->
       raise InvalidOperandException
   }
@@ -1983,7 +1983,7 @@ let sqrt ins insLen bld =
       let cond = fs == numU64 0x8000000000000000UL 64<rt>
       let result =
         AST.ite cond (numU64 0x8000000000000000UL 64<rt>) (AST.fsqrt fs)
-      dstAssignForFP fdB fdA result bld
+      writeFPResult fdB fdA result bld
   }
 
 let storeConditional ins insLen width bld =
@@ -2125,7 +2125,7 @@ let sub ins insLen bld =
       reDupSrc src1 src2 fs ft tSrc1 tSrc2 bld
       result := AST.fsub tSrc1 tSrc2
       subNormal 64<rt> tSrc1 tSrc2 result bld
-      dstAssignForFP dstB dstA result bld
+      writeFPResult dstB dstA result bld
     | _ ->
       raise InvalidOperandException
   }
@@ -2238,7 +2238,7 @@ let truncl ins insLen bld =
     eval := AST.cast CastKind.FtoITrunc 64<rt> src
     let outOfRange = AST.sgt eval intMax .| AST.slt eval intMin
     eval := AST.ite (outOfRange .| inf .| nan) intMax eval
-    dstAssignForFP fdB fdA eval bld
+    writeFPResult fdB fdA eval bld
   }
 
 let logXor ins insLen bld =
@@ -2323,7 +2323,7 @@ let recip ins insLen bld =
       let fdB, fdA = transOprToFPPair bld fd
       let fs = transOprToFPPairConcat bld fs
       let fnum = AST.cast CastKind.SIntToFloat 64<rt> (AST.num1 64<rt>)
-      dstAssignForFP fdB fdA (AST.fdiv fnum fs) bld
+      writeFPResult fdB fdA (AST.fdiv fnum fs) bld
   }
 
 let rsqrt ins insLen bld =
@@ -2339,7 +2339,7 @@ let rsqrt ins insLen bld =
       let fs = transOprToFPPairConcat bld fs
       let fnum = AST.cast CastKind.SIntToFloat 64<rt> (AST.num1 64<rt>)
       let result = AST.fdiv fnum (AST.fsqrt fs)
-      dstAssignForFP fdB fdA result bld
+      writeFPResult fdB fdA result bld
   }
 
 let translate (ins: Instruction) insLen (bld: LowUIRBuilder) =

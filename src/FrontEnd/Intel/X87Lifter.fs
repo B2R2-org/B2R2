@@ -44,17 +44,17 @@ let private undefC3 = AST.undef 1<rt> "C3 is undefined."
 
 let private allCFlagsUndefined bld =
   append bld {
-    regVar bld R.FSWC0 := undefC0
-    regVar bld R.FSWC1 := undefC1
-    regVar bld R.FSWC2 := undefC2
-    regVar bld R.FSWC3 := undefC3
+    direct (regVar bld R.FSWC0) := undefC0
+    direct (regVar bld R.FSWC1) := undefC1
+    direct (regVar bld R.FSWC2) := undefC2
+    direct (regVar bld R.FSWC3) := undefC3
   }
 
 let private cflagsUndefined023 bld =
   append bld {
-    regVar bld R.FSWC0 := undefC0
-    regVar bld R.FSWC2 := undefC2
-    regVar bld R.FSWC3 := undefC3
+    direct (regVar bld R.FSWC0) := undefC0
+    direct (regVar bld R.FSWC2) := undefC2
+    direct (regVar bld R.FSWC3) := undefC3
   }
 #endif
 
@@ -66,11 +66,11 @@ let private updateC1OnLoad bld =
     let top = regVar bld R.FTOP
     let c1Flag = regVar bld R.FSWC1
     (* Top value has been wrapped around, which means stack overflow in B2R2. *)
-    c1Flag := (top == AST.num0 8<rt>)
+    direct c1Flag := (top == AST.num0 8<rt>)
 #if !EMULATION
-    regVar bld R.FSWC0 := undefC0
-    regVar bld R.FSWC2 := undefC2
-    regVar bld R.FSWC3 := undefC3
+    direct (regVar bld R.FSWC0) := undefC0
+    direct (regVar bld R.FSWC2) := undefC2
+    direct (regVar bld R.FSWC3) := undefC3
 #endif
   }
 
@@ -80,11 +80,11 @@ let private updateC1OnStore bld =
     let c1Flag = regVar bld R.FSWC1
     (* Top value has been wrapped around, which means stack underflow in
        B2R2. *)
-    c1Flag := (top != numI32 7 8<rt>)
+    direct c1Flag := (top != numI32 7 8<rt>)
 #if !EMULATION
-    regVar bld R.FSWC0 := undefC0
-    regVar bld R.FSWC2 := undefC2
-    regVar bld R.FSWC3 := undefC3
+    direct (regVar bld R.FSWC0) := undefC0
+    direct (regVar bld R.FSWC2) := undefC2
+    direct (regVar bld R.FSWC3) := undefC3
 #endif
   }
 
@@ -92,8 +92,8 @@ let private moveFPRegtoFPReg regdst regsrc bld =
   append bld {
     let struct (dstB, dstA) = getFPUPseudoRegVars bld regdst
     let struct (srcB, srcA) = getFPUPseudoRegVars bld regsrc
-    dstA := srcA
-    dstB := srcB
+    direct dstA := srcA
+    direct dstB := srcB
   }
 
 let private moveFPRegtoTemp src bld =
@@ -101,23 +101,23 @@ let private moveFPRegtoTemp src bld =
   let tmpB = tmpVar bld 16<rt>
   let struct (srcB, srcA) = getFPUPseudoRegVars bld src
   append bld {
-    tmpA := srcA
-    tmpB := srcB
+    direct tmpA := srcA
+    direct tmpB := srcB
   }
   struct (tmpB, tmpA)
 
 let private moveTemptoFPReg dst tmpA tmpB bld =
   append bld {
     let struct (dstB, dstA) = getFPUPseudoRegVars bld dst
-    dstA := tmpA
-    dstB := tmpB
+    direct dstA := tmpA
+    direct dstB := tmpB
   }
 
 let private clearFPReg reg bld =
   append bld {
     let struct (stB, stA) = getFPUPseudoRegVars bld reg
-    stB := AST.num0 16<rt>
-    stA := AST.num0 64<rt>
+    direct stB := AST.num0 16<rt>
+    direct stA := AST.num0 64<rt>
   }
 
 let private pushFPUStack bld =
@@ -173,8 +173,8 @@ let private castTo80Bit bld tmpB tmpA srcExpr =
     let integerpart = numI64 0x8000000000000000L 64<rt>
     let significand = (AST.zext 64<rt> (tmpSrc .& numI32 0x7fffff 32<rt>))
     append bld {
-      tmpSrc := srcExpr
-      biasedExponent :=
+      direct tmpSrc := srcExpr
+      direct biasedExponent :=
         AST.xtlo 16<rt> ((tmpSrc >> n23) .& (numI32 0xff 32<rt>))
     }
     let exponent =
@@ -184,8 +184,8 @@ let private castTo80Bit bld tmpB tmpA srcExpr =
           (numI32 0x7fff 16<rt>)
           (biasedExponent .+ biasDiff))
     append bld {
-      tmpB := sign .| exponent
-      tmpA :=
+      direct tmpB := sign .| exponent
+      direct tmpA :=
         AST.ite
           (AST.eq tmpSrc zero)
           (AST.num0 64<rt>)
@@ -203,8 +203,8 @@ let private castTo80Bit bld tmpB tmpA srcExpr =
     let integerpart = numI64 0x8000000000000000L 64<rt>
     let significand = tmpSrc .& numI64 0xFFFFFFFFFFFFFL 64<rt>
     append bld {
-      tmpSrc := srcExpr
-      biasedExponent :=
+      direct tmpSrc := srcExpr
+      direct biasedExponent :=
         AST.xtlo 16<rt> ((tmpSrc >> n52) .& (numI32 0x7ff 64<rt>))
     }
     let exponent =
@@ -214,8 +214,8 @@ let private castTo80Bit bld tmpB tmpA srcExpr =
           (numI32 0x7fff 16<rt>)
           (biasedExponent .+ biasDiff))
     append bld {
-      tmpB := sign .| exponent
-      tmpA :=
+      direct tmpB := sign .| exponent
+      direct tmpA :=
         AST.ite
           (AST.eq tmpSrc zero)
           (AST.num0 64<rt>)
@@ -226,15 +226,15 @@ let private castTo80Bit bld tmpB tmpA srcExpr =
     | Load(_, _, addrExpr, _) ->
       let addrSize = Expr.typeOf addrExpr
       append bld {
-        tmpB := AST.loadLE 16<rt> (addrExpr .+ numI32 8 addrSize)
-        tmpA := AST.loadLE 64<rt> addrExpr
+        direct tmpB := AST.loadLE 16<rt> (addrExpr .+ numI32 8 addrSize)
+        direct tmpA := AST.loadLE 64<rt> addrExpr
       }
     | BinOp(_, _, Var(_, r, _, _), Var _, _) ->
       let reg = RegisterHelper.pseudoRegToReg (Register.ofRegID r)
       let struct (srcB, srcA) = getFPUPseudoRegVars bld reg
       append bld {
-        tmpB := srcB
-        tmpA := srcA
+        direct tmpB := srcB
+        direct tmpA := srcA
       }
     | _ ->
       raise InvalidOperandException
@@ -247,8 +247,8 @@ let private fpuLoad (ins: Instruction) insLen bld oprExpr =
     let tmpB, tmpA = tmpVar bld 16<rt>, bld.Stream.NewTempVar 64<rt>
     castTo80Bit bld tmpB tmpA oprExpr
     pushFPUStack bld
-    st0b := tmpB
-    st0a := tmpA
+    direct st0b := tmpB
+    direct st0a := tmpA
     updateC1OnLoad bld
   }
 
@@ -259,8 +259,8 @@ let fld (ins: Instruction) insLen bld =
     let tmpB, tmpA = tmpVar bld 16<rt>, bld.Stream.NewTempVar 64<rt>
     castTo80Bit bld tmpB tmpA oprExpr
     pushFPUStack bld
-    st0b := tmpB
-    st0a := tmpA
+    direct st0b := tmpB
+    direct st0a := tmpA
     updateC1OnLoad bld
   }
 
@@ -284,8 +284,8 @@ let private castFrom80Bit dstExpr dstSize srcB srcA bld =
     let significand =
       AST.xtlo 16<rt> ((srcA .& numI64 0x7FFFFFFFFFFFFFFFL 64<rt>) >> n53)
     append bld {
-      tmpExp := computedExp
-      dstExpr := (sign .| exponent .| significand)
+      direct tmpExp := computedExp
+      direct dstExpr := (sign .| exponent .| significand)
     }
   | 32<rt> ->
     let n48 = numI32 48 64<rt>
@@ -306,9 +306,9 @@ let private castFrom80Bit dstExpr dstSize srcB srcA bld =
     let n11 = numI32 11 64<rt>
     let significand = (srcA .& numI64 0x7FFFFFFFFFFFFFFFL 64<rt>) >> n11
     append bld {
-      tmpExp := computedExp
-      tmpExp2 := (sign .| exponent .| significand)
-      dstExpr := AST.cast CastKind.FloatCast 32<rt> tmpExp2
+      direct tmpExp := computedExp
+      direct tmpExp2 := (sign .| exponent .| significand)
+      direct dstExpr := AST.cast CastKind.FloatCast 32<rt> tmpExp2
     }
   | 64<rt> ->
     let n48 = numI32 48 64<rt>
@@ -328,8 +328,8 @@ let private castFrom80Bit dstExpr dstSize srcB srcA bld =
     let n11 = numI32 11 64<rt>
     let significand = (srcA .& numI64 0x7FFFFFFFFFFFFFFFL 64<rt>) >> n11
     append bld {
-      tmpExp := computedExp
-      dstExpr := (sign .| exponent .| significand)
+      direct tmpExp := computedExp
+      direct dstExpr := (sign .| exponent .| significand)
     }
   | 80<rt> ->
     let struct (addrExpr, addrSize) = getLoadAddressExpr dstExpr
@@ -346,8 +346,8 @@ let ffst (ins: Instruction) insLen bld doPop =
     match ins.Operands with
     | OneOperand(OprReg r) ->
       let struct (dstB, dstA) = getFPUPseudoRegVars bld r
-      dstB := st0b
-      dstA := st0a
+      direct dstB := st0b
+      direct dstA := st0a
     | OneOperand(opr) ->
       let oprExpr = transOprToExpr bld false ins insLen opr
       let oprSize = Expr.typeOf oprExpr
@@ -365,8 +365,8 @@ let fild (ins: Instruction) insLen bld =
     let tmpB, tmpA = tmpVar bld 16<rt>, bld.Stream.NewTempVar 64<rt>
     castTo80Bit bld tmpB tmpA (AST.cast CastKind.SIntToFloat 64<rt> oprExpr)
     pushFPUStack bld
-    st0b := tmpB
-    st0a := tmpA
+    direct st0b := tmpB
+    direct st0a := tmpA
     updateC1OnLoad bld
   }
 
@@ -383,14 +383,14 @@ let fist (ins: Instruction) insLen bld doPop =
     let cst10 = AST.cast CastKind.FtoICeil oprSize tmp0
     let cst11 = AST.cast CastKind.FtoITrunc oprSize tmp0
     castFrom80Bit tmp0 oprSize st0b st0a bld
-    rcField := (AST.zext 8<rt> (AST.extract (regVar bld R.FCW) 1<rt> 10))
-    rcField := (rcField << AST.num1 8<rt>)
-    rcField :=
+    direct rcField := (AST.zext 8<rt> (AST.extract (regVar bld R.FCW) 1<rt> 10))
+    direct rcField := (rcField << AST.num1 8<rt>)
+    direct rcField :=
       (rcField .| (AST.zext 8<rt> (AST.extract (regVar bld R.FCW) 1<rt> 11)))
-    tmp0 := AST.ite (rcField == AST.num0 8<rt>) cst00 cst11
-    tmp0 := AST.ite (rcField == AST.num1 8<rt>) cst01 tmp0
-    tmp0 := AST.ite (rcField == num2) cst10 tmp0
-    oprExpr := tmp0
+    direct tmp0 := AST.ite (rcField == AST.num0 8<rt>) cst00 cst11
+    direct tmp0 := AST.ite (rcField == AST.num1 8<rt>) cst01 tmp0
+    direct tmp0 := AST.ite (rcField == num2) cst10 tmp0
+    direct oprExpr := tmp0
     if doPop then popFPUStack bld else ()
     updateC1OnStore bld
   }
@@ -402,13 +402,13 @@ let fisttp (ins: Instruction) insLen bld =
     let tmp1 = tmpVar bld 64<rt>
     let struct (st0b, st0a) = getFPUPseudoRegVars bld R.ST0
     castFrom80Bit tmp1 64<rt> st0b st0a bld
-    oprExpr := AST.cast CastKind.FtoITrunc oprSize tmp1
+    direct oprExpr := AST.cast CastKind.FtoITrunc oprSize tmp1
     popFPUStack bld
-    regVar bld R.FSWC1 := AST.b0
+    direct (regVar bld R.FSWC1) := AST.b0
 #if !EMULATION
-    regVar bld R.FSWC0 := undefC0
-    regVar bld R.FSWC2 := undefC2
-    regVar bld R.FSWC3 := undefC3
+    direct (regVar bld R.FSWC0) := undefC0
+    direct (regVar bld R.FSWC2) := undefC2
+    direct (regVar bld R.FSWC3) := undefC3
 #endif
   }
 
@@ -436,25 +436,25 @@ let private bcdToInt intgr addrExpr addrSize bld =
     let struct (d17, d18) = getTwoBCDDigits addrExpr addrSize 8
     let signByte = AST.loadLE 8<rt> (addrExpr .+ numI32 9 addrSize)
     let signBit = AST.xthi 1<rt> signByte
-    intgr := d1
-    intgr := intgr .+ d2 .* numI64 10L 64<rt>
-    intgr := intgr .+ d3 .* numI64 100L 64<rt>
-    intgr := intgr .+ d4 .* numI64 1000L 64<rt>
-    intgr := intgr .+ d5 .* numI64 10000L 64<rt>
-    intgr := intgr .+ d6 .* numI64 100000L 64<rt>
-    intgr := intgr .+ d7 .* numI64 1000000L 64<rt>
-    intgr := intgr .+ d8 .* numI64 10000000L 64<rt>
-    intgr := intgr .+ d9 .* numI64 100000000L 64<rt>
-    intgr := intgr .+ d10 .* numI64 1000000000L 64<rt>
-    intgr := intgr .+ d11 .* numI64 10000000000L 64<rt>
-    intgr := intgr .+ d12 .* numI64 100000000000L 64<rt>
-    intgr := intgr .+ d13 .* numI64 1000000000000L 64<rt>
-    intgr := intgr .+ d14 .* numI64 10000000000000L 64<rt>
-    intgr := intgr .+ d15 .* numI64 100000000000000L 64<rt>
-    intgr := intgr .+ d16 .* numI64 1000000000000000L 64<rt>
-    intgr := intgr .+ d17 .* numI64 10000000000000000L 64<rt>
-    intgr := intgr .+ d18 .* numI64 100000000000000000L 64<rt>
-    AST.xthi 1<rt> intgr := signBit
+    direct intgr := d1
+    direct intgr := intgr .+ d2 .* numI64 10L 64<rt>
+    direct intgr := intgr .+ d3 .* numI64 100L 64<rt>
+    direct intgr := intgr .+ d4 .* numI64 1000L 64<rt>
+    direct intgr := intgr .+ d5 .* numI64 10000L 64<rt>
+    direct intgr := intgr .+ d6 .* numI64 100000L 64<rt>
+    direct intgr := intgr .+ d7 .* numI64 1000000L 64<rt>
+    direct intgr := intgr .+ d8 .* numI64 10000000L 64<rt>
+    direct intgr := intgr .+ d9 .* numI64 100000000L 64<rt>
+    direct intgr := intgr .+ d10 .* numI64 1000000000L 64<rt>
+    direct intgr := intgr .+ d11 .* numI64 10000000000L 64<rt>
+    direct intgr := intgr .+ d12 .* numI64 100000000000L 64<rt>
+    direct intgr := intgr .+ d13 .* numI64 1000000000000L 64<rt>
+    direct intgr := intgr .+ d14 .* numI64 10000000000000L 64<rt>
+    direct intgr := intgr .+ d15 .* numI64 100000000000000L 64<rt>
+    direct intgr := intgr .+ d16 .* numI64 1000000000000000L 64<rt>
+    direct intgr := intgr .+ d17 .* numI64 10000000000000000L 64<rt>
+    direct intgr := intgr .+ d18 .* numI64 100000000000000000L 64<rt>
+    direct (AST.xthi 1<rt> intgr) := signBit
   }
 
 let fbld (ins: Instruction) insLen bld =
@@ -467,8 +467,8 @@ let fbld (ins: Instruction) insLen bld =
     bcdToInt intgr addrExpr addrSize bld
     castTo80Bit bld tmpB tmpA (AST.cast CastKind.SIntToFloat 64<rt> intgr)
     pushFPUStack bld
-    st0b := tmpB
-    st0a := tmpA
+    direct st0b := tmpB
+    direct st0a := tmpA
     updateC1OnLoad bld
   }
 
@@ -486,23 +486,23 @@ let private storeBCD addrExpr addrSize intgr bld =
     let n100 = numI32 100 64<rt>
     let sign = tmpVar bld 1<rt>
     let signByte = (AST.zext 8<rt> sign) << numI32 7 8<rt>
-    sign := AST.xthi 1<rt> intgr
+    direct sign := AST.xthi 1<rt> intgr
     storeTwoDigitBCD n10 addrExpr addrSize intgr 0 bld
-    intgr := intgr ./ n100
+    direct intgr := intgr ./ n100
     storeTwoDigitBCD n10 addrExpr addrSize intgr 1 bld
-    intgr := intgr ./ n100
+    direct intgr := intgr ./ n100
     storeTwoDigitBCD n10 addrExpr addrSize intgr 2 bld
-    intgr := intgr ./ n100
+    direct intgr := intgr ./ n100
     storeTwoDigitBCD n10 addrExpr addrSize intgr 3 bld
-    intgr := intgr ./ n100
+    direct intgr := intgr ./ n100
     storeTwoDigitBCD n10 addrExpr addrSize intgr 4 bld
-    intgr := intgr ./ n100
+    direct intgr := intgr ./ n100
     storeTwoDigitBCD n10 addrExpr addrSize intgr 5 bld
-    intgr := intgr ./ n100
+    direct intgr := intgr ./ n100
     storeTwoDigitBCD n10 addrExpr addrSize intgr 6 bld
-    intgr := intgr ./ n100
+    direct intgr := intgr ./ n100
     storeTwoDigitBCD n10 addrExpr addrSize intgr 7 bld
-    intgr := intgr ./ n100
+    direct intgr := intgr ./ n100
     storeTwoDigitBCD n10 addrExpr addrSize intgr 8 bld
     AST.store Endian.Little (addrExpr .+ numI32 9 addrSize) signByte
   }
@@ -515,7 +515,7 @@ let fbstp (ins: Instruction) insLen bld =
     let tmp = tmpVar bld 64<rt>
     let intgr = tmpVar bld 64<rt>
     castFrom80Bit tmp 64<rt> st0b st0a bld
-    intgr := AST.cast CastKind.FtoIRound 64<rt> tmp
+    direct intgr := AST.cast CastKind.FtoIRound 64<rt> tmp
     storeBCD addrExpr addrSize intgr bld
     popFPUStack bld
     updateC1OnStore bld
@@ -525,18 +525,18 @@ let fxch (ins: Instruction) insLen bld =
   lift bld ins insLen {
     let struct (st0b, st0a) = getFPUPseudoRegVars bld R.ST0
     let tmpB, tmpA = tmpVar bld 16<rt>, bld.Stream.NewTempVar 64<rt>
-    tmpB := st0b
-    tmpA := st0a
+    direct tmpB := st0b
+    direct tmpA := st0a
     let struct (srcB, srcA) =
       match ins.Operands with
       | OneOperand(OprReg reg) -> getFPUPseudoRegVars bld reg
       | NoOperand -> getFPUPseudoRegVars bld R.ST1
       | _ -> raise InvalidOperandException
-    st0b := srcB
-    st0a := srcA
-    srcB := tmpB
-    srcA := tmpA
-    regVar bld R.FSWC1 := AST.b0
+    direct st0b := srcB
+    direct st0a := srcA
+    direct srcB := tmpB
+    direct srcA := tmpA
+    direct (regVar bld R.FSWC1) := AST.b0
 #if !EMULATION
     cflagsUndefined023 bld
 #endif
@@ -550,12 +550,12 @@ let private fcmov (ins: Instruction) insLen bld cond =
       | _ -> raise InvalidOperandException
     let struct (srcB, srcA) = getFPUPseudoRegVars bld srcReg
     let struct (dstB, dstA) = getFPUPseudoRegVars bld R.ST0
-    dstB := AST.ite cond srcB dstB
-    dstA := AST.ite cond srcA dstA
+    direct dstB := AST.ite cond srcB dstB
+    direct dstA := AST.ite cond srcA dstA
 #if !EMULATION
-    regVar bld R.FSWC0 := undefC0
-    regVar bld R.FSWC2 := undefC2
-    regVar bld R.FSWC3 := undefC3
+    direct (regVar bld R.FSWC0) := undefC0
+    direct (regVar bld R.FSWC2) := undefC2
+    direct (regVar bld R.FSWC3) := undefC3
 #endif
   }
 
@@ -644,8 +644,8 @@ let private fpuFBinOp (ins: Instruction) insLen bld binOp doPop leftToRight =
       let res = tmpVar bld 64<rt>
       castFrom80Bit tmp0 64<rt> st0b st0a bld
       castFrom80Bit tmp1 64<rt> st1b st1a bld
-      if leftToRight then append bld { res := binOp tmp0 tmp1 }
-      else append bld { res := binOp tmp1 tmp0 }
+      if leftToRight then append bld { direct res := binOp tmp0 tmp1 }
+      else append bld { direct res := binOp tmp1 tmp0 }
       castTo80Bit bld st1b st1a res
     | OneOperand _ ->
       let oprExpr = transOneOpr bld ins insLen
@@ -654,10 +654,12 @@ let private fpuFBinOp (ins: Instruction) insLen bld binOp doPop leftToRight =
       let struct (tmp0, tmp1) = tmpVars2 bld 64<rt>
       let res = tmpVar bld 64<rt>
       castFrom80Bit tmp0 64<rt> st0b st0a bld
-      if oprSize = 64<rt> then append bld { tmp1 := oprExpr }
-      else append bld { tmp1 := AST.cast CastKind.FloatCast 64<rt> oprExpr }
-      if leftToRight then append bld { res := binOp tmp0 tmp1 }
-      else append bld { res := binOp tmp1 tmp0 }
+      if oprSize = 64<rt> then
+        append bld { direct tmp1 := oprExpr }
+      else
+        append bld { direct tmp1 := AST.cast CastKind.FloatCast 64<rt> oprExpr }
+      if leftToRight then append bld { direct res := binOp tmp0 tmp1 }
+      else append bld { direct res := binOp tmp1 tmp0 }
       castTo80Bit bld st0b st0a res
     | TwoOperands(OprReg reg0, OprReg reg1) ->
       let struct (r0B, r0A) = getFPUPseudoRegVars bld reg0
@@ -666,8 +668,8 @@ let private fpuFBinOp (ins: Instruction) insLen bld binOp doPop leftToRight =
       let res = tmpVar bld 64<rt>
       castFrom80Bit tmp0 64<rt> r0B r0A bld
       castFrom80Bit tmp1 64<rt> r1B r1A bld
-      if leftToRight then append bld { res := binOp tmp0 tmp1 }
-      else append bld { res := binOp tmp1 tmp0 }
+      if leftToRight then append bld { direct res := binOp tmp0 tmp1 }
+      else append bld { direct res := binOp tmp1 tmp0 }
       castTo80Bit bld r0B r0A res
     | _ ->
       raise InvalidOperandException
@@ -681,10 +683,10 @@ let private fpuIntOp (ins: Instruction) insLen bld binOp leftToRight =
     let oprExpr = transOneOpr bld ins insLen
     let struct (tmp, dst) = tmpVars2 bld 64<rt>
     let res = tmpVar bld 64<rt>
-    tmp := AST.cast CastKind.SIntToFloat 64<rt> oprExpr
+    direct tmp := AST.cast CastKind.SIntToFloat 64<rt> oprExpr
     castFrom80Bit dst 64<rt> st0b st0a bld
-    if leftToRight then append bld { res := binOp dst tmp }
-    else append bld { res := binOp tmp dst }
+    if leftToRight then append bld { direct res := binOp dst tmp }
+    else append bld { direct res := binOp tmp dst }
     castTo80Bit bld st0b st0a res
   }
 
@@ -734,7 +736,7 @@ let fdivr (ins: Instruction) insLen bld doPop =
       raiseIfZero bld lblErr lblChk st0b st0a
       castFrom80Bit tmp0 64<rt> st0b st0a bld
       castFrom80Bit tmp1 64<rt> st1b st1a bld
-      res := AST.fdiv tmp1 tmp0
+      direct res := AST.fdiv tmp1 tmp0
       castTo80Bit bld st1b st1a res
     | OneOperand _ ->
       let oprExpr = transOneOpr bld ins insLen
@@ -743,10 +745,10 @@ let fdivr (ins: Instruction) insLen bld doPop =
       raiseIfZero bld lblErr lblChk st0b st0a
       castFrom80Bit tmp0 64<rt> st0b st0a bld
       if oprSize = 64<rt> then
-        tmp1 := oprExpr
+        direct tmp1 := oprExpr
       else
-        tmp1 := AST.cast CastKind.FloatCast 64<rt> oprExpr
-      res := AST.fdiv tmp1 tmp0
+        direct tmp1 := AST.cast CastKind.FloatCast 64<rt> oprExpr
+      direct res := AST.fdiv tmp1 tmp0
       castTo80Bit bld st0b st0a res
     | TwoOperands(OprReg reg0, OprReg reg1) ->
       let struct (r0B, r0A) = getFPUPseudoRegVars bld reg0
@@ -754,7 +756,7 @@ let fdivr (ins: Instruction) insLen bld doPop =
       raiseIfZero bld lblErr lblChk r0B r0A
       castFrom80Bit tmp0 64<rt> r0B r0A bld
       castFrom80Bit tmp1 64<rt> r1B r1A bld
-      res := AST.fdiv tmp1 tmp0
+      direct res := AST.fdiv tmp1 tmp0
       castTo80Bit bld r0B r0A res
     | _ ->
       raise InvalidOperandException
@@ -809,14 +811,14 @@ let private fpremWholeQuotient bld caster sts srcs tmps =
     let st0b, st0a = sts
     let tmp0, tmp1 = srcs
     let divres, intres, tmpres, _ = tmps
-    divres := AST.fdiv tmp0 tmp1
-    intres := AST.cast caster 64<rt> divres
-    tmpres := AST.fsub tmp0 (AST.fmul tmp1 (castToF64 intres))
+    direct divres := AST.fdiv tmp0 tmp1
+    direct intres := AST.cast caster 64<rt> divres
+    direct tmpres := AST.fsub tmp0 (AST.fmul tmp1 (castToF64 intres))
     castTo80Bit bld st0b st0a tmpres
-    regVar bld R.FSWC2 := AST.b0
-    regVar bld R.FSWC1 := AST.xtlo 1<rt> intres
-    regVar bld R.FSWC3 := AST.extract intres 1<rt> 1
-    regVar bld R.FSWC0 := AST.extract intres 1<rt> 2
+    direct (regVar bld R.FSWC2) := AST.b0
+    direct (regVar bld R.FSWC1) := AST.xtlo 1<rt> intres
+    direct (regVar bld R.FSWC3) := AST.extract intres 1<rt> 1
+    direct (regVar bld R.FSWC0) := AST.extract intres 1<rt> 2
   }
 
 /// The partial remainder where the exponents stand sixty-four or more apart,
@@ -830,12 +832,12 @@ let private fpremScaledQuotient bld sts srcs expDiff tmps =
   let divres, intres, tmpres, divider = tmps
   let n2 = numI32 2 64<rt> |> castToF64
   append bld {
-    regVar bld R.FSWC2 := AST.b1
-    tmpres := AST.fsub (castToF64 expDiff) (castToF64 (numI32 63 64<rt>))
-    divider := AST.fpow n2 tmpres
-    divres := AST.fdiv (AST.fdiv tmp0 tmp1) divider
-    intres := AST.cast CastKind.FtoITrunc 64<rt> divres
-    tmpres :=
+    direct (regVar bld R.FSWC2) := AST.b1
+    direct tmpres := AST.fsub (castToF64 expDiff) (castToF64 (numI32 63 64<rt>))
+    direct divider := AST.fpow n2 tmpres
+    direct divres := AST.fdiv (AST.fdiv tmp0 tmp1) divider
+    direct intres := AST.cast CastKind.FtoITrunc 64<rt> divres
+    direct tmpres :=
       AST.fsub tmp0 (AST.fmul tmp1 (AST.fmul (castToF64 intres) divider))
   }
   castTo80Bit bld st0b st0a tmpres
@@ -860,14 +862,14 @@ let fprem (ins: Instruction) insLen bld round =
     let tmps = divres, intres, tmpres, divider
     castFrom80Bit tmp0 64<rt> st0b st0a bld
     castFrom80Bit tmp1 64<rt> st1b st1a bld
-    expDiff := (st0b .& expMask) .- (st1b .& expMask)
+    direct expDiff := (st0b .& expMask) .- (st1b .& expMask)
     AST.cjmp
       (isUnordered true tmp0 .| isUnordered true tmp1)
       (AST.jmpDest lblUnordered)
       (AST.jmpDest lblOrdered)
     AST.lmark lblUnordered
     castTo80Bit bld st0b st0a (AST.ite (isUnordered true tmp0) tmp0 tmp1)
-    regVar bld R.FSWC2 := AST.b0
+    direct (regVar bld R.FSWC2) := AST.b0
     AST.jmp (AST.jmpDest lblExit)
     AST.lmark lblOrdered
     AST.cjmp (AST.slt expDiff n64)
@@ -884,12 +886,12 @@ let fprem (ins: Instruction) insLen bld round =
 let fabs (ins: Instruction) insLen bld =
   lift bld ins insLen {
     let struct (st0b, _st0a) = getFPUPseudoRegVars bld R.ST0
-    AST.extract st0b 1<rt> 15 := AST.b0
-    regVar bld R.FSWC1 := AST.b0
+    direct (AST.extract st0b 1<rt> 15) := AST.b0
+    direct (regVar bld R.FSWC1) := AST.b0
 #if !EMULATION
-    regVar bld R.FSWC0 := undefC0
-    regVar bld R.FSWC2 := undefC2
-    regVar bld R.FSWC3 := undefC3
+    direct (regVar bld R.FSWC0) := undefC0
+    direct (regVar bld R.FSWC2) := undefC2
+    direct (regVar bld R.FSWC3) := undefC3
 #endif
   }
 
@@ -897,13 +899,13 @@ let fchs (ins: Instruction) insLen bld =
   lift bld ins insLen {
     let struct (st0b, _st0a) = getFPUPseudoRegVars bld R.ST0
     let tmp = tmpVar bld 1<rt>
-    tmp := AST.xthi 1<rt> st0b
-    AST.xthi 1<rt> st0b := AST.not tmp
-    regVar bld R.FSWC1 := AST.b0
+    direct tmp := AST.xthi 1<rt> st0b
+    direct (AST.xthi 1<rt> st0b) := AST.not tmp
+    direct (regVar bld R.FSWC1) := AST.b0
 #if !EMULATION
-    regVar bld R.FSWC0 := undefC0
-    regVar bld R.FSWC2 := undefC2
-    regVar bld R.FSWC3 := undefC3
+    direct (regVar bld R.FSWC0) := undefC0
+    direct (regVar bld R.FSWC2) := undefC2
+    direct (regVar bld R.FSWC3) := undefC3
 #endif
   }
 
@@ -922,14 +924,14 @@ let frndint (ins: Instruction) insLen bld =
     AST.cjmp
       (isUnordered true tmp0) (AST.jmpDest lblExit) (AST.jmpDest lblOrdered)
     AST.lmark lblOrdered
-    rcField := (AST.zext 8<rt> (AST.extract (regVar bld R.FCW) 1<rt> 11))
-    rcField := (rcField << AST.num1 8<rt>)
-    rcField :=
+    direct rcField := (AST.zext 8<rt> (AST.extract (regVar bld R.FCW) 1<rt> 11))
+    direct rcField := (rcField << AST.num1 8<rt>)
+    direct rcField :=
       (rcField .| (AST.zext 8<rt> (AST.extract (regVar bld R.FCW) 1<rt> 10)))
-    tmp0 := AST.ite (rcField == AST.num0 8<rt>) cst00 tmp0
-    tmp0 := AST.ite (rcField == AST.num1 8<rt>) cst01 tmp0
-    tmp0 := AST.ite (rcField == numI32 2 8<rt>) cst10 tmp0
-    tmp0 := AST.ite (rcField == numI32 3 8<rt>) cst11 tmp0
+    direct tmp0 := AST.ite (rcField == AST.num0 8<rt>) cst00 tmp0
+    direct tmp0 := AST.ite (rcField == AST.num1 8<rt>) cst01 tmp0
+    direct tmp0 := AST.ite (rcField == numI32 2 8<rt>) cst10 tmp0
+    direct tmp0 := AST.ite (rcField == numI32 3 8<rt>) cst11 tmp0
     castTo80Bit bld st0b st0a (castToF64 tmp0)
     AST.lmark lblExit
     updateC1OnStore bld
@@ -943,9 +945,9 @@ let fscale (ins: Instruction) insLen bld =
     let f2 = numI32 2 64<rt> |> castToF64
     castFrom80Bit tmp0 64<rt> st0b st0a bld
     castFrom80Bit tmp1 64<rt> st1b st1a bld
-    tmp2 := AST.cast CastKind.FtoITrunc 64<rt> tmp1
+    direct tmp2 := AST.cast CastKind.FtoITrunc 64<rt> tmp1
     let exp = AST.ite (tmp2 ?>= numI64 0L 64<rt>) tmp2 (AST.neg tmp2)
-    tmp3 := AST.fpow f2 (castToF64 exp)
+    direct tmp3 := AST.fpow f2 (castToF64 exp)
     let v =
       AST.ite
         (tmp2 ?>= numI64 0L 64<rt>) (AST.fmul tmp0 tmp3) (AST.fdiv tmp0 tmp3)
@@ -968,13 +970,13 @@ let fxtract (ins: Instruction) insLen bld =
     let n3fff = numI32 0x3FFF 16<rt>
     let tmpB, tmpA = tmpVar bld 16<rt>, bld.Stream.NewTempVar 64<rt>
     let tmpF = tmpVar bld 64<rt>
-    tmpB := (st0b .& numI32 0x8000 16<rt>) .| n3fff
-    tmpA := st0a
-    tmpF := castToF64 ((st0b .& numI32 0x7fff 16<rt>) .- n3fff)
+    direct tmpB := (st0b .& numI32 0x8000 16<rt>) .| n3fff
+    direct tmpA := st0a
+    direct tmpF := castToF64 ((st0b .& numI32 0x7fff 16<rt>) .- n3fff)
     castTo80Bit bld st0b st0a tmpF
     pushFPUStack bld
-    st0b := tmpB
-    st0a := tmpA
+    direct st0b := tmpB
+    direct st0a := tmpA
   }
 
 let private prepareTwoOprsForComparison (ins: Instruction) insLen bld =
@@ -995,7 +997,7 @@ let private prepareTwoOprsForComparison (ins: Instruction) insLen bld =
     let oprExpr = transOprToExpr bld false ins insLen opr
     castFrom80Bit tmp0 64<rt> st0b st0a bld
     append bld {
-      tmp1 := AST.cast CastKind.FloatCast 64<rt> oprExpr
+      direct tmp1 := AST.cast CastKind.FloatCast 64<rt> oprExpr
     }
   | TwoOperands(OprReg r1, OprReg r2) ->
     let struct (st0b, st0a) = getFPUPseudoRegVars bld r1
@@ -1013,10 +1015,10 @@ let fcom (ins: Instruction) insLen bld nPop unordered =
     let c3 = regVar bld R.FSWC3
     let struct (tmp0, tmp1) = prepareTwoOprsForComparison ins insLen bld
     let isNan = isNan true tmp0 .| isNan true tmp1
-    c0 := isNan .| AST.flt tmp0 tmp1
-    c2 := isNan .| AST.b0
-    c3 := isNan .| (tmp0 == tmp1)
-    regVar bld R.FSWC1 := AST.b0
+    direct c0 := isNan .| AST.flt tmp0 tmp1
+    direct c2 := isNan .| AST.b0
+    direct c3 := isNan .| (tmp0 == tmp1)
+    direct (regVar bld R.FSWC1) := AST.b0
     if nPop > 0 then popFPUStack bld else ()
     if nPop = 2 then popFPUStack bld else ()
   }
@@ -1027,12 +1029,12 @@ let ficom (ins: Instruction) insLen bld doPop =
     let struct (st0b, st0a) = getFPUPseudoRegVars bld R.ST0
     let struct (tmp0, tmp1) = tmpVars2 bld 64<rt>
     castFrom80Bit tmp0 64<rt> st0b st0a bld
-    tmp1 := AST.cast CastKind.SIntToFloat 64<rt> oprExpr
+    direct tmp1 := AST.cast CastKind.SIntToFloat 64<rt> oprExpr
     let isNan = isNan true tmp0 .| isNan true tmp1
-    regVar bld R.FSWC0 := isNan .| AST.flt tmp0 tmp1
-    regVar bld R.FSWC2 := isNan .| AST.b0
-    regVar bld R.FSWC3 := isNan .| (tmp0 == tmp1)
-    regVar bld R.FSWC1 := AST.b0
+    direct (regVar bld R.FSWC0) := isNan .| AST.flt tmp0 tmp1
+    direct (regVar bld R.FSWC2) := isNan .| AST.b0
+    direct (regVar bld R.FSWC3) := isNan .| (tmp0 == tmp1)
+    direct (regVar bld R.FSWC1) := AST.b0
     if doPop then popFPUStack bld else ()
   }
 
@@ -1043,10 +1045,10 @@ let fcomi (ins: Instruction) insLen bld doPop =
     let cf = regVar bld R.CF
     let struct (tmp0, tmp1) = prepareTwoOprsForComparison ins insLen bld
     let isNan = isNan true tmp0 .| isNan true tmp1
-    cf := isNan .| AST.flt tmp0 tmp1
-    pf := isNan .| AST.b0
-    zf := isNan .| (tmp0 == tmp1)
-    regVar bld R.FSWC1 := AST.b0
+    direct cf := isNan .| AST.flt tmp0 tmp1
+    direct pf := isNan .| AST.b0
+    direct zf := isNan .| (tmp0 == tmp1)
+    direct (regVar bld R.FSWC1) := AST.b0
     if doPop then popFPUStack bld else ()
 #if EMULATION
     bld.ConditionCodeOp <- ConditionCodeOp.EFlags
@@ -1062,10 +1064,10 @@ let ftst (ins: Instruction) insLen bld =
     let c3 = regVar bld R.FSWC3
     let tmp = tmpVar bld 64<rt>
     castFrom80Bit tmp 64<rt> st0b st0a bld
-    c0 := AST.flt tmp num0V
-    c2 := AST.b0
-    c3 := tmp == num0V
-    regVar bld R.FSWC1 := AST.b0
+    direct c0 := AST.flt tmp num0V
+    direct c2 := AST.b0
+    direct c3 := tmp == num0V
+    direct (regVar bld R.FSWC1) := AST.b0
   }
 
 let fxam (ins: Instruction) insLen bld =
@@ -1082,10 +1084,10 @@ let fxam (ins: Instruction) insLen bld =
     let c3Cond = isZero .| isEmpty
     let c2Cond = AST.not (isNaN .| isZero .| isEmpty)
     let c0Cond = isNaN .| isInf .| isEmpty
-    regVar bld R.FSWC1 := AST.xthi 1<rt> st0b
-    regVar bld R.FSWC3 := c3Cond
-    regVar bld R.FSWC2 := c2Cond
-    regVar bld R.FSWC0 := c0Cond
+    direct (regVar bld R.FSWC1) := AST.xthi 1<rt> st0b
+    direct (regVar bld R.FSWC3) := c3Cond
+    direct (regVar bld R.FSWC2) := c2Cond
+    direct (regVar bld R.FSWC0) := c0Cond
   }
 
 let private checkForTrigFunction unsigned lin lout bld =
@@ -1113,18 +1115,18 @@ let private ftrig (ins: Instruction) insLen bld trigFunc =
     castFrom80Bit signed 64<rt> st0b st0a bld
     checkForTrigFunction unsigned lin lout bld
     AST.lmark lin
-    tmp := trigFunc signed
+    direct tmp := trigFunc signed
     castTo80Bit bld st0b st0a tmp
-    c2 := AST.b0
+    direct c2 := AST.b0
     AST.jmp (AST.jmpDest lexit)
     AST.lmark lout
-    c2 := AST.b1
+    direct c2 := AST.b1
     AST.lmark lexit
 #if !EMULATION
-    c0 := undefC0
-    c3 := undefC3
+    direct c0 := undefC0
+    direct c3 := undefC3
 #endif
-    c1 := AST.b0
+    direct c1 := AST.b0
   }
 
 let fsin ins insLen bld = ftrig ins insLen bld AST.fsin
@@ -1146,19 +1148,19 @@ let fsincos (ins: Instruction) insLen bld =
     castFrom80Bit signed 64<rt> st0b st0a bld
     checkForTrigFunction unsigned lin lout bld
     AST.lmark lin
-    tmpcos := AST.fcos signed
-    tmpsin := AST.fsin signed
+    direct tmpcos := AST.fcos signed
+    direct tmpsin := AST.fsin signed
     castTo80Bit bld st0b st0a tmpsin
     pushFPUStack bld
     castTo80Bit bld st0b st0a tmpcos
-    c2 := AST.b0
+    direct c2 := AST.b0
     AST.jmp (AST.jmpDest lexit)
     AST.lmark lout
-    c2 := AST.b1
+    direct c2 := AST.b1
     AST.lmark lexit
 #if !EMULATION
-    c0 := undefC0
-    c3 := undefC3
+    direct c0 := undefC0
+    direct c3 := undefC3
 #endif
     updateC1OnLoad bld
   }
@@ -1179,19 +1181,19 @@ let fptan (ins: Instruction) insLen bld =
     castFrom80Bit signed 64<rt> st0b st0a bld
     checkForTrigFunction unsigned lin lout bld
     AST.lmark lin
-    tmp := AST.ftan signed
+    direct tmp := AST.ftan signed
     castTo80Bit bld st0b st0a tmp
-    c2 := AST.b0
+    direct c2 := AST.b0
     pushFPUStack bld
     castTo80Bit bld st0b st0a fone
-    c2 := AST.b0
+    direct c2 := AST.b0
     AST.jmp (AST.jmpDest lexit)
     AST.lmark lout
-    c2 := AST.b1
+    direct c2 := AST.b1
     AST.lmark lexit
 #if !EMULATION
-    c0 := undefC0
-    c3 := undefC3
+    direct c0 := undefC0
+    direct c3 := undefC3
 #endif
     updateC1OnLoad bld
   }
@@ -1203,7 +1205,7 @@ let fpatan (ins: Instruction) insLen bld =
     let struct (tmp0, tmp1, res) = tmpVars3 bld 64<rt>
     castFrom80Bit tmp0 64<rt> st0b st0a bld
     castFrom80Bit tmp1 64<rt> st1b st1a bld
-    res := AST.fatan (AST.fdiv tmp1 tmp0)
+    direct res := AST.fatan (AST.fdiv tmp1 tmp0)
     castTo80Bit bld st1b st1a res
     popFPUStack bld
     updateC1OnStore bld
@@ -1220,9 +1222,9 @@ let f2xm1 (ins: Instruction) insLen bld =
     let c1 = regVar bld R.FSWC1
     let struct (tmp, res) = tmpVars2 bld 64<rt>
     castFrom80Bit tmp 64<rt> st0b st0a bld
-    res := AST.fsub (AST.fpow f2 tmp) f1
+    direct res := AST.fsub (AST.fpow f2 tmp) f1
     castTo80Bit bld st0b st0a res
-    c1 := AST.b0
+    direct c1 := AST.b0
 #if !EMULATION
     cflagsUndefined023 bld
 #endif
@@ -1236,7 +1238,7 @@ let fyl2x (ins: Instruction) insLen bld =
     let f2 = numI32 2 64<rt> |> castToF64
     castFrom80Bit tmp0 64<rt> st0b st0a bld
     castFrom80Bit tmp1 64<rt> st1b st1a bld
-    res := AST.fmul tmp1 (AST.flog f2 tmp0)
+    direct res := AST.fmul tmp1 (AST.flog f2 tmp0)
     castTo80Bit bld st1b st1a res
     popFPUStack bld
     updateC1OnStore bld
@@ -1254,7 +1256,7 @@ let fyl2xp1 (ins: Instruction) insLen bld =
     let f2 = numI32 2 64<rt> |> castToF64
     castFrom80Bit tmp0 64<rt> st0b st0a bld
     castFrom80Bit tmp1 64<rt> st1b st1a bld
-    res := AST.fmul tmp1 (AST.flog f2 (AST.fadd tmp0 f1))
+    direct res := AST.fmul tmp1 (AST.flog f2 (AST.fadd tmp0 f1))
     castTo80Bit bld st1b st1a res
     popFPUStack bld
     updateC1OnStore bld
@@ -1271,8 +1273,8 @@ let fldz (ins: Instruction) insLen bld =
   lift bld ins insLen {
     let struct (st0b, st0a) = getFPUPseudoRegVars bld R.ST0
     pushFPUStack bld
-    st0b := AST.num0 16<rt>
-    st0a := AST.num0 64<rt>
+    direct st0b := AST.num0 16<rt>
+    direct st0a := AST.num0 64<rt>
     updateC1OnLoad bld
   }
 
@@ -1313,11 +1315,11 @@ let fincstp (ins: Instruction) insLen bld =
     moveFPRegtoFPReg R.ST5 R.ST6 bld
     moveFPRegtoFPReg R.ST6 R.ST7 bld
     moveTemptoFPReg R.ST7 tmpA tmpB bld
-    regVar bld R.FSWC1 := AST.b0
+    direct (regVar bld R.FSWC1) := AST.b0
 #if !EMULATION
-    regVar bld R.FSWC0 := undefC0
-    regVar bld R.FSWC2 := undefC2
-    regVar bld R.FSWC3 := undefC3
+    direct (regVar bld R.FSWC0) := undefC0
+    direct (regVar bld R.FSWC2) := undefC2
+    direct (regVar bld R.FSWC3) := undefC3
 #endif
   }
 
@@ -1337,11 +1339,11 @@ let fdecstp (ins: Instruction) insLen bld =
     moveFPRegtoFPReg R.ST2 R.ST1 bld
     moveFPRegtoFPReg R.ST1 R.ST0 bld
     moveTemptoFPReg R.ST0 tmpA tmpB bld
-    regVar bld R.FSWC1 := AST.b0
+    direct (regVar bld R.FSWC1) := AST.b0
 #if !EMULATION
-    regVar bld R.FSWC0 := undefC0
-    regVar bld R.FSWC2 := undefC2
-    regVar bld R.FSWC3 := undefC3
+    direct (regVar bld R.FSWC0) := undefC0
+    direct (regVar bld R.FSWC2) := undefC2
+    direct (regVar bld R.FSWC3) := undefC3
 #endif
   }
 
@@ -1362,11 +1364,11 @@ let ffree (ins: Instruction) insLen bld =
       | OneOperand(OprReg R.ST6) -> numI32 6 16<rt>
       | OneOperand(OprReg R.ST7) -> numI32 7 16<rt>
       | _ -> raise InvalidOperandException
-    top16 := AST.cast CastKind.ZeroExt 16<rt> top
-    top16 := top16 .+ offset
-    shifter := (numI32 2 16<rt>) .* top16
-    tagValue := (value3 << shifter)
-    tagWord := tagWord .| tagValue
+    direct top16 := AST.cast CastKind.ZeroExt 16<rt> top
+    direct top16 := top16 .+ offset
+    direct shifter := (numI32 2 16<rt>) .* top16
+    direct tagValue := (value3 << shifter)
+    direct tagWord := tagWord .| tagValue
   }
 
 (* FIXME: check all unmasked pending floating point exceptions. *)
@@ -1376,9 +1378,9 @@ let private clearFPU bld =
   append bld {
     let cw = numI32 895 16<rt>
     let tw = BitVector.MaxUInt16 |> AST.num
-    regVar bld R.FCW := cw
-    regVar bld R.FSW := AST.num0 16<rt>
-    regVar bld R.FTW := tw
+    direct (regVar bld R.FCW) := cw
+    direct (regVar bld R.FSW) := AST.num0 16<rt>
+    direct (regVar bld R.FTW) := tw
   }
 
 let finit (ins: Instruction) insLen bld =
@@ -1395,13 +1397,13 @@ let fninit (ins: Instruction) insLen bld =
 let fclex (ins: Instruction) insLen bld =
   lift bld ins insLen {
     let stsWrd = regVar bld R.FSW
-    stsWrd := stsWrd .& (numI32 0xFF80 16<rt>)
-    AST.xthi 1<rt> stsWrd := AST.b0
+    direct stsWrd := stsWrd .& (numI32 0xFF80 16<rt>)
+    direct (AST.xthi 1<rt> stsWrd) := AST.b0
 #if !EMULATION
-    regVar bld R.FSWC0 := undefC0
-    regVar bld R.FSWC1 := undefC1
-    regVar bld R.FSWC2 := undefC2
-    regVar bld R.FSWC3 := undefC3
+    direct (regVar bld R.FSWC0) := undefC0
+    direct (regVar bld R.FSWC1) := undefC1
+    direct (regVar bld R.FSWC2) := undefC2
+    direct (regVar bld R.FSWC3) := undefC3
 #endif
   }
 
@@ -1409,7 +1411,7 @@ let fstcw (ins: Instruction) insLen bld =
   lift bld ins insLen {
     let oprExpr = transOneOpr bld ins insLen
     checkFPUExceptions bld
-    oprExpr := regVar bld R.FCW
+    direct oprExpr := regVar bld R.FCW
 #if !EMULATION
     allCFlagsUndefined bld
 #endif
@@ -1418,7 +1420,7 @@ let fstcw (ins: Instruction) insLen bld =
 let fnstcw (ins: Instruction) insLen bld =
   lift bld ins insLen {
     let oprExpr = transOneOpr bld ins insLen
-    oprExpr := regVar bld R.FCW
+    direct oprExpr := regVar bld R.FCW
 #if !EMULATION
     allCFlagsUndefined bld
 #endif
@@ -1427,12 +1429,12 @@ let fnstcw (ins: Instruction) insLen bld =
 let fldcw (ins: Instruction) insLen bld =
   lift bld ins insLen {
     let oprExpr = transOneOpr bld ins insLen
-    regVar bld R.FCW := oprExpr
+    direct (regVar bld R.FCW) := oprExpr
 #if !EMULATION
-    regVar bld R.FSWC0 := undefC0
-    regVar bld R.FSWC1 := undefC1
-    regVar bld R.FSWC2 := undefC2
-    regVar bld R.FSWC3 := undefC3
+    direct (regVar bld R.FSWC0) := undefC0
+    direct (regVar bld R.FSWC1) := undefC1
+    direct (regVar bld R.FSWC2) := undefC2
+    direct (regVar bld R.FSWC3) := undefC3
 #endif
   }
 
@@ -1476,24 +1478,32 @@ let fnstenv (ins: Instruction) insLen bld =
 
 let private m14fldenv srcAddr addrSize bld =
   append bld {
-    regVar bld R.FCW := AST.loadLE 16<rt> (srcAddr)
-    regVar bld R.FSW := AST.loadLE 16<rt> (srcAddr .+ numI32 2 addrSize)
-    regVar bld R.FTW := AST.loadLE 16<rt> (srcAddr .+ numI32 4 addrSize)
-    AST.xtlo 16<rt> (regVar bld R.FIP) :=
+    direct (regVar bld R.FCW) := AST.loadLE 16<rt> (srcAddr)
+    direct (regVar bld R.FSW) :=
+      AST.loadLE 16<rt> (srcAddr .+ numI32 2 addrSize)
+    direct (regVar bld R.FTW) :=
+      AST.loadLE 16<rt> (srcAddr .+ numI32 4 addrSize)
+    direct (AST.xtlo 16<rt> (regVar bld R.FIP)) :=
       AST.loadLE 16<rt> (srcAddr .+ numI32 6 addrSize)
-    regVar bld R.FCS := AST.loadLE 16<rt> (srcAddr .+ numI32 8 addrSize)
-    AST.xtlo 16<rt> (regVar bld R.FDP) :=
+    direct (regVar bld R.FCS) :=
+      AST.loadLE 16<rt> (srcAddr .+ numI32 8 addrSize)
+    direct (AST.xtlo 16<rt> (regVar bld R.FDP)) :=
       AST.loadLE 16<rt> (srcAddr .+ numI32 10 addrSize)
-    regVar bld R.FDS := AST.loadLE 16<rt> (srcAddr .+ numI32 12 addrSize)
+    direct (regVar bld R.FDS) :=
+      AST.loadLE 16<rt> (srcAddr .+ numI32 12 addrSize)
   }
 
 let private m28fldenv srcAddr addrSize bld =
   append bld {
-    regVar bld R.FCW := AST.loadLE 16<rt> (srcAddr)
-    regVar bld R.FSW := AST.loadLE 16<rt> (srcAddr .+ numI32 4 addrSize)
-    regVar bld R.FTW := AST.loadLE 16<rt> (srcAddr .+ numI32 8 addrSize)
-    regVar bld R.FIP := AST.loadLE 64<rt> (srcAddr .+ numI32 12 addrSize)
-    regVar bld R.FDP := AST.loadLE 64<rt> (srcAddr .+ numI32 20 addrSize)
+    direct (regVar bld R.FCW) := AST.loadLE 16<rt> (srcAddr)
+    direct (regVar bld R.FSW) :=
+      AST.loadLE 16<rt> (srcAddr .+ numI32 4 addrSize)
+    direct (regVar bld R.FTW) :=
+      AST.loadLE 16<rt> (srcAddr .+ numI32 8 addrSize)
+    direct (regVar bld R.FIP) :=
+      AST.loadLE 64<rt> (srcAddr .+ numI32 12 addrSize)
+    direct (regVar bld R.FDP) :=
+      AST.loadLE 64<rt> (srcAddr .+ numI32 20 addrSize)
   }
 
 let fldenv (ins: Instruction) insLen bld =
@@ -1547,40 +1557,40 @@ let fnsave (ins: Instruction) insLen bld =
       stSts addrExpr addrSize 28 bld
     | _ ->
       raise InvalidOperandSizeException
-    regVar bld R.FCW := numI32 0x037F 16<rt>
-    regVar bld R.FSW := AST.num0 16<rt>
-    regVar bld R.FTW := numI32 0xFFFF 16<rt>
-    regVar bld R.FDP := AST.num0 64<rt>
-    regVar bld R.FIP := AST.num0 64<rt>
-    regVar bld R.FOP := AST.num0 16<rt>
+    direct (regVar bld R.FCW) := numI32 0x037F 16<rt>
+    direct (regVar bld R.FSW) := AST.num0 16<rt>
+    direct (regVar bld R.FTW) := numI32 0xFFFF 16<rt>
+    direct (regVar bld R.FDP) := AST.num0 64<rt>
+    direct (regVar bld R.FIP) := AST.num0 64<rt>
+    direct (regVar bld R.FOP) := AST.num0 16<rt>
   }
 
 let private ldSts srcAddr addrSize offset bld =
   append bld {
     let struct (stb, sta) = getFPUPseudoRegVars bld R.ST0
-    sta := AST.loadLE 64<rt> (srcAddr .+ numI32 (offset) addrSize)
-    stb := AST.loadLE 16<rt> (srcAddr .+ numI32 (offset + 8) addrSize)
+    direct sta := AST.loadLE 64<rt> (srcAddr .+ numI32 (offset) addrSize)
+    direct stb := AST.loadLE 16<rt> (srcAddr .+ numI32 (offset + 8) addrSize)
     let struct (stb, sta) = getFPUPseudoRegVars bld R.ST1
-    sta := AST.loadLE 64<rt> (srcAddr .+ numI32 (offset + 10) addrSize)
-    stb := AST.loadLE 16<rt> (srcAddr .+ numI32 (offset + 18) addrSize)
+    direct sta := AST.loadLE 64<rt> (srcAddr .+ numI32 (offset + 10) addrSize)
+    direct stb := AST.loadLE 16<rt> (srcAddr .+ numI32 (offset + 18) addrSize)
     let struct (stb, sta) = getFPUPseudoRegVars bld R.ST2
-    sta := AST.loadLE 64<rt> (srcAddr .+ numI32 (offset + 20) addrSize)
-    stb := AST.loadLE 16<rt> (srcAddr .+ numI32 (offset + 28) addrSize)
+    direct sta := AST.loadLE 64<rt> (srcAddr .+ numI32 (offset + 20) addrSize)
+    direct stb := AST.loadLE 16<rt> (srcAddr .+ numI32 (offset + 28) addrSize)
     let struct (stb, sta) = getFPUPseudoRegVars bld R.ST3
-    sta := AST.loadLE 64<rt> (srcAddr .+ numI32 (offset + 30) addrSize)
-    stb := AST.loadLE 16<rt> (srcAddr .+ numI32 (offset + 38) addrSize)
+    direct sta := AST.loadLE 64<rt> (srcAddr .+ numI32 (offset + 30) addrSize)
+    direct stb := AST.loadLE 16<rt> (srcAddr .+ numI32 (offset + 38) addrSize)
     let struct (stb, sta) = getFPUPseudoRegVars bld R.ST4
-    sta := AST.loadLE 64<rt> (srcAddr .+ numI32 (offset + 40) addrSize)
-    stb := AST.loadLE 16<rt> (srcAddr .+ numI32 (offset + 48) addrSize)
+    direct sta := AST.loadLE 64<rt> (srcAddr .+ numI32 (offset + 40) addrSize)
+    direct stb := AST.loadLE 16<rt> (srcAddr .+ numI32 (offset + 48) addrSize)
     let struct (stb, sta) = getFPUPseudoRegVars bld R.ST5
-    sta := AST.loadLE 64<rt> (srcAddr .+ numI32 (offset + 50) addrSize)
-    stb := AST.loadLE 16<rt> (srcAddr .+ numI32 (offset + 58) addrSize)
+    direct sta := AST.loadLE 64<rt> (srcAddr .+ numI32 (offset + 50) addrSize)
+    direct stb := AST.loadLE 16<rt> (srcAddr .+ numI32 (offset + 58) addrSize)
     let struct (stb, sta) = getFPUPseudoRegVars bld R.ST6
-    sta := AST.loadLE 64<rt> (srcAddr .+ numI32 (offset + 60) addrSize)
-    stb := AST.loadLE 16<rt> (srcAddr .+ numI32 (offset + 68) addrSize)
+    direct sta := AST.loadLE 64<rt> (srcAddr .+ numI32 (offset + 60) addrSize)
+    direct stb := AST.loadLE 16<rt> (srcAddr .+ numI32 (offset + 68) addrSize)
     let struct (stb, sta) = getFPUPseudoRegVars bld R.ST7
-    sta := AST.loadLE 64<rt> (srcAddr .+ numI32 (offset + 70) addrSize)
-    stb := AST.loadLE 16<rt> (srcAddr .+ numI32 (offset + 78) addrSize)
+    direct sta := AST.loadLE 64<rt> (srcAddr .+ numI32 (offset + 70) addrSize)
+    direct stb := AST.loadLE 16<rt> (srcAddr .+ numI32 (offset + 78) addrSize)
   }
 
 let frstor (ins: Instruction) insLen bld =
@@ -1601,7 +1611,7 @@ let frstor (ins: Instruction) insLen bld =
 let fnstsw (ins: Instruction) insLen bld =
   lift bld ins insLen {
     let oprExpr = transOneOpr bld ins insLen
-    oprExpr := regVar bld R.FSW
+    direct oprExpr := regVar bld R.FSW
 #if !EMULATION
     allCFlagsUndefined bld
 #endif
@@ -1678,29 +1688,29 @@ let fxsave (ins: Instruction) insLen bld =
 let private fxrstoreInternal bld srcAddr addrSz is64bit =
   let loadAt sz off = AST.loadLE sz (srcAddr .+ (numI32 off addrSz))
   append bld {
-    regVar bld R.FCW := AST.loadLE 16<rt> (srcAddr)
-    regVar bld R.FSW := loadAt 16<rt> 2
-    regVar bld R.FTW := loadAt 16<rt> 4
-    regVar bld R.FOP := loadAt 16<rt> 6
-    regVar bld R.FIP := loadAt 64<rt> 8
-    regVar bld R.FDP := loadAt 64<rt> 16
-    regVar bld R.MXCSR := loadAt 32<rt> 24
-    regVar bld R.MXCSRMASK := loadAt 32<rt> 28
+    direct (regVar bld R.FCW) := AST.loadLE 16<rt> (srcAddr)
+    direct (regVar bld R.FSW) := loadAt 16<rt> 2
+    direct (regVar bld R.FTW) := loadAt 16<rt> 4
+    direct (regVar bld R.FOP) := loadAt 16<rt> 6
+    direct (regVar bld R.FIP) := loadAt 64<rt> 8
+    direct (regVar bld R.FDP) := loadAt 64<rt> 16
+    direct (regVar bld R.MXCSR) := loadAt 32<rt> 24
+    direct (regVar bld R.MXCSRMASK) := loadAt 32<rt> 28
   }
   fxsaveStackRegs
   |> List.iteri (fun i st ->
     let struct (stb, sta) = getFPUPseudoRegVars bld st
     append bld {
-      sta := loadAt 64<rt> (32 + 16 * i)
-      stb := loadAt 16<rt> (40 + 16 * i)
+      direct sta := loadAt 64<rt> (32 + 16 * i)
+      direct stb := loadAt 16<rt> (40 + 16 * i)
     }
   )
   fxsaveXmmRegs
   |> List.iteri (fun i xmm ->
     let struct (xmmb, xmma) = pseudoRegVar128 bld xmm
     append bld {
-      xmma := loadAt 64<rt> (160 + 16 * i)
-      xmmb := loadAt 64<rt> (168 + 16 * i)
+      direct xmma := loadAt 64<rt> (160 + 16 * i)
+      direct xmmb := loadAt 64<rt> (168 + 16 * i)
     }
   )
   if is64bit then
@@ -1708,8 +1718,8 @@ let private fxrstoreInternal bld srcAddr addrSz is64bit =
     |> List.iteri (fun i xmm ->
       let struct (xmmb, xmma) = pseudoRegVar128 bld xmm
       append bld {
-        xmma := loadAt 64<rt> (288 + 16 * i)
-        xmmb := loadAt 64<rt> (296 + 16 * i)
+        direct xmma := loadAt 64<rt> (288 + 16 * i)
+        direct xmmb := loadAt 64<rt> (296 + 16 * i)
       }
     )
   else

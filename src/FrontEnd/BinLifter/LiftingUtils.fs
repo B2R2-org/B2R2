@@ -88,6 +88,41 @@ let inline pseudoRegVar512 (builder: ILowUIRBuilder) reg =
   let regV = pseudoRegVar builder reg
   struct (regV 8, regV 7, regV 6, regV 5, regV 4, regV 3, regV 2, regV 1)
 
+/// Represents a destination of the `:=` operator: either an expression written
+/// exactly as given, or an instruction operand written under the
+/// architecture's operand-size rules. Architectures that have no operand-size
+/// rule have no use for this: they keep the plain `:=` of AST.InfixOp, which
+/// is a decision and not an omission.
+[<Struct; RequireQualifiedAccess>]
+type AssignTarget =
+  /// Destination written exactly as given.
+  | Direct of dst: Expr
+  /// Destination that is an instruction operand of the given size.
+  | Sized of size: RegType * sizedDst: Expr
+
+/// Makes a target that is written exactly as given.
+let inline direct dst = AssignTarget.Direct dst
+
+/// Makes a target that is an instruction operand of the given size.
+let inline sized size dst = AssignTarget.Sized(size, dst)
+
+/// Assigns to an operand of the given size, zero-extending the write when the
+/// destination register is wider than the operand. Operands of 8 and 16 bits
+/// leave the upper bits of the destination alone, so they are written as they
+/// are.
+let assignSized size dst src =
+  match size with
+  | 8<rt> | 16<rt> ->
+    AST.assign dst src
+  | _ ->
+    let dst = AST.unwrap dst
+    let dstOrigSz = Expr.typeOf dst
+    let oprBitSize = RegType.toBitWidth size
+    let dstBitSize = RegType.toBitWidth dstOrigSz
+    if dstBitSize > oprBitSize then AST.assign dst (AST.zext dstOrigSz src)
+    elif dstBitSize = oprBitSize then AST.assign dst src
+    else raise InvalidOperandSizeException
+
 /// Represents how a lifted instruction ends: either it still needs its IEMark,
 /// or the body already ended the instruction on its own.
 [<Struct>]

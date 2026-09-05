@@ -160,19 +160,6 @@ let inline numI32PC (n: int) = BitVector(n, 64<rt>) |> AST.num
 let inline getCCVar (bld: ILowUIRBuilder) name =
   ConditionCode.toRegID name |> bld.GetRegVar
 
-let dstAssign oprSize dst src =
-  match oprSize with
-  | 8<rt> | 16<rt> ->
-    dst := src (* No extension for 8- and 16-bit operands *)
-  | _ ->
-    let dst = AST.unwrap dst
-    let dstOrigSz = dst |> Expr.typeOf
-    let oprBitSize = RegType.toBitWidth oprSize
-    let dstBitSize = RegType.toBitWidth dstOrigSz
-    if dstBitSize > oprBitSize then dst := AST.zext dstOrigSz src
-    elif dstBitSize = oprBitSize then dst := src
-    else raise InvalidOperandSizeException
-
 let transOprToExpr ins insLen bld = function
   | OprReg reg -> regVar bld reg
   | OprImm imm -> numI32 imm 64<rt>

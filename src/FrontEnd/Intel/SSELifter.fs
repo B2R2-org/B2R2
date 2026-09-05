@@ -63,8 +63,8 @@ let addsubpd (ins: Instruction) insLen bld =
     let struct (dst, src) = getTwoOprs ins
     let struct (dstB, dstA) = transOprToExpr128 bld false ins insLen dst
     let struct (srcB, srcA) = transOprToExpr128 bld false ins insLen src
-    dstA := AST.fsub dstA srcA
-    dstB := AST.fadd dstB srcB
+    direct dstA := AST.fsub dstA srcA
+    direct dstB := AST.fadd dstB srcB
   }
 
 let addsubps (ins: Instruction) insLen bld =
@@ -73,12 +73,12 @@ let addsubps (ins: Instruction) insLen bld =
     let struct (dstB, dstA) = transOprToExpr128 bld false ins insLen dst
     let struct (srcB, srcA) = transOprToExpr128 bld false ins insLen src
     let struct (t1, t2, t3, t4) = tmpVars4 bld 32<rt>
-    t1 := AST.fsub (AST.xtlo 32<rt> dstA) (AST.xtlo 32<rt> srcA)
-    t2 := AST.fadd (AST.xthi 32<rt> dstA) (AST.xthi 32<rt> srcA)
-    t3 := AST.fsub (AST.xtlo 32<rt> dstB) (AST.xtlo 32<rt> srcB)
-    t4 := AST.fadd (AST.xthi 32<rt> dstB) (AST.xthi 32<rt> srcB)
-    dstA := AST.concat t2 t1
-    dstB := AST.concat t4 t3
+    direct t1 := AST.fsub (AST.xtlo 32<rt> dstA) (AST.xtlo 32<rt> srcA)
+    direct t2 := AST.fadd (AST.xthi 32<rt> dstA) (AST.xthi 32<rt> srcA)
+    direct t3 := AST.fsub (AST.xtlo 32<rt> dstB) (AST.xtlo 32<rt> srcB)
+    direct t4 := AST.fadd (AST.xthi 32<rt> dstB) (AST.xthi 32<rt> srcB)
+    direct dstA := AST.concat t2 t1
+    direct dstB := AST.concat t4 t3
   }
 
 let buildMove (ins: Instruction) insLen bld =
@@ -88,7 +88,7 @@ let buildMove (ins: Instruction) insLen bld =
     match oprSize with
     | 32<rt> | 64<rt> ->
       let struct (dst, src) = transTwoOprs bld false ins insLen
-      dst := src
+      direct dst := src
     | 128<rt> | 256<rt> | 512<rt> ->
       let struct (dst, src) = getTwoOprs ins
       let src = transOprToArr bld false ins insLen 64<rt> packNum oprSize src
@@ -111,10 +111,10 @@ let movhps (ins: Instruction) insLen bld =
     match dst, src with
     | OprMem(_, _, _, 64<rt>), OprReg r ->
       let dst = transOprToExpr bld false ins insLen dst
-      dst := pseudoRegVar bld r 2
+      direct dst := pseudoRegVar bld r 2
     | OprReg r, OprMem(_, _, _, 64<rt>) ->
       let src = transOprToExpr bld false ins insLen src
-      pseudoRegVar bld r 2 := src
+      direct (pseudoRegVar bld r 2) := src
     | _ ->
       raise InvalidOperandException
   }
@@ -125,10 +125,10 @@ let movhpd (ins: Instruction) insLen bld =
     match dst, src with
     | OprReg r, OprMem _ ->
       let src = transOprToExpr bld false ins insLen src
-      pseudoRegVar bld r 2 := src
+      direct (pseudoRegVar bld r 2) := src
     | OprMem _, OprReg r ->
       let dst = transOprToExpr bld false ins insLen dst
-      dst := pseudoRegVar bld r 2
+      direct dst := pseudoRegVar bld r 2
     | _ ->
       raise InvalidOperandException
   }
@@ -138,7 +138,7 @@ let movhlps (ins: Instruction) insLen bld =
     let struct (dst, src) = getTwoOprs ins
     let struct (_, dst) = transOprToExpr128 bld false ins insLen dst
     let struct (src, _) = transOprToExpr128 bld false ins insLen src
-    dst := src
+    direct dst := src
   }
 
 let movlpd (ins: Instruction) insLen bld =
@@ -147,10 +147,10 @@ let movlpd (ins: Instruction) insLen bld =
     match dst, src with
     | OprReg r, OprMem _ ->
       let src = transOprToExpr bld false ins insLen src
-      pseudoRegVar bld r 1 := src
+      direct (pseudoRegVar bld r 1) := src
     | OprMem _, OprReg r ->
       let dst = transOprToExpr bld false ins insLen dst
-      dst := pseudoRegVar bld r 1
+      direct dst := pseudoRegVar bld r 1
     | _ ->
       raise InvalidOperandException
   }
@@ -162,7 +162,7 @@ let movlhps (ins: Instruction) insLen bld =
     let struct (dst, src) = getTwoOprs ins
     let struct (dst, _) = transOprToExpr128 bld false ins insLen dst
     let struct (_, src) = transOprToExpr128 bld false ins insLen src
-    dst := src
+    direct dst := src
   }
 
 let movmskps (ins: Instruction) insLen bld =
@@ -175,7 +175,7 @@ let movmskps (ins: Instruction) insLen bld =
     let b1 = (srcA >> (numI32 62 64<rt>) .& (numI32 0b10 64<rt>))
     let b2 = (srcB >> (numI32 29 64<rt>) .& (numI32 0b100 64<rt>))
     let b3 = (srcB >> (numI32 60 64<rt>) .& (numI32 0b1000 64<rt>))
-    dstAssign oprSize dst (b3 .| b2 .| b1 .| b0)
+    sized oprSize dst := b3 .| b2 .| b1 .| b0
   }
 
 let movmskpd (ins: Instruction) insLen bld =
@@ -186,7 +186,7 @@ let movmskpd (ins: Instruction) insLen bld =
     let oprSize = getOperationSize ins
     let src63 = AST.zext oprSize (AST.xthi 1<rt> src2)
     let src127 = (AST.zext oprSize (AST.xthi 1<rt> src1)) << AST.num1 oprSize
-    dstAssign oprSize dst (src63 .| src127)
+    sized oprSize dst := src63 .| src127
   }
 
 let movss (ins: Instruction) insLen bld =
@@ -196,16 +196,16 @@ let movss (ins: Instruction) insLen bld =
     | OprReg r1, OprReg r2 ->
       let dst = pseudoRegVar bld r1 1 |> AST.xtlo 32<rt>
       let src = pseudoRegVar bld r2 1 |> AST.xtlo 32<rt>
-      dst := src
+      direct dst := src
     | OprReg r1, OprMem _ ->
       let struct (dst2, dst1) = pseudoRegVar128 bld r1
       let src = transOprToExpr bld false ins insLen src
-      dstAssign 32<rt> dst1 src
-      dst2 := AST.num0 64<rt>
+      sized 32<rt> dst1 := src
+      direct dst2 := AST.num0 64<rt>
     | OprMem _, OprReg r1 ->
       let dst = transOprToExpr bld false ins insLen dst
       let src = pseudoRegVar bld r1 1 |> AST.xtlo 32<rt>
-      dstAssign 32<rt> dst src
+      sized 32<rt> dst := src
     | _ ->
       raise InvalidOperandException
   }
@@ -220,16 +220,16 @@ let movsd (ins: Instruction) insLen bld =
       | OprReg r1, OprReg r2 ->
         let dst = pseudoRegVar bld r1 1
         let src = pseudoRegVar bld r2 1
-        dst := src
+        direct dst := src
       | OprReg r1, OprMem _ ->
         let struct (dst2, dst1) = pseudoRegVar128 bld r1
         let src = transOprToExpr bld false ins insLen src
-        dst1 := src
-        dst2 := AST.num0 64<rt>
+        direct dst1 := src
+        direct dst2 := AST.num0 64<rt>
       | OprMem _, OprReg r1 ->
         let dst = transOprToExpr bld false ins insLen dst
         let src = pseudoRegVar bld r1 1
-        dstAssign 64<rt> dst src
+        sized 64<rt> dst := src
       | _ ->
         raise InvalidOperandException
     }
@@ -265,10 +265,10 @@ let private handleScalarFPOp (ins: Instruction) insLen bld sz op =
       if sz = 32<rt> then AST.xtlo 32<rt> dst1, AST.xtlo 32<rt> src1
       else dst1, src1
     let struct (t1, t2, t3) = tmpVars3 bld sz
-    t1 := src1
-    t2 := src2
-    t3 := op t1 t2
-    dst1 := t3
+    direct t1 := src1
+    direct t2 := src2
+    direct t3 := op t1 t2
+    direct dst1 := t3
   }
 
 let addss ins insLen bld = handleScalarFPOp ins insLen bld 32<rt> AST.fadd
@@ -316,10 +316,10 @@ let rcpps (ins: Instruction) insLen bld =
     let src2b, src2a = AST.xthi 32<rt> src2, AST.xtlo 32<rt> src2
     let tmp = tmpVar bld 32<rt>
     let flt1 = numI32 0x3f800000 32<rt>
-    dst1a := AST.fdiv flt1 src1a
-    dst1b := AST.fdiv flt1 src1b
-    dst2a := AST.fdiv flt1 src2a
-    dst2b := AST.fdiv flt1 src2b
+    direct dst1a := AST.fdiv flt1 src1a
+    direct dst1b := AST.fdiv flt1 src1b
+    direct dst2a := AST.fdiv flt1 src2a
+    direct dst2b := AST.fdiv flt1 src2b
   }
 
 let rcpss (ins: Instruction) insLen bld =
@@ -329,7 +329,7 @@ let rcpss (ins: Instruction) insLen bld =
     let src = transOprToExpr32 bld false ins insLen opr2
     let tmp = tmpVar bld 32<rt>
     let flt1 = numI32 0x3f800000 32<rt>
-    dst := AST.fdiv flt1 src
+    direct dst := AST.fdiv flt1 src
   }
 
 let sqrtps ins insLen bld =
@@ -347,8 +347,8 @@ let sqrtpd (ins: Instruction) insLen bld =
     let struct (opr1, opr2) = getTwoOprs ins
     let struct (dst2, dst1) = transOprToExpr128 bld false ins insLen opr1
     let struct (src2, src1) = transOprToExpr128 bld false ins insLen opr2
-    dst1 := AST.unop UnOpType.FSQRT src1
-    dst2 := AST.unop UnOpType.FSQRT src2
+    direct dst1 := AST.unop UnOpType.FSQRT src1
+    direct dst2 := AST.unop UnOpType.FSQRT src2
   }
 
 let sqrtss (ins: Instruction) insLen bld =
@@ -356,7 +356,7 @@ let sqrtss (ins: Instruction) insLen bld =
     let struct (opr1, opr2) = getTwoOprs ins
     let dst = transOprToExpr32 bld false ins insLen opr1
     let src = transOprToExpr32 bld false ins insLen opr2
-    dst := AST.unop UnOpType.FSQRT src
+    direct dst := AST.unop UnOpType.FSQRT src
   }
 
 let sqrtsd (ins: Instruction) insLen bld =
@@ -364,7 +364,7 @@ let sqrtsd (ins: Instruction) insLen bld =
     let struct (opr1, opr2) = getTwoOprs ins
     let dst = transOprToExpr64 bld false ins insLen opr1
     let src = transOprToExpr64 bld false ins insLen opr2
-    dst := AST.unop UnOpType.FSQRT src
+    direct dst := AST.unop UnOpType.FSQRT src
   }
 
 let rsqrtps (ins: Instruction) insLen bld =
@@ -378,14 +378,14 @@ let rsqrtps (ins: Instruction) insLen bld =
     let src2b, src2a = AST.xthi 32<rt> src2, AST.xtlo 32<rt> src2
     let tmp = tmpVar bld 32<rt>
     let flt1 = numI32 0x3f800000 32<rt>
-    tmp := AST.unop UnOpType.FSQRT src1a
-    dst1a := AST.fdiv flt1 tmp
-    tmp := AST.unop UnOpType.FSQRT src1b
-    dst1b := AST.fdiv flt1 tmp
-    tmp := AST.unop UnOpType.FSQRT src2a
-    dst2a := AST.fdiv flt1 tmp
-    tmp := AST.unop UnOpType.FSQRT src2b
-    dst2b := AST.fdiv flt1 tmp
+    direct tmp := AST.unop UnOpType.FSQRT src1a
+    direct dst1a := AST.fdiv flt1 tmp
+    direct tmp := AST.unop UnOpType.FSQRT src1b
+    direct dst1b := AST.fdiv flt1 tmp
+    direct tmp := AST.unop UnOpType.FSQRT src2a
+    direct dst2a := AST.fdiv flt1 tmp
+    direct tmp := AST.unop UnOpType.FSQRT src2b
+    direct dst2b := AST.fdiv flt1 tmp
   }
 
 let rsqrtss (ins: Instruction) insLen bld =
@@ -395,8 +395,8 @@ let rsqrtss (ins: Instruction) insLen bld =
     let src = transOprToExpr32 bld false ins insLen opr2
     let tmp = tmpVar bld 32<rt>
     let flt1 = numI32 0x3f800000 32<rt>
-    tmp := AST.unop UnOpType.FSQRT src
-    dst := AST.fdiv flt1 tmp
+    direct tmp := AST.unop UnOpType.FSQRT src
+    direct dst := AST.fdiv flt1 tmp
   }
 
 let private minMaxPS (ins: Instruction) insLen bld compare =
@@ -409,14 +409,14 @@ let private minMaxPS (ins: Instruction) insLen bld compare =
     let src1A, src1B = AST.xtlo 32<rt> src1, AST.xthi 32<rt> src1
     let src2A, src2B = AST.xtlo 32<rt> src2, AST.xthi 32<rt> src2
     let struct (val4, val3, val2, val1) = tmpVars4 bld 32<rt>
-    val1 := AST.ite (compare dst1A src1A) dst1A src1A
-    val2 := AST.ite (compare dst1B src1B) dst1B src1B
-    val3 := AST.ite (compare dst2A src2A) dst2A src2A
-    val4 := AST.ite (compare dst2B src2B) dst2B src2B
-    dst1A := val1
-    dst1B := val2
-    dst2A := val3
-    dst2B := val4
+    direct val1 := AST.ite (compare dst1A src1A) dst1A src1A
+    direct val2 := AST.ite (compare dst1B src1B) dst1B src1B
+    direct val3 := AST.ite (compare dst2A src2A) dst2A src2A
+    direct val4 := AST.ite (compare dst2B src2B) dst2B src2B
+    direct dst1A := val1
+    direct dst1B := val2
+    direct dst2A := val3
+    direct dst2B := val4
   }
 
 let private minMaxPD (ins: Instruction) insLen bld compare =
@@ -425,10 +425,10 @@ let private minMaxPD (ins: Instruction) insLen bld compare =
     let struct (dst2, dst1) = transOprToExpr128 bld false ins insLen dst
     let struct (src2, src1) = transOprToExpr128 bld false ins insLen src
     let struct (val2, val1) = tmpVars2 bld 64<rt>
-    val1 := AST.ite (compare dst1 src1) dst1 src1
-    val2 := AST.ite (compare dst2 src2) dst2 src2
-    dst1 := val1
-    dst2 := val2
+    direct val1 := AST.ite (compare dst1 src1) dst1 src1
+    direct val2 := AST.ite (compare dst2 src2) dst2 src2
+    direct dst1 := val1
+    direct dst2 := val2
   }
 
 let private minMaxSS (ins: Instruction) insLen bld compare =
@@ -437,8 +437,8 @@ let private minMaxSS (ins: Instruction) insLen bld compare =
     let dst = transOprToExpr32 bld false ins insLen dst
     let src = transOprToExpr32 bld false ins insLen src
     let tmp = tmpVar bld 32<rt>
-    tmp := AST.ite (compare dst src) dst src
-    dst := tmp
+    direct tmp := AST.ite (compare dst src) dst src
+    direct dst := tmp
   }
 
 let private minMaxSD (ins: Instruction) insLen bld compare =
@@ -447,8 +447,8 @@ let private minMaxSD (ins: Instruction) insLen bld compare =
     let dst = transOprToExpr64 bld false ins insLen dst
     let src = transOprToExpr64 bld false ins insLen src
     let tmp = tmpVar bld 64<rt>
-    tmp := AST.ite (compare dst src) dst src
-    dst := tmp
+    direct tmp := AST.ite (compare dst src) dst src
+    direct dst := tmp
   }
 
 let maxps ins insLen bld = minMaxPS ins insLen bld AST.fgt
@@ -484,7 +484,7 @@ let private cmppCond bld ins insLen op3 isDbl c expr1 expr2 =
       | 6UL -> AST.fle expr1 expr2 |> AST.not
       | 7UL -> (isNan isDbl expr1 .| isNan isDbl expr2) |> AST.not
       | _ -> AST.b0
-    append bld { c := cond }
+    append bld { direct c := cond }
   | _ ->
     Terminator.impossible ()
 
@@ -500,10 +500,10 @@ let cmpps (ins: Instruction) insLen bld =
     cmppCond bld ins insLen op3 false cond2 dst1B (AST.xthi 32<rt> src1)
     cmppCond bld ins insLen op3 false cond3 dst2A (AST.xtlo 32<rt> src2)
     cmppCond bld ins insLen op3 false cond4 dst2B (AST.xthi 32<rt> src2)
-    dst1A := AST.ite cond1 (maxNum 32<rt>) (AST.num0 32<rt>)
-    dst1B := AST.ite cond2 (maxNum 32<rt>) (AST.num0 32<rt>)
-    dst2A := AST.ite cond3 (maxNum 32<rt>) (AST.num0 32<rt>)
-    dst2B := AST.ite cond4 (maxNum 32<rt>) (AST.num0 32<rt>)
+    direct dst1A := AST.ite cond1 (maxNum 32<rt>) (AST.num0 32<rt>)
+    direct dst1B := AST.ite cond2 (maxNum 32<rt>) (AST.num0 32<rt>)
+    direct dst2A := AST.ite cond3 (maxNum 32<rt>) (AST.num0 32<rt>)
+    direct dst2B := AST.ite cond4 (maxNum 32<rt>) (AST.num0 32<rt>)
   }
 
 let cmppd (ins: Instruction) insLen bld =
@@ -514,8 +514,8 @@ let cmppd (ins: Instruction) insLen bld =
     let struct (cond1, cond2) = tmpVars2 bld 1<rt>
     cmppCond bld ins insLen op3 true cond1 dst1 src1
     cmppCond bld ins insLen op3 true cond2 dst2 src2
-    dst1 := AST.ite cond1 (maxNum 64<rt>) (AST.num0 64<rt>)
-    dst2 := AST.ite cond2 (maxNum 64<rt>) (AST.num0 64<rt>)
+    direct dst1 := AST.ite cond1 (maxNum 64<rt>) (AST.num0 64<rt>)
+    direct dst2 := AST.ite cond2 (maxNum 64<rt>) (AST.num0 64<rt>)
   }
 
 let cmpss (ins: Instruction) insLen bld =
@@ -526,7 +526,7 @@ let cmpss (ins: Instruction) insLen bld =
     let max32 = maxNum 32<rt>
     let cond = tmpVar bld 1<rt>
     cmppCond bld ins insLen imm false cond dst src
-    dst := AST.ite cond max32 (AST.num0 32<rt>)
+    direct dst := AST.ite cond max32 (AST.num0 32<rt>)
   }
 
 let cmpsd (ins: Instruction) insLen bld =
@@ -540,7 +540,7 @@ let cmpsd (ins: Instruction) insLen bld =
       let max64 = maxNum 64<rt>
       let cond = tmpVar bld 1<rt>
       cmppCond bld ins insLen imm true cond dst src
-      dst := AST.ite cond max64 (AST.num0 64<rt>)
+      direct dst := AST.ite cond max64 (AST.num0 64<rt>)
     }
   | _ ->
     raise InvalidOperandException
@@ -553,17 +553,17 @@ let comiss (ins: Instruction) insLen bld =
     let zf = regVar bld R.ZF
     let pf = regVar bld R.PF
     let cf = regVar bld R.CF
-    zf := AST.ite (opr1 == opr2) AST.b1 AST.b0
-    pf := AST.b0
-    cf := AST.ite (AST.flt opr1 opr2) AST.b1 AST.b0
+    direct zf := AST.ite (opr1 == opr2) AST.b1 AST.b0
+    direct pf := AST.b0
+    direct cf := AST.ite (AST.flt opr1 opr2) AST.b1 AST.b0
     _when bld "IsNan" (isNan false opr1 .| isNan false opr2)
       (block {
-        zf := AST.b1
-        pf := AST.b1
-        cf := AST.b1 })
-    regVar bld R.OF := AST.b0
-    regVar bld R.AF := AST.b0
-    regVar bld R.SF := AST.b0
+        direct zf := AST.b1
+        direct pf := AST.b1
+        direct cf := AST.b1 })
+    direct (regVar bld R.OF) := AST.b0
+    direct (regVar bld R.AF) := AST.b0
+    direct (regVar bld R.SF) := AST.b0
 #if EMULATION
     bld.ConditionCodeOp <- ConditionCodeOp.EFlags
 #endif
@@ -577,17 +577,17 @@ let comisd (ins: Instruction) insLen bld =
     let zf = regVar bld R.ZF
     let pf = regVar bld R.PF
     let cf = regVar bld R.CF
-    zf := AST.ite (opr1 == opr2) AST.b1 AST.b0
-    pf := AST.b0
-    cf := AST.ite (AST.flt opr1 opr2) AST.b1 AST.b0
+    direct zf := AST.ite (opr1 == opr2) AST.b1 AST.b0
+    direct pf := AST.b0
+    direct cf := AST.ite (AST.flt opr1 opr2) AST.b1 AST.b0
     _when bld "IsNan" (isNan true opr1 .| isNan true opr2)
       (block {
-        zf := AST.b1
-        pf := AST.b1
-        cf := AST.b1 })
-    regVar bld R.OF := AST.b0
-    regVar bld R.AF := AST.b0
-    regVar bld R.SF := AST.b0
+        direct zf := AST.b1
+        direct pf := AST.b1
+        direct cf := AST.b1 })
+    direct (regVar bld R.OF) := AST.b0
+    direct (regVar bld R.AF) := AST.b0
+    direct (regVar bld R.SF) := AST.b0
 #if EMULATION
     bld.ConditionCodeOp <- ConditionCodeOp.EFlags
 #endif
@@ -601,17 +601,17 @@ let ucomiss (ins: Instruction) insLen bld =
     let zf = regVar bld R.ZF
     let pf = regVar bld R.PF
     let cf = regVar bld R.CF
-    zf := AST.ite (opr1 == opr2) AST.b1 AST.b0
-    pf := AST.b0
-    cf := AST.ite (AST.flt opr1 opr2) AST.b1 AST.b0
+    direct zf := AST.ite (opr1 == opr2) AST.b1 AST.b0
+    direct pf := AST.b0
+    direct cf := AST.ite (AST.flt opr1 opr2) AST.b1 AST.b0
     _when bld "IsNan" (isNan false opr1 .| isNan false opr2)
       (block {
-        zf := AST.b1
-        pf := AST.b1
-        cf := AST.b1 })
-    regVar bld R.OF := AST.b0
-    regVar bld R.AF := AST.b0
-    regVar bld R.SF := AST.b0
+        direct zf := AST.b1
+        direct pf := AST.b1
+        direct cf := AST.b1 })
+    direct (regVar bld R.OF) := AST.b0
+    direct (regVar bld R.AF) := AST.b0
+    direct (regVar bld R.SF) := AST.b0
 #if EMULATION
     bld.ConditionCodeOp <- ConditionCodeOp.EFlags
 #endif
@@ -625,17 +625,17 @@ let ucomisd (ins: Instruction) insLen bld =
     let zf = regVar bld R.ZF
     let pf = regVar bld R.PF
     let cf = regVar bld R.CF
-    zf := AST.ite (opr1 == opr2) AST.b1 AST.b0
-    pf := AST.b0
-    cf := AST.ite (AST.flt opr1 opr2) AST.b1 AST.b0
+    direct zf := AST.ite (opr1 == opr2) AST.b1 AST.b0
+    direct pf := AST.b0
+    direct cf := AST.ite (AST.flt opr1 opr2) AST.b1 AST.b0
     _when bld "IsNan" (isNan true opr1 .| isNan true opr2)
       (block {
-        zf := AST.b1
-        pf := AST.b1
-        cf := AST.b1 })
-    regVar bld R.OF := AST.b0
-    regVar bld R.AF := AST.b0
-    regVar bld R.SF := AST.b0
+        direct zf := AST.b1
+        direct pf := AST.b1
+        direct cf := AST.b1 })
+    direct (regVar bld R.OF) := AST.b0
+    direct (regVar bld R.AF) := AST.b0
+    direct (regVar bld R.SF) := AST.b0
 #if EMULATION
     bld.ConditionCodeOp <- ConditionCodeOp.EFlags
 #endif
@@ -671,11 +671,11 @@ let shufps (ins: Instruction) insLen bld =
     let src2A, src2B = AST.xtlo 32<rt> src2, AST.xthi 32<rt> src2
     let doShuf cond dst e0 e1 e2 e3 =
       append bld {
-        dst := AST.num0 32<rt>
-        dst := AST.ite (cond == AST.num0 8<rt>) e0 dst
-        dst := AST.ite (cond == AST.num1 8<rt>) e1 dst
-        dst := AST.ite (cond == numI32 2 8<rt>) e2 dst
-        dst := AST.ite (cond == numI32 3 8<rt>) e3 dst
+        direct dst := AST.num0 32<rt>
+        direct dst := AST.ite (cond == AST.num0 8<rt>) e0 dst
+        direct dst := AST.ite (cond == AST.num1 8<rt>) e1 dst
+        direct dst := AST.ite (cond == numI32 2 8<rt>) e2 dst
+        direct dst := AST.ite (cond == numI32 3 8<rt>) e3 dst
       }
     let cond shfAmt =
       ((AST.xtlo 8<rt> imm) >> (numI32 shfAmt 8<rt>)) .& (numI32 0b11 8<rt>)
@@ -684,10 +684,10 @@ let shufps (ins: Instruction) insLen bld =
     doShuf (cond 2) tmp2 dst1A dst1B dst2A dst2B
     doShuf (cond 4) tmp3 src1A src1B src2A src2B
     doShuf (cond 6) tmp4 src1A src1B src2A src2B
-    dst1A := tmp1
-    dst1B := tmp2
-    dst2A := tmp3
-    dst2B := tmp4
+    direct dst1A := tmp1
+    direct dst1B := tmp2
+    direct dst2A := tmp3
+    direct dst2B := tmp4
   }
 
 let shufpd (ins: Instruction) insLen bld =
@@ -699,12 +699,12 @@ let shufpd (ins: Instruction) insLen bld =
     let cond1 = AST.xtlo 1<rt> imm
     let cond2 = AST.extract imm 1<rt> 1
     let struct (src1A, src1B, src2A, src2B) = tmpVars4 bld 64<rt>
-    src1A := dstA
-    src1B := dstB
-    src2A := srcA
-    src2B := srcB
-    dstA := AST.ite cond1 src1B src1A
-    dstB := AST.ite cond2 src2B src2A
+    direct src1A := dstA
+    direct src1B := dstB
+    direct src2A := srcA
+    direct src2B := srcB
+    direct dstA := AST.ite cond1 src1B src1A
+    direct dstB := AST.ite cond2 src2B src2A
   }
 
 let unpckhps (ins: Instruction) insLen bld =
@@ -715,10 +715,10 @@ let unpckhps (ins: Instruction) insLen bld =
     let dst1A, dst1B = AST.xtlo 32<rt> dst1, AST.xthi 32<rt> dst1
     let dst2A, dst2B = AST.xtlo 32<rt> dst2, AST.xthi 32<rt> dst2
     let src2A, src2B = AST.xtlo 32<rt> src2, AST.xthi 32<rt> src2
-    dst1A := dst2A
-    dst1B := src2A
-    dst2A := dst2B
-    dst2B := src2B
+    direct dst1A := dst2A
+    direct dst1B := src2A
+    direct dst2A := dst2B
+    direct dst2B := src2B
   }
 
 let unpckhpd (ins: Instruction) insLen bld =
@@ -726,8 +726,8 @@ let unpckhpd (ins: Instruction) insLen bld =
     let struct (dst, src) = getTwoOprs ins
     let struct (dst2, dst1) = transOprToExpr128 bld false ins insLen dst
     let struct (src2, _src1) = transOprToExpr128 bld false ins insLen src
-    dst1 := dst2
-    dst2 := src2
+    direct dst1 := dst2
+    direct dst2 := src2
   }
 
 let unpcklps (ins: Instruction) insLen bld =
@@ -736,11 +736,11 @@ let unpcklps (ins: Instruction) insLen bld =
     let struct (dstB, dstA) = transOprToExpr128 bld false ins insLen dst
     let struct (_, srcA) = transOprToExpr128 bld false ins insLen src
     let struct (tSrc1A, tSrc1B, tSrc2A) = tmpVars3 bld 64<rt>
-    tSrc1A := dstA
-    tSrc1B := dstB
-    tSrc2A := srcA
-    dstA := AST.concat (AST.xtlo 32<rt> tSrc2A) (AST.xtlo 32<rt> tSrc1A)
-    dstB := AST.concat (AST.xthi 32<rt> tSrc2A) (AST.xthi 32<rt> tSrc1A)
+    direct tSrc1A := dstA
+    direct tSrc1B := dstB
+    direct tSrc2A := srcA
+    direct dstA := AST.concat (AST.xtlo 32<rt> tSrc2A) (AST.xtlo 32<rt> tSrc1A)
+    direct dstB := AST.concat (AST.xthi 32<rt> tSrc2A) (AST.xthi 32<rt> tSrc1A)
   }
 
 let unpcklpd (ins: Instruction) insLen bld =
@@ -748,7 +748,7 @@ let unpcklpd (ins: Instruction) insLen bld =
     let struct (dst, src) = getTwoOprs ins
     let struct (dst2, dst1) = transOprToExpr128 bld false ins insLen dst
     let struct (_src2, src1) = transOprToExpr128 bld false ins insLen src
-    dst2 := src1
+    direct dst2 := src1
   }
 
 let cvtpi2ps (ins: Instruction) insLen bld =
@@ -757,10 +757,10 @@ let cvtpi2ps (ins: Instruction) insLen bld =
     let dst = transOprToExpr64 bld false ins insLen dst
     let src = transOprToExpr64 bld false ins insLen src
     let struct (tmp2, tmp1) = tmpVars2 bld 32<rt>
-    tmp1 := AST.xtlo 32<rt> src
-    tmp2 := AST.xthi 32<rt> src
-    AST.xtlo 32<rt> dst := AST.cast CastKind.SIntToFloat 32<rt> tmp1
-    AST.xthi 32<rt> dst := AST.cast CastKind.SIntToFloat 32<rt> tmp2
+    direct tmp1 := AST.xtlo 32<rt> src
+    direct tmp2 := AST.xthi 32<rt> src
+    direct (AST.xtlo 32<rt> dst) := AST.cast CastKind.SIntToFloat 32<rt> tmp1
+    direct (AST.xthi 32<rt> dst) := AST.cast CastKind.SIntToFloat 32<rt> tmp2
   }
 
 let cvtdq2pd (ins: Instruction) insLen bld =
@@ -769,10 +769,10 @@ let cvtdq2pd (ins: Instruction) insLen bld =
     let struct (dst2, dst1) = transOprToExpr128 bld false ins insLen dst
     let src = transOprToExpr64 bld false ins insLen src
     let struct (tmp1, tmp2) = tmpVars2 bld 32<rt>
-    tmp1 := AST.xtlo 32<rt> src
-    tmp2 := AST.xthi 32<rt> src
-    dst1 := AST.cast CastKind.SIntToFloat 64<rt> tmp1
-    dst2 := AST.cast CastKind.SIntToFloat 64<rt> tmp2
+    direct tmp1 := AST.xtlo 32<rt> src
+    direct tmp2 := AST.xthi 32<rt> src
+    direct dst1 := AST.cast CastKind.SIntToFloat 64<rt> tmp1
+    direct dst2 := AST.cast CastKind.SIntToFloat 64<rt> tmp2
   }
 
 let cvtpi2pd ins insLen bld = cvtdq2pd ins insLen bld
@@ -782,7 +782,7 @@ let cvtsi2ss (ins: Instruction) insLen bld =
     let struct (dst, src) = getTwoOprs ins
     let dst = transOprToExpr64 bld false ins insLen dst
     let src = transOprToExpr bld false ins insLen src
-    AST.xtlo 32<rt> dst := AST.cast CastKind.SIntToFloat 32<rt> src
+    direct (AST.xtlo 32<rt> dst) := AST.cast CastKind.SIntToFloat 32<rt> src
   }
 
 let cvtsi2sd (ins: Instruction) insLen bld =
@@ -790,7 +790,7 @@ let cvtsi2sd (ins: Instruction) insLen bld =
     let struct (dst, src) = getTwoOprs ins
     let dst = transOprToExpr64 bld false ins insLen dst
     let src = transOprToExpr bld false ins insLen src
-    dst := AST.cast CastKind.SIntToFloat 64<rt> src
+    direct dst := AST.cast CastKind.SIntToFloat 64<rt> src
   }
 
 let cvtps2pi (ins: Instruction) insLen bld rounded =
@@ -800,10 +800,10 @@ let cvtps2pi (ins: Instruction) insLen bld rounded =
     let src = transOprToExpr64 bld false ins insLen src
     let struct (tmp1, tmp2) = tmpVars2 bld 32<rt>
     let castKind = if rounded then CastKind.FtoIRound else CastKind.FtoITrunc
-    tmp1 := AST.xtlo 32<rt> src
-    tmp2 := AST.xthi 32<rt> src
-    AST.xtlo 32<rt> dst := AST.cast castKind 32<rt> tmp1
-    AST.xthi 32<rt> dst := AST.cast castKind 32<rt> tmp2
+    direct tmp1 := AST.xtlo 32<rt> src
+    direct tmp2 := AST.xthi 32<rt> src
+    direct (AST.xtlo 32<rt> dst) := AST.cast castKind 32<rt> tmp1
+    direct (AST.xthi 32<rt> dst) := AST.cast castKind 32<rt> tmp2
     fillOnesToMMXHigh16 bld ins
   }
 
@@ -813,10 +813,10 @@ let cvtps2pd (ins: Instruction) insLen bld =
     let struct (dst2, dst1) = transOprToExpr128 bld false ins insLen dst
     let src = transOprToExpr64 bld false ins insLen src
     let struct (tmp1, tmp2) = tmpVars2 bld 32<rt>
-    tmp1 := AST.xtlo 32<rt> src
-    tmp2 := AST.xthi 32<rt> src
-    dst1 := AST.cast CastKind.FloatCast 64<rt> tmp1
-    dst2 := AST.cast CastKind.FloatCast 64<rt> tmp2
+    direct tmp1 := AST.xtlo 32<rt> src
+    direct tmp2 := AST.xthi 32<rt> src
+    direct dst1 := AST.cast CastKind.FloatCast 64<rt> tmp1
+    direct dst2 := AST.cast CastKind.FloatCast 64<rt> tmp2
   }
 
 let cvtpd2ps (ins: Instruction) insLen bld =
@@ -824,9 +824,9 @@ let cvtpd2ps (ins: Instruction) insLen bld =
     let struct (dst, src) = getTwoOprs ins
     let struct (dst2, dst1) = transOprToExpr128 bld false ins insLen dst
     let struct (src2, src1) = transOprToExpr128 bld false ins insLen src
-    AST.xtlo 32<rt> dst1 := AST.cast CastKind.FloatCast 32<rt> src1
-    AST.xthi 32<rt> dst1 := AST.cast CastKind.FloatCast 32<rt> src2
-    dst2 := AST.num0 64<rt>
+    direct (AST.xtlo 32<rt> dst1) := AST.cast CastKind.FloatCast 32<rt> src1
+    direct (AST.xthi 32<rt> dst1) := AST.cast CastKind.FloatCast 32<rt> src2
+    direct dst2 := AST.num0 64<rt>
   }
 
 let cvtpd2pi (ins: Instruction) insLen bld rounded =
@@ -835,8 +835,8 @@ let cvtpd2pi (ins: Instruction) insLen bld rounded =
     let dst = transOprToExpr bld false ins insLen dst
     let struct (src2, src1) = transOprToExpr128 bld false ins insLen src
     let castKind = if rounded then CastKind.FtoIRound else CastKind.FtoITrunc
-    AST.xtlo 32<rt> dst := AST.cast castKind 32<rt> src1
-    AST.xthi 32<rt> dst := AST.cast castKind 32<rt> src2
+    direct (AST.xtlo 32<rt> dst) := AST.cast castKind 32<rt> src1
+    direct (AST.xthi 32<rt> dst) := AST.cast castKind 32<rt> src2
     fillOnesToMMXHigh16 bld ins
   }
 
@@ -846,9 +846,9 @@ let cvtpd2dq (ins: Instruction) insLen bld rounded =
     let struct (dst2, dst1) = transOprToExpr128 bld false ins insLen dst
     let struct (src2, src1) = transOprToExpr128 bld false ins insLen src
     let castKind = if rounded then CastKind.FtoIRound else CastKind.FtoITrunc
-    AST.xtlo 32<rt> dst1 := AST.cast castKind 32<rt> src1
-    AST.xthi 32<rt> dst1 := AST.cast castKind 32<rt> src2
-    dst2 := AST.num0 64<rt>
+    direct (AST.xtlo 32<rt> dst1) := AST.cast castKind 32<rt> src1
+    direct (AST.xthi 32<rt> dst1) := AST.cast castKind 32<rt> src2
+    direct dst2 := AST.num0 64<rt>
   }
 
 let cvtdq2ps (ins: Instruction) insLen bld =
@@ -857,14 +857,14 @@ let cvtdq2ps (ins: Instruction) insLen bld =
     let struct (dst2, dst1) = transOprToExpr128 bld false ins insLen dst
     let struct (src2, src1) = transOprToExpr128 bld false ins insLen src
     let struct (tmp1, tmp2, tmp3, tmp4) = tmpVars4 bld 32<rt>
-    tmp1 := AST.xtlo 32<rt> src1
-    tmp2 := AST.xthi 32<rt> src1
-    tmp3 := AST.xtlo 32<rt> src2
-    tmp4 := AST.xthi 32<rt> src2
-    AST.xtlo 32<rt> dst1 := AST.cast CastKind.SIntToFloat 32<rt> tmp1
-    AST.xthi 32<rt> dst1 := AST.cast CastKind.SIntToFloat 32<rt> tmp2
-    AST.xtlo 32<rt> dst2 := AST.cast CastKind.SIntToFloat 32<rt> tmp3
-    AST.xthi 32<rt> dst2 := AST.cast CastKind.SIntToFloat 32<rt> tmp4
+    direct tmp1 := AST.xtlo 32<rt> src1
+    direct tmp2 := AST.xthi 32<rt> src1
+    direct tmp3 := AST.xtlo 32<rt> src2
+    direct tmp4 := AST.xthi 32<rt> src2
+    direct (AST.xtlo 32<rt> dst1) := AST.cast CastKind.SIntToFloat 32<rt> tmp1
+    direct (AST.xthi 32<rt> dst1) := AST.cast CastKind.SIntToFloat 32<rt> tmp2
+    direct (AST.xtlo 32<rt> dst2) := AST.cast CastKind.SIntToFloat 32<rt> tmp3
+    direct (AST.xthi 32<rt> dst2) := AST.cast CastKind.SIntToFloat 32<rt> tmp4
   }
 
 let cvtps2dq (ins: Instruction) insLen bld rounded =
@@ -874,14 +874,14 @@ let cvtps2dq (ins: Instruction) insLen bld rounded =
     let struct (src2, src1) = transOprToExpr128 bld false ins insLen src
     let struct (tmp1, tmp2, tmp3, tmp4) = tmpVars4 bld 32<rt>
     let castKind = if rounded then CastKind.FtoIRound else CastKind.FtoITrunc
-    tmp1 := AST.xtlo 32<rt> src1
-    tmp2 := AST.xthi 32<rt> src1
-    tmp3 := AST.xtlo 32<rt> src2
-    tmp4 := AST.xthi 32<rt> src2
-    AST.xtlo 32<rt> dst1 := AST.cast castKind 32<rt> tmp1
-    AST.xthi 32<rt> dst1 := AST.cast castKind 32<rt> tmp2
-    AST.xtlo 32<rt> dst2 := AST.cast castKind 32<rt> tmp3
-    AST.xthi 32<rt> dst2 := AST.cast castKind 32<rt> tmp4
+    direct tmp1 := AST.xtlo 32<rt> src1
+    direct tmp2 := AST.xthi 32<rt> src1
+    direct tmp3 := AST.xtlo 32<rt> src2
+    direct tmp4 := AST.xthi 32<rt> src2
+    direct (AST.xtlo 32<rt> dst1) := AST.cast castKind 32<rt> tmp1
+    direct (AST.xthi 32<rt> dst1) := AST.cast castKind 32<rt> tmp2
+    direct (AST.xtlo 32<rt> dst2) := AST.cast castKind 32<rt> tmp3
+    direct (AST.xthi 32<rt> dst2) := AST.cast castKind 32<rt> tmp4
   }
 
 let cvtss2si (ins: Instruction) insLen bld rounded =
@@ -893,10 +893,10 @@ let cvtss2si (ins: Instruction) insLen bld rounded =
     let tmp = tmpVar bld 32<rt>
     let castKind = if rounded then CastKind.FtoIRound else CastKind.FtoITrunc
     if is64bit bld && oprSize = 64<rt> then
-      dst := AST.cast castKind 64<rt> src
+      direct dst := AST.cast castKind 64<rt> src
     else
-      tmp := AST.cast castKind 32<rt> src
-      dstAssign 32<rt> dst tmp
+      direct tmp := AST.cast castKind 32<rt> src
+      sized 32<rt> dst := tmp
   }
 
 let cvtss2sd (ins: Instruction) insLen bld =
@@ -904,7 +904,7 @@ let cvtss2sd (ins: Instruction) insLen bld =
     let struct (dst, src) = getTwoOprs ins
     let dst = transOprToExpr64 bld false ins insLen dst
     let src = transOprToExpr32 bld false ins insLen src
-    dst := AST.cast CastKind.FloatCast 64<rt> src
+    direct dst := AST.cast CastKind.FloatCast 64<rt> src
   }
 
 let cvtsd2ss (ins: Instruction) insLen bld =
@@ -912,7 +912,7 @@ let cvtsd2ss (ins: Instruction) insLen bld =
     let struct (dst, src) = getTwoOprs ins
     let dst = transOprToExpr64 bld false ins insLen dst
     let src = transOprToExpr64 bld false ins insLen src
-    AST.xtlo 32<rt> dst := AST.cast CastKind.FloatCast 32<rt> src
+    direct (AST.xtlo 32<rt> dst) := AST.cast CastKind.FloatCast 32<rt> src
   }
 
 let cvtsd2si (ins: Instruction) insLen bld rounded =
@@ -924,10 +924,10 @@ let cvtsd2si (ins: Instruction) insLen bld rounded =
     let castKind = if rounded then CastKind.FtoIRound else CastKind.FtoITrunc
     let tmp = tmpVar bld 32<rt>
     if is64bit bld && oprSize = 64<rt> then
-      dst := AST.cast castKind 64<rt> src
+      direct dst := AST.cast castKind 64<rt> src
     else
-      tmp := AST.cast castKind 32<rt> src
-      dstAssign 32<rt> dst tmp
+      direct tmp := AST.cast castKind 32<rt> src
+      sized 32<rt> dst := tmp
   }
 
 let extractps (ins: Instruction) insLen bld =
@@ -937,7 +937,7 @@ let extractps (ins: Instruction) insLen bld =
     let dst = transOprToExpr bld false ins insLen dst
     let src = transOprToArr bld false ins insLen 32<rt> 2 128<rt> src
     let idx = getImmValue imm8 &&& 0b11L |> int
-    dstAssign oprSize dst src[idx]
+    sized oprSize dst := src[idx]
   }
 
 let hsubpd ins insLen bld = packedHorizon ins insLen bld 64<rt> (opP AST.fsub)
@@ -951,13 +951,13 @@ let haddps ins insLen bld = packedHorizon ins insLen bld 32<rt> (opP AST.fadd)
 let ldmxcsr (ins: Instruction) insLen bld =
   lift bld ins insLen {
     let src = transOneOpr bld ins insLen
-    regVar bld R.MXCSR := src
+    direct (regVar bld R.MXCSR) := src
   }
 
 let stmxcsr (ins: Instruction) insLen bld =
   lift bld ins insLen {
     let dst = transOneOpr bld ins insLen
-    dst := regVar bld R.MXCSR
+    direct dst := regVar bld R.MXCSR
   }
 
 let private opAveragePackedInt (packSz: int<rt>) =
@@ -992,8 +992,8 @@ let pextrb (ins: Instruction) insLen bld =
           (srcB >> rAmt) .& numU32 0xFFu 64<rt>
       bit |> AST.xtlo 8<rt>
     match dst with
-    | OprReg _ -> append bld { dstAssign 32<rt> dExpr (AST.zext 32<rt> result) }
-    | OprMem _ -> append bld { dExpr := result }
+    | OprReg _ -> append bld { sized 32<rt> dExpr := AST.zext 32<rt> result }
+    | OprMem _ -> append bld { direct dExpr := result }
     | _ -> raise InvalidOperandException
   }
 
@@ -1014,7 +1014,7 @@ let pextrd (ins: Instruction) insLen bld =
           ((srcB << lAmt) .| (srcA >> rAmt)) .& numU32 0xFFFFFFFFu 64<rt>
         else
           (srcB >> rAmt) .& numU32 0xFFFFFFFFu 64<rt>
-      dstAssign oprSize dst (AST.xtlo oprSize result)
+      sized oprSize dst := AST.xtlo oprSize result
     | _ ->
       raise InvalidOperandException
   }
@@ -1034,7 +1034,7 @@ let pextrq (ins: Instruction) insLen bld =
       let result =
         if count < 64L then (srcB << lAmt) .| (srcA >> rAmt)
         else srcB >> rAmt
-      dstAssign oprSize dst (AST.xtlo oprSize result)
+      sized oprSize dst := AST.xtlo oprSize result
     | _ ->
       raise InvalidOperandException
   }
@@ -1054,10 +1054,10 @@ let pextrw ins insLen bld =
     match dst with
     | OprMem(_, _, _, 16<rt>) ->
       let idx = idx &&& 0b111
-      d := src[idx]
+      direct d := src[idx]
     | _ ->
       let idx = idx &&& (Array.length src - 1)
-      dstAssign oprSize d (AST.zext bld.RegType src[idx])
+      sized oprSize d := AST.zext bld.RegType src[idx]
   }
 
 let pinsrw (ins: Instruction) insLen bld =
@@ -1072,12 +1072,12 @@ let pinsrw (ins: Instruction) insLen bld =
       | RegisterHelper.Kind.MMX ->
         let index = getImmValue imm8 &&& 0b11L |> int
         let dst = transOprToArr bld false ins insLen packSz pNum 64<rt> dst
-        dst[index] := src
+        direct (dst[index]) := src
         fillOnesToMMXHigh16 bld ins
       | RegisterHelper.Kind.XMM ->
         let index = getImmValue imm8 &&& 0b111L |> int
         let dst = transOprToArr bld false ins insLen packSz pNum 128<rt> dst
-        dst[index] := src
+        direct (dst[index]) := src
       | _ ->
         raise InvalidOperandException
     | _ ->
@@ -1156,7 +1156,7 @@ let pmovmskb (ins: Instruction) insLen bld =
     match RegisterHelper.getKind r with
     | RegisterHelper.Kind.MMX ->
       let struct (dst, src) = transTwoOprs bld false ins insLen
-      dstAssign oprSize dst <| AST.zext oprSize (byteMask [| src |])
+      sized oprSize dst := AST.zext oprSize (byteMask [| src |])
     | RegisterHelper.Kind.XMM ->
       let dst = transOprToExpr bld false ins insLen dst
       let struct (srcB, srcA) = transOprToExpr128 bld false ins insLen src
@@ -1166,17 +1166,17 @@ let pmovmskb (ins: Instruction) insLen bld =
          hand; the 16-bit mask is then zero-extended into the destination
          GPR. *)
       let mask = AST.app "PMOVMSKB" [ AST.concat srcB srcA ] 16<rt>
-      dstAssign oprSize dst (AST.zext oprSize mask)
+      sized oprSize dst := AST.zext oprSize mask
 #else
       let tmps = byteMask [| srcA; srcB |]
-      dstAssign oprSize dst <| AST.zext oprSize tmps
+      sized oprSize dst := AST.zext oprSize tmps
 #endif
     | RegisterHelper.Kind.YMM ->
       let dst = transOprToExpr bld false ins insLen dst
       let struct (srcD, srcC, srcB, srcA) =
         transOprToExpr256 bld false ins insLen src
       let tmps = byteMask [| srcA; srcB; srcC; srcD |]
-      dstAssign oprSize dst <| AST.zext oprSize tmps
+      sized oprSize dst := AST.zext oprSize tmps
     | _ ->
       raise InvalidOperandException
   }
@@ -1188,13 +1188,15 @@ let packedMove bld srcSz packSz dstA dstB src isSignExt =
     let tDst = Array.init packNum (fun _ -> tmpVar bld dSz)
     if isSignExt then
       for i in 0 .. packNum - 1 do
-        tDst[i] := AST.sext dSz (AST.extract src packSz (i * (int packSz)))
+        direct (tDst[i]) :=
+          AST.sext dSz (AST.extract src packSz (i * (int packSz)))
     else
       for i in 0 .. packNum - 1 do
-        tDst[i] := AST.zext dSz (AST.extract src packSz (i * (int packSz)))
+        direct (tDst[i]) :=
+          AST.zext dSz (AST.extract src packSz (i * (int packSz)))
     let tDstA, tDstB = tDst |> Array.splitAt (packNum / 2)
-    dstA := tDstA |> AST.revConcat
-    dstB := tDstB |> AST.revConcat
+    direct dstA := tDstA |> AST.revConcat
+    direct dstB := tDstB |> AST.revConcat
   }
 
 let pmovbw (ins: Instruction) insLen bld packSz isSignExt =
@@ -1298,9 +1300,9 @@ let pshufw (ins: Instruction) insLen bld =
       let order =
         ((AST.xtlo 16<rt> ord) >> (numI32 ((i - 1) * 2) 16<rt>)) .& mask2
       let order' = AST.zext oprSize order
-      tmps[i - 1] := AST.xtlo 16<rt> (src >> (order' .* n16))
+      direct (tmps[i - 1]) := AST.xtlo 16<rt> (src >> (order' .* n16))
     done
-    dst := AST.revConcat tmps
+    direct dst := AST.revConcat tmps
     fillOnesToMMXHigh16 bld ins
   }
 
@@ -1323,11 +1325,11 @@ let pshufd (ins: Instruction) insLen bld =
         AST.num0 32<rt>
     let amount idx = ((ord >>> (idx * 2)) &&& 0b11L) * 32L
     let struct (tSrcB, tSrcA) = tmpVars2 bld 64<rt>
-    tSrcA := srcA
-    tSrcB := srcB
+    direct tSrcA := srcA
+    direct tSrcB := srcB
     let src amtIdx = rShiftTo64 tSrcB tSrcA (amount amtIdx)
-    dstA := AST.concat (src 1) (src 0)
-    dstB := AST.concat (src 3) (src 2)
+    direct dstA := AST.concat (src 1) (src 0)
+    direct dstB := AST.concat (src 3) (src 2)
   }
 
 let pshuflw (ins: Instruction) insLen bld =
@@ -1341,10 +1343,10 @@ let pshuflw (ins: Instruction) insLen bld =
     let mask2 = numI32 3 64<rt> (* 2-bit mask *)
     for i in 1 .. 4 do
       let imm = (imm >> (numI32 ((i - 1) * 2) 64<rt>)) .& mask2
-      tmps[i - 1] := AST.xtlo 16<rt> (srcA >> (imm .* n16))
+      direct (tmps[i - 1]) := AST.xtlo 16<rt> (srcA >> (imm .* n16))
     done
-    dstA := AST.revConcat tmps
-    dstB := srcB
+    direct dstA := AST.revConcat tmps
+    direct dstB := srcB
   }
 
 let pshufhw (ins: Instruction) insLen bld =
@@ -1358,10 +1360,10 @@ let pshufhw (ins: Instruction) insLen bld =
     let mask2 = numI32 3 64<rt> (* 2-bit mask *)
     for i in 1 .. 4 do
       let imm = (imm >> (numI32 ((i - 1) * 2) 64<rt>)) .& mask2
-      tmps[i - 1] := AST.xtlo 16<rt> (srcB >> (imm .* n16))
+      direct (tmps[i - 1]) := AST.xtlo 16<rt> (srcB >> (imm .* n16))
     done
-    dstA := srcA
-    dstB := AST.revConcat tmps
+    direct dstA := srcA
+    direct dstB := AST.revConcat tmps
   }
 
 let pshufb (ins: Instruction) insLen bld =
@@ -1373,8 +1375,8 @@ let pshufb (ins: Instruction) insLen bld =
     let struct (dst, src) = getTwoOprs ins
     let src = transOprToArr bld false ins insLen packSize packNum oprSize src
     let struct (mask, n0) = tmpVars2 bld packSize
-    mask := numI32 (int allPackNum - 1) packSize
-    n0 := AST.num0 packSize
+    direct mask := numI32 (int allPackNum - 1) packSize
+    direct n0 := AST.num0 packSize
     match oprSize with
     | 64<rt> ->
       let dst = transOprToExpr bld false ins insLen dst
@@ -1383,23 +1385,23 @@ let pshufb (ins: Instruction) insLen bld =
         let idx = src .& mask
         let numShift = AST.zext oprSize idx .* n8
         AST.ite (AST.xthi 1<rt> src) n0 (AST.xtlo packSize (dst >> numShift))
-      dst := Array.map shuffle src |> AST.revConcat
+      direct dst := Array.map shuffle src |> AST.revConcat
       fillOnesToMMXHigh16 bld ins
     | 128<rt> ->
       let struct (dstB, dstA) = transOprToExpr128 bld false ins insLen dst
       let n8 = tmpVar bld 64<rt>
-      n8 := numI32 8 64<rt>
+      direct n8 := numI32 8 64<rt>
       let shuffle src =
         let idx = src .& mask
         let numShift = ((AST.zext 64<rt> idx) .% n8) .* n8
         let tDst = tmpVar bld 64<rt>
         append bld {
-          tDst := AST.ite (idx .< numI32 8 packSize) dstA dstB
+          direct tDst := AST.ite (idx .< numI32 8 packSize) dstA dstB
         }
         AST.ite (AST.xthi 1<rt> src) n0 (AST.xtlo packSize (tDst >> numShift))
       let result = Array.map shuffle src
-      dstA := Array.sub result 0 packNum |> AST.revConcat
-      dstB := Array.sub result packNum packNum |> AST.revConcat
+      direct dstA := Array.sub result 0 packNum |> AST.revConcat
+      direct dstB := Array.sub result packNum packNum |> AST.revConcat
     | _ ->
       raise InvalidOperandSizeException
   }
@@ -1413,8 +1415,8 @@ let movq2dq (ins: Instruction) insLen bld =
     let struct (dst, src) = getTwoOprs ins
     let struct (dstB, dstA) = transOprToExpr128 bld false ins insLen dst
     let src = transOprToExpr bld false ins insLen src
-    dstA := src
-    dstB := AST.num0 64<rt>
+    direct dstA := src
+    direct dstB := AST.num0 64<rt>
   }
 
 let movdq2q (ins: Instruction) insLen bld =
@@ -1422,7 +1424,7 @@ let movdq2q (ins: Instruction) insLen bld =
     let struct (dst, src) = getTwoOprs ins
     let dst = transOprToExpr bld false ins insLen dst
     let struct (_, srcA) = transOprToExpr128 bld false ins insLen src
-    dst := srcA
+    direct dst := srcA
     fillOnesToMMXHigh16 bld ins
   }
 
@@ -1448,17 +1450,17 @@ let pslldq (ins: Instruction) insLen bld =
     let rightAmt = numI64 (64L - (amount % 64L)) 64<rt>
     let leftAmt = numI64 (amount % 64L) 64<rt>
     let struct (tDstB, tDstA) = tmpVars2 bld 64<rt>
-    tDstA := dstA
-    tDstB := dstB
+    direct tDstA := dstA
+    direct tDstB := dstB
     if amount < 64L then
-      dstA := tDstA << leftAmt
-      dstB := (tDstB << leftAmt) .| (tDstA >> rightAmt)
+      direct dstA := tDstA << leftAmt
+      direct dstB := (tDstB << leftAmt) .| (tDstA >> rightAmt)
     elif amount < 128L then
-      dstA := AST.num0 64<rt>
-      dstB := tDstA << leftAmt
+      direct dstA := AST.num0 64<rt>
+      direct dstB := tDstA << leftAmt
     else
-      dstA := AST.num0 64<rt>
-      dstB := AST.num0 64<rt>
+      direct dstA := AST.num0 64<rt>
+      direct dstB := AST.num0 64<rt>
   }
 
 let psrldq (ins: Instruction) insLen bld =
@@ -1470,17 +1472,17 @@ let psrldq (ins: Instruction) insLen bld =
     let rightAmt = numI64 (amount % 64L) 64<rt>
     let leftAmt = numI64 (64L - (amount % 64L)) 64<rt>
     let struct (tDstB, tDstA) = tmpVars2 bld 64<rt>
-    tDstA := dstA
-    tDstB := dstB
+    direct tDstA := dstA
+    direct tDstB := dstB
     if amount < 64L then
-      dstA := (tDstB << leftAmt) .| (tDstA >> rightAmt)
-      dstB := tDstB >> rightAmt
+      direct dstA := (tDstB << leftAmt) .| (tDstA >> rightAmt)
+      direct dstB := tDstB >> rightAmt
     elif amount < 128L then
-      dstA := tDstB >> rightAmt
-      dstB := AST.num0 64<rt>
+      direct dstA := tDstB >> rightAmt
+      direct dstB := AST.num0 64<rt>
     else
-      dstA := AST.num0 64<rt>
-      dstB := AST.num0 64<rt>
+      direct dstA := AST.num0 64<rt>
+      direct dstB := AST.num0 64<rt>
   }
 
 let punpckhqdq ins insLen bld =
@@ -1507,12 +1509,12 @@ let movshdup (ins: Instruction) insLen bld =
     let struct (dst2, dst1) = transOprToExpr128 bld false ins insLen dst
     let struct (src2, src1) = transOprToExpr128 bld false ins insLen src
     let struct (tmp1, tmp2) = tmpVars2 bld 32<rt>
-    tmp1 := AST.xthi 32<rt> src1
-    tmp2 := AST.xthi 32<rt> src2
-    AST.xtlo 32<rt> dst1 := tmp1
-    AST.xthi 32<rt> dst1 := tmp1
-    AST.xtlo 32<rt> dst2 := tmp2
-    AST.xthi 32<rt> dst2 := tmp2
+    direct tmp1 := AST.xthi 32<rt> src1
+    direct tmp2 := AST.xthi 32<rt> src2
+    direct (AST.xtlo 32<rt> dst1) := tmp1
+    direct (AST.xthi 32<rt> dst1) := tmp1
+    direct (AST.xtlo 32<rt> dst2) := tmp2
+    direct (AST.xthi 32<rt> dst2) := tmp2
   }
 
 let movsldup (ins: Instruction) insLen bld =
@@ -1521,12 +1523,12 @@ let movsldup (ins: Instruction) insLen bld =
     let struct (dst2, dst1) = transOprToExpr128 bld false ins insLen dst
     let struct (src2, src1) = transOprToExpr128 bld false ins insLen src
     let struct (tmp1, tmp2) = tmpVars2 bld 32<rt>
-    tmp1 := AST.xtlo 32<rt> src1
-    tmp2 := AST.xtlo 32<rt> src2
-    AST.xtlo 32<rt> dst1 := tmp1
-    AST.xthi 32<rt> dst1 := tmp1
-    AST.xtlo 32<rt> dst2 := tmp2
-    AST.xthi 32<rt> dst2 := tmp2
+    direct tmp1 := AST.xtlo 32<rt> src1
+    direct tmp2 := AST.xtlo 32<rt> src2
+    direct (AST.xtlo 32<rt> dst1) := tmp1
+    direct (AST.xthi 32<rt> dst1) := tmp1
+    direct (AST.xtlo 32<rt> dst2) := tmp2
+    direct (AST.xthi 32<rt> dst2) := tmp2
   }
 
 let movddup (ins: Instruction) insLen bld =
@@ -1534,8 +1536,8 @@ let movddup (ins: Instruction) insLen bld =
     let struct (dst, src) = getTwoOprs ins
     let struct (dst1, dst0) = transOprToExpr128 bld false ins insLen dst
     let src = transOprToExpr64 bld false ins insLen src
-    dst0 := src
-    dst1 := src
+    direct dst0 := src
+    direct dst1 := src
   }
 
 let packWithSaturation bld packSz src =
@@ -1546,9 +1548,9 @@ let packWithSaturation bld packSz src =
   let tSrc = tmpVar bld packSz
   let tmp = tmpVar bld (packSz / 2)
   append bld {
-    tSrc := src
-    tmp := AST.ite (tSrc ?< z32) z16 (AST.xtlo (packSz / 2) tSrc)
-    tmp := AST.ite (tSrc ?> f32) f16 tmp
+    direct tSrc := src
+    direct tmp := AST.ite (tSrc ?< z32) z16 (AST.xtlo (packSz / 2) tSrc)
+    direct tmp := AST.ite (tSrc ?> f32) f16 tmp
   }
   tmp
 
@@ -1572,14 +1574,14 @@ let private palignr64 bld ins insLen dstOpr srcOpr shift =
     let dst = transOprToExpr bld false ins insLen dstOpr
     let src = transOprToExpr bld false ins insLen srcOpr
     let struct (tDst, tSrc) = tmpVars2 bld 64<rt>
-    tDst := dst
-    tSrc := src
+    direct tDst := dst
+    direct tSrc := src
     if amount < 64L then
-      dst := (tDst << leftAmt) .| (tSrc >> rightAmt)
+      direct dst := (tDst << leftAmt) .| (tSrc >> rightAmt)
     elif amount < 128L then
-      dst := tDst >> rightAmt
+      direct dst := tDst >> rightAmt
     else
-      dst := AST.num0 64<rt>
+      direct dst := AST.num0 64<rt>
     fillOnesToMMXHigh16 bld ins
   }
 
@@ -1591,25 +1593,25 @@ let private palignr128 bld ins insLen dstOpr srcOpr shift =
     let struct (dstB, dstA) = transOprToExpr128 bld false ins insLen dstOpr
     let struct (srcB, srcA) = transOprToExpr128 bld false ins insLen srcOpr
     let struct (tDstB, tDstA, tSrcB, tSrcA) = tmpVars4 bld 64<rt>
-    tDstA := dstA
-    tDstB := dstB
-    tSrcA := srcA
-    tSrcB := srcB
+    direct tDstA := dstA
+    direct tDstB := dstB
+    direct tSrcA := srcA
+    direct tSrcB := srcB
     if amount < 64L then
-      dstA := (tSrcB << leftAmt) .| (tSrcA >> rightAmt)
-      dstB := (tDstA << leftAmt) .| (tSrcB >> rightAmt)
+      direct dstA := (tSrcB << leftAmt) .| (tSrcA >> rightAmt)
+      direct dstB := (tDstA << leftAmt) .| (tSrcB >> rightAmt)
     elif amount < 128L then
-      dstA := (tDstA << leftAmt) .| (tSrcB >> rightAmt)
-      dstB := (tDstB << leftAmt) .| (tDstA >> rightAmt)
+      direct dstA := (tDstA << leftAmt) .| (tSrcB >> rightAmt)
+      direct dstB := (tDstB << leftAmt) .| (tDstA >> rightAmt)
     elif amount < 192L then
-      dstA := (tDstB << leftAmt) .| (tDstA >> rightAmt)
-      dstB := tDstB >> rightAmt
+      direct dstA := (tDstB << leftAmt) .| (tDstA >> rightAmt)
+      direct dstB := tDstB >> rightAmt
     elif amount < 256L then
-      dstA := tDstB >> rightAmt
-      dstB := AST.num0 64<rt>
+      direct dstA := tDstB >> rightAmt
+      direct dstB := AST.num0 64<rt>
     else
-      dstA := AST.num0 64<rt>
-      dstB := AST.num0 64<rt>
+      direct dstA := AST.num0 64<rt>
+      direct dstB := AST.num0 64<rt>
   }
 
 let palignr (ins: Instruction) insLen bld =
@@ -1635,11 +1637,11 @@ let roundsd (ins: Instruction) insLen bld =
     let tmp = tmpVar bld 8<rt>
     let cster castKind = AST.cast castKind 64<rt> src
     let imm2 = (AST.xtlo 8<rt> imm) .& (numI32 0b11 8<rt>)
-    tmp := AST.ite (AST.extract imm 1<rt> 2) rc imm2
-    dst := AST.ite (tmp == AST.num0 8<rt>) (cster CastKind.FtoFRound) dst
-    dst := AST.ite (tmp == AST.num1 8<rt>) (cster CastKind.FtoFFloor) dst
-    dst := AST.ite (tmp == numI32 2 8<rt>) (cster CastKind.FtoFCeil) dst
-    dst := AST.ite (tmp == numI32 3 8<rt>) (cster CastKind.FtoFTrunc) dst
+    direct tmp := AST.ite (AST.extract imm 1<rt> 2) rc imm2
+    direct dst := AST.ite (tmp == AST.num0 8<rt>) (cster CastKind.FtoFRound) dst
+    direct dst := AST.ite (tmp == AST.num1 8<rt>) (cster CastKind.FtoFFloor) dst
+    direct dst := AST.ite (tmp == numI32 2 8<rt>) (cster CastKind.FtoFCeil) dst
+    direct dst := AST.ite (tmp == numI32 3 8<rt>) (cster CastKind.FtoFTrunc) dst
   }
 
 let pinsrb (ins: Instruction) insLen bld =
@@ -1652,9 +1654,11 @@ let pinsrb (ins: Instruction) insLen bld =
     let amount = sel * 8L
     let t = tmpVar bld 64<rt>
     let expAmt = numI64 (amount % 64L) 64<rt>
-    t := ((AST.zext 64<rt> (AST.xtlo 8<rt> src)) << expAmt) .& mask
-    if amount < 64L then append bld { dstA := (dstA .& (AST.not mask)) .| t }
-    else append bld { dstB := (dstB .& (AST.not mask)) .| t }
+    direct t := ((AST.zext 64<rt> (AST.xtlo 8<rt> src)) << expAmt) .& mask
+    if amount < 64L then
+      append bld { direct dstA := (dstA .& (AST.not mask)) .| t }
+    else
+      append bld { direct dstB := (dstB .& (AST.not mask)) .| t }
   }
 
 let private packedSign bld packSz control inputVal =
@@ -1662,10 +1666,10 @@ let private packedSign bld packSz control inputVal =
   let struct (tControl, tInputVal) = tmpVars2 bld packSz
   let struct (cond1, cond2) = tmpVars2 bld 1<rt>
   append bld {
-    tControl := control
-    tInputVal := inputVal
-    cond1 := tControl ?< n0
-    cond2 := tControl == n0
+    direct tControl := control
+    direct tInputVal := inputVal
+    direct cond1 := tControl ?< n0
+    direct cond2 := tControl == n0
   }
   AST.ite cond1 (AST.neg tInputVal) (AST.ite cond2 n0 tInputVal)
 
@@ -1686,16 +1690,16 @@ let ptest (ins: Instruction) insLen bld =
     let struct (src1B, src1A) = transOprToExpr128 bld false ins insLen src1
     let struct (src2B, src2A) = transOprToExpr128 bld false ins insLen src2
     let struct (t1, t2, t3, t4) = tmpVars4 bld 64<rt>
-    t1 := src2A .& src1A
-    t2 := src2B .& src1B
-    regVar bld R.ZF := (t1 .| t2) == (AST.num0 64<rt>)
-    t3 := src2A .& AST.not src1A
-    t4 := src2B .& AST.not src1B
-    regVar bld R.CF := (t3 .| t4) == (AST.num0 64<rt>)
-    regVar bld R.AF := AST.b0
-    regVar bld R.OF := AST.b0
-    regVar bld R.PF := AST.b0
-    regVar bld R.SF := AST.b0
+    direct t1 := src2A .& src1A
+    direct t2 := src2B .& src1B
+    direct (regVar bld R.ZF) := (t1 .| t2) == (AST.num0 64<rt>)
+    direct t3 := src2A .& AST.not src1A
+    direct t4 := src2B .& AST.not src1B
+    direct (regVar bld R.CF) := (t3 .| t4) == (AST.num0 64<rt>)
+    direct (regVar bld R.AF) := AST.b0
+    direct (regVar bld R.OF) := AST.b0
+    direct (regVar bld R.PF) := AST.b0
+    direct (regVar bld R.SF) := AST.b0
 #if EMULATION
     bld.ConditionCodeOp <- ConditionCodeOp.EFlags
 #endif
@@ -1721,8 +1725,8 @@ let blendpd (ins: Instruction) insLen bld =
     let imm = transOprToExpr bld false ins insLen imm
     let cond1 = AST.extract imm 1<rt> 0
     let cond2 = AST.extract imm 1<rt> 1
-    dstA := AST.ite cond1 srcA dstA
-    dstB := AST.ite cond2 srcB dstB
+    direct dstA := AST.ite cond1 srcA dstA
+    direct dstB := AST.ite cond2 srcB dstB
   }
 
 let blendps (ins: Instruction) insLen bld =
@@ -1745,8 +1749,8 @@ let blendvpd (ins: Instruction) insLen bld =
     let struct (xmm0B, xmm0A) = transOprToExpr128 bld false ins insLen xmm0
     let cond1 = AST.xthi 1<rt> xmm0A
     let cond2 = AST.xthi 1<rt> xmm0B
-    dstA := AST.ite cond1 srcA dstA
-    dstB := AST.ite cond2 srcB dstB
+    direct dstA := AST.ite cond1 srcA dstA
+    direct dstB := AST.ite cond2 srcB dstB
   }
 
 let blendvps (ins: Instruction) insLen bld =
@@ -1871,16 +1875,16 @@ let private setZFSFOfPCMPSTR bld ctrl src1 src2 =
       let abs = tmpVar bld 32<rt>
       let reg = regVar bld reg
       append bld {
-        abs := AST.ite (AST.xthi 1<rt> reg) (AST.neg reg) reg
+        direct abs := AST.ite (AST.xthi 1<rt> reg) (AST.neg reg) reg
       }
       abs .< numU32 ctrl.NumElems 32<rt>
     match ctrl.Len with
     | Implicit ->
-      regVar bld R.ZF := checkIfElemIsNull src2
-      regVar bld R.SF := checkIfElemIsNull src1
+      direct (regVar bld R.ZF) := checkIfElemIsNull src2
+      direct (regVar bld R.SF) := checkIfElemIsNull src1
     | Explicit ->
-      regVar bld R.ZF := checkIndexOutOfBounds R.EDX
-      regVar bld R.SF := checkIndexOutOfBounds R.EAX
+      direct (regVar bld R.ZF) := checkIndexOutOfBounds R.EDX
+      direct (regVar bld R.SF) := checkIndexOutOfBounds R.EAX
   }
 
 let private combineBits outSz bitArr =
@@ -1895,16 +1899,16 @@ let private leastSign bld expr sz max =
   let cond = tmpVar bld 1<rt>
   let cnt = tmpVar bld sz
   append bld {
-    cnt := AST.num0 sz
+    direct cnt := AST.num0 sz
     AST.lmark lblLoop
   }
   let max = numI32 max sz
   let bit = (AST.xtlo 1<rt> (expr >> cnt)) .& AST.b1
   append bld {
-    cond := (bit == AST.b0) .& (cnt .< max)
+    direct cond := (bit == AST.b0) .& (cnt .< max)
     AST.cjmp cond (AST.jmpDest lblCont) (AST.jmpDest lblEnd)
     AST.lmark lblCont
-    cnt := cnt .+ (AST.num1 sz)
+    direct cnt := cnt .+ (AST.num1 sz)
     AST.jmp (AST.jmpDest lblLoop)
     AST.lmark lblEnd
   }
@@ -1918,16 +1922,16 @@ let private mostSign bld expr sz max =
   let cond = tmpVar bld 1<rt>
   let idx = tmpVar bld sz
   append bld {
-    idx := numI32 (max - 1) sz
+    direct idx := numI32 (max - 1) sz
     AST.lmark lblLoop
   }
   let n0 = AST.num0 sz
   let bit = (AST.xtlo 1<rt> (expr >> idx)) .& AST.b1
   append bld {
-    cond := (bit == AST.b0) .& (idx .> n0)
+    direct cond := (bit == AST.b0) .& (idx .> n0)
     AST.cjmp cond (AST.jmpDest lblCont) (AST.jmpDest lblEnd)
     AST.lmark lblCont
-    idx := idx .- (AST.num1 sz)
+    direct idx := idx .- (AST.num1 sz)
     AST.jmp (AST.jmpDest lblLoop)
     AST.lmark lblEnd
   }
@@ -1940,20 +1944,20 @@ let private overrideIfDataInvalid bld ctrl aInval bInval boolRes =
     | EqualAny | Ranges ->
       let cond = (AST.not aInval .& bInval) .| (aInval .& AST.not bInval) .|
                  (aInval .& bInval)
-      boolRes := AST.ite cond AST.b0 boolRes
+      direct boolRes := AST.ite cond AST.b0 boolRes
     | EqualEach ->
       let cond1 = (AST.not aInval .& bInval) .| (aInval .& AST.not bInval)
       let cond2 = aInval .& bInval
-      boolRes := AST.ite cond1 AST.b0 (AST.ite cond2 AST.b1 boolRes)
+      direct boolRes := AST.ite cond1 AST.b0 (AST.ite cond2 AST.b1 boolRes)
     | EqualOrdered ->
       let cond1 = AST.not aInval .& bInval
       let cond2 = (aInval .& AST.not bInval) .| (aInval .& bInval)
-      boolRes := AST.ite cond1 AST.b0 (AST.ite cond2 AST.b1 boolRes)
+      direct boolRes := AST.ite cond1 AST.b0 (AST.ite cond2 AST.b1 boolRes)
   }
 
 /// Sets every bit of an aggregation result to the same starting value.
 let private initIntRes bld initVal =
-  Array.iter (fun r -> append bld { r := initVal })
+  Array.iter (fun r -> append bld { direct r := initVal })
 
 /// Compares every character of one operand against every character of the
 /// other, noting as it goes where each string has run out: an implicit length
@@ -1971,31 +1975,37 @@ let private comparePcmpstrChars bld
   let n0 = AST.num0 ctrl.PackSize
   let struct (aInval, bInval) = tmpVars2 bld 1<rt>
   append bld {
-    aInval := AST.b0
+    direct aInval := AST.b0
   }
   let (.<=), (.>=) =
     if ctrl.Sign = Signed then AST.sle, AST.sge else AST.le, AST.ge
   for i in 0 .. upperBound do
     append bld {
-      bInval := AST.b0
+      direct bInval := AST.b0
     }
     (* invalidate characters after EOS. *)
     match ctrl.Len with
-    | Implicit -> append bld { aInval := aInval .| (src1[i] == n0) }
-    | Explicit -> append bld { aInval := aInval .| (numI32 i regSize == ax) }
+    | Implicit ->
+      append bld { direct aInval := aInval .| (src1[i] == n0) }
+    | Explicit ->
+      append bld { direct aInval := aInval .| (numI32 i regSize == ax) }
     for j in 0 .. upperBound do
       (* compare all characters. *)
       if ctrl.Agg = Ranges then
-        if i % 2 = 0 then append bld { boolRes[i, j] := src1[i] .<= src2[j] }
-        else append bld { boolRes[i, j] := src1[i] .>= src2[j] }
+        if i % 2 = 0 then
+          append bld { direct (boolRes[i, j]) := src1[i] .<= src2[j] }
+        else
+          append bld { direct (boolRes[i, j]) := src1[i] .>= src2[j] }
       else
         append bld {
-          boolRes[i, j] := src1[i] == src2[j]
+          direct (boolRes[i, j]) := src1[i] == src2[j]
         }
       (* invalidate characters after EOS. *)
       match ctrl.Len with
-      | Implicit -> append bld { bInval := bInval .| (src2[j] == n0) }
-      | Explicit -> append bld { bInval := bInval .| (numI32 j regSize == dx) }
+      | Implicit ->
+        append bld { direct bInval := bInval .| (src2[j] == n0) }
+      | Explicit ->
+        append bld { direct bInval := bInval .| (numI32 j regSize == dx) }
       overrideIfDataInvalid bld ctrl aInval bInval boolRes[i, j]
     done
   done
@@ -2015,7 +2025,7 @@ let private aggregatePcmpstrResult bld
     for i in 0 .. upperBound do
       for j in 0 .. upperBound do
         append bld {
-          intRes1[i] := intRes1[i] .| boolRes[j, i]
+          direct (intRes1[i]) := intRes1[i] .| boolRes[j, i]
         }
       done
     done
@@ -2024,7 +2034,8 @@ let private aggregatePcmpstrResult bld
     for i in 0 .. upperBound do
       for j in 0 .. 2 .. upperBound do
         append bld {
-          intRes1[i] := intRes1[i] .| (boolRes[j, i] .& boolRes[j + 1, i])
+          direct (intRes1[i]) :=
+            intRes1[i] .| (boolRes[j, i] .& boolRes[j + 1, i])
         }
       done
     done
@@ -2032,7 +2043,7 @@ let private aggregatePcmpstrResult bld
     initIntRes bld AST.b0 intRes1
     for i in 0 .. upperBound do
       append bld {
-        intRes1[i] := boolRes[i, i]
+        direct (intRes1[i]) := boolRes[i, i]
       }
     done
   | EqualOrdered ->
@@ -2042,7 +2053,7 @@ let private aggregatePcmpstrResult bld
       k <- i
       for j in 0 .. upperBound - i do
         append bld {
-          intRes1[i] := intRes1[i] .& boolRes[j, k]
+          direct (intRes1[i]) := intRes1[i] .& boolRes[j, k]
         }
         k <- k + 1
       done
@@ -2066,23 +2077,24 @@ let private negatePcmpstrResult bld
     match ctrl.Polarity with
     | PosPolarity | PosMasked ->
       append bld {
-        intRes2[i] := intRes1[i]
+        direct (intRes2[i]) := intRes1[i]
       }
     | NegPolarity (* 0b01 *) ->
       append bld {
-        intRes2[i] := AST.not intRes1[i]
+        direct (intRes2[i]) := AST.not intRes1[i]
       }
     | NegMasked (* 0b11 *) ->
       match ctrl.Len with
       | Implicit ->
         append bld {
-          bInval := src2[i] == n0
-          intRes2[i] := AST.ite bInval intRes1[i] (AST.not intRes1[i])
+          direct bInval := src2[i] == n0
+          direct (intRes2[i]) := AST.ite bInval intRes1[i] (AST.not intRes1[i])
         }
       | Explicit ->
         let not = AST.not intRes1[i]
         append bld {
-          intRes2[i] := AST.ite (numI32 i regSize .>= dx) intRes1[i] not
+          direct (intRes2[i]) :=
+            AST.ite (numI32 i regSize .>= dx) intRes1[i] not
         }
   done
 
@@ -2107,18 +2119,18 @@ let private writePcmpstrResult bld
       match ctrl.OutSelect with
       | Least (* Bit mask *) ->
         let res = tmpVar bld elemSz
-        res := combineBits elemSz intRes2
-        dstA := AST.zext 64<rt> res
-        dstB := AST.num0 64<rt>
+        direct res := combineBits elemSz intRes2
+        direct dstA := AST.zext 64<rt> res
+        direct dstB := AST.num0 64<rt>
       | Most (* Byte/word mask *) ->
         let nFF =
           numI32 (if ctrl.PackSize = 8<rt> then 0xFF else 0xFFFF) packSize
         let res = Array.init nElem (fun _ -> tmpVar bld packSize)
         for i in 0 .. upperBound do
-          res[i] := AST.ite intRes2[i] nFF n0
+          direct (res[i]) := AST.ite intRes2[i] nFF n0
         done
-        dstA := Array.sub res 0 pNum |> AST.revConcat
-        dstB := Array.sub res pNum pNum |> AST.revConcat
+        direct dstA := Array.sub res 0 pNum |> AST.revConcat
+        direct dstB := Array.sub res pNum pNum |> AST.revConcat
     | Index ->
       let outSz, cx =
         if REXPrefix.hasW ins.REXPrefix then 64<rt>, R.RCX else 32<rt>, R.ECX
@@ -2130,7 +2142,7 @@ let private writePcmpstrResult bld
         | Most -> mostSign bld iRes2 elemSz nElem
         |> AST.zext 32<rt>
       let idx = AST.ite (iRes2 == n0) (numI32 nElem 32<rt>) idx
-      dstAssign outSz cx idx
+      sized outSz cx := idx
   }
 
 let pcmpstr (ins: Instruction) insLen bld =
@@ -2158,13 +2170,13 @@ let pcmpstr (ins: Instruction) insLen bld =
     negatePcmpstrResult bld ctrl src2 (intRes1, intRes2) bInval regs
     (* output. *)
     let iRes2 = tmpVar bld elemSz
-    iRes2 := combineBits elemSz intRes2
+    direct iRes2 := combineBits elemSz intRes2
     writePcmpstrResult bld ins ctrl intRes2 iRes2
-    regVar bld R.CF := iRes2 != AST.num0 elemSz
+    direct (regVar bld R.CF) := iRes2 != AST.num0 elemSz
     setZFSFOfPCMPSTR bld ctrl src1 src2
-    regVar bld R.OF := intRes2[0]
-    regVar bld R.AF := AST.b0
-    regVar bld R.PF := AST.b0
+    direct (regVar bld R.OF) := intRes2[0]
+    direct (regVar bld R.AF) := AST.b0
+    direct (regVar bld R.PF) := AST.b0
 #if EMULATION
     bld.ConditionCodeOp <- ConditionCodeOp.EFlags
 #endif

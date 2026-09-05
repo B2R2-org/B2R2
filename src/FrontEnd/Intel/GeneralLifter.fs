@@ -64,8 +64,8 @@ let inline private getStackWidth wordSize oprSize =
 let private auxPush oprSize bld expr =
   append bld {
     let sp = getStackPtr bld
-    sp := sp .- (getStackWidth bld.RegType oprSize)
-    AST.loadLE oprSize sp := expr
+    direct sp := sp .- (getStackWidth bld.RegType oprSize)
+    direct (AST.loadLE oprSize sp) := expr
   }
 
 let private computePopSize oprSize = function
@@ -75,8 +75,8 @@ let private computePopSize oprSize = function
 let private auxPop oprSize bld dst =
   append bld {
     let sp = getStackPtr bld
-    dst := AST.loadLE (computePopSize oprSize dst) sp
-    sp := sp .+ (getStackWidth bld.RegType oprSize)
+    direct dst := AST.loadLE (computePopSize oprSize dst) sp
+    direct sp := sp .+ (getStackWidth bld.RegType oprSize)
   }
 
 let private maskOffset offset oprSize =
@@ -123,7 +123,7 @@ let private strRepeat ins insLen bld body cond =
     AST.cjmp (cx == n0) (AST.jmpDest lblExit) (AST.jmpDest lblCont)
     AST.lmark lblCont
     body ins bld
-    cx := cx .- AST.num1 bld.RegType
+    direct cx := cx .- AST.num1 bld.RegType
 #if EMULATION
     setCCOp bld
     bld.ConditionCodeOp <- ConditionCodeOp.TraceStart
@@ -155,19 +155,19 @@ let aaa (ins: Instruction) insLen bld =
     let cond1 = AST.gt alAnd0f (numI32 9 8<rt>)
     let cond = tmpVar bld 1<rt>
 #if EMULATION
-    cond := cond1 .| ((getAFLazy bld) == AST.b1)
+    direct cond := cond1 .| ((getAFLazy bld) == AST.b1)
 #else
-    cond := cond1 .| (af == AST.b1)
+    direct cond := cond1 .| (af == AST.b1)
 #endif
-    ax := AST.ite cond (ax .+ numI32 0x106 16<rt>) ax
-    af := AST.ite cond AST.b1 AST.b0
-    cf := AST.ite cond AST.b1 AST.b0
-    al := alAnd0f
+    direct ax := AST.ite cond (ax .+ numI32 0x106 16<rt>) ax
+    direct af := AST.ite cond AST.b1 AST.b0
+    direct cf := AST.ite cond AST.b1 AST.b0
+    direct al := alAnd0f
 #if !EMULATION
-    regVar bld R.OF := undefOF
-    regVar bld R.SF := undefSF
-    regVar bld R.ZF := undefZF
-    regVar bld R.PF := undefPF
+    direct (regVar bld R.OF) := undefOF
+    direct (regVar bld R.SF) := undefSF
+    direct (regVar bld R.ZF) := undefZF
+    direct (regVar bld R.PF) := undefPF
 #else
     bld.ConditionCodeOp <- ConditionCodeOp.EFlags
 #endif
@@ -182,13 +182,13 @@ let aad (ins: Instruction) insLen bld =
     let al = regVar bld R.AL
     let ah = regVar bld R.AH
     let sf = AST.xthi 1<rt> al
-    al := (al .+ (ah .* imm8)) .& (numI32 0xff 8<rt>)
-    ah := AST.num0 8<rt>
+    direct al := (al .+ (ah .* imm8)) .& (numI32 0xff 8<rt>)
+    direct ah := AST.num0 8<rt>
     enumSZPFlags bld al 8<rt> sf
 #if !EMULATION
-    regVar bld R.OF := undefOF
-    regVar bld R.AF := undefAF
-    regVar bld R.CF := undefCF
+    direct (regVar bld R.OF) := undefOF
+    direct (regVar bld R.AF) := undefAF
+    direct (regVar bld R.CF) := undefCF
 #else
     bld.ConditionCodeOp <- ConditionCodeOp.EFlags
 #endif
@@ -203,13 +203,13 @@ let aam (ins: Instruction) insLen bld =
     let al = regVar bld R.AL
     let ah = regVar bld R.AH
     let sf = AST.xthi 1<rt> al
-    ah := al ./ imm8
-    al := al .% imm8
+    direct ah := al ./ imm8
+    direct al := al .% imm8
     enumSZPFlags bld al 8<rt> sf
 #if !EMULATION
-    regVar bld R.OF := undefOF
-    regVar bld R.AF := undefAF
-    regVar bld R.CF := undefCF
+    direct (regVar bld R.OF) := undefOF
+    direct (regVar bld R.AF) := undefAF
+    direct (regVar bld R.CF) := undefCF
 #else
     bld.ConditionCodeOp <- ConditionCodeOp.EFlags
 #endif
@@ -229,15 +229,15 @@ let aas (ins: Instruction) insLen bld =
     let cond1 = AST.gt alAnd0f (numI32 9 8<rt>)
     let cond = tmpVar bld 1<rt>
 #if EMULATION
-    cond := cond1 .| ((getAFLazy bld) == AST.b1)
+    direct cond := cond1 .| ((getAFLazy bld) == AST.b1)
 #else
-    cond := cond1 .| (af == AST.b1)
+    direct cond := cond1 .| (af == AST.b1)
 #endif
-    ax := AST.ite cond (ax .- numI32 6 16<rt>) ax
-    ah := AST.ite cond (ah .- AST.num1 8<rt>) ah
-    af := AST.ite cond AST.b1 AST.b0
-    cf := AST.ite cond AST.b1 AST.b0
-    al := alAnd0f
+    direct ax := AST.ite cond (ax .- numI32 6 16<rt>) ax
+    direct ah := AST.ite cond (ah .- AST.num1 8<rt>) ah
+    direct af := AST.ite cond AST.b1 AST.b0
+    direct cf := AST.ite cond AST.b1 AST.b0
+    direct al := alAnd0f
 #if EMULATION
     bld.ConditionCodeOp <- ConditionCodeOp.EFlags
 #endif
@@ -249,18 +249,18 @@ let adc (ins: Instruction) insLen bld =
     let oprSize = getOperationSize ins
     let cf = regVar bld R.CF
     let struct (t1, t2, t3, t4) = tmpVars4 bld oprSize
-    t1 := dst
-    t2 := AST.sext oprSize src
+    direct t1 := dst
+    direct t2 := AST.sext oprSize src
 #if EMULATION
-    t3 := t2 .+ AST.zext oprSize (getCFLazy bld)
+    direct t3 := t2 .+ AST.zext oprSize (getCFLazy bld)
 #else
-    t3 := t2 .+ AST.zext oprSize cf
+    direct t3 := t2 .+ AST.zext oprSize cf
 #endif
-    t4 := t1 .+ t3
-    dstAssign oprSize dst t4
-    cf := (t3 .< t2) .| (t4 .< t1)
+    direct t4 := t1 .+ t3
+    sized oprSize dst := t4
+    direct cf := (t3 .< t2) .| (t4 .< t1)
     let struct (ofl, sf) = osfOnAdd t1 t2 t4 bld
-    regVar bld R.OF := ofl
+    direct (regVar bld R.OF) := ofl
     enumASZPFlags bld t1 t2 t4 oprSize sf
 #if EMULATION
     bld.ConditionCodeOp <- ConditionCodeOp.EFlags
@@ -285,15 +285,15 @@ let private addSameOprs (ins: Instruction) insLen bld oprSize o1 =
     atomicBeginIfLocked ins bld
 #if !EMULATION
     let struct (t1, t2) = tmpVars2 bld oprSize
-    t1 := dst
-    t2 := t1 .+ t1
-    dstAssign oprSize dst t2
+    direct t1 := dst
+    direct t2 := t1 .+ t1
+    sized oprSize dst := t2
     let struct (ofl, sf) = osfOnAdd t1 t1 t2 bld
     enumEFLAGS bld t1 t1 t2 oprSize (cfOnAdd t1 t2) ofl sf
 #else
     let t = tmpVar bld oprSize
-    t := dst
-    dstAssign oprSize dst (t .+ t)
+    direct t := dst
+    sized oprSize dst := t .+ t
     setCCOperands2 bld t dst
     match oprSize with
     | 8<rt> -> bld.ConditionCodeOp <- ConditionCodeOp.ADDB
@@ -316,10 +316,10 @@ let private addTwoOprs (ins: Instruction) insLen bld oprSize o1 o2 =
     let t1 = tmpVar bld oprSize
     let t2 = if isSrcConst then src else tmpVar bld oprSize
     let t3 = tmpVar bld oprSize
-    t1 := dst
-    if isSrcConst then () else t2 := src
-    t3 := t1 .+ t2
-    dstAssign oprSize dst t3
+    direct t1 := dst
+    if isSrcConst then () else direct t2 := src
+    direct t3 := t1 .+ t2
+    sized oprSize dst := t3
     let struct (ofl, sf) = osfOnAdd t1 t2 t3 bld
     enumEFLAGS bld t1 t2 t3 oprSize (cfOnAdd t1 t3) ofl sf
 #else
@@ -328,9 +328,9 @@ let private addTwoOprs (ins: Instruction) insLen bld oprSize o1 o2 =
         src
       else
         let t = tmpVar bld oprSize
-        append bld { t := src }
+        append bld { direct t := src }
         t
-    dstAssign oprSize dst (dst .+ src)
+    sized oprSize dst := dst .+ src
     setCCOperands2 bld src dst
     match oprSize with
     | 8<rt> -> bld.ConditionCodeOp <- ConditionCodeOp.ADDB
@@ -366,24 +366,24 @@ let adox (ins: Instruction) insLen bld =
     match oprSize with
     | 32<rt> ->
       let struct (t1, t2, t3) = tmpVars3 bld 64<rt>
-      t1 := AST.zext 64<rt> dst
-      t2 := AST.zext 64<rt> src
-      t3 := t1 .+ t2 .+ AST.zext 64<rt> oF
-      dstAssign oprSize dst (AST.xtlo oprSize t3)
-      oF := AST.extract t3 1<rt> 32
+      direct t1 := AST.zext 64<rt> dst
+      direct t2 := AST.zext 64<rt> src
+      direct t3 := t1 .+ t2 .+ AST.zext 64<rt> oF
+      sized oprSize dst := AST.xtlo oprSize t3
+      direct oF := AST.extract t3 1<rt> 32
     | 64<rt> ->
       let struct (t1a, t2a, t3a) = tmpVars3 bld 64<rt>
       let struct (t1b, t2b, t3b) = tmpVars3 bld 64<rt>
       let mask = tmpVar bld 64<rt>
-      mask := numU64 0xFFFFFFFFUL 64<rt>
-      t1a := dst .& mask
-      t1b := (dst >> (numI32 32 64<rt>)) .& mask
-      t2a := src .& mask
-      t2b := (src >> (numI32 32 64<rt>)) .& mask
-      t3a := t1a .+ t2a .+ AST.zext 64<rt> oF
-      t3b := t1b .+ t2b .+ (t3a >> (numI32 32 64<rt>))
-      dstAssign oprSize dst (dst .+ src .+ (AST.zext 64<rt> oF))
-      oF := AST.extract t3b 1<rt> 32
+      direct mask := numU64 0xFFFFFFFFUL 64<rt>
+      direct t1a := dst .& mask
+      direct t1b := (dst >> (numI32 32 64<rt>)) .& mask
+      direct t2a := src .& mask
+      direct t2b := (src >> (numI32 32 64<rt>)) .& mask
+      direct t3a := t1a .+ t2a .+ AST.zext 64<rt> oF
+      direct t3b := t1b .+ t2b .+ (t3a >> (numI32 32 64<rt>))
+      sized oprSize dst := dst .+ src .+ (AST.zext 64<rt> oF)
+      direct oF := AST.extract t3b 1<rt> 32
     | _ ->
       raise InvalidOperandSizeException
   }
@@ -394,7 +394,7 @@ let ``and`` (ins: Instruction) insLen bld =
     let oprSize = getOperationSize ins
     let t = tmpVar bld oprSize
     atomicBeginIfLocked ins bld
-    dstAssign oprSize dst (dst .& AST.sext oprSize src)
+    sized oprSize dst := dst .& AST.sext oprSize src
 #if EMULATION
     setCCDst bld dst
     match oprSize with
@@ -405,10 +405,10 @@ let ``and`` (ins: Instruction) insLen bld =
     | _ -> raise InvalidRegTypeException
 #else
     let sf = AST.xthi 1<rt> dst
-    regVar bld R.OF := AST.b0
-    regVar bld R.CF := AST.b0
+    direct (regVar bld R.OF) := AST.b0
+    direct (regVar bld R.CF) := AST.b0
     enumSZPFlags bld dst oprSize sf
-    regVar bld R.AF := undefAF
+    direct (regVar bld R.AF) := undefAF
 #endif
     atomicEndIfLocked ins bld
   }
@@ -418,15 +418,15 @@ let andn (ins: Instruction) insLen bld =
     let struct (dst, src1, src2) = transThreeOprs bld false ins insLen
     let oprSize = getOperationSize ins
     let t = tmpVar bld oprSize
-    t := (AST.not src1) .& src2
-    dstAssign oprSize dst t
-    regVar bld R.SF := AST.extract dst 1<rt> (int oprSize - 1)
-    regVar bld R.ZF := AST.eq dst (AST.num0 oprSize)
-    regVar bld R.OF := AST.b0
-    regVar bld R.CF := AST.b0
+    direct t := (AST.not src1) .& src2
+    sized oprSize dst := t
+    direct (regVar bld R.SF) := AST.extract dst 1<rt> (int oprSize - 1)
+    direct (regVar bld R.ZF) := AST.eq dst (AST.num0 oprSize)
+    direct (regVar bld R.OF) := AST.b0
+    direct (regVar bld R.CF) := AST.b0
 #if !EMULATION
-    regVar bld R.AF := undefAF
-    regVar bld R.PF := undefPF
+    direct (regVar bld R.AF) := undefAF
+    direct (regVar bld R.PF) := undefPF
 #else
     bld.ConditionCodeOp <- ConditionCodeOp.EFlags
 #endif
@@ -441,10 +441,10 @@ let arpl (ins: Instruction) insLen bld =
     let struct (t1, t2) = tmpVars2 bld 16<rt>
     let mask = numI32 0xfffc 16<rt>
     let zF = regVar bld R.ZF
-    t1 := dst .& numI32 0x3 16<rt>
-    t2 := src .& numI32 0x3 16<rt>
-    dst := AST.ite (t1 .< t2) ((dst .& mask) .| t2) dst
-    zF := t1 .< t2
+    direct t1 := dst .& numI32 0x3 16<rt>
+    direct t2 := src .& numI32 0x3 16<rt>
+    direct dst := AST.ite (t1 .< t2) ((dst .& mask) .| t2) dst
+    direct zF := t1 .< t2
 #if EMULATION
     bld.ConditionCodeOp <- ConditionCodeOp.EFlags
 #endif
@@ -456,19 +456,19 @@ let bextr (ins: Instruction) insLen bld =
     let struct (dst, src1, src2) = transThreeOprs bld false ins insLen
     let zF = regVar bld R.ZF
     let struct (tmp, mask, start, len) = tmpVars4 bld oprSize
-    start := AST.zext oprSize (AST.extract src2 8<rt> 0)
-    len := AST.zext oprSize (AST.extract src2 8<rt> 8)
-    mask := AST.not (numI32 0 oprSize) << len
-    tmp := AST.zext oprSize src1
-    tmp := (tmp >> start) .& AST.not (mask)
-    dstAssign oprSize dst tmp
-    zF := (dst == AST.num0 oprSize)
-    regVar bld R.CF := AST.b0
-    regVar bld R.OF := AST.b0
+    direct start := AST.zext oprSize (AST.extract src2 8<rt> 0)
+    direct len := AST.zext oprSize (AST.extract src2 8<rt> 8)
+    direct mask := AST.not (numI32 0 oprSize) << len
+    direct tmp := AST.zext oprSize src1
+    direct tmp := (tmp >> start) .& AST.not (mask)
+    sized oprSize dst := tmp
+    direct zF := (dst == AST.num0 oprSize)
+    direct (regVar bld R.CF) := AST.b0
+    direct (regVar bld R.OF) := AST.b0
 #if !EMULATION
-    regVar bld R.AF := undefAF
-    regVar bld R.SF := undefSF
-    regVar bld R.PF := undefPF
+    direct (regVar bld R.AF) := undefAF
+    direct (regVar bld R.SF) := undefSF
+    direct (regVar bld R.PF) := undefPF
 #else
     bld.ConditionCodeOp <- ConditionCodeOp.EFlags
 #endif
@@ -479,15 +479,15 @@ let blsi (ins: Instruction) insLen bld =
     let oprSize = getOperationSize ins
     let struct (dst, src) = transTwoOprs bld false ins insLen
     let tmp = tmpVar bld oprSize
-    tmp := AST.neg src .& src
-    regVar bld R.SF := AST.xthi 1<rt> tmp
-    regVar bld R.ZF := tmp == AST.num0 oprSize
-    regVar bld R.CF := src != AST.num0 oprSize
-    dstAssign oprSize dst tmp
-    regVar bld R.OF := AST.b0
+    direct tmp := AST.neg src .& src
+    direct (regVar bld R.SF) := AST.xthi 1<rt> tmp
+    direct (regVar bld R.ZF) := tmp == AST.num0 oprSize
+    direct (regVar bld R.CF) := src != AST.num0 oprSize
+    sized oprSize dst := tmp
+    direct (regVar bld R.OF) := AST.b0
 #if !EMULATION
-    regVar bld R.AF := undefAF
-    regVar bld R.PF := undefPF
+    direct (regVar bld R.AF) := undefAF
+    direct (regVar bld R.PF) := undefPF
 #else
     bld.ConditionCodeOp <- ConditionCodeOp.EFlags
 #endif
@@ -498,8 +498,8 @@ let private bndmov64 (ins: Instruction) insLen bld =
     let struct (dst, src) = getTwoOprs ins
     let struct (dst1, dst2) = transOprToExpr128 bld false ins insLen dst
     let struct (src1, src2) = transOprToExpr128 bld false ins insLen src
-    dst1 := src1
-    dst2 := src2
+    direct dst1 := src1
+    direct dst2 := src2
   }
 
 let private bndmov32Aux (ins: Instruction) insLen bld =
@@ -509,14 +509,14 @@ let private bndmov32Aux (ins: Instruction) insLen bld =
     let struct (dst1, dst2) = transOprToExpr128 bld false ins insLen dst
     let src = transOprToExpr bld false ins insLen src
     append bld {
-      dst1 := AST.xthi 32<rt> src |> AST.zext 64<rt>
-      dst2 := AST.xtlo 32<rt> src |> AST.zext 64<rt>
+      direct dst1 := AST.xthi 32<rt> src |> AST.zext 64<rt>
+      direct dst2 := AST.xtlo 32<rt> src |> AST.zext 64<rt>
     }
   | OprMem _, OprReg _ ->
     let struct (src1, src2) = transOprToExpr128 bld false ins insLen src
     let dst = transOprToExpr bld false ins insLen dst
     append bld {
-      dst := AST.concat (AST.xtlo 32<rt> src1) (AST.xtlo 32<rt> src2)
+      direct dst := AST.concat (AST.xtlo 32<rt> src1) (AST.xtlo 32<rt> src2)
     }
   | _ ->
     raise InvalidOperandException
@@ -536,11 +536,11 @@ let bndmov ins insLen bld =
 let private setBitScanUndefFlags (bld: ILowUIRBuilder) =
 #if !EMULATION
   append bld {
-    regVar bld R.CF := undefCF
-    regVar bld R.OF := undefOF
-    regVar bld R.AF := undefAF
-    regVar bld R.SF := undefSF
-    regVar bld R.PF := undefPF
+    direct (regVar bld R.CF) := undefCF
+    direct (regVar bld R.OF) := undefOF
+    direct (regVar bld R.AF) := undefAF
+    direct (regVar bld R.SF) := undefSF
+    direct (regVar bld R.PF) := undefPF
   }
 #else
   bld.ConditionCodeOp <- ConditionCodeOp.EFlags
@@ -565,18 +565,18 @@ let private liftBitScan (ins: Instruction) insLen bld isForward =
 #endif
     _if bld "Zero" (src == AST.num0 oprSize)
       (block {
-        zf := AST.b1
+        direct zf := AST.b1
 #if !EMULATION
-        dst := AST.undef oprSize "DEST is undefined."
+        direct dst := AST.undef oprSize "DEST is undefined."
 #endif
       })
       (block {
-        zf := AST.b0
-        t := start
+        direct zf := AST.b0
+        direct t := start
         _while bld "Loop" ((AST.xtlo 1<rt> (src >> t)) == AST.b0)
           (block {
-            t := step })
-        dstAssign oprSize dst t })
+            direct t := step })
+        sized oprSize dst := t })
     setBitScanUndefFlags bld
   }
 
@@ -595,16 +595,16 @@ let bswap (ins: Instruction) insLen bld =
        into per-byte extracts + revConcat. bswap ignores the operand-size
        prefix, so oprSize is only ever 32 or 64; the name carries the width. *)
     let name = if oprSize = 64<rt> then "BSWAP64" else "BSWAP32"
-    dstAssign oprSize dst (AST.app name [ dst ] oprSize)
+    sized oprSize dst := AST.app name [ dst ] oprSize
 #else
     let cnt = RegType.toByteWidth oprSize |> int
     let t = tmpVar bld oprSize
     let tmps = Array.init cnt (fun _ -> tmpVar bld 8<rt>)
-    t := dst
+    direct t := dst
     for i in 0 .. cnt - 1 do
-      tmps[i] := AST.extract t 8<rt> (i * 8)
+      direct (tmps[i]) := AST.extract t 8<rt> (i * 8)
     done
-    dstAssign oprSize dst (AST.revConcat (Array.rev tmps))
+    sized oprSize dst := AST.revConcat (Array.rev tmps)
 #endif
   }
 
@@ -626,14 +626,14 @@ let bt (ins: Instruction) insLen bld =
     let struct (bitBase, bitOffset) = transTwoOprs bld true ins insLen
     let oprSize = getOperationSize ins
 #if EMULATION
-    regVar bld R.ZF := getZFLazy bld
+    direct (regVar bld R.ZF) := getZFLazy bld
 #endif
-    regVar bld R.CF := bit ins bitBase bitOffset oprSize
+    direct (regVar bld R.CF) := bit ins bitBase bitOffset oprSize
 #if !EMULATION
-    regVar bld R.OF := undefOF
-    regVar bld R.SF := undefSF
-    regVar bld R.AF := undefAF
-    regVar bld R.PF := undefPF
+    direct (regVar bld R.OF) := undefOF
+    direct (regVar bld R.SF) := undefSF
+    direct (regVar bld R.AF) := undefAF
+    direct (regVar bld R.PF) := undefPF
 #else
     bld.ConditionCodeOp <- ConditionCodeOp.EFlags
 #endif
@@ -648,12 +648,12 @@ let private setBit ins bitBase bitOffset oprSize setValue =
     let mask = setValue << bitOffset
     let bit = (AST.zext oprSize AST.b1) << bitOffset
     let loadMem = AST.load e t (expr .+ addrOffset)
-    loadMem := (loadMem .& (getMask oprSize .- bit)) .| mask
+    direct loadMem := (loadMem .& (getMask oprSize .- bit)) .| mask
   | _ ->
     if isVar bitBase then
       let mask = setValue << maskOffset bitOffset oprSize
       let bit = (AST.zext oprSize AST.b1) << maskOffset bitOffset oprSize
-      dstAssign oprSize bitBase ((bitBase .& (getMask oprSize .- bit)) .| mask)
+      sized oprSize bitBase := (bitBase .& (getMask oprSize .- bit)) .| mask
     else
       raise InvalidExprException
 
@@ -664,15 +664,15 @@ let bitTest (ins: Instruction) insLen bld setValue =
     let setValue = AST.zext oprSize setValue
     atomicBeginIfLocked ins bld
 #if EMULATION
-    regVar bld R.ZF := getZFLazy bld
+    direct (regVar bld R.ZF) := getZFLazy bld
 #endif
-    regVar bld R.CF := bit ins bitBase bitOffset oprSize
+    direct (regVar bld R.CF) := bit ins bitBase bitOffset oprSize
     setBit ins bitBase bitOffset oprSize setValue
 #if !EMULATION
-    regVar bld R.OF := undefOF
-    regVar bld R.SF := undefSF
-    regVar bld R.AF := undefAF
-    regVar bld R.PF := undefPF
+    direct (regVar bld R.OF) := undefOF
+    direct (regVar bld R.SF) := undefSF
+    direct (regVar bld R.AF) := undefAF
+    direct (regVar bld R.PF) := undefPF
 #else
     bld.ConditionCodeOp <- ConditionCodeOp.EFlags
 #endif
@@ -688,15 +688,15 @@ let btc (ins: Instruction) insLen bld =
     let setValue = AST.zext oprSize (regVar bld R.CF |> AST.not)
 #else
     let setValue = AST.zext oprSize (getCFLazy bld |> AST.not)
-    regVar bld R.ZF := getZFLazy bld
+    direct (regVar bld R.ZF) := getZFLazy bld
 #endif
-    regVar bld R.CF := bit ins bitBase bitOffset oprSize
+    direct (regVar bld R.CF) := bit ins bitBase bitOffset oprSize
     setBit ins bitBase bitOffset oprSize setValue
 #if !EMULATION
-    regVar bld R.OF := undefOF
-    regVar bld R.SF := undefSF
-    regVar bld R.AF := undefAF
-    regVar bld R.PF := undefPF
+    direct (regVar bld R.OF) := undefOF
+    direct (regVar bld R.SF) := undefSF
+    direct (regVar bld R.AF) := undefAF
+    direct (regVar bld R.PF) := undefPF
 #else
     bld.ConditionCodeOp <- ConditionCodeOp.EFlags
 #endif
@@ -712,19 +712,19 @@ let bzhi (ins: Instruction) insLen bld =
     let struct (dst, src1, src2) = transThreeOprs bld false ins insLen
     let oprSize = getOperationSize ins
     let n = tmpVar bld 8<rt>
-    n := AST.xtlo 8<rt> src2
+    direct n := AST.xtlo 8<rt> src2
     let cond1 = n .< numI32 (RegType.toBitWidth oprSize) 8<rt>
     let cond2 = n .> numI32 ((RegType.toBitWidth oprSize) - 1) 8<rt>
     let tmp = AST.zext oprSize (numI32 (RegType.toBitWidth oprSize) 8<rt> .- n)
     let cf = regVar bld R.CF
-    dstAssign oprSize dst (AST.ite cond1 ((src1 << tmp) >> tmp) src1)
-    cf := AST.ite cond2 AST.b1 AST.b0
-    regVar bld R.SF := AST.xthi 1<rt> dst
-    regVar bld R.ZF := dst == (AST.num0 oprSize)
-    regVar bld R.OF := AST.b0
+    sized oprSize dst := AST.ite cond1 ((src1 << tmp) >> tmp) src1
+    direct cf := AST.ite cond2 AST.b1 AST.b0
+    direct (regVar bld R.SF) := AST.xthi 1<rt> dst
+    direct (regVar bld R.ZF) := dst == (AST.num0 oprSize)
+    direct (regVar bld R.OF) := AST.b0
 #if !EMULATION
-    regVar bld R.AF := undefAF
-    regVar bld R.PF := undefPF
+    direct (regVar bld R.AF) := undefAF
+    direct (regVar bld R.PF) := undefPF
 #else
     bld.ConditionCodeOp <- ConditionCodeOp.EFlags
 #endif
@@ -744,7 +744,7 @@ let call (ins: Instruction) insLen bld =
       AST.interjmp target InterJmpKind.IsCall
     else
       let t = tmpVar bld oprSize (* Use tmpvar because the target can use RSP *)
-      t := target
+      direct t := target
       auxPush oprSize bld (pc .+ numInsLen insLen bld)
       AST.interjmp t InterJmpKind.IsCall
     return NoEndMark
@@ -755,12 +755,12 @@ let convBWQ (ins: Instruction) insLen bld =
     let opr = regVar bld (if is64bit bld then R.RAX else R.EAX)
     let oprSize = getOperationSize ins
     let src = AST.sext oprSize (AST.xtlo (oprSize / 2) opr)
-    dstAssign oprSize (AST.xtlo oprSize opr) src
+    sized oprSize (AST.xtlo oprSize opr) := src
   }
 
 let clearFlag (ins: Instruction) insLen bld flagReg =
   lift bld ins insLen {
-    regVar bld flagReg := AST.b0
+    direct (regVar bld flagReg) := AST.b0
 #if EMULATION
     bld.ConditionCodeOp <- ConditionCodeOp.EFlags
 #endif
@@ -770,16 +770,16 @@ let cmc (ins: Instruction) insLen bld =
   lift bld ins insLen {
     let cf = regVar bld R.CF
 #if EMULATION
-    cf := AST.not (getCFLazy bld)
+    direct cf := AST.not (getCFLazy bld)
 #else
-    cf := AST.not cf
+    direct cf := AST.not cf
 #endif
 #if !EMULATION
-    regVar bld R.OF := undefOF
-    regVar bld R.AF := undefAF
-    regVar bld R.SF := undefSF
-    regVar bld R.ZF := undefZF
-    regVar bld R.PF := undefPF
+    direct (regVar bld R.OF) := undefOF
+    direct (regVar bld R.AF) := undefAF
+    direct (regVar bld R.SF) := undefSF
+    direct (regVar bld R.ZF) := undefZF
+    direct (regVar bld R.PF) := undefPF
 #else
     bld.ConditionCodeOp <- ConditionCodeOp.EFlags
 #endif
@@ -887,9 +887,9 @@ let cmovcc (ins: Instruction) insLen bld =
     let struct (dst, src) = transTwoOprs bld false ins insLen
     let oprSize = getOperationSize ins
 #if EMULATION
-    dstAssign oprSize dst (AST.ite (getCondOfCMovLazy ins bld) src dst)
+    sized oprSize dst := AST.ite (getCondOfCMovLazy ins bld) src dst
 #else
-    dstAssign oprSize dst (AST.ite (getCondOfCMov ins bld) src dst)
+    sized oprSize dst := AST.ite (getCondOfCMov ins bld) src dst
 #endif
   }
 
@@ -910,9 +910,9 @@ let cmp (ins: Instruction) insLen bld =
     let t1 = tmpVar bld oprSize
     let t2 = if isRhsConst then AST.sext oprSize src2 else tmpVar bld oprSize
     let t3 = tmpVar bld oprSize
-    t1 := src1
-    if isRhsConst then () else t2 := AST.sext oprSize src2
-    t3 := t1 .- t2
+    direct t1 := src1
+    if isRhsConst then () else direct t2 := AST.sext oprSize src2
+    direct t3 := t1 .- t2
     let sf = AST.xthi 1<rt> t3
     enumEFLAGS bld t1 t2 t3 oprSize (cfOnSub t1 t2) (ofOnSub t1 t2 t3) sf
 #endif
@@ -929,11 +929,11 @@ let private cmpsBody ins bld =
   let amount = numI32 (RegType.toByteWidth oprSize) bld.RegType
   let sf = AST.xthi 1<rt> t3
   append bld {
-    t1 := src1
-    t2 := src2
-    t3 := t1 .- t2
-    si := AST.ite df (si .- amount) (si .+ amount)
-    di := AST.ite df (di .- amount) (di .+ amount)
+    direct t1 := src1
+    direct t2 := src2
+    direct t3 := t1 .- t2
+    direct si := AST.ite df (si .- amount) (si .+ amount)
+    direct di := AST.ite df (di .- amount) (di .+ amount)
   }
   enumEFLAGS bld t1 t2 t3 oprSize (cfOnSub t1 t2) (ofOnSub t1 t2 t3) sf
 #if EMULATION
@@ -967,24 +967,24 @@ let cmpxchg (ins: Instruction) insLen bld =
     let lblEq = label bld "Equal"
     let lblNeq = label bld "NotEqual"
     let lblEnd = label bld "End"
-    t := dst
-    tAcc := acc
-    r := tAcc .- t
-    cond := tAcc == t
+    direct t := dst
+    direct tAcc := acc
+    direct r := tAcc .- t
+    direct cond := tAcc == t
     AST.cjmp cond (AST.jmpDest lblEq) (AST.jmpDest lblNeq)
     AST.lmark lblEq
-    regVar bld R.ZF := AST.b1
-    dstAssign oprSize dst src
+    direct (regVar bld R.ZF) := AST.b1
+    sized oprSize dst := src
     AST.jmp (AST.jmpDest lblEnd)
     AST.lmark lblNeq
-    regVar bld R.ZF := AST.b0
-    dstAssign oprSize acc t
+    direct (regVar bld R.ZF) := AST.b0
+    sized oprSize acc := t
     AST.lmark lblEnd
-    regVar bld R.OF := ofOnSub tAcc t r
-    regVar bld R.SF := AST.xthi 1<rt> r
+    direct (regVar bld R.OF) := ofOnSub tAcc t r
+    direct (regVar bld R.SF) := AST.xthi 1<rt> r
     buildAF bld tAcc t r oprSize
     buildPF bld r oprSize None
-    regVar bld R.CF := cfOnSub tAcc t
+    direct (regVar bld R.CF) := cfOnSub tAcc t
     atomicEndIfLocked ins bld
 #if EMULATION
     bld.ConditionCodeOp <- ConditionCodeOp.EFlags
@@ -997,7 +997,7 @@ let private saveOprMem (bld: ILowUIRBuilder) expr =
   match expr with
   | Load(e, rt, expr, _) ->
     append bld {
-      t := AST.zext sz expr
+      direct t := AST.zext sz expr
     }
     AST.load e rt t
   | _ ->
@@ -1017,18 +1017,18 @@ let private cmpXchg8b ins insLen bld oprSize zf cond =
     let edx = regVar bld R.EDX
     let ebx = regVar bld R.EBX
     let t = tmpVar bld oprSize
-    t := dst
-    cond := AST.concat edx eax == t
+    direct t := dst
+    direct cond := AST.concat edx eax == t
     AST.cjmp cond (AST.jmpDest lblEq) (AST.jmpDest lblNeq)
     AST.lmark lblEq
-    zf := AST.b1
-    orgDstMem := AST.concat ecx ebx
+    direct zf := AST.b1
+    direct orgDstMem := AST.concat ecx ebx
     AST.jmp (AST.jmpDest lblEnd)
     AST.lmark lblNeq
-    zf := AST.b0
-    dstAssign 32<rt> eax (AST.xtlo 32<rt> t)
-    dstAssign 32<rt> edx (AST.xthi 32<rt> t)
-    orgDstMem := t
+    direct zf := AST.b0
+    sized 32<rt> eax := AST.xtlo 32<rt> t
+    sized 32<rt> edx := AST.xthi 32<rt> t
+    direct orgDstMem := t
     AST.lmark lblEnd
   }
 
@@ -1047,14 +1047,14 @@ let private cmpXchg16b (ins: Instruction) insLen bld zf cond =
     let rdx = regVar bld R.RDX
     let rbx = regVar bld R.RBX
     let struct (t1, t2) = tmpVars2 bld 64<rt>
-    t1 := dstA
-    t2 := dstB
-    cond := (t2 == rdx) .& (t1 == rax)
-    zf := cond
-    rax := AST.ite cond rax t1
-    rdx := AST.ite cond rdx t2
-    orgDstAMem := AST.ite cond rbx t1
-    orgDstBMem := AST.ite cond rcx t2
+    direct t1 := dstA
+    direct t2 := dstB
+    direct cond := (t2 == rdx) .& (t1 == rax)
+    direct zf := cond
+    direct rax := AST.ite cond rax t1
+    direct rdx := AST.ite cond rdx t2
+    direct orgDstAMem := AST.ite cond rbx t1
+    direct orgDstBMem := AST.ite cond rcx t2
   }
 
 let compareExchangeBytes ins insLen bld =
@@ -1076,21 +1076,21 @@ let convWDQ ins insLen bld =
       let t = tmpVar bld 32<rt>
       let ax = regVar bld R.AX
       let dx = regVar bld R.DX
-      t := AST.sext 32<rt> ax
-      dx := AST.xthi 16<rt> t
-      ax := AST.xtlo 16<rt> t
+      direct t := AST.sext 32<rt> ax
+      direct dx := AST.xthi 16<rt> t
+      direct ax := AST.xtlo 16<rt> t
     | 32<rt>, _ ->
       let t = tmpVar bld 64<rt>
       let eax = regVar bld R.EAX
       let edx = regVar bld R.EDX
-      t := AST.sext 64<rt> eax
-      dstAssign oprSize edx (AST.xthi 32<rt> t)
-      eax := AST.xtlo 32<rt> t
+      direct t := AST.sext 64<rt> eax
+      sized oprSize edx := AST.xthi 32<rt> t
+      direct eax := AST.xtlo 32<rt> t
     | 64<rt>, 64<rt> ->
       let rdx = regVar bld R.RDX
       let rax = regVar bld R.RAX
       let cond = AST.extract rax 1<rt> 63
-      rdx := AST.ite cond (numI32 -1 64<rt>) (AST.num0 64<rt>)
+      direct rdx := AST.ite cond (numI32 -1 64<rt>) (AST.num0 64<rt>)
     | _, _ ->
       raise InvalidOperandSizeException
   }
@@ -1099,13 +1099,13 @@ let private bitReflect bld src =
   let oprSize = Expr.typeOf src
   let struct (res, tmp) = tmpVars2 bld oprSize
   append bld {
-    res := AST.num0 oprSize
-    tmp := src
+    direct res := AST.num0 oprSize
+    direct tmp := src
   }
   let oSz = int oprSize
   for i in 0 .. oSz - 1 do
     append bld {
-      AST.extract res 1<rt> (oSz - 1 - i) := AST.extract tmp 1<rt> i
+      direct (AST.extract res 1<rt> (oSz - 1 - i)) := AST.extract tmp 1<rt> i
     }
   done
   res |> AST.zext 64<rt>
@@ -1115,18 +1115,18 @@ let private mod2 bld dividend divisor divdnSz =
   let struct (remainder, mask) = tmpVars2 bld 64<rt>
   let divdnSzMask = numI64 ((1L <<< (int divdnSz)) - 1L) 64<rt>
   append bld {
-    mask := if divdnSz = 64 then getMask 64<rt> else divdnSzMask
+    direct mask := if divdnSz = 64 then getMask 64<rt> else divdnSzMask
   }
   for i in (divdnSz - 1) .. -1 .. divsSz - 1 do
     let shfAmt = numI32 (i + 1 - divsSz) 64<rt>
     let pDivdn = dividend >> shfAmt
     let cond = AST.extract dividend 1<rt> i
     append bld {
-      remainder := AST.ite cond (pDivdn <+> divisor) pDivdn
+      direct remainder := AST.ite cond (pDivdn <+> divisor) pDivdn
     }
     let m = mask >> (numI32 divdnSz 64<rt> .- shfAmt)
     append bld {
-      dividend := (dividend .& m) .| (remainder << shfAmt)
+      direct dividend := (dividend .& m) .| (remainder << shfAmt)
     }
   done
   dividend |> AST.xtlo 32<rt>
@@ -1135,39 +1135,39 @@ let crc32 (ins: Instruction) insLen bld =
   lift bld ins insLen {
     let struct (dst, src) = transTwoOprs bld true ins insLen
     let divisor = tmpVar bld 64<rt>
-    divisor := numI64 0x11EDC6F41L 64<rt>
+    direct divisor := numI64 0x11EDC6F41L 64<rt>
     let srcSz = Expr.typeOf src
     match srcSz with
     | 32<rt> | 16<rt> | 8<rt> ->
       let struct (t1, t2, t3) = tmpVars3 bld 64<rt>
       let struct (t4, t5) = tmpVars2 bld 64<rt>
       let t6 = tmpVar bld 32<rt>
-      t1 := bitReflect bld src
-      t2 := bitReflect bld (AST.xtlo 32<rt> dst)
-      t3 := t1 << numI32 32 64<rt>
-      t4 := t2 << numI32 (int srcSz) 64<rt>
-      t5 := t3 <+> t4
-      t6 := mod2 bld t5 divisor (int srcSz + 32)
-      dstAssign 32<rt> dst (bitReflect bld t6)
+      direct t1 := bitReflect bld src
+      direct t2 := bitReflect bld (AST.xtlo 32<rt> dst)
+      direct t3 := t1 << numI32 32 64<rt>
+      direct t4 := t2 << numI32 (int srcSz) 64<rt>
+      direct t5 := t3 <+> t4
+      direct t6 := mod2 bld t5 divisor (int srcSz + 32)
+      sized 32<rt> dst := bitReflect bld t6
     | 64<rt> ->
       let struct (t1, t2) = tmpVars2 bld 64<rt>
       let struct (t3a, t3b) = tmpVars2 bld 64<rt>
       let struct (t4a, t4b) = tmpVars2 bld 64<rt>
       let struct (t5a, t5b) = tmpVars2 bld 64<rt>
       let t6 = tmpVar bld 32<rt>
-      t1 := bitReflect bld src
-      t2 := bitReflect bld (AST.xtlo 32<rt> dst)
-      t3a := (AST.xtlo 32<rt> t1 |> AST.zext 64<rt>) << numI32 32 64<rt>
-      t3b := AST.xthi 32<rt> t1 |> AST.zext 64<rt>
-      t4a := AST.num0 64<rt>
-      t4b := AST.xtlo 32<rt> t2 |> AST.zext 64<rt>
-      t5a := t3a <+> t4a
-      t5b := t3b <+> t4b
-      t5b := AST.concat (AST.xtlo 32<rt> t5b) (AST.xthi 32<rt> t5a)
-      t6 := mod2 bld t5b divisor 64
-      t5a := AST.concat (AST.xtlo 32<rt> t6) (AST.xtlo 32<rt> t5a)
-      t6 := mod2 bld t5a divisor 64
-      dstAssign 32<rt> dst (bitReflect bld t6)
+      direct t1 := bitReflect bld src
+      direct t2 := bitReflect bld (AST.xtlo 32<rt> dst)
+      direct t3a := (AST.xtlo 32<rt> t1 |> AST.zext 64<rt>) << numI32 32 64<rt>
+      direct t3b := AST.xthi 32<rt> t1 |> AST.zext 64<rt>
+      direct t4a := AST.num0 64<rt>
+      direct t4b := AST.xtlo 32<rt> t2 |> AST.zext 64<rt>
+      direct t5a := t3a <+> t4a
+      direct t5b := t3b <+> t4b
+      direct t5b := AST.concat (AST.xtlo 32<rt> t5b) (AST.xthi 32<rt> t5a)
+      direct t6 := mod2 bld t5b divisor 64
+      direct t5a := AST.concat (AST.xtlo 32<rt> t6) (AST.xtlo 32<rt> t5a)
+      direct t6 := mod2 bld t5a divisor 64
+      sized 32<rt> dst := bitReflect bld t6
     | _ ->
       raise InvalidOperandSizeException
   }
@@ -1189,27 +1189,27 @@ let daa (ins: Instruction) insLen bld =
     let subCond4 = oldCf == AST.b1
     let cond2 = tmpVar bld 1<rt>
     let sf = AST.xthi 1<rt> al
-    oldAl := al
+    direct oldAl := al
 #if EMULATION
-    oldCf := getCFLazy bld
+    direct oldCf := getCFLazy bld
 #else
-    oldCf := cf
+    direct oldCf := cf
 #endif
-    cf := AST.b0
+    direct cf := AST.b0
 #if EMULATION
-    cond1 := subCond1 .| ((getAFLazy bld) == AST.b1)
+    direct cond1 := subCond1 .| ((getAFLazy bld) == AST.b1)
 #else
-    cond1 := subCond1 .| (af == AST.b1)
+    direct cond1 := subCond1 .| (af == AST.b1)
 #endif
-    al := AST.ite cond1 (al .+ numI32 6 8<rt>) al
-    cf := AST.ite cond1 oldCf cf
-    af := cond1
-    cond2 := subCond3 .| subCond4
-    al := AST.ite cond2 (al .+ numI32 0x60 8<rt>) al
-    cf := cond2
+    direct al := AST.ite cond1 (al .+ numI32 6 8<rt>) al
+    direct cf := AST.ite cond1 oldCf cf
+    direct af := cond1
+    direct cond2 := subCond3 .| subCond4
+    direct al := AST.ite cond2 (al .+ numI32 0x60 8<rt>) al
+    direct cf := cond2
     enumSZPFlags bld al 8<rt> sf
 #if !EMULATION
-    regVar bld R.OF := undefOF
+    direct (regVar bld R.OF) := undefOF
 #else
     bld.ConditionCodeOp <- ConditionCodeOp.EFlags
 #endif
@@ -1233,27 +1233,27 @@ let das (ins: Instruction) insLen bld =
     let subCond4 = oldCf == AST.b1
     let cond2 = tmpVar bld 1<rt>
     let sf = AST.xthi 1<rt> al
-    oldAl := al
+    direct oldAl := al
 #if EMULATION
-    oldCf := getCFLazy bld
+    direct oldCf := getCFLazy bld
 #else
-    oldCf := cf
+    direct oldCf := cf
 #endif
-    cf := AST.b0
+    direct cf := AST.b0
 #if EMULATION
-    cond1 := subCond1 .| ((getAFLazy bld) == AST.b1)
+    direct cond1 := subCond1 .| ((getAFLazy bld) == AST.b1)
 #else
-    cond1 := subCond1 .| (af == AST.b1)
+    direct cond1 := subCond1 .| (af == AST.b1)
 #endif
-    al := AST.ite cond1 (al .- numI32 6 8<rt>) al
-    cf := AST.ite cond1 oldCf cf
-    af := cond1
-    cond2 := subCond3 .| subCond4
-    al := AST.ite cond2 (al .- numI32 0x60 8<rt>) al
-    cf := cond2
+    direct al := AST.ite cond1 (al .- numI32 6 8<rt>) al
+    direct cf := AST.ite cond1 oldCf cf
+    direct af := cond1
+    direct cond2 := subCond3 .| subCond4
+    direct al := AST.ite cond2 (al .- numI32 0x60 8<rt>) al
+    direct cf := cond2
     enumSZPFlags bld al 8<rt> sf
 #if !EMULATION
-    regVar bld R.OF := undefOF
+    direct (regVar bld R.OF) := undefOF
 #else
     bld.ConditionCodeOp <- ConditionCodeOp.EFlags
 #endif
@@ -1266,14 +1266,14 @@ let dec (ins: Instruction) insLen bld =
     let struct (t1, t2) = tmpVars2 bld oprSize
     let sf = AST.xthi 1<rt> t2
     atomicBeginIfLocked ins bld
-    t1 := dst
-    t2 := (t1 .- AST.num1 oprSize)
-    dstAssign oprSize dst t2
-    regVar bld R.OF := ofOnSub t1 (AST.num1 oprSize) t2
+    direct t1 := dst
+    direct t2 := (t1 .- AST.num1 oprSize)
+    sized oprSize dst := t2
+    direct (regVar bld R.OF) := ofOnSub t1 (AST.num1 oprSize) t2
     enumASZPFlags bld t1 (AST.num1 oprSize) t2 oprSize sf
     atomicEndIfLocked ins bld
 #if EMULATION
-    regVar bld R.CF := getCFLazy bld
+    direct (regVar bld R.CF) := getCFLazy bld
     setCCOperands2 bld (AST.num1 oprSize) t2
     match oprSize with
     | 8<rt> -> bld.ConditionCodeOp <- ConditionCodeOp.DECB
@@ -1314,15 +1314,15 @@ let divideWithConcat opcode oprSize divisor lblAssign lblErr bld =
   | Opcode.DIV ->
     let divisor = AST.zext sz divisor
     append bld {
-      quotient := dividend ./ divisor
-      remainder := dividend .% divisor
+      direct quotient := dividend ./ divisor
+      direct remainder := dividend .% divisor
       checkQuotientDIV oprSize lblAssign lblErr quotient
     }
   | Opcode.IDIV ->
     let divisor = AST.sext sz divisor
     append bld {
-      quotient := dividend ?/ divisor
-      remainder := dividend ?% divisor
+      direct quotient := dividend ?/ divisor
+      direct remainder := dividend ?% divisor
       checkQuotientIDIV oprSize sz lblAssign lblErr quotient
     }
   | _ ->
@@ -1333,15 +1333,15 @@ let divideWithConcat opcode oprSize divisor lblAssign lblErr bld =
   match oprSize with
   | 8<rt> ->
     append bld {
-      regVar bld R.AL := AST.xtlo oprSize quotient
-      regVar bld R.AH := AST.xtlo oprSize remainder
+      direct (regVar bld R.AL) := AST.xtlo oprSize quotient
+      direct (regVar bld R.AH) := AST.xtlo oprSize remainder
     }
   | 16<rt> | 32<rt> | 64<rt> ->
     let q = getRegOfSize bld oprSize grpEAX
     let r = getRegOfSize bld oprSize grpEDX
     append bld {
-      dstAssign oprSize q (AST.xtlo oprSize quotient)
-      dstAssign oprSize r (AST.xtlo oprSize remainder)
+      sized oprSize q := AST.xtlo oprSize quotient
+      sized oprSize r := AST.xtlo oprSize remainder
     }
   | _ ->
     raise InvalidOperandSizeException
@@ -1361,12 +1361,12 @@ let div (ins: Instruction) insLen bld =
     AST.lmark lblChk
     divideWithConcat ins.Opcode oprSize divisor lblAssign lblErr bld
 #if !EMULATION
-    regVar bld R.CF := undefCF
-    regVar bld R.OF := undefOF
-    regVar bld R.AF := undefAF
-    regVar bld R.SF := undefSF
-    regVar bld R.ZF := undefZF
-    regVar bld R.PF := undefPF
+    direct (regVar bld R.CF) := undefCF
+    direct (regVar bld R.OF) := undefOF
+    direct (regVar bld R.AF) := undefAF
+    direct (regVar bld R.SF) := undefSF
+    direct (regVar bld R.ZF) := undefZF
+    direct (regVar bld R.PF) := undefPF
 #else
     bld.ConditionCodeOp <- ConditionCodeOp.EFlags
 #endif
@@ -1386,11 +1386,11 @@ let enter ins insLen bld =
     let lblLv1 = label bld "NestingLevel1"
     let getAddrSize bitSize =
       if bitSize = 64<rt> then numI32 8 bitSize else numI32 4 bitSize
-    allocSize := imm16
-    nestingLevel := imm8 .% (numI32 32 oSz)
+    direct allocSize := imm16
+    direct nestingLevel := imm8 .% (numI32 32 oSz)
     auxPush bld.RegType bld bp
-    frameTemp := sp
-    addrSize := getAddrSize bld.RegType
+    direct frameTemp := sp
+    direct addrSize := getAddrSize bld.RegType
     if imm8 .% (numI32 32 oSz) = (numI32 0 oSz) then
       () (* IR Optimization: Do not add unnecessary IRs *)
     else
@@ -1398,22 +1398,22 @@ let enter ins insLen bld =
                (AST.jmpDest lblCont)
                (AST.jmpDest lblLevelCheck)
       AST.lmark lblLevelCheck
-      cnt := nestingLevel .- AST.num1 oSz
+      direct cnt := nestingLevel .- AST.num1 oSz
       AST.cjmp (AST.gt nestingLevel (AST.num1 oSz))
                (AST.jmpDest lblLoop)
                (AST.jmpDest lblLv1)
       AST.lmark lblLoop
-      bp := bp .- addrSize
+      direct bp := bp .- addrSize
       auxPush bld.RegType bld (AST.loadLE bld.RegType bp)
-      cnt := cnt .- AST.num1 oSz
+      direct cnt := cnt .- AST.num1 oSz
       AST.cjmp (cnt == AST.num0 oSz)
                (AST.jmpDest lblCont)
                (AST.jmpDest lblLoop)
       AST.lmark lblLv1
       auxPush bld.RegType bld frameTemp
       AST.lmark lblCont
-    bp := frameTemp
-    sp := sp .- AST.zext bld.RegType allocSize
+    direct bp := frameTemp
+    direct sp := sp .- AST.zext bld.RegType allocSize
   }
 
 let private oneOperandImul bld oprSize src =
@@ -1423,10 +1423,10 @@ let private oneOperandImul bld oprSize src =
     let t = tmpVar bld mulSize
     let cond = AST.sext mulSize (AST.xtlo oprSize t) == t
     append bld {
-      t := AST.sext mulSize (regVar bld R.AL) .* AST.sext mulSize src
-      dstAssign oprSize (regVar bld R.AX) t
-      regVar bld R.CF := cond == AST.b0
-      regVar bld R.OF := cond == AST.b0
+      direct t := AST.sext mulSize (regVar bld R.AL) .* AST.sext mulSize src
+      sized oprSize (regVar bld R.AX) := t
+      direct (regVar bld R.CF) := cond == AST.b0
+      direct (regVar bld R.OF) := cond == AST.b0
     }
   | 16<rt> | 32<rt> | 64<rt> ->
     (* The double-width product now includes 64x64->128 (mulSize = 128<rt>),
@@ -1438,11 +1438,11 @@ let private oneOperandImul bld oprSize src =
     let r1 = getRegOfSize bld oprSize grpEDX
     let r2 = getRegOfSize bld oprSize grpEAX
     append bld {
-      t := AST.sext mulSize r2 .* AST.sext mulSize src
-      dstAssign oprSize r1 (AST.xthi oprSize t)
-      dstAssign oprSize r2 (AST.xtlo oprSize t)
-      regVar bld R.CF := cond == AST.b0
-      regVar bld R.OF := cond == AST.b0
+      direct t := AST.sext mulSize r2 .* AST.sext mulSize src
+      sized oprSize r1 := AST.xthi oprSize t
+      sized oprSize r2 := AST.xtlo oprSize t
+      direct (regVar bld R.CF) := cond == AST.b0
+      direct (regVar bld R.OF) := cond == AST.b0
     }
   | _ ->
     raise InvalidOperandSizeException
@@ -1456,10 +1456,10 @@ let private operandsImul bld oprSize dst src1 src2 =
     let t = tmpVar bld doubleWidth
     let cond = (AST.sext doubleWidth dst) != t
     append bld {
-      t := AST.sext doubleWidth src1 .* AST.sext doubleWidth src2
-      dstAssign oprSize dst (AST.xtlo oprSize t)
-      regVar bld R.CF := cond
-      regVar bld R.OF := cond
+      direct t := AST.sext doubleWidth src1 .* AST.sext doubleWidth src2
+      sized oprSize dst := AST.xtlo oprSize t
+      direct (regVar bld R.CF) := cond
+      direct (regVar bld R.OF) := cond
     }
   | _ ->
     raise InvalidOperandSizeException
@@ -1486,10 +1486,10 @@ let imul (ins: Instruction) insLen bld =
   lift bld ins insLen {
     buildMulBody ins insLen bld
 #if !EMULATION
-    regVar bld R.SF := undefSF
-    regVar bld R.ZF := undefZF
-    regVar bld R.AF := undefAF
-    regVar bld R.PF := undefPF
+    direct (regVar bld R.SF) := undefSF
+    direct (regVar bld R.ZF) := undefZF
+    direct (regVar bld R.AF) := undefAF
+    direct (regVar bld R.PF) := undefPF
 #else
     bld.ConditionCodeOp <- ConditionCodeOp.EFlags
 #endif
@@ -1501,16 +1501,16 @@ let inc (ins: Instruction) insLen bld =
     let oprSize = getOperationSize ins
     let struct (t1, t2, t3) = tmpVars3 bld oprSize
     atomicBeginIfLocked ins bld
-    t1 := dst
-    t2 := AST.num1 oprSize
-    t3 := (t1 .+ t2)
-    dstAssign oprSize dst t3
+    direct t1 := dst
+    direct t2 := AST.num1 oprSize
+    direct t3 := (t1 .+ t2)
+    sized oprSize dst := t3
     let struct (ofl, sf) = osfOnAdd t1 t2 t3 bld
-    regVar bld R.OF := ofl
+    direct (regVar bld R.OF) := ofl
     enumASZPFlags bld t1 t2 t3 oprSize sf
     atomicEndIfLocked ins bld
 #if EMULATION
-    regVar bld R.CF := getCFLazy bld
+    direct (regVar bld R.CF) := getCFLazy bld
     setCCOperands2 bld t1 t3
     match oprSize with
     | 8<rt> -> bld.ConditionCodeOp <- ConditionCodeOp.INCB
@@ -1719,13 +1719,13 @@ let lahf (ins: Instruction) insLen bld =
     let af = AST.zext 8<rt> (regVar bld R.AF)
     let zf = AST.zext 8<rt> (regVar bld R.ZF)
     let sf = AST.zext 8<rt> (regVar bld R.SF)
-    t := numI32 2 8<rt>
-    t := t .| cf
-    t := t .| (pf << numI32 2 8<rt>)
-    t := t .| (af << numI32 4 8<rt>)
-    t := t .| (zf << numI32 6 8<rt>)
-    t := t .| (sf << numI32 7 8<rt>)
-    ah := t
+    direct t := numI32 2 8<rt>
+    direct t := t .| cf
+    direct t := t .| (pf << numI32 2 8<rt>)
+    direct t := t .| (af << numI32 4 8<rt>)
+    direct t := t .| (zf << numI32 6 8<rt>)
+    direct t := t .| (sf << numI32 7 8<rt>)
+    direct ah := t
   }
 
 let private unwrapLeaSrc = function
@@ -1741,15 +1741,15 @@ let lea (ins: Instruction) insLen bld =
     let addrSize = getEffAddrSz ins
     match oprSize, addrSize with
     | 16<rt>, 16<rt> | 32<rt>, 32<rt> | 64<rt>, 64<rt> ->
-      dstAssign oprSize dst src
+      sized oprSize dst := src
     | 16<rt>, 32<rt> | 16<rt>, 64<rt> ->
-      dstAssign oprSize dst (AST.xtlo 16<rt> src)
+      sized oprSize dst := AST.xtlo 16<rt> src
     | 32<rt>, 16<rt> ->
-      dstAssign oprSize dst (AST.zext 32<rt> src)
+      sized oprSize dst := AST.zext 32<rt> src
     | 32<rt>, 64<rt> ->
-      dstAssign oprSize dst (AST.xtlo 32<rt> src)
+      sized oprSize dst := AST.xtlo 32<rt> src
     | 64<rt>, 32<rt> ->
-      dstAssign oprSize dst (AST.zext 64<rt> src)
+      sized oprSize dst := AST.zext 64<rt> src
     | _ ->
       raise InvalidOperandSizeException
   }
@@ -1758,7 +1758,7 @@ let leave (ins: Instruction) insLen bld =
   lift bld ins insLen {
     let sp = getStackPtr bld
     let bp = getBasePtr bld
-    sp := bp
+    direct sp := bp
     auxPop bld.RegType bld bp
   }
 
@@ -1769,8 +1769,8 @@ let private lodsBody ins bld =
     let si = regVar bld (if is64bit bld then R.RSI else R.ESI)
     let dst = getRegOfSize bld oprSize grpEAX
     let amount = numI32 (RegType.toByteWidth oprSize) bld.RegType
-    dst := AST.loadLE oprSize si
-    si := AST.ite df (si .- amount) (si .+ amount)
+    direct dst := AST.loadLE oprSize si
+    direct si := AST.ite df (si .- amount) (si .+ amount)
   }
 
 let lods (ins: Instruction) insLen bld =
@@ -1798,7 +1798,7 @@ let loop (ins: Instruction) insLen bld =
 #else
     let zf = regVar bld R.ZF
 #endif
-    count := count .- AST.num1 cntSize
+    direct count := count .- AST.num1 cntSize
     let branchCond =
       match ins.Opcode with
       | Opcode.LOOP -> count != AST.num0 cntSize
@@ -1836,7 +1836,7 @@ let private smearHighBit bld oprSize x =
   let bits = RegType.toBitWidth oprSize
   let rec go step =
     if step < bits then
-      append bld { x := x .| (x >> numI32 step oprSize) }
+      append bld { direct x := x .| (x >> numI32 step oprSize) }
       go (step * 2)
     else
       ()
@@ -1848,7 +1848,7 @@ let private sumByteCounts bld oprSize x =
   let bits = RegType.toBitWidth oprSize
   let rec go step =
     if step < bits then
-      append bld { x := x .+ (x >> numI32 step oprSize) }
+      append bld { direct x := x .+ (x >> numI32 step oprSize) }
       go (step * 2)
     else
       ()
@@ -1862,22 +1862,22 @@ let lzcnt ins insLen bld =
     let n = AST.num0 oprSize
     let struct (mask1, mask2, mask3) = popCountMasks oprSize
     let bits = RegType.toBitWidth oprSize
-    x := src
+    direct x := src
     smearHighBit bld oprSize x
-    x := x .- ((x >> numI32 1 oprSize) .& mask1)
-    x := ((x >> numI32 2 oprSize) .& mask2) .+ (x .& mask2)
-    x := ((x >> numI32 4 oprSize) .+ x) .& mask3
+    direct x := x .- ((x >> numI32 1 oprSize) .& mask1)
+    direct x := ((x >> numI32 2 oprSize) .& mask2) .+ (x .& mask2)
+    direct x := ((x >> numI32 4 oprSize) .+ x) .& mask3
     sumByteCounts bld oprSize x
     let ones = x .& numI32 (bits * 2 - 1) oprSize
-    dstAssign oprSize dst (numI32 bits oprSize .- ones)
+    sized oprSize dst := numI32 bits oprSize .- ones
     let width = numI32 bits oprSize
-    regVar bld R.CF := dst == width
-    regVar bld R.ZF := dst == n
+    direct (regVar bld R.CF) := dst == width
+    direct (regVar bld R.ZF) := dst == n
 #if !EMULATION
-    regVar bld R.OF := undefOF
-    regVar bld R.SF := undefSF
-    regVar bld R.PF := undefPF
-    regVar bld R.AF := undefAF
+    direct (regVar bld R.OF) := undefOF
+    direct (regVar bld R.SF) := undefSF
+    direct (regVar bld R.PF) := undefPF
+    direct (regVar bld R.AF) := undefAF
 #else
     bld.ConditionCodeOp <- ConditionCodeOp.EFlags
 #endif
@@ -1892,7 +1892,7 @@ let mov (ins: Instruction) insLen bld =
     let src =
       if Expr.typeOf src > oprSize then AST.xtlo oprSize src
       else AST.zext oprSize src
-    dstAssign oprSize dst src
+    sized oprSize dst := src
   }
 
 let movbe (ins: Instruction) insLen bld =
@@ -1902,11 +1902,11 @@ let movbe (ins: Instruction) insLen bld =
     let cnt = RegType.toByteWidth oprSize |> int
     let t = tmpVar bld oprSize
     let tmps = Array.init cnt (fun _ -> tmpVar bld 8<rt>)
-    t := src
+    direct t := src
     for i in 0 .. cnt - 1 do
-      tmps[i] := AST.extract t 8<rt> (i * 8)
+      direct (tmps[i]) := AST.extract t 8<rt> (i * 8)
     done
-    dstAssign oprSize dst (AST.revConcat (Array.rev tmps))
+    sized oprSize dst := AST.revConcat (Array.rev tmps)
   }
 
 let private movsBody ins bld =
@@ -1916,9 +1916,9 @@ let private movsBody ins bld =
     let si = regVar bld (if is64bit bld then R.RSI else R.ESI)
     let di = regVar bld (if is64bit bld then R.RDI else R.EDI)
     let amount = numI32 (RegType.toByteWidth oprSize) bld.RegType
-    AST.loadLE oprSize di := AST.loadLE oprSize si
-    si := AST.ite df (si .- amount) (si .+ amount)
-    di := AST.ite df (di .- amount) (di .+ amount)
+    direct (AST.loadLE oprSize di) := AST.loadLE oprSize si
+    direct si := AST.ite df (si .- amount) (si .+ amount)
+    direct di := AST.ite df (di .- amount) (di .+ amount)
   }
 
 let movs (ins: Instruction) insLen bld =
@@ -1934,28 +1934,28 @@ let movsx (ins: Instruction) insLen bld =
   lift bld ins insLen {
     let struct (dst, src) = transTwoOprs bld false ins insLen
     let oprSize = getOperationSize ins
-    dstAssign oprSize dst (AST.sext oprSize src)
+    sized oprSize dst := AST.sext oprSize src
   }
 
 let movzx (ins: Instruction) insLen bld =
   lift bld ins insLen {
     let struct (dst, src) = transTwoOprs bld false ins insLen
     let oprSize = getOperationSize ins
-    dstAssign oprSize dst (AST.zext oprSize src)
+    sized oprSize dst := AST.zext oprSize src
   }
 
 /// Sets the flags a MUL leaves behind: CF and OF both say whether the upper
 /// half of the product carries anything, and the rest are undefined.
 let private setMulFlags bld oprSize t cond =
   append bld {
-    cond := AST.xthi oprSize t != (AST.num0 oprSize)
-    regVar bld R.CF := cond
-    regVar bld R.OF := cond
+    direct cond := AST.xthi oprSize t != (AST.num0 oprSize)
+    direct (regVar bld R.CF) := cond
+    direct (regVar bld R.OF) := cond
 #if !EMULATION
-    regVar bld R.SF := undefSF
-    regVar bld R.ZF := undefZF
-    regVar bld R.AF := undefAF
-    regVar bld R.PF := undefPF
+    direct (regVar bld R.SF) := undefSF
+    direct (regVar bld R.ZF) := undefZF
+    direct (regVar bld R.AF) := undefAF
+    direct (regVar bld R.PF) := undefPF
 #else
     bld.ConditionCodeOp <- ConditionCodeOp.EFlags
 #endif
@@ -1970,9 +1970,9 @@ let mul ins insLen bld =
       let src1 = AST.zext dblWidth (getRegOfSize bld oprSize grpEAX)
       let src2 = AST.zext dblWidth (transOneOpr bld ins insLen)
       let t = tmpVar bld dblWidth
-      t := src1 .* src2
+      direct t := src1 .* src2
       let cond = tmpVar bld 1<rt>
-      regVar bld R.AX := t
+      direct (regVar bld R.AX) := t
       setMulFlags bld oprSize t cond
     | 16<rt> | 32<rt> | 64<rt> ->
       (* dblWidth reaches 128<rt> for the 64-bit form, which the evaluator holds
@@ -1984,10 +1984,10 @@ let mul ins insLen bld =
       let src1 = AST.zext dblWidth eax
       let src2 = AST.zext dblWidth (transOneOpr bld ins insLen)
       let t = tmpVar bld dblWidth
-      t := src1 .* src2
+      direct t := src1 .* src2
       let cond = tmpVar bld 1<rt>
-      dstAssign oprSize edx (AST.xthi oprSize t)
-      dstAssign oprSize eax (AST.xtlo oprSize t)
+      sized oprSize edx := AST.xthi oprSize t
+      sized oprSize eax := AST.xtlo oprSize t
       setMulFlags bld oprSize t cond
     | _ ->
       raise InvalidOperandSizeException
@@ -2003,9 +2003,9 @@ let mulx ins insLen bld =
       let src1 = AST.zext dblWidth (getRegOfSize bld oprSize grpEDX)
       let src2 = AST.zext dblWidth src
       let t = tmpVar bld dblWidth
-      t := src1 .* src2
-      dstAssign oprSize dst2 (AST.xtlo 32<rt> t)
-      dstAssign oprSize dst1 (AST.xthi 32<rt> t)
+      direct t := src1 .* src2
+      sized oprSize dst2 := AST.xtlo 32<rt> t
+      sized oprSize dst1 := AST.xthi 32<rt> t
     | 64<rt> ->
       let struct (dst1, dst2, src) = transThreeOprs bld false ins insLen
       let src1 = getRegOfSize bld oprSize grpEDX
@@ -2013,10 +2013,10 @@ let mulx ins insLen bld =
       let struct (tHigh, tLow) = tmpVars2 bld 64<rt>
       let n32 = numI32 32 64<rt>
       let mask = numI64 0xFFFFFFFFL 64<rt>
-      hiSrc1 := (src1 >> n32) .& mask (* SRC1[63:32] *)
-      loSrc1 := src1 .& mask (* SRC1[31:0] *)
-      hiSrc := (src >> n32) .& mask (* SRC[63:32] *)
-      loSrc := src .& mask (* SRC[31:0] *)
+      direct hiSrc1 := (src1 >> n32) .& mask (* SRC1[63:32] *)
+      direct loSrc1 := src1 .& mask (* SRC1[31:0] *)
+      direct hiSrc := (src >> n32) .& mask (* SRC[63:32] *)
+      direct loSrc := src .& mask (* SRC[31:0] *)
       let pHigh = hiSrc1 .* hiSrc
       let pMid = (hiSrc1 .* loSrc) .+ (loSrc1 .* hiSrc)
       let pLow = (loSrc1 .* loSrc)
@@ -2026,10 +2026,10 @@ let mulx ins insLen bld =
         hiSrc1 .* loSrc .> numI64 0xffffffff_ffffffffL 64<rt> .- loSrc1 .* hiSrc
       let carry = AST.ite isOverflow (numI64 0x100000000L 64<rt>)
                                      (AST.num0 64<rt>)
-      tHigh := high .+ carry
-      tLow := low
-      dstAssign oprSize dst2 tLow
-      dstAssign oprSize dst1 tHigh
+      direct tHigh := high .+ carry
+      direct tLow := low
+      sized oprSize dst2 := tLow
+      sized oprSize dst1 := tHigh
     | _ ->
       raise InvalidOperandSizeException
   }
@@ -2040,8 +2040,8 @@ let neg (ins: Instruction) insLen bld =
     let oprSize = getOperationSize ins
     let t = tmpVar bld oprSize
     let zero = AST.num0 oprSize
-    t := dst
-    dstAssign oprSize dst (AST.neg t)
+    direct t := dst
+    sized oprSize dst := AST.neg t
 #if EMULATION
     setCCOperands2 bld t dst
     match oprSize with
@@ -2065,7 +2065,7 @@ let not (ins: Instruction) insLen bld =
   lift bld ins insLen {
     let dst = transOneOpr bld ins insLen
     let oprSize = getOperationSize ins
-    dstAssign oprSize dst (AST.unop UnOpType.NOT dst)
+    sized oprSize dst := AST.unop UnOpType.NOT dst
   }
 
 let logOr (ins: Instruction) insLen bld =
@@ -2073,7 +2073,7 @@ let logOr (ins: Instruction) insLen bld =
     let struct (dst, src) = transTwoOprs bld true ins insLen
     let oprSize = getOperationSize ins
     atomicBeginIfLocked ins bld
-    dstAssign oprSize dst (dst .| src)
+    sized oprSize dst := dst .| src
 #if EMULATION
     setCCDst bld dst
     match oprSize with
@@ -2084,10 +2084,10 @@ let logOr (ins: Instruction) insLen bld =
     | _ -> raise InvalidRegTypeException
 #else
     let sf = AST.xthi 1<rt> dst
-    regVar bld R.CF := AST.b0
-    regVar bld R.OF := AST.b0
+    direct (regVar bld R.CF) := AST.b0
+    direct (regVar bld R.OF) := AST.b0
     enumSZPFlags bld dst oprSize sf
-    regVar bld R.AF := undefAF
+    direct (regVar bld R.AF) := undefAF
 #endif
     atomicEndIfLocked ins bld
   }
@@ -2099,17 +2099,17 @@ let pdep (ins: Instruction) insLen bld =
     let struct (temp, mask, dest) = tmpVars3 bld oprSize
     let cond = tmpVar bld 1<rt>
     let k = tmpVar bld oprSize
-    temp := src1
-    mask := src2
-    dest := AST.num0 oprSize
-    k := AST.num0 oprSize
+    direct temp := src1
+    direct mask := src2
+    direct dest := AST.num0 oprSize
+    direct k := AST.num0 oprSize
     for i in 0 .. (int oprSize) - 1 do
-      cond := AST.extract mask 1<rt> i
+      direct cond := AST.extract mask 1<rt> i
       let tempk = (temp >> k) |> AST.xtlo 1<rt>
-      AST.extract dest 1<rt> i := AST.ite cond tempk AST.b0
-      k := AST.ite cond (k .+ AST.num1 oprSize) k
+      direct (AST.extract dest 1<rt> i) := AST.ite cond tempk AST.b0
+      direct k := AST.ite cond (k .+ AST.num1 oprSize) k
     done
-    dstAssign oprSize dst dest
+    sized oprSize dst := dest
   }
 
 let pext (ins: Instruction) insLen bld =
@@ -2118,15 +2118,15 @@ let pext (ins: Instruction) insLen bld =
     let oSz = getOperationSize ins
     let struct (t, k) = tmpVars2 bld oSz
     let cond = tmpVar bld 1<rt>
-    t := AST.num0 oSz
-    k := AST.num0 oSz
+    direct t := AST.num0 oSz
+    direct k := AST.num0 oSz
     for i in 0 .. (int oSz) - 1 do
-      cond := AST.extract mask 1<rt> i
+      direct cond := AST.extract mask 1<rt> i
       let extSrc = AST.zext oSz (AST.extract src 1<rt> i)
-      t := t .| (AST.ite cond (extSrc << k) t)
-      k := k .+ (AST.zext oSz cond)
+      direct t := t .| (AST.ite cond (extSrc << k) t)
+      direct k := k .+ (AST.zext oSz cond)
     done
-    dstAssign oSz dst t
+    sized oSz dst := t
   }
 
 let pop (ins: Instruction) insLen bld =
@@ -2149,7 +2149,7 @@ let popa (ins: Instruction) insLen bld oprSize =
     auxPop oprSize bld (regVar bld di)
     auxPop oprSize bld (regVar bld si)
     auxPop oprSize bld (regVar bld bp)
-    sp := sp .+ (numI32 (int oprSize / 8) 32<rt>)
+    direct sp := sp .+ (numI32 (int oprSize / 8) 32<rt>)
     auxPop oprSize bld (regVar bld bx)
     auxPop oprSize bld (regVar bld dx)
     auxPop oprSize bld (regVar bld cx)
@@ -2165,24 +2165,24 @@ let popcnt (ins: Instruction) insLen bld =
     let oprSize = getOperationSize ins
     let max = numI32 (RegType.toBitWidth oprSize) oprSize
     let struct (i, count, orgSrc) = tmpVars3 bld oprSize
-    i := AST.num0 oprSize
-    count := AST.num0 oprSize
-    orgSrc := src
+    direct i := AST.num0 oprSize
+    direct count := AST.num0 oprSize
+    direct orgSrc := src
     AST.lmark lblLoopCond
     AST.cjmp (i .< max) (AST.jmpDest lblLoop) (AST.jmpDest lblExit)
     AST.lmark lblLoop
     let cond = (AST.xtlo 1<rt> (src >> i)) == AST.b1
-    count := AST.ite cond (count .+ AST.num1 oprSize) count
-    i := i .+ AST.num1 oprSize
+    direct count := AST.ite cond (count .+ AST.num1 oprSize) count
+    direct i := i .+ AST.num1 oprSize
     AST.jmp (AST.jmpDest lblLoopCond)
     AST.lmark lblExit
-    dstAssign oprSize dst count
-    regVar bld R.OF := AST.b0
-    regVar bld R.SF := AST.b0
-    regVar bld R.ZF := orgSrc == AST.num0 oprSize
-    regVar bld R.AF := AST.b0
-    regVar bld R.CF := AST.b0
-    regVar bld R.PF := AST.b0
+    sized oprSize dst := count
+    direct (regVar bld R.OF) := AST.b0
+    direct (regVar bld R.SF) := AST.b0
+    direct (regVar bld R.ZF) := orgSrc == AST.num0 oprSize
+    direct (regVar bld R.AF) := AST.b0
+    direct (regVar bld R.CF) := AST.b0
+    direct (regVar bld R.PF) := AST.b0
 #if EMULATION
     bld.ConditionCodeOp <- ConditionCodeOp.EFlags
 #endif
@@ -2193,15 +2193,15 @@ let popf ins insLen bld =
     let oprSize = getOperationSize ins
     let t = tmpVar bld oprSize
     auxPop oprSize bld t
-    regVar bld R.OF := AST.extract t 1<rt> 11
-    regVar bld R.DF := AST.extract t 1<rt> 10
-    regVar bld R.IF := AST.extract t 1<rt> 9
-    regVar bld R.TF := AST.extract t 1<rt> 8
-    regVar bld R.SF := AST.extract t 1<rt> 7
-    regVar bld R.ZF := AST.extract t 1<rt> 6
-    regVar bld R.AF := AST.extract t 1<rt> 4
-    regVar bld R.PF := AST.extract t 1<rt> 2
-    regVar bld R.CF := AST.xtlo 1<rt> t
+    direct (regVar bld R.OF) := AST.extract t 1<rt> 11
+    direct (regVar bld R.DF) := AST.extract t 1<rt> 10
+    direct (regVar bld R.IF) := AST.extract t 1<rt> 9
+    direct (regVar bld R.TF) := AST.extract t 1<rt> 8
+    direct (regVar bld R.SF) := AST.extract t 1<rt> 7
+    direct (regVar bld R.ZF) := AST.extract t 1<rt> 6
+    direct (regVar bld R.AF) := AST.extract t 1<rt> 4
+    direct (regVar bld R.PF) := AST.extract t 1<rt> 2
+    direct (regVar bld R.CF) := AST.xtlo 1<rt> t
 #if EMULATION
     bld.ConditionCodeOp <- ConditionCodeOp.EFlags
 #endif
@@ -2222,7 +2222,7 @@ let push (ins: Instruction) insLen bld =
     let oprSize = getOperationSize ins
     if hasStackPtr ins then
       let t = tmpVar bld oprSize
-      t := padPushExpr oprSize src
+      direct t := padPushExpr oprSize src
       auxPush oprSize bld (padPushExpr oprSize t)
     else
       auxPush oprSize bld (padPushExpr oprSize src)
@@ -2239,7 +2239,7 @@ let pusha (ins: Instruction) insLen bld oprSize =
     let bp = if oprSize = 32<rt> then R.EBP else R.BP
     let si = if oprSize = 32<rt> then R.ESI else R.SI
     let di = if oprSize = 32<rt> then R.EDI else R.DI
-    dstAssign oprSize t (regVar bld sp)
+    sized oprSize t := regVar bld sp
     auxPush oprSize bld (regVar bld ax)
     auxPush oprSize bld (regVar bld cx)
     auxPush oprSize bld (regVar bld dx)
@@ -2303,26 +2303,26 @@ let rcl (ins: Instruction) insLen bld =
     let count = AST.zext oprSize count
     let tmpCnt = tmpVar bld oprSize
     let cnt = rotateThroughCarryCount oprSize count
-    tmpCnt := cnt
+    direct tmpCnt := cnt
     let cond1 = tmpCnt != AST.num0 oprSize
     let cntMask = numI32 (if oprSize = 64<rt> then 0x3F else 0x1F) oprSize
     let cond2 = (count .& cntMask) == AST.num1 oprSize
 #if EMULATION
-    cF := getCFLazy bld
+    direct cF := getCFLazy bld
 #endif
     _repeat bld "Rotate" cond1
       (block {
-        tmpCF := AST.xthi 1<rt> dst
+        direct tmpCF := AST.xthi 1<rt> dst
         let r = (dst << AST.num1 oprSize) .+ (AST.zext oprSize cF)
-        dstAssign oprSize dst r
-        cF := tmpCF
-        tmpCnt := tmpCnt .- AST.num1 oprSize })
+        sized oprSize dst := r
+        direct cF := tmpCF
+        direct tmpCnt := tmpCnt .- AST.num1 oprSize })
       (block {
-        dstAssign oprSize dst dst })
+        sized oprSize dst := dst })
 #if !EMULATION
-    oF := AST.ite cond2 (AST.xthi 1<rt> dst <+> cF) undefOF
+    direct oF := AST.ite cond2 (AST.xthi 1<rt> dst <+> cF) undefOF
 #else
-    oF := AST.ite cond2 (AST.xthi 1<rt> dst <+> cF) (getOFLazy bld)
+    direct oF := AST.ite cond2 (AST.xthi 1<rt> dst <+> cF) (getOFLazy bld)
     bld.ConditionCodeOp <- ConditionCodeOp.EFlags
 #endif
   }
@@ -2337,27 +2337,27 @@ let rcr (ins: Instruction) insLen bld =
     let count = AST.zext oprSize count
     let tmpCnt = tmpVar bld oprSize
     let cnt = rotateThroughCarryCount oprSize count
-    tmpCnt := cnt
+    direct tmpCnt := cnt
     let cond1 = tmpCnt != AST.num0 oprSize
     let cntMask = numI32 (if oprSize = 64<rt> then 0x3F else 0x1F) oprSize
     let cond2 = (count .& cntMask) == AST.num1 oprSize
 #if EMULATION
-    cF := getCFLazy bld
+    direct cF := getCFLazy bld
 #endif
-    tmpOF := AST.xthi 1<rt> dst <+> cF
+    direct tmpOF := AST.xthi 1<rt> dst <+> cF
     _repeat bld "Rotate" cond1
       (block {
-        tmpCF := AST.xtlo 1<rt> dst
+        direct tmpCF := AST.xtlo 1<rt> dst
         let extCF = (AST.zext oprSize cF) << (numI32 (int oprSize - 1) oprSize)
-        dstAssign oprSize dst ((dst >> AST.num1 oprSize) .+ extCF)
-        cF := tmpCF
-        tmpCnt := tmpCnt .- AST.num1 oprSize })
+        sized oprSize dst := (dst >> AST.num1 oprSize) .+ extCF
+        direct cF := tmpCF
+        direct tmpCnt := tmpCnt .- AST.num1 oprSize })
       (block {
-        dstAssign oprSize dst dst })
+        sized oprSize dst := dst })
 #if !EMULATION
-    oF := AST.ite cond2 tmpOF undefOF
+    direct oF := AST.ite cond2 tmpOF undefOF
 #else
-    oF := AST.ite cond2 tmpOF (getOFLazy bld)
+    direct oF := AST.ite cond2 tmpOF (getOFLazy bld)
     bld.ConditionCodeOp <- ConditionCodeOp.EFlags
 #endif
   }
@@ -2371,8 +2371,8 @@ let rdpkru ins insLen bld =
     _unless bld "Err" (ecx == AST.num0 oprSize)
       (block {
         AST.sideEffect (Exception ProtectionFault) })
-    eax := AST.zext bld.RegType (regVar bld R.PKRU)
-    edx := AST.num0 bld.RegType
+    direct eax := AST.zext bld.RegType (regVar bld R.PKRU)
+    direct edx := AST.num0 bld.RegType
   }
 
 let ret (ins: Instruction) insLen bld =
@@ -2394,7 +2394,7 @@ let ret (ins: Instruction) insLen bld =
       bld.ConditionCodeOp <- ConditionCodeOp.TraceStart
 #endif
       auxPop oprSize bld t
-      sp := sp .+ (AST.zext oprSize src)
+      direct sp := sp .+ (AST.zext oprSize src)
     AST.interjmp t InterJmpKind.IsRet
     return NoEndMark
   }
@@ -2407,20 +2407,20 @@ let rotate (ins: Instruction) insLen bld lfn hfn cfFn ofFn =
     let oF = regVar bld R.OF
     let struct (orgCount, maskedCnt) = tmpVars2 bld oprSize
     let size = numI32 (RegType.toBitWidth oprSize) oprSize
-    orgCount := AST.zext oprSize count .% (numI32 (int oprSize) oprSize)
+    direct orgCount := AST.zext oprSize count .% (numI32 (int oprSize) oprSize)
     let countmask = if oprSize = 64<rt> then 0x3F else 0x1F
-    maskedCnt := AST.zext oprSize count .& numI32 countmask oprSize
+    direct maskedCnt := AST.zext oprSize count .& numI32 countmask oprSize
     let cond1 = maskedCnt == AST.num0 oprSize
     let cond2 = maskedCnt == AST.num1 oprSize
     let value = (lfn dst orgCount) .| (hfn dst (size .- orgCount))
-    dstAssign oprSize dst value
+    sized oprSize dst := value
 #if !EMULATION
-    cF := AST.ite cond1 cF (cfFn 1<rt> dst)
-    oF := AST.ite cond2 (ofFn dst cF) undefOF
+    direct cF := AST.ite cond1 cF (cfFn 1<rt> dst)
+    direct oF := AST.ite cond2 (ofFn dst cF) undefOF
 #else
     genDynamicFlagsUpdate bld
-    cF := AST.ite cond1 cF (cfFn 1<rt> dst)
-    oF := AST.ite cond2 (ofFn dst cF) oF
+    direct cF := AST.ite cond1 cF (cfFn 1<rt> dst)
+    direct oF := AST.ite cond2 (ofFn dst cF) oF
     bld.ConditionCodeOp <- ConditionCodeOp.EFlags
 #endif
   }
@@ -2441,25 +2441,21 @@ let rorx (ins: Instruction) insLen bld =
     let oprSize = getOperationSize ins
     let y = tmpVar bld oprSize
     if oprSize = 32<rt> then
-      y := imm .& (numI32 0x1F oprSize)
-      dstAssign oprSize
-                dst
-                ((src >> y) .| (src << (numI32 32 oprSize .- y)))
+      direct y := imm .& (numI32 0x1F oprSize)
+      sized oprSize dst := (src >> y) .| (src << (numI32 32 oprSize .- y))
     else (* OperandSize = 64 *)
-      y := imm .& (numI32 0x3F oprSize)
-      dstAssign oprSize
-                dst
-                ((src >> y) .| (src << (numI32 64 oprSize .- y)))
+      direct y := imm .& (numI32 0x3F oprSize)
+      sized oprSize dst := (src >> y) .| (src << (numI32 64 oprSize .- y))
   }
 
 let sahf (ins: Instruction) insLen bld =
   lift bld ins insLen {
     let ah = regVar bld R.AH
-    regVar bld R.CF := AST.xtlo 1<rt> ah
-    regVar bld R.PF := AST.extract ah 1<rt> 2
-    regVar bld R.AF := AST.extract ah 1<rt> 4
-    regVar bld R.ZF := AST.extract ah 1<rt> 6
-    regVar bld R.SF := AST.extract ah 1<rt> 7
+    direct (regVar bld R.CF) := AST.xtlo 1<rt> ah
+    direct (regVar bld R.PF) := AST.extract ah 1<rt> 2
+    direct (regVar bld R.AF) := AST.extract ah 1<rt> 4
+    direct (regVar bld R.ZF) := AST.extract ah 1<rt> 6
+    direct (regVar bld R.SF) := AST.extract ah 1<rt> 7
 #if EMULATION
     bld.ConditionCodeOp <- ConditionCodeOp.EFlags
 #endif
@@ -2486,10 +2482,11 @@ let private shiftFlagParts bld oprSize src cnt =
 let private shlAndSetFlags bld oprSize dst tDst cnt parts =
   let struct (isCntConst, tCnt, n1, cond1, cond2, oF, cF) = parts
   append bld {
-    dstAssign oprSize dst (tDst << cnt)
-    if isCntConst then () else tCnt := cnt .- n1
-    cF := AST.ite cond2 cF (AST.xthi 1<rt> (tDst << tCnt))
-    oF := AST.ite cond1 (AST.xthi 1<rt> dst <+> cF) (AST.ite cond2 oF undefOF)
+    sized oprSize dst := tDst << cnt
+    if isCntConst then () else direct tCnt := cnt .- n1
+    direct cF := AST.ite cond2 cF (AST.xthi 1<rt> (tDst << tCnt))
+    direct oF :=
+      AST.ite cond1 (AST.xthi 1<rt> dst <+> cF) (AST.ite cond2 oF undefOF)
   }
 #endif
 
@@ -2500,10 +2497,10 @@ let private shlAndSetFlags bld oprSize dst tDst cnt parts =
 let private shrAndSetFlags bld oprSize dst tDst cnt parts =
   let struct (isCntConst, tCnt, n1, cond1, cond2, oF, cF) = parts
   append bld {
-    dstAssign oprSize dst (tDst >> cnt)
-    if isCntConst then () else tCnt := cnt .- n1
-    cF := AST.ite cond2 cF (AST.xtlo 1<rt> (tDst >> tCnt))
-    oF := AST.ite cond1 (AST.xthi 1<rt> tDst) (AST.ite cond2 oF undefOF)
+    sized oprSize dst := tDst >> cnt
+    if isCntConst then () else direct tCnt := cnt .- n1
+    direct cF := AST.ite cond2 cF (AST.xtlo 1<rt> (tDst >> tCnt))
+    direct oF := AST.ite cond1 (AST.xthi 1<rt> tDst) (AST.ite cond2 oF undefOF)
   }
 #endif
 
@@ -2513,10 +2510,10 @@ let private shrAndSetFlags bld oprSize dst tDst cnt parts =
 let private sarAndSetFlags bld oprSize dst tDst cnt parts =
   let struct (isCntConst, tCnt, n1, cond1, cond2, oF, cF) = parts
   append bld {
-    dstAssign oprSize dst (tDst ?>> cnt)
-    if isCntConst then () else tCnt := cnt .- n1
-    cF := AST.ite cond2 cF (AST.xtlo 1<rt> (tDst ?>> tCnt))
-    oF := AST.ite cond1 AST.b0 (AST.ite cond2 oF undefOF)
+    sized oprSize dst := tDst ?>> cnt
+    if isCntConst then () else direct tCnt := cnt .- n1
+    direct cF := AST.ite cond2 cF (AST.xtlo 1<rt> (tDst ?>> tCnt))
+    direct oF := AST.ite cond1 AST.b0 (AST.ite cond2 oF undefOF)
   }
 #endif
 
@@ -2526,10 +2523,10 @@ let private sarAndSetFlags bld oprSize dst tDst cnt parts =
 let private setShiftFlags bld oprSize dst cond2 sF zF =
   append bld {
     let aF = regVar bld R.AF
-    aF := AST.ite cond2 aF undefAF
-    sF := AST.ite cond2 sF (AST.xthi 1<rt> dst)
+    direct aF := AST.ite cond2 aF undefAF
+    direct sF := AST.ite cond2 sF (AST.xthi 1<rt> dst)
     buildPF bld dst oprSize (Some cond2)
-    zF := AST.ite cond2 zF (dst == AST.num0 oprSize)
+    direct zF := AST.ite cond2 zF (dst == AST.num0 oprSize)
   }
 #endif
 
@@ -2538,9 +2535,9 @@ let private setShiftFlags bld oprSize dst cond2 sF zF =
 /// worked out only if something goes on to read them.
 let private shlLazily bld oprSize dst cnt tDst =
   append bld {
-    tDst := dst << cnt
+    direct tDst := dst << cnt
     setCCOperands3 bld dst cnt tDst
-    dstAssign oprSize dst tDst
+    sized oprSize dst := tDst
     match oprSize with
     | 8<rt> -> bld.ConditionCodeOp <- ConditionCodeOp.SHLB
     | 16<rt> -> bld.ConditionCodeOp <- ConditionCodeOp.SHLW
@@ -2555,9 +2552,9 @@ let private shlLazily bld oprSize dst cnt tDst =
 /// worked out only if something goes on to read them.
 let private shrLazily bld oprSize dst cnt tDst =
   append bld {
-    tDst := dst >> cnt
+    direct tDst := dst >> cnt
     setCCOperands3 bld dst cnt tDst
-    dstAssign oprSize dst tDst
+    sized oprSize dst := tDst
     match oprSize with
     | 8<rt> -> bld.ConditionCodeOp <- ConditionCodeOp.SHRB
     | 16<rt> -> bld.ConditionCodeOp <- ConditionCodeOp.SHRW
@@ -2572,9 +2569,9 @@ let private shrLazily bld oprSize dst cnt tDst =
 /// that the flags are worked out only if something goes on to read them.
 let private sarLazily bld oprSize dst cnt tDst =
   append bld {
-    tDst := dst ?>> cnt
+    direct tDst := dst ?>> cnt
     setCCOperands3 bld dst cnt tDst
-    dstAssign oprSize dst tDst
+    sized oprSize dst := tDst
     match oprSize with
     | 8<rt> -> bld.ConditionCodeOp <- ConditionCodeOp.SARB
     | 16<rt> -> bld.ConditionCodeOp <- ConditionCodeOp.SARW
@@ -2597,7 +2594,7 @@ let shift (ins: Instruction) insLen bld =
     let struct (_, _, _, _, cond2, _, _) = parts
     let sF = regVar bld R.SF
     let zF = regVar bld R.ZF
-    tDst := dst
+    direct tDst := dst
 #endif
     match ins.Opcode with
     | Opcode.SHL ->
@@ -2632,17 +2629,17 @@ let sbb (ins: Instruction) insLen bld =
     let struct (t1, t2, t3, t4) = tmpVars4 bld oprSize
     let cf = regVar bld R.CF
     let sf = AST.xthi 1<rt> t4
-    t1 := dst
-    t2 := AST.sext oprSize src
+    direct t1 := dst
+    direct t2 := AST.sext oprSize src
 #if EMULATION
-    t3 := t2 .+ AST.zext oprSize (getCFLazy bld)
+    direct t3 := t2 .+ AST.zext oprSize (getCFLazy bld)
 #else
-    t3 := t2 .+ AST.zext oprSize cf
+    direct t3 := t2 .+ AST.zext oprSize cf
 #endif
-    t4 := t1 .- t3
-    dstAssign oprSize dst t4
-    cf := (t1 .< t3) .| (t3 .< t2)
-    regVar bld R.OF := ofOnSub t1 t2 t4
+    direct t4 := t1 .- t3
+    sized oprSize dst := t4
+    direct cf := (t1 .< t3) .| (t3 .< t2)
+    direct (regVar bld R.OF) := ofOnSub t1 t2 t4
     enumASZPFlags bld t1 t2 t4 oprSize sf
 #if EMULATION
     bld.ConditionCodeOp <- ConditionCodeOp.EFlags
@@ -2659,10 +2656,10 @@ let private scasBody ins bld =
     let tSrc = tmpVar bld oprSize
     let amount = numI32 (RegType.toByteWidth oprSize) bld.RegType
     let sf = AST.xthi 1<rt> t
-    tSrc := AST.loadLE oprSize di
-    t := x .- tSrc
+    direct tSrc := AST.loadLE oprSize di
+    direct t := x .- tSrc
     enumEFLAGS bld x tSrc t oprSize (cfOnSub x tSrc) (ofOnSub x tSrc t) sf
-    di := AST.ite df (di .- amount) (di .+ amount)
+    direct di := AST.ite df (di .- amount) (di .+ amount)
   }
 
 let scas (ins: Instruction) insLen bld =
@@ -2742,7 +2739,7 @@ let setcc (ins: Instruction) insLen bld =
 #else
     let cond = getCondOfSet ins bld |> AST.zext oprSize
 #endif
-    dstAssign oprSize dst cond
+    sized oprSize dst := cond
   }
 
 /// The carry a double-precision shift leaves behind: the last bit shifted out
@@ -2752,9 +2749,9 @@ let private setShiftDblPrecCF bld org amount cond1 cond2 =
   append bld {
 #if !EMULATION
     let fallThrough = AST.ite cond2 undefCF (AST.xtlo 1<rt> (org >> amount))
-    cF := AST.ite cond1 cF fallThrough
+    direct cF := AST.ite cond1 cF fallThrough
 #else
-    cF := AST.ite (cond1 .| cond2) cF (AST.xtlo 1<rt> (org >> amount))
+    direct cF := AST.ite (cond1 .| cond2) cF (AST.xtlo 1<rt> (org >> amount))
 #endif
   }
 
@@ -2768,10 +2765,10 @@ let private setShiftDblPrecOF bld dst org conds =
 #if !EMULATION
     let aF = regVar bld R.AF
     let fallThrough = AST.ite cond2 undefOF (AST.ite cond3 overflow undefOF)
-    oF := AST.ite cond1 oF fallThrough
-    aF := AST.ite cond1 aF undefAF
+    direct oF := AST.ite cond1 oF fallThrough
+    direct aF := AST.ite cond1 aF undefAF
 #else
-    oF := AST.ite (cond1 .| cond2) oF (AST.ite cond3 overflow oF)
+    direct oF := AST.ite (cond1 .| cond2) oF (AST.ite cond3 overflow oF)
     bld.ConditionCodeOp <- ConditionCodeOp.EFlags
 #endif
   }
@@ -2783,11 +2780,12 @@ let private setShiftDblPrecSZ bld oprSz dst cond1 cond2 =
   let zf = regVar bld R.ZF
   append bld {
 #if !EMULATION
-    sf := AST.ite cond1 sf (AST.ite cond2 undefSF (AST.xthi 1<rt> dst))
-    zf := AST.ite cond1 zf (AST.ite cond2 undefZF (dst == AST.num0 oprSz))
+    direct sf := AST.ite cond1 sf (AST.ite cond2 undefSF (AST.xthi 1<rt> dst))
+    direct zf :=
+      AST.ite cond1 zf (AST.ite cond2 undefZF (dst == AST.num0 oprSz))
 #else
-    sf := AST.ite (cond1 .| cond2) sf (AST.xthi 1<rt> dst)
-    zf := AST.ite (cond1 .| cond2) zf (dst == AST.num0 oprSz)
+    direct sf := AST.ite (cond1 .| cond2) sf (AST.xthi 1<rt> dst)
+    direct zf := AST.ite (cond1 .| cond2) zf (dst == AST.num0 oprSz)
 #endif
   }
 
@@ -2816,22 +2814,22 @@ let shiftDblPrec (ins: Instruction) insLen bld fnDst fnSrc isShl =
     let org = tmpVar bld oprSz
     let wordBits = if REXPrefix.hasW ins.REXPrefix then 64 else 32
     let wordSize = numI32 wordBits oprSz
-    count := (AST.zext oprSz cnt .% wordSize)
-    size := exprOprSz
-    cond1 := count == AST.num0 oprSz
-    cond2 := count .> size
-    cond3 := count == AST.num1 oprSz
-    org := dst
-    tDst := dst
-    tSrc := src
-    tDst := fnDst tDst count
-    tSrc := fnSrc tSrc (size .- count)
+    direct count := (AST.zext oprSz cnt .% wordSize)
+    direct size := exprOprSz
+    direct cond1 := count == AST.num0 oprSz
+    direct cond2 := count .> size
+    direct cond3 := count == AST.num1 oprSz
+    direct org := dst
+    direct tDst := dst
+    direct tSrc := src
+    direct tDst := fnDst tDst count
+    direct tSrc := fnSrc tSrc (size .- count)
 #if !EMULATION
     let undefDEST = AST.undef oprSz "DEST is undefined."
     let fallThrough = AST.ite cond2 undefDEST (tDst .| tSrc)
-    dstAssign oprSz dst (AST.ite cond1 org fallThrough)
+    sized oprSz dst := AST.ite cond1 org fallThrough
 #else
-    dstAssign oprSz dst (AST.ite (cond1 .| cond2) org (tDst .| tSrc))
+    sized oprSz dst := AST.ite (cond1 .| cond2) org (tDst .| tSrc)
 #endif
     setShiftDblPrecFlags bld oprSz dst org count size conds isShl
   }
@@ -2846,7 +2844,7 @@ let private shiftWithoutFlags (ins: Instruction) insLen bld opFn =
     let oprSize = getOperationSize ins
     let countMask = if is64REXW bld ins then 0x3F else 0x1F // FIXME: CS.L = 1
     let count = src2 .& (numI32 countMask oprSize)
-    dstAssign oprSize dst (opFn src1 count)
+    sized oprSize dst := opFn src1 count
   }
 
 let sarx ins insLen bld = shiftWithoutFlags ins insLen bld (?>>)
@@ -2857,7 +2855,7 @@ let shrx ins insLen bld = shiftWithoutFlags ins insLen bld (>>)
 
 let setFlag (ins: Instruction) insLen bld flag =
   lift bld ins insLen {
-    regVar bld flag := AST.b1
+    direct (regVar bld flag) := AST.b1
 #if EMULATION
     bld.ConditionCodeOp <- ConditionCodeOp.EFlags
 #endif
@@ -2876,8 +2874,8 @@ let private stosBody ins bld =
     let di = regVar bld (if is64bit bld then R.RDI else R.EDI)
     let src = getRegOfSize bld oprSize grpEAX
     let amount = numI32 (RegType.toByteWidth oprSize) bld.RegType
-    AST.loadLE oprSize di := src
-    di := AST.ite df (di .- amount) (di .+ amount)
+    direct (AST.loadLE oprSize di) := src
+    direct di := AST.ite df (di .- amount) (di .+ amount)
   }
 
 let stos (ins: Instruction) insLen bld =
@@ -2901,10 +2899,10 @@ let sub (ins: Instruction) insLen bld =
     let t1 = tmpVar bld oprSize
     let t2 = if isSrcConst then src else tmpVar bld oprSize
     let t3 = tmpVar bld oprSize
-    t1 := dst
-    if isSrcConst then () else t2 := src
-    t3 := t1 .- t2
-    dstAssign oprSize dst t3
+    direct t1 := dst
+    if isSrcConst then () else direct t2 := src
+    direct t3 := t1 .- t2
+    sized oprSize dst := t3
     let sf = AST.xthi 1<rt> t3
     enumEFLAGS bld t1 t2 t3 oprSize (cfOnSub t1 t2) (ofOnSub t1 t2 t3) sf
 #else
@@ -2913,9 +2911,9 @@ let sub (ins: Instruction) insLen bld =
         src
       else
         let t = tmpVar bld oprSize
-        append bld { t := src }
+        append bld { direct t := src }
         t
-    dstAssign oprSize dst (dst .- src)
+    sized oprSize dst := dst .- src
     setCCOperands2 bld src dst
     match oprSize with
     | 8<rt> -> bld.ConditionCodeOp <- ConditionCodeOp.SUBB
@@ -2942,13 +2940,13 @@ let test (ins: Instruction) insLen bld =
     | _ -> raise InvalidRegTypeException
 #else
     let t = tmpVar bld oprSize
-    t := r
-    regVar bld R.SF := AST.xthi 1<rt> t
-    regVar bld R.ZF := t == (AST.num0 oprSize)
+    direct t := r
+    direct (regVar bld R.SF) := AST.xthi 1<rt> t
+    direct (regVar bld R.ZF) := t == (AST.num0 oprSize)
     buildPF bld t oprSize None
-    regVar bld R.CF := AST.b0
-    regVar bld R.OF := AST.b0
-    regVar bld R.AF := undefAF
+    direct (regVar bld R.CF) := AST.b0
+    direct (regVar bld R.OF) := AST.b0
+    direct (regVar bld R.AF) := undefAF
 #endif
   }
 
@@ -2966,9 +2964,9 @@ let private narrowByHalves bld oprSize (t1, t2, res) z =
       | 64<rt> -> [ 32; 16; 8; 4 ]
       | _ -> raise InvalidOperandSizeException
     for w in widths do
-      t2 := t1 >> numI32 w oprSize
-      t1 := AST.ite (t2 != z) t2 t1
-      res := AST.ite (t2 != z) (res .+ numI32 w oprSize) res
+      direct t2 := t1 >> numI32 w oprSize
+      direct t1 := AST.ite (t2 != z) t2 t1
+      direct res := AST.ite (t2 != z) (res .+ numI32 w oprSize) res
   }
 
 let tzcnt ins insLen bld =
@@ -2981,25 +2979,25 @@ let tzcnt ins insLen bld =
     let z = AST.num0 oprSize
     let max = numI32 (RegType.toBitWidth oprSize) oprSize
     let struct (t1, t2, res) = tmpVars3 bld oprSize
-    t1 := src
+    direct t1 := src
     AST.cjmp (t1 == z) (AST.jmpDest lblZero) (AST.jmpDest lblCnt)
     AST.lmark lblZero
-    dstAssign oprSize dst max
+    sized oprSize dst := max
     AST.jmp (AST.jmpDest lblEnd)
     AST.lmark lblCnt
-    res := z
-    t1 := t1 .& (t1 .* numI32 0xFFFFFFFF oprSize)
+    direct res := z
+    direct t1 := t1 .& (t1 .* numI32 0xFFFFFFFF oprSize)
     narrowByHalves bld oprSize (t1, t2, res) z
     let v = (res .+ ((t1 >> numI32 1 oprSize) .- (t1 >> numI32 3 oprSize)))
-    dstAssign oprSize dst v
+    sized oprSize dst := v
     AST.lmark lblEnd
-    regVar bld R.CF := dst == max
-    regVar bld R.ZF := dst == z
+    direct (regVar bld R.CF) := dst == max
+    direct (regVar bld R.ZF) := dst == z
 #if !EMULATION
-    regVar bld R.OF := undefOF
-    regVar bld R.SF := undefSF
-    regVar bld R.PF := undefPF
-    regVar bld R.AF := undefAF
+    direct (regVar bld R.OF) := undefOF
+    direct (regVar bld R.SF) := undefSF
+    direct (regVar bld R.PF) := undefPF
+    direct (regVar bld R.AF) := undefAF
 #else
     bld.ConditionCodeOp <- ConditionCodeOp.EFlags
 #endif
@@ -3008,13 +3006,13 @@ let tzcnt ins insLen bld =
 let wrfsbase (ins: Instruction) insLen bld =
   lift bld ins insLen {
     let src = transOneOpr bld ins insLen
-    regVar bld R.FSBase := AST.zext bld.RegType src
+    direct (regVar bld R.FSBase) := AST.zext bld.RegType src
   }
 
 let wrgsbase (ins: Instruction) insLen bld =
   lift bld ins insLen {
     let src = transOneOpr bld ins insLen
-    regVar bld R.GSBase := AST.zext bld.RegType src
+    direct (regVar bld R.GSBase) := AST.zext bld.RegType src
   }
 
 let wrpkru ins insLen bld =
@@ -3025,7 +3023,7 @@ let wrpkru ins insLen bld =
     _unless bld "Err" (ecxIsZero .& edxIsZero)
       (block {
         AST.sideEffect (Exception ProtectionFault) })
-    regVar bld R.PKRU := regVar bld R.EAX
+    direct (regVar bld R.PKRU) := regVar bld R.EAX
   }
 
 let xadd (ins: Instruction) insLen bld =
@@ -3035,11 +3033,11 @@ let xadd (ins: Instruction) insLen bld =
     let oprSize = getOperationSize ins
     let struct (t1, t2, t3) = tmpVars3 bld oprSize
     atomicBeginIfLocked ins bld
-    t1 := dst
-    t2 := src
-    t3 := t1 .+ t2
-    dstAssign oprSize src dst
-    dstAssign oprSize orgDst t3
+    direct t1 := dst
+    direct t2 := src
+    direct t3 := t1 .+ t2
+    sized oprSize src := dst
+    sized oprSize orgDst := t3
 #if EMULATION
     setCCOperands2 bld t2 t3
     match oprSize with
@@ -3061,11 +3059,11 @@ let xchg (ins: Instruction) insLen bld =
     let oprSize = getOperationSize ins
     if dst <> src then
       let t = tmpVar bld oprSize
-      t := dst
-      dstAssign oprSize dst src
-      dstAssign oprSize src t
+      direct t := dst
+      sized oprSize dst := src
+      sized oprSize src := t
     else
-      dstAssign oprSize dst src
+      sized oprSize dst := src
   }
 
 let xlatb ins insLen bld =
@@ -3073,7 +3071,7 @@ let xlatb ins insLen bld =
     let addressSize = getEffAddrSz ins
     let al = AST.zext addressSize (regVar bld R.AL)
     let bx = getRegOfSize bld addressSize grpEBX
-    regVar bld R.AL := AST.loadLE 8<rt> (al .+ bx)
+    direct (regVar bld R.AL) := AST.loadLE 8<rt> (al .+ bx)
   }
 
 let xor (ins: Instruction) insLen bld =
@@ -3083,21 +3081,21 @@ let xor (ins: Instruction) insLen bld =
     | TwoOperands(o1, o2) when o1 = o2 ->
       let dst = transOprToExpr bld false ins insLen o1
       let r = AST.num0 oprSize
-      dstAssign oprSize dst r
+      sized oprSize dst := r
 #if EMULATION
       setCCDst bld r
       bld.ConditionCodeOp <- ConditionCodeOp.XORXX
 #else
-      regVar bld R.OF := AST.b0
-      regVar bld R.CF := AST.b0
-      regVar bld R.SF := AST.b0
-      regVar bld R.ZF := AST.b1
-      regVar bld R.PF := AST.b1
+      direct (regVar bld R.OF) := AST.b0
+      direct (regVar bld R.CF) := AST.b0
+      direct (regVar bld R.SF) := AST.b0
+      direct (regVar bld R.ZF) := AST.b1
+      direct (regVar bld R.PF) := AST.b1
 #endif
     | TwoOperands(o1, o2) ->
       let dst = transOprToExpr bld false ins insLen o1
       let src = transOprToExpr bld false ins insLen o2 |> transReg bld true
-      dstAssign oprSize dst (dst <+> src)
+      sized oprSize dst := dst <+> src
 #if EMULATION
       setCCDst bld dst
       match oprSize with
@@ -3107,15 +3105,15 @@ let xor (ins: Instruction) insLen bld =
       | 64<rt> -> bld.ConditionCodeOp <- ConditionCodeOp.LOGICQ
       | _ -> raise InvalidRegTypeException
 #else
-      regVar bld R.OF := AST.b0
-      regVar bld R.CF := AST.b0
-      regVar bld R.SF := AST.xthi 1<rt> dst
-      regVar bld R.ZF := dst == (AST.num0 oprSize)
+      direct (regVar bld R.OF) := AST.b0
+      direct (regVar bld R.CF) := AST.b0
+      direct (regVar bld R.SF) := AST.xthi 1<rt> dst
+      direct (regVar bld R.ZF) := dst == (AST.num0 oprSize)
       buildPF bld dst oprSize None
 #endif
     | _ ->
       raise InvalidOperandException
 #if !EMULATION
-    regVar bld R.AF := undefAF
+    direct (regVar bld R.AF) := undefAF
 #endif
   }

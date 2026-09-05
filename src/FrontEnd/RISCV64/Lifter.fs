@@ -589,7 +589,7 @@ let transFourOprs ins bld (o1, o2, o3, o4) =
 
 let getNanBoxed e = (numU64 0xFFFFFFFF_00000000uL 64<rt>) .| (AST.zext 64<rt> e)
 
-let dstAssignSingleWithRound dst src rm bld =
+let writeRoundedSingle dst src rm bld =
   append bld {
     let rtVal = getNanBoxed src
     if rm <> OpRoundMode(RoundMode.DYN) then
@@ -599,7 +599,7 @@ let dstAssignSingleWithRound dst src rm bld =
       dst := dynamicRoundingFl bld 64<rt> rtVal
   }
 
-let dstAssignDoubleWithRound dst src rm bld =
+let writeRoundedDouble dst src rm bld =
   append bld {
     if rm <> OpRoundMode(RoundMode.DYN) then
       let rounding = roundingToCastFloat rm
@@ -2178,7 +2178,7 @@ let fcvtdotsdotw ins insLen bld =
     let rs1 = AST.xtlo 32<rt> rs1
     let rtVal = tmpVar bld 32<rt>
     rtVal := AST.cast CastKind.SIntToFloat 32<rt> rs1
-    dstAssignSingleWithRound rd rtVal rm bld
+    writeRoundedSingle rd rtVal rm bld
   }
 
 let fcvtdotsdotwu ins insLen bld =
@@ -2188,7 +2188,7 @@ let fcvtdotsdotwu ins insLen bld =
     let rs1 = AST.xtlo 32<rt> rs1
     let rtVal = tmpVar bld 32<rt>
     rtVal := AST.cast CastKind.UIntToFloat 32<rt> rs1
-    dstAssignSingleWithRound rd rtVal rm bld
+    writeRoundedSingle rd rtVal rm bld
   }
 
 let fcvtdotsdotl ins insLen bld =
@@ -2197,7 +2197,7 @@ let fcvtdotsdotl ins insLen bld =
     let rd, rs1 = (rd, rs1) |> transTwoOprs ins bld
     let rtVal = tmpVar bld 32<rt>
     rtVal := AST.cast CastKind.SIntToFloat 32<rt> rs1
-    dstAssignSingleWithRound rd rtVal rm bld
+    writeRoundedSingle rd rtVal rm bld
   }
 
 let fcvtdotsdotlu ins insLen bld =
@@ -2206,7 +2206,7 @@ let fcvtdotsdotlu ins insLen bld =
     let rd, rs1 = (rd, rs1) |> transTwoOprs ins bld
     let rtVal = tmpVar bld 32<rt>
     rtVal := AST.cast CastKind.UIntToFloat 32<rt> rs1
-    dstAssignSingleWithRound rd rtVal rm bld
+    writeRoundedSingle rd rtVal rm bld
   }
 
 let fcvtdotddotw ins insLen bld =
@@ -2226,7 +2226,7 @@ let fcvtdotddotl ins insLen bld =
     let rd, rs1, rm = getThreeOprs ins
     let rd, rs1 = (rd, rs1) |> transTwoOprs ins bld
     let rtVal = AST.cast CastKind.SIntToFloat 64<rt> rs1
-    dstAssignDoubleWithRound rd rtVal rm bld
+    writeRoundedDouble rd rtVal rm bld
   }
 
 let fcvtdotddotlu ins insLen bld =
@@ -2234,7 +2234,7 @@ let fcvtdotddotlu ins insLen bld =
     let rd, rs1, rm = getThreeOprs ins
     let rd, rs1 = (rd, rs1) |> transTwoOprs ins bld
     let rtVal = AST.cast CastKind.UIntToFloat 64<rt> rs1
-    dstAssignDoubleWithRound rd rtVal rm bld
+    writeRoundedDouble rd rtVal rm bld
   }
 
 let fcvtdotsdotd ins insLen bld =
