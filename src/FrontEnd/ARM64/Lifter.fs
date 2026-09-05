@@ -2933,7 +2933,7 @@ let tbl (ins: Instruction) insLen bld addr = (* FIMXE *)
           AST.ite (idx .< numI32 (8 * (k + 1)) 8<rt>) (limit i src[k] idx) rest
         ) [| 0 .. len - 1 |] zeros
       else
-        failwith "Invalid number of registers."
+        raise InvalidOperandException
     let result = Array.init elements (fun _ -> tmpVar bld eSize)
     Array.mapi getElem indices
     |> Array.iter2 (fun e1 e2 -> append bld { direct e1 := e2 }) result

@@ -260,7 +260,28 @@ type IInstruction =
   /// mnemonic, and it is the only failure a caller should expect. Any other
   /// exception escaping a lifter is a defect in it -- typically an IR the
   /// builder rejects -- and must not be converted into one, or the list of
-  /// instructions left to implement stops being true.
+  /// instructions left to implement stops being true. Every dispatcher's
+  /// catch-all therefore ends this way; nothing else may stand in for it.
+  ///
+  /// An instruction that lifts to a side effect is a different thing, and the
+  /// distinction is what keeps that list honest. <see
+  /// cref='F:B2R2.BinIR.SideEffect.UnsupportedInstruction'/> says B2R2 read
+  /// the instruction and decided to model it as nothing more than its having
+  /// happened -- a privileged, coprocessor, or engine-like instruction an
+  /// emulator of user code cannot reproduce -- so it belongs beside that one
+  /// instruction's own case, with a comment saying why, and never in a
+  /// catch-all. <see cref='F:B2R2.BinIR.SideEffect.UndefinedInstruction'/>
+  /// says the architecture itself leaves the encoding undefined, illegal, or
+  /// reserved, so faulting is what the instruction means.
+  ///
+  /// The remaining failures say a lifter was handed something a parser cannot
+  /// produce. An operand of a shape the lifter's own dispatch did not expect
+  /// is <see cref='T:B2R2.FrontEnd.BinLifter.InvalidOperandException'/> or
+  /// <see cref='T:B2R2.FrontEnd.BinLifter.InvalidOperandSizeException'/>; a
+  /// value no parser emits at all, such as an invalid-opcode placeholder, is
+  /// <see cref='M:B2R2.Terminator.Impossible'/>. A lifter never calls
+  /// failwith: a message no caller can match on says nothing about which of
+  /// these it hit.
   /// </remarks>
   /// </summary>
   /// <returns>

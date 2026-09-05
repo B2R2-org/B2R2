@@ -107,7 +107,9 @@ type LiftingUnitTests() =
     [| Architecture.ARMv7, "730806b7", "smlsdx"
        Architecture.ARMv7, "50ef2ba1", "qsub"
        Architecture.ARMv8, "c0dddb48", "ldarh"
-       Architecture.ARMv8, "bdd94e0f", "sqrdmulh" |]
+       Architecture.ARMv8, "bdd94e0f", "sqrdmulh"
+       Architecture.Intel, "0f01f8", "swapgs"
+       Architecture.Intel, "660f38dbc0", "aesimc" |]
 
   static let assertRaises (f: unit -> unit) =
     Assert.ThrowsExactly<System.ArgumentException>(fun () -> f ()) |> ignore

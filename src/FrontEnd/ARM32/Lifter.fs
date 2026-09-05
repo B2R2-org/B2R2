@@ -6174,8 +6174,10 @@ let translate (ins: Instruction) insLen bld =
     vtst ins insLen bld
   | Op.VUZP ->
     vuzp ins insLen bld
+  (* No parser produces this opcode: an undecodable encoding is reported as a
+     parsing failure, so an instruction never carries it this far. *)
   | Op.InvalidOP ->
-    raise InvalidOpcodeException
+    Terminator.impossible ()
   | o ->
 #if DEBUG
          eprintfn "%A" o

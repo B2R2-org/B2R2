@@ -157,4 +157,4 @@ let translate (ins: Instruction) insLen bld =
   (* No parser produces this opcode: an undecodable encoding is reported as a
      parsing failure, so an instruction never carries it this far. *)
   | Opcode.InvalidOp -> B2R2.Terminator.impossible ()
-  | _ -> raise InvalidOpcodeException
+  | o -> raise (NotImplementedIRException(o.ToString()))

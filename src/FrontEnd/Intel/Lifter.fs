@@ -26,6 +26,7 @@ module internal B2R2.FrontEnd.Intel.Lifter
 
 open B2R2
 open B2R2.BinIR
+open B2R2.FrontEnd.BinLifter
 
 type OP = Opcode (* Just to make it concise. *)
 
@@ -282,7 +283,12 @@ let translate (ins: Instruction) insLen bld =
     GeneralLifter.test ins insLen bld
   | OP.TZCNT ->
     GeneralLifter.tzcnt ins insLen bld
-  | OP.UD2 ->
+  (* The encodings that exist in order to fault: the three Intel reserves for
+     it, and D6, which this parser calls UDB and its table admits in 64-bit
+     mode only, where no instruction claims it. Only UD2 used to say so, the
+     rest reaching the catch-all and coming back as an instruction merely
+     awaiting implementation. *)
+  | OP.UD0 | OP.UD1 | OP.UD2 | OP.UDB ->
     LiftingUtils.sideEffects bld ins insLen UndefinedInstruction
   | OP.WBINVD ->
     LiftingUtils.sideEffects bld ins insLen UnsupportedInstruction
@@ -1293,7 +1299,4 @@ let translate (ins: Instruction) insLen bld =
   | OP.FXRSTOR | OP.FXRSTOR64 ->
     X87Lifter.fxrstor ins insLen bld
   | o ->
-#if DEBUG
-         eprintfn $"Unsupported: {Opcode.toString o}"
-#endif
-         LiftingUtils.sideEffects bld ins insLen UnsupportedInstruction
+    raise <| NotImplementedIRException(Opcode.toString o)

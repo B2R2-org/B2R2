@@ -437,7 +437,7 @@ let transBarrelShiftToExpr oprSize bld src shift =
       | LSL -> imm <<< int32 amt
       | LSR -> imm >>> int32 amt
       | MSL -> (imm <<< int32 amt) + (1L <<< int32 amt) - 1L
-      | _ -> failwith "Not implement"
+      | _ -> raise <| NotImplementedIRException "transBarrelShiftToExpr"
     numI64 imm oprSize
   | OprRegister reg, OprShift(typ, amt) ->
     let reg = regVar bld reg
@@ -689,7 +689,7 @@ let transOprToExprOfORR (ins: Instruction) bld addr =
 let unwrapReg e =
   match e with
   | Extract(e, 32<rt>, 0, _) -> e
-  | _ -> failwith "Invalid register"
+  | _ -> raise InvalidOperandException
 
 let transOprToExprOfSMSUBL (ins: Instruction) bld addr =
   match ins.Operands with
@@ -791,8 +791,8 @@ let branchTo ins bld target brType i =
 let conditionHolds bld = function
   | EQ -> regVar bld R.Z == AST.b1
   | NE -> regVar bld R.Z == AST.b0
-  | CS -> regVar bld R.C == AST.b1
-  | CC -> regVar bld R.C == AST.b0
+  | CS | HS -> regVar bld R.C == AST.b1
+  | CC | LO -> regVar bld R.C == AST.b0
   | MI -> regVar bld R.N == AST.b1
   | PL -> regVar bld R.N == AST.b0
   | VS -> regVar bld R.V == AST.b1
@@ -808,7 +808,6 @@ let conditionHolds bld = function
                   (regVar bld R.Z == AST.b0))
   (* Condition flag values in the set '111x' indicate always true *)
   | AL | NV -> AST.b1
-  | _ -> failwith "Invalid condition"
 
 /// shared/functions/common/HighestSetBit
 /// HighestSetBit()

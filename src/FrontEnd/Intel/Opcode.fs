@@ -5077,4 +5077,8 @@ module internal Opcode =
     | Opcode.XSUSLDTRK -> "xsusldtrk"
     | Opcode.XTEST -> "xtest"
     | Opcode.InvalOP -> "(InvalOp)"
-    | s -> printfn "%A" s; failwith "InvalidOpcodeException"
+    (* Every declared opcode has a name above, so only a value cast into the
+       enum from outside reaches here. The lifter names an instruction it
+       cannot express by calling this, so a failure here would report that as
+       something other than the missing IR it is. *)
+    | _ -> B2R2.Terminator.impossible ()

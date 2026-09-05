@@ -141,4 +141,23 @@ type LifterTests() =
     <| [| "(1) {"
           "!!UnsupportedInstruction"
           "} // 1" |]
+
+  (* Intel reserves four encodings so that they always fault, and what they
+     mean is the fault: an emulator has to raise it, and an analysis reading
+     one has reached code that never runs. Only UD2 used to say so; the other
+     three fell through to the catch-all and came back as an instruction
+     merely awaiting implementation. *)
+  [<TestMethod>]
+  member _.``[X64] UD1 instruction lift Test (1)``() =
+    testX64 "0FB9C0"
+    <| [| "(3) {"
+          "!!UndefinedInstruction"
+          "} // 3" |]
+
+  [<TestMethod>]
+  member _.``[X64] UD2 instruction lift Test (1)``() =
+    testX64 "0F0B"
+    <| [| "(2) {"
+          "!!UndefinedInstruction"
+          "} // 2" |]
 #endif
