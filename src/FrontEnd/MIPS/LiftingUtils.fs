@@ -264,13 +264,13 @@ let transBigEndianCPU (bld: ILowUIRBuilder) opSz =
   | Endian.Big, 64<rt> -> numI32 0b111 64<rt>
   | _ -> raise InvalidOperandException
 
-let checkOverfolwOnAdd e1 e2 r =
+let checkOverflowOnAdd e1 e2 r =
   let e1High = AST.extract e1 1<rt> 31
   let e2High = AST.extract e2 1<rt> 31
   let rHigh = AST.extract r 1<rt> 31
   (e1High == e2High) .& (e1High <+> rHigh)
 
-let checkOverfolwOnDadd e1 e2 r =
+let checkOverflowOnDadd e1 e2 r =
   let e1High = AST.extract e1 1<rt> 63
   let e2High = AST.extract e2 1<rt> 63
   let rHigh = AST.extract r 1<rt> 63

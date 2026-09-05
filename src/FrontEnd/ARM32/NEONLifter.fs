@@ -1072,7 +1072,7 @@ let vecMulAccOrSubByScalar (ins: Instruction) insLen bld add =
     let lblIgnore = checkCondition ins bld isUnconditional
     let p = getParsingInfo ins
     let struct (dst, src1, src2) = getThreeOprs ins
-    let src2, index = transOprToSclar bld src2
+    let src2, index = transOprToScalar bld src2
     let op2Val = AST.sext p.RtESize (elem src2 index p.ESize)
     match ins.OprSize with
     | 128<rt> ->
@@ -1104,7 +1104,7 @@ let vecMulAccOrSubLongByScalar (ins: Instruction) insLen bld add =
     let struct (dst, src1, src2) = getThreeOprs ins
     let struct (dstB, dstA) = transOprToExpr128 bld dst
     let src1 = transOprToExpr ins bld src1
-    let src2, index = transOprToSclar bld src2
+    let src2, index = transOprToScalar bld src2
     let p = getParsingInfo ins
     let ext = if isUnsigned ins.SIMDTyp then AST.zext else AST.sext
     let op2val = ext (p.RtESize * 2) (elem src2 index p.ESize)
@@ -1288,7 +1288,7 @@ let vecMulByScalar (ins: Instruction) insLen bld opFn =
     let lblIgnore = checkCondition ins bld isUnconditional
     let p = getParsingInfo ins
     let struct (dst, src1, src2) = getThreeOprs ins
-    let src2, index = transOprToSclar bld src2
+    let src2, index = transOprToScalar bld src2
     let op2val = elem src2 index p.ESize
     match ins.OprSize with
     | 128<rt> ->
@@ -1315,7 +1315,7 @@ let vecMulLongByScalar (ins: Instruction) insLen bld =
     let struct (dst, src1, src2) = getThreeOprs ins
     let struct (dstB, dstA) = transOprToExpr128 bld dst
     let src1 = transOprToExpr ins bld src1
-    let src2, index = transOprToSclar bld src2
+    let src2, index = transOprToScalar bld src2
     let p = getParsingInfo ins
     let op2val = elem src2 index p.ESize
     let pele2 = p.Elements / 2

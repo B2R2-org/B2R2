@@ -155,7 +155,7 @@ let shiftReg reg amount oprSize = function
   | ShiftOp.ROR -> rorForIR reg amount (oprSzToExpr oprSize)
   | _ -> raise InvalidOperandException
 
-let transShiftAmout bld oprSize = function
+let transShiftAmount bld oprSize = function
   | Imm amt -> numI64 amt oprSize
   | Reg amt -> regVar bld amt
 
@@ -280,7 +280,7 @@ let transImmOffset bld = function
 let transRegOff (ins: Instruction) bld reg = function
   | ShiftOffset(shfTyp, amt) ->
     let reg = regVar bld reg
-    let amount = transShiftAmout bld 64<rt> amt
+    let amount = transShiftAmount bld 64<rt> amt
     shiftReg reg amount ins.OprSize shfTyp
   | ExtRegOffset(extTyp, shf) ->
     extendReg bld reg extTyp shf 64<rt>
@@ -441,11 +441,11 @@ let transBarrelShiftToExpr oprSize bld src shift =
     numI64 imm oprSize
   | OprRegister reg, OprShift(typ, amt) ->
     let reg = regVar bld reg
-    let amount = transShiftAmout bld oprSize amt
+    let amount = transShiftAmount bld oprSize amt
     shiftReg reg amount oprSize typ
   | OprRegister reg, OprExtReg(Some(ShiftOffset(typ, amt))) ->
     let reg = regVar bld reg
-    let amount = transShiftAmout bld oprSize amt
+    let amount = transShiftAmount bld oprSize amt
     shiftReg reg amount oprSize typ
   | OprRegister reg, OprExtReg(Some(ExtRegOffset(typ, shf))) ->
     extendReg bld reg typ shf oprSize

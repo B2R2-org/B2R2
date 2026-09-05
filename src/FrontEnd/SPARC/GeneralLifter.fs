@@ -244,7 +244,7 @@ let transAddrFourOprs (ins: Instruction) insLen bld =
   | _ ->
     raise InvalidOperandException
 
-let transTwooprsAddr (ins: Instruction) insLen bld =
+let transTwoOprsAddr (ins: Instruction) insLen bld =
   match ins.Operands with
   | ThreeOperands(o1, o2, o3) ->
     let o1 = transOprToExpr ins insLen bld o1
@@ -254,7 +254,7 @@ let transTwooprsAddr (ins: Instruction) insLen bld =
   | _ ->
     raise InvalidOperandException
 
-let transThroprsAddr (ins: Instruction) insLen bld =
+let transThreeOprsAddr (ins: Instruction) insLen bld =
   match ins.Operands with
   | FourOperands(o1, o2, o3, o4) ->
     let o1 = transOprToExpr ins insLen bld o1
@@ -3546,7 +3546,7 @@ let srl ins insLen bld =
 
 let st ins insLen bld =
   lift bld ins insLen {
-    let struct (src, addr) = transTwooprsAddr ins insLen bld
+    let struct (src, addr) = transTwoOprsAddr ins insLen bld
     match ins.Opcode with
     | Opcode.STB ->
       (AST.loadBE 8<rt> addr) := (AST.extract src 8<rt> 0)
@@ -3593,7 +3593,7 @@ let sta ins insLen bld =
 
 let stf ins insLen bld =
   lift bld ins insLen {
-    let struct (src, addr) = transTwooprsAddr ins insLen bld
+    let struct (src, addr) = transTwoOprsAddr ins insLen bld
     let oprSize = 64<rt>
     match ins.Opcode with
     | Opcode.STF ->

@@ -285,7 +285,7 @@ let align e1 e2 = e2 .* (e1 ./ e2)
 
 let pcOffset (ins: Instruction) = if not ins.IsThumb then 8UL else 4UL
 
-let transLableOprsOfBL ins isThumb imm =
+let transLabelOprsOfBL ins isThumb imm =
   let offset = pcOffset ins
   let pc =
     if isThumb then
@@ -306,7 +306,7 @@ let parseOprOfBL ins =
   let struct (isThumb, callKind) = targetModeOfBL ins
   match ins.Operands with
   | OneOperand(OprMemory(LiteralMode imm)) ->
-    struct (transLableOprsOfBL ins isThumb imm, isThumb, callKind)
+    struct (transLabelOprsOfBL ins isThumb imm, isThumb, callKind)
   | _ ->
     raise InvalidOperandException
 

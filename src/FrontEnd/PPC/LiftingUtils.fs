@@ -329,7 +329,7 @@ let setCR1Reg bld =
     cr1OX := AST.extract fpscr 1<rt> 28
   }
 
-let isDenormailized frx =
+let isDenormalized frx =
   let exponent = (frx >> numI32 52 64<rt>) .& numI32 0x7FF 64<rt>
   let fraction = frx .& numU64 0xfffff_ffffffffUL 64<rt>
   let zero = AST.num0 64<rt>
@@ -345,7 +345,7 @@ let setFPRF bld result =
     let fu = AST.extract fpscr 1<rt> 12
     let nzero = numU64 0x8000000000000000UL 64<rt>
     c := IEEE754Double.isNaN result
-       .| isDenormailized result
+       .| isDenormalized result
        .| AST.eq result nzero
     fl := AST.flt result (AST.num0 64<rt>)
     fg := AST.fgt result (AST.num0 64<rt>)

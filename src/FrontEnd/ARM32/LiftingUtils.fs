@@ -105,7 +105,7 @@ let transOprToExpr128 bld = function
   | OprSIMD(SFReg(Vector reg)) -> pseudoRegVar128 bld reg
   | _ -> raise InvalidOperandException
 
-let transOprToSclar bld = function
+let transOprToScalar bld = function
   | OprSIMD(SFReg(Scalar(reg, Some idx))) -> regVar bld reg, int32 idx
   | _ -> raise InvalidOperandException
 

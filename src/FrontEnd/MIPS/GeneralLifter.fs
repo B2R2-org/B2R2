@@ -112,7 +112,7 @@ let add (ins: Instruction) insLen bld =
       let lblEnd = label bld "End"
       let rd, rs, rt = transThreeOprs ins bld (dst, src1, src2)
       let result = if is32Bit bld then rs .+ rt else signExtLo64 (rs .+ rt)
-      let cond = checkOverfolwOnAdd rs rt result
+      let cond = checkOverflowOnAdd rs rt result
       AST.cjmp cond (AST.jmpDest lblL0) (AST.jmpDest lblL1)
       AST.lmark lblL0
       AST.sideEffect (Exception IntegerOverflow)
@@ -364,7 +364,7 @@ let cCond ins insLen bld =
     else
       tFs := fs
       tFt := ft
-    let zeroSameCondWithEqaul =
+    let zeroSameCondWithEqual =
       if sameReg then AST.b1
       else ((tFs << num1) >> num1) == ((tFt << num1) >> num1)
     condNaN :=
@@ -383,7 +383,7 @@ let cCond ins insLen bld =
         AST.xtlo 1<rt> (src2Exponent .& (src2Mantissa != AST.num0 oprSz))
     less := AST.ite condNaN num0 (AST.ite (AST.flt tFs tFt) num1 num0)
     equal :=
-      AST.ite condNaN num0 (AST.ite zeroSameCondWithEqaul num1 num0)
+      AST.ite condNaN num0 (AST.ite zeroSameCondWithEqual num1 num0)
     unordered := AST.ite condNaN num1 num0
     condition := (bit2 .& less) .| (bit1 .& equal) .| (bit0 .& unordered)
     setFPConditionCode bld cc condition
@@ -551,7 +551,7 @@ let dadd ins insLen bld =
     let lblL1 = label bld "L1"
     let lblEnd = label bld "End"
     let rd, rs, rt = getThreeOprs ins |> transThreeOprs ins bld
-    let cond = checkOverfolwOnDadd rs rt (rs .+ rt)
+    let cond = checkOverflowOnDadd rs rt (rs .+ rt)
     AST.cjmp cond (AST.jmpDest lblL0) (AST.jmpDest lblL1)
     AST.lmark lblL0
     AST.sideEffect (Exception IntegerOverflow)
