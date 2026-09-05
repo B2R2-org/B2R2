@@ -11,6 +11,9 @@
     <Compile Include="Instruction.fs" />
     <Compile Include="OperandHelper.fs" />
     <Compile Include="Disasm.fs" />
+    <Compile Include="LiftingUtils.fs" />
+    <Compile Include="GeneralLifter.fs" />
+    <Compile Include="VectorLifter.fs" />
     <Compile Include="Lifter.fs" />
     <Compile Include="ParsingMain.fs" />
     <Compile Include="Parser.fs" />
