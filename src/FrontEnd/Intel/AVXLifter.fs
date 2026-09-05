@@ -502,28 +502,28 @@ let vmovmskps ins insLen bld =
   | _ -> raise InvalidOperandSizeException
 
 let vmovsd (ins: Instruction) insLen bld =
-  liftOpen bld ins insLen {
-    match ins.Operands with
-    | TwoOperands(OprMem _, _) ->
-      movsd ins insLen bld |> ignore
-    | TwoOperands(OprReg _ as dst, src) ->
+  match ins.Operands with
+  | TwoOperands(OprMem _, _) ->
+    movsd ins insLen bld
+  | TwoOperands(OprReg _ as dst, src) ->
+    lift bld ins insLen {
       let struct (dst2, dst1) = transOprToExpr128 bld false ins insLen dst
       let src = transOprToExpr64 bld false ins insLen src
       dst1 := src
       dst2 := AST.num0 64<rt>
       fillZeroFromVLToMaxVL bld dst (getOperationSize ins) 512
-      markEnd bld insLen
-    | ThreeOperands(dst, src1, src2) ->
+    }
+  | ThreeOperands(dst, src1, src2) ->
+    lift bld ins insLen {
       let struct (dstB, dstA) = transOprToExpr128 bld false ins insLen dst
       let struct (src1B, _src1A) = transOprToExpr128 bld false ins insLen src1
       let struct (_src2B, src2A) = transOprToExpr128 bld false ins insLen src2
       dstA := src2A
       dstB := src1B
       fillZeroFromVLToMaxVL bld dst (getOperationSize ins) 512
-      markEnd bld insLen
-    | _ ->
-      raise InvalidOperandException
-  }
+    }
+  | _ ->
+    raise InvalidOperandException
 
 let vmovshdup ins insLen bld =
   lift bld ins insLen {
@@ -586,19 +586,20 @@ let vmovsldup ins insLen bld =
   }
 
 let vmovss (ins: Instruction) insLen bld =
-  liftOpen bld ins insLen {
-    match ins.Operands with
-    | TwoOperands(OprMem _, _) ->
-      movss ins insLen bld |> ignore
-    | TwoOperands(OprReg _ as dst, src) ->
+  match ins.Operands with
+  | TwoOperands(OprMem _, _) ->
+    movss ins insLen bld
+  | TwoOperands(OprReg _ as dst, src) ->
+    lift bld ins insLen {
       let struct (dst2, dst1) = transOprToExpr128 bld false ins insLen dst
       let src = transOprToExpr32 bld false ins insLen src
       AST.xtlo 32<rt> dst1 := src
       AST.xthi 32<rt> dst1 := AST.num0 32<rt>
       dst2 := AST.num0 64<rt>
       fillZeroFromVLToMaxVL bld dst (getOperationSize ins) 512
-      markEnd bld insLen
-    | ThreeOperands(dst, src1, src2) ->
+    }
+  | ThreeOperands(dst, src1, src2) ->
+    lift bld ins insLen {
       let struct (dstB, dstA) = transOprToExpr128 bld false ins insLen dst
       let struct (src1B, src1A) = transOprToExpr128 bld false ins insLen src1
       let struct (_src2B, src2A) = transOprToExpr128 bld false ins insLen src2
@@ -606,10 +607,9 @@ let vmovss (ins: Instruction) insLen bld =
       AST.xthi 32<rt> dstA := AST.xthi 32<rt> src1A
       dstB := src1B
       fillZeroFromVLToMaxVL bld dst (getOperationSize ins) 512
-      markEnd bld insLen
-    | _ ->
-      raise InvalidOperandException
-  }
+    }
+  | _ ->
+    raise InvalidOperandException
 
 let vandps ins insLen bld = buildPackedFPInstr ins insLen bld 32<rt> (.&)
 
