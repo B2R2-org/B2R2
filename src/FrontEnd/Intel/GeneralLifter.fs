@@ -267,6 +267,37 @@ let adc (ins: Instruction) bld =
 #endif
   }
 
+/// ADCX adds the source, the destination and CF, and writes the carry out back
+/// to CF alone: OF, SF, ZF, AF and PF keep the values they already held. That
+/// is the whole point of the instruction -- it lets a multiply-add loop carry
+/// two independent chains at once, ADCX through CF and ADOX through OF.
+let adcx (ins: Instruction) bld =
+  lift bld ins {
+    let struct (dst, src) = transTwoOprs ins bld true
+    let oprSize = getOperationSize ins
+    let cf = regVar bld R.CF
+#if EMULATION
+    (* Every flag but CF outlives this instruction, and while the flags are
+       lazy they are still a promise about the operation that came before --
+       a promise that names CF too. Settle it here, or the next reader of ZF
+       would recompute CF along with it and undo the carry stored below. *)
+    if bld.ConditionCodeOp <> ConditionCodeOp.EFlags then
+      genDynamicFlagsUpdate bld
+    else
+      ()
+#endif
+    let struct (t1, t2, t3, t4) = tmpVars4 bld oprSize
+    direct t1 := dst
+    direct t2 := src
+    direct t3 := t2 .+ AST.zext oprSize cf
+    direct t4 := t1 .+ t3
+    sized oprSize dst := t4
+    (* The carry out of a three-way add: either the source plus the carry in
+       wrapped, or adding the destination to that did. Never both -- the first
+       can only wrap to zero, which leaves the second sum exact. *)
+    direct cf := (t3 .< t2) .| (t4 .< t1)
+  }
+
 let private atomicBeginIfLocked (ins: Instruction) bld =
   append bld {
     if Prefix.hasLock ins.Prefixes then AST.sideEffect AtomicBegin else ()
@@ -354,38 +385,33 @@ let add (ins: Instruction) bld =
     atomicEndIfLocked ins bld
   }
 
+/// ADOX is ADCX with OF in place of CF: it adds the source, the destination
+/// and OF, and writes the carry out back to OF alone. The two are meant to be
+/// interleaved, one chain of each running through the same multiply-add loop,
+/// which is why neither may disturb the other's flag.
 let adox (ins: Instruction) bld =
   lift bld ins {
     let struct (dst, src) = transTwoOprs ins bld true
     let oprSize = getOperationSize ins
+    let ofl = regVar bld R.OF
 #if EMULATION
-    let oF = getOFLazy bld
-#else
-    let oF = regVar bld R.OF
+    (* See adcx: the flags ADOX preserves are still a promise about the
+       operation before it, and that promise names OF too, so it has to be
+       settled before OF is overwritten. Asking getOFLazy for the carry in
+       would not do -- after a logic op it answers with the constant zero,
+       which is the right value to read and no place to store one. *)
+    if bld.ConditionCodeOp <> ConditionCodeOp.EFlags then
+      genDynamicFlagsUpdate bld
+    else
+      ()
 #endif
-    match oprSize with
-    | 32<rt> ->
-      let struct (t1, t2, t3) = tmpVars3 bld 64<rt>
-      direct t1 := AST.zext 64<rt> dst
-      direct t2 := AST.zext 64<rt> src
-      direct t3 := t1 .+ t2 .+ AST.zext 64<rt> oF
-      sized oprSize dst := AST.xtlo oprSize t3
-      direct oF := AST.extract t3 1<rt> 32
-    | 64<rt> ->
-      let struct (t1a, t2a, t3a) = tmpVars3 bld 64<rt>
-      let struct (t1b, t2b, t3b) = tmpVars3 bld 64<rt>
-      let mask = tmpVar bld 64<rt>
-      direct mask := numU64 0xFFFFFFFFUL 64<rt>
-      direct t1a := dst .& mask
-      direct t1b := (dst >> (numI32 32 64<rt>)) .& mask
-      direct t2a := src .& mask
-      direct t2b := (src >> (numI32 32 64<rt>)) .& mask
-      direct t3a := t1a .+ t2a .+ AST.zext 64<rt> oF
-      direct t3b := t1b .+ t2b .+ (t3a >> (numI32 32 64<rt>))
-      sized oprSize dst := dst .+ src .+ (AST.zext 64<rt> oF)
-      direct oF := AST.extract t3b 1<rt> 32
-    | _ ->
-      raise InvalidOperandSizeException
+    let struct (t1, t2, t3, t4) = tmpVars4 bld oprSize
+    direct t1 := dst
+    direct t2 := src
+    direct t3 := t2 .+ AST.zext oprSize ofl
+    direct t4 := t1 .+ t3
+    sized oprSize dst := t4
+    direct ofl := (t3 .< t2) .| (t4 .< t1)
   }
 
 let ``and`` (ins: Instruction) bld =

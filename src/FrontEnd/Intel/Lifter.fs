@@ -43,6 +43,8 @@ let translate (ins: Instruction) bld =
     GeneralLifter.aas ins bld
   | OP.ADC ->
     GeneralLifter.adc ins bld
+  | OP.ADCX ->
+    GeneralLifter.adcx ins bld
   | OP.ADD ->
     GeneralLifter.add ins bld
   | OP.ADOX ->
