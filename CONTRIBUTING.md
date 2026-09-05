@@ -99,8 +99,8 @@ Func(param = argu)         // Good
 | Func(pattern = bound)    // Good
 let func (param = bound) = // Good
 
-Func(param=argu)         // Bad
-| Func(pattern= bound)   // Bad
+Func(param=argu)          // Bad
+| Func(pattern= bound)    // Bad
 let func (param =bound) = // Bad
 ```
 
@@ -255,7 +255,9 @@ Dictionary<string, int> () // Bad
 
 ##### Records
 
-We define a record as follows.
+When a multi-line record starts on the line after `=`, keep the opening brace
+beside the first field and the closing brace beside the last field. Do not place
+the braces on separate lines by themselves.
 ```fsharp
 type InsSize =
   { MemSize: MemorySize
@@ -263,28 +265,26 @@ type InsSize =
     OperationSize: RegType
     SizeCond: OperandsSizeCondition } // Good
 
-type InsSize =
-{
+type InsSize = {
   MemSize: MemorySize
   RegSize: RegType
-  OperationSize:   RegType        // Bad
-  SizeCond: OperandsSizeCondition // Bad
-}
+}                                     // Good
 
-{ Prefixes = prefs } // Good
-{Prefixes = prefs}   // Bad
+type InsSize =
+  {
+    MemSize: MemorySize
+    RegSize: RegType
+  }                                   // Bad
+```
 
-{ Prefixes = prefs
-  Opcode = opcode } // Good
-{
-  Prefixes = prefs
-  Opcode = opcode
-}                   // Bad
-
-{ Prefixes = prefs } // Good
-{ Prefixes= prefs }  // Bad
-
+When constructing a record, use spaces inside the braces, around equal operator
+and after semicolon.
+```fsharp
+{ Prefixes = prefs }                  // Good
 { Prefixes = prefs; Opcode = opcode } // Good
+
+{Prefixes = prefs}                    // Bad
+{ Prefixes= prefs }                   // Bad
 { Prefixes = prefs;Opcode = opcode }  // Bad
 ```
 
@@ -338,6 +338,19 @@ let nested () =
     else isEven (n - 1)
 
   isEven 10 // Bad
+```
+
+When a declaration continues on the next line, indent its body by two spaces.
+```fsharp
+let fn p =
+  foo p         // Good
+type T =
+  { A: int }    // Good
+
+let fn p =
+    foo p       // Bad
+type T =
+    { A: int }  // Bad
 ```
 
 ##### Declarations
@@ -464,6 +477,20 @@ match x with // Bad
 | Bar ->None
 ```
 
+A `when` guard that does not fit on the pattern's line moves to the next line,
+and an `and` that continues the guard aligns with the `when` above it.
+
+```fsharp
+match x with // Good
+| Foo v
+  when isReady v
+   and isFresh v -> Some good
+
+match x with // Bad
+| Foo v when isReady v
+             and isFresh v -> Some bad
+```
+
 ##### Class and Member Definition
 
 We prefer to define classes with a space character
@@ -529,6 +556,133 @@ type Class() =
 type Class() =
   member this.A(p1, p2) = Foo p1  // Bad
   member __.A(p1, p2) = __.Foo p1 // Bad
+```
+
+##### Identifiers
+
+We do not put underscores inside an identifier, a leading one is fine, since
+that is how we mark a value we do not use. Union and enum cases are exempt.
+```fsharp
+let parseHeader x = x    // Good
+let _unused = 10         // Good
+type Kind = KIND_A = 0   // Good
+
+let parse_header x = x   // Bad
+let max_line_length = 80 // Bad
+```
+
+##### Access Modifiers
+
+An access modifier that repeats what encloses it says nothing. Inside a
+`private` module or type, a `private` member is already private.
+```fsharp
+module private Helper =
+  let compute x = x          // Good
+
+type private Cache() =
+  member _.Get k = k         // Good
+
+module private Helper =
+  let private compute x = x  // Bad
+
+type private Cache() =
+  member private _.Get k = k // Bad
+```
+
+##### Conditionals
+
+Every `if` has an `else`. A conditional used for its value has nowhere to go
+without one, and one used for effect reads as a statement, which we write with
+`if ... then ... else ()`.
+```fsharp
+if cond then foo () else ()     // Good
+if cond then foo () else bar () // Good
+
+if cond then foo ()             // Bad
+```
+
+An `elif` chain hands its `else` to the link that ends it, so only a chain with
+no `else` at all is missing one.
+
+Keywords carry exactly one space around them.
+```fsharp
+if cond then foo else bar  // Good
+
+if  cond then foo else bar // Bad
+if cond  then foo else bar // Bad
+if cond then  foo else bar // Bad
+if cond then foo else  bar // Bad
+```
+
+##### Negation
+
+A negated comparison is written as the opposite comparison. This covers `=`,
+`<>`, `<`, `<=`, `>`, and `>=`, whether the negation is applied directly or
+piped.
+```fsharp
+if a <> b then foo ()         // Good
+if a >= b then foo ()         // Good
+
+if not (a = b) then foo ()    // Bad
+if (a < b) |> not then foo () // Bad
+```
+
+##### Type Casts
+
+The cast operators `:>`, `:?>`, and `:?` take exactly one space on either side.
+```fsharp
+let x = value :> IFoo             // Good
+let y = value :?> Derived         // Good
+if value :? Derived then a else b // Good
+
+let x = value:>IFoo        // Bad
+let y = value  :?> Derived // Bad
+```
+
+##### Type Constructors
+
+Where a primary constructor names a self-identifier, the `as` takes one space
+on either side.
+```fsharp
+type Foo(x) as this =  // Good
+
+type Foo(x)  as this = // Bad
+type Foo(x) as  this = // Bad
+```
+
+##### Exception Handling
+
+A `with` block holding a single case does not carry a leading `|`.
+```fsharp
+try foo () with e -> handle e // Good
+
+try
+  foo ()
+with e ->
+  handle e // Good
+
+try
+  foo ()
+with
+| e ->
+  handle e // Bad
+```
+
+##### Line Breaks
+
+A list of items joined by separators stays on one line while the whole of it
+fits. Once it does not, every gap between its members must agree: they all breal
+, or none does.
+```fsharp
+let a = f x y z      // Good
+
+let a =
+  f longArgumentName // Good
+    anotherLongArgument
+    aThirdLongArgument
+
+let a = f longArgumentName anotherLongArgument // Bad
+          aThirdLongArgument
 ```
 
 ### JavaScript & CSS Coding Style
