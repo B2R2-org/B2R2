@@ -73,4 +73,11 @@ and EVEXPrefix =
     /// Broadcast/RC/SAE Context, P[20].
     B: uint8
     /// Reg-reg, FP Instructions w/ rounding semantic or SAE, P2[6:5].
-    RC: StaticRoundingMode }
+    RC: StaticRoundingMode
+    /// The width of the one element an embedded broadcast reads, or 0<rt> when
+    /// no operand of this encoding declared a broadcast form. Unlike the fields
+    /// above this one does not come from the prefix bytes: the operand declares
+    /// it, and B alone cannot stand in for it. An FP16 element is 16 bits wide
+    /// with either setting of REX.W, and a converting instruction reads an
+    /// element narrower than the lane it fills.
+    BcstElemSize: RegType }

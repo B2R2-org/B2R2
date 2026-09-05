@@ -383,7 +383,12 @@ type IntelParser(wordSz, reader) =
       OperandParsers.parseMemOrReg modRM span phlp
     | OprKind.RMBroadcast ->
       setupOprContext phlp o.Size o.MemSize
-      phlp.BroadcastSize <- o.BcstSize
+      (* Only the memory form broadcasts. The register form of the same
+         descriptor reads a whole vector, and there EVEX.b names a rounding
+         mode instead, so recording a width for it would claim a broadcast the
+         encoding does not have. *)
+      if Operands.modIsMemory modRM then phlp.BroadcastSize <- o.BcstSize
+      else ()
       OperandParsers.parseMemOrReg modRM span phlp
     | OprKind.MemVSIB ->
       parseVSIBOperand span phlp modRM o.Size
@@ -572,6 +577,23 @@ type IntelParser(wordSz, reader) =
     | _ ->
       failwith "Invalid number of operands."
 
+  /// Carries the broadcast width the operands declared into the EVEX prefix,
+  /// where the lifter and the disassembler can reach it. The prefix bytes are
+  /// read before the operands are, so the field cannot be filled in where the
+  /// rest of the prefix is; nothing but the operand knows how wide one
+  /// broadcast element is. Instructions that broadcast nothing keep the prefix
+  /// they were parsed with.
+  let recordBroadcastWidth (phlp: ParsingHelper) =
+    if phlp.BroadcastSize = 0<rt> then
+      ()
+    else
+      match phlp.VEXInfo with
+      | Some({ EVEXPrx = Some ePrx } as vInfo) ->
+        let ePrx = { ePrx with BcstElemSize = phlp.BroadcastSize }
+        phlp.VEXInfo <- Some { vInfo with EVEXPrx = Some ePrx }
+      | _ ->
+        ()
+
   /// Reads the ModRM byte if required, then parses all operand descriptors
   /// and returns the assembled Operands value.
   let parseAllOperands span (phlp: ParsingHelper) (row: Row) =
@@ -591,6 +613,7 @@ type IntelParser(wordSz, reader) =
     else
       let operands = parseOperands span phlp row modRM
       phlp.OperationSize <- operationSize phlp modRM row
+      recordBroadcastWidth phlp
       operands
 
   /// Removes the prefixes the matched instruction consumed as opcode

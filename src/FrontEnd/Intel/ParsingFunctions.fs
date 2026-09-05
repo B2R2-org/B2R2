@@ -105,7 +105,9 @@ let getEVEXInfo (span: ByteSpan) (rex: byref<REXPrefix>) pos =
   let aaa = span[pos + 2] &&& 0b111uy
   let z = if (span[pos + 2] >>> 7 &&& 0b1uy) = 1uy then Zeroing else Merging
   let b = (span[pos + 2] >>> 4) &&& 0b1uy
-  let e = Some { AAA = aaa; Z = z; B = b; RC = rc }
+  (* The broadcast width is the operand's, so it is filled in once the operands
+     have been parsed; see Parser.recordBroadcastWidth. *)
+  let e = Some { AAA = aaa; Z = z; B = b; RC = rc; BcstElemSize = 0<rt> }
   (* R' (P0[4]) and V' (P2[3]) are stored inverted, like R, X and B. They
      carry the fifth bit of ModRM.reg and of vvvv / the VSIB index. *)
   let r' =

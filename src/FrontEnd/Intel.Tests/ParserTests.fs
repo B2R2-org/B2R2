@@ -94,6 +94,14 @@ type ParserTests() =
   let testX64Prefix pref (bytes: byte[]) (opcode, operands) =
     test pref None WordSize.Bit64 opcode operands bytes
 
+  /// The parsed instruction itself, for the properties an operand list does
+  /// not carry: the EVEX decorations live beside the operands, not in them.
+  let parseX64 (byteString: string) =
+    let reader = BinReader.Init Endian.Little
+    let parser = IntelParser(WordSize.Bit64, reader) :> IInstructionParsable
+    let bytes = ByteArray.ofHexString byteString
+    parser.Parse(bs = bytes, addr = 0UL) :?> Instruction
+
   let operandsFromArray oprList =
     let oprArray = Array.ofList oprList
     match oprArray.Length with
@@ -2279,6 +2287,48 @@ type ParserTests() =
     "62010c4058ff"
     ++ VADDPS ** [ O.Reg R.ZMM31; O.Reg R.ZMM30; O.Reg R.ZMM31 ]
     ||> testX64NoPrefixNoSeg
+
+  [<TestMethod>]
+  member _.``EVEX embedded opmask and zeroing (1)``() =
+    let ins = parseX64 "62f16d99fe08" (* vpaddd xmm1{k1}{z}, xmm2, m32bcst *)
+    Assert.AreEqual<Register voption>(ValueSome R.K1, ins.OpMask)
+    Assert.AreEqual<bool>(true, ins.IsZeroing)
+
+  [<TestMethod>]
+  member _.``EVEX aaa of zero is no opmask, not k0 (1)``() =
+    let ins = parseX64 "62f16d18fe08" (* vpaddd xmm1, xmm2, m32bcst *)
+    Assert.AreEqual<Register voption>(ValueNone, ins.OpMask)
+    Assert.AreEqual<bool>(false, ins.IsZeroing)
+
+  [<TestMethod>]
+  member _.``EVEX merging masks without zeroing (1)``() =
+    let ins = parseX64 "62f16d09feca" (* vpaddd xmm1{k1}, xmm2, xmm2 *)
+    Assert.AreEqual<Register voption>(ValueSome R.K1, ins.OpMask)
+    Assert.AreEqual<bool>(false, ins.IsZeroing)
+
+  (* The width is the operand's, not the lane's: the same EVEX.b that means a
+     broadcast here names a rounding mode on the register form. *)
+  [<TestMethod>]
+  member _.``EVEX embedded broadcast width, 32-bit element (1)``() =
+    let ins = parseX64 "62f16d18fe08" (* vpaddd xmm1, xmm2, m32bcst *)
+    Assert.AreEqual<RegType voption>(ValueSome 32<rt>, ins.BroadcastElemSize)
+
+  [<TestMethod>]
+  member _.``EVEX embedded broadcast width, 64-bit element (1)``() =
+    let ins = parseX64 "62f1ed18d408" (* vpaddq xmm1, xmm2, m64bcst *)
+    Assert.AreEqual<RegType voption>(ValueSome 64<rt>, ins.BroadcastElemSize)
+
+  [<TestMethod>]
+  member _.``EVEX without the broadcast bit reads the source whole (1)``() =
+    let ins = parseX64 "62f16d08fe08" (* vpaddd xmm1, xmm2, xmmword [rax] *)
+    Assert.AreEqual<RegType voption>(ValueNone, ins.BroadcastElemSize)
+
+  (* EVEX.b is set here too, but every source is a register: the bit names a
+     rounding mode, and no operand declared a broadcast width to go with it. *)
+  [<TestMethod>]
+  member _.``EVEX b on a register form is not a broadcast (1)``() =
+    let ins = parseX64 "62f16c1858cb" (* vaddps zmm1, zmm2, zmm3{rn-sae} *)
+    Assert.AreEqual<RegType voption>(ValueNone, ins.BroadcastElemSize)
 
   [<TestMethod>]
   member _.``BOUND is not an EVEX prefix in 32-bit mode (1)``() =

@@ -402,14 +402,49 @@ let transJumpTargetOpr ins (bld: ILowUIRBuilder) useTmpVar pc =
   | _ ->
     raise InvalidOperandException
 
+/// The opmask register the instruction writes under, as a variable, or
+/// ValueNone when it carries no opmask. EVEX.aaa of zero names no register, so
+/// a caller must not read K0 here: K0 is all ones, and the "or in a constant
+/// true" that makes reading it work leaves mask logic in the IR of every
+/// unmasked instruction.
+let opMaskVar bld (ins: Instruction) =
+  match ins.OpMask with
+  | ValueSome reg ->
+    ValueSome(regVar bld reg)
+  | ValueNone ->
+    ValueNone
+
+/// The lanes an EVEX embedded broadcast fills. The source names one element,
+/// not a vector: the parser already sized the memory operand by that element,
+/// so reading the operand reads exactly what the hardware reads, and every
+/// lane is a copy of it. The element need not be as wide as the lane -- a
+/// converting instruction reads a narrower one -- so the two are related here
+/// rather than assumed equal.
+let private broadcastToArr ins bld packSz oprSize elemSz opr =
+  let elem = tmpVar bld elemSz
+  append bld {
+    direct elem := transOpr ins bld false opr
+  }
+  let lane =
+    if elemSz = packSz then
+      elem
+    elif elemSz < packSz then
+      Array.create (packSz / elemSz) elem |> AST.revConcat
+    else
+      (* No encoding reads an element wider than the lane it fills. *)
+      raise InvalidOperandSizeException
+  Array.create (oprSize / packSz) lane
+
 let transOprToArr ins bld useTmpVars packSz packNum oprSize opr =
   let pos = int packSz
   let exprArr =
-    match opr with
-    | OprImm _ ->
+    match opr, (ins: Instruction).BroadcastElemSize with
+    | OprMem _, ValueSome elemSz ->
+      broadcastToArr ins bld packSz oprSize elemSz opr
+    | OprImm _, _ ->
       let opr = transOpr ins bld false opr
       Array.init (oprSize / packSz) (fun i -> AST.extract opr packSz (i * pos))
-    | OprMem _ ->
+    | OprMem _, _ ->
       match oprSize with
       | 64<rt> ->
         let opr = transOpr ins bld false opr
@@ -468,7 +503,7 @@ let transOprToArr ins bld useTmpVars packSz packNum oprSize opr =
         Array.concat [| oprA; oprB; oprC; oprD; oprE; oprF; oprG; oprH |]
       | _ ->
         raise InvalidOperandSizeException
-    | _ ->
+    | _, _ ->
       match oprSize with
       | 64<rt> ->
         let opr = transOpr ins bld false opr

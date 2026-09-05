@@ -39,42 +39,42 @@ let private haveEVEXPrx = function
   | Some v -> Option.isSome v.EVEXPrx
   | None -> false
 
-let private getEVEXPrx = function
-  | Some v -> match v.EVEXPrx with
-              | Some ev -> ev
-              | None -> Terminator.impossible ()
-  | None -> Terminator.impossible ()
+/// The value a lane the opmask masks off keeps: zeroed under {z}, left as it
+/// was otherwise. A masked store leaves the memory lane alone either way.
+let private maskedOut (ins: Instruction) isMem packSz dst =
+  if isMem || not ins.IsZeroing then dst else AST.num0 packSz
 
-let private maskWithEPrx ePrx dst rt =
-  match ePrx.Z with
-  | Zeroing -> AST.num0 rt
-  | Merging -> dst
-
-let private getVectorMoveCond ePrx k idx =
-  (* no write mask *)
-  let noWritemask = if ePrx.AAA = 0uy then AST.num1 1<rt> else AST.num0 1<rt>
-  AST.extract k 1<rt> idx .| noWritemask
-
-let private makeAssignWithMask bld ePrx k oprSize packSz dst src isMem =
+/// Writes each lane of src to a fresh temporary, under the opmask. An
+/// instruction with no opmask writes every lane, so it gets no mask logic at
+/// all rather than a comparison against K0 that is true by construction.
+let private makeAssignWithMask bld ins oprSize packSz dst src isMem =
   let packNum = oprSize / packSz
   let tmp = Array.init packNum (fun _ -> tmpVar bld packSz)
-  let mask idx dst src =
-    let cond = getVectorMoveCond ePrx k idx
-    let fallThrough = if isMem then dst else (maskWithEPrx ePrx dst packSz)
-    AST.ite cond src fallThrough
+  let mask =
+    match opMaskVar bld ins with
+    | ValueNone ->
+      fun _ _ src -> src
+    | ValueSome k ->
+      fun idx dst src ->
+        AST.ite (AST.extract k 1<rt> idx) src (maskedOut ins isMem packSz dst)
   Array.mapi2 mask dst src
   |> Array.iter2 (fun e1 e2 -> append bld { direct e1 := e2 }) tmp
   tmp
 
-let private makeAssignEVEX bld ePrx k oprSz packSz dst src1 src2 opFn isMem =
-  let src2A = Array.head src2 (* SRC2[31:0] *)
+/// The masked lanes of a three-operand EVEX operation. An embedded broadcast
+/// needs nothing here: transOprToArr already gave every lane of src2 the one
+/// element the source named.
+let private makeAssignEVEX bld ins oprSz packSz dst src1 src2 opFn =
   let packNum = oprSz / packSz
   let tmp = Array.init packNum (fun _ -> tmpVar bld packSz)
-  let mask idx src1 src2 =
-    let cond = getVectorMoveCond ePrx k idx
-    let tSrc =
-      if isMem && ePrx.B = 1uy (* B *) then opFn src1 src2A else opFn src1 src2
-    AST.ite cond tSrc (maskWithEPrx ePrx (Array.item idx dst) packSz)
+  let mask =
+    match opMaskVar bld ins with
+    | ValueNone ->
+      fun _ src1 src2 -> opFn src1 src2
+    | ValueSome k ->
+      fun idx src1 src2 ->
+        let dst = maskedOut ins false packSz (Array.item idx dst)
+        AST.ite (AST.extract k 1<rt> idx) (opFn src1 src2) dst
   Array.mapi2 mask src1 src2
   |> Array.iter2 (fun e1 e2 -> append bld { direct e1 := e2 }) tmp
   tmp
@@ -421,9 +421,7 @@ let private buildVectorMove (ins: Instruction) bld packSz =
     let result =
       if isAVX512 then
         let eDst = transOprToArr ins bld false packSz packNum oprSz dst
-        let ePrx = getEVEXPrx ins.VEXInfo
-        let k = regVar bld (ePrx.AAA |> int |> RegisterHelper.opmask)
-        makeAssignWithMask bld ePrx k oprSz packSz eDst src (isMemOpr dst)
+        makeAssignWithMask bld ins oprSz packSz eDst src (isMemOpr dst)
       else
         src
     assignPackedInstr ins bld false packNum oprSz dst result
@@ -439,12 +437,10 @@ let private buildVectorMoveAVX512 (ins: Instruction) bld packSz =
     let oprSize = getOperationSize ins
     let packNum = 64<rt> / packSz
     let struct (dst, src) = getTwoOprs ins
-    let ePrx = getEVEXPrx ins.VEXInfo
-    let k = regVar bld (ePrx.AAA |> int |> RegisterHelper.opmask)
     let eDst = transOprToArr ins bld false packSz packNum oprSize dst
     let src = transOprToArr ins bld false packSz packNum oprSize src
     let result =
-      makeAssignWithMask bld ePrx k oprSize packSz eDst src (isMemOpr dst)
+      makeAssignWithMask bld ins oprSize packSz eDst src (isMemOpr dst)
     assignPackedInstr ins bld false packNum oprSize dst result
     fillZeroFromVLToMaxVL bld dst oprSize 512
   }
@@ -752,22 +748,11 @@ let vshufi32x4 (ins: Instruction) bld =
     let packSz = 32<rt>
     let packNum = 64<rt> / packSz
     let struct (dst, src1, src2, imm) = getFourOprs ins
-    let isSrc2Mem =
-      match src2 with
-      | OprMem _ -> true
-      | _ -> false
     let src1 = transOprToArr ins bld false packSz packNum oprSize src1
     let src2 = transOprToArr ins bld false packSz packNum oprSize src2
     let imm8 = getImmValue imm
-    let ePrx = getEVEXPrx ins.VEXInfo
-    let k = regVar bld (ePrx.AAA |> int |> RegisterHelper.opmask)
     let tmpSrc2 = Array.init (oprSize / packSz) (fun _ -> tmpVar bld 32<rt>)
-    if isSrc2Mem && ePrx.B = 1uy then
-      let tSrc2 = tmpVar bld 32<rt>
-      direct tSrc2 := Array.head src2
-      Array.iter (fun e -> append bld { direct e := tSrc2 }) tmpSrc2
-    else
-      copyLanes bld tmpSrc2 src2 0
+    copyLanes bld tmpSrc2 src2 0
     let orgDst = transOprToArr ins bld false packSz packNum oprSize dst
     let tDst =
       match oprSize with
@@ -782,7 +767,7 @@ let vshufi32x4 (ins: Instruction) bld =
         vshufLanes512 bld (oprSize / packSz / 4) packSz imm8 (src1, tmpSrc2)
       | _ ->
         raise InvalidOperandException
-    let result = makeAssignWithMask bld ePrx k oprSize packSz orgDst tDst false
+    let result = makeAssignWithMask bld ins oprSize packSz orgDst tDst false
     assignPackedInstr ins bld false packNum oprSize dst result
     fillZeroFromVLToMaxVL bld dst oprSize 512
   }
@@ -999,10 +984,7 @@ let vxorps (ins: Instruction) bld =
     let tSrc2 = transOprToArr ins bld false packSz packNum oprSz src2
     let result =
       if haveEVEXPrx ins.VEXInfo then
-        let isSrc2Mem = isMemOpr src2
-        let ePrx = getEVEXPrx ins.VEXInfo
-        let k = regVar bld (ePrx.AAA |> int |> RegisterHelper.opmask)
-        makeAssignEVEX bld ePrx k oprSz packSz eDst tSrc1 tSrc2 (<+>) isSrc2Mem
+        makeAssignEVEX bld ins oprSz packSz eDst tSrc1 tSrc2 (<+>)
       else
         Array.map2 (<+>) tSrc1 tSrc2
     assignPackedInstr ins bld false packNum oprSz dst result
@@ -1065,15 +1047,13 @@ let vextracti32x8 (ins: Instruction) bld =
     let packNum = 64<rt> / packSz
     let allPackNum = oprSize / packSz
     let struct (dst, src, imm) = getThreeOprs ins
-    let ePrx = getEVEXPrx ins.VEXInfo
-    let k = regVar bld (ePrx.AAA |> int |> RegisterHelper.opmask)
     let eDst = transOprToArr ins bld false packSz packNum oprSize dst
     let src =
       transOprToArr ins bld false packSz packNum (oprSize * 2) src
     let imm0 = getImmValue imm &&& 0b1L |> int (* imm8[0] *)
     let tmpDst = Array.sub src (allPackNum * imm0) allPackNum
     let result =
-      makeAssignWithMask bld ePrx k oprSize packSz eDst tmpDst (isMemOpr dst)
+      makeAssignWithMask bld ins oprSize packSz eDst tmpDst (isMemOpr dst)
     assignPackedInstr ins bld false packNum oprSize dst result
     fillZeroFromVLToMaxVL bld dst oprSize 512
   }
@@ -1095,8 +1075,6 @@ let vextracti128 (ins: Instruction) bld =
 let vextracti64x4 (ins: Instruction) bld =
   lift bld ins {
     let struct (dst, src, imm) = getThreeOprs ins
-    let ePrx = getEVEXPrx ins.VEXInfo
-    let k = regVar bld (ePrx.AAA |> int |> RegisterHelper.opmask)
     let struct (dstD, dstC, dstB, dstA) =
       transOpr256 ins bld false dst
     let struct (srcH, srcG, srcF, srcE, srcD, srcC, srcB, srcA) =
@@ -1113,27 +1091,19 @@ let vextracti64x4 (ins: Instruction) bld =
       direct tDstB := srcF
       direct tDstC := srcG
       direct tDstD := srcH
-    match dst with
-    | OprReg _ ->
-      direct dstA := AST.ite (getVectorMoveCond ePrx k 0)
-                      tDstA
-                      (maskWithEPrx ePrx dstA 64<rt>)
-      direct dstB := AST.ite (getVectorMoveCond ePrx k 1)
-                      tDstB
-                      (maskWithEPrx ePrx dstB 64<rt>)
-      direct dstC := AST.ite (getVectorMoveCond ePrx k 2)
-                      tDstC
-                      (maskWithEPrx ePrx dstC 64<rt>)
-      direct dstD := AST.ite (getVectorMoveCond ePrx k 3)
-                      tDstD
-                      (maskWithEPrx ePrx dstD 64<rt>)
-    | OprMem _ ->
-      direct dstA := AST.ite (getVectorMoveCond ePrx k 0) tDstA dstA
-      direct dstB := AST.ite (getVectorMoveCond ePrx k 1) tDstB dstB
-      direct dstC := AST.ite (getVectorMoveCond ePrx k 2) tDstC dstC
-      direct dstD := AST.ite (getVectorMoveCond ePrx k 3) tDstD dstD
-    | _ ->
-      raise InvalidOperandException
+    let k = opMaskVar bld ins
+    let isMem = isMemOpr dst
+    let written idx dst tDst =
+      match k with
+      | ValueNone ->
+        tDst
+      | ValueSome k ->
+        let kept = maskedOut ins isMem 64<rt> dst
+        AST.ite (AST.extract k 1<rt> idx) tDst kept
+    direct dstA := written 0 dstA tDstA
+    direct dstB := written 1 dstB tDstB
+    direct dstC := written 2 dstC tDstC
+    direct dstD := written 3 dstD tDstD
   }
 
 let vinserti128 (ins: Instruction) bld =
@@ -1170,10 +1140,7 @@ let vpaddd (ins: Instruction) bld =
     let tSrc2 = transOprToArr ins bld false packSz packNum oprSz src2
     let result =
       if haveEVEXPrx ins.VEXInfo then
-        let isSrc2Mem = isMemOpr src2
-        let ePrx = getEVEXPrx ins.VEXInfo
-        let k = regVar bld (ePrx.AAA |> int |> RegisterHelper.opmask)
-        makeAssignEVEX bld ePrx k oprSz packSz eDst tSrc1 tSrc2 (.+) isSrc2Mem
+        makeAssignEVEX bld ins oprSz packSz eDst tSrc1 tSrc2 (.+)
       else
         Array.map2 (.+) tSrc1 tSrc2
     assignPackedInstr ins bld false packNum oprSz dst result
@@ -1448,9 +1415,7 @@ let vpbroadcast (ins: Instruction) bld packSz =
     let src = Array.init allPackNum (fun _ -> temp)
     let result =
       if haveEVEXPrx ins.VEXInfo then
-        let ePrx = getEVEXPrx ins.VEXInfo
-        let k = regVar bld (ePrx.AAA |> int |> RegisterHelper.opmask)
-        makeAssignWithMask bld ePrx k oprSize packSz eDst src (isMemOpr dst)
+        makeAssignWithMask bld ins oprSize packSz eDst src (isMemOpr dst)
       else
         src
     assignPackedInstr ins bld false packNum oprSize dst result
@@ -1591,17 +1556,6 @@ let vpermd ins bld =
     getSrc tmp (xthi dstD) tmp1A tmp2A tmp1B tmp2B tmp1C tmp2C tmp1D tmp2D bld
   }
 
-let private transQwords (ins: Instruction) bld oprSize opr =
-  let isBcst = haveEVEXPrx ins.VEXInfo && (getEVEXPrx ins.VEXInfo).B = 1uy
-  if isMemOpr opr && isBcst then
-    let t = tmpVar bld 64<rt>
-    append bld {
-      direct t := transOpr ins bld false opr
-    }
-    Array.create (oprSize / 64<rt>) t
-  else
-    transOprToArr ins bld true 64<rt> 1 oprSize opr
-
 let private permuteQwordsByImm oprSize (src: Expr[]) imm =
   let imm = getImmValue imm |> int
   let sel j = (j / 4) * 4 + ((imm >>> ((j % 4) * 2)) &&& 0b11)
@@ -1615,10 +1569,8 @@ let private permuteQwordsByIdx (src: Expr[]) idx =
 
 let private maskQwordsWithEVEX bld (ins: Instruction) oprSize dst res =
   if haveEVEXPrx ins.VEXInfo then
-    let ePrx = getEVEXPrx ins.VEXInfo
-    let k = regVar bld (ePrx.AAA |> int |> RegisterHelper.opmask)
     let eDst = transOprToArr ins bld false 64<rt> 1 oprSize dst
-    makeAssignWithMask bld ePrx k oprSize 64<rt> eDst res false
+    makeAssignWithMask bld ins oprSize 64<rt> eDst res false
   else
     res
 
@@ -1626,13 +1578,13 @@ let vpermq (ins: Instruction) bld =
   lift bld ins {
     let oprSize = getOperationSize ins
     let struct (dst, src1, src2) = getThreeOprs ins
-    let src1 = transQwords ins bld oprSize src1
+    let src1 = transOprToArr ins bld true 64<rt> 1 oprSize src1
     let result =
       match src2 with
       | OprImm _ ->
         permuteQwordsByImm oprSize src1 src2
       | _ ->
-        let src2 = transQwords ins bld oprSize src2
+        let src2 = transOprToArr ins bld true 64<rt> 1 oprSize src2
         Array.map (permuteQwordsByIdx src1) src2
     let result = maskQwordsWithEVEX bld ins oprSize dst result
     assignPackedInstr ins bld false 1 oprSize dst result
@@ -2350,16 +2302,18 @@ let vpshufb (ins: Instruction) bld =
       |> AST.xtlo packSz
     let inline shuffle i src2 =
       AST.ite (AST.xthi 1<rt> src2 == n1) n0 (getSrcByIdx i src2)
-    let inline shuffleOfEVEX ePrx k i dst src2 =
-      let cond = getVectorMoveCond ePrx k i
+    let inline shuffleOfEVEX k i dst src2 =
       let shuff = AST.ite (AST.xthi 1<rt> src2 == n1) n0 (getSrcByIdx i src2)
-      AST.ite cond shuff (maskWithEPrx ePrx dst packSz)
+      match k with
+      | ValueNone ->
+        shuff
+      | ValueSome k ->
+        let kept = maskedOut ins false packSz dst
+        AST.ite (AST.extract k 1<rt> i) shuff kept
     let result =
       if haveEVEXPrx ins.VEXInfo then
         let eDst = transOprToArr ins bld false packSz packNum oprSz dst
-        let ePrx = getEVEXPrx ins.VEXInfo
-        let k = regVar bld (ePrx.AAA |> int |> RegisterHelper.opmask)
-        Array.mapi2 (shuffleOfEVEX ePrx k) eDst src2
+        Array.mapi2 (shuffleOfEVEX (opMaskVar bld ins)) eDst src2
       else
         Array.mapi shuffle src2
     assignPackedInstr ins bld false packNum oprSz dst result
@@ -2379,15 +2333,8 @@ let vpshufd (ins: Instruction) bld =
     let inline getIdx i = (i / 4 * 4) + ((ord >>> ((i &&& 0x3) * 2)) &&& 0x3)
     let result =
       if haveEVEXPrx ins.VEXInfo then
-        let ePrx = getEVEXPrx ins.VEXInfo
-        let k = regVar bld (ePrx.AAA |> int |> RegisterHelper.opmask)
-        let src =
-          if (isMemOpr src1) && ePrx.B = 1uy (* B *) then
-            Array.init allPackNum (fun _ -> Array.head src)
-          else
-            src
         let src = Array.init allPackNum (fun i -> src[getIdx i])
-        makeAssignWithMask bld ePrx k oprSize packSize eDst src false
+        makeAssignWithMask bld ins oprSize packSize eDst src false
       else
         let getIdx i = (i / 4 * 4) + ((ord >>> ((i &&& 0x3) * 2)) &&& 0x3)
         Array.init allPackNum (fun i -> src[getIdx i])
@@ -2714,10 +2661,7 @@ let vpxord (ins: Instruction) bld =
     let tSrc2 = transOprToArr ins bld false packSz packNum oprSz src2
     let result =
       if haveEVEXPrx ins.VEXInfo then
-        let isSrc2Mem = isMemOpr src2
-        let ePrx = getEVEXPrx ins.VEXInfo
-        let k = regVar bld (ePrx.AAA |> int |> RegisterHelper.opmask)
-        makeAssignEVEX bld ePrx k oprSz packSz tDst tSrc1 tSrc2 (<+>) isSrc2Mem
+        makeAssignEVEX bld ins oprSz packSz tDst tSrc1 tSrc2 (<+>)
       else
         Array.map2 (<+>) tSrc1 tSrc2
     assignPackedInstr ins bld false packNum oprSz dst result
