@@ -264,11 +264,6 @@ let private transBigEndianCPU (bld: ILowUIRBuilder) opSz =
   | Endian.Big, 64<rt> -> numI32 0b111 64<rt>
   | _ -> raise InvalidOperandException
 
-let sideEffects (ins: Instruction) insLen bld name =
-  lift bld ins insLen {
-    AST.sideEffect name
-  }
-
 let checkOverfolwOnAdd e1 e2 r =
   let e1High = AST.extract e1 1<rt> 31
   let e2High = AST.extract e2 1<rt> 31
@@ -491,6 +486,12 @@ let private mul64BitReg src1 src2 bld isSign =
     prod := ext src1 .* ext src2
   }
   struct (AST.xthi 64<rt> prod, AST.xtlo 64<rt> prod)
+
+let sideEffects (ins: Instruction) insLen bld name =
+  liftOpen bld ins insLen {
+    AST.sideEffect name
+    advancePC bld insLen
+  }
 
 let abs ins insLen bld =
   liftOpen bld ins insLen {
@@ -2051,8 +2052,9 @@ let storeLeftRight ins insLen bld memShf regShf amtOp oprSz =
   }
 
 let syscall (ins: Instruction) insLen bld =
-  lift bld ins insLen {
+  liftOpen bld ins insLen {
     AST.sideEffect SysCall
+    advancePC bld insLen
   }
 
 let seb ins insLen bld =
