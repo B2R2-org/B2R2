@@ -35,10 +35,9 @@ open B2R2.FrontEnd.ARM64.LiftingUtils
 
 /// A module for all AArch64-IR translation functions
 let sideEffects insAddr insLen bld name =
-  markStart bld insAddr insLen
-  append bld { AST.sideEffect name }
-  markEnd bld insLen
-  bld
+  liftAt bld insAddr insLen {
+    AST.sideEffect name
+  }
 
 let abs (ins: Instruction) insLen bld addr =
   lift bld ins insLen {
@@ -2218,9 +2217,7 @@ let mvni (ins: Instruction) insLen bld addr =
   }
 
 let nop insAddr insLen bld =
-  markStart bld insAddr insLen
-  markEnd bld insLen
-  bld
+  liftAt bld insAddr insLen { }
 
 let orn (ins: Instruction) insLen bld addr =
   lift bld ins insLen {
@@ -2272,39 +2269,39 @@ let orr (ins: Instruction) insLen bld addr =
       dstAssign ins.OprSize dst (src1 .| src2) bld
   }
 
+/// Writes the bit reversal of src into dst, one bit at a time from the top
+/// down. The loop stays out of the lift block, where it would allocate an
+/// enumerator per lifted instruction.
+let private reverseInto bld width dst src =
+  for i in 0 .. width - 1 do
+    append bld {
+      AST.extract dst 1<rt> (width - 1 - i) := AST.extract src 1<rt> i
+    }
+
 let rbit (ins: Instruction) insLen bld addr =
-  match ins.Operands with
-  | TwoOperands(OprRegister _, OprRegister _) ->
-    let dst, src = transTwoOprs ins bld addr
-    let datasize = if ins.OprSize = 64<rt> then 64 else 32
-    let tmp = tmpVar bld ins.OprSize
-    markStart bld ins.Address insLen
-    append bld { tmp := numI32 0 ins.OprSize }
-    for i in 0 .. (datasize - 1) do
-      append bld {
-        AST.extract tmp 1<rt> (datasize - 1 - i) := AST.extract src 1<rt> i
-      }
-    dstAssign ins.OprSize dst tmp bld
-  | _ ->
-    let struct (dst, src) = getTwoOprs ins
-    let struct (eSize, dataSize, elements) = getElemDataSzAndElems dst
-    let struct (dstB, dstA) = transOprToExpr128 ins bld addr dst
-    let src = transSIMDOprToExpr bld eSize dataSize elements src
-    let rev = tmpVar bld eSize
-    let result = Array.init elements (fun _ -> tmpVar bld eSize)
-    markStart bld ins.Address insLen
-    append bld { rev := numI32 0 eSize }
-    let reverse i e =
-      let eSize = int eSize
-      for i in 0 .. eSize - 1 do
-        append bld {
-          AST.extract rev 1<rt> (eSize - 1 - i) := AST.extract e 1<rt> i
-        }
-      append bld { result[i] := rev }
-    Array.iteri reverse src
-    dstAssignForSIMD dstA dstB result dataSize elements bld
-  markEnd bld insLen
-  bld
+  lift bld ins insLen {
+    match ins.Operands with
+    | TwoOperands(OprRegister _, OprRegister _) ->
+      let dst, src = transTwoOprs ins bld addr
+      let datasize = if ins.OprSize = 64<rt> then 64 else 32
+      let tmp = tmpVar bld ins.OprSize
+      tmp := numI32 0 ins.OprSize
+      reverseInto bld datasize tmp src
+      dstAssign ins.OprSize dst tmp bld
+    | _ ->
+      let struct (dst, src) = getTwoOprs ins
+      let struct (eSize, dataSize, elements) = getElemDataSzAndElems dst
+      let struct (dstB, dstA) = transOprToExpr128 ins bld addr dst
+      let src = transSIMDOprToExpr bld eSize dataSize elements src
+      let rev = tmpVar bld eSize
+      let result = Array.init elements (fun _ -> tmpVar bld eSize)
+      rev := numI32 0 eSize
+      let reverse i e =
+        reverseInto bld (int eSize) rev e
+        append bld { result[i] := rev }
+      Array.iteri reverse src
+      dstAssignForSIMD dstA dstB result dataSize elements bld
+  }
 
 let ret ins insLen bld addr =
   lift bld ins insLen {

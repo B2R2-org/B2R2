@@ -46,8 +46,8 @@ let inline private numByte (n: int) = numU32 (uint32 n) 8<rt>
 let inline private numAddr (addr: Addr) = numU32 (uint32 addr) 32<rt>
 
 /// Marks the start of an instruction and records its address, so a delayed
-/// branch can name where its delay slot must appear. It stands in for
-/// LiftingUtils's markStart.
+/// branch can name where its delay slot must appear. It takes the place of
+/// the plain ISMark.
 let markInsStart (bld: ILowUIRBuilder) addr insLen =
   bld.Stream.MarkStart(addr, insLen)
   match bld with
@@ -69,7 +69,7 @@ let markInsStart (bld: ILowUIRBuilder) addr insLen =
 /// transfer that has a delay slot stores its target in NPC rather than jumping,
 /// so the instruction that follows executes and then this emits the InterJmp.
 /// The transfer's own end (Armed) defers; the delay slot's end flushes. It
-/// stands in for LiftingUtils's markEnd.
+/// takes the place of the plain IEMark.
 let markInsEnd (bld: ILowUIRBuilder) insLen =
   match bld with
   | :? LowUIRBuilder as sbld ->

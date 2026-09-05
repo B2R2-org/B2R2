@@ -424,7 +424,7 @@ let private normalizeValue oprSz result bld =
 let advancePC (bld: LowUIRBuilder) insLen =
   if bld.DelayedBranch = InterJmpKind.NotAJmp then
     (* Do nothing, because IEMark will advance PC. *)
-    markEnd bld insLen
+    (bld :> ILowUIRBuilder).Stream.MarkEnd insLen
   else
     let nPC = regVar bld R.NPC
     append bld { AST.interjmp nPC bld.DelayedBranch }
@@ -529,9 +529,9 @@ type LiftBuilder =
     while cond () do body ()
 
   member inline this.Run([<InlineIfLambda>] f: unit -> unit) =
-    markStart this.Bld this.Address this.InsLen
+    this.Bld.Stream.MarkStart(this.Address, this.InsLen)
     f ()
-    if this.ArmsDelaySlot then markEnd this.Bld this.InsLen
+    if this.ArmsDelaySlot then this.Bld.Stream.MarkEnd this.InsLen
     else advancePC (this.Bld :?> LowUIRBuilder) this.InsLen
     this.Bld
 

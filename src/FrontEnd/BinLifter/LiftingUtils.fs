@@ -213,21 +213,17 @@ let block = BlockBuilder()
 /// nor the end of an instruction.
 let inline append bld = AppendBuilder bld
 
+/// Starts lifting the instruction at the given address, closing it with an
+/// IEMark once the body of the computation expression ends. Use it where the
+/// lifter is handed an address rather than an instruction; `lift` is the
+/// ordinary form.
+let inline liftAt bld addr insLen = LiftBuilder(bld, addr, insLen)
+
 /// Starts lifting the given instruction, closing it with an IEMark once the
 /// body of the computation expression ends. A body that ends the instruction
 /// itself, e.g. with an inter-jump, says so with `return NoEndMark`.
 let inline lift bld (ins: #IInstruction) insLen =
-  LiftBuilder(bld, ins.Address, insLen)
-
-/// Starts a new instruction with an ISMark. Use it where a lifter marks the
-/// start somewhere other than the top of its body, which `lift` cannot reach.
-let inline markStart (bld: ILowUIRBuilder) addr insLen =
-  bld.Stream.MarkStart(addr, insLen)
-
-/// Closes the current instruction with an IEMark. Use it where a lifter marks
-/// the end somewhere other than the bottom of its body, which `lift` cannot
-/// reach.
-let inline markEnd (bld: ILowUIRBuilder) insLen = bld.Stream.MarkEnd insLen
+  liftAt bld ins.Address insLen
 
 /// Runs the given block when the condition holds, and falls through to the
 /// end otherwise. Emits two labels, named after `name`, and no jump.

@@ -68,9 +68,13 @@ module private LiftingDSLTestHelper =
         member _.IsStackPointer _ = Terminator.impossible ()
         member _.IsFramePointer _ = Terminator.impossible () }
 
-  /// Starts a lift computation expression at the given address, standing in
-  /// for `lift` where the test has no instruction to hand it.
-  let liftAt bld addr insLen = LiftBuilder(bld, addr, insLen)
+  /// Opens an instruction by hand, so that the reference side of a comparison
+  /// can bracket its own stream the way `lift` brackets the DSL's.
+  let markStart (bld: ILowUIRBuilder) addr insLen =
+    bld.Stream.MarkStart(addr, insLen)
+
+  /// Closes an instruction by hand. See markStart.
+  let markEnd (bld: ILowUIRBuilder) insLen = bld.Stream.MarkEnd insLen
 
 [<TestClass>]
 type LiftingDSLTests() =

@@ -44,8 +44,8 @@ let inline (:=) dst src =
 /// Marks the start of an instruction and, when it is the delay slot of an
 /// annulling conditional branch (AnnulCond set by that branch), wraps the body
 /// in a guard: it runs only if the branch was taken, else jumps past it to a
-/// skip label the matching instruction end plants. It stands in for
-/// LiftingUtils's markStart.
+/// skip label the matching instruction end plants. It takes the place of the
+/// plain ISMark.
 let markInsStart (bld: ILowUIRBuilder) addr insLen =
   bld.Stream.MarkStart(addr, insLen)
   match bld with
@@ -79,8 +79,8 @@ let markInsStart (bld: ILowUIRBuilder) addr insLen =
 /// flushes a pending delayed branch. A SPARC control transfer arms the branch
 /// and stores its target in %nPC rather than jumping, so the delay-slot
 /// instruction that follows executes and then this emits the InterJmp. The
-/// transfer's own end (Armed) defers; the delay slot's end flushes. It
-/// stands in for LiftingUtils's markEnd.
+/// transfer's own end (Armed) defers; the delay slot's end flushes. It takes
+/// the place of the plain IEMark.
 let markInsEnd (bld: ILowUIRBuilder) insLen =
   match bld with
   | :? LowUIRBuilder as sbld ->

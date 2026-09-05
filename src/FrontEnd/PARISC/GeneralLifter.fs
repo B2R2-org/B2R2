@@ -156,8 +156,8 @@ let markAt (bld: ILowUIRBuilder) addr insLen isTransfer =
   | _ ->
     ()
 
-/// Marks the start of an ordinary instruction. It stands in for
-/// LiftingUtils's markStart.
+/// Marks the start of an ordinary instruction. It takes the place of the
+/// plain ISMark.
 let markInsStart (bld: ILowUIRBuilder) addr insLen =
   markAt bld addr insLen false
 
@@ -309,8 +309,8 @@ let private flushPending (bld: ILowUIRBuilder) (pbld: LowUIRBuilder) =
 /// leaves the pair undefined -- and untaken means the queue already names this
 /// instruction's own successor, which the block simply falls through to. So the
 /// outer flush is emitted on the nullified path alone, and the block carries on
-/// to the delay slot of the inner transfer. It stands in for LiftingUtils's
-/// markEnd.
+/// to the delay slot of the inner transfer. It takes the place of the plain
+/// IEMark.
 let markInsEnd (bld: ILowUIRBuilder) insLen =
   match bld with
   | :? LowUIRBuilder as pbld ->

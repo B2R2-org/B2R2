@@ -245,10 +245,9 @@ let transTwoOprs (ins: Instruction) bld =
   | _ -> raise InvalidOperandException
 
 let sideEffects insAddr insLen name bld =
-  markStart bld insAddr insLen
-  append bld { AST.sideEffect name }
-  markEnd bld insLen
-  bld
+  liftAt bld insAddr insLen {
+    AST.sideEffect name
+  }
 
 let getIndAdrReg (ins: Instruction) bld =
   match ins.Operands with
@@ -769,9 +768,7 @@ let neg ins len bld =
   }
 
 let nop insAddr len bld =
-  markStart bld insAddr len
-  markEnd bld len
-  bld
+  liftAt bld insAddr len { }
 
 let ``or`` ins len bld =
   lift bld ins len {
@@ -1070,23 +1067,27 @@ let mulsu ins len bld =
 
 /// RET raises the stack pointer by the bytes a call left and reads the word
 /// address back from them, most significant byte first (see pushRet).
-let ret core insAddr len opr bld =
-  let sp = regVar bld SP
-  let n = retBytes core
-  let t = tmpVar bld 16<rt>
-  let word = tmpVar bld pcSize
-  markStart bld insAddr len
-  let below i = if i = 0 then t else t .- numAddr i
-  append bld { t := sp .+ numAddr n }
+/// Reads the n bytes of a return address sitting at t into word, most
+/// significant byte first (see pushRet). The loop stays out of the lift block,
+/// where it would allocate an enumerator per lifted instruction.
+let private popRetAddr bld t word n =
   append bld { word := AST.zext pcSize (dataMem t) }
   for i = 1 to n - 1 do
-    let byteAt = AST.zext pcSize (dataMem (below i))
+    let byteAt = AST.zext pcSize (dataMem (t .- numAddr i))
     append bld { word := word .| (byteAt << numI32PC (8 * i)) }
-  append bld { sp := t }
-  if opr = Opcode.RETI then append bld { regVar bld IF := AST.b1 } else ()
-  append bld { AST.interjmp (word << numI32PC 1) InterJmpKind.IsRet }
-  markEnd bld len
-  bld
+
+let ret core insAddr len opr bld =
+  liftAt bld insAddr len {
+    let sp = regVar bld SP
+    let n = retBytes core
+    let t = tmpVar bld 16<rt>
+    let word = tmpVar bld pcSize
+    t := sp .+ numAddr n
+    popRetAddr bld t word n
+    sp := t
+    if opr = Opcode.RETI then regVar bld IF := AST.b1 else ()
+    AST.interjmp (word << numI32PC 1) InterJmpKind.IsRet
+  }
 
 let rcall core pcMask ins len bld =
   lift bld ins len {
