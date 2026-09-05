@@ -93,10 +93,10 @@ let movd (ins: Instruction) bld =
     | OprReg r1, OprReg r2 ->
       movdRegToReg ins bld r1 r2
     | OprMem _, OprReg r ->
-      let dst = transOprToExpr bld false ins dst
+      let dst = transOpr ins bld false dst
       movdRegToMem bld dst r
     | OprReg r, OprMem _ ->
-      let src = transOprToExpr bld false ins src
+      let src = transOpr ins bld false src
       movdMemToReg ins bld src r
     | _, _ ->
       raise InvalidOperandException
@@ -159,10 +159,10 @@ let movq (ins: Instruction) bld =
     | OprReg r1, OprReg r2 ->
       movqRegToReg ins bld r1 r2
     | OprMem _, OprReg r ->
-      let dst = transOprToExpr bld false ins dst
+      let dst = transOpr ins bld false dst
       movqRegToMem bld dst r
     | OprReg r, OprMem _ ->
-      let src = transOprToExpr bld false ins src
+      let src = transOpr ins bld false src
       movqMemToReg ins bld src r
     | _, _ ->
       raise InvalidOperandException
@@ -336,10 +336,10 @@ let private buildPackedTwoOprs ins bld isFillZero packSz opFn dst src =
   lift bld (ins: Instruction) {
     let oprSize = getOperationSize ins
     let packNum = 64<rt> / packSz
-    let src1 = transOprToArr bld true ins packSz packNum oprSize dst
-    let src2 = transOprToArr bld true ins packSz packNum oprSize src
+    let src1 = transOprToArr ins bld true packSz packNum oprSize dst
+    let src2 = transOprToArr ins bld true packSz packNum oprSize src
     let result = opFn oprSize src1 src2
-    assignPackedInstr bld false ins packNum oprSize dst result
+    assignPackedInstr ins bld false packNum oprSize dst result
     if isFillZero then fillZeroFromVLToMaxVL bld dst oprSize 512 else ()
   }
 
@@ -347,10 +347,10 @@ let private buildPackedThreeOprs i bld isFillZero packSz opFn dst s1 s2 =
   lift bld (i: Instruction) {
     let oprSize = getOperationSize i
     let packNum = 64<rt> / packSz
-    let src1 = transOprToArr bld true i packSz packNum oprSize s1
-    let src2 = transOprToArr bld true i packSz packNum oprSize s2
+    let src1 = transOprToArr i bld true packSz packNum oprSize s1
+    let src2 = transOprToArr i bld true packSz packNum oprSize s2
     let result = opFn oprSize src1 src2
-    assignPackedInstr bld false i packNum oprSize dst result
+    assignPackedInstr i bld false packNum oprSize dst result
     if isFillZero then fillZeroFromVLToMaxVL bld dst oprSize 512 else ()
   }
 
@@ -371,10 +371,10 @@ let private packWithSaturation (ins: Instruction) bld packSz opFn =
     let dPackSz = packSz / 2
     let dPackNum = 64<rt> / dPackSz
     let struct (dst, src) = getTwoOprs ins
-    let src1 = transOprToArr bld true ins sPackSz sPackNum oprSize dst
-    let src2 = transOprToArr bld true ins sPackSz sPackNum oprSize src
+    let src1 = transOprToArr ins bld true sPackSz sPackNum oprSize dst
+    let src2 = transOprToArr ins bld true sPackSz sPackNum oprSize src
     let result = opFn oprSize src1 src2
-    assignPackedInstr bld false ins dPackNum oprSize dst result
+    assignPackedInstr ins bld false dPackNum oprSize dst result
   }
 
 let private opPackssdw _ src1 src2 =
@@ -409,8 +409,8 @@ let unpackLowHighData (ins: Instruction) bld packSize isHigh =
     let packNum = 64<rt> / packSize
     let allPackNum = oprSz / packSize
     let struct (dst, src1, src2) = getThreeOprs ins
-    let src1 = transOprToArr bld true ins packSize packNum oprSz src1
-    let src2 = transOprToArr bld true ins packSize packNum oprSz src2
+    let src1 = transOprToArr ins bld true packSize packNum oprSz src1
+    let src2 = transOprToArr ins bld true packSize packNum oprSz src2
     let resultA, resultB = interleaveAndSplit src1 src2 allPackNum
     let result =
       if oprSz = 128<rt> then
@@ -422,7 +422,7 @@ let unpackLowHighData (ins: Instruction) bld packSize isHigh =
         else Array.append resALow resBLow
       else
         raise InvalidOperandSizeException
-    assignPackedInstr bld false ins packNum oprSz dst result
+    assignPackedInstr ins bld false packNum oprSz dst result
     fillZeroFromVLToMaxVL bld dst oprSz 512
   }
 
@@ -457,8 +457,8 @@ let opUnpackLowData oprSize src1 src2 =
 let private packedBinIntrinsic (ins: Instruction) bld name =
   lift bld ins {
     let struct (dst, src) = getTwoOprs ins
-    let struct (dstB, dstA) = transOprToExpr128 bld false ins dst
-    let struct (srcB, srcA) = transOprToExpr128 bld false ins src
+    let struct (dstB, dstA) = transOpr128 ins bld false dst
+    let struct (srcB, srcA) = transOpr128 ins bld false src
     let t = tmpVar bld 128<rt>
     let s1 = AST.concat dstB dstA
     let s2 = AST.concat srcB srcA
@@ -562,11 +562,11 @@ let packedHorizon (ins: Instruction) bld packSz opFn =
     let oprSize = getOperationSize ins
     let struct (dst, src) = getTwoOprs ins
     let packNum = 64<rt> / packSz
-    let src1 = transOprToArr bld true ins packSz packNum oprSize dst
-    let src2 = transOprToArr bld true ins packSz packNum oprSize src
+    let src1 = transOprToArr ins bld true packSz packNum oprSize dst
+    let src2 = transOprToArr ins bld true packSz packNum oprSize src
     let src1, src2 = makeHorizonSrc src1 src2
     let result = opFn oprSize src1 src2
-    assignPackedInstr bld false ins packNum oprSize dst result
+    assignPackedInstr ins bld false packNum oprSize dst result
   }
 
 let phaddd ins bld = packedHorizon ins bld 32<rt> (opP (.+))
@@ -711,13 +711,13 @@ let pxor (ins: Instruction) bld =
     let oprSize = getOperationSize ins
     match oprSize with
     | 64<rt> ->
-      let struct (dst, src) = transTwoOprs bld false ins
+      let struct (dst, src) = transTwoOprs ins bld false
       direct dst := dst <+> src
       fillOnesToMMXHigh16 bld ins
     | 128<rt> ->
       let struct (dst, src) = getTwoOprs ins
-      let struct (dstB, dstA) = transOprToExpr128 bld false ins dst
-      let struct (srcB, srcA) = transOprToExpr128 bld false ins src
+      let struct (dstB, dstA) = transOpr128 ins bld false dst
+      let struct (srcB, srcA) = transOpr128 ins bld false src
       direct dstA := dstA <+> srcA
       direct dstB := dstB <+> srcB
     | _ ->

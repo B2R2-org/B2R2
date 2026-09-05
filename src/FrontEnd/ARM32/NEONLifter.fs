@@ -283,9 +283,9 @@ let vand (ins: Instruction) bld =
     match ins.OprSize with
     | 128<rt> ->
       let struct (dst, src1, src2) = getThreeOprs ins
-      let struct (dstB, dstA) = transOprToExpr128 bld dst
-      let struct (src1B, src1A) = transOprToExpr128 bld src1
-      let struct (src2B, src2A) = transOprToExpr128 bld src2
+      let struct (dstB, dstA) = transOpr128 bld dst
+      let struct (src1B, src1A) = transOpr128 bld src1
+      let struct (src2B, src2A) = transOpr128 bld src2
       dstA := src1A .& src2A
       dstB := src1B .& src2B
     | _ ->
@@ -426,15 +426,15 @@ let parseOprOfVMOV (ins: Instruction) bld =
     let struct (dst, imm) = getTwoOprs ins
     match ins.OprSize with
     | 128<rt> ->
-      let struct (dstB, dstA) = transOprToExpr128 bld dst
-      let imm = transOprToExpr ins bld imm
+      let struct (dstB, dstA) = transOpr128 bld dst
+      let imm = transOpr ins bld imm
       append bld {
         dstB := imm
         dstA := imm
       }
     | _ ->
-      let dst = transOprToExpr ins bld dst
-      let imm = transOprToExpr ins bld imm
+      let dst = transOpr ins bld dst
+      let imm = transOpr ins bld imm
       append bld {
         dst := imm
       }
@@ -543,8 +543,8 @@ let vabs (ins: Instruction) bld =
     match ins.OprSize with
     | 128<rt> ->
       let struct (dst, src) = getTwoOprs ins
-      let struct (dstB, dstA) = transOprToExpr128 bld dst
-      let struct (srcB, srcA) = transOprToExpr128 bld src
+      let struct (dstB, dstA) = transOpr128 bld dst
+      let struct (srcB, srcA) = transOpr128 bld src
       for e in 0 .. p.Elements - 1 do
         elem dstB e p.ESize := absExpr (elem srcB e p.ESize) p.RtESize
         elem dstA e p.ESize := absExpr (elem srcA e p.ESize) p.RtESize
@@ -656,9 +656,9 @@ let vaddsub (ins: Instruction) bld opFn =
     (* SIMD *)
     | 128<rt> ->
       let struct (dst, src1, src2) = getThreeOprs ins
-      let struct (dstB, dstA) = transOprToExpr128 bld dst
-      let struct (src1B, src1A) = transOprToExpr128 bld src1
-      let struct (src2B, src2A) = transOprToExpr128 bld src2
+      let struct (dstB, dstA) = transOpr128 bld dst
+      let struct (src1B, src1A) = transOpr128 bld src1
+      let struct (src2B, src2A) = transOpr128 bld src2
       for e in 0 .. p.Elements - 1 do
         let elem expr = elem expr e p.ESize
         elem dstB := (opFn (elem src1B) (elem src2B))
@@ -674,9 +674,9 @@ let vaddl (ins: Instruction) bld =
     let lblIgnore = checkCondition ins bld isUnconditional
     let p = getParsingInfo ins
     let struct (dst, src1, src2) = getThreeOprs ins
-    let struct (dstB, dstA) = transOprToExpr128 bld dst
-    let src1 = transOprToExpr ins bld src1
-    let src2 = transOprToExpr ins bld src2
+    let struct (dstB, dstA) = transOpr128 bld dst
+    let src1 = transOpr ins bld src1
+    let src2 = transOpr ins bld src2
     for e in 0 .. (p.Elements - 1) / 2 do
       elem dstA e (2 * p.ESize) :=
         AST.zext (p.RtESize * 2) (elem src1 e p.ESize) .+
@@ -712,8 +712,8 @@ let parseOprOfVCVT (ins: Instruction) bld =
     (* VCVT (between half-precision and single-precision, Advanced SIMD) *)
     | 128<rt> ->
       let struct (dst, src) = getTwoOprs ins
-      let struct (dstB, dstA) = transOprToExpr128 bld dst
-      let src = transOprToExpr ins bld src
+      let struct (dstB, dstA) = transOpr128 bld dst
+      let src = transOpr ins bld src
       let p = getParsingInfo ins
       let struct (tdstB, tdstA) = tmpVars2 bld 64<rt>
       append bld {
@@ -733,8 +733,8 @@ let parseOprOfVCVT (ins: Instruction) bld =
       }
     | 64<rt> ->
       let struct (dst, src) = getTwoOprs ins
-      let dst = transOprToExpr ins bld dst
-      let struct (srcB, srcA) = transOprToExpr128 bld src
+      let dst = transOpr ins bld dst
+      let struct (srcB, srcA) = transOpr128 bld src
       let p = getParsingInfo ins
       let struct (tsrcB, tsrcA) = tmpVars2 bld 64<rt>
       append bld {
@@ -866,8 +866,8 @@ let vclz (ins: Instruction) bld =
     match ins.OprSize with
     | 128<rt> ->
       let struct (dst, src) = getTwoOprs ins
-      let struct (dstB, dstA) = transOprToExpr128 bld dst
-      let struct (srcB, srcA) = transOprToExpr128 bld src
+      let struct (dstB, dstA) = transOpr128 bld dst
+      let struct (srcB, srcA) = transOpr128 bld src
       for e in 0 .. p.Elements - 1 do
         countLeadingZeroBitsForIR (elem dstB e p.ESize)
                                   (elem srcB e p.ESize)
@@ -914,9 +914,9 @@ let vmaxmin (ins: Instruction) bld maximum =
     match ins.OprSize with
     | 128<rt> ->
       let struct (dst, src1, src2) = getThreeOprs ins
-      let struct (dstB, dstA) = transOprToExpr128 bld dst
-      let struct (src1B, src1A) = transOprToExpr128 bld src1
-      let struct (src2B, src2A) = transOprToExpr128 bld src2
+      let struct (dstB, dstA) = transOpr128 bld dst
+      let struct (src1B, src1A) = transOpr128 bld src1
+      let struct (src2B, src2A) = transOpr128 bld src2
       for e in 0 .. p.Elements - 1 do
         let op1B, op2B = elem src1B e p.ESize, elem src2B e p.ESize
         let op1A, op2A = elem src1A e p.ESize, elem src2A e p.ESize
@@ -1016,9 +1016,9 @@ let vecMulAccOrSub (ins: Instruction) bld add =
     match ins.OprSize with
     | 128<rt> ->
       let struct (dst, src1, src2) = getThreeOprs ins
-      let struct (dstB, dstA) = transOprToExpr128 bld dst
-      let struct (src1B, src1A) = transOprToExpr128 bld src1
-      let struct (src2B, src2A) = transOprToExpr128 bld src2
+      let struct (dstB, dstA) = transOpr128 bld dst
+      let struct (src1B, src1A) = transOpr128 bld src1
+      let struct (src2B, src2A) = transOpr128 bld src2
       for e in 0 .. p.Elements - 1 do
         let sext1A = AST.sext p.RtESize (elem src1A e p.ESize)
         let sext1B = AST.sext p.RtESize (elem src1B e p.ESize)
@@ -1048,9 +1048,9 @@ let vecMulAccOrSubLong (ins: Instruction) bld add =
     let p = getParsingInfo ins
     let unsigned = isUnsigned ins.SIMDTyp
     let struct (dst, src1, src2) = getThreeOprs ins
-    let struct (dstB, dstA) = transOprToExpr128 bld dst
-    let src1 = transOprToExpr ins bld src1
-    let src2 = transOprToExpr ins bld src2
+    let struct (dstB, dstA) = transOpr128 bld dst
+    let src1 = transOpr ins bld src1
+    let src2 = transOpr ins bld src2
     for e in 0 .. (p.Elements - 1) / 2 do
       let extend expr =
         if unsigned then AST.zext (p.RtESize * 2) expr
@@ -1076,8 +1076,8 @@ let vecMulAccOrSubByScalar (ins: Instruction) bld add =
     let op2Val = AST.sext p.RtESize (elem src2 index p.ESize)
     match ins.OprSize with
     | 128<rt> ->
-      let struct (dstB, dstA) = transOprToExpr128 bld dst
-      let struct (src1B, src1A) = transOprToExpr128 bld src1
+      let struct (dstB, dstA) = transOpr128 bld dst
+      let struct (src1B, src1A) = transOpr128 bld src1
       for e in 0 .. p.Elements - 1 do
         let op1valA = AST.sext p.RtESize (elem src1A e p.ESize)
         let op1valB = AST.sext p.RtESize (elem src1B e p.ESize)
@@ -1087,8 +1087,8 @@ let vecMulAccOrSubByScalar (ins: Instruction) bld add =
         elem dstB e p.ESize := elem dstB e p.ESize .+ addendB
         elem dstA e p.ESize := elem dstA e p.ESize .+ addendA
     | _ ->
-      let dst = transOprToExpr ins bld dst
-      let src1 = transOprToExpr ins bld src1
+      let dst = transOpr ins bld dst
+      let src1 = transOpr ins bld src1
       for e in 0 .. p.Elements - 1 do
         let op1val = AST.sext p.RtESize (elem src1 e p.ESize)
         let addend =
@@ -1102,8 +1102,8 @@ let vecMulAccOrSubLongByScalar (ins: Instruction) bld add =
     let isUnconditional = ParseUtils.isUnconditional ins.Condition
     let lblIgnore = checkCondition ins bld isUnconditional
     let struct (dst, src1, src2) = getThreeOprs ins
-    let struct (dstB, dstA) = transOprToExpr128 bld dst
-    let src1 = transOprToExpr ins bld src1
+    let struct (dstB, dstA) = transOpr128 bld dst
+    let src1 = transOpr ins bld src1
     let src2, index = transOprToScalar bld src2
     let p = getParsingInfo ins
     let ext = if isUnsigned ins.SIMDTyp then AST.zext else AST.sext
@@ -1196,9 +1196,9 @@ let private vecMulD ins bld p opFn polynomial resultA =
 let private vecMulQ ins bld p opFn polynomial (resultA, resultB) =
   append bld {
     let struct (dst, src1, src2) = getThreeOprs ins
-    let struct (dstB, dstA) = transOprToExpr128 bld dst
-    let struct (src1B, src1A) = transOprToExpr128 bld src1
-    let struct (src2B, src2A) = transOprToExpr128 bld src2
+    let struct (dstB, dstA) = transOpr128 bld dst
+    let struct (src1B, src1A) = transOpr128 bld src1
+    let struct (src2B, src2A) = transOpr128 bld src2
     for e in 0 .. p.Elements - 1 do
       let struct (op1A, op2A, op1B, op2B) =
         let src1A = elem src1A e p.ESize
@@ -1255,9 +1255,9 @@ let vecMulLong (ins: Instruction) bld =
     let p = getParsingInfo ins
     let polynomial = isPolynomial ins.SIMDTyp
     let struct (dst, src1, src2) = getThreeOprs ins
-    let struct (dstB, dstA) = transOprToExpr128 bld dst
-    let src1 = transOprToExpr ins bld src1
-    let src2 = transOprToExpr ins bld src2
+    let struct (dstB, dstA) = transOpr128 bld dst
+    let src1 = transOpr ins bld src1
+    let src2 = transOpr ins bld src2
     let isPolyAndE64 = polynomial && p.ESize = 64
     let struct (regSize, eSize) =
       if isPolyAndE64 then p.RtESize, p.ESize else p.RtESize * 2, p.ESize * 2
@@ -1292,16 +1292,16 @@ let vecMulByScalar (ins: Instruction) bld opFn =
     let op2val = elem src2 index p.ESize
     match ins.OprSize with
     | 128<rt> ->
-      let struct (dstB, dstA) = transOprToExpr128 bld dst
-      let struct (src1B, src1A) = transOprToExpr128 bld src1
+      let struct (dstB, dstA) = transOpr128 bld dst
+      let struct (src1B, src1A) = transOpr128 bld src1
       for e in 0 .. p.Elements - 1 do
         let resA = mulSExtend p 1 (elem src1A e p.ESize) op2val opFn
         let resB = mulSExtend p 1 (elem src1B e p.ESize) op2val opFn
         elem dstB e p.ESize := AST.xtlo p.RtESize resB
         elem dstA e p.ESize := AST.xtlo p.RtESize resA
     | _ ->
-      let dst = transOprToExpr ins bld dst
-      let src1 = transOprToExpr ins bld src1
+      let dst = transOpr ins bld dst
+      let src1 = transOpr ins bld src1
       for e in 0 .. p.Elements - 1 do
         let res = mulSExtend p 1 (elem src1 e p.ESize) op2val opFn
         elem dst e p.ESize := AST.xtlo p.RtESize res
@@ -1313,8 +1313,8 @@ let vecMulLongByScalar (ins: Instruction) bld =
     let isUnconditional = ParseUtils.isUnconditional ins.Condition
     let lblIgnore = checkCondition ins bld isUnconditional
     let struct (dst, src1, src2) = getThreeOprs ins
-    let struct (dstB, dstA) = transOprToExpr128 bld dst
-    let src1 = transOprToExpr ins bld src1
+    let struct (dstB, dstA) = transOpr128 bld dst
+    let src1 = transOpr ins bld src1
     let src2, index = transOprToScalar bld src2
     let p = getParsingInfo ins
     let op2val = elem src2 index p.ESize
@@ -1363,8 +1363,8 @@ let vmovn (ins: Instruction) bld =
     let isUnconditional = ParseUtils.isUnconditional ins.Condition
     let lblIgnore = checkCondition ins bld isUnconditional
     let struct (dst, src) = getTwoOprs ins
-    let dst = transOprToExpr ins bld dst
-    let struct (srcB, srcA) = transOprToExpr128 bld src
+    let dst = transOpr ins bld dst
+    let struct (srcB, srcA) = transOpr128 bld src
     let esize = 8 <<< getSizeStartFrom16 ins.SIMDTyp
     let rtEsz = RegType.fromBitWidth esize
     let elements = 64 / esize
@@ -1383,8 +1383,8 @@ let vneg (ins: Instruction) bld =
     match ins.OprSize with
     | 128<rt> ->
       let struct (dst, src) = getTwoOprs ins
-      let struct (dstB, dstA) = transOprToExpr128 bld dst
-      let struct (srcB, srcA) = transOprToExpr128 bld src
+      let struct (dstB, dstA) = transOpr128 bld dst
+      let struct (srcB, srcA) = transOpr128 bld src
       for e in 0 .. p.Elements - 1 do
         let result1 = AST.neg <| AST.sext p.RtESize (elem srcB e p.ESize)
         let result2 = AST.neg <| AST.sext p.RtESize (elem srcA e p.ESize)
@@ -1424,9 +1424,9 @@ let vrshr (ins: Instruction) bld =
     match ins.OprSize with
     | 128<rt> ->
       let struct (dst, src, imm) = getThreeOprs ins
-      let struct (dstB, dstA) = transOprToExpr128 bld dst
-      let struct (srcB, srcA) = transOprToExpr128 bld src
-      let imm = AST.zext 64<rt> (transOprToExpr ins bld imm)
+      let struct (dstB, dstA) = transOpr128 bld dst
+      let struct (srcB, srcA) = transOpr128 bld src
+      let imm = AST.zext 64<rt> (transOpr ins bld imm)
       let roundConst = AST.num1 64<rt> << (imm .- AST.num1 64<rt>)
       for e in 0 .. p.Elements - 1 do
         let result1 = (extend 64<rt> (elem srcB e p.ESize) .+ roundConst) >> imm
@@ -1451,9 +1451,9 @@ let vshlImm (ins: Instruction) bld =
     match ins.OprSize with
     | 128<rt> ->
       let struct (dst, src, imm) = getThreeOprs ins
-      let struct (dstB, dstA) = transOprToExpr128 bld dst
-      let struct (srcB, srcA) = transOprToExpr128 bld src
-      let imm = AST.zext p.RtESize (transOprToExpr ins bld imm)
+      let struct (dstB, dstA) = transOpr128 bld dst
+      let struct (srcB, srcA) = transOpr128 bld src
+      let imm = AST.zext p.RtESize (transOpr ins bld imm)
       for e in 0 .. p.Elements - 1 do
         elem dstB e p.ESize := elem srcB e p.ESize << imm
         elem dstA e p.ESize := elem srcA e p.ESize << imm
@@ -1474,9 +1474,9 @@ let vshlReg (ins: Instruction) bld =
     match ins.OprSize with
     | 128<rt> ->
       let struct (dst, src1, src2) = getThreeOprs ins
-      let struct (dstB, dstA) = transOprToExpr128 bld dst
-      let struct (src1B, src1A) = transOprToExpr128 bld src1
-      let struct (src2B, src2A) = transOprToExpr128 bld src2
+      let struct (dstB, dstA) = transOpr128 bld dst
+      let struct (src1B, src1A) = transOpr128 bld src1
+      let struct (src2B, src2A) = transOpr128 bld src2
       for e in 0 .. p.Elements - 1 do
         let shift1 = AST.sext 64<rt> (AST.xtlo 8<rt> (elem src2B e p.ESize))
         let shift2 = AST.sext 64<rt> (AST.xtlo 8<rt> (elem src2A e p.ESize))
@@ -1508,9 +1508,9 @@ let vshr (ins: Instruction) bld =
     match ins.OprSize with
     | 128<rt> ->
       let struct (dst, src, imm) = getThreeOprs ins
-      let struct (dstB, dstA) = transOprToExpr128 bld dst
-      let struct (srcB, srcA) = transOprToExpr128 bld dst
-      let imm = AST.zext 64<rt> (transOprToExpr ins bld imm)
+      let struct (dstB, dstA) = transOpr128 bld dst
+      let struct (srcB, srcA) = transOpr128 bld dst
+      let imm = AST.zext 64<rt> (transOpr ins bld imm)
       for e in 0 .. p.Elements - 1 do
         let result1 = extend 64<rt> (elem srcB e p.ESize) >> imm
         let result2 = extend 64<rt> (elem srcA e p.ESize) >> imm
@@ -1570,8 +1570,8 @@ let vectorCompareImm (ins: Instruction) bld cmp =
     match ins.OprSize with
     | 128<rt> ->
       let struct (dst, src1, src2) = getThreeOprs ins
-      let struct (dstB, dstA) = transOprToExpr128 bld dst
-      let struct (src1B, src1A) = transOprToExpr128 bld src1
+      let struct (dstB, dstA) = transOpr128 bld dst
+      let struct (src1B, src1A) = transOpr128 bld src1
       for e in 0 .. p.Elements - 1 do
         let t1 = cmp (elem src1B e p.ESize) num0
         let t2 = cmp (elem src1A e p.ESize) num0
@@ -1594,9 +1594,9 @@ let vectorCompareReg (ins: Instruction) bld cmp =
     match ins.OprSize with
     | 128<rt> ->
       let struct (dst, src1, src2) = getThreeOprs ins
-      let struct (dstB, dstA) = transOprToExpr128 bld dst
-      let struct (src1B, src1A) = transOprToExpr128 bld src1
-      let struct (src2B, src2A) = transOprToExpr128 bld src2
+      let struct (dstB, dstA) = transOpr128 bld dst
+      let struct (src1B, src1A) = transOpr128 bld src1
+      let struct (src2B, src2A) = transOpr128 bld src2
       for e in 0 .. p.Elements - 1 do
         let t1 = cmp (elem src1B e p.ESize) (elem src2B e p.ESize)
         let t2 = cmp (elem src1A e p.ESize) (elem src2A e p.ESize)
@@ -1665,9 +1665,9 @@ let vtst (ins: Instruction) bld =
     match ins.OprSize with
     | 128<rt> ->
       let struct (dst, src1, src2) = getThreeOprs ins
-      let struct (dstB, dstA) = transOprToExpr128 bld dst
-      let struct (src1B, src1A) = transOprToExpr128 bld src1
-      let struct (src2B, src2A) = transOprToExpr128 bld src2
+      let struct (dstB, dstA) = transOpr128 bld dst
+      let struct (src1B, src1A) = transOpr128 bld src1
+      let struct (src2B, src2A) = transOpr128 bld src2
       for e in 0 .. p.Elements - 1 do
         let c = (elem src1B e p.ESize .& elem src2B e p.ESize) != n0
         let c2 = (elem src1A e p.ESize .& elem src2A e p.ESize) != n0
@@ -1689,9 +1689,9 @@ let vrshrn (ins: Instruction) bld =
     let rtEsz = RegType.fromBitWidth esize
     let elements = 64 / esize
     let struct (dst, src, imm) = getThreeOprs ins
-    let dst = transOprToExpr ins bld dst
-    let struct (srcB, srcA) = transOprToExpr128 bld src
-    let imm = AST.zext (rtEsz * 2) (transOprToExpr ins bld imm)
+    let dst = transOpr ins bld dst
+    let struct (srcB, srcA) = transOpr128 bld src
+    let imm = AST.zext (rtEsz * 2) (transOpr ins bld imm)
     let roundConst = AST.num1 (rtEsz * 2) << (imm .- AST.num1 (rtEsz * 2))
     for e in 0 .. (elements / 2) - 1 do
       let result1 = (elem srcB e (esize * 2) .+ roundConst) >> imm
@@ -1708,9 +1708,9 @@ let vorrReg (ins: Instruction) bld =
     match ins.OprSize with
     | 128<rt> ->
       let struct (dst, src1, src2) = getThreeOprs ins
-      let struct (dstB, dstA) = transOprToExpr128 bld dst
-      let struct (src1B, src1A) = transOprToExpr128 bld src1
-      let struct (src2B, src2A) = transOprToExpr128 bld src2
+      let struct (dstB, dstA) = transOpr128 bld dst
+      let struct (src1B, src1A) = transOpr128 bld src1
+      let struct (src2B, src2A) = transOpr128 bld src2
       dstB := src1B .| src2B
       dstA := src1A .| src2A
     | _ ->
@@ -1726,9 +1726,9 @@ let vorrImm (ins: Instruction) bld =
     match ins.OprSize with
     | 128<rt> ->
       let struct (dst, imm) = getTwoOprs ins
-      let struct (dstB, dstA) = transOprToExpr128 bld dst
+      let struct (dstB, dstA) = transOpr128 bld dst
       let imm =
-        AST.concat (transOprToExpr ins bld imm) (transOprToExpr ins bld imm)
+        AST.concat (transOpr ins bld imm) (transOpr ins bld imm)
       dstB := dstB .| imm
       dstA := dstA .| imm
     | _ ->
@@ -1751,9 +1751,9 @@ let vornReg (ins: Instruction) bld =
     match ins.OprSize with
     | 128<rt> ->
       let struct (dst, src1, src2) = getThreeOprs ins
-      let struct (dstB, dstA) = transOprToExpr128 bld dst
-      let struct (src1B, src1A) = transOprToExpr128 bld src1
-      let struct (src2B, src2A) = transOprToExpr128 bld src2
+      let struct (dstB, dstA) = transOpr128 bld dst
+      let struct (src1B, src1A) = transOpr128 bld src1
+      let struct (src2B, src2A) = transOpr128 bld src2
       dstB := src1B .| (AST.not <| src2B)
       dstA := src1A .| (AST.not <| src2A)
     | _ ->
@@ -1769,9 +1769,9 @@ let vornImm (ins: Instruction) bld =
     match ins.OprSize with
     | 128<rt> ->
       let struct (dst, imm) = getTwoOprs ins
-      let struct (dstB, dstA) = transOprToExpr128 bld dst
+      let struct (dstB, dstA) = transOpr128 bld dst
       let imm =
-        AST.concat (transOprToExpr ins bld imm) (transOprToExpr ins bld imm)
+        AST.concat (transOpr ins bld imm) (transOpr ins bld imm)
       dstB := dstB .| AST.not imm
       dstA := dstA .| AST.not imm
     | _ ->
@@ -2419,9 +2419,9 @@ let vext (ins: Instruction) bld =
     let leftAmt = numI64 (64L - ((8L * imm) % 64L)) 64<rt>
     match ins.OprSize with
     | 128<rt> ->
-      let struct (dstB, dstA) = transOprToExpr128 bld dst
-      let struct (src1B, src1A) = transOprToExpr128 bld src1
-      let struct (src2B, src2A) = transOprToExpr128 bld src2
+      let struct (dstB, dstA) = transOpr128 bld dst
+      let struct (src1B, src1A) = transOpr128 bld src1
+      let struct (src2B, src2A) = transOpr128 bld src2
       let struct (tSrc1B, tSrc1A, tSrc2B, tSrc2A) = tmpVars4 bld 64<rt>
       tSrc1A := src1A
       tSrc1B := src1B
@@ -2450,9 +2450,9 @@ let vhaddsub (ins: Instruction) bld opFn =
     match ins.OprSize with
     | 128<rt> ->
       let struct (dst, src1, src2) = getThreeOprs ins
-      let struct (dstB, dstA) = transOprToExpr128 bld dst
-      let struct (src1B, src1A) = transOprToExpr128 bld src1
-      let struct (src2B, src2A) = transOprToExpr128 bld src2
+      let struct (dstB, dstA) = transOpr128 bld dst
+      let struct (src1B, src1A) = transOpr128 bld src1
+      let struct (src2B, src2A) = transOpr128 bld src2
       let struct (op1B, op2B, op1A, op2A) = tmpVars4 bld p.RtESize
       for e in 0 .. p.Elements - 1 do
         op1B := elem src1B e p.ESize
@@ -2481,9 +2481,9 @@ let vrhadd (ins: Instruction) bld =
     match ins.OprSize with
     | 128<rt> ->
       let struct (dst, src1, src2) = getThreeOprs ins
-      let struct (dstB, dstA) = transOprToExpr128 bld dst
-      let struct (src1B, src1A) = transOprToExpr128 bld src1
-      let struct (src2B, src2A) = transOprToExpr128 bld src2
+      let struct (dstB, dstA) = transOpr128 bld dst
+      let struct (src1B, src1A) = transOpr128 bld src1
+      let struct (src2B, src2A) = transOpr128 bld src2
       for e in 0 .. (64 / p.ESize) - 1 do
         op1 := elem src1B e p.ESize .+ elem src2B e p.ESize .+ n1
         op2 := elem src1A e p.ESize .+ elem src2A e p.ESize .+ n1
@@ -2508,9 +2508,9 @@ let vsra (ins: Instruction) bld =
     match ins.OprSize with
     | 128<rt> ->
       let struct (dst, src, imm) = getThreeOprs ins
-      let struct (dstB, dstA) = transOprToExpr128 bld dst
-      let struct (srcB, srcA) = transOprToExpr128 bld src
-      let imm = transOprToExpr ins bld imm
+      let struct (dstB, dstA) = transOpr128 bld dst
+      let struct (srcB, srcA) = transOpr128 bld src
+      let imm = transOpr ins bld imm
       shfAmt := if p.RtESize = 64<rt> then AST.zext p.RtESize imm
               else AST.xtlo p.RtESize imm
       for e in 0 .. p.Elements - 1 do
@@ -2533,8 +2533,8 @@ let vsra (ins: Instruction) bld =
 let private vuzpQ ins bld p elements (zip1B, zip1A, zip2B, zip2A) =
   append bld {
     let struct (dst, src) = getTwoOprs ins
-    let struct (dstB, dstA) = transOprToExpr128 bld dst
-    let struct (srcB, srcA) = transOprToExpr128 bld src
+    let struct (dstB, dstA) = transOpr128 bld dst
+    let struct (srcB, srcA) = transOpr128 bld src
     if dstB = srcB && dstA = srcA then
       dstB := AST.undef 64<rt> "UNKNOWN"
       dstA := AST.undef 64<rt> "UNKNOWN"

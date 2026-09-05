@@ -254,7 +254,7 @@ let private fpuLoad (ins: Instruction) bld oprExpr =
 
 let fld (ins: Instruction) bld =
   lift bld ins {
-    let oprExpr = transOneOpr bld ins
+    let oprExpr = transOneOpr ins bld
     let struct (st0b, st0a) = getFPUPseudoRegVars bld R.ST0
     let tmpB, tmpA = tmpVar bld 16<rt>, bld.Stream.NewTempVar 64<rt>
     castTo80Bit bld tmpB tmpA oprExpr
@@ -349,7 +349,7 @@ let ffst (ins: Instruction) bld doPop =
       direct dstB := st0b
       direct dstA := st0a
     | OneOperand(opr) ->
-      let oprExpr = transOprToExpr bld false ins opr
+      let oprExpr = transOpr ins bld false opr
       let oprSize = Expr.typeOf oprExpr
       castFrom80Bit oprExpr oprSize st0b st0a bld
     | _ ->
@@ -361,7 +361,7 @@ let ffst (ins: Instruction) bld doPop =
 let fild (ins: Instruction) bld =
   lift bld ins {
     let struct (st0b, st0a) = getFPUPseudoRegVars bld R.ST0
-    let oprExpr = transOneOpr bld ins
+    let oprExpr = transOneOpr ins bld
     let tmpB, tmpA = tmpVar bld 16<rt>, bld.Stream.NewTempVar 64<rt>
     castTo80Bit bld tmpB tmpA (AST.cast CastKind.SIntToFloat 64<rt> oprExpr)
     pushFPUStack bld
@@ -372,7 +372,7 @@ let fild (ins: Instruction) bld =
 
 let fist (ins: Instruction) bld doPop =
   lift bld ins {
-    let oprExpr = transOneOpr bld ins
+    let oprExpr = transOneOpr ins bld
     let oprSize = Expr.typeOf oprExpr
     let struct (st0b, st0a) = getFPUPseudoRegVars bld R.ST0
     let tmp0 = tmpVar bld oprSize
@@ -397,7 +397,7 @@ let fist (ins: Instruction) bld doPop =
 
 let fisttp (ins: Instruction) bld =
   lift bld ins {
-    let oprExpr = transOneOpr bld ins
+    let oprExpr = transOneOpr ins bld
     let oprSize = Expr.typeOf oprExpr
     let tmp1 = tmpVar bld 64<rt>
     let struct (st0b, st0a) = getFPUPseudoRegVars bld R.ST0
@@ -460,7 +460,7 @@ let private bcdToInt intgr addrExpr addrSize bld =
 let fbld (ins: Instruction) bld =
   lift bld ins {
     let struct (st0b, st0a) = getFPUPseudoRegVars bld R.ST0
-    let src = transOneOpr bld ins
+    let src = transOneOpr ins bld
     let struct (addrExpr, addrSize) = getLoadAddressExpr src
     let intgr = tmpVar bld 64<rt>
     let tmpB, tmpA = tmpVar bld 16<rt>, bld.Stream.NewTempVar 64<rt>
@@ -509,7 +509,7 @@ let private storeBCD addrExpr addrSize intgr bld =
 
 let fbstp (ins: Instruction) bld =
   lift bld ins {
-    let dst = transOneOpr bld ins
+    let dst = transOneOpr ins bld
     let struct (addrExpr, addrSize) = getLoadAddressExpr dst
     let struct (st0b, st0a) = getFPUPseudoRegVars bld R.ST0
     let tmp = tmpVar bld 64<rt>
@@ -648,7 +648,7 @@ let private fpuFBinOp (ins: Instruction) bld binOp doPop leftToRight =
       else append bld { direct res := binOp tmp1 tmp0 }
       castTo80Bit bld st1b st1a res
     | OneOperand _ ->
-      let oprExpr = transOneOpr bld ins
+      let oprExpr = transOneOpr ins bld
       let oprSize = Expr.typeOf oprExpr
       let struct (st0b, st0a) = getFPUPseudoRegVars bld R.ST0
       let struct (tmp0, tmp1) = tmpVars2 bld 64<rt>
@@ -680,7 +680,7 @@ let private fpuFBinOp (ins: Instruction) bld binOp doPop leftToRight =
 let private fpuIntOp (ins: Instruction) bld binOp leftToRight =
   lift bld ins {
     let struct (st0b, st0a) = getFPUPseudoRegVars bld R.ST0
-    let oprExpr = transOneOpr bld ins
+    let oprExpr = transOneOpr ins bld
     let struct (tmp, dst) = tmpVars2 bld 64<rt>
     let res = tmpVar bld 64<rt>
     direct tmp := AST.cast CastKind.SIntToFloat 64<rt> oprExpr
@@ -739,7 +739,7 @@ let fdivr (ins: Instruction) bld doPop =
       direct res := AST.fdiv tmp1 tmp0
       castTo80Bit bld st1b st1a res
     | OneOperand _ ->
-      let oprExpr = transOneOpr bld ins
+      let oprExpr = transOneOpr ins bld
       let oprSize = Expr.typeOf oprExpr
       let struct (st0b, st0a) = getFPUPseudoRegVars bld R.ST0
       raiseIfZero bld lblErr lblChk st0b st0a
@@ -994,7 +994,7 @@ let private prepareTwoOprsForComparison (ins: Instruction) bld =
     castFrom80Bit tmp1 64<rt> st1b st1a bld
   | OneOperand(opr) ->
     let struct (st0b, st0a) = getFPUPseudoRegVars bld R.ST0
-    let oprExpr = transOprToExpr bld false ins opr
+    let oprExpr = transOpr ins bld false opr
     castFrom80Bit tmp0 64<rt> st0b st0a bld
     append bld {
       direct tmp1 := AST.cast CastKind.FloatCast 64<rt> oprExpr
@@ -1025,7 +1025,7 @@ let fcom (ins: Instruction) bld nPop unordered =
 
 let ficom (ins: Instruction) bld doPop =
   lift bld ins {
-    let oprExpr = transOneOpr bld ins
+    let oprExpr = transOneOpr ins bld
     let struct (st0b, st0a) = getFPUPseudoRegVars bld R.ST0
     let struct (tmp0, tmp1) = tmpVars2 bld 64<rt>
     castFrom80Bit tmp0 64<rt> st0b st0a bld
@@ -1409,7 +1409,7 @@ let fclex (ins: Instruction) bld =
 
 let fstcw (ins: Instruction) bld =
   lift bld ins {
-    let oprExpr = transOneOpr bld ins
+    let oprExpr = transOneOpr ins bld
     checkFPUExceptions bld
     direct oprExpr := regVar bld R.FCW
 #if !EMULATION
@@ -1419,7 +1419,7 @@ let fstcw (ins: Instruction) bld =
 
 let fnstcw (ins: Instruction) bld =
   lift bld ins {
-    let oprExpr = transOneOpr bld ins
+    let oprExpr = transOneOpr ins bld
     direct oprExpr := regVar bld R.FCW
 #if !EMULATION
     allCFlagsUndefined bld
@@ -1428,7 +1428,7 @@ let fnstcw (ins: Instruction) bld =
 
 let fldcw (ins: Instruction) bld =
   lift bld ins {
-    let oprExpr = transOneOpr bld ins
+    let oprExpr = transOneOpr ins bld
     direct (regVar bld R.FCW) := oprExpr
 #if !EMULATION
     direct (regVar bld R.FSWC0) := undefC0
@@ -1468,7 +1468,7 @@ let private m28fstenv dstAddr addrSize bld =
 
 let fnstenv (ins: Instruction) bld =
   lift bld ins {
-    let dst = transOneOpr bld ins
+    let dst = transOneOpr ins bld
     let struct (addrExpr, addrSize) = getLoadAddressExpr dst
     match Expr.typeOf dst with
     | 112<rt> -> m14fstenv addrExpr addrSize bld
@@ -1508,7 +1508,7 @@ let private m28fldenv srcAddr addrSize bld =
 
 let fldenv (ins: Instruction) bld =
   lift bld ins {
-    let src = transOneOpr bld ins
+    let src = transOneOpr ins bld
     let struct (addrExpr, addrSize) = getLoadAddressExpr src
     match Expr.typeOf src with
     | 112<rt> -> m14fldenv addrExpr addrSize bld
@@ -1546,7 +1546,7 @@ let private stSts dstAddr addrSize offset bld =
 
 let fnsave (ins: Instruction) bld =
   lift bld ins {
-    let dst = transOneOpr bld ins
+    let dst = transOneOpr ins bld
     let struct (addrExpr, addrSize) = getLoadAddressExpr dst
     match Expr.typeOf dst with
     | 752<rt> ->
@@ -1595,7 +1595,7 @@ let private ldSts srcAddr addrSize offset bld =
 
 let frstor (ins: Instruction) bld =
   lift bld ins {
-    let src = transOneOpr bld ins
+    let src = transOneOpr ins bld
     let struct (addrExpr, addrSize) = getLoadAddressExpr src
     match Expr.typeOf src with
     | 752<rt> ->
@@ -1610,7 +1610,7 @@ let frstor (ins: Instruction) bld =
 
 let fnstsw (ins: Instruction) bld =
   lift bld ins {
-    let oprExpr = transOneOpr bld ins
+    let oprExpr = transOneOpr ins bld
     direct oprExpr := regVar bld R.FSW
 #if !EMULATION
     allCFlagsUndefined bld
@@ -1680,7 +1680,7 @@ let private fxsaveInternal bld dstAddr addrSize is64bit =
 
 let fxsave (ins: Instruction) bld =
   lift bld ins {
-    let dst = transOneOpr bld ins
+    let dst = transOneOpr ins bld
     let struct (addrExpr, addrSize) = getLoadAddressExpr dst
     fxsaveInternal bld addrExpr addrSize (bld.RegType = 64<rt>)
   }
@@ -1727,7 +1727,7 @@ let private fxrstoreInternal bld srcAddr addrSz is64bit =
 
 let fxrstor (ins: Instruction) bld =
   lift bld ins {
-    let src = transOneOpr bld ins
+    let src = transOneOpr ins bld
     let struct (addrExpr, addrSize) = getLoadAddressExpr src
     fxrstoreInternal bld addrExpr addrSize (bld.RegType = 64<rt>)
   }

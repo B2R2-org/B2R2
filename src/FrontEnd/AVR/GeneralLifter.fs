@@ -191,7 +191,7 @@ let private ofOnAdd e1 e2 r =
   (e1High .& e2High .& (AST.not rHigh))
     .| ((AST.not e1High) .& (AST.not e2High) .& rHigh)
 
-let transOprToExpr bld = function
+let transOpr bld = function
 | OprReg reg -> regVar bld reg
 | OprImm imm -> numI32 imm
 | OprAddr addr -> numI32PC addr
@@ -236,12 +236,12 @@ let transMemOprToExpr3 (ins: Instruction) bld =
 
 let transOneOpr (ins: Instruction) bld =
   match ins.Operands with
-  | OneOperand o1 -> transOprToExpr bld o1
+  | OneOperand o1 -> transOpr bld o1
   | _ -> raise InvalidOperandException
 
 let transTwoOprs (ins: Instruction) bld =
   match ins.Operands with
-  | TwoOperands(o1, o2) -> struct (transOprToExpr bld o1, transOprToExpr bld o2)
+  | TwoOperands(o1, o2) -> struct (transOpr bld o1, transOpr bld o2)
   | _ -> raise InvalidOperandException
 
 let sideEffects ins name bld =

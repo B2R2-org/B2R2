@@ -160,7 +160,7 @@ let inline numI32PC (n: int) = BitVector(n, 64<rt>) |> AST.num
 let inline getCCVar (bld: ILowUIRBuilder) name =
   ConditionCode.toRegID name |> bld.GetRegVar
 
-let transOprToExpr ins bld = function
+let transOpr ins bld = function
   | OprReg reg -> regVar bld reg
   | OprImm imm -> numI32 imm 64<rt>
   | OprAddr addr -> numI32PC addr
@@ -194,22 +194,22 @@ let getThreeOprs (ins: Instruction) =
 
 let transOneOpr (ins: Instruction) bld =
   match ins.Operands with
-  | OneOperand o1 -> transOprToExpr ins bld o1
+  | OneOperand o1 -> transOpr ins bld o1
   | _ -> raise InvalidOperandException
 
 let transTwoOprs (ins: Instruction) bld =
   match ins.Operands with
   | TwoOperands(o1, o2) ->
-    struct (transOprToExpr ins bld o1, transOprToExpr ins bld o2)
+    struct (transOpr ins bld o1, transOpr ins bld o2)
   | _ ->
     raise InvalidOperandException
 
 let transThreeOprs (ins: Instruction) bld =
   match ins.Operands with
   | ThreeOperands(o1, o2, o3) ->
-    let o1 = transOprToExpr ins bld o1
-    let o2 = transOprToExpr ins bld o2
-    let o3 = transOprToExpr ins bld o3
+    let o1 = transOpr ins bld o1
+    let o2 = transOpr ins bld o2
+    let o3 = transOpr ins bld o3
     struct (o1, o2, o3)
   | _ ->
     raise InvalidOperandException
@@ -217,10 +217,10 @@ let transThreeOprs (ins: Instruction) bld =
 let transFourOprs (ins: Instruction) bld =
   match ins.Operands with
   | FourOperands(o1, o2, o3, o4) ->
-    let o1 = transOprToExpr ins bld o1
-    let o2 = transOprToExpr ins bld o2
-    let o3 = transOprToExpr ins bld o3
-    let o4 = transOprToExpr ins bld o4
+    let o1 = transOpr ins bld o1
+    let o2 = transOpr ins bld o2
+    let o3 = transOpr ins bld o3
+    let o4 = transOpr ins bld o4
     struct (o1, o2, o3, o4)
   | _ ->
     raise InvalidOperandException
@@ -228,18 +228,18 @@ let transFourOprs (ins: Instruction) bld =
 let transAddrThreeOprs (ins: Instruction) bld =
   match ins.Operands with
   | ThreeOperands(o1, o2, o3) ->
-    struct (transOprToExpr ins bld o1 .+
-            transOprToExpr ins bld o2, transOprToExpr ins bld o3)
+    struct (transOpr ins bld o1 .+
+            transOpr ins bld o2, transOpr ins bld o3)
   | _ ->
     raise InvalidOperandException
 
 let transAddrFourOprs (ins: Instruction) bld =
   match ins.Operands with
   | FourOperands(o1, o2, o3, o4) ->
-    let o1 = transOprToExpr ins bld o1
-    let o2 = transOprToExpr ins bld o2
-    let o3 = transOprToExpr ins bld o3
-    let o4 = transOprToExpr ins bld o4
+    let o1 = transOpr ins bld o1
+    let o2 = transOpr ins bld o2
+    let o3 = transOpr ins bld o3
+    let o4 = transOpr ins bld o4
     struct (o1 .+ o2, o3, o4)
   | _ ->
     raise InvalidOperandException
@@ -247,9 +247,9 @@ let transAddrFourOprs (ins: Instruction) bld =
 let transTwoOprsAddr (ins: Instruction) bld =
   match ins.Operands with
   | ThreeOperands(o1, o2, o3) ->
-    let o1 = transOprToExpr ins bld o1
-    let o2 = transOprToExpr ins bld o2
-    let o3 = transOprToExpr ins bld o3
+    let o1 = transOpr ins bld o1
+    let o2 = transOpr ins bld o2
+    let o3 = transOpr ins bld o3
     struct (o1, o2 .+ o3)
   | _ ->
     raise InvalidOperandException
@@ -257,10 +257,10 @@ let transTwoOprsAddr (ins: Instruction) bld =
 let transThreeOprsAddr (ins: Instruction) bld =
   match ins.Operands with
   | FourOperands(o1, o2, o3, o4) ->
-    let o1 = transOprToExpr ins bld o1
-    let o2 = transOprToExpr ins bld o2
-    let o3 = transOprToExpr ins bld o3
-    let o4 = transOprToExpr ins bld o4
+    let o1 = transOpr ins bld o1
+    let o2 = transOpr ins bld o2
+    let o3 = transOpr ins bld o3
+    let o4 = transOpr ins bld o4
     struct (o1, o2 .+ o3, o4)
   | _ ->
     raise InvalidOperandException

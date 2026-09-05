@@ -38,10 +38,10 @@ open B2R2.FrontEnd.ARM32.LiftingUtils
 let transShiftOprs ins bld opr1 opr2 =
   match opr1, opr2 with
   | OprReg _, OprShift(typ, Imm imm) ->
-    let e = transOprToExpr ins bld opr1
+    let e = transOpr ins bld opr1
     shift e 32<rt> typ imm (getCarryFlag bld)
   | OprReg _, OprRegShift(typ, reg) ->
-    let e = transOprToExpr ins bld opr1
+    let e = transOpr ins bld opr1
     let amount = AST.xtlo 8<rt> (regVar bld reg) |> AST.zext 32<rt>
     shiftForRegAmount e 32<rt> typ amount (getCarryFlag bld)
   | _ ->
@@ -52,7 +52,7 @@ let parseOprOfMVNS (ins: Instruction) bld =
   | TwoOperands(OprReg _, OprImm _) ->
     transTwoOprs ins bld
   | ThreeOperands(opr1, opr2, opr3) ->
-    struct (transOprToExpr ins bld opr1, transShiftOprs ins bld opr2 opr3)
+    struct (transOpr ins bld opr1, transShiftOprs ins bld opr2 opr3)
   | _ ->
     raise InvalidOperandException
 
@@ -78,12 +78,12 @@ let transThreeOprsOfADC (ins: Instruction) bld =
 let transFourOprsOfADC (ins: Instruction) bld =
   match ins.Operands with
   | FourOperands(opr1, opr2, opr3, (OprShift(_, Imm _) as opr4)) ->
-    let e1, e2 = transOprToExpr ins bld opr1, transOprToExpr ins bld opr2
+    let e1, e2 = transOpr ins bld opr1, transOpr ins bld opr2
     struct (e1, e2, transShiftOprs ins bld opr3 opr4)
   | FourOperands(opr1, opr2, opr3, OprRegShift(typ, reg)) ->
-    let e1 = transOprToExpr ins bld opr1
-    let e2 = transOprToExpr ins bld opr2
-    let e3 = transOprToExpr ins bld opr3
+    let e1 = transOpr ins bld opr1
+    let e2 = transOpr ins bld opr2
+    let e3 = transOpr ins bld opr3
     let amount = AST.xtlo 8<rt> (regVar bld reg) |> AST.zext 32<rt>
     struct (e1, e2, shiftForRegAmount e3 32<rt> typ amount (getCarryFlag bld))
   | _ ->
@@ -233,13 +233,13 @@ let transThreeOprsOfADD (ins: Instruction) bld =
 let transFourOprsOfADD (ins: Instruction) bld =
   match ins.Operands with
   | FourOperands(opr1, opr2, opr3, (OprShift(_, Imm _) as opr4)) ->
-    let e1 = transOprToExpr ins bld opr1
-    let e2 = transOprToExpr ins bld opr2
+    let e1 = transOpr ins bld opr1
+    let e2 = transOpr ins bld opr2
     struct (e1, e2, transShiftOprs ins bld opr3 opr4)
   | FourOperands(opr1, opr2, opr3, OprRegShift(typ, reg)) ->
-    let e1 = transOprToExpr ins bld opr1
-    let e2 = transOprToExpr ins bld opr2
-    let e3 = transOprToExpr ins bld opr3
+    let e1 = transOpr ins bld opr1
+    let e2 = transOpr ins bld opr2
+    let e3 = transOpr ins bld opr3
     let amount = AST.xtlo 8<rt> (regVar bld reg) |> AST.zext 32<rt>
     struct (e1, e2, shiftForRegAmount e3 32<rt> typ amount (getCarryFlag bld))
   | _ ->
@@ -620,9 +620,9 @@ let translateLogicOp (ins: Instruction) bld =
   | FourOperands(opr1, opr2, opr3, OprShift(typ, Imm imm)) ->
     let t = tmpVar bld 32<rt>
     let carryIn = getCarryFlag bld
-    let dst = transOprToExpr ins bld opr1
-    let src1 = transOprToExpr ins bld opr2
-    let rm = transOprToExpr ins bld opr3
+    let dst = transOpr ins bld opr1
+    let src1 = transOpr ins bld opr2
+    let rm = transOpr ins bld opr3
     append bld {
       t := rm
     }
@@ -631,9 +631,9 @@ let translateLogicOp (ins: Instruction) bld =
   | FourOperands(opr1, opr2, opr3, OprRegShift(typ, reg)) ->
     let t = tmpVar bld 32<rt>
     let carryIn = getCarryFlag bld
-    let dst = transOprToExpr ins bld opr1
-    let src1 = transOprToExpr ins bld opr2
-    let rm = transOprToExpr ins bld opr3
+    let dst = transOpr ins bld opr1
+    let src1 = transOpr ins bld opr2
+    let rm = transOpr ins bld opr3
     append bld {
       t := rm
     }
@@ -669,7 +669,7 @@ let parseOprsOfMOV (ins: Instruction) bld =
   | TwoOperands _ ->
     transTwoOprs ins bld
   | ThreeOperands(opr1, opr2, opr3) ->
-    struct (transOprToExpr ins bld opr1, transShiftOprs ins bld opr2 opr3)
+    struct (transOpr ins bld opr1, transShiftOprs ins bld opr2 opr3)
   | _ ->
     raise InvalidOperandException
 
@@ -721,13 +721,13 @@ let eor isSetFlags (ins: Instruction) bld =
 let transFourOprsOfRSB (ins: Instruction) bld =
   match ins.Operands with
   | FourOperands(opr1, opr2, opr3, (OprShift(_, Imm _) as opr4)) ->
-    let e1 = transOprToExpr ins bld opr1
-    let e2 = transOprToExpr ins bld opr2
+    let e1 = transOpr ins bld opr1
+    let e2 = transOpr ins bld opr2
     struct (e1, e2, transShiftOprs ins bld opr3 opr4)
   | FourOperands(opr1, opr2, opr3, OprRegShift(typ, reg)) ->
-    let e1 = transOprToExpr ins bld opr1
-    let e2 = transOprToExpr ins bld opr2
-    let e3 = transOprToExpr ins bld opr3
+    let e1 = transOpr ins bld opr1
+    let e2 = transOpr ins bld opr2
+    let e3 = transOpr ins bld opr3
     let amount = AST.xtlo 8<rt> (regVar bld reg) |> AST.zext 32<rt>
     struct (e1, e2, shiftForRegAmount e3 32<rt> typ amount (getCarryFlag bld))
   | _ ->
@@ -776,13 +776,13 @@ let transTwoOprsOfSBC (ins: Instruction) bld =
 let transFourOprsOfSBC (ins: Instruction) bld =
   match ins.Operands with
   | FourOperands(opr1, opr2, opr3, (OprShift(_, Imm _) as opr4)) ->
-    let e1 = transOprToExpr ins bld opr1
-    let e2 = transOprToExpr ins bld opr2
+    let e1 = transOpr ins bld opr1
+    let e2 = transOpr ins bld opr2
     struct (e1, e2, transShiftOprs ins bld opr3 opr4)
   | FourOperands(opr1, opr2, opr3, OprRegShift(typ, reg)) ->
-    let e1 = transOprToExpr ins bld opr1
-    let e2 = transOprToExpr ins bld opr2
-    let e3 = transOprToExpr ins bld opr3
+    let e1 = transOpr ins bld opr1
+    let e2 = transOpr ins bld opr2
+    let e3 = transOpr ins bld opr3
     let amount = AST.xtlo 8<rt> (regVar bld reg) |> AST.zext 32<rt>
     struct (e1, e2, shiftForRegAmount e3 32<rt> typ amount (getCarryFlag bld))
   | _ ->
@@ -824,13 +824,13 @@ let sbc isSetFlags ins bld =
 let transFourOprsOfRSC (ins: Instruction) bld =
   match ins.Operands with
   | FourOperands(opr1, opr2, opr3, (OprShift(_, Imm _) as opr4)) ->
-    let e1 = transOprToExpr ins bld opr1
-    let e2 = transOprToExpr ins bld opr2
+    let e1 = transOpr ins bld opr1
+    let e2 = transOpr ins bld opr2
     e1, e2, transShiftOprs ins bld opr3 opr4
   | FourOperands(opr1, opr2, opr3, OprRegShift(typ, reg)) ->
-    let e1 = transOprToExpr ins bld opr1
-    let e2 = transOprToExpr ins bld opr2
-    let e3 = transOprToExpr ins bld opr3
+    let e1 = transOpr ins bld opr1
+    let e2 = transOpr ins bld opr2
+    let e3 = transOpr ins bld opr3
     let amount = AST.xtlo 8<rt> (regVar bld reg) |> AST.zext 32<rt>
     e1, e2, shiftForRegAmount e3 32<rt> typ amount (getCarryFlag bld)
   | _ ->
@@ -947,14 +947,14 @@ let transThreeOprsOfMVN (ins: Instruction) bld =
   match ins.Operands with
   | ThreeOperands(opr1, opr2, OprShift(typ, Imm imm)) ->
     let carryIn = getCarryFlag bld
-    let dst = transOprToExpr ins bld opr1
-    let src = transOprToExpr ins bld opr2
+    let dst = transOpr ins bld opr1
+    let src = transOpr ins bld opr2
     let shifted, carryOut = shiftC src 32<rt> typ imm carryIn
     struct (dst, shifted, carryOut)
   | ThreeOperands(opr1, opr2, OprRegShift(typ, rs)) ->
     let carryIn = getCarryFlag bld
-    let dst = transOprToExpr ins bld opr1
-    let src = transOprToExpr ins bld opr2
+    let dst = transOpr ins bld opr1
+    let src = transOpr ins bld opr2
     let amount = AST.xtlo 8<rt> (regVar bld rs) |> AST.zext 32<rt>
     let shifted, carryOut = shiftCForRegAmount src 32<rt> typ amount carryIn
     struct (dst, shifted, carryOut)
@@ -1018,8 +1018,8 @@ let transTwoOprsOfShiftInstr (ins: Instruction) shiftTyp bld tmp =
 let transThreeOprsOfShiftInstr (ins: Instruction) shiftTyp bld tmp =
   match ins.Operands with
   | ThreeOperands(opr1, opr2, OprImm imm) ->
-    let e1 = transOprToExpr ins bld opr1
-    let e2 = transOprToExpr ins bld opr2
+    let e1 = transOpr ins bld opr1
+    let e2 = transOpr ins bld opr2
     let shiftN = getImmShiftFromShiftType (uint32 imm) shiftTyp
     let shifted, carryOut = shiftC tmp 32<rt> shiftTyp shiftN (getCarryFlag bld)
     e1, e2, shifted, carryOut
@@ -1209,14 +1209,14 @@ let transThreeOprsOfCMN (ins: Instruction) bld =
   match ins.Operands with
   | ThreeOperands(opr1, opr2, OprShift(typ, Imm imm)) ->
     let carryIn = getCarryFlag bld
-    let dst = transOprToExpr ins bld opr1
-    let src = transOprToExpr ins bld opr2
+    let dst = transOpr ins bld opr1
+    let src = transOpr ins bld opr2
     let shifted = shift src 32<rt> typ imm carryIn
     struct (dst, shifted)
   | ThreeOperands(opr1, opr2, OprRegShift(typ, rs)) ->
     let carryIn = getCarryFlag bld
-    let dst = transOprToExpr ins bld opr1
-    let src = transOprToExpr ins bld opr2
+    let dst = transOpr ins bld opr1
+    let src = transOpr ins bld opr2
     let amount = AST.xtlo 8<rt> (regVar bld rs) |> AST.zext 32<rt>
     let shifted = shiftForRegAmount src 32<rt> typ amount carryIn
     struct (dst, shifted)
@@ -1279,13 +1279,13 @@ let transThreeOprsOfCMP (ins: Instruction) bld =
   match ins.Operands with
   | ThreeOperands(opr1, opr2, OprShift(typ, Imm imm)) ->
     let carryIn = getCarryFlag bld
-    let dst = transOprToExpr ins bld opr1
-    let src = transOprToExpr ins bld opr2
+    let dst = transOpr ins bld opr1
+    let src = transOpr ins bld opr2
     struct (dst, shift src 32<rt> typ imm carryIn)
   | ThreeOperands(opr1, opr2, OprRegShift(typ, rs)) ->
     let carryIn = getCarryFlag bld
-    let dst = transOprToExpr ins bld opr1
-    let src = transOprToExpr ins bld opr2
+    let dst = transOpr ins bld opr1
+    let src = transOpr ins bld opr2
     let amount = AST.xtlo 8<rt> (regVar bld rs) |> AST.zext 32<rt>
     struct (dst, shiftForRegAmount src 32<rt> typ amount carryIn)
   | _ ->
@@ -1373,14 +1373,14 @@ let transOprsOfTEQ (ins: Instruction) bld =
     rn, imm, getCarryFlag bld
   | ThreeOperands(opr1, opr2, OprShift(typ, Imm imm)) ->
     let carryIn = getCarryFlag bld
-    let rn = transOprToExpr ins bld opr1
-    let rm = transOprToExpr ins bld opr2
+    let rn = transOpr ins bld opr1
+    let rm = transOpr ins bld opr2
     let shifted, carryOut = shiftC rm 32<rt> typ imm carryIn
     rn, shifted, carryOut
   | ThreeOperands(opr1, opr2, OprRegShift(typ, rs)) ->
     let carryIn = getCarryFlag bld
-    let rn = transOprToExpr ins bld opr1
-    let rm = transOprToExpr ins bld opr2
+    let rn = transOpr ins bld opr1
+    let rm = transOpr ins bld opr2
     let amount = AST.xtlo 8<rt> (regVar bld rs) |> AST.zext 32<rt>
     let shifted, carryOut = shiftCForRegAmount rm 32<rt> typ amount carryIn
     rn, shifted, carryOut
@@ -1430,14 +1430,14 @@ let transOprsOfTST (ins: Instruction) bld =
     struct (e1, shifted, carryOut)
   | ThreeOperands(opr1, opr2, OprShift(typ, Imm imm)) ->
     let carryIn = getCarryFlag bld
-    let rn = transOprToExpr ins bld opr1
-    let rm = transOprToExpr ins bld opr2
+    let rn = transOpr ins bld opr1
+    let rm = transOpr ins bld opr2
     let shifted, carryOut = shiftC rm 32<rt> typ imm carryIn
     struct (rn, shifted, carryOut)
   | ThreeOperands(opr1, opr2, OprRegShift(typ, rs)) ->
     let carryIn = getCarryFlag bld
-    let rn = transOprToExpr ins bld opr1
-    let rm = transOprToExpr ins bld opr2
+    let rn = transOpr ins bld opr1
+    let rm = transOpr ins bld opr2
     let amount = AST.xtlo 8<rt> (regVar bld rs) |> AST.zext 32<rt>
     let shifted, carryOut = shiftCForRegAmount rm 32<rt> typ amount carryIn
     struct (rn, shifted, carryOut)
@@ -1638,9 +1638,9 @@ let transFourOprsWithBarrelShift (ins: Instruction) bld =
   match ins.Operands with
   | FourOperands(opr1, opr2, opr3, OprShift(typ, Imm imm)) ->
     let carryIn = getCarryFlag bld
-    let dst = transOprToExpr ins bld opr1
-    let src1 = transOprToExpr ins bld opr2
-    let src2 = transOprToExpr ins bld opr3
+    let dst = transOpr ins bld opr1
+    let src1 = transOpr ins bld opr2
+    let src2 = transOpr ins bld opr3
     let shifted = shift src2 32<rt> typ imm carryIn
     struct (dst, src1, shifted)
   | _ ->

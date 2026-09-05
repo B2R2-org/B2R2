@@ -39,7 +39,7 @@ let inline (:=) dst src =
   | _ ->
     dst := src
 
-let transOprToExpr (ins: Instruction) bld = function
+let transOpr (ins: Instruction) bld = function
   | OpReg reg ->
     regVar bld reg
   | OpImm imm
@@ -171,23 +171,36 @@ let getFourOprs (ins: Instruction) =
   | FourOperands(o1, o2, o3, o4) -> o1, o2, o3, o4
   | _ -> raise InvalidOperandException
 
-let transOneOpr ins bld opr = transOprToExpr ins bld opr
+let transOneOpr (ins: Instruction) bld =
+  match ins.Operands with
+  | OneOperand o -> transOpr ins bld o
+  | _ -> raise InvalidOperandException
 
-let transTwoOprs ins bld (o1, o2) =
-  transOprToExpr ins bld o1, transOprToExpr ins bld o2
+let transTwoOprs (ins: Instruction) bld =
+  match ins.Operands with
+  | TwoOperands(o1, o2) -> transOpr ins bld o1, transOpr ins bld o2
+  | _ -> raise InvalidOperandException
 
-let transThreeOprs ins bld (o1, o2, o3) =
-  let o1 = transOprToExpr ins bld o1
-  let o2 = transOprToExpr ins bld o2
-  let o3 = transOprToExpr ins bld o3
-  o1, o2, o3
+let transThreeOprs (ins: Instruction) bld =
+  match ins.Operands with
+  | ThreeOperands(o1, o2, o3) ->
+    let o1 = transOpr ins bld o1
+    let o2 = transOpr ins bld o2
+    let o3 = transOpr ins bld o3
+    o1, o2, o3
+  | _ ->
+    raise InvalidOperandException
 
-let transFourOprs ins bld (o1, o2, o3, o4) =
-  let o1 = transOprToExpr ins bld o1
-  let o2 = transOprToExpr ins bld o2
-  let o3 = transOprToExpr ins bld o3
-  let o4 = transOprToExpr ins bld o4
-  o1, o2, o3, o4
+let transFourOprs (ins: Instruction) bld =
+  match ins.Operands with
+  | FourOperands(o1, o2, o3, o4) ->
+    let o1 = transOpr ins bld o1
+    let o2 = transOpr ins bld o2
+    let o3 = transOpr ins bld o3
+    let o4 = transOpr ins bld o4
+    o1, o2, o3, o4
+  | _ ->
+    raise InvalidOperandException
 
 let transFPConcatTwoOprs bld (o1, o2) =
   transOprToFPPairConcat bld o1, transOprToFPPairConcat bld o2

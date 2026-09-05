@@ -178,7 +178,7 @@ let aad (ins: Instruction) bld =
 #if DEBUG
     assert32 bld
 #endif
-    let imm8 = transOneOpr bld ins |> AST.xtlo 8<rt>
+    let imm8 = transOneOpr ins bld |> AST.xtlo 8<rt>
     let al = regVar bld R.AL
     let ah = regVar bld R.AH
     let sf = AST.xthi 1<rt> al
@@ -199,7 +199,7 @@ let aam (ins: Instruction) bld =
 #if DEBUG
     assert32 bld
 #endif
-    let imm8 = transOneOpr bld ins |> AST.xtlo 8<rt>
+    let imm8 = transOneOpr ins bld |> AST.xtlo 8<rt>
     let al = regVar bld R.AL
     let ah = regVar bld R.AH
     let sf = AST.xthi 1<rt> al
@@ -245,7 +245,7 @@ let aas (ins: Instruction) bld =
 
 let adc (ins: Instruction) bld =
   lift bld ins {
-    let struct (dst, src) = transTwoOprs bld true ins
+    let struct (dst, src) = transTwoOprs ins bld true
     let oprSize = getOperationSize ins
     let cf = regVar bld R.CF
     let struct (t1, t2, t3, t4) = tmpVars4 bld oprSize
@@ -281,7 +281,7 @@ let private atomicEndIfLocked (ins: Instruction) bld =
 /// same comes down to.
 let private addSameOprs (ins: Instruction) bld oprSize o1 =
   append bld {
-    let dst = transOprToExpr bld false ins o1
+    let dst = transOpr ins bld false o1
     atomicBeginIfLocked ins bld
 #if !EMULATION
     let struct (t1, t2) = tmpVars2 bld oprSize
@@ -308,8 +308,8 @@ let private addSameOprs (ins: Instruction) bld oprSize o1 =
 /// down to.
 let private addTwoOprs (ins: Instruction) bld oprSize o1 o2 =
   append bld {
-    let dst = transOprToExpr bld true ins o1
-    let src = transOprToExpr bld false ins o2 |> transReg bld true
+    let dst = transOpr ins bld true o1
+    let src = transOpr ins bld false o2 |> transReg bld true
     atomicBeginIfLocked ins bld
 #if !EMULATION
     let isSrcConst = isConst src
@@ -356,7 +356,7 @@ let add (ins: Instruction) bld =
 
 let adox (ins: Instruction) bld =
   lift bld ins {
-    let struct (dst, src) = transTwoOprs bld true ins
+    let struct (dst, src) = transTwoOprs ins bld true
     let oprSize = getOperationSize ins
 #if EMULATION
     let oF = getOFLazy bld
@@ -390,7 +390,7 @@ let adox (ins: Instruction) bld =
 
 let ``and`` (ins: Instruction) bld =
   lift bld ins {
-    let struct (dst, src) = transTwoOprs bld true ins
+    let struct (dst, src) = transTwoOprs ins bld true
     let oprSize = getOperationSize ins
     let t = tmpVar bld oprSize
     atomicBeginIfLocked ins bld
@@ -415,7 +415,7 @@ let ``and`` (ins: Instruction) bld =
 
 let andn (ins: Instruction) bld =
   lift bld ins {
-    let struct (dst, src1, src2) = transThreeOprs bld false ins
+    let struct (dst, src1, src2) = transThreeOprs ins bld false
     let oprSize = getOperationSize ins
     let t = tmpVar bld oprSize
     direct t := (AST.not src1) .& src2
@@ -437,7 +437,7 @@ let arpl (ins: Instruction) bld =
 #if DEBUG
     assert32 bld
 #endif
-    let struct (dst, src) = transTwoOprs bld false ins
+    let struct (dst, src) = transTwoOprs ins bld false
     let struct (t1, t2) = tmpVars2 bld 16<rt>
     let mask = numI32 0xfffc 16<rt>
     let zF = regVar bld R.ZF
@@ -453,7 +453,7 @@ let arpl (ins: Instruction) bld =
 let bextr (ins: Instruction) bld =
   lift bld ins {
     let oprSize = getOperationSize ins
-    let struct (dst, src1, src2) = transThreeOprs bld false ins
+    let struct (dst, src1, src2) = transThreeOprs ins bld false
     let zF = regVar bld R.ZF
     let struct (tmp, mask, start, len) = tmpVars4 bld oprSize
     direct start := AST.zext oprSize (AST.extract src2 8<rt> 0)
@@ -477,7 +477,7 @@ let bextr (ins: Instruction) bld =
 let blsi (ins: Instruction) bld =
   lift bld ins {
     let oprSize = getOperationSize ins
-    let struct (dst, src) = transTwoOprs bld false ins
+    let struct (dst, src) = transTwoOprs ins bld false
     let tmp = tmpVar bld oprSize
     direct tmp := AST.neg src .& src
     direct (regVar bld R.SF) := AST.xthi 1<rt> tmp
@@ -496,8 +496,8 @@ let blsi (ins: Instruction) bld =
 let private bndmov64 (ins: Instruction) bld =
   lift bld ins {
     let struct (dst, src) = getTwoOprs ins
-    let struct (dst1, dst2) = transOprToExpr128 bld false ins dst
-    let struct (src1, src2) = transOprToExpr128 bld false ins src
+    let struct (dst1, dst2) = transOpr128 ins bld false dst
+    let struct (src1, src2) = transOpr128 ins bld false src
     direct dst1 := src1
     direct dst2 := src2
   }
@@ -506,15 +506,15 @@ let private bndmov32Aux (ins: Instruction) bld =
   let struct (dst, src) = getTwoOprs ins
   match dst, src with
   | OprReg _, OprMem _ ->
-    let struct (dst1, dst2) = transOprToExpr128 bld false ins dst
-    let src = transOprToExpr bld false ins src
+    let struct (dst1, dst2) = transOpr128 ins bld false dst
+    let src = transOpr ins bld false src
     append bld {
       direct dst1 := AST.xthi 32<rt> src |> AST.zext 64<rt>
       direct dst2 := AST.xtlo 32<rt> src |> AST.zext 64<rt>
     }
   | OprMem _, OprReg _ ->
-    let struct (src1, src2) = transOprToExpr128 bld false ins src
-    let dst = transOprToExpr bld false ins dst
+    let struct (src1, src2) = transOpr128 ins bld false src
+    let dst = transOpr ins bld false dst
     append bld {
       direct dst := AST.concat (AST.xtlo 32<rt> src1) (AST.xtlo 32<rt> src2)
     }
@@ -551,7 +551,7 @@ let private setBitScanUndefFlags (bld: ILowUIRBuilder) =
 /// step; that, and nothing else, is what separates `bsf` from `bsr`.
 let private liftBitScan (ins: Instruction) bld isForward =
   lift bld ins {
-    let struct (dst, src) = transTwoOprs bld true ins
+    let struct (dst, src) = transTwoOprs ins bld true
     let oprSize = getOperationSize ins
     let zf = regVar bld R.ZF
     let t = tmpVar bld oprSize
@@ -588,7 +588,7 @@ let bsr (ins: Instruction) bld = liftBitScan ins bld false
 
 let bswap (ins: Instruction) bld =
   lift bld ins {
-    let dst = transOneOpr bld ins
+    let dst = transOneOpr ins bld
     let oprSize = getOperationSize ins
 #if EMULATION
     (* Byte-reverse as one APP intrinsic (a host bswap) instead of decomposing
@@ -623,7 +623,7 @@ let private bit ins bitBase bitOffset oprSize =
 
 let bt (ins: Instruction) bld =
   lift bld ins {
-    let struct (bitBase, bitOffset) = transTwoOprs bld true ins
+    let struct (bitBase, bitOffset) = transTwoOprs ins bld true
     let oprSize = getOperationSize ins
 #if EMULATION
     direct (regVar bld R.ZF) := getZFLazy bld
@@ -659,7 +659,7 @@ let private setBit ins bitBase bitOffset oprSize setValue =
 
 let bitTest (ins: Instruction) bld setValue =
   lift bld ins {
-    let struct (bitBase, bitOffset) = transTwoOprs bld true ins
+    let struct (bitBase, bitOffset) = transTwoOprs ins bld true
     let oprSize = getOperationSize ins
     let setValue = AST.zext oprSize setValue
     atomicBeginIfLocked ins bld
@@ -681,7 +681,7 @@ let bitTest (ins: Instruction) bld setValue =
 
 let btc (ins: Instruction) bld =
   lift bld ins {
-    let struct (bitBase, bitOffset) = transTwoOprs bld true ins
+    let struct (bitBase, bitOffset) = transTwoOprs ins bld true
     let oprSize = getOperationSize ins
     atomicBeginIfLocked ins bld
 #if !EMULATION
@@ -709,7 +709,7 @@ let bts ins bld = bitTest ins bld AST.b1
 
 let bzhi (ins: Instruction) bld =
   lift bld ins {
-    let struct (dst, src1, src2) = transThreeOprs bld false ins
+    let struct (dst, src1, src2) = transThreeOprs ins bld false
     let oprSize = getOperationSize ins
     let n = tmpVar bld 8<rt>
     direct n := AST.xtlo 8<rt> src2
@@ -738,7 +738,7 @@ let call (ins: Instruction) bld =
     setCCOp bld
     bld.ConditionCodeOp <- ConditionCodeOp.TraceStart
 #endif
-    let struct (target, ispcrel) = transJumpTargetOpr bld false ins pc
+    let struct (target, ispcrel) = transJumpTargetOpr ins bld false pc
     if ispcrel || not (hasStackPtr ins) then
       auxPush oprSize bld (pc .+ numInsLen ins bld)
       AST.interjmp target InterJmpKind.IsCall
@@ -884,7 +884,7 @@ let private getCondOfCMovLazy (ins: Instruction) bld =
 
 let cmovcc (ins: Instruction) bld =
   lift bld ins {
-    let struct (dst, src) = transTwoOprs bld false ins
+    let struct (dst, src) = transTwoOprs ins bld false
     let oprSize = getOperationSize ins
 #if EMULATION
     sized oprSize dst := AST.ite (getCondOfCMovLazy ins bld) src dst
@@ -895,7 +895,7 @@ let cmovcc (ins: Instruction) bld =
 
 let cmp (ins: Instruction) bld =
   lift bld ins {
-    let struct (src1, src2) = transTwoOprs bld false ins
+    let struct (src1, src2) = transTwoOprs ins bld false
     let oprSize = getOperationSize ins
 #if EMULATION
     setCCOperands2 bld src2 (src1 .- src2)
@@ -956,7 +956,7 @@ let cmps (ins: Instruction) bld =
 
 let cmpxchg (ins: Instruction) bld =
   lift bld ins {
-    let struct (dst, src) = transTwoOprs bld true ins
+    let struct (dst, src) = transTwoOprs ins bld true
     let oprSize = getOperationSize ins
     atomicBeginIfLocked ins bld
     let t = tmpVar bld oprSize
@@ -1010,7 +1010,7 @@ let private cmpXchg8b ins bld oprSize zf cond =
     let lblEq = label bld "Equal"
     let lblNeq = label bld "NotEqual"
     let lblEnd = label bld "End"
-    let dst = transOneOpr bld ins
+    let dst = transOneOpr ins bld
     let orgDstMem = saveOprMem bld dst
     let eax = regVar bld R.EAX
     let ecx = regVar bld R.ECX
@@ -1038,7 +1038,7 @@ let private cmpXchg16b (ins: Instruction) bld zf cond =
   append bld {
     let struct (dstB, dstA) =
       match ins.Operands with
-      | OneOperand opr -> transOprToExpr128 bld false ins opr
+      | OneOperand opr -> transOpr128 ins bld false opr
       | _ -> raise InvalidOperandException
     let orgDstAMem = saveOprMem bld dstA
     let orgDstBMem = saveOprMem bld dstB
@@ -1133,7 +1133,7 @@ let private mod2 bld dividend divisor divdnSz =
 
 let crc32 (ins: Instruction) bld =
   lift bld ins {
-    let struct (dst, src) = transTwoOprs bld true ins
+    let struct (dst, src) = transTwoOprs ins bld true
     let divisor = tmpVar bld 64<rt>
     direct divisor := numI64 0x11EDC6F41L 64<rt>
     let srcSz = Expr.typeOf src
@@ -1261,7 +1261,7 @@ let das (ins: Instruction) bld =
 
 let dec (ins: Instruction) bld =
   lift bld ins {
-    let dst = transOneOpr bld ins
+    let dst = transOneOpr ins bld
     let oprSize = getOperationSize ins
     let struct (t1, t2) = tmpVars2 bld oprSize
     let sf = AST.xthi 1<rt> t2
@@ -1351,7 +1351,7 @@ let div (ins: Instruction) bld =
     let lblAssign = label bld "Assign"
     let lblChk = label bld "Check"
     let lblErr = label bld "DivErr"
-    let divisor = transOneOpr bld ins
+    let divisor = transOneOpr ins bld
     let oprSize = getOperationSize ins
     AST.cjmp (divisor == AST.num0 oprSize)
              (AST.jmpDest lblErr)
@@ -1375,7 +1375,7 @@ let div (ins: Instruction) bld =
 let enter ins bld =
   lift bld ins {
     let oSz = getOperationSize ins
-    let struct (imm16, imm8) = transTwoOprs bld false ins
+    let struct (imm16, imm8) = transTwoOprs ins bld false
     let struct (allocSize, nestingLevel, cnt) = tmpVars3 bld oSz
     let struct (frameTemp, addrSize) = tmpVars2 bld bld.RegType
     let bp = getBasePtr bld
@@ -1468,16 +1468,16 @@ let private buildMulBody ins bld =
   let oprSize = getOperationSize ins
   match ins.Operands with
   | OneOperand op ->
-    let src = transOprToExpr bld false ins op
+    let src = transOpr ins bld false op
     oneOperandImul bld oprSize src
   | TwoOperands(o1, o2) ->
-    let dst = transOprToExpr bld false ins o1
-    let src = transOprToExpr bld false ins o2
+    let dst = transOpr ins bld false o1
+    let src = transOpr ins bld false o2
     operandsImul bld oprSize dst dst src
   | ThreeOperands(o1, o2, o3) ->
-    let dst = transOprToExpr bld false ins o1
-    let src1 = transOprToExpr bld false ins o2
-    let src2 = transOprToExpr bld false ins o3
+    let dst = transOpr ins bld false o1
+    let src1 = transOpr ins bld false o2
+    let src2 = transOpr ins bld false o3
     operandsImul bld oprSize dst src1 src2
   | _ ->
     raise InvalidOperandException
@@ -1497,7 +1497,7 @@ let imul (ins: Instruction) bld =
 
 let inc (ins: Instruction) bld =
   lift bld ins {
-    let dst = transOneOpr bld ins
+    let dst = transOneOpr ins bld
     let oprSize = getOperationSize ins
     let struct (t1, t2, t3) = tmpVars3 bld oprSize
     atomicBeginIfLocked ins bld
@@ -1522,7 +1522,7 @@ let inc (ins: Instruction) bld =
   }
 
 let interrupt ins bld =
-  match transOneOpr bld ins with
+  match transOneOpr ins bld with
   | Num(n, _) ->
     Interrupt(n.ToInt32())
     |> sideEffects bld ins
@@ -1672,7 +1672,7 @@ let private getCondOfJccLazy (ins: Instruction) (bld: ILowUIRBuilder) =
 let jcc (ins: Instruction) bld =
   lift bld ins {
     let pc = numU64 ins.Address bld.RegType
-    let jmpTarget = pc .+ transOneOpr bld ins
+    let jmpTarget = pc .+ transOneOpr ins bld
 #if EMULATION
     let cond = getCondOfJccLazy ins bld
     setCCOp bld
@@ -1692,7 +1692,7 @@ let jmp (ins: Instruction) bld =
     bld.ConditionCodeOp <- ConditionCodeOp.TraceStart
 #endif
     let pc = numU64 (ins: Instruction).Address bld.RegType
-    let struct (target, _) = transJumpTargetOpr bld false ins pc
+    let struct (target, _) = transJumpTargetOpr ins bld false pc
     AST.interjmp target InterJmpKind.Base
     return NoEndMark
   }
@@ -1735,7 +1735,7 @@ let private unwrapLeaSrc = function
 
 let lea (ins: Instruction) bld =
   lift bld ins {
-    let struct (dst, src) = transTwoOprs bld false ins
+    let struct (dst, src) = transTwoOprs ins bld false
     let oprSize = getOperationSize ins
     let src = unwrapLeaSrc src
     let addrSize = getEffAddrSz ins
@@ -1786,7 +1786,7 @@ let lods (ins: Instruction) bld =
 
 let loop (ins: Instruction) bld =
   lift bld ins {
-    let dst = transOneOpr bld ins
+    let dst = transOneOpr ins bld
     let addrSize = getEffAddrSz ins
     let pc = getInstrPtr bld
     let count, cntSize =
@@ -1857,7 +1857,7 @@ let private sumByteCounts bld oprSize x =
 let lzcnt ins bld =
   lift bld ins {
     let oprSize = getOperationSize ins
-    let struct (dst, src) = transTwoOprs bld true ins
+    let struct (dst, src) = transTwoOprs ins bld true
     let x = tmpVar bld oprSize
     let n = AST.num0 oprSize
     let struct (mask1, mask2, mask3) = popCountMasks oprSize
@@ -1885,7 +1885,7 @@ let lzcnt ins bld =
 
 let mov (ins: Instruction) bld =
   lift bld ins {
-    let struct (dst, src) = transTwoOprs bld false ins
+    let struct (dst, src) = transTwoOprs ins bld false
     let oprSize = getOperationSize ins
     (* MOV Sreg, r/m64 names a whole register and keeps only the selector-wide
        half of it, so here alone the source is wider than the operation. *)
@@ -1897,7 +1897,7 @@ let mov (ins: Instruction) bld =
 
 let movbe (ins: Instruction) bld =
   lift bld ins {
-    let struct (dst, src) = transTwoOprs bld false ins
+    let struct (dst, src) = transTwoOprs ins bld false
     let oprSize = getOperationSize ins
     let cnt = RegType.toByteWidth oprSize |> int
     let t = tmpVar bld oprSize
@@ -1932,14 +1932,14 @@ let movs (ins: Instruction) bld =
 
 let movsx (ins: Instruction) bld =
   lift bld ins {
-    let struct (dst, src) = transTwoOprs bld false ins
+    let struct (dst, src) = transTwoOprs ins bld false
     let oprSize = getOperationSize ins
     sized oprSize dst := AST.sext oprSize src
   }
 
 let movzx (ins: Instruction) bld =
   lift bld ins {
-    let struct (dst, src) = transTwoOprs bld false ins
+    let struct (dst, src) = transTwoOprs ins bld false
     let oprSize = getOperationSize ins
     sized oprSize dst := AST.zext oprSize src
   }
@@ -1968,7 +1968,7 @@ let mul ins bld =
     | 8<rt> ->
       let dblWidth = oprSize * 2
       let src1 = AST.zext dblWidth (getRegOfSize bld oprSize grpEAX)
-      let src2 = AST.zext dblWidth (transOneOpr bld ins)
+      let src2 = AST.zext dblWidth (transOneOpr ins bld)
       let t = tmpVar bld dblWidth
       direct t := src1 .* src2
       let cond = tmpVar bld 1<rt>
@@ -1982,7 +1982,7 @@ let mul ins bld =
       let edx = getRegOfSize bld oprSize grpEDX
       let eax = getRegOfSize bld oprSize grpEAX
       let src1 = AST.zext dblWidth eax
-      let src2 = AST.zext dblWidth (transOneOpr bld ins)
+      let src2 = AST.zext dblWidth (transOneOpr ins bld)
       let t = tmpVar bld dblWidth
       direct t := src1 .* src2
       let cond = tmpVar bld 1<rt>
@@ -1998,7 +1998,7 @@ let mulx ins bld =
     let oprSize = getOperationSize ins
     match oprSize with
     | 32<rt> ->
-      let struct (dst1, dst2, src) = transThreeOprs bld false ins
+      let struct (dst1, dst2, src) = transThreeOprs ins bld false
       let dblWidth = oprSize * 2
       let src1 = AST.zext dblWidth (getRegOfSize bld oprSize grpEDX)
       let src2 = AST.zext dblWidth src
@@ -2007,7 +2007,7 @@ let mulx ins bld =
       sized oprSize dst2 := AST.xtlo 32<rt> t
       sized oprSize dst1 := AST.xthi 32<rt> t
     | 64<rt> ->
-      let struct (dst1, dst2, src) = transThreeOprs bld false ins
+      let struct (dst1, dst2, src) = transThreeOprs ins bld false
       let src1 = getRegOfSize bld oprSize grpEDX
       let struct (hiSrc1, loSrc1, hiSrc, loSrc) = tmpVars4 bld 64<rt>
       let struct (tHigh, tLow) = tmpVars2 bld 64<rt>
@@ -2036,7 +2036,7 @@ let mulx ins bld =
 
 let neg (ins: Instruction) bld =
   lift bld ins {
-    let dst = transOneOpr bld ins
+    let dst = transOneOpr ins bld
     let oprSize = getOperationSize ins
     let t = tmpVar bld oprSize
     let zero = AST.num0 oprSize
@@ -2063,14 +2063,14 @@ let nop (ins: Instruction) bld =
 
 let not (ins: Instruction) bld =
   lift bld ins {
-    let dst = transOneOpr bld ins
+    let dst = transOneOpr ins bld
     let oprSize = getOperationSize ins
     sized oprSize dst := AST.unop UnOpType.NOT dst
   }
 
 let logOr (ins: Instruction) bld =
   lift bld ins {
-    let struct (dst, src) = transTwoOprs bld true ins
+    let struct (dst, src) = transTwoOprs ins bld true
     let oprSize = getOperationSize ins
     atomicBeginIfLocked ins bld
     sized oprSize dst := dst .| src
@@ -2094,7 +2094,7 @@ let logOr (ins: Instruction) bld =
 
 let pdep (ins: Instruction) bld =
   lift bld ins {
-    let struct (dst, src1, src2) = transThreeOprs bld false ins
+    let struct (dst, src1, src2) = transThreeOprs ins bld false
     let oprSize = getOperationSize ins
     let struct (temp, mask, dest) = tmpVars3 bld oprSize
     let cond = tmpVar bld 1<rt>
@@ -2114,7 +2114,7 @@ let pdep (ins: Instruction) bld =
 
 let pext (ins: Instruction) bld =
   lift bld ins {
-    let struct (dst, src, mask) = transThreeOprs bld false ins
+    let struct (dst, src, mask) = transThreeOprs ins bld false
     let oSz = getOperationSize ins
     let struct (t, k) = tmpVars2 bld oSz
     let cond = tmpVar bld 1<rt>
@@ -2131,7 +2131,7 @@ let pext (ins: Instruction) bld =
 
 let pop (ins: Instruction) bld =
   lift bld ins {
-    let dst = transOneOpr bld ins
+    let dst = transOneOpr ins bld
     let oprSize = getOperationSize ins
     auxPop oprSize bld dst
   }
@@ -2161,7 +2161,7 @@ let popcnt (ins: Instruction) bld =
     let lblLoop = label bld "Loop"
     let lblExit = label bld "Exit"
     let lblLoopCond = label bld "LoopCond"
-    let struct (dst, src) = transTwoOprs bld false ins
+    let struct (dst, src) = transTwoOprs ins bld false
     let oprSize = getOperationSize ins
     let max = numI32 (RegType.toBitWidth oprSize) oprSize
     let struct (i, count, orgSrc) = tmpVars3 bld oprSize
@@ -2218,7 +2218,7 @@ let inline private padPushExpr oprSize opr =
 
 let push (ins: Instruction) bld =
   lift bld ins {
-    let src = transOneOpr bld ins
+    let src = transOneOpr ins bld
     let oprSize = getOperationSize ins
     if hasStackPtr ins then
       let t = tmpVar bld oprSize
@@ -2295,7 +2295,7 @@ let private rotateThroughCarryCount oprSize count =
 
 let rcl (ins: Instruction) bld =
   lift bld ins {
-    let struct (dst, count) = transTwoOprs bld true ins
+    let struct (dst, count) = transTwoOprs ins bld true
     let oprSize = getOperationSize ins
     let cF = regVar bld R.CF
     let oF = regVar bld R.OF
@@ -2329,7 +2329,7 @@ let rcl (ins: Instruction) bld =
 
 let rcr (ins: Instruction) bld =
   lift bld ins {
-    let struct (dst, count) = transTwoOprs bld true ins
+    let struct (dst, count) = transTwoOprs ins bld true
     let oprSize = getOperationSize ins
     let cF = regVar bld R.CF
     let oF = regVar bld R.OF
@@ -2388,7 +2388,7 @@ let ret (ins: Instruction) bld =
       auxPop oprSize bld t
     | _ (* OneOperand *) ->
       let sp = getStackPtr bld
-      let src = transOneOpr bld ins
+      let src = transOneOpr ins bld
 #if EMULATION
       setCCOp bld
       bld.ConditionCodeOp <- ConditionCodeOp.TraceStart
@@ -2401,7 +2401,7 @@ let ret (ins: Instruction) bld =
 
 let rotate (ins: Instruction) bld lfn hfn cfFn ofFn =
   lift bld ins {
-    let struct (dst, count) = transTwoOprs bld true ins
+    let struct (dst, count) = transTwoOprs ins bld true
     let oprSize = getOperationSize ins
     let cF = regVar bld R.CF
     let oF = regVar bld R.OF
@@ -2437,7 +2437,7 @@ let ror ins bld =
 
 let rorx (ins: Instruction) bld =
   lift bld ins {
-    let struct (dst, src, imm) = transThreeOprs bld false ins
+    let struct (dst, src, imm) = transThreeOprs ins bld false
     let oprSize = getOperationSize ins
     let y = tmpVar bld oprSize
     if oprSize = 32<rt> then
@@ -2583,7 +2583,7 @@ let private sarLazily bld oprSize dst cnt tDst =
 
 let shift (ins: Instruction) bld =
   lift bld ins {
-    let struct (dst, src) = transTwoOprs bld true ins
+    let struct (dst, src) = transTwoOprs ins bld true
     let oprSize = getOperationSize ins
     let countMask =
       if is64REXW bld ins then numU32 0x3Fu oprSize else numU32 0x1Fu oprSize
@@ -2624,7 +2624,7 @@ let shift (ins: Instruction) bld =
 
 let sbb (ins: Instruction) bld =
   lift bld ins {
-    let struct (dst, src) = transTwoOprs bld true ins
+    let struct (dst, src) = transTwoOprs ins bld true
     let oprSize = getOperationSize ins
     let struct (t1, t2, t3, t4) = tmpVars4 bld oprSize
     let cf = regVar bld R.CF
@@ -2732,7 +2732,7 @@ let private getCondOfSetLazy (ins: Instruction) bld =
 
 let setcc (ins: Instruction) bld =
   lift bld ins {
-    let dst = transOneOpr bld ins
+    let dst = transOneOpr ins bld
     let oprSize = getOperationSize ins
 #if EMULATION
     let cond = getCondOfSetLazy ins bld |> AST.zext oprSize
@@ -2807,7 +2807,7 @@ let shiftDblPrec (ins: Instruction) bld fnDst fnSrc isShl =
   lift bld ins {
     let oprSz = getOperationSize ins
     let exprOprSz = numI32 (int oprSz) oprSz
-    let struct (dst, src, cnt) = transThreeOprs bld false ins
+    let struct (dst, src, cnt) = transThreeOprs ins bld false
     let struct (count, size, tDst, tSrc) = tmpVars4 bld oprSz
     let struct (cond1, cond2, cond3) = tmpVars3 bld 1<rt>
     let conds = cond1, cond2, cond3
@@ -2840,7 +2840,7 @@ let shrd ins bld = shiftDblPrec ins bld (>>) (<<) false
 
 let private shiftWithoutFlags (ins: Instruction) bld opFn =
   lift bld ins {
-    let struct (dst, src1, src2) = transThreeOprs bld false ins
+    let struct (dst, src1, src2) = transThreeOprs ins bld false
     let oprSize = getOperationSize ins
     let countMask = if is64REXW bld ins then 0x3F else 0x1F // FIXME: CS.L = 1
     let count = src2 .& (numI32 countMask oprSize)
@@ -2891,7 +2891,7 @@ let stos (ins: Instruction) bld =
 
 let sub (ins: Instruction) bld =
   lift bld ins {
-    let struct (dst, src) = transTwoOprs bld true ins
+    let struct (dst, src) = transTwoOprs ins bld true
     let oprSize = getOperationSize ins
     atomicBeginIfLocked ins bld
 #if !EMULATION
@@ -2927,7 +2927,7 @@ let sub (ins: Instruction) bld =
 
 let test (ins: Instruction) bld =
   lift bld ins {
-    let struct (src1, src2) = transTwoOprs bld false ins
+    let struct (src1, src2) = transTwoOprs ins bld false
     let oprSize = getOperationSize ins
     let r = if src1 = src2 then src1 else src1 .& src2
 #if EMULATION
@@ -2972,7 +2972,7 @@ let private narrowByHalves bld oprSize (t1, t2, res) z =
 let tzcnt ins bld =
   lift bld ins {
     let oprSize = getOperationSize ins
-    let struct (dst, src) = transTwoOprs bld true ins
+    let struct (dst, src) = transTwoOprs ins bld true
     let lblCnt = label bld "Count"
     let lblZero = label bld "Zero"
     let lblEnd = label bld "End"
@@ -3005,13 +3005,13 @@ let tzcnt ins bld =
 
 let wrfsbase (ins: Instruction) bld =
   lift bld ins {
-    let src = transOneOpr bld ins
+    let src = transOneOpr ins bld
     direct (regVar bld R.FSBase) := AST.zext bld.RegType src
   }
 
 let wrgsbase (ins: Instruction) bld =
   lift bld ins {
-    let src = transOneOpr bld ins
+    let src = transOneOpr ins bld
     direct (regVar bld R.GSBase) := AST.zext bld.RegType src
   }
 
@@ -3028,7 +3028,7 @@ let wrpkru ins bld =
 
 let xadd (ins: Instruction) bld =
   lift bld ins {
-    let struct (dst, src) = transTwoOprs bld false ins
+    let struct (dst, src) = transTwoOprs ins bld false
     let orgDst = saveOprMem bld dst
     let oprSize = getOperationSize ins
     let struct (t1, t2, t3) = tmpVars3 bld oprSize
@@ -3055,7 +3055,7 @@ let xadd (ins: Instruction) bld =
 
 let xchg (ins: Instruction) bld =
   lift bld ins {
-    let struct (dst, src) = transTwoOprs bld false ins
+    let struct (dst, src) = transTwoOprs ins bld false
     let oprSize = getOperationSize ins
     if dst <> src then
       let t = tmpVar bld oprSize
@@ -3079,7 +3079,7 @@ let xor (ins: Instruction) bld =
     let oprSize = getOperationSize ins
     match ins.Operands with
     | TwoOperands(o1, o2) when o1 = o2 ->
-      let dst = transOprToExpr bld false ins o1
+      let dst = transOpr ins bld false o1
       let r = AST.num0 oprSize
       sized oprSize dst := r
 #if EMULATION
@@ -3093,8 +3093,8 @@ let xor (ins: Instruction) bld =
       direct (regVar bld R.PF) := AST.b1
 #endif
     | TwoOperands(o1, o2) ->
-      let dst = transOprToExpr bld false ins o1
-      let src = transOprToExpr bld false ins o2 |> transReg bld true
+      let dst = transOpr ins bld false o1
+      let src = transOpr ins bld false o2 |> transReg bld true
       sized oprSize dst := dst <+> src
 #if EMULATION
       setCCDst bld dst

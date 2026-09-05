@@ -93,7 +93,7 @@ let asrv ins bld =
 
 let ands ins bld =
   lift bld ins {
-    let dst, src1, src2 = transOprToExprOfAND ins bld
+    let dst, src1, src2 = transOprOfAND ins bld
     let result = tmpVar bld ins.OprSize
     direct result := src1 .& src2
     direct (regVar bld R.N) := AST.xthi 1<rt> result
@@ -125,9 +125,9 @@ let bfm (ins: Instruction) bld dst src immr imms =
     let oSz = ins.OprSize
     let width = oprSzToExpr ins.OprSize
     let struct (wmask, tmask) = decodeBitMasks immr imms (int oSz)
-    let dst = transOprToExpr ins bld dst
-    let src = transOprToExpr ins bld src
-    let immr = transOprToExpr ins bld immr
+    let dst = transOpr ins bld dst
+    let src = transOpr ins bld src
+    let immr = transOpr ins bld immr
     let struct (wMask, tMask) = tmpVars2 bld oSz
     let bot = tmpVar bld ins.OprSize
     direct wMask := numI64 wmask oSz
@@ -216,7 +216,7 @@ let cbz ins bld = compareBranch ins bld (==)
 
 let ccmn ins bld =
   lift bld ins {
-    let src, imm, nzcv, cond = transOprToExprOfCCMN ins bld
+    let src, imm, nzcv, cond = transOprOfCCMN ins bld
     let oSz = ins.OprSize
     let tCond = tmpVar bld 1<rt>
     direct tCond := conditionHolds bld cond
@@ -229,7 +229,7 @@ let ccmn ins bld =
 
 let ccmp ins bld =
   lift bld ins {
-    let src, imm, nzcv, cond = transOprToExprOfCCMP ins bld
+    let src, imm, nzcv, cond = transOprOfCCMP ins bld
     let oSz = ins.OprSize
     let tCond = tmpVar bld 1<rt>
     direct tCond := conditionHolds bld cond
@@ -327,7 +327,7 @@ let cmn ins bld =
 
 let cmp ins bld =
   lift bld ins {
-    let src1, src2 = transOprToExprOfCMP ins bld
+    let src1, src2 = transOprOfCMP ins bld
     let oSz = ins.OprSize
     let _, (n, z, c, v) = addWithCarry src1 (AST.not src2) (AST.num1 oSz) oSz
     direct (regVar bld R.N) := n
@@ -338,13 +338,13 @@ let cmp ins bld =
 
 let csel ins bld =
   lift bld ins {
-    let dst, s1, s2, cond = transOprToExprOfCSEL ins bld
+    let dst, s1, s2, cond = transOprOfCSEL ins bld
     sized ins.OprSize dst := AST.ite (conditionHolds bld cond) s1 s2
   }
 
 let csinc ins bld =
   lift bld ins {
-    let dst, s1, s2, cond = transOprToExprOfCSINC ins bld
+    let dst, s1, s2, cond = transOprOfCSINC ins bld
     let oprSize = ins.OprSize
     let cond = conditionHolds bld cond
     sized oprSize dst := AST.ite cond s1 (s2 .+ AST.num1 oprSize)
@@ -352,14 +352,14 @@ let csinc ins bld =
 
 let csinv ins bld =
   lift bld ins {
-    let dst, src1, src2, cond = transOprToExprOfCSINV ins bld
+    let dst, src1, src2, cond = transOprOfCSINV ins bld
     let cond = conditionHolds bld cond
     sized ins.OprSize dst := AST.ite cond src1 (AST.not src2)
   }
 
 let csneg ins bld =
   lift bld ins {
-    let dst, s1, s2, cond = transOprToExprOfCSNEG ins bld
+    let dst, s1, s2, cond = transOprOfCSNEG ins bld
     let s2 = AST.not s2 .+ AST.num1 ins.OprSize
     sized ins.OprSize dst := AST.ite (conditionHolds bld cond) s1 s2
   }
@@ -470,7 +470,7 @@ let fcmp (ins: Instruction) bld =
 
 let fccmp (ins: Instruction) bld =
   lift bld ins {
-    let src1, src2, nzcv, cond = transOprToExprOfCCMP ins bld
+    let src1, src2, nzcv, cond = transOprOfCCMP ins bld
     let flags = tmpVar bld 8<rt>
     let comp = fpCompare bld ins.OprSize src1 src2
     direct flags := AST.ite (conditionHolds bld cond) comp (AST.xtlo 8<rt> nzcv)
@@ -607,14 +607,14 @@ let ldrsw (ins: Instruction) bld =
     let data = tmpVar bld 32<rt>
     match ins.Operands with
     | TwoOperands(o1, OprMemory(LiteralMode o2)) ->
-      let dst = transOprToExpr ins bld o1
-      let offset = transOprToExpr ins bld (OprMemory(LiteralMode o2))
+      let dst = transOpr ins bld o1
+      let offset = transOpr ins bld (OprMemory(LiteralMode o2))
       direct address := getPC bld .+ offset
       direct data := AST.loadLE 32<rt> address
       direct dst := AST.sext 64<rt> data
     | TwoOperands(o1, o2) ->
-      let dst = transOprToExpr ins bld o1
-      let bReg, offset = transOprToExpr ins bld o2 |> separateMemExpr
+      let dst = transOpr ins bld o1
+      let bReg, offset = transOpr ins bld o2 |> separateMemExpr
       let isWBack, isPostIndex = getIsWBackAndIsPostIndex ins.Operands
       direct address := bReg
       direct address := if isPostIndex then address else address .+ offset
@@ -724,20 +724,20 @@ let msr (ins: Instruction) bld =
     let struct (dst, src) = getTwoOprs ins
     match dst with
     | OprRegister R.NZCV ->
-      let src = transOprToExpr ins bld src
+      let src = transOpr ins bld src
       direct (regVar bld R.N) := AST.extract src 1<rt> 31
       direct (regVar bld R.Z) := AST.extract src 1<rt> 30
       direct (regVar bld R.C) := AST.extract src 1<rt> 29
       direct (regVar bld R.V) := AST.extract src 1<rt> 28
     | _ ->
-      let dst = transOprToExpr ins bld dst
-      let src = transOprToExpr ins bld src
+      let dst = transOpr ins bld dst
+      let src = transOpr ins bld src
       direct dst := src
   }
 
 let msub ins bld =
   lift bld ins {
-    let dst, src1, src2, src3 = transOprToExprOfMSUB ins bld
+    let dst, src1, src2, src3 = transOprOfMSUB ins bld
     sized ins.OprSize dst := src3 .- (src1 .* src2)
   }
 
@@ -786,8 +786,8 @@ let sbfm (ins: Instruction) bld dst src immr imms =
     let oprSz = ins.OprSize
     let width = oprSzToExpr oprSz
     let struct (wmask, tmask) = decodeBitMasks immr imms (int oprSz)
-    let immr = transOprToExpr ins bld immr
-    let imms = transOprToExpr ins bld imms
+    let immr = transOpr ins bld immr
+    let imms = transOpr ins bld imms
     let n0 = AST.num0 oprSz
     let struct (bot, srcS, top, tMask) = tmpVars4 bld oprSz
     direct bot := rorForIR src immr width .& (numI64 wmask oprSz)
@@ -799,16 +799,16 @@ let sbfm (ins: Instruction) bld dst src immr imms =
 
 let sbfiz ins bld =
   let struct (dst, src, lsb, width) = getFourOprs ins
-  let dst = transOprToExpr ins bld dst
-  let src = transOprToExpr ins bld src
+  let dst = transOpr ins bld dst
+  let src = transOpr ins bld src
   let immr = ((getImmValue lsb * -1L) &&& 0x3FL) % int64 ins.OprSize |> OprImm
   let imms = getImmValue width - 1L |> OprImm
   sbfm ins bld dst src immr imms
 
 let sbfx ins bld =
   let struct (dst, src, lsb, width) = getFourOprs ins
-  let dst = transOprToExpr ins bld dst
-  let src = transOprToExpr ins bld src
+  let dst = transOpr ins bld dst
+  let src = transOpr ins bld src
   let imms = (getImmValue lsb) + (getImmValue width) - 1L |> OprImm
   sbfm ins bld dst src lsb imms
 
@@ -838,7 +838,7 @@ let smov (ins: Instruction) bld =
 
 let smsubl ins bld =
   lift bld ins {
-    let dst, src1, src2, src3 = transOprToExprOfSMSUBL ins bld
+    let dst, src1, src2, src3 = transOprOfSMSUBL ins bld
     direct dst := src3 .- (AST.sext 64<rt> src1 .* AST.sext 64<rt> src2)
   }
 
@@ -958,7 +958,7 @@ let sturh ins bld =
 
 let subs (ins: Instruction) bld =
   lift bld ins {
-    let dst, src1, src2 = transOprToExprOfSUBS ins bld
+    let dst, src1, src2 = transOprOfSUBS ins bld
     let result, (n, z, c, v) =
       addWithCarry src1 src2 (AST.num1 ins.OprSize) ins.OprSize
     direct (regVar bld R.N) := n
@@ -979,22 +979,22 @@ let svc (ins: Instruction) bld =
 
 let sxtb ins bld =
   let struct (dst, src) = getTwoOprs ins
-  let dst = transOprToExpr ins bld dst
-  let src = transOprToExpr ins bld src
+  let dst = transOpr ins bld dst
+  let src = transOpr ins bld src
   let src = if ins.OprSize = 64<rt> then unwrapReg src else src
   sbfm ins bld dst src (OprImm 0L) (OprImm 7L)
 
 let sxth ins bld =
   let struct (dst, src) = getTwoOprs ins
-  let dst = transOprToExpr ins bld dst
-  let src = transOprToExpr ins bld src
+  let dst = transOpr ins bld dst
+  let src = transOpr ins bld src
   let src = if ins.OprSize = 64<rt> then unwrapReg src else src
   sbfm ins bld dst src (OprImm 0L) (OprImm 15L)
 
 let sxtw ins bld =
   let struct (dst, src) = getTwoOprs ins
-  let dst = transOprToExpr ins bld dst
-  let src = transOprToExpr ins bld src |> unwrapReg
+  let dst = transOpr ins bld dst
+  let src = transOpr ins bld src |> unwrapReg
   sbfm ins bld dst src (OprImm 0L) (OprImm 31L)
 
 let tbnz ins bld =
@@ -1019,7 +1019,7 @@ let tbz ins bld =
 
 let tst ins bld =
   lift bld ins {
-    let src1, src2 = transOprToExprOfTST ins bld
+    let src1, src2 = transOprOfTST ins bld
     let result = tmpVar bld ins.OprSize
     direct result := src1 .& src2
     direct (regVar bld R.N) := AST.xthi 1<rt> result
@@ -1033,9 +1033,9 @@ let ubfm (ins: Instruction) bld dst src immr imms =
     let oSz = ins.OprSize
     let width = oprSzToExpr oSz
     let struct (wmask, tmask) = decodeBitMasks immr imms (int oSz)
-    let dst = transOprToExpr ins bld dst
-    let src = transOprToExpr ins bld src
-    let immr = transOprToExpr ins bld immr
+    let dst = transOpr ins bld dst
+    let src = transOpr ins bld src
+    let immr = transOpr ins bld immr
     let bot = tmpVar bld oSz
     direct bot := rorForIR src immr width .& (numI64 wmask oSz)
     sized ins.OprSize dst := bot .& (numI64 tmask oSz)
@@ -1076,7 +1076,7 @@ let umov (ins: Instruction) bld =
 
 let umsubl ins bld =
   lift bld ins {
-    let dst, src1, src2, src3 = transOprToExprOfUMADDL ins bld
+    let dst, src1, src2, src3 = transOprOfUMADDL ins bld
     direct dst := src3 .- (AST.zext 64<rt> src1 .* AST.zext 64<rt> src2)
   }
 

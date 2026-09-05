@@ -101,7 +101,7 @@ let getImmValue imm =
   | OprImm imm -> imm
   | _ -> raise InvalidOperandException
 
-let transOprToExpr128 bld = function
+let transOpr128 bld = function
   | OprSIMD(SFReg(Vector reg)) -> pseudoRegVar128 bld reg
   | _ -> raise InvalidOperandException
 
@@ -109,7 +109,7 @@ let transOprToScalar bld = function
   | OprSIMD(SFReg(Scalar(reg, Some idx))) -> regVar bld reg, int32 idx
   | _ -> raise InvalidOperandException
 
-let transOprToExpr (ins: Instruction) bld = function
+let transOpr (ins: Instruction) bld = function
   | OprSpecReg(reg, _)
   | OprReg reg ->
     regVar bld reg
@@ -125,22 +125,22 @@ let transOprToExpr (ins: Instruction) bld = function
 
 let transOneOpr (ins: Instruction) bld =
   match ins.Operands with
-  | OneOperand opr -> transOprToExpr ins bld opr
+  | OneOperand opr -> transOpr ins bld opr
   | _ -> raise InvalidOperandException
 
 let transTwoOprs (ins: Instruction) bld =
   match ins.Operands with
   | TwoOperands(opr1, opr2) ->
-    struct (transOprToExpr ins bld opr1, transOprToExpr ins bld opr2)
+    struct (transOpr ins bld opr1, transOpr ins bld opr2)
   | _ ->
     raise InvalidOperandException
 
 let transThreeOprs (ins: Instruction) bld =
   match ins.Operands with
   | ThreeOperands(opr1, opr2, opr3) ->
-    let opr1 = transOprToExpr ins bld opr1
-    let opr2 = transOprToExpr ins bld opr2
-    let opr3 = transOprToExpr ins bld opr3
+    let opr1 = transOpr ins bld opr1
+    let opr2 = transOpr ins bld opr2
+    let opr3 = transOpr ins bld opr3
     struct (opr1, opr2, opr3)
   | _ ->
     raise InvalidOperandException
@@ -148,10 +148,10 @@ let transThreeOprs (ins: Instruction) bld =
 let transFourOprs (ins: Instruction) bld =
   match ins.Operands with
   | FourOperands(o1, o2, o3, o4) ->
-    let o1 = transOprToExpr ins bld o1
-    let o2 = transOprToExpr ins bld o2
-    let o3 = transOprToExpr ins bld o3
-    let o4 = transOprToExpr ins bld o4
+    let o1 = transOpr ins bld o1
+    let o2 = transOpr ins bld o2
+    let o3 = transOpr ins bld o3
+    let o4 = transOpr ins bld o4
     struct (o1, o2, o3, o4)
   | _ ->
     raise InvalidOperandException
