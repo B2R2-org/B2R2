@@ -36,561 +36,561 @@ open B2R2.FrontEnd.ARM64.GeneralLifter
 open B2R2.FrontEnd.ARM64.SIMDLifter
 
 /// Translate IR.
-let translate (ins: Instruction) insLen bld =
+let translate (ins: Instruction) bld =
   match ins.Opcode with
   | Opcode.ABS ->
-    abs ins insLen bld
+    abs ins bld
   | Opcode.ADC ->
-    adc ins insLen bld
+    adc ins bld
   | Opcode.ADCS ->
-    adcs ins insLen bld
+    adcs ins bld
   | Opcode.ADD ->
-    add ins insLen bld
+    add ins bld
   | Opcode.ADDHN ->
-    addSubHN ins insLen bld false (.+)
+    addSubHN ins bld false (.+)
   | Opcode.ADDHN2 ->
-    addSubHN ins insLen bld true (.+)
+    addSubHN ins bld true (.+)
   | Opcode.ADDP ->
-    addp ins insLen bld
+    addp ins bld
   | Opcode.ADDS ->
-    adds ins insLen bld
+    adds ins bld
   | Opcode.ADDV ->
-    addv ins insLen bld
+    addv ins bld
   | Opcode.ADR ->
-    adr ins insLen bld
+    adr ins bld
   | Opcode.ADRP ->
-    adrp ins insLen bld
+    adrp ins bld
   | Opcode.AND ->
-    logAnd ins insLen bld
+    logAnd ins bld
   | Opcode.ANDS ->
-    ands ins insLen bld
+    ands ins bld
   | Opcode.ASR ->
-    asrv ins insLen bld
+    asrv ins bld
   | Opcode.B ->
-    b ins insLen bld
+    b ins bld
   | Opcode.BAL ->
-    bCond ins insLen bld AL
+    bCond ins bld AL
   | Opcode.BCC ->
-    bCond ins insLen bld CC
+    bCond ins bld CC
   | Opcode.BCS ->
-    bCond ins insLen bld CS
+    bCond ins bld CS
   | Opcode.BEQ ->
-    bCond ins insLen bld EQ
+    bCond ins bld EQ
   | Opcode.BFI ->
-    bfi ins insLen bld
+    bfi ins bld
   | Opcode.BFXIL ->
-    bfxil ins insLen bld
+    bfxil ins bld
   | Opcode.BGE ->
-    bCond ins insLen bld GE
+    bCond ins bld GE
   | Opcode.BGT ->
-    bCond ins insLen bld GT
+    bCond ins bld GT
   | Opcode.BHI ->
-    bCond ins insLen bld HI
+    bCond ins bld HI
   | Opcode.BIC ->
-    bic ins insLen bld
+    bic ins bld
   | Opcode.BICS ->
-    bics ins insLen bld
+    bics ins bld
   | Opcode.BIF ->
-    bif ins insLen bld
+    bif ins bld
   | Opcode.BIT ->
-    bit ins insLen bld
+    bit ins bld
   | Opcode.BL ->
-    bl ins insLen bld
+    bl ins bld
   | Opcode.BLE ->
-    bCond ins insLen bld LE
+    bCond ins bld LE
   | Opcode.BLR ->
-    blr ins insLen bld
+    blr ins bld
   | Opcode.BLS ->
-    bCond ins insLen bld LS
+    bCond ins bld LS
   | Opcode.BLT ->
-    bCond ins insLen bld LT
+    bCond ins bld LT
   | Opcode.BMI ->
-    bCond ins insLen bld MI
+    bCond ins bld MI
   | Opcode.BNE ->
-    bCond ins insLen bld NE
+    bCond ins bld NE
   | Opcode.BNV ->
-    bCond ins insLen bld NV
+    bCond ins bld NV
   | Opcode.BPL ->
-    bCond ins insLen bld PL
+    bCond ins bld PL
   | Opcode.BR ->
-    br ins insLen bld
+    br ins bld
   | Opcode.BRK ->
-    sideEffects ins.Address insLen bld Breakpoint
+    sideEffects ins bld Breakpoint
   | Opcode.BSL ->
-    bsl ins insLen bld
+    bsl ins bld
   | Opcode.BVC ->
-    bCond ins insLen bld VC
+    bCond ins bld VC
   | Opcode.BVS ->
-    bCond ins insLen bld VS
+    bCond ins bld VS
   | Opcode.CAS | Opcode.CASA | Opcode.CASL | Opcode.CASAL ->
-    compareAndSwap ins insLen bld
+    compareAndSwap ins bld
   | Opcode.CBNZ ->
-    cbnz ins insLen bld
+    cbnz ins bld
   | Opcode.CBZ ->
-    cbz ins insLen bld
+    cbz ins bld
   | Opcode.CCMN ->
-    ccmn ins insLen bld
+    ccmn ins bld
   | Opcode.CCMP ->
-    ccmp ins insLen bld
+    ccmp ins bld
   | Opcode.CLS ->
-    cls ins insLen bld
+    cls ins bld
   | Opcode.CLZ ->
-    clz ins insLen bld
+    clz ins bld
   | Opcode.CMEQ ->
-    cmeq ins insLen bld
+    cmeq ins bld
   | Opcode.CMGE ->
-    cmge ins insLen bld
+    cmge ins bld
   | Opcode.CMGT ->
-    cmgt ins insLen bld
+    cmgt ins bld
   | Opcode.CMHI ->
-    cmhi ins insLen bld
+    cmhi ins bld
   | Opcode.CMHS ->
-    cmhs ins insLen bld
+    cmhs ins bld
   | Opcode.CMLT ->
-    cmlt ins insLen bld
+    cmlt ins bld
   | Opcode.CMN ->
-    cmn ins insLen bld
+    cmn ins bld
   | Opcode.CMP ->
-    cmp ins insLen bld
+    cmp ins bld
   | Opcode.CMTST ->
-    cmtst ins insLen bld
+    cmtst ins bld
   | Opcode.CNEG | Opcode.CSNEG ->
-    csneg ins insLen bld
+    csneg ins bld
   | Opcode.CNT ->
-    cnt ins insLen bld
+    cnt ins bld
   | Opcode.CSEL ->
-    csel ins insLen bld
+    csel ins bld
   | Opcode.CSETM | Opcode.CINV | Opcode.CSINV ->
-    csinv ins insLen bld
+    csinv ins bld
   | Opcode.CSINC | Opcode.CINC | Opcode.CSET ->
-    csinc ins insLen bld
+    csinc ins bld
   | Opcode.CTZ ->
-    ctz ins insLen bld
+    ctz ins bld
   | Opcode.DCZVA ->
-    dczva ins insLen bld
+    dczva ins bld
   | Opcode.CLREX
   | Opcode.DMB | Opcode.DSB | Opcode.ISB ->
-    nop ins.Address insLen bld
+    nop ins bld
   | Opcode.DUP ->
-    dup ins insLen bld
+    dup ins bld
   | Opcode.EOR | Opcode.EON ->
-    eor ins insLen bld
+    eor ins bld
   | Opcode.EXT ->
-    ext ins insLen bld
+    ext ins bld
   | Opcode.EXTR | Opcode.ROR ->
-    extr ins insLen bld
+    extr ins bld
   | Opcode.FABD ->
-    fabd ins insLen bld
+    fabd ins bld
   | Opcode.FABS ->
-    fabs ins insLen bld
+    fabs ins bld
   | Opcode.FADD ->
-    fadd ins insLen bld
+    fadd ins bld
   | Opcode.FADDP ->
-    faddp ins insLen bld
+    faddp ins bld
   | Opcode.FCCMP ->
-    fccmp ins insLen bld
+    fccmp ins bld
   | Opcode.FCCMPE ->
-    fccmp ins insLen bld
+    fccmp ins bld
   | Opcode.FCMGT ->
-    fcmgt ins insLen bld
+    fcmgt ins bld
   | Opcode.FCMP ->
-    fcmp ins insLen bld
+    fcmp ins bld
   | Opcode.FCMPE ->
-    fcmp ins insLen bld
+    fcmp ins bld
   | Opcode.FCSEL ->
-    fcsel ins insLen bld
+    fcsel ins bld
   | Opcode.FCVT ->
-    fcvt ins insLen bld
+    fcvt ins bld
   | Opcode.FCVTAS ->
-    fcvtas ins insLen bld
+    fcvtas ins bld
   | Opcode.FCVTAU ->
-    fcvtau ins insLen bld
+    fcvtau ins bld
   | Opcode.FCVTMS ->
-    fcvtms ins insLen bld
+    fcvtms ins bld
   | Opcode.FCVTMU ->
-    fcvtmu ins insLen bld
+    fcvtmu ins bld
   | Opcode.FCVTPS ->
-    fcvtps ins insLen bld
+    fcvtps ins bld
   | Opcode.FCVTPU ->
-    fcvtpu ins insLen bld
+    fcvtpu ins bld
   | Opcode.FCVTZS ->
-    fcvtzs ins insLen bld
+    fcvtzs ins bld
   | Opcode.FCVTZU ->
-    fcvtzu ins insLen bld
+    fcvtzu ins bld
   | Opcode.FDIV ->
-    fdiv ins insLen bld
+    fdiv ins bld
   | Opcode.FMADD ->
-    fmadd ins insLen bld
+    fmadd ins bld
   | Opcode.FMAX ->
-    fmaxmin ins insLen bld AST.fgt
+    fmaxmin ins bld AST.fgt
   | Opcode.FMAXNM ->
-    sideEffects ins.Address insLen bld UnsupportedInstruction
+    sideEffects ins bld UnsupportedInstruction
   | Opcode.FMIN ->
-    fmaxmin ins insLen bld AST.flt
+    fmaxmin ins bld AST.flt
   | Opcode.FMLS ->
-    fmls ins insLen bld
+    fmls ins bld
   | Opcode.FMOV ->
-    fmov ins insLen bld
+    fmov ins bld
   | Opcode.FMSUB ->
-    fmsub ins insLen bld
+    fmsub ins bld
   | Opcode.FMUL ->
-    fmul ins insLen bld
+    fmul ins bld
   | Opcode.FNEG ->
-    fneg ins insLen bld
+    fneg ins bld
   | Opcode.FNMSUB ->
-    fnmsub ins insLen bld
+    fnmsub ins bld
   | Opcode.FNMUL ->
-    fnmul ins insLen bld
+    fnmul ins bld
   | Opcode.FRINTA ->
-    frinta ins insLen bld
+    frinta ins bld
   | Opcode.FRINTM ->
-    frintm ins insLen bld
+    frintm ins bld
   | Opcode.FRINTP ->
-    frintp ins insLen bld
+    frintp ins bld
   | Opcode.FRINTI ->
-    frinti ins insLen bld
+    frinti ins bld
   | Opcode.FRINTN ->
-    frintn ins insLen bld
+    frintn ins bld
   | Opcode.FRINTX ->
-    frintx ins insLen bld
+    frintx ins bld
   | Opcode.FRINTZ ->
-    frintz ins insLen bld
+    frintz ins bld
   | Opcode.FSQRT ->
-    fsqrt ins insLen bld
+    fsqrt ins bld
   | Opcode.FSUB ->
-    fsub ins insLen bld
+    fsub ins bld
   | Opcode.HINT ->
-    nop ins.Address insLen bld
+    nop ins bld
   | Opcode.INS ->
-    insv ins insLen bld
+    insv ins bld
   | Opcode.LD1 | Opcode.LD2 | Opcode.LD3 | Opcode.LD4 ->
-    loadStoreList ins insLen bld true
+    loadStoreList ins bld true
   | Opcode.LD1R | Opcode.LD2R | Opcode.LD3R | Opcode.LD4R ->
-    loadRep ins insLen bld
+    loadRep ins bld
   | Opcode.LDAR ->
-    ldar ins insLen bld
+    ldar ins bld
   | Opcode.LDARB ->
-    ldarb ins insLen bld
+    ldarb ins bld
   | Opcode.LDAXP | Opcode.LDXP ->
-    ldaxp ins insLen bld
+    ldaxp ins bld
   | Opcode.LDAXR | Opcode.LDXR ->
-    ldaxr ins insLen bld
+    ldaxr ins bld
   | Opcode.LDAXRB | Opcode.LDXRB ->
-    ldax ins insLen bld 8<rt>
+    ldax ins bld 8<rt>
   | Opcode.LDAXRH | Opcode.LDXRH ->
-    ldax ins insLen bld 16<rt>
+    ldax ins bld 16<rt>
   | Opcode.LDNP ->
-    ldnp ins insLen bld
+    ldnp ins bld
   | Opcode.LDP ->
-    ldp ins insLen bld
+    ldp ins bld
   | Opcode.LDPSW ->
-    ldpsw ins insLen bld
+    ldpsw ins bld
   | Opcode.LDR ->
-    ldr ins insLen bld
+    ldr ins bld
   | Opcode.LDRB ->
-    ldrb ins insLen bld
+    ldrb ins bld
   | Opcode.LDRH ->
-    ldrh ins insLen bld
+    ldrh ins bld
   | Opcode.LDRSB ->
-    ldrsb ins insLen bld
+    ldrsb ins bld
   | Opcode.LDRSH ->
-    ldrsh ins insLen bld
+    ldrsh ins bld
   | Opcode.LDRSW ->
-    ldrsw ins insLen bld
+    ldrsw ins bld
   | Opcode.LDUR ->
-    ldur ins insLen bld
+    ldur ins bld
   | Opcode.LDURB ->
-    ldurb ins insLen bld
+    ldurb ins bld
   | Opcode.LDURH ->
-    ldurh ins insLen bld
+    ldurh ins bld
   | Opcode.LDURSB ->
-    ldursb ins insLen bld
+    ldursb ins bld
   | Opcode.LDURSH ->
-    ldursh ins insLen bld
+    ldursh ins bld
   | Opcode.LDURSW ->
-    ldursw ins insLen bld
+    ldursw ins bld
   | Opcode.LSL ->
-    distLogicalLeftShift ins insLen bld
+    distLogicalLeftShift ins bld
   | Opcode.LSR ->
-    distLogicalRightShift ins insLen bld
+    distLogicalRightShift ins bld
   | Opcode.MADD ->
-    madd ins insLen bld
+    madd ins bld
   | Opcode.MLA ->
-    mladdsub ins insLen bld (.+)
+    mladdsub ins bld (.+)
   | Opcode.MLS ->
-    mladdsub ins insLen bld (.-)
+    mladdsub ins bld (.-)
   | Opcode.MNEG ->
-    msub ins insLen bld
+    msub ins bld
   | Opcode.MOV ->
-    mov ins insLen bld
+    mov ins bld
   | Opcode.MOVI ->
-    movi ins insLen bld
+    movi ins bld
   | Opcode.MOVK ->
-    movk ins insLen bld
+    movk ins bld
   | Opcode.MOVN ->
-    movn ins insLen bld
+    movn ins bld
   | Opcode.MOVZ ->
-    movz ins insLen bld
+    movz ins bld
   | Opcode.MRS ->
-    mrs ins insLen bld
+    mrs ins bld
   | Opcode.MSR ->
-    msr ins insLen bld
+    msr ins bld
   | Opcode.MSUB ->
-    msub ins insLen bld
+    msub ins bld
   | Opcode.MUL ->
-    madd ins insLen bld
+    madd ins bld
   | Opcode.MVN ->
-    orn ins insLen bld
+    orn ins bld
   | Opcode.MVNI ->
-    mvni ins insLen bld
+    mvni ins bld
   | Opcode.NEG ->
-    sub ins insLen bld
+    sub ins bld
   | Opcode.NEGS ->
-    subs ins insLen bld
+    subs ins bld
   | Opcode.NOT ->
-    orn ins insLen bld
+    orn ins bld
   | Opcode.NOP ->
-    nop ins.Address insLen bld
+    nop ins bld
   | Opcode.ORN ->
-    orn ins insLen bld
+    orn ins bld
   | Opcode.ORR ->
-    orr ins insLen bld
+    orr ins bld
   | Opcode.PRFM | Opcode.PRFUM ->
-    nop ins.Address insLen bld
+    nop ins bld
   | Opcode.RBIT ->
-    rbit ins insLen bld
+    rbit ins bld
   | Opcode.RET ->
-    ret ins insLen bld
+    ret ins bld
   | Opcode.REV ->
-    rev ins insLen bld
+    rev ins bld
   | Opcode.REV16 ->
-    rev16 ins insLen bld
+    rev16 ins bld
   | Opcode.REV32 ->
-    rev32 ins insLen bld
+    rev32 ins bld
   | Opcode.REV64 ->
-    rev ins insLen bld
+    rev ins bld
   | Opcode.RORV ->
-    rorv ins insLen bld
+    rorv ins bld
   | Opcode.SADDL | Opcode.SADDL2 ->
-    saddl ins insLen bld
+    saddl ins bld
   | Opcode.SADDW | Opcode.SADDW2 ->
-    saddw ins insLen bld
+    saddw ins bld
   | Opcode.SADDLP ->
-    saddlp ins insLen bld
+    saddlp ins bld
   | Opcode.SADDLV ->
-    saddlv ins insLen bld
+    saddlv ins bld
   | Opcode.SBC ->
-    sbc ins insLen bld
+    sbc ins bld
   | Opcode.SBCS ->
-    sbcs ins insLen bld
+    sbcs ins bld
   | Opcode.SBFIZ ->
-    sbfiz ins insLen bld
+    sbfiz ins bld
   | Opcode.SBFX ->
-    sbfx ins insLen bld
+    sbfx ins bld
   | Opcode.SCVTF ->
-    icvtf ins insLen bld false
+    icvtf ins bld false
   | Opcode.SDIV ->
-    sdiv ins insLen bld
+    sdiv ins bld
   | Opcode.SHL ->
-    shl ins insLen bld
+    shl ins bld
   | Opcode.SHRN ->
-    shrn ins insLen bld false
+    shrn ins bld false
   | Opcode.SHRN2 ->
-    shrn ins insLen bld true
+    shrn ins bld true
   | Opcode.SMADDL ->
-    smaddl ins insLen bld
+    smaddl ins bld
   | Opcode.SMOV ->
-    smov ins insLen bld
+    smov ins bld
   | Opcode.SMSUBL | Opcode.SMNEGL ->
-    smsubl ins insLen bld
+    smsubl ins bld
   | Opcode.SMULH ->
-    smulh ins insLen bld
+    smulh ins bld
   | Opcode.SMULL | Opcode.SMULL2 ->
-    smull ins insLen bld
+    smull ins bld
   | Opcode.SSHL ->
-    sshl ins insLen bld
+    sshl ins bld
   | Opcode.UXTL | Opcode.UXTL2 | Opcode.USHLL | Opcode.USHLL2 ->
-    shiftULeftLong ins insLen bld
+    shiftULeftLong ins bld
   | Opcode.SXTL | Opcode.SXTL2 | Opcode.SSHLL | Opcode.SSHLL2 ->
-    shiftSLeftLong ins insLen bld
+    shiftSLeftLong ins bld
   | Opcode.SSHR ->
-    shift ins insLen bld (?>>)
+    shift ins bld (?>>)
   | Opcode.SSRA ->
-    shiftRight ins insLen bld (?>>)
+    shiftRight ins bld (?>>)
   | Opcode.SSUBL | Opcode.SSUBL2 ->
-    ssubl ins insLen bld
+    ssubl ins bld
   | Opcode.SSUBW | Opcode.SSUBW2 ->
-    ssubw ins insLen bld
+    ssubw ins bld
   | Opcode.SMAX ->
-    maxMin ins insLen bld (?>=)
+    maxMin ins bld (?>=)
   | Opcode.SMAXP ->
-    maxMinp ins insLen bld (?>=)
+    maxMinp ins bld (?>=)
   | Opcode.SMAXV ->
-    maxMinv ins insLen bld (?>=)
+    maxMinv ins bld (?>=)
   | Opcode.SMIN ->
-    maxMin ins insLen bld (?<=)
+    maxMin ins bld (?<=)
   | Opcode.SMINP ->
-    maxMinp ins insLen bld (?<=)
+    maxMinp ins bld (?<=)
   | Opcode.SMINV ->
-    maxMinv ins insLen bld (?<=)
+    maxMinv ins bld (?<=)
   | Opcode.SMLAL | Opcode.SMLAL2 ->
-    smlal ins insLen bld
+    smlal ins bld
   | Opcode.SMLSL | Opcode.SMLSL2 ->
-    smlsl ins insLen bld
+    smlsl ins bld
   | Opcode.SQDMULH ->
-    sqdmulh ins insLen bld
+    sqdmulh ins bld
   | Opcode.SQDMULL | Opcode.SQDMULL2 ->
-    sqdmull ins insLen bld
+    sqdmull ins bld
   | Opcode.SQDMLAL | Opcode.SQDMLAL2 ->
-    sqdmlal ins insLen bld
+    sqdmlal ins bld
   | Opcode.ST1 | Opcode.ST2 | Opcode.ST3 | Opcode.ST4 ->
-    loadStoreList ins insLen bld false
+    loadStoreList ins bld false
   | Opcode.STLR ->
-    stlr ins insLen bld
+    stlr ins bld
   | Opcode.STLRB ->
-    stlrb ins insLen bld
+    stlrb ins bld
   | Opcode.STLXP | Opcode.STXP ->
-    stlxp ins insLen bld
+    stlxp ins bld
   | Opcode.STLXR | Opcode.STXR ->
-    stlxr ins insLen bld
+    stlxr ins bld
   | Opcode.STLXRB | Opcode.STXRB ->
-    stlx ins insLen bld 8<rt>
+    stlx ins bld 8<rt>
   | Opcode.STLXRH | Opcode.STXRH ->
-    stlx ins insLen bld 16<rt>
+    stlx ins bld 16<rt>
   | Opcode.STNP ->
-    stnp ins insLen bld
+    stnp ins bld
   | Opcode.STP ->
-    stp ins insLen bld
+    stp ins bld
   | Opcode.STR ->
-    str ins insLen bld
+    str ins bld
   | Opcode.STRB ->
-    strb ins insLen bld
+    strb ins bld
   | Opcode.STRH ->
-    strh ins insLen bld
+    strh ins bld
   | Opcode.STTRB ->
-    sttrb ins insLen bld
+    sttrb ins bld
   | Opcode.STUR ->
-    stur ins insLen bld
+    stur ins bld
   | Opcode.STURB ->
-    sturb ins insLen bld
+    sturb ins bld
   | Opcode.STURH ->
-    sturh ins insLen bld
+    sturh ins bld
   | Opcode.SUB ->
-    sub ins insLen bld
+    sub ins bld
   | Opcode.SUBHN ->
-    addSubHN ins insLen bld false (.-)
+    addSubHN ins bld false (.-)
   | Opcode.SUBHN2 ->
-    addSubHN ins insLen bld true (.-)
+    addSubHN ins bld true (.-)
   | Opcode.SUBS ->
-    subs ins insLen bld
+    subs ins bld
   | Opcode.SVC ->
-    svc ins insLen bld
+    svc ins bld
   | Opcode.SXTB ->
-    sxtb ins insLen bld
+    sxtb ins bld
   | Opcode.SXTH ->
-    sxth ins insLen bld
+    sxth ins bld
   | Opcode.SXTW ->
-    sxtw ins insLen bld
+    sxtw ins bld
   | Opcode.TBL ->
-    tbl ins insLen bld
+    tbl ins bld
   | Opcode.TBNZ ->
-    tbnz ins insLen bld
+    tbnz ins bld
   | Opcode.TBZ ->
-    tbz ins insLen bld
+    tbz ins bld
   | Opcode.TRN1 ->
-    trn1 ins insLen bld
+    trn1 ins bld
   | Opcode.TRN2 ->
-    trn2 ins insLen bld
+    trn2 ins bld
   | Opcode.TST ->
-    tst ins insLen bld
+    tst ins bld
   | Opcode.UABAL | Opcode.UABAL2 ->
-    uabal ins insLen bld
+    uabal ins bld
   | Opcode.UABDL | Opcode.UABDL2 ->
-    uabdl ins insLen bld
+    uabdl ins bld
   | Opcode.UADALP ->
-    uadalp ins insLen bld
+    uadalp ins bld
   | Opcode.UADDL | Opcode.UADDL2 ->
-    uaddl ins insLen bld
+    uaddl ins bld
   | Opcode.UADDLP ->
-    uaddlp ins insLen bld
+    uaddlp ins bld
   | Opcode.UADDLV ->
-    uaddlv ins insLen bld
+    uaddlv ins bld
   | Opcode.UADDW | Opcode.UADDW2 ->
-    uaddw ins insLen bld
+    uaddw ins bld
   | Opcode.UBFIZ ->
-    ubfiz ins insLen bld
+    ubfiz ins bld
   | Opcode.UBFX ->
-    ubfx ins insLen bld
+    ubfx ins bld
   | Opcode.UCVTF ->
-    icvtf ins insLen bld true
+    icvtf ins bld true
   | Opcode.UDIV ->
-    udiv ins insLen bld
+    udiv ins bld
   | Opcode.UMADDL ->
-    umaddl ins insLen bld
+    umaddl ins bld
   | Opcode.UMAX ->
-    maxMin ins insLen bld (.>=)
+    maxMin ins bld (.>=)
   | Opcode.UMAXP ->
-    maxMinp ins insLen bld (.>=)
+    maxMinp ins bld (.>=)
   | Opcode.UMAXV ->
-    maxMinv ins insLen bld (.>=)
+    maxMinv ins bld (.>=)
   | Opcode.UMIN ->
-    maxMin ins insLen bld (.<=)
+    maxMin ins bld (.<=)
   | Opcode.UMINP ->
-    maxMinp ins insLen bld (.<=)
+    maxMinp ins bld (.<=)
   | Opcode.UMINV ->
-    maxMinv ins insLen bld (.<=)
+    maxMinv ins bld (.<=)
   | Opcode.UMLAL | Opcode.UMLAL2 ->
-    umlal ins insLen bld
+    umlal ins bld
   | Opcode.UMLSL | Opcode.UMLSL2 ->
-    umlsl ins insLen bld
+    umlsl ins bld
   | Opcode.UMOV ->
-    umov ins insLen bld
+    umov ins bld
   | Opcode.UMSUBL | Opcode.UMNEGL ->
-    umsubl ins insLen bld
+    umsubl ins bld
   | Opcode.UMULH ->
-    umulh ins insLen bld
+    umulh ins bld
   | Opcode.UMULL | Opcode.UMULL2 ->
-    umull ins insLen bld
+    umull ins bld
   | Opcode.UQADD ->
-    uqadd ins insLen bld
+    uqadd ins bld
   | Opcode.UQRSHL ->
-    uqrshl ins insLen bld
+    uqrshl ins bld
   | Opcode.UQSHL ->
-    uqshl ins insLen bld
+    uqshl ins bld
   | Opcode.UQSUB ->
-    uqsub ins insLen bld
+    uqsub ins bld
   | Opcode.URSHL ->
-    urshl ins insLen bld
+    urshl ins bld
   | Opcode.SRSHL ->
-    srshl ins insLen bld
+    srshl ins bld
   | Opcode.URHADD ->
-    urhadd ins insLen bld
+    urhadd ins bld
   | Opcode.USHL ->
-    ushl ins insLen bld
+    ushl ins bld
   | Opcode.USHR ->
-    shift ins insLen bld (>>)
+    shift ins bld (>>)
   | Opcode.USRA ->
-    shiftRight ins insLen bld (>>)
+    shiftRight ins bld (>>)
   | Opcode.USUBL | Opcode.USUBL2 ->
-    usubl ins insLen bld
+    usubl ins bld
   | Opcode.USUBW | Opcode.USUBW2 ->
-    usubw ins insLen bld
+    usubw ins bld
   | Opcode.UXTB ->
-    uxtb ins insLen bld
+    uxtb ins bld
   | Opcode.UXTH ->
-    uxth ins insLen bld
+    uxth ins bld
   | Opcode.UZP1 ->
-    uzp ins insLen bld 0
+    uzp ins bld 0
   | Opcode.UZP2 ->
-    uzp ins insLen bld 1
+    uzp ins bld 1
   | Opcode.XTN ->
-    xtn ins insLen bld
+    xtn ins bld
   | Opcode.XTN2 ->
-    xtn2 ins insLen bld
+    xtn2 ins bld
   | Opcode.ZIP1 ->
-    zip ins insLen bld true
+    zip ins bld true
   | Opcode.ZIP2 ->
-    zip ins insLen bld false
+    zip ins bld false
   | o ->
 #if DEBUG
          eprintfn "%A" o

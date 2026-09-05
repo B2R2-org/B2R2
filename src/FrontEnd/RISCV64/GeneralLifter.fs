@@ -32,77 +32,77 @@ open B2R2.FrontEnd.BinLifter
 open B2R2.FrontEnd.BinLifter.LiftingUtils
 open B2R2.FrontEnd.RISCV64.LiftingUtils
 
-let add ins insLen bld =
-  lift bld ins insLen {
+let add ins bld =
+  lift bld ins {
     let rd, rs1, rs2 = getThreeOprs ins |> transThreeOprs ins bld
     rd := rs1 .+ rs2
   }
 
-let addw ins insLen bld =
-  lift bld ins insLen {
+let addw ins bld =
+  lift bld ins {
     let rd, rs1, rs2 = getThreeOprs ins |> transThreeOprs ins bld
     let rs1 = AST.xtlo 32<rt> rs1
     let rs2 = AST.xtlo 32<rt> rs2
     rd := AST.sext 64<rt> (rs1 .+ rs2)
   }
 
-let subw ins insLen bld =
-  lift bld ins insLen {
+let subw ins bld =
+  lift bld ins {
     let rd, rs1, rs2 = getThreeOprs ins |> transThreeOprs ins bld
     let rs1 = AST.xtlo 32<rt> rs1
     let rs2 = AST.xtlo 32<rt> rs2
     rd := AST.sext 64<rt> (rs1 .- rs2)
   }
 
-let sub ins insLen bld =
-  lift bld ins insLen {
+let sub ins bld =
+  lift bld ins {
     let rd, rs1, rs2 = getThreeOprs ins |> transThreeOprs ins bld
     rd := rs1 .- rs2
   }
 
-let ``and`` ins insLen bld =
-  lift bld ins insLen {
+let ``and`` ins bld =
+  lift bld ins {
     let rd, rs1, rs2 = getThreeOprs ins |> transThreeOprs ins bld
     rd := rs1 .& rs2
   }
 
-let ``or`` ins insLen bld =
-  lift bld ins insLen {
+let ``or`` ins bld =
+  lift bld ins {
     let rd, rs1, rs2 = getThreeOprs ins |> transThreeOprs ins bld
     rd := rs1 .| rs2
   }
 
-let xor ins insLen bld =
-  lift bld ins insLen {
+let xor ins bld =
+  lift bld ins {
     let rd, rs1, rs2 = getThreeOprs ins |> transThreeOprs ins bld
     rd := rs1 <+> rs2
   }
 
-let slt ins insLen bld =
-  lift bld ins insLen {
+let slt ins bld =
+  lift bld ins {
     let rd, rs1, rs2 = getThreeOprs ins |> transThreeOprs ins bld
     let cond = rs1 ?< rs2
     let rtVal = AST.ite cond (AST.num1 64<rt>) (AST.num0 64<rt>)
     rd := rtVal
   }
 
-let sltu ins insLen bld =
-  lift bld ins insLen {
+let sltu ins bld =
+  lift bld ins {
     let rd, rs1, rs2 = getThreeOprs ins |> transThreeOprs ins bld
     let cond = rs1 .< rs2
     let rtVal = AST.ite cond (AST.num1 64<rt>) (AST.num0 64<rt>)
     rd := rtVal
   }
 
-let sll ins insLen bld =
-  lift bld ins insLen {
+let sll ins bld =
+  lift bld ins {
     let rd, rs1, rs2 = getThreeOprs ins |> transThreeOprs ins bld
     let shiftAmm = rs2 .& numU64 0x3fUL 64<rt>
     rd := rs1 << shiftAmm
   }
 
-let sllw ins insLen bld =
-  lift bld ins insLen {
+let sllw ins bld =
+  lift bld ins {
     let rd, rs1, rs2 = getThreeOprs ins |> transThreeOprs ins bld
     let rs1 = AST.xtlo 32<rt> rs1
     let rs2 = AST.xtlo 32<rt> rs2
@@ -110,15 +110,15 @@ let sllw ins insLen bld =
     rd := AST.sext 64<rt> (rs1 << shiftAmm)
   }
 
-let srl ins insLen bld =
-  lift bld ins insLen {
+let srl ins bld =
+  lift bld ins {
     let rd, rs1, rs2 = getThreeOprs ins |> transThreeOprs ins bld
     let shiftAmm = rs2 .& numU64 0x3fUL 64<rt>
     rd := rs1 >> shiftAmm
   }
 
-let srlw ins insLen bld =
-  lift bld ins insLen {
+let srlw ins bld =
+  lift bld ins {
     let rd, rs1, rs2 = getThreeOprs ins |> transThreeOprs ins bld
     let rs1 = AST.xtlo 32<rt> rs1
     let rs2 = AST.xtlo 32<rt> rs2
@@ -126,15 +126,15 @@ let srlw ins insLen bld =
     rd := AST.sext 64<rt> (rs1 >> shiftAmm)
   }
 
-let sra ins insLen bld =
-  lift bld ins insLen {
+let sra ins bld =
+  lift bld ins {
     let rd, rs1, rs2 = getThreeOprs ins |> transThreeOprs ins bld
     let shiftAmm = rs2 .& numU64 0x3fUL 64<rt>
     rd := rs1 ?>> shiftAmm
   }
 
-let sraw ins insLen bld =
-  lift bld ins insLen {
+let sraw ins bld =
+  lift bld ins {
     let rd, rs1, rs2 = getThreeOprs ins |> transThreeOprs ins bld
     let rs1 = AST.xtlo 32<rt> rs1
     let rs2 = AST.xtlo 32<rt> rs2
@@ -142,78 +142,78 @@ let sraw ins insLen bld =
     rd := AST.sext 64<rt> (rs1 ?>> shiftAmm)
   }
 
-let srai ins insLen bld =
-  lift bld ins insLen {
+let srai ins bld =
+  lift bld ins {
     let rd, rs1, shiftAmm = getThreeOprs ins |> transThreeOprs ins bld
     rd := rs1 ?>> shiftAmm
   }
 
-let srli ins insLen bld =
-  lift bld ins insLen {
+let srli ins bld =
+  lift bld ins {
     let rd, rs1, shiftAmm = getThreeOprs ins |> transThreeOprs ins bld
     rd := rs1 >> shiftAmm
   }
 
-let slli ins insLen bld =
-  lift bld ins insLen {
+let slli ins bld =
+  lift bld ins {
     let rd, rs1, shiftAmm = getThreeOprs ins |> transThreeOprs ins bld
     rd := rs1 << shiftAmm
   }
 
-let andi ins insLen bld =
-  lift bld ins insLen {
+let andi ins bld =
+  lift bld ins {
     let rd, rs1, imm = getThreeOprs ins |> transThreeOprs ins bld
     rd := rs1 .& imm
   }
 
-let addi ins insLen bld =
-  lift bld ins insLen {
+let addi ins bld =
+  lift bld ins {
     let rd, rs1, imm = getThreeOprs ins |> transThreeOprs ins bld
     rd := rs1 .+ imm
   }
 
-let ori ins insLen bld =
-  lift bld ins insLen {
+let ori ins bld =
+  lift bld ins {
     let rd, rs1, imm = getThreeOprs ins |> transThreeOprs ins bld
     rd := rs1 .| imm
   }
 
-let xori ins insLen bld =
-  lift bld ins insLen {
+let xori ins bld =
+  lift bld ins {
     let rd, rs1, imm = getThreeOprs ins |> transThreeOprs ins bld
     rd := rs1 <+> imm
   }
 
-let slti ins insLen bld =
-  lift bld ins insLen {
+let slti ins bld =
+  lift bld ins {
     let rd, rs1, imm = getThreeOprs ins |> transThreeOprs ins bld
     let cond = rs1 ?< imm
     let rtVal = AST.ite cond (AST.num1 64<rt>) (AST.num0 64<rt>)
     rd := rtVal
   }
 
-let sltiu ins insLen bld =
-  lift bld ins insLen {
+let sltiu ins bld =
+  lift bld ins {
     let rd, rs1, imm = getThreeOprs ins |> transThreeOprs ins bld
     let cond = rs1 .< imm
     let rtVal = AST.ite cond (AST.num1 64<rt>) (AST.num0 64<rt>)
     rd := rtVal
   }
 
-let nop (ins: Instruction) insLen bld =
-  lift bld ins insLen {
+let nop (ins: Instruction) bld =
+  lift bld ins {
   }
 
-let jal ins insLen bld =
-  lift bld ins insLen {
+let jal ins bld =
+  lift bld ins {
     let rd, jumpTarget = getTwoOprs ins |> transTwoOprs ins bld
     let r = bvOfBaseAddr bld ins.Address .+ bvOfInstrLen bld ins
     rd := r
     AST.interjmp jumpTarget InterJmpKind.IsCall
   }
 
-let jalr ins insLen bld =
-  lift bld ins insLen {
+let jalr ins bld =
+  lift bld ins {
     let rd, jumpTarget = getTwoOprs ins |> transTwoOprs ins bld
     let r = bvOfBaseAddr bld ins.Address .+ bvOfInstrLen bld ins
     let target = tmpVar bld 64<rt>
@@ -223,122 +223,122 @@ let jalr ins insLen bld =
     AST.interjmp actualTarget InterJmpKind.IsRet
   }
 
-let beq ins insLen bld =
-  lift bld ins insLen {
+let beq ins bld =
+  lift bld ins {
     let rs1, rs2, offset = getThreeOprs ins |> transThreeOprs ins bld
     let cond = rs1 == rs2
     let fallThrough = bvOfBaseAddr bld ins.Address .+ bvOfInstrLen bld ins
     AST.intercjmp cond offset fallThrough
   }
 
-let bne ins insLen bld =
-  lift bld ins insLen {
+let bne ins bld =
+  lift bld ins {
     let rs1, rs2, offset = getThreeOprs ins |> transThreeOprs ins bld
     let cond = rs1 != rs2
     let fallThrough = bvOfBaseAddr bld ins.Address .+ bvOfInstrLen bld ins
     AST.intercjmp cond offset fallThrough
   }
 
-let blt ins insLen bld =
-  lift bld ins insLen {
+let blt ins bld =
+  lift bld ins {
     let rs1, rs2, offset = getThreeOprs ins |> transThreeOprs ins bld
     let cond = rs1 ?< rs2
     let fallThrough = bvOfBaseAddr bld ins.Address .+ bvOfInstrLen bld ins
     AST.intercjmp cond offset fallThrough
   }
 
-let bge ins insLen bld =
-  lift bld ins insLen {
+let bge ins bld =
+  lift bld ins {
     let rs1, rs2, offset = getThreeOprs ins |> transThreeOprs ins bld
     let cond = rs1 ?>= rs2
     let fallThrough = bvOfBaseAddr bld ins.Address .+ bvOfInstrLen bld ins
     AST.intercjmp cond offset fallThrough
   }
 
-let bltu ins insLen bld =
-  lift bld ins insLen {
+let bltu ins bld =
+  lift bld ins {
     let rs1, rs2, offset = getThreeOprs ins |> transThreeOprs ins bld
     let cond = rs1 .< rs2
     let fallThrough = bvOfBaseAddr bld ins.Address .+ bvOfInstrLen bld ins
     AST.intercjmp cond offset fallThrough
   }
 
-let bgeu ins insLen bld =
-  lift bld ins insLen {
+let bgeu ins bld =
+  lift bld ins {
     let rs1, rs2, offset = getThreeOprs ins |> transThreeOprs ins bld
     let cond = rs1 .>= rs2
     let fallThrough = bvOfBaseAddr bld ins.Address .+ bvOfInstrLen bld ins
     AST.intercjmp cond offset fallThrough
   }
 
-let load ins insLen bld =
-  lift bld ins insLen {
+let load ins bld =
+  lift bld ins {
     let rd, mem = getTwoOprs ins |> transTwoOprs ins bld
     rd := AST.sext bld.RegType mem
   }
 
-let loadu ins insLen bld =
-  lift bld ins insLen {
+let loadu ins bld =
+  lift bld ins {
     let rd, mem = getTwoOprs ins |> transTwoOprs ins bld
     rd := AST.zext bld.RegType mem
   }
 
-let store ins insLen bld =
-  lift bld ins insLen {
+let store ins bld =
+  lift bld ins {
     let rd, mem = getTwoOprs ins |> transTwoOprs ins bld
     let accessLength = getAccessLength (snd (getTwoOprs ins))
     if accessLength = 64<rt> then append bld { mem := rd }
     else append bld { mem := AST.xtlo accessLength rd }
   }
 
-let sideEffects (ins: Instruction) insLen bld name =
-  lift bld ins insLen {
+let sideEffects (ins: Instruction) bld name =
+  lift bld ins {
     AST.sideEffect name
   }
 
-let lui ins insLen bld =
-  lift bld ins insLen {
+let lui ins bld =
+  lift bld ins {
     let rd, imm = getTwoOprs ins |> transTwoOprs ins bld
     rd := imm << numI32 12 bld.RegType
   }
 
-let auipc ins insLen bld =
-  lift bld ins insLen {
+let auipc ins bld =
+  lift bld ins {
     let rd, imm = getTwoOprs ins |> transTwoOprs ins bld
     let pc = bvOfBaseAddr bld ins.Address
     rd := pc .+ (imm << numI32 12 bld.RegType)
   }
 
-let addiw ins insLen bld =
-  lift bld ins insLen {
+let addiw ins bld =
+  lift bld ins {
     let rd, rs1, imm = getThreeOprs ins |> transThreeOprs ins bld
     let lowBitsRs1 = AST.xtlo 32<rt> rs1
     rd := AST.sext 64<rt> (lowBitsRs1 .+ AST.xtlo 32<rt> imm)
   }
 
-let slliw ins insLen bld =
-  lift bld ins insLen {
+let slliw ins bld =
+  lift bld ins {
     let rd, rs1, shamt = getThreeOprs ins |> transThreeOprs ins bld
     let lowBitsRs1 = AST.xtlo 32<rt> rs1
     rd := AST.sext 64<rt> (lowBitsRs1 << AST.xtlo 32<rt> shamt)
   }
 
-let srliw ins insLen bld =
-  lift bld ins insLen {
+let srliw ins bld =
+  lift bld ins {
     let rd, rs1, shamt = getThreeOprs ins |> transThreeOprs ins bld
     let lowBitsRs1 = AST.xtlo 32<rt> rs1
     rd := AST.sext 64<rt> (lowBitsRs1 >> AST.xtlo 32<rt> shamt)
   }
 
-let sraiw ins insLen bld =
-  lift bld ins insLen {
+let sraiw ins bld =
+  lift bld ins {
     let rd, rs1, shamt = getThreeOprs ins |> transThreeOprs ins bld
     let lowBitsRs1 = AST.xtlo 32<rt> rs1
     rd := AST.sext 64<rt> (lowBitsRs1 ?>> AST.xtlo 32<rt> shamt)
   }
 
-let mul ins insLen bld =
-  lift bld ins insLen {
+let mul ins bld =
+  lift bld ins {
     let rd, rs1, rs2 = getThreeOprs ins |> transThreeOprs ins bld
     (* The low 64 bits of the product are the same for signed and unsigned,
        so a plain 64-bit multiply suffices -- no need to form the full 128-bit
@@ -346,8 +346,8 @@ let mul ins insLen bld =
     rd := rs1 .* rs2
   }
 
-let mulhSignOrUnsign ins insLen bld (isSign, isUnsign) =
-  lift bld ins insLen {
+let mulhSignOrUnsign ins bld (isSign, isUnsign) =
+  lift bld ins {
     let rd, rs1, rs2 = getThreeOprs ins |> transThreeOprs ins bld
     (* The high 64 bits of the 64x64->128 product, from the 128-bit intermediate
        the evaluator holds: MULH signs both operands, MULHU neither, MULHSU only
@@ -360,16 +360,16 @@ let mulhSignOrUnsign ins insLen bld (isSign, isUnsign) =
     rd := AST.xthi 64<rt> prod
   }
 
-let mulw ins insLen bld =
-  lift bld ins insLen {
+let mulw ins bld =
+  lift bld ins {
     let rd, rs1, rs2 = getThreeOprs ins |> transThreeOprs ins bld
     let lowBitsRs1 = AST.xtlo 32<rt> rs1
     let lowBitsRs2 = AST.xtlo 32<rt> rs2
     rd := AST.sext 64<rt> (lowBitsRs1 .* lowBitsRs2)
   }
 
-let div ins insLen bld =
-  lift bld ins insLen {
+let div ins bld =
+  lift bld ins {
     let rd, rs1, rs2 = getThreeOprs ins |> transThreeOprs ins bld
     let condZero = rs2 == AST.num0 64<rt>
     let condOverflow =
@@ -393,8 +393,8 @@ let div ins insLen bld =
     AST.lmark lblEnd
   }
 
-let divw ins insLen bld =
-  lift bld ins insLen {
+let divw ins bld =
+  lift bld ins {
     let rd, rs1, rs2 = getThreeOprs ins |> transThreeOprs ins bld
     let rs1 = AST.xtlo 32<rt> rs1
     let rs2 = AST.xtlo 32<rt> rs2
@@ -420,8 +420,8 @@ let divw ins insLen bld =
     AST.lmark lblEnd
   }
 
-let divuw ins insLen bld =
-  lift bld ins insLen {
+let divuw ins bld =
+  lift bld ins {
     let rd, rs1, rs2 = getThreeOprs ins |> transThreeOprs ins bld
     let rs1 = AST.xtlo 32<rt> rs1
     let rs2 = AST.xtlo 32<rt> rs2
@@ -438,8 +438,8 @@ let divuw ins insLen bld =
     AST.lmark lblEnd
   }
 
-let divu ins insLen bld =
-  lift bld ins insLen {
+let divu ins bld =
+  lift bld ins {
     let rd, rs1, rs2 = getThreeOprs ins |> transThreeOprs ins bld
     let condZero = rs2 == AST.num0 64<rt>
     let lblL0 = label bld "L0"
@@ -454,8 +454,8 @@ let divu ins insLen bld =
     AST.lmark lblEnd
   }
 
-let remu ins insLen bld =
-  lift bld ins insLen {
+let remu ins bld =
+  lift bld ins {
     let rd, rs1, rs2 = getThreeOprs ins |> transThreeOprs ins bld
     let condZero = rs2 == AST.num0 64<rt>
     let lblL0 = label bld "L0"
@@ -470,8 +470,8 @@ let remu ins insLen bld =
     AST.lmark lblEnd
   }
 
-let rem ins insLen bld =
-  lift bld ins insLen {
+let rem ins bld =
+  lift bld ins {
     let rd, rs1, rs2 = getThreeOprs ins |> transThreeOprs ins bld
     let condZero = rs2 == AST.num0 64<rt>
     let condOverflow =
@@ -495,8 +495,8 @@ let rem ins insLen bld =
     AST.lmark lblEnd
   }
 
-let remw ins insLen bld =
-  lift bld ins insLen {
+let remw ins bld =
+  lift bld ins {
     let rd, rs1, rs2 = getThreeOprs ins |> transThreeOprs ins bld
     let rs1 = AST.xtlo 32<rt> rs1
     let rs2 = AST.xtlo 32<rt> rs2
@@ -522,8 +522,8 @@ let remw ins insLen bld =
     AST.lmark lblEnd
   }
 
-let remuw ins insLen bld =
-  lift bld ins insLen {
+let remuw ins bld =
+  lift bld ins {
     let rd, rs1, rs2 = getThreeOprs ins |> transThreeOprs ins bld
     let rs1 = AST.xtlo 32<rt> rs1
     let rs2 = AST.xtlo 32<rt> rs2
@@ -540,8 +540,8 @@ let remuw ins insLen bld =
     AST.lmark lblEnd
   }
 
-let fld ins insLen bld =
-  lift bld ins insLen {
+let fld ins bld =
+  lift bld ins {
     let rd, mem = getTwoOprs ins |> transTwoOprs ins bld
     let condAlign = isAligned 64<rt> (getAddrFromMem mem)
     let lblL0 = label bld "L0"
@@ -558,8 +558,8 @@ let fld ins insLen bld =
     AST.lmark lblEnd
   }
 
-let fsd ins insLen bld =
-  lift bld ins insLen {
+let fsd ins bld =
+  lift bld ins {
     let rd, mem = getTwoOprs ins |> transTwoOprs ins bld
     let condAlign = isAligned 64<rt> (getAddrFromMem mem)
     let lblL0 = label bld "L0"
@@ -576,8 +576,8 @@ let fsd ins insLen bld =
     AST.lmark lblEnd
   }
 
-let fltdots ins insLen bld =
-  lift bld ins insLen {
+let fltdots ins bld =
+  lift bld ins {
     let rd, rs1, rs2 = getThreeOprs ins |> transThreeOprs ins bld
     let rs1 = getFloat32FromReg rs1
     let rs2 = getFloat32FromReg rs2
@@ -598,8 +598,8 @@ let fltdots ins insLen bld =
     AST.lmark lblEnd
   }
 
-let fledots ins insLen bld =
-  lift bld ins insLen {
+let fledots ins bld =
+  lift bld ins {
     let rd, rs1, rs2 = getThreeOprs ins |> transThreeOprs ins bld
     let rs1 = getFloat32FromReg rs1
     let rs2 = getFloat32FromReg rs2
@@ -620,8 +620,8 @@ let fledots ins insLen bld =
     AST.lmark lblEnd
   }
 
-let feqdots ins insLen bld =
-  lift bld ins insLen {
+let feqdots ins bld =
+  lift bld ins {
     let rd, rs1, rs2 = getThreeOprs ins |> transThreeOprs ins bld
     let rs1 = getFloat32FromReg rs1
     let rs2 = getFloat32FromReg rs2
@@ -644,8 +644,8 @@ let feqdots ins insLen bld =
     AST.lmark lblEnd
   }
 
-let fclassdots ins insLen bld =
-  lift bld ins insLen {
+let fclassdots ins bld =
+  lift bld ins {
     let rd, rs1 = getTwoOprs ins |> transTwoOprs ins bld
     let rs1 = getFloat32FromReg rs1
     let plusZero = numU32 0u 32<rt>
@@ -677,8 +677,8 @@ let fclassdots ins insLen bld =
     AST.lmark lblEnd
   }
 
-let fclassdotd ins insLen bld =
-  lift bld ins insLen {
+let fclassdotd ins bld =
+  lift bld ins {
     let rd, rs1 = getTwoOprs ins |> transTwoOprs ins bld
     let plusZero = numU64 0uL 64<rt>
     let negZero = numU64 0x8000000000000000uL 64<rt>
@@ -709,8 +709,8 @@ let fclassdotd ins insLen bld =
     AST.lmark lblEnd
   }
 
-let flw ins insLen bld =
-  lift bld ins insLen {
+let flw ins bld =
+  lift bld ins {
     let rd, mem = getTwoOprs ins |> transTwoOprs ins bld
     let tmp = tmpVar bld 32<rt>
     let condAlign = isAligned 32<rt> (getAddrFromMem mem)
@@ -730,8 +730,8 @@ let flw ins insLen bld =
     AST.lmark lblEnd
   }
 
-let fsw ins insLen bld =
-  lift bld ins insLen {
+let fsw ins bld =
+  lift bld ins {
     let rd, mem = getTwoOprs ins |> transTwoOprs ins bld
     let condAlign = isAligned 32<rt> (getAddrFromMem mem)
     let lblL0 = label bld "L0"
@@ -748,8 +748,8 @@ let fsw ins insLen bld =
     AST.lmark lblEnd
   }
 
-let fltdotd ins insLen bld =
-  lift bld ins insLen {
+let fltdotd ins bld =
+  lift bld ins {
     let rd, rs1, rs2 = getThreeOprs ins |> transThreeOprs ins bld
     let checkNan = isNan 64<rt> rs1 .| isNan 64<rt> rs2
     let lblL0 = label bld "L0"
@@ -768,8 +768,8 @@ let fltdotd ins insLen bld =
     AST.lmark lblEnd
   }
 
-let fledotd ins insLen bld =
-  lift bld ins insLen {
+let fledotd ins bld =
+  lift bld ins {
     let rd, rs1, rs2 = getThreeOprs ins |> transThreeOprs ins bld
     let checkNan = isNan 64<rt> rs1 .| isNan 64<rt> rs2
     let lblL0 = label bld "L0"
@@ -788,8 +788,8 @@ let fledotd ins insLen bld =
     AST.lmark lblEnd
   }
 
-let feqdotd ins insLen bld =
-  lift bld ins insLen {
+let feqdotd ins bld =
+  lift bld ins {
     let rd, rs1, rs2 = getThreeOprs ins |> transThreeOprs ins bld
     let isSNan = isSNan 64<rt> rs1 .| isSNan 64<rt> rs2
     let checkNan = isNan 64<rt> rs1 .| isNan 64<rt> rs2
@@ -810,8 +810,8 @@ let feqdotd ins insLen bld =
     AST.lmark lblEnd
   }
 
-let fpArithmeticSingle ins insLen bld operator =
-  lift bld ins insLen {
+let fpArithmeticSingle ins bld operator =
+  lift bld ins {
     let rd, rs1, rs2, _ = getFourOprs ins
     let rd, rs1, rs2 = (rd, rs1, rs2) |> transThreeOprs ins bld
     let rs1 = getFloat32FromReg rs1
@@ -822,8 +822,8 @@ let fpArithmeticSingle ins insLen bld operator =
     rd := getNanBoxed rtVal
   }
 
-let fpArithmeticDouble ins insLen bld operator =
-  lift bld ins insLen {
+let fpArithmeticDouble ins bld operator =
+  lift bld ins {
     let rd, rs1, rs2, _ = getFourOprs ins
     let rd, rs1, rs2 = (rd, rs1, rs2) |> transThreeOprs ins bld
     let rtVal =
@@ -832,8 +832,8 @@ let fpArithmeticDouble ins insLen bld operator =
     rd := rtVal
   }
 
-let fsqrtdots ins insLen bld =
-  lift bld ins insLen {
+let fsqrtdots ins bld =
+  lift bld ins {
     let rd, rs1, _ = getThreeOprs ins
     let rd, rs1 = (rd, rs1) |> transTwoOprs ins bld
     let rs1 = AST.xtlo 32<rt> rs1
@@ -841,16 +841,16 @@ let fsqrtdots ins insLen bld =
     rd := getNanBoxed rtVal
   }
 
-let fsqrtdotd ins insLen bld =
-  lift bld ins insLen {
+let fsqrtdotd ins bld =
+  lift bld ins {
     let rd, rs1, _ = getThreeOprs ins
     let rd, rs1 = (rd, rs1) |> transTwoOprs ins bld
     let rtVal = AST.fsqrt rs1
     rd := rtVal
   }
 
-let fmindots ins insLen bld =
-  lift bld ins insLen {
+let fmindots ins bld =
+  lift bld ins {
     let rd, rs1, rs2 = getThreeOprs ins |> transThreeOprs ins bld
     let rs1 = getFloat32FromReg rs1
     let rs2 = getFloat32FromReg rs2
@@ -860,8 +860,8 @@ let fmindots ins insLen bld =
     rd := getNanBoxed rtVal
   }
 
-let fmindotd ins insLen bld =
-  lift bld ins insLen {
+let fmindotd ins bld =
+  lift bld ins {
     let rd, rs1, rs2 = getThreeOprs ins |> transThreeOprs ins bld
     let rtVal = tmpVar bld 64<rt>
     let cond = AST.flt rs1 rs2
@@ -869,8 +869,8 @@ let fmindotd ins insLen bld =
     rd := rtVal
   }
 
-let fmaxdots ins insLen bld =
-  lift bld ins insLen {
+let fmaxdots ins bld =
+  lift bld ins {
     let rd, rs1, rs2 = getThreeOprs ins |> transThreeOprs ins bld
     let rs1 = getFloat32FromReg rs1
     let rs2 = getFloat32FromReg rs2
@@ -880,8 +880,8 @@ let fmaxdots ins insLen bld =
     rd := getNanBoxed rtVal
   }
 
-let fmaxdotd ins insLen bld =
-  lift bld ins insLen {
+let fmaxdotd ins bld =
+  lift bld ins {
     let rd, rs1, rs2 = getThreeOprs ins |> transThreeOprs ins bld
     let rtVal = tmpVar bld 64<rt>
     let cond = AST.flt rs1 rs2
@@ -889,8 +889,8 @@ let fmaxdotd ins insLen bld =
     rd := rtVal
   }
 
-let fmadddots ins insLen bld =
-  lift bld ins insLen {
+let fmadddots ins bld =
+  lift bld ins {
     let rd, rs1, rs2, rs3, _ = getFiveOprs ins
     let rd, rs1, rs2, rs3 = (rd, rs1, rs2, rs3) |> transFourOprs ins bld
     let rs1 = getFloat32FromReg rs1
@@ -900,16 +900,16 @@ let fmadddots ins insLen bld =
     rd := getNanBoxed rtVal
   }
 
-let fmadddotd ins insLen bld =
-  lift bld ins insLen {
+let fmadddotd ins bld =
+  lift bld ins {
     let rd, rs1, rs2, rs3, _ = getFiveOprs ins
     let rd, rs1, rs2, rs3 = (rd, rs1, rs2, rs3) |> transFourOprs ins bld
     let rtVal = AST.fadd (AST.fmul rs1 rs2) rs3
     rd := rtVal
   }
 
-let fmsubdots ins insLen bld =
-  lift bld ins insLen {
+let fmsubdots ins bld =
+  lift bld ins {
     let rd, rs1, rs2, rs3, _ = getFiveOprs ins
     let rd, rs1, rs2, rs3 = (rd, rs1, rs2, rs3) |> transFourOprs ins bld
     let rs1 = getFloat32FromReg rs1
@@ -919,16 +919,16 @@ let fmsubdots ins insLen bld =
     rd := getNanBoxed rtVal
   }
 
-let fmsubdotd ins insLen bld =
-  lift bld ins insLen {
+let fmsubdotd ins bld =
+  lift bld ins {
     let rd, rs1, rs2, rs3, _ = getFiveOprs ins
     let rd, rs1, rs2, rs3 = (rd, rs1, rs2, rs3) |> transFourOprs ins bld
     let rtVal = AST.fsub (AST.fmul rs1 rs2) rs3
     rd := rtVal
   }
 
-let fnmsubdots ins insLen bld =
-  lift bld ins insLen {
+let fnmsubdots ins bld =
+  lift bld ins {
     let rd, rs1, rs2, rs3, _ = getFiveOprs ins
     let rd, rs1, rs2, rs3 = (rd, rs1, rs2, rs3) |> transFourOprs ins bld
     let rs1 = getFloat32FromReg rs1
@@ -938,15 +938,15 @@ let fnmsubdots ins insLen bld =
     rd := getNanBoxed rtVal
   }
 
-let fnmsubdotd ins insLen bld =
-  lift bld ins insLen {
+let fnmsubdotd ins bld =
+  lift bld ins {
     let rd, rs1, rs2, rs3, _ = getFiveOprs ins
     let rd, rs1, rs2, rs3 = (rd, rs1, rs2, rs3) |> transFourOprs ins bld
     rd := AST.fadd (fpNeg 64<rt> <| AST.fmul rs1 rs2) rs3
   }
 
-let fnmadddots ins insLen bld =
-  lift bld ins insLen {
+let fnmadddots ins bld =
+  lift bld ins {
     let rd, rs1, rs2, rs3, _ = getFiveOprs ins
     let rd, rs1, rs2, rs3 = (rd, rs1, rs2, rs3) |> transFourOprs ins bld
     let lblValid = label bld "Valid"
@@ -969,8 +969,8 @@ let fnmadddots ins insLen bld =
     AST.lmark lblEnd
   }
 
-let fnmadddotd ins insLen bld =
-  lift bld ins insLen {
+let fnmadddotd ins bld =
+  lift bld ins {
     let rd, rs1, rs2, rs3, _ = getFiveOprs ins
     let rd, rs1, rs2, rs3 = (rd, rs1, rs2, rs3) |> transFourOprs ins bld
     let lblValid = label bld "Valid"
@@ -989,8 +989,8 @@ let fnmadddotd ins insLen bld =
     AST.lmark lblEnd
   }
 
-let fsgnjdots ins insLen bld =
-  lift bld ins insLen {
+let fsgnjdots ins bld =
+  lift bld ins {
     let rd, rs1, rs2 = getThreeOprs ins |> transThreeOprs ins bld
     let rs1 = getFloat32FromReg rs1
     let rs2 = getFloat32FromReg rs2
@@ -1001,8 +1001,8 @@ let fsgnjdots ins insLen bld =
     rd := getNanBoxed rtVal
   }
 
-let fsgnjdotd ins insLen bld =
-  lift bld ins insLen {
+let fsgnjdotd ins bld =
+  lift bld ins {
     let rd, rs1, rs2 = getThreeOprs ins |> transThreeOprs ins bld
     let rtVal = tmpVar bld 64<rt>
     let mask = numU64 0x7FFFFFFFFFFFFFFFuL 64<rt>
@@ -1011,8 +1011,8 @@ let fsgnjdotd ins insLen bld =
     rd := rtVal
   }
 
-let fsgnjndots ins insLen bld =
-  lift bld ins insLen {
+let fsgnjndots ins bld =
+  lift bld ins {
     let rd, rs1, rs2 = getThreeOprs ins |> transThreeOprs ins bld
     let rs1 = getFloat32FromReg rs1
     let rs2 = getFloat32FromReg rs2
@@ -1023,8 +1023,8 @@ let fsgnjndots ins insLen bld =
     rd := getNanBoxed rtVal
   }
 
-let fsgnjndotd ins insLen bld =
-  lift bld ins insLen {
+let fsgnjndotd ins bld =
+  lift bld ins {
     let rd, rs1, rs2 = getThreeOprs ins |> transThreeOprs ins bld
     let rtVal = tmpVar bld 64<rt>
     let mask = numU64 0x7FFFFFFFFFFFFFFFuL 64<rt>
@@ -1033,8 +1033,8 @@ let fsgnjndotd ins insLen bld =
     rd := rtVal
   }
 
-let fsgnjxdots ins insLen bld =
-  lift bld ins insLen {
+let fsgnjxdots ins bld =
+  lift bld ins {
     let rd, rs1, rs2 = getThreeOprs ins |> transThreeOprs ins bld
     let rs1 = getFloat32FromReg rs1
     let rs2 = getFloat32FromReg rs2
@@ -1045,8 +1045,8 @@ let fsgnjxdots ins insLen bld =
     rd := getNanBoxed rtVal
   }
 
-let fsgnjxdotd ins insLen bld =
-  lift bld ins insLen {
+let fsgnjxdotd ins bld =
+  lift bld ins {
     let rd, rs1, rs2 = getThreeOprs ins |> transThreeOprs ins bld
     let rtVal = tmpVar bld 64<rt>
     let mask = numU64 0x7FFFFFFFFFFFFFFFuL 64<rt>
@@ -1056,8 +1056,8 @@ let fsgnjxdotd ins insLen bld =
   }
 
 (* FIX ME: AQRL *)
-let amod ins insLen bld op =
-  lift bld ins insLen {
+let amod ins bld op =
+  lift bld ins {
     let rd, rs2, mem, _ = getFourOprs ins |> transFourOprs ins bld
     let cond = isAligned 64<rt> (getAddrFromMem mem)
     let lblL0 = label bld "L0"
@@ -1077,8 +1077,8 @@ let amod ins insLen bld op =
     AST.lmark lblEnd
   }
 
-let amow ins insLen bld op =
-  lift bld ins insLen {
+let amow ins bld op =
+  lift bld ins {
     let rd, rs2, mem, _ = getFourOprs ins |> transFourOprs ins bld
     let rs2 = AST.xtlo 32<rt> rs2
     let cond = isAligned 32<rt> (getAddrFromMem mem)
@@ -1099,33 +1099,33 @@ let amow ins insLen bld op =
     AST.lmark lblEnd
   }
 
-let fmvdotxdotw ins insLen bld =
-  lift bld ins insLen {
+let fmvdotxdotw ins bld =
+  lift bld ins {
     let rd, rs1 = getTwoOprs ins |> transTwoOprs ins bld
     let rs1 = getFloat32FromReg rs1
     rd := AST.sext 64<rt> rs1
   }
 
-let fmvdotwdotx ins insLen bld =
-  lift bld ins insLen {
+let fmvdotwdotx ins bld =
+  lift bld ins {
     let rd, rs1 = getTwoOprs ins |> transTwoOprs ins bld
     rd := getNanBoxed (AST.xtlo 32<rt> rs1)
   }
 
-let fmvdotxdotd ins insLen bld =
-  lift bld ins insLen {
+let fmvdotxdotd ins bld =
+  lift bld ins {
     let rd, rs1 = getTwoOprs ins |> transTwoOprs ins bld
     rd := rs1
   }
 
-let fmvdotddotx ins insLen bld =
-  lift bld ins insLen {
+let fmvdotddotx ins bld =
+  lift bld ins {
     let rd, rs1 = getTwoOprs ins |> transTwoOprs ins bld
     rd := rs1
   }
 
-let csrrw ins insLen bld =
-  lift bld ins insLen {
+let csrrw ins bld =
+  lift bld ins {
     let rd, csr, src = getThreeOprs ins
     let csr, src = transTwoOprs ins bld (csr, src) |> maskForFCSR csr
     AST.sideEffect AtomicBegin
@@ -1141,8 +1141,8 @@ let csrrw ins insLen bld =
     AST.sideEffect AtomicEnd
   }
 
-let csrrs ins insLen bld =
-  lift bld ins insLen {
+let csrrs ins bld =
+  lift bld ins {
     let rd, csr, src = getThreeOprs ins
     AST.sideEffect AtomicBegin
     match rd, csr, src with
@@ -1168,8 +1168,8 @@ let csrrs ins insLen bld =
     AST.sideEffect AtomicEnd
   }
 
-let csrrc ins insLen bld =
-  lift bld ins insLen {
+let csrrc ins bld =
+  lift bld ins {
     let rd, csr, src = getThreeOprs ins
     let rd = transOprToExpr ins bld rd
     AST.sideEffect AtomicBegin
@@ -1214,7 +1214,7 @@ let private clampRounded bld rtVal conds bounds =
     rtVal := AST.ite (condInf .& sign) loFl rtVal
   }
 
-let fcvtdotldotd ins insLen bld =
+let fcvtdotldotd ins bld =
   let rd, rs1, rm = getThreeOprs ins
   let rd, rs1 = (rd, rs1) |> transTwoOprs ins bld
   let llMaxInFloat = numU64 0x43e0000000000000uL 64<rt>
@@ -1230,14 +1230,14 @@ let fcvtdotldotd ins insLen bld =
     let rounding = roundingToCastFloat rm
     let roundingInt = roundingToCastInt rm
     let rtVal = tmpVar bld 64<rt>
-    lift bld ins insLen {
+    lift bld ins {
       (* rounded value *)
       rtVal := AST.cast rounding 64<rt> rs1
       rd := AST.cast roundingInt 64<rt> rtVal
       clampConversion bld rd rtVal conds bounds
     }
   else
-    lift bld ins insLen {
+    lift bld ins {
       (* rounded value *)
       let rtVal = dynamicRoundingFl bld 64<rt> rs1
       let rdVal = dynamicRoundingInt bld 64<rt> rtVal
@@ -1245,7 +1245,7 @@ let fcvtdotldotd ins insLen bld =
       clampConversion bld rd rtVal conds bounds
     }
 
-let fcvtdotludotd ins insLen bld =
+let fcvtdotludotd ins bld =
   let rd, rs1, rm = getThreeOprs ins
   let rd, rs1 = (rd, rs1) |> transTwoOprs ins bld
   let ullMaxInFloat = numU64 0x43f0000000000000uL 64<rt>
@@ -1261,14 +1261,14 @@ let fcvtdotludotd ins insLen bld =
     let rounding = roundingToCastFloat rm
     let roundingInt = roundingToCastInt rm
     let rtVal = tmpVar bld 64<rt>
-    lift bld ins insLen {
+    lift bld ins {
       (* rounded value *)
       rtVal := AST.cast rounding 64<rt> rs1
       rd := AST.cast roundingInt 64<rt> rtVal
       clampConversion bld rd rtVal conds bounds
     }
   else
-    lift bld ins insLen {
+    lift bld ins {
       (* rounded value *)
       let rtVal = dynamicRoundingFl bld 64<rt> rs1
       let rdVal = dynamicRoundingInt bld 64<rt> rtVal
@@ -1276,7 +1276,7 @@ let fcvtdotludotd ins insLen bld =
       clampConversion bld rd rtVal conds bounds
     }
 
-let fcvtdotwdotd ins insLen bld =
+let fcvtdotwdotd ins bld =
   let rd, rs1, rm = getThreeOprs ins
   let rd, rs1 = (rd, rs1) |> transTwoOprs ins bld
   let intMaxInFloat = numU64 0x41dfffffffc00000uL 64<rt>
@@ -1292,14 +1292,14 @@ let fcvtdotwdotd ins insLen bld =
     let rounding = roundingToCastFloat rm
     let roundingInt = roundingToCastInt rm
     let rtVal = tmpVar bld 64<rt>
-    lift bld ins insLen {
+    lift bld ins {
       (* rounded value *)
       rtVal := AST.cast rounding 64<rt> rs1
       rd := AST.sext 64<rt> (AST.cast roundingInt 32<rt> rtVal)
       clampConversion bld rd rtVal conds bounds
     }
   else
-    lift bld ins insLen {
+    lift bld ins {
       (* rounded value *)
       let rtVal = dynamicRoundingFl bld 64<rt> rs1
       let rdVal = dynamicRoundingInt bld 32<rt> rtVal
@@ -1307,7 +1307,7 @@ let fcvtdotwdotd ins insLen bld =
       clampConversion bld rd rtVal conds bounds
     }
 
-let fcvtdotwudotd ins insLen bld =
+let fcvtdotwudotd ins bld =
   let rd, rs1, rm = getThreeOprs ins
   let rd, rs1 = (rd, rs1) |> transTwoOprs ins bld
   let uintMaxInFloat = numU64 0x41efffffffe00000uL 64<rt>
@@ -1323,14 +1323,14 @@ let fcvtdotwudotd ins insLen bld =
     let rounding = roundingToCastFloat rm
     let roundingInt = roundingToCastInt rm
     let rtVal = tmpVar bld 64<rt>
-    lift bld ins insLen {
+    lift bld ins {
       (* rounded value *)
       rtVal := AST.cast rounding 64<rt> rs1
       rd := AST.sext 64<rt> (AST.cast roundingInt 32<rt> rtVal)
       clampConversion bld rd rtVal conds bounds
     }
   else
-    lift bld ins insLen {
+    lift bld ins {
       (* rounded value *)
       let rtVal = dynamicRoundingFl bld 64<rt> rs1
       let rdVal = dynamicRoundingInt bld 32<rt> rtVal
@@ -1338,7 +1338,7 @@ let fcvtdotwudotd ins insLen bld =
       clampConversion bld rd rtVal conds bounds
     }
 
-let fcvtdotwdots ins insLen bld =
+let fcvtdotwdots ins bld =
   let rd, rs1, rm = getThreeOprs ins
   let rd, rs1 = (rd, rs1) |> transTwoOprs ins bld
   let rs1 = getFloat32FromReg rs1
@@ -1355,14 +1355,14 @@ let fcvtdotwdots ins insLen bld =
     let rounding = roundingToCastFloat rm
     let roundingInt = roundingToCastInt rm
     let rtVal = tmpVar bld 32<rt>
-    lift bld ins insLen {
+    lift bld ins {
       (* rounded value *)
       rtVal := AST.cast rounding 32<rt> rs1
       rd := AST.sext 64<rt> (AST.cast roundingInt 32<rt> rtVal)
       clampConversion bld rd rtVal conds bounds
     }
   else
-    lift bld ins insLen {
+    lift bld ins {
       (* rounded value *)
       let rtVal = dynamicRoundingFl bld 32<rt> rs1
       let rdVal = dynamicRoundingInt bld 32<rt> rtVal
@@ -1370,7 +1370,7 @@ let fcvtdotwdots ins insLen bld =
       clampConversion bld rd rtVal conds bounds
     }
 
-let fcvtdotwudots ins insLen bld =
+let fcvtdotwudots ins bld =
   let rd, rs1, rm = getThreeOprs ins
   let rd, rs1 = (rd, rs1) |> transTwoOprs ins bld
   let rs1 = getFloat32FromReg rs1
@@ -1387,14 +1387,14 @@ let fcvtdotwudots ins insLen bld =
     let rounding = roundingToCastFloat rm
     let roundingInt = roundingToCastInt rm
     let rtVal = tmpVar bld 32<rt>
-    lift bld ins insLen {
+    lift bld ins {
       (* rounded value *)
       rtVal := AST.cast rounding 32<rt> rs1
       rd := AST.sext 64<rt> (AST.cast roundingInt 32<rt> rtVal)
       clampConversion bld rd rtVal conds bounds
     }
   else
-    lift bld ins insLen {
+    lift bld ins {
       (* rounded value *)
       let rtVal = dynamicRoundingFl bld 32<rt> rs1
       let rdVal = dynamicRoundingInt bld 32<rt> rtVal
@@ -1402,7 +1402,7 @@ let fcvtdotwudots ins insLen bld =
       clampConversion bld rd rtVal conds bounds
     }
 
-let fcvtdotldots ins insLen bld =
+let fcvtdotldots ins bld =
   let rd, rs1, rm = getThreeOprs ins
   let rd, rs1 = (rd, rs1) |> transTwoOprs ins bld
   let rs1 = getFloat32FromReg rs1
@@ -1418,7 +1418,7 @@ let fcvtdotldots ins insLen bld =
     let roundingInt = roundingToCastInt rm
     let t0 = tmpVar bld 32<rt>
     let rtVal = tmpVar bld 64<rt>
-    lift bld ins insLen {
+    lift bld ins {
       (* rounded value *)
       t0 := AST.cast rounding 32<rt> rs1
       rtVal := AST.cast CastKind.FloatCast 64<rt> t0
@@ -1426,7 +1426,7 @@ let fcvtdotldots ins insLen bld =
       rd := AST.cast roundingInt 64<rt> rtVal
     }
   else
-    lift bld ins insLen {
+    lift bld ins {
       (* rounded value *)
       let t0 = dynamicRoundingFl bld 32<rt> rs1
       let rtVal = tmpVar bld 64<rt>
@@ -1437,7 +1437,7 @@ let fcvtdotldots ins insLen bld =
       rd := rdVal
     }
 
-let fcvtdotludots ins insLen bld =
+let fcvtdotludots ins bld =
   let rd, rs1, rm = getThreeOprs ins
   let rd, rs1 = (rd, rs1) |> transTwoOprs ins bld
   let rs1 = getFloat32FromReg rs1
@@ -1455,7 +1455,7 @@ let fcvtdotludots ins insLen bld =
     let roundingInt = roundingToCastInt rm
     let t0 = tmpVar bld 32<rt>
     let rtVal = tmpVar bld 64<rt>
-    lift bld ins insLen {
+    lift bld ins {
       (* rounded value *)
       t0 := AST.cast rounding 32<rt> rs1
       rtVal := AST.cast CastKind.FloatCast 64<rt> t0
@@ -1463,7 +1463,7 @@ let fcvtdotludots ins insLen bld =
       clampConversion bld rd rtVal conds bounds
     }
   else
-    lift bld ins insLen {
+    lift bld ins {
       (* rounded value *)
       let t0 = dynamicRoundingFl bld 32<rt> rs1
       let rtVal = tmpVar bld 64<rt>
@@ -1473,8 +1473,8 @@ let fcvtdotludots ins insLen bld =
       clampConversion bld rd rtVal conds bounds
     }
 
-let fcvtdotsdotw ins insLen bld =
-  lift bld ins insLen {
+let fcvtdotsdotw ins bld =
+  lift bld ins {
     let rd, rs1, rm = getThreeOprs ins
     let rd, rs1 = (rd, rs1) |> transTwoOprs ins bld
     let rs1 = AST.xtlo 32<rt> rs1
@@ -1483,8 +1483,8 @@ let fcvtdotsdotw ins insLen bld =
     writeRoundedSingle rd rtVal rm bld
   }
 
-let fcvtdotsdotwu ins insLen bld =
-  lift bld ins insLen {
+let fcvtdotsdotwu ins bld =
+  lift bld ins {
     let rd, rs1, rm = getThreeOprs ins
     let rd, rs1 = (rd, rs1) |> transTwoOprs ins bld
     let rs1 = AST.xtlo 32<rt> rs1
@@ -1493,8 +1493,8 @@ let fcvtdotsdotwu ins insLen bld =
     writeRoundedSingle rd rtVal rm bld
   }
 
-let fcvtdotsdotl ins insLen bld =
-  lift bld ins insLen {
+let fcvtdotsdotl ins bld =
+  lift bld ins {
     let rd, rs1, rm = getThreeOprs ins
     let rd, rs1 = (rd, rs1) |> transTwoOprs ins bld
     let rtVal = tmpVar bld 32<rt>
@@ -1502,8 +1502,8 @@ let fcvtdotsdotl ins insLen bld =
     writeRoundedSingle rd rtVal rm bld
   }
 
-let fcvtdotsdotlu ins insLen bld =
-  lift bld ins insLen {
+let fcvtdotsdotlu ins bld =
+  lift bld ins {
     let rd, rs1, rm = getThreeOprs ins
     let rd, rs1 = (rd, rs1) |> transTwoOprs ins bld
     let rtVal = tmpVar bld 32<rt>
@@ -1511,36 +1511,36 @@ let fcvtdotsdotlu ins insLen bld =
     writeRoundedSingle rd rtVal rm bld
   }
 
-let fcvtdotddotw ins insLen bld =
-  lift bld ins insLen {
+let fcvtdotddotw ins bld =
+  lift bld ins {
     let rd, rs1 = getTwoOprs ins |> transTwoOprs ins bld
     rd := AST.cast CastKind.SIntToFloat 64<rt> (AST.xtlo 32<rt> rs1)
   }
 
-let fcvtdotddotwu ins insLen bld =
-  lift bld ins insLen {
+let fcvtdotddotwu ins bld =
+  lift bld ins {
     let rd, rs1 = getTwoOprs ins |> transTwoOprs ins bld
     rd := AST.cast CastKind.UIntToFloat 64<rt> (AST.xtlo 32<rt> rs1)
   }
 
-let fcvtdotddotl ins insLen bld =
-  lift bld ins insLen {
+let fcvtdotddotl ins bld =
+  lift bld ins {
     let rd, rs1, rm = getThreeOprs ins
     let rd, rs1 = (rd, rs1) |> transTwoOprs ins bld
     let rtVal = AST.cast CastKind.SIntToFloat 64<rt> rs1
     writeRoundedDouble rd rtVal rm bld
   }
 
-let fcvtdotddotlu ins insLen bld =
-  lift bld ins insLen {
+let fcvtdotddotlu ins bld =
+  lift bld ins {
     let rd, rs1, rm = getThreeOprs ins
     let rd, rs1 = (rd, rs1) |> transTwoOprs ins bld
     let rtVal = AST.cast CastKind.UIntToFloat 64<rt> rs1
     writeRoundedDouble rd rtVal rm bld
   }
 
-let fcvtdotsdotd ins insLen bld =
-  lift bld ins insLen {
+let fcvtdotsdotd ins bld =
+  lift bld ins {
     let rd, rs1, rm = getThreeOprs ins
     let rd, rs1 = (rd, rs1) |> transTwoOprs ins bld
     let rtVal = tmpVar bld 64<rt>
@@ -1556,8 +1556,8 @@ let fcvtdotsdotd ins insLen bld =
       rd := dynamicRoundingFl bld 64<rt> rtVal
   }
 
-let fcvtdotddots ins insLen bld =
-  lift bld ins insLen {
+let fcvtdotddots ins bld =
+  lift bld ins {
     let rd, rs1, _ = getThreeOprs ins
     let rd, rs1 = (rd, rs1) |> transTwoOprs ins bld
     let rs1 = getFloat32FromReg rs1
@@ -1567,8 +1567,8 @@ let fcvtdotddots ins insLen bld =
 /// Load-reserved (LR.W/LR.D): records an exclusive reservation -- the reserved
 /// address and the value read there -- so a later store-conditional can tell,
 /// by value comparison, whether the location was written in between.
-let lr ins insLen bld =
-  lift bld ins insLen {
+let lr ins bld =
+  lift bld ins {
     let rd, mem, _ = getThreeOprs ins |> transThreeOprs ins bld
     let addr = getAddrFromMem mem
     let sz =
@@ -1589,8 +1589,8 @@ let lr ins insLen bld =
 /// the reserved value; otherwise memory is left unchanged and it reports
 /// failure (rd = 1). The conditional store is a store of ite(matched, data,
 /// old), so no branch is emitted.
-let sc ins insLen bld oprSz =
-  lift bld ins insLen {
+let sc ins bld oprSz =
+  lift bld ins {
     let rd, rs2, mem, _ = getFourOprs ins |> transFourOprs ins bld
     let addr = getAddrFromMem mem
     let cur = tmpVar bld oprSz

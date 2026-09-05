@@ -174,7 +174,7 @@ let lenOfMem = function
 let relTarget (addr: Addr) (imm: int64) = addr + uint64 (2L * imm)
 
 /// The address of the instruction that follows the one being lifted.
-let nextAddr (addr: Addr) insLen = addr + uint64 (insLen: uint32)
+let nextAddr (ins: Instruction) = ins.Address + uint64 ins.Length
 
 /// An instruction's operands as an array, so that a lifter can reach them by
 /// position. The vector instructions need this: their formats put the same

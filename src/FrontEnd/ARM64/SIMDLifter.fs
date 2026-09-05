@@ -179,8 +179,8 @@ let private usatQShl bld expr amt eSize =
   let isZero = (expr == AST.num0 eSize) .| (amt == AST.num0 eSize)
   AST.ite isZero expr r
 
-let abs (ins: Instruction) insLen bld =
-  lift bld ins insLen {
+let abs (ins: Instruction) bld =
+  lift bld ins {
     match ins.Operands with
     | TwoOperands(OprSIMD(VecReg _) as o1, o2) ->
       let struct (dstB, dstA) = transOprToExpr128 ins bld o1
@@ -204,8 +204,8 @@ let abs (ins: Instruction) insLen bld =
       sized ins.OprSize dst := result
   }
 
-let add (ins: Instruction) insLen bld =
-  lift bld ins insLen {
+let add (ins: Instruction) bld =
+  lift bld ins {
     match ins.Operands with
     | ThreeOperands(OprSIMD(VecReg _) as o1, o2, o3) ->
       let struct (eSize, dataSize, elements) = getElemDataSzAndElems o1
@@ -226,8 +226,8 @@ let add (ins: Instruction) insLen bld =
       raise InvalidOperandException
   }
 
-let addp (ins: Instruction) insLen bld =
-  lift bld ins insLen {
+let addp (ins: Instruction) bld =
+  lift bld ins {
     match ins.Operands with
     | TwoOperands(dst, src) -> (* Scalar *)
       let struct (eSize, dataSize, elements) = getElemDataSzAndElems src
@@ -248,8 +248,8 @@ let addp (ins: Instruction) insLen bld =
       raise InvalidOperandException
   }
 
-let addv (ins: Instruction) insLen bld =
-  lift bld ins insLen {
+let addv (ins: Instruction) bld =
+  lift bld ins {
     let struct (dst, src) = getTwoOprs ins
     let struct (eSize, dataSize, elements) = getElemDataSzAndElems src
     let src = transSIMDOprToExpr bld eSize dataSize elements src
@@ -257,8 +257,8 @@ let addv (ins: Instruction) insLen bld =
     dstAssignScalar ins bld dst result eSize
   }
 
-let logAnd (ins: Instruction) insLen bld = (* AND *)
-  lift bld ins insLen {
+let logAnd (ins: Instruction) bld = (* AND *)
+  lift bld ins {
     match ins.Operands with
     | ThreeOperands(OprSIMD(VecReg _) as dst, src1, src2) ->
       let struct (dstB, dstA) = transOprToExpr128 ins bld dst
@@ -274,8 +274,8 @@ let logAnd (ins: Instruction) insLen bld = (* AND *)
       sized ins.OprSize dst := src1 .& src2
   }
 
-let bic (ins: Instruction) insLen bld =
-  lift bld ins insLen {
+let bic (ins: Instruction) bld =
+  lift bld ins {
     match ins.Operands with
     | ThreeOperands(OprSIMD(VecReg _), OprSIMD(VecReg _), _) ->
       let struct (dst, src1, src2) = getThreeOprs ins
@@ -305,8 +305,8 @@ let bic (ins: Instruction) insLen bld =
       sized ins.OprSize dst := src1 .& AST.not src2
   }
 
-let private bitInsert (ins: Instruction) insLen bld isTrue =
-  lift bld ins insLen {
+let private bitInsert (ins: Instruction) bld isTrue =
+  lift bld ins {
     let struct (dst, src1, src2) = getThreeOprs ins
     let struct (dstB, dstA) = transOprToExpr128 ins bld dst
     let struct (src1B, src1A) = transOprToExpr128 ins bld src1
@@ -326,12 +326,12 @@ let private bitInsert (ins: Instruction) insLen bld isTrue =
       direct dstB := AST.num0 64<rt>
   }
 
-let bif ins insLen bld = bitInsert ins insLen bld false
+let bif ins bld = bitInsert ins bld false
 
-let bit ins insLen bld = bitInsert ins insLen bld true
+let bit ins bld = bitInsert ins bld true
 
-let bsl (ins: Instruction) insLen bld =
-  lift bld ins insLen {
+let bsl (ins: Instruction) bld =
+  lift bld ins {
     let struct (dst, src1, src2) = getThreeOprs ins
     let struct (dstB, dstA) = transOprToExpr128 ins bld dst
     let struct (src1B, src1A) = transOprToExpr128 ins bld src1
@@ -351,8 +351,8 @@ let bsl (ins: Instruction) insLen bld =
       direct dstB := AST.num0 64<rt>
   }
 
-let cls (ins: Instruction) insLen bld =
-  lift bld ins insLen {
+let cls (ins: Instruction) bld =
+  lift bld ins {
     match ins.Operands with
     | TwoOperands(OprSIMD(VecReg _) as o1, o2) ->
       let struct (dstB, dstA) = transOprToExpr128 ins bld o1
@@ -366,8 +366,8 @@ let cls (ins: Instruction) insLen bld =
       sized ins.OprSize dst := result
   }
 
-let clz (ins: Instruction) insLen bld =
-  lift bld ins insLen {
+let clz (ins: Instruction) bld =
+  lift bld ins {
     match ins.Operands with
     | TwoOperands(OprSIMD(VecReg _) as o1, o2) ->
       let struct (dstB, dstA) = transOprToExpr128 ins bld o1
@@ -381,8 +381,8 @@ let clz (ins: Instruction) insLen bld =
       sized ins.OprSize dst := result
   }
 
-let private compare (ins: Instruction) insLen bld cond =
-  lift bld ins insLen {
+let private compare (ins: Instruction) bld cond =
+  lift bld ins {
     match ins.Operands with
     (* zero *)
     | ThreeOperands(OprSIMD(VecReg _) as o1, o2, OprImm _) ->
@@ -425,14 +425,14 @@ let private compare (ins: Instruction) insLen bld cond =
       raise InvalidOperandException
   }
 
-let cmeq ins insLen bld = compare ins insLen bld (==)
+let cmeq ins bld = compare ins bld (==)
 
-let cmgt ins insLen bld = compare ins insLen bld (?>)
+let cmgt ins bld = compare ins bld (?>)
 
-let cmge ins insLen bld = compare ins insLen bld (?>=)
+let cmge ins bld = compare ins bld (?>=)
 
-let private cmpHigher (ins: Instruction) insLen bld cond =
-  lift bld ins insLen {
+let private cmpHigher (ins: Instruction) bld cond =
+  lift bld ins {
     let struct (dst, src1, src2) = getThreeOprs ins
     let struct (eSize, dataSize, elements) = getElemDataSzAndElems dst
     let struct (ones, zeros) = tmpVars2 bld eSize
@@ -452,12 +452,12 @@ let private cmpHigher (ins: Instruction) insLen bld cond =
       dstAssignForSIMD dstA dstB result dataSize elements bld
   }
 
-let cmhi ins insLen bld = cmpHigher ins insLen bld (.>)
+let cmhi ins bld = cmpHigher ins bld (.>)
 
-let cmhs ins insLen bld = cmpHigher ins insLen bld (.>=)
+let cmhs ins bld = cmpHigher ins bld (.>=)
 
-let cmlt (ins: Instruction) insLen bld =
-  lift bld ins insLen {
+let cmlt (ins: Instruction) bld =
+  lift bld ins {
     let struct (dst, src1, _) = getThreeOprs ins
     let struct (eSize, dataSize, elements) = getElemDataSzAndElems dst
     let struct (ones, zeros) = tmpVars2 bld eSize
@@ -475,8 +475,8 @@ let cmlt (ins: Instruction) insLen bld =
       dstAssignForSIMD dstA dstB result dataSize elements bld
   }
 
-let cmtst (ins: Instruction) insLen bld =
-  lift bld ins insLen {
+let cmtst (ins: Instruction) bld =
+  lift bld ins {
     let struct (dst, src1, src2) = getThreeOprs ins
     let struct (eSize, dataSize, elements) = getElemDataSzAndElems dst
     let struct (ones, zeros) = tmpVars2 bld eSize
@@ -496,8 +496,8 @@ let cmtst (ins: Instruction) insLen bld =
       dstAssignForSIMD dstA dstB result dataSize elements bld
   }
 
-let cnt (ins: Instruction) insLen bld =
-  lift bld ins insLen {
+let cnt (ins: Instruction) bld =
+  lift bld ins {
     let struct (dst, src) = getTwoOprs ins
     let struct (eSize, dataSize, elements) = getElemDataSzAndElems dst
     let struct (dstB, dstA) = transOprToExpr128 ins bld dst
@@ -506,8 +506,8 @@ let cnt (ins: Instruction) insLen bld =
     dstAssignForSIMD dstA dstB result dataSize elements bld
   }
 
-let dup ins insLen bld =
-  lift bld ins insLen {
+let dup ins bld =
+  lift bld ins {
     let struct (dst, src) = getTwoOprs ins
     let struct (eSize, dataSize, elements) = getElemDataSzAndElems dst
     let struct (dstB, dstA) = transOprToExpr128 ins bld dst
@@ -519,8 +519,8 @@ let dup ins insLen bld =
     dstAssignForSIMD dstA dstB result dataSize elements bld
   }
 
-let eor (ins: Instruction) insLen bld =
-  lift bld ins insLen {
+let eor (ins: Instruction) bld =
+  lift bld ins {
     match ins.Operands with
     | ThreeOperands(OprSIMD(VecReg _) as o1, o2, o3) ->
       let struct (dstB, dstA) = transOprToExpr128 ins bld o1
@@ -539,8 +539,8 @@ let eor (ins: Instruction) insLen bld =
       sized ins.OprSize dst := src1 <+> src2
   }
 
-let ext (ins: Instruction) insLen bld =
-  lift bld ins insLen {
+let ext (ins: Instruction) bld =
+  lift bld ins {
     let struct (dst, src1, src2, idx) = getFourOprs ins
     let pos = getImmValue idx |> int
     let struct (eSize, dataSize, elements) = getElemDataSzAndElems dst
@@ -554,8 +554,8 @@ let ext (ins: Instruction) insLen bld =
     dstAssignForSIMD dstA dstB result dataSize elements bld
   }
 
-let extr ins insLen bld =
-  lift bld ins insLen {
+let extr ins bld =
+  lift bld ins {
     let dst, src1, src2, lsb = transOprToExprOfEXTR ins bld
     let oSz = ins.OprSize
     if oSz = 32<rt> then
@@ -578,8 +578,8 @@ let extr ins insLen bld =
       raise InvalidOperandSizeException
   }
 
-let fabd (ins: Instruction) insLen bld =
-  lift bld ins insLen {
+let fabd (ins: Instruction) bld =
+  lift bld ins {
     let struct (dst, src1, src2) = getThreeOprs ins
     let struct (eSize, dataSize, elements) = getElemDataSzAndElems dst
     let n1 = tmpVar bld eSize
@@ -599,8 +599,8 @@ let fabd (ins: Instruction) insLen bld =
       raise InvalidOperandException
   }
 
-let fabs (ins: Instruction) insLen bld =
-  lift bld ins insLen {
+let fabs (ins: Instruction) bld =
+  lift bld ins {
     let struct (dst, src) = getTwoOprs ins
     let struct (eSize, dataSize, elements) = getElemDataSzAndElems dst
     let n1 = tmpVar bld eSize
@@ -618,8 +618,8 @@ let fabs (ins: Instruction) insLen bld =
       raise InvalidOperandException
   }
 
-let fadd (ins: Instruction) insLen bld =
-  lift bld ins insLen {
+let fadd (ins: Instruction) bld =
+  lift bld ins {
     let struct (dst, src1, src2) = getThreeOprs ins
     let struct (eSize, dataSize, elements) = getElemDataSzAndElems dst
     match dst with
@@ -637,8 +637,8 @@ let fadd (ins: Instruction) insLen bld =
       raise InvalidOperandException
   }
 
-let faddp (ins: Instruction) insLen bld =
-  lift bld ins insLen {
+let faddp (ins: Instruction) bld =
+  lift bld ins {
     match ins.Operands with
     | TwoOperands(dst, src) -> (* Scalar *)
       let struct (eSize, dataSize, elements) = getElemDataSzAndElems src
@@ -662,8 +662,8 @@ let faddp (ins: Instruction) insLen bld =
       raise InvalidOperandException
   }
 
-let fcmgt (ins: Instruction) insLen bld =
-  lift bld ins insLen {
+let fcmgt (ins: Instruction) bld =
+  lift bld ins {
     let struct (dst, src1, src2) = getThreeOprs ins
     let struct (eSize, dataSize, elements) = getElemDataSzAndElems dst
     let struct (ones, zeros) = tmpVars2 bld eSize
@@ -697,8 +697,8 @@ let fcmgt (ins: Instruction) insLen bld =
       raise InvalidOperandException
   }
 
-let fcsel ins insLen bld =
-  lift bld ins insLen {
+let fcsel ins bld =
+  lift bld ins {
     let o1, s1, s2, cond = transOprToExprOfFCSEL ins bld
     let struct (eSize, _, _) = getElemDataSzAndElems o1
     let fs1 = AST.cast CastKind.FloatCast ins.OprSize s1
@@ -707,8 +707,8 @@ let fcsel ins insLen bld =
     dstAssignScalar ins bld o1 result eSize
   }
 
-let fcvt (ins: Instruction) insLen bld =
-  lift bld ins insLen {
+let fcvt (ins: Instruction) bld =
+  lift bld ins {
     match ins.Operands with
     | TwoOperands(OprSIMD(ScalarReg _) as o1, o2) ->
       let struct (eSize, _, _) = getElemDataSzAndElems o1
@@ -738,8 +738,8 @@ let private fpConvertVec ins bld o1 o2 fbits isUnsigned round =
       append bld { direct res := fcvt e }) result src
   dstAssignForSIMD dstA dstB result dataSize elements bld
 
-let private fpConvert (ins: Instruction) insLen bld isUnsigned round =
-  lift bld ins insLen {
+let private fpConvert (ins: Instruction) bld isUnsigned round =
+  lift bld ins {
     let isNeg e = AST.xthi 1<rt> e == AST.b1
     match ins.Operands with
     (* vector *)
@@ -781,32 +781,32 @@ let private fpConvert (ins: Instruction) insLen bld isUnsigned round =
       raise InvalidOperandException
   }
 
-let fcvtas ins insLen bld =
-  fpConvert ins insLen bld false FPRounding_TIEAWAY
+let fcvtas ins bld =
+  fpConvert ins bld false FPRounding_TIEAWAY
 
-let fcvtau ins insLen bld =
-  fpConvert ins insLen bld true FPRounding_TIEAWAY
+let fcvtau ins bld =
+  fpConvert ins bld true FPRounding_TIEAWAY
 
-let fcvtms ins insLen bld =
-  fpConvert ins insLen bld false FPRounding_NEGINF
+let fcvtms ins bld =
+  fpConvert ins bld false FPRounding_NEGINF
 
-let fcvtmu ins insLen bld =
-  fpConvert ins insLen bld true FPRounding_NEGINF
+let fcvtmu ins bld =
+  fpConvert ins bld true FPRounding_NEGINF
 
-let fcvtps ins insLen bld =
-  fpConvert ins insLen bld false FPRounding_POSINF
+let fcvtps ins bld =
+  fpConvert ins bld false FPRounding_POSINF
 
-let fcvtpu ins insLen bld =
-  fpConvert ins insLen bld true FPRounding_POSINF
+let fcvtpu ins bld =
+  fpConvert ins bld true FPRounding_POSINF
 
-let fcvtzs ins insLen bld =
-  fpConvert ins insLen bld false FPRounding_Zero
+let fcvtzs ins bld =
+  fpConvert ins bld false FPRounding_Zero
 
-let fcvtzu ins insLen bld =
-  fpConvert ins insLen bld true FPRounding_Zero
+let fcvtzu ins bld =
+  fpConvert ins bld true FPRounding_Zero
 
-let fdiv (ins: Instruction) insLen bld =
-  lift bld ins insLen {
+let fdiv (ins: Instruction) bld =
+  lift bld ins {
     let struct (dst, src1, src2) = getThreeOprs ins
     let struct (eSize, dataSize, elements) = getElemDataSzAndElems dst
     match dst with
@@ -824,8 +824,8 @@ let fdiv (ins: Instruction) insLen bld =
       raise InvalidOperandException
   }
 
-let fmadd (ins: Instruction) insLen bld =
-  lift bld ins insLen {
+let fmadd (ins: Instruction) bld =
+  lift bld ins {
     let struct (dst, _, _, _) = getFourOprs ins
     let struct (eSize, _, _) = getElemDataSzAndElems dst
     let _, src1, src2, src3 = transFourOprs ins bld
@@ -833,8 +833,8 @@ let fmadd (ins: Instruction) insLen bld =
     dstAssignScalar ins bld dst result eSize
   }
 
-let fmaxmin (ins: Instruction) insLen bld fop =
-  lift bld ins insLen {
+let fmaxmin (ins: Instruction) bld fop =
+  lift bld ins {
     match ins.Operands with
     | ThreeOperands(OprSIMD(ScalarReg _) as o1, o2, o3) ->
       let struct (eSize, _, _) = getElemDataSzAndElems o1
@@ -859,8 +859,8 @@ let fmaxmin (ins: Instruction) insLen bld fop =
       dstAssignForSIMD dstA dstB result dataSize elements bld
   }
 
-let fmls (ins: Instruction) insLen bld =
-  lift bld ins insLen {
+let fmls (ins: Instruction) bld =
+  lift bld ins {
     match ins.Operands with
     | ThreeOperands(OprSIMD(ScalarReg _) as o1, o2, o3) ->
       let struct (eSize, _, _) = getElemDataSzAndElems o1
@@ -897,8 +897,8 @@ let fmls (ins: Instruction) insLen bld =
       dstAssignForSIMD dstA dstB result dataSize elements bld
   }
 
-let fmov (ins: Instruction) insLen bld =
-  lift bld ins insLen {
+let fmov (ins: Instruction) bld =
+  lift bld ins {
     match ins.Operands with
     | TwoOperands(OprRegister _, OprSIMD(VecRegWithIdx _)) ->
       let struct (dst, src) = getTwoOprs ins
@@ -930,8 +930,8 @@ let fmov (ins: Instruction) insLen bld =
       sized ins.OprSize dst := src
   }
 
-let fmsub (ins: Instruction) insLen bld =
-  lift bld ins insLen {
+let fmsub (ins: Instruction) bld =
+  lift bld ins {
     let struct (dst, _, _, _) = getFourOprs ins
     let struct (eSize, _, _) = getElemDataSzAndElems dst
     let _, src1, src2, src3 = transFourOprs ins bld
@@ -939,8 +939,8 @@ let fmsub (ins: Instruction) insLen bld =
     dstAssignScalar ins bld dst result eSize
   }
 
-let fmul ins insLen bld =
-  lift bld ins insLen {
+let fmul ins bld =
+  lift bld ins {
     let struct (dst, src1, src2) = getThreeOprs ins
     match ins.Operands with
     | ThreeOperands(OprSIMD(ScalarReg _) as o1, o2, o3) ->
@@ -964,8 +964,8 @@ let fmul ins insLen bld =
       dstAssignForSIMD dstA dstB result dataSize elements bld
   }
 
-let fneg (ins: Instruction) insLen bld =
-  lift bld ins insLen {
+let fneg (ins: Instruction) bld =
+  lift bld ins {
     match ins.Operands with
     | TwoOperands(OprSIMD(ScalarReg _) as dst, src) ->
       let struct (eSize, _, _) = getElemDataSzAndElems src
@@ -985,8 +985,8 @@ let fneg (ins: Instruction) insLen bld =
       raise InvalidOperandException
   }
 
-let fnmsub (ins: Instruction) insLen bld =
-  lift bld ins insLen {
+let fnmsub (ins: Instruction) bld =
+  lift bld ins {
     let struct (dst, _, _, src) = getFourOprs ins
     let _, src1, src2, src3 = transFourOprs ins bld
     let struct (eSize, _, _) = getElemDataSzAndElems src
@@ -996,8 +996,8 @@ let fnmsub (ins: Instruction) insLen bld =
     dstAssignScalar ins bld dst result ins.OprSize
   }
 
-let fnmul (ins: Instruction) insLen bld =
-  lift bld ins insLen {
+let fnmul (ins: Instruction) bld =
+  lift bld ins {
     let struct (dst, _, src) = getThreeOprs ins
     let _, src1, src2 = transThreeOprs ins bld
     let struct (eSize, _, _) = getElemDataSzAndElems src
@@ -1018,8 +1018,8 @@ let getIntRoundMode src oprSz bld =
         (AST.cast CastKind.FtoIFloor oprSz src) (* 2, RP *)
         (AST.cast CastKind.FtoITrunc oprSz src))) (* 3, RM *)
 
-let private fpRoundToInt (ins: Instruction) insLen bld cast =
-  lift bld ins insLen {
+let private fpRoundToInt (ins: Instruction) bld cast =
+  lift bld ins {
     match ins.Operands with
     | TwoOperands(OprSIMD(ScalarReg _) as dst, src) ->
       let struct (eSize, _, _) = getElemDataSzAndElems dst
@@ -1036,8 +1036,8 @@ let private fpRoundToInt (ins: Instruction) insLen bld cast =
       raise InvalidOperandException
   }
 
-let private fpCurrentRoundToInt (ins: Instruction) insLen bld =
-  lift bld ins insLen {
+let private fpCurrentRoundToInt (ins: Instruction) bld =
+  lift bld ins {
     match ins.Operands with
     | TwoOperands(OprSIMD(ScalarReg _) as dst, src) ->
       let src = transOprToExpr ins bld src
@@ -1079,8 +1079,8 @@ let private tieawayCast bld eSize src =
   }
   res
 
-let frinta (ins: Instruction) insLen bld =
-  lift bld ins insLen {
+let frinta (ins: Instruction) bld =
+  lift bld ins {
     match ins.Operands with
     | TwoOperands(OprSIMD(ScalarReg _) as dst, src) ->
       let struct (eSize, _, _) = getElemDataSzAndElems dst
@@ -1097,24 +1097,24 @@ let frinta (ins: Instruction) insLen bld =
       raise InvalidOperandException
   }
 
-let frinti ins insLen bld = fpCurrentRoundToInt ins insLen bld
+let frinti ins bld = fpCurrentRoundToInt ins bld
 
-let frintm ins insLen bld =
-  fpRoundToInt ins insLen bld CastKind.FtoFFloor
+let frintm ins bld =
+  fpRoundToInt ins bld CastKind.FtoFFloor
 
-let frintn ins insLen bld =
-  fpRoundToInt ins insLen bld CastKind.FtoFRound
+let frintn ins bld =
+  fpRoundToInt ins bld CastKind.FtoFRound
 
-let frintp ins insLen bld =
-  fpRoundToInt ins insLen bld CastKind.FtoFCeil
+let frintp ins bld =
+  fpRoundToInt ins bld CastKind.FtoFCeil
 
-let frintx ins insLen bld = fpCurrentRoundToInt ins insLen bld
+let frintx ins bld = fpCurrentRoundToInt ins bld
 
-let frintz ins insLen bld =
-  fpRoundToInt ins insLen bld CastKind.FtoFTrunc
+let frintz ins bld =
+  fpRoundToInt ins bld CastKind.FtoFTrunc
 
-let fsqrt ins insLen bld =
-  lift bld ins insLen {
+let fsqrt ins bld =
+  lift bld ins {
     let struct (dst, src) = getTwoOprs ins
     let struct (eSize, dataSize, elements) = getElemDataSzAndElems dst
     match ins.Operands with
@@ -1128,8 +1128,8 @@ let fsqrt ins insLen bld =
       dstAssignForSIMD dstA dstB src dataSize elements bld
   }
 
-let fsub ins insLen bld =
-  lift bld ins insLen {
+let fsub ins bld =
+  lift bld ins {
     let struct (dst, o1, o2) = getThreeOprs ins
     let struct (eSize, dataSize, elements) = getElemDataSzAndElems dst
     match ins.Operands with
@@ -1146,8 +1146,8 @@ let fsub ins insLen bld =
       dstAssignForSIMD dstA dstB result dataSize elements bld
   }
 
-let insv (ins: Instruction) insLen bld =
-  lift bld ins insLen {
+let insv (ins: Instruction) bld =
+  lift bld ins {
     let struct (o1, o2) = getTwoOprs ins
     let struct (eSize, _, _) = getElemDataSzAndElems o1
     let dst = transOprToExpr ins bld o1
@@ -1155,8 +1155,8 @@ let insv (ins: Instruction) insLen bld =
     direct dst := AST.xtlo eSize src
   }
 
-let loadStoreList (ins: Instruction) insLen bld isLoad =
-  lift bld ins insLen {
+let loadStoreList (ins: Instruction) bld isLoad =
+  lift bld ins {
     let isWBack, _ = getIsWBackAndIsPostIndex ins.Operands
     let struct (dst, src) = getTwoOprs ins
     let struct (eSize, _, elements) = getElemDataSzAndElems dst
@@ -1185,8 +1185,8 @@ let loadStoreList (ins: Instruction) insLen bld isLoad =
       ()
   }
 
-let loadRep (ins: Instruction) insLen bld =
-  lift bld ins insLen {
+let loadRep (ins: Instruction) bld =
+  lift bld ins {
     let isWBack, _ = getIsWBackAndIsPostIndex ins.Operands
     let struct (dst, src) = getTwoOprs ins
     let struct (eSize, _, elements) = getElemDataSzAndElems dst
@@ -1212,8 +1212,8 @@ let loadRep (ins: Instruction) insLen bld =
       ()
   }
 
-let ldnp (ins: Instruction) insLen bld =
-  lift bld ins insLen {
+let ldnp (ins: Instruction) bld =
+  lift bld ins {
     let address = tmpVar bld 64<rt>
     let dByte = numI32 (RegType.toByteWidth ins.OprSize) 64<rt>
     match ins.Operands, ins.OprSize with
@@ -1245,8 +1245,8 @@ let ldnp (ins: Instruction) insLen bld =
       sized oprSize src2 := AST.loadLE oprSize (address .+ dByte)
   }
 
-let ldp (ins: Instruction) insLen bld =
-  lift bld ins insLen {
+let ldp (ins: Instruction) bld =
+  lift bld ins {
     let isWBack, isPostIndex = getIsWBackAndIsPostIndex ins.Operands
     let address = tmpVar bld 64<rt>
     let dByte = numI32 (RegType.toByteWidth ins.OprSize) 64<rt>
@@ -1306,8 +1306,8 @@ let private ldrLiteral (ins: Instruction) bld o1 o2 =
         sized ins.OprSize dst := data
   }
 
-let ldr (ins: Instruction) insLen bld =
-  lift bld ins insLen {
+let ldr (ins: Instruction) bld =
+  lift bld ins {
     match ins.Operands with
     | TwoOperands(o1, OprMemory(LiteralMode o2)) -> (* LDR (literal) *)
       ldrLiteral ins bld o1 o2
@@ -1340,8 +1340,8 @@ let ldr (ins: Instruction) insLen bld =
       raise InvalidOperandException
   }
 
-let ldur (ins: Instruction) insLen bld =
-  lift bld ins insLen {
+let ldur (ins: Instruction) bld =
+  lift bld ins {
     let isWBack, isPostIndex = getIsWBackAndIsPostIndex ins.Operands
     let address = tmpVar bld 64<rt>
     let data = tmpVar bld ins.OprSize
@@ -1367,14 +1367,14 @@ let ldur (ins: Instruction) insLen bld =
       writeBack bld isWBack isPostIndex bReg address offset
   }
 
-let logShift ins insLen bld shift =
-  lift bld ins insLen {
+let logShift ins bld shift =
+  lift bld ins {
     let dst, src, amt = transThreeOprs ins bld
     sized ins.OprSize dst := shift src amt
   }
 
-let maxMin ins insLen bld opFn =
-  lift bld ins insLen {
+let maxMin ins bld opFn =
+  lift bld ins {
     let struct (o1, o2, o3) = getThreeOprs ins
     let struct (eSize, dataSize, elements) = getElemDataSzAndElems o1
     let struct (dstB, dstA) = transOprToExpr128 ins bld o1
@@ -1384,8 +1384,8 @@ let maxMin ins insLen bld opFn =
     dstAssignForSIMD dstA dstB result dataSize elements bld
   }
 
-let maxMinv ins insLen bld opFn =
-  lift bld ins insLen {
+let maxMinv ins bld opFn =
+  lift bld ins {
     let struct (o1, o2) = getTwoOprs ins
     let struct (eSize, dataSize, elements) = getElemDataSzAndElems o2
     let src = transSIMDOprToExpr bld eSize dataSize elements o2
@@ -1397,8 +1397,8 @@ let maxMinv ins insLen bld opFn =
     dstAssignScalar ins bld o1 minMax eSize
   }
 
-let maxMinp ins insLen bld opFn =
-  lift bld ins insLen {
+let maxMinp ins bld opFn =
+  lift bld ins {
     let struct (dst, src1, src2) = getThreeOprs ins
     let struct (eSize, dataSize, elements) = getElemDataSzAndElems dst
     let struct (dstB, dstA) = transOprToExpr128 ins bld dst
@@ -1412,8 +1412,8 @@ let maxMinp ins insLen bld opFn =
     dstAssignForSIMD dstA dstB result dataSize elements bld
   }
 
-let madd (ins: Instruction) insLen bld =
-  lift bld ins insLen {
+let madd (ins: Instruction) bld =
+  lift bld ins {
     match ins.Operands with
     | ThreeOperands(_, _, OprSIMD(VecReg _)) ->
       let struct (o1, o2, o3) = getThreeOprs ins
@@ -1435,8 +1435,8 @@ let madd (ins: Instruction) insLen bld =
       sized ins.OprSize dst := src3 .+ (src1 .* src2)
   }
 
-let mladdsub (ins: Instruction) insLen bld opFn =
-  lift bld ins insLen {
+let mladdsub (ins: Instruction) bld opFn =
+  lift bld ins {
     let struct (o1, o2, o3) = getThreeOprs ins
     let struct (dstB, dstA) = transOprToExpr128 ins bld o1
     let struct (eSize, dataSize, elements) = getElemDataSzAndElems o2
@@ -1459,8 +1459,8 @@ let mladdsub (ins: Instruction) insLen bld opFn =
       dstAssignForSIMD dstA dstB result dataSize elements bld
   }
 
-let mov (ins: Instruction) insLen bld =
-  lift bld ins insLen {
+let mov (ins: Instruction) bld =
+  lift bld ins {
     match ins.Operands with
     | TwoOperands(OprSIMD(VecReg _) as o1, o2) ->
       let struct (_, dataSize, _) = getElemDataSzAndElems o1
@@ -1476,8 +1476,8 @@ let mov (ins: Instruction) insLen bld =
       sized ins.OprSize dst := src
   }
 
-let movi (ins: Instruction) insLen bld =
-  lift bld ins insLen {
+let movi (ins: Instruction) bld =
+  lift bld ins {
     match ins.Operands with
     | TwoOperands(OprSIMD(ScalarReg _), OprImm _) ->
       let dst, src = transTwoOprs ins bld
@@ -1506,8 +1506,8 @@ let private getWordMask (ins: Instruction) shift =
   | OprShift(LSL, Imm amt) -> numI64 (~~~(0xFFFFL <<< (int amt))) ins.OprSize
   | _ -> raise InvalidOperandException
 
-let movk (ins: Instruction) insLen bld =
-  lift bld ins insLen {
+let movk (ins: Instruction) bld =
+  lift bld ins {
     let struct (dst, imm, shf) = getThreeOprs ins
     let dst = transOprToExpr ins bld dst
     let src = transBarrelShiftToExpr ins.OprSize bld imm shf
@@ -1515,8 +1515,8 @@ let movk (ins: Instruction) insLen bld =
     sized ins.OprSize dst := (dst .& mask) .| src
   }
 
-let mrs (ins: Instruction) insLen bld =
-  lift bld ins insLen {
+let mrs (ins: Instruction) bld =
+  lift bld ins {
     let struct (dst, src) = getTwoOprs ins
     match dst, src with
     | OprRegister rt, OprRegister R.CNTVCT_EL0 ->
@@ -1539,8 +1539,8 @@ let mrs (ins: Instruction) insLen bld =
       direct dst := src
   }
 
-let mvni (ins: Instruction) insLen bld =
-  lift bld ins insLen {
+let mvni (ins: Instruction) bld =
+  lift bld ins {
     match ins.Operands with
     | TwoOperands _ ->
       let struct (dst, src) = getTwoOprs ins
@@ -1558,8 +1558,8 @@ let mvni (ins: Instruction) insLen bld =
       dstAssign128 ins bld dst src src dataSize
   }
 
-let orn (ins: Instruction) insLen bld =
-  lift bld ins insLen {
+let orn (ins: Instruction) bld =
+  lift bld ins {
     match ins.Operands with
     | TwoOperands _ ->
       let struct (dst, src) = getTwoOprs ins
@@ -1580,8 +1580,8 @@ let orn (ins: Instruction) insLen bld =
       sized ins.OprSize dst := src1 .| AST.not src2
   }
 
-let orr (ins: Instruction) insLen bld =
-  lift bld ins insLen {
+let orr (ins: Instruction) bld =
+  lift bld ins {
     match ins.Operands with
     | TwoOperands(OprSIMD _, OprImm _) ->
       let struct (dst, imm) = getTwoOprs ins
@@ -1617,8 +1617,8 @@ let private reverseInto bld width dst src =
       direct (AST.extract dst 1<rt> (width - 1 - i)) := AST.extract src 1<rt> i
     }
 
-let rbit (ins: Instruction) insLen bld =
-  lift bld ins insLen {
+let rbit (ins: Instruction) bld =
+  lift bld ins {
     match ins.Operands with
     | TwoOperands(OprRegister _, OprRegister _) ->
       let dst, src = transTwoOprs ins bld
@@ -1642,8 +1642,8 @@ let rbit (ins: Instruction) insLen bld =
       dstAssignForSIMD dstA dstB result dataSize elements bld
   }
 
-let rev (ins: Instruction) insLen bld =
-  lift bld ins insLen {
+let rev (ins: Instruction) bld =
+  lift bld ins {
     let e = if ins.OprSize = 64<rt> then 7 else 3
     let t = tmpVar bld ins.OprSize
     match ins.Operands with
@@ -1663,8 +1663,8 @@ let rev (ins: Instruction) insLen bld =
       sized ins.OprSize dst := t
   }
 
-let rev16 (ins: Instruction) insLen bld =
-  lift bld ins insLen {
+let rev16 (ins: Instruction) bld =
+  lift bld ins {
     let tmp = tmpVar bld ins.OprSize
     match ins.Operands with
     | TwoOperands(OprSIMD(VecReg _ ) as dst, src) ->
@@ -1685,8 +1685,8 @@ let rev16 (ins: Instruction) insLen bld =
       sized ins.OprSize dst := tmp
   }
 
-let rev32 (ins: Instruction) insLen bld =
-  lift bld ins insLen {
+let rev32 (ins: Instruction) bld =
+  lift bld ins {
     let tmp = tmpVar bld ins.OprSize
     match ins.Operands with
     | TwoOperands(OprSIMD(VecReg _ ) as dst, src) ->
@@ -1706,8 +1706,8 @@ let rev32 (ins: Instruction) insLen bld =
       direct dst := tmp
   }
 
-let icvtf (ins: Instruction) insLen bld unsigned =
-  lift bld ins insLen {
+let icvtf (ins: Instruction) bld unsigned =
+  lift bld ins {
     let oprSize = ins.OprSize
     match ins.Operands with
     | TwoOperands(OprSIMD(VecReg _), _) ->
@@ -1745,8 +1745,8 @@ let icvtf (ins: Instruction) insLen bld unsigned =
       sized oprSize dst := result
   }
 
-let shl ins insLen bld =
-  lift bld ins insLen {
+let shl ins bld =
+  lift bld ins {
     let struct (dst, src, amt) = getThreeOprs ins
     let struct (eSize, dataSize, elements) = getElemDataSzAndElems src
     match ins.Operands with
@@ -1761,8 +1761,8 @@ let shl ins insLen bld =
       dstAssignForSIMD dstA dstB result dataSize elements bld
   }
 
-let smulh ins insLen bld =
-  lift bld ins insLen {
+let smulh ins bld =
+  lift bld ins {
     let dst, src1, src2 = transThreeOprs ins bld
     (* The high 64 bits of the signed 64x64->128 product: the evaluator
        holds the 128-bit intermediate, so extract from it directly. *)
@@ -1770,8 +1770,8 @@ let smulh ins insLen bld =
     direct dst := AST.xthi 64<rt> prod
   }
 
-let smull (ins: Instruction) insLen bld =
-  lift bld ins insLen {
+let smull (ins: Instruction) bld =
+  lift bld ins {
     match ins.Operands with
     | ThreeOperands(_, _, OprSIMD(VecRegWithIdx _)) ->
       let struct (o1, o2, o3) = getThreeOprs ins
@@ -1803,8 +1803,8 @@ let smull (ins: Instruction) insLen bld =
       direct dst := AST.sext 64<rt> src1 .* AST.sext 64<rt> src2
   }
 
-let sshl (ins: Instruction) insLen bld =
-  lift bld ins insLen {
+let sshl (ins: Instruction) bld =
+  lift bld ins {
     let struct (dst, o1, o2) = getThreeOprs ins
     let struct (eSize, dataSize, elements) = getElemDataSzAndElems dst
     let inline shiftLeft e1 e2 =
@@ -1827,8 +1827,8 @@ let sshl (ins: Instruction) insLen bld =
       dstAssignForSIMD dstA dstB result dataSize elements bld
   }
 
-let shift ins insLen bld opFn =
-  lift bld ins insLen {
+let shift ins bld opFn =
+  lift bld ins {
     let struct (dst, src, amt) = getThreeOprs ins
     let struct (eSize, dataSize, elements) = getElemDataSzAndElems dst
     match ins.Operands with
@@ -1844,8 +1844,8 @@ let shift ins insLen bld opFn =
       dstAssignForSIMD dstA dstB result dataSize elements bld
   }
 
-let stnp (ins: Instruction) insLen bld =
-  lift bld ins insLen {
+let stnp (ins: Instruction) bld =
+  lift bld ins {
     let address = tmpVar bld 64<rt>
     let dByte = numI32 (RegType.toByteWidth ins.OprSize) 64<rt>
     match ins.OprSize with
@@ -1869,8 +1869,8 @@ let stnp (ins: Instruction) insLen bld =
       direct (AST.loadLE ins.OprSize (address .+ dByte)) := src2
   }
 
-let stp (ins: Instruction) insLen bld =
-  lift bld ins insLen {
+let stp (ins: Instruction) bld =
+  lift bld ins {
     let isWBack, isPostIndex = getIsWBackAndIsPostIndex ins.Operands
     let address = tmpVar bld 64<rt>
     let dByte = numI32 (RegType.toByteWidth ins.OprSize) 64<rt>
@@ -1897,8 +1897,8 @@ let stp (ins: Instruction) insLen bld =
       writeBack bld isWBack isPostIndex bReg address offset
   }
 
-let str (ins: Instruction) insLen bld =
-  lift bld ins insLen {
+let str (ins: Instruction) bld =
+  lift bld ins {
     let isWBack, isPostIndex = getIsWBackAndIsPostIndex ins.Operands
     match ins.OprSize with
     | 128<rt> ->
@@ -1922,8 +1922,8 @@ let str (ins: Instruction) insLen bld =
       writeBack bld isWBack isPostIndex bReg address offset
   }
 
-let stur (ins: Instruction) insLen bld =
-  lift bld ins insLen {
+let stur (ins: Instruction) bld =
+  lift bld ins {
     let isWBack, isPostIndex = getIsWBackAndIsPostIndex ins.Operands
     let address = tmpVar bld 64<rt>
     let data = tmpVar bld ins.OprSize
@@ -1946,8 +1946,8 @@ let stur (ins: Instruction) insLen bld =
       writeBack bld isWBack isPostIndex bReg address offset
   }
 
-let sub (ins: Instruction) insLen bld =
-  lift bld ins insLen {
+let sub (ins: Instruction) bld =
+  lift bld ins {
     match ins.Operands with
     | TwoOperands(OprSIMD(ScalarReg _) as dst, _) ->
       let struct (eSize, _, _) = getElemDataSzAndElems dst
@@ -1993,8 +1993,8 @@ let private tableRegsOf ins bld src1 =
   | _ ->
     raise InvalidOperandException
 
-let tbl (ins: Instruction) insLen bld = (* FIMXE *)
-  lift bld ins insLen {
+let tbl (ins: Instruction) bld = (* FIMXE *)
+  lift bld ins {
     let struct (dst, src1, src2) = getThreeOprs ins
     let struct (eSize, dataSize, _) = getElemDataSzAndElems dst
     let elements = dataSize / 8<rt>
@@ -2032,8 +2032,8 @@ let tbl (ins: Instruction) insLen bld = (* FIMXE *)
     dstAssignForSIMD dstA dstB result dataSize elements bld
   }
 
-let trn1 ins insLen bld =
-  lift bld ins insLen {
+let trn1 ins bld =
+  lift bld ins {
     let struct (o1, o2, o3) = getThreeOprs ins
     let struct (eSize, dataSize, elements) = getElemDataSzAndElems o1
     let struct (dstB, dstA) = transOprToExpr128 ins bld o1
@@ -2046,8 +2046,8 @@ let trn1 ins insLen bld =
     dstAssignForSIMD dstA dstB result dataSize elements bld
   }
 
-let trn2 ins insLen bld =
-  lift bld ins insLen {
+let trn2 ins bld =
+  lift bld ins {
     let struct (o1, o2, o3) = getThreeOprs ins
     let struct (eSize, dataSize, elements) = getElemDataSzAndElems o1
     let struct (dstB, dstA) = transOprToExpr128 ins bld o1
@@ -2060,8 +2060,8 @@ let trn2 ins insLen bld =
     dstAssignForSIMD dstA dstB result dataSize elements bld
   }
 
-let uabal (ins: Instruction) insLen bld =
-  lift bld ins insLen {
+let uabal (ins: Instruction) bld =
+  lift bld ins {
     let struct (dst, src1, src2) = getThreeOprs ins
     let struct (eSize, part, _) = getElemDataSzAndElems src1
     let elements = 64<rt> / eSize
@@ -2081,8 +2081,8 @@ let uabal (ins: Instruction) insLen bld =
     dstAssignForSIMD dstA dstB result 128<rt> elements bld
   }
 
-let uabdl (ins: Instruction) insLen bld =
-  lift bld ins insLen {
+let uabdl (ins: Instruction) bld =
+  lift bld ins {
     let struct (dst, src1, src2) = getThreeOprs ins
     let struct (eSize, part, _) = getElemDataSzAndElems src1
     let elements = 64<rt> / eSize
@@ -2099,8 +2099,8 @@ let uabdl (ins: Instruction) insLen bld =
     dstAssignForSIMD dstA dstB result 128<rt> elements bld
   }
 
-let uadalp ins insLen bld =
-  lift bld ins insLen {
+let uadalp ins bld =
+  lift bld ins {
     let struct (o1, src) = getTwoOprs ins
     let struct (eSize, dataSize, elements) = getElemDataSzAndElems src
     let dst = transSIMDOprToExpr bld (eSize * 2) dataSize (elements / 2) o1
@@ -2120,8 +2120,8 @@ let uadalp ins insLen bld =
     dstAssign128 ins bld o1 srcA srcB dataSize
   }
 
-let saddl (ins: Instruction) insLen bld =
-  lift bld ins insLen {
+let saddl (ins: Instruction) bld =
+  lift bld ins {
     let struct (dst, src1, src2) = getThreeOprs ins
     let struct (eSize, part, _) = getElemDataSzAndElems src2
     let elements = 64<rt> / eSize
@@ -2135,8 +2135,8 @@ let saddl (ins: Instruction) insLen bld =
     dstAssignForSIMD dstA dstB result 128<rt> elements bld
   }
 
-let saddw (ins: Instruction) insLen bld =
-  lift bld ins insLen {
+let saddw (ins: Instruction) bld =
+  lift bld ins {
     let struct (dst, src1, src2) = getThreeOprs ins
     let struct (eSize, part, _) = getElemDataSzAndElems src2
     let elements = 64<rt> / eSize
@@ -2150,8 +2150,8 @@ let saddw (ins: Instruction) insLen bld =
     dstAssignForSIMD dstA dstB result 128<rt> elements bld
   }
 
-let saddlp ins insLen bld =
-  lift bld ins insLen {
+let saddlp ins bld =
+  lift bld ins {
     let struct (dst, src) = getTwoOprs ins
     let struct (eSize, dataSize, elements) = getElemDataSzAndElems src
     let sumArr = Array.init (elements / 2) (fun _ -> tmpVar bld (2 * eSize))
@@ -2164,8 +2164,8 @@ let saddlp ins insLen bld =
     dstAssignForSIMD dstA dstB sumArr dataSize (elements / 2) bld
   }
 
-let saddlv ins insLen bld =
-  lift bld ins insLen {
+let saddlv ins bld =
+  lift bld ins {
     let struct (dst, src) = getTwoOprs ins
     let struct (eSize, dataSize, elements) = getElemDataSzAndElems src
     let src =
@@ -2178,8 +2178,8 @@ let saddlv ins insLen bld =
     dstAssignScalar ins bld dst sum (2 * eSize)
   }
 
-let uaddl (ins: Instruction) insLen bld =
-  lift bld ins insLen {
+let uaddl (ins: Instruction) bld =
+  lift bld ins {
     let struct (dst, src1, src2) = getThreeOprs ins
     let struct (eSize, part, _) = getElemDataSzAndElems src2
     let elements = 64<rt> / eSize
@@ -2193,8 +2193,8 @@ let uaddl (ins: Instruction) insLen bld =
     dstAssignForSIMD dstA dstB result 128<rt> elements bld
   }
 
-let uaddw (ins: Instruction) insLen bld =
-  lift bld ins insLen {
+let uaddw (ins: Instruction) bld =
+  lift bld ins {
     let struct (dst, src1, src2) = getThreeOprs ins
     let struct (eSize, part, _) = getElemDataSzAndElems src2
     let elements = 64<rt> / eSize
@@ -2208,8 +2208,8 @@ let uaddw (ins: Instruction) insLen bld =
     dstAssignForSIMD dstA dstB result 128<rt> elements bld
   }
 
-let uaddlp ins insLen bld =
-  lift bld ins insLen {
+let uaddlp ins bld =
+  lift bld ins {
     let struct (dst, src) = getTwoOprs ins
     let struct (eSize, dataSize, elements) = getElemDataSzAndElems src
     let sumArr = Array.init (elements / 2) (fun _ -> tmpVar bld (2 * eSize))
@@ -2222,8 +2222,8 @@ let uaddlp ins insLen bld =
     dstAssignForSIMD dstA dstB sumArr dataSize (elements / 2) bld
   }
 
-let uaddlv ins insLen bld =
-  lift bld ins insLen {
+let uaddlv ins bld =
+  lift bld ins {
     let struct (dst, src) = getTwoOprs ins
     let struct (eSize, dataSize, elements) = getElemDataSzAndElems src
     let src = transSIMDOprToExpr bld eSize dataSize elements src
@@ -2235,8 +2235,8 @@ let uaddlv ins insLen bld =
     dstAssignScalar ins bld dst sum (2 * eSize)
   }
 
-let smlal (ins: Instruction) insLen bld =
-  lift bld ins insLen {
+let smlal (ins: Instruction) bld =
+  lift bld ins {
     let struct (dst, src1, src2) = getThreeOprs ins
     let struct (eSize, part, _) = getElemDataSzAndElems src1
     let dataSize = 64<rt>
@@ -2261,8 +2261,8 @@ let smlal (ins: Instruction) insLen bld =
       dstAssignForSIMD dstA dstB result (2 * dataSize) elements bld
   }
 
-let smlsl (ins: Instruction) insLen bld =
-  lift bld ins insLen {
+let smlsl (ins: Instruction) bld =
+  lift bld ins {
     let struct (dst, src1, src2) = getThreeOprs ins
     let struct (eSize, part, _) = getElemDataSzAndElems src1
     let dataSize = 64<rt>
@@ -2299,8 +2299,8 @@ let private ssatQMulH bld e1 e2 (eSize: int<rt>) =
   let input = AST.ite (sign1 != sign2) (product ?>> shfAmt) (product >> shfAmt)
   signedSatQ bld input eSize
 
-let sqdmulh (ins: Instruction) insLen bld =
-  lift bld ins insLen {
+let sqdmulh (ins: Instruction) bld =
+  lift bld ins {
     let struct (o1, o2, o3) = getThreeOprs ins
     let struct (eSize, dataSize, elements) = getElemDataSzAndElems o1
     match ins.Operands with
@@ -2349,8 +2349,8 @@ let private ssatQMulL bld e1 e2 (eSize: int<rt>) =
   }
   AST.ite overflow max (AST.ite underflow min product)
 
-let sqdmull (ins: Instruction) insLen bld =
-  lift bld ins insLen {
+let sqdmull (ins: Instruction) bld =
+  lift bld ins {
     let struct (o1, o2, o3) = getThreeOprs ins
     let struct (eSize, part, _) = getElemDataSzAndElems o2
     match ins.Operands with
@@ -2398,8 +2398,8 @@ let private ssatQMAdd bld src1 src2 dstElm eSize =
   }
   AST.ite overflow max (AST.ite underflow min accum)
 
-let sqdmlal (ins: Instruction) insLen bld =
-  lift bld ins insLen {
+let sqdmlal (ins: Instruction) bld =
+  lift bld ins {
     let struct (o1, o2, o3) = getThreeOprs ins
     let struct (eSize, part, _) = getElemDataSzAndElems o2
     match ins.Operands with
@@ -2437,8 +2437,8 @@ let sqdmlal (ins: Instruction) insLen bld =
       raise InvalidOperandException
   }
 
-let umlal (ins: Instruction) insLen bld =
-  lift bld ins insLen {
+let umlal (ins: Instruction) bld =
+  lift bld ins {
     let struct (dst, src1, src2) = getThreeOprs ins
     let struct (eSize, part, _) = getElemDataSzAndElems src1
     let dataSize = 64<rt>
@@ -2463,8 +2463,8 @@ let umlal (ins: Instruction) insLen bld =
       dstAssignForSIMD dstA dstB result 128<rt> elements bld
   }
 
-let umlsl (ins: Instruction) insLen bld =
-  lift bld ins insLen {
+let umlsl (ins: Instruction) bld =
+  lift bld ins {
     let struct (dst, src1, src2) = getThreeOprs ins
     let struct (eSize, part, _) = getElemDataSzAndElems src1
     let dataSize = 64<rt>
@@ -2490,8 +2490,8 @@ let umlsl (ins: Instruction) insLen bld =
       dstAssignForSIMD dstA dstB result dblDSize elements bld
   }
 
-let umulh ins insLen bld =
-  lift bld ins insLen {
+let umulh ins bld =
+  lift bld ins {
     let dst, src1, src2 = transThreeOprs ins bld
     (* The high 64 bits of the unsigned 64x64->128 product, extracted from the
        128-bit intermediate the evaluator holds. *)
@@ -2499,8 +2499,8 @@ let umulh ins insLen bld =
     direct dst := AST.xthi 64<rt> prod
   }
 
-let umull (ins: Instruction) insLen bld =
-  lift bld ins insLen {
+let umull (ins: Instruction) bld =
+  lift bld ins {
     match ins.Operands with
     | ThreeOperands(_, _, OprSIMD(VecRegWithIdx _)) ->
       let struct (o1, o2, o3) = getThreeOprs ins
@@ -2533,8 +2533,8 @@ let umull (ins: Instruction) insLen bld =
       direct dst := AST.zext 64<rt> src1 .* AST.zext 64<rt> src2
   }
 
-let uqadd (ins: Instruction) insLen bld =
-  lift bld ins insLen {
+let uqadd (ins: Instruction) bld =
+  lift bld ins {
     let struct (o1, o2, o3) = getThreeOprs ins
     let struct (eSize, dataSize, elements) = getElemDataSzAndElems o1
     let inline satQ64 src1 src2 =
@@ -2576,8 +2576,8 @@ let uqadd (ins: Instruction) insLen bld =
       raise InvalidOperandException
   }
 
-let uqrshl (ins: Instruction) insLen bld =
-  lift bld ins insLen {
+let uqrshl (ins: Instruction) bld =
+  lift bld ins {
     let struct (o1, o2, o3) = getThreeOprs ins
     let struct (eSize, dataSize, elements) = getElemDataSzAndElems o1
     match ins.Operands with
@@ -2601,8 +2601,8 @@ let uqrshl (ins: Instruction) insLen bld =
       raise InvalidOperandException
   }
 
-let uqsub (ins: Instruction) insLen bld =
-  lift bld ins insLen {
+let uqsub (ins: Instruction) bld =
+  lift bld ins {
     let struct (o1, o2, o3) = getThreeOprs ins
     let struct (eSize, dataSize, elements) = getElemDataSzAndElems o1
     let inline satQ64 src1 src2 =
@@ -2643,8 +2643,8 @@ let uqsub (ins: Instruction) insLen bld =
       raise InvalidOperandException
   }
 
-let uqshl (ins: Instruction) insLen bld =
-  lift bld ins insLen {
+let uqshl (ins: Instruction) bld =
+  lift bld ins {
     let struct (o1, o2, o3) = getThreeOprs ins
     let struct (eSize, dataSize, elements) = getElemDataSzAndElems o1
     match ins.Operands with
@@ -2677,8 +2677,8 @@ let uqshl (ins: Instruction) insLen bld =
       raise InvalidOperandException
   }
 
-let shiftULeftLong (ins: Instruction) insLen bld =
-  lift bld ins insLen {
+let shiftULeftLong (ins: Instruction) bld =
+  lift bld ins {
     let struct (o1, o2, o3) = getThreeOprs ins
     let struct (eSize, part, _) = getElemDataSzAndElems o2
     let elements = 64<rt> / eSize
@@ -2693,8 +2693,8 @@ let shiftULeftLong (ins: Instruction) insLen bld =
     dstAssignForSIMD dstA dstB result 128<rt> elements bld
   }
 
-let shiftSLeftLong (ins: Instruction) insLen bld =
-  lift bld ins insLen {
+let shiftSLeftLong (ins: Instruction) bld =
+  lift bld ins {
     let struct (o1, o2, o3) = getThreeOprs ins
     let struct (eSize, part, _) = getElemDataSzAndElems o2
     let elements = 64<rt> / eSize
@@ -2746,8 +2746,8 @@ let private urshlElem bld eSize bounds e1 e2 =
     }
   AST.xtlo eSize res
 
-let urshl (ins: Instruction) insLen bld =
-  lift bld ins insLen {
+let urshl (ins: Instruction) bld =
+  lift bld ins {
     let struct (dst, src, shift) = getThreeOprs ins
     let struct (eSize, dataSize, elements) = getElemDataSzAndElems src
     let struct (n0, n1) = tmpVars2 bld 64<rt>
@@ -2768,8 +2768,8 @@ let urshl (ins: Instruction) insLen bld =
       dstAssignForSIMD dstA dstB result dataSize elements bld
   }
 
-let srshl (ins: Instruction) insLen bld =
-  lift bld ins insLen {
+let srshl (ins: Instruction) bld =
+  lift bld ins {
     let struct (dst, src, shift) = getThreeOprs ins
     let struct (eSize, dataSize, elements) = getElemDataSzAndElems src
     let struct (n0, n1) = tmpVars2 bld eSize
@@ -2803,8 +2803,8 @@ let srshl (ins: Instruction) insLen bld =
       dstAssignForSIMD dstA dstB result dataSize elements bld
   }
 
-let urhadd ins insLen bld =
-  lift bld ins insLen {
+let urhadd ins bld =
+  lift bld ins {
     let struct (o1, o2, o3) = getThreeOprs ins
     let struct (eSize, dataSize, elements) = getElemDataSzAndElems o1
     let struct (dstB, dstA) = transOprToExpr128 ins bld o1
@@ -2819,8 +2819,8 @@ let urhadd ins insLen bld =
     dstAssignForSIMD dstA dstB result dataSize elements bld
   }
 
-let shiftRight ins insLen bld shifter =
-  lift bld ins insLen {
+let shiftRight ins bld shifter =
+  lift bld ins {
     let struct (o1, o2, o3) = getThreeOprs ins
     let struct (eSize, dataSize, elements) = getElemDataSzAndElems o1
     let struct (dstB, dstA) = transOprToExpr128 ins bld o1
@@ -2833,8 +2833,8 @@ let shiftRight ins insLen bld shifter =
     dstAssignForSIMD dstA dstB result dataSize elements bld
   }
 
-let ssubl (ins: Instruction) insLen bld =
-  lift bld ins insLen {
+let ssubl (ins: Instruction) bld =
+  lift bld ins {
     let struct (dst, src1, src2) = getThreeOprs ins
     let struct (eSize, part, _) = getElemDataSzAndElems src1
     let dataSize = 64<rt>
@@ -2849,8 +2849,8 @@ let ssubl (ins: Instruction) insLen bld =
     dstAssignForSIMD dstA dstB result 128<rt> elements bld
   }
 
-let ssubw (ins: Instruction) insLen bld =
-  lift bld ins insLen {
+let ssubw (ins: Instruction) bld =
+  lift bld ins {
     let struct (o1, o2, o3) = getThreeOprs ins
     let struct (eSize, part, _) = getElemDataSzAndElems o3
     let elements = 64<rt> / eSize
@@ -2864,8 +2864,8 @@ let ssubw (ins: Instruction) insLen bld =
     dstAssignForSIMD dstA dstB result 128<rt> elements bld
   }
 
-let ushl ins insLen bld =
-  lift bld ins insLen {
+let ushl ins bld =
+  lift bld ins {
     let struct (dst, o1, o2) = getThreeOprs ins
     let struct (eSize, dataSize, elements) = getElemDataSzAndElems dst
     let inline shiftLeft e1 e2 =
@@ -2888,8 +2888,8 @@ let ushl ins insLen bld =
       dstAssignForSIMD dstA dstB result dataSize elements bld
   }
 
-let usubl (ins: Instruction) insLen bld =
-  lift bld ins insLen {
+let usubl (ins: Instruction) bld =
+  lift bld ins {
     let struct (o1, o2, o3) = getThreeOprs ins
     let struct (eSize, part, _) = getElemDataSzAndElems o2
     let elements = 64<rt> / eSize
@@ -2905,8 +2905,8 @@ let usubl (ins: Instruction) insLen bld =
     dstAssignForSIMD dstA dstB result 128<rt> elements bld
   }
 
-let usubw (ins: Instruction) insLen bld =
-  lift bld ins insLen {
+let usubw (ins: Instruction) bld =
+  lift bld ins {
     let struct (o1, o2, o3) = getThreeOprs ins
     let struct (eSize, part, _) = getElemDataSzAndElems o3
     let elements = 64<rt> / eSize
@@ -2922,8 +2922,8 @@ let usubw (ins: Instruction) insLen bld =
     dstAssignForSIMD dstA dstB result 128<rt> elements bld
   }
 
-let uzp ins insLen bld op =
-  lift bld ins insLen {
+let uzp ins bld op =
+  lift bld ins {
     let struct (dst, src1, srcH) = getThreeOprs ins
     let struct (eSize, dataSize, elements) = getElemDataSzAndElems dst
     let struct (dstB, dstA) = transOprToExpr128 ins bld dst
@@ -2938,8 +2938,8 @@ let uzp ins insLen bld op =
     dstAssignForSIMD dstA dstB result dataSize elements bld
   }
 
-let xtn (ins: Instruction) insLen bld =
-  lift bld ins insLen {
+let xtn (ins: Instruction) bld =
+  lift bld ins {
     let struct (dst, src) = getTwoOprs ins
     let struct (eSize, dataSize, elements) = getElemDataSzAndElems src
     let struct (dstB, dstA) = transOprToExpr128 ins bld dst
@@ -2949,8 +2949,8 @@ let xtn (ins: Instruction) insLen bld =
     direct dstB := AST.num0 64<rt>
   }
 
-let xtn2 (ins: Instruction) insLen bld =
-  lift bld ins insLen {
+let xtn2 (ins: Instruction) bld =
+  lift bld ins {
     let struct (dst, src) = getTwoOprs ins
     let struct (eSize, dataSize, elements) = getElemDataSzAndElems src
     let struct (dstB, dstA) = transOprToExpr128 ins bld dst
@@ -2963,8 +2963,8 @@ let xtn2 (ins: Instruction) insLen bld =
 /// SHRN/SHRN2: shift each wide source element right by the immediate and narrow
 /// it to the lower half width. SHRN writes the low 64-bit destination half (and
 /// zeroes the high half); SHRN2 writes the high half, preserving the low one.
-let shrn (ins: Instruction) insLen bld isPart2 =
-  lift bld ins insLen {
+let shrn (ins: Instruction) bld isPart2 =
+  lift bld ins {
     let struct (dst, src, amt) = getThreeOprs ins
     let struct (eSize, dataSize, elements) = getElemDataSzAndElems src
     let struct (dstB, dstA) = transOprToExpr128 ins bld dst
@@ -2982,8 +2982,8 @@ let shrn (ins: Instruction) insLen bld isPart2 =
 /// the high half of each result element, narrowing to half the width. The base
 /// form writes the low destination half (zeroing the high half); the *2 form
 /// writes the high half, preserving the low one.
-let addSubHN (ins: Instruction) insLen bld isPart2 op =
-  lift bld ins insLen {
+let addSubHN (ins: Instruction) bld isPart2 op =
+  lift bld ins {
     let struct (dst, src1, src2) = getThreeOprs ins
     let struct (eSize, dataSize, elements) = getElemDataSzAndElems src1
     let struct (dstB, dstA) = transOprToExpr128 ins bld dst
@@ -2999,8 +2999,8 @@ let addSubHN (ins: Instruction) insLen bld isPart2 op =
       direct dstB := AST.num0 64<rt>
   }
 
-let zip ins insLen bld isPart1 =
-  lift bld ins insLen {
+let zip ins bld isPart1 =
+  lift bld ins {
     let struct (dst, src1, src2) = getThreeOprs ins
     let struct (eSize, dataSize, elements) = getElemDataSzAndElems dst
     let struct (dstB, dstA) = transOprToExpr128 ins bld dst
@@ -3019,14 +3019,14 @@ let zip ins insLen bld isPart1 =
 
 /// The logical shift left(or right) is the alias of LS{L|R}V and UBFM.
 /// Therefore, it is necessary to distribute to the original instruction.
-let distLogicalLeftShift (ins: Instruction) insLen bld =
+let distLogicalLeftShift (ins: Instruction) bld =
   match ins.Operands with
-  | ThreeOperands(_, _, OprImm _) -> logShift ins insLen bld (<<)
-  | ThreeOperands(_, _, OprRegister _) -> lslv ins insLen bld
+  | ThreeOperands(_, _, OprImm _) -> logShift ins bld (<<)
+  | ThreeOperands(_, _, OprRegister _) -> lslv ins bld
   | _ -> raise InvalidOperandException
 
-let distLogicalRightShift (ins: Instruction) insLen bld =
+let distLogicalRightShift (ins: Instruction) bld =
   match ins.Operands with
-  | ThreeOperands(_, _, OprImm _) -> logShift ins insLen bld (>>)
-  | ThreeOperands(_, _, OprRegister _) -> lsrv ins insLen bld
+  | ThreeOperands(_, _, OprImm _) -> logShift ins bld (>>)
+  | ThreeOperands(_, _, OprRegister _) -> lsrv ins bld
   | _ -> raise InvalidOperandException

@@ -404,6 +404,6 @@ let private translateOpcode ins bld = function
   | SELFDESTRUCT -> callAndTerminate ins "selfdestruct" 1 bld
 
 let translate (ins: Instruction) bld =
-  lift bld ins ins.NumBytes {
+  lift bld ins {
     translateOpcode ins bld ins.Opcode
   }

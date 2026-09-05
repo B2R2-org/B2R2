@@ -165,13 +165,13 @@ let putEndLabelForBranch bld lblIgnore (brIns: Instruction) =
   | None ->
     ()
 
-let sideEffects (ins: Instruction) insLen bld name =
-  lift bld ins insLen {
+let sideEffects (ins: Instruction) bld name =
+  lift bld ins {
     AST.sideEffect name
   }
 
-let nop (ins: Instruction) insLen bld =
-  lift bld ins insLen {
+let nop (ins: Instruction) bld =
+  lift bld ins {
   }
 
 let convertPCOpr (ins: Instruction) bld opr =
@@ -181,8 +181,8 @@ let convertPCOpr (ins: Instruction) bld opr =
   else
     opr
 
-let adc isSetFlags ins insLen bld =
-  lift bld ins insLen {
+let adc isSetFlags ins bld =
+  lift bld ins {
     let struct (dst, src1, src2) = parseOprOfADC ins bld
     let src1 = convertPCOpr ins bld src1
     let src2 = convertPCOpr ins bld src2
@@ -208,7 +208,7 @@ let adc isSetFlags ins insLen bld =
     putEndLabel bld lblIgnore
   }
 
-let transTwoOprsOfADD (ins: Instruction) insLen bld =
+let transTwoOprsOfADD (ins: Instruction) bld =
   match ins.Operands with
   | TwoOperands(OprReg _, OprImm _) ->
     let struct (e1, e2) = transTwoOprs ins bld
@@ -219,7 +219,7 @@ let transTwoOprsOfADD (ins: Instruction) insLen bld =
   | _ ->
     raise InvalidOperandException
 
-let transThreeOprsOfADD (ins: Instruction) insLen bld =
+let transThreeOprsOfADD (ins: Instruction) bld =
   match ins.Operands with
   | ThreeOperands(_, _, OprImm _) ->
     transThreeOprs ins bld
@@ -230,7 +230,7 @@ let transThreeOprsOfADD (ins: Instruction) insLen bld =
   | _ ->
     raise InvalidOperandException
 
-let transFourOprsOfADD (ins: Instruction) insLen bld =
+let transFourOprsOfADD (ins: Instruction) bld =
   match ins.Operands with
   | FourOperands(opr1, opr2, opr3, (OprShift(_, Imm _) as opr4)) ->
     let e1 = transOprToExpr ins bld opr1
@@ -245,16 +245,16 @@ let transFourOprsOfADD (ins: Instruction) insLen bld =
   | _ ->
     raise InvalidOperandException
 
-let parseOprOfADD (ins: Instruction) insLen bld =
+let parseOprOfADD (ins: Instruction) bld =
   match ins.Operands with
-  | TwoOperands _ -> transTwoOprsOfADD ins insLen bld
-  | ThreeOperands _ -> transThreeOprsOfADD ins insLen bld
-  | FourOperands _ -> transFourOprsOfADD ins insLen bld
+  | TwoOperands _ -> transTwoOprsOfADD ins bld
+  | ThreeOperands _ -> transThreeOprsOfADD ins bld
+  | FourOperands _ -> transFourOprsOfADD ins bld
   | _ -> raise InvalidOperandException
 
-let add isSetFlags ins insLen bld =
-  lift bld ins insLen {
-    let struct (dst, src1, src2) = parseOprOfADD ins insLen bld
+let add isSetFlags ins bld =
+  lift bld ins {
+    let struct (dst, src1, src2) = parseOprOfADD ins bld
     let src1 = convertPCOpr ins bld src1
     let src2 = convertPCOpr ins bld src2
     let isUnconditional = ParseUtils.isUnconditional ins.Condition
@@ -310,8 +310,8 @@ let parseOprOfBL ins =
   | _ ->
     raise InvalidOperandException
 
-let bl ins insLen bld =
-  lift bld ins insLen {
+let bl ins bld =
+  lift bld ins {
     let struct (alignedAddr, isThumb, callKind) = parseOprOfBL ins
     let lr = regVar bld R.LR
     let retAddr = bvOfBaseAddr ins.Address .+ (numI32 4 32<rt>)
@@ -325,8 +325,8 @@ let bl ins insLen bld =
     return NoEndMark
   }
 
-let blxWithReg (ins: Instruction) insLen reg bld =
-  lift bld ins insLen {
+let blxWithReg (ins: Instruction) reg bld =
+  lift bld ins {
     let lr = regVar bld R.LR
     let addr = bvOfBaseAddr ins.Address
     let isUnconditional = ParseUtils.isUnconditional ins.Condition
@@ -341,10 +341,10 @@ let blxWithReg (ins: Instruction) insLen reg bld =
     return NoEndMark
   }
 
-let branchWithLink (ins: Instruction) insLen bld =
+let branchWithLink (ins: Instruction) bld =
   match ins.Operands with
-  | OneOperand(OprReg reg) -> blxWithReg ins insLen reg bld
-  | _ -> bl ins insLen bld
+  | OneOperand(OprReg reg) -> blxWithReg ins reg bld
+  | _ -> bl ins bld
 
 let parseOprOfPUSHPOP (ins: Instruction) =
   match ins.Operands with
@@ -373,8 +373,8 @@ let pushLoop bld numOfReg addr =
       addr
   List.fold loop addr [ 0 .. 14 ]
 
-let push ins insLen bld =
-  lift bld ins insLen {
+let push ins bld =
+  lift bld ins {
     let t0 = tmpVar bld 32<rt>
     let sp = regVar bld R.SP
     let numOfReg = parseOprOfPUSHPOP ins
@@ -412,8 +412,8 @@ let sSat bld i n =
   let struct (r, _) = sSatQ bld i n
   r
 
-let qdadd (ins: Instruction) insLen bld =
-  lift bld ins insLen {
+let qdadd (ins: Instruction) bld =
+  lift bld ins {
     let isUnconditional = ParseUtils.isUnconditional ins.Condition
     let lblIgnore = checkCondition ins bld isUnconditional
     let struct (dst, src1, src2) = transThreeOprs ins bld
@@ -429,8 +429,8 @@ let qdadd (ins: Instruction) insLen bld =
     putEndLabel bld lblIgnore
   }
 
-let qdsub (ins: Instruction) insLen bld =
-  lift bld ins insLen {
+let qdsub (ins: Instruction) bld =
+  lift bld ins {
     let isUnconditional = ParseUtils.isUnconditional ins.Condition
     let lblIgnore = checkCondition ins bld isUnconditional
     let struct (dst, src1, src2) = transThreeOprs ins bld
@@ -446,8 +446,8 @@ let qdsub (ins: Instruction) insLen bld =
     putEndLabel bld lblIgnore
   }
 
-let qsax (ins: Instruction) insLen bld =
-  lift bld ins insLen {
+let qsax (ins: Instruction) bld =
+  lift bld ins {
     let isUnconditional = ParseUtils.isUnconditional ins.Condition
     let lblIgnore = checkCondition ins bld isUnconditional
     let struct (dst, src1, src2) = transThreeOprs ins bld
@@ -462,8 +462,8 @@ let qsax (ins: Instruction) insLen bld =
     putEndLabel bld lblIgnore
   }
 
-let qsub16 (ins: Instruction) insLen bld =
-  lift bld ins insLen {
+let qsub16 (ins: Instruction) bld =
+  lift bld ins {
     let isUnconditional = ParseUtils.isUnconditional ins.Condition
     let lblIgnore = checkCondition ins bld isUnconditional
     let struct (dst, src1, src2) = transThreeOprs ins bld
@@ -478,9 +478,9 @@ let qsub16 (ins: Instruction) insLen bld =
     putEndLabel bld lblIgnore
   }
 
-let sub isSetFlags ins insLen bld =
-  lift bld ins insLen {
-    let struct (dst, src1, src2) = parseOprOfADD ins insLen bld
+let sub isSetFlags ins bld =
+  lift bld ins {
+    let struct (dst, src1, src2) = parseOprOfADD ins bld
     let src1 = convertPCOpr ins bld src1
     let src2 = convertPCOpr ins bld src2
     let isUnconditional = ParseUtils.isUnconditional ins.Condition
@@ -507,9 +507,9 @@ let sub isSetFlags ins insLen bld =
   }
 
 /// B9.3.19 SUBS R.PC, R.LR (Thumb), on page B9-2008
-let subsPCLRThumb ins insLen bld =
-  lift bld ins insLen {
-    let struct (_, _, src2) = parseOprOfADD ins insLen bld
+let subsPCLRThumb ins bld =
+  lift bld ins {
+    let struct (_, _, src2) = parseOprOfADD ins bld
     let pc = getPC bld
     let struct (result, _, _, _) =
       addWithCarry pc (AST.not src2) (AST.num1 32<rt>) bld
@@ -577,8 +577,8 @@ let parseResultOfSUBAndRela (ins: Instruction) bld =
     raise InvalidOperandException
 
 /// B9.3.20 SUBS R.PC, R.LR and related instruction (ARM), on page B9-2010
-let subsAndRelatedInstr (ins: Instruction) insLen bld =
-  lift bld ins insLen {
+let subsAndRelatedInstr (ins: Instruction) bld =
+  lift bld ins {
     let result = tmpVar bld 32<rt>
     let isUnconditional = ParseUtils.isUnconditional ins.Condition
     let lblIgnore = checkCondition ins bld isUnconditional
@@ -587,7 +587,7 @@ let subsAndRelatedInstr (ins: Instruction) insLen bld =
     putEndLabel bld lblIgnore
   }
 
-let computeCarryOutFromImmCflag (ins: Instruction) insLen bld =
+let computeCarryOutFromImmCflag (ins: Instruction) bld =
   match ins.Cflag with
   | Some v ->
     if v then BitVector.One 1<rt> |> AST.num
@@ -595,7 +595,7 @@ let computeCarryOutFromImmCflag (ins: Instruction) insLen bld =
   | None ->
     getCarryFlag bld
 
-let translateLogicOp (ins: Instruction) insLen bld =
+let translateLogicOp (ins: Instruction) bld =
   match ins.Operands with
   | TwoOperands(OprReg _, OprReg _) ->
     let t = tmpVar bld 32<rt>
@@ -607,7 +607,7 @@ let translateLogicOp (ins: Instruction) insLen bld =
     e1, e1, shifted, carryOut
   | ThreeOperands(_, _, OprImm _) ->
     let struct (e1, e2, e3) = transThreeOprs ins bld
-    let carryOut = computeCarryOutFromImmCflag ins insLen bld
+    let carryOut = computeCarryOutFromImmCflag ins bld
     e1, e2, e3, carryOut
   | ThreeOperands(OprReg _, OprReg _, OprReg _) ->
     let t = tmpVar bld 32<rt>
@@ -643,11 +643,11 @@ let translateLogicOp (ins: Instruction) insLen bld =
   | _ ->
     raise InvalidOperandException
 
-let logicalAnd isSetFlags (ins: Instruction) insLen bld =
-  lift bld ins insLen {
+let logicalAnd isSetFlags (ins: Instruction) bld =
+  lift bld ins {
     let isUnconditional = ParseUtils.isUnconditional ins.Condition
     let lblIgnore = checkCondition ins bld isUnconditional
-    let dst, src1, src2, carryOut = translateLogicOp ins insLen bld
+    let dst, src1, src2, carryOut = translateLogicOp ins bld
     let result = tmpVar bld 32<rt>
     result := src1 .& src2
     if dst = getPC bld then
@@ -673,8 +673,8 @@ let parseOprsOfMOV (ins: Instruction) bld =
   | _ ->
     raise InvalidOperandException
 
-let mov isSetFlags ins insLen bld =
-  lift bld ins insLen {
+let mov isSetFlags ins bld =
+  lift bld ins {
     let struct (dst, src) = parseOprsOfMOV ins bld
     let result = tmpVar bld 32<rt>
     let isUnconditional = ParseUtils.isUnconditional ins.Condition
@@ -697,11 +697,11 @@ let mov isSetFlags ins insLen bld =
     putEndLabel bld lblIgnore
   }
 
-let eor isSetFlags (ins: Instruction) insLen bld =
-  lift bld ins insLen {
+let eor isSetFlags (ins: Instruction) bld =
+  lift bld ins {
     let isUnconditional = ParseUtils.isUnconditional ins.Condition
     let lblIgnore = checkCondition ins bld isUnconditional
-    let dst, src1, src2, carryOut = translateLogicOp ins insLen bld
+    let dst, src1, src2, carryOut = translateLogicOp ins bld
     let result = tmpVar bld 32<rt>
     result := src1 <+> src2
     if dst = getPC bld then
@@ -718,7 +718,7 @@ let eor isSetFlags (ins: Instruction) insLen bld =
     putEndLabel bld lblIgnore
   }
 
-let transFourOprsOfRSB (ins: Instruction) insLen bld =
+let transFourOprsOfRSB (ins: Instruction) bld =
   match ins.Operands with
   | FourOperands(opr1, opr2, opr3, (OprShift(_, Imm _) as opr4)) ->
     let e1 = transOprToExpr ins bld opr1
@@ -733,15 +733,15 @@ let transFourOprsOfRSB (ins: Instruction) insLen bld =
   | _ ->
     raise InvalidOperandException
 
-let parseOprOfRSB (ins: Instruction) insLen bld =
+let parseOprOfRSB (ins: Instruction) bld =
   match ins.Operands with
   | ThreeOperands _ -> transThreeOprs ins bld
-  | FourOperands _ -> transFourOprsOfRSB ins insLen bld
+  | FourOperands _ -> transFourOprsOfRSB ins bld
   | _ -> raise InvalidOperandException
 
-let rsb isSetFlags ins insLen bld =
-  lift bld ins insLen {
-    let struct (dst, src1, src2) = parseOprOfRSB ins insLen bld
+let rsb isSetFlags ins bld =
+  lift bld ins {
+    let struct (dst, src1, src2) = parseOprOfRSB ins bld
     let struct (t1, t2) = tmpVars2 bld 32<rt>
     let isUnconditional = ParseUtils.isUnconditional ins.Condition
     let lblIgnore = checkCondition ins bld isUnconditional
@@ -765,7 +765,7 @@ let rsb isSetFlags ins insLen bld =
     putEndLabel bld lblIgnore
   }
 
-let transTwoOprsOfSBC (ins: Instruction) insLen bld =
+let transTwoOprsOfSBC (ins: Instruction) bld =
   match ins.Operands with
   | TwoOperands(OprReg _, OprReg _) ->
     let struct (e1, e2) = transTwoOprs ins bld
@@ -773,7 +773,7 @@ let transTwoOprsOfSBC (ins: Instruction) insLen bld =
   | _ ->
     raise InvalidOperandException
 
-let transFourOprsOfSBC (ins: Instruction) insLen bld =
+let transFourOprsOfSBC (ins: Instruction) bld =
   match ins.Operands with
   | FourOperands(opr1, opr2, opr3, (OprShift(_, Imm _) as opr4)) ->
     let e1 = transOprToExpr ins bld opr1
@@ -788,16 +788,16 @@ let transFourOprsOfSBC (ins: Instruction) insLen bld =
   | _ ->
     raise InvalidOperandException
 
-let parseOprOfSBC (ins: Instruction) insLen bld =
+let parseOprOfSBC (ins: Instruction) bld =
   match ins.Operands with
-  | TwoOperands _ -> transTwoOprsOfSBC ins insLen bld
+  | TwoOperands _ -> transTwoOprsOfSBC ins bld
   | ThreeOperands _ -> transThreeOprs ins bld
-  | FourOperands _ -> transFourOprsOfSBC ins insLen bld
+  | FourOperands _ -> transFourOprsOfSBC ins bld
   | _ -> raise InvalidOperandException
 
-let sbc isSetFlags ins insLen bld =
-  lift bld ins insLen {
-    let struct (dst, src1, src2) = parseOprOfSBC ins insLen bld
+let sbc isSetFlags ins bld =
+  lift bld ins {
+    let struct (dst, src1, src2) = parseOprOfSBC ins bld
     let struct (t1, t2) = tmpVars2 bld 32<rt>
     let isUnconditional = ParseUtils.isUnconditional ins.Condition
     let lblIgnore = checkCondition ins bld isUnconditional
@@ -821,7 +821,7 @@ let sbc isSetFlags ins insLen bld =
     putEndLabel bld lblIgnore
   }
 
-let transFourOprsOfRSC (ins: Instruction) insLen bld =
+let transFourOprsOfRSC (ins: Instruction) bld =
   match ins.Operands with
   | FourOperands(opr1, opr2, opr3, (OprShift(_, Imm _) as opr4)) ->
     let e1 = transOprToExpr ins bld opr1
@@ -836,15 +836,15 @@ let transFourOprsOfRSC (ins: Instruction) insLen bld =
   | _ ->
     raise InvalidOperandException
 
-let parseOprOfRSC (ins: Instruction) insLen bld =
+let parseOprOfRSC (ins: Instruction) bld =
   match ins.Operands with
   | ThreeOperands _ -> transThreeOprs ins bld
-  | FourOperands _ -> transFourOprsOfRSB ins insLen bld
+  | FourOperands _ -> transFourOprsOfRSB ins bld
   | _ -> raise InvalidOperandException
 
-let rsc isSetFlags ins insLen bld =
-  lift bld ins insLen {
-    let struct (dst, src1, src2) = parseOprOfRSC ins insLen bld
+let rsc isSetFlags ins bld =
+  lift bld ins {
+    let struct (dst, src1, src2) = parseOprOfRSC ins bld
     let struct (t1, t2) = tmpVars2 bld 32<rt>
     let isUnconditional = ParseUtils.isUnconditional ins.Condition
     let lblIgnore = checkCondition ins bld isUnconditional
@@ -868,11 +868,11 @@ let rsc isSetFlags ins insLen bld =
     putEndLabel bld lblIgnore
   }
 
-let orr isSetFlags (ins: Instruction) insLen bld =
-  lift bld ins insLen {
+let orr isSetFlags (ins: Instruction) bld =
+  lift bld ins {
     let isUnconditional = ParseUtils.isUnconditional ins.Condition
     let lblIgnore = checkCondition ins bld isUnconditional
-    let dst, src1, src2, carryOut = translateLogicOp ins insLen bld
+    let dst, src1, src2, carryOut = translateLogicOp ins bld
     let result = tmpVar bld 32<rt>
     result := src1 .| src2
     if dst = getPC bld then
@@ -889,11 +889,11 @@ let orr isSetFlags (ins: Instruction) insLen bld =
     putEndLabel bld lblIgnore
   }
 
-let orn isSetFlags (ins: Instruction) insLen bld =
-  lift bld ins insLen {
+let orn isSetFlags (ins: Instruction) bld =
+  lift bld ins {
     let isUnconditional = ParseUtils.isUnconditional ins.Condition
     let lblIgnore = checkCondition ins bld isUnconditional
-    let dst, src1, src2, carryOut = translateLogicOp ins insLen bld
+    let dst, src1, src2, carryOut = translateLogicOp ins bld
     let result = tmpVar bld 32<rt>
     result := src1 .| AST.not src2
     if dst = getPC bld then
@@ -910,11 +910,11 @@ let orn isSetFlags (ins: Instruction) insLen bld =
     putEndLabel bld lblIgnore
   }
 
-let bic isSetFlags (ins: Instruction) insLen bld =
-  lift bld ins insLen {
+let bic isSetFlags (ins: Instruction) bld =
+  lift bld ins {
     let isUnconditional = ParseUtils.isUnconditional ins.Condition
     let lblIgnore = checkCondition ins bld isUnconditional
-    let dst, src1, src2, carryOut = translateLogicOp ins insLen bld
+    let dst, src1, src2, carryOut = translateLogicOp ins bld
     let result = tmpVar bld 32<rt>
     result := src1 .& (AST.not src2)
     if dst = getPC bld then
@@ -931,7 +931,7 @@ let bic isSetFlags (ins: Instruction) insLen bld =
     putEndLabel bld lblIgnore
   }
 
-let transTwoOprsOfMVN (ins: Instruction) insLen bld =
+let transTwoOprsOfMVN (ins: Instruction) bld =
   match ins.Operands with
   | TwoOperands(OprReg _, OprImm _) ->
     let struct (e1, e2) = transTwoOprs ins bld
@@ -943,7 +943,7 @@ let transTwoOprsOfMVN (ins: Instruction) insLen bld =
   | _ ->
     raise InvalidOperandException
 
-let transThreeOprsOfMVN (ins: Instruction) insLen bld =
+let transThreeOprsOfMVN (ins: Instruction) bld =
   match ins.Operands with
   | ThreeOperands(opr1, opr2, OprShift(typ, Imm imm)) ->
     let carryIn = getCarryFlag bld
@@ -961,15 +961,15 @@ let transThreeOprsOfMVN (ins: Instruction) insLen bld =
   | _ ->
     raise InvalidOperandException
 
-let parseOprOfMVN (ins: Instruction) insLen bld =
+let parseOprOfMVN (ins: Instruction) bld =
   match ins.Operands with
-  | TwoOperands _ -> transTwoOprsOfMVN ins insLen bld
-  | ThreeOperands _ -> transThreeOprsOfMVN ins insLen bld
+  | TwoOperands _ -> transTwoOprsOfMVN ins bld
+  | ThreeOperands _ -> transThreeOprsOfMVN ins bld
   | _ -> raise InvalidOperandException
 
-let mvn isSetFlags ins insLen bld =
-  lift bld ins insLen {
-    let struct (dst, src, carryOut) = parseOprOfMVN ins insLen bld
+let mvn isSetFlags ins bld =
+  lift bld ins {
+    let struct (dst, src, carryOut) = parseOprOfMVN ins bld
     let result = tmpVar bld 32<rt>
     let isUnconditional = ParseUtils.isUnconditional ins.Condition
     let lblIgnore = checkCondition ins bld isUnconditional
@@ -988,9 +988,9 @@ let mvn isSetFlags ins insLen bld =
     putEndLabel bld lblIgnore
   }
 
-let svc (ins: Instruction) insLen bld =
+let svc (ins: Instruction) bld =
   match ins.Operands with
-  | OneOperand(OprImm n) -> sideEffects ins insLen bld (Interrupt(int n))
+  | OneOperand(OprImm n) -> sideEffects ins bld (Interrupt(int n))
   | _ -> raise InvalidOperandException
 
 let getImmShiftFromShiftType imm = function
@@ -1039,8 +1039,8 @@ let parseOprOfShiftInstr (ins: Instruction) shiftTyp bld tmp =
   | ThreeOperands _ -> transThreeOprsOfShiftInstr ins shiftTyp bld tmp
   | _ -> raise InvalidOperandException
 
-let shiftInstr isSetFlags ins insLen typ bld =
-  lift bld ins insLen {
+let shiftInstr isSetFlags ins typ bld =
+  lift bld ins {
     let struct (srcTmp, result) = tmpVars2 bld 32<rt>
     let dst, src, res, carryOut = parseOprOfShiftInstr ins typ bld srcTmp
     let isUnconditional = ParseUtils.isUnconditional ins.Condition
@@ -1061,114 +1061,114 @@ let shiftInstr isSetFlags ins insLen typ bld =
     putEndLabel bld lblIgnore
   }
 
-let subs isSetFlags (ins: Instruction) insLen bld =
+let subs isSetFlags (ins: Instruction) bld =
   match ins.Operands with
   | ThreeOperands(OprReg R.PC, _, _) when ins.IsThumb ->
-    subsPCLRThumb ins insLen bld
+    subsPCLRThumb ins bld
   | ThreeOperands(OprReg R.PC, _, _)
   | FourOperands(OprReg R.PC, _, _, _) ->
-    subsAndRelatedInstr ins insLen bld
+    subsAndRelatedInstr ins bld
   | _ ->
-    sub isSetFlags ins insLen bld
+    sub isSetFlags ins bld
 
-let adds isSetFlags (ins: Instruction) insLen bld =
+let adds isSetFlags (ins: Instruction) bld =
   match ins.Operands with
   | ThreeOperands(OprReg R.PC, _, _)
-  | FourOperands(OprReg R.PC, _, _, _) -> subsAndRelatedInstr ins insLen bld
-  | _ -> add isSetFlags ins insLen bld
+  | FourOperands(OprReg R.PC, _, _, _) -> subsAndRelatedInstr ins bld
+  | _ -> add isSetFlags ins bld
 
-let adcs isSetFlags (ins: Instruction) insLen bld =
+let adcs isSetFlags (ins: Instruction) bld =
   match ins.Operands with
   | ThreeOperands(OprReg R.PC, _, _)
-  | FourOperands(OprReg R.PC, _, _, _) -> subsAndRelatedInstr ins insLen bld
-  | _ -> adc isSetFlags ins insLen bld
+  | FourOperands(OprReg R.PC, _, _, _) -> subsAndRelatedInstr ins bld
+  | _ -> adc isSetFlags ins bld
 
-let ands isSetFlags (ins: Instruction) insLen bld =
+let ands isSetFlags (ins: Instruction) bld =
   match ins.Operands with
   | ThreeOperands(OprReg R.PC, _, _)
-  | FourOperands(OprReg R.PC, _, _, _) -> subsAndRelatedInstr ins insLen bld
-  | _ -> logicalAnd isSetFlags ins insLen bld
+  | FourOperands(OprReg R.PC, _, _, _) -> subsAndRelatedInstr ins bld
+  | _ -> logicalAnd isSetFlags ins bld
 
-let movs isSetFlags (ins: Instruction) insLen bld =
+let movs isSetFlags (ins: Instruction) bld =
   match ins.Operands with
-  | TwoOperands(OprReg R.PC, _) -> subsAndRelatedInstr ins insLen bld
-  | _ -> mov isSetFlags ins insLen bld
+  | TwoOperands(OprReg R.PC, _) -> subsAndRelatedInstr ins bld
+  | _ -> mov isSetFlags ins bld
 
-let eors isSetFlags (ins: Instruction) insLen bld =
-  match ins.Operands with
-  | ThreeOperands(OprReg R.PC, _, _)
-  | FourOperands(OprReg R.PC, _, _, _) -> subsAndRelatedInstr ins insLen bld
-  | _ -> eor isSetFlags ins insLen bld
-
-let rsbs isSetFlags (ins: Instruction) insLen bld =
+let eors isSetFlags (ins: Instruction) bld =
   match ins.Operands with
   | ThreeOperands(OprReg R.PC, _, _)
-  | FourOperands(OprReg R.PC, _, _, _) -> subsAndRelatedInstr ins insLen bld
-  | _ -> rsb isSetFlags ins insLen bld
+  | FourOperands(OprReg R.PC, _, _, _) -> subsAndRelatedInstr ins bld
+  | _ -> eor isSetFlags ins bld
 
-let sbcs isSetFlags (ins: Instruction) insLen bld =
+let rsbs isSetFlags (ins: Instruction) bld =
   match ins.Operands with
   | ThreeOperands(OprReg R.PC, _, _)
-  | FourOperands(OprReg R.PC, _, _, _) -> subsAndRelatedInstr ins insLen bld
-  | _ -> sbc isSetFlags ins insLen bld
+  | FourOperands(OprReg R.PC, _, _, _) -> subsAndRelatedInstr ins bld
+  | _ -> rsb isSetFlags ins bld
 
-let rscs isSetFlags (ins: Instruction) insLen bld =
+let sbcs isSetFlags (ins: Instruction) bld =
   match ins.Operands with
   | ThreeOperands(OprReg R.PC, _, _)
-  | FourOperands(OprReg R.PC, _, _, _) -> subsAndRelatedInstr ins insLen bld
-  | _ -> rsc isSetFlags ins insLen bld
+  | FourOperands(OprReg R.PC, _, _, _) -> subsAndRelatedInstr ins bld
+  | _ -> sbc isSetFlags ins bld
 
-let orrs isSetFlags (ins: Instruction) insLen bld =
+let rscs isSetFlags (ins: Instruction) bld =
   match ins.Operands with
   | ThreeOperands(OprReg R.PC, _, _)
-  | FourOperands(OprReg R.PC, _, _, _) -> subsAndRelatedInstr ins insLen bld
-  | _ -> orr isSetFlags ins insLen bld
+  | FourOperands(OprReg R.PC, _, _, _) -> subsAndRelatedInstr ins bld
+  | _ -> rsc isSetFlags ins bld
 
-let orns isSetFlags (ins: Instruction) insLen bld =
+let orrs isSetFlags (ins: Instruction) bld =
   match ins.Operands with
   | ThreeOperands(OprReg R.PC, _, _)
-  | FourOperands(OprReg R.PC, _, _, _) -> subsAndRelatedInstr ins insLen bld
-  | _ -> orn isSetFlags ins insLen bld
+  | FourOperands(OprReg R.PC, _, _, _) -> subsAndRelatedInstr ins bld
+  | _ -> orr isSetFlags ins bld
 
-let bics isSetFlags (ins: Instruction) insLen bld =
+let orns isSetFlags (ins: Instruction) bld =
   match ins.Operands with
   | ThreeOperands(OprReg R.PC, _, _)
-  | FourOperands(OprReg R.PC, _, _, _) -> subsAndRelatedInstr ins insLen bld
-  | _ -> bic isSetFlags ins insLen bld
+  | FourOperands(OprReg R.PC, _, _, _) -> subsAndRelatedInstr ins bld
+  | _ -> orn isSetFlags ins bld
 
-let mvns isSetFlags (ins: Instruction) insLen bld =
+let bics isSetFlags (ins: Instruction) bld =
+  match ins.Operands with
+  | ThreeOperands(OprReg R.PC, _, _)
+  | FourOperands(OprReg R.PC, _, _, _) -> subsAndRelatedInstr ins bld
+  | _ -> bic isSetFlags ins bld
+
+let mvns isSetFlags (ins: Instruction) bld =
   match ins.Operands with
   | TwoOperands(OprReg R.PC, _)
-  | ThreeOperands(OprReg R.PC, _, _) -> subsAndRelatedInstr ins insLen bld
-  | _ -> mvn isSetFlags ins insLen bld
+  | ThreeOperands(OprReg R.PC, _, _) -> subsAndRelatedInstr ins bld
+  | _ -> mvn isSetFlags ins bld
 
-let asrs isSetFlags (ins: Instruction) insLen bld =
+let asrs isSetFlags (ins: Instruction) bld =
   match ins.Operands with
-  | ThreeOperands(OprReg R.PC, _, _) -> subsAndRelatedInstr ins insLen bld
-  | _ -> shiftInstr isSetFlags ins insLen ShiftOp.ASR bld
+  | ThreeOperands(OprReg R.PC, _, _) -> subsAndRelatedInstr ins bld
+  | _ -> shiftInstr isSetFlags ins ShiftOp.ASR bld
 
-let lsls isSetFlags (ins: Instruction) insLen bld =
+let lsls isSetFlags (ins: Instruction) bld =
   match ins.Operands with
-  | ThreeOperands(OprReg R.PC, _, _) -> subsAndRelatedInstr ins insLen bld
-  | _ -> shiftInstr isSetFlags ins insLen ShiftOp.LSL bld
+  | ThreeOperands(OprReg R.PC, _, _) -> subsAndRelatedInstr ins bld
+  | _ -> shiftInstr isSetFlags ins ShiftOp.LSL bld
 
-let lsrs isSetFlags (ins: Instruction) insLen bld =
+let lsrs isSetFlags (ins: Instruction) bld =
   match ins.Operands with
-  | ThreeOperands(OprReg R.PC, _, _) -> subsAndRelatedInstr ins insLen bld
-  | _ -> shiftInstr isSetFlags ins insLen ShiftOp.LSR bld
+  | ThreeOperands(OprReg R.PC, _, _) -> subsAndRelatedInstr ins bld
+  | _ -> shiftInstr isSetFlags ins ShiftOp.LSR bld
 
-let rors isSetFlags (ins: Instruction) insLen bld =
+let rors isSetFlags (ins: Instruction) bld =
   match ins.Operands with
-  | ThreeOperands(OprReg R.PC, _, _) -> subsAndRelatedInstr ins insLen bld
-  | _ -> shiftInstr isSetFlags ins insLen ShiftOp.ROR bld
+  | ThreeOperands(OprReg R.PC, _, _) -> subsAndRelatedInstr ins bld
+  | _ -> shiftInstr isSetFlags ins ShiftOp.ROR bld
 
-let rrxs isSetFlags (ins: Instruction) insLen bld =
+let rrxs isSetFlags (ins: Instruction) bld =
   match ins.Operands with
-  | TwoOperands(OprReg R.PC, _) -> subsAndRelatedInstr ins insLen bld
-  | _ -> shiftInstr isSetFlags ins insLen ShiftOp.RRX bld
+  | TwoOperands(OprReg R.PC, _) -> subsAndRelatedInstr ins bld
+  | _ -> shiftInstr isSetFlags ins ShiftOp.RRX bld
 
-let clz ins insLen bld =
-  lift bld ins insLen {
+let clz ins bld =
+  lift bld ins {
     let struct (dst, src) = transTwoOprs ins bld
     let lblBoundCheck = label bld "LBoundCheck"
     let lblZeroCheck = label bld "LZeroCheck"
@@ -1194,7 +1194,7 @@ let clz ins insLen bld =
     putEndLabel bld lblIgnore
   }
 
-let transTwoOprsOfCMN (ins: Instruction) insLen bld =
+let transTwoOprsOfCMN (ins: Instruction) bld =
   match ins.Operands with
   | TwoOperands(OprReg _, OprImm _) ->
     transTwoOprs ins bld
@@ -1205,7 +1205,7 @@ let transTwoOprsOfCMN (ins: Instruction) insLen bld =
   | _ ->
     raise InvalidOperandException
 
-let transThreeOprsOfCMN (ins: Instruction) insLen bld =
+let transThreeOprsOfCMN (ins: Instruction) bld =
   match ins.Operands with
   | ThreeOperands(opr1, opr2, OprShift(typ, Imm imm)) ->
     let carryIn = getCarryFlag bld
@@ -1223,15 +1223,15 @@ let transThreeOprsOfCMN (ins: Instruction) insLen bld =
   | _ ->
     raise InvalidOperandException
 
-let parseOprOfCMN (ins: Instruction) insLen bld =
+let parseOprOfCMN (ins: Instruction) bld =
   match ins.Operands with
-  | TwoOperands _ -> transTwoOprsOfCMN ins insLen bld
-  | ThreeOperands _ -> transThreeOprsOfCMN ins insLen bld
+  | TwoOperands _ -> transTwoOprsOfCMN ins bld
+  | ThreeOperands _ -> transThreeOprsOfCMN ins bld
   | _ -> raise InvalidOperandException
 
-let cmn ins insLen bld =
-  lift bld ins insLen {
-    let struct (dst, src) = parseOprOfCMN ins insLen bld
+let cmn ins bld =
+  lift bld ins {
+    let struct (dst, src) = parseOprOfCMN ins bld
     let struct (t1, t2) = tmpVars2 bld 32<rt>
     let cpsr = regVar bld R.CPSR
     let isUnconditional = ParseUtils.isUnconditional ins.Condition
@@ -1247,8 +1247,8 @@ let cmn ins insLen bld =
     putEndLabel bld lblIgnore
   }
 
-let mla isSetFlags ins insLen bld =
-  lift bld ins insLen {
+let mla isSetFlags ins bld =
+  lift bld ins {
     let struct (rd, rn, rm, ra) = transFourOprs ins bld
     let r = tmpVar bld 32<rt>
     let isUnconditional = ParseUtils.isUnconditional ins.Condition
@@ -1265,7 +1265,7 @@ let mla isSetFlags ins insLen bld =
     putEndLabel bld lblIgnore
   }
 
-let transTwoOprsOfCMP (ins: Instruction) insLen bld =
+let transTwoOprsOfCMP (ins: Instruction) bld =
   match ins.Operands with
   | TwoOperands(OprReg _, OprImm _) ->
     transTwoOprs ins bld
@@ -1275,7 +1275,7 @@ let transTwoOprsOfCMP (ins: Instruction) insLen bld =
   | _ ->
     raise InvalidOperandException
 
-let transThreeOprsOfCMP (ins: Instruction) insLen bld =
+let transThreeOprsOfCMP (ins: Instruction) bld =
   match ins.Operands with
   | ThreeOperands(opr1, opr2, OprShift(typ, Imm imm)) ->
     let carryIn = getCarryFlag bld
@@ -1291,15 +1291,15 @@ let transThreeOprsOfCMP (ins: Instruction) insLen bld =
   | _ ->
     raise InvalidOperandException
 
-let parseOprOfCMP (ins: Instruction) insLen bld =
+let parseOprOfCMP (ins: Instruction) bld =
   match ins.Operands with
-  | TwoOperands _ -> transTwoOprsOfCMP ins insLen bld
-  | ThreeOperands _ -> transThreeOprsOfCMP ins insLen bld
+  | TwoOperands _ -> transTwoOprsOfCMP ins bld
+  | ThreeOperands _ -> transThreeOprsOfCMP ins bld
   | _ -> raise InvalidOperandException
 
-let cmp ins insLen bld =
-  lift bld ins insLen {
-    let struct (rn, rm) = parseOprOfCMP ins insLen bld
+let cmp ins bld =
+  lift bld ins {
+    let struct (rn, rm) = parseOprOfCMP ins bld
     let struct (t1, t2) = tmpVars2 bld 32<rt>
     let cpsr = regVar bld R.CPSR
     let isUnconditional = ParseUtils.isUnconditional ins.Condition
@@ -1315,8 +1315,8 @@ let cmp ins insLen bld =
     putEndLabel bld lblIgnore
   }
 
-let umaal (ins: Instruction) insLen bld =
-  lift bld ins insLen {
+let umaal (ins: Instruction) bld =
+  lift bld ins {
     let struct (rdLo, rdHi, rn, rm) = transFourOprs ins bld
     let isUnconditional = ParseUtils.isUnconditional ins.Condition
     let lblIgnore = checkCondition ins bld isUnconditional
@@ -1328,8 +1328,8 @@ let umaal (ins: Instruction) insLen bld =
     putEndLabel bld lblIgnore
   }
 
-let umlal isSetFlags ins insLen bld =
-  lift bld ins insLen {
+let umlal isSetFlags ins bld =
+  lift bld ins {
     let struct (rdLo, rdHi, rn, rm) = transFourOprs ins bld
     let result = tmpVar bld 64<rt>
     let isUnconditional = ParseUtils.isUnconditional ins.Condition
@@ -1348,8 +1348,8 @@ let umlal isSetFlags ins insLen bld =
     putEndLabel bld lblIgnore
   }
 
-let umull isSetFlags ins insLen bld =
-  lift bld ins insLen {
+let umull isSetFlags ins bld =
+  lift bld ins {
     let struct (rdLo, rdHi, rn, rm) = transFourOprs ins bld
     let result = tmpVar bld 64<rt>
     let isUnconditional = ParseUtils.isUnconditional ins.Condition
@@ -1366,7 +1366,7 @@ let umull isSetFlags ins insLen bld =
     putEndLabel bld lblIgnore
   }
 
-let transOprsOfTEQ (ins: Instruction) insLen bld =
+let transOprsOfTEQ (ins: Instruction) bld =
   match ins.Operands with
   | TwoOperands(OprReg _, OprImm _) ->
     let struct (rn, imm) = transTwoOprs ins bld
@@ -1387,9 +1387,9 @@ let transOprsOfTEQ (ins: Instruction) insLen bld =
   | _ ->
     raise InvalidOperandException
 
-let teq ins insLen bld =
-  lift bld ins insLen {
-    let src1, src2, carryOut = transOprsOfTEQ ins insLen bld
+let teq ins bld =
+  lift bld ins {
+    let src1, src2, carryOut = transOprsOfTEQ ins bld
     let result = tmpVar bld 32<rt>
     let cpsr = regVar bld R.CPSR
     let isUnconditional = ParseUtils.isUnconditional ins.Condition
@@ -1401,8 +1401,8 @@ let teq ins insLen bld =
     putEndLabel bld lblIgnore
   }
 
-let mul isSetFlags ins insLen bld =
-  lift bld ins insLen {
+let mul isSetFlags ins bld =
+  lift bld ins {
     let struct (rd, rn, rm) = transThreeOprs ins bld
     let result = tmpVar bld 32<rt>
     let isUnconditional = ParseUtils.isUnconditional ins.Condition
@@ -1418,11 +1418,11 @@ let mul isSetFlags ins insLen bld =
     putEndLabel bld lblIgnore
   }
 
-let transOprsOfTST (ins: Instruction) insLen bld =
+let transOprsOfTST (ins: Instruction) bld =
   match ins.Operands with
   | TwoOperands(OprReg _, OprImm _) ->
     let struct (rn, imm) = transTwoOprs ins bld
-    let carryOut = computeCarryOutFromImmCflag ins insLen bld
+    let carryOut = computeCarryOutFromImmCflag ins bld
     struct (rn, imm, carryOut)
   | TwoOperands(OprReg _, OprReg _) ->
     let struct (e1, e2) = transTwoOprs ins bld
@@ -1444,9 +1444,9 @@ let transOprsOfTST (ins: Instruction) insLen bld =
   | _ ->
     raise InvalidOperandException
 
-let tst ins insLen bld =
-  lift bld ins insLen {
-    let struct (src1, src2, carryOut) = transOprsOfTST ins insLen bld
+let tst ins bld =
+  lift bld ins {
+    let struct (src1, src2, carryOut) = transOprsOfTST ins bld
     let result = tmpVar bld 32<rt>
     let cpsr = regVar bld R.CPSR
     let isUnconditional = ParseUtils.isUnconditional ins.Condition
@@ -1458,8 +1458,8 @@ let tst ins insLen bld =
     putEndLabel bld lblIgnore
   }
 
-let smulhalf ins insLen bld s1top s2top =
-  lift bld ins insLen {
+let smulhalf ins bld s1top s2top =
+  lift bld ins {
     let struct (rd, rn, rm) = transThreeOprs ins bld
     let struct (t1, t2) = tmpVars2 bld 32<rt>
     let isUnconditional = ParseUtils.isUnconditional ins.Condition
@@ -1472,8 +1472,8 @@ let smulhalf ins insLen bld s1top s2top =
     putEndLabel bld lblIgnore
   }
 
-let smmla (ins: Instruction) insLen bld isRound =
-  lift bld ins insLen {
+let smmla (ins: Instruction) bld isRound =
+  lift bld ins {
     let struct (dst, src1, src2, src3) = transFourOprs ins bld
     let result = tmpVar bld 64<rt>
     let isUnconditional = ParseUtils.isUnconditional ins.Condition
@@ -1488,8 +1488,8 @@ let smmla (ins: Instruction) insLen bld isRound =
     putEndLabel bld lblIgnore
   }
 
-let smmul (ins: Instruction) insLen bld isRound =
-  lift bld ins insLen {
+let smmul (ins: Instruction) bld isRound =
+  lift bld ins {
     let struct (dst, src1, src2) = transThreeOprs ins bld
     let result = tmpVar bld 64<rt>
     let isUnconditional = ParseUtils.isUnconditional ins.Condition
@@ -1504,8 +1504,8 @@ let smmul (ins: Instruction) insLen bld isRound =
   }
 
 /// SMULL, SMLAL, etc.
-let smulandacc isSetFlags doAcc ins insLen bld =
-  lift bld ins insLen {
+let smulandacc isSetFlags doAcc ins bld =
+  lift bld ins {
     let struct (rdLo, rdHi, rn, rm) = transFourOprs ins bld
     let struct (tmpresult, result) = tmpVars2 bld 64<rt>
     let isUnconditional = ParseUtils.isUnconditional ins.Condition
@@ -1524,8 +1524,8 @@ let smulandacc isSetFlags doAcc ins insLen bld =
     putEndLabel bld lblIgnore
   }
 
-let smulacclongdual (ins: Instruction) insLen bld sign =
-  lift bld ins insLen {
+let smulacclongdual (ins: Instruction) bld sign =
+  lift bld ins {
     let isUnconditional = ParseUtils.isUnconditional ins.Condition
     let lblIgnore = checkCondition ins bld isUnconditional
     let struct (dst1, dst2, src1, src2) = transFourOprs ins bld
@@ -1543,8 +1543,8 @@ let smulacclongdual (ins: Instruction) insLen bld sign =
     putEndLabel bld lblIgnore
   }
 
-let smulaccwordbyhalf (ins: Instruction) insLen bld sign =
-  lift bld ins insLen {
+let smulaccwordbyhalf (ins: Instruction) bld sign =
+  lift bld ins {
     let isUnconditional = ParseUtils.isUnconditional ins.Condition
     let lblIgnore = checkCondition ins bld isUnconditional
     let struct (dst, src1, src2, src3) = transFourOprs ins bld
@@ -1562,8 +1562,8 @@ let smulaccwordbyhalf (ins: Instruction) insLen bld sign =
     putEndLabel bld lblIgnore
   }
 
-let smulacchalf ins insLen bld s1top s2top =
-  lift bld ins insLen {
+let smulacchalf ins bld s1top s2top =
+  lift bld ins {
     let struct (rd, rn, rm, ra) = transFourOprs ins bld
     let struct (t1, t2) = tmpVars2 bld 32<rt>
     let isUnconditional = ParseUtils.isUnconditional ins.Condition
@@ -1576,8 +1576,8 @@ let smulacchalf ins insLen bld s1top s2top =
     putEndLabel bld lblIgnore
   }
 
-let smulacclonghalf (ins: Instruction) insLen bld s1top s2top =
-  lift bld ins insLen {
+let smulacclonghalf (ins: Instruction) bld s1top s2top =
+  lift bld ins {
     let isUnconditional = ParseUtils.isUnconditional ins.Condition
     let lblIgnore = checkCondition ins bld isUnconditional
     let struct (dst1, dst2, src1, src2) = transFourOprs ins bld
@@ -1598,8 +1598,8 @@ let parseOprOfB (ins: Instruction) =
   | OneOperand(OprMemory(LiteralMode imm)) -> addr .+ (numI64 imm 32<rt>)
   | _ -> raise InvalidOperandException
 
-let b ins insLen bld =
-  lift bld ins insLen {
+let b ins bld =
+  lift bld ins {
     let e = parseOprOfB ins
     let isUnconditional = ParseUtils.isUnconditional ins.Condition
     let lblIgnore = checkCondition ins bld isUnconditional
@@ -1608,8 +1608,8 @@ let b ins insLen bld =
     return NoEndMark
   }
 
-let bx ins insLen bld =
-  lift bld ins insLen {
+let bx ins bld =
+  lift bld ins {
     let rm = transOneOpr ins bld
     let isUnconditional = ParseUtils.isUnconditional ins.Condition
     let lblIgnore = checkCondition ins bld isUnconditional
@@ -1625,8 +1625,8 @@ let movtAssign dst src =
   dst := clearHigh16In32 dst .|
          (src << (numI32 16 32<rt>))
 
-let movt ins insLen bld =
-  lift bld ins insLen {
+let movt ins bld =
+  lift bld ins {
     let struct (dst, res) = transTwoOprs ins bld
     let isUnconditional = ParseUtils.isUnconditional ins.Condition
     let lblIgnore = checkCondition ins bld isUnconditional
@@ -1646,8 +1646,8 @@ let transFourOprsWithBarrelShift (ins: Instruction) bld =
   | _ ->
     raise InvalidOperandException
 
-let pkh (ins: Instruction) insLen bld isTbform =
-  lift bld ins insLen {
+let pkh (ins: Instruction) bld isTbform =
+  lift bld ins {
     let struct (dst, src1, src2) = transFourOprsWithBarrelShift ins bld
     let isUnconditional = ParseUtils.isUnconditional ins.Condition
     let lblIgnore = checkCondition ins bld isUnconditional
@@ -1671,8 +1671,8 @@ let popLoop bld numOfReg addr =
       addr
   List.fold loop addr [ 0 .. 14 ]
 
-let pop ins insLen bld =
-  lift bld ins insLen {
+let pop ins bld =
+  lift bld ins {
     let t0 = tmpVar bld 32<rt>
     let sp = regVar bld R.SP
     let numOfReg = parseOprOfPUSHPOP ins
@@ -1707,8 +1707,8 @@ let getLDMStartAddr rn stackWidth = function
   | Op.LDMIB -> rn .+ (numI32 4 32<rt>)
   | _ -> raise InvalidOpcodeException
 
-let ldm opcode ins insLen bld wbackop =
-  lift bld ins insLen {
+let ldm opcode ins bld wbackop =
+  lift bld ins {
     let struct (t0, t1) = tmpVars2 bld 32<rt>
     let struct (rn, numOfRn, numOfReg) = parseOprOfLDM ins bld
     let wback = ins.WriteBack
@@ -1742,7 +1742,7 @@ let getOffAddrWithImm s r imm =
   | Some Minus, Some i -> r .- (numI64 i 32<rt>)
   | _, _ -> r
 
-let parseMemOfLDR ins insLen bld = function
+let parseMemOfLDR ins bld = function
   | OprMemory(OffsetMode(ImmOffset(rn, s, imm))) ->
     let rn = regVar bld rn |> convertPCOpr ins bld
     struct (getOffAddrWithImm s rn imm, None)
@@ -1785,19 +1785,19 @@ let parseMemOfLDR ins insLen bld = function
   | _ ->
     raise InvalidOperandException
 
-let parseOprOfLDR (ins: Instruction) insLen bld =
+let parseOprOfLDR (ins: Instruction) bld =
   match ins.Operands with
   | TwoOperands(OprReg rt, (OprMemory _ as mem)) ->
-    let struct (addr, writeback) = parseMemOfLDR ins insLen bld mem
+    let struct (addr, writeback) = parseMemOfLDR ins bld mem
     struct (regVar bld rt, addr, writeback)
   | _ ->
     raise InvalidOperandException
 
 /// Load register
-let ldr ins insLen bld size ext =
-  lift bld ins insLen {
+let ldr ins bld size ext =
+  lift bld ins {
     let data = tmpVar bld 32<rt>
-    let struct (rt, addr, writeback) = parseOprOfLDR ins insLen bld
+    let struct (rt, addr, writeback) = parseOprOfLDR ins bld
     let isUnconditional = ParseUtils.isUnconditional ins.Condition
     let lblIgnore = checkCondition ins bld isUnconditional
     match writeback with
@@ -1819,7 +1819,7 @@ let ldr ins insLen bld size ext =
     putEndLabel bld lblIgnore
   }
 
-let parseMemOfLDRD ins insLen bld = function
+let parseMemOfLDRD ins bld = function
   | OprMemory(OffsetMode(RegOffset(n, s, m, None))) ->
     struct (getOffAddrWithExpr s (regVar bld n) (regVar bld m), None)
   | OprMemory(PreIdxMode(RegOffset(n, s, m, None))) ->
@@ -1829,20 +1829,20 @@ let parseMemOfLDRD ins insLen bld = function
     let rn = regVar bld n
     struct (rn, Some(rn, Some(getOffAddrWithExpr s rn (regVar bld m))))
   | mem ->
-    parseMemOfLDR ins insLen bld mem
+    parseMemOfLDR ins bld mem
 
-let parseOprOfLDRD (ins: Instruction) insLen bld =
+let parseOprOfLDRD (ins: Instruction) bld =
   match ins.Operands with
   | ThreeOperands(OprReg t, OprReg t2, (OprMemory _ as mem)) ->
-    let struct (addr, stmt) = parseMemOfLDRD ins insLen bld mem
+    let struct (addr, stmt) = parseMemOfLDRD ins bld mem
     struct (regVar bld t, regVar bld t2, addr, stmt)
   | _ ->
     raise InvalidOperandException
 
-let ldrd ins insLen bld =
-  lift bld ins insLen {
+let ldrd ins bld =
+  lift bld ins {
     let taddr = tmpVar bld 32<rt>
-    let struct (rt, rt2, addr, writeback) = parseOprOfLDRD ins insLen bld
+    let struct (rt, rt2, addr, writeback) = parseOprOfLDRD ins bld
     let isUnconditional = ParseUtils.isUnconditional ins.Condition
     let lblIgnore = checkCondition ins bld isUnconditional
     let n4 = numI32 4 32<rt>
@@ -1884,8 +1884,8 @@ let combineGEs ge0 ge1 ge2 ge3 =
   let n3 = numI32 3 32<rt>
   ge0 .| (ge1 << n1) .| (ge2 << n2) .| (ge3 << n3)
 
-let uadd8 ins insLen bld =
-  lift bld ins insLen {
+let uadd8 ins bld =
+  lift bld ins {
     let struct (rd, rn, rm) = transThreeOprs ins bld
     let struct (sum1, sum2, sum3, sum4) = tmpVars4 bld 32<rt>
     let struct (ge0, ge1, ge2, ge3) = tmpVars4 bld 32<rt>
@@ -1906,8 +1906,8 @@ let uadd8 ins insLen bld =
     putEndLabel bld lblIgnore
   }
 
-let sel ins insLen bld =
-  lift bld ins insLen {
+let sel ins bld =
+  lift bld ins {
     let struct (t1, t2, t3, t4) = tmpVars4 bld 32<rt>
     let struct (rd, rn, rm) = transThreeOprs ins bld
     let n1 = AST.num1 32<rt>
@@ -1925,8 +1925,8 @@ let sel ins insLen bld =
     putEndLabel bld lblIgnore
   }
 
-let rbit ins insLen bld =
-  lift bld ins insLen {
+let rbit ins bld =
+  lift bld ins {
     let struct (t1, t2) = tmpVars2 bld 32<rt>
     let struct (rd, rm) = transTwoOprs ins bld
     let isUnconditional = ParseUtils.isUnconditional ins.Condition
@@ -1939,8 +1939,8 @@ let rbit ins insLen bld =
     putEndLabel bld lblIgnore
   }
 
-let rev ins insLen bld =
-  lift bld ins insLen {
+let rev ins bld =
+  lift bld ins {
     let struct (t1, t2, t3, t4) = tmpVars4 bld 32<rt>
     let struct (rd, rm) = transTwoOprs ins bld
     let isUnconditional = ParseUtils.isUnconditional ins.Condition
@@ -1953,8 +1953,8 @@ let rev ins insLen bld =
     putEndLabel bld lblIgnore
   }
 
-let rev16 ins insLen bld =
-  lift bld ins insLen {
+let rev16 ins bld =
+  lift bld ins {
     let struct (rd, rm) = transTwoOprs ins bld
     let isUnconditional = ParseUtils.isUnconditional ins.Condition
     let lblIgnore = checkCondition ins bld isUnconditional
@@ -1966,8 +1966,8 @@ let rev16 ins insLen bld =
     putEndLabel bld lblIgnore
   }
 
-let revsh ins insLen bld =
-  lift bld ins insLen {
+let revsh ins bld =
+  lift bld ins {
     let struct (rd, rm) = transTwoOprs ins bld
     let isUnconditional = ParseUtils.isUnconditional ins.Condition
     let lblIgnore = checkCondition ins bld isUnconditional
@@ -1977,8 +1977,8 @@ let revsh ins insLen bld =
     putEndLabel bld lblIgnore
   }
 
-let rfedb (ins: Instruction) insLen bld =
-  lift bld ins insLen {
+let rfedb (ins: Instruction) bld =
+  lift bld ins {
     let isUnconditional = ParseUtils.isUnconditional ins.Condition
     let lblIgnore = checkCondition ins bld isUnconditional
     let dst = transOneOpr ins bld
@@ -1994,9 +1994,9 @@ let rfedb (ins: Instruction) insLen bld =
   }
 
 /// Store register.
-let str ins insLen bld size =
-  lift bld ins insLen {
-    let struct (rt, addr, writeback) = parseOprOfLDR ins insLen bld
+let str ins bld size =
+  lift bld ins {
+    let struct (rt, addr, writeback) = parseOprOfLDR ins bld
     let isUnconditional = ParseUtils.isUnconditional ins.Condition
     let lblIgnore = checkCondition ins bld isUnconditional
     if rt = getPC bld then
@@ -2017,9 +2017,9 @@ let str ins insLen bld size =
 /// so a later store-exclusive can tell, by value comparison, whether the
 /// location was written in between. Under single-observer emulation this needs
 /// no external call and no per-store instrumentation.
-let ldrex ins insLen bld size =
-  lift bld ins insLen {
-    let struct (rt, addr, _) = parseOprOfLDR ins insLen bld
+let ldrex ins bld size =
+  lift bld ins {
+    let struct (rt, addr, _) = parseOprOfLDR ins bld
     let isUnconditional = ParseUtils.isUnconditional ins.Condition
     let lblIgnore = checkCondition ins bld isUnconditional
     let taddr = tmpVar bld 32<rt>
@@ -2034,9 +2034,9 @@ let ldrex ins insLen bld size =
 
 /// Load-exclusive pair (LDREXD/LDAEXD): loads both words and reserves the
 /// block, recording the low word for a later store-exclusive pair to verify.
-let ldrexd ins insLen bld =
-  lift bld ins insLen {
-    let struct (rt, rt2, addr, _) = parseOprOfLDRD ins insLen bld
+let ldrexd ins bld =
+  lift bld ins {
+    let struct (rt, rt2, addr, _) = parseOprOfLDRD ins bld
     let isUnconditional = ParseUtils.isUnconditional ins.Condition
     let lblIgnore = checkCondition ins bld isUnconditional
     let taddr = tmpVar bld 32<rt>
@@ -2057,9 +2057,9 @@ let ldrexd ins insLen bld =
 /// address matches and memory still holds the reserved value; otherwise memory
 /// is left unchanged and it reports failure (Rd = 1). The conditional store is
 /// expressed as a store of ite(matched, data, old), so no branch is emitted.
-let strex ins insLen bld size =
-  lift bld ins insLen {
-    let struct (rd, rt, addr, _) = parseOprOfLDRD ins insLen bld
+let strex ins bld size =
+  lift bld ins {
+    let struct (rd, rt, addr, _) = parseOprOfLDRD ins bld
     let isUnconditional = ParseUtils.isUnconditional ins.Condition
     let lblIgnore = checkCondition ins bld isUnconditional
     let taddr = tmpVar bld 32<rt>
@@ -2074,19 +2074,19 @@ let strex ins insLen bld size =
     putEndLabel bld lblIgnore
   }
 
-let parseOprOfSTREXD (ins: Instruction) insLen bld =
+let parseOprOfSTREXD (ins: Instruction) bld =
   match ins.Operands with
   | FourOperands(OprReg rd, OprReg t, OprReg t2, (OprMemory _ as mem)) ->
-    let struct (addr, stmt) = parseMemOfLDRD ins insLen bld mem
+    let struct (addr, stmt) = parseMemOfLDRD ins bld mem
     struct (regVar bld rd, regVar bld t, regVar bld t2, addr, stmt)
   | _ ->
     raise InvalidOperandException
 
 /// Store-exclusive pair (STREXD/STLEXD): as strex, verifying the reserved low
 /// word; on success both words are stored.
-let strexd ins insLen bld =
-  lift bld ins insLen {
-    let struct (rd, rt, rt2, addr, _) = parseOprOfSTREXD ins insLen bld
+let strexd ins bld =
+  lift bld ins {
+    let struct (rd, rt, rt2, addr, _) = parseOprOfSTREXD ins bld
     let isUnconditional = ParseUtils.isUnconditional ins.Condition
     let lblIgnore = checkCondition ins bld isUnconditional
     let taddr = tmpVar bld 32<rt>
@@ -2103,9 +2103,9 @@ let strexd ins insLen bld =
     putEndLabel bld lblIgnore
   }
 
-let strd ins insLen bld =
-  lift bld ins insLen {
-    let struct (rt, rt2, addr, writeback) = parseOprOfLDRD ins insLen bld
+let strd ins bld =
+  lift bld ins {
+    let struct (rt, rt2, addr, writeback) = parseOprOfLDRD ins bld
     let isUnconditional = ParseUtils.isUnconditional ins.Condition
     let lblIgnore = checkCondition ins bld isUnconditional
     AST.loadLE 32<rt> addr := rt
@@ -2117,7 +2117,7 @@ let strd ins insLen bld =
     putEndLabel bld lblIgnore
   }
 
-let parseOprOfSTM (ins: Instruction) insLen bld =
+let parseOprOfSTM (ins: Instruction) bld =
   match ins.Operands with
   | TwoOperands(OprReg reg, OprRegList regs) ->
     regVar bld reg, regsToUInt32 regs
@@ -2148,10 +2148,10 @@ let stmLoop bld regs wback rn addr =
       addr
   List.fold loop addr [ 0 .. 14 ]
 
-let stm opcode ins insLen bld wbop =
-  lift bld ins insLen {
+let stm opcode ins bld wbop =
+  lift bld ins {
     let taddr = tmpVar bld 32<rt>
-    let rn, regs = parseOprOfSTM ins insLen bld
+    let rn, regs = parseOprOfSTM ins bld
     let wback = ins.WriteBack
     let msize = numI32 (4 * bitCount regs 16) 32<rt>
     let addr = getSTMStartAddr rn msize opcode
@@ -2176,8 +2176,8 @@ let parseOprOfCBZ (ins: Instruction) bld =
   | _ ->
     raise InvalidOperandException
 
-let cbz nonZero ins insLen bld =
-  lift bld ins insLen {
+let cbz nonZero ins bld =
+  lift bld ins {
     let lblL0 = label bld "L0"
     let lblL1 = label bld "L1"
     let n = if nonZero then AST.num1 1<rt> else AST.num0 1<rt>
@@ -2196,7 +2196,7 @@ let cbz nonZero ins insLen bld =
     return NoEndMark
   }
 
-let parseOprOfTableBranch (ins: Instruction) insLen bld =
+let parseOprOfTableBranch (ins: Instruction) bld =
   match ins.Operands with
   | OneOperand(OprMemory(OffsetMode(RegOffset(rn, None, rm, None)))) ->
     let rn = regVar bld rn |> convertPCOpr ins bld
@@ -2214,11 +2214,11 @@ let parseOprOfTableBranch (ins: Instruction) insLen bld =
   | _ ->
     raise InvalidOperandException
 
-let tableBranch (ins: Instruction) insLen bld =
-  lift bld ins insLen {
+let tableBranch (ins: Instruction) bld =
+  lift bld ins {
     let offset = if not ins.IsThumb then 8 else 4
     let pc = bvOfBaseAddr ins.Address .+ (numI32 offset 32<rt>)
-    let halfwords = parseOprOfTableBranch ins insLen bld
+    let halfwords = parseOprOfTableBranch ins bld
     let numTwo = numI32 2 32<rt>
     let result = pc .+ (numTwo .* halfwords)
     let isUnconditional = ParseUtils.isUnconditional ins.Condition
@@ -2228,32 +2228,32 @@ let tableBranch (ins: Instruction) insLen bld =
     return NoEndMark
   }
 
-let parseOprOfBFC (ins: Instruction) insLen bld =
+let parseOprOfBFC (ins: Instruction) bld =
   match ins.Operands with
   | ThreeOperands(OprReg rd, OprImm lsb, OprImm width) ->
     regVar bld rd, Convert.ToInt32 lsb, Convert.ToInt32 width
   | _ ->
     raise InvalidOperandException
 
-let bfc (ins: Instruction) insLen bld =
-  lift bld ins insLen {
-    let rd, lsb, width = parseOprOfBFC ins insLen bld
+let bfc (ins: Instruction) bld =
+  lift bld ins {
+    let rd, lsb, width = parseOprOfBFC ins bld
     let isUnconditional = ParseUtils.isUnconditional ins.Condition
     let lblIgnore = checkCondition ins bld isUnconditional
     rd := replicate rd 32<rt> lsb width 0
     putEndLabel bld lblIgnore
   }
 
-let parseOprOfRdRnLsbWidth (ins: Instruction) insLen bld =
+let parseOprOfRdRnLsbWidth (ins: Instruction) bld =
   match ins.Operands with
   | FourOperands(OprReg rd, OprReg rn, OprImm lsb, OprImm width) ->
     regVar bld rd, regVar bld rn, Convert.ToInt32 lsb, Convert.ToInt32 width
   | _ ->
     raise InvalidOperandException
 
-let bfi ins insLen bld =
-  lift bld ins insLen {
-    let rd, rn, lsb, width = parseOprOfRdRnLsbWidth ins insLen bld
+let bfi ins bld =
+  lift bld ins {
+    let rd, rn, lsb, width = parseOprOfRdRnLsbWidth ins bld
     let struct (t0, t1) = tmpVars2 bld 32<rt>
     let n = rn .& (BitVector(BigInteger.makeMask width, 32<rt>) |> AST.num)
     let isUnconditional = ParseUtils.isUnconditional ins.Condition
@@ -2264,9 +2264,9 @@ let bfi ins insLen bld =
     putEndLabel bld lblIgnore
   }
 
-let bfx ins insLen bld signExtend =
-  lift bld ins insLen {
-    let rd, rn, lsb, width = parseOprOfRdRnLsbWidth ins insLen bld
+let bfx ins bld signExtend =
+  lift bld ins {
+    let rd, rn, lsb, width = parseOprOfRdRnLsbWidth ins bld
     let isUnconditional = ParseUtils.isUnconditional ins.Condition
     let lblIgnore = checkCondition ins bld isUnconditional
     if lsb + width - 1 > 31 || width < 0 then raise InvalidOperandException
@@ -2314,8 +2314,8 @@ let getUQAssignment tmps width =
        (AST.zext 32<rt> t) << (numI32 (idx * width) 32<rt>))
   |> Array.reduce (.|)
 
-let uqopr (ins: Instruction) insLen bld width opr =
-  lift bld ins insLen {
+let uqopr (ins: Instruction) bld width opr =
+  lift bld ins {
     let rd, rn, rm = parseOprOfUqOpr bld ins.Operands
     let tmps = createTemporaries bld (32 / width) 32<rt>
     let sats = createTemporaries bld (32 / width) (RegType.fromBitWidth width)
@@ -2331,7 +2331,7 @@ let uqopr (ins: Instruction) insLen bld width opr =
   }
 
 /// ADR For ThumbMode (T1 case)
-let parseOprOfADR (ins: Instruction) insLen bld =
+let parseOprOfADR (ins: Instruction) bld =
   match ins.Operands with
   | TwoOperands(OprReg rd, OprMemory(LiteralMode imm)) ->
     let addr = bvOfBaseAddr ins.Address
@@ -2344,8 +2344,8 @@ let parseOprOfADR (ins: Instruction) insLen bld =
   | _ ->
     raise InvalidOperandException
 
-let it (ins: Instruction) insLen bld =
-  lift bld ins insLen {
+let it (ins: Instruction) bld =
+  lift bld ins {
     let cpsr = regVar bld R.CPSR
     let itState = numI32 (int ins.ITState) 32<rt>
     let mask10 = numI32 0b11 32<rt>
@@ -2356,9 +2356,9 @@ let it (ins: Instruction) insLen bld =
     cpsr := itState72 |> setPSR bld R.CPSR PSR.IT72
   }
 
-let adr ins insLen bld =
-  lift bld ins insLen {
-    let rd, result = parseOprOfADR ins insLen bld
+let adr ins bld =
+  lift bld ins {
+    let rd, result = parseOprOfADR ins bld
     let isUnconditional = ParseUtils.isUnconditional ins.Condition
     let lblIgnore = checkCondition ins bld isUnconditional
     if rd = getPC bld then aluWritePC bld ins isUnconditional result
@@ -2366,8 +2366,8 @@ let adr ins insLen bld =
     putEndLabel bld lblIgnore
   }
 
-let mls ins insLen bld =
-  lift bld ins insLen {
+let mls ins bld =
+  lift bld ins {
     let struct (rd, rn, rm, ra) = transFourOprs ins bld
     let r = tmpVar bld 32<rt>
     let isUnconditional = ParseUtils.isUnconditional ins.Condition
@@ -2378,7 +2378,7 @@ let mls ins insLen bld =
     putEndLabel bld lblIgnore
   }
 
-let parseOprOfExtend (ins: Instruction) insLen bld =
+let parseOprOfExtend (ins: Instruction) bld =
   match ins.Operands with
   | TwoOperands(OprReg rd, OprReg rm) ->
     regVar bld rd, regVar bld rm, 0u
@@ -2387,9 +2387,9 @@ let parseOprOfExtend (ins: Instruction) insLen bld =
   | _ ->
     raise InvalidOperandException
 
-let extend (ins: Instruction) insLen bld extractfn amount =
-  lift bld ins insLen {
-    let rd, rm, rotation = parseOprOfExtend ins insLen bld
+let extend (ins: Instruction) bld extractfn amount =
+  lift bld ins {
+    let rd, rm, rotation = parseOprOfExtend ins bld
     let rotated = shiftROR rm 32<rt> rotation
     let isUnconditional = ParseUtils.isUnconditional ins.Condition
     let lblIgnore = checkCondition ins bld isUnconditional
@@ -2397,9 +2397,9 @@ let extend (ins: Instruction) insLen bld extractfn amount =
     putEndLabel bld lblIgnore
   }
 
-let uxtb16 ins insLen bld =
-  lift bld ins insLen {
-    let rd, rm, rotation = parseOprOfExtend ins insLen bld
+let uxtb16 ins bld =
+  lift bld ins {
+    let rd, rm, rotation = parseOprOfExtend ins bld
     let isUnconditional = ParseUtils.isUnconditional ins.Condition
     let lblIgnore = checkCondition ins bld isUnconditional
     let rotated = shiftROR rm 32<rt> rotation
@@ -2410,16 +2410,16 @@ let uxtb16 ins insLen bld =
     putEndLabel bld lblIgnore
   }
 
-let parseOprOfXTA (ins: Instruction) insLen bld =
+let parseOprOfXTA (ins: Instruction) bld =
   match ins.Operands with
   | FourOperands(OprReg rd, OprReg rn, OprReg rm, OprShift(_, Imm i)) ->
     regVar bld rd, regVar bld rn, regVar bld rm, i
   | _ ->
     raise InvalidOperandException
 
-let extendAndAdd (ins: Instruction) insLen bld extractfn amount =
-  lift bld ins insLen {
-    let rd, rn, rm, rotation = parseOprOfXTA ins insLen bld
+let extendAndAdd (ins: Instruction) bld extractfn amount =
+  lift bld ins {
+    let rd, rn, rm, rotation = parseOprOfXTA ins bld
     let rotated = shiftROR rm 32<rt> rotation
     let isUnconditional = ParseUtils.isUnconditional ins.Condition
     let lblIgnore = checkCondition ins bld isUnconditional

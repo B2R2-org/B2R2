@@ -127,8 +127,8 @@ type LiftBuilder =
 
 /// Starts lifting the given instruction, closing it with the SH4
 /// instruction end rather than a plain IEMark.
-let inline lift bld (ins: Instruction) insLen =
-  LiftBuilder(bld, ins.Address, insLen)
+let inline lift bld (ins: Instruction) =
+  LiftBuilder(bld, ins.Address, ins.Length)
 
 /// Arms a delayed control transfer of the given kind; its target must already
 /// have been stored into NPC. The following instruction end (after the
@@ -299,8 +299,8 @@ let private movMemBody (ins: Instruction) bld rt =
     raise InvalidOperandException
 
 /// Lifts one form of mov.b, mov.w, or mov.l.
-let private movMem (ins: Instruction) len bld rt =
-  lift bld ins len {
+let private movMem (ins: Instruction) bld rt =
+  lift bld ins {
     movMemBody ins bld rt
   }
 
@@ -308,14 +308,14 @@ let private movMem (ins: Instruction) len bld rt =
 /// fsts share: only which side is the control, system, or floating-point
 /// register differs, and this lifter keeps every one of them in the register
 /// file.
-let private moveReg (ins: Instruction) len bld =
-  lift bld ins len {
+let private moveReg (ins: Instruction) bld =
+  lift bld ins {
     let struct (src, dst) = twoRegs ins bld
     dst := src
   }
 
-let add (ins: Instruction) len bld =
-  lift bld ins len {
+let add (ins: Instruction) bld =
+  lift bld ins {
     let struct (o1, o2) = getTwoOprs ins
     let dst = regOf bld o2
     match o1 with
@@ -323,8 +323,8 @@ let add (ins: Instruction) len bld =
     | _ -> append bld { dst := dst .+ regOf bld o1 }
   }
 
-let addc (ins: Instruction) len bld =
-  lift bld ins len {
+let addc (ins: Instruction) bld =
+  lift bld ins {
     let struct (src, dst) = twoRegs ins bld
     let t = regVar bld R.T
     let res = tmpVar bld 64<rt>
@@ -338,8 +338,8 @@ let addc (ins: Instruction) len bld =
     t := AST.extract res 1<rt> 32
   }
 
-let addv (ins: Instruction) len bld =
-  lift bld ins len {
+let addv (ins: Instruction) bld =
+  lift bld ins {
     let struct (src, dst) = twoRegs ins bld
     let res = tmpVar bld 32<rt>
     res := dst .+ src
@@ -351,8 +351,8 @@ let addv (ins: Instruction) len bld =
     dst := res
   }
 
-let ``and`` (ins: Instruction) len bld =
-  lift bld ins len {
+let ``and`` (ins: Instruction) bld =
+  lift bld ins {
     let struct (o1, o2) = getTwoOprs ins
     let dst = regOf bld o2
     (* The immediate form is zero-extended, so it clears the upper three
@@ -362,8 +362,8 @@ let ``and`` (ins: Instruction) len bld =
     | _ -> append bld { dst := dst .& regOf bld o1 }
   }
 
-let andb (ins: Instruction) len bld =
-  lift bld ins len {
+let andb (ins: Instruction) bld =
+  lift bld ins {
     let struct (o1, _) = getTwoOprs ins
     let imm = immOf o1
     let addr = tmpVar bld 32<rt>
@@ -371,16 +371,16 @@ let andb (ins: Instruction) len bld =
     storeMem bld addr ((loadMem bld 8<rt> addr) .& numByte imm)
   }
 
-let bf (ins: Instruction) len bld =
-  lift bld ins len {
+let bf (ins: Instruction) bld =
+  lift bld ins {
     let target = pcRelTarget ins 8
-    let fallThrough = numAddr (ins.Address + uint64 len)
+    let fallThrough = numAddr (ins.Address + uint64 ins.Length)
     (* Plain bf and bt have no delay slot, so they transfer control at once. *)
     AST.intercjmp (AST.not (regVar bld R.T)) target fallThrough
   }
 
-let bfs (ins: Instruction) len bld =
-  lift bld ins len {
+let bfs (ins: Instruction) bld =
+  lift bld ins {
     let target = pcRelTarget ins 8
     (* The delay slot runs either way, so the untaken path resumes past it. *)
     let fallThrough = numAddr (ins.Address + 4UL)
@@ -389,67 +389,67 @@ let bfs (ins: Instruction) len bld =
     arm bld InterJmpKind.Base
   }
 
-let bra (ins: Instruction) len bld =
-  lift bld ins len {
+let bra (ins: Instruction) bld =
+  lift bld ins {
     regVar bld R.NPC := pcRelTarget ins 12
     arm bld InterJmpKind.Base
   }
 
-let braf (ins: Instruction) len bld =
-  lift bld ins len {
+let braf (ins: Instruction) bld =
+  lift bld ins {
     let src = oneReg ins bld
     regVar bld R.NPC := numAddr (ins.Address + 4UL) .+ src
     arm bld InterJmpKind.Base
   }
 
-let bsr (ins: Instruction) len bld =
-  lift bld ins len {
+let bsr (ins: Instruction) bld =
+  lift bld ins {
     regVar bld R.PR := numAddr (ins.Address + 4UL)
     regVar bld R.NPC := pcRelTarget ins 12
     arm bld InterJmpKind.IsCall
   }
 
-let bsrf (ins: Instruction) len bld =
-  lift bld ins len {
+let bsrf (ins: Instruction) bld =
+  lift bld ins {
     let src = oneReg ins bld
     regVar bld R.PR := numAddr (ins.Address + 4UL)
     regVar bld R.NPC := numAddr (ins.Address + 4UL) .+ src
     arm bld InterJmpKind.IsCall
   }
 
-let bt (ins: Instruction) len bld =
-  lift bld ins len {
+let bt (ins: Instruction) bld =
+  lift bld ins {
     let target = pcRelTarget ins 8
-    let fallThrough = numAddr (ins.Address + uint64 len)
+    let fallThrough = numAddr (ins.Address + uint64 ins.Length)
     AST.intercjmp (regVar bld R.T) target fallThrough
   }
 
-let bts (ins: Instruction) len bld =
-  lift bld ins len {
+let bts (ins: Instruction) bld =
+  lift bld ins {
     let target = pcRelTarget ins 8
     let fallThrough = numAddr (ins.Address + 4UL)
     regVar bld R.NPC := AST.ite (regVar bld R.T) target fallThrough
     arm bld InterJmpKind.Base
   }
 
-let clrmac (ins: Instruction) len bld =
-  lift bld ins len {
+let clrmac (ins: Instruction) bld =
+  lift bld ins {
     regVar bld R.MACH := num 0
     regVar bld R.MACL := num 0
   }
 
-let clrs (ins: Instruction) len bld =
-  lift bld ins len {
+let clrs (ins: Instruction) bld =
+  lift bld ins {
     regVar bld R.S := AST.b0
   }
 
-let clrt (ins: Instruction) len bld =
-  lift bld ins len {
+let clrt (ins: Instruction) bld =
+  lift bld ins {
     regVar bld R.T := AST.b0
   }
 
-let cmpeq (ins: Instruction) len bld =
-  lift bld ins len {
+let cmpeq (ins: Instruction) bld =
+  lift bld ins {
     let struct (o1, o2) = getTwoOprs ins
     let dst = regOf bld o2
     match o1 with
@@ -459,44 +459,44 @@ let cmpeq (ins: Instruction) len bld =
       append bld { regVar bld R.T := (dst == regOf bld o1) }
   }
 
-let cmpge (ins: Instruction) len bld =
-  lift bld ins len {
+let cmpge (ins: Instruction) bld =
+  lift bld ins {
     let struct (src, dst) = twoRegs ins bld
     regVar bld R.T := (dst ?>= src)
   }
 
-let cmpgt (ins: Instruction) len bld =
-  lift bld ins len {
+let cmpgt (ins: Instruction) bld =
+  lift bld ins {
     let struct (src, dst) = twoRegs ins bld
     regVar bld R.T := (dst ?> src)
   }
 
-let cmphi (ins: Instruction) len bld =
-  lift bld ins len {
+let cmphi (ins: Instruction) bld =
+  lift bld ins {
     let struct (src, dst) = twoRegs ins bld
     regVar bld R.T := (dst .> src)
   }
 
-let cmphs (ins: Instruction) len bld =
-  lift bld ins len {
+let cmphs (ins: Instruction) bld =
+  lift bld ins {
     let struct (src, dst) = twoRegs ins bld
     regVar bld R.T := (dst .>= src)
   }
 
-let cmppl (ins: Instruction) len bld =
-  lift bld ins len {
+let cmppl (ins: Instruction) bld =
+  lift bld ins {
     let dst = oneReg ins bld
     regVar bld R.T := (dst ?> num 0)
   }
 
-let cmppz (ins: Instruction) len bld =
-  lift bld ins len {
+let cmppz (ins: Instruction) bld =
+  lift bld ins {
     let dst = oneReg ins bld
     regVar bld R.T := (dst ?>= num 0)
   }
 
-let cmpstr (ins: Instruction) len bld =
-  lift bld ins len {
+let cmpstr (ins: Instruction) bld =
+  lift bld ins {
     let struct (src, dst) = twoRegs ins bld
     let diff = tmpVar bld 32<rt>
     (* Any byte the two registers share leaves that byte of the difference zero,
@@ -509,8 +509,8 @@ let cmpstr (ins: Instruction) len bld =
            .| (AST.extract diff 8<rt> 24 == AST.num0 8<rt>)))
   }
 
-let div0s (ins: Instruction) len bld =
-  lift bld ins len {
+let div0s (ins: Instruction) bld =
+  lift bld ins {
     let struct (src, dst) = twoRegs ins bld
     let q = regVar bld R.Q
     let m = regVar bld R.M
@@ -519,15 +519,15 @@ let div0s (ins: Instruction) len bld =
     regVar bld R.T := (q <+> m)
   }
 
-let div0u (ins: Instruction) len bld =
-  lift bld ins len {
+let div0u (ins: Instruction) bld =
+  lift bld ins {
     regVar bld R.M := AST.b0
     regVar bld R.Q := AST.b0
     regVar bld R.T := AST.b0
   }
 
-let div1 (ins: Instruction) len bld =
-  lift bld ins len {
+let div1 (ins: Instruction) bld =
+  lift bld ins {
     let struct (src, dst) = twoRegs ins bld
     let q = regVar bld R.Q
     let m = regVar bld R.M
@@ -549,8 +549,8 @@ let div1 (ins: Instruction) len bld =
     t := (q == m)
   }
 
-let dmulsl (ins: Instruction) len bld =
-  lift bld ins len {
+let dmulsl (ins: Instruction) bld =
+  lift bld ins {
     let struct (src, dst) = twoRegs ins bld
     let res = tmpVar bld 64<rt>
     res := (AST.sext 64<rt> dst) .* (AST.sext 64<rt> src)
@@ -558,8 +558,8 @@ let dmulsl (ins: Instruction) len bld =
     regVar bld R.MACH := AST.xthi 32<rt> res
   }
 
-let dmulul (ins: Instruction) len bld =
-  lift bld ins len {
+let dmulul (ins: Instruction) bld =
+  lift bld ins {
     let struct (src, dst) = twoRegs ins bld
     let res = tmpVar bld 64<rt>
     res := (AST.zext 64<rt> dst) .* (AST.zext 64<rt> src)
@@ -567,33 +567,33 @@ let dmulul (ins: Instruction) len bld =
     regVar bld R.MACH := AST.xthi 32<rt> res
   }
 
-let dt (ins: Instruction) len bld =
-  lift bld ins len {
+let dt (ins: Instruction) bld =
+  lift bld ins {
     let dst = oneReg ins bld
     dst := dst .- num 1
     regVar bld R.T := (dst == num 0)
   }
 
-let extsb (ins: Instruction) len bld =
-  lift bld ins len {
+let extsb (ins: Instruction) bld =
+  lift bld ins {
     let struct (src, dst) = twoRegs ins bld
     dst := AST.xtlo 8<rt> src |> AST.sext 32<rt>
   }
 
-let extsw (ins: Instruction) len bld =
-  lift bld ins len {
+let extsw (ins: Instruction) bld =
+  lift bld ins {
     let struct (src, dst) = twoRegs ins bld
     dst := AST.xtlo 16<rt> src |> AST.sext 32<rt>
   }
 
-let extub (ins: Instruction) len bld =
-  lift bld ins len {
+let extub (ins: Instruction) bld =
+  lift bld ins {
     let struct (src, dst) = twoRegs ins bld
     dst := AST.xtlo 8<rt> src |> AST.zext 32<rt>
   }
 
-let extuw (ins: Instruction) len bld =
-  lift bld ins len {
+let extuw (ins: Instruction) bld =
+  lift bld ins {
     let struct (src, dst) = twoRegs ins bld
     dst := AST.xtlo 16<rt> src |> AST.zext 32<rt>
   }
@@ -678,16 +678,16 @@ let private unsupportedBank bld =
 /// the upper half -- the very register the operand names.
 let [<Literal>] private SignBit = 0x80000000
 
-let fabs (ins: Instruction) len bld =
-  lift bld ins len {
+let fabs (ins: Instruction) bld =
+  lift bld ins {
     let dst = oneReg ins bld
     dst := dst .& num (~~~SignBit)
   }
 
 /// Lifts a floating-point operation over two registers whose width FPSCR.PR
 /// picks, given how to combine two values of that width.
-let private fpBinary (ins: Instruction) len bld op =
-  lift bld ins len {
+let private fpBinary (ins: Instruction) bld op =
+  lift bld ins {
     let struct (o1, o2) = getTwoOprs ins
     let m = regEnumOf o1
     let n = regEnumOf o2
@@ -705,12 +705,12 @@ let private fpBinary (ins: Instruction) len bld op =
           setDouble bld n res)
   }
 
-let fadd ins len bld = fpBinary ins len bld AST.fadd
+let fadd ins bld = fpBinary ins bld AST.fadd
 
 /// Lifts a floating-point comparison whose width FPSCR.PR picks; either width
 /// leaves the answer in T.
-let private fpCompare (ins: Instruction) len bld cmp =
-  lift bld ins len {
+let private fpCompare (ins: Instruction) bld cmp =
+  lift bld ins {
     let struct (o1, o2) = getTwoOprs ins
     let m = regEnumOf o1
     let n = regEnumOf o2
@@ -725,16 +725,16 @@ let private fpCompare (ins: Instruction) len bld cmp =
           append bld { regVar bld R.T := res })
   }
 
-let fcmpeq ins len bld = fpCompare ins len bld AST.feq
+let fcmpeq ins bld = fpCompare ins bld AST.feq
 
-let fcmpgt ins len bld = fpCompare ins len bld AST.fgt
+let fcmpgt ins bld = fpCompare ins bld AST.fgt
 
 /// Converts the double-precision value a register pair holds to single
 /// precision in FPUL. The architecture defines it only while FPSCR.PR is set,
 /// so it takes no mode branch, and the operand names an even register by
 /// construction.
-let fcnvds (ins: Instruction) len bld =
-  lift bld ins len {
+let fcnvds (ins: Instruction) bld =
+  lift bld ins {
     let struct (o1, o2) = getTwoOprs ins
     let src = doubleOf bld (regEnumOf o1)
     let dst = regOf bld o2
@@ -743,8 +743,8 @@ let fcnvds (ins: Instruction) len bld =
 
 /// Converts the single-precision value in FPUL to double precision in a
 /// register pair, the counterpart of fcnvds.
-let fcnvsd (ins: Instruction) len bld =
-  lift bld ins len {
+let fcnvsd (ins: Instruction) bld =
+  lift bld ins {
     let struct (o1, o2) = getTwoOprs ins
     let src = regOf bld o1
     let res = tmpVar bld 64<rt>
@@ -752,9 +752,9 @@ let fcnvsd (ins: Instruction) len bld =
     setDouble bld (regEnumOf o2) res
   }
 
-let fdiv ins len bld = fpBinary ins len bld AST.fdiv
+let fdiv ins bld = fpBinary ins bld AST.fdiv
 
-let fipr ins _len _bld = notLifted ins
+let fipr ins _bld = notLifted ins
 
 /// The single-precision encoding of 0.0, which fldi0 loads.
 let [<Literal>] private SingleZero = 0x00000000
@@ -762,22 +762,22 @@ let [<Literal>] private SingleZero = 0x00000000
 /// The single-precision encoding of 1.0, which fldi1 loads.
 let [<Literal>] private SingleOne = 0x3F800000
 
-let fldi0 (ins: Instruction) len bld =
-  lift bld ins len {
+let fldi0 (ins: Instruction) bld =
+  lift bld ins {
     let dst = oneReg ins bld
     dst := num SingleZero
   }
 
-let fldi1 (ins: Instruction) len bld =
-  lift bld ins len {
+let fldi1 (ins: Instruction) bld =
+  lift bld ins {
     let dst = oneReg ins bld
     dst := num SingleOne
   }
 
-let flds ins len bld = moveReg ins len bld
+let flds ins bld = moveReg ins bld
 
-let ``float`` (ins: Instruction) len bld =
-  lift bld ins len {
+let ``float`` (ins: Instruction) bld =
+  lift bld ins {
     let struct (o1, o2) = getTwoOprs ins
     let src = regOf bld o1
     let n = regEnumOf o2
@@ -795,8 +795,8 @@ let ``float`` (ins: Instruction) len bld =
           setDouble bld n res)
   }
 
-let fmac (ins: Instruction) len bld =
-  lift bld ins len {
+let fmac (ins: Instruction) bld =
+  lift bld ins {
     let struct (o1, o2, o3) =
       match ins.Operands with
       | ThreeOperands(a, b, c) -> struct (a, b, c)
@@ -865,8 +865,8 @@ let private fpMemDouble (ins: Instruction) bld =
 /// between single-precision registers, or sixty-four between the pairs they
 /// span -- which also changes how much memory a transfer touches and how far a
 /// post-increment or pre-decrement steps.
-let private fpMove (ins: Instruction) len bld =
-  lift bld ins len {
+let private fpMove (ins: Instruction) bld =
+  lift bld ins {
     match ins.Operands with
     | TwoOperands(OpReg(Regdir m), OpReg(Regdir n)) ->
       byMode bld SzBit
@@ -887,30 +887,30 @@ let private fpMove (ins: Instruction) len bld =
         (fun () -> fpMemDouble ins bld)
   }
 
-let fmov ins len bld = fpMove ins len bld
+let fmov ins bld = fpMove ins bld
 
-let fmovs ins len bld = fpMove ins len bld
+let fmovs ins bld = fpMove ins bld
 
-let fmul ins len bld = fpBinary ins len bld AST.fmul
+let fmul ins bld = fpBinary ins bld AST.fmul
 
-let fneg (ins: Instruction) len bld =
-  lift bld ins len {
+let fneg (ins: Instruction) bld =
+  lift bld ins {
     let dst = oneReg ins bld
     dst := dst <+> num SignBit
   }
 
-let frchg ins _len _bld = notLifted ins
+let frchg ins _bld = notLifted ins
 
 /// Flips FPSCR.SZ, so that the transfers which read it move the other width
 /// from here on.
-let fschg (ins: Instruction) len bld =
-  lift bld ins len {
+let fschg (ins: Instruction) bld =
+  lift bld ins {
     let fpscr = regVar bld R.FPSCR
     fpscr := fpscr <+> num (1 <<< SzBit)
   }
 
-let fsqrt (ins: Instruction) len bld =
-  lift bld ins len {
+let fsqrt (ins: Instruction) bld =
+  lift bld ins {
     let n = getOneOpr ins |> regEnumOf
     byMode bld PrBit
       (fun () -> append bld { regVar bld n := AST.fsqrt (regVar bld n) })
@@ -925,12 +925,12 @@ let fsqrt (ins: Instruction) len bld =
           setDouble bld n res)
   }
 
-let fsts ins len bld = moveReg ins len bld
+let fsts ins bld = moveReg ins bld
 
-let fsub ins len bld = fpBinary ins len bld AST.fsub
+let fsub ins bld = fpBinary ins bld AST.fsub
 
-let ftrc (ins: Instruction) len bld =
-  lift bld ins len {
+let ftrc (ins: Instruction) bld =
+  lift bld ins {
     let struct (o1, o2) = getTwoOprs ins
     let m = regEnumOf o1
     let dst = regOf bld o2
@@ -945,22 +945,22 @@ let ftrc (ins: Instruction) len bld =
           append bld { dst := AST.cast CastKind.FtoITrunc 32<rt> d })
   }
 
-let ftrv ins _len _bld = notLifted ins
+let ftrv ins _bld = notLifted ins
 
 /// The register a register-indirect operand names.
 let private indirOf bld = function
   | OpReg(RegIndir r) -> regVar bld r
   | _ -> raise InvalidOperandException
 
-let jmp (ins: Instruction) len bld =
-  lift bld ins len {
+let jmp (ins: Instruction) bld =
+  lift bld ins {
     let src = getOneOpr ins |> indirOf bld
     regVar bld R.NPC := src
     arm bld InterJmpKind.Base
   }
 
-let jsr (ins: Instruction) len bld =
-  lift bld ins len {
+let jsr (ins: Instruction) bld =
+  lift bld ins {
     let src = getOneOpr ins |> indirOf bld
     regVar bld R.PR := numAddr (ins.Address + 4UL)
     regVar bld R.NPC := src
@@ -969,8 +969,8 @@ let jsr (ins: Instruction) len bld =
 
 /// Loads a control or system register from @Rm+, the form ldc.l and lds.l
 /// share.
-let private loadPostInc (ins: Instruction) len bld =
-  lift bld ins len {
+let private loadPostInc (ins: Instruction) bld =
+  lift bld ins {
     let struct (o1, o2) = getTwoOprs ins
     let dst = regOf bld o2
     let src =
@@ -983,8 +983,8 @@ let private loadPostInc (ins: Instruction) len bld =
 
 /// Stores a control or system register to @-Rn, the form stc.l and sts.l
 /// share.
-let private storePreDec (ins: Instruction) len bld =
-  lift bld ins len {
+let private storePreDec (ins: Instruction) bld =
+  lift bld ins {
     let struct (o1, o2) = getTwoOprs ins
     let src = regOf bld o1
     let dst =
@@ -997,15 +997,15 @@ let private storePreDec (ins: Instruction) len bld =
     dst := addr
   }
 
-let ldc ins len bld = moveReg ins len bld
+let ldc ins bld = moveReg ins bld
 
-let ldcl ins len bld = loadPostInc ins len bld
+let ldcl ins bld = loadPostInc ins bld
 
-let lds ins len bld = moveReg ins len bld
+let lds ins bld = moveReg ins bld
 
-let ldsl ins len bld = loadPostInc ins len bld
+let ldsl ins bld = loadPostInc ins bld
 
-let ldtlb ins _len _bld = notLifted ins
+let ldtlb ins _bld = notLifted ins
 
 /// The register a post-increment operand names, which the multiply-accumulate
 /// instructions read both of their operands through.
@@ -1013,8 +1013,8 @@ let private postIncOf bld = function
   | OpReg(RegIndirPostInc r) -> regVar bld r
   | _ -> raise InvalidOperandException
 
-let macl (ins: Instruction) len bld =
-  lift bld ins len {
+let macl (ins: Instruction) bld =
+  lift bld ins {
     let struct (o1, o2) = getTwoOprs ins
     let src = postIncOf bld o1
     let dst = postIncOf bld o2
@@ -1044,8 +1044,8 @@ let macl (ins: Instruction) len bld =
     mach := AST.xthi 32<rt> mac
   }
 
-let macw (ins: Instruction) len bld =
-  lift bld ins len {
+let macw (ins: Instruction) bld =
+  lift bld ins {
     let struct (o1, o2) = getTwoOprs ins
     let src = postIncOf bld o1
     let dst = postIncOf bld o2
@@ -1074,8 +1074,8 @@ let macw (ins: Instruction) len bld =
     mach := AST.ite (regVar bld R.S) mach (AST.xthi 32<rt> mac)
   }
 
-let mov (ins: Instruction) len bld =
-  lift bld ins len {
+let mov (ins: Instruction) bld =
+  lift bld ins {
     let struct (o1, o2) = getTwoOprs ins
     let dst = regOf bld o2
     match o1 with
@@ -1083,8 +1083,8 @@ let mov (ins: Instruction) len bld =
     | _ -> append bld { dst := regOf bld o1 }
   }
 
-let mova (ins: Instruction) len bld =
-  lift bld ins len {
+let mova (ins: Instruction) bld =
+  lift bld ins {
     let struct (o1, _) = getTwoOprs ins
     let disp =
       match o1 with
@@ -1093,50 +1093,50 @@ let mova (ins: Instruction) len bld =
     regVar bld R.R0 := numU32 (pcRelLongAddr ins disp) 32<rt>
   }
 
-let movb ins len bld = movMem ins len bld 8<rt>
+let movb ins bld = movMem ins bld 8<rt>
 
-let movw ins len bld = movMem ins len bld 16<rt>
+let movw ins bld = movMem ins bld 16<rt>
 
-let movl ins len bld = movMem ins len bld 32<rt>
+let movl ins bld = movMem ins bld 32<rt>
 
-let movcal ins len bld = movMem ins len bld 32<rt>
+let movcal ins bld = movMem ins bld 32<rt>
 
-let movt (ins: Instruction) len bld =
-  lift bld ins len {
+let movt (ins: Instruction) bld =
+  lift bld ins {
     let dst = oneReg ins bld
     dst := AST.zext 32<rt> (regVar bld R.T)
   }
 
-let mull (ins: Instruction) len bld =
-  lift bld ins len {
+let mull (ins: Instruction) bld =
+  lift bld ins {
     let struct (src, dst) = twoRegs ins bld
     regVar bld R.MACL := dst .* src
   }
 
-let mulsw (ins: Instruction) len bld =
-  lift bld ins len {
+let mulsw (ins: Instruction) bld =
+  lift bld ins {
     let struct (src, dst) = twoRegs ins bld
     regVar bld R.MACL :=
       (AST.xtlo 16<rt> dst |> AST.sext 32<rt>)
       .* (AST.xtlo 16<rt> src |> AST.sext 32<rt>)
   }
 
-let muluw (ins: Instruction) len bld =
-  lift bld ins len {
+let muluw (ins: Instruction) bld =
+  lift bld ins {
     let struct (src, dst) = twoRegs ins bld
     regVar bld R.MACL :=
       (AST.xtlo 16<rt> dst |> AST.zext 32<rt>)
       .* (AST.xtlo 16<rt> src |> AST.zext 32<rt>)
   }
 
-let neg (ins: Instruction) len bld =
-  lift bld ins len {
+let neg (ins: Instruction) bld =
+  lift bld ins {
     let struct (src, dst) = twoRegs ins bld
     dst := num 0 .- src
   }
 
-let negc (ins: Instruction) len bld =
-  lift bld ins len {
+let negc (ins: Instruction) bld =
+  lift bld ins {
     let struct (src, dst) = twoRegs ins bld
     let t = regVar bld R.T
     let struct (negated, res) = tmpVars2 bld 32<rt>
@@ -1146,30 +1146,30 @@ let negc (ins: Instruction) len bld =
     dst := res
   }
 
-let nop (ins: Instruction) len bld =
-  lift bld ins len {
+let nop (ins: Instruction) bld =
+  lift bld ins {
   }
 
-let ``not`` (ins: Instruction) len bld =
-  lift bld ins len {
+let ``not`` (ins: Instruction) bld =
+  lift bld ins {
     let struct (src, dst) = twoRegs ins bld
     dst := AST.not src
   }
 
 /// Lifts a cache-control instruction, which only hints at what the cache should
 /// hold and so changes no state this emulator models.
-let private cacheHint (ins: Instruction) len bld =
-  lift bld ins len {
+let private cacheHint (ins: Instruction) bld =
+  lift bld ins {
   }
 
-let ocbi ins len bld = cacheHint ins len bld
+let ocbi ins bld = cacheHint ins bld
 
-let ocbp ins len bld = cacheHint ins len bld
+let ocbp ins bld = cacheHint ins bld
 
-let ocbwb ins len bld = cacheHint ins len bld
+let ocbwb ins bld = cacheHint ins bld
 
-let ``or`` (ins: Instruction) len bld =
-  lift bld ins len {
+let ``or`` (ins: Instruction) bld =
+  lift bld ins {
     let struct (o1, o2) = getTwoOprs ins
     let dst = regOf bld o2
     match o1 with
@@ -1177,8 +1177,8 @@ let ``or`` (ins: Instruction) len bld =
     | _ -> append bld { dst := dst .| regOf bld o1 }
   }
 
-let orb (ins: Instruction) len bld =
-  lift bld ins len {
+let orb (ins: Instruction) bld =
+  lift bld ins {
     let struct (o1, _) = getTwoOprs ins
     let imm = immOf o1
     let addr = tmpVar bld 32<rt>
@@ -1186,10 +1186,10 @@ let orb (ins: Instruction) len bld =
     storeMem bld addr ((loadMem bld 8<rt> addr) .| numByte imm)
   }
 
-let pref ins len bld = cacheHint ins len bld
+let pref ins bld = cacheHint ins bld
 
-let rotcl (ins: Instruction) len bld =
-  lift bld ins len {
+let rotcl (ins: Instruction) bld =
+  lift bld ins {
     let dst = oneReg ins bld
     let t = regVar bld R.T
     let carry = tmpVar bld 1<rt>
@@ -1198,8 +1198,8 @@ let rotcl (ins: Instruction) len bld =
     t := carry
   }
 
-let rotcr (ins: Instruction) len bld =
-  lift bld ins len {
+let rotcr (ins: Instruction) bld =
+  lift bld ins {
     let dst = oneReg ins bld
     let t = regVar bld R.T
     let carry = tmpVar bld 1<rt>
@@ -1208,8 +1208,8 @@ let rotcr (ins: Instruction) len bld =
     t := carry
   }
 
-let rotl (ins: Instruction) len bld =
-  lift bld ins len {
+let rotl (ins: Instruction) bld =
+  lift bld ins {
     let dst = oneReg ins bld
     let carry = tmpVar bld 1<rt>
     carry := AST.xthi 1<rt> dst
@@ -1217,8 +1217,8 @@ let rotl (ins: Instruction) len bld =
     regVar bld R.T := carry
   }
 
-let rotr (ins: Instruction) len bld =
-  lift bld ins len {
+let rotr (ins: Instruction) bld =
+  lift bld ins {
     let dst = oneReg ins bld
     let carry = tmpVar bld 1<rt>
     carry := AST.xtlo 1<rt> dst
@@ -1226,26 +1226,26 @@ let rotr (ins: Instruction) len bld =
     regVar bld R.T := carry
   }
 
-let rte ins _len _bld = notLifted ins
+let rte ins _bld = notLifted ins
 
-let rts (ins: Instruction) len bld =
-  lift bld ins len {
+let rts (ins: Instruction) bld =
+  lift bld ins {
     regVar bld R.NPC := regVar bld R.PR
     arm bld InterJmpKind.IsRet
   }
 
-let sets (ins: Instruction) len bld =
-  lift bld ins len {
+let sets (ins: Instruction) bld =
+  lift bld ins {
     regVar bld R.S := AST.b1
   }
 
-let sett (ins: Instruction) len bld =
-  lift bld ins len {
+let sett (ins: Instruction) bld =
+  lift bld ins {
     regVar bld R.T := AST.b1
   }
 
-let shad (ins: Instruction) len bld =
-  lift bld ins len {
+let shad (ins: Instruction) bld =
+  lift bld ins {
     let struct (src, dst) = twoRegs ins bld
     let struct (left, right, amount) = tmpVars3 bld 32<rt>
     let wide = tmpVar bld 64<rt>
@@ -1260,22 +1260,22 @@ let shad (ins: Instruction) len bld =
     dst := AST.ite (AST.xthi 1<rt> src == AST.b0) left right
   }
 
-let shal (ins: Instruction) len bld =
-  lift bld ins len {
+let shal (ins: Instruction) bld =
+  lift bld ins {
     let dst = oneReg ins bld
     regVar bld R.T := AST.xthi 1<rt> dst
     dst := dst << num 1
   }
 
-let shar (ins: Instruction) len bld =
-  lift bld ins len {
+let shar (ins: Instruction) bld =
+  lift bld ins {
     let dst = oneReg ins bld
     regVar bld R.T := AST.xtlo 1<rt> dst
     dst := dst ?>> num 1
   }
 
-let shld (ins: Instruction) len bld =
-  lift bld ins len {
+let shld (ins: Instruction) bld =
+  lift bld ins {
     let struct (src, dst) = twoRegs ins bld
     let struct (left, right, amount) = tmpVars3 bld 32<rt>
     let wide = tmpVar bld 64<rt>
@@ -1286,58 +1286,58 @@ let shld (ins: Instruction) len bld =
     dst := AST.ite (AST.xthi 1<rt> src == AST.b0) left right
   }
 
-let shll (ins: Instruction) len bld =
-  lift bld ins len {
+let shll (ins: Instruction) bld =
+  lift bld ins {
     let dst = oneReg ins bld
     regVar bld R.T := AST.xthi 1<rt> dst
     dst := dst << num 1
   }
 
 /// Shifts by a fixed count, which unlike a shift by one leaves T alone.
-let private shiftFixed (ins: Instruction) len bld count isLeft =
-  lift bld ins len {
+let private shiftFixed (ins: Instruction) bld count isLeft =
+  lift bld ins {
     let dst = oneReg ins bld
     if isLeft then append bld { dst := dst << num count }
     else append bld { dst := dst >> num count }
   }
 
-let shll2 ins len bld = shiftFixed ins len bld 2 true
+let shll2 ins bld = shiftFixed ins bld 2 true
 
-let shll8 ins len bld = shiftFixed ins len bld 8 true
+let shll8 ins bld = shiftFixed ins bld 8 true
 
-let shll16 ins len bld = shiftFixed ins len bld 16 true
+let shll16 ins bld = shiftFixed ins bld 16 true
 
-let shlr (ins: Instruction) len bld =
-  lift bld ins len {
+let shlr (ins: Instruction) bld =
+  lift bld ins {
     let dst = oneReg ins bld
     regVar bld R.T := AST.xtlo 1<rt> dst
     dst := dst >> num 1
   }
 
-let shlr2 ins len bld = shiftFixed ins len bld 2 false
+let shlr2 ins bld = shiftFixed ins bld 2 false
 
-let shlr8 ins len bld = shiftFixed ins len bld 8 false
+let shlr8 ins bld = shiftFixed ins bld 8 false
 
-let shlr16 ins len bld = shiftFixed ins len bld 16 false
+let shlr16 ins bld = shiftFixed ins bld 16 false
 
-let sleep ins _len _bld = notLifted ins
+let sleep ins _bld = notLifted ins
 
-let stc ins len bld = moveReg ins len bld
+let stc ins bld = moveReg ins bld
 
-let stcl ins len bld = storePreDec ins len bld
+let stcl ins bld = storePreDec ins bld
 
-let sts ins len bld = moveReg ins len bld
+let sts ins bld = moveReg ins bld
 
-let stsl ins len bld = storePreDec ins len bld
+let stsl ins bld = storePreDec ins bld
 
-let sub (ins: Instruction) len bld =
-  lift bld ins len {
+let sub (ins: Instruction) bld =
+  lift bld ins {
     let struct (src, dst) = twoRegs ins bld
     dst := dst .- src
   }
 
-let subc (ins: Instruction) len bld =
-  lift bld ins len {
+let subc (ins: Instruction) bld =
+  lift bld ins {
     let struct (src, dst) = twoRegs ins bld
     let t = regVar bld R.T
     let struct (diff, res) = tmpVars2 bld 32<rt>
@@ -1347,8 +1347,8 @@ let subc (ins: Instruction) len bld =
     dst := res
   }
 
-let subv (ins: Instruction) len bld =
-  lift bld ins len {
+let subv (ins: Instruction) bld =
+  lift bld ins {
     let struct (src, dst) = twoRegs ins bld
     let res = tmpVar bld 32<rt>
     res := dst .- src
@@ -1360,22 +1360,22 @@ let subv (ins: Instruction) len bld =
     dst := res
   }
 
-let swapb (ins: Instruction) len bld =
-  lift bld ins len {
+let swapb (ins: Instruction) bld =
+  lift bld ins {
     let struct (src, dst) = twoRegs ins bld
     dst := (src .& num 0xFFFF0000)
            .| (((src .& num 0xFF) << num 8)
                .| ((src >> num 8) .& num 0xFF))
   }
 
-let swapw (ins: Instruction) len bld =
-  lift bld ins len {
+let swapw (ins: Instruction) bld =
+  lift bld ins {
     let struct (src, dst) = twoRegs ins bld
     dst := (src << num 16) .| (src >> num 16)
   }
 
-let tasb (ins: Instruction) len bld =
-  lift bld ins len {
+let tasb (ins: Instruction) bld =
+  lift bld ins {
     let addr = getOneOpr ins |> indirOf bld
     let value = tmpVar bld 8<rt>
     value := loadMem bld 8<rt> addr
@@ -1383,8 +1383,8 @@ let tasb (ins: Instruction) len bld =
     storeMem bld addr (value .| numByte 0x80)
   }
 
-let trapa (ins: Instruction) len bld =
-  lift bld ins len {
+let trapa (ins: Instruction) bld =
+  lift bld ins {
     let imm = getOneOpr ins |> immOf
     (* Linux reads the trap number out of TRA, shifted up by two as the hardware
        leaves it there. *)
@@ -1392,8 +1392,8 @@ let trapa (ins: Instruction) len bld =
     AST.sideEffect SysCall
   }
 
-let tst (ins: Instruction) len bld =
-  lift bld ins len {
+let tst (ins: Instruction) bld =
+  lift bld ins {
     let struct (o1, o2) = getTwoOprs ins
     let dst = regOf bld o2
     match o1 with
@@ -1403,8 +1403,8 @@ let tst (ins: Instruction) len bld =
       append bld { regVar bld R.T := ((dst .& regOf bld o1) == num 0) }
   }
 
-let tstb (ins: Instruction) len bld =
-  lift bld ins len {
+let tstb (ins: Instruction) bld =
+  lift bld ins {
     let struct (o1, _) = getTwoOprs ins
     let imm = immOf o1
     let addr = tmpVar bld 32<rt>
@@ -1413,8 +1413,8 @@ let tstb (ins: Instruction) len bld =
       (((loadMem bld 8<rt> addr) .& numByte imm) == AST.num0 8<rt>)
   }
 
-let xor (ins: Instruction) len bld =
-  lift bld ins len {
+let xor (ins: Instruction) bld =
+  lift bld ins {
     let struct (o1, o2) = getTwoOprs ins
     let dst = regOf bld o2
     match o1 with
@@ -1422,8 +1422,8 @@ let xor (ins: Instruction) len bld =
     | _ -> append bld { dst := dst <+> regOf bld o1 }
   }
 
-let xorb (ins: Instruction) len bld =
-  lift bld ins len {
+let xorb (ins: Instruction) bld =
+  lift bld ins {
     let struct (o1, _) = getTwoOprs ins
     let imm = immOf o1
     let addr = tmpVar bld 32<rt>
@@ -1431,8 +1431,8 @@ let xorb (ins: Instruction) len bld =
     storeMem bld addr ((loadMem bld 8<rt> addr) <+> numByte imm)
   }
 
-let xtrct (ins: Instruction) len bld =
-  lift bld ins len {
+let xtrct (ins: Instruction) bld =
+  lift bld ins {
     let struct (src, dst) = twoRegs ins bld
     dst := (src << num 16) .| (dst >> num 16)
   }

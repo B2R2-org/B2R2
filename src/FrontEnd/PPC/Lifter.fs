@@ -36,1115 +36,1115 @@ open B2R2.FrontEnd.PPC.GeneralLifter
 open B2R2.FrontEnd.PPC.VectorLifter
 
 /// Translate IR.
-let translate (ins: Instruction) insLen bld =
+let translate (ins: Instruction) bld =
   match ins.Opcode with
   | Op.ADD ->
-    add ins insLen false false bld
+    add ins false false bld
   | Op.ADDdot ->
-    add ins insLen true false bld
+    add ins true false bld
   | Op.ADDO ->
-    add ins insLen false true bld
+    add ins false true bld
   | Op.ADDOdot ->
-    add ins insLen true true bld
+    add ins true true bld
   | Op.ADDC ->
-    addc ins insLen false false bld
+    addc ins false false bld
   | Op.ADDCdot ->
-    addc ins insLen true false bld
+    addc ins true false bld
   | Op.ADDCO ->
-    addc ins insLen false true bld
+    addc ins false true bld
   | Op.ADDCOdot ->
-    addc ins insLen true true bld
+    addc ins true true bld
   | Op.ADDE ->
-    adde ins insLen false false bld
+    adde ins false false bld
   | Op.ADDEdot ->
-    adde ins insLen true false bld
+    adde ins true false bld
   | Op.ADDEO ->
-    adde ins insLen false true bld
+    adde ins false true bld
   | Op.ADDEOdot ->
-    adde ins insLen true true bld
+    adde ins true true bld
   | Op.ADDI ->
-    addi ins insLen bld
+    addi ins bld
   | Op.ADDIC ->
-    addic ins insLen false bld
+    addic ins false bld
   | Op.ADDICdot ->
-    addic ins insLen true bld
+    addic ins true bld
   | Op.ADDIS ->
-    addis ins insLen bld
+    addis ins bld
   | Op.ADDME ->
-    addme ins insLen false false bld
+    addme ins false false bld
   | Op.ADDMEdot ->
-    addme ins insLen true false bld
+    addme ins true false bld
   | Op.ADDMEO ->
-    addme ins insLen false true bld
+    addme ins false true bld
   | Op.ADDMEOdot ->
-    addme ins insLen true true bld
+    addme ins true true bld
   | Op.ADDZE ->
-    addze ins insLen false false bld
+    addze ins false false bld
   | Op.ADDZEdot ->
-    addze ins insLen true false bld
+    addze ins true false bld
   | Op.ADDZEO ->
-    addze ins insLen false true bld
+    addze ins false true bld
   | Op.ADDZEOdot ->
-    addze ins insLen true true bld
+    addze ins true true bld
   | Op.AND ->
-    andx ins insLen false bld
+    andx ins false bld
   | Op.ANDdot ->
-    andx ins insLen true bld
+    andx ins true bld
   | Op.ANDC ->
-    andc ins insLen false bld
+    andc ins false bld
   | Op.ANDCdot ->
-    andc ins insLen true bld
+    andc ins true bld
   | Op.ANDIdot ->
-    andidot ins insLen bld
+    andidot ins bld
   | Op.ANDISdot ->
-    andisdot ins insLen bld
+    andisdot ins bld
   | Op.B ->
-    b ins insLen bld false
+    b ins bld false
   | Op.BA ->
-    b ins insLen bld false
+    b ins bld false
   | Op.BL ->
-    b ins insLen bld true
+    b ins bld true
   | Op.BLA ->
-    b ins insLen bld true
+    b ins bld true
   | Op.BC ->
-    bc ins insLen bld false false
+    bc ins bld false false
   | Op.BCA ->
-    bc ins insLen bld true false
+    bc ins bld true false
   | Op.BCL ->
-    bc ins insLen bld false true
+    bc ins bld false true
   | Op.BCLA ->
-    bc ins insLen bld true true
+    bc ins bld true true
   | Op.BCCTR ->
-    bcctr ins insLen bld false
+    bcctr ins bld false
   | Op.BCCTRL ->
-    bcctr ins insLen bld true
+    bcctr ins bld true
   | Op.BCLR ->
-    bclr ins insLen bld false
+    bclr ins bld false
   | Op.BCLRL ->
-    bclr ins insLen bld true
+    bclr ins bld true
   | Op.CMPI | Op.CMPL | Op.CMPLI ->
     raise InvalidOperandException (* invaild *)
   | Op.CMP ->
-    cmp ins insLen bld true
+    cmp ins bld true
   | Op.CMPW ->
-    cmp ins insLen bld true
+    cmp ins bld true
   | Op.CMPWI ->
-    cmp ins insLen bld true
+    cmp ins bld true
   | Op.CMPLW ->
-    cmpl ins insLen bld true
+    cmpl ins bld true
   | Op.CMPLWI ->
-    cmpl ins insLen bld true
+    cmpl ins bld true
   | Op.CMPD ->
-    cmp ins insLen bld false
+    cmp ins bld false
   | Op.CMPDI ->
-    cmp ins insLen bld false
+    cmp ins bld false
   | Op.CMPLD ->
-    cmpl ins insLen bld false
+    cmpl ins bld false
   | Op.CMPLDI ->
-    cmpl ins insLen bld false
+    cmpl ins bld false
   | Op.CMPB ->
-    cmpb ins insLen bld
+    cmpb ins bld
   | Op.CNTLZW ->
-    cntlzw ins insLen false bld
+    cntlzw ins false bld
   | Op.CNTLZWdot ->
-    cntlzw ins insLen true bld
+    cntlzw ins true bld
   | Op.CNTLZD ->
-    cntlzd ins insLen false bld
+    cntlzd ins false bld
   | Op.CNTLZDdot ->
-    cntlzd ins insLen true bld
+    cntlzd ins true bld
   | Op.CRCLR ->
-    crclr ins insLen bld
+    crclr ins bld
   | Op.CREQV ->
-    creqv ins insLen bld
+    creqv ins bld
   | Op.CRXOR ->
-    crxor ins insLen bld
+    crxor ins bld
   | Op.CROR ->
-    cror ins insLen bld
+    cror ins bld
   | Op.CRORC ->
-    crorc ins insLen bld
+    crorc ins bld
   | Op.CRSET ->
-    crset ins insLen bld
+    crset ins bld
   | Op.CRNOR ->
-    crnor ins insLen bld
+    crnor ins bld
   | Op.CRNOT ->
-    crnot ins insLen bld
+    crnot ins bld
   | Op.CRAND ->
-    crand ins insLen bld
+    crand ins bld
   | Op.CRANDC ->
-    crandc ins insLen bld
+    crandc ins bld
   | Op.CRNAND ->
-    crnand ins insLen bld
+    crnand ins bld
   | Op.CRMOVE ->
-    crmove ins insLen bld
+    crmove ins bld
   (* The cache-management forms are hints about a cache BRemu does not model, so
      they leave no trace; dcbz below is the exception, as it clears storage. *)
   | Op.DCBT | Op.DCBTST | Op.DCBA | Op.DCBST | Op.DCBF | Op.DCBI | Op.ICBI ->
-    nop ins insLen bld
+    nop ins bld
   | Op.DCBZ ->
-    dcbz ins insLen bld
+    dcbz ins bld
   | Op.DIVW ->
-    divw ins insLen false false bld
+    divw ins false false bld
   | Op.DIVWdot ->
-    divw ins insLen true false bld
+    divw ins true false bld
   | Op.DIVWO ->
-    divw ins insLen false true bld
+    divw ins false true bld
   | Op.DIVWOdot ->
-    divw ins insLen true true bld
+    divw ins true true bld
   | Op.DIVWU ->
-    divwu ins insLen false false bld
+    divwu ins false false bld
   | Op.DIVWUdot ->
-    divwu ins insLen true false bld
+    divwu ins true false bld
   | Op.DIVWUO ->
-    divwu ins insLen false true bld
+    divwu ins false true bld
   | Op.DIVWUOdot ->
-    divwu ins insLen true true bld
+    divwu ins true true bld
   | Op.EXTSB ->
-    extsb ins insLen false bld
+    extsb ins false bld
   | Op.EXTSBdot ->
-    extsb ins insLen true bld
+    extsb ins true bld
   | Op.EXTSH ->
-    extsh ins insLen false bld
+    extsh ins false bld
   | Op.EXTSHdot ->
-    extsh ins insLen true bld
+    extsh ins true bld
   | Op.EIEIO ->
-    nop ins insLen bld
+    nop ins bld
   | Op.EQV ->
-    eqvx ins insLen false bld
+    eqvx ins false bld
   | Op.EQVdot ->
-    eqvx ins insLen true bld
+    eqvx ins true bld
   | Op.FABS ->
-    fabs ins insLen false bld
+    fabs ins false bld
   | Op.FABSdot ->
-    fabs ins insLen true bld
+    fabs ins true bld
   | Op.FADD ->
-    fadd ins insLen false true bld
+    fadd ins false true bld
   | Op.FADDS ->
-    fadd ins insLen false false bld
+    fadd ins false false bld
   | Op.FADDdot ->
-    fadd ins insLen true true bld
+    fadd ins true true bld
   | Op.FADDSdot ->
-    fadd ins insLen true false bld
+    fadd ins true false bld
   | Op.FCTIW ->
-    fctiw ins insLen false bld
+    fctiw ins false bld
   | Op.FCTIWdot ->
-    fctiw ins insLen true bld
+    fctiw ins true bld
   | Op.FCTIWZ ->
-    fctiwz ins insLen false bld
+    fctiwz ins false bld
   | Op.FCTIWZdot ->
-    fctiwz ins insLen true bld
+    fctiwz ins true bld
   | Op.FCMPO ->
-    fcmpo ins insLen bld
+    fcmpo ins bld
   | Op.FCMPU ->
-    fcmpu ins insLen bld
+    fcmpu ins bld
   | Op.FDIV ->
-    fdiv ins insLen false true bld
+    fdiv ins false true bld
   | Op.FDIVS ->
-    fdiv ins insLen false false bld
+    fdiv ins false false bld
   | Op.FDIVdot ->
-    fdiv ins insLen true true bld
+    fdiv ins true true bld
   | Op.FDIVSdot ->
-    fdiv ins insLen true false bld
+    fdiv ins true false bld
   | Op.FRSP ->
-    frsp ins insLen false bld
+    frsp ins false bld
   | Op.FRSPdot ->
-    frsp ins insLen true bld
+    frsp ins true bld
   | Op.FMADD ->
-    fmadd ins insLen false true bld
+    fmadd ins false true bld
   | Op.FMADDS ->
-    fmadd ins insLen false false bld
+    fmadd ins false false bld
   | Op.FMADDdot ->
-    fmadd ins insLen true true bld
+    fmadd ins true true bld
   | Op.FMADDSdot ->
-    fmadd ins insLen true false bld
+    fmadd ins true false bld
   | Op.FMR ->
-    fmr ins insLen false bld
+    fmr ins false bld
   | Op.FMRdot ->
-    fmr ins insLen true bld
+    fmr ins true bld
   | Op.FMSUB ->
-    fmsub ins insLen false true bld
+    fmsub ins false true bld
   | Op.FMSUBS ->
-    fmsub ins insLen false false bld
+    fmsub ins false false bld
   | Op.FMSUBdot ->
-    fmsub ins insLen true true bld
+    fmsub ins true true bld
   | Op.FMSUBSdot ->
-    fmsub ins insLen true false bld
+    fmsub ins true false bld
   | Op.FMUL ->
-    fmul ins insLen false true bld
+    fmul ins false true bld
   | Op.FMULS ->
-    fmul ins insLen false false bld
+    fmul ins false false bld
   | Op.FMULdot ->
-    fmul ins insLen true true bld
+    fmul ins true true bld
   | Op.FMULSdot ->
-    fmul ins insLen true false bld
+    fmul ins true false bld
   | Op.FNABS ->
-    fnabs ins insLen false bld
+    fnabs ins false bld
   | Op.FNABSdot ->
-    fnabs ins insLen true bld
+    fnabs ins true bld
   | Op.FNEG ->
-    fneg ins insLen false bld
+    fneg ins false bld
   | Op.FNEGdot ->
-    fneg ins insLen true bld
+    fneg ins true bld
   | Op.FNMADD ->
-    fnmadd ins insLen false true bld
+    fnmadd ins false true bld
   | Op.FNMADDdot ->
-    fnmadd ins insLen true true bld
+    fnmadd ins true true bld
   | Op.FNMADDS ->
-    fnmadd ins insLen false false bld
+    fnmadd ins false false bld
   | Op.FNMADDSdot ->
-    fnmadd ins insLen true false bld
+    fnmadd ins true false bld
   | Op.FNMSUB ->
-    fnmsub ins insLen false true bld
+    fnmsub ins false true bld
   | Op.FNMSUBdot ->
-    fnmsub ins insLen true true bld
+    fnmsub ins true true bld
   | Op.FNMSUBS ->
-    fnmsub ins insLen false false bld
+    fnmsub ins false false bld
   | Op.FNMSUBSdot ->
-    fnmsub ins insLen true false bld
+    fnmsub ins true false bld
   | Op.FSEL ->
-    fsel ins insLen false bld
+    fsel ins false bld
   | Op.FSELdot ->
-    fsel ins insLen true bld
+    fsel ins true bld
   | Op.FSUB ->
-    fsub ins insLen false true bld
+    fsub ins false true bld
   | Op.FSUBS ->
-    fsub ins insLen false false bld
+    fsub ins false false bld
   | Op.FSUBdot ->
-    fsub ins insLen true true bld
+    fsub ins true true bld
   | Op.FSUBSdot ->
-    fsub ins insLen true false bld
+    fsub ins true false bld
   | Op.FSQRT ->
-    fsqrt ins insLen false true bld
+    fsqrt ins false true bld
   | Op.FSQRTS ->
-    fsqrt ins insLen false false bld
+    fsqrt ins false false bld
   | Op.FSQRTdot ->
-    fsqrt ins insLen true true bld
+    fsqrt ins true true bld
   | Op.FSQRTSdot ->
-    fsqrt ins insLen true false bld
+    fsqrt ins true false bld
   | Op.ISYNC | Op.LWSYNC | Op.SYNC ->
-    nop ins insLen bld
+    nop ins bld
   | Op.LBZ ->
-    lbz ins insLen bld
+    lbz ins bld
   | Op.LBZU ->
-    lbzu ins insLen bld
+    lbzu ins bld
   | Op.LBZUX ->
-    lbzux ins insLen bld
+    lbzux ins bld
   | Op.LBZX ->
-    lbzx ins insLen bld
+    lbzx ins bld
   | Op.LFD ->
-    lfd ins insLen bld
+    lfd ins bld
   | Op.LFDU ->
-    lfdu ins insLen bld
+    lfdu ins bld
   | Op.LFDUX ->
-    lfdux ins insLen bld
+    lfdux ins bld
   | Op.LFDX ->
-    lfdx ins insLen bld
+    lfdx ins bld
   | Op.LFS ->
-    lfs ins insLen bld
+    lfs ins bld
   | Op.LFSU ->
-    lfsu ins insLen bld
+    lfsu ins bld
   | Op.LFSUX ->
-    lfsux ins insLen bld
+    lfsux ins bld
   | Op.LFSX ->
-    lfsx ins insLen bld
+    lfsx ins bld
   | Op.LHA ->
-    lha ins insLen bld
+    lha ins bld
   | Op.LHAU ->
-    lhau ins insLen bld
+    lhau ins bld
   | Op.LHAUX ->
-    lhaux ins insLen bld
+    lhaux ins bld
   | Op.LHAX ->
-    lhax ins insLen bld
+    lhax ins bld
   | Op.LHBRX ->
-    lhbrx ins insLen bld
+    lhbrx ins bld
   | Op.LHZ ->
-    lhz ins insLen bld
+    lhz ins bld
   | Op.LHZU ->
-    lhzu ins insLen bld
+    lhzu ins bld
   | Op.LHZUX ->
-    lhzux ins insLen bld
+    lhzux ins bld
   | Op.LHZX ->
-    lhzx ins insLen bld
+    lhzx ins bld
   | Op.LI ->
-    li ins insLen bld
+    li ins bld
   | Op.LIS ->
-    lis ins insLen bld
+    lis ins bld
   | Op.LWARX ->
-    lwarx ins insLen bld
+    lwarx ins bld
   | Op.LWBRX ->
-    lwbrx ins insLen bld
+    lwbrx ins bld
   | Op.LWZ ->
-    lwz ins insLen bld
+    lwz ins bld
   | Op.LWZU ->
-    lwzu ins insLen bld
+    lwzu ins bld
   | Op.LWZUX ->
-    lwzux ins insLen bld
+    lwzux ins bld
   | Op.LWZX ->
-    lwzx ins insLen bld
+    lwzx ins bld
   | Op.MCRF ->
-    mcrf ins insLen bld
+    mcrf ins bld
   | Op.MCRXR ->
-    mcrxr ins insLen bld
+    mcrxr ins bld
   | Op.MFCR ->
-    mfcr ins insLen bld
+    mfcr ins bld
   | Op.MFSPR ->
-    mfspr ins insLen bld
+    mfspr ins bld
   | Op.MFTB ->
-    mftb ins insLen bld
+    mftb ins bld
   | Op.MFTBU ->
-    mftbu ins insLen bld
+    mftbu ins bld
   | Op.MFCTR ->
-    mfctr ins insLen bld
+    mfctr ins bld
   | Op.MFFS ->
-    mffs ins insLen bld
+    mffs ins bld
   | Op.MFLR ->
-    mflr ins insLen bld
+    mflr ins bld
   | Op.MFXER ->
-    mfxer ins insLen bld
+    mfxer ins bld
   | Op.MR ->
-    mr ins insLen bld
+    mr ins bld
   | Op.MTCTR ->
-    mtctr ins insLen bld
+    mtctr ins bld
   | Op.MTCRF ->
-    mtcrf ins insLen bld
+    mtcrf ins bld
   | Op.MTFSFI ->
-    mtfsfi ins insLen false bld
+    mtfsfi ins false bld
   | Op.MTFSFIdot ->
-    mtfsfi ins insLen true bld
+    mtfsfi ins true bld
   | Op.MTSPR ->
-    mtspr ins insLen bld
+    mtspr ins bld
   | Op.MTFSB0 ->
-    mtfsb0 ins insLen false bld
+    mtfsb0 ins false bld
   | Op.MTFSB0dot ->
-    mtfsb0 ins insLen true bld
+    mtfsb0 ins true bld
   | Op.MTFSB1 ->
-    mtfsb1 ins insLen false bld
+    mtfsb1 ins false bld
   | Op.MTFSB1dot ->
-    mtfsb1 ins insLen true bld
+    mtfsb1 ins true bld
   | Op.MTFSF ->
-    mtfsf ins insLen bld
+    mtfsf ins bld
   | Op.MTLR ->
-    mtlr ins insLen bld
+    mtlr ins bld
   | Op.MTXER ->
-    mtxer ins insLen bld
+    mtxer ins bld
   | Op.MULHW ->
-    mulhw ins insLen false bld
+    mulhw ins false bld
   | Op.MULHWU ->
-    mulhwu ins insLen false bld
+    mulhwu ins false bld
   | Op.MULHWUdot ->
-    mulhwu ins insLen true bld
+    mulhwu ins true bld
   | Op.MULLI ->
-    mulli ins insLen bld
+    mulli ins bld
   | Op.MULLW ->
-    mullw ins insLen false false bld
+    mullw ins false false bld
   | Op.MULLWdot ->
-    mullw ins insLen true false bld
+    mullw ins true false bld
   | Op.MULLWO ->
-    mullw ins insLen false true bld
+    mullw ins false true bld
   | Op.MULLWOdot ->
-    mullw ins insLen true true bld
+    mullw ins true true bld
   | Op.NAND ->
-    nand ins insLen false bld
+    nand ins false bld
   | Op.NANDdot ->
-    nand ins insLen true bld
+    nand ins true bld
   | Op.NEG ->
-    neg ins insLen false false bld
+    neg ins false false bld
   | Op.NEGdot ->
-    neg ins insLen true false bld
+    neg ins true false bld
   | Op.NEGO ->
-    neg ins insLen false true bld
+    neg ins false true bld
   | Op.NEGOdot ->
-    neg ins insLen true true bld
+    neg ins true true bld
   | Op.NOR ->
-    nor ins insLen false bld
+    nor ins false bld
   | Op.NORdot ->
-    nor ins insLen true bld
+    nor ins true bld
   | Op.NOP ->
-    nop ins insLen bld
+    nop ins bld
   | Op.ORC ->
-    orc ins insLen false bld
+    orc ins false bld
   | Op.ORCdot ->
-    orc ins insLen true bld
+    orc ins true bld
   | Op.OR ->
-    orx ins insLen false bld
+    orx ins false bld
   | Op.ORdot ->
-    orx ins insLen true bld
+    orx ins true bld
   | Op.ORI ->
-    ori ins insLen bld
+    ori ins bld
   | Op.ORIS ->
-    oris ins insLen bld
+    oris ins bld
   | Op.RLWIMI ->
-    rlwimi ins insLen false bld
+    rlwimi ins false bld
   | Op.RLWIMIdot ->
-    rlwimi ins insLen true bld
+    rlwimi ins true bld
   | Op.RLWINM ->
-    rlwinm ins insLen false bld
+    rlwinm ins false bld
   | Op.RLWINMdot ->
-    rlwinm ins insLen true bld
+    rlwinm ins true bld
   | Op.RLWNM ->
-    rlwnm ins insLen false bld
+    rlwnm ins false bld
   | Op.RLWNMdot ->
-    rlwnm ins insLen true bld
+    rlwnm ins true bld
   | Op.ROTLW ->
-    rotlw ins insLen bld
+    rotlw ins bld
   | Op.SC ->
-    sideEffects ins insLen bld SysCall
+    sideEffects ins bld SysCall
   | Op.SLW ->
-    slw ins insLen false bld
+    slw ins false bld
   | Op.SLWdot ->
-    slw ins insLen true bld
+    slw ins true bld
   | Op.SRAW ->
-    sraw ins insLen false bld
+    sraw ins false bld
   | Op.SRAWdot ->
-    sraw ins insLen true bld
+    sraw ins true bld
   | Op.SRAWI ->
-    srawi ins insLen false bld
+    srawi ins false bld
   | Op.SRAWIdot ->
-    srawi ins insLen true bld
+    srawi ins true bld
   | Op.SRW ->
-    srw ins insLen false bld
+    srw ins false bld
   | Op.SRWdot ->
-    srw ins insLen true bld
+    srw ins true bld
   | Op.STB ->
-    stb ins insLen bld
+    stb ins bld
   | Op.STBU ->
-    stbu ins insLen bld
+    stbu ins bld
   | Op.STBX ->
-    stbx ins insLen bld
+    stbx ins bld
   | Op.STBUX ->
-    stbux ins insLen bld
+    stbux ins bld
   | Op.STFD ->
-    stfd ins insLen bld
+    stfd ins bld
   | Op.STFDX ->
-    stfdx ins insLen bld
+    stfdx ins bld
   | Op.STFDU ->
-    stfdu ins insLen bld
+    stfdu ins bld
   | Op.STFDUX ->
-    stfdux ins insLen bld
+    stfdux ins bld
   | Op.STFIWX ->
-    stfiwx ins insLen bld
+    stfiwx ins bld
   | Op.STFS ->
-    stfs ins insLen bld
+    stfs ins bld
   | Op.STFSX ->
-    stfsx ins insLen bld
+    stfsx ins bld
   | Op.STFSU ->
-    stfsu ins insLen bld
+    stfsu ins bld
   | Op.STFSUX ->
-    stfsux ins insLen bld
+    stfsux ins bld
   | Op.STH ->
-    sth ins insLen bld
+    sth ins bld
   | Op.STHBRX ->
-    sthbrx ins insLen bld
+    sthbrx ins bld
   | Op.STHU ->
-    sthu ins insLen bld
+    sthu ins bld
   | Op.STHX ->
-    sthx ins insLen bld
+    sthx ins bld
   | Op.STHUX ->
-    sthux ins insLen bld
+    sthux ins bld
   | Op.STW ->
-    stw ins insLen bld
+    stw ins bld
   | Op.LMW ->
-    lmw ins insLen bld
+    lmw ins bld
   | Op.STMW ->
-    stmw ins insLen bld
+    stmw ins bld
   | Op.STWBRX ->
-    stwbrx ins insLen bld
+    stwbrx ins bld
   | Op.STWCXdot ->
-    stwcxdot ins insLen bld
+    stwcxdot ins bld
   | Op.STWU ->
-    stwu ins insLen bld
+    stwu ins bld
   | Op.STWUX ->
-    stwux ins insLen bld
+    stwux ins bld
   | Op.STWX ->
-    stwx ins insLen bld
+    stwx ins bld
   | Op.SUBF ->
-    subf ins insLen false false bld
+    subf ins false false bld
   | Op.SUBFdot ->
-    subf ins insLen true false bld
+    subf ins true false bld
   | Op.SUBFO ->
-    subf ins insLen false true bld
+    subf ins false true bld
   | Op.SUBFOdot ->
-    subf ins insLen true true bld
+    subf ins true true bld
   | Op.SUBFC ->
-    subfc ins insLen false false bld
+    subfc ins false false bld
   | Op.SUBFCdot ->
-    subfc ins insLen true false bld
+    subfc ins true false bld
   | Op.SUBFCO ->
-    subfc ins insLen false true bld
+    subfc ins false true bld
   | Op.SUBFCOdot ->
-    subfc ins insLen true true bld
+    subfc ins true true bld
   | Op.SUBFE ->
-    subfe ins insLen false false bld
+    subfe ins false false bld
   | Op.SUBFEdot ->
-    subfe ins insLen true false bld
+    subfe ins true false bld
   | Op.SUBFEO ->
-    subfe ins insLen false true bld
+    subfe ins false true bld
   | Op.SUBFEOdot ->
-    subfe ins insLen true true bld
+    subfe ins true true bld
   | Op.SUBFIC ->
-    subfic ins insLen bld
+    subfic ins bld
   | Op.SUBFME ->
-    subfme ins insLen false false bld
+    subfme ins false false bld
   | Op.SUBFMEdot ->
-    subfme ins insLen true false bld
+    subfme ins true false bld
   | Op.SUBFMEO ->
-    subfme ins insLen false true bld
+    subfme ins false true bld
   | Op.SUBFMEOdot ->
-    subfme ins insLen true true bld
+    subfme ins true true bld
   | Op.SUBFZE ->
-    subfze ins insLen false false bld
+    subfze ins false false bld
   | Op.SUBFZEdot ->
-    subfze ins insLen true false bld
+    subfze ins true false bld
   | Op.SUBFZEO ->
-    subfze ins insLen false true bld
+    subfze ins false true bld
   | Op.SUBFZEOdot ->
-    subfze ins insLen true true bld
+    subfze ins true true bld
   | Op.TRAP | Op.TWI ->
-    trap ins insLen bld
+    trap ins bld
   | Op.TWLT ->
-    trapCond ins insLen (AST.slt) bld
+    trapCond ins (AST.slt) bld
   | Op.TWLE ->
-    trapCond ins insLen (AST.sle) bld
+    trapCond ins (AST.sle) bld
   | Op.TWEQ ->
-    trapCond ins insLen (AST.eq) bld
+    trapCond ins (AST.eq) bld
   | Op.TWGE ->
-    trapCond ins insLen (AST.sge) bld
+    trapCond ins (AST.sge) bld
   | Op.TWGT ->
-    trapCond ins insLen (AST.sgt) bld
+    trapCond ins (AST.sgt) bld
   | Op.TWNE ->
-    trapCond ins insLen (AST.neq) bld
+    trapCond ins (AST.neq) bld
   | Op.TWLLT ->
-    trapCond ins insLen (AST.lt) bld
+    trapCond ins (AST.lt) bld
   | Op.TWLLE ->
-    trapCond ins insLen (AST.le) bld
+    trapCond ins (AST.le) bld
   | Op.TWLNL ->
-    trapCond ins insLen (AST.ge) bld
+    trapCond ins (AST.ge) bld
   | Op.TWLGT ->
-    trapCond ins insLen (AST.gt) bld
+    trapCond ins (AST.gt) bld
   | Op.TWLTI ->
-    trapCond ins insLen (AST.slt) bld
+    trapCond ins (AST.slt) bld
   | Op.TWLEI ->
-    trapCond ins insLen (AST.sle) bld
+    trapCond ins (AST.sle) bld
   | Op.TWEQI ->
-    trapCond ins insLen (AST.eq) bld
+    trapCond ins (AST.eq) bld
   | Op.TWGEI ->
-    trapCond ins insLen (AST.sge) bld
+    trapCond ins (AST.sge) bld
   | Op.TWGTI ->
-    trapCond ins insLen (AST.sgt) bld
+    trapCond ins (AST.sgt) bld
   | Op.TWNEI ->
-    trapCond ins insLen (AST.neq) bld
+    trapCond ins (AST.neq) bld
   | Op.TWLLTI ->
-    trapCond ins insLen (AST.lt) bld
+    trapCond ins (AST.lt) bld
   | Op.TWLLEI ->
-    trapCond ins insLen (AST.le) bld
+    trapCond ins (AST.le) bld
   | Op.TWLNLI ->
-    trapCond ins insLen (AST.ge) bld
+    trapCond ins (AST.ge) bld
   | Op.TWLGTI ->
-    trapCond ins insLen (AST.gt) bld
+    trapCond ins (AST.gt) bld
   | Op.XOR ->
-    xor ins insLen false bld
+    xor ins false bld
   | Op.XORdot ->
-    xor ins insLen true bld
+    xor ins true bld
   | Op.XORI ->
-    xori ins insLen bld
+    xori ins bld
   | Op.XORIS ->
-    xoris ins insLen bld
+    xoris ins bld
   (* 64-bit forms. *)
   | Op.LD ->
-    ld ins insLen bld
+    ld ins bld
   | Op.LDU ->
-    ldu ins insLen bld
+    ldu ins bld
   | Op.LDX ->
-    ldx ins insLen bld
+    ldx ins bld
   | Op.LDUX ->
-    ldux ins insLen bld
+    ldux ins bld
   | Op.LDARX ->
-    ldarx ins insLen bld
+    ldarx ins bld
   | Op.LBARX ->
-    lbarx ins insLen bld
+    lbarx ins bld
   | Op.LHARX ->
-    lharx ins insLen bld
+    lharx ins bld
   | Op.LDBRX ->
-    ldbrx ins insLen bld
+    ldbrx ins bld
   | Op.LWA ->
-    lwa ins insLen bld
+    lwa ins bld
   | Op.LWAX ->
-    lwax ins insLen bld
+    lwax ins bld
   | Op.LWAUX ->
-    lwaux ins insLen bld
+    lwaux ins bld
   | Op.STD ->
-    std ins insLen bld
+    std ins bld
   | Op.STDU ->
-    stdu ins insLen bld
+    stdu ins bld
   | Op.STDX ->
-    stdx ins insLen bld
+    stdx ins bld
   | Op.STDUX ->
-    stdux ins insLen bld
+    stdux ins bld
   | Op.STDBRX ->
-    stdbrx ins insLen bld
+    stdbrx ins bld
   | Op.STDCXdot ->
-    stdcxdot ins insLen bld
+    stdcxdot ins bld
   | Op.STBCXdot ->
-    stbcxdot ins insLen bld
+    stbcxdot ins bld
   | Op.STHCXdot ->
-    sthcxdot ins insLen bld
+    sthcxdot ins bld
   | Op.RLDICL ->
-    rldicl ins insLen false bld
+    rldicl ins false bld
   | Op.RLDICLdot ->
-    rldicl ins insLen true bld
+    rldicl ins true bld
   | Op.RLDICR ->
-    rldicr ins insLen false bld
+    rldicr ins false bld
   | Op.RLDICRdot ->
-    rldicr ins insLen true bld
+    rldicr ins true bld
   | Op.RLDIC ->
-    rldic ins insLen false bld
+    rldic ins false bld
   | Op.RLDICdot ->
-    rldic ins insLen true bld
+    rldic ins true bld
   | Op.RLDIMI ->
-    rldimi ins insLen false bld
+    rldimi ins false bld
   | Op.RLDIMIdot ->
-    rldimi ins insLen true bld
+    rldimi ins true bld
   | Op.RLDCL ->
-    rldcl ins insLen false bld
+    rldcl ins false bld
   | Op.RLDCLdot ->
-    rldcl ins insLen true bld
+    rldcl ins true bld
   | Op.RLDCR ->
-    rldcr ins insLen false bld
+    rldcr ins false bld
   | Op.RLDCRdot ->
-    rldcr ins insLen true bld
+    rldcr ins true bld
   | Op.SLD ->
-    sld ins insLen false bld
+    sld ins false bld
   | Op.SLDdot ->
-    sld ins insLen true bld
+    sld ins true bld
   | Op.SRD ->
-    srd ins insLen false bld
+    srd ins false bld
   | Op.SRDdot ->
-    srd ins insLen true bld
+    srd ins true bld
   | Op.SRAD ->
-    srad ins insLen false bld
+    srad ins false bld
   | Op.SRADdot ->
-    srad ins insLen true bld
+    srad ins true bld
   | Op.SRADI ->
-    sradi ins insLen false bld
+    sradi ins false bld
   | Op.SRADIdot ->
-    sradi ins insLen true bld
+    sradi ins true bld
   | Op.EXTSW ->
-    extsw ins insLen false bld
+    extsw ins false bld
   | Op.EXTSWdot ->
-    extsw ins insLen true bld
+    extsw ins true bld
   | Op.MULLD ->
-    mulld ins insLen false false bld
+    mulld ins false false bld
   | Op.MULLDdot ->
-    mulld ins insLen true false bld
+    mulld ins true false bld
   | Op.MULLDO ->
-    mulld ins insLen false true bld
+    mulld ins false true bld
   | Op.MULLDOdot ->
-    mulld ins insLen true true bld
+    mulld ins true true bld
   | Op.MULHD ->
-    mulhd ins insLen false bld
+    mulhd ins false bld
   | Op.MULHDdot ->
-    mulhd ins insLen true bld
+    mulhd ins true bld
   | Op.MULHDU ->
-    mulhdu ins insLen false bld
+    mulhdu ins false bld
   | Op.MULHDUdot ->
-    mulhdu ins insLen true bld
+    mulhdu ins true bld
   | Op.DIVD ->
-    divd ins insLen false false bld
+    divd ins false false bld
   | Op.DIVDdot ->
-    divd ins insLen true false bld
+    divd ins true false bld
   | Op.DIVDO ->
-    divd ins insLen false true bld
+    divd ins false true bld
   | Op.DIVDOdot ->
-    divd ins insLen true true bld
+    divd ins true true bld
   | Op.DIVDU ->
-    divdu ins insLen false false bld
+    divdu ins false false bld
   | Op.DIVDUdot ->
-    divdu ins insLen true false bld
+    divdu ins true false bld
   | Op.DIVDUO ->
-    divdu ins insLen false true bld
+    divdu ins false true bld
   | Op.DIVDUOdot ->
-    divdu ins insLen true true bld
+    divdu ins true true bld
   | Op.POPCNTB ->
-    popcnt ins insLen bld 8
+    popcnt ins bld 8
   | Op.POPCNTW ->
-    popcnt ins insLen bld 32
+    popcnt ins bld 32
   | Op.POPCNTD ->
-    popcnt ins insLen bld 64
+    popcnt ins bld 64
   | Op.PRTYW ->
-    prty ins insLen bld 32
+    prty ins bld 32
   | Op.PRTYD ->
-    prty ins insLen bld 64
+    prty ins bld 64
   | Op.BPERMD ->
-    bpermd ins insLen bld
+    bpermd ins bld
   | Op.ISEL ->
-    isel ins insLen bld
+    isel ins bld
   | Op.MTOCRF ->
-    mtcrf ins insLen bld
+    mtcrf ins bld
   | Op.MFOCRF ->
-    mfcr ins insLen bld
+    mfcr ins bld
   | Op.MFVSRD ->
-    mfvsr ins insLen bld 64<rt>
+    mfvsr ins bld 64<rt>
   | Op.MFVSRWZ ->
-    mfvsr ins insLen bld 32<rt>
+    mfvsr ins bld 32<rt>
   | Op.MTVSRD ->
-    mtvsrd ins insLen bld
+    mtvsrd ins bld
   | Op.MTVSRWA ->
-    mtvsrw ins insLen bld true
+    mtvsrw ins bld true
   | Op.MTVSRWZ ->
-    mtvsrw ins insLen bld false
+    mtvsrw ins bld false
   | Op.TD ->
-    trapGeneric ins insLen bld false
+    trapGeneric ins bld false
   | Op.TDI ->
-    trapGeneric ins insLen bld false
+    trapGeneric ins bld false
   | Op.TW ->
-    trapGeneric ins insLen bld true
+    trapGeneric ins bld true
   | Op.FCTID ->
-    fcti ins insLen false bld 64<rt> false
+    fcti ins false bld 64<rt> false
   | Op.FCTIDdot ->
-    fcti ins insLen true bld 64<rt> false
+    fcti ins true bld 64<rt> false
   | Op.FCTIDZ ->
-    fcti ins insLen false bld 64<rt> true
+    fcti ins false bld 64<rt> true
   | Op.FCTIDZdot ->
-    fcti ins insLen true bld 64<rt> true
+    fcti ins true bld 64<rt> true
   | Op.FCTIDU ->
-    fcti ins insLen false bld 64<rt> false
+    fcti ins false bld 64<rt> false
   | Op.FCTIDUdot ->
-    fcti ins insLen true bld 64<rt> false
+    fcti ins true bld 64<rt> false
   | Op.FCTIDUZ ->
-    fcti ins insLen false bld 64<rt> true
+    fcti ins false bld 64<rt> true
   | Op.FCTIDUZdot ->
-    fcti ins insLen true bld 64<rt> true
+    fcti ins true bld 64<rt> true
   | Op.FCTIWU ->
-    fcti ins insLen false bld 32<rt> false
+    fcti ins false bld 32<rt> false
   | Op.FCTIWUdot ->
-    fcti ins insLen true bld 32<rt> false
+    fcti ins true bld 32<rt> false
   | Op.FCTIWUZ ->
-    fcti ins insLen false bld 32<rt> true
+    fcti ins false bld 32<rt> true
   | Op.FCTIWUZdot ->
-    fcti ins insLen true bld 32<rt> true
+    fcti ins true bld 32<rt> true
   | Op.FCFID ->
-    fcfid ins insLen false bld true false
+    fcfid ins false bld true false
   | Op.FCFIDdot ->
-    fcfid ins insLen true bld true false
+    fcfid ins true bld true false
   | Op.FCFIDU ->
-    fcfid ins insLen false bld false false
+    fcfid ins false bld false false
   | Op.FCFIDUdot ->
-    fcfid ins insLen true bld false false
+    fcfid ins true bld false false
   | Op.FCFIDS ->
-    fcfid ins insLen false bld true true
+    fcfid ins false bld true true
   | Op.FCFIDSdot ->
-    fcfid ins insLen true bld true true
+    fcfid ins true bld true true
   | Op.FCFIDUS ->
-    fcfid ins insLen false bld false true
+    fcfid ins false bld false true
   | Op.FCFIDUSdot ->
-    fcfid ins insLen true bld false true
+    fcfid ins true bld false true
   | Op.FRIN ->
-    frnd ins insLen false bld CastKind.FtoFRound
+    frnd ins false bld CastKind.FtoFRound
   | Op.FRINdot ->
-    frnd ins insLen true bld CastKind.FtoFRound
+    frnd ins true bld CastKind.FtoFRound
   | Op.FRIZ ->
-    frnd ins insLen false bld CastKind.FtoFTrunc
+    frnd ins false bld CastKind.FtoFTrunc
   | Op.FRIZdot ->
-    frnd ins insLen true bld CastKind.FtoFTrunc
+    frnd ins true bld CastKind.FtoFTrunc
   | Op.FRIP ->
-    frnd ins insLen false bld CastKind.FtoFCeil
+    frnd ins false bld CastKind.FtoFCeil
   | Op.FRIPdot ->
-    frnd ins insLen true bld CastKind.FtoFCeil
+    frnd ins true bld CastKind.FtoFCeil
   | Op.FRIM ->
-    frnd ins insLen false bld CastKind.FtoFFloor
+    frnd ins false bld CastKind.FtoFFloor
   | Op.FRIMdot ->
-    frnd ins insLen true bld CastKind.FtoFFloor
+    frnd ins true bld CastKind.FtoFFloor
   (* Vector forms. *)
   | Op.LVX | Op.LVXL ->
-    lvx ins insLen bld
+    lvx ins bld
   | Op.STVX | Op.STVXL ->
-    stvx ins insLen bld
+    stvx ins bld
   | Op.LVSL ->
-    lvsx ins insLen bld true
+    lvsx ins bld true
   | Op.LVSR ->
-    lvsx ins insLen bld false
+    lvsx ins bld false
   | Op.LVEBX ->
-    lvex ins insLen bld 8<rt>
+    lvex ins bld 8<rt>
   | Op.LVEHX ->
-    lvex ins insLen bld 16<rt>
+    lvex ins bld 16<rt>
   | Op.LVEWX ->
-    lvex ins insLen bld 32<rt>
+    lvex ins bld 32<rt>
   | Op.STVEBX ->
-    stvex ins insLen bld 8<rt>
+    stvex ins bld 8<rt>
   | Op.STVEHX ->
-    stvex ins insLen bld 16<rt>
+    stvex ins bld 16<rt>
   | Op.STVEWX ->
-    stvex ins insLen bld 32<rt>
+    stvex ins bld 32<rt>
   | Op.LXVD2X ->
-    lxvx ins insLen bld 64<rt> true
+    lxvx ins bld 64<rt> true
   | Op.STXVD2X ->
-    lxvx ins insLen bld 64<rt> false
+    lxvx ins bld 64<rt> false
   | Op.LXVW4X ->
-    lxvx ins insLen bld 32<rt> true
+    lxvx ins bld 32<rt> true
   | Op.STXVW4X ->
-    lxvx ins insLen bld 32<rt> false
+    lxvx ins bld 32<rt> false
   | Op.LXSDX ->
-    lxsdx ins insLen bld false true
+    lxsdx ins bld false true
   | Op.LXVDSX ->
-    lxsdx ins insLen bld true true
+    lxsdx ins bld true true
   | Op.STXSDX ->
-    lxsdx ins insLen bld false false
+    lxsdx ins bld false false
   | Op.VAND | Op.XXLAND ->
-    vecLogical ins insLen bld (.&)
+    vecLogical ins bld (.&)
   | Op.VOR | Op.XXLOR ->
-    vecLogical ins insLen bld (.|)
+    vecLogical ins bld (.|)
   | Op.VXOR | Op.XXLXOR ->
-    vecLogical ins insLen bld (<+>)
+    vecLogical ins bld (<+>)
   | Op.VANDC | Op.XXLANDC ->
-    vecLogical ins insLen bld (fun a b -> a .& AST.not b)
+    vecLogical ins bld (fun a b -> a .& AST.not b)
   | Op.VORC | Op.XXLORC ->
-    vecLogical ins insLen bld (fun a b -> a .| AST.not b)
+    vecLogical ins bld (fun a b -> a .| AST.not b)
   | Op.VNOR | Op.XXLNOR ->
-    vecLogical ins insLen bld (fun a b -> AST.not (a .| b))
+    vecLogical ins bld (fun a b -> AST.not (a .| b))
   | Op.VNAND | Op.XXLNAND ->
-    vecLogical ins insLen bld (fun a b -> AST.not (a .& b))
+    vecLogical ins bld (fun a b -> AST.not (a .& b))
   | Op.VEQV | Op.XXLEQV ->
-    vecLogical ins insLen bld (fun a b -> AST.not (a <+> b))
+    vecLogical ins bld (fun a b -> AST.not (a <+> b))
   | Op.VSEL ->
-    vecSelect ins insLen bld
+    vecSelect ins bld
   | Op.VPERM ->
-    vecPermute ins insLen bld
+    vecPermute ins bld
   | Op.XXPERMDI ->
-    vecPermuteDouble ins insLen bld
+    vecPermuteDouble ins bld
   | Op.XXSPLTW ->
-    xxspltw ins insLen bld
+    xxspltw ins bld
   | Op.XXSPLTIB ->
-    xxspltib ins insLen bld
+    xxspltib ins bld
   | Op.MTVSRDD ->
-    mtvsrdd ins insLen bld
+    mtvsrdd ins bld
   | Op.MFVSRLD ->
-    mfvsrld ins insLen bld
+    mfvsrld ins bld
   | Op.FCPSGN ->
-    fcpsgn ins insLen bld
+    fcpsgn ins bld
   | Op.MFFSL ->
-    mffs ins insLen bld
+    mffs ins bld
   | Op.XSADDDP ->
-    vsxScalarBinary ins insLen bld AST.fadd
+    vsxScalarBinary ins bld AST.fadd
   | Op.XSSUBDP ->
-    vsxScalarBinary ins insLen bld AST.fsub
+    vsxScalarBinary ins bld AST.fsub
   | Op.XSDIVDP ->
-    vsxScalarBinary ins insLen bld AST.fdiv
+    vsxScalarBinary ins bld AST.fdiv
   | Op.XSCPSGNDP ->
-    vsxScalarBinary ins insLen bld copySign
+    vsxScalarBinary ins bld copySign
   | Op.XSCMPUDP ->
-    xscmpudp ins insLen bld
+    xscmpudp ins bld
   | Op.XSABSDP ->
-    vsxScalarUnary ins insLen bld (fun b ->
+    vsxScalarUnary ins bld (fun b ->
       b .& numU64 0x7fffffffffffffffUL 64<rt>)
   | Op.XSRSP ->
     (* Rounding a double to single precision and keeping it in double format. *)
-    vsxScalarUnary ins insLen bld (fun b ->
+    vsxScalarUnary ins bld (fun b ->
       AST.cast CastKind.FloatCast 64<rt> (AST.cast CastKind.FloatCast 32<rt> b))
   | Op.XSCVDPSPN ->
-    vsxScalarUnary ins insLen bld (fun b ->
+    vsxScalarUnary ins bld (fun b ->
       AST.concat (AST.cast CastKind.FloatCast 32<rt> b) (AST.num0 32<rt>))
   | Op.XSCVSPDPN ->
-    vsxScalarUnary ins insLen bld (fun b ->
+    vsxScalarUnary ins bld (fun b ->
       AST.cast CastKind.FloatCast 64<rt> (AST.xthi 32<rt> b))
   | Op.VSLDOI ->
-    vecShiftDouble ins insLen bld 1
+    vecShiftDouble ins bld 1
   | Op.XXSLDWI ->
-    vecShiftDouble ins insLen bld 4
+    vecShiftDouble ins bld 4
   | Op.VSPLTB ->
-    vecSplat ins insLen bld 8<rt>
+    vecSplat ins bld 8<rt>
   | Op.VSPLTH ->
-    vecSplat ins insLen bld 16<rt>
+    vecSplat ins bld 16<rt>
   | Op.VSPLTW ->
-    vecSplat ins insLen bld 32<rt>
+    vecSplat ins bld 32<rt>
   | Op.VSPLTISB ->
-    vecSplatImm ins insLen bld 8<rt>
+    vecSplatImm ins bld 8<rt>
   | Op.VSPLTISH ->
-    vecSplatImm ins insLen bld 16<rt>
+    vecSplatImm ins bld 16<rt>
   | Op.VSPLTISW ->
-    vecSplatImm ins insLen bld 32<rt>
+    vecSplatImm ins bld 32<rt>
   | Op.VMRGHB ->
-    vecMerge ins insLen bld 8<rt> true
+    vecMerge ins bld 8<rt> true
   | Op.VMRGHH ->
-    vecMerge ins insLen bld 16<rt> true
+    vecMerge ins bld 16<rt> true
   | Op.VMRGHW ->
-    vecMerge ins insLen bld 32<rt> true
+    vecMerge ins bld 32<rt> true
   | Op.VMRGLB ->
-    vecMerge ins insLen bld 8<rt> false
+    vecMerge ins bld 8<rt> false
   | Op.VMRGLH ->
-    vecMerge ins insLen bld 16<rt> false
+    vecMerge ins bld 16<rt> false
   | Op.VMRGLW ->
-    vecMerge ins insLen bld 32<rt> false
+    vecMerge ins bld 32<rt> false
   | Op.VPKUHUM ->
-    vecPack ins insLen bld 16<rt>
+    vecPack ins bld 16<rt>
   | Op.VPKUWUM ->
-    vecPack ins insLen bld 32<rt>
+    vecPack ins bld 32<rt>
   | Op.VUPKHSB ->
-    vecUnpack ins insLen bld 8<rt> true
+    vecUnpack ins bld 8<rt> true
   | Op.VUPKHSH ->
-    vecUnpack ins insLen bld 16<rt> true
+    vecUnpack ins bld 16<rt> true
   | Op.VUPKLSB ->
-    vecUnpack ins insLen bld 8<rt> false
+    vecUnpack ins bld 8<rt> false
   | Op.VUPKLSH ->
-    vecUnpack ins insLen bld 16<rt> false
+    vecUnpack ins bld 16<rt> false
   | Op.VSL ->
-    vecShiftWhole ins insLen bld true false
+    vecShiftWhole ins bld true false
   | Op.VSR ->
-    vecShiftWhole ins insLen bld false false
+    vecShiftWhole ins bld false false
   | Op.VSLO ->
-    vecShiftWhole ins insLen bld true true
+    vecShiftWhole ins bld true true
   | Op.VSRO ->
-    vecShiftWhole ins insLen bld false true
+    vecShiftWhole ins bld false true
   | Op.VGBBD ->
-    vecGatherBits ins insLen bld
+    vecGatherBits ins bld
   | Op.VBPERMQ ->
-    vecBitPermute ins insLen bld
+    vecBitPermute ins bld
   | Op.MFVSCR ->
-    vscrMove ins insLen bld true
+    vscrMove ins bld true
   | Op.MTVSCR ->
-    vscrMove ins insLen bld false
+    vscrMove ins bld false
   | Op.VADDUBM ->
-    vecBinary ins insLen bld 8<rt> (.+)
+    vecBinary ins bld 8<rt> (.+)
   | Op.VADDUHM ->
-    vecBinary ins insLen bld 16<rt> (.+)
+    vecBinary ins bld 16<rt> (.+)
   | Op.VADDUWM ->
-    vecBinary ins insLen bld 32<rt> (.+)
+    vecBinary ins bld 32<rt> (.+)
   | Op.VADDUDM ->
-    vecBinary ins insLen bld 64<rt> (.+)
+    vecBinary ins bld 64<rt> (.+)
   | Op.VSUBUBM ->
-    vecBinary ins insLen bld 8<rt> (.-)
+    vecBinary ins bld 8<rt> (.-)
   | Op.VSUBUHM ->
-    vecBinary ins insLen bld 16<rt> (.-)
+    vecBinary ins bld 16<rt> (.-)
   | Op.VSUBUWM ->
-    vecBinary ins insLen bld 32<rt> (.-)
+    vecBinary ins bld 32<rt> (.-)
   | Op.VSUBUDM ->
-    vecBinary ins insLen bld 64<rt> (.-)
+    vecBinary ins bld 64<rt> (.-)
   | Op.VSLB ->
-    vecBinary ins insLen bld 8<rt> (elementShift 8<rt> 0)
+    vecBinary ins bld 8<rt> (elementShift 8<rt> 0)
   | Op.VSLH ->
-    vecBinary ins insLen bld 16<rt> (elementShift 16<rt> 0)
+    vecBinary ins bld 16<rt> (elementShift 16<rt> 0)
   | Op.VSLW ->
-    vecBinary ins insLen bld 32<rt> (elementShift 32<rt> 0)
+    vecBinary ins bld 32<rt> (elementShift 32<rt> 0)
   | Op.VSLD ->
-    vecBinary ins insLen bld 64<rt> (elementShift 64<rt> 0)
+    vecBinary ins bld 64<rt> (elementShift 64<rt> 0)
   | Op.VSRB ->
-    vecBinary ins insLen bld 8<rt> (elementShift 8<rt> 1)
+    vecBinary ins bld 8<rt> (elementShift 8<rt> 1)
   | Op.VSRH ->
-    vecBinary ins insLen bld 16<rt> (elementShift 16<rt> 1)
+    vecBinary ins bld 16<rt> (elementShift 16<rt> 1)
   | Op.VSRW ->
-    vecBinary ins insLen bld 32<rt> (elementShift 32<rt> 1)
+    vecBinary ins bld 32<rt> (elementShift 32<rt> 1)
   | Op.VSRD ->
-    vecBinary ins insLen bld 64<rt> (elementShift 64<rt> 1)
+    vecBinary ins bld 64<rt> (elementShift 64<rt> 1)
   | Op.VSRAB ->
-    vecBinary ins insLen bld 8<rt> (elementShift 8<rt> 2)
+    vecBinary ins bld 8<rt> (elementShift 8<rt> 2)
   | Op.VSRAH ->
-    vecBinary ins insLen bld 16<rt> (elementShift 16<rt> 2)
+    vecBinary ins bld 16<rt> (elementShift 16<rt> 2)
   | Op.VSRAW ->
-    vecBinary ins insLen bld 32<rt> (elementShift 32<rt> 2)
+    vecBinary ins bld 32<rt> (elementShift 32<rt> 2)
   | Op.VSRAD ->
-    vecBinary ins insLen bld 64<rt> (elementShift 64<rt> 2)
+    vecBinary ins bld 64<rt> (elementShift 64<rt> 2)
   | Op.VRLB ->
-    vecBinary ins insLen bld 8<rt> (elementShift 8<rt> 3)
+    vecBinary ins bld 8<rt> (elementShift 8<rt> 3)
   | Op.VRLH ->
-    vecBinary ins insLen bld 16<rt> (elementShift 16<rt> 3)
+    vecBinary ins bld 16<rt> (elementShift 16<rt> 3)
   | Op.VRLW ->
-    vecBinary ins insLen bld 32<rt> (elementShift 32<rt> 3)
+    vecBinary ins bld 32<rt> (elementShift 32<rt> 3)
   | Op.VRLD ->
-    vecBinary ins insLen bld 64<rt> (elementShift 64<rt> 3)
+    vecBinary ins bld 64<rt> (elementShift 64<rt> 3)
   | Op.VMAXUB ->
-    vecBinary ins insLen bld 8<rt> (fun a b -> AST.ite (a .> b) a b)
+    vecBinary ins bld 8<rt> (fun a b -> AST.ite (a .> b) a b)
   | Op.VMAXUH ->
-    vecBinary ins insLen bld 16<rt> (fun a b -> AST.ite (a .> b) a b)
+    vecBinary ins bld 16<rt> (fun a b -> AST.ite (a .> b) a b)
   | Op.VMAXUW ->
-    vecBinary ins insLen bld 32<rt> (fun a b -> AST.ite (a .> b) a b)
+    vecBinary ins bld 32<rt> (fun a b -> AST.ite (a .> b) a b)
   | Op.VMAXUD ->
-    vecBinary ins insLen bld 64<rt> (fun a b -> AST.ite (a .> b) a b)
+    vecBinary ins bld 64<rt> (fun a b -> AST.ite (a .> b) a b)
   | Op.VMINUB ->
-    vecBinary ins insLen bld 8<rt> (fun a b -> AST.ite (a .< b) a b)
+    vecBinary ins bld 8<rt> (fun a b -> AST.ite (a .< b) a b)
   | Op.VMINUH ->
-    vecBinary ins insLen bld 16<rt> (fun a b -> AST.ite (a .< b) a b)
+    vecBinary ins bld 16<rt> (fun a b -> AST.ite (a .< b) a b)
   | Op.VMINUW ->
-    vecBinary ins insLen bld 32<rt> (fun a b -> AST.ite (a .< b) a b)
+    vecBinary ins bld 32<rt> (fun a b -> AST.ite (a .< b) a b)
   | Op.VMINUD ->
-    vecBinary ins insLen bld 64<rt> (fun a b -> AST.ite (a .< b) a b)
+    vecBinary ins bld 64<rt> (fun a b -> AST.ite (a .< b) a b)
   | Op.VMAXSB ->
-    vecBinary ins insLen bld 8<rt> (fun a b -> AST.ite (a ?> b) a b)
+    vecBinary ins bld 8<rt> (fun a b -> AST.ite (a ?> b) a b)
   | Op.VMAXSH ->
-    vecBinary ins insLen bld 16<rt> (fun a b -> AST.ite (a ?> b) a b)
+    vecBinary ins bld 16<rt> (fun a b -> AST.ite (a ?> b) a b)
   | Op.VMAXSW ->
-    vecBinary ins insLen bld 32<rt> (fun a b -> AST.ite (a ?> b) a b)
+    vecBinary ins bld 32<rt> (fun a b -> AST.ite (a ?> b) a b)
   | Op.VMAXSD ->
-    vecBinary ins insLen bld 64<rt> (fun a b -> AST.ite (a ?> b) a b)
+    vecBinary ins bld 64<rt> (fun a b -> AST.ite (a ?> b) a b)
   | Op.VMINSB ->
-    vecBinary ins insLen bld 8<rt> (fun a b -> AST.ite (a ?< b) a b)
+    vecBinary ins bld 8<rt> (fun a b -> AST.ite (a ?< b) a b)
   | Op.VMINSH ->
-    vecBinary ins insLen bld 16<rt> (fun a b -> AST.ite (a ?< b) a b)
+    vecBinary ins bld 16<rt> (fun a b -> AST.ite (a ?< b) a b)
   | Op.VMINSW ->
-    vecBinary ins insLen bld 32<rt> (fun a b -> AST.ite (a ?< b) a b)
+    vecBinary ins bld 32<rt> (fun a b -> AST.ite (a ?< b) a b)
   | Op.VMINSD ->
-    vecBinary ins insLen bld 64<rt> (fun a b -> AST.ite (a ?< b) a b)
+    vecBinary ins bld 64<rt> (fun a b -> AST.ite (a ?< b) a b)
   | Op.VCLZB ->
-    vecUnary ins insLen bld 8<rt> (countLeadingZerosOf 8<rt>)
+    vecUnary ins bld 8<rt> (countLeadingZerosOf 8<rt>)
   | Op.VCLZH ->
-    vecUnary ins insLen bld 16<rt> (countLeadingZerosOf 16<rt>)
+    vecUnary ins bld 16<rt> (countLeadingZerosOf 16<rt>)
   | Op.VCLZW ->
-    vecUnary ins insLen bld 32<rt> (countLeadingZerosOf 32<rt>)
+    vecUnary ins bld 32<rt> (countLeadingZerosOf 32<rt>)
   | Op.VCLZD ->
-    vecUnary ins insLen bld 64<rt> (countLeadingZerosOf 64<rt>)
+    vecUnary ins bld 64<rt> (countLeadingZerosOf 64<rt>)
   | Op.VPOPCNTB ->
-    vecUnary ins insLen bld 8<rt> (popCountOf 8<rt>)
+    vecUnary ins bld 8<rt> (popCountOf 8<rt>)
   | Op.VPOPCNTH ->
-    vecUnary ins insLen bld 16<rt> (popCountOf 16<rt>)
+    vecUnary ins bld 16<rt> (popCountOf 16<rt>)
   | Op.VPOPCNTW ->
-    vecUnary ins insLen bld 32<rt> (popCountOf 32<rt>)
+    vecUnary ins bld 32<rt> (popCountOf 32<rt>)
   | Op.VPOPCNTD ->
-    vecUnary ins insLen bld 64<rt> (popCountOf 64<rt>)
+    vecUnary ins bld 64<rt> (popCountOf 64<rt>)
   | Op.VCMPEQUB ->
-    vecCompare ins insLen bld 8<rt> (==) false
+    vecCompare ins bld 8<rt> (==) false
   | Op.VCMPEQUBdot ->
-    vecCompare ins insLen bld 8<rt> (==) true
+    vecCompare ins bld 8<rt> (==) true
   | Op.VCMPEQUH ->
-    vecCompare ins insLen bld 16<rt> (==) false
+    vecCompare ins bld 16<rt> (==) false
   | Op.VCMPEQUHdot ->
-    vecCompare ins insLen bld 16<rt> (==) true
+    vecCompare ins bld 16<rt> (==) true
   | Op.VCMPEQUW ->
-    vecCompare ins insLen bld 32<rt> (==) false
+    vecCompare ins bld 32<rt> (==) false
   | Op.VCMPEQUWdot ->
-    vecCompare ins insLen bld 32<rt> (==) true
+    vecCompare ins bld 32<rt> (==) true
   | Op.VCMPEQUD ->
-    vecCompare ins insLen bld 64<rt> (==) false
+    vecCompare ins bld 64<rt> (==) false
   | Op.VCMPEQUDdot ->
-    vecCompare ins insLen bld 64<rt> (==) true
+    vecCompare ins bld 64<rt> (==) true
   | Op.VCMPGTUB ->
-    vecCompare ins insLen bld 8<rt> (.>) false
+    vecCompare ins bld 8<rt> (.>) false
   | Op.VCMPGTUBdot ->
-    vecCompare ins insLen bld 8<rt> (.>) true
+    vecCompare ins bld 8<rt> (.>) true
   | Op.VCMPGTUH ->
-    vecCompare ins insLen bld 16<rt> (.>) false
+    vecCompare ins bld 16<rt> (.>) false
   | Op.VCMPGTUHdot ->
-    vecCompare ins insLen bld 16<rt> (.>) true
+    vecCompare ins bld 16<rt> (.>) true
   | Op.VCMPGTUW ->
-    vecCompare ins insLen bld 32<rt> (.>) false
+    vecCompare ins bld 32<rt> (.>) false
   | Op.VCMPGTUWdot ->
-    vecCompare ins insLen bld 32<rt> (.>) true
+    vecCompare ins bld 32<rt> (.>) true
   | Op.VCMPGTUD ->
-    vecCompare ins insLen bld 64<rt> (.>) false
+    vecCompare ins bld 64<rt> (.>) false
   | Op.VCMPGTUDdot ->
-    vecCompare ins insLen bld 64<rt> (.>) true
+    vecCompare ins bld 64<rt> (.>) true
   | Op.VCMPGTSB ->
-    vecCompare ins insLen bld 8<rt> (?>) false
+    vecCompare ins bld 8<rt> (?>) false
   | Op.VCMPGTSBdot ->
-    vecCompare ins insLen bld 8<rt> (?>) true
+    vecCompare ins bld 8<rt> (?>) true
   | Op.VCMPGTSH ->
-    vecCompare ins insLen bld 16<rt> (?>) false
+    vecCompare ins bld 16<rt> (?>) false
   | Op.VCMPGTSHdot ->
-    vecCompare ins insLen bld 16<rt> (?>) true
+    vecCompare ins bld 16<rt> (?>) true
   | Op.VCMPGTSW ->
-    vecCompare ins insLen bld 32<rt> (?>) false
+    vecCompare ins bld 32<rt> (?>) false
   | Op.VCMPGTSWdot ->
-    vecCompare ins insLen bld 32<rt> (?>) true
+    vecCompare ins bld 32<rt> (?>) true
   | Op.VCMPGTSD ->
-    vecCompare ins insLen bld 64<rt> (?>) false
+    vecCompare ins bld 64<rt> (?>) false
   | Op.VCMPGTSDdot ->
-    vecCompare ins insLen bld 64<rt> (?>) true
+    vecCompare ins bld 64<rt> (?>) true
   | o ->
 #if DEBUG
          eprintfn "%A" o

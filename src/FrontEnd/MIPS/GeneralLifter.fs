@@ -33,8 +33,8 @@ open B2R2.FrontEnd.BinLifter.LiftingUtils
 open B2R2.FrontEnd.MIPS
 open B2R2.FrontEnd.MIPS.LiftingUtils
 
-let abs ins insLen bld =
-  lift bld ins insLen {
+let abs ins bld =
+  lift bld ins {
     let fd, fs = getTwoOprs ins
     let is32Bit = is32Bit bld
     match ins.Fmt with
@@ -102,8 +102,8 @@ let private reDupSrc3 opr1 opr2 opr3 expr1 expr2 expr3 tmp1 tmp2 tmp3 bld =
       tmp3 := expr3
   }
 
-let add (ins: Instruction) insLen bld =
-  lift bld ins insLen {
+let add (ins: Instruction) bld =
+  lift bld ins {
     let dst, src1, src2 = getThreeOprs ins
     match ins.Fmt with
     | None ->
@@ -137,50 +137,50 @@ let add (ins: Instruction) insLen bld =
       writeFPResult fdB fdA result bld
   }
 
-let addiu ins insLen bld =
-  lift bld ins insLen {
+let addiu ins bld =
+  lift bld ins {
     let rt, rs, imm = getThreeOprs ins |> transThreeOprs ins bld
     let result = if is32Bit bld then rs .+ imm else signExtLo64 (rs .+ imm)
     rt := result
   }
 
-let addu ins insLen bld =
-  lift bld ins insLen {
+let addu ins bld =
+  lift bld ins {
     let rd, rs, rt = getThreeOprs ins |> transThreeOprs ins bld
     let result = if is32Bit bld then rs .+ rt else signExtLo64 (rs .+ rt)
     rd := result
   }
 
-let logAnd ins insLen bld =
-  lift bld ins insLen {
+let logAnd ins bld =
+  lift bld ins {
     let rd, rs, rt = getThreeOprs ins |> transThreeOprs ins bld
     rd := rs .& rt
   }
 
-let andi ins insLen bld =
-  lift bld ins insLen {
+let andi ins bld =
+  lift bld ins {
     let rt, rs, imm = getThreeOprs ins |> transThreeOprs ins bld
     rt := rs .& imm
   }
 
-let aui ins insLen bld =
-  lift bld ins insLen {
+let aui ins bld =
+  lift bld ins {
     let rt, rs, imm = getThreeOprs ins |> transThreeOprs ins bld
     let imm = imm << numI32 16 bld.RegType
     let result = if is32Bit bld then rs .+ imm else signExtLo64 (rs .+ imm)
     rt := result
   }
 
-let b ins insLen (bld: LowUIRBuilder) =
-  liftTransfer bld ins insLen {
+let b ins (bld: LowUIRBuilder) =
+  liftTransfer bld ins {
     let nPC = regVar bld R.NPC
     let offset = getOneOpr ins |> transOneOpr ins bld
     bld.DelayedBranch <- InterJmpKind.Base
     nPC := offset
   }
 
-let bal ins insLen (bld: LowUIRBuilder) =
-  liftTransfer bld ins insLen {
+let bal ins (bld: LowUIRBuilder) =
+  liftTransfer bld ins {
     let offset = getOneOpr ins |> transOneOpr ins bld
     let pc = regVar bld R.PC
     let nPC = regVar bld R.NPC
@@ -197,8 +197,8 @@ let private fpConditionCode cc bld =
     let num = numU32 0x1000000u 32<rt> << numI32 cc 32<rt>
     (fcsr .& num) == num
 
-let bc1f (ins: Instruction) insLen bld =
-  liftTransfer bld ins insLen {
+let bc1f (ins: Instruction) bld =
+  liftTransfer bld ins {
     match ins.Operands with
     | OneOperand off ->
       let offset = transOneOpr ins bld off
@@ -212,8 +212,8 @@ let bc1f (ins: Instruction) insLen bld =
       updatePCCond bld offset cond InterJmpKind.Base
   }
 
-let bc1t (ins: Instruction) insLen bld =
-  liftTransfer bld ins insLen {
+let bc1t (ins: Instruction) bld =
+  liftTransfer bld ins {
     match ins.Operands with
     | OneOperand off ->
       let offset = transOneOpr ins bld off
@@ -227,29 +227,29 @@ let bc1t (ins: Instruction) insLen bld =
       updatePCCond bld offset cond InterJmpKind.Base
   }
 
-let beq ins insLen bld =
-  liftTransfer bld ins insLen {
+let beq ins bld =
+  liftTransfer bld ins {
     let rs, rt, offset = getThreeOprs ins |> transThreeOprs ins bld
     let cond = rs == rt
     updatePCCond bld offset cond InterJmpKind.Base
   }
 
-let blez ins insLen bld =
-  liftTransfer bld ins insLen {
+let blez ins bld =
+  liftTransfer bld ins {
     let rs, offset = getTwoOprs ins |> transTwoOprs ins bld
     let cond = AST.sle rs (AST.num0 bld.RegType)
     updatePCCond bld offset cond InterJmpKind.Base
   }
 
-let bltz ins insLen bld =
-  liftTransfer bld ins insLen {
+let bltz ins bld =
+  liftTransfer bld ins {
     let rs, offset = getTwoOprs ins |> transTwoOprs ins bld
     let cond = AST.slt rs (AST.num0 bld.RegType)
     updatePCCond bld offset cond InterJmpKind.Base
   }
 
-let bltzal ins insLen bld =
-  liftTransfer bld ins insLen {
+let bltzal ins bld =
+  liftTransfer bld ins {
     let rs, offset = getTwoOprs ins |> transTwoOprs ins bld
     let pc = regVar bld R.PC
     let nAddr = tmpVar bld bld.RegType
@@ -259,15 +259,15 @@ let bltzal ins insLen bld =
     updateRAPCCond bld nAddr offset cond InterJmpKind.IsCall
   }
 
-let bgez ins insLen bld =
-  liftTransfer bld ins insLen {
+let bgez ins bld =
+  liftTransfer bld ins {
     let rs, offset = getTwoOprs ins |> transTwoOprs ins bld
     let cond = AST.sge rs (AST.num0 bld.RegType)
     updatePCCond bld offset cond InterJmpKind.Base
   }
 
-let bgezal ins insLen bld =
-  liftTransfer bld ins insLen {
+let bgezal ins bld =
+  liftTransfer bld ins {
     let rs, offset = getTwoOprs ins |> transTwoOprs ins bld
     let pc = regVar bld R.PC
     let nAddr = tmpVar bld bld.RegType
@@ -277,15 +277,15 @@ let bgezal ins insLen bld =
     updateRAPCCond bld nAddr offset cond InterJmpKind.IsCall
   }
 
-let bgtz ins insLen bld =
-  liftTransfer bld ins insLen {
+let bgtz ins bld =
+  liftTransfer bld ins {
     let rs, offset = getTwoOprs ins |> transTwoOprs ins bld
     let cond = AST.sgt rs (AST.num0 bld.RegType)
     updatePCCond bld offset cond InterJmpKind.Base
   }
 
-let bne ins insLen bld =
-  liftTransfer bld ins insLen {
+let bne ins bld =
+  liftTransfer bld ins {
     let rs, rt, offset = getThreeOprs ins |> transThreeOprs ins bld
     let cond = rs != rt
     updatePCCond bld offset cond InterJmpKind.Base
@@ -349,8 +349,8 @@ let private conditionBitsOf condition num0 num1 =
   | Some Condition.ULE | Some Condition.NGT -> num1, num1, num1
   | _ -> raise InvalidOperandException
 
-let cCond ins insLen bld =
-  lift bld ins insLen {
+let cCond ins bld =
+  lift bld ins {
     let oprSz, cc, fs, ft, sameReg = getCCondOpr ins bld
     let num0 = AST.num0 oprSz
     let num1 = AST.num1 oprSz
@@ -389,22 +389,22 @@ let cCond ins insLen bld =
     setFPConditionCode bld cc condition
   }
 
-let ctc1 ins insLen bld =
-  lift bld ins insLen {
+let ctc1 ins bld =
+  lift bld ins {
     let rt, _ = getTwoOprs ins |> transTwoOprs ins bld
     let fcsr = regVar bld R.FCSR
     fcsr := AST.xtlo 32<rt> rt
   }
 
-let cfc1 ins insLen bld =
-  lift bld ins insLen {
+let cfc1 ins bld =
+  lift bld ins {
     let rt, _ = getTwoOprs ins |> transTwoOprs ins bld
     let fcsr = regVar bld R.FCSR
     rt := AST.sext bld.RegType fcsr
   }
 
-let clz ins insLen bld =
-  lift bld ins insLen {
+let clz ins bld =
+  lift bld ins {
     let lblLoop = label bld "Loop"
     let lblContinue = label bld "Continue"
     let lblEnd = label bld "End"
@@ -428,8 +428,8 @@ let clz ins insLen bld =
     rd := n31 .- t
   }
 
-let cvtd ins insLen bld =
-  lift bld ins insLen {
+let cvtd ins bld =
+  lift bld ins {
     let fd, fs = getTwoOprs ins
     let fdB, fdA = transOprToFPPair bld fd
     let result = tmpVar bld 64<rt>
@@ -447,8 +447,8 @@ let cvtd ins insLen bld =
     writeFPResult fdB fdA result bld
   }
 
-let cvtw ins insLen bld =
-  lift bld ins insLen {
+let cvtw ins bld =
+  lift bld ins {
     let fd, fs = getTwoOprs ins
     let intMax = numI32 0x7fffffff 32<rt>
     let intMin = numI32 0x80000000 32<rt>
@@ -485,8 +485,8 @@ let cvtw ins insLen bld =
     dst := AST.ite (outOfRange .| inf .| nan) intMax dst
   }
 
-let cvtl ins insLen bld =
-  lift bld ins insLen {
+let cvtl ins bld =
+  lift bld ins {
     let fd, fs = getTwoOprs ins
     let fdB, fdA = transOprToFPPair bld fd
     let eval = tmpVar bld 64<rt>
@@ -525,8 +525,8 @@ let cvtl ins insLen bld =
     writeFPResult fdB fdA eval bld
   }
 
-let cvts ins insLen bld =
-  lift bld ins insLen {
+let cvts ins bld =
+  lift bld ins {
     let fd, fs = getTwoOprs ins
     let fd = transOprToFPConvert ins bld fd
     let dst = if is32Bit bld then fd else AST.xtlo 32<rt> fd
@@ -545,8 +545,8 @@ let cvts ins insLen bld =
     dst := result
   }
 
-let dadd ins insLen bld =
-  lift bld ins insLen {
+let dadd ins bld =
+  lift bld ins {
     let lblL0 = label bld "L0"
     let lblL1 = label bld "L1"
     let lblEnd = label bld "End"
@@ -561,24 +561,24 @@ let dadd ins insLen bld =
     AST.lmark lblEnd
   }
 
-let daddu ins insLen bld =
-  lift bld ins insLen {
+let daddu ins bld =
+  lift bld ins {
     let rd, rs, rt = getThreeOprs ins |> transThreeOprs ins bld
     let result = tmpVar bld 64<rt>
     result := rs .+ rt
     rd := result
   }
 
-let daddiu ins insLen bld =
-  lift bld ins insLen {
+let daddiu ins bld =
+  lift bld ins {
     let rt, rs, imm = getThreeOprs ins |> transThreeOprs ins bld
     let result = tmpVar bld 64<rt>
     result := rs .+ imm
     rt := result
   }
 
-let dclz ins insLen bld =
-  lift bld ins insLen {
+let dclz ins bld =
+  lift bld ins {
     let lblLoop = label bld "Loop"
     let lblContinue = label bld "Continue"
     let lblEnd = label bld "End"
@@ -600,8 +600,8 @@ let dclz ins insLen bld =
     rd := n63 .- t
   }
 
-let ddiv ins insLen bld =
-  lift bld ins insLen {
+let ddiv ins bld =
+  lift bld ins {
     let rs, rt = getTwoOprs ins |> transTwoOprs ins bld
     let struct (q, r) = tmpVars2 bld 64<rt>
     let hi = regVar bld R.HI
@@ -615,24 +615,24 @@ let ddiv ins insLen bld =
     hi := r
   }
 
-let dmfc1 ins insLen bld =
-  lift bld ins insLen {
+let dmfc1 ins bld =
+  lift bld ins {
     let rt, fs = getTwoOprs ins
     let rt = transOprToExpr ins bld rt
     let fs = transOprToFPPairConcat bld fs
     rt := fs
   }
 
-let dmtc1 ins insLen bld =
-  lift bld ins insLen {
+let dmtc1 ins bld =
+  lift bld ins {
     let rt, fs = getTwoOprs ins
     let rt = transOprToExpr ins bld rt
     let fsB, fsA = transOprToFPPair bld fs
     writeFPResult fsB fsA rt bld
   }
 
-let ddivu ins insLen bld =
-  lift bld ins insLen {
+let ddivu ins bld =
+  lift bld ins {
     let rs, rt = getTwoOprs ins |> transTwoOprs ins bld
     let struct (q, r) = tmpVars2 bld 64<rt>
     let hi = regVar bld R.HI
@@ -653,8 +653,8 @@ let checkDEXTPosSize pos size =
     && posSize <= 63 then ()
   else raise InvalidOperandException
 
-let dext ins insLen bld =
-  lift bld ins insLen {
+let dext ins bld =
+  lift bld ins {
     let rt, rs, pos, size = getFourOprs ins
     let rt = transOprToExpr ins bld rt
     let rs = transOprToExpr ins bld rs
@@ -686,8 +686,8 @@ let checkDEXTUPosSize pos size =
     && posSize <= 64 then ()
   else raise InvalidOperandException
 
-let dextx ins insLen posSizeCheckFn bld =
-  lift bld ins insLen {
+let dextx ins posSizeCheckFn bld =
+  lift bld ins {
     let rt, rs, pos, size = getFourOprs ins
     let rt = transOprToExpr ins bld rt
     let rs = transOprToExpr ins bld rs
@@ -712,8 +712,8 @@ let checkINSorExtPosSize pos size =
     && posSize <= 32 then ()
   else raise InvalidOperandException
 
-let dins ins insLen bld =
-  lift bld ins insLen {
+let dins ins bld =
+  lift bld ins {
     let rt, rs, pos, size = getFourOprs ins
     let rt = transOprToExpr ins bld rt
     let rs = transOprToExpr ins bld rs
@@ -751,8 +751,8 @@ let checkDINSUPosSize pos size =
     && posSize <= 64 then ()
   else raise InvalidOperandException
 
-let dinsx ins insLen posSizeCheckFn bld =
-  lift bld ins insLen {
+let dinsx ins posSizeCheckFn bld =
+  lift bld ins {
     let rt, rs, pos, size = getFourOprs ins
     let rt = transOprToExpr ins bld rt
     let rs = transOprToExpr ins bld rs
@@ -770,8 +770,8 @@ let dinsx ins insLen posSizeCheckFn bld =
       rt := rt' .| rs'
   }
 
-let div (ins: Instruction) insLen bld =
-  lift bld ins insLen {
+let div (ins: Instruction) bld =
+  lift bld ins {
     match ins.Fmt with
     | None ->
       let rs, rt = getTwoOprs ins |> transTwoOprs ins bld
@@ -807,8 +807,8 @@ let div (ins: Instruction) insLen bld =
       dst := result
   }
 
-let divu ins insLen bld =
-  lift bld ins insLen {
+let divu ins bld =
+  lift bld ins {
     let rs, rt = getTwoOprs ins |> transTwoOprs ins bld
     let hi = regVar bld R.HI
     let lo = regVar bld R.LO
@@ -830,8 +830,8 @@ let divu ins insLen bld =
       hi := signExtLo64 (maskRs .% maskRt)
   }
 
-let dmul ins insLen bld isSign =
-  lift bld ins insLen {
+let dmul ins bld isSign =
+  lift bld ins {
     let rs, rt = getTwoOprs ins |> transTwoOprs ins bld
     let struct (high, low) = mul64BitReg rs rt bld isSign
     let hi = regVar bld R.HI
@@ -840,8 +840,8 @@ let dmul ins insLen bld isSign =
     hi := high
   }
 
-let drotr ins insLen bld =
-  lift bld ins insLen {
+let drotr ins bld =
+  lift bld ins {
     let rd, rt, sa = getThreeOprs ins
     let rd, rt = transTwoOprs ins bld (rd, rt)
     let sa = numU64 (transOprToImm sa) 64<rt>
@@ -849,8 +849,8 @@ let drotr ins insLen bld =
     rd := (rt << (size .- sa)) .| (rt >> sa)
   }
 
-let drotr32 ins insLen bld =
-  lift bld ins insLen {
+let drotr32 ins bld =
+  lift bld ins {
     let rd, rt, sa = getThreeOprs ins
     let rd, rt = transTwoOprs ins bld (rd, rt)
     let sa = numU64 (transOprToImm sa) 64<rt> .+ numI32 32 64<rt>
@@ -858,8 +858,8 @@ let drotr32 ins insLen bld =
     rd := (rt << (size .- sa)) .| (rt >> sa)
   }
 
-let drotrv ins insLen bld =
-  lift bld ins insLen {
+let drotrv ins bld =
+  lift bld ins {
     let rd, rt, rs = getThreeOprs ins |> transThreeOprs ins bld
     let sa = tmpVar bld 64<rt>
     let size = numI32 64 64<rt>
@@ -867,54 +867,54 @@ let drotrv ins insLen bld =
     rd := (rt << (size .- sa)) .| (rt >> sa)
   }
 
-let dsra ins insLen bld =
-  lift bld ins insLen {
+let dsra ins bld =
+  lift bld ins {
     let rd, rt, sa = getThreeOprs ins |> transThreeOprs ins bld
     rd := rt ?>> sa |> AST.sext 64<rt>
   }
 
-let dsrav ins insLen bld =
-  lift bld ins insLen {
+let dsrav ins bld =
+  lift bld ins {
     let rd, rt, rs = getThreeOprs ins |> transThreeOprs ins bld
     rd := rt ?>> (rs .& numI32 63 64<rt>) |> AST.sext 64<rt>
   }
 
-let dsra32 ins insLen bld =
-  lift bld ins insLen {
+let dsra32 ins bld =
+  lift bld ins {
     let rd, rt, sa = getThreeOprs ins |> transThreeOprs ins bld
     let sa = sa .+ numI32 32 64<rt>
     rd := rt ?>> sa |> AST.sext 64<rt>
   }
 
-let dShiftLeftRight32 ins insLen bld shf =
-  lift bld ins insLen {
+let dShiftLeftRight32 ins bld shf =
+  lift bld ins {
     let rd, rt, sa = getThreeOprs ins |> transThreeOprs ins bld
     let sa = sa .+ numI32 32 64<rt>
     rd := shf rt sa |> AST.zext 64<rt>
   }
 
-let dShiftLeftRight ins insLen bld shf =
-  lift bld ins insLen {
+let dShiftLeftRight ins bld shf =
+  lift bld ins {
     let rd, rt, sa = getThreeOprs ins |> transThreeOprs ins bld
     rd := shf rt sa |> AST.zext 64<rt>
   }
 
-let dShiftLeftRightVar ins insLen bld shf =
-  lift bld ins insLen {
+let dShiftLeftRightVar ins bld shf =
+  lift bld ins {
     let rd, rt, rs = getThreeOprs ins |> transThreeOprs ins bld
     rd := shf rt (rs .& numI32 63 64<rt>) |> AST.zext 64<rt>
   }
 
-let dsubu ins insLen bld =
-  lift bld ins insLen {
+let dsubu ins bld =
+  lift bld ins {
     let rd, rs, rt = getThreeOprs ins |> transThreeOprs ins bld
     let result = tmpVar bld 64<rt>
     result := rs .- rt
     rd := result
   }
 
-let insert ins insLen bld =
-  lift bld ins insLen {
+let insert ins bld =
+  lift bld ins {
     let rt, rs, pos, size = getFourOprs ins
     let rt = transOprToExpr ins bld rt
     let rs = transOprToExpr ins bld rs
@@ -941,16 +941,16 @@ let getJALROprs (ins: Instruction) bld =
   | _ ->
     raise InvalidOperandException
 
-let j ins insLen (bld: LowUIRBuilder) =
-  liftTransfer bld ins insLen {
+let j ins (bld: LowUIRBuilder) =
+  liftTransfer bld ins {
     let nPC = regVar bld R.NPC
     let dest = getOneOpr ins |> transOprToExpr ins bld
     bld.DelayedBranch <- InterJmpKind.Base
     nPC := dest
   }
 
-let jal ins insLen (bld: LowUIRBuilder) =
-  liftTransfer bld ins insLen {
+let jal ins (bld: LowUIRBuilder) =
+  liftTransfer bld ins {
     let pc = regVar bld R.PC
     let nPC = regVar bld R.NPC
     let lr = regVar bld R.R31
@@ -960,8 +960,8 @@ let jal ins insLen (bld: LowUIRBuilder) =
     nPC := dest
   }
 
-let jalr ins insLen (bld: LowUIRBuilder) =
-  liftTransfer bld ins insLen {
+let jalr ins (bld: LowUIRBuilder) =
+  liftTransfer bld ins {
     let pc = regVar bld R.PC
     let nPC = regVar bld R.NPC
     let struct (lr, rs) = getJALROprs ins bld
@@ -970,28 +970,28 @@ let jalr ins insLen (bld: LowUIRBuilder) =
     nPC := rs
   }
 
-let jr ins insLen (bld: LowUIRBuilder) =
-  liftTransfer bld ins insLen {
+let jr ins (bld: LowUIRBuilder) =
+  liftTransfer bld ins {
     let nPC = regVar bld R.NPC
     let rs = getOneOpr ins |> transOneOpr ins bld
     bld.DelayedBranch <- InterJmpKind.Base
     nPC := rs
   }
 
-let loadSigned ins insLen bld =
-  lift bld ins insLen {
+let loadSigned ins bld =
+  lift bld ins {
     let rt, mem = getTwoOprs ins |> transTwoOprs ins bld
     rt := AST.sext bld.RegType mem
   }
 
-let loadUnsigned ins insLen bld =
-  lift bld ins insLen {
+let loadUnsigned ins bld =
+  lift bld ins {
     let rt, mem = getTwoOprs ins |> transTwoOprs ins bld
     rt := AST.zext bld.RegType mem
   }
 
-let readHWR ins insLen bld =
-  lift bld ins insLen {
+let readHWR ins bld =
+  lift bld ins {
     let rtOpr, rdOpr, _ = getThreeOprs ins
     let rt = transOprToExpr ins bld rtOpr
     let value =
@@ -1002,8 +1002,8 @@ let readHWR ins insLen bld =
     rt := value
   }
 
-let loadLinked ins insLen bld =
-  lift bld ins insLen {
+let loadLinked ins bld =
+  lift bld ins {
     let rtOpr, memOpr = getTwoOprs ins
     let rt = transOprToExpr ins bld rtOpr
     let mem = transOprToExpr ins bld memOpr
@@ -1018,8 +1018,8 @@ let loadLinked ins insLen bld =
     rt := AST.sext bld.RegType v
   }
 
-let sldc1 ins insLen bld stORld =
-  lift bld ins insLen {
+let sldc1 ins bld stORld =
+  lift bld ins {
     let ft, mem = getTwoOprs ins
     let ftB, ftA = transOprToFPPair bld ft
     let baseOffset = transOprToBaseOffset bld mem
@@ -1036,8 +1036,8 @@ let sldc1 ins insLen bld stORld =
       writeFPResult ftB ftA memory bld
   }
 
-let slwc1 ins insLen bld stORld =
-  lift bld ins insLen {
+let slwc1 ins bld stORld =
+  lift bld ins {
     let ft, mem = getTwoOprs ins
     let ft = transOprToSingleFP bld ft
     let mem = transOprToExpr ins bld mem
@@ -1045,8 +1045,8 @@ let slwc1 ins insLen bld stORld =
     if stORld then append bld { mem := ft } else append bld { ft := mem }
   }
 
-let ext ins insLen bld =
-  lift bld ins insLen {
+let ext ins bld =
+  lift bld ins {
     let rt, rs, pos, size = getFourOprs ins
     let rt = transOprToExpr ins bld rt
     let rs = transOprToExpr ins bld rs
@@ -1060,8 +1060,8 @@ let ext ins insLen bld =
     rt := rs .& numI64 (getMask size) bld.RegType
   }
 
-let lui ins insLen bld =
-  lift bld ins insLen {
+let lui ins bld =
+  lift bld ins {
     let rt, imm = getTwoOprs ins |> transTwoOprs ins bld
     if is32Bit bld then
       rt := AST.concat (AST.xtlo 16<rt> imm) (AST.num0 16<rt>)
@@ -1070,8 +1070,8 @@ let lui ins insLen bld =
             (AST.concat (AST.xtlo 16<rt> imm) (AST.num0 16<rt>))
   }
 
-let mAddSub (ins: Instruction) insLen bld opFn =
-  lift bld ins insLen {
+let mAddSub (ins: Instruction) bld opFn =
+  lift bld ins {
     match ins.Fmt with
     | None ->
       let rs, rt = getTwoOprs ins |> transTwoOprs ins bld
@@ -1105,8 +1105,8 @@ let mAddSub (ins: Instruction) insLen bld opFn =
       fd := result
   }
 
-let mAdduSubu ins insLen bld opFn =
-  lift bld ins insLen {
+let mAdduSubu ins bld opFn =
+  lift bld ins {
     let rs, rt = getTwoOprs ins |> transTwoOprs ins bld
     let result = tmpVar bld 64<rt>
     let hi = regVar bld R.HI
@@ -1126,58 +1126,58 @@ let mAdduSubu ins insLen bld opFn =
       lo := AST.xtlo 32<rt> result |> AST.zext 64<rt>
   }
 
-let mfhi ins insLen bld =
-  lift bld ins insLen {
+let mfhi ins bld =
+  lift bld ins {
     let rd = getOneOpr ins |> transOneOpr ins bld
     rd := regVar bld R.HI
   }
 
-let mflo ins insLen bld =
-  lift bld ins insLen {
+let mflo ins bld =
+  lift bld ins {
     let rd = getOneOpr ins |> transOneOpr ins bld
     rd := regVar bld R.LO
   }
 
-let mfhc1 ins insLen bld =
-  lift bld ins insLen {
+let mfhc1 ins bld =
+  lift bld ins {
     let rt, fs = getTwoOprs ins
     let rt = transOprToExpr ins bld rt
     let fsB, _ = transOprToFPPair bld fs
     rt := AST.sext bld.RegType fsB
   }
 
-let mthc1 ins insLen bld =
-  lift bld ins insLen {
+let mthc1 ins bld =
+  lift bld ins {
     let rt, fs = getTwoOprs ins
     let rt = transOprToExpr ins bld rt
     let fsB, _ = transOprToFPPair bld fs
     fsB := AST.xtlo 32<rt> rt
   }
 
-let mthi ins insLen bld =
-  lift bld ins insLen {
+let mthi ins bld =
+  lift bld ins {
     let rs = getOneOpr ins |> transOneOpr ins bld
     let hi = regVar bld R.HI
     hi := rs
   }
 
-let mtlo ins insLen bld =
-  lift bld ins insLen {
+let mtlo ins bld =
+  lift bld ins {
     let rs = getOneOpr ins |> transOneOpr ins bld
     let lo = regVar bld R.LO
     lo := rs
   }
 
-let mfc1 ins insLen bld =
-  lift bld ins insLen {
+let mfc1 ins bld =
+  lift bld ins {
     let rt, fs = getTwoOprs ins
     let rt = transOprToExpr ins bld rt
     let fs = transOprToSingleFP bld fs
     rt := AST.sext bld.RegType fs
   }
 
-let mov ins insLen bld =
-  lift bld ins insLen {
+let mov ins bld =
+  lift bld ins {
     let fd, fs = getTwoOprs ins
     match ins.Fmt with
     | Some Fmt.S ->
@@ -1193,8 +1193,8 @@ let mov ins insLen bld =
       raise InvalidOperandException
   }
 
-let movt ins insLen bld =
-  lift bld ins insLen {
+let movt ins bld =
+  lift bld ins {
     let dst, src, cc = getThreeOprs ins
     let cc = transOprToImmToInt cc
     let cond = fpConditionCode cc bld
@@ -1212,8 +1212,8 @@ let movt ins insLen bld =
       dst := AST.ite cond src dst
   }
 
-let movf ins insLen bld =
-  lift bld ins insLen {
+let movf ins bld =
+  lift bld ins {
     let dst, src, cc = getThreeOprs ins
     let cc = transOprToImmToInt cc
     let cond = AST.not (fpConditionCode cc bld)
@@ -1231,8 +1231,8 @@ let movf ins insLen bld =
       dst := AST.ite cond src dst
   }
 
-let movzOrn ins insLen bld opFn =
-  lift bld ins insLen {
+let movzOrn ins bld opFn =
+  lift bld ins {
     let dst, src, compare = getThreeOprs ins
     let compare = transOprToExpr ins bld compare
     let cond = opFn compare (AST.num0 bld.RegType)
@@ -1250,16 +1250,16 @@ let movzOrn ins insLen bld opFn =
       dst := AST.ite cond src dst
   }
 
-let mtc1 ins insLen bld =
-  lift bld ins insLen {
+let mtc1 ins bld =
+  lift bld ins {
     let rt, fs = getTwoOprs ins
     let rt = transOprToExpr ins bld rt
     let fs = transOprToSingleFP bld fs
     fs := AST.xtlo 32<rt> rt
   }
 
-let mul ins insLen bld =
-  lift bld ins insLen {
+let mul ins bld =
+  lift bld ins {
     let dst, src1, src2 = getThreeOprs ins
     match ins.Fmt with
     | None ->
@@ -1293,8 +1293,8 @@ let mul ins insLen bld =
       raise InvalidOperandException
   }
 
-let mult ins insLen bld =
-  lift bld ins insLen {
+let mult ins bld =
+  lift bld ins {
     let rs, rt = getTwoOprs ins |> transTwoOprs ins bld
     let hi = regVar bld R.HI
     let lo = regVar bld R.LO
@@ -1314,8 +1314,8 @@ let mult ins insLen bld =
     hi := high
   }
 
-let multu ins insLen bld =
-  lift bld ins insLen {
+let multu ins bld =
+  lift bld ins {
     let rs, rt = getTwoOprs ins
     let src1, src2 = transTwoOprs ins bld (rs, rt)
     let struct (tRs, tRt) = tmpVars2 bld bld.RegType
@@ -1339,8 +1339,8 @@ let multu ins insLen bld =
     hi := high
   }
 
-let neg ins insLen bld =
-  lift bld ins insLen {
+let neg ins bld =
+  lift bld ins {
     let fd, fs = getTwoOprs ins
     let is32Bit = is32Bit bld
     match ins.Fmt with
@@ -1374,8 +1374,8 @@ let neg ins insLen bld =
       fd := fs <+> mask
   }
 
-let nmadd ins insLen bld =
-  lift bld ins insLen {
+let nmadd ins bld =
+  lift bld ins {
     let fd, src1, src2, src3 = getFourOprs ins
     match ins.Fmt with
     | Some Fmt.S ->
@@ -1399,30 +1399,30 @@ let nmadd ins insLen bld =
       raise InvalidOperandException
   }
 
-let nop (ins: Instruction) insLen bld =
-  lift bld ins insLen {
+let nop (ins: Instruction) bld =
+  lift bld ins {
   }
 
-let nor ins insLen bld =
-  lift bld ins insLen {
+let nor ins bld =
+  lift bld ins {
     let rd, rs, rt = getThreeOprs ins |> transThreeOprs ins bld
     rd := AST.not (rs .| rt)
   }
 
-let logOr ins insLen bld =
-  lift bld ins insLen {
+let logOr ins bld =
+  lift bld ins {
     let rd, rs, rt = getThreeOprs ins |> transThreeOprs ins bld
     rd := rs .| rt
   }
 
-let ori ins insLen bld =
-  lift bld ins insLen {
+let ori ins bld =
+  lift bld ins {
     let rt, rs, imm = getThreeOprs ins |> transThreeOprs ins bld
     rt := rs .| imm
   }
 
-let rotr ins insLen bld =
-  lift bld ins insLen {
+let rotr ins bld =
+  lift bld ins {
     let rd, rt, sa = getThreeOprs ins
     let rd, rt = transTwoOprs ins bld (rd, rt)
     let sa = numU64 (transOprToImm sa) 32<rt>
@@ -1434,8 +1434,8 @@ let rotr ins insLen bld =
             (AST.xtlo 32<rt> rt >> sa)) |> AST.sext 64<rt>
   }
 
-let rotrv ins insLen bld =
-  lift bld ins insLen {
+let rotrv ins bld =
+  lift bld ins {
     let rd, rt, rs = getThreeOprs ins |> transThreeOprs ins bld
     let sa = tmpVar bld 32<rt>
     let size = numI32 32 32<rt>
@@ -1447,14 +1447,14 @@ let rotrv ins insLen bld =
             (AST.xtlo 32<rt> rt >> sa)) |> AST.sext 64<rt>
   }
 
-let store ins insLen width bld =
-  lift bld ins insLen {
+let store ins width bld =
+  lift bld ins {
     let rt, mem = getTwoOprs ins |> transTwoOprs ins bld
     mem := AST.xtlo width rt
   }
 
-let sqrt ins insLen bld =
-  lift bld ins insLen {
+let sqrt ins bld =
+  lift bld ins {
     let fd, fs = getTwoOprs ins
     match ins.Fmt with
     | Some Fmt.S ->
@@ -1470,8 +1470,8 @@ let sqrt ins insLen bld =
       writeFPResult fdB fdA result bld
   }
 
-let storeConditional ins insLen width bld =
-  lift bld ins insLen {
+let storeConditional ins width bld =
+  lift bld ins {
     let rtOpr, memOpr = getTwoOprs ins
     let rt = transOprToExpr ins bld rtOpr
     let mem = transOprToExpr ins bld memOpr
@@ -1485,8 +1485,8 @@ let storeConditional ins insLen width bld =
     rt := AST.zext bld.RegType matched
   }
 
-let storeLeftRight ins insLen bld memShf regShf amtOp oprSz =
-  lift bld ins insLen {
+let storeLeftRight ins bld memShf regShf amtOp oprSz =
+  lift bld ins {
     let rt, mem = getTwoOprs ins
     let baseOffset = transOprToBaseOffset bld mem
     let rt = transOprToExpr ins bld rt
@@ -1513,25 +1513,25 @@ let storeLeftRight ins insLen bld memShf regShf amtOp oprSz =
     baseAddress := shifterStore memShf regShf rRt t2 t3 baseAddress
   }
 
-let syscall (ins: Instruction) insLen bld =
-  lift bld ins insLen {
+let syscall (ins: Instruction) bld =
+  lift bld ins {
     AST.sideEffect SysCall
   }
 
-let seb ins insLen bld =
-  lift bld ins insLen {
+let seb ins bld =
+  lift bld ins {
     let rd, rt = getTwoOprs ins |> transTwoOprs ins bld
     rd := AST.sext bld.RegType (AST.extract rt 8<rt> 0)
   }
 
-let seh ins insLen bld =
-  lift bld ins insLen {
+let seh ins bld =
+  lift bld ins {
     let rd, rt = getTwoOprs ins |> transTwoOprs ins bld
     rd := AST.sext bld.RegType (AST.extract rt 16<rt> 0)
   }
 
-let shiftLeftRight ins insLen bld shf =
-  lift bld ins insLen {
+let shiftLeftRight ins bld shf =
+  lift bld ins {
     let rd, rt, sa = getThreeOprs ins |> transThreeOprs ins bld
     if is32Bit bld then
       rd := shf rt sa
@@ -1540,8 +1540,8 @@ let shiftLeftRight ins insLen bld shf =
       rd := shf rt sa |> AST.sext 64<rt>
   }
 
-let sra ins insLen bld =
-  lift bld ins insLen {
+let sra ins bld =
+  lift bld ins {
     let rd, rt, sa = getThreeOprs ins |> transThreeOprs ins bld
     if is32Bit bld then
       rd := rt ?>> sa |> AST.sext 32<rt>
@@ -1550,8 +1550,8 @@ let sra ins insLen bld =
       rd := rt ?>> sa |> AST.sext 64<rt>
   }
 
-let srav ins insLen bld =
-  lift bld ins insLen {
+let srav ins bld =
+  lift bld ins {
     let rd, rt, rs = getThreeOprs ins |> transThreeOprs ins bld
     let mask = numI32 31 32<rt>
     if is32Bit bld then
@@ -1561,8 +1561,8 @@ let srav ins insLen bld =
       rd := rt ?>> (rs .& mask) |> AST.sext 64<rt>
   }
 
-let shiftLeftRightVar ins insLen bld shf =
-  lift bld ins insLen {
+let shiftLeftRightVar ins bld shf =
+  lift bld ins {
     let rd, rt, rs = getThreeOprs ins |> transThreeOprs ins bld
     let mask = numI32 31 32<rt>
     if is32Bit bld then
@@ -1572,24 +1572,24 @@ let shiftLeftRightVar ins insLen bld shf =
       rd := shf rt (rs .& mask) |> AST.sext 64<rt>
   }
 
-let sltAndU ins insLen bld amtOp =
-  lift bld ins insLen {
+let sltAndU ins bld amtOp =
+  lift bld ins {
     let rd, rs, rt = getThreeOprs ins |> transThreeOprs ins bld
     let cond = amtOp rs rt
     let rtVal = AST.ite cond (AST.num1 bld.RegType) (AST.num0 bld.RegType)
     rd := rtVal
   }
 
-let sltiAndU ins insLen bld amtOp =
-  lift bld ins insLen {
+let sltiAndU ins bld amtOp =
+  lift bld ins {
     let rt, rs, imm = getThreeOprs ins |> transThreeOprs ins bld
     let cond = amtOp rs imm
     let rtVal = AST.ite cond (AST.num1 bld.RegType) (AST.num0 bld.RegType)
     rt := rtVal
   }
 
-let sub ins insLen bld =
-  lift bld ins insLen {
+let sub ins bld =
+  lift bld ins {
     let dst, src1, src2 = getThreeOprs ins
     match ins.Fmt with
     | None ->
@@ -1614,15 +1614,15 @@ let sub ins insLen bld =
       raise InvalidOperandException
   }
 
-let subu ins insLen bld =
-  lift bld ins insLen {
+let subu ins bld =
+  lift bld ins {
     let rd, rs, rt = getThreeOprs ins |> transThreeOprs ins bld
     let result = if is32Bit bld then rs .- rt else signExtLo64 (rs .- rt)
     rd := result
   }
 
-let teq ins insLen bld =
-  lift bld ins insLen {
+let teq ins bld =
+  lift bld ins {
     let lblL0 = label bld "L0"
     let lblEnd = label bld "End"
     let rs, rt = getTwoOprs ins |> transTwoOprs ins bld
@@ -1632,8 +1632,8 @@ let teq ins insLen bld =
     AST.lmark lblEnd
   }
 
-let teqi ins insLen bld =
-  lift bld ins insLen {
+let teqi ins bld =
+  lift bld ins {
     let lblL0 = label bld "L0"
     let lblEnd = label bld "End"
     let rs, imm = getTwoOprs ins |> transTwoOprs ins bld
@@ -1643,8 +1643,8 @@ let teqi ins insLen bld =
     AST.lmark lblEnd
   }
 
-let truncw ins insLen bld =
-  lift bld ins insLen {
+let truncw ins bld =
+  lift bld ins {
     let fd, fs = getTwoOprs ins
     let intMax = numI32 0x7fffffff 32<rt>
     let intMin = numI32 0x80000000 32<rt>
@@ -1685,8 +1685,8 @@ let truncw ins insLen bld =
     dst := AST.ite (outOfRange .| inf .| nan) intMax dstTmp
   }
 
-let truncl ins insLen bld =
-  lift bld ins insLen {
+let truncl ins bld =
+  lift bld ins {
     let fd, fs = getTwoOprs ins
     let fdB, fdA = transOprToFPPair bld fd
     let eval = tmpVar bld 64<rt>
@@ -1725,14 +1725,14 @@ let truncl ins insLen bld =
     writeFPResult fdB fdA eval bld
   }
 
-let logXor ins insLen bld =
-  lift bld ins insLen {
+let logXor ins bld =
+  lift bld ins {
     let rd, rs, rt = getThreeOprs ins |> transThreeOprs ins bld
     rd := rs <+> rt
   }
 
-let wsbh ins insLen bld =
-  lift bld ins insLen {
+let wsbh ins bld =
+  lift bld ins {
     let dst, src = getTwoOprs ins |> transTwoOprs ins bld
     let rt = AST.xtlo 32<rt> src
     let elements =
@@ -1741,8 +1741,8 @@ let wsbh ins insLen bld =
     dst := AST.sext bld.RegType (AST.revConcat elements)
   }
 
-let dsbh ins insLen bld =
-  lift bld ins insLen {
+let dsbh ins bld =
+  lift bld ins {
     let dst, src = getTwoOprs ins |> transTwoOprs ins bld
     let lo = AST.xtlo 32<rt> src
     let hi = AST.xthi 32<rt> src
@@ -1755,22 +1755,22 @@ let dsbh ins insLen bld =
     dst := AST.revConcat (Array.append lowResult hiResult)
   }
 
-let dshd ins insLen bld =
-  lift bld ins insLen {
+let dshd ins bld =
+  lift bld ins {
     let dst, src = getTwoOprs ins |> transTwoOprs ins bld
     let result =
       Array.init 4 (fun idx -> AST.extract src 16<rt> (idx * 16)) |> Array.rev
     dst := AST.revConcat result
   }
 
-let xori ins insLen bld =
-  lift bld ins insLen {
+let xori ins bld =
+  lift bld ins {
     let rt, rs, imm = getThreeOprs ins |> transThreeOprs ins bld
     rt := rs <+> imm
   }
 
-let loadLeftRight ins insLen bld memShf regShf amtOp oprSz =
-  lift bld ins insLen {
+let loadLeftRight ins bld memShf regShf amtOp oprSz =
+  lift bld ins {
     let rt, mem = getTwoOprs ins
     let baseOffset = transOprToBaseOffset bld mem
     let rt = transOprToExpr ins bld rt
@@ -1795,8 +1795,8 @@ let loadLeftRight ins insLen bld memShf regShf amtOp oprSz =
     rt := if is32Bit bld then result else result |> AST.sext 64<rt>
   }
 
-let recip ins insLen bld =
-  lift bld ins insLen {
+let recip ins bld =
+  lift bld ins {
     let fd, fs = getTwoOprs ins
     match ins.Fmt with
     | Some Fmt.S ->
@@ -1810,8 +1810,8 @@ let recip ins insLen bld =
       writeFPResult fdB fdA (AST.fdiv fnum fs) bld
   }
 
-let rsqrt ins insLen bld =
-  lift bld ins insLen {
+let rsqrt ins bld =
+  lift bld ins {
     let fd, fs = getTwoOprs ins
     match ins.Fmt with
     | Some Fmt.S ->

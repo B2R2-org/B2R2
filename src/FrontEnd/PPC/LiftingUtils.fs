@@ -459,7 +459,7 @@ let isUnsignedDivOV bld rt expB =
     xerSO := checkOF .| xerSO
   }
 
-let sideEffects (ins: Instruction) insLen bld name =
-  lift bld ins insLen {
+let sideEffects (ins: Instruction) bld name =
+  lift bld ins {
     AST.sideEffect name
   }

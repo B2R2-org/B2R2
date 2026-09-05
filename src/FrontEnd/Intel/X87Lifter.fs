@@ -241,8 +241,8 @@ let private castTo80Bit bld tmpB tmpA srcExpr =
   | _ ->
     Terminator.impossible ()
 
-let private fpuLoad (ins: Instruction) insLen bld oprExpr =
-  lift bld ins insLen {
+let private fpuLoad (ins: Instruction) bld oprExpr =
+  lift bld ins {
     let struct (st0b, st0a) = getFPUPseudoRegVars bld R.ST0
     let tmpB, tmpA = tmpVar bld 16<rt>, bld.Stream.NewTempVar 64<rt>
     castTo80Bit bld tmpB tmpA oprExpr
@@ -252,9 +252,9 @@ let private fpuLoad (ins: Instruction) insLen bld oprExpr =
     updateC1OnLoad bld
   }
 
-let fld (ins: Instruction) insLen bld =
-  lift bld ins insLen {
-    let oprExpr = transOneOpr bld ins insLen
+let fld (ins: Instruction) bld =
+  lift bld ins {
+    let oprExpr = transOneOpr bld ins
     let struct (st0b, st0a) = getFPUPseudoRegVars bld R.ST0
     let tmpB, tmpA = tmpVar bld 16<rt>, bld.Stream.NewTempVar 64<rt>
     castTo80Bit bld tmpB tmpA oprExpr
@@ -340,8 +340,8 @@ let private castFrom80Bit dstExpr dstSize srcB srcA bld =
   | _ ->
     Terminator.impossible ()
 
-let ffst (ins: Instruction) insLen bld doPop =
-  lift bld ins insLen {
+let ffst (ins: Instruction) bld doPop =
+  lift bld ins {
     let struct (st0b, st0a) = getFPUPseudoRegVars bld R.ST0
     match ins.Operands with
     | OneOperand(OprReg r) ->
@@ -349,7 +349,7 @@ let ffst (ins: Instruction) insLen bld doPop =
       direct dstB := st0b
       direct dstA := st0a
     | OneOperand(opr) ->
-      let oprExpr = transOprToExpr bld false ins insLen opr
+      let oprExpr = transOprToExpr bld false ins opr
       let oprSize = Expr.typeOf oprExpr
       castFrom80Bit oprExpr oprSize st0b st0a bld
     | _ ->
@@ -358,10 +358,10 @@ let ffst (ins: Instruction) insLen bld doPop =
     updateC1OnStore bld
   }
 
-let fild (ins: Instruction) insLen bld =
-  lift bld ins insLen {
+let fild (ins: Instruction) bld =
+  lift bld ins {
     let struct (st0b, st0a) = getFPUPseudoRegVars bld R.ST0
-    let oprExpr = transOneOpr bld ins insLen
+    let oprExpr = transOneOpr bld ins
     let tmpB, tmpA = tmpVar bld 16<rt>, bld.Stream.NewTempVar 64<rt>
     castTo80Bit bld tmpB tmpA (AST.cast CastKind.SIntToFloat 64<rt> oprExpr)
     pushFPUStack bld
@@ -370,9 +370,9 @@ let fild (ins: Instruction) insLen bld =
     updateC1OnLoad bld
   }
 
-let fist (ins: Instruction) insLen bld doPop =
-  lift bld ins insLen {
-    let oprExpr = transOneOpr bld ins insLen
+let fist (ins: Instruction) bld doPop =
+  lift bld ins {
+    let oprExpr = transOneOpr bld ins
     let oprSize = Expr.typeOf oprExpr
     let struct (st0b, st0a) = getFPUPseudoRegVars bld R.ST0
     let tmp0 = tmpVar bld oprSize
@@ -395,9 +395,9 @@ let fist (ins: Instruction) insLen bld doPop =
     updateC1OnStore bld
   }
 
-let fisttp (ins: Instruction) insLen bld =
-  lift bld ins insLen {
-    let oprExpr = transOneOpr bld ins insLen
+let fisttp (ins: Instruction) bld =
+  lift bld ins {
+    let oprExpr = transOneOpr bld ins
     let oprSize = Expr.typeOf oprExpr
     let tmp1 = tmpVar bld 64<rt>
     let struct (st0b, st0a) = getFPUPseudoRegVars bld R.ST0
@@ -457,10 +457,10 @@ let private bcdToInt intgr addrExpr addrSize bld =
     direct (AST.xthi 1<rt> intgr) := signBit
   }
 
-let fbld (ins: Instruction) insLen bld =
-  lift bld ins insLen {
+let fbld (ins: Instruction) bld =
+  lift bld ins {
     let struct (st0b, st0a) = getFPUPseudoRegVars bld R.ST0
-    let src = transOneOpr bld ins insLen
+    let src = transOneOpr bld ins
     let struct (addrExpr, addrSize) = getLoadAddressExpr src
     let intgr = tmpVar bld 64<rt>
     let tmpB, tmpA = tmpVar bld 16<rt>, bld.Stream.NewTempVar 64<rt>
@@ -507,9 +507,9 @@ let private storeBCD addrExpr addrSize intgr bld =
     AST.store Endian.Little (addrExpr .+ numI32 9 addrSize) signByte
   }
 
-let fbstp (ins: Instruction) insLen bld =
-  lift bld ins insLen {
-    let dst = transOneOpr bld ins insLen
+let fbstp (ins: Instruction) bld =
+  lift bld ins {
+    let dst = transOneOpr bld ins
     let struct (addrExpr, addrSize) = getLoadAddressExpr dst
     let struct (st0b, st0a) = getFPUPseudoRegVars bld R.ST0
     let tmp = tmpVar bld 64<rt>
@@ -521,8 +521,8 @@ let fbstp (ins: Instruction) insLen bld =
     updateC1OnStore bld
   }
 
-let fxch (ins: Instruction) insLen bld =
-  lift bld ins insLen {
+let fxch (ins: Instruction) bld =
+  lift bld ins {
     let struct (st0b, st0a) = getFPUPseudoRegVars bld R.ST0
     let tmpB, tmpA = tmpVar bld 16<rt>, bld.Stream.NewTempVar 64<rt>
     direct tmpB := st0b
@@ -542,7 +542,7 @@ let fxch (ins: Instruction) insLen bld =
 #endif
   }
 
-let private fcmov (ins: Instruction) insLen bld cond =
+let private fcmov (ins: Instruction) bld cond =
   append bld {
     let srcReg =
       match ins.Operands with
@@ -559,53 +559,53 @@ let private fcmov (ins: Instruction) insLen bld cond =
 #endif
   }
 
-let fcmove (ins: Instruction) insLen bld =
-  lift bld ins insLen {
+let fcmove (ins: Instruction) bld =
+  lift bld ins {
 #if EMULATION
-    getZFLazy bld |> fcmov ins insLen bld
+    getZFLazy bld |> fcmov ins bld
 #else
-    regVar bld R.ZF |> fcmov ins insLen bld
+    regVar bld R.ZF |> fcmov ins bld
 #endif
   }
 
-let fcmovne (ins: Instruction) insLen bld =
-  lift bld ins insLen {
+let fcmovne (ins: Instruction) bld =
+  lift bld ins {
 #if EMULATION
-    getZFLazy bld |> AST.not |> fcmov ins insLen bld
+    getZFLazy bld |> AST.not |> fcmov ins bld
 #else
-    regVar bld R.ZF |> AST.not |> fcmov ins insLen bld
+    regVar bld R.ZF |> AST.not |> fcmov ins bld
 #endif
   }
 
-let fcmovb (ins: Instruction) insLen bld =
-  lift bld ins insLen {
+let fcmovb (ins: Instruction) bld =
+  lift bld ins {
 #if EMULATION
-    getCFLazy bld |> fcmov ins insLen bld
+    getCFLazy bld |> fcmov ins bld
 #else
-    regVar bld R.CF |> fcmov ins insLen bld
+    regVar bld R.CF |> fcmov ins bld
 #endif
   }
 
-let fcmovbe (ins: Instruction) insLen bld =
-  lift bld ins insLen {
+let fcmovbe (ins: Instruction) bld =
+  lift bld ins {
 #if EMULATION
-    (getCFLazy bld .| getZFLazy bld) |> fcmov ins insLen bld
+    (getCFLazy bld .| getZFLazy bld) |> fcmov ins bld
 #else
-    (regVar bld R.CF .| regVar bld R.ZF) |> fcmov ins insLen bld
+    (regVar bld R.CF .| regVar bld R.ZF) |> fcmov ins bld
 #endif
   }
 
-let fcmovnb (ins: Instruction) insLen bld =
-  lift bld ins insLen {
+let fcmovnb (ins: Instruction) bld =
+  lift bld ins {
 #if EMULATION
-    getCFLazy bld |> AST.not |> fcmov ins insLen bld
+    getCFLazy bld |> AST.not |> fcmov ins bld
 #else
-    regVar bld R.CF |> AST.not |> fcmov ins insLen bld
+    regVar bld R.CF |> AST.not |> fcmov ins bld
 #endif
   }
 
-let fcmovnbe (ins: Instruction) insLen bld =
-  lift bld ins insLen {
+let fcmovnbe (ins: Instruction) bld =
+  lift bld ins {
 #if EMULATION
     let cond1 = getCFLazy bld |> AST.not
     let cond2 = getZFLazy bld |> AST.not
@@ -613,29 +613,29 @@ let fcmovnbe (ins: Instruction) insLen bld =
     let cond1 = regVar bld R.CF |> AST.not
     let cond2 = regVar bld R.ZF |> AST.not
 #endif
-    cond1 .& cond2 |> fcmov ins insLen bld
+    cond1 .& cond2 |> fcmov ins bld
   }
 
-let fcmovu (ins: Instruction) insLen bld =
-  lift bld ins insLen {
+let fcmovu (ins: Instruction) bld =
+  lift bld ins {
 #if EMULATION
-    getPFLazy bld |> fcmov ins insLen bld
+    getPFLazy bld |> fcmov ins bld
 #else
-    regVar bld R.PF |> fcmov ins insLen bld
+    regVar bld R.PF |> fcmov ins bld
 #endif
   }
 
-let fcmovnu (ins: Instruction) insLen bld =
-  lift bld ins insLen {
+let fcmovnu (ins: Instruction) bld =
+  lift bld ins {
 #if EMULATION
-    getPFLazy bld |> AST.not |> fcmov ins insLen bld
+    getPFLazy bld |> AST.not |> fcmov ins bld
 #else
-    regVar bld R.PF |> AST.not |> fcmov ins insLen bld
+    regVar bld R.PF |> AST.not |> fcmov ins bld
 #endif
   }
 
-let private fpuFBinOp (ins: Instruction) insLen bld binOp doPop leftToRight =
-  lift bld ins insLen {
+let private fpuFBinOp (ins: Instruction) bld binOp doPop leftToRight =
+  lift bld ins {
     match ins.Operands with
     | NoOperand ->
       let struct (st0b, st0a) = getFPUPseudoRegVars bld R.ST0
@@ -648,7 +648,7 @@ let private fpuFBinOp (ins: Instruction) insLen bld binOp doPop leftToRight =
       else append bld { direct res := binOp tmp1 tmp0 }
       castTo80Bit bld st1b st1a res
     | OneOperand _ ->
-      let oprExpr = transOneOpr bld ins insLen
+      let oprExpr = transOneOpr bld ins
       let oprSize = Expr.typeOf oprExpr
       let struct (st0b, st0a) = getFPUPseudoRegVars bld R.ST0
       let struct (tmp0, tmp1) = tmpVars2 bld 64<rt>
@@ -677,10 +677,10 @@ let private fpuFBinOp (ins: Instruction) insLen bld binOp doPop leftToRight =
     updateC1OnStore bld
   }
 
-let private fpuIntOp (ins: Instruction) insLen bld binOp leftToRight =
-  lift bld ins insLen {
+let private fpuIntOp (ins: Instruction) bld binOp leftToRight =
+  lift bld ins {
     let struct (st0b, st0a) = getFPUPseudoRegVars bld R.ST0
-    let oprExpr = transOneOpr bld ins insLen
+    let oprExpr = transOneOpr bld ins
     let struct (tmp, dst) = tmpVars2 bld 64<rt>
     let res = tmpVar bld 64<rt>
     direct tmp := AST.cast CastKind.SIntToFloat 64<rt> oprExpr
@@ -690,25 +690,25 @@ let private fpuIntOp (ins: Instruction) insLen bld binOp leftToRight =
     castTo80Bit bld st0b st0a res
   }
 
-let fpuadd ins insLen bld doPop = fpuFBinOp ins insLen bld AST.fadd doPop true
+let fpuadd ins bld doPop = fpuFBinOp ins bld AST.fadd doPop true
 
-let fiadd ins insLen bld = fpuIntOp ins insLen bld AST.fadd true
+let fiadd ins bld = fpuIntOp ins bld AST.fadd true
 
-let fpusub ins insLen bld doPop = fpuFBinOp ins insLen bld AST.fsub doPop true
+let fpusub ins bld doPop = fpuFBinOp ins bld AST.fsub doPop true
 
-let fisub ins insLen bld = fpuIntOp ins insLen bld AST.fsub true
+let fisub ins bld = fpuIntOp ins bld AST.fsub true
 
-let fsubr ins insLen bld doPop = fpuFBinOp ins insLen bld AST.fsub doPop false
+let fsubr ins bld doPop = fpuFBinOp ins bld AST.fsub doPop false
 
-let fisubr ins insLen bld = fpuIntOp ins insLen bld AST.fsub false
+let fisubr ins bld = fpuIntOp ins bld AST.fsub false
 
-let fpumul ins insLen bld doPop = fpuFBinOp ins insLen bld AST.fmul doPop true
+let fpumul ins bld doPop = fpuFBinOp ins bld AST.fmul doPop true
 
-let fimul ins insLen bld = fpuIntOp ins insLen bld AST.fmul true
+let fimul ins bld = fpuIntOp ins bld AST.fmul true
 
-let fpudiv ins insLen bld doPop = fpuFBinOp ins insLen bld AST.fdiv doPop true
+let fpudiv ins bld doPop = fpuFBinOp ins bld AST.fdiv doPop true
 
-let fidiv ins insLen bld = fpuIntOp ins insLen bld AST.fdiv true
+let fidiv ins bld = fpuIntOp ins bld AST.fdiv true
 
 let private isZero exponent significand =
   (exponent == (AST.num0 16<rt>)) .& (significand == (AST.num0 64<rt>))
@@ -723,8 +723,8 @@ let private raiseIfZero bld lblErr lblChk hi lo =
     AST.lmark lblChk
   }
 
-let fdivr (ins: Instruction) insLen bld doPop =
-  lift bld ins insLen {
+let fdivr (ins: Instruction) bld doPop =
+  lift bld ins {
     let lblChk = label bld "Check"
     let lblErr = label bld "DivErr"
     let struct (tmp0, tmp1) = tmpVars2 bld 64<rt>
@@ -739,7 +739,7 @@ let fdivr (ins: Instruction) insLen bld doPop =
       direct res := AST.fdiv tmp1 tmp0
       castTo80Bit bld st1b st1a res
     | OneOperand _ ->
-      let oprExpr = transOneOpr bld ins insLen
+      let oprExpr = transOneOpr bld ins
       let oprSize = Expr.typeOf oprExpr
       let struct (st0b, st0a) = getFPUPseudoRegVars bld R.ST0
       raiseIfZero bld lblErr lblChk st0b st0a
@@ -764,7 +764,7 @@ let fdivr (ins: Instruction) insLen bld doPop =
     updateC1OnStore bld
   }
 
-let fidivr ins insLen bld = fpuIntOp ins insLen bld AST.fdiv false
+let fidivr ins bld = fpuIntOp ins bld AST.fdiv false
 
 let inline private castToF64 intexp =
   AST.cast CastKind.SIntToFloat 64<rt> intexp
@@ -842,8 +842,8 @@ let private fpremScaledQuotient bld sts srcs expDiff tmps =
   }
   castTo80Bit bld st0b st0a tmpres
 
-let fprem (ins: Instruction) insLen bld round =
-  lift bld ins insLen {
+let fprem (ins: Instruction) bld round =
+  lift bld ins {
     let struct (st0b, st0a) = getFPUPseudoRegVars bld R.ST0
     let struct (st1b, st1a) = getFPUPseudoRegVars bld R.ST1
     let caster = if round then CastKind.FtoIRound else CastKind.FtoITrunc
@@ -883,8 +883,8 @@ let fprem (ins: Instruction) insLen bld round =
     AST.lmark lblExit
   }
 
-let fabs (ins: Instruction) insLen bld =
-  lift bld ins insLen {
+let fabs (ins: Instruction) bld =
+  lift bld ins {
     let struct (st0b, _st0a) = getFPUPseudoRegVars bld R.ST0
     direct (AST.extract st0b 1<rt> 15) := AST.b0
     direct (regVar bld R.FSWC1) := AST.b0
@@ -895,8 +895,8 @@ let fabs (ins: Instruction) insLen bld =
 #endif
   }
 
-let fchs (ins: Instruction) insLen bld =
-  lift bld ins insLen {
+let fchs (ins: Instruction) bld =
+  lift bld ins {
     let struct (st0b, _st0a) = getFPUPseudoRegVars bld R.ST0
     let tmp = tmpVar bld 1<rt>
     direct tmp := AST.xthi 1<rt> st0b
@@ -909,8 +909,8 @@ let fchs (ins: Instruction) insLen bld =
 #endif
   }
 
-let frndint (ins: Instruction) insLen bld =
-  lift bld ins insLen {
+let frndint (ins: Instruction) bld =
+  lift bld ins {
     let struct (st0b, st0a) = getFPUPseudoRegVars bld R.ST0
     let lblOrdered = label bld "Ordered"
     let lblExit = label bld "Exit"
@@ -937,8 +937,8 @@ let frndint (ins: Instruction) insLen bld =
     updateC1OnStore bld
   }
 
-let fscale (ins: Instruction) insLen bld =
-  lift bld ins insLen {
+let fscale (ins: Instruction) bld =
+  lift bld ins {
     let struct (tmp0, tmp1, tmp2, tmp3) = tmpVars4 bld 64<rt>
     let struct (st0b, st0a) = getFPUPseudoRegVars bld R.ST0
     let struct (st1b, st1a) = getFPUPseudoRegVars bld R.ST1
@@ -955,8 +955,8 @@ let fscale (ins: Instruction) insLen bld =
     updateC1OnStore bld
   }
 
-let fsqrt (ins: Instruction) insLen bld =
-  lift bld ins insLen {
+let fsqrt (ins: Instruction) bld =
+  lift bld ins {
     let struct (st0b, st0a) = getFPUPseudoRegVars bld R.ST0
     let tmp0 = tmpVar bld 64<rt>
     castFrom80Bit tmp0 64<rt> st0b st0a bld
@@ -964,8 +964,8 @@ let fsqrt (ins: Instruction) insLen bld =
     updateC1OnStore bld
   }
 
-let fxtract (ins: Instruction) insLen bld =
-  lift bld ins insLen {
+let fxtract (ins: Instruction) bld =
+  lift bld ins {
     let struct (st0b, st0a) = getFPUPseudoRegVars bld R.ST0
     let n3fff = numI32 0x3FFF 16<rt>
     let tmpB, tmpA = tmpVar bld 16<rt>, bld.Stream.NewTempVar 64<rt>
@@ -979,7 +979,7 @@ let fxtract (ins: Instruction) insLen bld =
     direct st0a := tmpA
   }
 
-let private prepareTwoOprsForComparison (ins: Instruction) insLen bld =
+let private prepareTwoOprsForComparison (ins: Instruction) bld =
   let struct (tmp0, tmp1) = tmpVars2 bld 64<rt>
   match ins.Operands with
   | NoOperand ->
@@ -994,7 +994,7 @@ let private prepareTwoOprsForComparison (ins: Instruction) insLen bld =
     castFrom80Bit tmp1 64<rt> st1b st1a bld
   | OneOperand(opr) ->
     let struct (st0b, st0a) = getFPUPseudoRegVars bld R.ST0
-    let oprExpr = transOprToExpr bld false ins insLen opr
+    let oprExpr = transOprToExpr bld false ins opr
     castFrom80Bit tmp0 64<rt> st0b st0a bld
     append bld {
       direct tmp1 := AST.cast CastKind.FloatCast 64<rt> oprExpr
@@ -1008,12 +1008,12 @@ let private prepareTwoOprsForComparison (ins: Instruction) insLen bld =
     raise InvalidOperandException
   if ins.Opcode = Opcode.FUCOM then struct (tmp1, tmp0) else struct (tmp0, tmp1)
 
-let fcom (ins: Instruction) insLen bld nPop unordered =
-  lift bld ins insLen {
+let fcom (ins: Instruction) bld nPop unordered =
+  lift bld ins {
     let c0 = regVar bld R.FSWC0
     let c2 = regVar bld R.FSWC2
     let c3 = regVar bld R.FSWC3
-    let struct (tmp0, tmp1) = prepareTwoOprsForComparison ins insLen bld
+    let struct (tmp0, tmp1) = prepareTwoOprsForComparison ins bld
     let isNan = isNan true tmp0 .| isNan true tmp1
     direct c0 := isNan .| AST.flt tmp0 tmp1
     direct c2 := isNan .| AST.b0
@@ -1023,9 +1023,9 @@ let fcom (ins: Instruction) insLen bld nPop unordered =
     if nPop = 2 then popFPUStack bld else ()
   }
 
-let ficom (ins: Instruction) insLen bld doPop =
-  lift bld ins insLen {
-    let oprExpr = transOneOpr bld ins insLen
+let ficom (ins: Instruction) bld doPop =
+  lift bld ins {
+    let oprExpr = transOneOpr bld ins
     let struct (st0b, st0a) = getFPUPseudoRegVars bld R.ST0
     let struct (tmp0, tmp1) = tmpVars2 bld 64<rt>
     castFrom80Bit tmp0 64<rt> st0b st0a bld
@@ -1038,12 +1038,12 @@ let ficom (ins: Instruction) insLen bld doPop =
     if doPop then popFPUStack bld else ()
   }
 
-let fcomi (ins: Instruction) insLen bld doPop =
-  lift bld ins insLen {
+let fcomi (ins: Instruction) bld doPop =
+  lift bld ins {
     let zf = regVar bld R.ZF
     let pf = regVar bld R.PF
     let cf = regVar bld R.CF
-    let struct (tmp0, tmp1) = prepareTwoOprsForComparison ins insLen bld
+    let struct (tmp0, tmp1) = prepareTwoOprsForComparison ins bld
     let isNan = isNan true tmp0 .| isNan true tmp1
     direct cf := isNan .| AST.flt tmp0 tmp1
     direct pf := isNan .| AST.b0
@@ -1055,8 +1055,8 @@ let fcomi (ins: Instruction) insLen bld doPop =
 #endif
   }
 
-let ftst (ins: Instruction) insLen bld =
-  lift bld ins insLen {
+let ftst (ins: Instruction) bld =
+  lift bld ins {
     let struct (st0b, st0a) = getFPUPseudoRegVars bld R.ST0
     let num0V = AST.num0 64<rt>
     let c0 = regVar bld R.FSWC0
@@ -1070,8 +1070,8 @@ let ftst (ins: Instruction) insLen bld =
     direct (regVar bld R.FSWC1) := AST.b0
   }
 
-let fxam (ins: Instruction) insLen bld =
-  lift bld ins insLen {
+let fxam (ins: Instruction) bld =
+  lift bld ins {
     let top = regVar bld R.FTOP
     let struct (st0b, st0a) = getFPUPseudoRegVars bld R.ST0
     let n7fff = numI32 0x7fff 16<rt>
@@ -1099,8 +1099,8 @@ let private checkForTrigFunction unsigned lin lout bld =
              (AST.jmpDest lout)
   }
 
-let private ftrig (ins: Instruction) insLen bld trigFunc =
-  lift bld ins insLen {
+let private ftrig (ins: Instruction) bld trigFunc =
+  lift bld ins {
     let struct (st0b, st0a) = getFPUPseudoRegVars bld R.ST0
     let n7fff = numI32 0x7fff 16<rt>
     let c0 = regVar bld R.FSWC0
@@ -1129,12 +1129,12 @@ let private ftrig (ins: Instruction) insLen bld trigFunc =
     direct c1 := AST.b0
   }
 
-let fsin ins insLen bld = ftrig ins insLen bld AST.fsin
+let fsin ins bld = ftrig ins bld AST.fsin
 
-let fcos ins insLen bld = ftrig ins insLen bld AST.fcos
+let fcos ins bld = ftrig ins bld AST.fcos
 
-let fsincos (ins: Instruction) insLen bld =
-  lift bld ins insLen {
+let fsincos (ins: Instruction) bld =
+  lift bld ins {
     let struct (st0b, st0a) = getFPUPseudoRegVars bld R.ST0
     let n7fff = numI32 0x7fff 16<rt>
     let c0 = regVar bld R.FSWC0
@@ -1165,8 +1165,8 @@ let fsincos (ins: Instruction) insLen bld =
     updateC1OnLoad bld
   }
 
-let fptan (ins: Instruction) insLen bld =
-  lift bld ins insLen {
+let fptan (ins: Instruction) bld =
+  lift bld ins {
     let struct (st0b, st0a) = getFPUPseudoRegVars bld R.ST0
     let n7fff = numI32 0x7fff 16<rt>
     let c0 = regVar bld R.FSWC0
@@ -1198,8 +1198,8 @@ let fptan (ins: Instruction) insLen bld =
     updateC1OnLoad bld
   }
 
-let fpatan (ins: Instruction) insLen bld =
-  lift bld ins insLen {
+let fpatan (ins: Instruction) bld =
+  lift bld ins {
     let struct (st0b, st0a) = getFPUPseudoRegVars bld R.ST0
     let struct (st1b, st1a) = getFPUPseudoRegVars bld R.ST1
     let struct (tmp0, tmp1, res) = tmpVars3 bld 64<rt>
@@ -1214,8 +1214,8 @@ let fpatan (ins: Instruction) insLen bld =
 #endif
   }
 
-let f2xm1 (ins: Instruction) insLen bld =
-  lift bld ins insLen {
+let f2xm1 (ins: Instruction) bld =
+  lift bld ins {
     let struct (st0b, st0a) = getFPUPseudoRegVars bld R.ST0
     let f1 = numI32 1 64<rt> |> castToF64
     let f2 = numI32 2 64<rt> |> castToF64
@@ -1230,8 +1230,8 @@ let f2xm1 (ins: Instruction) insLen bld =
 #endif
   }
 
-let fyl2x (ins: Instruction) insLen bld =
-  lift bld ins insLen {
+let fyl2x (ins: Instruction) bld =
+  lift bld ins {
     let struct (st0b, st0a) = getFPUPseudoRegVars bld R.ST0
     let struct (st1b, st1a) = getFPUPseudoRegVars bld R.ST1
     let struct (tmp0, tmp1, res) = tmpVars3 bld 64<rt>
@@ -1247,8 +1247,8 @@ let fyl2x (ins: Instruction) insLen bld =
 #endif
   }
 
-let fyl2xp1 (ins: Instruction) insLen bld =
-  lift bld ins insLen {
+let fyl2xp1 (ins: Instruction) bld =
+  lift bld ins {
     let struct (st0b, st0a) = getFPUPseudoRegVars bld R.ST0
     let struct (st1b, st1a) = getFPUPseudoRegVars bld R.ST1
     let struct (tmp0, tmp1, res) = tmpVars3 bld 64<rt>
@@ -1265,12 +1265,12 @@ let fyl2xp1 (ins: Instruction) insLen bld =
 #endif
   }
 
-let fld1 ins insLen bld =
+let fld1 ins bld =
   let oprExpr = numU64 0x3FF0000000000000UL 64<rt>
-  fpuLoad ins insLen bld oprExpr
+  fpuLoad ins bld oprExpr
 
-let fldz (ins: Instruction) insLen bld =
-  lift bld ins insLen {
+let fldz (ins: Instruction) bld =
+  lift bld ins {
     let struct (st0b, st0a) = getFPUPseudoRegVars bld R.ST0
     pushFPUStack bld
     direct st0b := AST.num0 16<rt>
@@ -1278,28 +1278,28 @@ let fldz (ins: Instruction) insLen bld =
     updateC1OnLoad bld
   }
 
-let fldpi ins insLen bld =
+let fldpi ins bld =
   let oprExpr = numU64 4614256656552045848UL 64<rt>
-  fpuLoad ins insLen bld oprExpr
+  fpuLoad ins bld oprExpr
 
-let fldl2e ins insLen bld =
+let fldl2e ins bld =
   let oprExpr = numU64 4609176140021203710UL 64<rt>
-  fpuLoad ins insLen bld oprExpr
+  fpuLoad ins bld oprExpr
 
-let fldln2 ins insLen bld =
+let fldln2 ins bld =
   let oprExpr = numU64 4604418534313441775UL 64<rt>
-  fpuLoad ins insLen bld oprExpr
+  fpuLoad ins bld oprExpr
 
-let fldl2t ins insLen bld =
+let fldl2t ins bld =
   let oprExpr = numU64 4614662735865160561UL 64<rt>
-  fpuLoad ins insLen bld oprExpr
+  fpuLoad ins bld oprExpr
 
-let fldlg2 ins insLen bld =
+let fldlg2 ins bld =
   let oprExpr = numU64 4599094494223104511UL 64<rt>
-  fpuLoad ins insLen bld oprExpr
+  fpuLoad ins bld oprExpr
 
-let fincstp (ins: Instruction) insLen bld =
-  lift bld ins insLen {
+let fincstp (ins: Instruction) bld =
+  lift bld ins {
     let top = regVar bld R.FTOP
     (* TOP in B2R2 is really a counter, so we decrement TOP here (same as
        pop). *)
@@ -1323,8 +1323,8 @@ let fincstp (ins: Instruction) insLen bld =
 #endif
   }
 
-let fdecstp (ins: Instruction) insLen bld =
-  lift bld ins insLen {
+let fdecstp (ins: Instruction) bld =
+  lift bld ins {
     let top = regVar bld R.FTOP
     (* TOP in B2R2 is really a counter, so we increment TOP here. *)
     let cond = top == numI32 7 8<rt>
@@ -1347,8 +1347,8 @@ let fdecstp (ins: Instruction) insLen bld =
 #endif
   }
 
-let ffree (ins: Instruction) insLen bld =
-  lift bld ins insLen {
+let ffree (ins: Instruction) bld =
+  lift bld ins {
     let top = regVar bld R.FTOP
     let tagWord = regVar bld R.FTW
     let struct (top16, shifter, tagValue) = tmpVars3 bld 16<rt>
@@ -1383,19 +1383,19 @@ let private clearFPU bld =
     direct (regVar bld R.FTW) := tw
   }
 
-let finit (ins: Instruction) insLen bld =
-  lift bld ins insLen {
+let finit (ins: Instruction) bld =
+  lift bld ins {
     checkFPUExceptions bld
     clearFPU bld
   }
 
-let fninit (ins: Instruction) insLen bld =
-  lift bld ins insLen {
+let fninit (ins: Instruction) bld =
+  lift bld ins {
     clearFPU bld
   }
 
-let fclex (ins: Instruction) insLen bld =
-  lift bld ins insLen {
+let fclex (ins: Instruction) bld =
+  lift bld ins {
     let stsWrd = regVar bld R.FSW
     direct stsWrd := stsWrd .& (numI32 0xFF80 16<rt>)
     direct (AST.xthi 1<rt> stsWrd) := AST.b0
@@ -1407,9 +1407,9 @@ let fclex (ins: Instruction) insLen bld =
 #endif
   }
 
-let fstcw (ins: Instruction) insLen bld =
-  lift bld ins insLen {
-    let oprExpr = transOneOpr bld ins insLen
+let fstcw (ins: Instruction) bld =
+  lift bld ins {
+    let oprExpr = transOneOpr bld ins
     checkFPUExceptions bld
     direct oprExpr := regVar bld R.FCW
 #if !EMULATION
@@ -1417,18 +1417,18 @@ let fstcw (ins: Instruction) insLen bld =
 #endif
   }
 
-let fnstcw (ins: Instruction) insLen bld =
-  lift bld ins insLen {
-    let oprExpr = transOneOpr bld ins insLen
+let fnstcw (ins: Instruction) bld =
+  lift bld ins {
+    let oprExpr = transOneOpr bld ins
     direct oprExpr := regVar bld R.FCW
 #if !EMULATION
     allCFlagsUndefined bld
 #endif
   }
 
-let fldcw (ins: Instruction) insLen bld =
-  lift bld ins insLen {
-    let oprExpr = transOneOpr bld ins insLen
+let fldcw (ins: Instruction) bld =
+  lift bld ins {
+    let oprExpr = transOneOpr bld ins
     direct (regVar bld R.FCW) := oprExpr
 #if !EMULATION
     direct (regVar bld R.FSWC0) := undefC0
@@ -1466,9 +1466,9 @@ let private m28fstenv dstAddr addrSize bld =
     storeLE (dstAddr .+ numI32 20 addrSize) (regVar bld R.FDP)
   }
 
-let fnstenv (ins: Instruction) insLen bld =
-  lift bld ins insLen {
-    let dst = transOneOpr bld ins insLen
+let fnstenv (ins: Instruction) bld =
+  lift bld ins {
+    let dst = transOneOpr bld ins
     let struct (addrExpr, addrSize) = getLoadAddressExpr dst
     match Expr.typeOf dst with
     | 112<rt> -> m14fstenv addrExpr addrSize bld
@@ -1506,9 +1506,9 @@ let private m28fldenv srcAddr addrSize bld =
       AST.loadLE 64<rt> (srcAddr .+ numI32 20 addrSize)
   }
 
-let fldenv (ins: Instruction) insLen bld =
-  lift bld ins insLen {
-    let src = transOneOpr bld ins insLen
+let fldenv (ins: Instruction) bld =
+  lift bld ins {
+    let src = transOneOpr bld ins
     let struct (addrExpr, addrSize) = getLoadAddressExpr src
     match Expr.typeOf src with
     | 112<rt> -> m14fldenv addrExpr addrSize bld
@@ -1544,9 +1544,9 @@ let private stSts dstAddr addrSize offset bld =
     storeLE (dstAddr .+ numI32 (offset + 78) addrSize) stb
   }
 
-let fnsave (ins: Instruction) insLen bld =
-  lift bld ins insLen {
-    let dst = transOneOpr bld ins insLen
+let fnsave (ins: Instruction) bld =
+  lift bld ins {
+    let dst = transOneOpr bld ins
     let struct (addrExpr, addrSize) = getLoadAddressExpr dst
     match Expr.typeOf dst with
     | 752<rt> ->
@@ -1593,9 +1593,9 @@ let private ldSts srcAddr addrSize offset bld =
     direct stb := AST.loadLE 16<rt> (srcAddr .+ numI32 (offset + 78) addrSize)
   }
 
-let frstor (ins: Instruction) insLen bld =
-  lift bld ins insLen {
-    let src = transOneOpr bld ins insLen
+let frstor (ins: Instruction) bld =
+  lift bld ins {
+    let src = transOneOpr bld ins
     let struct (addrExpr, addrSize) = getLoadAddressExpr src
     match Expr.typeOf src with
     | 752<rt> ->
@@ -1608,22 +1608,22 @@ let frstor (ins: Instruction) insLen bld =
       raise InvalidOperandSizeException
   }
 
-let fnstsw (ins: Instruction) insLen bld =
-  lift bld ins insLen {
-    let oprExpr = transOneOpr bld ins insLen
+let fnstsw (ins: Instruction) bld =
+  lift bld ins {
+    let oprExpr = transOneOpr bld ins
     direct oprExpr := regVar bld R.FSW
 #if !EMULATION
     allCFlagsUndefined bld
 #endif
   }
 
-let wait (ins: Instruction) insLen bld =
-  lift bld ins insLen {
+let wait (ins: Instruction) bld =
+  lift bld ins {
     checkFPUExceptions bld
   }
 
-let fnop (ins: Instruction) insLen bld =
-  lift bld ins insLen {
+let fnop (ins: Instruction) bld =
+  lift bld ins {
 #if !EMULATION
     allCFlagsUndefined bld
 #endif
@@ -1678,9 +1678,9 @@ let private fxsaveInternal bld dstAddr addrSize is64bit =
   else
     ()
 
-let fxsave (ins: Instruction) insLen bld =
-  lift bld ins insLen {
-    let dst = transOneOpr bld ins insLen
+let fxsave (ins: Instruction) bld =
+  lift bld ins {
+    let dst = transOneOpr bld ins
     let struct (addrExpr, addrSize) = getLoadAddressExpr dst
     fxsaveInternal bld addrExpr addrSize (bld.RegType = 64<rt>)
   }
@@ -1725,9 +1725,9 @@ let private fxrstoreInternal bld srcAddr addrSz is64bit =
   else
     ()
 
-let fxrstor (ins: Instruction) insLen bld =
-  lift bld ins insLen {
-    let src = transOneOpr bld ins insLen
+let fxrstor (ins: Instruction) bld =
+  lift bld ins {
+    let src = transOneOpr bld ins
     let struct (addrExpr, addrSize) = getLoadAddressExpr src
     fxrstoreInternal bld addrExpr addrSize (bld.RegType = 64<rt>)
   }

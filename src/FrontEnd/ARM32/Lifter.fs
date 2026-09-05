@@ -38,506 +38,506 @@ open B2R2.FrontEnd.ARM32.GeneralLifter
 open B2R2.FrontEnd.ARM32.NEONLifter
 
 /// Translate IR.
-let translate (ins: Instruction) insLen bld =
+let translate (ins: Instruction) bld =
   match ins.Opcode with
   | Op.ADC ->
-    adc false ins insLen bld
+    adc false ins bld
   | Op.ADCS ->
-    adcs true ins insLen bld
+    adcs true ins bld
   | Op.ADD | Op.ADDW ->
-    add false ins insLen bld
+    add false ins bld
   | Op.ADDS ->
-    adds true ins insLen bld
+    adds true ins bld
   | Op.ADR ->
-    adr ins insLen bld (* for Thumb mode *)
+    adr ins bld (* for Thumb mode *)
   | Op.AND ->
-    logicalAnd false ins insLen bld
+    logicalAnd false ins bld
   | Op.ANDS ->
-    ands true ins insLen bld
+    ands true ins bld
   | Op.ASR ->
-    shiftInstr false ins insLen ShiftOp.ASR bld
+    shiftInstr false ins ShiftOp.ASR bld
   | Op.ASRS ->
-    asrs true ins insLen bld
+    asrs true ins bld
   | Op.B ->
-    b ins insLen bld
+    b ins bld
   | Op.BFC ->
-    bfc ins insLen bld
+    bfc ins bld
   | Op.BFI ->
-    bfi ins insLen bld
+    bfi ins bld
   | Op.BIC ->
-    bic false ins insLen bld
+    bic false ins bld
   | Op.BICS ->
-    bics true ins insLen bld
+    bics true ins bld
   | Op.BKPT ->
-    sideEffects ins insLen bld Breakpoint
+    sideEffects ins bld Breakpoint
   | Op.BL ->
-    bl ins insLen bld
+    bl ins bld
   | Op.BLX ->
-    branchWithLink ins insLen bld
+    branchWithLink ins bld
   | Op.BX ->
-    bx ins insLen bld
+    bx ins bld
   | Op.BXJ ->
-    bx ins insLen bld
+    bx ins bld
   | Op.CBNZ ->
-    cbz true ins insLen bld
+    cbz true ins bld
   | Op.CBZ ->
-    cbz false ins insLen bld
+    cbz false ins bld
   | Op.CDP | Op.CDP2 | Op.LDC | Op.LDC2 | Op.LDC2L | Op.LDCL | Op.MCR | Op.MCR2
   | Op.MCRR | Op.MCRR2 | Op.MRC2 | Op.MRRC | Op.MRRC2 | Op.STC
   | Op.STC2 | Op.STC2L | Op.STCL ->
     (* coprocessor instructions *)
-    sideEffects ins insLen bld UnsupportedInstruction
+    sideEffects ins bld UnsupportedInstruction
   | Op.CLZ ->
-    clz ins insLen bld
+    clz ins bld
   | Op.CMN ->
-    cmn ins insLen bld
+    cmn ins bld
   | Op.CMP ->
-    cmp ins insLen bld
+    cmp ins bld
   | Op.CLREX | Op.DMB | Op.DSB | Op.ISB | Op.PLD ->
-    nop ins insLen bld
+    nop ins bld
   | Op.EOR ->
-    eor false ins insLen bld
+    eor false ins bld
   | Op.EORS ->
-    eors true ins insLen bld
+    eors true ins bld
   | Op.ERET ->
-    sideEffects ins insLen bld UnsupportedInstruction
+    sideEffects ins bld UnsupportedInstruction
   | Op.IT | Op.ITT | Op.ITE | Op.ITTT | Op.ITET | Op.ITTE | Op.ITEE | Op.ITTTT
   | Op.ITETT | Op.ITTET | Op.ITEET | Op.ITTTE | Op.ITETE | Op.ITTEE
   | Op.ITEEE ->
-    it ins insLen bld
+    it ins bld
   | Op.LDM ->
-    ldm Op.LDM ins insLen bld (.+)
+    ldm Op.LDM ins bld (.+)
   | Op.LDMDA ->
-    ldm Op.LDMDA ins insLen bld (.-)
+    ldm Op.LDMDA ins bld (.-)
   | Op.LDMDB ->
-    ldm Op.LDMDB ins insLen bld (.-)
+    ldm Op.LDMDB ins bld (.-)
   | Op.LDMIA ->
-    ldm Op.LDMIA ins insLen bld (.+)
+    ldm Op.LDMIA ins bld (.+)
   | Op.LDMIB ->
-    ldm Op.LDMIB ins insLen bld (.+)
+    ldm Op.LDMIB ins bld (.+)
   | Op.LDR ->
-    ldr ins insLen bld 32<rt> AST.zext
+    ldr ins bld 32<rt> AST.zext
   | Op.LDRB ->
-    ldr ins insLen bld 8<rt> AST.zext
+    ldr ins bld 8<rt> AST.zext
   | Op.LDRBT ->
-    ldr ins insLen bld 8<rt> AST.zext
+    ldr ins bld 8<rt> AST.zext
   | Op.LDRD ->
-    ldrd ins insLen bld
+    ldrd ins bld
   | Op.LDREX | Op.LDAEX ->
-    ldrex ins insLen bld 32<rt>
+    ldrex ins bld 32<rt>
   | Op.LDREXB | Op.LDAEXB ->
-    ldrex ins insLen bld 8<rt>
+    ldrex ins bld 8<rt>
   | Op.LDREXH | Op.LDAEXH ->
-    ldrex ins insLen bld 16<rt>
+    ldrex ins bld 16<rt>
   | Op.LDREXD | Op.LDAEXD ->
-    ldrexd ins insLen bld
+    ldrexd ins bld
   | Op.LDRH ->
-    ldr ins insLen bld 16<rt> AST.zext
+    ldr ins bld 16<rt> AST.zext
   | Op.LDRHT ->
-    ldr ins insLen bld 16<rt> AST.zext
+    ldr ins bld 16<rt> AST.zext
   | Op.LDRSB ->
-    ldr ins insLen bld 8<rt> AST.sext
+    ldr ins bld 8<rt> AST.sext
   | Op.LDRSBT ->
-    ldr ins insLen bld 8<rt> AST.sext
+    ldr ins bld 8<rt> AST.sext
   | Op.LDRSH ->
-    ldr ins insLen bld 16<rt> AST.sext
+    ldr ins bld 16<rt> AST.sext
   | Op.LDRSHT ->
-    ldr ins insLen bld 16<rt> AST.sext
+    ldr ins bld 16<rt> AST.sext
   | Op.LDRT ->
-    ldr ins insLen bld 32<rt> AST.zext
+    ldr ins bld 32<rt> AST.zext
   | Op.LSL ->
-    shiftInstr false ins insLen ShiftOp.LSL bld
+    shiftInstr false ins ShiftOp.LSL bld
   | Op.LSLS ->
-    lsls true ins insLen bld
+    lsls true ins bld
   | Op.LSR ->
-    shiftInstr false ins insLen ShiftOp.LSR bld
+    shiftInstr false ins ShiftOp.LSR bld
   | Op.LSRS ->
-    lsrs true ins insLen bld
+    lsrs true ins bld
   | Op.MLA ->
-    mla false ins insLen bld
+    mla false ins bld
   | Op.MLAS ->
-    mla true ins insLen bld
+    mla true ins bld
   | Op.MLS ->
-    mls ins insLen bld
+    mls ins bld
   | Op.MOV | Op.MOVW ->
-    mov false ins insLen bld
+    mov false ins bld
   | Op.MOVS ->
-    movs true ins insLen bld
+    movs true ins bld
   | Op.MOVT ->
-    movt ins insLen bld
+    movt ins bld
   | Op.MSR | Op.MRS ->
-    sideEffects ins insLen bld UndefinedInstruction
+    sideEffects ins bld UndefinedInstruction
   | Op.MRC ->
-    mrc ins insLen bld
+    mrc ins bld
   | Op.MUL ->
-    mul false ins insLen bld
+    mul false ins bld
   | Op.MULS ->
-    mul true ins insLen bld
+    mul true ins bld
   | Op.MVN ->
-    mvn false ins insLen bld
+    mvn false ins bld
   | Op.MVNS ->
-    mvns true ins insLen bld
+    mvns true ins bld
   | Op.NOP ->
-    nop ins insLen bld
+    nop ins bld
   | Op.ORN ->
-    orn false ins insLen bld
+    orn false ins bld
   | Op.ORNS ->
-    orns true ins insLen bld
+    orns true ins bld
   | Op.ORR ->
-    orr false ins insLen bld
+    orr false ins bld
   | Op.ORRS ->
-    orrs true ins insLen bld
+    orrs true ins bld
   | Op.PKHBT ->
-    pkh ins insLen bld false
+    pkh ins bld false
   | Op.PKHTB ->
-    pkh ins insLen bld true
+    pkh ins bld true
   | Op.POP ->
-    pop ins insLen bld
+    pop ins bld
   | Op.PUSH ->
-    push ins insLen bld
+    push ins bld
   | Op.QDADD ->
-    qdadd ins insLen bld
+    qdadd ins bld
   | Op.QDSUB ->
-    qdsub ins insLen bld
+    qdsub ins bld
   | Op.QSAX ->
-    qsax ins insLen bld
+    qsax ins bld
   | Op.QSUB16 ->
-    qsub16 ins insLen bld
+    qsub16 ins bld
   | Op.RBIT ->
-    rbit ins insLen bld
+    rbit ins bld
   | Op.REV ->
-    rev ins insLen bld
+    rev ins bld
   | Op.REV16 ->
-    rev16 ins insLen bld
+    rev16 ins bld
   | Op.REVSH ->
-    revsh ins insLen bld
+    revsh ins bld
   | Op.RFEDB ->
-    rfedb ins insLen bld
+    rfedb ins bld
   | Op.ROR ->
-    shiftInstr false ins insLen ShiftOp.ROR bld
+    shiftInstr false ins ShiftOp.ROR bld
   | Op.RORS ->
-    rors true ins insLen bld
+    rors true ins bld
   | Op.RRX ->
-    shiftInstr false ins insLen ShiftOp.RRX bld
+    shiftInstr false ins ShiftOp.RRX bld
   | Op.RRXS ->
-    rrxs true ins insLen bld
+    rrxs true ins bld
   | Op.RSB ->
-    rsb false ins insLen bld
+    rsb false ins bld
   | Op.RSBS ->
-    rsbs true ins insLen bld
+    rsbs true ins bld
   | Op.RSC ->
-    rsc false ins insLen bld
+    rsc false ins bld
   | Op.RSCS ->
-    rscs true ins insLen bld
+    rscs true ins bld
   | Op.SBC ->
-    sbc false ins insLen bld
+    sbc false ins bld
   | Op.SBCS ->
-    sbcs true ins insLen bld
+    sbcs true ins bld
   | Op.SBFX ->
-    bfx ins insLen bld true
+    bfx ins bld true
   | Op.SEL ->
-    sel ins insLen bld
+    sel ins bld
   | Op.SMLABB ->
-    smulacchalf ins insLen bld false false
+    smulacchalf ins bld false false
   | Op.SMLABT ->
-    smulacchalf ins insLen bld false true
+    smulacchalf ins bld false true
   | Op.SMLAL ->
-    smulandacc false true ins insLen bld
+    smulandacc false true ins bld
   | Op.SMLALS ->
-    smulandacc true true ins insLen bld
+    smulandacc true true ins bld
   | Op.SMLATB ->
-    smulacchalf ins insLen bld true false
+    smulacchalf ins bld true false
   | Op.SMLATT ->
-    smulacchalf ins insLen bld true true
+    smulacchalf ins bld true true
   | Op.SMLALBT ->
-    smulacclonghalf ins insLen bld false true
+    smulacclonghalf ins bld false true
   | Op.SMLALTT ->
-    smulacclonghalf ins insLen bld true true
+    smulacclonghalf ins bld true true
   | Op.SMLALD ->
-    smulacclongdual ins insLen bld false
+    smulacclongdual ins bld false
   | Op.SMLALDX ->
-    smulacclongdual ins insLen bld true
+    smulacclongdual ins bld true
   | Op.SMLAWB ->
-    smulaccwordbyhalf ins insLen bld false
+    smulaccwordbyhalf ins bld false
   | Op.SMLAWT ->
-    smulaccwordbyhalf ins insLen bld true
+    smulaccwordbyhalf ins bld true
   | Op.SMMLA ->
-    smmla ins insLen bld false
+    smmla ins bld false
   | Op.SMMLAR ->
-    smmla ins insLen bld true
+    smmla ins bld true
   | Op.SMMUL ->
-    smmul ins insLen bld false
+    smmul ins bld false
   | Op.SMMULR ->
-    smmul ins insLen bld true
+    smmul ins bld true
   | Op.SMULBB ->
-    smulhalf ins insLen bld false false
+    smulhalf ins bld false false
   | Op.SMULBT ->
-    smulhalf ins insLen bld false true
+    smulhalf ins bld false true
   | Op.SMULL ->
-    smulandacc false false ins insLen bld
+    smulandacc false false ins bld
   | Op.SMULLS ->
-    smulandacc true false ins insLen bld
+    smulandacc true false ins bld
   | Op.SMULTB ->
-    smulhalf ins insLen bld true false
+    smulhalf ins bld true false
   | Op.SMULTT ->
-    smulhalf ins insLen bld true true
+    smulhalf ins bld true true
   | Op.STM ->
-    stm Op.STM ins insLen bld (.+)
+    stm Op.STM ins bld (.+)
   | Op.STMDA ->
-    stm Op.STMDA ins insLen bld (.-)
+    stm Op.STMDA ins bld (.-)
   | Op.STMDB ->
-    stm Op.STMDB ins insLen bld (.-)
+    stm Op.STMDB ins bld (.-)
   | Op.STMEA ->
-    stm Op.STMIA ins insLen bld (.+)
+    stm Op.STMIA ins bld (.+)
   | Op.STMIA ->
-    stm Op.STMIA ins insLen bld (.+)
+    stm Op.STMIA ins bld (.+)
   | Op.STMIB ->
-    stm Op.STMIB ins insLen bld (.+)
+    stm Op.STMIB ins bld (.+)
   | Op.STR ->
-    str ins insLen bld 32<rt>
+    str ins bld 32<rt>
   | Op.STRB ->
-    str ins insLen bld 8<rt>
+    str ins bld 8<rt>
   | Op.STRBT ->
-    str ins insLen bld 8<rt>
+    str ins bld 8<rt>
   | Op.STRD ->
-    strd ins insLen bld
+    strd ins bld
   | Op.STREX | Op.STLEX ->
-    strex ins insLen bld 32<rt>
+    strex ins bld 32<rt>
   | Op.STREXB | Op.STLEXB ->
-    strex ins insLen bld 8<rt>
+    strex ins bld 8<rt>
   | Op.STREXD | Op.STLEXD ->
-    strexd ins insLen bld
+    strexd ins bld
   | Op.STREXH | Op.STLEXH ->
-    strex ins insLen bld 16<rt>
+    strex ins bld 16<rt>
   | Op.STRH ->
-    str ins insLen bld 16<rt>
+    str ins bld 16<rt>
   | Op.STRHT ->
-    str ins insLen bld 16<rt>
+    str ins bld 16<rt>
   | Op.STRT ->
-    str ins insLen bld 32<rt>
+    str ins bld 32<rt>
   | Op.SUB | Op.SUBW ->
-    sub false ins insLen bld
+    sub false ins bld
   | Op.SUBS ->
-    subs true ins insLen bld
+    subs true ins bld
   | Op.SVC ->
-    svc ins insLen bld
+    svc ins bld
   | Op.SXTAB ->
-    extendAndAdd ins insLen bld AST.sext 8<rt>
+    extendAndAdd ins bld AST.sext 8<rt>
   | Op.SXTAH ->
-    extendAndAdd ins insLen bld AST.sext 16<rt>
+    extendAndAdd ins bld AST.sext 16<rt>
   | Op.SXTB ->
-    extend ins insLen bld AST.sext 8<rt>
+    extend ins bld AST.sext 8<rt>
   | Op.SXTH ->
-    extend ins insLen bld AST.sext 16<rt>
+    extend ins bld AST.sext 16<rt>
   | Op.TBH | Op.TBB ->
-    tableBranch ins insLen bld
+    tableBranch ins bld
   | Op.TEQ ->
-    teq ins insLen bld
+    teq ins bld
   | Op.TST ->
-    tst ins insLen bld
+    tst ins bld
   | Op.UADD8 ->
-    uadd8 ins insLen bld
+    uadd8 ins bld
   | Op.UASX ->
-    uasx ins insLen bld
+    uasx ins bld
   | Op.UBFX ->
-    bfx ins insLen bld false
+    bfx ins bld false
   | Op.UDF ->
-    udf ins insLen bld
+    udf ins bld
   | Op.UHSUB16 ->
-    uhsub16 ins insLen bld
+    uhsub16 ins bld
   | Op.UMAAL ->
-    umaal ins insLen bld
+    umaal ins bld
   | Op.UMLAL ->
-    umlal false ins insLen bld
+    umlal false ins bld
   | Op.UMLALS ->
-    umlal true ins insLen bld
+    umlal true ins bld
   | Op.UMULL ->
-    umull false ins insLen bld
+    umull false ins bld
   | Op.UMULLS ->
-    umull true ins insLen bld
+    umull true ins bld
   | Op.UQADD16 ->
-    uqopr ins insLen bld 16 (.+)
+    uqopr ins bld 16 (.+)
   | Op.UQADD8 ->
-    uqopr ins insLen bld 8 (.+)
+    uqopr ins bld 8 (.+)
   | Op.UQSAX ->
-    uqsax ins insLen bld
+    uqsax ins bld
   | Op.UQSUB16 ->
-    uqopr ins insLen bld 16 (.-)
+    uqopr ins bld 16 (.-)
   | Op.UQSUB8 ->
-    uqopr ins insLen bld 8 (.-)
+    uqopr ins bld 8 (.-)
   | Op.USAX ->
-    usax ins insLen bld
+    usax ins bld
   | Op.UXTAB ->
-    extendAndAdd ins insLen bld AST.zext 8<rt>
+    extendAndAdd ins bld AST.zext 8<rt>
   | Op.UXTAH ->
-    extendAndAdd ins insLen bld AST.zext 16<rt>
+    extendAndAdd ins bld AST.zext 16<rt>
   | Op.UXTB ->
-    extend ins insLen bld AST.zext 8<rt>
+    extend ins bld AST.zext 8<rt>
   | Op.UXTB16 ->
-    uxtb16 ins insLen bld
+    uxtb16 ins bld
   | Op.UXTH ->
-    extend ins insLen bld AST.zext 16<rt>
+    extend ins bld AST.zext 16<rt>
   | Op.VABS when isF16orF32orF64 ins.SIMDTyp ->
-    vabsf ins insLen bld
+    vabsf ins bld
   | Op.VABS ->
-    vabs ins insLen bld
+    vabs ins bld
   | Op.VADD when isF16orF32orF64 ins.SIMDTyp ->
-    vaddsub ins insLen bld AST.fadd
+    vaddsub ins bld AST.fadd
   | Op.VADD ->
-    vaddsub ins insLen bld (.+)
+    vaddsub ins bld (.+)
   | Op.VADDL ->
-    vaddl ins insLen bld
+    vaddl ins bld
   | Op.VAND ->
-    vand ins insLen bld
+    vand ins bld
   | Op.VCEQ | Op.VCGE | Op.VCGT | Op.VCLE | Op.VCLT
     when isF32orF64 ins.SIMDTyp ->
-    sideEffects ins insLen bld UnsupportedInstruction
+    sideEffects ins bld UnsupportedInstruction
   | Op.VCEQ ->
-    vceq ins insLen bld
+    vceq ins bld
   | Op.VCGE ->
-    vcge ins insLen bld
+    vcge ins bld
   | Op.VCGT ->
-    vcgt ins insLen bld
+    vcgt ins bld
   | Op.VCLE ->
-    vcle ins insLen bld
+    vcle ins bld
   | Op.VCLT ->
-    vclt ins insLen bld
+    vclt ins bld
   | Op.VCLZ ->
-    vclz ins insLen bld
+    vclz ins bld
   | Op.VCMLA ->
-    sideEffects ins insLen bld UnsupportedInstruction
+    sideEffects ins bld UnsupportedInstruction
   | Op.VACGE | Op.VACGT | Op.VACLE | Op.VACLT | Op.VCVTR ->
-    sideEffects ins insLen bld UnsupportedInstruction
+    sideEffects ins bld UnsupportedInstruction
   | Op.VFMA ->
-    vfpMulAcc ins insLen bld (fun _ d p -> AST.fadd d p)
+    vfpMulAcc ins bld (fun _ d p -> AST.fadd d p)
   | Op.VFMS ->
-    vfpMulAcc ins insLen bld (fun _ d p -> AST.fsub d p)
+    vfpMulAcc ins bld (fun _ d p -> AST.fsub d p)
   | Op.VFNMA ->
-    vfpMulAcc ins insLen bld (fun sz d p -> fpNegBits sz (AST.fadd d p))
+    vfpMulAcc ins bld (fun sz d p -> fpNegBits sz (AST.fadd d p))
   | Op.VFNMS ->
-    vfpMulAcc ins insLen bld (fun _ d p -> AST.fsub p d)
+    vfpMulAcc ins bld (fun _ d p -> AST.fsub p d)
   | Op.VNMUL ->
-    vfpMulAcc ins insLen bld (fun sz _ p -> fpNegBits sz p)
+    vfpMulAcc ins bld (fun sz _ p -> fpNegBits sz p)
   | Op.VNMLA ->
-    vfpMulAcc ins insLen bld (fun sz d p -> fpNegBits sz (AST.fadd d p))
+    vfpMulAcc ins bld (fun sz d p -> fpNegBits sz (AST.fadd d p))
   | Op.VNMLS ->
-    vfpMulAcc ins insLen bld (fun _ d p -> AST.fsub p d)
+    vfpMulAcc ins bld (fun _ d p -> AST.fsub p d)
   | Op.VSQRT ->
-    vsqrtf ins insLen bld
+    vsqrtf ins bld
   | Op.VCMP | Op.VCMPE ->
-    vcmp ins insLen bld
+    vcmp ins bld
   | Op.VCVT ->
-    vcvt ins insLen bld
+    vcvt ins bld
   | Op.VDIV ->
-    vdiv ins insLen bld
+    vdiv ins bld
   | Op.VDUP ->
-    vdup ins insLen bld
+    vdup ins bld
   | Op.VEXT ->
-    vext ins insLen bld
+    vext ins bld
   | Op.VHADD ->
-    vhaddsub ins insLen bld (.+)
+    vhaddsub ins bld (.+)
   | Op.VHSUB ->
-    vhaddsub ins insLen bld (.-)
+    vhaddsub ins bld (.-)
   | Op.VLD1 ->
-    vld1 ins insLen bld
+    vld1 ins bld
   | Op.VLD2 ->
-    vld2 ins insLen bld
+    vld2 ins bld
   | Op.VLD3 ->
-    vld3 ins insLen bld
+    vld3 ins bld
   | Op.VLD4 ->
-    vld4 ins insLen bld
+    vld4 ins bld
   | Op.VLDM | Op.VLDMIA | Op.VLDMDB ->
-    vldm ins insLen bld
+    vldm ins bld
   | Op.VLDR ->
-    vldr ins insLen bld
+    vldr ins bld
   | Op.VMAX | Op.VMIN when isF32orF64 ins.SIMDTyp ->
-    sideEffects ins insLen bld UnsupportedInstruction
+    sideEffects ins bld UnsupportedInstruction
   | Op.VMAX ->
-    vmaxmin ins insLen bld true
+    vmaxmin ins bld true
   | Op.VMIN ->
-    vmaxmin ins insLen bld false
+    vmaxmin ins bld false
   | Op.VMLA when isF16orF32orF64 ins.SIMDTyp ->
-    vfpMulAcc ins insLen bld (fun _ d p -> AST.fadd d p)
+    vfpMulAcc ins bld (fun _ d p -> AST.fadd d p)
   | Op.VMLS when isF16orF32orF64 ins.SIMDTyp ->
-    vfpMulAcc ins insLen bld (fun _ d p -> AST.fsub d p)
+    vfpMulAcc ins bld (fun _ d p -> AST.fsub d p)
   | Op.VMLA ->
-    vmla ins insLen bld
+    vmla ins bld
   | Op.VMLAL ->
-    vmlal ins insLen bld
+    vmlal ins bld
   | Op.VMLS ->
-    vmls ins insLen bld
+    vmls ins bld
   | Op.VMLSL ->
-    vmlsl ins insLen bld
+    vmlsl ins bld
   | Op.VMOV when isF16orF32orF64 ins.SIMDTyp ->
-    vmovfp ins insLen bld
+    vmovfp ins bld
   | Op.VMOV ->
-    vmov ins insLen bld
+    vmov ins bld
   | Op.VMOVN ->
-    vmovn ins insLen bld
+    vmovn ins bld
   | Op.VMRS ->
-    vmrs ins insLen bld
+    vmrs ins bld
   | Op.VMSR ->
-    vmsr ins insLen bld
+    vmsr ins bld
   | Op.VMUL when isF16orF32orF64 ins.SIMDTyp ->
-    vmul ins insLen bld AST.fmul
+    vmul ins bld AST.fmul
   | Op.VMUL ->
-    vmul ins insLen bld (.*)
+    vmul ins bld (.*)
   | Op.VMULL ->
-    vmull ins insLen bld
+    vmull ins bld
   | Op.VNEG when isF32orF64 ins.SIMDTyp ->
-    vnegf ins insLen bld
+    vnegf ins bld
   | Op.VNEG ->
-    vneg ins insLen bld
+    vneg ins bld
   | Op.VORN ->
-    vorn ins insLen bld
+    vorn ins bld
   | Op.VORR ->
-    vorr ins insLen bld
+    vorr ins bld
   | Op.VPADD when isF32orF64 ins.SIMDTyp ->
-    sideEffects ins insLen bld UnsupportedInstruction
+    sideEffects ins bld UnsupportedInstruction
   | Op.VPADD ->
-    vpadd ins insLen bld
+    vpadd ins bld
   | Op.VPOP ->
-    vpop ins insLen bld
+    vpop ins bld
   | Op.VPUSH ->
-    vpush ins insLen bld
+    vpush ins bld
   | Op.VRHADD ->
-    vrhadd ins insLen bld
+    vrhadd ins bld
   | Op.VRINTP ->
-    sideEffects ins insLen bld UnsupportedInstruction
+    sideEffects ins bld UnsupportedInstruction
   | Op.VRSHR ->
-    vrshr ins insLen bld
+    vrshr ins bld
   | Op.VRSHRN ->
-    vrshrn ins insLen bld
+    vrshrn ins bld
   | Op.VSHL ->
-    vshl ins insLen bld
+    vshl ins bld
   | Op.VSHR ->
-    vshr ins insLen bld
+    vshr ins bld
   | Op.VSRA ->
-    vsra ins insLen bld
+    vsra ins bld
   | Op.VST1 ->
-    vst1 ins insLen bld
+    vst1 ins bld
   | Op.VST2 ->
-    vst2 ins insLen bld
+    vst2 ins bld
   | Op.VST3 ->
-    vst3 ins insLen bld
+    vst3 ins bld
   | Op.VST4 ->
-    vst4 ins insLen bld
+    vst4 ins bld
   | Op.VSTM | Op.VSTMIA | Op.VSTMDB ->
-    vstm ins insLen bld
+    vstm ins bld
   | Op.VSTR ->
-    vstr ins insLen bld
+    vstr ins bld
   | Op.VSUB when isF16orF32orF64 ins.SIMDTyp ->
-    vaddsub ins insLen bld AST.fsub
+    vaddsub ins bld AST.fsub
   | Op.VSUB ->
-    vaddsub ins insLen bld (.-)
+    vaddsub ins bld (.-)
   | Op.VTBL ->
-    vecTbl ins insLen bld true
+    vecTbl ins bld true
   | Op.VTBX ->
-    vecTbl ins insLen bld false
+    vecTbl ins bld false
   | Op.VTST ->
-    vtst ins insLen bld
+    vtst ins bld
   | Op.VUZP ->
-    vuzp ins insLen bld
+    vuzp ins bld
   (* No parser produces this opcode: an undecodable encoding is reported as a
      parsing failure, so an instruction never carries it this far. *)
   | Op.InvalidOP ->

@@ -63,8 +63,8 @@ let private setCCFloat bld a b =
 /// A two-operand floating-point operation, whose result replaces the first
 /// operand. Addition and subtraction go on to report how the result stands
 /// against zero; multiplication and division leave the code alone.
-let arith ins insLen bld rt f setsCC =
-  lift bld (ins: Instruction) insLen {
+let arith ins bld rt f setsCC =
+  lift bld (ins: Instruction) {
     let struct (o1, o2) = getTwoOprs ins
     let d = oprRegVar bld o1
     let t = tmpVar bld rt
@@ -74,8 +74,8 @@ let arith ins insLen bld rt f setsCC =
   }
 
 /// COMPARE, which reports how the operands stand and changes nothing else.
-let compare ins insLen bld rt =
-  lift bld (ins: Instruction) insLen {
+let compare ins bld rt =
+  lift bld (ins: Instruction) {
     let struct (o1, o2) = getTwoOprs ins
     let a = tmpVar bld rt
     let b = tmpVar bld rt
@@ -86,8 +86,8 @@ let compare ins insLen bld rt =
 
 /// A load that reports how what it loaded stands against zero, which for a
 /// NaN is the fourth code.
-let loadTest ins insLen bld rt =
-  lift bld (ins: Instruction) insLen {
+let loadTest ins bld rt =
+  lift bld (ins: Instruction) {
     let struct (o1, o2) = getTwoOprs ins
     let d = oprRegVar bld o1
     let t = tmpVar bld rt
@@ -103,8 +103,8 @@ let private signBit rt =
 
 /// The sign-manipulating loads -- complement, positive, and negative -- each of
 /// which works on the bits rather than the value, so a NaN keeps its payload.
-let loadSign ins insLen bld rt f =
-  lift bld (ins: Instruction) insLen {
+let loadSign ins bld rt f =
+  lift bld (ins: Instruction) {
     let struct (o1, o2) = getTwoOprs ins
     let d = oprRegVar bld o1
     let t = tmpVar bld rt
@@ -115,24 +115,24 @@ let loadSign ins insLen bld rt f =
 
 /// A plain move of a floating-point value from one register to another, which
 /// touches no condition code.
-let move ins insLen bld rt =
-  lift bld (ins: Instruction) insLen {
+let move ins bld rt =
+  lift bld (ins: Instruction) {
     let struct (o1, o2) = getTwoOprs ins
     let d = oprRegVar bld o1
     fpPart rt d := fpSrc bld rt o2
   }
 
 /// LOAD ZERO, which is how a register is cleared without touching storage.
-let loadZero ins insLen bld rt =
-  lift bld (ins: Instruction) insLen {
+let loadZero ins bld rt =
+  lift bld (ins: Instruction) {
     let struct (o1, _) = getTwoOprs ins
     let d = oprRegVar bld o1
     fpPart rt d := AST.num0 rt
   }
 
 /// SQUARE ROOT.
-let sqrt ins insLen bld rt =
-  lift bld (ins: Instruction) insLen {
+let sqrt ins bld rt =
+  lift bld (ins: Instruction) {
     let struct (o1, o2) = getTwoOprs ins
     let d = oprRegVar bld o1
     fpPart rt d := AST.fsqrt (fpSrc bld rt o2)
@@ -140,8 +140,8 @@ let sqrt ins insLen bld rt =
 
 /// COPY SIGN: the first operand takes the third's sign and the second's
 /// magnitude.
-let copySign ins insLen bld =
-  lift bld (ins: Instruction) insLen {
+let copySign ins bld =
+  lift bld (ins: Instruction) {
     let struct (o1, o2, o3) = getThreeOprs ins
     let d = oprRegVar bld o1
     let sign = signBit LongFP
@@ -156,8 +156,8 @@ let copySign ins insLen bld =
 /// in that order from the left. The condition code says whether the first
 /// operand's class is one of them, which is how a program asks "is this
 /// finite?" without a comparison that a NaN would trap.
-let testDataClass ins insLen bld rt =
-  lift bld (ins: Instruction) insLen {
+let testDataClass ins bld rt =
+  lift bld (ins: Instruction) {
     let struct (o1, o2) = getTwoOprs ins
     let width = RegType.toBitWidth rt
     let fracBits = if rt = LongFP then 52 else 23
@@ -202,8 +202,8 @@ let private intRounding (m: Mask) =
   | _ -> CastKind.FtoIRound
 
 /// A conversion from a fixed-point value to a floating-point one.
-let fromInt ins insLen bld rt intW signed =
-  lift bld (ins: Instruction) insLen {
+let fromInt ins bld rt intW signed =
+  lift bld (ins: Instruction) {
     let struct (o1, o2, _) = convOprs ins
     let d = oprRegVar bld o1
     let src = oprRegVar bld o2
@@ -214,8 +214,8 @@ let fromInt ins insLen bld rt intW signed =
 
 /// A conversion from a floating-point value to a fixed-point one, which also
 /// reports how the value stood against zero.
-let toInt ins insLen bld rt intW =
-  lift bld (ins: Instruction) insLen {
+let toInt ins bld rt intW =
+  lift bld (ins: Instruction) {
     let struct (o1, o2, m) = convOprs ins
     let d = oprRegVar bld o1
     let v = tmpVar bld rt
@@ -238,8 +238,8 @@ let private floatRounding (m: Mask) =
 /// LOAD FP INTEGER: the value rounded to a whole number, still in floating
 /// point, which is how a program floors or truncates without leaving the
 /// format.
-let roundToInt ins insLen bld rt =
-  lift bld (ins: Instruction) insLen {
+let roundToInt ins bld rt =
+  lift bld (ins: Instruction) {
     let struct (o1, o2, m) = convOprs ins
     let d = oprRegVar bld o1
     let v = AST.cast (floatRounding m) rt (fpPart rt (oprRegVar bld o2))
@@ -248,16 +248,16 @@ let roundToInt ins insLen bld rt =
 
 /// The sign-manipulating loads that leave the condition code alone, which is
 /// what separates them from the ones named for the test they also perform.
-let loadSignQuiet ins insLen bld f =
-  lift bld (ins: Instruction) insLen {
+let loadSignQuiet ins bld f =
+  lift bld (ins: Instruction) {
     let struct (o1, o2) = getTwoOprs ins
     let d = oprRegVar bld o1
     d := f (oprRegVar bld o2) (signBit LongFP)
   }
 
 /// A conversion between the two floating-point formats.
-let convertFormat ins insLen bld fromRt toRt =
-  lift bld (ins: Instruction) insLen {
+let convertFormat ins bld fromRt toRt =
+  lift bld (ins: Instruction) {
     let struct (o1, o2, _) = convOprs ins
     let d = oprRegVar bld o1
     let v = AST.cast CastKind.FloatCast toRt (fpPart fromRt (oprRegVar bld o2))
@@ -268,8 +268,8 @@ let convertFormat ins insLen bld fromRt toRt =
 /// operands make the product: the add form adds the first operand to it and the
 /// subtract form takes the first operand from it, which is the order a compiler
 /// relies on when it turns a fused multiply-subtract into one instruction.
-let mulAdd ins insLen bld rt subtract =
-  lift bld (ins: Instruction) insLen {
+let mulAdd ins bld rt subtract =
+  lift bld (ins: Instruction) {
     let struct (o1, o2, o3) = getThreeOprs ins
     let d = oprRegVar bld o1
     let a = tmpVar bld rt
@@ -285,8 +285,8 @@ let mulAdd ins insLen bld rt subtract =
 
 /// MULTIPLY, short to long: two short values make a long product, so nothing of
 /// it is lost.
-let mulWiden ins insLen bld =
-  lift bld (ins: Instruction) insLen {
+let mulWiden ins bld =
+  lift bld (ins: Instruction) {
     let struct (o1, o2) = getTwoOprs ins
     let d = oprRegVar bld o1
     let a = tmpVar bld LongFP
@@ -299,8 +299,8 @@ let mulWiden ins insLen bld =
 
 /// DIVIDE TO INTEGER, which hands back both the whole part of the quotient and
 /// the remainder -- what a language's floating-point modulus is built from.
-let divideToInteger ins insLen bld rt =
-  lift bld (ins: Instruction) insLen {
+let divideToInteger ins bld rt =
+  lift bld (ins: Instruction) {
     let o = oprArray ins
     let d = oprRegVar bld o[0]
     let q = oprRegVar bld o[2]
@@ -317,8 +317,8 @@ let divideToInteger ins insLen bld rt =
 
 /// SET BFP ROUNDING MODE, which writes the mode the second operand's address
 /// names into the floating-point control register's rightmost bits.
-let setRoundingMode ins insLen bld width =
-  lift bld (ins: Instruction) insLen {
+let setRoundingMode ins bld width =
+  lift bld (ins: Instruction) {
     let o = getOneOpr ins
     let fpc = reg bld Register.FPC
     let mask = numI32 ((1 <<< width) - 1) WSize
@@ -343,8 +343,8 @@ let private startsPair (r: Register) =
   | _ -> false
 
 /// The trap an encoding that names no real pair raises.
-let private specException ins insLen bld =
-  lift bld (ins: Instruction) insLen {
+let private specException ins bld =
+  lift bld (ins: Instruction) {
     AST.sideEffect UndefinedInstruction
   }
 
@@ -372,16 +372,16 @@ let private setCCExt bld hi lo =
 
 /// LOAD, LOAD ZERO, and the sign-manipulating loads of the extended format,
 /// which work on the bits and so are exact whatever the fraction holds.
-let extLoadSign ins insLen bld f setsCC =
+let extLoadSign ins bld f setsCC =
   let struct (o1, o2) = getTwoOprs ins
   if not (startsPair (oprReg o1) && startsPair (oprReg o2)) then
-    specException ins insLen bld
+    specException ins bld
   else
     let struct (dhi, dlo) = extPair bld (oprReg o1)
     let struct (shi, slo) = extPair bld (oprReg o2)
     let hi = tmpVar bld 64<rt>
     let lo = tmpVar bld 64<rt>
-    lift bld (ins: Instruction) insLen {
+    lift bld (ins: Instruction) {
       hi := f shi (numI64 System.Int64.MinValue 64<rt>)
       lo := slo
       if setsCC then setCCExt bld hi lo else ()
@@ -389,13 +389,13 @@ let extLoadSign ins insLen bld f setsCC =
       dlo := lo
     }
 
-let extLoadZero ins insLen bld =
+let extLoadZero ins bld =
   let struct (o1, _) = getTwoOprs ins
   if not (startsPair (oprReg o1)) then
-    specException ins insLen bld
+    specException ins bld
   else
     let struct (dhi, dlo) = extPair bld (oprReg o1)
-    lift bld (ins: Instruction) insLen {
+    lift bld (ins: Instruction) {
       dhi := AST.num0 64<rt>
       dlo := AST.num0 64<rt>
     }
@@ -403,10 +403,10 @@ let extLoadZero ins insLen bld =
 /// COMPARE of two extended values, done on the bit patterns: for anything but
 /// a NaN, the format orders sign and magnitude the way the integers do, so no
 /// 128-bit arithmetic is needed to get the answer exactly right.
-let extCompare ins insLen bld =
+let extCompare ins bld =
   let struct (o1, o2) = getTwoOprs ins
   if not (startsPair (oprReg o1) && startsPair (oprReg o2)) then
-    specException ins insLen bld
+    specException ins bld
   else
     let struct (ahi0, alo0) = extPair bld (oprReg o1)
     let struct (bhi0, blo0) = extPair bld (oprReg o2)
@@ -414,7 +414,7 @@ let extCompare ins insLen bld =
     let alo = tmpVar bld 64<rt>
     let bhi = tmpVar bld 64<rt>
     let blo = tmpVar bld 64<rt>
-    lift bld (ins: Instruction) insLen {
+    lift bld (ins: Instruction) {
       ahi := ahi0
       alo := alo0
       bhi := bhi0
@@ -440,16 +440,16 @@ let extCompare ins insLen bld =
 
 /// TEST DATA CLASS for the extended format, which asks the same twelve-way
 /// question the narrower ones do.
-let extTestDataClass ins insLen bld =
+let extTestDataClass ins bld =
   let struct (o1, o2) = getTwoOprs ins
   if not (startsPair (oprReg o1)) then
-    specException ins insLen bld
+    specException ins bld
   else
     let struct (hi0, lo0) = extPair bld (oprReg o1)
     let hi = tmpVar bld 64<rt>
     let lo = tmpVar bld 64<rt>
     let cls = tmpVar bld 64<rt>
-    lift bld (ins: Instruction) insLen {
+    lift bld (ins: Instruction) {
       hi := hi0
       lo := lo0
       let sign = (hi >> numI64 63L 64<rt>) .& AST.num1 64<rt>
@@ -494,10 +494,10 @@ let private extJoinFrac hi lo fbits =
 
 /// A widening to the extended format, which loses nothing: a longer fraction
 /// holds a shorter one exactly, so this is a matter of moving the fields.
-let extFromNarrow ins insLen bld fromRt =
+let extFromNarrow ins bld fromRt =
   let struct (o1, o2) = getTwoOprs ins
   if not (startsPair (oprReg o1)) then
-    specException ins insLen bld
+    specException ins bld
   else
     let struct (dhi, dlo) = extPair bld (oprReg o1)
     let src = tmpVar bld 64<rt>
@@ -505,7 +505,7 @@ let extFromNarrow ins insLen bld fromRt =
     let frac = tmpVar bld 64<rt>
     let bias = if fromRt = LongFP then 1023L else 127L
     let fbits = if fromRt = LongFP then 52 else 23
-    lift bld (ins: Instruction) insLen {
+    lift bld (ins: Instruction) {
       let raw =
         match o2 with
         | OpReg r -> zextTo 64<rt> (fpPart fromRt (reg bld r))
@@ -530,10 +530,10 @@ let extFromNarrow ins insLen bld fromRt =
 /// A narrowing from the extended format, which cannot keep every bit: the
 /// fraction is cut rather than rounded, so a result can differ from the
 /// hardware's in its last place.
-let extToNarrow ins insLen bld toRt =
+let extToNarrow ins bld toRt =
   let struct (o1, o2) = getTwoOprs ins
   if not (startsPair (oprReg o2)) then
-    specException ins insLen bld
+    specException ins bld
   else
     let d = oprRegVar bld o1
     let struct (shi, slo) = extPair bld (oprReg o2)
@@ -542,7 +542,7 @@ let extToNarrow ins insLen bld toRt =
     let bias = if toRt = LongFP then 1023L else 127L
     let fbits = if toRt = LongFP then 52 else 23
     let width = RegType.toBitWidth toRt
-    lift bld (ins: Instruction) insLen {
+    lift bld (ins: Instruction) {
       hi := shi
       expo := (hi >> numI64 48L 64<rt>) .& numI64 0x7fffL 64<rt>
       let sign = (hi >> numI64 63L 64<rt>) .& AST.num1 64<rt>
@@ -585,10 +585,10 @@ let private highestSetBit mag =
 
 /// A conversion from a fixed-point value to the extended format, which is exact
 /// -- a 112-bit fraction holds any integer a register can.
-let extFromInt ins insLen bld intW signed =
+let extFromInt ins bld intW signed =
   let struct (o1, o2, _) = convOprs ins
   if not (startsPair (oprReg o1)) then
-    specException ins insLen bld
+    specException ins bld
   else
     let struct (dhi, dlo) = extPair bld (oprReg o1)
     let src = oprRegVar bld o2
@@ -598,7 +598,7 @@ let extFromInt ins insLen bld intW signed =
     let shift = tmpVar bld 64<rt>
     let hi = tmpVar bld 64<rt>
     let lo = tmpVar bld 64<rt>
-    lift bld (ins: Instruction) insLen {
+    lift bld (ins: Instruction) {
       let widened =
         if intW = GRSize then src
         elif signed then AST.sext 64<rt> (AST.xtlo intW src)
@@ -630,10 +630,10 @@ let extFromInt ins insLen bld intW signed =
 
 /// A conversion from the extended format to a fixed-point value, truncating
 /// toward zero, which is exact for anything the integer can hold.
-let extToInt ins insLen bld intW =
+let extToInt ins bld intW =
   let struct (o1, o2, _) = convOprs ins
   if not (startsPair (oprReg o2)) then
-    specException ins insLen bld
+    specException ins bld
   else
     let d = oprRegVar bld o1
     let struct (shi, slo) = extPair bld (oprReg o2)
@@ -641,7 +641,7 @@ let extToInt ins insLen bld intW =
     let expo = tmpVar bld 64<rt>
     let mant = tmpVar bld 64<rt>
     let out = tmpVar bld 64<rt>
-    lift bld (ins: Instruction) insLen {
+    lift bld (ins: Instruction) {
       hi := shi
       expo := ((hi >> numI64 48L 64<rt>) .& numI64 0x7fffL 64<rt>)
               .- numI64 16383L 64<rt>
@@ -706,30 +706,30 @@ let private extPutDouble bld dhi dlo src =
 /// back: a program that asked for the extra precision gets an answer good to
 /// 53 bits rather than 113. Addition and subtraction report how the result
 /// stands against zero, as their narrower kin do.
-let extArith ins insLen bld f setsCC =
+let extArith ins bld f setsCC =
   let struct (o1, o2) = getTwoOprs ins
   if not (startsPair (oprReg o1) && startsPair (oprReg o2)) then
-    specException ins insLen bld
+    specException ins bld
   else
     let struct (dhi, dlo) = extPair bld (oprReg o1)
     let struct (shi, slo) = extPair bld (oprReg o2)
     let r = tmpVar bld 64<rt>
-    lift bld (ins: Instruction) insLen {
+    lift bld (ins: Instruction) {
       r := f (extAsDouble dhi dlo) (extAsDouble shi slo)
       if setsCC then setCCFloat bld r (AST.num0 64<rt>) else ()
       extPutDouble bld dhi dlo r
     }
 
 /// SQUARE ROOT of an extended value, in the same double precision.
-let extSqrt ins insLen bld =
+let extSqrt ins bld =
   let struct (o1, o2) = getTwoOprs ins
   if not (startsPair (oprReg o1) && startsPair (oprReg o2)) then
-    specException ins insLen bld
+    specException ins bld
   else
     let struct (dhi, dlo) = extPair bld (oprReg o1)
     let struct (shi, slo) = extPair bld (oprReg o2)
     let r = tmpVar bld 64<rt>
-    lift bld (ins: Instruction) insLen {
+    lift bld (ins: Instruction) {
       r := AST.unop UnOpType.FSQRT (extAsDouble shi slo)
       extPutDouble bld dhi dlo r
     }
@@ -737,28 +737,28 @@ let extSqrt ins insLen bld =
 /// MULTIPLY (long to extended), whose operands are two long values and whose
 /// product fills a register pair. The first of them is the long value in the
 /// pair's even register.
-let extMulLong ins insLen bld =
+let extMulLong ins bld =
   let struct (o1, o2) = getTwoOprs ins
   if not (startsPair (oprReg o1)) then
-    specException ins insLen bld
+    specException ins bld
   else
     let struct (dhi, dlo) = extPair bld (oprReg o1)
     let r = tmpVar bld 64<rt>
-    lift bld (ins: Instruction) insLen {
+    lift bld (ins: Instruction) {
       r := AST.fmul dhi (fpSrc bld LongFP o2)
       extPutDouble bld dhi dlo r
     }
 
 /// LOAD FP INTEGER of an extended value, rounded in double precision.
-let extRoundToInt ins insLen bld =
+let extRoundToInt ins bld =
   let struct (o1, o2, m) = convOprs ins
   if not (startsPair (oprReg o1) && startsPair (oprReg o2)) then
-    specException ins insLen bld
+    specException ins bld
   else
     let struct (dhi, dlo) = extPair bld (oprReg o1)
     let struct (shi, slo) = extPair bld (oprReg o2)
     let r = tmpVar bld 64<rt>
-    lift bld (ins: Instruction) insLen {
+    lift bld (ins: Instruction) {
       r := AST.cast (floatRounding m) 64<rt> (extAsDouble shi slo)
       extPutDouble bld dhi dlo r
     }
@@ -766,26 +766,26 @@ let extRoundToInt ins insLen bld =
 /// SET and EXTRACT of the floating-point control register, which a program
 /// reads and writes to choose a rounding mode and to see which exceptions it
 /// has raised.
-let setFpc ins insLen bld =
-  lift bld (ins: Instruction) insLen {
+let setFpc ins bld =
+  lift bld (ins: Instruction) {
     let d = oprRegVar bld (getOneOpr ins)
     reg bld Register.FPC := low d
   }
 
-let extractFpc ins insLen bld =
-  lift bld (ins: Instruction) insLen {
+let extractFpc ins bld =
+  lift bld (ins: Instruction) {
     let d = oprRegVar bld (getOneOpr ins)
     low d := reg bld Register.FPC
   }
 
-let loadFpc ins insLen bld =
-  lift bld (ins: Instruction) insLen {
+let loadFpc ins bld =
+  lift bld (ins: Instruction) {
     let o = getOneOpr ins
     reg bld Register.FPC := loadMem WSize (transMem bld o)
   }
 
-let storeFpc ins insLen bld =
-  lift bld (ins: Instruction) insLen {
+let storeFpc ins bld =
+  lift bld (ins: Instruction) {
     let o = getOneOpr ins
     storeMem (transMem bld o) (reg bld Register.FPC)
   }

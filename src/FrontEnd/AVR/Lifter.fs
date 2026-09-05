@@ -33,182 +33,182 @@ open B2R2.FrontEnd.AVR.GeneralLifter
 /// Translate IR. The core is only read by the instructions that lay out a call
 /// frame, avr6 holding three bytes of return address where the earlier cores
 /// hold two; everything else is settled by the encoding alone.
-let translate (core: AVRCore) pcMask (ins: Instruction) insLen builder =
+let translate (core: AVRCore) pcMask (ins: Instruction) builder =
   match ins.Opcode with
   | Opcode.ADC ->
-    adc ins insLen builder
+    adc ins builder
   | Opcode.ADD ->
-    add ins insLen builder
+    add ins builder
   | Opcode.ADIW ->
-    adiw ins insLen builder
+    adiw ins builder
   | Opcode.AND ->
-    ``and`` ins insLen builder
+    ``and`` ins builder
   | Opcode.ANDI ->
-    andi ins insLen builder
+    andi ins builder
   | Opcode.ASR ->
-    ``asr`` ins insLen builder
+    ``asr`` ins builder
   | Opcode.BLD ->
-    bld ins insLen builder
+    bld ins builder
   | Opcode.BRCC| Opcode.BRCS| Opcode.BREQ| Opcode.BRGE| Opcode.BRHC| Opcode.BRHS
   | Opcode.BRID| Opcode.BRIE| Opcode.BRLT| Opcode.BRMI| Opcode.BRNE| Opcode.BRPL
   | Opcode.BRTC| Opcode.BRTS| Opcode.BRVC| Opcode.BRVS ->
-    branch pcMask ins insLen builder
+    branch pcMask ins builder
   (* A BREAK is what a debugger plants, so it stops the run rather than
      reporting anything about the processor. *)
   | Opcode.BREAK ->
-    sideEffects ins.Address insLen Breakpoint builder
+    sideEffects ins Breakpoint builder
   | Opcode.BST ->
-    bst ins insLen builder
+    bst ins builder
   | Opcode.CALL ->
-    call core ins insLen builder
+    call core ins builder
   | Opcode.CBI ->
-    cbi ins insLen builder
+    cbi ins builder
   | Opcode.IN ->
-    ``in`` ins insLen builder
+    ``in`` ins builder
   | Opcode.OUT ->
-    out ins insLen builder
+    out ins builder
   | Opcode.SBI ->
-    sbi ins insLen builder
+    sbi ins builder
   | Opcode.SBIC ->
-    sbic ins insLen builder
+    sbic ins builder
   | Opcode.SBIS ->
-    sbis ins insLen builder
+    sbis ins builder
   | Opcode.SBRC ->
-    sbrc ins insLen builder
+    sbrc ins builder
   | Opcode.SBRS ->
-    sbrs ins insLen builder
+    sbrs ins builder
   | Opcode.LPM ->
-    lpm ins insLen builder
+    lpm ins builder
   | Opcode.NEG ->
-    neg ins insLen builder
+    neg ins builder
   | Opcode.ELPM ->
-    elpm ins insLen builder
+    elpm ins builder
   | Opcode.EICALL ->
-    eicall core ins insLen builder
+    eicall core ins builder
   | Opcode.EIJMP ->
-    eijmp ins insLen builder
+    eijmp ins builder
   (* SLEEP stops the core until something outside it intervenes, which is all
      this translation can say: whether anything can wake the core again, and
      what does, is the platform's to answer. *)
   | Opcode.SLEEP ->
-    sideEffects ins.Address insLen Terminate builder
+    sideEffects ins Terminate builder
   (* Still to do: SPM writes program memory. Reporting it rather than letting it
      pass keeps a program that reaches one from running on silently. *)
   | Opcode.SPM ->
-    sideEffects ins.Address insLen UnsupportedInstruction builder
+    sideEffects ins UnsupportedInstruction builder
   | Opcode.CLC ->
-    clc ins insLen builder
+    clc ins builder
   | Opcode.CLH ->
-    clh ins insLen builder
+    clh ins builder
   | Opcode.CLI ->
-    cli ins insLen builder
+    cli ins builder
   | Opcode.CLN ->
-    cln ins insLen builder
+    cln ins builder
   | Opcode.CLR ->
-    clr ins insLen builder
+    clr ins builder
   | Opcode.CLS ->
-    cls ins insLen builder
+    cls ins builder
   | Opcode.CLT ->
-    clt ins insLen builder
+    clt ins builder
   | Opcode.CLV ->
-    clv ins insLen builder
+    clv ins builder
   | Opcode.CLZ ->
-    clz ins insLen builder
+    clz ins builder
   | Opcode.COM ->
-    com ins insLen builder
+    com ins builder
   | Opcode.CP ->
-    cp ins insLen builder
+    cp ins builder
   | Opcode.CPC ->
-    cpc ins insLen builder
+    cpc ins builder
   | Opcode.CPI ->
-    cpi ins insLen builder
+    cpi ins builder
   | Opcode.CPSE ->
-    cpse ins insLen builder
+    cpse ins builder
   | Opcode.DEC ->
-    dec ins insLen builder
+    dec ins builder
   | Opcode.DES ->
-    des ins insLen builder
+    des ins builder
   | Opcode.EOR ->
-    eor ins insLen builder
+    eor ins builder
   | Opcode.FMUL ->
-    fmul ins insLen builder
+    fmul ins builder
   | Opcode.FMULS ->
-    fmuls ins insLen builder
+    fmuls ins builder
   | Opcode.FMULSU ->
-    fmulsu ins insLen builder
+    fmulsu ins builder
   | Opcode.ICALL ->
-    icall core ins insLen builder
+    icall core ins builder
   | Opcode.IJMP ->
-    ijmp ins insLen builder
+    ijmp ins builder
   | Opcode.INC ->
-    inc ins insLen builder
+    inc ins builder
   | Opcode.JMP ->
-    jmp ins insLen builder
+    jmp ins builder
   | Opcode.LAC ->
-    lac ins insLen builder
+    lac ins builder
   | Opcode.LAS ->
-    las ins insLen builder
+    las ins builder
   | Opcode.LAT ->
-    lat ins insLen builder
+    lat ins builder
   | Opcode.LD ->
-    ld ins insLen builder
+    ld ins builder
   | Opcode.LDD ->
-    ldd ins insLen builder
+    ldd ins builder
   | Opcode.LDI ->
-    ldi ins insLen builder
+    ldi ins builder
   | Opcode.LDS ->
-    lds ins insLen builder
+    lds ins builder
   | Opcode.LSR ->
-    ``lsr`` ins insLen builder
+    ``lsr`` ins builder
   | Opcode.MOV ->
-    mov ins insLen builder
+    mov ins builder
   | Opcode.MOVW ->
-    movw ins insLen builder
+    movw ins builder
   | Opcode.MUL ->
-    mul ins insLen builder
+    mul ins builder
   | Opcode.MULS ->
-    muls ins insLen builder
+    muls ins builder
   | Opcode.MULSU ->
-    mulsu ins insLen builder
+    mulsu ins builder
   | Opcode.NOP ->
-    nop ins.Address insLen builder
+    nop ins builder
   | Opcode.OR | Opcode.ORI ->
-    ``or`` ins insLen builder
+    ``or`` ins builder
   | Opcode.POP ->
-    pop ins insLen builder
+    pop ins builder
   | Opcode.PUSH ->
-    push ins insLen builder
+    push ins builder
   | Opcode.RCALL ->
-    rcall core pcMask ins insLen builder
+    rcall core pcMask ins builder
   | Opcode.RET | Opcode.RETI as opr ->
-    ret core ins.Address insLen opr builder
+    ret core ins opr builder
   | Opcode.RJMP ->
-    rjmp pcMask ins insLen builder
+    rjmp pcMask ins builder
   | Opcode.ROR ->
-    ror ins insLen builder
+    ror ins builder
   | Opcode.SBC | Opcode.SBCI ->
-    sbc ins insLen builder
+    sbc ins builder
   | Opcode.SBIW ->
-    sbiw ins insLen builder
+    sbiw ins builder
   | Opcode.SEC | Opcode.SEH | Opcode.SEI | Opcode.SEN | Opcode.SES | Opcode.SET
   | Opcode.SEV | Opcode.SEZ ->
-    sf ins insLen builder
+    sf ins builder
   | Opcode.SUB | Opcode.SUBI ->
-    sub ins insLen builder
+    sub ins builder
   | Opcode.ST ->
-    st ins insLen builder
+    st ins builder
   | Opcode.STD ->
-    std ins insLen builder
+    std ins builder
   | Opcode.STS ->
-    sts ins insLen builder
+    sts ins builder
   | Opcode.SWAP ->
-    swap ins insLen builder
+    swap ins builder
   (* A watchdog reset needs a watchdog to reset. Reporting it is what keeps a
      guest that relies on one from looking like it ran correctly. *)
   | Opcode.WDR ->
-    sideEffects ins.Address insLen UnsupportedInstruction builder
+    sideEffects ins UnsupportedInstruction builder
   | Opcode.XCH ->
-    xch ins insLen builder
+    xch ins builder
   (* No parser produces this opcode: an undecodable encoding is reported as a
      parsing failure, so an instruction never carries it this far. *)
   | Opcode.InvalidOp ->

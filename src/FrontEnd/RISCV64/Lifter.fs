@@ -33,84 +33,84 @@ open B2R2.FrontEnd.BinLifter.LiftingUtils
 open B2R2.FrontEnd.RISCV64.LiftingUtils
 open B2R2.FrontEnd.RISCV64.GeneralLifter
 
-let translate (ins: Instruction) insLen bld =
+let translate (ins: Instruction) bld =
   match ins.Opcode with
   | Op.CdotMV
   | Op.CdotADD
   | Op.ADD ->
-    add ins insLen bld
+    add ins bld
   | Op.CdotADDW
   | Op.ADDW ->
-    addw ins insLen bld
+    addw ins bld
   | Op.CdotSUBW
   | Op.SUBW ->
-    subw ins insLen bld
+    subw ins bld
   | Op.CdotAND
   | Op.AND ->
-    ``and`` ins insLen bld
+    ``and`` ins bld
   | Op.CdotOR
   | Op.OR ->
-    ``or`` ins insLen bld
+    ``or`` ins bld
   | Op.CdotXOR
   | Op.XOR ->
-    xor ins insLen bld
+    xor ins bld
   | Op.CdotSUB
   | Op.SUB ->
-    sub ins insLen bld
+    sub ins bld
   | Op.SLT ->
-    slt ins insLen bld
+    slt ins bld
   | Op.SLTU ->
-    sltu ins insLen bld
+    sltu ins bld
   | Op.SLL ->
-    sll ins insLen bld
+    sll ins bld
   | Op.SLLW ->
-    sllw ins insLen bld
+    sllw ins bld
   | Op.SRA ->
-    sra ins insLen bld
+    sra ins bld
   | Op.SRAW ->
-    sraw ins insLen bld
+    sraw ins bld
   | Op.SRL ->
-    srl ins insLen bld
+    srl ins bld
   | Op.SRLW ->
-    srlw ins insLen bld
+    srlw ins bld
   | Op.CdotANDI
   | Op.ANDI ->
-    andi ins insLen bld
+    andi ins bld
   | Op.CdotADDI16SP
   | Op.CdotLI
   | Op.CdotADDI
   | Op.CdotADDI4SPN
   | Op.ADDI ->
-    addi ins insLen bld
+    addi ins bld
   | Op.ORI ->
-    ori ins insLen bld
+    ori ins bld
   | Op.XORI ->
-    xori ins insLen bld
+    xori ins bld
   | Op.SLTI ->
-    slti ins insLen bld
+    slti ins bld
   | Op.SLTIU ->
-    sltiu ins insLen bld
+    sltiu ins bld
   | Op.CdotJ
   | Op.JAL ->
-    jal ins insLen bld
+    jal ins bld
   | Op.CdotJR
   | Op.CdotJALR
   | Op.JALR ->
-    jalr ins insLen bld
+    jalr ins bld
   | Op.CdotBEQZ
   | Op.BEQ ->
-    beq ins insLen bld
+    beq ins bld
   | Op.CdotBNEZ
   | Op.BNE ->
-    bne ins insLen bld
+    bne ins bld
   | Op.BLT ->
-    blt ins insLen bld
+    blt ins bld
   | Op.BGE ->
-    bge ins insLen bld
+    bge ins bld
   | Op.BLTU ->
-    bltu ins insLen bld
+    bltu ins bld
   | Op.BGEU ->
-    bgeu ins insLen bld
+    bgeu ins bld
   | Op.CdotLW
   | Op.CdotLD
   | Op.CdotLWSP
@@ -119,11 +119,11 @@ let translate (ins: Instruction) insLen bld =
   | Op.LH
   | Op.LW
   | Op.LD ->
-    load ins insLen bld
+    load ins bld
   | Op.LBU
   | Op.LHU
   | Op.LWU ->
-    loadu ins insLen bld
+    loadu ins bld
   | Op.CdotSW
   | Op.CdotSD
   | Op.CdotSWSP
@@ -132,247 +132,247 @@ let translate (ins: Instruction) insLen bld =
   | Op.SH
   | Op.SW
   | Op.SD ->
-    store ins insLen bld
+    store ins bld
   | Op.CdotEBREAK
   | Op.EBREAK ->
-    sideEffects ins insLen bld Breakpoint
+    sideEffects ins bld Breakpoint
   | Op.ECALL ->
-    sideEffects ins insLen bld SysCall
+    sideEffects ins bld SysCall
   | Op.CdotSRAI
   | Op.SRAI ->
-    srai ins insLen bld
+    srai ins bld
   | Op.CdotSLLI
   | Op.SLLI ->
-    slli ins insLen bld
+    slli ins bld
   | Op.CdotSRLI
   | Op.SRLI ->
-    srli ins insLen bld
+    srli ins bld
   | Op.CdotLUI
   | Op.LUI ->
-    lui ins insLen bld
+    lui ins bld
   | Op.AUIPC ->
-    auipc ins insLen bld
+    auipc ins bld
   | Op.CdotADDIW
   | Op.ADDIW ->
-    addiw ins insLen bld
+    addiw ins bld
   | Op.SLLIW ->
-    slliw ins insLen bld
+    slliw ins bld
   | Op.SRLIW ->
-    srliw ins insLen bld
+    srliw ins bld
   | Op.SRAIW ->
-    sraiw ins insLen bld
+    sraiw ins bld
   | Op.MUL ->
-    mul ins insLen bld
+    mul ins bld
   | Op.MULH ->
-    mulhSignOrUnsign ins insLen bld (true, true)
+    mulhSignOrUnsign ins bld (true, true)
   | Op.MULHU ->
-    mulhSignOrUnsign ins insLen bld (false, true)
+    mulhSignOrUnsign ins bld (false, true)
   | Op.MULHSU ->
-    mulhSignOrUnsign ins insLen bld (true, false)
+    mulhSignOrUnsign ins bld (true, false)
   | Op.MULW ->
-    mulw ins insLen bld
+    mulw ins bld
   | Op.CdotNOP ->
-    nop ins insLen bld
+    nop ins bld
   | Op.CdotFLD
   | Op.CdotFLDSP
   | Op.FLD ->
-    fld ins insLen bld
+    fld ins bld
   | Op.CdotFSD
   | Op.CdotFSDSP
   | Op.FSD ->
-    fsd ins insLen bld
+    fsd ins bld
   | Op.FLTdotS ->
-    fltdots ins insLen bld
+    fltdots ins bld
   | Op.FLTdotD ->
-    fltdotd ins insLen bld
+    fltdotd ins bld
   | Op.FLEdotS ->
-    fledots ins insLen bld
+    fledots ins bld
   | Op.FLEdotD ->
-    fledotd ins insLen bld
+    fledotd ins bld
   | Op.FEQdotS ->
-    feqdots ins insLen bld
+    feqdots ins bld
   | Op.FEQdotD ->
-    feqdotd ins insLen bld
+    feqdotd ins bld
   | Op.FLW ->
-    flw ins insLen bld
+    flw ins bld
   | Op.FSW ->
-    fsw ins insLen bld
+    fsw ins bld
   | Op.FADDdotS ->
-    fpArithmeticSingle ins insLen bld AST.fadd
+    fpArithmeticSingle ins bld AST.fadd
   | Op.FADDdotD ->
-    fpArithmeticDouble ins insLen bld AST.fadd
+    fpArithmeticDouble ins bld AST.fadd
   | Op.FSUBdotS ->
-    fpArithmeticSingle ins insLen bld AST.fsub
+    fpArithmeticSingle ins bld AST.fsub
   | Op.FSUBdotD ->
-    fpArithmeticDouble ins insLen bld AST.fsub
+    fpArithmeticDouble ins bld AST.fsub
   | Op.FDIVdotS ->
-    fpArithmeticSingle ins insLen bld AST.fdiv
+    fpArithmeticSingle ins bld AST.fdiv
   | Op.FDIVdotD ->
-    fpArithmeticDouble ins insLen bld AST.fdiv
+    fpArithmeticDouble ins bld AST.fdiv
   | Op.FMULdotS ->
-    fpArithmeticSingle ins insLen bld AST.fmul
+    fpArithmeticSingle ins bld AST.fmul
   | Op.FMULdotD ->
-    fpArithmeticDouble ins insLen bld AST.fmul
+    fpArithmeticDouble ins bld AST.fmul
   | Op.FMINdotS ->
-    fmindots ins insLen bld
+    fmindots ins bld
   | Op.FMINdotD ->
-    fmindotd ins insLen bld
+    fmindotd ins bld
   | Op.FMAXdotS ->
-    fmaxdots ins insLen bld
+    fmaxdots ins bld
   | Op.FMAXdotD ->
-    fmaxdotd ins insLen bld
+    fmaxdotd ins bld
   | Op.FNMADDdotS ->
-    fnmadddots ins insLen bld
+    fnmadddots ins bld
   | Op.FNMADDdotD ->
-    fnmadddotd ins insLen bld
+    fnmadddotd ins bld
   | Op.FNMSUBdotS ->
-    fnmsubdots ins insLen bld
+    fnmsubdots ins bld
   | Op.FNMSUBdotD ->
-    fnmsubdotd ins insLen bld
+    fnmsubdotd ins bld
   | Op.FMADDdotS ->
-    fmadddots ins insLen bld
+    fmadddots ins bld
   | Op.FMADDdotD ->
-    fmadddotd ins insLen bld
+    fmadddotd ins bld
   | Op.FMSUBdotS ->
-    fmsubdots ins insLen bld
+    fmsubdots ins bld
   | Op.FMSUBdotD ->
-    fmsubdotd ins insLen bld
+    fmsubdotd ins bld
   | Op.FSQRTdotS ->
-    fsqrtdots ins insLen bld
+    fsqrtdots ins bld
   | Op.FSQRTdotD ->
-    fsqrtdotd ins insLen bld
+    fsqrtdotd ins bld
   | Op.FCLASSdotS ->
-    fclassdots ins insLen bld
+    fclassdots ins bld
   | Op.FCLASSdotD ->
-    fclassdotd ins insLen bld
+    fclassdotd ins bld
   | Op.FSGNJdotS ->
-    fsgnjdots ins insLen bld
+    fsgnjdots ins bld
   | Op.FSGNJdotD ->
-    fsgnjdotd ins insLen bld
+    fsgnjdotd ins bld
   | Op.FSGNJNdotS ->
-    fsgnjndots ins insLen bld
+    fsgnjndots ins bld
   | Op.FSGNJNdotD ->
-    fsgnjndotd ins insLen bld
+    fsgnjndotd ins bld
   | Op.FSGNJXdotS ->
-    fsgnjxdots ins insLen bld
+    fsgnjxdots ins bld
   | Op.FSGNJXdotD ->
-    fsgnjxdotd ins insLen bld
+    fsgnjxdotd ins bld
   | Op.AMOADDdotW ->
-    amow ins insLen bld (.+)
+    amow ins bld (.+)
   | Op.AMOADDdotD ->
-    amod ins insLen bld (.+)
+    amod ins bld (.+)
   | Op.AMOANDdotW ->
-    amow ins insLen bld (.&)
+    amow ins bld (.&)
   | Op.AMOANDdotD ->
-    amod ins insLen bld (.&)
+    amod ins bld (.&)
   | Op.AMOXORdotW ->
-    amow ins insLen bld (<+>)
+    amow ins bld (<+>)
   | Op.AMOXORdotD ->
-    amod ins insLen bld (<+>)
+    amod ins bld (<+>)
   | Op.AMOORdotW ->
-    amow ins insLen bld (.|)
+    amow ins bld (.|)
   | Op.AMOORdotD ->
-    amod ins insLen bld (.|)
+    amod ins bld (.|)
   | Op.AMOMINdotW ->
-    amow ins insLen bld (fun a b -> AST.ite (a ?< b) (a) (b))
+    amow ins bld (fun a b -> AST.ite (a ?< b) (a) (b))
   | Op.AMOMINdotD ->
-    amod ins insLen bld (fun a b -> AST.ite (a ?< b) (a) (b))
+    amod ins bld (fun a b -> AST.ite (a ?< b) (a) (b))
   | Op.AMOMINUdotW ->
-    amow ins insLen bld (fun a b -> AST.ite (a .< b) (a) (b))
+    amow ins bld (fun a b -> AST.ite (a .< b) (a) (b))
   | Op.AMOMINUdotD ->
-    amod ins insLen bld (fun a b -> AST.ite (a .< b) (a) (b))
+    amod ins bld (fun a b -> AST.ite (a .< b) (a) (b))
   | Op.AMOMAXdotW ->
-    amow ins insLen bld (fun a b -> AST.ite (a ?> b) (a) (b))
+    amow ins bld (fun a b -> AST.ite (a ?> b) (a) (b))
   | Op.AMOMAXdotD ->
-    amod ins insLen bld (fun a b -> AST.ite (a ?> b) (a) (b))
+    amod ins bld (fun a b -> AST.ite (a ?> b) (a) (b))
   | Op.AMOMAXUdotW ->
-    amow ins insLen bld (fun a b -> AST.ite (a .> b) (a) (b))
+    amow ins bld (fun a b -> AST.ite (a .> b) (a) (b))
   | Op.AMOMAXUdotD ->
-    amod ins insLen bld (fun a b -> AST.ite (a .> b) (a) (b))
+    amod ins bld (fun a b -> AST.ite (a .> b) (a) (b))
   | Op.AMOSWAPdotW ->
-    amow ins insLen bld (fun _ b -> b)
+    amow ins bld (fun _ b -> b)
   | Op.AMOSWAPdotD ->
-    amod ins insLen bld (fun _ b -> b)
+    amod ins bld (fun _ b -> b)
   | Op.FMVdotXdotW ->
-    fmvdotxdotw ins insLen bld
+    fmvdotxdotw ins bld
   | Op.FMVdotXdotD ->
-    fmvdotxdotd ins insLen bld
+    fmvdotxdotd ins bld
   | Op.FMVdotWdotX ->
-    fmvdotwdotx ins insLen bld
+    fmvdotwdotx ins bld
   | Op.FMVdotDdotX ->
-    fmvdotddotx ins insLen bld
+    fmvdotddotx ins bld
   | Op.DIVW ->
-    divw ins insLen bld
+    divw ins bld
   | Op.DIV ->
-    div ins insLen bld
+    div ins bld
   | Op.DIVU ->
-    divu ins insLen bld
+    divu ins bld
   | Op.REM ->
-    rem ins insLen bld
+    rem ins bld
   | Op.REMU ->
-    remu ins insLen bld
+    remu ins bld
   | Op.REMW ->
-    remw ins insLen bld
+    remw ins bld
   | Op.DIVUW ->
-    divuw ins insLen bld
+    divuw ins bld
   | Op.REMUW ->
-    remuw ins insLen bld
+    remuw ins bld
   | Op.FCVTdotWdotD ->
-    fcvtdotwdotd ins insLen bld
+    fcvtdotwdotd ins bld
   | Op.FCVTdotWUdotD ->
-    fcvtdotwudotd ins insLen bld
+    fcvtdotwudotd ins bld
   | Op.FCVTdotLdotD ->
-    fcvtdotldotd ins insLen bld
+    fcvtdotldotd ins bld
   | Op.FCVTdotLUdotD ->
-    fcvtdotludotd ins insLen bld
+    fcvtdotludotd ins bld
   | Op.FCVTdotWdotS ->
-    fcvtdotwdots ins insLen bld
+    fcvtdotwdots ins bld
   | Op.FCVTdotWUdotS ->
-    fcvtdotwudots ins insLen bld
+    fcvtdotwudots ins bld
   | Op.FCVTdotLdotS ->
-    fcvtdotldots ins insLen bld
+    fcvtdotldots ins bld
   | Op.FCVTdotLUdotS ->
-    fcvtdotludots ins insLen bld
+    fcvtdotludots ins bld
   | Op.FENCE
   | Op.FENCEdotI
   | Op.FENCEdotTSO ->
-    nop ins insLen bld
+    nop ins bld
   | Op.LRdotW
   | Op.LRdotD ->
-    lr ins insLen bld
+    lr ins bld
   | Op.SCdotW ->
-    sc ins insLen bld 32<rt>
+    sc ins bld 32<rt>
   | Op.SCdotD ->
-    sc ins insLen bld 64<rt>
+    sc ins bld 64<rt>
   | Op.CSRRW
   | Op.CSRRWI ->
-    csrrw ins insLen bld
+    csrrw ins bld
   | Op.CSRRS
   | Op.CSRRSI ->
-    csrrs ins insLen bld
+    csrrs ins bld
   | Op.CSRRC
   | Op.CSRRCI ->
-    csrrc ins insLen bld
+    csrrc ins bld
   | Op.FCVTdotSdotW ->
-    fcvtdotsdotw ins insLen bld
+    fcvtdotsdotw ins bld
   | Op.FCVTdotSdotL ->
-    fcvtdotsdotl ins insLen bld
+    fcvtdotsdotl ins bld
   | Op.FCVTdotSdotD ->
-    fcvtdotsdotd ins insLen bld
+    fcvtdotsdotd ins bld
   | Op.FCVTdotDdotS ->
-    fcvtdotddots ins insLen bld
+    fcvtdotddots ins bld
   | Op.FCVTdotDdotW ->
-    fcvtdotddotw ins insLen bld
+    fcvtdotddotw ins bld
   | Op.FCVTdotDdotL ->
-    fcvtdotddotl ins insLen bld
+    fcvtdotddotl ins bld
   | Op.FCVTdotDdotWU ->
-    fcvtdotddotwu ins insLen bld
+    fcvtdotddotwu ins bld
   | Op.FCVTdotDdotLU ->
-    fcvtdotddotlu ins insLen bld
+    fcvtdotddotlu ins bld
   | Op.FCVTdotSdotWU ->
-    fcvtdotsdotwu ins insLen bld
+    fcvtdotsdotwu ins bld
   | Op.FCVTdotSdotLU ->
-    fcvtdotsdotlu ins insLen bld
+    fcvtdotsdotlu ins bld
   | o ->
 #if DEBUG
     eprintfn "%A" o

@@ -48,8 +48,8 @@ let private srcOf bld rt o =
 
 /// A load into a register's high word, widening a narrower unit of storage as
 /// the operation names.
-let load ins insLen bld accW ext =
-  lift bld (ins: Instruction) insLen {
+let load ins bld accW ext =
+  lift bld (ins: Instruction) {
     let struct (o1, o2) = getTwoOprs ins
     let d = oprRegVar bld o1
     high d := ext WSize (srcOf bld accW o2)
@@ -57,8 +57,8 @@ let load ins insLen bld accW ext =
 
 /// LOAD HIGH AND TRAP, which a compiler plants where a null pointer must not
 /// be allowed to travel any further.
-let loadAndTrap ins insLen bld =
-  lift bld (ins: Instruction) insLen {
+let loadAndTrap ins bld =
+  lift bld (ins: Instruction) {
     let struct (o1, o2) = getTwoOprs ins
     let d = oprRegVar bld o1
     let t = tmpVar bld WSize
@@ -74,8 +74,8 @@ let loadAndTrap ins insLen bld =
 
 /// A store of a field of a register's high word: the whole word, or the byte or
 /// halfword at its right-hand end.
-let store ins insLen bld width =
-  lift bld (ins: Instruction) insLen {
+let store ins bld width =
+  lift bld (ins: Instruction) {
     let struct (o1, o2) = getTwoOprs ins
     let d = oprRegVar bld o1
     storeMem (transMem bld o2) (AST.extract d width 32)
@@ -84,8 +84,8 @@ let store ins insLen bld width =
 /// The three-operand high-word arithmetic. The first two operands name high
 /// words throughout; the third names one too in the "HH" forms and a low word
 /// in the "HL" ones, which is how a value crosses between the two halves.
-let alu3 ins insLen bld thirdIsLow f cc =
-  lift bld (ins: Instruction) insLen {
+let alu3 ins bld thirdIsLow f cc =
+  lift bld (ins: Instruction) {
     let struct (o1, o2, o3) = getThreeOprs ins
     let d = oprRegVar bld o1
     let t = tmpVar bld WSize
@@ -99,8 +99,8 @@ let alu3 ins insLen bld thirdIsLow f cc =
 
 /// ADD IMMEDIATE HIGH and its logical relatives, which add a full word to a
 /// register's high half.
-let addImm ins insLen bld cc =
-  lift bld (ins: Instruction) insLen {
+let addImm ins bld cc =
+  lift bld (ins: Instruction) {
     let struct (o1, o2) = getTwoOprs ins
     let d = oprRegVar bld o1
     let a = high d
@@ -113,8 +113,8 @@ let addImm ins insLen bld cc =
 
 /// A comparison of a register's high word against a word: an immediate, a
 /// field of storage, or another register's high or low half.
-let compare ins insLen bld signed other =
-  lift bld (ins: Instruction) insLen {
+let compare ins bld signed other =
+  lift bld (ins: Instruction) {
     let struct (o1, o2) = getTwoOprs ins
     let a = tmpVar bld WSize
     let b = tmpVar bld WSize
@@ -135,12 +135,12 @@ let wordOf bld o = srcOf bld WSize o
 
 /// BRANCH RELATIVE ON COUNT HIGH: the count lives in a register's high word,
 /// so a loop can keep its counter there and leave the low halves to the body.
-let branchOnCount ins insLen bld =
-  lift bld ins insLen {
+let branchOnCount ins bld =
+  lift bld ins {
     let struct (o1, o2) = getTwoOprs ins
     let d = oprRegVar bld o1
     let target = numG (int64 (codeAddr bld (relTarget ins.Address (oprImm o2))))
-    let next = numG (int64 (codeAddr bld (nextAddr ins.Address insLen)))
+    let next = numG (int64 (codeAddr bld (nextAddr ins)))
     let t = tmpVar bld WSize
     t := high d .- AST.num1 WSize
     high d := t
@@ -149,8 +149,8 @@ let branchOnCount ins insLen bld =
 
 /// LOAD HIGH ON CONDITION, whose mask names the condition codes it acts on.
 /// Written as a select, so the lifted block stays straight-line.
-let loadOnCondition ins insLen bld other =
-  lift bld (ins: Instruction) insLen {
+let loadOnCondition ins bld other =
+  lift bld (ins: Instruction) {
     let struct (o1, o2, o3) = getThreeOprs ins
     let d = oprRegVar bld o1
     let m = oprMask o3
@@ -165,8 +165,8 @@ let loadOnCondition ins insLen bld other =
 
 /// STORE HIGH ON CONDITION. A store that must not happen cannot be written as
 /// a select, so this one does branch.
-let storeOnCondition ins insLen bld =
-  lift bld (ins: Instruction) insLen {
+let storeOnCondition ins bld =
+  lift bld (ins: Instruction) {
     let struct (o1, o2, o3) = getThreeOprs ins
     let m = oprMask o3
     let value = AST.extract (oprRegVar bld o1) WSize 32
@@ -192,8 +192,8 @@ let private regRange (r1: Register) (r3: Register) =
 
 /// LOAD MULTIPLE HIGH: consecutive high words take consecutive words of
 /// storage, leaving every low half alone.
-let loadMultiple ins insLen bld =
-  lift bld (ins: Instruction) insLen {
+let loadMultiple ins bld =
+  lift bld (ins: Instruction) {
     let struct (o1, o2, o3) = getThreeOprs ins
     let regs = regRange (oprReg o1) (oprReg o3)
     let addr = tmpVar bld GRSize
@@ -204,8 +204,8 @@ let loadMultiple ins insLen bld =
   }
 
 /// STORE MULTIPLE HIGH, the mirror of LOAD MULTIPLE HIGH.
-let storeMultiple ins insLen bld =
-  lift bld (ins: Instruction) insLen {
+let storeMultiple ins bld =
+  lift bld (ins: Instruction) {
     let struct (o1, o2, o3) = getThreeOprs ins
     let regs = regRange (oprReg o1) (oprReg o3)
     let addr = tmpVar bld GRSize
@@ -222,8 +222,8 @@ let private maskedBytes (m: Mask) =
 
 /// STORE CHARACTERS UNDER MASK HIGH: only the bytes of the high word the mask
 /// selects are written, most significant first.
-let storeUnderMask ins insLen bld =
-  lift bld (ins: Instruction) insLen {
+let storeUnderMask ins bld =
+  lift bld (ins: Instruction) {
     let struct (o1, o2, o3) = getThreeOprs ins
     let d = oprRegVar bld o1
     let sel = maskedBytes (oprMask o3)
@@ -236,8 +236,8 @@ let storeUnderMask ins insLen bld =
 
 /// COMPARE LOGICAL CHARACTERS UNDER MASK HIGH: the leftmost selected byte the
 /// two differ in decides.
-let compareUnderMask ins insLen bld =
-  lift bld (ins: Instruction) insLen {
+let compareUnderMask ins bld =
+  lift bld (ins: Instruction) {
     let struct (o1, o2, o3) = getThreeOprs ins
     let d = oprRegVar bld o1
     let sel = maskedBytes (oprMask o3)
@@ -286,7 +286,7 @@ let private rotl amount v =
 /// is rotated left, and the word at its right-hand end is inserted into one
 /// word of the first operand under a mask a start-and-end pair names. Unlike
 /// the full-register form these leave the condition code alone.
-let rotateInsert ins insLen bld toHigh =
+let rotateInsert ins bld toHigh =
   match (ins: Instruction).Operands with
   | FiveOperands(o1, o2, o3, o4, o5) ->
     let d = oprRegVar bld o1
@@ -294,7 +294,7 @@ let rotateInsert ins insLen bld toHigh =
     let mask = wordMask (int (oprImm o3) &&& 31) (int (oprImm o4) &&& 31)
     let zero = int (oprImm o4) &&& 0x80 <> 0
     let t = tmpVar bld WSize
-    lift bld ins insLen {
+    lift bld ins {
       let rotated = rotl (int (oprImm o5) &&& 63) (oprRegVar bld o2)
       let selected = low rotated .& numW mask
       if zero then append bld { t := selected }

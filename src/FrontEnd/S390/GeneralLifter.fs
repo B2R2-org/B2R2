@@ -80,8 +80,8 @@ let ccSubL bld _ a b = setCCSubLogical bld a b
 
 /// A plain load: the second operand's value, widened as the operation names,
 /// becomes the first operand's.
-let load ins insLen bld rt accW ext =
-  lift bld (ins: Instruction) insLen {
+let load ins bld rt accW ext =
+  lift bld (ins: Instruction) {
     let struct (o1, o2) = getTwoOprs ins
     let d = oprRegVar bld o1
     dst rt d := ext rt (srcOf bld accW o2)
@@ -89,8 +89,8 @@ let load ins insLen bld rt accW ext =
 
 /// LOAD LOGICAL THIRTY ONE BITS, which takes a word and drops its top bit --
 /// the one a 31-bit address space used to carry the addressing mode in.
-let loadThirtyOne ins insLen bld =
-  lift bld (ins: Instruction) insLen {
+let loadThirtyOne ins bld =
+  lift bld (ins: Instruction) {
     let struct (o1, o2) = getTwoOprs ins
     let d = oprRegVar bld o1
     d := zextTo GRSize (srcOf bld WSize o2) .& numG 0x7fffffffL
@@ -98,8 +98,8 @@ let loadThirtyOne ins insLen bld =
 
 /// INSERT IMMEDIATE: an immediate replaces one field of a register and leaves
 /// the rest of it as it was.
-let insertImm ins insLen bld pos width =
-  lift bld (ins: Instruction) insLen {
+let insertImm ins bld pos width =
+  lift bld (ins: Instruction) {
     let struct (o1, o2) = getTwoOprs ins
     let d = oprRegVar bld o1
     AST.extract d width pos := numI64 (oprImm o2) width
@@ -107,8 +107,8 @@ let insertImm ins insLen bld pos width =
 
 /// LOAD LOGICAL IMMEDIATE: an immediate becomes the whole register, shifted to
 /// the field the operation names and zero everywhere else.
-let loadLogicalImm ins insLen bld shift =
-  lift bld (ins: Instruction) insLen {
+let loadLogicalImm ins bld shift =
+  lift bld (ins: Instruction) {
     let struct (o1, o2) = getTwoOprs ins
     let d = oprRegVar bld o1
     let v = uint64 (oprImm o2) <<< (shift: int)
@@ -116,8 +116,8 @@ let loadLogicalImm ins insLen bld shift =
   }
 
 /// A load that also reports the sign of what it loaded.
-let loadTest ins insLen bld rt accW ext =
-  lift bld (ins: Instruction) insLen {
+let loadTest ins bld rt accW ext =
+  lift bld (ins: Instruction) {
     let struct (o1, o2) = getTwoOprs ins
     let d = oprRegVar bld o1
     let t = tmpVar bld rt
@@ -128,8 +128,8 @@ let loadTest ins insLen bld rt accW ext =
 
 /// A load whose storage operand is named relative to the instruction rather
 /// than by a base and displacement.
-let loadRel ins insLen bld rt accW ext =
-  lift bld ins insLen {
+let loadRel ins bld rt accW ext =
+  lift bld ins {
     let struct (o1, o2) = getTwoOprs ins
     let d = oprRegVar bld o1
     let addr = numG (int64 (codeAddr bld (relTarget ins.Address (oprImm o2))))
@@ -138,8 +138,8 @@ let loadRel ins insLen bld rt accW ext =
 
 /// LOAD ADDRESS: the address the second operand names, rather than what is
 /// stored there, becomes the first operand's value.
-let la ins insLen bld =
-  lift bld (ins: Instruction) insLen {
+let la ins bld =
+  lift bld (ins: Instruction) {
     let struct (o1, o2) = getTwoOprs ins
     let d = oprRegVar bld o1
     d := transMem bld o2
@@ -147,16 +147,16 @@ let la ins insLen bld =
 
 /// LOAD ADDRESS RELATIVE LONG: the address the instruction's own halfword
 /// offset names, which is how position-independent code reaches its data.
-let larl ins insLen bld =
-  lift bld (ins: Instruction) insLen {
+let larl ins bld =
+  lift bld (ins: Instruction) {
     let struct (o1, o2) = getTwoOprs ins
     let d = oprRegVar bld o1
     d := numG (int64 (codeAddr bld (relTarget ins.Address (oprImm o2))))
   }
 
 /// A plain store of the first operand's low bits.
-let store ins insLen bld accW =
-  lift bld (ins: Instruction) insLen {
+let store ins bld accW =
+  lift bld (ins: Instruction) {
     let struct (o1, o2) = getTwoOprs ins
     storeMem (transMem bld o2) (narrowTo accW (oprRegVar bld o1))
   }
@@ -171,8 +171,8 @@ let private byteSwap rt e =
   Array.reduce (fun acc b -> AST.concat acc b) bytes
 
 /// LOAD REVERSED, from a register or from storage.
-let loadReversed ins insLen bld rt accW =
-  lift bld (ins: Instruction) insLen {
+let loadReversed ins bld rt accW =
+  lift bld (ins: Instruction) {
     let struct (o1, o2) = getTwoOprs ins
     let d = oprRegVar bld o1
     let v = byteSwap accW (srcOf bld accW o2)
@@ -181,8 +181,8 @@ let loadReversed ins insLen bld rt accW =
   }
 
 /// STORE REVERSED, the mirror of LOAD REVERSED.
-let storeReversed ins insLen bld accW =
-  lift bld (ins: Instruction) insLen {
+let storeReversed ins bld accW =
+  lift bld (ins: Instruction) {
     let struct (o1, o2) = getTwoOprs ins
     let v = byteSwap accW (narrowTo accW (oprRegVar bld o1))
     storeMem (transMem bld o2) v
@@ -190,15 +190,15 @@ let storeReversed ins insLen bld accW =
 
 /// A store of a register's leftmost word, which is where a short
 /// floating-point value lives.
-let storeHigh ins insLen bld =
-  lift bld (ins: Instruction) insLen {
+let storeHigh ins bld =
+  lift bld (ins: Instruction) {
     let struct (o1, o2) = getTwoOprs ins
     storeMem (transMem bld o2) (AST.xthi WSize (oprRegVar bld o1))
   }
 
 /// A store to storage the instruction names relative to itself.
-let storeRel ins insLen bld accW =
-  lift bld ins insLen {
+let storeRel ins bld accW =
+  lift bld ins {
     let struct (o1, o2) = getTwoOprs ins
     let addr = numG (int64 (codeAddr bld (relTarget ins.Address (oprImm o2))))
     storeMem addr (narrowTo accW (oprRegVar bld o1))
@@ -206,8 +206,8 @@ let storeRel ins insLen bld accW =
 
 /// MOVE IMMEDIATE: an immediate, widened where the field is narrower than the
 /// unit stored, is written straight to storage.
-let moveImm ins insLen bld accW =
-  lift bld (ins: Instruction) insLen {
+let moveImm ins bld accW =
+  lift bld (ins: Instruction) {
     let struct (o1, o2) = getTwoOprs ins
     storeMem (transMem bld o1) (numI64 (oprImm o2) accW)
   }
@@ -220,8 +220,8 @@ let private regRange (r1: Register) (r3: Register) =
   [| for i in 0 .. count - 1 -> enum<Register> ((first + i) &&& 0xf) |]
 
 /// LOAD MULTIPLE: consecutive registers take consecutive units of storage.
-let loadMultiple ins insLen bld rt =
-  lift bld (ins: Instruction) insLen {
+let loadMultiple ins bld rt =
+  lift bld (ins: Instruction) {
     let struct (o1, o2, o3) = getThreeOprs ins
     let regs = regRange (oprReg o1) (oprReg o3)
     let width = int64 (RegType.toByteWidth rt)
@@ -234,8 +234,8 @@ let loadMultiple ins insLen bld rt =
 
 /// STORE MULTIPLE: the mirror of LOAD MULTIPLE, which together are how a
 /// function prologue and epilogue save and restore the registers it uses.
-let storeMultiple ins insLen bld rt =
-  lift bld (ins: Instruction) insLen {
+let storeMultiple ins bld rt =
+  lift bld (ins: Instruction) {
     let struct (o1, o2, o3) = getThreeOprs ins
     let regs = regRange (oprReg o1) (oprReg o3)
     let width = int64 (RegType.toByteWidth rt)
@@ -248,8 +248,8 @@ let storeMultiple ins insLen bld rt =
 
 /// A storage-to-storage operation: the first operand's field takes, byte by
 /// byte, the result of combining it with the second's.
-let ssOp ins insLen bld f =
-  lift bld (ins: Instruction) insLen {
+let ssOp ins bld f =
+  lift bld (ins: Instruction) {
     let struct (o1, o2) = getTwoOprs ins
     let len = numG (int64 (lenOfMem o1))
     let d = tmpVar bld GRSize
@@ -261,8 +261,8 @@ let ssOp ins insLen bld f =
 
 /// The storage-to-storage bitwise operations, which report whether any bit of
 /// the result is one.
-let ssLogic ins insLen bld f =
-  lift bld (ins: Instruction) insLen {
+let ssLogic ins bld f =
+  lift bld (ins: Instruction) {
     let struct (o1, o2) = getTwoOprs ins
     let len = numG (int64 (lenOfMem o1))
     let d = tmpVar bld GRSize
@@ -275,8 +275,8 @@ let ssLogic ins insLen bld f =
 /// The shape every two-operand arithmetic and logical instruction shares: the
 /// first operand supplies one input and receives the result, the second the
 /// other input.
-let alu2 ins insLen bld rt f cc =
-  lift bld (ins: Instruction) insLen {
+let alu2 ins bld rt f cc =
+  lift bld (ins: Instruction) {
     let struct (o1, o2) = getTwoOprs ins
     let d = oprRegVar bld o1
     let a = srcReg rt d
@@ -289,8 +289,8 @@ let alu2 ins insLen bld rt f cc =
 
 /// A two-operand operation whose source is narrower than the operation itself,
 /// and so is widened by ext before taking part.
-let alu2Ext ins insLen bld rt accW ext f cc =
-  lift bld (ins: Instruction) insLen {
+let alu2Ext ins bld rt accW ext f cc =
+  lift bld (ins: Instruction) {
     let struct (o1, o2) = getTwoOprs ins
     let d = oprRegVar bld o1
     let a = srcReg rt d
@@ -303,8 +303,8 @@ let alu2Ext ins insLen bld rt accW ext f cc =
   }
 
 /// The three-operand ("K") forms, which leave both inputs alone.
-let alu3 ins insLen bld rt f cc =
-  lift bld (ins: Instruction) insLen {
+let alu3 ins bld rt f cc =
+  lift bld (ins: Instruction) {
     let struct (o1, o2, o3) = getThreeOprs ins
     let d = oprRegVar bld o1
     let t = tmpVar bld rt
@@ -317,8 +317,8 @@ let alu3 ins insLen bld rt f cc =
 
 /// The immediate three-operand forms, whose parsed operands put the immediate
 /// where the register-to-register forms put the second source.
-let alu3Imm ins insLen bld rt f cc =
-  lift bld (ins: Instruction) insLen {
+let alu3Imm ins bld rt f cc =
+  lift bld (ins: Instruction) {
     let struct (o1, o2, o3) = getThreeOprs ins
     let d = oprRegVar bld o1
     let t = tmpVar bld rt
@@ -330,8 +330,8 @@ let alu3Imm ins insLen bld rt f cc =
   }
 
 /// ADD IMMEDIATE to storage, whose sum goes back where the addend came from.
-let addToStorage ins insLen bld rt =
-  lift bld (ins: Instruction) insLen {
+let addToStorage ins bld rt =
+  lift bld (ins: Instruction) {
     let struct (o1, o2) = getTwoOprs ins
     let addr = tmpVar bld GRSize
     let a = tmpVar bld rt
@@ -346,8 +346,8 @@ let addToStorage ins insLen bld rt =
 
 /// The immediate bitwise operations on storage, which read, combine, and write
 /// back a single byte.
-let logicImmStorage ins insLen bld f setsCC =
-  lift bld (ins: Instruction) insLen {
+let logicImmStorage ins bld f setsCC =
+  lift bld (ins: Instruction) {
     let struct (o1, o2) = getTwoOprs ins
     let addr = tmpVar bld GRSize
     let t = tmpVar bld 8<rt>
@@ -359,8 +359,8 @@ let logicImmStorage ins insLen bld f setsCC =
 
 /// The immediate bitwise operations that touch one 16- or 32-bit field of a
 /// register and leave the rest of it alone.
-let logicImmField ins insLen bld pos width f =
-  lift bld (ins: Instruction) insLen {
+let logicImmField ins bld pos width f =
+  lift bld (ins: Instruction) {
     let struct (o1, o2) = getTwoOprs ins
     let d = oprRegVar bld o1
     let field = AST.extract d width pos
@@ -372,8 +372,8 @@ let logicImmField ins insLen bld pos width f =
 
 /// ADD WITH CARRY and SUBTRACT WITH BORROW, which chain the previous
 /// operation's carry -- the high bit of its condition code -- into this one.
-let addCarry ins insLen bld rt =
-  lift bld (ins: Instruction) insLen {
+let addCarry ins bld rt =
+  lift bld (ins: Instruction) {
     let struct (o1, o2) = getTwoOprs ins
     let d = oprRegVar bld o1
     let a = srcReg rt d
@@ -389,8 +389,8 @@ let addCarry ins insLen bld rt =
 
 /// SUBTRACT LOGICAL WITH BORROW: the borrow is the complement of the carry the
 /// condition code's high bit records.
-let subBorrow ins insLen bld rt =
-  lift bld (ins: Instruction) insLen {
+let subBorrow ins bld rt =
+  lift bld (ins: Instruction) {
     let struct (o1, o2) = getTwoOprs ins
     let d = oprRegVar bld o1
     let a = srcReg rt d
@@ -413,8 +413,8 @@ let negAbsValue e = AST.ite (e ?> AST.num0 (Expr.typeOf e)) (AST.neg e) e
 
 /// The one-input arithmetic loads: complement, positive, and negative, each of
 /// which reports the sign of what it produced.
-let unaryArith ins insLen bld rt accW f =
-  lift bld (ins: Instruction) insLen {
+let unaryArith ins bld rt accW f =
+  lift bld (ins: Instruction) {
     let struct (o1, o2) = getTwoOprs ins
     let d = oprRegVar bld o1
     let t = tmpVar bld rt
@@ -425,8 +425,8 @@ let unaryArith ins insLen bld rt accW f =
 
 /// MULTIPLY SINGLE, whose product is as wide as its operands and so needs no
 /// register pair; it leaves the condition code alone.
-let mul ins insLen bld rt accW ext =
-  lift bld (ins: Instruction) insLen {
+let mul ins bld rt accW ext =
+  lift bld (ins: Instruction) {
     let struct (o1, o2) = getTwoOprs ins
     let d = oprRegVar bld o1
     let b = ext rt (srcOf bld accW o2)
@@ -434,8 +434,8 @@ let mul ins insLen bld rt accW ext =
   }
 
 /// The three-operand multiply, which leaves its inputs alone.
-let mul3 ins insLen bld rt =
-  lift bld (ins: Instruction) insLen {
+let mul3 ins bld rt =
+  lift bld (ins: Instruction) {
     let struct (o1, o2, o3) = getThreeOprs ins
     let d = oprRegVar bld o1
     let a = srcOf bld rt o2
@@ -457,24 +457,24 @@ let private isPair (r: Register) = int r % 2 = 0
 
 /// An encoding that names a register pair with an odd register, which is not
 /// a pair; real hardware raises a specification exception for it.
-let private specException ins insLen bld =
-  lift bld (ins: Instruction) insLen {
+let private specException ins bld =
+  lift bld (ins: Instruction) {
     AST.sideEffect UndefinedInstruction
   }
 
 /// MULTIPLY LOGICAL, whose double-width product fills a register pair: the
 /// even register takes the high half and the odd one the low.
-let mulLogical ins insLen bld (rt: RegType) accW =
+let mulLogical ins bld (rt: RegType) accW =
   let struct (o1, o2) = getTwoOprs ins
   let r1 = oprReg o1
   if not (isPair r1) then
-    specException ins insLen bld
+    specException ins bld
   else
     let hi = reg bld r1
     let lo = reg bld (pairOf r1)
     let wide = rt * 2
     let t = tmpVar bld wide
-    lift bld (ins: Instruction) insLen {
+    lift bld (ins: Instruction) {
       let b = AST.zext wide (srcOf bld accW o2)
       t := AST.zext wide (srcReg rt lo) .* b
       dst rt hi := AST.xthi rt t
@@ -483,18 +483,18 @@ let mulLogical ins insLen bld (rt: RegType) accW =
 
 /// DIVIDE LOGICAL: the dividend spans the register pair, and the quotient and
 /// remainder replace its odd and even members.
-let divLogical ins insLen bld (rt: RegType) accW =
+let divLogical ins bld (rt: RegType) accW =
   let struct (o1, o2) = getTwoOprs ins
   let r1 = oprReg o1
   if not (isPair r1) then
-    specException ins insLen bld
+    specException ins bld
   else
     let hi = reg bld r1
     let lo = reg bld (pairOf r1)
     let wide = rt * 2
     let num = tmpVar bld wide
     let den = tmpVar bld wide
-    lift bld (ins: Instruction) insLen {
+    lift bld (ins: Instruction) {
       den := AST.zext wide (srcOf bld accW o2)
       num := AST.concat (srcReg rt hi) (srcReg rt lo)
       let q = tmpVar bld wide
@@ -507,17 +507,17 @@ let divLogical ins insLen bld (rt: RegType) accW =
 
 /// DIVIDE SINGLE: a signed division whose dividend is the odd register of the
 /// pair alone, wide though the pair is.
-let divSingle ins insLen bld rt accW =
+let divSingle ins bld rt accW =
   let struct (o1, o2) = getTwoOprs ins
   let r1 = oprReg o1
   if not (isPair r1) then
-    specException ins insLen bld
+    specException ins bld
   else
     let hi = reg bld r1
     let lo = reg bld (pairOf r1)
     let den = tmpVar bld rt
     let num = tmpVar bld rt
-    lift bld (ins: Instruction) insLen {
+    lift bld (ins: Instruction) {
       den := sextTo rt (srcOf bld accW o2)
       num := srcReg rt lo
       let q = tmpVar bld rt
@@ -530,11 +530,11 @@ let divSingle ins insLen bld rt accW =
 
 /// FIND LEFTMOST ONE: the bit number of the highest one bit goes to the even
 /// register of a pair and the operand with that bit cleared to the odd one.
-let flogr ins insLen bld =
+let flogr ins bld =
   let struct (o1, o2) = getTwoOprs ins
   let r1 = oprReg o1
   if not (isPair r1) then
-    specException ins insLen bld
+    specException ins bld
   else
     let hi = reg bld r1
     let lo = reg bld (pairOf r1)
@@ -544,7 +544,7 @@ let flogr ins insLen bld =
     let body = label bld "FlogrBody"
     let step = label bld "FlogrStep"
     let out = label bld "FlogrOut"
-    lift bld (ins: Instruction) insLen {
+    lift bld (ins: Instruction) {
       v := srcOf bld GRSize o2
       n := AST.num0 GRSize
       bit := numG 0x8000000000000000L
@@ -564,8 +564,8 @@ let flogr ins insLen bld =
 
 /// POPULATION COUNT, which the architecture defines per byte: each byte of the
 /// result counts the one bits of the matching byte of the operand.
-let popcnt ins insLen bld =
-  lift bld (ins: Instruction) insLen {
+let popcnt ins bld =
+  lift bld (ins: Instruction) {
     let struct (o1, o2) = getTwoOprs ins
     let d = oprRegVar bld o1
     let v = tmpVar bld GRSize
@@ -584,8 +584,8 @@ let popcnt ins insLen bld =
 let private shiftCount bld o rt = narrowTo rt (transMem bld o .& numG 63L)
 
 /// The two-operand shifts, which shift a register's low word in place.
-let shift2 ins insLen bld f setsCC =
-  lift bld (ins: Instruction) insLen {
+let shift2 ins bld f setsCC =
+  lift bld (ins: Instruction) {
     let struct (o1, o2) = getTwoOprs ins
     let d = oprRegVar bld o1
     let t = tmpVar bld WSize
@@ -595,8 +595,8 @@ let shift2 ins insLen bld f setsCC =
   }
 
 /// The three-operand shifts, which take their input from a third register.
-let shift3 ins insLen bld rt f setsCC =
-  lift bld (ins: Instruction) insLen {
+let shift3 ins bld rt f setsCC =
+  lift bld (ins: Instruction) {
     let struct (o1, o2, o3) = getThreeOprs ins
     let d = oprRegVar bld o1
     let t = tmpVar bld rt
@@ -616,8 +616,8 @@ let private rotl rt v amount =
 
 /// ROTATE LEFT SINGLE LOGICAL, which unlike the shifts has a three-operand
 /// form at both widths.
-let rotate ins insLen bld rt =
-  lift bld (ins: Instruction) insLen {
+let rotate ins bld rt =
+  lift bld (ins: Instruction) {
     let struct (o1, o2, o3) = getThreeOprs ins
     let d = oprRegVar bld o1
     let t = tmpVar bld rt
@@ -642,7 +642,7 @@ let private selectMask (start: int) (fin: int) =
 /// rotated left, and the bits a start-and-end pair names are combined into the
 /// first. The zero-remaining-bits control, which the assembler spells as the
 /// "z" suffix, makes the unselected bits zero rather than leaving them.
-let rotateInsert (ins: Instruction) insLen bld f setsCC =
+let rotateInsert (ins: Instruction) bld f setsCC =
   match ins.Operands with
   | FiveOperands(o1, o2, o3, o4, o5) ->
     let d = oprRegVar bld o1
@@ -651,7 +651,7 @@ let rotateInsert (ins: Instruction) insLen bld f setsCC =
     let mask = selectMask (i3 &&& 63) (i4 &&& 63)
     let zero = i4 &&& 0x80 <> 0
     let t = tmpVar bld GRSize
-    lift bld (ins: Instruction) insLen {
+    lift bld (ins: Instruction) {
       let rotated = rotl GRSize (srcOf bld GRSize o2) (numG (oprImm o5 &&& 63L))
       let selected = rotated .& numG (int64 mask)
       if zero then append bld { t := selected }
@@ -667,7 +667,7 @@ let rotateInsert (ins: Instruction) insLen bld f setsCC =
 /// the condition code reports what the selected positions ended up holding. A
 /// test control -- the high bit of the starting position -- asks for that
 /// report without the update, which is how a program tests scattered bits.
-let rotateCombine (ins: Instruction) insLen bld f =
+let rotateCombine (ins: Instruction) bld f =
   match ins.Operands with
   | FiveOperands(o1, o2, o3, o4, o5) ->
     let d = oprRegVar bld o1
@@ -675,7 +675,7 @@ let rotateCombine (ins: Instruction) insLen bld f =
     let mask = selectMask (i3 &&& 63) (int (oprImm o4) &&& 63)
     let testOnly = i3 &&& 0x80 <> 0
     let t = tmpVar bld GRSize
-    lift bld (ins: Instruction) insLen {
+    lift bld (ins: Instruction) {
       let rotated = rotl GRSize (srcOf bld GRSize o2) (numG (oprImm o5 &&& 63L))
       t := f d rotated mask
       setCCLogic bld (t .& numG (int64 mask))
@@ -686,8 +686,8 @@ let rotateCombine (ins: Instruction) insLen bld f =
 
 /// A comparison, which reports how the first operand stands to the second and
 /// changes nothing else.
-let compare ins insLen bld rt accW ext signed =
-  lift bld (ins: Instruction) insLen {
+let compare ins bld rt accW ext signed =
+  lift bld (ins: Instruction) {
     let struct (o1, o2) = getTwoOprs ins
     let a = tmpVar bld rt
     let b = tmpVar bld rt
@@ -697,8 +697,8 @@ let compare ins insLen bld rt accW ext signed =
   }
 
 /// A comparison against storage the instruction names relative to itself.
-let compareRel ins insLen bld rt accW ext signed =
-  lift bld ins insLen {
+let compareRel ins bld rt accW ext signed =
+  lift bld ins {
     let struct (o1, o2) = getTwoOprs ins
     let addr = numG (int64 (codeAddr bld (relTarget ins.Address (oprImm o2))))
     let a = tmpVar bld rt
@@ -709,8 +709,8 @@ let compareRel ins insLen bld rt accW ext signed =
   }
 
 /// A comparison of a field of storage against an immediate.
-let compareStorageImm ins insLen bld accW signed =
-  lift bld (ins: Instruction) insLen {
+let compareStorageImm ins bld accW signed =
+  lift bld (ins: Instruction) {
     let struct (o1, o2) = getTwoOprs ins
     let a = tmpVar bld accW
     a := loadMem accW (transMem bld o1)
@@ -719,8 +719,8 @@ let compareStorageImm ins insLen bld accW signed =
   }
 
 /// COMPARE LOGICAL, storage to storage.
-let compareStorage ins insLen bld =
-  lift bld (ins: Instruction) insLen {
+let compareStorage ins bld =
+  lift bld (ins: Instruction) {
     let struct (o1, o2) = getTwoOprs ins
     let len = numG (int64 (lenOfMem o1))
     let a = tmpVar bld GRSize
@@ -731,8 +731,8 @@ let compareStorage ins insLen bld =
   }
 
 /// TEST UNDER MASK on a byte of storage.
-let testMaskStorage ins insLen bld =
-  lift bld (ins: Instruction) insLen {
+let testMaskStorage ins bld =
+  lift bld (ins: Instruction) {
     let struct (o1, o2) = getTwoOprs ins
     let v = tmpVar bld 8<rt>
     v := loadMem 8<rt> (transMem bld o1)
@@ -740,8 +740,8 @@ let testMaskStorage ins insLen bld =
   }
 
 /// TEST UNDER MASK on one of a register's four halfwords.
-let testMaskReg ins insLen bld pos =
-  lift bld (ins: Instruction) insLen {
+let testMaskReg ins bld pos =
+  lift bld (ins: Instruction) {
     let struct (o1, o2) = getTwoOprs ins
     let v = tmpVar bld 16<rt>
     v := AST.extract (oprRegVar bld o1) 16<rt> pos
@@ -751,22 +751,22 @@ let testMaskReg ins insLen bld pos =
 /// The address of the instruction after the one being lifted, as an
 /// expression, which is where a branch not taken carries on and where a call
 /// leaves its return address.
-let private fallThrough bld (ins: Instruction) insLen =
-  numG (int64 (codeAddr bld (nextAddr ins.Address insLen)))
+let private fallThrough bld (ins: Instruction) =
+  numG (int64 (codeAddr bld (nextAddr ins)))
 
 /// The value a call leaves in its link register. On z/Architecture that is the
 /// return address and nothing else. ESA/390 has the addressing mode to record
 /// as well, and puts it in the bit above the 31 an address occupies -- which is
 /// why the branch back has to mask that bit off again.
-let private linkValue bld (ins: Instruction) insLen =
-  let next = codeAddr bld (nextAddr ins.Address insLen)
+let private linkValue bld (ins: Instruction) =
+  let next = codeAddr bld (nextAddr ins)
   if esaMode bld then numG (int64 (next ||| 0x80000000UL))
   else numG (int64 next)
 
 /// A branch a condition-code mask decides, whose target the instruction names
 /// relative to itself.
-let branchRelative ins insLen bld =
-  lift bld ins insLen {
+let branchRelative ins bld =
+  lift bld ins {
     let struct (o1, o2) = getTwoOprs ins
     let m = oprMask o1
     let target = numG (int64 (codeAddr bld (relTarget ins.Address (oprImm o2))))
@@ -775,14 +775,14 @@ let branchRelative ins insLen bld =
     elif isAlways m then
       AST.interjmp target InterJmpKind.Base
     else
-      let next = fallThrough bld ins insLen
+      let next = fallThrough bld ins
       AST.intercjmp (condOfMask bld m) target next
   }
 
 /// A branch a mask decides, whose target is the address its base, index, and
 /// displacement form -- not what is stored there.
-let branchOnCondition ins insLen bld =
-  lift bld (ins: Instruction) insLen {
+let branchOnCondition ins bld =
+  lift bld (ins: Instruction) {
     let struct (o1, o2) = getTwoOprs ins
     let m = oprMask o1
     if isNever m then
@@ -792,7 +792,7 @@ let branchOnCondition ins insLen bld =
       if isAlways m then
         AST.interjmp target InterJmpKind.Base
       else
-        let next = fallThrough bld ins insLen
+        let next = fallThrough bld ins
         AST.intercjmp (condOfMask bld m) target next
   }
 
@@ -800,8 +800,8 @@ let branchOnCondition ins insLen bld =
 /// of R0 names no register and so never branches, which is how the assembler
 /// spells a no-operation; a mask that takes every code and a second operand of
 /// the link register is how a function returns.
-let branchOnConditionReg ins insLen bld =
-  lift bld (ins: Instruction) insLen {
+let branchOnConditionReg ins bld =
+  lift bld (ins: Instruction) {
     let struct (o1, o2) = getTwoOprs ins
     let m = oprMask o1
     let r2 = oprReg o2
@@ -814,64 +814,64 @@ let branchOnConditionReg ins insLen bld =
       if isAlways m then
         AST.interjmp target kind
       else
-        let next = fallThrough bld ins insLen
+        let next = fallThrough bld ins
         AST.intercjmp (condOfMask bld m) target next
   }
 
 /// BRANCH AND SAVE, in the relative form the compiler uses for every call: the
 /// return address goes to the first operand and control to the target.
-let branchAndSaveRel ins insLen bld =
-  lift bld ins insLen {
+let branchAndSaveRel ins bld =
+  lift bld ins {
     let struct (o1, o2) = getTwoOprs ins
     let d = oprRegVar bld o1
     let target = numG (int64 (codeAddr bld (relTarget ins.Address (oprImm o2))))
-    d := linkValue bld ins insLen
+    d := linkValue bld ins
     AST.interjmp target InterJmpKind.IsCall
   }
 
 /// BRANCH AND SAVE to the address the second operand names.
-let branchAndSave ins insLen bld =
-  lift bld (ins: Instruction) insLen {
+let branchAndSave ins bld =
+  lift bld (ins: Instruction) {
     let struct (o1, o2) = getTwoOprs ins
     let d = oprRegVar bld o1
     let t = tmpVar bld GRSize
     t := transMem bld o2
-    d := linkValue bld ins insLen
+    d := linkValue bld ins
     AST.interjmp t InterJmpKind.IsCall
   }
 
 /// BRANCH AND SAVE to the address a register holds. As with a branch on
 /// condition, a second operand of R0 saves the return address and goes nowhere.
-let branchAndSaveReg ins insLen bld =
-  lift bld (ins: Instruction) insLen {
+let branchAndSaveReg ins bld =
+  lift bld (ins: Instruction) {
     let struct (o1, o2) = getTwoOprs ins
     let d = oprRegVar bld o1
     let r2 = oprReg o2
     let t = tmpVar bld GRSize
     if r2 = Register.R0 then
-      d := linkValue bld ins insLen
+      d := linkValue bld ins
     else
       t := maskAddr bld (reg bld r2)
-      d := linkValue bld ins insLen
+      d := linkValue bld ins
       AST.interjmp t InterJmpKind.IsCall
   }
 
 /// BRANCH ON COUNT, relative: the first operand counts down and control goes
 /// to the target while the count has not reached zero.
-let branchOnCountRel ins insLen bld rt =
-  lift bld ins insLen {
+let branchOnCountRel ins bld rt =
+  lift bld ins {
     let struct (o1, o2) = getTwoOprs ins
     let d = oprRegVar bld o1
     let target = numG (int64 (codeAddr bld (relTarget ins.Address (oprImm o2))))
     let t = tmpVar bld rt
     t := srcReg rt d .- AST.num1 rt
     dst rt d := t
-    AST.intercjmp (t != AST.num0 rt) target (fallThrough bld ins insLen)
+    AST.intercjmp (t != AST.num0 rt) target (fallThrough bld ins)
   }
 
 /// BRANCH ON COUNT, to the address the second operand names.
-let branchOnCount ins insLen bld rt =
-  lift bld (ins: Instruction) insLen {
+let branchOnCount ins bld rt =
+  lift bld (ins: Instruction) {
     let struct (o1, o2) = getTwoOprs ins
     let d = oprRegVar bld o1
     let t = tmpVar bld rt
@@ -879,13 +879,13 @@ let branchOnCount ins insLen bld rt =
     target := transMem bld o2
     t := srcReg rt d .- AST.num1 rt
     dst rt d := t
-    AST.intercjmp (t != AST.num0 rt) target (fallThrough bld ins insLen)
+    AST.intercjmp (t != AST.num0 rt) target (fallThrough bld ins)
   }
 
 /// BRANCH ON COUNT to a register's address, which counts down whether or not
 /// the second operand names anywhere to go.
-let branchOnCountReg ins insLen bld rt =
-  lift bld (ins: Instruction) insLen {
+let branchOnCountReg ins bld rt =
+  lift bld (ins: Instruction) {
     let struct (o1, o2) = getTwoOprs ins
     let d = oprRegVar bld o1
     let r2 = oprReg o2
@@ -898,14 +898,14 @@ let branchOnCountReg ins insLen bld rt =
       target := maskAddr bld (reg bld r2)
       t := srcReg rt d .- AST.num1 rt
       dst rt d := t
-      AST.intercjmp (t != AST.num0 rt) target (fallThrough bld ins insLen)
+      AST.intercjmp (t != AST.num0 rt) target (fallThrough bld ins)
   }
 
 /// BRANCH ON INDEX: the first operand takes an increment from the third, and
 /// the sum is compared against the third register's odd partner -- the third
 /// register itself when it is already the odd one -- to decide the branch.
-let branchOnIndexRel ins insLen bld rt high =
-  lift bld ins insLen {
+let branchOnIndexRel ins bld rt high =
+  lift bld ins {
     let struct (o1, o2, o3) = getThreeOprs ins
     let d = oprRegVar bld o1
     let r3 = oprReg o3
@@ -917,12 +917,12 @@ let branchOnIndexRel ins insLen bld rt high =
     t := srcReg rt d .+ srcReg rt (reg bld r3)
     dst rt d := t
     let cond = if high then t ?> limit else t ?<= limit
-    AST.intercjmp cond target (fallThrough bld ins insLen)
+    AST.intercjmp cond target (fallThrough bld ins)
   }
 
 /// BRANCH ON INDEX to the address the second operand names.
-let branchOnIndex ins insLen bld rt high =
-  lift bld (ins: Instruction) insLen {
+let branchOnIndex ins bld rt high =
+  lift bld (ins: Instruction) {
     let struct (o1, o2, o3) = getThreeOprs ins
     let d = oprRegVar bld o1
     let r3 = oprReg o3
@@ -935,7 +935,7 @@ let branchOnIndex ins insLen bld rt high =
     t := srcReg rt d .+ srcReg rt (reg bld r3)
     dst rt d := t
     let cond = if high then t ?> limit else t ?<= limit
-    AST.intercjmp cond target (fallThrough bld ins insLen)
+    AST.intercjmp cond target (fallThrough bld ins)
   }
 
 /// The condition a compare-and-branch mask names, taken straight from the
@@ -953,8 +953,8 @@ let private cmpCond (m: Mask) signed a b =
 
 /// COMPARE AND BRANCH RELATIVE, which folds a comparison and the branch that
 /// acts on it into one instruction.
-let compareAndBranchRel ins insLen bld rt signed =
-  lift bld ins insLen {
+let compareAndBranchRel ins bld rt signed =
+  lift bld ins {
     let struct (o1, o2, o3, o4) = getFourOprs ins
     let m = oprMask o3
     let target = numG (int64 (codeAddr bld (relTarget ins.Address (oprImm o4))))
@@ -970,12 +970,12 @@ let compareAndBranchRel ins insLen bld rt signed =
         AST.interjmp target InterJmpKind.Base
       else
         let cond = cmpCond m signed a b
-        AST.intercjmp cond target (fallThrough bld ins insLen)
+        AST.intercjmp cond target (fallThrough bld ins)
   }
 
 /// COMPARE AND BRANCH to the address the last operand names.
-let compareAndBranch ins insLen bld rt signed =
-  lift bld (ins: Instruction) insLen {
+let compareAndBranch ins bld rt signed =
+  lift bld (ins: Instruction) {
     let struct (o1, o2, o3, o4) = getFourOprs ins
     let m = oprMask o3
     if m &&& 0xeus = 0us then
@@ -991,13 +991,13 @@ let compareAndBranch ins insLen bld rt signed =
         AST.interjmp target InterJmpKind.Base
       else
         let cond = cmpCond m signed a b
-        AST.intercjmp cond target (fallThrough bld ins insLen)
+        AST.intercjmp cond target (fallThrough bld ins)
   }
 
 /// COMPARE AND TRAP, which a compiler plants where a check must not be allowed
 /// to fall through -- a division by zero, a bound a pointer must respect.
-let compareAndTrap ins insLen bld rt signed =
-  lift bld (ins: Instruction) insLen {
+let compareAndTrap ins bld rt signed =
+  lift bld (ins: Instruction) {
     let struct (o1, o2, o3) = getThreeOprs ins
     let m = oprMask o3
     if m &&& 0xeus = 0us then
@@ -1020,8 +1020,8 @@ let compareAndTrap ins insLen bld rt signed =
 
 /// LOAD ON CONDITION, whose mask selects the condition codes it acts on. The
 /// load is written as a select so the lifted block stays straight-line.
-let loadOnCondition ins insLen bld rt =
-  lift bld (ins: Instruction) insLen {
+let loadOnCondition ins bld rt =
+  lift bld (ins: Instruction) {
     let struct (o1, o2, o3) = getThreeOprs ins
     let d = oprRegVar bld o1
     let m = oprMask o3
@@ -1036,8 +1036,8 @@ let loadOnCondition ins insLen bld rt =
 
 /// LOAD HALFWORD IMMEDIATE ON CONDITION, whose immediate is sign-extended to
 /// the operation's width.
-let loadImmOnCondition ins insLen bld rt =
-  lift bld (ins: Instruction) insLen {
+let loadImmOnCondition ins bld rt =
+  lift bld (ins: Instruction) {
     let struct (o1, o2, o3) = getThreeOprs ins
     let d = oprRegVar bld o1
     let m = oprMask o3
@@ -1052,8 +1052,8 @@ let loadImmOnCondition ins insLen bld rt =
 
 /// STORE ON CONDITION. Unlike the load, a store that must not happen cannot be
 /// written as a select, so this one does branch.
-let storeOnCondition ins insLen bld rt =
-  lift bld (ins: Instruction) insLen {
+let storeOnCondition ins bld rt =
+  lift bld (ins: Instruction) {
     let struct (o1, o2, o3) = getThreeOprs ins
     let m = oprMask o3
     if isNever m then
@@ -1078,8 +1078,8 @@ let private maskedBytes (m: Mask) =
 /// consecutive bytes of storage, replace the matching bytes of one word of the
 /// first operand -- its low one, or, for the "high" form, the other -- and the
 /// condition code reports what was inserted.
-let icm ins insLen bld half =
-  lift bld (ins: Instruction) insLen {
+let icm ins bld half =
+  lift bld (ins: Instruction) {
     let struct (o1, o2, o3) = getThreeOprs ins
     let d = oprRegVar bld o1
     let sel = maskedBytes (oprMask o3)
@@ -1105,8 +1105,8 @@ let icm ins insLen bld half =
 
 /// STORE CHARACTERS UNDER MASK: the mirror of INSERT, which writes only the
 /// bytes the mask selects and touches no condition code.
-let stcm ins insLen bld =
-  lift bld (ins: Instruction) insLen {
+let stcm ins bld =
+  lift bld (ins: Instruction) {
     let struct (o1, o2, o3) = getThreeOprs ins
     let d = oprRegVar bld o1
     let sel = maskedBytes (oprMask o3)
@@ -1118,8 +1118,8 @@ let stcm ins insLen bld =
   }
 
 /// COMPARE LOGICAL CHARACTERS UNDER MASK.
-let clm ins insLen bld =
-  lift bld (ins: Instruction) insLen {
+let clm ins bld =
+  lift bld (ins: Instruction) {
     let struct (o1, o2, o3) = getThreeOprs ins
     let d = oprRegVar bld o1
     let sel = maskedBytes (oprMask o3)
@@ -1147,8 +1147,8 @@ let clm ins insLen bld =
 
 /// INSERT CHARACTER: a byte of storage replaces the lowest byte of the first
 /// operand and leaves the rest of the register as it was.
-let ic ins insLen bld =
-  lift bld (ins: Instruction) insLen {
+let ic ins bld =
+  lift bld (ins: Instruction) {
     let struct (o1, o2) = getTwoOprs ins
     let d = oprRegVar bld o1
     AST.xtlo 8<rt> d := loadMem 8<rt> (transMem bld o2)
@@ -1157,8 +1157,8 @@ let ic ins insLen bld =
 /// COMPARE AND SWAP, the primitive every lock in the guest is built from: the
 /// first operand's value is replaced by what was found, and the third
 /// operand's is stored only where the two matched.
-let compareAndSwap ins insLen bld rt =
-  lift bld (ins: Instruction) insLen {
+let compareAndSwap ins bld rt =
+  lift bld (ins: Instruction) {
     let struct (o1, o2, o3) = getThreeOprs ins
     let d = oprRegVar bld o1
     let addr = tmpVar bld GRSize
@@ -1180,8 +1180,8 @@ let compareAndSwap ins insLen bld rt =
 /// LOAD AND ADD and its bitwise relatives: the value found in storage goes to
 /// the first operand and the combination of it with the third is stored back,
 /// indivisibly.
-let loadAndOp ins insLen bld rt f =
-  lift bld (ins: Instruction) insLen {
+let loadAndOp ins bld rt f =
+  lift bld (ins: Instruction) {
     let struct (o1, o2, o3) = getThreeOprs ins
     let d = oprRegVar bld o1
     let addr = tmpVar bld GRSize
@@ -1301,7 +1301,7 @@ let private executeArm bld op lblOut code body =
 /// code around it. A supervisor call is the one target that is not such an
 /// operation: there the same byte is the call number, which is how a program
 /// asks for a call it only names at run time.
-let private executeAt ins insLen bld r1 target =
+let private executeAt ins bld r1 target =
   append bld {
     let tgt = tmpVar bld GRSize
     let op = tmpVar bld 8<rt>
@@ -1339,19 +1339,19 @@ let private executeAt ins insLen bld r1 target =
   }
 
 /// EXECUTE, whose target a base, index, and displacement name.
-let execute ins insLen bld =
-  lift bld (ins: Instruction) insLen {
+let execute ins bld =
+  lift bld (ins: Instruction) {
     let struct (o1, o2) = getTwoOprs ins
-    executeAt ins insLen bld (oprReg o1) (transMem bld o2)
+    executeAt ins bld (oprReg o1) (transMem bld o2)
   }
 
 /// EXECUTE RELATIVE LONG, whose target the instruction names by its own
 /// distance from it, which is the form position-independent code uses.
-let executeRel ins insLen bld =
-  lift bld ins insLen {
+let executeRel ins bld =
+  lift bld ins {
     let struct (o1, o2) = getTwoOprs ins
     let target = numG (int64 (codeAddr bld (relTarget ins.Address (oprImm o2))))
-    executeAt ins insLen bld (oprReg o1) target
+    executeAt ins bld (oprReg o1) target
   }
 
 /// The byte the string operations stop at, which R0's rightmost byte names.
@@ -1362,8 +1362,8 @@ let private terminator bld = AST.xtlo 8<rt> (reg bld Register.R0)
 /// puts its address in the first operand and reports 1; running out reports 2.
 /// This is how the C library finds the end of a string without the vector
 /// facility.
-let srst ins insLen bld =
-  lift bld (ins: Instruction) insLen {
+let srst ins bld =
+  lift bld (ins: Instruction) {
     let struct (o1, o2) = getTwoOprs ins
     let d = oprRegVar bld o1
     let s = oprRegVar bld o2
@@ -1398,8 +1398,8 @@ let srst ins insLen bld =
 
 /// MOVE STRING: bytes go from the second operand's address to the first's
 /// until the terminator has been moved, which then names where it landed.
-let mvst ins insLen bld =
-  lift bld (ins: Instruction) insLen {
+let mvst ins bld =
+  lift bld (ins: Instruction) {
     let struct (o1, o2) = getTwoOprs ins
     let d = oprRegVar bld o1
     let s = oprRegVar bld o2
@@ -1427,8 +1427,8 @@ let mvst ins insLen bld =
 /// COMPARE LOGICAL STRING: the two operands are compared byte by byte until
 /// they differ or both reach the terminator, and the operands are left naming
 /// the bytes that decided it.
-let clst ins insLen bld =
-  lift bld (ins: Instruction) insLen {
+let clst ins bld =
+  lift bld (ins: Instruction) {
     let struct (o1, o2) = getTwoOprs ins
     let d = oprRegVar bld o1
     let s = oprRegVar bld o2
@@ -1463,8 +1463,8 @@ let clst ins insLen bld =
 
 /// EXTRACT CACHE ATTRIBUTE, whose answer describes a cache hierarchy this
 /// emulator does not have: zero, which reads as "no such level".
-let ecag ins insLen bld =
-  lift bld (ins: Instruction) insLen {
+let ecag ins bld =
+  lift bld (ins: Instruction) {
     let struct (o1, _, _) = getThreeOprs ins
     let d = oprRegVar bld o1
     d := AST.num0 GRSize
@@ -1473,8 +1473,8 @@ let ecag ins insLen bld =
 /// A storage-to-storage move of one nibble of each byte: the numerics are the
 /// right-hand halves and the zones the left-hand ones, which is how decimal
 /// code rearranges a field without disturbing its signs.
-let ssNibble ins insLen bld numerics =
-  lift bld (ins: Instruction) insLen {
+let ssNibble ins bld numerics =
+  lift bld (ins: Instruction) {
     let struct (o1, o2) = getTwoOprs ins
     let len = numG (int64 (lenOfMem o1))
     let d = tmpVar bld GRSize
@@ -1488,8 +1488,8 @@ let ssNibble ins insLen bld numerics =
 
 /// MOVE INVERSE, which copies the second operand's bytes into the first in the
 /// opposite order -- the second operand's address names its *rightmost* byte.
-let moveInverse ins insLen bld =
-  lift bld (ins: Instruction) insLen {
+let moveInverse ins bld =
+  lift bld (ins: Instruction) {
     let struct (o1, o2) = getTwoOprs ins
     let len = lenOfMem o1
     let d = tmpVar bld GRSize
@@ -1510,8 +1510,8 @@ let moveInverse ins insLen bld =
 /// MOVE RIGHT TO LEFT, which copies from the right-hand end so that operands
 /// overlapping the other way round still come out whole. Its length comes from
 /// R0 rather than the encoding, so it can be as long as 4096 bytes.
-let moveRightToLeft ins insLen bld =
-  lift bld (ins: Instruction) insLen {
+let moveRightToLeft ins bld =
+  lift bld (ins: Instruction) {
     let struct (o1, o2) = getTwoOprs ins
     let d = tmpVar bld GRSize
     let s = tmpVar bld GRSize
@@ -1532,8 +1532,8 @@ let moveRightToLeft ins insLen bld =
 /// MOVE WITH OFFSET, the decimal-support move: the second operand goes into
 /// the first right-aligned and shifted one digit left, so that the first
 /// operand's rightmost digit -- which holds the sign -- survives.
-let moveWithOffset ins insLen bld =
-  lift bld (ins: Instruction) insLen {
+let moveWithOffset ins bld =
+  lift bld (ins: Instruction) {
     let struct (o1, o2) = getTwoOprs ins
     let n1 = lenOfMem o1
     let n2 = lenOfMem o2
@@ -1598,12 +1598,12 @@ let private moveLoop bld width step dst src pad labels =
 /// the second runs out the rest takes a pad byte. Both addresses and lengths
 /// live in register pairs, which are left naming what has yet to be moved so
 /// that a partial completion could be resumed -- this one always completes.
-let moveLongExtended ins insLen bld unit =
+let moveLongExtended ins bld unit =
   let struct (o1, o2, o3) = getThreeOprs ins
   let r1 = oprReg o1
   let r3 = oprReg o3
   if not (isPair r1 && isPair r3) then
-    specException ins insLen bld
+    specException ins bld
   else
     let da = reg bld r1
     let dl = reg bld (pairOf r1)
@@ -1618,7 +1618,7 @@ let moveLongExtended ins insLen bld unit =
     let copy = label bld "MvcleCopy"
     let fill = label bld "MvcleFill"
     let out = label bld "MvcleOut"
-    lift bld (ins: Instruction) insLen {
+    lift bld (ins: Instruction) {
       pad := AST.xtlo width (transMem bld o2)
       cmp := AST.ite (dl == sl)
                      (numCC 0)
@@ -1631,12 +1631,12 @@ let moveLongExtended ins insLen bld unit =
 /// COMPARE LOGICAL LONG EXTENDED: the two operands are compared over the
 /// longer of their lengths, the shorter one padded out, and the registers are
 /// left naming the units that decided it.
-let compareLongExtended ins insLen bld unit =
+let compareLongExtended ins bld unit =
   let struct (o1, o2, o3) = getThreeOprs ins
   let r1 = oprReg o1
   let r3 = oprReg o3
   if not (isPair r1 && isPair r3) then
-    specException ins insLen bld
+    specException ins bld
   else
     let aa = reg bld r1
     let al = reg bld (pairOf r1)
@@ -1652,7 +1652,7 @@ let compareLongExtended ins insLen bld unit =
     let same = label bld "ClcleSame"
     let diff = label bld "ClcleDiff"
     let out = label bld "ClcleOut"
-    lift bld (ins: Instruction) insLen {
+    lift bld (ins: Instruction) {
       pad := AST.xtlo width (transMem bld o2)
       setCC bld 0
       AST.lmark body
@@ -1696,12 +1696,12 @@ let private finishMoveLong bld dst src cmp labels =
 /// of the odd registers and whose pad byte travels in the source length
 /// register. Operands that overlap so that the move would destroy what it has
 /// yet to read leave the storage alone and report the fourth condition code.
-let moveLong ins insLen bld =
+let moveLong ins bld =
   let struct (o1, o2) = getTwoOprs ins
   let r1 = oprReg o1
   let r2 = oprReg o2
   if not (isPair r1 && isPair r2) then
-    specException ins insLen bld
+    specException ins bld
   else
     let da = reg bld r1
     let dlr = reg bld (pairOf r1)
@@ -1718,7 +1718,7 @@ let moveLong ins insLen bld =
     let over = label bld "MvclDone"
     let overlap = label bld "MvclOverlap"
     let out = label bld "MvclOut"
-    lift bld (ins: Instruction) insLen {
+    lift bld (ins: Instruction) {
       dl := dlr .& numG 0xffffffL
       sl := slr .& numG 0xffffffL
       pad := AST.extract slr 8<rt> 24
@@ -1768,12 +1768,12 @@ let private compareLoop bld a b pad bytes labels =
 
 /// COMPARE LOGICAL LONG, the older form of the padded comparison, whose
 /// lengths and pad byte sit in the odd registers as MOVE LONG's do.
-let compareLong ins insLen bld =
+let compareLong ins bld =
   let struct (o1, o2) = getTwoOprs ins
   let r1 = oprReg o1
   let r2 = oprReg o2
   if not (isPair r1 && isPair r2) then
-    specException ins insLen bld
+    specException ins bld
   else
     let aa = reg bld r1
     let alr = reg bld (pairOf r1)
@@ -1789,7 +1789,7 @@ let compareLong ins insLen bld =
     let same = label bld "ClclSame"
     let diff = label bld "ClclDiff"
     let out = label bld "ClclOut"
-    lift bld (ins: Instruction) insLen {
+    lift bld (ins: Instruction) {
       al := alr .& numG 0xffffffL
       bl := blr .& numG 0xffffffL
       pad := AST.extract blr 8<rt> 24
@@ -1803,8 +1803,8 @@ let compareLong ins insLen bld =
 /// TEST AND SET, the oldest of the architecture's atomic primitives: the
 /// leftmost bit of a byte decides the condition code and the whole byte is then
 /// set to ones.
-let testAndSet ins insLen bld =
-  lift bld (ins: Instruction) insLen {
+let testAndSet ins bld =
+  lift bld (ins: Instruction) {
     let o = getOneOpr ins
     let addr = tmpVar bld GRSize
     let v = tmpVar bld 8<rt>
@@ -1820,8 +1820,8 @@ let testAndSet ins insLen bld =
 
 /// TRANSLATE: each byte of the first operand is replaced by the byte the table
 /// the second operand names holds at that byte's own value.
-let translate ins insLen bld =
-  lift bld (ins: Instruction) insLen {
+let translate ins bld =
+  lift bld (ins: Instruction) {
     let struct (o1, o2) = getTwoOprs ins
     let d = tmpVar bld GRSize
     let table = tmpVar bld GRSize
@@ -1834,8 +1834,8 @@ let translate ins insLen bld =
 /// but nothing is written -- the first non-zero entry stops the scan, naming
 /// the byte it came from in R1 and itself in R2. It is how a program finds the
 /// first byte of a field that belongs to a given class.
-let translateAndTest ins insLen bld backwards =
-  lift bld (ins: Instruction) insLen {
+let translateAndTest ins bld backwards =
+  lift bld (ins: Instruction) {
     let struct (o1, o2) = getTwoOprs ins
     let d = tmpVar bld GRSize
     let table = tmpVar bld GRSize
@@ -1847,8 +1847,8 @@ let translateAndTest ins insLen bld backwards =
 /// ADD LOGICAL WITH SIGNED IMMEDIATE to storage. The immediate field is a
 /// signed byte, which the parser hands over as the unsigned bits it holds, so
 /// the sign is put back here before the addition.
-let addLogicalToStorage ins insLen bld rt =
-  lift bld (ins: Instruction) insLen {
+let addLogicalToStorage ins bld rt =
+  lift bld (ins: Instruction) {
     let struct (o1, o2) = getTwoOprs ins
     let addr = tmpVar bld GRSize
     let a = tmpVar bld rt
@@ -1864,25 +1864,25 @@ let addLogicalToStorage ins insLen bld rt =
 /// PERFORM TIMING FACILITY FUNCTION, whose third condition code says the
 /// function asked for is not available -- which is the honest answer from a
 /// machine with no timing facility to query.
-let ptff ins insLen bld =
-  lift bld (ins: Instruction) insLen {
+let ptff ins bld =
+  lift bld (ins: Instruction) {
     setCC bld 3
   }
 
 /// MULTIPLY, whose product is twice as wide as its operands and so fills a
 /// register pair: the even register takes the high half, the odd one the low,
 /// and it is the odd one that supplied the multiplicand.
-let mulPair ins insLen bld (rt: RegType) accW =
+let mulPair ins bld (rt: RegType) accW =
   let struct (o1, o2) = getTwoOprs ins
   let r1 = oprReg o1
   if not (isPair r1) then
-    specException ins insLen bld
+    specException ins bld
   else
     let hi = reg bld r1
     let lo = reg bld (pairOf r1)
     let wide = rt * 2
     let t = tmpVar bld wide
-    lift bld (ins: Instruction) insLen {
+    lift bld (ins: Instruction) {
       let b = AST.sext wide (srcOf bld accW o2)
       t := AST.sext wide (srcReg rt lo) .* b
       dst rt hi := AST.xthi rt t
@@ -1891,17 +1891,17 @@ let mulPair ins insLen bld (rt: RegType) accW =
 
 /// The three-operand form of the double-width multiply, which names both
 /// factors and so leaves them alone.
-let mulPair3 ins insLen bld (rt: RegType) =
+let mulPair3 ins bld (rt: RegType) =
   let struct (o1, o2, o3) = getThreeOprs ins
   let r1 = oprReg o1
   if not (isPair r1) then
-    specException ins insLen bld
+    specException ins bld
   else
     let hi = reg bld r1
     let lo = reg bld (pairOf r1)
     let wide = rt * 2
     let t = tmpVar bld wide
-    lift bld (ins: Instruction) insLen {
+    lift bld (ins: Instruction) {
       let a = AST.sext wide (srcOf bld rt o2)
       let b = AST.sext wide (srcOf bld rt o3)
       t := a .* b
@@ -1911,8 +1911,8 @@ let mulPair3 ins insLen bld (rt: RegType) =
 
 /// MULTIPLY SINGLE with a condition code, which reports whether the product
 /// left the range its width can hold.
-let mulCC ins insLen bld (rt: RegType) accW ext =
-  lift bld (ins: Instruction) insLen {
+let mulCC ins bld (rt: RegType) accW ext =
+  lift bld (ins: Instruction) {
     let struct (o1, o2) = getTwoOprs ins
     let d = oprRegVar bld o1
     let wide = rt * 2
@@ -1932,11 +1932,11 @@ let mulCC ins insLen bld (rt: RegType) accW ext =
 
 /// DIVIDE, whose dividend spans a register pair: the quotient replaces the odd
 /// register and the remainder the even one.
-let divPair ins insLen bld (rt: RegType) accW =
+let divPair ins bld (rt: RegType) accW =
   let struct (o1, o2) = getTwoOprs ins
   let r1 = oprReg o1
   if not (isPair r1) then
-    specException ins insLen bld
+    specException ins bld
   else
     let hi = reg bld r1
     let lo = reg bld (pairOf r1)
@@ -1945,7 +1945,7 @@ let divPair ins insLen bld (rt: RegType) accW =
     let den = tmpVar bld wide
     let q = tmpVar bld wide
     let r = tmpVar bld wide
-    lift bld (ins: Instruction) insLen {
+    lift bld (ins: Instruction) {
       den := AST.sext wide (srcOf bld accW o2)
       num := AST.concat (srcReg rt hi) (srcReg rt lo)
       q := num ?/ den
@@ -1956,16 +1956,16 @@ let divPair ins insLen bld (rt: RegType) accW =
 
 /// The double shifts, which work on the 64-bit value a register pair's two low
 /// words make up. The arithmetic ones report the sign of what they produced.
-let shiftDouble ins insLen bld f setsCC =
+let shiftDouble ins bld f setsCC =
   let struct (o1, o2) = getTwoOprs ins
   let r1 = oprReg o1
   if not (isPair r1) then
-    specException ins insLen bld
+    specException ins bld
   else
     let hi = reg bld r1
     let lo = reg bld (pairOf r1)
     let t = tmpVar bld GRSize
-    lift bld (ins: Instruction) insLen {
+    lift bld (ins: Instruction) {
       let value = AST.concat (low hi) (low lo)
       t := f value (transMem bld o2 .& numG 63L)
       if setsCC then setCCSign bld t else ()
@@ -1976,12 +1976,12 @@ let shiftDouble ins insLen bld f setsCC =
 /// COMPARE DOUBLE AND SWAP, the pair-wide form of the atomic exchange: the
 /// comparand and the replacement each span two registers, so a program can
 /// swap a pointer and its counter together.
-let compareDoubleAndSwap ins insLen bld (rt: RegType) =
+let compareDoubleAndSwap ins bld (rt: RegType) =
   let struct (o1, o2, o3) = getThreeOprs ins
   let r1 = oprReg o1
   let r3 = oprReg o3
   if not (isPair r1 && isPair r3) then
-    specException ins insLen bld
+    specException ins bld
   else
     let wide = rt * 2
     let ahi = reg bld r1
@@ -1993,7 +1993,7 @@ let compareDoubleAndSwap ins insLen bld (rt: RegType) =
     let want = tmpVar bld wide
     let swap = label bld "CdsSwap"
     let out = label bld "CdsOut"
-    lift bld (ins: Instruction) insLen {
+    lift bld (ins: Instruction) {
       AST.sideEffect AtomicBegin
       addr := transMem bld o2
       found := loadMem wide addr
@@ -2011,13 +2011,13 @@ let compareDoubleAndSwap ins insLen bld (rt: RegType) =
 /// LOAD PAIR DISJOINT, which fetches two words or doublewords from unrelated
 /// places and reports whether it managed to do so as one indivisible access.
 /// One thread at a time means it always does.
-let loadPairDisjoint ins insLen bld rt =
+let loadPairDisjoint ins bld rt =
   let struct (o1, o2, o3) = getThreeOprs ins
   let r3 = oprReg o3
   if not (isPair r3) then
-    specException ins insLen bld
+    specException ins bld
   else
-    lift bld (ins: Instruction) insLen {
+    lift bld (ins: Instruction) {
       AST.sideEffect AtomicBegin
       dst rt (reg bld r3) := loadMem rt (transMem bld o1)
       dst rt (reg bld (pairOf r3)) := loadMem rt (transMem bld o2)
@@ -2027,16 +2027,16 @@ let loadPairDisjoint ins insLen bld rt =
 
 /// LOAD PAIR FROM QUADWORD and its mirror, the sixteen-byte accesses a program
 /// uses when it needs two doublewords to move together.
-let quadPair ins insLen bld isLoad =
+let quadPair ins bld isLoad =
   let struct (o1, o2) = getTwoOprs ins
   let r1 = oprReg o1
   if not (isPair r1) then
-    specException ins insLen bld
+    specException ins bld
   else
     let hi = reg bld r1
     let lo = reg bld (pairOf r1)
     let addr = tmpVar bld GRSize
-    lift bld (ins: Instruction) insLen {
+    lift bld (ins: Instruction) {
       AST.sideEffect AtomicBegin
       addr := transMem bld o2
       if isLoad then
@@ -2051,8 +2051,8 @@ let quadPair ins insLen bld isLoad =
 
 /// A load that traps on a zero result, which a compiler plants where a null
 /// pointer must not be allowed to travel any further.
-let loadAndTrap ins insLen bld rt accW ext =
-  lift bld (ins: Instruction) insLen {
+let loadAndTrap ins bld rt accW ext =
+  lift bld (ins: Instruction) {
     let struct (o1, o2) = getTwoOprs ins
     let d = oprRegVar bld o1
     let t = tmpVar bld rt
@@ -2068,8 +2068,8 @@ let loadAndTrap ins insLen bld rt accW ext =
 
 /// A load that clears the value's rightmost byte, which is how a pointer that
 /// carries tag bits there is stripped as it is loaded.
-let loadZeroRightmost ins insLen bld rt accW ext =
-  lift bld (ins: Instruction) insLen {
+let loadZeroRightmost ins bld rt accW ext =
+  lift bld (ins: Instruction) {
     let struct (o1, o2) = getTwoOprs ins
     let d = oprRegVar bld o1
     let v = ext rt (srcOf bld accW o2)
@@ -2079,8 +2079,8 @@ let loadZeroRightmost ins insLen bld rt accW ext =
 /// LOAD ADDRESS EXTENDED, which is LOAD ADDRESS with an access register set
 /// alongside. A program in the primary-space mode -- the only mode Linux runs
 /// its processes in -- gets zero there.
-let loadAddressExtended ins insLen bld =
-  lift bld (ins: Instruction) insLen {
+let loadAddressExtended ins bld =
+  lift bld (ins: Instruction) {
     let struct (o1, o2) = getTwoOprs ins
     let r1 = oprReg o1
     reg bld r1 := transMem bld o2
@@ -2098,8 +2098,8 @@ let private accessRange (a1: Register) (a3: Register) =
 
 /// LOAD or STORE ACCESS MULTIPLE: consecutive access registers take, or fill,
 /// consecutive words of storage.
-let accessMultiple ins insLen bld isLoad =
-  lift bld (ins: Instruction) insLen {
+let accessMultiple ins bld isLoad =
+  lift bld (ins: Instruction) {
     let struct (o1, o2, o3) = getThreeOprs ins
     let regs = accessRange (oprReg o1) (oprReg o3)
     let addr = tmpVar bld GRSize
@@ -2111,8 +2111,8 @@ let accessMultiple ins insLen bld isLoad =
   }
 
 /// COPY ACCESS, a move between two access registers.
-let copyAccess ins insLen bld =
-  lift bld (ins: Instruction) insLen {
+let copyAccess ins bld =
+  lift bld (ins: Instruction) {
     let struct (o1, o2) = getTwoOprs ins
     oprRegVar bld o1 := oprRegVar bld o2
   }
@@ -2120,26 +2120,26 @@ let copyAccess ins insLen bld =
 /// TEST ACCESS, which asks what an access-list entry token names. Every token
 /// a Linux process holds is the primary one, which is what a zero condition
 /// code says.
-let testAccess ins insLen bld =
-  lift bld (ins: Instruction) insLen {
+let testAccess ins bld =
+  lift bld (ins: Instruction) {
     setCC bld 0
   }
 
 /// TEST ADDRESSING MODE, whose condition code names the mode a program is
 /// running in: none for 24-bit addressing, the first for 31-bit, the third for
 /// 64-bit.
-let testAddressingMode ins insLen bld =
-  lift bld (ins: Instruction) insLen {
+let testAddressingMode ins bld =
+  lift bld (ins: Instruction) {
     setCC bld (if esaMode bld then 1 else 3)
   }
 
 /// CHECKSUM, which adds the second operand's words into the first with the
 /// carries folded back in -- the ones' complement sum a network header needs.
-let checksum ins insLen bld =
+let checksum ins bld =
   let struct (o1, o2) = getTwoOprs ins
   let r2 = oprReg o2
   if not (isPair r2) then
-    specException ins insLen bld
+    specException ins bld
   else
     let acc = oprRegVar bld o1
     let addr = reg bld r2
@@ -2148,7 +2148,7 @@ let checksum ins insLen bld =
     let body = label bld "CksmBody"
     let more = label bld "CksmMore"
     let out = label bld "CksmOut"
-    lift bld (ins: Instruction) insLen {
+    lift bld (ins: Instruction) {
       sum := zextTo GRSize (low acc)
       AST.lmark body
       AST.cjmp (len .< numG 4L) (AST.jmpDest out) (AST.jmpDest more)
@@ -2168,8 +2168,8 @@ let checksum ins insLen bld =
 
 /// COMPARE LOGICAL AND TRAP, which compares a register against storage and
 /// takes the trap when the mask names the code the comparison produced.
-let compareTrapStorage ins insLen bld rt =
-  lift bld (ins: Instruction) insLen {
+let compareTrapStorage ins bld rt =
+  lift bld (ins: Instruction) {
     let struct (o1, o2, o3) = getThreeOprs ins
     let m = oprMask o3
     if m &&& 0xeus = 0us then
@@ -2193,8 +2193,8 @@ let compareTrapStorage ins insLen bld rt =
 
 /// BRANCH INDIRECT ON CONDITION, which takes its target from storage rather
 /// than from a register -- a jump through a table without a register to spare.
-let branchIndirect ins insLen bld =
-  lift bld (ins: Instruction) insLen {
+let branchIndirect ins bld =
+  lift bld (ins: Instruction) {
     let struct (o1, o2) = getTwoOprs ins
     let m = oprMask o1
     if isNever m then
@@ -2205,13 +2205,13 @@ let branchIndirect ins insLen bld =
       if isAlways m then
         AST.interjmp target InterJmpKind.Base
       else
-        let next = numG (int64 (codeAddr bld (nextAddr ins.Address insLen)))
+        let next = numG (int64 (codeAddr bld (nextAddr ins)))
         AST.intercjmp (condOfMask bld m) target next
   }
 
 /// MOVE PAGE, which copies a whole 4096-byte page.
-let movePage ins insLen bld =
-  lift bld (ins: Instruction) insLen {
+let movePage ins bld =
+  lift bld (ins: Instruction) {
     let struct (o1, o2) = getTwoOprs ins
     let d = tmpVar bld GRSize
     let s = tmpVar bld GRSize
@@ -2222,8 +2222,8 @@ let movePage ins insLen bld =
   }
 
 /// SEARCH STRING UNICODE, the halfword-at-a-time form of the string search.
-let searchStringUnicode ins insLen bld =
-  lift bld (ins: Instruction) insLen {
+let searchStringUnicode ins bld =
+  lift bld (ins: Instruction) {
     let struct (o1, o2) = getTwoOprs ins
     let d = oprRegVar bld o1
     let s = oprRegVar bld o2
@@ -2259,11 +2259,11 @@ let searchStringUnicode ins insLen bld =
 /// TRANSLATE EXTENDED, which translates through a table until it meets the
 /// byte R0 names -- the length lives in a register, so the field can be longer
 /// than an encoded length could say.
-let translateExtended ins insLen bld =
+let translateExtended ins bld =
   let struct (o1, o2) = getTwoOprs ins
   let r1 = oprReg o1
   if not (isPair r1) then
-    specException ins insLen bld
+    specException ins bld
   else
     let addr = reg bld r1
     let len = reg bld (pairOf r1)
@@ -2274,7 +2274,7 @@ let translateExtended ins insLen bld =
     let step = label bld "TreStep"
     let found = label bld "TreFound"
     let out = label bld "TreOut"
-    lift bld (ins: Instruction) insLen {
+    lift bld (ins: Instruction) {
       setCC bld 0
       AST.lmark body
       AST.cjmp (len == AST.num0 GRSize)
@@ -2299,11 +2299,11 @@ let translateExtended ins insLen bld =
 /// the second operand's units index a table whose entries are the first
 /// operand's units, and a unit equal to the one R0 names stops the operation
 /// before it is stored. The mask's rightmost bit turns that test off.
-let translateUnits ins insLen bld srcW dstW =
+let translateUnits ins bld srcW dstW =
   let struct (o1, o2, o3) = getThreeOprs ins
   let r1 = oprReg o1
   if not (isPair r1) then
-    specException ins insLen bld
+    specException ins bld
   else
     let da = reg bld r1
     let len = reg bld (pairOf r1)
@@ -2319,7 +2319,7 @@ let translateUnits ins insLen bld srcW dstW =
     let step = label bld "TrxStep"
     let found = label bld "TrxFound"
     let out = label bld "TrxOut"
-    lift bld (ins: Instruction) insLen {
+    lift bld (ins: Instruction) {
       setCC bld 0
       AST.lmark body
       AST.cjmp (len .< srcStep) (AST.jmpDest out) (AST.jmpDest more)
@@ -2347,11 +2347,11 @@ let translateUnits ins insLen bld srcW dstW =
 /// function codes, and the first non-zero code stops the scan, naming the
 /// argument it came from and itself in the registers the older TRANSLATE AND
 /// TEST uses. The mask says how wide the arguments and the codes are.
-let translateTestExtended ins insLen bld backwards =
+let translateTestExtended ins bld backwards =
   let struct (o1, o2, o3) = getThreeOprs ins
   let r1 = oprReg o1
   if not (isPair r1) then
-    specException ins insLen bld
+    specException ins bld
   else
     let m = oprMask o3
     let argW = if m &&& 8us <> 0us then 16<rt> else 8<rt>
@@ -2367,7 +2367,7 @@ let translateTestExtended ins insLen bld backwards =
     let step = label bld "TrteStep"
     let found = label bld "TrteFound"
     let out = label bld "TrteOut"
-    lift bld (ins: Instruction) insLen {
+    lift bld (ins: Instruction) {
       setCC bld 0
       AST.lmark body
       AST.cjmp (len .< argStep) (AST.jmpDest out) (AST.jmpDest more)
@@ -2390,8 +2390,8 @@ let translateTestExtended ins insLen bld backwards =
 
 /// TRANSACTION END, which ends nothing here because no transaction ever
 /// begins; outside one it reports 0 as the architecture says.
-let tend ins insLen bld =
-  lift bld (ins: Instruction) insLen {
+let tend ins bld =
+  lift bld (ins: Instruction) {
     setCC bld 0
   }
 
@@ -2399,31 +2399,31 @@ let tend ins insLen bld =
 /// one byte of the first operand, which is how a program reads the code it
 /// cannot otherwise see. The program mask is zero throughout, since nothing
 /// here enables the interruptions it would unmask.
-let ipm ins insLen bld =
-  lift bld (ins: Instruction) insLen {
+let ipm ins bld =
+  lift bld (ins: Instruction) {
     let d = oprRegVar bld (getOneOpr ins)
     AST.extract d 8<rt> 24 := ccVar bld << numCC 4
   }
 
 /// SET PROGRAM MASK, which takes the condition code back out of that byte.
-let spm ins insLen bld =
-  lift bld (ins: Instruction) insLen {
+let spm ins bld =
+  lift bld (ins: Instruction) {
     let d = oprRegVar bld (getOneOpr ins)
     ccVar bld := (AST.extract d 8<rt> 28) .& numCC 3
   }
 
 /// EXTRACT ACCESS: the access register a thread's own storage is reached
 /// through, which is where the s390 ABI keeps the thread pointer.
-let ear ins insLen bld =
-  lift bld (ins: Instruction) insLen {
+let ear ins bld =
+  lift bld (ins: Instruction) {
     let struct (o1, o2) = getTwoOprs ins
     let d = oprRegVar bld o1
     low d := oprRegVar bld o2
   }
 
 /// SET ACCESS, the write that matches EXTRACT ACCESS.
-let sar ins insLen bld =
-  lift bld (ins: Instruction) insLen {
+let sar ins bld =
+  lift bld (ins: Instruction) {
     let struct (o1, o2) = getTwoOprs ins
     let d = oprRegVar bld o1
     d := low (oprRegVar bld o2)
@@ -2431,8 +2431,8 @@ let sar ins insLen bld =
 
 /// A copy between a floating-point and a general register, which compilers use
 /// to park a value without touching storage.
-let regCopy ins insLen bld =
-  lift bld (ins: Instruction) insLen {
+let regCopy ins bld =
+  lift bld (ins: Instruction) {
     let struct (o1, o2) = getTwoOprs ins
     oprRegVar bld o1 := oprRegVar bld o2
   }
@@ -2440,8 +2440,8 @@ let regCopy ins insLen bld =
 /// SUPERVISOR CALL. The immediate names the call whenever it is not zero; a
 /// zero one means the number is in R1 instead, so it is handed on as it stands
 /// and the kernel reads whichever applies.
-let svc ins insLen bld =
-  lift bld (ins: Instruction) insLen {
+let svc ins bld =
+  lift bld (ins: Instruction) {
     let imm = oprImm (getOneOpr ins)
     regVar bld Register.SVCCODE := numI64 imm 8<rt>
     AST.sideEffect SysCall
@@ -2451,8 +2451,8 @@ let svc ins insLen bld =
 /// cannot see. Only the condition code of it is modelled, and it sits where the
 /// word carries it; the rest reads as zero, as do the bits no supervisor here
 /// ever sets.
-let extractPsw ins insLen bld =
-  lift bld (ins: Instruction) insLen {
+let extractPsw ins bld =
+  lift bld (ins: Instruction) {
     let struct (o1, o2) = getTwoOprs ins
     let r1 = oprReg o1
     let r2 = oprReg o2
@@ -2466,8 +2466,8 @@ let extractPsw ins insLen bld =
 /// LOAD COUNT TO BLOCK BOUNDARY, which says how many of the sixteen bytes a
 /// vector load would want lie before the boundary the mask names. The third
 /// condition code means all sixteen do.
-let loadCountToBoundary ins insLen bld =
-  lift bld (ins: Instruction) insLen {
+let loadCountToBoundary ins bld =
+  lift bld (ins: Instruction) {
     let struct (o1, o2, o3) = getThreeOprs ins
     let d = oprRegVar bld o1
     let bound =
@@ -2488,8 +2488,8 @@ let loadCountToBoundary ins insLen bld =
 
 /// STORE CLOCK EXTENDED, whose sixteen bytes are the clock this emulator does
 /// not keep, so they read as zero -- as the plain STORE CLOCK's eight do.
-let storeClockExtended ins insLen bld =
-  lift bld (ins: Instruction) insLen {
+let storeClockExtended ins bld =
+  lift bld (ins: Instruction) {
     let o = getOneOpr ins
     let addr = tmpVar bld GRSize
     addr := transMem bld o
@@ -2500,13 +2500,13 @@ let storeClockExtended ins insLen bld =
 
 /// LOAD MULTIPLE DISJOINT, which fills a range of registers from two places at
 /// once: the high halves come from one and the low halves from the other.
-let loadMultipleDisjoint (ins: Instruction) insLen bld =
+let loadMultipleDisjoint (ins: Instruction) bld =
   match ins.Operands with
   | FourOperands(o1, o2, o3, o4) ->
     let regs = regRange (oprReg o1) (oprReg o3)
     let hi = tmpVar bld GRSize
     let lo = tmpVar bld GRSize
-    lift bld (ins: Instruction) insLen {
+    lift bld (ins: Instruction) {
       hi := transMem bld o2
       lo := transMem bld o4
       for i in 0 .. regs.Length - 1 do
@@ -2537,12 +2537,12 @@ let private compareSubstring bld operands counters labels =
 
 /// COMPARE UNTIL SUBSTRING EQUAL, which looks for the first place the two
 /// operands agree over a whole substring, whose length R0 gives.
-let compareUntilEqual ins insLen bld =
+let compareUntilEqual ins bld =
   let struct (o1, o2) = getTwoOprs ins
   let r1 = oprReg o1
   let r2 = oprReg o2
   if not (isPair r1 && isPair r2) then
-    specException ins insLen bld
+    specException ins bld
   else
     let aa = reg bld r1
     let al = reg bld (pairOf r1)
@@ -2558,7 +2558,7 @@ let compareUntilEqual ins insLen bld =
     let advance = label bld "CuseAdvance"
     let found = label bld "CuseFound"
     let out = label bld "CuseOut"
-    lift bld (ins: Instruction) insLen {
+    lift bld (ins: Instruction) {
       n := reg bld Register.R0 .& numG 0xffffffL
       setCC bld 2
       AST.lmark body
@@ -2585,27 +2585,27 @@ let compareUntilEqual ins insLen bld =
 /// state is a privileged-operation exception, which Linux turns into the
 /// illegal-instruction signal -- so raising the trap is the behaviour, not a
 /// gap in what is modelled here.
-let illegal ins insLen bld =
-  lift bld (ins: Instruction) insLen {
+let illegal ins bld =
+  lift bld (ins: Instruction) {
     AST.sideEffect UndefinedInstruction
   }
 
 /// An instruction with nothing for an emulator of user code to do: a prefetch,
 /// a serialization, or a hint about how the code ahead will behave.
-let nop ins insLen bld =
-  lift bld (ins: Instruction) insLen {
+let nop ins bld =
+  lift bld (ins: Instruction) {
   }
 
 /// A serializing instruction, which orders the accesses around it and does
 /// nothing else that can be seen.
-let fence ins insLen bld =
-  lift bld (ins: Instruction) insLen {
+let fence ins bld =
+  lift bld (ins: Instruction) {
     AST.sideEffect Fence
   }
 
 /// An instruction that is valid but outside what this lifter models.
-let unsupported ins insLen bld =
-  lift bld (ins: Instruction) insLen {
+let unsupported ins bld =
+  lift bld (ins: Instruction) {
     AST.sideEffect UnsupportedInstruction
   }
 
@@ -2614,29 +2614,29 @@ let unsupported ins insLen bld =
 /// is put in its mode by the kernel and never leaves it -- so asking for that
 /// one does nothing and asking for another raises the unsupported trap rather
 /// than carrying on with addresses of the wrong width.
-let setAddressMode ins insLen bld bits =
+let setAddressMode ins bld bits =
   let current = if esaMode bld then 31 else 64
-  if bits = current then nop ins insLen bld else unsupported ins insLen bld
+  if bits = current then nop ins bld else unsupported ins bld
 
 /// TRANSACTION BEGIN, which this lifter always reports as having failed for a
 /// reason that will persist: no transactional execution happens here, so a
 /// guest that elides a lock must fall back to taking it.
-let tbegin ins insLen bld =
-  lift bld (ins: Instruction) insLen {
+let tbegin ins bld =
+  lift bld (ins: Instruction) {
     setCC bld 2
   }
 
 /// EXTRACT TRANSACTION NESTING DEPTH, which is zero because no transaction
 /// ever begins.
-let etnd ins insLen bld =
-  lift bld (ins: Instruction) insLen {
+let etnd ins bld =
+  lift bld (ins: Instruction) {
     let d = oprRegVar bld (getOneOpr ins)
     low d := AST.num0 WSize
   }
 
 /// STORE CLOCK, whose value the emulator supplies.
-let storeClock ins insLen bld =
-  lift bld (ins: Instruction) insLen {
+let storeClock ins bld =
+  lift bld (ins: Instruction) {
     let o = getOneOpr ins
     let addr = tmpVar bld GRSize
     addr := transMem bld o
@@ -2647,8 +2647,8 @@ let storeClock ins insLen bld =
 /// STORE FACILITY LIST EXTENDED, which reports the facilities the machine has.
 /// Reporting none keeps a guest that chooses an implementation by facility --
 /// as the C library's string routines do -- on the one every machine can run.
-let stfle ins insLen bld =
-  lift bld (ins: Instruction) insLen {
+let stfle ins bld =
+  lift bld (ins: Instruction) {
     let o = getOneOpr ins
     let addr = tmpVar bld GRSize
     addr := transMem bld o

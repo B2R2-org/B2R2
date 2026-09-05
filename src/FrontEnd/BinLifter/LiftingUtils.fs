@@ -257,8 +257,8 @@ let inline liftAt bld addr insLen = LiftBuilder(bld, addr, insLen)
 /// Starts lifting the given instruction, closing it with an IEMark once the
 /// body of the computation expression ends. A body that ends the instruction
 /// itself, e.g. with an inter-jump, says so with `return NoEndMark`.
-let inline lift bld (ins: #IInstruction) insLen =
-  liftAt bld ins.Address insLen
+let inline lift bld (ins: #IInstruction) =
+  liftAt bld ins.Address ins.Length
 
 /// Runs the given block when the condition holds, and falls through to the
 /// end otherwise. Emits two labels, named after `name`, and no jump.

@@ -64,7 +64,7 @@ type IntelParser(wordSz, reader) =
 
   let lifter =
     { new ILiftable with
-        member _.Lift(ins, builder) = Lifter.translate ins ins.Length builder
+        member _.Lift(ins, builder) = Lifter.translate ins builder
         member _.Disasm(ins, builder) = disasm.Invoke(builder, ins); builder }
 
   let phlp = ParsingHelper(reader, wordSz, lifter)

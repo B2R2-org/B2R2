@@ -146,8 +146,8 @@ type LiftBuilder =
 
 /// Starts lifting the given instruction, closing it with the SPARC
 /// instruction end rather than a plain IEMark.
-let inline lift bld (ins: Instruction) insLen =
-  LiftBuilder(bld, ins.Address, insLen)
+let inline lift bld (ins: Instruction) =
+  LiftBuilder(bld, ins.Address, ins.Length)
 
 /// Arms a delayed control transfer of the given kind; its target must already
 /// have been stored into %nPC. The following instruction end (after the
@@ -160,7 +160,7 @@ let inline numI32PC (n: int) = BitVector(n, 64<rt>) |> AST.num
 let inline getCCVar (bld: ILowUIRBuilder) name =
   ConditionCode.toRegID name |> bld.GetRegVar
 
-let transOprToExpr ins insLen bld = function
+let transOprToExpr ins bld = function
   | OprReg reg -> regVar bld reg
   | OprImm imm -> numI32 imm 64<rt>
   | OprAddr addr -> numI32PC addr
@@ -168,7 +168,7 @@ let transOprToExpr ins insLen bld = function
   | OprPriReg prireg -> regVar bld prireg
   | _ -> Terminator.impossible ()
 
-let isRegOpr (ins: Instruction) insLen bld =
+let isRegOpr (ins: Instruction) bld =
   match ins.Operands with
   | ThreeOperands(_, o2, _) ->
     match o2 with
@@ -192,75 +192,75 @@ let getThreeOprs (ins: Instruction) =
   | ThreeOperands(o1, o2, o3) -> o1, o2, o3
   | _ -> raise InvalidOperandException
 
-let transOneOpr (ins: Instruction) insLen bld =
+let transOneOpr (ins: Instruction) bld =
   match ins.Operands with
-  | OneOperand o1 -> transOprToExpr ins insLen bld o1
+  | OneOperand o1 -> transOprToExpr ins bld o1
   | _ -> raise InvalidOperandException
 
-let transTwoOprs (ins: Instruction) insLen bld =
+let transTwoOprs (ins: Instruction) bld =
   match ins.Operands with
   | TwoOperands(o1, o2) ->
-    struct (transOprToExpr ins insLen bld o1, transOprToExpr ins insLen bld o2)
+    struct (transOprToExpr ins bld o1, transOprToExpr ins bld o2)
   | _ ->
     raise InvalidOperandException
 
-let transThreeOprs (ins: Instruction) insLen bld =
+let transThreeOprs (ins: Instruction) bld =
   match ins.Operands with
   | ThreeOperands(o1, o2, o3) ->
-    let o1 = transOprToExpr ins insLen bld o1
-    let o2 = transOprToExpr ins insLen bld o2
-    let o3 = transOprToExpr ins insLen bld o3
+    let o1 = transOprToExpr ins bld o1
+    let o2 = transOprToExpr ins bld o2
+    let o3 = transOprToExpr ins bld o3
     struct (o1, o2, o3)
   | _ ->
     raise InvalidOperandException
 
-let transFourOprs (ins: Instruction) insLen bld =
+let transFourOprs (ins: Instruction) bld =
   match ins.Operands with
   | FourOperands(o1, o2, o3, o4) ->
-    let o1 = transOprToExpr ins insLen bld o1
-    let o2 = transOprToExpr ins insLen bld o2
-    let o3 = transOprToExpr ins insLen bld o3
-    let o4 = transOprToExpr ins insLen bld o4
+    let o1 = transOprToExpr ins bld o1
+    let o2 = transOprToExpr ins bld o2
+    let o3 = transOprToExpr ins bld o3
+    let o4 = transOprToExpr ins bld o4
     struct (o1, o2, o3, o4)
   | _ ->
     raise InvalidOperandException
 
-let transAddrThreeOprs (ins: Instruction) insLen bld =
+let transAddrThreeOprs (ins: Instruction) bld =
   match ins.Operands with
   | ThreeOperands(o1, o2, o3) ->
-    struct (transOprToExpr ins insLen bld o1 .+
-            transOprToExpr ins insLen bld o2, transOprToExpr ins insLen bld o3)
+    struct (transOprToExpr ins bld o1 .+
+            transOprToExpr ins bld o2, transOprToExpr ins bld o3)
   | _ ->
     raise InvalidOperandException
 
-let transAddrFourOprs (ins: Instruction) insLen bld =
+let transAddrFourOprs (ins: Instruction) bld =
   match ins.Operands with
   | FourOperands(o1, o2, o3, o4) ->
-    let o1 = transOprToExpr ins insLen bld o1
-    let o2 = transOprToExpr ins insLen bld o2
-    let o3 = transOprToExpr ins insLen bld o3
-    let o4 = transOprToExpr ins insLen bld o4
+    let o1 = transOprToExpr ins bld o1
+    let o2 = transOprToExpr ins bld o2
+    let o3 = transOprToExpr ins bld o3
+    let o4 = transOprToExpr ins bld o4
     struct (o1 .+ o2, o3, o4)
   | _ ->
     raise InvalidOperandException
 
-let transTwoOprsAddr (ins: Instruction) insLen bld =
+let transTwoOprsAddr (ins: Instruction) bld =
   match ins.Operands with
   | ThreeOperands(o1, o2, o3) ->
-    let o1 = transOprToExpr ins insLen bld o1
-    let o2 = transOprToExpr ins insLen bld o2
-    let o3 = transOprToExpr ins insLen bld o3
+    let o1 = transOprToExpr ins bld o1
+    let o2 = transOprToExpr ins bld o2
+    let o3 = transOprToExpr ins bld o3
     struct (o1, o2 .+ o3)
   | _ ->
     raise InvalidOperandException
 
-let transThreeOprsAddr (ins: Instruction) insLen bld =
+let transThreeOprsAddr (ins: Instruction) bld =
   match ins.Operands with
   | FourOperands(o1, o2, o3, o4) ->
-    let o1 = transOprToExpr ins insLen bld o1
-    let o2 = transOprToExpr ins insLen bld o2
-    let o3 = transOprToExpr ins insLen bld o3
-    let o4 = transOprToExpr ins insLen bld o4
+    let o1 = transOprToExpr ins bld o1
+    let o2 = transOprToExpr ins bld o2
+    let o3 = transOprToExpr ins bld o3
+    let o4 = transOprToExpr ins bld o4
     struct (o1, o2 .+ o3, o4)
   | _ ->
     raise InvalidOperandException
@@ -637,9 +637,9 @@ let setQFloatOp bld dst res1 res2 =
 /// double-float sources as 64-bit values, apply the bitwise operation, and
 /// write the double-float destination. These are pure bit operations -- no FP
 /// rounding or exceptions -- so they need no FSR handling.
-let visLogic ins insLen bld =
-  lift bld ins insLen {
-    let struct (src, src1, dst) = transThreeOprs ins insLen bld
+let visLogic ins bld =
+  lift bld ins {
+    let struct (src, src1, dst) = transThreeOprs ins bld
     let op1 = tmpVar bld 64<rt>
     let op2 = tmpVar bld 64<rt>
     let res = tmpVar bld 64<rt>
@@ -670,9 +670,9 @@ let visLogic ins insLen bld =
 /// 8-byte-aligned address), and GSR.align (bits 2:0) records the byte offset
 /// that faligndata later realigns by -- rs1+rs2 for alignaddr, its negation for
 /// the little-endian alignaddrl.
-let alignaddr ins insLen bld =
-  lift bld ins insLen {
-    let struct (src, src1, dst) = transThreeOprs ins insLen bld
+let alignaddr ins bld =
+  lift bld ins {
+    let struct (src, src1, dst) = transThreeOprs ins bld
     let gsr = regVar bld Register.GSR
     let sum = tmpVar bld 64<rt>
     let off = tmpVar bld 64<rt>
@@ -690,9 +690,9 @@ let alignaddr ins insLen bld =
 /// extract the 64-bit window starting GSR.align bytes in --
 /// (fs1 << align*8) | (fs2 >> (64 - align*8)). An align of 0 yields fs1 (the
 /// fs2 shift by 64 folds to 0), matching the hardware.
-let faligndata ins insLen bld =
-  lift bld ins insLen {
-    let struct (src, src1, dst) = transThreeOprs ins insLen bld
+let faligndata ins bld =
+  lift bld ins {
+    let struct (src, src1, dst) = transThreeOprs ins bld
     let gsr = regVar bld Register.GSR
     let op1 = tmpVar bld 64<rt>
     let op2 = tmpVar bld 64<rt>
@@ -901,9 +901,9 @@ let compareFloatsInto bld pos op op1 =
     AST.lmark lblEnd
   }
 
-let liftQFloatBinOp ins insLen bld fop =
-  lift bld ins insLen {
-    let struct (src, src1, dst) = transThreeOprs ins insLen bld
+let liftQFloatBinOp ins bld fop =
+  lift bld ins {
+    let struct (src, src1, dst) = transThreeOprs ins bld
     let regSize = 64<rt>
     let res1 = tmpVar bld regSize
     let res2 = tmpVar bld regSize
@@ -925,9 +925,9 @@ let liftQFloatBinOp ins insLen bld fop =
     setQFloatOp bld dst res1 res2
   }
 
-let add ins insLen bld =
-  lift bld ins insLen {
-    let struct (src, src1, dst) = transThreeOprs ins insLen bld
+let add ins bld =
+  lift bld ins {
+    let struct (src, src1, dst) = transThreeOprs ins bld
     let oprSize = 64<rt>
     let res = tmpVar bld oprSize
     res := src .+ src1
@@ -935,9 +935,9 @@ let add ins insLen bld =
     else append bld { dst := res }
   }
 
-let addcc ins insLen bld =
-  lift bld ins insLen {
-    let struct (src, src1, dst) = transThreeOprs ins insLen bld
+let addcc ins bld =
+  lift bld ins {
+    let struct (src, src1, dst) = transThreeOprs ins bld
     let oprSize = 64<rt>
     let res = tmpVar bld oprSize
     let ccr = regVar bld Register.CCR
@@ -950,9 +950,9 @@ let addcc ins insLen bld =
     else append bld { dst := res }
   }
 
-let addC ins insLen bld =
-  lift bld ins insLen {
-    let struct (src, src1, dst) = transThreeOprs ins insLen bld
+let addC ins bld =
+  lift bld ins {
+    let struct (src, src1, dst) = transThreeOprs ins bld
     let oprSize = 64<rt>
     let res = tmpVar bld oprSize
     let ccr = regVar bld Register.CCR
@@ -961,9 +961,9 @@ let addC ins insLen bld =
     else append bld { dst := res }
   }
 
-let addCcc ins insLen bld =
-  lift bld ins insLen {
-    let struct (src, src1, dst) = transThreeOprs ins insLen bld
+let addCcc ins bld =
+  lift bld ins {
+    let struct (src, src1, dst) = transThreeOprs ins bld
     let oprSize = 64<rt>
     let res = tmpVar bld oprSize
     let ccr = regVar bld Register.CCR
@@ -976,9 +976,9 @@ let addCcc ins insLen bld =
     else append bld { dst := res }
   }
 
-let ``and`` ins insLen bld =
-  lift bld ins insLen {
-    let struct (src, src1, dst) = transThreeOprs ins insLen bld
+let ``and`` ins bld =
+  lift bld ins {
+    let struct (src, src1, dst) = transThreeOprs ins bld
     let oprSize = 64<rt>
     let res = tmpVar bld oprSize
     res := src .& src1
@@ -986,9 +986,9 @@ let ``and`` ins insLen bld =
     else append bld { dst := res }
   }
 
-let andcc ins insLen bld =
-  lift bld ins insLen {
-    let struct (src, src1, dst) = transThreeOprs ins insLen bld
+let andcc ins bld =
+  lift bld ins {
+    let struct (src, src1, dst) = transThreeOprs ins bld
     let oprSize = 64<rt>
     let ccr = regVar bld Register.CCR
     let res = tmpVar bld oprSize
@@ -1000,9 +1000,9 @@ let andcc ins insLen bld =
     AST.extract ccr 8<rt> 0 := byte
   }
 
-let andn ins insLen bld =
-  lift bld ins insLen {
-    let struct (src, src1, dst) = transThreeOprs ins insLen bld
+let andn ins bld =
+  lift bld ins {
+    let struct (src, src1, dst) = transThreeOprs ins bld
     let oprSize = 64<rt>
     let res = tmpVar bld oprSize
     res := src .& (AST.not src1)
@@ -1010,9 +1010,9 @@ let andn ins insLen bld =
     else append bld { dst := res }
   }
 
-let andncc ins insLen bld =
-  lift bld ins insLen {
-    let struct (src, src1, dst) = transThreeOprs ins insLen bld
+let andncc ins bld =
+  lift bld ins {
+    let struct (src, src1, dst) = transThreeOprs ins bld
     let oprSize = 64<rt>
     let ccr = regVar bld Register.CCR
     let res = tmpVar bld oprSize
@@ -1064,10 +1064,10 @@ let branchTo (bld: ILowUIRBuilder) an cond taken notTaken =
     arm bld InterJmpKind.Base
     if annul then (bld :?> LowUIRBuilder).AnnulCond <- ValueSome cond else ()
 
-let branchpr ins insLen bld =
-  lift bld ins insLen {
+let branchpr ins bld =
+  lift bld ins {
     let oprSize = 64<rt>
-    let struct (src, label, an, _) = transFourOprs ins insLen bld
+    let struct (src, label, an, _) = transFourOprs ins bld
     let pc = regVar bld Register.PC
     let branchCond =
       match ins.Opcode with
@@ -1123,10 +1123,10 @@ let private branchiccCond (ins: Instruction) ccr =
   | _ ->
     raise InvalidOpcodeException
 
-let branchicc ins insLen bld =
-  lift bld ins insLen {
+let branchicc ins bld =
+  lift bld ins {
     let oprSize = 64<rt>
-    let struct (an, label) = transTwoOprs ins insLen bld
+    let struct (an, label) = transTwoOprs ins bld
     let pc = regVar bld Register.PC
     let ccr = regVar bld Register.CCR
     let branchCond = branchiccCond ins ccr
@@ -1219,10 +1219,10 @@ let private branchpccCond (ins: Instruction) cc bld ccr =
   | _ ->
     raise InvalidOpcodeException
 
-let branchpcc ins insLen bld =
-  lift bld ins insLen {
+let branchpcc ins bld =
+  lift bld ins {
     let oprSize = 64<rt>
-    let struct (cc, label, an, _) = transFourOprs ins insLen bld
+    let struct (cc, label, an, _) = transFourOprs ins bld
     let pc = regVar bld Register.PC
     let ccr = regVar bld Register.CCR
     let branchCond = branchpccCond ins cc bld ccr
@@ -1230,9 +1230,9 @@ let branchpcc ins insLen bld =
     branchTo bld an branchCond jumpTarget (pc .+ numI32PC 8)
   }
 
-let call ins insLen bld =
-  lift bld ins insLen {
-    let dst = transOneOpr ins insLen bld
+let call ins bld =
+  lift bld ins {
+    let dst = transOneOpr ins bld
     let o7 = regVar bld Register.O7
     let pc = regVar bld Register.PC
     o7 := pc
@@ -1240,9 +1240,9 @@ let call ins insLen bld =
     arm bld InterJmpKind.IsCall
   }
 
-let casa ins insLen bld =
-  lift bld ins insLen {
-    let struct (src, asi, src1, dst) = transFourOprs ins insLen bld
+let casa ins bld =
+  lift bld ins {
+    let struct (src, asi, src1, dst) = transFourOprs ins bld
     let old = tmpVar bld 32<rt>
     let lblL0 = label bld "L0"
     let lblEnd = label bld "End"
@@ -1259,9 +1259,9 @@ let casa ins insLen bld =
     dst := AST.zext 64<rt> old
   }
 
-let casxa ins insLen bld =
-  lift bld ins insLen {
-    let struct (src, asi, src1, dst) = transFourOprs ins insLen bld
+let casxa ins bld =
+  lift bld ins {
+    let struct (src, asi, src1, dst) = transFourOprs ins bld
     let old = tmpVar bld 64<rt>
     let lblL0 = label bld "L0"
     let lblEnd = label bld "End"
@@ -1278,8 +1278,8 @@ let casxa ins insLen bld =
     dst := old
   }
 
-let ``done`` (ins: Instruction) insLen bld =
-  lift bld ins insLen {
+let ``done`` (ins: Instruction) bld =
+  lift bld ins {
     (* nPC before PC: %pc is a PCVar, so the interpreter treats its write as a
        control transfer that ends the trace -- writing it last keeps the nPC
        update from being skipped. *)
@@ -1287,17 +1287,17 @@ let ``done`` (ins: Instruction) insLen bld =
     regVar bld Register.PC := regVar bld Register.TNPC
   }
 
-let fabss ins insLen bld =
-  lift bld ins insLen {
-    let struct (src, dst) = transTwoOprs ins insLen bld
+let fabss ins bld =
+  lift bld ins {
+    let struct (src, dst) = transTwoOprs ins bld
     let oprSize = 32<rt>
     AST.extract dst 1<rt> 31 := AST.b0
     AST.extract dst 31<rt> 0 := AST.extract src 31<rt> 0
   }
 
-let fabsd ins insLen bld =
-  lift bld ins insLen {
-    let struct (src, dst) = transTwoOprs ins insLen bld
+let fabsd ins bld =
+  lift bld ins {
+    let struct (src, dst) = transTwoOprs ins bld
     let oprSize = 64<rt>
     let op = tmpVar bld oprSize
     let res = tmpVar bld oprSize
@@ -1307,9 +1307,9 @@ let fabsd ins insLen bld =
     setDFloatOp bld dst res
   }
 
-let fabsq ins insLen bld =
-  lift bld ins insLen {
-    let struct (src, dst) = transTwoOprs ins insLen bld
+let fabsq ins bld =
+  lift bld ins {
+    let struct (src, dst) = transTwoOprs ins bld
     let oprSize = 64<rt>
     let op1 = tmpVar bld oprSize
     let op2 = tmpVar bld oprSize
@@ -1322,36 +1322,36 @@ let fabsq ins insLen bld =
     setQFloatOp bld dst res1 res2
   }
 
-let fmovs ins insLen bld =
-  lift bld ins insLen {
-    let struct (src, dst) = transTwoOprs ins insLen bld
+let fmovs ins bld =
+  lift bld ins {
+    let struct (src, dst) = transTwoOprs ins bld
     dst := src
   }
 
-let fmovd ins insLen bld =
-  lift bld ins insLen {
-    let struct (src, dst) = transTwoOprs ins insLen bld
+let fmovd ins bld =
+  lift bld ins {
+    let struct (src, dst) = transTwoOprs ins bld
     movFregD bld src dst
   }
 
-let fmovq ins insLen bld =
-  lift bld ins insLen {
-    let struct (src, dst) = transTwoOprs ins insLen bld
+let fmovq ins bld =
+  lift bld ins {
+    let struct (src, dst) = transTwoOprs ins bld
     movFregQ bld src dst
   }
 
-let fnegs ins insLen bld =
-  lift bld ins insLen {
-    let struct (src, dst) = transTwoOprs ins insLen bld
+let fnegs ins bld =
+  lift bld ins {
+    let struct (src, dst) = transTwoOprs ins bld
     let oprSize = 32<rt>
     let sign = ((AST.extract src 1<rt> 31) <+> (AST.b1))
     AST.extract dst 1<rt> 31 := sign
     AST.extract dst 31<rt> 0 := AST.extract src 31<rt> 0
   }
 
-let fnegd ins insLen bld =
-  lift bld ins insLen {
-    let struct (src, dst) = transTwoOprs ins insLen bld
+let fnegd ins bld =
+  lift bld ins {
+    let struct (src, dst) = transTwoOprs ins bld
     let oprSize = 64<rt>
     let op = tmpVar bld oprSize
     let res = tmpVar bld oprSize
@@ -1362,9 +1362,9 @@ let fnegd ins insLen bld =
     setDFloatOp bld dst res
   }
 
-let fnegq ins insLen bld =
-  lift bld ins insLen {
-    let struct (src, dst) = transTwoOprs ins insLen bld
+let fnegq ins bld =
+  lift bld ins {
+    let struct (src, dst) = transTwoOprs ins bld
     let oprSize = 64<rt>
     let op1 = tmpVar bld oprSize
     let op2 = tmpVar bld oprSize
@@ -1378,9 +1378,9 @@ let fnegq ins insLen bld =
     setQFloatOp bld dst res1 res2
   }
 
-let fadds ins insLen bld =
-  lift bld ins insLen {
-    let struct (src, src1, dst) = transThreeOprs ins insLen bld
+let fadds ins bld =
+  lift bld ins {
+    let struct (src, src1, dst) = transThreeOprs ins bld
     let fsr = regVar bld Register.FSR
     let fsr30 = AST.extract fsr 1<rt> 30
     let fsr31 = AST.extract fsr 1<rt> 31
@@ -1416,9 +1416,9 @@ let fadds ins insLen bld =
     AST.lmark lblEnd
   }
 
-let faddd ins insLen bld =
-  lift bld ins insLen {
-    let struct (src, src1, dst) = transThreeOprs ins insLen bld
+let faddd ins bld =
+  lift bld ins {
+    let struct (src, src1, dst) = transThreeOprs ins bld
     let fsr = regVar bld Register.FSR
     let fsr30 = AST.extract fsr 1<rt> 30
     let fsr31 = AST.extract fsr 1<rt> 31
@@ -1461,12 +1461,12 @@ let faddd ins insLen bld =
   }
 
 /// Adds two quad-precision operands.
-let faddq ins insLen bld =
-  liftQFloatBinOp ins insLen bld AST.fadd
+let faddq ins bld =
+  liftQFloatBinOp ins bld AST.fadd
 
-let fbranchfcc ins insLen bld =
-  lift bld ins insLen {
-    let struct (an, label) = transTwoOprs ins insLen bld
+let fbranchfcc ins bld =
+  lift bld ins {
+    let struct (an, label) = transTwoOprs ins bld
     let pc = regVar bld Register.PC
     let fsr = regVar bld Register.FSR
     let u = ((AST.extract fsr 2<rt> 10) == (numI32 3 2<rt>))
@@ -1496,9 +1496,9 @@ let fbranchfcc ins insLen bld =
     branchTo bld an branchCond jumpTarget (pc .+ numI32PC 8)
   }
 
-let fbranchpfcc ins insLen bld =
-  lift bld ins insLen {
-    let struct (cc, label, an, _) = transFourOprs ins insLen bld
+let fbranchpfcc ins bld =
+  lift bld ins {
+    let struct (cc, label, an, _) = transFourOprs ins bld
     let pc = regVar bld Register.PC
     let fsr = regVar bld Register.FSR
     let fcc0 = getCCVar bld ConditionCode.Fcc0
@@ -1539,9 +1539,9 @@ let fbranchpfcc ins insLen bld =
   }
 
 /// Compares two single-precision operands.
-let fcmps ins insLen bld =
-  lift bld ins insLen {
-    let struct (cc, src, src1) = transThreeOprs ins insLen bld
+let fcmps ins bld =
+  lift bld ins {
+    let struct (cc, src, src1) = transThreeOprs ins bld
     let pos = fccPosition bld cc
     let op = AST.extract src 32<rt> 0
     let op1 = AST.extract src1 32<rt> 0
@@ -1549,9 +1549,9 @@ let fcmps ins insLen bld =
   }
 
 /// Compares two double-precision operands.
-let fcmpd ins insLen bld =
-  lift bld ins insLen {
-    let struct (cc, src, src1) = transThreeOprs ins insLen bld
+let fcmpd ins bld =
+  lift bld ins {
+    let struct (cc, src, src1) = transThreeOprs ins bld
     let regSize = 64<rt>
     let pos = fccPosition bld cc
     let op = tmpVar bld regSize
@@ -1562,9 +1562,9 @@ let fcmpd ins insLen bld =
   }
 
 /// Compares two quad-precision operands, narrowed to 64-bit first.
-let fcmpq ins insLen bld =
-  lift bld ins insLen {
-    let struct (cc, src, src1) = transThreeOprs ins insLen bld
+let fcmpq ins bld =
+  lift bld ins {
+    let struct (cc, src, src1) = transThreeOprs ins bld
     let regSize = 64<rt>
     let pos = fccPosition bld cc
     let op01 = tmpVar bld regSize
@@ -1580,9 +1580,9 @@ let fcmpq ins insLen bld =
     compareFloatsInto bld pos op64 op164
   }
 
-let fdivs ins insLen bld =
-  lift bld ins insLen {
-    let struct (src, src1, dst) = transThreeOprs ins insLen bld
+let fdivs ins bld =
+  lift bld ins {
+    let struct (src, src1, dst) = transThreeOprs ins bld
     let fsr = regVar bld Register.FSR
     let fsr30 = AST.extract fsr 1<rt> 30
     let fsr31 = AST.extract fsr 1<rt> 31
@@ -1618,9 +1618,9 @@ let fdivs ins insLen bld =
     AST.lmark lblEnd
   }
 
-let fdivd ins insLen bld =
-  lift bld ins insLen {
-    let struct (src, src1, dst) = transThreeOprs ins insLen bld
+let fdivd ins bld =
+  lift bld ins {
+    let struct (src, src1, dst) = transThreeOprs ins bld
     let fsr = regVar bld Register.FSR
     let fsr30 = AST.extract fsr 1<rt> 30
     let fsr31 = AST.extract fsr 1<rt> 31
@@ -1663,11 +1663,11 @@ let fdivd ins insLen bld =
   }
 
 /// Divides one quad-precision operand by another.
-let fdivq ins insLen bld =
-  liftQFloatBinOp ins insLen bld AST.fdiv
+let fdivq ins bld =
+  liftQFloatBinOp ins bld AST.fdiv
 
-let fmovscc ins insLen bld =
-  let struct (cc, fsrc, fdst) = transThreeOprs ins insLen bld
+let fmovscc ins bld =
+  let struct (cc, fsrc, fdst) = transThreeOprs ins bld
   let ccr = regVar bld Register.CCR
   let offset = if (cc = getCCVar bld ConditionCode.Icc) then 0 else 4
   let n = AST.extract ccr 1<rt> (3 + offset)
@@ -1693,7 +1693,7 @@ let fmovscc ins insLen bld =
     | Opcode.FMOVsVC -> (v == AST.b0)
     | Opcode.FMOVsVS -> (v == AST.b1)
     | _ -> raise InvalidOpcodeException
-  lift bld ins insLen {
+  lift bld ins {
     if (ins.Opcode = Opcode.FMOVsA) then
       fdst := fsrc
     elif (ins.Opcode = Opcode.FMOVsN) then
@@ -1702,8 +1702,8 @@ let fmovscc ins insLen bld =
       fdst := AST.ite (cond) (fsrc) (fdst)
   }
 
-let fmovdcc ins insLen bld =
-  let struct (cc, fsrc, fdst) = transThreeOprs ins insLen bld
+let fmovdcc ins bld =
+  let struct (cc, fsrc, fdst) = transThreeOprs ins bld
   let ccr = regVar bld Register.CCR
   let offset = if (cc = getCCVar bld ConditionCode.Icc) then 0 else 4
   let n = AST.extract ccr 1<rt> (3 + offset)
@@ -1731,7 +1731,7 @@ let fmovdcc ins insLen bld =
     | _ -> raise InvalidOpcodeException
   let lblL0 = label bld "L0"
   let lblEnd = label bld "End"
-  lift bld ins insLen {
+  lift bld ins {
     if (ins.Opcode = Opcode.FMOVdA) then
       movFregD bld fsrc fdst
     elif (ins.Opcode = Opcode.FMOVdN) then
@@ -1743,8 +1743,8 @@ let fmovdcc ins insLen bld =
       AST.lmark lblEnd
   }
 
-let fmovqcc ins insLen bld =
-  let struct (cc, fsrc, fdst) = transThreeOprs ins insLen bld
+let fmovqcc ins bld =
+  let struct (cc, fsrc, fdst) = transThreeOprs ins bld
   let ccr = regVar bld Register.CCR
   let offset = if (cc = getCCVar bld ConditionCode.Icc) then 0 else 4
   let n = AST.extract ccr 1<rt> (3 + offset)
@@ -1772,7 +1772,7 @@ let fmovqcc ins insLen bld =
     | _ -> raise InvalidOpcodeException
   let lblL0 = label bld "L0"
   let lblEnd = label bld "End"
-  lift bld ins insLen {
+  lift bld ins {
     if (ins.Opcode = Opcode.FMOVqA) then
       movFregQ bld fsrc fdst
     elif (ins.Opcode = Opcode.FMOVqN) then
@@ -1784,8 +1784,8 @@ let fmovqcc ins insLen bld =
       AST.lmark lblEnd
   }
 
-let fmovfscc ins insLen bld =
-  let struct (cc, fsrc, fdst) = transThreeOprs ins insLen bld
+let fmovfscc ins bld =
+  let struct (cc, fsrc, fdst) = transThreeOprs ins bld
   let fsr = regVar bld Register.FSR
   let pos =
     if (cc = getCCVar bld ConditionCode.Fcc0) then 10
@@ -1818,7 +1818,7 @@ let fmovfscc ins insLen bld =
     | Opcode.FMOVFsULE -> (u .| l .| e)
     | Opcode.FMOVFsO -> (e .| l .| g)
     | _ -> raise InvalidOpcodeException
-  lift bld ins insLen {
+  lift bld ins {
     if (ins.Opcode = Opcode.FMOVFsA) then
       fdst := fsrc
     elif (ins.Opcode = Opcode.FMOVFsN) then
@@ -1829,8 +1829,8 @@ let fmovfscc ins insLen bld =
 
 /// Moves a double-precision float register when the FSR condition the opcode
 /// names holds.
-let fmovfdcc ins insLen bld =
-  let struct (cc, fsrc, fdst) = transThreeOprs ins insLen bld
+let fmovfdcc ins bld =
+  let struct (cc, fsrc, fdst) = transThreeOprs ins bld
   let pos = fccMovePosition bld cc
   let struct (e, l, g, u) = fccFlags bld pos
   let cond =
@@ -1854,7 +1854,7 @@ let fmovfdcc ins insLen bld =
     | _ -> raise InvalidOpcodeException
   let lblL0 = label bld "L0"
   let lblEnd = label bld "End"
-  lift bld ins insLen {
+  lift bld ins {
     if (ins.Opcode = Opcode.FMOVFdA) then
       movFregD bld fsrc fdst
     elif (ins.Opcode = Opcode.FMOVFdN) then
@@ -1868,8 +1868,8 @@ let fmovfdcc ins insLen bld =
 
 /// Moves a quad-precision float register when the FSR condition the opcode
 /// names holds.
-let fmovfqcc ins insLen bld =
-  let struct (cc, fsrc, fdst) = transThreeOprs ins insLen bld
+let fmovfqcc ins bld =
+  let struct (cc, fsrc, fdst) = transThreeOprs ins bld
   let pos = fccMovePosition bld cc
   let struct (e, l, g, u) = fccFlags bld pos
   let cond =
@@ -1893,7 +1893,7 @@ let fmovfqcc ins insLen bld =
     | _ -> raise InvalidOpcodeException
   let lblL0 = label bld "L0"
   let lblEnd = label bld "End"
-  lift bld ins insLen {
+  lift bld ins {
     if (ins.Opcode = Opcode.FMOVFqA) then
       movFregQ bld fsrc fdst
     elif (ins.Opcode = Opcode.FMOVFqN) then
@@ -1905,9 +1905,9 @@ let fmovfqcc ins insLen bld =
       AST.lmark lblEnd
   }
 
-let fmovrs ins insLen bld =
-  lift bld ins insLen {
-    let struct (src, fsrc, fdst) = transThreeOprs ins insLen bld
+let fmovrs ins bld =
+  lift bld ins {
+    let struct (src, fsrc, fdst) = transThreeOprs ins bld
     let oprSize = 64<rt>
     match ins.Opcode with
     | Opcode.FMOVRsZ ->
@@ -1926,9 +1926,9 @@ let fmovrs ins insLen bld =
       raise InvalidOpcodeException
   }
 
-let fmovrd ins insLen bld =
-  lift bld ins insLen {
-    let struct (src, fsrc, fdst) = transThreeOprs ins insLen bld
+let fmovrd ins bld =
+  lift bld ins {
+    let struct (src, fsrc, fdst) = transThreeOprs ins bld
     let oprSize = 64<rt>
     let cond =
       match ins.Opcode with
@@ -1947,9 +1947,9 @@ let fmovrd ins insLen bld =
     AST.lmark lblEnd
   }
 
-let fmovrq ins insLen bld =
-  lift bld ins insLen {
-    let struct (src, fsrc, fdst) = transThreeOprs ins insLen bld
+let fmovrq ins bld =
+  lift bld ins {
+    let struct (src, fsrc, fdst) = transThreeOprs ins bld
     let oprSize = 64<rt>
     let cond =
       match ins.Opcode with
@@ -1968,9 +1968,9 @@ let fmovrq ins insLen bld =
     AST.lmark lblEnd
   }
 
-let fmuls ins insLen bld =
-  lift bld ins insLen {
-    let struct (src, src1, dst) = transThreeOprs ins insLen bld
+let fmuls ins bld =
+  lift bld ins {
+    let struct (src, src1, dst) = transThreeOprs ins bld
     let fsr = regVar bld Register.FSR
     let fsr30 = AST.extract fsr 1<rt> 30
     let fsr31 = AST.extract fsr 1<rt> 31
@@ -2006,9 +2006,9 @@ let fmuls ins insLen bld =
     AST.lmark lblEnd
   }
 
-let fmuld ins insLen bld =
-  lift bld ins insLen {
-    let struct (src, src1, dst) = transThreeOprs ins insLen bld
+let fmuld ins bld =
+  lift bld ins {
+    let struct (src, src1, dst) = transThreeOprs ins bld
     let fsr = regVar bld Register.FSR
     let fsr30 = AST.extract fsr 1<rt> 30
     let fsr31 = AST.extract fsr 1<rt> 31
@@ -2051,12 +2051,12 @@ let fmuld ins insLen bld =
   }
 
 /// Multiplies two quad-precision operands.
-let fmulq ins insLen bld =
-  liftQFloatBinOp ins insLen bld AST.fmul
+let fmulq ins bld =
+  liftQFloatBinOp ins bld AST.fmul
 
-let fsmuld ins insLen bld =
-  lift bld ins insLen {
-    let struct (src, src1, dst) = transThreeOprs ins insLen bld
+let fsmuld ins bld =
+  lift bld ins {
+    let struct (src, src1, dst) = transThreeOprs ins bld
     let fsr = regVar bld Register.FSR
     let fsr30 = AST.extract fsr 1<rt> 30
     let fsr31 = AST.extract fsr 1<rt> 31
@@ -2097,9 +2097,9 @@ let fsmuld ins insLen bld =
   }
 
 /// Multiplies two double-precision operands into a quad-precision result.
-let fdmulq ins insLen bld =
-  lift bld ins insLen {
-    let struct (src, src1, dst) = transThreeOprs ins insLen bld
+let fdmulq ins bld =
+  lift bld ins {
+    let struct (src, src1, dst) = transThreeOprs ins bld
     let regSize = 64<rt>
     let res = tmpVar bld regSize
     let res1 = tmpVar bld regSize
@@ -2115,9 +2115,9 @@ let fdmulq ins insLen bld =
     setQFloatOp bld dst res1 res2
   }
 
-let fsqrts ins insLen bld =
-  lift bld ins insLen {
-    let struct (src, dst) = transTwoOprs ins insLen bld
+let fsqrts ins bld =
+  lift bld ins {
+    let struct (src, dst) = transTwoOprs ins bld
     let fsr = regVar bld Register.FSR
     let fsr30 = AST.extract fsr 1<rt> 30
     let fsr31 = AST.extract fsr 1<rt> 31
@@ -2153,9 +2153,9 @@ let fsqrts ins insLen bld =
     AST.lmark lblEnd
   }
 
-let fsqrtd ins insLen bld =
-  lift bld ins insLen {
-    let struct (src, dst) = transTwoOprs ins insLen bld
+let fsqrtd ins bld =
+  lift bld ins {
+    let struct (src, dst) = transTwoOprs ins bld
     let fsr = regVar bld Register.FSR
     let fsr30 = AST.extract fsr 1<rt> 30
     let fsr31 = AST.extract fsr 1<rt> 31
@@ -2197,9 +2197,9 @@ let fsqrtd ins insLen bld =
 
 /// Takes the square root of a quad-precision operand. The one operand aside,
 /// this is what `liftQFloatBinOp` does.
-let fsqrtq ins insLen bld =
-  lift bld ins insLen {
-    let struct (src, dst) = transTwoOprs ins insLen bld
+let fsqrtq ins bld =
+  lift bld ins {
+    let struct (src, dst) = transTwoOprs ins bld
     let regSize = 64<rt>
     let res1 = tmpVar bld regSize
     let res2 = tmpVar bld regSize
@@ -2216,18 +2216,18 @@ let fsqrtq ins insLen bld =
     setQFloatOp bld dst res1 res2
   }
 
-let fstox ins insLen bld =
-  lift bld ins insLen {
-    let struct (src, dst) = transTwoOprs ins insLen bld
+let fstox ins bld =
+  lift bld ins {
+    let struct (src, dst) = transTwoOprs ins bld
     let oprSize = 64<rt>
     let cst = tmpVar bld oprSize
     cst := AST.cast CastKind.FtoITrunc oprSize src
     setDFloatOp bld dst cst
   }
 
-let fdtox ins insLen bld =
-  lift bld ins insLen {
-    let struct (src, dst) = transTwoOprs ins insLen bld
+let fdtox ins bld =
+  lift bld ins {
+    let struct (src, dst) = transTwoOprs ins bld
     let oprSize = 64<rt>
     let op = tmpVar bld oprSize
     let cst = tmpVar bld oprSize
@@ -2236,9 +2236,9 @@ let fdtox ins insLen bld =
     setDFloatOp bld dst cst
   }
 
-let fqtox ins insLen bld =
-  lift bld ins insLen {
-    let struct (src, dst) = transTwoOprs ins insLen bld
+let fqtox ins bld =
+  lift bld ins {
+    let struct (src, dst) = transTwoOprs ins bld
     let oprSize = 64<rt>
     let regSize = 64<rt>
     let op1 = tmpVar bld regSize
@@ -2251,17 +2251,17 @@ let fqtox ins insLen bld =
     setDFloatOp bld dst cst
   }
 
-let fstoi ins insLen bld =
-  lift bld ins insLen {
-    let struct (src, dst) = transTwoOprs ins insLen bld
+let fstoi ins bld =
+  lift bld ins {
+    let struct (src, dst) = transTwoOprs ins bld
     let oprSize = 32<rt>
     let cst = tmpVar bld oprSize
     dst := AST.cast CastKind.FtoITrunc oprSize src
   }
 
-let fdtoi ins insLen bld =
-  lift bld ins insLen {
-    let struct (src, dst) = transTwoOprs ins insLen bld
+let fdtoi ins bld =
+  lift bld ins {
+    let struct (src, dst) = transTwoOprs ins bld
     let oprSize = 64<rt>
     let regSize = 32<rt>
     let op = tmpVar bld oprSize
@@ -2270,9 +2270,9 @@ let fdtoi ins insLen bld =
     dst := AST.cast CastKind.FtoITrunc regSize op
   }
 
-let fqtoi ins insLen bld =
-  lift bld ins insLen {
-    let struct (src, dst) = transTwoOprs ins insLen bld
+let fqtoi ins bld =
+  lift bld ins {
+    let struct (src, dst) = transTwoOprs ins bld
     let oprSize = 32<rt>
     let regSize = 64<rt>
     let op1 = tmpVar bld regSize
@@ -2284,9 +2284,9 @@ let fqtoi ins insLen bld =
     dst := AST.cast CastKind.FtoITrunc oprSize op64
   }
 
-let fstod ins insLen bld =
-  lift bld ins insLen {
-    let struct (src, dst) = transTwoOprs ins insLen bld
+let fstod ins bld =
+  lift bld ins {
+    let struct (src, dst) = transTwoOprs ins bld
     let oprSize = 64<rt>
     let fsr = regVar bld Register.FSR
     let fsr30 = AST.extract fsr 1<rt> 30
@@ -2325,9 +2325,9 @@ let fstod ins insLen bld =
     setDFloatOp bld dst rounded
   }
 
-let fstoq ins insLen bld =
-  lift bld ins insLen {
-    let struct (src, dst) = transTwoOprs ins insLen bld
+let fstoq ins bld =
+  lift bld ins {
+    let struct (src, dst) = transTwoOprs ins bld
     let oprSize = 64<rt>
     let fsr = regVar bld Register.FSR
     let fsr30 = AST.extract fsr 1<rt> 30
@@ -2369,9 +2369,9 @@ let fstoq ins insLen bld =
     setQFloatOp bld dst res1 res2
   }
 
-let fdtos ins insLen bld =
-  lift bld ins insLen {
-    let struct (src, dst) = transTwoOprs ins insLen bld
+let fdtos ins bld =
+  lift bld ins {
+    let struct (src, dst) = transTwoOprs ins bld
     let fsr = regVar bld Register.FSR
     let fsr30 = AST.extract fsr 1<rt> 30
     let fsr31 = AST.extract fsr 1<rt> 31
@@ -2409,9 +2409,9 @@ let fdtos ins insLen bld =
     AST.lmark lblEnd
   }
 
-let fdtoq ins insLen bld =
-  lift bld ins insLen {
-    let struct (src, dst) = transTwoOprs ins insLen bld
+let fdtoq ins bld =
+  lift bld ins {
+    let struct (src, dst) = transTwoOprs ins bld
     let oprSize = 64<rt>
     let op = tmpVar bld oprSize
     let res1 = tmpVar bld oprSize
@@ -2421,9 +2421,9 @@ let fdtoq ins insLen bld =
     setQFloatOp bld dst res1 res2
   }
 
-let fqtos ins insLen bld =
-  lift bld ins insLen {
-    let struct (src, dst) = transTwoOprs ins insLen bld
+let fqtos ins bld =
+  lift bld ins {
+    let struct (src, dst) = transTwoOprs ins bld
     let fsr = regVar bld Register.FSR
     let fsr30 = AST.extract fsr 1<rt> 30
     let fsr31 = AST.extract fsr 1<rt> 31
@@ -2464,9 +2464,9 @@ let fqtos ins insLen bld =
     AST.lmark lblEnd
   }
 
-let fqtod ins insLen bld =
-  lift bld ins insLen {
-    let struct (src, dst) = transTwoOprs ins insLen bld
+let fqtod ins bld =
+  lift bld ins {
+    let struct (src, dst) = transTwoOprs ins bld
     let regSize = 64<rt>
     let op1 = tmpVar bld regSize
     let op2 = tmpVar bld regSize
@@ -2476,9 +2476,9 @@ let fqtod ins insLen bld =
     setDFloatOp bld dst op64
   }
 
-let fsubs ins insLen bld =
-  lift bld ins insLen {
-    let struct (src, src1, dst) = transThreeOprs ins insLen bld
+let fsubs ins bld =
+  lift bld ins {
+    let struct (src, src1, dst) = transThreeOprs ins bld
     let fsr = regVar bld Register.FSR
     let fsr30 = AST.extract fsr 1<rt> 30
     let fsr31 = AST.extract fsr 1<rt> 31
@@ -2514,9 +2514,9 @@ let fsubs ins insLen bld =
     AST.lmark lblEnd
   }
 
-let fsubd ins insLen bld =
-  lift bld ins insLen {
-    let struct (src, src1, dst) = transThreeOprs ins insLen bld
+let fsubd ins bld =
+  lift bld ins {
+    let struct (src, src1, dst) = transThreeOprs ins bld
     let fsr = regVar bld Register.FSR
     let fsr30 = AST.extract fsr 1<rt> 30
     let fsr31 = AST.extract fsr 1<rt> 31
@@ -2559,12 +2559,12 @@ let fsubd ins insLen bld =
   }
 
 /// Subtracts one quad-precision operand from another.
-let fsubq ins insLen bld =
-  liftQFloatBinOp ins insLen bld AST.fsub
+let fsubq ins bld =
+  liftQFloatBinOp ins bld AST.fsub
 
-let fxtos ins insLen bld =
-  lift bld ins insLen {
-    let struct (src, dst) = transTwoOprs ins insLen bld
+let fxtos ins bld =
+  lift bld ins {
+    let struct (src, dst) = transTwoOprs ins bld
     let oprSize = 32<rt>
     let fsr = regVar bld Register.FSR
     let fsr30 = AST.extract fsr 1<rt> 30
@@ -2603,9 +2603,9 @@ let fxtos ins insLen bld =
     AST.lmark lblEnd
   }
 
-let fitos ins insLen bld =
-  lift bld ins insLen {
-    let struct (src, dst) = transTwoOprs ins insLen bld
+let fitos ins bld =
+  lift bld ins {
+    let struct (src, dst) = transTwoOprs ins bld
     let oprSize = 32<rt>
     let fsr = regVar bld Register.FSR
     let fsr30 = AST.extract fsr 1<rt> 30
@@ -2643,9 +2643,9 @@ let fitos ins insLen bld =
   }
 
 /// Converts a 64-bit integer to double precision.
-let fxtod ins insLen bld =
-  lift bld ins insLen {
-    let struct (src, dst) = transTwoOprs ins insLen bld
+let fxtod ins bld =
+  lift bld ins {
+    let struct (src, dst) = transTwoOprs ins bld
     let oprSize = 64<rt>
     let op = tmpVar bld oprSize
     let res = tmpVar bld oprSize
@@ -2660,18 +2660,18 @@ let fxtod ins insLen bld =
     setDFloatOp bld dst rounded
   }
 
-let fitod ins insLen bld =
-  lift bld ins insLen {
-    let struct (src, dst) = transTwoOprs ins insLen bld
+let fitod ins bld =
+  lift bld ins {
+    let struct (src, dst) = transTwoOprs ins bld
     let oprSize = 64<rt>
     let rounded = tmpVar bld oprSize
     rounded := AST.cast CastKind.SIntToFloat 64<rt> src
     setDFloatOp bld dst rounded
   }
 
-let fxtoq ins insLen bld =
-  lift bld ins insLen {
-    let struct (src, dst) = transTwoOprs ins insLen bld
+let fxtoq ins bld =
+  lift bld ins {
+    let struct (src, dst) = transTwoOprs ins bld
     let oprSize = 64<rt>
     let op = tmpVar bld oprSize
     let rounded = tmpVar bld 64<rt>
@@ -2683,9 +2683,9 @@ let fxtoq ins insLen bld =
     setQFloatOp bld dst res1 res2
   }
 
-let fitoq ins insLen bld =
-  lift bld ins insLen {
-    let struct (src, dst) = transTwoOprs ins insLen bld
+let fitoq ins bld =
+  lift bld ins {
+    let struct (src, dst) = transTwoOprs ins bld
     let oprSize = 64<rt>
     let rounded = tmpVar bld 64<rt>
     let res1 = tmpVar bld oprSize
@@ -2695,17 +2695,17 @@ let fitoq ins insLen bld =
     setQFloatOp bld dst res1 res2
   }
 
-let jmpl ins insLen bld =
-  lift bld ins insLen {
-    let struct (addr, dst) = transAddrThreeOprs ins insLen bld
+let jmpl ins bld =
+  lift bld ins {
+    let struct (addr, dst) = transAddrThreeOprs ins bld
     regVar bld Register.NPC := addr
     dst := regVar bld Register.PC
     arm bld InterJmpKind.Base
   }
 
-let ldf ins insLen bld =
-  lift bld ins insLen {
-    let struct (addr, dst) = transAddrThreeOprs ins insLen bld
+let ldf ins bld =
+  lift bld ins {
+    let struct (addr, dst) = transAddrThreeOprs ins bld
     let oprSize = 64<rt>
     match ins.Opcode with
     | Opcode.LDF ->
@@ -2782,9 +2782,9 @@ let private ldfaWide bld addr asiVal dst oprSize =
     }
   }
 
-let ldfa ins insLen bld =
-  lift bld ins insLen {
-    let struct (addr, asiVal, dst) = transAddrFourOprs ins insLen bld
+let ldfa ins bld =
+  lift bld ins {
+    let struct (addr, asiVal, dst) = transAddrFourOprs ins bld
     let oprSize = 64<rt>
     (* address is Rs1 + Rs2; the ASI selects the address space (or a block
        transfer). *)
@@ -2803,9 +2803,9 @@ let ldfa ins insLen bld =
       raise InvalidOpcodeException
   }
 
-let ld ins insLen bld =
-  lift bld ins insLen {
-    let struct (addr, dst) = transAddrThreeOprs ins insLen bld
+let ld ins bld =
+  lift bld ins {
+    let struct (addr, dst) = transAddrThreeOprs ins bld
     let oprSize = 64<rt>
     match ins.Opcode with
     | Opcode.LDSB ->
@@ -2837,9 +2837,9 @@ let ld ins insLen bld =
       raise InvalidOpcodeException
   }
 
-let lda ins insLen bld =
-  lift bld ins insLen {
-    let struct (src, src1, _asi, dst) = transFourOprs ins insLen bld
+let lda ins bld =
+  lift bld ins {
+    let struct (src, src1, _asi, dst) = transFourOprs ins bld
     let oprSize = 64<rt>
     (* operands are (Rs1, Rs2, ASI, Rd): the effective address is Rs1 + Rs2; the
        ASI only selects the address space (all user ASIs map to primary memory
@@ -2875,17 +2875,17 @@ let lda ins insLen bld =
       raise InvalidOpcodeException
   }
 
-let ldstub ins insLen bld =
-  lift bld ins insLen {
-    let struct (addr, dst) = transAddrThreeOprs ins insLen bld
+let ldstub ins bld =
+  lift bld ins {
+    let struct (addr, dst) = transAddrThreeOprs ins bld
     let oprSize = 64<rt>
     dst := (AST.zext oprSize (AST.loadBE 8<rt> addr))
     (AST.loadBE 8<rt> addr) := (numI32 0xff 8<rt>)
   }
 
-let ldstuba ins insLen bld =
-  lift bld ins insLen {
-    let struct (src, src1, _asi, dst) = transFourOprs ins insLen bld
+let ldstuba ins bld =
+  lift bld ins {
+    let struct (src, src1, _asi, dst) = transFourOprs ins bld
     let oprSize = 64<rt>
     (* operands (Rs1, Rs2, ASI, Rd): address is Rs1 + Rs2; the ASI selects the
        address space only, so it is not part of the address. *)
@@ -2894,11 +2894,11 @@ let ldstuba ins insLen bld =
     (AST.loadBE 8<rt> addr) := (numI32 0xff 8<rt>)
   }
 
-let membar ins insLen bld = (* FIXME *)
-  let mask = transOneOpr ins insLen bld
+let membar ins bld = (* FIXME *)
+  let mask = transOneOpr ins bld
   let oprSize = 64<rt>
   let t1 = tmpVar bld oprSize
-  lift bld ins insLen {
+  lift bld ins {
     t1 := mask
   }
 
@@ -3029,9 +3029,9 @@ let private movUnderCond (ins: Instruction) bld cc ccr fsr src dst =
   | _ ->
     movUnderIccCond ins bld cc ccr src dst
 
-let movcc ins insLen bld =
-  lift bld ins insLen {
-    let struct (cc, src, dst) = transThreeOprs ins insLen bld
+let movcc ins bld =
+  lift bld ins {
+    let struct (cc, src, dst) = transThreeOprs ins bld
     let ccr = regVar bld Register.CCR
     let fsr = regVar bld Register.FSR
     if (dst <> regVar bld Register.G0) then
@@ -3040,10 +3040,10 @@ let movcc ins insLen bld =
       ()
   }
 
-let movr ins insLen bld = (* TODO : check that destination is not g0*)
-  let struct (src, src1, dst) = transThreeOprs ins insLen bld
+let movr ins bld = (* TODO : check that destination is not g0*)
+  let struct (src, src1, dst) = transThreeOprs ins bld
   let oprSize = 64<rt>
-  lift bld ins insLen {
+  lift bld ins {
     match ins.Opcode with
     | Opcode.MOVRZ ->
       dst := AST.ite (src == AST.num0 oprSize) (src1) (dst)
@@ -3061,9 +3061,9 @@ let movr ins insLen bld = (* TODO : check that destination is not g0*)
       raise InvalidOpcodeException
   }
 
-let mulscc ins insLen bld =
-  lift bld ins insLen {
-    let struct (src, src1, dst) = transThreeOprs ins insLen bld
+let mulscc ins bld =
+  lift bld ins {
+    let struct (src, src1, dst) = transThreeOprs ins bld
     let oprSize = 64<rt>
     let res = tmpVar bld oprSize
     let src32 = tmpVar bld 32<rt>
@@ -3084,20 +3084,20 @@ let mulscc ins insLen bld =
     AST.extract ccr 4<rt> 0 := hbyte
   }
 
-let mulx ins insLen bld =
-  lift bld ins insLen {
-    let struct (src, src1, dst) = transThreeOprs ins insLen bld
+let mulx ins bld =
+  lift bld ins {
+    let struct (src, src1, dst) = transThreeOprs ins bld
     if (dst = regVar bld Register.G0) then append bld { dst := AST.num0 64<rt> }
     else append bld { dst := src .* src1 }
   }
 
-let nop (ins: Instruction) insLen bld =
-  lift bld ins insLen {
+let nop (ins: Instruction) bld =
+  lift bld ins {
   }
 
-let ``or`` ins insLen bld =
-  lift bld ins insLen {
-    let struct (src, src1, dst) = transThreeOprs ins insLen bld
+let ``or`` ins bld =
+  lift bld ins {
+    let struct (src, src1, dst) = transThreeOprs ins bld
     let oprSize = 64<rt>
     let res = tmpVar bld oprSize
     res := src .| src1
@@ -3105,9 +3105,9 @@ let ``or`` ins insLen bld =
     else append bld { dst := res }
   }
 
-let orcc ins insLen bld =
-  lift bld ins insLen {
-    let struct (src, src1, dst) = transThreeOprs ins insLen bld
+let orcc ins bld =
+  lift bld ins {
+    let struct (src, src1, dst) = transThreeOprs ins bld
     let oprSize = 64<rt>
     let res = tmpVar bld oprSize
     let ccr = regVar bld Register.CCR
@@ -3119,9 +3119,9 @@ let orcc ins insLen bld =
     AST.extract ccr 8<rt> 0 := byte
   }
 
-let orn ins insLen bld =
-  lift bld ins insLen {
-    let struct (src, src1, dst) = transThreeOprs ins insLen bld
+let orn ins bld =
+  lift bld ins {
+    let struct (src, src1, dst) = transThreeOprs ins bld
     let oprSize = 64<rt>
     let res = tmpVar bld oprSize
     res := (src .| AST.not (src1))
@@ -3129,9 +3129,9 @@ let orn ins insLen bld =
     else append bld { dst := res }
   }
 
-let orncc ins insLen bld =
-  lift bld ins insLen {
-    let struct (src, src1, dst) = transThreeOprs ins insLen bld
+let orncc ins bld =
+  lift bld ins {
+    let struct (src, src1, dst) = transThreeOprs ins bld
     let oprSize = 64<rt>
     let res = tmpVar bld oprSize
     let ccr = regVar bld Register.CCR
@@ -3143,9 +3143,9 @@ let orncc ins insLen bld =
     AST.extract ccr 8<rt> 0 := byte
   }
 
-let popc ins insLen bld =
-  lift bld ins insLen {
-    let struct (src, dst) = transTwoOprs ins insLen bld
+let popc ins bld =
+  lift bld ins {
+    let struct (src, dst) = transTwoOprs ins bld
     let oprSize = 64<rt>
     let max = numI32 (RegType.toBitWidth oprSize) 64<rt>
     let lblLoop = label bld "Loop"
@@ -3165,9 +3165,9 @@ let popc ins insLen bld =
     dst := count
   }
 
-let rd ins insLen bld =
-  lift bld ins insLen {
-    let struct (reg, dst) = transTwoOprs ins insLen bld
+let rd ins bld =
+  lift bld ins {
+    let struct (reg, dst) = transTwoOprs ins bld
     dst := reg
   }
 
@@ -3184,9 +3184,9 @@ let private inOutPairs =
     Register.I6, Register.O6
     Register.I7, Register.O7 ]
 
-let restore ins insLen bld =
-  lift bld ins insLen {
-    let struct (src, src1, dst) = transThreeOprs ins insLen bld
+let restore ins bld =
+  lift bld ins {
+    let struct (src, src1, dst) = transThreeOprs ins bld
     let result = tmpVar bld 64<rt>
     result := src .+ src1
     for i, o in inOutPairs do
@@ -3195,8 +3195,8 @@ let restore ins insLen bld =
     dst := result
   }
 
-let restored (ins: Instruction) insLen bld =
-  lift bld ins insLen {
+let restored (ins: Instruction) bld =
+  lift bld ins {
     let cs = regVar bld Register.CANSAVE
     let cr = regVar bld Register.CANRESTORE
     let ow = regVar bld Register.OTHERWIN
@@ -3216,9 +3216,9 @@ let restored (ins: Instruction) insLen bld =
     AST.lmark lblEnd
   }
 
-let ret ins insLen bld =
-  lift bld ins insLen {
-    let struct (src, src1) = transTwoOprs ins insLen bld
+let ret ins bld =
+  lift bld ins {
+    let struct (src, src1) = transTwoOprs ins bld
     (* RETURN is jmpl + a register-window RESTORE: the target reads %i7
        first, then the window rotates out (%o := %i, matching the RESTORE
        instruction), so the caller regains its %l/%i and receives the callee's
@@ -3230,16 +3230,16 @@ let ret ins insLen bld =
     arm bld InterJmpKind.IsRet
   }
 
-let retry (ins: Instruction) insLen bld =
-  lift bld ins insLen {
+let retry (ins: Instruction) bld =
+  lift bld ins {
     (* nPC before PC: writing %pc (a PCVar) ends the trace, so it goes last. *)
     regVar bld Register.NPC := regVar bld Register.TNPC
     regVar bld Register.PC := regVar bld Register.TPC
   }
 
-let save ins insLen bld =
-  lift bld ins insLen {
-    let struct (src, src1, dst) = transThreeOprs ins insLen bld
+let save ins bld =
+  lift bld ins {
+    let struct (src, src1, dst) = transThreeOprs ins bld
     let result = tmpVar bld 64<rt>
     result := src .+ src1
     AST.sideEffect SaveWindow
@@ -3248,8 +3248,8 @@ let save ins insLen bld =
     dst := result
   }
 
-let flushw (ins: Instruction) insLen bld =
-  lift bld ins insLen {
+let flushw (ins: Instruction) bld =
+  lift bld ins {
     AST.sideEffect FlushWindows
   }
 
@@ -3267,8 +3267,8 @@ let private iReg i = enum<Register> (0x18 + i)
 /// the trapped window. The saved PC/NPC resume just past the trap, so execution
 /// falls through and setjmp returns with %g1 as-is (0); _longjmp overwrites
 /// MC_G1 with the value the matching SETCONTEXT then loads.
-let getContext (ins: Instruction) insLen bld =
-  lift bld ins insLen {
+let getContext (ins: Instruction) bld =
+  lift bld ins {
     let buf = regVar bld Register.O0
     let sp = regVar bld Register.O6
     let gregs off = AST.loadBE 64<rt> (buf .+ numI64 off 64<rt>)
@@ -3290,8 +3290,8 @@ let getContext (ins: Instruction) insLen bld =
 /// from the restored frame's save area, then resume at the saved PC/NPC the way
 /// RETRY does. Windows the skipped frames orphaned on the stack are dropped
 /// lazily by the next RESTORE.
-let setContext (ins: Instruction) insLen bld =
-  lift bld ins insLen {
+let setContext (ins: Instruction) bld =
+  lift bld ins {
     let buf = tmpVar bld 64<rt>
     buf := regVar bld Register.O0
     let gregs off = AST.loadBE 64<rt> (buf .+ numI64 off 64<rt>)
@@ -3313,14 +3313,14 @@ let setContext (ins: Instruction) insLen bld =
 /// and setcontext (0x6f) traps. Only these are modeled; every other
 /// trap-on-condition is a no-op here (real traps are not modeled). The kernel
 /// reads the call number from %g1 and the arguments from %o0..%o5.
-let tcc (ins: Instruction) insLen bld =
+let tcc (ins: Instruction) bld =
   match ins.Operands with
   | TwoOperands(_, OprImm n) when n = 0x6e ->
-    getContext ins insLen bld
+    getContext ins bld
   | TwoOperands(_, OprImm n) when n = 0x6f ->
-    setContext ins insLen bld
+    setContext ins bld
   | _ ->
-    lift bld ins insLen {
+    lift bld ins {
       match ins.Operands with
       | TwoOperands(_, OprImm n) when n = 0x6d || n = 0x10 ->
         AST.sideEffect SysCall
@@ -3328,8 +3328,8 @@ let tcc (ins: Instruction) insLen bld =
         ()
     }
 
-let saved (ins: Instruction) insLen bld =
-  lift bld ins insLen {
+let saved (ins: Instruction) bld =
+  lift bld ins {
     let cs = regVar bld Register.CANSAVE
     let cr = regVar bld Register.CANRESTORE
     let ow = regVar bld Register.OTHERWIN
@@ -3349,9 +3349,9 @@ let saved (ins: Instruction) insLen bld =
     AST.lmark lblEnd
   }
 
-let sdiv ins insLen bld =
-  lift bld ins insLen {
-    let struct (src, src1, dst) = transThreeOprs ins insLen bld
+let sdiv ins bld =
+  lift bld ins {
+    let struct (src, src1, dst) = transThreeOprs ins bld
     let lblL0 = label bld "L0"
     let lblL1 = label bld "L1"
     let lblEnd = label bld "End"
@@ -3374,7 +3374,7 @@ let sdiv ins insLen bld =
     let cond = (divisor == AST.num0 32<rt>)
     if (divisor = AST.num0 32<rt> || src1 = regVar bld Register.G0) then
       AST.sideEffect (Exception DivideError)
-    elif (isRegOpr ins insLen bld) then
+    elif (isRegOpr ins bld) then
       AST.cjmp (cond) (AST.jmpDest lblL0) (AST.jmpDest lblL1)
       AST.lmark lblL1
       if (dst <> regVar bld Register.G0) then
@@ -3392,9 +3392,9 @@ let sdiv ins insLen bld =
   }
 
 /// Signed 32-bit divide, setting the condition codes.
-let sdivcc ins insLen bld =
-  lift bld ins insLen {
-    let struct (src, src1, dst) = transThreeOprs ins insLen bld
+let sdivcc ins bld =
+  lift bld ins {
+    let struct (src, src1, dst) = transThreeOprs ins bld
     let lblL0 = label bld "L0"
     let lblL1 = label bld "L1"
     let lblEnd = label bld "End"
@@ -3410,7 +3410,7 @@ let sdivcc ins insLen bld =
     let cond = (divisor == AST.num0 32<rt>)
     if (divisor = AST.num0 32<rt> || src1 = regVar bld Register.G0) then
       AST.sideEffect (Exception DivideError)
-    elif (isRegOpr ins insLen bld) then
+    elif (isRegOpr ins bld) then
       AST.cjmp (cond) (AST.jmpDest lblL0) (AST.jmpDest lblL1)
       AST.lmark lblL1
       if (dst <> regVar bld Register.G0) then
@@ -3430,16 +3430,16 @@ let sdivcc ins insLen bld =
     setDivCC bld ccr quotient
   }
 
-let sdivx ins insLen bld =
-  lift bld ins insLen {
-    let struct (src, src1, dst) = transThreeOprs ins insLen bld
+let sdivx ins bld =
+  lift bld ins {
+    let struct (src, src1, dst) = transThreeOprs ins bld
     let cond = (src1 == AST.num0 64<rt>)
     let lblL0 = label bld "L0"
     let lblL1 = label bld "L1"
     let lblEnd = label bld "End"
     if (src1 = AST.num0 64<rt> || src1 = regVar bld Register.G0) then
       AST.sideEffect (Exception DivideError)
-    elif (isRegOpr ins insLen bld) then
+    elif (isRegOpr ins bld) then
       AST.cjmp (cond) (AST.jmpDest lblL0) (AST.jmpDest lblL1)
       AST.lmark lblL1
       if (dst = regVar bld Register.G0) then
@@ -3457,9 +3457,9 @@ let sdivx ins insLen bld =
         append bld { dst := src ?/ src1 }
   }
 
-let sethi ins insLen bld =
-  lift bld ins insLen {
-    let struct (imm, dst) = transTwoOprs ins insLen bld
+let sethi ins bld =
+  lift bld ins {
+    let struct (imm, dst) = transTwoOprs ins bld
     if (dst <> regVar bld Register.G0) then
       dst := AST.concat (AST.zext 32<rt> AST.b0)
         (AST.extract imm 32<rt> 0)
@@ -3467,9 +3467,9 @@ let sethi ins insLen bld =
       ()
   }
 
-let sll ins insLen bld =
-  lift bld ins insLen {
-    let struct (src, src1, dst) = transThreeOprs ins insLen bld
+let sll ins bld =
+  lift bld ins {
+    let struct (src, src1, dst) = transThreeOprs ins bld
     if (dst = regVar bld Register.G0) then
       dst := AST.num0 64<rt>
     else
@@ -3484,9 +3484,9 @@ let sll ins insLen bld =
         dst := src << (src1 .& numI64 0x3fL 64<rt>)
   }
 
-let smul ins insLen bld =
-  lift bld ins insLen {
-    let struct (src, src1, dst) = transThreeOprs ins insLen bld
+let smul ins bld =
+  lift bld ins {
+    let struct (src, src1, dst) = transThreeOprs ins bld
     let yreg = regVar bld Register.Y
     if (dst = regVar bld Register.G0) then
       dst := AST.num0 64<rt>
@@ -3497,9 +3497,9 @@ let smul ins insLen bld =
         (AST.extract dst 32<rt> 32)
   }
 
-let smulcc ins insLen bld =
-  lift bld ins insLen {
-    let struct (src, src1, dst) = transThreeOprs ins insLen bld
+let smulcc ins bld =
+  lift bld ins {
+    let struct (src, src1, dst) = transThreeOprs ins bld
     let yreg = regVar bld Register.Y
     let ccr = regVar bld Register.CCR
     let byte = tmpVar bld 8<rt>
@@ -3514,9 +3514,9 @@ let smulcc ins insLen bld =
       AST.extract ccr 8<rt> 0 := byte
   }
 
-let sra ins insLen bld =
-  lift bld ins insLen {
-    let struct (src, src1, dst) = transThreeOprs ins insLen bld
+let sra ins bld =
+  lift bld ins {
+    let struct (src, src1, dst) = transThreeOprs ins bld
     if (dst = regVar bld Register.G0) then
       dst := AST.num0 64<rt>
     else
@@ -3529,9 +3529,9 @@ let sra ins insLen bld =
         dst := src ?>> (src1 .& numI64 0x3fL 64<rt>)
   }
 
-let srl ins insLen bld =
-  lift bld ins insLen {
-    let struct (src, src1, dst) = transThreeOprs ins insLen bld
+let srl ins bld =
+  lift bld ins {
+    let struct (src, src1, dst) = transThreeOprs ins bld
     if (dst = regVar bld Register.G0) then
       dst := AST.num0 64<rt>
     else
@@ -3544,9 +3544,9 @@ let srl ins insLen bld =
         dst := src >> (src1 .& numI64 0x3fL 64<rt>)
   }
 
-let st ins insLen bld =
-  lift bld ins insLen {
-    let struct (src, addr) = transTwoOprsAddr ins insLen bld
+let st ins bld =
+  lift bld ins {
+    let struct (src, addr) = transTwoOprsAddr ins bld
     match ins.Opcode with
     | Opcode.STB ->
       (AST.loadBE 8<rt> addr) := (AST.extract src 8<rt> 0)
@@ -3565,9 +3565,9 @@ let st ins insLen bld =
       raise InvalidOpcodeException
   }
 
-let sta ins insLen bld =
-  lift bld ins insLen {
-    let struct (src, src1, asi, _dst) = transFourOprs ins insLen bld
+let sta ins bld =
+  lift bld ins {
+    let struct (src, src1, asi, _dst) = transFourOprs ins bld
     (* operands are (Rd, Rs1, Rs2, ASI): src is the value to store; the
        effective address is Rs1 + Rs2 (src1 + asi), never the value register,
        and the ASI only selects the address space -- it is not part of the
@@ -3591,9 +3591,9 @@ let sta ins insLen bld =
       raise InvalidOpcodeException
   }
 
-let stf ins insLen bld =
-  lift bld ins insLen {
-    let struct (src, addr) = transTwoOprsAddr ins insLen bld
+let stf ins bld =
+  lift bld ins {
+    let struct (src, addr) = transTwoOprsAddr ins bld
     let oprSize = 64<rt>
     match ins.Opcode with
     | Opcode.STF ->
@@ -3647,9 +3647,9 @@ let private stfaWide bld addr asiVal src oprSize =
     }
   }
 
-let stfa ins insLen bld =
-  lift bld ins insLen {
-    let struct (src, src1, asi, asiVal) = transFourOprs ins insLen bld
+let stfa ins bld =
+  lift bld ins {
+    let struct (src, src1, asi, asiVal) = transFourOprs ins bld
     let oprSize = 64<rt>
     (* operands (FloatRd, Rs1, Rs2-or-simm13, ASI): src is the value; the
        address is Rs1 + Rs2 (src1 + asi); asiVal selects the address space. *)
@@ -3671,9 +3671,9 @@ let stfa ins insLen bld =
       raise InvalidOpcodeException
   }
 
-let sub ins insLen bld =
-  lift bld ins insLen {
-    let struct (src, src1, dst) = transThreeOprs ins insLen bld
+let sub ins bld =
+  lift bld ins {
+    let struct (src, src1, dst) = transThreeOprs ins bld
     let oprSize = 64<rt>
     let res = tmpVar bld oprSize
     res := src .- src1
@@ -3681,9 +3681,9 @@ let sub ins insLen bld =
     else append bld { dst := res }
   }
 
-let subcc ins insLen bld =
-  lift bld ins insLen {
-    let struct (src, src1, dst) = transThreeOprs ins insLen bld
+let subcc ins bld =
+  lift bld ins {
+    let struct (src, src1, dst) = transThreeOprs ins bld
     let oprSize = 64<rt>
     let res = tmpVar bld oprSize
     let ccr = regVar bld Register.CCR
@@ -3698,9 +3698,9 @@ let subcc ins insLen bld =
     else append bld { dst := res }
   }
 
-let subC ins insLen bld =
-  lift bld ins insLen {
-    let struct (src, src1, dst) = transThreeOprs ins insLen bld
+let subC ins bld =
+  lift bld ins {
+    let struct (src, src1, dst) = transThreeOprs ins bld
     let oprSize = 64<rt>
     let res = tmpVar bld oprSize
     let ccr = regVar bld Register.CCR
@@ -3709,9 +3709,9 @@ let subC ins insLen bld =
     else append bld { dst := res }
   }
 
-let subCcc ins insLen bld =
-  lift bld ins insLen {
-    let struct (src, src1, dst) = transThreeOprs ins insLen bld
+let subCcc ins bld =
+  lift bld ins {
+    let struct (src, src1, dst) = transThreeOprs ins bld
     let oprSize = 64<rt>
     let res = tmpVar bld oprSize
     let ccr = regVar bld Register.CCR
@@ -3724,9 +3724,9 @@ let subCcc ins insLen bld =
     else append bld { dst := res }
   }
 
-let swap ins insLen bld =
-  lift bld ins insLen {
-    let struct (src, src1, dst) = transThreeOprs ins insLen bld
+let swap ins bld =
+  lift bld ins {
+    let struct (src, src1, dst) = transThreeOprs ins bld
     let oprSize = 64<rt>
     let addr = tmpVar bld oprSize
     let tmp = tmpVar bld 32<rt>
@@ -3738,9 +3738,9 @@ let swap ins insLen bld =
     dst := AST.zext oprSize tmp
   }
 
-let swapa ins insLen bld =
-  lift bld ins insLen {
-    let struct (src, src1, _asi, dst) = transFourOprs ins insLen bld
+let swapa ins bld =
+  lift bld ins {
+    let struct (src, src1, _asi, dst) = transFourOprs ins bld
     let oprSize = 64<rt>
     let addr = tmpVar bld oprSize
     let tmp = tmpVar bld 32<rt>
@@ -3752,9 +3752,9 @@ let swapa ins insLen bld =
     dst := AST.zext oprSize tmp
   }
 
-let udiv ins insLen bld =
-  lift bld ins insLen {
-    let struct (src, src1, dst) = transThreeOprs ins insLen bld
+let udiv ins bld =
+  lift bld ins {
+    let struct (src, src1, dst) = transThreeOprs ins bld
     let lblL0 = label bld "L0"
     let lblL1 = label bld "L1"
     let lblEnd = label bld "End"
@@ -3768,7 +3768,7 @@ let udiv ins insLen bld =
     let cond = (divisor == AST.num0 32<rt>)
     if (divisor = AST.num0 32<rt> || src1 = regVar bld Register.G0) then
       AST.sideEffect (Exception DivideError)
-    elif (isRegOpr ins insLen bld) then
+    elif (isRegOpr ins bld) then
       AST.cjmp (cond) (AST.jmpDest lblL0) (AST.jmpDest lblL1)
       AST.lmark lblL1
       if (dst <> regVar bld Register.G0) then
@@ -3790,9 +3790,9 @@ let udiv ins insLen bld =
   }
 
 /// Unsigned 32-bit divide, setting the condition codes.
-let udivcc ins insLen bld =
-  lift bld ins insLen {
-    let struct (src, src1, dst) = transThreeOprs ins insLen bld
+let udivcc ins bld =
+  lift bld ins {
+    let struct (src, src1, dst) = transThreeOprs ins bld
     let lblL0 = label bld "L0"
     let lblL1 = label bld "L1"
     let lblEnd = label bld "End"
@@ -3808,7 +3808,7 @@ let udivcc ins insLen bld =
     let cond = (divisor == AST.num0 32<rt>)
     if (divisor = AST.num0 32<rt> || src1 = regVar bld Register.G0) then
       AST.sideEffect (Exception DivideError)
-    elif (isRegOpr ins insLen bld) then
+    elif (isRegOpr ins bld) then
       AST.cjmp (cond) (AST.jmpDest lblL0) (AST.jmpDest lblL1)
       AST.lmark lblL1
       if (dst <> regVar bld Register.G0) then
@@ -3828,16 +3828,16 @@ let udivcc ins insLen bld =
     setDivCC bld ccr quotient
   }
 
-let udivx ins insLen bld =
-  lift bld ins insLen {
-    let struct (src, src1, dst) = transThreeOprs ins insLen bld
+let udivx ins bld =
+  lift bld ins {
+    let struct (src, src1, dst) = transThreeOprs ins bld
     let cond = (src1 == AST.num0 64<rt>)
     let lblL0 = label bld "L0"
     let lblL1 = label bld "L1"
     let lblEnd = label bld "End"
     if (src1 = AST.num0 64<rt> || src1 = regVar bld Register.G0) then
       AST.sideEffect (Exception DivideError)
-    elif (isRegOpr ins insLen bld) then
+    elif (isRegOpr ins bld) then
       AST.cjmp (cond) (AST.jmpDest lblL0) (AST.jmpDest lblL1)
       AST.lmark lblL1
       if (dst = regVar bld Register.G0) then
@@ -3855,9 +3855,9 @@ let udivx ins insLen bld =
         append bld { dst := src ./ src1 }
   }
 
-let umul ins insLen bld =
-  lift bld ins insLen {
-    let struct (src, src1, dst) = transThreeOprs ins insLen bld
+let umul ins bld =
+  lift bld ins {
+    let struct (src, src1, dst) = transThreeOprs ins bld
     let yreg = regVar bld Register.Y
     if (dst = regVar bld Register.G0) then
       dst := AST.num0 64<rt>
@@ -3868,9 +3868,9 @@ let umul ins insLen bld =
         AST.zext 64<rt> (AST.extract dst 32<rt> 32)
   }
 
-let umulcc ins insLen bld =
-  lift bld ins insLen {
-    let struct (src, src1, dst) = transThreeOprs ins insLen bld
+let umulcc ins bld =
+  lift bld ins {
+    let struct (src, src1, dst) = transThreeOprs ins bld
     let yreg = regVar bld Register.Y
     let ccr = regVar bld Register.CCR
     let byte = tmpVar bld 8<rt>
@@ -3885,15 +3885,15 @@ let umulcc ins insLen bld =
       AST.extract ccr 8<rt> 0 := byte
   }
 
-let wr ins insLen bld =
-  lift bld ins insLen {
-    let struct (src, src1, reg) = transThreeOprs ins insLen bld
+let wr ins bld =
+  lift bld ins {
+    let struct (src, src1, reg) = transThreeOprs ins bld
     reg := src <+> src1
   }
 
-let xor ins insLen bld =
-  lift bld ins insLen {
-    let struct (src, src1, dst) = transThreeOprs ins insLen bld
+let xor ins bld =
+  lift bld ins {
+    let struct (src, src1, dst) = transThreeOprs ins bld
     let oprSize = 64<rt>
     let res = tmpVar bld oprSize
     res := src <+> src1
@@ -3901,9 +3901,9 @@ let xor ins insLen bld =
     else append bld { dst := res }
   }
 
-let xorcc ins insLen bld =
-  lift bld ins insLen {
-    let struct (src, src1, dst) = transThreeOprs ins insLen bld
+let xorcc ins bld =
+  lift bld ins {
+    let struct (src, src1, dst) = transThreeOprs ins bld
     let oprSize = 64<rt>
     let res = tmpVar bld oprSize
     let ccr = regVar bld Register.CCR
@@ -3915,9 +3915,9 @@ let xorcc ins insLen bld =
     AST.extract ccr 8<rt> 0 := byte
   }
 
-let xnor ins insLen bld =
-  lift bld ins insLen {
-    let struct (src, src1, dst) = transThreeOprs ins insLen bld
+let xnor ins bld =
+  lift bld ins {
+    let struct (src, src1, dst) = transThreeOprs ins bld
     let oprSize = 64<rt>
     let res = tmpVar bld oprSize
     res := src <+> AST.not (src1)
@@ -3925,9 +3925,9 @@ let xnor ins insLen bld =
     else append bld { dst := res }
   }
 
-let xnorcc ins insLen bld =
-  lift bld ins insLen {
-    let struct (src, src1, dst) = transThreeOprs ins insLen bld
+let xnorcc ins bld =
+  lift bld ins {
+    let struct (src, src1, dst) = transThreeOprs ins bld
     let oprSize = 64<rt>
     let res = tmpVar bld oprSize
     let ccr = regVar bld Register.CCR

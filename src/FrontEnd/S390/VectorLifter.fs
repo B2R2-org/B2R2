@@ -154,31 +154,31 @@ let private allOnes w = numI64 -1L w
 
 /// An operation whose operands are two vectors and whose element size a mask
 /// gives: the very shape most of the facility's arithmetic takes.
-let private binary ins insLen bld f =
-  lift bld (ins: Instruction) insLen {
+let private binary ins bld f =
+  lift bld (ins: Instruction) {
     let o = oprArray ins
     let w = esize (oprMask o[3])
     mapPair bld w (vec bld o[0]) (vec bld o[1]) (vec bld o[2]) f
   }
 
 /// The same shape, but at a fixed element size the opcode itself names.
-let private binaryAt ins insLen bld w f =
-  lift bld (ins: Instruction) insLen {
+let private binaryAt ins bld w f =
+  lift bld (ins: Instruction) {
     let o = oprArray ins
     mapPair bld w (vec bld o[0]) (vec bld o[1]) (vec bld o[2]) f
   }
 
 /// A one-operand operation whose element size a mask gives.
-let private unary ins insLen bld f =
-  lift bld (ins: Instruction) insLen {
+let private unary ins bld f =
+  lift bld (ins: Instruction) {
     let o = oprArray ins
     let w = esize (oprMask o[2])
     mapOne bld w (vec bld o[0]) (vec bld o[1]) f
   }
 
 /// A three-vector operation whose element size a mask gives.
-let private ternary ins insLen bld f =
-  lift bld (ins: Instruction) insLen {
+let private ternary ins bld f =
+  lift bld (ins: Instruction) {
     let o = oprArray ins
     let w = esize (oprMask o[4])
     mapTriple
@@ -186,8 +186,8 @@ let private ternary ins insLen bld f =
   }
 
 /// VECTOR LOAD and VECTOR STORE, the plain sixteen-byte accesses.
-let load ins insLen bld =
-  lift bld (ins: Instruction) insLen {
+let load ins bld =
+  lift bld (ins: Instruction) {
     let o = oprArray ins
     let d = vec bld o[0]
     let addr = tmpVar bld GRSize
@@ -196,8 +196,8 @@ let load ins insLen bld =
     d.Lo := loadMem GRSize (addr .+ numG 8L)
   }
 
-let store ins insLen bld =
-  lift bld (ins: Instruction) insLen {
+let store ins bld =
+  lift bld (ins: Instruction) {
     let o = oprArray ins
     let s = vec bld o[0]
     let addr = tmpVar bld GRSize
@@ -214,8 +214,8 @@ let private vecRange (v1: Register) (v3: Register) =
        enum<Register> (int Register.VR0 + ((first + i) &&& 0x1f)) |]
 
 /// VECTOR LOAD MULTIPLE and VECTOR STORE MULTIPLE.
-let multiple ins insLen bld isLoad =
-  lift bld (ins: Instruction) insLen {
+let multiple ins bld isLoad =
+  lift bld (ins: Instruction) {
     let o = oprArray ins
     let regs = vecRange (oprReg o[0]) (oprReg o[2])
     let addr = tmpVar bld GRSize
@@ -234,8 +234,8 @@ let multiple ins insLen bld isLoad =
 /// VECTOR LOAD WITH LENGTH and VECTOR STORE WITH LENGTH: the third operand's
 /// register says how many bytes past the address take part, and the rest of the
 /// vector is zeroed (loading) or left alone in storage (storing).
-let withLength ins insLen bld isLoad =
-  lift bld (ins: Instruction) insLen {
+let withLength ins bld isLoad =
+  lift bld (ins: Instruction) {
     let o = oprArray ins
     let v = vec bld o[0]
     let addr = tmpVar bld GRSize
@@ -263,8 +263,8 @@ let withLength ins insLen bld isLoad =
 /// VECTOR LOAD TO BLOCK BOUNDARY, which loads as much as it can without
 /// crossing the boundary the mask names and leaves the rest of the vector
 /// undefined -- zero here, which is a value the architecture allows.
-let loadToBoundary ins insLen bld =
-  lift bld (ins: Instruction) insLen {
+let loadToBoundary ins bld =
+  lift bld (ins: Instruction) {
     let o = oprArray ins
     let v = vec bld o[0]
     let bound =
@@ -295,8 +295,8 @@ let loadToBoundary ins insLen bld =
   }
 
 /// VECTOR LOAD AND REPLICATE: one element of storage fills every lane.
-let loadReplicate ins insLen bld =
-  lift bld (ins: Instruction) insLen {
+let loadReplicate ins bld =
+  lift bld (ins: Instruction) {
     let o = oprArray ins
     let d = vec bld o[0]
     let w = esize (oprMask o[2])
@@ -308,8 +308,8 @@ let loadReplicate ins insLen bld =
 
 /// VECTOR LOAD ELEMENT and VECTOR STORE ELEMENT: one lane, the index a mask
 /// names, takes or fills one unit of storage.
-let element ins insLen bld w isLoad =
-  lift bld (ins: Instruction) insLen {
+let element ins bld w isLoad =
+  lift bld (ins: Instruction) {
     let o = oprArray ins
     let v = vec bld o[0]
     let i = int (oprMask o[2]) % lanes w
@@ -318,8 +318,8 @@ let element ins insLen bld w isLoad =
   }
 
 /// VECTOR LOAD ELEMENT IMMEDIATE, which writes a signed halfword into one lane.
-let elementImm ins insLen bld w =
-  lift bld (ins: Instruction) insLen {
+let elementImm ins bld w =
+  lift bld (ins: Instruction) {
     let o = oprArray ins
     let v = vec bld o[0]
     let i = int (oprMask o[2]) % lanes w
@@ -328,8 +328,8 @@ let elementImm ins insLen bld w =
 
 /// VECTOR LOAD LOGICAL ELEMENT AND ZERO: one unit of storage goes to the lane
 /// the architecture picks for it and every other bit becomes zero.
-let loadLogicalZero ins insLen bld =
-  lift bld (ins: Instruction) insLen {
+let loadLogicalZero ins bld =
+  lift bld (ins: Instruction) {
     let o = oprArray ins
     let v = vec bld o[0]
     let m = oprMask o[2] &&& 0xfus
@@ -342,8 +342,8 @@ let loadLogicalZero ins insLen bld =
 
 /// VECTOR LOAD GR FROM VR ELEMENT: one lane, the index an address computation
 /// gives, goes to a general register.
-let loadFromElement ins insLen bld =
-  lift bld (ins: Instruction) insLen {
+let loadFromElement ins bld =
+  lift bld (ins: Instruction) {
     let o = oprArray ins
     let s = vec bld o[2]
     let w = esize (oprMask o[3])
@@ -359,8 +359,8 @@ let loadFromElement ins insLen bld =
   }
 
 /// VECTOR LOAD VR ELEMENT FROM GR, the reverse.
-let loadToElement ins insLen bld =
-  lift bld (ins: Instruction) insLen {
+let loadToElement ins bld =
+  lift bld (ins: Instruction) {
     let o = oprArray ins
     let d = vec bld o[0]
     let w = esize (oprMask o[3])
@@ -375,8 +375,8 @@ let loadToElement ins insLen bld =
 
 /// VECTOR LOAD VR FROM GRS DISJOINT, which builds a vector from two general
 /// registers.
-let loadFromPair ins insLen bld =
-  lift bld (ins: Instruction) insLen {
+let loadFromPair ins bld =
+  lift bld (ins: Instruction) {
     let o = oprArray ins
     let d = vec bld o[0]
     d.Hi := oprRegVar bld o[1]
@@ -384,8 +384,8 @@ let loadFromPair ins insLen bld =
   }
 
 /// VECTOR LOAD, a move between two vector registers.
-let move ins insLen bld =
-  lift bld (ins: Instruction) insLen {
+let move ins bld =
+  lift bld (ins: Instruction) {
     let o = oprArray ins
     let d = vec bld o[0]
     let s = vec bld o[1]
@@ -396,8 +396,8 @@ let move ins insLen bld =
 /// VECTOR GENERATE BYTE MASK: each bit of a halfword immediate becomes a byte
 /// of all ones or all zeros. It is how the assembler spells a vector of zeros
 /// and one of ones.
-let generateByteMask ins insLen bld =
-  lift bld (ins: Instruction) insLen {
+let generateByteMask ins bld =
+  lift bld (ins: Instruction) {
     let o = oprArray ins
     let d = vec bld o[0]
     let m = uint64 (numOf o[1]) &&& 0xffffUL
@@ -416,8 +416,8 @@ let generateByteMask ins insLen bld =
 /// VECTOR GENERATE MASK: every lane takes the run of ones from one bit position
 /// through another, wrapping around the lane when the first lies after the
 /// second.
-let generateMask ins insLen bld =
-  lift bld (ins: Instruction) insLen {
+let generateMask ins bld =
+  lift bld (ins: Instruction) {
     let o = oprArray ins
     let d = vec bld o[0]
     let w = esize (oprMask o[3])
@@ -436,8 +436,8 @@ let generateMask ins insLen bld =
   }
 
 /// VECTOR REPLICATE: one lane of the source fills every lane.
-let replicate ins insLen bld =
-  lift bld (ins: Instruction) insLen {
+let replicate ins bld =
+  lift bld (ins: Instruction) {
     let o = oprArray ins
     let d = vec bld o[0]
     let s = vec bld o[2]
@@ -450,8 +450,8 @@ let replicate ins insLen bld =
   }
 
 /// VECTOR REPLICATE IMMEDIATE, which fills every lane with a signed halfword.
-let replicateImm ins insLen bld =
-  lift bld (ins: Instruction) insLen {
+let replicateImm ins bld =
+  lift bld (ins: Instruction) {
     let o = oprArray ins
     let d = vec bld o[0]
     let w = esize (oprMask o[2])
@@ -461,8 +461,8 @@ let replicateImm ins insLen bld =
 
 /// VECTOR LOAD RIGHTMOST WITH LENGTH and its store, which put the bytes at the
 /// right-hand end of the vector rather than the left.
-let rightmostWithLength ins insLen bld fromReg isLoad =
-  lift bld (ins: Instruction) insLen {
+let rightmostWithLength ins bld fromReg isLoad =
+  lift bld (ins: Instruction) {
     let o = oprArray ins
     let v = vec bld o[0]
     let addr = tmpVar bld GRSize
@@ -501,8 +501,8 @@ let private reverse (w: RegType) e =
     let bytes = [| for i in 0 .. n - 1 -> AST.extract e 8<rt> (i * 8) |]
     Array.reduce (fun acc b -> AST.concat acc b) bytes
 
-let loadReversed ins insLen bld byElement =
-  lift bld (ins: Instruction) insLen {
+let loadReversed ins bld byElement =
+  lift bld (ins: Instruction) {
     let o = oprArray ins
     let d = vec bld o[0]
     let w = if byElement then esize (oprMask o[2]) else 128<rt>
@@ -520,8 +520,8 @@ let loadReversed ins insLen bld byElement =
         lane d w i := reverse w (loadMem w at)
   }
 
-let storeReversed ins insLen bld byElement =
-  lift bld (ins: Instruction) insLen {
+let storeReversed ins bld byElement =
+  lift bld (ins: Instruction) {
     let o = oprArray ins
     let s = vec bld o[0]
     let w = if byElement then esize (oprMask o[2]) else 128<rt>
@@ -539,8 +539,8 @@ let storeReversed ins insLen bld byElement =
 
 /// VECTOR LOAD BYTE REVERSED ELEMENT AND ZERO, and the element loads and stores
 /// that reverse just the one element they touch.
-let elementReversed ins insLen bld w isLoad =
-  lift bld (ins: Instruction) insLen {
+let elementReversed ins bld w isLoad =
+  lift bld (ins: Instruction) {
     let o = oprArray ins
     let v = vec bld o[0]
     let i = int (oprMask o[2]) % lanes w
@@ -550,8 +550,8 @@ let elementReversed ins insLen bld w isLoad =
       storeMem (transMem bld o[1]) (reverse w (lane v w i))
   }
 
-let loadReversedReplicate ins insLen bld =
-  lift bld (ins: Instruction) insLen {
+let loadReversedReplicate ins bld =
+  lift bld (ins: Instruction) {
     let o = oprArray ins
     let d = vec bld o[0]
     let w = esize (oprMask o[2])
@@ -561,8 +561,8 @@ let loadReversedReplicate ins insLen bld =
       lane d w i := t
   }
 
-let loadReversedLogicalZero ins insLen bld =
-  lift bld (ins: Instruction) insLen {
+let loadReversedLogicalZero ins bld =
+  lift bld (ins: Instruction) {
     let o = oprArray ins
     let v = vec bld o[0]
     let w = esize (oprMask o[2])
@@ -574,8 +574,8 @@ let loadReversedLogicalZero ins insLen bld =
 
 /// VECTOR GATHER ELEMENT and VECTOR SCATTER ELEMENT, which reach one lane
 /// through an address the vector itself supplies as an index.
-let gatherScatter ins insLen bld w isGather =
-  lift bld (ins: Instruction) insLen {
+let gatherScatter ins bld w isGather =
+  lift bld (ins: Instruction) {
     let o = oprArray ins
     let v = vec bld o[0]
     let i = int (oprMask o[2]) % lanes w
@@ -597,8 +597,8 @@ let private borrowOf (w: RegType) a b =
 
 /// VECTOR ADD WITH CARRY and its subtracting counterpart, which take the carry
 /// vector a previous ADD WITH CARRY COMPUTE CARRY produced.
-let addWithCarry ins insLen bld =
-  lift bld (ins: Instruction) insLen {
+let addWithCarry ins bld =
+  lift bld (ins: Instruction) {
     let o = oprArray ins
     let w = esize (oprMask o[4])
     mapTriple bld
@@ -610,8 +610,8 @@ let addWithCarry ins insLen bld =
       (fun a b c -> a .+ b .+ (c .& AST.num1 w))
   }
 
-let addCarryCompute ins insLen bld =
-  lift bld (ins: Instruction) insLen {
+let addCarryCompute ins bld =
+  lift bld (ins: Instruction) {
     let o = oprArray ins
     let w = esize (oprMask o[4])
     mapTriple bld w (vec bld o[0]) (vec bld o[1]) (vec bld o[2]) (vec bld o[3])
@@ -624,8 +624,8 @@ let addCarryCompute ins insLen bld =
         carry1 .| carry2)
   }
 
-let subWithBorrow ins insLen bld =
-  lift bld (ins: Instruction) insLen {
+let subWithBorrow ins bld =
+  lift bld (ins: Instruction) {
     let o = oprArray ins
     let w = esize (oprMask o[4])
     mapTriple bld
@@ -637,8 +637,8 @@ let subWithBorrow ins insLen bld =
       (fun a b c -> a .- b .- (AST.num1 w .- (c .& AST.num1 w)))
   }
 
-let subBorrowCompute ins insLen bld =
-  lift bld (ins: Instruction) insLen {
+let subBorrowCompute ins bld =
+  lift bld (ins: Instruction) {
     let o = oprArray ins
     let w = esize (oprMask o[4])
     mapTriple bld w (vec bld o[0]) (vec bld o[1]) (vec bld o[2]) (vec bld o[3])
@@ -667,8 +667,8 @@ let private mulHigh signed (w: RegType) a b =
 
 /// The multiplies that widen: the even or the odd lanes of the sources make
 /// products twice as wide, so half as many of them.
-let private widenMul ins insLen bld signed odd =
-  lift bld (ins: Instruction) insLen {
+let private widenMul ins bld signed odd =
+  lift bld (ins: Instruction) {
     let o = oprArray ins
     let w = esize (oprMask o[3])
     let wide = w * 2
@@ -687,8 +687,8 @@ let private widenMul ins insLen bld signed odd =
 
 /// The widening multiply-and-adds, which add a third vector's wide lanes to the
 /// products.
-let private widenMulAdd ins insLen bld signed odd =
-  lift bld (ins: Instruction) insLen {
+let private widenMulAdd ins bld signed odd =
+  lift bld (ins: Instruction) {
     let o = oprArray ins
     let w = esize (oprMask o[4])
     let wide = w * 2
@@ -709,8 +709,8 @@ let private widenMulAdd ins insLen bld signed odd =
 
 /// VECTOR MULTIPLY AND ADD LOW and its high-half relatives, whose product stays
 /// the width of the operands.
-let private mulAdd ins insLen bld f =
-  lift bld (ins: Instruction) insLen {
+let private mulAdd ins bld f =
+  lift bld (ins: Instruction) {
     let o = oprArray ins
     let w = esize (oprMask o[4])
     mapTriple bld
@@ -725,8 +725,8 @@ let private mulAdd ins insLen bld f =
 /// VECTOR SUM ACROSS the group of lanes the opcode names: the sums go into
 /// lanes twice or four times as wide, which is how a dot product or a checksum
 /// is accumulated without overflowing.
-let private sumAcross ins insLen bld (wide: RegType) =
-  lift bld (ins: Instruction) insLen {
+let private sumAcross ins bld (wide: RegType) =
+  lift bld (ins: Instruction) {
     let o = oprArray ins
     let w = esize (oprMask o[3])
     let d = vec bld o[0]
@@ -747,8 +747,8 @@ let private sumAcross ins insLen bld (wide: RegType) =
 /// VECTOR GALOIS FIELD MULTIPLY SUM, the carry-less multiply a cyclic
 /// redundancy check is built from: the products of the even and the odd lanes
 /// are added without carries into a lane twice as wide.
-let private galoisMul ins insLen bld accumulate =
-  lift bld (ins: Instruction) insLen {
+let private galoisMul ins bld accumulate =
+  lift bld (ins: Instruction) {
     let o = oprArray ins
     let w = esize (oprMask o[if accumulate then 4 else 3])
     let wide = w * 2
@@ -782,8 +782,8 @@ let private galoisMul ins insLen bld accumulate =
   }
 
 /// VECTOR CHECKSUM, which adds the word lanes with the carries folded back in.
-let checksum ins insLen bld =
-  lift bld (ins: Instruction) insLen {
+let checksum ins bld =
+  lift bld (ins: Instruction) {
     let o = oprArray ins
     let d = vec bld o[0]
     let x = vec bld o[1]
@@ -801,8 +801,8 @@ let checksum ins insLen bld =
 
 /// VECTOR BIT PERMUTE, which gathers the bits a vector of indices names into
 /// the rightmost halfword of the result.
-let bitPermute ins insLen bld =
-  lift bld (ins: Instruction) insLen {
+let bitPermute ins bld =
+  lift bld (ins: Instruction) {
     let o = oprArray ins
     let d = vec bld o[0]
     let x = vec bld o[1]
@@ -867,8 +867,8 @@ let private shiftByCount (w: RegType) f e count =
 
 /// The element-wise shifts whose count is one value for every lane, taken from
 /// the address the second operand forms rather than from a vector.
-let private shiftByAddress ins insLen bld f =
-  lift bld (ins: Instruction) insLen {
+let private shiftByAddress ins bld f =
+  lift bld (ins: Instruction) {
     let o = oprArray ins
     let w = esize (oprMask o[3])
     let bits = bitsOf w
@@ -881,8 +881,8 @@ let private shiftByAddress ins insLen bld f =
 
 /// VECTOR SHIFT LEFT and its relatives, which shift the whole 128 bits by a
 /// count the rightmost byte of a third vector's last lane gives.
-let private shiftWhole ins insLen bld byBytes f =
-  lift bld (ins: Instruction) insLen {
+let private shiftWhole ins bld byBytes f =
+  lift bld (ins: Instruction) {
     let o = oprArray ins
     let d = vec bld o[0]
     let x = vec bld o[1]
@@ -915,8 +915,8 @@ let private windowFromLeft bld x y shift =
     hi .| lo
 
 /// VECTOR SHIFT LEFT DOUBLE BY BYTE, and the bit-precise form of the same.
-let shiftDoubleLeft ins insLen bld byBytes =
-  lift bld (ins: Instruction) insLen {
+let shiftDoubleLeft ins bld byBytes =
+  lift bld (ins: Instruction) {
     let o = oprArray ins
     let d = vec bld o[0]
     let x = vec bld o[1]
@@ -928,8 +928,8 @@ let shiftDoubleLeft ins insLen bld byBytes =
 
 /// VECTOR SHIFT RIGHT DOUBLE BY BIT, which takes the window at the right-hand
 /// end instead.
-let shiftDoubleRight ins insLen bld =
-  lift bld (ins: Instruction) insLen {
+let shiftDoubleRight ins bld =
+  lift bld (ins: Instruction) {
     let o = oprArray ins
     let d = vec bld o[0]
     let x = vec bld o[1]
@@ -940,8 +940,8 @@ let shiftDoubleRight ins insLen bld =
 
 /// VECTOR ELEMENT ROTATE AND INSERT UNDER MASK, which rotates one vector's
 /// lanes and takes the bits a third vector's lanes select.
-let rotateInsert ins insLen bld =
-  lift bld (ins: Instruction) insLen {
+let rotateInsert ins bld =
+  lift bld (ins: Instruction) {
     let o = oprArray ins
     let w = esize (oprMask o[4])
     let bits = bitsOf w
@@ -978,8 +978,8 @@ let private setCCCompare bld w d =
 
 /// The element-wise comparisons, which write all ones into a lane the
 /// comparison held for and all zeros into the others.
-let compare ins insLen bld f =
-  lift bld (ins: Instruction) insLen {
+let compare ins bld f =
+  lift bld (ins: Instruction) {
     let o = oprArray ins
     let w = esize (oprMask o[3])
     let cc = Array.length o > 4 && wantsCC (oprMask o[4])
@@ -995,8 +995,8 @@ let compare ins insLen bld f =
 
 /// VECTOR ELEMENT COMPARE, which reports how one lane of each vector stands
 /// rather than writing a result.
-let elementCompare ins insLen bld signed =
-  lift bld (ins: Instruction) insLen {
+let elementCompare ins bld signed =
+  lift bld (ins: Instruction) {
     let o = oprArray ins
     let w = esize (oprMask o[2])
     let i = lanes w / 2 - 1
@@ -1009,8 +1009,8 @@ let elementCompare ins insLen bld signed =
 
 /// VECTOR TEST UNDER MASK, whose condition code says whether the bits the mask
 /// selects were all zeros, a mixture, or all ones.
-let testUnderMask ins insLen bld =
-  lift bld (ins: Instruction) insLen {
+let testUnderMask ins bld =
+  lift bld (ins: Instruction) {
     let o = oprArray ins
     let x = whole (vec bld o[0])
     let m = whole (vec bld o[1])
@@ -1039,8 +1039,8 @@ let private setIndex bld w d found idx =
 /// equal" form, the first that differs -- decides. A zero lane counts as the
 /// end of a string when the mask says so, which is what makes these the whole
 /// of a vector strlen or strchr.
-let findElement ins insLen bld wantEqual =
-  lift bld (ins: Instruction) insLen {
+let findElement ins bld wantEqual =
+  lift bld (ins: Instruction) {
     let o = oprArray ins
     let w = esize (oprMask o[3])
     let m5 = if Array.length o > 4 then oprMask o[4] else 0us
@@ -1071,8 +1071,8 @@ let findElement ins insLen bld wantEqual =
 
 /// VECTOR ISOLATE STRING, which keeps every lane up to the first zero one and
 /// clears the rest -- the vector form of taking a null-terminated prefix.
-let isolateString ins insLen bld =
-  lift bld (ins: Instruction) insLen {
+let isolateString ins bld =
+  lift bld (ins: Instruction) {
     let o = oprArray ins
     let w = esize (oprMask o[2])
     let m5 = if Array.length o > 3 then oprMask o[3] else 0us
@@ -1097,8 +1097,8 @@ let isolateString ins insLen bld =
 /// VECTOR STRING RANGE COMPARE and VECTOR STRING SEARCH, the two remaining
 /// string primitives. Both walk the lanes looking for the first that satisfies
 /// a condition the extra operands describe.
-let stringRangeCompare ins insLen bld =
-  lift bld (ins: Instruction) insLen {
+let stringRangeCompare ins bld =
+  lift bld (ins: Instruction) {
     let o = oprArray ins
     let w = esize (oprMask o[4])
     let m6 = if Array.length o > 5 then oprMask o[5] else 0us
@@ -1130,8 +1130,8 @@ let stringRangeCompare ins insLen bld =
       ()
   }
 
-let stringSearch ins insLen bld =
-  lift bld (ins: Instruction) insLen {
+let stringSearch ins bld =
+  lift bld (ins: Instruction) {
     let o = oprArray ins
     let w = esize (oprMask o[4])
     let d = vec bld o[0]
@@ -1162,8 +1162,8 @@ let stringSearch ins insLen bld =
 
 /// VECTOR PACK, which halves the width of every lane by dropping its left half,
 /// and the saturating forms, which clamp instead of dropping.
-let pack ins insLen bld =
-  lift bld (ins: Instruction) insLen {
+let pack ins bld =
+  lift bld (ins: Instruction) {
     let o = oprArray ins
     let w = esize (oprMask o[3])
     let narrow = w / 2
@@ -1182,8 +1182,8 @@ let pack ins insLen bld =
 
 /// VECTOR UNPACK, which doubles the width of the lanes at one end of the
 /// source, sign- or zero-extending each.
-let unpack ins insLen bld signed fromHigh =
-  lift bld (ins: Instruction) insLen {
+let unpack ins bld signed fromHigh =
+  lift bld (ins: Instruction) {
     let o = oprArray ins
     let w = esize (oprMask o[2])
     let wide = w * 2
@@ -1200,8 +1200,8 @@ let unpack ins insLen bld signed fromHigh =
   }
 
 /// VECTOR MERGE, which interleaves the lanes at one end of the two sources.
-let merge ins insLen bld fromHigh =
-  lift bld (ins: Instruction) insLen {
+let merge ins bld fromHigh =
+  lift bld (ins: Instruction) {
     let o = oprArray ins
     let w = esize (oprMask o[3])
     let d = vec bld o[0]
@@ -1219,8 +1219,8 @@ let merge ins insLen bld fromHigh =
 
 /// VECTOR PERMUTE, which builds each byte of the result from whichever byte of
 /// the two sources laid end to end a third vector's byte names.
-let permute ins insLen bld =
-  lift bld (ins: Instruction) insLen {
+let permute ins bld =
+  lift bld (ins: Instruction) {
     let o = oprArray ins
     let d = vec bld o[0]
     let x = vec bld o[1]
@@ -1240,8 +1240,8 @@ let permute ins insLen bld =
   }
 
 /// VECTOR PERMUTE DOUBLEWORD IMMEDIATE, the same idea over two doublewords.
-let permuteDoubleword ins insLen bld =
-  lift bld (ins: Instruction) insLen {
+let permuteDoubleword ins bld =
+  lift bld (ins: Instruction) {
     let o = oprArray ins
     let d = vec bld o[0]
     let x = vec bld o[1]
@@ -1256,8 +1256,8 @@ let permuteDoubleword ins insLen bld =
   }
 
 /// VECTOR SELECT, whose third operand chooses bit by bit between the other two.
-let select ins insLen bld =
-  lift bld (ins: Instruction) insLen {
+let select ins bld =
+  lift bld (ins: Instruction) {
     let o = oprArray ins
     let d = vec bld o[0]
     let x = vec bld o[1]
@@ -1276,8 +1276,8 @@ let select ins insLen bld =
 
 /// VECTOR SIGN EXTEND TO DOUBLEWORD, which takes the rightmost element of each
 /// half and spreads its sign over the whole of that half.
-let signExtendDoubleword ins insLen bld =
-  lift bld (ins: Instruction) insLen {
+let signExtendDoubleword ins bld =
+  lift bld (ins: Instruction) {
     let o = oprArray ins
     let d = vec bld o[0]
     let x = vec bld o[1]
@@ -1289,306 +1289,306 @@ let signExtendDoubleword ins insLen bld =
 /// floating-point operations, which would need a 128-bit float the IR has no
 /// type for, and the vector decimal ones, whose packed-decimal arithmetic is
 /// not modelled either.
-let unsupported ins insLen bld =
-  lift bld (ins: Instruction) insLen {
+let unsupported ins bld =
+  lift bld (ins: Instruction) {
     AST.sideEffect UnsupportedInstruction
   }
 
 /// Translates one vector instruction.
-let translate (ins: Instruction) insLen bld =
+let translate (ins: Instruction) bld =
   match ins.Opcode with
   | Opcode.VL ->
-    load ins insLen bld
+    load ins bld
   | Opcode.VST ->
-    store ins insLen bld
+    store ins bld
   | Opcode.VLM ->
-    multiple ins insLen bld true
+    multiple ins bld true
   | Opcode.VSTM ->
-    multiple ins insLen bld false
+    multiple ins bld false
   | Opcode.VLL ->
-    withLength ins insLen bld true
+    withLength ins bld true
   | Opcode.VSTL ->
-    withLength ins insLen bld false
+    withLength ins bld false
   | Opcode.VLBB ->
-    loadToBoundary ins insLen bld
+    loadToBoundary ins bld
   | Opcode.VLREP ->
-    loadReplicate ins insLen bld
+    loadReplicate ins bld
   | Opcode.VLR ->
-    move ins insLen bld
+    move ins bld
   | Opcode.VLEB ->
-    element ins insLen bld 8<rt> true
+    element ins bld 8<rt> true
   | Opcode.VLEH ->
-    element ins insLen bld 16<rt> true
+    element ins bld 16<rt> true
   | Opcode.VLEF ->
-    element ins insLen bld 32<rt> true
+    element ins bld 32<rt> true
   | Opcode.VLEG ->
-    element ins insLen bld 64<rt> true
+    element ins bld 64<rt> true
   | Opcode.VSTEB ->
-    element ins insLen bld 8<rt> false
+    element ins bld 8<rt> false
   | Opcode.VSTEH ->
-    element ins insLen bld 16<rt> false
+    element ins bld 16<rt> false
   | Opcode.VSTEF ->
-    element ins insLen bld 32<rt> false
+    element ins bld 32<rt> false
   | Opcode.VSTEG ->
-    element ins insLen bld 64<rt> false
+    element ins bld 64<rt> false
   | Opcode.VLEIB ->
-    elementImm ins insLen bld 8<rt>
+    elementImm ins bld 8<rt>
   | Opcode.VLEIH ->
-    elementImm ins insLen bld 16<rt>
+    elementImm ins bld 16<rt>
   | Opcode.VLEIF ->
-    elementImm ins insLen bld 32<rt>
+    elementImm ins bld 32<rt>
   | Opcode.VLEIG ->
-    elementImm ins insLen bld 64<rt>
+    elementImm ins bld 64<rt>
   | Opcode.VLLEZ ->
-    loadLogicalZero ins insLen bld
+    loadLogicalZero ins bld
   | Opcode.VLGV ->
-    loadFromElement ins insLen bld
+    loadFromElement ins bld
   | Opcode.VLVG ->
-    loadToElement ins insLen bld
+    loadToElement ins bld
   | Opcode.VLVGP ->
-    loadFromPair ins insLen bld
+    loadFromPair ins bld
   | Opcode.VGBM ->
-    generateByteMask ins insLen bld
+    generateByteMask ins bld
   | Opcode.VGM ->
-    generateMask ins insLen bld
+    generateMask ins bld
   | Opcode.VREP ->
-    replicate ins insLen bld
+    replicate ins bld
   | Opcode.VREPI ->
-    replicateImm ins insLen bld
+    replicateImm ins bld
   | Opcode.VLRL ->
-    rightmostWithLength ins insLen bld false true
+    rightmostWithLength ins bld false true
   | Opcode.VLRLR ->
-    rightmostWithLength ins insLen bld true true
+    rightmostWithLength ins bld true true
   | Opcode.VSTRL ->
-    rightmostWithLength ins insLen bld false false
+    rightmostWithLength ins bld false false
   | Opcode.VSTRLR ->
-    rightmostWithLength ins insLen bld true false
+    rightmostWithLength ins bld true false
   | Opcode.VLBR ->
-    loadReversed ins insLen bld true
+    loadReversed ins bld true
   | Opcode.VLER ->
-    loadReversed ins insLen bld true
+    loadReversed ins bld true
   | Opcode.VSTBR ->
-    storeReversed ins insLen bld true
+    storeReversed ins bld true
   | Opcode.VSTER ->
-    storeReversed ins insLen bld true
+    storeReversed ins bld true
   | Opcode.VLBRREP ->
-    loadReversedReplicate ins insLen bld
+    loadReversedReplicate ins bld
   | Opcode.VLLEBRZ ->
-    loadReversedLogicalZero ins insLen bld
+    loadReversedLogicalZero ins bld
   | Opcode.VLEBRH ->
-    elementReversed ins insLen bld 16<rt> true
+    elementReversed ins bld 16<rt> true
   | Opcode.VLEBRF ->
-    elementReversed ins insLen bld 32<rt> true
+    elementReversed ins bld 32<rt> true
   | Opcode.VLEBRG ->
-    elementReversed ins insLen bld 64<rt> true
+    elementReversed ins bld 64<rt> true
   | Opcode.VSTEBRH ->
-    elementReversed ins insLen bld 16<rt> false
+    elementReversed ins bld 16<rt> false
   | Opcode.VSTEBRF ->
-    elementReversed ins insLen bld 32<rt> false
+    elementReversed ins bld 32<rt> false
   | Opcode.VSTEBRG ->
-    elementReversed ins insLen bld 64<rt> false
+    elementReversed ins bld 64<rt> false
   | Opcode.VN ->
-    binaryAt ins insLen bld 128<rt> (.&)
+    binaryAt ins bld 128<rt> (.&)
   | Opcode.VO ->
-    binaryAt ins insLen bld 128<rt> (.|)
+    binaryAt ins bld 128<rt> (.|)
   | Opcode.VX ->
-    binaryAt ins insLen bld 128<rt> (<+>)
+    binaryAt ins bld 128<rt> (<+>)
   | Opcode.VNC ->
-    binaryAt ins insLen bld 128<rt> (fun a b -> a .& AST.not b)
+    binaryAt ins bld 128<rt> (fun a b -> a .& AST.not b)
   | Opcode.VOC ->
-    binaryAt ins insLen bld 128<rt> (fun a b -> a .| AST.not b)
+    binaryAt ins bld 128<rt> (fun a b -> a .| AST.not b)
   | Opcode.VNO ->
-    binaryAt ins insLen bld 128<rt> (fun a b -> AST.not (a .| b))
+    binaryAt ins bld 128<rt> (fun a b -> AST.not (a .| b))
   | Opcode.VNN ->
-    binaryAt ins insLen bld 128<rt> (fun a b -> AST.not (a .& b))
+    binaryAt ins bld 128<rt> (fun a b -> AST.not (a .& b))
   | Opcode.VNX ->
-    binaryAt ins insLen bld 128<rt> (fun a b -> AST.not (a <+> b))
+    binaryAt ins bld 128<rt> (fun a b -> AST.not (a <+> b))
   | Opcode.VSEL ->
-    select ins insLen bld
+    select ins bld
   | Opcode.VA ->
-    binary ins insLen bld (.+)
+    binary ins bld (.+)
   | Opcode.VS ->
-    binary ins insLen bld (.-)
+    binary ins bld (.-)
   | Opcode.VACC ->
     let o = oprArray ins
     let w = esize (oprMask o[3])
-    binary ins insLen bld (carryOf w)
+    binary ins bld (carryOf w)
   | Opcode.VSCBI ->
     let o = oprArray ins
     let w = esize (oprMask o[3])
-    binary ins insLen bld (borrowOf w)
+    binary ins bld (borrowOf w)
   | Opcode.VAC ->
-    addWithCarry ins insLen bld
+    addWithCarry ins bld
   | Opcode.VACCC ->
-    addCarryCompute ins insLen bld
+    addCarryCompute ins bld
   | Opcode.VSBI ->
-    subWithBorrow ins insLen bld
+    subWithBorrow ins bld
   | Opcode.VSBCBI ->
-    subBorrowCompute ins insLen bld
+    subBorrowCompute ins bld
   | Opcode.VAVG ->
     let o = oprArray ins
     let w = esize (oprMask o[3])
-    binary ins insLen bld (avgSigned w)
+    binary ins bld (avgSigned w)
   | Opcode.VAVGL ->
     let o = oprArray ins
     let w = esize (oprMask o[3])
-    binary ins insLen bld (avgLogical w)
+    binary ins bld (avgLogical w)
   | Opcode.VMX ->
-    binary ins insLen bld (fun a b -> AST.ite (a ?> b) a b)
+    binary ins bld (fun a b -> AST.ite (a ?> b) a b)
   | Opcode.VMXL ->
-    binary ins insLen bld (fun a b -> AST.ite (a .> b) a b)
+    binary ins bld (fun a b -> AST.ite (a .> b) a b)
   | Opcode.VMN ->
-    binary ins insLen bld (fun a b -> AST.ite (a ?< b) a b)
+    binary ins bld (fun a b -> AST.ite (a ?< b) a b)
   | Opcode.VMNL ->
-    binary ins insLen bld (fun a b -> AST.ite (a .< b) a b)
+    binary ins bld (fun a b -> AST.ite (a .< b) a b)
   | Opcode.VLC ->
-    unary ins insLen bld AST.neg
+    unary ins bld AST.neg
   | Opcode.VLP ->
     let o = oprArray ins
     let w = esize (oprMask o[2])
-    unary ins insLen bld (fun a ->
+    unary ins bld (fun a ->
       AST.ite (a ?< AST.num0 w) (AST.neg a) a)
   | Opcode.VML ->
-    binary ins insLen bld (.*)
+    binary ins bld (.*)
   | Opcode.VMH ->
     let o = oprArray ins
     let w = esize (oprMask o[3])
-    binary ins insLen bld (mulHigh true w)
+    binary ins bld (mulHigh true w)
   | Opcode.VMLH ->
     let o = oprArray ins
     let w = esize (oprMask o[3])
-    binary ins insLen bld (mulHigh false w)
+    binary ins bld (mulHigh false w)
   | Opcode.VME ->
-    widenMul ins insLen bld true false
+    widenMul ins bld true false
   | Opcode.VMO ->
-    widenMul ins insLen bld true true
+    widenMul ins bld true true
   | Opcode.VMLE ->
-    widenMul ins insLen bld false false
+    widenMul ins bld false false
   | Opcode.VMLO ->
-    widenMul ins insLen bld false true
+    widenMul ins bld false true
   | Opcode.VMAE ->
-    widenMulAdd ins insLen bld true false
+    widenMulAdd ins bld true false
   | Opcode.VMAO ->
-    widenMulAdd ins insLen bld true true
+    widenMulAdd ins bld true true
   | Opcode.VMALE ->
-    widenMulAdd ins insLen bld false false
+    widenMulAdd ins bld false false
   | Opcode.VMALO ->
-    widenMulAdd ins insLen bld false true
+    widenMulAdd ins bld false true
   | Opcode.VMAL ->
-    mulAdd ins insLen bld (fun _ a b c -> (a .* b) .+ c)
+    mulAdd ins bld (fun _ a b c -> (a .* b) .+ c)
   | Opcode.VMAH ->
-    mulAdd ins insLen bld (fun w a b c -> mulHigh true w a b .+ c)
+    mulAdd ins bld (fun w a b c -> mulHigh true w a b .+ c)
   | Opcode.VMALH ->
-    mulAdd ins insLen bld (fun w a b c -> mulHigh false w a b .+ c)
+    mulAdd ins bld (fun w a b c -> mulHigh false w a b .+ c)
   | Opcode.VSUM ->
-    sumAcross ins insLen bld 32<rt>
+    sumAcross ins bld 32<rt>
   | Opcode.VSUMG ->
-    sumAcross ins insLen bld 64<rt>
+    sumAcross ins bld 64<rt>
   | Opcode.VSUMQ ->
-    sumAcross ins insLen bld 128<rt>
+    sumAcross ins bld 128<rt>
   | Opcode.VGFM ->
-    galoisMul ins insLen bld false
+    galoisMul ins bld false
   | Opcode.VGFMA ->
-    galoisMul ins insLen bld true
+    galoisMul ins bld true
   | Opcode.VCKSM ->
-    checksum ins insLen bld
+    checksum ins bld
   | Opcode.VBPERM ->
-    bitPermute ins insLen bld
+    bitPermute ins bld
   | Opcode.VPOPCT ->
     let o = oprArray ins
     let w = esize (oprMask o[2])
-    unary ins insLen bld (popcount w)
+    unary ins bld (popcount w)
   | Opcode.VCLZ ->
     let o = oprArray ins
     let w = esize (oprMask o[2])
-    unary ins insLen bld (countZeros true w)
+    unary ins bld (countZeros true w)
   | Opcode.VCTZ ->
     let o = oprArray ins
     let w = esize (oprMask o[2])
-    unary ins insLen bld (countZeros false w)
+    unary ins bld (countZeros false w)
   | Opcode.VESL ->
-    shiftByAddress ins insLen bld (<<)
+    shiftByAddress ins bld (<<)
   | Opcode.VESRL ->
-    shiftByAddress ins insLen bld (>>)
+    shiftByAddress ins bld (>>)
   | Opcode.VESRA ->
-    shiftByAddress ins insLen bld (?>>)
+    shiftByAddress ins bld (?>>)
   | Opcode.VESLV ->
     let o = oprArray ins
     let w = esize (oprMask o[3])
-    binary ins insLen bld (shiftByCount w (<<))
+    binary ins bld (shiftByCount w (<<))
   | Opcode.VESRLV ->
     let o = oprArray ins
     let w = esize (oprMask o[3])
-    binary ins insLen bld (shiftByCount w (>>))
+    binary ins bld (shiftByCount w (>>))
   | Opcode.VESRAV ->
     let o = oprArray ins
     let w = esize (oprMask o[3])
-    binary ins insLen bld (shiftByCount w (?>>))
+    binary ins bld (shiftByCount w (?>>))
   | Opcode.VERLL ->
     let o = oprArray ins
     let w = esize (oprMask o[3])
-    shiftByAddress ins insLen bld (fun a n ->
+    shiftByAddress ins bld (fun a n ->
       (a << n) .| (a >> (numI32 (bitsOf w) w .- n)))
   | Opcode.VERLLV ->
     let o = oprArray ins
     let w = esize (oprMask o[3])
     let bits = bitsOf w
-    binary ins insLen bld (fun a c ->
+    binary ins bld (fun a c ->
       let n = c .& numI32 (bits - 1) w
       (a << n) .| (a >> (numI32 bits w .- n)))
   | Opcode.VERIM ->
-    rotateInsert ins insLen bld
+    rotateInsert ins bld
   | Opcode.VSL ->
-    shiftWhole ins insLen bld false (<<)
+    shiftWhole ins bld false (<<)
   | Opcode.VSRL ->
-    shiftWhole ins insLen bld false (>>)
+    shiftWhole ins bld false (>>)
   | Opcode.VSRA ->
-    shiftWhole ins insLen bld false (?>>)
+    shiftWhole ins bld false (?>>)
   | Opcode.VSLB ->
-    shiftWhole ins insLen bld true (<<)
+    shiftWhole ins bld true (<<)
   | Opcode.VSRLB ->
-    shiftWhole ins insLen bld true (>>)
+    shiftWhole ins bld true (>>)
   | Opcode.VSRAB ->
-    shiftWhole ins insLen bld true (?>>)
+    shiftWhole ins bld true (?>>)
   | Opcode.VSLDB ->
-    shiftDoubleLeft ins insLen bld true
+    shiftDoubleLeft ins bld true
   | Opcode.VSLD ->
-    shiftDoubleLeft ins insLen bld false
+    shiftDoubleLeft ins bld false
   | Opcode.VSRD ->
-    shiftDoubleRight ins insLen bld
+    shiftDoubleRight ins bld
   | Opcode.VCEQ ->
-    compare ins insLen bld (==)
+    compare ins bld (==)
   | Opcode.VCH ->
-    compare ins insLen bld (?>)
+    compare ins bld (?>)
   | Opcode.VCHL ->
-    compare ins insLen bld (.>)
+    compare ins bld (.>)
   | Opcode.VEC ->
-    elementCompare ins insLen bld true
+    elementCompare ins bld true
   | Opcode.VECL ->
-    elementCompare ins insLen bld false
+    elementCompare ins bld false
   | Opcode.VTM ->
-    testUnderMask ins insLen bld
+    testUnderMask ins bld
   | Opcode.VFEE | Opcode.VFAE ->
-    findElement ins insLen bld true
+    findElement ins bld true
   | Opcode.VFENE ->
-    findElement ins insLen bld false
+    findElement ins bld false
   | Opcode.VISTR ->
-    isolateString ins insLen bld
+    isolateString ins bld
   | Opcode.VSTRC ->
-    stringRangeCompare ins insLen bld
+    stringRangeCompare ins bld
   | Opcode.VSTRS ->
-    stringSearch ins insLen bld
+    stringSearch ins bld
   | Opcode.VPK | Opcode.VPKS | Opcode.VPKLS ->
-    pack ins insLen bld
+    pack ins bld
   | Opcode.VMRH ->
-    merge ins insLen bld true
+    merge ins bld true
   | Opcode.VMRL ->
-    merge ins insLen bld false
+    merge ins bld false
   | Opcode.VPERM ->
-    permute ins insLen bld
+    permute ins bld
   | Opcode.VPDI ->
-    permuteDoubleword ins insLen bld
+    permuteDoubleword ins bld
   | Opcode.VSEG ->
-    signExtendDoubleword ins insLen bld
+    signExtendDoubleword ins bld
   | _ ->
-    unsupported ins insLen bld
+    unsupported ins bld

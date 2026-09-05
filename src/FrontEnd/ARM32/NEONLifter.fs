@@ -43,7 +43,7 @@ let checkSingleReg = function
   | R.S28 | R.S29 | R.S30 | R.S31 -> true
   | _ -> false
 
-let parseOprOfVLDR (ins: Instruction) insLen bld =
+let parseOprOfVLDR (ins: Instruction) bld =
   match ins.Operands with
   | TwoOperands(OprSIMD(SFReg(Vector d)),
                 OprMemory(OffsetMode(ImmOffset(rn, s, imm)))) ->
@@ -53,9 +53,9 @@ let parseOprOfVLDR (ins: Instruction) insLen bld =
   | _ ->
     raise InvalidOperandException
 
-let vldr ins insLen bld =
-  lift bld ins insLen {
-    let rd, addr, isSReg = parseOprOfVLDR ins insLen bld
+let vldr ins bld =
+  lift bld ins {
+    let rd, addr, isSReg = parseOprOfVLDR ins bld
     let isUnconditional = ParseUtils.isUnconditional ins.Condition
     let lblIgnore = checkCondition ins bld isUnconditional
     if isSReg then
@@ -80,8 +80,8 @@ let parseOprOfVSTR (ins: Instruction) bld =
   | _ ->
     raise InvalidOperandException
 
-let vstr (ins: Instruction) insLen bld =
-  lift bld ins insLen {
+let vstr (ins: Instruction) bld =
+  lift bld ins {
     let rd, addr, isSReg = parseOprOfVSTR ins bld
     let isUnconditional = ParseUtils.isUnconditional ins.Condition
     let lblIgnore = checkCondition ins bld isUnconditional
@@ -210,8 +210,8 @@ let vpopLoop bld d imm isSReg addr =
   let loopFn = if isSReg then singleRegLoop else nonSingleRegLoop
   loopFn 0 addr
 
-let vpop ins insLen bld =
-  lift bld ins insLen {
+let vpop ins bld =
+  lift bld ins {
     let t0 = tmpVar bld 32<rt>
     let sp = regVar bld R.SP
     let d, imm, isSReg = parsePUSHPOPsubValue ins
@@ -254,8 +254,8 @@ let vpushLoop bld d imm isSReg addr =
   let loopFn = if isSReg then singleRegLoop else nonSingleRegLoop
   loopFn 0 addr
 
-let vpush ins insLen bld =
-  lift bld ins insLen {
+let vpush ins bld =
+  lift bld ins {
     let t0 = tmpVar bld 32<rt>
     let sp = regVar bld R.SP
     let d, imm, isSReg = parsePUSHPOPsubValue ins
@@ -276,8 +276,8 @@ let parseOprOfVAND (ins: Instruction) bld =
   | _ ->
     raise InvalidOperandException
 
-let vand (ins: Instruction) insLen bld =
-  lift bld ins insLen {
+let vand (ins: Instruction) bld =
+  lift bld ins {
     let isUnconditional = ParseUtils.isUnconditional ins.Condition
     let lblIgnore = checkCondition ins bld isUnconditional
     match ins.OprSize with
@@ -294,8 +294,8 @@ let vand (ins: Instruction) insLen bld =
     putEndLabel bld lblIgnore
   }
 
-let vmrs ins insLen bld =
-  lift bld ins insLen {
+let vmrs ins bld =
+  lift bld ins {
     let struct (rt, fpscr) = transTwoOprs ins bld
     let cpsr = regVar bld R.CPSR
     let isUnconditional = ParseUtils.isUnconditional ins.Condition
@@ -309,8 +309,8 @@ let vmrs ins insLen bld =
     putEndLabel bld lblIgnore
   }
 
-let vmsr ins insLen bld =
-  lift bld ins insLen {
+let vmsr ins bld =
+  lift bld ins {
     let struct (fpscr, rt) = transTwoOprs ins bld
     let isUnconditional = ParseUtils.isUnconditional ins.Condition
     let lblIgnore = checkCondition ins bld isUnconditional
@@ -318,8 +318,8 @@ let vmsr ins insLen bld =
     putEndLabel bld lblIgnore
   }
 
-let vcmp ins insLen bld =
-  lift bld ins insLen {
+let vcmp ins bld =
+  lift bld ins {
     let struct (op1, op2) = transTwoOprs ins bld
     let fpscr = regVar bld R.FPSCR
     let isUnconditional = ParseUtils.isUnconditional ins.Condition
@@ -333,7 +333,7 @@ let vcmp ins insLen bld =
     putEndLabel bld lblIgnore
   }
 
-let mrc (ins: Instruction) insLen bld =
+let mrc (ins: Instruction) bld =
   match ins.Operands with
   (* MRC p15, #0, <Rt>, c13, c0, #3 reads TPIDRURO, the PL0 read-only
      software thread ID register -- the body of Linux's __kuser_get_tls.
@@ -347,13 +347,13 @@ let mrc (ins: Instruction) insLen bld =
                 OprImm 3L) when rt <> R.PC ->
     let rt = regVar bld rt
     let isUnconditional = ParseUtils.isUnconditional ins.Condition
-    lift bld ins insLen {
+    lift bld ins {
       let lblIgnore = checkCondition ins bld isUnconditional
       rt := regVar bld R.TPIDRURO
       putEndLabel bld lblIgnore
     }
   | _ ->
-    sideEffects ins insLen bld UnsupportedInstruction
+    sideEffects ins bld UnsupportedInstruction
 
 type ParsingInfo =
   { EBytes: int
@@ -505,16 +505,16 @@ let parseOprOfVMOVFP (ins: Instruction) bld =
       AST.sideEffect UnsupportedInstruction
   }
 
-let vmov (ins: Instruction) insLen bld =
-  lift bld ins insLen {
+let vmov (ins: Instruction) bld =
+  lift bld ins {
     let isUnconditional = ParseUtils.isUnconditional ins.Condition
     let lblIgnore = checkCondition ins bld isUnconditional
     parseOprOfVMOV ins bld
     putEndLabel bld lblIgnore
   }
 
-let vmovfp (ins: Instruction) insLen bld =
-  lift bld ins insLen {
+let vmovfp (ins: Instruction) bld =
+  lift bld ins {
     let isUnconditional = ParseUtils.isUnconditional ins.Condition
     let lblIgnore = checkCondition ins bld isUnconditional
     parseOprOfVMOVFP ins bld
@@ -535,8 +535,8 @@ let isF16orF32orF64 = function
 let private absExpr expr size =
   AST.ite (AST.slt expr (AST.num0 size)) (AST.neg expr) (expr)
 
-let vabs (ins: Instruction) insLen bld =
-  lift bld ins insLen {
+let vabs (ins: Instruction) bld =
+  lift bld ins {
     let isUnconditional = ParseUtils.isUnconditional ins.Condition
     let lblIgnore = checkCondition ins bld isUnconditional
     let p = getParsingInfo ins
@@ -555,8 +555,8 @@ let vabs (ins: Instruction) insLen bld =
     putEndLabel bld lblIgnore
   }
 
-let vabsf (ins: Instruction) insLen bld =
-  lift bld ins insLen {
+let vabsf (ins: Instruction) bld =
+  lift bld ins {
     let struct (dst, src) = transTwoOprs ins bld
     let isUnconditional = ParseUtils.isUnconditional ins.Condition
     let lblIgnore = checkCondition ins bld isUnconditional
@@ -571,8 +571,8 @@ let vabsf (ins: Instruction) insLen bld =
     putEndLabel bld lblIgnore
   }
 
-let vnegf (ins: Instruction) insLen bld =
-  lift bld ins insLen {
+let vnegf (ins: Instruction) bld =
+  lift bld ins {
     let struct (dst, src) = transTwoOprs ins bld
     let isUnconditional = ParseUtils.isUnconditional ins.Condition
     let lblIgnore = checkCondition ins bld isUnconditional
@@ -587,8 +587,8 @@ let vnegf (ins: Instruction) insLen bld =
     putEndLabel bld lblIgnore
   }
 
-let vsqrtf (ins: Instruction) insLen bld =
-  lift bld ins insLen {
+let vsqrtf (ins: Instruction) bld =
+  lift bld ins {
     let struct (dst, src) = transTwoOprs ins bld
     let isUnconditional = ParseUtils.isUnconditional ins.Condition
     let lblIgnore = checkCondition ins bld isUnconditional
@@ -611,8 +611,8 @@ let fpNegBits esize e =
 /// VFP scalar multiply-accumulate family (VMLA/VMLS/VNMUL/VNMLA/VNMLS). combine
 /// receives the element size, the accumulator (dst) and the product of the two
 /// source operands, and yields the result written back to dst.
-let vfpMulAcc (ins: Instruction) insLen bld combine =
-  lift bld ins insLen {
+let vfpMulAcc (ins: Instruction) bld combine =
+  lift bld ins {
     let struct (dst, src1, src2) = transThreeOprs ins bld
     let isUnconditional = ParseUtils.isUnconditional ins.Condition
     let lblIgnore = checkCondition ins bld isUnconditional
@@ -628,8 +628,8 @@ let vfpMulAcc (ins: Instruction) insLen bld combine =
     putEndLabel bld lblIgnore
   }
 
-let vaddsub (ins: Instruction) insLen bld opFn =
-  lift bld ins insLen {
+let vaddsub (ins: Instruction) bld opFn =
+  lift bld ins {
     let isUnconditional = ParseUtils.isUnconditional ins.Condition
     let lblIgnore = checkCondition ins bld isUnconditional
     let p = getParsingInfo ins
@@ -668,8 +668,8 @@ let vaddsub (ins: Instruction) insLen bld opFn =
     putEndLabel bld lblIgnore
   }
 
-let vaddl (ins: Instruction) insLen bld =
-  lift bld ins insLen {
+let vaddl (ins: Instruction) bld =
+  lift bld ins {
     let isUnconditional = ParseUtils.isUnconditional ins.Condition
     let lblIgnore = checkCondition ins bld isUnconditional
     let p = getParsingInfo ins
@@ -767,15 +767,15 @@ let parseOprOfVCVT (ins: Instruction) bld =
   | _ ->
     raise InvalidOperandException
 
-let vcvt (ins: Instruction) insLen bld =
-  lift bld ins insLen {
+let vcvt (ins: Instruction) bld =
+  lift bld ins {
     let isUnconditional = ParseUtils.isUnconditional ins.Condition
     let lblIgnore = checkCondition ins bld isUnconditional
     parseOprOfVCVT ins bld
     putEndLabel bld lblIgnore
   }
 
-let parseOprOfVDUP (ins: Instruction) insLen bld esize =
+let parseOprOfVDUP (ins: Instruction) bld esize =
   match ins.Operands with
   | TwoOperands(OprSIMD(SFReg(Vector dst)),
                 OprSIMD(SFReg(Scalar(src, Some idx)))) ->
@@ -797,8 +797,8 @@ let parseOprOfVDUP128 (ins: Instruction) bld esize =
   | _ ->
     raise InvalidOperandException
 
-let vdiv (ins: Instruction) insLen bld =
-  lift bld ins insLen {
+let vdiv (ins: Instruction) bld =
+  lift bld ins {
     let isUnconditional = ParseUtils.isUnconditional ins.Condition
     let lblIgnore = checkCondition ins bld isUnconditional
     let p = getParsingInfo ins
@@ -813,8 +813,8 @@ let vdiv (ins: Instruction) insLen bld =
     putEndLabel bld lblIgnore
   }
 
-let vdup (ins: Instruction) insLen bld =
-  lift bld ins insLen {
+let vdup (ins: Instruction) bld =
+  lift bld ins {
     let isUnconditional = ParseUtils.isUnconditional ins.Condition
     let lblIgnore = checkCondition ins bld isUnconditional
     let p = getParsingInfo ins
@@ -825,7 +825,7 @@ let vdup (ins: Instruction) insLen bld =
         elem dstB e p.ESize := scalar
         elem dstA e p.ESize := scalar
     | _ ->
-      let dst, scalar = parseOprOfVDUP ins insLen bld p.ESize
+      let dst, scalar = parseOprOfVDUP ins bld p.ESize
       for e in 0 .. p.Elements - 1 do
         append bld { elem dst e p.ESize := scalar }
     putEndLabel bld lblIgnore
@@ -858,8 +858,8 @@ let highestSetBitForIR dst src width oprSz bld =
 let countLeadingZeroBitsForIR dst src oprSize bld =
   highestSetBitForIR dst src (RegType.toBitWidth oprSize) oprSize bld
 
-let vclz (ins: Instruction) insLen bld =
-  lift bld ins insLen {
+let vclz (ins: Instruction) bld =
+  lift bld ins {
     let isUnconditional = ParseUtils.isUnconditional ins.Condition
     let lblIgnore = checkCondition ins bld isUnconditional
     let p = getParsingInfo ins
@@ -905,8 +905,8 @@ let private unsignExtend (ins: Instruction) p size expr1 expr2 amtOp =
   if isUnsigned ins.SIMDTyp then mulZExtend p size expr1 expr2 amtOp
   else mulSExtend p size expr1 expr2 amtOp
 
-let vmaxmin (ins: Instruction) insLen bld maximum =
-  lift bld ins insLen {
+let vmaxmin (ins: Instruction) bld maximum =
+  lift bld ins {
     let isUnconditional = ParseUtils.isUnconditional ins.Condition
     let lblIgnore = checkCondition ins bld isUnconditional
     let p = getParsingInfo ins
@@ -939,18 +939,18 @@ let vmaxmin (ins: Instruction) insLen bld maximum =
     putEndLabel bld lblIgnore
   }
 
-let parseOprOfVSTLDM (ins: Instruction) insLen bld =
+let parseOprOfVSTLDM (ins: Instruction) bld =
   match ins.Operands with
   | TwoOperands(OprReg reg, OprRegList regs) ->
     regVar bld reg, List.map (regVar bld) regs
   | _ ->
     raise InvalidOperandException
 
-let vstm (ins: Instruction) insLen bld =
-  lift bld ins insLen {
+let vstm (ins: Instruction) bld =
+  lift bld ins {
     let isUnconditional = ParseUtils.isUnconditional ins.Condition
     let lblIgnore = checkCondition ins bld isUnconditional
-    let rn, regList = parseOprOfVSTLDM ins insLen bld
+    let rn, regList = parseOprOfVSTLDM ins bld
     let add =
       match ins.Opcode with
       | Op.VSTMIA -> true
@@ -978,11 +978,11 @@ let vstm (ins: Instruction) insLen bld =
     putEndLabel bld lblIgnore
   }
 
-let vldm (ins: Instruction) insLen bld =
-  lift bld ins insLen {
+let vldm (ins: Instruction) bld =
+  lift bld ins {
     let isUnconditional = ParseUtils.isUnconditional ins.Condition
     let lblIgnore = checkCondition ins bld isUnconditional
-    let rn, regList = parseOprOfVSTLDM ins insLen bld
+    let rn, regList = parseOprOfVSTLDM ins bld
     let add =
       match ins.Opcode with
       | Op.VLDMIA -> true
@@ -1008,8 +1008,8 @@ let vldm (ins: Instruction) insLen bld =
     putEndLabel bld lblIgnore
   }
 
-let vecMulAccOrSub (ins: Instruction) insLen bld add =
-  lift bld ins insLen {
+let vecMulAccOrSub (ins: Instruction) bld add =
+  lift bld ins {
     let isUnconditional = ParseUtils.isUnconditional ins.Condition
     let lblIgnore = checkCondition ins bld isUnconditional
     let p = getParsingInfo ins
@@ -1041,8 +1041,8 @@ let vecMulAccOrSub (ins: Instruction) insLen bld add =
     putEndLabel bld lblIgnore
   }
 
-let vecMulAccOrSubLong (ins: Instruction) insLen bld add =
-  lift bld ins insLen {
+let vecMulAccOrSubLong (ins: Instruction) bld add =
+  lift bld ins {
     let isUnconditional = ParseUtils.isUnconditional ins.Condition
     let lblIgnore = checkCondition ins bld isUnconditional
     let p = getParsingInfo ins
@@ -1066,8 +1066,8 @@ let vecMulAccOrSubLong (ins: Instruction) insLen bld add =
     putEndLabel bld lblIgnore
   }
 
-let vecMulAccOrSubByScalar (ins: Instruction) insLen bld add =
-  lift bld ins insLen {
+let vecMulAccOrSubByScalar (ins: Instruction) bld add =
+  lift bld ins {
     let isUnconditional = ParseUtils.isUnconditional ins.Condition
     let lblIgnore = checkCondition ins bld isUnconditional
     let p = getParsingInfo ins
@@ -1097,8 +1097,8 @@ let vecMulAccOrSubByScalar (ins: Instruction) insLen bld add =
     putEndLabel bld lblIgnore
   }
 
-let vecMulAccOrSubLongByScalar (ins: Instruction) insLen bld add =
-  lift bld ins insLen {
+let vecMulAccOrSubLongByScalar (ins: Instruction) bld add =
+  lift bld ins {
     let isUnconditional = ParseUtils.isUnconditional ins.Condition
     let lblIgnore = checkCondition ins bld isUnconditional
     let struct (dst, src1, src2) = getThreeOprs ins
@@ -1119,39 +1119,39 @@ let vecMulAccOrSubLongByScalar (ins: Instruction) insLen bld add =
     putEndLabel bld lblIgnore
   }
 
-let vmla (ins: Instruction) insLen bld =
+let vmla (ins: Instruction) bld =
   match ins.Operands with
   | ThreeOperands(_, _, OprSIMD(SFReg(Vector _))) ->
-    vecMulAccOrSub ins insLen bld true
+    vecMulAccOrSub ins bld true
   | ThreeOperands(_, _, OprSIMD(SFReg(Scalar _))) ->
-    vecMulAccOrSubByScalar ins insLen bld true
+    vecMulAccOrSubByScalar ins bld true
   | _ ->
     raise InvalidOperandException
 
-let vmlal (ins: Instruction) insLen bld =
+let vmlal (ins: Instruction) bld =
   match ins.Operands with
   | ThreeOperands(_, _, OprSIMD(SFReg(Vector _))) ->
-    vecMulAccOrSubLong ins insLen bld true
+    vecMulAccOrSubLong ins bld true
   | ThreeOperands(_, _, OprSIMD(SFReg(Scalar _))) ->
-    vecMulAccOrSubLongByScalar ins insLen bld true
+    vecMulAccOrSubLongByScalar ins bld true
   | _ ->
     raise InvalidOperandException
 
-let vmls (ins: Instruction) insLen bld =
+let vmls (ins: Instruction) bld =
   match ins.Operands with
   | ThreeOperands(_, _, OprSIMD(SFReg(Vector _))) ->
-    vecMulAccOrSub ins insLen bld false
+    vecMulAccOrSub ins bld false
   | ThreeOperands(_, _, OprSIMD(SFReg(Scalar _))) ->
-    vecMulAccOrSubByScalar ins insLen bld false
+    vecMulAccOrSubByScalar ins bld false
   | _ ->
     raise InvalidOperandException
 
-let vmlsl (ins: Instruction) insLen bld =
+let vmlsl (ins: Instruction) bld =
   match ins.Operands with
   | ThreeOperands(_, _, OprSIMD(SFReg(Vector _))) ->
-    vecMulAccOrSubLong ins insLen bld false
+    vecMulAccOrSubLong ins bld false
   | ThreeOperands(_, _, OprSIMD(SFReg(Scalar _))) ->
-    vecMulAccOrSubLongByScalar ins insLen bld false
+    vecMulAccOrSubLongByScalar ins bld false
   | _ ->
     raise InvalidOperandException
 
@@ -1216,8 +1216,8 @@ let private vecMulQ ins bld p opFn polynomial (resultA, resultB) =
       elem dstB e p.ESize := AST.xtlo p.RtESize resultB
   }
 
-let vecMul (ins: Instruction) insLen bld opFn =
-  lift bld ins insLen {
+let vecMul (ins: Instruction) bld opFn =
+  lift bld ins {
     let isUnconditional = ParseUtils.isUnconditional ins.Condition
     let lblIgnore = checkCondition ins bld isUnconditional
     let p = getParsingInfo ins
@@ -1248,8 +1248,8 @@ let vecMul (ins: Instruction) insLen bld opFn =
     putEndLabel bld lblIgnore
   }
 
-let vecMulLong (ins: Instruction) insLen bld =
-  lift bld ins insLen {
+let vecMulLong (ins: Instruction) bld =
+  lift bld ins {
     let isUnconditional = ParseUtils.isUnconditional ins.Condition
     let lblIgnore = checkCondition ins bld isUnconditional
     let p = getParsingInfo ins
@@ -1282,8 +1282,8 @@ let vecMulLong (ins: Instruction) insLen bld =
     putEndLabel bld lblIgnore
   }
 
-let vecMulByScalar (ins: Instruction) insLen bld opFn =
-  lift bld ins insLen {
+let vecMulByScalar (ins: Instruction) bld opFn =
+  lift bld ins {
     let isUnconditional = ParseUtils.isUnconditional ins.Condition
     let lblIgnore = checkCondition ins bld isUnconditional
     let p = getParsingInfo ins
@@ -1308,8 +1308,8 @@ let vecMulByScalar (ins: Instruction) insLen bld opFn =
     putEndLabel bld lblIgnore
   }
 
-let vecMulLongByScalar (ins: Instruction) insLen bld =
-  lift bld ins insLen {
+let vecMulLongByScalar (ins: Instruction) bld =
+  lift bld ins {
     let isUnconditional = ParseUtils.isUnconditional ins.Condition
     let lblIgnore = checkCondition ins bld isUnconditional
     let struct (dst, src1, src2) = getThreeOprs ins
@@ -1328,21 +1328,21 @@ let vecMulLongByScalar (ins: Instruction) insLen bld =
     putEndLabel bld lblIgnore
   }
 
-let vmul (ins: Instruction) insLen bld opFn =
+let vmul (ins: Instruction) bld opFn =
   match ins.Operands with
   | ThreeOperands(_, _, OprSIMD(SFReg(Vector _))) ->
-    vecMul ins insLen bld opFn
+    vecMul ins bld opFn
   | ThreeOperands(_, _, OprSIMD(SFReg(Scalar _))) ->
-    vecMulByScalar ins insLen bld opFn
+    vecMulByScalar ins bld opFn
   | _ ->
     raise InvalidOperandException
 
-let vmull (ins: Instruction) insLen bld =
+let vmull (ins: Instruction) bld =
   match ins.Operands with
   | ThreeOperands(_, _, OprSIMD(SFReg(Vector _))) ->
-    vecMulLong ins insLen bld
+    vecMulLong ins bld
   | ThreeOperands(_, _, OprSIMD(SFReg(Scalar _))) ->
-    vecMulLongByScalar ins insLen bld
+    vecMulLongByScalar ins bld
   | _ ->
     raise InvalidOperandException
 
@@ -1358,8 +1358,8 @@ let getSizeStartFrom16 = function
   | Some(OneDT SIMDTyp64) -> 0b10
   | _ -> raise InvalidOperandException
 
-let vmovn (ins: Instruction) insLen bld =
-  lift bld ins insLen {
+let vmovn (ins: Instruction) bld =
+  lift bld ins {
     let isUnconditional = ParseUtils.isUnconditional ins.Condition
     let lblIgnore = checkCondition ins bld isUnconditional
     let struct (dst, src) = getTwoOprs ins
@@ -1375,8 +1375,8 @@ let vmovn (ins: Instruction) insLen bld =
     putEndLabel bld lblIgnore
   }
 
-let vneg (ins: Instruction) insLen bld =
-  lift bld ins insLen {
+let vneg (ins: Instruction) bld =
+  lift bld ins {
     let isUnconditional = ParseUtils.isUnconditional ins.Condition
     let lblIgnore = checkCondition ins bld isUnconditional
     let p = getParsingInfo ins
@@ -1398,8 +1398,8 @@ let vneg (ins: Instruction) insLen bld =
     putEndLabel bld lblIgnore
   }
 
-let vpadd (ins: Instruction) insLen bld =
-  lift bld ins insLen {
+let vpadd (ins: Instruction) bld =
+  lift bld ins {
     let isUnconditional = ParseUtils.isUnconditional ins.Condition
     let lblIgnore = checkCondition ins bld isUnconditional
     let struct (rd, rn, rm) = transThreeOprs ins bld
@@ -1415,8 +1415,8 @@ let vpadd (ins: Instruction) insLen bld =
     putEndLabel bld lblIgnore
   }
 
-let vrshr (ins: Instruction) insLen bld =
-  lift bld ins insLen {
+let vrshr (ins: Instruction) bld =
+  lift bld ins {
     let isUnconditional = ParseUtils.isUnconditional ins.Condition
     let lblIgnore = checkCondition ins bld isUnconditional
     let p = getParsingInfo ins
@@ -1443,8 +1443,8 @@ let vrshr (ins: Instruction) insLen bld =
     putEndLabel bld lblIgnore
   }
 
-let vshlImm (ins: Instruction) insLen bld =
-  lift bld ins insLen {
+let vshlImm (ins: Instruction) bld =
+  lift bld ins {
     let isUnconditional = ParseUtils.isUnconditional ins.Condition
     let lblIgnore = checkCondition ins bld isUnconditional
     let p = getParsingInfo ins
@@ -1465,8 +1465,8 @@ let vshlImm (ins: Instruction) insLen bld =
     putEndLabel bld lblIgnore
   }
 
-let vshlReg (ins: Instruction) insLen bld =
-  lift bld ins insLen {
+let vshlReg (ins: Instruction) bld =
+  lift bld ins {
     let isUnconditional = ParseUtils.isUnconditional ins.Condition
     let lblIgnore = checkCondition ins bld isUnconditional
     let p = getParsingInfo ins
@@ -1493,14 +1493,14 @@ let vshlReg (ins: Instruction) insLen bld =
     putEndLabel bld lblIgnore
   }
 
-let vshl (ins: Instruction) insLen bld =
+let vshl (ins: Instruction) bld =
   match ins.Operands with
-  | ThreeOperands(_, _, OprImm _) -> vshlImm ins insLen bld
-  | ThreeOperands(_, _, OprSIMD _) -> vshlReg ins insLen bld
+  | ThreeOperands(_, _, OprImm _) -> vshlImm ins bld
+  | ThreeOperands(_, _, OprSIMD _) -> vshlReg ins bld
   | _ -> raise InvalidOperandException
 
-let vshr (ins: Instruction) insLen bld =
-  lift bld ins insLen {
+let vshr (ins: Instruction) bld =
+  lift bld ins {
     let isUnconditional = ParseUtils.isUnconditional ins.Condition
     let lblIgnore = checkCondition ins bld isUnconditional
     let p = getParsingInfo ins
@@ -1532,7 +1532,7 @@ let parseVectors = function
   | FourRegs(Vector d1, Vector d2, Vector d3, Vector d4) -> [ d1; d2; d3; d4 ]
   | _ -> raise InvalidOperandException
 
-let parseOprOfVecTbl (ins: Instruction) insLen bld =
+let parseOprOfVecTbl (ins: Instruction) bld =
   match ins.Operands with
   | ThreeOperands(OprSIMD(SFReg(Vector rd)),
                   OprSIMD regs,
@@ -1541,11 +1541,11 @@ let parseOprOfVecTbl (ins: Instruction) insLen bld =
   | _ ->
     raise InvalidOperandException
 
-let vecTbl (ins: Instruction) insLen bld isVtbl =
-  lift bld ins insLen {
+let vecTbl (ins: Instruction) bld isVtbl =
+  lift bld ins {
     let isUnconditional = ParseUtils.isUnconditional ins.Condition
     let lblIgnore = checkCondition ins bld isUnconditional
-    let rd, list, rm = parseOprOfVecTbl ins insLen bld
+    let rd, list, rm = parseOprOfVecTbl ins bld
     let vectors = list |> List.map (regVar bld)
     let length = List.length list
     let table = AST.revConcat (List.toArray vectors) |> AST.zext 256<rt>
@@ -1561,8 +1561,8 @@ let isImm = function
   | Num _ -> true
   | _ -> false
 
-let vectorCompareImm (ins: Instruction) insLen bld cmp =
-  lift bld ins insLen {
+let vectorCompareImm (ins: Instruction) bld cmp =
+  lift bld ins {
     let isUnconditional = ParseUtils.isUnconditional ins.Condition
     let lblIgnore = checkCondition ins bld isUnconditional
     let p = getParsingInfo ins
@@ -1585,8 +1585,8 @@ let vectorCompareImm (ins: Instruction) insLen bld cmp =
     putEndLabel bld lblIgnore
   }
 
-let vectorCompareReg (ins: Instruction) insLen bld cmp =
-  lift bld ins insLen {
+let vectorCompareReg (ins: Instruction) bld cmp =
+  lift bld ins {
     let isUnconditional = ParseUtils.isUnconditional ins.Condition
     let lblIgnore = checkCondition ins bld isUnconditional
     let p = getParsingInfo ins
@@ -1613,50 +1613,50 @@ let vectorCompareReg (ins: Instruction) insLen bld cmp =
 let getCmp (ins: Instruction) unsigned signed =
   if isUnsigned ins.SIMDTyp then unsigned else signed
 
-let vceq (ins: Instruction) insLen bld =
+let vceq (ins: Instruction) bld =
   match ins.Operands with
-  | ThreeOperands(_, _, OprImm _) -> vectorCompareImm ins insLen bld (==)
-  | ThreeOperands(_, _, OprSIMD _) -> vectorCompareReg ins insLen bld (==)
+  | ThreeOperands(_, _, OprImm _) -> vectorCompareImm ins bld (==)
+  | ThreeOperands(_, _, OprSIMD _) -> vectorCompareReg ins bld (==)
   | _ -> raise InvalidOperandException
 
-let vcge (ins: Instruction) insLen bld =
+let vcge (ins: Instruction) bld =
   match ins.Operands with
   | ThreeOperands(_, _, OprImm _) ->
-    vectorCompareImm ins insLen bld (getCmp ins AST.ge AST.sge)
+    vectorCompareImm ins bld (getCmp ins AST.ge AST.sge)
   | ThreeOperands(_, _, OprSIMD _) ->
-    vectorCompareReg ins insLen bld (getCmp ins AST.ge AST.sge)
+    vectorCompareReg ins bld (getCmp ins AST.ge AST.sge)
   | _ ->
     raise InvalidOperandException
 
-let vcgt (ins: Instruction) insLen bld =
+let vcgt (ins: Instruction) bld =
   match ins.Operands with
   | ThreeOperands(_, _, OprImm _) ->
-    vectorCompareImm ins insLen bld (getCmp ins AST.gt AST.sgt)
+    vectorCompareImm ins bld (getCmp ins AST.gt AST.sgt)
   | ThreeOperands(_, _, OprSIMD _) ->
-    vectorCompareReg ins insLen bld (getCmp ins AST.gt AST.sgt)
+    vectorCompareReg ins bld (getCmp ins AST.gt AST.sgt)
   | _ ->
     raise InvalidOperandException
 
-let vcle (ins: Instruction) insLen bld =
+let vcle (ins: Instruction) bld =
   match ins.Operands with
   | ThreeOperands(_, _, OprImm _) ->
-    vectorCompareImm ins insLen bld (getCmp ins AST.le AST.sle)
+    vectorCompareImm ins bld (getCmp ins AST.le AST.sle)
   | ThreeOperands(_, _, OprSIMD _) ->
-    vectorCompareReg ins insLen bld (getCmp ins AST.le AST.sle)
+    vectorCompareReg ins bld (getCmp ins AST.le AST.sle)
   | _ ->
     raise InvalidOperandException
 
-let vclt (ins: Instruction) insLen bld =
+let vclt (ins: Instruction) bld =
   match ins.Operands with
   | ThreeOperands(_, _, OprImm _) ->
-    vectorCompareImm ins insLen bld (getCmp ins AST.lt AST.slt)
+    vectorCompareImm ins bld (getCmp ins AST.lt AST.slt)
   | ThreeOperands(_, _, OprSIMD _) ->
-    vectorCompareReg ins insLen bld (getCmp ins AST.lt AST.slt)
+    vectorCompareReg ins bld (getCmp ins AST.lt AST.slt)
   | _ ->
     raise InvalidOperandException
 
-let vtst (ins: Instruction) insLen bld =
-  lift bld ins insLen {
+let vtst (ins: Instruction) bld =
+  lift bld ins {
     let isUnconditional = ParseUtils.isUnconditional ins.Condition
     let lblIgnore = checkCondition ins bld isUnconditional
     let p = getParsingInfo ins
@@ -1681,8 +1681,8 @@ let vtst (ins: Instruction) insLen bld =
     putEndLabel bld lblIgnore
   }
 
-let vrshrn (ins: Instruction) insLen bld =
-  lift bld ins insLen {
+let vrshrn (ins: Instruction) bld =
+  lift bld ins {
     let isUnconditional = ParseUtils.isUnconditional ins.Condition
     let lblIgnore = checkCondition ins bld isUnconditional
     let esize = 8 <<< getSizeStartFromI16 ins.SIMDTyp
@@ -1701,8 +1701,8 @@ let vrshrn (ins: Instruction) insLen bld =
     putEndLabel bld lblIgnore
   }
 
-let vorrReg (ins: Instruction) insLen bld =
-  lift bld ins insLen {
+let vorrReg (ins: Instruction) bld =
+  lift bld ins {
     let isUnconditional = ParseUtils.isUnconditional ins.Condition
     let lblIgnore = checkCondition ins bld isUnconditional
     match ins.OprSize with
@@ -1719,8 +1719,8 @@ let vorrReg (ins: Instruction) insLen bld =
     putEndLabel bld lblIgnore
   }
 
-let vorrImm (ins: Instruction) insLen bld =
-  lift bld ins insLen {
+let vorrImm (ins: Instruction) bld =
+  lift bld ins {
     let isUnconditional = ParseUtils.isUnconditional ins.Condition
     let lblIgnore = checkCondition ins bld isUnconditional
     match ins.OprSize with
@@ -1738,14 +1738,14 @@ let vorrImm (ins: Instruction) insLen bld =
     putEndLabel bld lblIgnore
   }
 
-let vorr (ins: Instruction) insLen bld =
+let vorr (ins: Instruction) bld =
   match ins.Operands with
-  | ThreeOperands _ -> vorrReg ins insLen bld
-  | TwoOperands _ -> vorrImm ins insLen bld
+  | ThreeOperands _ -> vorrReg ins bld
+  | TwoOperands _ -> vorrImm ins bld
   | _ -> raise InvalidOperandException
 
-let vornReg (ins: Instruction) insLen bld =
-  lift bld ins insLen {
+let vornReg (ins: Instruction) bld =
+  lift bld ins {
     let isUnconditional = ParseUtils.isUnconditional ins.Condition
     let lblIgnore = checkCondition ins bld isUnconditional
     match ins.OprSize with
@@ -1762,8 +1762,8 @@ let vornReg (ins: Instruction) insLen bld =
     putEndLabel bld lblIgnore
   }
 
-let vornImm (ins: Instruction) insLen bld =
-  lift bld ins insLen {
+let vornImm (ins: Instruction) bld =
+  lift bld ins {
     let isUnconditional = ParseUtils.isUnconditional ins.Condition
     let lblIgnore = checkCondition ins bld isUnconditional
     match ins.OprSize with
@@ -1781,10 +1781,10 @@ let vornImm (ins: Instruction) insLen bld =
     putEndLabel bld lblIgnore
   }
 
-let vorn (ins: Instruction) insLen bld =
+let vorn (ins: Instruction) bld =
   match ins.Operands with
-  | ThreeOperands _ -> vornReg ins insLen bld
-  | TwoOperands _ -> vornImm ins insLen bld
+  | ThreeOperands _ -> vornReg ins bld
+  | TwoOperands _ -> vornImm ins bld
   | _ -> raise InvalidOperandException
 
 let parseDstList = function
@@ -1841,8 +1841,8 @@ let updateRn (ins: Instruction) rn (rm: Expr option) n (regIdx: bool option) =
 
 let incAddr addr n = addr .+ (numI32 n 32<rt>)
 
-let vst1Multi (ins: Instruction) insLen bld =
-  lift bld ins insLen {
+let vst1Multi (ins: Instruction) bld =
+  lift bld ins {
     let isUnconditional = ParseUtils.isUnconditional ins.Condition
     let lblIgnore = checkCondition ins bld isUnconditional
     let rdList, rn, rm = parseOprOfVecStAndLd bld ins
@@ -1866,8 +1866,8 @@ let vst1Multi (ins: Instruction) insLen bld =
     putEndLabel bld lblIgnore
   }
 
-let vst1Single (ins: Instruction) insLen bld index =
-  lift bld ins insLen {
+let vst1Single (ins: Instruction) bld index =
+  lift bld ins {
     let isUnconditional = ParseUtils.isUnconditional ins.Condition
     let lblIgnore = checkCondition ins bld isUnconditional
     let rd, rn, rm = parseOprOfVecStAndLd bld ins
@@ -1880,20 +1880,20 @@ let vst1Single (ins: Instruction) insLen bld index =
     putEndLabel bld lblIgnore
   }
 
-let vst1 (ins: Instruction) insLen bld =
+let vst1 (ins: Instruction) bld =
   match ins.Operands with
   | TwoOperands(OprSIMD(OneReg(Scalar(_, Some index))), _) ->
-    vst1Single ins insLen bld index
+    vst1Single ins bld index
   | TwoOperands(OprSIMD(OneReg _), _)
   | TwoOperands(OprSIMD(TwoRegs _), _)
   | TwoOperands(OprSIMD(ThreeRegs _), _)
   | TwoOperands(OprSIMD(FourRegs _), _) ->
-    vst1Multi ins insLen bld
+    vst1Multi ins bld
   | _ ->
     raise InvalidOperandException
 
-let vld1SingleOne (ins: Instruction) insLen bld index =
-  lift bld ins insLen {
+let vld1SingleOne (ins: Instruction) bld index =
+  lift bld ins {
     let isUnconditional = ParseUtils.isUnconditional ins.Condition
     let lblIgnore = checkCondition ins bld isUnconditional
     let rd, rn, rm = parseOprOfVecStAndLd bld ins
@@ -1906,8 +1906,8 @@ let vld1SingleOne (ins: Instruction) insLen bld index =
     putEndLabel bld lblIgnore
   }
 
-let vld1SingleAll (ins: Instruction) insLen bld =
-  lift bld ins insLen {
+let vld1SingleAll (ins: Instruction) bld =
+  lift bld ins {
     let isUnconditional = ParseUtils.isUnconditional ins.Condition
     let lblIgnore = checkCondition ins bld isUnconditional
     let rdList, rn, rm = parseOprOfVecStAndLd bld ins
@@ -1922,8 +1922,8 @@ let vld1SingleAll (ins: Instruction) insLen bld =
     putEndLabel bld lblIgnore
   }
 
-let vld1Multi (ins: Instruction) insLen bld =
-  lift bld ins insLen {
+let vld1Multi (ins: Instruction) bld =
+  lift bld ins {
     let isUnconditional = ParseUtils.isUnconditional ins.Condition
     let lblIgnore = checkCondition ins bld isUnconditional
     let rdList, rn, rm = parseOprOfVecStAndLd bld ins
@@ -1950,23 +1950,23 @@ let vld1Multi (ins: Instruction) insLen bld =
     putEndLabel bld lblIgnore
   }
 
-let vld1 (ins: Instruction) insLen bld =
+let vld1 (ins: Instruction) bld =
   match ins.Operands with
   | TwoOperands(OprSIMD(OneReg(Scalar(_, Some index))), _) ->
-    vld1SingleOne ins insLen bld index
+    vld1SingleOne ins bld index
   | TwoOperands(OprSIMD(OneReg(Scalar _)), _)
   | TwoOperands(OprSIMD(TwoRegs(Scalar _, Scalar _)), _) ->
-    vld1SingleAll ins insLen bld
+    vld1SingleAll ins bld
   | TwoOperands(OprSIMD(OneReg _), _)
   | TwoOperands(OprSIMD(TwoRegs _), _)
   | TwoOperands(OprSIMD(ThreeRegs _), _)
   | TwoOperands(OprSIMD(FourRegs _), _) ->
-    vld1Multi ins insLen bld
+    vld1Multi ins bld
   | _ ->
     raise InvalidOperandException
 
-let vst2Multi (ins: Instruction) insLen bld =
-  lift bld ins insLen {
+let vst2Multi (ins: Instruction) bld =
+  lift bld ins {
     let isUnconditional = ParseUtils.isUnconditional ins.Condition
     let lblIgnore = checkCondition ins bld isUnconditional
     let rdList, rn, rm = parseOprOfVecStAndLd bld ins
@@ -1987,8 +1987,8 @@ let vst2Multi (ins: Instruction) insLen bld =
     putEndLabel bld lblIgnore
   }
 
-let vst2Single (ins: Instruction) insLen bld index =
-  lift bld ins insLen {
+let vst2Single (ins: Instruction) bld index =
+  lift bld ins {
     let isUnconditional = ParseUtils.isUnconditional ins.Condition
     let lblIgnore = checkCondition ins bld isUnconditional
     let rdList, rn, rm = parseOprOfVecStAndLd bld ins
@@ -2003,20 +2003,20 @@ let vst2Single (ins: Instruction) insLen bld index =
     putEndLabel bld lblIgnore
   }
 
-let vst2 (ins: Instruction) insLen bld =
+let vst2 (ins: Instruction) bld =
   match ins.Operands with
   | TwoOperands(OprSIMD(TwoRegs(Scalar(_, Some index), _)), _) ->
-    vst2Single ins insLen bld (int32 index)
+    vst2Single ins bld (int32 index)
   | TwoOperands(OprSIMD(OneReg _), _)
   | TwoOperands(OprSIMD(TwoRegs _), _)
   | TwoOperands(OprSIMD(ThreeRegs _), _)
   | TwoOperands(OprSIMD(FourRegs _), _) ->
-    vst2Multi ins insLen bld
+    vst2Multi ins bld
   | _ ->
     raise InvalidOperandException
 
-let vst3Multi (ins: Instruction) insLen bld =
-  lift bld ins insLen {
+let vst3Multi (ins: Instruction) bld =
+  lift bld ins {
     let isUnconditional = ParseUtils.isUnconditional ins.Condition
     let lblIgnore = checkCondition ins bld isUnconditional
     let rdList, rn, rm = parseOprOfVecStAndLd bld ins
@@ -2035,8 +2035,8 @@ let vst3Multi (ins: Instruction) insLen bld =
     putEndLabel bld lblIgnore
   }
 
-let vst3Single (ins: Instruction) insLen bld index =
-  lift bld ins insLen {
+let vst3Single (ins: Instruction) bld index =
+  lift bld ins {
     let isUnconditional = ParseUtils.isUnconditional ins.Condition
     let lblIgnore = checkCondition ins bld isUnconditional
     let rdList, rn, rm = parseOprOfVecStAndLd bld ins
@@ -2053,20 +2053,20 @@ let vst3Single (ins: Instruction) insLen bld index =
     putEndLabel bld lblIgnore
   }
 
-let vst3 (ins: Instruction) insLen bld =
+let vst3 (ins: Instruction) bld =
   match ins.Operands with
   | TwoOperands(OprSIMD(ThreeRegs(Scalar(_, Some index), _, _)), _) ->
-    vst3Single ins insLen bld (int32 index)
+    vst3Single ins bld (int32 index)
   | TwoOperands(OprSIMD(OneReg _), _)
   | TwoOperands(OprSIMD(TwoRegs _), _)
   | TwoOperands(OprSIMD(ThreeRegs _), _)
   | TwoOperands(OprSIMD(FourRegs _), _) ->
-    vst3Multi ins insLen bld
+    vst3Multi ins bld
   | _ ->
     raise InvalidOperandException
 
-let vst4Multi (ins: Instruction) insLen bld =
-  lift bld ins insLen {
+let vst4Multi (ins: Instruction) bld =
+  lift bld ins {
     let isUnconditional = ParseUtils.isUnconditional ins.Condition
     let lblIgnore = checkCondition ins bld isUnconditional
     let rdList, rn, rm = parseOprOfVecStAndLd bld ins
@@ -2087,8 +2087,8 @@ let vst4Multi (ins: Instruction) insLen bld =
     putEndLabel bld lblIgnore
   }
 
-let vst4Single (ins: Instruction) insLen bld index =
-  lift bld ins insLen {
+let vst4Single (ins: Instruction) bld index =
+  lift bld ins {
     let isUnconditional = ParseUtils.isUnconditional ins.Condition
     let lblIgnore = checkCondition ins bld isUnconditional
     let rdList, rn, rm = parseOprOfVecStAndLd bld ins
@@ -2107,20 +2107,20 @@ let vst4Single (ins: Instruction) insLen bld index =
     putEndLabel bld lblIgnore
   }
 
-let vst4 (ins: Instruction) insLen bld =
+let vst4 (ins: Instruction) bld =
   match ins.Operands with
   | TwoOperands(OprSIMD(FourRegs(Scalar(_, Some index), _, _, _)), _) ->
-    vst4Single ins insLen bld (int32 index)
+    vst4Single ins bld (int32 index)
   | TwoOperands(OprSIMD(OneReg _), _)
   | TwoOperands(OprSIMD(TwoRegs _), _)
   | TwoOperands(OprSIMD(ThreeRegs _), _)
   | TwoOperands(OprSIMD(FourRegs _), _) ->
-    vst4Multi ins insLen bld
+    vst4Multi ins bld
   | _ ->
     raise InvalidOperandException
 
-let vld2SingleOne (ins: Instruction) insLen bld index =
-  lift bld ins insLen {
+let vld2SingleOne (ins: Instruction) bld index =
+  lift bld ins {
     let isUnconditional = ParseUtils.isUnconditional ins.Condition
     let lblIgnore = checkCondition ins bld isUnconditional
     let rdList, rn, rm = parseOprOfVecStAndLd bld ins
@@ -2135,8 +2135,8 @@ let vld2SingleOne (ins: Instruction) insLen bld index =
     putEndLabel bld lblIgnore
   }
 
-let vld2SingleAll (ins: Instruction) insLen bld =
-  lift bld ins insLen {
+let vld2SingleAll (ins: Instruction) bld =
+  lift bld ins {
     let isUnconditional = ParseUtils.isUnconditional ins.Condition
     let lblIgnore = checkCondition ins bld isUnconditional
     let rdList, rn, rm = parseOprOfVecStAndLd bld ins
@@ -2153,8 +2153,8 @@ let vld2SingleAll (ins: Instruction) insLen bld =
     putEndLabel bld lblIgnore
   }
 
-let vld2Multi (ins: Instruction) insLen bld =
-  lift bld ins insLen {
+let vld2Multi (ins: Instruction) bld =
+  lift bld ins {
     let isUnconditional = ParseUtils.isUnconditional ins.Condition
     let lblIgnore = checkCondition ins bld isUnconditional
     let rdList, rn, rm = parseOprOfVecStAndLd bld ins
@@ -2175,20 +2175,20 @@ let vld2Multi (ins: Instruction) insLen bld =
     putEndLabel bld lblIgnore
   }
 
-let vld2 (ins: Instruction) insLen bld =
+let vld2 (ins: Instruction) bld =
   match ins.Operands with
   | TwoOperands(OprSIMD(TwoRegs(Scalar(_, Some index), _)), _) ->
-    vld2SingleOne ins insLen bld index
+    vld2SingleOne ins bld index
   | TwoOperands(OprSIMD(TwoRegs(Scalar _, Scalar _)), _) ->
-    vld2SingleAll ins insLen bld
+    vld2SingleAll ins bld
   | TwoOperands(OprSIMD(TwoRegs _), _)
   | TwoOperands(OprSIMD(FourRegs _), _) ->
-    vld2Multi ins insLen bld
+    vld2Multi ins bld
   | _ ->
     raise InvalidOperandException
 
-let vld3SingleOne (ins: Instruction) insLen bld index =
-  lift bld ins insLen {
+let vld3SingleOne (ins: Instruction) bld index =
+  lift bld ins {
     let isUnconditional = ParseUtils.isUnconditional ins.Condition
     let lblIgnore = checkCondition ins bld isUnconditional
     let rdList, rn, rm = parseOprOfVecStAndLd bld ins
@@ -2205,8 +2205,8 @@ let vld3SingleOne (ins: Instruction) insLen bld index =
     putEndLabel bld lblIgnore
   }
 
-let vld3SingleAll (ins: Instruction) insLen bld =
-  lift bld ins insLen {
+let vld3SingleAll (ins: Instruction) bld =
+  lift bld ins {
     let isUnconditional = ParseUtils.isUnconditional ins.Condition
     let lblIgnore = checkCondition ins bld isUnconditional
     let rdList, rn, rm = parseOprOfVecStAndLd bld ins
@@ -2226,8 +2226,8 @@ let vld3SingleAll (ins: Instruction) insLen bld =
     putEndLabel bld lblIgnore
   }
 
-let vld3Multi (ins: Instruction) insLen bld =
-  lift bld ins insLen {
+let vld3Multi (ins: Instruction) bld =
+  lift bld ins {
     let isUnconditional = ParseUtils.isUnconditional ins.Condition
     let lblIgnore = checkCondition ins bld isUnconditional
     let rdList, rn, rm = parseOprOfVecStAndLd bld ins
@@ -2246,19 +2246,19 @@ let vld3Multi (ins: Instruction) insLen bld =
     putEndLabel bld lblIgnore
   }
 
-let vld3 (ins: Instruction) insLen bld =
+let vld3 (ins: Instruction) bld =
   match ins.Operands with
   | TwoOperands(OprSIMD(ThreeRegs(Scalar(_, Some index), _, _)), _) ->
-    vld3SingleOne ins insLen bld index
+    vld3SingleOne ins bld index
   | TwoOperands(OprSIMD(ThreeRegs(Scalar(_, None), _, _)), _) ->
-    vld3SingleAll ins insLen bld
+    vld3SingleAll ins bld
   | TwoOperands(OprSIMD(ThreeRegs _), _) ->
-    vld3Multi ins insLen bld
+    vld3Multi ins bld
   | _ ->
     raise InvalidOperandException
 
-let vld4SingleOne (ins: Instruction) insLen bld index =
-  lift bld ins insLen {
+let vld4SingleOne (ins: Instruction) bld index =
+  lift bld ins {
     let isUnconditional = ParseUtils.isUnconditional ins.Condition
     let lblIgnore = checkCondition ins bld isUnconditional
     let rdList, rn, rm = parseOprOfVecStAndLd bld ins
@@ -2277,8 +2277,8 @@ let vld4SingleOne (ins: Instruction) insLen bld index =
     putEndLabel bld lblIgnore
   }
 
-let vld4SingleAll (ins: Instruction) insLen bld =
-  lift bld ins insLen {
+let vld4SingleAll (ins: Instruction) bld =
+  lift bld ins {
     let isUnconditional = ParseUtils.isUnconditional ins.Condition
     let lblIgnore = checkCondition ins bld isUnconditional
     let rdList, rn, rm = parseOprOfVecStAndLd bld ins
@@ -2301,8 +2301,8 @@ let vld4SingleAll (ins: Instruction) insLen bld =
     putEndLabel bld lblIgnore
   }
 
-let vld4Multi (ins: Instruction) insLen bld =
-  lift bld ins insLen {
+let vld4Multi (ins: Instruction) bld =
+  lift bld ins {
     let isUnconditional = ParseUtils.isUnconditional ins.Condition
     let lblIgnore = checkCondition ins bld isUnconditional
     let rdList, rn, rm = parseOprOfVecStAndLd bld ins
@@ -2323,24 +2323,24 @@ let vld4Multi (ins: Instruction) insLen bld =
     putEndLabel bld lblIgnore
   }
 
-let vld4 (ins: Instruction) insLen bld =
+let vld4 (ins: Instruction) bld =
   match ins.Operands with
   | TwoOperands(OprSIMD(FourRegs(Scalar(_, Some index), _, _, _)), _) ->
-    vld4SingleOne ins insLen bld index
+    vld4SingleOne ins bld index
   | TwoOperands(OprSIMD(FourRegs(Scalar(_, None), _, _, _)), _) ->
-    vld4SingleAll ins insLen bld
+    vld4SingleAll ins bld
   | TwoOperands(OprSIMD(FourRegs _), _) ->
-    vld4Multi ins insLen bld
+    vld4Multi ins bld
   | _ ->
     raise InvalidOperandException
 
-let udf (ins: Instruction) insLen bld =
+let udf (ins: Instruction) bld =
   match ins.Operands with
-  | OneOperand(OprImm n) -> sideEffects ins insLen bld (Interrupt(int n))
+  | OneOperand(OprImm n) -> sideEffects ins bld (Interrupt(int n))
   | _ -> raise InvalidOperandException
 
-let uasx (ins: Instruction) insLen bld =
-  lift bld ins insLen {
+let uasx (ins: Instruction) bld =
+  lift bld ins {
     let isUnconditional = ParseUtils.isUnconditional ins.Condition
     let lblIgnore = checkCondition ins bld isUnconditional
     let struct (dst, src1, src2) = transThreeOprs ins bld
@@ -2359,8 +2359,8 @@ let uasx (ins: Instruction) insLen bld =
     putEndLabel bld lblIgnore
   }
 
-let uhsub16 (ins: Instruction) insLen bld =
-  lift bld ins insLen {
+let uhsub16 (ins: Instruction) bld =
+  lift bld ins {
     let isUnconditional = ParseUtils.isUnconditional ins.Condition
     let lblIgnore = checkCondition ins bld isUnconditional
     let struct (dst, src1, src2) = transThreeOprs ins bld
@@ -2375,8 +2375,8 @@ let uhsub16 (ins: Instruction) insLen bld =
     putEndLabel bld lblIgnore
   }
 
-let uqsax (ins: Instruction) insLen bld =
-  lift bld ins insLen {
+let uqsax (ins: Instruction) bld =
+  lift bld ins {
     let isUnconditional = ParseUtils.isUnconditional ins.Condition
     let lblIgnore = checkCondition ins bld isUnconditional
     let struct (dst, src1, src2) = transThreeOprs ins bld
@@ -2389,8 +2389,8 @@ let uqsax (ins: Instruction) insLen bld =
     putEndLabel bld lblIgnore
   }
 
-let usax (ins: Instruction) insLen bld =
-  lift bld ins insLen {
+let usax (ins: Instruction) bld =
+  lift bld ins {
     let isUnconditional = ParseUtils.isUnconditional ins.Condition
     let lblIgnore = checkCondition ins bld isUnconditional
     let struct (dst, src1, src2) = transThreeOprs ins bld
@@ -2409,8 +2409,8 @@ let usax (ins: Instruction) insLen bld =
     putEndLabel bld lblIgnore
   }
 
-let vext (ins: Instruction) insLen bld =
-  lift bld ins insLen {
+let vext (ins: Instruction) bld =
+  lift bld ins {
     let isUnconditional = ParseUtils.isUnconditional ins.Condition
     let lblIgnore = checkCondition ins bld isUnconditional
     let struct (dst, src1, src2, imm) = getFourOprs ins
@@ -2442,8 +2442,8 @@ let vext (ins: Instruction) insLen bld =
     putEndLabel bld lblIgnore
   }
 
-let vhaddsub (ins: Instruction) insLen bld opFn =
-  lift bld ins insLen {
+let vhaddsub (ins: Instruction) bld opFn =
+  lift bld ins {
     let isUnconditional = ParseUtils.isUnconditional ins.Condition
     let lblIgnore = checkCondition ins bld isUnconditional
     let p = getParsingInfo ins
@@ -2471,8 +2471,8 @@ let vhaddsub (ins: Instruction) insLen bld opFn =
     putEndLabel bld lblIgnore
   }
 
-let vrhadd (ins: Instruction) insLen bld =
-  lift bld ins insLen {
+let vrhadd (ins: Instruction) bld =
+  lift bld ins {
     let isUnconditional = ParseUtils.isUnconditional ins.Condition
     let lblIgnore = checkCondition ins bld isUnconditional
     let p = getParsingInfo ins
@@ -2499,8 +2499,8 @@ let vrhadd (ins: Instruction) insLen bld =
     putEndLabel bld lblIgnore
   }
 
-let vsra (ins: Instruction) insLen bld =
-  lift bld ins insLen {
+let vsra (ins: Instruction) bld =
+  lift bld ins {
     let isUnconditional = ParseUtils.isUnconditional ins.Condition
     let lblIgnore = checkCondition ins bld isUnconditional
     let p = getParsingInfo ins
@@ -2557,8 +2557,8 @@ let private vuzpQ ins bld p elements (zip1B, zip1A, zip2B, zip2A) =
         elem srcA e p.ESize := elem zip2A (e * 2 + 1) p.ESize
   }
 
-let vuzp (ins: Instruction) insLen bld =
-  lift bld ins insLen {
+let vuzp (ins: Instruction) bld =
+  lift bld ins {
     let isUnconditional = ParseUtils.isUnconditional ins.Condition
     let lblIgnore = checkCondition ins bld isUnconditional
     let p = getParsingInfo ins

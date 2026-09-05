@@ -34,306 +34,306 @@ open B2R2.FrontEnd.MIPS
 open B2R2.FrontEnd.MIPS.LiftingUtils
 open B2R2.FrontEnd.MIPS.GeneralLifter
 
-let translate (ins: Instruction) insLen (bld: LowUIRBuilder) =
+let translate (ins: Instruction) (bld: LowUIRBuilder) =
   match ins.Opcode with
   | Op.ABS ->
-    abs ins insLen bld
+    abs ins bld
   | Op.ADD ->
-    add ins insLen bld
+    add ins bld
   | Op.ADDIU ->
-    addiu ins insLen bld
+    addiu ins bld
   | Op.ADDU ->
-    addu ins insLen bld
+    addu ins bld
   | Op.AND ->
-    logAnd ins insLen bld
+    logAnd ins bld
   | Op.ANDI ->
-    andi ins insLen bld
+    andi ins bld
   | Op.AUI ->
-    aui ins insLen bld
+    aui ins bld
   | Op.B ->
-    b ins insLen bld
+    b ins bld
   | Op.BAL ->
-    bal ins insLen bld
+    bal ins bld
   | Op.BC1F ->
-    bc1f ins insLen bld
+    bc1f ins bld
   | Op.BC1T ->
-    bc1t ins insLen bld
+    bc1t ins bld
   | Op.BEQ | Op.BEQL ->
-    beq ins insLen bld
+    beq ins bld
   | Op.BGEZ ->
-    bgez ins insLen bld
+    bgez ins bld
   | Op.BGEZAL ->
-    bgezal ins insLen bld
+    bgezal ins bld
   | Op.BGTZ ->
-    bgtz ins insLen bld
+    bgtz ins bld
   | Op.BLEZ ->
-    blez ins insLen bld
+    blez ins bld
   | Op.BLTZ ->
-    bltz ins insLen bld
+    bltz ins bld
   | Op.BLTZAL ->
-    bltzal ins insLen bld
+    bltzal ins bld
   | Op.BNE | Op.BNEL ->
-    bne ins insLen bld
+    bne ins bld
   | Op.BREAK ->
-    sideEffects ins insLen bld Breakpoint
+    sideEffects ins bld Breakpoint
   | Op.C ->
-    cCond ins insLen bld
+    cCond ins bld
   | Op.CFC1 ->
-    cfc1 ins insLen bld
+    cfc1 ins bld
   | Op.CTC1 ->
-    ctc1 ins insLen bld
+    ctc1 ins bld
   | Op.CLZ ->
-    clz ins insLen bld
+    clz ins bld
   | Op.CVTD ->
-    cvtd ins insLen bld
+    cvtd ins bld
   | Op.CVTL ->
-    cvtl ins insLen bld
+    cvtl ins bld
   | Op.CVTS ->
-    cvts ins insLen bld
+    cvts ins bld
   | Op.CVTW ->
-    cvtw ins insLen bld
+    cvtw ins bld
   | Op.DADD ->
-    dadd ins insLen bld
+    dadd ins bld
   | Op.DADDU ->
-    daddu ins insLen bld
+    daddu ins bld
   | Op.DADDIU ->
-    daddiu ins insLen bld
+    daddiu ins bld
   | Op.DCLZ ->
-    dclz ins insLen bld
+    dclz ins bld
   | Op.DDIV ->
-    ddiv ins insLen bld
+    ddiv ins bld
   | Op.DMFC1 ->
-    dmfc1 ins insLen bld
+    dmfc1 ins bld
   | Op.DMTC1 ->
-    dmtc1 ins insLen bld
+    dmtc1 ins bld
   | Op.DEXT ->
-    dext ins insLen bld
+    dext ins bld
   | Op.DEXTM ->
-    dextx ins insLen checkDEXTMPosSize bld
+    dextx ins checkDEXTMPosSize bld
   | Op.DEXTU ->
-    dextx ins insLen checkDEXTUPosSize bld
+    dextx ins checkDEXTUPosSize bld
   | Op.DINS ->
-    dins ins insLen bld
+    dins ins bld
   | Op.DINSM ->
-    dinsx ins insLen checkDINSMPosSize bld
+    dinsx ins checkDINSMPosSize bld
   | Op.DINSU ->
-    dinsx ins insLen checkDINSUPosSize bld
+    dinsx ins checkDINSUPosSize bld
   | Op.DIV ->
-    div ins insLen bld
+    div ins bld
   | Op.DIVU ->
-    divu ins insLen bld
+    divu ins bld
   | Op.DDIVU ->
-    ddivu ins insLen bld
+    ddivu ins bld
   | Op.DMULT ->
-    dmul ins insLen bld true
+    dmul ins bld true
   | Op.DMULTU ->
-    dmul ins insLen bld false
+    dmul ins bld false
   | Op.DROTR ->
-    drotr ins insLen bld
+    drotr ins bld
   | Op.DROTR32 ->
-    drotr32 ins insLen bld
+    drotr32 ins bld
   | Op.DROTRV ->
-    drotrv ins insLen bld
+    drotrv ins bld
   | Op.DSBH ->
-    dsbh ins insLen bld
+    dsbh ins bld
   | Op.DSHD ->
-    dshd ins insLen bld
+    dshd ins bld
   | Op.DSLL ->
-    dShiftLeftRight ins insLen bld (<<)
+    dShiftLeftRight ins bld (<<)
   | Op.DSLL32 ->
-    dShiftLeftRight32 ins insLen bld (<<)
+    dShiftLeftRight32 ins bld (<<)
   | Op.DSLLV ->
-    dShiftLeftRightVar ins insLen bld (<<)
+    dShiftLeftRightVar ins bld (<<)
   | Op.DSRA ->
-    dsra ins insLen bld
+    dsra ins bld
   | Op.DSRAV ->
-    dsrav ins insLen bld
+    dsrav ins bld
   | Op.DSRA32 ->
-    dsra32 ins insLen bld
+    dsra32 ins bld
   | Op.DSRL ->
-    dShiftLeftRight ins insLen bld (>>)
+    dShiftLeftRight ins bld (>>)
   | Op.DSRL32 ->
-    dShiftLeftRight32 ins insLen bld (>>)
+    dShiftLeftRight32 ins bld (>>)
   | Op.DSRLV ->
-    dShiftLeftRightVar ins insLen bld (>>)
+    dShiftLeftRightVar ins bld (>>)
   | Op.DSUBU ->
-    dsubu ins insLen bld
+    dsubu ins bld
   | Op.EHB ->
-    nop ins insLen bld
+    nop ins bld
   | Op.EXT ->
-    ext ins insLen bld
+    ext ins bld
   | Op.INS ->
-    insert ins insLen bld
+    insert ins bld
   | Op.J ->
-    j ins insLen bld
+    j ins bld
   | Op.JAL ->
-    jal ins insLen bld
+    jal ins bld
   | Op.JALR | Op.JALRHB ->
-    jalr ins insLen bld
+    jalr ins bld
   | Op.JR | Op.JRHB ->
-    jr ins insLen bld
+    jr ins bld
   | Op.LD | Op.LB | Op.LH | Op.LW ->
-    loadSigned ins insLen bld
+    loadSigned ins bld
   | Op.LBU | Op.LHU | Op.LWU ->
-    loadUnsigned ins insLen bld
+    loadUnsigned ins bld
   | Op.LL | Op.LLD ->
-    loadLinked ins insLen bld
+    loadLinked ins bld
   | Op.SDC1 | Op.SDXC1 ->
-    sldc1 ins insLen bld true
+    sldc1 ins bld true
   | Op.LDC1 | Op.LDXC1 ->
-    sldc1 ins insLen bld false
+    sldc1 ins bld false
   | Op.SWC1 | Op.SWXC1 ->
-    slwc1 ins insLen bld true
+    slwc1 ins bld true
   | Op.LWC1 | Op.LWXC1 ->
-    slwc1 ins insLen bld false
+    slwc1 ins bld false
   | Op.LUI ->
-    lui ins insLen bld
+    lui ins bld
   | Op.LDL ->
-    loadLeftRight ins insLen bld (<<) (>>) (.&) 64<rt>
+    loadLeftRight ins bld (<<) (>>) (.&) 64<rt>
   | Op.LDR ->
-    loadLeftRight ins insLen bld (>>) (<<) (<+>) 64<rt>
+    loadLeftRight ins bld (>>) (<<) (<+>) 64<rt>
   | Op.LWL ->
-    loadLeftRight ins insLen bld (<<) (>>) (.&) 32<rt>
+    loadLeftRight ins bld (<<) (>>) (.&) 32<rt>
   | Op.LWR ->
-    loadLeftRight ins insLen bld (>>) (<<) (<+>) 32<rt>
+    loadLeftRight ins bld (>>) (<<) (<+>) 32<rt>
   | Op.MADD ->
-    mAddSub ins insLen bld true
+    mAddSub ins bld true
   | Op.MADDU ->
-    mAdduSubu ins insLen bld true
+    mAdduSubu ins bld true
   | Op.MFHI ->
-    mfhi ins insLen bld
+    mfhi ins bld
   | Op.MFLO ->
-    mflo ins insLen bld
+    mflo ins bld
   | Op.MFHC1 ->
-    mfhc1 ins insLen bld
+    mfhc1 ins bld
   | Op.MTHC1 ->
-    mthc1 ins insLen bld
+    mthc1 ins bld
   | Op.MTHI ->
-    mthi ins insLen bld
+    mthi ins bld
   | Op.MTLO ->
-    mtlo ins insLen bld
+    mtlo ins bld
   | Op.MFC1 ->
-    mfc1 ins insLen bld
+    mfc1 ins bld
   | Op.MOV ->
-    mov ins insLen bld
+    mov ins bld
   | Op.MOVT ->
-    movt ins insLen bld
+    movt ins bld
   | Op.MOVF ->
-    movf ins insLen bld
+    movf ins bld
   | Op.MOVZ ->
-    movzOrn ins insLen bld (==)
+    movzOrn ins bld (==)
   | Op.MOVN ->
-    movzOrn ins insLen bld (!=)
+    movzOrn ins bld (!=)
   | Op.MSUB ->
-    mAddSub ins insLen bld false
+    mAddSub ins bld false
   | Op.MSUBU ->
-    mAdduSubu ins insLen bld false
+    mAdduSubu ins bld false
   | Op.MTC1 ->
-    mtc1 ins insLen bld
+    mtc1 ins bld
   | Op.MUL ->
-    mul ins insLen bld
+    mul ins bld
   | Op.MULT ->
-    mult ins insLen bld
+    mult ins bld
   | Op.MULTU ->
-    multu ins insLen bld
+    multu ins bld
   | Op.NEG ->
-    neg ins insLen bld
+    neg ins bld
   | Op.NMADD ->
-    nmadd ins insLen bld
+    nmadd ins bld
   | Op.NOP ->
-    nop ins insLen bld
+    nop ins bld
   | Op.NOR ->
-    nor ins insLen bld
+    nor ins bld
   | Op.OR ->
-    logOr ins insLen bld
+    logOr ins bld
   | Op.ORI ->
-    ori ins insLen bld
+    ori ins bld
   | Op.PAUSE ->
-    nop ins insLen bld
+    nop ins bld
   | Op.PREF | Op.PREFE | Op.PREFX ->
-    nop ins insLen bld
+    nop ins bld
   | Op.RDHWR ->
-    readHWR ins insLen bld
+    readHWR ins bld
   | Op.ROTR ->
-    rotr ins insLen bld
+    rotr ins bld
   | Op.ROTRV ->
-    rotrv ins insLen bld
+    rotrv ins bld
   | Op.RECIP ->
-    recip ins insLen bld
+    recip ins bld
   | Op.RSQRT ->
-    rsqrt ins insLen bld
+    rsqrt ins bld
   | Op.SLL ->
-    shiftLeftRight ins insLen bld (<<)
+    shiftLeftRight ins bld (<<)
   | Op.SLLV ->
-    shiftLeftRightVar ins insLen bld (<<)
+    shiftLeftRightVar ins bld (<<)
   | Op.SLT ->
-    sltAndU ins insLen bld (?<)
+    sltAndU ins bld (?<)
   | Op.SLTU ->
-    sltAndU ins insLen bld (.<)
+    sltAndU ins bld (.<)
   | Op.SLTI ->
-    sltiAndU ins insLen bld (?<)
+    sltiAndU ins bld (?<)
   | Op.SLTIU ->
-    sltiAndU ins insLen bld (.<)
+    sltiAndU ins bld (.<)
   | Op.SSNOP ->
-    nop ins insLen bld
+    nop ins bld
   | Op.SB ->
-    store ins insLen 8<rt> bld
+    store ins 8<rt> bld
   | Op.SC ->
-    storeConditional ins insLen 32<rt> bld
+    storeConditional ins 32<rt> bld
   | Op.SCD ->
-    storeConditional ins insLen 64<rt> bld
+    storeConditional ins 64<rt> bld
   | Op.SD ->
-    store ins insLen 64<rt> bld
+    store ins 64<rt> bld
   | Op.SEB ->
-    seb ins insLen bld
+    seb ins bld
   | Op.SEH ->
-    seh ins insLen bld
+    seh ins bld
   | Op.SH ->
-    store ins insLen 16<rt> bld
+    store ins 16<rt> bld
   | Op.SQRT ->
-    sqrt ins insLen bld
+    sqrt ins bld
   | Op.SRA ->
-    sra ins insLen bld
+    sra ins bld
   | Op.SRAV ->
-    srav ins insLen bld
+    srav ins bld
   | Op.SRL ->
-    shiftLeftRight ins insLen bld (>>)
+    shiftLeftRight ins bld (>>)
   | Op.SRLV ->
-    shiftLeftRightVar ins insLen bld (>>)
+    shiftLeftRightVar ins bld (>>)
   | Op.SUB ->
-    sub ins insLen bld
+    sub ins bld
   | Op.SUBU ->
-    subu ins insLen bld
+    subu ins bld
   | Op.SW ->
-    store ins insLen 32<rt> bld
+    store ins 32<rt> bld
   | Op.SDL ->
-    storeLeftRight ins insLen bld (<<) (>>) (.&) 64<rt>
+    storeLeftRight ins bld (<<) (>>) (.&) 64<rt>
   | Op.SDR ->
-    storeLeftRight ins insLen bld (>>) (<<) (<+>) 64<rt>
+    storeLeftRight ins bld (>>) (<<) (<+>) 64<rt>
   | Op.SWL ->
-    storeLeftRight ins insLen bld (<<) (>>) (.&) 32<rt>
+    storeLeftRight ins bld (<<) (>>) (.&) 32<rt>
   | Op.SWR ->
-    storeLeftRight ins insLen bld (>>) (<<) (<+>) 32<rt>
+    storeLeftRight ins bld (>>) (<<) (<+>) 32<rt>
   | Op.SYNC | Op.SYNCI ->
-    nop ins insLen bld
+    nop ins bld
   | Op.SYSCALL ->
-    syscall ins insLen bld
+    syscall ins bld
   | Op.TEQ ->
-    teq ins insLen bld
+    teq ins bld
   | Op.TEQI ->
-    teqi ins insLen bld
+    teqi ins bld
   | Op.TRUNCW ->
-    truncw ins insLen bld
+    truncw ins bld
   | Op.TRUNCL ->
-    truncl ins insLen bld
+    truncl ins bld
   | Op.XOR ->
-    logXor ins insLen bld
+    logXor ins bld
   | Op.XORI ->
-    xori ins insLen bld
+    xori ins bld
   | Op.WSBH ->
-    wsbh ins insLen bld
+    wsbh ins bld
   | Op.BC3F | Op.BC3FL | Op.BC3T | Op.BC3TL ->
-    sideEffects ins insLen bld UnsupportedInstruction
+    sideEffects ins bld UnsupportedInstruction
   | o ->
 #if DEBUG
          eprintfn "%A" o

@@ -130,8 +130,8 @@ let private ofDouble bld w d =
 
 /// A two-operand arithmetic instruction: the first operand supplies one input
 /// and receives the result.
-let arith ins insLen bld w f =
-  lift bld (ins: Instruction) insLen {
+let arith ins bld w f =
+  lift bld (ins: Instruction) {
     let struct (o1, o2) = getTwoOprs ins
     let d = oprRegVar bld o1
     let a = tmpVar bld 64<rt>
@@ -149,8 +149,8 @@ let arith ins insLen bld w f =
 
 /// The same, but with a result twice as wide as the operands, which is what the
 /// short-to-long multiplies produce.
-let arithWiden ins insLen bld f =
-  lift bld (ins: Instruction) insLen {
+let arithWiden ins bld f =
+  lift bld (ins: Instruction) {
     let struct (o1, o2) = getTwoOprs ins
     let d = oprRegVar bld o1
     let a = tmpVar bld 64<rt>
@@ -168,8 +168,8 @@ let arithWiden ins insLen bld f =
 
 /// The condition code a comparison reports, which for these formats never has
 /// an unordered case to report -- a hexadecimal value cannot be a NaN.
-let compare ins insLen bld w =
-  lift bld (ins: Instruction) insLen {
+let compare ins bld w =
+  lift bld (ins: Instruction) {
     let struct (o1, o2) = getTwoOprs ins
     let a = tmpVar bld 64<rt>
     let b = tmpVar bld 64<rt>
@@ -184,8 +184,8 @@ let compare ins insLen bld w =
   }
 
 /// The sign-manipulating loads, which work on the bits rather than the value.
-let loadSign ins insLen bld w f setsCC =
-  lift bld (ins: Instruction) insLen {
+let loadSign ins bld w f setsCC =
+  lift bld (ins: Instruction) {
     let struct (o1, o2) = getTwoOprs ins
     let d = oprRegVar bld o1
     let sign = numI64 (1L <<< (RegType.toBitWidth w - 1)) w
@@ -202,8 +202,8 @@ let loadSign ins insLen bld w f setsCC =
   }
 
 /// HALVE, which is a multiply by a half and so needs no rounding decision.
-let halve ins insLen bld w =
-  lift bld (ins: Instruction) insLen {
+let halve ins bld w =
+  lift bld (ins: Instruction) {
     let struct (o1, o2) = getTwoOprs ins
     let d = oprRegVar bld o1
     let v = tmpVar bld 64<rt>
@@ -212,8 +212,8 @@ let halve ins insLen bld w =
   }
 
 /// A move between the two hexadecimal formats.
-let convertFormat ins insLen bld fromW toW =
-  lift bld (ins: Instruction) insLen {
+let convertFormat ins bld fromW toW =
+  lift bld (ins: Instruction) {
     let struct (o1, o2) = getTwoOprs ins
     let d = oprRegVar bld o1
     let v = tmpVar bld 64<rt>
@@ -222,8 +222,8 @@ let convertFormat ins insLen bld fromW toW =
   }
 
 /// LOAD FP INTEGER, which rounds to a whole number without leaving the format.
-let roundToInt ins insLen bld w =
-  lift bld (ins: Instruction) insLen {
+let roundToInt ins bld w =
+  lift bld (ins: Instruction) {
     let struct (o1, o2) = getTwoOprs ins
     let d = oprRegVar bld o1
     let v = tmpVar bld 64<rt>
@@ -233,8 +233,8 @@ let roundToInt ins insLen bld w =
   }
 
 /// SQUARE ROOT.
-let squareRoot ins insLen bld w =
-  lift bld (ins: Instruction) insLen {
+let squareRoot ins bld w =
+  lift bld (ins: Instruction) {
     let struct (o1, o2) = getTwoOprs ins
     let d = oprRegVar bld o1
     let v = tmpVar bld 64<rt>
@@ -247,8 +247,8 @@ let squareRoot ins insLen bld w =
   }
 
 /// A conversion from a fixed-point value to a hexadecimal one.
-let fromInt ins insLen bld w intW =
-  lift bld (ins: Instruction) insLen {
+let fromInt ins bld w intW =
+  lift bld (ins: Instruction) {
     let struct (o1, o2) = getTwoOprs ins
     let d = oprRegVar bld o1
     let v = tmpVar bld 64<rt>
@@ -260,8 +260,8 @@ let fromInt ins insLen bld w intW =
 
 /// A conversion from a hexadecimal value to a fixed-point one, which also
 /// reports how the value stood against zero.
-let toInt ins insLen bld w intW =
-  lift bld (ins: Instruction) insLen {
+let toInt ins bld w intW =
+  lift bld (ins: Instruction) {
     let struct (o1, o2) = getTwoOprs ins
     let d = oprRegVar bld o1
     let v = tmpVar bld 64<rt>
@@ -275,8 +275,8 @@ let toInt ins insLen bld w intW =
 
 /// The conversions between the hexadecimal and the binary formats, which are
 /// just the two conversions this module is built on, back to back.
-let toBinary ins insLen bld fromW toW =
-  lift bld (ins: Instruction) insLen {
+let toBinary ins bld fromW toW =
+  lift bld (ins: Instruction) {
     let struct (o1, o2) = getTwoOprs ins
     let d = oprRegVar bld o1
     let v = tmpVar bld 64<rt>
@@ -287,8 +287,8 @@ let toBinary ins insLen bld fromW toW =
       d := v
   }
 
-let fromBinary ins insLen bld fromW toW =
-  lift bld (ins: Instruction) insLen {
+let fromBinary ins bld fromW toW =
+  lift bld (ins: Instruction) {
     let struct (o1, o2) = getTwoOprs ins
     let d = oprRegVar bld o1
     let v = tmpVar bld 64<rt>
@@ -302,8 +302,8 @@ let fromBinary ins insLen bld fromW toW =
 
 /// The multiply-and-add and multiply-and-subtract instructions, whose third
 /// operand is the one added to or taken from the product.
-let mulAdd ins insLen bld w subtract =
-  lift bld (ins: Instruction) insLen {
+let mulAdd ins bld w subtract =
+  lift bld (ins: Instruction) {
     let struct (o1, o2, o3) = getThreeOprs ins
     let d = oprRegVar bld o1
     let a = tmpVar bld 64<rt>
@@ -323,97 +323,97 @@ let mulAdd ins insLen bld w subtract =
 
 /// An instruction of the format this module does not model: the extended one,
 /// whose 128 bits carry a 112-bit fraction that no type the IR has can hold.
-let unsupported ins insLen bld =
-  lift bld (ins: Instruction) insLen {
+let unsupported ins bld =
+  lift bld (ins: Instruction) {
     AST.sideEffect UnsupportedInstruction
   }
 
 /// Translates one hexadecimal floating-point instruction.
-let translate (ins: Instruction) insLen bld =
+let translate (ins: Instruction) bld =
   match ins.Opcode with
   | Opcode.AD | Opcode.ADR | Opcode.AW | Opcode.AWR ->
-    arith ins insLen bld LongHFP AST.fadd
+    arith ins bld LongHFP AST.fadd
   | Opcode.AE | Opcode.AER | Opcode.AU | Opcode.AUR ->
-    arith ins insLen bld ShortHFP AST.fadd
+    arith ins bld ShortHFP AST.fadd
   | Opcode.SD | Opcode.SDR | Opcode.SW | Opcode.SWR ->
-    arith ins insLen bld LongHFP AST.fsub
+    arith ins bld LongHFP AST.fsub
   | Opcode.SE | Opcode.SER | Opcode.SU | Opcode.SUR ->
-    arith ins insLen bld ShortHFP AST.fsub
+    arith ins bld ShortHFP AST.fsub
   | Opcode.MD | Opcode.MDR ->
-    arith ins insLen bld LongHFP AST.fmul
+    arith ins bld LongHFP AST.fmul
   | Opcode.MEE | Opcode.MEER ->
-    arith ins insLen bld ShortHFP AST.fmul
+    arith ins bld ShortHFP AST.fmul
   | Opcode.MDE | Opcode.MDER ->
-    arithWiden ins insLen bld AST.fmul
+    arithWiden ins bld AST.fmul
   | Opcode.DD | Opcode.DDR ->
-    arith ins insLen bld LongHFP AST.fdiv
+    arith ins bld LongHFP AST.fdiv
   | Opcode.DE | Opcode.DER ->
-    arith ins insLen bld ShortHFP AST.fdiv
+    arith ins bld ShortHFP AST.fdiv
   | Opcode.CD | Opcode.CDR ->
-    compare ins insLen bld LongHFP
+    compare ins bld LongHFP
   | Opcode.CE | Opcode.CER ->
-    compare ins insLen bld ShortHFP
+    compare ins bld ShortHFP
   | Opcode.LTDR ->
-    loadSign ins insLen bld LongHFP (fun v _ -> v) true
+    loadSign ins bld LongHFP (fun v _ -> v) true
   | Opcode.LTER ->
-    loadSign ins insLen bld ShortHFP (fun v _ -> v) true
+    loadSign ins bld ShortHFP (fun v _ -> v) true
   | Opcode.LCDR ->
-    loadSign ins insLen bld LongHFP (<+>) true
+    loadSign ins bld LongHFP (<+>) true
   | Opcode.LCER ->
-    loadSign ins insLen bld ShortHFP (<+>) true
+    loadSign ins bld ShortHFP (<+>) true
   | Opcode.LNDR ->
-    loadSign ins insLen bld LongHFP (fun v s -> v .| s) true
+    loadSign ins bld LongHFP (fun v s -> v .| s) true
   | Opcode.LNER ->
-    loadSign ins insLen bld ShortHFP (fun v s -> v .| s) true
+    loadSign ins bld ShortHFP (fun v s -> v .| s) true
   | Opcode.LPER ->
-    loadSign ins insLen bld ShortHFP (fun v s -> v .& AST.not s) true
+    loadSign ins bld ShortHFP (fun v s -> v .& AST.not s) true
   | Opcode.HDR ->
-    halve ins insLen bld LongHFP
+    halve ins bld LongHFP
   | Opcode.HER ->
-    halve ins insLen bld ShortHFP
+    halve ins bld ShortHFP
   | Opcode.LDE | Opcode.LDER ->
-    convertFormat ins insLen bld ShortHFP LongHFP
+    convertFormat ins bld ShortHFP LongHFP
   | Opcode.LEDR ->
-    convertFormat ins insLen bld LongHFP ShortHFP
+    convertFormat ins bld LongHFP ShortHFP
   | Opcode.FIDR ->
-    roundToInt ins insLen bld LongHFP
+    roundToInt ins bld LongHFP
   | Opcode.FIER ->
-    roundToInt ins insLen bld ShortHFP
+    roundToInt ins bld ShortHFP
   | Opcode.SQD | Opcode.SQDR ->
-    squareRoot ins insLen bld LongHFP
+    squareRoot ins bld LongHFP
   | Opcode.SQE | Opcode.SQER ->
-    squareRoot ins insLen bld ShortHFP
+    squareRoot ins bld ShortHFP
   | Opcode.CEFR ->
-    fromInt ins insLen bld ShortHFP WSize
+    fromInt ins bld ShortHFP WSize
   | Opcode.CDFR ->
-    fromInt ins insLen bld LongHFP WSize
+    fromInt ins bld LongHFP WSize
   | Opcode.CEGR ->
-    fromInt ins insLen bld ShortHFP GRSize
+    fromInt ins bld ShortHFP GRSize
   | Opcode.CDGR ->
-    fromInt ins insLen bld LongHFP GRSize
+    fromInt ins bld LongHFP GRSize
   | Opcode.CFER ->
-    toInt ins insLen bld ShortHFP WSize
+    toInt ins bld ShortHFP WSize
   | Opcode.CFDR ->
-    toInt ins insLen bld LongHFP WSize
+    toInt ins bld LongHFP WSize
   | Opcode.CGER ->
-    toInt ins insLen bld ShortHFP GRSize
+    toInt ins bld ShortHFP GRSize
   | Opcode.CGDR ->
-    toInt ins insLen bld LongHFP GRSize
+    toInt ins bld LongHFP GRSize
   | Opcode.THDER ->
-    toBinary ins insLen bld ShortHFP LongHFP
+    toBinary ins bld ShortHFP LongHFP
   | Opcode.THDR ->
-    toBinary ins insLen bld LongHFP LongHFP
+    toBinary ins bld LongHFP LongHFP
   | Opcode.TBEDR ->
-    fromBinary ins insLen bld LongHFP ShortHFP
+    fromBinary ins bld LongHFP ShortHFP
   | Opcode.TBDR ->
-    fromBinary ins insLen bld LongHFP LongHFP
+    fromBinary ins bld LongHFP LongHFP
   | Opcode.MAD | Opcode.MADR ->
-    mulAdd ins insLen bld LongHFP false
+    mulAdd ins bld LongHFP false
   | Opcode.MAE | Opcode.MAER ->
-    mulAdd ins insLen bld ShortHFP false
+    mulAdd ins bld ShortHFP false
   | Opcode.MSD | Opcode.MSDR ->
-    mulAdd ins insLen bld LongHFP true
+    mulAdd ins bld LongHFP true
   | Opcode.MSE | Opcode.MSER ->
-    mulAdd ins insLen bld ShortHFP true
+    mulAdd ins bld ShortHFP true
   | _ ->
-    unsupported ins insLen bld
+    unsupported ins bld

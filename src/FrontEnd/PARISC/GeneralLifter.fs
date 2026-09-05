@@ -393,12 +393,12 @@ type LiftBuilder =
 
 /// Starts lifting an ordinary instruction, closing it with the PARISC
 /// instruction end rather than a plain IEMark.
-let inline lift bld (ins: Instruction) insLen =
-  LiftBuilder(bld, ins.Address, insLen, false)
+let inline lift bld (ins: Instruction) =
+  LiftBuilder(bld, ins.Address, ins.Length, false)
 
 /// Starts lifting a control transfer, which owns the delay slot that follows.
-let inline liftTransfer bld (ins: Instruction) insLen =
-  LiftBuilder(bld, ins.Address, insLen, true)
+let inline liftTransfer bld (ins: Instruction) =
+  LiftBuilder(bld, ins.Address, ins.Length, true)
 
 /// Records that the instruction just lifted can nullify the next one, so that
 /// one keeps its guard.
@@ -657,8 +657,8 @@ let private checkWidth (bld: ILowUIRBuilder) (ins: Instruction) sz =
   else
     ()
 
-let load (ins: Instruction) insLen bld =
-  lift bld ins insLen {
+let load (ins: Instruction) bld =
+  lift bld ins {
     let struct (mem, dst) = getTwoOprs ins
     let struct (sz, sh) = accessSize ins
     checkWidth bld ins sz
@@ -668,8 +668,8 @@ let load (ins: Instruction) insLen bld =
                                                      addr)
   }
 
-let store (ins: Instruction) insLen bld =
-  lift bld ins insLen {
+let store (ins: Instruction) bld =
+  lift bld ins {
     let struct (src, mem) = getTwoOprs ins
     let struct (sz, sh) = accessSize ins
     checkWidth bld ins sz
@@ -683,8 +683,8 @@ let store (ins: Instruction) insLen bld =
 /// Load and clear word: the semaphore primitive. It reads the word at the
 /// sixteen-byte-aligned address the operand names and leaves zero in its place;
 /// the whole of it is one indivisible operation.
-let ldcw (ins: Instruction) insLen bld =
-  lift bld ins insLen {
+let ldcw (ins: Instruction) bld =
+  lift bld ins {
     let struct (mem, dst) = getTwoOprs ins
     let struct (sz, sh) = accessSize ins
     checkWidth bld ins sz
@@ -706,8 +706,8 @@ let ldcw (ins: Instruction) insLen bld =
 /// nothing at all when the address is already word-aligned. Both take the bytes
 /// from the corresponding places in the source register, so in the memory order
 /// of a big-endian machine the register and the word line up.
-let stby (ins: Instruction) insLen (bld: ILowUIRBuilder) =
-  lift bld ins insLen {
+let stby (ins: Instruction) (bld: ILowUIRBuilder) =
+  lift bld ins {
     let struct (src, mem) = getTwoOprs ins
     let struct (_, sh) = accessSize ins
     let rt = bld.RegType
@@ -743,8 +743,8 @@ let stby (ins: Instruction) insLen (bld: ILowUIRBuilder) =
 /// Load offset: the address a memory reference would use, left in a register
 /// rather than followed. It is how a small constant is loaded and how the
 /// address of a stack slot is taken.
-let ldo (ins: Instruction) insLen bld =
-  lift bld ins insLen {
+let ldo (ins: Instruction) bld =
+  lift bld ins {
     let struct (mem, dst) = getTwoOprs ins
     let addr = effAddr bld ins 0 mem
     transOpr bld dst := addr
@@ -752,8 +752,8 @@ let ldo (ins: Instruction) insLen bld =
 
 /// Load immediate left: the upper portion of a 32-bit constant, already shifted
 /// into place by the decoder.
-let ldil (ins: Instruction) insLen bld =
-  lift bld ins insLen {
+let ldil (ins: Instruction) bld =
+  lift bld ins {
     let struct (imm, dst) = getTwoOprs ins
     transOpr bld dst := transOpr bld imm
   }
@@ -761,8 +761,8 @@ let ldil (ins: Instruction) insLen bld =
 /// Add immediate left: the upper portion of a 32-bit constant added to a
 /// register, always landing in GR1, which is why the pair of instructions that
 /// forms a long displacement always goes through it.
-let addil (ins: Instruction) insLen bld =
-  lift bld ins insLen {
+let addil (ins: Instruction) bld =
+  lift bld ins {
     let struct (imm, src) = getTwoOprs ins
     regVar bld Register.GR1 := transOpr bld src .+ transOpr bld imm
   }
@@ -821,24 +821,24 @@ let private addWith (ins: Instruction)
   | None -> ()
   append bld { dst := res }
 
-let add (ins: Instruction) insLen bld =
+let add (ins: Instruction) bld =
   let struct (o1, o2, o3) = getThreeOprs ins
-  lift bld ins insLen {
+  lift bld ins {
     addWith ins bld (transOpr bld o1) (transOpr bld o2) (transOpr bld o3)
   }
 
 /// Shift one operand left by one, two, or three places and add the other: the
 /// primitive that scales an index before it is added to a base.
-let shladd (ins: Instruction) insLen bld =
+let shladd (ins: Instruction) bld =
   let struct (o1, sa, o2, o3) = getFourOprs ins
-  lift bld ins insLen {
+  lift bld ins {
     let shifted = transOpr bld o1 << transOpr bld sa
     addWith ins bld shifted (transOpr bld o2) (transOpr bld o3)
   }
 
-let addi (ins: Instruction) insLen bld =
+let addi (ins: Instruction) bld =
   let struct (imm, src, dst) = getThreeOprs ins
-  lift bld ins insLen {
+  lift bld ins {
     addWith ins bld (transOpr bld src) (transOpr bld imm) (transOpr bld dst)
   }
 
@@ -866,23 +866,23 @@ let private subWith (ins: Instruction)
   | None -> ()
   append bld { dst := res }
 
-let sub (ins: Instruction) insLen bld =
+let sub (ins: Instruction) bld =
   let struct (o1, o2, o3) = getThreeOprs ins
-  lift bld ins insLen {
+  lift bld ins {
     subWith ins bld (transOpr bld o1) (transOpr bld o2) (transOpr bld o3)
   }
 
-let subi (ins: Instruction) insLen bld =
+let subi (ins: Instruction) bld =
   let struct (imm, src, dst) = getThreeOprs ins
-  lift bld ins insLen {
+  lift bld ins {
     subWith ins bld (transOpr bld imm) (transOpr bld src) (transOpr bld dst)
   }
 
 /// Compare and clear: the difference is thrown away and the target is set to
 /// zero, leaving only the nullification the comparison decides. Paired with the
 /// instruction it nullifies, it is how a boolean is computed without a branch.
-let cmpclr (ins: Instruction) insLen bld =
-  lift bld ins insLen {
+let cmpclr (ins: Instruction) bld =
+  lift bld ins {
     let struct (o1, o2, o3) = getThreeOprs ins
     let in1 = transOpr bld o1
     let in2 = transOpr bld o2
@@ -905,8 +905,8 @@ let cmpclr (ins: Instruction) insLen bld =
 /// bit the preceding add left in the carry, and then adds or subtracts the
 /// divisor according to the divide-step bit, which it re-derives for the next
 /// step from the new carry and the divisor's sign.
-let ds (ins: Instruction) insLen bld =
-  lift bld ins insLen {
+let ds (ins: Instruction) bld =
+  lift bld ins {
     let struct (o1, o2, o3) = getThreeOprs ins
     let rt = bld.RegType
     let in1 = transOpr bld o1
@@ -931,8 +931,8 @@ let ds (ins: Instruction) insLen bld =
   }
 
 /// The bitwise operations, whose conditions read the result alone.
-let private logical (ins: Instruction) insLen bld f =
-  lift bld ins insLen {
+let private logical (ins: Instruction) bld f =
+  lift bld ins {
     let struct (o1, o2, o3) = getThreeOprs ins
     let res = tmpVar bld bld.RegType
     res := f (transOpr bld o1) (transOpr bld o2)
@@ -942,13 +942,13 @@ let private logical (ins: Instruction) insLen bld f =
     transOpr bld o3 := res
   }
 
-let ``and`` ins insLen bld = logical ins insLen bld (.&)
+let ``and`` ins bld = logical ins bld (.&)
 
-let andcm ins insLen bld = logical ins insLen bld (fun a b -> a .& AST.not b)
+let andcm ins bld = logical ins bld (fun a b -> a .& AST.not b)
 
-let ``or`` ins insLen bld = logical ins insLen bld (.|)
+let ``or`` ins bld = logical ins bld (.|)
 
-let xor ins insLen bld = logical ins insLen bld (<+>)
+let xor ins bld = logical ins bld (<+>)
 
 /// The unit operations: the same bitwise or arithmetic result as their ordinary
 /// counterparts, but with conditions that look at each byte, halfword, or word
@@ -959,8 +959,8 @@ let xor ins insLen bld = logical ins insLen bld (<+>)
 /// matters most for the complement form, since a compiler writes every bitwise
 /// "not" as one of those and would otherwise wipe the carry of any addition it
 /// sits between.
-let private unit (ins: Instruction) insLen bld =
-  lift bld ins insLen {
+let private unit (ins: Instruction) bld =
+  lift bld ins {
     let struct (o1, o2, o3) = getThreeOprs ins
     let rt = bld.RegType
     let in1 = transOpr bld o1
@@ -981,11 +981,11 @@ let private unit (ins: Instruction) insLen bld =
     transOpr bld o3 := res
   }
 
-let uxor ins insLen bld = unit ins insLen bld
+let uxor ins bld = unit ins bld
 
 /// Unit add complement: the complement of the second operand added to the
 /// first. With zero as the first operand it is how a register is complemented.
-let uaddcm ins insLen bld = unit ins insLen bld
+let uaddcm ins bld = unit ins bld
 
 /// The number of places a field's big-endian bit position must be shifted by:
 /// a position counts from the most significant bit, so the field's least
@@ -1004,8 +1004,8 @@ let private shiftOfPos (bld: ILowUIRBuilder) pos =
 /// and the second the low half of a double-width value, of which the 32 (or 64)
 /// bits ending at the given position are kept. It is how a field straddling two
 /// words is brought together, and how a rotate is built.
-let shrp (ins: Instruction) insLen bld =
-  lift bld ins insLen {
+let shrp (ins: Instruction) bld =
+  lift bld ins {
     let struct (o1, o2, sa, dst) = getFourOprs ins
     let rt = bld.RegType
     let width = RegType.toBitWidth rt
@@ -1050,8 +1050,8 @@ let private lenMask (bld: ILowUIRBuilder) len =
 /// *is* the whole of it, and that case is exactly how a compiler writes a
 /// variable arithmetic shift right, where filling from the wrong side turns
 /// every negative value positive.
-let extr (ins: Instruction) insLen bld =
-  lift bld ins insLen {
+let extr (ins: Instruction) bld =
+  lift bld ins {
     let struct (src, pos, len, dst) = getFourOprs ins
     let rt = bld.RegType
     let signed =
@@ -1084,8 +1084,8 @@ let extr (ins: Instruction) insLen bld =
 /// of the given length ending at the given bit position. The "z" form clears
 /// everything around the field instead of preserving it, which is how a left
 /// shift is expressed.
-let dep (ins: Instruction) insLen bld =
-  lift bld ins insLen {
+let dep (ins: Instruction) bld =
+  lift bld ins {
     let struct (src, pos, len, dst) = getFourOprs ins
     let rt = bld.RegType
     let zeroRest =
@@ -1199,8 +1199,8 @@ let private branchImm opr =
 /// An IA-relative branch, optionally leaving its return address in a register.
 /// A branch that links GR0 keeps no return address, so it is a plain jump; one
 /// that links any other register is a call.
-let b (ins: Instruction) insLen bld =
-  liftTransfer bld ins insLen {
+let b (ins: Instruction) bld =
+  liftTransfer bld ins {
     let struct (target, linkReg) = getTwoOprs ins
     let kind =
       match linkReg with
@@ -1217,8 +1217,8 @@ let b (ins: Instruction) insLen bld =
 /// Branch and link register: the target is the address past the delay slot
 /// advanced by eight times the index register, which is how a jump table of
 /// two-instruction entries is entered.
-let blr (ins: Instruction) insLen bld =
-  liftTransfer bld ins insLen {
+let blr (ins: Instruction) bld =
+  liftTransfer bld ins {
     let struct (idx, linkReg) = getTwoOprs ins
     let rt = bld.RegType
     let target = tmpVar bld rt
@@ -1239,8 +1239,8 @@ let blr (ins: Instruction) insLen bld =
 /// Branch vectored: the transfer through a register that both a computed jump
 /// and a procedure return are made of. A return goes through GR2, the register
 /// a call leaves its return address in, so that is what marks one.
-let bv (ins: Instruction) insLen bld =
-  liftTransfer bld ins insLen {
+let bv (ins: Instruction) bld =
+  liftTransfer bld ins {
     let opr = getOneOpr ins
     let rt = bld.RegType
     let target = tmpVar bld rt
@@ -1263,8 +1263,8 @@ let bv (ins: Instruction) insLen bld =
 /// Branch vectored to an external address: the same transfer through a
 /// register, reaching another space. Its linking form leaves the return
 /// address in GR2.
-let bve (ins: Instruction) insLen bld =
-  liftTransfer bld ins insLen {
+let bve (ins: Instruction) bld =
+  liftTransfer bld ins {
     let rt = (bld: ILowUIRBuilder).RegType
     let links =
       match ins.Completer with
@@ -1308,8 +1308,8 @@ let private gatewayAt offset =
 /// it names the gateway page it asks for one of the kernel's services rather
 /// than branching; its linking form leaves the address to return to in GR31,
 /// which is where each of those services returns.
-let be (ins: Instruction) insLen bld =
-  liftTransfer bld ins insLen {
+let be (ins: Instruction) bld =
+  liftTransfer bld ins {
     let struct (bse, off) =
       match ins.Operands with
       | OneOperand(OpMem(b, _, off, _))
@@ -1340,8 +1340,8 @@ let be (ins: Instruction) insLen bld =
 /// Compare and branch: the comparison of the two operands decides the branch,
 /// and nothing is written. Its immediate form compares the immediate with the
 /// register, in that order.
-let cmpb (ins: Instruction) insLen bld =
-  liftTransfer bld ins insLen {
+let cmpb (ins: Instruction) bld =
+  liftTransfer bld ins {
     let struct (o1, o2, target) = getThreeOprs ins
     let rt = bld.RegType
     let in1 = transOpr bld o1
@@ -1359,8 +1359,8 @@ let cmpb (ins: Instruction) insLen bld =
 /// also decides the branch, which is what makes one instruction out of a loop's
 /// counter update and its test. Its immediate form adds the immediate to the
 /// register.
-let addb (ins: Instruction) insLen bld =
-  liftTransfer bld ins insLen {
+let addb (ins: Instruction) bld =
+  liftTransfer bld ins {
     let struct (o1, o2, target) = getThreeOprs ins
     let rt = bld.RegType
     let in1 = transOpr bld o1
@@ -1381,8 +1381,8 @@ let addb (ins: Instruction) insLen bld =
 
 /// Move and branch: the first operand is copied to the second's register and
 /// decides the branch.
-let movb (ins: Instruction) insLen bld =
-  liftTransfer bld ins insLen {
+let movb (ins: Instruction) bld =
+  liftTransfer bld ins {
     let struct (o1, o2, target) = getThreeOprs ins
     let res = tmpVar bld bld.RegType
     let dst = transOpr bld o2
@@ -1398,8 +1398,8 @@ let movb (ins: Instruction) insLen bld =
 /// Branch on bit: the named bit of the register, counted from the most
 /// significant, decides the branch. The bit is brought to the top of the word
 /// and its sign tested, which is how the architecture states it.
-let bb (ins: Instruction) insLen bld =
-  liftTransfer bld ins insLen {
+let bb (ins: Instruction) bld =
+  liftTransfer bld ins {
     let struct (src, pos, target) = getThreeOprs ins
     let rt = bld.RegType
     let width = RegType.toBitWidth rt
@@ -1420,8 +1420,8 @@ let bb (ins: Instruction) insLen bld =
 /// Move to control register. Only the shift-amount register and the two
 /// registers the ABI leaves to a thread matter to user code, and all of them
 /// are plain register moves.
-let mtctl (ins: Instruction) insLen bld =
-  lift bld ins insLen {
+let mtctl (ins: Instruction) bld =
+  lift bld ins {
     let struct (src, dst) = getTwoOprs ins
     transOpr bld dst := transOpr bld src
   }
@@ -1429,16 +1429,16 @@ let mtctl (ins: Instruction) insLen bld =
 /// Move to the shift-amount register the complement of a value, which is how
 /// the count of a variable shift is turned into the bit position a deposit or
 /// an extract wants.
-let mtsarcm (ins: Instruction) insLen bld =
-  lift bld ins insLen {
+let mtsarcm (ins: Instruction) bld =
+  lift bld ins {
     let src = getOneOpr ins
     regVar bld Register.CR11 := AST.not (transOpr bld src)
   }
 
 /// Move from control register, or from the instruction address, which is how
 /// position-independent code finds out where it is.
-let mfctl (ins: Instruction) insLen bld =
-  lift bld ins insLen {
+let mfctl (ins: Instruction) bld =
+  lift bld ins {
     match ins.Opcode, ins.Operands with
     | Op.MFIA, OneOperand dst ->
       transOpr bld dst := numU64 (ins.Address ||| 3UL) bld.RegType
@@ -1454,8 +1454,8 @@ let mfctl (ins: Instruction) insLen bld =
 /// three-instruction indirect call PA-RISC code uses (load the identifier, move
 /// it to a space register, branch external through it) come out as a plain
 /// branch to the address in the register.
-let ldsid (ins: Instruction) insLen bld =
-  lift bld ins insLen {
+let ldsid (ins: Instruction) bld =
+  lift bld ins {
     let struct (_, dst) = getTwoOprs ins
     transOpr bld dst := AST.num0 bld.RegType
   }
@@ -1463,8 +1463,8 @@ let ldsid (ins: Instruction) insLen bld =
 /// A register move between the general and the space registers. Space
 /// registers hold no meaning under a flat address space, so the move is a plain
 /// one and its value never reaches an address.
-let movsp (ins: Instruction) insLen bld =
-  lift bld ins insLen {
+let movsp (ins: Instruction) bld =
+  lift bld ins {
     let struct (src, dst) = getTwoOprs ins
     transOpr bld dst := transOpr bld src
   }
@@ -1478,8 +1478,8 @@ let movsp (ins: Instruction) insLen bld =
 /// same answer by a different route. Leaving the register alone instead would
 /// have the dynamic linker read a stale word as "no" and abandon every function
 /// descriptor it resolves.
-let probe (ins: Instruction) insLen bld =
-  lift bld ins insLen {
+let probe (ins: Instruction) bld =
+  lift bld ins {
     let struct (_, _, dst) = getThreeOprs ins
     transOpr bld dst := AST.num1 bld.RegType
   }
@@ -1487,32 +1487,32 @@ let probe (ins: Instruction) insLen bld =
 /// An instruction with no effect an emulator of user code can observe: the
 /// cache and translation-buffer maintenance, the performance monitor, and the
 /// branch-target stack, none of which change a register or a byte of memory.
-let nop (ins: Instruction) insLen bld =
-  lift bld ins insLen {
+let nop (ins: Instruction) bld =
+  lift bld ins {
   }
 
 /// The memory ordering instructions.
-let sync (ins: Instruction) insLen bld =
-  lift bld ins insLen {
+let sync (ins: Instruction) bld =
+  lift bld ins {
     AST.sideEffect Fence
   }
 
 /// Break: the trap a debugger plants and a runtime check raises.
-let ``break`` (ins: Instruction) insLen bld =
-  lift bld ins insLen {
+let ``break`` (ins: Instruction) bld =
+  lift bld ins {
     AST.sideEffect Breakpoint
   }
 
 /// An instruction that is valid but outside what this lifter models, left to
 /// the emulator to report rather than silently mis-executed.
-let unsupported (ins: Instruction) insLen bld =
-  lift bld ins insLen {
+let unsupported (ins: Instruction) bld =
+  lift bld ins {
     AST.sideEffect UnsupportedInstruction
   }
 
 /// A privileged instruction, which user code reaching raises the
 /// illegal-instruction trap that is the only reason it would be there.
-let illegal (ins: Instruction) insLen bld =
-  lift bld ins insLen {
+let illegal (ins: Instruction) bld =
+  lift bld ins {
     AST.sideEffect UndefinedInstruction
   }

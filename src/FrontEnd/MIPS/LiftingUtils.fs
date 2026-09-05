@@ -536,15 +536,15 @@ type LiftBuilder =
     this.Bld
 
 /// Starts lifting an ordinary instruction, closing it by advancing the PC.
-let inline lift bld (ins: Instruction) insLen =
-  LiftBuilder(bld, ins.Address, insLen, false)
+let inline lift bld (ins: Instruction) =
+  LiftBuilder(bld, ins.Address, ins.Length, false)
 
 /// Starts lifting a branch, which arms the delay slot that follows it. The
 /// transfer belongs to that slot, so this one closes with a plain IEMark.
-let inline liftTransfer bld (ins: Instruction) insLen =
-  LiftBuilder(bld, ins.Address, insLen, true)
+let inline liftTransfer bld (ins: Instruction) =
+  LiftBuilder(bld, ins.Address, ins.Length, true)
 
-let sideEffects (ins: Instruction) insLen bld name =
-  lift bld ins insLen {
+let sideEffects (ins: Instruction) bld name =
+  lift bld ins {
     AST.sideEffect name
   }

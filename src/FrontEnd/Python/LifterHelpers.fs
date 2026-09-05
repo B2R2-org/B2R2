@@ -108,11 +108,11 @@ let peekFromStack bld offset =
 
 (* Emit ISMark + IEMark only; used for no-op instructions. *)
 let nopInstr (ins: Instruction) bld =
-  lift bld ins ins.Length {
+  lift bld ins {
   }
 
 let effInstr eff (ins: Instruction) bld =
-  lift bld ins ins.Length {
+  lift bld ins {
     AST.extCall eff
   }
 
@@ -126,7 +126,7 @@ let namedEffectWithArgs name args ins bld =
    so the surface operator is preserved for decompilation, rather than as a
    stack-ignoring effect that would silently drop the operand's sign. *)
 let unaryOp name (ins: Instruction) bld =
-  lift bld ins ins.Length {
+  lift bld ins {
     let operand = popFromStack bld
     pushToStack bld (AST.app name [ operand ] rt)
   }
@@ -219,7 +219,7 @@ let yieldReceived = AST.undef rt "YIELD_RECEIVED"
 let returnTarget = AST.undef rt "RETURN_TARGET"
 
 let translateLoad opname (ins: Instruction) bld =
-  lift bld ins ins.Length {
+  lift bld ins {
     pushToStack bld (AST.app opname [ operandIndex ins ] rt)
   }
 
@@ -229,7 +229,7 @@ let translateLoad opname (ins: Instruction) bld =
    falling back to its own cells -- so it has to leave that mapping rather than
    nothing at all. *)
 let loadLocals (ins: Instruction) bld =
-  lift bld ins ins.Length {
+  lift bld ins {
     pushToStack bld (AST.app "LOAD_LOCALS" [] rt)
   }
 
@@ -238,7 +238,7 @@ let loadLocals (ins: Instruction) bld =
    module. The mapping is popped -- CPython's own stack effect consumes it --
    so it travels as an operand rather than being left behind. *)
 let loadFromDict opname (ins: Instruction) bld =
-  lift bld ins ins.Length {
+  lift bld ins {
     let mapping = popFromStack bld
     pushToStack bld (AST.app opname [ mapping; operandIndex ins ] rt)
   }
@@ -272,7 +272,7 @@ let pushCallee (ins: Instruction) bld callee =
     pushToStack bld callee
 
 let translateLoadGlobal (ins: Instruction) bld =
-  lift bld ins ins.Length {
+  lift bld ins {
     pushCallee ins bld (AST.app "LOAD_GLOBAL" [ globalIndex ins ] rt)
   }
 
@@ -281,7 +281,7 @@ let translateDelete opname (ins: Instruction) bld =
 
 (* DELETE_ATTR: pops the owner object and deletes the named attribute. *)
 let deleteAttr (ins: Instruction) bld =
-  lift bld ins ins.Length {
+  lift bld ins {
     let owner = popFromStack bld
     let args = [ owner; operandIndex ins ]
     AST.extCall (AST.app "DELETE_ATTR" args rt)
@@ -291,7 +291,7 @@ let deleteAttr (ins: Instruction) bld =
    number of leading dots for a relative import, e.g. `from ..pkg import x`),
    then pushes the imported module object. *)
 let importName (ins: Instruction) bld =
-  lift bld ins ins.Length {
+  lift bld ins {
     let name = operandIndex ins
     let fromList = popFromStack bld
     let level = popFromStack bld
@@ -301,7 +301,7 @@ let importName (ins: Instruction) bld =
 (* IMPORT_FROM: peeks (does not pop) the module object left by IMPORT_NAME so
    that later IMPORT_FROMs can reuse it, and pushes obj.name. *)
 let importFrom (ins: Instruction) bld =
-  lift bld ins ins.Length {
+  lift bld ins {
     let name = operandIndex ins
     let moduleObj = peekFromStack bld 0
     pushToStack bld (AST.app "IMPORT_FROM" [ moduleObj; name ] rt)
@@ -309,7 +309,7 @@ let importFrom (ins: Instruction) bld =
 
 (* IMPORT_STAR: pops the module object and binds all its exported names. *)
 let importStar (ins: Instruction) bld =
-  lift bld ins ins.Length {
+  lift bld ins {
     let moduleObj = popFromStack bld
     AST.extCall (AST.app "IMPORT_STAR" [ moduleObj ] rt)
   }
@@ -340,7 +340,7 @@ let private intrinsic1Name arg =
    leaving walks the stack pointer off its own region a few statements later.
    Every other one leaves the value the instruction is for. *)
 let callIntrinsic1 (ins: Instruction) bld =
-  lift bld ins ins.Length {
+  lift bld ins {
     let operand = popFromStack bld
     let arg = getIntArg ins
     if arg = 2 then
@@ -351,13 +351,13 @@ let callIntrinsic1 (ins: Instruction) bld =
   }
 
 let popTop (ins: Instruction) bld =
-  lift bld ins ins.Length {
+  lift bld ins {
     discardTOS bld
   }
 
 /// PUSH_NULL: NULL is a special value implemented in Python internally.
 let pushNull (ins: Instruction) bld =
-  lift bld ins ins.Length {
+  lift bld ins {
     pushToStack bld nullSlot
   }
 
@@ -365,7 +365,7 @@ let pushNull (ins: Instruction) bld =
    raises. The opcode names it outright -- it takes no argument -- so it is a
    nullary named app. *)
 let loadAssertionError (ins: Instruction) bld =
-  lift bld ins ins.Length {
+  lift bld ins {
     pushToStack bld (AST.app "LOAD_ASSERTION_ERROR" [] rt)
   }
 
@@ -373,7 +373,7 @@ let loadAssertionError (ins: Instruction) bld =
    class from its body function, name, and bases. Nullary for the same reason
    loadAssertionError is. *)
 let loadBuildClass (ins: Instruction) bld =
-  lift bld ins ins.Length {
+  lift bld ins {
     pushToStack bld (AST.app "LOAD_BUILD_CLASS" [] rt)
   }
 
@@ -386,7 +386,7 @@ let loadBuildClass (ins: Instruction) bld =
 let jumpArgScale (ins: Instruction) = if int ins.Version >= 310 then 2 else 1
 
 let jumpByOffset (ins: Instruction) bld isForward =
-  lift bld ins ins.Length {
+  lift bld ins {
     let n = getIntArg ins * jumpArgScale ins
     let offset = n * (if isForward then 1 else -1)
     let dst = ins.Address + uint64 ins.Length + uint64 offset
@@ -415,7 +415,7 @@ let codeObjectBase (binFile: PythonBinFile) (addr: Addr) =
       failwithf "Cannot find the code object containing address 0x%x" addr
 
 let jumpAbsolute (binFile: PythonBinFile) (ins: Instruction) bld =
-  lift bld ins ins.Length {
+  lift bld ins {
     let n = getIntArg ins
     let dst = codeObjectBase binFile ins.Address + uint64 (n * jumpArgScale ins)
     AST.interjmp (AST.num (BitVector(dst, rt))) InterJmpKind.Base
@@ -429,7 +429,7 @@ let condJumpAbsolute (binFile: PythonBinFile)
                      (ins: Instruction)
                      bld
                      jumpIfTrue =
-  lift bld ins ins.Length {
+  lift bld ins {
     let cond = truthOf (popFromStack bld)
     let n = getIntArg ins
     let jmpDst =
@@ -458,7 +458,7 @@ let condJumpAbsolute (binFile: PythonBinFile)
    statically-known amount per CFG edge, which the label-based two-branch
    split already provides -- the real bug is elsewhere, still open.) *)
 let jumpOrPop (binFile: PythonBinFile) (ins: Instruction) bld jumpIfTrue =
-  lift bld ins ins.Length {
+  lift bld ins {
     let cond = peekFromStack bld 0
     let n = getIntArg ins
     let jmpDst =
@@ -483,7 +483,7 @@ let jumpOrPop (binFile: PythonBinFile) (ins: Instruction) bld jumpIfTrue =
   }
 
 let jumpIfNotExcMatch (binFile: PythonBinFile) (ins: Instruction) bld =
-  lift bld ins ins.Length {
+  lift bld ins {
     let excType = popFromStack bld
     let excValue = popFromStack bld
     let n = getIntArg ins
@@ -513,7 +513,7 @@ let jumpIfNotExcMatch (binFile: PythonBinFile) (ins: Instruction) bld =
    function's own construction: iteration i reads slot i+1 and writes
    slot i, so slot i+1 is never touched by an earlier iteration). *)
 let rotateTopToBottom n (ins: Instruction) bld =
-  lift bld ins ins.Length {
+  lift bld ins {
     let spReg = regVar bld R.SP
     let top = peekFromStack bld 0
     for i in 0 .. n - 2 do
@@ -523,14 +523,14 @@ let rotateTopToBottom n (ins: Instruction) bld =
   }
 
 let dupTop (ins: Instruction) bld =
-  lift bld ins ins.Length {
+  lift bld ins {
     pushToStack bld (peekFromStack bld 0)
   }
 
 (* DUP_TOP_TWO: duplicates the top two items, keeping their relative
    order (stack before, top-to-bottom: a, b -> after: a, b, a, b). *)
 let dupTopTwo (ins: Instruction) bld =
-  lift bld ins ins.Length {
+  lift bld ins {
     let a = peekFromStack bld 0
     let b = peekFromStack bld 1
     pushToStack bld b
@@ -544,21 +544,21 @@ let dupTopTwo (ins: Instruction) bld =
    translation (which pattern-matches on those exact names) recognizes
    both versions' encodings identically). *)
 let binaryOpDirect opExpr (ins: Instruction) bld =
-  lift bld ins ins.Length {
+  lift bld ins {
     let right = popFromStack bld
     let left = popFromStack bld
     pushToStack bld (opExpr left right)
   }
 
 let copyDictWithoutKeys (ins: Instruction) bld =
-  lift bld ins ins.Length {
+  lift bld ins {
     let keys = popFromStack bld
     let subject = peekFromStack bld 0
     pushToStack bld (AST.app "COPY_DICT_WITHOUT_KEYS" [ subject; keys ] rt)
   }
 
 let printExpr (ins: Instruction) bld =
-  lift bld ins ins.Length {
+  lift bld ins {
     let v = popFromStack bld
     AST.extCall (AST.app "PRINT_EXPR" [ v ] rt)
   }
@@ -580,14 +580,14 @@ let printExpr (ins: Instruction) bld =
    made the effect 0 and left every stack slot after a `yield from` off by
    one. *)
 let yieldFrom (ins: Instruction) bld =
-  lift bld ins ins.Length {
+  lift bld ins {
     let sendVal = popFromStack bld
     let subIter = peekFromStack bld 0
     AST.extCall (AST.app "YIELD_FROM" [ subIter; sendVal ] rt)
   }
 
 let callFunction (ins: Instruction) bld =
-  lift bld ins ins.Length {
+  lift bld ins {
     let argc = getIntArg ins
     let args = List.init argc (fun _ -> popFromStack bld) |> List.rev
     let func = popFromStack bld
@@ -601,7 +601,7 @@ let callFunction (ins: Instruction) bld =
   }
 
 let callFunctionKw (ins: Instruction) bld =
-  lift bld ins ins.Length {
+  lift bld ins {
     let argc = getIntArg ins
     let kwNamesTuple = popFromStack bld
     let args = List.init argc (fun _ -> popFromStack bld) |> List.rev
@@ -618,7 +618,7 @@ let callFunctionKw (ins: Instruction) bld =
    NULL-before-CALL method-call recognition in TranslationHelper.fs (built
    for 3.12's LOAD_ATTR-with-flag) applies here for free. *)
 let loadMethod (ins: Instruction) bld =
-  lift bld ins ins.Length {
+  lift bld ins {
     let name = operandIndex ins
     let obj = popFromStack bld
     let attr = AST.app "LOAD_ATTR" [ obj; name ] rt
@@ -634,7 +634,7 @@ let loadMethod (ins: Instruction) bld =
    NULL fills that last slot. Reuses "CALL" for the same reason
    callFunction above does. *)
 let callMethod (ins: Instruction) bld =
-  lift bld ins ins.Length {
+  lift bld ins {
     let argc = getIntArg ins
     let args = List.init argc (fun _ -> popFromStack bld) |> List.rev
     let methodOrFunc = popFromStack bld
@@ -651,27 +651,27 @@ let callMethod (ins: Instruction) bld =
    takes one slot however it is spelled. END_FOR takes it where it is alone,
    and leaves it to the POP_TOP where it is not. *)
 let endFor (ins: Instruction) bld =
-  lift bld ins ins.Length {
+  lift bld ins {
     if ins.Minor < 13 then discardTOS bld else ()
   }
 
 (* END_SEND: removes the second-from-top value (the exhausted generator
    left by SEND), keeping the top (the awaited result) in place. *)
 let endSend (ins: Instruction) bld =
-  lift bld ins ins.Length {
+  lift bld ins {
     let value = popFromStack bld
     discardTOS bld
     pushToStack bld value
   }
 
 let copy (ins: Instruction) bld =
-  lift bld ins ins.Length {
+  lift bld ins {
     let n = getIntArg ins
     pushToStack bld (peekFromStack bld (n - 1))
   }
 
 let swap (ins: Instruction) bld =
-  lift bld ins ins.Length {
+  lift bld ins {
     let n = getIntArg ins
     let top = peekFromStack bld 0
     let nth = peekFromStack bld (n - 1)
@@ -685,7 +685,7 @@ let swap (ins: Instruction) bld =
 (* Generic store for STORE_FAST / STORE_NAME / STORE_GLOBAL / STORE_DEREF:
    pop TOS and emit an external call recording the target name. *)
 let storeNamed opname (ins: Instruction) bld =
-  lift bld ins ins.Length {
+  lift bld ins {
     let name = operandIndex ins
     let value = popFromStack bld
     let eff = AST.app opname [ name; value ] rt
@@ -694,7 +694,7 @@ let storeNamed opname (ins: Instruction) bld =
 
 (* STORE_ATTR: TOS = value, TOS1 = obj => obj.attr = value *)
 let storeAttr (ins: Instruction) bld =
-  lift bld ins ins.Length {
+  lift bld ins {
     let name = operandIndex ins
     let obj = popFromStack bld
     let value = popFromStack bld
@@ -706,7 +706,7 @@ let storeAttr (ins: Instruction) bld =
    In Python >= 3.11, ins.Flag = true means method mode: push NULL then the
    attr so that CALL sees (NULL, obj.attr, args) and treats obj as self. *)
 let loadAttr (ins: Instruction) bld =
-  lift bld ins ins.Length {
+  lift bld ins {
     let name = attrIndex ins
     let obj = popFromStack bld
     pushCallee ins bld (AST.app "LOAD_ATTR" [ obj; name ] rt)
@@ -721,7 +721,7 @@ let loadAttr (ins: Instruction) bld =
    `super(cls, obj).attr`, __class__/self are real user expressions, so we
    tag it differently to keep them. *)
 let loadSuperAttr (ins: Instruction) bld =
-  lift bld ins ins.Length {
+  lift bld ins {
     let name = superAttrIndex ins
     let self = popFromStack bld
     let cls = popFromStack bld
@@ -734,7 +734,7 @@ let loadSuperAttr (ins: Instruction) bld =
 
 (* STORE_SUBSCR: TOS1[TOS] = TOS2 ??pops three items. *)
 let storeSubscript (ins: Instruction) bld =
-  lift bld ins ins.Length {
+  lift bld ins {
     let sub = popFromStack bld
     let obj = popFromStack bld
     let value = popFromStack bld
@@ -744,7 +744,7 @@ let storeSubscript (ins: Instruction) bld =
 
 (* STORE_SLICE: TOS2[TOS1:TOS] = TOS3 ??pops four items. *)
 let storeSlice (ins: Instruction) bld =
-  lift bld ins ins.Length {
+  lift bld ins {
     let stop = popFromStack bld
     let start = popFromStack bld
     let obj = popFromStack bld
@@ -755,7 +755,7 @@ let storeSlice (ins: Instruction) bld =
 
 (* DELETE_SUBSCR: del TOS1[TOS] ??pops two items. *)
 let deleteSubscript (ins: Instruction) bld =
-  lift bld ins ins.Length {
+  lift bld ins {
     let sub = popFromStack bld
     let obj = popFromStack bld
     let eff = AST.app "DELETE_SUBSCR" [ obj; sub ] rt
@@ -764,7 +764,7 @@ let deleteSubscript (ins: Instruction) bld =
 
 (* RETURN_VALUE: pop TOS and emit a RETURN call. *)
 let translateReturn (ins: Instruction) bld =
-  lift bld ins ins.Length {
+  lift bld ins {
     let value = popFromStack bld
     AST.extCall (AST.app "RETURN" [ value ] rt)
     append bld { AST.interjmp returnTarget InterJmpKind.IsRet }
@@ -773,7 +773,7 @@ let translateReturn (ins: Instruction) bld =
 
 (* RETURN_CONST: load constant directly without a stack round-trip. *)
 let translateReturnConst (ins: Instruction) bld =
-  lift bld ins ins.Length {
+  lift bld ins {
     let name = operandIndex ins
     let value = AST.app "LOAD_CONST" [ name ] rt
     AST.extCall (AST.app "RETURN" [ value ] rt)
@@ -783,7 +783,7 @@ let translateReturnConst (ins: Instruction) bld =
 
 (* RAISE_VARARGS arg: pop arg items (0??) and raise. *)
 let translateRaiseVarargs (ins: Instruction) bld =
-  lift bld ins ins.Length {
+  lift bld ins {
     let n = getIntArg ins
     let args = List.init n (fun _ -> popFromStack bld)
     AST.extCall (AST.app "RAISE_VARARGS" args rt)
@@ -794,7 +794,7 @@ let translateRaiseVarargs (ins: Instruction) bld =
    jumpIfTrue=true  ??jump when TOS is truthy.
    jumpIfTrue=false ??jump when TOS is falsy. *)
 let condJump (ins: Instruction) bld jumpIfTrue =
-  lift bld ins ins.Length {
+  lift bld ins {
     let cond = popFromStack bld
     let n = getIntArg ins
     let jmpDst = ins.Address + uint64 ins.Length + uint64 (n * jumpArgScale ins)
@@ -827,7 +827,7 @@ let condJump (ins: Instruction) bld jumpIfTrue =
    jumpIfNone=true  ??jump when TOS is None (modeled as IS_NONE(TOS) = 1).
    jumpIfNone=false ??jump when TOS is not None. *)
 let condJumpNone (ins: Instruction) bld jumpIfNone =
-  lift bld ins ins.Length {
+  lift bld ins {
     let value = popFromStack bld
     let n = getIntArg ins
     let jmpDst = ins.Address + uint64 ins.Length + uint64 (n * jumpArgScale ins)
@@ -850,7 +850,7 @@ let condJumpNone (ins: Instruction) bld jumpIfNone =
   }
 
 let forIter minor (ins: Instruction) bld =
-  lift bld ins ins.Length {
+  lift bld ins {
     let tos = peekFromStack bld 0
     let n = getIntArg ins
     let jmpDst = ins.Address + uint64 ins.Length + uint64 (n * jumpArgScale ins)
@@ -876,7 +876,7 @@ let forIter minor (ins: Instruction) bld =
   }
 
 let getIter (ins: Instruction) bld =
-  lift bld ins ins.Length {
+  lift bld ins {
     let iter = popFromStack bld
     let iterNext = AST.app "GET_ITER" [ iter ] rt
     pushToStack bld iterNext
@@ -894,7 +894,7 @@ let getIter (ins: Instruction) bld =
    which is placed below the stack pointer -- and the stack pointer, with the
    sent value popped, is the receiver's own slot. *)
 let send (ins: Instruction) bld =
-  lift bld ins ins.Length {
+  lift bld ins {
     let sentVal = popFromStack bld
     let gen = peekFromStack bld 0
     (* Bound before it is used, because it is used twice: once pushed onto the
@@ -915,7 +915,7 @@ let send (ins: Instruction) bld =
   }
 
 let getYieldFromIter (ins: Instruction) bld =
-  lift bld ins ins.Length {
+  lift bld ins {
     let tos = popFromStack bld
     pushToStack bld (AST.app "GET_YIELD_FROM_ITER" [ tos ] rt)
   }
@@ -928,14 +928,14 @@ let getYieldFromIter (ins: Instruction) bld =
    register, since a kwnames tuple can genuinely be a code object's constant
    zero (`g(a=x)` at module level compiles to exactly that). *)
 let kwNames (ins: Instruction) bld =
-  lift bld ins ins.Length {
+  lift bld ins {
     let names = AST.app "LOAD_CONST" [ operandIndex ins ] rt
     let kwReg = regVar bld R.KW_NAMES
     kwReg := names
   }
 
 let call (ins: Instruction) bld =
-  lift bld ins ins.Length {
+  lift bld ins {
     let argc = getIntArg ins
     (* 3.13 folded the keyword names into the call itself: they arrive as a
        tuple above the arguments, where 3.12 left them in a register a separate
@@ -954,7 +954,7 @@ let call (ins: Instruction) bld =
   }
 
 let consumeAndPush name (ins: Instruction) bld =
-  lift bld ins ins.Length {
+  lift bld ins {
     let v = popFromStack bld
     let result = AST.app name [ v ] rt
     pushToStack bld result
@@ -965,7 +965,7 @@ let consumeAndPush name (ins: Instruction) bld =
    to is the only thing that says which cells a nested body reads. Dropping it
    left every closure's free variables coming from nowhere. *)
 let makeFunction (ins: Instruction) bld =
-  lift bld ins ins.Length {
+  lift bld ins {
     let flags = getIntArg ins
     let codeObj = popFromStack bld
     let closure = if flags &&& 0x08 <> 0 then popFromStack bld else nullSlot
@@ -982,7 +982,7 @@ let makeFunction (ins: Instruction) bld =
    this pops. The four slots stay NULL rather than vanishing, so the app keeps
    the arity the other two forms have and HIR translation reads one shape. *)
 let makeFunctionSimple (ins: Instruction) bld =
-  lift bld ins ins.Length {
+  lift bld ins {
     let codeObj = popFromStack bld
     let args = [ codeObj; nullSlot; nullSlot; nullSlot; nullSlot ]
     pushToStack bld (AST.app "MAKE_FUNCTION" args rt)
@@ -1005,7 +1005,7 @@ let makeFunctionSimple (ins: Instruction) bld =
    the positional defaults as the keyword dictionary, so every parameter that
    had a default arrived with none. *)
 let makeFunctionLegacy (ins: Instruction) bld =
-  lift bld ins ins.Length {
+  lift bld ins {
     let flags = getIntArg ins
     (* Neither popFromStack-and-ignore NOR discardTOS works here: either
        way, the qualname's own LOAD_CONST push ends up as a dead SSA value
@@ -1042,7 +1042,7 @@ let makeFunctionLegacy (ins: Instruction) bld =
    untranslatable raw `Load(MemVar, ...)` once SSAStackPointerPropagation
    lost ConstSP tracking after the phantom extra pop). *)
 let callFunctionEx minor (ins: Instruction) bld =
-  lift bld ins ins.Length {
+  lift bld ins {
     (* 3.14 dropped the oparg whose low bit used to say whether a keyword
        mapping was passed: the mapping became a stack slot that is always
        there, holding NULL for a call that passes none. 3.13's instrumented
@@ -1062,7 +1062,7 @@ let callFunctionEx minor (ins: Instruction) bld =
 (* 3.0 gives neither this nor SET_ADD an oparg: the collection is always the
    slot directly beneath the item, which is what an oparg of 1 says. *)
 let listAppend (ins: Instruction) bld =
-  lift bld ins ins.Length {
+  lift bld ins {
     let i = getIntArgOr 1 ins
     let item = popFromStack bld
     let lst = peekFromStack bld (i - 1)
@@ -1070,7 +1070,7 @@ let listAppend (ins: Instruction) bld =
   }
 
 let setAdd (ins: Instruction) bld =
-  lift bld ins ins.Length {
+  lift bld ins {
     let i = getIntArgOr 1 ins
     let item = popFromStack bld
     let st = peekFromStack bld (i - 1)
@@ -1078,7 +1078,7 @@ let setAdd (ins: Instruction) bld =
   }
 
 let mapAdd (ins: Instruction) bld =
-  lift bld ins ins.Length {
+  lift bld ins {
     let i = getIntArg ins
     let value = popFromStack bld
     let key = popFromStack bld
@@ -1103,7 +1103,7 @@ let mapAdd (ins: Instruction) bld =
    value flowing through the same recognized push/pop primitives as
    everywhere else. *)
 let dictMerge name (ins: Instruction) bld =
-  lift bld ins ins.Length {
+  lift bld ins {
     let i = getIntArg ins
     let update = popFromStack bld
     let saved = [| for _ in 1 .. i - 1 -> popFromStack bld |]
@@ -1142,7 +1142,7 @@ let private legacyCmp idx left right =
    the result is to be forced to a bool. Reading a 3.13 argument four bits down
    leaves that bit in the index, which names an operator there is none of. *)
 let compareOP minor (ins: Instruction) bld =
-  lift bld ins ins.Length {
+  lift bld ins {
     let n = getIntArg ins
     let opIdx = if minor >= 13 then n >>> 5 elif minor >= 12 then n >>> 4 else n
     let right = popFromStack bld
@@ -1154,7 +1154,7 @@ let compareOP minor (ins: Instruction) bld =
 (* IS_OP: pop TOS (right) and TOS1 (left), push identity test.
    operand=0 ??left is right; operand=1 ??left is not right. *)
 let isOp (ins: Instruction) bld =
-  lift bld ins ins.Length {
+  lift bld ins {
     let invert = getIntArg ins
     let right = popFromStack bld
     let left = popFromStack bld
@@ -1165,7 +1165,7 @@ let isOp (ins: Instruction) bld =
 (* CONTAINS_OP: pop TOS (container) and TOS1 (item), push membership test.
    operand=0 ??item in container; operand=1 ??item not in container. *)
 let containsOp (ins: Instruction) bld =
-  lift bld ins ins.Length {
+  lift bld ins {
     let invert = getIntArg ins
     let container = popFromStack bld
     let item = popFromStack bld
@@ -1221,7 +1221,7 @@ let private binaryOpName addr = function
    arg directly indexes the operation; inplace variants (arg >= 13) share
    the same index offset as their non-inplace counterparts. *)
 let binaryOp (ins: Instruction) bld =
-  lift bld ins ins.Length {
+  lift bld ins {
     let right = popFromStack bld
     let left = popFromStack bld
     let name = binaryOpName ins.Address (getIntArg ins)
@@ -1229,14 +1229,14 @@ let binaryOp (ins: Instruction) bld =
   }
 
 let binarySubscr (ins: Instruction) bld =
-  lift bld ins ins.Length {
+  lift bld ins {
     let idx = popFromStack bld
     let obj = popFromStack bld
     pushToStack bld (AST.app "BINARY_SUBSCR" [ obj; idx ] rt)
   }
 
 let binarySlice (ins: Instruction) bld =
-  lift bld ins ins.Length {
+  lift bld ins {
     let stop = popFromStack bld
     let start = popFromStack bld
     let obj = popFromStack bld
@@ -1257,7 +1257,7 @@ let binarySlice (ins: Instruction) bld =
    takes depends on how long the sequence turns out to be, which only the
    runtime knows, so each is asked for by position rather than sliced here. *)
 let unpackEx (ins: Instruction) bld =
-  lift bld ins ins.Length {
+  lift bld ins {
     let arg = getIntArg ins
     let before = arg &&& 0xFF
     let after = arg >>> 8
@@ -1276,7 +1276,7 @@ let unpackEx (ins: Instruction) bld =
   }
 
 let unpackSequence (ins: Instruction) bld =
-  lift bld ins ins.Length {
+  lift bld ins {
     let n = getIntArg ins
     let seq = popFromStack bld
     (* Walked once, into a tuple the elements are then taken from. Asking for
@@ -1303,7 +1303,7 @@ let unpackSequence (ins: Instruction) bld =
    new value back via a raw store SSAStackPointerPropagation's ConstSP
    tracking cannot see through. *)
 let listExtend (ins: Instruction) bld =
-  lift bld ins ins.Length {
+  lift bld ins {
     let n = getIntArg ins
     let tos = popFromStack bld
     let saved = [| for _ in 1 .. n - 1 -> popFromStack bld |]
@@ -1319,7 +1319,7 @@ let listExtend (ins: Instruction) bld =
 /// frozen set, then SET_UPDATE -- so it stands between a program and every
 /// `{1, 2, 3}` it writes, not just an unpacking one.
 let setUpdate (ins: Instruction) bld =
-  lift bld ins ins.Length {
+  lift bld ins {
     let n = getIntArg ins
     let tos = popFromStack bld
     let saved = [| for _ in 1 .. n - 1 -> popFromStack bld |]
@@ -1330,7 +1330,7 @@ let setUpdate (ins: Instruction) bld =
   }
 
 let buildCollection name (ins: Instruction) bld =
-  lift bld ins ins.Length {
+  lift bld ins {
     let n = getIntArg ins
     let items =
       [| for _ in 0 .. n - 1 do yield popFromStack bld |]
@@ -1342,7 +1342,7 @@ let buildCollection name (ins: Instruction) bld =
 (* BUILD_MAP: pops n key-value pairs (key1 value1 ... keyN valueN from
    bottom to top) and pushes the resulting dict. *)
 let buildMap (ins: Instruction) bld =
-  lift bld ins ins.Length {
+  lift bld ins {
     let n = getIntArg ins
     let items =
       [| for _ in 0 .. (2 * n) - 1 do yield popFromStack bld |]
@@ -1354,7 +1354,7 @@ let buildMap (ins: Instruction) bld =
 (* BUILD_CONST_KEY_MAP: TOS = keys tuple, TOS1..TOS(n) = values.
    Pops keys then n values; pushes the resulting dict. *)
 let buildConstKeyMap (ins: Instruction) bld =
-  lift bld ins ins.Length {
+  lift bld ins {
     let n = getIntArg ins
     let keys = popFromStack bld
     let values =
@@ -1370,7 +1370,7 @@ let buildConstKeyMap (ins: Instruction) bld =
    oparg already holds rather than a rendering of it, so the operand stays a
    number the IR can actually reason about. *)
 let formatValue (ins: Instruction) bld =
-  lift bld ins ins.Length {
+  lift bld ins {
     let flags = getIntArg ins
     let spec = if flags &&& 0x4 <> 0 then [ popFromStack bld ] else []
     let value = popFromStack bld

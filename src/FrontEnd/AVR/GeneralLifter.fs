@@ -117,8 +117,8 @@ let private transIoBit (ins: Instruction) =
 /// A decode that ran out of bytes before the successor reports nothing, and the
 /// skip is then taken to clear a two-byte instruction: the alternative would be
 /// to refuse an instruction that is perfectly valid.
-let private skipOn cond (ins: Instruction) len bld =
-  lift bld ins len {
+let private skipOn cond (ins: Instruction) bld =
+  lift bld ins {
     let pc = regVar bld PC
     let over = if ins.SkipBytes = 0u then 4 else int ins.SkipBytes
     AST.intercjmp cond (pc .+ numI32PC over) (pc .+ numI32PC 2)
@@ -149,11 +149,11 @@ let private retBytes (core: AVRCore) = if core = AVRCore.Avr6 then 3 else 2
 /// just below the stack pointer and it ends that many lower. RET reads them
 /// back the same way, and libgcc's frame helpers count on the size matching
 /// the core.
-let private pushRet core (ins: Instruction) len bld =
+let private pushRet core (ins: Instruction) bld =
   append bld {
     let sp = regVar bld SP
     let n = retBytes core
-    let ret = int ((ins.Address + uint64 len) >>> 1)
+    let ret = int ((ins.Address + uint64 ins.Length) >>> 1)
     let below i = if i = 0 then sp else sp .- numAddr i
     for i = 0 to n - 1 do
       dataMem (below i) := numI32 ((ret >>> (8 * i)) &&& 0xff)
@@ -244,8 +244,8 @@ let transTwoOprs (ins: Instruction) bld =
   | TwoOperands(o1, o2) -> struct (transOprToExpr bld o1, transOprToExpr bld o2)
   | _ -> raise InvalidOperandException
 
-let sideEffects insAddr insLen name bld =
-  liftAt bld insAddr insLen {
+let sideEffects ins name bld =
+  lift bld ins {
     AST.sideEffect name
   }
 
@@ -259,8 +259,8 @@ let getIndAdrReg (ins: Instruction) bld =
   | _ ->
     raise InvalidOperandException
 
-let adc ins len bld =
-  lift bld ins len {
+let adc ins bld =
+  lift bld ins {
     let struct (dst, src) = transTwoOprs ins bld
     let oprSize = 8<rt>
     let struct (t1, t2, t3) = tmpVars3 bld oprSize
@@ -278,8 +278,8 @@ let adc ins len bld =
     regVar bld SF := regVar bld NF <+> regVar bld VF
   }
 
-let add ins len bld =
-  lift bld ins len {
+let add ins bld =
+  lift bld ins {
     let struct (dst, src) = transTwoOprs ins bld
     let oprSize = 8<rt>
     let struct (t1, t2, t3) = tmpVars3 bld oprSize
@@ -297,8 +297,8 @@ let add ins len bld =
     regVar bld SF := regVar bld NF <+> regVar bld VF
   }
 
-let adiw (ins: Instruction) len bld =
-  lift bld ins len {
+let adiw (ins: Instruction) bld =
+  lift bld ins {
     let struct (t1, t2) = tmpVars2 bld 8<rt>
     let t3 = tmpVar bld 16<rt>
     let struct (dst, dst1, src) =
@@ -325,8 +325,8 @@ let adiw (ins: Instruction) len bld =
     regVar bld SF := regVar bld NF <+> regVar bld VF
   }
 
-let ``and`` ins len bld =
-  lift bld ins len {
+let ``and`` ins bld =
+  lift bld ins {
     let struct (dst, src) = transTwoOprs ins bld
     let oprSize = 8<rt>
     let r = tmpVar bld oprSize
@@ -338,8 +338,8 @@ let ``and`` ins len bld =
     regVar bld SF := regVar bld NF <+> regVar bld VF
   }
 
-let andi ins len bld =
-  lift bld ins len {
+let andi ins bld =
+  lift bld ins {
     let struct (dst, src) = transTwoOprs ins bld
     let oprSize = 8<rt>
     let r = tmpVar bld oprSize
@@ -351,8 +351,8 @@ let andi ins len bld =
     regVar bld SF := regVar bld NF <+> regVar bld VF
   }
 
-let ``asr`` ins len bld =
-  lift bld ins len {
+let ``asr`` ins bld =
+  lift bld ins {
     let dst = transOneOpr ins bld
     let oprSize = 8<rt>
     let t1 = tmpVar bld oprSize
@@ -365,8 +365,8 @@ let ``asr`` ins len bld =
     regVar bld SF := regVar bld NF <+> regVar bld VF
   }
 
-let bld ins len bld =
-  lift bld ins len {
+let bld ins bld =
+  lift bld ins {
     let struct (dst, src) = transTwoOprs ins bld
     let imm =
       match ins.Operands with
@@ -375,8 +375,8 @@ let bld ins len bld =
     (AST.extract dst 1<rt> imm) := regVar bld TF
   }
 
-let bst ins len bld =
-  lift bld ins len {
+let bst ins bld =
+  lift bld ins {
     let struct (dst, _) = transTwoOprs ins bld
     let imm =
       match ins.Operands with
@@ -386,35 +386,35 @@ let bst ins len bld =
     regVar bld TF := (AST.extract dst 1<rt> imm)
   }
 
-let call core ins len bld =
-  lift bld ins len {
+let call core ins bld =
+  lift bld ins {
     let dst = transOneOpr ins bld
-    pushRet core ins len bld
+    pushRet core ins bld
     AST.interjmp dst InterJmpKind.IsCall
   }
 
-let clc (ins: Instruction) len bld =
-  lift bld ins len {
+let clc (ins: Instruction) bld =
+  lift bld ins {
     regVar bld CF := AST.b0
   }
 
-let clh (ins: Instruction) len bld =
-  lift bld ins len {
+let clh (ins: Instruction) bld =
+  lift bld ins {
     regVar bld HF := AST.b0
   }
 
-let cli (ins: Instruction) len bld =
-  lift bld ins len {
+let cli (ins: Instruction) bld =
+  lift bld ins {
     regVar bld IF := AST.b0
   }
 
-let cln (ins: Instruction) len bld =
-  lift bld ins len {
+let cln (ins: Instruction) bld =
+  lift bld ins {
     regVar bld NF := AST.b0
   }
 
-let clr ins len bld =
-  lift bld ins len {
+let clr ins bld =
+  lift bld ins {
     let dst = transOneOpr ins bld
     dst := dst <+> dst
     regVar bld SF := AST.b0
@@ -423,28 +423,28 @@ let clr ins len bld =
     regVar bld ZF := AST.b1
   }
 
-let cls (ins: Instruction) len bld =
-  lift bld ins len {
+let cls (ins: Instruction) bld =
+  lift bld ins {
     regVar bld SF := AST.b0
   }
 
-let clt (ins: Instruction) len bld =
-  lift bld ins len {
+let clt (ins: Instruction) bld =
+  lift bld ins {
     regVar bld TF := AST.b0
   }
 
-let clv (ins: Instruction) len bld =
-  lift bld ins len {
+let clv (ins: Instruction) bld =
+  lift bld ins {
     regVar bld VF := AST.b0
   }
 
-let clz (ins: Instruction) len bld =
-  lift bld ins len {
+let clz (ins: Instruction) bld =
+  lift bld ins {
     regVar bld ZF := AST.b0
   }
 
-let com ins len bld =
-  lift bld ins len {
+let com ins bld =
+  lift bld ins {
     let oprSize = 8<rt>
     let dst = transOneOpr ins bld
     dst := numI32 0xff .- dst
@@ -455,8 +455,8 @@ let com ins len bld =
     regVar bld SF := regVar bld NF <+> regVar bld VF
   }
 
-let cp ins len bld =
-  lift bld ins len {
+let cp ins bld =
+  lift bld ins {
     let oprSize = 8<rt>
     let struct (dst, src) = transTwoOprs ins bld
     let struct (t1, t2, t3) = tmpVars3 bld oprSize
@@ -471,8 +471,8 @@ let cp ins len bld =
     regVar bld SF := regVar bld NF <+> regVar bld VF
   }
 
-let cpc ins len bld =
-  lift bld ins len {
+let cpc ins bld =
+  lift bld ins {
     let struct (dst, src) = transTwoOprs ins bld
     let oprSize = 8<rt>
     let struct (t1, t2, t3) = tmpVars3 bld oprSize
@@ -487,8 +487,8 @@ let cpc ins len bld =
     regVar bld SF := regVar bld NF <+> regVar bld VF
   }
 
-let cpi ins len bld =
-  lift bld ins len {
+let cpi ins bld =
+  lift bld ins {
     let struct (dst, src) = transTwoOprs ins bld
     let oprSize = 8<rt>
     let struct (t1, t2, t3) = tmpVars3 bld oprSize
@@ -503,36 +503,36 @@ let cpi ins len bld =
     regVar bld SF := regVar bld NF <+> regVar bld VF
   }
 
-let cpse ins len bld =
+let cpse ins bld =
   let struct (dst, src) = transTwoOprs ins bld
-  skipOn (dst == src) ins len bld
+  skipOn (dst == src) ins bld
 
-let sbrc ins len bld =
+let sbrc ins bld =
   let struct (dst, _) = transTwoOprs ins bld
   let b =
     match ins.Operands with
     | TwoOperands(_, OprImm b) -> b
     | _ -> raise InvalidOperandException
-  skipOn (AST.extract dst 1<rt> b == AST.b0) ins len bld
+  skipOn (AST.extract dst 1<rt> b == AST.b0) ins bld
 
-let sbrs ins len bld =
+let sbrs ins bld =
   let struct (dst, _) = transTwoOprs ins bld
   let b =
     match ins.Operands with
     | TwoOperands(_, OprImm b) -> b
     | _ -> raise InvalidOperandException
-  skipOn (AST.extract dst 1<rt> b == AST.b1) ins len bld
+  skipOn (AST.extract dst 1<rt> b == AST.b1) ins bld
 
-let sbic ins len bld =
+let sbic ins bld =
   let struct (a, b) = transIoBit ins
-  skipOn (AST.extract (ioMem a) 1<rt> b == AST.b0) ins len bld
+  skipOn (AST.extract (ioMem a) 1<rt> b == AST.b0) ins bld
 
-let sbis ins len bld =
+let sbis ins bld =
   let struct (a, b) = transIoBit ins
-  skipOn (AST.extract (ioMem a) 1<rt> b == AST.b1) ins len bld
+  skipOn (AST.extract (ioMem a) 1<rt> b == AST.b1) ins bld
 
-let cbi (ins: Instruction) len bld =
-  lift bld ins len {
+let cbi (ins: Instruction) bld =
+  lift bld ins {
     let struct (a, b) = transIoBit ins
     let t = tmpVar bld 8<rt>
     t := ioMem a
@@ -540,8 +540,8 @@ let cbi (ins: Instruction) len bld =
     ioMem a := t
   }
 
-let sbi (ins: Instruction) len bld =
-  lift bld ins len {
+let sbi (ins: Instruction) bld =
+  lift bld ins {
     let struct (a, b) = transIoBit ins
     let t = tmpVar bld 8<rt>
     t := ioMem a
@@ -549,8 +549,8 @@ let sbi (ins: Instruction) len bld =
     ioMem a := t
   }
 
-let ``in`` (ins: Instruction) len bld =
-  lift bld ins len {
+let ``in`` (ins: Instruction) bld =
+  lift bld ins {
     let struct (dst, a) =
       match ins.Operands with
       | TwoOperands(OprReg reg, OprImm a) -> struct (regVar bld reg, a)
@@ -558,8 +558,8 @@ let ``in`` (ins: Instruction) len bld =
     dst := ioMem a
   }
 
-let out (ins: Instruction) len bld =
-  lift bld ins len {
+let out (ins: Instruction) bld =
+  lift bld ins {
     let struct (a, src) =
       match ins.Operands with
       | TwoOperands(OprImm a, OprReg reg) -> struct (a, regVar bld reg)
@@ -567,8 +567,8 @@ let out (ins: Instruction) len bld =
     ioMem a := src
   }
 
-let dec ins len bld =
-  lift bld ins len {
+let dec ins bld =
+  lift bld ins {
     let dst = transOneOpr ins bld
     let oprSize = 8<rt>
     let t1 = tmpVar bld oprSize
@@ -580,8 +580,8 @@ let dec ins len bld =
     regVar bld SF := regVar bld NF <+> regVar bld VF
   }
 
-let fmul ins len bld =
-  lift bld ins len {
+let fmul ins bld =
+  lift bld ins {
     let struct (dst, src) = transTwoOprs ins bld
     let oprSize = 16<rt>
     let struct (t1, t2, t3) = tmpVars3 bld oprSize
@@ -596,8 +596,8 @@ let fmul ins len bld =
     regVar bld ZF := t4 == AST.num0 oprSize
   }
 
-let fmuls ins len bld =
-  lift bld ins len {
+let fmuls ins bld =
+  lift bld ins {
     let struct (dst, src) = transTwoOprs ins bld
     let oprSize = 16<rt>
     let struct (t1, t2, t3) = tmpVars3 bld oprSize
@@ -612,8 +612,8 @@ let fmuls ins len bld =
     regVar bld ZF := t4 == AST.num0 oprSize
   }
 
-let fmulsu ins len bld =
-  lift bld ins len {
+let fmulsu ins bld =
+  lift bld ins {
     let struct (dst, src) = transTwoOprs ins bld
     let oprSize = 16<rt>
     let struct (t1, t2, t3) = tmpVars3 bld oprSize
@@ -628,8 +628,8 @@ let fmulsu ins len bld =
     regVar bld ZF := t4 == AST.num0 oprSize
   }
 
-let eor ins len bld =
-  lift bld ins len {
+let eor ins bld =
+  lift bld ins {
     let struct (dst, src) = transTwoOprs ins bld
     let oprSize = 8<rt>
     dst := dst <+> src
@@ -639,32 +639,32 @@ let eor ins len bld =
     regVar bld SF := regVar bld NF <+> regVar bld VF
   }
 
-let icall core (ins: Instruction) len bld =
-  lift bld ins len {
-    pushRet core ins len bld
+let icall core (ins: Instruction) bld =
+  lift bld ins {
+    pushRet core ins bld
     AST.interjmp (indTarget bld) InterJmpKind.IsCall
   }
 
-let ijmp (ins: Instruction) len bld =
-  lift bld ins len {
+let ijmp (ins: Instruction) bld =
+  lift bld ins {
     AST.interjmp (indTarget bld) InterJmpKind.Base
   }
 
 /// EICALL and EIJMP reach the program memory past what Z alone addresses, EIND
 /// carrying the bits above it.
-let eicall core (ins: Instruction) len bld =
-  lift bld ins len {
-    pushRet core ins len bld
+let eicall core (ins: Instruction) bld =
+  lift bld ins {
+    pushRet core ins bld
     AST.interjmp (farTarget bld) InterJmpKind.IsCall
   }
 
-let eijmp (ins: Instruction) len bld =
-  lift bld ins len {
+let eijmp (ins: Instruction) bld =
+  lift bld ins {
     AST.interjmp (farTarget bld) InterJmpKind.Base
   }
 
-let inc ins len bld =
-  lift bld ins len {
+let inc ins bld =
+  lift bld ins {
     let dst = transOneOpr ins bld
     let oprSize = 8<rt>
     let t1 = tmpVar bld oprSize
@@ -676,8 +676,8 @@ let inc ins len bld =
     regVar bld SF := regVar bld NF <+> regVar bld VF
   }
 
-let ``lsr`` ins len bld =
-  lift bld ins len {
+let ``lsr`` ins bld =
+  lift bld ins {
     let dst = transOneOpr ins bld
     let oprSize = 8<rt>
     let t1 = tmpVar bld oprSize
@@ -690,8 +690,8 @@ let ``lsr`` ins len bld =
     regVar bld SF := regVar bld NF <+> regVar bld VF
   }
 
-let branch pcMask ins len bld =
-  lift bld ins len {
+let branch pcMask ins bld =
+  lift bld ins {
     let dst = transOneOpr ins bld
     let pc = regVar bld PC
     let branchCond =
@@ -718,20 +718,20 @@ let branch pcMask ins len bld =
     AST.intercjmp branchCond jumpTarget fallThrough
   }
 
-let jmp ins len bld =
-  lift bld ins len {
+let jmp ins bld =
+  lift bld ins {
     let dst = transOneOpr ins bld
     AST.interjmp dst InterJmpKind.Base
   }
 
-let mov ins len bld =
-  lift bld ins len {
+let mov ins bld =
+  lift bld ins {
     let struct (dst, src) = transTwoOprs ins bld
     dst := src
   }
 
-let movw (ins: Instruction) len bld =
-  lift bld ins len {
+let movw (ins: Instruction) bld =
+  lift bld ins {
     let struct (dst, dst1, src, src1) =
       match ins.Operands with
       | TwoOperands(OprReg reg1, OprReg reg2) ->
@@ -750,8 +750,8 @@ let movw (ins: Instruction) len bld =
     dst1 := src1
   }
 
-let neg ins len bld =
-  lift bld ins len {
+let neg ins bld =
+  lift bld ins {
     let dst = transOneOpr ins bld
     let oprSize = 8<rt>
     let t1 = tmpVar bld oprSize
@@ -767,11 +767,11 @@ let neg ins len bld =
     regVar bld SF := regVar bld NF <+> regVar bld VF
   }
 
-let nop insAddr len bld =
-  liftAt bld insAddr len { }
+let nop ins bld =
+  lift bld ins { }
 
-let ``or`` ins len bld =
-  lift bld ins len {
+let ``or`` ins bld =
+  lift bld ins {
     let struct (dst, src) = transTwoOprs ins bld
     let oprSize = 8<rt>
     dst := dst .| src
@@ -781,15 +781,15 @@ let ``or`` ins len bld =
     regVar bld SF := regVar bld NF <+> regVar bld VF
   }
 
-let rjmp pcMask ins len bld =
-  lift bld ins len {
+let rjmp pcMask ins bld =
+  lift bld ins {
     let dst = transOneOpr ins bld
     let target = wrapPC pcMask (regVar bld PC .+ dst .+ numI32PC 2)
     AST.interjmp target InterJmpKind.Base
   }
 
-let ror ins len bld =
-  lift bld ins len {
+let ror ins bld =
+  lift bld ins {
     let dst = transOneOpr ins bld
     let oprSize = 8<rt>
     let t1 = tmpVar bld oprSize
@@ -803,8 +803,8 @@ let ror ins len bld =
     regVar bld SF := regVar bld NF <+> regVar bld VF
   }
 
-let sbc ins len bld =
-  lift bld ins len {
+let sbc ins bld =
+  lift bld ins {
     let struct(dst, src) = transTwoOprs ins bld
     let oprSize = 8<rt>
     let struct (t1, t2, t3) = tmpVars3 bld oprSize
@@ -824,8 +824,8 @@ let sbc ins len bld =
     regVar bld SF := regVar bld NF <+> regVar bld VF
   }
 
-let sbiw (ins: Instruction) len bld =
-  lift bld ins len {
+let sbiw (ins: Instruction) bld =
+  lift bld ins {
     let struct (t1, t2) = tmpVars2 bld 8<rt>
     let t3 = tmpVar bld 16<rt>
     let struct (dst, dst1, src) =
@@ -853,8 +853,8 @@ let sbiw (ins: Instruction) len bld =
     regVar bld SF := regVar bld NF <+> regVar bld VF
   }
 
-let sf (ins: Instruction) len bld =
-  lift bld ins len {
+let sf (ins: Instruction) bld =
+  lift bld ins {
     let setFlag =
       match ins.Opcode with
       | Opcode.SEC -> regVar bld CF := AST.b1
@@ -869,8 +869,8 @@ let sf (ins: Instruction) len bld =
     setFlag
   }
 
-let sub ins len bld =
-  lift bld ins len {
+let sub ins bld =
+  lift bld ins {
     let struct(dst, src) = transTwoOprs ins bld
     let oprSize = 8<rt>
     let struct (t1, t2, t3) = tmpVars3 bld oprSize
@@ -888,8 +888,8 @@ let sub ins len bld =
     regVar bld SF := regVar bld NF <+> regVar bld VF
   }
 
-let swap ins len bld =
-  lift bld ins len {
+let swap ins bld =
+  lift bld ins {
     let dst = transOneOpr ins bld
     let t1 = tmpVar bld 8<rt>
     t1 := dst
@@ -898,8 +898,8 @@ let swap ins len bld =
     dst := t1
   }
 
-let lac ins len bld =
-  lift bld ins len {
+let lac ins bld =
+  lift bld ins {
     let struct (dst, src) = transTwoOprs ins bld
     let t1 = tmpVar bld 8<rt>
     t1 := dataMem dst
@@ -907,8 +907,8 @@ let lac ins len bld =
     src := t1
   }
 
-let las ins len bld =
-  lift bld ins len {
+let las ins bld =
+  lift bld ins {
     let struct (dst, src) = transTwoOprs ins bld
     let t1 = tmpVar bld 8<rt>
     t1 := dataMem dst
@@ -916,8 +916,8 @@ let las ins len bld =
     src := t1
   }
 
-let lat ins len bld =
-  lift bld ins len {
+let lat ins bld =
+  lift bld ins {
     let struct (dst, src) = transTwoOprs ins bld
     let t1 = tmpVar bld 8<rt>
     t1 := dataMem dst
@@ -925,8 +925,8 @@ let lat ins len bld =
     src := t1
   }
 
-let ld ins len bld =
-  lift bld ins len {
+let ld ins bld =
+  lift bld ins {
     let (dst, ptr, mode) = transMemOprToExpr ins bld
     let t = tmpVar bld 16<rt>
     match mode with
@@ -944,16 +944,16 @@ let ld ins len bld =
       Terminator.impossible ()
   }
 
-let ldd ins len bld =
-  lift bld ins len {
+let ldd ins bld =
+  lift bld ins {
     let (dst, src, src1) = transMemOprToExpr1 ins bld
     dst := dataMem (src .+ src1)
   }
 
 /// LPM reads the program space, so unlike every other load it takes no data
 /// bias. Z is a byte address here, its low bit picking the half of the word.
-let lpm (ins: Instruction) len bld =
-  lift bld ins len {
+let lpm (ins: Instruction) bld =
+  lift bld ins {
     let z = regVar bld Z
     let at = AST.zext pcSize z
     let t = tmpVar bld 16<rt>
@@ -974,8 +974,8 @@ let lpm (ins: Instruction) len bld =
 /// which is how a program on a larger core reads its far constants. Its
 /// post-increment carries into RAMPZ, so walking a table across the boundary
 /// works without the program touching RAMPZ itself.
-let elpm (ins: Instruction) len bld =
-  lift bld ins len {
+let elpm (ins: Instruction) bld =
+  lift bld ins {
     let addr = farAddr bld AddrRampz
     let t = tmpVar bld pcSize
     match ins.Operands with
@@ -994,8 +994,8 @@ let elpm (ins: Instruction) len bld =
 
 /// POP raises the stack pointer first and reads the byte it then points at,
 /// which is the reverse of PUSH below.
-let pop ins len bld =
-  lift bld ins len {
+let pop ins bld =
+  lift bld ins {
     let dst = transOneOpr ins bld
     let sp = regVar bld SP
     let t = tmpVar bld 16<rt>
@@ -1006,28 +1006,28 @@ let pop ins len bld =
 
 /// PUSH writes the byte where the stack pointer already points and lowers it
 /// after, so the pointer always rests one below the newest entry.
-let push ins len bld =
-  lift bld ins len {
+let push ins bld =
+  lift bld ins {
     let src = transOneOpr ins bld
     let sp = regVar bld SP
     dataMem sp := src
     sp := sp .- numAddr 1
   }
 
-let ldi ins len bld =
-  lift bld ins len {
+let ldi ins bld =
+  lift bld ins {
     let struct(dst, src) = transTwoOprs ins bld
     dst := src
   }
 
-let lds ins len bld =
-  lift bld ins len {
+let lds ins bld =
+  lift bld ins {
     let struct (dst, src) = transTwoOprs ins bld
     dst := dataMem src
   }
 
-let mul ins len bld =
-  lift bld ins len {
+let mul ins bld =
+  lift bld ins {
     let struct(dst, src) = transTwoOprs ins bld
     let struct (t1, t2, t3) = tmpVars3 bld 16<rt>
     t1 := AST.zext 16<rt> dst
@@ -1039,8 +1039,8 @@ let mul ins len bld =
     regVar bld ZF := t3 == AST.num0 16<rt>
   }
 
-let muls ins len bld =
-  lift bld ins len {
+let muls ins bld =
+  lift bld ins {
     let struct(dst, src) = transTwoOprs ins bld
     let struct (t1, t2, t3) = tmpVars3 bld 16<rt>
     t1 := AST.sext 16<rt> dst
@@ -1052,8 +1052,8 @@ let muls ins len bld =
     regVar bld ZF := t3 == AST.num0 16<rt>
   }
 
-let mulsu ins len bld =
-  lift bld ins len {
+let mulsu ins bld =
+  lift bld ins {
     let struct(dst, src) = transTwoOprs ins bld
     let struct (t1, t2, t3) = tmpVars3 bld 16<rt>
     t1 := AST.sext 16<rt> dst
@@ -1076,8 +1076,8 @@ let private popRetAddr bld t word n =
     let byteAt = AST.zext pcSize (dataMem (t .- numAddr i))
     append bld { word := word .| (byteAt << numI32PC (8 * i)) }
 
-let ret core insAddr len opr bld =
-  liftAt bld insAddr len {
+let ret core ins opr bld =
+  lift bld ins {
     let sp = regVar bld SP
     let n = retBytes core
     let t = tmpVar bld 16<rt>
@@ -1089,16 +1089,16 @@ let ret core insAddr len opr bld =
     AST.interjmp (word << numI32PC 1) InterJmpKind.IsRet
   }
 
-let rcall core pcMask ins len bld =
-  lift bld ins len {
+let rcall core pcMask ins bld =
+  lift bld ins {
     let dst = transOneOpr ins bld
     let target = wrapPC pcMask (regVar bld PC .+ dst .+ numI32PC 2)
-    pushRet core ins len bld
+    pushRet core ins bld
     AST.interjmp target InterJmpKind.IsCall
   }
 
-let st ins len bld =
-  lift bld ins len {
+let st ins bld =
+  lift bld ins {
     let (ptr, src, mode) = transMemOprToExpr2 ins bld
     let t = tmpVar bld 16<rt>
     match mode with
@@ -1116,25 +1116,25 @@ let st ins len bld =
       Terminator.impossible ()
   }
 
-let std ins len bld =
-  lift bld ins len {
+let std ins bld =
+  lift bld ins {
     let (dst, src, disp) = transMemOprToExpr3 ins bld
     dataMem (dst .+ disp) := src
   }
 
-let sts ins len bld =
-  lift bld ins len {
+let sts ins bld =
+  lift bld ins {
     let struct (dst, src) = transTwoOprs ins bld
     dataMem dst := src
   }
 
-let des (ins: Instruction) len bld =
-  lift bld ins len {
+let des (ins: Instruction) bld =
+  lift bld ins {
     AST.sideEffect UnsupportedInstruction
   }
 
-let xch ins len bld =
-  lift bld ins len {
+let xch ins bld =
+  lift bld ins {
     let struct (dst, src) = transTwoOprs ins bld
     let t1 = tmpVar bld 8<rt>
     t1 := dataMem dst

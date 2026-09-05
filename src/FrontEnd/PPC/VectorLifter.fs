@@ -62,8 +62,8 @@ let private applyElements (bld: ILowUIRBuilder) esize dst a b f =
 /// An element-wise "vD, vA, vB" over both halves. The result goes through
 /// temporaries first, so a destination that is also a source reads its old
 /// value throughout.
-let vecBinary ins insLen bld esize f =
-  lift bld ins insLen {
+let vecBinary ins bld esize f =
+  lift bld ins {
     let struct (o1, o2, o3) = getThreeOprs ins
     let struct (dh, dl) = vecHalves bld o1
     let struct (ah, al) = vecHalves bld o2
@@ -76,8 +76,8 @@ let vecBinary ins insLen bld esize f =
   }
 
 /// An element-wise "vD, vB" over both halves.
-let vecUnary ins insLen bld esize f =
-  lift bld ins insLen {
+let vecUnary ins bld esize f =
+  lift bld ins {
     let struct (o1, o2) = getTwoOprs ins
     let struct (dh, dl) = vecHalves bld o1
     let struct (bh, bl) = vecHalves bld o2
@@ -96,8 +96,8 @@ let private compareMask esize cond =
 
 /// A vector compare. The record form also reports in CR6 whether every element
 /// compared true (bit 0) or none did (bit 2).
-let vecCompare ins insLen bld esize rel record =
-  lift bld ins insLen {
+let vecCompare ins bld esize rel record =
+  lift bld ins {
     let struct (o1, o2, o3) = getThreeOprs ins
     let struct (dh, dl) = vecHalves bld o1
     let struct (ah, al) = vecHalves bld o2
@@ -128,8 +128,8 @@ let private quadwordHalves (bld: ILowUIRBuilder) ea =
   if bld.Endianness = Endian.Big then struct (ea, next) else struct (next, ea)
 
 /// lvx/lvxl, which load the aligned quadword the address falls in.
-let lvx ins insLen (bld: ILowUIRBuilder) =
-  lift bld ins insLen {
+let lvx ins (bld: ILowUIRBuilder) =
+  lift bld ins {
     let struct (o1, o2, o3) = getThreeOprs ins
     let struct (dh, dl) = vecHalves bld o1
     let ea = transEAWithIndexReg o2 o3 bld
@@ -141,8 +141,8 @@ let lvx ins insLen (bld: ILowUIRBuilder) =
   }
 
 /// stvx/stvxl, which store to the aligned quadword the address falls in.
-let stvx ins insLen (bld: ILowUIRBuilder) =
-  lift bld ins insLen {
+let stvx ins (bld: ILowUIRBuilder) =
+  lift bld ins {
     let struct (o1, o2, o3) = getThreeOprs ins
     let struct (sh, sl) = vecHalves bld o1
     let ea = transEAWithIndexReg o2 o3 bld
@@ -156,8 +156,8 @@ let stvx ins insLen (bld: ILowUIRBuilder) =
 /// lvsl/lvsr, which build the permute control vector that vperm needs to
 /// realign data straddling two quadwords: lvsl counts up from the address's
 /// offset within its quadword, lvsr counts down to it.
-let lvsx ins insLen (bld: ILowUIRBuilder) isLeft =
-  lift bld ins insLen {
+let lvsx ins (bld: ILowUIRBuilder) isLeft =
+  lift bld ins {
     let struct (o1, o2, o3) = getThreeOprs ins
     let struct (dh, dl) = vecHalves bld o1
     let ea = transEAWithIndexReg o2 o3 bld
@@ -177,8 +177,8 @@ let lvsx ins insLen (bld: ILowUIRBuilder) isLeft =
 /// lvebx/lvehx/lvewx, which load one element into the vector slot the address
 /// selects and leave the rest of the register undefined -- modeled here as
 /// leaving it unchanged, which is what a real part does in practice.
-let lvex ins insLen (bld: ILowUIRBuilder) size =
-  lift bld ins insLen {
+let lvex ins (bld: ILowUIRBuilder) size =
+  lift bld ins {
     let struct (o1, o2, o3) = getThreeOprs ins
     let struct (dh, dl) = vecHalves bld o1
     let ea = transEAWithIndexReg o2 o3 bld
@@ -201,8 +201,8 @@ let lvex ins insLen (bld: ILowUIRBuilder) size =
   }
 
 /// stvebx/stvehx/stvewx, the store counterparts of lvebx and friends.
-let stvex ins insLen (bld: ILowUIRBuilder) size =
-  lift bld ins insLen {
+let stvex ins (bld: ILowUIRBuilder) size =
+  lift bld ins {
     let struct (o1, o2, o3) = getThreeOprs ins
     let struct (sh, sl) = vecHalves bld o1
     let ea = transEAWithIndexReg o2 o3 bld
@@ -225,8 +225,8 @@ let stvex ins insLen (bld: ILowUIRBuilder) size =
 /// lxvd2x/stxvd2x and lxvw4x/stxvw4x, which access a quadword element by
 /// element: each element keeps the guest's byte order but the elements
 /// themselves are not reordered, unlike lvx.
-let lxvx ins insLen (bld: ILowUIRBuilder) esize isLoad =
-  lift bld ins insLen {
+let lxvx ins (bld: ILowUIRBuilder) esize isLoad =
+  lift bld ins {
     let struct (o1, o2, o3) = getThreeOprs ins
     let struct (dh, dl) = vecHalves bld o1
     let ea = transEAWithIndexReg o2 o3 bld
@@ -246,8 +246,8 @@ let lxvx ins insLen (bld: ILowUIRBuilder) esize isLoad =
 
 /// lxsdx/stxsdx, which move one doubleword to or from a VSX register's high
 /// half, and lxvdsx, which splats one into both halves.
-let lxsdx ins insLen (bld: ILowUIRBuilder) splat isLoad =
-  lift bld ins insLen {
+let lxsdx ins (bld: ILowUIRBuilder) splat isLoad =
+  lift bld ins {
     let struct (o1, o2, o3) = getThreeOprs ins
     let struct (dh, dl) = vecHalves bld o1
     let ea = transEAWithIndexReg o2 o3 bld
@@ -265,11 +265,11 @@ let lxsdx ins insLen (bld: ILowUIRBuilder) splat isLoad =
 
 /// A whole-register logical "xT, xA, xB", which the xxl family and the vector
 /// logical ops share.
-let vecLogical ins insLen bld f = vecBinary ins insLen bld 64<rt> f
+let vecLogical ins bld f = vecBinary ins bld 64<rt> f
 
 /// vsel/xxsel, a bitwise select: a set bit of vC takes vB, a clear one vA.
-let vecSelect ins insLen bld =
-  lift bld ins insLen {
+let vecSelect ins bld =
+  lift bld ins {
     let struct (o1, o2, o3, o4) = getFourOprs ins
     let struct (dh, dl) = vecHalves bld o1
     let struct (ah, al) = vecHalves bld o2
@@ -285,8 +285,8 @@ let vecSelect ins insLen bld =
 /// xxpermdi, which builds a vector from one doubleword of each source: DM's
 /// high bit picks which doubleword of xA lands in the result's high half, its
 /// low bit which of xB lands in the low half.
-let vecPermuteDouble ins insLen bld =
-  lift bld ins insLen {
+let vecPermuteDouble ins bld =
+  lift bld ins {
     let struct (o1, o2, o3, o4) = getFourOprs ins
     let struct (dh, dl) = vecHalves bld o1
     let struct (ah, al) = vecHalves bld o2
@@ -304,8 +304,8 @@ let vecPermuteDouble ins insLen bld =
 
 /// vperm, which fills each byte of vD from the byte of the 32-byte pair
 /// vA || vB that the matching byte of vC indexes.
-let vecPermute ins insLen bld =
-  lift bld ins insLen {
+let vecPermute ins bld =
+  lift bld ins {
     let struct (o1, o2, o3, o4) = getFourOprs ins
     let struct (dh, dl) = vecHalves bld o1
     let struct (ah, al) = vecHalves bld o2
@@ -330,8 +330,8 @@ let vecPermute ins insLen bld =
 /// vsldoi and xxsldwi, which take the 16 bytes starting a given distance into
 /// the 32-byte pair vA || vB -- counted in bytes by vsldoi and in words by
 /// xxsldwi.
-let vecShiftDouble ins insLen bld scale =
-  lift bld ins insLen {
+let vecShiftDouble ins bld scale =
+  lift bld ins {
     let struct (o1, o2, o3, o4) = getFourOprs ins
     let struct (dh, dl) = vecHalves bld o1
     let struct (ah, al) = vecHalves bld o2
@@ -353,8 +353,8 @@ let vecShiftDouble ins insLen bld scale =
   }
 
 /// vspltb/vsplth/vspltw, which copy one element of vB into every element of vD.
-let vecSplat ins insLen bld esize =
-  lift bld ins insLen {
+let vecSplat ins bld esize =
+  lift bld ins {
     let struct (o1, o2, o3) = getThreeOprs ins
     let struct (dh, dl) = vecHalves bld o1
     let struct (bh, bl) = vecHalves bld o2
@@ -377,8 +377,8 @@ let vecSplat ins insLen bld esize =
 
 /// vspltisb/vspltish/vspltisw, which fill every element with a signed
 /// immediate.
-let vecSplatImm ins insLen bld esize =
-  lift bld ins insLen {
+let vecSplatImm ins bld esize =
+  lift bld ins {
     let struct (o1, o2) = getTwoOprs ins
     let struct (dh, dl) = vecHalves bld o1
     let value =
@@ -395,8 +395,8 @@ let vecSplatImm ins insLen bld esize =
 
 /// vmrgh*/vmrgl*, which interleave the elements of one half of vA with those of
 /// the matching half of vB.
-let vecMerge ins insLen bld esize high =
-  lift bld ins insLen {
+let vecMerge ins bld esize high =
+  lift bld ins {
     let struct (o1, o2, o3) = getThreeOprs ins
     let struct (dh, dl) = vecHalves bld o1
     let struct (ah, al) = vecHalves bld o2
@@ -419,8 +419,8 @@ let vecMerge ins insLen bld esize high =
 
 /// vpkuhum/vpkuwum, which pack the low half of each element of vA || vB into
 /// the elements of vD.
-let vecPack ins insLen bld (esize: RegType) =
-  lift bld ins insLen {
+let vecPack ins bld (esize: RegType) =
+  lift bld ins {
     let struct (o1, o2, o3) = getThreeOprs ins
     let struct (dh, dl) = vecHalves bld o1
     let struct (ah, al) = vecHalves bld o2
@@ -445,8 +445,8 @@ let vecPack ins insLen bld (esize: RegType) =
 
 /// vupkhs*/vupkls*, which sign-extend the elements of one half of vB into the
 /// wider elements of vD.
-let vecUnpack ins insLen bld (esize: RegType) high =
-  lift bld ins insLen {
+let vecUnpack ins bld (esize: RegType) high =
+  lift bld ins {
     let struct (o1, o2) = getTwoOprs ins
     let struct (dh, dl) = vecHalves bld o1
     let struct (bh, bl) = vecHalves bld o2
@@ -468,8 +468,8 @@ let vecUnpack ins insLen bld (esize: RegType) high =
 
 /// vsl/vsr, which shift the whole 128-bit vector by the count the low three
 /// bits of vB's last byte give, and vslo/vsro, which shift it by whole octets.
-let vecShiftWhole ins insLen (bld: ILowUIRBuilder) left byOctet =
-  lift bld ins insLen {
+let vecShiftWhole ins (bld: ILowUIRBuilder) left byOctet =
+  lift bld ins {
     let struct (o1, o2, o3) = getThreeOprs ins
     let struct (dh, dl) = vecHalves bld o1
     let struct (ah, al) = vecHalves bld o2
@@ -497,8 +497,8 @@ let vecShiftWhole ins insLen (bld: ILowUIRBuilder) left byOctet =
 
 /// vgbbd, which transposes the bits of each doubleword's eight bytes: bit j of
 /// byte i moves to bit i of byte j.
-let vecGatherBits ins insLen bld =
-  lift bld ins insLen {
+let vecGatherBits ins bld =
+  lift bld ins {
     let struct (o1, o2) = getTwoOprs ins
     let struct (dh, dl) = vecHalves bld o1
     let struct (bh, bl) = vecHalves bld o2
@@ -514,8 +514,8 @@ let vecGatherBits ins insLen bld =
 
 /// vbpermq, which gathers the sixteen bits of vA that vB's byte indices name
 /// into the low halfword of vD; an index past 127 contributes a zero.
-let vecBitPermute ins insLen bld =
-  lift bld ins insLen {
+let vecBitPermute ins bld =
+  lift bld ins {
     let struct (o1, o2, o3) = getThreeOprs ins
     let struct (dh, dl) = vecHalves bld o1
     let struct (ah, al) = vecHalves bld o2
@@ -538,8 +538,8 @@ let vecBitPermute ins insLen bld =
 
 /// mfvscr/mtvscr, which move the vector status register to or from the low
 /// word of a vector register.
-let vscrMove ins insLen bld toVector =
-  lift bld ins insLen {
+let vscrMove ins bld toVector =
+  lift bld ins {
     let struct (dh, dl) = vecHalves bld (getOneOpr ins)
     let vscr = regVar bld Register.VSCR
     if toVector then
@@ -604,8 +604,8 @@ let elementShift (esize: RegType) kind a b =
    VSR0-31; the low doubleword the architecture leaves undefined stays put. *)
 
 /// An "xT, xA, xB" whose operands are the doubles in the sources' high halves.
-let vsxScalarBinary ins insLen bld fnOp =
-  lift bld ins insLen {
+let vsxScalarBinary ins bld fnOp =
+  lift bld ins {
     let struct (o1, o2, o3) = getThreeOprs ins
     let struct (dh, _) = vecHalves bld o1
     let struct (ah, _) = vecHalves bld o2
@@ -615,8 +615,8 @@ let vsxScalarBinary ins insLen bld fnOp =
   }
 
 /// An "xT, xB" over the double in the source's high half.
-let vsxScalarUnary ins insLen bld fnOp =
-  lift bld ins insLen {
+let vsxScalarUnary ins bld fnOp =
+  lift bld ins {
     let struct (o1, o2) = getTwoOprs ins
     let struct (dh, _) = vecHalves bld o1
     let struct (bh, _) = vecHalves bld o2
@@ -625,8 +625,8 @@ let vsxScalarUnary ins insLen bld fnOp =
 
 /// xscmpudp, which compares two doubles and reports less-than, greater-than,
 /// equal and unordered in a condition-register field, as fcmpu does.
-let xscmpudp ins insLen bld =
-  lift bld ins insLen {
+let xscmpudp ins bld =
+  lift bld ins {
     let struct (o1, o2, o3) = getThreeOprs ins
     let crf0, crf1, crf2, crf3 =
       match o1 with
@@ -643,8 +643,8 @@ let xscmpudp ins insLen bld =
   }
 
 /// xxspltw, which copies one word of xB into all four words of xT.
-let xxspltw ins insLen bld =
-  lift bld ins insLen {
+let xxspltw ins bld =
+  lift bld ins {
     let struct (o1, o2, o3) = getThreeOprs ins
     let struct (dh, dl) = vecHalves bld o1
     let struct (bh, bl) = vecHalves bld o2
@@ -664,8 +664,8 @@ let xxspltw ins insLen bld =
   }
 
 /// xxspltib, which fills every byte of xT with an immediate.
-let xxspltib ins insLen bld =
-  lift bld ins insLen {
+let xxspltib ins bld =
+  lift bld ins {
     let struct (o1, o2) = getTwoOprs ins
     let struct (dh, dl) = vecHalves bld o1
     let value =
@@ -681,8 +681,8 @@ let xxspltib ins insLen bld =
   }
 
 /// mtvsrdd, which fills both halves of xT from two general registers.
-let mtvsrdd ins insLen (bld: ILowUIRBuilder) =
-  lift bld ins insLen {
+let mtvsrdd ins (bld: ILowUIRBuilder) =
+  lift bld ins {
     let struct (o1, o2, o3) = getThreeOprs ins
     let struct (dh, dl) = vecHalves bld o1
     let ra = transOpr bld o2
@@ -692,8 +692,8 @@ let mtvsrdd ins insLen (bld: ILowUIRBuilder) =
   }
 
 /// mfvsrld, which reads xS's low half into a general register.
-let mfvsrld ins insLen (bld: ILowUIRBuilder) =
-  lift bld ins insLen {
+let mfvsrld ins (bld: ILowUIRBuilder) =
+  lift bld ins {
     let struct (o1, o2) = getTwoOprs ins
     let struct (_, sl) = vecHalves bld o1
     let ra = transOpr bld o2
@@ -707,8 +707,8 @@ let copySign signSrc magnitude =
   (signSrc .& signBit) .| (magnitude .& AST.not signBit)
 
 /// fcpsgn frD, frA, frB.
-let fcpsgn ins insLen bld =
-  lift bld ins insLen {
+let fcpsgn ins bld =
+  lift bld ins {
     let struct (frd, fra, frb) = transThreeOprs ins bld
     frd := copySign fra frb
   }

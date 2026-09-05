@@ -102,8 +102,8 @@ let private threeRegs (ins: Instruction) =
   | _ -> raise InvalidOperandException
 
 /// Loads a word or doubleword from memory into a floating-point register.
-let fpLoad (ins: Instruction) insLen bld =
-  lift bld ins insLen {
+let fpLoad (ins: Instruction) bld =
+  lift bld ins {
     let struct (mem, dst) =
       match ins.Operands with
       | TwoOperands(m, d) -> struct (m, getReg d)
@@ -114,8 +114,8 @@ let fpLoad (ins: Instruction) insLen bld =
   }
 
 /// Stores a word or doubleword from a floating-point register to memory.
-let fpStore (ins: Instruction) insLen bld =
-  lift bld ins insLen {
+let fpStore (ins: Instruction) bld =
+  lift bld ins {
     let struct (src, mem) =
       match ins.Operands with
       | TwoOperands(s, m) -> struct (getReg s, m)
@@ -128,8 +128,8 @@ let fpStore (ins: Instruction) insLen bld =
 /// The sign-manipulating moves, which are bit operations on the value's high
 /// bit rather than arithmetic, so they leave a signalling NaN alone as the
 /// architecture asks.
-let private signMove (ins: Instruction) insLen bld f =
-  lift bld ins insLen {
+let private signMove (ins: Instruction) bld f =
+  lift bld ins {
     let struct (src, dst) = twoRegs ins
     let width = formatOf ins
     let v = tmpVar bld width
@@ -137,22 +137,22 @@ let private signMove (ins: Instruction) insLen bld f =
     writeFp bld width dst (f width v)
   }
 
-let fcpy ins insLen bld = signMove ins insLen bld (fun _ v -> v)
+let fcpy ins bld = signMove ins bld (fun _ v -> v)
 
-let fabs ins insLen bld =
-  signMove ins insLen bld (fun w v -> v .& (numI64 -1L w >> AST.num1 w))
+let fabs ins bld =
+  signMove ins bld (fun w v -> v .& (numI64 -1L w >> AST.num1 w))
 
-let fneg ins insLen bld =
-  signMove ins insLen bld (fun w v ->
+let fneg ins bld =
+  signMove ins bld (fun w v ->
     v <+> AST.not (numI64 -1L w >> AST.num1 w))
 
-let fnegabs ins insLen bld =
-  signMove ins insLen bld (fun w v ->
+let fnegabs ins bld =
+  signMove ins bld (fun w v ->
     v .| AST.not (numI64 -1L w >> AST.num1 w))
 
 /// The unary arithmetic: a square root and a round to an integral value.
-let private unary (ins: Instruction) insLen bld f =
-  lift bld ins insLen {
+let private unary (ins: Instruction) bld f =
+  lift bld ins {
     let struct (src, dst) = twoRegs ins
     let width = formatOf ins
     let v = tmpVar bld width
@@ -160,18 +160,18 @@ let private unary (ins: Instruction) insLen bld f =
     writeFp bld width dst (f width v)
   }
 
-let fsqrt ins insLen bld = unary ins insLen bld (fun _ v -> AST.fsqrt v)
+let fsqrt ins bld = unary ins bld (fun _ v -> AST.fsqrt v)
 
-let frnd ins insLen bld =
-  unary ins insLen bld (fun w v -> AST.cast CastKind.FtoFRound w v)
+let frnd ins bld =
+  unary ins bld (fun w v -> AST.cast CastKind.FtoFRound w v)
 
 /// The binary arithmetic. The operands come in the order they are written,
 /// which for the two that are not commutative is the order that decides the
 /// answer: a
 /// subtraction takes the first from the second's place and a division puts the
 /// first over the second.
-let private binary (ins: Instruction) insLen bld f =
-  lift bld ins insLen {
+let private binary (ins: Instruction) bld f =
+  lift bld ins {
     let struct (o1, o2, dst) = threeRegs ins
     let width = formatOf ins
     let a = tmpVar bld width
@@ -181,13 +181,13 @@ let private binary (ins: Instruction) insLen bld f =
     writeFp bld width dst (f a b)
   }
 
-let fadd ins insLen bld = binary ins insLen bld AST.fadd
+let fadd ins bld = binary ins bld AST.fadd
 
-let fsub ins insLen bld = binary ins insLen bld AST.fsub
+let fsub ins bld = binary ins bld AST.fsub
 
-let fmpy ins insLen bld = binary ins insLen bld AST.fmul
+let fmpy ins bld = binary ins bld AST.fmul
 
-let fdiv ins insLen bld = binary ins insLen bld AST.fdiv
+let fdiv ins bld = binary ins bld AST.fdiv
 
 /// Whether either operand of a comparison is a NaN, which is what makes the two
 /// unordered: with no ordering between them, every one of less, equal, and
@@ -232,8 +232,8 @@ let private compareCond (cond: Completer) lt eq gt un =
 /// of the status register, which the test instruction then reads. Nothing else
 /// is written, so a comparison and its test together are what a floating-point
 /// branch is made of.
-let fcmp (ins: Instruction) insLen (bld: ILowUIRBuilder) =
-  lift bld ins insLen {
+let fcmp (ins: Instruction) (bld: ILowUIRBuilder) =
+  lift bld ins {
     let struct (o1, o2) =
       match ins.Operands with
       | TwoOperands(a, b) -> struct (getReg a, getReg b)
@@ -259,8 +259,8 @@ let fcmp (ins: Instruction) insLen (bld: ILowUIRBuilder) =
 /// Tests the compare bit the last comparison left, nullifying the instruction
 /// that follows when it is set -- so the branch a floating-point comparison
 /// guards is the one written for the comparison's negation.
-let ftest (ins: Instruction) insLen (bld: ILowUIRBuilder) =
-  lift bld ins insLen {
+let ftest (ins: Instruction) (bld: ILowUIRBuilder) =
+  lift bld ins {
     let rt = bld.RegType
     let set = (regVar bld Register.FPR0L .& numU64 CompareBit rt)
               != AST.num0 rt
@@ -293,8 +293,8 @@ let private convFormats (ins: Instruction) =
 /// Converts between the floating-point formats and the integer ones. A
 /// conversion to an integer rounds to nearest unless the "t" completer asks for
 /// truncation, which is what a cast in C needs.
-let fcnv (ins: Instruction) insLen bld =
-  lift bld ins insLen {
+let fcnv (ins: Instruction) bld =
+  lift bld ins {
     let struct (src, dst) = twoRegs ins
     let struct (sf, df) = convFormats ins
     let sw = fmtWidth sf
@@ -324,8 +324,8 @@ let fcnv (ins: Instruction) insLen bld =
 /// Fixed-point multiply unsigned: the one integer multiply PA-RISC has, done in
 /// the floating-point unit, which is why a compiler moves its operands there
 /// and back around it.
-let xmpyu (ins: Instruction) insLen bld =
-  lift bld ins insLen {
+let xmpyu (ins: Instruction) bld =
+  lift bld ins {
     let struct (o1, o2, dst) = threeRegs ins
     let a = tmpVar bld 64<rt>
     let b = tmpVar bld 64<rt>
@@ -336,8 +336,8 @@ let xmpyu (ins: Instruction) insLen bld =
 
 /// The paired multiply and add (or subtract): two independent operations issued
 /// as one instruction, a multiply into one target and an add into another.
-let fmpyadd (ins: Instruction) insLen bld =
-  lift bld ins insLen {
+let fmpyadd (ins: Instruction) bld =
+  lift bld ins {
     let struct (rm1, rm2, tm, ra, ta) =
       match ins.Operands with
       | FiveOperands(a, b, c, d, e) ->
@@ -362,8 +362,8 @@ let fmpyadd (ins: Instruction) insLen bld =
 
 /// The fused multiply and add: one rounding for the whole of it, and a negating
 /// form that subtracts the product instead of adding it.
-let fmpyfadd (ins: Instruction) insLen bld =
-  lift bld ins insLen {
+let fmpyfadd (ins: Instruction) bld =
+  lift bld ins {
     let struct (rm1, rm2, ra, dst) =
       match ins.Operands with
       | FourOperands(a, b, c, d) ->
