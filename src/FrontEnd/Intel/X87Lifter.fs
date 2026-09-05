@@ -1476,6 +1476,25 @@ let fnstenv (ins: Instruction) bld =
     | _ -> raise InvalidOperandSizeException
   }
 
+/// Neither summary bit of the status word holds state of its own: ES (bit 7)
+/// says an exception is flagged that the control word does not mask, and B
+/// (bit 15) has followed ES on every FPU since the 387. An environment can be
+/// loaded with the three out of step -- flags masked but ES set, say -- and the
+/// FPU answers the next read with the summary its flags and masks imply, not
+/// the one it was handed. Loading is the only place they can disagree here,
+/// nothing in this lifter raising an exception of its own.
+let private syncSummaryBits bld =
+  append bld {
+    let stsWrd = regVar bld R.FSW
+    let excMask = numI32 0x3F 16<rt>
+    let masked = regVar bld R.FCW .& excMask
+    let pending = (stsWrd .& excMask) .& AST.not masked
+    let summary =
+      AST.ite (pending == AST.num0 16<rt>) (AST.num0 16<rt>)
+              (numI32 0x8080 16<rt>)
+    direct stsWrd := (stsWrd .& numI32 0x7F7F 16<rt>) .| summary
+  }
+
 let private m14fldenv srcAddr addrSize bld =
   append bld {
     direct (regVar bld R.FCW) := AST.loadLE 16<rt> (srcAddr)
@@ -1491,6 +1510,7 @@ let private m14fldenv srcAddr addrSize bld =
       AST.loadLE 16<rt> (srcAddr .+ numI32 10 addrSize)
     direct (regVar bld R.FDS) :=
       AST.loadLE 16<rt> (srcAddr .+ numI32 12 addrSize)
+    syncSummaryBits bld
   }
 
 let private m28fldenv srcAddr addrSize bld =
@@ -1504,6 +1524,7 @@ let private m28fldenv srcAddr addrSize bld =
       AST.loadLE 64<rt> (srcAddr .+ numI32 12 addrSize)
     direct (regVar bld R.FDP) :=
       AST.loadLE 64<rt> (srcAddr .+ numI32 20 addrSize)
+    syncSummaryBits bld
   }
 
 let fldenv (ins: Instruction) bld =

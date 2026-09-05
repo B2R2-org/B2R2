@@ -49,6 +49,100 @@ let translate (ins: Instruction) bld =
     GeneralLifter.add ins bld
   | OP.ADOX ->
     GeneralLifter.adox ins bld
+  | OP.AESENC ->
+    SSELifter.aesenc ins bld
+  | OP.AESENCLAST ->
+    SSELifter.aesenclast ins bld
+  | OP.AESDEC ->
+    SSELifter.aesdec ins bld
+  | OP.AESDECLAST ->
+    SSELifter.aesdeclast ins bld
+  | OP.AESIMC ->
+    SSELifter.aesimc ins bld
+  | OP.AESKEYGENASSIST ->
+    SSELifter.aeskeygenassist ins bld
+  | OP.GF2P8MULB ->
+    SSELifter.gf2p8mulb ins bld
+  | OP.GF2P8AFFINEQB ->
+    SSELifter.gf2p8affineqb ins bld
+  | OP.GF2P8AFFINEINVQB ->
+    SSELifter.gf2p8affineinvqb ins bld
+  | OP.PCLMULQDQ ->
+    SSELifter.pclmulqdq ins bld
+  | OP.VAESENC ->
+    AVXLifter.vaesenc ins bld
+  | OP.VAESENCLAST ->
+    AVXLifter.vaesenclast ins bld
+  | OP.VAESDEC ->
+    AVXLifter.vaesdec ins bld
+  | OP.VAESDECLAST ->
+    AVXLifter.vaesdeclast ins bld
+  | OP.VAESIMC ->
+    AVXLifter.vaesimc ins bld
+  | OP.VAESKEYGENASSIST ->
+    AVXLifter.vaeskeygenassist ins bld
+  | OP.VPCLMULQDQ ->
+    AVXLifter.vpclmulqdq ins bld
+  | OP.BLSR ->
+    GeneralLifter.blsr ins bld
+  | OP.BLSMSK ->
+    GeneralLifter.blsmsk ins bld
+  | OP.RDFSBASE ->
+    GeneralLifter.rdfsbase ins bld
+  | OP.RDGSBASE ->
+    GeneralLifter.rdgsbase ins bld
+  | OP.MASKMOVDQU ->
+    SSELifter.maskmovdqu ins bld
+  | OP.MASKMOVQ ->
+    SSELifter.maskmovq ins bld
+  (* MOVDIRI is a store that bypasses the cache, and the bypass is all that
+     sets it apart: what it writes, and where, is what MOV writes. *)
+  | OP.MOVDIRI ->
+    GeneralLifter.mov ins bld
+  (* Hints to the cache and to the trace unit. An emulator has neither to hint
+     at, and the architecture guarantees nothing they change. *)
+  | OP.CLDEMOTE | OP.CLFLUSHOPT | OP.CLWB | OP.PREFETCHIT0 | OP.PREFETCHIT1
+  | OP.PREFETCHWT1 | OP.PTWRITE | OP.XRESLDTRK | OP.XSUSLDTRK ->
+    GeneralLifter.nop ins bld
+  | OP.SERIALIZE ->
+    LiftingUtils.sideEffects ins bld Fence
+  (* ICEBP: an interrupt of its own, undocumented but every debugger's. *)
+  | OP.INT1 ->
+    LiftingUtils.sideEffects ins bld Breakpoint
+  (* A prefix the parser met with nothing it can prefix, which faults. *)
+  | OP.LOCK | OP.XACQUIRE | OP.XRELEASE ->
+    LiftingUtils.undefined ins bld
+  (* Extensions whose architectural state this emulator does not keep: the
+     tile registers of AMX, Key Locker's internal wrapping key, the user
+     interrupt state, and the bounds registers of MPX. Every one of them needs
+     a design decision before a lifter would mean anything, so each says so
+     rather than being quietly wrong. *)
+  | OP.LDTILECFG | OP.STTILECFG | OP.TILELOADD | OP.TILELOADDT1
+  | OP.TILERELEASE | OP.TILESTORED | OP.TILEZERO
+  | OP.TDPBF16PS | OP.TDPBSSD | OP.TDPBSUD | OP.TDPBUSD | OP.TDPBUUD
+  | OP.TDPFP16PS
+  | OP.AESDEC128KL | OP.AESDEC256KL | OP.AESDECWIDE128KL | OP.AESDECWIDE256KL
+  | OP.AESENC128KL | OP.AESENC256KL | OP.AESENCWIDE128KL | OP.AESENCWIDE256KL
+  | OP.ENCODEKEY128 | OP.ENCODEKEY256 | OP.LOADIWKEY
+  | OP.CLUI | OP.STUI | OP.TESTUI | OP.SENDUIPI | OP.UIRET
+  | OP.BNDCL | OP.BNDCN | OP.BNDCU | OP.BNDLDX | OP.BNDMK | OP.BNDSTX ->
+    LiftingUtils.unsupported ins bld
+  (* Privileged, or resting on a platform facility with no model here: the
+     MSR list forms, the accelerator enqueue stores, the configuration and
+     history-reset leaves, and the monitor-wait family. *)
+  | OP.RDMSRLIST | OP.WRMSRLIST | OP.WRMSRNS | OP.PCONFIG | OP.HRESET
+  | OP.WBNOINVD | OP.ENQCMD | OP.ENQCMDS | OP.MOVDIR64B
+  | OP.TPAUSE | OP.UMONITOR | OP.UMWAIT ->
+    LiftingUtils.unsupported ins bld
+  (* A random source and a processor id this emulator does not pretend to
+     have, alongside the compare-and-add family whose flag semantics are not
+     modelled yet. *)
+  | OP.RDSEED | OP.RDPID
+  | OP.CMPBEXADD | OP.CMPBXADD | OP.CMPLEXADD | OP.CMPLXADD | OP.CMPNBEXADD
+  | OP.CMPNBXADD | OP.CMPNLEXADD | OP.CMPNLXADD | OP.CMPNOXADD | OP.CMPNPXADD
+  | OP.CMPNSXADD | OP.CMPNZXADD | OP.CMPOXADD | OP.CMPPXADD | OP.CMPSXADD
+  | OP.CMPZXADD ->
+    LiftingUtils.unsupported ins bld
   | OP.AND ->
     GeneralLifter.``and`` ins bld
   | OP.ANDN ->
@@ -100,7 +194,10 @@ let translate (ins: Instruction) bld =
   | OP.CMOVO | OP.CMOVNO | OP.CMOVB | OP.CMOVAE
   | OP.CMOVZ | OP.CMOVNZ | OP.CMOVBE | OP.CMOVA
   | OP.CMOVS  | OP.CMOVNS | OP.CMOVP | OP.CMOVNP
-  | OP.CMOVL | OP.CMOVGE | OP.CMOVLE | OP.CMOVG ->
+  | OP.CMOVL | OP.CMOVGE | OP.CMOVLE | OP.CMOVG
+  (* The names the manual gives the same condition twice over. *)
+  | OP.CMOVE | OP.CMOVNA | OP.CMOVNAE | OP.CMOVNBE
+  | OP.CMOVNC | OP.CMOVNGE | OP.CMOVNL | OP.CMOVPO ->
     GeneralLifter.cmovcc ins bld
   | OP.CMP ->
     GeneralLifter.cmp ins bld
@@ -148,7 +245,8 @@ let translate (ins: Instruction) bld =
   | OP.JZ | OP.JNZ | OP.JBE | OP.JA
   | OP.JS | OP.JNS | OP.JP | OP.JNP
   | OP.JL | OP.JNL | OP.JLE | OP.JG
-  | OP.JECXZ | OP.JRCXZ ->
+  | OP.JNE | OP.JNG | OP.JNLE | OP.JPE
+  | OP.JCXZ | OP.JECXZ | OP.JRCXZ ->
     GeneralLifter.jcc ins bld
   | OP.LAHF ->
     GeneralLifter.lahf ins bld
@@ -253,7 +351,8 @@ let translate (ins: Instruction) bld =
   | OP.SETO | OP.SETNO | OP.SETB | OP.SETNB
   | OP.SETZ | OP.SETNZ | OP.SETBE | OP.SETA
   | OP.SETS | OP.SETNS | OP.SETP | OP.SETNP
-  | OP.SETL | OP.SETNL | OP.SETLE | OP.SETG ->
+  | OP.SETL | OP.SETNL | OP.SETLE | OP.SETG
+  | OP.SETAE | OP.SETNAE | OP.SETNLE ->
     GeneralLifter.setcc ins bld
   | OP.SETSSBSY ->
     GeneralLifter.nop ins bld
@@ -322,19 +421,39 @@ let translate (ins: Instruction) bld =
     GeneralLifter.xlatb ins bld
   | OP.XOR ->
     GeneralLifter.xor ins bld
-  | OP.XRSTOR | OP.XRSTORS | OP.XSAVE | OP.XSAVEC
-  | OP.XSAVEC64 | OP.XSAVEOPT | OP.XSAVES | OP.XSAVES64 ->
+  | OP.XRSTOR | OP.XRSTOR64 | OP.XRSTORS | OP.XRSTORS64 | OP.XSAVE
+  | OP.XSAVE64 | OP.XSAVEC | OP.XSAVEC64 | OP.XSAVEOPT | OP.XSAVEOPT64
+  | OP.XSAVES | OP.XSAVES64 ->
     LiftingUtils.unsupported ins bld
   | OP.XTEST ->
     LiftingUtils.unsupported ins bld
-  | OP.IN | OP.INVD | OP.INVLPG | OP.IRET | OP.IRETQ | OP.IRETW | OP.IRETD
+  (* What a user-mode guest cannot execute at all: each of these faults outside
+     ring 0, or outside the I/O privilege level, so the fault is what they mean
+     here -- and to an analysis reading one, that it has reached kernel code.
+     Lifting them to a side effect says exactly that. Letting them fall through
+     to the catch-all instead raises out of the lifter, which is no answer for
+     a tool that is only disassembling a kernel image. *)
+  | OP.CLAC | OP.GETSEC | OP.IN | OP.INVD | OP.INVLPG | OP.INVPCID
+  | OP.IRET | OP.IRETQ | OP.IRETW | OP.IRETD
   | OP.LAR | OP.LGDT | OP.LIDT | OP.LLDT
-  | OP.LMSW | OP.LSL | OP.LTR | OP.OUT | OP.SGDT
-  | OP.SIDT | OP.SLDT | OP.SMSW | OP.STR | OP.VERR ->
+  | OP.LMSW | OP.LSL | OP.LTR | OP.MONITOR | OP.MWAIT | OP.OUT | OP.SGDT
+  | OP.SIDT | OP.SLDT | OP.SMSW | OP.STAC | OP.STR | OP.SWAPGS
+  | OP.VERR ->
     LiftingUtils.unsupported ins bld
-  | OP.SHA1NEXTE | OP.SHA1MSG1 | OP.SHA1MSG2 | OP.SHA256RNDS2 | OP.SHA256MSG1
-  | OP.SHA256MSG2 | OP.SHA1RNDS4 ->
-    LiftingUtils.unsupported ins bld
+  | OP.SHA1NEXTE ->
+    SSELifter.sha1nexte ins bld
+  | OP.SHA1MSG1 ->
+    SSELifter.sha1msg1 ins bld
+  | OP.SHA1MSG2 ->
+    SSELifter.sha1msg2 ins bld
+  | OP.SHA1RNDS4 ->
+    SSELifter.sha1rnds4 ins bld
+  | OP.SHA256RNDS2 ->
+    SSELifter.sha256rnds2 ins bld
+  | OP.SHA256MSG1 ->
+    SSELifter.sha256msg1 ins bld
+  | OP.SHA256MSG2 ->
+    SSELifter.sha256msg2 ins bld
   | OP.MOVD ->
     MMXLifter.movd ins bld
   | OP.MOVQ ->
@@ -405,6 +524,16 @@ let translate (ins: Instruction) bld =
     SSELifter.pmulld ins bld
   | OP.PMADDWD ->
     MMXLifter.pmaddwd ins bld
+  | OP.PMADDUBSW ->
+    MMXLifter.pmaddubsw ins bld
+  | OP.PMULHRSW ->
+    MMXLifter.pmulhrsw ins bld
+  | OP.PABSB ->
+    MMXLifter.pabsb ins bld
+  | OP.PABSW ->
+    MMXLifter.pabsw ins bld
+  | OP.PABSD ->
+    MMXLifter.pabsd ins bld
   | OP.PCMPEQB ->
     MMXLifter.pcmpeqb ins bld
   | OP.PCMPEQW ->
@@ -417,6 +546,8 @@ let translate (ins: Instruction) bld =
     MMXLifter.pcmpgtw ins bld
   | OP.PCMPGTD ->
     MMXLifter.pcmpgtd ins bld
+  | OP.PCMPGTQ ->
+    MMXLifter.pcmpgtq ins bld
   | OP.PAND ->
     MMXLifter.pand ins bld
   | OP.PANDN ->
@@ -637,6 +768,16 @@ let translate (ins: Instruction) bld =
     SSELifter.cvtss2si ins bld false
   | OP.CVTTSD2SI | OP.VCVTTSD2SI -> (* SSE2 *)
     SSELifter.cvtsd2si ins bld false
+  | OP.MPSADBW ->
+    SSELifter.mpsadbw ins bld
+  | OP.PHMINPOSUW ->
+    SSELifter.phminposuw ins bld
+  | OP.DPPD ->
+    SSELifter.dppd ins bld
+  | OP.DPPS ->
+    SSELifter.dpps ins bld
+  | OP.INSERTPS ->
+    SSELifter.insertps ins bld
   | OP.EXTRACTPS ->
     SSELifter.extractps ins bld
   | OP.LDMXCSR ->
@@ -737,6 +878,8 @@ let translate (ins: Instruction) bld =
     SSELifter.movdq2q ins bld (* SSE2 *)
   | OP.PMULUDQ ->
     SSELifter.pmuludq ins bld (* SSE2 *)
+  | OP.PMULDQ ->
+    SSELifter.pmuldq ins bld (* SSE4.1 *)
   | OP.PADDQ ->
     SSELifter.paddq ins bld (* SSE2 *)
   | OP.PSUBQ ->
@@ -769,6 +912,8 @@ let translate (ins: Instruction) bld =
     LiftingUtils.sideEffects ins bld Delay (* SSE2 *)
   | OP.MOVNTPD ->
     SSELifter.movntpd ins bld (* SSE2 *)
+  | OP.MOVNTDQA ->
+    SSELifter.movntdqa ins bld (* SSE4.1 *)
   | OP.MOVNTDQ ->
     SSELifter.movntdq ins bld (* SSE2 *)
   | OP.MOVNTI ->
@@ -791,8 +936,18 @@ let translate (ins: Instruction) bld =
     SSELifter.movddup ins bld (* SSE3 *)
   | OP.PALIGNR ->
     SSELifter.palignr ins bld (* SSE3 *)
+  | OP.ROUNDPD ->
+    SSELifter.roundpd ins bld
+  | OP.ROUNDPS ->
+    SSELifter.roundps ins bld
+  | OP.ROUNDSS ->
+    SSELifter.roundss ins bld
   | OP.ROUNDSD ->
     SSELifter.roundsd ins bld (* SSE4 *)
+  | OP.PINSRD ->
+    SSELifter.pinsrd ins bld
+  | OP.PINSRQ ->
+    SSELifter.pinsrq ins bld
   | OP.PINSRB ->
     SSELifter.pinsrb ins bld (* SSE4 *)
   | OP.PSIGNB ->
@@ -963,6 +1118,269 @@ let translate (ins: Instruction) bld =
     AVXLifter.vpaddq ins bld
   | OP.VPALIGNR ->
     AVXLifter.vpalignr ins bld
+  (* The VEX forms of the packed integer operations. *)
+  (* The VEX forms whose operation is the legacy one exactly: the lifter
+     reads its sources through the shim that answers for either encoding,
+     and clears the register above the vector length where the encoding
+     is a VEX one. *)
+  | OP.VPHADDD ->
+    MMXLifter.phaddd ins bld
+  | OP.VPHADDW ->
+    MMXLifter.phaddw ins bld
+  | OP.VPHADDSW ->
+    MMXLifter.phaddsw ins bld
+  | OP.VPHSUBD ->
+    MMXLifter.phsubd ins bld
+  | OP.VPHSUBW ->
+    MMXLifter.phsubw ins bld
+  | OP.VPHSUBSW ->
+    MMXLifter.phsubsw ins bld
+  | OP.VHADDPD ->
+    SSELifter.haddpd ins bld
+  | OP.VHADDPS ->
+    SSELifter.haddps ins bld
+  | OP.VHSUBPD ->
+    SSELifter.hsubpd ins bld
+  | OP.VHSUBPS ->
+    SSELifter.hsubps ins bld
+  | OP.VPACKSSDW ->
+    MMXLifter.packssdw ins bld
+  | OP.VPACKSSWB ->
+    MMXLifter.packsswb ins bld
+  | OP.VPSIGNB ->
+    SSELifter.psign ins bld 8<rt>
+  | OP.VPSIGNW ->
+    SSELifter.psign ins bld 16<rt>
+  | OP.VPSIGND ->
+    SSELifter.psign ins bld 32<rt>
+  | OP.VPSADBW ->
+    SSELifter.psadbw ins bld
+  | OP.VMAXPD ->
+    SSELifter.maxpd ins bld
+  | OP.VMAXPS ->
+    SSELifter.maxps ins bld
+  | OP.VMAXSD ->
+    SSELifter.maxsd ins bld
+  | OP.VMAXSS ->
+    SSELifter.maxss ins bld
+  | OP.VMINPD ->
+    SSELifter.minpd ins bld
+  | OP.VMINPS ->
+    SSELifter.minps ins bld
+  | OP.VMINSD ->
+    SSELifter.minsd ins bld
+  | OP.VMINSS ->
+    SSELifter.minss ins bld
+  | OP.VADDSUBPD ->
+    SSELifter.addsubpd ins bld
+  | OP.VADDSUBPS ->
+    SSELifter.addsubps ins bld
+  | OP.VPHMINPOSUW ->
+    SSELifter.phminposuw ins bld
+  | OP.VMOVNTDQA ->
+    SSELifter.movntdqa ins bld
+  | OP.VLDDQU ->
+    SSELifter.lddqu ins bld
+  | OP.VLDMXCSR ->
+    SSELifter.ldmxcsr ins bld
+  | OP.VSTMXCSR ->
+    SSELifter.stmxcsr ins bld
+  | OP.VMASKMOVDQU ->
+    SSELifter.maskmovdqu ins bld
+  | OP.VPSHUFHW ->
+    SSELifter.pshufhw ins bld
+  | OP.VPSHUFLW ->
+    SSELifter.pshuflw ins bld
+  | OP.VBLENDPD ->
+    SSELifter.blendpd ins bld
+  | OP.VBLENDPS ->
+    SSELifter.blendps ins bld
+  | OP.VDPPD ->
+    SSELifter.dppd ins bld
+  | OP.VDPPS ->
+    SSELifter.dpps ins bld
+  | OP.VPEXTRW ->
+    SSELifter.pextrw ins bld
+  | OP.VPEXTRQ ->
+    SSELifter.pextrq ins bld
+  | OP.VGF2P8MULB ->
+    SSELifter.gf2p8mulb ins bld
+  | OP.VGF2P8AFFINEQB ->
+    SSELifter.gf2p8affineqb ins bld
+  | OP.VGF2P8AFFINEINVQB ->
+    SSELifter.gf2p8affineinvqb ins bld
+  | OP.VMPSADBW ->
+    SSELifter.mpsadbw ins bld
+  | OP.VINSERTPS ->
+    SSELifter.insertps ins bld
+  | OP.VPINSRQ ->
+    SSELifter.pinsrq ins bld
+  | OP.VCMPPD ->
+    SSELifter.cmppd ins bld
+  | OP.VCMPPS ->
+    SSELifter.cmpps ins bld
+  | OP.VCMPSD ->
+    SSELifter.cmpsd ins bld
+  | OP.VCMPSS ->
+    SSELifter.cmpss ins bld
+  | OP.VBROADCASTSD ->
+    AVXLifter.vbroadcastsd ins bld
+  | OP.VPBROADCASTQ ->
+    AVXLifter.vpbroadcastq ins bld
+  | OP.VBROADCASTF128 ->
+    AVXLifter.vbroadcastf128 ins bld
+  | OP.VEXTRACTF128 ->
+    AVXLifter.vextractf128 ins bld
+  | OP.VINSERTF128 ->
+    AVXLifter.vinsertf128 ins bld
+  | OP.VZEROALL ->
+    AVXLifter.vzeroall ins bld
+  | OP.VTESTPS ->
+    AVXLifter.vtestps ins bld
+  | OP.VTESTPD ->
+    AVXLifter.vtestpd ins bld
+  | OP.VPSLLVD ->
+    AVXLifter.vpsllvd ins bld
+  | OP.VPSLLVQ ->
+    AVXLifter.vpsllvq ins bld
+  | OP.VPSRLVD ->
+    AVXLifter.vpsrlvd ins bld
+  | OP.VPSRLVQ ->
+    AVXLifter.vpsrlvq ins bld
+  | OP.VPSLLW ->
+    AVXLifter.vpsllw ins bld
+  | OP.VPERMILPS ->
+    AVXLifter.vpermilps ins bld
+  | OP.VPERMILPD ->
+    AVXLifter.vpermilpd ins bld
+  | OP.VPERM2F128 ->
+    AVXLifter.vperm2f128 ins bld
+  | OP.VPERMPD ->
+    AVXLifter.vpermpd ins bld
+  | OP.VPERMPS ->
+    AVXLifter.vpermps ins bld
+  | OP.VMASKMOVPS ->
+    AVXLifter.vmaskmovps ins bld
+  | OP.VMASKMOVPD ->
+    AVXLifter.vmaskmovpd ins bld
+  | OP.VPMASKMOVD ->
+    AVXLifter.vpmaskmovd ins bld
+  | OP.VPMASKMOVQ ->
+    AVXLifter.vpmaskmovq ins bld
+  | OP.VCVTDQ2PS ->
+    AVXLifter.vcvtdq2ps ins bld
+  | OP.VCVTPS2DQ ->
+    AVXLifter.vcvtps2dq ins bld
+  | OP.VCVTTPS2DQ ->
+    AVXLifter.vcvttps2dq ins bld
+  | OP.VCVTPD2PS ->
+    AVXLifter.vcvtpd2ps ins bld
+  | OP.VCVTPD2DQ ->
+    AVXLifter.vcvtpd2dq ins bld
+  | OP.VCVTTPD2DQ ->
+    AVXLifter.vcvttpd2dq ins bld
+  | OP.VCVTDQ2PD ->
+    AVXLifter.vcvtdq2pd ins bld
+  | OP.VCVTPS2PD ->
+    AVXLifter.vcvtps2pd ins bld
+  | OP.VGATHERDPD ->
+    AVXLifter.vgatherdpd ins bld
+  | OP.VGATHERQPD ->
+    AVXLifter.vgatherqpd ins bld
+  | OP.VGATHERDPS ->
+    AVXLifter.vgatherdps ins bld
+  | OP.VGATHERQPS ->
+    AVXLifter.vgatherqps ins bld
+  | OP.VPGATHERDD ->
+    AVXLifter.vpgatherdd ins bld
+  | OP.VPGATHERDQ ->
+    AVXLifter.vpgatherdq ins bld
+  | OP.VPGATHERQD ->
+    AVXLifter.vpgatherqd ins bld
+  | OP.VPGATHERQQ ->
+    AVXLifter.vpgatherqq ins bld
+  | OP.VRCPPS ->
+    AVXLifter.vrcpps ins bld
+  | OP.VRSQRTPS ->
+    AVXLifter.vrsqrtps ins bld
+  | OP.VRCPSS ->
+    AVXLifter.vrcpss ins bld
+  | OP.VRSQRTSS ->
+    AVXLifter.vrsqrtss ins bld
+  | OP.VPMAXSD ->
+    AVXLifter.vpmaxsd ins bld
+  | OP.VROUNDPD ->
+    SSELifter.vroundpd ins bld
+  | OP.VROUNDPS ->
+    SSELifter.vroundps ins bld
+  | OP.VROUNDSD ->
+    SSELifter.vroundsd ins bld
+  | OP.VROUNDSS ->
+    SSELifter.vroundss ins bld
+  | OP.VPADDW ->
+    AVXLifter.vpaddw ins bld
+  | OP.VPADDSB ->
+    AVXLifter.vpaddsb ins bld
+  | OP.VPADDSW ->
+    AVXLifter.vpaddsw ins bld
+  | OP.VPADDUSB ->
+    AVXLifter.vpaddusb ins bld
+  | OP.VPADDUSW ->
+    AVXLifter.vpaddusw ins bld
+  | OP.VPSUBW ->
+    AVXLifter.vpsubw ins bld
+  | OP.VPSUBQ ->
+    AVXLifter.vpsubq ins bld
+  | OP.VPSUBSB ->
+    AVXLifter.vpsubsb ins bld
+  | OP.VPSUBSW ->
+    AVXLifter.vpsubsw ins bld
+  | OP.VPSUBUSB ->
+    AVXLifter.vpsubusb ins bld
+  | OP.VPSUBUSW ->
+    AVXLifter.vpsubusw ins bld
+  | OP.VPCMPEQW ->
+    AVXLifter.vpcmpeqw ins bld
+  | OP.VPCMPGTW ->
+    AVXLifter.vpcmpgtw ins bld
+  | OP.VPCMPGTD ->
+    AVXLifter.vpcmpgtd ins bld
+  | OP.VPCMPGTQ ->
+    AVXLifter.vpcmpgtq ins bld
+  | OP.VPMAXSB ->
+    AVXLifter.vpmaxsb ins bld
+  | OP.VPMAXSW ->
+    AVXLifter.vpmaxsw ins bld
+  | OP.VPMAXUB ->
+    AVXLifter.vpmaxub ins bld
+  | OP.VPMAXUW ->
+    AVXLifter.vpmaxuw ins bld
+  | OP.VPMAXUD ->
+    AVXLifter.vpmaxud ins bld
+  | OP.VPMINSW ->
+    AVXLifter.vpminsw ins bld
+  | OP.VPMINUW ->
+    AVXLifter.vpminuw ins bld
+  | OP.VPMULHW ->
+    AVXLifter.vpmulhw ins bld
+  | OP.VPMULHRSW ->
+    AVXLifter.vpmulhrsw ins bld
+  | OP.VPMULDQ ->
+    AVXLifter.vpmuldq ins bld
+  | OP.VPMADDWD ->
+    AVXLifter.vpmaddwd ins bld
+  | OP.VPMADDUBSW ->
+    AVXLifter.vpmaddubsw ins bld
+  | OP.VPABSB ->
+    AVXLifter.vpabsb ins bld
+  | OP.VPABSW ->
+    AVXLifter.vpabsw ins bld
+  | OP.VPABSD ->
+    AVXLifter.vpabsd ins bld
+  | OP.VPUNPCKHBW ->
+    AVXLifter.vpunpckhbw ins bld
+  | OP.VPUNPCKLBW ->
+    AVXLifter.vpunpcklbw ins bld
   | OP.VPAND ->
     AVXLifter.vpand ins bld
   | OP.VPANDN ->
@@ -1112,12 +1530,126 @@ let translate (ins: Instruction) bld =
     AVXLifter.vextracti32x8 ins bld
   | OP.VERW ->
     LiftingUtils.unsupported ins bld
+  | OP.VFMADD132PD ->
+    AVXLifter.vfmadd132pd ins bld
+  | OP.VFMADD132PS ->
+    AVXLifter.vfmadd132ps ins bld
   | OP.VFMADD132SD ->
     AVXLifter.vfmadd132sd ins bld
+  | OP.VFMADD132SS ->
+    AVXLifter.vfmadd132ss ins bld
+  | OP.VFMSUB132PD ->
+    AVXLifter.vfmsub132pd ins bld
+  | OP.VFMSUB132PS ->
+    AVXLifter.vfmsub132ps ins bld
+  | OP.VFMSUB132SD ->
+    AVXLifter.vfmsub132sd ins bld
+  | OP.VFMSUB132SS ->
+    AVXLifter.vfmsub132ss ins bld
+  | OP.VFNMADD132PD ->
+    AVXLifter.vfnmadd132pd ins bld
+  | OP.VFNMADD132PS ->
+    AVXLifter.vfnmadd132ps ins bld
+  | OP.VFNMADD132SD ->
+    AVXLifter.vfnmadd132sd ins bld
+  | OP.VFNMADD132SS ->
+    AVXLifter.vfnmadd132ss ins bld
+  | OP.VFNMSUB132PD ->
+    AVXLifter.vfnmsub132pd ins bld
+  | OP.VFNMSUB132PS ->
+    AVXLifter.vfnmsub132ps ins bld
+  | OP.VFNMSUB132SD ->
+    AVXLifter.vfnmsub132sd ins bld
+  | OP.VFNMSUB132SS ->
+    AVXLifter.vfnmsub132ss ins bld
+  | OP.VFMADDSUB132PD ->
+    AVXLifter.vfmaddsub132pd ins bld
+  | OP.VFMADDSUB132PS ->
+    AVXLifter.vfmaddsub132ps ins bld
+  | OP.VFMSUBADD132PD ->
+    AVXLifter.vfmsubadd132pd ins bld
+  | OP.VFMSUBADD132PS ->
+    AVXLifter.vfmsubadd132ps ins bld
+  | OP.VFMADD213PD ->
+    AVXLifter.vfmadd213pd ins bld
+  | OP.VFMADD213PS ->
+    AVXLifter.vfmadd213ps ins bld
   | OP.VFMADD213SD ->
     AVXLifter.vfmadd213sd ins bld
+  | OP.VFMADD213SS ->
+    AVXLifter.vfmadd213ss ins bld
+  | OP.VFMSUB213PD ->
+    AVXLifter.vfmsub213pd ins bld
+  | OP.VFMSUB213PS ->
+    AVXLifter.vfmsub213ps ins bld
+  | OP.VFMSUB213SD ->
+    AVXLifter.vfmsub213sd ins bld
+  | OP.VFMSUB213SS ->
+    AVXLifter.vfmsub213ss ins bld
+  | OP.VFNMADD213PD ->
+    AVXLifter.vfnmadd213pd ins bld
+  | OP.VFNMADD213PS ->
+    AVXLifter.vfnmadd213ps ins bld
+  | OP.VFNMADD213SD ->
+    AVXLifter.vfnmadd213sd ins bld
+  | OP.VFNMADD213SS ->
+    AVXLifter.vfnmadd213ss ins bld
+  | OP.VFNMSUB213PD ->
+    AVXLifter.vfnmsub213pd ins bld
+  | OP.VFNMSUB213PS ->
+    AVXLifter.vfnmsub213ps ins bld
+  | OP.VFNMSUB213SD ->
+    AVXLifter.vfnmsub213sd ins bld
+  | OP.VFNMSUB213SS ->
+    AVXLifter.vfnmsub213ss ins bld
+  | OP.VFMADDSUB213PD ->
+    AVXLifter.vfmaddsub213pd ins bld
+  | OP.VFMADDSUB213PS ->
+    AVXLifter.vfmaddsub213ps ins bld
+  | OP.VFMSUBADD213PD ->
+    AVXLifter.vfmsubadd213pd ins bld
+  | OP.VFMSUBADD213PS ->
+    AVXLifter.vfmsubadd213ps ins bld
+  | OP.VFMADD231PD ->
+    AVXLifter.vfmadd231pd ins bld
+  | OP.VFMADD231PS ->
+    AVXLifter.vfmadd231ps ins bld
   | OP.VFMADD231SD ->
     AVXLifter.vfmadd231sd ins bld
+  | OP.VFMADD231SS ->
+    AVXLifter.vfmadd231ss ins bld
+  | OP.VFMSUB231PD ->
+    AVXLifter.vfmsub231pd ins bld
+  | OP.VFMSUB231PS ->
+    AVXLifter.vfmsub231ps ins bld
+  | OP.VFMSUB231SD ->
+    AVXLifter.vfmsub231sd ins bld
+  | OP.VFMSUB231SS ->
+    AVXLifter.vfmsub231ss ins bld
+  | OP.VFNMADD231PD ->
+    AVXLifter.vfnmadd231pd ins bld
+  | OP.VFNMADD231PS ->
+    AVXLifter.vfnmadd231ps ins bld
+  | OP.VFNMADD231SD ->
+    AVXLifter.vfnmadd231sd ins bld
+  | OP.VFNMADD231SS ->
+    AVXLifter.vfnmadd231ss ins bld
+  | OP.VFNMSUB231PD ->
+    AVXLifter.vfnmsub231pd ins bld
+  | OP.VFNMSUB231PS ->
+    AVXLifter.vfnmsub231ps ins bld
+  | OP.VFNMSUB231SD ->
+    AVXLifter.vfnmsub231sd ins bld
+  | OP.VFNMSUB231SS ->
+    AVXLifter.vfnmsub231ss ins bld
+  | OP.VFMADDSUB231PD ->
+    AVXLifter.vfmaddsub231pd ins bld
+  | OP.VFMADDSUB231PS ->
+    AVXLifter.vfmaddsub231ps ins bld
+  | OP.VFMSUBADD231PD ->
+    AVXLifter.vfmsubadd231pd ins bld
+  | OP.VFMSUBADD231PS ->
+    AVXLifter.vfmsubadd231ps ins bld
   | OP.FLD ->
     X87Lifter.fld ins bld
   | OP.FST ->
@@ -1274,6 +1806,8 @@ let translate (ins: Instruction) bld =
     X87Lifter.finit ins bld
   | OP.FNINIT ->
     X87Lifter.fninit ins bld
+  | OP.FNCLEX ->
+    X87Lifter.fclex ins bld
   | OP.FCLEX ->
     X87Lifter.fclex ins bld
   | OP.FSTCW ->
@@ -1292,7 +1826,7 @@ let translate (ins: Instruction) bld =
     X87Lifter.frstor ins bld
   | OP.FNSTSW ->
     X87Lifter.fnstsw ins bld
-  | OP.WAIT ->
+  | OP.WAIT | OP.FWAIT ->
     X87Lifter.wait ins bld
   | OP.FNOP ->
     X87Lifter.fnop ins bld

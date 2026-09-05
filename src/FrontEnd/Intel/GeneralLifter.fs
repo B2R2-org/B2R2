@@ -519,6 +519,49 @@ let blsi (ins: Instruction) bld =
 #endif
   }
 
+/// BLSR clears the lowest set bit of the source. Like the rest of its family
+/// it reports whether the source was zero in CF rather than in ZF, which
+/// answers about the result.
+let blsr (ins: Instruction) bld =
+  lift bld ins {
+    let oprSize = getOperationSize ins
+    let struct (dst, src) = transTwoOprs ins bld false
+    let tmp = tmpVar bld oprSize
+    direct tmp := (src .- AST.num1 oprSize) .& src
+    direct (regVar bld R.SF) := AST.xthi 1<rt> tmp
+    direct (regVar bld R.ZF) := tmp == AST.num0 oprSize
+    direct (regVar bld R.CF) := src == AST.num0 oprSize
+    sized oprSize dst := tmp
+    direct (regVar bld R.OF) := AST.b0
+#if !EMULATION
+    direct (regVar bld R.AF) := undefAF
+    direct (regVar bld R.PF) := undefPF
+#else
+    bld.ConditionCodeOp <- ConditionCodeOp.EFlags
+#endif
+  }
+
+/// BLSMSK fills every bit below the lowest set one, and that bit too: the mask
+/// of the bits the source's lowest set bit sits at or above.
+let blsmsk (ins: Instruction) bld =
+  lift bld ins {
+    let oprSize = getOperationSize ins
+    let struct (dst, src) = transTwoOprs ins bld false
+    let tmp = tmpVar bld oprSize
+    direct tmp := (src .- AST.num1 oprSize) <+> src
+    direct (regVar bld R.SF) := AST.xthi 1<rt> tmp
+    direct (regVar bld R.ZF) := AST.b0
+    direct (regVar bld R.CF) := src == AST.num0 oprSize
+    sized oprSize dst := tmp
+    direct (regVar bld R.OF) := AST.b0
+#if !EMULATION
+    direct (regVar bld R.AF) := undefAF
+    direct (regVar bld R.PF) := undefPF
+#else
+    bld.ConditionCodeOp <- ConditionCodeOp.EFlags
+#endif
+  }
+
 let private bndmov64 (ins: Instruction) bld =
   lift bld ins {
     let struct (dst, src) = getTwoOprs ins
@@ -815,18 +858,19 @@ let private getCondOfCMov (ins: Instruction) bld =
   match ins.Opcode with
   | Opcode.CMOVO -> regVar bld R.OF
   | Opcode.CMOVNO -> regVar bld R.OF == AST.b0
-  | Opcode.CMOVB -> regVar bld R.CF
-  | Opcode.CMOVAE -> regVar bld R.CF == AST.b0
-  | Opcode.CMOVZ -> regVar bld R.ZF
+  | Opcode.CMOVB | Opcode.CMOVNAE -> regVar bld R.CF
+  | Opcode.CMOVAE | Opcode.CMOVNC -> regVar bld R.CF == AST.b0
+  | Opcode.CMOVZ | Opcode.CMOVE -> regVar bld R.ZF
   | Opcode.CMOVNZ -> regVar bld R.ZF == AST.b0
-  | Opcode.CMOVBE -> (regVar bld R.CF) .| (regVar bld R.ZF)
-  | Opcode.CMOVA -> ((regVar bld R.CF) .| (regVar bld R.ZF)) == AST.b0
+  | Opcode.CMOVBE | Opcode.CMOVNA -> (regVar bld R.CF) .| (regVar bld R.ZF)
+  | Opcode.CMOVA | Opcode.CMOVNBE ->
+    ((regVar bld R.CF) .| (regVar bld R.ZF)) == AST.b0
   | Opcode.CMOVS -> regVar bld R.SF
   | Opcode.CMOVNS -> regVar bld R.SF == AST.b0
   | Opcode.CMOVP -> regVar bld R.PF
-  | Opcode.CMOVNP -> regVar bld R.PF == AST.b0
-  | Opcode.CMOVL -> regVar bld R.SF != regVar bld R.OF
-  | Opcode.CMOVGE -> regVar bld R.SF == regVar bld R.OF
+  | Opcode.CMOVNP | Opcode.CMOVPO -> regVar bld R.PF == AST.b0
+  | Opcode.CMOVL | Opcode.CMOVNGE -> regVar bld R.SF != regVar bld R.OF
+  | Opcode.CMOVGE | Opcode.CMOVNL -> regVar bld R.SF == regVar bld R.OF
   | Opcode.CMOVLE -> regVar bld R.ZF .|
                      (regVar bld R.SF != regVar bld R.OF)
   | Opcode.CMOVG -> regVar bld R.ZF == AST.b0 .&
@@ -840,15 +884,15 @@ let private getCondOfCMovLazy (ins: Instruction) bld =
     getOFLazy bld
   | Opcode.CMOVNO ->
     getOFLazy bld |> AST.not
-  | Opcode.CMOVB ->
+  | Opcode.CMOVB | Opcode.CMOVNAE ->
     getCFLazy bld
-  | Opcode.CMOVAE ->
+  | Opcode.CMOVAE | Opcode.CMOVNC ->
     getCFLazy bld |> AST.not
-  | Opcode.CMOVZ ->
+  | Opcode.CMOVZ | Opcode.CMOVE ->
     getZFLazy bld
   | Opcode.CMOVNZ ->
     getZFLazy bld |> AST.not
-  | Opcode.CMOVBE ->
+  | Opcode.CMOVBE | Opcode.CMOVNA ->
     let ccOp = bld.ConditionCodeOp
     match ccOp with
     | ConditionCodeOp.SUBB
@@ -862,7 +906,7 @@ let private getCondOfCMovLazy (ins: Instruction) bld =
       src1 .<= src2
     | _ ->
       (getCFLazy bld) .| (getZFLazy bld)
-  | Opcode.CMOVA ->
+  | Opcode.CMOVA | Opcode.CMOVNBE ->
     (getCFLazy bld .| getZFLazy bld) |> AST.not
   | Opcode.CMOVS ->
     getSFLazy bld
@@ -870,9 +914,9 @@ let private getCondOfCMovLazy (ins: Instruction) bld =
     getSFLazy bld |> AST.not
   | Opcode.CMOVP ->
     getPFLazy bld
-  | Opcode.CMOVNP ->
+  | Opcode.CMOVNP | Opcode.CMOVPO ->
     getPFLazy bld |> AST.not
-  | Opcode.CMOVL ->
+  | Opcode.CMOVL | Opcode.CMOVNGE ->
     let ccOp = bld.ConditionCodeOp
     match ccOp with
     | ConditionCodeOp.SUBB
@@ -886,7 +930,7 @@ let private getCondOfCMovLazy (ins: Instruction) bld =
       src1 ?< src2
     | _ ->
       getOFLazy bld != getSFLazy bld
-  | Opcode.CMOVGE ->
+  | Opcode.CMOVGE | Opcode.CMOVNL ->
     getOFLazy bld == getSFLazy bld
   | Opcode.CMOVLE ->
     let ccOp = bld.ConditionCodeOp
@@ -1573,7 +1617,7 @@ let private getCondOfJcc (ins: Instruction) (bld: ILowUIRBuilder) =
     regVar bld R.CF == AST.b0
   | Opcode.JZ ->
     regVar bld R.ZF
-  | Opcode.JNZ ->
+  | Opcode.JNZ | Opcode.JNE ->
     regVar bld R.ZF == AST.b0
   | Opcode.JBE ->
     (regVar bld R.CF) .| (regVar bld R.ZF)
@@ -1583,7 +1627,7 @@ let private getCondOfJcc (ins: Instruction) (bld: ILowUIRBuilder) =
     regVar bld R.SF
   | Opcode.JNS ->
     regVar bld R.SF == AST.b0
-  | Opcode.JP ->
+  | Opcode.JP | Opcode.JPE ->
     regVar bld R.PF
   | Opcode.JNP ->
     regVar bld R.PF == AST.b0
@@ -1591,10 +1635,10 @@ let private getCondOfJcc (ins: Instruction) (bld: ILowUIRBuilder) =
     regVar bld R.SF != regVar bld R.OF
   | Opcode.JNL ->
     regVar bld R.SF == regVar bld R.OF
-  | Opcode.JLE ->
+  | Opcode.JLE | Opcode.JNG ->
     (regVar bld R.ZF) .|
                   (regVar bld R.SF != regVar bld R.OF)
-  | Opcode.JG ->
+  | Opcode.JG | Opcode.JNLE ->
     (regVar bld R.ZF == AST.b0) .&
                  (regVar bld R.SF == regVar bld R.OF)
   | Opcode.JCXZ ->
@@ -1626,7 +1670,7 @@ let private getCondOfJccLazy (ins: Instruction) (bld: ILowUIRBuilder) =
     getCFLazy bld |> AST.not
   | Opcode.JZ ->
     getZFLazy bld
-  | Opcode.JNZ ->
+  | Opcode.JNZ | Opcode.JNE ->
     getZFLazy bld |> AST.not
   | Opcode.JBE ->
     let ccOp = bld.ConditionCodeOp
@@ -1648,7 +1692,7 @@ let private getCondOfJccLazy (ins: Instruction) (bld: ILowUIRBuilder) =
     getSFLazy bld
   | Opcode.JNS ->
     getSFLazy bld |> AST.not
-  | Opcode.JP ->
+  | Opcode.JP | Opcode.JPE ->
     getPFLazy bld
   | Opcode.JNP ->
     getPFLazy bld |> AST.not
@@ -1668,7 +1712,7 @@ let private getCondOfJccLazy (ins: Instruction) (bld: ILowUIRBuilder) =
       getOFLazy bld != getSFLazy bld
   | Opcode.JNL ->
     getOFLazy bld == getSFLazy bld
-  | Opcode.JLE ->
+  | Opcode.JLE | Opcode.JNG ->
     let ccOp = bld.ConditionCodeOp
     match ccOp with
     | ConditionCodeOp.SUBB
@@ -1682,7 +1726,7 @@ let private getCondOfJccLazy (ins: Instruction) (bld: ILowUIRBuilder) =
       src1 ?<= src2
     | _ ->
       (getOFLazy bld != getSFLazy bld) .| (getZFLazy bld)
-  | Opcode.JG ->
+  | Opcode.JG | Opcode.JNLE ->
     (getOFLazy bld == getSFLazy bld) .& (getZFLazy bld |> AST.not)
   | Opcode.JCXZ ->
     regVar bld R.CX == AST.num0 bld.RegType
@@ -2715,8 +2759,8 @@ let private getCondOfSet (ins: Instruction) bld =
   match ins.Opcode with
   | Opcode.SETO -> regVar bld R.OF
   | Opcode.SETNO -> regVar bld R.OF == AST.b0
-  | Opcode.SETB -> regVar bld R.CF
-  | Opcode.SETNB -> regVar bld R.CF == AST.b0
+  | Opcode.SETB | Opcode.SETNAE -> regVar bld R.CF
+  | Opcode.SETNB | Opcode.SETAE -> regVar bld R.CF == AST.b0
   | Opcode.SETZ -> regVar bld R.ZF
   | Opcode.SETNZ -> regVar bld R.ZF == AST.b0
   | Opcode.SETBE -> (regVar bld R.CF) .| (regVar bld R.ZF)
@@ -2729,8 +2773,8 @@ let private getCondOfSet (ins: Instruction) bld =
   | Opcode.SETNL -> regVar bld R.SF == regVar bld R.OF
   | Opcode.SETLE -> regVar bld R.ZF .|
                      (regVar bld R.SF != regVar bld R.OF)
-  | Opcode.SETG -> (regVar bld R.ZF == AST.b0) .&
-                     (regVar bld R.SF == regVar bld R.OF)
+  | Opcode.SETG | Opcode.SETNLE ->
+    (regVar bld R.ZF == AST.b0) .& (regVar bld R.SF == regVar bld R.OF)
   | _ -> raise InvalidOpcodeException
 
 #if EMULATION
@@ -2738,8 +2782,8 @@ let private getCondOfSetLazy (ins: Instruction) bld =
   match ins.Opcode with
   | Opcode.SETO -> getOFLazy bld
   | Opcode.SETNO -> getOFLazy bld |> AST.not
-  | Opcode.SETB -> getCFLazy bld
-  | Opcode.SETNB -> getCFLazy bld |> AST.not
+  | Opcode.SETB | Opcode.SETNAE -> getCFLazy bld
+  | Opcode.SETNB | Opcode.SETAE -> getCFLazy bld |> AST.not
   | Opcode.SETZ -> getZFLazy bld
   | Opcode.SETNZ -> getZFLazy bld |> AST.not
   | Opcode.SETBE -> (getCFLazy bld) .| (getZFLazy bld)
@@ -2751,8 +2795,8 @@ let private getCondOfSetLazy (ins: Instruction) bld =
   | Opcode.SETL -> getSFLazy bld != getOFLazy bld
   | Opcode.SETNL -> getSFLazy bld == getOFLazy bld
   | Opcode.SETLE -> (getZFLazy bld) .| (getSFLazy bld != getOFLazy bld)
-  | Opcode.SETG -> (getZFLazy bld |> AST.not) .&
-                   (getSFLazy bld == getOFLazy bld)
+  | Opcode.SETG | Opcode.SETNLE ->
+    (getZFLazy bld |> AST.not) .& (getSFLazy bld == getOFLazy bld)
   | _ -> raise InvalidOpcodeException
 #endif
 
@@ -3028,6 +3072,20 @@ let tzcnt ins bld =
     bld.ConditionCodeOp <- ConditionCodeOp.EFlags
 #endif
   }
+
+/// RDFSBASE and RDGSBASE read the segment base a 64-bit program keeps its
+/// thread-local storage at -- the same base WRFSBASE writes, and the one the
+/// kernel would otherwise have to be asked for.
+let private rdbase (ins: Instruction) bld reg =
+  lift bld ins {
+    let dst = transOneOpr ins bld
+    let oprSize = getOperationSize ins
+    sized oprSize dst := AST.xtlo oprSize (regVar bld reg)
+  }
+
+let rdfsbase ins bld = rdbase ins bld R.FSBase
+
+let rdgsbase ins bld = rdbase ins bld R.GSBase
 
 let wrfsbase (ins: Instruction) bld =
   lift bld ins {

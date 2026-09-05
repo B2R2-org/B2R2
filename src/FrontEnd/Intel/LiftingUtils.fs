@@ -585,6 +585,42 @@ let getThreeOprs (ins: Instruction) =
   | ThreeOperands(o1, o2, o3) -> struct (o1, o2, o3)
   | _ -> raise InvalidOperandException
 
+/// The destination and the two sources an operation reads, whichever encoding
+/// named them: a legacy form takes its first source from the destination,
+/// which a VEX form names separately. Every operation written for the legacy
+/// encoding can serve its VEX one through this.
+let getDstAndSrcs (ins: Instruction) =
+  match ins.Operands with
+  | TwoOperands(o1, o2) -> struct (o1, o1, o2)
+  | ThreeOperands(o1, o2, o3) -> struct (o1, o2, o3)
+  | _ -> raise InvalidOperandException
+
+/// The destination, the two sources and the immediate, whichever encoding
+/// named them -- the same shim as getDstAndSrcs, for the operations that carry
+/// an immediate as well.
+let getDstSrcsImm (ins: Instruction) =
+  match ins.Operands with
+  | ThreeOperands(o1, o2, o3) -> struct (o1, o1, o2, o3)
+  | FourOperands(o1, o2, o3, o4) -> struct (o1, o2, o3, o4)
+  | _ -> raise InvalidOperandException
+
+/// Whether the encoding is a VEX (or EVEX) one, which is what decides that the
+/// register above the vector length is cleared rather than left standing.
+let isVexEncoded (ins: Instruction) = Option.isSome ins.VEXInfo
+
+/// Applies a lane-wise operation across the 128-bit lanes of two source
+/// arrays. A 256-bit form of an operation the manual describes over 128 bits
+/// -- a horizontal add, a saturating pack -- is two independent halves rather
+/// than one long one, and this is what makes it so.
+let perLane oprSize f (a: Expr[]) (b: Expr[]) =
+  let lanes = max 1 (RegType.toBitWidth oprSize / 128)
+  if lanes = 1 then f a b
+  else
+    let per = a.Length / lanes
+    Array.init lanes (fun i ->
+      f (Array.sub a (i * per) per) (Array.sub b (i * per) per))
+    |> Array.concat
+
 let getFourOprs (ins: Instruction) =
   match ins.Operands with
   | FourOperands(o1, o2, o3, o4) -> struct (o1, o2, o3, o4)

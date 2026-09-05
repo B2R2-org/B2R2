@@ -370,11 +370,17 @@ let private packWithSaturation (ins: Instruction) bld packSz opFn =
     let sPackNum = 64<rt> / sPackSz
     let dPackSz = packSz / 2
     let dPackNum = 64<rt> / dPackSz
-    let struct (dst, src) = getTwoOprs ins
-    let src1 = transOprToArr ins bld true sPackSz sPackNum oprSize dst
-    let src2 = transOprToArr ins bld true sPackSz sPackNum oprSize src
-    let result = opFn oprSize src1 src2
+    let struct (dst, src1, src2) = getDstAndSrcs ins
+    let src1 = transOprToArr ins bld true sPackSz sPackNum oprSize src1
+    let src2 = transOprToArr ins bld true sPackSz sPackNum oprSize src2
+    (* The pack runs within each 128-bit lane, so a 256-bit form interleaves
+       the two sources twice rather than once. *)
+    let result = perLane oprSize (opFn oprSize) src1 src2
     assignPackedInstr ins bld false dPackNum oprSize dst result
+    if isVexEncoded ins then
+      fillZeroFromVLToMaxVL bld dst oprSize 512
+    else
+      ()
   }
 
 let private opPackssdw _ src1 src2 =
@@ -454,17 +460,20 @@ let opUnpackLowData oprSize src1 src2 =
 /// BinOp(APP, ...) the evaluator runs on a single Vector128 op -- instead of
 /// the per-lane scalar decomposition: read dst/src as 128-bit, apply, and write
 /// the halves back. The 128-bit intermediate rides the evaluator's wide path.
-let private packedBinIntrinsic (ins: Instruction) bld name =
+let packedBinIntrinsic (ins: Instruction) bld name =
   lift bld ins {
-    let struct (dst, src) = getTwoOprs ins
+    let struct (dst, src1, src2) = getDstAndSrcs ins
+    let struct (aB, aA) = transOpr128 ins bld false src1
+    let struct (bB, bA) = transOpr128 ins bld false src2
     let struct (dstB, dstA) = transOpr128 ins bld false dst
-    let struct (srcB, srcA) = transOpr128 ins bld false src
     let t = tmpVar bld 128<rt>
-    let s1 = AST.concat dstB dstA
-    let s2 = AST.concat srcB srcA
-    direct t := AST.app name [ s1; s2 ] 128<rt>
+    direct t := AST.app name [ AST.concat aB aA; AST.concat bB bA ] 128<rt>
     direct dstA := AST.xtlo 64<rt> t
     direct dstB := AST.xthi 64<rt> t
+    if isVexEncoded ins then
+      fillZeroFromVLToMaxVL bld dst 128<rt> 512
+    else
+      ()
   }
 
 let punpckhbw ins bld =
@@ -517,14 +526,14 @@ let paddw ins bld =
 let paddd ins bld =
   buildPackedInstr ins bld false 32<rt> (opP (.+))
 
-let private opPaddsb oprSize src1 src2 =
+let opPaddsb oprSize src1 src2 =
   let src1 = src1 |> Array.map (AST.sext 16<rt>)
   let src2 = src2 |> Array.map (AST.sext 16<rt>)
   (opP (.+)) 16<rt> src1 src2 |> Array.map saturateToSignedByte
 
 let paddsb ins bld = buildPackedInstr ins bld false 8<rt> opPaddsb
 
-let private opPaddsw oprSize src1 src2 =
+let opPaddsw oprSize src1 src2 =
   let src1 = src1 |> Array.map (AST.sext 32<rt>)
   let src2 = src2 |> Array.map (AST.sext 32<rt>)
   (opP (.+)) 32<rt> src1 src2 |> Array.map saturateToSignedWord
@@ -532,7 +541,7 @@ let private opPaddsw oprSize src1 src2 =
 let paddsw ins bld =
   buildPackedInstr ins bld false 16<rt> opPaddsw
 
-let private opPaddusb oprSize src1 src2 =
+let opPaddusb oprSize src1 src2 =
   let src1 = src1 |> Array.map (AST.zext 16<rt>)
   let src2 = src2 |> Array.map (AST.zext 16<rt>)
   (opP (.+)) 16<rt> src1 src2 |> Array.map saturateToUnsignedByte
@@ -540,7 +549,7 @@ let private opPaddusb oprSize src1 src2 =
 let paddusb ins bld =
   buildPackedInstr ins bld false 8<rt> opPaddusb
 
-let private opPaddusw oprSize src1 src2 =
+let opPaddusw oprSize src1 src2 =
   let src1 = src1 |> Array.map (AST.zext 32<rt>)
   let src2 = src2 |> Array.map (AST.zext 32<rt>)
   (opP (.+)) 32<rt> src1 src2 |> Array.map saturateToUnsignedWord
@@ -548,7 +557,9 @@ let private opPaddusw oprSize src1 src2 =
 let paddusw ins bld =
   buildPackedInstr ins bld false 16<rt> opPaddusw
 
-let private makeHorizonSrc src1 src2 =
+/// Pairs the sources up the way a horizontal operation reads them: the first
+/// source's neighbouring elements, then the second's.
+let private pairHorizon (src1: Expr[]) (src2: Expr[]) =
   let combined = Array.append src1 src2
   let comLen = Array.length combined
   let odd = Array.zeroCreate (comLen / 2)
@@ -560,13 +571,26 @@ let private makeHorizonSrc src1 src2 =
 let packedHorizon (ins: Instruction) bld packSz opFn =
   lift bld ins {
     let oprSize = getOperationSize ins
-    let struct (dst, src) = getTwoOprs ins
+    let struct (dst, src1, src2) = getDstAndSrcs ins
     let packNum = 64<rt> / packSz
-    let src1 = transOprToArr ins bld true packSz packNum oprSize dst
-    let src2 = transOprToArr ins bld true packSz packNum oprSize src
-    let src1, src2 = makeHorizonSrc src1 src2
-    let result = opFn oprSize src1 src2
+    let src1 = transOprToArr ins bld true packSz packNum oprSize src1
+    let src2 = transOprToArr ins bld true packSz packNum oprSize src2
+    (* Each 128-bit lane pairs within itself, so a 256-bit form is two of
+       these side by side rather than one twice as long. *)
+    let lanes = max 1 (RegType.toBitWidth oprSize / 128)
+    let per = src1.Length / lanes
+    let result =
+      Array.init lanes (fun i ->
+        let a = Array.sub src1 (i * per) per
+        let b = Array.sub src2 (i * per) per
+        let x, y = pairHorizon a b
+        opFn oprSize x y)
+      |> Array.concat
     assignPackedInstr ins bld false packNum oprSize dst result
+    if isVexEncoded ins then
+      fillZeroFromVLToMaxVL bld dst oprSize 512
+    else
+      ()
   }
 
 let phaddd ins bld = packedHorizon ins bld 32<rt> (opP (.+))
@@ -591,14 +615,14 @@ let psubw ins bld =
 let psubd ins bld =
   buildPackedInstr ins bld false 32<rt> (opP (.-))
 
-let private opPsubsb oprSize src1 src2 =
+let opPsubsb oprSize src1 src2 =
   let src1 = src1 |> Array.map (AST.sext 16<rt>)
   let src2 = src2 |> Array.map (AST.sext 16<rt>)
   (opP (.-)) 16<rt> src1 src2 |> Array.map saturateToSignedByte
 
 let psubsb ins bld = buildPackedInstr ins bld false 8<rt> opPsubsb
 
-let private opPsubsw oprSize src1 src2 =
+let opPsubsw oprSize src1 src2 =
   let src1 = src1 |> Array.map (AST.sext 32<rt>)
   let src2 = src2 |> Array.map (AST.sext 32<rt>)
   (opP (.-)) 32<rt> src1 src2 |> Array.map saturateToSignedWord
@@ -606,7 +630,7 @@ let private opPsubsw oprSize src1 src2 =
 let psubsw ins bld =
   buildPackedInstr ins bld false 16<rt> opPsubsw
 
-let private opPsubusb _ src1 src2 =
+let opPsubusb _ src1 src2 =
   let src1 = src1 |> Array.map (AST.zext 16<rt>)
   let src2 = src2 |> Array.map (AST.zext 16<rt>)
   (opP (.-)) 16<rt> src1 src2 |> Array.map saturateToUnsignedByte
@@ -614,7 +638,7 @@ let private opPsubusb _ src1 src2 =
 let psubusb ins bld =
   buildPackedInstr ins bld false 8<rt> opPsubusb
 
-let private opPsubusw _ src1 src2 =
+let opPsubusw _ src1 src2 =
   let src1 = src1 |> Array.map (AST.zext 32<rt>)
   let src2 = src2 |> Array.map (AST.zext 32<rt>)
   (opP (.-)) 32<rt> src1 src2 |> Array.map saturateToUnsignedWord
@@ -632,17 +656,31 @@ let opPmul resType extr extSz packSz src1 src2 =
   Array.map2 (fun e1 e2 -> extr extSz e1 .* extr extSz e2) src1 src2
   |> Array.map (resType packSz)
 
-let private opPmulhw _ = opPmul AST.xthi AST.sext 32<rt> 16<rt>
+let opPmulhw _ = opPmul AST.xthi AST.sext 32<rt> 16<rt>
 
 let pmulhw ins bld =
   buildPackedInstr ins bld false 16<rt> opPmulhw
+
+/// PMULHRSW multiplies signed words as Q15 fractions and keeps the high half,
+/// rounded rather than truncated: the product is shifted down by 14, one is
+/// added, and the result shifted down once more. The single pair the format
+/// cannot hold, -1.0 times -1.0, comes back as -1.0, which the truncation to
+/// 16 bits gives for free.
+let opPmulhrsw _ =
+  Array.map2 (fun e1 e2 ->
+    let product = (AST.sext 32<rt> e1) .* (AST.sext 32<rt> e2)
+    let rounded = (product ?>> numI32 14 32<rt>) .+ AST.num1 32<rt>
+    AST.xtlo 16<rt> (rounded ?>> AST.num1 32<rt>))
+
+let pmulhrsw ins bld =
+  buildPackedInstr ins bld false 16<rt> opPmulhrsw
 
 let opPmullw _ = opPmul AST.xtlo AST.sext 32<rt> 16<rt>
 
 let pmullw ins bld =
   buildPackedInstr ins bld false 16<rt> opPmullw
 
-let private opPmaddwd _ =
+let opPmaddwd _ =
   let lowAndSExt expr = AST.xtlo 16<rt> expr |> AST.sext 32<rt>
   let highAndSExt expr = AST.xthi 16<rt> expr |> AST.sext 32<rt>
   let mulLow e1 e2 = lowAndSExt e1 .* lowAndSExt e2
@@ -652,6 +690,41 @@ let private opPmaddwd _ =
 
 let pmaddwd ins bld =
   buildPackedInstr ins bld false 32<rt> opPmaddwd
+
+/// PMADDUBSW multiplies each byte of the destination, taken unsigned, by the
+/// byte beside it in the source, taken signed, and adds the two products that
+/// share a word. A product fits a signed word on its own, but their sum need
+/// not, so the pair is added at 32 bits and saturated back down.
+let opPmaddubsw _ src1 src2 =
+  let lowU e = AST.xtlo 8<rt> e |> AST.zext 32<rt>
+  let highU e = AST.xthi 8<rt> e |> AST.zext 32<rt>
+  let lowS e = AST.xtlo 8<rt> e |> AST.sext 32<rt>
+  let highS e = AST.xthi 8<rt> e |> AST.sext 32<rt>
+  let madd e1 e2 = (lowU e1 .* lowS e2) .+ (highU e1 .* highS e2)
+  Array.map2 madd src1 src2 |> Array.map saturateToSignedWord
+
+let pmaddubsw ins bld =
+  buildPackedInstr ins bld false 16<rt> opPmaddubsw
+
+/// PABSB/PABSW/PABSD replace each signed lane with its absolute value. The
+/// most negative lane has no positive image, and the instruction leaves it as
+/// it is rather than saturating -- negating it wraps back to itself, so one
+/// expression covers that lane too. The destination is written, never read.
+let private opPabs packSz src =
+  src |> Array.map (fun e -> AST.ite (AST.slt e (AST.num0 packSz))
+                                     (AST.neg e) e)
+
+let opPabsb _ _ src2 = opPabs 8<rt> src2
+
+let opPabsw _ _ src2 = opPabs 16<rt> src2
+
+let opPabsd _ _ src2 = opPabs 32<rt> src2
+
+let pabsb ins bld = buildPackedInstr ins bld false 8<rt> opPabsb
+
+let pabsw ins bld = buildPackedInstr ins bld false 16<rt> opPabsw
+
+let pabsd ins bld = buildPackedInstr ins bld false 32<rt> opPabsd
 
 let opPcmp packSz cmpOp =
   Array.map2 (fun e1 e2 ->
@@ -669,7 +742,7 @@ let pcmpeqb ins bld =
   buildPackedInstr ins bld false 8<rt> opPcmpeqb
 #endif
 
-let private opPcmpeqw _ = opPcmp 16<rt> (==)
+let opPcmpeqw _ = opPcmp 16<rt> (==)
 
 let pcmpeqw ins bld =
   buildPackedInstr ins bld false 16<rt> opPcmpeqw
@@ -684,15 +757,20 @@ let opPcmpgtb _ = opPcmp 8<rt> AST.sgt
 let pcmpgtb ins bld =
   buildPackedInstr ins bld false 8<rt> opPcmpgtb
 
-let private opPcmpgtw _ = opPcmp 16<rt> AST.sgt
+let opPcmpgtw _ = opPcmp 16<rt> AST.sgt
 
 let pcmpgtw ins bld =
   buildPackedInstr ins bld false 16<rt> opPcmpgtw
 
-let private opPcmpgtd _ = opPcmp 32<rt> AST.sgt
+let opPcmpgtd _ = opPcmp 32<rt> AST.sgt
 
 let pcmpgtd ins bld =
   buildPackedInstr ins bld false 32<rt> opPcmpgtd
+
+let opPcmpgtq _ = opPcmp 64<rt> AST.sgt
+
+let pcmpgtq ins bld =
+  buildPackedInstr ins bld false 64<rt> opPcmpgtq
 
 let opPand _ = Array.map2 (.&)
 
@@ -741,7 +819,7 @@ let private opShiftPackedDataLogical oprSize packSz shift src1 src2 =
   | _ ->
     raise InvalidOperandSizeException
 
-let private opPsllw oprSize = opShiftPackedDataLogical oprSize 16<rt> (<<)
+let opPsllw oprSize = opShiftPackedDataLogical oprSize 16<rt> (<<)
 
 let psllw ins bld = buildPackedInstr ins bld false 16<rt> opPsllw
 

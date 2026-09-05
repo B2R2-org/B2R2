@@ -146,6 +146,112 @@ let vsqrtpd ins bld =
     fillZeroFromVLToMaxVL bld dst oprSz 512
   }
 
+/// The VEX AES rounds: the same host call the legacy forms make, over one
+/// 128-bit lane or two. A VEX.128 form writes its lane and clears everything
+/// above it, and a VEX.256 form -- the VAES extension -- runs the round on
+/// each lane on its own, the two sharing nothing.
+let private vaesRound (ins: Instruction) bld name =
+  lift bld ins {
+    let struct (dst, src1, src2) = getThreeOprs ins
+    let oprSz = getOperationSize ins
+    match oprSz with
+    | 128<rt> ->
+      let struct (dstB, dstA) = transOpr128 ins bld false dst
+      let struct (aB, aA) = transOpr128 ins bld false src1
+      let struct (bB, bA) = transOpr128 ins bld false src2
+      let t = tmpVar bld 128<rt>
+      direct t := AST.app name [ AST.concat aB aA; AST.concat bB bA ] 128<rt>
+      direct dstA := AST.xtlo 64<rt> t
+      direct dstB := AST.xthi 64<rt> t
+    | 256<rt> ->
+      let struct (dstD, dstC, dstB, dstA) = transOpr256 ins bld false dst
+      let struct (a4, a3, a2, a1) = transOpr256 ins bld false src1
+      let struct (b4, b3, b2, b1) = transOpr256 ins bld false src2
+      let struct (lo, hi) = tmpVars2 bld 128<rt>
+      direct lo := AST.app name [ AST.concat a2 a1; AST.concat b2 b1 ] 128<rt>
+      direct hi := AST.app name [ AST.concat a4 a3; AST.concat b4 b3 ] 128<rt>
+      direct dstA := AST.xtlo 64<rt> lo
+      direct dstB := AST.xthi 64<rt> lo
+      direct dstC := AST.xtlo 64<rt> hi
+      direct dstD := AST.xthi 64<rt> hi
+    | _ ->
+      raise InvalidOperandSizeException
+    fillZeroFromVLToMaxVL bld dst oprSz 512
+  }
+
+let vaesenc ins bld = vaesRound ins bld "AESENC"
+
+let vaesenclast ins bld = vaesRound ins bld "AESENCLAST"
+
+let vaesdec ins bld = vaesRound ins bld "AESDEC"
+
+let vaesdeclast ins bld = vaesRound ins bld "AESDECLAST"
+
+/// VAESIMC has one source and no wider form: the inverse mixing is only ever
+/// wanted a key at a time.
+let vaesimc (ins: Instruction) bld =
+  lift bld ins {
+    let struct (dst, src) = getTwoOprs ins
+    let struct (dstB, dstA) = transOpr128 ins bld false dst
+    let struct (srcB, srcA) = transOpr128 ins bld false src
+    let t = tmpVar bld 128<rt>
+    direct t := AST.app "AESIMC" [ AST.concat srcB srcA ] 128<rt>
+    direct dstA := AST.xtlo 64<rt> t
+    direct dstB := AST.xthi 64<rt> t
+    fillZeroFromVLToMaxVL bld dst 128<rt> 512
+  }
+
+/// VAESKEYGENASSIST, likewise 128-bit only, with the round constant its
+/// immediate carries.
+let vaeskeygenassist (ins: Instruction) bld =
+  lift bld ins {
+    let struct (dst, src, imm) = getThreeOprs ins
+    let struct (dstB, dstA) = transOpr128 ins bld false dst
+    let struct (srcB, srcA) = transOpr128 ins bld false src
+    let rcon = numU64 (uint64 (getImmValue imm) &&& 0xFFUL) 8<rt>
+    let t = tmpVar bld 128<rt>
+    let src = AST.concat srcB srcA
+    direct t := AST.app "AESKEYGENASSIST" [ src; rcon ] 128<rt>
+    direct dstA := AST.xtlo 64<rt> t
+    direct dstB := AST.xthi 64<rt> t
+    fillZeroFromVLToMaxVL bld dst 128<rt> 512
+  }
+
+/// VPCLMULQDQ: the carry-less multiply over one lane or two, its immediate
+/// picking a quadword from each source within every lane it runs on.
+let vpclmulqdq (ins: Instruction) bld =
+  lift bld ins {
+    let struct (dst, src1, src2, imm) = getFourOprs ins
+    let oprSz = getOperationSize ins
+    let control = numU64 (uint64 (getImmValue imm) &&& 0x11UL) 8<rt>
+    match oprSz with
+    | 128<rt> ->
+      let struct (dstB, dstA) = transOpr128 ins bld false dst
+      let struct (aB, aA) = transOpr128 ins bld false src1
+      let struct (bB, bA) = transOpr128 ins bld false src2
+      let t = tmpVar bld 128<rt>
+      let args = [ AST.concat aB aA; AST.concat bB bA; control ]
+      direct t := AST.app "PCLMULQDQ" args 128<rt>
+      direct dstA := AST.xtlo 64<rt> t
+      direct dstB := AST.xthi 64<rt> t
+    | 256<rt> ->
+      let struct (dstD, dstC, dstB, dstA) = transOpr256 ins bld false dst
+      let struct (a4, a3, a2, a1) = transOpr256 ins bld false src1
+      let struct (b4, b3, b2, b1) = transOpr256 ins bld false src2
+      let struct (lo, hi) = tmpVars2 bld 128<rt>
+      let loArgs = [ AST.concat a2 a1; AST.concat b2 b1; control ]
+      let hiArgs = [ AST.concat a4 a3; AST.concat b4 b3; control ]
+      direct lo := AST.app "PCLMULQDQ" loArgs 128<rt>
+      direct hi := AST.app "PCLMULQDQ" hiArgs 128<rt>
+      direct dstA := AST.xtlo 64<rt> lo
+      direct dstB := AST.xthi 64<rt> lo
+      direct dstC := AST.xtlo 64<rt> hi
+      direct dstD := AST.xthi 64<rt> hi
+    | _ ->
+      raise InvalidOperandSizeException
+    fillZeroFromVLToMaxVL bld dst oprSz 512
+  }
+
 let private vsqrts (ins: Instruction) bld sz =
   lift bld ins {
     let struct (dst, src1, src2) = getThreeOprs ins
@@ -1112,6 +1218,77 @@ let vpalignr (ins: Instruction) bld =
     fillZeroFromVLToMaxVL bld dst oprSz 512
   }
 
+/// The VEX forms of the packed integer operations begin here. Each is the
+/// operation the legacy encoding already carries, over a destination the
+/// encoding names separately -- so the operation itself is shared, and what
+/// the VEX form adds is only that the register above the vector length is
+/// cleared.
+let vpaddw ins bld = buildPackedInstr ins bld true 16<rt> (opP (.+))
+
+let vpaddsb ins bld = buildPackedInstr ins bld true 8<rt> opPaddsb
+
+let vpaddsw ins bld = buildPackedInstr ins bld true 16<rt> opPaddsw
+
+let vpaddusb ins bld = buildPackedInstr ins bld true 8<rt> opPaddusb
+
+let vpaddusw ins bld = buildPackedInstr ins bld true 16<rt> opPaddusw
+
+let vpsubw ins bld = buildPackedInstr ins bld true 16<rt> (opP (.-))
+
+let vpsubq ins bld = buildPackedInstr ins bld true 64<rt> (opP (.-))
+
+let vpsubsb ins bld = buildPackedInstr ins bld true 8<rt> opPsubsb
+
+let vpsubsw ins bld = buildPackedInstr ins bld true 16<rt> opPsubsw
+
+let vpsubusb ins bld = buildPackedInstr ins bld true 8<rt> opPsubusb
+
+let vpsubusw ins bld = buildPackedInstr ins bld true 16<rt> opPsubusw
+
+let vpcmpeqw ins bld = buildPackedInstr ins bld true 16<rt> opPcmpeqw
+
+let vpcmpgtw ins bld = buildPackedInstr ins bld true 16<rt> opPcmpgtw
+
+let vpcmpgtd ins bld = buildPackedInstr ins bld true 32<rt> opPcmpgtd
+
+let vpcmpgtq ins bld = buildPackedInstr ins bld true 64<rt> opPcmpgtq
+
+let vpmaxsb ins bld = buildPackedInstr ins bld true 8<rt> opPmaxs
+
+let vpmaxsw ins bld = buildPackedInstr ins bld true 16<rt> opPmaxs
+
+let vpmaxub ins bld = buildPackedInstr ins bld true 8<rt> opPmaxu
+
+let vpmaxuw ins bld = buildPackedInstr ins bld true 16<rt> opPmaxu
+
+let vpmaxud ins bld = buildPackedInstr ins bld true 32<rt> opPmaxu
+
+let vpminsw ins bld = buildPackedInstr ins bld true 16<rt> opPmins
+
+let vpminuw ins bld = buildPackedInstr ins bld true 16<rt> opPminu
+
+let vpmulhw ins bld = buildPackedInstr ins bld true 16<rt> opPmulhw
+
+let vpmulhrsw ins bld = buildPackedInstr ins bld true 16<rt> opPmulhrsw
+
+let vpmuldq ins bld = buildPackedInstr ins bld true 64<rt> opPmuldq
+
+let vpmaddwd ins bld = buildPackedInstr ins bld true 32<rt> opPmaddwd
+
+let vpmaddubsw ins bld = buildPackedInstr ins bld true 16<rt> opPmaddubsw
+
+let vpabsb ins bld = buildPackedInstr ins bld true 8<rt> opPabsb
+
+let vpabsw ins bld = buildPackedInstr ins bld true 16<rt> opPabsw
+
+let vpabsd ins bld = buildPackedInstr ins bld true 32<rt> opPabsd
+
+let vpunpckhbw ins bld =
+  buildPackedInstr ins bld true 8<rt> opUnpackHighData
+
+let vpunpcklbw ins bld =
+  buildPackedInstr ins bld true 8<rt> opUnpackLowData
+
 let vpand ins bld = buildPackedInstr ins bld true 64<rt> opPand
 
 let vpandn ins bld = buildPackedInstr ins bld true 64<rt> opPandn
@@ -1514,6 +1691,541 @@ let vpinsrw (ins: Instruction) bld =
     assignPackedInstr ins bld false packNum 128<rt> dst tmps
     fillZeroFromVLToMaxVL bld dst 128<rt> 512
   }
+
+/// The broadcasts fill every lane from one element of the source. The element
+/// is the source's lowest, and the only question each of them answers is how
+/// wide it is.
+let private vbroadcast (ins: Instruction) bld packSz =
+  lift bld ins {
+    let oprSize = getOperationSize ins
+    let packNum = 64<rt> / packSz
+    let struct (dst, src) = getTwoOprs ins
+    let value =
+      if packSz = 64<rt> then transOpr64 ins bld false src
+      else transOpr32 ins bld false src
+    let lanes = RegType.toBitWidth oprSize / RegType.toBitWidth packSz
+    assignPackedInstr ins bld false packNum oprSize dst
+                      (Array.create lanes value)
+    fillZeroFromVLToMaxVL bld dst oprSize 512
+  }
+
+let vbroadcastsd ins bld = vbroadcast ins bld 64<rt>
+
+let vpbroadcastq ins bld = vbroadcast ins bld 64<rt>
+
+/// VBROADCASTF128 fills both halves of a 256-bit register from one 128-bit
+/// source, which is a memory operand and nothing else.
+let vbroadcastf128 (ins: Instruction) bld =
+  lift bld ins {
+    let struct (dst, src) = getTwoOprs ins
+    let struct (srcB, srcA) = transOpr128 ins bld false src
+    let struct (dstD, dstC, dstB, dstA) = transOpr256 ins bld false dst
+    direct dstA := srcA
+    direct dstB := srcB
+    direct dstC := srcA
+    direct dstD := srcB
+    fillZeroFromVLToMaxVL bld dst 256<rt> 512
+  }
+
+/// VEXTRACTF128 takes one 128-bit lane out of a 256-bit register, the
+/// immediate's low bit naming it.
+let vextractf128 (ins: Instruction) bld =
+  lift bld ins {
+    let struct (dst, src, imm) = getThreeOprs ins
+    let struct (srcD, srcC, srcB, srcA) = transOpr256 ins bld false src
+    let struct (dstB, dstA) = transOpr128 ins bld false dst
+    if getImmValue imm &&& 1L = 0L then
+      direct dstA := srcA
+      direct dstB := srcB
+    else
+      direct dstA := srcC
+      direct dstB := srcD
+    (* Into a register the write clears what lies above it; into memory there
+       is nothing above to clear. *)
+    match dst with
+    | OprReg _ -> fillZeroFromVLToMaxVL bld dst 128<rt> 512
+    | _ -> ()
+  }
+
+/// VINSERTF128 replaces one 128-bit lane of the first source and takes the
+/// other from it unchanged.
+let vinsertf128 (ins: Instruction) bld =
+  lift bld ins {
+    let struct (dst, s1, s2, imm) = getFourOprs ins
+    let struct (aD, aC, aB, aA) = transOpr256 ins bld false s1
+    let struct (bB, bA) = transOpr128 ins bld false s2
+    let struct (dstD, dstC, dstB, dstA) = transOpr256 ins bld false dst
+    if getImmValue imm &&& 1L = 0L then
+      direct dstA := bA
+      direct dstB := bB
+      direct dstC := aC
+      direct dstD := aD
+    else
+      direct dstA := aA
+      direct dstB := aB
+      direct dstC := bA
+      direct dstD := bB
+    fillZeroFromVLToMaxVL bld dst 256<rt> 512
+  }
+
+/// Zeroes every vector register, which VZEROALL does and VZEROUPPER does only
+/// above the low 128 bits of each. A 32-bit guest has eight of them and a
+/// 64-bit one sixteen.
+let private zeroAllVectors bld is64 =
+  let low = [ R.YMM0; R.YMM1; R.YMM2; R.YMM3; R.YMM4; R.YMM5; R.YMM6; R.YMM7 ]
+  let high =
+    [ R.YMM8
+      R.YMM9
+      R.YMM10
+      R.YMM11
+      R.YMM12
+      R.YMM13
+      R.YMM14
+      R.YMM15 ]
+  let regs = if is64 then low @ high else low
+  for r in regs do
+    for part in 1 .. 4 do
+      append bld {
+        direct (pseudoRegVar bld r part) := AST.num0 64<rt>
+      }
+
+let vzeroall (ins: Instruction) bld =
+  lift bld ins {
+    zeroAllVectors bld (is64bit bld)
+  }
+
+/// VTESTPS and VTESTPD test sign bits and nothing else: ZF says the sign bits
+/// the two operands share are all clear, CF says the same of the source's
+/// signs against the destination's inverted ones. The other four flags are
+/// cleared, which is as much of the answer as the two that carry it.
+let private vtest (ins: Instruction) bld packSz =
+  lift bld ins {
+    let oprSize = getOperationSize ins
+    let packNum = 64<rt> / packSz
+    let struct (src1, src2) = getTwoOprs ins
+    let a = transOprToArr ins bld true packSz packNum oprSize src1
+    let b = transOprToArr ins bld true packSz packNum oprSize src2
+    let signOf (e: Expr) = AST.xthi 1<rt> e
+    let anyBoth =
+      Array.map2 (fun x y -> signOf x .& signOf y) a b |> Array.reduce (.|)
+    let anyOnly =
+      Array.map2 (fun x y -> AST.not (signOf x) .& signOf y) a b
+      |> Array.reduce (.|)
+    direct (regVar bld R.ZF) := AST.not anyBoth
+    direct (regVar bld R.CF) := AST.not anyOnly
+    direct (regVar bld R.OF) := AST.b0
+    direct (regVar bld R.AF) := AST.b0
+    direct (regVar bld R.PF) := AST.b0
+    direct (regVar bld R.SF) := AST.b0
+#if EMULATION
+    bld.ConditionCodeOp <- ConditionCodeOp.EFlags
+#endif
+  }
+
+let vtestps ins bld = vtest ins bld 32<rt>
+
+let vtestpd ins bld = vtest ins bld 64<rt>
+
+/// The variable shifts move each lane by a count of its own, and a count at or
+/// past the lane's width clears it rather than wrapping.
+let private vShiftVariable (ins: Instruction) bld packSz isLeft =
+  lift bld ins {
+    let oprSize = getOperationSize ins
+    let packNum = 64<rt> / packSz
+    let struct (dst, s1, s2) = getDstAndSrcs ins
+    let a = transOprToArr ins bld true packSz packNum oprSize s1
+    let b = transOprToArr ins bld true packSz packNum oprSize s2
+    let width = numI32 (RegType.toBitWidth packSz) packSz
+    let result =
+      Array.map2 (fun v c ->
+        let shifted = if isLeft then v << c else v >> c
+        AST.ite (AST.lt c width) shifted (AST.num0 packSz)) a b
+    assignPackedInstr ins bld false packNum oprSize dst result
+    fillZeroFromVLToMaxVL bld dst oprSize 512
+  }
+
+let vpsllvd ins bld = vShiftVariable ins bld 32<rt> true
+
+let vpsllvq ins bld = vShiftVariable ins bld 64<rt> true
+
+let vpsrlvd ins bld = vShiftVariable ins bld 32<rt> false
+
+let vpsrlvq ins bld = vShiftVariable ins bld 64<rt> false
+
+/// VPSLLW shifts every word by one count, and that count is the low quadword
+/// of a 128-bit source however wide the operation is -- which is why it cannot
+/// ride the packed builder, whose second operand is as wide as the first.
+let vpsllw (ins: Instruction) bld =
+  lift bld ins {
+    let oprSize = getOperationSize ins
+    let struct (dst, s1, s2) = getDstAndSrcs ins
+    let a = transOprToArr ins bld true 16<rt> 4 oprSize s1
+    let count = tmpVar bld 16<rt>
+    (* The count comes as a whole 128-bit operand or as an immediate; either
+       way only its low bits mean anything, and a count past fifteen clears
+       every word. *)
+    let raw =
+      match s2 with
+      | OprImm _ -> numI64 (getImmValue s2 &&& 0xFFL) 64<rt>
+      | _ -> transOpr64 ins bld true s2
+    let tooFar = tmpVar bld 1<rt>
+    direct tooFar := AST.gt raw (numI32 15 64<rt>)
+    direct count := AST.xtlo 16<rt> raw
+    let result =
+      a |> Array.map (fun v ->
+        AST.ite tooFar (AST.num0 16<rt>) (v << count))
+    assignPackedInstr ins bld false 4 oprSize dst result
+    if isVexEncoded ins then
+      fillZeroFromVLToMaxVL bld dst oprSize 512
+    else
+      ()
+  }
+
+/// Picks one element of an array by an index only known at run time, as the
+/// chain of choices that is.
+let private selectByIndex (elems: Expr[]) idx =
+  let mutable picked = elems[elems.Length - 1]
+  for i in elems.Length - 2 .. -1 .. 0 do
+    picked <- AST.ite (idx == numI32 i (Expr.typeOf idx)) elems[i] picked
+  picked
+
+/// VPERMILPS and VPERMILPD rearrange within each 128-bit lane and never
+/// across: the control for a lane names one of that lane's own elements. The
+/// control is either a vector, a field of each of its elements, or an
+/// immediate that every lane reads the same way.
+let private vpermil (ins: Instruction) bld packSz =
+  lift bld ins {
+    let oprSize = getOperationSize ins
+    let packNum = 64<rt> / packSz
+    let struct (dst, s1, s2) = getDstAndSrcs ins
+    let a = transOprToArr ins bld true packSz packNum oprSize s1
+    let perLaneCount = 128 / RegType.toBitWidth packSz
+    let mask = int64 perLaneCount - 1L
+    let shift = if packSz = 64<rt> then 1 else 0
+    let result =
+      match s2 with
+      | OprImm _ ->
+        let imm = getImmValue s2
+        Array.init a.Length (fun i ->
+          let lane = i / perLaneCount
+          (* An immediate spends the same bits on every lane for doubles, and
+             two bits per element for singles. *)
+          let sel =
+            if packSz = 64<rt> then int ((imm >>> i) &&& 1L)
+            else int ((imm >>> ((i % perLaneCount) * 2)) &&& 3L)
+          a[lane * perLaneCount + sel])
+      | _ ->
+        let ctrl = transOprToArr ins bld true packSz packNum oprSize s2
+        Array.init a.Length (fun i ->
+          let lane = i / perLaneCount
+          let idx = tmpVar bld packSz
+          append bld {
+            direct idx := (ctrl[i] >> numI32 shift packSz)
+                          .& numI64 mask packSz
+          }
+          selectByIndex (Array.sub a (lane * perLaneCount) perLaneCount) idx)
+    assignPackedInstr ins bld false packNum oprSize dst result
+    fillZeroFromVLToMaxVL bld dst oprSize 512
+  }
+
+let vpermilps ins bld = vpermil ins bld 32<rt>
+
+let vpermilpd ins bld = vpermil ins bld 64<rt>
+
+/// VPERM2F128 builds each half of the result from a 128-bit lane of either
+/// source, or from nothing at all where the immediate says to zero it.
+let vperm2f128 (ins: Instruction) bld =
+  lift bld ins {
+    let struct (dst, s1, s2, imm) = getDstSrcsImm ins
+    let imm = getImmValue imm
+    let a = transOprToArr ins bld true 64<rt> 1 256<rt> s1
+    let b = transOprToArr ins bld true 64<rt> 1 256<rt> s2
+    let lanes = Array.append a b (* the four 128-bit lanes to choose from *)
+    let half sel =
+      let pick = int (sel &&& 0b11L) * 2
+      [| lanes[pick]; lanes[pick + 1] |]
+    let zeroed = [| AST.num0 64<rt>; AST.num0 64<rt> |]
+    let low = if imm &&& 0b1000L <> 0L then zeroed else half imm
+    let high =
+      if imm &&& 0b10000000L <> 0L then zeroed else half (imm >>> 4)
+    assignPackedInstr ins bld false 1 256<rt> dst (Array.append low high)
+    fillZeroFromVLToMaxVL bld dst 256<rt> 512
+  }
+
+/// VPERMPD reorders the four quadwords of a 256-bit register by an immediate,
+/// crossing the 128-bit lanes as VPERMILPD does not.
+let vpermpd (ins: Instruction) bld =
+  lift bld ins {
+    let struct (dst, src, imm) = getThreeOprs ins
+    let imm = getImmValue imm
+    let a = transOprToArr ins bld true 64<rt> 1 256<rt> src
+    let result = Array.init 4 (fun i -> a[int ((imm >>> (i * 2)) &&& 3L)])
+    assignPackedInstr ins bld false 1 256<rt> dst result
+    fillZeroFromVLToMaxVL bld dst 256<rt> 512
+  }
+
+/// VPERMPS reorders the eight doublewords by an index vector, likewise across
+/// the whole register.
+let vpermps (ins: Instruction) bld =
+  lift bld ins {
+    let struct (dst, s1, s2) = getThreeOprs ins
+    let ctrl = transOprToArr ins bld true 32<rt> 2 256<rt> s1
+    let a = transOprToArr ins bld true 32<rt> 2 256<rt> s2
+    let result =
+      Array.init 8 (fun i ->
+        let idx = tmpVar bld 32<rt>
+        append bld {
+          direct idx := ctrl[i] .& numI32 7 32<rt>
+        }
+        selectByIndex a idx)
+    assignPackedInstr ins bld false 2 256<rt> dst result
+    fillZeroFromVLToMaxVL bld dst 256<rt> 512
+  }
+
+/// The masked moves read or write only the elements whose mask element has
+/// its sign bit set. As a load, the elements the mask leaves out come back
+/// zero and their addresses are never touched; as a store, the memory they
+/// would have covered is left alone -- which is why each element is a load or
+/// a store of its own rather than one wide access.
+let private maskedMove (ins: Instruction) bld packSz =
+  lift bld ins {
+    let oprSize = getOperationSize ins
+    let packNum = 64<rt> / packSz
+    let struct (dst, s1, s2) = getDstAndSrcs ins
+    let mask = transOprToArr ins bld true packSz packNum oprSize s1
+    let count = RegType.toBitWidth oprSize / RegType.toBitWidth packSz
+    let bytes = RegType.toByteWidth packSz
+    let addressOf opr =
+      match transOpr ins bld false opr with
+      | Load(_, _, addr, _) -> addr
+      | _ -> raise InvalidOperandException
+    let elemAt addr i =
+      AST.loadLE packSz (addr .+ numI32 (i * bytes) (Expr.typeOf addr))
+    match dst with
+    | OprMem _ ->
+      let addr = addressOf dst
+      let value = transOprToArr ins bld true packSz packNum oprSize s2
+      for i in 0 .. count - 1 do
+        let at = elemAt addr i
+        append bld {
+          direct at := AST.ite (AST.xthi 1<rt> mask[i]) value[i] at
+        }
+    | _ ->
+      let addr = addressOf s2
+      let result =
+        Array.init count (fun i ->
+          AST.ite (AST.xthi 1<rt> mask[i]) (elemAt addr i) (AST.num0 packSz))
+      assignPackedInstr ins bld false packNum oprSize dst result
+      fillZeroFromVLToMaxVL bld dst oprSize 512
+  }
+
+let vmaskmovps ins bld = maskedMove ins bld 32<rt>
+
+let vmaskmovpd ins bld = maskedMove ins bld 64<rt>
+
+let vpmaskmovd ins bld = maskedMove ins bld 32<rt>
+
+let vpmaskmovq ins bld = maskedMove ins bld 64<rt>
+
+/// The conversions whose elements keep their width: an integer lane becomes a
+/// float of the same size, or the other way about. The rounding a float-to-
+/// integer conversion uses is the one the legacy forms use, which is to
+/// nearest rather than what MXCSR says -- a gap this shares with them rather
+/// than one it adds.
+let private cvtSameWidth (ins: Instruction) bld packSz castKind =
+  lift bld ins {
+    let oprSize = getOperationSize ins
+    let packNum = 64<rt> / packSz
+    let struct (dst, src) = getTwoOprs ins
+    let a = transOprToArr ins bld true packSz packNum oprSize src
+    let result = a |> Array.map (AST.cast castKind packSz)
+    assignPackedInstr ins bld false packNum oprSize dst result
+    fillZeroFromVLToMaxVL bld dst oprSize 512
+  }
+
+let vcvtdq2ps ins bld =
+  cvtSameWidth ins bld 32<rt> CastKind.SIntToFloat
+
+let vcvtps2dq ins bld =
+  cvtSameWidth ins bld 32<rt> CastKind.FtoIRound
+
+let vcvttps2dq ins bld =
+  cvtSameWidth ins bld 32<rt> CastKind.FtoITrunc
+
+/// The conversions that change a lane's width. The instruction's operation
+/// size is the destination's width; the source is twice that where the lanes
+/// narrow and half of it where they widen, which is how each side is read at
+/// the width it really has.
+let private operandWidth (bld: ILowUIRBuilder) opr =
+  match opr with
+  | OprReg r -> RegisterHelper.toRegType bld.WordSize r
+  | OprMem(_, _, _, sz) -> sz
+  | _ -> raise InvalidOperandException
+
+let private cvtNarrowing (ins: Instruction) bld castKind =
+  lift bld ins {
+    let struct (dst, src) = getTwoOprs ins
+    (* The source is as wide as its own operand -- half a 256-bit register's
+       worth of doubles becomes a 128-bit register's worth of floats, and a
+       128-bit source fills only half the destination, the rest coming back
+       zero. *)
+    let srcSize = operandWidth bld src
+    let dstSize = getOperationSize ins
+    let a = transOprToArr ins bld true 64<rt> 1 srcSize src
+    let lanes = RegType.toBitWidth dstSize / 32
+    let result =
+      Array.init lanes (fun i ->
+        if i < a.Length then AST.cast castKind 32<rt> a[i]
+        else AST.num0 32<rt>)
+    assignPackedInstr ins bld false 2 dstSize dst result
+    fillZeroFromVLToMaxVL bld dst dstSize 512
+  }
+
+let private cvtWidening (ins: Instruction) bld castKind =
+  lift bld ins {
+    let dstSize = getOperationSize ins
+    let srcSize = RegType.fromBitWidth (RegType.toBitWidth dstSize / 2)
+    let struct (dst, src) = getTwoOprs ins
+    let a = transOprToArr ins bld true 32<rt> 2 srcSize src
+    let result = a |> Array.map (AST.cast castKind 64<rt>)
+    assignPackedInstr ins bld false 1 dstSize dst result
+    fillZeroFromVLToMaxVL bld dst dstSize 512
+  }
+
+let vcvtpd2ps ins bld = cvtNarrowing ins bld CastKind.FloatCast
+
+let vcvtpd2dq ins bld = cvtNarrowing ins bld CastKind.FtoIRound
+
+let vcvttpd2dq ins bld = cvtNarrowing ins bld CastKind.FtoITrunc
+
+let vcvtdq2pd ins bld = cvtWidening ins bld CastKind.SIntToFloat
+
+let vcvtps2pd ins bld = cvtWidening ins bld CastKind.FloatCast
+
+/// The gathers load one element per index, and only where the mask element's
+/// sign bit is set: an element the mask leaves out keeps what the destination
+/// held and its address is never formed at all -- which is why each load sits
+/// behind a branch rather than inside a conditional expression, whose other
+/// side would be evaluated too. The mask register is cleared whole at the end,
+/// which is how a program tells a gather that finished from one that faulted
+/// part way through.
+let private gather (ins: Instruction) bld idxSz dataSz =
+  lift bld ins {
+    let struct (dst, vsib, maskOpr) = getThreeOprs ins
+    let dstSize = getOperationSize ins
+    let dataNum = 64<rt> / dataSz
+    match vsib with
+    | OprMem(baseReg, Some(idxReg, scale), disp, _) ->
+      let addrSz = bld.RegType
+      let baseExpr =
+        match baseReg with
+        | Some r -> regVar bld r
+        | None -> AST.num0 addrSz
+      let dispExpr =
+        match disp with
+        | Some d -> numI64 d addrSz
+        | None -> AST.num0 addrSz
+      let idxWidth = operandWidth bld (OprReg idxReg)
+      let indices =
+        transOprToArr ins bld true idxSz (64<rt> / idxSz) idxWidth
+                      (OprReg idxReg)
+      let slots = transOprToArr ins bld false dataSz dataNum dstSize dst
+      let mask = transOprToArr ins bld true dataSz dataNum dstSize maskOpr
+      let count =
+        min (RegType.toBitWidth dstSize / RegType.toBitWidth dataSz)
+            (RegType.toBitWidth idxWidth / RegType.toBitWidth idxSz)
+      let scaleNum = numI32 (int scale) addrSz
+      for i in 0 .. slots.Length - 1 do
+        if i < count then
+          let addr = tmpVar bld addrSz
+          _if bld "Gathered" (AST.xthi 1<rt> mask[i])
+            (block {
+              direct addr :=
+                baseExpr .+ dispExpr
+                .+ ((AST.sext addrSz indices[i]) .* scaleNum)
+              direct (slots[i]) := AST.loadLE dataSz addr })
+            (block { })
+        else
+          append bld {
+            direct (slots[i]) := AST.num0 dataSz
+          }
+      (* Every mask element goes, whether it was used or not. *)
+      let maskSlots =
+        transOprToArr ins bld false dataSz dataNum dstSize maskOpr
+      for m in maskSlots do
+        append bld {
+          direct m := AST.num0 dataSz
+        }
+      (* The mask register is written like any other, so what lies above the
+         vector length in it is cleared as well. *)
+      fillZeroFromVLToMaxVL bld maskOpr dstSize 512
+      fillZeroFromVLToMaxVL bld dst dstSize 512
+    | _ ->
+      raise InvalidOperandException
+  }
+
+let vgatherdpd ins bld = gather ins bld 32<rt> 64<rt>
+
+let vgatherqpd ins bld = gather ins bld 64<rt> 64<rt>
+
+let vgatherdps ins bld = gather ins bld 32<rt> 32<rt>
+
+let vgatherqps ins bld = gather ins bld 64<rt> 32<rt>
+
+let vpgatherdd ins bld = gather ins bld 32<rt> 32<rt>
+
+let vpgatherdq ins bld = gather ins bld 32<rt> 64<rt>
+
+let vpgatherqd ins bld = gather ins bld 64<rt> 32<rt>
+
+let vpgatherqq ins bld = gather ins bld 64<rt> 64<rt>
+
+/// The reciprocal and reciprocal-square-root approximations. What the manual
+/// promises is a relative error under 1.5 * 2^-12 and nothing more: the exact
+/// bits are the implementation's to choose, and these compute the real
+/// quotient rather than any particular approximation of it -- which is what
+/// the legacy forms do too, and as close as a model can come without copying
+/// one processor's table.
+let private vapproxRecip (ins: Instruction) bld packSz isSqrt =
+  lift bld ins {
+    let oprSize = getOperationSize ins
+    let packNum = 64<rt> / packSz
+    let struct (dst, src) = getTwoOprs ins
+    let a = transOprToArr ins bld true packSz packNum oprSize src
+    let one = numI32 0x3f800000 packSz
+    let result =
+      a |> Array.map (fun v ->
+        if isSqrt then AST.fdiv one (AST.unop UnOpType.FSQRT v)
+        else AST.fdiv one v)
+    assignPackedInstr ins bld false packNum oprSize dst result
+    fillZeroFromVLToMaxVL bld dst oprSize 512
+  }
+
+/// The scalar forms leave the lanes above the low one to the named source.
+let private vapproxRecipScalar (ins: Instruction) bld isSqrt =
+  lift bld ins {
+    let struct (dst, s1, s2) = getDstAndSrcs ins
+    let struct (dstB, dstA) = transOpr128 ins bld false dst
+    let struct (s1B, s1A) = transOpr128 ins bld false s1
+    let src = transOpr32 ins bld false s2
+    let one = numI32 0x3f800000 32<rt>
+    let answer = tmpVar bld 32<rt>
+    direct answer :=
+      (if isSqrt then AST.fdiv one (AST.unop UnOpType.FSQRT src)
+       else AST.fdiv one src)
+    direct dstA := s1A
+    direct dstB := s1B
+    direct (AST.xtlo 32<rt> dstA) := answer
+    fillZeroFromVLToMaxVL bld dst 128<rt> 512
+  }
+
+let vrcpps ins bld = vapproxRecip ins bld 32<rt> false
+
+let vrsqrtps ins bld = vapproxRecip ins bld 32<rt> true
+
+let vrcpss ins bld = vapproxRecipScalar ins bld false
+
+let vrsqrtss ins bld = vapproxRecipScalar ins bld true
 
 let vpmaxsd ins bld =
   buildPackedInstr ins bld true 32<rt> SSELifter.opPmaxs
@@ -2052,38 +2764,262 @@ let vzeroupper (ins: Instruction) bld =
       ()
   }
 
-let vfmadd132sd (ins: Instruction) bld =
+/// Where the digits send the operands: 132 multiplies the destination by the
+/// third operand and adds the second, 213 multiplies the second by the
+/// destination, and 231 multiplies the two sources and adds the destination.
+type private FmaOrder =
+  | Fma132
+  | Fma213
+  | Fma231
+
+/// Whether the addend alternates sign across the lanes, and which way round:
+/// FMADDSUB subtracts in the even lanes, FMSUBADD adds in them.
+type private FmaAddend =
+  | Plus
+  | Minus
+  | SubtractsInEvenLanes
+  | AddsInEvenLanes
+
+/// The fused multiply-add is one host operation, not a multiply and an add:
+/// it rounds once, and a lifter that spells it out as the two rounds twice and
+/// lands a bit away often enough to matter. So it goes out as a named call,
+/// the only three-operand one here.
+/// The negations ride along as flags rather than being applied here: a
+/// negation is a flip of a sign bit, and flipping a NaN operand's sign before
+/// the operation would change which NaN the answer carries.
+let private fmaCall sz negProduct negAddend x y z =
+  let prodBit = if negProduct then 1UL else 0UL
+  let addBit = if negAddend then 2UL else 0UL
+  let args = [ x; y; z; numU64 (prodBit ||| addBit) 8<rt> ]
+  AST.app (if sz = 32<rt> then "FMA32" else "FMA64") args sz
+
+let private fmaPick order d s2 s3 =
+  match order with
+  | Fma132 -> d, s3, s2
+  | Fma213 -> s2, d, s3
+  | Fma231 -> s2, s3, d
+
+/// One lane's fused multiply-add, with the signs the variant asks for.
+let private fmaLane sz order negProduct addend lane d s2 s3 =
+  let x, y, z = fmaPick order d s2 s3
+  let subtracts =
+    match addend with
+    | Plus -> false
+    | Minus -> true
+    | SubtractsInEvenLanes -> lane % 2 = 0
+    | AddsInEvenLanes -> lane % 2 = 1
+  fmaCall sz negProduct subtracts x y z
+
+let private fmaPacked (ins: Instruction) bld sz order negProduct addend =
+  lift bld ins {
+    let oprSize = getOperationSize ins
+    let packNum = 64<rt> / sz
+    let struct (dst, src2, src3) = getThreeOprs ins
+    let d = transOprToArr ins bld true sz packNum oprSize dst
+    let a = transOprToArr ins bld true sz packNum oprSize src2
+    let b = transOprToArr ins bld true sz packNum oprSize src3
+    let result =
+      Array.init d.Length (fun i ->
+        fmaLane sz order negProduct addend i d[i] a[i] b[i])
+    assignPackedInstr ins bld false packNum oprSize dst result
+    fillZeroFromVLToMaxVL bld dst oprSize 512
+  }
+
+/// The scalar forms work on the low lane and leave the rest of the
+/// destination register as it stood.
+let private fmaScalar (ins: Instruction) bld sz order negProduct addend =
   lift bld ins {
     let struct (dst, src2, src3) = getThreeOprs ins
     let struct (_dstB, dstA) = transOpr128 ins bld false dst
-    let src2 = transOpr64 ins bld false src2
-    let src3 = transOpr64 ins bld false src3
-    let tmp = tmpVar bld 64<rt>
-    direct tmp := AST.fmul dstA src3
-    direct dstA := AST.fadd tmp src2
+    let s2 =
+      if sz = 32<rt> then transOpr32 ins bld false src2
+      else transOpr64 ins bld false src2
+    let s3 =
+      if sz = 32<rt> then transOpr32 ins bld false src3
+      else transOpr64 ins bld false src3
+    let low = if sz = 32<rt> then AST.xtlo 32<rt> dstA else dstA
+    let tmp = tmpVar bld sz
+    direct tmp := fmaLane sz order negProduct addend 0 low s2 s3
+    direct low := tmp
     fillZeroFromVLToMaxVL bld dst 128<rt> 512
   }
 
-let vfmadd213sd (ins: Instruction) bld =
-  lift bld ins {
-    let struct (dst, src2, src3) = getThreeOprs ins
-    let struct (_dstB, dstA) = transOpr128 ins bld false dst
-    let src2 = transOpr64 ins bld false src2
-    let src3 = transOpr64 ins bld false src3
-    let tmp = tmpVar bld 64<rt>
-    direct tmp := AST.fmul dstA src2
-    direct dstA := AST.fadd tmp src3
-    fillZeroFromVLToMaxVL bld dst 128<rt> 512
-  }
+let vfmadd132pd ins bld =
+  fmaPacked ins bld 64<rt> Fma132 false Plus
 
-let vfmadd231sd (ins: Instruction) bld =
-  lift bld ins {
-    let struct (dst, src2, src3) = getThreeOprs ins
-    let struct (_dstB, dstA) = transOpr128 ins bld false dst
-    let src2 = transOpr64 ins bld false src2
-    let src3 = transOpr64 ins bld false src3
-    let tmp = tmpVar bld 64<rt>
-    direct tmp := AST.fmul src2 src3
-    direct dstA := AST.fadd dstA tmp
-    fillZeroFromVLToMaxVL bld dst 128<rt> 512
-  }
+let vfmadd132ps ins bld =
+  fmaPacked ins bld 32<rt> Fma132 false Plus
+
+let vfmadd132sd ins bld =
+  fmaScalar ins bld 64<rt> Fma132 false Plus
+
+let vfmadd132ss ins bld =
+  fmaScalar ins bld 32<rt> Fma132 false Plus
+
+let vfmsub132pd ins bld =
+  fmaPacked ins bld 64<rt> Fma132 false Minus
+
+let vfmsub132ps ins bld =
+  fmaPacked ins bld 32<rt> Fma132 false Minus
+
+let vfmsub132sd ins bld =
+  fmaScalar ins bld 64<rt> Fma132 false Minus
+
+let vfmsub132ss ins bld =
+  fmaScalar ins bld 32<rt> Fma132 false Minus
+
+let vfnmadd132pd ins bld =
+  fmaPacked ins bld 64<rt> Fma132 true Plus
+
+let vfnmadd132ps ins bld =
+  fmaPacked ins bld 32<rt> Fma132 true Plus
+
+let vfnmadd132sd ins bld =
+  fmaScalar ins bld 64<rt> Fma132 true Plus
+
+let vfnmadd132ss ins bld =
+  fmaScalar ins bld 32<rt> Fma132 true Plus
+
+let vfnmsub132pd ins bld =
+  fmaPacked ins bld 64<rt> Fma132 true Minus
+
+let vfnmsub132ps ins bld =
+  fmaPacked ins bld 32<rt> Fma132 true Minus
+
+let vfnmsub132sd ins bld =
+  fmaScalar ins bld 64<rt> Fma132 true Minus
+
+let vfnmsub132ss ins bld =
+  fmaScalar ins bld 32<rt> Fma132 true Minus
+
+let vfmaddsub132pd ins bld =
+  fmaPacked ins bld 64<rt> Fma132 false SubtractsInEvenLanes
+
+let vfmaddsub132ps ins bld =
+  fmaPacked ins bld 32<rt> Fma132 false SubtractsInEvenLanes
+
+let vfmsubadd132pd ins bld =
+  fmaPacked ins bld 64<rt> Fma132 false AddsInEvenLanes
+
+let vfmsubadd132ps ins bld =
+  fmaPacked ins bld 32<rt> Fma132 false AddsInEvenLanes
+
+let vfmadd213pd ins bld =
+  fmaPacked ins bld 64<rt> Fma213 false Plus
+
+let vfmadd213ps ins bld =
+  fmaPacked ins bld 32<rt> Fma213 false Plus
+
+let vfmadd213sd ins bld =
+  fmaScalar ins bld 64<rt> Fma213 false Plus
+
+let vfmadd213ss ins bld =
+  fmaScalar ins bld 32<rt> Fma213 false Plus
+
+let vfmsub213pd ins bld =
+  fmaPacked ins bld 64<rt> Fma213 false Minus
+
+let vfmsub213ps ins bld =
+  fmaPacked ins bld 32<rt> Fma213 false Minus
+
+let vfmsub213sd ins bld =
+  fmaScalar ins bld 64<rt> Fma213 false Minus
+
+let vfmsub213ss ins bld =
+  fmaScalar ins bld 32<rt> Fma213 false Minus
+
+let vfnmadd213pd ins bld =
+  fmaPacked ins bld 64<rt> Fma213 true Plus
+
+let vfnmadd213ps ins bld =
+  fmaPacked ins bld 32<rt> Fma213 true Plus
+
+let vfnmadd213sd ins bld =
+  fmaScalar ins bld 64<rt> Fma213 true Plus
+
+let vfnmadd213ss ins bld =
+  fmaScalar ins bld 32<rt> Fma213 true Plus
+
+let vfnmsub213pd ins bld =
+  fmaPacked ins bld 64<rt> Fma213 true Minus
+
+let vfnmsub213ps ins bld =
+  fmaPacked ins bld 32<rt> Fma213 true Minus
+
+let vfnmsub213sd ins bld =
+  fmaScalar ins bld 64<rt> Fma213 true Minus
+
+let vfnmsub213ss ins bld =
+  fmaScalar ins bld 32<rt> Fma213 true Minus
+
+let vfmaddsub213pd ins bld =
+  fmaPacked ins bld 64<rt> Fma213 false SubtractsInEvenLanes
+
+let vfmaddsub213ps ins bld =
+  fmaPacked ins bld 32<rt> Fma213 false SubtractsInEvenLanes
+
+let vfmsubadd213pd ins bld =
+  fmaPacked ins bld 64<rt> Fma213 false AddsInEvenLanes
+
+let vfmsubadd213ps ins bld =
+  fmaPacked ins bld 32<rt> Fma213 false AddsInEvenLanes
+
+let vfmadd231pd ins bld =
+  fmaPacked ins bld 64<rt> Fma231 false Plus
+
+let vfmadd231ps ins bld =
+  fmaPacked ins bld 32<rt> Fma231 false Plus
+
+let vfmadd231sd ins bld =
+  fmaScalar ins bld 64<rt> Fma231 false Plus
+
+let vfmadd231ss ins bld =
+  fmaScalar ins bld 32<rt> Fma231 false Plus
+
+let vfmsub231pd ins bld =
+  fmaPacked ins bld 64<rt> Fma231 false Minus
+
+let vfmsub231ps ins bld =
+  fmaPacked ins bld 32<rt> Fma231 false Minus
+
+let vfmsub231sd ins bld =
+  fmaScalar ins bld 64<rt> Fma231 false Minus
+
+let vfmsub231ss ins bld =
+  fmaScalar ins bld 32<rt> Fma231 false Minus
+
+let vfnmadd231pd ins bld =
+  fmaPacked ins bld 64<rt> Fma231 true Plus
+
+let vfnmadd231ps ins bld =
+  fmaPacked ins bld 32<rt> Fma231 true Plus
+
+let vfnmadd231sd ins bld =
+  fmaScalar ins bld 64<rt> Fma231 true Plus
+
+let vfnmadd231ss ins bld =
+  fmaScalar ins bld 32<rt> Fma231 true Plus
+
+let vfnmsub231pd ins bld =
+  fmaPacked ins bld 64<rt> Fma231 true Minus
+
+let vfnmsub231ps ins bld =
+  fmaPacked ins bld 32<rt> Fma231 true Minus
+
+let vfnmsub231sd ins bld =
+  fmaScalar ins bld 64<rt> Fma231 true Minus
+
+let vfnmsub231ss ins bld =
+  fmaScalar ins bld 32<rt> Fma231 true Minus
+
+let vfmaddsub231pd ins bld =
+  fmaPacked ins bld 64<rt> Fma231 false SubtractsInEvenLanes
+
+let vfmaddsub231ps ins bld =
+  fmaPacked ins bld 32<rt> Fma231 false SubtractsInEvenLanes
+
+let vfmsubadd231pd ins bld =
+  fmaPacked ins bld 64<rt> Fma231 false AddsInEvenLanes
+
+let vfmsubadd231ps ins bld =
+  fmaPacked ins bld 32<rt> Fma231 false AddsInEvenLanes
