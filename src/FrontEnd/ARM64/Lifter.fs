@@ -2231,7 +2231,6 @@ let orn (ins: Instruction) insLen bld addr =
       let struct (dstB, dstA) = transOprToExpr128 ins bld addr dst
       let src = transSIMDOprToExpr bld eSize dataSize elements src
       let result = Array.map AST.not src
-      markStart bld ins.Address insLen
       dstAssignForSIMD dstA dstB result dataSize elements bld
     | ThreeOperands(OprSIMD(VecReg _) as o1, o2, o3) ->
       let struct (_, dataSize, _) = getElemDataSzAndElems o1
