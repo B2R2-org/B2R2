@@ -180,19 +180,11 @@ let private signExtend width v =
   let signBit = 1 <<< (width - 1)
   (v &&& (signBit - 1)) - (v &&& signBit)
 
-/// Reads memory in the guest's byte order, which an SH4 part fixes by pin.
-let private loadMem (bld: ILowUIRBuilder) rt addr =
-  AST.load bld.Endianness rt addr
-
-/// Writes memory in the guest's byte order.
-let private storeMem (bld: ILowUIRBuilder) addr v =
-  AST.store bld.Endianness addr v
-
 /// The value a load of the given width leaves in a general register: SH4
 /// sign-extends a byte or a word to the register's full width.
 let private loadExt bld rt addr =
-  if rt = 32<rt> then loadMem bld rt addr
-  else loadMem bld rt addr |> AST.sext 32<rt>
+  if rt = 32<rt> then loadNative bld rt addr
+  else loadNative bld rt addr |> AST.sext 32<rt>
 
 /// The part of a register a store of the given width writes.
 let private storeVal rt v = if rt = 32<rt> then v else AST.xtlo rt v
@@ -235,7 +227,7 @@ let private movMemBody (ins: Instruction) bld rt =
   match o1, o2 with
   | OpReg(Regdir m), OpReg(RegIndir n) ->
     append bld {
-      storeMem bld (regVar bld n) (storeVal rt (regVar bld m))
+      storeNative bld (regVar bld n) (storeVal rt (regVar bld m))
     }
   | OpReg(Regdir m), OpReg(RegIndirPreDec n) ->
     let addr = tmpVar bld 32<rt>
@@ -243,23 +235,23 @@ let private movMemBody (ins: Instruction) bld rt =
        own stack pointer writes the pointer the push started from. *)
     append bld {
       addr := regVar bld n .- num step
-      storeMem bld addr (storeVal rt (regVar bld m))
+      storeNative bld addr (storeVal rt (regVar bld m))
       regVar bld n := addr
     }
   | OpReg(Regdir m), OpReg(IdxRegIndir(idx, n)) ->
     let addr = regVar bld idx .+ regVar bld n
     append bld {
-      storeMem bld addr (storeVal rt (regVar bld m))
+      storeNative bld addr (storeVal rt (regVar bld m))
     }
   | OpReg(Regdir m), OpReg(GBRIndirDisp(disp, gbr)) ->
     let addr = regVar bld gbr .+ num (disp * step)
     append bld {
-      storeMem bld addr (storeVal rt (regVar bld m))
+      storeNative bld addr (storeVal rt (regVar bld m))
     }
   | OpReg(Regdir m), OpReg(RegIndirDisp(disp, n)) ->
     let addr = regVar bld n .+ num (disp * step)
     append bld {
-      storeMem bld addr (storeVal rt (regVar bld m))
+      storeNative bld addr (storeVal rt (regVar bld m))
     }
   | OpReg(RegIndir m), OpReg(Regdir n) ->
     append bld {
@@ -368,7 +360,7 @@ let andb (ins: Instruction) bld =
     let imm = immOf o1
     let addr = tmpVar bld 32<rt>
     addr := gbrIndexed bld
-    storeMem bld addr ((loadMem bld 8<rt> addr) .& numByte imm)
+    storeNative bld addr ((loadNative bld 8<rt> addr) .& numByte imm)
   }
 
 let bf (ins: Instruction) bld =
@@ -828,34 +820,34 @@ let private fpMemDouble (ins: Instruction) bld =
     match o1, o2 with
     | OpReg(Regdir m), OpReg(RegIndir n) ->
       append bld {
-        storeMem bld (regVar bld n) (doubleOf bld m)
+        storeNative bld (regVar bld n) (doubleOf bld m)
       }
     | OpReg(Regdir m), OpReg(RegIndirPreDec n) ->
       let addr = tmpVar bld 32<rt>
       append bld {
         addr := regVar bld n .- num 8
-        storeMem bld addr (doubleOf bld m)
+        storeNative bld addr (doubleOf bld m)
         regVar bld n := addr
       }
     | OpReg(Regdir m), OpReg(IdxRegIndir(idx, n)) ->
       let addr = regVar bld idx .+ regVar bld n
       append bld {
-        storeMem bld addr (doubleOf bld m)
+        storeNative bld addr (doubleOf bld m)
       }
     | OpReg(RegIndir m), OpReg(Regdir n) ->
       append bld {
-        value := loadMem bld 64<rt> (regVar bld m)
+        value := loadNative bld 64<rt> (regVar bld m)
       }
       setDouble bld n value
     | OpReg(RegIndirPostInc m), OpReg(Regdir n) ->
       append bld {
-        value := loadMem bld 64<rt> (regVar bld m)
+        value := loadNative bld 64<rt> (regVar bld m)
         regVar bld m := regVar bld m .+ num 8
       }
       setDouble bld n value
     | OpReg(IdxRegIndir(idx, m)), OpReg(Regdir n) ->
       append bld {
-        value := loadMem bld 64<rt> (regVar bld idx .+ regVar bld m)
+        value := loadNative bld 64<rt> (regVar bld idx .+ regVar bld m)
       }
       setDouble bld n value
     | _ ->
@@ -977,7 +969,7 @@ let private loadPostInc (ins: Instruction) bld =
       match o1 with
       | OpReg(RegIndirPostInc r) -> regVar bld r
       | _ -> raise InvalidOperandException
-    dst := loadMem bld 32<rt> src
+    dst := loadNative bld 32<rt> src
     src := src .+ num 4
   }
 
@@ -993,7 +985,7 @@ let private storePreDec (ins: Instruction) bld =
       | _ -> raise InvalidOperandException
     let addr = tmpVar bld 32<rt>
     addr := dst .- num 4
-    storeMem bld addr src
+    storeNative bld addr src
     dst := addr
   }
 
@@ -1025,9 +1017,9 @@ let macl (ins: Instruction) bld =
     (* The reads and the updates interleave as the manual has them, so that a
        mac.l @Rn+,@Rn+ naming one register twice reads two successive longwords
        and advances it by eight. *)
-    vn := loadMem bld 32<rt> dst
+    vn := loadNative bld 32<rt> dst
     dst := dst .+ num 4
-    vm := loadMem bld 32<rt> src
+    vm := loadNative bld 32<rt> src
     src := src .+ num 4
     mac := ((AST.zext 64<rt> mach) << num64 32) .| (AST.zext 64<rt> macl)
     mac := mac .+ ((AST.sext 64<rt> vn) .* (AST.sext 64<rt> vm))
@@ -1055,9 +1047,9 @@ let macw (ins: Instruction) bld =
     let prod = tmpVar bld 32<rt>
     let struct (mac, sum) = tmpVars2 bld 64<rt>
     let satL = tmpVar bld 32<rt>
-    vn := loadMem bld 16<rt> dst
+    vn := loadNative bld 16<rt> dst
     dst := dst .+ num 2
-    vm := loadMem bld 16<rt> src
+    vm := loadNative bld 16<rt> src
     src := src .+ num 2
     prod := (AST.sext 32<rt> vn) .* (AST.sext 32<rt> vm)
     mac := ((AST.zext 64<rt> mach) << num64 32) .| (AST.zext 64<rt> macl)
@@ -1183,7 +1175,7 @@ let orb (ins: Instruction) bld =
     let imm = immOf o1
     let addr = tmpVar bld 32<rt>
     addr := gbrIndexed bld
-    storeMem bld addr ((loadMem bld 8<rt> addr) .| numByte imm)
+    storeNative bld addr ((loadNative bld 8<rt> addr) .| numByte imm)
   }
 
 let pref ins bld = cacheHint ins bld
@@ -1378,9 +1370,9 @@ let tasb (ins: Instruction) bld =
   lift bld ins {
     let addr = getOneOpr ins |> indirOf bld
     let value = tmpVar bld 8<rt>
-    value := loadMem bld 8<rt> addr
+    value := loadNative bld 8<rt> addr
     regVar bld R.T := (value == AST.num0 8<rt>)
-    storeMem bld addr (value .| numByte 0x80)
+    storeNative bld addr (value .| numByte 0x80)
   }
 
 let trapa (ins: Instruction) bld =
@@ -1410,7 +1402,7 @@ let tstb (ins: Instruction) bld =
     let addr = tmpVar bld 32<rt>
     addr := gbrIndexed bld
     regVar bld R.T :=
-      (((loadMem bld 8<rt> addr) .& numByte imm) == AST.num0 8<rt>)
+      (((loadNative bld 8<rt> addr) .& numByte imm) == AST.num0 8<rt>)
   }
 
 let xor (ins: Instruction) bld =
@@ -1428,7 +1420,7 @@ let xorb (ins: Instruction) bld =
     let imm = immOf o1
     let addr = tmpVar bld 32<rt>
     addr := gbrIndexed bld
-    storeMem bld addr ((loadMem bld 8<rt> addr) <+> numByte imm)
+    storeNative bld addr ((loadNative bld 8<rt> addr) <+> numByte imm)
   }
 
 let xtrct (ins: Instruction) bld =

@@ -96,12 +96,6 @@ let rotateLeft rs sh = (rs << sh) .| (rs >> ((numI32 32 32<rt>) .- sh))
 /// ROTL64: rotates a doubleword left by sh, which must be in 0..63.
 let rotateLeft64 rs sh = (rs << sh) .| (rs >> ((numI32 64 64<rt>) .- sh))
 
-let loadNative (bld: ILowUIRBuilder) rt addr =
-  match bld.Endianness with
-  | Endian.Big -> AST.loadBE rt addr
-  | Endian.Little -> AST.loadLE rt addr
-  | _ -> raise InvalidEndianException
-
 /// Operand of the form d(rA) where the EA is (rA|0) + d.
 let transEAWithOffset opr (bld: ILowUIRBuilder) =
   match opr with

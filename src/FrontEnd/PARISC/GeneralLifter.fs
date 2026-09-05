@@ -177,14 +177,12 @@ let private casDirect (bld: ILowUIRBuilder) width =
     let lblSwap = label bld "LwsSwap"
     let lblOut = label bld "LwsOut"
     AST.sideEffect AtomicBegin
-    found := AST.load bld.Endianness width addr
+    found := loadNative bld width addr
     AST.cjmp (found == AST.xtlo width (regVar bld Register.GR25))
              (AST.jmpDest lblSwap)
              (AST.jmpDest lblOut)
     AST.lmark lblSwap
-    AST.store bld.Endianness
-              addr
-              (AST.xtlo width (regVar bld Register.GR24))
+    storeNative bld addr (AST.xtlo width (regVar bld Register.GR24))
     AST.lmark lblOut
     regVar bld Register.GR28 := zextTo rt found
     regVar bld Register.GR21 := AST.num0 rt
@@ -204,15 +202,13 @@ let private casIndirect (bld: ILowUIRBuilder) width =
     let lblSwap = label bld "LwsSwap"
     let lblOut = label bld "LwsOut"
     AST.sideEffect AtomicBegin
-    found := AST.load bld.Endianness width addr
-    expected := AST.load bld.Endianness width (regVar bld Register.GR25)
+    found := loadNative bld width addr
+    expected := loadNative bld width (regVar bld Register.GR25)
     AST.cjmp (found == expected)
              (AST.jmpDest lblSwap)
              (AST.jmpDest lblOut)
     AST.lmark lblSwap
-    AST.store bld.Endianness
-              addr
-              (AST.load bld.Endianness width (regVar bld Register.GR24))
+    storeNative bld addr (loadNative bld width (regVar bld Register.GR24))
     AST.lmark lblOut
     regVar bld Register.GR28 :=
       AST.ite (found == expected) (AST.num0 rt) (AST.num1 rt)
@@ -663,9 +659,7 @@ let load (ins: Instruction) bld =
     let struct (sz, sh) = accessSize ins
     checkWidth bld ins sz
     let addr = effAddr bld ins sh mem
-    transOpr bld dst := zextTo bld.RegType (AST.load bld.Endianness
-                                                     sz
-                                                     addr)
+    transOpr bld dst := zextTo bld.RegType (loadNative bld sz addr)
   }
 
 let store (ins: Instruction) bld =
@@ -675,9 +669,7 @@ let store (ins: Instruction) bld =
     checkWidth bld ins sz
     let addr = effAddr bld ins sh mem
     let v = transOpr bld src
-    AST.store bld.Endianness
-              addr
-              (if sz = bld.RegType then v else AST.xtlo sz v)
+    storeNative bld addr (if sz = bld.RegType then v else AST.xtlo sz v)
   }
 
 /// Load and clear word: the semaphore primitive. It reads the word at the
@@ -692,10 +684,8 @@ let ldcw (ins: Instruction) bld =
     let aligned = tmpVar bld bld.RegType
     AST.sideEffect AtomicBegin
     aligned := addr .& numI64 -16L bld.RegType
-    transOpr bld dst := zextTo bld.RegType (AST.load bld.Endianness
-                                                     sz
-                                                     aligned)
-    AST.store bld.Endianness aligned (AST.num0 sz)
+    transOpr bld dst := zextTo bld.RegType (loadNative bld sz aligned)
+    storeNative bld aligned (AST.num0 sz)
     AST.sideEffect AtomicEnd
   }
 
@@ -735,7 +725,7 @@ let stby (ins: Instruction) (bld: ILowUIRBuilder) =
       for k = 0 to count - 1 do
         let at = if isEnd then k else i + k
         let byteVal = AST.extract v 8<rt> ((3 - at) * 8)
-        AST.store bld.Endianness (start .+ numI32 k rt) byteVal
+        storeNative bld (start .+ numI32 k rt) byteVal
       if i = 3 then () else append bld { AST.jmp (AST.jmpDest lblEnd) }
     AST.lmark lblEnd
   }

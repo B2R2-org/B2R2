@@ -46,15 +46,9 @@ let transOpr (ins: Instruction) bld = function
   | OpShiftAmount imm ->
     numU64 imm bld.RegType
   | OpMem(b, Imm o, sz) ->
-    if bld.Endianness = Endian.Little then
-      AST.loadLE sz (regVar bld b .+ numI64 o bld.RegType)
-    else
-      AST.loadBE sz (regVar bld b .+ numI64 o bld.RegType)
+    loadNative bld sz (regVar bld b .+ numI64 o bld.RegType)
   | OpMem(b, Reg o, sz) ->
-    if bld.Endianness = Endian.Little then
-      AST.loadLE sz (regVar bld b .+ regVar bld o)
-    else
-      AST.loadBE sz (regVar bld b .+ regVar bld o)
+    loadNative bld sz (regVar bld b .+ regVar bld o)
   | OpAddr(Relative o) ->
     numI64 (int64 ins.Address + o) bld.RegType
   | GoToLabel _ ->

@@ -1029,8 +1029,7 @@ let sldc1 ins bld stORld =
     let memory = tmpVar bld 64<rt>
     bOff := baseOffset
     let loadMem =
-      if bld.Endianness = Endian.Little then AST.loadLE 64<rt> bOff
-      else AST.loadBE 64<rt> bOff
+      loadNative bld 64<rt> bOff
     memory := loadMem
     if stORld then
       loadMem := if is32Bit bld then AST.concat ftB ftA else ftA
@@ -1507,8 +1506,7 @@ let storeLeftRight ins bld memShf regShf amtOp oprSz =
     let mask32 = numI32 (((int oprSz) >>> 3) - 1) oprSz
     let vaddr0To2 = (baseOff .& mask) <+> (transBigEndianCPU bld bld.RegType)
     let baseAddress =
-      if bld.Endianness = Endian.Little then AST.loadLE oprSz baseMask
-      else AST.loadBE oprSz baseMask
+      loadNative bld oprSz baseMask
     baseOff := baseOffset
     baseMask := baseOff .& numI32 maskLd bld.RegType
     t1 := if is32Bit bld then vaddr0To2 else AST.xtlo oprSz vaddr0To2
@@ -1790,8 +1788,7 @@ let loadLeftRight ins bld memShf regShf amtOp oprSz =
     let mask32 = numI32 (((int oprSz) >>> 3) - 1) oprSz
     let vaddr0To2 = (baseOff .& mask) <+> (transBigEndianCPU bld bld.RegType)
     let baseAddress =
-      if bld.Endianness = Endian.Little then AST.loadLE oprSz baseMask
-      else AST.loadBE oprSz baseMask
+      loadNative bld oprSz baseMask
     baseOff := baseOffset
     baseMask := baseOff .& numI32 maskLd bld.RegType
     t1 := if is32Bit bld then vaddr0To2 else AST.xtlo oprSz vaddr0To2

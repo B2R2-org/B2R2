@@ -88,6 +88,24 @@ let inline pseudoRegVar512 (builder: ILowUIRBuilder) reg =
   let regV = pseudoRegVar builder reg
   struct (regV 8, regV 7, regV 6, regV 5, regV 4, regV 3, regV 2, regV 1)
 
+/// Loads from memory in the byte order of the architecture being lifted. Use
+/// it where the order is the ISA's own; an architecture that fixes one, or an
+/// instruction that names one itself, says so with AST.loadLE or AST.loadBE
+/// instead.
+let loadNative (builder: ILowUIRBuilder) rt addr =
+  match builder.Endianness with
+  | Endian.Big -> AST.loadBE rt addr
+  | Endian.Little -> AST.loadLE rt addr
+  | _ -> raise InvalidEndianException
+
+/// Stores to memory in the byte order of the architecture being lifted. The
+/// counterpart of loadNative, and the same rule decides when to use it.
+let storeNative (builder: ILowUIRBuilder) addr v =
+  match builder.Endianness with
+  | Endian.Big -> AST.store Endian.Big addr v
+  | Endian.Little -> AST.store Endian.Little addr v
+  | _ -> raise InvalidEndianException
+
 /// Represents a destination of the `:=` operator: either an expression written
 /// exactly as given, or an instruction operand written under the
 /// architecture's operand-size rules. Architectures that have no operand-size

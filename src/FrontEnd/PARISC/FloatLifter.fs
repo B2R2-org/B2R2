@@ -110,7 +110,7 @@ let fpLoad (ins: Instruction) bld =
       | _ -> raise InvalidOperandException
     let struct (sz, sh) = accessSize ins
     let addr = effAddr bld ins sh mem
-    writeFp bld sz dst (AST.load bld.Endianness sz addr)
+    writeFp bld sz dst (loadNative bld sz addr)
   }
 
 /// Stores a word or doubleword from a floating-point register to memory.
@@ -122,7 +122,7 @@ let fpStore (ins: Instruction) bld =
       | _ -> raise InvalidOperandException
     let struct (sz, sh) = accessSize ins
     let addr = effAddr bld ins sh mem
-    AST.store bld.Endianness addr (readFp bld sz src)
+    storeNative bld addr (readFp bld sz src)
   }
 
 /// The sign-manipulating moves, which are bit operations on the value's high
