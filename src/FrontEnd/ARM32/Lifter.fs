@@ -1009,7 +1009,7 @@ let parseOprOfBL ins =
     raise InvalidOperandException
 
 let bl ins insLen bld =
-  liftOpen bld ins insLen {
+  lift bld ins insLen {
     let struct (alignedAddr, isThumb, callKind) = parseOprOfBL ins
     let lr = regVar bld R.LR
     let retAddr = bvOfBaseAddr ins.Address .+ (numI32 4 32<rt>)
@@ -1020,10 +1020,11 @@ let bl ins insLen bld =
     selectInstrSet bld isThumb
     branchWritePC alignedAddr callKind
     putEndLabelForBranch bld lblIgnore ins
+    return NoEndMark
   }
 
 let blxWithReg (ins: Instruction) insLen reg bld =
-  liftOpen bld ins insLen {
+  lift bld ins insLen {
     let lr = regVar bld R.LR
     let addr = bvOfBaseAddr ins.Address
     let isUnconditional = ParseUtils.isUnconditional ins.Condition
@@ -1035,6 +1036,7 @@ let blxWithReg (ins: Instruction) insLen reg bld =
       lr := maskAndOR addr (AST.num1 32<rt>) 32<rt> 1
     bxWritePC bld isUnconditional (regVar bld reg)
     putEndLabelForBranch bld lblIgnore ins
+    return NoEndMark
   }
 
 let branchWithLink (ins: Instruction) insLen bld =
@@ -2295,22 +2297,24 @@ let parseOprOfB (ins: Instruction) =
   | _ -> raise InvalidOperandException
 
 let b ins insLen bld =
-  liftOpen bld ins insLen {
+  lift bld ins insLen {
     let e = parseOprOfB ins
     let isUnconditional = ParseUtils.isUnconditional ins.Condition
     let lblIgnore = checkCondition ins bld isUnconditional
     branchWritePC e InterJmpKind.Base
     putEndLabelForBranch bld lblIgnore ins
+    return NoEndMark
   }
 
 let bx ins insLen bld =
-  liftOpen bld ins insLen {
+  lift bld ins insLen {
     let rm = transOneOpr ins bld
     let isUnconditional = ParseUtils.isUnconditional ins.Condition
     let lblIgnore = checkCondition ins bld isUnconditional
     let rm = convertPCOpr ins bld rm
     bxWritePC bld isUnconditional rm
     putEndLabelForBranch bld lblIgnore ins
+    return NoEndMark
   }
 
 let movtAssign dst src =
@@ -2871,7 +2875,7 @@ let parseOprOfCBZ (ins: Instruction) bld =
     raise InvalidOperandException
 
 let cbz nonZero ins insLen bld =
-  liftOpen bld ins insLen {
+  lift bld ins insLen {
     let lblL0 = label bld "L0"
     let lblL1 = label bld "L1"
     let n = if nonZero then AST.num1 1<rt> else AST.num0 1<rt>
@@ -2887,6 +2891,7 @@ let cbz nonZero ins insLen bld =
     let fallAddrExp = numU64 fallAddr 32<rt>
     AST.interjmp fallAddrExp InterJmpKind.Base
     putEndLabelForBranch bld lblIgnore ins
+    return NoEndMark
   }
 
 let parseOprOfTableBranch (ins: Instruction) insLen bld =
@@ -2908,7 +2913,7 @@ let parseOprOfTableBranch (ins: Instruction) insLen bld =
     raise InvalidOperandException
 
 let tableBranch (ins: Instruction) insLen bld =
-  liftOpen bld ins insLen {
+  lift bld ins insLen {
     let offset = if not ins.IsThumb then 8 else 4
     let pc = bvOfBaseAddr ins.Address .+ (numI32 offset 32<rt>)
     let halfwords = parseOprOfTableBranch ins insLen bld
@@ -2918,6 +2923,7 @@ let tableBranch (ins: Instruction) insLen bld =
     let lblIgnore = checkCondition ins bld isUnconditional
     branchWritePC result InterJmpKind.Base
     putEndLabel bld lblIgnore
+    return NoEndMark
   }
 
 let parseOprOfBFC (ins: Instruction) insLen bld =

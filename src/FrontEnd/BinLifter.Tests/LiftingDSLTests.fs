@@ -70,7 +70,7 @@ module private LiftingDSLTestHelper =
 
   /// Starts a lift computation expression at the given address, standing in
   /// for `lift` where the test has no instruction to hand it.
-  let liftAt bld addr insLen = LiftBuilder(bld, addr, insLen, true)
+  let liftAt bld addr insLen = LiftBuilder(bld, addr, insLen)
 
 [<TestClass>]
 type LiftingDSLTests() =
@@ -430,12 +430,56 @@ type LiftingDSLTests() =
         } |> ignore)
 
   [<TestMethod>]
-  member _.``[LiftingDSL] liftOpen leaves the instruction unclosed``() =
-    let bld = newBuilder ()
-    markStart bld 0UL 4u
-    bld.Stream.Append(varA := num 1u)
-    let expected = bld.Stream.ToStmts()
-    LiftBuilder(bld, 0UL, 4u, false) {
-      varA := num 1u
-    } |> ignore
-    CollectionAssert.AreEqual(expected, bld.Stream.ToStmts())
+  member _.``[LiftingDSL] NoEndMark leaves the instruction unclosed``() =
+    assertSameIR
+      (fun bld ->
+        markStart bld 0UL 4u
+        bld.Stream.Append(varA := num 1u))
+      (fun bld ->
+        liftAt bld 0UL 4u {
+          varA := num 1u
+          return NoEndMark
+        } |> ignore)
+
+  (* The REP-prefixed string operations take this shape: one arm ends the
+     instruction inside a helper, the other falls through to the IEMark. *)
+  [<TestMethod>]
+  member _.``[LiftingDSL] NoEndMark applies per branch``() =
+    let dsl ends bld =
+      liftAt bld 0UL 4u {
+        varA := num 1u
+        if ends then
+          varB := num 2u
+          return NoEndMark
+        else
+          varB := num 3u
+      } |> ignore
+    assertSameIR
+      (fun bld ->
+        markStart bld 0UL 4u
+        bld.Stream.Append(varA := num 1u)
+        bld.Stream.Append(varB := num 2u))
+      (dsl true)
+    assertSameIR
+      (fun bld ->
+        markStart bld 0UL 4u
+        bld.Stream.Append(varA := num 1u)
+        bld.Stream.Append(varB := num 3u)
+        markEnd bld 4u)
+      (dsl false)
+
+  (* A NoEndMark that is not the last thing in the body still decides how the
+     instruction ends; nothing downstream can put the IEMark back. *)
+  [<TestMethod>]
+  member _.``[LiftingDSL] NoEndMark sticks past later statements``() =
+    assertSameIR
+      (fun bld ->
+        markStart bld 0UL 4u
+        bld.Stream.Append(varA := num 1u)
+        bld.Stream.Append(varB := num 2u))
+      (fun bld ->
+        liftAt bld 0UL 4u {
+          varA := num 1u
+          return NoEndMark
+          varB := num 2u
+        } |> ignore)

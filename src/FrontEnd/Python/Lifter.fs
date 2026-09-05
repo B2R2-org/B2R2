@@ -176,7 +176,7 @@ let private withCleanup (ins: Instruction) bld =
 /// POP_JUMP_IF_* and *_OR_POP pairs: unlike every conditional jump after
 /// them, these leave the value they tested on the stack.
 let private condJumpNoPop (ins: Instruction) bld jumpIfTrue =
-  liftOpen bld ins ins.Length {
+  lift bld ins ins.Length {
     let cond = peekFromStack bld 0
     let n = getIntArg ins * jumpArgScale ins
     let jmpDst = ins.Address + uint64 ins.Length + uint64 n
@@ -185,6 +185,7 @@ let private condJumpNoPop (ins: Instruction) bld jumpIfTrue =
     let fLbl = AST.num (BitVector(fallDst, rt))
     let tLbl, fLbl = if jumpIfTrue then tLbl, fLbl else fLbl, tLbl
     AST.intercjmp (truthOf cond) tLbl fLbl
+    return NoEndMark
   }
 
 /// SETUP_LOOP, SETUP_EXCEPT and SETUP_FINALLY each push a block whose handler

@@ -386,11 +386,12 @@ let loadBuildClass (ins: Instruction) bld =
 let jumpArgScale (ins: Instruction) = if int ins.Version >= 310 then 2 else 1
 
 let jumpByOffset (ins: Instruction) bld isForward =
-  liftOpen bld ins ins.Length {
+  lift bld ins ins.Length {
     let n = getIntArg ins * jumpArgScale ins
     let offset = n * (if isForward then 1 else -1)
     let dst = ins.Address + uint64 ins.Length + uint64 offset
     AST.interjmp (AST.num (BitVector(dst, rt))) InterJmpKind.Base
+    return NoEndMark
   }
 
 (* Pre-3.11 jump opcodes (JUMP_ABSOLUTE, POP_JUMP_IF_FALSE/TRUE,
@@ -414,10 +415,11 @@ let codeObjectBase (binFile: PythonBinFile) (addr: Addr) =
       failwithf "Cannot find the code object containing address 0x%x" addr
 
 let jumpAbsolute (binFile: PythonBinFile) (ins: Instruction) bld =
-  liftOpen bld ins ins.Length {
+  lift bld ins ins.Length {
     let n = getIntArg ins
     let dst = codeObjectBase binFile ins.Address + uint64 (n * jumpArgScale ins)
     AST.interjmp (AST.num (BitVector(dst, rt))) InterJmpKind.Base
+    return NoEndMark
   }
 
 (* Pre-3.11 counterpart to condJump: same "honest" jumpIfTrue-preserving
@@ -427,7 +429,7 @@ let condJumpAbsolute (binFile: PythonBinFile)
                      (ins: Instruction)
                      bld
                      jumpIfTrue =
-  liftOpen bld ins ins.Length {
+  lift bld ins ins.Length {
     let cond = truthOf (popFromStack bld)
     let n = getIntArg ins
     let jmpDst =
@@ -437,6 +439,7 @@ let condJumpAbsolute (binFile: PythonBinFile)
     let fLbl = AST.num (BitVector(fallDst, rt))
     let tLbl, fLbl = if jumpIfTrue then tLbl, fLbl else fLbl, tLbl
     AST.intercjmp cond tLbl fLbl
+    return NoEndMark
   }
 
 (* JUMP_IF_FALSE_OR_POP / JUMP_IF_TRUE_OR_POP: like POP_JUMP_IF_*, but only
@@ -455,7 +458,7 @@ let condJumpAbsolute (binFile: PythonBinFile)
    statically-known amount per CFG edge, which the label-based two-branch
    split already provides -- the real bug is elsewhere, still open.) *)
 let jumpOrPop (binFile: PythonBinFile) (ins: Instruction) bld jumpIfTrue =
-  liftOpen bld ins ins.Length {
+  lift bld ins ins.Length {
     let cond = peekFromStack bld 0
     let n = getIntArg ins
     let jmpDst =
@@ -476,10 +479,11 @@ let jumpOrPop (binFile: PythonBinFile) (ins: Instruction) bld jumpIfTrue =
     AST.lmark lblLFalse
     discardTOS bld
     AST.interjmp fLbl InterJmpKind.Base
+    return NoEndMark
   }
 
 let jumpIfNotExcMatch (binFile: PythonBinFile) (ins: Instruction) bld =
-  liftOpen bld ins ins.Length {
+  lift bld ins ins.Length {
     let excType = popFromStack bld
     let excValue = popFromStack bld
     let n = getIntArg ins
@@ -497,6 +501,7 @@ let jumpIfNotExcMatch (binFile: PythonBinFile) (ins: Instruction) bld =
     let matches = truthOf (AST.app "CHECK_EXC_MATCH" [ excValue; excType ] rt)
     (* Jump (to the next handler) when it does NOT match. *)
     AST.intercjmp matches fLbl tLbl
+    return NoEndMark
   }
 
 (* ROT_TWO/THREE/FOUR/N: rotate the top `n` stack items by one slot,
@@ -759,19 +764,21 @@ let deleteSubscript (ins: Instruction) bld =
 
 (* RETURN_VALUE: pop TOS and emit a RETURN call. *)
 let translateReturn (ins: Instruction) bld =
-  liftOpen bld ins ins.Length {
+  lift bld ins ins.Length {
     let value = popFromStack bld
     AST.extCall (AST.app "RETURN" [ value ] rt)
     append bld { AST.interjmp returnTarget InterJmpKind.IsRet }
+    return NoEndMark
   }
 
 (* RETURN_CONST: load constant directly without a stack round-trip. *)
 let translateReturnConst (ins: Instruction) bld =
-  liftOpen bld ins ins.Length {
+  lift bld ins ins.Length {
     let name = operandIndex ins
     let value = AST.app "LOAD_CONST" [ name ] rt
     AST.extCall (AST.app "RETURN" [ value ] rt)
     append bld { AST.interjmp returnTarget InterJmpKind.IsRet }
+    return NoEndMark
   }
 
 (* RAISE_VARARGS arg: pop arg items (0??) and raise. *)
@@ -787,7 +794,7 @@ let translateRaiseVarargs (ins: Instruction) bld =
    jumpIfTrue=true  ??jump when TOS is truthy.
    jumpIfTrue=false ??jump when TOS is falsy. *)
 let condJump (ins: Instruction) bld jumpIfTrue =
-  liftOpen bld ins ins.Length {
+  lift bld ins ins.Length {
     let cond = popFromStack bld
     let n = getIntArg ins
     let jmpDst = ins.Address + uint64 ins.Length + uint64 (n * jumpArgScale ins)
@@ -813,13 +820,14 @@ let condJump (ins: Instruction) bld jumpIfTrue =
        the old canonicalization before deciding whether to keep this. *)
     let tLbl, fLbl = if jumpIfTrue then tLbl, fLbl else fLbl, tLbl
     AST.intercjmp (truthOf cond) tLbl fLbl
+    return NoEndMark
   }
 
 (* Conditional jump for POP_JUMP_IF_NONE / POP_JUMP_IF_NOT_NONE.
    jumpIfNone=true  ??jump when TOS is None (modeled as IS_NONE(TOS) = 1).
    jumpIfNone=false ??jump when TOS is not None. *)
 let condJumpNone (ins: Instruction) bld jumpIfNone =
-  liftOpen bld ins ins.Length {
+  lift bld ins ins.Length {
     let value = popFromStack bld
     let n = getIntArg ins
     let jmpDst = ins.Address + uint64 ins.Length + uint64 (n * jumpArgScale ins)
@@ -838,10 +846,11 @@ let condJumpNone (ins: Instruction) bld jumpIfNone =
     else
       let isNotNone = AST.app "IS_NOT_NONE" [ value ] rt
       AST.intercjmp isNotNone tLbl fLbl
+    return NoEndMark
   }
 
 let forIter minor (ins: Instruction) bld =
-  liftOpen bld ins ins.Length {
+  lift bld ins ins.Length {
     let tos = peekFromStack bld 0
     let n = getIntArg ins
     let jmpDst = ins.Address + uint64 ins.Length + uint64 (n * jumpArgScale ins)
@@ -863,6 +872,7 @@ let forIter minor (ins: Instruction) bld =
     let tos = peekFromStack bld 0
     pushToStack bld (AST.app "NEXT" [ tos ] rt)
     AST.interjmp fLbl InterJmpKind.Base
+    return NoEndMark
   }
 
 let getIter (ins: Instruction) bld =
@@ -884,7 +894,7 @@ let getIter (ins: Instruction) bld =
    which is placed below the stack pointer -- and the stack pointer, with the
    sent value popped, is the receiver's own slot. *)
 let send (ins: Instruction) bld =
-  liftOpen bld ins ins.Length {
+  lift bld ins ins.Length {
     let sentVal = popFromStack bld
     let gen = peekFromStack bld 0
     (* Bound before it is used, because it is used twice: once pushed onto the
@@ -901,6 +911,7 @@ let send (ins: Instruction) bld =
     AST.intercjmp isExhausted
       (AST.num (BitVector(jmpDst, rt)))
       (AST.num (BitVector(fallDst, rt)))
+    return NoEndMark
   }
 
 let getYieldFromIter (ins: Instruction) bld =

@@ -88,14 +88,24 @@ let inline pseudoRegVar512 (builder: ILowUIRBuilder) reg =
   let regV = pseudoRegVar builder reg
   struct (regV 8, regV 7, regV 6, regV 5, regV 4, regV 3, regV 2, regV 1)
 
+/// Represents how a lifted instruction ends: either it still needs its IEMark,
+/// or the body already ended the instruction on its own.
+[<Struct>]
+type Closing =
+  /// The instruction ends the ordinary way, with an IEMark.
+  | EndMark
+  /// The body ended the instruction itself, e.g. with an inter-jump, so an
+  /// IEMark would only add a statement that never runs.
+  | NoEndMark
+
 /// Represents a deferred stream of statements. A block is a function of the
 /// builder, so nothing in it runs until a control-flow combinator decides to
 /// run it; that is what keeps branch bodies allocation-free.
 type Block = ILowUIRBuilder -> unit
 
 /// Provides the `lift` computation expression, which brackets the statements
-/// of one instruction with its ISMark and, unless the body terminates the
-/// instruction itself, its IEMark. Every member is inlined, so a block emits
+/// of one instruction with its ISMark and, unless the body ends with
+/// `return NoEndMark`, its IEMark. Every member is inlined, so a block emits
 /// exactly what the equivalent hand-written stream emits.
 and [<Struct>] LiftBuilder =
   /// Builder that the statements are emitted into.
@@ -107,34 +117,41 @@ and [<Struct>] LiftBuilder =
   /// Length of the instruction being lifted.
   val InsLen: uint32
 
-  /// Whether to close the instruction with an IEMark.
-  val ClosesInstruction: bool
-
   /// Creates a lift builder for the instruction at the given address.
-  new(bld, addr, insLen, closes) =
-    { Bld = bld
-      Address = addr
-      InsLen = insLen
-      ClosesInstruction = closes }
+  new(bld, addr, insLen) = { Bld = bld; Address = addr; InsLen = insLen }
 
-  member inline _.Zero() = ()
+  member inline _.Zero() = EndMark
 
-  member inline _.Delay([<InlineIfLambda>] f: unit -> unit) = f
+  member inline _.Delay([<InlineIfLambda>] f: unit -> Closing) = f
 
-  member inline _.Combine((), [<InlineIfLambda>] f: unit -> unit) = f ()
+  (* Sticky: once the body has ended the instruction, nothing downstream can
+     put the IEMark back. Without this a `return NoEndMark` anywhere but the
+     very end would be discarded, and nothing would say so. *)
+  member inline _.Combine(c, [<InlineIfLambda>] f: unit -> Closing) =
+    match c with
+    | NoEndMark -> f () |> ignore; NoEndMark
+    | EndMark -> f ()
 
-  member inline this.Yield(stmt: Stmt) = this.Bld.Stream.Append stmt
+  member inline this.Yield(stmt: Stmt) =
+    this.Bld.Stream.Append stmt
+    EndMark
 
-  member inline _.For(xs: seq<'T>, [<InlineIfLambda>] f: 'T -> unit) =
-    for x in xs do f x
+  member inline _.Return(c: Closing) = c
+
+  member inline _.For(xs: seq<'T>, [<InlineIfLambda>] f: 'T -> Closing) =
+    let mutable c = EndMark
+    for x in xs do c <- f x
+    c
 
   member inline _.While([<InlineIfLambda>] cond, [<InlineIfLambda>] body) =
-    while cond () do body ()
+    while cond () do body () |> ignore
+    EndMark
 
-  member inline this.Run([<InlineIfLambda>] f: unit -> unit) =
+  member inline this.Run([<InlineIfLambda>] f: unit -> Closing) =
     this.Bld.Stream.MarkStart(this.Address, this.InsLen)
-    f ()
-    if this.ClosesInstruction then this.Bld.Stream.MarkEnd this.InsLen else ()
+    match f () with
+    | EndMark -> this.Bld.Stream.MarkEnd this.InsLen
+    | NoEndMark -> ()
     this.Bld
 
 /// Provides the `append` computation expression, which appends a statement
@@ -194,23 +211,19 @@ let block = BlockBuilder()
 let inline append bld = AppendBuilder bld
 
 /// Starts lifting the given instruction, closing it with an IEMark once the
-/// body of the computation expression ends.
+/// body of the computation expression ends. A body that ends the instruction
+/// itself, e.g. with an inter-jump, says so with `return NoEndMark`.
 let inline lift bld (ins: #IInstruction) insLen =
-  LiftBuilder(bld, ins.Address, insLen, true)
-
-/// Starts lifting the given instruction without closing it with an IEMark.
-/// Use this only when the body terminates the instruction on its own, e.g.
-/// with an inter-jump.
-let inline liftOpen bld (ins: #IInstruction) insLen =
-  LiftBuilder(bld, ins.Address, insLen, false)
+  LiftBuilder(bld, ins.Address, insLen)
 
 /// Starts a new instruction with an ISMark. Use it where a lifter marks the
 /// start somewhere other than the top of its body, which `lift` cannot reach.
 let inline markStart (bld: ILowUIRBuilder) addr insLen =
   bld.Stream.MarkStart(addr, insLen)
 
-/// Closes the current instruction with an IEMark. Use it inside a `liftOpen`
-/// body, on the path that ends the instruction the ordinary way.
+/// Closes the current instruction with an IEMark. Use it where a lifter marks
+/// the end somewhere other than the bottom of its body, which `lift` cannot
+/// reach.
 let inline markEnd (bld: ILowUIRBuilder) insLen = bld.Stream.MarkEnd insLen
 
 /// Runs the given block when the condition holds, and falls through to the

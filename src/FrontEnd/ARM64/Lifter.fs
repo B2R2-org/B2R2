@@ -198,18 +198,20 @@ let ands ins insLen bld addr =
   }
 
 let b ins insLen bld addr =
-  liftOpen bld ins insLen {
+  lift bld ins insLen {
     let label = transOneOpr ins bld addr
     let pc = numU64 (ins:Instruction).Address bld.RegType
     AST.interjmp (pc .+ label) InterJmpKind.Base
+    return NoEndMark
   }
 
 let bCond ins insLen bld addr cond =
-  liftOpen bld ins insLen {
+  lift bld ins insLen {
     let label = transOneOpr ins bld addr
     let pc = numU64 (ins:Instruction).Address bld.RegType
     let fall = pc .+ numU32 insLen 64<rt>
     AST.intercjmp (conditionHolds bld cond) (pc .+ label) fall
+    return NoEndMark
   }
 
 let bfm (ins: Instruction) insLen bld addr dst src immr imms =
@@ -308,28 +310,31 @@ let bif ins insLen bld addr = bitInsert ins insLen bld addr false
 let bit ins insLen bld addr = bitInsert ins insLen bld addr true
 
 let bl ins insLen bld addr =
-  liftOpen bld ins insLen {
+  lift bld ins insLen {
     let label = transOneOpr ins bld addr
     let pc = numU64 (ins:Instruction).Address bld.RegType
     regVar bld R.X30 := pc .+ numI64 4L ins.OprSize
     (* FIXME: BranchTo (BranchType_DIRCALL) *)
     AST.interjmp (pc .+ label) InterJmpKind.IsCall
+    return NoEndMark
   }
 
 let blr ins insLen bld addr =
-  liftOpen bld ins insLen {
+  lift bld ins insLen {
     let src = transOneOpr ins bld addr
     let pc = numU64 (ins:Instruction).Address bld.RegType
     regVar bld R.X30 := pc .+ numI64 4L ins.OprSize
     (* FIXME: BranchTo (BranchType_INDCALL) *)
     AST.interjmp src InterJmpKind.IsCall
+    return NoEndMark
   }
 
 let br ins insLen bld addr =
-  liftOpen bld ins insLen {
+  lift bld ins insLen {
     let dst = transOneOpr ins bld addr
     (* FIXME: BranchTo (BranchType_INDIR) *)
     AST.interjmp dst InterJmpKind.Base
+    return NoEndMark
   }
 
 let bsl (ins: Instruction) insLen bld addr =
@@ -354,11 +359,12 @@ let bsl (ins: Instruction) insLen bld addr =
   }
 
 let inline private compareBranch ins insLen bld addr cmp =
-  liftOpen bld ins insLen {
+  lift bld ins insLen {
     let test, label = transTwoOprs ins bld addr
     let pc = numU64 (ins: Instruction).Address bld.RegType
     let fall = pc .+ numU32 insLen 64<rt>
     AST.intercjmp (cmp test (AST.num0 ins.OprSize)) (pc .+ label) fall
+    return NoEndMark
   }
 
 let compareAndSwap ins insLen bld addr =
@@ -2302,11 +2308,12 @@ let rbit (ins: Instruction) insLen bld addr =
   bld
 
 let ret ins insLen bld addr =
-  liftOpen bld ins insLen {
+  lift bld ins insLen {
     let src = transOneOpr ins bld addr
     let target = tmpVar bld 64<rt>
     target := src
     branchTo ins bld target BrTypeRET InterJmpKind.IsRet
+    return NoEndMark
   }
 
 let rev (ins: Instruction) insLen bld addr =
@@ -2973,21 +2980,23 @@ let tbl (ins: Instruction) insLen bld addr = (* FIMXE *)
   }
 
 let tbnz ins insLen bld addr =
-  liftOpen bld ins insLen {
+  lift bld ins insLen {
     let test, imm, label = transThreeOprs ins bld addr
     let pc = numU64 (ins:Instruction).Address bld.RegType
     let fall = pc .+ numU32 insLen 64<rt>
     let cond = (test >> imm .& AST.num1 ins.OprSize) == AST.num1 ins.OprSize
     AST.intercjmp cond (pc .+ label) fall
+    return NoEndMark
   }
 
 let tbz ins insLen bld addr =
-  liftOpen bld ins insLen {
+  lift bld ins insLen {
     let test, imm, label = transThreeOprs ins bld addr
     let pc = numU64 (ins:Instruction).Address bld.RegType
     let fall = pc .+ numU32 insLen 64<rt>
     let cond = (test >> imm .& AST.num1 ins.OprSize) == AST.num0 ins.OprSize
     AST.intercjmp cond (pc .+ label) fall
+    return NoEndMark
   }
 
 let trn1 ins insLen bld addr =

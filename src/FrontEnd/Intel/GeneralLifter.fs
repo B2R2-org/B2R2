@@ -731,7 +731,7 @@ let bzhi (ins: Instruction) insLen bld =
   }
 
 let call (ins: Instruction) insLen bld =
-  liftOpen bld ins insLen {
+  lift bld ins insLen {
     let pc = numU64 (ins: Instruction).Address bld.RegType
     let oprSize = getOperationSize ins
 #if EMULATION
@@ -747,6 +747,7 @@ let call (ins: Instruction) insLen bld =
       t := target
       auxPush oprSize bld (pc .+ numInsLen insLen bld)
       AST.interjmp t InterJmpKind.IsCall
+    return NoEndMark
   }
 
 let convBWQ (ins: Instruction) insLen bld =
@@ -942,14 +943,15 @@ let private cmpsBody ins bld =
 let cmps (ins: Instruction) insLen bld =
   let pref = ins.Prefixes
   let zf = regVar bld R.ZF
-  liftOpen bld ins insLen {
+  lift bld ins insLen {
     if Prefix.hasREPZ pref then
       strRepeat ins insLen bld cmpsBody (Some(zf == AST.b0))
+      return NoEndMark
     elif Prefix.hasREPNZ pref then
       strRepeat ins insLen bld cmpsBody (Some zf)
+      return NoEndMark
     else
       cmpsBody ins bld
-      markEnd bld insLen
   }
 
 let cmpxchg (ins: Instruction) insLen bld =
@@ -1668,7 +1670,7 @@ let private getCondOfJccLazy (ins: Instruction) (bld: ILowUIRBuilder) =
 #endif
 
 let jcc (ins: Instruction) insLen bld =
-  liftOpen bld ins insLen {
+  lift bld ins insLen {
     let pc = numU64 ins.Address bld.RegType
     let jmpTarget = pc .+ transOneOpr bld ins insLen
 #if EMULATION
@@ -1680,10 +1682,11 @@ let jcc (ins: Instruction) insLen bld =
 #endif
     let fallThrough = pc .+ numInsLen insLen bld
     AST.intercjmp cond jmpTarget fallThrough
+    return NoEndMark
   }
 
 let jmp (ins: Instruction) insLen bld =
-  liftOpen bld ins insLen {
+  lift bld ins insLen {
 #if EMULATION
     setCCOp bld
     bld.ConditionCodeOp <- ConditionCodeOp.TraceStart
@@ -1691,6 +1694,7 @@ let jmp (ins: Instruction) insLen bld =
     let pc = numU64 (ins: Instruction).Address bld.RegType
     let struct (target, _) = transJumpTargetOpr bld false ins pc insLen
     AST.interjmp target InterJmpKind.Base
+    return NoEndMark
   }
 
 let lahf (ins: Instruction) insLen bld =
@@ -1770,18 +1774,18 @@ let private lodsBody ins bld =
   }
 
 let lods (ins: Instruction) insLen bld =
-  liftOpen bld ins insLen {
+  lift bld ins insLen {
     if Prefix.hasREPZ ins.Prefixes then
       strRepeat ins insLen bld lodsBody None
+      return NoEndMark
     elif Prefix.hasREPNZ ins.Prefixes then
       Terminator.impossible ()
     else
       lodsBody ins bld
-      markEnd bld insLen
   }
 
 let loop (ins: Instruction) insLen bld =
-  liftOpen bld ins insLen {
+  lift bld ins insLen {
     let dst = transOneOpr bld ins insLen
     let addrSize = getEffAddrSz ins
     let pc = getInstrPtr bld
@@ -1806,6 +1810,7 @@ let loop (ins: Instruction) insLen bld =
       if addrSize = 16<rt> then pc .& numI32 0xFFFF 32<rt>
       else pc .+ AST.sext bld.RegType dst
     AST.intercjmp branchCond jumpTarget fallThrough
+    return NoEndMark
   }
 
 /// The three masks a SWAR population count folds a value through, one per
@@ -1917,12 +1922,12 @@ let private movsBody ins bld =
   }
 
 let movs (ins: Instruction) insLen bld =
-  liftOpen bld ins insLen {
+  lift bld ins insLen {
     if Prefix.hasREPZ ins.Prefixes then
       strRepeat ins insLen bld movsBody None
+      return NoEndMark
     else
       movsBody ins bld
-      markEnd bld insLen
   }
 
 let movsx (ins: Instruction) insLen bld =
@@ -2373,7 +2378,7 @@ let rdpkru ins insLen bld =
 let ret (ins: Instruction) insLen bld =
   let oprSize = getOperationSize ins
   let t = tmpVar bld oprSize
-  liftOpen bld ins insLen {
+  lift bld ins insLen {
     match ins.Operands with
     | NoOperand ->
 #if EMULATION
@@ -2391,6 +2396,7 @@ let ret (ins: Instruction) insLen bld =
       auxPop oprSize bld t
       sp := sp .+ (AST.zext oprSize src)
     AST.interjmp t InterJmpKind.IsRet
+    return NoEndMark
   }
 
 let rotate (ins: Instruction) insLen bld lfn hfn cfFn ofFn =
@@ -2662,23 +2668,24 @@ let private scasBody ins bld =
 let scas (ins: Instruction) insLen bld =
   let pref = ins.Prefixes
   let zfCond n = Some(regVar bld R.ZF == n)
-  liftOpen bld ins insLen {
+  lift bld ins insLen {
     if Prefix.hasREPZ pref then
       strRepeat ins insLen bld scasBody (zfCond AST.b0)
 #if EMULATION
       bld.ConditionCodeOp <- ConditionCodeOp.EFlags
 #endif
+      return NoEndMark
     elif Prefix.hasREPNZ pref then
       strRepeat ins insLen bld scasBody (zfCond AST.b1)
 #if EMULATION
       bld.ConditionCodeOp <- ConditionCodeOp.EFlags
 #endif
+      return NoEndMark
     else
       scasBody ins bld
 #if EMULATION
       bld.ConditionCodeOp <- ConditionCodeOp.EFlags
 #endif
-      markEnd bld insLen
   }
 
 let private getCondOfSet (ins: Instruction) bld =
@@ -2874,14 +2881,14 @@ let private stosBody ins bld =
   }
 
 let stos (ins: Instruction) insLen bld =
-  liftOpen bld ins insLen {
+  lift bld ins insLen {
     if Prefix.hasREPZ ins.Prefixes then
       strRepeat ins insLen bld stosBody None
+      return NoEndMark
     elif Prefix.hasREPNZ ins.Prefixes then
       Terminator.impossible ()
     else
       stosBody ins bld
-      markEnd bld insLen
   }
 
 let sub (ins: Instruction) insLen bld =
