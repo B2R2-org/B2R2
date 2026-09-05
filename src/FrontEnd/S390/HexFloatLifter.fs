@@ -69,14 +69,18 @@ let private toDouble bld w e =
   let mag = tmpVar bld 64<rt>
   let scale = tmpVar bld 64<rt>
   let out = tmpVar bld 64<rt>
-  bld <+ (frac := zextTo 64<rt> e .& numG ((1L <<< bits) - 1L))
-  bld <+ (ch := (zextTo 64<rt> e >> numG (int64 bits)) .& numG 0x7fL)
-  bld <+ (mag := AST.cast CastKind.SIntToFloat 64<rt> frac)
+  append bld {
+    frac := zextTo 64<rt> e .& numG ((1L <<< bits) - 1L)
+    ch := (zextTo 64<rt> e >> numG (int64 bits)) .& numG 0x7fL
+    mag := AST.cast CastKind.SIntToFloat 64<rt> frac
+  }
   (* Two to the power four times the unbiased characteristic, less the bits the
      fraction was read as an integer over. *)
   let k = (ch .- numG 64L) .* numG 4L .- numG (int64 bits)
-  bld <+ (scale := (k .+ numG 1023L) << numG 52L)
-  bld <+ (out := AST.fmul mag scale)
+  append bld {
+    scale := (k .+ numG 1023L) << numG 52L
+    out := AST.fmul mag scale
+  }
   (* A zero fraction is a true zero whatever the characteristic says, and the
      sign travels as the bit it is. *)
   let signed = out .| (zextTo 64<rt> e .& numG 0x8000000000000000L
@@ -94,21 +98,29 @@ let private ofDouble bld w d =
   let ch = tmpVar bld 64<rt>
   let frac = tmpVar bld 64<rt>
   let out = tmpVar bld 64<rt>
-  bld <+ (e := (d >> numG 52L) .& numG 0x7ffL)
-  bld <+ (m := d .& numG 0xfffffffffffffL)
+  append bld {
+    e := (d >> numG 52L) .& numG 0x7ffL
+    m := d .& numG 0xfffffffffffffL
+  }
   (* The binary exponent runs from the bias; a hexadecimal characteristic must
      leave the fraction between a sixteenth and one, which pins it to the
      quotient below, and the remainder is how far the fraction shifts. *)
   let n = e .- numG 1023L
-  bld <+ (ch := (n .+ numG 260L) ?>> numG 2L)
+  append bld {
+    ch := (n .+ numG 260L) ?>> numG 2L
+  }
   let t = n .+ numG 260L .- (ch .* numG 4L)
-  bld <+ (frac := (m .| numG 0x10000000000000L) << t)
+  append bld {
+    frac := (m .| numG 0x10000000000000L) << t
+  }
   let frac56 = if bits = 56 then frac else frac >> numG 32L
   let body =
     (ch .& numG 0x7fL) << numG (int64 bits) .| (frac56 .& numG
                                                  ((1L <<< bits) - 1L))
   let sign = (d >> numG 63L) << numG (int64 bits + 7L)
-  bld <+ (out := body .| sign)
+  append bld {
+    out := body .| sign
+  }
   (* A zero, a denormal, or a characteristic outside the seven bits it has all
      come out as a true zero, which is what the architecture's underflow leaves
      when the exception is masked off. *)
@@ -119,202 +131,202 @@ let private ofDouble bld w d =
 /// A two-operand arithmetic instruction: the first operand supplies one input
 /// and receives the result.
 let arith ins insLen bld w f =
-  let struct (o1, o2) = getTwoOprs ins
-  let d = oprRegVar bld o1
-  let a = tmpVar bld 64<rt>
-  let b = tmpVar bld 64<rt>
-  let r = tmpVar bld 64<rt>
-  bld <!-- ((ins: Instruction).Address, insLen)
-  bld <+ (a := toDouble bld w (part w d))
-  let src =
-    match o2 with
-    | OpReg r2 -> part w (reg bld r2)
-    | _ -> loadMem w (transMem bld o2)
-  bld <+ (b := toDouble bld w src)
-  bld <+ (r := f a b)
-  bld <+ (part w d := ofDouble bld w r)
-  bld --!> insLen
+  lift bld (ins: Instruction) insLen {
+    let struct (o1, o2) = getTwoOprs ins
+    let d = oprRegVar bld o1
+    let a = tmpVar bld 64<rt>
+    let b = tmpVar bld 64<rt>
+    let r = tmpVar bld 64<rt>
+    a := toDouble bld w (part w d)
+    let src =
+      match o2 with
+      | OpReg r2 -> part w (reg bld r2)
+      | _ -> loadMem w (transMem bld o2)
+    b := toDouble bld w src
+    r := f a b
+    part w d := ofDouble bld w r
+  }
 
 /// The same, but with a result twice as wide as the operands, which is what the
 /// short-to-long multiplies produce.
 let arithWiden ins insLen bld f =
-  let struct (o1, o2) = getTwoOprs ins
-  let d = oprRegVar bld o1
-  let a = tmpVar bld 64<rt>
-  let b = tmpVar bld 64<rt>
-  let r = tmpVar bld 64<rt>
-  bld <!-- ((ins: Instruction).Address, insLen)
-  bld <+ (a := toDouble bld ShortHFP (part ShortHFP d))
-  let src =
-    match o2 with
-    | OpReg r2 -> part ShortHFP (reg bld r2)
-    | _ -> loadMem ShortHFP (transMem bld o2)
-  bld <+ (b := toDouble bld ShortHFP src)
-  bld <+ (r := f a b)
-  bld <+ (d := ofDouble bld LongHFP r)
-  bld --!> insLen
+  lift bld (ins: Instruction) insLen {
+    let struct (o1, o2) = getTwoOprs ins
+    let d = oprRegVar bld o1
+    let a = tmpVar bld 64<rt>
+    let b = tmpVar bld 64<rt>
+    let r = tmpVar bld 64<rt>
+    a := toDouble bld ShortHFP (part ShortHFP d)
+    let src =
+      match o2 with
+      | OpReg r2 -> part ShortHFP (reg bld r2)
+      | _ -> loadMem ShortHFP (transMem bld o2)
+    b := toDouble bld ShortHFP src
+    r := f a b
+    d := ofDouble bld LongHFP r
+  }
 
 /// The condition code a comparison reports, which for these formats never has
 /// an unordered case to report -- a hexadecimal value cannot be a NaN.
 let compare ins insLen bld w =
-  let struct (o1, o2) = getTwoOprs ins
-  let a = tmpVar bld 64<rt>
-  let b = tmpVar bld 64<rt>
-  bld <!-- ((ins: Instruction).Address, insLen)
-  bld <+ (a := toDouble bld w (part w (oprRegVar bld o1)))
-  let src =
-    match o2 with
-    | OpReg r2 -> part w (reg bld r2)
-    | _ -> loadMem w (transMem bld o2)
-  bld <+ (b := toDouble bld w src)
-  let hi = AST.ite (AST.flt a b) (numCC 1) (numCC 2)
-  bld <+ (ccVar bld := AST.ite (AST.feq a b) (numCC 0) hi)
-  bld --!> insLen
+  lift bld (ins: Instruction) insLen {
+    let struct (o1, o2) = getTwoOprs ins
+    let a = tmpVar bld 64<rt>
+    let b = tmpVar bld 64<rt>
+    a := toDouble bld w (part w (oprRegVar bld o1))
+    let src =
+      match o2 with
+      | OpReg r2 -> part w (reg bld r2)
+      | _ -> loadMem w (transMem bld o2)
+    b := toDouble bld w src
+    let hi = AST.ite (AST.flt a b) (numCC 1) (numCC 2)
+    ccVar bld := AST.ite (AST.feq a b) (numCC 0) hi
+  }
 
 /// The sign-manipulating loads, which work on the bits rather than the value.
 let loadSign ins insLen bld w f setsCC =
-  let struct (o1, o2) = getTwoOprs ins
-  let d = oprRegVar bld o1
-  let sign = numI64 (1L <<< (RegType.toBitWidth w - 1)) w
-  let t = tmpVar bld w
-  bld <!-- ((ins: Instruction).Address, insLen)
-  bld <+ (t := f (part w (oprRegVar bld o2)) sign)
-  if setsCC then
-    let v = tmpVar bld 64<rt>
-    bld <+ (v := toDouble bld w t)
-    let hi = AST.ite (AST.flt v (AST.num0 64<rt>)) (numCC 1) (numCC 2)
-    bld <+ (ccVar bld := AST.ite (AST.feq v (AST.num0 64<rt>)) (numCC 0) hi)
-  else
-    ()
-  bld <+ (part w d := t)
-  bld --!> insLen
+  lift bld (ins: Instruction) insLen {
+    let struct (o1, o2) = getTwoOprs ins
+    let d = oprRegVar bld o1
+    let sign = numI64 (1L <<< (RegType.toBitWidth w - 1)) w
+    let t = tmpVar bld w
+    t := f (part w (oprRegVar bld o2)) sign
+    if setsCC then
+      let v = tmpVar bld 64<rt>
+      v := toDouble bld w t
+      let hi = AST.ite (AST.flt v (AST.num0 64<rt>)) (numCC 1) (numCC 2)
+      ccVar bld := AST.ite (AST.feq v (AST.num0 64<rt>)) (numCC 0) hi
+    else
+      ()
+    part w d := t
+  }
 
 /// HALVE, which is a multiply by a half and so needs no rounding decision.
 let halve ins insLen bld w =
-  let struct (o1, o2) = getTwoOprs ins
-  let d = oprRegVar bld o1
-  let v = tmpVar bld 64<rt>
-  bld <!-- ((ins: Instruction).Address, insLen)
-  bld <+ (v := toDouble bld w (part w (oprRegVar bld o2)))
-  bld <+ (part w d := ofDouble bld w (AST.fmul v (numG 0x3fe0000000000000L)))
-  bld --!> insLen
+  lift bld (ins: Instruction) insLen {
+    let struct (o1, o2) = getTwoOprs ins
+    let d = oprRegVar bld o1
+    let v = tmpVar bld 64<rt>
+    v := toDouble bld w (part w (oprRegVar bld o2))
+    part w d := ofDouble bld w (AST.fmul v (numG 0x3fe0000000000000L))
+  }
 
 /// A move between the two hexadecimal formats.
 let convertFormat ins insLen bld fromW toW =
-  let struct (o1, o2) = getTwoOprs ins
-  let d = oprRegVar bld o1
-  let v = tmpVar bld 64<rt>
-  bld <!-- ((ins: Instruction).Address, insLen)
-  bld <+ (v := toDouble bld fromW (part fromW (oprRegVar bld o2)))
-  bld <+ (part toW d := ofDouble bld toW v)
-  bld --!> insLen
+  lift bld (ins: Instruction) insLen {
+    let struct (o1, o2) = getTwoOprs ins
+    let d = oprRegVar bld o1
+    let v = tmpVar bld 64<rt>
+    v := toDouble bld fromW (part fromW (oprRegVar bld o2))
+    part toW d := ofDouble bld toW v
+  }
 
 /// LOAD FP INTEGER, which rounds to a whole number without leaving the format.
 let roundToInt ins insLen bld w =
-  let struct (o1, o2) = getTwoOprs ins
-  let d = oprRegVar bld o1
-  let v = tmpVar bld 64<rt>
-  bld <!-- ((ins: Instruction).Address, insLen)
-  bld <+ (v := toDouble bld w (part w (oprRegVar bld o2)))
-  let r = AST.cast CastKind.FtoFTrunc 64<rt> v
-  bld <+ (part w d := ofDouble bld w r)
-  bld --!> insLen
+  lift bld (ins: Instruction) insLen {
+    let struct (o1, o2) = getTwoOprs ins
+    let d = oprRegVar bld o1
+    let v = tmpVar bld 64<rt>
+    v := toDouble bld w (part w (oprRegVar bld o2))
+    let r = AST.cast CastKind.FtoFTrunc 64<rt> v
+    part w d := ofDouble bld w r
+  }
 
 /// SQUARE ROOT.
 let squareRoot ins insLen bld w =
-  let struct (o1, o2) = getTwoOprs ins
-  let d = oprRegVar bld o1
-  let v = tmpVar bld 64<rt>
-  bld <!-- ((ins: Instruction).Address, insLen)
-  let src =
-    match o2 with
-    | OpReg r2 -> part w (reg bld r2)
-    | _ -> loadMem w (transMem bld o2)
-  bld <+ (v := toDouble bld w src)
-  bld <+ (part w d := ofDouble bld w (AST.fsqrt v))
-  bld --!> insLen
+  lift bld (ins: Instruction) insLen {
+    let struct (o1, o2) = getTwoOprs ins
+    let d = oprRegVar bld o1
+    let v = tmpVar bld 64<rt>
+    let src =
+      match o2 with
+      | OpReg r2 -> part w (reg bld r2)
+      | _ -> loadMem w (transMem bld o2)
+    v := toDouble bld w src
+    part w d := ofDouble bld w (AST.fsqrt v)
+  }
 
 /// A conversion from a fixed-point value to a hexadecimal one.
 let fromInt ins insLen bld w intW =
-  let struct (o1, o2) = getTwoOprs ins
-  let d = oprRegVar bld o1
-  let v = tmpVar bld 64<rt>
-  bld <!-- ((ins: Instruction).Address, insLen)
-  let src = oprRegVar bld o2
-  let n = if intW = GRSize then src else AST.xtlo intW src
-  bld <+ (v := AST.cast CastKind.SIntToFloat 64<rt> n)
-  bld <+ (part w d := ofDouble bld w v)
-  bld --!> insLen
+  lift bld (ins: Instruction) insLen {
+    let struct (o1, o2) = getTwoOprs ins
+    let d = oprRegVar bld o1
+    let v = tmpVar bld 64<rt>
+    let src = oprRegVar bld o2
+    let n = if intW = GRSize then src else AST.xtlo intW src
+    v := AST.cast CastKind.SIntToFloat 64<rt> n
+    part w d := ofDouble bld w v
+  }
 
 /// A conversion from a hexadecimal value to a fixed-point one, which also
 /// reports how the value stood against zero.
 let toInt ins insLen bld w intW =
-  let struct (o1, o2) = getTwoOprs ins
-  let d = oprRegVar bld o1
-  let v = tmpVar bld 64<rt>
-  let t = tmpVar bld intW
-  bld <!-- ((ins: Instruction).Address, insLen)
-  bld <+ (v := toDouble bld w (part w (oprRegVar bld o2)))
-  bld <+ (t := AST.cast CastKind.FtoITrunc intW v)
-  let hi = AST.ite (AST.flt v (AST.num0 64<rt>)) (numCC 1) (numCC 2)
-  bld <+ (ccVar bld := AST.ite (AST.feq v (AST.num0 64<rt>)) (numCC 0) hi)
-  if intW = GRSize then bld <+ (d := t) else bld <+ (low d := t)
-  bld --!> insLen
+  lift bld (ins: Instruction) insLen {
+    let struct (o1, o2) = getTwoOprs ins
+    let d = oprRegVar bld o1
+    let v = tmpVar bld 64<rt>
+    let t = tmpVar bld intW
+    v := toDouble bld w (part w (oprRegVar bld o2))
+    t := AST.cast CastKind.FtoITrunc intW v
+    let hi = AST.ite (AST.flt v (AST.num0 64<rt>)) (numCC 1) (numCC 2)
+    ccVar bld := AST.ite (AST.feq v (AST.num0 64<rt>)) (numCC 0) hi
+    if intW = GRSize then append bld { d := t } else append bld { low d := t }
+  }
 
 /// The conversions between the hexadecimal and the binary formats, which are
 /// just the two conversions this module is built on, back to back.
 let toBinary ins insLen bld fromW toW =
-  let struct (o1, o2) = getTwoOprs ins
-  let d = oprRegVar bld o1
-  let v = tmpVar bld 64<rt>
-  bld <!-- ((ins: Instruction).Address, insLen)
-  bld <+ (v := toDouble bld fromW (part fromW (oprRegVar bld o2)))
-  if toW = ShortHFP then
-    bld <+ (AST.xthi 32<rt> d := AST.cast CastKind.FloatCast 32<rt> v)
-  else
-    bld <+ (d := v)
-  bld --!> insLen
+  lift bld (ins: Instruction) insLen {
+    let struct (o1, o2) = getTwoOprs ins
+    let d = oprRegVar bld o1
+    let v = tmpVar bld 64<rt>
+    v := toDouble bld fromW (part fromW (oprRegVar bld o2))
+    if toW = ShortHFP then
+      AST.xthi 32<rt> d := AST.cast CastKind.FloatCast 32<rt> v
+    else
+      d := v
+  }
 
 let fromBinary ins insLen bld fromW toW =
-  let struct (o1, o2) = getTwoOprs ins
-  let d = oprRegVar bld o1
-  let v = tmpVar bld 64<rt>
-  bld <!-- ((ins: Instruction).Address, insLen)
-  let src = oprRegVar bld o2
-  if fromW = ShortHFP then
-    bld <+ (v := AST.cast CastKind.FloatCast 64<rt> (AST.xthi 32<rt> src))
-  else
-    bld <+ (v := src)
-  bld <+ (part toW d := ofDouble bld toW v)
-  bld --!> insLen
+  lift bld (ins: Instruction) insLen {
+    let struct (o1, o2) = getTwoOprs ins
+    let d = oprRegVar bld o1
+    let v = tmpVar bld 64<rt>
+    let src = oprRegVar bld o2
+    if fromW = ShortHFP then
+      v := AST.cast CastKind.FloatCast 64<rt> (AST.xthi 32<rt> src)
+    else
+      v := src
+    part toW d := ofDouble bld toW v
+  }
 
 /// The multiply-and-add and multiply-and-subtract instructions, whose third
 /// operand is the one added to or taken from the product.
 let mulAdd ins insLen bld w subtract =
-  let struct (o1, o2, o3) = getThreeOprs ins
-  let d = oprRegVar bld o1
-  let a = tmpVar bld 64<rt>
-  let b = tmpVar bld 64<rt>
-  let c = tmpVar bld 64<rt>
-  bld <!-- ((ins: Instruction).Address, insLen)
-  let second =
-    match o2 with
-    | OpReg r2 -> part w (reg bld r2)
-    | _ -> loadMem w (transMem bld o2)
-  bld <+ (a := toDouble bld w second)
-  bld <+ (b := toDouble bld w (part w (oprRegVar bld o3)))
-  bld <+ (c := toDouble bld w (part w d))
-  let prod = AST.fmul a b
-  let r = if subtract then AST.fsub c prod else AST.fadd c prod
-  bld <+ (part w d := ofDouble bld w r)
-  bld --!> insLen
+  lift bld (ins: Instruction) insLen {
+    let struct (o1, o2, o3) = getThreeOprs ins
+    let d = oprRegVar bld o1
+    let a = tmpVar bld 64<rt>
+    let b = tmpVar bld 64<rt>
+    let c = tmpVar bld 64<rt>
+    let second =
+      match o2 with
+      | OpReg r2 -> part w (reg bld r2)
+      | _ -> loadMem w (transMem bld o2)
+    a := toDouble bld w second
+    b := toDouble bld w (part w (oprRegVar bld o3))
+    c := toDouble bld w (part w d)
+    let prod = AST.fmul a b
+    let r = if subtract then AST.fsub c prod else AST.fadd c prod
+    part w d := ofDouble bld w r
+  }
 
 /// An instruction of the format this module does not model: the extended one,
 /// whose 128 bits carry a 112-bit fraction that no type the IR has can hold.
 let unsupported ins insLen bld =
-  bld <!-- ((ins: Instruction).Address, insLen)
-  bld <+ AST.sideEffect UnsupportedInstruction
-  bld --!> insLen
+  lift bld (ins: Instruction) insLen {
+    AST.sideEffect UnsupportedInstruction
+  }
 
 /// Translates one hexadecimal floating-point instruction.
 let translate (ins: Instruction) insLen bld =

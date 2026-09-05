@@ -229,70 +229,87 @@ let oprImm = function
 let inline oprRegVar bld o = reg bld (oprReg o)
 
 /// Sets the condition code to a value known at lifting time.
-let setCC bld v = bld <+ (ccVar bld := numCC v)
+let setCC bld v =
+  append bld { ccVar bld := numCC v }
 
 /// Sets the condition code from the sign of a result, which is what an
 /// arithmetic instruction reports when it does not overflow: 0 for a zero
 /// result, 1 for a negative one, and 2 for a positive one.
 let setCCSign bld res =
-  let rt = Expr.typeOf res
-  let zero = AST.num0 rt
-  let sign = AST.ite (res ?< zero) (numCC 1) (numCC 2)
-  bld <+ (ccVar bld := AST.ite (res == zero) (numCC 0) sign)
+  append bld {
+    let rt = Expr.typeOf res
+    let zero = AST.num0 rt
+    let sign = AST.ite (res ?< zero) (numCC 1) (numCC 2)
+    ccVar bld := AST.ite (res == zero) (numCC 0) sign
+  }
 
 /// Sets the condition code the way a signed add reports it: the sign of the
 /// result, or 3 when the two operands share a sign the result does not, which
 /// is the only way a two's-complement sum can leave the representable range.
 let setCCAdd bld res a b =
-  let rt = Expr.typeOf res
-  let zero = AST.num0 rt
-  let ovf = ((a <+> res) .& (b <+> res)) ?< zero
-  let sign = AST.ite (res ?< zero) (numCC 1) (numCC 2)
-  let noOvf = AST.ite (res == zero) (numCC 0) sign
-  bld <+ (ccVar bld := AST.ite ovf (numCC 3) noOvf)
+  append bld {
+    let rt = Expr.typeOf res
+    let zero = AST.num0 rt
+    let ovf = ((a <+> res) .& (b <+> res)) ?< zero
+    let sign = AST.ite (res ?< zero) (numCC 1) (numCC 2)
+    let noOvf = AST.ite (res == zero) (numCC 0) sign
+    ccVar bld := AST.ite ovf (numCC 3) noOvf
+  }
 
 /// Sets the condition code the way a signed subtract reports it. A difference
 /// leaves the range only when the operands differ in sign and the result takes
 /// the subtrahend's.
 let setCCSub bld res a b =
-  let rt = Expr.typeOf res
-  let zero = AST.num0 rt
-  let ovf = ((a <+> b) .& (a <+> res)) ?< zero
-  let sign = AST.ite (res ?< zero) (numCC 1) (numCC 2)
-  let noOvf = AST.ite (res == zero) (numCC 0) sign
-  bld <+ (ccVar bld := AST.ite ovf (numCC 3) noOvf)
+  append bld {
+    let rt = Expr.typeOf res
+    let zero = AST.num0 rt
+    let ovf = ((a <+> b) .& (a <+> res)) ?< zero
+    let sign = AST.ite (res ?< zero) (numCC 1) (numCC 2)
+    let noOvf = AST.ite (res == zero) (numCC 0) sign
+    ccVar bld := AST.ite ovf (numCC 3) noOvf
+  }
 
 /// Sets the condition code the way a logical (unsigned) add reports it: the
 /// carry out of the leftmost bit weighs two and a non-zero result one, so the
 /// four codes name the four combinations.
 let setCCAddLogical bld res carry =
-  let rt = Expr.typeOf res
-  let nz = AST.ite (res == AST.num0 rt) (numCC 0) (numCC 1)
-  bld <+ (ccVar bld := AST.ite carry (nz .+ numCC 2) nz)
+  append bld {
+    let rt = Expr.typeOf res
+    let nz = AST.ite (res == AST.num0 rt) (numCC 0) (numCC 1)
+    ccVar bld := AST.ite carry (nz .+ numCC 2) nz
+  }
 
 /// Sets the condition code the way a logical (unsigned) subtract reports it.
 /// The difference carries out exactly when the minuend is not the smaller, so
 /// an equal pair gives 2, a larger minuend 3, and a smaller one 1.
 let setCCSubLogical bld a b =
-  let hi = AST.ite (a .> b) (numCC 3) (numCC 1)
-  bld <+ (ccVar bld := AST.ite (a == b) (numCC 2) hi)
+  append bld {
+    let hi = AST.ite (a .> b) (numCC 3) (numCC 1)
+    ccVar bld := AST.ite (a == b) (numCC 2) hi
+  }
 
 /// Sets the condition code a bitwise operation reports: 0 for an all-zero
 /// result and 1 for any other.
 let setCCLogic bld res =
-  let rt = Expr.typeOf res
-  bld <+ (ccVar bld := AST.ite (res == AST.num0 rt) (numCC 0) (numCC 1))
+  append bld {
+    let rt = Expr.typeOf res
+    ccVar bld := AST.ite (res == AST.num0 rt) (numCC 0) (numCC 1)
+  }
 
 /// Sets the condition code a signed comparison reports: 0 when the operands
 /// are equal, 1 when the first is the smaller, and 2 when it is the larger.
 let setCCCmp bld a b =
-  let hi = AST.ite (a ?< b) (numCC 1) (numCC 2)
-  bld <+ (ccVar bld := AST.ite (a == b) (numCC 0) hi)
+  append bld {
+    let hi = AST.ite (a ?< b) (numCC 1) (numCC 2)
+    ccVar bld := AST.ite (a == b) (numCC 0) hi
+  }
 
 /// Sets the condition code an unsigned comparison reports.
 let setCCCmpLogical bld a b =
-  let hi = AST.ite (a .< b) (numCC 1) (numCC 2)
-  bld <+ (ccVar bld := AST.ite (a == b) (numCC 0) hi)
+  append bld {
+    let hi = AST.ite (a .< b) (numCC 1) (numCC 2)
+    ccVar bld := AST.ite (a == b) (numCC 0) hi
+  }
 
 /// The leftmost one bit of a test mask, which is the bit TEST UNDER MASK looks
 /// at to tell a mixed result's two codes apart.
@@ -305,17 +322,19 @@ let private leftmostBit (m: uint64) =
 /// and otherwise 1 or 2 as the leftmost selected bit is zero or one. A zero
 /// mask selects nothing and so always reports 0.
 let setCCTestMask bld value (mask: uint64) =
-  let rt = Expr.typeOf value
-  if mask = 0UL then
-    setCC bld 0
-  else
-    let sel = value .& numI64 (int64 mask) rt
-    let zero = AST.num0 rt
-    let all = numI64 (int64 mask) rt
-    let left = numI64 (int64 (leftmostBit mask)) rt
-    let mixed = AST.ite ((sel .& left) == zero) (numCC 1) (numCC 2)
-    let some = AST.ite (sel == all) (numCC 3) mixed
-    bld <+ (ccVar bld := AST.ite (sel == zero) (numCC 0) some)
+  append bld {
+    let rt = Expr.typeOf value
+    if mask = 0UL then
+      setCC bld 0
+    else
+      let sel = value .& numI64 (int64 mask) rt
+      let zero = AST.num0 rt
+      let all = numI64 (int64 mask) rt
+      let left = numI64 (int64 (leftmostBit mask)) rt
+      let mixed = AST.ite ((sel .& left) == zero) (numCC 1) (numCC 2)
+      let some = AST.ite (sel == all) (numCC 3) mixed
+      ccVar bld := AST.ite (sel == zero) (numCC 0) some
+  }
 
 /// The one-bit condition a branch mask selects. The mask's four bits stand for
 /// condition codes 0 to 3, the leftmost for 0, so the bit to test is the one
@@ -372,17 +391,19 @@ let inline storeMem addr v = AST.store BE addr v
 /// use one whose operands overlap to propagate a byte through a field. The
 /// length is an expression because EXECUTE supplies one only at run time.
 let emitByteLoop bld len dst src (f: Expr -> Expr -> Expr) =
-  let i = tmpVar bld GRSize
-  let body = label bld "SSBody"
-  let out = label bld "SSOut"
-  bld <+ (i := AST.num0 GRSize)
-  bld <+ (AST.lmark body)
-  let d = dst .+ i
-  let s = src .+ i
-  bld <+ storeMem d (f (loadMem 8<rt> d) (loadMem 8<rt> s))
-  bld <+ (i := i .+ AST.num1 GRSize)
-  bld <+ (AST.cjmp (i == len) (AST.jmpDest out) (AST.jmpDest body))
-  bld <+ (AST.lmark out)
+  append bld {
+    let i = tmpVar bld GRSize
+    let body = label bld "SSBody"
+    let out = label bld "SSOut"
+    i := AST.num0 GRSize
+    AST.lmark body
+    let d = dst .+ i
+    let s = src .+ i
+    storeMem d (f (loadMem 8<rt> d) (loadMem 8<rt> s))
+    i := i .+ AST.num1 GRSize
+    AST.cjmp (i == len) (AST.jmpDest out) (AST.jmpDest body)
+    AST.lmark out
+  }
 
 /// Emits the same pass, reporting whether any bit of the result is one, which
 /// is what makes an exclusive-or of a field with itself both a clear and a
@@ -393,38 +414,44 @@ let emitLogicLoop bld len dst src (f: Expr -> Expr -> Expr) =
   let v = tmpVar bld 8<rt>
   let body = label bld "SSLogicBody"
   let out = label bld "SSLogicOut"
-  bld <+ (acc := AST.num0 8<rt>)
-  bld <+ (i := AST.num0 GRSize)
-  bld <+ (AST.lmark body)
+  append bld {
+    acc := AST.num0 8<rt>
+    i := AST.num0 GRSize
+    AST.lmark body
+  }
   let d = dst .+ i
-  bld <+ (v := f (loadMem 8<rt> d) (loadMem 8<rt> (src .+ i)))
-  bld <+ storeMem d v
-  bld <+ (acc := acc .| v)
-  bld <+ (i := i .+ AST.num1 GRSize)
-  bld <+ (AST.cjmp (i == len) (AST.jmpDest out) (AST.jmpDest body))
-  bld <+ (AST.lmark out)
+  append bld {
+    v := f (loadMem 8<rt> d) (loadMem 8<rt> (src .+ i))
+    storeMem d v
+    acc := acc .| v
+    i := i .+ AST.num1 GRSize
+    AST.cjmp (i == len) (AST.jmpDest out) (AST.jmpDest body)
+    AST.lmark out
+  }
   setCCLogic bld acc
 
 /// Emits a comparison of two fields of storage: the leftmost byte they differ
 /// in decides, and equal fields report equality.
 let emitCompareLoop bld len a b =
-  let i = tmpVar bld GRSize
-  let x = tmpVar bld 8<rt>
-  let y = tmpVar bld 8<rt>
-  let body = label bld "ClcBody"
-  let diff = label bld "ClcDiff"
-  let next = label bld "ClcNext"
-  let out = label bld "ClcOut"
-  bld <+ (i := AST.num0 GRSize)
-  setCC bld 0
-  bld <+ (AST.lmark body)
-  bld <+ (x := loadMem 8<rt> (a .+ i))
-  bld <+ (y := loadMem 8<rt> (b .+ i))
-  bld <+ (AST.cjmp (x == y) (AST.jmpDest next) (AST.jmpDest diff))
-  bld <+ (AST.lmark diff)
-  bld <+ (ccVar bld := AST.ite (x .< y) (numCC 1) (numCC 2))
-  bld <+ (AST.jmp (AST.jmpDest out))
-  bld <+ (AST.lmark next)
-  bld <+ (i := i .+ AST.num1 GRSize)
-  bld <+ (AST.cjmp (i == len) (AST.jmpDest out) (AST.jmpDest body))
-  bld <+ (AST.lmark out)
+  append bld {
+    let i = tmpVar bld GRSize
+    let x = tmpVar bld 8<rt>
+    let y = tmpVar bld 8<rt>
+    let body = label bld "ClcBody"
+    let diff = label bld "ClcDiff"
+    let next = label bld "ClcNext"
+    let out = label bld "ClcOut"
+    i := AST.num0 GRSize
+    setCC bld 0
+    AST.lmark body
+    x := loadMem 8<rt> (a .+ i)
+    y := loadMem 8<rt> (b .+ i)
+    AST.cjmp (x == y) (AST.jmpDest next) (AST.jmpDest diff)
+    AST.lmark diff
+    ccVar bld := AST.ite (x .< y) (numCC 1) (numCC 2)
+    AST.jmp (AST.jmpDest out)
+    AST.lmark next
+    i := i .+ AST.num1 GRSize
+    AST.cjmp (i == len) (AST.jmpDest out) (AST.jmpDest body)
+    AST.lmark out
+  }

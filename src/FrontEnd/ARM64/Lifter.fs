@@ -35,197 +35,198 @@ open B2R2.FrontEnd.ARM64.LiftingUtils
 
 /// A module for all AArch64-IR translation functions
 let sideEffects insAddr insLen bld name =
-  bld <!-- (insAddr, insLen)
-  bld <+ (AST.sideEffect name)
-  bld --!> insLen
+  markStart bld insAddr insLen
+  append bld { AST.sideEffect name }
+  markEnd bld insLen
+  bld
 
 let abs (ins: Instruction) insLen bld addr =
-  bld <!-- (ins.Address, insLen)
-  match ins.Operands with
-  | TwoOperands(OprSIMD(VecReg _) as o1, o2) ->
-    let struct (dstB, dstA) = transOprToExpr128 ins bld addr o1
-    let struct (eSize, dataSize, elements) = getElemDataSzAndElems o2
-    let n0 = AST.num0 eSize
-    let src = transSIMDOprToExpr bld eSize dataSize elements o2
-    let result = Array.map (fun e -> AST.ite (e ?> n0) e (AST.neg e)) src
-    dstAssignForSIMD dstA dstB result dataSize elements bld
-  | TwoOperands(OprSIMD(ScalarReg _) as o1, o2) ->
-    let struct (eSize, _, _) = getElemDataSzAndElems o1
-    let src = transOprToExpr ins bld addr o2
-    let n0 = AST.num0 eSize
-    let result = AST.ite (src ?> n0) src (AST.neg src)
-    dstAssignScalar ins bld addr o1 result eSize
-  | _ ->
-    let struct (dst, src) = getTwoOprs ins
-    let n0 = AST.num0 ins.OprSize
-    let dst = transOprToExpr ins bld addr dst
-    let src = transOprToExpr ins bld addr src
-    let result = AST.ite (src ?> n0) src (AST.neg src)
-    dstAssign ins.OprSize dst result bld
-  bld --!> insLen
+  lift bld ins insLen {
+    match ins.Operands with
+    | TwoOperands(OprSIMD(VecReg _) as o1, o2) ->
+      let struct (dstB, dstA) = transOprToExpr128 ins bld addr o1
+      let struct (eSize, dataSize, elements) = getElemDataSzAndElems o2
+      let n0 = AST.num0 eSize
+      let src = transSIMDOprToExpr bld eSize dataSize elements o2
+      let result = Array.map (fun e -> AST.ite (e ?> n0) e (AST.neg e)) src
+      dstAssignForSIMD dstA dstB result dataSize elements bld
+    | TwoOperands(OprSIMD(ScalarReg _) as o1, o2) ->
+      let struct (eSize, _, _) = getElemDataSzAndElems o1
+      let src = transOprToExpr ins bld addr o2
+      let n0 = AST.num0 eSize
+      let result = AST.ite (src ?> n0) src (AST.neg src)
+      dstAssignScalar ins bld addr o1 result eSize
+    | _ ->
+      let struct (dst, src) = getTwoOprs ins
+      let n0 = AST.num0 ins.OprSize
+      let dst = transOprToExpr ins bld addr dst
+      let src = transOprToExpr ins bld addr src
+      let result = AST.ite (src ?> n0) src (AST.neg src)
+      dstAssign ins.OprSize dst result bld
+  }
 
 let adc ins insLen bld addr =
-  let dst, src1, src2 = transThreeOprs ins bld addr
-  let c = AST.zext ins.OprSize (regVar bld R.C)
-  bld <!-- (ins.Address, insLen)
-  let result, _ = addWithCarry src1 src2 c ins.OprSize
-  dstAssign ins.OprSize dst result bld
-  bld --!> insLen
+  lift bld ins insLen {
+    let dst, src1, src2 = transThreeOprs ins bld addr
+    let c = AST.zext ins.OprSize (regVar bld R.C)
+    let result, _ = addWithCarry src1 src2 c ins.OprSize
+    dstAssign ins.OprSize dst result bld
+  }
 
 let adcs ins insLen bld addr =
-  let dst, src1, src2 = transThreeOprs ins bld addr
-  bld <!-- (ins.Address, insLen)
-  let c = tmpVar bld ins.OprSize
-  bld <+ (c := AST.zext ins.OprSize (regVar bld R.C))
-  let result, (n, z, c, v) = addWithCarry src1 src2 c ins.OprSize
-  bld <+ (regVar bld R.N := n)
-  bld <+ (regVar bld R.Z := z)
-  bld <+ (regVar bld R.C := c)
-  bld <+ (regVar bld R.V := v)
-  dstAssign ins.OprSize dst result bld
-  bld --!> insLen
+  lift bld ins insLen {
+    let dst, src1, src2 = transThreeOprs ins bld addr
+    let c = tmpVar bld ins.OprSize
+    c := AST.zext ins.OprSize (regVar bld R.C)
+    let result, (n, z, c, v) = addWithCarry src1 src2 c ins.OprSize
+    regVar bld R.N := n
+    regVar bld R.Z := z
+    regVar bld R.C := c
+    regVar bld R.V := v
+    dstAssign ins.OprSize dst result bld
+  }
 
 let add (ins: Instruction) insLen bld addr =
-  bld <!-- (ins.Address, insLen)
-  match ins.Operands with
-  | ThreeOperands(OprSIMD(VecReg _) as o1, o2, o3) ->
-    let struct (eSize, dataSize, elements) = getElemDataSzAndElems o1
-    let struct (dstB, dstA) = transOprToExpr128 ins bld addr o1
-    let src1 = transSIMDOprToExpr bld eSize dataSize elements o2
-    let src2 = transSIMDOprToExpr bld eSize dataSize elements o3
-    let result = Array.map2 (.+) src1 src2
-    dstAssignForSIMD dstA dstB result dataSize elements bld
-  | ThreeOperands(o1, _, _) (* SIMD Scalar *) ->
-    let _, src1, src2 = transThreeOprs ins bld addr
-    let struct (eSize, _, _) = getElemDataSzAndElems o1
-    dstAssignScalar ins bld addr o1 (src1 .+ src2) eSize
-  | FourOperands _ (* Arithmetic *) ->
-    let dst, s1, s2 = transFourOprsWithBarrelShift ins bld addr
-    let result, _ = addWithCarry s1 s2 (AST.num0 ins.OprSize) ins.OprSize
-    dstAssign ins.OprSize dst result bld
-  | _ ->
-    raise InvalidOperandException
-  bld --!> insLen
+  lift bld ins insLen {
+    match ins.Operands with
+    | ThreeOperands(OprSIMD(VecReg _) as o1, o2, o3) ->
+      let struct (eSize, dataSize, elements) = getElemDataSzAndElems o1
+      let struct (dstB, dstA) = transOprToExpr128 ins bld addr o1
+      let src1 = transSIMDOprToExpr bld eSize dataSize elements o2
+      let src2 = transSIMDOprToExpr bld eSize dataSize elements o3
+      let result = Array.map2 (.+) src1 src2
+      dstAssignForSIMD dstA dstB result dataSize elements bld
+    | ThreeOperands(o1, _, _) (* SIMD Scalar *) ->
+      let _, src1, src2 = transThreeOprs ins bld addr
+      let struct (eSize, _, _) = getElemDataSzAndElems o1
+      dstAssignScalar ins bld addr o1 (src1 .+ src2) eSize
+    | FourOperands _ (* Arithmetic *) ->
+      let dst, s1, s2 = transFourOprsWithBarrelShift ins bld addr
+      let result, _ = addWithCarry s1 s2 (AST.num0 ins.OprSize) ins.OprSize
+      dstAssign ins.OprSize dst result bld
+    | _ ->
+      raise InvalidOperandException
+  }
 
 let addp (ins: Instruction) insLen bld addr =
-  bld <!-- (ins.Address, insLen)
-  match ins.Operands with
-  | TwoOperands(dst, src) -> (* Scalar *)
+  lift bld ins insLen {
+    match ins.Operands with
+    | TwoOperands(dst, src) -> (* Scalar *)
+      let struct (eSize, dataSize, elements) = getElemDataSzAndElems src
+      let src = transSIMDOprToExpr bld eSize dataSize elements src
+      let result = Array.reduce (.+) src
+      dstAssignScalar ins bld addr dst result eSize
+    | ThreeOperands(dst, src1, src2) -> (* Vector *)
+      let struct (eSize, dataSize, elements) = getElemDataSzAndElems dst
+      let struct (dstB, dstA) = transOprToExpr128 ins bld addr dst
+      let src1 = transSIMDOprToExpr bld eSize dataSize elements src1
+      let src2 = transSIMDOprToExpr bld eSize dataSize elements src2
+      let result = Array.init elements (fun _ -> tmpVar bld eSize)
+      Array.append src1 src2 |> Array.chunkBySize 2
+      |> Array.map (fun e -> e[0] .+ e[1])
+      |> Array.iter2 (fun e1 e2 -> append bld { e1 := e2 }) result
+      dstAssignForSIMD dstA dstB result dataSize elements bld
+    | _ ->
+      raise InvalidOperandException
+  }
+
+let adds ins insLen bld addr =
+  lift bld ins insLen {
+    let dst, src1, src2 = transFourOprsWithBarrelShift ins bld addr
+    let oSz = ins.OprSize
+    let result, (n, z, c, v) = addWithCarry src1 src2 (AST.num0 oSz) oSz
+    regVar bld R.N := n
+    regVar bld R.Z := z
+    regVar bld R.C := c
+    regVar bld R.V := v
+    dstAssign ins.OprSize dst result bld
+  }
+
+let addv (ins: Instruction) insLen bld addr =
+  lift bld ins insLen {
+    let struct (dst, src) = getTwoOprs ins
     let struct (eSize, dataSize, elements) = getElemDataSzAndElems src
     let src = transSIMDOprToExpr bld eSize dataSize elements src
     let result = Array.reduce (.+) src
     dstAssignScalar ins bld addr dst result eSize
-  | ThreeOperands(dst, src1, src2) -> (* Vector *)
-    let struct (eSize, dataSize, elements) = getElemDataSzAndElems dst
-    let struct (dstB, dstA) = transOprToExpr128 ins bld addr dst
-    let src1 = transSIMDOprToExpr bld eSize dataSize elements src1
-    let src2 = transSIMDOprToExpr bld eSize dataSize elements src2
-    let result = Array.init elements (fun _ -> tmpVar bld eSize)
-    Array.append src1 src2 |> Array.chunkBySize 2
-    |> Array.map (fun e -> e[0] .+ e[1])
-    |> Array.iter2 (fun e1 e2 -> bld <+ (e1 := e2)) result
-    dstAssignForSIMD dstA dstB result dataSize elements bld
-  | _ ->
-    raise InvalidOperandException
-  bld --!> insLen
-
-let adds ins insLen bld addr =
-  let dst, src1, src2 = transFourOprsWithBarrelShift ins bld addr
-  let oSz = ins.OprSize
-  bld <!-- (ins.Address, insLen)
-  let result, (n, z, c, v) = addWithCarry src1 src2 (AST.num0 oSz) oSz
-  bld <+ (regVar bld R.N := n)
-  bld <+ (regVar bld R.Z := z)
-  bld <+ (regVar bld R.C := c)
-  bld <+ (regVar bld R.V := v)
-  dstAssign ins.OprSize dst result bld
-  bld --!> insLen
-
-let addv (ins: Instruction) insLen bld addr =
-  bld <!-- (ins.Address, insLen)
-  let struct (dst, src) = getTwoOprs ins
-  let struct (eSize, dataSize, elements) = getElemDataSzAndElems src
-  let src = transSIMDOprToExpr bld eSize dataSize elements src
-  let result = Array.reduce (.+) src
-  dstAssignScalar ins bld addr dst result eSize
-  bld --!> insLen
+  }
 
 let adr ins insLen bld addr =
-  let dst, label = transTwoOprs ins bld addr
-  bld <!-- (ins.Address, insLen)
-  bld <+ (dst := getPC bld .+ label)
-  bld --!> insLen
+  lift bld ins insLen {
+    let dst, label = transTwoOprs ins bld addr
+    dst := getPC bld .+ label
+  }
 
 let adrp ins insLen bld addr =
-  let dst, lbl = transTwoOprs ins bld addr
-  bld <!-- (ins.Address, insLen)
-  bld <+ (dst := (getPC bld .& numI64 0xfffffffffffff000L 64<rt>) .+ lbl)
-  bld --!> insLen
+  lift bld ins insLen {
+    let dst, lbl = transTwoOprs ins bld addr
+    dst := (getPC bld .& numI64 0xfffffffffffff000L 64<rt>) .+ lbl
+  }
 
 let logAnd (ins: Instruction) insLen bld addr = (* AND *)
-  bld <!-- (ins.Address, insLen)
-  match ins.Operands with
-  | ThreeOperands(OprSIMD(VecReg _) as dst, src1, src2) ->
-    let struct (dstB, dstA) = transOprToExpr128 ins bld addr dst
-    let struct (src1B, src1A) = transOprToExpr128 ins bld addr src1
-    let struct (src2B, src2A) = transOprToExpr128 ins bld addr src2
-    bld <+ (dstA := src1A .& src2A)
-    if ins.OprSize = 64<rt> then bld <+ (dstB := AST.num0 ins.OprSize)
-    else bld <+ (dstB := src1B .& src2B)
-  | _ ->
-    let dst, src1, src2 = transOprToExprOfAND ins bld addr
-    dstAssign ins.OprSize dst (src1 .& src2) bld
-  bld --!> insLen
+  lift bld ins insLen {
+    match ins.Operands with
+    | ThreeOperands(OprSIMD(VecReg _) as dst, src1, src2) ->
+      let struct (dstB, dstA) = transOprToExpr128 ins bld addr dst
+      let struct (src1B, src1A) = transOprToExpr128 ins bld addr src1
+      let struct (src2B, src2A) = transOprToExpr128 ins bld addr src2
+      dstA := src1A .& src2A
+      if ins.OprSize = 64<rt> then append bld { dstB := AST.num0 ins.OprSize }
+      else append bld { dstB := src1B .& src2B }
+    | _ ->
+      let dst, src1, src2 = transOprToExprOfAND ins bld addr
+      dstAssign ins.OprSize dst (src1 .& src2) bld
+  }
 
 let asrv ins insLen bld addr =
-  let dst, src1, src2 = transThreeOprs ins bld addr
-  let amount = src2 .% oprSzToExpr ins.OprSize
-  bld <!-- (ins.Address, insLen)
-  dstAssign ins.OprSize dst (shiftReg src1 amount ins.OprSize ASR) bld
-  bld --!> insLen
+  lift bld ins insLen {
+    let dst, src1, src2 = transThreeOprs ins bld addr
+    let amount = src2 .% oprSzToExpr ins.OprSize
+    dstAssign ins.OprSize dst (shiftReg src1 amount ins.OprSize ASR) bld
+  }
 
 let ands ins insLen bld addr =
-  let dst, src1, src2 = transOprToExprOfAND ins bld addr
-  let result = tmpVar bld ins.OprSize
-  bld <!-- (ins.Address, insLen)
-  bld <+ (result := src1 .& src2)
-  bld <+ (regVar bld R.N := AST.xthi 1<rt> result)
-  bld <+ (regVar bld R.Z := (result == AST.num0 ins.OprSize))
-  bld <+ (regVar bld R.C := AST.b0)
-  bld <+ (regVar bld R.V := AST.b0)
-  dstAssign ins.OprSize dst result bld
-  bld --!> insLen
+  lift bld ins insLen {
+    let dst, src1, src2 = transOprToExprOfAND ins bld addr
+    let result = tmpVar bld ins.OprSize
+    result := src1 .& src2
+    regVar bld R.N := AST.xthi 1<rt> result
+    regVar bld R.Z := (result == AST.num0 ins.OprSize)
+    regVar bld R.C := AST.b0
+    regVar bld R.V := AST.b0
+    dstAssign ins.OprSize dst result bld
+  }
 
 let b ins insLen bld addr =
-  let label = transOneOpr ins bld addr
-  let pc = numU64 (ins:Instruction).Address bld.RegType
-  bld <!-- (ins.Address, insLen)
-  bld <+ (AST.interjmp (pc .+ label) InterJmpKind.Base)
-  bld
+  liftOpen bld ins insLen {
+    let label = transOneOpr ins bld addr
+    let pc = numU64 (ins:Instruction).Address bld.RegType
+    AST.interjmp (pc .+ label) InterJmpKind.Base
+  }
 
 let bCond ins insLen bld addr cond =
-  let label = transOneOpr ins bld addr
-  let pc = numU64 (ins:Instruction).Address bld.RegType
-  let fall = pc .+ numU32 insLen 64<rt>
-  bld <!-- (ins.Address, insLen)
-  bld <+ (AST.intercjmp (conditionHolds bld cond) (pc .+ label) fall)
-  bld
+  liftOpen bld ins insLen {
+    let label = transOneOpr ins bld addr
+    let pc = numU64 (ins:Instruction).Address bld.RegType
+    let fall = pc .+ numU32 insLen 64<rt>
+    AST.intercjmp (conditionHolds bld cond) (pc .+ label) fall
+  }
 
 let bfm (ins: Instruction) insLen bld addr dst src immr imms =
-  let oSz = ins.OprSize
-  let width = oprSzToExpr ins.OprSize
-  let struct (wmask, tmask) = decodeBitMasks immr imms (int oSz)
-  let dst = transOprToExpr ins bld addr dst
-  let src = transOprToExpr ins bld addr src
-  let immr = transOprToExpr ins bld addr immr
-  bld <!-- (ins.Address, insLen)
-  let struct (wMask, tMask) = tmpVars2 bld oSz
-  let bot = tmpVar bld ins.OprSize
-  bld <+ (wMask := numI64 wmask oSz)
-  bld <+ (tMask := numI64 tmask oSz)
-  bld <+ (bot := (dst .& AST.not wMask) .| (rorForIR src immr width .& wMask))
-  dstAssign ins.OprSize dst ((dst .& AST.not tMask) .| (bot .& tMask)) bld
-  bld --!> insLen
+  lift bld ins insLen {
+    let oSz = ins.OprSize
+    let width = oprSzToExpr ins.OprSize
+    let struct (wmask, tmask) = decodeBitMasks immr imms (int oSz)
+    let dst = transOprToExpr ins bld addr dst
+    let src = transOprToExpr ins bld addr src
+    let immr = transOprToExpr ins bld addr immr
+    let struct (wMask, tMask) = tmpVars2 bld oSz
+    let bot = tmpVar bld ins.OprSize
+    wMask := numI64 wmask oSz
+    tMask := numI64 tmask oSz
+    bot := (dst .& AST.not wMask) .| (rorForIR src immr width .& wMask)
+    dstAssign ins.OprSize dst ((dst .& AST.not tMask) .| (bot .& tMask)) bld
+  }
 
 let bfi ins insLen bld addr =
   let struct (dst, src, lsb, width) = getFourOprs ins
@@ -239,170 +240,170 @@ let bfxil ins insLen bld addr =
   bfm ins insLen bld addr dst src lsb imms
 
 let bic (ins: Instruction) insLen bld addr =
-  bld <!-- (ins.Address, insLen)
-  match ins.Operands with
-  | ThreeOperands(OprSIMD(VecReg _), OprSIMD(VecReg _), _) ->
-    let struct (dst, src1, src2) = getThreeOprs ins
-    let struct (eSize, dataSize, elements) = getElemDataSzAndElems dst
-    let struct (dstB, dstA) = transOprToExpr128 ins bld addr dst
-    let src1 = transSIMDOprToExpr bld eSize dataSize elements src1
-    let src2 = transSIMDOprToExpr bld eSize dataSize elements src2
-    let result = Array.map2 (fun s1 s2 -> s1 .& AST.not s2) src1 src2
-    dstAssignForSIMD dstA dstB result dataSize elements bld
-  | ThreeOperands(OprSIMD(VecReg _), OprImm _, OprShift _) ->
-    let struct (dst, src, amount) = getThreeOprs ins
-    let struct (eSize, dataSize, _) = getElemDataSzAndElems dst
-    let struct (dstB, dstA) = transOprToExpr128 ins bld addr dst
-    let imm =
-      transBarrelShiftToExpr ins.OprSize bld src amount
-      |> advSIMDExpandImm bld eSize |> AST.not
-    dstAssign128 ins bld addr dst (dstA .& imm) (dstB .& imm) dataSize
-  | TwoOperands(OprSIMD(VecReg _), OprImm _) ->
-    let struct (dst, src) = getTwoOprs ins
-    let struct (eSize, dataSize, _) = getElemDataSzAndElems dst
-    let struct (dstB, dstA) = transOprToExpr128 ins bld addr dst
-    let src = transOprToExpr ins bld addr src
-    let imm = advSIMDExpandImm bld eSize src |> AST.not
-    dstAssign128 ins bld addr dst (dstA .& imm) (dstB .& imm) dataSize
-  | _ ->
-    let dst, src1, src2 = transFourOprsWithBarrelShift ins bld addr
-    dstAssign ins.OprSize dst (src1 .& AST.not src2) bld
-  bld --!> insLen
+  lift bld ins insLen {
+    match ins.Operands with
+    | ThreeOperands(OprSIMD(VecReg _), OprSIMD(VecReg _), _) ->
+      let struct (dst, src1, src2) = getThreeOprs ins
+      let struct (eSize, dataSize, elements) = getElemDataSzAndElems dst
+      let struct (dstB, dstA) = transOprToExpr128 ins bld addr dst
+      let src1 = transSIMDOprToExpr bld eSize dataSize elements src1
+      let src2 = transSIMDOprToExpr bld eSize dataSize elements src2
+      let result = Array.map2 (fun s1 s2 -> s1 .& AST.not s2) src1 src2
+      dstAssignForSIMD dstA dstB result dataSize elements bld
+    | ThreeOperands(OprSIMD(VecReg _), OprImm _, OprShift _) ->
+      let struct (dst, src, amount) = getThreeOprs ins
+      let struct (eSize, dataSize, _) = getElemDataSzAndElems dst
+      let struct (dstB, dstA) = transOprToExpr128 ins bld addr dst
+      let imm =
+        transBarrelShiftToExpr ins.OprSize bld src amount
+        |> advSIMDExpandImm bld eSize |> AST.not
+      dstAssign128 ins bld addr dst (dstA .& imm) (dstB .& imm) dataSize
+    | TwoOperands(OprSIMD(VecReg _), OprImm _) ->
+      let struct (dst, src) = getTwoOprs ins
+      let struct (eSize, dataSize, _) = getElemDataSzAndElems dst
+      let struct (dstB, dstA) = transOprToExpr128 ins bld addr dst
+      let src = transOprToExpr ins bld addr src
+      let imm = advSIMDExpandImm bld eSize src |> AST.not
+      dstAssign128 ins bld addr dst (dstA .& imm) (dstB .& imm) dataSize
+    | _ ->
+      let dst, src1, src2 = transFourOprsWithBarrelShift ins bld addr
+      dstAssign ins.OprSize dst (src1 .& AST.not src2) bld
+  }
 
 let bics ins insLen bld addr =
-  let dst, src1, src2 = transFourOprsWithBarrelShift ins bld addr
-  let result = tmpVar bld ins.OprSize
-  bld <!-- (ins.Address, insLen)
-  bld <+ (result := src1 .& AST.not src2)
-  bld <+ (regVar bld R.N := AST.xthi 1<rt> result)
-  bld <+ (regVar bld R.Z := result == AST.num0 ins.OprSize)
-  bld <+ (regVar bld R.C := AST.b0)
-  bld <+ (regVar bld R.V := AST.b0)
-  dstAssign ins.OprSize dst result bld
-  bld --!> insLen
+  lift bld ins insLen {
+    let dst, src1, src2 = transFourOprsWithBarrelShift ins bld addr
+    let result = tmpVar bld ins.OprSize
+    result := src1 .& AST.not src2
+    regVar bld R.N := AST.xthi 1<rt> result
+    regVar bld R.Z := result == AST.num0 ins.OprSize
+    regVar bld R.C := AST.b0
+    regVar bld R.V := AST.b0
+    dstAssign ins.OprSize dst result bld
+  }
 
 let private bitInsert (ins: Instruction) insLen bld addr isTrue =
-  bld <!-- (ins.Address, insLen)
-  let struct (dst, src1, src2) = getThreeOprs ins
-  let struct (dstB, dstA) = transOprToExpr128 ins bld addr dst
-  let struct (src1B, src1A) = transOprToExpr128 ins bld addr src1
-  let struct (src2B, src2A) = transOprToExpr128 ins bld addr src2
-  let struct (opr1A, opr3A, opr4A) = tmpVars3 bld 64<rt>
-  let struct (opr1B, opr3B, opr4B) = tmpVars3 bld 64<rt>
-  bld <+ (opr1A := dstA)
-  bld <+ (opr1B := dstB)
-  bld <+ (opr3A := if isTrue then src2A else AST.not src2A)
-  bld <+ (opr3B := if isTrue then src2B else AST.not src2B)
-  bld <+ (opr4A := src1A)
-  bld <+ (opr4B := src1B)
-  bld <+ (dstA := AST.xor opr1A ((AST.xor opr1A opr4A) .& opr3A))
-  if ins.OprSize = 128<rt> then
-    bld <+ (dstB := AST.xor opr1B ((AST.xor opr1B opr4B) .& opr3B))
-  else
-    bld <+ (dstB := AST.num0 64<rt>)
-  bld --!> insLen
+  lift bld ins insLen {
+    let struct (dst, src1, src2) = getThreeOprs ins
+    let struct (dstB, dstA) = transOprToExpr128 ins bld addr dst
+    let struct (src1B, src1A) = transOprToExpr128 ins bld addr src1
+    let struct (src2B, src2A) = transOprToExpr128 ins bld addr src2
+    let struct (opr1A, opr3A, opr4A) = tmpVars3 bld 64<rt>
+    let struct (opr1B, opr3B, opr4B) = tmpVars3 bld 64<rt>
+    opr1A := dstA
+    opr1B := dstB
+    opr3A := if isTrue then src2A else AST.not src2A
+    opr3B := if isTrue then src2B else AST.not src2B
+    opr4A := src1A
+    opr4B := src1B
+    dstA := AST.xor opr1A ((AST.xor opr1A opr4A) .& opr3A)
+    if ins.OprSize = 128<rt> then
+      dstB := AST.xor opr1B ((AST.xor opr1B opr4B) .& opr3B)
+    else
+      dstB := AST.num0 64<rt>
+  }
 
 let bif ins insLen bld addr = bitInsert ins insLen bld addr false
 
 let bit ins insLen bld addr = bitInsert ins insLen bld addr true
 
 let bl ins insLen bld addr =
-  let label = transOneOpr ins bld addr
-  let pc = numU64 (ins:Instruction).Address bld.RegType
-  bld <!-- (ins.Address, insLen)
-  bld <+ (regVar bld R.X30 := pc .+ numI64 4L ins.OprSize)
-  (* FIXME: BranchTo (BranchType_DIRCALL) *)
-  bld <+ (AST.interjmp (pc .+ label) InterJmpKind.IsCall)
-  bld
+  liftOpen bld ins insLen {
+    let label = transOneOpr ins bld addr
+    let pc = numU64 (ins:Instruction).Address bld.RegType
+    regVar bld R.X30 := pc .+ numI64 4L ins.OprSize
+    (* FIXME: BranchTo (BranchType_DIRCALL) *)
+    AST.interjmp (pc .+ label) InterJmpKind.IsCall
+  }
 
 let blr ins insLen bld addr =
-  let src = transOneOpr ins bld addr
-  let pc = numU64 (ins:Instruction).Address bld.RegType
-  bld <!-- (ins.Address, insLen)
-  bld <+ (regVar bld R.X30 := pc .+ numI64 4L ins.OprSize)
-  (* FIXME: BranchTo (BranchType_INDCALL) *)
-  bld <+ (AST.interjmp src InterJmpKind.IsCall)
-  bld
+  liftOpen bld ins insLen {
+    let src = transOneOpr ins bld addr
+    let pc = numU64 (ins:Instruction).Address bld.RegType
+    regVar bld R.X30 := pc .+ numI64 4L ins.OprSize
+    (* FIXME: BranchTo (BranchType_INDCALL) *)
+    AST.interjmp src InterJmpKind.IsCall
+  }
 
 let br ins insLen bld addr =
-  let dst = transOneOpr ins bld addr
-  bld <!-- (ins.Address, insLen)
-  (* FIXME: BranchTo (BranchType_INDIR) *)
-  bld <+ (AST.interjmp dst InterJmpKind.Base)
-  bld
+  liftOpen bld ins insLen {
+    let dst = transOneOpr ins bld addr
+    (* FIXME: BranchTo (BranchType_INDIR) *)
+    AST.interjmp dst InterJmpKind.Base
+  }
 
 let bsl (ins: Instruction) insLen bld addr =
-  bld <!-- (ins.Address, insLen)
-  let struct (dst, src1, src2) = getThreeOprs ins
-  let struct (dstB, dstA) = transOprToExpr128 ins bld addr dst
-  let struct (src1B, src1A) = transOprToExpr128 ins bld addr src1
-  let struct (src2B, src2A) = transOprToExpr128 ins bld addr src2
-  let struct (opr1A, opr3A, opr4A) = tmpVars3 bld 64<rt>
-  let struct (opr1B, opr3B, opr4B) = tmpVars3 bld 64<rt>
-  bld <+ (opr1A := src2A)
-  bld <+ (opr1B := src2B)
-  bld <+ (opr3A := dstA)
-  bld <+ (opr3B := dstB)
-  bld <+ (opr4A := src1A)
-  bld <+ (opr4B := src1B)
-  bld <+ (dstA := AST.xor opr1A ((AST.xor opr1A opr4A) .& opr3A))
-  if ins.OprSize = 128<rt> then
-    bld <+ (dstB := AST.xor opr1B ((AST.xor opr1B opr4B) .& opr3B))
-  else
-    bld <+ (dstB := AST.num0 64<rt>)
-  bld --!> insLen
+  lift bld ins insLen {
+    let struct (dst, src1, src2) = getThreeOprs ins
+    let struct (dstB, dstA) = transOprToExpr128 ins bld addr dst
+    let struct (src1B, src1A) = transOprToExpr128 ins bld addr src1
+    let struct (src2B, src2A) = transOprToExpr128 ins bld addr src2
+    let struct (opr1A, opr3A, opr4A) = tmpVars3 bld 64<rt>
+    let struct (opr1B, opr3B, opr4B) = tmpVars3 bld 64<rt>
+    opr1A := src2A
+    opr1B := src2B
+    opr3A := dstA
+    opr3B := dstB
+    opr4A := src1A
+    opr4B := src1B
+    dstA := AST.xor opr1A ((AST.xor opr1A opr4A) .& opr3A)
+    if ins.OprSize = 128<rt> then
+      dstB := AST.xor opr1B ((AST.xor opr1B opr4B) .& opr3B)
+    else
+      dstB := AST.num0 64<rt>
+  }
 
 let inline private compareBranch ins insLen bld addr cmp =
-  let test, label = transTwoOprs ins bld addr
-  let pc = numU64 (ins: Instruction).Address bld.RegType
-  let fall = pc .+ numU32 insLen 64<rt>
-  bld <!-- (ins.Address, insLen)
-  bld <+ (AST.intercjmp (cmp test (AST.num0 ins.OprSize)) (pc .+ label) fall)
-  bld
+  liftOpen bld ins insLen {
+    let test, label = transTwoOprs ins bld addr
+    let pc = numU64 (ins: Instruction).Address bld.RegType
+    let fall = pc .+ numU32 insLen 64<rt>
+    AST.intercjmp (cmp test (AST.num0 ins.OprSize)) (pc .+ label) fall
+  }
 
 let compareAndSwap ins insLen bld addr =
-  let dst, src, mem = transThreeOprs ins bld addr
-  let struct (compareVal, newVal, oldVal) = tmpVars3 bld ins.OprSize
-  let memVal = tmpVar bld 64<rt>
-  let cond = oldVal == compareVal
-  bld <!-- (ins.Address, insLen)
-  bld <+ (compareVal := dst)
-  bld <+ (newVal := src)
-  bld <+ (memVal := mem)
-  bld <+ (oldVal := memVal |> AST.xtlo ins.OprSize)
-  bld <+ (mem := AST.ite cond (newVal |> AST.sext 64<rt>) memVal)
-  bld <+ (dst := oldVal |> AST.zext ins.OprSize)
-  bld --!> insLen
+  lift bld ins insLen {
+    let dst, src, mem = transThreeOprs ins bld addr
+    let struct (compareVal, newVal, oldVal) = tmpVars3 bld ins.OprSize
+    let memVal = tmpVar bld 64<rt>
+    let cond = oldVal == compareVal
+    compareVal := dst
+    newVal := src
+    memVal := mem
+    oldVal := memVal |> AST.xtlo ins.OprSize
+    mem := AST.ite cond (newVal |> AST.sext 64<rt>) memVal
+    dst := oldVal |> AST.zext ins.OprSize
+  }
 
 let cbnz ins insLen bld addr = compareBranch ins insLen bld addr (!=)
 
 let cbz ins insLen bld addr = compareBranch ins insLen bld addr (==)
 
 let ccmn ins insLen bld addr =
-  let src, imm, nzcv, cond = transOprToExprOfCCMN ins bld addr
-  bld <!-- (ins.Address, insLen)
-  let oSz = ins.OprSize
-  let tCond = tmpVar bld 1<rt>
-  bld <+ (tCond := conditionHolds bld cond)
-  let _, (n, z, c, v) = addWithCarry src imm (AST.num0 oSz) oSz
-  bld <+ (regVar bld R.N := (AST.ite tCond n (AST.extract nzcv 1<rt> 3)))
-  bld <+ (regVar bld R.Z := (AST.ite tCond z (AST.extract nzcv 1<rt> 2)))
-  bld <+ (regVar bld R.C := (AST.ite tCond c (AST.extract nzcv 1<rt> 1)))
-  bld <+ (regVar bld R.V := (AST.ite tCond v (AST.xtlo 1<rt> nzcv)))
-  bld --!> insLen
+  lift bld ins insLen {
+    let src, imm, nzcv, cond = transOprToExprOfCCMN ins bld addr
+    let oSz = ins.OprSize
+    let tCond = tmpVar bld 1<rt>
+    tCond := conditionHolds bld cond
+    let _, (n, z, c, v) = addWithCarry src imm (AST.num0 oSz) oSz
+    regVar bld R.N := (AST.ite tCond n (AST.extract nzcv 1<rt> 3))
+    regVar bld R.Z := (AST.ite tCond z (AST.extract nzcv 1<rt> 2))
+    regVar bld R.C := (AST.ite tCond c (AST.extract nzcv 1<rt> 1))
+    regVar bld R.V := (AST.ite tCond v (AST.xtlo 1<rt> nzcv))
+  }
 
 let ccmp ins insLen bld addr =
-  let src, imm, nzcv, cond = transOprToExprOfCCMP ins bld addr
-  let oSz = ins.OprSize
-  bld <!-- (ins.Address, insLen)
-  let tCond = tmpVar bld 1<rt>
-  bld <+ (tCond := conditionHolds bld cond)
-  let _, (n, z, c, v) = addWithCarry src (AST.not imm) (AST.num1 oSz) oSz
-  bld <+ (regVar bld R.N := (AST.ite tCond n (AST.extract nzcv 1<rt> 3)))
-  bld <+ (regVar bld R.Z := (AST.ite tCond z (AST.extract nzcv 1<rt> 2)))
-  bld <+ (regVar bld R.C := (AST.ite tCond c (AST.extract nzcv 1<rt> 1)))
-  bld <+ (regVar bld R.V := (AST.ite tCond v (AST.xtlo 1<rt> nzcv)))
-  bld --!> insLen
+  lift bld ins insLen {
+    let src, imm, nzcv, cond = transOprToExprOfCCMP ins bld addr
+    let oSz = ins.OprSize
+    let tCond = tmpVar bld 1<rt>
+    tCond := conditionHolds bld cond
+    let _, (n, z, c, v) = addWithCarry src (AST.not imm) (AST.num1 oSz) oSz
+    regVar bld R.N := (AST.ite tCond n (AST.extract nzcv 1<rt> 3))
+    regVar bld R.Z := (AST.ite tCond z (AST.extract nzcv 1<rt> 2))
+    regVar bld R.C := (AST.ite tCond c (AST.extract nzcv 1<rt> 1))
+    regVar bld R.V := (AST.ite tCond v (AST.xtlo 1<rt> nzcv))
+  }
 
 let private clzBits src bitSize oprSize bld =
   let x = tmpVar bld oprSize
@@ -411,61 +412,69 @@ let private clzBits src bitSize oprSize bld =
     let mask1 = numI32 0x55 8<rt>
     let mask2 = numI32 0x33 8<rt>
     let mask3 = numI32 0x0f 8<rt>
-    bld <+ (x := src)
-    bld <+ (x := x .| (x >> numI32 1 8<rt>))
-    bld <+ (x := x .| (x >> numI32 2 8<rt>))
-    bld <+ (x := x .| (x >> numI32 4 8<rt>))
-    bld <+ (x := x .- ((x >> numI32 1 8<rt>) .& mask1))
-    bld <+ (x := ((x >> numI32 2 8<rt>) .& mask2) .+ (x .& mask2))
-    bld <+ (x := ((x >> numI32 4 8<rt>) .+ x) .& mask3)
+    append bld {
+      x := src
+      x := x .| (x >> numI32 1 8<rt>)
+      x := x .| (x >> numI32 2 8<rt>)
+      x := x .| (x >> numI32 4 8<rt>)
+      x := x .- ((x >> numI32 1 8<rt>) .& mask1)
+      x := ((x >> numI32 2 8<rt>) .& mask2) .+ (x .& mask2)
+      x := ((x >> numI32 4 8<rt>) .+ x) .& mask3
+    }
     numI32 bitSize 8<rt> .- (x .& numI32 15 8<rt>)
   | 16<rt> ->
     let mask1 = numI32 0x5555 16<rt>
     let mask2 = numI32 0x3333 16<rt>
     let mask3 = numI32 0x0f0f 16<rt>
-    bld <+ (x := src)
-    bld <+ (x := x .| (x >> numI32 1 16<rt>))
-    bld <+ (x := x .| (x >> numI32 2 16<rt>))
-    bld <+ (x := x .| (x >> numI32 4 16<rt>))
-    bld <+ (x := x .| (x >> numI32 8 16<rt>))
-    bld <+ (x := x .- ((x >> numI32 1 16<rt>) .& mask1))
-    bld <+ (x := ((x >> numI32 2 16<rt>) .& mask2) .+ (x .& mask2))
-    bld <+ (x := ((x >> numI32 4 16<rt>) .+ x) .& mask3)
-    bld <+ (x := x .+ (x >> numI32 8 16<rt>))
+    append bld {
+      x := src
+      x := x .| (x >> numI32 1 16<rt>)
+      x := x .| (x >> numI32 2 16<rt>)
+      x := x .| (x >> numI32 4 16<rt>)
+      x := x .| (x >> numI32 8 16<rt>)
+      x := x .- ((x >> numI32 1 16<rt>) .& mask1)
+      x := ((x >> numI32 2 16<rt>) .& mask2) .+ (x .& mask2)
+      x := ((x >> numI32 4 16<rt>) .+ x) .& mask3
+      x := x .+ (x >> numI32 8 16<rt>)
+    }
     numI32 bitSize 16<rt> .- (x .& numI32 31 16<rt>)
   | 32<rt> ->
     let mask1 = numI32 0x55555555 32<rt>
     let mask2 = numI32 0x33333333 32<rt>
     let mask3 = numI32 0x0f0f0f0f 32<rt>
-    bld <+ (x := src)
-    bld <+ (x := x .| (x >> numI32 1 32<rt>))
-    bld <+ (x := x .| (x >> numI32 2 32<rt>))
-    bld <+ (x := x .| (x >> numI32 4 32<rt>))
-    bld <+ (x := x .| (x >> numI32 8 32<rt>))
-    bld <+ (x := x .| (x >> numI32 16 32<rt>))
-    bld <+ (x := x .- ((x >> numI32 1 32<rt>) .& mask1))
-    bld <+ (x := ((x >> numI32 2 32<rt>) .& mask2) .+ (x .& mask2))
-    bld <+ (x := ((x >> numI32 4 32<rt>) .+ x) .& mask3)
-    bld <+ (x := x .+ (x >> numI32 8 32<rt>))
-    bld <+ (x := x .+ (x >> numI32 16 32<rt>))
+    append bld {
+      x := src
+      x := x .| (x >> numI32 1 32<rt>)
+      x := x .| (x >> numI32 2 32<rt>)
+      x := x .| (x >> numI32 4 32<rt>)
+      x := x .| (x >> numI32 8 32<rt>)
+      x := x .| (x >> numI32 16 32<rt>)
+      x := x .- ((x >> numI32 1 32<rt>) .& mask1)
+      x := ((x >> numI32 2 32<rt>) .& mask2) .+ (x .& mask2)
+      x := ((x >> numI32 4 32<rt>) .+ x) .& mask3
+      x := x .+ (x >> numI32 8 32<rt>)
+      x := x .+ (x >> numI32 16 32<rt>)
+    }
     numI32 bitSize 32<rt> .- (x .& numI32 63 32<rt>)
   | 64<rt> ->
     let mask1 = numU64 0x5555555555555555UL 64<rt>
     let mask2 = numU64 0x3333333333333333UL 64<rt>
     let mask3 = numU64 0x0f0f0f0f0f0f0f0fUL 64<rt>
-    bld <+ (x := src)
-    bld <+ (x := x .| (x >> numI32 1 64<rt>))
-    bld <+ (x := x .| (x >> numI32 2 64<rt>))
-    bld <+ (x := x .| (x >> numI32 4 64<rt>))
-    bld <+ (x := x .| (x >> numI32 8 64<rt>))
-    bld <+ (x := x .| (x >> numI32 16 64<rt>))
-    bld <+ (x := x .| (x >> numI32 32 64<rt>))
-    bld <+ (x := x .- ((x >> numI32 1 64<rt>) .& mask1))
-    bld <+ (x := ((x >> numI32 2 64<rt>) .& mask2) .+ (x .& mask2))
-    bld <+ (x := ((x >> numI32 4 64<rt>) .+ x) .& mask3)
-    bld <+ (x := x .+ (x >> numI32 8 64<rt>))
-    bld <+ (x := x .+ (x >> numI32 16 64<rt>))
-    bld <+ (x := x .+ (x >> numI32 32 64<rt>))
+    append bld {
+      x := src
+      x := x .| (x >> numI32 1 64<rt>)
+      x := x .| (x >> numI32 2 64<rt>)
+      x := x .| (x >> numI32 4 64<rt>)
+      x := x .| (x >> numI32 8 64<rt>)
+      x := x .| (x >> numI32 16 64<rt>)
+      x := x .| (x >> numI32 32 64<rt>)
+      x := x .- ((x >> numI32 1 64<rt>) .& mask1)
+      x := ((x >> numI32 2 64<rt>) .& mask2) .+ (x .& mask2)
+      x := ((x >> numI32 4 64<rt>) .+ x) .& mask3
+      x := x .+ (x >> numI32 8 64<rt>)
+      x := x .+ (x >> numI32 16 64<rt>)
+      x := x .+ (x >> numI32 32 64<rt>)
+    }
     numI32 bitSize 64<rt> .- (x .& numI32 127 64<rt>)
   | _ ->
     raise InvalidOperandSizeException
@@ -473,107 +482,109 @@ let private clzBits src bitSize oprSize bld =
 let private clsBits src oprSize bld =
   let n1 = AST.num1 oprSize
   let struct (expr1, expr2, xExpr) = tmpVars3 bld oprSize
-  bld <+ (expr1 := src >> n1)
-  bld <+ (expr2 := (src << n1) >> n1)
-  bld <+ (xExpr := (expr1 <+> expr2))
+  append bld {
+    expr1 := src >> n1
+    expr2 := (src << n1) >> n1
+    xExpr := (expr1 <+> expr2)
+  }
   let bitSize = int oprSize - 1
   clzBits xExpr bitSize oprSize bld
 
 let cls (ins: Instruction) insLen bld addr =
-  bld <!-- (ins.Address, insLen)
-  match ins.Operands with
-  | TwoOperands(OprSIMD(VecReg _) as o1, o2) ->
-    let struct (dstB, dstA) = transOprToExpr128 ins bld addr o1
-    let struct (eSize, dataSize, elements) = getElemDataSzAndElems o2
-    let src = transSIMDOprToExpr bld eSize dataSize elements o2
-    let result = Array.map (fun e -> clsBits e eSize bld) src
-    dstAssignForSIMD dstA dstB result dataSize elements bld
-  | _ ->
-    let dst, src = transTwoOprs ins bld addr
-    let result = clsBits src ins.OprSize bld
-    dstAssign ins.OprSize dst result bld
-  bld --!> insLen
+  lift bld ins insLen {
+    match ins.Operands with
+    | TwoOperands(OprSIMD(VecReg _) as o1, o2) ->
+      let struct (dstB, dstA) = transOprToExpr128 ins bld addr o1
+      let struct (eSize, dataSize, elements) = getElemDataSzAndElems o2
+      let src = transSIMDOprToExpr bld eSize dataSize elements o2
+      let result = Array.map (fun e -> clsBits e eSize bld) src
+      dstAssignForSIMD dstA dstB result dataSize elements bld
+    | _ ->
+      let dst, src = transTwoOprs ins bld addr
+      let result = clsBits src ins.OprSize bld
+      dstAssign ins.OprSize dst result bld
+  }
 
 let clz (ins: Instruction) insLen bld addr =
-  bld <!-- (ins.Address, insLen)
-  match ins.Operands with
-  | TwoOperands(OprSIMD(VecReg _) as o1, o2) ->
-    let struct (dstB, dstA) = transOprToExpr128 ins bld addr o1
-    let struct (eSize, dataSize, elements) = getElemDataSzAndElems o2
-    let src = transSIMDOprToExpr bld eSize dataSize elements o2
-    let result = Array.map (fun e -> clzBits e (int eSize) eSize bld) src
-    dstAssignForSIMD dstA dstB result dataSize elements bld
-  | _ ->
-    let dst, src = transTwoOprs ins bld addr
-    let result = clzBits src (int ins.OprSize) ins.OprSize bld
-    dstAssign ins.OprSize dst result bld
-  bld --!> insLen
+  lift bld ins insLen {
+    match ins.Operands with
+    | TwoOperands(OprSIMD(VecReg _) as o1, o2) ->
+      let struct (dstB, dstA) = transOprToExpr128 ins bld addr o1
+      let struct (eSize, dataSize, elements) = getElemDataSzAndElems o2
+      let src = transSIMDOprToExpr bld eSize dataSize elements o2
+      let result = Array.map (fun e -> clzBits e (int eSize) eSize bld) src
+      dstAssignForSIMD dstA dstB result dataSize elements bld
+    | _ ->
+      let dst, src = transTwoOprs ins bld addr
+      let result = clzBits src (int ins.OprSize) ins.OprSize bld
+      dstAssign ins.OprSize dst result bld
+  }
 
 let cmn ins insLen bld addr =
-  let src1, src2 = transThreeOprsWithBarrelShift ins bld addr
-  let oSz = ins.OprSize
-  bld <!-- (ins.Address, insLen)
-  let _, (n, z, c, v) = addWithCarry src1 src2 (AST.num0 oSz) oSz
-  bld <+ (regVar bld R.N := n)
-  bld <+ (regVar bld R.Z := z)
-  bld <+ (regVar bld R.C := c)
-  bld <+ (regVar bld R.V := v)
-  bld --!> insLen
+  lift bld ins insLen {
+    let src1, src2 = transThreeOprsWithBarrelShift ins bld addr
+    let oSz = ins.OprSize
+    let _, (n, z, c, v) = addWithCarry src1 src2 (AST.num0 oSz) oSz
+    regVar bld R.N := n
+    regVar bld R.Z := z
+    regVar bld R.C := c
+    regVar bld R.V := v
+  }
 
 let cmp ins insLen bld addr =
-  let src1, src2 = transOprToExprOfCMP ins bld addr
-  let oSz = ins.OprSize
-  bld <!-- (ins.Address, insLen)
-  let _, (n, z, c, v) = addWithCarry src1 (AST.not src2) (AST.num1 oSz) oSz
-  bld <+ (regVar bld R.N := n)
-  bld <+ (regVar bld R.Z := z)
-  bld <+ (regVar bld R.C := c)
-  bld <+ (regVar bld R.V := v)
-  bld --!> insLen
+  lift bld ins insLen {
+    let src1, src2 = transOprToExprOfCMP ins bld addr
+    let oSz = ins.OprSize
+    let _, (n, z, c, v) = addWithCarry src1 (AST.not src2) (AST.num1 oSz) oSz
+    regVar bld R.N := n
+    regVar bld R.Z := z
+    regVar bld R.C := c
+    regVar bld R.V := v
+  }
 
 let private compare (ins: Instruction) insLen bld addr cond =
-  bld <!-- (ins.Address, insLen)
-  match ins.Operands with
-  (* zero *)
-  | ThreeOperands(OprSIMD(VecReg _) as o1, o2, OprImm _) ->
-    let struct (eSize, dataSize, elements) = getElemDataSzAndElems o1
-    let struct (dstB, dstA) = transOprToExpr128 ins bld addr o1
-    let src1 = transSIMDOprToExpr bld eSize dataSize elements o2
-    let struct (ones, zeros) = tmpVars2 bld eSize
-    bld <+ (ones := numI64 -1L eSize)
-    bld <+ (zeros := AST.num0 eSize)
-    let result = Array.map (fun e -> AST.ite (cond e zeros) ones zeros) src1
-    dstAssignForSIMD dstA dstB result dataSize elements bld
-  | ThreeOperands(OprSIMD(ScalarReg _) as o1, o2, OprImm _) ->
-    let struct (eSize, _, _) = getElemDataSzAndElems o1
-    let src1 = transOprToExpr ins bld addr o2
-    let num0 = AST.num0 64<rt>
-    let result = tmpVar bld 64<rt>
-    bld <+ (result := AST.ite (cond src1 num0) (numI64 -1L 64<rt>) num0)
-    dstAssignScalar ins bld addr o1 result eSize
-  (* register *)
-  | ThreeOperands(OprSIMD(VecReg _) as o1, o2, o3) ->
-    let struct (eSize, dataSize, elements) = getElemDataSzAndElems o1
-    let struct (dstB, dstA) = transOprToExpr128 ins bld addr o1
-    let src1 = transSIMDOprToExpr bld eSize dataSize elements o2
-    let src2 = transSIMDOprToExpr bld eSize dataSize elements o3
-    let struct (ones, zeros) = tmpVars2 bld eSize
-    bld <+ (ones := numI64 -1L eSize)
-    bld <+ (zeros := AST.num0 eSize)
-    let result =
-      Array.map2 (fun e1 e2 -> AST.ite (cond e1 e2) ones zeros) src1 src2
-    dstAssignForSIMD dstA dstB result dataSize elements bld
-  | ThreeOperands(OprSIMD(ScalarReg _) as o1, o2, o3) ->
-    let struct (eSize, _, _) = getElemDataSzAndElems o1
-    let src1 = transOprToExpr ins bld addr o2
-    let src2 = transOprToExpr ins bld addr o3
-    let num0 = AST.num0 64<rt>
-    let result = tmpVar bld 64<rt>
-    bld <+ (result := AST.ite (cond src1 src2) (numI64 -1L 64<rt>) num0)
-    dstAssignScalar ins bld addr o1 result eSize
-  | _ ->
-    raise InvalidOperandException
-  bld --!> insLen
+  lift bld ins insLen {
+    match ins.Operands with
+    (* zero *)
+    | ThreeOperands(OprSIMD(VecReg _) as o1, o2, OprImm _) ->
+      let struct (eSize, dataSize, elements) = getElemDataSzAndElems o1
+      let struct (dstB, dstA) = transOprToExpr128 ins bld addr o1
+      let src1 = transSIMDOprToExpr bld eSize dataSize elements o2
+      let struct (ones, zeros) = tmpVars2 bld eSize
+      ones := numI64 -1L eSize
+      zeros := AST.num0 eSize
+      let result = Array.map (fun e -> AST.ite (cond e zeros) ones zeros) src1
+      dstAssignForSIMD dstA dstB result dataSize elements bld
+    | ThreeOperands(OprSIMD(ScalarReg _) as o1, o2, OprImm _) ->
+      let struct (eSize, _, _) = getElemDataSzAndElems o1
+      let src1 = transOprToExpr ins bld addr o2
+      let num0 = AST.num0 64<rt>
+      let result = tmpVar bld 64<rt>
+      result := AST.ite (cond src1 num0) (numI64 -1L 64<rt>) num0
+      dstAssignScalar ins bld addr o1 result eSize
+    (* register *)
+    | ThreeOperands(OprSIMD(VecReg _) as o1, o2, o3) ->
+      let struct (eSize, dataSize, elements) = getElemDataSzAndElems o1
+      let struct (dstB, dstA) = transOprToExpr128 ins bld addr o1
+      let src1 = transSIMDOprToExpr bld eSize dataSize elements o2
+      let src2 = transSIMDOprToExpr bld eSize dataSize elements o3
+      let struct (ones, zeros) = tmpVars2 bld eSize
+      ones := numI64 -1L eSize
+      zeros := AST.num0 eSize
+      let result =
+        Array.map2 (fun e1 e2 -> AST.ite (cond e1 e2) ones zeros) src1 src2
+      dstAssignForSIMD dstA dstB result dataSize elements bld
+    | ThreeOperands(OprSIMD(ScalarReg _) as o1, o2, o3) ->
+      let struct (eSize, _, _) = getElemDataSzAndElems o1
+      let src1 = transOprToExpr ins bld addr o2
+      let src2 = transOprToExpr ins bld addr o3
+      let num0 = AST.num0 64<rt>
+      let result = tmpVar bld 64<rt>
+      result := AST.ite (cond src1 src2) (numI64 -1L 64<rt>) num0
+      dstAssignScalar ins bld addr o1 result eSize
+    | _ ->
+      raise InvalidOperandException
+  }
 
 let cmeq ins insLen bld addr = compare ins insLen bld addr (==)
 
@@ -582,291 +593,291 @@ let cmgt ins insLen bld addr = compare ins insLen bld addr (?>)
 let cmge ins insLen bld addr = compare ins insLen bld addr (?>=)
 
 let private cmpHigher (ins: Instruction) insLen bld addr cond =
-  bld <!-- (ins.Address, insLen)
-  let struct (dst, src1, src2) = getThreeOprs ins
-  let struct (eSize, dataSize, elements) = getElemDataSzAndElems dst
-  let struct (ones, zeros) = tmpVars2 bld eSize
-  bld <+ (ones := numI64 -1L eSize)
-  bld <+ (zeros := AST.num0 eSize)
-  match dst with
-  | OprSIMD(ScalarReg _) ->
-    let _, src1, src2 = transThreeOprs ins bld addr
-    let result = AST.ite (cond src1 src2) ones zeros
-    dstAssignScalar ins bld addr dst result eSize
-  | _ ->
-    let struct (dstB, dstA) = transOprToExpr128 ins bld addr dst
-    let src1 = transSIMDOprToExpr bld eSize dataSize elements src1
-    let src2 = transSIMDOprToExpr bld eSize dataSize elements src2
-    let result =
-      Array.map2 (fun e1 e2 -> AST.ite (cond e1 e2) ones zeros) src1 src2
-    dstAssignForSIMD dstA dstB result dataSize elements bld
-  bld --!> insLen
+  lift bld ins insLen {
+    let struct (dst, src1, src2) = getThreeOprs ins
+    let struct (eSize, dataSize, elements) = getElemDataSzAndElems dst
+    let struct (ones, zeros) = tmpVars2 bld eSize
+    ones := numI64 -1L eSize
+    zeros := AST.num0 eSize
+    match dst with
+    | OprSIMD(ScalarReg _) ->
+      let _, src1, src2 = transThreeOprs ins bld addr
+      let result = AST.ite (cond src1 src2) ones zeros
+      dstAssignScalar ins bld addr dst result eSize
+    | _ ->
+      let struct (dstB, dstA) = transOprToExpr128 ins bld addr dst
+      let src1 = transSIMDOprToExpr bld eSize dataSize elements src1
+      let src2 = transSIMDOprToExpr bld eSize dataSize elements src2
+      let result =
+        Array.map2 (fun e1 e2 -> AST.ite (cond e1 e2) ones zeros) src1 src2
+      dstAssignForSIMD dstA dstB result dataSize elements bld
+  }
 
 let cmhi ins insLen bld addr = cmpHigher ins insLen bld addr (.>)
 
 let cmhs ins insLen bld addr = cmpHigher ins insLen bld addr (.>=)
 
 let cmlt (ins: Instruction) insLen bld addr =
-  bld <!-- (ins.Address, insLen)
-  let struct (dst, src1, _) = getThreeOprs ins
-  let struct (eSize, dataSize, elements) = getElemDataSzAndElems dst
-  let struct (ones, zeros) = tmpVars2 bld eSize
-  bld <+ (ones := numI64 -1L eSize)
-  bld <+ (zeros := AST.num0 eSize)
-  match dst with
-  | OprSIMD(ScalarReg _) ->
-    let src1 = transOprToExpr ins bld addr src1
-    let result = AST.ite (src1 ?< zeros) ones zeros
-    dstAssignScalar ins bld addr dst result eSize
-  | _ ->
-    let struct (dstB, dstA) = transOprToExpr128 ins bld addr dst
-    let src1 = transSIMDOprToExpr bld eSize dataSize elements src1
-    let result = Array.map (fun e -> AST.ite (e ?< zeros) ones zeros) src1
-    dstAssignForSIMD dstA dstB result dataSize elements bld
-  bld --!> insLen
+  lift bld ins insLen {
+    let struct (dst, src1, _) = getThreeOprs ins
+    let struct (eSize, dataSize, elements) = getElemDataSzAndElems dst
+    let struct (ones, zeros) = tmpVars2 bld eSize
+    ones := numI64 -1L eSize
+    zeros := AST.num0 eSize
+    match dst with
+    | OprSIMD(ScalarReg _) ->
+      let src1 = transOprToExpr ins bld addr src1
+      let result = AST.ite (src1 ?< zeros) ones zeros
+      dstAssignScalar ins bld addr dst result eSize
+    | _ ->
+      let struct (dstB, dstA) = transOprToExpr128 ins bld addr dst
+      let src1 = transSIMDOprToExpr bld eSize dataSize elements src1
+      let result = Array.map (fun e -> AST.ite (e ?< zeros) ones zeros) src1
+      dstAssignForSIMD dstA dstB result dataSize elements bld
+  }
 
 let cmtst (ins: Instruction) insLen bld addr =
-  bld <!-- (ins.Address, insLen)
-  let struct (dst, src1, src2) = getThreeOprs ins
-  let struct (eSize, dataSize, elements) = getElemDataSzAndElems dst
-  let struct (ones, zeros) = tmpVars2 bld eSize
-  bld <+ (ones := numI64 -1L eSize)
-  bld <+ (zeros := AST.num0 eSize)
-  match dst with
-  | OprSIMD(ScalarReg _) ->
-    let _, src1, src2 = transThreeOprs ins bld addr
-    let result = AST.ite ((src1 .& src2) != zeros) ones zeros
-    dstAssignScalar ins bld addr dst result eSize
-  | _ ->
-    let struct (dstB, dstA) = transOprToExpr128 ins bld addr dst
-    let s1 = transSIMDOprToExpr bld eSize dataSize elements src1
-    let s2 = transSIMDOprToExpr bld eSize dataSize elements src2
-    let result =
-      Array.map2 (fun e1 e2 -> AST.ite ((e1 .& e2) != zeros) ones zeros) s1 s2
-    dstAssignForSIMD dstA dstB result dataSize elements bld
-  bld --!> insLen
+  lift bld ins insLen {
+    let struct (dst, src1, src2) = getThreeOprs ins
+    let struct (eSize, dataSize, elements) = getElemDataSzAndElems dst
+    let struct (ones, zeros) = tmpVars2 bld eSize
+    ones := numI64 -1L eSize
+    zeros := AST.num0 eSize
+    match dst with
+    | OprSIMD(ScalarReg _) ->
+      let _, src1, src2 = transThreeOprs ins bld addr
+      let result = AST.ite ((src1 .& src2) != zeros) ones zeros
+      dstAssignScalar ins bld addr dst result eSize
+    | _ ->
+      let struct (dstB, dstA) = transOprToExpr128 ins bld addr dst
+      let s1 = transSIMDOprToExpr bld eSize dataSize elements src1
+      let s2 = transSIMDOprToExpr bld eSize dataSize elements src2
+      let result =
+        Array.map2 (fun e1 e2 -> AST.ite ((e1 .& e2) != zeros) ones zeros) s1 s2
+      dstAssignForSIMD dstA dstB result dataSize elements bld
+  }
 
 let cnt (ins: Instruction) insLen bld addr =
-  bld <!-- (ins.Address, insLen)
-  let struct (dst, src) = getTwoOprs ins
-  let struct (eSize, dataSize, elements) = getElemDataSzAndElems dst
-  let struct (dstB, dstA) = transOprToExpr128 ins bld addr dst
-  let src = transSIMDOprToExpr bld eSize dataSize elements src
-  let result = Array.map (bitCount eSize) src
-  dstAssignForSIMD dstA dstB result dataSize elements bld
-  bld --!> insLen
+  lift bld ins insLen {
+    let struct (dst, src) = getTwoOprs ins
+    let struct (eSize, dataSize, elements) = getElemDataSzAndElems dst
+    let struct (dstB, dstA) = transOprToExpr128 ins bld addr dst
+    let src = transSIMDOprToExpr bld eSize dataSize elements src
+    let result = Array.map (bitCount eSize) src
+    dstAssignForSIMD dstA dstB result dataSize elements bld
+  }
 
 let csel ins insLen bld addr =
-  let dst, s1, s2, cond = transOprToExprOfCSEL ins bld addr
-  bld <!-- (ins.Address, insLen)
-  dstAssign ins.OprSize dst (AST.ite (conditionHolds bld cond) s1 s2) bld
-  bld --!> insLen
+  lift bld ins insLen {
+    let dst, s1, s2, cond = transOprToExprOfCSEL ins bld addr
+    dstAssign ins.OprSize dst (AST.ite (conditionHolds bld cond) s1 s2) bld
+  }
 
 let csinc ins insLen bld addr =
-  let dst, s1, s2, cond = transOprToExprOfCSINC ins bld addr
-  bld <!-- (ins.Address, insLen)
-  let oprSize = ins.OprSize
-  let cond = conditionHolds bld cond
-  dstAssign oprSize dst (AST.ite cond s1 (s2 .+ AST.num1 oprSize)) bld
-  bld --!> insLen
+  lift bld ins insLen {
+    let dst, s1, s2, cond = transOprToExprOfCSINC ins bld addr
+    let oprSize = ins.OprSize
+    let cond = conditionHolds bld cond
+    dstAssign oprSize dst (AST.ite cond s1 (s2 .+ AST.num1 oprSize)) bld
+  }
 
 let csinv ins insLen bld addr =
-  let dst, src1, src2, cond = transOprToExprOfCSINV ins bld addr
-  bld <!-- (ins.Address, insLen)
-  let cond = conditionHolds bld cond
-  dstAssign ins.OprSize dst (AST.ite cond src1 (AST.not src2)) bld
-  bld --!> insLen
+  lift bld ins insLen {
+    let dst, src1, src2, cond = transOprToExprOfCSINV ins bld addr
+    let cond = conditionHolds bld cond
+    dstAssign ins.OprSize dst (AST.ite cond src1 (AST.not src2)) bld
+  }
 
 let csneg ins insLen bld addr =
-  let dst, s1, s2, cond = transOprToExprOfCSNEG ins bld addr
-  bld <!-- (ins.Address, insLen)
-  let s2 = AST.not s2 .+ AST.num1 ins.OprSize
-  dstAssign ins.OprSize dst (AST.ite (conditionHolds bld cond) s1 s2) bld
-  bld --!> insLen
+  lift bld ins insLen {
+    let dst, s1, s2, cond = transOprToExprOfCSNEG ins bld addr
+    let s2 = AST.not s2 .+ AST.num1 ins.OprSize
+    dstAssign ins.OprSize dst (AST.ite (conditionHolds bld cond) s1 s2) bld
+  }
 
 let ctz ins insLen bld addr =
-  let dst, src = transTwoOprs ins bld addr
-  bld <!-- (ins.Address, insLen)
-  let revSrc = tmpVar bld ins.OprSize
-  bld <+ (revSrc := bitReverse src ins.OprSize)
-  let res = countLeadingZeroBitsForIR revSrc (int ins.OprSize) ins.OprSize bld
-  dstAssign ins.OprSize dst res bld
-  bld --!> insLen
+  lift bld ins insLen {
+    let dst, src = transTwoOprs ins bld addr
+    let revSrc = tmpVar bld ins.OprSize
+    revSrc := bitReverse src ins.OprSize
+    let res = countLeadingZeroBitsForIR revSrc (int ins.OprSize) ins.OprSize bld
+    dstAssign ins.OprSize dst res bld
+  }
 
 let dczva ins insLen bld addr =
-  let src = transOneOpr ins bld addr
-  let dczid = regVar bld R.DCZIDEL0
-  let struct (idx, n4, len) = tmpVars3 bld 64<rt>
-  let lblLoop = label bld "Loop"
-  let lblLoopCont = label bld "LoopContinue"
-  let lblEnd = label bld "End"
-  bld <!-- (ins.Address, insLen)
-  bld <+ (idx := AST.num0 64<rt>)
-  bld <+ (n4 := numI32 4 64<rt>)
-  bld <+ (len := (numI32 2 64<rt> << (dczid .+ numI32 1 64<rt>)))
-  bld <+ (len := len ./ n4)
-  bld <+ (AST.lmark lblLoop)
-  bld <+ (AST.cjmp (idx == len) (AST.jmpDest lblEnd) (AST.jmpDest lblLoopCont))
-  bld <+ (AST.lmark lblLoopCont)
-  bld <+ (AST.loadLE 32<rt> (src .+ (idx .* n4)) := AST.num0 32<rt>)
-  bld <+ (idx := idx .+ AST.num1 64<rt>)
-  bld <+ (AST.jmp (AST.jmpDest lblLoop))
-  bld <+ (AST.lmark lblEnd)
-  bld --!> insLen
+  lift bld ins insLen {
+    let src = transOneOpr ins bld addr
+    let dczid = regVar bld R.DCZIDEL0
+    let struct (idx, n4, len) = tmpVars3 bld 64<rt>
+    let lblLoop = label bld "Loop"
+    let lblLoopCont = label bld "LoopContinue"
+    let lblEnd = label bld "End"
+    idx := AST.num0 64<rt>
+    n4 := numI32 4 64<rt>
+    len := (numI32 2 64<rt> << (dczid .+ numI32 1 64<rt>))
+    len := len ./ n4
+    AST.lmark lblLoop
+    AST.cjmp (idx == len) (AST.jmpDest lblEnd) (AST.jmpDest lblLoopCont)
+    AST.lmark lblLoopCont
+    AST.loadLE 32<rt> (src .+ (idx .* n4)) := AST.num0 32<rt>
+    idx := idx .+ AST.num1 64<rt>
+    AST.jmp (AST.jmpDest lblLoop)
+    AST.lmark lblEnd
+  }
 
 let dup ins insLen bld addr =
-  let struct (dst, src) = getTwoOprs ins
-  let struct (eSize, dataSize, elements) = getElemDataSzAndElems dst
-  let struct (dstB, dstA) = transOprToExpr128 ins bld addr dst
-  let src = transOprToExpr ins bld addr src
-  let element = tmpVar bld eSize
-  let result = Array.init elements (fun _ -> tmpVar bld eSize)
-  bld <!-- (ins.Address, insLen)
-  bld <+ (element := AST.xtlo eSize src)
-  Array.iter (fun e -> bld <+ (e := element)) result
-  dstAssignForSIMD dstA dstB result dataSize elements bld
-  bld --!> insLen
+  lift bld ins insLen {
+    let struct (dst, src) = getTwoOprs ins
+    let struct (eSize, dataSize, elements) = getElemDataSzAndElems dst
+    let struct (dstB, dstA) = transOprToExpr128 ins bld addr dst
+    let src = transOprToExpr ins bld addr src
+    let element = tmpVar bld eSize
+    let result = Array.init elements (fun _ -> tmpVar bld eSize)
+    element := AST.xtlo eSize src
+    Array.iter (fun e -> append bld { e := element }) result
+    dstAssignForSIMD dstA dstB result dataSize elements bld
+  }
 
 let eor (ins: Instruction) insLen bld addr =
-  bld <!-- (ins.Address, insLen)
-  match ins.Operands with
-  | ThreeOperands(OprSIMD(VecReg _) as o1, o2, o3) ->
-    let struct (dstB, dstA) = transOprToExpr128 ins bld addr o1
-    let struct (src1B, src1A) = transOprToExpr128 ins bld addr o2
-    let struct (src2B, src2A) = transOprToExpr128 ins bld addr o3
-    let struct (opr2, opr3) = tmpVars2 bld 64<rt>
-    bld <+ (opr2 := AST.num0 64<rt>)
-    bld <+ (opr3 := numI64 -1L 64<rt>)
-    bld <+ (dstA := src2A <+> ((opr2 <+> src1A) .& opr3))
-    if ins.OprSize = 64<rt> then bld <+ (dstB := AST.num0 ins.OprSize)
-    else bld <+ (dstB := src2B <+> ((opr2 <+> src1B) .& opr3))
-  | _ ->
-    let dst, src1, src2 = transOprToExprOfEOR ins bld addr
-    dstAssign ins.OprSize dst (src1 <+> src2) bld
-  bld --!> insLen
+  lift bld ins insLen {
+    match ins.Operands with
+    | ThreeOperands(OprSIMD(VecReg _) as o1, o2, o3) ->
+      let struct (dstB, dstA) = transOprToExpr128 ins bld addr o1
+      let struct (src1B, src1A) = transOprToExpr128 ins bld addr o2
+      let struct (src2B, src2A) = transOprToExpr128 ins bld addr o3
+      let struct (opr2, opr3) = tmpVars2 bld 64<rt>
+      opr2 := AST.num0 64<rt>
+      opr3 := numI64 -1L 64<rt>
+      dstA := src2A <+> ((opr2 <+> src1A) .& opr3)
+      if ins.OprSize = 64<rt> then append bld { dstB := AST.num0 ins.OprSize }
+      else append bld { dstB := src2B <+> ((opr2 <+> src1B) .& opr3) }
+    | _ ->
+      let dst, src1, src2 = transOprToExprOfEOR ins bld addr
+      dstAssign ins.OprSize dst (src1 <+> src2) bld
+  }
 
 let ext (ins: Instruction) insLen bld addr =
-  bld <!-- (ins.Address, insLen)
-  let struct (dst, src1, src2, idx) = getFourOprs ins
-  let pos = getImmValue idx |> int
-  let struct (eSize, dataSize, elements) = getElemDataSzAndElems dst
-  let struct (dstB, dstA) = transOprToExpr128 ins bld addr dst
-  let src1 = transSIMDOprToExpr bld eSize dataSize elements src1
-  let src2 = transSIMDOprToExpr bld eSize dataSize elements src2
-  let result = Array.init elements (fun _ -> tmpVar bld eSize)
-  let concat = Array.append src1 src2
-  let res = Array.sub concat pos (dataSize / eSize)
-  Array.iter2 (fun res s -> bld <+ (res := s)) result res
-  dstAssignForSIMD dstA dstB result dataSize elements bld
-  bld --!> insLen
-
-let extr ins insLen bld addr =
-  let dst, src1, src2, lsb = transOprToExprOfEXTR ins bld addr
-  let oSz = ins.OprSize
-  bld <!-- (ins.Address, insLen)
-  if oSz = 32<rt> then
-    let con = tmpVar bld 64<rt>
-    bld <+ (con := AST.concat src1 src2)
-    let mask = numI64 0xFFFFFFFFL 64<rt>
-    dstAssign ins.OprSize dst ((con >> (AST.zext 64<rt> lsb)) .& mask) bld
-  elif oSz = 64<rt> then
-    let lsb =
-      match ins.Operands with
-      | ThreeOperands(_, _, OprLSB shift) -> int32 shift
-      | FourOperands(_, _, _, OprLSB lsb) -> int32 lsb
-      | _ -> raise InvalidOperandException
-    if lsb = 0 then
-      bld <+ (dst := src2)
-    else
-      let leftAmt = numI32 (64 - lsb) 64<rt>
-      bld <+ (dst := (src1 << leftAmt) .| (src2 >> (numI32 lsb 64<rt>)))
-  else
-    raise InvalidOperandSizeException
-  bld --!> insLen
-
-let fabd (ins: Instruction) insLen bld addr =
-  bld <!-- (ins.Address, insLen)
-  let struct (dst, src1, src2) = getThreeOprs ins
-  let struct (eSize, dataSize, elements) = getElemDataSzAndElems dst
-  let n1 = tmpVar bld eSize
-  bld <+ (n1 := AST.num1 eSize)
-  let fpAbsDiff e1 e2 = ((fpSub bld eSize e1 e2) << n1) >> n1
-  match dst with
-  | OprSIMD(ScalarReg _) ->
-    let _, src1, src2 = transThreeOprs ins bld addr
-    dstAssignScalar ins bld addr dst (fpAbsDiff src1 src2) eSize
-  | OprSIMD(VecReg _) ->
-    let struct (dstB, dstA) = transOprToExpr128 ins bld addr dst
-    let src1 = transSIMDOprToExpr bld eSize dataSize elements src1
-    let src2 = transSIMDOprToExpr bld eSize dataSize elements src2
-    let result = Array.map2 (fpAbsDiff) src1 src2
-    dstAssignForSIMD dstA dstB result dataSize elements bld
-  | _ ->
-    raise InvalidOperandException
-  bld --!> insLen
-
-let fabs (ins: Instruction) insLen bld addr =
-  bld <!-- (ins.Address, insLen)
-  let struct (dst, src) = getTwoOprs ins
-  let struct (eSize, dataSize, elements) = getElemDataSzAndElems dst
-  let n1 = tmpVar bld eSize
-  bld <+ (n1 := AST.num1 eSize)
-  match dst with
-  | OprSIMD(ScalarReg _) ->
-    let src = transOprToExpr ins bld addr src
-    dstAssignScalar ins bld addr dst ((src << n1) >> n1) eSize
-  | OprSIMD(VecReg _) ->
-    let struct (dstB, dstA) = transOprToExpr128 ins bld addr dst
-    let src = transSIMDOprToExpr bld eSize dataSize elements src
-    let result = Array.map (fun e -> (e << n1) >> n1) src
-    dstAssignForSIMD dstA dstB result dataSize elements bld
-  | _ ->
-    raise InvalidOperandException
-  bld --!> insLen
-
-let fadd (ins: Instruction) insLen bld addr =
-  bld <!-- (ins.Address, insLen)
-  let struct (dst, src1, src2) = getThreeOprs ins
-  let struct (eSize, dataSize, elements) = getElemDataSzAndElems dst
-  match dst with
-  | OprSIMD(ScalarReg _) ->
-    let _, src1, src2 = transThreeOprs ins bld addr
-    let result = fpAdd bld dataSize src1 src2
-    dstAssignScalar ins bld addr dst result eSize
-  | OprSIMD(VecReg _) ->
-    let struct (dstB, dstA) = transOprToExpr128 ins bld addr dst
-    let src1 = transSIMDOprToExpr bld eSize dataSize elements src1
-    let src2 = transSIMDOprToExpr bld eSize dataSize elements src2
-    let result = Array.map2 (fpAdd bld eSize) src1 src2
-    dstAssignForSIMD dstA dstB result dataSize elements bld
-  | _ ->
-    raise InvalidOperandException
-  bld --!> insLen
-
-let faddp (ins: Instruction) insLen bld addr =
-  bld <!-- (ins.Address, insLen)
-  match ins.Operands with
-  | TwoOperands(dst, src) -> (* Scalar *)
-    let struct (eSize, dataSize, elements) = getElemDataSzAndElems src
-    let src = transSIMDOprToExpr bld eSize dataSize elements src
-    let result =
-      Array.chunkBySize 2 src
-      |> Array.map (fun e -> fpAdd bld eSize e[0] e[1])
-      |> Array.reduce(.+)
-    dstAssignScalar ins bld addr dst result eSize
-  | ThreeOperands(dst, src1, src2) -> (* Vector *)
+  lift bld ins insLen {
+    let struct (dst, src1, src2, idx) = getFourOprs ins
+    let pos = getImmValue idx |> int
     let struct (eSize, dataSize, elements) = getElemDataSzAndElems dst
     let struct (dstB, dstA) = transOprToExpr128 ins bld addr dst
     let src1 = transSIMDOprToExpr bld eSize dataSize elements src1
     let src2 = transSIMDOprToExpr bld eSize dataSize elements src2
+    let result = Array.init elements (fun _ -> tmpVar bld eSize)
     let concat = Array.append src1 src2
-    let result =
-      Array.chunkBySize 2 concat
-      |> Array.map (fun e -> fpAdd bld eSize e[0] e[1])
+    let res = Array.sub concat pos (dataSize / eSize)
+    Array.iter2 (fun res s -> append bld { res := s }) result res
     dstAssignForSIMD dstA dstB result dataSize elements bld
-  | _ ->
-    raise InvalidOperandException
-  bld --!> insLen
+  }
+
+let extr ins insLen bld addr =
+  lift bld ins insLen {
+    let dst, src1, src2, lsb = transOprToExprOfEXTR ins bld addr
+    let oSz = ins.OprSize
+    if oSz = 32<rt> then
+      let con = tmpVar bld 64<rt>
+      con := AST.concat src1 src2
+      let mask = numI64 0xFFFFFFFFL 64<rt>
+      dstAssign ins.OprSize dst ((con >> (AST.zext 64<rt> lsb)) .& mask) bld
+    elif oSz = 64<rt> then
+      let lsb =
+        match ins.Operands with
+        | ThreeOperands(_, _, OprLSB shift) -> int32 shift
+        | FourOperands(_, _, _, OprLSB lsb) -> int32 lsb
+        | _ -> raise InvalidOperandException
+      if lsb = 0 then
+        dst := src2
+      else
+        let leftAmt = numI32 (64 - lsb) 64<rt>
+        dst := (src1 << leftAmt) .| (src2 >> (numI32 lsb 64<rt>))
+    else
+      raise InvalidOperandSizeException
+  }
+
+let fabd (ins: Instruction) insLen bld addr =
+  lift bld ins insLen {
+    let struct (dst, src1, src2) = getThreeOprs ins
+    let struct (eSize, dataSize, elements) = getElemDataSzAndElems dst
+    let n1 = tmpVar bld eSize
+    n1 := AST.num1 eSize
+    let fpAbsDiff e1 e2 = ((fpSub bld eSize e1 e2) << n1) >> n1
+    match dst with
+    | OprSIMD(ScalarReg _) ->
+      let _, src1, src2 = transThreeOprs ins bld addr
+      dstAssignScalar ins bld addr dst (fpAbsDiff src1 src2) eSize
+    | OprSIMD(VecReg _) ->
+      let struct (dstB, dstA) = transOprToExpr128 ins bld addr dst
+      let src1 = transSIMDOprToExpr bld eSize dataSize elements src1
+      let src2 = transSIMDOprToExpr bld eSize dataSize elements src2
+      let result = Array.map2 (fpAbsDiff) src1 src2
+      dstAssignForSIMD dstA dstB result dataSize elements bld
+    | _ ->
+      raise InvalidOperandException
+  }
+
+let fabs (ins: Instruction) insLen bld addr =
+  lift bld ins insLen {
+    let struct (dst, src) = getTwoOprs ins
+    let struct (eSize, dataSize, elements) = getElemDataSzAndElems dst
+    let n1 = tmpVar bld eSize
+    n1 := AST.num1 eSize
+    match dst with
+    | OprSIMD(ScalarReg _) ->
+      let src = transOprToExpr ins bld addr src
+      dstAssignScalar ins bld addr dst ((src << n1) >> n1) eSize
+    | OprSIMD(VecReg _) ->
+      let struct (dstB, dstA) = transOprToExpr128 ins bld addr dst
+      let src = transSIMDOprToExpr bld eSize dataSize elements src
+      let result = Array.map (fun e -> (e << n1) >> n1) src
+      dstAssignForSIMD dstA dstB result dataSize elements bld
+    | _ ->
+      raise InvalidOperandException
+  }
+
+let fadd (ins: Instruction) insLen bld addr =
+  lift bld ins insLen {
+    let struct (dst, src1, src2) = getThreeOprs ins
+    let struct (eSize, dataSize, elements) = getElemDataSzAndElems dst
+    match dst with
+    | OprSIMD(ScalarReg _) ->
+      let _, src1, src2 = transThreeOprs ins bld addr
+      let result = fpAdd bld dataSize src1 src2
+      dstAssignScalar ins bld addr dst result eSize
+    | OprSIMD(VecReg _) ->
+      let struct (dstB, dstA) = transOprToExpr128 ins bld addr dst
+      let src1 = transSIMDOprToExpr bld eSize dataSize elements src1
+      let src2 = transSIMDOprToExpr bld eSize dataSize elements src2
+      let result = Array.map2 (fpAdd bld eSize) src1 src2
+      dstAssignForSIMD dstA dstB result dataSize elements bld
+    | _ ->
+      raise InvalidOperandException
+  }
+
+let faddp (ins: Instruction) insLen bld addr =
+  lift bld ins insLen {
+    match ins.Operands with
+    | TwoOperands(dst, src) -> (* Scalar *)
+      let struct (eSize, dataSize, elements) = getElemDataSzAndElems src
+      let src = transSIMDOprToExpr bld eSize dataSize elements src
+      let result =
+        Array.chunkBySize 2 src
+        |> Array.map (fun e -> fpAdd bld eSize e[0] e[1])
+        |> Array.reduce(.+)
+      dstAssignScalar ins bld addr dst result eSize
+    | ThreeOperands(dst, src1, src2) -> (* Vector *)
+      let struct (eSize, dataSize, elements) = getElemDataSzAndElems dst
+      let struct (dstB, dstA) = transOprToExpr128 ins bld addr dst
+      let src1 = transSIMDOprToExpr bld eSize dataSize elements src1
+      let src2 = transSIMDOprToExpr bld eSize dataSize elements src2
+      let concat = Array.append src1 src2
+      let result =
+        Array.chunkBySize 2 concat
+        |> Array.map (fun e -> fpAdd bld eSize e[0] e[1])
+      dstAssignForSIMD dstA dstB result dataSize elements bld
+    | _ ->
+      raise InvalidOperandException
+  }
 
 let private fpneg reg eSize =
   let mask =
@@ -880,8 +891,10 @@ let private fpneg reg eSize =
 let private checkZero bld dataSize fpVal =
   let isFZ = (regVar bld R.FPCR >> numI32 24 64<rt>) |> AST.xtlo 1<rt>
   let struct (n0, f0) = tmpVars2 bld dataSize
-  bld <+ (n0 := AST.num0 dataSize)
-  bld <+ (f0 := fpZero fpVal dataSize)
+  append bld {
+    n0 := AST.num0 dataSize
+    f0 := fpZero fpVal dataSize
+  }
   let inline isOnes exp =
     match dataSize with
     | 32<rt> -> exp == numI32 0xFF 32<rt>
@@ -890,11 +903,15 @@ let private checkZero bld dataSize fpVal =
   let struct (exp, frac) = tmpVars2 bld dataSize
   match dataSize with
   | 32<rt> ->
-    bld <+ (exp := (fpVal >> numI32 23 32<rt>) .& numI32 0xff 32<rt>)
-    bld <+ (frac := fpVal .& numU32 0x7fffffu 32<rt>)
+    append bld {
+      exp := (fpVal >> numI32 23 32<rt>) .& numI32 0xff 32<rt>
+      frac := fpVal .& numU32 0x7fffffu 32<rt>
+    }
   | 64<rt> ->
-    bld <+ (exp := (fpVal >> numI64 52L 64<rt>) .& numI64 0x7ffL 64<rt>)
-    bld <+ (frac := fpVal .& numU64 0xfffffffffffffUL 64<rt>)
+    append bld {
+      exp := (fpVal >> numI64 52L 64<rt>) .& numI64 0x7ffL 64<rt>
+      frac := fpVal .& numU64 0xfffffffffffffUL 64<rt>
+    }
   | _ ->
     raise InvalidOperandSizeException
   AST.ite ((exp == n0) .& (frac == n0 .| isFZ))
@@ -905,171 +922,174 @@ let private fpCompare bld oprSz src1 src2 =
   let struct (v1, v2) = tmpVars2 bld oprSz
   let isOpNaN = tmpVar bld 1<rt>
   let result = tmpVar bld 8<rt>
-  bld <+ (v1 := checkZero bld oprSz src1)
-  bld <+ (v2 := checkZero bld oprSz src2)
+  append bld {
+    v1 := checkZero bld oprSz src1
+    v2 := checkZero bld oprSz src2
+  }
   let lblOpNaN = label bld "OpNaN"
   let lblCmp = label bld "Cmp"
   let lblEq = label bld "Eq"
   let lblNeq = label bld "Neq"
   let lblEnd = label bld "End"
-  bld <+ (isOpNaN := isNaN oprSz src1 .| isNaN oprSz src2)
-  bld <+ (AST.cjmp isOpNaN (AST.jmpDest lblOpNaN) (AST.jmpDest lblCmp))
-  bld <+ (AST.lmark lblOpNaN)
-  bld <+ (result := numI32 0b0011 8<rt>)
-  bld <+ (AST.jmp (AST.jmpDest lblEnd))
-  bld <+ (AST.lmark lblCmp)
-  bld <+ (AST.cjmp (AST.feq v1 v2) (AST.jmpDest lblEq) (AST.jmpDest lblNeq))
-  bld <+ (AST.lmark lblEq)
-  bld <+ (result := numI32 0b110 8<rt>)
-  bld <+ (AST.jmp (AST.jmpDest lblEnd))
-  bld <+ (AST.lmark lblNeq)
+  append bld {
+    isOpNaN := isNaN oprSz src1 .| isNaN oprSz src2
+    AST.cjmp isOpNaN (AST.jmpDest lblOpNaN) (AST.jmpDest lblCmp)
+    AST.lmark lblOpNaN
+    result := numI32 0b0011 8<rt>
+    AST.jmp (AST.jmpDest lblEnd)
+    AST.lmark lblCmp
+    AST.cjmp (AST.feq v1 v2) (AST.jmpDest lblEq) (AST.jmpDest lblNeq)
+    AST.lmark lblEq
+    result := numI32 0b110 8<rt>
+    AST.jmp (AST.jmpDest lblEnd)
+    AST.lmark lblNeq
+  }
   let cond = AST.flt v1 v2
-  bld <+ (result := AST.ite cond (numI32 0b1000 8<rt>) (numI32 0b0010 8<rt>))
-  bld <+ (AST.lmark lblEnd)
+  append bld {
+    result := AST.ite cond (numI32 0b1000 8<rt>) (numI32 0b0010 8<rt>)
+    AST.lmark lblEnd
+  }
   result
 
 let fcmp (ins: Instruction) insLen bld addr =
-  bld <!-- (ins.Address, insLen)
-  let src1, src2 = transTwoOprs ins bld addr
-  let flags = tmpVar bld 8<rt>
-  bld <+ (flags := fpCompare bld ins.OprSize src1 src2)
-  bld <+ (regVar bld R.N := AST.extract flags 1<rt> 3)
-  bld <+ (regVar bld R.Z := AST.extract flags 1<rt> 2)
-  bld <+ (regVar bld R.C := AST.extract flags 1<rt> 1)
-  bld <+ (regVar bld R.V := AST.extract flags 1<rt> 0)
-  bld --!> insLen
+  lift bld ins insLen {
+    let src1, src2 = transTwoOprs ins bld addr
+    let flags = tmpVar bld 8<rt>
+    flags := fpCompare bld ins.OprSize src1 src2
+    regVar bld R.N := AST.extract flags 1<rt> 3
+    regVar bld R.Z := AST.extract flags 1<rt> 2
+    regVar bld R.C := AST.extract flags 1<rt> 1
+    regVar bld R.V := AST.extract flags 1<rt> 0
+  }
 
 let fccmp (ins: Instruction) insLen bld addr =
-  bld <!-- (ins.Address, insLen)
-  let src1, src2, nzcv, cond = transOprToExprOfCCMP ins bld addr
-  let flags = tmpVar bld 8<rt>
-  let comp = fpCompare bld ins.OprSize src1 src2
-  bld <+ (flags := AST.ite (conditionHolds bld cond) comp (AST.xtlo 8<rt> nzcv))
-  bld <+ (regVar bld R.N := AST.extract flags 1<rt> 3)
-  bld <+ (regVar bld R.Z := AST.extract flags 1<rt> 2)
-  bld <+ (regVar bld R.C := AST.extract flags 1<rt> 1)
-  bld <+ (regVar bld R.V := AST.extract flags 1<rt> 0)
-  bld --!> insLen
+  lift bld ins insLen {
+    let src1, src2, nzcv, cond = transOprToExprOfCCMP ins bld addr
+    let flags = tmpVar bld 8<rt>
+    let comp = fpCompare bld ins.OprSize src1 src2
+    flags := AST.ite (conditionHolds bld cond) comp (AST.xtlo 8<rt> nzcv)
+    regVar bld R.N := AST.extract flags 1<rt> 3
+    regVar bld R.Z := AST.extract flags 1<rt> 2
+    regVar bld R.C := AST.extract flags 1<rt> 1
+    regVar bld R.V := AST.extract flags 1<rt> 0
+  }
 
 let fcmgt (ins: Instruction) insLen bld addr =
-  bld <!-- (ins.Address, insLen)
-  let struct (dst, src1, src2) = getThreeOprs ins
-  let struct (eSize, dataSize, elements) = getElemDataSzAndElems dst
-  let struct (ones, zeros) = tmpVars2 bld eSize
-  let chkNan e1 e2 = (isNaN eSize e1) .| (isNaN eSize e2)
-  let fpgt e1 e2 = AST.fgt (checkZero bld eSize e1) (checkZero bld eSize e2)
-  bld <+ (ones := numI64 -1L eSize)
-  bld <+ (zeros := AST.num0 eSize)
-  match dst, src2 with
-  | OprSIMD(ScalarReg _) as o1, _ ->
-    let _, src1, src2 = transThreeOprs ins bld addr
-    let cond = chkNan src1 src2
-    let result = AST.ite cond zeros (AST.ite (fpgt src1 src2) ones zeros)
-    dstAssignScalar ins bld addr o1 result eSize
-  | OprSIMD(VecReg _), OprFPImm _ ->
-    let struct (dstB, dstA) = transOprToExpr128 ins bld addr dst
-    let src1 = transSIMDOprToExpr bld eSize dataSize elements src1
-    let src2 = transOprToExpr ins bld addr src2 |> AST.xtlo eSize
-    let result =
-      Array.map (fun e ->
-        AST.ite (chkNan e src2) zeros (AST.ite (fpgt e src2) ones zeros)) src1
-    dstAssignForSIMD dstA dstB result dataSize elements bld
-  | OprSIMD(VecReg _), _ ->
-    let struct (dstB, dstA) = transOprToExpr128 ins bld addr dst
-    let s1 = transSIMDOprToExpr bld eSize dataSize elements src1
-    let s2 = transSIMDOprToExpr bld eSize dataSize elements src2
-    let result =
-      Array.map2 (fun e1 e2 ->
-        AST.ite (chkNan e1 e2) zeros (AST.ite (fpgt e1 e2) ones zeros)) s1 s2
-    dstAssignForSIMD dstA dstB result dataSize elements bld
-  | _ ->
-    raise InvalidOperandException
-  bld --!> insLen
+  lift bld ins insLen {
+    let struct (dst, src1, src2) = getThreeOprs ins
+    let struct (eSize, dataSize, elements) = getElemDataSzAndElems dst
+    let struct (ones, zeros) = tmpVars2 bld eSize
+    let chkNan e1 e2 = (isNaN eSize e1) .| (isNaN eSize e2)
+    let fpgt e1 e2 = AST.fgt (checkZero bld eSize e1) (checkZero bld eSize e2)
+    ones := numI64 -1L eSize
+    zeros := AST.num0 eSize
+    match dst, src2 with
+    | OprSIMD(ScalarReg _) as o1, _ ->
+      let _, src1, src2 = transThreeOprs ins bld addr
+      let cond = chkNan src1 src2
+      let result = AST.ite cond zeros (AST.ite (fpgt src1 src2) ones zeros)
+      dstAssignScalar ins bld addr o1 result eSize
+    | OprSIMD(VecReg _), OprFPImm _ ->
+      let struct (dstB, dstA) = transOprToExpr128 ins bld addr dst
+      let src1 = transSIMDOprToExpr bld eSize dataSize elements src1
+      let src2 = transOprToExpr ins bld addr src2 |> AST.xtlo eSize
+      let result =
+        Array.map (fun e ->
+          AST.ite (chkNan e src2) zeros (AST.ite (fpgt e src2) ones zeros)) src1
+      dstAssignForSIMD dstA dstB result dataSize elements bld
+    | OprSIMD(VecReg _), _ ->
+      let struct (dstB, dstA) = transOprToExpr128 ins bld addr dst
+      let s1 = transSIMDOprToExpr bld eSize dataSize elements src1
+      let s2 = transSIMDOprToExpr bld eSize dataSize elements src2
+      let result =
+        Array.map2 (fun e1 e2 ->
+          AST.ite (chkNan e1 e2) zeros (AST.ite (fpgt e1 e2) ones zeros)) s1 s2
+      dstAssignForSIMD dstA dstB result dataSize elements bld
+    | _ ->
+      raise InvalidOperandException
+  }
 
 let fcsel ins insLen bld addr =
-  let o1, s1, s2, cond = transOprToExprOfFCSEL ins bld addr
-  let struct (eSize, _, _) = getElemDataSzAndElems o1
-  let fs1 = AST.cast CastKind.FloatCast ins.OprSize s1
-  let fs2 = AST.cast CastKind.FloatCast ins.OprSize s2
-  bld <!-- (ins.Address, insLen)
-  let result = AST.ite (conditionHolds bld cond) fs1 fs2
-  dstAssignScalar ins bld addr o1 result eSize
-  bld --!> insLen
+  lift bld ins insLen {
+    let o1, s1, s2, cond = transOprToExprOfFCSEL ins bld addr
+    let struct (eSize, _, _) = getElemDataSzAndElems o1
+    let fs1 = AST.cast CastKind.FloatCast ins.OprSize s1
+    let fs2 = AST.cast CastKind.FloatCast ins.OprSize s2
+    let result = AST.ite (conditionHolds bld cond) fs1 fs2
+    dstAssignScalar ins bld addr o1 result eSize
+  }
 
 let fcvt (ins: Instruction) insLen bld addr =
-  bld <!-- (ins.Address, insLen)
-  match ins.Operands with
-  | TwoOperands(OprSIMD(ScalarReg _) as o1, o2) ->
-    let struct (eSize, _, _) = getElemDataSzAndElems o1
-    let src = transOprToExpr ins bld addr o2
-    let result = AST.cast CastKind.FloatCast eSize src
-    dstAssignScalar ins bld addr o1 result eSize
-  | _ ->
-    let dst, src = transTwoOprs ins bld addr
-    let oprSize = ins.OprSize
-    dstAssign oprSize dst (AST.cast CastKind.FloatCast oprSize src) bld
-  bld --!> insLen
+  lift bld ins insLen {
+    match ins.Operands with
+    | TwoOperands(OprSIMD(ScalarReg _) as o1, o2) ->
+      let struct (eSize, _, _) = getElemDataSzAndElems o1
+      let src = transOprToExpr ins bld addr o2
+      let result = AST.cast CastKind.FloatCast eSize src
+      dstAssignScalar ins bld addr o1 result eSize
+    | _ ->
+      let dst, src = transTwoOprs ins bld addr
+      let oprSize = ins.OprSize
+      dstAssign oprSize dst (AST.cast CastKind.FloatCast oprSize src) bld
+  }
+
+/// Converts every lane of a vector operand to a fixed-point value, leaving
+/// zero where an unsigned destination would take a negative one.
+let private fpConvertVec ins bld addr o1 o2 fbits isUnsigned round =
+  let struct (eSize, dataSize, elements) = getElemDataSzAndElems o1
+  let struct (dstB, dstA) = transOprToExpr128 ins bld addr o1
+  let src = transSIMDOprToExpr bld eSize dataSize elements o2
+  let n0 = AST.num0 eSize
+  let isNeg e = AST.xthi 1<rt> e == AST.b1
+  let fcvt e = fpToFixed eSize e (fbits eSize) isUnsigned round bld
+  let result = Array.init elements (fun _ -> tmpVar bld eSize)
+  Array.iter2 (fun res e ->
+    if isUnsigned then append bld { res := AST.ite (isNeg e) n0 (fcvt e) }
+    else append bld { res := fcvt e }) result src
+  dstAssignForSIMD dstA dstB result dataSize elements bld
 
 let private fpConvert (ins: Instruction) insLen bld addr isUnsigned round =
-  let isNeg e = AST.xthi 1<rt> e == AST.b1
-  bld <!-- (ins.Address, insLen)
-  match ins.Operands with
-  (* vector *)
-  | TwoOperands(OprSIMD(VecReg _) as o1, o2) ->
-    let struct (eSize, dataSize, elements) = getElemDataSzAndElems o1
-    let struct (dstB, dstA) = transOprToExpr128 ins bld addr o1
-    let src = transSIMDOprToExpr bld eSize dataSize elements o2
-    let n0 = AST.num0 eSize
-    let fcvt e = fpToFixed eSize e (AST.num0 eSize) isUnsigned round bld
-    let result = Array.init elements (fun _ -> tmpVar bld eSize)
-    Array.iter2 (fun res e ->
-      if isUnsigned then bld <+ (res := AST.ite (isNeg e) n0 (fcvt e))
-      else bld <+ (res := fcvt e)) result src
-    dstAssignForSIMD dstA dstB result dataSize elements bld
-  (* vector #<fbits> *)
-  | ThreeOperands(OprSIMD(VecReg _) as o1, o2, OprFbits fbits) ->
-    let struct (eSize, dataSize, elements) = getElemDataSzAndElems o1
-    let struct (dstB, dstA) = transOprToExpr128 ins bld addr o1
-    let src = transSIMDOprToExpr bld eSize dataSize elements o2
-    let n0 = AST.num0 eSize
-    let fbits = numI32 (int fbits) eSize
-    let fcvt e = fpToFixed eSize e fbits isUnsigned round bld
-    let result = Array.init elements (fun _ -> tmpVar bld eSize)
-    Array.iter2 (fun res e ->
-      if isUnsigned then bld <+ (res := AST.ite (isNeg e) n0 (fcvt e))
-      else bld <+ (res := fcvt e)) result src
-    dstAssignForSIMD dstA dstB result dataSize elements bld
-  (* scalar *)
-  | TwoOperands(OprSIMD(ScalarReg _) as o1, o2) ->
-    let src = transOprToExpr ins bld addr o2
-    let n0 = AST.num0 ins.OprSize
-    let fcvt = fpToFixed ins.OprSize src n0 isUnsigned round bld
-    let result = if isUnsigned then AST.ite (isNeg src) n0 fcvt else fcvt
-    dstAssignScalar ins bld addr o1 result ins.OprSize
-  (* scalar #<fbits> *)
-  | ThreeOperands(OprSIMD(ScalarReg _) as o1, _, OprFbits _) ->
-    let _, src, fbits = transThreeOprs ins bld addr
-    let n0 = AST.num0 ins.OprSize
-    let fcvt = fpToFixed ins.OprSize src fbits isUnsigned round bld
-    let result = if isUnsigned then AST.ite (isNeg src) n0 fcvt else fcvt
-    dstAssignScalar ins bld addr o1 result ins.OprSize
-  (* float *)
-  | TwoOperands(OprRegister _, _) ->
-    let dst, src = transTwoOprs ins bld addr
-    let n0 = AST.num0 ins.OprSize
-    let fcvt = fpToFixed ins.OprSize src n0 isUnsigned round bld
-    let result = if isUnsigned then AST.ite (isNeg src) n0 fcvt else fcvt
-    dstAssign ins.OprSize dst result bld
-  (* float #<fbits> *)
-  | ThreeOperands(OprRegister _, _, OprFbits _) ->
-    let dst, src, fbits = transThreeOprs ins bld addr
-    let n0 = AST.num0 ins.OprSize
-    let fcvt = fpToFixed ins.OprSize src fbits isUnsigned round bld
-    let result = if isUnsigned then AST.ite (isNeg src) n0 fcvt else fcvt
-    dstAssign ins.OprSize dst result bld
-  | _ ->
-    raise InvalidOperandException
-  bld --!> insLen
+  lift bld ins insLen {
+    let isNeg e = AST.xthi 1<rt> e == AST.b1
+    match ins.Operands with
+    (* vector *)
+    | TwoOperands(OprSIMD(VecReg _) as o1, o2) ->
+      fpConvertVec ins bld addr o1 o2 AST.num0 isUnsigned round
+    (* vector #<fbits> *)
+    | ThreeOperands(OprSIMD(VecReg _) as o1, o2, OprFbits fbits) ->
+      let toFbits eSize = numI32 (int fbits) eSize
+      fpConvertVec ins bld addr o1 o2 toFbits isUnsigned round
+    (* scalar *)
+    | TwoOperands(OprSIMD(ScalarReg _) as o1, o2) ->
+      let src = transOprToExpr ins bld addr o2
+      let n0 = AST.num0 ins.OprSize
+      let fcvt = fpToFixed ins.OprSize src n0 isUnsigned round bld
+      let result = if isUnsigned then AST.ite (isNeg src) n0 fcvt else fcvt
+      dstAssignScalar ins bld addr o1 result ins.OprSize
+    (* scalar #<fbits> *)
+    | ThreeOperands(OprSIMD(ScalarReg _) as o1, _, OprFbits _) ->
+      let _, src, fbits = transThreeOprs ins bld addr
+      let n0 = AST.num0 ins.OprSize
+      let fcvt = fpToFixed ins.OprSize src fbits isUnsigned round bld
+      let result = if isUnsigned then AST.ite (isNeg src) n0 fcvt else fcvt
+      dstAssignScalar ins bld addr o1 result ins.OprSize
+    (* float *)
+    | TwoOperands(OprRegister _, _) ->
+      let dst, src = transTwoOprs ins bld addr
+      let n0 = AST.num0 ins.OprSize
+      let fcvt = fpToFixed ins.OprSize src n0 isUnsigned round bld
+      let result = if isUnsigned then AST.ite (isNeg src) n0 fcvt else fcvt
+      dstAssign ins.OprSize dst result bld
+    (* float #<fbits> *)
+    | ThreeOperands(OprRegister _, _, OprFbits _) ->
+      let dst, src, fbits = transThreeOprs ins bld addr
+      let n0 = AST.num0 ins.OprSize
+      let fcvt = fpToFixed ins.OprSize src fbits isUnsigned round bld
+      let result = if isUnsigned then AST.ite (isNeg src) n0 fcvt else fcvt
+      dstAssign ins.OprSize dst result bld
+    | _ ->
+      raise InvalidOperandException
+  }
 
 let fcvtas ins insLen bld addr =
   fpConvert ins insLen bld addr false FPRounding_TIEAWAY
@@ -1096,204 +1116,206 @@ let fcvtzu ins insLen bld addr =
   fpConvert ins insLen bld addr true FPRounding_Zero
 
 let fdiv (ins: Instruction) insLen bld addr =
-  bld <!-- (ins.Address, insLen)
-  let struct (dst, src1, src2) = getThreeOprs ins
-  let struct (eSize, dataSize, elements) = getElemDataSzAndElems dst
-  match dst with
-  | OprSIMD(ScalarReg _) ->
-    let _, src1, src2 = transThreeOprs ins bld addr
-    let result = fpDiv bld dataSize src1 src2
-    dstAssignScalar ins bld addr dst result eSize
-  | OprSIMD(VecReg _) ->
-    let struct (dstB, dstA) = transOprToExpr128 ins bld addr dst
-    let src1 = transSIMDOprToExpr bld eSize dataSize elements src1
-    let src2 = transSIMDOprToExpr bld eSize dataSize elements src2
-    let result = Array.map2 (fpDiv bld eSize) src1 src2
-    dstAssignForSIMD dstA dstB result dataSize elements bld
-  | _ ->
-    raise InvalidOperandException
-  bld --!> insLen
+  lift bld ins insLen {
+    let struct (dst, src1, src2) = getThreeOprs ins
+    let struct (eSize, dataSize, elements) = getElemDataSzAndElems dst
+    match dst with
+    | OprSIMD(ScalarReg _) ->
+      let _, src1, src2 = transThreeOprs ins bld addr
+      let result = fpDiv bld dataSize src1 src2
+      dstAssignScalar ins bld addr dst result eSize
+    | OprSIMD(VecReg _) ->
+      let struct (dstB, dstA) = transOprToExpr128 ins bld addr dst
+      let src1 = transSIMDOprToExpr bld eSize dataSize elements src1
+      let src2 = transSIMDOprToExpr bld eSize dataSize elements src2
+      let result = Array.map2 (fpDiv bld eSize) src1 src2
+      dstAssignForSIMD dstA dstB result dataSize elements bld
+    | _ ->
+      raise InvalidOperandException
+  }
 
 let fmadd (ins: Instruction) insLen bld addr =
-  bld <!-- (ins.Address, insLen)
-  let struct (dst, _, _, _) = getFourOprs ins
-  let struct (eSize, _, _) = getElemDataSzAndElems dst
-  let _, src1, src2, src3 = transFourOprs ins bld addr
-  let result = (fpAdd bld eSize src3 (fpMul bld eSize src1 src2))
-  dstAssignScalar ins bld addr dst result eSize
-  bld --!> insLen
+  lift bld ins insLen {
+    let struct (dst, _, _, _) = getFourOprs ins
+    let struct (eSize, _, _) = getElemDataSzAndElems dst
+    let _, src1, src2, src3 = transFourOprs ins bld addr
+    let result = (fpAdd bld eSize src3 (fpMul bld eSize src1 src2))
+    dstAssignScalar ins bld addr dst result eSize
+  }
 
 let fmaxmin (ins: Instruction) insLen bld addr fop =
-  bld <!-- (ins.Address, insLen)
-  match ins.Operands with
-  | ThreeOperands(OprSIMD(ScalarReg _) as o1, o2, o3) ->
-    let struct (eSize, _, _) = getElemDataSzAndElems o1
-    let src1 = transOprToExpr ins bld addr o2
-    let src2 = transOprToExpr ins bld addr o3
-    let cond = fop src1 src2
-    let result = AST.ite cond src1 src2
-    dstAssignScalar ins bld addr o1 result eSize
-  | _ ->
-    let struct (o1, o2, o3) = getThreeOprs ins
-    let struct (eSize, dataSize, elements) = getElemDataSzAndElems o1
-    let struct (dstB, dstA) = transOprToExpr128 ins bld addr o1
-    let src1 = transSIMDOprToExpr bld eSize dataSize elements o2
-    let src2 = transSIMDOprToExpr bld eSize dataSize elements o3
-    let result = Array.init elements (fun _ -> tmpVar bld eSize)
-    let inline cond e1 e2 =
-      let src1 = AST.cast CastKind.FloatCast eSize e1
-      let src2 = AST.cast CastKind.FloatCast eSize e2
-      AST.ite (fop src1 src2) src1 src2
-    Array.iteri2 (fun i e1 e2 -> bld <+ (result[i] := cond e1 e2)) src1 src2
-    dstAssignForSIMD dstA dstB result dataSize elements bld
-  bld --!> insLen
+  lift bld ins insLen {
+    match ins.Operands with
+    | ThreeOperands(OprSIMD(ScalarReg _) as o1, o2, o3) ->
+      let struct (eSize, _, _) = getElemDataSzAndElems o1
+      let src1 = transOprToExpr ins bld addr o2
+      let src2 = transOprToExpr ins bld addr o3
+      let cond = fop src1 src2
+      let result = AST.ite cond src1 src2
+      dstAssignScalar ins bld addr o1 result eSize
+    | _ ->
+      let struct (o1, o2, o3) = getThreeOprs ins
+      let struct (eSize, dataSize, elements) = getElemDataSzAndElems o1
+      let struct (dstB, dstA) = transOprToExpr128 ins bld addr o1
+      let src1 = transSIMDOprToExpr bld eSize dataSize elements o2
+      let src2 = transSIMDOprToExpr bld eSize dataSize elements o3
+      let result = Array.init elements (fun _ -> tmpVar bld eSize)
+      let inline cond e1 e2 =
+        let src1 = AST.cast CastKind.FloatCast eSize e1
+        let src2 = AST.cast CastKind.FloatCast eSize e2
+        AST.ite (fop src1 src2) src1 src2
+      Array.iteri2 (fun i e1 e2 ->
+        append bld { result[i] := cond e1 e2 }) src1 src2
+      dstAssignForSIMD dstA dstB result dataSize elements bld
+  }
 
 let fmls (ins: Instruction) insLen bld addr =
-  bld <!-- (ins.Address, insLen)
-  match ins.Operands with
-  | ThreeOperands(OprSIMD(ScalarReg _) as o1, o2, o3) ->
-    let struct (eSize, _, _) = getElemDataSzAndElems o1
-    let dst = transOprToExpr ins bld addr o1
-    let src1 = transOprToExpr ins bld addr o2
-    let src2 = transOprToExpr ins bld addr o3
-    let element1 = fpneg src1 eSize
-    let result = fpAdd bld eSize dst (fpMul bld eSize element1 src2)
-    dstAssignScalar ins bld addr o1 result eSize
-  | ThreeOperands(o1, o2, (OprSIMD(VecRegWithIdx _) as o3)) ->
-    let struct (eSize, dataSize, elements) = getElemDataSzAndElems o1
-    let struct (dstB, dstA) = transOprToExpr128 ins bld addr o1
-    let src1 = transSIMDOprToExpr bld eSize dataSize elements o2
-    let src2 = transOprToExpr ins bld addr o3
-    let src3 = transSIMDOprToExpr bld eSize dataSize elements o1
-    let result = Array.init elements (fun _ -> tmpVar bld eSize)
-    Array.iteri2 (fun i e1 e3 ->
-      let e1 = fpneg e1 eSize
-      let res = fpAdd bld eSize e3 (fpMul bld eSize e1 src2)
-      bld <+ (result[i] := res)) src1 src3
-    dstAssignForSIMD dstA dstB result dataSize elements bld
-  | _ ->
-    let struct (o1, o2, o3) = getThreeOprs ins
-    let struct (eSize, dataSize, elements) = getElemDataSzAndElems o1
-    let struct (dstB, dstA) = transOprToExpr128 ins bld addr o1
-    let src1 = transSIMDOprToExpr bld eSize dataSize elements o2
-    let src2 = transSIMDOprToExpr bld eSize dataSize elements o3
-    let src3 = transSIMDOprToExpr bld eSize dataSize elements o1
-    let result = Array.init elements (fun _ -> tmpVar bld eSize)
-    Array.map3 (fun e1 e2 e3 ->
-      let e1 = fpneg e1 eSize
-      fpAdd bld eSize e3 (fpMul bld eSize e1 e2)) src1 src2 src3
-    |> Array.iter2 (fun r e -> bld <+ (r := e)) result
-    dstAssignForSIMD dstA dstB result dataSize elements bld
-  bld --!> insLen
+  lift bld ins insLen {
+    match ins.Operands with
+    | ThreeOperands(OprSIMD(ScalarReg _) as o1, o2, o3) ->
+      let struct (eSize, _, _) = getElemDataSzAndElems o1
+      let dst = transOprToExpr ins bld addr o1
+      let src1 = transOprToExpr ins bld addr o2
+      let src2 = transOprToExpr ins bld addr o3
+      let element1 = fpneg src1 eSize
+      let result = fpAdd bld eSize dst (fpMul bld eSize element1 src2)
+      dstAssignScalar ins bld addr o1 result eSize
+    | ThreeOperands(o1, o2, (OprSIMD(VecRegWithIdx _) as o3)) ->
+      let struct (eSize, dataSize, elements) = getElemDataSzAndElems o1
+      let struct (dstB, dstA) = transOprToExpr128 ins bld addr o1
+      let src1 = transSIMDOprToExpr bld eSize dataSize elements o2
+      let src2 = transOprToExpr ins bld addr o3
+      let src3 = transSIMDOprToExpr bld eSize dataSize elements o1
+      let result = Array.init elements (fun _ -> tmpVar bld eSize)
+      Array.iteri2 (fun i e1 e3 ->
+        let e1 = fpneg e1 eSize
+        let res = fpAdd bld eSize e3 (fpMul bld eSize e1 src2)
+        append bld { result[i] := res }) src1 src3
+      dstAssignForSIMD dstA dstB result dataSize elements bld
+    | _ ->
+      let struct (o1, o2, o3) = getThreeOprs ins
+      let struct (eSize, dataSize, elements) = getElemDataSzAndElems o1
+      let struct (dstB, dstA) = transOprToExpr128 ins bld addr o1
+      let src1 = transSIMDOprToExpr bld eSize dataSize elements o2
+      let src2 = transSIMDOprToExpr bld eSize dataSize elements o3
+      let src3 = transSIMDOprToExpr bld eSize dataSize elements o1
+      let result = Array.init elements (fun _ -> tmpVar bld eSize)
+      Array.map3 (fun e1 e2 e3 ->
+        let e1 = fpneg e1 eSize
+        fpAdd bld eSize e3 (fpMul bld eSize e1 e2)) src1 src2 src3
+      |> Array.iter2 (fun r e -> append bld { r := e }) result
+      dstAssignForSIMD dstA dstB result dataSize elements bld
+  }
 
 let fmov (ins: Instruction) insLen bld addr =
-  bld <!-- (ins.Address, insLen)
-  match ins.Operands with
-  | TwoOperands(OprRegister _, OprSIMD(VecRegWithIdx _)) ->
-    let struct (dst, src) = getTwoOprs ins
-    let dst = transOprToExpr ins bld addr dst
-    let struct (srcB, _) = transOprToExpr128 ins bld addr src
-    dstAssign ins.OprSize dst srcB bld
-  | TwoOperands(OprSIMD(VecRegWithIdx _), OprRegister _) ->
-    let struct (dst, src) = getTwoOprs ins
-    let struct (dstB, dstA) = transOprToExpr128 ins bld addr dst
-    let src = transOprToExpr ins bld addr src
-    bld <+ (dstA := dstA)
-    bld <+ (dstB := src)
-  | TwoOperands(OprSIMD(VecReg _), OprFPImm _) ->
-    let struct (dst, src) = getTwoOprs ins
-    let struct (eSize, dataSize, _) = getElemDataSzAndElems dst
-    let src =
-      if eSize <> 64<rt> then
-        transOprToExprFPImm ins eSize src |> advSIMDExpandImm bld eSize
-      else
-        transOprToExprFPImm ins eSize src |> AST.xtlo 64<rt>
-    dstAssign128 ins bld addr dst src src dataSize
-  | TwoOperands(OprSIMD(ScalarReg _), _) ->
-    let struct (dst, src) = getTwoOprs ins
-    let struct (_, dataSize, _) = getElemDataSzAndElems dst
-    let src = transOprToExpr ins bld addr src
-    dstAssignScalar ins bld addr dst src dataSize
-  | _ ->
-    let dst, src = transTwoOprs ins bld addr
-    dstAssign ins.OprSize dst src bld
-  bld --!> insLen
+  lift bld ins insLen {
+    match ins.Operands with
+    | TwoOperands(OprRegister _, OprSIMD(VecRegWithIdx _)) ->
+      let struct (dst, src) = getTwoOprs ins
+      let dst = transOprToExpr ins bld addr dst
+      let struct (srcB, _) = transOprToExpr128 ins bld addr src
+      dstAssign ins.OprSize dst srcB bld
+    | TwoOperands(OprSIMD(VecRegWithIdx _), OprRegister _) ->
+      let struct (dst, src) = getTwoOprs ins
+      let struct (dstB, dstA) = transOprToExpr128 ins bld addr dst
+      let src = transOprToExpr ins bld addr src
+      dstA := dstA
+      dstB := src
+    | TwoOperands(OprSIMD(VecReg _), OprFPImm _) ->
+      let struct (dst, src) = getTwoOprs ins
+      let struct (eSize, dataSize, _) = getElemDataSzAndElems dst
+      let src =
+        if eSize <> 64<rt> then
+          transOprToExprFPImm ins eSize src |> advSIMDExpandImm bld eSize
+        else
+          transOprToExprFPImm ins eSize src |> AST.xtlo 64<rt>
+      dstAssign128 ins bld addr dst src src dataSize
+    | TwoOperands(OprSIMD(ScalarReg _), _) ->
+      let struct (dst, src) = getTwoOprs ins
+      let struct (_, dataSize, _) = getElemDataSzAndElems dst
+      let src = transOprToExpr ins bld addr src
+      dstAssignScalar ins bld addr dst src dataSize
+    | _ ->
+      let dst, src = transTwoOprs ins bld addr
+      dstAssign ins.OprSize dst src bld
+  }
 
 let fmsub (ins: Instruction) insLen bld addr =
-  bld <!-- (ins.Address, insLen)
-  let struct (dst, _, _, _) = getFourOprs ins
-  let struct (eSize, _, _) = getElemDataSzAndElems dst
-  let _, src1, src2, src3 = transFourOprs ins bld addr
-  let result = (fpSub bld eSize src3 (fpMul bld eSize src1 src2))
-  dstAssignScalar ins bld addr dst result eSize
-  bld --!> insLen
+  lift bld ins insLen {
+    let struct (dst, _, _, _) = getFourOprs ins
+    let struct (eSize, _, _) = getElemDataSzAndElems dst
+    let _, src1, src2, src3 = transFourOprs ins bld addr
+    let result = (fpSub bld eSize src3 (fpMul bld eSize src1 src2))
+    dstAssignScalar ins bld addr dst result eSize
+  }
 
 let fmul ins insLen bld addr =
-  let struct (dst, src1, src2) = getThreeOprs ins
-  bld <!-- (ins.Address, insLen)
-  match ins.Operands with
-  | ThreeOperands(OprSIMD(ScalarReg _) as o1, o2, o3) ->
-    let struct (eSize, _, _) = getElemDataSzAndElems o2
-    let src1 = transOprToExpr ins bld addr o2
-    let src2 = transOprToExpr ins bld addr o3
-    dstAssignScalar ins bld addr o1 (fpMul bld eSize src1 src2) eSize
-  | ThreeOperands(OprSIMD(VecReg _), _, OprSIMD(VecReg _)) ->
-    let struct (eSize, dataSize, elements) = getElemDataSzAndElems dst
-    let struct (dstB, dstA) = transOprToExpr128 ins bld addr dst
-    let src1 = transSIMDOprToExpr bld eSize dataSize elements src1
-    let src2 = transSIMDOprToExpr bld eSize dataSize elements src2
-    let result = Array.map2 (fpMul bld eSize) src1 src2
-    dstAssignForSIMD dstA dstB result dataSize elements bld
-  | _ ->
-    let struct (eSize, dataSize, elements) = getElemDataSzAndElems src1
-    let struct (dstB, dstA) = transOprToExpr128 ins bld addr dst
-    let src1 = transSIMDOprToExpr bld eSize dataSize elements src1
-    let src2 = transOprToExpr ins bld addr src2
-    let result = Array.map (fun src -> fpMul bld eSize src src2) src1
-    dstAssignForSIMD dstA dstB result dataSize elements bld
-  bld --!> insLen
+  lift bld ins insLen {
+    let struct (dst, src1, src2) = getThreeOprs ins
+    match ins.Operands with
+    | ThreeOperands(OprSIMD(ScalarReg _) as o1, o2, o3) ->
+      let struct (eSize, _, _) = getElemDataSzAndElems o2
+      let src1 = transOprToExpr ins bld addr o2
+      let src2 = transOprToExpr ins bld addr o3
+      dstAssignScalar ins bld addr o1 (fpMul bld eSize src1 src2) eSize
+    | ThreeOperands(OprSIMD(VecReg _), _, OprSIMD(VecReg _)) ->
+      let struct (eSize, dataSize, elements) = getElemDataSzAndElems dst
+      let struct (dstB, dstA) = transOprToExpr128 ins bld addr dst
+      let src1 = transSIMDOprToExpr bld eSize dataSize elements src1
+      let src2 = transSIMDOprToExpr bld eSize dataSize elements src2
+      let result = Array.map2 (fpMul bld eSize) src1 src2
+      dstAssignForSIMD dstA dstB result dataSize elements bld
+    | _ ->
+      let struct (eSize, dataSize, elements) = getElemDataSzAndElems src1
+      let struct (dstB, dstA) = transOprToExpr128 ins bld addr dst
+      let src1 = transSIMDOprToExpr bld eSize dataSize elements src1
+      let src2 = transOprToExpr ins bld addr src2
+      let result = Array.map (fun src -> fpMul bld eSize src src2) src1
+      dstAssignForSIMD dstA dstB result dataSize elements bld
+  }
 
 let fneg (ins: Instruction) insLen bld addr =
-  bld <!-- (ins.Address, insLen)
-  match ins.Operands with
-  | TwoOperands(OprSIMD(ScalarReg _) as dst, src) ->
-    let struct (eSize, _, _) = getElemDataSzAndElems src
-    let src = transOprToExpr ins bld addr src
-    let t = tmpVar bld eSize
-    bld <+ (t := fpneg src eSize)
-    dstAssignScalar ins bld addr dst t ins.OprSize
-  | TwoOperands(OprSIMD(VecReg _) as dst, src) ->
-    let struct (eSize, dataSize, elements) = getElemDataSzAndElems dst
-    let struct (dstB, dstA) = transOprToExpr128 ins bld addr dst
-    let src = transSIMDOprToExpr bld eSize dataSize elements src
-    let result = Array.init elements (fun _ -> tmpVar bld eSize)
-    Array.iter2 (fun dst src -> bld <+ (dst := fpneg src eSize)) result src
-    dstAssignForSIMD dstA dstB result dataSize elements bld
-  | _ ->
-    raise InvalidOperandException
-  bld --!> insLen
+  lift bld ins insLen {
+    match ins.Operands with
+    | TwoOperands(OprSIMD(ScalarReg _) as dst, src) ->
+      let struct (eSize, _, _) = getElemDataSzAndElems src
+      let src = transOprToExpr ins bld addr src
+      let t = tmpVar bld eSize
+      t := fpneg src eSize
+      dstAssignScalar ins bld addr dst t ins.OprSize
+    | TwoOperands(OprSIMD(VecReg _) as dst, src) ->
+      let struct (eSize, dataSize, elements) = getElemDataSzAndElems dst
+      let struct (dstB, dstA) = transOprToExpr128 ins bld addr dst
+      let src = transSIMDOprToExpr bld eSize dataSize elements src
+      let result = Array.init elements (fun _ -> tmpVar bld eSize)
+      Array.iter2 (fun dst src ->
+        append bld { dst := fpneg src eSize }) result src
+      dstAssignForSIMD dstA dstB result dataSize elements bld
+    | _ ->
+      raise InvalidOperandException
+  }
 
 let fnmsub (ins: Instruction) insLen bld addr =
-  bld <!-- (ins.Address, insLen)
-  let struct (dst, _, _, src) = getFourOprs ins
-  let _, src1, src2, src3 = transFourOprs ins bld addr
-  let struct (eSize, _, _) = getElemDataSzAndElems src
-  let t = tmpVar bld eSize
-  bld <+ (t := fpneg src3 eSize)
-  let result = fpAdd bld eSize t (fpMul bld eSize src1 src2)
-  dstAssignScalar ins bld addr dst result ins.OprSize
-  bld --!> insLen
+  lift bld ins insLen {
+    let struct (dst, _, _, src) = getFourOprs ins
+    let _, src1, src2, src3 = transFourOprs ins bld addr
+    let struct (eSize, _, _) = getElemDataSzAndElems src
+    let t = tmpVar bld eSize
+    t := fpneg src3 eSize
+    let result = fpAdd bld eSize t (fpMul bld eSize src1 src2)
+    dstAssignScalar ins bld addr dst result ins.OprSize
+  }
 
 let fnmul (ins: Instruction) insLen bld addr =
-  bld <!-- (ins.Address, insLen)
-  let struct (dst, _, src) = getThreeOprs ins
-  let _, src1, src2 = transThreeOprs ins bld addr
-  let struct (eSize, _, _) = getElemDataSzAndElems src
-  let result = tmpVar bld eSize
-  bld <+ (result := fpMul bld eSize src1 src2)
-  bld <+ (result := fpneg result eSize)
-  dstAssignScalar ins bld addr dst result ins.OprSize
-  bld --!> insLen
+  lift bld ins insLen {
+    let struct (dst, _, src) = getThreeOprs ins
+    let _, src1, src2 = transThreeOprs ins bld addr
+    let struct (eSize, _, _) = getElemDataSzAndElems src
+    let result = tmpVar bld eSize
+    result := fpMul bld eSize src1 src2
+    result := fpneg result eSize
+    dstAssignScalar ins bld addr dst result ins.OprSize
+  }
 
 let getIntRoundMode src oprSz bld =
   let fpcr = regVar bld R.FPCR |> AST.xtlo 32<rt>
@@ -1312,61 +1334,69 @@ let private fpType bld cast eSize element =
   let lblNan = label bld "NaN"
   let lblCon = label bld "Continue"
   let lblEnd = label bld "End"
-  bld <+ (checkNan := isNaN eSize element)
-  bld <+ (checkInf := isInfinity eSize element)
-  bld <+ (AST.cjmp (checkNan .| checkInf)
-                   (AST.jmpDest lblNan)
-                   (AST.jmpDest lblCon))
-  bld <+ (AST.lmark lblNan)
+  append bld {
+    checkNan := isNaN eSize element
+    checkInf := isInfinity eSize element
+    AST.cjmp (checkNan .| checkInf)
+             (AST.jmpDest lblNan)
+             (AST.jmpDest lblCon)
+    AST.lmark lblNan
+  }
   let fpNaN = fpProcessNan bld eSize element
-  bld <+ (res := AST.ite checkNan fpNaN (fpDefaultInfinity element eSize))
-  bld <+ (AST.jmp (AST.jmpDest lblEnd))
-  bld <+ (AST.lmark lblCon)
+  append bld {
+    res := AST.ite checkNan fpNaN (fpDefaultInfinity element eSize)
+    AST.jmp (AST.jmpDest lblEnd)
+    AST.lmark lblCon
+  }
   let castElem = AST.cast cast eSize element
-  bld <+ (res := AST.ite (isZero eSize element) (fpZero element eSize) castElem)
-  bld <+ (AST.lmark lblEnd)
+  append bld {
+    res := AST.ite (isZero eSize element) (fpZero element eSize) castElem
+    AST.lmark lblEnd
+  }
   res
 
 let private fpRoundToInt (ins: Instruction) insLen bld addr cast =
-  bld <!-- (ins.Address, insLen)
-  match ins.Operands with
-  | TwoOperands(OprSIMD(ScalarReg _) as dst, src) ->
-    let struct (eSize, _, _) = getElemDataSzAndElems dst
-    let src = transOprToExpr ins bld addr src
-    let result = fpType bld cast eSize src
-    dstAssignScalar ins bld addr dst result eSize
-  | TwoOperands(OprSIMD(VecReg _ ) as dst, src) ->
-    let struct (eSize, dataSize, elements) = getElemDataSzAndElems dst
-    let struct (dstB, dstA) = transOprToExpr128 ins bld addr dst
-    let src = transSIMDOprToExpr bld eSize dataSize elements src
-    let result = Array.map (fpType bld cast eSize) src
-    dstAssignForSIMD dstA dstB result dataSize elements bld
-  | _ ->
-    raise InvalidOperandException
-  bld --!> insLen
+  lift bld ins insLen {
+    match ins.Operands with
+    | TwoOperands(OprSIMD(ScalarReg _) as dst, src) ->
+      let struct (eSize, _, _) = getElemDataSzAndElems dst
+      let src = transOprToExpr ins bld addr src
+      let result = fpType bld cast eSize src
+      dstAssignScalar ins bld addr dst result eSize
+    | TwoOperands(OprSIMD(VecReg _ ) as dst, src) ->
+      let struct (eSize, dataSize, elements) = getElemDataSzAndElems dst
+      let struct (dstB, dstA) = transOprToExpr128 ins bld addr dst
+      let src = transSIMDOprToExpr bld eSize dataSize elements src
+      let result = Array.map (fpType bld cast eSize) src
+      dstAssignForSIMD dstA dstB result dataSize elements bld
+    | _ ->
+      raise InvalidOperandException
+  }
 
 let private fpCurrentRoundToInt (ins: Instruction) insLen bld addr =
-  bld <!-- (ins.Address, insLen)
-  match ins.Operands with
-  | TwoOperands(OprSIMD(ScalarReg _) as dst, src) ->
-    let src = transOprToExpr ins bld addr src
-    let result = fpRoundingMode src ins.OprSize bld
-    dstAssignScalar ins bld addr dst result ins.OprSize
-  | TwoOperands(OprSIMD(VecReg _ ) as dst, src) ->
-    let struct (eSize, dataSize, elements) = getElemDataSzAndElems dst
-    let struct (dstB, dstA) = transOprToExpr128 ins bld addr dst
-    let src = transSIMDOprToExpr bld eSize dataSize elements src
-    let result = Array.map (fun s -> fpRoundingMode s eSize bld) src
-    dstAssignForSIMD dstA dstB result dataSize elements bld
-  | _ ->
-    raise InvalidOperandException
-  bld --!> insLen
+  lift bld ins insLen {
+    match ins.Operands with
+    | TwoOperands(OprSIMD(ScalarReg _) as dst, src) ->
+      let src = transOprToExpr ins bld addr src
+      let result = fpRoundingMode src ins.OprSize bld
+      dstAssignScalar ins bld addr dst result ins.OprSize
+    | TwoOperands(OprSIMD(VecReg _ ) as dst, src) ->
+      let struct (eSize, dataSize, elements) = getElemDataSzAndElems dst
+      let struct (dstB, dstA) = transOprToExpr128 ins bld addr dst
+      let src = transSIMDOprToExpr bld eSize dataSize elements src
+      let result = Array.map (fun s -> fpRoundingMode s eSize bld) src
+      dstAssignForSIMD dstA dstB result dataSize elements bld
+    | _ ->
+      raise InvalidOperandException
+  }
 
 let private tieawayCast bld eSize src =
   let sign = AST.xthi 1<rt> src
   let trunc = AST.cast CastKind.FtoFTrunc eSize src
   let struct (t, res) = tmpVars2 bld eSize
-  bld <+ (t := AST.fsub src trunc)
+  append bld {
+    t := AST.fsub src trunc
+  }
   let comp1 =
     match eSize with
     | 32<rt> -> numI32 0x3F000000 eSize (* 0.5 *)
@@ -1381,26 +1411,28 @@ let private tieawayCast bld eSize src =
   let floor = fpType bld CastKind.FtoFFloor eSize src
   let pRes = AST.ite (AST.fge t comp1) ceil floor
   let nRes = AST.ite (AST.fle t comp2) floor ceil
-  bld <+ (res := AST.ite sign nRes pRes)
+  append bld {
+    res := AST.ite sign nRes pRes
+  }
   res
 
 let frinta (ins: Instruction) insLen bld addr =
-  bld <!-- (ins.Address, insLen)
-  match ins.Operands with
-  | TwoOperands(OprSIMD(ScalarReg _) as dst, src) ->
-    let struct (eSize, _, _) = getElemDataSzAndElems dst
-    let src = transOprToExpr ins bld addr src
-    let result = tieawayCast bld eSize src
-    dstAssignScalar ins bld addr dst result eSize
-  | TwoOperands(OprSIMD(VecReg _ ) as dst, src) ->
-    let struct (eSize, dataSize, elements) = getElemDataSzAndElems dst
-    let struct (dstB, dstA) = transOprToExpr128 ins bld addr dst
-    let src = transSIMDOprToExpr bld eSize dataSize elements src
-    let result = Array.map (tieawayCast bld eSize) src
-    dstAssignForSIMD dstA dstB result dataSize elements bld
-  | _ ->
-    raise InvalidOperandException
-  bld --!> insLen
+  lift bld ins insLen {
+    match ins.Operands with
+    | TwoOperands(OprSIMD(ScalarReg _) as dst, src) ->
+      let struct (eSize, _, _) = getElemDataSzAndElems dst
+      let src = transOprToExpr ins bld addr src
+      let result = tieawayCast bld eSize src
+      dstAssignScalar ins bld addr dst result eSize
+    | TwoOperands(OprSIMD(VecReg _ ) as dst, src) ->
+      let struct (eSize, dataSize, elements) = getElemDataSzAndElems dst
+      let struct (dstB, dstA) = transOprToExpr128 ins bld addr dst
+      let src = transSIMDOprToExpr bld eSize dataSize elements src
+      let result = Array.map (tieawayCast bld eSize) src
+      dstAssignForSIMD dstA dstB result dataSize elements bld
+    | _ ->
+      raise InvalidOperandException
+  }
 
 let frinti ins insLen bld addr = fpCurrentRoundToInt ins insLen bld addr
 
@@ -1419,46 +1451,46 @@ let frintz ins insLen bld addr =
   fpRoundToInt ins insLen bld addr CastKind.FtoFTrunc
 
 let fsqrt ins insLen bld addr =
-  let struct (dst, src) = getTwoOprs ins
-  let struct (eSize, dataSize, elements) = getElemDataSzAndElems dst
-  bld <!-- (ins.Address, insLen)
-  match ins.Operands with
-  | TwoOperands(OprSIMD(ScalarReg _), _) ->
-    let src = transOprToExpr ins bld addr src |> AST.fsqrt
-    dstAssignScalar ins bld addr dst src eSize
-  | _ ->
-    let struct (dstB, dstA) = transOprToExpr128 ins bld addr dst
-    let src = transSIMDOprToExpr bld eSize dataSize elements src
-              |> Array.map (AST.fsqrt)
-    dstAssignForSIMD dstA dstB src dataSize elements bld
-  bld --!> insLen
+  lift bld ins insLen {
+    let struct (dst, src) = getTwoOprs ins
+    let struct (eSize, dataSize, elements) = getElemDataSzAndElems dst
+    match ins.Operands with
+    | TwoOperands(OprSIMD(ScalarReg _), _) ->
+      let src = transOprToExpr ins bld addr src |> AST.fsqrt
+      dstAssignScalar ins bld addr dst src eSize
+    | _ ->
+      let struct (dstB, dstA) = transOprToExpr128 ins bld addr dst
+      let src = transSIMDOprToExpr bld eSize dataSize elements src
+                |> Array.map (AST.fsqrt)
+      dstAssignForSIMD dstA dstB src dataSize elements bld
+  }
 
 let fsub ins insLen bld addr =
-  let struct (dst, o1, o2) = getThreeOprs ins
-  let struct (eSize, dataSize, elements) = getElemDataSzAndElems dst
-  bld <!-- (ins.Address, insLen)
-  match ins.Operands with
-  | ThreeOperands(OprSIMD(ScalarReg _), _, _) ->
-    let src1 = transOprToExpr ins bld addr o1
-    let src2 = transOprToExpr ins bld addr o2
-    let result = fpSub bld dataSize src1 src2
-    dstAssignScalar ins bld addr dst result eSize
-  | _ ->
-    let struct (dstB, dstA) = transOprToExpr128 ins bld addr dst
-    let src1 = transSIMDOprToExpr bld eSize dataSize elements o1
-    let src2 = transSIMDOprToExpr bld eSize dataSize elements o2
-    let result = Array.map2 (fpSub bld eSize) src1 src2
-    dstAssignForSIMD dstA dstB result dataSize elements bld
-  bld --!> insLen
+  lift bld ins insLen {
+    let struct (dst, o1, o2) = getThreeOprs ins
+    let struct (eSize, dataSize, elements) = getElemDataSzAndElems dst
+    match ins.Operands with
+    | ThreeOperands(OprSIMD(ScalarReg _), _, _) ->
+      let src1 = transOprToExpr ins bld addr o1
+      let src2 = transOprToExpr ins bld addr o2
+      let result = fpSub bld dataSize src1 src2
+      dstAssignScalar ins bld addr dst result eSize
+    | _ ->
+      let struct (dstB, dstA) = transOprToExpr128 ins bld addr dst
+      let src1 = transSIMDOprToExpr bld eSize dataSize elements o1
+      let src2 = transSIMDOprToExpr bld eSize dataSize elements o2
+      let result = Array.map2 (fpSub bld eSize) src1 src2
+      dstAssignForSIMD dstA dstB result dataSize elements bld
+  }
 
 let insv (ins: Instruction) insLen bld addr =
-  bld <!-- (ins.Address, insLen)
-  let struct (o1, o2) = getTwoOprs ins
-  let struct (eSize, _, _) = getElemDataSzAndElems o1
-  let dst = transOprToExpr ins bld addr o1
-  let src = transOprToExpr ins bld addr o2
-  bld <+ (dst := AST.xtlo eSize src)
-  bld --!> insLen
+  lift bld ins insLen {
+    let struct (o1, o2) = getTwoOprs ins
+    let struct (eSize, _, _) = getElemDataSzAndElems o1
+    let dst = transOprToExpr ins bld addr o1
+    let src = transOprToExpr ins bld addr o2
+    dst := AST.xtlo eSize src
+  }
 
 let private isVecIdxOrLD1ST1 (ins: Instruction) opr =
   let isVecIdx =
@@ -1479,7 +1511,9 @@ let private fillZeroHigh64 (ins: Instruction) bld opr =
         match simd with
         | VecReg(reg, _) ->
           let regB = pseudoRegVar bld reg 2
-          bld <+ (regB := AST.num0 64<rt>)
+          append bld {
+            regB := AST.num0 64<rt>
+          }
         | _ ->
           ()) simds
     | _ ->
@@ -1488,590 +1522,603 @@ let private fillZeroHigh64 (ins: Instruction) bld opr =
     ()
 
 let loadStoreList (ins: Instruction) insLen bld addr isLoad =
-  let isWBack, _ = getIsWBackAndIsPostIndex ins.Operands
-  let struct (dst, src) = getTwoOprs ins
-  let struct (eSize, _, elements) = getElemDataSzAndElems dst
-  let dstArr = transSIMDListToExpr bld dst
-  let bReg, mOffs = transOprToExpr ins bld addr src |> separateMemExpr
-  let struct (address, offs) = tmpVars2 bld 64<rt>
-  bld <!-- (ins.Address, insLen)
-  bld <+ (address := bReg)
-  bld <+ (offs := AST.num0 64<rt>)
-  let eByte = eSize / 8<rt>
-  let regLen = Array.length dstArr * elements
-  let srcArr =
-    let mem idx = AST.loadLE eSize (address .+ (numI32 (eByte * idx) 64<rt>))
-    Array.init regLen mem
-  let dstArr =
-    if isVecIdxOrLD1ST1 ins dst then dstArr else dstArr |> Array.transpose
-    |> Array.concat
-  Array.iter2 (fun dst src ->
-    if isLoad then bld <+ (dst := src) else bld <+ (src := dst)) dstArr srcArr
-  if isLoad then fillZeroHigh64 ins bld dst else ()
-  if isWBack then
-    bld <+ (offs := numI32 (regLen * eByte) 64<rt>)
-    if isRegOffset src then bld <+ (offs := mOffs) else ()
-    bld <+ (bReg := address .+ offs)
-  else
-    ()
-  bld --!> insLen
+  lift bld ins insLen {
+    let isWBack, _ = getIsWBackAndIsPostIndex ins.Operands
+    let struct (dst, src) = getTwoOprs ins
+    let struct (eSize, _, elements) = getElemDataSzAndElems dst
+    let dstArr = transSIMDListToExpr bld dst
+    let bReg, mOffs = transOprToExpr ins bld addr src |> separateMemExpr
+    let struct (address, offs) = tmpVars2 bld 64<rt>
+    address := bReg
+    offs := AST.num0 64<rt>
+    let eByte = eSize / 8<rt>
+    let regLen = Array.length dstArr * elements
+    let srcArr =
+      let mem idx = AST.loadLE eSize (address .+ (numI32 (eByte * idx) 64<rt>))
+      Array.init regLen mem
+    let dstArr =
+      if isVecIdxOrLD1ST1 ins dst then dstArr else dstArr |> Array.transpose
+      |> Array.concat
+    Array.iter2 (fun dst src ->
+      if isLoad then append bld { dst := src }
+      else append bld { src := dst }) dstArr srcArr
+    if isLoad then fillZeroHigh64 ins bld dst else ()
+    if isWBack then
+      offs := numI32 (regLen * eByte) 64<rt>
+      if isRegOffset src then append bld { offs := mOffs } else ()
+      bReg := address .+ offs
+    else
+      ()
+  }
 
 let loadRep (ins: Instruction) insLen bld addr =
-  let isWBack, _ = getIsWBackAndIsPostIndex ins.Operands
-  let struct (dst, src) = getTwoOprs ins
-  let struct (eSize, _, elements) = getElemDataSzAndElems dst
-  let dstArr = transSIMDListToExpr bld dst
-  let bReg, mOffs = transOprToExpr ins bld addr src |> separateMemExpr
-  let struct (address, offs) = tmpVars2 bld 64<rt>
-  bld <!-- (ins.Address, insLen)
-  bld <+ (address := bReg)
-  bld <+ (offs := AST.num0 64<rt>)
-  let eByte = eSize / 8<rt>
-  let regLen = Array.length dstArr
-  let srcArr =
-    let mem idx =
-      AST.loadLE eSize (address .+ (numI32 (eByte * (idx / elements)) 64<rt>))
-    Array.init (regLen * elements) mem
-  let dstArr = dstArr |> Array.concat
-  Array.iter2 (fun dst src -> bld <+ (dst := src)) dstArr srcArr
-  fillZeroHigh64 ins bld dst
-  if isWBack then
-    bld <+ (offs := numI32 (regLen * eByte) 64<rt>)
-    if isRegOffset src then bld <+ (offs := mOffs) else ()
-    bld <+ (bReg := address .+ offs)
-  else
-    ()
-  bld --!> insLen
+  lift bld ins insLen {
+    let isWBack, _ = getIsWBackAndIsPostIndex ins.Operands
+    let struct (dst, src) = getTwoOprs ins
+    let struct (eSize, _, elements) = getElemDataSzAndElems dst
+    let dstArr = transSIMDListToExpr bld dst
+    let bReg, mOffs = transOprToExpr ins bld addr src |> separateMemExpr
+    let struct (address, offs) = tmpVars2 bld 64<rt>
+    address := bReg
+    offs := AST.num0 64<rt>
+    let eByte = eSize / 8<rt>
+    let regLen = Array.length dstArr
+    let srcArr =
+      let mem idx =
+        AST.loadLE eSize (address .+ (numI32 (eByte * (idx / elements)) 64<rt>))
+      Array.init (regLen * elements) mem
+    let dstArr = dstArr |> Array.concat
+    Array.iter2 (fun dst src -> append bld { dst := src }) dstArr srcArr
+    fillZeroHigh64 ins bld dst
+    if isWBack then
+      offs := numI32 (regLen * eByte) 64<rt>
+      if isRegOffset src then append bld { offs := mOffs } else ()
+      bReg := address .+ offs
+    else
+      ()
+  }
 
 let ldar ins insLen bld addr =
-  let dst, (bReg, offset) = transTwoOprsSepMem ins bld addr
-  let address = tmpVar bld 64<rt>
-  bld <!-- (ins.Address, insLen)
-  bld <+ (address := bReg .+ offset)
-  dstAssign ins.OprSize dst (AST.loadLE ins.OprSize address) bld
-  bld --!> insLen
+  lift bld ins insLen {
+    let dst, (bReg, offset) = transTwoOprsSepMem ins bld addr
+    let address = tmpVar bld 64<rt>
+    address := bReg .+ offset
+    dstAssign ins.OprSize dst (AST.loadLE ins.OprSize address) bld
+  }
 
 let ldarb ins insLen bld addr =
-  let dst, (bReg, offset) = transTwoOprsSepMem ins bld addr
-  let address = tmpVar bld 64<rt>
-  bld <!-- (ins.Address, insLen)
-  bld <+ (address := bReg .+ offset)
-  dstAssign ins.OprSize dst (AST.loadLE 8<rt> address) bld
-  bld --!> insLen
+  lift bld ins insLen {
+    let dst, (bReg, offset) = transTwoOprsSepMem ins bld addr
+    let address = tmpVar bld 64<rt>
+    address := bReg .+ offset
+    dstAssign ins.OprSize dst (AST.loadLE 8<rt> address) bld
+  }
 
 let ldax ins insLen bld addr size =
-  let dst, (bReg, offset) = transTwoOprsSepMem ins bld addr
-  let address = tmpVar bld 64<rt>
-  let value = tmpVar bld size
-  bld <!-- (ins.Address, insLen)
-  bld <+ (address := bReg .+ offset)
-  bld <+ (value := AST.loadLE size address)
-  reserveExclusive bld address value
-  dstAssign ins.OprSize dst value bld
-  bld --!> insLen
+  lift bld ins insLen {
+    let dst, (bReg, offset) = transTwoOprsSepMem ins bld addr
+    let address = tmpVar bld 64<rt>
+    let value = tmpVar bld size
+    address := bReg .+ offset
+    value := AST.loadLE size address
+    reserveExclusive bld address value
+    dstAssign ins.OprSize dst value bld
+  }
 
 let ldaxr ins insLen bld addr =
-  let dst, (bReg, offset) = transTwoOprsSepMem ins bld addr
-  let address = tmpVar bld 64<rt>
-  let value = tmpVar bld ins.OprSize
-  bld <!-- (ins.Address, insLen)
-  bld <+ (address := bReg .+ offset)
-  bld <+ (value := AST.loadLE ins.OprSize address)
-  reserveExclusive bld address value
-  dstAssign ins.OprSize dst value bld
-  bld --!> insLen
+  lift bld ins insLen {
+    let dst, (bReg, offset) = transTwoOprsSepMem ins bld addr
+    let address = tmpVar bld 64<rt>
+    let value = tmpVar bld ins.OprSize
+    address := bReg .+ offset
+    value := AST.loadLE ins.OprSize address
+    reserveExclusive bld address value
+    dstAssign ins.OprSize dst value bld
+  }
 
 let ldaxp ins insLen bld addr =
-  let dst1, dst2, (bReg, offset) = transThreeOprsSepMem ins bld addr
-  let address = tmpVar bld 64<rt>
-  bld <!-- (ins.Address, insLen)
-  bld <+ (address := bReg .+ offset)
-  reserveExclusive bld address (AST.loadLE 64<rt> address)
-  if ins.OprSize = 32<rt> then
-    let src = AST.loadLE 64<rt> address
-    dstAssign ins.OprSize dst1 (AST.xtlo 32<rt> src) bld
-    dstAssign ins.OprSize dst2 (AST.xthi 32<rt> src) bld
-  else
-    bld <+ (dst1 := (AST.loadLE 64<rt> address))
-    bld <+ (dst2 := (AST.loadLE 64<rt> (address .+ numI32 8 64<rt>)))
-  bld --!> insLen
+  lift bld ins insLen {
+    let dst1, dst2, (bReg, offset) = transThreeOprsSepMem ins bld addr
+    let address = tmpVar bld 64<rt>
+    address := bReg .+ offset
+    reserveExclusive bld address (AST.loadLE 64<rt> address)
+    if ins.OprSize = 32<rt> then
+      let src = AST.loadLE 64<rt> address
+      dstAssign ins.OprSize dst1 (AST.xtlo 32<rt> src) bld
+      dstAssign ins.OprSize dst2 (AST.xthi 32<rt> src) bld
+    else
+      dst1 := (AST.loadLE 64<rt> address)
+      dst2 := (AST.loadLE 64<rt> (address .+ numI32 8 64<rt>))
+  }
 
 let ldnp (ins: Instruction) insLen bld addr =
-  let address = tmpVar bld 64<rt>
-  let dByte = numI32 (RegType.toByteWidth ins.OprSize) 64<rt>
-  bld <!-- (ins.Address, insLen)
-  match ins.Operands, ins.OprSize with
-  | ThreeOperands(OprSIMD _ as src1, src2, src3), 128<rt> ->
-    let struct (src1B, src1A) = transOprToExpr128 ins bld addr src1
-    let struct (src2B, src2A) = transOprToExpr128 ins bld addr src2
-    let bReg, offset = transOprToExpr ins bld addr src3 |> separateMemExpr
-    let n8 = numI32 8 64<rt>
-    bld <+ (address := bReg)
-    bld <+ (address := address .+ offset)
-    bld <+ (src1A := AST.loadLE 64<rt> address)
-    bld <+ (src1B := AST.loadLE 64<rt> (address .+ n8))
-    bld <+ (src2A := AST.loadLE 64<rt> (address .+ dByte))
-    bld <+ (src2B := AST.loadLE 64<rt> (address .+ dByte .+ n8))
-  | ThreeOperands(OprSIMD _ as src1, src2, src3), _ ->
-    let bReg, offset = transOprToExpr ins bld addr src3 |> separateMemExpr
-    let struct (eSize, _, _) = getElemDataSzAndElems src1
-    bld <+ (address := bReg)
-    bld <+ (address := address .+ offset)
-    let inline load addr = AST.loadLE ins.OprSize addr
-    dstAssignScalar ins bld addr src1 (load address) eSize
-    dstAssignScalar ins bld addr src2 (load (address .+ dByte)) eSize
-  | _ ->
-    let src1, src2, (bReg, offset) = transThreeOprsSepMem ins bld addr
-    let oprSize = ins.OprSize
-    bld <+ (address := bReg)
-    bld <+ (address := address .+ offset)
-    dstAssign oprSize src1 (AST.loadLE oprSize address) bld
-    dstAssign oprSize src2 (AST.loadLE oprSize (address .+ dByte)) bld
-  bld --!> insLen
+  lift bld ins insLen {
+    let address = tmpVar bld 64<rt>
+    let dByte = numI32 (RegType.toByteWidth ins.OprSize) 64<rt>
+    match ins.Operands, ins.OprSize with
+    | ThreeOperands(OprSIMD _ as src1, src2, src3), 128<rt> ->
+      let struct (src1B, src1A) = transOprToExpr128 ins bld addr src1
+      let struct (src2B, src2A) = transOprToExpr128 ins bld addr src2
+      let bReg, offset = transOprToExpr ins bld addr src3 |> separateMemExpr
+      let n8 = numI32 8 64<rt>
+      address := bReg
+      address := address .+ offset
+      src1A := AST.loadLE 64<rt> address
+      src1B := AST.loadLE 64<rt> (address .+ n8)
+      src2A := AST.loadLE 64<rt> (address .+ dByte)
+      src2B := AST.loadLE 64<rt> (address .+ dByte .+ n8)
+    | ThreeOperands(OprSIMD _ as src1, src2, src3), _ ->
+      let bReg, offset = transOprToExpr ins bld addr src3 |> separateMemExpr
+      let struct (eSize, _, _) = getElemDataSzAndElems src1
+      address := bReg
+      address := address .+ offset
+      let inline load addr = AST.loadLE ins.OprSize addr
+      dstAssignScalar ins bld addr src1 (load address) eSize
+      dstAssignScalar ins bld addr src2 (load (address .+ dByte)) eSize
+    | _ ->
+      let src1, src2, (bReg, offset) = transThreeOprsSepMem ins bld addr
+      let oprSize = ins.OprSize
+      address := bReg
+      address := address .+ offset
+      dstAssign oprSize src1 (AST.loadLE oprSize address) bld
+      dstAssign oprSize src2 (AST.loadLE oprSize (address .+ dByte)) bld
+  }
 
 let ldp (ins: Instruction) insLen bld addr =
-  let isWBack, isPostIndex = getIsWBackAndIsPostIndex ins.Operands
-  let address = tmpVar bld 64<rt>
-  let dByte = numI32 (RegType.toByteWidth ins.OprSize) 64<rt>
-  bld <!-- (ins.Address, insLen)
-  match ins.Operands, ins.OprSize with
-  | ThreeOperands(OprSIMD _ as src1, src2, src3), 128<rt> ->
-    let struct (src1B, src1A) = transOprToExpr128 ins bld addr src1
-    let struct (src2B, src2A) = transOprToExpr128 ins bld addr src2
-    let bReg, offset = transOprToExpr ins bld addr src3 |> separateMemExpr
-    let n8 = numI32 8 64<rt>
-    bld <+ (address := bReg)
-    bld <+ (address := if isPostIndex then address else address .+ offset)
-    bld <+ (src1A := AST.loadLE 64<rt> address)
-    bld <+ (src1B := AST.loadLE 64<rt> (address .+ n8))
-    bld <+ (src2A := AST.loadLE 64<rt> (address .+ dByte))
-    bld <+ (src2B := AST.loadLE 64<rt> (address .+ dByte .+ n8))
-    if isWBack && isPostIndex then bld <+ (bReg := address .+ offset)
-    elif isWBack then bld <+ (bReg := address)
-    else ()
-  | ThreeOperands(OprSIMD _ as src1, src2, src3), _ ->
-    let bReg, offset = transOprToExpr ins bld addr src3 |> separateMemExpr
-    let struct (eSize, _, _) = getElemDataSzAndElems src1
-    bld <+ (address := bReg)
-    bld <+ (address := if isPostIndex then address else address .+ offset)
-    let inline load addr = AST.loadLE ins.OprSize addr
-    dstAssignScalar ins bld addr src1 (load address) eSize
-    dstAssignScalar ins bld addr src2 (load (address .+ dByte)) eSize
-    if isWBack && isPostIndex then bld <+ (bReg := address .+ offset)
-    elif isWBack then bld <+ (bReg := address)
-    else ()
-  | _ ->
-    let src1, src2, (bReg, offset) = transThreeOprsSepMem ins bld addr
-    let oprSize = ins.OprSize
-    bld <+ (address := bReg)
-    bld <+ (address := if isPostIndex then address else address .+ offset)
-    dstAssign oprSize src1 (AST.loadLE oprSize address) bld
-    dstAssign oprSize src2 (AST.loadLE oprSize (address .+ dByte)) bld
-    if isWBack && isPostIndex then bld <+ (bReg := address .+ offset)
-    elif isWBack then bld <+ (bReg := address)
-    else ()
-  bld --!> insLen
+  lift bld ins insLen {
+    let isWBack, isPostIndex = getIsWBackAndIsPostIndex ins.Operands
+    let address = tmpVar bld 64<rt>
+    let dByte = numI32 (RegType.toByteWidth ins.OprSize) 64<rt>
+    match ins.Operands, ins.OprSize with
+    | ThreeOperands(OprSIMD _ as src1, src2, src3), 128<rt> ->
+      let struct (src1B, src1A) = transOprToExpr128 ins bld addr src1
+      let struct (src2B, src2A) = transOprToExpr128 ins bld addr src2
+      let bReg, offset = transOprToExpr ins bld addr src3 |> separateMemExpr
+      let n8 = numI32 8 64<rt>
+      address := bReg
+      address := if isPostIndex then address else address .+ offset
+      src1A := AST.loadLE 64<rt> address
+      src1B := AST.loadLE 64<rt> (address .+ n8)
+      src2A := AST.loadLE 64<rt> (address .+ dByte)
+      src2B := AST.loadLE 64<rt> (address .+ dByte .+ n8)
+      if isWBack && isPostIndex then append bld { bReg := address .+ offset }
+      elif isWBack then append bld { bReg := address }
+      else ()
+    | ThreeOperands(OprSIMD _ as src1, src2, src3), _ ->
+      let bReg, offset = transOprToExpr ins bld addr src3 |> separateMemExpr
+      let struct (eSize, _, _) = getElemDataSzAndElems src1
+      address := bReg
+      address := if isPostIndex then address else address .+ offset
+      let inline load addr = AST.loadLE ins.OprSize addr
+      dstAssignScalar ins bld addr src1 (load address) eSize
+      dstAssignScalar ins bld addr src2 (load (address .+ dByte)) eSize
+      if isWBack && isPostIndex then append bld { bReg := address .+ offset }
+      elif isWBack then append bld { bReg := address }
+      else ()
+    | _ ->
+      let src1, src2, (bReg, offset) = transThreeOprsSepMem ins bld addr
+      let oprSize = ins.OprSize
+      address := bReg
+      address := if isPostIndex then address else address .+ offset
+      dstAssign oprSize src1 (AST.loadLE oprSize address) bld
+      dstAssign oprSize src2 (AST.loadLE oprSize (address .+ dByte)) bld
+      if isWBack && isPostIndex then append bld { bReg := address .+ offset }
+      elif isWBack then append bld { bReg := address }
+      else ()
+  }
 
 let ldpsw ins insLen bld addr =
-  let src1, src2, (bReg, offset) = transThreeOprsSepMem ins bld addr
-  let isWBack, isPostIndex = getIsWBackAndIsPostIndex ins.Operands
-  let address = tmpVar bld 64<rt>
-  let data1 = tmpVar bld 32<rt>
-  let data2 = tmpVar bld 32<rt>
-  bld <!-- (ins.Address, insLen)
-  bld <+ (address := bReg)
-  bld <+ (address := if isPostIndex then address else address .+ offset)
-  bld <+ (data1 := AST.loadLE 32<rt> address)
-  bld <+ (data2 := AST.loadLE 32<rt> (address .+ numI32 4 64<rt>))
-  bld <+ (src1 := AST.sext 64<rt> data1)
-  bld <+ (src2 := AST.sext 64<rt> data2)
-  if isWBack && isPostIndex then bld <+ (bReg := address .+ offset)
-  elif isWBack then bld <+ (bReg := address)
-  else ()
-  bld --!> insLen
+  lift bld ins insLen {
+    let src1, src2, (bReg, offset) = transThreeOprsSepMem ins bld addr
+    let isWBack, isPostIndex = getIsWBackAndIsPostIndex ins.Operands
+    let address = tmpVar bld 64<rt>
+    let data1 = tmpVar bld 32<rt>
+    let data2 = tmpVar bld 32<rt>
+    address := bReg
+    address := if isPostIndex then address else address .+ offset
+    data1 := AST.loadLE 32<rt> address
+    data2 := AST.loadLE 32<rt> (address .+ numI32 4 64<rt>)
+    src1 := AST.sext 64<rt> data1
+    src2 := AST.sext 64<rt> data2
+    if isWBack && isPostIndex then append bld { bReg := address .+ offset }
+    elif isWBack then append bld { bReg := address }
+    else ()
+  }
+
+/// Loads from an address the program counter and a literal offset name, which
+/// is what the literal form of LDR does.
+let private ldrLiteral (ins: Instruction) bld addr o1 o2 =
+  append bld {
+    let offset = transOprToExpr ins bld addr (OprMemory(LiteralMode o2))
+    let address = tmpVar bld 64<rt>
+    match ins.OprSize with
+    | 128<rt> ->
+      let struct (dstB, dstA) = transOprToExpr128 ins bld addr o1
+      address := getPC bld .+ offset
+      dstA := AST.loadLE 64<rt> address
+      dstB := AST.loadLE 64<rt> (address .+ (numI32 8 64<rt>))
+    | _ ->
+      let dst = transOprToExpr ins bld addr o1
+      let data = tmpVar bld ins.OprSize
+      address := getPC bld .+ offset
+      data := AST.loadLE ins.OprSize address
+      match o1 with
+      | OprSIMD(ScalarReg _) ->
+        dstAssignScalar ins bld addr o1 data ins.OprSize
+      | _ ->
+        dstAssign ins.OprSize dst data bld
+  }
 
 let ldr (ins: Instruction) insLen bld addr =
-  bld <!-- (ins.Address, insLen)
-  match ins.Operands with
-  | TwoOperands(o1, OprMemory(LiteralMode o2)) -> (* LDR (literal) *)
-    let offset = transOprToExpr ins bld addr (OprMemory(LiteralMode o2))
-    let address = tmpVar bld 64<rt>
-    match ins.OprSize with
-    | 128<rt> ->
-      let struct (dstB, dstA) = transOprToExpr128 ins bld addr o1
-      bld <+ (address := getPC bld .+ offset)
-      bld <+ (dstA := AST.loadLE 64<rt> address)
-      bld <+ (dstB := AST.loadLE 64<rt> (address .+ (numI32 8 64<rt>)))
+  lift bld ins insLen {
+    match ins.Operands with
+    | TwoOperands(o1, OprMemory(LiteralMode o2)) -> (* LDR (literal) *)
+      ldrLiteral ins bld addr o1 o2
+    | TwoOperands(o1, o2) ->
+      let isWBack, isPostIndex = getIsWBackAndIsPostIndex ins.Operands
+      let address = tmpVar bld 64<rt>
+      match ins.OprSize with
+      | 128<rt> ->
+        let struct (dstB, dstA) = transOprToExpr128 ins bld addr o1
+        let bReg, offset = transOprToExpr ins bld addr o2 |> separateMemExpr
+        address := bReg
+        address := if isPostIndex then address else address .+ offset
+        dstA := AST.loadLE 64<rt> address
+        dstB := AST.loadLE 64<rt> (address .+ (numI32 8 64<rt>))
+        if isWBack && isPostIndex then append bld { bReg := address .+ offset }
+        elif isWBack then append bld { bReg := address }
+        else ()
+      | _ ->
+        let dst = transOprToExpr ins bld addr o1
+        let bReg, offset = transOprToExpr ins bld addr o2 |> separateMemExpr
+        let data = tmpVar bld ins.OprSize
+        address := bReg
+        address := if isPostIndex then address else address .+ offset
+        data := AST.loadLE ins.OprSize address
+        match o1 with
+        | OprSIMD(ScalarReg _) ->
+          dstAssignScalar ins bld addr o1 data ins.OprSize
+        | _ ->
+          dstAssign ins.OprSize dst data bld
+        if isWBack && isPostIndex then append bld { bReg := address .+ offset }
+        elif isWBack then append bld { bReg := address }
+        else ()
     | _ ->
-      let dst = transOprToExpr ins bld addr o1
-      let data = tmpVar bld ins.OprSize
-      bld <+ (address := getPC bld .+ offset)
-      bld <+ (data := AST.loadLE ins.OprSize address)
-      match o1 with
-      | OprSIMD(ScalarReg _) -> dstAssignScalar ins bld addr o1 data ins.OprSize
-      | _ -> dstAssign ins.OprSize dst data bld
-  | TwoOperands(o1, o2) ->
-    let isWBack, isPostIndex = getIsWBackAndIsPostIndex ins.Operands
-    let address = tmpVar bld 64<rt>
-    match ins.OprSize with
-    | 128<rt> ->
-      let struct (dstB, dstA) = transOprToExpr128 ins bld addr o1
-      let bReg, offset = transOprToExpr ins bld addr o2 |> separateMemExpr
-      bld <+ (address := bReg)
-      bld <+ (address := if isPostIndex then address else address .+ offset)
-      bld <+ (dstA := AST.loadLE 64<rt> address)
-      bld <+ (dstB := AST.loadLE 64<rt> (address .+ (numI32 8 64<rt>)))
-      if isWBack && isPostIndex then bld <+ (bReg := address .+ offset)
-      elif isWBack then bld <+ (bReg := address)
-      else ()
-    | _ ->
-      let dst = transOprToExpr ins bld addr o1
-      let bReg, offset = transOprToExpr ins bld addr o2 |> separateMemExpr
-      let data = tmpVar bld ins.OprSize
-      bld <+ (address := bReg)
-      bld <+ (address := if isPostIndex then address else address .+ offset)
-      bld <+ (data := AST.loadLE ins.OprSize address)
-      match o1 with
-      | OprSIMD(ScalarReg _) -> dstAssignScalar ins bld addr o1 data ins.OprSize
-      | _ -> dstAssign ins.OprSize dst data bld
-      if isWBack && isPostIndex then bld <+ (bReg := address .+ offset)
-      elif isWBack then bld <+ (bReg := address)
-      else ()
-  | _ ->
-    raise InvalidOperandException
-  bld --!> insLen
+      raise InvalidOperandException
+  }
 
 let ldrb ins insLen bld addr =
-  let dst, (bReg, offset) = transTwoOprsSepMem ins bld addr
-  let isWBack, isPostIndex = getIsWBackAndIsPostIndex ins.Operands
-  let address = tmpVar bld 64<rt>
-  let data = tmpVar bld 8<rt>
-  bld <!-- (ins.Address, insLen)
-  bld <+ (address := bReg)
-  bld <+ (address := if isPostIndex then address else address .+ offset)
-  bld <+ (data := AST.loadLE 8<rt> address)
-  dstAssign ins.OprSize dst (AST.zext 32<rt> data) bld
-  if isWBack && isPostIndex then bld <+ (bReg := address .+ offset)
-  elif isWBack then bld <+ (bReg := address)
-  else ()
-  bld --!> insLen
+  lift bld ins insLen {
+    let dst, (bReg, offset) = transTwoOprsSepMem ins bld addr
+    let isWBack, isPostIndex = getIsWBackAndIsPostIndex ins.Operands
+    let address = tmpVar bld 64<rt>
+    let data = tmpVar bld 8<rt>
+    address := bReg
+    address := if isPostIndex then address else address .+ offset
+    data := AST.loadLE 8<rt> address
+    dstAssign ins.OprSize dst (AST.zext 32<rt> data) bld
+    if isWBack && isPostIndex then append bld { bReg := address .+ offset }
+    elif isWBack then append bld { bReg := address }
+    else ()
+  }
 
 let ldrh ins insLen bld addr =
-  let dst, (bReg, offset) = transTwoOprsSepMem ins bld addr
-  let isWBack, isPostIndex = getIsWBackAndIsPostIndex ins.Operands
-  let address = tmpVar bld 64<rt>
-  let data = tmpVar bld 16<rt>
-  bld <!-- (ins.Address, insLen)
-  bld <+ (address := bReg)
-  bld <+ (address := if isPostIndex then address else address .+ offset)
-  bld <+ (data := AST.loadLE 16<rt> address)
-  dstAssign ins.OprSize dst (AST.zext 32<rt> data) bld
-  if isWBack && isPostIndex then bld <+ (bReg := address .+ offset)
-  elif isWBack then bld <+ (bReg := address)
-  else ()
-  bld --!> insLen
+  lift bld ins insLen {
+    let dst, (bReg, offset) = transTwoOprsSepMem ins bld addr
+    let isWBack, isPostIndex = getIsWBackAndIsPostIndex ins.Operands
+    let address = tmpVar bld 64<rt>
+    let data = tmpVar bld 16<rt>
+    address := bReg
+    address := if isPostIndex then address else address .+ offset
+    data := AST.loadLE 16<rt> address
+    dstAssign ins.OprSize dst (AST.zext 32<rt> data) bld
+    if isWBack && isPostIndex then append bld { bReg := address .+ offset }
+    elif isWBack then append bld { bReg := address }
+    else ()
+  }
 
 let ldrsb ins insLen bld addr =
-  let dst, (bReg, offset) = transTwoOprsSepMem ins bld addr
-  let isWBack, isPostIndex = getIsWBackAndIsPostIndex ins.Operands
-  let address = tmpVar bld 64<rt>
-  let data = tmpVar bld 8<rt>
-  bld <!-- (ins.Address, insLen)
-  bld <+ (address := bReg)
-  bld <+ (address := if isPostIndex then address else address .+ offset)
-  bld <+ (data := AST.loadLE 8<rt> address)
-  dstAssign ins.OprSize dst (AST.sext ins.OprSize data) bld
-  if isWBack && isPostIndex then bld <+ (bReg := address .+ offset)
-  elif isWBack then bld <+ (bReg := address)
-  else ()
-  bld --!> insLen
+  lift bld ins insLen {
+    let dst, (bReg, offset) = transTwoOprsSepMem ins bld addr
+    let isWBack, isPostIndex = getIsWBackAndIsPostIndex ins.Operands
+    let address = tmpVar bld 64<rt>
+    let data = tmpVar bld 8<rt>
+    address := bReg
+    address := if isPostIndex then address else address .+ offset
+    data := AST.loadLE 8<rt> address
+    dstAssign ins.OprSize dst (AST.sext ins.OprSize data) bld
+    if isWBack && isPostIndex then append bld { bReg := address .+ offset }
+    elif isWBack then append bld { bReg := address }
+    else ()
+  }
 
 let ldrsh ins insLen bld addr =
-  let dst, (bReg, offset) = transTwoOprsSepMem ins bld addr
-  let isWBack, isPostIndex = getIsWBackAndIsPostIndex ins.Operands
-  let address = tmpVar bld 64<rt>
-  let data = tmpVar bld 16<rt>
-  bld <!-- (ins.Address, insLen)
-  bld <+ (address := bReg)
-  bld <+ (address := if isPostIndex then address else address .+ offset)
-  bld <+ (data := AST.loadLE 16<rt> address)
-  dstAssign ins.OprSize dst (AST.sext ins.OprSize data) bld
-  if isWBack && isPostIndex then bld <+ (bReg := address .+ offset)
-  elif isWBack then bld <+ (bReg := address)
-  else ()
-  bld --!> insLen
+  lift bld ins insLen {
+    let dst, (bReg, offset) = transTwoOprsSepMem ins bld addr
+    let isWBack, isPostIndex = getIsWBackAndIsPostIndex ins.Operands
+    let address = tmpVar bld 64<rt>
+    let data = tmpVar bld 16<rt>
+    address := bReg
+    address := if isPostIndex then address else address .+ offset
+    data := AST.loadLE 16<rt> address
+    dstAssign ins.OprSize dst (AST.sext ins.OprSize data) bld
+    if isWBack && isPostIndex then append bld { bReg := address .+ offset }
+    elif isWBack then append bld { bReg := address }
+    else ()
+  }
 
 let ldrsw (ins: Instruction) insLen bld addr =
-  bld <!-- (ins.Address, insLen)
-  let address = tmpVar bld 64<rt>
-  let data = tmpVar bld 32<rt>
-  match ins.Operands with
-  | TwoOperands(o1, OprMemory(LiteralMode o2)) ->
-    let dst = transOprToExpr ins bld addr o1
-    let offset = transOprToExpr ins bld addr (OprMemory(LiteralMode o2))
-    bld <+ (address := getPC bld .+ offset)
-    bld <+ (data := AST.loadLE 32<rt> address)
-    bld <+ (dst := AST.sext 64<rt> data)
-  | TwoOperands(o1, o2) ->
-    let dst = transOprToExpr ins bld addr o1
-    let bReg, offset = transOprToExpr ins bld addr o2 |> separateMemExpr
-    let isWBack, isPostIndex = getIsWBackAndIsPostIndex ins.Operands
-    bld <+ (address := bReg)
-    bld <+ (address := if isPostIndex then address else address .+ offset)
-    bld <+ (data := AST.loadLE 32<rt> address)
-    bld <+ (dst := AST.sext 64<rt> data)
-    if isWBack && isPostIndex then bld <+ (bReg := address .+ offset)
-    elif isWBack then bld <+ (bReg := address)
-    else ()
-  | _ ->
-    raise InvalidOperandException
-  bld --!> insLen
+  lift bld ins insLen {
+    let address = tmpVar bld 64<rt>
+    let data = tmpVar bld 32<rt>
+    match ins.Operands with
+    | TwoOperands(o1, OprMemory(LiteralMode o2)) ->
+      let dst = transOprToExpr ins bld addr o1
+      let offset = transOprToExpr ins bld addr (OprMemory(LiteralMode o2))
+      address := getPC bld .+ offset
+      data := AST.loadLE 32<rt> address
+      dst := AST.sext 64<rt> data
+    | TwoOperands(o1, o2) ->
+      let dst = transOprToExpr ins bld addr o1
+      let bReg, offset = transOprToExpr ins bld addr o2 |> separateMemExpr
+      let isWBack, isPostIndex = getIsWBackAndIsPostIndex ins.Operands
+      address := bReg
+      address := if isPostIndex then address else address .+ offset
+      data := AST.loadLE 32<rt> address
+      dst := AST.sext 64<rt> data
+      if isWBack && isPostIndex then append bld { bReg := address .+ offset }
+      elif isWBack then append bld { bReg := address }
+      else ()
+    | _ ->
+      raise InvalidOperandException
+  }
 
 let ldtr ins insLen bld addr =
-  let dst, (bReg, offset) = transTwoOprsSepMem ins bld addr
-  let address = tmpVar bld 64<rt>
-  let data = tmpVar bld ins.OprSize
-  bld <!-- (ins.Address, insLen)
-  bld <+ (address := bReg .+ offset)
-  bld <+ (data := AST.loadLE ins.OprSize address)
-  dstAssign ins.OprSize dst (AST.zext ins.OprSize data) bld
-  bld --!> insLen
+  lift bld ins insLen {
+    let dst, (bReg, offset) = transTwoOprsSepMem ins bld addr
+    let address = tmpVar bld 64<rt>
+    let data = tmpVar bld ins.OprSize
+    address := bReg .+ offset
+    data := AST.loadLE ins.OprSize address
+    dstAssign ins.OprSize dst (AST.zext ins.OprSize data) bld
+  }
 
 let ldur (ins: Instruction) insLen bld addr =
-  let isWBack, isPostIndex = getIsWBackAndIsPostIndex ins.Operands
-  let address = tmpVar bld 64<rt>
-  let data = tmpVar bld ins.OprSize
-  let struct (o1, o2) = getTwoOprs ins
-  bld <!-- (ins.Address, insLen)
-  match ins.OprSize with
-  | 128<rt> ->
-    let struct (dstB, dstA) = transOprToExpr128 ins bld addr o1
-    let bReg, offset = transOprToExpr ins bld addr o2 |> separateMemExpr
-    bld <+ (address := bReg)
-    bld <+ (address := if isPostIndex then address else address .+ offset)
-    bld <+ (dstA := AST.loadLE 64<rt> address)
-    bld <+ (dstB := AST.loadLE 64<rt> (address .+ (numI32 8 64<rt>)))
-    if isWBack && isPostIndex then bld <+ (bReg := address .+ offset)
-    elif isWBack then bld <+ (bReg := address)
-    else ()
-  | _ ->
-    let dst = transOprToExpr ins bld addr o1
-    let bReg, offset = transOprToExpr ins bld addr o2 |> separateMemExpr
-    bld <+ (address := bReg)
-    bld <+ (address := if isPostIndex then address else address .+ offset)
-    bld <+ (data := AST.loadLE ins.OprSize address)
-    match o1 with
-    | OprSIMD(ScalarReg _) -> dstAssignScalar ins bld addr o1 data ins.OprSize
-    | _ -> dstAssign ins.OprSize dst data bld
-    if isWBack && isPostIndex then bld <+ (bReg := address .+ offset)
-    elif isWBack then bld <+ (bReg := address)
-    else ()
-  bld --!> insLen
+  lift bld ins insLen {
+    let isWBack, isPostIndex = getIsWBackAndIsPostIndex ins.Operands
+    let address = tmpVar bld 64<rt>
+    let data = tmpVar bld ins.OprSize
+    let struct (o1, o2) = getTwoOprs ins
+    match ins.OprSize with
+    | 128<rt> ->
+      let struct (dstB, dstA) = transOprToExpr128 ins bld addr o1
+      let bReg, offset = transOprToExpr ins bld addr o2 |> separateMemExpr
+      address := bReg
+      address := if isPostIndex then address else address .+ offset
+      dstA := AST.loadLE 64<rt> address
+      dstB := AST.loadLE 64<rt> (address .+ (numI32 8 64<rt>))
+      if isWBack && isPostIndex then append bld { bReg := address .+ offset }
+      elif isWBack then append bld { bReg := address }
+      else ()
+    | _ ->
+      let dst = transOprToExpr ins bld addr o1
+      let bReg, offset = transOprToExpr ins bld addr o2 |> separateMemExpr
+      address := bReg
+      address := if isPostIndex then address else address .+ offset
+      data := AST.loadLE ins.OprSize address
+      match o1 with
+      | OprSIMD(ScalarReg _) -> dstAssignScalar ins bld addr o1 data ins.OprSize
+      | _ -> dstAssign ins.OprSize dst data bld
+      if isWBack && isPostIndex then append bld { bReg := address .+ offset }
+      elif isWBack then append bld { bReg := address }
+      else ()
+  }
 
 let ldurb ins insLen bld addr =
-  let src, (bReg, offset) = transTwoOprsSepMem ins bld addr
-  let address = tmpVar bld 64<rt>
-  let data = tmpVar bld 8<rt>
-  bld <!-- (ins.Address, insLen)
-  bld <+ (address := bReg)
-  bld <+ (address := address .+ offset)
-  bld <+ (data := AST.loadLE 8<rt> address)
-  dstAssign ins.OprSize src (AST.zext 32<rt> data) bld
-  bld --!> insLen
+  lift bld ins insLen {
+    let src, (bReg, offset) = transTwoOprsSepMem ins bld addr
+    let address = tmpVar bld 64<rt>
+    let data = tmpVar bld 8<rt>
+    address := bReg
+    address := address .+ offset
+    data := AST.loadLE 8<rt> address
+    dstAssign ins.OprSize src (AST.zext 32<rt> data) bld
+  }
 
 let ldurh ins insLen bld addr =
-  let src, (bReg, offset) = transTwoOprsSepMem ins bld addr
-  let address = tmpVar bld 64<rt>
-  let data = tmpVar bld 16<rt>
-  bld <!-- (ins.Address, insLen)
-  bld <+ (address := bReg)
-  bld <+ (address := address .+ offset)
-  bld <+ (data := AST.loadLE 16<rt> address)
-  dstAssign ins.OprSize src (AST.zext 32<rt> data) bld
-  bld --!> insLen
+  lift bld ins insLen {
+    let src, (bReg, offset) = transTwoOprsSepMem ins bld addr
+    let address = tmpVar bld 64<rt>
+    let data = tmpVar bld 16<rt>
+    address := bReg
+    address := address .+ offset
+    data := AST.loadLE 16<rt> address
+    dstAssign ins.OprSize src (AST.zext 32<rt> data) bld
+  }
 
 let ldursb ins insLen bld addr =
-  let dst, (bReg, offset) = transTwoOprsSepMem ins bld addr
-  let isWBack, isPostIndex = getIsWBackAndIsPostIndex ins.Operands
-  let address = tmpVar bld 64<rt>
-  let data = tmpVar bld 8<rt>
-  bld <!-- (ins.Address, insLen)
-  bld <+ (address := bReg .+ offset)
-  bld <+ (data := AST.loadLE 8<rt> address)
-  dstAssign ins.OprSize dst (AST.sext ins.OprSize data) bld
-  bld --!> insLen
+  lift bld ins insLen {
+    let dst, (bReg, offset) = transTwoOprsSepMem ins bld addr
+    let isWBack, isPostIndex = getIsWBackAndIsPostIndex ins.Operands
+    let address = tmpVar bld 64<rt>
+    let data = tmpVar bld 8<rt>
+    address := bReg .+ offset
+    data := AST.loadLE 8<rt> address
+    dstAssign ins.OprSize dst (AST.sext ins.OprSize data) bld
+  }
 
 let ldursh ins insLen bld addr =
-  let dst, (bReg, offset) = transTwoOprsSepMem ins bld addr
-  let address = tmpVar bld 64<rt>
-  let data = tmpVar bld 16<rt>
-  bld <!-- (ins.Address, insLen)
-  bld <+ (address := bReg .+ offset)
-  bld <+ (data := AST.loadLE 16<rt> address)
-  dstAssign ins.OprSize dst (AST.sext ins.OprSize data) bld
-  bld --!> insLen
+  lift bld ins insLen {
+    let dst, (bReg, offset) = transTwoOprsSepMem ins bld addr
+    let address = tmpVar bld 64<rt>
+    let data = tmpVar bld 16<rt>
+    address := bReg .+ offset
+    data := AST.loadLE 16<rt> address
+    dstAssign ins.OprSize dst (AST.sext ins.OprSize data) bld
+  }
 
 let ldursw ins insLen bld addr =
-  let dst, (bReg, offset) = transTwoOprsSepMem ins bld addr
-  let address = tmpVar bld 64<rt>
-  let data = tmpVar bld 32<rt>
-  bld <!-- (ins.Address, insLen)
-  bld <+ (address := bReg)
-  bld <+ (address := address .+ offset)
-  bld <+ (data := AST.loadLE 32<rt> address)
-  dstAssign ins.OprSize dst (AST.sext 64<rt> data) bld
-  bld --!> insLen
+  lift bld ins insLen {
+    let dst, (bReg, offset) = transTwoOprsSepMem ins bld addr
+    let address = tmpVar bld 64<rt>
+    let data = tmpVar bld 32<rt>
+    address := bReg
+    address := address .+ offset
+    data := AST.loadLE 32<rt> address
+    dstAssign ins.OprSize dst (AST.sext 64<rt> data) bld
+  }
 
 let logShift ins insLen bld addr shift =
-  let dst, src, amt = transThreeOprs ins bld addr
-  bld <!-- (ins.Address, insLen)
-  dstAssign ins.OprSize dst (shift src amt) bld
-  bld --!> insLen
+  lift bld ins insLen {
+    let dst, src, amt = transThreeOprs ins bld addr
+    dstAssign ins.OprSize dst (shift src amt) bld
+  }
 
 let lslv ins insLen bld addr =
-  let dst, src1, src2 = transThreeOprs ins bld addr
-  let oprSz = ins.OprSize
-  let dataSize = numI32 (RegType.toBitWidth ins.OprSize) oprSz
-  bld <!-- (ins.Address, insLen)
-  let result = shiftReg src1 (src2 .% dataSize) oprSz LSL
-  dstAssign ins.OprSize dst result bld
-  bld --!> insLen
+  lift bld ins insLen {
+    let dst, src1, src2 = transThreeOprs ins bld addr
+    let oprSz = ins.OprSize
+    let dataSize = numI32 (RegType.toBitWidth ins.OprSize) oprSz
+    let result = shiftReg src1 (src2 .% dataSize) oprSz LSL
+    dstAssign ins.OprSize dst result bld
+  }
 
 let lsrv ins insLen bld addr =
-  let dst, src1, src2 = transThreeOprs ins bld addr
-  let oprSz = ins.OprSize
-  let dataSize = numI32 (RegType.toBitWidth oprSz) oprSz
-  bld <!-- (ins.Address, insLen)
-  let result = shiftReg src1 (src2 .% dataSize) oprSz LSR
-  dstAssign ins.OprSize dst result bld
-  bld --!> insLen
+  lift bld ins insLen {
+    let dst, src1, src2 = transThreeOprs ins bld addr
+    let oprSz = ins.OprSize
+    let dataSize = numI32 (RegType.toBitWidth oprSz) oprSz
+    let result = shiftReg src1 (src2 .% dataSize) oprSz LSR
+    dstAssign ins.OprSize dst result bld
+  }
 
 let maxMin ins insLen bld addr opFn =
-  let struct (o1, o2, o3) = getThreeOprs ins
-  let struct (eSize, dataSize, elements) = getElemDataSzAndElems o1
-  let struct (dstB, dstA) = transOprToExpr128 ins bld addr o1
-  let src1 = transSIMDOprToExpr bld eSize dataSize elements o2
-  let src2 = transSIMDOprToExpr bld eSize dataSize elements o3
-  let result = Array.map2 (fun s1 s2 -> AST.ite (opFn s1 s2) s1 s2) src1 src2
-  bld <!-- (ins.Address, insLen)
-  dstAssignForSIMD dstA dstB result dataSize elements bld
-  bld --!> insLen
-
-let maxMinv ins insLen bld addr opFn =
-  let struct (o1, o2) = getTwoOprs ins
-  let struct (eSize, dataSize, elements) = getElemDataSzAndElems o2
-  let src = transSIMDOprToExpr bld eSize dataSize elements o2
-  let minMax = tmpVar bld eSize
-  bld <!-- (ins.Address, insLen)
-  bld <+ (minMax := src[0])
-  Array.sub src 1 (elements - 1)
-  |> Array.iter (fun e -> bld <+ (minMax := AST.ite (opFn minMax e) minMax e))
-  dstAssignScalar ins bld addr o1 minMax eSize
-  bld --!> insLen
-
-let maxMinp ins insLen bld addr opFn =
-  let struct (dst, src1, src2) = getThreeOprs ins
-  let struct (eSize, dataSize, elements) = getElemDataSzAndElems dst
-  let struct (dstB, dstA) = transOprToExpr128 ins bld addr dst
-  let result = Array.init elements (fun _ -> tmpVar bld eSize)
-  let src1 = transSIMDOprToExpr bld eSize dataSize elements src1
-  let src2 = transSIMDOprToExpr bld eSize dataSize elements src2
-  let cal src = Array.chunkBySize 2 src
-                |> Array.map (fun e -> AST.ite (opFn e.[0] e.[1]) e.[0] e.[1])
-  let concat = Array.append (cal src1) (cal src2)
-  bld <!-- (ins.Address, insLen)
-  Array.iter2 (fun res s -> bld <+ (res := s)) result concat
-  dstAssignForSIMD dstA dstB result dataSize elements bld
-  bld --!> insLen
-
-let madd (ins: Instruction) insLen bld addr =
-  bld <!-- (ins.Address, insLen)
-  match ins.Operands with
-  | ThreeOperands(_, _, OprSIMD(VecReg _)) ->
+  lift bld ins insLen {
     let struct (o1, o2, o3) = getThreeOprs ins
     let struct (eSize, dataSize, elements) = getElemDataSzAndElems o1
     let struct (dstB, dstA) = transOprToExpr128 ins bld addr o1
     let src1 = transSIMDOprToExpr bld eSize dataSize elements o2
     let src2 = transSIMDOprToExpr bld eSize dataSize elements o3
-    let result = Array.map2 (.*) src1 src2
+    let result = Array.map2 (fun s1 s2 -> AST.ite (opFn s1 s2) s1 s2) src1 src2
     dstAssignForSIMD dstA dstB result dataSize elements bld
-  | ThreeOperands(OprSIMD _ as o1, o2, o3) ->
-    let struct (eSize, dataSize, elements) = getElemDataSzAndElems o1
-    let struct (dstB, dstA) = transOprToExpr128 ins bld addr o1
-    let src1 = transSIMDOprToExpr bld eSize dataSize elements o2
-    let src2 = transOprToExpr ins bld addr o3
-    let result = Array.map (fun s1 -> s1 .* src2) src1
+  }
+
+let maxMinv ins insLen bld addr opFn =
+  lift bld ins insLen {
+    let struct (o1, o2) = getTwoOprs ins
+    let struct (eSize, dataSize, elements) = getElemDataSzAndElems o2
+    let src = transSIMDOprToExpr bld eSize dataSize elements o2
+    let minMax = tmpVar bld eSize
+    minMax := src[0]
+    Array.sub src 1 (elements - 1)
+    |> Array.iter (fun e ->
+      append bld { minMax := AST.ite (opFn minMax e) minMax e })
+    dstAssignScalar ins bld addr o1 minMax eSize
+  }
+
+let maxMinp ins insLen bld addr opFn =
+  lift bld ins insLen {
+    let struct (dst, src1, src2) = getThreeOprs ins
+    let struct (eSize, dataSize, elements) = getElemDataSzAndElems dst
+    let struct (dstB, dstA) = transOprToExpr128 ins bld addr dst
+    let result = Array.init elements (fun _ -> tmpVar bld eSize)
+    let src1 = transSIMDOprToExpr bld eSize dataSize elements src1
+    let src2 = transSIMDOprToExpr bld eSize dataSize elements src2
+    let cal src = Array.chunkBySize 2 src
+                  |> Array.map (fun e -> AST.ite (opFn e.[0] e.[1]) e.[0] e.[1])
+    let concat = Array.append (cal src1) (cal src2)
+    Array.iter2 (fun res s -> append bld { res := s }) result concat
     dstAssignForSIMD dstA dstB result dataSize elements bld
-  | _ ->
-    let dst, src1, src2, src3 = transOprToExprOfMADD ins bld addr
-    dstAssign ins.OprSize dst (src3 .+ (src1 .* src2)) bld
-  bld --!> insLen
+  }
+
+let madd (ins: Instruction) insLen bld addr =
+  lift bld ins insLen {
+    match ins.Operands with
+    | ThreeOperands(_, _, OprSIMD(VecReg _)) ->
+      let struct (o1, o2, o3) = getThreeOprs ins
+      let struct (eSize, dataSize, elements) = getElemDataSzAndElems o1
+      let struct (dstB, dstA) = transOprToExpr128 ins bld addr o1
+      let src1 = transSIMDOprToExpr bld eSize dataSize elements o2
+      let src2 = transSIMDOprToExpr bld eSize dataSize elements o3
+      let result = Array.map2 (.*) src1 src2
+      dstAssignForSIMD dstA dstB result dataSize elements bld
+    | ThreeOperands(OprSIMD _ as o1, o2, o3) ->
+      let struct (eSize, dataSize, elements) = getElemDataSzAndElems o1
+      let struct (dstB, dstA) = transOprToExpr128 ins bld addr o1
+      let src1 = transSIMDOprToExpr bld eSize dataSize elements o2
+      let src2 = transOprToExpr ins bld addr o3
+      let result = Array.map (fun s1 -> s1 .* src2) src1
+      dstAssignForSIMD dstA dstB result dataSize elements bld
+    | _ ->
+      let dst, src1, src2, src3 = transOprToExprOfMADD ins bld addr
+      dstAssign ins.OprSize dst (src3 .+ (src1 .* src2)) bld
+  }
 
 let mladdsub (ins: Instruction) insLen bld addr opFn =
-  bld <!-- (ins.Address, insLen)
-  let struct (o1, o2, o3) = getThreeOprs ins
-  let struct (dstB, dstA) = transOprToExpr128 ins bld addr o1
-  let struct (eSize, dataSize, elements) = getElemDataSzAndElems o2
-  let dst = transSIMDOprToExpr bld eSize dataSize elements o1
-  let src1 = transSIMDOprToExpr bld eSize dataSize elements o2
-  match ins.Operands with
-  | ThreeOperands(_, _, OprSIMD(VecReg _)) ->
-    let src2 = transSIMDOprToExpr bld eSize dataSize elements o3
-    let prod = Array.map2 (.*) src1 src2
-    let result = Array.init elements (fun _ -> tmpVar bld eSize)
-    let cal = Array.map2 (opFn) dst prod
-    Array.iter2 (fun res s -> bld <+ (res := s)) result cal
-    dstAssignForSIMD dstA dstB result dataSize elements bld
-  | _ ->
-    let src2 = transOprToExpr ins bld addr o3
-    let prod = Array.map (fun s1 -> s1 .* src2) src1
-    let result = Array.init elements (fun _ -> tmpVar bld eSize)
-    let cal = Array.map2 (opFn) dst prod
-    Array.iter2 (fun res s -> bld <+ (res := s)) result cal
-    dstAssignForSIMD dstA dstB result dataSize elements bld
-  bld --!> insLen
+  lift bld ins insLen {
+    let struct (o1, o2, o3) = getThreeOprs ins
+    let struct (dstB, dstA) = transOprToExpr128 ins bld addr o1
+    let struct (eSize, dataSize, elements) = getElemDataSzAndElems o2
+    let dst = transSIMDOprToExpr bld eSize dataSize elements o1
+    let src1 = transSIMDOprToExpr bld eSize dataSize elements o2
+    match ins.Operands with
+    | ThreeOperands(_, _, OprSIMD(VecReg _)) ->
+      let src2 = transSIMDOprToExpr bld eSize dataSize elements o3
+      let prod = Array.map2 (.*) src1 src2
+      let result = Array.init elements (fun _ -> tmpVar bld eSize)
+      let cal = Array.map2 (opFn) dst prod
+      Array.iter2 (fun res s -> append bld { res := s }) result cal
+      dstAssignForSIMD dstA dstB result dataSize elements bld
+    | _ ->
+      let src2 = transOprToExpr ins bld addr o3
+      let prod = Array.map (fun s1 -> s1 .* src2) src1
+      let result = Array.init elements (fun _ -> tmpVar bld eSize)
+      let cal = Array.map2 (opFn) dst prod
+      Array.iter2 (fun res s -> append bld { res := s }) result cal
+      dstAssignForSIMD dstA dstB result dataSize elements bld
+  }
 
 let mov (ins: Instruction) insLen bld addr =
-  bld <!-- (ins.Address, insLen)
-  match ins.Operands with
-  | TwoOperands(OprSIMD(VecReg _) as o1, o2) ->
-    let struct (_, dataSize, _) = getElemDataSzAndElems o1
-    let struct (srcB, srcA) = transOprToExpr128 ins bld addr o2
-    dstAssign128 ins bld addr o1 srcA srcB dataSize
-  | TwoOperands(OprSIMD(ScalarReg _), OprSIMD(VecRegWithIdx _)) ->
-    let struct (dst, src) = getTwoOprs ins
-    let struct (_, dataSize, _) = getElemDataSzAndElems dst
-    let src = transOprToExpr ins bld addr src
-    dstAssignScalar ins bld addr dst src dataSize
-  | _ ->
-    let dst, src = transTwoOprs ins bld addr
-    dstAssign ins.OprSize dst src bld
-  bld --!> insLen
+  lift bld ins insLen {
+    match ins.Operands with
+    | TwoOperands(OprSIMD(VecReg _) as o1, o2) ->
+      let struct (_, dataSize, _) = getElemDataSzAndElems o1
+      let struct (srcB, srcA) = transOprToExpr128 ins bld addr o2
+      dstAssign128 ins bld addr o1 srcA srcB dataSize
+    | TwoOperands(OprSIMD(ScalarReg _), OprSIMD(VecRegWithIdx _)) ->
+      let struct (dst, src) = getTwoOprs ins
+      let struct (_, dataSize, _) = getElemDataSzAndElems dst
+      let src = transOprToExpr ins bld addr src
+      dstAssignScalar ins bld addr dst src dataSize
+    | _ ->
+      let dst, src = transTwoOprs ins bld addr
+      dstAssign ins.OprSize dst src bld
+  }
 
 let movi (ins: Instruction) insLen bld addr =
-  bld <!-- (ins.Address, insLen)
-  match ins.Operands with
-  | TwoOperands(OprSIMD(ScalarReg _), OprImm _) ->
-    let dst, src = transTwoOprs ins bld addr
-    dstAssign ins.OprSize dst src bld
-  | TwoOperands(OprSIMD(VecReg _), OprImm _) ->
-    let struct (dst, src) = getTwoOprs ins
-    let struct (eSize, dataSize, _) = getElemDataSzAndElems dst
-    let imm = if not (dataSize = 128<rt> && eSize = 64<rt>) then
-                transOprToExpr ins bld addr src
+  lift bld ins insLen {
+    match ins.Operands with
+    | TwoOperands(OprSIMD(ScalarReg _), OprImm _) ->
+      let dst, src = transTwoOprs ins bld addr
+      dstAssign ins.OprSize dst src bld
+    | TwoOperands(OprSIMD(VecReg _), OprImm _) ->
+      let struct (dst, src) = getTwoOprs ins
+      let struct (eSize, dataSize, _) = getElemDataSzAndElems dst
+      let imm = if not (dataSize = 128<rt> && eSize = 64<rt>) then
+                  transOprToExpr ins bld addr src
+                  |> advSIMDExpandImm bld eSize
+                else
+                  transOprToExpr ins bld addr src |> AST.xtlo 64<rt>
+      dstAssign128 ins bld addr dst imm imm dataSize
+    | ThreeOperands(OprSIMD(VecReg _), OprImm _, OprShift _) ->
+      let struct (dst, src, amount) = getThreeOprs ins
+      let struct (eSize, dataSize, _) = getElemDataSzAndElems dst
+      let imm = transBarrelShiftToExpr ins.OprSize bld src amount
                 |> advSIMDExpandImm bld eSize
-              else
-                transOprToExpr ins bld addr src |> AST.xtlo 64<rt>
-    dstAssign128 ins bld addr dst imm imm dataSize
-  | ThreeOperands(OprSIMD(VecReg _), OprImm _, OprShift _) ->
-    let struct (dst, src, amount) = getThreeOprs ins
-    let struct (eSize, dataSize, _) = getElemDataSzAndElems dst
-    let imm = transBarrelShiftToExpr ins.OprSize bld src amount
-              |> advSIMDExpandImm bld eSize
-    dstAssign128 ins bld addr dst imm imm dataSize
-  | _ ->
-    raise InvalidOperandException
-  bld --!> insLen
+      dstAssign128 ins bld addr dst imm imm dataSize
+    | _ ->
+      raise InvalidOperandException
+  }
 
 let private getWordMask (ins: Instruction) shift =
   match shift with
@@ -2079,145 +2126,146 @@ let private getWordMask (ins: Instruction) shift =
   | _ -> raise InvalidOperandException
 
 let movk (ins: Instruction) insLen bld addr =
-  bld <!-- (ins.Address, insLen)
-  let struct (dst, imm, shf) = getThreeOprs ins
-  let dst = transOprToExpr ins bld addr dst
-  let src = transBarrelShiftToExpr ins.OprSize bld imm shf
-  let mask = getWordMask ins shf
-  dstAssign ins.OprSize dst ((dst .& mask) .| src) bld
-  bld --!> insLen
+  lift bld ins insLen {
+    let struct (dst, imm, shf) = getThreeOprs ins
+    let dst = transOprToExpr ins bld addr dst
+    let src = transBarrelShiftToExpr ins.OprSize bld imm shf
+    let mask = getWordMask ins shf
+    dstAssign ins.OprSize dst ((dst .& mask) .| src) bld
+  }
 
 let movn (ins: Instruction) insLen bld addr =
-  bld <!-- (ins.Address, insLen)
-  let dst, src = transThreeOprsWithBarrelShift ins bld addr
-  dstAssign ins.OprSize dst (AST.not src) bld
-  bld --!> insLen
+  lift bld ins insLen {
+    let dst, src = transThreeOprsWithBarrelShift ins bld addr
+    dstAssign ins.OprSize dst (AST.not src) bld
+  }
 
 let movz (ins: Instruction) insLen bld addr =
-  bld <!-- (ins.Address, insLen)
-  let dst, src = transThreeOprsWithBarrelShift ins bld addr
-  dstAssign ins.OprSize dst src bld
-  bld --!> insLen
+  lift bld ins insLen {
+    let dst, src = transThreeOprsWithBarrelShift ins bld addr
+    dstAssign ins.OprSize dst src bld
+  }
 
 let mrs (ins: Instruction) insLen bld addr =
-  bld <!-- (ins.Address, insLen)
-  let struct (dst, src) = getTwoOprs ins
-  match dst, src with
-  | OprRegister rt, OprRegister R.CNTVCT_EL0 ->
-    (* CNTVCT_EL0 has no stored value to read; leave the 64-bit virtual count to
-       the emulator through a ClockCounterRead side effect naming rt. *)
-    bld <+ (AST.sideEffect
-              (ClockCounterRead(Some(Register.toRegID rt, false))))
-  | _ ->
-    let dst = transOprToExpr ins bld addr dst
-    let src =
-      match src with
-      | OprRegister R.NZCV ->
-        let n = (regVar bld R.N |> AST.zext 64<rt>) << numI32 31 64<rt>
-        let z = (regVar bld R.Z |> AST.zext 64<rt>) << numI32 30 64<rt>
-        let c = (regVar bld R.C |> AST.zext 64<rt>) << numI32 29 64<rt>
-        let v = (regVar bld R.V |> AST.zext 64<rt>) << numI32 28 64<rt>
-        n .| z .| c .| v
-      | _ ->
-        transOprToExpr ins bld addr src
-    bld <+ (dst := src)
-  bld --!> insLen
+  lift bld ins insLen {
+    let struct (dst, src) = getTwoOprs ins
+    match dst, src with
+    | OprRegister rt, OprRegister R.CNTVCT_EL0 ->
+      (* CNTVCT_EL0 has no stored value to read; leave the 64-bit virtual count
+         to the emulator through a ClockCounterRead side effect naming rt. *)
+      AST.sideEffect
+        (ClockCounterRead(Some(Register.toRegID rt, false)))
+    | _ ->
+      let dst = transOprToExpr ins bld addr dst
+      let src =
+        match src with
+        | OprRegister R.NZCV ->
+          let n = (regVar bld R.N |> AST.zext 64<rt>) << numI32 31 64<rt>
+          let z = (regVar bld R.Z |> AST.zext 64<rt>) << numI32 30 64<rt>
+          let c = (regVar bld R.C |> AST.zext 64<rt>) << numI32 29 64<rt>
+          let v = (regVar bld R.V |> AST.zext 64<rt>) << numI32 28 64<rt>
+          n .| z .| c .| v
+        | _ ->
+          transOprToExpr ins bld addr src
+      dst := src
+  }
 
 let msr (ins: Instruction) insLen bld addr =
-  bld <!-- (ins.Address, insLen)
-  let struct (dst, src) = getTwoOprs ins
-  match dst with
-  | OprRegister R.NZCV ->
-    let src = transOprToExpr ins bld addr src
-    bld <+ (regVar bld R.N := AST.extract src 1<rt> 31)
-    bld <+ (regVar bld R.Z := AST.extract src 1<rt> 30)
-    bld <+ (regVar bld R.C := AST.extract src 1<rt> 29)
-    bld <+ (regVar bld R.V := AST.extract src 1<rt> 28)
-  | _ ->
-    let dst = transOprToExpr ins bld addr dst
-    let src = transOprToExpr ins bld addr src
-    bld <+ (dst := src)
-  bld --!> insLen
+  lift bld ins insLen {
+    let struct (dst, src) = getTwoOprs ins
+    match dst with
+    | OprRegister R.NZCV ->
+      let src = transOprToExpr ins bld addr src
+      regVar bld R.N := AST.extract src 1<rt> 31
+      regVar bld R.Z := AST.extract src 1<rt> 30
+      regVar bld R.C := AST.extract src 1<rt> 29
+      regVar bld R.V := AST.extract src 1<rt> 28
+    | _ ->
+      let dst = transOprToExpr ins bld addr dst
+      let src = transOprToExpr ins bld addr src
+      dst := src
+  }
 
 let msub ins insLen bld addr =
-  let dst, src1, src2, src3 = transOprToExprOfMSUB ins bld addr
-  bld <!-- (ins.Address, insLen)
-  dstAssign ins.OprSize dst (src3 .- (src1 .* src2)) bld
-  bld --!> insLen
+  lift bld ins insLen {
+    let dst, src1, src2, src3 = transOprToExprOfMSUB ins bld addr
+    dstAssign ins.OprSize dst (src3 .- (src1 .* src2)) bld
+  }
 
 let mvni (ins: Instruction) insLen bld addr =
-  bld <!-- (ins.Address, insLen)
-  match ins.Operands with
-  | TwoOperands _ ->
-    let struct (dst, src) = getTwoOprs ins
-    let struct (eSize, dataSize, _) = getElemDataSzAndElems dst
-    let imm = transOprToExpr ins bld addr src
-              |> advSIMDExpandImm bld eSize
-              |> AST.not
-    dstAssign128 ins bld addr dst imm imm dataSize
-  | _ ->
-    let struct (dst, src, shf) = getThreeOprs ins
-    let struct (eSize, dataSize, _) = getElemDataSzAndElems dst
-    let src = transBarrelShiftToExpr 64<rt> bld src shf
-              |> advSIMDExpandImm bld eSize
-              |> AST.not
-    dstAssign128 ins bld addr dst src src dataSize
-  bld --!> insLen
+  lift bld ins insLen {
+    match ins.Operands with
+    | TwoOperands _ ->
+      let struct (dst, src) = getTwoOprs ins
+      let struct (eSize, dataSize, _) = getElemDataSzAndElems dst
+      let imm = transOprToExpr ins bld addr src
+                |> advSIMDExpandImm bld eSize
+                |> AST.not
+      dstAssign128 ins bld addr dst imm imm dataSize
+    | _ ->
+      let struct (dst, src, shf) = getThreeOprs ins
+      let struct (eSize, dataSize, _) = getElemDataSzAndElems dst
+      let src = transBarrelShiftToExpr 64<rt> bld src shf
+                |> advSIMDExpandImm bld eSize
+                |> AST.not
+      dstAssign128 ins bld addr dst src src dataSize
+  }
 
 let nop insAddr insLen bld =
-  bld <!-- (insAddr, insLen)
-  bld --!> insLen
+  markStart bld insAddr insLen
+  markEnd bld insLen
+  bld
 
 let orn (ins: Instruction) insLen bld addr =
-  bld <!-- (ins.Address, insLen)
-  match ins.Operands with
-  | TwoOperands _ ->
-    let struct (dst, src) = getTwoOprs ins
-    let struct (eSize, dataSize, elements) = getElemDataSzAndElems dst
-    let struct (dstB, dstA) = transOprToExpr128 ins bld addr dst
-    let src = transSIMDOprToExpr bld eSize dataSize elements src
-    let result = Array.map AST.not src
-    bld <!-- (ins.Address, insLen)
-    dstAssignForSIMD dstA dstB result dataSize elements bld
-  | ThreeOperands(OprSIMD(VecReg _) as o1, o2, o3) ->
-    let struct (_, dataSize, _) = getElemDataSzAndElems o1
-    let struct (src1B, src1A) = transOprToExpr128 ins bld addr o2
-    let struct (src2B, src2A) = transOprToExpr128 ins bld addr o3
-    let resultB = src1B .| (AST.not src2B)
-    let resultA = src1A .| (AST.not src2A)
-    dstAssign128 ins bld addr o1 resultA resultB dataSize
-  | _ ->
-    let dst, src1, src2 = transOprToExprOfORN ins bld addr
-    dstAssign ins.OprSize dst (src1 .| AST.not src2) bld
-  bld --!> insLen
+  lift bld ins insLen {
+    match ins.Operands with
+    | TwoOperands _ ->
+      let struct (dst, src) = getTwoOprs ins
+      let struct (eSize, dataSize, elements) = getElemDataSzAndElems dst
+      let struct (dstB, dstA) = transOprToExpr128 ins bld addr dst
+      let src = transSIMDOprToExpr bld eSize dataSize elements src
+      let result = Array.map AST.not src
+      markStart bld ins.Address insLen
+      dstAssignForSIMD dstA dstB result dataSize elements bld
+    | ThreeOperands(OprSIMD(VecReg _) as o1, o2, o3) ->
+      let struct (_, dataSize, _) = getElemDataSzAndElems o1
+      let struct (src1B, src1A) = transOprToExpr128 ins bld addr o2
+      let struct (src2B, src2A) = transOprToExpr128 ins bld addr o3
+      let resultB = src1B .| (AST.not src2B)
+      let resultA = src1A .| (AST.not src2A)
+      dstAssign128 ins bld addr o1 resultA resultB dataSize
+    | _ ->
+      let dst, src1, src2 = transOprToExprOfORN ins bld addr
+      dstAssign ins.OprSize dst (src1 .| AST.not src2) bld
+  }
 
 let orr (ins: Instruction) insLen bld addr =
-  bld <!-- (ins.Address, insLen)
-  match ins.Operands with
-  | TwoOperands(OprSIMD _, OprImm _) ->
-    let struct (dst, imm) = getTwoOprs ins
-    let struct (eSize, dataSize, _) = getElemDataSzAndElems dst
-    let struct (dstB, dstA) = transOprToExpr128 ins bld addr dst
-    let src = transOprToExpr ins bld addr imm |> advSIMDExpandImm bld eSize
-    dstAssign128 ins bld addr dst (dstA .| src) (dstB .| src) dataSize
-  | ThreeOperands(OprSIMD _, OprImm _, _) ->
-    let struct (dst, imm, shf) = getThreeOprs ins
-    let struct (eSize, dataSize, _) = getElemDataSzAndElems dst
-    let struct (dstB, dstA) = transOprToExpr128 ins bld addr dst
-    let src = transBarrelShiftToExpr ins.OprSize bld imm shf
-              |> advSIMDExpandImm bld eSize
-    dstAssign128 ins bld addr dst (dstA .| src) (dstB .| src) dataSize
-  | ThreeOperands(OprSIMD(VecReg(_, v)) as o1, o2, o3) ->
-    let struct (_, dataSize, _) = getElemDataSzAndElems o1
-    let struct (src1B, src1A) = transOprToExpr128 ins bld addr o2
-    let struct (src2B, src2A) = transOprToExpr128 ins bld addr o3
-    let resultB = src1B .| src2B
-    let resultA = src1A .| src2A
-    dstAssign128 ins bld addr o1 resultA resultB dataSize
-  | _ ->
-    let dst, src1, src2 = transOprToExprOfORR ins bld addr
-    dstAssign ins.OprSize dst (src1 .| src2) bld
-  bld --!> insLen
+  lift bld ins insLen {
+    match ins.Operands with
+    | TwoOperands(OprSIMD _, OprImm _) ->
+      let struct (dst, imm) = getTwoOprs ins
+      let struct (eSize, dataSize, _) = getElemDataSzAndElems dst
+      let struct (dstB, dstA) = transOprToExpr128 ins bld addr dst
+      let src = transOprToExpr ins bld addr imm |> advSIMDExpandImm bld eSize
+      dstAssign128 ins bld addr dst (dstA .| src) (dstB .| src) dataSize
+    | ThreeOperands(OprSIMD _, OprImm _, _) ->
+      let struct (dst, imm, shf) = getThreeOprs ins
+      let struct (eSize, dataSize, _) = getElemDataSzAndElems dst
+      let struct (dstB, dstA) = transOprToExpr128 ins bld addr dst
+      let src = transBarrelShiftToExpr ins.OprSize bld imm shf
+                |> advSIMDExpandImm bld eSize
+      dstAssign128 ins bld addr dst (dstA .| src) (dstB .| src) dataSize
+    | ThreeOperands(OprSIMD(VecReg(_, v)) as o1, o2, o3) ->
+      let struct (_, dataSize, _) = getElemDataSzAndElems o1
+      let struct (src1B, src1A) = transOprToExpr128 ins bld addr o2
+      let struct (src2B, src2A) = transOprToExpr128 ins bld addr o3
+      let resultB = src1B .| src2B
+      let resultA = src1A .| src2A
+      dstAssign128 ins bld addr o1 resultA resultB dataSize
+    | _ ->
+      let dst, src1, src2 = transOprToExprOfORR ins bld addr
+      dstAssign ins.OprSize dst (src1 .| src2) bld
+  }
 
 let rbit (ins: Instruction) insLen bld addr =
   match ins.Operands with
@@ -2225,11 +2273,12 @@ let rbit (ins: Instruction) insLen bld addr =
     let dst, src = transTwoOprs ins bld addr
     let datasize = if ins.OprSize = 64<rt> then 64 else 32
     let tmp = tmpVar bld ins.OprSize
-    bld <!-- (ins.Address, insLen)
-    bld <+ (tmp := numI32 0 ins.OprSize)
+    markStart bld ins.Address insLen
+    append bld { tmp := numI32 0 ins.OprSize }
     for i in 0 .. (datasize - 1) do
-      bld
-      <+ (AST.extract tmp 1<rt> (datasize - 1 - i) := AST.extract src 1<rt> i)
+      append bld {
+        AST.extract tmp 1<rt> (datasize - 1 - i) := AST.extract src 1<rt> i
+      }
     dstAssign ins.OprSize dst tmp bld
   | _ ->
     let struct (dst, src) = getTwoOprs ins
@@ -2238,132 +2287,134 @@ let rbit (ins: Instruction) insLen bld addr =
     let src = transSIMDOprToExpr bld eSize dataSize elements src
     let rev = tmpVar bld eSize
     let result = Array.init elements (fun _ -> tmpVar bld eSize)
-    bld <!-- (ins.Address, insLen)
-    bld <+ (rev := numI32 0 eSize)
+    markStart bld ins.Address insLen
+    append bld { rev := numI32 0 eSize }
     let reverse i e =
       let eSize = int eSize
       for i in 0 .. eSize - 1 do
-        bld <+ (AST.extract rev 1<rt> (eSize - 1 - i) := AST.extract e 1<rt> i)
-      bld <+ (result[i] := rev)
+        append bld {
+          AST.extract rev 1<rt> (eSize - 1 - i) := AST.extract e 1<rt> i
+        }
+      append bld { result[i] := rev }
     Array.iteri reverse src
     dstAssignForSIMD dstA dstB result dataSize elements bld
-  bld --!> insLen
-
-let ret ins insLen bld addr =
-  let src = transOneOpr ins bld addr
-  let target = tmpVar bld 64<rt>
-  bld <!-- (ins.Address, insLen)
-  bld <+ (target := src)
-  branchTo ins bld target BrTypeRET InterJmpKind.IsRet
+  markEnd bld insLen
   bld
 
+let ret ins insLen bld addr =
+  liftOpen bld ins insLen {
+    let src = transOneOpr ins bld addr
+    let target = tmpVar bld 64<rt>
+    target := src
+    branchTo ins bld target BrTypeRET InterJmpKind.IsRet
+  }
+
 let rev (ins: Instruction) insLen bld addr =
-  let e = if ins.OprSize = 64<rt> then 7 else 3
-  let t = tmpVar bld ins.OprSize
-  bld <!-- (ins.Address, insLen)
-  match ins.Operands with
-  | TwoOperands(OprSIMD(VecReg _ ) as dst, src) ->
-    let struct (eSize, dataSize, elements) = getElemDataSzAndElems dst
-    let struct (dstB, dstA) = transOprToExpr128 ins bld addr dst
-    let src = transSIMDOprToExpr bld eSize dataSize elements src
-    let revSize = 64 / int eSize
-    let result = Array.chunkBySize revSize src |> Array.collect (Array.rev)
-    dstAssignForSIMD dstA dstB result dataSize elements bld
-  | _ ->
-    let dst, src = transTwoOprs ins bld addr
-    bld <+ (t := numI32 0 ins.OprSize)
-    for i in 0 .. e do
-      bld
-      <+ (AST.extract t 8<rt> ((e - i) * 8) := AST.extract src 8<rt> (i * 8))
-    dstAssign ins.OprSize dst t bld
-  bld --!> insLen
+  lift bld ins insLen {
+    let e = if ins.OprSize = 64<rt> then 7 else 3
+    let t = tmpVar bld ins.OprSize
+    match ins.Operands with
+    | TwoOperands(OprSIMD(VecReg _ ) as dst, src) ->
+      let struct (eSize, dataSize, elements) = getElemDataSzAndElems dst
+      let struct (dstB, dstA) = transOprToExpr128 ins bld addr dst
+      let src = transSIMDOprToExpr bld eSize dataSize elements src
+      let revSize = 64 / int eSize
+      let result = Array.chunkBySize revSize src |> Array.collect (Array.rev)
+      dstAssignForSIMD dstA dstB result dataSize elements bld
+    | _ ->
+      let dst, src = transTwoOprs ins bld addr
+      t := numI32 0 ins.OprSize
+      for i in 0 .. e do
+        AST.extract t 8<rt> ((e - i) * 8) := AST.extract src 8<rt> (i * 8)
+      dstAssign ins.OprSize dst t bld
+  }
 
 let rev16 (ins: Instruction) insLen bld addr =
-  let tmp = tmpVar bld ins.OprSize
-  bld <!-- (ins.Address, insLen)
-  match ins.Operands with
-  | TwoOperands(OprSIMD(VecReg _ ) as dst, src) ->
-    let struct (eSize, dataSize, elements) = getElemDataSzAndElems dst
-    let struct (dstB, dstA) = transOprToExpr128 ins bld addr dst
-    let src = transSIMDOprToExpr bld eSize dataSize elements src
-    let revSize = 16 / int eSize
-    let result = Array.chunkBySize revSize src |> Array.collect (Array.rev)
-    dstAssignForSIMD dstA dstB result dataSize elements bld
-  | _ ->
-    let dst, src = transTwoOprs ins bld addr
-    bld <+ (tmp := numI32 0 ins.OprSize)
-    for i in 0 .. ((int ins.OprSize / 8) - 1) do
-      let idx = i * 8
-      let revIdx = if i % 2 = 0 then idx + 8 else idx - 8
-      bld <+ (AST.extract tmp 8<rt> revIdx := AST.extract src 8<rt> idx)
-    done
-    dstAssign ins.OprSize dst tmp bld
-  bld --!> insLen
+  lift bld ins insLen {
+    let tmp = tmpVar bld ins.OprSize
+    match ins.Operands with
+    | TwoOperands(OprSIMD(VecReg _ ) as dst, src) ->
+      let struct (eSize, dataSize, elements) = getElemDataSzAndElems dst
+      let struct (dstB, dstA) = transOprToExpr128 ins bld addr dst
+      let src = transSIMDOprToExpr bld eSize dataSize elements src
+      let revSize = 16 / int eSize
+      let result = Array.chunkBySize revSize src |> Array.collect (Array.rev)
+      dstAssignForSIMD dstA dstB result dataSize elements bld
+    | _ ->
+      let dst, src = transTwoOprs ins bld addr
+      tmp := numI32 0 ins.OprSize
+      for i in 0 .. ((int ins.OprSize / 8) - 1) do
+        let idx = i * 8
+        let revIdx = if i % 2 = 0 then idx + 8 else idx - 8
+        AST.extract tmp 8<rt> revIdx := AST.extract src 8<rt> idx
+      done
+      dstAssign ins.OprSize dst tmp bld
+  }
 
 let rev32 (ins: Instruction) insLen bld addr =
-  let tmp = tmpVar bld ins.OprSize
-  bld <!-- (ins.Address, insLen)
-  match ins.Operands with
-  | TwoOperands(OprSIMD(VecReg _ ) as dst, src) ->
-    let struct (eSize, dataSize, elements) = getElemDataSzAndElems dst
-    let struct (dstB, dstA) = transOprToExpr128 ins bld addr dst
-    let src = transSIMDOprToExpr bld eSize dataSize elements src
-    let revSize = 32 / int eSize
-    let result = Array.chunkBySize revSize src |> Array.collect (Array.rev)
-    dstAssignForSIMD dstA dstB result dataSize elements bld
-  | _ ->
-    let dst, src = transTwoOprs ins bld addr
-    bld <+ (tmp := numI32 0 ins.OprSize)
-    for i in 0 .. ((int ins.OprSize / 8) - 1) do
-      let revIdx = (i ^^^ 0b11) * 8
-      bld <+ (AST.extract tmp 8<rt> revIdx := AST.extract src 8<rt> (i * 8))
-    done
-    bld <+ (dst := tmp)
-  bld --!> insLen
+  lift bld ins insLen {
+    let tmp = tmpVar bld ins.OprSize
+    match ins.Operands with
+    | TwoOperands(OprSIMD(VecReg _ ) as dst, src) ->
+      let struct (eSize, dataSize, elements) = getElemDataSzAndElems dst
+      let struct (dstB, dstA) = transOprToExpr128 ins bld addr dst
+      let src = transSIMDOprToExpr bld eSize dataSize elements src
+      let revSize = 32 / int eSize
+      let result = Array.chunkBySize revSize src |> Array.collect (Array.rev)
+      dstAssignForSIMD dstA dstB result dataSize elements bld
+    | _ ->
+      let dst, src = transTwoOprs ins bld addr
+      tmp := numI32 0 ins.OprSize
+      for i in 0 .. ((int ins.OprSize / 8) - 1) do
+        let revIdx = (i ^^^ 0b11) * 8
+        AST.extract tmp 8<rt> revIdx := AST.extract src 8<rt> (i * 8)
+      done
+      dst := tmp
+  }
 
 let rorv ins insLen bld addr =
-  let dst, src1, src2 = transThreeOprs ins bld addr
-  let amount = src2 .% oprSzToExpr ins.OprSize
-  bld <!-- (ins.Address, insLen)
-  dstAssign ins.OprSize dst (shiftReg src1 amount ins.OprSize ROR) bld
-  bld --!> insLen
+  lift bld ins insLen {
+    let dst, src1, src2 = transThreeOprs ins bld addr
+    let amount = src2 .% oprSzToExpr ins.OprSize
+    dstAssign ins.OprSize dst (shiftReg src1 amount ins.OprSize ROR) bld
+  }
 
 let sbc ins insLen bld addr =
-  let dst, src1, src2 = transThreeOprs ins bld addr
-  let c = AST.zext ins.OprSize (regVar bld R.C)
-  bld <!-- (ins.Address, insLen)
-  let result, _ = addWithCarry src1 (AST.not src2) c ins.OprSize
-  dstAssign ins.OprSize dst result bld
-  bld --!> insLen
+  lift bld ins insLen {
+    let dst, src1, src2 = transThreeOprs ins bld addr
+    let c = AST.zext ins.OprSize (regVar bld R.C)
+    let result, _ = addWithCarry src1 (AST.not src2) c ins.OprSize
+    dstAssign ins.OprSize dst result bld
+  }
 
 let sbcs ins insLen bld addr =
-  let dst, src1, src2 = transThreeOprs ins bld addr
-  bld <!-- (ins.Address, insLen)
-  let c = tmpVar bld ins.OprSize
-  bld <+ (c := AST.zext ins.OprSize (regVar bld R.C))
-  let result, (n, z, c, v) = addWithCarry src1 (AST.not src2) c ins.OprSize
-  bld <+ (regVar bld R.N := n)
-  bld <+ (regVar bld R.Z := z)
-  bld <+ (regVar bld R.C := c)
-  bld <+ (regVar bld R.V := v)
-  dstAssign ins.OprSize dst result bld
-  bld --!> insLen
+  lift bld ins insLen {
+    let dst, src1, src2 = transThreeOprs ins bld addr
+    let c = tmpVar bld ins.OprSize
+    c := AST.zext ins.OprSize (regVar bld R.C)
+    let result, (n, z, c, v) = addWithCarry src1 (AST.not src2) c ins.OprSize
+    regVar bld R.N := n
+    regVar bld R.Z := z
+    regVar bld R.C := c
+    regVar bld R.V := v
+    dstAssign ins.OprSize dst result bld
+  }
 
 let sbfm (ins: Instruction) insLen bld addr dst src immr imms =
-  let oprSz = ins.OprSize
-  let width = oprSzToExpr oprSz
-  let struct (wmask, tmask) = decodeBitMasks immr imms (int oprSz)
-  let immr = transOprToExpr ins bld addr immr
-  let imms = transOprToExpr ins bld addr imms
-  let n0 = AST.num0 oprSz
-  bld <!-- (ins.Address, insLen)
-  let struct (bot, srcS, top, tMask) = tmpVars4 bld oprSz
-  bld <+ (bot := rorForIR src immr width .& (numI64 wmask oprSz))
-  bld <+ (srcS := (src >> imms) .& (AST.num1 oprSz))
-  bld <+ (top := AST.ite (srcS == n0) n0 (numI32 -1 oprSz))
-  bld <+ (tMask := numI64 tmask oprSz)
-  dstAssign ins.OprSize dst ((top .& AST.not tMask) .| (bot .& tMask)) bld
-  bld --!> insLen
+  lift bld ins insLen {
+    let oprSz = ins.OprSize
+    let width = oprSzToExpr oprSz
+    let struct (wmask, tmask) = decodeBitMasks immr imms (int oprSz)
+    let immr = transOprToExpr ins bld addr immr
+    let imms = transOprToExpr ins bld addr imms
+    let n0 = AST.num0 oprSz
+    let struct (bot, srcS, top, tMask) = tmpVars4 bld oprSz
+    bot := rorForIR src immr width .& (numI64 wmask oprSz)
+    srcS := (src >> imms) .& (AST.num1 oprSz)
+    top := AST.ite (srcS == n0) n0 (numI32 -1 oprSz)
+    tMask := numI64 tmask oprSz
+    dstAssign ins.OprSize dst ((top .& AST.not tMask) .| (bot .& tMask)) bld
+  }
 
 let sbfiz ins insLen bld addr =
   let struct (dst, src, lsb, width) = getFourOprs ins
@@ -2395,455 +2446,457 @@ let private fixedToFp bld oprSz fbits unsigned src =
   AST.ite cond (AST.num0 oprSz) realOperand
 
 let icvtf (ins: Instruction) insLen bld addr unsigned =
-  let oprSize = ins.OprSize
-  bld <!-- (ins.Address, insLen)
-  match ins.Operands with
-  | TwoOperands(OprSIMD(VecReg _), _) ->
-    let struct (o1, o2) = getTwoOprs ins
-    let struct (dstB, dstA) = transOprToExpr128 ins bld addr o1
-    let struct (eSize, dataSize, elements) = getElemDataSzAndElems o2
-    let src = transSIMDOprToExpr bld eSize dataSize elements o2
-    let n0 = AST.num0 eSize
-    let result = Array.map (fixedToFp bld eSize n0 unsigned) src
-    dstAssignForSIMD dstA dstB result dataSize elements bld
-  | TwoOperands(OprSIMD(ScalarReg _) as dst, _) ->
-    let struct (eSize, _, _) = getElemDataSzAndElems dst
-    let _, src = transTwoOprs ins bld addr
-    let n0 = AST.num0 oprSize
-    let result = fixedToFp bld oprSize n0 unsigned src
-    dstAssignScalar ins bld addr dst result eSize
-  | ThreeOperands(OprSIMD(ScalarReg _), _, _) ->
-    let struct (o1, o2, o3) = getThreeOprs ins
-    let struct (eSize, _, _) = getElemDataSzAndElems o1
-    let src = transOprToExpr ins bld addr o2
-    let fbits = transOprToExpr ins bld addr o3
-    let result = fixedToFp bld eSize fbits unsigned src
-    dstAssignScalar ins bld addr o1 result eSize
-  | ThreeOperands(OprSIMD(VecReg _), _, _) ->
-    let struct (o1, o2, o3) = getThreeOprs ins
-    let struct (dstB, dstA) = transOprToExpr128 ins bld addr o1
-    let struct (eSz, dataSize, elements) = getElemDataSzAndElems o2
-    let src = transSIMDOprToExpr bld eSz dataSize elements o2
-    let fbits = transOprToExpr ins bld addr o3 |> AST.xtlo eSz
-    let result = Array.map (fixedToFp bld eSz fbits unsigned) src
-    dstAssignForSIMD dstA dstB result dataSize elements bld
-  | _ ->
-    let dst, src, fbits = transThreeOprs ins bld addr
-    let result = fixedToFp bld oprSize fbits unsigned src
-    dstAssign oprSize dst result bld
-  bld --!> insLen
+  lift bld ins insLen {
+    let oprSize = ins.OprSize
+    match ins.Operands with
+    | TwoOperands(OprSIMD(VecReg _), _) ->
+      let struct (o1, o2) = getTwoOprs ins
+      let struct (dstB, dstA) = transOprToExpr128 ins bld addr o1
+      let struct (eSize, dataSize, elements) = getElemDataSzAndElems o2
+      let src = transSIMDOprToExpr bld eSize dataSize elements o2
+      let n0 = AST.num0 eSize
+      let result = Array.map (fixedToFp bld eSize n0 unsigned) src
+      dstAssignForSIMD dstA dstB result dataSize elements bld
+    | TwoOperands(OprSIMD(ScalarReg _) as dst, _) ->
+      let struct (eSize, _, _) = getElemDataSzAndElems dst
+      let _, src = transTwoOprs ins bld addr
+      let n0 = AST.num0 oprSize
+      let result = fixedToFp bld oprSize n0 unsigned src
+      dstAssignScalar ins bld addr dst result eSize
+    | ThreeOperands(OprSIMD(ScalarReg _), _, _) ->
+      let struct (o1, o2, o3) = getThreeOprs ins
+      let struct (eSize, _, _) = getElemDataSzAndElems o1
+      let src = transOprToExpr ins bld addr o2
+      let fbits = transOprToExpr ins bld addr o3
+      let result = fixedToFp bld eSize fbits unsigned src
+      dstAssignScalar ins bld addr o1 result eSize
+    | ThreeOperands(OprSIMD(VecReg _), _, _) ->
+      let struct (o1, o2, o3) = getThreeOprs ins
+      let struct (dstB, dstA) = transOprToExpr128 ins bld addr o1
+      let struct (eSz, dataSize, elements) = getElemDataSzAndElems o2
+      let src = transSIMDOprToExpr bld eSz dataSize elements o2
+      let fbits = transOprToExpr ins bld addr o3 |> AST.xtlo eSz
+      let result = Array.map (fixedToFp bld eSz fbits unsigned) src
+      dstAssignForSIMD dstA dstB result dataSize elements bld
+    | _ ->
+      let dst, src, fbits = transThreeOprs ins bld addr
+      let result = fixedToFp bld oprSize fbits unsigned src
+      dstAssign oprSize dst result bld
+  }
 
 let sdiv ins insLen bld addr =
-  let dst, src1, src2 = transThreeOprs ins bld addr
-  let num0 = AST.num0 ins.OprSize
-  let cond1 = AST.eq src2 num0
-  let divSrc = src1 ?/ src2
-  bld <!-- (ins.Address, insLen)
-  let result = AST.ite cond1 num0 divSrc
-  dstAssign ins.OprSize dst result bld
-  bld --!> insLen
+  lift bld ins insLen {
+    let dst, src1, src2 = transThreeOprs ins bld addr
+    let num0 = AST.num0 ins.OprSize
+    let cond1 = AST.eq src2 num0
+    let divSrc = src1 ?/ src2
+    let result = AST.ite cond1 num0 divSrc
+    dstAssign ins.OprSize dst result bld
+  }
 
 let shl ins insLen bld addr =
-  let struct (dst, src, amt) = getThreeOprs ins
-  let struct (eSize, dataSize, elements) = getElemDataSzAndElems src
-  bld <!-- (ins.Address, insLen)
-  match ins.Operands with
-  | ThreeOperands(OprSIMD(ScalarReg _), _, _) ->
-    let _, src, amt = transThreeOprs ins bld addr
-    dstAssignScalar ins bld addr dst (src << amt) eSize
-  | _ ->
-    let struct (dstB, dstA) = transOprToExpr128 ins bld addr dst
-    let src = transSIMDOprToExpr bld eSize dataSize elements src
-    let amt = transOprToExpr ins bld addr amt |> AST.xtlo eSize
-    let result = Array.map (fun e -> e << amt) src
-    dstAssignForSIMD dstA dstB result dataSize elements bld
-  bld --!> insLen
+  lift bld ins insLen {
+    let struct (dst, src, amt) = getThreeOprs ins
+    let struct (eSize, dataSize, elements) = getElemDataSzAndElems src
+    match ins.Operands with
+    | ThreeOperands(OprSIMD(ScalarReg _), _, _) ->
+      let _, src, amt = transThreeOprs ins bld addr
+      dstAssignScalar ins bld addr dst (src << amt) eSize
+    | _ ->
+      let struct (dstB, dstA) = transOprToExpr128 ins bld addr dst
+      let src = transSIMDOprToExpr bld eSize dataSize elements src
+      let amt = transOprToExpr ins bld addr amt |> AST.xtlo eSize
+      let result = Array.map (fun e -> e << amt) src
+      dstAssignForSIMD dstA dstB result dataSize elements bld
+  }
 
 let smaddl ins insLen bld addr =
-  let dst, src1, src2, src3 = transFourOprs ins bld addr
-  bld <!-- (ins.Address, insLen)
-  bld <+ (dst := src3 .+ (AST.sext 64<rt> src1 .* AST.sext 64<rt> src2))
-  bld --!> insLen
+  lift bld ins insLen {
+    let dst, src1, src2, src3 = transFourOprs ins bld addr
+    dst := src3 .+ (AST.sext 64<rt> src1 .* AST.sext 64<rt> src2)
+  }
 
 let smov (ins: Instruction) insLen bld addr =
-  let result = tmpVar bld ins.OprSize
-  bld <!-- (ins.Address, insLen)
-  let dst, src = transTwoOprs ins bld addr
-  bld <+ (result := AST.sext ins.OprSize src)
-  dstAssign ins.OprSize dst result bld
-  bld --!> insLen
+  lift bld ins insLen {
+    let result = tmpVar bld ins.OprSize
+    let dst, src = transTwoOprs ins bld addr
+    result := AST.sext ins.OprSize src
+    dstAssign ins.OprSize dst result bld
+  }
 
 let smsubl ins insLen bld addr =
-  let dst, src1, src2, src3 = transOprToExprOfSMSUBL ins bld addr
-  bld <!-- (ins.Address, insLen)
-  bld <+ (dst := src3 .- (AST.sext 64<rt> src1 .* AST.sext 64<rt> src2))
-  bld --!> insLen
+  lift bld ins insLen {
+    let dst, src1, src2, src3 = transOprToExprOfSMSUBL ins bld addr
+    dst := src3 .- (AST.sext 64<rt> src1 .* AST.sext 64<rt> src2)
+  }
 
 let smulh ins insLen bld addr =
-  let dst, src1, src2 = transThreeOprs ins bld addr
-  bld <!-- (ins.Address, insLen)
-  (* The high 64 bits of the signed 64x64->128 product: the evaluator holds the
-     128-bit intermediate, so extract from it directly. *)
-  let prod = AST.sext 128<rt> src1 .* AST.sext 128<rt> src2
-  bld <+ (dst := AST.xthi 64<rt> prod)
-  bld --!> insLen
+  lift bld ins insLen {
+    let dst, src1, src2 = transThreeOprs ins bld addr
+    (* The high 64 bits of the signed 64x64->128 product: the evaluator
+       holds the 128-bit intermediate, so extract from it directly. *)
+    let prod = AST.sext 128<rt> src1 .* AST.sext 128<rt> src2
+    dst := AST.xthi 64<rt> prod
+  }
 
 let smull (ins: Instruction) insLen bld addr =
-  bld <!-- (ins.Address, insLen)
-  match ins.Operands with
-  | ThreeOperands(_, _, OprSIMD(VecRegWithIdx _)) ->
-    let struct (o1, o2, o3) = getThreeOprs ins
-    let struct (eSize, part, _) = getElemDataSzAndElems o2
-    let elements = 64<rt> / eSize
-    let dblESz = eSize * 2
-    let struct (dstB, dstA) = transOprToExpr128 ins bld addr o1
-    let src1 = transSIMDOprVPart bld eSize part o2
-    let src2 = transOprToExpr ins bld addr o3 |> AST.sext dblESz
-    let result = Array.init elements (fun _ -> tmpVar bld dblESz)
-    let prod = Array.map (fun s1 -> AST.sext dblESz s1 .* src2) src1
-    Array.iter2 (fun r p -> bld <+ (r := p)) result prod
-    dstAssignForSIMD dstA dstB result 128<rt> elements bld
-  | ThreeOperands(OprSIMD(VecReg _), _, _) ->
-    let struct (o1, o2, o3) = getThreeOprs ins
-    let struct (eSize, part, _) = getElemDataSzAndElems o2
-    let elements = 64<rt> / eSize
-    let dblESz = eSize * 2
-    let struct (dstB, dstA) = transOprToExpr128 ins bld addr o1
-    let src1 = transSIMDOprVPart bld eSize part o2
-    let src2 = transSIMDOprVPart bld eSize part o3
-    let result = Array.init elements (fun _ -> tmpVar bld dblESz)
-    Array.map2 (fun e1 e2 ->
-      AST.sext dblESz e1 .* AST.sext dblESz e2) src1 src2
-    |> Array.iter2 (fun r e -> bld <+ (r := e)) result
-    dstAssignForSIMD dstA dstB result 128<rt> elements bld
-  | _ ->
-    let dst, src1, src2 = transThreeOprs ins bld addr
-    bld <+ (dst := AST.sext 64<rt> src1 .* AST.sext 64<rt> src2)
-  bld --!> insLen
+  lift bld ins insLen {
+    match ins.Operands with
+    | ThreeOperands(_, _, OprSIMD(VecRegWithIdx _)) ->
+      let struct (o1, o2, o3) = getThreeOprs ins
+      let struct (eSize, part, _) = getElemDataSzAndElems o2
+      let elements = 64<rt> / eSize
+      let dblESz = eSize * 2
+      let struct (dstB, dstA) = transOprToExpr128 ins bld addr o1
+      let src1 = transSIMDOprVPart bld eSize part o2
+      let src2 = transOprToExpr ins bld addr o3 |> AST.sext dblESz
+      let result = Array.init elements (fun _ -> tmpVar bld dblESz)
+      let prod = Array.map (fun s1 -> AST.sext dblESz s1 .* src2) src1
+      Array.iter2 (fun r p -> append bld { r := p }) result prod
+      dstAssignForSIMD dstA dstB result 128<rt> elements bld
+    | ThreeOperands(OprSIMD(VecReg _), _, _) ->
+      let struct (o1, o2, o3) = getThreeOprs ins
+      let struct (eSize, part, _) = getElemDataSzAndElems o2
+      let elements = 64<rt> / eSize
+      let dblESz = eSize * 2
+      let struct (dstB, dstA) = transOprToExpr128 ins bld addr o1
+      let src1 = transSIMDOprVPart bld eSize part o2
+      let src2 = transSIMDOprVPart bld eSize part o3
+      let result = Array.init elements (fun _ -> tmpVar bld dblESz)
+      Array.map2 (fun e1 e2 ->
+        AST.sext dblESz e1 .* AST.sext dblESz e2) src1 src2
+      |> Array.iter2 (fun r e -> append bld { r := e }) result
+      dstAssignForSIMD dstA dstB result 128<rt> elements bld
+    | _ ->
+      let dst, src1, src2 = transThreeOprs ins bld addr
+      dst := AST.sext 64<rt> src1 .* AST.sext 64<rt> src2
+  }
 
 let sshl (ins: Instruction) insLen bld addr =
-  bld <!-- (ins.Address, insLen)
-  let struct (dst, o1, o2) = getThreeOprs ins
-  let struct (eSize, dataSize, elements) = getElemDataSzAndElems dst
-  let inline shiftLeft e1 e2 =
-    let shf = tmpVar bld eSize
-    bld <+ (shf := AST.xtlo 8<rt> e2 |> AST.sext eSize)
-    AST.ite (shf ?< AST.num0 eSize) (e1 ?>> AST.neg shf) (e1 << shf)
-  match ins.Operands with
-  | ThreeOperands(OprSIMD(ScalarReg _), _, _) ->
-    let src1 = transOprToExpr ins bld addr o1
-    let src2 = transOprToExpr ins bld addr o2
-    let result = shiftLeft src1 src2
-    dstAssignScalar ins bld addr dst result eSize
-  | _ ->
-    let struct (dstB, dstA) = transOprToExpr128 ins bld addr dst
-    let src1 = transSIMDOprToExpr bld eSize dataSize elements o1
-    let src2 = transSIMDOprToExpr bld eSize dataSize elements o2
-    let result = Array.map2 shiftLeft src1 src2
-    dstAssignForSIMD dstA dstB result dataSize elements bld
-  bld --!> insLen
+  lift bld ins insLen {
+    let struct (dst, o1, o2) = getThreeOprs ins
+    let struct (eSize, dataSize, elements) = getElemDataSzAndElems dst
+    let inline shiftLeft e1 e2 =
+      let shf = tmpVar bld eSize
+      append bld {
+        shf := AST.xtlo 8<rt> e2 |> AST.sext eSize
+      }
+      AST.ite (shf ?< AST.num0 eSize) (e1 ?>> AST.neg shf) (e1 << shf)
+    match ins.Operands with
+    | ThreeOperands(OprSIMD(ScalarReg _), _, _) ->
+      let src1 = transOprToExpr ins bld addr o1
+      let src2 = transOprToExpr ins bld addr o2
+      let result = shiftLeft src1 src2
+      dstAssignScalar ins bld addr dst result eSize
+    | _ ->
+      let struct (dstB, dstA) = transOprToExpr128 ins bld addr dst
+      let src1 = transSIMDOprToExpr bld eSize dataSize elements o1
+      let src2 = transSIMDOprToExpr bld eSize dataSize elements o2
+      let result = Array.map2 shiftLeft src1 src2
+      dstAssignForSIMD dstA dstB result dataSize elements bld
+  }
 
 let shift ins insLen bld addr opFn =
-  let struct (dst, src, amt) = getThreeOprs ins
-  let struct (eSize, dataSize, elements) = getElemDataSzAndElems dst
-  bld <!-- (ins.Address, insLen)
-  match ins.Operands with
-  | ThreeOperands(OprSIMD(ScalarReg _), _, _) ->
-    let src = transOprToExpr ins bld addr src
-    let amt = transOprToExpr ins bld addr amt
-    dstAssignScalar ins bld addr dst (opFn src amt) eSize
-  | _ ->
-    let struct (dstB, dstA) = transOprToExpr128 ins bld addr dst
-    let src = transSIMDOprToExpr bld eSize dataSize elements src
-    let amt = transOprToExpr ins bld addr amt |> AST.xtlo eSize
-    let result = Array.map (fun e -> opFn e amt) src
-    dstAssignForSIMD dstA dstB result dataSize elements bld
-  bld --!> insLen
+  lift bld ins insLen {
+    let struct (dst, src, amt) = getThreeOprs ins
+    let struct (eSize, dataSize, elements) = getElemDataSzAndElems dst
+    match ins.Operands with
+    | ThreeOperands(OprSIMD(ScalarReg _), _, _) ->
+      let src = transOprToExpr ins bld addr src
+      let amt = transOprToExpr ins bld addr amt
+      dstAssignScalar ins bld addr dst (opFn src amt) eSize
+    | _ ->
+      let struct (dstB, dstA) = transOprToExpr128 ins bld addr dst
+      let src = transSIMDOprToExpr bld eSize dataSize elements src
+      let amt = transOprToExpr ins bld addr amt |> AST.xtlo eSize
+      let result = Array.map (fun e -> opFn e amt) src
+      dstAssignForSIMD dstA dstB result dataSize elements bld
+  }
 
 let stlr ins insLen bld addr =
-  let src, (bReg, offset) = transTwoOprsSepMem ins bld addr
-  let address = tmpVar bld 64<rt>
-  bld <!-- (ins.Address, insLen)
-  bld <+ (address := bReg .+ offset)
-  dstAssign ins.OprSize (AST.loadLE ins.OprSize address) src bld
-  bld --!> insLen
+  lift bld ins insLen {
+    let src, (bReg, offset) = transTwoOprsSepMem ins bld addr
+    let address = tmpVar bld 64<rt>
+    address := bReg .+ offset
+    dstAssign ins.OprSize (AST.loadLE ins.OprSize address) src bld
+  }
 
 let stlrb ins insLen bld addr =
-  let src, (bReg, offset) = transTwoOprsSepMem ins bld addr
-  let address = tmpVar bld 64<rt>
-  let data = tmpVar bld 8<rt>
-  bld <!-- (ins.Address, insLen)
-  bld <+ (address := bReg .+ offset)
-  bld <+ (data := AST.xtlo 8<rt> src)
-  bld <+ (AST.loadLE 8<rt> address := data)
-  bld --!> insLen
+  lift bld ins insLen {
+    let src, (bReg, offset) = transTwoOprsSepMem ins bld addr
+    let address = tmpVar bld 64<rt>
+    let data = tmpVar bld 8<rt>
+    address := bReg .+ offset
+    data := AST.xtlo 8<rt> src
+    AST.loadLE 8<rt> address := data
+  }
 
 let stlx ins insLen bld addr size =
-  let src1, src2, (bReg, offset) = transThreeOprsSepMem ins bld addr
-  let address = tmpVar bld 64<rt>
-  let data = tmpVar bld size
-  bld <!-- (ins.Address, insLen)
-  bld <+ (address := bReg .+ offset)
-  bld <+ (data := AST.xtlo size src2)
-  let status = storeExclusive bld address size data
-  dstAssign 32<rt> src1 status bld
-  bld --!> insLen
+  lift bld ins insLen {
+    let src1, src2, (bReg, offset) = transThreeOprsSepMem ins bld addr
+    let address = tmpVar bld 64<rt>
+    let data = tmpVar bld size
+    address := bReg .+ offset
+    data := AST.xtlo size src2
+    let status = storeExclusive bld address size data
+    dstAssign 32<rt> src1 status bld
+  }
 
 let stlxr ins insLen bld addr =
-  let src1, src2, (bReg, offset) = transThreeOprsSepMem ins bld addr
-  let address = tmpVar bld 64<rt>
-  let data = tmpVar bld ins.OprSize
-  bld <!-- (ins.Address, insLen)
-  bld <+ (address := bReg .+ offset)
-  bld <+ (data := AST.zext ins.OprSize src2)
-  let status = storeExclusive bld address ins.OprSize data
-  dstAssign 32<rt> src1 status bld
-  bld --!> insLen
-
-let stlxp ins insLen bld addr =
-  let src1, src2, src3, (bReg, offset) = transFourOprsSepMem ins bld addr
-  let address = tmpVar bld 64<rt>
-  bld <!-- (ins.Address, insLen)
-  bld <+ (address := bReg .+ offset)
-  if ins.OprSize = 32<rt> then
-    let data = tmpVar bld 64<rt>
-    bld <+ (data := AST.concat (AST.xtlo 32<rt> src3) (AST.xtlo 32<rt> src2))
-    let status = storeExclusive bld address 64<rt> data
-    dstAssign 32<rt> src1 status bld
-  else
-    let status = storeExclusivePair bld address 64<rt> src2 src3
-    dstAssign 32<rt> src1 status bld
-  bld --!> insLen
-
-let stnp (ins: Instruction) insLen bld addr =
-  bld <!-- (ins.Address, insLen)
-  let address = tmpVar bld 64<rt>
-  let dByte = numI32 (RegType.toByteWidth ins.OprSize) 64<rt>
-  match ins.OprSize with
-  | 128<rt> ->
-    let struct (src1, src2, src3) = getThreeOprs ins
-    let struct (src1B, src1A) = transOprToExpr128 ins bld addr src1
-    let struct (src2B, src2A) = transOprToExpr128 ins bld addr src2
-    let bReg, offset = transOprToExpr ins bld addr src3 |> separateMemExpr
-    let n8 = numI32 8 64<rt>
-    bld <+ (address := bReg)
-    bld <+ (address := address .+ offset)
-    bld <+ (AST.loadLE 64<rt> address := src1A)
-    bld <+ (AST.loadLE 64<rt> (address .+ n8) := src1B)
-    bld <+ (AST.loadLE 64<rt> (address .+ dByte) := src2A)
-    bld <+ (AST.loadLE 64<rt> (address .+ dByte .+ n8) := src2B)
-  | _ ->
+  lift bld ins insLen {
     let src1, src2, (bReg, offset) = transThreeOprsSepMem ins bld addr
-    bld <+ (address := bReg)
-    bld <+ (address := address .+ offset)
-    bld <+ (AST.loadLE ins.OprSize address := src1)
-    bld <+ (AST.loadLE ins.OprSize (address .+ dByte) := src2)
-  bld --!> insLen
-
-let stp (ins: Instruction) insLen bld addr =
-  let isWBack, isPostIndex = getIsWBackAndIsPostIndex ins.Operands
-  bld <!-- (ins.Address, insLen)
-  let address = tmpVar bld 64<rt>
-  let dByte = numI32 (RegType.toByteWidth ins.OprSize) 64<rt>
-  match ins.OprSize with
-  | 128<rt> ->
-    let struct (src1, src2, src3) = getThreeOprs ins
-    let struct (src1B, src1A) = transOprToExpr128 ins bld addr src1
-    let struct (src2B, src2A) = transOprToExpr128 ins bld addr src2
-    let bReg, offset = transOprToExpr ins bld addr src3 |> separateMemExpr
-    let n8 = numI32 8 64<rt>
-    bld <+ (address := bReg)
-    bld <+ (address := if isPostIndex then address else address .+ offset)
-    bld <+ (AST.loadLE 64<rt> address := src1A)
-    bld <+ (AST.loadLE 64<rt> (address .+ n8) := src1B)
-    bld <+ (AST.loadLE 64<rt> (address .+ dByte) := src2A)
-    bld <+ (AST.loadLE 64<rt> (address .+ dByte .+ n8) := src2B)
-    if isWBack && isPostIndex then bld <+ (bReg := address .+ offset)
-    elif isWBack then bld <+ (bReg := address)
-    else ()
-  | _ ->
-    let src1, src2, (bReg, offset) = transThreeOprsSepMem ins bld addr
-    bld <+ (address := bReg)
-    bld <+ (address := if isPostIndex then address else address .+ offset)
-    bld <+ (AST.loadLE ins.OprSize address := src1)
-    bld <+ (AST.loadLE ins.OprSize (address .+ dByte) := src2)
-    if isWBack && isPostIndex then bld <+ (bReg := address .+ offset)
-    elif isWBack then bld <+ (bReg := address)
-    else ()
-  bld --!> insLen
-
-let str (ins: Instruction) insLen bld addr =
-  let isWBack, isPostIndex = getIsWBackAndIsPostIndex ins.Operands
-  bld <!-- (ins.Address, insLen)
-  match ins.OprSize with
-  | 128<rt> ->
-    let struct (src1, src2) = getTwoOprs ins
-    let struct (srcB, srcA) = transOprToExpr128 ins bld addr src1
-    let bReg, offset = transOprToExpr ins bld addr src2 |> separateMemExpr
-    let address = tmpVar bld 64<rt>
-    bld <+ (address := bReg)
-    bld <+ (address := if isPostIndex then address else address .+ offset)
-    bld <+ (AST.loadLE 64<rt> address := srcA)
-    bld <+ (AST.loadLE 64<rt> (address .+ (numI32 8 64<rt>)) := srcB)
-    if isWBack && isPostIndex then bld <+ (bReg := address .+ offset)
-    elif isWBack then bld <+ (bReg := address)
-    else ()
-  | _ ->
-    let src, (bReg, offset) = transTwoOprsSepMem ins bld addr
     let address = tmpVar bld 64<rt>
     let data = tmpVar bld ins.OprSize
-    bld <+ (address := bReg)
-    bld <+ (address := if isPostIndex then address else address .+ offset)
-    bld <+ (data := src)
-    bld <+ (AST.loadLE ins.OprSize address := data)
-    if isWBack && isPostIndex then bld <+ (bReg := address .+ offset)
-    elif isWBack then bld <+ (bReg := address)
-    else ()
-  bld --!> insLen
+    address := bReg .+ offset
+    data := AST.zext ins.OprSize src2
+    let status = storeExclusive bld address ins.OprSize data
+    dstAssign 32<rt> src1 status bld
+  }
+
+let stlxp ins insLen bld addr =
+  lift bld ins insLen {
+    let src1, src2, src3, (bReg, offset) = transFourOprsSepMem ins bld addr
+    let address = tmpVar bld 64<rt>
+    address := bReg .+ offset
+    if ins.OprSize = 32<rt> then
+      let data = tmpVar bld 64<rt>
+      data := AST.concat (AST.xtlo 32<rt> src3) (AST.xtlo 32<rt> src2)
+      let status = storeExclusive bld address 64<rt> data
+      dstAssign 32<rt> src1 status bld
+    else
+      let status = storeExclusivePair bld address 64<rt> src2 src3
+      dstAssign 32<rt> src1 status bld
+  }
+
+let stnp (ins: Instruction) insLen bld addr =
+  lift bld ins insLen {
+    let address = tmpVar bld 64<rt>
+    let dByte = numI32 (RegType.toByteWidth ins.OprSize) 64<rt>
+    match ins.OprSize with
+    | 128<rt> ->
+      let struct (src1, src2, src3) = getThreeOprs ins
+      let struct (src1B, src1A) = transOprToExpr128 ins bld addr src1
+      let struct (src2B, src2A) = transOprToExpr128 ins bld addr src2
+      let bReg, offset = transOprToExpr ins bld addr src3 |> separateMemExpr
+      let n8 = numI32 8 64<rt>
+      address := bReg
+      address := address .+ offset
+      AST.loadLE 64<rt> address := src1A
+      AST.loadLE 64<rt> (address .+ n8) := src1B
+      AST.loadLE 64<rt> (address .+ dByte) := src2A
+      AST.loadLE 64<rt> (address .+ dByte .+ n8) := src2B
+    | _ ->
+      let src1, src2, (bReg, offset) = transThreeOprsSepMem ins bld addr
+      address := bReg
+      address := address .+ offset
+      AST.loadLE ins.OprSize address := src1
+      AST.loadLE ins.OprSize (address .+ dByte) := src2
+  }
+
+let stp (ins: Instruction) insLen bld addr =
+  lift bld ins insLen {
+    let isWBack, isPostIndex = getIsWBackAndIsPostIndex ins.Operands
+    let address = tmpVar bld 64<rt>
+    let dByte = numI32 (RegType.toByteWidth ins.OprSize) 64<rt>
+    match ins.OprSize with
+    | 128<rt> ->
+      let struct (src1, src2, src3) = getThreeOprs ins
+      let struct (src1B, src1A) = transOprToExpr128 ins bld addr src1
+      let struct (src2B, src2A) = transOprToExpr128 ins bld addr src2
+      let bReg, offset = transOprToExpr ins bld addr src3 |> separateMemExpr
+      let n8 = numI32 8 64<rt>
+      address := bReg
+      address := if isPostIndex then address else address .+ offset
+      AST.loadLE 64<rt> address := src1A
+      AST.loadLE 64<rt> (address .+ n8) := src1B
+      AST.loadLE 64<rt> (address .+ dByte) := src2A
+      AST.loadLE 64<rt> (address .+ dByte .+ n8) := src2B
+      if isWBack && isPostIndex then append bld { bReg := address .+ offset }
+      elif isWBack then append bld { bReg := address }
+      else ()
+    | _ ->
+      let src1, src2, (bReg, offset) = transThreeOprsSepMem ins bld addr
+      address := bReg
+      address := if isPostIndex then address else address .+ offset
+      AST.loadLE ins.OprSize address := src1
+      AST.loadLE ins.OprSize (address .+ dByte) := src2
+      if isWBack && isPostIndex then append bld { bReg := address .+ offset }
+      elif isWBack then append bld { bReg := address }
+      else ()
+  }
+
+let str (ins: Instruction) insLen bld addr =
+  lift bld ins insLen {
+    let isWBack, isPostIndex = getIsWBackAndIsPostIndex ins.Operands
+    match ins.OprSize with
+    | 128<rt> ->
+      let struct (src1, src2) = getTwoOprs ins
+      let struct (srcB, srcA) = transOprToExpr128 ins bld addr src1
+      let bReg, offset = transOprToExpr ins bld addr src2 |> separateMemExpr
+      let address = tmpVar bld 64<rt>
+      address := bReg
+      address := if isPostIndex then address else address .+ offset
+      AST.loadLE 64<rt> address := srcA
+      AST.loadLE 64<rt> (address .+ (numI32 8 64<rt>)) := srcB
+      if isWBack && isPostIndex then append bld { bReg := address .+ offset }
+      elif isWBack then append bld { bReg := address }
+      else ()
+    | _ ->
+      let src, (bReg, offset) = transTwoOprsSepMem ins bld addr
+      let address = tmpVar bld 64<rt>
+      let data = tmpVar bld ins.OprSize
+      address := bReg
+      address := if isPostIndex then address else address .+ offset
+      data := src
+      AST.loadLE ins.OprSize address := data
+      if isWBack && isPostIndex then append bld { bReg := address .+ offset }
+      elif isWBack then append bld { bReg := address }
+      else ()
+  }
 
 let strb ins insLen bld addr =
-  let src, (bReg, offset) = transTwoOprsSepMem ins bld addr
-  let isWBack, isPostIndex = getIsWBackAndIsPostIndex ins.Operands
-  let address = tmpVar bld 64<rt>
-  let data = tmpVar bld 8<rt>
-  bld <!-- (ins.Address, insLen)
-  bld <+ (address := bReg)
-  bld <+ (address := if isPostIndex then address else address .+ offset)
-  bld <+ (data := AST.xtlo 8<rt> src)
-  bld <+ (AST.loadLE 8<rt> address := data)
-  if isWBack && isPostIndex then bld <+ (bReg := address .+ offset)
-  elif isWBack then bld <+ (bReg := address)
-  else ()
-  bld --!> insLen
+  lift bld ins insLen {
+    let src, (bReg, offset) = transTwoOprsSepMem ins bld addr
+    let isWBack, isPostIndex = getIsWBackAndIsPostIndex ins.Operands
+    let address = tmpVar bld 64<rt>
+    let data = tmpVar bld 8<rt>
+    address := bReg
+    address := if isPostIndex then address else address .+ offset
+    data := AST.xtlo 8<rt> src
+    AST.loadLE 8<rt> address := data
+    if isWBack && isPostIndex then append bld { bReg := address .+ offset }
+    elif isWBack then append bld { bReg := address }
+    else ()
+  }
 
 let strh ins insLen bld addr =
-  let src, (bReg, offset) = transTwoOprsSepMem ins bld addr
-  let isWBack, isPostIndex = getIsWBackAndIsPostIndex ins.Operands
-  let address = tmpVar bld 64<rt>
-  let data = tmpVar bld 16<rt>
-  bld <!-- (ins.Address, insLen)
-  bld <+ (address := bReg)
-  bld <+ (address := if isPostIndex then address else address .+ offset)
-  bld <+ (data := AST.xtlo 16<rt> src)
-  bld <+ (AST.loadLE 16<rt> address := data)
-  if isWBack && isPostIndex then bld <+ (bReg := address .+ offset)
-  elif isWBack then bld <+ (bReg := address)
-  else ()
-  bld --!> insLen
+  lift bld ins insLen {
+    let src, (bReg, offset) = transTwoOprsSepMem ins bld addr
+    let isWBack, isPostIndex = getIsWBackAndIsPostIndex ins.Operands
+    let address = tmpVar bld 64<rt>
+    let data = tmpVar bld 16<rt>
+    address := bReg
+    address := if isPostIndex then address else address .+ offset
+    data := AST.xtlo 16<rt> src
+    AST.loadLE 16<rt> address := data
+    if isWBack && isPostIndex then append bld { bReg := address .+ offset }
+    elif isWBack then append bld { bReg := address }
+    else ()
+  }
 
 let sttrb ins insLen bld addr =
-  let src, (bReg, offset) = transTwoOprsSepMem ins bld addr
-  let address = tmpVar bld 64<rt>
-  let data = tmpVar bld 8<rt>
-  bld <!-- (ins.Address, insLen)
-  bld <+ (address := bReg)
-  bld <+ (address := address .+ offset)
-  bld <+ (data := AST.xtlo 8<rt> src)
-  bld <+ (AST.loadLE 8<rt> address := data)
-  bld --!> insLen
+  lift bld ins insLen {
+    let src, (bReg, offset) = transTwoOprsSepMem ins bld addr
+    let address = tmpVar bld 64<rt>
+    let data = tmpVar bld 8<rt>
+    address := bReg
+    address := address .+ offset
+    data := AST.xtlo 8<rt> src
+    AST.loadLE 8<rt> address := data
+  }
 
 let stur (ins: Instruction) insLen bld addr =
-  let isWBack, isPostIndex = getIsWBackAndIsPostIndex ins.Operands
-  let address = tmpVar bld 64<rt>
-  let data = tmpVar bld ins.OprSize
-  bld <!-- (ins.Address, insLen)
-  match ins.OprSize with
-  | 128<rt> ->
-    let struct (src1, src2) = getTwoOprs ins
-    let struct (src1B, src1A) = transOprToExpr128 ins bld addr src1
-    let bReg, offset = transOprToExpr ins bld addr src2 |> separateMemExpr
-    bld <+ (address := bReg)
-    bld <+ (address := if isPostIndex then address else address .+ offset)
-    bld <+ (AST.loadLE 64<rt> address := src1A)
-    bld <+ (AST.loadLE 64<rt> (address .+ (numI32 8 64<rt>)) := src1B)
-    if isWBack && isPostIndex then bld <+ (bReg := address .+ offset)
-    elif isWBack then bld <+ (bReg := address)
-    else ()
-  | _ ->
-    let src, (bReg, offset) = transTwoOprsSepMem ins bld addr
-    bld <+ (address := bReg)
-    bld <+ (address := if isPostIndex then address else address .+ offset)
-    bld <+ (data := src)
-    bld <+ (AST.loadLE ins.OprSize address := data)
-    if isWBack && isPostIndex then bld <+ (bReg := address .+ offset)
-    elif isWBack then bld <+ (bReg := address)
-    else ()
-  bld --!> insLen
+  lift bld ins insLen {
+    let isWBack, isPostIndex = getIsWBackAndIsPostIndex ins.Operands
+    let address = tmpVar bld 64<rt>
+    let data = tmpVar bld ins.OprSize
+    match ins.OprSize with
+    | 128<rt> ->
+      let struct (src1, src2) = getTwoOprs ins
+      let struct (src1B, src1A) = transOprToExpr128 ins bld addr src1
+      let bReg, offset = transOprToExpr ins bld addr src2 |> separateMemExpr
+      address := bReg
+      address := if isPostIndex then address else address .+ offset
+      AST.loadLE 64<rt> address := src1A
+      AST.loadLE 64<rt> (address .+ (numI32 8 64<rt>)) := src1B
+      if isWBack && isPostIndex then append bld { bReg := address .+ offset }
+      elif isWBack then append bld { bReg := address }
+      else ()
+    | _ ->
+      let src, (bReg, offset) = transTwoOprsSepMem ins bld addr
+      address := bReg
+      address := if isPostIndex then address else address .+ offset
+      data := src
+      AST.loadLE ins.OprSize address := data
+      if isWBack && isPostIndex then append bld { bReg := address .+ offset }
+      elif isWBack then append bld { bReg := address }
+      else ()
+  }
 
 let sturb ins insLen bld addr =
-  let src, (bReg, offset) = transTwoOprsSepMem ins bld addr
-  let address = tmpVar bld 64<rt>
-  let data = tmpVar bld 8<rt>
-  bld <!-- (ins.Address, insLen)
-  bld <+ (address := bReg)
-  bld <+ (address := address .+ offset)
-  bld <+ (data := AST.xtlo 8<rt> src)
-  bld <+ (AST.loadLE 8<rt> address := data)
-  bld --!> insLen
+  lift bld ins insLen {
+    let src, (bReg, offset) = transTwoOprsSepMem ins bld addr
+    let address = tmpVar bld 64<rt>
+    let data = tmpVar bld 8<rt>
+    address := bReg
+    address := address .+ offset
+    data := AST.xtlo 8<rt> src
+    AST.loadLE 8<rt> address := data
+  }
 
 let sturh ins insLen bld addr =
-  let src, (bReg, offset) = transTwoOprsSepMem ins bld addr
-  let address = tmpVar bld 64<rt>
-  let data = tmpVar bld 16<rt>
-  bld <!-- (ins.Address, insLen)
-  bld <+ (address := bReg)
-  bld <+ (address := address .+ offset)
-  bld <+ (data := AST.xtlo 16<rt> src)
-  bld <+ (AST.loadLE 16<rt> address := data)
-  bld --!> insLen
+  lift bld ins insLen {
+    let src, (bReg, offset) = transTwoOprsSepMem ins bld addr
+    let address = tmpVar bld 64<rt>
+    let data = tmpVar bld 16<rt>
+    address := bReg
+    address := address .+ offset
+    data := AST.xtlo 16<rt> src
+    AST.loadLE 16<rt> address := data
+  }
 
 let sub (ins: Instruction) insLen bld addr =
-  bld <!-- (ins.Address, insLen)
-  match ins.Operands with
-  | TwoOperands(OprSIMD(ScalarReg _) as dst, _) ->
-    let struct (eSize, _, _) = getElemDataSzAndElems dst
-    let _, src = transTwoOprs ins bld addr
-    dstAssignScalar ins bld addr dst (AST.neg src) eSize
-  | TwoOperands(OprSIMD(VecReg _) as o1, o2) ->
-    let struct (dstB, dstA) = transOprToExpr128 ins bld addr o1
-    let struct (eSize, dataSize, elements) = getElemDataSzAndElems o2
-    let src = transSIMDOprToExpr bld eSize dataSize elements o2
-    let result = Array.map (AST.neg) src
-    dstAssignForSIMD dstA dstB result dataSize elements bld
-  | ThreeOperands(OprSIMD(ScalarReg _) as dst, _, _)
-      when ins.Opcode = Opcode.SUB ->
-    let struct (eSize, _, _) = getElemDataSzAndElems dst
-    let _, src1, src2 = transThreeOprs ins bld addr
-    dstAssignScalar ins bld addr dst (src1 .- src2) eSize
-  | ThreeOperands(OprSIMD(VecReg _) as o1, o2, o3)
-      when ins.Opcode = Opcode.SUB ->
-    let struct (dstB, dstA) = transOprToExpr128 ins bld addr o1
-    let struct (eSize, dataSize, elements) = getElemDataSzAndElems o1
-    let src1 = transSIMDOprToExpr bld eSize dataSize elements o2
-    let src2 = transSIMDOprToExpr bld eSize dataSize elements o3
-    let result = Array.map2 (.-) src1 src2
-    dstAssignForSIMD dstA dstB result dataSize elements bld
-  | _ ->
-    let dst, src1, src2 = transOprToExprOfSUB ins bld addr
-    let result, _ = addWithCarry src1 src2 (AST.num1 ins.OprSize) ins.OprSize
-    dstAssign ins.OprSize dst result bld
-  bld --!> insLen
+  lift bld ins insLen {
+    match ins.Operands with
+    | TwoOperands(OprSIMD(ScalarReg _) as dst, _) ->
+      let struct (eSize, _, _) = getElemDataSzAndElems dst
+      let _, src = transTwoOprs ins bld addr
+      dstAssignScalar ins bld addr dst (AST.neg src) eSize
+    | TwoOperands(OprSIMD(VecReg _) as o1, o2) ->
+      let struct (dstB, dstA) = transOprToExpr128 ins bld addr o1
+      let struct (eSize, dataSize, elements) = getElemDataSzAndElems o2
+      let src = transSIMDOprToExpr bld eSize dataSize elements o2
+      let result = Array.map (AST.neg) src
+      dstAssignForSIMD dstA dstB result dataSize elements bld
+    | ThreeOperands(OprSIMD(ScalarReg _) as dst, _, _)
+        when ins.Opcode = Opcode.SUB ->
+      let struct (eSize, _, _) = getElemDataSzAndElems dst
+      let _, src1, src2 = transThreeOprs ins bld addr
+      dstAssignScalar ins bld addr dst (src1 .- src2) eSize
+    | ThreeOperands(OprSIMD(VecReg _) as o1, o2, o3)
+        when ins.Opcode = Opcode.SUB ->
+      let struct (dstB, dstA) = transOprToExpr128 ins bld addr o1
+      let struct (eSize, dataSize, elements) = getElemDataSzAndElems o1
+      let src1 = transSIMDOprToExpr bld eSize dataSize elements o2
+      let src2 = transSIMDOprToExpr bld eSize dataSize elements o3
+      let result = Array.map2 (.-) src1 src2
+      dstAssignForSIMD dstA dstB result dataSize elements bld
+    | _ ->
+      let dst, src1, src2 = transOprToExprOfSUB ins bld addr
+      let result, _ = addWithCarry src1 src2 (AST.num1 ins.OprSize) ins.OprSize
+      dstAssign ins.OprSize dst result bld
+  }
 
 let subs (ins: Instruction) insLen bld addr =
-  bld <!-- (ins.Address, insLen)
-  let dst, src1, src2 = transOprToExprOfSUBS ins bld addr
-  let result, (n, z, c, v) =
-    addWithCarry src1 src2 (AST.num1 ins.OprSize) ins.OprSize
-  bld <+ (regVar bld R.N := n)
-  bld <+ (regVar bld R.Z := z)
-  bld <+ (regVar bld R.C := c)
-  bld <+ (regVar bld R.V := v)
-  dstAssign ins.OprSize dst result bld
-  bld --!> insLen
+  lift bld ins insLen {
+    let dst, src1, src2 = transOprToExprOfSUBS ins bld addr
+    let result, (n, z, c, v) =
+      addWithCarry src1 src2 (AST.num1 ins.OprSize) ins.OprSize
+    regVar bld R.N := n
+    regVar bld R.Z := z
+    regVar bld R.C := c
+    regVar bld R.V := v
+    dstAssign ins.OprSize dst result bld
+  }
 
 let svc (ins: Instruction) insLen bld =
-  let n =
-    match ins.Operands with
-    | OneOperand(OprImm n) -> int n
-    | _ -> raise InvalidOperandException
-  bld <!-- (ins.Address, insLen)
-  bld <+ (AST.sideEffect (Interrupt n))
-  bld --!> insLen
+  lift bld ins insLen {
+    let n =
+      match ins.Operands with
+      | OneOperand(OprImm n) -> int n
+      | _ -> raise InvalidOperandException
+    AST.sideEffect (Interrupt n)
+  }
 
 let sxtb ins insLen bld addr =
   let struct (dst, src) = getTwoOprs ins
@@ -2881,283 +2934,285 @@ let private tableRegsOf ins bld addr src1 =
     raise InvalidOperandException
 
 let tbl (ins: Instruction) insLen bld addr = (* FIMXE *)
-  bld <!-- (ins.Address, insLen)
-  let struct (dst, src1, src2) = getThreeOprs ins
-  let struct (eSize, dataSize, _) = getElemDataSzAndElems dst
-  let elements = dataSize / 8<rt>
-  let struct (dstB, dstA) = transOprToExpr128 ins bld addr dst
-  let src = tableRegsOf ins bld addr src1
-  let indices = transSIMDOprToExpr bld 8<rt> dataSize elements src2
-  let n8 = numI32 8 8<rt>
-  let nFF = numI32 -1 8<rt> |> AST.zext 64<rt>
-  let zeros = tmpVar bld eSize
-  bld <+ (zeros := AST.num0 eSize)
-  let inline elem expr idx =
-    let idx = idx .% n8
-    ((expr >> (AST.zext 64<rt> (idx .* n8))) .& nFF) |> AST.xtlo 8<rt>
-  let lenExpr = tmpVar bld 8<rt>
-  let len = Array.length src
-  bld <+ (lenExpr := numI32 (len / 2 * 16) 8<rt>)
-  let inline limit i expr index =
-    let dst =
-      if i < 8 then (dstA >> (numI32 (i * 8) 64<rt>)) .& nFF
-      else (dstB >> (numI32 (i * 8) 64<rt>)) .& nFF
-      |> AST.xtlo 8<rt>
-    AST.ite (index .< lenExpr) (elem expr index) dst
-  let getElem i idx =
-    if len = 2 || len = 4 || len = 6 || len = 8 then
-      (* each register covers eight indices, and past the last of them the
-         lookup gives zero *)
-      Array.foldBack (fun k rest ->
-        AST.ite (idx .< numI32 (8 * (k + 1)) 8<rt>) (limit i src[k] idx) rest
-      ) [| 0 .. len - 1 |] zeros
-    else
-      failwith "Invalid number of registers."
-  let result = Array.init elements (fun _ -> tmpVar bld eSize)
-  Array.mapi getElem indices
-  |> Array.iter2 (fun e1 e2 -> bld <+ (e1 := e2)) result
-  dstAssignForSIMD dstA dstB result dataSize elements bld
-  bld --!> insLen
+  lift bld ins insLen {
+    let struct (dst, src1, src2) = getThreeOprs ins
+    let struct (eSize, dataSize, _) = getElemDataSzAndElems dst
+    let elements = dataSize / 8<rt>
+    let struct (dstB, dstA) = transOprToExpr128 ins bld addr dst
+    let src = tableRegsOf ins bld addr src1
+    let indices = transSIMDOprToExpr bld 8<rt> dataSize elements src2
+    let n8 = numI32 8 8<rt>
+    let nFF = numI32 -1 8<rt> |> AST.zext 64<rt>
+    let zeros = tmpVar bld eSize
+    zeros := AST.num0 eSize
+    let inline elem expr idx =
+      let idx = idx .% n8
+      ((expr >> (AST.zext 64<rt> (idx .* n8))) .& nFF) |> AST.xtlo 8<rt>
+    let lenExpr = tmpVar bld 8<rt>
+    let len = Array.length src
+    lenExpr := numI32 (len / 2 * 16) 8<rt>
+    let inline limit i expr index =
+      let dst =
+        if i < 8 then (dstA >> (numI32 (i * 8) 64<rt>)) .& nFF
+        else (dstB >> (numI32 (i * 8) 64<rt>)) .& nFF
+        |> AST.xtlo 8<rt>
+      AST.ite (index .< lenExpr) (elem expr index) dst
+    let getElem i idx =
+      if len = 2 || len = 4 || len = 6 || len = 8 then
+        (* each register covers eight indices, and past the last of them the
+           lookup gives zero *)
+        Array.foldBack (fun k rest ->
+          AST.ite (idx .< numI32 (8 * (k + 1)) 8<rt>) (limit i src[k] idx) rest
+        ) [| 0 .. len - 1 |] zeros
+      else
+        failwith "Invalid number of registers."
+    let result = Array.init elements (fun _ -> tmpVar bld eSize)
+    Array.mapi getElem indices
+    |> Array.iter2 (fun e1 e2 -> append bld { e1 := e2 }) result
+    dstAssignForSIMD dstA dstB result dataSize elements bld
+  }
 
 let tbnz ins insLen bld addr =
-  let test, imm, label = transThreeOprs ins bld addr
-  let pc = numU64 (ins:Instruction).Address bld.RegType
-  let fall = pc .+ numU32 insLen 64<rt>
-  let cond = (test >> imm .& AST.num1 ins.OprSize) == AST.num1 ins.OprSize
-  bld <!-- (ins.Address, insLen)
-  bld <+ (AST.intercjmp cond (pc .+ label) fall)
-  bld
+  liftOpen bld ins insLen {
+    let test, imm, label = transThreeOprs ins bld addr
+    let pc = numU64 (ins:Instruction).Address bld.RegType
+    let fall = pc .+ numU32 insLen 64<rt>
+    let cond = (test >> imm .& AST.num1 ins.OprSize) == AST.num1 ins.OprSize
+    AST.intercjmp cond (pc .+ label) fall
+  }
 
 let tbz ins insLen bld addr =
-  let test, imm, label = transThreeOprs ins bld addr
-  let pc = numU64 (ins:Instruction).Address bld.RegType
-  let fall = pc .+ numU32 insLen 64<rt>
-  let cond = (test >> imm .& AST.num1 ins.OprSize) == AST.num0 ins.OprSize
-  bld <!-- (ins.Address, insLen)
-  bld <+ (AST.intercjmp cond (pc .+ label) fall)
-  bld
+  liftOpen bld ins insLen {
+    let test, imm, label = transThreeOprs ins bld addr
+    let pc = numU64 (ins:Instruction).Address bld.RegType
+    let fall = pc .+ numU32 insLen 64<rt>
+    let cond = (test >> imm .& AST.num1 ins.OprSize) == AST.num0 ins.OprSize
+    AST.intercjmp cond (pc .+ label) fall
+  }
 
 let trn1 ins insLen bld addr =
-  let struct (o1, o2, o3) = getThreeOprs ins
-  let struct (eSize, dataSize, elements) = getElemDataSzAndElems o1
-  let struct (dstB, dstA) = transOprToExpr128 ins bld addr o1
-  let src1 = transSIMDOprToExpr bld eSize dataSize elements o2
-  let src2 = transSIMDOprToExpr bld eSize dataSize elements o3
-  let result = Array.init elements (fun _ -> tmpVar bld eSize)
-  bld <!-- (ins.Address, insLen)
-  Array.iteri (fun i r ->
-    bld <+ (r := if i % 2 = 0 then src1[i] else src2[i - 1])) result
-  dstAssignForSIMD dstA dstB result dataSize elements bld
-  bld --!> insLen
+  lift bld ins insLen {
+    let struct (o1, o2, o3) = getThreeOprs ins
+    let struct (eSize, dataSize, elements) = getElemDataSzAndElems o1
+    let struct (dstB, dstA) = transOprToExpr128 ins bld addr o1
+    let src1 = transSIMDOprToExpr bld eSize dataSize elements o2
+    let src2 = transSIMDOprToExpr bld eSize dataSize elements o3
+    let result = Array.init elements (fun _ -> tmpVar bld eSize)
+    Array.iteri (fun i r ->
+      append bld { r := if i % 2 = 0 then src1[i] else src2[i - 1] }) result
+    dstAssignForSIMD dstA dstB result dataSize elements bld
+  }
 
 let trn2 ins insLen bld addr =
-  let struct (o1, o2, o3) = getThreeOprs ins
-  let struct (eSize, dataSize, elements) = getElemDataSzAndElems o1
-  let struct (dstB, dstA) = transOprToExpr128 ins bld addr o1
-  let src1 = transSIMDOprToExpr bld eSize dataSize elements o2
-  let src2 = transSIMDOprToExpr bld eSize dataSize elements o3
-  let result = Array.init elements (fun _ -> tmpVar bld eSize)
-  bld <!-- (ins.Address, insLen)
-  Array.iteri (fun i r ->
-    bld <+ (r := if i % 2 = 1 then src2[i] else src1[i + 1])) result
-  dstAssignForSIMD dstA dstB result dataSize elements bld
-  bld --!> insLen
+  lift bld ins insLen {
+    let struct (o1, o2, o3) = getThreeOprs ins
+    let struct (eSize, dataSize, elements) = getElemDataSzAndElems o1
+    let struct (dstB, dstA) = transOprToExpr128 ins bld addr o1
+    let src1 = transSIMDOprToExpr bld eSize dataSize elements o2
+    let src2 = transSIMDOprToExpr bld eSize dataSize elements o3
+    let result = Array.init elements (fun _ -> tmpVar bld eSize)
+    Array.iteri (fun i r ->
+      append bld { r := if i % 2 = 1 then src2[i] else src1[i + 1] }) result
+    dstAssignForSIMD dstA dstB result dataSize elements bld
+  }
 
 let tst ins insLen bld addr =
-  let src1, src2 = transOprToExprOfTST ins bld addr
-  let result = tmpVar bld ins.OprSize
-  bld <!-- (ins.Address, insLen)
-  bld <+ (result := src1 .& src2)
-  bld <+ (regVar bld R.N := AST.xthi 1<rt> result)
-  bld <+ (regVar bld R.Z := result == AST.num0 ins.OprSize)
-  bld <+ (regVar bld R.C := AST.b0)
-  bld <+ (regVar bld R.V := AST.b0)
-  bld --!> insLen
+  lift bld ins insLen {
+    let src1, src2 = transOprToExprOfTST ins bld addr
+    let result = tmpVar bld ins.OprSize
+    result := src1 .& src2
+    regVar bld R.N := AST.xthi 1<rt> result
+    regVar bld R.Z := result == AST.num0 ins.OprSize
+    regVar bld R.C := AST.b0
+    regVar bld R.V := AST.b0
+  }
 
 let uabal (ins: Instruction) insLen bld addr =
-  bld <!-- (ins.Address, insLen)
-  let struct (dst, src1, src2) = getThreeOprs ins
-  let struct (eSize, part, _) = getElemDataSzAndElems src1
-  let elements = 64<rt> / eSize
-  let dblESz = eSize * 2
-  let struct (dstB, dstA) = transOprToExpr128 ins bld addr dst
-  let dst = transSIMDOprToExpr bld dblESz 128<rt> elements dst
-  let s1 = transSIMDOprVPart bld eSize part src1
-  let s2 = transSIMDOprVPart bld eSize part src2
-  let result = Array.init elements (fun _ -> tmpVar bld dblESz)
-  Array.iter2 (fun r e -> bld <+ (r := e)) result dst
-  let dblExt e = AST.zext dblESz e
-  Array.map2 (fun e1 e2 ->
-    AST.ite (e1 .>= e2) (dblExt e1 .- dblExt e2) (dblExt e2 .- dblExt e1)) s1 s2
-  |> Array.iter2 (fun r absDiff -> bld <+ (r := r .+ absDiff)) result
-  dstAssignForSIMD dstA dstB result 128<rt> elements bld
-  bld --!> insLen
+  lift bld ins insLen {
+    let struct (dst, src1, src2) = getThreeOprs ins
+    let struct (eSize, part, _) = getElemDataSzAndElems src1
+    let elements = 64<rt> / eSize
+    let dblESz = eSize * 2
+    let struct (dstB, dstA) = transOprToExpr128 ins bld addr dst
+    let dst = transSIMDOprToExpr bld dblESz 128<rt> elements dst
+    let s1 = transSIMDOprVPart bld eSize part src1
+    let s2 = transSIMDOprVPart bld eSize part src2
+    let result = Array.init elements (fun _ -> tmpVar bld dblESz)
+    Array.iter2 (fun r e -> append bld { r := e }) result dst
+    let dblExt e = AST.zext dblESz e
+    Array.map2 (fun e1 e2 ->
+      AST.ite (e1 .>= e2) (dblExt e1 .- dblExt e2) (dblExt e2 .- dblExt e1))
+      s1 s2
+    |> Array.iter2 (fun r absDiff -> append bld { r := r .+ absDiff }) result
+    dstAssignForSIMD dstA dstB result 128<rt> elements bld
+  }
 
 let uabdl (ins: Instruction) insLen bld addr =
-  bld <!-- (ins.Address, insLen)
-  let struct (dst, src1, src2) = getThreeOprs ins
-  let struct (eSize, part, _) = getElemDataSzAndElems src1
-  let elements = 64<rt> / eSize
-  let dblESz = eSize * 2
-  let struct (dstB, dstA) = transOprToExpr128 ins bld addr dst
-  let s1 = transSIMDOprVPart bld eSize part src1
-  let s2 = transSIMDOprVPart bld eSize part src2
-  let result = Array.init elements (fun _ -> tmpVar bld dblESz)
-  let dblExt e = AST.zext dblESz e
-  Array.map2 (fun e1 e2 ->
-    AST.ite (e1 .>= e2) (dblExt e1 .- dblExt e2) (dblExt e2 .- dblExt e1)) s1 s2
-  |> Array.iter2 (fun r absDiff -> bld <+ (r := absDiff)) result
-  dstAssignForSIMD dstA dstB result 128<rt> elements bld
-  bld --!> insLen
+  lift bld ins insLen {
+    let struct (dst, src1, src2) = getThreeOprs ins
+    let struct (eSize, part, _) = getElemDataSzAndElems src1
+    let elements = 64<rt> / eSize
+    let dblESz = eSize * 2
+    let struct (dstB, dstA) = transOprToExpr128 ins bld addr dst
+    let s1 = transSIMDOprVPart bld eSize part src1
+    let s2 = transSIMDOprVPart bld eSize part src2
+    let result = Array.init elements (fun _ -> tmpVar bld dblESz)
+    let dblExt e = AST.zext dblESz e
+    Array.map2 (fun e1 e2 ->
+      AST.ite (e1 .>= e2) (dblExt e1 .- dblExt e2) (dblExt e2 .- dblExt e1))
+      s1 s2
+    |> Array.iter2 (fun r absDiff -> append bld { r := absDiff }) result
+    dstAssignForSIMD dstA dstB result 128<rt> elements bld
+  }
 
 let uadalp ins insLen bld addr =
-  let struct (o1, src) = getTwoOprs ins
-  let struct (eSize, dataSize, elements) = getElemDataSzAndElems src
-  bld <!-- (ins.Address, insLen)
-  let dst = transSIMDOprToExpr bld (eSize * 2) dataSize (elements / 2) o1
-  let src = transSIMDOprToExpr bld eSize dataSize elements src
-            |> Array.map (AST.zext (2 * eSize))
-  let result = Array.init (elements / 2) (fun _ -> tmpVar bld (2 * eSize))
-  Array.iter2 (fun dst res -> bld <+ (res := dst)) dst result
-  let sum = src |> Array.chunkBySize 2 |> Array.map (fun e -> e[0] .+ e[1])
-  Array.iter2 (fun r s -> bld <+ (r := r .+ s)) result sum
-  let elems = elements / 4
-  let srcB =
-    if dataSize = 128<rt> then AST.revConcat (Array.sub result elems elems)
-    else AST.num0 64<rt>
-  let srcA =
-    if dataSize = 128<rt> then AST.revConcat (Array.sub result 0 elems)
-    else AST.revConcat result
-  dstAssign128 ins bld addr o1 srcA srcB dataSize
-  bld --!> insLen
+  lift bld ins insLen {
+    let struct (o1, src) = getTwoOprs ins
+    let struct (eSize, dataSize, elements) = getElemDataSzAndElems src
+    let dst = transSIMDOprToExpr bld (eSize * 2) dataSize (elements / 2) o1
+    let src = transSIMDOprToExpr bld eSize dataSize elements src
+              |> Array.map (AST.zext (2 * eSize))
+    let result = Array.init (elements / 2) (fun _ -> tmpVar bld (2 * eSize))
+    Array.iter2 (fun dst res -> append bld { res := dst }) dst result
+    let sum = src |> Array.chunkBySize 2 |> Array.map (fun e -> e[0] .+ e[1])
+    Array.iter2 (fun r s -> append bld { r := r .+ s }) result sum
+    let elems = elements / 4
+    let srcB =
+      if dataSize = 128<rt> then AST.revConcat (Array.sub result elems elems)
+      else AST.num0 64<rt>
+    let srcA =
+      if dataSize = 128<rt> then AST.revConcat (Array.sub result 0 elems)
+      else AST.revConcat result
+    dstAssign128 ins bld addr o1 srcA srcB dataSize
+  }
 
 let saddl (ins: Instruction) insLen bld addr =
-  bld <!-- (ins.Address, insLen)
-  let struct (dst, src1, src2) = getThreeOprs ins
-  let struct (eSize, part, _) = getElemDataSzAndElems src2
-  let elements = 64<rt> / eSize
-  let dblESz = eSize * 2
-  let struct (dstB, dstA) = transOprToExpr128 ins bld addr dst
-  let src1 = transSIMDOprVPart bld eSize part src1
-  let src2 = transSIMDOprVPart bld eSize part src2
-  let result = Array.init elements (fun _ -> tmpVar bld dblESz)
-  Array.map2 (fun e1 e2 -> AST.sext dblESz e1 .+ AST.sext dblESz e2) src1 src2
-  |> Array.iter2 (fun r e -> bld <+ (r := e)) result
-  dstAssignForSIMD dstA dstB result 128<rt> elements bld
-  bld --!> insLen
+  lift bld ins insLen {
+    let struct (dst, src1, src2) = getThreeOprs ins
+    let struct (eSize, part, _) = getElemDataSzAndElems src2
+    let elements = 64<rt> / eSize
+    let dblESz = eSize * 2
+    let struct (dstB, dstA) = transOprToExpr128 ins bld addr dst
+    let src1 = transSIMDOprVPart bld eSize part src1
+    let src2 = transSIMDOprVPart bld eSize part src2
+    let result = Array.init elements (fun _ -> tmpVar bld dblESz)
+    Array.map2 (fun e1 e2 -> AST.sext dblESz e1 .+ AST.sext dblESz e2) src1 src2
+    |> Array.iter2 (fun r e -> append bld { r := e }) result
+    dstAssignForSIMD dstA dstB result 128<rt> elements bld
+  }
 
 let saddw (ins: Instruction) insLen bld addr =
-  bld <!-- (ins.Address, insLen)
-  let struct (dst, src1, src2) = getThreeOprs ins
-  let struct (eSize, part, _) = getElemDataSzAndElems src2
-  let elements = 64<rt> / eSize
-  let dblESz = eSize * 2
-  let struct (dstB, dstA) = transOprToExpr128 ins bld addr dst
-  let src1 = transSIMDOprToExpr bld dblESz 128<rt> elements src1
-  let src2 = transSIMDOprVPart bld eSize part src2
-  let result = Array.init elements (fun _ -> tmpVar bld dblESz)
-  Array.map2 (fun e1 e2 -> e1 .+ AST.sext dblESz e2) src1 src2
-  |> Array.iter2 (fun r e -> bld <+ (r := e)) result
-  dstAssignForSIMD dstA dstB result 128<rt> elements bld
-  bld --!> insLen
+  lift bld ins insLen {
+    let struct (dst, src1, src2) = getThreeOprs ins
+    let struct (eSize, part, _) = getElemDataSzAndElems src2
+    let elements = 64<rt> / eSize
+    let dblESz = eSize * 2
+    let struct (dstB, dstA) = transOprToExpr128 ins bld addr dst
+    let src1 = transSIMDOprToExpr bld dblESz 128<rt> elements src1
+    let src2 = transSIMDOprVPart bld eSize part src2
+    let result = Array.init elements (fun _ -> tmpVar bld dblESz)
+    Array.map2 (fun e1 e2 -> e1 .+ AST.sext dblESz e2) src1 src2
+    |> Array.iter2 (fun r e -> append bld { r := e }) result
+    dstAssignForSIMD dstA dstB result 128<rt> elements bld
+  }
 
 let saddlp ins insLen bld addr =
-  let struct (dst, src) = getTwoOprs ins
-  let struct (eSize, dataSize, elements) = getElemDataSzAndElems src
-  let sumArr = Array.init (elements / 2) (fun _ -> tmpVar bld (2 * eSize))
-  let struct (dstB, dstA) = transOprToExpr128 ins bld addr dst
-  let srcArr =
-    transSIMDOprToExpr bld eSize dataSize elements src
-    |> Array.map (AST.sext (2 * eSize)) |> Array.chunkBySize 2
-    |> Array.map (fun e -> e[0] .+ e[1])
-  bld <!-- (ins.Address, insLen)
-  Array.iter2 (fun sum src -> bld <+ (sum := src)) sumArr srcArr
-  dstAssignForSIMD dstA dstB sumArr dataSize (elements / 2) bld
-  bld --!> insLen
+  lift bld ins insLen {
+    let struct (dst, src) = getTwoOprs ins
+    let struct (eSize, dataSize, elements) = getElemDataSzAndElems src
+    let sumArr = Array.init (elements / 2) (fun _ -> tmpVar bld (2 * eSize))
+    let struct (dstB, dstA) = transOprToExpr128 ins bld addr dst
+    let srcArr =
+      transSIMDOprToExpr bld eSize dataSize elements src
+      |> Array.map (AST.sext (2 * eSize)) |> Array.chunkBySize 2
+      |> Array.map (fun e -> e[0] .+ e[1])
+    Array.iter2 (fun sum src -> append bld { sum := src }) sumArr srcArr
+    dstAssignForSIMD dstA dstB sumArr dataSize (elements / 2) bld
+  }
 
 let saddlv ins insLen bld addr =
-  let struct (dst, src) = getTwoOprs ins
-  let struct (eSize, dataSize, elements) = getElemDataSzAndElems src
-  let src =
-    transSIMDOprToExpr bld eSize dataSize elements src
-    |> Array.map (AST.sext (2 * eSize))
-  let sum = tmpVar bld (2 * eSize)
-  bld <!-- (ins.Address, insLen)
-  bld <+ (sum := src[0])
-  Array.sub src 1 (elements - 1)
-  |> Array.iter (fun e -> bld <+ (sum := sum .+ e))
-  dstAssignScalar ins bld addr dst sum (2 * eSize)
-  bld --!> insLen
+  lift bld ins insLen {
+    let struct (dst, src) = getTwoOprs ins
+    let struct (eSize, dataSize, elements) = getElemDataSzAndElems src
+    let src =
+      transSIMDOprToExpr bld eSize dataSize elements src
+      |> Array.map (AST.sext (2 * eSize))
+    let sum = tmpVar bld (2 * eSize)
+    sum := src[0]
+    Array.sub src 1 (elements - 1)
+    |> Array.iter (fun e -> append bld { sum := sum .+ e })
+    dstAssignScalar ins bld addr dst sum (2 * eSize)
+  }
 
 let uaddl (ins: Instruction) insLen bld addr =
-  bld <!-- (ins.Address, insLen)
-  let struct (dst, src1, src2) = getThreeOprs ins
-  let struct (eSize, part, _) = getElemDataSzAndElems src2
-  let elements = 64<rt> / eSize
-  let dblESz = eSize * 2
-  let struct (dstB, dstA) = transOprToExpr128 ins bld addr dst
-  let src1 = transSIMDOprVPart bld eSize part src1
-  let src2 = transSIMDOprVPart bld eSize part src2
-  let result = Array.init elements (fun _ -> tmpVar bld dblESz)
-  Array.map2 (fun e1 e2 -> AST.zext dblESz e1 .+ AST.zext dblESz e2) src1 src2
-  |> Array.iter2 (fun r e -> bld <+ (r := e)) result
-  dstAssignForSIMD dstA dstB result 128<rt> elements bld
-  bld --!> insLen
+  lift bld ins insLen {
+    let struct (dst, src1, src2) = getThreeOprs ins
+    let struct (eSize, part, _) = getElemDataSzAndElems src2
+    let elements = 64<rt> / eSize
+    let dblESz = eSize * 2
+    let struct (dstB, dstA) = transOprToExpr128 ins bld addr dst
+    let src1 = transSIMDOprVPart bld eSize part src1
+    let src2 = transSIMDOprVPart bld eSize part src2
+    let result = Array.init elements (fun _ -> tmpVar bld dblESz)
+    Array.map2 (fun e1 e2 -> AST.zext dblESz e1 .+ AST.zext dblESz e2) src1 src2
+    |> Array.iter2 (fun r e -> append bld { r := e }) result
+    dstAssignForSIMD dstA dstB result 128<rt> elements bld
+  }
 
 let uaddw (ins: Instruction) insLen bld addr =
-  bld <!-- (ins.Address, insLen)
-  let struct (dst, src1, src2) = getThreeOprs ins
-  let struct (eSize, part, _) = getElemDataSzAndElems src2
-  let elements = 64<rt> / eSize
-  let dblESz = eSize * 2
-  let struct (dstB, dstA) = transOprToExpr128 ins bld addr dst
-  let src1 = transSIMDOprToExpr bld dblESz 128<rt> elements src1
-  let src2 = transSIMDOprVPart bld eSize part src2
-  let result = Array.init elements (fun _ -> tmpVar bld dblESz)
-  Array.map2 (fun e1 e2 -> e1 .+ AST.zext dblESz e2) src1 src2
-  |> Array.iter2 (fun r e -> bld <+ (r := e)) result
-  dstAssignForSIMD dstA dstB result 128<rt> elements bld
-  bld --!> insLen
+  lift bld ins insLen {
+    let struct (dst, src1, src2) = getThreeOprs ins
+    let struct (eSize, part, _) = getElemDataSzAndElems src2
+    let elements = 64<rt> / eSize
+    let dblESz = eSize * 2
+    let struct (dstB, dstA) = transOprToExpr128 ins bld addr dst
+    let src1 = transSIMDOprToExpr bld dblESz 128<rt> elements src1
+    let src2 = transSIMDOprVPart bld eSize part src2
+    let result = Array.init elements (fun _ -> tmpVar bld dblESz)
+    Array.map2 (fun e1 e2 -> e1 .+ AST.zext dblESz e2) src1 src2
+    |> Array.iter2 (fun r e -> append bld { r := e }) result
+    dstAssignForSIMD dstA dstB result 128<rt> elements bld
+  }
 
 let uaddlp ins insLen bld addr =
-  let struct (dst, src) = getTwoOprs ins
-  let struct (eSize, dataSize, elements) = getElemDataSzAndElems src
-  let sumArr = Array.init (elements / 2) (fun _ -> tmpVar bld (2 * eSize))
-  let struct (dstB, dstA) = transOprToExpr128 ins bld addr dst
-  let srcArr = transSIMDOprToExpr bld eSize dataSize elements src
-            |> Array.map (AST.zext (2 * eSize))
-            |> Array.chunkBySize 2
-            |> Array.map (fun e -> e[0] .+ e[1])
-  bld <!-- (ins.Address, insLen)
-  Array.iter2 (fun sum src -> bld <+ (sum := src)) sumArr srcArr
-  dstAssignForSIMD dstA dstB sumArr dataSize (elements / 2) bld
-  bld --!> insLen
+  lift bld ins insLen {
+    let struct (dst, src) = getTwoOprs ins
+    let struct (eSize, dataSize, elements) = getElemDataSzAndElems src
+    let sumArr = Array.init (elements / 2) (fun _ -> tmpVar bld (2 * eSize))
+    let struct (dstB, dstA) = transOprToExpr128 ins bld addr dst
+    let srcArr = transSIMDOprToExpr bld eSize dataSize elements src
+              |> Array.map (AST.zext (2 * eSize))
+              |> Array.chunkBySize 2
+              |> Array.map (fun e -> e[0] .+ e[1])
+    Array.iter2 (fun sum src -> append bld { sum := src }) sumArr srcArr
+    dstAssignForSIMD dstA dstB sumArr dataSize (elements / 2) bld
+  }
 
 let uaddlv ins insLen bld addr =
-  let struct (dst, src) = getTwoOprs ins
-  let struct (eSize, dataSize, elements) = getElemDataSzAndElems src
-  let src = transSIMDOprToExpr bld eSize dataSize elements src
-            |> Array.map (AST.zext (2 * eSize))
-  let sum = tmpVar bld (2 * eSize)
-  bld <!-- (ins.Address, insLen)
-  bld <+ (sum := src[0])
-  Array.sub src 1 (elements - 1)
-  |> Array.iter (fun e -> bld <+ (sum := sum .+ e))
-  dstAssignScalar ins bld addr dst sum (2 * eSize)
-  bld --!> insLen
+  lift bld ins insLen {
+    let struct (dst, src) = getTwoOprs ins
+    let struct (eSize, dataSize, elements) = getElemDataSzAndElems src
+    let src = transSIMDOprToExpr bld eSize dataSize elements src
+              |> Array.map (AST.zext (2 * eSize))
+    let sum = tmpVar bld (2 * eSize)
+    sum := src[0]
+    Array.sub src 1 (elements - 1)
+    |> Array.iter (fun e -> append bld { sum := sum .+ e })
+    dstAssignScalar ins bld addr dst sum (2 * eSize)
+  }
 
 let ubfm (ins: Instruction) insLen bld addr dst src immr imms =
-  let oSz = ins.OprSize
-  let width = oprSzToExpr oSz
-  let struct (wmask, tmask) = decodeBitMasks immr imms (int oSz)
-  let dst = transOprToExpr ins bld addr dst
-  let src = transOprToExpr ins bld addr src
-  let immr = transOprToExpr ins bld addr immr
-  let bot = tmpVar bld oSz
-  bld <!-- (ins.Address, insLen)
-  bld <+ (bot := rorForIR src immr width .& (numI64 wmask oSz))
-  dstAssign ins.OprSize dst (bot .& (numI64 tmask oSz)) bld
-  bld --!> insLen
+  lift bld ins insLen {
+    let oSz = ins.OprSize
+    let width = oprSzToExpr oSz
+    let struct (wmask, tmask) = decodeBitMasks immr imms (int oSz)
+    let dst = transOprToExpr ins bld addr dst
+    let src = transOprToExpr ins bld addr src
+    let immr = transOprToExpr ins bld addr immr
+    let bot = tmpVar bld oSz
+    bot := rorForIR src immr width .& (numI64 wmask oSz)
+    dstAssign ins.OprSize dst (bot .& (numI64 tmask oSz)) bld
+  }
 
 let ubfiz ins insLen bld addr =
   let struct (dst, src, lsb, width) = getFourOprs ins
@@ -3171,74 +3226,74 @@ let ubfx ins insLen bld addr =
   ubfm ins insLen bld addr dst src lsb imms
 
 let udiv ins insLen bld addr =
-  let dst, src1, src2 = transThreeOprs ins bld addr
-  let num0 = AST.num0 ins.OprSize
-  let cond1 = AST.eq src2 num0
-  let divSrc = src1 ./ src2
-  bld <!-- (ins.Address, insLen)
-  let result = AST.ite cond1 num0 divSrc
-  dstAssign ins.OprSize dst result bld
-  bld --!> insLen
+  lift bld ins insLen {
+    let dst, src1, src2 = transThreeOprs ins bld addr
+    let num0 = AST.num0 ins.OprSize
+    let cond1 = AST.eq src2 num0
+    let divSrc = src1 ./ src2
+    let result = AST.ite cond1 num0 divSrc
+    dstAssign ins.OprSize dst result bld
+  }
 
 let umaddl ins insLen bld addr =
-  let dst, src1, src2, src3 = transFourOprs ins bld addr
-  bld <!-- (ins.Address, insLen)
-  bld <+ (dst := src3 .+ (AST.zext 64<rt> src1 .* AST.zext 64<rt> src2))
-  bld --!> insLen
+  lift bld ins insLen {
+    let dst, src1, src2, src3 = transFourOprs ins bld addr
+    dst := src3 .+ (AST.zext 64<rt> src1 .* AST.zext 64<rt> src2)
+  }
 
 let smlal (ins: Instruction) insLen bld addr =
-  bld <!-- (ins.Address, insLen)
-  let struct (dst, src1, src2) = getThreeOprs ins
-  let struct (eSize, part, _) = getElemDataSzAndElems src1
-  let dataSize = 64<rt>
-  let elements = dataSize / eSize
-  let dblESz = eSize * 2
-  let struct (dstB, dstA) = transOprToExpr128 ins bld addr dst
-  let dst = transSIMDOprToExpr bld dblESz 128<rt> elements dst
-  let opr1 = transSIMDOprVPart bld eSize part src1
-  let result = Array.init elements (fun _ -> tmpVar bld dblESz)
-  match ins.Operands with
-  | ThreeOperands(_, _, OprSIMD(VecReg _)) ->
-    let opr2 = transSIMDOprVPart bld eSize part src2
-    Array.map3 (fun e1 e2 e3 ->
-      e3 .+ (AST.sext dblESz e1 .* AST.sext dblESz e2)) opr1 opr2 dst
-    |> Array.iter2 (fun r e -> bld <+ (r := e)) result
-    dstAssignForSIMD dstA dstB result 128<rt> elements bld
-  | _ ->
-    let opr2 = tmpVar bld dblESz
-    bld <+ (opr2 := transOprToExpr ins bld addr src2 |> AST.sext dblESz)
-    Array.map2 (fun e1 e3 -> e3 .+ (AST.sext dblESz e1 .* opr2)) opr1 dst
-    |> Array.iter2 (fun r e -> bld <+ (r := e)) result
-    dstAssignForSIMD dstA dstB result (2 * dataSize) elements bld
-  bld --!> insLen
+  lift bld ins insLen {
+    let struct (dst, src1, src2) = getThreeOprs ins
+    let struct (eSize, part, _) = getElemDataSzAndElems src1
+    let dataSize = 64<rt>
+    let elements = dataSize / eSize
+    let dblESz = eSize * 2
+    let struct (dstB, dstA) = transOprToExpr128 ins bld addr dst
+    let dst = transSIMDOprToExpr bld dblESz 128<rt> elements dst
+    let opr1 = transSIMDOprVPart bld eSize part src1
+    let result = Array.init elements (fun _ -> tmpVar bld dblESz)
+    match ins.Operands with
+    | ThreeOperands(_, _, OprSIMD(VecReg _)) ->
+      let opr2 = transSIMDOprVPart bld eSize part src2
+      Array.map3 (fun e1 e2 e3 ->
+        e3 .+ (AST.sext dblESz e1 .* AST.sext dblESz e2)) opr1 opr2 dst
+      |> Array.iter2 (fun r e -> append bld { r := e }) result
+      dstAssignForSIMD dstA dstB result 128<rt> elements bld
+    | _ ->
+      let opr2 = tmpVar bld dblESz
+      opr2 := transOprToExpr ins bld addr src2 |> AST.sext dblESz
+      Array.map2 (fun e1 e3 -> e3 .+ (AST.sext dblESz e1 .* opr2)) opr1 dst
+      |> Array.iter2 (fun r e -> append bld { r := e }) result
+      dstAssignForSIMD dstA dstB result (2 * dataSize) elements bld
+  }
 
 let smlsl (ins: Instruction) insLen bld addr =
-  bld <!-- (ins.Address, insLen)
-  let struct (dst, src1, src2) = getThreeOprs ins
-  let struct (eSize, part, _) = getElemDataSzAndElems src1
-  let dataSize = 64<rt>
-  let elements = dataSize / eSize
-  let dblESz = eSize * 2
-  let dblDSize = dataSize * 2
-  let struct (dstB, dstA) = transOprToExpr128 ins bld addr dst
-  let opr1 = transSIMDOprVPart bld eSize part src1
-  let opr3 = transSIMDOprToExpr bld dblESz 128<rt> elements dst
-  let result = Array.init elements (fun _ -> tmpVar bld dblESz)
-  match ins.Operands with
-  | ThreeOperands(_, _, OprSIMD(VecReg _)) ->
-    let opr2 = transSIMDOprVPart bld eSize part src2
-    Array.map3 (fun e1 e2 e3 ->
-      e3 .- (AST.sext dblESz e1 .* AST.sext dblESz e2)) opr1 opr2 opr3
-    |> Array.iter2 (fun r e -> bld <+ (r := e)) result
-    dstAssignForSIMD dstA dstB result dblDSize elements bld
-  | _ ->
-    let opr2 = tmpVar bld dblESz
-    bld <+ (opr2 := transOprToExpr ins bld addr src2 |> AST.sext dblESz)
-    Array.map2 (fun e1 e3 ->
-      AST.sext dblESz e3 .- (AST.sext dblESz e1 .* opr2)) opr1 opr3
-    |> Array.iter2 (fun r e -> bld <+ (r := e)) result
-    dstAssignForSIMD dstA dstB result dblDSize elements bld
-  bld --!> insLen
+  lift bld ins insLen {
+    let struct (dst, src1, src2) = getThreeOprs ins
+    let struct (eSize, part, _) = getElemDataSzAndElems src1
+    let dataSize = 64<rt>
+    let elements = dataSize / eSize
+    let dblESz = eSize * 2
+    let dblDSize = dataSize * 2
+    let struct (dstB, dstA) = transOprToExpr128 ins bld addr dst
+    let opr1 = transSIMDOprVPart bld eSize part src1
+    let opr3 = transSIMDOprToExpr bld dblESz 128<rt> elements dst
+    let result = Array.init elements (fun _ -> tmpVar bld dblESz)
+    match ins.Operands with
+    | ThreeOperands(_, _, OprSIMD(VecReg _)) ->
+      let opr2 = transSIMDOprVPart bld eSize part src2
+      Array.map3 (fun e1 e2 e3 ->
+        e3 .- (AST.sext dblESz e1 .* AST.sext dblESz e2)) opr1 opr2 opr3
+      |> Array.iter2 (fun r e -> append bld { r := e }) result
+      dstAssignForSIMD dstA dstB result dblDSize elements bld
+    | _ ->
+      let opr2 = tmpVar bld dblESz
+      opr2 := transOprToExpr ins bld addr src2 |> AST.sext dblESz
+      Array.map2 (fun e1 e3 ->
+        AST.sext dblESz e3 .- (AST.sext dblESz e1 .* opr2)) opr1 opr3
+      |> Array.iter2 (fun r e -> append bld { r := e }) result
+      dstAssignForSIMD dstA dstB result dblDSize elements bld
+  }
 
 let private ssatQMulH bld e1 e2 (eSize: int<rt>) =
   let dblESz = 2 * eSize
@@ -3251,34 +3306,34 @@ let private ssatQMulH bld e1 e2 (eSize: int<rt>) =
   signedSatQ bld input eSize
 
 let sqdmulh (ins: Instruction) insLen bld addr =
-  bld <!-- (ins.Address, insLen)
-  let struct (o1, o2, o3) = getThreeOprs ins
-  let struct (eSize, dataSize, elements) = getElemDataSzAndElems o1
-  match ins.Operands with
-  | ThreeOperands(OprSIMD(VecReg _), _, OprSIMD(VecRegWithIdx _)) ->
-    let struct (dstB, dstA) = transOprToExpr128 ins bld addr o1
-    let src1 = transSIMDOprToExpr bld eSize dataSize elements o2
-    let src2 = transOprToExpr ins bld addr o3
-    let result = Array.init elements (fun _ -> tmpVar bld eSize)
-    Array.map (fun e1 -> ssatQMulH bld e1 src2 eSize) src1
-    |> Array.iter2 (fun res prod -> bld <+ (res := prod)) result
-    dstAssignForSIMD dstA dstB result dataSize elements bld
-  | ThreeOperands(OprSIMD(VecReg _), _, _) ->
-    let struct (dstB, dstA) = transOprToExpr128 ins bld addr o1
-    let src1 = transSIMDOprToExpr bld eSize dataSize elements o2
-    let src2 = transSIMDOprToExpr bld eSize dataSize elements o3
-    let result = Array.init elements (fun _ -> tmpVar bld eSize)
-    Array.map2 (fun e1 e2 -> ssatQMulH bld e1 e2 eSize) src1 src2
-    |> Array.iter2 (fun res prod -> bld <+ (res := prod)) result
-    dstAssignForSIMD dstA dstB result dataSize elements bld
-  | ThreeOperands(OprSIMD(ScalarReg _), _, _) ->
-    let src1 = transOprToExpr ins bld addr o2
-    let src2 = transOprToExpr ins bld addr o3
-    let result = ssatQMulH bld src1 src2 eSize
-    dstAssignScalar ins bld addr o1 result eSize
-  | _ ->
-    raise InvalidOperandException
-  bld --!> insLen
+  lift bld ins insLen {
+    let struct (o1, o2, o3) = getThreeOprs ins
+    let struct (eSize, dataSize, elements) = getElemDataSzAndElems o1
+    match ins.Operands with
+    | ThreeOperands(OprSIMD(VecReg _), _, OprSIMD(VecRegWithIdx _)) ->
+      let struct (dstB, dstA) = transOprToExpr128 ins bld addr o1
+      let src1 = transSIMDOprToExpr bld eSize dataSize elements o2
+      let src2 = transOprToExpr ins bld addr o3
+      let result = Array.init elements (fun _ -> tmpVar bld eSize)
+      Array.map (fun e1 -> ssatQMulH bld e1 src2 eSize) src1
+      |> Array.iter2 (fun res prod -> append bld { res := prod }) result
+      dstAssignForSIMD dstA dstB result dataSize elements bld
+    | ThreeOperands(OprSIMD(VecReg _), _, _) ->
+      let struct (dstB, dstA) = transOprToExpr128 ins bld addr o1
+      let src1 = transSIMDOprToExpr bld eSize dataSize elements o2
+      let src2 = transSIMDOprToExpr bld eSize dataSize elements o3
+      let result = Array.init elements (fun _ -> tmpVar bld eSize)
+      Array.map2 (fun e1 e2 -> ssatQMulH bld e1 e2 eSize) src1 src2
+      |> Array.iter2 (fun res prod -> append bld { res := prod }) result
+      dstAssignForSIMD dstA dstB result dataSize elements bld
+    | ThreeOperands(OprSIMD(ScalarReg _), _, _) ->
+      let src1 = transOprToExpr ins bld addr o2
+      let src2 = transOprToExpr ins bld addr o3
+      let result = ssatQMulH bld src1 src2 eSize
+      dstAssignScalar ins bld addr o1 result eSize
+    | _ ->
+      raise InvalidOperandException
+  }
 
 let private ssatQMulL bld e1 e2 (eSize: int<rt>) =
   let dblESz = 2 * eSize
@@ -3295,40 +3350,42 @@ let private ssatQMulL bld e1 e2 (eSize: int<rt>) =
     srcIsNotZero .& (sign1 != sign2) .& (AST.not <| AST.xthi 1<rt> product)
   let max = getIntMax dblESz false
   let min = AST.not max
-  bld <+ (bitQC := bitQC .| overflow .| underflow)
+  append bld {
+    bitQC := bitQC .| overflow .| underflow
+  }
   AST.ite overflow max (AST.ite underflow min product)
 
 let sqdmull (ins: Instruction) insLen bld addr =
-  bld <!-- (ins.Address, insLen)
-  let struct (o1, o2, o3) = getThreeOprs ins
-  let struct (eSize, part, _) = getElemDataSzAndElems o2
-  match ins.Operands with
-  | ThreeOperands(OprSIMD(VecReg _), _, OprSIMD(VecRegWithIdx _)) ->
-    let struct (dstB, dstA) = transOprToExpr128 ins bld addr o1
-    let src1 = transSIMDOprVPart bld eSize part o2
-    let src2 = transOprToExpr ins bld addr o3
-    let elements = 64<rt> / eSize
-    let result = Array.init elements (fun _ -> tmpVar bld (2 * eSize))
-    Array.map (fun e1 -> ssatQMulL bld e1 src2 eSize) src1
-    |> Array.iter2 (fun res prod -> bld <+ (res := prod)) result
-    dstAssignForSIMD dstA dstB result 128<rt> elements bld
-  | ThreeOperands(OprSIMD(VecReg _), _, _) ->
-    let struct (dstB, dstA) = transOprToExpr128 ins bld addr o1
-    let src1 = transSIMDOprVPart bld eSize part o2
-    let src2 = transSIMDOprVPart bld eSize part o3
-    let elements = 64<rt> / eSize
-    let result = Array.init elements (fun _ -> tmpVar bld (2 * eSize))
-    Array.map2 (fun e1 e2 -> ssatQMulL bld e1 e2 eSize) src1 src2
-    |> Array.iter2 (fun res prod -> bld <+ (res := prod)) result
-    dstAssignForSIMD dstA dstB result 128<rt> elements bld
-  | ThreeOperands(OprSIMD(ScalarReg _), _, _) ->
-    let src1 = transOprToExpr ins bld addr o2
-    let src2 = transOprToExpr ins bld addr o3
-    let result = ssatQMulL bld src1 src2 eSize
-    dstAssignScalar ins bld addr o1 result eSize
-  | _ ->
-    raise InvalidOperandException
-  bld --!> insLen
+  lift bld ins insLen {
+    let struct (o1, o2, o3) = getThreeOprs ins
+    let struct (eSize, part, _) = getElemDataSzAndElems o2
+    match ins.Operands with
+    | ThreeOperands(OprSIMD(VecReg _), _, OprSIMD(VecRegWithIdx _)) ->
+      let struct (dstB, dstA) = transOprToExpr128 ins bld addr o1
+      let src1 = transSIMDOprVPart bld eSize part o2
+      let src2 = transOprToExpr ins bld addr o3
+      let elements = 64<rt> / eSize
+      let result = Array.init elements (fun _ -> tmpVar bld (2 * eSize))
+      Array.map (fun e1 -> ssatQMulL bld e1 src2 eSize) src1
+      |> Array.iter2 (fun res prod -> append bld { res := prod }) result
+      dstAssignForSIMD dstA dstB result 128<rt> elements bld
+    | ThreeOperands(OprSIMD(VecReg _), _, _) ->
+      let struct (dstB, dstA) = transOprToExpr128 ins bld addr o1
+      let src1 = transSIMDOprVPart bld eSize part o2
+      let src2 = transSIMDOprVPart bld eSize part o3
+      let elements = 64<rt> / eSize
+      let result = Array.init elements (fun _ -> tmpVar bld (2 * eSize))
+      Array.map2 (fun e1 e2 -> ssatQMulL bld e1 e2 eSize) src1 src2
+      |> Array.iter2 (fun res prod -> append bld { res := prod }) result
+      dstAssignForSIMD dstA dstB result 128<rt> elements bld
+    | ThreeOperands(OprSIMD(ScalarReg _), _, _) ->
+      let src1 = transOprToExpr ins bld addr o2
+      let src2 = transOprToExpr ins bld addr o3
+      let result = ssatQMulL bld src1 src2 eSize
+      dstAssignScalar ins bld addr o1 result eSize
+    | _ ->
+      raise InvalidOperandException
+  }
 
 let private ssatQMAdd bld src1 src2 dstElm eSize =
   let bitQC = AST.extract (regVar bld R.FPSR) 1<rt> 27
@@ -3342,192 +3399,197 @@ let private ssatQMAdd bld src1 src2 dstElm eSize =
   let outOfRange = (o1 == o2) .& (o1 <+> r)
   let overflow = (o1 == AST.b0) .& outOfRange
   let underflow = (o1 == AST.b1) .& outOfRange
-  bld <+ (bitQC := bitQC .| overflow .| underflow)
+  append bld {
+    bitQC := bitQC .| overflow .| underflow
+  }
   AST.ite overflow max (AST.ite underflow min accum)
 
 let sqdmlal (ins: Instruction) insLen bld addr =
-  bld <!-- (ins.Address, insLen)
-  let struct (o1, o2, o3) = getThreeOprs ins
-  let struct (eSize, part, _) = getElemDataSzAndElems o2
-  match ins.Operands with
-  | ThreeOperands(OprSIMD(VecReg _), _, OprSIMD(VecRegWithIdx _)) ->
-    let struct (dstB, dstA) = transOprToExpr128 ins bld addr o1
-    let elements = 64<rt> / eSize
-    let dblESz = 2 * eSize
-    let dst = transSIMDOprToExpr bld dblESz 128<rt> elements o1
-    let src1 = transSIMDOprVPart bld eSize part o2
-    let src2 = transOprToExpr ins bld addr o3
-    let result = Array.init elements (fun _ -> tmpVar bld dblESz)
-    Array.map2 (fun e1 e2 -> ssatQMAdd bld e1 src2 e2 eSize) src1 dst
-    |> Array.iter2 (fun res accum -> bld <+ (res := accum)) result
-    dstAssignForSIMD dstA dstB result 128<rt> elements bld
-  | ThreeOperands(OprSIMD(VecReg _), _, _) ->
-    let struct (dstB, dstA) = transOprToExpr128 ins bld addr o1
-    let elements = 64<rt> / eSize
-    let dblESz = 2 * eSize
-    let dst = transSIMDOprToExpr bld dblESz 128<rt> elements o1
-    let src1 = transSIMDOprVPart bld eSize part o2
-    let src2 = transSIMDOprVPart bld eSize part o3
-    let result = Array.init elements (fun _ -> tmpVar bld dblESz)
-    Array.map3 (fun e1 e2 e3 -> ssatQMAdd bld e1 e2 e3 eSize) src1 src2 dst
-    |> Array.iter2 (fun res accum -> bld <+ (res := accum)) result
-    dstAssignForSIMD dstA dstB result 128<rt> elements bld
-  | ThreeOperands(OprSIMD(ScalarReg _), _, _) ->
-    let dst = transOprToExpr ins bld addr o1
-    let src1 = transOprToExpr ins bld addr o2
-    let src2 = transOprToExpr ins bld addr o3
-    let result = ssatQMAdd bld src1 src2 dst eSize
-    dstAssignScalar ins bld addr o1 result eSize
-  | _ ->
-    raise InvalidOperandException
-  bld --!> insLen
+  lift bld ins insLen {
+    let struct (o1, o2, o3) = getThreeOprs ins
+    let struct (eSize, part, _) = getElemDataSzAndElems o2
+    match ins.Operands with
+    | ThreeOperands(OprSIMD(VecReg _), _, OprSIMD(VecRegWithIdx _)) ->
+      let struct (dstB, dstA) = transOprToExpr128 ins bld addr o1
+      let elements = 64<rt> / eSize
+      let dblESz = 2 * eSize
+      let dst = transSIMDOprToExpr bld dblESz 128<rt> elements o1
+      let src1 = transSIMDOprVPart bld eSize part o2
+      let src2 = transOprToExpr ins bld addr o3
+      let result = Array.init elements (fun _ -> tmpVar bld dblESz)
+      Array.map2 (fun e1 e2 -> ssatQMAdd bld e1 src2 e2 eSize) src1 dst
+      |> Array.iter2 (fun res accum -> append bld { res := accum }) result
+      dstAssignForSIMD dstA dstB result 128<rt> elements bld
+    | ThreeOperands(OprSIMD(VecReg _), _, _) ->
+      let struct (dstB, dstA) = transOprToExpr128 ins bld addr o1
+      let elements = 64<rt> / eSize
+      let dblESz = 2 * eSize
+      let dst = transSIMDOprToExpr bld dblESz 128<rt> elements o1
+      let src1 = transSIMDOprVPart bld eSize part o2
+      let src2 = transSIMDOprVPart bld eSize part o3
+      let result = Array.init elements (fun _ -> tmpVar bld dblESz)
+      Array.map3 (fun e1 e2 e3 -> ssatQMAdd bld e1 e2 e3 eSize) src1 src2 dst
+      |> Array.iter2 (fun res accum -> append bld { res := accum }) result
+      dstAssignForSIMD dstA dstB result 128<rt> elements bld
+    | ThreeOperands(OprSIMD(ScalarReg _), _, _) ->
+      let dst = transOprToExpr ins bld addr o1
+      let src1 = transOprToExpr ins bld addr o2
+      let src2 = transOprToExpr ins bld addr o3
+      let result = ssatQMAdd bld src1 src2 dst eSize
+      dstAssignScalar ins bld addr o1 result eSize
+    | _ ->
+      raise InvalidOperandException
+  }
 
 let umlal (ins: Instruction) insLen bld addr =
-  bld <!-- (ins.Address, insLen)
-  let struct (dst, src1, src2) = getThreeOprs ins
-  let struct (eSize, part, _) = getElemDataSzAndElems src1
-  let dataSize = 64<rt>
-  let elements = dataSize / eSize
-  let dblESz = eSize * 2
-  let struct (dstB, dstA) = transOprToExpr128 ins bld addr dst
-  let dst = transSIMDOprToExpr bld dblESz 128<rt> elements dst
-  let opr1 = transSIMDOprVPart bld eSize part src1
-  let result = Array.init elements (fun _ -> tmpVar bld dblESz)
-  match ins.Operands with
-  | ThreeOperands(_, _, OprSIMD(VecReg _)) ->
-    let opr2 = transSIMDOprVPart bld eSize part src2
-    Array.map3 (fun e1 e2 e3 ->
-      e3 .+ (AST.zext dblESz e1 .* AST.zext dblESz e2)) opr1 opr2 dst
-    |> Array.iter2 (fun r e -> bld <+ (r := e)) result
-    dstAssignForSIMD dstA dstB result 128<rt> elements bld
-  | _ ->
-    let opr2 = tmpVar bld dblESz
-    bld <+ (opr2 := transOprToExpr ins bld addr src2 |> AST.zext dblESz)
-    Array.map2 (fun e1 e3 -> e3 .+ (AST.zext dblESz e1 .* opr2)) opr1 dst
-    |> Array.iter2 (fun r e -> bld <+ (r := e)) result
-    dstAssignForSIMD dstA dstB result 128<rt> elements bld
-  bld --!> insLen
+  lift bld ins insLen {
+    let struct (dst, src1, src2) = getThreeOprs ins
+    let struct (eSize, part, _) = getElemDataSzAndElems src1
+    let dataSize = 64<rt>
+    let elements = dataSize / eSize
+    let dblESz = eSize * 2
+    let struct (dstB, dstA) = transOprToExpr128 ins bld addr dst
+    let dst = transSIMDOprToExpr bld dblESz 128<rt> elements dst
+    let opr1 = transSIMDOprVPart bld eSize part src1
+    let result = Array.init elements (fun _ -> tmpVar bld dblESz)
+    match ins.Operands with
+    | ThreeOperands(_, _, OprSIMD(VecReg _)) ->
+      let opr2 = transSIMDOprVPart bld eSize part src2
+      Array.map3 (fun e1 e2 e3 ->
+        e3 .+ (AST.zext dblESz e1 .* AST.zext dblESz e2)) opr1 opr2 dst
+      |> Array.iter2 (fun r e -> append bld { r := e }) result
+      dstAssignForSIMD dstA dstB result 128<rt> elements bld
+    | _ ->
+      let opr2 = tmpVar bld dblESz
+      opr2 := transOprToExpr ins bld addr src2 |> AST.zext dblESz
+      Array.map2 (fun e1 e3 -> e3 .+ (AST.zext dblESz e1 .* opr2)) opr1 dst
+      |> Array.iter2 (fun r e -> append bld { r := e }) result
+      dstAssignForSIMD dstA dstB result 128<rt> elements bld
+  }
 
 let umlsl (ins: Instruction) insLen bld addr =
-  bld <!-- (ins.Address, insLen)
-  let struct (dst, src1, src2) = getThreeOprs ins
-  let struct (eSize, part, _) = getElemDataSzAndElems src1
-  let dataSize = 64<rt>
-  let elements = dataSize / eSize
-  let dblESz = eSize * 2
-  let dblDSize = dataSize * 2
-  let struct (dstB, dstA) = transOprToExpr128 ins bld addr dst
-  let opr1 = transSIMDOprVPart bld eSize part src1
-  let opr3 = transSIMDOprToExpr bld dblESz 128<rt> elements dst
-  let result = Array.init elements (fun _ -> tmpVar bld dblESz)
-  match ins.Operands with
-  | ThreeOperands(_, _, OprSIMD(VecReg _)) ->
-    let opr2 = transSIMDOprVPart bld eSize part src2
-    Array.map3 (fun e1 e2 e3 ->
-      e3 .- (AST.zext dblESz e1 .* AST.zext dblESz e2)) opr1 opr2 opr3
-    |> Array.iter2 (fun r e -> bld <+ (r := e)) result
-    dstAssignForSIMD dstA dstB result dblDSize elements bld
-  | _ ->
-    let opr2 = tmpVar bld dblESz
-    bld <+ (opr2 := transOprToExpr ins bld addr src2 |> AST.zext dblESz)
-    Array.map2 (fun e1 e3 -> e3 .- (AST.zext dblESz e1 .* opr2)) opr1 opr3
-    |> Array.iter2 (fun r e -> bld <+ (r := e)) result
-    dstAssignForSIMD dstA dstB result dblDSize elements bld
-  bld --!> insLen
+  lift bld ins insLen {
+    let struct (dst, src1, src2) = getThreeOprs ins
+    let struct (eSize, part, _) = getElemDataSzAndElems src1
+    let dataSize = 64<rt>
+    let elements = dataSize / eSize
+    let dblESz = eSize * 2
+    let dblDSize = dataSize * 2
+    let struct (dstB, dstA) = transOprToExpr128 ins bld addr dst
+    let opr1 = transSIMDOprVPart bld eSize part src1
+    let opr3 = transSIMDOprToExpr bld dblESz 128<rt> elements dst
+    let result = Array.init elements (fun _ -> tmpVar bld dblESz)
+    match ins.Operands with
+    | ThreeOperands(_, _, OprSIMD(VecReg _)) ->
+      let opr2 = transSIMDOprVPart bld eSize part src2
+      Array.map3 (fun e1 e2 e3 ->
+        e3 .- (AST.zext dblESz e1 .* AST.zext dblESz e2)) opr1 opr2 opr3
+      |> Array.iter2 (fun r e -> append bld { r := e }) result
+      dstAssignForSIMD dstA dstB result dblDSize elements bld
+    | _ ->
+      let opr2 = tmpVar bld dblESz
+      opr2 := transOprToExpr ins bld addr src2 |> AST.zext dblESz
+      Array.map2 (fun e1 e3 -> e3 .- (AST.zext dblESz e1 .* opr2)) opr1 opr3
+      |> Array.iter2 (fun r e -> append bld { r := e }) result
+      dstAssignForSIMD dstA dstB result dblDSize elements bld
+  }
 
 let umov (ins: Instruction) insLen bld addr =
-  bld <!-- (ins.Address, insLen)
-  let dst, src = transTwoOprs ins bld addr
-  dstAssign ins.OprSize dst src bld
-  bld --!> insLen
+  lift bld ins insLen {
+    let dst, src = transTwoOprs ins bld addr
+    dstAssign ins.OprSize dst src bld
+  }
 
 let umsubl ins insLen bld addr =
-  let dst, src1, src2, src3 = transOprToExprOfUMADDL ins bld addr
-  bld <!-- (ins.Address, insLen)
-  bld <+ (dst := src3 .- (AST.zext 64<rt> src1 .* AST.zext 64<rt> src2))
-  bld --!> insLen
+  lift bld ins insLen {
+    let dst, src1, src2, src3 = transOprToExprOfUMADDL ins bld addr
+    dst := src3 .- (AST.zext 64<rt> src1 .* AST.zext 64<rt> src2)
+  }
 
 let umulh ins insLen bld addr =
-  let dst, src1, src2 = transThreeOprs ins bld addr
-  bld <!-- (ins.Address, insLen)
-  (* The high 64 bits of the unsigned 64x64->128 product, extracted from the
-     128-bit intermediate the evaluator holds. *)
-  let prod = AST.zext 128<rt> src1 .* AST.zext 128<rt> src2
-  bld <+ (dst := AST.xthi 64<rt> prod)
-  bld --!> insLen
+  lift bld ins insLen {
+    let dst, src1, src2 = transThreeOprs ins bld addr
+    (* The high 64 bits of the unsigned 64x64->128 product, extracted from the
+       128-bit intermediate the evaluator holds. *)
+    let prod = AST.zext 128<rt> src1 .* AST.zext 128<rt> src2
+    dst := AST.xthi 64<rt> prod
+  }
 
 let umull (ins: Instruction) insLen bld addr =
-  bld <!-- (ins.Address, insLen)
-  match ins.Operands with
-  | ThreeOperands(_, _, OprSIMD(VecRegWithIdx _)) ->
-    let struct (o1, o2, o3) = getThreeOprs ins
-    let struct (eSize, part, _) = getElemDataSzAndElems o2
-    let elements = 64<rt> / eSize
-    let dblESz = eSize * 2
-    let struct (dstB, dstA) = transOprToExpr128 ins bld addr o1
-    let opr1 = transSIMDOprVPart bld eSize part o2
-    let opr2 = tmpVar bld dblESz
-    bld <+ (opr2 := transOprToExpr ins bld addr o3 |> AST.zext dblESz)
-    let result = Array.init elements (fun _ -> tmpVar bld dblESz)
-    Array.map (fun e1 -> AST.zext dblESz e1 .* opr2) opr1
-    |> Array.iter2 (fun r e -> bld <+ (r := e)) result
-    dstAssignForSIMD dstA dstB result 128<rt> elements bld
-  | ThreeOperands(OprSIMD(VecReg _), _, _) ->
-    let struct (o1, o2, o3) = getThreeOprs ins
-    let struct (eSize, part, _) = getElemDataSzAndElems o2
-    let elements = 64<rt> / eSize
-    let dblESz = eSize * 2
-    let struct (dstB, dstA) = transOprToExpr128 ins bld addr o1
-    let opr1 = transSIMDOprVPart bld eSize part o2
-    let opr2 = transSIMDOprVPart bld eSize part o3
-    let result = Array.init elements (fun _ -> tmpVar bld dblESz)
-    Array.map2 (fun e1 e2 -> AST.zext dblESz e1 .* AST.zext dblESz e2) opr1 opr2
-    |> Array.iter2 (fun r e -> bld <+ (r := e)) result
-    dstAssignForSIMD dstA dstB result 128<rt> elements bld
-  | _ ->
-    let dst, src1, src2 = transThreeOprs ins bld addr
-    bld <+ (dst := AST.zext 64<rt> src1 .* AST.zext 64<rt> src2)
-  bld --!> insLen
+  lift bld ins insLen {
+    match ins.Operands with
+    | ThreeOperands(_, _, OprSIMD(VecRegWithIdx _)) ->
+      let struct (o1, o2, o3) = getThreeOprs ins
+      let struct (eSize, part, _) = getElemDataSzAndElems o2
+      let elements = 64<rt> / eSize
+      let dblESz = eSize * 2
+      let struct (dstB, dstA) = transOprToExpr128 ins bld addr o1
+      let opr1 = transSIMDOprVPart bld eSize part o2
+      let opr2 = tmpVar bld dblESz
+      opr2 := transOprToExpr ins bld addr o3 |> AST.zext dblESz
+      let result = Array.init elements (fun _ -> tmpVar bld dblESz)
+      Array.map (fun e1 -> AST.zext dblESz e1 .* opr2) opr1
+      |> Array.iter2 (fun r e -> append bld { r := e }) result
+      dstAssignForSIMD dstA dstB result 128<rt> elements bld
+    | ThreeOperands(OprSIMD(VecReg _), _, _) ->
+      let struct (o1, o2, o3) = getThreeOprs ins
+      let struct (eSize, part, _) = getElemDataSzAndElems o2
+      let elements = 64<rt> / eSize
+      let dblESz = eSize * 2
+      let struct (dstB, dstA) = transOprToExpr128 ins bld addr o1
+      let opr1 = transSIMDOprVPart bld eSize part o2
+      let opr2 = transSIMDOprVPart bld eSize part o3
+      let result = Array.init elements (fun _ -> tmpVar bld dblESz)
+      Array.map2 (fun e1 e2 -> AST.zext dblESz e1 .* AST.zext dblESz e2)
+        opr1 opr2
+      |> Array.iter2 (fun r e -> append bld { r := e }) result
+      dstAssignForSIMD dstA dstB result 128<rt> elements bld
+    | _ ->
+      let dst, src1, src2 = transThreeOprs ins bld addr
+      dst := AST.zext 64<rt> src1 .* AST.zext 64<rt> src2
+  }
 
 let uqadd (ins: Instruction) insLen bld addr =
-  bld <!-- (ins.Address, insLen)
-  let struct (o1, o2, o3) = getThreeOprs ins
-  let struct (eSize, dataSize, elements) = getElemDataSzAndElems o1
-  let inline satQ64 src1 src2 =
-    let input = src1 .+ src2
-    let bitQC = AST.extract (regVar bld R.FPSR) 1<rt> 27
-    let max = numU64 0xffffffff_ffffffffUL 64<rt>
-    let overflow = input .< src1
-    bld <+ (bitQC := bitQC .| overflow)
-    AST.ite overflow max input
-  match ins.Operands with
-  | ThreeOperands(OprSIMD(VecReg _), _, _) ->
-    let struct (dstB, dstA) = transOprToExpr128 ins bld addr o1
-    let src1 = transSIMDOprToExpr bld eSize dataSize elements o2
-    let src2 = transSIMDOprToExpr bld eSize dataSize elements o3
-    let result = Array.init elements (fun _ -> tmpVar bld eSize)
-    if eSize = 64<rt> then
-      Array.map2 satQ64 src1 src2
-      |> Array.iter2 (fun element i -> bld <+ (element := i)) result
-    else
-      Array.map2 (fun e1 e2 ->
-        AST.zext (2 * eSize) e1 .+ AST.zext (2 * eSize) e2) src1 src2
-      |> Array.iter2 (fun element i ->
-        bld <+ (element := satQ bld i eSize true)) result
-    dstAssignForSIMD dstA dstB result dataSize elements bld
-  | ThreeOperands(OprSIMD(ScalarReg _), _, _) ->
-    let src1 = transOprToExpr ins bld addr o2
-    let src2 = transOprToExpr ins bld addr o3
-    let result =
+  lift bld ins insLen {
+    let struct (o1, o2, o3) = getThreeOprs ins
+    let struct (eSize, dataSize, elements) = getElemDataSzAndElems o1
+    let inline satQ64 src1 src2 =
+      let input = src1 .+ src2
+      let bitQC = AST.extract (regVar bld R.FPSR) 1<rt> 27
+      let max = numU64 0xffffffff_ffffffffUL 64<rt>
+      let overflow = input .< src1
+      append bld {
+        bitQC := bitQC .| overflow
+      }
+      AST.ite overflow max input
+    match ins.Operands with
+    | ThreeOperands(OprSIMD(VecReg _), _, _) ->
+      let struct (dstB, dstA) = transOprToExpr128 ins bld addr o1
+      let src1 = transSIMDOprToExpr bld eSize dataSize elements o2
+      let src2 = transSIMDOprToExpr bld eSize dataSize elements o3
+      let result = Array.init elements (fun _ -> tmpVar bld eSize)
       if eSize = 64<rt> then
-        satQ64 src1 src2
+        Array.map2 satQ64 src1 src2
+        |> Array.iter2 (fun element i -> append bld { element := i }) result
       else
-        let input = AST.zext (2 * eSize) src1 .+ AST.zext (2 * eSize) src2
-        satQ bld input eSize true
-    dstAssignScalar ins bld addr o1 result eSize
-  | _ ->
-    raise InvalidOperandException
-  bld --!> insLen
+        Array.map2 (fun e1 e2 ->
+          AST.zext (2 * eSize) e1 .+ AST.zext (2 * eSize) e2) src1 src2
+        |> Array.iter2 (fun element i ->
+          append bld { element := satQ bld i eSize true }) result
+      dstAssignForSIMD dstA dstB result dataSize elements bld
+    | ThreeOperands(OprSIMD(ScalarReg _), _, _) ->
+      let src1 = transOprToExpr ins bld addr o2
+      let src2 = transOprToExpr ins bld addr o3
+      let result =
+        if eSize = 64<rt> then
+          satQ64 src1 src2
+        else
+          let input = AST.zext (2 * eSize) src1 .+ AST.zext (2 * eSize) src2
+          satQ bld input eSize true
+      dstAssignScalar ins bld addr o1 result eSize
+    | _ ->
+      raise InvalidOperandException
+  }
 
 let private getRndConst amt eSize =
   let n1 = AST.num1 eSize
@@ -3546,14 +3608,18 @@ let private usatQRShl bld expr amt eSize =
   let nAmt = AST.neg amt
   let struct (isNeg, isOver, isSat) = tmpVars3 bld 1<rt>
   let struct (hBit, rExpr, rConst) = tmpVars3 bld eSize
-  bld <+ (isNeg := amt ?< AST.num0 eSize)
-  bld <+ (rConst := getRndConst amt eSize)
-  bld <+ (isOver := expr .> (max .- rConst))
-  bld <+ (rExpr := expr .+ rConst)
+  append bld {
+    isNeg := amt ?< AST.num0 eSize
+    rConst := getRndConst amt eSize
+    isOver := expr .> (max .- rConst)
+    rExpr := expr .+ rConst
+  }
   let h = highestSetBitForIR rExpr (int eSize) eSize bld
-  bld <+ (hBit := AST.ite isOver (eESz .+ n1) h)
-  bld <+ (isSat := AST.ite isNeg (hBit .< nAmt) (eESz .< (hBit .+ amt)))
-  bld <+ (bitQC := bitQC .| isSat)
+  append bld {
+    hBit := AST.ite isOver (eESz .+ n1) h
+    isSat := AST.ite isNeg (hBit .< nAmt) (eESz .< (hBit .+ amt))
+    bitQC := bitQC .| isSat
+  }
   let rShf = rExpr >> nAmt
   let lShf = rExpr << amt
   let shf =
@@ -3562,68 +3628,70 @@ let private usatQRShl bld expr amt eSize =
   AST.ite isZero rExpr (AST.ite isSat (AST.ite isNeg min max) shf)
 
 let uqrshl (ins: Instruction) insLen bld addr =
-  bld <!-- (ins.Address, insLen)
-  let struct (o1, o2, o3) = getThreeOprs ins
-  let struct (eSize, dataSize, elements) = getElemDataSzAndElems o1
-  match ins.Operands with
-  | ThreeOperands(OprSIMD(VecReg _), _, _) ->
-    let struct (dstB, dstA) = transOprToExpr128 ins bld addr o1
-    let src1 = transSIMDOprToExpr bld eSize dataSize elements o2
-    let src2 = transSIMDOprToExpr bld eSize dataSize elements o3
-    let result = Array.init elements (fun _ -> tmpVar bld eSize)
-    Array.map2 (fun e shf ->
-      let shf = shf |> AST.xtlo 8<rt> |> AST.sext eSize
-      usatQRShl bld e shf eSize) src1 src2
-    |> Array.iter2 (fun r e -> bld <+ (r := e)) result
-    dstAssignForSIMD dstA dstB result dataSize elements bld
-  | ThreeOperands(OprSIMD(ScalarReg _), _, _) ->
-    let src1 = transOprToExpr ins bld addr o2
-    let shift =
-      transOprToExpr ins bld addr o3 |> AST.xtlo 8<rt> |> AST.sext eSize
-    let result = usatQRShl bld src1 shift eSize
-    dstAssignScalar ins bld addr o1 result eSize
-  | _ ->
-    raise InvalidOperandException
-  bld --!> insLen
+  lift bld ins insLen {
+    let struct (o1, o2, o3) = getThreeOprs ins
+    let struct (eSize, dataSize, elements) = getElemDataSzAndElems o1
+    match ins.Operands with
+    | ThreeOperands(OprSIMD(VecReg _), _, _) ->
+      let struct (dstB, dstA) = transOprToExpr128 ins bld addr o1
+      let src1 = transSIMDOprToExpr bld eSize dataSize elements o2
+      let src2 = transSIMDOprToExpr bld eSize dataSize elements o3
+      let result = Array.init elements (fun _ -> tmpVar bld eSize)
+      Array.map2 (fun e shf ->
+        let shf = shf |> AST.xtlo 8<rt> |> AST.sext eSize
+        usatQRShl bld e shf eSize) src1 src2
+      |> Array.iter2 (fun r e -> append bld { r := e }) result
+      dstAssignForSIMD dstA dstB result dataSize elements bld
+    | ThreeOperands(OprSIMD(ScalarReg _), _, _) ->
+      let src1 = transOprToExpr ins bld addr o2
+      let shift =
+        transOprToExpr ins bld addr o3 |> AST.xtlo 8<rt> |> AST.sext eSize
+      let result = usatQRShl bld src1 shift eSize
+      dstAssignScalar ins bld addr o1 result eSize
+    | _ ->
+      raise InvalidOperandException
+  }
 
 let uqsub (ins: Instruction) insLen bld addr =
-  bld <!-- (ins.Address, insLen)
-  let struct (o1, o2, o3) = getThreeOprs ins
-  let struct (eSize, dataSize, elements) = getElemDataSzAndElems o1
-  let inline satQ64 src1 src2 =
-    let eval = src1 .- src2
-    let bitQC = AST.extract (regVar bld R.FPSR) 1<rt> 27
-    let underflow = src1 .< src2
-    bld <+ (bitQC := bitQC .| underflow)
-    AST.ite underflow (AST.num0 64<rt>) eval
-  match ins.Operands with
-  | ThreeOperands(OprSIMD(VecReg _), _, _) ->
-    let struct (dstB, dstA) = transOprToExpr128 ins bld addr o1
-    let src1 = transSIMDOprToExpr bld eSize dataSize elements o2
-    let src2 = transSIMDOprToExpr bld eSize dataSize elements o3
-    let result = Array.init elements (fun _ -> tmpVar bld eSize)
-    if eSize = 64<rt> then
-      Array.map2 satQ64 src1 src2
-      |> Array.iter2 (fun element i -> bld <+ (element := i)) result
-    else
-      Array.map2 (fun e1 e2 ->
-        AST.zext (2 * eSize) e1 .- AST.zext (2 * eSize) e2) src1 src2
-      |> Array.iter2 (fun element i ->
-        bld <+ (element := satQ bld i eSize true)) result
-    dstAssignForSIMD dstA dstB result dataSize elements bld
-  | ThreeOperands(OprSIMD(ScalarReg _), _, _) ->
-    let src1 = transOprToExpr ins bld addr o2
-    let src2 = transOprToExpr ins bld addr o3
-    let result =
+  lift bld ins insLen {
+    let struct (o1, o2, o3) = getThreeOprs ins
+    let struct (eSize, dataSize, elements) = getElemDataSzAndElems o1
+    let inline satQ64 src1 src2 =
+      let eval = src1 .- src2
+      let bitQC = AST.extract (regVar bld R.FPSR) 1<rt> 27
+      let underflow = src1 .< src2
+      append bld {
+        bitQC := bitQC .| underflow
+      }
+      AST.ite underflow (AST.num0 64<rt>) eval
+    match ins.Operands with
+    | ThreeOperands(OprSIMD(VecReg _), _, _) ->
+      let struct (dstB, dstA) = transOprToExpr128 ins bld addr o1
+      let src1 = transSIMDOprToExpr bld eSize dataSize elements o2
+      let src2 = transSIMDOprToExpr bld eSize dataSize elements o3
+      let result = Array.init elements (fun _ -> tmpVar bld eSize)
       if eSize = 64<rt> then
-        satQ64 src1 src2
+        Array.map2 satQ64 src1 src2
+        |> Array.iter2 (fun element i -> append bld { element := i }) result
       else
-        let input = AST.zext (2 * eSize) src1 .- AST.zext (2 * eSize) src2
-        satQ bld input eSize true
-    dstAssignScalar ins bld addr o1 result eSize
-  | _ ->
-    raise InvalidOperandException
-  bld --!> insLen
+        Array.map2 (fun e1 e2 ->
+          AST.zext (2 * eSize) e1 .- AST.zext (2 * eSize) e2) src1 src2
+        |> Array.iter2 (fun element i ->
+          append bld { element := satQ bld i eSize true }) result
+      dstAssignForSIMD dstA dstB result dataSize elements bld
+    | ThreeOperands(OprSIMD(ScalarReg _), _, _) ->
+      let src1 = transOprToExpr ins bld addr o2
+      let src2 = transOprToExpr ins bld addr o3
+      let result =
+        if eSize = 64<rt> then
+          satQ64 src1 src2
+        else
+          let input = AST.zext (2 * eSize) src1 .- AST.zext (2 * eSize) src2
+          satQ bld input eSize true
+      dstAssignScalar ins bld addr o1 result eSize
+    | _ ->
+      raise InvalidOperandException
+  }
 
 let private usatQShl bld expr amt eSize =
   let bitQC = AST.extract (regVar bld R.FPSR) 1<rt> 27
@@ -3632,79 +3700,81 @@ let private usatQShl bld expr amt eSize =
   let min = AST.num0 eSize
   let struct (isNeg, isSat) = tmpVars2 bld 1<rt>
   let eESz = numI32 (int eSize - 1) eSize
-  bld <+ (isNeg := amt ?< AST.num0 eSize)
-  bld <+ (isSat := AST.ite isNeg (hBit .< AST.neg amt) (eESz .< (hBit .+ amt)))
-  bld <+ (bitQC := bitQC .| isSat)
+  append bld {
+    isNeg := amt ?< AST.num0 eSize
+    isSat := AST.ite isNeg (hBit .< AST.neg amt) (eESz .< (hBit .+ amt))
+    bitQC := bitQC .| isSat
+  }
   let sat = AST.ite isNeg min max
   let r = AST.ite isSat sat (AST.ite isNeg (expr >> AST.neg amt) (expr << amt))
   let isZero = (expr == AST.num0 eSize) .| (amt == AST.num0 eSize)
   AST.ite isZero expr r
 
 let uqshl (ins: Instruction) insLen bld addr =
-  bld <!-- (ins.Address, insLen)
-  let struct (o1, o2, o3) = getThreeOprs ins
-  let struct (eSize, dataSize, elements) = getElemDataSzAndElems o1
-  match ins.Operands with
-  | ThreeOperands(OprSIMD(VecReg _), _, OprImm _) ->
-    let struct (dstB, dstA) = transOprToExpr128 ins bld addr o1
-    let src1 = transSIMDOprToExpr bld eSize dataSize elements o2
-    let shift = transOprToExpr ins bld addr o3 |> AST.xtlo 8<rt>
-    let result = Array.init elements (fun _ -> tmpVar bld eSize)
-    let shf = tmpVar bld eSize
-    bld <+ (shf := shift |> AST.sext eSize)
-    Array.map (fun e -> usatQShl bld e shf eSize) src1
-    |> Array.iter2 (fun r e -> bld <+ (r := e)) result
-    dstAssignForSIMD dstA dstB result dataSize elements bld
-  | ThreeOperands(OprSIMD(VecReg _), _, _) ->
-    let struct (dstB, dstA) = transOprToExpr128 ins bld addr o1
-    let src1 = transSIMDOprToExpr bld eSize dataSize elements o2
-    let src2 = transSIMDOprToExpr bld eSize dataSize elements o3
-    let result = Array.init elements (fun _ -> tmpVar bld eSize)
-    Array.map2 (fun e shf ->
-      let shf = shf |> AST.xtlo 8<rt> |> AST.sext eSize
-      usatQShl bld e shf eSize) src1 src2
-    |> Array.iter2 (fun r e -> bld <+ (r := e)) result
-    dstAssignForSIMD dstA dstB result dataSize elements bld
-  | ThreeOperands(OprSIMD(ScalarReg _), _, _) ->
-    let src1 = transOprToExpr ins bld addr o2
-    let shift = transOprToExpr ins bld addr o3 |> AST.xtlo 8<rt>
-    let result = usatQShl bld src1 (AST.sext eSize shift) eSize
-    dstAssignScalar ins bld addr o1 result eSize
-  | _ ->
-    raise InvalidOperandException
-  bld --!> insLen
+  lift bld ins insLen {
+    let struct (o1, o2, o3) = getThreeOprs ins
+    let struct (eSize, dataSize, elements) = getElemDataSzAndElems o1
+    match ins.Operands with
+    | ThreeOperands(OprSIMD(VecReg _), _, OprImm _) ->
+      let struct (dstB, dstA) = transOprToExpr128 ins bld addr o1
+      let src1 = transSIMDOprToExpr bld eSize dataSize elements o2
+      let shift = transOprToExpr ins bld addr o3 |> AST.xtlo 8<rt>
+      let result = Array.init elements (fun _ -> tmpVar bld eSize)
+      let shf = tmpVar bld eSize
+      shf := shift |> AST.sext eSize
+      Array.map (fun e -> usatQShl bld e shf eSize) src1
+      |> Array.iter2 (fun r e -> append bld { r := e }) result
+      dstAssignForSIMD dstA dstB result dataSize elements bld
+    | ThreeOperands(OprSIMD(VecReg _), _, _) ->
+      let struct (dstB, dstA) = transOprToExpr128 ins bld addr o1
+      let src1 = transSIMDOprToExpr bld eSize dataSize elements o2
+      let src2 = transSIMDOprToExpr bld eSize dataSize elements o3
+      let result = Array.init elements (fun _ -> tmpVar bld eSize)
+      Array.map2 (fun e shf ->
+        let shf = shf |> AST.xtlo 8<rt> |> AST.sext eSize
+        usatQShl bld e shf eSize) src1 src2
+      |> Array.iter2 (fun r e -> append bld { r := e }) result
+      dstAssignForSIMD dstA dstB result dataSize elements bld
+    | ThreeOperands(OprSIMD(ScalarReg _), _, _) ->
+      let src1 = transOprToExpr ins bld addr o2
+      let shift = transOprToExpr ins bld addr o3 |> AST.xtlo 8<rt>
+      let result = usatQShl bld src1 (AST.sext eSize shift) eSize
+      dstAssignScalar ins bld addr o1 result eSize
+    | _ ->
+      raise InvalidOperandException
+  }
 
 let shiftULeftLong (ins: Instruction) insLen bld addr =
-  bld <!-- (ins.Address, insLen)
-  let struct (o1, o2, o3) = getThreeOprs ins
-  let struct (eSize, part, _) = getElemDataSzAndElems o2
-  let elements = 64<rt> / eSize
-  let dblESz = eSize * 2
-  let struct (dstB, dstA) = transOprToExpr128 ins bld addr o1
-  let src = transSIMDOprVPart bld eSize part o2
-  let amt = tmpVar bld dblESz
-  bld <+ (amt := transOprToExpr ins bld addr o3 |> AST.xtlo dblESz)
-  let result = Array.init elements (fun _ -> tmpVar bld dblESz)
-  Array.map (fun e -> AST.zext dblESz e << amt) src
-  |> Array.iter2 (fun r e -> bld <+ (r := e)) result
-  dstAssignForSIMD dstA dstB result 128<rt> elements bld
-  bld --!> insLen
+  lift bld ins insLen {
+    let struct (o1, o2, o3) = getThreeOprs ins
+    let struct (eSize, part, _) = getElemDataSzAndElems o2
+    let elements = 64<rt> / eSize
+    let dblESz = eSize * 2
+    let struct (dstB, dstA) = transOprToExpr128 ins bld addr o1
+    let src = transSIMDOprVPart bld eSize part o2
+    let amt = tmpVar bld dblESz
+    amt := transOprToExpr ins bld addr o3 |> AST.xtlo dblESz
+    let result = Array.init elements (fun _ -> tmpVar bld dblESz)
+    Array.map (fun e -> AST.zext dblESz e << amt) src
+    |> Array.iter2 (fun r e -> append bld { r := e }) result
+    dstAssignForSIMD dstA dstB result 128<rt> elements bld
+  }
 
 let shiftSLeftLong (ins: Instruction) insLen bld addr =
-  bld <!-- (ins.Address, insLen)
-  let struct (o1, o2, o3) = getThreeOprs ins
-  let struct (eSize, part, _) = getElemDataSzAndElems o2
-  let elements = 64<rt> / eSize
-  let dblESz = eSize * 2
-  let struct (dstB, dstA) = transOprToExpr128 ins bld addr o1
-  let src = transSIMDOprVPart bld eSize part o2
-  let amt = tmpVar bld dblESz
-  bld <+ (amt := transOprToExpr ins bld addr o3 |> AST.xtlo dblESz)
-  let result = Array.init elements (fun _ -> tmpVar bld dblESz)
-  Array.map (fun e -> AST.sext dblESz e << amt) src
-  |> Array.iter2 (fun r e -> bld <+ (r := e)) result
-  dstAssignForSIMD dstA dstB result 128<rt> elements bld
-  bld --!> insLen
+  lift bld ins insLen {
+    let struct (o1, o2, o3) = getThreeOprs ins
+    let struct (eSize, part, _) = getElemDataSzAndElems o2
+    let elements = 64<rt> / eSize
+    let dblESz = eSize * 2
+    let struct (dstB, dstA) = transOprToExpr128 ins bld addr o1
+    let src = transSIMDOprVPart bld eSize part o2
+    let amt = tmpVar bld dblESz
+    amt := transOprToExpr ins bld addr o3 |> AST.xtlo dblESz
+    let result = Array.init elements (fun _ -> tmpVar bld dblESz)
+    Array.map (fun e -> AST.sext dblESz e << amt) src
+    |> Array.iter2 (fun r e -> append bld { r := e }) result
+    dstAssignForSIMD dstA dstB result 128<rt> elements bld
+  }
 
 /// One element of an unsigned rounding shift left. A negative amount shifts
 /// the other way, and rounds by adding half a place before it does; shifting
@@ -3715,195 +3785,209 @@ let private urshlElem bld eSize bounds e1 e2 =
   let n0, n1 = bounds
   let struct (rndCst, shf, elem, res) = tmpVars4 bld 64<rt>
   let cond = tmpVar bld 1<rt>
-  bld <+ (shf := AST.xtlo 8<rt> e2 |> AST.sext 64<rt>)
-  bld <+ (cond := shf ?< n0)
-  bld <+ (rndCst := AST.ite cond (n1 << (AST.neg shf .- n1)) n0)
-  bld <+ (elem := AST.zext 64<rt> e1 .+ rndCst)
+  append bld {
+    shf := AST.xtlo 8<rt> e2 |> AST.sext 64<rt>
+    cond := shf ?< n0
+    rndCst := AST.ite cond (n1 << (AST.neg shf .- n1)) n0
+    elem := AST.zext 64<rt> e1 .+ rndCst
+  }
   let isOver = AST.neg shf .> numI32 (int eSize) 64<rt>
   if eSize = 64<rt> then
     let isCarry = e1 .> elem
     let cElem = tmpVar bld 64<rt>
-    bld <+ (cElem := (elem >> n1) .| numU64 0x8000000000000000UL 64<rt>)
-    bld <+ (res := AST.ite cond
-                   (AST.ite isOver
-                     n0
-                     (AST.ite isCarry
-                       (cElem >> (AST.neg shf .- n1))
-                       (elem >> AST.neg shf)))
-                       (elem << shf))
+    append bld {
+      cElem := (elem >> n1) .| numU64 0x8000000000000000UL 64<rt>
+      res := AST.ite cond
+             (AST.ite isOver
+               n0
+               (AST.ite isCarry
+                 (cElem >> (AST.neg shf .- n1))
+                 (elem >> AST.neg shf)))
+                 (elem << shf)
+    }
   else
-    bld <+ (res := AST.ite cond
-                           (AST.ite isOver n0 (elem >> AST.neg shf))
-                           (elem << shf))
+    append bld {
+      res := AST.ite cond
+                     (AST.ite isOver n0 (elem >> AST.neg shf))
+                     (elem << shf)
+    }
   AST.xtlo eSize res
 
 let urshl (ins: Instruction) insLen bld addr =
-  bld <!-- (ins.Address, insLen)
-  let struct (dst, src, shift) = getThreeOprs ins
-  let struct (eSize, dataSize, elements) = getElemDataSzAndElems src
-  let struct (n0, n1) = tmpVars2 bld 64<rt>
-  bld <+ (n0 := AST.num0 64<rt>)
-  bld <+ (n1 := AST.num1 64<rt>)
-  let shiftRndLeft e1 e2 = urshlElem bld eSize (n0, n1) e1 e2
-  match ins.Operands with
-  | ThreeOperands(OprSIMD(ScalarReg _), _, _) ->
-    let src = transOprToExpr ins bld addr src
-    let shift = transOprToExpr ins bld addr shift
-    let result = shiftRndLeft src shift
-    dstAssignScalar ins bld addr dst result eSize
-  | _ ->
-    let struct (dstB, dstA) = transOprToExpr128 ins bld addr dst
-    let src = transSIMDOprToExpr bld eSize dataSize elements src
-    let shift = transSIMDOprToExpr bld eSize dataSize elements shift
-    let result = Array.map2 shiftRndLeft src shift
-    dstAssignForSIMD dstA dstB result dataSize elements bld
-  bld --!> insLen
+  lift bld ins insLen {
+    let struct (dst, src, shift) = getThreeOprs ins
+    let struct (eSize, dataSize, elements) = getElemDataSzAndElems src
+    let struct (n0, n1) = tmpVars2 bld 64<rt>
+    n0 := AST.num0 64<rt>
+    n1 := AST.num1 64<rt>
+    let shiftRndLeft e1 e2 = urshlElem bld eSize (n0, n1) e1 e2
+    match ins.Operands with
+    | ThreeOperands(OprSIMD(ScalarReg _), _, _) ->
+      let src = transOprToExpr ins bld addr src
+      let shift = transOprToExpr ins bld addr shift
+      let result = shiftRndLeft src shift
+      dstAssignScalar ins bld addr dst result eSize
+    | _ ->
+      let struct (dstB, dstA) = transOprToExpr128 ins bld addr dst
+      let src = transSIMDOprToExpr bld eSize dataSize elements src
+      let shift = transSIMDOprToExpr bld eSize dataSize elements shift
+      let result = Array.map2 shiftRndLeft src shift
+      dstAssignForSIMD dstA dstB result dataSize elements bld
+  }
 
 let srshl (ins: Instruction) insLen bld addr =
-  bld <!-- (ins.Address, insLen)
-  let struct (dst, src, shift) = getThreeOprs ins
-  let struct (eSize, dataSize, elements) = getElemDataSzAndElems src
-  let struct (n0, n1) = tmpVars2 bld eSize
-  bld <+ (n0 := AST.num0 eSize)
-  bld <+ (n1 := AST.num1 eSize)
-  let inline shiftRndLeft e1 e2 =
-    let struct (rndCst, shf, elem) = tmpVars3 bld eSize
-    let struct (cond, signBit) = tmpVars2 bld 1<rt>
-    bld <+ (shf := AST.xtlo 8<rt> e2 |> AST.sext eSize)
-    bld <+ (signBit := AST.xthi 1<rt> e1)
-    bld <+ (cond := shf ?< n0)
-    bld <+ (rndCst := AST.ite cond (n1 << (AST.neg shf .- n1)) n0)
-    bld <+ (elem := e1 .+ rndCst)
-    let isOver = AST.neg shf .> numI32 (int eSize) eSize
-    AST.ite cond (AST.ite isOver n0 (AST.ite signBit
-                   (elem ?>> AST.neg shf)
-                   (elem >> AST.neg shf))) (elem << shf)
-  match ins.Operands with
-  | ThreeOperands(OprSIMD(ScalarReg _), _, _) ->
-    let src = transOprToExpr ins bld addr src
-    let shift = transOprToExpr ins bld addr shift
-    let result = shiftRndLeft src shift
-    dstAssignScalar ins bld addr dst result eSize
-  | _ ->
-    let struct (dstB, dstA) = transOprToExpr128 ins bld addr dst
-    let src = transSIMDOprToExpr bld eSize dataSize elements src
-    let shift = transSIMDOprToExpr bld eSize dataSize elements shift
-    let result = Array.map2 shiftRndLeft src shift
-    dstAssignForSIMD dstA dstB result dataSize elements bld
-  bld --!> insLen
+  lift bld ins insLen {
+    let struct (dst, src, shift) = getThreeOprs ins
+    let struct (eSize, dataSize, elements) = getElemDataSzAndElems src
+    let struct (n0, n1) = tmpVars2 bld eSize
+    n0 := AST.num0 eSize
+    n1 := AST.num1 eSize
+    let inline shiftRndLeft e1 e2 =
+      let struct (rndCst, shf, elem) = tmpVars3 bld eSize
+      let struct (cond, signBit) = tmpVars2 bld 1<rt>
+      append bld {
+        shf := AST.xtlo 8<rt> e2 |> AST.sext eSize
+        signBit := AST.xthi 1<rt> e1
+        cond := shf ?< n0
+        rndCst := AST.ite cond (n1 << (AST.neg shf .- n1)) n0
+        elem := e1 .+ rndCst
+      }
+      let isOver = AST.neg shf .> numI32 (int eSize) eSize
+      AST.ite cond (AST.ite isOver n0 (AST.ite signBit
+                     (elem ?>> AST.neg shf)
+                     (elem >> AST.neg shf))) (elem << shf)
+    match ins.Operands with
+    | ThreeOperands(OprSIMD(ScalarReg _), _, _) ->
+      let src = transOprToExpr ins bld addr src
+      let shift = transOprToExpr ins bld addr shift
+      let result = shiftRndLeft src shift
+      dstAssignScalar ins bld addr dst result eSize
+    | _ ->
+      let struct (dstB, dstA) = transOprToExpr128 ins bld addr dst
+      let src = transSIMDOprToExpr bld eSize dataSize elements src
+      let shift = transSIMDOprToExpr bld eSize dataSize elements shift
+      let result = Array.map2 shiftRndLeft src shift
+      dstAssignForSIMD dstA dstB result dataSize elements bld
+  }
 
 let urhadd ins insLen bld addr =
-  let struct (o1, o2, o3) = getThreeOprs ins
-  let struct (eSize, dataSize, elements) = getElemDataSzAndElems o1
-  let struct (dstB, dstA) = transOprToExpr128 ins bld addr o1
-  let src1 = transSIMDOprToExpr bld eSize dataSize elements o2
-  let src2 = transSIMDOprToExpr bld eSize dataSize elements o3
-  bld <!-- (ins.Address, insLen)
-  let inline roundAdd e1 e2 =
-    let e1 = AST.zext 64<rt> e1
-    let e2 = AST.zext 64<rt> e2
-    (e1 .+ e2 .+ AST.num1 64<rt>) >> AST.num1 64<rt>
-    |> AST.xtlo eSize
-  let result = Array.map2 roundAdd src1 src2
-  dstAssignForSIMD dstA dstB result dataSize elements bld
-  bld --!> insLen
+  lift bld ins insLen {
+    let struct (o1, o2, o3) = getThreeOprs ins
+    let struct (eSize, dataSize, elements) = getElemDataSzAndElems o1
+    let struct (dstB, dstA) = transOprToExpr128 ins bld addr o1
+    let src1 = transSIMDOprToExpr bld eSize dataSize elements o2
+    let src2 = transSIMDOprToExpr bld eSize dataSize elements o3
+    let inline roundAdd e1 e2 =
+      let e1 = AST.zext 64<rt> e1
+      let e2 = AST.zext 64<rt> e2
+      (e1 .+ e2 .+ AST.num1 64<rt>) >> AST.num1 64<rt>
+      |> AST.xtlo eSize
+    let result = Array.map2 roundAdd src1 src2
+    dstAssignForSIMD dstA dstB result dataSize elements bld
+  }
 
 let shiftRight ins insLen bld addr shifter =
-  let struct (o1, o2, o3) = getThreeOprs ins
-  let struct (eSize, dataSize, elements) = getElemDataSzAndElems o1
-  let struct (dstB, dstA) = transOprToExpr128 ins bld addr o1
-  let dst = transSIMDOprToExpr bld eSize dataSize elements o1
-  let src = transSIMDOprToExpr bld eSize dataSize elements o2
-  let shf = transOprToExpr ins bld addr o3 |> AST.xtlo eSize
-  let result = Array.init elements (fun _ -> tmpVar bld eSize)
-  bld <!-- (ins.Address, insLen)
-  Array.map2 (fun e1 e2 -> e1 .+ (shifter e2 shf)) dst src
-  |> Array.iter2 (fun e1 e2 -> bld <+ (e1 := e2)) result
-  dstAssignForSIMD dstA dstB result dataSize elements bld
-  bld --!> insLen
+  lift bld ins insLen {
+    let struct (o1, o2, o3) = getThreeOprs ins
+    let struct (eSize, dataSize, elements) = getElemDataSzAndElems o1
+    let struct (dstB, dstA) = transOprToExpr128 ins bld addr o1
+    let dst = transSIMDOprToExpr bld eSize dataSize elements o1
+    let src = transSIMDOprToExpr bld eSize dataSize elements o2
+    let shf = transOprToExpr ins bld addr o3 |> AST.xtlo eSize
+    let result = Array.init elements (fun _ -> tmpVar bld eSize)
+    Array.map2 (fun e1 e2 -> e1 .+ (shifter e2 shf)) dst src
+    |> Array.iter2 (fun e1 e2 -> append bld { e1 := e2 }) result
+    dstAssignForSIMD dstA dstB result dataSize elements bld
+  }
 
 let ssubl (ins: Instruction) insLen bld addr =
-  bld <!-- (ins.Address, insLen)
-  let struct (dst, src1, src2) = getThreeOprs ins
-  let struct (eSize, part, _) = getElemDataSzAndElems src1
-  let dataSize = 64<rt>
-  let elements = dataSize / eSize
-  let dblESz = eSize * 2
-  let struct (dstB, dstA) = transOprToExpr128 ins bld addr dst
-  let opr1 = transSIMDOprVPart bld eSize part src1
-  let opr2 = transSIMDOprVPart bld eSize part src2
-  let result = Array.init elements (fun _ -> tmpVar bld dblESz)
-  Array.map2 (fun e1 e2 -> AST.sext dblESz e1 .- AST.sext dblESz e2) opr1 opr2
-  |> Array.iter2 (fun r e -> bld <+ (r := e)) result
-  dstAssignForSIMD dstA dstB result 128<rt> elements bld
-  bld --!> insLen
+  lift bld ins insLen {
+    let struct (dst, src1, src2) = getThreeOprs ins
+    let struct (eSize, part, _) = getElemDataSzAndElems src1
+    let dataSize = 64<rt>
+    let elements = dataSize / eSize
+    let dblESz = eSize * 2
+    let struct (dstB, dstA) = transOprToExpr128 ins bld addr dst
+    let opr1 = transSIMDOprVPart bld eSize part src1
+    let opr2 = transSIMDOprVPart bld eSize part src2
+    let result = Array.init elements (fun _ -> tmpVar bld dblESz)
+    Array.map2 (fun e1 e2 -> AST.sext dblESz e1 .- AST.sext dblESz e2) opr1 opr2
+    |> Array.iter2 (fun r e -> append bld { r := e }) result
+    dstAssignForSIMD dstA dstB result 128<rt> elements bld
+  }
 
 let ssubw (ins: Instruction) insLen bld addr =
-  bld <!-- (ins.Address, insLen)
-  let struct (o1, o2, o3) = getThreeOprs ins
-  let struct (eSize, part, _) = getElemDataSzAndElems o3
-  let elements = 64<rt> / eSize
-  let dblESz = eSize * 2
-  let struct (dstB, dstA) = transOprToExpr128 ins bld addr o1
-  let opr1 = transSIMDOprToExpr bld dblESz 128<rt> elements o2
-  let opr2 = transSIMDOprVPart bld eSize part o3
-  let result = Array.init elements (fun _ -> tmpVar bld dblESz)
-  Array.map2 (fun e1 e2 -> AST.sext dblESz e1 .- AST.sext dblESz e2) opr1 opr2
-  |> Array.iter2 (fun r e -> bld <+ (r := e)) result
-  dstAssignForSIMD dstA dstB result 128<rt> elements bld
-  bld --!> insLen
+  lift bld ins insLen {
+    let struct (o1, o2, o3) = getThreeOprs ins
+    let struct (eSize, part, _) = getElemDataSzAndElems o3
+    let elements = 64<rt> / eSize
+    let dblESz = eSize * 2
+    let struct (dstB, dstA) = transOprToExpr128 ins bld addr o1
+    let opr1 = transSIMDOprToExpr bld dblESz 128<rt> elements o2
+    let opr2 = transSIMDOprVPart bld eSize part o3
+    let result = Array.init elements (fun _ -> tmpVar bld dblESz)
+    Array.map2 (fun e1 e2 -> AST.sext dblESz e1 .- AST.sext dblESz e2) opr1 opr2
+    |> Array.iter2 (fun r e -> append bld { r := e }) result
+    dstAssignForSIMD dstA dstB result 128<rt> elements bld
+  }
 
 let ushl ins insLen bld addr =
-  let struct (dst, o1, o2) = getThreeOprs ins
-  let struct (eSize, dataSize, elements) = getElemDataSzAndElems dst
-  bld <!-- (ins.Address, insLen)
-  let inline shiftLeft e1 e2 =
-    let shf = tmpVar bld eSize
-    bld <+ (shf := AST.xtlo 8<rt> e2 |> AST.sext eSize)
-    AST.ite (shf ?< AST.num0 eSize) (e1 >> AST.neg shf) (e1 << shf)
-  match ins.Operands with
-  | ThreeOperands(OprSIMD(ScalarReg _), _, _) ->
-    let src1 = transOprToExpr ins bld addr o1
-    let src2 = transOprToExpr ins bld addr o2
-    let result = shiftLeft src1 src2
-    dstAssignScalar ins bld addr dst result eSize
-  | _ ->
-    let struct (dstB, dstA) = transOprToExpr128 ins bld addr dst
-    let src1 = transSIMDOprToExpr bld eSize dataSize elements o1
-    let src2 = transSIMDOprToExpr bld eSize dataSize elements o2
-    let result = Array.map2 shiftLeft src1 src2
-    dstAssignForSIMD dstA dstB result dataSize elements bld
-  bld --!> insLen
+  lift bld ins insLen {
+    let struct (dst, o1, o2) = getThreeOprs ins
+    let struct (eSize, dataSize, elements) = getElemDataSzAndElems dst
+    let inline shiftLeft e1 e2 =
+      let shf = tmpVar bld eSize
+      append bld {
+        shf := AST.xtlo 8<rt> e2 |> AST.sext eSize
+      }
+      AST.ite (shf ?< AST.num0 eSize) (e1 >> AST.neg shf) (e1 << shf)
+    match ins.Operands with
+    | ThreeOperands(OprSIMD(ScalarReg _), _, _) ->
+      let src1 = transOprToExpr ins bld addr o1
+      let src2 = transOprToExpr ins bld addr o2
+      let result = shiftLeft src1 src2
+      dstAssignScalar ins bld addr dst result eSize
+    | _ ->
+      let struct (dstB, dstA) = transOprToExpr128 ins bld addr dst
+      let src1 = transSIMDOprToExpr bld eSize dataSize elements o1
+      let src2 = transSIMDOprToExpr bld eSize dataSize elements o2
+      let result = Array.map2 shiftLeft src1 src2
+      dstAssignForSIMD dstA dstB result dataSize elements bld
+  }
 
 let usubl (ins: Instruction) insLen bld addr =
-  bld <!-- (ins.Address, insLen)
-  let struct (o1, o2, o3) = getThreeOprs ins
-  let struct (eSize, part, _) = getElemDataSzAndElems o2
-  let elements = 64<rt> / eSize
-  let dblESz = eSize * 2
-  let struct (dstB, dstA) = transOprToExpr128 ins bld addr o1
-  let src1 = transSIMDOprVPart bld eSize part o2
-  let src2 = transSIMDOprVPart bld eSize part o3
-  let result = Array.init elements (fun _ -> tmpVar bld dblESz)
-  Array.iteri (fun i r ->
-    bld <+ (r := AST.zext dblESz src1[i] .- AST.zext dblESz src2[i])) result
-  dstAssignForSIMD dstA dstB result 128<rt> elements bld
-  bld --!> insLen
+  lift bld ins insLen {
+    let struct (o1, o2, o3) = getThreeOprs ins
+    let struct (eSize, part, _) = getElemDataSzAndElems o2
+    let elements = 64<rt> / eSize
+    let dblESz = eSize * 2
+    let struct (dstB, dstA) = transOprToExpr128 ins bld addr o1
+    let src1 = transSIMDOprVPart bld eSize part o2
+    let src2 = transSIMDOprVPart bld eSize part o3
+    let result = Array.init elements (fun _ -> tmpVar bld dblESz)
+    Array.iteri (fun i r ->
+      append bld {
+        r := AST.zext dblESz src1[i] .- AST.zext dblESz src2[i]
+      }) result
+    dstAssignForSIMD dstA dstB result 128<rt> elements bld
+  }
 
 let usubw (ins: Instruction) insLen bld addr =
-  bld <!-- (ins.Address, insLen)
-  let struct (o1, o2, o3) = getThreeOprs ins
-  let struct (eSize, part, _) = getElemDataSzAndElems o3
-  let elements = 64<rt> / eSize
-  let dblESz = eSize * 2
-  let struct (dstB, dstA) = transOprToExpr128 ins bld addr o1
-  let src1 = transSIMDOprToExpr bld dblESz 128<rt> elements o2
-  let src2 = transSIMDOprVPart bld eSize part o3
-  let result = Array.init elements (fun _ -> tmpVar bld dblESz)
-  Array.iteri (fun i r ->
-    bld <+ (r := AST.zext dblESz src1[i] .- AST.zext dblESz src2[i])) result
-  dstAssignForSIMD dstA dstB result 128<rt> elements bld
-  bld --!> insLen
+  lift bld ins insLen {
+    let struct (o1, o2, o3) = getThreeOprs ins
+    let struct (eSize, part, _) = getElemDataSzAndElems o3
+    let elements = 64<rt> / eSize
+    let dblESz = eSize * 2
+    let struct (dstB, dstA) = transOprToExpr128 ins bld addr o1
+    let src1 = transSIMDOprToExpr bld dblESz 128<rt> elements o2
+    let src2 = transSIMDOprVPart bld eSize part o3
+    let result = Array.init elements (fun _ -> tmpVar bld dblESz)
+    Array.iteri (fun i r ->
+      append bld {
+        r := AST.zext dblESz src1[i] .- AST.zext dblESz src2[i]
+      }) result
+    dstAssignForSIMD dstA dstB result 128<rt> elements bld
+  }
 
 let uxtb ins insLen bld addr =
   let struct (dst, src) = getTwoOprs ins
@@ -3914,97 +3998,99 @@ let uxth ins insLen bld addr =
   ubfm ins insLen bld addr dst src (OprImm 0L) (OprImm 15L)
 
 let uzp ins insLen bld addr op =
-  let struct (dst, src1, srcH) = getThreeOprs ins
-  let struct (eSize, dataSize, elements) = getElemDataSzAndElems dst
-  bld <!-- (ins.Address, insLen)
-  let struct (dstB, dstA) = transOprToExpr128 ins bld addr dst
-  let src1 = transSIMDOprToExpr bld eSize dataSize elements src1
-  let srcH = transSIMDOprToExpr bld eSize dataSize elements srcH
-  let result = Array.init elements (fun _ -> tmpVar bld eSize)
-  Array.append src1 srcH
-  |> Array.mapi (fun i x -> (i, x))
-  |> Array.filter (fun (i, _) -> i % 2 = op)
-  |> Array.map snd
-  |> Array.iter2 (fun e1 e2 -> bld <+ (e1 := e2)) result
-  dstAssignForSIMD dstA dstB result dataSize elements bld
-  bld --!> insLen
+  lift bld ins insLen {
+    let struct (dst, src1, srcH) = getThreeOprs ins
+    let struct (eSize, dataSize, elements) = getElemDataSzAndElems dst
+    let struct (dstB, dstA) = transOprToExpr128 ins bld addr dst
+    let src1 = transSIMDOprToExpr bld eSize dataSize elements src1
+    let srcH = transSIMDOprToExpr bld eSize dataSize elements srcH
+    let result = Array.init elements (fun _ -> tmpVar bld eSize)
+    Array.append src1 srcH
+    |> Array.mapi (fun i x -> (i, x))
+    |> Array.filter (fun (i, _) -> i % 2 = op)
+    |> Array.map snd
+    |> Array.iter2 (fun e1 e2 -> append bld { e1 := e2 }) result
+    dstAssignForSIMD dstA dstB result dataSize elements bld
+  }
 
 let xtn (ins: Instruction) insLen bld addr =
-  bld <!-- (ins.Address, insLen)
-  let struct (dst, src) = getTwoOprs ins
-  let struct (eSize, dataSize, elements) = getElemDataSzAndElems src
-  let struct (dstB, dstA) = transOprToExpr128 ins bld addr dst
-  let src = transSIMDOprToExpr bld eSize dataSize elements src
-            |> Array.map (AST.xtlo (eSize / 2))
-  bld <+ (dstA := AST.revConcat src)
-  bld <+ (dstB := AST.num0 64<rt>)
-  bld --!> insLen
+  lift bld ins insLen {
+    let struct (dst, src) = getTwoOprs ins
+    let struct (eSize, dataSize, elements) = getElemDataSzAndElems src
+    let struct (dstB, dstA) = transOprToExpr128 ins bld addr dst
+    let src = transSIMDOprToExpr bld eSize dataSize elements src
+              |> Array.map (AST.xtlo (eSize / 2))
+    dstA := AST.revConcat src
+    dstB := AST.num0 64<rt>
+  }
 
 let xtn2 (ins: Instruction) insLen bld addr =
-  bld <!-- (ins.Address, insLen)
-  let struct (dst, src) = getTwoOprs ins
-  let struct (eSize, dataSize, elements) = getElemDataSzAndElems src
-  let struct (dstB, dstA) = transOprToExpr128 ins bld addr dst
-  let src = transSIMDOprToExpr bld eSize dataSize elements src
-            |> Array.map (AST.xtlo (eSize / 2))
-  bld <+ (dstA := dstA)
-  bld <+ (dstB := AST.revConcat src)
-  bld --!> insLen
+  lift bld ins insLen {
+    let struct (dst, src) = getTwoOprs ins
+    let struct (eSize, dataSize, elements) = getElemDataSzAndElems src
+    let struct (dstB, dstA) = transOprToExpr128 ins bld addr dst
+    let src = transSIMDOprToExpr bld eSize dataSize elements src
+              |> Array.map (AST.xtlo (eSize / 2))
+    dstA := dstA
+    dstB := AST.revConcat src
+  }
 
 /// SHRN/SHRN2: shift each wide source element right by the immediate and narrow
 /// it to the lower half width. SHRN writes the low 64-bit destination half (and
 /// zeroes the high half); SHRN2 writes the high half, preserving the low one.
 let shrn (ins: Instruction) insLen bld addr isPart2 =
-  bld <!-- (ins.Address, insLen)
-  let struct (dst, src, amt) = getThreeOprs ins
-  let struct (eSize, dataSize, elements) = getElemDataSzAndElems src
-  let struct (dstB, dstA) = transOprToExpr128 ins bld addr dst
-  let amt = transOprToExpr ins bld addr amt |> AST.xtlo eSize
-  let src = transSIMDOprToExpr bld eSize dataSize elements src
-            |> Array.map (fun e -> AST.xtlo (eSize / 2) (e >> amt))
-  if isPart2 then
-    bld <+ (dstB := AST.revConcat src)
-  else
-    bld <+ (dstA := AST.revConcat src)
-    bld <+ (dstB := AST.num0 64<rt>)
-  bld --!> insLen
+  lift bld ins insLen {
+    let struct (dst, src, amt) = getThreeOprs ins
+    let struct (eSize, dataSize, elements) = getElemDataSzAndElems src
+    let struct (dstB, dstA) = transOprToExpr128 ins bld addr dst
+    let amt = transOprToExpr ins bld addr amt |> AST.xtlo eSize
+    let src = transSIMDOprToExpr bld eSize dataSize elements src
+              |> Array.map (fun e -> AST.xtlo (eSize / 2) (e >> amt))
+    if isPart2 then
+      dstB := AST.revConcat src
+    else
+      dstA := AST.revConcat src
+      dstB := AST.num0 64<rt>
+  }
 
 /// ADDHN/SUBHN (and their *2 forms): add or subtract two wide vectors and keep
 /// the high half of each result element, narrowing to half the width. The base
 /// form writes the low destination half (zeroing the high half); the *2 form
 /// writes the high half, preserving the low one.
 let addSubHN (ins: Instruction) insLen bld addr isPart2 op =
-  bld <!-- (ins.Address, insLen)
-  let struct (dst, src1, src2) = getThreeOprs ins
-  let struct (eSize, dataSize, elements) = getElemDataSzAndElems src1
-  let struct (dstB, dstA) = transOprToExpr128 ins bld addr dst
-  let s1 = transSIMDOprToExpr bld eSize dataSize elements src1
-  let s2 = transSIMDOprToExpr bld eSize dataSize elements src2
-  let shf = numI32 (RegType.toBitWidth (eSize / 2)) eSize
-  let result =
-    Array.map2 (fun a b -> AST.xtlo (eSize / 2) (op a b >> shf)) s1 s2
-  if isPart2 then
-    bld <+ (dstB := AST.revConcat result)
-  else
-    bld <+ (dstA := AST.revConcat result)
-    bld <+ (dstB := AST.num0 64<rt>)
-  bld --!> insLen
+  lift bld ins insLen {
+    let struct (dst, src1, src2) = getThreeOprs ins
+    let struct (eSize, dataSize, elements) = getElemDataSzAndElems src1
+    let struct (dstB, dstA) = transOprToExpr128 ins bld addr dst
+    let s1 = transSIMDOprToExpr bld eSize dataSize elements src1
+    let s2 = transSIMDOprToExpr bld eSize dataSize elements src2
+    let shf = numI32 (RegType.toBitWidth (eSize / 2)) eSize
+    let result =
+      Array.map2 (fun a b -> AST.xtlo (eSize / 2) (op a b >> shf)) s1 s2
+    if isPart2 then
+      dstB := AST.revConcat result
+    else
+      dstA := AST.revConcat result
+      dstB := AST.num0 64<rt>
+  }
 
 let zip ins insLen bld addr isPart1 =
-  let struct (dst, src1, src2) = getThreeOprs ins
-  let struct (eSize, dataSize, elements) = getElemDataSzAndElems dst
-  bld <!-- (ins.Address, insLen)
-  let struct (dstB, dstA) = transOprToExpr128 ins bld addr dst
-  let src1 = transSIMDOprToExpr bld eSize dataSize elements src1
-  let src2 = transSIMDOprToExpr bld eSize dataSize elements src2
-  let result = Array.init elements (fun _ -> tmpVar bld eSize)
-  let half = elements / 2
-  let src1 = if isPart1 then Array.sub src1 0 half else Array.sub src1 half half
-  let src2 = if isPart1 then Array.sub src2 0 half else Array.sub src2 half half
-  Array.map2 (fun e1 e2 -> [| e1; e2 |]) src1 src2 |> Array.concat
-  |> Array.iter2 (fun e1 e2 -> bld <+ (e1 := e2)) result
-  dstAssignForSIMD dstA dstB result dataSize elements bld
-  bld --!> insLen
+  lift bld ins insLen {
+    let struct (dst, src1, src2) = getThreeOprs ins
+    let struct (eSize, dataSize, elements) = getElemDataSzAndElems dst
+    let struct (dstB, dstA) = transOprToExpr128 ins bld addr dst
+    let src1 = transSIMDOprToExpr bld eSize dataSize elements src1
+    let src2 = transSIMDOprToExpr bld eSize dataSize elements src2
+    let result = Array.init elements (fun _ -> tmpVar bld eSize)
+    let half = elements / 2
+    let src1 =
+      if isPart1 then Array.sub src1 0 half else Array.sub src1 half half
+    let src2 =
+      if isPart1 then Array.sub src2 0 half else Array.sub src2 half half
+    Array.map2 (fun e1 e2 -> [| e1; e2 |]) src1 src2 |> Array.concat
+    |> Array.iter2 (fun e1 e2 -> append bld { e1 := e2 }) result
+    dstAssignForSIMD dstA dstB result dataSize elements bld
+  }
 
 /// The logical shift left(or right) is the alias of LS{L|R}V and UBFM.
 /// Therefore, it is necessary to distribute to the original instruction.

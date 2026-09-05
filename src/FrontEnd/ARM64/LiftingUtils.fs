@@ -755,7 +755,9 @@ type BranchType =
 /// eight bits, with a branch reason hint for possible use by hardware fetching
 /// the next instruction.
 let branchTo ins bld target brType i =
-  bld <+ (AST.interjmp target i) // FIXME: BranchAddr function
+  append bld {
+    append bld { AST.interjmp target i } // FIXME: BranchAddr function
+  }
 
 /// shared/functions/system/ConditionHolds
 /// ConditionHolds()
@@ -788,15 +790,20 @@ let conditionHolds bld = function
 /// ===============
 let highestSetBitForIR expr width oprSz bld =
   let struct (highest, n1) = tmpVars2 bld oprSz
-  bld <+ (highest := numI32 -1 oprSz)
-  bld <+ (n1 := AST.num1 oprSz)
+  append bld {
+    highest := numI32 -1 oprSz
+    n1 := AST.num1 oprSz
+  }
   let inline pos i =
     let elem = tmpVar bld oprSz
     let bit = AST.extract expr 1<rt> i |> AST.zext oprSz
-    bld <+ (elem := (bit .* ((numI32 i oprSz) .+ n1)) .- n1)
+    append bld {
+      elem := (bit .* ((numI32 i oprSz) .+ n1)) .- n1
+    }
     elem
   Array.init width pos
-  |> Array.iter (fun e -> bld <+ (highest := AST.ite (highest ?<= e) e highest))
+  |> Array.iter (fun e ->
+    append bld { highest := AST.ite (highest ?<= e) e highest })
   highest
 
 let highestSetBit x size =
@@ -810,7 +817,9 @@ let highestSetBit x size =
 let replicateForIR expr exprSize repSize bld =
   let repeat = repSize / exprSize
   let repVal = tmpVar bld repSize
-  bld <+ (repVal := AST.zext repSize expr)
+  append bld {
+    repVal := AST.zext repSize expr
+  }
   Array.init repeat (fun i -> repVal << numI32 (int exprSize * i) repSize)
   |> Array.reduce (.|)
 
@@ -876,9 +885,11 @@ let countLeadingZeroBitsForIR src bitSize oprSize bld =
 let countLeadingSignBitsForIR expr oprSize bld =
   let n1 = AST.num1 oprSize
   let struct (expr1, expr2, xExpr) = tmpVars3 bld oprSize
-  bld <+ (expr1 := expr >> n1)
-  bld <+ (expr2 := (expr << n1) >> n1)
-  bld <+ (xExpr := (expr1 <+> expr2))
+  append bld {
+    expr1 := expr >> n1
+    expr2 := (expr << n1) >> n1
+    xExpr := (expr1 <+> expr2)
+  }
   /// This count does not include the most significant bit of the source
   /// register.
   let bitSize = int oprSize - 1
@@ -891,11 +902,13 @@ let unsignedSatQ bld i n =
   let struct (max, min) = tmpVars2 bld n
   let struct (overflow, underflow) = tmpVars2 bld 1<rt>
   let bitQC = AST.extract (regVar bld R.FPSR) 1<rt> 27
-  bld <+ (max := getIntMax n true)
-  bld <+ (min := AST.num0 n)
-  bld <+ (overflow := i ?> AST.zext (2 * n) max)
-  bld <+ (underflow := i ?< AST.zext (2 * n) min)
-  bld <+ (bitQC := bitQC .| overflow .| underflow)
+  append bld {
+    max := getIntMax n true
+    min := AST.num0 n
+    overflow := i ?> AST.zext (2 * n) max
+    underflow := i ?< AST.zext (2 * n) min
+    bitQC := bitQC .| overflow .| underflow
+  }
   AST.ite overflow max (AST.ite underflow min (AST.xtlo n i))
 
 /// shared/functions/vector/SignedSatQ
@@ -905,11 +918,13 @@ let signedSatQ bld i n =
   let struct (max, min) = tmpVars2 bld n
   let struct (overflow, underflow) = tmpVars2 bld 1<rt>
   let bitQC = AST.extract (regVar bld R.FPSR) 1<rt> 27
-  bld <+ (max := getIntMax n false)
-  bld <+ (min := AST.not max)
-  bld <+ (overflow := i ?> AST.sext (2 * n) max)
-  bld <+ (underflow := i ?< AST.sext (2 * n) min)
-  bld <+ (bitQC := bitQC .| overflow .| underflow)
+  append bld {
+    max := getIntMax n false
+    min := AST.not max
+    overflow := i ?> AST.sext (2 * n) max
+    underflow := i ?< AST.sext (2 * n) min
+    bitQC := bitQC .| overflow .| underflow
+  }
   AST.ite overflow max (AST.ite underflow min (AST.xtlo n i))
 
 /// shared/functions/vector/SatQ
@@ -956,21 +971,25 @@ let fpRoundingMode src oprSz bld =
   let rm = tmpVar bld 32<rt>
   let struct (rm1, rm0) = tmpVars2 bld 1<rt>
   let res = tmpVar bld oprSz
-  bld <+ (rm := (fpcr >> (numI32 22 32<rt>)) .& (numI32 0b11 32<rt>))
-  bld <+ (rm0 := AST.xtlo 1<rt> rm) (* rm[0] *)
-  bld <+ (rm1 := rm >> (AST.num1 32<rt>) |> AST.xtlo 1<rt>) (* rm[1] *)
+  append bld {
+    rm := (fpcr >> (numI32 22 32<rt>)) .& (numI32 0b11 32<rt>)
+    rm0 := AST.xtlo 1<rt> rm (* rm[0] *)
+    rm1 := rm >> (AST.num1 32<rt>) |> AST.xtlo 1<rt> (* rm[1] *)
+  }
   let cast kind = AST.cast kind oprSz src
   let lblRNRP = label bld "RNorRP"
   let lblRMRZ = label bld "RMorRZ"
   let lblEnd = label bld "End"
-  bld <+ (AST.cjmp rm1 (AST.jmpDest lblRMRZ) (AST.jmpDest lblRNRP))
-  bld <+ (AST.lmark lblRMRZ)
-  bld <+ (res := AST.ite rm0 (cast CastKind.FtoFTrunc)
-                             (cast CastKind.FtoFFloor))
-  bld <+ (AST.jmp (AST.jmpDest lblEnd))
-  bld <+ (AST.lmark lblRNRP)
-  bld <+ (res := AST.ite rm0 (cast CastKind.FtoFCeil) (cast CastKind.FtoFRound))
-  bld <+ (AST.lmark lblEnd)
+  append bld {
+    AST.cjmp rm1 (AST.jmpDest lblRMRZ) (AST.jmpDest lblRNRP)
+    AST.lmark lblRMRZ
+    res := AST.ite rm0 (cast CastKind.FtoFTrunc)
+                       (cast CastKind.FtoFFloor)
+    AST.jmp (AST.jmpDest lblEnd)
+    AST.lmark lblRNRP
+    res := AST.ite rm0 (cast CastKind.FtoFCeil) (cast CastKind.FtoFRound)
+    AST.lmark lblEnd
+  }
   res
 
 /// shared/functions/float/fproundingmode/FPRoundingMode
@@ -1067,19 +1086,23 @@ let fpProcessNan bld eSize element =
     | 32<rt> -> numU64 0x400000UL 32<rt>
     | 16<rt> -> numU64 0x200UL 16<rt>
     | _ -> raise InvalidOperandException
-  bld <+ (tf := AST.ite (isSNaN eSize element) (element .| topfrac) element)
-  bld <+ (res := AST.ite dnBit (fpDefaultNan eSize) tf)
+  append bld {
+    tf := AST.ite (isSNaN eSize element) (element .| topfrac) element
+    res := AST.ite dnBit (fpDefaultNan eSize) tf
+  }
   res
 
 let fpProcessNaNs bld dataSize e1 e2 =
   let struct (isSNaN1, isSNaN2, isQNaN1, isQNaN2) = tmpVars4 bld 1<rt>
   let isNaN = tmpVar bld 1<rt>
   let resNaN = tmpVar bld dataSize
-  bld <+ (isSNaN1 := isSNaN dataSize e1)
-  bld <+ (isSNaN2 := isSNaN dataSize e2)
-  bld <+ (isQNaN1 := isQNaN dataSize e1)
-  bld <+ (isQNaN2 := isQNaN dataSize e2)
-  bld <+ (isNaN := isSNaN1 .| isSNaN2 .| isQNaN1 .| isQNaN2)
+  append bld {
+    isSNaN1 := isSNaN dataSize e1
+    isSNaN2 := isSNaN dataSize e2
+    isQNaN1 := isQNaN dataSize e1
+    isQNaN2 := isQNaN dataSize e2
+    isNaN := isSNaN1 .| isSNaN2 .| isQNaN1 .| isQNaN2
+  }
   let fpNaN expr = fpProcessNan bld dataSize expr
   let lblSFT = label bld "isSFT" (* SNaN1 Fall Through *)
   let lblQNaN = label bld "isQNaN"
@@ -1088,31 +1111,30 @@ let fpProcessNaNs bld dataSize e1 e2 =
   let lblQNaN1 = label bld "isQNaN1"
   let lblQNaN2 = label bld "isQNaN2"
   let lblEnd = label bld "End"
-  bld <+ (AST.cjmp isSNaN1 (AST.jmpDest lblSNaN1) (AST.jmpDest lblSFT))
-  bld <+ (AST.lmark lblSNaN1)
-  bld <+ (resNaN := fpNaN e1)
-  bld <+ (AST.jmp (AST.jmpDest lblEnd))
-  bld <+ (AST.lmark lblSFT)
-  bld <+ (AST.cjmp isSNaN2 (AST.jmpDest lblSNaN2) (AST.jmpDest lblQNaN))
-  bld <+ (AST.lmark lblSNaN2)
-  bld <+ (resNaN := fpNaN e2)
-  bld <+ (AST.jmp (AST.jmpDest lblEnd))
-  bld <+ (AST.lmark lblQNaN)
-  bld <+ (AST.cjmp isQNaN1 (AST.jmpDest lblQNaN1) (AST.jmpDest lblQNaN2))
-  bld <+ (AST.lmark lblQNaN1)
-  bld <+ (resNaN := fpNaN e1)
-  bld <+ (AST.jmp (AST.jmpDest lblEnd))
-  bld <+ (AST.lmark lblQNaN2)
-  bld <+ (resNaN := AST.ite isQNaN2 (fpNaN e2) (AST.num0 dataSize))
-  bld <+ (AST.lmark lblEnd)
+  append bld {
+    AST.cjmp isSNaN1 (AST.jmpDest lblSNaN1) (AST.jmpDest lblSFT)
+    AST.lmark lblSNaN1
+    resNaN := fpNaN e1
+    AST.jmp (AST.jmpDest lblEnd)
+    AST.lmark lblSFT
+    AST.cjmp isSNaN2 (AST.jmpDest lblSNaN2) (AST.jmpDest lblQNaN)
+    AST.lmark lblSNaN2
+    resNaN := fpNaN e2
+    AST.jmp (AST.jmpDest lblEnd)
+    AST.lmark lblQNaN
+    AST.cjmp isQNaN1 (AST.jmpDest lblQNaN1) (AST.jmpDest lblQNaN2)
+    AST.lmark lblQNaN1
+    resNaN := fpNaN e1
+    AST.jmp (AST.jmpDest lblEnd)
+    AST.lmark lblQNaN2
+    resNaN := AST.ite isQNaN2 (fpNaN e2) (AST.num0 dataSize)
+    AST.lmark lblEnd
+  }
   struct (isNaN, resNaN)
 
-/// shared/functions/float/fpadd/FPAdd
-/// FPAdd()
-let fpAdd bld dSz src1 src2 =
-  let struct (isZero1, isInf1, isZero2, isInf2) = tmpVars4 bld 1<rt>
-  let struct (sign1, sign2) = tmpVars2 bld 1<rt>
-  let res = tmpVar bld dSz
+/// The seven labels every floating-point arithmetic primitive branches
+/// through, in the order they are reached.
+let private fpArithLabels bld =
   let lblNan = label bld "NaN"
   let lblCond = label bld "Cond"
   let lblInvalid = label bld "Invalidop"
@@ -1120,36 +1142,48 @@ let fpAdd bld dSz src1 src2 =
   let lblChkInf = label bld "CheckInf"
   let lblChkZero = label bld "CheckZero"
   let lblEnd = label bld "End"
+  struct (lblNan, lblCond, lblInvalid, lblInf, lblChkInf, lblChkZero, lblEnd)
+
+/// shared/functions/float/fpadd/FPAdd
+/// FPAdd()
+let fpAdd bld dSz src1 src2 =
+  let struct (isZero1, isInf1, isZero2, isInf2) = tmpVars4 bld 1<rt>
+  let struct (sign1, sign2) = tmpVars2 bld 1<rt>
+  let res = tmpVar bld dSz
+  let struct (lblNan, lblCond, lblInvalid, lblInf, lblChkInf, lblChkZero,
+              lblEnd) = fpArithLabels bld
   let cond1 = isInf1 .& isInf2 .& (sign1 == AST.not sign2)
   let cond2 = (isInf1 .& (AST.not sign1)) .| (isInf2 .& (AST.not sign2))
   let cond3 = (isInf1 .& sign1) .| (isInf2 .& sign2)
   let cond4 = isZero1 .& isZero2 .& (sign1 == sign2)
   let struct (isNaN, resNaN) = fpProcessNaNs bld dSz src1 src2
-  bld <+ (AST.cjmp (isNaN) (AST.jmpDest lblNan) (AST.jmpDest lblCond))
-  bld <+ (AST.lmark lblNan)
-  bld <+ (res := resNaN)
-  bld <+ (AST.jmp (AST.jmpDest lblEnd))
-  bld <+ (AST.lmark lblCond)
-  bld <+ (sign1 := AST.xthi 1<rt> src1)
-  bld <+ (sign2 := AST.xthi 1<rt> src2)
-  bld <+ (isZero1 := isZero dSz src1)
-  bld <+ (isZero2 := isZero dSz src2)
-  bld <+ (isInf1 := isInfinity dSz src1)
-  bld <+ (isInf2 := isInfinity dSz src2)
-  bld <+ (AST.cjmp cond1 (AST.jmpDest lblInvalid) (AST.jmpDest lblChkInf))
-  bld <+ (AST.lmark lblInvalid)
-  bld <+ (res := fpDefaultNan dSz)
-  bld <+ (AST.jmp (AST.jmpDest lblEnd))
-  bld <+ (AST.lmark lblChkInf)
-  bld <+ (AST.cjmp (cond2 .| cond3) (AST.jmpDest lblInf)
-                                    (AST.jmpDest lblChkZero))
-  bld <+ (AST.lmark lblInf)
-  bld <+ (res := AST.ite cond2 (fpInfinity AST.b0 dSz) (fpInfinity AST.b1 dSz))
-  bld <+ (AST.jmp (AST.jmpDest lblEnd))
-  bld <+ (AST.lmark lblChkZero)
-  bld <+ (res := AST.ite cond4 (fpZero src1 dSz) (AST.fadd src1 src2))
-  bld <+ (AST.jmp (AST.jmpDest lblEnd))
-  bld <+ (AST.lmark lblEnd)
+  append bld {
+    AST.cjmp (isNaN) (AST.jmpDest lblNan) (AST.jmpDest lblCond)
+    AST.lmark lblNan
+    res := resNaN
+    AST.jmp (AST.jmpDest lblEnd)
+    AST.lmark lblCond
+    sign1 := AST.xthi 1<rt> src1
+    sign2 := AST.xthi 1<rt> src2
+    isZero1 := isZero dSz src1
+    isZero2 := isZero dSz src2
+    isInf1 := isInfinity dSz src1
+    isInf2 := isInfinity dSz src2
+    AST.cjmp cond1 (AST.jmpDest lblInvalid) (AST.jmpDest lblChkInf)
+    AST.lmark lblInvalid
+    res := fpDefaultNan dSz
+    AST.jmp (AST.jmpDest lblEnd)
+    AST.lmark lblChkInf
+    AST.cjmp (cond2 .| cond3) (AST.jmpDest lblInf)
+                              (AST.jmpDest lblChkZero)
+    AST.lmark lblInf
+    res := AST.ite cond2 (fpInfinity AST.b0 dSz) (fpInfinity AST.b1 dSz)
+    AST.jmp (AST.jmpDest lblEnd)
+    AST.lmark lblChkZero
+    res := AST.ite cond4 (fpZero src1 dSz) (AST.fadd src1 src2)
+    AST.jmp (AST.jmpDest lblEnd)
+    AST.lmark lblEnd
+  }
   res
 
 /// shared/functions/float/fpadd/FPSub
@@ -1158,43 +1192,40 @@ let fpSub bld dSz src1 src2 =
   let struct (isZero1, isInf1, isZero2, isInf2) = tmpVars4 bld 1<rt>
   let struct (sign1, sign2) = tmpVars2 bld 1<rt>
   let res = tmpVar bld dSz
-  let lblNan = label bld "NaN"
-  let lblCond = label bld "Cond"
-  let lblInvalid = label bld "Invalidop"
-  let lblInf = label bld "Inf"
-  let lblChkInf = label bld "CheckInf"
-  let lblChkZero = label bld "CheckZero"
-  let lblEnd = label bld "End"
+  let struct (lblNan, lblCond, lblInvalid, lblInf, lblChkInf, lblChkZero,
+              lblEnd) = fpArithLabels bld
   let cond1 = isInf1 .& isInf2 .& (sign1 == sign2)
   let cond2 = (isInf1 .& (AST.not sign1)) .| (isInf2 .& sign2)
   let cond3 = (isInf1 .& sign1) .| (isInf2 .& (AST.not sign2))
   let cond4 = isZero1 .& isZero2 .& (sign1 == (AST.not sign2))
   let struct (isNaN, resNaN) = fpProcessNaNs bld dSz src1 src2
-  bld <+ (AST.cjmp (isNaN) (AST.jmpDest lblNan) (AST.jmpDest lblCond))
-  bld <+ (AST.lmark lblNan)
-  bld <+ (res := resNaN)
-  bld <+ (AST.jmp (AST.jmpDest lblEnd))
-  bld <+ (AST.lmark lblCond)
-  bld <+ (sign1 := AST.xthi 1<rt> src1)
-  bld <+ (sign2 := AST.xthi 1<rt> src2)
-  bld <+ (isZero1 := isZero dSz src1)
-  bld <+ (isZero2 := isZero dSz src2)
-  bld <+ (isInf1 := isInfinity dSz src1)
-  bld <+ (isInf2 := isInfinity dSz src2)
-  bld <+ (AST.cjmp cond1 (AST.jmpDest lblInvalid) (AST.jmpDest lblChkInf))
-  bld <+ (AST.lmark lblInvalid)
-  bld <+ (res := fpDefaultNan dSz)
-  bld <+ (AST.jmp (AST.jmpDest lblEnd))
-  bld <+ (AST.lmark lblChkInf)
-  bld <+ (AST.cjmp (cond2 .| cond3) (AST.jmpDest lblInf)
-                                    (AST.jmpDest lblChkZero))
-  bld <+ (AST.lmark lblInf)
-  bld <+ (res := AST.ite cond2 (fpInfinity AST.b0 dSz) (fpInfinity AST.b1 dSz))
-  bld <+ (AST.jmp (AST.jmpDest lblEnd))
-  bld <+ (AST.lmark lblChkZero)
-  bld <+ (res := AST.ite cond4 (fpZero src1 dSz) (AST.fsub src1 src2))
-  bld <+ (AST.jmp (AST.jmpDest lblEnd))
-  bld <+ (AST.lmark lblEnd)
+  append bld {
+    AST.cjmp (isNaN) (AST.jmpDest lblNan) (AST.jmpDest lblCond)
+    AST.lmark lblNan
+    res := resNaN
+    AST.jmp (AST.jmpDest lblEnd)
+    AST.lmark lblCond
+    sign1 := AST.xthi 1<rt> src1
+    sign2 := AST.xthi 1<rt> src2
+    isZero1 := isZero dSz src1
+    isZero2 := isZero dSz src2
+    isInf1 := isInfinity dSz src1
+    isInf2 := isInfinity dSz src2
+    AST.cjmp cond1 (AST.jmpDest lblInvalid) (AST.jmpDest lblChkInf)
+    AST.lmark lblInvalid
+    res := fpDefaultNan dSz
+    AST.jmp (AST.jmpDest lblEnd)
+    AST.lmark lblChkInf
+    AST.cjmp (cond2 .| cond3) (AST.jmpDest lblInf)
+                              (AST.jmpDest lblChkZero)
+    AST.lmark lblInf
+    res := AST.ite cond2 (fpInfinity AST.b0 dSz) (fpInfinity AST.b1 dSz)
+    AST.jmp (AST.jmpDest lblEnd)
+    AST.lmark lblChkZero
+    res := AST.ite cond4 (fpZero src1 dSz) (AST.fsub src1 src2)
+    AST.jmp (AST.jmpDest lblEnd)
+    AST.lmark lblEnd
+  }
   res
 
 /// shared/functions/float/fpmul/FPMul
@@ -1214,31 +1245,33 @@ let fpMul bld dataSize src1 src2 =
   let cond2 = isInf1 .| isInf2
   let cond3 = isZero1 .| isZero2
   let struct (isNaN, resNaN) = fpProcessNaNs bld dataSize src1 src2
-  bld <+ (AST.cjmp (isNaN) (AST.jmpDest lblNan) (AST.jmpDest lblCond))
-  bld <+ (AST.lmark lblNan)
-  bld <+ (res := resNaN)
-  bld <+ (AST.jmp (AST.jmpDest lblEnd))
-  bld <+ (AST.lmark lblCond)
-  bld <+ (sign1 := AST.xthi 1<rt> src1)
-  bld <+ (sign2 := AST.xthi 1<rt> src2)
-  bld <+ (isZero1 := isZero dataSize src1)
-  bld <+ (isZero2 := isZero dataSize src2)
-  bld <+ (isInf1 := isInfinity dataSize src1)
-  bld <+ (isInf2 := isInfinity dataSize src2)
-  bld <+ (AST.cjmp cond1 (AST.jmpDest lblInvalid) (AST.jmpDest lblChkInf))
-  bld <+ (AST.lmark lblInvalid)
-  bld <+ (res := fpDefaultNan dataSize)
-  bld <+ (AST.jmp (AST.jmpDest lblEnd))
-  bld <+ (AST.lmark lblChkInf)
-  bld <+ (AST.cjmp (cond2 .| cond3) (AST.jmpDest lblInf) (AST.jmpDest lblMul))
-  bld <+ (AST.lmark lblInf)
-  bld <+ (res := AST.ite cond2 (fpInfinity (sign1 <+> sign2) dataSize)
-                               (fpZero (src1 <+> src2) dataSize))
-  bld <+ (AST.jmp (AST.jmpDest lblEnd))
-  bld <+ (AST.lmark lblMul)
-  bld <+ (res := AST.fmul src1 src2)
-  bld <+ (AST.jmp (AST.jmpDest lblEnd))
-  bld <+ (AST.lmark lblEnd)
+  append bld {
+    AST.cjmp (isNaN) (AST.jmpDest lblNan) (AST.jmpDest lblCond)
+    AST.lmark lblNan
+    res := resNaN
+    AST.jmp (AST.jmpDest lblEnd)
+    AST.lmark lblCond
+    sign1 := AST.xthi 1<rt> src1
+    sign2 := AST.xthi 1<rt> src2
+    isZero1 := isZero dataSize src1
+    isZero2 := isZero dataSize src2
+    isInf1 := isInfinity dataSize src1
+    isInf2 := isInfinity dataSize src2
+    AST.cjmp cond1 (AST.jmpDest lblInvalid) (AST.jmpDest lblChkInf)
+    AST.lmark lblInvalid
+    res := fpDefaultNan dataSize
+    AST.jmp (AST.jmpDest lblEnd)
+    AST.lmark lblChkInf
+    AST.cjmp (cond2 .| cond3) (AST.jmpDest lblInf) (AST.jmpDest lblMul)
+    AST.lmark lblInf
+    res := AST.ite cond2 (fpInfinity (sign1 <+> sign2) dataSize)
+                         (fpZero (src1 <+> src2) dataSize)
+    AST.jmp (AST.jmpDest lblEnd)
+    AST.lmark lblMul
+    res := AST.fmul src1 src2
+    AST.jmp (AST.jmpDest lblEnd)
+    AST.lmark lblEnd
+  }
   res
 
 /// shared/functions/float/fpdiv/FPDiv
@@ -1258,31 +1291,33 @@ let fpDiv bld dataSize src1 src2 =
   let cond2 = isInf1 .| isZero2
   let cond3 = isZero1 .| isInf2
   let struct (isNaN, resNaN) = fpProcessNaNs bld dataSize src1 src2
-  bld <+ (AST.cjmp (isNaN) (AST.jmpDest lblNan) (AST.jmpDest lblCond))
-  bld <+ (AST.lmark lblNan)
-  bld <+ (res := resNaN)
-  bld <+ (AST.jmp (AST.jmpDest lblEnd))
-  bld <+ (AST.lmark lblCond)
-  bld <+ (sign1 := AST.xthi 1<rt> src1)
-  bld <+ (sign2 := AST.xthi 1<rt> src2)
-  bld <+ (isZero1 := isZero dataSize src1)
-  bld <+ (isZero2 := isZero dataSize src2)
-  bld <+ (isInf1 := isInfinity dataSize src1)
-  bld <+ (isInf2 := isInfinity dataSize src2)
-  bld <+ (AST.cjmp cond1 (AST.jmpDest lblInvalid) (AST.jmpDest lblChkInf))
-  bld <+ (AST.lmark lblInvalid)
-  bld <+ (res := fpDefaultNan dataSize)
-  bld <+ (AST.jmp (AST.jmpDest lblEnd))
-  bld <+ (AST.lmark lblChkInf)
-  bld <+ (AST.cjmp (cond2 .| cond3) (AST.jmpDest lblInf) (AST.jmpDest lblDiv))
-  bld <+ (AST.lmark lblInf)
-  bld <+ (res := AST.ite cond2 (fpInfinity (sign1 <+> sign2) dataSize)
-                               (fpZero (src1 <+> src2) dataSize))
-  bld <+ (AST.jmp (AST.jmpDest lblEnd))
-  bld <+ (AST.lmark lblDiv)
-  bld <+ (res := AST.fdiv src1 src2)
-  bld <+ (AST.jmp (AST.jmpDest lblEnd))
-  bld <+ (AST.lmark lblEnd)
+  append bld {
+    AST.cjmp (isNaN) (AST.jmpDest lblNan) (AST.jmpDest lblCond)
+    AST.lmark lblNan
+    res := resNaN
+    AST.jmp (AST.jmpDest lblEnd)
+    AST.lmark lblCond
+    sign1 := AST.xthi 1<rt> src1
+    sign2 := AST.xthi 1<rt> src2
+    isZero1 := isZero dataSize src1
+    isZero2 := isZero dataSize src2
+    isInf1 := isInfinity dataSize src1
+    isInf2 := isInfinity dataSize src2
+    AST.cjmp cond1 (AST.jmpDest lblInvalid) (AST.jmpDest lblChkInf)
+    AST.lmark lblInvalid
+    res := fpDefaultNan dataSize
+    AST.jmp (AST.jmpDest lblEnd)
+    AST.lmark lblChkInf
+    AST.cjmp (cond2 .| cond3) (AST.jmpDest lblInf) (AST.jmpDest lblDiv)
+    AST.lmark lblInf
+    res := AST.ite cond2 (fpInfinity (sign1 <+> sign2) dataSize)
+                         (fpZero (src1 <+> src2) dataSize)
+    AST.jmp (AST.jmpDest lblEnd)
+    AST.lmark lblDiv
+    res := AST.fdiv src1 src2
+    AST.jmp (AST.jmpDest lblEnd)
+    AST.lmark lblEnd
+  }
   res
 
 /// Positive and negative one half, in the width being converted from. Ties
@@ -1316,17 +1351,19 @@ let private fpGuardSpecials bld sizes src fbits convert =
   let lblNan = label bld "NaN"
   let lblCon = label bld "Continue"
   let lblEnd = label bld "End"
-  bld <+ (checkNan := isNaN srcSz src)
-  bld <+ (checkInf := isInfinity srcSz src)
-  bld <+ (checkfbit := AST.zext srcSz fbits == AST.num0 srcSz)
-  bld <+ (AST.cjmp (checkNan .| checkInf) (AST.jmpDest lblNan)
-                                          (AST.jmpDest lblCon))
-  bld <+ (AST.lmark lblNan)
-  bld <+ (res := AST.ite checkNan (AST.num0 dstSz) (fpMinMax src dstSz))
-  bld <+ (AST.jmp (AST.jmpDest lblEnd))
-  bld <+ (AST.lmark lblCon)
-  bld <+ (res := convert ())
-  bld <+ (AST.lmark lblEnd)
+  append bld {
+    checkNan := isNaN srcSz src
+    checkInf := isInfinity srcSz src
+    checkfbit := AST.zext srcSz fbits == AST.num0 srcSz
+    AST.cjmp (checkNan .| checkInf) (AST.jmpDest lblNan)
+                                    (AST.jmpDest lblCon)
+    AST.lmark lblNan
+    res := AST.ite checkNan (AST.num0 dstSz) (fpMinMax src dstSz)
+    AST.jmp (AST.jmpDest lblEnd)
+    AST.lmark lblCon
+    res := convert ()
+    AST.lmark lblEnd
+  }
   res
 
 /// shared/functions/float/FPToFixed
@@ -1361,7 +1398,9 @@ let fpToFixed dstSz src fbits unsigned round bld =
   | FPRounding_TIEAWAY ->
     let t = tmpVar bld srcSz
     let comp1, comp2 = halvesOf srcSz
-    bld <+ (t := AST.fsub src trunc)
+    append bld {
+      t := AST.fsub src trunc
+    }
     let ceil = fpcheck (AST.cast CastKind.FtoICeil srcSz)
     let floor = fpcheck (AST.cast CastKind.FtoIFloor srcSz)
     let pRes = AST.ite (AST.fge t comp1) ceil floor
@@ -1390,10 +1429,12 @@ let dstAssign oprSize dst src bld =
   let orgDstSz = orgDst |> Expr.typeOf
   match orgDst with
   | Var(_, rid, _, _) when rid = Register.toRegID R.XZR ->
-    bld <+ (orgDst := AST.num0 orgDstSz)
+    append bld {
+      orgDst := AST.num0 orgDstSz
+    }
   | _ ->
-    if orgDstSz > oprSize then bld <+ (orgDst := AST.zext orgDstSz src)
-    elif orgDstSz = oprSize then bld <+ (orgDst := src)
+    if orgDstSz > oprSize then append bld { orgDst := AST.zext orgDstSz src }
+    elif orgDstSz = oprSize then append bld { orgDst := src }
     else raise InvalidOperandSizeException
 
 /// The SIMDFP Scalar register needs a function to get the upper 64-bit.
@@ -1403,35 +1444,43 @@ let dstAssignScalar ins bld addr dst src eSize =
     let reg = OprSIMD(ScalarReg(RegisterHelper.getOrgSIMDReg reg))
     let struct (dstB, dstA) = transOprToExpr128 ins bld addr reg
     dstAssign eSize dstA src bld
-    bld <+ (dstB := AST.num0 64<rt>)
+    append bld {
+      dstB := AST.num0 64<rt>
+    }
   | _ ->
     raise InvalidOperandException
 
 let dstAssign128 ins bld addr dst srcA srcB dataSize =
-  let struct (dstB, dstA) = transOprToExpr128 ins bld addr dst
-  if dataSize = 128<rt> then
-    bld <+ (dstA := srcA)
-    bld <+ (dstB := srcB)
-  else
-    bld <+ (dstA := srcA)
-    bld <+ (dstB := AST.num0 64<rt>)
+  append bld {
+    let struct (dstB, dstA) = transOprToExpr128 ins bld addr dst
+    if dataSize = 128<rt> then
+      dstA := srcA
+      dstB := srcB
+    else
+      dstA := srcA
+      dstB := AST.num0 64<rt>
+  }
 
 let dstAssignForSIMD dstA dstB result dataSize elements bld =
-  if dataSize = 128<rt> then
-    let elems = elements / 2
-    bld <+ (dstA := AST.revConcat (Array.sub result 0 elems))
-    bld <+ (dstB := AST.revConcat (Array.sub result elems elems))
-  else
-    bld <+ (dstA := AST.revConcat result)
-    bld <+ (dstB := AST.num0 64<rt>)
+  append bld {
+    if dataSize = 128<rt> then
+      let elems = elements / 2
+      dstA := AST.revConcat (Array.sub result 0 elems)
+      dstB := AST.revConcat (Array.sub result elems elems)
+    else
+      dstA := AST.revConcat result
+      dstB := AST.num0 64<rt>
+  }
 
 /// Records an exclusive reservation for a load-exclusive: the reserved address
 /// and the value read there. Under single-observer emulation this is all a
 /// later store-exclusive needs to tell whether the location was written in
 /// between, so no external call and no per-store instrumentation are required.
 let reserveExclusive bld address value =
-  bld <+ (regVar bld R.ExMonAddr := address)
-  bld <+ (regVar bld R.ExMonVal := AST.zext 64<rt> value)
+  append bld {
+    regVar bld R.ExMonAddr := address
+    regVar bld R.ExMonVal := AST.zext 64<rt> value
+  }
 
 /// A store-exclusive (STXR/STLXR): stores and returns success (0) only if the
 /// reservation still holds -- the address matches and memory still holds the
@@ -1442,11 +1491,13 @@ let storeExclusive bld address size data =
   let cur = tmpVar bld size
   let matched = tmpVar bld 1<rt>
   let status = tmpVar bld 32<rt>
-  bld <+ (cur := AST.loadLE size address)
-  bld <+ (matched := (address == regVar bld R.ExMonAddr)
-                     .& (cur == AST.xtlo size (regVar bld R.ExMonVal)))
-  bld <+ (AST.loadLE size address := AST.ite matched data cur)
-  bld <+ (status := AST.ite matched (AST.num0 32<rt>) (AST.num1 32<rt>))
+  append bld {
+    cur := AST.loadLE size address
+    matched := (address == regVar bld R.ExMonAddr)
+               .& (cur == AST.xtlo size (regVar bld R.ExMonVal))
+    AST.loadLE size address := AST.ite matched data cur
+    status := AST.ite matched (AST.num0 32<rt>) (AST.num1 32<rt>)
+  }
   status
 
 /// A store-exclusive pair (STXP/STLXP): as storeExclusive, verifying the
@@ -1456,10 +1507,12 @@ let storeExclusivePair bld address size data1 data2 =
   let cur = tmpVar bld size
   let matched = tmpVar bld 1<rt>
   let status = tmpVar bld 32<rt>
-  bld <+ (cur := AST.loadLE size address)
-  bld <+ (matched := (address == regVar bld R.ExMonAddr)
-                     .& (cur == AST.xtlo size (regVar bld R.ExMonVal)))
-  bld <+ (AST.loadLE size address := AST.ite matched data1 cur)
-  bld <+ (AST.loadLE size hi := AST.ite matched data2 (AST.loadLE size hi))
-  bld <+ (status := AST.ite matched (AST.num0 32<rt>) (AST.num1 32<rt>))
+  append bld {
+    cur := AST.loadLE size address
+    matched := (address == regVar bld R.ExMonAddr)
+               .& (cur == AST.xtlo size (regVar bld R.ExMonVal))
+    AST.loadLE size address := AST.ite matched data1 cur
+    AST.loadLE size hi := AST.ite matched data2 (AST.loadLE size hi)
+    status := AST.ite matched (AST.num0 32<rt>) (AST.num1 32<rt>)
+  }
   status

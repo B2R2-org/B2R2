@@ -248,10 +248,12 @@ let transBranchThreeOprs (ins: Instruction) bld =
     raise InvalidOperandException
 
 let getCRRegValue bld cr =
-  bld <+ (cr := numI32 0 32<rt>)
-  for i in 0 .. 31 do
-    let crbit = uint32 (31 - i) |> getCRbitRegister |> regVar bld
-    bld <+ (AST.extract cr 1<rt> i := crbit)
+  append bld {
+    cr := numI32 0 32<rt>
+    for i in 0 .. 31 do
+      let crbit = uint32 (31 - i) |> getCRbitRegister |> regVar bld
+      AST.extract cr 1<rt> i := crbit
+  }
 
 let getImmValue = function
   | OprImm imm -> uint32 imm
@@ -271,53 +273,61 @@ let getSPRReg bld imm =
   | _ -> raise InvalidOperandException
 
 let floatingNeg bld dst src rt =
-  let sign = (AST.xthi 1<rt> src <+> (AST.b1))
-  let tmp = tmpVar bld rt
-  bld <+ (tmp := src)
-  bld <+ (AST.xthi 1<rt> tmp := sign)
-  bld <+ (dst := tmp)
+  append bld {
+    let sign = (AST.xthi 1<rt> src <+> (AST.b1))
+    let tmp = tmpVar bld rt
+    tmp := src
+    AST.xthi 1<rt> tmp := sign
+    dst := tmp
+  }
 
 let roundingToCastInt bld frd frb =
-  let fpscr = regVar bld Register.FPSCR
-  let rnA = AST.extract fpscr 1<rt> 1
-  let rnB = AST.extract fpscr 1<rt> 0
-  let lblRN0 = label bld "RN0x"
-  let lblRN1 = label bld "RN1x"
-  let lblEnd = label bld "End"
-  bld <+ (AST.cjmp rnA (AST.jmpDest lblRN1) (AST.jmpDest lblRN0))
-  bld <+ (AST.lmark lblRN0)
-  bld <+ (frd := AST.ite rnB
-                         (AST.cast CastKind.FtoITrunc 64<rt> frb)
-                         (AST.cast CastKind.FtoIRound 64<rt> frb))
-  bld <+ (AST.jmp (AST.jmpDest lblEnd))
-  bld <+ (AST.lmark lblRN1)
-  bld <+ (frd := AST.ite rnB
-                         (AST.cast CastKind.FtoIFloor 64<rt> frb)
-                         (AST.cast CastKind.FtoICeil 64<rt> frb))
-  bld <+ (AST.lmark lblEnd)
+  append bld {
+    let fpscr = regVar bld Register.FPSCR
+    let rnA = AST.extract fpscr 1<rt> 1
+    let rnB = AST.extract fpscr 1<rt> 0
+    let lblRN0 = label bld "RN0x"
+    let lblRN1 = label bld "RN1x"
+    let lblEnd = label bld "End"
+    AST.cjmp rnA (AST.jmpDest lblRN1) (AST.jmpDest lblRN0)
+    AST.lmark lblRN0
+    frd := AST.ite rnB
+                   (AST.cast CastKind.FtoITrunc 64<rt> frb)
+                   (AST.cast CastKind.FtoIRound 64<rt> frb)
+    AST.jmp (AST.jmpDest lblEnd)
+    AST.lmark lblRN1
+    frd := AST.ite rnB
+                   (AST.cast CastKind.FtoIFloor 64<rt> frb)
+                   (AST.cast CastKind.FtoICeil 64<rt> frb)
+    AST.lmark lblEnd
+  }
 
 let setCR0Reg (bld: ILowUIRBuilder) result =
-  let zero = AST.num0 bld.RegType
-  let xerSO = AST.xthi 1<rt> (regVar bld Register.XER)
-  let cr0LT = regVar bld Register.CR0_0
-  let cr0GT = regVar bld Register.CR0_1
-  let cr0EQ = regVar bld Register.CR0_2
-  let cr0SO = regVar bld Register.CR0_3
-  bld <+ (cr0LT := result ?< zero)
-  bld <+ (cr0GT := result ?> zero)
-  bld <+ (cr0EQ := result == zero)
-  bld <+ (cr0SO := xerSO)
+  append bld {
+    let zero = AST.num0 bld.RegType
+    let xerSO = AST.xthi 1<rt> (regVar bld Register.XER)
+    let cr0LT = regVar bld Register.CR0_0
+    let cr0GT = regVar bld Register.CR0_1
+    let cr0EQ = regVar bld Register.CR0_2
+    let cr0SO = regVar bld Register.CR0_3
+    cr0LT := result ?< zero
+    cr0GT := result ?> zero
+    cr0EQ := result == zero
+    cr0SO := xerSO
+  }
 
 let setCR1Reg bld =
-  let fpscr = regVar bld Register.FPSCR
-  let cr1FX = regVar bld Register.CR1_0
-  let cr1FEX = regVar bld Register.CR1_1
-  let cr1VX = regVar bld Register.CR1_2
-  let cr1OX = regVar bld Register.CR1_3
-  bld <+ (cr1FX := AST.extract fpscr 1<rt> 31)
-  bld <+ (cr1FEX := AST.extract fpscr 1<rt> 30)
-  bld <+ (cr1VX := AST.extract fpscr 1<rt> 29)
-  bld <+ (cr1OX := AST.extract fpscr 1<rt> 28)
+  append bld {
+    let fpscr = regVar bld Register.FPSCR
+    let cr1FX = regVar bld Register.CR1_0
+    let cr1FEX = regVar bld Register.CR1_1
+    let cr1VX = regVar bld Register.CR1_2
+    let cr1OX = regVar bld Register.CR1_3
+    cr1FX := AST.extract fpscr 1<rt> 31
+    cr1FEX := AST.extract fpscr 1<rt> 30
+    cr1VX := AST.extract fpscr 1<rt> 29
+    cr1OX := AST.extract fpscr 1<rt> 28
+  }
 
 let isDenormailized frx =
   let exponent = (frx >> numI32 52 64<rt>) .& numI32 0x7FF 64<rt>
@@ -326,46 +336,54 @@ let isDenormailized frx =
   AST.xtlo 1<rt> ((exponent == zero) .& (fraction != zero))
 
 let setFPRF bld result =
-  let fpscr = regVar bld Register.FPSCR
-  let c = AST.extract fpscr 1<rt> 16
-  let fl = AST.extract fpscr 1<rt> 15
-  let fg = AST.extract fpscr 1<rt> 14
-  let fe = AST.extract fpscr 1<rt> 13
-  let fu = AST.extract fpscr 1<rt> 12
-  let nzero = numU64 0x8000000000000000UL 64<rt>
-  bld <+ (c := IEEE754Double.isNaN result
-             .| isDenormailized result
-             .| AST.eq result nzero)
-  bld <+ (fl := AST.flt result (AST.num0 64<rt>))
-  bld <+ (fg := AST.fgt result (AST.num0 64<rt>))
-  bld <+ (fe := AST.eq (result << AST.num1 64<rt>) (AST.num0 64<rt>))
-  bld <+ (fu := IEEE754Double.isNaN result .| IEEE754Double.isInfinity result)
+  append bld {
+    let fpscr = regVar bld Register.FPSCR
+    let c = AST.extract fpscr 1<rt> 16
+    let fl = AST.extract fpscr 1<rt> 15
+    let fg = AST.extract fpscr 1<rt> 14
+    let fe = AST.extract fpscr 1<rt> 13
+    let fu = AST.extract fpscr 1<rt> 12
+    let nzero = numU64 0x8000000000000000UL 64<rt>
+    c := IEEE754Double.isNaN result
+       .| isDenormailized result
+       .| AST.eq result nzero
+    fl := AST.flt result (AST.num0 64<rt>)
+    fg := AST.fgt result (AST.num0 64<rt>)
+    fe := AST.eq (result << AST.num1 64<rt>) (AST.num0 64<rt>)
+    fu := IEEE754Double.isNaN result .| IEEE754Double.isInfinity result
+  }
 
 let setCarryOut bld carry =
-  let xerCA = AST.extract (regVar bld Register.XER) 1<rt> 29
-  bld <+ (xerCA := carry)
+  append bld {
+    let xerCA = AST.extract (regVar bld Register.XER) 1<rt> 29
+    xerCA := carry
+  }
 
 /// The XER[CA] carry-in widened to a register-wide 0 or 1.
 let carryIn (bld: ILowUIRBuilder) =
   AST.zext bld.RegType (AST.extract (regVar bld Register.XER) 1<rt> 29)
 
 let setCRRegValue bld cr =
-  for i in 0 .. 31 do
-    let crbit = uint32 (31 - i) |> getCRbitRegister |> regVar bld
-    bld <+ (crbit := AST.extract cr 1<rt> i)
+  append bld {
+    for i in 0 .. 31 do
+      let crbit = uint32 (31 - i) |> getCRbitRegister |> regVar bld
+      crbit := AST.extract cr 1<rt> i
+  }
 
 /// Records an overflow in XER[OV]/XER[SO]: a signed add or subtract overflows
 /// when both operands share a sign that the result does not. The operands are
 /// register-wide, so taking their top bit covers either word size.
 let isAddSubOV bld expA expB result =
-  let struct (checkOF, t1, t2) = tmpVars3 bld 1<rt>
-  let xerSO = AST.extract (regVar bld Register.XER) 1<rt> 31
-  let xerOV = AST.extract (regVar bld Register.XER) 1<rt> 30
-  bld <+ (t1 := AST.xthi 1<rt> expA)
-  bld <+ (t2 := AST.xthi 1<rt> result)
-  bld <+ (checkOF := (t1 == AST.xthi 1<rt> expB) .& (t1 <+> t2))
-  bld <+ (xerOV := checkOF)
-  bld <+ (xerSO := checkOF .| xerSO)
+  append bld {
+    let struct (checkOF, t1, t2) = tmpVars3 bld 1<rt>
+    let xerSO = AST.extract (regVar bld Register.XER) 1<rt> 31
+    let xerOV = AST.extract (regVar bld Register.XER) 1<rt> 30
+    t1 := AST.xthi 1<rt> expA
+    t2 := AST.xthi 1<rt> result
+    checkOF := (t1 == AST.xthi 1<rt> expB) .& (t1 <+> t2)
+    xerOV := checkOF
+    xerSO := checkOF .| xerSO
+  }
 
 /// Adds a + b + c (c a register-wide carry-in of 0 or 1) into dst, recording
 /// the carry-out in XER[CA]. Each partial sum's unsigned wrap gives its carry,
@@ -373,119 +391,129 @@ let isAddSubOV bld expA expB result =
 let addWithCarryOut (bld: ILowUIRBuilder) dst a b c =
   let struct (t1, t2) = tmpVars2 bld bld.RegType
   let struct (c1, c2) = tmpVars2 bld 1<rt>
-  bld <+ (t1 := a .+ b)
-  bld <+ (c1 := t1 .< a)
-  bld <+ (t2 := t1 .+ c)
-  bld <+ (c2 := t2 .< t1)
-  bld <+ (dst := t2)
+  append bld {
+    t1 := a .+ b
+    c1 := t1 .< a
+    t2 := t1 .+ c
+    c2 := t2 .< t1
+    dst := t2
+  }
   setCarryOut bld (c1 .| c2)
 
 /// Records an overflow of mullw, whose 32-bit operands make a product that does
 /// not fit a signed word.
 let isMulwOV bld expA expB =
-  let prod = tmpVar bld 64<rt>
-  let checkOF = tmpVar bld 1<rt>
-  let xerSO = AST.extract (regVar bld Register.XER) 1<rt> 31
-  let xerOV = AST.extract (regVar bld Register.XER) 1<rt> 30
-  let a = AST.sext 64<rt> (AST.xtlo 32<rt> expA)
-  let b = AST.sext 64<rt> (AST.xtlo 32<rt> expB)
-  bld <+ (prod := a .* b)
-  bld <+ (checkOF := prod != AST.sext 64<rt> (AST.xtlo 32<rt> prod))
-  bld <+ (xerOV := checkOF)
-  bld <+ (xerSO := checkOF .| xerSO)
+  append bld {
+    let prod = tmpVar bld 64<rt>
+    let checkOF = tmpVar bld 1<rt>
+    let xerSO = AST.extract (regVar bld Register.XER) 1<rt> 31
+    let xerOV = AST.extract (regVar bld Register.XER) 1<rt> 30
+    let a = AST.sext 64<rt> (AST.xtlo 32<rt> expA)
+    let b = AST.sext 64<rt> (AST.xtlo 32<rt> expB)
+    prod := a .* b
+    checkOF := prod != AST.sext 64<rt> (AST.xtlo 32<rt> prod)
+    xerOV := checkOF
+    xerSO := checkOF .| xerSO
+  }
 
 /// Records an overflow of mulld, whose doubleword product does not fit a signed
 /// doubleword.
 let isMuldOV bld expA expB =
-  let prod = tmpVar bld 128<rt>
-  let checkOF = tmpVar bld 1<rt>
-  let xerSO = AST.extract (regVar bld Register.XER) 1<rt> 31
-  let xerOV = AST.extract (regVar bld Register.XER) 1<rt> 30
-  let a = AST.sext 128<rt> (AST.xtlo 64<rt> expA)
-  let b = AST.sext 128<rt> (AST.xtlo 64<rt> expB)
-  bld <+ (prod := a .* b)
-  bld <+ (checkOF := prod != AST.sext 128<rt> (AST.xtlo 64<rt> prod))
-  bld <+ (xerOV := checkOF)
-  bld <+ (xerSO := checkOF .| xerSO)
+  append bld {
+    let prod = tmpVar bld 128<rt>
+    let checkOF = tmpVar bld 1<rt>
+    let xerSO = AST.extract (regVar bld Register.XER) 1<rt> 31
+    let xerOV = AST.extract (regVar bld Register.XER) 1<rt> 30
+    let a = AST.sext 128<rt> (AST.xtlo 64<rt> expA)
+    let b = AST.sext 128<rt> (AST.xtlo 64<rt> expB)
+    prod := a .* b
+    checkOF := prod != AST.sext 128<rt> (AST.xtlo 64<rt> prod)
+    xerOV := checkOF
+    xerSO := checkOF .| xerSO
+  }
 
 /// Records an overflow of a signed divide of the given width: a zero divisor,
 /// or the most negative dividend divided by -1.
 let isSignedDivOV bld rt expA expB =
-  let checkOF = tmpVar bld 1<rt>
-  let minValue = AST.num1 rt << numI32 (int rt - 1) rt
-  let xerSO = AST.extract (regVar bld Register.XER) 1<rt> 31
-  let xerOV = AST.extract (regVar bld Register.XER) 1<rt> 30
-  let dz = expB == AST.num0 rt
-  let ovf = (expA == minValue) .& (expB == AST.not (AST.num0 rt))
-  bld <+ (checkOF := dz .| ovf)
-  bld <+ (xerOV := checkOF)
-  bld <+ (xerSO := checkOF .| xerSO)
+  append bld {
+    let checkOF = tmpVar bld 1<rt>
+    let minValue = AST.num1 rt << numI32 (int rt - 1) rt
+    let xerSO = AST.extract (regVar bld Register.XER) 1<rt> 31
+    let xerOV = AST.extract (regVar bld Register.XER) 1<rt> 30
+    let dz = expB == AST.num0 rt
+    let ovf = (expA == minValue) .& (expB == AST.not (AST.num0 rt))
+    checkOF := dz .| ovf
+    xerOV := checkOF
+    xerSO := checkOF .| xerSO
+  }
 
 /// Records an overflow of an unsigned divide of the given width: a zero
 /// divisor is the only case.
 let isUnsignedDivOV bld rt expB =
-  let checkOF = tmpVar bld 1<rt>
-  let xerSO = AST.extract (regVar bld Register.XER) 1<rt> 31
-  let xerOV = AST.extract (regVar bld Register.XER) 1<rt> 30
-  bld <+ (checkOF := expB == AST.num0 rt)
-  bld <+ (xerOV := checkOF)
-  bld <+ (xerSO := checkOF .| xerSO)
+  append bld {
+    let checkOF = tmpVar bld 1<rt>
+    let xerSO = AST.extract (regVar bld Register.XER) 1<rt> 31
+    let xerOV = AST.extract (regVar bld Register.XER) 1<rt> 30
+    checkOF := expB == AST.num0 rt
+    xerOV := checkOF
+    xerSO := checkOF .| xerSO
+  }
 
 let sideEffects (ins: Instruction) insLen bld name =
-  bld <!-- (ins.Address, insLen)
-  bld <+ (AST.sideEffect name)
-  bld --!> insLen
+  lift bld ins insLen {
+    AST.sideEffect name
+  }
 
 let add ins insLen updateCond ovCond (bld: ILowUIRBuilder) =
-  let struct (dst, src1, src2) = transThreeOprs ins bld
-  let struct (t1, t2) = tmpVars2 bld bld.RegType
-  bld <!-- (ins.Address, insLen)
-  bld <+ (t1 := src1)
-  bld <+ (t2 := src2)
-  bld <+ (dst := t1 .+ t2)
-  if ovCond then isAddSubOV bld t1 t2 dst else ()
-  if updateCond then setCR0Reg bld dst else ()
-  bld --!> insLen
+  lift bld ins insLen {
+    let struct (dst, src1, src2) = transThreeOprs ins bld
+    let struct (t1, t2) = tmpVars2 bld bld.RegType
+    t1 := src1
+    t2 := src2
+    dst := t1 .+ t2
+    if ovCond then isAddSubOV bld t1 t2 dst else ()
+    if updateCond then setCR0Reg bld dst else ()
+  }
 
 let addc ins insLen updateCond ovCond (bld: ILowUIRBuilder) =
-  let struct (dst, src1, src2) = transThreeOprs ins bld
-  let struct (t1, t2) = tmpVars2 bld bld.RegType
-  bld <!-- (ins.Address, insLen)
-  bld <+ (t1 := src1)
-  bld <+ (t2 := src2)
-  addWithCarryOut bld dst t1 t2 (AST.num0 bld.RegType)
-  if ovCond then isAddSubOV bld t1 t2 dst else ()
-  if updateCond then setCR0Reg bld dst else ()
-  bld --!> insLen
+  lift bld ins insLen {
+    let struct (dst, src1, src2) = transThreeOprs ins bld
+    let struct (t1, t2) = tmpVars2 bld bld.RegType
+    t1 := src1
+    t2 := src2
+    addWithCarryOut bld dst t1 t2 (AST.num0 bld.RegType)
+    if ovCond then isAddSubOV bld t1 t2 dst else ()
+    if updateCond then setCR0Reg bld dst else ()
+  }
 
 let adde ins insLen updateCond ovCond (bld: ILowUIRBuilder) =
-  let struct (dst, src1, src2) = transThreeOprs ins bld
-  let struct (t1, t2) = tmpVars2 bld bld.RegType
-  let ca = carryIn bld
-  bld <!-- (ins.Address, insLen)
-  bld <+ (t1 := src1)
-  bld <+ (t2 := src2)
-  addWithCarryOut bld dst t1 t2 ca
-  if ovCond then isAddSubOV bld t1 t2 dst else ()
-  if updateCond then setCR0Reg bld dst else ()
-  bld --!> insLen
+  lift bld ins insLen {
+    let struct (dst, src1, src2) = transThreeOprs ins bld
+    let struct (t1, t2) = tmpVars2 bld bld.RegType
+    let ca = carryIn bld
+    t1 := src1
+    t2 := src2
+    addWithCarryOut bld dst t1 t2 ca
+    if ovCond then isAddSubOV bld t1 t2 dst else ()
+    if updateCond then setCR0Reg bld dst else ()
+  }
 
 let addi ins insLen (bld: ILowUIRBuilder) =
-  let struct (dst, src1, simm) = transThreeOprs ins bld
-  let cond = src1 == AST.num0 bld.RegType
-  bld <!-- (ins.Address, insLen)
-  bld <+ (dst := (AST.ite cond simm (src1 .+ simm)))
-  bld --!> insLen
+  lift bld ins insLen {
+    let struct (dst, src1, simm) = transThreeOprs ins bld
+    let cond = src1 == AST.num0 bld.RegType
+    dst := (AST.ite cond simm (src1 .+ simm))
+  }
 
 let addic ins insLen updateCond (bld: ILowUIRBuilder) =
-  let struct (dst, src1, simm) = transThreeOprs ins bld
-  let struct (t1, t2) = tmpVars2 bld bld.RegType
-  bld <!-- (ins.Address, insLen)
-  bld <+ (t1 := src1)
-  bld <+ (t2 := simm)
-  addWithCarryOut bld dst t1 t2 (AST.num0 bld.RegType)
-  if updateCond then setCR0Reg bld dst else ()
-  bld --!> insLen
+  lift bld ins insLen {
+    let struct (dst, src1, simm) = transThreeOprs ins bld
+    let struct (t1, t2) = tmpVars2 bld bld.RegType
+    t1 := src1
+    t2 := simm
+    addWithCarryOut bld dst t1 t2 (AST.num0 bld.RegType)
+    if updateCond then setCR0Reg bld dst else ()
+  }
 
 /// The 16-bit immediate of an addis/lis/oris/xoris shifted into the upper half
 /// of a word and sign- or zero-extended to a register, as that form's shifted
@@ -497,164 +525,165 @@ let shiftedImm (bld: ILowUIRBuilder) signed simm =
   else AST.zext bld.RegType hi
 
 let addis ins insLen (bld: ILowUIRBuilder) =
-  let struct (dst, src1, simm) = transThreeOprs ins bld
-  let cond = src1 == AST.num0 bld.RegType
-  let simm = shiftedImm bld true simm
-  bld <!-- (ins.Address, insLen)
-  bld <+ (dst := (AST.ite cond simm (src1 .+ simm)))
-  bld --!> insLen
+  lift bld ins insLen {
+    let struct (dst, src1, simm) = transThreeOprs ins bld
+    let cond = src1 == AST.num0 bld.RegType
+    let simm = shiftedImm bld true simm
+    dst := (AST.ite cond simm (src1 .+ simm))
+  }
 
 let addme ins insLen updateCond ovCond (bld: ILowUIRBuilder) =
-  let struct (dst, src) = transTwoOprs ins bld
-  let struct (t1, t2) = tmpVars2 bld bld.RegType
-  let ca = carryIn bld
-  bld <!-- (ins.Address, insLen)
-  bld <+ (t1 := src)
-  bld <+ (t2 := AST.not (AST.num0 bld.RegType))
-  addWithCarryOut bld dst t1 t2 ca
-  if ovCond then isAddSubOV bld t1 t2 dst else ()
-  if updateCond then setCR0Reg bld dst else ()
-  bld --!> insLen
+  lift bld ins insLen {
+    let struct (dst, src) = transTwoOprs ins bld
+    let struct (t1, t2) = tmpVars2 bld bld.RegType
+    let ca = carryIn bld
+    t1 := src
+    t2 := AST.not (AST.num0 bld.RegType)
+    addWithCarryOut bld dst t1 t2 ca
+    if ovCond then isAddSubOV bld t1 t2 dst else ()
+    if updateCond then setCR0Reg bld dst else ()
+  }
 
 let addze ins insLen updateCond ovCond (bld: ILowUIRBuilder) =
-  let struct (dst, src) = transTwoOprs ins bld
-  let struct (t1, t2) = tmpVars2 bld bld.RegType
-  let ca = carryIn bld
-  bld <!-- (ins.Address, insLen)
-  bld <+ (t1 := src)
-  bld <+ (t2 := AST.num0 bld.RegType)
-  addWithCarryOut bld dst t1 t2 ca
-  if ovCond then isAddSubOV bld t1 t2 dst else ()
-  if updateCond then setCR0Reg bld dst else ()
-  bld --!> insLen
+  lift bld ins insLen {
+    let struct (dst, src) = transTwoOprs ins bld
+    let struct (t1, t2) = tmpVars2 bld bld.RegType
+    let ca = carryIn bld
+    t1 := src
+    t2 := AST.num0 bld.RegType
+    addWithCarryOut bld dst t1 t2 ca
+    if ovCond then isAddSubOV bld t1 t2 dst else ()
+    if updateCond then setCR0Reg bld dst else ()
+  }
 
 let andx ins insLen updateCond bld =
-  let struct (dst, src1, src2) = transThreeOprs ins bld
-  bld <!-- (ins.Address, insLen)
-  bld <+ (dst := src1 .& src2)
-  if updateCond then setCR0Reg bld dst else ()
-  bld --!> insLen
+  lift bld ins insLen {
+    let struct (dst, src1, src2) = transThreeOprs ins bld
+    dst := src1 .& src2
+    if updateCond then setCR0Reg bld dst else ()
+  }
 
 let andc ins insLen updateCond bld =
-  let struct (dst, src1, src2) = transThreeOprs ins bld
-  bld <!-- (ins.Address, insLen)
-  bld <+ (dst := src1 .& AST.not (src2))
-  if updateCond then setCR0Reg bld dst else ()
-  bld --!> insLen
+  lift bld ins insLen {
+    let struct (dst, src1, src2) = transThreeOprs ins bld
+    dst := src1 .& AST.not (src2)
+    if updateCond then setCR0Reg bld dst else ()
+  }
 
 let andidot ins insLen bld =
-  let struct (dst, src, uimm) = transThreeOprs ins bld
-  bld <!-- (ins.Address, insLen)
-  bld <+ (dst := src .& uimm)
-  setCR0Reg bld dst
-  bld --!> insLen
+  lift bld ins insLen {
+    let struct (dst, src, uimm) = transThreeOprs ins bld
+    dst := src .& uimm
+    setCR0Reg bld dst
+  }
 
 let andisdot ins insLen bld =
-  let struct (dst, src, uimm) = transThreeOprs ins bld
-  let uimm = shiftedImm bld false uimm
-  bld <!-- (ins.Address, insLen)
-  bld <+ (dst := src .& uimm)
-  setCR0Reg bld dst
-  bld --!> insLen
+  lift bld ins insLen {
+    let struct (dst, src, uimm) = transThreeOprs ins bld
+    let uimm = shiftedImm bld false uimm
+    dst := src .& uimm
+    setCR0Reg bld dst
+  }
 
 let b ins insLen (bld: ILowUIRBuilder) lk =
-  let addr = transOneOpr ins bld
-  let lr = regVar bld Register.LR
-  bld <!-- (ins.Address, insLen)
-  if lk then
-    bld <+ (lr := numU64 (ins.Address + 4UL) bld.RegType)
-    bld <+ (AST.interjmp addr InterJmpKind.IsCall)
-  else
-    bld <+ (AST.interjmp addr InterJmpKind.Base)
-  bld --!> insLen
+  lift bld ins insLen {
+    let addr = transOneOpr ins bld
+    let lr = regVar bld Register.LR
+    if lk then
+      lr := numU64 (ins.Address + 4UL) bld.RegType
+      AST.interjmp addr InterJmpKind.IsCall
+    else
+      AST.interjmp addr InterJmpKind.Base
+  }
 
 let bc ins insLen (bld: ILowUIRBuilder) aa lk =
-  let struct (bo, cr, addr) = transBranchThreeOprs ins bld
-  let rt = bld.RegType
-  let lr = regVar bld Register.LR
-  let ctr = regVar bld Register.CTR
-  let bo0 = numU32 ((bo >>> 4) &&& 1u) 1<rt>
-  let bo1 = numU32 ((bo >>> 3) &&& 1u) 1<rt>
-  let bo2 = numU32 ((bo >>> 2) &&& 1u) 1<rt>
-  let bo3 = numU32 ((bo >>> 1) &&& 1u) 1<rt>
-  let ctrOk = tmpVar bld 1<rt>
-  let condOk = tmpVar bld 1<rt>
-  let cia = numU64 ins.Address rt
-  let nia = numU64 (ins.Address + 4UL) rt
-  let temp = tmpVar bld rt
-  bld <!-- (ins.Address, insLen)
-  if lk then bld <+ (lr := nia) else ()
-  bld <+ (ctr :=
-          if ((bo >>> 2) &&& 1u = 1u) then ctr else (ctr .- AST.num1 rt))
-  bld <+ (ctrOk := bo2 .| ((ctr != AST.num0 rt) <+> bo3))
-  bld <+ (condOk := bo0 .| (cr <+> AST.not bo1))
-  if aa then bld <+ (temp := AST.ite (ctrOk .& condOk) addr nia)
-  else bld <+ (temp := AST.ite (ctrOk .& condOk) (cia .+ addr) nia)
-  let kind = if lk then InterJmpKind.IsCall else InterJmpKind.Base
-  bld <+ (AST.interjmp temp kind)
-  bld --!> insLen
+  lift bld ins insLen {
+    let struct (bo, cr, addr) = transBranchThreeOprs ins bld
+    let rt = bld.RegType
+    let lr = regVar bld Register.LR
+    let ctr = regVar bld Register.CTR
+    let bo0 = numU32 ((bo >>> 4) &&& 1u) 1<rt>
+    let bo1 = numU32 ((bo >>> 3) &&& 1u) 1<rt>
+    let bo2 = numU32 ((bo >>> 2) &&& 1u) 1<rt>
+    let bo3 = numU32 ((bo >>> 1) &&& 1u) 1<rt>
+    let ctrOk = tmpVar bld 1<rt>
+    let condOk = tmpVar bld 1<rt>
+    let cia = numU64 ins.Address rt
+    let nia = numU64 (ins.Address + 4UL) rt
+    let temp = tmpVar bld rt
+    if lk then append bld { lr := nia } else ()
+    ctr :=
+            if ((bo >>> 2) &&& 1u = 1u) then ctr else (ctr .- AST.num1 rt)
+    ctrOk := bo2 .| ((ctr != AST.num0 rt) <+> bo3)
+    condOk := bo0 .| (cr <+> AST.not bo1)
+    if aa then append bld { temp := AST.ite (ctrOk .& condOk) addr nia }
+    else append bld { temp := AST.ite (ctrOk .& condOk) (cia .+ addr) nia }
+    let kind = if lk then InterJmpKind.IsCall else InterJmpKind.Base
+    AST.interjmp temp kind
+  }
 
 /// The low two bits an indirect branch clears out of LR or CTR before jumping.
 let private branchTargetMask (bld: ILowUIRBuilder) =
   AST.not (numI32 3 bld.RegType)
 
 let bclr ins insLen (bld: ILowUIRBuilder) lk =
-  let struct (bo, cr) = transBranchTwoOprs ins bld
-  let rt = bld.RegType
-  let lr = regVar bld Register.LR
-  let ctr = regVar bld Register.CTR
-  let bo0 = numU32 ((bo >>> 4) &&& 1u) 1<rt>
-  let bo1 = numU32 ((bo >>> 3) &&& 1u) 1<rt>
-  let bo2 = numU32 ((bo >>> 2) &&& 1u) 1<rt>
-  let bo3 = numU32 ((bo >>> 1) &&& 1u) 1<rt>
-  let ctrOk = tmpVar bld 1<rt>
-  let condOk = tmpVar bld 1<rt>
-  let nia = numU64 (ins.Address + 4UL) rt
-  let temp = tmpVar bld rt
-  bld <!-- (ins.Address, insLen)
-  bld <+ (ctr :=
-          if ((bo >>> 2) &&& 1u = 1u) then ctr else (ctr .- AST.num1 rt))
-  bld <+ (ctrOk := bo2 .| ((ctr != AST.num0 rt) <+> bo3))
-  bld <+ (condOk := bo0 .| (cr <+> AST.not bo1))
-  bld <+ (temp := AST.ite (ctrOk .& condOk) (lr .& branchTargetMask bld) nia)
-  if lk then bld <+ (lr := AST.ite (ctrOk .& condOk) nia lr) else ()
-  let kind = if lk then InterJmpKind.IsCall else InterJmpKind.IsRet
-  bld <+ (AST.interjmp temp kind)
-  bld --!> insLen
+  lift bld ins insLen {
+    let struct (bo, cr) = transBranchTwoOprs ins bld
+    let rt = bld.RegType
+    let lr = regVar bld Register.LR
+    let ctr = regVar bld Register.CTR
+    let bo0 = numU32 ((bo >>> 4) &&& 1u) 1<rt>
+    let bo1 = numU32 ((bo >>> 3) &&& 1u) 1<rt>
+    let bo2 = numU32 ((bo >>> 2) &&& 1u) 1<rt>
+    let bo3 = numU32 ((bo >>> 1) &&& 1u) 1<rt>
+    let ctrOk = tmpVar bld 1<rt>
+    let condOk = tmpVar bld 1<rt>
+    let nia = numU64 (ins.Address + 4UL) rt
+    let temp = tmpVar bld rt
+    ctr :=
+            if ((bo >>> 2) &&& 1u = 1u) then ctr else (ctr .- AST.num1 rt)
+    ctrOk := bo2 .| ((ctr != AST.num0 rt) <+> bo3)
+    condOk := bo0 .| (cr <+> AST.not bo1)
+    temp := AST.ite (ctrOk .& condOk) (lr .& branchTargetMask bld) nia
+    if lk then append bld { lr := AST.ite (ctrOk .& condOk) nia lr } else ()
+    let kind = if lk then InterJmpKind.IsCall else InterJmpKind.IsRet
+    AST.interjmp temp kind
+  }
 
 let bcctr ins insLen (bld: ILowUIRBuilder) lk =
-  let struct (bo, cr) = transBranchTwoOprs ins bld
-  let rt = bld.RegType
-  let lr = regVar bld Register.LR
-  let ctr = regVar bld Register.CTR
-  let bo0 = numU32 ((bo >>> 4) &&& 1u) 1<rt>
-  let bo1 = numU32 ((bo >>> 3) &&& 1u) 1<rt>
-  let condOk = tmpVar bld 1<rt>
-  let nia = numU64 (ins.Address + 4UL) rt
-  let temp = tmpVar bld rt
-  bld <!-- (ins.Address, insLen)
-  bld <+ (condOk := bo0 .| (cr <+> AST.not bo1))
-  bld <+ (temp := AST.ite condOk (ctr .& branchTargetMask bld) nia)
-  if lk then bld <+ (lr := AST.ite condOk nia lr) else ()
-  let kind = if lk then InterJmpKind.IsCall else InterJmpKind.Base
-  bld <+ (AST.interjmp temp kind)
-  bld --!> insLen
+  lift bld ins insLen {
+    let struct (bo, cr) = transBranchTwoOprs ins bld
+    let rt = bld.RegType
+    let lr = regVar bld Register.LR
+    let ctr = regVar bld Register.CTR
+    let bo0 = numU32 ((bo >>> 4) &&& 1u) 1<rt>
+    let bo1 = numU32 ((bo >>> 3) &&& 1u) 1<rt>
+    let condOk = tmpVar bld 1<rt>
+    let nia = numU64 (ins.Address + 4UL) rt
+    let temp = tmpVar bld rt
+    condOk := bo0 .| (cr <+> AST.not bo1)
+    temp := AST.ite condOk (ctr .& branchTargetMask bld) nia
+    if lk then append bld { lr := AST.ite condOk nia lr } else ()
+    let kind = if lk then InterJmpKind.IsCall else InterJmpKind.Base
+    AST.interjmp temp kind
+  }
 
 /// Records the outcome of a comparison in a CR field. cmpOp gives the "less
 /// than" and "greater than" tests, which differ between the signed and the
 /// unsigned forms; equality is whatever neither of those is.
 let private compare ins insLen bld ltOp gtOp narrow =
-  let struct ((crf0, crf1, crf2, crf3), ra, rb) = transCmpOprs ins bld
-  let ra, rb = if narrow then AST.xtlo 32<rt> ra, AST.xtlo 32<rt> rb else ra, rb
-  let cond1 = ltOp ra rb
-  let cond2 = gtOp ra rb
-  let xer = regVar bld Register.XER
-  bld <!-- (ins.Address, insLen)
-  bld <+ (crf0 := cond1)
-  bld <+ (crf1 := cond2)
-  bld <+ (crf2 := AST.ite cond1 AST.b0 (AST.not cond2))
-  bld <+ (crf3 := AST.xthi 1<rt> xer)
-  bld --!> insLen
+  lift bld ins insLen {
+    let struct ((crf0, crf1, crf2, crf3), ra, rb) = transCmpOprs ins bld
+    let ra, rb =
+      if narrow then AST.xtlo 32<rt> ra, AST.xtlo 32<rt> rb else ra, rb
+    let cond1 = ltOp ra rb
+    let cond2 = gtOp ra rb
+    let xer = regVar bld Register.XER
+    crf0 := cond1
+    crf1 := cond2
+    crf2 := AST.ite cond1 AST.b0 (AST.not cond2)
+    crf3 := AST.xthi 1<rt> xer
+  }
 
 /// A signed compare of the given width: cmpw/cmpwi narrow to a word, cmpd and
 /// cmpdi take the whole register.
@@ -667,114 +696,116 @@ let cmpl ins insLen bld narrow = compare ins insLen bld AST.lt AST.gt narrow
 /// value down to a mask of the bits at or below the highest set one and then
 /// counting the ones in it. The result is a register-wide count.
 let private countLeadingZeros (bld: ILowUIRBuilder) ra rs width =
-  let rt = bld.RegType
-  let x = tmpVar bld width
-  let n i = numI32 i width
-  let mask1 = numU64 0x5555555555555555UL width
-  let mask2 = numU64 0x3333333333333333UL width
-  let mask3 = numU64 0x0f0f0f0f0f0f0f0fUL width
-  bld <+ (x := AST.xtlo width rs)
-  bld <+ (x := x .| (x >> n 1))
-  bld <+ (x := x .| (x >> n 2))
-  bld <+ (x := x .| (x >> n 4))
-  bld <+ (x := x .| (x >> n 8))
-  bld <+ (x := x .| (x >> n 16))
-  if width = 64<rt> then bld <+ (x := x .| (x >> n 32)) else ()
-  bld <+ (x := x .- ((x >> n 1) .& mask1))
-  bld <+ (x := ((x >> n 2) .& mask2) .+ (x .& mask2))
-  bld <+ (x := ((x >> n 4) .+ x) .& mask3)
-  bld <+ (x := x .+ (x >> n 8))
-  bld <+ (x := x .+ (x >> n 16))
-  if width = 64<rt> then bld <+ (x := x .+ (x >> n 32)) else ()
-  let ones = AST.zext rt (x .& n 127)
-  bld <+ (ra := numI32 (int width) rt .- ones)
+  append bld {
+    let rt = bld.RegType
+    let x = tmpVar bld width
+    let n i = numI32 i width
+    let mask1 = numU64 0x5555555555555555UL width
+    let mask2 = numU64 0x3333333333333333UL width
+    let mask3 = numU64 0x0f0f0f0f0f0f0f0fUL width
+    x := AST.xtlo width rs
+    x := x .| (x >> n 1)
+    x := x .| (x >> n 2)
+    x := x .| (x >> n 4)
+    x := x .| (x >> n 8)
+    x := x .| (x >> n 16)
+    if width = 64<rt> then append bld { x := x .| (x >> n 32) } else ()
+    x := x .- ((x >> n 1) .& mask1)
+    x := ((x >> n 2) .& mask2) .+ (x .& mask2)
+    x := ((x >> n 4) .+ x) .& mask3
+    x := x .+ (x >> n 8)
+    x := x .+ (x >> n 16)
+    if width = 64<rt> then append bld { x := x .+ (x >> n 32) } else ()
+    let ones = AST.zext rt (x .& n 127)
+    ra := numI32 (int width) rt .- ones
+  }
 
 let cntlzw ins insLen updateCond bld =
-  let struct (ra, rs) = transTwoOprs ins bld
-  bld <!-- (ins.Address, insLen)
-  countLeadingZeros bld ra rs 32<rt>
-  if updateCond then setCR0Reg bld ra else ()
-  bld --!> insLen
+  lift bld ins insLen {
+    let struct (ra, rs) = transTwoOprs ins bld
+    countLeadingZeros bld ra rs 32<rt>
+    if updateCond then setCR0Reg bld ra else ()
+  }
 
 let cntlzd ins insLen updateCond bld =
-  let struct (ra, rs) = transTwoOprs ins bld
-  bld <!-- (ins.Address, insLen)
-  countLeadingZeros bld ra rs 64<rt>
-  if updateCond then setCR0Reg bld ra else ()
-  bld --!> insLen
+  lift bld ins insLen {
+    let struct (ra, rs) = transTwoOprs ins bld
+    countLeadingZeros bld ra rs 64<rt>
+    if updateCond then setCR0Reg bld ra else ()
+  }
 
 let crclr ins insLen bld =
-  let crbd = transOneOpr ins bld
-  bld <!-- (ins.Address, insLen)
-  bld <+ (crbd := AST.b0)
-  bld --!> insLen
+  lift bld ins insLen {
+    let crbd = transOneOpr ins bld
+    crbd := AST.b0
+  }
 
 let cror ins insLen bld =
-  let struct (crbD, crbA, crbB) = transThreeOprs ins bld
-  bld <!-- (ins.Address, insLen)
-  bld <+ (crbD := crbA .| crbB)
-  bld --!> insLen
+  lift bld ins insLen {
+    let struct (crbD, crbA, crbB) = transThreeOprs ins bld
+    crbD := crbA .| crbB
+  }
 
 let crorc ins insLen bld =
-  let struct (crbD, crbA, crbB) = transThreeOprs ins bld
-  bld <!-- (ins.Address, insLen)
-  bld <+ (crbD := crbA .| (AST.not crbB))
-  bld --!> insLen
+  lift bld ins insLen {
+    let struct (crbD, crbA, crbB) = transThreeOprs ins bld
+    crbD := crbA .| (AST.not crbB)
+  }
 
 let creqv ins insLen bld =
-  let struct (crbD, crbA, crbB) = transThreeOprs ins bld
-  bld <!-- (ins.Address, insLen)
-  bld <+ (crbD := crbA <+> AST.not (crbB))
-  bld --!> insLen
+  lift bld ins insLen {
+    let struct (crbD, crbA, crbB) = transThreeOprs ins bld
+    crbD := crbA <+> AST.not (crbB)
+  }
 
 let crset ins insLen bld =
-  let crbD = transOneOpr ins bld
-  bld <!-- (ins.Address, insLen)
-  bld <+ (crbD := crbD <+> AST.not (crbD))
-  bld --!> insLen
+  lift bld ins insLen {
+    let crbD = transOneOpr ins bld
+    crbD := crbD <+> AST.not (crbD)
+  }
 
 let crnand ins insLen bld =
-  let struct (crbD, crbA, crbB) = transThreeOprs ins bld
-  bld <!-- (ins.Address, insLen)
-  bld <+ (crbD := AST.not (crbA .& crbB))
-  bld --!> insLen
+  lift bld ins insLen {
+    let struct (crbD, crbA, crbB) = transThreeOprs ins bld
+    crbD := AST.not (crbA .& crbB)
+  }
 
 let crnor ins insLen bld =
-  let struct (crbD, crbA, crbB) = transThreeOprs ins bld
-  bld <!-- (ins.Address, insLen)
-  bld <+ (crbD := AST.not (crbA .| crbB))
-  bld --!> insLen
+  lift bld ins insLen {
+    let struct (crbD, crbA, crbB) = transThreeOprs ins bld
+    crbD := AST.not (crbA .| crbB)
+  }
 
 let crnot ins insLen bld =
-  let struct (crbD, crbA) = transTwoOprs ins bld
-  bld <!-- (ins.Address, insLen)
-  bld <+ (crbD := AST.not crbA)
-  bld --!> insLen
+  lift bld ins insLen {
+    let struct (crbD, crbA) = transTwoOprs ins bld
+    crbD := AST.not crbA
+  }
 
 let crxor ins insLen bld =
-  let struct (crbD, crbA, crbB) = transThreeOprs ins bld
-  bld <!-- (ins.Address, insLen)
-  bld <+ (crbD := crbA <+> crbB)
-  bld --!> insLen
+  lift bld ins insLen {
+    let struct (crbD, crbA, crbB) = transThreeOprs ins bld
+    crbD := crbA <+> crbB
+  }
 
 let crand ins insLen bld =
-  let struct (crbD, crbA, crbB) = transThreeOprs ins bld
-  bld <!-- (ins.Address, insLen)
-  bld <+ (crbD := crbA .& crbB)
-  bld --!> insLen
+  lift bld ins insLen {
+    let struct (crbD, crbA, crbB) = transThreeOprs ins bld
+    crbD := crbA .& crbB
+  }
 
 let crandc ins insLen bld =
-  let struct (crbD, crbA, crbB) = transThreeOprs ins bld
-  bld <!-- (ins.Address, insLen)
-  bld <+ (crbD := crbA .& (AST.not crbB))
-  bld --!> insLen
+  lift bld ins insLen {
+    let struct (crbD, crbA, crbB) = transThreeOprs ins bld
+    crbD := crbA .& (AST.not crbB)
+  }
 
 (* crmove crbD, crbA = cror crbD, crbA, crbA: copies one CR bit to another. *)
 let crmove ins insLen bld =
-  let struct (crbD, crbA) = transTwoOprs ins bld
-  bld <!-- (ins.Address, insLen)
-  bld <+ (crbD := crbA)
-  bld --!> insLen
+  lift bld ins insLen {
+    let struct (crbD, crbA) = transTwoOprs ins bld
+    crbD := crbA
+  }
 
 /// A divide of the given width. A zero divisor (and the signed overflow case)
 /// leaves the destination alone, as the architecture leaves it undefined.
@@ -785,18 +816,18 @@ let private divide ins
                    (bld: ILowUIRBuilder)
                    width
                    signed =
-  let struct (dst, src1, src2) = transThreeOprs ins bld
-  let a = AST.xtlo width src1
-  let b = AST.xtlo width src2
-  bld <!-- (ins.Address, insLen)
-  if ovCond && signed then isSignedDivOV bld width a b
-  elif ovCond then isUnsignedDivOV bld width b
-  else ()
-  let q = if signed then a ?/ b else a ./ b
-  let q = if signed then AST.sext bld.RegType q else AST.zext bld.RegType q
-  bld <+ (dst := AST.ite (b == AST.num0 width) dst q)
-  if updateCond then setCR0Reg bld dst else ()
-  bld --!> insLen
+  lift bld ins insLen {
+    let struct (dst, src1, src2) = transThreeOprs ins bld
+    let a = AST.xtlo width src1
+    let b = AST.xtlo width src2
+    if ovCond && signed then isSignedDivOV bld width a b
+    elif ovCond then isUnsignedDivOV bld width b
+    else ()
+    let q = if signed then a ?/ b else a ./ b
+    let q = if signed then AST.sext bld.RegType q else AST.zext bld.RegType q
+    dst := AST.ite (b == AST.num0 width) dst q
+    if updateCond then setCR0Reg bld dst else ()
+  }
 
 let divw ins insLen updateCond ovCond bld =
   divide ins insLen updateCond ovCond bld 32<rt> true
@@ -812,13 +843,13 @@ let divdu ins insLen updateCond ovCond bld =
 
 /// Sign-extends the low `width` bits of rs into a whole register.
 let private signExtend ins insLen updateCond (bld: ILowUIRBuilder) width =
-  let struct (ra, rs) = transTwoOprs ins bld
-  let tmp = tmpVar bld width
-  bld <!-- (ins.Address, insLen)
-  bld <+ (tmp := AST.xtlo width rs)
-  bld <+ (ra := AST.sext bld.RegType tmp)
-  if updateCond then setCR0Reg bld ra else ()
-  bld --!> insLen
+  lift bld ins insLen {
+    let struct (ra, rs) = transTwoOprs ins bld
+    let tmp = tmpVar bld width
+    tmp := AST.xtlo width rs
+    ra := AST.sext bld.RegType tmp
+    if updateCond then setCR0Reg bld ra else ()
+  }
 
 let extsb ins insLen updateCond bld = signExtend ins insLen updateCond bld 8<rt>
 
@@ -829,519 +860,519 @@ let extsw ins insLen updateCond bld =
   signExtend ins insLen updateCond bld 32<rt>
 
 let eqvx ins insLen updateCond bld =
-  let struct (ra, rs, rb) = transThreeOprs ins bld
-  bld <!-- (ins.Address, insLen)
-  bld <+ (ra := AST.not (rs <+> rb))
-  if updateCond then setCR0Reg bld ra else ()
-  bld --!> insLen
+  lift bld ins insLen {
+    let struct (ra, rs, rb) = transThreeOprs ins bld
+    ra := AST.not (rs <+> rb)
+    if updateCond then setCR0Reg bld ra else ()
+  }
 
 let fabs ins insLen updateCond bld =
-  let struct (frd, frb) = transTwoOprs ins bld
-  bld <!-- (ins.Address, insLen)
-  bld <+ (frd := frb .& numU64 0x7fffffffffffffffUL 64<rt>)
-  if updateCond then setCR1Reg bld else ()
-  bld --!> insLen
+  lift bld ins insLen {
+    let struct (frd, frb) = transTwoOprs ins bld
+    frd := frb .& numU64 0x7fffffffffffffffUL 64<rt>
+    if updateCond then setCR1Reg bld else ()
+  }
 
 let fAddOrSub ins insLen updateCond isDouble fnOp bld =
-  let struct (frd, fra, frb) = transThreeOprs ins bld
-  bld <!-- (ins.Address, insLen)
-  if isDouble then
-    bld <+ (frd := fnOp fra frb)
-  else
-    let fra = AST.cast CastKind.FloatCast 32<rt> fra
-    let frb = AST.cast CastKind.FloatCast 32<rt> frb
-    bld <+ (frd := AST.cast CastKind.FloatCast 64<rt> (fnOp fra frb))
-  setFPRF bld frd
-  if updateCond then setCR1Reg bld else ()
-  bld --!> insLen
+  lift bld ins insLen {
+    let struct (frd, fra, frb) = transThreeOprs ins bld
+    if isDouble then
+      frd := fnOp fra frb
+    else
+      let fra = AST.cast CastKind.FloatCast 32<rt> fra
+      let frb = AST.cast CastKind.FloatCast 32<rt> frb
+      frd := AST.cast CastKind.FloatCast 64<rt> (fnOp fra frb)
+    setFPRF bld frd
+    if updateCond then setCR1Reg bld else ()
+  }
 
 let fadd ins insLen updateCond isDouble bld =
   fAddOrSub ins insLen updateCond isDouble AST.fadd bld
 
 let fcmp ins insLen bld isOrdered =
-  let struct ((crf0, crf1, crf2, crf3), fra, frb) = transCmpOprs ins bld
-  let fpscr = regVar bld Register.FPSCR
-  let vxsnan = AST.extract fpscr 1<rt> 24
-  let vxvc = AST.extract fpscr 1<rt> 19
-  let fl = AST.extract fpscr 1<rt> 15
-  let fg = AST.extract fpscr 1<rt> 14
-  let fe = AST.extract fpscr 1<rt> 13
-  let fu = AST.extract fpscr 1<rt> 12
-  let ve = AST.extract fpscr 1<rt> 7
-  let cond1 = AST.flt fra frb
-  let cond2 = AST.fgt fra frb
-  let cond3 = (IEEE754Double.isSNaN fra) .| (IEEE754Double.isSNaN frb)
-  let cond4 = (IEEE754Double.isQNaN fra) .| (IEEE754Double.isQNaN frb)
-  let nanFlag = tmpVar bld 1<rt>
-  let lblNan = label bld "NaN"
-  let lblRegular = label bld "Regular"
-  let lblEnd = label bld "End"
-  bld <!-- (ins.Address, insLen)
-  bld <+ (fl := cond1)
-  bld <+ (fg := cond2)
-  bld <+ (fe := AST.ite cond1 AST.b0 (AST.not cond2))
-  bld <+ (nanFlag := (IEEE754Double.isNaN fra) .| (IEEE754Double.isNaN frb))
-  bld <+ (fu := nanFlag)
-  bld <+ (AST.cjmp nanFlag (AST.jmpDest lblNan) (AST.jmpDest lblRegular))
-  bld <+ (AST.lmark lblNan)
-  bld <+ (crf0 := AST.b0)
-  bld <+ (crf1 := AST.b0)
-  bld <+ (crf2 := AST.b0)
-  bld <+ (crf3 := AST.b1)
-  bld <+ (AST.jmp (AST.jmpDest lblEnd))
-  bld <+ (AST.lmark lblRegular)
-  bld <+ (crf0 := fl)
-  bld <+ (crf1 := fg)
-  bld <+ (crf2 := fe)
-  bld <+ (crf3 := fu)
-  bld <+ (AST.lmark lblEnd)
-  bld <+ (vxsnan := cond3)
-  if isOrdered then
-    bld <+ (vxvc := AST.ite cond3 (AST.ite ve AST.b0 AST.b1) cond4)
-  else
-    ()
-  bld --!> insLen
+  lift bld ins insLen {
+    let struct ((crf0, crf1, crf2, crf3), fra, frb) = transCmpOprs ins bld
+    let fpscr = regVar bld Register.FPSCR
+    let vxsnan = AST.extract fpscr 1<rt> 24
+    let vxvc = AST.extract fpscr 1<rt> 19
+    let fl = AST.extract fpscr 1<rt> 15
+    let fg = AST.extract fpscr 1<rt> 14
+    let fe = AST.extract fpscr 1<rt> 13
+    let fu = AST.extract fpscr 1<rt> 12
+    let ve = AST.extract fpscr 1<rt> 7
+    let cond1 = AST.flt fra frb
+    let cond2 = AST.fgt fra frb
+    let cond3 = (IEEE754Double.isSNaN fra) .| (IEEE754Double.isSNaN frb)
+    let cond4 = (IEEE754Double.isQNaN fra) .| (IEEE754Double.isQNaN frb)
+    let nanFlag = tmpVar bld 1<rt>
+    let lblNan = label bld "NaN"
+    let lblRegular = label bld "Regular"
+    let lblEnd = label bld "End"
+    fl := cond1
+    fg := cond2
+    fe := AST.ite cond1 AST.b0 (AST.not cond2)
+    nanFlag := (IEEE754Double.isNaN fra) .| (IEEE754Double.isNaN frb)
+    fu := nanFlag
+    AST.cjmp nanFlag (AST.jmpDest lblNan) (AST.jmpDest lblRegular)
+    AST.lmark lblNan
+    crf0 := AST.b0
+    crf1 := AST.b0
+    crf2 := AST.b0
+    crf3 := AST.b1
+    AST.jmp (AST.jmpDest lblEnd)
+    AST.lmark lblRegular
+    crf0 := fl
+    crf1 := fg
+    crf2 := fe
+    crf3 := fu
+    AST.lmark lblEnd
+    vxsnan := cond3
+    if isOrdered then
+      vxvc := AST.ite cond3 (AST.ite ve AST.b0 AST.b1) cond4
+    else
+      ()
+  }
 
 let fcmpo ins insLen bld = fcmp ins insLen bld true
 
 let fcmpu ins insLen bld = fcmp ins insLen bld false
 
 let fdiv ins insLen updateCond isDouble bld =
-  let struct (frd, fra, frb) = transThreeOprs ins bld
-  let tmp = tmpVar bld 32<rt>
-  bld <!-- (ins.Address, insLen)
-  if isDouble then
-    bld <+ (frd := AST.fdiv fra frb)
-  else
-    let fraS = AST.cast CastKind.FloatCast 32<rt> fra
-    let frbS = AST.cast CastKind.FloatCast 32<rt> frb
-    bld <+ (tmp := AST.fdiv fraS frbS)
-    bld <+ (frd := AST.cast CastKind.FloatCast 64<rt> tmp)
-  setFPRF bld frd
-  if updateCond then setCR1Reg bld else ()
-  bld --!> insLen
+  lift bld ins insLen {
+    let struct (frd, fra, frb) = transThreeOprs ins bld
+    let tmp = tmpVar bld 32<rt>
+    if isDouble then
+      frd := AST.fdiv fra frb
+    else
+      let fraS = AST.cast CastKind.FloatCast 32<rt> fra
+      let frbS = AST.cast CastKind.FloatCast 32<rt> frb
+      tmp := AST.fdiv fraS frbS
+      frd := AST.cast CastKind.FloatCast 64<rt> tmp
+    setFPRF bld frd
+    if updateCond then setCR1Reg bld else ()
+  }
 
 let frsp ins insLen updateCond bld =
-  let struct (frd, frb) = transTwoOprs ins bld
-  bld <!-- (ins.Address, insLen)
-  let single = AST.cast CastKind.FloatCast 32<rt> frb
-  bld <+ (frd := AST.cast CastKind.FloatCast 64<rt> single)
-  setFPRF bld frd
-  if updateCond then setCR1Reg bld else ()
-  bld --!> insLen
+  lift bld ins insLen {
+    let struct (frd, frb) = transTwoOprs ins bld
+    let single = AST.cast CastKind.FloatCast 32<rt> frb
+    frd := AST.cast CastKind.FloatCast 64<rt> single
+    setFPRF bld frd
+    if updateCond then setCR1Reg bld else ()
+  }
 
 let fsub ins insLen updateCond isDouble bld =
   fAddOrSub ins insLen updateCond isDouble AST.fsub bld
 
 let fsqrt ins insLen updateCond isDouble bld =
-  let struct (frd, frb) = transTwoOprs ins bld
-  let tmp = tmpVar bld 32<rt>
-  bld <!-- (ins.Address, insLen)
-  if isDouble then
-    bld <+ (frd := AST.fsqrt frb)
-  else
-    let frbS = AST.cast CastKind.FloatCast 32<rt> frb
-    bld <+ (tmp := AST.fsqrt frbS)
-    bld <+ (frd := AST.cast CastKind.FloatCast 64<rt> tmp)
-  setFPRF bld frd
-  if updateCond then setCR1Reg bld else ()
-  bld --!> insLen
+  lift bld ins insLen {
+    let struct (frd, frb) = transTwoOprs ins bld
+    let tmp = tmpVar bld 32<rt>
+    if isDouble then
+      frd := AST.fsqrt frb
+    else
+      let frbS = AST.cast CastKind.FloatCast 32<rt> frb
+      tmp := AST.fsqrt frbS
+      frd := AST.cast CastKind.FloatCast 64<rt> tmp
+    setFPRF bld frd
+    if updateCond then setCR1Reg bld else ()
+  }
 
 let fctiw ins insLen updateCond bld =
-  let tmp = tmpVar bld 64<rt>
-  let struct (frd, frb) = transTwoOprs ins bld
-  bld <!-- (ins.Address, insLen)
-  roundingToCastInt bld frd frb
-  setFPRF bld frd
-  if updateCond then setCR1Reg bld else ()
-  bld --!> insLen
+  lift bld ins insLen {
+    let tmp = tmpVar bld 64<rt>
+    let struct (frd, frb) = transTwoOprs ins bld
+    roundingToCastInt bld frd frb
+    setFPRF bld frd
+    if updateCond then setCR1Reg bld else ()
+  }
 
 let fctiwz ins insLen updateCond bld =
-  let intMaxInFloat = numU64 0x41dfffffffc00000uL 64<rt>
-  let intMinInFloat = numU64 0xc1e0000000000000uL 64<rt>
-  let intMax = numU64 0x7fffffffUL 64<rt>
-  let intMin = numU64 0x80000000UL 64<rt>
-  let struct (frd, frb) = transTwoOprs ins bld
-  bld <!-- (ins.Address, insLen)
-  bld <+ (frd := AST.cast CastKind.FtoITrunc 64<rt> frb)
-  bld <+ (frd := AST.ite (IEEE754Double.isNaN frb) intMin frd)
-  bld <+ (frd := AST.ite (AST.fle frb intMinInFloat) intMin frd)
-  bld <+ (frd := AST.ite (AST.fge frb intMaxInFloat) intMax frd)
-  setFPRF bld frd
-  if updateCond then setCR1Reg bld else ()
-  bld --!> insLen
+  lift bld ins insLen {
+    let intMaxInFloat = numU64 0x41dfffffffc00000uL 64<rt>
+    let intMinInFloat = numU64 0xc1e0000000000000uL 64<rt>
+    let intMax = numU64 0x7fffffffUL 64<rt>
+    let intMin = numU64 0x80000000UL 64<rt>
+    let struct (frd, frb) = transTwoOprs ins bld
+    frd := AST.cast CastKind.FtoITrunc 64<rt> frb
+    frd := AST.ite (IEEE754Double.isNaN frb) intMin frd
+    frd := AST.ite (AST.fle frb intMinInFloat) intMin frd
+    frd := AST.ite (AST.fge frb intMaxInFloat) intMax frd
+    setFPRF bld frd
+    if updateCond then setCR1Reg bld else ()
+  }
 
 let fmadd ins insLen updateCond isDouble bld =
-  let struct (frd, fra, frc, frb) = transFourOprs ins bld
-  let tmp = tmpVar bld 32<rt>
-  bld <!-- (ins.Address, insLen)
-  if isDouble then
-    bld <+ (frd := AST.fadd (AST.fmul fra frc) frb)
-  else
-    let fraS = AST.cast CastKind.FloatCast 32<rt> fra
-    let frbS = AST.cast CastKind.FloatCast 32<rt> frb
-    let frcS = AST.cast CastKind.FloatCast 32<rt> frc
-    bld <+ (tmp := AST.fadd (AST.fmul fraS frcS) frbS)
-    bld <+ (frd := AST.cast CastKind.FloatCast 64<rt> tmp)
-  setFPRF bld frd
-  if updateCond then setCR1Reg bld else ()
-  bld --!> insLen
+  lift bld ins insLen {
+    let struct (frd, fra, frc, frb) = transFourOprs ins bld
+    let tmp = tmpVar bld 32<rt>
+    if isDouble then
+      frd := AST.fadd (AST.fmul fra frc) frb
+    else
+      let fraS = AST.cast CastKind.FloatCast 32<rt> fra
+      let frbS = AST.cast CastKind.FloatCast 32<rt> frb
+      let frcS = AST.cast CastKind.FloatCast 32<rt> frc
+      tmp := AST.fadd (AST.fmul fraS frcS) frbS
+      frd := AST.cast CastKind.FloatCast 64<rt> tmp
+    setFPRF bld frd
+    if updateCond then setCR1Reg bld else ()
+  }
 
 let fmr ins insLen updateCond bld =
-  let struct (dst, src) = transTwoOprs ins bld
-  bld <!-- (ins.Address, insLen)
-  bld <+ (dst := src)
-  if updateCond then setCR1Reg bld else ()
-  bld --!> insLen
+  lift bld ins insLen {
+    let struct (dst, src) = transTwoOprs ins bld
+    dst := src
+    if updateCond then setCR1Reg bld else ()
+  }
 
 let fmsub ins insLen updateCond isDouble bld =
-  let struct (frd, fra, frc, frb) = transFourOprs ins bld
-  let tmp = tmpVar bld 32<rt>
-  bld <!-- (ins.Address, insLen)
-  if isDouble then
-    bld <+ (frd := AST.fsub (AST.fmul fra frc) frb)
-  else
-    let fraS = AST.cast CastKind.FloatCast 32<rt> fra
-    let frbS = AST.cast CastKind.FloatCast 32<rt> frb
-    let frcS = AST.cast CastKind.FloatCast 32<rt> frc
-    bld <+ (tmp := AST.fsub (AST.fmul fraS frcS) frbS)
-    bld <+ (frd := AST.cast CastKind.FloatCast 64<rt> tmp)
-  setFPRF bld frd
-  if updateCond then setCR1Reg bld else ()
-  bld --!> insLen
+  lift bld ins insLen {
+    let struct (frd, fra, frc, frb) = transFourOprs ins bld
+    let tmp = tmpVar bld 32<rt>
+    if isDouble then
+      frd := AST.fsub (AST.fmul fra frc) frb
+    else
+      let fraS = AST.cast CastKind.FloatCast 32<rt> fra
+      let frbS = AST.cast CastKind.FloatCast 32<rt> frb
+      let frcS = AST.cast CastKind.FloatCast 32<rt> frc
+      tmp := AST.fsub (AST.fmul fraS frcS) frbS
+      frd := AST.cast CastKind.FloatCast 64<rt> tmp
+    setFPRF bld frd
+    if updateCond then setCR1Reg bld else ()
+  }
 
 let fmul ins insLen updateCond isDouble bld =
-  let struct (frd, fra, frb) = transThreeOprs ins bld
-  let tmp = tmpVar bld 32<rt>
-  bld <!-- (ins.Address, insLen)
-  if isDouble then
-    bld <+ (frd := AST.fmul fra frb)
-  else
-    let fraS = AST.cast CastKind.FloatCast 32<rt> fra
-    let frbS = AST.cast CastKind.FloatCast 32<rt> frb
-    bld <+ (tmp := AST.fmul fraS frbS)
-    bld <+ (frd := AST.cast CastKind.FloatCast 64<rt> tmp)
-  setFPRF bld frd
-  if updateCond then setCR1Reg bld else ()
-  bld --!> insLen
+  lift bld ins insLen {
+    let struct (frd, fra, frb) = transThreeOprs ins bld
+    let tmp = tmpVar bld 32<rt>
+    if isDouble then
+      frd := AST.fmul fra frb
+    else
+      let fraS = AST.cast CastKind.FloatCast 32<rt> fra
+      let frbS = AST.cast CastKind.FloatCast 32<rt> frb
+      tmp := AST.fmul fraS frbS
+      frd := AST.cast CastKind.FloatCast 64<rt> tmp
+    setFPRF bld frd
+    if updateCond then setCR1Reg bld else ()
+  }
 
 let fnabs ins insLen updateCond bld =
-  let struct (frd, frb) = transTwoOprs ins bld
-  bld <!-- (ins.Address, insLen)
-  bld <+ (frd := frb .| numU64 0x8000000000000000UL 64<rt>)
-  if updateCond then setCR1Reg bld else ()
-  bld --!> insLen
+  lift bld ins insLen {
+    let struct (frd, frb) = transTwoOprs ins bld
+    frd := frb .| numU64 0x8000000000000000UL 64<rt>
+    if updateCond then setCR1Reg bld else ()
+  }
 
 let fneg ins insLen updateCond bld =
-  let struct (frd, frb) = transTwoOprs ins bld
-  bld <!-- (ins.Address, insLen)
-  floatingNeg bld frd frb 64<rt>
-  if updateCond then setCR1Reg bld else ()
-  bld --!> insLen
+  lift bld ins insLen {
+    let struct (frd, frb) = transTwoOprs ins bld
+    floatingNeg bld frd frb 64<rt>
+    if updateCond then setCR1Reg bld else ()
+  }
 
 let fnmadd ins insLen updateCond isDouble bld =
-  let struct (frd, fra, frc, frb) = transFourOprs ins bld
-  bld <!-- (ins.Address, insLen)
-  if isDouble then
-    let res = tmpVar bld 64<rt>
-    bld <+ (res := (AST.fadd (AST.fmul fra frc) frb))
-    floatingNeg bld frd res 64<rt>
-  else
-    let res = tmpVar bld 32<rt>
-    let nres = tmpVar bld 32<rt>
-    let fraS = AST.cast CastKind.FloatCast 32<rt> fra
-    let frcS = AST.cast CastKind.FloatCast 32<rt> frc
-    let frbS = AST.cast CastKind.FloatCast 32<rt> frb
-    bld <+ (res := (AST.fadd (AST.fmul fraS frcS) frbS))
-    floatingNeg bld nres res 32<rt>
-    bld <+ (frd := AST.cast CastKind.FloatCast 64<rt> nres)
-  if updateCond then setCR1Reg bld else ()
-  bld --!> insLen
+  lift bld ins insLen {
+    let struct (frd, fra, frc, frb) = transFourOprs ins bld
+    if isDouble then
+      let res = tmpVar bld 64<rt>
+      res := (AST.fadd (AST.fmul fra frc) frb)
+      floatingNeg bld frd res 64<rt>
+    else
+      let res = tmpVar bld 32<rt>
+      let nres = tmpVar bld 32<rt>
+      let fraS = AST.cast CastKind.FloatCast 32<rt> fra
+      let frcS = AST.cast CastKind.FloatCast 32<rt> frc
+      let frbS = AST.cast CastKind.FloatCast 32<rt> frb
+      res := (AST.fadd (AST.fmul fraS frcS) frbS)
+      floatingNeg bld nres res 32<rt>
+      frd := AST.cast CastKind.FloatCast 64<rt> nres
+    if updateCond then setCR1Reg bld else ()
+  }
 
 let fnmsub ins insLen updateCond isDouble bld =
-  let struct (frd, fra, frc, frb) = transFourOprs ins bld
-  bld <!-- (ins.Address, insLen)
-  if isDouble then
-    let res = tmpVar bld 64<rt>
-    bld <+ (res := (AST.fsub (AST.fmul fra frc) frb))
-    floatingNeg bld frd res 64<rt>
-  else
-    let res = tmpVar bld 32<rt>
-    let nres = tmpVar bld 32<rt>
-    let fraS = AST.cast CastKind.FloatCast 32<rt> fra
-    let frcS = AST.cast CastKind.FloatCast 32<rt> frc
-    let frbS = AST.cast CastKind.FloatCast 32<rt> frb
-    bld <+ (res := (AST.fsub (AST.fmul fraS frcS) frbS))
-    floatingNeg bld nres res 32<rt>
-    bld <+ (frd := AST.cast CastKind.FloatCast 64<rt> nres)
-  if updateCond then setCR1Reg bld else ()
-  bld --!> insLen
+  lift bld ins insLen {
+    let struct (frd, fra, frc, frb) = transFourOprs ins bld
+    if isDouble then
+      let res = tmpVar bld 64<rt>
+      res := (AST.fsub (AST.fmul fra frc) frb)
+      floatingNeg bld frd res 64<rt>
+    else
+      let res = tmpVar bld 32<rt>
+      let nres = tmpVar bld 32<rt>
+      let fraS = AST.cast CastKind.FloatCast 32<rt> fra
+      let frcS = AST.cast CastKind.FloatCast 32<rt> frc
+      let frbS = AST.cast CastKind.FloatCast 32<rt> frb
+      res := (AST.fsub (AST.fmul fraS frcS) frbS)
+      floatingNeg bld nres res 32<rt>
+      frd := AST.cast CastKind.FloatCast 64<rt> nres
+    if updateCond then setCR1Reg bld else ()
+  }
 
 let fsel ins insLen updateCond bld =
-  let struct(frd, fra, frc, frb) = transFourOprs ins bld
-  let cond = AST.fge fra (AST.num0 64<rt>)
-  bld <!-- (ins.Address, insLen)
-  bld <+ (frd := AST.ite cond frc frb)
-  if updateCond then setCR1Reg bld else ()
-  bld --!> insLen
+  lift bld ins insLen {
+    let struct(frd, fra, frc, frb) = transFourOprs ins bld
+    let cond = AST.fge fra (AST.num0 64<rt>)
+    frd := AST.ite cond frc frb
+    if updateCond then setCR1Reg bld else ()
+  }
 
 let lbz ins insLen bld =
-  let struct (o1, o2) = getTwoOprs ins
-  let ea = transEAWithOffset o2 bld
-  let dst = transOpr bld o1
-  let tmpEA = tmpVar bld bld.RegType
-  bld <!-- (ins.Address, insLen)
-  bld <+ (tmpEA := ea)
-  bld <+ (dst := AST.zext bld.RegType (loadNative bld 8<rt> tmpEA))
-  bld --!> insLen
+  lift bld ins insLen {
+    let struct (o1, o2) = getTwoOprs ins
+    let ea = transEAWithOffset o2 bld
+    let dst = transOpr bld o1
+    let tmpEA = tmpVar bld bld.RegType
+    tmpEA := ea
+    dst := AST.zext bld.RegType (loadNative bld 8<rt> tmpEA)
+  }
 
 let lbzu ins insLen bld =
-  let struct (o1, o2) = getTwoOprs ins
-  let struct (ea, ra) = transEAWithOffsetForUpdate o2 bld
-  let rd = transOpr bld o1
-  let tmpEA = tmpVar bld bld.RegType
-  bld <!-- (ins.Address, insLen)
-  bld <+ (tmpEA := ea)
-  bld <+ (rd := AST.zext bld.RegType (loadNative bld 8<rt> tmpEA))
-  bld <+ (ra := tmpEA)
-  bld --!> insLen
+  lift bld ins insLen {
+    let struct (o1, o2) = getTwoOprs ins
+    let struct (ea, ra) = transEAWithOffsetForUpdate o2 bld
+    let rd = transOpr bld o1
+    let tmpEA = tmpVar bld bld.RegType
+    tmpEA := ea
+    rd := AST.zext bld.RegType (loadNative bld 8<rt> tmpEA)
+    ra := tmpEA
+  }
 
 let lbzux ins insLen bld =
-  let struct (o1, o2, o3) = getThreeOprs ins
-  let rd = transOpr bld o1
-  let struct (ea, ra) = transEAWithIndexRegForUpdate o2 o3 bld
-  let tmpEA = tmpVar bld bld.RegType
-  bld <!-- (ins.Address, insLen)
-  bld <+ (tmpEA := ea)
-  bld <+ (rd := AST.zext bld.RegType (loadNative bld 8<rt> tmpEA))
-  bld <+ (ra := tmpEA)
-  bld --!> insLen
+  lift bld ins insLen {
+    let struct (o1, o2, o3) = getThreeOprs ins
+    let rd = transOpr bld o1
+    let struct (ea, ra) = transEAWithIndexRegForUpdate o2 o3 bld
+    let tmpEA = tmpVar bld bld.RegType
+    tmpEA := ea
+    rd := AST.zext bld.RegType (loadNative bld 8<rt> tmpEA)
+    ra := tmpEA
+  }
 
 let lbzx ins insLen bld =
-  let struct (o1, o2, o3) = getThreeOprs ins
-  let rd = transOpr bld o1
-  let ea = transEAWithIndexReg o2 o3 bld
-  let tmpEA = tmpVar bld bld.RegType
-  bld <!-- (ins.Address, insLen)
-  bld <+ (tmpEA := ea)
-  bld <+ (rd := AST.zext bld.RegType (loadNative bld 8<rt> tmpEA))
-  bld --!> insLen
+  lift bld ins insLen {
+    let struct (o1, o2, o3) = getThreeOprs ins
+    let rd = transOpr bld o1
+    let ea = transEAWithIndexReg o2 o3 bld
+    let tmpEA = tmpVar bld bld.RegType
+    tmpEA := ea
+    rd := AST.zext bld.RegType (loadNative bld 8<rt> tmpEA)
+  }
 
 let lfd ins insLen bld =
-  let struct (o1, o2) = getTwoOprs ins
-  let ea = transEAWithOffset o2 bld
-  let dst = transOpr bld o1
-  let tmpEA = tmpVar bld bld.RegType
-  bld <!-- (ins.Address, insLen)
-  bld <+ (tmpEA := ea)
-  bld <+ (dst := loadNative bld 64<rt> tmpEA)
-  bld --!> insLen
+  lift bld ins insLen {
+    let struct (o1, o2) = getTwoOprs ins
+    let ea = transEAWithOffset o2 bld
+    let dst = transOpr bld o1
+    let tmpEA = tmpVar bld bld.RegType
+    tmpEA := ea
+    dst := loadNative bld 64<rt> tmpEA
+  }
 
 let lfdu ins insLen bld =
-  let struct (o1, o2) = getTwoOprs ins
-  let struct (ea, ra) = transEAWithOffsetForUpdate o2 bld
-  let dst = transOpr bld o1
-  let tmpEA = tmpVar bld bld.RegType
-  bld <!-- (ins.Address, insLen)
-  bld <+ (tmpEA := ea)
-  bld <+ (dst := loadNative bld 64<rt> tmpEA)
-  bld <+ (ra := tmpEA)
-  bld --!> insLen
+  lift bld ins insLen {
+    let struct (o1, o2) = getTwoOprs ins
+    let struct (ea, ra) = transEAWithOffsetForUpdate o2 bld
+    let dst = transOpr bld o1
+    let tmpEA = tmpVar bld bld.RegType
+    tmpEA := ea
+    dst := loadNative bld 64<rt> tmpEA
+    ra := tmpEA
+  }
 
 let lfdux ins insLen bld =
-  let struct (o1, o2, o3) = getThreeOprs ins
-  let dst = transOpr bld o1
-  let struct (ea, ra) = transEAWithIndexRegForUpdate o2 o3 bld
-  let tmpEA = tmpVar bld bld.RegType
-  bld <!-- (ins.Address, insLen)
-  bld <+ (tmpEA := ea)
-  bld <+ (dst := loadNative bld 64<rt> tmpEA)
-  bld <+ (ra := tmpEA)
-  bld --!> insLen
+  lift bld ins insLen {
+    let struct (o1, o2, o3) = getThreeOprs ins
+    let dst = transOpr bld o1
+    let struct (ea, ra) = transEAWithIndexRegForUpdate o2 o3 bld
+    let tmpEA = tmpVar bld bld.RegType
+    tmpEA := ea
+    dst := loadNative bld 64<rt> tmpEA
+    ra := tmpEA
+  }
 
 let lfdx ins insLen bld =
-  let struct (o1, o2, o3) = getThreeOprs ins
-  let dst = transOpr bld o1
-  let ea = transEAWithIndexReg o2 o3 bld
-  let tmpEA = tmpVar bld bld.RegType
-  bld <!-- (ins.Address, insLen)
-  bld <+ (tmpEA := ea)
-  bld <+ (dst := loadNative bld 64<rt> tmpEA)
-  bld --!> insLen
+  lift bld ins insLen {
+    let struct (o1, o2, o3) = getThreeOprs ins
+    let dst = transOpr bld o1
+    let ea = transEAWithIndexReg o2 o3 bld
+    let tmpEA = tmpVar bld bld.RegType
+    tmpEA := ea
+    dst := loadNative bld 64<rt> tmpEA
+  }
 
 let lfs ins insLen bld =
-  let struct (o1, o2) = getTwoOprs ins
-  let ea = transEAWithOffset o2 bld
-  let dst = transOpr bld o1
-  let tmpEA = tmpVar bld bld.RegType
-  let v = loadNative bld 32<rt> tmpEA
-  bld <!-- (ins.Address, insLen)
-  bld <+ (tmpEA := ea)
-  bld <+ (dst := AST.cast CastKind.FloatCast 64<rt> v)
-  bld --!> insLen
+  lift bld ins insLen {
+    let struct (o1, o2) = getTwoOprs ins
+    let ea = transEAWithOffset o2 bld
+    let dst = transOpr bld o1
+    let tmpEA = tmpVar bld bld.RegType
+    let v = loadNative bld 32<rt> tmpEA
+    tmpEA := ea
+    dst := AST.cast CastKind.FloatCast 64<rt> v
+  }
 
 let lfsu ins insLen bld =
-  let struct (o1, o2) = getTwoOprs ins
-  let struct (ea, ra) = transEAWithOffsetForUpdate o2 bld
-  let frd = transOpr bld o1
-  let tmpEA = tmpVar bld bld.RegType
-  let v = loadNative bld 32<rt> tmpEA
-  bld <!-- (ins.Address, insLen)
-  bld <+ (tmpEA := ea)
-  bld <+ (frd := AST.cast CastKind.FloatCast 64<rt> v)
-  bld <+ (ra := tmpEA)
-  bld --!> insLen
+  lift bld ins insLen {
+    let struct (o1, o2) = getTwoOprs ins
+    let struct (ea, ra) = transEAWithOffsetForUpdate o2 bld
+    let frd = transOpr bld o1
+    let tmpEA = tmpVar bld bld.RegType
+    let v = loadNative bld 32<rt> tmpEA
+    tmpEA := ea
+    frd := AST.cast CastKind.FloatCast 64<rt> v
+    ra := tmpEA
+  }
 
 let lfsux ins insLen bld =
-  let struct (o1, o2, o3) = getThreeOprs ins
-  let frd = transOpr bld o1
-  let struct (ea, ra) = transEAWithIndexRegForUpdate o2 o3 bld
-  let tmpEA = tmpVar bld bld.RegType
-  let v = loadNative bld 32<rt> tmpEA
-  bld <!-- (ins.Address, insLen)
-  bld <+ (tmpEA := ea)
-  bld <+ (frd := AST.cast CastKind.FloatCast 64<rt> v)
-  bld <+ (ra := tmpEA)
-  bld --!> insLen
+  lift bld ins insLen {
+    let struct (o1, o2, o3) = getThreeOprs ins
+    let frd = transOpr bld o1
+    let struct (ea, ra) = transEAWithIndexRegForUpdate o2 o3 bld
+    let tmpEA = tmpVar bld bld.RegType
+    let v = loadNative bld 32<rt> tmpEA
+    tmpEA := ea
+    frd := AST.cast CastKind.FloatCast 64<rt> v
+    ra := tmpEA
+  }
 
 let lfsx ins insLen bld =
-  let struct (o1, o2, o3) = getThreeOprs ins
-  let frd = transOpr bld o1
-  let ea = transEAWithIndexReg o2 o3 bld
-  let tmpEA = tmpVar bld bld.RegType
-  let v = loadNative bld 32<rt> tmpEA
-  bld <!-- (ins.Address, insLen)
-  bld <+ (tmpEA := ea)
-  bld <+ (frd := AST.cast CastKind.FloatCast 64<rt> v)
-  bld --!> insLen
+  lift bld ins insLen {
+    let struct (o1, o2, o3) = getThreeOprs ins
+    let frd = transOpr bld o1
+    let ea = transEAWithIndexReg o2 o3 bld
+    let tmpEA = tmpVar bld bld.RegType
+    let v = loadNative bld 32<rt> tmpEA
+    tmpEA := ea
+    frd := AST.cast CastKind.FloatCast 64<rt> v
+  }
 
 let lha ins insLen bld =
-  let struct (o1, o2) = getTwoOprs ins
-  let ea = transEAWithOffset o2 bld
-  let rd = transOpr bld o1
-  let tmpEA = tmpVar bld bld.RegType
-  bld <!-- (ins.Address, insLen)
-  bld <+ (tmpEA := ea)
-  bld <+ (rd := AST.sext bld.RegType (loadNative bld 16<rt> tmpEA))
-  bld --!> insLen
+  lift bld ins insLen {
+    let struct (o1, o2) = getTwoOprs ins
+    let ea = transEAWithOffset o2 bld
+    let rd = transOpr bld o1
+    let tmpEA = tmpVar bld bld.RegType
+    tmpEA := ea
+    rd := AST.sext bld.RegType (loadNative bld 16<rt> tmpEA)
+  }
 
 let lhau ins insLen bld =
-  let struct (o1, o2) = getTwoOprs ins
-  let struct (ea, ra) = transEAWithOffsetForUpdate o2 bld
-  let rd = transOpr bld o1
-  let tmpEA = tmpVar bld bld.RegType
-  bld <!-- (ins.Address, insLen)
-  bld <+ (tmpEA := ea)
-  bld <+ (rd := AST.sext bld.RegType (loadNative bld 16<rt> tmpEA))
-  bld <+ (ra := tmpEA)
-  bld --!> insLen
+  lift bld ins insLen {
+    let struct (o1, o2) = getTwoOprs ins
+    let struct (ea, ra) = transEAWithOffsetForUpdate o2 bld
+    let rd = transOpr bld o1
+    let tmpEA = tmpVar bld bld.RegType
+    tmpEA := ea
+    rd := AST.sext bld.RegType (loadNative bld 16<rt> tmpEA)
+    ra := tmpEA
+  }
 
 let lhaux ins insLen bld =
-  let struct (o1, o2, o3) = getThreeOprs ins
-  let rd = transOpr bld o1
-  let struct (ea, ra) = transEAWithIndexRegForUpdate o2 o3 bld
-  let tmpEA = tmpVar bld bld.RegType
-  bld <!-- (ins.Address, insLen)
-  bld <+ (tmpEA := ea)
-  bld <+ (rd := AST.sext bld.RegType (loadNative bld 16<rt> tmpEA))
-  bld <+ (ra := tmpEA)
-  bld --!> insLen
+  lift bld ins insLen {
+    let struct (o1, o2, o3) = getThreeOprs ins
+    let rd = transOpr bld o1
+    let struct (ea, ra) = transEAWithIndexRegForUpdate o2 o3 bld
+    let tmpEA = tmpVar bld bld.RegType
+    tmpEA := ea
+    rd := AST.sext bld.RegType (loadNative bld 16<rt> tmpEA)
+    ra := tmpEA
+  }
 
 let lhax ins insLen bld =
-  let struct (o1, o2, o3) = getThreeOprs ins
-  let rd = transOpr bld o1
-  let ea = transEAWithIndexReg o2 o3 bld
-  let tmpEA = tmpVar bld bld.RegType
-  bld <!-- (ins.Address, insLen)
-  bld <+ (tmpEA := ea)
-  bld <+ (rd := AST.sext bld.RegType (loadNative bld 16<rt> tmpEA))
-  bld --!> insLen
+  lift bld ins insLen {
+    let struct (o1, o2, o3) = getThreeOprs ins
+    let rd = transOpr bld o1
+    let ea = transEAWithIndexReg o2 o3 bld
+    let tmpEA = tmpVar bld bld.RegType
+    tmpEA := ea
+    rd := AST.sext bld.RegType (loadNative bld 16<rt> tmpEA)
+  }
 
 let lhbrx ins insLen bld =
-  let struct (o1, o2, o3) = getThreeOprs ins
-  let rd = transOpr bld o1
-  let ea = transEAWithIndexReg o2 o3 bld
-  let tmpEA = tmpVar bld bld.RegType
-  let tmpMem = tmpVar bld 16<rt>
-  let revtmp = tmpVar bld 16<rt>
-  bld <!-- (ins.Address, insLen)
-  bld <+ (tmpEA := ea)
-  bld <+ (tmpMem := loadNative bld 16<rt> tmpEA)
-  bld <+ (AST.xthi 8<rt> revtmp := AST.xtlo 8<rt> tmpMem)
-  bld <+ (AST.xtlo 8<rt> revtmp := AST.xthi 8<rt> tmpMem)
-  bld <+ (rd := AST.zext bld.RegType revtmp)
-  bld --!> insLen
+  lift bld ins insLen {
+    let struct (o1, o2, o3) = getThreeOprs ins
+    let rd = transOpr bld o1
+    let ea = transEAWithIndexReg o2 o3 bld
+    let tmpEA = tmpVar bld bld.RegType
+    let tmpMem = tmpVar bld 16<rt>
+    let revtmp = tmpVar bld 16<rt>
+    tmpEA := ea
+    tmpMem := loadNative bld 16<rt> tmpEA
+    AST.xthi 8<rt> revtmp := AST.xtlo 8<rt> tmpMem
+    AST.xtlo 8<rt> revtmp := AST.xthi 8<rt> tmpMem
+    rd := AST.zext bld.RegType revtmp
+  }
 
 let lhz ins insLen bld =
-  let struct (o1, o2) = getTwoOprs ins
-  let ea = transEAWithOffset o2 bld
-  let rd = transOpr bld o1
-  let tmpEA = tmpVar bld bld.RegType
-  bld <!-- (ins.Address, insLen)
-  bld <+ (tmpEA := ea)
-  bld <+ (rd := AST.zext bld.RegType (loadNative bld 16<rt> tmpEA))
-  bld --!> insLen
+  lift bld ins insLen {
+    let struct (o1, o2) = getTwoOprs ins
+    let ea = transEAWithOffset o2 bld
+    let rd = transOpr bld o1
+    let tmpEA = tmpVar bld bld.RegType
+    tmpEA := ea
+    rd := AST.zext bld.RegType (loadNative bld 16<rt> tmpEA)
+  }
 
 let lhzu ins insLen bld =
-  let struct (o1, o2) = getTwoOprs ins
-  let struct (ea, ra) = transEAWithOffsetForUpdate o2 bld
-  let rd = transOpr bld o1
-  let tmpEA = tmpVar bld bld.RegType
-  bld <!-- (ins.Address, insLen)
-  bld <+ (tmpEA := ea)
-  bld <+ (rd := AST.zext bld.RegType (loadNative bld 16<rt> tmpEA))
-  bld <+ (ra := ea)
-  bld --!> insLen
+  lift bld ins insLen {
+    let struct (o1, o2) = getTwoOprs ins
+    let struct (ea, ra) = transEAWithOffsetForUpdate o2 bld
+    let rd = transOpr bld o1
+    let tmpEA = tmpVar bld bld.RegType
+    tmpEA := ea
+    rd := AST.zext bld.RegType (loadNative bld 16<rt> tmpEA)
+    ra := ea
+  }
 
 let lhzux ins insLen bld =
-  let struct (o1, o2, o3) = getThreeOprs ins
-  let rd = transOpr bld o1
-  let struct (ea, rA) = transEAWithIndexRegForUpdate o2 o3 bld
-  let tmpEA = tmpVar bld bld.RegType
-  bld <!-- (ins.Address, insLen)
-  bld <+ (tmpEA := ea)
-  bld <+ (rd := AST.zext bld.RegType (loadNative bld 16<rt> tmpEA))
-  bld <+ (rA := tmpEA)
-  bld --!> insLen
+  lift bld ins insLen {
+    let struct (o1, o2, o3) = getThreeOprs ins
+    let rd = transOpr bld o1
+    let struct (ea, rA) = transEAWithIndexRegForUpdate o2 o3 bld
+    let tmpEA = tmpVar bld bld.RegType
+    tmpEA := ea
+    rd := AST.zext bld.RegType (loadNative bld 16<rt> tmpEA)
+    rA := tmpEA
+  }
 
 let lhzx ins insLen bld =
-  let struct (o1, o2, o3) = getThreeOprs ins
-  let rd = transOpr bld o1
-  let ea = transEAWithIndexReg o2 o3 bld
-  let tmpEA = tmpVar bld bld.RegType
-  bld <!-- (ins.Address, insLen)
-  bld <+ (tmpEA := ea)
-  bld <+ (rd := AST.zext bld.RegType (loadNative bld 16<rt> tmpEA))
-  bld --!> insLen
+  lift bld ins insLen {
+    let struct (o1, o2, o3) = getThreeOprs ins
+    let rd = transOpr bld o1
+    let ea = transEAWithIndexReg o2 o3 bld
+    let tmpEA = tmpVar bld bld.RegType
+    tmpEA := ea
+    rd := AST.zext bld.RegType (loadNative bld 16<rt> tmpEA)
+  }
 
 let li ins insLen bld =
-  let struct (dst, simm) = transTwoOprs ins bld
-  bld <!-- (ins.Address, insLen)
-  bld <+ (dst := simm)
-  bld --!> insLen
+  lift bld ins insLen {
+    let struct (dst, simm) = transTwoOprs ins bld
+    dst := simm
+  }
 
 let lis ins insLen bld =
-  let struct (dst, simm) = transTwoOprs ins bld
-  let simm = shiftedImm bld true simm
-  bld <!-- (ins.Address, insLen)
-  bld <+ (dst := simm)
-  bld --!> insLen
+  lift bld ins insLen {
+    let struct (dst, simm) = transTwoOprs ins bld
+    let simm = shiftedImm bld true simm
+    dst := simm
+  }
 
 /// lwarx/ldarx: a load that arms the reservation a following store-conditional
 /// checks. The reserved value is kept register-wide whatever the access size.
 let private loadReserve ins insLen (bld: ILowUIRBuilder) size =
-  let struct (o1, o2, o3) = getThreeOprs ins
-  let rd = transOpr bld o1
-  let ea = transEAWithIndexReg o2 o3 bld
-  let tmpEA = tmpVar bld bld.RegType
-  let tmpVal = tmpVar bld bld.RegType
-  bld <!-- (ins.Address, insLen)
-  bld <+ (tmpEA := ea)
-  bld <+ (tmpVal := AST.zext bld.RegType (loadNative bld size tmpEA))
-  bld <+ (regVar bld Register.ExMonAddr := tmpEA)
-  bld <+ (regVar bld Register.ExMonVal := tmpVal)
-  bld <+ (rd := tmpVal)
-  bld --!> insLen
+  lift bld ins insLen {
+    let struct (o1, o2, o3) = getThreeOprs ins
+    let rd = transOpr bld o1
+    let ea = transEAWithIndexReg o2 o3 bld
+    let tmpEA = tmpVar bld bld.RegType
+    let tmpVal = tmpVar bld bld.RegType
+    tmpEA := ea
+    tmpVal := AST.zext bld.RegType (loadNative bld size tmpEA)
+    regVar bld Register.ExMonAddr := tmpEA
+    regVar bld Register.ExMonVal := tmpVal
+    rd := tmpVal
+  }
 
 let lwarx ins insLen bld = loadReserve ins insLen bld 32<rt>
 
@@ -1361,16 +1392,16 @@ let private reversedBytes value width =
 
 /// lwbrx/ldbrx: a load whose bytes come back in the opposite order.
 let private loadByteReverse ins insLen (bld: ILowUIRBuilder) size =
-  let struct (o1, o2, o3) = getThreeOprs ins
-  let rd = transOpr bld o1
-  let ea = transEAWithIndexReg o2 o3 bld
-  let tmpEA = tmpVar bld bld.RegType
-  let tmpMem = tmpVar bld size
-  bld <!-- (ins.Address, insLen)
-  bld <+ (tmpEA := ea)
-  bld <+ (tmpMem := loadNative bld size tmpEA)
-  bld <+ (rd := AST.zext bld.RegType (reversedBytes tmpMem size))
-  bld --!> insLen
+  lift bld ins insLen {
+    let struct (o1, o2, o3) = getThreeOprs ins
+    let rd = transOpr bld o1
+    let ea = transEAWithIndexReg o2 o3 bld
+    let tmpEA = tmpVar bld bld.RegType
+    let tmpMem = tmpVar bld size
+    tmpEA := ea
+    tmpMem := loadNative bld size tmpEA
+    rd := AST.zext bld.RegType (reversedBytes tmpMem size)
+  }
 
 let lwbrx ins insLen bld = loadByteReverse ins insLen bld 32<rt>
 
@@ -1379,36 +1410,36 @@ let ldbrx ins insLen bld = loadByteReverse ins insLen bld 64<rt>
 /// A d(rA) load of `size` bits, widened into rD by ext; when update is set the
 /// effective address is also written back to rA.
 let private loadOffset ins insLen (bld: ILowUIRBuilder) size ext update =
-  let struct (o1, o2) = getTwoOprs ins
-  let dst = transOpr bld o1
-  let tmpEA = tmpVar bld bld.RegType
-  bld <!-- (ins.Address, insLen)
-  if update then
-    let struct (ea, ra) = transEAWithOffsetForUpdate o2 bld
-    bld <+ (tmpEA := ea)
-    bld <+ (dst := ext bld.RegType (loadNative bld size tmpEA))
-    bld <+ (ra := tmpEA)
-  else
-    bld <+ (tmpEA := transEAWithOffset o2 bld)
-    bld <+ (dst := ext bld.RegType (loadNative bld size tmpEA))
-  bld --!> insLen
+  lift bld ins insLen {
+    let struct (o1, o2) = getTwoOprs ins
+    let dst = transOpr bld o1
+    let tmpEA = tmpVar bld bld.RegType
+    if update then
+      let struct (ea, ra) = transEAWithOffsetForUpdate o2 bld
+      tmpEA := ea
+      dst := ext bld.RegType (loadNative bld size tmpEA)
+      ra := tmpEA
+    else
+      tmpEA := transEAWithOffset o2 bld
+      dst := ext bld.RegType (loadNative bld size tmpEA)
+  }
 
 /// An rA + rB load of `size` bits, widened into rD by ext, updating rA when
 /// update is set.
 let private loadIndexed ins insLen (bld: ILowUIRBuilder) size ext update =
-  let struct (o1, o2, o3) = getThreeOprs ins
-  let dst = transOpr bld o1
-  let tmpEA = tmpVar bld bld.RegType
-  bld <!-- (ins.Address, insLen)
-  if update then
-    let struct (ea, ra) = transEAWithIndexRegForUpdate o2 o3 bld
-    bld <+ (tmpEA := ea)
-    bld <+ (dst := ext bld.RegType (loadNative bld size tmpEA))
-    bld <+ (ra := tmpEA)
-  else
-    bld <+ (tmpEA := transEAWithIndexReg o2 o3 bld)
-    bld <+ (dst := ext bld.RegType (loadNative bld size tmpEA))
-  bld --!> insLen
+  lift bld ins insLen {
+    let struct (o1, o2, o3) = getThreeOprs ins
+    let dst = transOpr bld o1
+    let tmpEA = tmpVar bld bld.RegType
+    if update then
+      let struct (ea, ra) = transEAWithIndexRegForUpdate o2 o3 bld
+      tmpEA := ea
+      dst := ext bld.RegType (loadNative bld size tmpEA)
+      ra := tmpEA
+    else
+      tmpEA := transEAWithIndexReg o2 o3 bld
+      dst := ext bld.RegType (loadNative bld size tmpEA)
+  }
 
 let lwz ins insLen bld = loadOffset ins insLen bld 32<rt> AST.zext false
 
@@ -1433,63 +1464,63 @@ let ldx ins insLen bld = loadIndexed ins insLen bld 64<rt> AST.zext false
 let ldux ins insLen bld = loadIndexed ins insLen bld 64<rt> AST.zext true
 
 let mcrf ins insLen bld =
-  let struct ((crd0, crd1, crd2, crd3),
-              (crs0, crs1, crs2, crs3)) = transCondTwoOprs ins bld
-  bld <!-- (ins.Address, insLen)
-  bld <+ (crd0 := crs0)
-  bld <+ (crd1 := crs1)
-  bld <+ (crd2 := crs2)
-  bld <+ (crd3 := crs3)
-  bld --!> insLen
+  lift bld ins insLen {
+    let struct ((crd0, crd1, crd2, crd3),
+                (crs0, crs1, crs2, crs3)) = transCondTwoOprs ins bld
+    crd0 := crs0
+    crd1 := crs1
+    crd2 := crs2
+    crd3 := crs3
+  }
 
 let mcrxr ins insLen bld =
-  let crd0, crd1, crd2, crd3 = transCondOneOpr ins bld
-  let xer = regVar bld Register.XER
-  bld <!-- (ins.Address, insLen)
-  bld <+ (crd0 := AST.extract xer 1<rt> 31)
-  bld <+ (crd1 := AST.extract xer 1<rt> 30)
-  bld <+ (crd2 := AST.extract xer 1<rt> 29)
-  bld <+ (crd3 := AST.extract xer 1<rt> 28)
-  bld <+ (xer := xer .& numI32 0x0fffffff 32<rt>)
-  bld --!> insLen
+  lift bld ins insLen {
+    let crd0, crd1, crd2, crd3 = transCondOneOpr ins bld
+    let xer = regVar bld Register.XER
+    crd0 := AST.extract xer 1<rt> 31
+    crd1 := AST.extract xer 1<rt> 30
+    crd2 := AST.extract xer 1<rt> 29
+    crd3 := AST.extract xer 1<rt> 28
+    xer := xer .& numI32 0x0fffffff 32<rt>
+  }
 
 let mfcr ins insLen (bld: ILowUIRBuilder) =
-  let dst = transOneOpr ins bld
-  let cr = tmpVar bld 32<rt>
-  bld <!-- (ins.Address, insLen)
-  getCRRegValue bld cr
-  bld <+ (dst := AST.zext bld.RegType cr)
-  bld --!> insLen
+  lift bld ins insLen {
+    let dst = transOneOpr ins bld
+    let cr = tmpVar bld 32<rt>
+    getCRRegValue bld cr
+    dst := AST.zext bld.RegType cr
+  }
 
 let mfctr ins insLen bld =
-  let dst = transOneOpr ins bld
-  let ctr = regVar bld Register.CTR
-  bld <!-- (ins.Address, insLen)
-  bld <+ (dst := ctr)
-  bld --!> insLen
+  lift bld ins insLen {
+    let dst = transOneOpr ins bld
+    let ctr = regVar bld Register.CTR
+    dst := ctr
+  }
 
 let mffs ins insLen bld =
-  let dst = transOneOpr ins bld
-  let fpscr = regVar bld Register.FPSCR
-  bld <!-- (ins.Address, insLen)
-  bld <+ (dst := AST.zext 64<rt> fpscr)
-  bld --!> insLen
+  lift bld ins insLen {
+    let dst = transOneOpr ins bld
+    let fpscr = regVar bld Register.FPSCR
+    dst := AST.zext 64<rt> fpscr
+  }
 
 let mflr ins insLen bld =
-  let dst = transOneOpr ins bld
-  let lr = regVar bld Register.LR
-  bld <!-- (ins.Address, insLen)
-  bld <+ (dst := lr)
-  bld --!> insLen
+  lift bld ins insLen {
+    let dst = transOneOpr ins bld
+    let lr = regVar bld Register.LR
+    dst := lr
+  }
 
 let mfspr (ins: Instruction) insLen bld =
-  let struct (dst, spr) =
-    match ins.Operands with
-    | TwoOperands(o1, OprImm o2) -> transOpr bld o1, getSPRReg bld o2
-    | _ -> raise InvalidOperandException
-  bld <!-- (ins.Address, insLen)
-  bld <+ (dst := spr)
-  bld --!> insLen
+  lift bld ins insLen {
+    let struct (dst, spr) =
+      match ins.Operands with
+      | TwoOperands(o1, OprImm o2) -> transOpr bld o1, getSPRReg bld o2
+      | _ -> raise InvalidOperandException
+    dst := spr
+  }
 
 (* mftb/mftbu read the 64-bit Time Base into rD. There is no real time base to
    read, so the value is left to the emulator via a ClockCounterRead side effect
@@ -1510,121 +1541,123 @@ let mftbu (ins: Instruction) insLen bld =
   sideEffects ins insLen bld (ClockCounterRead(Some(rid, true)))
 
 let mfxer ins insLen bld =
-  let dst = transOneOpr ins bld
-  let xer = regVar bld Register.XER
-  bld <!-- (ins.Address, insLen)
-  bld <+ (dst := xer)
-  bld --!> insLen
+  lift bld ins insLen {
+    let dst = transOneOpr ins bld
+    let xer = regVar bld Register.XER
+    dst := xer
+  }
 
 let mr ins insLen bld =
-  let struct (dst, src) = transTwoOprs ins bld
-  bld <!-- (ins.Address, insLen)
-  bld <+ (dst := src .| src)
-  bld --!> insLen
+  lift bld ins insLen {
+    let struct (dst, src) = transTwoOprs ins bld
+    dst := src .| src
+  }
 
 let mtctr ins insLen bld =
-  let src = transOneOpr ins bld
-  let ctr = regVar bld Register.CTR
-  bld <!-- (ins.Address, insLen)
-  bld <+ (ctr := src)
-  bld --!> insLen
+  lift bld ins insLen {
+    let src = transOneOpr ins bld
+    let ctr = regVar bld Register.CTR
+    ctr := src
+  }
 
 let mtfsfi ins insLen updateCond bld =
-  let struct (crfd, imm) = getTwoOprs ins
-  let crfd = crfd |> getImmValue |> int
-  let pos = 4 * (7 - crfd)
-  let imm = transOpr bld imm
-  let fpscr = regVar bld Register.FPSCR
-  bld <!-- (ins.Address, insLen)
-  if crfd = 0 then
-    bld <+ (AST.extract fpscr 1<rt> 31 := AST.extract imm 1<rt> 3)
-    bld <+ (AST.extract fpscr 1<rt> 28 := AST.extract imm 1<rt> 0)
-  else
-    bld <+ (AST.extract fpscr 1<rt> (pos + 3) := AST.extract imm 1<rt> 3)
-    bld <+ (AST.extract fpscr 1<rt> (pos + 2) := AST.extract imm 1<rt> 2)
-    bld <+ (AST.extract fpscr 1<rt> (pos + 1) := AST.extract imm 1<rt> 1)
-    bld <+ (AST.extract fpscr 1<rt> pos := AST.extract imm 1<rt> 0)
-  bld --!> insLen
+  lift bld ins insLen {
+    let struct (crfd, imm) = getTwoOprs ins
+    let crfd = crfd |> getImmValue |> int
+    let pos = 4 * (7 - crfd)
+    let imm = transOpr bld imm
+    let fpscr = regVar bld Register.FPSCR
+    if crfd = 0 then
+      AST.extract fpscr 1<rt> 31 := AST.extract imm 1<rt> 3
+      AST.extract fpscr 1<rt> 28 := AST.extract imm 1<rt> 0
+    else
+      AST.extract fpscr 1<rt> (pos + 3) := AST.extract imm 1<rt> 3
+      AST.extract fpscr 1<rt> (pos + 2) := AST.extract imm 1<rt> 2
+      AST.extract fpscr 1<rt> (pos + 1) := AST.extract imm 1<rt> 1
+      AST.extract fpscr 1<rt> pos := AST.extract imm 1<rt> 0
+  }
 
 let mtspr (ins: Instruction) insLen bld =
-  let struct (spr, rs) =
-    match ins.Operands with
-    | TwoOperands(OprImm o1, o2) -> getSPRReg bld o1, transOpr bld o2
-    | _ -> raise InvalidOperandException
-  bld <!-- (ins.Address, insLen)
-  bld <+ (spr := rs)
-  bld --!> insLen
+  lift bld ins insLen {
+    let struct (spr, rs) =
+      match ins.Operands with
+      | TwoOperands(OprImm o1, o2) -> getSPRReg bld o1, transOpr bld o2
+      | _ -> raise InvalidOperandException
+    spr := rs
+  }
 
 let private crmMask bld crm =
   let tCrm = Array.init 4 (fun _ -> tmpVar bld 8<rt>)
   for i in 0..3 do
     let cond1 = AST.extract crm 1<rt> (i * 2)
     let cond2 = AST.extract crm 1<rt> (i * 2 + 1)
-    bld <+ (tCrm[i] :=
-      AST.ite cond1
-              (AST.ite cond2 (numI32 0xff 8<rt>) (numI32 0xf 8<rt>))
-              (AST.ite cond2 (numI32 0xf0 8<rt>) (AST.num0 8<rt>)))
+    append bld {
+      tCrm[i] :=
+        AST.ite cond1
+                (AST.ite cond2 (numI32 0xff 8<rt>) (numI32 0xf 8<rt>))
+                (AST.ite cond2 (numI32 0xf0 8<rt>) (AST.num0 8<rt>))
+    }
   tCrm |> AST.revConcat
 
 let mtcrf ins insLen bld =
-  let struct (crm, rs) = transTwoOprs ins bld
-  let mask = tmpVar bld 32<rt>
-  let cr = tmpVar bld 32<rt>
-  bld <!-- (ins.Address, insLen)
-  bld <+ (mask := crmMask bld crm)
-  getCRRegValue bld cr
-  bld <+ (cr := (AST.xtlo 32<rt> rs .& mask) .| (cr .& AST.not mask))
-  setCRRegValue bld cr
-  bld --!> insLen
+  lift bld ins insLen {
+    let struct (crm, rs) = transTwoOprs ins bld
+    let mask = tmpVar bld 32<rt>
+    let cr = tmpVar bld 32<rt>
+    mask := crmMask bld crm
+    getCRRegValue bld cr
+    cr := (AST.xtlo 32<rt> rs .& mask) .| (cr .& AST.not mask)
+    setCRRegValue bld cr
+  }
 
 let mtlr ins insLen bld =
-  let src = transOneOpr ins bld
-  let lr = regVar bld Register.LR
-  bld <!-- (ins.Address, insLen)
-  bld <+ (lr := src)
-  bld --!> insLen
+  lift bld ins insLen {
+    let src = transOneOpr ins bld
+    let lr = regVar bld Register.LR
+    lr := src
+  }
 
 let mtfsb0 ins insLen updateCond bld =
-  let crbD = getOneOpr ins |> getImmValue |> int
-  let fpscr = regVar bld Register.FPSCR
-  bld <!-- (ins.Address, insLen)
-  if crbD <> 1 && crbD <> 2 then
-    bld <+ (AST.extract fpscr 1<rt> (31 - crbD) := AST.b0)
-  else
-    ()
-  if updateCond then setCR1Reg bld else ()
-  (* Affected: FX *)
-  bld --!> insLen
+  lift bld ins insLen {
+    let crbD = getOneOpr ins |> getImmValue |> int
+    let fpscr = regVar bld Register.FPSCR
+    if crbD <> 1 && crbD <> 2 then
+      AST.extract fpscr 1<rt> (31 - crbD) := AST.b0
+    else
+      ()
+    if updateCond then setCR1Reg bld else ()
+    (* Affected: FX *)
+  }
 
 let mtfsb1 ins insLen updateCond bld =
-  let crbD = getOneOpr ins |> getImmValue |> int
-  let fpscr = regVar bld Register.FPSCR
-  bld <!-- (ins.Address, insLen)
-  if crbD <> 1 && crbD <> 2 then
-    bld <+ (AST.extract fpscr 1<rt> (31 - crbD) := AST.b1)
-  else
-    ()
-  if updateCond then setCR1Reg bld else ()
-  (* Affected: FX *)
-  bld --!> insLen
+  lift bld ins insLen {
+    let crbD = getOneOpr ins |> getImmValue |> int
+    let fpscr = regVar bld Register.FPSCR
+    if crbD <> 1 && crbD <> 2 then
+      AST.extract fpscr 1<rt> (31 - crbD) := AST.b1
+    else
+      ()
+    if updateCond then setCR1Reg bld else ()
+    (* Affected: FX *)
+  }
 
 let mtfsf ins insLen bld =
-  let struct (fm, frB) = getTwoOprs ins
-  let frB = transOpr bld frB
-  let fm = BitVector(getImmValue fm, 32<rt>) |> AST.num
-  let fpscr = regVar bld Register.FPSCR
-  let mask = tmpVar bld 32<rt>
-  bld <!-- (ins.Address, insLen)
-  bld <+ (mask := crmMask bld fm)
-  bld <+ (fpscr := (AST.xtlo 32<rt> frB .& mask) .| (fpscr .& AST.not mask))
-  bld --!> insLen
+  lift bld ins insLen {
+    let struct (fm, frB) = getTwoOprs ins
+    let frB = transOpr bld frB
+    let fm = BitVector(getImmValue fm, 32<rt>) |> AST.num
+    let fpscr = regVar bld Register.FPSCR
+    let mask = tmpVar bld 32<rt>
+    mask := crmMask bld fm
+    fpscr := (AST.xtlo 32<rt> frB .& mask) .| (fpscr .& AST.not mask)
+  }
 
 let mtxer ins insLen bld =
-  let src = transOneOpr ins bld
-  let xer = regVar bld Register.XER
-  bld <!-- (ins.Address, insLen)
-  bld <+ (xer := src)
-  bld --!> insLen
+  lift bld ins insLen {
+    let src = transOneOpr ins bld
+    let xer = regVar bld Register.XER
+    xer := src
+  }
 
 /// The high half of a product of two `width`-bit operands, taken in a double-
 /// width temporary and placed in a whole register. A 64-bit guest leaves the
@@ -1636,17 +1669,17 @@ let private mulHigh ins
                     (bld: ILowUIRBuilder)
                     (width: RegType)
                     signed =
-  let struct (dst, ra, rb) = transThreeOprs ins bld
-  let wide = width + width
-  let tmp = tmpVar bld wide
-  let ext e = if signed then AST.sext wide e else AST.zext wide e
-  bld <!-- (ins.Address, insLen)
-  bld <+ (tmp := ext (AST.xtlo width ra) .* ext (AST.xtlo width rb))
-  let hi = AST.xthi width tmp
-  bld <+ (dst := if signed then AST.sext bld.RegType hi
-                 else AST.zext bld.RegType hi)
-  if updateCond then setCR0Reg bld dst else ()
-  bld --!> insLen
+  lift bld ins insLen {
+    let struct (dst, ra, rb) = transThreeOprs ins bld
+    let wide = width + width
+    let tmp = tmpVar bld wide
+    let ext e = if signed then AST.sext wide e else AST.zext wide e
+    tmp := ext (AST.xtlo width ra) .* ext (AST.xtlo width rb)
+    let hi = AST.xthi width tmp
+    dst := if signed then AST.sext bld.RegType hi
+           else AST.zext bld.RegType hi
+    if updateCond then setCR0Reg bld dst else ()
+  }
 
 let mulhw ins insLen updateCond bld =
   mulHigh ins insLen updateCond bld 32<rt> true
@@ -1661,61 +1694,61 @@ let mulhdu ins insLen updateCond bld =
   mulHigh ins insLen updateCond bld 64<rt> false
 
 let mulli ins insLen bld =
-  let struct (dst, ra, simm) = transThreeOprs ins bld
-  bld <!-- (ins.Address, insLen)
-  bld <+ (dst := ra .* simm)
-  bld --!> insLen
+  lift bld ins insLen {
+    let struct (dst, ra, simm) = transThreeOprs ins bld
+    dst := ra .* simm
+  }
 
 /// mullw takes two word operands and, on a 64-bit part, keeps the whole
 /// doubleword product; on a 32-bit one only the low word exists.
 let mullw ins insLen updateCond ovCond (bld: ILowUIRBuilder) =
-  let struct (dst, src1, src2) = transThreeOprs ins bld
-  let tmp = tmpVar bld 64<rt>
-  bld <!-- (ins.Address, insLen)
-  if ovCond then isMulwOV bld src1 src2 else ()
-  let a = AST.sext 64<rt> (AST.xtlo 32<rt> src1)
-  let b = AST.sext 64<rt> (AST.xtlo 32<rt> src2)
-  bld <+ (tmp := a .* b)
-  bld <+ (dst := AST.xtlo bld.RegType tmp)
-  if updateCond then setCR0Reg bld dst else ()
-  bld --!> insLen
+  lift bld ins insLen {
+    let struct (dst, src1, src2) = transThreeOprs ins bld
+    let tmp = tmpVar bld 64<rt>
+    if ovCond then isMulwOV bld src1 src2 else ()
+    let a = AST.sext 64<rt> (AST.xtlo 32<rt> src1)
+    let b = AST.sext 64<rt> (AST.xtlo 32<rt> src2)
+    tmp := a .* b
+    dst := AST.xtlo bld.RegType tmp
+    if updateCond then setCR0Reg bld dst else ()
+  }
 
 let mulld ins insLen updateCond ovCond bld =
-  let struct (dst, src1, src2) = transThreeOprs ins bld
-  bld <!-- (ins.Address, insLen)
-  if ovCond then isMuldOV bld src1 src2 else ()
-  bld <+ (dst := src1 .* src2)
-  if updateCond then setCR0Reg bld dst else ()
-  bld --!> insLen
+  lift bld ins insLen {
+    let struct (dst, src1, src2) = transThreeOprs ins bld
+    if ovCond then isMuldOV bld src1 src2 else ()
+    dst := src1 .* src2
+    if updateCond then setCR0Reg bld dst else ()
+  }
 
 let nand ins insLen updateCond bld =
-  let struct (dst, src1, src2) = transThreeOprs ins bld
-  bld <!-- (ins.Address, insLen)
-  bld <+ (dst := AST.not (src1 .& src2))
-  if updateCond then setCR0Reg bld dst else ()
-  bld --!> insLen
+  lift bld ins insLen {
+    let struct (dst, src1, src2) = transThreeOprs ins bld
+    dst := AST.not (src1 .& src2)
+    if updateCond then setCR0Reg bld dst else ()
+  }
 
 let neg ins insLen updateCond ovCond (bld: ILowUIRBuilder) =
-  let struct (dst, src) = transTwoOprs ins bld
-  let struct (t1, t2) = tmpVars2 bld bld.RegType
-  bld <!-- (ins.Address, insLen)
-  bld <+ (t1 := AST.not src)
-  bld <+ (t2 := AST.num1 bld.RegType)
-  bld <+ (dst := t1 .+ t2)
-  if ovCond then isAddSubOV bld t1 t2 dst else ()
-  if updateCond then setCR0Reg bld dst else ()
-  bld --!> insLen
+  lift bld ins insLen {
+    let struct (dst, src) = transTwoOprs ins bld
+    let struct (t1, t2) = tmpVars2 bld bld.RegType
+    t1 := AST.not src
+    t2 := AST.num1 bld.RegType
+    dst := t1 .+ t2
+    if ovCond then isAddSubOV bld t1 t2 dst else ()
+    if updateCond then setCR0Reg bld dst else ()
+  }
 
 let nor ins insLen updateCond bld =
-  let struct (dst, src1, src2) = transThreeOprs ins bld
-  bld <!-- (ins.Address, insLen)
-  bld <+ (dst := AST.not (src1 .| src2))
-  if updateCond then setCR0Reg bld dst else ()
-  bld --!> insLen
+  lift bld ins insLen {
+    let struct (dst, src1, src2) = transThreeOprs ins bld
+    dst := AST.not (src1 .| src2)
+    if updateCond then setCR0Reg bld dst else ()
+  }
 
 let nop (ins: Instruction) insLen bld =
-  bld <!-- (ins.Address, insLen)
-  bld --!> insLen
+  lift bld ins insLen {
+  }
 
 /// The number of bytes dcbz clears. The architecture leaves the size to the
 /// implementation and has software discover it from AT_DCACHEBSIZE; this is
@@ -1726,108 +1759,108 @@ let [<Literal>] private CacheBlockSize = 128
 /// block the address falls in. Modeled as clearing that many bytes, in
 /// doublewords, from the block-aligned address.
 let dcbz ins insLen (bld: ILowUIRBuilder) =
-  let struct (o1, o2) = getTwoOprs ins
-  let ea = transEAWithIndexReg o1 o2 bld
-  let tmpEA = tmpVar bld bld.RegType
-  bld <!-- (ins.Address, insLen)
-  bld <+ (tmpEA := ea .& AST.not (numI32 (CacheBlockSize - 1) bld.RegType))
-  for i in 0 .. (CacheBlockSize / 8) - 1 do
-    let addr = tmpEA .+ numI32 (i * 8) bld.RegType
-    bld <+ (loadNative bld 64<rt> addr := AST.num0 64<rt>)
-  bld --!> insLen
+  lift bld ins insLen {
+    let struct (o1, o2) = getTwoOprs ins
+    let ea = transEAWithIndexReg o1 o2 bld
+    let tmpEA = tmpVar bld bld.RegType
+    tmpEA := ea .& AST.not (numI32 (CacheBlockSize - 1) bld.RegType)
+    for i in 0 .. (CacheBlockSize / 8) - 1 do
+      let addr = tmpEA .+ numI32 (i * 8) bld.RegType
+      loadNative bld 64<rt> addr := AST.num0 64<rt>
+  }
 
 let orx ins insLen updateCond bld =
-  let struct (dst, src1, src2) = transThreeOprs ins bld
-  bld <!-- (ins.Address, insLen)
-  bld <+ (dst := src1 .| src2)
-  if updateCond then setCR0Reg bld dst else ()
-  bld --!> insLen
+  lift bld ins insLen {
+    let struct (dst, src1, src2) = transThreeOprs ins bld
+    dst := src1 .| src2
+    if updateCond then setCR0Reg bld dst else ()
+  }
 
 let orc ins insLen updateCond bld =
-  let struct (dst, src1, src2) = transThreeOprs ins bld
-  bld <!-- (ins.Address, insLen)
-  bld <+ (dst := src1 .| AST.not (src2))
-  if updateCond then setCR0Reg bld dst else ()
-  bld --!> insLen
+  lift bld ins insLen {
+    let struct (dst, src1, src2) = transThreeOprs ins bld
+    dst := src1 .| AST.not (src2)
+    if updateCond then setCR0Reg bld dst else ()
+  }
 
 let ori ins insLen bld =
-  let struct (dst, src, uimm) = transThreeOprs ins bld
-  let uimm = AST.zext bld.RegType (AST.xtlo 16<rt> uimm)
-  bld <!-- (ins.Address, insLen)
-  bld <+ (dst := src .| uimm)
-  bld --!> insLen
+  lift bld ins insLen {
+    let struct (dst, src, uimm) = transThreeOprs ins bld
+    let uimm = AST.zext bld.RegType (AST.xtlo 16<rt> uimm)
+    dst := src .| uimm
+  }
 
 let oris ins insLen bld =
-  let struct (dst, src, uimm) = transThreeOprs ins bld
-  let uimm = shiftedImm bld false uimm
-  bld <!-- (ins.Address, insLen)
-  bld <+ (dst := src .| uimm)
-  bld --!> insLen
+  lift bld ins insLen {
+    let struct (dst, src, uimm) = transThreeOprs ins bld
+    let uimm = shiftedImm bld false uimm
+    dst := src .| uimm
+  }
 
 (* The rotate-word forms all work on the low word of rS and, on a 64-bit part,
    leave the result's upper word zero -- so the whole thing is a word operation
    whose result is zero-extended back into a register. *)
 let rlwinm ins insLen updateCond (bld: ILowUIRBuilder) =
-  let struct (ra, rs, sh, mb, me) = transFiveOprs ins bld
-  let rol = tmpVar bld 32<rt>
-  bld <!-- (ins.Address, insLen)
-  bld <+ (rol := rotateLeft (AST.xtlo 32<rt> rs) (AST.xtlo 32<rt> sh))
-  bld <+ (ra := AST.zext bld.RegType (rol .& (getExtMask mb me)))
-  if updateCond then setCR0Reg bld ra else ()
-  bld --!> insLen
+  lift bld ins insLen {
+    let struct (ra, rs, sh, mb, me) = transFiveOprs ins bld
+    let rol = tmpVar bld 32<rt>
+    rol := rotateLeft (AST.xtlo 32<rt> rs) (AST.xtlo 32<rt> sh)
+    ra := AST.zext bld.RegType (rol .& (getExtMask mb me))
+    if updateCond then setCR0Reg bld ra else ()
+  }
 
 /// rlwimi merges a rotated word into rA under a mask that covers only the low
 /// word, so unlike the other rotate-word forms it leaves rA's upper word alone
 /// rather than clearing it -- which is what makes it the instruction a compiler
 /// reaches for when it inserts a bit field.
 let rlwimi ins insLen updateCond bld =
-  let struct (ra, rs, sh, mb, me) = transFiveOprs ins bld
-  let m = getExtMask mb me
-  let rol = rotateLeft (AST.xtlo 32<rt> rs) (AST.xtlo 32<rt> sh)
-  let merged = tmpVar bld 32<rt>
-  bld <!-- (ins.Address, insLen)
-  bld <+ (merged := (rol .& m) .| (AST.xtlo 32<rt> ra .& AST.not m))
-  bld <+ (AST.xtlo 32<rt> ra := merged)
-  if updateCond then setCR0Reg bld ra else ()
-  bld --!> insLen
+  lift bld ins insLen {
+    let struct (ra, rs, sh, mb, me) = transFiveOprs ins bld
+    let m = getExtMask mb me
+    let rol = rotateLeft (AST.xtlo 32<rt> rs) (AST.xtlo 32<rt> sh)
+    let merged = tmpVar bld 32<rt>
+    merged := (rol .& m) .| (AST.xtlo 32<rt> ra .& AST.not m)
+    AST.xtlo 32<rt> ra := merged
+    if updateCond then setCR0Reg bld ra else ()
+  }
 
 let rlwnm ins insLen updateCond (bld: ILowUIRBuilder) =
-  let struct (ra, rs, rb, mb, me) = transFiveOprs ins bld
-  let n = AST.xtlo 32<rt> rb .& numI32 0x1f 32<rt>
-  let rol = tmpVar bld 32<rt>
-  bld <!-- (ins.Address, insLen)
-  bld <+ (rol := rotateLeft (AST.xtlo 32<rt> rs) n)
-  bld <+ (ra := AST.zext bld.RegType (rol .& (getExtMask mb me)))
-  if updateCond then setCR0Reg bld ra else ()
-  bld --!> insLen
+  lift bld ins insLen {
+    let struct (ra, rs, rb, mb, me) = transFiveOprs ins bld
+    let n = AST.xtlo 32<rt> rb .& numI32 0x1f 32<rt>
+    let rol = tmpVar bld 32<rt>
+    rol := rotateLeft (AST.xtlo 32<rt> rs) n
+    ra := AST.zext bld.RegType (rol .& (getExtMask mb me))
+    if updateCond then setCR0Reg bld ra else ()
+  }
 
 let rotlw ins insLen (bld: ILowUIRBuilder) =
-  let struct (ra, rs, rb) = transThreeOprs ins bld
-  let n = AST.xtlo 32<rt> rb .& numI32 0x1f 32<rt>
-  let rol = rotateLeft (AST.xtlo 32<rt> rs) n
-  bld <!-- (ins.Address, insLen)
-  bld <+ (ra := AST.zext bld.RegType rol) (* no mask *)
-  bld --!> insLen
+  lift bld ins insLen {
+    let struct (ra, rs, rb) = transThreeOprs ins bld
+    let n = AST.xtlo 32<rt> rb .& numI32 0x1f 32<rt>
+    let rol = rotateLeft (AST.xtlo 32<rt> rs) n
+    ra := AST.zext bld.RegType rol (* no mask *)
+  }
 
 (* The rotate-doubleword forms take a six-bit shift and a six-bit mask bound,
    and the mask is a constant of the immediate forms. *)
 let rldicl ins insLen updateCond bld =
-  let struct (ra, rs, sh, mb) = transFourOprs ins bld
-  let rol = tmpVar bld 64<rt>
-  bld <!-- (ins.Address, insLen)
-  bld <+ (rol := rotateLeft64 rs sh)
-  bld <+ (ra := rol .& getExtMask64 mb (numI32 63 64<rt>))
-  if updateCond then setCR0Reg bld ra else ()
-  bld --!> insLen
+  lift bld ins insLen {
+    let struct (ra, rs, sh, mb) = transFourOprs ins bld
+    let rol = tmpVar bld 64<rt>
+    rol := rotateLeft64 rs sh
+    ra := rol .& getExtMask64 mb (numI32 63 64<rt>)
+    if updateCond then setCR0Reg bld ra else ()
+  }
 
 let rldicr ins insLen updateCond bld =
-  let struct (ra, rs, sh, me) = transFourOprs ins bld
-  let rol = tmpVar bld 64<rt>
-  bld <!-- (ins.Address, insLen)
-  bld <+ (rol := rotateLeft64 rs sh)
-  bld <+ (ra := rol .& getExtMask64 (AST.num0 64<rt>) me)
-  if updateCond then setCR0Reg bld ra else ()
-  bld --!> insLen
+  lift bld ins insLen {
+    let struct (ra, rs, sh, me) = transFourOprs ins bld
+    let rol = tmpVar bld 64<rt>
+    rol := rotateLeft64 rs sh
+    ra := rol .& getExtMask64 (AST.num0 64<rt>) me
+    if updateCond then setCR0Reg bld ra else ()
+  }
 
 /// The end of an rldic/rldimi mask, which the shift amount fixes at 63 - sh.
 let private maskEndOfShift sh =
@@ -1836,41 +1869,41 @@ let private maskEndOfShift sh =
   | _ -> raise InvalidExprException
 
 let rldic ins insLen updateCond bld =
-  let struct (ra, rs, sh, mb) = transFourOprs ins bld
-  let rol = tmpVar bld 64<rt>
-  bld <!-- (ins.Address, insLen)
-  bld <+ (rol := rotateLeft64 rs sh)
-  bld <+ (ra := rol .& getExtMask64 mb (maskEndOfShift sh))
-  if updateCond then setCR0Reg bld ra else ()
-  bld --!> insLen
+  lift bld ins insLen {
+    let struct (ra, rs, sh, mb) = transFourOprs ins bld
+    let rol = tmpVar bld 64<rt>
+    rol := rotateLeft64 rs sh
+    ra := rol .& getExtMask64 mb (maskEndOfShift sh)
+    if updateCond then setCR0Reg bld ra else ()
+  }
 
 let rldimi ins insLen updateCond bld =
-  let struct (ra, rs, sh, mb) = transFourOprs ins bld
-  let m = getExtMask64 mb (maskEndOfShift sh)
-  let rol = tmpVar bld 64<rt>
-  bld <!-- (ins.Address, insLen)
-  bld <+ (rol := rotateLeft64 rs sh)
-  bld <+ (ra := (rol .& m) .| (ra .& AST.not m))
-  if updateCond then setCR0Reg bld ra else ()
-  bld --!> insLen
+  lift bld ins insLen {
+    let struct (ra, rs, sh, mb) = transFourOprs ins bld
+    let m = getExtMask64 mb (maskEndOfShift sh)
+    let rol = tmpVar bld 64<rt>
+    rol := rotateLeft64 rs sh
+    ra := (rol .& m) .| (ra .& AST.not m)
+    if updateCond then setCR0Reg bld ra else ()
+  }
 
 let rldcl ins insLen updateCond bld =
-  let struct (ra, rs, rb, mb) = transFourOprs ins bld
-  let rol = tmpVar bld 64<rt>
-  bld <!-- (ins.Address, insLen)
-  bld <+ (rol := rotateLeft64 rs (rb .& numI32 0x3f 64<rt>))
-  bld <+ (ra := rol .& getExtMask64 mb (numI32 63 64<rt>))
-  if updateCond then setCR0Reg bld ra else ()
-  bld --!> insLen
+  lift bld ins insLen {
+    let struct (ra, rs, rb, mb) = transFourOprs ins bld
+    let rol = tmpVar bld 64<rt>
+    rol := rotateLeft64 rs (rb .& numI32 0x3f 64<rt>)
+    ra := rol .& getExtMask64 mb (numI32 63 64<rt>)
+    if updateCond then setCR0Reg bld ra else ()
+  }
 
 let rldcr ins insLen updateCond bld =
-  let struct (ra, rs, rb, me) = transFourOprs ins bld
-  let rol = tmpVar bld 64<rt>
-  bld <!-- (ins.Address, insLen)
-  bld <+ (rol := rotateLeft64 rs (rb .& numI32 0x3f 64<rt>))
-  bld <+ (ra := rol .& getExtMask64 (AST.num0 64<rt>) me)
-  if updateCond then setCR0Reg bld ra else ()
-  bld --!> insLen
+  lift bld ins insLen {
+    let struct (ra, rs, rb, me) = transFourOprs ins bld
+    let rol = tmpVar bld 64<rt>
+    rol := rotateLeft64 rs (rb .& numI32 0x3f 64<rt>)
+    ra := rol .& getExtMask64 (AST.num0 64<rt>) me
+    if updateCond then setCR0Reg bld ra else ()
+  }
 
 (* A shift's count comes from the low six bits of rB, and the bit above them
    makes the result all sign (arithmetic) or all zero (logical). *)
@@ -1883,19 +1916,19 @@ let private logicalShift ins
                          (bld: ILowUIRBuilder)
                          width
                          shiftLeft =
-  let struct (dst, rs, rb) = transThreeOprs ins bld
-  let bits = int width
-  let value = AST.xtlo width rs
-  let count = AST.xtlo width rb
-  let n = tmpVar bld width
-  bld <!-- (ins.Address, insLen)
-  bld <+ (n := count .& numI32 (bits - 1) width)
-  let shifted = if shiftLeft then value << n else value >> n
-  let tooFar = (count .& numI32 bits width) != AST.num0 width
-  let res = AST.ite tooFar (AST.num0 width) shifted
-  bld <+ (dst := AST.zext bld.RegType res)
-  if updateCond then setCR0Reg bld dst else ()
-  bld --!> insLen
+  lift bld ins insLen {
+    let struct (dst, rs, rb) = transThreeOprs ins bld
+    let bits = int width
+    let value = AST.xtlo width rs
+    let count = AST.xtlo width rb
+    let n = tmpVar bld width
+    n := count .& numI32 (bits - 1) width
+    let shifted = if shiftLeft then value << n else value >> n
+    let tooFar = (count .& numI32 bits width) != AST.num0 width
+    let res = AST.ite tooFar (AST.num0 width) shifted
+    dst := AST.zext bld.RegType res
+    if updateCond then setCR0Reg bld dst else ()
+  }
 
 let slw ins insLen updateCond bld =
   logicalShift ins insLen updateCond bld 32<rt> true
@@ -1913,27 +1946,27 @@ let srd ins insLen updateCond bld =
 /// leaves XER[CA] set when a one was shifted out of a negative value. A count
 /// past the operand's width shifts in nothing but sign.
 let private arithShift ins insLen updateCond (bld: ILowUIRBuilder) width =
-  let struct (ra, rs, rb) = transThreeOprs ins bld
-  let bits = int width
-  let z = AST.num0 width
-  let value = tmpVar bld width
-  let count = AST.xtlo width rb
-  let inRange = (count .& numI32 bits width) == z
-  let n = tmpVar bld width
-  let res = tmpVar bld width
-  bld <!-- (ins.Address, insLen)
-  bld <+ (value := AST.xtlo width rs)
-  bld <+ (n := count .& numI32 (bits - 1) width)
-  bld <+ (res := AST.ite inRange (value ?>> n)
-                                 (value ?>> numI32 (bits - 1) width))
-  bld <+ (ra := AST.sext bld.RegType res)
-  let dropped =
-    AST.ite inRange ((AST.num1 width << n) .- AST.num1 width) (AST.not z)
-  let lost = (value .& dropped) != z
-  bld <+ (AST.extract (regVar bld Register.XER) 1<rt> 29 :=
-            AST.ite (res ?< z) lost AST.b0)
-  if updateCond then setCR0Reg bld ra else ()
-  bld --!> insLen
+  lift bld ins insLen {
+    let struct (ra, rs, rb) = transThreeOprs ins bld
+    let bits = int width
+    let z = AST.num0 width
+    let value = tmpVar bld width
+    let count = AST.xtlo width rb
+    let inRange = (count .& numI32 bits width) == z
+    let n = tmpVar bld width
+    let res = tmpVar bld width
+    value := AST.xtlo width rs
+    n := count .& numI32 (bits - 1) width
+    res := AST.ite inRange (value ?>> n)
+                           (value ?>> numI32 (bits - 1) width)
+    ra := AST.sext bld.RegType res
+    let dropped =
+      AST.ite inRange ((AST.num1 width << n) .- AST.num1 width) (AST.not z)
+    let lost = (value .& dropped) != z
+    AST.extract (regVar bld Register.XER) 1<rt> 29 :=
+      AST.ite (res ?< z) lost AST.b0
+    if updateCond then setCR0Reg bld ra else ()
+  }
 
 let sraw ins insLen updateCond bld = arithShift ins insLen updateCond bld 32<rt>
 
@@ -1942,21 +1975,21 @@ let srad ins insLen updateCond bld = arithShift ins insLen updateCond bld 64<rt>
 /// An arithmetic right shift of `width` bits by an immediate count, setting
 /// XER[CA] as the register-count form does.
 let private arithShiftImm ins insLen updateCond (bld: ILowUIRBuilder) width =
-  let struct (ra, rs, sh) = transThreeOprs ins bld
-  let z = AST.num0 width
-  let value = tmpVar bld width
-  let n = AST.xtlo width sh
-  let res = tmpVar bld width
-  bld <!-- (ins.Address, insLen)
-  bld <+ (value := AST.xtlo width rs)
-  bld <+ (res := value ?>> n)
-  bld <+ (ra := AST.sext bld.RegType res)
-  let dropped = (AST.num1 width << n) .- AST.num1 width
-  let lost = (value .& dropped) != z
-  bld <+ (AST.extract (regVar bld Register.XER) 1<rt> 29 :=
-            AST.ite (res ?< z) lost AST.b0)
-  if updateCond then setCR0Reg bld ra else ()
-  bld --!> insLen
+  lift bld ins insLen {
+    let struct (ra, rs, sh) = transThreeOprs ins bld
+    let z = AST.num0 width
+    let value = tmpVar bld width
+    let n = AST.xtlo width sh
+    let res = tmpVar bld width
+    value := AST.xtlo width rs
+    res := value ?>> n
+    ra := AST.sext bld.RegType res
+    let dropped = (AST.num1 width << n) .- AST.num1 width
+    let lost = (value .& dropped) != z
+    AST.extract (regVar bld Register.XER) 1<rt> 29 :=
+      AST.ite (res ?< z) lost AST.b0
+    if updateCond then setCR0Reg bld ra else ()
+  }
 
 let srawi ins insLen updateCond bld =
   arithShiftImm ins insLen updateCond bld 32<rt>
@@ -1965,226 +1998,226 @@ let sradi ins insLen updateCond bld =
   arithShiftImm ins insLen updateCond bld 64<rt>
 
 let stb ins insLen bld =
-  let struct (o1, o2) = getTwoOprs ins
-  let ea = transEAWithOffset o2 bld
-  let src = transOpr bld o1
-  let tmpEA = tmpVar bld bld.RegType
-  bld <!-- (ins.Address, insLen)
-  bld <+ (tmpEA := ea)
-  bld <+ (loadNative bld 8<rt> tmpEA := AST.xtlo 8<rt> src)
-  bld --!> insLen
+  lift bld ins insLen {
+    let struct (o1, o2) = getTwoOprs ins
+    let ea = transEAWithOffset o2 bld
+    let src = transOpr bld o1
+    let tmpEA = tmpVar bld bld.RegType
+    tmpEA := ea
+    loadNative bld 8<rt> tmpEA := AST.xtlo 8<rt> src
+  }
 
 let stbx ins insLen bld =
-  let struct (o1, o2, o3) = getThreeOprs ins
-  let rs = transOpr bld o1
-  let ea = transEAWithIndexReg o2 o3 bld
-  let tmpEA = tmpVar bld bld.RegType
-  bld <!-- (ins.Address, insLen)
-  bld <+ (tmpEA := ea)
-  bld <+ (loadNative bld 8<rt> tmpEA := AST.xtlo 8<rt> rs)
-  bld --!> insLen
+  lift bld ins insLen {
+    let struct (o1, o2, o3) = getThreeOprs ins
+    let rs = transOpr bld o1
+    let ea = transEAWithIndexReg o2 o3 bld
+    let tmpEA = tmpVar bld bld.RegType
+    tmpEA := ea
+    loadNative bld 8<rt> tmpEA := AST.xtlo 8<rt> rs
+  }
 
 let stbu ins insLen bld =
-  let struct (o1, o2) = getTwoOprs ins
-  let struct (ea, ra) = transEAWithOffsetForUpdate o2 bld
-  let src = transOpr bld o1
-  let tmpEA = tmpVar bld bld.RegType
-  bld <!-- (ins.Address, insLen)
-  bld <+ (tmpEA := ea)
-  bld <+ (loadNative bld 8<rt> tmpEA := AST.xtlo 8<rt> src)
-  bld <+ (ra := tmpEA)
-  bld --!> insLen
+  lift bld ins insLen {
+    let struct (o1, o2) = getTwoOprs ins
+    let struct (ea, ra) = transEAWithOffsetForUpdate o2 bld
+    let src = transOpr bld o1
+    let tmpEA = tmpVar bld bld.RegType
+    tmpEA := ea
+    loadNative bld 8<rt> tmpEA := AST.xtlo 8<rt> src
+    ra := tmpEA
+  }
 
 let stbux ins insLen bld =
-  let struct (o1, o2, o3) = getThreeOprs ins
-  let rs = transOpr bld o1
-  let struct (ea, rA) = transEAWithIndexRegForUpdate o2 o3 bld
-  let tmpEA = tmpVar bld bld.RegType
-  bld <!-- (ins.Address, insLen)
-  bld <+ (tmpEA := ea)
-  bld <+ (loadNative bld 8<rt> tmpEA := AST.xtlo 8<rt> rs)
-  bld <+ (rA := tmpEA)
-  bld --!> insLen
+  lift bld ins insLen {
+    let struct (o1, o2, o3) = getThreeOprs ins
+    let rs = transOpr bld o1
+    let struct (ea, rA) = transEAWithIndexRegForUpdate o2 o3 bld
+    let tmpEA = tmpVar bld bld.RegType
+    tmpEA := ea
+    loadNative bld 8<rt> tmpEA := AST.xtlo 8<rt> rs
+    rA := tmpEA
+  }
 
 let stfd ins insLen bld =
-  let struct (o1, o2) = getTwoOprs ins
-  let ea = transEAWithOffset o2 bld
-  let frs = transOpr bld o1
-  let tmpEA = tmpVar bld bld.RegType
-  bld <!-- (ins.Address, insLen)
-  bld <+ (tmpEA := ea)
-  bld <+ (loadNative bld 64<rt> tmpEA := frs)
-  bld --!> insLen
+  lift bld ins insLen {
+    let struct (o1, o2) = getTwoOprs ins
+    let ea = transEAWithOffset o2 bld
+    let frs = transOpr bld o1
+    let tmpEA = tmpVar bld bld.RegType
+    tmpEA := ea
+    loadNative bld 64<rt> tmpEA := frs
+  }
 
 let stfdx ins insLen bld =
-  let struct (o1, o2, o3) = getThreeOprs ins
-  let ea = transEAWithIndexReg o2 o3 bld
-  let frs = transOpr bld o1
-  let tmpEA = tmpVar bld bld.RegType
-  bld <!-- (ins.Address, insLen)
-  bld <+ (tmpEA := ea)
-  bld <+ (loadNative bld 64<rt> tmpEA := frs)
-  bld --!> insLen
+  lift bld ins insLen {
+    let struct (o1, o2, o3) = getThreeOprs ins
+    let ea = transEAWithIndexReg o2 o3 bld
+    let frs = transOpr bld o1
+    let tmpEA = tmpVar bld bld.RegType
+    tmpEA := ea
+    loadNative bld 64<rt> tmpEA := frs
+  }
 
 let stfdu ins insLen bld =
-  let struct (o1, o2) = getTwoOprs ins
-  let struct (ea, ra) = transEAWithOffsetForUpdate o2 bld
-  let frs = transOpr bld o1
-  let tmpEA = tmpVar bld bld.RegType
-  bld <!-- (ins.Address, insLen)
-  bld <+ (tmpEA := ea)
-  bld <+ (loadNative bld 64<rt> tmpEA := frs)
-  bld <+ (ra := tmpEA)
-  bld --!> insLen
+  lift bld ins insLen {
+    let struct (o1, o2) = getTwoOprs ins
+    let struct (ea, ra) = transEAWithOffsetForUpdate o2 bld
+    let frs = transOpr bld o1
+    let tmpEA = tmpVar bld bld.RegType
+    tmpEA := ea
+    loadNative bld 64<rt> tmpEA := frs
+    ra := tmpEA
+  }
 
 let stfdux ins insLen bld =
-  let struct (o1, o2, o3) = getThreeOprs ins
-  let frs = transOpr bld o1
-  let struct (ea, rA) = transEAWithIndexRegForUpdate o2 o3 bld
-  let tmpEA = tmpVar bld bld.RegType
-  bld <!-- (ins.Address, insLen)
-  bld <+ (tmpEA := ea)
-  bld <+ (loadNative bld 64<rt> tmpEA := frs)
-  bld <+ (rA := tmpEA)
-  bld --!> insLen
+  lift bld ins insLen {
+    let struct (o1, o2, o3) = getThreeOprs ins
+    let frs = transOpr bld o1
+    let struct (ea, rA) = transEAWithIndexRegForUpdate o2 o3 bld
+    let tmpEA = tmpVar bld bld.RegType
+    tmpEA := ea
+    loadNative bld 64<rt> tmpEA := frs
+    rA := tmpEA
+  }
 
 let stfiwx ins insLen bld =
-  let struct (o1, o2, o3) = getThreeOprs ins
-  let frs = transOpr bld o1
-  let ea = transEAWithIndexReg o2 o3 bld
-  let tmpEA = tmpVar bld bld.RegType
-  bld <!-- (ins.Address, insLen)
-  bld <+ (tmpEA := ea)
-  bld <+ (loadNative bld 32<rt> tmpEA := AST.xtlo 32<rt> frs)
-  bld --!> insLen
+  lift bld ins insLen {
+    let struct (o1, o2, o3) = getThreeOprs ins
+    let frs = transOpr bld o1
+    let ea = transEAWithIndexReg o2 o3 bld
+    let tmpEA = tmpVar bld bld.RegType
+    tmpEA := ea
+    loadNative bld 32<rt> tmpEA := AST.xtlo 32<rt> frs
+  }
 
 let stfs ins insLen bld =
-  let struct (o1, o2) = getTwoOprs ins
-  let ea = transEAWithOffset o2 bld
-  let frs = transOpr bld o1
-  let tmpEA = tmpVar bld bld.RegType
-  bld <!-- (ins.Address, insLen)
-  bld <+ (tmpEA := ea)
-  bld <+ (loadNative bld 32<rt> tmpEA := AST.cast CastKind.FloatCast 32<rt> frs)
-  bld --!> insLen
+  lift bld ins insLen {
+    let struct (o1, o2) = getTwoOprs ins
+    let ea = transEAWithOffset o2 bld
+    let frs = transOpr bld o1
+    let tmpEA = tmpVar bld bld.RegType
+    tmpEA := ea
+    loadNative bld 32<rt> tmpEA := AST.cast CastKind.FloatCast 32<rt> frs
+  }
 
 let stfsx ins insLen bld =
-  let struct (o1, o2, o3) = getThreeOprs ins
-  let ea = transEAWithIndexReg o2 o3 bld
-  let frs = transOpr bld o1
-  let tmpEA = tmpVar bld bld.RegType
-  bld <!-- (ins.Address, insLen)
-  bld <+ (tmpEA := ea)
-  bld <+ (loadNative bld 32<rt> tmpEA := AST.cast CastKind.FloatCast 32<rt> frs)
-  bld --!> insLen
+  lift bld ins insLen {
+    let struct (o1, o2, o3) = getThreeOprs ins
+    let ea = transEAWithIndexReg o2 o3 bld
+    let frs = transOpr bld o1
+    let tmpEA = tmpVar bld bld.RegType
+    tmpEA := ea
+    loadNative bld 32<rt> tmpEA := AST.cast CastKind.FloatCast 32<rt> frs
+  }
 
 let stfsu ins insLen bld =
-  let struct (o1, o2) = getTwoOprs ins
-  let struct (ea, ra) = transEAWithOffsetForUpdate o2 bld
-  let frs = transOpr bld o1
-  let tmpEA = tmpVar bld bld.RegType
-  bld <!-- (ins.Address, insLen)
-  bld <+ (tmpEA := ea)
-  bld <+ (loadNative bld 32<rt> tmpEA := AST.cast CastKind.FloatCast 32<rt> frs)
-  bld <+ (ra := tmpEA)
-  bld --!> insLen
+  lift bld ins insLen {
+    let struct (o1, o2) = getTwoOprs ins
+    let struct (ea, ra) = transEAWithOffsetForUpdate o2 bld
+    let frs = transOpr bld o1
+    let tmpEA = tmpVar bld bld.RegType
+    tmpEA := ea
+    loadNative bld 32<rt> tmpEA := AST.cast CastKind.FloatCast 32<rt> frs
+    ra := tmpEA
+  }
 
 let stfsux ins insLen bld =
-  let struct (o1, o2, o3) = getThreeOprs ins
-  let frs = transOpr bld o1
-  let struct (ea, rA) = transEAWithIndexRegForUpdate o2 o3 bld
-  let tmpEA = tmpVar bld bld.RegType
-  bld <!-- (ins.Address, insLen)
-  bld <+ (tmpEA := ea)
-  bld <+ (loadNative bld 32<rt> tmpEA := AST.cast CastKind.FloatCast 32<rt> frs)
-  bld <+ (rA := tmpEA)
-  bld --!> insLen
+  lift bld ins insLen {
+    let struct (o1, o2, o3) = getThreeOprs ins
+    let frs = transOpr bld o1
+    let struct (ea, rA) = transEAWithIndexRegForUpdate o2 o3 bld
+    let tmpEA = tmpVar bld bld.RegType
+    tmpEA := ea
+    loadNative bld 32<rt> tmpEA := AST.cast CastKind.FloatCast 32<rt> frs
+    rA := tmpEA
+  }
 
 let sth ins insLen bld =
-  let struct (o1, o2) = getTwoOprs ins
-  let ea = transEAWithOffset o2 bld
-  let src = transOpr bld o1
-  let tmpEA = tmpVar bld bld.RegType
-  bld <!-- (ins.Address, insLen)
-  bld <+ (tmpEA := ea)
-  bld <+ (loadNative bld 16<rt> tmpEA := AST.xtlo 16<rt> src)
-  bld --!> insLen
+  lift bld ins insLen {
+    let struct (o1, o2) = getTwoOprs ins
+    let ea = transEAWithOffset o2 bld
+    let src = transOpr bld o1
+    let tmpEA = tmpVar bld bld.RegType
+    tmpEA := ea
+    loadNative bld 16<rt> tmpEA := AST.xtlo 16<rt> src
+  }
 
 let sthbrx ins insLen bld =
-  let struct (o1, o2, o3) = getThreeOprs ins
-  let rs = transOpr bld o1
-  let ea = transEAWithIndexReg o2 o3 bld
-  let revtmp = tmpVar bld 16<rt>
-  bld <!-- (ins.Address, insLen)
-  bld <+ (revtmp := AST.concat (AST.extract rs 8<rt> 0)
-                               (AST.extract rs 8<rt> 8))
-  bld <+ (loadNative bld 16<rt> ea := revtmp)
-  bld --!> insLen
+  lift bld ins insLen {
+    let struct (o1, o2, o3) = getThreeOprs ins
+    let rs = transOpr bld o1
+    let ea = transEAWithIndexReg o2 o3 bld
+    let revtmp = tmpVar bld 16<rt>
+    revtmp := AST.concat (AST.extract rs 8<rt> 0)
+                         (AST.extract rs 8<rt> 8)
+    loadNative bld 16<rt> ea := revtmp
+  }
 
 let sthx ins insLen bld =
-  let struct (o1, o2, o3) = getThreeOprs ins
-  let rs = transOpr bld o1
-  let ea = transEAWithIndexReg o2 o3 bld
-  let tmpEA = tmpVar bld bld.RegType
-  bld <!-- (ins.Address, insLen)
-  bld <+ (tmpEA := ea)
-  bld <+ (loadNative bld 16<rt> tmpEA := AST.xtlo 16<rt> rs)
-  bld --!> insLen
+  lift bld ins insLen {
+    let struct (o1, o2, o3) = getThreeOprs ins
+    let rs = transOpr bld o1
+    let ea = transEAWithIndexReg o2 o3 bld
+    let tmpEA = tmpVar bld bld.RegType
+    tmpEA := ea
+    loadNative bld 16<rt> tmpEA := AST.xtlo 16<rt> rs
+  }
 
 let sthu ins insLen bld =
-  let struct (o1, o2) = getTwoOprs ins
-  let struct (ea, ra) = transEAWithOffsetForUpdate o2 bld
-  let rs = transOpr bld o1
-  let tmpEA = tmpVar bld bld.RegType
-  bld <!-- (ins.Address, insLen)
-  bld <+ (tmpEA := ea)
-  bld <+ (loadNative bld 16<rt> tmpEA := AST.xtlo 16<rt> rs)
-  bld <+ (ra := tmpEA)
-  bld --!> insLen
+  lift bld ins insLen {
+    let struct (o1, o2) = getTwoOprs ins
+    let struct (ea, ra) = transEAWithOffsetForUpdate o2 bld
+    let rs = transOpr bld o1
+    let tmpEA = tmpVar bld bld.RegType
+    tmpEA := ea
+    loadNative bld 16<rt> tmpEA := AST.xtlo 16<rt> rs
+    ra := tmpEA
+  }
 
 let sthux ins insLen bld =
-  let struct (o1, o2, o3) = getThreeOprs ins
-  let rs = transOpr bld o1
-  let struct (ea, rA) = transEAWithIndexRegForUpdate o2 o3 bld
-  let tmpEA = tmpVar bld bld.RegType
-  bld <!-- (ins.Address, insLen)
-  bld <+ (tmpEA := ea)
-  bld <+ (loadNative bld 16<rt> tmpEA := AST.xtlo 16<rt> rs)
-  bld <+ (rA := tmpEA)
-  bld --!> insLen
+  lift bld ins insLen {
+    let struct (o1, o2, o3) = getThreeOprs ins
+    let rs = transOpr bld o1
+    let struct (ea, rA) = transEAWithIndexRegForUpdate o2 o3 bld
+    let tmpEA = tmpVar bld bld.RegType
+    tmpEA := ea
+    loadNative bld 16<rt> tmpEA := AST.xtlo 16<rt> rs
+    rA := tmpEA
+  }
 
 /// A d(rA) store of the low `size` bits of rS, updating rA when update is set.
 let private storeOffset ins insLen (bld: ILowUIRBuilder) size update =
-  let struct (o1, o2) = getTwoOprs ins
-  let src = transOpr bld o1
-  let tmpEA = tmpVar bld bld.RegType
-  bld <!-- (ins.Address, insLen)
-  if update then
-    let struct (ea, ra) = transEAWithOffsetForUpdate o2 bld
-    bld <+ (tmpEA := ea)
-    bld <+ (loadNative bld size tmpEA := AST.xtlo size src)
-    bld <+ (ra := tmpEA)
-  else
-    bld <+ (tmpEA := transEAWithOffset o2 bld)
-    bld <+ (loadNative bld size tmpEA := AST.xtlo size src)
-  bld --!> insLen
+  lift bld ins insLen {
+    let struct (o1, o2) = getTwoOprs ins
+    let src = transOpr bld o1
+    let tmpEA = tmpVar bld bld.RegType
+    if update then
+      let struct (ea, ra) = transEAWithOffsetForUpdate o2 bld
+      tmpEA := ea
+      loadNative bld size tmpEA := AST.xtlo size src
+      ra := tmpEA
+    else
+      tmpEA := transEAWithOffset o2 bld
+      loadNative bld size tmpEA := AST.xtlo size src
+  }
 
 /// An rA + rB store of the low `size` bits of rS, updating rA when update is
 /// set.
 let private storeIndexed ins insLen (bld: ILowUIRBuilder) size update =
-  let struct (o1, o2, o3) = getThreeOprs ins
-  let src = transOpr bld o1
-  let tmpEA = tmpVar bld bld.RegType
-  bld <!-- (ins.Address, insLen)
-  if update then
-    let struct (ea, ra) = transEAWithIndexRegForUpdate o2 o3 bld
-    bld <+ (tmpEA := ea)
-    bld <+ (loadNative bld size tmpEA := AST.xtlo size src)
-    bld <+ (ra := tmpEA)
-  else
-    bld <+ (tmpEA := transEAWithIndexReg o2 o3 bld)
-    bld <+ (loadNative bld size tmpEA := AST.xtlo size src)
-  bld --!> insLen
+  lift bld ins insLen {
+    let struct (o1, o2, o3) = getThreeOprs ins
+    let src = transOpr bld o1
+    let tmpEA = tmpVar bld bld.RegType
+    if update then
+      let struct (ea, ra) = transEAWithIndexRegForUpdate o2 o3 bld
+      tmpEA := ea
+      loadNative bld size tmpEA := AST.xtlo size src
+      ra := tmpEA
+    else
+      tmpEA := transEAWithIndexReg o2 o3 bld
+      loadNative bld size tmpEA := AST.xtlo size src
+  }
 
 let stw ins insLen bld = storeOffset ins insLen bld 32<rt> false
 
@@ -2203,47 +2236,47 @@ let stdx ins insLen bld = storeIndexed ins insLen bld 64<rt> false
 let stdux ins insLen bld = storeIndexed ins insLen bld 64<rt> true
 
 let lmw ins insLen bld =
-  let struct (o1, o2) = getTwoOprs ins
-  let rd =
-    match o1 with
-    | OprReg r -> int r
-    | _ -> raise InvalidOperandException
-  let ea = transEAWithOffset o2 bld
-  let tmpEA = tmpVar bld bld.RegType
-  bld <!-- (ins.Address, insLen)
-  bld <+ (tmpEA := ea)
-  for r = rd to 31 do
-    let dst = regVar bld (getRegister (uint32 r))
-    let addr = tmpEA .+ numI32 ((r - rd) * 4) bld.RegType
-    bld <+ (dst := AST.zext bld.RegType (loadNative bld 32<rt> addr))
-  bld --!> insLen
+  lift bld ins insLen {
+    let struct (o1, o2) = getTwoOprs ins
+    let rd =
+      match o1 with
+      | OprReg r -> int r
+      | _ -> raise InvalidOperandException
+    let ea = transEAWithOffset o2 bld
+    let tmpEA = tmpVar bld bld.RegType
+    tmpEA := ea
+    for r = rd to 31 do
+      let dst = regVar bld (getRegister (uint32 r))
+      let addr = tmpEA .+ numI32 ((r - rd) * 4) bld.RegType
+      dst := AST.zext bld.RegType (loadNative bld 32<rt> addr)
+  }
 
 let stmw ins insLen bld =
-  let struct (o1, o2) = getTwoOprs ins
-  let rs =
-    match o1 with
-    | OprReg r -> int r
-    | _ -> raise InvalidOperandException
-  let ea = transEAWithOffset o2 bld
-  let tmpEA = tmpVar bld bld.RegType
-  bld <!-- (ins.Address, insLen)
-  bld <+ (tmpEA := ea)
-  for r = rs to 31 do
-    let src = regVar bld (getRegister (uint32 r))
-    let addr = tmpEA .+ numI32 ((r - rs) * 4) bld.RegType
-    bld <+ (loadNative bld 32<rt> addr := AST.xtlo 32<rt> src)
-  bld --!> insLen
+  lift bld ins insLen {
+    let struct (o1, o2) = getTwoOprs ins
+    let rs =
+      match o1 with
+      | OprReg r -> int r
+      | _ -> raise InvalidOperandException
+    let ea = transEAWithOffset o2 bld
+    let tmpEA = tmpVar bld bld.RegType
+    tmpEA := ea
+    for r = rs to 31 do
+      let src = regVar bld (getRegister (uint32 r))
+      let addr = tmpEA .+ numI32 ((r - rs) * 4) bld.RegType
+      loadNative bld 32<rt> addr := AST.xtlo 32<rt> src
+  }
 
 /// stwbrx/stdbrx: a store whose bytes go out in the opposite order.
 let private storeByteReverse ins insLen (bld: ILowUIRBuilder) size =
-  let struct (o1, o2, o3) = getThreeOprs ins
-  let rs = transOpr bld o1
-  let ea = transEAWithIndexReg o2 o3 bld
-  let tmpEA = tmpVar bld bld.RegType
-  bld <!-- (ins.Address, insLen)
-  bld <+ (tmpEA := ea)
-  bld <+ (loadNative bld size tmpEA := reversedBytes (AST.xtlo size rs) size)
-  bld --!> insLen
+  lift bld ins insLen {
+    let struct (o1, o2, o3) = getThreeOprs ins
+    let rs = transOpr bld o1
+    let ea = transEAWithIndexReg o2 o3 bld
+    let tmpEA = tmpVar bld bld.RegType
+    tmpEA := ea
+    loadNative bld size tmpEA := reversedBytes (AST.xtlo size rs) size
+  }
 
 let stwbrx ins insLen bld = storeByteReverse ins insLen bld 32<rt>
 
@@ -2253,30 +2286,30 @@ let stdbrx ins insLen bld = storeByteReverse ins insLen bld 64<rt>
 /// the address and the value both still match what the paired load reserved,
 /// and reports that in CR0[EQ].
 let private storeConditional ins insLen (bld: ILowUIRBuilder) size =
-  let struct (o1, o2, o3) = getThreeOprs ins
-  let rs = transOpr bld o1
-  let ea = transEAWithIndexReg o2 o3 bld
-  let xerSO = AST.xthi 1<rt> (regVar bld Register.XER)
-  let cr0LT = regVar bld Register.CR0_0
-  let cr0GT = regVar bld Register.CR0_1
-  let cr0EQ = regVar bld Register.CR0_2
-  let cr0SO = regVar bld Register.CR0_3
-  bld <!-- (ins.Address, insLen)
-  let tmpEA = tmpVar bld bld.RegType
-  let cur = tmpVar bld size
-  let matched = tmpVar bld 1<rt>
-  bld <+ (tmpEA := ea)
-  bld <+ (cur := loadNative bld size tmpEA)
-  bld <+ (matched := (tmpEA == regVar bld Register.ExMonAddr)
-                     .& (AST.zext bld.RegType cur
-                         == regVar bld Register.ExMonVal))
-  bld <+ (loadNative bld size tmpEA :=
-            AST.ite matched (AST.xtlo size rs) cur)
-  bld <+ (cr0EQ := matched)
-  bld <+ (cr0LT := AST.b0)
-  bld <+ (cr0GT := AST.b0)
-  bld <+ (cr0SO := xerSO)
-  bld --!> insLen
+  lift bld ins insLen {
+    let struct (o1, o2, o3) = getThreeOprs ins
+    let rs = transOpr bld o1
+    let ea = transEAWithIndexReg o2 o3 bld
+    let xerSO = AST.xthi 1<rt> (regVar bld Register.XER)
+    let cr0LT = regVar bld Register.CR0_0
+    let cr0GT = regVar bld Register.CR0_1
+    let cr0EQ = regVar bld Register.CR0_2
+    let cr0SO = regVar bld Register.CR0_3
+    let tmpEA = tmpVar bld bld.RegType
+    let cur = tmpVar bld size
+    let matched = tmpVar bld 1<rt>
+    tmpEA := ea
+    cur := loadNative bld size tmpEA
+    matched := (tmpEA == regVar bld Register.ExMonAddr)
+               .& (AST.zext bld.RegType cur
+                   == regVar bld Register.ExMonVal)
+    loadNative bld size tmpEA :=
+      AST.ite matched (AST.xtlo size rs) cur
+    cr0EQ := matched
+    cr0LT := AST.b0
+    cr0GT := AST.b0
+    cr0SO := xerSO
+  }
 
 let stwcxdot ins insLen bld = storeConditional ins insLen bld 32<rt>
 
@@ -2287,88 +2320,88 @@ let stbcxdot ins insLen bld = storeConditional ins insLen bld 8<rt>
 let sthcxdot ins insLen bld = storeConditional ins insLen bld 16<rt>
 
 let subf ins insLen updateCond ovCond (bld: ILowUIRBuilder) =
-  let struct (dst, src1, src2) = transThreeOprs ins bld
-  let one = AST.num1 bld.RegType
-  let struct (t1, t2) = tmpVars2 bld bld.RegType
-  bld <!-- (ins.Address, insLen)
-  bld <+ (t1 := AST.not src1)
-  bld <+ (t2 := src2)
-  bld <+ (dst := t1 .+ t2 .+ one)
-  if ovCond then isAddSubOV bld t1 t2 dst else ()
-  if updateCond then setCR0Reg bld dst else ()
-  bld --!> insLen
+  lift bld ins insLen {
+    let struct (dst, src1, src2) = transThreeOprs ins bld
+    let one = AST.num1 bld.RegType
+    let struct (t1, t2) = tmpVars2 bld bld.RegType
+    t1 := AST.not src1
+    t2 := src2
+    dst := t1 .+ t2 .+ one
+    if ovCond then isAddSubOV bld t1 t2 dst else ()
+    if updateCond then setCR0Reg bld dst else ()
+  }
 
 let subfc ins insLen updateCond ovCond (bld: ILowUIRBuilder) =
-  let struct (dst, src1, src2) = transThreeOprs ins bld
-  let struct (t1, t2) = tmpVars2 bld bld.RegType
-  bld <!-- (ins.Address, insLen)
-  bld <+ (t1 := AST.not src1)
-  bld <+ (t2 := src2)
-  addWithCarryOut bld dst t1 t2 (AST.num1 bld.RegType)
-  if ovCond then isAddSubOV bld t1 t2 dst else ()
-  if updateCond then setCR0Reg bld dst else ()
-  bld --!> insLen
+  lift bld ins insLen {
+    let struct (dst, src1, src2) = transThreeOprs ins bld
+    let struct (t1, t2) = tmpVars2 bld bld.RegType
+    t1 := AST.not src1
+    t2 := src2
+    addWithCarryOut bld dst t1 t2 (AST.num1 bld.RegType)
+    if ovCond then isAddSubOV bld t1 t2 dst else ()
+    if updateCond then setCR0Reg bld dst else ()
+  }
 
 let subfe ins insLen updateCond ovCond (bld: ILowUIRBuilder) =
-  let struct (dst, src1, src2) = transThreeOprs ins bld
-  let struct (t1, t2) = tmpVars2 bld bld.RegType
-  let ca = carryIn bld
-  bld <!-- (ins.Address, insLen)
-  bld <+ (t1 := AST.not src1)
-  bld <+ (t2 := src2)
-  addWithCarryOut bld dst t1 t2 ca
-  if ovCond then isAddSubOV bld t1 t2 dst else ()
-  if updateCond then setCR0Reg bld dst else ()
-  bld --!> insLen
+  lift bld ins insLen {
+    let struct (dst, src1, src2) = transThreeOprs ins bld
+    let struct (t1, t2) = tmpVars2 bld bld.RegType
+    let ca = carryIn bld
+    t1 := AST.not src1
+    t2 := src2
+    addWithCarryOut bld dst t1 t2 ca
+    if ovCond then isAddSubOV bld t1 t2 dst else ()
+    if updateCond then setCR0Reg bld dst else ()
+  }
 
 let subfic ins insLen (bld: ILowUIRBuilder) =
-  let struct (dst, src1, simm) = transThreeOprs ins bld
-  let struct (t1, t2) = tmpVars2 bld bld.RegType
-  bld <!-- (ins.Address, insLen)
-  bld <+ (t1 := AST.not src1)
-  bld <+ (t2 := simm)
-  addWithCarryOut bld dst t1 t2 (AST.num1 bld.RegType)
-  bld --!> insLen
+  lift bld ins insLen {
+    let struct (dst, src1, simm) = transThreeOprs ins bld
+    let struct (t1, t2) = tmpVars2 bld bld.RegType
+    t1 := AST.not src1
+    t2 := simm
+    addWithCarryOut bld dst t1 t2 (AST.num1 bld.RegType)
+  }
 
 let subfme ins insLen updateCond ovCond (bld: ILowUIRBuilder) =
-  let struct (dst, src) = transTwoOprs ins bld
-  let struct (t1, t2) = tmpVars2 bld bld.RegType
-  let ca = carryIn bld
-  bld <!-- (ins.Address, insLen)
-  bld <+ (t1 := AST.not src)
-  bld <+ (t2 := AST.not (AST.num0 bld.RegType))
-  addWithCarryOut bld dst t1 t2 ca
-  if ovCond then isAddSubOV bld t1 t2 dst else ()
-  if updateCond then setCR0Reg bld dst else ()
-  bld --!> insLen
+  lift bld ins insLen {
+    let struct (dst, src) = transTwoOprs ins bld
+    let struct (t1, t2) = tmpVars2 bld bld.RegType
+    let ca = carryIn bld
+    t1 := AST.not src
+    t2 := AST.not (AST.num0 bld.RegType)
+    addWithCarryOut bld dst t1 t2 ca
+    if ovCond then isAddSubOV bld t1 t2 dst else ()
+    if updateCond then setCR0Reg bld dst else ()
+  }
 
 let subfze ins insLen updateCond ovCond (bld: ILowUIRBuilder) =
-  let struct (dst, src) = transTwoOprs ins bld
-  let struct (t1, t2) = tmpVars2 bld bld.RegType
-  let ca = carryIn bld
-  bld <!-- (ins.Address, insLen)
-  bld <+ (t1 := AST.not src)
-  bld <+ (t2 := AST.num0 bld.RegType)
-  addWithCarryOut bld dst t1 t2 ca
-  if ovCond then isAddSubOV bld t1 t2 dst else ()
-  if updateCond then setCR0Reg bld dst else ()
-  bld --!> insLen
+  lift bld ins insLen {
+    let struct (dst, src) = transTwoOprs ins bld
+    let struct (t1, t2) = tmpVars2 bld bld.RegType
+    let ca = carryIn bld
+    t1 := AST.not src
+    t2 := AST.num0 bld.RegType
+    addWithCarryOut bld dst t1 t2 ca
+    if ovCond then isAddSubOV bld t1 t2 dst else ()
+    if updateCond then setCR0Reg bld dst else ()
+  }
 
 let trap (ins: Instruction) insLen bld =
-  bld <!-- (ins.Address, insLen)
-  bld <+ (AST.sideEffect (Interrupt 0))
-  bld --!> insLen
+  lift bld ins insLen {
+    AST.sideEffect (Interrupt 0)
+  }
 
 let trapCond ins insLen cmpOp bld =
-  let struct (ra, rb) = transTwoOprs ins bld
-  let lblTrap = label bld "Trap"
-  let lblEnd = label bld "End"
-  bld <!-- (ins.Address, insLen)
-  bld <+ (AST.cjmp (cmpOp ra rb) (AST.jmpDest lblTrap) (AST.jmpDest lblEnd))
-  bld <+ (AST.lmark lblTrap)
-  bld <+ (AST.sideEffect (Interrupt 0))
-  bld <+ (AST.lmark lblEnd)
-  bld --!> insLen
+  lift bld ins insLen {
+    let struct (ra, rb) = transTwoOprs ins bld
+    let lblTrap = label bld "Trap"
+    let lblEnd = label bld "End"
+    AST.cjmp (cmpOp ra rb) (AST.jmpDest lblTrap) (AST.jmpDest lblEnd)
+    AST.lmark lblTrap
+    AST.sideEffect (Interrupt 0)
+    AST.lmark lblEnd
+  }
 
 /// The five TO bits of a tw/td, each naming one comparison that traps: from
 /// bit 0, signed less-than, signed greater-than, equal, unsigned less-than and
@@ -2378,219 +2411,222 @@ let private trapTests = [| AST.slt; AST.sgt; AST.eq; AST.lt; AST.gt |]
 /// A generic tw/td/twi/tdi, which traps when any comparison its TO field names
 /// holds. The word forms compare only the low word of each operand.
 let trapGeneric ins insLen (bld: ILowUIRBuilder) narrow =
-  let struct (tO, ra, rb) = transThreeOprs ins bld
-  let tO = match tO with
-           | Num(n, _) -> int (n.ToUInt64())
-           | _ -> raise InvalidExprException
-  let ra, rb = if narrow then AST.xtlo 32<rt> ra, AST.xtlo 32<rt> rb else ra, rb
-  let lblTrap = label bld "Trap"
-  let lblEnd = label bld "End"
-  bld <!-- (ins.Address, insLen)
-  let cond =
-    Array.mapi (fun i test -> if tO &&& (1 <<< (4 - i)) <> 0 then test ra rb
-                              else AST.b0) trapTests
-    |> Array.reduce (.|)
-  bld <+ (AST.cjmp cond (AST.jmpDest lblTrap) (AST.jmpDest lblEnd))
-  bld <+ (AST.lmark lblTrap)
-  bld <+ (AST.sideEffect (Interrupt 0))
-  bld <+ (AST.lmark lblEnd)
-  bld --!> insLen
+  lift bld ins insLen {
+    let struct (tO, ra, rb) = transThreeOprs ins bld
+    let tO = match tO with
+             | Num(n, _) -> int (n.ToUInt64())
+             | _ -> raise InvalidExprException
+    let ra, rb =
+      if narrow then AST.xtlo 32<rt> ra, AST.xtlo 32<rt> rb else ra, rb
+    let lblTrap = label bld "Trap"
+    let lblEnd = label bld "End"
+    let cond =
+      Array.mapi (fun i test -> if tO &&& (1 <<< (4 - i)) <> 0 then test ra rb
+                                else AST.b0) trapTests
+      |> Array.reduce (.|)
+    AST.cjmp cond (AST.jmpDest lblTrap) (AST.jmpDest lblEnd)
+    AST.lmark lblTrap
+    AST.sideEffect (Interrupt 0)
+    AST.lmark lblEnd
+  }
 
 let xor ins insLen updateCond bld =
-  let struct (dst, src1, src2) = transThreeOprs ins bld
-  bld <!-- (ins.Address, insLen)
-  bld <+ (dst := (src1 <+> src2))
-  if updateCond then setCR0Reg bld dst else ()
-  bld --!> insLen
+  lift bld ins insLen {
+    let struct (dst, src1, src2) = transThreeOprs ins bld
+    dst := (src1 <+> src2)
+    if updateCond then setCR0Reg bld dst else ()
+  }
 
 let xori ins insLen bld =
-  let struct (dst, src, uimm) = transThreeOprs ins bld
-  let uimm = AST.zext bld.RegType (AST.xtlo 16<rt> uimm)
-  bld <!-- (ins.Address, insLen)
-  bld <+ (dst := src <+> uimm)
-  bld --!> insLen
+  lift bld ins insLen {
+    let struct (dst, src, uimm) = transThreeOprs ins bld
+    let uimm = AST.zext bld.RegType (AST.xtlo 16<rt> uimm)
+    dst := src <+> uimm
+  }
 
 let xoris ins insLen bld =
-  let struct (dst, src, uimm) = transThreeOprs ins bld
-  let uimm = shiftedImm bld false uimm
-  bld <!-- (ins.Address, insLen)
-  bld <+ (dst := src <+> uimm)
-  bld --!> insLen
+  lift bld ins insLen {
+    let struct (dst, src, uimm) = transThreeOprs ins bld
+    let uimm = shiftedImm bld false uimm
+    dst := src <+> uimm
+  }
 
 /// Sums the set bits of each `chunk`-wide field of rs, in place, by the usual
 /// halving fold: pairs, then nibbles, then bytes, and so on up to the field.
 let private popCountInto (bld: ILowUIRBuilder) ra rs chunk =
-  let rt = bld.RegType
-  let x = tmpVar bld rt
-  let n i = numI32 i rt
-  let mask v = numU64 v rt
-  bld <+ (x := rs)
-  bld <+ (x := (x .& mask 0x5555555555555555UL)
-               .+ ((x >> n 1) .& mask 0x5555555555555555UL))
-  bld <+ (x := (x .& mask 0x3333333333333333UL)
-               .+ ((x >> n 2) .& mask 0x3333333333333333UL))
-  bld <+ (x := (x .& mask 0x0f0f0f0f0f0f0f0fUL)
-               .+ ((x >> n 4) .& mask 0x0f0f0f0f0f0f0f0fUL))
-  if chunk > 8 then
-    bld <+ (x := (x .& mask 0x00ff00ff00ff00ffUL)
-                 .+ ((x >> n 8) .& mask 0x00ff00ff00ff00ffUL))
-  else
-    ()
-  if chunk > 16 then
-    bld <+ (x := (x .& mask 0x0000ffff0000ffffUL)
-                 .+ ((x >> n 16) .& mask 0x0000ffff0000ffffUL))
-  else
-    ()
-  if chunk > 32 then
-    bld <+ (x := (x .& mask 0x00000000ffffffffUL)
-                 .+ ((x >> n 32) .& mask 0x00000000ffffffffUL))
-  else
-    ()
-  bld <+ (ra := x)
+  append bld {
+    let rt = bld.RegType
+    let x = tmpVar bld rt
+    let n i = numI32 i rt
+    let mask v = numU64 v rt
+    x := rs
+    x := (x .& mask 0x5555555555555555UL)
+         .+ ((x >> n 1) .& mask 0x5555555555555555UL)
+    x := (x .& mask 0x3333333333333333UL)
+         .+ ((x >> n 2) .& mask 0x3333333333333333UL)
+    x := (x .& mask 0x0f0f0f0f0f0f0f0fUL)
+         .+ ((x >> n 4) .& mask 0x0f0f0f0f0f0f0f0fUL)
+    if chunk > 8 then
+      x := (x .& mask 0x00ff00ff00ff00ffUL)
+           .+ ((x >> n 8) .& mask 0x00ff00ff00ff00ffUL)
+    else
+      ()
+    if chunk > 16 then
+      x := (x .& mask 0x0000ffff0000ffffUL)
+           .+ ((x >> n 16) .& mask 0x0000ffff0000ffffUL)
+    else
+      ()
+    if chunk > 32 then
+      x := (x .& mask 0x00000000ffffffffUL)
+           .+ ((x >> n 32) .& mask 0x00000000ffffffffUL)
+    else
+      ()
+    ra := x
+  }
 
 /// popcntb/popcntw/popcntd, which count the set bits of every byte, word or
 /// doubleword of rS into the same field of rA.
 let popcnt ins insLen bld chunk =
-  let struct (ra, rs) = transTwoOprs ins bld
-  bld <!-- (ins.Address, insLen)
-  popCountInto bld ra rs chunk
-  bld --!> insLen
+  lift bld ins insLen {
+    let struct (ra, rs) = transTwoOprs ins bld
+    popCountInto bld ra rs chunk
+  }
 
 /// prtyw/prtyd, which put the parity of rS's bytes -- one per word, or one for
 /// the whole doubleword -- in the low bit of that field of rA. Only each byte's
 /// low bit takes part, so summing those and keeping the sum's low bit gives it.
 let prty ins insLen (bld: ILowUIRBuilder) chunk =
-  let rt = bld.RegType
-  let struct (ra, rs) = transTwoOprs ins bld
-  let lowBitOfField =
-    if chunk > 32 then AST.num1 rt else numU64 0x0000000100000001UL rt
-  let x = tmpVar bld rt
-  bld <!-- (ins.Address, insLen)
-  bld <+ (x := rs .& numU64 0x0101010101010101UL rt)
-  popCountInto bld x x chunk
-  bld <+ (ra := x .& lowBitOfField)
-  bld --!> insLen
+  lift bld ins insLen {
+    let rt = bld.RegType
+    let struct (ra, rs) = transTwoOprs ins bld
+    let lowBitOfField =
+      if chunk > 32 then AST.num1 rt else numU64 0x0000000100000001UL rt
+    let x = tmpVar bld rt
+    x := rs .& numU64 0x0101010101010101UL rt
+    popCountInto bld x x chunk
+    ra := x .& lowBitOfField
+  }
 
 /// bpermd, which gathers the eight bits of rB that the eight byte indices in rS
 /// name into the low byte of rA; an index past 63 contributes a zero. Index i
 /// counts from rS's most significant byte and lands in rA's bit 7 - i.
 let bpermd ins insLen (bld: ILowUIRBuilder) =
-  let rt = bld.RegType
-  let struct (ra, rs, rb) = transThreeOprs ins bld
-  let res = tmpVar bld rt
-  bld <!-- (ins.Address, insLen)
-  bld <+ (res := AST.num0 rt)
-  for i in 0 .. 7 do
-    let idx = AST.zext rt (AST.extract rs 8<rt> ((7 - i) * 8))
-    let bit = (rb >> (numI32 63 rt .- idx)) .& AST.num1 rt
-    let inRange = idx .< numI32 64 rt
-    let picked = AST.ite inRange bit (AST.num0 rt)
-    bld <+ (res := res .| (picked << numI32 (7 - i) rt))
-  bld <+ (ra := res)
-  bld --!> insLen
+  lift bld ins insLen {
+    let rt = bld.RegType
+    let struct (ra, rs, rb) = transThreeOprs ins bld
+    let res = tmpVar bld rt
+    res := AST.num0 rt
+    for i in 0 .. 7 do
+      let idx = AST.zext rt (AST.extract rs 8<rt> ((7 - i) * 8))
+      let bit = (rb >> (numI32 63 rt .- idx)) .& AST.num1 rt
+      let inRange = idx .< numI32 64 rt
+      let picked = AST.ite inRange bit (AST.num0 rt)
+      res := res .| (picked << numI32 (7 - i) rt)
+    ra := res
+  }
 
 /// cmpb, which sets each byte of rA to all ones where the matching bytes of rS
 /// and rB are equal and to zero where they are not.
 let cmpb ins insLen (bld: ILowUIRBuilder) =
-  let rt = bld.RegType
-  let struct (ra, rs, rb) = transThreeOprs ins bld
-  let res = tmpVar bld rt
-  bld <!-- (ins.Address, insLen)
-  bld <+ (res := AST.num0 rt)
-  for i in 0 .. (int rt / 8) - 1 do
-    let eq = AST.extract rs 8<rt> (i * 8) == AST.extract rb 8<rt> (i * 8)
-    bld <+ (AST.extract res 8<rt> (i * 8) :=
-              AST.ite eq (numI32 0xff 8<rt>) (AST.num0 8<rt>))
-  bld <+ (ra := res)
-  bld --!> insLen
+  lift bld ins insLen {
+    let rt = bld.RegType
+    let struct (ra, rs, rb) = transThreeOprs ins bld
+    let res = tmpVar bld rt
+    res := AST.num0 rt
+    for i in 0 .. (int rt / 8) - 1 do
+      let eq = AST.extract rs 8<rt> (i * 8) == AST.extract rb 8<rt> (i * 8)
+      AST.extract res 8<rt> (i * 8) :=
+        AST.ite eq (numI32 0xff 8<rt>) (AST.num0 8<rt>)
+    ra := res
+  }
 
 /// isel, which picks rA (or zero when rA is r0) or rB by a CR bit.
 let isel (ins: Instruction) insLen (bld: ILowUIRBuilder) =
-  let struct (rd, ra, rb, crb) =
-    match ins.Operands with
-    | FourOperands(o1, OprReg Register.R0, o3, o4) ->
-      let o1 = transOpr bld o1
-      let o3 = transOpr bld o3
-      let o4 = transOpr bld o4
-      struct (o1, AST.num0 bld.RegType, o3, o4)
-    | FourOperands(o1, o2, o3, o4) ->
-      let o1 = transOpr bld o1
-      let o2 = transOpr bld o2
-      let o3 = transOpr bld o3
-      let o4 = transOpr bld o4
-      struct (o1, o2, o3, o4)
-    | _ ->
-      raise InvalidOperandException
-  bld <!-- (ins.Address, insLen)
-  bld <+ (rd := AST.ite crb ra rb)
-  bld --!> insLen
+  lift bld ins insLen {
+    let struct (rd, ra, rb, crb) =
+      match ins.Operands with
+      | FourOperands(o1, OprReg Register.R0, o3, o4) ->
+        let o1 = transOpr bld o1
+        let o3 = transOpr bld o3
+        let o4 = transOpr bld o4
+        struct (o1, AST.num0 bld.RegType, o3, o4)
+      | FourOperands(o1, o2, o3, o4) ->
+        let o1 = transOpr bld o1
+        let o2 = transOpr bld o2
+        let o3 = transOpr bld o3
+        let o4 = transOpr bld o4
+        struct (o1, o2, o3, o4)
+      | _ ->
+        raise InvalidOperandException
+    rd := AST.ite crb ra rb
+  }
 
 /// mfvsrd/mfvsrwz, which move the bits of a vector-scalar register's high
 /// doubleword into a general register without converting them. The operand
 /// names that doubleword, whichever kind of register holds it.
 let mfvsr ins insLen (bld: ILowUIRBuilder) size =
-  let struct (frs, ra) = transTwoOprs ins bld
-  bld <!-- (ins.Address, insLen)
-  bld <+ (ra := AST.zext bld.RegType (AST.xtlo size frs))
-  bld --!> insLen
+  lift bld ins insLen {
+    let struct (frs, ra) = transTwoOprs ins bld
+    ra := AST.zext bld.RegType (AST.xtlo size frs)
+  }
 
 /// mtvsrd, which moves a general register's bits into a vector-scalar
 /// register's high doubleword, leaving the low one undefined.
 let mtvsrd ins insLen bld =
-  let struct (frs, ra) = transTwoOprs ins bld
-  bld <!-- (ins.Address, insLen)
-  bld <+ (frs := AST.zext 64<rt> ra)
-  bld --!> insLen
+  lift bld ins insLen {
+    let struct (frs, ra) = transTwoOprs ins bld
+    frs := AST.zext 64<rt> ra
+  }
 
 /// mtvsrwa/mtvsrwz, which move the low word of a general register into a
 /// vector-scalar register's high doubleword, sign- or zero-extended.
 let mtvsrw ins insLen bld signed =
-  let struct (frs, ra) = transTwoOprs ins bld
-  let w = AST.xtlo 32<rt> ra
-  bld <!-- (ins.Address, insLen)
-  bld <+ (frs := if signed then AST.sext 64<rt> w else AST.zext 64<rt> w)
-  bld --!> insLen
+  lift bld ins insLen {
+    let struct (frs, ra) = transTwoOprs ins bld
+    let w = AST.xtlo 32<rt> ra
+    frs := if signed then AST.sext 64<rt> w else AST.zext 64<rt> w
+  }
 
 /// fctid/fctidz/fctidu/fctiduz and fctiwu/fctiwuz: a conversion from a double
 /// to an integer of `width` bits, left in the target's low bits. A "z" form
 /// always truncates; the others follow FPSCR[RN].
 let fcti ins insLen updateCond bld width truncate =
-  let struct (frd, frb) = transTwoOprs ins bld
-  bld <!-- (ins.Address, insLen)
-  if truncate then
-    bld <+ (frd := AST.zext 64<rt> (AST.cast CastKind.FtoITrunc width frb))
-  else
-    let rounded = tmpVar bld 64<rt>
-    roundingToCastInt bld rounded frb
-    bld <+ (frd := AST.zext 64<rt> (AST.xtlo width rounded))
-  if updateCond then setCR1Reg bld else ()
-  bld --!> insLen
+  lift bld ins insLen {
+    let struct (frd, frb) = transTwoOprs ins bld
+    if truncate then
+      frd := AST.zext 64<rt> (AST.cast CastKind.FtoITrunc width frb)
+    else
+      let rounded = tmpVar bld 64<rt>
+      roundingToCastInt bld rounded frb
+      frd := AST.zext 64<rt> (AST.xtlo width rounded)
+    if updateCond then setCR1Reg bld else ()
+  }
 
 /// fcfid/fcfidu/fcfids/fcfidus: a conversion from the integer in frB's whole
 /// doubleword to a double, rounded to single precision by the "s" forms.
 let fcfid ins insLen updateCond bld signed single =
-  let struct (frd, frb) = transTwoOprs ins bld
-  let kind = if signed then CastKind.SIntToFloat else CastKind.UIntToFloat
-  bld <!-- (ins.Address, insLen)
-  let converted = AST.cast kind 64<rt> frb
-  if single then
-    let narrowed = AST.cast CastKind.FloatCast 32<rt> converted
-    bld <+ (frd := AST.cast CastKind.FloatCast 64<rt> narrowed)
-  else
-    bld <+ (frd := converted)
-  setFPRF bld frd
-  if updateCond then setCR1Reg bld else ()
-  bld --!> insLen
+  lift bld ins insLen {
+    let struct (frd, frb) = transTwoOprs ins bld
+    let kind = if signed then CastKind.SIntToFloat else CastKind.UIntToFloat
+    let converted = AST.cast kind 64<rt> frb
+    if single then
+      let narrowed = AST.cast CastKind.FloatCast 32<rt> converted
+      frd := AST.cast CastKind.FloatCast 64<rt> narrowed
+    else
+      frd := converted
+    setFPRF bld frd
+    if updateCond then setCR1Reg bld else ()
+  }
 
 /// frin/friz/frip/frim, which round a double to an integral value in place,
 /// respectively to nearest, toward zero, up, and down.
 let frnd ins insLen updateCond bld kind =
-  let struct (frd, frb) = transTwoOprs ins bld
-  bld <!-- (ins.Address, insLen)
-  bld <+ (frd := AST.cast kind 64<rt> frb)
-  setFPRF bld frd
-  if updateCond then setCR1Reg bld else ()
-  bld --!> insLen
+  lift bld ins insLen {
+    let struct (frd, frb) = transTwoOprs ins bld
+    frd := AST.cast kind 64<rt> frb
+    setFPRF bld frd
+    if updateCond then setCR1Reg bld else ()
+  }
 
 (* The vector unit. A 128-bit vector register is modeled as two 64-bit halves
    (see the Register type), and every operation below works on those halves
@@ -2618,41 +2654,43 @@ let private vecByte hi lo b =
 /// Writes every `esize`-wide element of one 64-bit half from f applied to the
 /// matching elements of a and b.
 let private applyElements (bld: ILowUIRBuilder) esize dst a b f =
-  for i in 0 .. (64 / int esize) - 1 do
-    let pos = i * int esize
-    bld <+ (AST.extract dst esize pos :=
-              f (AST.extract a esize pos) (AST.extract b esize pos))
+  append bld {
+    for i in 0 .. (64 / int esize) - 1 do
+      let pos = i * int esize
+      AST.extract dst esize pos :=
+        f (AST.extract a esize pos) (AST.extract b esize pos)
+  }
 
 /// An element-wise "vD, vA, vB" over both halves. The result goes through
 /// temporaries first, so a destination that is also a source reads its old
 /// value throughout.
 let private vecBinary ins insLen bld esize f =
-  let struct (o1, o2, o3) = getThreeOprs ins
-  let struct (dh, dl) = vecHalves bld o1
-  let struct (ah, al) = vecHalves bld o2
-  let struct (bh, bl) = vecHalves bld o3
-  let struct (th, tl) = tmpVars2 bld 64<rt>
-  bld <!-- (ins.Address, insLen)
-  applyElements bld esize th ah bh f
-  applyElements bld esize tl al bl f
-  bld <+ (dh := th)
-  bld <+ (dl := tl)
-  bld --!> insLen
+  lift bld ins insLen {
+    let struct (o1, o2, o3) = getThreeOprs ins
+    let struct (dh, dl) = vecHalves bld o1
+    let struct (ah, al) = vecHalves bld o2
+    let struct (bh, bl) = vecHalves bld o3
+    let struct (th, tl) = tmpVars2 bld 64<rt>
+    applyElements bld esize th ah bh f
+    applyElements bld esize tl al bl f
+    dh := th
+    dl := tl
+  }
 
 /// An element-wise "vD, vB" over both halves.
 let private vecUnary ins insLen bld esize f =
-  let struct (o1, o2) = getTwoOprs ins
-  let struct (dh, dl) = vecHalves bld o1
-  let struct (bh, bl) = vecHalves bld o2
-  let struct (th, tl) = tmpVars2 bld 64<rt>
-  bld <!-- (ins.Address, insLen)
-  for i in 0 .. (64 / int esize) - 1 do
-    let pos = i * int esize
-    bld <+ (AST.extract th esize pos := f (AST.extract bh esize pos))
-    bld <+ (AST.extract tl esize pos := f (AST.extract bl esize pos))
-  bld <+ (dh := th)
-  bld <+ (dl := tl)
-  bld --!> insLen
+  lift bld ins insLen {
+    let struct (o1, o2) = getTwoOprs ins
+    let struct (dh, dl) = vecHalves bld o1
+    let struct (bh, bl) = vecHalves bld o2
+    let struct (th, tl) = tmpVars2 bld 64<rt>
+    for i in 0 .. (64 / int esize) - 1 do
+      let pos = i * int esize
+      AST.extract th esize pos := f (AST.extract bh esize pos)
+      AST.extract tl esize pos := f (AST.extract bl esize pos)
+    dh := th
+    dl := tl
+  }
 
 /// The all-ones or all-zeroes an element-wise compare writes per element.
 let private compareMask esize cond =
@@ -2661,27 +2699,27 @@ let private compareMask esize cond =
 /// A vector compare. The record form also reports in CR6 whether every element
 /// compared true (bit 0) or none did (bit 2).
 let private vecCompare ins insLen bld esize rel record =
-  let struct (o1, o2, o3) = getThreeOprs ins
-  let struct (dh, dl) = vecHalves bld o1
-  let struct (ah, al) = vecHalves bld o2
-  let struct (bh, bl) = vecHalves bld o3
-  let struct (th, tl) = tmpVars2 bld 64<rt>
-  let f x y = compareMask esize (rel x y)
-  bld <!-- (ins.Address, insLen)
-  applyElements bld esize th ah bh f
-  applyElements bld esize tl al bl f
-  bld <+ (dh := th)
-  bld <+ (dl := tl)
-  if record then
-    let ones = AST.not (AST.num0 64<rt>)
-    let zero = AST.num0 64<rt>
-    bld <+ (regVar bld Register.CR6_0 := (th == ones) .& (tl == ones))
-    bld <+ (regVar bld Register.CR6_1 := AST.b0)
-    bld <+ (regVar bld Register.CR6_2 := (th == zero) .& (tl == zero))
-    bld <+ (regVar bld Register.CR6_3 := AST.b0)
-  else
-    ()
-  bld --!> insLen
+  lift bld ins insLen {
+    let struct (o1, o2, o3) = getThreeOprs ins
+    let struct (dh, dl) = vecHalves bld o1
+    let struct (ah, al) = vecHalves bld o2
+    let struct (bh, bl) = vecHalves bld o3
+    let struct (th, tl) = tmpVars2 bld 64<rt>
+    let f x y = compareMask esize (rel x y)
+    applyElements bld esize th ah bh f
+    applyElements bld esize tl al bl f
+    dh := th
+    dl := tl
+    if record then
+      let ones = AST.not (AST.num0 64<rt>)
+      let zero = AST.num0 64<rt>
+      regVar bld Register.CR6_0 := (th == ones) .& (tl == ones)
+      regVar bld Register.CR6_1 := AST.b0
+      regVar bld Register.CR6_2 := (th == zero) .& (tl == zero)
+      regVar bld Register.CR6_3 := AST.b0
+    else
+      ()
+  }
 
 /// The two addresses a 16-byte vector access uses for the vector's high and low
 /// halves. A big-endian guest keeps the most significant half at the lower
@@ -2693,136 +2731,139 @@ let private quadwordHalves (bld: ILowUIRBuilder) ea =
 
 /// lvx/lvxl, which load the aligned quadword the address falls in.
 let private lvx ins insLen (bld: ILowUIRBuilder) =
-  let struct (o1, o2, o3) = getThreeOprs ins
-  let struct (dh, dl) = vecHalves bld o1
-  let ea = transEAWithIndexReg o2 o3 bld
-  let tmpEA = tmpVar bld bld.RegType
-  bld <!-- (ins.Address, insLen)
-  bld <+ (tmpEA := ea .& AST.not (numI32 15 bld.RegType))
-  let struct (hiAddr, loAddr) = quadwordHalves bld tmpEA
-  bld <+ (dh := loadNative bld 64<rt> hiAddr)
-  bld <+ (dl := loadNative bld 64<rt> loAddr)
-  bld --!> insLen
+  lift bld ins insLen {
+    let struct (o1, o2, o3) = getThreeOprs ins
+    let struct (dh, dl) = vecHalves bld o1
+    let ea = transEAWithIndexReg o2 o3 bld
+    let tmpEA = tmpVar bld bld.RegType
+    tmpEA := ea .& AST.not (numI32 15 bld.RegType)
+    let struct (hiAddr, loAddr) = quadwordHalves bld tmpEA
+    dh := loadNative bld 64<rt> hiAddr
+    dl := loadNative bld 64<rt> loAddr
+  }
 
 /// stvx/stvxl, which store to the aligned quadword the address falls in.
 let private stvx ins insLen (bld: ILowUIRBuilder) =
-  let struct (o1, o2, o3) = getThreeOprs ins
-  let struct (sh, sl) = vecHalves bld o1
-  let ea = transEAWithIndexReg o2 o3 bld
-  let tmpEA = tmpVar bld bld.RegType
-  bld <!-- (ins.Address, insLen)
-  bld <+ (tmpEA := ea .& AST.not (numI32 15 bld.RegType))
-  let struct (hiAddr, loAddr) = quadwordHalves bld tmpEA
-  bld <+ (loadNative bld 64<rt> hiAddr := sh)
-  bld <+ (loadNative bld 64<rt> loAddr := sl)
-  bld --!> insLen
+  lift bld ins insLen {
+    let struct (o1, o2, o3) = getThreeOprs ins
+    let struct (sh, sl) = vecHalves bld o1
+    let ea = transEAWithIndexReg o2 o3 bld
+    let tmpEA = tmpVar bld bld.RegType
+    tmpEA := ea .& AST.not (numI32 15 bld.RegType)
+    let struct (hiAddr, loAddr) = quadwordHalves bld tmpEA
+    loadNative bld 64<rt> hiAddr := sh
+    loadNative bld 64<rt> loAddr := sl
+  }
 
 /// lvsl/lvsr, which build the permute control vector that vperm needs to
 /// realign data straddling two quadwords: lvsl counts up from the address's
 /// offset within its quadword, lvsr counts down to it.
 let private lvsx ins insLen (bld: ILowUIRBuilder) isLeft =
-  let struct (o1, o2, o3) = getThreeOprs ins
-  let struct (dh, dl) = vecHalves bld o1
-  let ea = transEAWithIndexReg o2 o3 bld
-  let sh = tmpVar bld 8<rt>
-  let struct (th, tl) = tmpVars2 bld 64<rt>
-  bld <!-- (ins.Address, insLen)
-  bld <+ (sh := AST.xtlo 8<rt> ea .& numI32 15 8<rt>)
-  for b in 0 .. 15 do
-    let value =
-      if isLeft then sh .+ numI32 b 8<rt> else numI32 (16 + b) 8<rt> .- sh
-    let dst = if b < 8 then th else tl
-    let pos = if b < 8 then (7 - b) * 8 else (15 - b) * 8
-    bld <+ (AST.extract dst 8<rt> pos := value .& numI32 31 8<rt>)
-  bld <+ (dh := th)
-  bld <+ (dl := tl)
-  bld --!> insLen
+  lift bld ins insLen {
+    let struct (o1, o2, o3) = getThreeOprs ins
+    let struct (dh, dl) = vecHalves bld o1
+    let ea = transEAWithIndexReg o2 o3 bld
+    let sh = tmpVar bld 8<rt>
+    let struct (th, tl) = tmpVars2 bld 64<rt>
+    sh := AST.xtlo 8<rt> ea .& numI32 15 8<rt>
+    for b in 0 .. 15 do
+      let value =
+        if isLeft then sh .+ numI32 b 8<rt> else numI32 (16 + b) 8<rt> .- sh
+      let dst = if b < 8 then th else tl
+      let pos = if b < 8 then (7 - b) * 8 else (15 - b) * 8
+      AST.extract dst 8<rt> pos := value .& numI32 31 8<rt>
+    dh := th
+    dl := tl
+  }
 
 /// lvebx/lvehx/lvewx, which load one element into the vector slot the address
 /// selects and leave the rest of the register undefined -- modeled here as
 /// leaving it unchanged, which is what a real part does in practice.
 let private lvex ins insLen (bld: ILowUIRBuilder) size =
-  let struct (o1, o2, o3) = getThreeOprs ins
-  let struct (dh, dl) = vecHalves bld o1
-  let ea = transEAWithIndexReg o2 o3 bld
-  let bytes = int size / 8
-  let tmpEA = tmpVar bld bld.RegType
-  let value = tmpVar bld size
-  let index = tmpVar bld 8<rt>
-  bld <!-- (ins.Address, insLen)
-  bld <+ (tmpEA := ea .& AST.not (numI32 (bytes - 1) bld.RegType))
-  bld <+ (value := loadNative bld size tmpEA)
-  bld <+ (index := AST.xtlo 8<rt> tmpEA .& numI32 15 8<rt>)
-  (* The element's slot is fixed at run time, so every slot is written under the
-     guard that the address selects it. *)
-  for slot in 0 .. (16 / bytes) - 1 do
-    let b = slot * bytes
-    let dst = if b < 8 then dh else dl
-    let pos = if b < 8 then (8 - bytes - b % 8) * 8 else (16 - bytes - b) * 8
-    let picked = index == numI32 b 8<rt>
-    bld <+ (AST.extract dst size pos :=
-              AST.ite picked value (AST.extract dst size pos))
-  bld --!> insLen
+  lift bld ins insLen {
+    let struct (o1, o2, o3) = getThreeOprs ins
+    let struct (dh, dl) = vecHalves bld o1
+    let ea = transEAWithIndexReg o2 o3 bld
+    let bytes = int size / 8
+    let tmpEA = tmpVar bld bld.RegType
+    let value = tmpVar bld size
+    let index = tmpVar bld 8<rt>
+    tmpEA := ea .& AST.not (numI32 (bytes - 1) bld.RegType)
+    value := loadNative bld size tmpEA
+    index := AST.xtlo 8<rt> tmpEA .& numI32 15 8<rt>
+    (* The element's slot is fixed at run time, so every slot is written under
+       the guard that the address selects it. *)
+    for slot in 0 .. (16 / bytes) - 1 do
+      let b = slot * bytes
+      let dst = if b < 8 then dh else dl
+      let pos = if b < 8 then (8 - bytes - b % 8) * 8 else (16 - bytes - b) * 8
+      let picked = index == numI32 b 8<rt>
+      AST.extract dst size pos :=
+        AST.ite picked value (AST.extract dst size pos)
+  }
 
 /// stvebx/stvehx/stvewx, the store counterparts of lvebx and friends.
 let private stvex ins insLen (bld: ILowUIRBuilder) size =
-  let struct (o1, o2, o3) = getThreeOprs ins
-  let struct (sh, sl) = vecHalves bld o1
-  let ea = transEAWithIndexReg o2 o3 bld
-  let bytes = int size / 8
-  let tmpEA = tmpVar bld bld.RegType
-  let index = tmpVar bld 8<rt>
-  let value = tmpVar bld size
-  bld <!-- (ins.Address, insLen)
-  bld <+ (tmpEA := ea .& AST.not (numI32 (bytes - 1) bld.RegType))
-  bld <+ (index := AST.xtlo 8<rt> tmpEA .& numI32 15 8<rt>)
-  bld <+ (value := AST.num0 size)
-  for slot in 0 .. (16 / bytes) - 1 do
-    let b = slot * bytes
-    let src = if b < 8 then sh else sl
-    let pos = if b < 8 then (8 - bytes - b % 8) * 8 else (16 - bytes - b) * 8
-    let picked = index == numI32 b 8<rt>
-    bld <+ (value := AST.ite picked (AST.extract src size pos) value)
-  bld <+ (loadNative bld size tmpEA := value)
-  bld --!> insLen
+  lift bld ins insLen {
+    let struct (o1, o2, o3) = getThreeOprs ins
+    let struct (sh, sl) = vecHalves bld o1
+    let ea = transEAWithIndexReg o2 o3 bld
+    let bytes = int size / 8
+    let tmpEA = tmpVar bld bld.RegType
+    let index = tmpVar bld 8<rt>
+    let value = tmpVar bld size
+    tmpEA := ea .& AST.not (numI32 (bytes - 1) bld.RegType)
+    index := AST.xtlo 8<rt> tmpEA .& numI32 15 8<rt>
+    value := AST.num0 size
+    for slot in 0 .. (16 / bytes) - 1 do
+      let b = slot * bytes
+      let src = if b < 8 then sh else sl
+      let pos = if b < 8 then (8 - bytes - b % 8) * 8 else (16 - bytes - b) * 8
+      let picked = index == numI32 b 8<rt>
+      value := AST.ite picked (AST.extract src size pos) value
+    loadNative bld size tmpEA := value
+  }
 
 /// lxvd2x/stxvd2x and lxvw4x/stxvw4x, which access a quadword element by
 /// element: each element keeps the guest's byte order but the elements
 /// themselves are not reordered, unlike lvx.
 let private lxvx ins insLen (bld: ILowUIRBuilder) esize isLoad =
-  let struct (o1, o2, o3) = getThreeOprs ins
-  let struct (dh, dl) = vecHalves bld o1
-  let ea = transEAWithIndexReg o2 o3 bld
-  let bytes = int esize / 8
-  let perHalf = 8 / bytes
-  let tmpEA = tmpVar bld bld.RegType
-  bld <!-- (ins.Address, insLen)
-  bld <+ (tmpEA := ea)
-  for i in 0 .. (16 / bytes) - 1 do
-    let addr = tmpEA .+ numI32 (i * bytes) bld.RegType
-    let reg = if i < perHalf then dh else dl
-    let pos = (perHalf - 1 - i % perHalf) * int esize
-    if isLoad then
-      bld <+ (AST.extract reg esize pos := loadNative bld esize addr)
-    else
-      bld <+ (loadNative bld esize addr := AST.extract reg esize pos)
-  bld --!> insLen
+  lift bld ins insLen {
+    let struct (o1, o2, o3) = getThreeOprs ins
+    let struct (dh, dl) = vecHalves bld o1
+    let ea = transEAWithIndexReg o2 o3 bld
+    let bytes = int esize / 8
+    let perHalf = 8 / bytes
+    let tmpEA = tmpVar bld bld.RegType
+    tmpEA := ea
+    for i in 0 .. (16 / bytes) - 1 do
+      let addr = tmpEA .+ numI32 (i * bytes) bld.RegType
+      let reg = if i < perHalf then dh else dl
+      let pos = (perHalf - 1 - i % perHalf) * int esize
+      if isLoad then
+        AST.extract reg esize pos := loadNative bld esize addr
+      else
+        loadNative bld esize addr := AST.extract reg esize pos
+  }
 
 /// lxsdx/stxsdx, which move one doubleword to or from a VSX register's high
 /// half, and lxvdsx, which splats one into both halves.
 let private lxsdx ins insLen (bld: ILowUIRBuilder) splat isLoad =
-  let struct (o1, o2, o3) = getThreeOprs ins
-  let struct (dh, dl) = vecHalves bld o1
-  let ea = transEAWithIndexReg o2 o3 bld
-  let tmpEA = tmpVar bld bld.RegType
-  bld <!-- (ins.Address, insLen)
-  bld <+ (tmpEA := ea)
-  if isLoad then
-    bld <+ (dh := loadNative bld 64<rt> tmpEA)
-    if splat then bld <+ (dl := dh) else bld <+ (dl := AST.num0 64<rt>)
-  else
-    bld <+ (loadNative bld 64<rt> tmpEA := dh)
-  bld --!> insLen
+  lift bld ins insLen {
+    let struct (o1, o2, o3) = getThreeOprs ins
+    let struct (dh, dl) = vecHalves bld o1
+    let ea = transEAWithIndexReg o2 o3 bld
+    let tmpEA = tmpVar bld bld.RegType
+    tmpEA := ea
+    if isLoad then
+      dh := loadNative bld 64<rt> tmpEA
+      if splat then
+        append bld { dl := dh }
+      else
+        append bld { dl := AST.num0 64<rt> }
+    else
+      loadNative bld 64<rt> tmpEA := dh
+  }
 
 /// A whole-register logical "xT, xA, xB", which the xxl family and the vector
 /// logical ops share.
@@ -2830,284 +2871,285 @@ let private vecLogical ins insLen bld f = vecBinary ins insLen bld 64<rt> f
 
 /// vsel/xxsel, a bitwise select: a set bit of vC takes vB, a clear one vA.
 let private vecSelect ins insLen bld =
-  let struct (o1, o2, o3, o4) = getFourOprs ins
-  let struct (dh, dl) = vecHalves bld o1
-  let struct (ah, al) = vecHalves bld o2
-  let struct (bh, bl) = vecHalves bld o3
-  let struct (ch, cl) = vecHalves bld o4
-  let struct (th, tl) = tmpVars2 bld 64<rt>
-  bld <!-- (ins.Address, insLen)
-  bld <+ (th := (bh .& ch) .| (ah .& AST.not ch))
-  bld <+ (tl := (bl .& cl) .| (al .& AST.not cl))
-  bld <+ (dh := th)
-  bld <+ (dl := tl)
-  bld --!> insLen
+  lift bld ins insLen {
+    let struct (o1, o2, o3, o4) = getFourOprs ins
+    let struct (dh, dl) = vecHalves bld o1
+    let struct (ah, al) = vecHalves bld o2
+    let struct (bh, bl) = vecHalves bld o3
+    let struct (ch, cl) = vecHalves bld o4
+    let struct (th, tl) = tmpVars2 bld 64<rt>
+    th := (bh .& ch) .| (ah .& AST.not ch)
+    tl := (bl .& cl) .| (al .& AST.not cl)
+    dh := th
+    dl := tl
+  }
 
 /// xxpermdi, which builds a vector from one doubleword of each source: DM's
 /// high bit picks which doubleword of xA lands in the result's high half, its
 /// low bit which of xB lands in the low half.
 let private vecPermuteDouble ins insLen bld =
-  let struct (o1, o2, o3, o4) = getFourOprs ins
-  let struct (dh, dl) = vecHalves bld o1
-  let struct (ah, al) = vecHalves bld o2
-  let struct (bh, bl) = vecHalves bld o3
-  let dm =
-    match o4 with
-    | OprImm n -> int n
-    | _ -> raise InvalidOperandException
-  let struct (th, tl) = tmpVars2 bld 64<rt>
-  bld <!-- (ins.Address, insLen)
-  bld <+ (th := if dm &&& 2 = 0 then ah else al)
-  bld <+ (tl := if dm &&& 1 = 0 then bh else bl)
-  bld <+ (dh := th)
-  bld <+ (dl := tl)
-  bld --!> insLen
+  lift bld ins insLen {
+    let struct (o1, o2, o3, o4) = getFourOprs ins
+    let struct (dh, dl) = vecHalves bld o1
+    let struct (ah, al) = vecHalves bld o2
+    let struct (bh, bl) = vecHalves bld o3
+    let dm =
+      match o4 with
+      | OprImm n -> int n
+      | _ -> raise InvalidOperandException
+    let struct (th, tl) = tmpVars2 bld 64<rt>
+    th := if dm &&& 2 = 0 then ah else al
+    tl := if dm &&& 1 = 0 then bh else bl
+    dh := th
+    dl := tl
+  }
 
 /// vperm, which fills each byte of vD from the byte of the 32-byte pair
 /// vA || vB that the matching byte of vC indexes.
 let private vecPermute ins insLen bld =
-  let struct (o1, o2, o3, o4) = getFourOprs ins
-  let struct (dh, dl) = vecHalves bld o1
-  let struct (ah, al) = vecHalves bld o2
-  let struct (bh, bl) = vecHalves bld o3
-  let struct (ch, cl) = vecHalves bld o4
-  let struct (th, tl) = tmpVars2 bld 64<rt>
-  bld <!-- (ins.Address, insLen)
-  for b in 0 .. 15 do
-    let index = tmpVar bld 8<rt>
-    bld <+ (index := vecByte ch cl b .& numI32 31 8<rt>)
-    let mutable picked = AST.num0 8<rt>
-    for src in 0 .. 31 do
-      let byteOf =
-        if src < 16 then vecByte ah al src else vecByte bh bl (src - 16)
-      picked <- AST.ite (index == numI32 src 8<rt>) byteOf picked
-    let dst = if b < 8 then th else tl
-    let pos = if b < 8 then (7 - b) * 8 else (15 - b) * 8
-    bld <+ (AST.extract dst 8<rt> pos := picked)
-  bld <+ (dh := th)
-  bld <+ (dl := tl)
-  bld --!> insLen
+  lift bld ins insLen {
+    let struct (o1, o2, o3, o4) = getFourOprs ins
+    let struct (dh, dl) = vecHalves bld o1
+    let struct (ah, al) = vecHalves bld o2
+    let struct (bh, bl) = vecHalves bld o3
+    let struct (ch, cl) = vecHalves bld o4
+    let struct (th, tl) = tmpVars2 bld 64<rt>
+    for b in 0 .. 15 do
+      let index = tmpVar bld 8<rt>
+      index := vecByte ch cl b .& numI32 31 8<rt>
+      let mutable picked = AST.num0 8<rt>
+      for src in 0 .. 31 do
+        let byteOf =
+          if src < 16 then vecByte ah al src else vecByte bh bl (src - 16)
+        picked <- AST.ite (index == numI32 src 8<rt>) byteOf picked
+      let dst = if b < 8 then th else tl
+      let pos = if b < 8 then (7 - b) * 8 else (15 - b) * 8
+      AST.extract dst 8<rt> pos := picked
+    dh := th
+    dl := tl
+  }
 
 /// vsldoi and xxsldwi, which take the 16 bytes starting a given distance into
 /// the 32-byte pair vA || vB -- counted in bytes by vsldoi and in words by
 /// xxsldwi.
 let private vecShiftDouble ins insLen bld scale =
-  let struct (o1, o2, o3, o4) = getFourOprs ins
-  let struct (dh, dl) = vecHalves bld o1
-  let struct (ah, al) = vecHalves bld o2
-  let struct (bh, bl) = vecHalves bld o3
-  let shift =
-    match o4 with
-    | OprImm n -> int n * scale
-    | _ -> raise InvalidOperandException
-  let struct (th, tl) = tmpVars2 bld 64<rt>
-  bld <!-- (ins.Address, insLen)
-  for b in 0 .. 15 do
-    let src = b + shift
-    let byteOf =
-      if src < 16 then vecByte ah al src else vecByte bh bl (src - 16)
-    let dst = if b < 8 then th else tl
-    let pos = if b < 8 then (7 - b) * 8 else (15 - b) * 8
-    bld <+ (AST.extract dst 8<rt> pos := byteOf)
-  bld <+ (dh := th)
-  bld <+ (dl := tl)
-  bld --!> insLen
+  lift bld ins insLen {
+    let struct (o1, o2, o3, o4) = getFourOprs ins
+    let struct (dh, dl) = vecHalves bld o1
+    let struct (ah, al) = vecHalves bld o2
+    let struct (bh, bl) = vecHalves bld o3
+    let shift =
+      match o4 with
+      | OprImm n -> int n * scale
+      | _ -> raise InvalidOperandException
+    let struct (th, tl) = tmpVars2 bld 64<rt>
+    for b in 0 .. 15 do
+      let src = b + shift
+      let byteOf =
+        if src < 16 then vecByte ah al src else vecByte bh bl (src - 16)
+      let dst = if b < 8 then th else tl
+      let pos = if b < 8 then (7 - b) * 8 else (15 - b) * 8
+      AST.extract dst 8<rt> pos := byteOf
+    dh := th
+    dl := tl
+  }
 
 /// vspltb/vsplth/vspltw, which copy one element of vB into every element of vD.
 let private vecSplat ins insLen bld esize =
-  let struct (o1, o2, o3) = getThreeOprs ins
-  let struct (dh, dl) = vecHalves bld o1
-  let struct (bh, bl) = vecHalves bld o2
-  let index =
-    match o3 with
-    | OprImm n -> int n % (128 / int esize)
-    | _ -> raise InvalidOperandException
-  let perHalf = 64 / int esize
-  let element = tmpVar bld esize
-  let struct (th, tl) = tmpVars2 bld 64<rt>
-  bld <!-- (ins.Address, insLen)
-  let src = if index < perHalf then bh else bl
-  let pos = (perHalf - 1 - index % perHalf) * int esize
-  bld <+ (element := AST.extract src esize pos)
-  for i in 0 .. perHalf - 1 do
-    bld <+ (AST.extract th esize (i * int esize) := element)
-    bld <+ (AST.extract tl esize (i * int esize) := element)
-  bld <+ (dh := th)
-  bld <+ (dl := tl)
-  bld --!> insLen
+  lift bld ins insLen {
+    let struct (o1, o2, o3) = getThreeOprs ins
+    let struct (dh, dl) = vecHalves bld o1
+    let struct (bh, bl) = vecHalves bld o2
+    let index =
+      match o3 with
+      | OprImm n -> int n % (128 / int esize)
+      | _ -> raise InvalidOperandException
+    let perHalf = 64 / int esize
+    let element = tmpVar bld esize
+    let struct (th, tl) = tmpVars2 bld 64<rt>
+    let src = if index < perHalf then bh else bl
+    let pos = (perHalf - 1 - index % perHalf) * int esize
+    element := AST.extract src esize pos
+    for i in 0 .. perHalf - 1 do
+      AST.extract th esize (i * int esize) := element
+      AST.extract tl esize (i * int esize) := element
+    dh := th
+    dl := tl
+  }
 
 /// vspltisb/vspltish/vspltisw, which fill every element with a signed
 /// immediate.
 let private vecSplatImm ins insLen bld esize =
-  let struct (o1, o2) = getTwoOprs ins
-  let struct (dh, dl) = vecHalves bld o1
-  let value =
-    match o2 with
-    | OprImm n -> numU64 n esize
-    | _ -> raise InvalidOperandException
-  let struct (th, tl) = tmpVars2 bld 64<rt>
-  bld <!-- (ins.Address, insLen)
-  for i in 0 .. (64 / int esize) - 1 do
-    bld <+ (AST.extract th esize (i * int esize) := value)
-    bld <+ (AST.extract tl esize (i * int esize) := value)
-  bld <+ (dh := th)
-  bld <+ (dl := tl)
-  bld --!> insLen
+  lift bld ins insLen {
+    let struct (o1, o2) = getTwoOprs ins
+    let struct (dh, dl) = vecHalves bld o1
+    let value =
+      match o2 with
+      | OprImm n -> numU64 n esize
+      | _ -> raise InvalidOperandException
+    let struct (th, tl) = tmpVars2 bld 64<rt>
+    for i in 0 .. (64 / int esize) - 1 do
+      AST.extract th esize (i * int esize) := value
+      AST.extract tl esize (i * int esize) := value
+    dh := th
+    dl := tl
+  }
 
 /// vmrgh*/vmrgl*, which interleave the elements of one half of vA with those of
 /// the matching half of vB.
 let private vecMerge ins insLen bld esize high =
-  let struct (o1, o2, o3) = getThreeOprs ins
-  let struct (dh, dl) = vecHalves bld o1
-  let struct (ah, al) = vecHalves bld o2
-  let struct (bh, bl) = vecHalves bld o3
-  let bytes = int esize / 8
-  let struct (th, tl) = tmpVars2 bld 64<rt>
-  bld <!-- (ins.Address, insLen)
-  for i in 0 .. (8 / bytes) - 1 do
-    let src = if high then i * bytes else 8 + i * bytes
-    for (half, srcH, srcL) in [ 0, ah, al; 1, bh, bl ] do
-      let b = (2 * i + half) * bytes
-      let dst = if b < 8 then th else tl
-      let pos = if b < 8 then (8 - bytes - b) * 8 else (16 - bytes - b) * 8
-      let value =
-        Array.init bytes (fun k -> vecByte srcH srcL (src + k)) |> AST.revConcat
-      bld <+ (AST.extract dst esize pos := value)
-  bld <+ (dh := th)
-  bld <+ (dl := tl)
-  bld --!> insLen
+  lift bld ins insLen {
+    let struct (o1, o2, o3) = getThreeOprs ins
+    let struct (dh, dl) = vecHalves bld o1
+    let struct (ah, al) = vecHalves bld o2
+    let struct (bh, bl) = vecHalves bld o3
+    let bytes = int esize / 8
+    let struct (th, tl) = tmpVars2 bld 64<rt>
+    for i in 0 .. (8 / bytes) - 1 do
+      let src = if high then i * bytes else 8 + i * bytes
+      for (half, srcH, srcL) in [ 0, ah, al; 1, bh, bl ] do
+        let b = (2 * i + half) * bytes
+        let dst = if b < 8 then th else tl
+        let pos = if b < 8 then (8 - bytes - b) * 8 else (16 - bytes - b) * 8
+        let value =
+          Array.init bytes (fun k -> vecByte srcH srcL (src + k))
+          |> AST.revConcat
+        AST.extract dst esize pos := value
+    dh := th
+    dl := tl
+  }
 
 /// vpkuhum/vpkuwum, which pack the low half of each element of vA || vB into
 /// the elements of vD.
 let private vecPack ins insLen bld esize =
-  let struct (o1, o2, o3) = getThreeOprs ins
-  let struct (dh, dl) = vecHalves bld o1
-  let struct (ah, al) = vecHalves bld o2
-  let struct (bh, bl) = vecHalves bld o3
-  let bytes = int esize / 8
-  let struct (th, tl) = tmpVars2 bld 64<rt>
-  bld <!-- (ins.Address, insLen)
-  for i in 0 .. (32 / bytes) - 1 do
-    let src = i * bytes + bytes / 2 (* the element's low half *)
-    let value =
-      Array.init (bytes / 2) (fun k ->
-        if src + k < 16 then vecByte ah al (src + k)
-        else vecByte bh bl (src + k - 16))
-      |> AST.revConcat
-    let b = i * (bytes / 2)
-    let dst = if b < 8 then th else tl
-    let pos = if b < 8 then (8 - bytes / 2 - b) * 8
-              else (16 - bytes / 2 - b) * 8
-    bld <+ (AST.extract dst (regTypeOf (int esize / 2)) pos := value)
-  bld <+ (dh := th)
-  bld <+ (dl := tl)
-  bld --!> insLen
+  lift bld ins insLen {
+    let struct (o1, o2, o3) = getThreeOprs ins
+    let struct (dh, dl) = vecHalves bld o1
+    let struct (ah, al) = vecHalves bld o2
+    let struct (bh, bl) = vecHalves bld o3
+    let bytes = int esize / 8
+    let struct (th, tl) = tmpVars2 bld 64<rt>
+    for i in 0 .. (32 / bytes) - 1 do
+      let src = i * bytes + bytes / 2 (* the element's low half *)
+      let value =
+        Array.init (bytes / 2) (fun k ->
+          if src + k < 16 then vecByte ah al (src + k)
+          else vecByte bh bl (src + k - 16))
+        |> AST.revConcat
+      let b = i * (bytes / 2)
+      let dst = if b < 8 then th else tl
+      let pos = if b < 8 then (8 - bytes / 2 - b) * 8
+                else (16 - bytes / 2 - b) * 8
+      AST.extract dst (regTypeOf (int esize / 2)) pos := value
+    dh := th
+    dl := tl
+  }
 
 /// vupkhs*/vupkls*, which sign-extend the elements of one half of vB into the
 /// wider elements of vD.
 let private vecUnpack ins insLen bld esize high =
-  let struct (o1, o2) = getTwoOprs ins
-  let struct (dh, dl) = vecHalves bld o1
-  let struct (bh, bl) = vecHalves bld o2
-  let bytes = int esize / 8
-  let struct (th, tl) = tmpVars2 bld 64<rt>
-  bld <!-- (ins.Address, insLen)
-  for i in 0 .. (8 / bytes) - 1 do
-    let src = (if high then 0 else 8) + i * bytes
-    let value =
-      Array.init bytes (fun k -> vecByte bh bl (src + k)) |> AST.revConcat
-    let b = i * bytes * 2
-    let dst = if b < 8 then th else tl
-    let pos = if b < 8 then (8 - bytes * 2 - b) * 8
-              else (16 - bytes * 2 - b) * 8
-    bld <+ (AST.extract dst (regTypeOf (int esize * 2)) pos :=
-              AST.sext (regTypeOf (int esize * 2)) value)
-  bld <+ (dh := th)
-  bld <+ (dl := tl)
-  bld --!> insLen
+  lift bld ins insLen {
+    let struct (o1, o2) = getTwoOprs ins
+    let struct (dh, dl) = vecHalves bld o1
+    let struct (bh, bl) = vecHalves bld o2
+    let bytes = int esize / 8
+    let struct (th, tl) = tmpVars2 bld 64<rt>
+    for i in 0 .. (8 / bytes) - 1 do
+      let src = (if high then 0 else 8) + i * bytes
+      let value =
+        Array.init bytes (fun k -> vecByte bh bl (src + k)) |> AST.revConcat
+      let b = i * bytes * 2
+      let dst = if b < 8 then th else tl
+      let pos = if b < 8 then (8 - bytes * 2 - b) * 8
+                else (16 - bytes * 2 - b) * 8
+      AST.extract dst (regTypeOf (int esize * 2)) pos :=
+        AST.sext (regTypeOf (int esize * 2)) value
+    dh := th
+    dl := tl
+  }
 
 /// vsl/vsr, which shift the whole 128-bit vector by the count the low three
 /// bits of vB's last byte give, and vslo/vsro, which shift it by whole octets.
 let private vecShiftWhole ins insLen (bld: ILowUIRBuilder) left byOctet =
-  let struct (o1, o2, o3) = getThreeOprs ins
-  let struct (dh, dl) = vecHalves bld o1
-  let struct (ah, al) = vecHalves bld o2
-  let struct (_, bl) = vecHalves bld o3
-  let struct (th, tl) = tmpVars2 bld 64<rt>
-  let n = tmpVar bld 64<rt>
-  bld <!-- (ins.Address, insLen)
-  if byOctet then
-    bld <+ (n := AST.zext 64<rt> (AST.xtlo 8<rt> bl .& numI32 0x78 8<rt>))
-  else
-    bld <+ (n := AST.zext 64<rt> (AST.xtlo 8<rt> bl .& numI32 7 8<rt>))
-  (* A 128-bit shift over two halves: each half keeps what stays in it and takes
-     what the other half shifts across. A count of zero would shift a whole
-     half's width, which is undefined, so that case is selected out. *)
-  let zero = n == AST.num0 64<rt>
-  let across = numI32 64 64<rt> .- n
-  if left then
-    bld <+ (th := AST.ite zero ah ((ah << n) .| (al >> across)))
-    bld <+ (tl := al << n)
-  else
-    bld <+ (th := ah >> n)
-    bld <+ (tl := AST.ite zero al ((al >> n) .| (ah << across)))
-  bld <+ (dh := th)
-  bld <+ (dl := tl)
-  bld --!> insLen
+  lift bld ins insLen {
+    let struct (o1, o2, o3) = getThreeOprs ins
+    let struct (dh, dl) = vecHalves bld o1
+    let struct (ah, al) = vecHalves bld o2
+    let struct (_, bl) = vecHalves bld o3
+    let struct (th, tl) = tmpVars2 bld 64<rt>
+    let n = tmpVar bld 64<rt>
+    if byOctet then
+      n := AST.zext 64<rt> (AST.xtlo 8<rt> bl .& numI32 0x78 8<rt>)
+    else
+      n := AST.zext 64<rt> (AST.xtlo 8<rt> bl .& numI32 7 8<rt>)
+    (* A 128-bit shift over two halves: each half keeps what stays in it and
+       takes what the other half shifts across. A count of zero would shift a
+       whole half's width, which is undefined, so that case is selected out. *)
+    let zero = n == AST.num0 64<rt>
+    let across = numI32 64 64<rt> .- n
+    if left then
+      th := AST.ite zero ah ((ah << n) .| (al >> across))
+      tl := al << n
+    else
+      th := ah >> n
+      tl := AST.ite zero al ((al >> n) .| (ah << across))
+    dh := th
+    dl := tl
+  }
 
 /// vgbbd, which transposes the bits of each doubleword's eight bytes: bit j of
 /// byte i moves to bit i of byte j.
 let private vecGatherBits ins insLen bld =
-  let struct (o1, o2) = getTwoOprs ins
-  let struct (dh, dl) = vecHalves bld o1
-  let struct (bh, bl) = vecHalves bld o2
-  let struct (th, tl) = tmpVars2 bld 64<rt>
-  bld <!-- (ins.Address, insLen)
-  for (dst, src) in [ th, bh; tl, bl ] do
-    for i in 0 .. 7 do
-      for j in 0 .. 7 do
-        bld <+ (AST.extract dst 1<rt> (j * 8 + i) :=
-                  AST.extract src 1<rt> (i * 8 + j))
-  bld <+ (dh := th)
-  bld <+ (dl := tl)
-  bld --!> insLen
+  lift bld ins insLen {
+    let struct (o1, o2) = getTwoOprs ins
+    let struct (dh, dl) = vecHalves bld o1
+    let struct (bh, bl) = vecHalves bld o2
+    let struct (th, tl) = tmpVars2 bld 64<rt>
+    for (dst, src) in [ th, bh; tl, bl ] do
+      for i in 0 .. 7 do
+        for j in 0 .. 7 do
+          AST.extract dst 1<rt> (j * 8 + i) :=
+            AST.extract src 1<rt> (i * 8 + j)
+    dh := th
+    dl := tl
+  }
 
 /// vbpermq, which gathers the sixteen bits of vA that vB's byte indices name
 /// into the low halfword of vD; an index past 127 contributes a zero.
 let private vecBitPermute ins insLen bld =
-  let struct (o1, o2, o3) = getThreeOprs ins
-  let struct (dh, dl) = vecHalves bld o1
-  let struct (ah, al) = vecHalves bld o2
-  let struct (bh, bl) = vecHalves bld o3
-  let res = tmpVar bld 64<rt>
-  bld <!-- (ins.Address, insLen)
-  bld <+ (res := AST.num0 64<rt>)
-  for i in 0 .. 15 do
-    let index = tmpVar bld 8<rt>
-    bld <+ (index := vecByte bh bl i)
-    let mutable bit = AST.num0 64<rt>
-    for k in 0 .. 127 do
-      let src = if k < 64 then ah else al
-      let pos = if k < 64 then 63 - k else 127 - k
-      let one = AST.zext 64<rt> (AST.extract src 1<rt> pos)
-      bit <- AST.ite (index == numI32 k 8<rt>) one bit
-    bld <+ (res := res .| (bit << numI32 (15 - i) 64<rt>))
-  bld <+ (dh := AST.num0 64<rt>)
-  bld <+ (dl := res)
-  bld --!> insLen
+  lift bld ins insLen {
+    let struct (o1, o2, o3) = getThreeOprs ins
+    let struct (dh, dl) = vecHalves bld o1
+    let struct (ah, al) = vecHalves bld o2
+    let struct (bh, bl) = vecHalves bld o3
+    let res = tmpVar bld 64<rt>
+    res := AST.num0 64<rt>
+    for i in 0 .. 15 do
+      let index = tmpVar bld 8<rt>
+      index := vecByte bh bl i
+      let mutable bit = AST.num0 64<rt>
+      for k in 0 .. 127 do
+        let src = if k < 64 then ah else al
+        let pos = if k < 64 then 63 - k else 127 - k
+        let one = AST.zext 64<rt> (AST.extract src 1<rt> pos)
+        bit <- AST.ite (index == numI32 k 8<rt>) one bit
+      res := res .| (bit << numI32 (15 - i) 64<rt>)
+    dh := AST.num0 64<rt>
+    dl := res
+  }
 
 /// mfvscr/mtvscr, which move the vector status register to or from the low
 /// word of a vector register.
 let private vscrMove ins insLen bld toVector =
-  let struct (dh, dl) = vecHalves bld (getOneOpr ins)
-  let vscr = regVar bld Register.VSCR
-  bld <!-- (ins.Address, insLen)
-  if toVector then
-    bld <+ (dh := AST.num0 64<rt>)
-    bld <+ (dl := AST.zext 64<rt> vscr)
-  else
-    bld <+ (vscr := AST.xtlo 32<rt> dl)
-  bld --!> insLen
+  lift bld ins insLen {
+    let struct (dh, dl) = vecHalves bld (getOneOpr ins)
+    let vscr = regVar bld Register.VSCR
+    if toVector then
+      dh := AST.num0 64<rt>
+      dl := AST.zext 64<rt> vscr
+    else
+      vscr := AST.xtlo 32<rt> dl
+  }
 
 /// Counts the leading zeroes of one element, folding the value down to a mask
 /// of the bits at or below its highest set one and counting the ones in it.
@@ -3165,100 +3207,100 @@ let private elementShift (esize: RegType) kind a b =
 
 /// An "xT, xA, xB" whose operands are the doubles in the sources' high halves.
 let private vsxScalarBinary ins insLen bld fnOp =
-  let struct (o1, o2, o3) = getThreeOprs ins
-  let struct (dh, _) = vecHalves bld o1
-  let struct (ah, _) = vecHalves bld o2
-  let struct (bh, _) = vecHalves bld o3
-  bld <!-- (ins.Address, insLen)
-  bld <+ (dh := fnOp ah bh)
-  setFPRF bld dh
-  bld --!> insLen
+  lift bld ins insLen {
+    let struct (o1, o2, o3) = getThreeOprs ins
+    let struct (dh, _) = vecHalves bld o1
+    let struct (ah, _) = vecHalves bld o2
+    let struct (bh, _) = vecHalves bld o3
+    dh := fnOp ah bh
+    setFPRF bld dh
+  }
 
 /// An "xT, xB" over the double in the source's high half.
 let private vsxScalarUnary ins insLen bld fnOp =
-  let struct (o1, o2) = getTwoOprs ins
-  let struct (dh, _) = vecHalves bld o1
-  let struct (bh, _) = vecHalves bld o2
-  bld <!-- (ins.Address, insLen)
-  bld <+ (dh := fnOp bh)
-  bld --!> insLen
+  lift bld ins insLen {
+    let struct (o1, o2) = getTwoOprs ins
+    let struct (dh, _) = vecHalves bld o1
+    let struct (bh, _) = vecHalves bld o2
+    dh := fnOp bh
+  }
 
 /// xscmpudp, which compares two doubles and reports less-than, greater-than,
 /// equal and unordered in a condition-register field, as fcmpu does.
 let private xscmpudp ins insLen bld =
-  let struct (o1, o2, o3) = getThreeOprs ins
-  let crf0, crf1, crf2, crf3 =
-    match o1 with
-    | OprReg reg -> transCRxToExpr bld reg
-    | _ -> raise InvalidOperandException
-  let struct (ah, _) = vecHalves bld o2
-  let struct (bh, _) = vecHalves bld o3
-  let unordered = tmpVar bld 1<rt>
-  bld <!-- (ins.Address, insLen)
-  bld <+ (unordered := IEEE754Double.isNaN ah .| IEEE754Double.isNaN bh)
-  bld <+ (crf0 := AST.ite unordered AST.b0 (AST.flt ah bh))
-  bld <+ (crf1 := AST.ite unordered AST.b0 (AST.fgt ah bh))
-  bld <+ (crf2 := AST.ite unordered AST.b0 (AST.eq ah bh))
-  bld <+ (crf3 := unordered)
-  bld --!> insLen
+  lift bld ins insLen {
+    let struct (o1, o2, o3) = getThreeOprs ins
+    let crf0, crf1, crf2, crf3 =
+      match o1 with
+      | OprReg reg -> transCRxToExpr bld reg
+      | _ -> raise InvalidOperandException
+    let struct (ah, _) = vecHalves bld o2
+    let struct (bh, _) = vecHalves bld o3
+    let unordered = tmpVar bld 1<rt>
+    unordered := IEEE754Double.isNaN ah .| IEEE754Double.isNaN bh
+    crf0 := AST.ite unordered AST.b0 (AST.flt ah bh)
+    crf1 := AST.ite unordered AST.b0 (AST.fgt ah bh)
+    crf2 := AST.ite unordered AST.b0 (AST.eq ah bh)
+    crf3 := unordered
+  }
 
 /// xxspltw, which copies one word of xB into all four words of xT.
 let private xxspltw ins insLen bld =
-  let struct (o1, o2, o3) = getThreeOprs ins
-  let struct (dh, dl) = vecHalves bld o1
-  let struct (bh, bl) = vecHalves bld o2
-  let index =
-    match o3 with
-    | OprImm n -> int n % 4
-    | _ -> raise InvalidOperandException
-  let word = tmpVar bld 32<rt>
-  let struct (th, tl) = tmpVars2 bld 64<rt>
-  bld <!-- (ins.Address, insLen)
-  let src = if index < 2 then bh else bl
-  bld <+ (word := AST.extract src 32<rt> ((1 - index % 2) * 32))
-  for half in [ th; tl ] do
-    bld <+ (AST.extract half 32<rt> 0 := word)
-    bld <+ (AST.extract half 32<rt> 32 := word)
-  bld <+ (dh := th)
-  bld <+ (dl := tl)
-  bld --!> insLen
+  lift bld ins insLen {
+    let struct (o1, o2, o3) = getThreeOprs ins
+    let struct (dh, dl) = vecHalves bld o1
+    let struct (bh, bl) = vecHalves bld o2
+    let index =
+      match o3 with
+      | OprImm n -> int n % 4
+      | _ -> raise InvalidOperandException
+    let word = tmpVar bld 32<rt>
+    let struct (th, tl) = tmpVars2 bld 64<rt>
+    let src = if index < 2 then bh else bl
+    word := AST.extract src 32<rt> ((1 - index % 2) * 32)
+    for half in [ th; tl ] do
+      AST.extract half 32<rt> 0 := word
+      AST.extract half 32<rt> 32 := word
+    dh := th
+    dl := tl
+  }
 
 /// xxspltib, which fills every byte of xT with an immediate.
 let private xxspltib ins insLen bld =
-  let struct (o1, o2) = getTwoOprs ins
-  let struct (dh, dl) = vecHalves bld o1
-  let value =
-    match o2 with
-    | OprImm n -> numU64 n 8<rt>
-    | _ -> raise InvalidOperandException
-  let struct (th, tl) = tmpVars2 bld 64<rt>
-  bld <!-- (ins.Address, insLen)
-  for i in 0 .. 7 do
-    bld <+ (AST.extract th 8<rt> (i * 8) := value)
-    bld <+ (AST.extract tl 8<rt> (i * 8) := value)
-  bld <+ (dh := th)
-  bld <+ (dl := tl)
-  bld --!> insLen
+  lift bld ins insLen {
+    let struct (o1, o2) = getTwoOprs ins
+    let struct (dh, dl) = vecHalves bld o1
+    let value =
+      match o2 with
+      | OprImm n -> numU64 n 8<rt>
+      | _ -> raise InvalidOperandException
+    let struct (th, tl) = tmpVars2 bld 64<rt>
+    for i in 0 .. 7 do
+      AST.extract th 8<rt> (i * 8) := value
+      AST.extract tl 8<rt> (i * 8) := value
+    dh := th
+    dl := tl
+  }
 
 /// mtvsrdd, which fills both halves of xT from two general registers.
 let private mtvsrdd ins insLen (bld: ILowUIRBuilder) =
-  let struct (o1, o2, o3) = getThreeOprs ins
-  let struct (dh, dl) = vecHalves bld o1
-  let ra = transOpr bld o2
-  let rb = transOpr bld o3
-  bld <!-- (ins.Address, insLen)
-  bld <+ (dh := AST.zext 64<rt> ra)
-  bld <+ (dl := AST.zext 64<rt> rb)
-  bld --!> insLen
+  lift bld ins insLen {
+    let struct (o1, o2, o3) = getThreeOprs ins
+    let struct (dh, dl) = vecHalves bld o1
+    let ra = transOpr bld o2
+    let rb = transOpr bld o3
+    dh := AST.zext 64<rt> ra
+    dl := AST.zext 64<rt> rb
+  }
 
 /// mfvsrld, which reads xS's low half into a general register.
 let private mfvsrld ins insLen (bld: ILowUIRBuilder) =
-  let struct (o1, o2) = getTwoOprs ins
-  let struct (_, sl) = vecHalves bld o1
-  let ra = transOpr bld o2
-  bld <!-- (ins.Address, insLen)
-  bld <+ (ra := AST.zext bld.RegType sl)
-  bld --!> insLen
+  lift bld ins insLen {
+    let struct (o1, o2) = getTwoOprs ins
+    let struct (_, sl) = vecHalves bld o1
+    let ra = transOpr bld o2
+    ra := AST.zext bld.RegType sl
+  }
 
 /// The double whose sign comes from one operand and magnitude from the other,
 /// which is what fcpsgn and xscpsgndp both compute.
@@ -3268,10 +3310,10 @@ let private copySign signSrc magnitude =
 
 /// fcpsgn frD, frA, frB.
 let private fcpsgn ins insLen bld =
-  let struct (frd, fra, frb) = transThreeOprs ins bld
-  bld <!-- (ins.Address, insLen)
-  bld <+ (frd := copySign fra frb)
-  bld --!> insLen
+  lift bld ins insLen {
+    let struct (frd, fra, frb) = transThreeOprs ins bld
+    frd := copySign fra frb
+  }
 
 /// Translate IR.
 let translate (ins: Instruction) insLen bld =

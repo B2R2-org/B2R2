@@ -73,40 +73,48 @@ let slotAddr spReg n = spReg .+ (numI32 (n * SlotSize) rt)
 
 /// Pushes an element onto the evaluation stack.
 let pushToStack bld expr =
-  let spReg = regVar bld R.SP
-  bld <+ (spReg := (spReg .- stackSlotSize))
-  bld <+ (AST.store Endian.Little spReg expr)
+  append bld {
+    let spReg = regVar bld R.SP
+    spReg := (spReg .- stackSlotSize)
+    AST.store Endian.Little spReg expr
+  }
 
 /// Pops an element from the evaluation stack and returns it.
 let popFromStack bld =
   let spReg = regVar bld R.SP
   let tmp = tmpVar bld rt
-  bld <+ (tmp := AST.loadLE rt spReg)
-  bld <+ (spReg := (spReg .+ stackSlotSize))
+  append bld {
+    tmp := AST.loadLE rt spReg
+    spReg := (spReg .+ stackSlotSize)
+  }
   tmp
 
 /// Pops an element from the evaluation stack but does not return it.
 let discardTOS bld =
   let spReg = regVar bld R.SP
-  bld <+ (spReg := (spReg .+ stackSlotSize))
+  append bld {
+    spReg := (spReg .+ stackSlotSize)
+  }
 
 (* Returns the expression at stack[SP + offset] without modifying SP.
    offset=0 is TOS, offset=1 is TOS1, etc. *)
 let peekFromStack bld offset =
   let spReg = regVar bld R.SP
   let tmp = tmpVar bld rt
-  bld <+ (tmp := AST.loadLE rt (slotAddr spReg offset))
+  append bld {
+    tmp := AST.loadLE rt (slotAddr spReg offset)
+  }
   tmp
 
 (* Emit ISMark + IEMark only; used for no-op instructions. *)
 let nopInstr (ins: Instruction) bld =
-  bld <!-- (ins.Address, ins.Length)
-  bld --!> ins.Length
+  lift bld ins ins.Length {
+  }
 
 let effInstr eff (ins: Instruction) bld =
-  bld <!-- (ins.Address, ins.Length)
-  bld <+ AST.extCall eff
-  bld --!> ins.Length
+  lift bld ins ins.Length {
+    AST.extCall eff
+  }
 
 let namedEffect name ins bld = effInstr (AST.app name [] rt) ins bld
 
@@ -118,10 +126,10 @@ let namedEffectWithArgs name args ins bld =
    so the surface operator is preserved for decompilation, rather than as a
    stack-ignoring effect that would silently drop the operand's sign. *)
 let unaryOp name (ins: Instruction) bld =
-  bld <!-- (ins.Address, ins.Length)
-  let operand = popFromStack bld
-  pushToStack bld (AST.app name [ operand ] rt)
-  bld --!> ins.Length
+  lift bld ins ins.Length {
+    let operand = popFromStack bld
+    pushToStack bld (AST.app name [ operand ] rt)
+  }
 
 /// The truth of an object, which is what a conditional jump branches on.
 /// Every type answers it and most of them say something the reference itself
@@ -211,9 +219,9 @@ let yieldReceived = AST.undef rt "YIELD_RECEIVED"
 let returnTarget = AST.undef rt "RETURN_TARGET"
 
 let translateLoad opname (ins: Instruction) bld =
-  bld <!-- (ins.Address, ins.Length)
-  pushToStack bld (AST.app opname [ operandIndex ins ] rt)
-  bld --!> ins.Length
+  lift bld ins ins.Length {
+    pushToStack bld (AST.app opname [ operandIndex ins ] rt)
+  }
 
 (* LOAD_LOCALS: leaves the mapping the running activation binds into. A class
    body written with type parameters is what reaches for it -- the parameters
@@ -221,19 +229,19 @@ let translateLoad opname (ins: Instruction) bld =
    falling back to its own cells -- so it has to leave that mapping rather than
    nothing at all. *)
 let loadLocals (ins: Instruction) bld =
-  bld <!-- (ins.Address, ins.Length)
-  pushToStack bld (AST.app "LOAD_LOCALS" [] rt)
-  bld --!> ins.Length
+  lift bld ins ins.Length {
+    pushToStack bld (AST.app "LOAD_LOCALS" [] rt)
+  }
 
 (* LOAD_FROM_DICT_OR_DEREF and LOAD_FROM_DICT_OR_GLOBALS: the name is looked
    for in the mapping LOAD_LOCALS left, and only then in the cell or the
    module. The mapping is popped -- CPython's own stack effect consumes it --
    so it travels as an operand rather than being left behind. *)
 let loadFromDict opname (ins: Instruction) bld =
-  bld <!-- (ins.Address, ins.Length)
-  let mapping = popFromStack bld
-  pushToStack bld (AST.app opname [ mapping; operandIndex ins ] rt)
-  bld --!> ins.Length
+  lift bld ins ins.Length {
+    let mapping = popFromStack bld
+    pushToStack bld (AST.app opname [ mapping; operandIndex ins ] rt)
+  }
 
 (* Which of the two slots a call sits on is the deeper. 3.11 gave every call a
    self-or-NULL beside its callable and put it underneath; 3.13 swapped the
@@ -264,47 +272,47 @@ let pushCallee (ins: Instruction) bld callee =
     pushToStack bld callee
 
 let translateLoadGlobal (ins: Instruction) bld =
-  bld <!-- (ins.Address, ins.Length)
-  pushCallee ins bld (AST.app "LOAD_GLOBAL" [ globalIndex ins ] rt)
-  bld --!> ins.Length
+  lift bld ins ins.Length {
+    pushCallee ins bld (AST.app "LOAD_GLOBAL" [ globalIndex ins ] rt)
+  }
 
 let translateDelete opname (ins: Instruction) bld =
   namedEffectWithArgs opname [ operandIndex ins ] ins bld
 
 (* DELETE_ATTR: pops the owner object and deletes the named attribute. *)
 let deleteAttr (ins: Instruction) bld =
-  bld <!-- (ins.Address, ins.Length)
-  let owner = popFromStack bld
-  let args = [ owner; operandIndex ins ]
-  bld <+ AST.extCall (AST.app "DELETE_ATTR" args rt)
-  bld --!> ins.Length
+  lift bld ins ins.Length {
+    let owner = popFromStack bld
+    let args = [ owner; operandIndex ins ]
+    AST.extCall (AST.app "DELETE_ATTR" args rt)
+  }
 
 (* IMPORT_NAME: pops fromlist (unused by our translation) and level (the
    number of leading dots for a relative import, e.g. `from ..pkg import x`),
    then pushes the imported module object. *)
 let importName (ins: Instruction) bld =
-  bld <!-- (ins.Address, ins.Length)
-  let name = operandIndex ins
-  let fromList = popFromStack bld
-  let level = popFromStack bld
-  pushToStack bld (AST.app "IMPORT_NAME" [ name; level; fromList ] rt)
-  bld --!> ins.Length
+  lift bld ins ins.Length {
+    let name = operandIndex ins
+    let fromList = popFromStack bld
+    let level = popFromStack bld
+    pushToStack bld (AST.app "IMPORT_NAME" [ name; level; fromList ] rt)
+  }
 
 (* IMPORT_FROM: peeks (does not pop) the module object left by IMPORT_NAME so
    that later IMPORT_FROMs can reuse it, and pushes obj.name. *)
 let importFrom (ins: Instruction) bld =
-  bld <!-- (ins.Address, ins.Length)
-  let name = operandIndex ins
-  let moduleObj = peekFromStack bld 0
-  pushToStack bld (AST.app "IMPORT_FROM" [ moduleObj; name ] rt)
-  bld --!> ins.Length
+  lift bld ins ins.Length {
+    let name = operandIndex ins
+    let moduleObj = peekFromStack bld 0
+    pushToStack bld (AST.app "IMPORT_FROM" [ moduleObj; name ] rt)
+  }
 
 (* IMPORT_STAR: pops the module object and binds all its exported names. *)
 let importStar (ins: Instruction) bld =
-  bld <!-- (ins.Address, ins.Length)
-  let moduleObj = popFromStack bld
-  bld <+ AST.extCall (AST.app "IMPORT_STAR" [ moduleObj ] rt)
-  bld --!> ins.Length
+  lift bld ins ins.Length {
+    let moduleObj = popFromStack bld
+    AST.extCall (AST.app "IMPORT_STAR" [ moduleObj ] rt)
+  }
 
 (* Which intrinsic CALL_INTRINSIC_1's argument selects. They are not alike
    enough to share a name: the list-to-tuple one is what every call written
@@ -332,42 +340,42 @@ let private intrinsic1Name arg =
    leaving walks the stack pointer off its own region a few statements later.
    Every other one leaves the value the instruction is for. *)
 let callIntrinsic1 (ins: Instruction) bld =
-  bld <!-- (ins.Address, ins.Length)
-  let operand = popFromStack bld
-  let arg = getIntArg ins
-  if arg = 2 then
-    bld <+ AST.extCall (AST.app "IMPORT_STAR" [ operand ] rt)
-    pushToStack bld noneValue
-  else
-    pushToStack bld (AST.app (intrinsic1Name arg) [ operand ] rt)
-  bld --!> ins.Length
+  lift bld ins ins.Length {
+    let operand = popFromStack bld
+    let arg = getIntArg ins
+    if arg = 2 then
+      AST.extCall (AST.app "IMPORT_STAR" [ operand ] rt)
+      pushToStack bld noneValue
+    else
+      pushToStack bld (AST.app (intrinsic1Name arg) [ operand ] rt)
+  }
 
 let popTop (ins: Instruction) bld =
-  bld <!-- (ins.Address, ins.Length)
-  discardTOS bld
-  bld --!> ins.Length
+  lift bld ins ins.Length {
+    discardTOS bld
+  }
 
 /// PUSH_NULL: NULL is a special value implemented in Python internally.
 let pushNull (ins: Instruction) bld =
-  bld <!-- (ins.Address, ins.Length)
-  pushToStack bld nullSlot
-  bld --!> ins.Length
+  lift bld ins ins.Length {
+    pushToStack bld nullSlot
+  }
 
 (* LOAD_ASSERTION_ERROR: pushes the AssertionError builtin a failing assert
    raises. The opcode names it outright -- it takes no argument -- so it is a
    nullary named app. *)
 let loadAssertionError (ins: Instruction) bld =
-  bld <!-- (ins.Address, ins.Length)
-  pushToStack bld (AST.app "LOAD_ASSERTION_ERROR" [] rt)
-  bld --!> ins.Length
+  lift bld ins ins.Length {
+    pushToStack bld (AST.app "LOAD_ASSERTION_ERROR" [] rt)
+  }
 
 (* LOAD_BUILD_CLASS: pushes the __build_class__ builtin used to construct a
    class from its body function, name, and bases. Nullary for the same reason
    loadAssertionError is. *)
 let loadBuildClass (ins: Instruction) bld =
-  bld <!-- (ins.Address, ins.Length)
-  pushToStack bld (AST.app "LOAD_BUILD_CLASS" [] rt)
-  bld --!> ins.Length
+  lift bld ins ins.Length {
+    pushToStack bld (AST.app "LOAD_BUILD_CLASS" [] rt)
+  }
 
 /// Bytes each unit of a jump's argument stands for. Jump arguments counted
 /// bytes up to and including 3.9; 3.10 made them instruction offsets, so the
@@ -378,12 +386,12 @@ let loadBuildClass (ins: Instruction) bld =
 let jumpArgScale (ins: Instruction) = if int ins.Version >= 310 then 2 else 1
 
 let jumpByOffset (ins: Instruction) bld isForward =
-  bld <!-- (ins.Address, ins.Length)
-  let n = getIntArg ins * jumpArgScale ins
-  let offset = n * (if isForward then 1 else -1)
-  let dst = ins.Address + uint64 ins.Length + uint64 offset
-  bld <+ AST.interjmp (AST.num (BitVector(dst, rt))) InterJmpKind.Base
-  bld
+  liftOpen bld ins ins.Length {
+    let n = getIntArg ins * jumpArgScale ins
+    let offset = n * (if isForward then 1 else -1)
+    let dst = ins.Address + uint64 ins.Length + uint64 offset
+    AST.interjmp (AST.num (BitVector(dst, rt))) InterJmpKind.Base
+  }
 
 (* Pre-3.11 jump opcodes (JUMP_ABSOLUTE, POP_JUMP_IF_FALSE/TRUE,
    JUMP_IF_FALSE/TRUE_OR_POP, JUMP_IF_NOT_EXC_MATCH) encode their target as
@@ -406,11 +414,11 @@ let codeObjectBase (binFile: PythonBinFile) (addr: Addr) =
       failwithf "Cannot find the code object containing address 0x%x" addr
 
 let jumpAbsolute (binFile: PythonBinFile) (ins: Instruction) bld =
-  bld <!-- (ins.Address, ins.Length)
-  let n = getIntArg ins
-  let dst = codeObjectBase binFile ins.Address + uint64 (n * jumpArgScale ins)
-  bld <+ AST.interjmp (AST.num (BitVector(dst, rt))) InterJmpKind.Base
-  bld
+  liftOpen bld ins ins.Length {
+    let n = getIntArg ins
+    let dst = codeObjectBase binFile ins.Address + uint64 (n * jumpArgScale ins)
+    AST.interjmp (AST.num (BitVector(dst, rt))) InterJmpKind.Base
+  }
 
 (* Pre-3.11 counterpart to condJump: same "honest" jumpIfTrue-preserving
    semantics (see condJump's own doc comment for why), but with an absolute
@@ -419,17 +427,17 @@ let condJumpAbsolute (binFile: PythonBinFile)
                      (ins: Instruction)
                      bld
                      jumpIfTrue =
-  bld <!-- (ins.Address, ins.Length)
-  let cond = truthOf (popFromStack bld)
-  let n = getIntArg ins
-  let jmpDst =
-    codeObjectBase binFile ins.Address + uint64 (n * jumpArgScale ins)
-  let fallDst = ins.Address + uint64 ins.Length
-  let tLbl = AST.num (BitVector(jmpDst, rt))
-  let fLbl = AST.num (BitVector(fallDst, rt))
-  let tLbl, fLbl = if jumpIfTrue then tLbl, fLbl else fLbl, tLbl
-  bld <+ AST.intercjmp cond tLbl fLbl
-  bld
+  liftOpen bld ins ins.Length {
+    let cond = truthOf (popFromStack bld)
+    let n = getIntArg ins
+    let jmpDst =
+      codeObjectBase binFile ins.Address + uint64 (n * jumpArgScale ins)
+    let fallDst = ins.Address + uint64 ins.Length
+    let tLbl = AST.num (BitVector(jmpDst, rt))
+    let fLbl = AST.num (BitVector(fallDst, rt))
+    let tLbl, fLbl = if jumpIfTrue then tLbl, fLbl else fLbl, tLbl
+    AST.intercjmp cond tLbl fLbl
+  }
 
 (* JUMP_IF_FALSE_OR_POP / JUMP_IF_TRUE_OR_POP: like POP_JUMP_IF_*, but only
    pop TOS on the FALL-THROUGH side (short-circuit `and`/`or`) -- the
@@ -447,49 +455,49 @@ let condJumpAbsolute (binFile: PythonBinFile)
    statically-known amount per CFG edge, which the label-based two-branch
    split already provides -- the real bug is elsewhere, still open.) *)
 let jumpOrPop (binFile: PythonBinFile) (ins: Instruction) bld jumpIfTrue =
-  bld <!-- (ins.Address, ins.Length)
-  let cond = peekFromStack bld 0
-  let n = getIntArg ins
-  let jmpDst =
-    codeObjectBase binFile ins.Address + uint64 (n * jumpArgScale ins)
-  let fallDst = ins.Address + uint64 ins.Length
-  let tLbl = AST.num (BitVector(jmpDst, rt))
-  let fLbl = AST.num (BitVector(fallDst, rt))
-  let lblLTrue = label bld "LTrue"
-  let lblLFalse = label bld "LFalse"
-  (* The truth test cannot be negated for the FALSE variant -- an object's
-     truth is not a bit to flip -- so the two destinations swap instead. *)
-  let taken, notTaken =
-    if jumpIfTrue then AST.jmpDest lblLTrue, AST.jmpDest lblLFalse
-    else AST.jmpDest lblLFalse, AST.jmpDest lblLTrue
-  bld <+ AST.cjmp (truthOf cond) taken notTaken
-  bld <+ AST.lmark lblLTrue
-  bld <+ AST.interjmp tLbl InterJmpKind.Base
-  bld <+ AST.lmark lblLFalse
-  discardTOS bld
-  bld <+ AST.interjmp fLbl InterJmpKind.Base
-  bld
+  liftOpen bld ins ins.Length {
+    let cond = peekFromStack bld 0
+    let n = getIntArg ins
+    let jmpDst =
+      codeObjectBase binFile ins.Address + uint64 (n * jumpArgScale ins)
+    let fallDst = ins.Address + uint64 ins.Length
+    let tLbl = AST.num (BitVector(jmpDst, rt))
+    let fLbl = AST.num (BitVector(fallDst, rt))
+    let lblLTrue = label bld "LTrue"
+    let lblLFalse = label bld "LFalse"
+    (* The truth test cannot be negated for the FALSE variant -- an object's
+       truth is not a bit to flip -- so the two destinations swap instead. *)
+    let taken, notTaken =
+      if jumpIfTrue then AST.jmpDest lblLTrue, AST.jmpDest lblLFalse
+      else AST.jmpDest lblLFalse, AST.jmpDest lblLTrue
+    AST.cjmp (truthOf cond) taken notTaken
+    AST.lmark lblLTrue
+    AST.interjmp tLbl InterJmpKind.Base
+    AST.lmark lblLFalse
+    discardTOS bld
+    AST.interjmp fLbl InterJmpKind.Base
+  }
 
 let jumpIfNotExcMatch (binFile: PythonBinFile) (ins: Instruction) bld =
-  bld <!-- (ins.Address, ins.Length)
-  let excType = popFromStack bld
-  let excValue = popFromStack bld
-  let n = getIntArg ins
-  let jmpDst =
-    codeObjectBase binFile ins.Address + uint64 (n * jumpArgScale ins)
-  let fallDst = ins.Address + uint64 ins.Length
-  let tLbl = AST.num (BitVector(jmpDst, rt))
-  let fLbl = AST.num (BitVector(fallDst, rt))
-  (* Through truthOf rather than on the answer itself: CHECK_EXC_MATCH gives
-     back a Python bool, and a lifted value is a reference to an object, so
-     branching on it directly asks whether the runtime answered at all --
-     which it always does, False included. That is how 3.11's own
-     CHECK_EXC_MATCH reaches its jump too, by way of the POP_JUMP_IF_* that
-     follows it. *)
-  let matches = truthOf (AST.app "CHECK_EXC_MATCH" [ excValue; excType ] rt)
-  (* Jump (to the next handler) when it does NOT match. *)
-  bld <+ AST.intercjmp matches fLbl tLbl
-  bld
+  liftOpen bld ins ins.Length {
+    let excType = popFromStack bld
+    let excValue = popFromStack bld
+    let n = getIntArg ins
+    let jmpDst =
+      codeObjectBase binFile ins.Address + uint64 (n * jumpArgScale ins)
+    let fallDst = ins.Address + uint64 ins.Length
+    let tLbl = AST.num (BitVector(jmpDst, rt))
+    let fLbl = AST.num (BitVector(fallDst, rt))
+    (* Through truthOf rather than on the answer itself: CHECK_EXC_MATCH gives
+       back a Python bool, and a lifted value is a reference to an object, so
+       branching on it directly asks whether the runtime answered at all --
+       which it always does, False included. That is how 3.11's own
+       CHECK_EXC_MATCH reaches its jump too, by way of the POP_JUMP_IF_* that
+       follows it. *)
+    let matches = truthOf (AST.app "CHECK_EXC_MATCH" [ excValue; excType ] rt)
+    (* Jump (to the next handler) when it does NOT match. *)
+    AST.intercjmp matches fLbl tLbl
+  }
 
 (* ROT_TWO/THREE/FOUR/N: rotate the top `n` stack items by one slot,
    moving TOS down to position `n` (the bottom of the rotated window) and
@@ -500,29 +508,29 @@ let jumpIfNotExcMatch (binFile: PythonBinFile) (ins: Instruction) bld =
    function's own construction: iteration i reads slot i+1 and writes
    slot i, so slot i+1 is never touched by an earlier iteration). *)
 let rotateTopToBottom n (ins: Instruction) bld =
-  bld <!-- (ins.Address, ins.Length)
-  let spReg = regVar bld R.SP
-  let top = peekFromStack bld 0
-  for i in 0 .. n - 2 do
-    let v = peekFromStack bld (i + 1)
-    bld <+ (AST.store Endian.Little (slotAddr spReg i) v)
-  bld <+ (AST.store Endian.Little (slotAddr spReg (n - 1)) top)
-  bld --!> ins.Length
+  lift bld ins ins.Length {
+    let spReg = regVar bld R.SP
+    let top = peekFromStack bld 0
+    for i in 0 .. n - 2 do
+      let v = peekFromStack bld (i + 1)
+      AST.store Endian.Little (slotAddr spReg i) v
+    AST.store Endian.Little (slotAddr spReg (n - 1)) top
+  }
 
 let dupTop (ins: Instruction) bld =
-  bld <!-- (ins.Address, ins.Length)
-  pushToStack bld (peekFromStack bld 0)
-  bld --!> ins.Length
+  lift bld ins ins.Length {
+    pushToStack bld (peekFromStack bld 0)
+  }
 
 (* DUP_TOP_TWO: duplicates the top two items, keeping their relative
    order (stack before, top-to-bottom: a, b -> after: a, b, a, b). *)
 let dupTopTwo (ins: Instruction) bld =
-  bld <!-- (ins.Address, ins.Length)
-  let a = peekFromStack bld 0
-  let b = peekFromStack bld 1
-  pushToStack bld b
-  pushToStack bld a
-  bld --!> ins.Length
+  lift bld ins ins.Length {
+    let a = peekFromStack bld 0
+    let b = peekFromStack bld 1
+    pushToStack bld b
+    pushToStack bld a
+  }
 
 (* A binary/inplace operator with no oparg of its own (3.10-and-earlier:
    each operator is its own opcode, unlike 3.12's single BINARY_OP with an
@@ -531,24 +539,24 @@ let dupTopTwo (ins: Instruction) bld =
    translation (which pattern-matches on those exact names) recognizes
    both versions' encodings identically). *)
 let binaryOpDirect opExpr (ins: Instruction) bld =
-  bld <!-- (ins.Address, ins.Length)
-  let right = popFromStack bld
-  let left = popFromStack bld
-  pushToStack bld (opExpr left right)
-  bld --!> ins.Length
+  lift bld ins ins.Length {
+    let right = popFromStack bld
+    let left = popFromStack bld
+    pushToStack bld (opExpr left right)
+  }
 
 let copyDictWithoutKeys (ins: Instruction) bld =
-  bld <!-- (ins.Address, ins.Length)
-  let keys = popFromStack bld
-  let subject = peekFromStack bld 0
-  pushToStack bld (AST.app "COPY_DICT_WITHOUT_KEYS" [ subject; keys ] rt)
-  bld --!> ins.Length
+  lift bld ins ins.Length {
+    let keys = popFromStack bld
+    let subject = peekFromStack bld 0
+    pushToStack bld (AST.app "COPY_DICT_WITHOUT_KEYS" [ subject; keys ] rt)
+  }
 
 let printExpr (ins: Instruction) bld =
-  bld <!-- (ins.Address, ins.Length)
-  let v = popFromStack bld
-  bld <+ AST.extCall (AST.app "PRINT_EXPR" [ v ] rt)
-  bld --!> ins.Length
+  lift bld ins ins.Length {
+    let v = popFromStack bld
+    AST.extCall (AST.app "PRINT_EXPR" [ v ] rt)
+  }
 
 (* YIELD_FROM (pre-3.11 `yield from`/`await`): unlike 3.12's explicit
    GET_AWAITABLE + SEND-loop decomposition (recognized and folded by
@@ -567,35 +575,35 @@ let printExpr (ins: Instruction) bld =
    made the effect 0 and left every stack slot after a `yield from` off by
    one. *)
 let yieldFrom (ins: Instruction) bld =
-  bld <!-- (ins.Address, ins.Length)
-  let sendVal = popFromStack bld
-  let subIter = peekFromStack bld 0
-  bld <+ AST.extCall (AST.app "YIELD_FROM" [ subIter; sendVal ] rt)
-  bld --!> ins.Length
+  lift bld ins ins.Length {
+    let sendVal = popFromStack bld
+    let subIter = peekFromStack bld 0
+    AST.extCall (AST.app "YIELD_FROM" [ subIter; sendVal ] rt)
+  }
 
 let callFunction (ins: Instruction) bld =
-  bld <!-- (ins.Address, ins.Length)
-  let argc = getIntArg ins
-  let args = List.init argc (fun _ -> popFromStack bld) |> List.rev
-  let func = popFromStack bld
-  (* Reuses "CALL"'s own named-app shape (maybeSelf :: func :: args @
-     [kwReg]), just with an explicit NULL self-slot and NULL kwnames in
-     place of 3.12's separate PUSH_NULL/KW_NAMES steps -- so the existing
-     HIR translation for "CALL" (TranslationHelper.fs) recognizes this
-     identically without needing its own separate pattern. *)
-  let result = AST.app "CALL" (nullSlot :: func :: args @ [ nullSlot ]) rt
-  pushToStack bld result
-  bld --!> ins.Length
+  lift bld ins ins.Length {
+    let argc = getIntArg ins
+    let args = List.init argc (fun _ -> popFromStack bld) |> List.rev
+    let func = popFromStack bld
+    (* Reuses "CALL"'s own named-app shape (maybeSelf :: func :: args @
+       [kwReg]), just with an explicit NULL self-slot and NULL kwnames in
+       place of 3.12's separate PUSH_NULL/KW_NAMES steps -- so the existing
+       HIR translation for "CALL" (TranslationHelper.fs) recognizes this
+       identically without needing its own separate pattern. *)
+    let result = AST.app "CALL" (nullSlot :: func :: args @ [ nullSlot ]) rt
+    pushToStack bld result
+  }
 
 let callFunctionKw (ins: Instruction) bld =
-  bld <!-- (ins.Address, ins.Length)
-  let argc = getIntArg ins
-  let kwNamesTuple = popFromStack bld
-  let args = List.init argc (fun _ -> popFromStack bld) |> List.rev
-  let func = popFromStack bld
-  let result = AST.app "CALL" (nullSlot :: func :: args @ [ kwNamesTuple ]) rt
-  pushToStack bld result
-  bld --!> ins.Length
+  lift bld ins ins.Length {
+    let argc = getIntArg ins
+    let kwNamesTuple = popFromStack bld
+    let args = List.init argc (fun _ -> popFromStack bld) |> List.rev
+    let func = popFromStack bld
+    let result = AST.app "CALL" (nullSlot :: func :: args @ [ kwNamesTuple ]) rt
+    pushToStack bld result
+  }
 
 (* LOAD_METHOD: like 3.12's LOAD_ATTR with its method flag always set --
    pushes NULL then the attribute, so a following CALL_METHOD (or CALL,
@@ -605,13 +613,13 @@ let callFunctionKw (ins: Instruction) bld =
    NULL-before-CALL method-call recognition in TranslationHelper.fs (built
    for 3.12's LOAD_ATTR-with-flag) applies here for free. *)
 let loadMethod (ins: Instruction) bld =
-  bld <!-- (ins.Address, ins.Length)
-  let name = operandIndex ins
-  let obj = popFromStack bld
-  let attr = AST.app "LOAD_ATTR" [ obj; name ] rt
-  pushToStack bld nullSlot
-  pushToStack bld attr
-  bld --!> ins.Length
+  lift bld ins ins.Length {
+    let name = operandIndex ins
+    let obj = popFromStack bld
+    let attr = AST.app "LOAD_ATTR" [ obj; name ] rt
+    pushToStack bld nullSlot
+    pushToStack bld attr
+  }
 
 (* CALL_METHOD: pops argc args, the method (or plain attr) below them, and
    the self-or-NULL slot LOAD_METHOD left under that -- same three-part
@@ -621,15 +629,15 @@ let loadMethod (ins: Instruction) bld =
    NULL fills that last slot. Reuses "CALL" for the same reason
    callFunction above does. *)
 let callMethod (ins: Instruction) bld =
-  bld <!-- (ins.Address, ins.Length)
-  let argc = getIntArg ins
-  let args = List.init argc (fun _ -> popFromStack bld) |> List.rev
-  let methodOrFunc = popFromStack bld
-  let selfOrNull = popFromStack bld
-  let result =
-    AST.app "CALL" (selfOrNull :: methodOrFunc :: args @ [ nullSlot ]) rt
-  pushToStack bld result
-  bld --!> ins.Length
+  lift bld ins ins.Length {
+    let argc = getIntArg ins
+    let args = List.init argc (fun _ -> popFromStack bld) |> List.rev
+    let methodOrFunc = popFromStack bld
+    let selfOrNull = popFromStack bld
+    let result =
+      AST.app "CALL" (selfOrNull :: methodOrFunc :: args @ [ nullSlot ]) rt
+    pushToStack bld result
+  }
 
 (* END_FOR: what a for loop ends at. Up to 3.12 it is alone; 3.13 splits what
    it did between it and a POP_TOP after it. What is on the stack here is the
@@ -638,66 +646,66 @@ let callMethod (ins: Instruction) bld =
    takes one slot however it is spelled. END_FOR takes it where it is alone,
    and leaves it to the POP_TOP where it is not. *)
 let endFor (ins: Instruction) bld =
-  bld <!-- (ins.Address, ins.Length)
-  if ins.Minor < 13 then discardTOS bld else ()
-  bld --!> ins.Length
+  lift bld ins ins.Length {
+    if ins.Minor < 13 then discardTOS bld else ()
+  }
 
 (* END_SEND: removes the second-from-top value (the exhausted generator
    left by SEND), keeping the top (the awaited result) in place. *)
 let endSend (ins: Instruction) bld =
-  bld <!-- (ins.Address, ins.Length)
-  let value = popFromStack bld
-  discardTOS bld
-  pushToStack bld value
-  bld --!> ins.Length
+  lift bld ins ins.Length {
+    let value = popFromStack bld
+    discardTOS bld
+    pushToStack bld value
+  }
 
 let copy (ins: Instruction) bld =
-  bld <!-- (ins.Address, ins.Length)
-  let n = getIntArg ins
-  pushToStack bld (peekFromStack bld (n - 1))
-  bld --!> ins.Length
+  lift bld ins ins.Length {
+    let n = getIntArg ins
+    pushToStack bld (peekFromStack bld (n - 1))
+  }
 
 let swap (ins: Instruction) bld =
-  bld <!-- (ins.Address, ins.Length)
-  let n = getIntArg ins
-  let top = peekFromStack bld 0
-  let nth = peekFromStack bld (n - 1)
-  let spReg = regVar bld R.SP
-  let tmp = tmpVar bld rt
-  bld <+ (tmp := top)
-  bld <+ (AST.store Endian.Little spReg nth)
-  bld <+ (AST.store Endian.Little (slotAddr spReg (n - 1)) tmp)
-  bld --!> ins.Length
+  lift bld ins ins.Length {
+    let n = getIntArg ins
+    let top = peekFromStack bld 0
+    let nth = peekFromStack bld (n - 1)
+    let spReg = regVar bld R.SP
+    let tmp = tmpVar bld rt
+    append bld { tmp := top }
+    append bld { AST.store Endian.Little spReg nth }
+    append bld { AST.store Endian.Little (slotAddr spReg (n - 1)) tmp }
+  }
 
 (* Generic store for STORE_FAST / STORE_NAME / STORE_GLOBAL / STORE_DEREF:
    pop TOS and emit an external call recording the target name. *)
 let storeNamed opname (ins: Instruction) bld =
-  bld <!-- (ins.Address, ins.Length)
-  let name = operandIndex ins
-  let value = popFromStack bld
-  let eff = AST.app opname [ name; value ] rt
-  bld <+ AST.extCall eff
-  bld --!> ins.Length
+  lift bld ins ins.Length {
+    let name = operandIndex ins
+    let value = popFromStack bld
+    let eff = AST.app opname [ name; value ] rt
+    AST.extCall eff
+  }
 
 (* STORE_ATTR: TOS = value, TOS1 = obj => obj.attr = value *)
 let storeAttr (ins: Instruction) bld =
-  bld <!-- (ins.Address, ins.Length)
-  let name = operandIndex ins
-  let obj = popFromStack bld
-  let value = popFromStack bld
-  let eff = AST.app "STORE_ATTR" [ name; obj; value ] rt
-  bld <+ AST.extCall eff
-  bld --!> ins.Length
+  lift bld ins ins.Length {
+    let name = operandIndex ins
+    let obj = popFromStack bld
+    let value = popFromStack bld
+    let eff = AST.app "STORE_ATTR" [ name; obj; value ] rt
+    AST.extCall eff
+  }
 
 (* LOAD_ATTR: pop TOS (obj), push obj.attr.
    In Python >= 3.11, ins.Flag = true means method mode: push NULL then the
    attr so that CALL sees (NULL, obj.attr, args) and treats obj as self. *)
 let loadAttr (ins: Instruction) bld =
-  bld <!-- (ins.Address, ins.Length)
-  let name = attrIndex ins
-  let obj = popFromStack bld
-  pushCallee ins bld (AST.app "LOAD_ATTR" [ obj; name ] rt)
-  bld --!> ins.Length
+  lift bld ins ins.Length {
+    let name = attrIndex ins
+    let obj = popFromStack bld
+    pushCallee ins bld (AST.app "LOAD_ATTR" [ obj; name ] rt)
+  }
 
 (* LOAD_SUPER_ATTR: pops self, __class__, and the global `super` reference
    (pushed by preceding LOAD_FAST self / LOAD_DEREF __class__ / LOAD_GLOBAL
@@ -708,161 +716,161 @@ let loadAttr (ins: Instruction) bld =
    `super(cls, obj).attr`, __class__/self are real user expressions, so we
    tag it differently to keep them. *)
 let loadSuperAttr (ins: Instruction) bld =
-  bld <!-- (ins.Address, ins.Length)
-  let name = superAttrIndex ins
-  let self = popFromStack bld
-  let cls = popFromStack bld
-  let superGlobal = popFromStack bld
-  let opname =
-    if ins.SuperHasExplicitArgs then "LOAD_SUPER_ATTR_EXPLICIT"
-    else "LOAD_SUPER_ATTR"
-  pushCallee ins bld (AST.app opname [ superGlobal; cls; self; name ] rt)
-  bld --!> ins.Length
+  lift bld ins ins.Length {
+    let name = superAttrIndex ins
+    let self = popFromStack bld
+    let cls = popFromStack bld
+    let superGlobal = popFromStack bld
+    let opname =
+      if ins.SuperHasExplicitArgs then "LOAD_SUPER_ATTR_EXPLICIT"
+      else "LOAD_SUPER_ATTR"
+    pushCallee ins bld (AST.app opname [ superGlobal; cls; self; name ] rt)
+  }
 
 (* STORE_SUBSCR: TOS1[TOS] = TOS2 ??pops three items. *)
 let storeSubscript (ins: Instruction) bld =
-  bld <!-- (ins.Address, ins.Length)
-  let sub = popFromStack bld
-  let obj = popFromStack bld
-  let value = popFromStack bld
-  let eff = AST.app "STORE_SUBSCR" [ obj; sub; value ] rt
-  bld <+ AST.extCall eff
-  bld --!> ins.Length
+  lift bld ins ins.Length {
+    let sub = popFromStack bld
+    let obj = popFromStack bld
+    let value = popFromStack bld
+    let eff = AST.app "STORE_SUBSCR" [ obj; sub; value ] rt
+    AST.extCall eff
+  }
 
 (* STORE_SLICE: TOS2[TOS1:TOS] = TOS3 ??pops four items. *)
 let storeSlice (ins: Instruction) bld =
-  bld <!-- (ins.Address, ins.Length)
-  let stop = popFromStack bld
-  let start = popFromStack bld
-  let obj = popFromStack bld
-  let value = popFromStack bld
-  let eff = AST.app "STORE_SLICE" [ obj; start; stop; value ] rt
-  bld <+ AST.extCall eff
-  bld --!> ins.Length
+  lift bld ins ins.Length {
+    let stop = popFromStack bld
+    let start = popFromStack bld
+    let obj = popFromStack bld
+    let value = popFromStack bld
+    let eff = AST.app "STORE_SLICE" [ obj; start; stop; value ] rt
+    AST.extCall eff
+  }
 
 (* DELETE_SUBSCR: del TOS1[TOS] ??pops two items. *)
 let deleteSubscript (ins: Instruction) bld =
-  bld <!-- (ins.Address, ins.Length)
-  let sub = popFromStack bld
-  let obj = popFromStack bld
-  let eff = AST.app "DELETE_SUBSCR" [ obj; sub ] rt
-  bld <+ AST.extCall eff
-  bld --!> ins.Length
+  lift bld ins ins.Length {
+    let sub = popFromStack bld
+    let obj = popFromStack bld
+    let eff = AST.app "DELETE_SUBSCR" [ obj; sub ] rt
+    AST.extCall eff
+  }
 
 (* RETURN_VALUE: pop TOS and emit a RETURN call. *)
 let translateReturn (ins: Instruction) bld =
-  bld <!-- (ins.Address, ins.Length)
-  let value = popFromStack bld
-  bld <+ AST.extCall (AST.app "RETURN" [ value ] rt)
-  bld <+ (AST.interjmp returnTarget InterJmpKind.IsRet)
-  bld
+  liftOpen bld ins ins.Length {
+    let value = popFromStack bld
+    AST.extCall (AST.app "RETURN" [ value ] rt)
+    append bld { AST.interjmp returnTarget InterJmpKind.IsRet }
+  }
 
 (* RETURN_CONST: load constant directly without a stack round-trip. *)
 let translateReturnConst (ins: Instruction) bld =
-  bld <!-- (ins.Address, ins.Length)
-  let name = operandIndex ins
-  let value = AST.app "LOAD_CONST" [ name ] rt
-  bld <+ AST.extCall (AST.app "RETURN" [ value ] rt)
-  bld <+ (AST.interjmp returnTarget InterJmpKind.IsRet)
-  bld
+  liftOpen bld ins ins.Length {
+    let name = operandIndex ins
+    let value = AST.app "LOAD_CONST" [ name ] rt
+    AST.extCall (AST.app "RETURN" [ value ] rt)
+    append bld { AST.interjmp returnTarget InterJmpKind.IsRet }
+  }
 
 (* RAISE_VARARGS arg: pop arg items (0??) and raise. *)
 let translateRaiseVarargs (ins: Instruction) bld =
-  bld <!-- (ins.Address, ins.Length)
-  let n = getIntArg ins
-  let args = List.init n (fun _ -> popFromStack bld)
-  bld <+ AST.extCall (AST.app "RAISE_VARARGS" args rt)
-  bld <+ AST.sideEffect SideEffect.Terminate
-  bld --!> ins.Length
+  lift bld ins ins.Length {
+    let n = getIntArg ins
+    let args = List.init n (fun _ -> popFromStack bld)
+    AST.extCall (AST.app "RAISE_VARARGS" args rt)
+    AST.sideEffect SideEffect.Terminate
+  }
 
 (* Conditional jump shared by POP_JUMP_IF_FALSE and POP_JUMP_IF_TRUE.
    jumpIfTrue=true  ??jump when TOS is truthy.
    jumpIfTrue=false ??jump when TOS is falsy. *)
 let condJump (ins: Instruction) bld jumpIfTrue =
-  bld <!-- (ins.Address, ins.Length)
-  let cond = popFromStack bld
-  let n = getIntArg ins
-  let jmpDst = ins.Address + uint64 ins.Length + uint64 (n * jumpArgScale ins)
-  let fallDst = ins.Address + uint64 ins.Length
-  let tLbl = AST.num (BitVector(jmpDst, rt))
-  let fLbl = AST.num (BitVector(fallDst, rt))
-  (* EXPERIMENTAL (2026-07-27): previously, jumpIfTrue negated cond and
-     swapped tLbl/fLbl, canonicalizing every conditional jump to "fallthrough
-     = true edge" regardless of the original opcode. Execution-wise that is
-     equivalent (De Morgan), but it discards which branch was the real
-     jump-taken target -- e.g. `if x in y: body` (no else, body is the
-     loop's last statement) compiles via POP_JUMP_IF_TRUE, and after the old
-     swap, Translator.fs saw an artificially negated `not (x in y)` with the
-     body/continue roles exchanged, printing `if not (x in y): continue`
-     instead of the original `if x in y: body` -- same runtime behavior, but
-     failing bytecode-identity (`x not in y` compiles to a genuinely
-     different CONTAINS_OP arg + POP_JUMP_IF_FALSE, not just a `not` wrapper
-     -- confirmed by direct comparison). This "honest" version keeps cond
-     and the two labels exactly as they map onto POP_JUMP_IF_TRUE's real
-     semantics (jump to jmpDst when truthy), matching the FALSE case's
-     existing (unmodified) mapping in spirit -- to see, empirically, what in
-     the CFG-recovery/dominance/loop-detection pipeline actually depends on
-     the old canonicalization before deciding whether to keep this. *)
-  let tLbl, fLbl = if jumpIfTrue then tLbl, fLbl else fLbl, tLbl
-  bld <+ AST.intercjmp (truthOf cond) tLbl fLbl
-  bld
+  liftOpen bld ins ins.Length {
+    let cond = popFromStack bld
+    let n = getIntArg ins
+    let jmpDst = ins.Address + uint64 ins.Length + uint64 (n * jumpArgScale ins)
+    let fallDst = ins.Address + uint64 ins.Length
+    let tLbl = AST.num (BitVector(jmpDst, rt))
+    let fLbl = AST.num (BitVector(fallDst, rt))
+    (* EXPERIMENTAL (2026-07-27): previously, jumpIfTrue negated cond and
+       swapped tLbl/fLbl, canonicalizing every conditional jump to "fallthrough
+       = true edge" regardless of the original opcode. Execution-wise that is
+       equivalent (De Morgan), but it discards which branch was the real
+       jump-taken target -- e.g. `if x in y: body` (no else, body is the
+       loop's last statement) compiles via POP_JUMP_IF_TRUE, and after the old
+       swap, Translator.fs saw an artificially negated `not (x in y)` with the
+       body/continue roles exchanged, printing `if not (x in y): continue`
+       instead of the original `if x in y: body` -- same runtime behavior, but
+       failing bytecode-identity (`x not in y` compiles to a genuinely
+       different CONTAINS_OP arg + POP_JUMP_IF_FALSE, not just a `not` wrapper
+       -- confirmed by direct comparison). This "honest" version keeps cond
+       and the two labels exactly as they map onto POP_JUMP_IF_TRUE's real
+       semantics (jump to jmpDst when truthy), matching the FALSE case's
+       existing (unmodified) mapping in spirit -- to see, empirically, what in
+       the CFG-recovery/dominance/loop-detection pipeline actually depends on
+       the old canonicalization before deciding whether to keep this. *)
+    let tLbl, fLbl = if jumpIfTrue then tLbl, fLbl else fLbl, tLbl
+    AST.intercjmp (truthOf cond) tLbl fLbl
+  }
 
 (* Conditional jump for POP_JUMP_IF_NONE / POP_JUMP_IF_NOT_NONE.
    jumpIfNone=true  ??jump when TOS is None (modeled as IS_NONE(TOS) = 1).
    jumpIfNone=false ??jump when TOS is not None. *)
 let condJumpNone (ins: Instruction) bld jumpIfNone =
-  bld <!-- (ins.Address, ins.Length)
-  let value = popFromStack bld
-  let n = getIntArg ins
-  let jmpDst = ins.Address + uint64 ins.Length + uint64 (n * jumpArgScale ins)
-  let fallDst = ins.Address + uint64 ins.Length
-  let tLbl = AST.num (BitVector(jmpDst, rt))
-  let fLbl = AST.num (BitVector(fallDst, rt))
-  (* EXPERIMENTAL (2026-07-27): honest counterpart to condJump's fix above
-     -- jump directly to jmpDst on the condition that actually matches the
-     opcode's own real semantics (IS_NONE for POP_JUMP_IF_NONE, IS_NOT_NONE
-     for POP_JUMP_IF_NOT_NONE), instead of negating to the contrapositive
-     and swapping tLbl/fLbl to fit the old "fallthrough = true edge"
-     canonicalization. *)
-  if jumpIfNone then
-    let isNone = AST.app "IS_NONE" [ value ] rt
-    bld <+ AST.intercjmp isNone tLbl fLbl
-  else
-    let isNotNone = AST.app "IS_NOT_NONE" [ value ] rt
-    bld <+ AST.intercjmp isNotNone tLbl fLbl
-  bld
+  liftOpen bld ins ins.Length {
+    let value = popFromStack bld
+    let n = getIntArg ins
+    let jmpDst = ins.Address + uint64 ins.Length + uint64 (n * jumpArgScale ins)
+    let fallDst = ins.Address + uint64 ins.Length
+    let tLbl = AST.num (BitVector(jmpDst, rt))
+    let fLbl = AST.num (BitVector(fallDst, rt))
+    (* EXPERIMENTAL (2026-07-27): honest counterpart to condJump's fix above
+       -- jump directly to jmpDst on the condition that actually matches the
+       opcode's own real semantics (IS_NONE for POP_JUMP_IF_NONE, IS_NOT_NONE
+       for POP_JUMP_IF_NOT_NONE), instead of negating to the contrapositive
+       and swapping tLbl/fLbl to fit the old "fallthrough = true edge"
+       canonicalization. *)
+    if jumpIfNone then
+      let isNone = AST.app "IS_NONE" [ value ] rt
+      AST.intercjmp isNone tLbl fLbl
+    else
+      let isNotNone = AST.app "IS_NOT_NONE" [ value ] rt
+      AST.intercjmp isNotNone tLbl fLbl
+  }
 
 let forIter minor (ins: Instruction) bld =
-  bld <!-- (ins.Address, ins.Length)
-  let tos = peekFromStack bld 0
-  let n = getIntArg ins
-  let jmpDst = ins.Address + uint64 ins.Length + uint64 (n * jumpArgScale ins)
-  let fallDst = ins.Address + uint64 ins.Length
-  let tLbl = AST.num (BitVector(jmpDst, rt))
-  let fLbl = AST.num (BitVector(fallDst, rt))
-  let cond = AST.app "IS_EXHAUSTED" [ tos ] rt
-  let lblLTrue = label bld "LTrue"
-  let lblLFalse = label bld "LFalse"
-  bld <+ AST.cjmp cond (AST.jmpDest lblLTrue) (AST.jmpDest lblLFalse)
-  (* True branch: pop the exhausted iterator and jump to the loop exit. *)
-  bld <+ AST.lmark lblLTrue
-  if minor < 12 then discardTOS bld
-  (* From 3.12, END_FOR is introduced and instead pops the iterator. *)
-  else ()
-  bld <+ AST.interjmp tLbl InterJmpKind.Base
-  (* False branch: jump to the body and push the next value. *)
-  bld <+ AST.lmark lblLFalse
-  let tos = peekFromStack bld 0
-  pushToStack bld (AST.app "NEXT" [ tos ] rt)
-  bld <+ AST.interjmp fLbl InterJmpKind.Base
-  bld
+  liftOpen bld ins ins.Length {
+    let tos = peekFromStack bld 0
+    let n = getIntArg ins
+    let jmpDst = ins.Address + uint64 ins.Length + uint64 (n * jumpArgScale ins)
+    let fallDst = ins.Address + uint64 ins.Length
+    let tLbl = AST.num (BitVector(jmpDst, rt))
+    let fLbl = AST.num (BitVector(fallDst, rt))
+    let cond = AST.app "IS_EXHAUSTED" [ tos ] rt
+    let lblLTrue = label bld "LTrue"
+    let lblLFalse = label bld "LFalse"
+    AST.cjmp cond (AST.jmpDest lblLTrue) (AST.jmpDest lblLFalse)
+    (* True branch: pop the exhausted iterator and jump to the loop exit. *)
+    AST.lmark lblLTrue
+    if minor < 12 then discardTOS bld
+    (* From 3.12, END_FOR is introduced and instead pops the iterator. *)
+    else ()
+    AST.interjmp tLbl InterJmpKind.Base
+    (* False branch: jump to the body and push the next value. *)
+    AST.lmark lblLFalse
+    let tos = peekFromStack bld 0
+    pushToStack bld (AST.app "NEXT" [ tos ] rt)
+    AST.interjmp fLbl InterJmpKind.Base
+  }
 
 let getIter (ins: Instruction) bld =
-  bld <!-- (ins.Address, ins.Length)
-  let iter = popFromStack bld
-  let iterNext = AST.app "GET_ITER" [ iter ] rt
-  pushToStack bld iterNext
-  bld --!> ins.Length
+  lift bld ins ins.Length {
+    let iter = popFromStack bld
+    let iterNext = AST.app "GET_ITER" [ iter ] rt
+    pushToStack bld iterNext
+  }
 
 (* SEND: pop TOS (sent value), send it into the receiver beneath. Per CPython's
    own bytecodes.c, the stack effect is `(receiver, v -- receiver, retval)` on
@@ -876,30 +884,30 @@ let getIter (ins: Instruction) bld =
    which is placed below the stack pointer -- and the stack pointer, with the
    sent value popped, is the receiver's own slot. *)
 let send (ins: Instruction) bld =
-  bld <!-- (ins.Address, ins.Length)
-  let sentVal = popFromStack bld
-  let gen = peekFromStack bld 0
-  (* Bound before it is used, because it is used twice: once pushed onto the
-     stack and once asked whether it means the sub-generator is done. Left as
-     an expression it would be two sends rather than one, and the second would
-     take a value out of the sub-generator that nothing ever yields. *)
-  let result = tmpVar bld rt
-  bld <+ (result := AST.app "SEND" [ gen; sentVal ] rt)
-  let n = getIntArg ins
-  let jmpDst = ins.Address + uint64 ins.Length + uint64 (n * jumpArgScale ins)
-  let fallDst = ins.Address + uint64 ins.Length
-  let isExhausted = AST.app "IS_EXHAUSTED" [ result ] rt
-  pushToStack bld result
-  bld <+ AST.intercjmp isExhausted
-    (AST.num (BitVector(jmpDst, rt)))
-    (AST.num (BitVector(fallDst, rt)))
-  bld
+  liftOpen bld ins ins.Length {
+    let sentVal = popFromStack bld
+    let gen = peekFromStack bld 0
+    (* Bound before it is used, because it is used twice: once pushed onto the
+       stack and once asked whether it means the sub-generator is done. Left as
+       an expression it would be two sends rather than one, and the second would
+       take a value out of the sub-generator that nothing ever yields. *)
+    let result = tmpVar bld rt
+    append bld { result := AST.app "SEND" [ gen; sentVal ] rt }
+    let n = getIntArg ins
+    let jmpDst = ins.Address + uint64 ins.Length + uint64 (n * jumpArgScale ins)
+    let fallDst = ins.Address + uint64 ins.Length
+    let isExhausted = AST.app "IS_EXHAUSTED" [ result ] rt
+    pushToStack bld result
+    AST.intercjmp isExhausted
+      (AST.num (BitVector(jmpDst, rt)))
+      (AST.num (BitVector(fallDst, rt)))
+  }
 
 let getYieldFromIter (ins: Instruction) bld =
-  bld <!-- (ins.Address, ins.Length)
-  let tos = popFromStack bld
-  pushToStack bld (AST.app "GET_YIELD_FROM_ITER" [ tos ] rt)
-  bld --!> ins.Length
+  lift bld ins ins.Length {
+    let tos = popFromStack bld
+    pushToStack bld (AST.app "GET_YIELD_FROM_ITER" [ tos ] rt)
+  }
 
 (* KW_NAMES: the tuple of names the following call's last arguments were given
    by, which the call reads out of the register this leaves it in. What travels
@@ -909,53 +917,53 @@ let getYieldFromIter (ins: Instruction) bld =
    register, since a kwnames tuple can genuinely be a code object's constant
    zero (`g(a=x)` at module level compiles to exactly that). *)
 let kwNames (ins: Instruction) bld =
-  bld <!-- (ins.Address, ins.Length)
-  let names = AST.app "LOAD_CONST" [ operandIndex ins ] rt
-  let kwReg = regVar bld R.KW_NAMES
-  bld <+ (kwReg := names)
-  bld --!> ins.Length
+  lift bld ins ins.Length {
+    let names = AST.app "LOAD_CONST" [ operandIndex ins ] rt
+    let kwReg = regVar bld R.KW_NAMES
+    kwReg := names
+  }
 
 let call (ins: Instruction) bld =
-  bld <!-- (ins.Address, ins.Length)
-  let argc = getIntArg ins
-  (* 3.13 folded the keyword names into the call itself: they arrive as a
-     tuple above the arguments, where 3.12 left them in a register a separate
-     KW_NAMES had set. *)
-  let named =
-    match ins.Opcode with
-    | Opcode.CALL_KW | Opcode.INSTRUMENTED_CALL_KW -> Some(popFromStack bld)
-    | _ -> None
-  let args = List.init argc (fun _ -> popFromStack bld) |> List.rev
-  let func, maybeSelf = popCallee ins bld
-  let kwReg = regVar bld R.KW_NAMES
-  let names = defaultArg named kwReg
-  let result = AST.app "CALL" (maybeSelf :: func :: args @ [ names ]) rt
-  pushToStack bld result
-  bld <+ (kwReg := nullSlot)
-  bld --!> ins.Length
+  lift bld ins ins.Length {
+    let argc = getIntArg ins
+    (* 3.13 folded the keyword names into the call itself: they arrive as a
+       tuple above the arguments, where 3.12 left them in a register a separate
+       KW_NAMES had set. *)
+    let named =
+      match ins.Opcode with
+      | Opcode.CALL_KW | Opcode.INSTRUMENTED_CALL_KW -> Some(popFromStack bld)
+      | _ -> None
+    let args = List.init argc (fun _ -> popFromStack bld) |> List.rev
+    let func, maybeSelf = popCallee ins bld
+    let kwReg = regVar bld R.KW_NAMES
+    let names = defaultArg named kwReg
+    let result = AST.app "CALL" (maybeSelf :: func :: args @ [ names ]) rt
+    pushToStack bld result
+    kwReg := nullSlot
+  }
 
 let consumeAndPush name (ins: Instruction) bld =
-  bld <!-- (ins.Address, ins.Length)
-  let v = popFromStack bld
-  let result = AST.app name [ v ] rt
-  pushToStack bld result
-  bld --!> ins.Length
+  lift bld ins ins.Length {
+    let v = popFromStack bld
+    let result = AST.app name [ v ] rt
+    pushToStack bld result
+  }
 
 (* The closure travels with the other three rather than being discarded: it is
    the tuple of cells LOAD_CLOSURE built, and the function it is being attached
    to is the only thing that says which cells a nested body reads. Dropping it
    left every closure's free variables coming from nowhere. *)
 let makeFunction (ins: Instruction) bld =
-  bld <!-- (ins.Address, ins.Length)
-  let flags = getIntArg ins
-  let codeObj = popFromStack bld
-  let closure = if flags &&& 0x08 <> 0 then popFromStack bld else nullSlot
-  let annotations = if flags &&& 0x04 <> 0 then popFromStack bld else nullSlot
-  let kwDefs = if flags &&& 0x02 <> 0 then popFromStack bld else nullSlot
-  let posDefs = if flags &&& 0x01 <> 0 then popFromStack bld else nullSlot
-  let args = [ codeObj; posDefs; kwDefs; annotations; closure ]
-  pushToStack bld (AST.app "MAKE_FUNCTION" args rt)
-  bld --!> ins.Length
+  lift bld ins ins.Length {
+    let flags = getIntArg ins
+    let codeObj = popFromStack bld
+    let closure = if flags &&& 0x08 <> 0 then popFromStack bld else nullSlot
+    let annotations = if flags &&& 0x04 <> 0 then popFromStack bld else nullSlot
+    let kwDefs = if flags &&& 0x02 <> 0 then popFromStack bld else nullSlot
+    let posDefs = if flags &&& 0x01 <> 0 then popFromStack bld else nullSlot
+    let args = [ codeObj; posDefs; kwDefs; annotations; closure ]
+    pushToStack bld (AST.app "MAKE_FUNCTION" args rt)
+  }
 
 (* 3.13 removed MAKE_FUNCTION's oparg along with everything it selected: the
    defaults, annotations and closure are attached one at a time by the
@@ -963,11 +971,11 @@ let makeFunction (ins: Instruction) bld =
    this pops. The four slots stay NULL rather than vanishing, so the app keeps
    the arity the other two forms have and HIR translation reads one shape. *)
 let makeFunctionSimple (ins: Instruction) bld =
-  bld <!-- (ins.Address, ins.Length)
-  let codeObj = popFromStack bld
-  let args = [ codeObj; nullSlot; nullSlot; nullSlot; nullSlot ]
-  pushToStack bld (AST.app "MAKE_FUNCTION" args rt)
-  bld --!> ins.Length
+  lift bld ins ins.Length {
+    let codeObj = popFromStack bld
+    let args = [ codeObj; nullSlot; nullSlot; nullSlot; nullSlot ]
+    pushToStack bld (AST.app "MAKE_FUNCTION" args rt)
+  }
 
 (* Pre-3.11: MAKE_FUNCTION pops one thing more than the later form -- an
    explicit qualname STRING sitting on top of the code object, which 3.11
@@ -986,31 +994,31 @@ let makeFunctionSimple (ins: Instruction) bld =
    the positional defaults as the keyword dictionary, so every parameter that
    had a default arrived with none. *)
 let makeFunctionLegacy (ins: Instruction) bld =
-  bld <!-- (ins.Address, ins.Length)
-  let flags = getIntArg ins
-  (* Neither popFromStack-and-ignore NOR discardTOS works here: either
-     way, the qualname's own LOAD_CONST push ends up as a dead SSA value
-     nothing ever reads, and a generic "unconsumed LOAD_CONST becomes its
-     own standalone statement" rule elsewhere (TranslationHelper.fs,
-     `processSSAStmt`'s `isDeadVar` LOAD_CONST case) then mistakes it for
-     a genuine bare-expression statement, printing the qualname as a
-     bogus leading module "docstring" (confirmed via a minimal `def
-     foo(x): return x + 1` repro under 3.10). That rule only fires on a
-     bare `Def`, not an external call -- wrapping the pop in one marks it
-     as genuinely consumed (no longer "dead") without needing a
-     recognized opcode name for `processSSAStmt`'s catch-all to actually
-     act on (an unrecognized ExternalCall name is silently ignored, same
-     as e.g. register-bookkeeping Defs are). *)
-  let qualname = popFromStack bld
-  bld <+ AST.extCall (AST.app "DISCARD" [ qualname ] rt)
-  let codeObj = popFromStack bld
-  let closure = if flags &&& 0x08 <> 0 then popFromStack bld else nullSlot
-  let annotations = if flags &&& 0x04 <> 0 then popFromStack bld else nullSlot
-  let kwDefs = if flags &&& 0x02 <> 0 then popFromStack bld else nullSlot
-  let posDefs = if flags &&& 0x01 <> 0 then popFromStack bld else nullSlot
-  let args = [ codeObj; posDefs; kwDefs; annotations; closure ]
-  pushToStack bld (AST.app "MAKE_FUNCTION" args rt)
-  bld --!> ins.Length
+  lift bld ins ins.Length {
+    let flags = getIntArg ins
+    (* Neither popFromStack-and-ignore NOR discardTOS works here: either
+       way, the qualname's own LOAD_CONST push ends up as a dead SSA value
+       nothing ever reads, and a generic "unconsumed LOAD_CONST becomes its
+       own standalone statement" rule elsewhere (TranslationHelper.fs,
+       `processSSAStmt`'s `isDeadVar` LOAD_CONST case) then mistakes it for
+       a genuine bare-expression statement, printing the qualname as a
+       bogus leading module "docstring" (confirmed via a minimal `def
+       foo(x): return x + 1` repro under 3.10). That rule only fires on a
+       bare `Def`, not an external call -- wrapping the pop in one marks it
+       as genuinely consumed (no longer "dead") without needing a
+       recognized opcode name for `processSSAStmt`'s catch-all to actually
+       act on (an unrecognized ExternalCall name is silently ignored, same
+       as e.g. register-bookkeeping Defs are). *)
+    let qualname = popFromStack bld
+    AST.extCall (AST.app "DISCARD" [ qualname ] rt)
+    let codeObj = popFromStack bld
+    let closure = if flags &&& 0x08 <> 0 then popFromStack bld else nullSlot
+    let annotations = if flags &&& 0x04 <> 0 then popFromStack bld else nullSlot
+    let kwDefs = if flags &&& 0x02 <> 0 then popFromStack bld else nullSlot
+    let posDefs = if flags &&& 0x01 <> 0 then popFromStack bld else nullSlot
+    let args = [ codeObj; posDefs; kwDefs; annotations; closure ]
+    pushToStack bld (AST.app "MAKE_FUNCTION" args rt)
+  }
 
 (* Pre-3.11, the callable sits directly on TOS with no NULL/self slot
    beneath it (that slot is a 3.11+ addition, matching CALL's own
@@ -1023,49 +1031,49 @@ let makeFunctionLegacy (ins: Instruction) bld =
    untranslatable raw `Load(MemVar, ...)` once SSAStackPointerPropagation
    lost ConstSP tracking after the phantom extra pop). *)
 let callFunctionEx minor (ins: Instruction) bld =
-  bld <!-- (ins.Address, ins.Length)
-  (* 3.14 dropped the oparg whose low bit used to say whether a keyword
-     mapping was passed: the mapping became a stack slot that is always
-     there, holding NULL for a call that passes none. 3.13's instrumented
-     form has no oparg either, and nothing else says what it was, so the
-     unflagged shape -- no mapping -- is what it reads as. *)
-  let kwargs =
-    if minor >= 14 then popFromStack bld
-    elif getIntArgOr 0 ins &&& 0x01 <> 0 then popFromStack bld
-    else nullSlot
-  let args = popFromStack bld
-  let func, maybeSelf =
-    if minor >= 11 then popCallee ins bld else popFromStack bld, nullSlot
-  let result = AST.app "CALL_FUNCTION_EX" [ maybeSelf; func; args; kwargs ] rt
-  pushToStack bld result
-  bld --!> ins.Length
+  lift bld ins ins.Length {
+    (* 3.14 dropped the oparg whose low bit used to say whether a keyword
+       mapping was passed: the mapping became a stack slot that is always
+       there, holding NULL for a call that passes none. 3.13's instrumented
+       form has no oparg either, and nothing else says what it was, so the
+       unflagged shape -- no mapping -- is what it reads as. *)
+    let kwargs =
+      if minor >= 14 then popFromStack bld
+      elif getIntArgOr 0 ins &&& 0x01 <> 0 then popFromStack bld
+      else nullSlot
+    let args = popFromStack bld
+    let func, maybeSelf =
+      if minor >= 11 then popCallee ins bld else popFromStack bld, nullSlot
+    let result = AST.app "CALL_FUNCTION_EX" [ maybeSelf; func; args; kwargs ] rt
+    pushToStack bld result
+  }
 
 (* 3.0 gives neither this nor SET_ADD an oparg: the collection is always the
    slot directly beneath the item, which is what an oparg of 1 says. *)
 let listAppend (ins: Instruction) bld =
-  bld <!-- (ins.Address, ins.Length)
-  let i = getIntArgOr 1 ins
-  let item = popFromStack bld
-  let lst = peekFromStack bld (i - 1)
-  bld <+ AST.extCall (AST.app "LIST_APPEND" [ lst; item ] rt)
-  bld --!> ins.Length
+  lift bld ins ins.Length {
+    let i = getIntArgOr 1 ins
+    let item = popFromStack bld
+    let lst = peekFromStack bld (i - 1)
+    AST.extCall (AST.app "LIST_APPEND" [ lst; item ] rt)
+  }
 
 let setAdd (ins: Instruction) bld =
-  bld <!-- (ins.Address, ins.Length)
-  let i = getIntArgOr 1 ins
-  let item = popFromStack bld
-  let st = peekFromStack bld (i - 1)
-  bld <+ AST.extCall (AST.app "SET_ADD" [ st; item ] rt)
-  bld --!> ins.Length
+  lift bld ins ins.Length {
+    let i = getIntArgOr 1 ins
+    let item = popFromStack bld
+    let st = peekFromStack bld (i - 1)
+    AST.extCall (AST.app "SET_ADD" [ st; item ] rt)
+  }
 
 let mapAdd (ins: Instruction) bld =
-  bld <!-- (ins.Address, ins.Length)
-  let i = getIntArg ins
-  let value = popFromStack bld
-  let key = popFromStack bld
-  let mp = peekFromStack bld (i - 1)
-  bld <+ AST.extCall (AST.app "MAP_ADD" [ mp; key; value ] rt)
-  bld --!> ins.Length
+  lift bld ins ins.Length {
+    let i = getIntArg ins
+    let value = popFromStack bld
+    let key = popFromStack bld
+    let mp = peekFromStack bld (i - 1)
+    AST.extCall (AST.app "MAP_ADD" [ mp; key; value ] rt)
+  }
 
 (* DICT_MERGE/DICT_UPDATE replace the dict `i-1` slots below TOS with a new
    merged value -- rather than popping it, updating in place, and leaving
@@ -1084,15 +1092,15 @@ let mapAdd (ins: Instruction) bld =
    value flowing through the same recognized push/pop primitives as
    everywhere else. *)
 let dictMerge name (ins: Instruction) bld =
-  bld <!-- (ins.Address, ins.Length)
-  let i = getIntArg ins
-  let update = popFromStack bld
-  let saved = [| for _ in 1 .. i - 1 -> popFromStack bld |]
-  let dict = popFromStack bld
-  let merged = AST.app name [ dict; update ] rt
-  pushToStack bld merged
-  for v in Array.rev saved do pushToStack bld v
-  bld --!> ins.Length
+  lift bld ins ins.Length {
+    let i = getIntArg ins
+    let update = popFromStack bld
+    let saved = [| for _ in 1 .. i - 1 -> popFromStack bld |]
+    let dict = popFromStack bld
+    let merged = AST.app name [ dict; update ] rt
+    pushToStack bld merged
+    for v in Array.rev saved do pushToStack bld v
+  }
 
 let cmpOpName = function
   | 0 -> "<"
@@ -1123,37 +1131,37 @@ let private legacyCmp idx left right =
    the result is to be forced to a bool. Reading a 3.13 argument four bits down
    leaves that bit in the index, which names an operator there is none of. *)
 let compareOP minor (ins: Instruction) bld =
-  bld <!-- (ins.Address, ins.Length)
-  let n = getIntArg ins
-  let opIdx = if minor >= 13 then n >>> 5 elif minor >= 12 then n >>> 4 else n
-  let right = popFromStack bld
-  let left = popFromStack bld
-  if minor >= 9 then pushToStack bld (opApp (cmpOpName opIdx) left right)
-  else pushToStack bld (legacyCmp opIdx left right)
-  bld --!> ins.Length
+  lift bld ins ins.Length {
+    let n = getIntArg ins
+    let opIdx = if minor >= 13 then n >>> 5 elif minor >= 12 then n >>> 4 else n
+    let right = popFromStack bld
+    let left = popFromStack bld
+    if minor >= 9 then pushToStack bld (opApp (cmpOpName opIdx) left right)
+    else pushToStack bld (legacyCmp opIdx left right)
+  }
 
 (* IS_OP: pop TOS (right) and TOS1 (left), push identity test.
    operand=0 ??left is right; operand=1 ??left is not right. *)
 let isOp (ins: Instruction) bld =
-  bld <!-- (ins.Address, ins.Length)
-  let invert = getIntArg ins
-  let right = popFromStack bld
-  let left = popFromStack bld
-  let fname = if invert = 0 then "IS_OP" else "NOT_IS_OP"
-  pushToStack bld (AST.app fname [ left; right ] rt)
-  bld --!> ins.Length
+  lift bld ins ins.Length {
+    let invert = getIntArg ins
+    let right = popFromStack bld
+    let left = popFromStack bld
+    let fname = if invert = 0 then "IS_OP" else "NOT_IS_OP"
+    pushToStack bld (AST.app fname [ left; right ] rt)
+  }
 
 (* CONTAINS_OP: pop TOS (container) and TOS1 (item), push membership test.
    operand=0 ??item in container; operand=1 ??item not in container. *)
 let containsOp (ins: Instruction) bld =
-  bld <!-- (ins.Address, ins.Length)
-  let invert = getIntArg ins
-  let container = popFromStack bld
-  let item = popFromStack bld
-  let fname = if invert = 0 then "CONTAINS_OP" else "NOT_CONTAINS_OP"
-  let result = AST.app fname [ container; item ] rt
-  pushToStack bld result
-  bld --!> ins.Length
+  lift bld ins ins.Length {
+    let invert = getIntArg ins
+    let container = popFromStack bld
+    let item = popFromStack bld
+    let fname = if invert = 0 then "CONTAINS_OP" else "NOT_CONTAINS_OP"
+    let result = AST.app fname [ container; item ] rt
+    pushToStack bld result
+  }
 
 /// The operator a BINARY_OP argument names. Zero to twelve are the plain
 /// operators and thirteen to twenty-five their in-place forms (`+=`, `-=`,
@@ -1202,27 +1210,27 @@ let private binaryOpName addr = function
    arg directly indexes the operation; inplace variants (arg >= 13) share
    the same index offset as their non-inplace counterparts. *)
 let binaryOp (ins: Instruction) bld =
-  bld <!-- (ins.Address, ins.Length)
-  let right = popFromStack bld
-  let left = popFromStack bld
-  let name = binaryOpName ins.Address (getIntArg ins)
-  pushToStack bld (opApp name left right)
-  bld --!> ins.Length
+  lift bld ins ins.Length {
+    let right = popFromStack bld
+    let left = popFromStack bld
+    let name = binaryOpName ins.Address (getIntArg ins)
+    pushToStack bld (opApp name left right)
+  }
 
 let binarySubscr (ins: Instruction) bld =
-  bld <!-- (ins.Address, ins.Length)
-  let idx = popFromStack bld
-  let obj = popFromStack bld
-  pushToStack bld (AST.app "BINARY_SUBSCR" [ obj; idx ] rt)
-  bld --!> ins.Length
+  lift bld ins ins.Length {
+    let idx = popFromStack bld
+    let obj = popFromStack bld
+    pushToStack bld (AST.app "BINARY_SUBSCR" [ obj; idx ] rt)
+  }
 
 let binarySlice (ins: Instruction) bld =
-  bld <!-- (ins.Address, ins.Length)
-  let stop = popFromStack bld
-  let start = popFromStack bld
-  let obj = popFromStack bld
-  pushToStack bld (AST.app "BINARY_SLICE" [ obj; start; stop ] rt)
-  bld --!> ins.Length
+  lift bld ins ins.Length {
+    let stop = popFromStack bld
+    let start = popFromStack bld
+    let obj = popFromStack bld
+    pushToStack bld (AST.app "BINARY_SLICE" [ obj; start; stop ] rt)
+  }
 
 /// UNPACK_SEQUENCE: the elements go on the stack so that the *first* one ends
 /// up on top, because the stores that follow take them off in the order the
@@ -1238,45 +1246,45 @@ let binarySlice (ins: Instruction) bld =
    takes depends on how long the sequence turns out to be, which only the
    runtime knows, so each is asked for by position rather than sliced here. *)
 let unpackEx (ins: Instruction) bld =
-  bld <!-- (ins.Address, ins.Length)
-  let arg = getIntArg ins
-  let before = arg &&& 0xFF
-  let after = arg >>> 8
-  let seq = popFromStack bld
-  (* Walked once, for the same reason UNPACK_SEQUENCE walks once. *)
-  let items = tmpVar bld rt
-  bld <+ (items := AST.app "LIST_TO_TUPLE" [ seq ] rt)
-  for i in before + after .. -1 .. 0 do
-    let taken =
-      AST.app "UNPACK_EX"
-        [ items
-          AST.num (BitVector(before, rt))
-          AST.num (BitVector(after, rt))
-          AST.num (BitVector(i, rt)) ] rt
-    pushToStack bld taken
-  bld --!> ins.Length
+  lift bld ins ins.Length {
+    let arg = getIntArg ins
+    let before = arg &&& 0xFF
+    let after = arg >>> 8
+    let seq = popFromStack bld
+    (* Walked once, for the same reason UNPACK_SEQUENCE walks once. *)
+    let items = tmpVar bld rt
+    items := AST.app "LIST_TO_TUPLE" [ seq ] rt
+    for i in before + after .. -1 .. 0 do
+      let taken =
+        AST.app "UNPACK_EX"
+          [ items
+            AST.num (BitVector(before, rt))
+            AST.num (BitVector(after, rt))
+            AST.num (BitVector(i, rt)) ] rt
+      pushToStack bld taken
+  }
 
 let unpackSequence (ins: Instruction) bld =
-  bld <!-- (ins.Address, ins.Length)
-  let n = getIntArg ins
-  let seq = popFromStack bld
-  (* Walked once, into a tuple the elements are then taken from. Asking for
-     each element against the sequence itself would walk it once per element,
-     and walking a generator consumes it -- so `a, b = (x for x in xs)` would
-     take the first element and then find nothing left, which is a wrong
-     answer rather than a failure. *)
-  let items = tmpVar bld rt
-  bld <+ (items := AST.app "LIST_TO_TUPLE" [ seq ] rt)
-  (* How many targets there are goes with each element, because the count is
-     half of what makes an unpacking right: a sequence longer than the targets
-     is as much an error as one shorter, and only the opcode's argument says
-     how many were written. *)
-  for i in n - 1 .. -1 .. 0 do
-    let elem =
-      AST.app "UNPACK"
-        [ items; AST.num (BitVector(i, rt)); AST.num (BitVector(n, rt)) ] rt
-    pushToStack bld elem
-  bld --!> ins.Length
+  lift bld ins ins.Length {
+    let n = getIntArg ins
+    let seq = popFromStack bld
+    (* Walked once, into a tuple the elements are then taken from. Asking for
+       each element against the sequence itself would walk it once per element,
+       and walking a generator consumes it -- so `a, b = (x for x in xs)` would
+       take the first element and then find nothing left, which is a wrong
+       answer rather than a failure. *)
+    let items = tmpVar bld rt
+    append bld { items := AST.app "LIST_TO_TUPLE" [ seq ] rt }
+    (* How many targets there are goes with each element, because the count is
+       half of what makes an unpacking right: a sequence longer than the targets
+       is as much an error as one shorter, and only the opcode's argument says
+       how many were written. *)
+    for i in n - 1 .. -1 .. 0 do
+      let elem =
+        AST.app "UNPACK"
+          [ items; AST.num (BitVector(i, rt)); AST.num (BitVector(n, rt)) ] rt
+      pushToStack bld elem
+  }
 
 (* Same fix as dictMerge above, and for the same reason: pop down to the
    list (saving any intervening values), extend it, then push the result
@@ -1284,15 +1292,15 @@ let unpackSequence (ins: Instruction) bld =
    new value back via a raw store SSAStackPointerPropagation's ConstSP
    tracking cannot see through. *)
 let listExtend (ins: Instruction) bld =
-  bld <!-- (ins.Address, ins.Length)
-  let n = getIntArg ins
-  let tos = popFromStack bld
-  let saved = [| for _ in 1 .. n - 1 -> popFromStack bld |]
-  let lst = popFromStack bld
-  let extended = AST.app "LIST_EXTEND" [ lst; tos ] rt
-  pushToStack bld extended
-  for v in Array.rev saved do pushToStack bld v
-  bld --!> ins.Length
+  lift bld ins ins.Length {
+    let n = getIntArg ins
+    let tos = popFromStack bld
+    let saved = [| for _ in 1 .. n - 1 -> popFromStack bld |]
+    let lst = popFromStack bld
+    let extended = AST.app "LIST_EXTEND" [ lst; tos ] rt
+    pushToStack bld extended
+    for v in Array.rev saved do pushToStack bld v
+  }
 
 /// SET_UPDATE, which is LIST_EXTEND's counterpart for a set: the iterable on
 /// top is folded into the set n slots below it. A set display whose elements
@@ -1300,50 +1308,50 @@ let listExtend (ins: Instruction) bld =
 /// frozen set, then SET_UPDATE -- so it stands between a program and every
 /// `{1, 2, 3}` it writes, not just an unpacking one.
 let setUpdate (ins: Instruction) bld =
-  bld <!-- (ins.Address, ins.Length)
-  let n = getIntArg ins
-  let tos = popFromStack bld
-  let saved = [| for _ in 1 .. n - 1 -> popFromStack bld |]
-  let st = popFromStack bld
-  let updated = AST.app "SET_UPDATE" [ st; tos ] rt
-  pushToStack bld updated
-  for v in Array.rev saved do pushToStack bld v
-  bld --!> ins.Length
+  lift bld ins ins.Length {
+    let n = getIntArg ins
+    let tos = popFromStack bld
+    let saved = [| for _ in 1 .. n - 1 -> popFromStack bld |]
+    let st = popFromStack bld
+    let updated = AST.app "SET_UPDATE" [ st; tos ] rt
+    pushToStack bld updated
+    for v in Array.rev saved do pushToStack bld v
+  }
 
 let buildCollection name (ins: Instruction) bld =
-  bld <!-- (ins.Address, ins.Length)
-  let n = getIntArg ins
-  let items =
-    [| for _ in 0 .. n - 1 do yield popFromStack bld |]
-    |> Array.rev
-    |> Array.toList
-  pushToStack bld (AST.app name items rt)
-  bld --!> ins.Length
+  lift bld ins ins.Length {
+    let n = getIntArg ins
+    let items =
+      [| for _ in 0 .. n - 1 do yield popFromStack bld |]
+      |> Array.rev
+      |> Array.toList
+    pushToStack bld (AST.app name items rt)
+  }
 
 (* BUILD_MAP: pops n key-value pairs (key1 value1 ... keyN valueN from
    bottom to top) and pushes the resulting dict. *)
 let buildMap (ins: Instruction) bld =
-  bld <!-- (ins.Address, ins.Length)
-  let n = getIntArg ins
-  let items =
-    [| for _ in 0 .. (2 * n) - 1 do yield popFromStack bld |]
-    |> Array.rev
-    |> Array.toList
-  pushToStack bld (AST.app "BUILD_MAP" items rt)
-  bld --!> ins.Length
+  lift bld ins ins.Length {
+    let n = getIntArg ins
+    let items =
+      [| for _ in 0 .. (2 * n) - 1 do yield popFromStack bld |]
+      |> Array.rev
+      |> Array.toList
+    pushToStack bld (AST.app "BUILD_MAP" items rt)
+  }
 
 (* BUILD_CONST_KEY_MAP: TOS = keys tuple, TOS1..TOS(n) = values.
    Pops keys then n values; pushes the resulting dict. *)
 let buildConstKeyMap (ins: Instruction) bld =
-  bld <!-- (ins.Address, ins.Length)
-  let n = getIntArg ins
-  let keys = popFromStack bld
-  let values =
-    [| for _ in 0 .. n - 1 do yield popFromStack bld |]
-    |> Array.rev
-    |> Array.toList
-  pushToStack bld (AST.app "BUILD_CONST_KEY_MAP" (keys :: values) rt)
-  bld --!> ins.Length
+  lift bld ins ins.Length {
+    let n = getIntArg ins
+    let keys = popFromStack bld
+    let values =
+      [| for _ in 0 .. n - 1 do yield popFromStack bld |]
+      |> Array.rev
+      |> Array.toList
+    pushToStack bld (AST.app "BUILD_CONST_KEY_MAP" (keys :: values) rt)
+  }
 
 (* FORMAT_VALUE: flags & 0x3 = conversion (0=none,1=str,2=repr,3=ascii);
    flags & 0x4 = has_format_spec. Pops spec (if any) then value; pushes
@@ -1351,11 +1359,11 @@ let buildConstKeyMap (ins: Instruction) bld =
    oparg already holds rather than a rendering of it, so the operand stays a
    number the IR can actually reason about. *)
 let formatValue (ins: Instruction) bld =
-  bld <!-- (ins.Address, ins.Length)
-  let flags = getIntArg ins
-  let spec = if flags &&& 0x4 <> 0 then [ popFromStack bld ] else []
-  let value = popFromStack bld
-  let conv = numI32 (flags &&& 0x3) rt
-  let result = AST.app "FORMAT_VALUE" (value :: conv :: spec) rt
-  pushToStack bld result
-  bld --!> ins.Length
+  lift bld ins ins.Length {
+    let flags = getIntArg ins
+    let spec = if flags &&& 0x4 <> 0 then [ popFromStack bld ] else []
+    let value = popFromStack bld
+    let conv = numI32 (flags &&& 0x3) rt
+    let result = AST.app "FORMAT_VALUE" (value :: conv :: spec) rt
+    pushToStack bld result
+  }

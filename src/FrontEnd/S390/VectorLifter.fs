@@ -66,8 +66,10 @@ let private whole v = AST.concat v.Hi v.Lo
 
 /// Writes 128 bits back into a vector's two halves.
 let private setWhole bld v (e: Expr) =
-  bld <+ (v.Hi := AST.xthi 64<rt> e)
-  bld <+ (v.Lo := AST.xtlo 64<rt> e)
+  append bld {
+    v.Hi := AST.xthi 64<rt> e
+    v.Lo := AST.xtlo 64<rt> e
+  }
 
 let private bitsOf (w: RegType) = RegType.toBitWidth w
 
@@ -89,7 +91,7 @@ let private getLane v w i = if bitsOf w = 128 then whole v else lane v w i
 
 /// Writes an element back, taking a quadword one through the pair of halves.
 let private setLane bld d w i e =
-  if bitsOf w = 128 then setWhole bld d e else bld <+ (lane d w i := e)
+  if bitsOf w = 128 then setWhole bld d e else append bld { lane d w i := e }
 
 /// The element size a mask names: the sizes run from byte through quadword in
 /// the order the architecture numbers them.
@@ -105,40 +107,46 @@ let private esize (m: Mask) =
 /// computed into temporaries before any is written back, so an instruction
 /// whose destination is also one of its sources still reads the old elements.
 let private mapPair bld w d x y f =
-  if bitsOf w = 128 then
-    let t = tmpVar bld 128<rt>
-    bld <+ (t := f (whole x) (whole y))
-    setWhole bld d t
-  else
-    let n = lanes w
-    let ts = Array.init n (fun _ -> tmpVar bld w)
-    for i in 0 .. n - 1 do
-      bld <+ (ts[i] := f (lane x w i) (lane y w i))
-    for i in 0 .. n - 1 do
-      bld <+ (lane d w i := ts[i])
+  append bld {
+    if bitsOf w = 128 then
+      let t = tmpVar bld 128<rt>
+      t := f (whole x) (whole y)
+      setWhole bld d t
+    else
+      let n = lanes w
+      let ts = Array.init n (fun _ -> tmpVar bld w)
+      for i in 0 .. n - 1 do
+        ts[i] := f (lane x w i) (lane y w i)
+      for i in 0 .. n - 1 do
+        lane d w i := ts[i]
+  }
 
 /// Applies an operation to every element of one vector.
 let private mapOne bld w d x f =
-  if bitsOf w = 128 then
-    let t = tmpVar bld 128<rt>
-    bld <+ (t := f (whole x))
-    setWhole bld d t
-  else
-    let n = lanes w
-    let ts = Array.init n (fun _ -> tmpVar bld w)
-    for i in 0 .. n - 1 do
-      bld <+ (ts[i] := f (lane x w i))
-    for i in 0 .. n - 1 do
-      bld <+ (lane d w i := ts[i])
+  append bld {
+    if bitsOf w = 128 then
+      let t = tmpVar bld 128<rt>
+      t := f (whole x)
+      setWhole bld d t
+    else
+      let n = lanes w
+      let ts = Array.init n (fun _ -> tmpVar bld w)
+      for i in 0 .. n - 1 do
+        ts[i] := f (lane x w i)
+      for i in 0 .. n - 1 do
+        lane d w i := ts[i]
+  }
 
 /// Applies an operation to every triple of matching elements.
 let private mapTriple bld w d x y z f =
-  let n = lanes w
-  let ts = Array.init n (fun _ -> tmpVar bld w)
-  for i in 0 .. n - 1 do
-    bld <+ (ts[i] := f (lane x w i) (lane y w i) (lane z w i))
-  for i in 0 .. n - 1 do
-    bld <+ (lane d w i := ts[i])
+  append bld {
+    let n = lanes w
+    let ts = Array.init n (fun _ -> tmpVar bld w)
+    for i in 0 .. n - 1 do
+      ts[i] := f (lane x w i) (lane y w i) (lane z w i)
+    for i in 0 .. n - 1 do
+      lane d w i := ts[i]
+  }
 
 /// An element all of whose bits are one, which is what a comparison that holds
 /// writes and a test of a lane looks for.
@@ -147,55 +155,56 @@ let private allOnes w = numI64 -1L w
 /// An operation whose operands are two vectors and whose element size a mask
 /// gives: the very shape most of the facility's arithmetic takes.
 let private binary ins insLen bld f =
-  let o = oprArray ins
-  let w = esize (oprMask o[3])
-  bld <!-- ((ins: Instruction).Address, insLen)
-  mapPair bld w (vec bld o[0]) (vec bld o[1]) (vec bld o[2]) f
-  bld --!> insLen
+  lift bld (ins: Instruction) insLen {
+    let o = oprArray ins
+    let w = esize (oprMask o[3])
+    mapPair bld w (vec bld o[0]) (vec bld o[1]) (vec bld o[2]) f
+  }
 
 /// The same shape, but at a fixed element size the opcode itself names.
 let private binaryAt ins insLen bld w f =
-  let o = oprArray ins
-  bld <!-- ((ins: Instruction).Address, insLen)
-  mapPair bld w (vec bld o[0]) (vec bld o[1]) (vec bld o[2]) f
-  bld --!> insLen
+  lift bld (ins: Instruction) insLen {
+    let o = oprArray ins
+    mapPair bld w (vec bld o[0]) (vec bld o[1]) (vec bld o[2]) f
+  }
 
 /// A one-operand operation whose element size a mask gives.
 let private unary ins insLen bld f =
-  let o = oprArray ins
-  let w = esize (oprMask o[2])
-  bld <!-- ((ins: Instruction).Address, insLen)
-  mapOne bld w (vec bld o[0]) (vec bld o[1]) f
-  bld --!> insLen
+  lift bld (ins: Instruction) insLen {
+    let o = oprArray ins
+    let w = esize (oprMask o[2])
+    mapOne bld w (vec bld o[0]) (vec bld o[1]) f
+  }
 
 /// A three-vector operation whose element size a mask gives.
 let private ternary ins insLen bld f =
-  let o = oprArray ins
-  let w = esize (oprMask o[4])
-  bld <!-- ((ins: Instruction).Address, insLen)
-  mapTriple bld w (vec bld o[0]) (vec bld o[1]) (vec bld o[2]) (vec bld o[3]) f
-  bld --!> insLen
+  lift bld (ins: Instruction) insLen {
+    let o = oprArray ins
+    let w = esize (oprMask o[4])
+    mapTriple
+      bld w (vec bld o[0]) (vec bld o[1]) (vec bld o[2]) (vec bld o[3]) f
+  }
 
 /// VECTOR LOAD and VECTOR STORE, the plain sixteen-byte accesses.
 let load ins insLen bld =
-  let o = oprArray ins
-  let d = vec bld o[0]
-  let addr = tmpVar bld GRSize
-  bld <!-- ((ins: Instruction).Address, insLen)
-  bld <+ (addr := transMem bld o[1])
-  bld <+ (d.Hi := loadMem GRSize addr)
-  bld <+ (d.Lo := loadMem GRSize (addr .+ numG 8L))
-  bld --!> insLen
+  lift bld (ins: Instruction) insLen {
+    let o = oprArray ins
+    let d = vec bld o[0]
+    let addr = tmpVar bld GRSize
+    addr := transMem bld o[1]
+    d.Hi := loadMem GRSize addr
+    d.Lo := loadMem GRSize (addr .+ numG 8L)
+  }
 
 let store ins insLen bld =
-  let o = oprArray ins
-  let s = vec bld o[0]
-  let addr = tmpVar bld GRSize
-  bld <!-- ((ins: Instruction).Address, insLen)
-  bld <+ (addr := transMem bld o[1])
-  bld <+ storeMem addr s.Hi
-  bld <+ storeMem (addr .+ numG 8L) s.Lo
-  bld --!> insLen
+  lift bld (ins: Instruction) insLen {
+    let o = oprArray ins
+    let s = vec bld o[0]
+    let addr = tmpVar bld GRSize
+    addr := transMem bld o[1]
+    storeMem addr s.Hi
+    storeMem (addr .+ numG 8L) s.Lo
+  }
 
 /// The registers a load- or store-multiple walks, wrapping around VR31 to VR0.
 let private vecRange (v1: Register) (v3: Register) =
@@ -206,281 +215,281 @@ let private vecRange (v1: Register) (v3: Register) =
 
 /// VECTOR LOAD MULTIPLE and VECTOR STORE MULTIPLE.
 let multiple ins insLen bld isLoad =
-  let o = oprArray ins
-  let regs = vecRange (oprReg o[0]) (oprReg o[2])
-  let addr = tmpVar bld GRSize
-  bld <!-- ((ins: Instruction).Address, insLen)
-  bld <+ (addr := transMem bld o[1])
-  for i in 0 .. regs.Length - 1 do
-    let v = vecOf bld regs[i]
-    let at = addr .+ numG (int64 i * 16L)
-    if isLoad then
-      bld <+ (v.Hi := loadMem GRSize at)
-      bld <+ (v.Lo := loadMem GRSize (at .+ numG 8L))
-    else
-      bld <+ storeMem at v.Hi
-      bld <+ storeMem (at .+ numG 8L) v.Lo
-  bld --!> insLen
+  lift bld (ins: Instruction) insLen {
+    let o = oprArray ins
+    let regs = vecRange (oprReg o[0]) (oprReg o[2])
+    let addr = tmpVar bld GRSize
+    addr := transMem bld o[1]
+    for i in 0 .. regs.Length - 1 do
+      let v = vecOf bld regs[i]
+      let at = addr .+ numG (int64 i * 16L)
+      if isLoad then
+        v.Hi := loadMem GRSize at
+        v.Lo := loadMem GRSize (at .+ numG 8L)
+      else
+        storeMem at v.Hi
+        storeMem (at .+ numG 8L) v.Lo
+  }
 
 /// VECTOR LOAD WITH LENGTH and VECTOR STORE WITH LENGTH: the third operand's
 /// register says how many bytes past the address take part, and the rest of the
 /// vector is zeroed (loading) or left alone in storage (storing).
 let withLength ins insLen bld isLoad =
-  let o = oprArray ins
-  let v = vec bld o[0]
-  let addr = tmpVar bld GRSize
-  let len = tmpVar bld GRSize
-  bld <!-- ((ins: Instruction).Address, insLen)
-  bld <+ (addr := transMem bld o[1])
-  bld <+ (len := zextTo GRSize (low (oprRegVar bld o[2])) .+ AST.num1 GRSize)
-  if isLoad then
-    bld <+ (v.Hi := AST.num0 GRSize)
-    bld <+ (v.Lo := AST.num0 GRSize)
-  else
-    ()
-  for i in 0 .. 15 do
-    let skip = label bld $"VlenSkip{i}"
-    let act = label bld $"VlenAct{i}"
-    bld <+ (AST.cjmp (numG (int64 i) .< len)
-                     (AST.jmpDest act)
-                     (AST.jmpDest skip))
-    bld <+ (AST.lmark act)
-    let at = addr .+ numG (int64 i)
-    if isLoad then bld <+ (lane v 8<rt> i := loadMem 8<rt> at)
-    else bld <+ storeMem at (lane v 8<rt> i)
-    bld <+ (AST.lmark skip)
-  bld --!> insLen
+  lift bld (ins: Instruction) insLen {
+    let o = oprArray ins
+    let v = vec bld o[0]
+    let addr = tmpVar bld GRSize
+    let len = tmpVar bld GRSize
+    addr := transMem bld o[1]
+    len := zextTo GRSize (low (oprRegVar bld o[2])) .+ AST.num1 GRSize
+    if isLoad then
+      v.Hi := AST.num0 GRSize
+      v.Lo := AST.num0 GRSize
+    else
+      ()
+    for i in 0 .. 15 do
+      let skip = label bld $"VlenSkip{i}"
+      let act = label bld $"VlenAct{i}"
+      AST.cjmp (numG (int64 i) .< len)
+               (AST.jmpDest act)
+               (AST.jmpDest skip)
+      AST.lmark act
+      let at = addr .+ numG (int64 i)
+      if isLoad then append bld { lane v 8<rt> i := loadMem 8<rt> at }
+      else append bld { storeMem at (lane v 8<rt> i) }
+      AST.lmark skip
+  }
 
 /// VECTOR LOAD TO BLOCK BOUNDARY, which loads as much as it can without
 /// crossing the boundary the mask names and leaves the rest of the vector
 /// undefined -- zero here, which is a value the architecture allows.
 let loadToBoundary ins insLen bld =
-  let o = oprArray ins
-  let v = vec bld o[0]
-  let bound =
-    match oprMask o[2] &&& 0xfus with
-    | 0us -> 64L
-    | 1us -> 128L
-    | 2us -> 256L
-    | 3us -> 512L
-    | 4us -> 1024L
-    | 5us -> 2048L
-    | 6us -> 4096L
-    | _ -> 64L
-  let addr = tmpVar bld GRSize
-  let room = tmpVar bld GRSize
-  bld <!-- ((ins: Instruction).Address, insLen)
-  bld <+ (addr := transMem bld o[1])
-  bld <+ (room := numG bound .- (addr .& numG (bound - 1L)))
-  bld <+ (v.Hi := AST.num0 GRSize)
-  bld <+ (v.Lo := AST.num0 GRSize)
-  for i in 0 .. 15 do
-    let skip = label bld $"VlbbSkip{i}"
-    let act = label bld $"VlbbAct{i}"
-    bld <+ (AST.cjmp (numG (int64 i) .< room)
-                     (AST.jmpDest act)
-                     (AST.jmpDest skip))
-    bld <+ (AST.lmark act)
-    bld <+ (lane v 8<rt> i := loadMem 8<rt> (addr .+ numG (int64 i)))
-    bld <+ (AST.lmark skip)
-  bld --!> insLen
+  lift bld (ins: Instruction) insLen {
+    let o = oprArray ins
+    let v = vec bld o[0]
+    let bound =
+      match oprMask o[2] &&& 0xfus with
+      | 0us -> 64L
+      | 1us -> 128L
+      | 2us -> 256L
+      | 3us -> 512L
+      | 4us -> 1024L
+      | 5us -> 2048L
+      | 6us -> 4096L
+      | _ -> 64L
+    let addr = tmpVar bld GRSize
+    let room = tmpVar bld GRSize
+    addr := transMem bld o[1]
+    room := numG bound .- (addr .& numG (bound - 1L))
+    v.Hi := AST.num0 GRSize
+    v.Lo := AST.num0 GRSize
+    for i in 0 .. 15 do
+      let skip = label bld $"VlbbSkip{i}"
+      let act = label bld $"VlbbAct{i}"
+      AST.cjmp (numG (int64 i) .< room)
+               (AST.jmpDest act)
+               (AST.jmpDest skip)
+      AST.lmark act
+      lane v 8<rt> i := loadMem 8<rt> (addr .+ numG (int64 i))
+      AST.lmark skip
+  }
 
 /// VECTOR LOAD AND REPLICATE: one element of storage fills every lane.
 let loadReplicate ins insLen bld =
-  let o = oprArray ins
-  let d = vec bld o[0]
-  let w = esize (oprMask o[2])
-  let t = tmpVar bld w
-  bld <!-- ((ins: Instruction).Address, insLen)
-  bld <+ (t := loadMem w (transMem bld o[1]))
-  for i in 0 .. lanes w - 1 do
-    bld <+ (lane d w i := t)
-  bld --!> insLen
+  lift bld (ins: Instruction) insLen {
+    let o = oprArray ins
+    let d = vec bld o[0]
+    let w = esize (oprMask o[2])
+    let t = tmpVar bld w
+    t := loadMem w (transMem bld o[1])
+    for i in 0 .. lanes w - 1 do
+      lane d w i := t
+  }
 
 /// VECTOR LOAD ELEMENT and VECTOR STORE ELEMENT: one lane, the index a mask
 /// names, takes or fills one unit of storage.
 let element ins insLen bld w isLoad =
-  let o = oprArray ins
-  let v = vec bld o[0]
-  let i = int (oprMask o[2]) % lanes w
-  bld <!-- ((ins: Instruction).Address, insLen)
-  if isLoad then bld <+ (lane v w i := loadMem w (transMem bld o[1]))
-  else bld <+ storeMem (transMem bld o[1]) (lane v w i)
-  bld --!> insLen
+  lift bld (ins: Instruction) insLen {
+    let o = oprArray ins
+    let v = vec bld o[0]
+    let i = int (oprMask o[2]) % lanes w
+    if isLoad then append bld { lane v w i := loadMem w (transMem bld o[1]) }
+    else append bld { storeMem (transMem bld o[1]) (lane v w i) }
+  }
 
 /// VECTOR LOAD ELEMENT IMMEDIATE, which writes a signed halfword into one lane.
 let elementImm ins insLen bld w =
-  let o = oprArray ins
-  let v = vec bld o[0]
-  let i = int (oprMask o[2]) % lanes w
-  bld <!-- ((ins: Instruction).Address, insLen)
-  bld <+ (lane v w i := numI64 (numOf o[1]) w)
-  bld --!> insLen
+  lift bld (ins: Instruction) insLen {
+    let o = oprArray ins
+    let v = vec bld o[0]
+    let i = int (oprMask o[2]) % lanes w
+    lane v w i := numI64 (numOf o[1]) w
+  }
 
 /// VECTOR LOAD LOGICAL ELEMENT AND ZERO: one unit of storage goes to the lane
 /// the architecture picks for it and every other bit becomes zero.
 let loadLogicalZero ins insLen bld =
-  let o = oprArray ins
-  let v = vec bld o[0]
-  let m = oprMask o[2] &&& 0xfus
-  let w = if m = 6us then 32<rt> else esize m
-  let idx = if m = 6us then 1 elif bitsOf w = 64 then 0 else lanes w / 2 - 1
-  bld <!-- ((ins: Instruction).Address, insLen)
-  bld <+ (v.Hi := AST.num0 GRSize)
-  bld <+ (v.Lo := AST.num0 GRSize)
-  bld <+ (lane v w idx := loadMem w (transMem bld o[1]))
-  bld --!> insLen
+  lift bld (ins: Instruction) insLen {
+    let o = oprArray ins
+    let v = vec bld o[0]
+    let m = oprMask o[2] &&& 0xfus
+    let w = if m = 6us then 32<rt> else esize m
+    let idx = if m = 6us then 1 elif bitsOf w = 64 then 0 else lanes w / 2 - 1
+    v.Hi := AST.num0 GRSize
+    v.Lo := AST.num0 GRSize
+    lane v w idx := loadMem w (transMem bld o[1])
+  }
 
 /// VECTOR LOAD GR FROM VR ELEMENT: one lane, the index an address computation
 /// gives, goes to a general register.
 let loadFromElement ins insLen bld =
-  let o = oprArray ins
-  let s = vec bld o[2]
-  let w = esize (oprMask o[3])
-  let d = oprRegVar bld o[0]
-  let n = lanes w
-  let idx = tmpVar bld GRSize
-  let t = tmpVar bld w
-  bld <!-- ((ins: Instruction).Address, insLen)
-  bld <+ (idx := transMem bld o[1] .& numG (int64 n - 1L))
-  bld <+ (t := lane s w 0)
-  for i in 1 .. n - 1 do
-    bld <+ (t := AST.ite (idx == numG (int64 i)) (lane s w i) t)
-  bld <+ (d := zextTo GRSize t)
-  bld --!> insLen
+  lift bld (ins: Instruction) insLen {
+    let o = oprArray ins
+    let s = vec bld o[2]
+    let w = esize (oprMask o[3])
+    let d = oprRegVar bld o[0]
+    let n = lanes w
+    let idx = tmpVar bld GRSize
+    let t = tmpVar bld w
+    idx := transMem bld o[1] .& numG (int64 n - 1L)
+    t := lane s w 0
+    for i in 1 .. n - 1 do
+      t := AST.ite (idx == numG (int64 i)) (lane s w i) t
+    d := zextTo GRSize t
+  }
 
 /// VECTOR LOAD VR ELEMENT FROM GR, the reverse.
 let loadToElement ins insLen bld =
-  let o = oprArray ins
-  let d = vec bld o[0]
-  let w = esize (oprMask o[3])
-  let src = oprRegVar bld o[2]
-  let n = lanes w
-  let idx = tmpVar bld GRSize
-  bld <!-- ((ins: Instruction).Address, insLen)
-  bld <+ (idx := transMem bld o[1] .& numG (int64 n - 1L))
-  for i in 0 .. n - 1 do
-    let cur = lane d w i
-    bld <+ (cur := AST.ite (idx == numG (int64 i)) (narrowTo w src) cur)
-  bld --!> insLen
+  lift bld (ins: Instruction) insLen {
+    let o = oprArray ins
+    let d = vec bld o[0]
+    let w = esize (oprMask o[3])
+    let src = oprRegVar bld o[2]
+    let n = lanes w
+    let idx = tmpVar bld GRSize
+    idx := transMem bld o[1] .& numG (int64 n - 1L)
+    for i in 0 .. n - 1 do
+      let cur = lane d w i
+      cur := AST.ite (idx == numG (int64 i)) (narrowTo w src) cur
+  }
 
 /// VECTOR LOAD VR FROM GRS DISJOINT, which builds a vector from two general
 /// registers.
 let loadFromPair ins insLen bld =
-  let o = oprArray ins
-  let d = vec bld o[0]
-  bld <!-- ((ins: Instruction).Address, insLen)
-  bld <+ (d.Hi := oprRegVar bld o[1])
-  bld <+ (d.Lo := oprRegVar bld o[2])
-  bld --!> insLen
+  lift bld (ins: Instruction) insLen {
+    let o = oprArray ins
+    let d = vec bld o[0]
+    d.Hi := oprRegVar bld o[1]
+    d.Lo := oprRegVar bld o[2]
+  }
 
 /// VECTOR LOAD, a move between two vector registers.
 let move ins insLen bld =
-  let o = oprArray ins
-  let d = vec bld o[0]
-  let s = vec bld o[1]
-  bld <!-- ((ins: Instruction).Address, insLen)
-  bld <+ (d.Hi := s.Hi)
-  bld <+ (d.Lo := s.Lo)
-  bld --!> insLen
+  lift bld (ins: Instruction) insLen {
+    let o = oprArray ins
+    let d = vec bld o[0]
+    let s = vec bld o[1]
+    d.Hi := s.Hi
+    d.Lo := s.Lo
+  }
 
 /// VECTOR GENERATE BYTE MASK: each bit of a halfword immediate becomes a byte
 /// of all ones or all zeros. It is how the assembler spells a vector of zeros
 /// and one of ones.
 let generateByteMask ins insLen bld =
-  let o = oprArray ins
-  let d = vec bld o[0]
-  let m = uint64 (numOf o[1]) &&& 0xffffUL
-  let mutable hi = 0UL
-  let mutable lo = 0UL
-  for i in 0 .. 15 do
-    if m &&& (0x8000UL >>> i) <> 0UL then
-      if i < 8 then hi <- hi ||| (0xffUL <<< (8 * (7 - i)))
-      else lo <- lo ||| (0xffUL <<< (8 * (15 - i)))
-    else
-      ()
-  bld <!-- ((ins: Instruction).Address, insLen)
-  bld <+ (d.Hi := numG (int64 hi))
-  bld <+ (d.Lo := numG (int64 lo))
-  bld --!> insLen
+  lift bld (ins: Instruction) insLen {
+    let o = oprArray ins
+    let d = vec bld o[0]
+    let m = uint64 (numOf o[1]) &&& 0xffffUL
+    let mutable hi = 0UL
+    let mutable lo = 0UL
+    for i in 0 .. 15 do
+      if m &&& (0x8000UL >>> i) <> 0UL then
+        if i < 8 then hi <- hi ||| (0xffUL <<< (8 * (7 - i)))
+        else lo <- lo ||| (0xffUL <<< (8 * (15 - i)))
+      else
+        ()
+    d.Hi := numG (int64 hi)
+    d.Lo := numG (int64 lo)
+  }
 
 /// VECTOR GENERATE MASK: every lane takes the run of ones from one bit position
 /// through another, wrapping around the lane when the first lies after the
 /// second.
 let generateMask ins insLen bld =
-  let o = oprArray ins
-  let d = vec bld o[0]
-  let w = esize (oprMask o[3])
-  let bits = bitsOf w
-  let start = int (numOf o[1]) % bits
-  let fin = int (numOf o[2]) % bits
-  let bitAt i = 1UL <<< (bits - 1 - i)
-  let mutable m = 0UL
-  if start <= fin then
-    for i in start .. fin do m <- m ||| bitAt i
-  else
-    for i in start .. bits - 1 do m <- m ||| bitAt i
-    for i in 0 .. fin do m <- m ||| bitAt i
-  bld <!-- ((ins: Instruction).Address, insLen)
-  for i in 0 .. lanes w - 1 do
-    bld <+ (lane d w i := numI64 (int64 m) w)
-  bld --!> insLen
+  lift bld (ins: Instruction) insLen {
+    let o = oprArray ins
+    let d = vec bld o[0]
+    let w = esize (oprMask o[3])
+    let bits = bitsOf w
+    let start = int (numOf o[1]) % bits
+    let fin = int (numOf o[2]) % bits
+    let bitAt i = 1UL <<< (bits - 1 - i)
+    let mutable m = 0UL
+    if start <= fin then
+      for i in start .. fin do m <- m ||| bitAt i
+    else
+      for i in start .. bits - 1 do m <- m ||| bitAt i
+      for i in 0 .. fin do m <- m ||| bitAt i
+    for i in 0 .. lanes w - 1 do
+      lane d w i := numI64 (int64 m) w
+  }
 
 /// VECTOR REPLICATE: one lane of the source fills every lane.
 let replicate ins insLen bld =
-  let o = oprArray ins
-  let d = vec bld o[0]
-  let s = vec bld o[2]
-  let w = esize (oprMask o[3])
-  let i = int (numOf o[1]) % lanes w
-  let t = tmpVar bld w
-  bld <!-- ((ins: Instruction).Address, insLen)
-  bld <+ (t := lane s w i)
-  for k in 0 .. lanes w - 1 do
-    bld <+ (lane d w k := t)
-  bld --!> insLen
+  lift bld (ins: Instruction) insLen {
+    let o = oprArray ins
+    let d = vec bld o[0]
+    let s = vec bld o[2]
+    let w = esize (oprMask o[3])
+    let i = int (numOf o[1]) % lanes w
+    let t = tmpVar bld w
+    t := lane s w i
+    for k in 0 .. lanes w - 1 do
+      lane d w k := t
+  }
 
 /// VECTOR REPLICATE IMMEDIATE, which fills every lane with a signed halfword.
 let replicateImm ins insLen bld =
-  let o = oprArray ins
-  let d = vec bld o[0]
-  let w = esize (oprMask o[2])
-  bld <!-- ((ins: Instruction).Address, insLen)
-  for i in 0 .. lanes w - 1 do
-    bld <+ (lane d w i := numI64 (numOf o[1]) w)
-  bld --!> insLen
+  lift bld (ins: Instruction) insLen {
+    let o = oprArray ins
+    let d = vec bld o[0]
+    let w = esize (oprMask o[2])
+    for i in 0 .. lanes w - 1 do
+      lane d w i := numI64 (numOf o[1]) w
+  }
 
 /// VECTOR LOAD RIGHTMOST WITH LENGTH and its store, which put the bytes at the
 /// right-hand end of the vector rather than the left.
 let rightmostWithLength ins insLen bld fromReg isLoad =
-  let o = oprArray ins
-  let v = vec bld o[0]
-  let addr = tmpVar bld GRSize
-  let len = tmpVar bld GRSize
-  bld <!-- ((ins: Instruction).Address, insLen)
-  bld <+ (addr := transMem bld o[1])
-  if fromReg then
-    bld <+ (len := zextTo GRSize (low (oprRegVar bld o[2])) .+ AST.num1 GRSize)
-  else
-    bld <+ (len := numG (numOf o[2] &&& 0xffL) .+ AST.num1 GRSize)
-  if isLoad then
-    bld <+ (v.Hi := AST.num0 GRSize)
-    bld <+ (v.Lo := AST.num0 GRSize)
-  else
-    ()
-  for k in 0 .. 15 do
-    let skip = label bld $"VrlSkip{k}"
-    let act = label bld $"VrlAct{k}"
-    bld <+ (AST.cjmp (numG (int64 k) .< len)
-                     (AST.jmpDest act)
-                     (AST.jmpDest skip))
-    bld <+ (AST.lmark act)
-    let at = addr .+ numG (int64 k)
-    let idx = 15 - k
-    if isLoad then bld <+ (lane v 8<rt> idx := loadMem 8<rt> at)
-    else bld <+ storeMem at (lane v 8<rt> idx)
-    bld <+ (AST.lmark skip)
-  bld --!> insLen
+  lift bld (ins: Instruction) insLen {
+    let o = oprArray ins
+    let v = vec bld o[0]
+    let addr = tmpVar bld GRSize
+    let len = tmpVar bld GRSize
+    addr := transMem bld o[1]
+    if fromReg then
+      len := zextTo GRSize (low (oprRegVar bld o[2])) .+ AST.num1 GRSize
+    else
+      len := numG (numOf o[2] &&& 0xffL) .+ AST.num1 GRSize
+    if isLoad then
+      v.Hi := AST.num0 GRSize
+      v.Lo := AST.num0 GRSize
+    else
+      ()
+    for k in 0 .. 15 do
+      let skip = label bld $"VrlSkip{k}"
+      let act = label bld $"VrlAct{k}"
+      AST.cjmp (numG (int64 k) .< len)
+               (AST.jmpDest act)
+               (AST.jmpDest skip)
+      AST.lmark act
+      let at = addr .+ numG (int64 k)
+      let idx = 15 - k
+      if isLoad then append bld { lane v 8<rt> idx := loadMem 8<rt> at }
+      else append bld { storeMem at (lane v 8<rt> idx) }
+      AST.lmark skip
+  }
 
 /// The byte-reversing loads and stores, which turn each element end for end so
 /// that a little-endian buffer can be read as it stands.
@@ -493,87 +502,87 @@ let private reverse (w: RegType) e =
     Array.reduce (fun acc b -> AST.concat acc b) bytes
 
 let loadReversed ins insLen bld byElement =
-  let o = oprArray ins
-  let d = vec bld o[0]
-  let w = if byElement then esize (oprMask o[2]) else 128<rt>
-  let addr = tmpVar bld GRSize
-  bld <!-- ((ins: Instruction).Address, insLen)
-  bld <+ (addr := transMem bld o[1])
-  if bitsOf w = 128 then
-    let t = tmpVar bld 128<rt>
-    bld <+ (t := loadMem 128<rt> addr)
-    setWhole bld d (reverse 128<rt> t)
-  else
-    let n = lanes w
-    let bytes = bitsOf w / 8
-    for i in 0 .. n - 1 do
-      let at = addr .+ numG (int64 (i * bytes))
-      bld <+ (lane d w i := reverse w (loadMem w at))
-  bld --!> insLen
+  lift bld (ins: Instruction) insLen {
+    let o = oprArray ins
+    let d = vec bld o[0]
+    let w = if byElement then esize (oprMask o[2]) else 128<rt>
+    let addr = tmpVar bld GRSize
+    addr := transMem bld o[1]
+    if bitsOf w = 128 then
+      let t = tmpVar bld 128<rt>
+      t := loadMem 128<rt> addr
+      setWhole bld d (reverse 128<rt> t)
+    else
+      let n = lanes w
+      let bytes = bitsOf w / 8
+      for i in 0 .. n - 1 do
+        let at = addr .+ numG (int64 (i * bytes))
+        lane d w i := reverse w (loadMem w at)
+  }
 
 let storeReversed ins insLen bld byElement =
-  let o = oprArray ins
-  let s = vec bld o[0]
-  let w = if byElement then esize (oprMask o[2]) else 128<rt>
-  let addr = tmpVar bld GRSize
-  bld <!-- ((ins: Instruction).Address, insLen)
-  bld <+ (addr := transMem bld o[1])
-  if bitsOf w = 128 then
-    bld <+ storeMem addr (reverse 128<rt> (whole s))
-  else
-    let n = lanes w
-    let bytes = bitsOf w / 8
-    for i in 0 .. n - 1 do
-      let at = addr .+ numG (int64 (i * bytes))
-      bld <+ storeMem at (reverse w (lane s w i))
-  bld --!> insLen
+  lift bld (ins: Instruction) insLen {
+    let o = oprArray ins
+    let s = vec bld o[0]
+    let w = if byElement then esize (oprMask o[2]) else 128<rt>
+    let addr = tmpVar bld GRSize
+    addr := transMem bld o[1]
+    if bitsOf w = 128 then
+      storeMem addr (reverse 128<rt> (whole s))
+    else
+      let n = lanes w
+      let bytes = bitsOf w / 8
+      for i in 0 .. n - 1 do
+        let at = addr .+ numG (int64 (i * bytes))
+        storeMem at (reverse w (lane s w i))
+  }
 
 /// VECTOR LOAD BYTE REVERSED ELEMENT AND ZERO, and the element loads and stores
 /// that reverse just the one element they touch.
 let elementReversed ins insLen bld w isLoad =
-  let o = oprArray ins
-  let v = vec bld o[0]
-  let i = int (oprMask o[2]) % lanes w
-  bld <!-- ((ins: Instruction).Address, insLen)
-  if isLoad then
-    bld <+ (lane v w i := reverse w (loadMem w (transMem bld o[1])))
-  else
-    bld <+ storeMem (transMem bld o[1]) (reverse w (lane v w i))
-  bld --!> insLen
+  lift bld (ins: Instruction) insLen {
+    let o = oprArray ins
+    let v = vec bld o[0]
+    let i = int (oprMask o[2]) % lanes w
+    if isLoad then
+      lane v w i := reverse w (loadMem w (transMem bld o[1]))
+    else
+      storeMem (transMem bld o[1]) (reverse w (lane v w i))
+  }
 
 let loadReversedReplicate ins insLen bld =
-  let o = oprArray ins
-  let d = vec bld o[0]
-  let w = esize (oprMask o[2])
-  let t = tmpVar bld w
-  bld <!-- ((ins: Instruction).Address, insLen)
-  bld <+ (t := reverse w (loadMem w (transMem bld o[1])))
-  for i in 0 .. lanes w - 1 do
-    bld <+ (lane d w i := t)
-  bld --!> insLen
+  lift bld (ins: Instruction) insLen {
+    let o = oprArray ins
+    let d = vec bld o[0]
+    let w = esize (oprMask o[2])
+    let t = tmpVar bld w
+    t := reverse w (loadMem w (transMem bld o[1]))
+    for i in 0 .. lanes w - 1 do
+      lane d w i := t
+  }
 
 let loadReversedLogicalZero ins insLen bld =
-  let o = oprArray ins
-  let v = vec bld o[0]
-  let w = esize (oprMask o[2])
-  let idx = if bitsOf w = 64 then 0 else lanes w / 2 - 1
-  bld <!-- ((ins: Instruction).Address, insLen)
-  bld <+ (v.Hi := AST.num0 GRSize)
-  bld <+ (v.Lo := AST.num0 GRSize)
-  bld <+ (lane v w idx := reverse w (loadMem w (transMem bld o[1])))
-  bld --!> insLen
+  lift bld (ins: Instruction) insLen {
+    let o = oprArray ins
+    let v = vec bld o[0]
+    let w = esize (oprMask o[2])
+    let idx = if bitsOf w = 64 then 0 else lanes w / 2 - 1
+    v.Hi := AST.num0 GRSize
+    v.Lo := AST.num0 GRSize
+    lane v w idx := reverse w (loadMem w (transMem bld o[1]))
+  }
 
 /// VECTOR GATHER ELEMENT and VECTOR SCATTER ELEMENT, which reach one lane
 /// through an address the vector itself supplies as an index.
 let gatherScatter ins insLen bld w isGather =
-  let o = oprArray ins
-  let v = vec bld o[0]
-  let i = int (oprMask o[2]) % lanes w
-  bld <!-- ((ins: Instruction).Address, insLen)
-  let addr = transMem bld o[1]
-  if isGather then bld <+ (lane v w i := loadMem w addr)
-  else bld <+ storeMem addr (lane v w i)
-  bld --!> insLen
+  lift bld (ins: Instruction) insLen {
+    let o = oprArray ins
+    let v = vec bld o[0]
+    let i = int (oprMask o[2]) % lanes w
+    let addr = transMem bld o[1]
+    if isGather then append bld { lane v w i := loadMem w addr }
+    else append bld { storeMem addr (lane v w i) }
+  }
 
 /// The carry out of an unsigned addition of one element, as an element of ones
 /// or zeros -- which is the form the facility's carry vectors take.
@@ -589,54 +598,54 @@ let private borrowOf (w: RegType) a b =
 /// VECTOR ADD WITH CARRY and its subtracting counterpart, which take the carry
 /// vector a previous ADD WITH CARRY COMPUTE CARRY produced.
 let addWithCarry ins insLen bld =
-  let o = oprArray ins
-  let w = esize (oprMask o[4])
-  bld <!-- ((ins: Instruction).Address, insLen)
-  mapTriple bld
-    w
-    (vec bld o[0])
-    (vec bld o[1])
-    (vec bld o[2])
-    (vec bld o[3])
-    (fun a b c -> a .+ b .+ (c .& AST.num1 w))
-  bld --!> insLen
+  lift bld (ins: Instruction) insLen {
+    let o = oprArray ins
+    let w = esize (oprMask o[4])
+    mapTriple bld
+      w
+      (vec bld o[0])
+      (vec bld o[1])
+      (vec bld o[2])
+      (vec bld o[3])
+      (fun a b c -> a .+ b .+ (c .& AST.num1 w))
+  }
 
 let addCarryCompute ins insLen bld =
-  let o = oprArray ins
-  let w = esize (oprMask o[4])
-  bld <!-- ((ins: Instruction).Address, insLen)
-  mapTriple bld w (vec bld o[0]) (vec bld o[1]) (vec bld o[2]) (vec bld o[3])
-    (fun a b c ->
-      let cin = c .& AST.num1 w
-      let s = a .+ b
-      let carry1 = AST.ite (s .< a) (AST.num1 w) (AST.num0 w)
-      let s2 = s .+ cin
-      let carry2 = AST.ite (s2 .< s) (AST.num1 w) (AST.num0 w)
-      carry1 .| carry2)
-  bld --!> insLen
+  lift bld (ins: Instruction) insLen {
+    let o = oprArray ins
+    let w = esize (oprMask o[4])
+    mapTriple bld w (vec bld o[0]) (vec bld o[1]) (vec bld o[2]) (vec bld o[3])
+      (fun a b c ->
+        let cin = c .& AST.num1 w
+        let s = a .+ b
+        let carry1 = AST.ite (s .< a) (AST.num1 w) (AST.num0 w)
+        let s2 = s .+ cin
+        let carry2 = AST.ite (s2 .< s) (AST.num1 w) (AST.num0 w)
+        carry1 .| carry2)
+  }
 
 let subWithBorrow ins insLen bld =
-  let o = oprArray ins
-  let w = esize (oprMask o[4])
-  bld <!-- ((ins: Instruction).Address, insLen)
-  mapTriple bld
-    w
-    (vec bld o[0])
-    (vec bld o[1])
-    (vec bld o[2])
-    (vec bld o[3])
-    (fun a b c -> a .- b .- (AST.num1 w .- (c .& AST.num1 w)))
-  bld --!> insLen
+  lift bld (ins: Instruction) insLen {
+    let o = oprArray ins
+    let w = esize (oprMask o[4])
+    mapTriple bld
+      w
+      (vec bld o[0])
+      (vec bld o[1])
+      (vec bld o[2])
+      (vec bld o[3])
+      (fun a b c -> a .- b .- (AST.num1 w .- (c .& AST.num1 w)))
+  }
 
 let subBorrowCompute ins insLen bld =
-  let o = oprArray ins
-  let w = esize (oprMask o[4])
-  bld <!-- ((ins: Instruction).Address, insLen)
-  mapTriple bld w (vec bld o[0]) (vec bld o[1]) (vec bld o[2]) (vec bld o[3])
-    (fun a b c ->
-      let bin = AST.num1 w .- (c .& AST.num1 w)
-      AST.ite (a .>= (b .+ bin)) (AST.num1 w) (AST.num0 w))
-  bld --!> insLen
+  lift bld (ins: Instruction) insLen {
+    let o = oprArray ins
+    let w = esize (oprMask o[4])
+    mapTriple bld w (vec bld o[0]) (vec bld o[1]) (vec bld o[2]) (vec bld o[3])
+      (fun a b c ->
+        let bin = AST.num1 w .- (c .& AST.num1 w)
+        AST.ite (a .>= (b .+ bin)) (AST.num1 w) (AST.num0 w))
+  }
 
 /// The averaging adds, which round the halved sum away from zero.
 let private avgSigned (w: RegType) a b =
@@ -659,160 +668,162 @@ let private mulHigh signed (w: RegType) a b =
 /// The multiplies that widen: the even or the odd lanes of the sources make
 /// products twice as wide, so half as many of them.
 let private widenMul ins insLen bld signed odd =
-  let o = oprArray ins
-  let w = esize (oprMask o[3])
-  let wide = w * 2
-  let ext = if signed then AST.sext else AST.zext
-  let d = vec bld o[0]
-  let x = vec bld o[1]
-  let y = vec bld o[2]
-  let n = lanes wide
-  let ts = Array.init n (fun _ -> tmpVar bld wide)
-  bld <!-- ((ins: Instruction).Address, insLen)
-  for i in 0 .. n - 1 do
-    let src = 2 * i + (if odd then 1 else 0)
-    bld <+ (ts[i] := ext wide (getLane x w src) .* ext wide (getLane y w src))
-  for i in 0 .. n - 1 do
-    setLane bld d wide i ts[i]
-  bld --!> insLen
+  lift bld (ins: Instruction) insLen {
+    let o = oprArray ins
+    let w = esize (oprMask o[3])
+    let wide = w * 2
+    let ext = if signed then AST.sext else AST.zext
+    let d = vec bld o[0]
+    let x = vec bld o[1]
+    let y = vec bld o[2]
+    let n = lanes wide
+    let ts = Array.init n (fun _ -> tmpVar bld wide)
+    for i in 0 .. n - 1 do
+      let src = 2 * i + (if odd then 1 else 0)
+      ts[i] := ext wide (getLane x w src) .* ext wide (getLane y w src)
+    for i in 0 .. n - 1 do
+      setLane bld d wide i ts[i]
+  }
 
 /// The widening multiply-and-adds, which add a third vector's wide lanes to the
 /// products.
 let private widenMulAdd ins insLen bld signed odd =
-  let o = oprArray ins
-  let w = esize (oprMask o[4])
-  let wide = w * 2
-  let ext = if signed then AST.sext else AST.zext
-  let d = vec bld o[0]
-  let x = vec bld o[1]
-  let y = vec bld o[2]
-  let z = vec bld o[3]
-  let n = lanes wide
-  let ts = Array.init n (fun _ -> tmpVar bld wide)
-  bld <!-- ((ins: Instruction).Address, insLen)
-  for i in 0 .. n - 1 do
-    let src = 2 * i + (if odd then 1 else 0)
-    bld <+ (ts[i] := ext wide (getLane x w src) .* ext wide (getLane y w src)
-                     .+ getLane z wide i)
-  for i in 0 .. n - 1 do
-    setLane bld d wide i ts[i]
-  bld --!> insLen
+  lift bld (ins: Instruction) insLen {
+    let o = oprArray ins
+    let w = esize (oprMask o[4])
+    let wide = w * 2
+    let ext = if signed then AST.sext else AST.zext
+    let d = vec bld o[0]
+    let x = vec bld o[1]
+    let y = vec bld o[2]
+    let z = vec bld o[3]
+    let n = lanes wide
+    let ts = Array.init n (fun _ -> tmpVar bld wide)
+    for i in 0 .. n - 1 do
+      let src = 2 * i + (if odd then 1 else 0)
+      ts[i] := ext wide (getLane x w src) .* ext wide (getLane y w src)
+               .+ getLane z wide i
+    for i in 0 .. n - 1 do
+      setLane bld d wide i ts[i]
+  }
 
 /// VECTOR MULTIPLY AND ADD LOW and its high-half relatives, whose product stays
 /// the width of the operands.
 let private mulAdd ins insLen bld f =
-  let o = oprArray ins
-  let w = esize (oprMask o[4])
-  bld <!-- ((ins: Instruction).Address, insLen)
-  mapTriple bld
-    w
-    (vec bld o[0])
-    (vec bld o[1])
-    (vec bld o[2])
-    (vec bld o[3])
-    (f w)
-  bld --!> insLen
+  lift bld (ins: Instruction) insLen {
+    let o = oprArray ins
+    let w = esize (oprMask o[4])
+    mapTriple bld
+      w
+      (vec bld o[0])
+      (vec bld o[1])
+      (vec bld o[2])
+      (vec bld o[3])
+      (f w)
+  }
 
 /// VECTOR SUM ACROSS the group of lanes the opcode names: the sums go into
 /// lanes twice or four times as wide, which is how a dot product or a checksum
 /// is accumulated without overflowing.
 let private sumAcross ins insLen bld (wide: RegType) =
-  let o = oprArray ins
-  let w = esize (oprMask o[3])
-  let d = vec bld o[0]
-  let x = vec bld o[1]
-  let y = vec bld o[2]
-  let n = lanes wide
-  let per = lanes w / n
-  let ts = Array.init n (fun _ -> tmpVar bld wide)
-  bld <!-- ((ins: Instruction).Address, insLen)
-  for i in 0 .. n - 1 do
-    let mutable acc = AST.zext wide (getLane y w (per * (i + 1) - 1))
-    for k in 0 .. per - 1 do
-      acc <- acc .+ AST.zext wide (getLane x w (per * i + k))
-    bld <+ (ts[i] := acc)
-  for i in 0 .. n - 1 do
-    setLane bld d wide i ts[i]
-  bld --!> insLen
+  lift bld (ins: Instruction) insLen {
+    let o = oprArray ins
+    let w = esize (oprMask o[3])
+    let d = vec bld o[0]
+    let x = vec bld o[1]
+    let y = vec bld o[2]
+    let n = lanes wide
+    let per = lanes w / n
+    let ts = Array.init n (fun _ -> tmpVar bld wide)
+    for i in 0 .. n - 1 do
+      let mutable acc = AST.zext wide (getLane y w (per * (i + 1) - 1))
+      for k in 0 .. per - 1 do
+        acc <- acc .+ AST.zext wide (getLane x w (per * i + k))
+      ts[i] := acc
+    for i in 0 .. n - 1 do
+      setLane bld d wide i ts[i]
+  }
 
 /// VECTOR GALOIS FIELD MULTIPLY SUM, the carry-less multiply a cyclic
 /// redundancy check is built from: the products of the even and the odd lanes
 /// are added without carries into a lane twice as wide.
 let private galoisMul ins insLen bld accumulate =
-  let o = oprArray ins
-  let w = esize (oprMask o[if accumulate then 4 else 3])
-  let wide = w * 2
-  let bits = bitsOf w
-  let d = vec bld o[0]
-  let x = vec bld o[1]
-  let y = vec bld o[2]
-  let n = lanes wide
-  let ts = Array.init n (fun _ -> tmpVar bld wide)
-  bld <!-- ((ins: Instruction).Address, insLen)
-  for i in 0 .. n - 1 do
-    let clmul a b =
-      let a = AST.zext wide a
-      let b = AST.zext wide b
-      let mutable acc = AST.num0 wide
-      for k in 0 .. bits - 1 do
-        let bit = (b >> numI32 k wide) .& AST.num1 wide
-        let term = AST.ite (bit == AST.num1 wide)
-                           (a << numI32 k wide)
-                           (AST.num0 wide)
-        acc <- acc <+> term
-      acc
-    let even = clmul (getLane x w (2 * i)) (getLane y w (2 * i))
-    let odd = clmul (getLane x w (2 * i + 1)) (getLane y w (2 * i + 1))
-    let sum = even <+> odd
-    if accumulate then bld <+ (ts[i] := sum <+> getLane (vec bld o[3]) wide i)
-    else bld <+ (ts[i] := sum)
-  for i in 0 .. n - 1 do
-    setLane bld d wide i ts[i]
-  bld --!> insLen
+  lift bld (ins: Instruction) insLen {
+    let o = oprArray ins
+    let w = esize (oprMask o[if accumulate then 4 else 3])
+    let wide = w * 2
+    let bits = bitsOf w
+    let d = vec bld o[0]
+    let x = vec bld o[1]
+    let y = vec bld o[2]
+    let n = lanes wide
+    let ts = Array.init n (fun _ -> tmpVar bld wide)
+    for i in 0 .. n - 1 do
+      let clmul a b =
+        let a = AST.zext wide a
+        let b = AST.zext wide b
+        let mutable acc = AST.num0 wide
+        for k in 0 .. bits - 1 do
+          let bit = (b >> numI32 k wide) .& AST.num1 wide
+          let term = AST.ite (bit == AST.num1 wide)
+                             (a << numI32 k wide)
+                             (AST.num0 wide)
+          acc <- acc <+> term
+        acc
+      let even = clmul (getLane x w (2 * i)) (getLane y w (2 * i))
+      let odd = clmul (getLane x w (2 * i + 1)) (getLane y w (2 * i + 1))
+      let sum = even <+> odd
+      if accumulate then
+        append bld { ts[i] := sum <+> getLane (vec bld o[3]) wide i }
+      else
+        append bld { ts[i] := sum }
+    for i in 0 .. n - 1 do
+      setLane bld d wide i ts[i]
+  }
 
 /// VECTOR CHECKSUM, which adds the word lanes with the carries folded back in.
 let checksum ins insLen bld =
-  let o = oprArray ins
-  let d = vec bld o[0]
-  let x = vec bld o[1]
-  let y = vec bld o[2]
-  let acc = tmpVar bld GRSize
-  bld <!-- ((ins: Instruction).Address, insLen)
-  bld <+ (acc := zextTo GRSize (lane y 32<rt> 1))
-  for i in 0 .. 3 do
-    bld <+ (acc := acc .+ zextTo GRSize (lane x 32<rt> i))
-  bld <+ (acc := (acc .& numG 0xffffffffL) .+ (acc >> numG 32L))
-  bld <+ (acc := (acc .& numG 0xffffffffL) .+ (acc >> numG 32L))
-  bld <+ (d.Hi := AST.num0 GRSize)
-  bld <+ (d.Lo := AST.num0 GRSize)
-  bld <+ (lane d 32<rt> 1 := AST.xtlo 32<rt> acc)
-  bld --!> insLen
+  lift bld (ins: Instruction) insLen {
+    let o = oprArray ins
+    let d = vec bld o[0]
+    let x = vec bld o[1]
+    let y = vec bld o[2]
+    let acc = tmpVar bld GRSize
+    acc := zextTo GRSize (lane y 32<rt> 1)
+    for i in 0 .. 3 do
+      acc := acc .+ zextTo GRSize (lane x 32<rt> i)
+    acc := (acc .& numG 0xffffffffL) .+ (acc >> numG 32L)
+    acc := (acc .& numG 0xffffffffL) .+ (acc >> numG 32L)
+    d.Hi := AST.num0 GRSize
+    d.Lo := AST.num0 GRSize
+    lane d 32<rt> 1 := AST.xtlo 32<rt> acc
+  }
 
 /// VECTOR BIT PERMUTE, which gathers the bits a vector of indices names into
 /// the rightmost halfword of the result.
 let bitPermute ins insLen bld =
-  let o = oprArray ins
-  let d = vec bld o[0]
-  let x = vec bld o[1]
-  let y = vec bld o[2]
-  let acc = tmpVar bld 16<rt>
-  bld <!-- ((ins: Instruction).Address, insLen)
-  bld <+ (acc := AST.num0 16<rt>)
-  for k in 0 .. 15 do
-    let idx = tmpVar bld GRSize
-    bld <+ (idx := zextTo GRSize (lane y 8<rt> k))
-    let bit = tmpVar bld 16<rt>
-    bld <+ (bit := AST.num0 16<rt>)
-    for b in 0 .. 127 do
-      let src = if b < 64 then x.Hi else x.Lo
-      let pos = 63 - (b % 64)
-      let one = AST.extract src 1<rt> pos
-      bld <+ (bit := AST.ite (idx == numG (int64 b)) (zextTo 16<rt> one) bit)
-    bld <+ (acc := (acc << AST.num1 16<rt>) .| bit)
-  bld <+ (d.Hi := AST.num0 GRSize)
-  bld <+ (d.Lo := AST.num0 GRSize)
-  bld <+ (lane d 16<rt> 7 := acc)
-  bld --!> insLen
+  lift bld (ins: Instruction) insLen {
+    let o = oprArray ins
+    let d = vec bld o[0]
+    let x = vec bld o[1]
+    let y = vec bld o[2]
+    let acc = tmpVar bld 16<rt>
+    acc := AST.num0 16<rt>
+    for k in 0 .. 15 do
+      let idx = tmpVar bld GRSize
+      idx := zextTo GRSize (lane y 8<rt> k)
+      let bit = tmpVar bld 16<rt>
+      bit := AST.num0 16<rt>
+      for b in 0 .. 127 do
+        let src = if b < 64 then x.Hi else x.Lo
+        let pos = 63 - (b % 64)
+        let one = AST.extract src 1<rt> pos
+        bit := AST.ite (idx == numG (int64 b)) (zextTo 16<rt> one) bit
+      acc := (acc << AST.num1 16<rt>) .| bit
+    d.Hi := AST.num0 GRSize
+    d.Lo := AST.num0 GRSize
+    lane d 16<rt> 7 := acc
+  }
 
 /// The bit-counting operations, each written as the fixed sequence of masked
 /// adds that counts without a loop.
@@ -857,33 +868,33 @@ let private shiftByCount (w: RegType) f e count =
 /// The element-wise shifts whose count is one value for every lane, taken from
 /// the address the second operand forms rather than from a vector.
 let private shiftByAddress ins insLen bld f =
-  let o = oprArray ins
-  let w = esize (oprMask o[3])
-  let bits = bitsOf w
-  let d = vec bld o[0]
-  let x = vec bld o[2]
-  let n = tmpVar bld w
-  bld <!-- ((ins: Instruction).Address, insLen)
-  bld <+ (n := narrowTo w (transMem bld o[1]) .& numI32 (bits - 1) w)
-  mapOne bld w d x (fun a -> f a n)
-  bld --!> insLen
+  lift bld (ins: Instruction) insLen {
+    let o = oprArray ins
+    let w = esize (oprMask o[3])
+    let bits = bitsOf w
+    let d = vec bld o[0]
+    let x = vec bld o[2]
+    let n = tmpVar bld w
+    n := narrowTo w (transMem bld o[1]) .& numI32 (bits - 1) w
+    mapOne bld w d x (fun a -> f a n)
+  }
 
 /// VECTOR SHIFT LEFT and its relatives, which shift the whole 128 bits by a
 /// count the rightmost byte of a third vector's last lane gives.
 let private shiftWhole ins insLen bld byBytes f =
-  let o = oprArray ins
-  let d = vec bld o[0]
-  let x = vec bld o[1]
-  let y = vec bld o[2]
-  let t = tmpVar bld 128<rt>
-  let n = tmpVar bld 128<rt>
-  bld <!-- ((ins: Instruction).Address, insLen)
-  bld <+ (n := AST.zext 128<rt> (lane y 8<rt> 15))
-  let count = if byBytes then (n .& numI64 15L 128<rt>) .* numI64 8L 128<rt>
-              else n .& numI64 127L 128<rt>
-  bld <+ (t := f (whole x) count)
-  setWhole bld d t
-  bld --!> insLen
+  lift bld (ins: Instruction) insLen {
+    let o = oprArray ins
+    let d = vec bld o[0]
+    let x = vec bld o[1]
+    let y = vec bld o[2]
+    let t = tmpVar bld 128<rt>
+    let n = tmpVar bld 128<rt>
+    n := AST.zext 128<rt> (lane y 8<rt> 15)
+    let count = if byBytes then (n .& numI64 15L 128<rt>) .* numI64 8L 128<rt>
+                else n .& numI64 127L 128<rt>
+    t := f (whole x) count
+    setWhole bld d t
+  }
 
 /// VECTOR SHIFT LEFT DOUBLE BY BYTE, which takes a window of the two sources
 /// laid end to end.
@@ -897,49 +908,51 @@ let private windowFromLeft bld x y shift =
   else
     let hi = tmpVar bld 128<rt>
     let lo = tmpVar bld 128<rt>
-    bld <+ (hi := whole x << numI32 shift 128<rt>)
-    bld <+ (lo := whole y >> numI32 (128 - shift) 128<rt>)
+    append bld {
+      hi := whole x << numI32 shift 128<rt>
+      lo := whole y >> numI32 (128 - shift) 128<rt>
+    }
     hi .| lo
 
 /// VECTOR SHIFT LEFT DOUBLE BY BYTE, and the bit-precise form of the same.
 let shiftDoubleLeft ins insLen bld byBytes =
-  let o = oprArray ins
-  let d = vec bld o[0]
-  let x = vec bld o[1]
-  let y = vec bld o[2]
-  let raw = int (numOf o[3])
-  let shift = if byBytes then (raw &&& 0xf) * 8 else raw &&& 7
-  bld <!-- ((ins: Instruction).Address, insLen)
-  setWhole bld d (windowFromLeft bld x y shift)
-  bld --!> insLen
+  lift bld (ins: Instruction) insLen {
+    let o = oprArray ins
+    let d = vec bld o[0]
+    let x = vec bld o[1]
+    let y = vec bld o[2]
+    let raw = int (numOf o[3])
+    let shift = if byBytes then (raw &&& 0xf) * 8 else raw &&& 7
+    setWhole bld d (windowFromLeft bld x y shift)
+  }
 
 /// VECTOR SHIFT RIGHT DOUBLE BY BIT, which takes the window at the right-hand
 /// end instead.
 let shiftDoubleRight ins insLen bld =
-  let o = oprArray ins
-  let d = vec bld o[0]
-  let x = vec bld o[1]
-  let y = vec bld o[2]
-  let shift = int (numOf o[3]) &&& 7
-  bld <!-- ((ins: Instruction).Address, insLen)
-  setWhole bld d (windowFromLeft bld x y (128 - shift))
-  bld --!> insLen
+  lift bld (ins: Instruction) insLen {
+    let o = oprArray ins
+    let d = vec bld o[0]
+    let x = vec bld o[1]
+    let y = vec bld o[2]
+    let shift = int (numOf o[3]) &&& 7
+    setWhole bld d (windowFromLeft bld x y (128 - shift))
+  }
 
 /// VECTOR ELEMENT ROTATE AND INSERT UNDER MASK, which rotates one vector's
 /// lanes and takes the bits a third vector's lanes select.
 let rotateInsert ins insLen bld =
-  let o = oprArray ins
-  let w = esize (oprMask o[4])
-  let bits = bitsOf w
-  let count = int (numOf o[3]) % bits
-  bld <!-- ((ins: Instruction).Address, insLen)
-  mapTriple bld w (vec bld o[0]) (vec bld o[1]) (vec bld o[2]) (vec bld o[0])
-    (fun a b d ->
-      let rot =
-        if count = 0 then a
-        else (a << numI32 count w) .| (a >> numI32 (bits - count) w)
-      (rot .& b) .| (d .& AST.not b))
-  bld --!> insLen
+  lift bld (ins: Instruction) insLen {
+    let o = oprArray ins
+    let w = esize (oprMask o[4])
+    let bits = bitsOf w
+    let count = int (numOf o[3]) % bits
+    mapTriple bld w (vec bld o[0]) (vec bld o[1]) (vec bld o[2]) (vec bld o[0])
+      (fun a b d ->
+        let rot =
+          if count = 0 then a
+          else (a << numI32 count w) .| (a >> numI32 (bits - count) w)
+        (rot .& b) .| (d .& AST.not b))
+  }
 
 /// Whether the mask's rightmost bit asks for a condition code.
 let private wantsCC (m: Mask) = m &&& 1us <> 0us
@@ -947,75 +960,79 @@ let private wantsCC (m: Mask) = m &&& 1us <> 0us
 /// The condition code an element-wise comparison reports: 0 when every lane
 /// held, 1 when some did, 3 when none did.
 let private setCCCompare bld w d =
-  let n = lanes w
-  let all = tmpVar bld w
-  let any = tmpVar bld w
-  bld <+ (all := lane d w 0)
-  bld <+ (any := lane d w 0)
-  for i in 1 .. n - 1 do
-    bld <+ (all := all .& lane d w i)
-    bld <+ (any := any .| lane d w i)
-  let zero = AST.num0 w
-  bld <+ (ccVar bld
-          := AST.ite (all != zero)
-                     (numCC 0)
-                     (AST.ite (any != zero) (numCC 1) (numCC 3)))
+  append bld {
+    let n = lanes w
+    let all = tmpVar bld w
+    let any = tmpVar bld w
+    all := lane d w 0
+    any := lane d w 0
+    for i in 1 .. n - 1 do
+      all := all .& lane d w i
+      any := any .| lane d w i
+    let zero = AST.num0 w
+    ccVar bld
+            := AST.ite (all != zero)
+                       (numCC 0)
+                       (AST.ite (any != zero) (numCC 1) (numCC 3))
+  }
 
 /// The element-wise comparisons, which write all ones into a lane the
 /// comparison held for and all zeros into the others.
 let compare ins insLen bld f =
-  let o = oprArray ins
-  let w = esize (oprMask o[3])
-  let cc = Array.length o > 4 && wantsCC (oprMask o[4])
-  let d = vec bld o[0]
-  bld <!-- ((ins: Instruction).Address, insLen)
-  mapPair bld
-    w
-    d
-    (vec bld o[1])
-    (vec bld o[2])
-    (fun a b -> AST.ite (f a b) (allOnes w) (AST.num0 w))
-  if cc then setCCCompare bld w d else ()
-  bld --!> insLen
+  lift bld (ins: Instruction) insLen {
+    let o = oprArray ins
+    let w = esize (oprMask o[3])
+    let cc = Array.length o > 4 && wantsCC (oprMask o[4])
+    let d = vec bld o[0]
+    mapPair bld
+      w
+      d
+      (vec bld o[1])
+      (vec bld o[2])
+      (fun a b -> AST.ite (f a b) (allOnes w) (AST.num0 w))
+    if cc then setCCCompare bld w d else ()
+  }
 
 /// VECTOR ELEMENT COMPARE, which reports how one lane of each vector stands
 /// rather than writing a result.
 let elementCompare ins insLen bld signed =
-  let o = oprArray ins
-  let w = esize (oprMask o[2])
-  let i = lanes w / 2 - 1
-  let a = tmpVar bld w
-  let b = tmpVar bld w
-  bld <!-- ((ins: Instruction).Address, insLen)
-  bld <+ (a := lane (vec bld o[0]) w i)
-  bld <+ (b := lane (vec bld o[1]) w i)
-  if signed then setCCCmp bld a b else setCCCmpLogical bld a b
-  bld --!> insLen
+  lift bld (ins: Instruction) insLen {
+    let o = oprArray ins
+    let w = esize (oprMask o[2])
+    let i = lanes w / 2 - 1
+    let a = tmpVar bld w
+    let b = tmpVar bld w
+    a := lane (vec bld o[0]) w i
+    b := lane (vec bld o[1]) w i
+    if signed then setCCCmp bld a b else setCCCmpLogical bld a b
+  }
 
 /// VECTOR TEST UNDER MASK, whose condition code says whether the bits the mask
 /// selects were all zeros, a mixture, or all ones.
 let testUnderMask ins insLen bld =
-  let o = oprArray ins
-  let x = whole (vec bld o[0])
-  let m = whole (vec bld o[1])
-  let sel = tmpVar bld 128<rt>
-  let mask = tmpVar bld 128<rt>
-  bld <!-- ((ins: Instruction).Address, insLen)
-  bld <+ (mask := m)
-  bld <+ (sel := x .& mask)
-  let zero = AST.num0 128<rt>
-  let mixed = AST.ite (sel == mask) (numCC 3) (numCC 1)
-  bld <+ (ccVar bld := AST.ite (mask == zero)
-                               (numCC 0)
-                               (AST.ite (sel == zero) (numCC 0) mixed))
-  bld --!> insLen
+  lift bld (ins: Instruction) insLen {
+    let o = oprArray ins
+    let x = whole (vec bld o[0])
+    let m = whole (vec bld o[1])
+    let sel = tmpVar bld 128<rt>
+    let mask = tmpVar bld 128<rt>
+    mask := m
+    sel := x .& mask
+    let zero = AST.num0 128<rt>
+    let mixed = AST.ite (sel == mask) (numCC 3) (numCC 1)
+    ccVar bld := AST.ite (mask == zero)
+                         (numCC 0)
+                         (AST.ite (sel == zero) (numCC 0) mixed)
+  }
 
 /// The index of the leftmost lane a search found something in, as a byte count,
 /// which is the answer every one of the string instructions gives.
 let private setIndex bld w d found idx =
-  bld <+ (d.Hi := AST.num0 GRSize)
-  bld <+ (d.Lo := AST.num0 GRSize)
-  bld <+ (lane d 64<rt> 0 := AST.ite found idx (numG 16L))
+  append bld {
+    d.Hi := AST.num0 GRSize
+    d.Lo := AST.num0 GRSize
+    lane d 64<rt> 0 := AST.ite found idx (numG 16L)
+  }
 
 /// VECTOR FIND ANY ELEMENT EQUAL and VECTOR FIND ELEMENT EQUAL: the first lane
 /// of the second operand that matches one of the third's -- or, for the "not
@@ -1023,257 +1040,259 @@ let private setIndex bld w d found idx =
 /// end of a string when the mask says so, which is what makes these the whole
 /// of a vector strlen or strchr.
 let findElement ins insLen bld wantEqual =
-  let o = oprArray ins
-  let w = esize (oprMask o[3])
-  let m5 = if Array.length o > 4 then oprMask o[4] else 0us
-  let zeroSearch = m5 &&& 2us <> 0us
-  let cc = wantsCC m5
-  let d = vec bld o[0]
-  let x = vec bld o[1]
-  let y = vec bld o[2]
-  let n = lanes w
-  let bytes = bitsOf w / 8
-  let idx = tmpVar bld GRSize
-  let hit = tmpVar bld 1<rt>
-  bld <!-- ((ins: Instruction).Address, insLen)
-  bld <+ (idx := numG 16L)
-  bld <+ (hit := AST.b0)
-  for i in n - 1 .. -1 .. 0 do
-    let a = lane x w i
-    let b = lane y w i
-    let same = if wantEqual then a == b else a != b
-    let cond = if zeroSearch then same .| (a == AST.num0 w) else same
-    bld <+ (idx := AST.ite cond (numG (int64 (i * bytes))) idx)
-    bld <+ (hit := AST.ite cond AST.b1 hit)
-  setIndex bld w d (hit == AST.b1) idx
-  if cc then bld <+ (ccVar bld := AST.ite (hit == AST.b1) (numCC 1) (numCC 3))
-  else ()
-  bld --!> insLen
+  lift bld (ins: Instruction) insLen {
+    let o = oprArray ins
+    let w = esize (oprMask o[3])
+    let m5 = if Array.length o > 4 then oprMask o[4] else 0us
+    let zeroSearch = m5 &&& 2us <> 0us
+    let cc = wantsCC m5
+    let d = vec bld o[0]
+    let x = vec bld o[1]
+    let y = vec bld o[2]
+    let n = lanes w
+    let bytes = bitsOf w / 8
+    let idx = tmpVar bld GRSize
+    let hit = tmpVar bld 1<rt>
+    idx := numG 16L
+    hit := AST.b0
+    for i in n - 1 .. -1 .. 0 do
+      let a = lane x w i
+      let b = lane y w i
+      let same = if wantEqual then a == b else a != b
+      let cond = if zeroSearch then same .| (a == AST.num0 w) else same
+      idx := AST.ite cond (numG (int64 (i * bytes))) idx
+      hit := AST.ite cond AST.b1 hit
+    setIndex bld w d (hit == AST.b1) idx
+    if cc then
+      append bld { ccVar bld := AST.ite (hit == AST.b1) (numCC 1) (numCC 3) }
+    else
+      ()
+  }
 
 /// VECTOR ISOLATE STRING, which keeps every lane up to the first zero one and
 /// clears the rest -- the vector form of taking a null-terminated prefix.
 let isolateString ins insLen bld =
-  let o = oprArray ins
-  let w = esize (oprMask o[2])
-  let m5 = if Array.length o > 3 then oprMask o[3] else 0us
-  let d = vec bld o[0]
-  let x = vec bld o[1]
-  let n = lanes w
-  let live = tmpVar bld 1<rt>
-  let ts = Array.init n (fun _ -> tmpVar bld w)
-  bld <!-- ((ins: Instruction).Address, insLen)
-  bld <+ (live := AST.b1)
-  for i in 0 .. n - 1 do
-    let a = lane x w i
-    bld <+ (ts[i] := AST.ite (live == AST.b1) a (AST.num0 w))
-    bld <+ (live := AST.ite (a == AST.num0 w) AST.b0 live)
-  for i in 0 .. n - 1 do
-    bld <+ (lane d w i := ts[i])
-  if wantsCC m5 then
-    bld <+ (ccVar bld := AST.ite (live == AST.b1) (numCC 3) (numCC 0))
-  else
-    ()
-  bld --!> insLen
+  lift bld (ins: Instruction) insLen {
+    let o = oprArray ins
+    let w = esize (oprMask o[2])
+    let m5 = if Array.length o > 3 then oprMask o[3] else 0us
+    let d = vec bld o[0]
+    let x = vec bld o[1]
+    let n = lanes w
+    let live = tmpVar bld 1<rt>
+    let ts = Array.init n (fun _ -> tmpVar bld w)
+    live := AST.b1
+    for i in 0 .. n - 1 do
+      let a = lane x w i
+      ts[i] := AST.ite (live == AST.b1) a (AST.num0 w)
+      live := AST.ite (a == AST.num0 w) AST.b0 live
+    for i in 0 .. n - 1 do
+      lane d w i := ts[i]
+    if wantsCC m5 then
+      ccVar bld := AST.ite (live == AST.b1) (numCC 3) (numCC 0)
+    else
+      ()
+  }
 
 /// VECTOR STRING RANGE COMPARE and VECTOR STRING SEARCH, the two remaining
 /// string primitives. Both walk the lanes looking for the first that satisfies
 /// a condition the extra operands describe.
 let stringRangeCompare ins insLen bld =
-  let o = oprArray ins
-  let w = esize (oprMask o[4])
-  let m6 = if Array.length o > 5 then oprMask o[5] else 0us
-  let d = vec bld o[0]
-  let x = vec bld o[1]
-  let y = vec bld o[2]
-  let z = vec bld o[3]
-  let n = lanes w
-  let bytes = bitsOf w / 8
-  let idx = tmpVar bld GRSize
-  let hit = tmpVar bld 1<rt>
-  bld <!-- ((ins: Instruction).Address, insLen)
-  bld <+ (idx := numG 16L)
-  bld <+ (hit := AST.b0)
-  for i in n - 1 .. -1 .. 0 do
-    (* Each pair of lanes of the second and third operands gives a range and the
-       controls that say which ends of it count; a lane of the first operand in
-       range is a match. *)
-    let a = lane x w i
-    let lo = lane y w i
-    let ctl = lane z w i
-    let ge = (ctl .& numI64 0x80L w) == AST.num0 w
-    let cond = AST.ite ge (a .>= lo) (a .<= lo)
-    bld <+ (idx := AST.ite cond (numG (int64 (i * bytes))) idx)
-    bld <+ (hit := AST.ite cond AST.b1 hit)
-  setIndex bld w d (hit == AST.b1) idx
-  if wantsCC m6 then
-    bld <+ (ccVar bld := AST.ite (hit == AST.b1) (numCC 1) (numCC 3))
-  else
-    ()
-  bld --!> insLen
+  lift bld (ins: Instruction) insLen {
+    let o = oprArray ins
+    let w = esize (oprMask o[4])
+    let m6 = if Array.length o > 5 then oprMask o[5] else 0us
+    let d = vec bld o[0]
+    let x = vec bld o[1]
+    let y = vec bld o[2]
+    let z = vec bld o[3]
+    let n = lanes w
+    let bytes = bitsOf w / 8
+    let idx = tmpVar bld GRSize
+    let hit = tmpVar bld 1<rt>
+    idx := numG 16L
+    hit := AST.b0
+    for i in n - 1 .. -1 .. 0 do
+      (* Each pair of lanes of the second and third operands gives a range and
+         the controls that say which ends of it count; a lane of the first
+         operand in range is a match. *)
+      let a = lane x w i
+      let lo = lane y w i
+      let ctl = lane z w i
+      let ge = (ctl .& numI64 0x80L w) == AST.num0 w
+      let cond = AST.ite ge (a .>= lo) (a .<= lo)
+      idx := AST.ite cond (numG (int64 (i * bytes))) idx
+      hit := AST.ite cond AST.b1 hit
+    setIndex bld w d (hit == AST.b1) idx
+    if wantsCC m6 then
+      ccVar bld := AST.ite (hit == AST.b1) (numCC 1) (numCC 3)
+    else
+      ()
+  }
 
 let stringSearch ins insLen bld =
-  let o = oprArray ins
-  let w = esize (oprMask o[4])
-  let d = vec bld o[0]
-  let x = vec bld o[1]
-  let y = vec bld o[2]
-  let z = vec bld o[3]
-  let n = lanes w
-  let bytes = bitsOf w / 8
-  let len = tmpVar bld GRSize
-  let idx = tmpVar bld GRSize
-  let hit = tmpVar bld 1<rt>
-  bld <!-- ((ins: Instruction).Address, insLen)
-  bld <+ (len := zextTo GRSize (lane z 8<rt> 7))
-  bld <+ (idx := numG 16L)
-  bld <+ (hit := AST.b0)
-  for start in n - 1 .. -1 .. 0 do
-    (* A match at this lane means every lane of the substring, as far as its
-       length reaches within the vector, agrees. *)
-    let mutable cond = AST.b1
-    for k in 0 .. n - 1 - start do
-      let inRange = numG (int64 k) .< len
-      let same = lane x w (start + k) == lane y w k
-      cond <- cond .& (AST.ite inRange same AST.b1)
-    bld <+ (idx := AST.ite cond (numG (int64 (start * bytes))) idx)
-    bld <+ (hit := AST.ite cond AST.b1 hit)
-  setIndex bld w d (hit == AST.b1) idx
-  bld <+ (ccVar bld := AST.ite (hit == AST.b1) (numCC 2) (numCC 3))
-  bld --!> insLen
+  lift bld (ins: Instruction) insLen {
+    let o = oprArray ins
+    let w = esize (oprMask o[4])
+    let d = vec bld o[0]
+    let x = vec bld o[1]
+    let y = vec bld o[2]
+    let z = vec bld o[3]
+    let n = lanes w
+    let bytes = bitsOf w / 8
+    let len = tmpVar bld GRSize
+    let idx = tmpVar bld GRSize
+    let hit = tmpVar bld 1<rt>
+    len := zextTo GRSize (lane z 8<rt> 7)
+    idx := numG 16L
+    hit := AST.b0
+    for start in n - 1 .. -1 .. 0 do
+      (* A match at this lane means every lane of the substring, as far as its
+         length reaches within the vector, agrees. *)
+      let mutable cond = AST.b1
+      for k in 0 .. n - 1 - start do
+        let inRange = numG (int64 k) .< len
+        let same = lane x w (start + k) == lane y w k
+        cond <- cond .& (AST.ite inRange same AST.b1)
+      idx := AST.ite cond (numG (int64 (start * bytes))) idx
+      hit := AST.ite cond AST.b1 hit
+    setIndex bld w d (hit == AST.b1) idx
+    ccVar bld := AST.ite (hit == AST.b1) (numCC 2) (numCC 3)
+  }
 
 /// VECTOR PACK, which halves the width of every lane by dropping its left half,
 /// and the saturating forms, which clamp instead of dropping.
 let pack ins insLen bld =
-  let o = oprArray ins
-  let w = esize (oprMask o[3])
-  let narrow = w / 2
-  let d = vec bld o[0]
-  let x = vec bld o[1]
-  let y = vec bld o[2]
-  let n = lanes narrow
-  let ts = Array.init n (fun _ -> tmpVar bld narrow)
-  bld <!-- ((ins: Instruction).Address, insLen)
-  for i in 0 .. n / 2 - 1 do
-    bld <+ (ts[i] := AST.xtlo narrow (lane x w i))
-  for i in 0 .. n / 2 - 1 do
-    bld <+ (ts[n / 2 + i] := AST.xtlo narrow (lane y w i))
-  for i in 0 .. n - 1 do
-    bld <+ (lane d narrow i := ts[i])
-  bld --!> insLen
+  lift bld (ins: Instruction) insLen {
+    let o = oprArray ins
+    let w = esize (oprMask o[3])
+    let narrow = w / 2
+    let d = vec bld o[0]
+    let x = vec bld o[1]
+    let y = vec bld o[2]
+    let n = lanes narrow
+    let ts = Array.init n (fun _ -> tmpVar bld narrow)
+    for i in 0 .. n / 2 - 1 do
+      ts[i] := AST.xtlo narrow (lane x w i)
+    for i in 0 .. n / 2 - 1 do
+      ts[n / 2 + i] := AST.xtlo narrow (lane y w i)
+    for i in 0 .. n - 1 do
+      lane d narrow i := ts[i]
+  }
 
 /// VECTOR UNPACK, which doubles the width of the lanes at one end of the
 /// source, sign- or zero-extending each.
 let unpack ins insLen bld signed fromHigh =
-  let o = oprArray ins
-  let w = esize (oprMask o[2])
-  let wide = w * 2
-  let ext = if signed then AST.sext else AST.zext
-  let d = vec bld o[0]
-  let x = vec bld o[1]
-  let n = lanes wide
-  let ts = Array.init n (fun _ -> tmpVar bld wide)
-  bld <!-- ((ins: Instruction).Address, insLen)
-  for i in 0 .. n - 1 do
-    let src = if fromHigh then i else n + i
-    bld <+ (ts[i] := ext wide (getLane x w src))
-  for i in 0 .. n - 1 do
-    setLane bld d wide i ts[i]
-  bld --!> insLen
+  lift bld (ins: Instruction) insLen {
+    let o = oprArray ins
+    let w = esize (oprMask o[2])
+    let wide = w * 2
+    let ext = if signed then AST.sext else AST.zext
+    let d = vec bld o[0]
+    let x = vec bld o[1]
+    let n = lanes wide
+    let ts = Array.init n (fun _ -> tmpVar bld wide)
+    for i in 0 .. n - 1 do
+      let src = if fromHigh then i else n + i
+      ts[i] := ext wide (getLane x w src)
+    for i in 0 .. n - 1 do
+      setLane bld d wide i ts[i]
+  }
 
 /// VECTOR MERGE, which interleaves the lanes at one end of the two sources.
 let merge ins insLen bld fromHigh =
-  let o = oprArray ins
-  let w = esize (oprMask o[3])
-  let d = vec bld o[0]
-  let x = vec bld o[1]
-  let y = vec bld o[2]
-  let n = lanes w
-  let ts = Array.init n (fun _ -> tmpVar bld w)
-  bld <!-- ((ins: Instruction).Address, insLen)
-  for i in 0 .. n / 2 - 1 do
-    let src = if fromHigh then i else n / 2 + i
-    bld <+ (ts[2 * i] := lane x w src)
-    bld <+ (ts[2 * i + 1] := lane y w src)
-  for i in 0 .. n - 1 do
-    bld <+ (lane d w i := ts[i])
-  bld --!> insLen
+  lift bld (ins: Instruction) insLen {
+    let o = oprArray ins
+    let w = esize (oprMask o[3])
+    let d = vec bld o[0]
+    let x = vec bld o[1]
+    let y = vec bld o[2]
+    let n = lanes w
+    let ts = Array.init n (fun _ -> tmpVar bld w)
+    for i in 0 .. n / 2 - 1 do
+      let src = if fromHigh then i else n / 2 + i
+      ts[2 * i] := lane x w src
+      ts[2 * i + 1] := lane y w src
+    for i in 0 .. n - 1 do
+      lane d w i := ts[i]
+  }
 
 /// VECTOR PERMUTE, which builds each byte of the result from whichever byte of
 /// the two sources laid end to end a third vector's byte names.
 let permute ins insLen bld =
-  let o = oprArray ins
-  let d = vec bld o[0]
-  let x = vec bld o[1]
-  let y = vec bld o[2]
-  let z = vec bld o[3]
-  let ts = Array.init 16 (fun _ -> tmpVar bld 8<rt>)
-  bld <!-- ((ins: Instruction).Address, insLen)
-  for i in 0 .. 15 do
-    let idx = tmpVar bld GRSize
-    bld <+ (idx := zextTo GRSize (lane z 8<rt> i) .& numG 31L)
-    let mutable pick = lane x 8<rt> 0
-    for k in 1 .. 31 do
-      let src = if k < 16 then lane x 8<rt> k else lane y 8<rt> (k - 16)
-      pick <- AST.ite (idx == numG (int64 k)) src pick
-    bld <+ (ts[i] := pick)
-  for i in 0 .. 15 do
-    bld <+ (lane d 8<rt> i := ts[i])
-  bld --!> insLen
+  lift bld (ins: Instruction) insLen {
+    let o = oprArray ins
+    let d = vec bld o[0]
+    let x = vec bld o[1]
+    let y = vec bld o[2]
+    let z = vec bld o[3]
+    let ts = Array.init 16 (fun _ -> tmpVar bld 8<rt>)
+    for i in 0 .. 15 do
+      let idx = tmpVar bld GRSize
+      idx := zextTo GRSize (lane z 8<rt> i) .& numG 31L
+      let mutable pick = lane x 8<rt> 0
+      for k in 1 .. 31 do
+        let src = if k < 16 then lane x 8<rt> k else lane y 8<rt> (k - 16)
+        pick <- AST.ite (idx == numG (int64 k)) src pick
+      ts[i] := pick
+    for i in 0 .. 15 do
+      lane d 8<rt> i := ts[i]
+  }
 
 /// VECTOR PERMUTE DOUBLEWORD IMMEDIATE, the same idea over two doublewords.
 let permuteDoubleword ins insLen bld =
-  let o = oprArray ins
-  let d = vec bld o[0]
-  let x = vec bld o[1]
-  let y = vec bld o[2]
-  let m = int (numOf o[3])
-  let a = tmpVar bld GRSize
-  let b = tmpVar bld GRSize
-  bld <!-- ((ins: Instruction).Address, insLen)
-  bld <+ (a := if m &&& 4 = 0 then x.Hi else x.Lo)
-  bld <+ (b := if m &&& 1 = 0 then y.Hi else y.Lo)
-  bld <+ (d.Hi := a)
-  bld <+ (d.Lo := b)
-  bld --!> insLen
+  lift bld (ins: Instruction) insLen {
+    let o = oprArray ins
+    let d = vec bld o[0]
+    let x = vec bld o[1]
+    let y = vec bld o[2]
+    let m = int (numOf o[3])
+    let a = tmpVar bld GRSize
+    let b = tmpVar bld GRSize
+    a := if m &&& 4 = 0 then x.Hi else x.Lo
+    b := if m &&& 1 = 0 then y.Hi else y.Lo
+    d.Hi := a
+    d.Lo := b
+  }
 
 /// VECTOR SELECT, whose third operand chooses bit by bit between the other two.
 let select ins insLen bld =
-  let o = oprArray ins
-  let d = vec bld o[0]
-  let x = vec bld o[1]
-  let y = vec bld o[2]
-  let z = vec bld o[3]
-  let m = tmpVar bld GRSize
-  bld <!-- ((ins: Instruction).Address, insLen)
-  bld <+ (m := z.Hi)
-  let hi = tmpVar bld GRSize
-  let lo = tmpVar bld GRSize
-  bld <+ (hi := (x.Hi .& m) .| (y.Hi .& AST.not m))
-  bld <+ (m := z.Lo)
-  bld <+ (lo := (x.Lo .& m) .| (y.Lo .& AST.not m))
-  bld <+ (d.Hi := hi)
-  bld <+ (d.Lo := lo)
-  bld --!> insLen
+  lift bld (ins: Instruction) insLen {
+    let o = oprArray ins
+    let d = vec bld o[0]
+    let x = vec bld o[1]
+    let y = vec bld o[2]
+    let z = vec bld o[3]
+    let m = tmpVar bld GRSize
+    m := z.Hi
+    let hi = tmpVar bld GRSize
+    let lo = tmpVar bld GRSize
+    hi := (x.Hi .& m) .| (y.Hi .& AST.not m)
+    m := z.Lo
+    lo := (x.Lo .& m) .| (y.Lo .& AST.not m)
+    d.Hi := hi
+    d.Lo := lo
+  }
 
 /// VECTOR SIGN EXTEND TO DOUBLEWORD, which takes the rightmost element of each
 /// half and spreads its sign over the whole of that half.
 let signExtendDoubleword ins insLen bld =
-  let o = oprArray ins
-  let d = vec bld o[0]
-  let x = vec bld o[1]
-  bld <!-- ((ins: Instruction).Address, insLen)
-  bld <+ (d.Hi := AST.sext GRSize (AST.xtlo 8<rt> x.Hi))
-  bld <+ (d.Lo := AST.sext GRSize (AST.xtlo 8<rt> x.Lo))
-  bld --!> insLen
+  lift bld (ins: Instruction) insLen {
+    let o = oprArray ins
+    let d = vec bld o[0]
+    let x = vec bld o[1]
+    d.Hi := AST.sext GRSize (AST.xtlo 8<rt> x.Hi)
+    d.Lo := AST.sext GRSize (AST.xtlo 8<rt> x.Lo)
+  }
 
 /// An instruction of the facility this lifter does not model: the vector
 /// floating-point operations, which would need a 128-bit float the IR has no
 /// type for, and the vector decimal ones, whose packed-decimal arithmetic is
 /// not modelled either.
 let unsupported ins insLen bld =
-  bld <!-- ((ins: Instruction).Address, insLen)
-  bld <+ AST.sideEffect UnsupportedInstruction
-  bld --!> insLen
+  lift bld (ins: Instruction) insLen {
+    AST.sideEffect UnsupportedInstruction
+  }
 
 /// Translates one vector instruction.
 let translate (ins: Instruction) insLen bld =

@@ -41,10 +41,10 @@ open B2R2.FrontEnd.Python.LifterHelpers
 /// DUP_TOPX: 3.2 replaced it with DUP_TOP_TWO, the only count CPython ever
 /// emitted for it. The copies keep their relative order.
 let private dupTopN (ins: Instruction) bld =
-  bld <!-- (ins.Address, ins.Length)
-  let items = [| for i in 0 .. getIntArg ins - 1 -> peekFromStack bld i |]
-  for v in Array.rev items do pushToStack bld v
-  bld --!> ins.Length
+  lift bld ins ins.Length {
+    let items = [| for i in 0 .. getIntArg ins - 1 -> peekFromStack bld i |]
+    for v in Array.rev items do pushToStack bld v
+  }
 
 /// The two co_varnames indices a paired local opcode packs into one oparg,
 /// the high nibble first -- the same split Parsing.resolveOperand makes to
@@ -56,11 +56,11 @@ let private pairedIndices (ins: Instruction) =
 /// LOAD_FAST_LOAD_FAST, LOAD_FAST_BORROW_LOAD_FAST_BORROW: one oparg, two
 /// locals pushed in order.
 let private loadPair (ins: Instruction) bld =
-  bld <!-- (ins.Address, ins.Length)
-  let a, b = pairedIndices ins
-  pushToStack bld (AST.app "LOAD_FAST" [ a ] rt)
-  pushToStack bld (AST.app "LOAD_FAST" [ b ] rt)
-  bld --!> ins.Length
+  lift bld ins ins.Length {
+    let a, b = pairedIndices ins
+    pushToStack bld (AST.app "LOAD_FAST" [ a ] rt)
+    pushToStack bld (AST.app "LOAD_FAST" [ b ] rt)
+  }
 
 /// LOAD_SMALL_INT: the oparg IS the value, not an index into anything. It
 /// still goes on as a named app rather than as the bare number: every slot of
@@ -68,35 +68,35 @@ let private loadPair (ins: Instruction) bld =
 /// any other -- pushed as itself it would name whichever object that number
 /// happens to be.
 let private loadSmallInt (ins: Instruction) bld =
-  bld <!-- (ins.Address, ins.Length)
-  pushToStack bld (AST.app "LOAD_SMALL_INT" [ numI32 (getIntArg ins) rt ] rt)
-  bld --!> ins.Length
+  lift bld ins ins.Length {
+    pushToStack bld (AST.app "LOAD_SMALL_INT" [ numI32 (getIntArg ins) rt ] rt)
+  }
 
 /// LOAD_COMMON_CONSTANT indexes a table built into the interpreter, not a
 /// co_* table, so the raw index is all there is.
 let private loadIndexed name (ins: Instruction) bld =
-  bld <!-- (ins.Address, ins.Length)
-  pushToStack bld (AST.app name [ numI32 (getIntArg ins) rt ] rt)
-  bld --!> ins.Length
+  lift bld ins ins.Length {
+    pushToStack bld (AST.app name [ numI32 (getIntArg ins) rt ] rt)
+  }
 
 /// STORE_FAST_LOAD_FAST: store into the first local, then load the second.
 let private storeLoadPair (ins: Instruction) bld =
-  bld <!-- (ins.Address, ins.Length)
-  let a, b = pairedIndices ins
-  let v = popFromStack bld
-  bld <+ AST.extCall (AST.app "STORE_FAST" [ a; v ] rt)
-  pushToStack bld (AST.app "LOAD_FAST" [ b ] rt)
-  bld --!> ins.Length
+  lift bld ins ins.Length {
+    let a, b = pairedIndices ins
+    let v = popFromStack bld
+    AST.extCall (AST.app "STORE_FAST" [ a; v ] rt)
+    pushToStack bld (AST.app "LOAD_FAST" [ b ] rt)
+  }
 
 /// STORE_FAST_STORE_FAST: two stores, the first taking the top of stack.
 let private storePair (ins: Instruction) bld =
-  bld <!-- (ins.Address, ins.Length)
-  let a, b = pairedIndices ins
-  let first = popFromStack bld
-  let second = popFromStack bld
-  bld <+ AST.extCall (AST.app "STORE_FAST" [ a; first ] rt)
-  bld <+ AST.extCall (AST.app "STORE_FAST" [ b; second ] rt)
-  bld --!> ins.Length
+  lift bld ins ins.Length {
+    let a, b = pairedIndices ins
+    let first = popFromStack bld
+    let second = popFromStack bld
+    AST.extCall (AST.app "STORE_FAST" [ a; first ] rt)
+    AST.extCall (AST.app "STORE_FAST" [ b; second ] rt)
+  }
 
 /// STORE_MAP: up to 3.4 a dict display is built by pushing the dict and then
 /// one value/key pair per entry, which is what 3.5's BUILD_MAP takes all at
@@ -104,36 +104,36 @@ let private storePair (ins: Instruction) bld =
 /// MAP_ADD, the opcode that does the same job from 3.1 on, so that HIR
 /// translation sees one shape across versions.
 let private storeMap (ins: Instruction) bld =
-  bld <!-- (ins.Address, ins.Length)
-  let key = popFromStack bld
-  let value = popFromStack bld
-  let mp = peekFromStack bld 0
-  bld <+ AST.extCall (AST.app "MAP_ADD" [ mp; key; value ] rt)
-  bld --!> ins.Length
+  lift bld ins ins.Length {
+    let key = popFromStack bld
+    let value = popFromStack bld
+    let mp = peekFromStack bld 0
+    AST.extCall (AST.app "MAP_ADD" [ mp; key; value ] rt)
+  }
 
 /// STORE_LOCALS: 3.0-3.3 build a class body's namespace as an ordinary
 /// mapping and install it as the frame's locals with this; 3.4 replaced it
 /// with LOAD_BUILD_CLASS's own protocol.
 let private storeLocals (ins: Instruction) bld =
-  bld <!-- (ins.Address, ins.Length)
-  let mapping = popFromStack bld
-  bld <+ AST.extCall (AST.app "STORE_LOCALS" [ mapping ] rt)
-  bld --!> ins.Length
+  lift bld ins ins.Length {
+    let mapping = popFromStack bld
+    AST.extCall (AST.app "STORE_LOCALS" [ mapping ] rt)
+  }
 
 /// TO_BOOL: 3.13 gives the truthiness test its own instruction, where 3.12
 /// left it implicit inside the conditional jump.
 let private toBool (ins: Instruction) bld =
-  bld <!-- (ins.Address, ins.Length)
-  let v = popFromStack bld
-  pushToStack bld (AST.app "TO_BOOL" [ v ] rt)
-  bld --!> ins.Length
+  lift bld ins ins.Length {
+    let v = popFromStack bld
+    pushToStack bld (AST.app "TO_BOOL" [ v ] rt)
+  }
 
 /// BUILD_TEMPLATE and BUILD_INTERPOLATION build a t-string (PEP 750).
 let private buildFromStack name count (ins: Instruction) bld =
-  bld <!-- (ins.Address, ins.Length)
-  let items = List.init count (fun _ -> popFromStack bld) |> List.rev
-  pushToStack bld (AST.app name items rt)
-  bld --!> ins.Length
+  lift bld ins ins.Length {
+    let items = List.init count (fun _ -> popFromStack bld) |> List.rev
+    pushToStack bld (AST.app name items rt)
+  }
 
 /// LOAD_SPECIAL: 3.14 fetches the method a `with` needs by index into a table
 /// of four the interpreter carries -- __enter__, __exit__ and their async
@@ -142,12 +142,12 @@ let private buildFromStack name count (ins: Instruction) bld =
 /// the pair a call sits on, in the order 3.13 settled: the method, and above
 /// it the empty self-slot, since what it answers with is already bound.
 let private loadSpecial (ins: Instruction) bld =
-  bld <!-- (ins.Address, ins.Length)
-  let owner = popFromStack bld
-  let which = numI32 (getIntArg ins) rt
-  pushToStack bld (AST.app "LOAD_SPECIAL" [ owner; which ] rt)
-  pushToStack bld nullSlot
-  bld --!> ins.Length
+  lift bld ins ins.Length {
+    let owner = popFromStack bld
+    let which = numI32 (getIntArg ins) rt
+    pushToStack bld (AST.app "LOAD_SPECIAL" [ owner; which ] rt)
+    pushToStack bld nullSlot
+  }
 
 /// SET_FUNCTION_ATTRIBUTE pops the function, sets on it the value beneath,
 /// and leaves the function on the stack. The function is what is on top: the
@@ -155,47 +155,47 @@ let private loadSpecial (ins: Instruction) bld =
 /// object MAKE_FUNCTION turns into the function -- so a pop that took the
 /// value first read the two as each other.
 let private setFunctionAttribute (ins: Instruction) bld =
-  bld <!-- (ins.Address, ins.Length)
-  let func = popFromStack bld
-  let attr = popFromStack bld
-  let which = numI32 (getIntArg ins) rt
-  pushToStack bld (AST.app "SET_FUNCTION_ATTRIBUTE" [ func; which; attr ] rt)
-  bld --!> ins.Length
+  lift bld ins ins.Length {
+    let func = popFromStack bld
+    let attr = popFromStack bld
+    let which = numI32 (getIntArg ins) rt
+    pushToStack bld (AST.app "SET_FUNCTION_ATTRIBUTE" [ func; which; attr ] rt)
+  }
 
 /// WITH_CLEANUP: 3.5 split this into WITH_CLEANUP_START, which calls
 /// __exit__, and WITH_CLEANUP_FINISH, which consumes its result. Before that
 /// one opcode did both, so the pair's two stack effects cancel down to
 /// popping the exit function this calls.
 let private withCleanup (ins: Instruction) bld =
-  bld <!-- (ins.Address, ins.Length)
-  let exitFunc = popFromStack bld
-  bld <+ AST.extCall (AST.app "WITH_CLEANUP" [ exitFunc ] rt)
-  bld --!> ins.Length
+  lift bld ins ins.Length {
+    let exitFunc = popFromStack bld
+    AST.extCall (AST.app "WITH_CLEANUP" [ exitFunc ] rt)
+  }
 
 /// 3.0's JUMP_IF_FALSE and JUMP_IF_TRUE, which 3.1 replaced with the
 /// POP_JUMP_IF_* and *_OR_POP pairs: unlike every conditional jump after
 /// them, these leave the value they tested on the stack.
 let private condJumpNoPop (ins: Instruction) bld jumpIfTrue =
-  bld <!-- (ins.Address, ins.Length)
-  let cond = peekFromStack bld 0
-  let n = getIntArg ins * jumpArgScale ins
-  let jmpDst = ins.Address + uint64 ins.Length + uint64 n
-  let fallDst = ins.Address + uint64 ins.Length
-  let tLbl = AST.num (BitVector(jmpDst, rt))
-  let fLbl = AST.num (BitVector(fallDst, rt))
-  let tLbl, fLbl = if jumpIfTrue then tLbl, fLbl else fLbl, tLbl
-  bld <+ AST.intercjmp (truthOf cond) tLbl fLbl
-  bld
+  liftOpen bld ins ins.Length {
+    let cond = peekFromStack bld 0
+    let n = getIntArg ins * jumpArgScale ins
+    let jmpDst = ins.Address + uint64 ins.Length + uint64 n
+    let fallDst = ins.Address + uint64 ins.Length
+    let tLbl = AST.num (BitVector(jmpDst, rt))
+    let fLbl = AST.num (BitVector(fallDst, rt))
+    let tLbl, fLbl = if jumpIfTrue then tLbl, fLbl else fLbl, tLbl
+    AST.intercjmp (truthOf cond) tLbl fLbl
+  }
 
 /// SETUP_LOOP, SETUP_EXCEPT and SETUP_FINALLY each push a block whose handler
 /// sits at a forward-relative target -- all three are jump-relative in every
 /// version that has them, so the scale is the only thing 3.10 changes here.
 let private setupBlock name (ins: Instruction) bld =
-  bld <!-- (ins.Address, ins.Length)
-  let n = getIntArg ins * jumpArgScale ins
-  let target = ins.Address + uint64 ins.Length + uint64 n
-  bld <+ AST.extCall (AST.app name [ AST.num (BitVector(target, rt)) ] rt)
-  bld --!> ins.Length
+  lift bld ins ins.Length {
+    let n = getIntArg ins * jumpArgScale ins
+    let target = ins.Address + uint64 ins.Length + uint64 n
+    AST.extCall (AST.app name [ AST.num (BitVector(target, rt)) ] rt)
+  }
 
 /// Up to 3.10 an exception travels the value stack as the three values the
 /// interpreter's own unwinding pushes -- traceback, exception, type, type
@@ -214,19 +214,19 @@ let private popExcTriple bld =
 /// saved beneath the handler's own, so this both ends the handler and puts
 /// back whatever was being handled around it.
 let private popExceptLegacy (ins: Instruction) bld =
-  bld <!-- (ins.Address, ins.Length)
-  bld <+ AST.extCall (AST.app "POP_EXCEPT" (popExcTriple bld) rt)
-  bld --!> ins.Length
+  lift bld ins ins.Length {
+    AST.extCall (AST.app "POP_EXCEPT" (popExcTriple bld) rt)
+  }
 
 /// RERAISE up to 3.10, which is how a handler that did not match, and a
 /// `finally` an exception passed through, give it back. The oparg 3.10 added
 /// says only where the re-raise is to be reported from, so it changes nothing
 /// about the three values taken.
 let private reraiseLegacy (ins: Instruction) bld =
-  bld <!-- (ins.Address, ins.Length)
-  bld <+ AST.extCall (AST.app "RERAISE" (popExcTriple bld) rt)
-  bld <+ AST.sideEffect SideEffect.Terminate
-  bld --!> ins.Length
+  lift bld ins ins.Length {
+    AST.extCall (AST.app "RERAISE" (popExcTriple bld) rt)
+    AST.sideEffect SideEffect.Terminate
+  }
 
 /// SETUP_WITH: up to 3.10 one opcode does what 3.11 splits between BEFORE_WITH
 /// and an entry in the exception table. The manager's __exit__ and the result
@@ -237,37 +237,37 @@ let private reraiseLegacy (ins: Instruction) bld =
 /// the handler expects to find __exit__ still there with the __enter__ result
 /// already gone.
 let private setupWith (ins: Instruction) bld =
-  bld <!-- (ins.Address, ins.Length)
-  let n = getIntArg ins * jumpArgScale ins
-  let target = AST.num (BitVector(ins.Address + uint64 ins.Length + uint64 n,
-                                  rt))
-  let mgr = popFromStack bld
-  pushToStack bld (exitMethod mgr)
-  bld <+ AST.extCall (AST.app "SETUP_FINALLY" [ target ] rt)
-  pushToStack bld (AST.app "__enter__" [ mgr ] rt)
-  bld --!> ins.Length
+  lift bld ins ins.Length {
+    let n = getIntArg ins * jumpArgScale ins
+    let target = AST.num (BitVector(ins.Address + uint64 ins.Length + uint64 n,
+                                    rt))
+    let mgr = popFromStack bld
+    pushToStack bld (exitMethod mgr)
+    AST.extCall (AST.app "SETUP_FINALLY" [ target ] rt)
+    pushToStack bld (AST.app "__enter__" [ mgr ] rt)
+  }
 
 /// CONVERT_VALUE, FORMAT_SIMPLE and FORMAT_WITH_SPEC are 3.12's FORMAT_VALUE
 /// split into three, each doing one part of what formatValue did.
 let private convertValue (ins: Instruction) bld =
-  bld <!-- (ins.Address, ins.Length)
-  let conv = numI32 (getIntArg ins) rt
-  let v = popFromStack bld
-  pushToStack bld (AST.app "CONVERT_VALUE" [ v; conv ] rt)
-  bld --!> ins.Length
+  lift bld ins ins.Length {
+    let conv = numI32 (getIntArg ins) rt
+    let v = popFromStack bld
+    pushToStack bld (AST.app "CONVERT_VALUE" [ v; conv ] rt)
+  }
 
 let private formatSimple (ins: Instruction) bld =
-  bld <!-- (ins.Address, ins.Length)
-  let v = popFromStack bld
-  pushToStack bld (AST.app "FORMAT_SIMPLE" [ v ] rt)
-  bld --!> ins.Length
+  lift bld ins ins.Length {
+    let v = popFromStack bld
+    pushToStack bld (AST.app "FORMAT_SIMPLE" [ v ] rt)
+  }
 
 let private formatWithSpec (ins: Instruction) bld =
-  bld <!-- (ins.Address, ins.Length)
-  let spec = popFromStack bld
-  let v = popFromStack bld
-  pushToStack bld (AST.app "FORMAT_WITH_SPEC" [ v; spec ] rt)
-  bld --!> ins.Length
+  lift bld ins ins.Length {
+    let spec = popFromStack bld
+    let v = popFromStack bld
+    pushToStack bld (AST.app "FORMAT_WITH_SPEC" [ v; spec ] rt)
+  }
 
 let translate (binFile: PythonBinFile) (ins: Instruction) bld =
   let minor = PythonVersion.minor ins.Version
@@ -597,69 +597,69 @@ let translate (binFile: PythonBinFile) (ins: Instruction) bld =
   | Opcode.INSTRUMENTED_RETURN_CONST ->
     translateReturnConst ins bld
   | Opcode.RETURN_GENERATOR ->
-    bld <!-- (ins.Address, ins.Length)
-    pushToStack bld noneValue
-    bld --!> ins.Length
+    lift bld ins ins.Length {
+      pushToStack bld noneValue
+    }
   (* Exception instructions *)
   | Opcode.RAISE_VARARGS ->
     translateRaiseVarargs ins bld
   | Opcode.RERAISE when minor <= 10 ->
     reraiseLegacy ins bld
   | Opcode.RERAISE ->
-    bld <!-- (ins.Address, ins.Length)
-    (* From 3.11 a nonzero oparg says the original instruction offset sits
-       beneath the exception, to be discarded. *)
-    let arg = getIntArgOr 0 ins
-    let exc = popFromStack bld
-    if arg <> 0 then discardTOS bld else ()
-    bld <+ AST.extCall (AST.app "RERAISE" [ exc ] rt)
-    bld <+ AST.sideEffect SideEffect.Terminate
-    bld --!> ins.Length
+    lift bld ins ins.Length {
+      (* From 3.11 a nonzero oparg says the original instruction offset sits
+         beneath the exception, to be discarded. *)
+      let arg = getIntArgOr 0 ins
+      let exc = popFromStack bld
+      if arg <> 0 then discardTOS bld else ()
+      AST.extCall (AST.app "RERAISE" [ exc ] rt)
+      AST.sideEffect SideEffect.Terminate
+    }
   | Opcode.PREP_RERAISE_STAR ->
     (* Builds the exception group to re-raise from an except* block: pops the
        original group and the list of unhandled excs, pushes the result. *)
-    bld <!-- (ins.Address, ins.Length)
-    let unhandled = popFromStack bld
-    let orig = popFromStack bld
-    pushToStack bld (AST.app "PREP_RERAISE_STAR" [ orig; unhandled ] rt)
-    bld --!> ins.Length
+    lift bld ins ins.Length {
+      let unhandled = popFromStack bld
+      let orig = popFromStack bld
+      pushToStack bld (AST.app "PREP_RERAISE_STAR" [ orig; unhandled ] rt)
+    }
   | Opcode.PUSH_EXC_INFO ->
-    bld <!-- (ins.Address, ins.Length)
-    let exc = popFromStack bld
-    pushToStack bld (AST.app "PREV_EXC_INFO" [] rt)
-    pushToStack bld exc
-    bld --!> ins.Length
+    lift bld ins ins.Length {
+      let exc = popFromStack bld
+      pushToStack bld (AST.app "PREV_EXC_INFO" [] rt)
+      pushToStack bld exc
+    }
   | Opcode.POP_EXCEPT when minor <= 10 ->
     popExceptLegacy ins bld
   | Opcode.POP_EXCEPT ->
-    bld <!-- (ins.Address, ins.Length)
-    let exc = popFromStack bld
-    bld <+ AST.extCall (AST.app "POP_EXCEPT" [ exc ] rt)
-    bld --!> ins.Length
+    lift bld ins ins.Length {
+      let exc = popFromStack bld
+      AST.extCall (AST.app "POP_EXCEPT" [ exc ] rt)
+    }
   | Opcode.CHECK_EXC_MATCH ->
-    bld <!-- (ins.Address, ins.Length)
-    let excType = popFromStack bld
-    let exc = peekFromStack bld 0
-    pushToStack bld (AST.app "CHECK_EXC_MATCH" [ exc; excType ] rt)
-    bld --!> ins.Length
+    lift bld ins ins.Length {
+      let excType = popFromStack bld
+      let exc = peekFromStack bld 0
+      pushToStack bld (AST.app "CHECK_EXC_MATCH" [ exc; excType ] rt)
+    }
   | Opcode.CHECK_EG_MATCH ->
     namedEffect "CHECK_EG_MATCH" ins bld
   | Opcode.JUMP_IF_NOT_EXC_MATCH ->
     jumpIfNotExcMatch binFile ins bld
   | Opcode.WITH_EXCEPT_START ->
-    bld <!-- (ins.Address, ins.Length)
-    (* The exception occupies three slots up to 3.10 and one from 3.11, and
-       the three an unwind saved sit beneath it either way -- so __exit__,
-       which went on before the block, is six slots down there and three here.
-       3.14 puts it one deeper again: its LOAD_SPECIAL leaves the empty
-       self-slot beside the method, where 3.11's BEFORE_WITH left the method
-       alone. What it is called with is the exception itself, which up to 3.10
-       is the middle of the three rather than the type on top. *)
-    let exc = peekFromStack bld (if minor <= 10 then 1 else 0)
-    let below = if minor <= 10 then 6 elif minor >= 14 then 4 else 3
-    let exitFunc = peekFromStack bld below
-    pushToStack bld (AST.app "WITH_EXCEPT_START" [ exitFunc; exc ] rt)
-    bld --!> ins.Length
+    lift bld ins ins.Length {
+      (* The exception occupies three slots up to 3.10 and one from 3.11, and
+         the three an unwind saved sit beneath it either way -- so __exit__,
+         which went on before the block, is six slots down there and three here.
+         3.14 puts it one deeper again: its LOAD_SPECIAL leaves the empty
+         self-slot beside the method, where 3.11's BEFORE_WITH left the method
+         alone. What it is called with is the exception itself, which up to 3.10
+         is the middle of the three rather than the type on top. *)
+      let exc = peekFromStack bld (if minor <= 10 then 1 else 0)
+      let below = if minor <= 10 then 6 elif minor >= 14 then 4 else 3
+      let exitFunc = peekFromStack bld below
+      pushToStack bld (AST.app "WITH_EXCEPT_START" [ exitFunc; exc ] rt)
+    }
   (* 3.8's own pair, and the one place in this lifter where an opcode's stack
      effect cannot be written down: what each takes off depends on whether the
      `with` is being left normally or by an exception -- one slot in the first
@@ -680,20 +680,20 @@ let translate (binFile: PythonBinFile) (ins: Instruction) bld =
        `value` attribute on top -- pop 3, push 2, net -1. We model only
        this success path; the re-raise path doesn't change the value
        stack (it unwinds via the exception mechanism instead). *)
-    bld <!-- (ins.Address, ins.Length)
-    let excValue = popFromStack bld
-    let sentVal = popFromStack bld
-    let gen = popFromStack bld
-    pushToStack bld noneValue
-    pushToStack bld (AST.app "CLEANUP_THROW" [ gen; sentVal; excValue ] rt)
-    bld --!> ins.Length
+    lift bld ins ins.Length {
+      let excValue = popFromStack bld
+      let sentVal = popFromStack bld
+      let gen = popFromStack bld
+      pushToStack bld noneValue
+      pushToStack bld (AST.app "CLEANUP_THROW" [ gen; sentVal; excValue ] rt)
+    }
   | Opcode.END_ASYNC_FOR
   | Opcode.INSTRUMENTED_END_ASYNC_FOR ->
-    bld <!-- (ins.Address, ins.Length)
-    let exc = popFromStack bld
-    let aiter = popFromStack bld
-    bld <+ AST.extCall (AST.app "END_ASYNC_FOR" [ aiter; exc ] rt)
-    bld --!> ins.Length
+    lift bld ins ins.Length {
+      let exc = popFromStack bld
+      let aiter = popFromStack bld
+      AST.extCall (AST.app "END_ASYNC_FOR" [ aiter; exc ] rt)
+    }
   (* BEGIN_FINALLY pushes the NULL that marks "no exception" for the
      END_FINALLY / POP_FINALLY that consume it. *)
   | Opcode.BEGIN_FINALLY ->
@@ -786,38 +786,38 @@ let translate (binFile: PythonBinFile) (ins: Instruction) bld =
      generator/coroutine/async-generator kind -- purely an internal
      assertion, no source-visible effect. *)
   | Opcode.GEN_START ->
-    bld <!-- (ins.Address, ins.Length)
-    discardTOS bld
-    bld --!> ins.Length
+    lift bld ins ins.Length {
+      discardTOS bld
+    }
   (* Async instructions *)
   | Opcode.GET_AITER ->
     unaryOp "GET_AITER" ins bld
   | Opcode.GET_ANEXT ->
-    bld <!-- (ins.Address, ins.Length)
-    let aiter = popFromStack bld
-    pushToStack bld aiter
-    pushToStack bld (AST.app "GET_ANEXT" [ aiter ] rt)
-    bld --!> ins.Length
+    lift bld ins ins.Length {
+      let aiter = popFromStack bld
+      pushToStack bld aiter
+      pushToStack bld (AST.app "GET_ANEXT" [ aiter ] rt)
+    }
   | Opcode.GET_AWAITABLE ->
     (* Stack-neutral: pops the object to await, pushes its awaitable
        iterator (mirrors GET_ITER) -- previously a bare namedEffect with
        no pop/push, which desynced the simulated stack from here on. *)
-    bld <!-- (ins.Address, ins.Length)
-    let tos = popFromStack bld
-    pushToStack bld (AST.app "GET_AWAITABLE" [ tos ] rt)
-    bld --!> ins.Length
+    lift bld ins ins.Length {
+      let tos = popFromStack bld
+      pushToStack bld (AST.app "GET_AWAITABLE" [ tos ] rt)
+    }
   (* Wraps the yielded value of an async generator in place. *)
   | Opcode.ASYNC_GEN_WRAP ->
     consumeAndPush "ASYNC_GEN_WRAP" ins bld
   | Opcode.BEFORE_ASYNC_WITH ->
     namedEffect "BEFORE_ASYNC_WITH" ins bld
   | Opcode.BEFORE_WITH ->
-    bld <!-- (ins.Address, ins.Length)
-    let mgr = popFromStack bld
-    pushToStack bld (exitMethod mgr)
-    (* Originally, `mgr.__enter__()`, but we simplify the expression here. *)
-    pushToStack bld (AST.app "__enter__" [ mgr ] rt)
-    bld --!> ins.Length
+    lift bld ins ins.Length {
+      let mgr = popFromStack bld
+      pushToStack bld (exitMethod mgr)
+      (* Originally, `mgr.__enter__()`, but we simplify the expression here. *)
+      pushToStack bld (AST.app "__enter__" [ mgr ] rt)
+    }
   (* Pre-3.11 SETUP_FINALLY/SETUP_WITH/SETUP_ASYNC_WITH/POP_BLOCK: these
      manage a runtime BLOCK STACK (a separate structure from the eval
      stack), not exception-table entries -- 3.10 predates zero-cost
@@ -843,10 +843,10 @@ let translate (binFile: PythonBinFile) (ins: Instruction) bld =
        preceding GET_AWAITABLE + yield-from-loop) when this runs -- pop
        and re-push it, since our model doesn't yet track the block-stack
        target this opcode also records. *)
-    bld <!-- (ins.Address, ins.Length)
-    let enterResult = popFromStack bld
-    pushToStack bld enterResult
-    bld --!> ins.Length
+    lift bld ins ins.Length {
+      let enterResult = popFromStack bld
+      pushToStack bld enterResult
+    }
   | Opcode.SETUP_FINALLY ->
     setupBlock "SETUP_FINALLY" ins bld
   | Opcode.SETUP_EXCEPT ->
@@ -869,11 +869,11 @@ let translate (binFile: PythonBinFile) (ins: Instruction) bld =
        TranslationHelper can recognize a STORE right after this as `v =
        yield x` rather than `v = None`. The following POP_TOP (if the
        yield result is unused) discards it either way. *)
-    bld <!-- (ins.Address, ins.Length)
-    let item = popFromStack bld
-    bld <+ AST.extCall (AST.app "YIELD_VALUE" [ item ] rt)
-    pushToStack bld yieldReceived
-    bld --!> ins.Length
+    lift bld ins ins.Length {
+      let item = popFromStack bld
+      AST.extCall (AST.app "YIELD_VALUE" [ item ] rt)
+      pushToStack bld yieldReceived
+    }
   | Opcode.YIELD_FROM ->
     yieldFrom ins bld
   (* Import instructions *)
@@ -902,35 +902,35 @@ let translate (binFile: PythonBinFile) (ins: Instruction) bld =
     dictMerge "DICT_UPDATE" ins bld
   (* Pattern matching instructions *)
   | Opcode.GET_LEN ->
-    bld <!-- (ins.Address, ins.Length)
-    let obj = peekFromStack bld 0
-    pushToStack bld (AST.app "GET_LEN" [ obj ] rt)
-    bld --!> ins.Length
+    lift bld ins ins.Length {
+      let obj = peekFromStack bld 0
+      pushToStack bld (AST.app "GET_LEN" [ obj ] rt)
+    }
   | Opcode.MATCH_MAPPING ->
-    bld <!-- (ins.Address, ins.Length)
-    let subject = peekFromStack bld 0
-    pushToStack bld (AST.app "MATCH_MAPPING" [ subject ] rt)
-    bld --!> ins.Length
+    lift bld ins ins.Length {
+      let subject = peekFromStack bld 0
+      pushToStack bld (AST.app "MATCH_MAPPING" [ subject ] rt)
+    }
   | Opcode.MATCH_SEQUENCE ->
-    bld <!-- (ins.Address, ins.Length)
-    let subject = peekFromStack bld 0
-    pushToStack bld (AST.app "MATCH_SEQUENCE" [ subject ] rt)
-    bld --!> ins.Length
+    lift bld ins ins.Length {
+      let subject = peekFromStack bld 0
+      pushToStack bld (AST.app "MATCH_SEQUENCE" [ subject ] rt)
+    }
   | Opcode.MATCH_KEYS ->
-    bld <!-- (ins.Address, ins.Length)
-    let keys = peekFromStack bld 0
-    let subject = peekFromStack bld 1
-    pushToStack bld (AST.app "MATCH_KEYS_VALUES" [ subject; keys ] rt)
-    pushToStack bld (AST.app "MATCH_KEYS" [ subject; keys ] rt)
-    bld --!> ins.Length
+    lift bld ins ins.Length {
+      let keys = peekFromStack bld 0
+      let subject = peekFromStack bld 1
+      pushToStack bld (AST.app "MATCH_KEYS_VALUES" [ subject; keys ] rt)
+      pushToStack bld (AST.app "MATCH_KEYS" [ subject; keys ] rt)
+    }
   | Opcode.MATCH_CLASS ->
-    bld <!-- (ins.Address, ins.Length)
-    let names = popFromStack bld
-    let cls = popFromStack bld
-    let subject = peekFromStack bld 0
-    pushToStack bld (AST.app "MATCH_CLASS_ATTRS" [ subject; cls; names ] rt)
-    pushToStack bld (AST.app "MATCH_CLASS" [ subject; cls; names ] rt)
-    bld --!> ins.Length
+    lift bld ins ins.Length {
+      let names = popFromStack bld
+      let cls = popFromStack bld
+      let subject = peekFromStack bld 0
+      pushToStack bld (AST.app "MATCH_CLASS_ATTRS" [ subject; cls; names ] rt)
+      pushToStack bld (AST.app "MATCH_CLASS" [ subject; cls; names ] rt)
+    }
   | Opcode.COPY_DICT_WITHOUT_KEYS ->
     copyDictWithoutKeys ins bld
   (* Formatting instructions *)

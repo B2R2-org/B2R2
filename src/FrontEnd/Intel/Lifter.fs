@@ -59,7 +59,7 @@ let translate (ins: Instruction) insLen bld =
   | OP.BNDMOV ->
     GeneralLifter.bndmov ins insLen bld
   | OP.BOUND ->
-    GeneralLifter.nop ins.Address insLen bld
+    GeneralLifter.nop ins insLen bld
   | OP.BSF ->
     GeneralLifter.bsf ins insLen bld
   | OP.BSR ->
@@ -89,7 +89,7 @@ let translate (ins: Instruction) insLen bld =
   | OP.CLI ->
     GeneralLifter.clearFlag ins insLen bld R.IF
   | OP.CLRSSBSY ->
-    GeneralLifter.nop ins.Address insLen bld
+    GeneralLifter.nop ins insLen bld
   | OP.CLTS ->
     LiftingUtils.sideEffects bld ins insLen UnsupportedInstruction
   | OP.CMC ->
@@ -114,15 +114,15 @@ let translate (ins: Instruction) insLen bld =
   | OP.CWD | OP.CDQ | OP.CQO ->
     GeneralLifter.convWDQ ins insLen bld
   | OP.DAA ->
-    GeneralLifter.daa ins.Address insLen bld
+    GeneralLifter.daa ins insLen bld
   | OP.DAS ->
-    GeneralLifter.das ins.Address insLen bld
+    GeneralLifter.das ins insLen bld
   | OP.DEC ->
     GeneralLifter.dec ins insLen bld
   | OP.DIV | OP.IDIV ->
     GeneralLifter.div ins insLen bld
   | OP.ENDBR32 | OP.ENDBR64 ->
-    GeneralLifter.nop ins.Address insLen bld
+    GeneralLifter.nop ins insLen bld
   | OP.ENTER ->
     GeneralLifter.enter ins insLen bld
   | OP.HLT ->
@@ -132,7 +132,7 @@ let translate (ins: Instruction) insLen bld =
   | OP.INC ->
     GeneralLifter.inc ins insLen bld
   | OP.INCSSPD | OP.INCSSPQ ->
-    GeneralLifter.nop ins.Address insLen bld
+    GeneralLifter.nop ins insLen bld
   | OP.INSB | OP.INSW | OP.INSD ->
     LiftingUtils.sideEffects bld ins insLen UnsupportedInstruction
   | OP.INT | OP.INTO ->
@@ -178,7 +178,7 @@ let translate (ins: Instruction) insLen bld =
   | OP.NEG ->
     GeneralLifter.neg ins insLen bld
   | OP.NOP ->
-    GeneralLifter.nop ins.Address insLen bld
+    GeneralLifter.nop ins insLen bld
   | OP.NOT ->
     GeneralLifter.not ins insLen bld
   | OP.OR ->
@@ -220,7 +220,7 @@ let translate (ins: Instruction) insLen bld =
   | OP.RDRAND ->
     LiftingUtils.sideEffects bld ins insLen UnsupportedInstruction
   | OP.RDSSPD | OP.RDSSPQ ->
-    GeneralLifter.nop ins.Address insLen bld
+    GeneralLifter.nop ins insLen bld
   | OP.RDTSC ->
     LiftingUtils.sideEffects bld ins insLen (ClockCounterRead None)
   | OP.RDTSCP ->
@@ -236,13 +236,13 @@ let translate (ins: Instruction) insLen bld =
   | OP.RORX ->
     GeneralLifter.rorx ins insLen bld
   | OP.RSTORSSP ->
-    GeneralLifter.nop ins.Address insLen bld
+    GeneralLifter.nop ins insLen bld
   | OP.SAHF ->
     GeneralLifter.sahf ins insLen bld
   | OP.SAR | OP.SHR | OP.SHL ->
     GeneralLifter.shift ins insLen bld
   | OP.SAVEPREVSSP ->
-    GeneralLifter.nop ins.Address insLen bld
+    GeneralLifter.nop ins insLen bld
   | OP.SBB ->
     GeneralLifter.sbb ins insLen bld
   | OP.SCASB | OP.SCASW | OP.SCASD | OP.SCASQ ->
@@ -253,7 +253,7 @@ let translate (ins: Instruction) insLen bld =
   | OP.SETL | OP.SETNL | OP.SETLE | OP.SETG ->
     GeneralLifter.setcc ins insLen bld
   | OP.SETSSBSY ->
-    GeneralLifter.nop ins.Address insLen bld
+    GeneralLifter.nop ins insLen bld
   | OP.SHLD ->
     GeneralLifter.shld ins insLen bld
   | OP.SARX ->
@@ -295,9 +295,9 @@ let translate (ins: Instruction) insLen bld =
   | OP.WRMSR ->
     LiftingUtils.sideEffects bld ins insLen UnsupportedInstruction
   | OP.WRSSD | OP.WRSSQ ->
-    GeneralLifter.nop ins.Address insLen bld
+    GeneralLifter.nop ins insLen bld
   | OP.WRUSSD | OP.WRUSSQ ->
-    GeneralLifter.nop ins.Address insLen bld
+    GeneralLifter.nop ins insLen bld
   | OP.XABORT ->
     LiftingUtils.sideEffects bld ins insLen UnsupportedInstruction
   | OP.XADD ->
@@ -748,11 +748,11 @@ let translate (ins: Instruction) insLen bld =
   | OP.PREFETCHNTA
   | OP.PREFETCHT0 | OP.PREFETCHT1
   | OP.PREFETCHW | OP.PREFETCHT2 ->
-    GeneralLifter.nop ins.Address insLen bld
+    GeneralLifter.nop ins insLen bld
   | OP.SFENCE ->
     LiftingUtils.sideEffects bld ins insLen Fence
   | OP.CLFLUSH ->
-    GeneralLifter.nop ins.Address insLen bld (* SSE2 *)
+    GeneralLifter.nop ins insLen bld (* SSE2 *)
   | OP.LFENCE ->
     LiftingUtils.sideEffects bld ins insLen Fence (* SSE2 *)
   | OP.MFENCE ->

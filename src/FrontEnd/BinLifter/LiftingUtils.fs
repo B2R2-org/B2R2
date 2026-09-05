@@ -88,25 +88,196 @@ let inline pseudoRegVar512 (builder: ILowUIRBuilder) reg =
   let regV = pseudoRegVar builder reg
   struct (regV 8, regV 7, regV 6, regV 5, regV 4, regV 3, regV 2, regV 1)
 
-/// Appends a statement to the given builder. A builder is defined for each
-/// different CPU architecture, so this function is only useful if the builder
-/// implements the `Stream` member.
-let inline (<+) (builder: ILowUIRBuilder) stmt = builder.Stream.Append stmt
+/// Represents a deferred stream of statements. A block is a function of the
+/// builder, so nothing in it runs until a control-flow combinator decides to
+/// run it; that is what keeps branch bodies allocation-free.
+type Block = ILowUIRBuilder -> unit
 
-/// Marks the start of an instruction by appending an ISMark statement to the
-/// given builder. A builder is defined for each different CPU architecture,
-/// so this function is only useful if the builder implements the `Stream`
-/// member.
-let inline (<!--) (builder: ILowUIRBuilder) (addr, insLen) =
-  builder.Stream.MarkStart(addr, insLen)
+/// Provides the `lift` computation expression, which brackets the statements
+/// of one instruction with its ISMark and, unless the body terminates the
+/// instruction itself, its IEMark. Every member is inlined, so a block emits
+/// exactly what the equivalent hand-written stream emits.
+and [<Struct>] LiftBuilder =
+  /// Builder that the statements are emitted into.
+  val Bld: ILowUIRBuilder
 
-/// Marks the end of an instruction by appending an IEMark statement to the
-/// given builder. A builder is defined for each different CPU architecture,
-/// so this function is only useful if the builder implements the `Stream`
-/// member.
-let inline (--!>) (builder: ILowUIRBuilder) insLen =
-  builder.Stream.MarkEnd insLen
-  builder
+  /// Address of the instruction being lifted.
+  val Address: Addr
+
+  /// Length of the instruction being lifted.
+  val InsLen: uint32
+
+  /// Whether to close the instruction with an IEMark.
+  val ClosesInstruction: bool
+
+  /// Creates a lift builder for the instruction at the given address.
+  new(bld, addr, insLen, closes) =
+    { Bld = bld
+      Address = addr
+      InsLen = insLen
+      ClosesInstruction = closes }
+
+  member inline _.Zero() = ()
+
+  member inline _.Delay([<InlineIfLambda>] f: unit -> unit) = f
+
+  member inline _.Combine((), [<InlineIfLambda>] f: unit -> unit) = f ()
+
+  member inline this.Yield(stmt: Stmt) = this.Bld.Stream.Append stmt
+
+  member inline _.For(xs: seq<'T>, [<InlineIfLambda>] f: 'T -> unit) =
+    for x in xs do f x
+
+  member inline _.While([<InlineIfLambda>] cond, [<InlineIfLambda>] body) =
+    while cond () do body ()
+
+  member inline this.Run([<InlineIfLambda>] f: unit -> unit) =
+    this.Bld.Stream.MarkStart(this.Address, this.InsLen)
+    f ()
+    if this.ClosesInstruction then this.Bld.Stream.MarkEnd this.InsLen else ()
+    this.Bld
+
+/// Provides the `append` computation expression, which appends a statement
+/// stream to a builder without bracketing it with instruction marks. Use it
+/// for the helpers that lifters share, and `lift` for the lifters themselves.
+and [<Struct>] AppendBuilder =
+  /// Builder that the statements are emitted into.
+  val Bld: ILowUIRBuilder
+
+  /// Creates an append builder over the given builder.
+  new bld = { Bld = bld }
+
+  member inline _.Zero() = ()
+
+  member inline _.Delay([<InlineIfLambda>] f: unit -> unit) = f
+
+  member inline _.Combine((), [<InlineIfLambda>] f: unit -> unit) = f ()
+
+  member inline this.Yield(stmt: Stmt) = this.Bld.Stream.Append stmt
+
+  member inline _.For(xs: seq<'T>, [<InlineIfLambda>] f: 'T -> unit) =
+    for x in xs do f x
+
+  member inline _.While([<InlineIfLambda>] cond, [<InlineIfLambda>] body) =
+    while cond () do body ()
+
+  member inline _.Run([<InlineIfLambda>] f: unit -> unit) = f ()
+
+/// Provides the `block` computation expression, which builds a deferred
+/// statement stream for a control-flow combinator to run.
+and [<Struct>] BlockBuilder =
+  member inline _.Zero(): Block = fun _ -> ()
+
+  (* Delay MUST defer the body itself. Writing `Delay f = f ()` compiles and
+     warns about nothing, but then the body runs at construction time, so any
+     helper that emits directly escapes the branch. *)
+  member inline _.Delay([<InlineIfLambda>] f: unit -> Block): Block =
+    fun bld -> (f ()) bld
+
+  member inline _.Yield(stmt: Stmt): Block =
+    fun bld -> bld.Stream.Append stmt
+
+  member inline _.Combine([<InlineIfLambda>] a: Block,
+                          [<InlineIfLambda>] b: Block): Block =
+    fun bld -> a bld; b bld
+
+  member inline _.For(xs: seq<'T>, [<InlineIfLambda>] f: 'T -> Block): Block =
+    fun bld -> for x in xs do f x bld
+
+  member inline _.Run([<InlineIfLambda>] f: Block) = f
+
+/// Builds a deferred statement stream for a control-flow combinator to run.
+let block = BlockBuilder()
+
+/// Appends a statement stream to the given builder, marking neither the start
+/// nor the end of an instruction.
+let inline append bld = AppendBuilder bld
+
+/// Starts lifting the given instruction, closing it with an IEMark once the
+/// body of the computation expression ends.
+let inline lift bld (ins: #IInstruction) insLen =
+  LiftBuilder(bld, ins.Address, insLen, true)
+
+/// Starts lifting the given instruction without closing it with an IEMark.
+/// Use this only when the body terminates the instruction on its own, e.g.
+/// with an inter-jump.
+let inline liftOpen bld (ins: #IInstruction) insLen =
+  LiftBuilder(bld, ins.Address, insLen, false)
+
+/// Starts a new instruction with an ISMark. Use it where a lifter marks the
+/// start somewhere other than the top of its body, which `lift` cannot reach.
+let inline markStart (bld: ILowUIRBuilder) addr insLen =
+  bld.Stream.MarkStart(addr, insLen)
+
+/// Closes the current instruction with an IEMark. Use it inside a `liftOpen`
+/// body, on the path that ends the instruction the ordinary way.
+let inline markEnd (bld: ILowUIRBuilder) insLen = bld.Stream.MarkEnd insLen
+
+/// Runs the given block when the condition holds, and falls through to the
+/// end otherwise. Emits two labels, named after `name`, and no jump.
+let inline _when bld name cond ([<InlineIfLambda>] thn: Block) =
+  let lblThen = label bld name
+  let lblEnd = label bld (name + "End")
+  bld.Stream.Append <| AST.cjmp cond (AST.jmpDest lblThen) (AST.jmpDest lblEnd)
+  bld.Stream.Append <| AST.lmark lblThen
+  thn bld
+  bld.Stream.Append <| AST.lmark lblEnd
+
+/// Runs the given block unless the condition holds, and falls through to the
+/// end otherwise. Emits two labels, named after `name`, and no jump, swapping
+/// the jump targets instead of negating the condition.
+let inline _unless bld name cond ([<InlineIfLambda>] thn: Block) =
+  let lblThen = label bld name
+  let lblEnd = label bld (name + "End")
+  bld.Stream.Append <| AST.cjmp cond (AST.jmpDest lblEnd) (AST.jmpDest lblThen)
+  bld.Stream.Append <| AST.lmark lblThen
+  thn bld
+  bld.Stream.Append <| AST.lmark lblEnd
+
+/// Runs the first block when the condition holds and the second one otherwise.
+/// Emits three labels, named after `name`, and one jump.
+let inline _if bld name cond ([<InlineIfLambda>] thn: Block)
+                             ([<InlineIfLambda>] els: Block) =
+  let lblThen = label bld name
+  let lblElse = label bld ("Not" + name)
+  let lblEnd = label bld (name + "End")
+  bld.Stream.Append <| AST.cjmp cond (AST.jmpDest lblThen) (AST.jmpDest lblElse)
+  bld.Stream.Append <| AST.lmark lblThen
+  thn bld
+  bld.Stream.Append <| AST.jmp (AST.jmpDest lblEnd)
+  bld.Stream.Append <| AST.lmark lblElse
+  els bld
+  bld.Stream.Append <| AST.lmark lblEnd
+
+/// Runs the given block as long as the condition holds, testing it before
+/// every iteration. Emits three labels, named after `name`, and one jump.
+let inline _while bld name cond ([<InlineIfLambda>] body: Block) =
+  let lblCond = label bld (name + "Cond")
+  let lblBody = label bld name
+  let lblEnd = label bld (name + "End")
+  bld.Stream.Append <| AST.lmark lblCond
+  bld.Stream.Append <| AST.cjmp cond (AST.jmpDest lblBody) (AST.jmpDest lblEnd)
+  bld.Stream.Append <| AST.lmark lblBody
+  body bld
+  bld.Stream.Append <| AST.jmp (AST.jmpDest lblCond)
+  bld.Stream.Append <| AST.lmark lblEnd
+
+/// Runs the first block as long as the condition holds, testing it before the
+/// first iteration and after every one, and runs the second block instead when
+/// the condition does not hold at all. Emits three labels, named after `name`,
+/// and no jump.
+let inline _repeat bld name cond ([<InlineIfLambda>] body: Block)
+                                 ([<InlineIfLambda>] els: Block) =
+  let lblBody = label bld name
+  let lblElse = label bld ("No" + name)
+  let lblEnd = label bld (name + "End")
+  bld.Stream.Append <| AST.cjmp cond (AST.jmpDest lblBody) (AST.jmpDest lblElse)
+  bld.Stream.Append <| AST.lmark lblBody
+  body bld
+  bld.Stream.Append <| AST.cjmp cond (AST.jmpDest lblBody) (AST.jmpDest lblEnd)
+  bld.Stream.Append <| AST.lmark lblElse
+  els bld
+  bld.Stream.Append <| AST.lmark lblEnd
 
 [<RequireQualifiedAccess>]
 module IEEE754Single =

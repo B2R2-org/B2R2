@@ -32,27 +32,34 @@ open B2R2.FrontEnd.BinLifter.LiftingUtils
 open B2R2.FrontEnd.EVM
 
 let inline private updateGas bld gas =
-  let gasReg = regVar bld R.GAS
-  bld <+ (gasReg := gasReg .+ numI32 gas 64<rt>)
+  append bld {
+    let gasReg = regVar bld R.GAS
+    gasReg := gasReg .+ numI32 gas 64<rt>
+  }
 
-let sideEffects name bld = bld <+ AST.sideEffect name
+let sideEffects name bld =
+  append bld { AST.sideEffect name }
 
 let private getSPSize size = numI32 (32 * size) 256<rt>
 
 /// Pushes an element to stack.
 let private pushToStack bld expr =
-  let spReg = regVar bld R.SP
-  let expr = if OperationSize.regType = Expr.typeOf expr then expr
-             else AST.zext OperationSize.regType expr
-  bld <+ (spReg := (spReg .- (getSPSize 1))) (* SP := SP - 32 *)
-  bld <+ (AST.store Endian.Big spReg expr) (* [SP] := expr *)
+  append bld {
+    let spReg = regVar bld R.SP
+    let expr = if OperationSize.regType = Expr.typeOf expr then expr
+               else AST.zext OperationSize.regType expr
+    spReg := (spReg .- (getSPSize 1)) (* SP := SP - 32 *)
+    AST.store Endian.Big spReg expr (* [SP] := expr *)
+  }
 
 /// Pops an element from stack and returns the element.
 let private popFromStack bld =
   let spReg = regVar bld R.SP
   let tmp = bld.Stream.NewTempVar OperationSize.regType
-  bld <+ (tmp := AST.loadBE (OperationSize.regType) spReg) (* tmp := [SP] *)
-  bld <+ (spReg := (spReg .+ (getSPSize 1))) (* SP := SP + 32 *)
+  append bld {
+    tmp := AST.loadBE (OperationSize.regType) spReg (* tmp := [SP] *)
+    spReg := (spReg .+ (getSPSize 1)) (* SP := SP + 32 *)
+  }
   tmp
 
 /// Peek the 'pos'-th item.
@@ -60,19 +67,23 @@ let private peekStack bld pos =
   let spReg = regVar bld R.SP
   let regType = OperationSize.regType
   let tmp = bld.Stream.NewTempVar regType
-  bld <+ (tmp := AST.loadBE regType (spReg .+ (getSPSize (pos - 1))))
+  append bld {
+    tmp := AST.loadBE regType (spReg .+ (getSPSize (pos - 1)))
+  }
   tmp
 
 /// Swap the topmost item with ('pos' + 1)-th item.
 let private swapStack bld pos =
-  let spReg = regVar bld R.SP
-  let regType = OperationSize.regType
-  let tmp1 = bld.Stream.NewTempVar regType
-  let tmp2 = bld.Stream.NewTempVar regType
-  bld <+ (tmp1 := AST.loadBE regType spReg)
-  bld <+ (tmp2 := AST.loadBE regType (spReg .+ (getSPSize pos)))
-  bld <+ (AST.store Endian.Big (spReg .+ (getSPSize pos)) tmp1)
-  bld <+ (AST.store Endian.Big spReg tmp2)
+  append bld {
+    let spReg = regVar bld R.SP
+    let regType = OperationSize.regType
+    let tmp1 = bld.Stream.NewTempVar regType
+    let tmp2 = bld.Stream.NewTempVar regType
+    tmp1 := AST.loadBE regType spReg
+    tmp2 := AST.loadBE regType (spReg .+ (getSPSize pos))
+    AST.store Endian.Big (spReg .+ (getSPSize pos)) tmp1
+    AST.store Endian.Big spReg tmp2
+  }
 
 let endBasicOperation bld opFn src1 src2 (ins: Instruction) =
   pushToStack bld (opFn src1 src2)
@@ -179,18 +190,22 @@ let jump (ins: Instruction) bld =
     let dst = popFromStack bld
     let dstAddr = dst .+ (numU64 ins.Offset 256<rt>)
     updateGas bld ins.GAS
-    bld <+ AST.interjmp dstAddr InterJmpKind.Base
+    append bld {
+      AST.interjmp dstAddr InterJmpKind.Base
+    }
   with
     :? System.InvalidOperationException -> (* Special case: terminate func. *)
       sideEffects Terminate bld
 
 let jumpi (ins: Instruction) bld =
-  let dst = popFromStack bld
-  let dstAddr = dst .+ (numU64 ins.Offset 256<rt>)
-  let cond = popFromStack bld
-  let fall = numU64 (ins.Address + 1UL) 64<rt>
-  updateGas bld ins.GAS
-  bld <+ AST.intercjmp (AST.xtlo 1<rt> cond) dstAddr fall
+  append bld {
+    let dst = popFromStack bld
+    let dstAddr = dst .+ (numU64 ins.Offset 256<rt>)
+    let cond = popFromStack bld
+    let fall = numU64 (ins.Address + 1UL) 64<rt>
+    updateGas bld ins.GAS
+    AST.intercjmp (AST.xtlo 1<rt> cond) dstAddr fall
+  }
 
 let getpc (ins: Instruction) bld =
   let expr = regVar bld R.PC |> AST.zext OperationSize.regType
@@ -219,7 +234,7 @@ let swap (ins: Instruction) bld pos =
 let callExternFunc (ins: Instruction) bld name argCount doesRet =
   let args = List.init argCount (fun _ -> popFromStack bld)
   let expr = AST.app name args OperationSize.regType
-  if doesRet then pushToStack bld expr else bld <+ (AST.extCall expr)
+  if doesRet then pushToStack bld expr else append bld { AST.extCall expr }
   updateGas bld ins.GAS
 
 let call (ins: Instruction) bld fname =
@@ -389,6 +404,6 @@ let private translateOpcode ins bld = function
   | SELFDESTRUCT -> callAndTerminate ins "selfdestruct" 1 bld
 
 let translate (ins: Instruction) bld =
-  bld <!-- (ins.Address, ins.NumBytes)
-  translateOpcode ins bld ins.Opcode
-  bld --!> ins.NumBytes
+  lift bld ins ins.NumBytes {
+    translateOpcode ins bld ins.Opcode
+  }

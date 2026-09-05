@@ -19,6 +19,11 @@
 
     <WarnOn>$(WarnOn);3389</WarnOn>
 
+    <!-- The lifting DSL relies on F#'s implicit yield, and an expression whose
+         value is dropped there silently vanishes from the emitted IR. FS0020
+         is the only diagnostic for it, so it must not be ignorable. -->
+    <WarningsAsErrors>$(WarningsAsErrors);FS0020</WarningsAsErrors>
+
     <CustomPropTarget>$([MSBuild]::GetPathOfFileAbove('Directory.Build.props', '$(MSBuildThisFileDirectory)../'))</CustomPropTarget>
   </PropertyGroup>
 
