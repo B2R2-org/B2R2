@@ -94,6 +94,17 @@ type ParserTests() =
   let testX64Prefix pref (bytes: byte[]) (opcode, operands) =
     test pref None WordSize.Bit64 opcode operands bytes
 
+  /// Asserts that the bytes decode to nothing. An encoding the manual gives
+  /// #UD for is not an instruction, and a parser that invents one for it
+  /// reports a plausible-looking disassembly of bytes the processor refuses.
+  let testX64Invalid (byteString: string) =
+    let reader = BinReader.Init Endian.Little
+    let parser = IntelParser(WordSize.Bit64, reader) :> IInstructionParsable
+    let bytes = ByteArray.ofHexString byteString
+    Assert.ThrowsExactly<ParsingFailureException>(fun () ->
+      parser.Parse(bs = bytes, addr = 0UL) |> ignore)
+    |> ignore
+
   /// The parsed instruction itself, for the properties an operand list does
   /// not carry: the EVEX decorations live beside the operands, not in them.
   let parseX64 (byteString: string) =
@@ -2351,6 +2362,91 @@ type ParserTests() =
   member _.``EVEX without b reads L'L as the vector length (1)``() =
     "62f16c085fcb"
     ++ VMAXPS ** [ O.Reg R.XMM1; O.Reg R.XMM2; O.Reg R.XMM3 ]
+    ||> testX64NoPrefixNoSeg
+
+  (* The #UD conditions of the opmask encoding fields, Vol. 2A Table 2-42.
+     Zeroing needs a mask to zero under, and a destination it can zero. *)
+  [<TestMethod>]
+  member _.``EVEX zeroing without a mask is invalid (1)``() =
+    testX64Invalid "62f16dc8fecb" (* vpaddd zmm1{z}, zmm2, zmm3 *)
+
+  [<TestMethod>]
+  member _.``EVEX zeroing a memory destination is invalid (1)``() =
+    testX64Invalid "62f17ec97f08" (* vmovdqu32 [rax]{k1}{z}, zmm1 *)
+
+  (* The same row's register form does zero, so the rule takes ModRM as well:
+     VMOVDQU32's store reads xmm2/m128, and only the memory half is a store. *)
+  [<TestMethod>]
+  member _.``EVEX zeroing a store row's register form is valid (1)``() =
+    "62f17e897fd1"
+    ++ VMOVDQU32 ** [ O.Reg R.XMM1; O.Reg R.XMM2 ]
+    ||> testX64NoPrefixNoSeg
+
+  [<TestMethod>]
+  member _.``EVEX zeroing a mask destination is invalid (1)``() =
+    testX64Invalid "62f16ccac2cb01" (* vcmpps k1{k2}{z}, zmm2, zmm3, 1 *)
+
+  [<TestMethod>]
+  member _.``EVEX zeroing a gather is invalid (1)``() =
+    testX64Invalid "62f27dc9900c12" (* vpgatherdd zmm1{k1}{z}, [rdx+zmm2] *)
+
+  [<TestMethod>]
+  member _.``EVEX masked store is valid (1)``() =
+    "62f17e497f08"
+    ++ VMOVDQU32 ** [ O.Mem(R.RAX, 512<rt>); O.Reg R.ZMM1 ]
+    ||> testX64NoPrefixNoSeg
+
+  (* A mask names lanes, and a general-purpose destination has none. This is
+     the half of the manual's first row that the operand table can answer; an
+     instruction that merely takes no mask, like VUCOMISS, still parses. *)
+  [<TestMethod>]
+  member _.``EVEX mask over a GPR destination is invalid (1)``() =
+    testX64Invalid "62f17f092dc1" (* vcvtsd2si eax{k1}, xmm1 *)
+
+  [<TestMethod>]
+  member _.``EVEX mask over a moved GPR is invalid (1)``() =
+    testX64Invalid "62f17d097ec8" (* vmovd eax{k1}, xmm1 *)
+
+  [<TestMethod>]
+  member _.``EVEX mask over an extracted GPR is invalid (1)``() =
+    testX64Invalid "62f37d0916c801" (* vpextrd eax{k1}, xmm1, 1 *)
+
+  (* Only k0 through k7 exist. In 64-bit mode a prefix bit that carries a mask
+     register field past them makes the encoding #UD (Vol. 2A, Table 2-41 for
+     the two that extend ModRM.reg, Table 2-42 for vvvv) -- and without the
+     check the index runs off the end of the mask registers into whatever the
+     enumeration holds next, which is how VVVV of ten used to parse. *)
+  [<TestMethod>]
+  member _.``VEX.R past the mask registers is invalid (1)``() =
+    testX64Invalid "c56c41cb" (* kandw k9, k2, k3 *)
+
+  [<TestMethod>]
+  member _.``VEX.vvvv past the mask registers is invalid (1)``() =
+    testX64Invalid "c5ac41cb" (* kandw k1, k10, k3 *)
+
+  [<TestMethod>]
+  member _.``EVEX R' past the mask registers is invalid (1)``() =
+    testX64Invalid "62e16c4ac2cb01" (* vcmpps k17{k2}, zmm2, zmm3, 1 *)
+
+  [<TestMethod>]
+  member _.``Mask registers within range still parse (1)``() =
+    "c5ec41cb"
+    ++ KANDW ** [ O.Reg R.K1; O.Reg R.K2; O.Reg R.K3 ]
+    ||> testX64NoPrefixNoSeg
+
+  [<TestMethod>]
+  member _.``A masked vector destination still parses (1)``() =
+    "62f16c4ac2cb01"
+    ++ VCMPPS ** [ O.Reg R.K1; O.Reg R.ZMM2; O.Reg R.ZMM3; O.Imm(1L, 8<rt>) ]
+    ||> testX64NoPrefixNoSeg
+
+  (* The bits that extend ModRM.r/m are ignored for a mask register rather than
+     invalid, in either mode -- Table 2-41 gives "None (ignored)" for both
+     EVEX.X and EVEX.B there. objdump rejects this one; the manual does not. *)
+  [<TestMethod>]
+  member _.``VEX.B on a mask r/m operand is ignored (1)``() =
+    "c4c1ec4acb"
+    ++ KADDQ ** [ O.Reg R.K1; O.Reg R.K2; O.Reg R.K3 ]
     ||> testX64NoPrefixNoSeg
 
   [<TestMethod>]

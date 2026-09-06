@@ -199,6 +199,37 @@ type IntelParser(wordSz, reader) =
     | Some { EVEXPrx = Some evex } when evex.AAA = 0uy -> not row.UsesVSIB
     | _ -> true
 
+  /// Returns true when the destination this encoding actually names is one a
+  /// masked write zeroes. The manual gives #UD for EVEX.z on a store, on a
+  /// gather or a scatter, and where the destination is a mask register (Vol.
+  /// 2A, Table 2-42): a store leaves the memory it skips alone, a gather
+  /// records its progress in the mask rather than in the destination, and a
+  /// mask register is merged into. Whether a store is what was written takes
+  /// ModRM as well as the row -- VMOVDQU32's store reads xmm2/m128, and its
+  /// register form zeroes like any other. Zeroing with no mask at all is
+  /// turned away earlier, where the prefix is read.
+  let matchZeroing (vex: VEXInfo option) modRM (row: Row) =
+    match vex with
+    | Some { EVEXPrx = Some evex } when evex.Z = Zeroing ->
+      not row.UsesVSIB
+      && not row.DestIsMaskReg
+      && not (row.HasMemoryDest && Operands.modIsMemory modRM)
+    | _ ->
+      true
+
+  /// Returns true unless EVEX.aaa names a mask over a destination that cannot
+  /// carry one. A general-purpose destination has no lanes for a mask to name,
+  /// which is the part of the manual's rule the table can answer; see
+  /// InstructionTable.destRegCanBeMasked for the part it cannot. A memory
+  /// destination says nothing either way and is left alone.
+  let matchMaskableDest (vex: VEXInfo option) modRM (row: Row) =
+    match vex with
+    | Some { EVEXPrx = Some evex } when evex.AAA <> 0uy ->
+      (row.HasMemoryDest && Operands.modIsMemory modRM)
+      || row.DestRegCanBeMasked
+    | _ ->
+      true
+
   /// Returns true unless a LOCK prefix sits where it cannot: on an
   /// instruction outside the list, or on a form whose destination is a
   /// register rather than memory.
@@ -208,7 +239,7 @@ type IntelParser(wordSz, reader) =
 
   /// Returns true when the constraints the accept mask leaves for parse time
   /// hold: the legacy 66h under a VEX prefix, the vector length, JCXZ's
-  /// address size, NOP's REX.B, a gather's opmask and LOCK's destination.
+  /// address size, NOP's REX.B, the opmask fields and LOCK's destination.
   /// Together they turn away under two percent of the candidates that reach
   /// them; JCXZ's address size rejected two in 385,588 instructions.
   let matchRareConstraints (phlp: ParsingHelper) isRounding modRM (row: Row) =
@@ -217,6 +248,8 @@ type IntelParser(wordSz, reader) =
     && (not row.IsE3 || matchJcxzAddrSize phlp row)
     && matchNopAlias phlp row
     && (phlp.VEXInfo.IsNone || matchGatherMask phlp.VEXInfo row)
+    && (phlp.VEXInfo.IsNone || matchZeroing phlp.VEXInfo modRM row)
+    && (phlp.VEXInfo.IsNone || matchMaskableDest phlp.VEXInfo modRM row)
     && matchLock phlp modRM row
 
   /// Returns true when every constraint the row declares holds for the bytes
@@ -305,6 +338,24 @@ type IntelParser(wordSz, reader) =
       | None -> failwith "VEXInfo is required to get VVVV bits."
     | ort ->
       failwithf "Invalid OprRegType for a short register: %A" ort
+
+  /// Parses an operand that names an opmask register. In 64-bit mode a prefix
+  /// bit that would carry the field past the eight registers that exist makes
+  /// the encoding #UD rather than naming a ninth: the manual says so for the
+  /// two bits that extend ModRM.reg (Vol. 2A, Table 2-41) and for a vvvv that
+  /// reaches one (Table 2-42). Outside 64-bit mode the same bits are ignored
+  /// rather than invalid, and the bits that extend r/m are ignored in either
+  /// mode, so neither can name a register that is not there.
+  let parseOpMaskOperand (phlp: ParsingHelper) modRM field =
+    let rex = phlp.REXPrefix
+    let extendsReg = REXPrefix.hasR rex || REXPrefix.hasEVEXR rex
+    if not (ParsingHelper.Is64bit phlp) then
+      shortRegIndex phlp modRM field &&& 0b111
+      |> OperandParsers.parseOpMaskReg
+    elif field = RegBit && extendsReg then
+      raise ParsingFailureException
+    else
+      shortRegIndex phlp modRM field |> OperandParsers.parseOpMaskReg
 
   /// Parses one register operand named by the given field.
   let parseRegOperand span (phlp: ParsingHelper) modRM opByte sz =
@@ -432,7 +483,7 @@ type IntelParser(wordSz, reader) =
     | OprKind.BndReg ->
       OperandParsers.parseBoundRegister (Operands.getReg modRM)
     | OprKind.OpMaskReg ->
-      shortRegIndex phlp modRM o.Field |> OperandParsers.parseOpMaskReg
+      parseOpMaskOperand phlp modRM o.Field
     | OprKind.KM ->
       setupOprContext phlp o.Size o.Size
       if Operands.modIsReg modRM then

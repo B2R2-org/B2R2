@@ -210,6 +210,14 @@ type internal Row =
     UsesVSIB: bool
     /// A LOCK prefix may sit on the row provided ModRM names memory.
     LockableDest: bool
+    /// The row's destination operand may be memory, which ModRM then settles.
+    HasMemoryDest: bool
+    /// The row's destination is a mask register, which a masked write merges
+    /// into: Vol. 2A Table 2-42 gives #UD for EVEX.z on one.
+    DestIsMaskReg: bool
+    /// A write mask may act on the register form of the row's destination.
+    /// See destRegCanBeMasked: this is sound but not complete.
+    DestRegCanBeMasked: bool
     /// A row of the slot offers one of the two readings of EVEX.b, so the bit
     /// may have spent L'L before a variant has been picked.
     SlotDeclaresRC: bool
@@ -496,6 +504,36 @@ module internal InstructionTable =
     operands.Length > 0
     && (match operands[0] with
         | RM _ | RMdiff _ | Mem _ | MM _ | BM _ | KM _ -> true
+        | _ -> false)
+
+  /// Returns true when the row's destination is a mask register, which a
+  /// masked write merges into and never zeroes.
+  let private destIsMaskRegister (operands: OperandType[]) =
+    operands.Length > 0
+    && (match operands[0] with
+        | OpMaskReg _ | KM _ -> true
+        | _ -> false)
+
+  /// Returns true when a write mask could act on the register form of the
+  /// row's destination. A general-purpose destination cannot be masked: a mask
+  /// names lanes, and there are none. Only the register form is answered here
+  /// because a row like VMOVDQU32's store, whose destination reads xmm2/m128,
+  /// takes a mask either way while VPEXTRD's r32/m32 takes one neither way --
+  /// what separates them is the width of the register, which the memory form
+  /// does not have.
+  ///
+  /// This is the sound half of the question the manual asks. Its own answer,
+  /// the first row of Vol. 2A Table 2-42, is per instruction -- VUCOMISS reads
+  /// two vector registers and writes only EFLAGS, so it takes no mask either
+  /// -- and the generated table does not carry that mark. A row whose
+  /// destination merely could be masked therefore still passes here.
+  let private destRegCanBeMasked (operands: OperandType[]) =
+    operands.Length = 0
+    || (match operands[0] with
+        | Reg(sz, _) | RegSae sz | RM sz | RMdiff(sz, _)
+        | RMEr(sz, _) | RMSae(sz, _) | RMBcst(sz, _, _)
+        | RMBcstEr(sz, _, _) | RMBcstSae(sz, _, _) | Mem sz -> sz >= 128<rt>
+        | OpMaskReg _ | KM _ | MemVSIB _ -> true
         | _ -> false)
 
   /// Returns true when the row is valid in 64-bit mode. The manual spells the
@@ -971,6 +1009,9 @@ module internal InstructionTable =
       IsPlainNop = isPlainNop
       UsesVSIB = usesVSIB core
       LockableDest = takesLock core.Opcode && destCanBeMemory core.Operands
+      HasMemoryDest = destCanBeMemory core.Operands
+      DestIsMaskReg = destIsMaskRegister core.Operands
+      DestRegCanBeMasked = destRegCanBeMasked core.Operands
       SlotDeclaresRC = facts.DeclaresRC
       Opcode = core.Opcode
       OpcodeByte = byte core.OpcodeByte
