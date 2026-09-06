@@ -711,8 +711,8 @@ let pmaddubsw ins bld =
 /// it is rather than saturating -- negating it wraps back to itself, so one
 /// expression covers that lane too. The destination is written, never read.
 let private opPabs packSz src =
-  src |> Array.map (fun e -> AST.ite (AST.slt e (AST.num0 packSz))
-                                     (AST.neg e) e)
+  let abs e = AST.ite (AST.slt e (AST.num0 packSz)) (AST.neg e) e
+  src |> Array.map abs
 
 let opPabsb _ _ src2 = opPabs 8<rt> src2
 

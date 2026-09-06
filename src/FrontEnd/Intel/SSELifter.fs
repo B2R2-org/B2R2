@@ -2153,11 +2153,10 @@ let roundsd (ins: Instruction) bld =
 /// exception, which nothing here models.
 let private roundingMode bld imm =
   let rc = (AST.extract (regVar bld R.MXCSR) 8<rt> 13) .& (numI32 0b11 8<rt>)
+  let fromImm = (AST.xtlo 8<rt> imm) .& (numI32 0b11 8<rt>)
   let mode = tmpVar bld 8<rt>
   append bld {
-    direct mode :=
-      AST.ite (AST.extract imm 1<rt> 2) rc
-        ((AST.xtlo 8<rt> imm) .& (numI32 0b11 8<rt>))
+    direct mode := AST.ite (AST.extract imm 1<rt> 2) rc fromImm
   }
   mode
 
@@ -2165,10 +2164,11 @@ let private roundingMode bld imm =
 /// zero.
 let private roundedTo sz mode src =
   let cast kind = AST.cast kind sz src
-  AST.ite (mode == AST.num0 8<rt>) (cast CastKind.FtoFRound)
-    (AST.ite (mode == AST.num1 8<rt>) (cast CastKind.FtoFFloor)
-      (AST.ite (mode == numI32 2 8<rt>) (cast CastKind.FtoFCeil)
-        (cast CastKind.FtoFTrunc)))
+  let picks m = mode == numI32 m 8<rt>
+  let orTrunc = cast CastKind.FtoFTrunc
+  let orCeil = AST.ite (picks 2) (cast CastKind.FtoFCeil) orTrunc
+  let orFloor = AST.ite (picks 1) (cast CastKind.FtoFFloor) orCeil
+  AST.ite (picks 0) (cast CastKind.FtoFRound) orFloor
 
 let private roundPacked (ins: Instruction) bld packSz isVex =
   lift bld ins {
@@ -2764,6 +2764,34 @@ let private writePcmpstrResult bld
       sized outSz cx := idx
   }
 
+/// The lengths a compare works to, beside the width the REX prefix gave them.
+/// An implicit-length compare reads no length register at all, so the pair is
+/// the raw registers there and the saturated counts only for the explicit
+/// forms.
+let private pcmpstrLengths bld (ctrl: Imm8ControlByte) regSize ax dx =
+  match ctrl.Len with
+  | Implicit ->
+    regSize, ax, dx
+  | Explicit ->
+    let lenAx = saturatedLen bld ctrl regSize ax
+    let lenDx = saturatedLen bld ctrl regSize dx
+    regSize, lenAx, lenDx
+
+/// The flags a compare leaves behind: carry says the result is not empty,
+/// overflow carries its first element, and the auxiliary and parity flags are
+/// cleared. Zero and sign come from the operand lengths, which is why they are
+/// the one pair that needs the sources.
+let private setFlagsOfPcmpstr bld ctrl src1 src2 regs intRes2 iRes2 elemSz =
+  append bld {
+    direct (regVar bld R.CF) := iRes2 != AST.num0 elemSz
+  }
+  setZFSFOfPCMPSTR bld ctrl src1 src2 regs
+  append bld {
+    direct (regVar bld R.OF) := Array.item 0 intRes2
+    direct (regVar bld R.AF) := AST.b0
+    direct (regVar bld R.PF) := AST.b0
+  }
+
 let pcmpstr (ins: Instruction) bld =
   lift bld ins {
     let struct (s1, s2, imm) = getThreeOprs ins
@@ -2782,30 +2810,16 @@ let pcmpstr (ins: Instruction) bld =
         64<rt>, regVar bld R.RAX, regVar bld R.RDX
       else
         32<rt>, regVar bld R.EAX, regVar bld R.EDX
-    (* An implicit-length compare reads no length register at all; the pair is
-       carried along for the explicit forms alone. *)
-    let regs =
-      match ctrl.Len with
-      | Implicit ->
-        regSize, ax, dx
-      | Explicit ->
-        regSize,
-        saturatedLen bld ctrl regSize ax,
-        saturatedLen bld ctrl regSize dx
+    let regs = pcmpstrLengths bld ctrl regSize ax dx
     let bInval = comparePcmpstrChars bld ctrl src1 src2 boolRes regs
     let intRes1 = Array.init nElem (fun _ -> tmpVar bld 1<rt>)
     let intRes2 = Array.init nElem (fun _ -> tmpVar bld 1<rt>)
     aggregatePcmpstrResult bld ctrl boolRes intRes1
     negatePcmpstrResult bld ctrl src2 (intRes1, intRes2) bInval regs
-    (* output. *)
     let iRes2 = tmpVar bld elemSz
     direct iRes2 := combineBits elemSz intRes2
     writePcmpstrResult bld ins ctrl intRes2 iRes2
-    direct (regVar bld R.CF) := iRes2 != AST.num0 elemSz
-    setZFSFOfPCMPSTR bld ctrl src1 src2 regs
-    direct (regVar bld R.OF) := intRes2[0]
-    direct (regVar bld R.AF) := AST.b0
-    direct (regVar bld R.PF) := AST.b0
+    setFlagsOfPcmpstr bld ctrl src1 src2 regs intRes2 iRes2 elemSz
 #if EMULATION
     bld.ConditionCodeOp <- ConditionCodeOp.EFlags
 #endif

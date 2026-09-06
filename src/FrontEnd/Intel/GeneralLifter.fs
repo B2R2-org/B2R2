@@ -856,26 +856,40 @@ let cmc (ins: Instruction) bld =
 
 let private getCondOfCMov (ins: Instruction) bld =
   match ins.Opcode with
-  | Opcode.CMOVO -> regVar bld R.OF
-  | Opcode.CMOVNO -> regVar bld R.OF == AST.b0
-  | Opcode.CMOVB | Opcode.CMOVNAE -> regVar bld R.CF
-  | Opcode.CMOVAE | Opcode.CMOVNC -> regVar bld R.CF == AST.b0
-  | Opcode.CMOVZ | Opcode.CMOVE -> regVar bld R.ZF
-  | Opcode.CMOVNZ -> regVar bld R.ZF == AST.b0
-  | Opcode.CMOVBE | Opcode.CMOVNA -> (regVar bld R.CF) .| (regVar bld R.ZF)
+  | Opcode.CMOVO ->
+    regVar bld R.OF
+  | Opcode.CMOVNO ->
+    regVar bld R.OF == AST.b0
+  | Opcode.CMOVB | Opcode.CMOVNAE ->
+    regVar bld R.CF
+  | Opcode.CMOVAE | Opcode.CMOVNC ->
+    regVar bld R.CF == AST.b0
+  | Opcode.CMOVZ | Opcode.CMOVE ->
+    regVar bld R.ZF
+  | Opcode.CMOVNZ ->
+    regVar bld R.ZF == AST.b0
+  | Opcode.CMOVBE | Opcode.CMOVNA ->
+    (regVar bld R.CF) .| (regVar bld R.ZF)
   | Opcode.CMOVA | Opcode.CMOVNBE ->
     ((regVar bld R.CF) .| (regVar bld R.ZF)) == AST.b0
-  | Opcode.CMOVS -> regVar bld R.SF
-  | Opcode.CMOVNS -> regVar bld R.SF == AST.b0
-  | Opcode.CMOVP -> regVar bld R.PF
-  | Opcode.CMOVNP | Opcode.CMOVPO -> regVar bld R.PF == AST.b0
-  | Opcode.CMOVL | Opcode.CMOVNGE -> regVar bld R.SF != regVar bld R.OF
-  | Opcode.CMOVGE | Opcode.CMOVNL -> regVar bld R.SF == regVar bld R.OF
-  | Opcode.CMOVLE -> regVar bld R.ZF .|
-                     (regVar bld R.SF != regVar bld R.OF)
-  | Opcode.CMOVG -> regVar bld R.ZF == AST.b0 .&
-                    (regVar bld R.SF == regVar bld R.OF)
-  | _ -> raise InvalidOpcodeException
+  | Opcode.CMOVS ->
+    regVar bld R.SF
+  | Opcode.CMOVNS ->
+    regVar bld R.SF == AST.b0
+  | Opcode.CMOVP ->
+    regVar bld R.PF
+  | Opcode.CMOVNP | Opcode.CMOVPO ->
+    regVar bld R.PF == AST.b0
+  | Opcode.CMOVL | Opcode.CMOVNGE ->
+    regVar bld R.SF != regVar bld R.OF
+  | Opcode.CMOVGE | Opcode.CMOVNL ->
+    regVar bld R.SF == regVar bld R.OF
+  | Opcode.CMOVLE ->
+    (regVar bld R.ZF) .| (regVar bld R.SF != regVar bld R.OF)
+  | Opcode.CMOVG ->
+    (regVar bld R.ZF == AST.b0) .& (regVar bld R.SF == regVar bld R.OF)
+  | _ ->
+    raise InvalidOpcodeException
 
 #if EMULATION
 let private getCondOfCMovLazy (ins: Instruction) bld =
@@ -2757,47 +2771,78 @@ let scas (ins: Instruction) bld =
 
 let private getCondOfSet (ins: Instruction) bld =
   match ins.Opcode with
-  | Opcode.SETO -> regVar bld R.OF
-  | Opcode.SETNO -> regVar bld R.OF == AST.b0
-  | Opcode.SETB | Opcode.SETNAE -> regVar bld R.CF
-  | Opcode.SETNB | Opcode.SETAE -> regVar bld R.CF == AST.b0
-  | Opcode.SETZ -> regVar bld R.ZF
-  | Opcode.SETNZ -> regVar bld R.ZF == AST.b0
-  | Opcode.SETBE -> (regVar bld R.CF) .| (regVar bld R.ZF)
-  | Opcode.SETA -> ((regVar bld R.CF) .| (regVar bld R.ZF)) == AST.b0
-  | Opcode.SETS -> regVar bld R.SF
-  | Opcode.SETNS -> regVar bld R.SF == AST.b0
-  | Opcode.SETP -> regVar bld R.PF
-  | Opcode.SETNP -> regVar bld R.PF == AST.b0
-  | Opcode.SETL -> regVar bld R.SF != regVar bld R.OF
-  | Opcode.SETNL -> regVar bld R.SF == regVar bld R.OF
-  | Opcode.SETLE -> regVar bld R.ZF .|
-                     (regVar bld R.SF != regVar bld R.OF)
+  | Opcode.SETO ->
+    regVar bld R.OF
+  | Opcode.SETNO ->
+    regVar bld R.OF == AST.b0
+  | Opcode.SETB | Opcode.SETNAE ->
+    regVar bld R.CF
+  | Opcode.SETNB | Opcode.SETAE ->
+    regVar bld R.CF == AST.b0
+  | Opcode.SETZ ->
+    regVar bld R.ZF
+  | Opcode.SETNZ ->
+    regVar bld R.ZF == AST.b0
+  | Opcode.SETBE ->
+    (regVar bld R.CF) .| (regVar bld R.ZF)
+  | Opcode.SETA ->
+    ((regVar bld R.CF) .| (regVar bld R.ZF)) == AST.b0
+  | Opcode.SETS ->
+    regVar bld R.SF
+  | Opcode.SETNS ->
+    regVar bld R.SF == AST.b0
+  | Opcode.SETP ->
+    regVar bld R.PF
+  | Opcode.SETNP ->
+    regVar bld R.PF == AST.b0
+  | Opcode.SETL ->
+    regVar bld R.SF != regVar bld R.OF
+  | Opcode.SETNL ->
+    regVar bld R.SF == regVar bld R.OF
+  | Opcode.SETLE ->
+    (regVar bld R.ZF) .| (regVar bld R.SF != regVar bld R.OF)
   | Opcode.SETG | Opcode.SETNLE ->
     (regVar bld R.ZF == AST.b0) .& (regVar bld R.SF == regVar bld R.OF)
-  | _ -> raise InvalidOpcodeException
+  | _ ->
+    raise InvalidOpcodeException
 
 #if EMULATION
 let private getCondOfSetLazy (ins: Instruction) bld =
   match ins.Opcode with
-  | Opcode.SETO -> getOFLazy bld
-  | Opcode.SETNO -> getOFLazy bld |> AST.not
-  | Opcode.SETB | Opcode.SETNAE -> getCFLazy bld
-  | Opcode.SETNB | Opcode.SETAE -> getCFLazy bld |> AST.not
-  | Opcode.SETZ -> getZFLazy bld
-  | Opcode.SETNZ -> getZFLazy bld |> AST.not
-  | Opcode.SETBE -> (getCFLazy bld) .| (getZFLazy bld)
-  | Opcode.SETA -> (getCFLazy bld .| getZFLazy bld) |> AST.not
-  | Opcode.SETS -> getSFLazy bld
-  | Opcode.SETNS -> getSFLazy bld |> AST.not
-  | Opcode.SETP -> getPFLazy bld
-  | Opcode.SETNP -> getPFLazy bld |> AST.not
-  | Opcode.SETL -> getSFLazy bld != getOFLazy bld
-  | Opcode.SETNL -> getSFLazy bld == getOFLazy bld
-  | Opcode.SETLE -> (getZFLazy bld) .| (getSFLazy bld != getOFLazy bld)
+  | Opcode.SETO ->
+    getOFLazy bld
+  | Opcode.SETNO ->
+    getOFLazy bld |> AST.not
+  | Opcode.SETB | Opcode.SETNAE ->
+    getCFLazy bld
+  | Opcode.SETNB | Opcode.SETAE ->
+    getCFLazy bld |> AST.not
+  | Opcode.SETZ ->
+    getZFLazy bld
+  | Opcode.SETNZ ->
+    getZFLazy bld |> AST.not
+  | Opcode.SETBE ->
+    (getCFLazy bld) .| (getZFLazy bld)
+  | Opcode.SETA ->
+    (getCFLazy bld .| getZFLazy bld) |> AST.not
+  | Opcode.SETS ->
+    getSFLazy bld
+  | Opcode.SETNS ->
+    getSFLazy bld |> AST.not
+  | Opcode.SETP ->
+    getPFLazy bld
+  | Opcode.SETNP ->
+    getPFLazy bld |> AST.not
+  | Opcode.SETL ->
+    getSFLazy bld != getOFLazy bld
+  | Opcode.SETNL ->
+    getSFLazy bld == getOFLazy bld
+  | Opcode.SETLE ->
+    (getZFLazy bld) .| (getSFLazy bld != getOFLazy bld)
   | Opcode.SETG | Opcode.SETNLE ->
     (getZFLazy bld |> AST.not) .& (getSFLazy bld == getOFLazy bld)
-  | _ -> raise InvalidOpcodeException
+  | _ ->
+    raise InvalidOpcodeException
 #endif
 
 let setcc (ins: Instruction) bld =
@@ -3097,6 +3142,20 @@ let wrgsbase (ins: Instruction) bld =
   lift bld ins {
     let src = transOneOpr ins bld
     direct (regVar bld R.GSBase) := AST.zext bld.RegType src
+  }
+
+/// XGETBV: read the extended control register ECX names into EDX:EAX. XCR0 is
+/// the only one this models: a processor also answers ECX=1 with XINUSE when
+/// it reports that leaf, and this one does not, so every other index is the
+/// general-protection fault the architecture gives an unsupported one.
+let xgetbv ins bld =
+  lift bld ins {
+    let xcr0 = regVar bld R.XCR0
+    _unless bld "Err" (regVar bld R.ECX == AST.num0 32<rt>)
+      (block {
+        AST.sideEffect (Exception ProtectionFault) })
+    sized 32<rt> (regVar bld R.EAX) := AST.xtlo 32<rt> xcr0
+    sized 32<rt> (regVar bld R.EDX) := AST.xthi 32<rt> xcr0
   }
 
 let wrpkru ins bld =

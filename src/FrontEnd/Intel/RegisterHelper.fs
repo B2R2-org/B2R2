@@ -203,7 +203,7 @@ module internal RegisterHelper = begin
     | R.ZMM20H | R.ZMM21H | R.ZMM22H | R.ZMM23H
     | R.ZMM24H | R.ZMM25H | R.ZMM26H | R.ZMM27H
     | R.ZMM28H | R.ZMM29H | R.ZMM30H | R.ZMM31H
-    | R.FIP | R.FDP
+    | R.FIP | R.FDP | R.XCR0
     | R.K0 | R.K1 | R.K2 | R.K3 | R.K4 | R.K5 | R.K6 | R.K7 -> 64<rt>
     | R.R8D | R.R9D | R.R10D | R.R11D
     | R.R12D | R.R13D | R.R14D | R.R15D

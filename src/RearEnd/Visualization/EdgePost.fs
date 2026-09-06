@@ -138,7 +138,12 @@ let private dedupAndCollapse (points: VisPosition array) =
 
 let private orientation ax ay bx by cx cy =
   let v = (bx - ax) * (cy - ay) - (by - ay) * (cx - ax)
-  if abs v <= CoordEpsilon then 0 elif v > 0.0 then 1 else -1
+  if abs v <= CoordEpsilon then
+    0
+  elif v > 0.0 then
+    1
+  else
+    -1
 
 let private onSegment ax ay bx by px py =
   px >= min ax bx - CoordEpsilon

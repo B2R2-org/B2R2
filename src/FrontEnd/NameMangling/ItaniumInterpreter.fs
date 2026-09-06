@@ -119,7 +119,12 @@ let rec interpret (input: ItaniumExpr) =
             acc + add + elem)
         ""
         args
-    if f = "" then f elif f[f.Length - 1] = ' ' then f[..(f.Length - 3)] else f
+    if f = "" then
+      f
+    elif f[f.Length - 1] = ' ' then
+      f[..(f.Length - 3)]
+    else
+      f
   | Num x ->
     string (x)
   | Num64 x ->

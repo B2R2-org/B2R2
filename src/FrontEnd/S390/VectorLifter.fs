@@ -334,7 +334,13 @@ let loadLogicalZero ins bld =
     let v = vec bld o[0]
     let m = oprMask o[2] &&& 0xfus
     let w = if m = 6us then 32<rt> else esize m
-    let idx = if m = 6us then 1 elif bitsOf w = 64 then 0 else lanes w / 2 - 1
+    let idx =
+      if m = 6us then
+        1
+      elif bitsOf w = 64 then
+        0
+      else
+        lanes w / 2 - 1
     v.Hi := AST.num0 GRSize
     v.Lo := AST.num0 GRSize
     lane v w idx := loadMem w (transMem bld o[1])

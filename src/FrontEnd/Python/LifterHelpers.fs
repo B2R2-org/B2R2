@@ -1144,7 +1144,13 @@ let private legacyCmp idx left right =
 let compareOP minor (ins: Instruction) bld =
   lift bld ins {
     let n = getIntArg ins
-    let opIdx = if minor >= 13 then n >>> 5 elif minor >= 12 then n >>> 4 else n
+    let opIdx =
+      if minor >= 13 then
+        n >>> 5
+      elif minor >= 12 then
+        n >>> 4
+      else
+        n
     let right = popFromStack bld
     let left = popFromStack bld
     if minor >= 9 then pushToStack bld (opApp (cmpOpName opIdx) left right)

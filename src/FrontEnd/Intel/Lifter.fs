@@ -518,15 +518,17 @@ let translate (ins: Instruction) bld =
   | OP.XEND ->
     LiftingUtils.unsupported ins bld
   | OP.XGETBV ->
-    LiftingUtils.unsupported ins bld
+    GeneralLifter.xgetbv ins bld
   | OP.XLATB ->
     GeneralLifter.xlatb ins bld
   | OP.XOR ->
     GeneralLifter.xor ins bld
-  | OP.XRSTOR | OP.XRSTOR64 | OP.XRSTORS | OP.XRSTORS64 | OP.XSAVE
-  | OP.XSAVE64 | OP.XSAVEC | OP.XSAVEC64 | OP.XSAVEOPT | OP.XSAVEOPT64
-  | OP.XSAVES | OP.XSAVES64 ->
-    LiftingUtils.unsupported ins bld
+  | OP.XSAVE | OP.XSAVE64 | OP.XSAVEOPT | OP.XSAVEOPT64 ->
+    X87Lifter.xsave ins bld
+  | OP.XSAVEC | OP.XSAVEC64 ->
+    X87Lifter.xsavec ins bld
+  | OP.XRSTOR | OP.XRSTOR64 ->
+    X87Lifter.xrstor ins bld
   | OP.XTEST ->
     LiftingUtils.unsupported ins bld
   (* What a user-mode guest cannot execute at all: each of these faults outside
@@ -540,7 +542,7 @@ let translate (ins: Instruction) bld =
   | OP.LAR | OP.LGDT | OP.LIDT | OP.LLDT
   | OP.LMSW | OP.LSL | OP.LTR | OP.MONITOR | OP.MWAIT | OP.OUT | OP.SGDT
   | OP.SIDT | OP.SLDT | OP.SMSW | OP.STAC | OP.STR | OP.SWAPGS
-  | OP.VERR ->
+  | OP.VERR | OP.XRSTORS | OP.XRSTORS64 | OP.XSAVES | OP.XSAVES64 ->
     LiftingUtils.unsupported ins bld
   | OP.SHA1NEXTE ->
     SSELifter.sha1nexte ins bld

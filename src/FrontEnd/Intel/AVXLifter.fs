@@ -1701,8 +1701,8 @@ let private vbroadcast (ins: Instruction) bld packSz =
       if packSz = 64<rt> then transOpr64 ins bld false src
       else transOpr32 ins bld false src
     let lanes = RegType.toBitWidth oprSize / RegType.toBitWidth packSz
-    assignPackedInstr ins bld false packNum oprSize dst
-                      (Array.create lanes value)
+    let lanesOfValue = Array.create lanes value
+    assignPackedInstr ins bld false packNum oprSize dst lanesOfValue
     fillZeroFromVLToMaxVL bld dst oprSize 512
   }
 
@@ -2099,13 +2099,51 @@ let vcvtdq2pd ins bld = cvtWidening ins bld CastKind.SIntToFloat
 
 let vcvtps2pd ins bld = cvtWidening ins bld CastKind.FloatCast
 
-/// The gathers load one element per index, and only where the mask element's
-/// sign bit is set: an element the mask leaves out keeps what the destination
-/// held and its address is never formed at all -- which is why each load sits
-/// behind a branch rather than inside a conditional expression, whose other
-/// side would be evaluated too. The mask register is cleared whole at the end,
-/// which is how a program tells a gather that finished from one that faulted
-/// part way through.
+/// The base and the displacement of a VSIB memory operand, each of them zero
+/// where the encoding leaves it out.
+let private vsibBaseDisp bld addrSz baseReg disp =
+  let baseExpr =
+    match baseReg with
+    | Some r -> regVar bld r
+    | None -> AST.num0 addrSz
+  let dispExpr =
+    match disp with
+    | Some d -> numI64 d addrSz
+    | None -> AST.num0 addrSz
+  struct (baseExpr, dispExpr)
+
+/// Loads the elements a gather covers: one per index where the mask element's
+/// sign bit is set, and nothing at all where it is not -- an element the mask
+/// leaves out keeps what the destination held and its address is never formed,
+/// which is why each load sits behind a branch rather than inside a
+/// conditional expression, whose other side would be evaluated too. Slots past
+/// the shorter of the destination and the index vector are zeroed.
+let private gatherElements bld dataSz addrSz count addrOf slots mask =
+  for i in 0 .. Array.length slots - 1 do
+    if i < count then
+      let addr = tmpVar bld addrSz
+      _if bld "Gathered" (AST.xthi 1<rt> (Array.item i mask))
+        (block {
+          direct addr := addrOf i
+          direct (Array.item i slots) := AST.loadLE dataSz addr })
+        (block { })
+    else
+      append bld {
+        direct (Array.item i slots) := AST.num0 dataSz
+      }
+
+/// Clears the mask register whole, every element of it whether the gather used
+/// it or not, which is how a program tells a gather that finished from one
+/// that faulted part way through. It is written like any other vector
+/// register, so what lies above the vector length in it goes as well.
+let private clearGatherMask ins bld dataSz dataNum dstSize maskOpr =
+  let maskSlots = transOprToArr ins bld false dataSz dataNum dstSize maskOpr
+  for m in maskSlots do
+    append bld {
+      direct m := AST.num0 dataSz
+    }
+  fillZeroFromVLToMaxVL bld maskOpr dstSize 512
+
 let private gather (ins: Instruction) bld idxSz dataSz =
   lift bld ins {
     let struct (dst, vsib, maskOpr) = getThreeOprs ins
@@ -2114,48 +2152,22 @@ let private gather (ins: Instruction) bld idxSz dataSz =
     match vsib with
     | OprMem(baseReg, Some(idxReg, scale), disp, _) ->
       let addrSz = bld.RegType
-      let baseExpr =
-        match baseReg with
-        | Some r -> regVar bld r
-        | None -> AST.num0 addrSz
-      let dispExpr =
-        match disp with
-        | Some d -> numI64 d addrSz
-        | None -> AST.num0 addrSz
-      let idxWidth = operandWidth bld (OprReg idxReg)
+      let struct (baseExpr, dispExpr) = vsibBaseDisp bld addrSz baseReg disp
+      let idxOpr = OprReg idxReg
+      let idxWidth = operandWidth bld idxOpr
       let indices =
-        transOprToArr ins bld true idxSz (64<rt> / idxSz) idxWidth
-                      (OprReg idxReg)
+        transOprToArr ins bld true idxSz (64<rt> / idxSz) idxWidth idxOpr
       let slots = transOprToArr ins bld false dataSz dataNum dstSize dst
       let mask = transOprToArr ins bld true dataSz dataNum dstSize maskOpr
       let count =
         min (RegType.toBitWidth dstSize / RegType.toBitWidth dataSz)
             (RegType.toBitWidth idxWidth / RegType.toBitWidth idxSz)
       let scaleNum = numI32 (int scale) addrSz
-      for i in 0 .. slots.Length - 1 do
-        if i < count then
-          let addr = tmpVar bld addrSz
-          _if bld "Gathered" (AST.xthi 1<rt> mask[i])
-            (block {
-              direct addr :=
-                baseExpr .+ dispExpr
-                .+ ((AST.sext addrSz indices[i]) .* scaleNum)
-              direct (slots[i]) := AST.loadLE dataSz addr })
-            (block { })
-        else
-          append bld {
-            direct (slots[i]) := AST.num0 dataSz
-          }
-      (* Every mask element goes, whether it was used or not. *)
-      let maskSlots =
-        transOprToArr ins bld false dataSz dataNum dstSize maskOpr
-      for m in maskSlots do
-        append bld {
-          direct m := AST.num0 dataSz
-        }
-      (* The mask register is written like any other, so what lies above the
-         vector length in it is cleared as well. *)
-      fillZeroFromVLToMaxVL bld maskOpr dstSize 512
+      let addrOf i =
+        let scaled = (AST.sext addrSz (Array.item i indices)) .* scaleNum
+        baseExpr .+ dispExpr .+ scaled
+      gatherElements bld dataSz addrSz count addrOf slots mask
+      clearGatherMask ins bld dataSz dataNum dstSize maskOpr
       fillZeroFromVLToMaxVL bld dst dstSize 512
     | _ ->
       raise InvalidOperandException

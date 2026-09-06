@@ -1489,9 +1489,8 @@ let private syncSummaryBits bld =
     let excMask = numI32 0x3F 16<rt>
     let masked = regVar bld R.FCW .& excMask
     let pending = (stsWrd .& excMask) .& AST.not masked
-    let summary =
-      AST.ite (pending == AST.num0 16<rt>) (AST.num0 16<rt>)
-              (numI32 0x8080 16<rt>)
+    let quiet = pending == AST.num0 16<rt>
+    let summary = AST.ite quiet (AST.num0 16<rt>) (numI32 0x8080 16<rt>)
     direct stsWrd := (stsWrd .& numI32 0x7F7F 16<rt>) .| summary
   }
 
@@ -1664,40 +1663,93 @@ let private fxsaveXmmRegs =
 let private fxsaveXmmRegs64 =
   [ R.XMM8; R.XMM9; R.XMM10; R.XMM11; R.XMM12; R.XMM13; R.XMM14; R.XMM15 ]
 
-let private fxsaveInternal bld dstAddr addrSize is64bit =
-  let storeAt off e =
-    append bld { storeLE (dstAddr .+ (numI32 off addrSize)) e }
-  append bld {
-    storeLE (dstAddr) (regVar bld R.FCW)
+/// The XMM registers a save area holds in the given mode.
+let private xmmRegsOf is64bit =
+  if is64bit then fxsaveXmmRegs @ fxsaveXmmRegs64 else fxsaveXmmRegs
+
+/// Addresses one field of a save area: the area's own address for the field at
+/// zero, and a displacement from it for every other one.
+let private fieldAt baseAddr addrSize off =
+  if off = 0 then baseAddr else baseAddr .+ numI32 off addrSize
+
+/// The x87 half of an FXSAVE-format image: the control, status and tag words,
+/// the opcode and the last instruction and data pointers, and the eight stack
+/// registers.
+let private storeX87Area bld baseAddr addrSize =
+  let at off = fieldAt baseAddr addrSize off
+  block {
+    yield storeLE (at 0) (regVar bld R.FCW)
+    yield storeLE (at 2) (regVar bld R.FSW)
+    yield storeLE (at 4) (regVar bld R.FTW)
+    yield storeLE (at 6) (regVar bld R.FOP)
+    yield storeLE (at 8) (regVar bld R.FIP)
+    yield storeLE (at 16) (regVar bld R.FDP)
+    for i, st in List.indexed fxsaveStackRegs do
+      let struct (stb, sta) = getFPUPseudoRegVars bld st
+      yield storeLE (at (32 + 16 * i)) sta
+      yield storeLE (at (40 + 16 * i)) stb
   }
-  storeAt 2 (regVar bld R.FSW)
-  storeAt 4 (regVar bld R.FTW)
-  storeAt 6 (regVar bld R.FOP)
-  storeAt 8 (regVar bld R.FIP)
-  storeAt 16 (regVar bld R.FDP)
-  storeAt 24 (regVar bld R.MXCSR)
-  storeAt 28 (regVar bld R.MXCSRMASK)
-  fxsaveStackRegs
-  |> List.iteri (fun i st ->
-    let struct (stb, sta) = getFPUPseudoRegVars bld st
-    storeAt (32 + 16 * i) sta
-    storeAt (40 + 16 * i) stb
-  )
-  fxsaveXmmRegs
-  |> List.iteri (fun i xmm ->
-    let struct (xmmb, xmma) = pseudoRegVar128 bld xmm
-    storeAt (160 + 16 * i) xmma
-    storeAt (168 + 16 * i) xmmb
-  )
-  if is64bit then
-    fxsaveXmmRegs64
-    |> List.iteri (fun i xmm ->
+
+/// The SSE half of an FXSAVE-format image: MXCSR beside the mask of the bits
+/// it accepts, and the XMM registers.
+let private storeSseArea bld baseAddr addrSize is64bit =
+  let at off = fieldAt baseAddr addrSize off
+  block {
+    yield storeLE (at 24) (regVar bld R.MXCSR)
+    yield storeLE (at 28) (regVar bld R.MXCSRMASK)
+    for i, xmm in List.indexed (xmmRegsOf is64bit) do
       let struct (xmmb, xmma) = pseudoRegVar128 bld xmm
-      storeAt (288 + 16 * i) xmma
-      storeAt (296 + 16 * i) xmmb
-    )
-  else
-    ()
+      yield storeLE (at (160 + 16 * i)) xmma
+      yield storeLE (at (168 + 16 * i)) xmmb
+  }
+
+/// Reads the x87 half of an FXSAVE-format image back into the registers.
+let private loadX87Area bld baseAddr addrSize =
+  let at off = fieldAt baseAddr addrSize off
+  block {
+    direct (regVar bld R.FCW) := AST.loadLE 16<rt> (at 0)
+    direct (regVar bld R.FSW) := AST.loadLE 16<rt> (at 2)
+    direct (regVar bld R.FTW) := AST.loadLE 16<rt> (at 4)
+    direct (regVar bld R.FOP) := AST.loadLE 16<rt> (at 6)
+    direct (regVar bld R.FIP) := AST.loadLE 64<rt> (at 8)
+    direct (regVar bld R.FDP) := AST.loadLE 64<rt> (at 16)
+    for i, st in List.indexed fxsaveStackRegs do
+      let struct (stb, sta) = getFPUPseudoRegVars bld st
+      direct sta := AST.loadLE 64<rt> (at (32 + 16 * i))
+      direct stb := AST.loadLE 16<rt> (at (40 + 16 * i))
+  }
+
+/// Reads the XMM registers back out of an FXSAVE-format image. MXCSR is not
+/// among them: XRSTOR loads it under a rule of its own, and FXRSTOR pairs this
+/// with `loadMxcsrArea` to get the whole SSE half.
+let private loadXmmArea bld baseAddr addrSize is64bit =
+  let at off = fieldAt baseAddr addrSize off
+  block {
+    for i, xmm in List.indexed (xmmRegsOf is64bit) do
+      let struct (xmmb, xmma) = pseudoRegVar128 bld xmm
+      direct xmma := AST.loadLE 64<rt> (at (160 + 16 * i))
+      direct xmmb := AST.loadLE 64<rt> (at (168 + 16 * i))
+  }
+
+/// Reads MXCSR, and the mask beside it, back out of an FXSAVE-format image.
+let private loadMxcsrArea bld baseAddr addrSize =
+  let at off = fieldAt baseAddr addrSize off
+  block {
+    direct (regVar bld R.MXCSR) := AST.loadLE 32<rt> (at 24)
+    direct (regVar bld R.MXCSRMASK) := AST.loadLE 32<rt> (at 28)
+  }
+
+/// Reads MXCSR alone, which is what XRSTOR loads: the mask beside it reports
+/// what the silicon will accept, so no value from memory belongs there.
+let private loadMxcsrOnly bld baseAddr addrSize =
+  let at off = fieldAt baseAddr addrSize off
+  block {
+    direct (regVar bld R.MXCSR) := AST.loadLE 32<rt> (at 24)
+  }
+
+let private fxsaveInternal bld dstAddr addrSize is64bit =
+  storeX87Area bld dstAddr addrSize bld
+  storeSseArea bld dstAddr addrSize is64bit bld
 
 let fxsave (ins: Instruction) bld =
   lift bld ins {
@@ -1707,48 +1759,160 @@ let fxsave (ins: Instruction) bld =
   }
 
 let private fxrstoreInternal bld srcAddr addrSz is64bit =
-  let loadAt sz off = AST.loadLE sz (srcAddr .+ (numI32 off addrSz))
-  append bld {
-    direct (regVar bld R.FCW) := AST.loadLE 16<rt> (srcAddr)
-    direct (regVar bld R.FSW) := loadAt 16<rt> 2
-    direct (regVar bld R.FTW) := loadAt 16<rt> 4
-    direct (regVar bld R.FOP) := loadAt 16<rt> 6
-    direct (regVar bld R.FIP) := loadAt 64<rt> 8
-    direct (regVar bld R.FDP) := loadAt 64<rt> 16
-    direct (regVar bld R.MXCSR) := loadAt 32<rt> 24
-    direct (regVar bld R.MXCSRMASK) := loadAt 32<rt> 28
-  }
-  fxsaveStackRegs
-  |> List.iteri (fun i st ->
-    let struct (stb, sta) = getFPUPseudoRegVars bld st
-    append bld {
-      direct sta := loadAt 64<rt> (32 + 16 * i)
-      direct stb := loadAt 16<rt> (40 + 16 * i)
-    }
-  )
-  fxsaveXmmRegs
-  |> List.iteri (fun i xmm ->
-    let struct (xmmb, xmma) = pseudoRegVar128 bld xmm
-    append bld {
-      direct xmma := loadAt 64<rt> (160 + 16 * i)
-      direct xmmb := loadAt 64<rt> (168 + 16 * i)
-    }
-  )
-  if is64bit then
-    fxsaveXmmRegs64
-    |> List.iteri (fun i xmm ->
-      let struct (xmmb, xmma) = pseudoRegVar128 bld xmm
-      append bld {
-        direct xmma := loadAt 64<rt> (288 + 16 * i)
-        direct xmmb := loadAt 64<rt> (296 + 16 * i)
-      }
-    )
-  else
-    ()
+  loadX87Area bld srcAddr addrSz bld
+  loadMxcsrArea bld srcAddr addrSz bld
+  loadXmmArea bld srcAddr addrSz is64bit bld
 
 let fxrstor (ins: Instruction) bld =
   lift bld ins {
     let src = transOneOpr ins bld
     let struct (addrExpr, addrSize) = getLoadAddressExpr src
     fxrstoreInternal bld addrExpr addrSize (bld.RegType = 64<rt>)
+  }
+
+/// The XSAVE header follows the 512-byte legacy region. Its first eight bytes
+/// name the components the image holds.
+let [<Literal>] private XStateBvOff = 512
+
+/// Its next eight name the layout a compacted image was written in.
+let [<Literal>] private XCompBvOff = 520
+
+/// Bit 63 of XCOMP_BV, the one that says the image is compacted.
+let [<Literal>] private CompactedFormat = 0x8000000000000000UL
+
+/// The components an XSAVE-family instruction acts on: the ones EDX:EAX names,
+/// narrowed to those XCR0 says this processor manages. Only x87 (bit 0) and
+/// SSE (bit 1) are modeled, and those are the only bits the emulator ever puts
+/// in XCR0, so the mask can name nothing that goes unsaved. Widening XCR0
+/// without widening these two means promising a component nothing writes.
+let private xsaveRfbm bld =
+  AST.concat (regVar bld R.EDX) (regVar bld R.EAX) .& regVar bld R.XCR0
+
+/// The bit of a component bitmap belonging to the x87 state.
+let private x87Bit bv = AST.xtlo 1<rt> bv
+
+/// The bit of a component bitmap belonging to the SSE state.
+let private sseBit bv = AST.extract bv 1<rt> 1
+
+/// Writes the components the mask names into the legacy region, which is where
+/// every format of the XSAVE area keeps x87 and SSE state: the standard and
+/// the compacted layout differ in the header and in where they put the
+/// components above these two, not in these.
+let private xsaveComponents bld rfbm dstAddr addrSize is64bit =
+  let x87 = storeX87Area bld dstAddr addrSize
+  let sse = storeSseArea bld dstAddr addrSize is64bit
+  _when bld "XsaveX87" (x87Bit rfbm) x87
+  _when bld "XsaveSse" (sseBit rfbm) sse
+
+/// XSAVE and XSAVEOPT: save the components EDX:EAX and XCR0 agree on, then add
+/// them to the ones the header already claims. XSAVEOPT is allowed to skip a
+/// component the processor knows is unchanged since it was last saved, and
+/// writing it anyway is always a correct answer, so the two share this.
+///
+/// XINUSE is modeled as all ones -- the architecture lets a processor call a
+/// component in use when it is really in its initial configuration -- so the
+/// header ends up naming every component the mask asked for. Nothing else in
+/// the header is touched, which is what leaves XCOMP_BV zero for the standard
+/// format.
+let private xsaveInternal bld dstAddr addrSize is64bit =
+  let rfbm = tmpVar bld 64<rt>
+  let bvAddr = fieldAt dstAddr addrSize XStateBvOff
+  append bld {
+    direct rfbm := xsaveRfbm bld
+  }
+  xsaveComponents bld rfbm dstAddr addrSize is64bit
+  append bld {
+    storeLE bvAddr (AST.loadLE 64<rt> bvAddr .| rfbm)
+  }
+
+let xsave (ins: Instruction) bld =
+  lift bld ins {
+    let dst = transOneOpr ins bld
+    let struct (addrExpr, addrSize) = getLoadAddressExpr dst
+    xsaveInternal bld addrExpr addrSize (bld.RegType = 64<rt>)
+  }
+
+/// XSAVEC: the same components, in the compacted format. The header names the
+/// layout as well as the contents, and it replaces what was there rather than
+/// adding to it -- XCOMP_BV describes the whole image, so a component left out
+/// of the mask is left out of the image.
+let private xsavecInternal bld dstAddr addrSize is64bit =
+  let rfbm = tmpVar bld 64<rt>
+  append bld {
+    direct rfbm := xsaveRfbm bld
+  }
+  xsaveComponents bld rfbm dstAddr addrSize is64bit
+  append bld {
+    storeLE (fieldAt dstAddr addrSize XStateBvOff) rfbm
+    storeLE (fieldAt dstAddr addrSize XCompBvOff)
+      (rfbm .| numU64 CompactedFormat 64<rt>)
+  }
+
+let xsavec (ins: Instruction) bld =
+  lift bld ins {
+    let dst = transOneOpr ins bld
+    let struct (addrExpr, addrSize) = getLoadAddressExpr dst
+    xsavecInternal bld addrExpr addrSize (bld.RegType = 64<rt>)
+  }
+
+/// The x87 state as XRSTOR defines its initial configuration: the default
+/// control word, a clear status word, every stack slot tagged empty, and no
+/// opcode, pointer or datum left over from before.
+let private initX87Area bld =
+  block {
+    direct (regVar bld R.FCW) := numI32 0x037F 16<rt>
+    direct (regVar bld R.FSW) := AST.num0 16<rt>
+    direct (regVar bld R.FTW) := numI32 0xFFFF 16<rt>
+    direct (regVar bld R.FOP) := AST.num0 16<rt>
+    direct (regVar bld R.FIP) := AST.num0 64<rt>
+    direct (regVar bld R.FDP) := AST.num0 64<rt>
+    for st in fxsaveStackRegs do
+      let struct (stb, sta) = getFPUPseudoRegVars bld st
+      direct sta := AST.num0 64<rt>
+      direct stb := AST.num0 16<rt>
+  }
+
+/// The SSE state as XRSTOR defines its initial configuration. MXCSR is not
+/// part of it: XRSTOR loads that from memory whether or not the header claims
+/// the component.
+let private initXmmArea bld is64bit =
+  block {
+    for xmm in xmmRegsOf is64bit do
+      let struct (xmmb, xmma) = pseudoRegVar128 bld xmm
+      direct xmma := AST.num0 64<rt>
+      direct xmmb := AST.num0 64<rt>
+  }
+
+/// XRSTOR: for every component the mask names, load it from the image when the
+/// header says the image holds it, and put it back to its initial
+/// configuration when the header says it does not. MXCSR is the exception the
+/// architecture carves out -- naming the SSE component in the mask loads it
+/// either way.
+///
+/// The compacted format needs no case of its own here. It moves only the
+/// components above SSE, and those are the ones this does not model, so x87
+/// and SSE sit at the same offsets in an image of either format.
+let private xrstorInternal bld srcAddr addrSize is64bit =
+  let rfbm = tmpVar bld 64<rt>
+  let bv = tmpVar bld 64<rt>
+  append bld {
+    direct rfbm := xsaveRfbm bld
+    direct bv := AST.loadLE 64<rt> (fieldAt srcAddr addrSize XStateBvOff)
+  }
+  let loadX87 = loadX87Area bld srcAddr addrSize
+  let initX87 = initX87Area bld
+  let loadXmm = loadXmmArea bld srcAddr addrSize is64bit
+  let initXmm = initXmmArea bld is64bit
+  let loadMxcsr = loadMxcsrOnly bld srcAddr addrSize
+  _when bld "RstorX87" (x87Bit rfbm .& x87Bit bv) loadX87
+  _when bld "InitX87" (x87Bit rfbm .& AST.not (x87Bit bv)) initX87
+  _when bld "RstorXmm" (sseBit rfbm .& sseBit bv) loadXmm
+  _when bld "InitXmm" (sseBit rfbm .& AST.not (sseBit bv)) initXmm
+  _when bld "RstorMxcsr" (sseBit rfbm) loadMxcsr
+
+let xrstor (ins: Instruction) bld =
+  lift bld ins {
+    let src = transOneOpr ins bld
+    let struct (addrExpr, addrSize) = getLoadAddressExpr src
+    xrstorInternal bld addrExpr addrSize (bld.RegType = 64<rt>)
   }

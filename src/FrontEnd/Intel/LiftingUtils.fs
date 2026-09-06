@@ -649,7 +649,8 @@ let isVexEncoded (ins: Instruction) = Option.isSome ins.VEXInfo
 /// than one long one, and this is what makes it so.
 let perLane oprSize f (a: Expr[]) (b: Expr[]) =
   let lanes = max 1 (RegType.toBitWidth oprSize / 128)
-  if lanes = 1 then f a b
+  if lanes = 1 then
+    f a b
   else
     let per = a.Length / lanes
     Array.init lanes (fun i ->

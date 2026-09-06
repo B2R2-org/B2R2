@@ -832,7 +832,12 @@ let highestSetBitForIR expr width oprSz bld =
 
 let highestSetBit x size =
   let rec loop i =
-    if i < 0 then -1 elif (x >>> i) &&& 1 = 1 then i else loop (i - 1)
+    if i < 0 then
+      -1
+    elif (x >>> i) &&& 1 = 1 then
+      i
+    else
+      loop (i - 1)
   loop (size - 1)
 
 /// shared/functions/common/Replicate

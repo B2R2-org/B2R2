@@ -1096,6 +1096,10 @@ type Register =
   | K6 = 0x160
   /// Opmask registers. For EVEX.
   | K7 = 0x161
+  /// Extended control register zero: the state components XSAVE manages, one
+  /// bit each. XGETBV reads it and the XSAVE family masks its register-feature
+  /// mask by it.
+  | XCR0 = 0x220
   /// Unknown Register.
   | UnknownReg = 0x162
 #if EMULATION
@@ -1372,6 +1376,7 @@ module Register =
     | "mxcsr" -> Register.MXCSR
     | "mxcsrmask" -> Register.MXCSRMASK
     | "pkru" -> Register.PKRU
+    | "xcr0" -> Register.XCR0
     | "bnd0a" -> Register.BND0A
     | "bnd0b" -> Register.BND0B
     | "bnd1a" -> Register.BND1A
@@ -2065,6 +2070,7 @@ module Register =
     | Register.K6 -> "K6"
     | Register.K7 -> "K7"
     | Register.PKRU -> "PKRU"
+    | Register.XCR0 -> "XCR0"
 #if EMULATION
     | Register.CCOP -> "CCOP"
     | Register.CCDST -> "CCDST"
