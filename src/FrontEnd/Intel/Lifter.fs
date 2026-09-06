@@ -1306,11 +1306,11 @@ let translate (ins: Instruction) bld =
   | OP.VPEXTRQ ->
     SSELifter.pextrq ins bld
   | OP.VGF2P8MULB ->
-    SSELifter.gf2p8mulb ins bld
+    AVXLifter.vgf2p8mulb ins bld
   | OP.VGF2P8AFFINEQB ->
-    SSELifter.gf2p8affineqb ins bld
+    AVXLifter.vgf2p8affineqb ins bld
   | OP.VGF2P8AFFINEINVQB ->
-    SSELifter.gf2p8affineinvqb ins bld
+    AVXLifter.vgf2p8affineinvqb ins bld
   | OP.VMPSADBW ->
     SSELifter.mpsadbw ins bld
   | OP.VINSERTPS ->

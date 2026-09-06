@@ -146,11 +146,14 @@ let vsqrtpd ins bld =
     fillZeroFromVLToMaxVL bld dst oprSz 512
   }
 
-/// The VEX AES rounds: the same host call the legacy forms make, over one
-/// 128-bit lane or two. A VEX.128 form writes its lane and clears everything
-/// above it, and a VEX.256 form -- the VAES extension -- runs the round on
-/// each lane on its own, the two sharing nothing.
-let private vaesRound (ins: Instruction) bld name =
+/// A VEX form whose operation is answered by a host call, over one 128-bit
+/// lane or two: the call takes a lane at a time, so a 256-bit form makes two
+/// of them and the lanes share nothing. A VEX.128 form clears everything above
+/// the lane it writes.
+///
+/// The AES rounds and the field multiply are both of this shape, and both make
+/// the same call the legacy encodings make.
+let private vexLaneCall (ins: Instruction) bld name =
   lift bld ins {
     let struct (dst, src1, src2) = getThreeOprs ins
     let oprSz = getOperationSize ins
@@ -179,13 +182,55 @@ let private vaesRound (ins: Instruction) bld name =
     fillZeroFromVLToMaxVL bld dst oprSz 512
   }
 
-let vaesenc ins bld = vaesRound ins bld "AESENC"
+let vaesenc ins bld = vexLaneCall ins bld "AESENC"
 
-let vaesenclast ins bld = vaesRound ins bld "AESENCLAST"
+let vaesenclast ins bld = vexLaneCall ins bld "AESENCLAST"
 
-let vaesdec ins bld = vaesRound ins bld "AESDEC"
+let vaesdec ins bld = vexLaneCall ins bld "AESDEC"
 
-let vaesdeclast ins bld = vaesRound ins bld "AESDECLAST"
+let vaesdeclast ins bld = vexLaneCall ins bld "AESDECLAST"
+
+/// The GFNI affine transforms in their VEX forms: a call per 128-bit lane,
+/// each lane meeting the matrix quadwords of its own lane, with the immediate
+/// the same throughout.
+let private vgfniAffine (ins: Instruction) bld name =
+  lift bld ins {
+    let struct (dst, s1, s2, imm) = getDstSrcsImm ins
+    let oprSz = getOperationSize ins
+    let control = numU64 (uint64 (getImmValue imm) &&& 0xFFUL) 8<rt>
+    match oprSz with
+    | 128<rt> ->
+      let struct (dstB, dstA) = transOpr128 ins bld false dst
+      let struct (aB, aA) = transOpr128 ins bld false s1
+      let struct (bB, bA) = transOpr128 ins bld false s2
+      let t = tmpVar bld 128<rt>
+      let args = [ AST.concat aB aA; AST.concat bB bA; control ]
+      direct t := AST.app name args 128<rt>
+      direct dstA := AST.xtlo 64<rt> t
+      direct dstB := AST.xthi 64<rt> t
+    | 256<rt> ->
+      let struct (dstD, dstC, dstB, dstA) = transOpr256 ins bld false dst
+      let struct (a4, a3, a2, a1) = transOpr256 ins bld false s1
+      let struct (b4, b3, b2, b1) = transOpr256 ins bld false s2
+      let struct (lo, hi) = tmpVars2 bld 128<rt>
+      let loArgs = [ AST.concat a2 a1; AST.concat b2 b1; control ]
+      let hiArgs = [ AST.concat a4 a3; AST.concat b4 b3; control ]
+      direct lo := AST.app name loArgs 128<rt>
+      direct hi := AST.app name hiArgs 128<rt>
+      direct dstA := AST.xtlo 64<rt> lo
+      direct dstB := AST.xthi 64<rt> lo
+      direct dstC := AST.xtlo 64<rt> hi
+      direct dstD := AST.xthi 64<rt> hi
+    | _ ->
+      raise InvalidOperandSizeException
+    fillZeroFromVLToMaxVL bld dst oprSz 512
+  }
+
+let vgf2p8mulb ins bld = vexLaneCall ins bld "GF2P8MULB"
+
+let vgf2p8affineqb ins bld = vgfniAffine ins bld "GF2P8AFFINEQB"
+
+let vgf2p8affineinvqb ins bld = vgfniAffine ins bld "GF2P8AFFINEINVQB"
 
 /// VAESIMC has one source and no wider form: the inverse mixing is only ever
 /// wanted a key at a time.
