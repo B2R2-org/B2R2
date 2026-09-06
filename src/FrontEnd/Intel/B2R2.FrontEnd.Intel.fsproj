@@ -25,6 +25,7 @@
     <Compile Include="MMXLifter.fs" />
     <Compile Include="SSELifter.fs" />
     <Compile Include="AVXLifter.fs" />
+    <Compile Include="AVX512Lifter.fs" />
     <Compile Include="OpMaskLifter.fs" />
     <Compile Include="X87Lifter.fs" />
     <Compile Include="Lifter.fs" />

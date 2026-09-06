@@ -35,8 +35,10 @@ type ConcExecutorTests() =
   let loadRawImage (bytes: byte[]) arch (ws: WordSize) =
     BinHandle.LoadRawImage(bytes, ISA(arch, ws), OS.Linux)
 
+#if !EMULATION
   (* mul rax : the lifter marks SF as undefined *)
   let mulBytes = [| 0x48uy; 0xf7uy; 0xe0uy |]
+#endif
 
   (* call rel32 1 (target 0x6) ; nop ; ret *)
   let hookedCall = [| 0xe8uy; 0x01uy; 0x00uy; 0x00uy; 0x00uy; 0x90uy; 0xc3uy |]
@@ -48,6 +50,10 @@ type ConcExecutorTests() =
   let mipsCall =
     Array.append [| 0x0cuy; 0x00uy; 0x00uy; 0x08uy |] (Array.zeroCreate 8)
 
+#if !EMULATION
+  (* Only the non-EMULATION lifter writes an undefined value to SF here: under
+     EMULATION `mul` leaves the flags to be worked out lazily and never writes
+     SF at all, so neither undefined-value policy below is exercised. *)
   let runMulWithPresetSF policy =
     let hdl = loadRawImage mulBytes Architecture.Intel WordSize.Bit64
     let exec = ConcExecutor hdl
@@ -61,6 +67,7 @@ type ConcExecutorTests() =
           UndefinedValues = policy }
     exec.Run(0UL, st, opts) |> ignore
     st.TryGetReg sf
+#endif
 
   let runOneInstruction (hdl: BinHandle) =
     let exec = ConcExecutor hdl
@@ -158,6 +165,7 @@ type ConcExecutorTests() =
     | Def v -> Assert.AreEqual<uint64>(0UL, v.ToUInt64())
     | Undef -> Assert.Fail "RBX was not materialized."
 
+#if !EMULATION
   [<TestMethod>]
   member _.``Undefined writes leave the target undefined``() =
     let policy = ConcUndefinedValuePolicy.PreserveUndefinedValues
@@ -174,6 +182,7 @@ type ConcExecutorTests() =
       Assert.AreEqual<uint64>(1UL, v.ToUInt64())
     | Undef ->
       Assert.Fail "SF was unset."
+#endif
 
   [<TestMethod>]
   member _.``A call hook stands in for the call``() =

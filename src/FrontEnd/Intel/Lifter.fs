@@ -1128,8 +1128,14 @@ let translate (ins: Instruction) bld =
     AVXLifter.vmovapd ins bld
   | OP.VMOVDQU ->
     AVXLifter.vmovdqu ins bld
+  | OP.VMOVDQU8 ->
+    AVXLifter.vmovdqu8 ins bld
   | OP.VMOVDQU16 ->
     AVXLifter.vmovdqu16 ins bld
+  | OP.VMOVDQU32 ->
+    AVXLifter.vmovdqu32 ins bld
+  | OP.VMOVDQA32 ->
+    AVXLifter.vmovdqa32 ins bld
   | OP.VMOVDQU64 ->
     AVXLifter.vmovdqu64 ins bld
   | OP.VMOVDQA ->
@@ -1181,7 +1187,7 @@ let translate (ins: Instruction) bld =
   | OP.VORPD ->
     AVXLifter.vorpd ins bld
   | OP.VSHUFI32X4 ->
-    AVXLifter.vshufi32x4 ins bld
+    AVX512Lifter.vshufi32x4 ins bld
   | OP.VSHUFPS ->
     AVXLifter.vshufps ins bld
   | OP.VSHUFPD ->
@@ -1203,11 +1209,11 @@ let translate (ins: Instruction) bld =
   | OP.VBROADCASTSS ->
     AVXLifter.vbroadcastss ins bld
   | OP.VEXTRACTF32X8 ->
-    AVXLifter.vextracti32x8 ins bld
+    AVX512Lifter.vextractf32x8 ins bld
   | OP.VEXTRACTI128 ->
     AVXLifter.vextracti128 ins bld
   | OP.VEXTRACTI64X4 ->
-    AVXLifter.vextracti64x4 ins bld
+    AVX512Lifter.vextracti64x4 ins bld
   | OP.VEXTRACTPS ->
     SSELifter.extractps ins bld
   | OP.VINSERTI128 ->
@@ -1320,13 +1326,13 @@ let translate (ins: Instruction) bld =
   | OP.VPINSRQ ->
     SSELifter.pinsrq ins bld
   | OP.VCMPPD ->
-    SSELifter.cmppd ins bld
+    AVX512Lifter.vcmppd ins bld
   | OP.VCMPPS ->
-    SSELifter.cmpps ins bld
+    AVX512Lifter.vcmpps ins bld
   | OP.VCMPSD ->
-    SSELifter.cmpsd ins bld
+    AVX512Lifter.vcmpsd ins bld
   | OP.VCMPSS ->
-    SSELifter.cmpss ins bld
+    AVX512Lifter.vcmpss ins bld
   | OP.VBROADCASTSD ->
     AVXLifter.vbroadcastsd ins bld
   | OP.VPBROADCASTQ ->
@@ -1388,21 +1394,21 @@ let translate (ins: Instruction) bld =
   | OP.VCVTPS2PD ->
     AVXLifter.vcvtps2pd ins bld
   | OP.VGATHERDPD ->
-    AVXLifter.vgatherdpd ins bld
+    AVX512Lifter.vgatherdpd ins bld
   | OP.VGATHERQPD ->
-    AVXLifter.vgatherqpd ins bld
+    AVX512Lifter.vgatherqpd ins bld
   | OP.VGATHERDPS ->
-    AVXLifter.vgatherdps ins bld
+    AVX512Lifter.vgatherdps ins bld
   | OP.VGATHERQPS ->
-    AVXLifter.vgatherqps ins bld
+    AVX512Lifter.vgatherqps ins bld
   | OP.VPGATHERDD ->
-    AVXLifter.vpgatherdd ins bld
+    AVX512Lifter.vpgatherdd ins bld
   | OP.VPGATHERDQ ->
-    AVXLifter.vpgatherdq ins bld
+    AVX512Lifter.vpgatherdq ins bld
   | OP.VPGATHERQD ->
-    AVXLifter.vpgatherqd ins bld
+    AVX512Lifter.vpgatherqd ins bld
   | OP.VPGATHERQQ ->
-    AVXLifter.vpgatherqq ins bld
+    AVX512Lifter.vpgatherqq ins bld
   | OP.VRCPPS ->
     AVXLifter.vrcpps ins bld
   | OP.VRSQRTPS ->
@@ -1444,13 +1450,13 @@ let translate (ins: Instruction) bld =
   | OP.VPSUBUSW ->
     AVXLifter.vpsubusw ins bld
   | OP.VPCMPEQW ->
-    AVXLifter.vpcmpeqw ins bld
+    AVX512Lifter.vpcmpeqw ins bld
   | OP.VPCMPGTW ->
-    AVXLifter.vpcmpgtw ins bld
+    AVX512Lifter.vpcmpgtw ins bld
   | OP.VPCMPGTD ->
-    AVXLifter.vpcmpgtd ins bld
+    AVX512Lifter.vpcmpgtd ins bld
   | OP.VPCMPGTQ ->
-    AVXLifter.vpcmpgtq ins bld
+    AVX512Lifter.vpcmpgtq ins bld
   | OP.VPMAXSB ->
     AVXLifter.vpmaxsb ins bld
   | OP.VPMAXSW ->
@@ -1510,16 +1516,16 @@ let translate (ins: Instruction) bld =
   | OP.VPBROADCASTD ->
     AVXLifter.vpbroadcastd ins bld
   | OP.VPCMPEQB ->
-    AVXLifter.vpcmpeqb ins bld
+    AVX512Lifter.vpcmpeqb ins bld
   | OP.VPCMPEQD ->
-    AVXLifter.vpcmpeqd ins bld
+    AVX512Lifter.vpcmpeqd ins bld
   | OP.VPCMPEQQ ->
-    AVXLifter.vpcmpeqq ins bld
+    AVX512Lifter.vpcmpeqq ins bld
   | OP.VPCMPESTRI | OP.VPCMPESTRM | OP.VPCMPISTRI
   | OP.VPCMPISTRM ->
     SSELifter.pcmpstr ins bld
   | OP.VPCMPGTB ->
-    AVXLifter.vpcmpgtb ins bld
+    AVX512Lifter.vpcmpgtb ins bld
   | OP.VPERM2I128 ->
     AVXLifter.vperm2i128 ins bld
   | OP.VPERMD ->
@@ -1567,7 +1573,7 @@ let translate (ins: Instruction) bld =
   | OP.VPMOVZXDQ ->
     AVXLifter.vpmovx ins bld 32<rt> 64<rt> false
   | OP.VPMOVD2M ->
-    AVXLifter.vpmovd2m ins bld
+    AVX512Lifter.vpmovd2m ins bld
   | OP.VPMOVMSKB ->
     SSELifter.pmovmskb ins bld
   | OP.VPMULLD ->
@@ -1631,7 +1637,7 @@ let translate (ins: Instruction) bld =
   | OP.VZEROUPPER ->
     AVXLifter.vzeroupper ins bld
   | OP.VEXTRACTI32X8 ->
-    AVXLifter.vextracti32x8 ins bld
+    AVX512Lifter.vextracti32x8 ins bld
   | OP.VERW ->
     LiftingUtils.unsupported ins bld
   | OP.VFMADD132PD ->
@@ -1938,5 +1944,781 @@ let translate (ins: Instruction) bld =
     X87Lifter.fxsave ins bld
   | OP.FXRSTOR | OP.FXRSTOR64 ->
     X87Lifter.fxrstor ins bld
+  (* The instructions EVEX introduced, rather than the ones it widened. *)
+  | OP.VPANDD ->
+    AVX512Lifter.vpandd ins bld
+  | OP.VPANDQ ->
+    AVX512Lifter.vpandq ins bld
+  | OP.VPANDND ->
+    AVX512Lifter.vpandnd ins bld
+  | OP.VPANDNQ ->
+    AVX512Lifter.vpandnq ins bld
+  | OP.VPORD ->
+    AVX512Lifter.vpord ins bld
+  | OP.VPORQ ->
+    AVX512Lifter.vporq ins bld
+  | OP.VPXORQ ->
+    AVX512Lifter.vpxorq ins bld
+  | OP.VPABSQ ->
+    AVX512Lifter.vpabsq ins bld
+  | OP.VPMAXSQ ->
+    AVX512Lifter.vpmaxsq ins bld
+  | OP.VPMAXUQ ->
+    AVX512Lifter.vpmaxuq ins bld
+  | OP.VPMINSQ ->
+    AVX512Lifter.vpminsq ins bld
+  | OP.VPMINUQ ->
+    AVX512Lifter.vpminuq ins bld
+  | OP.VPMULLQ ->
+    AVX512Lifter.vpmullq ins bld
+  | OP.VPROLD ->
+    AVX512Lifter.vprold ins bld
+  | OP.VPROLQ ->
+    AVX512Lifter.vprolq ins bld
+  | OP.VPRORD ->
+    AVX512Lifter.vprord ins bld
+  | OP.VPRORQ ->
+    AVX512Lifter.vprorq ins bld
+  | OP.VPROLVD ->
+    AVX512Lifter.vprolvd ins bld
+  | OP.VPROLVQ ->
+    AVX512Lifter.vprolvq ins bld
+  | OP.VPRORVD ->
+    AVX512Lifter.vprorvd ins bld
+  | OP.VPRORVQ ->
+    AVX512Lifter.vprorvq ins bld
+  | OP.VPSRAVQ ->
+    AVX512Lifter.vpsravq ins bld
+  | OP.VPSRAVW ->
+    AVX512Lifter.vpsravw ins bld
+  | OP.VPSRLVW ->
+    AVX512Lifter.vpsrlvw ins bld
+  | OP.VPSLLVW ->
+    AVX512Lifter.vpsllvw ins bld
+  | OP.VPSRAQ ->
+    AVX512Lifter.vpsraq ins bld
+  | OP.VPOPCNTB ->
+    AVX512Lifter.vpopcntb ins bld
+  | OP.VPOPCNTW ->
+    AVX512Lifter.vpopcntw ins bld
+  | OP.VPOPCNTD ->
+    AVX512Lifter.vpopcntd ins bld
+  | OP.VPOPCNTQ ->
+    AVX512Lifter.vpopcntq ins bld
+  | OP.VPLZCNTD ->
+    AVX512Lifter.vplzcntd ins bld
+  | OP.VPLZCNTQ ->
+    AVX512Lifter.vplzcntq ins bld
+  | OP.VPCONFLICTD ->
+    AVX512Lifter.vpconflictd ins bld
+  | OP.VPCONFLICTQ ->
+    AVX512Lifter.vpconflictq ins bld
+  | OP.VPTERNLOGD ->
+    AVX512Lifter.vpternlogd ins bld
+  | OP.VPTERNLOGQ ->
+    AVX512Lifter.vpternlogq ins bld
+  | OP.VPSHLDW ->
+    AVX512Lifter.vpshldw ins bld
+  | OP.VPSHLDD ->
+    AVX512Lifter.vpshldd ins bld
+  | OP.VPSHLDQ ->
+    AVX512Lifter.vpshldq ins bld
+  | OP.VPSHRDW ->
+    AVX512Lifter.vpshrdw ins bld
+  | OP.VPSHRDD ->
+    AVX512Lifter.vpshrdd ins bld
+  | OP.VPSHRDQ ->
+    AVX512Lifter.vpshrdq ins bld
+  | OP.VPSHLDVW ->
+    AVX512Lifter.vpshldvw ins bld
+  | OP.VPSHLDVD ->
+    AVX512Lifter.vpshldvd ins bld
+  | OP.VPSHLDVQ ->
+    AVX512Lifter.vpshldvq ins bld
+  | OP.VPSHRDVW ->
+    AVX512Lifter.vpshrdvw ins bld
+  | OP.VPSHRDVD ->
+    AVX512Lifter.vpshrdvd ins bld
+  | OP.VPSHRDVQ ->
+    AVX512Lifter.vpshrdvq ins bld
+  | OP.VPDPBUSD ->
+    AVX512Lifter.vpdpbusd ins bld
+  | OP.VPDPBUSDS ->
+    AVX512Lifter.vpdpbusds ins bld
+  | OP.VPDPBSSD ->
+    AVX512Lifter.vpdpbssd ins bld
+  | OP.VPDPBSSDS ->
+    AVX512Lifter.vpdpbssds ins bld
+  | OP.VPDPBSUD ->
+    AVX512Lifter.vpdpbsud ins bld
+  | OP.VPDPBSUDS ->
+    AVX512Lifter.vpdpbsuds ins bld
+  | OP.VPDPBUUD ->
+    AVX512Lifter.vpdpbuud ins bld
+  | OP.VPDPBUUDS ->
+    AVX512Lifter.vpdpbuuds ins bld
+  | OP.VPDPWSSD ->
+    AVX512Lifter.vpdpwssd ins bld
+  | OP.VPDPWSSDS ->
+    AVX512Lifter.vpdpwssds ins bld
+  | OP.VPDPWSUD ->
+    AVX512Lifter.vpdpwsud ins bld
+  | OP.VPDPWSUDS ->
+    AVX512Lifter.vpdpwsuds ins bld
+  | OP.VPDPWUSD ->
+    AVX512Lifter.vpdpwusd ins bld
+  | OP.VPDPWUSDS ->
+    AVX512Lifter.vpdpwusds ins bld
+  | OP.VPDPWUUD ->
+    AVX512Lifter.vpdpwuud ins bld
+  | OP.VPDPWUUDS ->
+    AVX512Lifter.vpdpwuuds ins bld
+  | OP.VPMULTISHIFTQB ->
+    AVX512Lifter.vpmultishiftqb ins bld
+  | OP.VPMADD52LUQ ->
+    AVX512Lifter.vpmadd52luq ins bld
+  | OP.VPMADD52HUQ ->
+    AVX512Lifter.vpmadd52huq ins bld
+  | OP.VDBPSADBW ->
+    AVX512Lifter.vdbpsadbw ins bld
+  | OP.VPCMPB ->
+    AVX512Lifter.vpcmpb ins bld
+  | OP.VPCMPW ->
+    AVX512Lifter.vpcmpw ins bld
+  | OP.VPCMPD ->
+    AVX512Lifter.vpcmpd ins bld
+  | OP.VPCMPQ ->
+    AVX512Lifter.vpcmpq ins bld
+  | OP.VPCMPUB ->
+    AVX512Lifter.vpcmpub ins bld
+  | OP.VPCMPUW ->
+    AVX512Lifter.vpcmpuw ins bld
+  | OP.VPCMPUD ->
+    AVX512Lifter.vpcmpud ins bld
+  | OP.VPCMPUQ ->
+    AVX512Lifter.vpcmpuq ins bld
+  | OP.VPTESTMB ->
+    AVX512Lifter.vptestmb ins bld
+  | OP.VPTESTMW ->
+    AVX512Lifter.vptestmw ins bld
+  | OP.VPTESTMD ->
+    AVX512Lifter.vptestmd ins bld
+  | OP.VPTESTMQ ->
+    AVX512Lifter.vptestmq ins bld
+  | OP.VPTESTNMB ->
+    AVX512Lifter.vptestnmb ins bld
+  | OP.VPTESTNMW ->
+    AVX512Lifter.vptestnmw ins bld
+  | OP.VPTESTNMD ->
+    AVX512Lifter.vptestnmd ins bld
+  | OP.VPTESTNMQ ->
+    AVX512Lifter.vptestnmq ins bld
+  | OP.VPMOVB2M ->
+    AVX512Lifter.vpmovb2m ins bld
+  | OP.VPMOVW2M ->
+    AVX512Lifter.vpmovw2m ins bld
+  | OP.VPMOVQ2M ->
+    AVX512Lifter.vpmovq2m ins bld
+  | OP.VPMOVM2B ->
+    AVX512Lifter.vpmovm2b ins bld
+  | OP.VPMOVM2W ->
+    AVX512Lifter.vpmovm2w ins bld
+  | OP.VPMOVM2D ->
+    AVX512Lifter.vpmovm2d ins bld
+  | OP.VPMOVM2Q ->
+    AVX512Lifter.vpmovm2q ins bld
+  | OP.VPBROADCASTMB2Q ->
+    AVX512Lifter.vpbroadcastmb2q ins bld
+  | OP.VPBROADCASTMW2D ->
+    AVX512Lifter.vpbroadcastmw2d ins bld
+  | OP.VPSHUFBITQMB ->
+    AVX512Lifter.vpshufbitqmb ins bld
+  | OP.VP2INTERSECTD ->
+    AVX512Lifter.vp2intersectd ins bld
+  | OP.VP2INTERSECTQ ->
+    AVX512Lifter.vp2intersectq ins bld
+  | OP.VFPCLASSPD ->
+    AVX512Lifter.vfpclasspd ins bld
+  | OP.VFPCLASSPS ->
+    AVX512Lifter.vfpclassps ins bld
+  | OP.VFPCLASSSD ->
+    AVX512Lifter.vfpclasssd ins bld
+  | OP.VFPCLASSSS ->
+    AVX512Lifter.vfpclassss ins bld
+  | OP.VALIGND ->
+    AVX512Lifter.valignd ins bld
+  | OP.VALIGNQ ->
+    AVX512Lifter.valignq ins bld
+  | OP.VBLENDMPD ->
+    AVX512Lifter.vblendmpd ins bld
+  | OP.VBLENDMPS ->
+    AVX512Lifter.vblendmps ins bld
+  | OP.VPBLENDMB ->
+    AVX512Lifter.vpblendmb ins bld
+  | OP.VPBLENDMW ->
+    AVX512Lifter.vpblendmw ins bld
+  | OP.VPBLENDMD ->
+    AVX512Lifter.vpblendmd ins bld
+  | OP.VPBLENDMQ ->
+    AVX512Lifter.vpblendmq ins bld
+  | OP.VBROADCASTF32X2 ->
+    AVX512Lifter.vbroadcastf32x2 ins bld
+  | OP.VBROADCASTI32X2 ->
+    AVX512Lifter.vbroadcasti32x2 ins bld
+  | OP.VBROADCASTF32X4 ->
+    AVX512Lifter.vbroadcastf32x4 ins bld
+  | OP.VBROADCASTI32X4 ->
+    AVX512Lifter.vbroadcasti32x4 ins bld
+  | OP.VBROADCASTF32X8 ->
+    AVX512Lifter.vbroadcastf32x8 ins bld
+  | OP.VBROADCASTI32X8 ->
+    AVX512Lifter.vbroadcasti32x8 ins bld
+  | OP.VBROADCASTF64X2 ->
+    AVX512Lifter.vbroadcastf64x2 ins bld
+  | OP.VBROADCASTI64X2 ->
+    AVX512Lifter.vbroadcasti64x2 ins bld
+  | OP.VBROADCASTF64X4 ->
+    AVX512Lifter.vbroadcastf64x4 ins bld
+  | OP.VBROADCASTI64X4 ->
+    AVX512Lifter.vbroadcasti64x4 ins bld
+  | OP.VEXTRACTF32X4 ->
+    AVX512Lifter.vextractf32x4 ins bld
+  | OP.VEXTRACTI32X4 ->
+    AVX512Lifter.vextracti32x4 ins bld
+  | OP.VEXTRACTF64X2 ->
+    AVX512Lifter.vextractf64x2 ins bld
+  | OP.VEXTRACTI64X2 ->
+    AVX512Lifter.vextracti64x2 ins bld
+  | OP.VEXTRACTF64X4 ->
+    AVX512Lifter.vextractf64x4 ins bld
+  | OP.VINSERTF32X4 ->
+    AVX512Lifter.vinsertf32x4 ins bld
+  | OP.VINSERTI32X4 ->
+    AVX512Lifter.vinserti32x4 ins bld
+  | OP.VINSERTF32X8 ->
+    AVX512Lifter.vinsertf32x8 ins bld
+  | OP.VINSERTI32X8 ->
+    AVX512Lifter.vinserti32x8 ins bld
+  | OP.VINSERTF64X2 ->
+    AVX512Lifter.vinsertf64x2 ins bld
+  | OP.VINSERTI64X2 ->
+    AVX512Lifter.vinserti64x2 ins bld
+  | OP.VINSERTF64X4 ->
+    AVX512Lifter.vinsertf64x4 ins bld
+  | OP.VINSERTI64X4 ->
+    AVX512Lifter.vinserti64x4 ins bld
+  | OP.VSHUFF32X4 ->
+    AVX512Lifter.vshuff32x4 ins bld
+  | OP.VSHUFF64X2 ->
+    AVX512Lifter.vshuff64x2 ins bld
+  | OP.VSHUFI64X2 ->
+    AVX512Lifter.vshufi64x2 ins bld
+  | OP.VPERMB ->
+    AVX512Lifter.vpermb ins bld
+  | OP.VPERMW ->
+    AVX512Lifter.vpermw ins bld
+  | OP.VPERMI2B ->
+    AVX512Lifter.vpermi2b ins bld
+  | OP.VPERMI2W ->
+    AVX512Lifter.vpermi2w ins bld
+  | OP.VPERMI2D ->
+    AVX512Lifter.vpermi2d ins bld
+  | OP.VPERMI2Q ->
+    AVX512Lifter.vpermi2q ins bld
+  | OP.VPERMI2PS ->
+    AVX512Lifter.vpermi2ps ins bld
+  | OP.VPERMI2PD ->
+    AVX512Lifter.vpermi2pd ins bld
+  | OP.VPERMT2B ->
+    AVX512Lifter.vpermt2b ins bld
+  | OP.VPERMT2W ->
+    AVX512Lifter.vpermt2w ins bld
+  | OP.VPERMT2D ->
+    AVX512Lifter.vpermt2d ins bld
+  | OP.VPERMT2Q ->
+    AVX512Lifter.vpermt2q ins bld
+  | OP.VPERMT2PS ->
+    AVX512Lifter.vpermt2ps ins bld
+  | OP.VPERMT2PD ->
+    AVX512Lifter.vpermt2pd ins bld
+  | OP.VPMOVWB ->
+    AVX512Lifter.vpmovwb ins bld
+  | OP.VPMOVDB ->
+    AVX512Lifter.vpmovdb ins bld
+  | OP.VPMOVDW ->
+    AVX512Lifter.vpmovdw ins bld
+  | OP.VPMOVQB ->
+    AVX512Lifter.vpmovqb ins bld
+  | OP.VPMOVQW ->
+    AVX512Lifter.vpmovqw ins bld
+  | OP.VPMOVQD ->
+    AVX512Lifter.vpmovqd ins bld
+  | OP.VPMOVSWB ->
+    AVX512Lifter.vpmovswb ins bld
+  | OP.VPMOVSDB ->
+    AVX512Lifter.vpmovsdb ins bld
+  | OP.VPMOVSDW ->
+    AVX512Lifter.vpmovsdw ins bld
+  | OP.VPMOVSQB ->
+    AVX512Lifter.vpmovsqb ins bld
+  | OP.VPMOVSQW ->
+    AVX512Lifter.vpmovsqw ins bld
+  | OP.VPMOVSQD ->
+    AVX512Lifter.vpmovsqd ins bld
+  | OP.VPMOVUSWB ->
+    AVX512Lifter.vpmovuswb ins bld
+  | OP.VPMOVUSDB ->
+    AVX512Lifter.vpmovusdb ins bld
+  | OP.VPMOVUSDW ->
+    AVX512Lifter.vpmovusdw ins bld
+  | OP.VPMOVUSQB ->
+    AVX512Lifter.vpmovusqb ins bld
+  | OP.VPMOVUSQW ->
+    AVX512Lifter.vpmovusqw ins bld
+  | OP.VPMOVUSQD ->
+    AVX512Lifter.vpmovusqd ins bld
+  | OP.VSCATTERDPD ->
+    AVX512Lifter.vscatterdpd ins bld
+  | OP.VSCATTERQPD ->
+    AVX512Lifter.vscatterqpd ins bld
+  | OP.VSCATTERDPS ->
+    AVX512Lifter.vscatterdps ins bld
+  | OP.VSCATTERQPS ->
+    AVX512Lifter.vscatterqps ins bld
+  | OP.VPSCATTERDD ->
+    AVX512Lifter.vpscatterdd ins bld
+  | OP.VPSCATTERDQ ->
+    AVX512Lifter.vpscatterdq ins bld
+  | OP.VPSCATTERQD ->
+    AVX512Lifter.vpscatterqd ins bld
+  | OP.VPSCATTERQQ ->
+    AVX512Lifter.vpscatterqq ins bld
+  | OP.VEXPANDPD ->
+    AVX512Lifter.vexpandpd ins bld
+  | OP.VEXPANDPS ->
+    AVX512Lifter.vexpandps ins bld
+  | OP.VPEXPANDB ->
+    AVX512Lifter.vpexpandb ins bld
+  | OP.VPEXPANDW ->
+    AVX512Lifter.vpexpandw ins bld
+  | OP.VPEXPANDD ->
+    AVX512Lifter.vpexpandd ins bld
+  | OP.VPEXPANDQ ->
+    AVX512Lifter.vpexpandq ins bld
+  | OP.VCOMPRESSPD ->
+    AVX512Lifter.vcompresspd ins bld
+  | OP.VCOMPRESSPS ->
+    AVX512Lifter.vcompressps ins bld
+  | OP.VPCOMPRESSB ->
+    AVX512Lifter.vpcompressb ins bld
+  | OP.VPCOMPRESSW ->
+    AVX512Lifter.vpcompressw ins bld
+  | OP.VPCOMPRESSD ->
+    AVX512Lifter.vpcompressd ins bld
+  | OP.VPCOMPRESSQ ->
+    AVX512Lifter.vpcompressq ins bld
+  | OP.VMOVW ->
+    AVX512Lifter.vmovw ins bld
+  | OP.VGATHERPF0DPD
+  | OP.VGATHERPF0DPS
+  | OP.VGATHERPF0QPD
+  | OP.VGATHERPF0QPS
+  | OP.VGATHERPF1DPD
+  | OP.VGATHERPF1DPS
+  | OP.VGATHERPF1QPD
+  | OP.VGATHERPF1QPS
+  | OP.VSCATTERPF0DPD
+  | OP.VSCATTERPF0DPS
+  | OP.VSCATTERPF0QPD
+  | OP.VSCATTERPF0QPS
+  | OP.VSCATTERPF1DPD
+  | OP.VSCATTERPF1DPS
+  | OP.VSCATTERPF1QPD
+  | OP.VSCATTERPF1QPS ->
+    AVX512Lifter.vgatherpf ins bld
+  | OP.VCVTPD2QQ ->
+    AVX512Lifter.vcvtpd2qq ins bld
+  | OP.VCVTTPD2QQ ->
+    AVX512Lifter.vcvttpd2qq ins bld
+  | OP.VCVTPS2QQ ->
+    AVX512Lifter.vcvtps2qq ins bld
+  | OP.VCVTTPS2QQ ->
+    AVX512Lifter.vcvttps2qq ins bld
+  | OP.VCVTPD2UDQ ->
+    AVX512Lifter.vcvtpd2udq ins bld
+  | OP.VCVTTPD2UDQ ->
+    AVX512Lifter.vcvttpd2udq ins bld
+  | OP.VCVTPS2UDQ ->
+    AVX512Lifter.vcvtps2udq ins bld
+  | OP.VCVTTPS2UDQ ->
+    AVX512Lifter.vcvttps2udq ins bld
+  | OP.VCVTPD2UQQ ->
+    AVX512Lifter.vcvtpd2uqq ins bld
+  | OP.VCVTTPD2UQQ ->
+    AVX512Lifter.vcvttpd2uqq ins bld
+  | OP.VCVTPS2UQQ ->
+    AVX512Lifter.vcvtps2uqq ins bld
+  | OP.VCVTTPS2UQQ ->
+    AVX512Lifter.vcvttps2uqq ins bld
+  | OP.VCVTQQ2PD ->
+    AVX512Lifter.vcvtqq2pd ins bld
+  | OP.VCVTQQ2PS ->
+    AVX512Lifter.vcvtqq2ps ins bld
+  | OP.VCVTUQQ2PD ->
+    AVX512Lifter.vcvtuqq2pd ins bld
+  | OP.VCVTUQQ2PS ->
+    AVX512Lifter.vcvtuqq2ps ins bld
+  | OP.VCVTUDQ2PD ->
+    AVX512Lifter.vcvtudq2pd ins bld
+  | OP.VCVTUDQ2PS ->
+    AVX512Lifter.vcvtudq2ps ins bld
+  | OP.VCVTUSI2SD ->
+    AVX512Lifter.vcvtusi2sd ins bld
+  | OP.VCVTUSI2SS ->
+    AVX512Lifter.vcvtusi2ss ins bld
+  | OP.VCVTSD2USI ->
+    AVX512Lifter.vcvtsd2usi ins bld
+  | OP.VCVTTSD2USI ->
+    AVX512Lifter.vcvttsd2usi ins bld
+  | OP.VCVTSS2USI ->
+    AVX512Lifter.vcvtss2usi ins bld
+  | OP.VCVTTSS2USI ->
+    AVX512Lifter.vcvttss2usi ins bld
+  | OP.VGETEXPPD ->
+    AVX512Lifter.vgetexppd ins bld
+  | OP.VGETEXPPS ->
+    AVX512Lifter.vgetexpps ins bld
+  | OP.VGETEXPSD ->
+    AVX512Lifter.vgetexpsd ins bld
+  | OP.VGETEXPSS ->
+    AVX512Lifter.vgetexpss ins bld
+  | OP.VGETMANTPD ->
+    AVX512Lifter.vgetmantpd ins bld
+  | OP.VGETMANTPS ->
+    AVX512Lifter.vgetmantps ins bld
+  | OP.VGETMANTSD ->
+    AVX512Lifter.vgetmantsd ins bld
+  | OP.VGETMANTSS ->
+    AVX512Lifter.vgetmantss ins bld
+  | OP.VRNDSCALEPD ->
+    AVX512Lifter.vrndscalepd ins bld
+  | OP.VRNDSCALEPS ->
+    AVX512Lifter.vrndscaleps ins bld
+  | OP.VRNDSCALESD ->
+    AVX512Lifter.vrndscalesd ins bld
+  | OP.VRNDSCALESS ->
+    AVX512Lifter.vrndscaless ins bld
+  | OP.VREDUCEPD ->
+    AVX512Lifter.vreducepd ins bld
+  | OP.VREDUCEPS ->
+    AVX512Lifter.vreduceps ins bld
+  | OP.VREDUCESD ->
+    AVX512Lifter.vreducesd ins bld
+  | OP.VREDUCESS ->
+    AVX512Lifter.vreducess ins bld
+  | OP.VRANGEPD ->
+    AVX512Lifter.vrangepd ins bld
+  | OP.VRANGEPS ->
+    AVX512Lifter.vrangeps ins bld
+  | OP.VRANGESD ->
+    AVX512Lifter.vrangesd ins bld
+  | OP.VRANGESS ->
+    AVX512Lifter.vrangess ins bld
+  | OP.VSCALEFPD ->
+    AVX512Lifter.vscalefpd ins bld
+  | OP.VSCALEFPS ->
+    AVX512Lifter.vscalefps ins bld
+  | OP.VSCALEFSD ->
+    AVX512Lifter.vscalefsd ins bld
+  | OP.VSCALEFSS ->
+    AVX512Lifter.vscalefss ins bld
+  | OP.VRCP14PD ->
+    AVX512Lifter.vrcp14pd ins bld
+  | OP.VRCP14PS ->
+    AVX512Lifter.vrcp14ps ins bld
+  | OP.VRCP14SD ->
+    AVX512Lifter.vrcp14sd ins bld
+  | OP.VRCP14SS ->
+    AVX512Lifter.vrcp14ss ins bld
+  | OP.VRCP28PD ->
+    AVX512Lifter.vrcp28pd ins bld
+  | OP.VRCP28PS ->
+    AVX512Lifter.vrcp28ps ins bld
+  | OP.VRCP28SD ->
+    AVX512Lifter.vrcp28sd ins bld
+  | OP.VRCP28SS ->
+    AVX512Lifter.vrcp28ss ins bld
+  | OP.VRSQRT14PD ->
+    AVX512Lifter.vrsqrt14pd ins bld
+  | OP.VRSQRT14PS ->
+    AVX512Lifter.vrsqrt14ps ins bld
+  | OP.VRSQRT14SD ->
+    AVX512Lifter.vrsqrt14sd ins bld
+  | OP.VRSQRT14SS ->
+    AVX512Lifter.vrsqrt14ss ins bld
+  | OP.VRSQRT28PD ->
+    AVX512Lifter.vrsqrt28pd ins bld
+  | OP.VRSQRT28PS ->
+    AVX512Lifter.vrsqrt28ps ins bld
+  | OP.VRSQRT28SD ->
+    AVX512Lifter.vrsqrt28sd ins bld
+  | OP.VRSQRT28SS ->
+    AVX512Lifter.vrsqrt28ss ins bld
+  | OP.VFIXUPIMMPD ->
+    AVX512Lifter.vfixupimmpd ins bld
+  | OP.VFIXUPIMMPS ->
+    AVX512Lifter.vfixupimmps ins bld
+  | OP.VFIXUPIMMSD ->
+    AVX512Lifter.vfixupimmsd ins bld
+  | OP.VFIXUPIMMSS ->
+    AVX512Lifter.vfixupimmss ins bld
+  | OP.VCVTNE2PS2BF16 ->
+    AVX512Lifter.vcvtne2ps2bf16 ins bld
+  | OP.VCVTNEPS2BF16 ->
+    AVX512Lifter.vcvtneps2bf16 ins bld
+  | OP.VDPBF16PS ->
+    AVX512Lifter.vdpbf16ps ins bld
+  | OP.VBCSTNEBF162PS ->
+    AVX512Lifter.vbcstnebf162ps ins bld
+  | OP.VCVTNEEBF162PS ->
+    AVX512Lifter.vcvtneebf162ps ins bld
+  | OP.VCVTNEOBF162PS ->
+    AVX512Lifter.vcvtneobf162ps ins bld
+  | OP.VADDPH ->
+    AVX512Lifter.vaddph ins bld
+  | OP.VADDSH ->
+    AVX512Lifter.vaddsh ins bld
+  | OP.VSUBPH ->
+    AVX512Lifter.vsubph ins bld
+  | OP.VSUBSH ->
+    AVX512Lifter.vsubsh ins bld
+  | OP.VMULPH ->
+    AVX512Lifter.vmulph ins bld
+  | OP.VMULSH ->
+    AVX512Lifter.vmulsh ins bld
+  | OP.VDIVPH ->
+    AVX512Lifter.vdivph ins bld
+  | OP.VDIVSH ->
+    AVX512Lifter.vdivsh ins bld
+  | OP.VMINPH ->
+    AVX512Lifter.vminph ins bld
+  | OP.VMINSH ->
+    AVX512Lifter.vminsh ins bld
+  | OP.VMAXPH ->
+    AVX512Lifter.vmaxph ins bld
+  | OP.VMAXSH ->
+    AVX512Lifter.vmaxsh ins bld
+  | OP.VSQRTPH ->
+    AVX512Lifter.vsqrtph ins bld
+  | OP.VSQRTSH ->
+    AVX512Lifter.vsqrtsh ins bld
+  | OP.VRCPPH ->
+    AVX512Lifter.vrcpph ins bld
+  | OP.VRCPSH ->
+    AVX512Lifter.vrcpsh ins bld
+  | OP.VRSQRTPH ->
+    AVX512Lifter.vrsqrtph ins bld
+  | OP.VRSQRTSH ->
+    AVX512Lifter.vrsqrtsh ins bld
+  | OP.VSCALEFPH ->
+    AVX512Lifter.vscalefph ins bld
+  | OP.VSCALEFSH ->
+    AVX512Lifter.vscalefsh ins bld
+  | OP.VRNDSCALEPH ->
+    AVX512Lifter.vrndscaleph ins bld
+  | OP.VRNDSCALESH ->
+    AVX512Lifter.vrndscalesh ins bld
+  | OP.VREDUCEPH ->
+    AVX512Lifter.vreduceph ins bld
+  | OP.VREDUCESH ->
+    AVX512Lifter.vreducesh ins bld
+  | OP.VGETMANTPH ->
+    AVX512Lifter.vgetmantph ins bld
+  | OP.VGETMANTSH ->
+    AVX512Lifter.vgetmantsh ins bld
+  | OP.VGETEXPPH ->
+    AVX512Lifter.vgetexpph ins bld
+  | OP.VGETEXPSH ->
+    AVX512Lifter.vgetexpsh ins bld
+  | OP.VCMPPH ->
+    AVX512Lifter.vcmpph ins bld
+  | OP.VCMPSH ->
+    AVX512Lifter.vcmpsh ins bld
+  | OP.VFPCLASSPH ->
+    AVX512Lifter.vfpclassph ins bld
+  | OP.VFPCLASSSH ->
+    AVX512Lifter.vfpclasssh ins bld
+  | OP.VCOMISH ->
+    AVX512Lifter.vcomish ins bld
+  | OP.VUCOMISH ->
+    AVX512Lifter.vucomish ins bld
+  | OP.VMOVSH ->
+    AVX512Lifter.vmovsh ins bld
+  | OP.VCVTPH2PS ->
+    AVX512Lifter.vcvtph2ps ins bld
+  | OP.VCVTPH2PSX ->
+    AVX512Lifter.vcvtph2psx ins bld
+  | OP.VCVTPH2PD ->
+    AVX512Lifter.vcvtph2pd ins bld
+  | OP.VCVTPD2PH ->
+    AVX512Lifter.vcvtpd2ph ins bld
+  | OP.VCVTPS2PHX ->
+    AVX512Lifter.vcvtps2phx ins bld
+  | OP.VCVTPS2PH ->
+    AVX512Lifter.vcvtps2ph ins bld
+  | OP.VCVTPH2DQ ->
+    AVX512Lifter.vcvtph2dq ins bld
+  | OP.VCVTTPH2DQ ->
+    AVX512Lifter.vcvttph2dq ins bld
+  | OP.VCVTPH2QQ ->
+    AVX512Lifter.vcvtph2qq ins bld
+  | OP.VCVTTPH2QQ ->
+    AVX512Lifter.vcvttph2qq ins bld
+  | OP.VCVTPH2UDQ ->
+    AVX512Lifter.vcvtph2udq ins bld
+  | OP.VCVTTPH2UDQ ->
+    AVX512Lifter.vcvttph2udq ins bld
+  | OP.VCVTPH2UQQ ->
+    AVX512Lifter.vcvtph2uqq ins bld
+  | OP.VCVTTPH2UQQ ->
+    AVX512Lifter.vcvttph2uqq ins bld
+  | OP.VCVTPH2W ->
+    AVX512Lifter.vcvtph2w ins bld
+  | OP.VCVTTPH2W ->
+    AVX512Lifter.vcvttph2w ins bld
+  | OP.VCVTPH2UW ->
+    AVX512Lifter.vcvtph2uw ins bld
+  | OP.VCVTTPH2UW ->
+    AVX512Lifter.vcvttph2uw ins bld
+  | OP.VCVTW2PH ->
+    AVX512Lifter.vcvtw2ph ins bld
+  | OP.VCVTUW2PH ->
+    AVX512Lifter.vcvtuw2ph ins bld
+  | OP.VCVTDQ2PH ->
+    AVX512Lifter.vcvtdq2ph ins bld
+  | OP.VCVTUDQ2PH ->
+    AVX512Lifter.vcvtudq2ph ins bld
+  | OP.VCVTQQ2PH ->
+    AVX512Lifter.vcvtqq2ph ins bld
+  | OP.VCVTUQQ2PH ->
+    AVX512Lifter.vcvtuqq2ph ins bld
+  | OP.VCVTSH2SS ->
+    AVX512Lifter.vcvtsh2ss ins bld
+  | OP.VCVTSH2SD ->
+    AVX512Lifter.vcvtsh2sd ins bld
+  | OP.VCVTSS2SH ->
+    AVX512Lifter.vcvtss2sh ins bld
+  | OP.VCVTSD2SH ->
+    AVX512Lifter.vcvtsd2sh ins bld
+  | OP.VCVTSI2SH ->
+    AVX512Lifter.vcvtsi2sh ins bld
+  | OP.VCVTUSI2SH ->
+    AVX512Lifter.vcvtusi2sh ins bld
+  | OP.VCVTSH2SI ->
+    AVX512Lifter.vcvtsh2si ins bld
+  | OP.VCVTTSH2SI ->
+    AVX512Lifter.vcvttsh2si ins bld
+  | OP.VCVTSH2USI ->
+    AVX512Lifter.vcvtsh2usi ins bld
+  | OP.VCVTTSH2USI ->
+    AVX512Lifter.vcvttsh2usi ins bld
+  | OP.VBCSTNESH2PS ->
+    AVX512Lifter.vbcstnesh2ps ins bld
+  | OP.VCVTNEEPH2PS ->
+    AVX512Lifter.vcvtneeph2ps ins bld
+  | OP.VCVTNEOPH2PS ->
+    AVX512Lifter.vcvtneoph2ps ins bld
+  | OP.VFMULCPH ->
+    AVX512Lifter.vfmulcph ins bld
+  | OP.VFCMULCPH ->
+    AVX512Lifter.vfcmulcph ins bld
+  | OP.VFMADDCPH ->
+    AVX512Lifter.vfmaddcph ins bld
+  | OP.VFCMADDCPH ->
+    AVX512Lifter.vfcmaddcph ins bld
+  | OP.VFMULCSH ->
+    AVX512Lifter.vfmulcsh ins bld
+  | OP.VFCMULCSH ->
+    AVX512Lifter.vfcmulcsh ins bld
+  | OP.VFMADDCSH ->
+    AVX512Lifter.vfmaddcsh ins bld
+  | OP.VFCMADDCSH ->
+    AVX512Lifter.vfcmaddcsh ins bld
+  | OP.VFMADD132PH ->
+    AVXLifter.vfmadd132ph ins bld
+  | OP.VFMADD132SH ->
+    AVXLifter.vfmadd132sh ins bld
+  | OP.VFMADD213PH ->
+    AVXLifter.vfmadd213ph ins bld
+  | OP.VFMADD213SH ->
+    AVXLifter.vfmadd213sh ins bld
+  | OP.VFMADD231PH ->
+    AVXLifter.vfmadd231ph ins bld
+  | OP.VFMADD231SH ->
+    AVXLifter.vfmadd231sh ins bld
+  | OP.VFMSUB132PH ->
+    AVXLifter.vfmsub132ph ins bld
+  | OP.VFMSUB132SH ->
+    AVXLifter.vfmsub132sh ins bld
+  | OP.VFMSUB213PH ->
+    AVXLifter.vfmsub213ph ins bld
+  | OP.VFMSUB213SH ->
+    AVXLifter.vfmsub213sh ins bld
+  | OP.VFMSUB231PH ->
+    AVXLifter.vfmsub231ph ins bld
+  | OP.VFMSUB231SH ->
+    AVXLifter.vfmsub231sh ins bld
+  | OP.VFNMADD132PH ->
+    AVXLifter.vfnmadd132ph ins bld
+  | OP.VFNMADD132SH ->
+    AVXLifter.vfnmadd132sh ins bld
+  | OP.VFNMADD213PH ->
+    AVXLifter.vfnmadd213ph ins bld
+  | OP.VFNMADD213SH ->
+    AVXLifter.vfnmadd213sh ins bld
+  | OP.VFNMADD231PH ->
+    AVXLifter.vfnmadd231ph ins bld
+  | OP.VFNMADD231SH ->
+    AVXLifter.vfnmadd231sh ins bld
+  | OP.VFNMSUB132PH ->
+    AVXLifter.vfnmsub132ph ins bld
+  | OP.VFNMSUB132SH ->
+    AVXLifter.vfnmsub132sh ins bld
+  | OP.VFNMSUB213PH ->
+    AVXLifter.vfnmsub213ph ins bld
+  | OP.VFNMSUB213SH ->
+    AVXLifter.vfnmsub213sh ins bld
+  | OP.VFNMSUB231PH ->
+    AVXLifter.vfnmsub231ph ins bld
+  | OP.VFNMSUB231SH ->
+    AVXLifter.vfnmsub231sh ins bld
+  | OP.VFMADDSUB132PH ->
+    AVXLifter.vfmaddsub132ph ins bld
+  | OP.VFMADDSUB213PH ->
+    AVXLifter.vfmaddsub213ph ins bld
+  | OP.VFMADDSUB231PH ->
+    AVXLifter.vfmaddsub231ph ins bld
+  | OP.VFMSUBADD132PH ->
+    AVXLifter.vfmsubadd132ph ins bld
+  | OP.VFMSUBADD213PH ->
+    AVXLifter.vfmsubadd213ph ins bld
+  | OP.VFMSUBADD231PH ->
+    AVXLifter.vfmsubadd231ph ins bld
+  | OP.VP4DPWSSD ->
+    AVX512Lifter.vp4dpwssd ins bld
+  | OP.VP4DPWSSDS ->
+    AVX512Lifter.vp4dpwssds ins bld
+  | OP.VEXP2PD ->
+    AVX512Lifter.vexp2pd ins bld
+  | OP.VEXP2PS ->
+    AVX512Lifter.vexp2ps ins bld
+  | OP.V4FMADDPS ->
+    AVXLifter.v4fmaddps ins bld
+  | OP.V4FNMADDPS ->
+    AVXLifter.v4fnmaddps ins bld
+  | OP.V4FMADDSS ->
+    AVXLifter.v4fmaddss ins bld
+  | OP.V4FNMADDSS ->
+    AVXLifter.v4fnmaddss ins bld
   | o ->
     raise <| NotImplementedIRException(Opcode.toString o)

@@ -339,7 +339,7 @@ let private buildPackedTwoOprs ins bld isFillZero packSz opFn dst src =
     let src1 = transOprToArr ins bld true packSz packNum oprSize dst
     let src2 = transOprToArr ins bld true packSz packNum oprSize src
     let result = opFn oprSize src1 src2
-    assignPackedInstr ins bld false packNum oprSize dst result
+    assignEVEXPacked ins bld packSz oprSize dst result
     if isFillZero then fillZeroFromVLToMaxVL bld dst oprSize 512 else ()
   }
 
@@ -350,7 +350,7 @@ let private buildPackedThreeOprs i bld isFillZero packSz opFn dst s1 s2 =
     let src1 = transOprToArr i bld true packSz packNum oprSize s1
     let src2 = transOprToArr i bld true packSz packNum oprSize s2
     let result = opFn oprSize src1 src2
-    assignPackedInstr i bld false packNum oprSize dst result
+    assignEVEXPacked i bld packSz oprSize dst result
     if isFillZero then fillZeroFromVLToMaxVL bld dst oprSize 512 else ()
   }
 
@@ -376,7 +376,7 @@ let private packWithSaturation (ins: Instruction) bld packSz opFn =
     (* The pack runs within each 128-bit lane, so a 256-bit form interleaves
        the two sources twice rather than once. *)
     let result = perLane oprSize (opFn oprSize) src1 src2
-    assignPackedInstr ins bld false dPackNum oprSize dst result
+    assignEVEXPacked ins bld dPackSz oprSize dst result
     if isVexEncoded ins then
       fillZeroFromVLToMaxVL bld dst oprSize 512
     else
@@ -401,60 +401,35 @@ let private opPackuswb _ src1 src2 =
 let packuswb ins bld =
   packWithSaturation ins bld 16<rt> opPackuswb
 
-let private interleaveAndSplit (src1: Expr[]) (src2: Expr[]) totalPackNum =
-  let interleaved = Array.zeroCreate (totalPackNum * 2)
-  for i in 0 .. totalPackNum - 1 do
-    interleaved[i * 2] <- src1[i]
-    interleaved[i * 2 + 1] <- src2[i]
-  done
-  Array.splitAt totalPackNum interleaved
+/// The interleave PUNPCK performs. It runs within each 128-bit lane rather
+/// than across the whole register: the elements of the two sources alternate,
+/// taken from the low half of each lane or from its high half, with the first
+/// source supplying the even positions.
+let opUnpackData oprSize isHigh (src1: Expr[]) (src2: Expr[]) =
+  let lanes = max 1 (RegType.toBitWidth oprSize / 128)
+  let per = src1.Length / lanes
+  let half = per / 2
+  let lane l =
+    let start = l * per + (if isHigh then half else 0)
+    Array.init per (fun i ->
+      if i % 2 = 0 then src1[start + i / 2] else src2[start + i / 2])
+  Array.init lanes lane |> Array.concat
 
 let unpackLowHighData (ins: Instruction) bld packSize isHigh =
   lift bld ins {
     let oprSz = getOperationSize ins
     let packNum = 64<rt> / packSize
-    let allPackNum = oprSz / packSize
     let struct (dst, src1, src2) = getThreeOprs ins
     let src1 = transOprToArr ins bld true packSize packNum oprSz src1
     let src2 = transOprToArr ins bld true packSize packNum oprSz src2
-    let resultA, resultB = interleaveAndSplit src1 src2 allPackNum
-    let result =
-      if oprSz = 128<rt> then
-        if isHigh then resultB else resultA
-      elif oprSz = 256<rt> then
-        let resALow, resAHigh = Array.splitAt (allPackNum / 2) resultA
-        let resBLow, resBHigh = Array.splitAt (allPackNum / 2) resultB
-        if isHigh then Array.append resAHigh resBHigh
-        else Array.append resALow resBLow
-      else
-        raise InvalidOperandSizeException
-    assignPackedInstr ins bld false packNum oprSz dst result
+    let result = opUnpackData oprSz isHigh src1 src2
+    assignEVEXPacked ins bld packSize oprSz dst result
     fillZeroFromVLToMaxVL bld dst oprSz 512
   }
 
-let opUnpackHighData oprSize src1 src2 =
-  let resultA, resultB = interleaveAndSplit src1 src2 (Array.length src1)
-  match oprSize with
-  | 64<rt> | 128<rt> ->
-    resultB
-  | 256<rt> ->
-    let _, resAHigh = Array.splitAt (Array.length resultA / 2) resultA
-    let _, resBHigh = Array.splitAt (Array.length resultB / 2) resultB
-    Array.append resAHigh resBHigh
-  | _ ->
-    raise InvalidOperandSizeException
+let opUnpackHighData oprSize src1 src2 = opUnpackData oprSize true src1 src2
 
-let opUnpackLowData oprSize src1 src2 =
-  let resultA, resultB = interleaveAndSplit src1 src2 (Array.length src1)
-  match oprSize with
-  | 64<rt> | 128<rt> ->
-    resultA
-  | 256<rt> ->
-    let resALow, _ = Array.splitAt (Array.length resultA / 2) resultA
-    let resBLow, _ = Array.splitAt (Array.length resultB / 2) resultB
-    Array.append resALow resBLow
-  | _ ->
-    raise InvalidOperandSizeException
+let opUnpackLowData oprSize src1 src2 = opUnpackData oprSize false src1 src2
 
 /// A two-operand 128-bit packed op lowered as one SIMD intrinsic -- a
 /// BinOp(APP, ...) the evaluator runs on a single Vector128 op -- instead of

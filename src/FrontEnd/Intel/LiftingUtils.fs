@@ -610,6 +610,41 @@ let assignPackedInstr ins bld useTmpVar packNum oprSize dst result =
   | _ ->
     raise InvalidOperandSizeException
 
+/// Whether the encoding is an EVEX one, which is what brings a write mask, an
+/// embedded broadcast and the 512-bit forms with it.
+let isEVEXEncoded (ins: Instruction) =
+  match ins.VEXInfo with
+  | Some v -> Option.isSome v.EVEXPrx
+  | None -> false
+
+/// The destination's own lanes, which only a merging write reads back: an
+/// instruction that zeroes what it masks off supplies a zero instead. A
+/// destination in memory is the exception -- the bytes a mask leaves out keep
+/// what they held whether or not {z} is set, so they are read back either way.
+let private keptLanes ins bld packSz oprSize dst =
+  if isMemOpr dst || not (ins: Instruction).IsZeroing then
+    transOprToArr ins bld false packSz (64<rt> / packSz) oprSize dst
+  else
+    [||]
+
+/// Writes the lanes an EVEX operation produced to its destination, under the
+/// write mask the encoding carries: a lane the mask leaves out keeps what the
+/// destination held, or takes zero under {z}. An instruction with no opmask
+/// writes every lane, and gets no mask logic in its IR at all.
+let assignEVEXPacked ins bld packSz oprSize dst result =
+  let packNum = 64<rt> / packSz
+  let result =
+    match opMaskVar bld ins with
+    | ValueNone ->
+      result
+    | ValueSome k ->
+      let kept = keptLanes ins bld packSz oprSize dst
+      let underMask i r =
+        let old = if Array.isEmpty kept then AST.num0 packSz else kept[i]
+        AST.ite (AST.extract k 1<rt> i) r old
+      Array.mapi underMask result
+  assignPackedInstr ins bld false packNum oprSize dst result
+
 let getTwoOprs (ins: Instruction) =
   match ins.Operands with
   | TwoOperands(o1, o2) -> struct (o1, o2)
@@ -742,6 +777,137 @@ let getMask oprSize =
   | 32<rt> -> numI64 0xffffffffL oprSize
   | 64<rt> -> numI64 0xffffffffffffffffL oprSize
   | _ -> raise InvalidOperandSizeException
+
+/// The three masks a SWAR population count folds a value through, one per
+/// operand width.
+let popCountMasks oprSize =
+  match oprSize with
+  | 8<rt> ->
+    struct (numI32 0x55 8<rt>, numI32 0x33 8<rt>, numI32 0x0f 8<rt>)
+  | 16<rt> ->
+    struct (numI32 0x5555 16<rt>, numI32 0x3333 16<rt>, numI32 0x0f0f 16<rt>)
+  | 32<rt> ->
+    let m1 = numI32 0x55555555 32<rt>
+    let m2 = numI32 0x33333333 32<rt>
+    struct (m1, m2, numI32 0x0f0f0f0f 32<rt>)
+  | 64<rt> ->
+    let m1 = numU64 0x5555555555555555UL 64<rt>
+    let m2 = numU64 0x3333333333333333UL 64<rt>
+    struct (m1, m2, numU64 0x0f0f0f0f0f0f0f0fUL 64<rt>)
+  | _ ->
+    raise InvalidOperandSizeException
+
+/// Smears the highest set bit of `x` down through every bit below it, by
+/// doubling the shift until it covers the whole operand.
+let smearHighBit bld oprSize x =
+  let bits = RegType.toBitWidth oprSize
+  let rec go step =
+    if step < bits then
+      append bld { direct x := x .| (x >> numI32 step oprSize) }
+      go (step * 2)
+    else
+      ()
+  go 1
+
+/// Folds the per-byte counts a SWAR population count has built up into the
+/// low byte of `x`.
+let sumByteCounts bld oprSize x =
+  let bits = RegType.toBitWidth oprSize
+  let rec go step =
+    if step < bits then
+      append bld { direct x := x .+ (x >> numI32 step oprSize) }
+      go (step * 2)
+    else
+      ()
+  go 8
+
+/// The number of bits set in `src`, counted by folding the value through the
+/// SWAR masks above. `x` is a temporary of the operand's width, which the
+/// count is built up in and left in the low bits of.
+let buildPopCount bld oprSize x src =
+  let struct (mask1, mask2, mask3) = popCountMasks oprSize
+  append bld {
+    direct x := src
+    direct x := x .- ((x >> numI32 1 oprSize) .& mask1)
+    direct x := ((x >> numI32 2 oprSize) .& mask2) .+ (x .& mask2)
+    direct x := ((x >> numI32 4 oprSize) .+ x) .& mask3
+  }
+  sumByteCounts bld oprSize x
+  x .& numI32 (RegType.toBitWidth oprSize * 2 - 1) oprSize
+
+/// A half-precision value widened to a single-precision one. Nothing is lost:
+/// a single covers every half's range and precision, and a half's subnormals
+/// are ordinary numbers there -- which is why they are had by converting the
+/// fraction as an integer and scaling it, rather than by normalizing it.
+let halfToSingle h =
+  let x = AST.zext 32<rt> h
+  let sign = (x .& numI32 0x8000 32<rt>) << numI32 16 32<rt>
+  let expo = (x >> numI32 10 32<rt>) .& numI32 0x1F 32<rt>
+  let frac = x .& numI32 0x3FF 32<rt>
+  let shifted = frac << numI32 13 32<rt>
+  let sub =
+    AST.fmul (AST.cast CastKind.SIntToFloat 32<rt> frac)
+             (numI32 0x33800000 32<rt>)
+  let special = numI32 0x7F800000 32<rt> .| shifted
+  let normal = ((expo .+ numI32 112 32<rt>) << numI32 23 32<rt>) .| shifted
+  let finite = AST.ite (expo == AST.num0 32<rt>) sub normal
+  sign .| AST.ite (expo == numI32 31 32<rt>) special finite
+
+/// A single-precision value narrowed to a half. This is where every
+/// half-precision operation ends: the arithmetic is done at single precision,
+/// which is wide enough that rounding its answer to a half gives what
+/// computing in half precision would have -- a single has more than twice a
+/// half's significand, and two roundings are then as good as one.
+///
+/// `mode` is the rounding: 0 to nearest with ties to even, 1 toward negative
+/// infinity, 2 toward positive infinity, 3 toward zero. Only VCVTPS2PH names
+/// one; everything else rounds to nearest. What the mode decides is what is
+/// added before the low thirteen bits are dropped, which way a value below the
+/// smallest normal half is rounded to an integer, and whether one too large
+/// becomes an infinity or the largest finite half.
+let singleToHalfWith mode f =
+  let expo = (f >> numI32 23 32<rt>) .& numI32 0xFF 32<rt>
+  let frac = f .& numI32 0x7FFFFF 32<rt>
+  let sign = (f >> numI32 16 32<rt>) .& numI32 0x8000 32<rt>
+  let isNeg = AST.xthi 1<rt> f
+  let magnitude = f .& numI32 0x7FFFFFFF 32<rt>
+  let scaled = AST.fmul magnitude (numI32 0x4B800000 32<rt>)
+  let away = numI32 0x1FFF 32<rt>
+  let none = AST.num0 32<rt>
+  let odd = (frac >> numI32 13 32<rt>) .& AST.num1 32<rt>
+  let bias =
+    match mode with
+    | 1 -> AST.ite isNeg away none
+    | 2 -> AST.ite isNeg none away
+    | 3 -> none
+    | _ -> numI32 0x0FFF 32<rt> .+ odd
+  let toInt =
+    match mode with
+    | 1 -> AST.ite isNeg (AST.cast CastKind.FtoICeil 32<rt> scaled)
+                         (AST.cast CastKind.FtoIFloor 32<rt> scaled)
+    | 2 -> AST.ite isNeg (AST.cast CastKind.FtoIFloor 32<rt> scaled)
+                         (AST.cast CastKind.FtoICeil 32<rt> scaled)
+    | 3 -> AST.cast CastKind.FtoITrunc 32<rt> scaled
+    | _ -> AST.cast CastKind.FtoIRound 32<rt> scaled
+  let infinity = numI32 0x7C00 32<rt>
+  let biggest = numI32 0x7BFF 32<rt>
+  let tooBig =
+    match mode with
+    | 1 -> AST.ite isNeg infinity biggest
+    | 2 -> AST.ite isNeg biggest infinity
+    | 3 -> biggest
+    | _ -> infinity
+  let rounded = (frac .+ bias) >> numI32 13 32<rt>
+  let normal = ((expo .- numI32 112 32<rt>) << numI32 10 32<rt>) .+ rounded
+  let nan = numI32 0x7E00 32<rt> .| (frac >> numI32 13 32<rt>)
+  let special = AST.ite (frac == AST.num0 32<rt>) infinity nan
+  let small = AST.ite (expo .<= numI32 112 32<rt>) toInt normal
+  let finite = AST.ite (expo .>= numI32 143 32<rt>) tooBig small
+  AST.xtlo 16<rt> (sign .| AST.ite (expo == numI32 255 32<rt>) special finite)
+
+/// The narrowing every half-precision operation but VCVTPS2PH performs, which
+/// rounds to nearest with ties to even.
+let singleToHalf f = singleToHalfWith 0 f
 
 let sideEffects (ins: Instruction) bld name =
   lift bld ins {

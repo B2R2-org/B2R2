@@ -1897,47 +1897,6 @@ let loop (ins: Instruction) bld =
     return NoEndMark
   }
 
-/// The three masks a SWAR population count folds a value through, one per
-/// operand width.
-let private popCountMasks oprSize =
-  match oprSize with
-  | 16<rt> ->
-    struct (numI32 0x5555 16<rt>, numI32 0x3333 16<rt>, numI32 0x0f0f 16<rt>)
-  | 32<rt> ->
-    let m1 = numI32 0x55555555 32<rt>
-    let m2 = numI32 0x33333333 32<rt>
-    struct (m1, m2, numI32 0x0f0f0f0f 32<rt>)
-  | 64<rt> ->
-    let m1 = numU64 0x5555555555555555UL 64<rt>
-    let m2 = numU64 0x3333333333333333UL 64<rt>
-    struct (m1, m2, numU64 0x0f0f0f0f0f0f0f0fUL 64<rt>)
-  | _ ->
-    raise InvalidOperandSizeException
-
-/// Smears the highest set bit of `x` down through every bit below it, by
-/// doubling the shift until it covers the whole operand.
-let private smearHighBit bld oprSize x =
-  let bits = RegType.toBitWidth oprSize
-  let rec go step =
-    if step < bits then
-      append bld { direct x := x .| (x >> numI32 step oprSize) }
-      go (step * 2)
-    else
-      ()
-  go 1
-
-/// Folds the per-byte counts a SWAR population count has built up into the
-/// low byte of `x`.
-let private sumByteCounts bld oprSize x =
-  let bits = RegType.toBitWidth oprSize
-  let rec go step =
-    if step < bits then
-      append bld { direct x := x .+ (x >> numI32 step oprSize) }
-      go (step * 2)
-    else
-      ()
-  go 8
-
 let lzcnt ins bld =
   lift bld ins {
     let oprSize = getOperationSize ins

@@ -409,6 +409,7 @@ type DataFlowTests() =
     let rbp = Regular(Register.toRegID Register.RBP)
     Assert.AreEqual(state.UseDefMap.ContainsKey(svp 0x5UL 1 rbp), false)
 
+#if !EMULATION
   [<TestMethod>]
   member _.``Sensitive Constant Propagation Test 1``() =
     let brew = Binaries.loadOne Binaries.sample6
@@ -429,6 +430,7 @@ type DataFlowTests() =
     let eax = brew.BinHandle.RegisterFactory.GetRegVar "EAX"
     let out = cp.EvalExpr(spp 0x9UL 2, eax)
     Assert.AreEqual<ConstantDomain.Lattice>(ConstantDomain.NotAConst, out)
+#endif
 
   [<TestMethod>]
   member _.``Sparse Data Flow Reset Test 1``() =

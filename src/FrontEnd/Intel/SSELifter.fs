@@ -348,7 +348,7 @@ let sqrtps ins bld =
     let struct (dst, src) = getTwoOprs ins
     let src = transOprToArr ins bld false 32<rt> packNum oprSize src
     let result = Array.map (AST.unop UnOpType.FSQRT) src
-    assignPackedInstr ins bld false packNum oprSize dst result
+    assignEVEXPacked ins bld 32<rt> oprSize dst result
   }
 
 let sqrtpd (ins: Instruction) bld =
@@ -420,7 +420,7 @@ let private minMaxPacked (ins: Instruction) bld packSz compare =
     let a = transOprToArr ins bld true packSz packNum oprSize s1
     let b = transOprToArr ins bld true packSz packNum oprSize s2
     let result = Array.map2 (fun x y -> AST.ite (compare x y) x y) a b
-    assignPackedInstr ins bld false packNum oprSize dst result
+    assignEVEXPacked ins bld packSz oprSize dst result
     if isVexEncoded ins then
       fillZeroFromVLToMaxVL bld dst oprSize 512
     else
@@ -477,7 +477,7 @@ let minsd ins bld = minMaxScalar ins bld 64<rt> AST.flt
 /// The equality here is a floating-point one, not a comparison of the bit
 /// patterns: a positive and a negative zero differ in their bits and are equal
 /// as numbers, and a NaN is equal to nothing at all, itself included.
-let private cmppCond bld ins op3 isDbl c expr1 expr2 =
+let cmppCond bld ins op3 isDbl c expr1 expr2 =
   let width = if isVexEncoded ins then 0x1F else 0x7
   let imm =
     transOpr ins bld false op3 |> AST.xtlo 8<rt>
@@ -1823,39 +1823,34 @@ let pshufd (ins: Instruction) bld =
     direct dstB := AST.concat (src 3) (src 2)
   }
 
-let pshuflw (ins: Instruction) bld =
+/// PSHUFLW and PSHUFHW permute four of the eight words in each 128-bit lane
+/// by the immediate -- the low four or the high four -- and copy the other
+/// four through untouched. A register wider than a lane is more lanes, each
+/// shuffled the same way, and the write mask an EVEX form carries reaches
+/// every word of the result, the copied ones included.
+let private shuffleHalfWords (ins: Instruction) bld isHigh =
   lift bld ins {
+    let oprSize = getOperationSize ins
     let struct (dst, src, imm) = getThreeOprs ins
-    let struct (dstB, dstA) = transOpr128 ins bld false dst
-    let struct (srcB, srcA) = transOpr128 ins bld false src
-    let imm = numI64 (getImmValue imm) 64<rt>
-    let tmps = Array.init 4 (fun _ -> tmpVar bld 16<rt>)
-    let n16 = numI32 16 64<rt>
-    let mask2 = numI32 3 64<rt> (* 2-bit mask *)
-    for i in 1 .. 4 do
-      let imm = (imm >> (numI32 ((i - 1) * 2) 64<rt>)) .& mask2
-      direct (tmps[i - 1]) := AST.xtlo 16<rt> (srcA >> (imm .* n16))
-    done
-    direct dstA := AST.revConcat tmps
-    direct dstB := srcB
+    let a = transOprToArr ins bld true 16<rt> 4 oprSize src
+    let ord = getImmValue imm |> int
+    let half = if isHigh then 4 else 0
+    let lane i =
+      let inLane = i % 8
+      if inLane / 4 * 4 = half then
+        a[i / 8 * 8 + half + (ord >>> (inLane % 4 * 2) &&& 3)]
+      else
+        a[i]
+    assignEVEXPacked ins bld 16<rt> oprSize dst (Array.init a.Length lane)
+    if isVexEncoded ins then
+      fillZeroFromVLToMaxVL bld dst oprSize 512
+    else
+      ()
   }
 
-let pshufhw (ins: Instruction) bld =
-  lift bld ins {
-    let struct (dst, src, imm) = getThreeOprs ins
-    let struct (dstB, dstA) = transOpr128 ins bld false dst
-    let struct (srcB, srcA) = transOpr128 ins bld false src
-    let imm = numI64 (getImmValue imm) 64<rt>
-    let tmps = Array.init 4 (fun _ -> tmpVar bld 16<rt>)
-    let n16 = numI32 16 64<rt>
-    let mask2 = numI32 3 64<rt> (* 2-bit mask *)
-    for i in 1 .. 4 do
-      let imm = (imm >> (numI32 ((i - 1) * 2) 64<rt>)) .& mask2
-      direct (tmps[i - 1]) := AST.xtlo 16<rt> (srcB >> (imm .* n16))
-    done
-    direct dstA := srcA
-    direct dstB := AST.revConcat tmps
-  }
+let pshuflw ins bld = shuffleHalfWords ins bld false
+
+let pshufhw ins bld = shuffleHalfWords ins bld true
 
 let pshufb (ins: Instruction) bld =
   lift bld ins {
