@@ -2330,6 +2330,29 @@ type ParserTests() =
     let ins = parseX64 "62f16c1858cb" (* vaddps zmm1, zmm2, zmm3{rn-sae} *)
     Assert.AreEqual<RegType voption>(ValueNone, ins.BroadcastElemSize)
 
+  (* EVEX.b on a register form spends L'L under either reading, so the length
+     is 512 whatever L'L holds. L'L is 00 here, which would be 128 bits if the
+     bit had not been spent -- the assembler will not encode a {sae} form at
+     any other length. *)
+  [<TestMethod>]
+  member _.``EVEX suppress-all-exceptions forces 512 bits (1)``() =
+    "62f16c995fcb"
+    ++ VMAXPS ** [ O.Reg R.ZMM1; O.Reg R.ZMM2; O.Reg R.ZMM3 ]
+    ||> testX64NoPrefixNoSeg
+
+  [<TestMethod>]
+  member _.``EVEX embedded rounding forces 512 bits (1)``() =
+    "62f16c3858cb"
+    ++ VADDPS ** [ O.Reg R.ZMM1; O.Reg R.ZMM2; O.Reg R.ZMM3 ]
+    ||> testX64NoPrefixNoSeg
+
+  (* Without the bit, L'L is the length again and the same opcode is 128-bit. *)
+  [<TestMethod>]
+  member _.``EVEX without b reads L'L as the vector length (1)``() =
+    "62f16c085fcb"
+    ++ VMAXPS ** [ O.Reg R.XMM1; O.Reg R.XMM2; O.Reg R.XMM3 ]
+    ||> testX64NoPrefixNoSeg
+
   [<TestMethod>]
   member _.``BOUND is not an EVEX prefix in 32-bit mode (1)``() =
     "6201"

@@ -96,6 +96,53 @@ let inline private buildRelAddr offset (builder: IDisasmBuilder) addr =
 let inline buildEVEXZ ev (builder: IDisasmBuilder) =
   if ev.Z = Zeroing then builder.Accumulate(AsmWordKind.String, "{z}") else ()
 
+/// The EVEX prefix of an instruction that carries one.
+let private evexPrefixOf (ins: Instruction) =
+  match ins.VEXInfo with
+  | Some { EVEXPrx = Some ePrx } -> ValueSome ePrx
+  | _ -> ValueNone
+
+/// Whether an operand is an immediate, which is the one kind a static rounding
+/// decoration never attaches to.
+let private isImmediate = function
+  | OprImm _ -> true
+  | _ -> false
+
+/// The operand a static rounding or SAE decoration belongs to: the last one
+/// that is not an immediate. Every form in the manual puts it there, whether
+/// or not an immediate follows -- VGETMANTPS carries it on its source and
+/// VFIXUPIMMPS on its second, both ahead of an imm8. Negative when the
+/// instruction carries no such decoration.
+let private roundingOperandIndex (ins: Instruction) count =
+  match evexPrefixOf ins with
+  | ValueSome ePrx when ePrx.RCDecor <> NoRounding ->
+    let mutable i = count - 1
+    while i >= 0 && isImmediate (Operands.item i ins.Operands) do
+      i <- i - 1
+    i
+  | _ ->
+    -1
+
+/// The text of a static rounding decoration: the rounding mode with SAE where
+/// the instruction takes one, SAE alone where it does not.
+let private roundingText (ePrx: EVEXPrefix) =
+  match ePrx.RCDecor with
+  | StaticRounding -> ePrx.RC.ToString().ToLower() + "-sae"
+  | _ -> "sae"
+
+/// The count of lanes an embedded broadcast fills, from the width of the one
+/// element it reads. The operand declared that width, which is why the memory
+/// operand's own size cannot stand in for it. Both syntaxes spell it the same
+/// way and attach it to the same operand.
+let private buildBroadcast (ins: Instruction) (builder: IDisasmBuilder) =
+  match ins.VEXInfo, ins.BroadcastElemSize with
+  | Some { VectorLength = vl }, ValueSome elemSz ->
+    builder.Accumulate(AsmWordKind.String, "{1to")
+    builder.Accumulate(AsmWordKind.Value, (vl / elemSz).ToString())
+    builder.Accumulate(AsmWordKind.String, "}")
+  | _ ->
+    ()
+
 module IntelSyntax = begin
 
   let inline private memDispToStr showSign disp wordSize builder =
@@ -199,28 +246,13 @@ module IntelSyntax = begin
     | _ ->
       ()
 
-  let buildBroadcast (ins: Instruction) (builder: IDisasmBuilder) memSz =
-    match ins.VEXInfo with
-    | Some { EVEXPrx = Some ePrx; VectorLength = vl } ->
-      if ePrx.B = 1uy then
-        builder.Accumulate(AsmWordKind.String, "{1to")
-        builder.Accumulate(AsmWordKind.Value, (vl / memSz).ToString())
-        builder.Accumulate(AsmWordKind.String, "}")
-      else
-        ()
-    | _ ->
-      ()
-
   let buildRoundingControl (ins: Instruction) (builder: IDisasmBuilder) =
-    match ins.VEXInfo with
-    | Some { EVEXPrx = Some ePrx } ->
-      if ePrx.B = 1uy then
-        builder.Accumulate(AsmWordKind.String, ", {")
-        builder.Accumulate(AsmWordKind.String, ePrx.RC.ToString().ToLower())
-        builder.Accumulate(AsmWordKind.String, "-sae}")
-      else
-        ()
-    | _ ->
+    match evexPrefixOf ins with
+    | ValueSome ePrx ->
+      builder.Accumulate(AsmWordKind.String, "{")
+      builder.Accumulate(AsmWordKind.String, roundingText ePrx)
+      builder.Accumulate(AsmWordKind.String, "}")
+    | ValueNone ->
       ()
 
   let oprToString ins opr (builder: IDisasmBuilder) =
@@ -238,89 +270,40 @@ module IntelSyntax = begin
     | Label _ ->
       Terminator.impossible ()
 
+  /// The RIP-relative target an operand names, for the comment that follows
+  /// the operands. At most one operand can name one.
+  let private ripTargetOf (ins: Instruction) count =
+    let mutable target = ValueNone
+    for i in 0 .. count - 1 do
+      match Operands.item i ins.Operands with
+      | OprMem(Some Register.RIP, None, Some disp, _) ->
+        target <- ValueSome(ins.Address + uint64 ins.Length + uint64 disp)
+      | _ ->
+        ()
+    target
+
+  /// The decorations that follow one operand. Which operand each belongs to is
+  /// decided by position rather than guessed from the operand's shape, which
+  /// is what used to let a RIP-relative destination lose its write mask and a
+  /// broadcast anywhere but the last operand go unprinted.
+  let private buildDecorations ins builder idx isRoundingOpr opr =
+    if idx = 0 then buildMask ins builder else ()
+    match opr with
+    | OprMem _ -> buildBroadcast ins builder
+    | _ -> ()
+    if isRoundingOpr then buildRoundingControl ins builder else ()
+
   let buildOprs (ins: Instruction) (builder: IDisasmBuilder) =
-    match ins.Operands with
-    | NoOperand ->
-      ()
-    | OneOperand(OprMem(Some Register.RIP, None, Some off, 64<rt>)) ->
-      builder.Accumulate(AsmWordKind.String, " ")
-      mToString ins builder (Some Register.RIP) None (Some off) 64<rt>
-      buildComment builder (ins.Address + uint64 ins.Length + uint64 off)
-    | OneOperand opr ->
-      builder.Accumulate(AsmWordKind.String, " ")
+    let count = Operands.count ins.Operands
+    let roundingIdx = roundingOperandIndex ins count
+    for i in 0 .. count - 1 do
+      let opr = Operands.item i ins.Operands
+      builder.Accumulate(AsmWordKind.String, if i = 0 then " " else ", ")
       oprToString ins opr builder
-    | TwoOperands(OprMem(Some R.RIP, None, Some disp, sz), opr) ->
-      builder.Accumulate(AsmWordKind.String, " ")
-      mToString ins builder (Some Register.RIP) None (Some disp) sz
-      builder.Accumulate(AsmWordKind.String, ", ")
-      oprToString ins opr builder
-      buildComment builder (ins.Address + uint64 ins.Length + uint64 disp)
-    | TwoOperands(opr, OprMem(Some R.RIP, None, Some disp, sz)) ->
-      builder.Accumulate(AsmWordKind.String, " ")
-      oprToString ins opr builder
-      builder.Accumulate(AsmWordKind.String, ", ")
-      mToString ins builder (Some Register.RIP) None (Some disp) sz
-      buildComment builder (ins.Address + uint64 ins.Length + uint64 disp)
-    | TwoOperands(opr1, (OprMem(_, _, _, memSz) as opr2)) ->
-      builder.Accumulate(AsmWordKind.String, " ")
-      oprToString ins opr1 builder
-      buildMask ins builder
-      builder.Accumulate(AsmWordKind.String, ", ")
-      oprToString ins opr2 builder
-      buildBroadcast ins builder memSz
-    | TwoOperands(opr1, opr2) ->
-      builder.Accumulate(AsmWordKind.String, " ")
-      oprToString ins opr1 builder
-      buildMask ins builder
-      builder.Accumulate(AsmWordKind.String, ", ")
-      oprToString ins opr2 builder
-    | ThreeOperands(opr1, opr2, (OprMem(_, _, _, memSz) as opr3)) ->
-      builder.Accumulate(AsmWordKind.String, " ")
-      oprToString ins opr1 builder
-      buildMask ins builder
-      builder.Accumulate(AsmWordKind.String, ", ")
-      oprToString ins opr2 builder
-      builder.Accumulate(AsmWordKind.String, ", ")
-      oprToString ins opr3 builder
-      buildBroadcast ins builder memSz
-    | ThreeOperands(opr1, opr2, (OprReg _ as opr3)) ->
-      builder.Accumulate(AsmWordKind.String, " ")
-      oprToString ins opr1 builder
-      buildMask ins builder
-      builder.Accumulate(AsmWordKind.String, ", ")
-      oprToString ins opr2 builder
-      builder.Accumulate(AsmWordKind.String, ", ")
-      oprToString ins opr3 builder
-      buildRoundingControl ins builder
-    | ThreeOperands(opr1, opr2, opr3) ->
-      builder.Accumulate(AsmWordKind.String, " ")
-      oprToString ins opr1 builder
-      buildMask ins builder
-      builder.Accumulate(AsmWordKind.String, ", ")
-      oprToString ins opr2 builder
-      builder.Accumulate(AsmWordKind.String, ", ")
-      oprToString ins opr3 builder
-    | FourOperands(opr1, opr2, (OprMem(_, _, _, memSz) as opr3), opr4) ->
-      builder.Accumulate(AsmWordKind.String, " ")
-      oprToString ins opr1 builder
-      buildMask ins builder
-      builder.Accumulate(AsmWordKind.String, ", ")
-      oprToString ins opr2 builder
-      builder.Accumulate(AsmWordKind.String, ", ")
-      oprToString ins opr3 builder
-      buildBroadcast ins builder memSz
-      builder.Accumulate(AsmWordKind.String, ", ")
-      oprToString ins opr4 builder
-    | FourOperands(opr1, opr2, opr3, opr4) ->
-      builder.Accumulate(AsmWordKind.String, " ")
-      oprToString ins opr1 builder
-      buildMask ins builder
-      builder.Accumulate(AsmWordKind.String, ", ")
-      oprToString ins opr2 builder
-      builder.Accumulate(AsmWordKind.String, ", ")
-      oprToString ins opr3 builder
-      builder.Accumulate(AsmWordKind.String, ", ")
-      oprToString ins opr4 builder
+      buildDecorations ins builder i (i = roundingIdx) opr
+    match ripTargetOf ins count with
+    | ValueSome target -> buildComment builder target
+    | ValueNone -> ()
 
   let disasm (builder: IDisasmBuilder) (ins: Instruction) =
     builder.AccumulateAddrMarker ins.Address
@@ -474,27 +457,38 @@ module ATTSyntax = begin
     | _ ->
       Terminator.impossible ()
 
-  let buildOprs (ins: Instruction) (builder: IDisasmBuilder) =
-    match ins.Operands with
-    | NoOperand ->
+  /// A static rounding decoration in AT&T order, where it precedes the operand
+  /// it belongs to rather than following it. It takes a separator of its own,
+  /// and the first slot when nothing has been printed yet.
+  let private buildRounding ins (builder: IDisasmBuilder) isFst =
+    builder.Accumulate(AsmWordKind.String, if isFst then " {" else ", {")
+    match evexPrefixOf ins with
+    | ValueSome ePrx ->
+      builder.Accumulate(AsmWordKind.String, roundingText ePrx)
+    | ValueNone ->
       ()
-    | OneOperand opr ->
-      buildOpr ins builder.WordSize true builder opr
-    | TwoOperands(opr1, opr2) ->
-      buildOpr ins builder.WordSize true builder opr2
-      buildOpr ins builder.WordSize false builder opr1
-      buildMask ins builder
-    | ThreeOperands(opr1, opr2, opr3) ->
-      buildOpr ins builder.WordSize true builder opr3
-      buildOpr ins builder.WordSize false builder opr2
-      buildOpr ins builder.WordSize false builder opr1
-      buildMask ins builder
-    | FourOperands(opr1, opr2, opr3, opr4) ->
-      buildOpr ins builder.WordSize true builder opr4
-      buildOpr ins builder.WordSize false builder opr3
-      buildOpr ins builder.WordSize false builder opr2
-      buildOpr ins builder.WordSize false builder opr1
-      buildMask ins builder
+    builder.Accumulate(AsmWordKind.String, "}")
+
+  /// AT&T writes the operands in the opposite order, so the walk runs
+  /// backwards; the decorations still belong to the positions they do in the
+  /// manual, and are placed by index rather than by shape.
+  let buildOprs (ins: Instruction) (builder: IDisasmBuilder) =
+    let count = Operands.count ins.Operands
+    let roundingIdx = roundingOperandIndex ins count
+    let mutable isFst = true
+    for i in count - 1 .. -1 .. 0 do
+      let opr = Operands.item i ins.Operands
+      if i = roundingIdx then
+        buildRounding ins builder isFst
+        isFst <- false
+      else
+        ()
+      buildOpr ins builder.WordSize isFst builder opr
+      isFst <- false
+      match opr with
+      | OprMem _ -> buildBroadcast ins builder
+      | _ -> ()
+      if i = 0 then buildMask ins builder else ()
 
   let disasm (builder: IDisasmBuilder) (ins: Instruction) =
     let wordSize = builder.WordSize

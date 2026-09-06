@@ -163,6 +163,32 @@ module internal Operands =
     if d >= -128L && d <= 255L then shortRelTargets[int d + 128]
     else OprDirAddr(Relative d)
 
+  /// How many operands the value holds.
+  let count = function
+    | NoOperand -> 0
+    | OneOperand _ -> 1
+    | TwoOperands _ -> 2
+    | ThreeOperands _ -> 3
+    | FourOperands _ -> 4
+
+  /// The operand at the given position, counting from the one written first.
+  /// Reading them by position is what lets a caller relate an operand to
+  /// something outside the list -- an EVEX decoration attaches to a position,
+  /// not to a shape.
+  let item i oprs =
+    match i, oprs with
+    | 0, OneOperand o
+    | 0, TwoOperands(o, _)
+    | 0, ThreeOperands(o, _, _)
+    | 0, FourOperands(o, _, _, _) -> o
+    | 1, TwoOperands(_, o)
+    | 1, ThreeOperands(_, o, _)
+    | 1, FourOperands(_, o, _, _) -> o
+    | 2, ThreeOperands(_, _, o)
+    | 2, FourOperands(_, _, o, _) -> o
+    | 3, FourOperands(_, _, _, o) -> o
+    | _ -> Terminator.impossible ()
+
   let inline getSTReg n = RegisterHelper.streg n |> oprReg
 
   let inline modIsMemory b = (getMod b) <> 0b11

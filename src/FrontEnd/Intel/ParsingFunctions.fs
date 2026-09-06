@@ -107,7 +107,13 @@ let getEVEXInfo (span: ByteSpan) (rex: byref<REXPrefix>) pos =
   let b = (span[pos + 2] >>> 4) &&& 0b1uy
   (* The broadcast width is the operand's, so it is filled in once the operands
      have been parsed; see Parser.recordBroadcastWidth. *)
-  let e = Some { AAA = aaa; Z = z; B = b; RC = rc; BcstElemSize = 0<rt> }
+  let e =
+    Some { AAA = aaa
+           Z = z
+           B = b
+           RC = rc
+           BcstElemSize = 0<rt>
+           RCDecor = NoRounding }
   (* R' (P0[4]) and V' (P2[3]) are stored inverted, like R, X and B. They
      carry the fifth bit of ModRM.reg and of vvvv / the VSIB index. *)
   let r' =

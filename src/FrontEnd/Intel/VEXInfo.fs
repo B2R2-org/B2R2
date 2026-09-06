@@ -64,6 +64,21 @@ and StaticRoundingMode =
   | RU (* Round up (toward +inf) + SAE *)
   | RZ (* Round toward zero (Truncate) + SAE *)
 
+/// Represents what EVEX.b means on a register form: the bit is shared, and
+/// only the instruction it sits on separates the two readings. Either one
+/// spends EVEX.L'L, which is why a form carrying one is always 512 bits wide
+/// however L'L reads.
+and RoundingDecor =
+  /// EVEX.b names no rounding here: it is clear, or the operand it applies to
+  /// is in memory, where it means an embedded broadcast instead.
+  | NoRounding
+  /// The instruction takes a rounding mode, which L'L holds, and suppresses
+  /// exceptions with it.
+  | StaticRounding
+  /// The instruction suppresses exceptions but takes no rounding mode; L'L
+  /// holds nothing.
+  | SuppressAllExceptions
+
 /// Represents the EVEX prefix used in Intel instructions.
 and EVEXPrefix =
   { /// Embedded opmask register specifier, P[18:16].
@@ -80,4 +95,7 @@ and EVEXPrefix =
     /// it, and B alone cannot stand in for it. An FP16 element is 16 bits wide
     /// with either setting of REX.W, and a converting instruction reads an
     /// element narrower than the lane it fills.
-    BcstElemSize: RegType }
+    BcstElemSize: RegType
+    /// Which reading of B applies here, which likewise only the matched
+    /// instruction settles. NoRounding whenever B is clear.
+    RCDecor: RoundingDecor }

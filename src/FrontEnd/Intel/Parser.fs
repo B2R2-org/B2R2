@@ -69,13 +69,16 @@ type IntelParser(wordSz, reader) =
 
   let phlp = ParsingHelper(reader, wordSz, lifter)
 
-  /// Returns true when EVEX.b on a register form selects a rounding mode. L'L
-  /// then holds that mode rather than the vector length, so only the variant
-  /// offering {er} can match. See Intel SDM Vol. 2A, Section 2.6.7.
+  /// Returns true when EVEX.b on a register form spends L'L. It does so under
+  /// either reading: {er} puts the rounding mode there, and {sae} leaves it
+  /// holding nothing -- the assembler will not encode a {sae} form at any
+  /// length but 512, and reads L'L back as none of the length. So only a
+  /// variant offering one of the two can match. See Intel SDM Vol. 2A,
+  /// Sections 2.6.7 and 2.6.8.
   let usesStaticRounding (phlp: ParsingHelper) modRM (row: Row) =
     match phlp.VEXInfo with
     | Some { EVEXPrx = Some evex } when evex.B = 1uy ->
-      Operands.modIsReg modRM && row.SlotDeclaresER
+      Operands.modIsReg modRM && row.SlotDeclaresRC
     | _ ->
       false
 
@@ -94,12 +97,12 @@ type IntelParser(wordSz, reader) =
 
   /// Returns true when the VEX/EVEX vector length satisfies the row's
   /// vector-length constraint (or the constraint is absent). With EVEX.b
-  /// selecting a rounding mode that question is asked first: EVEX.b spends
-  /// L'L on the rounding mode, so the row offering {er} answers whether or
-  /// not the row constrains the length.
+  /// spending L'L that question is asked first: the length is no longer
+  /// encoded there, so the row offering {er} or {sae} answers whether or not
+  /// the row constrains the length.
   let matchVectorLength isRounding vex (row: Row) =
     if isRounding then
-      row.DeclaresER
+      row.RCDecor <> NoRounding
     else
       row.VectorLength = VectorLength.None
       || matchDeclaredVectorLength vex row
@@ -594,6 +597,20 @@ type IntelParser(wordSz, reader) =
       | _ ->
         ()
 
+  /// Carries which reading EVEX.b took into the EVEX prefix, for the same
+  /// reason the broadcast width goes there: the bit is shared, and only the
+  /// row the matcher settled on says whether it named a rounding mode, an
+  /// exception suppression, or a broadcast. Left alone unless the bit is set
+  /// on a register form, which is the only place the first two can occur.
+  let recordRoundingDecor (phlp: ParsingHelper) modRM (row: Row) =
+    match phlp.VEXInfo with
+    | Some({ EVEXPrx = Some ePrx } as vInfo) when
+        ePrx.B = 1uy && Operands.modIsReg modRM ->
+      let ePrx = { ePrx with RCDecor = row.RCDecor }
+      phlp.VEXInfo <- Some { vInfo with EVEXPrx = Some ePrx }
+    | _ ->
+      ()
+
   /// Reads the ModRM byte if required, then parses all operand descriptors
   /// and returns the assembled Operands value.
   let parseAllOperands span (phlp: ParsingHelper) (row: Row) =
@@ -614,6 +631,7 @@ type IntelParser(wordSz, reader) =
       let operands = parseOperands span phlp row modRM
       phlp.OperationSize <- operationSize phlp modRM row
       recordBroadcastWidth phlp
+      recordRoundingDecor phlp modRM row
       operands
 
   /// Removes the prefixes the matched instruction consumed as opcode
