@@ -210,16 +210,25 @@ module internal RegisterHelper = begin
     | R.DR0 | R.DR1 | R.DR2 | R.DR3 | R.DR6 | R.DR7
     | R.EAX | R.EBX | R.ECX | R.EDX
     | R.ESP | R.EBP | R.ESI | R.EDI | R.EIP | R.PKRU
+#if EMULATION
+    | R.CCDSTD | R.CCSRC1D | R.CCSRC2D
+#endif
     | R.MXCSR | R.MXCSRMASK -> 32<rt>
     | R.R8W | R.R9W | R.R10W | R.R11W
     | R.R12W | R.R13W | R.R14W | R.R15W
     | R.ST0B | R.ST1B | R.ST2B | R.ST3B | R.ST4B | R.ST5B | R.ST6B | R.ST7B
     | R.ES | R.CS | R.SS | R.DS | R.FS | R.GS
     | R.AX | R.BX | R.CX | R.DX | R.SP | R.BP | R.SI | R.DI
+#if EMULATION
+    | R.CCDSTW | R.CCSRC1W | R.CCSRC2W
+#endif
     | R.FCW | R.FSW | R.FTW | R.FOP | R.FCS | R.FDS -> 16<rt>
     | R.R8B | R.R9B | R.R10B | R.R11B
     | R.R12B | R.R13B | R.R14B | R.R15B
     | R.SPL | R.BPL | R.SIL | R.DIL
+#if EMULATION
+    | R.CCOP | R.CCDSTB | R.CCSRC1B | R.CCSRC2B
+#endif
     | R.AL | R.BL | R.CL | R.DL | R.AH | R.BH | R.CH | R.DH -> 8<rt>
     | R.XMM0 | R.XMM1 | R.XMM2 | R.XMM3
     | R.XMM4 | R.XMM5 | R.XMM6 | R.XMM7
@@ -255,7 +264,13 @@ module internal RegisterHelper = begin
     | R.FTW4 | R.FTW5 | R.FTW6 | R.FTW7
     | R.FTOP -> 8<rt>
     | R.ESBase | R.CSBase | R.SSBase | R.DSBase | R.FSBase | R.GSBase
-    | R.CR0 | R.CR2 | R.CR3 | R.CR4 | R.CR8 -> WordSize.toRegType wordSize
+    | R.CR0 | R.CR2 | R.CR3 | R.CR4 | R.CR8
+#if EMULATION
+    (* The operands a lazy flag is remembered with, at the width the
+       operation that owes it ran at. *)
+    | R.CCDST | R.CCSRC1 | R.CCSRC2
+#endif
+      -> WordSize.toRegType wordSize
     | _ -> raise InvalidRegisterException
 
   let extendRegister32 = function
