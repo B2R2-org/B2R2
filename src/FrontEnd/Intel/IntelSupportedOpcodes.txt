@@ -836,6 +836,10 @@ MOVNTPD
 MOVNTPS
 /// Store of Quadword Using Non-Temporal Hint.
 MOVNTQ
+/// Store Scalar Double-Precision FP Value Using Non-Temporal Hint.
+MOVNTSD
+/// Store Scalar Single-Precision FP Value Using Non-Temporal Hint.
+MOVNTSS
 /// Move Quadword.
 MOVQ
 /// Move Quadword from MMX Technology to XMM Register.

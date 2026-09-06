@@ -2000,6 +2000,88 @@ let movntdqa ins bld = buildMove ins bld
 
 let movnti ins bld = buildMove ins bld
 
+/// MOVNTSD and MOVNTSS store the low element and nothing else. The generic
+/// move cannot say that: a register operand is read whole however narrow the
+/// operation is, so the element has to be taken here. The non-temporal hint is
+/// advice to a cache this has none of.
+let private movntScalar (ins: Instruction) bld width =
+  lift bld ins {
+    let struct (dst, src) = getTwoOprs ins
+    let dst = transOpr ins bld false dst
+    let struct (_, srcA) = transOpr128 ins bld false src
+    direct dst := if width = 64<rt> then srcA else AST.xtlo width srcA
+  }
+
+let movntsd ins bld = movntScalar ins bld 64<rt>
+
+let movntss ins bld = movntScalar ins bld 32<rt>
+
+/// The bit field EXTRQ and INSERTQ name, as a mask of its length sitting at
+/// bit zero. Six bits cannot say sixty-four, so a length of zero means the
+/// whole quadword -- the one value the field would otherwise have no room
+/// for. Both instructions read the length and the index from the low six bits
+/// of a byte apiece, whether the byte came from an immediate or from a
+/// register.
+let private fieldMask bld len =
+  let width = len .& numI32 63 64<rt>
+  let mask = tmpVar bld 64<rt>
+  let ones = AST.not (AST.num0 64<rt>)
+  let shifted = (AST.num1 64<rt> << width) .- AST.num1 64<rt>
+  append bld {
+    direct mask := AST.ite (width == AST.num0 64<rt>) ones shifted
+  }
+  mask
+
+/// The two byte-sized fields, wherever this form keeps them. The immediate
+/// forms spell them out; the register forms take the length from the low six
+/// bits of the source and the index from the six above its first byte, which
+/// for INSERTQ is the first byte of the source's *upper* quadword.
+let private lengthAndIndex (ins: Instruction) bld =
+  match ins.Operands with
+  | ThreeOperands(_, len, idx) | FourOperands(_, _, len, idx) ->
+    struct (numI64 (getImmValue len) 64<rt>, numI64 (getImmValue idx) 64<rt>)
+  | TwoOperands(_, src) ->
+    let struct (srcB, srcA) = transOpr128 ins bld false src
+    let ctrl = if ins.Opcode = Opcode.INSERTQ then srcB else srcA
+    struct (ctrl, ctrl >> numI32 8 64<rt>)
+  | _ ->
+    raise InvalidOperandException
+
+/// EXTRQ takes a field out of the low quadword of its destination and leaves
+/// it at bit zero with zeros above it. What it leaves in the upper quadword
+/// the manual calls undefined, and this keeps it as it stands.
+let extrq (ins: Instruction) bld =
+  lift bld ins {
+    let dst =
+      match ins.Operands with
+      | TwoOperands(dst, _) | ThreeOperands(dst, _, _) -> dst
+      | _ -> raise InvalidOperandException
+    let struct (_, dstA) = transOpr128 ins bld false dst
+    let struct (len, idx) = lengthAndIndex ins bld
+    let mask = fieldMask bld len
+    direct dstA := (dstA >> (idx .& numI32 63 64<rt>)) .& mask
+  }
+
+/// INSERTQ writes the low bits of its source into a field of the destination's
+/// low quadword and leaves the rest of it alone. The upper quadword is
+/// undefined here too, and kept.
+let insertq (ins: Instruction) bld =
+  lift bld ins {
+    let struct (dst, src) =
+      match ins.Operands with
+      | TwoOperands(dst, src) | FourOperands(dst, src, _, _) ->
+        struct (dst, src)
+      | _ ->
+        raise InvalidOperandException
+    let struct (_, dstA) = transOpr128 ins bld false dst
+    let struct (_, srcA) = transOpr128 ins bld false src
+    let struct (len, idx) = lengthAndIndex ins bld
+    let mask = fieldMask bld len
+    let at = idx .& numI32 63 64<rt>
+    let kept = dstA .& AST.not (mask << at)
+    direct dstA := kept .| ((srcA .& mask) << at)
+  }
+
 let lddqu ins bld = buildMove ins bld
 
 let movshdup (ins: Instruction) bld =

@@ -1022,6 +1022,14 @@ let translate (ins: Instruction) bld =
     SSELifter.movntdq ins bld (* SSE2 *)
   | OP.MOVNTI ->
     SSELifter.movnti ins bld (* SSE2 *)
+  | OP.MOVNTSD ->
+    SSELifter.movntsd ins bld (* SSE4a *)
+  | OP.MOVNTSS ->
+    SSELifter.movntss ins bld (* SSE4a *)
+  | OP.EXTRQ ->
+    SSELifter.extrq ins bld (* SSE4a *)
+  | OP.INSERTQ ->
+    SSELifter.insertq ins bld (* SSE4a *)
   | OP.HADDPD ->
     SSELifter.haddpd ins bld (* SSE3 *)
   | OP.HADDPS ->
