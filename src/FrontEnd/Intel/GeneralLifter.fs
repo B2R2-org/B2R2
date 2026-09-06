@@ -2535,6 +2535,13 @@ let rorx (ins: Instruction) bld =
 let sahf (ins: Instruction) bld =
   lift bld ins {
     let ah = regVar bld R.AH
+#if EMULATION
+    (* OF outlives this instruction, and while the flags are lazy it is still
+       owed by the operation that came before -- a promise that names the five
+       flags below too. Settle it here, or the next reader of OF recomputes
+       those five along with it and what AH stored is gone. *)
+    genDynamicFlagsUpdate bld
+#endif
     direct (regVar bld R.CF) := AST.xtlo 1<rt> ah
     direct (regVar bld R.PF) := AST.extract ah 1<rt> 2
     direct (regVar bld R.AF) := AST.extract ah 1<rt> 4
