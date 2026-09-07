@@ -3466,11 +3466,13 @@ let private enter wordSz ins =
   | _ ->
     raise <| EncodingFailureException "Unsupported operand type"
 
-/// MOVNTPS and MOVNTPD only ever store. The register form the decoder renders
-/// at their opcode byte does not exist, so the sweep leaves 0F 2B alone.
-let private sseStore pref op wordSz ins =
+/// Builds an encoder for one of the non-temporal stores out of an XMM
+/// register, from the mandatory prefix that says which of the four sharing
+/// 0F 2B this is and from how much of the register it writes. None of them
+/// loads, so the register form the decoder renders there does not exist.
+let private sseStore pref memSz op wordSz ins =
   match ins.Operands with
-  | TwoOperands(OprMem(b, s, d, 128<rt>), OprReg r) when isXMMReg r ->
+  | TwoOperands(OprMem(b, s, d, sz), OprReg r) when sz = memSz && isXMMReg r ->
     encMR ins wordSz pref rexNormal op b s d r
   | _ ->
     raise <| EncodingFailureException "Unsupported operand type"
@@ -3520,8 +3522,10 @@ let miscellaneousEncoders () =
     Opcode.IN, portIO
     Opcode.OUT, portIO
     Opcode.ENTER, enter
-    Opcode.MOVNTPS, sseStore prefNormal [| 0x0Fuy; 0x2Buy |]
-    Opcode.MOVNTPD, sseStore pref66 [| 0x0Fuy; 0x2Buy |] ]
+    Opcode.MOVNTPS, sseStore prefNormal 128<rt> [| 0x0Fuy; 0x2Buy |]
+    Opcode.MOVNTPD, sseStore pref66 128<rt> [| 0x0Fuy; 0x2Buy |]
+    Opcode.MOVNTSS, sseStore prefF3 32<rt> [| 0x0Fuy; 0x2Buy |]
+    Opcode.MOVNTSD, sseStore prefF2 64<rt> [| 0x0Fuy; 0x2Buy |] ]
 
 /// Builds an encoder for a mask extraction, which reads a lane mask out of an
 /// MMX or XMM register into a general register. The manual leaves a memory
@@ -3583,10 +3587,14 @@ let private movq wordSz ins =
   | _ ->
     raise <| EncodingFailureException "Unsupported operand type"
 
-/// EXTRQ and INSERTQ take their field position and length as two immediate
-/// bytes, which is the only place four operands appear outside AVX.
+/// EXTRQ and INSERTQ say which field of the destination they act on either as
+/// two immediate bytes, which is the only place four operands appear outside
+/// AVX, or as a source register holding the same two numbers. The immediate
+/// forms sit at 0F 78 and the register forms at 0F 79.
 let private extrq wordSz ins =
   match ins.Operands with
+  | TwoOperands(OprReg r1, OprReg r2) ->
+    encRR ins wordSz pref66 rexNormal [| 0x0Fuy; 0x79uy |] r1 r2
   | ThreeOperands(OprReg r, OprImm(i1, _), OprImm(i2, _)) ->
     Resolved [| yield! prxRexOp ins wordSz pref66 rexNormal [| 0x0Fuy; 0x78uy |]
                 modrmRI r 0b000uy
@@ -3597,6 +3605,8 @@ let private extrq wordSz ins =
 
 let private insertq wordSz ins =
   match ins.Operands with
+  | TwoOperands(OprReg r1, OprReg r2) ->
+    encRR ins wordSz prefF2 rexNormal [| 0x0Fuy; 0x79uy |] r1 r2
   | FourOperands(OprReg r1, OprReg r2, OprImm(i1, _), OprImm(i2, _)) ->
     Resolved [| yield! prxRexOp ins wordSz prefF2 rexNormal [| 0x0Fuy; 0x78uy |]
                 modrmRR r1 r2
