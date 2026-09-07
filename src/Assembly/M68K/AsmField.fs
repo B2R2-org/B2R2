@@ -239,7 +239,12 @@ let private indexBits ins (idx: AsmIndexReg) =
 /// which is null where it is zero, one word where it fits in one, and two words
 /// where it does not.
 let private dispSize v =
-  if v = 0L then 1us elif v >= -32768L && v <= 32767L then 2us else 3us
+  if v = 0L then
+    1us
+  elif v >= -32768L && v <= 32767L then
+    2us
+  else
+    3us
 
 /// The words a displacement of the given width occupies.
 let private dispWords size v =

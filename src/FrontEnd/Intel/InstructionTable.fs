@@ -200,9 +200,8 @@ type internal Row =
     /// and the slot also holds the same opcode wider.
     Requires66h: bool
     VectorLength: VectorLength
-    /// The row offers embedded rounding, which is what gives EVEX.b its {er}
-    /// meaning.
-    DeclaresER: bool
+    /// Which reading of EVEX.b the row offers on a register form, if any.
+    RCDecor: RoundingDecor
     /// Opcode byte E3h of the one-byte map: JCXZ, JECXZ or JRCXZ.
     IsE3: bool
     /// The one-byte NOP, which REX.B turns into an XCHG.
@@ -211,8 +210,17 @@ type internal Row =
     UsesVSIB: bool
     /// A LOCK prefix may sit on the row provided ModRM names memory.
     LockableDest: bool
-    /// A row of the slot offers embedded rounding.
-    SlotDeclaresER: bool
+    /// The row's destination operand may be memory, which ModRM then settles.
+    HasMemoryDest: bool
+    /// The row's destination is a mask register, which a masked write merges
+    /// into: Vol. 2A Table 2-42 gives #UD for EVEX.z on one.
+    DestIsMaskReg: bool
+    /// A write mask may act on the register form of the row's destination.
+    /// See destRegCanBeMasked: this is sound but not complete.
+    DestRegCanBeMasked: bool
+    /// A row of the slot offers one of the two readings of EVEX.b, so the bit
+    /// may have spent L'L before a variant has been picked.
+    SlotDeclaresRC: bool
     Opcode: Opcode
     /// The low byte of the opcode, which an OpRd operand reads a register from.
     OpcodeByte: byte
@@ -451,18 +459,19 @@ module internal InstructionTable =
       found <- found || isVectorOperand o
     found
 
-  /// Returns true when the instruction offers embedded rounding, which is what
-  /// gives EVEX.b its {er} meaning. {sae} alone does not: it leaves L'L as the
-  /// vector length.
-  let private declaresStaticRounding (core: InstructionCore) =
-    let mutable found = false
+  /// Which reading EVEX.b takes on a register form of this instruction. Both
+  /// spend EVEX.L'L -- {er} holds the rounding mode there and {sae} holds
+  /// nothing -- so a form carrying either is 512 bits wide whatever L'L reads,
+  /// and both have to be told apart from the row that offers neither. An
+  /// instruction offers at most one, on at most one operand.
+  let private roundingDecorOf (core: InstructionCore) =
+    let mutable decor = NoRounding
     for o in core.Operands do
-      found <-
-        found
-        || (match o with
-            | RMEr _ | RMBcstEr _ -> true
-            | _ -> false)
-    found
+      match o with
+      | RMEr _ | RMBcstEr _ -> decor <- StaticRounding
+      | RMSae _ | RMBcstSae _ | RegSae _ -> decor <- SuppressAllExceptions
+      | _ -> ()
+    decor
 
   let private usesVSIB (core: InstructionCore) =
     let mutable found = false
@@ -495,6 +504,36 @@ module internal InstructionTable =
     operands.Length > 0
     && (match operands[0] with
         | RM _ | RMdiff _ | Mem _ | MM _ | BM _ | KM _ -> true
+        | _ -> false)
+
+  /// Returns true when the row's destination is a mask register, which a
+  /// masked write merges into and never zeroes.
+  let private destIsMaskRegister (operands: OperandType[]) =
+    operands.Length > 0
+    && (match operands[0] with
+        | OpMaskReg _ | KM _ -> true
+        | _ -> false)
+
+  /// Returns true when a write mask could act on the register form of the
+  /// row's destination. A general-purpose destination cannot be masked: a mask
+  /// names lanes, and there are none. Only the register form is answered here
+  /// because a row like VMOVDQU32's store, whose destination reads xmm2/m128,
+  /// takes a mask either way while VPEXTRD's r32/m32 takes one neither way --
+  /// what separates them is the width of the register, which the memory form
+  /// does not have.
+  ///
+  /// This is the sound half of the question the manual asks. Its own answer,
+  /// the first row of Vol. 2A Table 2-42, is per instruction -- VUCOMISS reads
+  /// two vector registers and writes only EFLAGS, so it takes no mask either
+  /// -- and the generated table does not carry that mark. A row whose
+  /// destination merely could be masked therefore still passes here.
+  let private destRegCanBeMasked (operands: OperandType[]) =
+    operands.Length = 0
+    || (match operands[0] with
+        | Reg(sz, _) | RegSae sz | RM sz | RMdiff(sz, _)
+        | RMEr(sz, _) | RMSae(sz, _) | RMBcst(sz, _, _)
+        | RMBcstEr(sz, _, _) | RMBcstSae(sz, _, _) | Mem sz -> sz >= 128<rt>
+        | OpMaskReg _ | KM _ | MemVSIB _ -> true
         | _ -> false)
 
   /// Returns true when the row is valid in 64-bit mode. The manual spells the
@@ -738,14 +777,14 @@ module internal InstructionTable =
       Has66F2: bool
       HasF3: bool
       HasF2: bool
-      DeclaresER: bool }
+      DeclaresRC: bool }
 
   let private slotFacts (slot: InstructionCore[]) =
     let mutable has66 = false
     let mutable has66F2 = false
     let mutable hasF3 = false
     let mutable hasF2 = false
-    let mutable er = false
+    let mutable rc = false
     for core in slot do
       match prefixSel core.PrefixType with
       | PrefixSel.Mandatory66 -> has66 <- true
@@ -753,12 +792,12 @@ module internal InstructionTable =
       | PrefixSel.MandatoryF3 -> hasF3 <- true
       | PrefixSel.MandatoryF2 -> hasF2 <- true
       | _ -> ()
-      er <- er || declaresStaticRounding core
+      rc <- rc || roundingDecorOf core <> NoRounding
     { Has66 = has66
       Has66F2 = has66F2
       HasF3 = hasF3
       HasF2 = hasF2
-      DeclaresER = er }
+      DeclaresRC = rc }
 
   /// The facts about a row and its slot that the REX and mandatory-prefix
   /// checks read.
@@ -965,12 +1004,15 @@ module internal InstructionTable =
       Accept64 = if okIn64 core then accept else 0UL
       Requires66h = asks.Requires66h
       VectorLength = core.VectorLength
-      DeclaresER = declaresStaticRounding core
+      RCDecor = roundingDecorOf core
       IsE3 = isE3
       IsPlainNop = isPlainNop
       UsesVSIB = usesVSIB core
       LockableDest = takesLock core.Opcode && destCanBeMemory core.Operands
-      SlotDeclaresER = facts.DeclaresER
+      HasMemoryDest = destCanBeMemory core.Operands
+      DestIsMaskReg = destIsMaskRegister core.Operands
+      DestRegCanBeMasked = destRegCanBeMasked core.Operands
+      SlotDeclaresRC = facts.DeclaresRC
       Opcode = core.Opcode
       OpcodeByte = byte core.OpcodeByte
       OprSpecs = specs

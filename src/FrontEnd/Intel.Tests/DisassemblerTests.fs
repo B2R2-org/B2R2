@@ -178,3 +178,68 @@ type DisassemblerTests() =
   member _.``X64 NOP instruction test (multi-byte with REX.B)``() =
     "410f1f00" ++ [| "nop dword ptr [r8]"; "nopl (%r8)" |]
     |> testX64
+
+  (* An EVEX decoration belongs to a position, not to a shape. These are the
+     positions that used to be missed: a mask on a RIP-relative destination, a
+     broadcast on anything but the last operand, and a static rounding at all
+     in AT&T syntax. *)
+  [<TestMethod>]
+  member _.``X64 EVEX masked RIP-relative load test (1)``() =
+    "62f17e496f0d00010000"
+    ++ [| "vmovdqu32 zmm1{k1}, zmmword ptr [rip+0x100] ; 0x10a"
+          "vmovdqu32 +0x100(%rip), %zmm1{%k1}" |]
+    |> testX64
+
+  [<TestMethod>]
+  member _.``X64 EVEX masked zeroing register test (1)``() =
+    "62f16dc9fecb"
+    ++ [| "vpaddd zmm1{k1}{z}, zmm2, zmm3"
+          "vpaddd %zmm3, %zmm2, %zmm1{%k1}{z}" |]
+    |> testX64
+
+  [<TestMethod>]
+  member _.``X64 EVEX masked store test (1)``() =
+    "62f17e497f08"
+    ++ [| "vmovdqu32 zmmword ptr [rax]{k1}, zmm1"
+          "vmovdqu32 %zmm1, (%rax){%k1}" |]
+    |> testX64
+
+  (* The broadcast sits on the second of three operands here, which the old
+     shape-matched printer had no arm for. *)
+  [<TestMethod>]
+  member _.``X64 EVEX broadcast on a middle operand test (1)``() =
+    "62f37d59661003"
+    ++ [| "vfpclassps k2{k1}, dword ptr [rax]{1to16}, 0x3"
+          "vfpclasspsl $0x3, (%rax){1to16}, %k2{%k1}" |]
+    |> testX64
+
+  (* {sae} without embedded rounding. EVEX.b spends L'L here as it does for
+     {er}, so the operands are 512 bits wide however L'L reads -- and the
+     decoration is SAE alone, with no rounding mode to name. *)
+  [<TestMethod>]
+  member _.``X64 EVEX suppress-all-exceptions test (1)``() =
+    "62f16c995fcb"
+    ++ [| "vmaxps zmm1{k1}{z}, zmm2, zmm3{sae}"
+          "vmaxps {sae}, %zmm3, %zmm2, %zmm1{%k1}{z}" |]
+    |> testX64
+
+  [<TestMethod>]
+  member _.``X64 EVEX embedded rounding test (1)``() =
+    "62f16c3858cb"
+    ++ [| "vaddps zmm1, zmm2, zmm3{rd-sae}"
+          "vaddps {rd-sae}, %zmm3, %zmm2, %zmm1" |]
+    |> testX64
+
+  [<TestMethod>]
+  member _.``X64 EVEX broadcast with a trailing immediate test (1)``() =
+    "62f16c5ac20801"
+    ++ [| "vcmpps k1{k2}, zmm2, dword ptr [rax]{1to16}, 0x1"
+          "vcmppsl $0x1, (%rax){1to16}, %zmm2, %k1{%k2}" |]
+    |> testX64
+
+  [<TestMethod>]
+  member _.``X64 EVEX RIP-relative broadcast test (1)``() =
+    "62f16c59580d40000000"
+    ++ [| "vaddps zmm1{k1}, zmm2, dword ptr [rip+0x40]{1to16} ; 0x4a"
+          "vaddpsl +0x40(%rip){1to16}, %zmm2, %zmm1{%k1}" |]
+    |> testX64

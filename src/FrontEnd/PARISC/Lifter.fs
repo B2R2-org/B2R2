@@ -29,122 +29,122 @@ open B2R2.FrontEnd.PARISC
 open B2R2.FrontEnd.PARISC.GeneralLifter
 
 /// Translate IR.
-let translate (ins: Instruction) insLen bld =
+let translate (ins: Instruction) bld =
   match ins.Opcode with
   | Opcode.ADD ->
-    add ins insLen bld
+    add ins bld
   | Opcode.ADDB | Opcode.ADDIB ->
-    addb ins insLen bld
+    addb ins bld
   | Opcode.ADDI ->
-    addi ins insLen bld
+    addi ins bld
   | Opcode.ADDIL ->
-    addil ins insLen bld
+    addil ins bld
   | Opcode.AND ->
-    ``and`` ins insLen bld
+    ``and`` ins bld
   | Opcode.ANDCM ->
-    andcm ins insLen bld
+    andcm ins bld
   | Opcode.B ->
-    b ins insLen bld
+    b ins bld
   | Opcode.BB ->
-    bb ins insLen bld
+    bb ins bld
   | Opcode.BE ->
-    be ins insLen bld
+    be ins bld
   | Opcode.BLR ->
-    blr ins insLen bld
+    blr ins bld
   | Opcode.BREAK ->
-    ``break`` ins insLen bld
+    ``break`` ins bld
   | Opcode.BV ->
-    bv ins insLen bld
+    bv ins bld
   | Opcode.BVE ->
-    bve ins insLen bld
+    bve ins bld
   | Opcode.CMPB | Opcode.CMPIB ->
-    cmpb ins insLen bld
+    cmpb ins bld
   | Opcode.CMPCLR | Opcode.CMPICLR ->
-    cmpclr ins insLen bld
+    cmpclr ins bld
   | Opcode.DEPD | Opcode.DEPDI | Opcode.DEPW | Opcode.DEPWI ->
-    dep ins insLen bld
+    dep ins bld
   | Opcode.DS ->
-    ds ins insLen bld
+    ds ins bld
   | Opcode.EXTRD | Opcode.EXTRW ->
-    extr ins insLen bld
+    extr ins bld
   | Opcode.FABS ->
-    FloatLifter.fabs ins insLen bld
+    FloatLifter.fabs ins bld
   | Opcode.FADD ->
-    FloatLifter.fadd ins insLen bld
+    FloatLifter.fadd ins bld
   | Opcode.FCMP ->
-    FloatLifter.fcmp ins insLen bld
+    FloatLifter.fcmp ins bld
   | Opcode.FCNV ->
-    FloatLifter.fcnv ins insLen bld
+    FloatLifter.fcnv ins bld
   | Opcode.FCPY ->
-    FloatLifter.fcpy ins insLen bld
+    FloatLifter.fcpy ins bld
   | Opcode.FDIV ->
-    FloatLifter.fdiv ins insLen bld
+    FloatLifter.fdiv ins bld
   | Opcode.FLDD | Opcode.FLDW ->
-    FloatLifter.fpLoad ins insLen bld
+    FloatLifter.fpLoad ins bld
   | Opcode.FMPY ->
-    FloatLifter.fmpy ins insLen bld
+    FloatLifter.fmpy ins bld
   | Opcode.FMPYADD | Opcode.FMPYSUB ->
-    FloatLifter.fmpyadd ins insLen bld
+    FloatLifter.fmpyadd ins bld
   | Opcode.FMPYFADD | Opcode.FMPYNFADD ->
-    FloatLifter.fmpyfadd ins insLen bld
+    FloatLifter.fmpyfadd ins bld
   | Opcode.FNEG ->
-    FloatLifter.fneg ins insLen bld
+    FloatLifter.fneg ins bld
   | Opcode.FNEGABS ->
-    FloatLifter.fnegabs ins insLen bld
+    FloatLifter.fnegabs ins bld
   | Opcode.FRND ->
-    FloatLifter.frnd ins insLen bld
+    FloatLifter.frnd ins bld
   | Opcode.FSQRT ->
-    FloatLifter.fsqrt ins insLen bld
+    FloatLifter.fsqrt ins bld
   | Opcode.FSTD | Opcode.FSTW ->
-    FloatLifter.fpStore ins insLen bld
+    FloatLifter.fpStore ins bld
   | Opcode.FTEST ->
-    FloatLifter.ftest ins insLen bld
+    FloatLifter.ftest ins bld
   | Opcode.LDB | Opcode.LDD | Opcode.LDDA | Opcode.LDH | Opcode.LDW
   | Opcode.LDWA ->
-    load ins insLen bld
+    load ins bld
   | Opcode.LDCD | Opcode.LDCW ->
-    ldcw ins insLen bld
+    ldcw ins bld
   | Opcode.LDIL ->
-    ldil ins insLen bld
+    ldil ins bld
   | Opcode.LDO ->
-    ldo ins insLen bld
+    ldo ins bld
   | Opcode.LDSID ->
-    ldsid ins insLen bld
+    ldsid ins bld
   | Opcode.MFCTL | Opcode.MFIA ->
-    mfctl ins insLen bld
+    mfctl ins bld
   | Opcode.MFSP | Opcode.MTSP ->
-    movsp ins insLen bld
+    movsp ins bld
   | Opcode.MOVB | Opcode.MOVIB ->
-    movb ins insLen bld
+    movb ins bld
   | Opcode.MTCTL ->
-    mtctl ins insLen bld
+    mtctl ins bld
   | Opcode.MTSARCM ->
-    mtsarcm ins insLen bld
+    mtsarcm ins bld
   | Opcode.OR ->
-    ``or`` ins insLen bld
+    ``or`` ins bld
   | Opcode.SHLADD ->
-    shladd ins insLen bld
+    shladd ins bld
   | Opcode.SHRPD | Opcode.SHRPW ->
-    shrp ins insLen bld
+    shrp ins bld
   | Opcode.STB | Opcode.STD | Opcode.STDA | Opcode.STH | Opcode.STW
   | Opcode.STWA ->
-    store ins insLen bld
+    store ins bld
   | Opcode.STBY ->
-    stby ins insLen bld
+    stby ins bld
   | Opcode.SUB ->
-    sub ins insLen bld
+    sub ins bld
   | Opcode.SUBI ->
-    subi ins insLen bld
+    subi ins bld
   | Opcode.SYNC | Opcode.SYNCDMA ->
-    sync ins insLen bld
+    sync ins bld
   | Opcode.UADDCM ->
-    uaddcm ins insLen bld
+    uaddcm ins bld
   | Opcode.UXOR ->
-    uxor ins insLen bld
+    uxor ins bld
   | Opcode.XMPYU ->
-    FloatLifter.xmpyu ins insLen bld
+    FloatLifter.xmpyu ins bld
   | Opcode.XOR ->
-    xor ins insLen bld
+    xor ins bld
   (* The cache and translation-buffer maintenance, the performance monitor, the
      branch-target stack, the system-mask and interrupt-state instructions, and
      the identifying reads: none of them changes a register or a byte of memory
@@ -156,9 +156,9 @@ let translate (ins: Instruction) insLen bld =
   | Opcode.PMDIS | Opcode.PMENB | Opcode.PUSHBTS | Opcode.PUSHNOM
   | Opcode.POPBTS | Opcode.CLRBTS | Opcode.RFI | Opcode.RSM
   | Opcode.SSM ->
-    nop ins insLen bld
+    nop ins bld
   | Opcode.PROBE | Opcode.PROBEI ->
-    probe ins insLen bld
+    probe ins bld
   (* The privileged instructions user code can only reach to fault: the
      half-entry TLB inserts -- which is exactly what they are there for, since
      the atomic primitives put one after the test of their result so that a
@@ -166,7 +166,7 @@ let translate (ins: Instruction) insLen bld =
      that ask where in real memory an address lives. *)
   | Opcode.IITLBA | Opcode.IITLBP | Opcode.IDTLBA | Opcode.IDTLBP
   | Opcode.LCI | Opcode.LPA ->
-    illegal ins insLen bld
+    illegal ins bld
   (* Valid, but outside what this lifter models: the multimedia operations on
      packed halfwords, the decimal correction, and the coprocessor and
      special-function unit interfaces, which no unit BRemu provides answers. *)
@@ -175,6 +175,6 @@ let translate (ins: Instruction) insLen bld =
   | Opcode.HSHR | Opcode.HSHRADD | Opcode.HSUB | Opcode.MIXH | Opcode.MIXW
   | Opcode.PERMH | Opcode.SPOP0 | Opcode.SPOP1 | Opcode.SPOP2 | Opcode.SPOP3
   | Opcode.STDBY ->
-    unsupported ins insLen bld
+    unsupported ins bld
   | o ->
     raise (NotImplementedIRException(Disasm.opCodeToString o))

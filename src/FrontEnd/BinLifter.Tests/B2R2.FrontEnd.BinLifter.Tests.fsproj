@@ -9,6 +9,8 @@
     <Compile Include="DisasmBuilderTests.fs" />
     <Compile Include="ParsingUtilsTests.fs" />
     <Compile Include="OptimizerTests.fs" />
+    <Compile Include="LiftingDSLTests.fs" />
+    <Compile Include="AssignDSLTests.fs" />
   </ItemGroup>
 
   <ItemGroup>

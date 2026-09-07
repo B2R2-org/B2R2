@@ -52,6 +52,38 @@ type Instruction internal(addr, packed: uint64, vex, oprs, lifter: ILiftable) =
   /// VEX information.
   member _.VEXInfo with get(): VEXInfo option = vex
 
+  /// The opmask register the instruction writes under, or ValueNone when it
+  /// writes every element. An EVEX.aaa of zero says the instruction is not
+  /// masked; it does not name K0, which reads as all ones and cannot serve as
+  /// a write mask.
+  member _.OpMask with get(): Register voption =
+    match vex with
+    | Some { EVEXPrx = Some ePrx } when ePrx.AAA <> 0uy ->
+      ValueSome(RegisterHelper.opmask (int ePrx.AAA))
+    | _ ->
+      ValueNone
+
+  /// Whether the elements the opmask masks off are zeroed rather than left as
+  /// they were (EVEX.z). False without an opmask, where nothing is masked off.
+  member _.IsZeroing with get(): bool =
+    match vex with
+    | Some { EVEXPrx = Some ePrx } ->
+      ePrx.Z = Zeroing
+    | _ ->
+      false
+
+  /// The width of the one element an embedded broadcast reads, or ValueNone
+  /// when the source is read whole. EVEX.b alone does not settle it: on a
+  /// register form the same bit names a rounding mode instead, so the operand
+  /// has to have declared a broadcast width as well.
+  member _.BroadcastElemSize with get(): RegType voption =
+    match vex with
+    | Some { EVEXPrx = Some ePrx } when ePrx.B = 1uy ->
+      if ePrx.BcstElemSize = 0<rt> then ValueNone
+      else ValueSome ePrx.BcstElemSize
+    | _ ->
+      ValueNone
+
   /// Opcode.
   member _.Opcode with get(): Opcode =
     LanguagePrimitives.EnumOfValue(int ((packed >>> 4) &&& 0xFFFUL))

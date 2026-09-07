@@ -361,7 +361,7 @@ let parseExtraLoadStore (phlp: ParsingHelper) bin =
   | _ -> parseLoadStoreImm phlp bin
 
 /// Multiply and Accumulate on page F4-4129.
-let parseMultiplyAndAccumlate (phlp: ParsingHelper) bin =
+let parseMultiplyAndAccumulate (phlp: ParsingHelper) bin =
   match pickFour bin 20 (* opc:S *) with
   | 0b0000u ->
 #if !EMULATION
@@ -1089,7 +1089,7 @@ let parseCase000 (phlp: ParsingHelper) bin =
   | 0b1011u | 0b1101u | 0b1111u ->
     parseExtraLoadStore phlp bin
   | 0b1001u when is0xxxx op1 ->
-    parseMultiplyAndAccumlate phlp bin
+    parseMultiplyAndAccumulate phlp bin
   (* op1 = 0b1xxxxu *)
   | 0b1001u ->
     parseSyncAndLoadAcqStoreRel phlp bin

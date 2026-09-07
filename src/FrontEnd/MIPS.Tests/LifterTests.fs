@@ -55,6 +55,22 @@ type LifterTests() =
     let ins = parser.Parse(bytes, 0UL)
     CollectionAssert.AreEqual(givenStmts, unwrapStmts <| ins.Translate builder)
 
+  (* A branch emits no transfer of its own; the delay slot that follows it
+     consumes the armed branch and emits the transfer. A slot that closes
+     without consuming it leaks the transfer into the instruction after the
+     slot, which the branch was meant to skip. *)
+  let testDelaySlot (isa: ISA) branch slot givenStmts =
+    let reader = BinReader.Init isa.Endian
+    let regFactory = RegisterFactory isa
+    let builder = LowUIRBuilder(isa, regFactory, LowUIRStream())
+    let parser = MIPSParser(isa, reader) :> IInstructionParsable
+    let branch = parser.Parse(ByteArray.ofHexString branch, 0UL)
+    branch.Translate builder |> ignore
+    let ins = parser.Parse(ByteArray.ofHexString slot, 4UL)
+    let actual = ins.Translate builder
+    let actual = Array.sub actual 1 (actual.Length - 1)
+    CollectionAssert.AreEqual(givenStmts, actual)
+
   [<TestMethod>]
   member _.``[MIPS64] ADD lift test``() =
     let isa = ISA(Architecture.MIPS, Endian.Big, WordSize.Bit64)
@@ -150,6 +166,26 @@ type LifterTests() =
           !.LO := AST.sext 64<rt> (AST.xtlo 32<rt> t)
           !.HI := AST.sext 64<rt> (AST.xthi 32<rt> t) |]
     |> test isa
+
+  [<TestMethod>]
+  member _.``[MIPS32] SYSCALL in a delay slot takes the armed branch``() =
+    let isa = ISA(Architecture.MIPS, Endian.Big, WordSize.Bit32)
+    let regFactory = RegisterFactory isa :> IRegisterFactory
+    let ( !. ) name = Register.toRegID name |> regFactory.GetRegVar
+    (* beq $a0, $a1, 0xc ; syscall *)
+    testDelaySlot isa "10850002" "0000000C"
+    <| [| AST.sideEffect SysCall
+          AST.interjmp !.NPC InterJmpKind.Base |]
+
+  [<TestMethod>]
+  member _.``[MIPS32] BREAK in a delay slot takes the armed branch``() =
+    let isa = ISA(Architecture.MIPS, Endian.Big, WordSize.Bit32)
+    let regFactory = RegisterFactory isa :> IRegisterFactory
+    let ( !. ) name = Register.toRegID name |> regFactory.GetRegVar
+    (* beq $a0, $a1, 0xc ; break *)
+    testDelaySlot isa "10850002" "0000000D"
+    <| [| AST.sideEffect Breakpoint
+          AST.interjmp !.NPC InterJmpKind.Base |]
 
   [<TestMethod>]
   member _.``[MIPS32] ADD lift test``() =

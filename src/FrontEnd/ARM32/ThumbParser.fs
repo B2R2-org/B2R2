@@ -9290,7 +9290,7 @@ let parseMulAndAbsDiff phlp (itstate: byref<BL>) isInIT bin =
     render phlp &itstate 0 isInIT bin Op.USAD8 None N OD.OprRdRnRmT32
 
 /// Multiply, multiply accumulate, and absolute difference on page F3-4213.
-let parseMulAccumlateAndAbsDiff phlp (itstate: byref<BL>) isInIT bin =
+let parseMulAccumulateAndAbsDiff phlp (itstate: byref<BL>) isInIT bin =
   match pickTwo bin 6 (* op0 *) with
   | 0b00u -> parseMulAndAbsDiff phlp &itstate isInIT bin
   | 0b01u -> raise ParsingFailureException
@@ -9439,7 +9439,7 @@ let parse32Bit phlp (itstate: byref<BL>) isInIT bin =
   | 0b11010u | 0b11011u when pickBit bin 24 = 0u (* 1101 0xxxx x *) ->
     parseDataProcessingReg phlp &itstate isInIT bin
   | 0b11010u | 0b11011u when pickTwo bin 23 = 0b10u (* 1101 10xxx x *) ->
-    parseMulAccumlateAndAbsDiff phlp &itstate isInIT bin
+    parseMulAccumulateAndAbsDiff phlp &itstate isInIT bin
   | 0b11010u | 0b11011u when pickTwo bin 23 = 0b11u (* 1101 11xxx x *) ->
     parseLongMulAndDiv phlp &itstate isInIT bin
   | _ ->

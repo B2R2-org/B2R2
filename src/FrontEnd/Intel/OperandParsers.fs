@@ -692,7 +692,14 @@ let parseDebugReg n =
   | 5 | 7 -> Operands.oprReg R.DR7
   | _ -> raise ParsingFailureException
 
-let parseOpMaskReg n = RegisterHelper.opmask n |> Operands.oprReg
+/// The opmask register a field names. Only k0 through k7 exist, so an index
+/// past seven names no register: the manual gives #UD for a vvvv that reaches
+/// one (Vol. 2A, Table 2-42). Nothing else stops it -- the mask registers sit
+/// in the middle of the enumeration, and an index past the last one lands on
+/// whatever comes after it.
+let parseOpMaskReg n =
+  if n > 7 then raise ParsingFailureException
+  else RegisterHelper.opmask n |> Operands.oprReg
 
 let parseOprOnlyDisp span (phlp: ParsingHelper) =
   let dispSz = RegType.toByteWidth phlp.MemEffAddrSize

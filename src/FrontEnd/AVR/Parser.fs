@@ -46,7 +46,7 @@ type AVRParser(isa: ISA, reader) =
   let lifter =
     { new ILiftable with
         member _.Lift(ins, builder) =
-          Lifter.translate core pcMask ins ins.Length builder
+          Lifter.translate core pcMask ins builder
         member _.Disasm(ins, builder) = Disasm.disasm ins builder; builder }
 
   /// Constructs a parser for a core whose program counter fits in two bytes,

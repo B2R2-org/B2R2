@@ -162,6 +162,7 @@ type RegisterFactory(isa: ISA) =
   let cr3 = regBasic (Register.toRegID CR3) "CR3"
   let cr4 = regBasic (Register.toRegID CR4) "CR4"
   let cr8 = regBasic (Register.toRegID CR8) "CR8"
+  let xcr0 = AST.var 64<rt> (Register.toRegID XCR0) "XCR0"
   let oFlag = AST.var 1<rt> (Register.toRegID OF) "OF"
   let dFlag = AST.var 1<rt> (Register.toRegID DF) "DF"
   let iFlag = AST.var 1<rt> (Register.toRegID IF) "IF"
@@ -918,6 +919,8 @@ type RegisterFactory(isa: ISA) =
         assert64Bit wordSize
 #endif
         cr8
+      | R.XCR0 ->
+        xcr0
       | R.OF ->
         oFlag
       | R.DF ->
@@ -1412,6 +1415,7 @@ type RegisterFactory(isa: ISA) =
       | "FSWC3" -> fswc3
       | "MXCSR" -> mxcsr
       | "MXCSRMASK" -> mxcsrmask
+      | "XCR0" -> xcr0
       | "XMM0" -> xmm0
       | "XMM1" -> xmm1
       | "XMM2" -> xmm2

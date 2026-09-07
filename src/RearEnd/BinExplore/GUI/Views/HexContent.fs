@@ -305,7 +305,12 @@ type private HexdumpInteractionCanvas() as this =
     base.OnPointerWheelChanged e
     if e.KeyModifiers.HasFlag KeyModifiers.Control then
       let delta =
-        if e.Delta.Y > 0.0 then 1.0 elif e.Delta.Y < 0.0 then -1.0 else 0.0
+        if e.Delta.Y > 0.0 then
+          1.0
+        elif e.Delta.Y < 0.0 then
+          -1.0
+        else
+          0.0
       if abs delta > 0.0 then
         this.DispatchHexdump(ChangeFontSize delta)
         e.Handled <- true

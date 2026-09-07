@@ -104,8 +104,21 @@ let getEVEXInfo (span: ByteSpan) (rex: byref<REXPrefix>) pos =
   let rc = getRC l'l
   let aaa = span[pos + 2] &&& 0b111uy
   let z = if (span[pos + 2] >>> 7 &&& 0b1uy) = 1uy then Zeroing else Merging
+  (* Zeroing with no mask to zero under. The manual gives this as one of the
+     #UD conditions of the opmask encoding fields (Vol. 2A, Table 2-42), and it
+     holds of every instruction, so it is settled here beside the reserved bits
+     rather than asked of a row. *)
+  if z = Zeroing && aaa = 0uy then raise ParsingFailureException else ()
   let b = (span[pos + 2] >>> 4) &&& 0b1uy
-  let e = Some { AAA = aaa; Z = z; B = b; RC = rc }
+  (* The broadcast width is the operand's, so it is filled in once the operands
+     have been parsed; see Parser.recordBroadcastWidth. *)
+  let e =
+    Some { AAA = aaa
+           Z = z
+           B = b
+           RC = rc
+           BcstElemSize = 0<rt>
+           RCDecor = NoRounding }
   (* R' (P0[4]) and V' (P2[3]) are stored inverted, like R, X and B. They
      carry the fifth bit of ModRM.reg and of vvvv / the VSIB index. *)
   let r' =

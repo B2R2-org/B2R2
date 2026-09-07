@@ -16,6 +16,9 @@
     <Compile Include="OperandHelper.fs" />
     <Compile Include="Disasm.fs" />
     <Compile Include="IRHelper.fs" />
+    <Compile Include="LiftingUtils.fs" />
+    <Compile Include="GeneralLifter.fs" />
+    <Compile Include="NEONLifter.fs" />
     <Compile Include="Lifter.fs" />
     <Compile Include="OperandParsingHelper.fs" />
     <Compile Include="Validator.fs" />

@@ -31,7 +31,21 @@ open B2R2.BinIR.LowUIR.AST.InfixOp
 open B2R2.FrontEnd.BinLifter
 open B2R2.FrontEnd.BinLifter.LiftingUtils
 
-let numInsLen insLen (bld: ILowUIRBuilder) = numU32 insLen bld.RegType
+/// Assigns to the given target, shadowing the plain assignment operator. A
+/// direct target is written exactly as given; a sized one is an instruction
+/// operand written under Intel's operand-size rules, which perform
+/// zero-padding when necessary (see Intel Manual 3.4.1.1). In 64-bit mode the
+/// operand size determines the number of valid bits: 64-bit operands generate
+/// a 64-bit result in the destination general-purpose register, 32-bit
+/// operands a 32-bit result zero-extended to 64 bits, and 8- and 16-bit
+/// operands leave the upper 56 or 48 bits of the register unmodified.
+let inline (:=) target src =
+  match target with
+  | AssignTarget.Direct dst -> AST.assign dst src
+  | AssignTarget.Sized(size, dst) -> assignSized size dst src
+
+let numInsLen (ins: Instruction) (bld: ILowUIRBuilder) =
+  numU32 ins.Length bld.RegType
 
 let numOprSize = function
   | 8<rt> | 16<rt> | 32<rt> | 64<rt> | 128<rt> | 256<rt> | 512<rt> as rt ->
@@ -220,7 +234,7 @@ let inline private sIdx ins bld (r, s: Scale) =
   | Scale.X8 -> regVar bld r << numOfAddrSz ins bld 3L
   | _ -> Terminator.impossible ()
 
-let private transMem bld useTmpVar ins insLen b index disp oprSize =
+let private transMem ins bld useTmpVar b index disp oprSize =
   let address =
     match b, index, (disp: Displacement option) with
     | None, None, Some d ->
@@ -231,7 +245,9 @@ let private transMem bld useTmpVar ins insLen b index disp oprSize =
         e
       else
         let tAddress = tmpVar bld bld.RegType
-        bld <+ (tAddress := e)
+        append bld {
+          direct tAddress := e
+        }
         tAddress
     | Some b, None, None ->
       regVar bld b
@@ -242,12 +258,14 @@ let private transMem bld useTmpVar ins insLen b index disp oprSize =
 #else
         regVar bld R.RIP
 #endif
-      let e = pc .+ numOfAddrSz ins bld (d + int64 (insLen: uint32))
+      let e = pc .+ numOfAddrSz ins bld (d + int64 (ins: Instruction).Length)
       if not useTmpVar then
         e
       else
         let tAddress = tmpVar bld bld.RegType
-        bld <+ (tAddress := e)
+        append bld {
+          direct tAddress := e
+        }
         tAddress
     | Some b, None, Some d ->
       let e = regVar bld b .+ (numOfAddrSz ins bld d)
@@ -255,7 +273,9 @@ let private transMem bld useTmpVar ins insLen b index disp oprSize =
         e
       else
         let tAddress = tmpVar bld bld.RegType
-        bld <+ (tAddress := e)
+        append bld {
+          direct tAddress := e
+        }
         tAddress
     | Some b, Some i, None ->
       let e = regVar bld b .+ (sIdx ins bld i)
@@ -263,7 +283,9 @@ let private transMem bld useTmpVar ins insLen b index disp oprSize =
         e
       else
         let tAddress = tmpVar bld bld.RegType
-        bld <+ (tAddress := e)
+        append bld {
+          direct tAddress := e
+        }
         tAddress
     | Some b, Some i, Some d ->
       let e = regVar bld b .+ (sIdx ins bld i) .+ (numOfAddrSz ins bld d)
@@ -271,17 +293,19 @@ let private transMem bld useTmpVar ins insLen b index disp oprSize =
         e
       else
         let tAddress = tmpVar bld bld.RegType
-        bld <+ (tAddress := e)
+        append bld {
+          direct tAddress := e
+        }
         tAddress
     | _, _, _ ->
       raise InvalidOperandException
   ldMem ins bld oprSize address
 
-let transOprToExpr bld useTmpVar ins insLen = function
+let transOpr ins bld useTmpVar = function
   | OprReg reg ->
     regVar bld reg
   | OprMem(b, index, disp, oprSize) ->
-    transMem bld useTmpVar ins insLen b index disp oprSize
+    transMem ins bld useTmpVar b index disp oprSize
   | OprImm(imm, _) ->
     numI64 imm (getOperationSize ins)
   | OprDirAddr(Relative offset) ->
@@ -291,79 +315,79 @@ let transOprToExpr bld useTmpVar ins insLen = function
   | _ ->
     Terminator.impossible ()
 
-let transOprToExprVec bld useTmpVar ins insLen opr =
+let transOprVec ins bld useTmpVar opr =
   match opr with
   | OprReg r ->
     pseudoRegVars bld r
   | OprMem(b, index, disp, oprSize) ->
-    transMem bld useTmpVar ins insLen b index disp oprSize |> getMemExprs
+    transMem ins bld useTmpVar b index disp oprSize |> getMemExprs
   | OprImm(imm, _) ->
     [ numI64 imm (getOperationSize ins) ]
   | _ ->
     raise InvalidOperandException
 
-let transOprToExpr16 (bld: ILowUIRBuilder) useTmpVar ins insLen opr =
+let transOpr16 ins (bld: ILowUIRBuilder) useTmpVar opr =
   match opr with
   | OprReg r when RegisterHelper.toRegType bld.WordSize r > 64<rt> ->
     pseudoRegVar bld r 1 |> AST.xtlo 16<rt>
   | OprReg r ->
     regVar bld r
   | OprMem(b, index, disp, 16<rt>) ->
-    transMem bld useTmpVar ins insLen b index disp 16<rt>
+    transMem ins bld useTmpVar b index disp 16<rt>
   | _ ->
     raise InvalidOperandException
 
-let transOprToExpr32 (bld: ILowUIRBuilder) useTmpVar ins insLen opr =
+let transOpr32 ins (bld: ILowUIRBuilder) useTmpVar opr =
   match opr with
   | OprReg r when RegisterHelper.toRegType bld.WordSize r > 64<rt> ->
     pseudoRegVar bld r 1 |> AST.xtlo 32<rt>
   | OprReg r ->
     regVar bld r
   | OprMem(b, index, disp, 32<rt>) ->
-    transMem bld useTmpVar ins insLen b index disp 32<rt>
+    transMem ins bld useTmpVar b index disp 32<rt>
   | _ ->
     raise InvalidOperandException
 
-let transOprToExpr64 (bld: ILowUIRBuilder) useTmpVar ins insLen opr =
+let transOpr64 ins (bld: ILowUIRBuilder) useTmpVar opr =
   match opr with
   | OprReg r when RegisterHelper.toRegType bld.WordSize r > 64<rt> ->
     pseudoRegVar bld r 1
   | OprReg r ->
     regVar bld r
   | OprMem(b, index, disp, 64<rt>) ->
-    transMem bld useTmpVar ins insLen b index disp 64<rt>
+    transMem ins bld useTmpVar b index disp 64<rt>
   | _ ->
     raise InvalidOperandException
 
-let transOprToExpr128 bld useTmpVar ins insLen opr =
+let transOpr128 ins bld useTmpVar opr =
   match opr with
   | OprReg r ->
     pseudoRegVar128 bld r
   | OprMem(b, index, disp, oprSize) ->
-    transMem bld useTmpVar ins insLen b index disp oprSize |> getMemExpr128
+    transMem ins bld useTmpVar b index disp oprSize |> getMemExpr128
   | _ ->
     raise InvalidOperandException
 
-let transOprToExpr256 bld useTmpVar ins insLen opr =
+let transOpr256 ins bld useTmpVar opr =
   match opr with
   | OprReg r ->
     pseudoRegVar256 bld r
   | OprMem(b, index, disp, oprSize) ->
-    transMem bld useTmpVar ins insLen b index disp oprSize |> getMemExpr256
+    transMem ins bld useTmpVar b index disp oprSize |> getMemExpr256
   | _ ->
     raise InvalidOperandException
 
-let transOprToExpr512 bld useTmpVar ins insLen opr =
+let transOpr512 ins bld useTmpVar opr =
   match opr with
   | OprReg r ->
     pseudoRegVar512 bld r
   | OprMem(b, index, disp, oprSize) ->
-    transMem bld useTmpVar ins insLen b index disp oprSize |> getMemExpr512
+    transMem ins bld useTmpVar b index disp oprSize |> getMemExpr512
   | _ ->
     raise InvalidOperandException
 
 /// Return a tuple (jump target expr, is pc-relative?)
-let transJumpTargetOpr (bld: ILowUIRBuilder) useTmpVar ins pc insLen =
+let transJumpTargetOpr ins (bld: ILowUIRBuilder) useTmpVar pc =
   match (ins: Instruction).Operands with
   | OneOperand(OprDirAddr(Absolute(_, addr, _))) ->
     struct (numU64 addr bld.RegType, false)
@@ -374,39 +398,80 @@ let transJumpTargetOpr (bld: ILowUIRBuilder) useTmpVar ins pc insLen =
   | OneOperand(OprReg reg) ->
     struct (regVar bld reg, false)
   | OneOperand(OprMem(b, index, disp, oprSize)) ->
-    struct (transMem bld useTmpVar ins insLen b index disp oprSize, false)
+    struct (transMem ins bld useTmpVar b index disp oprSize, false)
   | _ ->
     raise InvalidOperandException
 
-let transOprToArr bld useTmpVars ins insLen packSz packNum oprSize opr =
+/// The opmask register the instruction writes under, as a variable, or
+/// ValueNone when it carries no opmask. EVEX.aaa of zero names no register, so
+/// a caller must not read K0 here: K0 is all ones, and the "or in a constant
+/// true" that makes reading it work leaves mask logic in the IR of every
+/// unmasked instruction.
+let opMaskVar bld (ins: Instruction) =
+  match ins.OpMask with
+  | ValueSome reg ->
+    ValueSome(regVar bld reg)
+  | ValueNone ->
+    ValueNone
+
+/// The lanes an EVEX embedded broadcast fills. The source names one element,
+/// not a vector: the parser already sized the memory operand by that element,
+/// so reading the operand reads exactly what the hardware reads, and every
+/// lane is a copy of it. The element need not be as wide as the lane -- a
+/// converting instruction reads a narrower one -- so the two are related here
+/// rather than assumed equal.
+let private broadcastToArr ins bld packSz oprSize elemSz opr =
+  let elem = tmpVar bld elemSz
+  append bld {
+    direct elem := transOpr ins bld false opr
+  }
+  let lane =
+    if elemSz = packSz then
+      elem
+    elif elemSz < packSz then
+      Array.create (packSz / elemSz) elem |> AST.revConcat
+    else
+      (* No encoding reads an element wider than the lane it fills. *)
+      raise InvalidOperandSizeException
+  Array.create (oprSize / packSz) lane
+
+let transOprToArr ins bld useTmpVars packSz packNum oprSize opr =
   let pos = int packSz
   let exprArr =
-    match opr with
-    | OprImm _ ->
-      let opr = transOprToExpr bld false ins insLen opr
+    match opr, (ins: Instruction).BroadcastElemSize with
+    | OprMem _, ValueSome elemSz ->
+      broadcastToArr ins bld packSz oprSize elemSz opr
+    | OprImm _, _ ->
+      let opr = transOpr ins bld false opr
       Array.init (oprSize / packSz) (fun i -> AST.extract opr packSz (i * pos))
-    | OprMem _ ->
+    | OprMem _, _ ->
       match oprSize with
       | 64<rt> ->
-        let opr = transOprToExpr bld false ins insLen opr
+        let opr = transOpr ins bld false opr
         let mem = tmpVar bld oprSize
-        bld <+ (mem := AST.zext oprSize opr)
+        append bld {
+          direct mem := AST.zext oprSize opr
+        }
         Array.init packNum (fun i -> AST.extract mem packSz (i * pos))
       | 128<rt> ->
-        let struct (oB, oA) = transOprToExpr128 bld false ins insLen opr
+        let struct (oB, oA) = transOpr128 ins bld false opr
         let struct (mB, mA) = tmpVars2 bld 64<rt>
-        bld <+ (mA := oA)
-        bld <+ (mB := oB)
+        append bld {
+          direct mA := oA
+          direct mB := oB
+        }
         let oprA = Array.init packNum (fun i -> AST.extract mA packSz (i * pos))
         let oprB = Array.init packNum (fun i -> AST.extract mB packSz (i * pos))
         Array.append oprA oprB
       | 256<rt> ->
-        let struct (oD, oC, oB, oA) = transOprToExpr256 bld false ins insLen opr
+        let struct (oD, oC, oB, oA) = transOpr256 ins bld false opr
         let struct (mD, mC, mB, mA) = tmpVars4 bld 64<rt>
-        bld <+ (mA := oA)
-        bld <+ (mB := oB)
-        bld <+ (mC := oC)
-        bld <+ (mD := oD)
+        append bld {
+          direct mA := oA
+          direct mB := oB
+          direct mC := oC
+          direct mD := oD
+        }
         let oprA = Array.init packNum (fun i -> AST.extract mA packSz (i * pos))
         let oprB = Array.init packNum (fun i -> AST.extract mB packSz (i * pos))
         let oprC = Array.init packNum (fun i -> AST.extract mC packSz (i * pos))
@@ -414,17 +479,19 @@ let transOprToArr bld useTmpVars ins insLen packSz packNum oprSize opr =
         Array.concat [| oprA; oprB; oprC; oprD |]
       | 512<rt> ->
         let struct (oH, oG, oF, oE, oD, oC, oB, oA) =
-          transOprToExpr512 bld false ins insLen opr
+          transOpr512 ins bld false opr
         let struct (mD, mC, mB, mA) = tmpVars4 bld 64<rt>
         let struct (mH, mG, mF, mE) = tmpVars4 bld 64<rt>
-        bld <+ (mA := oA)
-        bld <+ (mB := oB)
-        bld <+ (mC := oC)
-        bld <+ (mD := oD)
-        bld <+ (mE := oE)
-        bld <+ (mF := oF)
-        bld <+ (mG := oG)
-        bld <+ (mH := oH)
+        append bld {
+          direct mA := oA
+          direct mB := oB
+          direct mC := oC
+          direct mD := oD
+          direct mE := oE
+          direct mF := oF
+          direct mG := oG
+          direct mH := oH
+        }
         let oprA = Array.init packNum (fun i -> AST.extract mA packSz (i * pos))
         let oprB = Array.init packNum (fun i -> AST.extract mB packSz (i * pos))
         let oprC = Array.init packNum (fun i -> AST.extract mC packSz (i * pos))
@@ -436,18 +503,18 @@ let transOprToArr bld useTmpVars ins insLen packSz packNum oprSize opr =
         Array.concat [| oprA; oprB; oprC; oprD; oprE; oprF; oprG; oprH |]
       | _ ->
         raise InvalidOperandSizeException
-    | _ ->
+    | _, _ ->
       match oprSize with
       | 64<rt> ->
-        let opr = transOprToExpr bld false ins insLen opr
+        let opr = transOpr ins bld false opr
         Array.init packNum (fun i -> AST.extract opr packSz (i * pos))
       | 128<rt> ->
-        let struct (oB, oA) = transOprToExpr128 bld false ins insLen opr
+        let struct (oB, oA) = transOpr128 ins bld false opr
         let oprA = Array.init packNum (fun i -> AST.extract oA packSz (i * pos))
         let oprB = Array.init packNum (fun i -> AST.extract oB packSz (i * pos))
         Array.append oprA oprB
       | 256<rt> ->
-        let struct (oD, oC, oB, oA) = transOprToExpr256 bld false ins insLen opr
+        let struct (oD, oC, oB, oA) = transOpr256 ins bld false opr
         let oprA = Array.init packNum (fun i -> AST.extract oA packSz (i * pos))
         let oprB = Array.init packNum (fun i -> AST.extract oB packSz (i * pos))
         let oprC = Array.init packNum (fun i -> AST.extract oC packSz (i * pos))
@@ -455,7 +522,7 @@ let transOprToArr bld useTmpVars ins insLen packSz packNum oprSize opr =
         Array.concat [| oprA; oprB; oprC; oprD |]
       | 512<rt> ->
         let struct (oH, oG, oF, oE, oD, oC, oB, oA) =
-          transOprToExpr512 bld false ins insLen opr
+          transOpr512 ins bld false opr
         let oprA = Array.init packNum (fun i -> AST.extract oA packSz (i * pos))
         let oprB = Array.init packNum (fun i -> AST.extract oB packSz (i * pos))
         let oprC = Array.init packNum (fun i -> AST.extract oC packSz (i * pos))
@@ -469,7 +536,7 @@ let transOprToArr bld useTmpVars ins insLen packSz packNum oprSize opr =
         raise InvalidOperandSizeException
   if useTmpVars then
     let tmps = Array.init (oprSize / packSz) (fun _ -> tmpVar bld packSz)
-    Array.iter2 (fun e1 e2 -> bld <+ (e1 := e2)) tmps exprArr
+    Array.iter2 (fun e1 e2 -> append bld { direct e1 := e2 }) tmps exprArr
     tmps
   else
     exprArr
@@ -493,43 +560,90 @@ let fillOnesToMMXHigh16 bld (ins: Instruction) =
   match ins.Operands with
   | TwoOperands(OprReg _ as o, _)
   | ThreeOperands(OprReg _ as o, _, _) ->
-    bld <+ (pseudoRegVar bld (convMMXToST o) 2 := AST.num BitVector.MaxUInt16)
+    append bld {
+      direct (pseudoRegVar bld (convMMXToST o) 2) := AST.num BitVector.MaxUInt16
+    }
   | _ ->
     ()
 
-let assignPackedInstr bld useTmpVar ins insLen packNum oprSize dst result =
+let assignPackedInstr ins bld useTmpVar packNum oprSize dst result =
   match oprSize with
   | 64<rt> when isMMXReg dst ->
-    let dst = transOprToExpr bld useTmpVar ins insLen dst
-    bld <+ (dst := result |> AST.revConcat)
+    let dst = transOpr ins bld useTmpVar dst
+    append bld {
+      direct dst := result |> AST.revConcat
+    }
     fillOnesToMMXHigh16 bld ins
   | 64<rt> ->
-    let dst = transOprToExpr bld useTmpVar ins insLen dst
-    bld <+ (dst := result |> AST.revConcat)
+    let dst = transOpr ins bld useTmpVar dst
+    append bld {
+      direct dst := result |> AST.revConcat
+    }
   | 128<rt> ->
-    let struct (dstB, dstA) = transOprToExpr128 bld useTmpVar ins insLen dst
-    bld <+ (dstA := Array.sub result 0 packNum |> AST.revConcat)
-    bld <+ (dstB := Array.sub result packNum packNum |> AST.revConcat)
+    let struct (dstB, dstA) = transOpr128 ins bld useTmpVar dst
+    append bld {
+      direct dstA := Array.sub result 0 packNum |> AST.revConcat
+      direct dstB := Array.sub result packNum packNum |> AST.revConcat
+    }
   | 256<rt> ->
     let struct (dstD, dstC, dstB, dstA) =
-      transOprToExpr256 bld false ins insLen dst
-    bld <+ (dstA := Array.sub result 0 packNum |> AST.revConcat)
-    bld <+ (dstB := Array.sub result (1 * packNum) packNum |> AST.revConcat)
-    bld <+ (dstC := Array.sub result (2 * packNum) packNum |> AST.revConcat)
-    bld <+ (dstD := Array.sub result (3 * packNum) packNum |> AST.revConcat)
+      transOpr256 ins bld false dst
+    append bld {
+      direct dstA := Array.sub result 0 packNum |> AST.revConcat
+      direct dstB := Array.sub result (1 * packNum) packNum |> AST.revConcat
+      direct dstC := Array.sub result (2 * packNum) packNum |> AST.revConcat
+      direct dstD := Array.sub result (3 * packNum) packNum |> AST.revConcat
+    }
   | 512<rt> ->
     let struct (dstH, dstG, dstF, dstE, dstD, dstC, dstB, dstA) =
-      transOprToExpr512 bld false ins insLen dst
-    bld <+ (dstA := Array.sub result 0 packNum |> AST.revConcat)
-    bld <+ (dstB := Array.sub result (1 * packNum) packNum |> AST.revConcat)
-    bld <+ (dstC := Array.sub result (2 * packNum) packNum |> AST.revConcat)
-    bld <+ (dstD := Array.sub result (3 * packNum) packNum |> AST.revConcat)
-    bld <+ (dstE := Array.sub result (4 * packNum) packNum |> AST.revConcat)
-    bld <+ (dstF := Array.sub result (5 * packNum) packNum |> AST.revConcat)
-    bld <+ (dstG := Array.sub result (6 * packNum) packNum |> AST.revConcat)
-    bld <+ (dstH := Array.sub result (7 * packNum) packNum |> AST.revConcat)
+      transOpr512 ins bld false dst
+    append bld {
+      direct dstA := Array.sub result 0 packNum |> AST.revConcat
+      direct dstB := Array.sub result (1 * packNum) packNum |> AST.revConcat
+      direct dstC := Array.sub result (2 * packNum) packNum |> AST.revConcat
+      direct dstD := Array.sub result (3 * packNum) packNum |> AST.revConcat
+      direct dstE := Array.sub result (4 * packNum) packNum |> AST.revConcat
+      direct dstF := Array.sub result (5 * packNum) packNum |> AST.revConcat
+      direct dstG := Array.sub result (6 * packNum) packNum |> AST.revConcat
+      direct dstH := Array.sub result (7 * packNum) packNum |> AST.revConcat
+    }
   | _ ->
     raise InvalidOperandSizeException
+
+/// Whether the encoding is an EVEX one, which is what brings a write mask, an
+/// embedded broadcast and the 512-bit forms with it.
+let isEVEXEncoded (ins: Instruction) =
+  match ins.VEXInfo with
+  | Some v -> Option.isSome v.EVEXPrx
+  | None -> false
+
+/// The destination's own lanes, which only a merging write reads back: an
+/// instruction that zeroes what it masks off supplies a zero instead. A
+/// destination in memory is the exception -- the bytes a mask leaves out keep
+/// what they held whether or not {z} is set, so they are read back either way.
+let private keptLanes ins bld packSz oprSize dst =
+  if isMemOpr dst || not (ins: Instruction).IsZeroing then
+    transOprToArr ins bld false packSz (64<rt> / packSz) oprSize dst
+  else
+    [||]
+
+/// Writes the lanes an EVEX operation produced to its destination, under the
+/// write mask the encoding carries: a lane the mask leaves out keeps what the
+/// destination held, or takes zero under {z}. An instruction with no opmask
+/// writes every lane, and gets no mask logic in its IR at all.
+let assignEVEXPacked ins bld packSz oprSize dst result =
+  let packNum = 64<rt> / packSz
+  let result =
+    match opMaskVar bld ins with
+    | ValueNone ->
+      result
+    | ValueSome k ->
+      let kept = keptLanes ins bld packSz oprSize dst
+      let underMask i r =
+        let old = if Array.isEmpty kept then AST.num0 packSz else kept[i]
+        AST.ite (AST.extract k 1<rt> i) r old
+      Array.mapi underMask result
+  assignPackedInstr ins bld false packNum oprSize dst result
 
 let getTwoOprs (ins: Instruction) =
   match ins.Operands with
@@ -541,14 +655,51 @@ let getThreeOprs (ins: Instruction) =
   | ThreeOperands(o1, o2, o3) -> struct (o1, o2, o3)
   | _ -> raise InvalidOperandException
 
+/// The destination and the two sources an operation reads, whichever encoding
+/// named them: a legacy form takes its first source from the destination,
+/// which a VEX form names separately. Every operation written for the legacy
+/// encoding can serve its VEX one through this.
+let getDstAndSrcs (ins: Instruction) =
+  match ins.Operands with
+  | TwoOperands(o1, o2) -> struct (o1, o1, o2)
+  | ThreeOperands(o1, o2, o3) -> struct (o1, o2, o3)
+  | _ -> raise InvalidOperandException
+
+/// The destination, the two sources and the immediate, whichever encoding
+/// named them -- the same shim as getDstAndSrcs, for the operations that carry
+/// an immediate as well.
+let getDstSrcsImm (ins: Instruction) =
+  match ins.Operands with
+  | ThreeOperands(o1, o2, o3) -> struct (o1, o1, o2, o3)
+  | FourOperands(o1, o2, o3, o4) -> struct (o1, o2, o3, o4)
+  | _ -> raise InvalidOperandException
+
+/// Whether the encoding is a VEX (or EVEX) one, which is what decides that the
+/// register above the vector length is cleared rather than left standing.
+let isVexEncoded (ins: Instruction) = Option.isSome ins.VEXInfo
+
+/// Applies a lane-wise operation across the 128-bit lanes of two source
+/// arrays. A 256-bit form of an operation the manual describes over 128 bits
+/// -- a horizontal add, a saturating pack -- is two independent halves rather
+/// than one long one, and this is what makes it so.
+let perLane oprSize f (a: Expr[]) (b: Expr[]) =
+  let lanes = max 1 (RegType.toBitWidth oprSize / 128)
+  if lanes = 1 then
+    f a b
+  else
+    let per = a.Length / lanes
+    Array.init lanes (fun i ->
+      f (Array.sub a (i * per) per) (Array.sub b (i * per) per))
+    |> Array.concat
+
 let getFourOprs (ins: Instruction) =
   match ins.Operands with
   | FourOperands(o1, o2, o3, o4) -> struct (o1, o2, o3, o4)
   | _ -> raise InvalidOperandException
 
-let transOneOpr bld (ins: Instruction) insLen =
+let transOneOpr (ins: Instruction) bld =
   match ins.Operands with
-  | OneOperand opr -> transOprToExpr bld true ins insLen opr
+  | OneOperand opr -> transOpr ins bld true opr
   | _ -> raise InvalidOperandException
 
 let transReg bld useTmpVar expr =
@@ -556,51 +707,33 @@ let transReg bld useTmpVar expr =
     match expr with
     | Extract(_, rt, _, _) ->
       let t = tmpVar bld rt
-      bld <+ (t := expr)
+      append bld {
+        direct t := expr
+      }
       t
     | _ ->
       expr
   else
     expr
 
-let transTwoOprs bld useTmpVar (ins: Instruction) insLen =
+let transTwoOprs (ins: Instruction) bld useTmpVar =
   match ins.Operands with
   | TwoOperands(o1, o2) ->
-    let o1 = transOprToExpr bld useTmpVar ins insLen o1
-    let o2 = transOprToExpr bld false ins insLen o2 |> transReg bld useTmpVar
+    let o1 = transOpr ins bld useTmpVar o1
+    let o2 = transOpr ins bld false o2 |> transReg bld useTmpVar
     struct (o1, o2)
   | _ ->
     raise InvalidOperandException
 
-let transThreeOprs bld useTmpVar (ins: Instruction) insLen =
+let transThreeOprs (ins: Instruction) bld useTmpVar =
   match ins.Operands with
   | ThreeOperands(o1, o2, o3) ->
-    let opr1 = transOprToExpr bld useTmpVar ins insLen o1
-    let opr2 = transOprToExpr bld useTmpVar ins insLen o2
-    let opr3 = transOprToExpr bld useTmpVar ins insLen o3
+    let opr1 = transOpr ins bld useTmpVar o1
+    let opr2 = transOpr ins bld useTmpVar o2
+    let opr3 = transOpr ins bld useTmpVar o3
     struct (opr1, opr2, opr3)
   | _ ->
     raise InvalidOperandException
-
-/// This is an Intel-specific assignment to a destination operand.
-/// Unlike typical assignments, this function performs zero-padding when
-/// necessary (See Intel Manual 3.4.1.1).
-/// In 64-bit mode, operand size determines the number of valid bits.
-/// 64-bit operands generate a 64-bit result in the destination general-purpose
-/// register. 32-bit operands generate a 32-bit result, zero-extended to a
-/// 64-bit result in the destination general-purpose register. 8-bit and 16-bit
-/// operands generate 8-bit or 16-bit result. The upper 56 or 48 bits
-/// (respectively) of the destination general-purpose register are not modified.
-let dstAssign oprSize dst src =
-  match oprSize with
-  | 8<rt> | 16<rt> -> dst := src (* No extension for 8- and 16-bit operands *)
-  | _ -> let dst = AST.unwrap dst
-         let dstOrigSz = dst |> Expr.typeOf
-         let oprBitSize = RegType.toBitWidth oprSize
-         let dstBitSize = RegType.toBitWidth dstOrigSz
-         if dstBitSize > oprBitSize then dst := AST.zext dstOrigSz src
-         elif dstBitSize = oprBitSize then dst := src
-         else raise InvalidOperandSizeException
 
 /// For x87 FPU Top register or x87 FPU Tag word sections.
 let extractDstAssign e1 e2 =
@@ -618,9 +751,10 @@ let extractDstAssign e1 e2 =
              0,
              _) when int rId = 0x4F (* FSW *)
                      || int rId = 0x50 (* FTW *) ->
-    e1 := (e1 .& (AST.not mask)) .| (((AST.zext 16<rt> e2) << amt) .& mask)
-  | e ->
-    printfn "%A" e; raise InvalidAssignmentException
+    direct e1 :=
+      (e1 .& (AST.not mask)) .| (((AST.zext 16<rt> e2) << amt) .& mask)
+  | _ ->
+    raise InvalidAssignmentException
 
 let maxNum rt =
   match rt with
@@ -644,17 +778,156 @@ let getMask oprSize =
   | 64<rt> -> numI64 0xffffffffffffffffL oprSize
   | _ -> raise InvalidOperandSizeException
 
-let sideEffects bld (ins: Instruction) insLen name =
-  bld <!-- (ins.Address, insLen)
+/// The three masks a SWAR population count folds a value through, one per
+/// operand width.
+let popCountMasks oprSize =
+  match oprSize with
+  | 8<rt> ->
+    struct (numI32 0x55 8<rt>, numI32 0x33 8<rt>, numI32 0x0f 8<rt>)
+  | 16<rt> ->
+    struct (numI32 0x5555 16<rt>, numI32 0x3333 16<rt>, numI32 0x0f0f 16<rt>)
+  | 32<rt> ->
+    let m1 = numI32 0x55555555 32<rt>
+    let m2 = numI32 0x33333333 32<rt>
+    struct (m1, m2, numI32 0x0f0f0f0f 32<rt>)
+  | 64<rt> ->
+    let m1 = numU64 0x5555555555555555UL 64<rt>
+    let m2 = numU64 0x3333333333333333UL 64<rt>
+    struct (m1, m2, numU64 0x0f0f0f0f0f0f0f0fUL 64<rt>)
+  | _ ->
+    raise InvalidOperandSizeException
+
+/// Smears the highest set bit of `x` down through every bit below it, by
+/// doubling the shift until it covers the whole operand.
+let smearHighBit bld oprSize x =
+  let bits = RegType.toBitWidth oprSize
+  let rec go step =
+    if step < bits then
+      append bld { direct x := x .| (x >> numI32 step oprSize) }
+      go (step * 2)
+    else
+      ()
+  go 1
+
+/// Folds the per-byte counts a SWAR population count has built up into the
+/// low byte of `x`.
+let sumByteCounts bld oprSize x =
+  let bits = RegType.toBitWidth oprSize
+  let rec go step =
+    if step < bits then
+      append bld { direct x := x .+ (x >> numI32 step oprSize) }
+      go (step * 2)
+    else
+      ()
+  go 8
+
+/// The number of bits set in `src`, counted by folding the value through the
+/// SWAR masks above. `x` is a temporary of the operand's width, which the
+/// count is built up in and left in the low bits of.
+let buildPopCount bld oprSize x src =
+  let struct (mask1, mask2, mask3) = popCountMasks oprSize
+  append bld {
+    direct x := src
+    direct x := x .- ((x >> numI32 1 oprSize) .& mask1)
+    direct x := ((x >> numI32 2 oprSize) .& mask2) .+ (x .& mask2)
+    direct x := ((x >> numI32 4 oprSize) .+ x) .& mask3
+  }
+  sumByteCounts bld oprSize x
+  x .& numI32 (RegType.toBitWidth oprSize * 2 - 1) oprSize
+
+/// A half-precision value widened to a single-precision one. Nothing is lost:
+/// a single covers every half's range and precision, and a half's subnormals
+/// are ordinary numbers there -- which is why they are had by converting the
+/// fraction as an integer and scaling it, rather than by normalizing it.
+let halfToSingle h =
+  let x = AST.zext 32<rt> h
+  let sign = (x .& numI32 0x8000 32<rt>) << numI32 16 32<rt>
+  let expo = (x >> numI32 10 32<rt>) .& numI32 0x1F 32<rt>
+  let frac = x .& numI32 0x3FF 32<rt>
+  let shifted = frac << numI32 13 32<rt>
+  let sub =
+    AST.fmul (AST.cast CastKind.SIntToFloat 32<rt> frac)
+             (numI32 0x33800000 32<rt>)
+  let special = numI32 0x7F800000 32<rt> .| shifted
+  let normal = ((expo .+ numI32 112 32<rt>) << numI32 23 32<rt>) .| shifted
+  let finite = AST.ite (expo == AST.num0 32<rt>) sub normal
+  sign .| AST.ite (expo == numI32 31 32<rt>) special finite
+
+/// A single-precision value narrowed to a half. This is where every
+/// half-precision operation ends: the arithmetic is done at single precision,
+/// which is wide enough that rounding its answer to a half gives what
+/// computing in half precision would have -- a single has more than twice a
+/// half's significand, and two roundings are then as good as one.
+///
+/// `mode` is the rounding: 0 to nearest with ties to even, 1 toward negative
+/// infinity, 2 toward positive infinity, 3 toward zero. Only VCVTPS2PH names
+/// one; everything else rounds to nearest. What the mode decides is what is
+/// added before the low thirteen bits are dropped, which way a value below the
+/// smallest normal half is rounded to an integer, and whether one too large
+/// becomes an infinity or the largest finite half.
+let singleToHalfWith mode f =
+  let expo = (f >> numI32 23 32<rt>) .& numI32 0xFF 32<rt>
+  let frac = f .& numI32 0x7FFFFF 32<rt>
+  let sign = (f >> numI32 16 32<rt>) .& numI32 0x8000 32<rt>
+  let isNeg = AST.xthi 1<rt> f
+  let magnitude = f .& numI32 0x7FFFFFFF 32<rt>
+  let scaled = AST.fmul magnitude (numI32 0x4B800000 32<rt>)
+  let away = numI32 0x1FFF 32<rt>
+  let none = AST.num0 32<rt>
+  let odd = (frac >> numI32 13 32<rt>) .& AST.num1 32<rt>
+  let bias =
+    match mode with
+    | 1 -> AST.ite isNeg away none
+    | 2 -> AST.ite isNeg none away
+    | 3 -> none
+    | _ -> numI32 0x0FFF 32<rt> .+ odd
+  let toInt =
+    match mode with
+    | 1 -> AST.ite isNeg (AST.cast CastKind.FtoICeil 32<rt> scaled)
+                         (AST.cast CastKind.FtoIFloor 32<rt> scaled)
+    | 2 -> AST.ite isNeg (AST.cast CastKind.FtoIFloor 32<rt> scaled)
+                         (AST.cast CastKind.FtoICeil 32<rt> scaled)
+    | 3 -> AST.cast CastKind.FtoITrunc 32<rt> scaled
+    | _ -> AST.cast CastKind.FtoIRound 32<rt> scaled
+  let infinity = numI32 0x7C00 32<rt>
+  let biggest = numI32 0x7BFF 32<rt>
+  let tooBig =
+    match mode with
+    | 1 -> AST.ite isNeg infinity biggest
+    | 2 -> AST.ite isNeg biggest infinity
+    | 3 -> biggest
+    | _ -> infinity
+  let rounded = (frac .+ bias) >> numI32 13 32<rt>
+  let normal = ((expo .- numI32 112 32<rt>) << numI32 10 32<rt>) .+ rounded
+  let nan = numI32 0x7E00 32<rt> .| (frac >> numI32 13 32<rt>)
+  let special = AST.ite (frac == AST.num0 32<rt>) infinity nan
+  let small = AST.ite (expo .<= numI32 112 32<rt>) toInt normal
+  let finite = AST.ite (expo .>= numI32 143 32<rt>) tooBig small
+  AST.xtlo 16<rt> (sign .| AST.ite (expo == numI32 255 32<rt>) special finite)
+
+/// The narrowing every half-precision operation but VCVTPS2PH performs, which
+/// rounds to nearest with ties to even.
+let singleToHalf f = singleToHalfWith 0 f
+
+let sideEffects (ins: Instruction) bld name =
+  lift bld ins {
 #if EMULATION
-  if bld.ConditionCodeOp <> ConditionCodeOp.TraceStart then
-    bld <+ (regVar bld R.CCOP := numI32 (int bld.ConditionCodeOp) 8<rt>)
-  else
-    ()
-  bld.ConditionCodeOp <- ConditionCodeOp.TraceStart
+    if bld.ConditionCodeOp <> ConditionCodeOp.TraceStart then
+      direct (regVar bld R.CCOP) := numI32 (int bld.ConditionCodeOp) 8<rt>
+    else
+      ()
+    bld.ConditionCodeOp <- ConditionCodeOp.TraceStart
 #endif
-  bld <+ (AST.sideEffect name)
-  bld --!> insLen
+    AST.sideEffect name
+  }
+
+/// An instruction that is valid but outside what this lifter models, left to
+/// the emulator to report rather than silently mis-executed.
+let unsupported ins bld = sideEffects ins bld UnsupportedInstruction
+
+/// An encoding the architecture itself leaves undefined, illegal, or
+/// reserved, so faulting is what the instruction means.
+let undefined ins bld = sideEffects ins bld UndefinedInstruction
 
 let hasStackPtr (ins: Instruction) =
   match ins.Operands with
@@ -671,7 +944,7 @@ let buildAF bld e1 e2 r size =
   let t2 = t1 <+> e2
   let t3 = (AST.num1 size) << (numU32 4ul size)
   let t4 = t2 .& t3
-  regVar bld R.AF := t4 == t3
+  direct (regVar bld R.AF) := t4 == t3
 
 let isExprZero e =
   match e with
@@ -679,37 +952,47 @@ let isExprZero e =
   | _ -> false
 
 let buildPF bld r size cond =
-  let pf = regVar bld R.PF
-  let computedPF =
-    if isExprZero r then
-      AST.num1 1<rt>
-    else
-      let struct (t1, t2) = tmpVars2 bld size
-      let s2 = r <+> (r >> (AST.zext size (numU32 4ul 8<rt>)))
-      let s4 = t1 <+> (t1 >> (AST.zext size (numU32 2ul 8<rt>)))
-      let s5 = t2 <+> (t2 >> (AST.zext size (AST.num1 8<rt>)))
-      bld <+ (t1 := s2)
-      bld <+ (t2 := s4)
-      AST.unop UnOpType.NOT (AST.xtlo 1<rt> s5)
-  bld <+ (match cond with
-          | None -> pf := computedPF
-          | Some cond -> pf := AST.ite cond pf computedPF)
+  append bld {
+    let pf = regVar bld R.PF
+    let computedPF =
+      if isExprZero r then
+        AST.num1 1<rt>
+      else
+        let struct (t1, t2) = tmpVars2 bld size
+        let s2 = r <+> (r >> (AST.zext size (numU32 4ul 8<rt>)))
+        let s4 = t1 <+> (t1 >> (AST.zext size (numU32 2ul 8<rt>)))
+        let s5 = t2 <+> (t2 >> (AST.zext size (AST.num1 8<rt>)))
+        append bld {
+          direct t1 := s2
+          direct t2 := s4
+        }
+        AST.unop UnOpType.NOT (AST.xtlo 1<rt> s5)
+    match cond with
+    | None -> direct pf := computedPF
+    | Some cond -> direct pf := AST.ite cond pf computedPF
+  }
 
 let enumSZPFlags bld r size sf =
-  bld <+ (regVar bld R.SF := sf)
-  bld <+ (regVar bld R.ZF := r == (AST.num0 size))
+  append bld {
+    direct (regVar bld R.SF) := sf
+    direct (regVar bld R.ZF) := r == (AST.num0 size)
+  }
   buildPF bld r size None
 
 let enumASZPFlags bld e1 e2 r size sf =
-  bld <+ (buildAF bld e1 e2 r size)
+  append bld {
+    buildAF bld e1 e2 r size
+  }
   enumSZPFlags bld r size sf
 
 let enumEFLAGS bld e1 e2 e3 size cf ofl sf =
-  bld <+ (regVar bld R.CF := cf)
-  bld <+ (regVar bld R.OF := ofl)
-  bld <+ (buildAF bld e1 e2 e3 size)
-  bld <+ (regVar bld R.SF := sf)
-  bld <+ (regVar bld R.ZF := e3 == (AST.num0 size))
+  append bld {
+    direct (regVar bld R.CF) := cf
+    direct (regVar bld R.OF) := ofl
+    buildAF bld e1 e2 e3 size
+    direct (regVar bld R.SF) := sf
+    direct (regVar bld R.ZF) := e3 == (AST.num0 size)
+  }
   buildPF bld e3 size None
 
 /// CF on add.
@@ -723,15 +1006,19 @@ let osfOnAdd e1 e2 r bld =
   if e1 = e2 then
     let rHigh = tmpVar bld 1<rt>
     let e1High = AST.xthi 1<rt> e1
-    bld <+ (rHigh := AST.xthi 1<rt> r)
+    append bld {
+      direct rHigh := AST.xthi 1<rt> r
+    }
     struct ((e1High <+> rHigh), rHigh)
   else
     let struct (t1, t2) = tmpVars2 bld 1<rt>
     let e1High = AST.xthi 1<rt> e1
     let e2High = AST.xthi 1<rt> e2
     let rHigh = AST.xthi 1<rt> r
-    bld <+ (t1 := e1High)
-    bld <+ (t2 := rHigh)
+    append bld {
+      direct t1 := e1High
+      direct t2 := rHigh
+    }
     struct ((t1 == e2High) .& (t1 <+> t2), t2)
 
 /// OF on sub.
@@ -763,32 +1050,42 @@ let getCCDst bld regType =
   | _ -> Terminator.impossible ()
 
 let setCCOperands2 bld src1 dst =
-  let ccSrc1 = regVar bld R.CCSRC1
-  let ccDst = regVar bld R.CCDST
-  bld <+ (ccSrc1 := AST.zext bld.RegType src1)
-  bld <+ (ccDst := AST.zext bld.RegType dst)
+  append bld {
+    let ccSrc1 = regVar bld R.CCSRC1
+    let ccDst = regVar bld R.CCDST
+    direct ccSrc1 := AST.zext bld.RegType src1
+    direct ccDst := AST.zext bld.RegType dst
+  }
 
 let setCCOperands3 bld src1 src2 dst =
-  let ccSrc1 = regVar bld R.CCSRC1
-  let ccSrc2 = regVar bld R.CCSRC2
-  let ccDst = regVar bld R.CCDST
-  bld <+ (ccSrc1 := AST.zext bld.RegType src1)
-  bld <+ (ccSrc2 := AST.zext bld.RegType src2)
-  bld <+ (ccDst := AST.zext bld.RegType dst)
+  append bld {
+    let ccSrc1 = regVar bld R.CCSRC1
+    let ccSrc2 = regVar bld R.CCSRC2
+    let ccDst = regVar bld R.CCDST
+    direct ccSrc1 := AST.zext bld.RegType src1
+    direct ccSrc2 := AST.zext bld.RegType src2
+    direct ccDst := AST.zext bld.RegType dst
+  }
 
 let setCCDst bld dst =
-  let ccDst = regVar bld R.CCDST
-  bld <+ (ccDst := AST.zext bld.RegType dst)
+  append bld {
+    let ccDst = regVar bld R.CCDST
+    direct ccDst := AST.zext bld.RegType dst
+  }
 
 let setCCOp (bld: ILowUIRBuilder) =
   if bld.ConditionCodeOp <> ConditionCodeOp.TraceStart then
-    bld <+ (regVar bld R.CCOP := numI32 (int bld.ConditionCodeOp) 8<rt>)
+    append bld {
+      direct (regVar bld R.CCOP) := numI32 (int bld.ConditionCodeOp) 8<rt>
+    }
   else
     ()
 
 let genDynamicFlagsUpdate bld =
   setCCOp bld
-  bld <+ (AST.sideEffect FlagsUpdate)
+  append bld {
+    AST.sideEffect FlagsUpdate
+  }
   bld.ConditionCodeOp <- ConditionCodeOp.EFlags
 
 let getOFLazy (bld: ILowUIRBuilder) =
@@ -803,9 +1100,11 @@ let getOFLazy (bld: ILowUIRBuilder) =
     let struct (t1, t2, t3) = tmpVars3 bld regType
     let src1 = getCCSrc1 bld regType
     let dst = getCCDst bld regType
-    bld <+ (t3 := dst)
-    bld <+ (t2 := src1)
-    bld <+ (t1 := t3 .+ t2)
+    append bld {
+      direct t3 := dst
+      direct t2 := src1
+      direct t1 := t3 .+ t2
+    }
     let sf = t3 ?< AST.num0 regType
     let cf = cfOnSub t1 t2
     let ofl = ofOnSub t1 t2 t3
@@ -821,9 +1120,11 @@ let getOFLazy (bld: ILowUIRBuilder) =
     let struct (t1, t2, t3) = tmpVars3 bld regType
     let src1 = getCCSrc1 bld regType
     let dst = getCCDst bld regType
-    bld <+ (t3 := dst)
-    bld <+ (t2 := src1)
-    bld <+ (t1 := t3 .+ t2)
+    append bld {
+      direct t3 := dst
+      direct t2 := src1
+      direct t1 := t3 .+ t2
+    }
     let sf = t3 ?< AST.num0 regType
     let cf = regVar bld R.CF
     let ofl = ofOnSub t1 t2 t3
@@ -839,9 +1140,11 @@ let getOFLazy (bld: ILowUIRBuilder) =
     let struct (t1, t2, t3) = tmpVars3 bld regType
     let src1 = getCCSrc1 bld regType
     let dst = getCCDst bld regType
-    bld <+ (t3 := dst)
-    bld <+ (t1 := src1)
-    bld <+ (t2 := t3 .- t1)
+    append bld {
+      direct t3 := dst
+      direct t1 := src1
+      direct t2 := t3 .- t1
+    }
     let cf = cfOnAdd t1 t3
     let struct (ofl, sf) = osfOnAdd t1 t2 t3 bld
     enumEFLAGS bld t1 t2 t3 regType cf ofl sf
@@ -856,9 +1159,11 @@ let getOFLazy (bld: ILowUIRBuilder) =
     let struct (t1, t2, t3) = tmpVars3 bld regType
     let src1 = getCCSrc1 bld regType
     let dst = getCCDst bld regType
-    bld <+ (t3 := dst)
-    bld <+ (t1 := src1)
-    bld <+ (t2 := t3 .- t1)
+    append bld {
+      direct t3 := dst
+      direct t1 := src1
+      direct t2 := t3 .- t1
+    }
     let cf = regVar bld R.CF
     let struct (ofl, sf) = osfOnAdd t1 t2 t3 bld
     enumEFLAGS bld t1 t2 t3 regType cf ofl sf
@@ -883,14 +1188,18 @@ let getOFLazy (bld: ILowUIRBuilder) =
     let zf = regVar bld R.ZF
     let ofl = regVar bld R.OF
     let newOf = AST.xthi 1<rt> dst <+> cf
-    bld <+ (t1 := src1)
-    bld <+ (t2 := src2)
-    bld <+ (t3 := dst)
-    bld <+ (cf := AST.ite cond2 cf (AST.xthi 1<rt> (t1 << (t2 .- n1))))
-    bld <+ (ofl := AST.ite cond1 newOf ofl)
-    bld <+ (sf := AST.ite cond2 sf (AST.xthi 1<rt> t3))
+    append bld {
+      direct t1 := src1
+      direct t2 := src2
+      direct t3 := dst
+      direct cf := AST.ite cond2 cf (AST.xthi 1<rt> (t1 << (t2 .- n1)))
+      direct ofl := AST.ite cond1 newOf ofl
+      direct sf := AST.ite cond2 sf (AST.xthi 1<rt> t3)
+    }
     buildPF bld dst regType (Some cond2)
-    bld <+ (zf := AST.ite cond2 zf (t3 == n0))
+    append bld {
+      direct zf := AST.ite cond2 zf (t3 == n0)
+    }
     bld.ConditionCodeOp <- ConditionCodeOp.EFlags
     regVar bld R.OF
   | ConditionCodeOp.SHRB
@@ -911,14 +1220,18 @@ let getOFLazy (bld: ILowUIRBuilder) =
     let sf = regVar bld R.SF
     let zf = regVar bld R.ZF
     let ofl = regVar bld R.OF
-    bld <+ (t1 := src1)
-    bld <+ (t2 := src2)
-    bld <+ (t3 := dst)
-    bld <+ (cf := AST.ite cond2 cf (AST.xtlo 1<rt> (t1 ?>> (t2 .- n1))))
-    bld <+ (ofl := AST.ite cond1 (AST.xthi 1<rt> t1) ofl)
-    bld <+ (sf := AST.ite cond2 sf (AST.xthi 1<rt> t3))
+    append bld {
+      direct t1 := src1
+      direct t2 := src2
+      direct t3 := dst
+      direct cf := AST.ite cond2 cf (AST.xtlo 1<rt> (t1 ?>> (t2 .- n1)))
+      direct ofl := AST.ite cond1 (AST.xthi 1<rt> t1) ofl
+      direct sf := AST.ite cond2 sf (AST.xthi 1<rt> t3)
+    }
     buildPF bld dst regType (Some cond2)
-    bld <+ (zf := AST.ite cond2 zf (t3 == n0))
+    append bld {
+      direct zf := AST.ite cond2 zf (t3 == n0)
+    }
     bld.ConditionCodeOp <- ConditionCodeOp.EFlags
     regVar bld R.OF
   | ConditionCodeOp.SARB
@@ -939,14 +1252,18 @@ let getOFLazy (bld: ILowUIRBuilder) =
     let sf = regVar bld R.SF
     let zf = regVar bld R.ZF
     let ofl = regVar bld R.OF
-    bld <+ (t1 := src1)
-    bld <+ (t2 := src2)
-    bld <+ (t3 := dst)
-    bld <+ (cf := AST.ite cond2 cf (AST.xtlo 1<rt> (t1 ?>> (t2 .- n1))))
-    bld <+ (ofl := AST.ite cond1 AST.b0 ofl)
-    bld <+ (sf := AST.ite cond2 sf (AST.xthi 1<rt> t3))
+    append bld {
+      direct t1 := src1
+      direct t2 := src2
+      direct t3 := dst
+      direct cf := AST.ite cond2 cf (AST.xtlo 1<rt> (t1 ?>> (t2 .- n1)))
+      direct ofl := AST.ite cond1 AST.b0 ofl
+      direct sf := AST.ite cond2 sf (AST.xthi 1<rt> t3)
+    }
     buildPF bld dst regType (Some cond2)
-    bld <+ (zf := AST.ite cond2 zf (t3 == n0))
+    append bld {
+      direct zf := AST.ite cond2 zf (t3 == n0)
+    }
     bld.ConditionCodeOp <- ConditionCodeOp.EFlags
     regVar bld R.OF
   | ConditionCodeOp.LOGICB
@@ -1083,9 +1400,11 @@ let getAFLazy (bld: ILowUIRBuilder) =
     let struct (t1, t2, t3) = tmpVars3 bld regType
     let src1 = getCCSrc1 bld regType
     let dst = getCCDst bld regType
-    bld <+ (t3 := dst)
-    bld <+ (t2 := src1)
-    bld <+ (t1 := t3 .+ t2)
+    append bld {
+      direct t3 := dst
+      direct t2 := src1
+      direct t1 := t3 .+ t2
+    }
     let sf = t3 ?< AST.num0 regType
     let cf = cfOnSub t1 t2
     let ofl = ofOnSub t1 t2 t3
@@ -1101,9 +1420,11 @@ let getAFLazy (bld: ILowUIRBuilder) =
     let struct (t1, t2, t3) = tmpVars3 bld regType
     let src1 = getCCSrc1 bld regType
     let dst = getCCDst bld regType
-    bld <+ (t3 := dst)
-    bld <+ (t2 := src1)
-    bld <+ (t1 := t3 .+ t2)
+    append bld {
+      direct t3 := dst
+      direct t2 := src1
+      direct t1 := t3 .+ t2
+    }
     let sf = t3 ?< AST.num0 regType
     let cf = regVar bld R.CF
     let ofl = ofOnSub t1 t2 t3
@@ -1119,9 +1440,11 @@ let getAFLazy (bld: ILowUIRBuilder) =
     let struct (t1, t2, t3) = tmpVars3 bld regType
     let src1 = getCCSrc1 bld regType
     let dst = getCCDst bld regType
-    bld <+ (t3 := dst)
-    bld <+ (t1 := src1)
-    bld <+ (t2 := t3 .- t1)
+    append bld {
+      direct t3 := dst
+      direct t1 := src1
+      direct t2 := t3 .- t1
+    }
     let cf = cfOnAdd t1 t3
     let struct (ofl, sf) = osfOnAdd t1 t2 t3 bld
     enumEFLAGS bld t1 t2 t3 regType cf ofl sf
@@ -1136,9 +1459,11 @@ let getAFLazy (bld: ILowUIRBuilder) =
     let struct (t1, t2, t3) = tmpVars3 bld regType
     let src1 = getCCSrc1 bld regType
     let dst = getCCDst bld regType
-    bld <+ (t3 := dst)
-    bld <+ (t1 := src1)
-    bld <+ (t2 := t3 .- t1)
+    append bld {
+      direct t3 := dst
+      direct t1 := src1
+      direct t2 := t3 .- t1
+    }
     let cf = regVar bld R.CF
     let struct (ofl, sf) = osfOnAdd t1 t2 t3 bld
     enumEFLAGS bld t1 t2 t3 regType cf ofl sf
@@ -1182,9 +1507,11 @@ let getPFLazy (bld: ILowUIRBuilder) =
     let struct (t1, t2, t3) = tmpVars3 bld regType
     let src1 = getCCSrc1 bld regType
     let dst = getCCDst bld regType
-    bld <+ (t3 := dst)
-    bld <+ (t2 := src1)
-    bld <+ (t1 := t3 .+ t2)
+    append bld {
+      direct t3 := dst
+      direct t2 := src1
+      direct t1 := t3 .+ t2
+    }
     let sf = t3 ?< AST.num0 regType
     let cf = cfOnSub t1 t2
     let ofl = ofOnSub t1 t2 t3
@@ -1200,9 +1527,11 @@ let getPFLazy (bld: ILowUIRBuilder) =
     let struct (t1, t2, t3) = tmpVars3 bld regType
     let src1 = getCCSrc1 bld regType
     let dst = getCCDst bld regType
-    bld <+ (t3 := dst)
-    bld <+ (t2 := src1)
-    bld <+ (t1 := t3 .+ t2)
+    append bld {
+      direct t3 := dst
+      direct t2 := src1
+      direct t1 := t3 .+ t2
+    }
     let sf = t3 ?< AST.num0 regType
     let cf = regVar bld R.CF
     let ofl = ofOnSub t1 t2 t3
@@ -1218,9 +1547,11 @@ let getPFLazy (bld: ILowUIRBuilder) =
     let struct (t1, t2, t3) = tmpVars3 bld regType
     let src1 = getCCSrc1 bld regType
     let dst = getCCDst bld regType
-    bld <+ (t3 := dst)
-    bld <+ (t1 := src1)
-    bld <+ (t2 := t3 .- t1)
+    append bld {
+      direct t3 := dst
+      direct t1 := src1
+      direct t2 := t3 .- t1
+    }
     let cf = cfOnAdd t1 t3
     let struct (ofl, sf) = osfOnAdd t1 t2 t3 bld
     enumEFLAGS bld t1 t2 t3 regType cf ofl sf
@@ -1235,9 +1566,11 @@ let getPFLazy (bld: ILowUIRBuilder) =
     let struct (t1, t2, t3) = tmpVars3 bld regType
     let src1 = getCCSrc1 bld regType
     let dst = getCCDst bld regType
-    bld <+ (t3 := dst)
-    bld <+ (t1 := src1)
-    bld <+ (t2 := t3 .- t1)
+    append bld {
+      direct t3 := dst
+      direct t1 := src1
+      direct t2 := t3 .- t1
+    }
     let cf = regVar bld R.CF
     let struct (ofl, sf) = osfOnAdd t1 t2 t3 bld
     enumEFLAGS bld t1 t2 t3 regType cf ofl sf
@@ -1262,14 +1595,18 @@ let getPFLazy (bld: ILowUIRBuilder) =
     let zf = regVar bld R.ZF
     let ofl = regVar bld R.OF
     let newOf = AST.xthi 1<rt> dst <+> cf
-    bld <+ (t1 := src1)
-    bld <+ (t2 := src2)
-    bld <+ (t3 := dst)
-    bld <+ (cf := AST.ite cond2 cf (AST.xthi 1<rt> (t1 << (t2 .- n1))))
-    bld <+ (ofl := AST.ite cond1 newOf ofl)
-    bld <+ (sf := AST.ite cond2 sf (AST.xthi 1<rt> t3))
+    append bld {
+      direct t1 := src1
+      direct t2 := src2
+      direct t3 := dst
+      direct cf := AST.ite cond2 cf (AST.xthi 1<rt> (t1 << (t2 .- n1)))
+      direct ofl := AST.ite cond1 newOf ofl
+      direct sf := AST.ite cond2 sf (AST.xthi 1<rt> t3)
+    }
     buildPF bld dst regType (Some cond2)
-    bld <+ (zf := AST.ite cond2 zf (t3 == n0))
+    append bld {
+      direct zf := AST.ite cond2 zf (t3 == n0)
+    }
     bld.ConditionCodeOp <- ConditionCodeOp.EFlags
     regVar bld R.PF
   | ConditionCodeOp.SHRB
@@ -1290,14 +1627,18 @@ let getPFLazy (bld: ILowUIRBuilder) =
     let sf = regVar bld R.SF
     let zf = regVar bld R.ZF
     let ofl = regVar bld R.OF
-    bld <+ (t1 := src1)
-    bld <+ (t2 := src2)
-    bld <+ (t3 := dst)
-    bld <+ (cf := AST.ite cond2 cf (AST.xtlo 1<rt> (t1 ?>> (t2 .- n1))))
-    bld <+ (ofl := AST.ite cond1 (AST.xthi 1<rt> t1) ofl)
-    bld <+ (sf := AST.ite cond2 sf (AST.xthi 1<rt> t3))
+    append bld {
+      direct t1 := src1
+      direct t2 := src2
+      direct t3 := dst
+      direct cf := AST.ite cond2 cf (AST.xtlo 1<rt> (t1 ?>> (t2 .- n1)))
+      direct ofl := AST.ite cond1 (AST.xthi 1<rt> t1) ofl
+      direct sf := AST.ite cond2 sf (AST.xthi 1<rt> t3)
+    }
     buildPF bld dst regType (Some cond2)
-    bld <+ (zf := AST.ite cond2 zf (t3 == n0))
+    append bld {
+      direct zf := AST.ite cond2 zf (t3 == n0)
+    }
     bld.ConditionCodeOp <- ConditionCodeOp.EFlags
     regVar bld R.PF
   | ConditionCodeOp.SARB
@@ -1318,14 +1659,18 @@ let getPFLazy (bld: ILowUIRBuilder) =
     let sf = regVar bld R.SF
     let zf = regVar bld R.ZF
     let ofl = regVar bld R.OF
-    bld <+ (t1 := src1)
-    bld <+ (t2 := src2)
-    bld <+ (t3 := dst)
-    bld <+ (cf := AST.ite cond2 cf (AST.xtlo 1<rt> (t1 ?>> (t2 .- n1))))
-    bld <+ (ofl := AST.ite cond1 AST.b0 ofl)
-    bld <+ (sf := AST.ite cond2 sf (AST.xthi 1<rt> t3))
+    append bld {
+      direct t1 := src1
+      direct t2 := src2
+      direct t3 := dst
+      direct cf := AST.ite cond2 cf (AST.xtlo 1<rt> (t1 ?>> (t2 .- n1)))
+      direct ofl := AST.ite cond1 AST.b0 ofl
+      direct sf := AST.ite cond2 sf (AST.xthi 1<rt> t3)
+    }
     buildPF bld dst regType (Some cond2)
-    bld <+ (zf := AST.ite cond2 zf (t3 == n0))
+    append bld {
+      direct zf := AST.ite cond2 zf (t3 == n0)
+    }
     bld.ConditionCodeOp <- ConditionCodeOp.EFlags
     regVar bld R.PF
   | ConditionCodeOp.LOGICB
@@ -1335,11 +1680,15 @@ let getPFLazy (bld: ILowUIRBuilder) =
     let size = 1 <<< ((int ccOp - int ConditionCodeOp.SUBB) &&& 0b11)
     let regType = RegType.fromByteWidth size
     let t = getCCDst bld regType
-    bld <+ (regVar bld R.SF := AST.xthi 1<rt> t)
-    bld <+ (regVar bld R.ZF := t == (AST.num0 regType))
+    append bld {
+      direct (regVar bld R.SF) := AST.xthi 1<rt> t
+      direct (regVar bld R.ZF) := t == (AST.num0 regType)
+    }
     buildPF bld t regType None
-    bld <+ (regVar bld R.CF := AST.b0)
-    bld <+ (regVar bld R.OF := AST.b0)
+    append bld {
+      direct (regVar bld R.CF) := AST.b0
+      direct (regVar bld R.OF) := AST.b0
+    }
     bld.ConditionCodeOp <- ConditionCodeOp.EFlags
     regVar bld R.PF
   | ConditionCodeOp.XORXX ->

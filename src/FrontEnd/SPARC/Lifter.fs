@@ -29,348 +29,348 @@ open B2R2.FrontEnd.SPARC
 open B2R2.FrontEnd.SPARC.GeneralLifter
 
 /// Translate IR.
-let translate (ins: Instruction) insLen bld =
+let translate (ins: Instruction) bld =
   match ins.Opcode with
   | Opcode.ADD ->
-    add ins insLen bld
+    add ins bld
   | Opcode.ADDcc ->
-    addcc ins insLen bld
+    addcc ins bld
   | Opcode.ADDC ->
-    addC ins insLen bld
+    addC ins bld
   | Opcode.ADDCcc ->
-    addCcc ins insLen bld
+    addCcc ins bld
   | Opcode.AND ->
-    ``and`` ins insLen bld
+    ``and`` ins bld
   | Opcode.ANDcc ->
-    andcc ins insLen bld
+    andcc ins bld
   | Opcode.ANDN ->
-    andn ins insLen bld
+    andn ins bld
   | Opcode.ANDNcc ->
-    andncc ins insLen bld
+    andncc ins bld
   | Opcode.BPA | Opcode.BPN | Opcode.BPNE | Opcode.BPE | Opcode.BPG
   | Opcode.BPLE | Opcode.BPGE | Opcode.BPL | Opcode.BPGU | Opcode.BPLEU
   | Opcode.BPCC | Opcode.BPCS | Opcode.BPPOS | Opcode.BPNEG | Opcode.BPVC
   | Opcode.BPVS ->
-    branchpcc ins insLen bld
+    branchpcc ins bld
   | Opcode.BA | Opcode.BN | Opcode.BNE | Opcode.BE | Opcode.BG
   | Opcode.BLE | Opcode.BGE | Opcode.BL | Opcode.BGU | Opcode.BLEU
   | Opcode.BCC | Opcode.BCS | Opcode.BPOS | Opcode.BNEG | Opcode.BVC
   | Opcode.BVS ->
-    branchicc ins insLen bld
+    branchicc ins bld
   | Opcode.BRZ | Opcode.BRLEZ | Opcode.BRLZ | Opcode.BRNZ | Opcode.BRGZ
   | Opcode.BRGEZ ->
-    branchpr ins insLen bld
+    branchpr ins bld
   | Opcode.CALL ->
-    call ins insLen bld
+    call ins bld
   | Opcode.CASA ->
-    casa ins insLen bld
+    casa ins bld
   | Opcode.CASXA ->
-    casxa ins insLen bld
+    casxa ins bld
   | Opcode.DONE ->
-    ``done`` ins insLen bld
+    ``done`` ins bld
   | Opcode.FABSs ->
-    fabss ins insLen bld
+    fabss ins bld
   | Opcode.FABSd ->
-    fabsd ins insLen bld
+    fabsd ins bld
   | Opcode.FABSq ->
-    fabsq ins insLen bld
+    fabsq ins bld
   | Opcode.FADDs ->
-    fadds ins insLen bld
+    fadds ins bld
   | Opcode.FADDd ->
-    faddd ins insLen bld
+    faddd ins bld
   | Opcode.FADDq ->
-    faddq ins insLen bld
+    faddq ins bld
   | Opcode.FBA | Opcode.FBN | Opcode.FBU | Opcode.FBG | Opcode.FBUG
   | Opcode.FBL | Opcode.FBUL | Opcode.FBLG | Opcode.FBNE | Opcode.FBE
   | Opcode.FBUE | Opcode.FBGE | Opcode.FBUGE | Opcode.FBLE | Opcode.FBULE
   | Opcode.FBO ->
-    fbranchfcc ins insLen bld
+    fbranchfcc ins bld
   | Opcode.FBPA | Opcode.FBPN | Opcode.FBPU | Opcode.FBPG | Opcode.FBPUG
   | Opcode.FBPL | Opcode.FBPUL | Opcode.FBPLG | Opcode.FBPNE | Opcode.FBPE
   | Opcode.FBPUE | Opcode.FBPGE | Opcode.FBPUGE | Opcode.FBPLE | Opcode.FBPULE
   | Opcode.FBPO ->
-    fbranchpfcc ins insLen bld
+    fbranchpfcc ins bld
   | Opcode.FCMPs | Opcode.FCMPEs ->
-    fcmps ins insLen bld
+    fcmps ins bld
   | Opcode.FCMPd | Opcode.FCMPEd ->
-    fcmpd ins insLen bld
+    fcmpd ins bld
   | Opcode.FCMPq | Opcode.FCMPEq ->
-    fcmpq ins insLen bld
+    fcmpq ins bld
   | Opcode.FDIVs ->
-    fdivs ins insLen bld
+    fdivs ins bld
   | Opcode.FDIVd ->
-    fdivd ins insLen bld
+    fdivd ins bld
   | Opcode.FDIVq ->
-    fdivq ins insLen bld
+    fdivq ins bld
   | Opcode.FiTOs ->
-    fitos ins insLen bld
+    fitos ins bld
   | Opcode.FiTOd ->
-    fitod ins insLen bld
+    fitod ins bld
   | Opcode.FiTOq ->
-    fitoq ins insLen bld
+    fitoq ins bld
   | Opcode.FMOVs ->
-    fmovs ins insLen bld
+    fmovs ins bld
   | Opcode.FMOVd ->
-    fmovd ins insLen bld
+    fmovd ins bld
   | Opcode.FMOVq ->
-    fmovq ins insLen bld
+    fmovq ins bld
   (* Fix Me *)
   | Opcode.FMOVsA | Opcode.FMOVsN | Opcode.FMOVsNE | Opcode.FMOVsE
   | Opcode.FMOVsG   | Opcode.FMOVsLE | Opcode.FMOVsGE | Opcode.FMOVsL
   | Opcode.FMOVsGU | Opcode.FMOVsLEU | Opcode.FMOVsCC | Opcode.FMOVsCS
   | Opcode.FMOVsPOS | Opcode.FMOVsNEG | Opcode.FMOVsVC | Opcode.FMOVsVS ->
-    fmovscc ins insLen bld
+    fmovscc ins bld
   | Opcode.FMOVdA | Opcode.FMOVdN | Opcode.FMOVdNE | Opcode.FMOVdE
   | Opcode.FMOVdG | Opcode.FMOVdLE | Opcode.FMOVdGE | Opcode.FMOVdL
   | Opcode.FMOVdGU | Opcode.FMOVdLEU | Opcode.FMOVdCC | Opcode.FMOVdCS
   | Opcode.FMOVdPOS | Opcode.FMOVdNEG | Opcode.FMOVdVC | Opcode.FMOVdVS ->
-    fmovdcc ins insLen bld
+    fmovdcc ins bld
   | Opcode.FMOVqA | Opcode.FMOVqN | Opcode.FMOVqNE | Opcode.FMOVqE
   | Opcode.FMOVqG | Opcode.FMOVqLE | Opcode.FMOVqGE | Opcode.FMOVqL
   | Opcode.FMOVqGU | Opcode.FMOVqLEU | Opcode.FMOVqCC | Opcode.FMOVqCS
   | Opcode.FMOVqPOS | Opcode.FMOVqNEG | Opcode.FMOVqVC | Opcode.FMOVqVS ->
-    fmovqcc ins insLen bld
+    fmovqcc ins bld
   | Opcode.FMOVFsA | Opcode.FMOVFsN | Opcode.FMOVFsU | Opcode.FMOVFsG
   | Opcode.FMOVFsUG | Opcode.FMOVFsL | Opcode.FMOVFsUL | Opcode.FMOVFsLG
   | Opcode.FMOVFsNE | Opcode.FMOVFsE | Opcode.FMOVFsUE | Opcode.FMOVFsGE
   | Opcode.FMOVFsUGE | Opcode.FMOVFsLE | Opcode.FMOVFsULE | Opcode.FMOVFsO ->
-    fmovfscc ins insLen bld
+    fmovfscc ins bld
   | Opcode.FMOVFdA | Opcode.FMOVFdN | Opcode.FMOVFdU | Opcode.FMOVFdG
   | Opcode.FMOVFdUG | Opcode.FMOVFdL | Opcode.FMOVFdUL | Opcode.FMOVFdLG
   | Opcode.FMOVFdNE | Opcode.FMOVFdE | Opcode.FMOVFdUE | Opcode.FMOVFdGE
   | Opcode.FMOVFdUGE | Opcode.FMOVFdLE | Opcode.FMOVFdULE | Opcode.FMOVFdO ->
-    fmovfdcc ins insLen bld
+    fmovfdcc ins bld
   | Opcode.FMOVFqA | Opcode.FMOVFqN | Opcode.FMOVFqU | Opcode.FMOVFqG
   | Opcode.FMOVFqUG | Opcode.FMOVFqL | Opcode.FMOVFqUL | Opcode.FMOVFqLG
   | Opcode.FMOVFqNE | Opcode.FMOVFqE | Opcode.FMOVFqUE | Opcode.FMOVFqGE
   | Opcode.FMOVFqUGE | Opcode.FMOVFqLE | Opcode.FMOVFqULE | Opcode.FMOVFqO ->
-    fmovfqcc ins insLen bld
+    fmovfqcc ins bld
   | Opcode.FMOVRsZ | Opcode.FMOVRsLEZ | Opcode.FMOVRsLZ | Opcode.FMOVRsNZ
   | Opcode.FMOVRsGZ | Opcode.FMOVRsGEZ ->
-    fmovrs ins insLen bld
+    fmovrs ins bld
   | Opcode.FMOVRdZ | Opcode.FMOVRdLEZ | Opcode.FMOVRdLZ | Opcode.FMOVRdNZ
   | Opcode.FMOVRdGZ | Opcode.FMOVRdGEZ ->
-    fmovrd ins insLen bld
+    fmovrd ins bld
   | Opcode.FMOVRqZ | Opcode.FMOVRqLEZ | Opcode.FMOVRqLZ | Opcode.FMOVRqNZ
   | Opcode.FMOVRqGZ | Opcode.FMOVRqGEZ ->
-    fmovrq ins insLen bld
+    fmovrq ins bld
   | Opcode.FMULs ->
-    fmuls ins insLen bld
+    fmuls ins bld
   | Opcode.FMULd ->
-    fmuld ins insLen bld
+    fmuld ins bld
   | Opcode.FMULq ->
-    fmulq ins insLen bld
+    fmulq ins bld
   | Opcode.FNEGs ->
-    fnegs ins insLen bld
+    fnegs ins bld
   | Opcode.FNEGd ->
-    fnegd ins insLen bld
+    fnegd ins bld
   | Opcode.FNEGq ->
-    fnegq ins insLen bld
+    fnegq ins bld
   | Opcode.FsMULd ->
-    fsmuld ins insLen bld
+    fsmuld ins bld
   | Opcode.FdMULq ->
-    fdmulq ins insLen bld
+    fdmulq ins bld
   | Opcode.FSQRTs ->
-    fsqrts ins insLen bld
+    fsqrts ins bld
   | Opcode.FSQRTd ->
-    fsqrtd ins insLen bld
+    fsqrtd ins bld
   | Opcode.FSQRTq ->
-    fsqrtq ins insLen bld
+    fsqrtq ins bld
   | Opcode.FsTOx ->
-    fstox ins insLen bld
+    fstox ins bld
   | Opcode.FdTOx ->
-    fdtox ins insLen bld
+    fdtox ins bld
   | Opcode.FqTOx ->
-    fqtox ins insLen bld
+    fqtox ins bld
   | Opcode.FsTOi ->
-    fstoi ins insLen bld
+    fstoi ins bld
   | Opcode.FdTOi ->
-    fdtoi ins insLen bld
+    fdtoi ins bld
   | Opcode.FqTOi ->
-    fqtoi ins insLen bld
+    fqtoi ins bld
   | Opcode.FsTOd ->
-    fstod ins insLen bld
+    fstod ins bld
   | Opcode.FsTOq ->
-    fstoq ins insLen bld
+    fstoq ins bld
   | Opcode.FdTOs ->
-    fdtos ins insLen bld
+    fdtos ins bld
   | Opcode.FdTOq ->
-    fdtoq ins insLen bld
+    fdtoq ins bld
   | Opcode.FqTOs ->
-    fqtos ins insLen bld
+    fqtos ins bld
   | Opcode.FqTOd ->
-    fqtod ins insLen bld
+    fqtod ins bld
   | Opcode.FSUBs ->
-    fsubs ins insLen bld
+    fsubs ins bld
   | Opcode.FSUBd ->
-    fsubd ins insLen bld
+    fsubd ins bld
   | Opcode.FSUBq ->
-    fsubq ins insLen bld
+    fsubq ins bld
   | Opcode.FxTOs ->
-    fxtos ins insLen bld
+    fxtos ins bld
   | Opcode.FxTOd ->
-    fxtod ins insLen bld
+    fxtod ins bld
   | Opcode.FxTOq ->
-    fxtoq ins insLen bld
+    fxtoq ins bld
   | Opcode.JMPL ->
-    jmpl ins insLen bld
+    jmpl ins bld
   | Opcode.LDF | Opcode.LDDF | Opcode.LDQF | Opcode.LDFSR
   | Opcode.LDXFSR ->
-    ldf ins insLen bld
+    ldf ins bld
   | Opcode.LDFA | Opcode.LDDFA | Opcode.LDQFA ->
-    ldfa ins insLen bld
+    ldfa ins bld
   | Opcode.LDSB | Opcode.LDSH | Opcode.LDSW | Opcode.LDUB | Opcode.LDUH
   | Opcode.LDUW | Opcode.LDX | Opcode.LDD ->
-    ld ins insLen bld
+    ld ins bld
   | Opcode.LDSBA | Opcode.LDSHA | Opcode.LDSWA | Opcode.LDUBA | Opcode.LDUHA
   | Opcode.LDUWA | Opcode.LDXA | Opcode.LDDA ->
-    lda ins insLen bld
+    lda ins bld
   | Opcode.LDSTUB ->
-    ldstub ins insLen bld
+    ldstub ins bld
   | Opcode.LDSTUBA ->
-    ldstuba ins insLen bld
+    ldstuba ins bld
   | Opcode.MEMBAR ->
-    membar ins insLen bld
+    membar ins bld
   | Opcode.MOVA | Opcode.MOVN | Opcode.MOVNE | Opcode.MOVE | Opcode.MOVG
   | Opcode.MOVLE | Opcode.MOVGE | Opcode.MOVL | Opcode.MOVGU | Opcode.MOVLEU
   | Opcode.MOVCC | Opcode.MOVCS | Opcode.MOVPOS | Opcode.MOVNEG | Opcode.MOVVC
   | Opcode.MOVVS ->
-    movcc ins insLen bld
+    movcc ins bld
   | Opcode.MOVFA | Opcode.MOVFN | Opcode.MOVFU | Opcode.MOVFG | Opcode.MOVFUG
   | Opcode.MOVFL  | Opcode.MOVFUL | Opcode.MOVFLG | Opcode.MOVFNE
   | Opcode.MOVFE | Opcode.MOVFUE | Opcode.MOVFGE | Opcode.MOVFUGE
   | Opcode.MOVFLE | Opcode.MOVFULE | Opcode.MOVFO ->
-    movcc ins insLen bld
+    movcc ins bld
   | Opcode.MOVRZ | Opcode.MOVRLEZ | Opcode.MOVRLZ | Opcode.MOVRNZ
   | Opcode.MOVRGZ | Opcode.MOVRGEZ ->
-    movr ins insLen bld
+    movr ins bld
   | Opcode.MULScc ->
-    mulscc ins insLen bld
+    mulscc ins bld
   | Opcode.MULX ->
-    mulx ins insLen bld
+    mulx ins bld
   | Opcode.NOP ->
-    nop ins insLen bld
+    nop ins bld
   | Opcode.OR ->
-    ``or`` ins insLen bld
+    ``or`` ins bld
   | Opcode.ORcc ->
-    orcc ins insLen bld
+    orcc ins bld
   | Opcode.ORN ->
-    orn ins insLen bld
+    orn ins bld
   | Opcode.ORNcc ->
-    orncc ins insLen bld
+    orncc ins bld
   | Opcode.POPC ->
-    popc ins insLen bld
+    popc ins bld
   | Opcode.PREFETCH | Opcode.PREFETCHA ->
-    nop ins insLen bld
+    nop ins bld
   | Opcode.RDASI | Opcode.RDASR | Opcode.RDCCR | Opcode.RDFPRS | Opcode.RDPC
   | Opcode.RDTICK | Opcode.RDY | Opcode.RDPR ->
-    rd ins insLen bld
+    rd ins bld
   | Opcode.RESTORE ->
-    restore ins insLen bld
+    restore ins bld
   | Opcode.RESTORED ->
-    restored ins insLen bld
+    restored ins bld
   | Opcode.RETRY ->
-    retry ins insLen bld
+    retry ins bld
   | Opcode.RETURN ->
-    ret ins insLen bld
+    ret ins bld
   | Opcode.SAVE ->
-    save ins insLen bld
+    save ins bld
   | Opcode.SAVED ->
-    saved ins insLen bld
+    saved ins bld
   | Opcode.SDIVX ->
-    sdivx ins insLen bld
+    sdivx ins bld
   | Opcode.SETHI ->
-    sethi ins insLen bld
+    sethi ins bld
   | Opcode.SIR ->
-    nop ins insLen bld
+    nop ins bld
   | Opcode.SLL
   | Opcode.SLLX ->
-    sll ins insLen bld
+    sll ins bld
   | Opcode.SMUL ->
-    smul ins insLen bld
+    smul ins bld
   | Opcode.SMULcc ->
-    smulcc ins insLen bld
+    smulcc ins bld
   | Opcode.SRA
   | Opcode.SRAX ->
-    sra ins insLen bld
+    sra ins bld
   | Opcode.SRL
   | Opcode.SRLX ->
-    srl ins insLen bld
+    srl ins bld
   | Opcode.STB | Opcode.STH | Opcode.STW | Opcode.STX | Opcode.STD ->
-      st ins insLen bld
+      st ins bld
   | Opcode.STBA | Opcode.STHA | Opcode.STWA | Opcode.STXA | Opcode.STDA ->
-      sta ins insLen bld
+      sta ins bld
   | Opcode.STBAR ->
-    nop ins insLen bld
+    nop ins bld
   | Opcode.STF | Opcode.STDF | Opcode.STQF | Opcode.STFSR | Opcode.STXFSR ->
-      stf ins insLen bld
+      stf ins bld
   | Opcode.STFA | Opcode.STDFA | Opcode.STQFA ->
-    stfa ins insLen bld
+    stfa ins bld
   | Opcode.SUB ->
-    sub ins insLen bld
+    sub ins bld
   | Opcode.SUBcc ->
-    subcc ins insLen bld
+    subcc ins bld
   | Opcode.SUBC ->
-    subC ins insLen bld
+    subC ins bld
   | Opcode.SUBCcc ->
-    subCcc ins insLen bld
+    subCcc ins bld
   | Opcode.SWAP ->
-    swap ins insLen bld
+    swap ins bld
   | Opcode.SWAPA ->
-    swapa ins insLen bld
+    swapa ins bld
   | Opcode.TADDcc ->
-    addcc ins insLen bld
+    addcc ins bld
   | Opcode.TADDccTV ->
-    addcc ins insLen bld
+    addcc ins bld
   | Opcode.TA ->
-    tcc ins insLen bld
+    tcc ins bld
   | Opcode.TN | Opcode.TNE | Opcode.TE | Opcode.TG | Opcode.TLE
   | Opcode.TGE | Opcode.TL | Opcode.TGU | Opcode.TLEU | Opcode.TCC | Opcode.TCS
   | Opcode.TPOS | Opcode.TNEG | Opcode.TVC | Opcode.TVS ->
-    nop ins insLen bld
+    nop ins bld
   | Opcode.TSUBcc ->
-    subcc ins insLen bld
+    subcc ins bld
   | Opcode.TSUBccTV ->
-    subcc ins insLen bld
+    subcc ins bld
   | Opcode.UDIVX ->
-    udivx ins insLen bld
+    udivx ins bld
   | Opcode.UMUL ->
-    umul ins insLen bld
+    umul ins bld
   | Opcode.UMULcc ->
-    umulcc ins insLen bld
+    umulcc ins bld
   | Opcode.WRASI | Opcode.WRASR | Opcode.WRCCR | Opcode.WRFPRS | Opcode.WRPR
   | Opcode.WRY ->
-    wr ins insLen bld
+    wr ins bld
   | Opcode.XOR ->
-    xor ins insLen bld
+    xor ins bld
   | Opcode.XORcc ->
-    xorcc ins insLen bld
+    xorcc ins bld
   | Opcode.XNOR ->
-    xnor ins insLen bld
+    xnor ins bld
   | Opcode.XNORcc ->
-    xnorcc ins insLen bld
+    xnorcc ins bld
   | Opcode.SDIV ->
-    sdiv ins insLen bld
+    sdiv ins bld
   | Opcode.SDIVcc ->
-    sdivcc ins insLen bld
+    sdivcc ins bld
   | Opcode.UDIV ->
-    udiv ins insLen bld
+    udiv ins bld
   | Opcode.UDIVcc ->
-    udivcc ins insLen bld
+    udivcc ins bld
   | Opcode.FZEROd | Opcode.FONEd | Opcode.FSRC1d | Opcode.FSRC2d
   | Opcode.FNOT1d | Opcode.FNOT2d | Opcode.FORd | Opcode.FNORd
   | Opcode.FANDd | Opcode.FNANDd | Opcode.FXORd | Opcode.FXNORd
   | Opcode.FORNOT1d | Opcode.FORNOT2d | Opcode.FANDNOT1d
   | Opcode.FANDNOT2d ->
-    visLogic ins insLen bld
+    visLogic ins bld
   | Opcode.ALIGNADDR | Opcode.ALIGNADDRL ->
-    alignaddr ins insLen bld
+    alignaddr ins bld
   | Opcode.FALIGNDATAd ->
-    faligndata ins insLen bld
+    faligndata ins bld
   | Opcode.FLUSH | Opcode.ILLTRAP ->
-    nop ins insLen bld
+    nop ins bld
   | Opcode.FLUSHW ->
-    flushw ins insLen bld
+    flushw ins bld
   (* No parser produces this opcode: an undecodable encoding is reported as a
      parsing failure, so an instruction never carries it this far. *)
   | Opcode.InvalidOp ->

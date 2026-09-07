@@ -423,6 +423,35 @@ type IntelRoundTripTests() =
       "These SSE or string operand shapes no longer encode correctly."
     )
 
+  /// SSE4a says which field EXTRQ and INSERTQ act on either as two immediate
+  /// bytes or as a source register carrying the same two numbers, and its two
+  /// stores write one element of a register rather than all of it. The sweep
+  /// reaches each of those shapes from one byte pattern only, so all of them
+  /// are here.
+  [<TestMethod>]
+  member _.``Every SSE4a opcode encodes every shape correctly``() =
+    let wrong =
+      [ WordSize.Bit32, "extrq xmm1, 0x11, 0x22"
+        WordSize.Bit32, "extrq xmm0, xmm1"
+        WordSize.Bit32, "insertq xmm0, xmm1, 0x11, 0x22"
+        WordSize.Bit32, "insertq xmm0, xmm1"
+        WordSize.Bit32, "movntss dword ptr [ecx], xmm2"
+        WordSize.Bit32, "movntss dword ptr [ecx+edx*4+0x10], xmm2"
+        WordSize.Bit32, "movntsd qword ptr [ecx], xmm2"
+        WordSize.Bit32, "movntsd qword ptr [ecx+edx*4+0x10], xmm2"
+        WordSize.Bit64, "extrq xmm9, 0x11, 0x22"
+        WordSize.Bit64, "extrq xmm8, xmm9"
+        WordSize.Bit64, "insertq xmm8, xmm9, 0x11, 0x22"
+        WordSize.Bit64, "insertq xmm8, xmm9"
+        WordSize.Bit64, "movntss dword ptr [r9+r10*8+0x20], xmm8"
+        WordSize.Bit64, "movntsd qword ptr [r9+r10*8+0x20], xmm8" ]
+      |> brokenSources
+    Assert.AreEqual<string>(
+      "",
+      String.concat "\n" wrong,
+      "These SSE4a operand shapes no longer encode correctly."
+    )
+
   /// The control register moves select their register with the ModRM.reg field,
   /// and the indices the manual reserves - CR1, and CR5 to CR7 - name no
   /// register, so the decoder rejects them rather than reading past the end of

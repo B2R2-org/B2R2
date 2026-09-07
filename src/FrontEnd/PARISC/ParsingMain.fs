@@ -550,7 +550,7 @@ let private parseBranchExternal bin isLink wordSz =
     let cmplt = if onStack then Some [| POP |] else None
     Op.BVE, cmplt, condN, getMemBase bin wordSz
 
-let parseUnconditionalBranchInstuction bin wordSz =
+let parseUnconditionalBranchInstruction bin wordSz =
   let condN = if Bits.pick bin 1u = 1u then Some N else None
   match Bits.extract bin 15u 13u, Bits.pick bin 12u with
   | 0b000u, _ ->
@@ -965,7 +965,7 @@ let private parseInstruction bin wordSz =
     parseMultimediaInstruction bin
   | 0b111010u ->
     let opcode, completer, cond, operands =
-      parseUnconditionalBranchInstuction bin wordSz
+      parseUnconditionalBranchInstruction bin wordSz
     opcode, completer, cond, None, operands
   | 0b001001u | 0b001011u ->
     parseCoprocessorLoadStoreInstruction bin wordSz

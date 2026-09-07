@@ -64,18 +64,21 @@ type IntelParser(wordSz, reader) =
 
   let lifter =
     { new ILiftable with
-        member _.Lift(ins, builder) = Lifter.translate ins ins.Length builder
+        member _.Lift(ins, builder) = Lifter.translate ins builder
         member _.Disasm(ins, builder) = disasm.Invoke(builder, ins); builder }
 
   let phlp = ParsingHelper(reader, wordSz, lifter)
 
-  /// Returns true when EVEX.b on a register form selects a rounding mode. L'L
-  /// then holds that mode rather than the vector length, so only the variant
-  /// offering {er} can match. See Intel SDM Vol. 2A, Section 2.6.7.
+  /// Returns true when EVEX.b on a register form spends L'L. It does so under
+  /// either reading: {er} puts the rounding mode there, and {sae} leaves it
+  /// holding nothing -- the assembler will not encode a {sae} form at any
+  /// length but 512, and reads L'L back as none of the length. So only a
+  /// variant offering one of the two can match. See Intel SDM Vol. 2A,
+  /// Sections 2.6.7 and 2.6.8.
   let usesStaticRounding (phlp: ParsingHelper) modRM (row: Row) =
     match phlp.VEXInfo with
     | Some { EVEXPrx = Some evex } when evex.B = 1uy ->
-      Operands.modIsReg modRM && row.SlotDeclaresER
+      Operands.modIsReg modRM && row.SlotDeclaresRC
     | _ ->
       false
 
@@ -94,12 +97,12 @@ type IntelParser(wordSz, reader) =
 
   /// Returns true when the VEX/EVEX vector length satisfies the row's
   /// vector-length constraint (or the constraint is absent). With EVEX.b
-  /// selecting a rounding mode that question is asked first: EVEX.b spends
-  /// L'L on the rounding mode, so the row offering {er} answers whether or
-  /// not the row constrains the length.
+  /// spending L'L that question is asked first: the length is no longer
+  /// encoded there, so the row offering {er} or {sae} answers whether or not
+  /// the row constrains the length.
   let matchVectorLength isRounding vex (row: Row) =
     if isRounding then
-      row.DeclaresER
+      row.RCDecor <> NoRounding
     else
       row.VectorLength = VectorLength.None
       || matchDeclaredVectorLength vex row
@@ -196,6 +199,37 @@ type IntelParser(wordSz, reader) =
     | Some { EVEXPrx = Some evex } when evex.AAA = 0uy -> not row.UsesVSIB
     | _ -> true
 
+  /// Returns true when the destination this encoding actually names is one a
+  /// masked write zeroes. The manual gives #UD for EVEX.z on a store, on a
+  /// gather or a scatter, and where the destination is a mask register (Vol.
+  /// 2A, Table 2-42): a store leaves the memory it skips alone, a gather
+  /// records its progress in the mask rather than in the destination, and a
+  /// mask register is merged into. Whether a store is what was written takes
+  /// ModRM as well as the row -- VMOVDQU32's store reads xmm2/m128, and its
+  /// register form zeroes like any other. Zeroing with no mask at all is
+  /// turned away earlier, where the prefix is read.
+  let matchZeroing (vex: VEXInfo option) modRM (row: Row) =
+    match vex with
+    | Some { EVEXPrx = Some evex } when evex.Z = Zeroing ->
+      not row.UsesVSIB
+      && not row.DestIsMaskReg
+      && not (row.HasMemoryDest && Operands.modIsMemory modRM)
+    | _ ->
+      true
+
+  /// Returns true unless EVEX.aaa names a mask over a destination that cannot
+  /// carry one. A general-purpose destination has no lanes for a mask to name,
+  /// which is the part of the manual's rule the table can answer; see
+  /// InstructionTable.destRegCanBeMasked for the part it cannot. A memory
+  /// destination says nothing either way and is left alone.
+  let matchMaskableDest (vex: VEXInfo option) modRM (row: Row) =
+    match vex with
+    | Some { EVEXPrx = Some evex } when evex.AAA <> 0uy ->
+      (row.HasMemoryDest && Operands.modIsMemory modRM)
+      || row.DestRegCanBeMasked
+    | _ ->
+      true
+
   /// Returns true unless a LOCK prefix sits where it cannot: on an
   /// instruction outside the list, or on a form whose destination is a
   /// register rather than memory.
@@ -205,7 +239,7 @@ type IntelParser(wordSz, reader) =
 
   /// Returns true when the constraints the accept mask leaves for parse time
   /// hold: the legacy 66h under a VEX prefix, the vector length, JCXZ's
-  /// address size, NOP's REX.B, a gather's opmask and LOCK's destination.
+  /// address size, NOP's REX.B, the opmask fields and LOCK's destination.
   /// Together they turn away under two percent of the candidates that reach
   /// them; JCXZ's address size rejected two in 385,588 instructions.
   let matchRareConstraints (phlp: ParsingHelper) isRounding modRM (row: Row) =
@@ -214,6 +248,8 @@ type IntelParser(wordSz, reader) =
     && (not row.IsE3 || matchJcxzAddrSize phlp row)
     && matchNopAlias phlp row
     && (phlp.VEXInfo.IsNone || matchGatherMask phlp.VEXInfo row)
+    && (phlp.VEXInfo.IsNone || matchZeroing phlp.VEXInfo modRM row)
+    && (phlp.VEXInfo.IsNone || matchMaskableDest phlp.VEXInfo modRM row)
     && matchLock phlp modRM row
 
   /// Returns true when every constraint the row declares holds for the bytes
@@ -303,6 +339,24 @@ type IntelParser(wordSz, reader) =
     | ort ->
       failwithf "Invalid OprRegType for a short register: %A" ort
 
+  /// Parses an operand that names an opmask register. In 64-bit mode a prefix
+  /// bit that would carry the field past the eight registers that exist makes
+  /// the encoding #UD rather than naming a ninth: the manual says so for the
+  /// two bits that extend ModRM.reg (Vol. 2A, Table 2-41) and for a vvvv that
+  /// reaches one (Table 2-42). Outside 64-bit mode the same bits are ignored
+  /// rather than invalid, and the bits that extend r/m are ignored in either
+  /// mode, so neither can name a register that is not there.
+  let parseOpMaskOperand (phlp: ParsingHelper) modRM field =
+    let rex = phlp.REXPrefix
+    let extendsReg = REXPrefix.hasR rex || REXPrefix.hasEVEXR rex
+    if not (ParsingHelper.Is64bit phlp) then
+      shortRegIndex phlp modRM field &&& 0b111
+      |> OperandParsers.parseOpMaskReg
+    elif field = RegBit && extendsReg then
+      raise ParsingFailureException
+    else
+      shortRegIndex phlp modRM field |> OperandParsers.parseOpMaskReg
+
   /// Parses one register operand named by the given field.
   let parseRegOperand span (phlp: ParsingHelper) modRM opByte sz =
     function
@@ -383,7 +437,12 @@ type IntelParser(wordSz, reader) =
       OperandParsers.parseMemOrReg modRM span phlp
     | OprKind.RMBroadcast ->
       setupOprContext phlp o.Size o.MemSize
-      phlp.BroadcastSize <- o.BcstSize
+      (* Only the memory form broadcasts. The register form of the same
+         descriptor reads a whole vector, and there EVEX.b names a rounding
+         mode instead, so recording a width for it would claim a broadcast the
+         encoding does not have. *)
+      if Operands.modIsMemory modRM then phlp.BroadcastSize <- o.BcstSize
+      else ()
       OperandParsers.parseMemOrReg modRM span phlp
     | OprKind.MemVSIB ->
       parseVSIBOperand span phlp modRM o.Size
@@ -424,7 +483,7 @@ type IntelParser(wordSz, reader) =
     | OprKind.BndReg ->
       OperandParsers.parseBoundRegister (Operands.getReg modRM)
     | OprKind.OpMaskReg ->
-      shortRegIndex phlp modRM o.Field |> OperandParsers.parseOpMaskReg
+      parseOpMaskOperand phlp modRM o.Field
     | OprKind.KM ->
       setupOprContext phlp o.Size o.Size
       if Operands.modIsReg modRM then
@@ -572,6 +631,37 @@ type IntelParser(wordSz, reader) =
     | _ ->
       failwith "Invalid number of operands."
 
+  /// Carries the broadcast width the operands declared into the EVEX prefix,
+  /// where the lifter and the disassembler can reach it. The prefix bytes are
+  /// read before the operands are, so the field cannot be filled in where the
+  /// rest of the prefix is; nothing but the operand knows how wide one
+  /// broadcast element is. Instructions that broadcast nothing keep the prefix
+  /// they were parsed with.
+  let recordBroadcastWidth (phlp: ParsingHelper) =
+    if phlp.BroadcastSize = 0<rt> then
+      ()
+    else
+      match phlp.VEXInfo with
+      | Some({ EVEXPrx = Some ePrx } as vInfo) ->
+        let ePrx = { ePrx with BcstElemSize = phlp.BroadcastSize }
+        phlp.VEXInfo <- Some { vInfo with EVEXPrx = Some ePrx }
+      | _ ->
+        ()
+
+  /// Carries which reading EVEX.b took into the EVEX prefix, for the same
+  /// reason the broadcast width goes there: the bit is shared, and only the
+  /// row the matcher settled on says whether it named a rounding mode, an
+  /// exception suppression, or a broadcast. Left alone unless the bit is set
+  /// on a register form, which is the only place the first two can occur.
+  let recordRoundingDecor (phlp: ParsingHelper) modRM (row: Row) =
+    match phlp.VEXInfo with
+    | Some({ EVEXPrx = Some ePrx } as vInfo) when
+        ePrx.B = 1uy && Operands.modIsReg modRM ->
+      let ePrx = { ePrx with RCDecor = row.RCDecor }
+      phlp.VEXInfo <- Some { vInfo with EVEXPrx = Some ePrx }
+    | _ ->
+      ()
+
   /// Reads the ModRM byte if required, then parses all operand descriptors
   /// and returns the assembled Operands value.
   let parseAllOperands span (phlp: ParsingHelper) (row: Row) =
@@ -591,6 +681,8 @@ type IntelParser(wordSz, reader) =
     else
       let operands = parseOperands span phlp row modRM
       phlp.OperationSize <- operationSize phlp modRM row
+      recordBroadcastWidth phlp
+      recordRoundingDecor phlp modRM row
       operands
 
   /// Removes the prefixes the matched instruction consumed as opcode
