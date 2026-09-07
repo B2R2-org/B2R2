@@ -100,26 +100,31 @@ module internal RegisterHelper = begin
     |> LanguagePrimitives.EnumOfValue<int, Register>
 
   /// Get the MM(n) register from the given index.
+  [<MethodImpl(MethodImplOptions.AggressiveInlining)>]
   let mm n =
     0x65 + n
     |> LanguagePrimitives.EnumOfValue<int, Register>
 
   /// Get the XMM(n) register from the given index.
+  [<MethodImpl(MethodImplOptions.AggressiveInlining)>]
   let xmm n =
     (if n < 16 then 0x6d + n else 0x170 + n - 16)
     |> LanguagePrimitives.EnumOfValue<int, Register>
 
   /// Get the YMM(n) register from the given index.
+  [<MethodImpl(MethodImplOptions.AggressiveInlining)>]
   let ymm n =
     (if n < 16 then 0x7d + n else 0x180 + n - 16)
     |> LanguagePrimitives.EnumOfValue<int, Register>
 
   /// Get the ZMM(n) register from the given index.
+  [<MethodImpl(MethodImplOptions.AggressiveInlining)>]
   let zmm n =
     (if n < 16 then 0x8d + n else 0x190 + n - 16)
     |> LanguagePrimitives.EnumOfValue<int, Register>
 
   /// Get the segment register of the given index.
+  [<MethodImpl(MethodImplOptions.AggressiveInlining)>]
   let seg n =
     0x9d + n
     |> LanguagePrimitives.EnumOfValue<int, Register>

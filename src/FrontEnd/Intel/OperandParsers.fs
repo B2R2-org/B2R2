@@ -26,6 +26,7 @@
 module internal B2R2.FrontEnd.Intel.OperandParsers
 
 open System
+open System.Runtime.CompilerServices
 open B2R2
 open B2R2.FrontEnd.BinLifter
 open B2R2.FrontEnd.Intel.RegGroup
@@ -208,14 +209,17 @@ let inline private findReg sz rex bitmask (n: int) =
   regOfIndex sz n
 
 /// Registers defined by the SIB index field.
+[<MethodImpl(MethodImplOptions.AggressiveInlining)>]
 let findRegSIBIdx sz rex (n: int) = findReg sz rex 2 n
 
 /// Registers defined by the SIB base field, or base registers defined by the
 /// RM field (first three rows of Table 2-2), or registers defined by REG bit
 /// of the opcode, which can change the symbol by REX bits.
+[<MethodImpl(MethodImplOptions.AggressiveInlining)>]
 let findRegRmAndSIBBase sz rex (n: int) = findReg sz rex 1 n
 
 /// Registers defined by REG field of the ModR/M byte.
+[<MethodImpl(MethodImplOptions.AggressiveInlining)>]
 let findRegRBits sz rex (n: int): Register = findReg sz rex 4 n
 
 /// The register an /is4 operand names. Its four bits of imm8 already reach
@@ -270,6 +274,7 @@ let private someDisp8 = Array.init 256 (fun i -> Some(int64 (i - 128)))
 let inline private someDisp (d: int64) =
   if d >= -128L && d <= 127L then someDisp8[int d + 128] else Some d
 
+[<MethodImpl(MethodImplOptions.AggressiveInlining)>]
 let parseSignedImm span (phlp: ParsingHelper) = function
   | 1 -> phlp.ReadInt8 span |> int64
   | 2 -> phlp.ReadInt16 span |> int64
@@ -277,6 +282,7 @@ let parseSignedImm span (phlp: ParsingHelper) = function
   | 8 -> phlp.ReadInt64 span
   | _ -> raise ParsingFailureException
 
+[<MethodImpl(MethodImplOptions.AggressiveInlining)>]
 let parseUnsignedImm span (phlp: ParsingHelper) = function
   | 1 -> phlp.ReadUInt8 span |> uint64
   | 2 -> phlp.ReadUInt16 span |> uint64
@@ -402,18 +408,20 @@ let parseOprMem span (phlp: ParsingHelper) b s dispSz =
       let disp = parseSignedImm span phlp dispSz
       OprMem(b, s, someDisp disp, memSz)
 
+[<MethodImpl(MethodImplOptions.AggressiveInlining)>]
 let parseOprImm span (phlp: ParsingHelper) immSize =
 #if LCACHE
   phlp.MarkHashEnd()
 #endif
-  let imm = parseUnsignedImm span phlp (RegType.toByteWidth immSize)
+  let imm = parseUnsignedImm span phlp (int immSize >>> 3)
   Operands.oprImm (int64 imm) immSize
 
+[<MethodImpl(MethodImplOptions.AggressiveInlining)>]
 let parseOprSImm span (phlp: ParsingHelper) immSize =
 #if LCACHE
   phlp.MarkHashEnd()
 #endif
-  let imm = parseSignedImm span phlp (RegType.toByteWidth immSize)
+  let imm = parseSignedImm span phlp (int immSize >>> 3)
   Operands.oprImm imm immSize
 
 /// The first 24 rows of Table 2-1. of the manual Vol. 2A.
@@ -587,12 +595,14 @@ let parseMemory modRM span (phlp: ParsingHelper) =
   else parseMEM32 span phlp modRM
 
 /// The ModRM.reg register, widened by EVEX.R' where the prefix carries one.
+[<MethodImpl(MethodImplOptions.AggressiveInlining)>]
 let findRegReg sz modRM (phlp: ParsingHelper) =
   let hi = REXPrefix.highBit (REXPrefix.hasEVEXR phlp.REXPrefix)
   findRegRBits sz phlp.REXPrefix (Operands.getReg modRM + hi)
 
 /// The ModRM.rm register. In a register form EVEX spends X on the fifth bit
 /// of rm; in a memory form the same bit extends the SIB index instead.
+[<MethodImpl(MethodImplOptions.AggressiveInlining)>]
 let findRegRM modRM (phlp: ParsingHelper) =
   let hi =
     REXPrefix.highBit (isEVEX phlp && REXPrefix.hasX phlp.REXPrefix)
@@ -601,6 +611,7 @@ let findRegRM modRM (phlp: ParsingHelper) =
     phlp.REXPrefix
     (Operands.getRM modRM + hi)
 
+[<MethodImpl(MethodImplOptions.AggressiveInlining)>]
 let parseMemOrReg modRM span (phlp: ParsingHelper) =
   if modRM &&& 0b11000000uy = 0b11000000uy then
     findRegRM modRM phlp |> Operands.oprReg

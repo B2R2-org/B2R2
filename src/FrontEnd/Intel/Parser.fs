@@ -75,6 +75,7 @@ type IntelParser(wordSz, reader) =
   /// length but 512, and reads L'L back as none of the length. So only a
   /// variant offering one of the two can match. See Intel SDM Vol. 2A,
   /// Sections 2.6.7 and 2.6.8.
+  [<MethodImpl(MethodImplOptions.AggressiveInlining)>]
   let usesStaticRounding (phlp: ParsingHelper) modRM (row: Row) =
     match phlp.VEXInfo with
     | Some { EVEXPrx = Some evex } when evex.B = 1uy ->
@@ -111,6 +112,7 @@ type IntelParser(wordSz, reader) =
   /// REX state, whether a VEX prefix is present, and which of 66h, F3h and F2h
   /// are set. A VEX prefix carries its own copy of the three, which then
   /// speaks for them.
+  [<MethodImpl(MethodImplOptions.AggressiveInlining)>]
   let matchContext (phlp: ParsingHelper) =
     let rex = phlp.REXPrefix
     let rexState =
@@ -131,11 +133,13 @@ type IntelParser(wordSz, reader) =
   /// Returns true for the one opcode that deviates from the standard
   /// mandatory-prefix rules: F3 90 is PAUSE, a separate instruction the F3
   /// prefix names.
+  [<MethodImpl(MethodImplOptions.AggressiveInlining)>]
   let isPause (phlp: ParsingHelper) (row: Row) =
     row.IsNopOrPause && phlp.VEXInfo.IsNone && Prefix.hasREPZ phlp.Prefixes
 
   /// The prefixes to drop after parsing. A VEX prefix carries its own copy of
   /// all three, so none of the legacy set outlives it.
+  [<MethodImpl(MethodImplOptions.AggressiveInlining)>]
   let consumedPrefixes (phlp: ParsingHelper) (row: Row) =
     if phlp.VEXInfo.IsSome then Prefix.OPSIZE ||| Prefix.REPZ ||| Prefix.REPNZ
     elif isPause phlp row then Prefix.REPZ
@@ -156,6 +160,7 @@ type IntelParser(wordSz, reader) =
   /// ST(i), group digit, reg/mem form, or none. A plain /r carries a reg-or-mem
   /// constraint too: the mod field is what separates MOVHLPS (register only)
   /// from MOVLPS (memory only), which share opcode 0F 12.
+  [<MethodImpl(MethodImplOptions.AggressiveInlining)>]
   let matchModRM modRM (row: Row) =
     let w = row.MatchWord
     (w &&& MatchWord.Any) <> 0UL
@@ -315,12 +320,14 @@ type IntelParser(wordSz, reader) =
   /// subsequent operand parsers. The address size was settled once for the
   /// whole instruction before any operand was read, and the operation size is
   /// settled once after every operand has been.
+  [<MethodImpl(MethodImplOptions.AggressiveInlining)>]
   let setupOprContext (phlp: ParsingHelper) regSz memSz =
     phlp.MemEffOprSize <- memSz
     phlp.RegSize <- regSz
 
   /// Sizes an operand that carries no width of its own from the prefixes and
   /// the CPU mode, under the given size condition.
+  [<MethodImpl(MethodImplOptions.AggressiveInlining)>]
   let setupOprContextFromPrefixes (phlp: ParsingHelper) szCond =
     let effOprSz = ParsingHelper.GetEffOprSize(phlp, szCond)
     setupOprContext phlp effOprSz effOprSz
@@ -521,11 +528,13 @@ type IntelParser(wordSz, reader) =
   /// Reads the ModRM byte where one follows the opcode. The table is the only
   /// authority on whether it does: reading one that is not there overstates
   /// the length and swallows the instruction after it, as GETSEC showed.
+  [<MethodImpl(MethodImplOptions.AggressiveInlining)>]
   let readModRM span (phlp: ParsingHelper) (row: Row) =
     if row.HasModRM then phlp.ReadByte span else 0uy
 
   /// The width the whole operation runs at. The table settled it wherever it
   /// could; the rest depends on the ModRM byte, the prefixes or the mode.
+  [<MethodImpl(MethodImplOptions.AggressiveInlining)>]
   let operationSize (phlp: ParsingHelper) modRM (row: Row) =
     match row.OpWidthKind with
     | OpWidthKind.Fixed ->
@@ -542,6 +551,7 @@ type IntelParser(wordSz, reader) =
   /// Parses a register named by ModRM.reg followed by a register-or-memory
   /// operand, the way parseOperand would read the two descriptors, without
   /// asking either descriptor what it is.
+  [<MethodImpl(MethodImplOptions.AggressiveInlining)>]
   let parseRegThenRM span (phlp: ParsingHelper) modRM (row: Row) =
     let regSz = row.Size0
     setupOprContext phlp regSz regSz
@@ -553,6 +563,7 @@ type IntelParser(wordSz, reader) =
 
   /// Parses a register-or-memory operand followed by a register named by
   /// ModRM.reg, the same way.
+  [<MethodImpl(MethodImplOptions.AggressiveInlining)>]
   let parseRMThenReg span (phlp: ParsingHelper) modRM (row: Row) =
     let rmSz = row.Size0
     setupOprContext phlp rmSz rmSz
@@ -564,6 +575,7 @@ type IntelParser(wordSz, reader) =
 
   /// Parses a register-or-memory operand followed by an immediate, the way
   /// parseOperand would read the two descriptors.
+  [<MethodImpl(MethodImplOptions.AggressiveInlining)>]
   let parseRMThenImm span (phlp: ParsingHelper) modRM (row: Row) =
     let rmSz = row.Size0
     setupOprContext phlp rmSz rmSz
@@ -637,6 +649,7 @@ type IntelParser(wordSz, reader) =
   /// rest of the prefix is; nothing but the operand knows how wide one
   /// broadcast element is. Instructions that broadcast nothing keep the prefix
   /// they were parsed with.
+  [<MethodImpl(MethodImplOptions.AggressiveInlining)>]
   let recordBroadcastWidth (phlp: ParsingHelper) =
     if phlp.BroadcastSize = 0<rt> then
       ()
@@ -653,6 +666,7 @@ type IntelParser(wordSz, reader) =
   /// row the matcher settled on says whether it named a rounding mode, an
   /// exception suppression, or a broadcast. Left alone unless the bit is set
   /// on a register form, which is the only place the first two can occur.
+  [<MethodImpl(MethodImplOptions.AggressiveInlining)>]
   let recordRoundingDecor (phlp: ParsingHelper) modRM (row: Row) =
     match phlp.VEXInfo with
     | Some({ EVEXPrx = Some ePrx } as vInfo) when
@@ -687,6 +701,7 @@ type IntelParser(wordSz, reader) =
 
   /// Removes the prefixes the matched instruction consumed as opcode
   /// selectors, leaving the ones that kept their ordinary meaning.
+  [<MethodImpl(MethodImplOptions.AggressiveInlining)>]
   let consumePrefixIfNeeded (phlp: ParsingHelper) row =
     let consumed = consumedPrefixes phlp row
     phlp.Prefixes <- phlp.Prefixes &&& ~~~consumed

@@ -24,6 +24,7 @@
 
 namespace B2R2.FrontEnd.Intel
 
+open System.Runtime.CompilerServices
 open B2R2
 
 /// Represents a set of operands in an intel instruction.
@@ -119,12 +120,14 @@ module internal Operands =
       TwoOperands(oprRegs[i >>> 6], oprRegs[i &&& 0x3F]))
 
   /// The operands value holding the given operand alone.
+  [<MethodImpl(MethodImplOptions.AggressiveInlining)>]
   let oneOperand o =
     match o with
     | OprReg r -> oneRegOperands[int r]
     | _ -> OneOperand o
 
   /// The operands value holding the two given operands, in that order.
+  [<MethodImpl(MethodImplOptions.AggressiveInlining)>]
   let twoOperands o1 o2 =
     match o1, o2 with
     | OprReg a, OprReg b when int a < 64 && int b < 64 ->
@@ -141,6 +144,7 @@ module internal Operands =
       Array.init 384 (fun i -> OprImm(int64 (i - 128), sz)))
 
   /// The immediate operand of the given value and width.
+  [<MethodImpl(MethodImplOptions.AggressiveInlining)>]
   let oprImm (v: int64) sz =
     let szIdx =
       match sz with
@@ -159,6 +163,7 @@ module internal Operands =
     Array.init 384 (fun i -> OprDirAddr(Relative(int64 (i - 128))))
 
   /// The direct-address operand of a branch to the given relative target.
+  [<MethodImpl(MethodImplOptions.AggressiveInlining)>]
   let relTarget (d: int64) =
     if d >= -128L && d <= 255L then shortRelTargets[int d + 128]
     else OprDirAddr(Relative d)
