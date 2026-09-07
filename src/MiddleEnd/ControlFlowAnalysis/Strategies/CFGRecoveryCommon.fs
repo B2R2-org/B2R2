@@ -575,7 +575,9 @@ module internal CFGRecoveryCommon =
         | SideEffect(Effect = UndefinedInstruction)
         | SideEffect(Effect = Exception _)
         | SideEffect(Effect = Terminate)
+        | SideEffect(Effect = UndefinedInstruction)
         | SideEffect(Effect = Breakpoint) ->
+
           ()
 #if DEBUG
         | ISMark _ | LMark _ ->

@@ -40,6 +40,7 @@ type LowUIRBasicBlock internal(pp, summary, liftedInss, lblMap) =
     | Jmp _ | CJmp _ | InterJmp _ | InterCJmp _
     | SideEffect(Effect = SysCall)
     | SideEffect(Effect = Terminate)
+    | SideEffect(Effect = UndefinedInstruction)
     | SideEffect(Effect = Interrupt _) -> true
     | _ -> false
 

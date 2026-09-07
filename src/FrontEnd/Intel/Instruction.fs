@@ -214,7 +214,7 @@ type Instruction
       (* In kernel code, HLT is often preceded by CLI to shut down the machine.
          In user code, compilers insert HLT to raise a fault and exit. *)
       | Opcode.HLT
-      | Opcode.UD2
+      | Opcode.UD0 | Opcode.UD1 | Opcode.UD2
       | Opcode.SYSEXIT | Opcode.SYSRET
       | Opcode.IRET | Opcode.IRETD | Opcode.IRETQ -> true
       | _ -> false
@@ -320,7 +320,10 @@ type Instruction
         if ins.IsBranch then
           if ins.IsCondBranch then acc |> this.AddBranchTargetIfExist
           else this.AddBranchTargetIfExist []
-        elif this.Opcode = Opcode.HLT || this.Opcode = Opcode.UD2 then
+        elif this.Opcode = Opcode.HLT
+          || this.Opcode = Opcode.UD0
+          || this.Opcode = Opcode.UD1
+          || this.Opcode = Opcode.UD2 then
           []
         else
           acc
