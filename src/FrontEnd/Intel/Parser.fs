@@ -272,10 +272,12 @@ type IntelParser(wordSz, reader) =
     && ((simple && (row.MatchWord &&& MatchWord.Plain) <> 0UL)
         || matchRareConstraints phlp isRounding modRM row)
 
-#if DEBUG
+#if TRACE_MATCH
   /// Reports each constraint's verdict on one entry. The candidate loop stops
   /// at the first failure, so this runs them all again to show which ones
-  /// rejected an entry, or which entry won and why.
+  /// rejected an entry, or which entry won and why. Compiled in only under
+  /// TRACE_MATCH (dotnet build -p:DefineConstants=TRACE_MATCH): a line per
+  /// candidate per instruction is far too much for an ordinary debug build.
   let traceInstrCore (phlp: ParsingHelper) ctxBit isRounding modRM row =
     printfn
       "%A rex+pref+size+mode=%b modrm=%b rare=%b"
@@ -302,14 +304,14 @@ type IntelParser(wordSz, reader) =
       let mutable row = head
       let mutable found = Unchecked.defaultof<Row>
       while isNull (box found) && not (isNull (box row)) do
-#if DEBUG
+#if TRACE_MATCH
         traceInstrCore phlp ctxBit isRounding modRM row
 #endif
         if matchesRow phlp ctxBit isRounding simple modRM row then
           found <- row
         else
           row <- row.Next
-#if DEBUG
+#if TRACE_MATCH
       printfn "pref: %A, rex: %A, vex: %A -> selected %b"
         phlp.Prefixes phlp.REXPrefix phlp.VEXInfo (not (isNull (box found)))
 #endif
