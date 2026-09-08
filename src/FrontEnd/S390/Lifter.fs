@@ -1137,17 +1137,51 @@ let private groupOf opcode =
   | Opcode.SAM24 | Opcode.SAM31 | Opcode.SAM64 | Opcode.TABORT -> 10
   | Opcode.BSM | Opcode.CSST | Opcode.WFC | Opcode.WFK | Opcode.LGG
   | Opcode.LLGFSG | Opcode.STRAG -> 15
+  | Opcode.CVB | Opcode.CVBY | Opcode.CVBG | Opcode.CVD | Opcode.CVDY
+  | Opcode.CVDG | Opcode.PACK | Opcode.PKA | Opcode.PKU | Opcode.UNPK
+  | Opcode.UNPKA | Opcode.UNPKU | Opcode.AP | Opcode.SP | Opcode.ZAP
+  | Opcode.CP | Opcode.MP | Opcode.DP | Opcode.SRP | Opcode.TP | Opcode.ED
+  | Opcode.EDMK -> 16
+  | Opcode.CU12 | Opcode.CUTFU | Opcode.CU14 | Opcode.CU21 | Opcode.CUUTF
+  | Opcode.CU24 | Opcode.CU41 | Opcode.CU42 -> 17
+  (* The engines -- message security, compression, sort, and the neural
+     assist -- along with PERFORM FLOATING-POINT OPERATION, which converts
+     between every floating-point format, and EXTRACT CPU TIME, which reads
+     a clock the emulator does not keep. *)
+  | Opcode.KM | Opcode.KMC | Opcode.KMA | Opcode.KMF | Opcode.KMCTR
+  | Opcode.KMO | Opcode.KIMD | Opcode.KLMD | Opcode.KMAC | Opcode.PCC
+  | Opcode.PRNO | Opcode.KDSA | Opcode.CMPSC | Opcode.SORTL | Opcode.DFLTCC
+  | Opcode.NNPA | Opcode.PFPO | Opcode.ECTG -> 15
+  (* Decimal floating point, whose densely-packed-decimal encoding and
+     arithmetic no type the IR has can carry. *)
+  | Opcode.ADTR | Opcode.AXTR | Opcode.ADTRA | Opcode.AXTRA | Opcode.CDTR
+  | Opcode.CXTR | Opcode.KDTR | Opcode.KXTR | Opcode.CEDTR | Opcode.CEXTR
+  | Opcode.CDGTR | Opcode.CXGTR | Opcode.CDGTRA | Opcode.CXGTRA | Opcode.CDFTR
+  | Opcode.CXFTR | Opcode.CDLGTR | Opcode.CXLGTR | Opcode.CDLFTR
+  | Opcode.CXLFTR | Opcode.CDPT | Opcode.CXPT | Opcode.CDSTR | Opcode.CXSTR
+  | Opcode.CDUTR | Opcode.CXUTR | Opcode.CDZT | Opcode.CXZT | Opcode.CGDTR
+  | Opcode.CGXTR | Opcode.CGDTRA | Opcode.CGXTRA | Opcode.CFDTR | Opcode.CFXTR
+  | Opcode.CLGDTR | Opcode.CLGXTR | Opcode.CLFDTR | Opcode.CLFXTR | Opcode.CPDT
+  | Opcode.CPXT | Opcode.CSDTR | Opcode.CSXTR | Opcode.CUDTR | Opcode.CUXTR
+  | Opcode.CZDT | Opcode.CZXT | Opcode.DDTR | Opcode.DXTR | Opcode.DDTRA
+  | Opcode.DXTRA | Opcode.EEDTR | Opcode.EEXTR | Opcode.ESDTR | Opcode.ESXTR
+  | Opcode.IEDTR | Opcode.IEXTR | Opcode.LTDTR | Opcode.LTXTR | Opcode.FIDTR
+  | Opcode.FIXTR | Opcode.LDETR | Opcode.LXDTR | Opcode.LEDTR | Opcode.LDXTR
+  | Opcode.MDTR | Opcode.MXTR | Opcode.MDTRA | Opcode.MXTRA | Opcode.QADTR
+  | Opcode.QAXTR | Opcode.RRDTR | Opcode.RRXTR | Opcode.SLDT | Opcode.SLXT
+  | Opcode.SRDT | Opcode.SRXT | Opcode.SDTR | Opcode.SXTR | Opcode.SDTRA
+  | Opcode.SXTRA | Opcode.TDCET | Opcode.TDCDT | Opcode.TDCXT | Opcode.TDGET
+  | Opcode.TDGDT | Opcode.TDGXT -> 15
   | _ -> -1
 
-/// Translates one instruction into LowUIR. What is left over -- and so raises
-/// the not-implemented exception, which ends the block being decoded and, if
-/// execution really reaches it, gives the guest the illegal-instruction signal
-/// -- is three families this lifter does not model at all: decimal floating
-/// point, whose densely-packed-decimal encoding and arithmetic no type the IR
-/// has can carry; the packed-decimal arithmetic of the System/360 commercial
-/// instruction set; and the message-security, compression, sort, and neural
-/// assists, which are engines rather than arithmetic. No compiler targeting
-/// Linux emits any of them.
+/// Translates one instruction into LowUIR. Every opcode the parser produces
+/// has a group, so the fall-through, which raises the not-implemented
+/// exception, only guards the tables above. Two families are lifted as no more
+/// than an unsupported side effect: decimal floating point, whose
+/// densely-packed-decimal encoding and arithmetic no type the IR has can carry,
+/// and the message-security, compression, sort, and neural assists, which are
+/// engines rather than arithmetic. No compiler targeting Linux emits any of
+/// them.
 let translate (ins: Instruction) bld =
   let opcode = ins.Opcode
   match groupOf opcode with
@@ -1167,4 +1201,6 @@ let translate (ins: Instruction) bld =
   | 13 -> HexFloatLifter.translate ins bld
   | 14 -> liftExtFloat ins bld opcode
   | 15 -> unsupported ins bld
+  | 16 -> DecimalLifter.translate ins bld
+  | 17 -> UnicodeLifter.translate ins bld
   | _ -> raise (NotImplementedIRException(Disasm.opCodeToString opcode))

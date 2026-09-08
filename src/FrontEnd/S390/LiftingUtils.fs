@@ -25,6 +25,7 @@
 module internal B2R2.FrontEnd.S390.LiftingUtils
 
 open B2R2
+open B2R2.BinIR
 open B2R2.BinIR.LowUIR
 open B2R2.BinIR.LowUIR.AST.InfixOp
 open B2R2.FrontEnd.BinLifter
@@ -454,4 +455,23 @@ let emitCompareLoop bld len a b =
     i := i .+ AST.num1 GRSize
     AST.cjmp (i == len) (AST.jmpDest out) (AST.jmpDest body)
     AST.lmark out
+  }
+
+/// The register a pair's even member pairs with, which holds the high half of
+/// a double-width product and the remainder of a division. Only an even
+/// register names a pair; an odd one is a specification exception on real
+/// hardware, and here it names itself so that lifting such an encoding -- which
+/// only ever turns up in bytes that are not really code -- yields an
+/// instruction the emulator rejects rather than a lifter that gives up.
+let pairOf r =
+  if int (r: Register) % 2 = 0 then RegisterHelper.getRpairReg r else r
+
+/// Whether a register-pair operand names a pair at all.
+let isPair (r: Register) = int r % 2 = 0
+
+/// An encoding that names a register pair with an odd register, which is not
+/// a pair; real hardware raises a specification exception for it.
+let specException ins bld =
+  lift bld (ins: Instruction) {
+    AST.sideEffect UndefinedInstruction
   }
