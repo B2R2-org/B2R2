@@ -371,6 +371,8 @@ let translate (ins: Instruction) bld =
     nop ins bld
   | Opcode.FLUSHW ->
     flushw ins bld
+  | Opcode.IMPDEP1 | Opcode.IMPDEP2 ->
+    unsupported ins bld
   (* No parser produces this opcode: an undecodable encoding is reported as a
      parsing failure, so an instruction never carries it this far. *)
   | Opcode.InvalidOp ->

@@ -3095,6 +3095,14 @@ let nop (ins: Instruction) bld =
   lift bld ins {
   }
 
+/// An implementation-dependent instruction: IMPDEP1 is where a CPU keeps its
+/// own extensions, such as the VIS operations this lifter does not model, and
+/// IMPDEP2 is reserved. Neither has a meaning the architecture defines.
+let unsupported (ins: Instruction) bld =
+  lift bld ins {
+    AST.sideEffect UnsupportedInstruction
+  }
+
 let ``or`` ins bld =
   lift bld ins {
     let struct (src, src1, dst) = transThreeOprs ins bld
