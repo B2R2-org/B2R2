@@ -57,8 +57,36 @@ and Offset =
 /// Represents the memory access width in MIPS instructions.
 and AccessLength = RegType
 
-/// Represents a jump target as a relative offset.
-and JumpTarget = Relative of int64
+/// Represents a jump target.
+and JumpTarget =
+  /// A signed offset from the address of the instruction in the delay slot,
+  /// as the conditional branches use.
+  | Relative of int64
+  /// The instruction index of a PC-region jump, already shifted left two. It
+  /// supplies only the low 28 bits of the target; the rest come from the
+  /// current program counter, so this cannot be resolved without an address.
+  | Region of uint64
 
 /// Represents a label in MIPS instructions.
 and Label = string
+
+/// Resolving a jump target that the encoding leaves incomplete.
+[<RequireQualifiedAccess>]
+module JumpTarget =
+  /// Completes a PC-region jump target. The architecture forms it by
+  /// concatenating the upper bits of the program counter with the instruction
+  /// index, so the index on its own is not an address.
+  ///
+  /// The upper bits come from the address of the instruction in the DELAY SLOT
+  /// rather than from the jump itself -- the jump's address plus four. The two
+  /// differ whenever a jump sits in the last word of a 256 MB region, and
+  /// taking them from the jump would put the target one region low.
+  ///
+  /// How many upper bits there are depends on the word size: 63..28 on MIPS64
+  /// and 31..28 on MIPS32.
+  let regionTarget (addr: Addr) wordSize (index: uint64) =
+    let widthMask =
+      match wordSize with
+      | WordSize.Bit32 -> 0xffffffffUL
+      | _ -> System.UInt64.MaxValue
+    ((addr + 4UL) &&& widthMask &&& ~~~0xfffffffUL) ||| index
