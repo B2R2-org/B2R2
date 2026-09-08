@@ -443,25 +443,6 @@ let mul3 ins bld rt =
     dst rt d := a .* b
   }
 
-/// The register a pair's even member pairs with, which holds the high half of
-/// a double-width product and the remainder of a division. Only an even
-/// register names a pair; an odd one is a specification exception on real
-/// hardware, and here it names itself so that lifting such an encoding -- which
-/// only ever turns up in bytes that are not really code -- yields an
-/// instruction the emulator rejects rather than a lifter that gives up.
-let private pairOf r =
-  if int (r: Register) % 2 = 0 then RegisterHelper.getRpairReg r else r
-
-/// Whether a register-pair operand names a pair at all.
-let private isPair (r: Register) = int r % 2 = 0
-
-/// An encoding that names a register pair with an odd register, which is not
-/// a pair; real hardware raises a specification exception for it.
-let private specException ins bld =
-  lift bld (ins: Instruction) {
-    AST.sideEffect UndefinedInstruction
-  }
-
 /// MULTIPLY LOGICAL, whose double-width product fills a register pair: the
 /// even register takes the high half and the odd one the low.
 let mulLogical ins bld (rt: RegType) accW =

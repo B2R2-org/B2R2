@@ -20,6 +20,8 @@
     <Compile Include="FloatLifter.fs" />
     <Compile Include="HexFloatLifter.fs" />
     <Compile Include="VectorLifter.fs" />
+    <Compile Include="DecimalLifter.fs" />
+    <Compile Include="UnicodeLifter.fs" />
     <Compile Include="Lifter.fs" />
     <Compile Include="ParsingMain.fs" />
     <Compile Include="Parser.fs" />
