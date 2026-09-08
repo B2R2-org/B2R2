@@ -146,12 +146,41 @@ type LifterTests() =
     let regFactory = RegisterFactory isa :> IRegisterFactory
     let ( !. ) name = Register.toRegID name |> regFactory.GetRegVar
     let sx e = AST.sext 64<rt> (AST.xtlo 32<rt> e)
+    let num0 = AST.num0 64<rt>
+    let guard e = AST.ite (!.R2 == num0) num0 e
     "0022001a"
-    ++ [| !.R2 := AST.ite (!.R2 == numI64 0L 64<rt>)
-                          (AST.undef 64<rt> "UNPREDICTABLE")
-                          !.R2
-          !.LO := sx (sx !.R1 ?/ sx !.R2)
-          !.HI := sx (sx !.R1 ?% sx !.R2) |]
+    ++ [| !.LO := guard (sx (sx !.R1 ?/ sx !.R2))
+          !.HI := guard (sx (sx !.R1 ?% sx !.R2)) |]
+    |> test isa
+
+  (* MD00087 Vol. II, DDIV: no arithmetic exception occurs under any
+     circumstances. A zero divisor leaves HI and LO UNPREDICTABLE, and the one
+     pair whose quotient does not fit is not even that -- it is the truncated
+     quotient. Neither may reach a division in the IR. *)
+  [<TestMethod>]
+  member _.``[MIPS64] DDIV guards zero and the overflow pair``() =
+    let isa = ISA(Architecture.MIPS, Endian.Big, WordSize.Bit64)
+    let regFactory = RegisterFactory isa :> IRegisterFactory
+    let ( !. ) name = Register.toRegID name |> regFactory.GetRegVar
+    let num0 = AST.num0 64<rt>
+    let intMin = AST.num (BitVector.SignedMin 64<rt>)
+    let isOvf = (!.R1 == intMin) .& (!.R2 == numI64 -1L 64<rt>)
+    let guard e = AST.ite (!.R2 == num0) num0 e
+    "0022001e"
+    ++ [| !.LO := guard (AST.ite isOvf intMin (AST.sdiv !.R1 !.R2))
+          !.HI := guard (AST.ite isOvf num0 (AST.smod !.R1 !.R2)) |]
+    |> test isa
+
+  [<TestMethod>]
+  member _.``[MIPS64] DDIVU guards its zero divisor``() =
+    let isa = ISA(Architecture.MIPS, Endian.Big, WordSize.Bit64)
+    let regFactory = RegisterFactory isa :> IRegisterFactory
+    let ( !. ) name = Register.toRegID name |> regFactory.GetRegVar
+    let num0 = AST.num0 64<rt>
+    let guard e = AST.ite (!.R2 == num0) num0 e
+    "0022001f"
+    ++ [| !.LO := guard (AST.div !.R1 !.R2)
+          !.HI := guard (AST.(mod) !.R1 !.R2) |]
     |> test isa
 
   [<TestMethod>]
