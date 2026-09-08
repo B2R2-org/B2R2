@@ -155,6 +155,9 @@ type Instruction
         | ThreeOperands(_, _, OpAddr(Relative offset)) ->
           addr <- (int64 this.Address + offset) |> uint64
           true
+        | OneOperand(OpAddr(Region index)) ->
+          addr <- JumpTarget.regionTarget this.Address wordSize index
+          true
         | OneOperand(OpImm(imm)) ->
           addr <- imm
           true
