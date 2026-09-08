@@ -542,6 +542,32 @@ let fsqrt ins updateCond isDouble bld =
     if updateCond then setCR1Reg bld else ()
   }
 
+/// The double-precision 1.0 the reciprocal estimates divide.
+let private fpOne = numU64 0x3ff0000000000000UL 64<rt>
+
+/// fres, the single-precision reciprocal estimate. The architecture lets the
+/// estimate stray from 1/frB by a part in 256, which no analysis can usefully
+/// model, so the reciprocal itself, rounded to single precision, stands in.
+let fres ins updateCond bld =
+  lift bld ins {
+    let struct (frd, frb) = transTwoOprs ins bld
+    let tmp = tmpVar bld 32<rt>
+    tmp := AST.cast CastKind.FloatCast 32<rt> (AST.fdiv fpOne frb)
+    frd := AST.cast CastKind.FloatCast 64<rt> tmp
+    setFPRF bld frd
+    if updateCond then setCR1Reg bld else ()
+  }
+
+/// frsqrte, the reciprocal square root estimate, taken exactly for the same
+/// reason as fres.
+let frsqrte ins updateCond bld =
+  lift bld ins {
+    let struct (frd, frb) = transTwoOprs ins bld
+    frd := AST.fdiv fpOne (AST.fsqrt frb)
+    setFPRF bld frd
+    if updateCond then setCR1Reg bld else ()
+  }
+
 let fctiw ins updateCond bld =
   lift bld ins {
     let tmp = tmpVar bld 64<rt>
@@ -1013,6 +1039,85 @@ let lwzux ins bld = loadIndexed ins bld 32<rt> AST.zext true
 
 let lwzx ins bld = loadIndexed ins bld 32<rt> AST.zext false
 
+/// eciwx, the external control word read, which fetches a word from the device
+/// the EAR names at (rA|0)+rB. With no device to model, the storage at that
+/// address stands in for it.
+let eciwx ins bld = loadIndexed ins bld 32<rt> AST.zext false
+
+/// The register n places after r, wrapping from r31 around to r0, which is how
+/// the string operations run through the register file.
+let private gprAfter (r: Register) n =
+  getRegister (uint32 ((int r + n) % 32))
+
+/// The word a string load of a known count leaves in one register: its first n
+/// bytes come from ea on, most significant first, and the rest are zero. The
+/// concatenation takes its bytes least significant first, so byte i of the
+/// word is built from position 3 - i.
+let private stringWordN (bld: ILowUIRBuilder) ea n =
+  if n = 4 then
+    loadNative bld 32<rt> ea
+  else
+    Array.init 4 (fun k ->
+      let i = 3 - k
+      if i < n then loadNative bld 8<rt> (ea .+ numI32 i bld.RegType)
+      else AST.num0 8<rt>)
+    |> AST.revConcat
+
+/// The same word when the count is known only at run time: a byte the count
+/// does not reach is zero.
+let private stringWord (bld: ILowUIRBuilder) ea cnt =
+  Array.init 4 (fun k ->
+    let i = 3 - k
+    let inRange = cnt .> numI32 i bld.RegType
+    let byte = loadNative bld 8<rt> (ea .+ numI32 i bld.RegType)
+    AST.ite inRange byte (AST.num0 8<rt>))
+  |> AST.revConcat
+
+/// The base of a string operation: rA, or zero when the field names r0.
+let private stringBase (bld: ILowUIRBuilder) ra =
+  if ra = Register.R0 then AST.num0 bld.RegType else regVar bld ra
+
+/// lswi, which loads NB bytes (32 when NB is zero) from (rA|0) into the low
+/// words of the registers from rD on, wrapping from r31 to r0, and zeroes what
+/// is left of the last word.
+let lswi (ins: Instruction) (bld: ILowUIRBuilder) =
+  lift bld ins {
+    let struct (rd, ra, nb) =
+      match ins.Operands with
+      | ThreeOperands(OprReg rd, OprReg ra, OprImm nb) ->
+        struct (rd, ra, int nb)
+      | _ ->
+        raise InvalidOperandException
+    let n = if nb = 0 then 32 else nb
+    let rt = bld.RegType
+    let ea = tmpVar bld rt
+    ea := stringBase bld ra
+    for i in 0 .. (n + 3) / 4 - 1 do
+      let word = stringWordN bld (ea .+ numI32 (4 * i) rt) (min 4 (n - 4 * i))
+      regVar bld (gprAfter rd i) := AST.zext rt word
+  }
+
+/// lswx, whose byte count is XER[57:63] and so is known only at run time: each
+/// register in turn is loaded once the count reaches it, and a count of zero
+/// loads nothing.
+let lswx (ins: Instruction) (bld: ILowUIRBuilder) =
+  lift bld ins {
+    let struct (rd, ra, rb) =
+      match ins.Operands with
+      | ThreeOperands(OprReg rd, ra, rb) -> struct (rd, ra, rb)
+      | _ -> raise InvalidOperandException
+    let rt = bld.RegType
+    let ea = tmpVar bld rt
+    let cnt = tmpVar bld rt
+    ea := transEAWithIndexReg ra rb bld
+    cnt := AST.zext rt (AST.xtlo 7<rt> (regVar bld Register.XER))
+    for i in 0 .. 31 do
+      let off = numI32 (4 * i) rt
+      let word = stringWord bld (ea .+ off) (cnt .- off)
+      let reg = regVar bld (gprAfter rd i)
+      _when bld "Lswx" (cnt .> off) (block { reg := AST.zext rt word })
+  }
+
 let lwa ins bld = loadOffset ins bld 32<rt> AST.sext false
 
 let lwax ins bld = loadIndexed ins bld 32<rt> AST.sext false
@@ -1035,6 +1140,56 @@ let mcrf ins bld =
     crd1 := crs1
     crd2 := crs2
     crd3 := crs3
+  }
+
+/// Whether an FPSCR bit, numbered from the least significant, is one of the
+/// exception bits: FX and OX through VXVC (bits 0 and 3 to 12 as the
+/// architecture counts them) and VXSOFT, VXSQRT, and VXCVI (bits 21 to 23).
+/// FEX and VX are summaries the hardware recomputes, and the rest are status
+/// and control.
+let private isFPSCRExceptionBit pos =
+  match pos with
+  | 31 | 28 | 27 | 26 | 25 | 24 | 23 | 22 | 21 | 20 | 19 | 10 | 9 | 8 -> true
+  | _ -> false
+
+/// Recomputes the two summary bits of the FPSCR after its other bits have
+/// changed: VX, whether any invalid-operation exception bit is set, and FEX,
+/// whether any exception bit is set together with its enable.
+let private setFPSCRSummary bld =
+  let fpscr = regVar bld Register.FPSCR
+  let bit pos = AST.extract fpscr 1<rt> pos
+  let anyOf ps = List.reduce (.|) (List.map bit ps)
+  let enabled (e, en) = bit e .& bit en
+  append bld {
+    let vx = tmpVar bld 1<rt>
+    vx := anyOf [ 24; 23; 22; 21; 20; 19; 10; 9; 8 ]
+    AST.extract fpscr 1<rt> 29 := vx
+    let others = List.map enabled [ 28, 6; 27, 5; 26, 4; 25, 3 ]
+    AST.extract fpscr 1<rt> 30 := List.reduce (.|) ((vx .& bit 7) :: others)
+  }
+
+/// mcrfs, which copies a four-bit field of the FPSCR into a CR field and then
+/// clears the exception bits it copied, which may clear the VX summary too.
+/// The parser names the FPSCR field as if it were a CR field, so its number is
+/// read off that register.
+let mcrfs (ins: Instruction) bld =
+  lift bld ins {
+    let struct (crd, fld) =
+      match ins.Operands with
+      | TwoOperands(OprReg d, OprReg s) ->
+        struct (transCRxToExpr bld d, int s - int Register.CR0)
+      | _ ->
+        raise InvalidOperandException
+    let crd0, crd1, crd2, crd3 = crd
+    let fpscr = regVar bld Register.FPSCR
+    let hi = 31 - 4 * fld
+    crd0 := AST.extract fpscr 1<rt> hi
+    crd1 := AST.extract fpscr 1<rt> (hi - 1)
+    crd2 := AST.extract fpscr 1<rt> (hi - 2)
+    crd3 := AST.extract fpscr 1<rt> (hi - 3)
+    for pos in List.filter isFPSCRExceptionBit [ hi - 3 .. hi ] do
+      AST.extract fpscr 1<rt> pos := AST.b0
+    setFPSCRSummary bld
   }
 
 let mcrxr ins bld =
@@ -1063,11 +1218,12 @@ let mfctr ins bld =
     dst := ctr
   }
 
-let mffs ins bld =
+let mffs ins updateCond bld =
   lift bld ins {
     let dst = transOneOpr ins bld
     let fpscr = regVar bld Register.FPSCR
     dst := AST.zext 64<rt> fpscr
+    if updateCond then setCR1Reg bld else ()
   }
 
 let mflr ins bld =
@@ -1205,7 +1361,7 @@ let mtfsb1 ins updateCond bld =
     (* Affected: FX *)
   }
 
-let mtfsf ins bld =
+let mtfsf ins updateCond bld =
   lift bld ins {
     let struct (fm, frB) = getTwoOprs ins
     let frB = transOpr bld frB
@@ -1213,7 +1369,12 @@ let mtfsf ins bld =
     let fpscr = regVar bld Register.FPSCR
     let mask = tmpVar bld 32<rt>
     mask := crmMask bld fm
-    fpscr := (AST.xtlo 32<rt> frB .& mask) .| (fpscr .& AST.not mask)
+    (* bit 20 of the FPSCR is reserved and reads as zero *)
+    let reserved = numU32 0xfffff7ffu 32<rt>
+    let merged = (AST.xtlo 32<rt> frB .& mask) .| (fpscr .& AST.not mask)
+    fpscr := merged .& reserved
+    setFPSCRSummary bld
+    if updateCond then setCR1Reg bld else ()
   }
 
 let mtxer ins bld =
@@ -1778,6 +1939,52 @@ let stw ins bld = storeOffset ins bld 32<rt> false
 let stwu ins bld = storeOffset ins bld 32<rt> true
 
 let stwx ins bld = storeIndexed ins bld 32<rt> false
+
+/// ecowx, the external control word write, the counterpart of eciwx.
+let ecowx ins bld = storeIndexed ins bld 32<rt> false
+
+/// Byte i of the string a store spells out of the low words of the registers
+/// from rS on: the most significant byte of each word comes first.
+let private stringByte bld rs i =
+  let reg = regVar bld (gprAfter rs (i / 4))
+  AST.extract reg 8<rt> (24 - 8 * (i % 4))
+
+/// stswi, which stores NB bytes (32 when NB is zero) to (rA|0) out of the low
+/// words of the registers from rS on, wrapping from r31 to r0.
+let stswi (ins: Instruction) (bld: ILowUIRBuilder) =
+  lift bld ins {
+    let struct (rs, ra, nb) =
+      match ins.Operands with
+      | ThreeOperands(OprReg rs, OprReg ra, OprImm nb) ->
+        struct (rs, ra, int nb)
+      | _ ->
+        raise InvalidOperandException
+    let n = if nb = 0 then 32 else nb
+    let rt = bld.RegType
+    let ea = tmpVar bld rt
+    ea := stringBase bld ra
+    for i in 0 .. n - 1 do
+      loadNative bld 8<rt> (ea .+ numI32 i rt) := stringByte bld rs i
+  }
+
+/// stswx, whose byte count is XER[57:63]: each byte is stored once the count
+/// reaches it, up to the 127 bytes the field can name.
+let stswx (ins: Instruction) (bld: ILowUIRBuilder) =
+  lift bld ins {
+    let struct (rs, ra, rb) =
+      match ins.Operands with
+      | ThreeOperands(OprReg rs, ra, rb) -> struct (rs, ra, rb)
+      | _ -> raise InvalidOperandException
+    let rt = bld.RegType
+    let ea = tmpVar bld rt
+    let cnt = tmpVar bld rt
+    ea := transEAWithIndexReg ra rb bld
+    cnt := AST.zext rt (AST.xtlo 7<rt> (regVar bld Register.XER))
+    for i in 0 .. 126 do
+      let off = numI32 i rt
+      let dst = loadNative bld 8<rt> (ea .+ off)
+      _when bld "Stswx" (cnt .> off) (block { dst := stringByte bld rs i })
+  }
 
 let stwux ins bld = storeIndexed ins bld 32<rt> true
 

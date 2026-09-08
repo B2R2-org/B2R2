@@ -417,6 +417,22 @@ let vecMerge ins bld esize high =
     dl := tl
   }
 
+/// vmrgew/vmrgow, which take the even (or the odd) words of vA and vB in turn:
+/// words 0 and 2 of each for the even form, words 1 and 3 for the odd.
+let vecMergeWord ins bld even =
+  lift bld ins {
+    let struct (o1, o2, o3) = getThreeOprs ins
+    let struct (dh, dl) = vecHalves bld o1
+    let struct (ah, al) = vecHalves bld o2
+    let struct (bh, bl) = vecHalves bld o3
+    let pick = if even then AST.xthi 32<rt> else AST.xtlo 32<rt>
+    let struct (th, tl) = tmpVars2 bld 64<rt>
+    th := AST.concat (pick ah) (pick bh)
+    tl := AST.concat (pick al) (pick bl)
+    dh := th
+    dl := tl
+  }
+
 /// vpkuhum/vpkuwum, which pack the low half of each element of vA || vB into
 /// the elements of vD.
 let vecPack ins bld (esize: RegType) =
