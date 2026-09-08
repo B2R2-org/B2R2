@@ -51,6 +51,8 @@ let transOpr (ins: Instruction) bld = function
     loadNative bld sz (regVar bld b .+ regVar bld o)
   | OpAddr(Relative o) ->
     numI64 (int64 ins.Address + o) bld.RegType
+  | OpAddr(Region idx) ->
+    numU64 (JumpTarget.regionTarget ins.Address ins.WordSize idx) bld.RegType
   | GoToLabel _ ->
     raise InvalidOperandException
 
