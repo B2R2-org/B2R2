@@ -22,48 +22,12 @@
   SOFTWARE.
 *)
 
-namespace B2R2
+module internal B2R2.FrontEnd.Alpha.Lifter
 
-/// <summary>
-/// Represents CPU architecture types that are supported by B2R2.
-/// </summary>
-type Architecture =
-  /// Intel x86 or x86-64.
-  | Intel = 0
-  /// ARMv7.
-  | ARMv7 = 1
-  /// ARMv8 (aarch32 and aarch64).
-  | ARMv8 = 2
-  /// MIPS.
-  | MIPS = 3
-  /// PowerPC.
-  | PPC = 4
-  /// RISC-V.
-  | RISCV = 5
-  /// SPARC.
-  | SPARC = 6
-  /// IBM System/390.
-  | S390 = 7
-  /// SuperH (SH-4).
-  | SH4 = 8
-  /// PA-RISC.
-  | PARISC = 9
-  /// Motorola 68000 series.
-  | M68K = 10
-  /// DEC Alpha.
-  | Alpha = 11
-  /// Atmel AVR 8-bit microcontroller.
-  | AVR = 20
-  /// TMS320C64x, TMS320C67x, etc.
-  | TMS320C6000 = 21
-  /// EVM.
-  | EVM = 30
-  /// Python bytecode.
-  | Python = 31
-  /// WASM.
-  | WASM = 32
-  /// Common Intermediate Language (CIL), aka MSIL.
-  | CIL = 33
-  /// Used internally to signal an unrecognized ISA combination. Passing this
-  /// value to any ISA constructor raises InvalidISAException.
-  | UnknownISA = 42
+open B2R2
+
+/// Lifts an Alpha instruction into LowUIR. Nothing here yet: the parser and
+/// the disassembler come first, and the lifter follows.
+let translate (_ins: Instruction) _builder = Terminator.futureFeature ()
+
+// vim: set tw=80 sts=2 sw=2:

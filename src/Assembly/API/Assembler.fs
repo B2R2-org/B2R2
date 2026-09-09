@@ -41,6 +41,7 @@ type Assembler(isa: ISA, startAddress) =
 
   let assembler =
     match isa with
+    | Alpha -> Alpha.Assembler(isa, startAddress) :> ILowerable
     | Intel -> Intel.Assembler(isa, startAddress) :> ILowerable
     | ARM32 -> ARM32.Assembler(isa, startAddress) :> ILowerable
     | AArch64 -> ARM64.Assembler(isa, startAddress) :> ILowerable

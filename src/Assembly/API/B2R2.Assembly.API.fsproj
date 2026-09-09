@@ -10,6 +10,7 @@
 
   <ItemGroup>
     <ProjectReference Include="..\BinLowerer\B2R2.Assembly.BinLowerer.fsproj" />
+    <ProjectReference Include="..\Alpha\B2R2.Assembly.Alpha.fsproj" />
     <ProjectReference Include="..\Intel\B2R2.Assembly.Intel.fsproj" />
     <ProjectReference Include="..\ARM32\B2R2.Assembly.ARM32.fsproj" />
     <ProjectReference Include="..\ARM64\B2R2.Assembly.ARM64.fsproj" />

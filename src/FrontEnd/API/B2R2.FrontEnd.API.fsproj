@@ -19,6 +19,7 @@
     <ProjectReference Include="..\..\Core\B2R2.Core.fsproj" />
     <ProjectReference Include="..\..\BinIR\B2R2.BinIR.fsproj" />
     <ProjectReference Include="..\BinFile\B2R2.FrontEnd.BinFile.fsproj" />
+    <ProjectReference Include="..\Alpha\B2R2.FrontEnd.Alpha.fsproj" />
     <ProjectReference Include="..\Intel\B2R2.FrontEnd.Intel.fsproj" />
     <ProjectReference Include="..\ARM32\B2R2.FrontEnd.ARM32.fsproj" />
     <ProjectReference Include="..\ARM64\B2R2.FrontEnd.ARM64.fsproj" />

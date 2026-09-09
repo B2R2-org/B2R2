@@ -18,6 +18,8 @@
 
   <ItemGroup>
     <Compile Include="MSTestSettings.fs" />
+    <Compile Include="AlphaSweep.fs" />
+    <Compile Include="AlphaRoundTripTests.fs" />
     <Compile Include="IntelTests.fs" />
     <Compile Include="IntelSweep.fs" />
     <Compile Include="IntelRoundTripTests.fs" />
@@ -57,6 +59,7 @@
   </ItemGroup>
 
   <ItemGroup>
+    <ProjectReference Include="..\Assembly\Alpha\B2R2.Assembly.Alpha.fsproj" />
     <ProjectReference Include="..\Assembly\Intel\B2R2.Assembly.Intel.fsproj" />
     <ProjectReference Include="..\Assembly\ARM32\B2R2.Assembly.ARM32.fsproj" />
     <ProjectReference Include="..\Assembly\ARM64\B2R2.Assembly.ARM64.fsproj" />
@@ -74,6 +77,7 @@
     <ProjectReference Include="..\Assembly\AVR\B2R2.Assembly.AVR.fsproj" />
     <ProjectReference Include="..\Assembly\EVM\B2R2.Assembly.EVM.fsproj" />
     <ProjectReference Include="..\Assembly\API\B2R2.Assembly.API.fsproj" />
+    <ProjectReference Include="..\FrontEnd\Alpha\B2R2.FrontEnd.Alpha.fsproj" />
     <ProjectReference Include="..\FrontEnd\Intel\B2R2.FrontEnd.Intel.fsproj" />
     <ProjectReference Include="..\FrontEnd\ARM32\B2R2.FrontEnd.ARM32.fsproj" />
     <ProjectReference Include="..\FrontEnd\ARM64\B2R2.FrontEnd.ARM64.fsproj" />

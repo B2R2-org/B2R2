@@ -399,3 +399,10 @@ type internal MachineType =
   | EM_BPF = 0xF7s
   /// Netronome Flow Processor.
   | EM_NFP = 0xFAs
+  (* Digital never registered a number for Alpha, so an image built for it says
+     so with one of its own that lies outside the range the registered ones
+     come from. This is what Linux writes and what every Alpha image in the
+     wild carries; the registered-looking number above it is what a handful of
+     early images carry instead. *)
+  /// Digital Alpha, as every Alpha image actually written says it.
+  | EM_ALPHA = 0x9026s

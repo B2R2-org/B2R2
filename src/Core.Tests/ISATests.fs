@@ -111,6 +111,21 @@ type ISATests() =
       Assert.AreEqual<M68KModel>(M68KModel.M68020, isa.M68KModel)
       Assert.AreEqual<string>("m68020", isa.ToString())
 
+  /// Alpha is little-endian and sixty-four bits and comes in no other form, so
+  /// every way of asking for one has to reach the same ISA.
+  [<TestMethod>]
+  member _.``An Alpha ISA is little-endian and 64-bit``() =
+    let isas =
+      [ ISA "alpha"
+        ISA Architecture.Alpha
+        ISA(Architecture.Alpha, Endian.Little)
+        ISA(Architecture.Alpha, WordSize.Bit64) ]
+    for isa in isas do
+      Assert.AreEqual<Architecture>(Architecture.Alpha, isa.Arch)
+      Assert.AreEqual<Endian>(Endian.Little, isa.Endian)
+      Assert.AreEqual<WordSize>(WordSize.Bit64, isa.WordSize)
+      Assert.AreEqual<string>("alpha", isa.ToString())
+
   /// The flags an ISA carries mean whatever the architecture they belong to
   /// says they mean, so an architecture that has nothing to say there is read
   /// as saying the one thing a zero says.

@@ -61,6 +61,7 @@ module ArchSupport =
     | SPARC -> SPARC.RegisterFactory isa :> IRegisterFactory
     | PARISC -> PARISC.RegisterFactory isa :> IRegisterFactory
     | M68K -> M68K.RegisterFactory isa :> IRegisterFactory
+    | Alpha -> Alpha.RegisterFactory isa :> IRegisterFactory
     | EVM -> EVM.RegisterFactory isa :> IRegisterFactory
     | Python -> Python.RegisterFactory isa :> IRegisterFactory
     | CIL -> CIL.RegisterFactory isa :> IRegisterFactory
@@ -100,6 +101,8 @@ module ArchSupport =
       PARISC.PARISCParser(isa, reader) :> IInstructionParsable
     | M68K ->
       M68K.M68KParser(isa, reader) :> IInstructionParsable
+    | Alpha ->
+      Alpha.AlphaParser reader :> IInstructionParsable
     | Python ->
       Python.PythonRawParser(isa, reader) :> IInstructionParsable
     | _ ->
