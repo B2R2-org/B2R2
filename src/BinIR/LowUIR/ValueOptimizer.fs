@@ -38,6 +38,12 @@ module internal ValueOptimizer =
     | UnOpType.FSIN -> BitVector.FSin n
     | UnOpType.FTAN -> BitVector.FTan n
     | UnOpType.FATAN -> BitVector.FAtan n
+    | UnOpType.FASIN -> BitVector.FAsin n
+    | UnOpType.FACOS -> BitVector.FAcos n
+    | UnOpType.FSINH -> BitVector.FSinh n
+    | UnOpType.FCOSH -> BitVector.FCosh n
+    | UnOpType.FTANH -> BitVector.FTanh n
+    | UnOpType.FATANH -> BitVector.FAtanh n
     | _ -> Terminator.impossible ()
 
   let inline binop n1 n2 = function

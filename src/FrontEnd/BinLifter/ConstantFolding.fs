@@ -46,6 +46,12 @@ let private concretizeUnOp unopType bv =
   | UnOpType.FSIN -> BitVector.FSin bv
   | UnOpType.FTAN -> BitVector.FTan bv
   | UnOpType.FATAN -> BitVector.FAtan bv
+  | UnOpType.FASIN -> BitVector.FAsin bv
+  | UnOpType.FACOS -> BitVector.FAcos bv
+  | UnOpType.FSINH -> BitVector.FSinh bv
+  | UnOpType.FCOSH -> BitVector.FCosh bv
+  | UnOpType.FTANH -> BitVector.FTanh bv
+  | UnOpType.FATANH -> BitVector.FAtanh bv
   | _ -> Terminator.impossible ()
 
 let private concretizeBinOp binopType bv1 bv2 =

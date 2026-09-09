@@ -103,6 +103,12 @@ and private evalUnOp st e typ =
   | UnOpType.FSIN -> BitVector.FSin v
   | UnOpType.FTAN -> BitVector.FTan v
   | UnOpType.FATAN -> BitVector.FAtan v
+  | UnOpType.FASIN -> BitVector.FAsin v
+  | UnOpType.FACOS -> BitVector.FAcos v
+  | UnOpType.FSINH -> BitVector.FSinh v
+  | UnOpType.FCOSH -> BitVector.FCosh v
+  | UnOpType.FTANH -> BitVector.FTanh v
+  | UnOpType.FATANH -> BitVector.FAtanh v
   | _ -> raise IllegalASTTypeException
 
 and private evalBinOp st e1 e2 typ =

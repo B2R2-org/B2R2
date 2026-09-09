@@ -114,6 +114,12 @@ and private evalUnOp st e = function
   | UnOpType.FSIN -> evalUnOpConc st e BitVector.FSin
   | UnOpType.FTAN -> evalUnOpConc st e BitVector.FTan
   | UnOpType.FATAN -> evalUnOpConc st e BitVector.FAtan
+  | UnOpType.FASIN -> evalUnOpConc st e BitVector.FAsin
+  | UnOpType.FACOS -> evalUnOpConc st e BitVector.FAcos
+  | UnOpType.FSINH -> evalUnOpConc st e BitVector.FSinh
+  | UnOpType.FCOSH -> evalUnOpConc st e BitVector.FCosh
+  | UnOpType.FTANH -> evalUnOpConc st e BitVector.FTanh
+  | UnOpType.FATANH -> evalUnOpConc st e BitVector.FAtanh
   | _ -> Error ErrorCase.InvalidExprEvaluation
 
 and private evalBinOp st e1 e2 = function

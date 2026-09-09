@@ -40,6 +40,18 @@ type UnOpType =
   | FTAN = 5
   /// Arc tangent.
   | FATAN = 6
+  /// Arc sine.
+  | FASIN = 7
+  /// Arc cosine.
+  | FACOS = 8
+  /// Hyperbolic sine.
+  | FSINH = 9
+  /// Hyperbolic cosine.
+  | FCOSH = 10
+  /// Hyperbolic tangent.
+  | FTANH = 11
+  /// Inverse hyperbolic tangent.
+  | FATANH = 12
 
 /// <summary>
 /// Provides functions to access <see cref='T:B2R2.BinIR.UnOpType'/>.
@@ -58,6 +70,12 @@ module UnOpType =
     | UnOpType.FSIN -> "sin"
     | UnOpType.FTAN -> "tan"
     | UnOpType.FATAN -> "atan"
+    | UnOpType.FASIN -> "asin"
+    | UnOpType.FACOS -> "acos"
+    | UnOpType.FSINH -> "sinh"
+    | UnOpType.FCOSH -> "cosh"
+    | UnOpType.FTANH -> "tanh"
+    | UnOpType.FATANH -> "atanh"
     | _ -> raise IllegalASTTypeException
 
   /// <summary>
@@ -72,4 +90,10 @@ module UnOpType =
     | "sin" -> UnOpType.FSIN
     | "tan" -> UnOpType.FTAN
     | "atan" -> UnOpType.FATAN
+    | "asin" -> UnOpType.FASIN
+    | "acos" -> UnOpType.FACOS
+    | "sinh" -> UnOpType.FSINH
+    | "cosh" -> UnOpType.FCOSH
+    | "tanh" -> UnOpType.FTANH
+    | "atanh" -> UnOpType.FATANH
     | _ -> raise IllegalASTTypeException

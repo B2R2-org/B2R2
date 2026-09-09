@@ -270,6 +270,24 @@ module private BitVector = begin
     /// Floating point arc tangent.
     abstract FAtan: unit -> IBV
 
+    /// Floating point arc sine.
+    abstract FAsin: unit -> IBV
+
+    /// Floating point arc cosine.
+    abstract FAcos: unit -> IBV
+
+    /// Floating point hyperbolic sine.
+    abstract FSinh: unit -> IBV
+
+    /// Floating point hyperbolic cosine.
+    abstract FCosh: unit -> IBV
+
+    /// Floating point hyperbolic tangent.
+    abstract FTanh: unit -> IBV
+
+    /// Floating point inverse hyperbolic tangent.
+    abstract FAtanh: unit -> IBV
+
     /// Floating point greater than.
     abstract FGt: IBV -> IBV
 
@@ -813,6 +831,72 @@ module private BitVector = begin
         | _ ->
           raise InvalidRegTypeException
 
+      member this.FAsin() =
+        match len with
+        | 32<rt> ->
+          let r = this.Value |> toFloat32 |> asin
+          BitVectorSmall(BitConverter.SingleToUInt32Bits r |> uint64, len)
+        | 64<rt> ->
+          let r = this.Value |> toFloat64 |> asin
+          BitVectorSmall(BitConverter.DoubleToInt64Bits r |> uint64, len)
+        | _ ->
+          raise InvalidRegTypeException
+
+      member this.FAcos() =
+        match len with
+        | 32<rt> ->
+          let r = this.Value |> toFloat32 |> acos
+          BitVectorSmall(BitConverter.SingleToUInt32Bits r |> uint64, len)
+        | 64<rt> ->
+          let r = this.Value |> toFloat64 |> acos
+          BitVectorSmall(BitConverter.DoubleToInt64Bits r |> uint64, len)
+        | _ ->
+          raise InvalidRegTypeException
+
+      member this.FSinh() =
+        match len with
+        | 32<rt> ->
+          let r = this.Value |> toFloat32 |> sinh
+          BitVectorSmall(BitConverter.SingleToUInt32Bits r |> uint64, len)
+        | 64<rt> ->
+          let r = this.Value |> toFloat64 |> sinh
+          BitVectorSmall(BitConverter.DoubleToInt64Bits r |> uint64, len)
+        | _ ->
+          raise InvalidRegTypeException
+
+      member this.FCosh() =
+        match len with
+        | 32<rt> ->
+          let r = this.Value |> toFloat32 |> cosh
+          BitVectorSmall(BitConverter.SingleToUInt32Bits r |> uint64, len)
+        | 64<rt> ->
+          let r = this.Value |> toFloat64 |> cosh
+          BitVectorSmall(BitConverter.DoubleToInt64Bits r |> uint64, len)
+        | _ ->
+          raise InvalidRegTypeException
+
+      member this.FTanh() =
+        match len with
+        | 32<rt> ->
+          let r = this.Value |> toFloat32 |> tanh
+          BitVectorSmall(BitConverter.SingleToUInt32Bits r |> uint64, len)
+        | 64<rt> ->
+          let r = this.Value |> toFloat64 |> tanh
+          BitVectorSmall(BitConverter.DoubleToInt64Bits r |> uint64, len)
+        | _ ->
+          raise InvalidRegTypeException
+
+      member this.FAtanh() =
+        match len with
+        | 32<rt> ->
+          let r = this.Value |> toFloat32 |> MathF.Atanh
+          BitVectorSmall(BitConverter.SingleToUInt32Bits r |> uint64, len)
+        | 64<rt> ->
+          let r = this.Value |> toFloat64 |> Math.Atanh
+          BitVectorSmall(BitConverter.DoubleToInt64Bits r |> uint64, len)
+        | _ ->
+          raise InvalidRegTypeException
+
       member this.FSin() =
         match len with
         | 32<rt> ->
@@ -1332,6 +1416,60 @@ module private BitVector = begin
         | _ ->
           raise InvalidRegTypeException
 
+      member this.FAsin() =
+        match len with
+        | 80<rt> ->
+          let r = this.Value |> toBigFloat |> asin
+          let v = BitConverter.DoubleToInt64Bits r |> uint64 |> bigint
+          BitVectorBig(v, len)
+        | _ ->
+          raise InvalidRegTypeException
+
+      member this.FAcos() =
+        match len with
+        | 80<rt> ->
+          let r = this.Value |> toBigFloat |> acos
+          let v = BitConverter.DoubleToInt64Bits r |> uint64 |> bigint
+          BitVectorBig(v, len)
+        | _ ->
+          raise InvalidRegTypeException
+
+      member this.FSinh() =
+        match len with
+        | 80<rt> ->
+          let r = this.Value |> toBigFloat |> sinh
+          let v = BitConverter.DoubleToInt64Bits r |> uint64 |> bigint
+          BitVectorBig(v, len)
+        | _ ->
+          raise InvalidRegTypeException
+
+      member this.FCosh() =
+        match len with
+        | 80<rt> ->
+          let r = this.Value |> toBigFloat |> cosh
+          let v = BitConverter.DoubleToInt64Bits r |> uint64 |> bigint
+          BitVectorBig(v, len)
+        | _ ->
+          raise InvalidRegTypeException
+
+      member this.FTanh() =
+        match len with
+        | 80<rt> ->
+          let r = this.Value |> toBigFloat |> tanh
+          let v = BitConverter.DoubleToInt64Bits r |> uint64 |> bigint
+          BitVectorBig(v, len)
+        | _ ->
+          raise InvalidRegTypeException
+
+      member this.FAtanh() =
+        match len with
+        | 80<rt> ->
+          let r = this.Value |> toBigFloat |> Math.Atanh
+          let v = BitConverter.DoubleToInt64Bits r |> uint64 |> bigint
+          BitVectorBig(v, len)
+        | _ ->
+          raise InvalidRegTypeException
+
       member this.FSin() =
         match len with
         | 80<rt> ->
@@ -1805,6 +1943,24 @@ type BitVector private(bv: IBV) =
 
   /// Calculates the arctangent of a BitVector as a floating point number.
   static member FAtan(v1: BitVector) = v1.V.FAtan() |> BitVector
+
+  /// Calculates the arc sine of a BitVector as a floating point number.
+  static member FAsin(v1: BitVector) = v1.V.FAsin() |> BitVector
+
+  /// Calculates the arc cosine of a BitVector as a floating point number.
+  static member FAcos(v1: BitVector) = v1.V.FAcos() |> BitVector
+
+  /// Calculates the hyperbolic sine of a BitVector as a float.
+  static member FSinh(v1: BitVector) = v1.V.FSinh() |> BitVector
+
+  /// Calculates the hyperbolic cosine of a BitVector as a float.
+  static member FCosh(v1: BitVector) = v1.V.FCosh() |> BitVector
+
+  /// Calculates the hyperbolic tangent of a BitVector as a float.
+  static member FTanh(v1: BitVector) = v1.V.FTanh() |> BitVector
+
+  /// Calculates the inverse hyperbolic tangent of a BitVector as a float.
+  static member FAtanh(v1: BitVector) = v1.V.FAtanh() |> BitVector
 
   /// Compares two BitVectors as floating point numbers for greater than.
   static member FGt(v1: BitVector, v2: BitVector) = v1.V.FGt v2.V |> BitVector

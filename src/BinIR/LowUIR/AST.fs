@@ -751,6 +751,30 @@ let ftan e = unop UnOpType.FTAN e
 [<CompiledName("FATan")>]
 let fatan e = unop UnOpType.FATAN e
 
+/// Floating point arc sine.
+[<CompiledName("FAsin")>]
+let fasin e = unop UnOpType.FASIN e
+
+/// Floating point arc cosine.
+[<CompiledName("FAcos")>]
+let facos e = unop UnOpType.FACOS e
+
+/// Floating point hyperbolic sine.
+[<CompiledName("FSinh")>]
+let fsinh e = unop UnOpType.FSINH e
+
+/// Floating point hyperbolic cosine.
+[<CompiledName("FCosh")>]
+let fcosh e = unop UnOpType.FCOSH e
+
+/// Floating point hyperbolic tangent.
+[<CompiledName("FTanh")>]
+let ftanh e = unop UnOpType.FTANH e
+
+/// Floating point inverse hyperbolic tangent.
+[<CompiledName("FAtanh")>]
+let fatanh e = unop UnOpType.FATANH e
+
 /// An ISMark statement.
 [<CompiledName("ISMark")>]
 let ismark nBytes =
