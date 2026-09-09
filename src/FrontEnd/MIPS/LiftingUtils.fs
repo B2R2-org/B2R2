@@ -456,6 +456,34 @@ let updatePCCond (bld: LowUIRBuilder) offset cond kind =
     AST.lmark lblEnd
   }
 
+/// A likely branch executes its delay slot only when the branch is taken, and
+/// nullifies it otherwise. Nothing in the IR can reach forward and suppress the
+/// next instruction, so the not-taken path leaves for PC+8 immediately: the
+/// delay slot sits at PC+4 and is stepped over rather than executed, which is
+/// what nullification means. The taken path arms the delayed branch exactly as
+/// an ordinary branch does, so the slot runs and the transfer follows it.
+///
+/// This is why the two paths are not symmetric. `updatePCCond` can write NPC on
+/// both arms and let the delay slot carry the transfer, because there the slot
+/// runs either way; here it must not.
+let updatePCCondLikely (bld: LowUIRBuilder) offset cond kind =
+  append bld {
+    let lblTrueCase = label bld "TrueCase"
+    let lblFalseCase = label bld "FalseCase"
+    let lblEnd = label bld "End"
+    let pc = regVar bld R.PC
+    let nPC = regVar bld R.NPC
+    bld.DelayedBranch <- kind
+    AST.cjmp cond (AST.jmpDest lblTrueCase) (AST.jmpDest lblFalseCase)
+    AST.lmark lblTrueCase
+    nPC := offset
+    AST.jmp (AST.jmpDest lblEnd)
+    AST.lmark lblFalseCase
+    nPC := pc .+ numI32 8 bld.RegType
+    AST.interjmp nPC kind
+    AST.lmark lblEnd
+  }
+
 let updateRAPCCond (bld: LowUIRBuilder) nAddr offset cond kind =
   append bld {
     let lblTrueCase = label bld "TrueCase"

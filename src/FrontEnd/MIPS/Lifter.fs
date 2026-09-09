@@ -58,8 +58,10 @@ let translate (ins: Instruction) (bld: LowUIRBuilder) =
     bc1f ins bld
   | Op.BC1T ->
     bc1t ins bld
-  | Op.BEQ | Op.BEQL ->
+  | Op.BEQ ->
     beq ins bld
+  | Op.BEQL ->
+    beql ins bld
   | Op.BGEZ ->
     bgez ins bld
   | Op.BGEZAL ->
@@ -72,8 +74,10 @@ let translate (ins: Instruction) (bld: LowUIRBuilder) =
     bltz ins bld
   | Op.BLTZAL ->
     bltzal ins bld
-  | Op.BNE | Op.BNEL ->
+  | Op.BNE ->
     bne ins bld
+  | Op.BNEL ->
+    bnel ins bld
   | Op.BREAK ->
     sideEffects ins bld Breakpoint
   | Op.C ->
