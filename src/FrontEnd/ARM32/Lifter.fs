@@ -165,8 +165,10 @@ let translate (ins: Instruction) bld =
     movs true ins bld
   | Op.MOVT ->
     movt ins bld
-  | Op.MSR | Op.MRS ->
-    undefined ins bld
+  | Op.MRS ->
+    mrs ins bld
+  | Op.MSR ->
+    msr ins bld
   | Op.MRC ->
     mrc ins bld
   | Op.MUL ->

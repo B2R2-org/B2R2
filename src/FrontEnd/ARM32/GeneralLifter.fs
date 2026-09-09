@@ -178,6 +178,43 @@ let unsupported ins bld = sideEffects ins bld UnsupportedInstruction
 /// reserved, so faulting is what the instruction means.
 let undefined ins bld = sideEffects ins bld UndefinedInstruction
 
+/// Whether a field specifier names the flag field. That is the only part of
+/// CPSR this models: in user mode N, Z, C, V and Q are the whole of what a
+/// program owns of it, and the control, extension and status bytes select mode
+/// and interrupt state the model does not carry. A write naming only those is
+/// therefore still left undefined rather than silently dropped -- reporting
+/// "not modelled" is honest, and quietly ignoring a write to the mode bits
+/// would not be.
+let private namesFlagField = function
+  | PSRf | PSRfc | PSRfx | PSRfxc
+  | PSRfs | PSRfsc | PSRfsx | PSRfsxc
+  | PSRnzcv | PSRnzcvq | PSRnzcvqg -> true
+  | _ -> false
+
+/// MRS Rd, <psr>. The whole register is read; what a caller may rely on is the
+/// flag field, and the rest is mode state two implementations need not agree
+/// about.
+let mrs ins bld =
+  lift bld ins {
+    let struct (dst, _) = transTwoOprs ins bld
+    dst := regVar bld R.CPSR
+  }
+
+/// MSR <psr>_<fields>, Rn or #imm. The named fields are written and every
+/// other bit of CPSR is preserved -- which is the point of the field
+/// specifier, and why this is a read-modify-write rather than an assignment.
+let msr (ins: Instruction) bld =
+  match ins.Operands with
+  | TwoOperands(OprSpecReg(_, Some flag), src) when namesFlagField flag ->
+    lift bld ins {
+      let src = transOpr ins bld src
+      let cpsr = regVar bld R.CPSR
+      let mask = maskPSRForCondbits .| maskPSRForQbit
+      cpsr := (cpsr .& AST.not mask) .| (src .& mask)
+    }
+  | _ ->
+    undefined ins bld
+
 let nop (ins: Instruction) bld =
   lift bld ins {
   }
