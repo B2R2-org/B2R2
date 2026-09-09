@@ -87,6 +87,8 @@ module SyscallConvention =
 
   let inline private parisc r = PARISC.Register.toRegID r
 
+  let inline private alpha r = Alpha.Register.toRegID r
+
   let private reg r = ArgLocation.Reg r
 
   let private linuxX86 () =
@@ -220,6 +222,22 @@ module SyscallConvention =
            reg (m68k M68K.Register.D5)
            reg (m68k M68K.Register.A0) |] }
 
+  let private linuxAlpha () = (* the call is a CALL_PAL callsys *)
+    (* Alpha keeps the OSF/1 convention it was born with: the number goes in
+       v0 and comes back there, and a3 rather than the sign of the result says
+       whether the call failed -- the same shape MIPS uses, and the reason a
+       negative return value is an ordinary result here. *)
+    { NumberRegister = alpha Alpha.Register.R0
+      ReturnRegister = alpha Alpha.Register.R0
+      Error = FlagRegister(alpha Alpha.Register.R19)
+      Args =
+        [| reg (alpha Alpha.Register.R16)
+           reg (alpha Alpha.Register.R17)
+           reg (alpha Alpha.Register.R18)
+           reg (alpha Alpha.Register.R19)
+           reg (alpha Alpha.Register.R20)
+           reg (alpha Alpha.Register.R21) |] }
+
   let private linuxSH4 () =
     { NumberRegister = sh4 SH4.Register.R3
       ReturnRegister = sh4 SH4.Register.R0
@@ -322,6 +340,7 @@ module SyscallConvention =
     | OS.Linux, S390 -> linuxS390 ()
     | OS.Linux, M68K -> linuxM68K ()
     | OS.Linux, SH4 -> linuxSH4 ()
+    | OS.Linux, Alpha -> linuxAlpha ()
     | OS.Linux, PARISC -> linuxPARISC ()
     | OS.Windows, X86 -> windowsX86 ()
     | OS.Windows, X64 -> windowsX64 ()

@@ -114,6 +114,8 @@ module CallingConvention =
 
   let inline private parisc r = PARISC.Register.toRegID r
 
+  let inline private alpha r = Alpha.Register.toRegID r
+
   let private linuxX86 () = (* cdecl: int args on stack, floats via x87 *)
     { IntArgs = [| ArgLocation.Stack { FirstOffset = 4; SlotSize = 4 } |]
       FloatArgs = [||]
@@ -550,6 +552,80 @@ module CallingConvention =
               m68k M68K.Register.A1 ]
       ReturnAddressLocation = OnStack }
 
+  let private linuxAlpha () = (* the OSF/1 calling standard *)
+    (* An argument takes the same numbered slot in either file, so the third
+       argument is a2 when it is a word and $f18 when it is a number -- which
+       is what Positional says and what tells this ABI from the RISC ones that
+       count the two kinds separately. *)
+    { IntArgs =
+        [| ArgLocation.Reg(alpha Alpha.Register.R16)
+           ArgLocation.Reg(alpha Alpha.Register.R17)
+           ArgLocation.Reg(alpha Alpha.Register.R18)
+           ArgLocation.Reg(alpha Alpha.Register.R19)
+           ArgLocation.Reg(alpha Alpha.Register.R20)
+           ArgLocation.Reg(alpha Alpha.Register.R21)
+           ArgLocation.Stack { FirstOffset = 0; SlotSize = 8 } |]
+      FloatArgs =
+        [| ArgLocation.Reg(alpha Alpha.Register.F16)
+           ArgLocation.Reg(alpha Alpha.Register.F17)
+           ArgLocation.Reg(alpha Alpha.Register.F18)
+           ArgLocation.Reg(alpha Alpha.Register.F19)
+           ArgLocation.Reg(alpha Alpha.Register.F20)
+           ArgLocation.Reg(alpha Alpha.Register.F21)
+           ArgLocation.Stack { FirstOffset = 0; SlotSize = 8 } |]
+      IntReturnLocation = ArgLocation.Reg(alpha Alpha.Register.R0)
+      FloatReturnLocation = ArgLocation.Reg(alpha Alpha.Register.F0)
+      ArgClassification = Positional
+      CalleeSavedRegisters =
+        set [ alpha Alpha.Register.R9
+              alpha Alpha.Register.R10
+              alpha Alpha.Register.R11
+              alpha Alpha.Register.R12
+              alpha Alpha.Register.R13
+              alpha Alpha.Register.R14
+              alpha Alpha.Register.R15
+              alpha Alpha.Register.R30
+              alpha Alpha.Register.F2
+              alpha Alpha.Register.F3
+              alpha Alpha.Register.F4
+              alpha Alpha.Register.F5
+              alpha Alpha.Register.F6
+              alpha Alpha.Register.F7
+              alpha Alpha.Register.F8
+              alpha Alpha.Register.F9 ]
+      CallerSavedRegisters =
+        set [ alpha Alpha.Register.R0
+              alpha Alpha.Register.R1
+              alpha Alpha.Register.R2
+              alpha Alpha.Register.R3
+              alpha Alpha.Register.R4
+              alpha Alpha.Register.R5
+              alpha Alpha.Register.R6
+              alpha Alpha.Register.R7
+              alpha Alpha.Register.R8
+              alpha Alpha.Register.R16
+              alpha Alpha.Register.R17
+              alpha Alpha.Register.R18
+              alpha Alpha.Register.R19
+              alpha Alpha.Register.R20
+              alpha Alpha.Register.R21
+              alpha Alpha.Register.R22
+              alpha Alpha.Register.R23
+              alpha Alpha.Register.R24
+              alpha Alpha.Register.R25
+              alpha Alpha.Register.R26
+              alpha Alpha.Register.R27
+              alpha Alpha.Register.R28
+              alpha Alpha.Register.F0
+              alpha Alpha.Register.F1
+              alpha Alpha.Register.F10
+              alpha Alpha.Register.F11
+              alpha Alpha.Register.F12
+              alpha Alpha.Register.F13
+              alpha Alpha.Register.F14
+              alpha Alpha.Register.F15 ]
+      ReturnAddressLocation = InRegister(alpha Alpha.Register.R26) }
+
   let private linuxSH4 () = (* Renesas SH ABI; FP arg regs not modeled *)
     { IntArgs =
         [| ArgLocation.Reg(sh4 SH4.Register.R4)
@@ -705,5 +781,6 @@ module CallingConvention =
     | _, S390 -> linuxS390 ()
     | _, M68K -> linuxM68K ()
     | _, SH4 -> linuxSH4 ()
+    | _, Alpha -> linuxAlpha ()
     | _, PARISC -> linuxPARISC ()
     | _ -> linuxX64 ()

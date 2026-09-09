@@ -59,6 +59,23 @@ type SyscallConventionTests() =
       sample.GetArgLocation(3)
     )
 
+  (* Alpha keeps the OSF/1 convention: the number goes in v0 and comes back
+     there, and a3 rather than the sign of the result says whether the call
+     failed -- so a negative return value here is an ordinary result, which is
+     what tells this convention from the negated-errno ones. *)
+  [<TestMethod>]
+  member _.``Alpha reports a failed syscall in a3``() =
+    let conv = SyscallConvention.create OS.Linux (ISA Architecture.Alpha)
+    let v0 = Alpha.Register.toRegID Alpha.Register.R0
+    Assert.AreEqual<RegisterID>(v0, conv.NumberRegister)
+    Assert.AreEqual<RegisterID>(v0, conv.ReturnRegister)
+    let a3 = Alpha.Register.toRegID Alpha.Register.R19
+    Assert.AreEqual<SyscallError>(FlagRegister a3, conv.Error)
+    let a0 = Alpha.Register.toRegID Alpha.Register.R16
+    Assert.AreEqual<ArgLocation>(ArgLocation.Reg a0, conv.GetArgLocation 0)
+    let a5 = Alpha.Register.toRegID Alpha.Register.R21
+    Assert.AreEqual<ArgLocation>(ArgLocation.Reg a5, conv.GetArgLocation 5)
+
   (* Linux on m68k enters the kernel with a TRAP #0, taking the call number in
      D0 and the arguments in D1 through D5 and then A0, which is the one place
      the sequence leaves the data registers. *)
