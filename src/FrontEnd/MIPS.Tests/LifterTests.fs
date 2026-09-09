@@ -92,6 +92,31 @@ type LifterTests() =
           AST.lmark lblEnd |]
     |> test isa
 
+  (* A likely branch runs its delay slot only when it is taken. The lifter
+     cannot suppress the next instruction, so the not-taken path has to leave
+     immediately for PC+8, stepping over the slot at PC+4. That interjmp on the
+     false arm is the whole of the difference from BEQ, which writes NPC on
+     both arms and lets the slot carry the transfer either way. *)
+  [<TestMethod>]
+  member _.``[MIPS64] BEQL skips its delay slot when not taken``() =
+    let isa = ISA(Architecture.MIPS, Endian.Big, WordSize.Bit64)
+    let regFactory = RegisterFactory isa :> IRegisterFactory
+    let ( !. ) name = Register.toRegID name |> regFactory.GetRegVar
+    let stream = LowUIRStream()
+    let lblTrue = stream.NewLabel "TrueCase"
+    let lblFalse = stream.NewLabel "FalseCase"
+    let lblEnd = stream.NewLabel "End"
+    "50220002"
+    ++ [| AST.cjmp (!.R1 == !.R2) (AST.jmpDest lblTrue) (AST.jmpDest lblFalse)
+          AST.lmark lblTrue
+          !.NPC := numI64 12L 64<rt>
+          AST.jmp (AST.jmpDest lblEnd)
+          AST.lmark lblFalse
+          !.NPC := !.PC .+ numI32 8 64<rt>
+          AST.interjmp !.NPC InterJmpKind.Base
+          AST.lmark lblEnd |]
+    |> test isa
+
   [<TestMethod>]
   member _.``[MIPS64] CLZ scans only the low 32-bit word``() =
     let isa = ISA(Architecture.MIPS, Endian.Big, WordSize.Bit64)
