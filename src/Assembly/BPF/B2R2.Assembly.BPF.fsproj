@@ -1,0 +1,23 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <Description>B2R2 eBPF assembly library.</Description>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <Compile Include="ParserHelper.fs" />
+    <Compile Include="AsmField.fs" />
+    <Compile Include="AsmOpcode.fs" />
+    <Compile Include="AsmMain.fs" />
+    <Compile Include="Assembler.fs" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <PackageReference Include="FParsec" Version="1.1.1" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\..\FrontEnd\BPF\B2R2.FrontEnd.BPF.fsproj" />
+    <ProjectReference Include="..\BinLowerer\B2R2.Assembly.BinLowerer.fsproj" />
+  </ItemGroup>
+</Project>

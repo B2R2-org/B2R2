@@ -5,6 +5,7 @@
   <Project Path="src/Assembly/API/B2R2.Assembly.API.fsproj" />
   <Project Path="src/Assembly/ARM32/B2R2.Assembly.ARM32.fsproj" />
   <Project Path="src/Assembly/AVR/B2R2.Assembly.AVR.fsproj" />
+  <Project Path="src/Assembly/BPF/B2R2.Assembly.BPF.fsproj" />
   <Project Path="src/Assembly/ARM64/B2R2.Assembly.ARM64.fsproj" />
   <Project Path="src/Assembly/BinLowerer/B2R2.Assembly.BinLowerer.fsproj" />
   <Project Path="src/Assembly/EVM/B2R2.Assembly.EVM.fsproj" />
@@ -31,6 +32,8 @@
   <Project Path="src/FrontEnd/ARM64/B2R2.FrontEnd.ARM64.fsproj" />
   <Project Path="src/FrontEnd/AVR.Tests/B2R2.FrontEnd.AVR.Tests.fsproj" />
   <Project Path="src/FrontEnd/AVR/B2R2.FrontEnd.AVR.fsproj" />
+  <Project Path="src/FrontEnd/BPF.Tests/B2R2.FrontEnd.BPF.Tests.fsproj" />
+  <Project Path="src/FrontEnd/BPF/B2R2.FrontEnd.BPF.fsproj" />
   <Project Path="src/FrontEnd/BinFile.Tests/B2R2.FrontEnd.BinFile.Tests.fsproj" />
   <Project Path="src/FrontEnd/BinFile/B2R2.FrontEnd.BinFile.fsproj" />
   <Project Path="src/FrontEnd/BinLifter.Tests/B2R2.FrontEnd.BinLifter.Tests.fsproj" />

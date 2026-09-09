@@ -10,6 +10,8 @@
   <Project Path="ARM64/B2R2.FrontEnd.ARM64.fsproj" />
   <Project Path="AVR.Tests/B2R2.FrontEnd.AVR.Tests.fsproj" />
   <Project Path="AVR/B2R2.FrontEnd.AVR.fsproj" />
+  <Project Path="BPF.Tests/B2R2.FrontEnd.BPF.Tests.fsproj" />
+  <Project Path="BPF/B2R2.FrontEnd.BPF.fsproj" />
   <Project Path="BinFile.Tests/B2R2.FrontEnd.BinFile.Tests.fsproj" />
   <Project Path="BinFile/B2R2.FrontEnd.BinFile.fsproj" />
   <Project Path="BinLifter.Tests/B2R2.FrontEnd.BinLifter.Tests.fsproj" />

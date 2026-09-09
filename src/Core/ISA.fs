@@ -87,6 +87,8 @@ type ISA(arch, endian, wordSize, flags) =
       ISA(arch, Endian.Little, WordSize.Bit32)
     | Architecture.CIL ->
       ISA(arch, Endian.Little, WordSize.Bit64)
+    | Architecture.BPF ->
+      ISA(arch, Endian.Little, WordSize.Bit64)
     | _ ->
       ISA(Architecture.UnknownISA, Endian.Little, WordSize.Bit64)
 
@@ -131,6 +133,11 @@ type ISA(arch, endian, wordSize, flags) =
     | Architecture.WASM ->
       ISA(arch, endian, WordSize.Bit32)
     | Architecture.CIL ->
+      ISA(arch, endian, WordSize.Bit64)
+    (* A program is stored in the order the machine running it stores a word,
+       and both orders are built for, so this is the one thing about an eBPF
+       image that is not settled in advance. *)
+    | Architecture.BPF ->
       ISA(arch, endian, WordSize.Bit64)
     | _ ->
       ISA(Architecture.UnknownISA, endian, WordSize.Bit64)
@@ -186,6 +193,8 @@ type ISA(arch, endian, wordSize, flags) =
     | Architecture.WASM ->
       ISA(arch, Endian.Little, wordSize)
     | Architecture.CIL ->
+      ISA(arch, Endian.Little, wordSize)
+    | Architecture.BPF when wordSize = WordSize.Bit64 ->
       ISA(arch, Endian.Little, wordSize)
     | _ ->
       ISA(Architecture.UnknownISA, Endian.Little, wordSize)
@@ -357,6 +366,10 @@ type ISA(arch, endian, wordSize, flags) =
       ISA PythonVersion.Python315
     | "wasm" ->
       ISA Architecture.WASM
+    | "bpf" | "ebpf" | "bpfel" ->
+      ISA Architecture.BPF
+    | "bpfeb" ->
+      ISA(Architecture.BPF, Endian.Big)
     | _ ->
       ISA Architecture.UnknownISA
 
@@ -479,6 +492,9 @@ type ISA(arch, endian, wordSize, flags) =
   /// Returns true if this ISA is Common Intermediate Language (CIL).
   member _.IsCIL with get() = arch = Architecture.CIL
 
+  /// Returns true if this ISA is eBPF (either byte order).
+  member _.IsBPF with get() = arch = Architecture.BPF
+
   override this.ToString() =
     let thumb = this.ARM32Mode = ARM32Mode.Thumb
     match arch, endian, wordSize with
@@ -568,6 +584,10 @@ type ISA(arch, endian, wordSize, flags) =
       | _ -> raise InvalidISAException
     | Architecture.WASM, _, _ ->
       "wasm"
+    | Architecture.BPF, Endian.Little, _ ->
+      "bpfel"
+    | Architecture.BPF, Endian.Big, _ ->
+      "bpfeb"
     | Architecture.CIL, _, _ ->
       match LanguagePrimitives.EnumOfValue flags with
       | CILKind.CILOnly -> "cil"
@@ -794,6 +814,12 @@ module ISA =
   let (|TMS320C6000|_|) (isa: ISA) =
     match isa.Arch with
     | Architecture.TMS320C6000 -> ValueSome()
+    | _ -> ValueNone
+
+  [<return: Struct>]
+  let (|BPF|_|) (isa: ISA) =
+    match isa.Arch with
+    | Architecture.BPF -> ValueSome()
     | _ -> ValueNone
 
   [<return: Struct>]
