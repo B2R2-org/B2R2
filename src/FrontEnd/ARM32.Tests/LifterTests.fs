@@ -99,3 +99,16 @@ type LifterTests() =
     ++ [| t32 1 := !.SP .+ num 0x198u .+ num 0u
           !.SP := t32 1 |]
     |> testThumb
+
+  [<TestMethod>]
+  member _.``[ARMv7] a load takes the data byte order``() =
+    (* The ISA this class lifts against is big-endian, which for ARM means
+       BE8: instructions stay little-endian and data accesses follow the ISA.
+       So a load here has to be a big-endian one. It used to be built with
+       AST.loadLE regardless, which made every BE8 image read every word
+       backwards -- and the printed IR looks identical either way, so only an
+       assertion over the expression itself catches it. *)
+    "e5910000"
+    ++ [| t32 1 := AST.loadBE 32<rt> (!.R1 .+ num 0x0u)
+          !.R0 := t32 1 |]
+    |> testARM
