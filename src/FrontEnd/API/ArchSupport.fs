@@ -105,6 +105,18 @@ module ArchSupport =
     | _ ->
       Terminator.futureFeature ()
 
+  (* A file's own reader carries its *data* endianness, which is not always the
+     order its instruction words are stored in. ARM's big-endian convention
+     since ARMv6 is BE8, which byte-swaps data alone and leaves instructions
+     little-endian, and AArch64 fetches little-endian whatever EE says; so an
+     ARM image marked EI_DATA = MSB is still decoded little-endian. Only the
+     obsolete BE32, dropped in ARMv7 and unsupported here, ordered both alike:
+     supporting it would mean plumbing EF_ARM_BE8 out through IBinFile. *)
+  let private instructionReader (binFile: IBinFile) =
+    match binFile.ISA with
+    | ARM32 | AArch64 -> BinReader.Init Endian.Little
+    | _ -> binFile.Reader
+
   /// Creates a new parser (IInstructionParsable) for the given file.
   [<CompiledName "CreateParser">]
   let createParserForFile (binFile: IBinFile) =
@@ -112,7 +124,7 @@ module ArchSupport =
     | Python ->
       Python.PythonParser(binFile, binFile.Reader) :> IInstructionParsable
     | _ ->
-      createParser binFile.Reader binFile.ISA
+      createParser (instructionReader binFile) binFile.ISA
 
   /// Creates a new LowUIR builder for the given architecture.
   [<CompiledName "CreateBuilder">]

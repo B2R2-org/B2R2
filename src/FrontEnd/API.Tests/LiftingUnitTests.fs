@@ -374,3 +374,23 @@ type LiftingUnitTests() =
     x86Unit.IsThumb <- true
     Assert.AreEqual<bool>(false, x86Unit.IsThumb)
     Assert.AreEqual<int>(1, x86Unit.InstructionAlignment)
+
+  (* BE8, which every big-endian ARM build since ARMv6 is, byte-swaps data and
+     leaves instruction words little-endian, and AArch64 always fetches
+     little-endian. A file's reader carries its data endianness, which is
+     therefore not what instruction fetch reads with: the entry word of a BE8
+     image used to be read reversed and decode to nothing. The hex below is
+     memory order, so "0d00a0e1" is the word e1a0000d. *)
+  [<TestMethod>]
+  member _.``[LiftingUnit] ARM instruction fetch stays little-endian``() =
+    let cases =
+      [| Architecture.ARMv7, "0d00a0e1", "mov r0, sp"
+         Architecture.ARMv8, "1f2003d5", "nop" |]
+    for arch, hex, expected in cases do
+      let code = ByteArray.ofHexString hex
+      let disasmOf (endian: Endian) =
+        let isa = ISA(arch, endian)
+        let unit = BinHandle.LoadRawImage(code, isa).NewLiftingUnit()
+        unit.DisasmInstruction(addr = 0UL)
+      Assert.AreEqual<string>(expected, disasmOf Endian.Little)
+      Assert.AreEqual<string>(expected, disasmOf Endian.Big)
