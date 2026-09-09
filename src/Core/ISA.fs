@@ -73,6 +73,8 @@ type ISA(arch, endian, wordSize, flags) =
       ISA(arch, Endian.Big, WordSize.Bit32)
     | Architecture.M68K ->
       ISA(arch, Endian.Big, WordSize.Bit32, int M68KModel.M68020)
+    | Architecture.Alpha ->
+      ISA(arch, Endian.Little, WordSize.Bit64)
     | Architecture.AVR ->
       ISA(arch, Endian.Little, WordSize.Bit8)
     | Architecture.TMS320C6000 ->
@@ -116,6 +118,8 @@ type ISA(arch, endian, wordSize, flags) =
       ISA(arch, endian, WordSize.Bit32)
     | Architecture.M68K when endian = Endian.Big ->
       ISA(arch, endian, WordSize.Bit32, int M68KModel.M68020)
+    | Architecture.Alpha when endian = Endian.Little ->
+      ISA(arch, endian, WordSize.Bit64)
     | Architecture.AVR ->
       ISA(arch, endian, WordSize.Bit8)
     | Architecture.TMS320C6000 ->
@@ -169,6 +173,8 @@ type ISA(arch, endian, wordSize, flags) =
       ISA(arch, Endian.Big, wordSize)
     | Architecture.M68K when wordSize = WordSize.Bit32 ->
       ISA(arch, Endian.Big, wordSize, int M68KModel.M68020)
+    | Architecture.Alpha when wordSize = WordSize.Bit64 ->
+      ISA(arch, Endian.Little, wordSize)
     | Architecture.AVR when wordSize = WordSize.Bit8 ->
       ISA(arch, Endian.Little, wordSize)
     | Architecture.TMS320C6000 when wordSize = WordSize.Bit32 ->
@@ -296,6 +302,8 @@ type ISA(arch, endian, wordSize, flags) =
       ISA M68KModel.M68040
     | "m68060" | "68060" ->
       ISA M68KModel.M68060
+    | "alpha" | "alphaev6" ->
+      ISA Architecture.Alpha
     | "avr" | "avr8" ->
       ISA Architecture.AVR
     | "avr6" ->
@@ -450,6 +458,9 @@ type ISA(arch, endian, wordSize, flags) =
   /// Returns true if this ISA is Motorola 68000 series (any model).
   member _.IsM68K with get() = arch = Architecture.M68K
 
+  /// Returns true if this ISA is DEC Alpha.
+  member _.IsAlpha with get() = arch = Architecture.Alpha
+
   /// Returns true if this ISA is AVR.
   member _.IsAVR with get() = arch = Architecture.AVR
 
@@ -528,6 +539,8 @@ type ISA(arch, endian, wordSize, flags) =
       | M68KModel.M68040 -> "m68040"
       | M68KModel.M68060 -> "m68060"
       | _ -> raise InvalidISAException
+    | Architecture.Alpha, Endian.Little, WordSize.Bit64 ->
+      "alpha"
     | Architecture.AVR, _, _ ->
       "avr"
     | Architecture.TMS320C6000, _, _ ->
@@ -763,6 +776,12 @@ module ISA =
   let (|M68K|_|) (isa: ISA) =
     match isa.Arch with
     | Architecture.M68K -> ValueSome()
+    | _ -> ValueNone
+
+  [<return: Struct>]
+  let (|Alpha|_|) (isa: ISA) =
+    match isa.Arch with
+    | Architecture.Alpha -> ValueSome()
     | _ -> ValueNone
 
   [<return: Struct>]

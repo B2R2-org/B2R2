@@ -109,425 +109,443 @@ type LinuxSyscall =
   | Fchdir = 75
   | Fchmod = 76
   | Fchmodat = 77
-  | Fchown = 78
-  | Fchown32 = 79
-  | Fchownat = 80
-  | Fcntl = 81
-  | Fcntl64 = 82
-  | Fdatasync = 83
-  | Fgetxattr = 84
-  | FinitModule = 85
-  | Flistxattr = 86
-  | Flock = 87
-  | Fork = 88
-  | FreeHugepages = 89
-  | Fremovexattr = 90
-  | Fsconfig = 91
-  | Fsetxattr = 92
-  | Fsmount = 93
-  | Fsopen = 94
-  | Fspick = 95
-  | Fstat = 96
-  | Fstat64 = 97
-  | Fstatat64 = 98
-  | Fstatfs = 99
-  | Fstatfs64 = 100
-  | Fsync = 101
-  | Ftruncate = 102
-  | Ftruncate64 = 103
-  | Futex = 104
-  | Futex64 = 105
-  | Futimesat = 106
-  | Getcpu = 107
-  | Getcwd = 108
-  | Getdents = 109
-  | Getdents64 = 110
-  | Getdomainname = 111
-  | Getdtablesize = 112
-  | Getegid = 113
-  | Getegid32 = 114
-  | Geteuid = 115
-  | Geteuid32 = 116
-  | Getgid = 117
-  | Getgid32 = 118
-  | Getgroups = 119
-  | Getgroups32 = 120
-  | Gethostname = 121
-  | Getitimer = 122
-  | GetKernelSyms = 123
-  | GetMempolicy = 124
-  | Getpagesize = 125
-  | Getpeername = 126
-  | Getpgid = 127
-  | Getpgrp = 128
-  | Getpid = 129
-  | Getppid = 130
-  | Getpriority = 131
-  | Getrandom = 132
-  | Getresgid = 133
-  | Getresgid32 = 134
-  | Getresuid = 135
-  | Getresuid32 = 136
-  | Getrlimit = 137
-  | GetRobustList = 138
-  | Getrusage = 139
-  | Getsid = 140
-  | Getsockname = 141
-  | Getsockopt = 142
-  | GetThreadArea = 143
-  | Gettid = 144
-  | Gettimeofday = 145
-  | GetTLS = 146
-  | Getuid = 147
-  | Getuid32 = 148
-  | Getunwind = 149
-  | Getxattr = 150
-  | Getxgid = 151
-  | Getxpid = 152
-  | Getxuid = 153
-  | InitModule = 154
-  | InotifyAddWatch = 155
-  | InotifyInit = 156
-  | InotifyInit1 = 157
-  | InotifyRmWatch = 158
-  | IoCancel = 159
-  | Ioctl = 160
-  | IoDestroy = 161
-  | IoGetevents = 162
-  | Ioperm = 163
-  | IoPgetevents = 164
-  | IoPgetevents64 = 165
-  | Iopl = 166
-  | IoprioGet = 167
-  | IoprioSet = 168
-  | IoSetup = 169
-  | IoSubmit = 170
-  | IoUringEnter = 171
-  | IoUringRegister = 172
-  | IoUringSetup = 173
-  | Ipc = 174
-  | Kcmp = 175
-  | KernFeatures = 176
-  | KexecFileLoad = 177
-  | KexecLoad = 178
-  | Keyctl = 179
-  | Kill = 180
-  | Lchown = 181
-  | Lchown32 = 182
-  | Lgetxattr = 183
-  | Link = 184
-  | Linkat = 185
-  | Listen = 186
-  | Listxattr = 187
-  | Llistxattr = 188
-  | LLseek = 189
-  | LookupDcookie = 190
-  | Lremovexattr = 191
-  | Lseek = 192
-  | Lsetxattr = 193
-  | Lstat = 194
-  | Lstat64 = 195
-  | Madvise = 196
-  | Mbind = 197
-  | Membarrier = 198
-  | MemfdCreate = 199
-  | MemoryOrdering = 200
-  | MetagGetTLS = 201
-  | MetagSetFpuFlags = 202
-  | MetagSetglobalbit = 203
-  | MetagSetTLS = 204
-  | MigratePages = 205
-  | Mincore = 206
-  | Mkdir = 207
-  | Mkdirat = 208
-  | Mknod = 209
-  | Mknodat = 210
-  | Mlock = 211
-  | Mlock2 = 212
-  | Mlockall = 213
-  | Mmap = 214
-  | Mmap2 = 215
-  | ModifyLdt = 216
-  | Mount = 217
-  | MoveMount = 218
-  | MovePages = 219
-  | Mprotect = 220
-  | MqGetsetattr = 221
-  | MqNotify = 222
-  | MqOpen = 223
-  | MqTimedreceive = 224
-  | MqTimedreceive64 = 225
-  | MqTimedsend = 226
-  | MqTimedsend64 = 227
-  | MqUnlink = 228
-  | Mremap = 229
-  | Msgctl = 230
-  | Msgget = 231
-  | Msgrcv = 232
-  | Msgsnd = 233
-  | Msync = 234
-  | Munlock = 235
-  | Munlockall = 236
-  | Munmap = 237
-  | NameToHandleAt = 238
-  | Nanosleep = 239
-  | Newfstatat = 240
-  | NewSelect = 241
-  | Nfsservctl = 242
-  | Nice = 243
-  | OldAdjtimex = 244
-  | Oldfstat = 245
-  | OldGetrlimit = 246
-  | Oldlstat = 247
-  | Oldolduname = 248
-  | Oldstat = 249
-  | Oldumount = 250
-  | Olduname = 251
-  | Open = 252
-  | Openat = 253
-  | Openat2 = 254
-  | OpenByHandleAt = 255
-  | OpenTree = 256
-  | Or1kAtomic = 257
-  | Pause = 258
-  | PciconfigIobase = 259
-  | PciconfigRead = 260
-  | PciconfigWrite = 261
-  | Perfctr = 262
-  | PerfEventOpen = 263
-  | Perfmonctl = 264
-  | Personality = 265
-  | PidfdGetfd = 266
-  | PidfdOpen = 267
-  | PidfdSendSignal = 268
-  | Pipe = 269
-  | Pipe2 = 270
-  | PivotRoot = 271
-  | PkeyAlloc = 272
-  | PkeyFree = 273
-  | PkeyMprotect = 274
-  | Poll = 275
-  | Ppoll = 276
-  | Ppoll64 = 277
-  | Prctl = 278
-  | Pread = 279
-  | Pread64 = 280
-  | Preadv = 281
-  | Preadv2 = 282
-  | Prlimit64 = 283
-  | ProcessVmReadv = 284
-  | ProcessVmWritev = 285
-  | Pselect6 = 286
-  | Pselect6_64 = 287
-  | Ptrace = 288
-  | Pwrite = 289
-  | Pwrite64 = 290
-  | Pwritev = 291
-  | Pwritev2 = 292
-  | QueryModule = 293
-  | Quotactl = 294
-  | Read = 295
-  | Readahead = 296
-  | Readdir = 297
-  | Readlink = 298
-  | Readlinkat = 299
-  | Readv = 300
-  | Reboot = 301
-  | Recv = 302
-  | Recvfrom = 303
-  | Recvmmsg = 304
-  | Recvmmsg64 = 305
-  | Recvmsg = 306
-  | RemapFilePages = 307
-  | Removexattr = 308
-  | Rename = 309
-  | Renameat = 310
-  | Renameat2 = 311
-  | RequestKey = 312
-  | RestartSyscall = 313
-  | RiscvFlushIcache = 314
-  | RiscvHwprobe = 315
-  | Rmdir = 316
-  | Rseq = 317
-  | Rtas = 318
-  | RtSigaction = 319
-  | RtSigpending = 320
-  | RtSigprocmask = 321
-  | RtSigqueueinfo = 322
-  | RtSigreturn = 323
-  | RtSigsuspend = 324
-  | RtSigtimedwait = 325
-  | RtSigtimedwait64 = 326
-  | RtTgsigqueueinfo = 327
-  | S390GuardedStorage = 328
-  | S390PciMmioRead = 329
-  | S390PciMmioWrite = 330
-  | S390RuntimeInstr = 331
-  | S390Sthyi = 332
-  | SchedGetaffinity = 333
-  | SchedGetAffinity = 334
-  | SchedGetattr = 335
-  | SchedGetparam = 336
-  | SchedGetPriorityMax = 337
-  | SchedGetPriorityMin = 338
-  | SchedGetscheduler = 339
-  | SchedRrGetInterval = 340
-  | SchedRrGetInterval64 = 341
-  | SchedSetaffinity = 342
-  | SchedSetAffinity = 343
-  | SchedSetattr = 344
-  | SchedSetparam = 345
-  | SchedSetscheduler = 346
-  | SchedYield = 347
-  | Seccomp = 348
-  | Select = 349
-  | Semctl = 350
-  | Semget = 351
-  | Semop = 352
-  | Semtimedop = 353
-  | Semtimedop64 = 354
-  | Send = 355
-  | Sendfile = 356
-  | Sendfile64 = 357
-  | Sendmmsg = 358
-  | Sendmsg = 359
-  | Sendto = 360
-  | Setdomainname = 361
-  | Setfsgid = 362
-  | Setfsgid32 = 363
-  | Setfsuid = 364
-  | Setfsuid32 = 365
-  | Setgid = 366
-  | Setgid32 = 367
-  | Setgroups = 368
-  | Setgroups32 = 369
-  | Sethae = 370
-  | Sethostname = 371
-  | Setitimer = 372
-  | SetMempolicy = 373
-  | Setns = 374
-  | Setpgid = 375
-  | Setpgrp = 376
-  | Setpriority = 377
-  | Setregid = 378
-  | Setregid32 = 379
-  | Setresgid = 380
-  | Setresgid32 = 381
-  | Setresuid = 382
-  | Setresuid32 = 383
-  | Setreuid = 384
-  | Setreuid32 = 385
-  | Setrlimit = 386
-  | SetRobustList = 387
-  | Setsid = 388
-  | Setsockopt = 389
-  | SetThreadArea = 390
-  | SetTidAddress = 391
-  | Settimeofday = 392
-  | SetTLS = 393
-  | Setuid = 394
-  | Setuid32 = 395
-  | Setup = 396
-  | Setxattr = 397
-  | Sgetmask = 398
-  | Shmat = 399
-  | Shmctl = 400
-  | Shmdt = 401
-  | Shmget = 402
-  | Shutdown = 403
-  | Sigaction = 404
-  | Sigaltstack = 405
-  | Signal = 406
-  | Signalfd = 407
-  | Signalfd4 = 408
-  | Sigpending = 409
-  | Sigprocmask = 410
-  | Sigreturn = 411
-  | Sigsuspend = 412
-  | Socket = 413
-  | Socketcall = 414
-  | Socketpair = 415
-  | Spill = 416
-  | Splice = 417
-  | SpuCreate = 418
-  | SpuRun = 419
-  | SramAlloc = 420
-  | SramFree = 421
-  | Ssetmask = 422
-  | Stat = 423
-  | Stat64 = 424
-  | Statfs = 425
-  | Statfs64 = 426
-  | Statx = 427
-  | Stime = 428
-  | SubpageProt = 429
-  | Swapcontext = 430
-  | Swapoff = 431
-  | Swapon = 432
-  | SwitchEndian = 433
-  | Symlink = 434
-  | Symlinkat = 435
-  | Sync = 436
-  | SyncFileRange = 437
-  | SyncFileRange2 = 438
-  | Syncfs = 439
-  | Syscall = 440
-  | Sysctl = 441
-  | SysDebugSetcontext = 442
-  | Sysfs = 443
-  | Sysinfo = 444
-  | Syslog = 445
-  | Sysmips = 446
-  | Tee = 447
-  | Tgkill = 448
-  | Time = 449
-  | TimerCreate = 450
-  | TimerDelete = 451
-  | Timerfd = 452
-  | TimerfdCreate = 453
-  | TimerfdGettime = 454
-  | TimerfdGettime64 = 455
-  | TimerfdSettime = 456
-  | TimerfdSettime64 = 457
-  | TimerGetoverrun = 458
-  | TimerGettime = 459
-  | TimerGettime64 = 460
-  | TimerSettime = 461
-  | TimerSettime64 = 462
-  | Times = 463
-  | Tkill = 464
-  | Truncate = 465
-  | Truncate64 = 466
-  | Ugetrlimit = 467
-  | Umask = 468
-  | Umount = 469
-  | Umount2 = 470
-  | Uname = 471
-  | Unlink = 472
-  | Unlinkat = 473
-  | Unshare = 474
-  | Uselib = 475
-  | Userfaultfd = 476
-  | Usr26 = 477
-  | Usr32 = 478
-  | Ustat = 479
-  | Utime = 480
-  | Utimensat = 481
-  | Utimensat64 = 482
-  | Utimes = 483
-  | UtrapInstall = 484
-  | Vfork = 485
-  | Vhangup = 486
-  | Vm86 = 487
-  | Vm86old = 488
-  | Vmsplice = 489
-  | Vserver = 490
-  | Wait4 = 491
-  | Waitid = 492
-  | Waitpid = 493
-  | Write = 494
-  | Writev = 495
-  | Xtensa = 496
+  /// Changes the mode of a file named relative to a directory, taking the flags
+  /// the older call has no room for.
+  | Fchmodat2 = 78
+  | Fchown = 79
+  | Fchown32 = 80
+  | Fchownat = 81
+  | Fcntl = 82
+  | Fcntl64 = 83
+  | Fdatasync = 84
+  | Fgetxattr = 85
+  | FinitModule = 86
+  | Flistxattr = 87
+  | Flock = 88
+  | Fork = 89
+  | FreeHugepages = 90
+  | Fremovexattr = 91
+  | Fsconfig = 92
+  | Fsetxattr = 93
+  | Fsmount = 94
+  | Fsopen = 95
+  | Fspick = 96
+  | Fstat = 97
+  | Fstat64 = 98
+  | Fstatat64 = 99
+  | Fstatfs = 100
+  | Fstatfs64 = 101
+  | Fsync = 102
+  | Ftruncate = 103
+  | Ftruncate64 = 104
+  | Futex = 105
+  | Futex64 = 106
+  | Futimesat = 107
+  | Getcpu = 108
+  | Getcwd = 109
+  | Getdents = 110
+  | Getdents64 = 111
+  | Getdomainname = 112
+  | Getdtablesize = 113
+  | Getegid = 114
+  | Getegid32 = 115
+  | Geteuid = 116
+  | Geteuid32 = 117
+  | Getgid = 118
+  | Getgid32 = 119
+  | Getgroups = 120
+  | Getgroups32 = 121
+  | Gethostname = 122
+  | Getitimer = 123
+  | GetKernelSyms = 124
+  | GetMempolicy = 125
+  | Getpagesize = 126
+  | Getpeername = 127
+  | Getpgid = 128
+  | Getpgrp = 129
+  | Getpid = 130
+  | Getppid = 131
+  | Getpriority = 132
+  | Getrandom = 133
+  | Getresgid = 134
+  | Getresgid32 = 135
+  | Getresuid = 136
+  | Getresuid32 = 137
+  | Getrlimit = 138
+  | GetRobustList = 139
+  | Getrusage = 140
+  | Getsid = 141
+  | Getsockname = 142
+  | Getsockopt = 143
+  | GetThreadArea = 144
+  | Gettid = 145
+  | Gettimeofday = 146
+  | GetTLS = 147
+  | Getuid = 148
+  | Getuid32 = 149
+  | Getunwind = 150
+  | Getxattr = 151
+  | Getxgid = 152
+  | Getxpid = 153
+  | Getxuid = 154
+  | InitModule = 155
+  | InotifyAddWatch = 156
+  | InotifyInit = 157
+  | InotifyInit1 = 158
+  | InotifyRmWatch = 159
+  | IoCancel = 160
+  | Ioctl = 161
+  | IoDestroy = 162
+  | IoGetevents = 163
+  | Ioperm = 164
+  | IoPgetevents = 165
+  | IoPgetevents64 = 166
+  | Iopl = 167
+  | IoprioGet = 168
+  | IoprioSet = 169
+  | IoSetup = 170
+  | IoSubmit = 171
+  | IoUringEnter = 172
+  | IoUringRegister = 173
+  | IoUringSetup = 174
+  | Ipc = 175
+  | Kcmp = 176
+  | KernFeatures = 177
+  | KexecFileLoad = 178
+  | KexecLoad = 179
+  | Keyctl = 180
+  | Kill = 181
+  | Lchown = 182
+  | Lchown32 = 183
+  | Lgetxattr = 184
+  | Link = 185
+  | Linkat = 186
+  | Listen = 187
+  | Listxattr = 188
+  | Llistxattr = 189
+  | LLseek = 190
+  | LookupDcookie = 191
+  | Lremovexattr = 192
+  | Lseek = 193
+  | Lsetxattr = 194
+  | Lstat = 195
+  | Lstat64 = 196
+  | Madvise = 197
+  | Mbind = 198
+  | Membarrier = 199
+  | MemfdCreate = 200
+  | MemoryOrdering = 201
+  | MetagGetTLS = 202
+  | MetagSetFpuFlags = 203
+  | MetagSetglobalbit = 204
+  | MetagSetTLS = 205
+  | MigratePages = 206
+  | Mincore = 207
+  | Mkdir = 208
+  | Mkdirat = 209
+  | Mknod = 210
+  | Mknodat = 211
+  | Mlock = 212
+  | Mlock2 = 213
+  | Mlockall = 214
+  | Mmap = 215
+  | Mmap2 = 216
+  | ModifyLdt = 217
+  | Mount = 218
+  /// Changes the properties of a mount.
+  | MountSetattr = 219
+  | MoveMount = 220
+  | MovePages = 221
+  | Mprotect = 222
+  | MqGetsetattr = 223
+  | MqNotify = 224
+  | MqOpen = 225
+  | MqTimedreceive = 226
+  | MqTimedreceive64 = 227
+  | MqTimedsend = 228
+  | MqTimedsend64 = 229
+  | MqUnlink = 230
+  | Mremap = 231
+  | Msgctl = 232
+  | Msgget = 233
+  | Msgrcv = 234
+  | Msgsnd = 235
+  | Msync = 236
+  | Munlock = 237
+  | Munlockall = 238
+  | Munmap = 239
+  | NameToHandleAt = 240
+  | Nanosleep = 241
+  | Newfstatat = 242
+  | NewSelect = 243
+  | Nfsservctl = 244
+  | Nice = 245
+  | OldAdjtimex = 246
+  | Oldfstat = 247
+  | OldGetrlimit = 248
+  | Oldlstat = 249
+  | Oldolduname = 250
+  | Oldstat = 251
+  | Oldumount = 252
+  | Olduname = 253
+  | Open = 254
+  | Openat = 255
+  | Openat2 = 256
+  | OpenByHandleAt = 257
+  | OpenTree = 258
+  | Or1kAtomic = 259
+  /// Reads a piece of system information, of which Alpha's floating-point
+  /// control word is the one a C library asks for.
+  | OsfGetSysinfo = 260
+  /// Writes one of those, which is how a program on Alpha asks the kernel to
+  /// complete the floating-point traps its instructions leave to software.
+  | OsfSetSysinfo = 261
+  /// Changes the blocked signal mask, in the form Alpha inherited from OSF/1
+  /// and kept beside the one every port has.
+  | OsfSigprocmask = 262
+  | Pause = 263
+  | PciconfigIobase = 264
+  | PciconfigRead = 265
+  | PciconfigWrite = 266
+  | Perfctr = 267
+  | PerfEventOpen = 268
+  | Perfmonctl = 269
+  | Personality = 270
+  | PidfdGetfd = 271
+  | PidfdOpen = 272
+  | PidfdSendSignal = 273
+  | Pipe = 274
+  | Pipe2 = 275
+  | PivotRoot = 276
+  | PkeyAlloc = 277
+  | PkeyFree = 278
+  | PkeyMprotect = 279
+  | Poll = 280
+  | Ppoll = 281
+  | Ppoll64 = 282
+  | Prctl = 283
+  | Pread = 284
+  | Pread64 = 285
+  | Preadv = 286
+  | Preadv2 = 287
+  | Prlimit64 = 288
+  /// Advises the kernel about another process's memory.
+  | ProcessMadvise = 289
+  /// Releases the memory of a process that is exiting.
+  | ProcessMrelease = 290
+  | ProcessVmReadv = 291
+  | ProcessVmWritev = 292
+  | Pselect6 = 293
+  | Pselect6_64 = 294
+  | Ptrace = 295
+  | Pwrite = 296
+  | Pwrite64 = 297
+  | Pwritev = 298
+  | Pwritev2 = 299
+  | QueryModule = 300
+  | Quotactl = 301
+  | Read = 302
+  | Readahead = 303
+  | Readdir = 304
+  | Readlink = 305
+  | Readlinkat = 306
+  | Readv = 307
+  | Reboot = 308
+  | Recv = 309
+  | Recvfrom = 310
+  | Recvmmsg = 311
+  | Recvmmsg64 = 312
+  | Recvmsg = 313
+  | RemapFilePages = 314
+  | Removexattr = 315
+  | Rename = 316
+  | Renameat = 317
+  | Renameat2 = 318
+  | RequestKey = 319
+  | RestartSyscall = 320
+  | RiscvFlushIcache = 321
+  | RiscvHwprobe = 322
+  | Rmdir = 323
+  | Rseq = 324
+  | Rtas = 325
+  | RtSigaction = 326
+  | RtSigpending = 327
+  | RtSigprocmask = 328
+  | RtSigqueueinfo = 329
+  | RtSigreturn = 330
+  | RtSigsuspend = 331
+  | RtSigtimedwait = 332
+  | RtSigtimedwait64 = 333
+  | RtTgsigqueueinfo = 334
+  | S390GuardedStorage = 335
+  | S390PciMmioRead = 336
+  | S390PciMmioWrite = 337
+  | S390RuntimeInstr = 338
+  | S390Sthyi = 339
+  | SchedGetaffinity = 340
+  | SchedGetAffinity = 341
+  | SchedGetattr = 342
+  | SchedGetparam = 343
+  | SchedGetPriorityMax = 344
+  | SchedGetPriorityMin = 345
+  | SchedGetscheduler = 346
+  | SchedRrGetInterval = 347
+  | SchedRrGetInterval64 = 348
+  | SchedSetaffinity = 349
+  | SchedSetAffinity = 350
+  | SchedSetattr = 351
+  | SchedSetparam = 352
+  | SchedSetscheduler = 353
+  | SchedYield = 354
+  | Seccomp = 355
+  | Select = 356
+  | Semctl = 357
+  | Semget = 358
+  | Semop = 359
+  | Semtimedop = 360
+  | Semtimedop64 = 361
+  | Send = 362
+  | Sendfile = 363
+  | Sendfile64 = 364
+  | Sendmmsg = 365
+  | Sendmsg = 366
+  | Sendto = 367
+  | Setdomainname = 368
+  | Setfsgid = 369
+  | Setfsgid32 = 370
+  | Setfsuid = 371
+  | Setfsuid32 = 372
+  | Setgid = 373
+  | Setgid32 = 374
+  | Setgroups = 375
+  | Setgroups32 = 376
+  | Sethae = 377
+  | Sethostname = 378
+  | Setitimer = 379
+  | SetMempolicy = 380
+  | Setns = 381
+  | Setpgid = 382
+  | Setpgrp = 383
+  | Setpriority = 384
+  | Setregid = 385
+  | Setregid32 = 386
+  | Setresgid = 387
+  | Setresgid32 = 388
+  | Setresuid = 389
+  | Setresuid32 = 390
+  | Setreuid = 391
+  | Setreuid32 = 392
+  | Setrlimit = 393
+  | SetRobustList = 394
+  | Setsid = 395
+  | Setsockopt = 396
+  | SetThreadArea = 397
+  | SetTidAddress = 398
+  | Settimeofday = 399
+  | SetTLS = 400
+  | Setuid = 401
+  | Setuid32 = 402
+  | Setup = 403
+  | Setxattr = 404
+  | Sgetmask = 405
+  | Shmat = 406
+  | Shmctl = 407
+  | Shmdt = 408
+  | Shmget = 409
+  | Shutdown = 410
+  | Sigaction = 411
+  | Sigaltstack = 412
+  | Signal = 413
+  | Signalfd = 414
+  | Signalfd4 = 415
+  | Sigpending = 416
+  | Sigprocmask = 417
+  | Sigreturn = 418
+  | Sigsuspend = 419
+  | Socket = 420
+  | Socketcall = 421
+  | Socketpair = 422
+  | Spill = 423
+  | Splice = 424
+  | SpuCreate = 425
+  | SpuRun = 426
+  | SramAlloc = 427
+  | SramFree = 428
+  | Ssetmask = 429
+  | Stat = 430
+  | Stat64 = 431
+  | Statfs = 432
+  | Statfs64 = 433
+  | Statx = 434
+  | Stime = 435
+  | SubpageProt = 436
+  | Swapcontext = 437
+  | Swapoff = 438
+  | Swapon = 439
+  | SwitchEndian = 440
+  | Symlink = 441
+  | Symlinkat = 442
+  | Sync = 443
+  | SyncFileRange = 444
+  | SyncFileRange2 = 445
+  | Syncfs = 446
+  | Syscall = 447
+  | Sysctl = 448
+  | SysDebugSetcontext = 449
+  | Sysfs = 450
+  | Sysinfo = 451
+  | Syslog = 452
+  | Sysmips = 453
+  | Tee = 454
+  | Tgkill = 455
+  | Time = 456
+  | TimerCreate = 457
+  | TimerDelete = 458
+  | Timerfd = 459
+  | TimerfdCreate = 460
+  | TimerfdGettime = 461
+  | TimerfdGettime64 = 462
+  | TimerfdSettime = 463
+  | TimerfdSettime64 = 464
+  | TimerGetoverrun = 465
+  | TimerGettime = 466
+  | TimerGettime64 = 467
+  | TimerSettime = 468
+  | TimerSettime64 = 469
+  | Times = 470
+  | Tkill = 471
+  | Truncate = 472
+  | Truncate64 = 473
+  | Ugetrlimit = 474
+  | Umask = 475
+  | Umount = 476
+  | Umount2 = 477
+  | Uname = 478
+  | Unlink = 479
+  | Unlinkat = 480
+  | Unshare = 481
+  | Uselib = 482
+  | Userfaultfd = 483
+  | Usr26 = 484
+  | Usr32 = 485
+  | Ustat = 486
+  | Utime = 487
+  | Utimensat = 488
+  | Utimensat64 = 489
+  | Utimes = 490
+  | UtrapInstall = 491
+  | Vfork = 492
+  | Vhangup = 493
+  | Vm86 = 494
+  | Vm86old = 495
+  | Vmsplice = 496
+  | Vserver = 497
+  | Wait4 = 498
+  | Waitid = 499
+  | Waitpid = 500
+  | Write = 501
+  | Writev = 502
+  | Xtensa = 503
 
 /// Provides functions to convert Linux syscall numbers to their corresponding
 /// syscall types and vice versa.
@@ -5408,6 +5426,386 @@ module LinuxSyscall =
     | LinuxSyscall.Faccessat2 -> 439
     | _ -> raise UnhandledSyscallException
 
+  /// <summary>
+  /// Returns the Alpha syscall number of a syscall, from
+  /// arch/alpha/kernel/syscalls/syscall.tbl. Alpha's numbering is its own and
+  /// resembles no other port's: the port began as a Linux running OSF/1
+  /// binaries, so the low numbers are Digital's rather than Linux's -- 71 is
+  /// mmap where i386 has it at 90, 33 is access, 45 is open -- and the calls
+  /// Linux added of its own start at 300. Along the way the OSF/1 forms were
+  /// kept beside the ones every port has, so gettimeofday is both
+  /// osf_gettimeofday at 116 and gettimeofday at 359; the modern number is the
+  /// one a C library asks for and the one named here.
+  ///
+  /// Two of them have no counterpart anywhere else: osf_getsysinfo and
+  /// osf_setsysinfo at 256 and 257, which is how a program on Alpha reaches
+  /// the floating-point control word, the architecture leaving to software the
+  /// completion of the traps its instructions take.
+  /// </summary>
+  let private getAlphaNumber = function
+    | LinuxSyscall.Exit -> 1
+    | LinuxSyscall.Fork -> 2
+    | LinuxSyscall.Read -> 3
+    | LinuxSyscall.Write -> 4
+    | LinuxSyscall.Close -> 6
+    | LinuxSyscall.Link -> 9
+    | LinuxSyscall.Unlink -> 10
+    | LinuxSyscall.Chdir -> 12
+    | LinuxSyscall.Fchdir -> 13
+    | LinuxSyscall.Mknod -> 14
+    | LinuxSyscall.Chmod -> 15
+    | LinuxSyscall.Chown -> 16
+    | LinuxSyscall.Brk -> 17
+    | LinuxSyscall.Lseek -> 19
+    | LinuxSyscall.Getxpid -> 20
+    | LinuxSyscall.Umount2 -> 22
+    | LinuxSyscall.Setuid -> 23
+    | LinuxSyscall.Getxuid -> 24
+    | LinuxSyscall.Ptrace -> 26
+    | LinuxSyscall.Access -> 33
+    | LinuxSyscall.Sync -> 36
+    | LinuxSyscall.Kill -> 37
+    | LinuxSyscall.Setpgid -> 39
+    | LinuxSyscall.Dup -> 41
+    | LinuxSyscall.Pipe -> 42
+    | LinuxSyscall.Open -> 45
+    | LinuxSyscall.Getxgid -> 47
+    | LinuxSyscall.OsfSigprocmask -> 48
+    | LinuxSyscall.Acct -> 51
+    | LinuxSyscall.Sigpending -> 52
+    | LinuxSyscall.Ioctl -> 54
+    | LinuxSyscall.Symlink -> 57
+    | LinuxSyscall.Readlink -> 58
+    | LinuxSyscall.Execve -> 59
+    | LinuxSyscall.Umask -> 60
+    | LinuxSyscall.Chroot -> 61
+    | LinuxSyscall.Getpgrp -> 63
+    | LinuxSyscall.Getpagesize -> 64
+    | LinuxSyscall.Vfork -> 66
+    | LinuxSyscall.Stat -> 67
+    | LinuxSyscall.Lstat -> 68
+    | LinuxSyscall.Mmap -> 71
+    | LinuxSyscall.Munmap -> 73
+    | LinuxSyscall.Mprotect -> 74
+    | LinuxSyscall.Madvise -> 75
+    | LinuxSyscall.Vhangup -> 76
+    | LinuxSyscall.Getgroups -> 79
+    | LinuxSyscall.Setgroups -> 80
+    | LinuxSyscall.Setpgrp -> 82
+    | LinuxSyscall.Gethostname -> 87
+    | LinuxSyscall.Sethostname -> 88
+    | LinuxSyscall.Getdtablesize -> 89
+    | LinuxSyscall.Dup2 -> 90
+    | LinuxSyscall.Fstat -> 91
+    | LinuxSyscall.Fcntl -> 92
+    | LinuxSyscall.Poll -> 94
+    | LinuxSyscall.Fsync -> 95
+    | LinuxSyscall.Setpriority -> 96
+    | LinuxSyscall.Socket -> 97
+    | LinuxSyscall.Connect -> 98
+    | LinuxSyscall.Accept -> 99
+    | LinuxSyscall.Getpriority -> 100
+    | LinuxSyscall.Send -> 101
+    | LinuxSyscall.Recv -> 102
+    | LinuxSyscall.Sigreturn -> 103
+    | LinuxSyscall.Bind -> 104
+    | LinuxSyscall.Setsockopt -> 105
+    | LinuxSyscall.Listen -> 106
+    | LinuxSyscall.Sigsuspend -> 111
+    | LinuxSyscall.Recvmsg -> 113
+    | LinuxSyscall.Sendmsg -> 114
+    | LinuxSyscall.Getsockopt -> 118
+    | LinuxSyscall.Readv -> 120
+    | LinuxSyscall.Writev -> 121
+    | LinuxSyscall.Fchown -> 123
+    | LinuxSyscall.Fchmod -> 124
+    | LinuxSyscall.Recvfrom -> 125
+    | LinuxSyscall.Setreuid -> 126
+    | LinuxSyscall.Setregid -> 127
+    | LinuxSyscall.Rename -> 128
+    | LinuxSyscall.Truncate -> 129
+    | LinuxSyscall.Ftruncate -> 130
+    | LinuxSyscall.Flock -> 131
+    | LinuxSyscall.Setgid -> 132
+    | LinuxSyscall.Sendto -> 133
+    | LinuxSyscall.Shutdown -> 134
+    | LinuxSyscall.Socketpair -> 135
+    | LinuxSyscall.Mkdir -> 136
+    | LinuxSyscall.Rmdir -> 137
+    | LinuxSyscall.Getpeername -> 141
+    | LinuxSyscall.Getrlimit -> 144
+    | LinuxSyscall.Setrlimit -> 145
+    | LinuxSyscall.Setsid -> 147
+    | LinuxSyscall.Quotactl -> 148
+    | LinuxSyscall.Getsockname -> 150
+    | LinuxSyscall.Sigaction -> 156
+    | LinuxSyscall.Setdomainname -> 166
+    | LinuxSyscall.Msgctl -> 200
+    | LinuxSyscall.Msgget -> 201
+    | LinuxSyscall.Msgrcv -> 202
+    | LinuxSyscall.Msgsnd -> 203
+    | LinuxSyscall.Semctl -> 204
+    | LinuxSyscall.Semget -> 205
+    | LinuxSyscall.Semop -> 206
+    | LinuxSyscall.Lchown -> 208
+    | LinuxSyscall.Shmat -> 209
+    | LinuxSyscall.Shmctl -> 210
+    | LinuxSyscall.Shmdt -> 211
+    | LinuxSyscall.Shmget -> 212
+    | LinuxSyscall.Msync -> 217
+    | LinuxSyscall.Getpgid -> 233
+    | LinuxSyscall.Getsid -> 234
+    | LinuxSyscall.Sigaltstack -> 235
+    | LinuxSyscall.Sysfs -> 254
+    | LinuxSyscall.OsfGetSysinfo -> 256
+    | LinuxSyscall.OsfSetSysinfo -> 257
+    | LinuxSyscall.Bdflush -> 300
+    | LinuxSyscall.Sethae -> 301
+    | LinuxSyscall.Mount -> 302
+    | LinuxSyscall.OldAdjtimex -> 303
+    | LinuxSyscall.Swapoff -> 304
+    | LinuxSyscall.Getdents -> 305
+    | LinuxSyscall.CreateModule -> 306
+    | LinuxSyscall.InitModule -> 307
+    | LinuxSyscall.DeleteModule -> 308
+    | LinuxSyscall.GetKernelSyms -> 309
+    | LinuxSyscall.Syslog -> 310
+    | LinuxSyscall.Reboot -> 311
+    | LinuxSyscall.Clone -> 312
+    | LinuxSyscall.Uselib -> 313
+    | LinuxSyscall.Mlock -> 314
+    | LinuxSyscall.Munlock -> 315
+    | LinuxSyscall.Mlockall -> 316
+    | LinuxSyscall.Munlockall -> 317
+    | LinuxSyscall.Sysinfo -> 318
+    | LinuxSyscall.Sysctl -> 319
+    | LinuxSyscall.Oldumount -> 321
+    | LinuxSyscall.Swapon -> 322
+    | LinuxSyscall.Times -> 323
+    | LinuxSyscall.Personality -> 324
+    | LinuxSyscall.Setfsuid -> 325
+    | LinuxSyscall.Setfsgid -> 326
+    | LinuxSyscall.Ustat -> 327
+    | LinuxSyscall.Statfs -> 328
+    | LinuxSyscall.Fstatfs -> 329
+    | LinuxSyscall.SchedSetparam -> 330
+    | LinuxSyscall.SchedGetparam -> 331
+    | LinuxSyscall.SchedSetscheduler -> 332
+    | LinuxSyscall.SchedGetscheduler -> 333
+    | LinuxSyscall.SchedYield -> 334
+    | LinuxSyscall.SchedGetPriorityMax -> 335
+    | LinuxSyscall.SchedGetPriorityMin -> 336
+    | LinuxSyscall.SchedRrGetInterval -> 337
+    | LinuxSyscall.Uname -> 339
+    | LinuxSyscall.Nanosleep -> 340
+    | LinuxSyscall.Mremap -> 341
+    | LinuxSyscall.Nfsservctl -> 342
+    | LinuxSyscall.Setresuid -> 343
+    | LinuxSyscall.Getresuid -> 344
+    | LinuxSyscall.PciconfigRead -> 345
+    | LinuxSyscall.PciconfigWrite -> 346
+    | LinuxSyscall.QueryModule -> 347
+    | LinuxSyscall.Prctl -> 348
+    | LinuxSyscall.Pread64 -> 349
+    | LinuxSyscall.Pwrite64 -> 350
+    | LinuxSyscall.RtSigreturn -> 351
+    | LinuxSyscall.RtSigaction -> 352
+    | LinuxSyscall.RtSigprocmask -> 353
+    | LinuxSyscall.RtSigpending -> 354
+    | LinuxSyscall.RtSigtimedwait -> 355
+    | LinuxSyscall.RtSigqueueinfo -> 356
+    | LinuxSyscall.RtSigsuspend -> 357
+    | LinuxSyscall.Select -> 358
+    | LinuxSyscall.Gettimeofday -> 359
+    | LinuxSyscall.Settimeofday -> 360
+    | LinuxSyscall.Getitimer -> 361
+    | LinuxSyscall.Setitimer -> 362
+    | LinuxSyscall.Utimes -> 363
+    | LinuxSyscall.Getrusage -> 364
+    | LinuxSyscall.Wait4 -> 365
+    | LinuxSyscall.AdjTimex -> 366
+    | LinuxSyscall.Getcwd -> 367
+    | LinuxSyscall.CapGet -> 368
+    | LinuxSyscall.CapSet -> 369
+    | LinuxSyscall.Sendfile -> 370
+    | LinuxSyscall.Setresgid -> 371
+    | LinuxSyscall.Getresgid -> 372
+    | LinuxSyscall.PivotRoot -> 374
+    | LinuxSyscall.Mincore -> 375
+    | LinuxSyscall.PciconfigIobase -> 376
+    | LinuxSyscall.Getdents64 -> 377
+    | LinuxSyscall.Gettid -> 378
+    | LinuxSyscall.Readahead -> 379
+    | LinuxSyscall.Tkill -> 381
+    | LinuxSyscall.Setxattr -> 382
+    | LinuxSyscall.Lsetxattr -> 383
+    | LinuxSyscall.Fsetxattr -> 384
+    | LinuxSyscall.Getxattr -> 385
+    | LinuxSyscall.Lgetxattr -> 386
+    | LinuxSyscall.Fgetxattr -> 387
+    | LinuxSyscall.Listxattr -> 388
+    | LinuxSyscall.Llistxattr -> 389
+    | LinuxSyscall.Flistxattr -> 390
+    | LinuxSyscall.Removexattr -> 391
+    | LinuxSyscall.Lremovexattr -> 392
+    | LinuxSyscall.Fremovexattr -> 393
+    | LinuxSyscall.Futex -> 394
+    | LinuxSyscall.SchedSetaffinity -> 395
+    | LinuxSyscall.SchedGetaffinity -> 396
+    | LinuxSyscall.IoSetup -> 398
+    | LinuxSyscall.IoDestroy -> 399
+    | LinuxSyscall.IoGetevents -> 400
+    | LinuxSyscall.IoSubmit -> 401
+    | LinuxSyscall.IoCancel -> 402
+    | LinuxSyscall.ExitGroup -> 405
+    | LinuxSyscall.LookupDcookie -> 406
+    | LinuxSyscall.EpollCreate -> 407
+    | LinuxSyscall.EpollCtl -> 408
+    | LinuxSyscall.EpollWait -> 409
+    | LinuxSyscall.RemapFilePages -> 410
+    | LinuxSyscall.SetTidAddress -> 411
+    | LinuxSyscall.RestartSyscall -> 412
+    | LinuxSyscall.Fadvise64 -> 413
+    | LinuxSyscall.TimerCreate -> 414
+    | LinuxSyscall.TimerSettime -> 415
+    | LinuxSyscall.TimerGettime -> 416
+    | LinuxSyscall.TimerGetoverrun -> 417
+    | LinuxSyscall.TimerDelete -> 418
+    | LinuxSyscall.ClockSettime -> 419
+    | LinuxSyscall.ClockGettime -> 420
+    | LinuxSyscall.ClockGetres -> 421
+    | LinuxSyscall.ClockNanosleep -> 422
+    | LinuxSyscall.Semtimedop -> 423
+    | LinuxSyscall.Tgkill -> 424
+    | LinuxSyscall.Stat64 -> 425
+    | LinuxSyscall.Lstat64 -> 426
+    | LinuxSyscall.Fstat64 -> 427
+    | LinuxSyscall.Vserver -> 428
+    | LinuxSyscall.Mbind -> 429
+    | LinuxSyscall.GetMempolicy -> 430
+    | LinuxSyscall.SetMempolicy -> 431
+    | LinuxSyscall.MqOpen -> 432
+    | LinuxSyscall.MqUnlink -> 433
+    | LinuxSyscall.MqTimedsend -> 434
+    | LinuxSyscall.MqTimedreceive -> 435
+    | LinuxSyscall.MqNotify -> 436
+    | LinuxSyscall.MqGetsetattr -> 437
+    | LinuxSyscall.Waitid -> 438
+    | LinuxSyscall.AddKey -> 439
+    | LinuxSyscall.RequestKey -> 440
+    | LinuxSyscall.Keyctl -> 441
+    | LinuxSyscall.IoprioSet -> 442
+    | LinuxSyscall.IoprioGet -> 443
+    | LinuxSyscall.InotifyInit -> 444
+    | LinuxSyscall.InotifyAddWatch -> 445
+    | LinuxSyscall.InotifyRmWatch -> 446
+    | LinuxSyscall.Fdatasync -> 447
+    | LinuxSyscall.KexecLoad -> 448
+    | LinuxSyscall.MigratePages -> 449
+    | LinuxSyscall.Openat -> 450
+    | LinuxSyscall.Mkdirat -> 451
+    | LinuxSyscall.Mknodat -> 452
+    | LinuxSyscall.Fchownat -> 453
+    | LinuxSyscall.Futimesat -> 454
+    | LinuxSyscall.Fstatat64 -> 455
+    | LinuxSyscall.Unlinkat -> 456
+    | LinuxSyscall.Renameat -> 457
+    | LinuxSyscall.Linkat -> 458
+    | LinuxSyscall.Symlinkat -> 459
+    | LinuxSyscall.Readlinkat -> 460
+    | LinuxSyscall.Fchmodat -> 461
+    | LinuxSyscall.Faccessat -> 462
+    | LinuxSyscall.Pselect6 -> 463
+    | LinuxSyscall.Ppoll -> 464
+    | LinuxSyscall.Unshare -> 465
+    | LinuxSyscall.SetRobustList -> 466
+    | LinuxSyscall.GetRobustList -> 467
+    | LinuxSyscall.Splice -> 468
+    | LinuxSyscall.SyncFileRange -> 469
+    | LinuxSyscall.Tee -> 470
+    | LinuxSyscall.Vmsplice -> 471
+    | LinuxSyscall.MovePages -> 472
+    | LinuxSyscall.Getcpu -> 473
+    | LinuxSyscall.EpollPwait -> 474
+    | LinuxSyscall.Utimensat -> 475
+    | LinuxSyscall.Signalfd -> 476
+    | LinuxSyscall.Timerfd -> 477
+    | LinuxSyscall.Eventfd -> 478
+    | LinuxSyscall.Recvmmsg -> 479
+    | LinuxSyscall.Fallocate -> 480
+    | LinuxSyscall.TimerfdCreate -> 481
+    | LinuxSyscall.TimerfdSettime -> 482
+    | LinuxSyscall.TimerfdGettime -> 483
+    | LinuxSyscall.Signalfd4 -> 484
+    | LinuxSyscall.Eventfd2 -> 485
+    | LinuxSyscall.EpollCreate1 -> 486
+    | LinuxSyscall.Dup3 -> 487
+    | LinuxSyscall.Pipe2 -> 488
+    | LinuxSyscall.InotifyInit1 -> 489
+    | LinuxSyscall.Preadv -> 490
+    | LinuxSyscall.Pwritev -> 491
+    | LinuxSyscall.RtTgsigqueueinfo -> 492
+    | LinuxSyscall.PerfEventOpen -> 493
+    | LinuxSyscall.FanotifyInit -> 494
+    | LinuxSyscall.FanotifyMark -> 495
+    | LinuxSyscall.Prlimit64 -> 496
+    | LinuxSyscall.NameToHandleAt -> 497
+    | LinuxSyscall.OpenByHandleAt -> 498
+    | LinuxSyscall.ClockAdjtime -> 499
+    | LinuxSyscall.Syncfs -> 500
+    | LinuxSyscall.Setns -> 501
+    | LinuxSyscall.Accept4 -> 502
+    | LinuxSyscall.Sendmmsg -> 503
+    | LinuxSyscall.ProcessVmReadv -> 504
+    | LinuxSyscall.ProcessVmWritev -> 505
+    | LinuxSyscall.Kcmp -> 506
+    | LinuxSyscall.FinitModule -> 507
+    | LinuxSyscall.SchedSetattr -> 508
+    | LinuxSyscall.SchedGetattr -> 509
+    | LinuxSyscall.Renameat2 -> 510
+    | LinuxSyscall.Getrandom -> 511
+    | LinuxSyscall.MemfdCreate -> 512
+    | LinuxSyscall.Execveat -> 513
+    | LinuxSyscall.Seccomp -> 514
+    | LinuxSyscall.Bpf -> 515
+    | LinuxSyscall.Userfaultfd -> 516
+    | LinuxSyscall.Membarrier -> 517
+    | LinuxSyscall.Mlock2 -> 518
+    | LinuxSyscall.CopyFileRange -> 519
+    | LinuxSyscall.Preadv2 -> 520
+    | LinuxSyscall.Pwritev2 -> 521
+    | LinuxSyscall.Statx -> 522
+    | LinuxSyscall.IoPgetevents -> 523
+    | LinuxSyscall.PkeyMprotect -> 524
+    | LinuxSyscall.PkeyAlloc -> 525
+    | LinuxSyscall.PkeyFree -> 526
+    | LinuxSyscall.Rseq -> 527
+    | LinuxSyscall.Statfs64 -> 528
+    | LinuxSyscall.Fstatfs64 -> 529
+    | LinuxSyscall.Getegid -> 530
+    | LinuxSyscall.Geteuid -> 531
+    | LinuxSyscall.Getppid -> 532
+    | LinuxSyscall.PidfdSendSignal -> 534
+    | LinuxSyscall.IoUringSetup -> 535
+    | LinuxSyscall.IoUringEnter -> 536
+    | LinuxSyscall.IoUringRegister -> 537
+    | LinuxSyscall.OpenTree -> 538
+    | LinuxSyscall.MoveMount -> 539
+    | LinuxSyscall.Fsopen -> 540
+    | LinuxSyscall.Fsconfig -> 541
+    | LinuxSyscall.Fsmount -> 542
+    | LinuxSyscall.Fspick -> 543
+    | LinuxSyscall.PidfdOpen -> 544
+    | LinuxSyscall.CloseRange -> 546
+    | LinuxSyscall.Openat2 -> 547
+    | LinuxSyscall.PidfdGetfd -> 548
+    | LinuxSyscall.Faccessat2 -> 549
+    | LinuxSyscall.ProcessMadvise -> 550
+    | LinuxSyscall.MountSetattr -> 552
+    | LinuxSyscall.ProcessMrelease -> 558
+    | LinuxSyscall.Fchmodat2 -> 562
+    | _ -> raise UnhandledSyscallException
+
   /// Gets the syscall number for the given syscall at the given architecture.
   [<CompiledName "ToNumber">]
   /// <summary>
@@ -5851,6 +6249,7 @@ module LinuxSyscall =
     | PARISC -> getPARISCNumber syscall
     | S390 -> getS390Number syscall
     | M68K -> getM68KNumber syscall
+    | Alpha -> getAlphaNumber syscall
     | _ -> raise UnhandledSyscallException
 
   let private getX86Syscall = function
@@ -11151,6 +11550,372 @@ module LinuxSyscall =
     | _ -> raise UnhandledSyscallException
 
   /// Returns a LinuxSyscall from a given number and architecture.
+  /// Returns the syscall an Alpha syscall number names. See
+  /// getAlphaNumber for how the numbering came to look as it does.
+  let private getAlphaSyscall = function
+    | 1 -> LinuxSyscall.Exit
+    | 2 -> LinuxSyscall.Fork
+    | 3 -> LinuxSyscall.Read
+    | 4 -> LinuxSyscall.Write
+    | 6 -> LinuxSyscall.Close
+    | 9 -> LinuxSyscall.Link
+    | 10 -> LinuxSyscall.Unlink
+    | 12 -> LinuxSyscall.Chdir
+    | 13 -> LinuxSyscall.Fchdir
+    | 14 -> LinuxSyscall.Mknod
+    | 15 -> LinuxSyscall.Chmod
+    | 16 -> LinuxSyscall.Chown
+    | 17 -> LinuxSyscall.Brk
+    | 19 -> LinuxSyscall.Lseek
+    | 20 -> LinuxSyscall.Getxpid
+    | 22 -> LinuxSyscall.Umount2
+    | 23 -> LinuxSyscall.Setuid
+    | 24 -> LinuxSyscall.Getxuid
+    | 26 -> LinuxSyscall.Ptrace
+    | 33 -> LinuxSyscall.Access
+    | 36 -> LinuxSyscall.Sync
+    | 37 -> LinuxSyscall.Kill
+    | 39 -> LinuxSyscall.Setpgid
+    | 41 -> LinuxSyscall.Dup
+    | 42 -> LinuxSyscall.Pipe
+    | 45 -> LinuxSyscall.Open
+    | 47 -> LinuxSyscall.Getxgid
+    | 48 -> LinuxSyscall.OsfSigprocmask
+    | 51 -> LinuxSyscall.Acct
+    | 52 -> LinuxSyscall.Sigpending
+    | 54 -> LinuxSyscall.Ioctl
+    | 57 -> LinuxSyscall.Symlink
+    | 58 -> LinuxSyscall.Readlink
+    | 59 -> LinuxSyscall.Execve
+    | 60 -> LinuxSyscall.Umask
+    | 61 -> LinuxSyscall.Chroot
+    | 63 -> LinuxSyscall.Getpgrp
+    | 64 -> LinuxSyscall.Getpagesize
+    | 66 -> LinuxSyscall.Vfork
+    | 67 -> LinuxSyscall.Stat
+    | 68 -> LinuxSyscall.Lstat
+    | 71 -> LinuxSyscall.Mmap
+    | 73 -> LinuxSyscall.Munmap
+    | 74 -> LinuxSyscall.Mprotect
+    | 75 -> LinuxSyscall.Madvise
+    | 76 -> LinuxSyscall.Vhangup
+    | 79 -> LinuxSyscall.Getgroups
+    | 80 -> LinuxSyscall.Setgroups
+    | 82 -> LinuxSyscall.Setpgrp
+    | 87 -> LinuxSyscall.Gethostname
+    | 88 -> LinuxSyscall.Sethostname
+    | 89 -> LinuxSyscall.Getdtablesize
+    | 90 -> LinuxSyscall.Dup2
+    | 91 -> LinuxSyscall.Fstat
+    | 92 -> LinuxSyscall.Fcntl
+    | 94 -> LinuxSyscall.Poll
+    | 95 -> LinuxSyscall.Fsync
+    | 96 -> LinuxSyscall.Setpriority
+    | 97 -> LinuxSyscall.Socket
+    | 98 -> LinuxSyscall.Connect
+    | 99 -> LinuxSyscall.Accept
+    | 100 -> LinuxSyscall.Getpriority
+    | 101 -> LinuxSyscall.Send
+    | 102 -> LinuxSyscall.Recv
+    | 103 -> LinuxSyscall.Sigreturn
+    | 104 -> LinuxSyscall.Bind
+    | 105 -> LinuxSyscall.Setsockopt
+    | 106 -> LinuxSyscall.Listen
+    | 111 -> LinuxSyscall.Sigsuspend
+    | 113 -> LinuxSyscall.Recvmsg
+    | 114 -> LinuxSyscall.Sendmsg
+    | 118 -> LinuxSyscall.Getsockopt
+    | 120 -> LinuxSyscall.Readv
+    | 121 -> LinuxSyscall.Writev
+    | 123 -> LinuxSyscall.Fchown
+    | 124 -> LinuxSyscall.Fchmod
+    | 125 -> LinuxSyscall.Recvfrom
+    | 126 -> LinuxSyscall.Setreuid
+    | 127 -> LinuxSyscall.Setregid
+    | 128 -> LinuxSyscall.Rename
+    | 129 -> LinuxSyscall.Truncate
+    | 130 -> LinuxSyscall.Ftruncate
+    | 131 -> LinuxSyscall.Flock
+    | 132 -> LinuxSyscall.Setgid
+    | 133 -> LinuxSyscall.Sendto
+    | 134 -> LinuxSyscall.Shutdown
+    | 135 -> LinuxSyscall.Socketpair
+    | 136 -> LinuxSyscall.Mkdir
+    | 137 -> LinuxSyscall.Rmdir
+    | 141 -> LinuxSyscall.Getpeername
+    | 144 -> LinuxSyscall.Getrlimit
+    | 145 -> LinuxSyscall.Setrlimit
+    | 147 -> LinuxSyscall.Setsid
+    | 148 -> LinuxSyscall.Quotactl
+    | 150 -> LinuxSyscall.Getsockname
+    | 156 -> LinuxSyscall.Sigaction
+    | 166 -> LinuxSyscall.Setdomainname
+    | 200 -> LinuxSyscall.Msgctl
+    | 201 -> LinuxSyscall.Msgget
+    | 202 -> LinuxSyscall.Msgrcv
+    | 203 -> LinuxSyscall.Msgsnd
+    | 204 -> LinuxSyscall.Semctl
+    | 205 -> LinuxSyscall.Semget
+    | 206 -> LinuxSyscall.Semop
+    | 208 -> LinuxSyscall.Lchown
+    | 209 -> LinuxSyscall.Shmat
+    | 210 -> LinuxSyscall.Shmctl
+    | 211 -> LinuxSyscall.Shmdt
+    | 212 -> LinuxSyscall.Shmget
+    | 217 -> LinuxSyscall.Msync
+    | 233 -> LinuxSyscall.Getpgid
+    | 234 -> LinuxSyscall.Getsid
+    | 235 -> LinuxSyscall.Sigaltstack
+    | 254 -> LinuxSyscall.Sysfs
+    | 256 -> LinuxSyscall.OsfGetSysinfo
+    | 257 -> LinuxSyscall.OsfSetSysinfo
+    | 300 -> LinuxSyscall.Bdflush
+    | 301 -> LinuxSyscall.Sethae
+    | 302 -> LinuxSyscall.Mount
+    | 303 -> LinuxSyscall.OldAdjtimex
+    | 304 -> LinuxSyscall.Swapoff
+    | 305 -> LinuxSyscall.Getdents
+    | 306 -> LinuxSyscall.CreateModule
+    | 307 -> LinuxSyscall.InitModule
+    | 308 -> LinuxSyscall.DeleteModule
+    | 309 -> LinuxSyscall.GetKernelSyms
+    | 310 -> LinuxSyscall.Syslog
+    | 311 -> LinuxSyscall.Reboot
+    | 312 -> LinuxSyscall.Clone
+    | 313 -> LinuxSyscall.Uselib
+    | 314 -> LinuxSyscall.Mlock
+    | 315 -> LinuxSyscall.Munlock
+    | 316 -> LinuxSyscall.Mlockall
+    | 317 -> LinuxSyscall.Munlockall
+    | 318 -> LinuxSyscall.Sysinfo
+    | 319 -> LinuxSyscall.Sysctl
+    | 321 -> LinuxSyscall.Oldumount
+    | 322 -> LinuxSyscall.Swapon
+    | 323 -> LinuxSyscall.Times
+    | 324 -> LinuxSyscall.Personality
+    | 325 -> LinuxSyscall.Setfsuid
+    | 326 -> LinuxSyscall.Setfsgid
+    | 327 -> LinuxSyscall.Ustat
+    | 328 -> LinuxSyscall.Statfs
+    | 329 -> LinuxSyscall.Fstatfs
+    | 330 -> LinuxSyscall.SchedSetparam
+    | 331 -> LinuxSyscall.SchedGetparam
+    | 332 -> LinuxSyscall.SchedSetscheduler
+    | 333 -> LinuxSyscall.SchedGetscheduler
+    | 334 -> LinuxSyscall.SchedYield
+    | 335 -> LinuxSyscall.SchedGetPriorityMax
+    | 336 -> LinuxSyscall.SchedGetPriorityMin
+    | 337 -> LinuxSyscall.SchedRrGetInterval
+    | 339 -> LinuxSyscall.Uname
+    | 340 -> LinuxSyscall.Nanosleep
+    | 341 -> LinuxSyscall.Mremap
+    | 342 -> LinuxSyscall.Nfsservctl
+    | 343 -> LinuxSyscall.Setresuid
+    | 344 -> LinuxSyscall.Getresuid
+    | 345 -> LinuxSyscall.PciconfigRead
+    | 346 -> LinuxSyscall.PciconfigWrite
+    | 347 -> LinuxSyscall.QueryModule
+    | 348 -> LinuxSyscall.Prctl
+    | 349 -> LinuxSyscall.Pread64
+    | 350 -> LinuxSyscall.Pwrite64
+    | 351 -> LinuxSyscall.RtSigreturn
+    | 352 -> LinuxSyscall.RtSigaction
+    | 353 -> LinuxSyscall.RtSigprocmask
+    | 354 -> LinuxSyscall.RtSigpending
+    | 355 -> LinuxSyscall.RtSigtimedwait
+    | 356 -> LinuxSyscall.RtSigqueueinfo
+    | 357 -> LinuxSyscall.RtSigsuspend
+    | 358 -> LinuxSyscall.Select
+    | 359 -> LinuxSyscall.Gettimeofday
+    | 360 -> LinuxSyscall.Settimeofday
+    | 361 -> LinuxSyscall.Getitimer
+    | 362 -> LinuxSyscall.Setitimer
+    | 363 -> LinuxSyscall.Utimes
+    | 364 -> LinuxSyscall.Getrusage
+    | 365 -> LinuxSyscall.Wait4
+    | 366 -> LinuxSyscall.AdjTimex
+    | 367 -> LinuxSyscall.Getcwd
+    | 368 -> LinuxSyscall.CapGet
+    | 369 -> LinuxSyscall.CapSet
+    | 370 -> LinuxSyscall.Sendfile
+    | 371 -> LinuxSyscall.Setresgid
+    | 372 -> LinuxSyscall.Getresgid
+    | 374 -> LinuxSyscall.PivotRoot
+    | 375 -> LinuxSyscall.Mincore
+    | 376 -> LinuxSyscall.PciconfigIobase
+    | 377 -> LinuxSyscall.Getdents64
+    | 378 -> LinuxSyscall.Gettid
+    | 379 -> LinuxSyscall.Readahead
+    | 381 -> LinuxSyscall.Tkill
+    | 382 -> LinuxSyscall.Setxattr
+    | 383 -> LinuxSyscall.Lsetxattr
+    | 384 -> LinuxSyscall.Fsetxattr
+    | 385 -> LinuxSyscall.Getxattr
+    | 386 -> LinuxSyscall.Lgetxattr
+    | 387 -> LinuxSyscall.Fgetxattr
+    | 388 -> LinuxSyscall.Listxattr
+    | 389 -> LinuxSyscall.Llistxattr
+    | 390 -> LinuxSyscall.Flistxattr
+    | 391 -> LinuxSyscall.Removexattr
+    | 392 -> LinuxSyscall.Lremovexattr
+    | 393 -> LinuxSyscall.Fremovexattr
+    | 394 -> LinuxSyscall.Futex
+    | 395 -> LinuxSyscall.SchedSetaffinity
+    | 396 -> LinuxSyscall.SchedGetaffinity
+    | 398 -> LinuxSyscall.IoSetup
+    | 399 -> LinuxSyscall.IoDestroy
+    | 400 -> LinuxSyscall.IoGetevents
+    | 401 -> LinuxSyscall.IoSubmit
+    | 402 -> LinuxSyscall.IoCancel
+    | 405 -> LinuxSyscall.ExitGroup
+    | 406 -> LinuxSyscall.LookupDcookie
+    | 407 -> LinuxSyscall.EpollCreate
+    | 408 -> LinuxSyscall.EpollCtl
+    | 409 -> LinuxSyscall.EpollWait
+    | 410 -> LinuxSyscall.RemapFilePages
+    | 411 -> LinuxSyscall.SetTidAddress
+    | 412 -> LinuxSyscall.RestartSyscall
+    | 413 -> LinuxSyscall.Fadvise64
+    | 414 -> LinuxSyscall.TimerCreate
+    | 415 -> LinuxSyscall.TimerSettime
+    | 416 -> LinuxSyscall.TimerGettime
+    | 417 -> LinuxSyscall.TimerGetoverrun
+    | 418 -> LinuxSyscall.TimerDelete
+    | 419 -> LinuxSyscall.ClockSettime
+    | 420 -> LinuxSyscall.ClockGettime
+    | 421 -> LinuxSyscall.ClockGetres
+    | 422 -> LinuxSyscall.ClockNanosleep
+    | 423 -> LinuxSyscall.Semtimedop
+    | 424 -> LinuxSyscall.Tgkill
+    | 425 -> LinuxSyscall.Stat64
+    | 426 -> LinuxSyscall.Lstat64
+    | 427 -> LinuxSyscall.Fstat64
+    | 428 -> LinuxSyscall.Vserver
+    | 429 -> LinuxSyscall.Mbind
+    | 430 -> LinuxSyscall.GetMempolicy
+    | 431 -> LinuxSyscall.SetMempolicy
+    | 432 -> LinuxSyscall.MqOpen
+    | 433 -> LinuxSyscall.MqUnlink
+    | 434 -> LinuxSyscall.MqTimedsend
+    | 435 -> LinuxSyscall.MqTimedreceive
+    | 436 -> LinuxSyscall.MqNotify
+    | 437 -> LinuxSyscall.MqGetsetattr
+    | 438 -> LinuxSyscall.Waitid
+    | 439 -> LinuxSyscall.AddKey
+    | 440 -> LinuxSyscall.RequestKey
+    | 441 -> LinuxSyscall.Keyctl
+    | 442 -> LinuxSyscall.IoprioSet
+    | 443 -> LinuxSyscall.IoprioGet
+    | 444 -> LinuxSyscall.InotifyInit
+    | 445 -> LinuxSyscall.InotifyAddWatch
+    | 446 -> LinuxSyscall.InotifyRmWatch
+    | 447 -> LinuxSyscall.Fdatasync
+    | 448 -> LinuxSyscall.KexecLoad
+    | 449 -> LinuxSyscall.MigratePages
+    | 450 -> LinuxSyscall.Openat
+    | 451 -> LinuxSyscall.Mkdirat
+    | 452 -> LinuxSyscall.Mknodat
+    | 453 -> LinuxSyscall.Fchownat
+    | 454 -> LinuxSyscall.Futimesat
+    | 455 -> LinuxSyscall.Fstatat64
+    | 456 -> LinuxSyscall.Unlinkat
+    | 457 -> LinuxSyscall.Renameat
+    | 458 -> LinuxSyscall.Linkat
+    | 459 -> LinuxSyscall.Symlinkat
+    | 460 -> LinuxSyscall.Readlinkat
+    | 461 -> LinuxSyscall.Fchmodat
+    | 462 -> LinuxSyscall.Faccessat
+    | 463 -> LinuxSyscall.Pselect6
+    | 464 -> LinuxSyscall.Ppoll
+    | 465 -> LinuxSyscall.Unshare
+    | 466 -> LinuxSyscall.SetRobustList
+    | 467 -> LinuxSyscall.GetRobustList
+    | 468 -> LinuxSyscall.Splice
+    | 469 -> LinuxSyscall.SyncFileRange
+    | 470 -> LinuxSyscall.Tee
+    | 471 -> LinuxSyscall.Vmsplice
+    | 472 -> LinuxSyscall.MovePages
+    | 473 -> LinuxSyscall.Getcpu
+    | 474 -> LinuxSyscall.EpollPwait
+    | 475 -> LinuxSyscall.Utimensat
+    | 476 -> LinuxSyscall.Signalfd
+    | 477 -> LinuxSyscall.Timerfd
+    | 478 -> LinuxSyscall.Eventfd
+    | 479 -> LinuxSyscall.Recvmmsg
+    | 480 -> LinuxSyscall.Fallocate
+    | 481 -> LinuxSyscall.TimerfdCreate
+    | 482 -> LinuxSyscall.TimerfdSettime
+    | 483 -> LinuxSyscall.TimerfdGettime
+    | 484 -> LinuxSyscall.Signalfd4
+    | 485 -> LinuxSyscall.Eventfd2
+    | 486 -> LinuxSyscall.EpollCreate1
+    | 487 -> LinuxSyscall.Dup3
+    | 488 -> LinuxSyscall.Pipe2
+    | 489 -> LinuxSyscall.InotifyInit1
+    | 490 -> LinuxSyscall.Preadv
+    | 491 -> LinuxSyscall.Pwritev
+    | 492 -> LinuxSyscall.RtTgsigqueueinfo
+    | 493 -> LinuxSyscall.PerfEventOpen
+    | 494 -> LinuxSyscall.FanotifyInit
+    | 495 -> LinuxSyscall.FanotifyMark
+    | 496 -> LinuxSyscall.Prlimit64
+    | 497 -> LinuxSyscall.NameToHandleAt
+    | 498 -> LinuxSyscall.OpenByHandleAt
+    | 499 -> LinuxSyscall.ClockAdjtime
+    | 500 -> LinuxSyscall.Syncfs
+    | 501 -> LinuxSyscall.Setns
+    | 502 -> LinuxSyscall.Accept4
+    | 503 -> LinuxSyscall.Sendmmsg
+    | 504 -> LinuxSyscall.ProcessVmReadv
+    | 505 -> LinuxSyscall.ProcessVmWritev
+    | 506 -> LinuxSyscall.Kcmp
+    | 507 -> LinuxSyscall.FinitModule
+    | 508 -> LinuxSyscall.SchedSetattr
+    | 509 -> LinuxSyscall.SchedGetattr
+    | 510 -> LinuxSyscall.Renameat2
+    | 511 -> LinuxSyscall.Getrandom
+    | 512 -> LinuxSyscall.MemfdCreate
+    | 513 -> LinuxSyscall.Execveat
+    | 514 -> LinuxSyscall.Seccomp
+    | 515 -> LinuxSyscall.Bpf
+    | 516 -> LinuxSyscall.Userfaultfd
+    | 517 -> LinuxSyscall.Membarrier
+    | 518 -> LinuxSyscall.Mlock2
+    | 519 -> LinuxSyscall.CopyFileRange
+    | 520 -> LinuxSyscall.Preadv2
+    | 521 -> LinuxSyscall.Pwritev2
+    | 522 -> LinuxSyscall.Statx
+    | 523 -> LinuxSyscall.IoPgetevents
+    | 524 -> LinuxSyscall.PkeyMprotect
+    | 525 -> LinuxSyscall.PkeyAlloc
+    | 526 -> LinuxSyscall.PkeyFree
+    | 527 -> LinuxSyscall.Rseq
+    | 528 -> LinuxSyscall.Statfs64
+    | 529 -> LinuxSyscall.Fstatfs64
+    | 530 -> LinuxSyscall.Getegid
+    | 531 -> LinuxSyscall.Geteuid
+    | 532 -> LinuxSyscall.Getppid
+    | 534 -> LinuxSyscall.PidfdSendSignal
+    | 535 -> LinuxSyscall.IoUringSetup
+    | 536 -> LinuxSyscall.IoUringEnter
+    | 537 -> LinuxSyscall.IoUringRegister
+    | 538 -> LinuxSyscall.OpenTree
+    | 539 -> LinuxSyscall.MoveMount
+    | 540 -> LinuxSyscall.Fsopen
+    | 541 -> LinuxSyscall.Fsconfig
+    | 542 -> LinuxSyscall.Fsmount
+    | 543 -> LinuxSyscall.Fspick
+    | 544 -> LinuxSyscall.PidfdOpen
+    | 546 -> LinuxSyscall.CloseRange
+    | 547 -> LinuxSyscall.Openat2
+    | 548 -> LinuxSyscall.PidfdGetfd
+    | 549 -> LinuxSyscall.Faccessat2
+    | 550 -> LinuxSyscall.ProcessMadvise
+    | 552 -> LinuxSyscall.MountSetattr
+    | 558 -> LinuxSyscall.ProcessMrelease
+    | 562 -> LinuxSyscall.Fchmodat2
+    | _ -> raise UnhandledSyscallException
+
   [<CompiledName "OfNumber">]
   let ofNumber arch num =
     match arch with
@@ -11168,6 +11933,7 @@ module LinuxSyscall =
     | PARISC -> getPARISCSyscall num
     | S390 -> getS390Syscall num
     | M68K -> getM68KSyscall num
+    | Alpha -> getAlphaSyscall num
     | _ -> raise UnhandledSyscallException
 
   /// Converts a LinuxSyscall to a string.
@@ -11182,9 +11948,9 @@ module LinuxSyscall =
     | LinuxSyscall.Alarm -> "alarm"
     | LinuxSyscall.AllocHugePages -> "alloc_hugepages"
     | LinuxSyscall.ArcGetTLS -> "arc_gettls"
+    | LinuxSyscall.ArchPrctl -> "arch_prctl"
     | LinuxSyscall.ArcSetTLS -> "arc_settls"
     | LinuxSyscall.ArcUsrCmpxchg -> "arc_usr_cmpxchg"
-    | LinuxSyscall.ArchPrctl -> "arch_prctl"
     | LinuxSyscall.ArmFadvise64 -> "arm_fadvise64_64"
     | LinuxSyscall.ArmSyncFileRange -> "arm_sync_file_range"
     | LinuxSyscall.AtomicBarrier -> "atomic_barrier"
@@ -11193,8 +11959,8 @@ module LinuxSyscall =
     | LinuxSyscall.BfinSpinlock -> "bfin_spinlock"
     | LinuxSyscall.Bind -> "bind"
     | LinuxSyscall.Bpf -> "bpf"
-    | LinuxSyscall.Brk -> "brk"
     | LinuxSyscall.Breakpoint -> "breakpoint"
+    | LinuxSyscall.Brk -> "brk"
     | LinuxSyscall.CacheCtl -> "cachectl"
     | LinuxSyscall.CacheFlush -> "cacheflush"
     | LinuxSyscall.CapGet -> "capget"
@@ -11211,11 +11977,11 @@ module LinuxSyscall =
     | LinuxSyscall.ClockGettime -> "clock_gettime"
     | LinuxSyscall.ClockGettime64 -> "clock_gettime64"
     | LinuxSyscall.ClockNanosleep -> "clock_nanosleep"
+    | LinuxSyscall.ClockNanosleep64 -> "clock_nanosleep64"
     | LinuxSyscall.ClockSettime -> "clock_settime"
     | LinuxSyscall.ClockSettime64 -> "clock_settime64"
-    | LinuxSyscall.ClockNanosleep64 -> "clock_nanosleep64"
-    | LinuxSyscall.Clone2 -> "clone2"
     | LinuxSyscall.Clone -> "clone"
+    | LinuxSyscall.Clone2 -> "clone2"
     | LinuxSyscall.Clone3 -> "clone3"
     | LinuxSyscall.Close -> "close"
     | LinuxSyscall.CloseRange -> "close_range"
@@ -11242,6 +12008,7 @@ module LinuxSyscall =
     | LinuxSyscall.Exit -> "exit"
     | LinuxSyscall.ExitGroup -> "exit_group"
     | LinuxSyscall.Faccessat -> "faccessat"
+    | LinuxSyscall.Faccessat2 -> "faccessat2"
     | LinuxSyscall.Fadvise64 -> "fadvise64"
     | LinuxSyscall.Fadvise64_64 -> "fadvise64_64"
     | LinuxSyscall.Fallocate -> "fallocate"
@@ -11250,6 +12017,7 @@ module LinuxSyscall =
     | LinuxSyscall.Fchdir -> "fchdir"
     | LinuxSyscall.Fchmod -> "fchmod"
     | LinuxSyscall.Fchmodat -> "fchmodat"
+    | LinuxSyscall.Fchmodat2 -> "fchmodat2"
     | LinuxSyscall.Fchown -> "fchown"
     | LinuxSyscall.Fchown32 -> "fchown32"
     | LinuxSyscall.Fchownat -> "fchownat"
@@ -11279,11 +12047,6 @@ module LinuxSyscall =
     | LinuxSyscall.Futex -> "futex"
     | LinuxSyscall.Futex64 -> "futex64"
     | LinuxSyscall.Futimesat -> "futimesat"
-    | LinuxSyscall.GetKernelSyms -> "get_kernel_syms"
-    | LinuxSyscall.GetMempolicy -> "get_mempolicy"
-    | LinuxSyscall.GetRobustList -> "get_robust_list"
-    | LinuxSyscall.GetThreadArea -> "get_thread_area"
-    | LinuxSyscall.GetTLS -> "get_tls"
     | LinuxSyscall.Getcpu -> "getcpu"
     | LinuxSyscall.Getcwd -> "getcwd"
     | LinuxSyscall.Getdents -> "getdents"
@@ -11300,8 +12063,10 @@ module LinuxSyscall =
     | LinuxSyscall.Getgroups32 -> "getgroups32"
     | LinuxSyscall.Gethostname -> "gethostname"
     | LinuxSyscall.Getitimer -> "getitimer"
-    | LinuxSyscall.Getpeername -> "getpeername"
+    | LinuxSyscall.GetKernelSyms -> "get_kernel_syms"
+    | LinuxSyscall.GetMempolicy -> "get_mempolicy"
     | LinuxSyscall.Getpagesize -> "getpagesize"
+    | LinuxSyscall.Getpeername -> "getpeername"
     | LinuxSyscall.Getpgid -> "getpgid"
     | LinuxSyscall.Getpgrp -> "getpgrp"
     | LinuxSyscall.Getpid -> "getpid"
@@ -11313,12 +12078,15 @@ module LinuxSyscall =
     | LinuxSyscall.Getresuid -> "getresuid"
     | LinuxSyscall.Getresuid32 -> "getresuid32"
     | LinuxSyscall.Getrlimit -> "getrlimit"
+    | LinuxSyscall.GetRobustList -> "get_robust_list"
     | LinuxSyscall.Getrusage -> "getrusage"
     | LinuxSyscall.Getsid -> "getsid"
     | LinuxSyscall.Getsockname -> "getsockname"
     | LinuxSyscall.Getsockopt -> "getsockopt"
+    | LinuxSyscall.GetThreadArea -> "get_thread_area"
     | LinuxSyscall.Gettid -> "gettid"
     | LinuxSyscall.Gettimeofday -> "gettimeofday"
+    | LinuxSyscall.GetTLS -> "get_tls"
     | LinuxSyscall.Getuid -> "getuid"
     | LinuxSyscall.Getuid32 -> "getuid32"
     | LinuxSyscall.Getunwind -> "getunwind"
@@ -11332,20 +12100,20 @@ module LinuxSyscall =
     | LinuxSyscall.InotifyInit1 -> "inotify_init1"
     | LinuxSyscall.InotifyRmWatch -> "inotify_rm_watch"
     | LinuxSyscall.IoCancel -> "io_cancel"
+    | LinuxSyscall.Ioctl -> "ioctl"
     | LinuxSyscall.IoDestroy -> "io_destroy"
     | LinuxSyscall.IoGetevents -> "io_getevents"
+    | LinuxSyscall.Ioperm -> "ioperm"
     | LinuxSyscall.IoPgetevents -> "io_pgetevents"
     | LinuxSyscall.IoPgetevents64 -> "io_pgetevents64"
+    | LinuxSyscall.Iopl -> "iopl"
+    | LinuxSyscall.IoprioGet -> "ioprio_get"
+    | LinuxSyscall.IoprioSet -> "ioprio_set"
     | LinuxSyscall.IoSetup -> "io_setup"
     | LinuxSyscall.IoSubmit -> "io_submit"
     | LinuxSyscall.IoUringEnter -> "io_uring_enter"
     | LinuxSyscall.IoUringRegister -> "io_uring_register"
     | LinuxSyscall.IoUringSetup -> "io_uring_setup"
-    | LinuxSyscall.Ioctl -> "ioctl"
-    | LinuxSyscall.Ioperm -> "ioperm"
-    | LinuxSyscall.Iopl -> "iopl"
-    | LinuxSyscall.IoprioGet -> "ioprio_get"
-    | LinuxSyscall.IoprioSet -> "ioprio_set"
     | LinuxSyscall.Ipc -> "ipc"
     | LinuxSyscall.Kcmp -> "kcmp"
     | LinuxSyscall.KernFeatures -> "kern_features"
@@ -11361,22 +12129,22 @@ module LinuxSyscall =
     | LinuxSyscall.Listen -> "listen"
     | LinuxSyscall.Listxattr -> "listxattr"
     | LinuxSyscall.Llistxattr -> "llistxattr"
+    | LinuxSyscall.LLseek -> "_llseek"
     | LinuxSyscall.LookupDcookie -> "lookup_dcookie"
     | LinuxSyscall.Lremovexattr -> "lremovexattr"
     | LinuxSyscall.Lseek -> "lseek"
-    | LinuxSyscall.LLseek -> "_llseek"
     | LinuxSyscall.Lsetxattr -> "lsetxattr"
     | LinuxSyscall.Lstat -> "lstat"
     | LinuxSyscall.Lstat64 -> "lstat64"
     | LinuxSyscall.Madvise -> "madvise"
     | LinuxSyscall.Mbind -> "mbind"
+    | LinuxSyscall.Membarrier -> "membarrier"
+    | LinuxSyscall.MemfdCreate -> "memfd_create"
     | LinuxSyscall.MemoryOrdering -> "memory_ordering"
     | LinuxSyscall.MetagGetTLS -> "metag_get_tls"
     | LinuxSyscall.MetagSetFpuFlags -> "metag_set_fpu_flags"
-    | LinuxSyscall.MetagSetTLS -> "metag_set_tls"
     | LinuxSyscall.MetagSetglobalbit -> "metag_setglobalbit"
-    | LinuxSyscall.Membarrier -> "membarrier"
-    | LinuxSyscall.MemfdCreate -> "memfd_create"
+    | LinuxSyscall.MetagSetTLS -> "metag_set_tls"
     | LinuxSyscall.MigratePages -> "migrate_pages"
     | LinuxSyscall.Mincore -> "mincore"
     | LinuxSyscall.Mkdir -> "mkdir"
@@ -11390,6 +12158,7 @@ module LinuxSyscall =
     | LinuxSyscall.Mmap2 -> "mmap2"
     | LinuxSyscall.ModifyLdt -> "modify_ldt"
     | LinuxSyscall.Mount -> "mount"
+    | LinuxSyscall.MountSetattr -> "mount_setattr"
     | LinuxSyscall.MoveMount -> "move_mount"
     | LinuxSyscall.MovePages -> "move_pages"
     | LinuxSyscall.Mprotect -> "mprotect"
@@ -11417,30 +12186,33 @@ module LinuxSyscall =
     | LinuxSyscall.Nfsservctl -> "nfsservctl"
     | LinuxSyscall.Nice -> "nice"
     | LinuxSyscall.OldAdjtimex -> "old_adjtimex"
-    | LinuxSyscall.OldGetrlimit -> "old_getrlimit"
     | LinuxSyscall.Oldfstat -> "oldfstat"
+    | LinuxSyscall.OldGetrlimit -> "old_getrlimit"
     | LinuxSyscall.Oldlstat -> "oldlstat"
     | LinuxSyscall.Oldolduname -> "oldolduname"
     | LinuxSyscall.Oldstat -> "oldstat"
     | LinuxSyscall.Oldumount -> "oldumount"
     | LinuxSyscall.Olduname -> "olduname"
     | LinuxSyscall.Open -> "open"
-    | LinuxSyscall.OpenByHandleAt -> "open_by_handle_at"
-    | LinuxSyscall.OpenTree -> "open_tree"
     | LinuxSyscall.Openat -> "openat"
     | LinuxSyscall.Openat2 -> "openat2"
+    | LinuxSyscall.OpenByHandleAt -> "open_by_handle_at"
+    | LinuxSyscall.OpenTree -> "open_tree"
     | LinuxSyscall.Or1kAtomic -> "or1k_atomic"
+    | LinuxSyscall.OsfGetSysinfo -> "osf_getsysinfo"
+    | LinuxSyscall.OsfSetSysinfo -> "osf_setsysinfo"
+    | LinuxSyscall.OsfSigprocmask -> "osf_sigprocmask"
     | LinuxSyscall.Pause -> "pause"
     | LinuxSyscall.PciconfigIobase -> "pciconfig_iobase"
     | LinuxSyscall.PciconfigRead -> "pciconfig_read"
     | LinuxSyscall.PciconfigWrite -> "pciconfig_write"
-    | LinuxSyscall.PerfEventOpen -> "perf_event_open"
-    | LinuxSyscall.Personality -> "personality"
     | LinuxSyscall.Perfctr -> "perfctr"
+    | LinuxSyscall.PerfEventOpen -> "perf_event_open"
     | LinuxSyscall.Perfmonctl -> "perfmonctl"
+    | LinuxSyscall.Personality -> "personality"
     | LinuxSyscall.PidfdGetfd -> "pidfd_getfd"
-    | LinuxSyscall.PidfdSendSignal -> "pidfd_send_signal"
     | LinuxSyscall.PidfdOpen -> "pidfd_open"
+    | LinuxSyscall.PidfdSendSignal -> "pidfd_send_signal"
     | LinuxSyscall.Pipe -> "pipe"
     | LinuxSyscall.Pipe2 -> "pipe2"
     | LinuxSyscall.PivotRoot -> "pivot_root"
@@ -11456,6 +12228,8 @@ module LinuxSyscall =
     | LinuxSyscall.Preadv -> "preadv"
     | LinuxSyscall.Preadv2 -> "preadv2"
     | LinuxSyscall.Prlimit64 -> "prlimit64"
+    | LinuxSyscall.ProcessMadvise -> "process_madvise"
+    | LinuxSyscall.ProcessMrelease -> "process_mrelease"
     | LinuxSyscall.ProcessVmReadv -> "process_vm_readv"
     | LinuxSyscall.ProcessVmWritev -> "process_vm_writev"
     | LinuxSyscall.Pselect6 -> "pselect6"
@@ -11476,9 +12250,9 @@ module LinuxSyscall =
     | LinuxSyscall.Reboot -> "reboot"
     | LinuxSyscall.Recv -> "recv"
     | LinuxSyscall.Recvfrom -> "recvfrom"
-    | LinuxSyscall.Recvmsg -> "recvmsg"
     | LinuxSyscall.Recvmmsg -> "recvmmsg"
     | LinuxSyscall.Recvmmsg64 -> "recvmmsg64"
+    | LinuxSyscall.Recvmsg -> "recvmsg"
     | LinuxSyscall.RemapFilePages -> "remap_file_pages"
     | LinuxSyscall.Removexattr -> "removexattr"
     | LinuxSyscall.Rename -> "rename"
@@ -11489,6 +12263,7 @@ module LinuxSyscall =
     | LinuxSyscall.RiscvFlushIcache -> "riscv_flush_icache"
     | LinuxSyscall.Rmdir -> "rmdir"
     | LinuxSyscall.Rseq -> "rseq"
+    | LinuxSyscall.Rtas -> "rtas"
     | LinuxSyscall.RtSigaction -> "rt_sigaction"
     | LinuxSyscall.RtSigpending -> "rt_sigpending"
     | LinuxSyscall.RtSigprocmask -> "rt_sigprocmask"
@@ -11498,18 +12273,17 @@ module LinuxSyscall =
     | LinuxSyscall.RtSigtimedwait -> "rt_sigtimedwait"
     | LinuxSyscall.RtSigtimedwait64 -> "rt_sigtimedwait64"
     | LinuxSyscall.RtTgsigqueueinfo -> "rt_tgsigqueueinfo"
-    | LinuxSyscall.Rtas -> "rtas"
-    | LinuxSyscall.S390RuntimeInstr -> "s390_runtime_instr"
+    | LinuxSyscall.S390GuardedStorage -> "s390_guarded_storage"
     | LinuxSyscall.S390PciMmioRead -> "s390_pci_mmio_read"
     | LinuxSyscall.S390PciMmioWrite -> "s390_pci_mmio_write"
+    | LinuxSyscall.S390RuntimeInstr -> "s390_runtime_instr"
     | LinuxSyscall.S390Sthyi -> "s390_sthyi"
-    | LinuxSyscall.S390GuardedStorage -> "s390_guarded_storage"
     | LinuxSyscall.SchedGetAffinity -> "sched_get_affinity"
-    | LinuxSyscall.SchedGetPriorityMax -> "sched_get_priority_max"
-    | LinuxSyscall.SchedGetPriorityMin -> "sched_get_priority_min"
     | LinuxSyscall.SchedGetaffinity -> "sched_getaffinity"
     | LinuxSyscall.SchedGetattr -> "sched_getattr"
     | LinuxSyscall.SchedGetparam -> "sched_getparam"
+    | LinuxSyscall.SchedGetPriorityMax -> "sched_get_priority_max"
+    | LinuxSyscall.SchedGetPriorityMin -> "sched_get_priority_min"
     | LinuxSyscall.SchedGetscheduler -> "sched_getscheduler"
     | LinuxSyscall.SchedRrGetInterval -> "sched_rr_get_interval"
     | LinuxSyscall.SchedRrGetInterval64 -> "sched_rr_get_interval64"
@@ -11532,11 +12306,6 @@ module LinuxSyscall =
     | LinuxSyscall.Sendmmsg -> "sendmmsg"
     | LinuxSyscall.Sendmsg -> "sendmsg"
     | LinuxSyscall.Sendto -> "sendto"
-    | LinuxSyscall.SetMempolicy -> "set_mempolicy"
-    | LinuxSyscall.SetRobustList -> "set_robust_list"
-    | LinuxSyscall.SetThreadArea -> "set_thread_area"
-    | LinuxSyscall.SetTidAddress -> "set_tid_address"
-    | LinuxSyscall.SetTLS -> "set_tls"
     | LinuxSyscall.Setdomainname -> "setdomainname"
     | LinuxSyscall.Setfsgid -> "setfsgid"
     | LinuxSyscall.Setfsgid32 -> "setfsgid32"
@@ -11549,6 +12318,7 @@ module LinuxSyscall =
     | LinuxSyscall.Sethae -> "sethae"
     | LinuxSyscall.Sethostname -> "sethostname"
     | LinuxSyscall.Setitimer -> "setitimer"
+    | LinuxSyscall.SetMempolicy -> "set_mempolicy"
     | LinuxSyscall.Setns -> "setns"
     | LinuxSyscall.Setpgid -> "setpgid"
     | LinuxSyscall.Setpgrp -> "setpgrp"
@@ -11562,9 +12332,13 @@ module LinuxSyscall =
     | LinuxSyscall.Setreuid -> "setreuid"
     | LinuxSyscall.Setreuid32 -> "setreuid32"
     | LinuxSyscall.Setrlimit -> "setrlimit"
+    | LinuxSyscall.SetRobustList -> "set_robust_list"
     | LinuxSyscall.Setsid -> "setsid"
     | LinuxSyscall.Setsockopt -> "setsockopt"
+    | LinuxSyscall.SetThreadArea -> "set_thread_area"
+    | LinuxSyscall.SetTidAddress -> "set_tid_address"
     | LinuxSyscall.Settimeofday -> "settimeofday"
+    | LinuxSyscall.SetTLS -> "set_tls"
     | LinuxSyscall.Setuid -> "setuid"
     | LinuxSyscall.Setuid32 -> "setuid32"
     | LinuxSyscall.Setup -> "setup"
@@ -11601,19 +12375,19 @@ module LinuxSyscall =
     | LinuxSyscall.Statx -> "statx"
     | LinuxSyscall.Stime -> "stime"
     | LinuxSyscall.SubpageProt -> "subpage_prot"
-    | LinuxSyscall.SwitchEndian -> "switch_endian"
     | LinuxSyscall.Swapcontext -> "swapcontext"
     | LinuxSyscall.Swapoff -> "swapoff"
     | LinuxSyscall.Swapon -> "swapon"
+    | LinuxSyscall.SwitchEndian -> "switch_endian"
     | LinuxSyscall.Symlink -> "symlink"
     | LinuxSyscall.Symlinkat -> "symlinkat"
     | LinuxSyscall.Sync -> "sync"
     | LinuxSyscall.SyncFileRange -> "sync_file_range"
     | LinuxSyscall.SyncFileRange2 -> "sync_file_range2"
     | LinuxSyscall.Syncfs -> "syncfs"
-    | LinuxSyscall.SysDebugSetcontext -> "sys_debug_setcontext"
     | LinuxSyscall.Syscall -> "syscall"
     | LinuxSyscall.Sysctl -> "_sysctl"
+    | LinuxSyscall.SysDebugSetcontext -> "sys_debug_setcontext"
     | LinuxSyscall.Sysfs -> "sysfs"
     | LinuxSyscall.Sysinfo -> "sysinfo"
     | LinuxSyscall.Syslog -> "syslog"
@@ -11623,17 +12397,17 @@ module LinuxSyscall =
     | LinuxSyscall.Time -> "time"
     | LinuxSyscall.TimerCreate -> "timer_create"
     | LinuxSyscall.TimerDelete -> "timer_delete"
-    | LinuxSyscall.TimerGetoverrun -> "timer_getoverrun"
-    | LinuxSyscall.TimerGettime -> "timer_gettime"
-    | LinuxSyscall.TimerGettime64 -> "timer_gettime64"
-    | LinuxSyscall.TimerSettime -> "timer_settime"
-    | LinuxSyscall.TimerSettime64 -> "timer_settime64"
     | LinuxSyscall.Timerfd -> "timerfd"
     | LinuxSyscall.TimerfdCreate -> "timerfd_create"
     | LinuxSyscall.TimerfdGettime -> "timerfd_gettime"
     | LinuxSyscall.TimerfdGettime64 -> "timerfd_gettime64"
     | LinuxSyscall.TimerfdSettime -> "timerfd_settime"
     | LinuxSyscall.TimerfdSettime64 -> "timerfd_settime64"
+    | LinuxSyscall.TimerGetoverrun -> "timer_getoverrun"
+    | LinuxSyscall.TimerGettime -> "timer_gettime"
+    | LinuxSyscall.TimerGettime64 -> "timer_gettime64"
+    | LinuxSyscall.TimerSettime -> "timer_settime"
+    | LinuxSyscall.TimerSettime64 -> "timer_settime64"
     | LinuxSyscall.Times -> "times"
     | LinuxSyscall.Tkill -> "tkill"
     | LinuxSyscall.Truncate -> "truncate"
@@ -11647,10 +12421,10 @@ module LinuxSyscall =
     | LinuxSyscall.Unlinkat -> "unlinkat"
     | LinuxSyscall.Unshare -> "unshare"
     | LinuxSyscall.Uselib -> "uselib"
-    | LinuxSyscall.Ustat -> "ustat"
     | LinuxSyscall.Userfaultfd -> "userfaultfd"
     | LinuxSyscall.Usr26 -> "usr26"
     | LinuxSyscall.Usr32 -> "usr32"
+    | LinuxSyscall.Ustat -> "ustat"
     | LinuxSyscall.Utime -> "utime"
     | LinuxSyscall.Utimensat -> "utimensat"
     | LinuxSyscall.Utimensat64 -> "utimensat64"
@@ -11658,8 +12432,8 @@ module LinuxSyscall =
     | LinuxSyscall.UtrapInstall -> "utrap_install"
     | LinuxSyscall.Vfork -> "vfork"
     | LinuxSyscall.Vhangup -> "vhangup"
-    | LinuxSyscall.Vm86old -> "vm86old"
     | LinuxSyscall.Vm86 -> "vm86"
+    | LinuxSyscall.Vm86old -> "vm86old"
     | LinuxSyscall.Vmsplice -> "vmsplice"
     | LinuxSyscall.Vserver -> "vserver"
     | LinuxSyscall.Wait4 -> "wait4"
@@ -11673,6 +12447,9 @@ module LinuxSyscall =
   /// Converts a string to a LinuxSyscall.
   [<CompiledName "OfString">]
   let ofString = function
+    | "_llseek" -> LinuxSyscall.LLseek
+    | "_newselect" -> LinuxSyscall.NewSelect
+    | "_sysctl" -> LinuxSyscall.Sysctl
     | "accept" -> LinuxSyscall.Accept
     | "accept4" -> LinuxSyscall.Accept4
     | "access" -> LinuxSyscall.Access
@@ -11693,8 +12470,8 @@ module LinuxSyscall =
     | "bfin_spinlock" -> LinuxSyscall.BfinSpinlock
     | "bind" -> LinuxSyscall.Bind
     | "bpf" -> LinuxSyscall.Bpf
-    | "brk" -> LinuxSyscall.Brk
     | "breakpoint" -> LinuxSyscall.Breakpoint
+    | "brk" -> LinuxSyscall.Brk
     | "cachectl" -> LinuxSyscall.CacheCtl
     | "cacheflush" -> LinuxSyscall.CacheFlush
     | "capget" -> LinuxSyscall.CapGet
@@ -11711,11 +12488,11 @@ module LinuxSyscall =
     | "clock_gettime" -> LinuxSyscall.ClockGettime
     | "clock_gettime64" -> LinuxSyscall.ClockGettime64
     | "clock_nanosleep" -> LinuxSyscall.ClockNanosleep
+    | "clock_nanosleep64" -> LinuxSyscall.ClockNanosleep64
     | "clock_settime" -> LinuxSyscall.ClockSettime
     | "clock_settime64" -> LinuxSyscall.ClockSettime64
-    | "clock_nanosleep64" -> LinuxSyscall.ClockNanosleep64
-    | "clone2" -> LinuxSyscall.Clone2
     | "clone" -> LinuxSyscall.Clone
+    | "clone2" -> LinuxSyscall.Clone2
     | "clone3" -> LinuxSyscall.Clone3
     | "close" -> LinuxSyscall.Close
     | "close_range" -> LinuxSyscall.CloseRange
@@ -11742,6 +12519,7 @@ module LinuxSyscall =
     | "exit" -> LinuxSyscall.Exit
     | "exit_group" -> LinuxSyscall.ExitGroup
     | "faccessat" -> LinuxSyscall.Faccessat
+    | "faccessat2" -> LinuxSyscall.Faccessat2
     | "fadvise64" -> LinuxSyscall.Fadvise64
     | "fadvise64_64" -> LinuxSyscall.Fadvise64_64
     | "fallocate" -> LinuxSyscall.Fallocate
@@ -11750,6 +12528,7 @@ module LinuxSyscall =
     | "fchdir" -> LinuxSyscall.Fchdir
     | "fchmod" -> LinuxSyscall.Fchmod
     | "fchmodat" -> LinuxSyscall.Fchmodat
+    | "fchmodat2" -> LinuxSyscall.Fchmodat2
     | "fchown" -> LinuxSyscall.Fchown
     | "fchown32" -> LinuxSyscall.Fchown32
     | "fchownat" -> LinuxSyscall.Fchownat
@@ -11800,8 +12579,8 @@ module LinuxSyscall =
     | "getgroups32" -> LinuxSyscall.Getgroups32
     | "gethostname" -> LinuxSyscall.Gethostname
     | "getitimer" -> LinuxSyscall.Getitimer
-    | "getpeername" -> LinuxSyscall.Getpeername
     | "getpagesize" -> LinuxSyscall.Getpagesize
+    | "getpeername" -> LinuxSyscall.Getpeername
     | "getpgid" -> LinuxSyscall.Getpgid
     | "getpgrp" -> LinuxSyscall.Getpgrp
     | "getpid" -> LinuxSyscall.Getpid
@@ -11864,19 +12643,18 @@ module LinuxSyscall =
     | "lookup_dcookie" -> LinuxSyscall.LookupDcookie
     | "lremovexattr" -> LinuxSyscall.Lremovexattr
     | "lseek" -> LinuxSyscall.Lseek
-    | "_llseek" -> LinuxSyscall.LLseek
     | "lsetxattr" -> LinuxSyscall.Lsetxattr
     | "lstat" -> LinuxSyscall.Lstat
     | "lstat64" -> LinuxSyscall.Lstat64
     | "madvise" -> LinuxSyscall.Madvise
     | "mbind" -> LinuxSyscall.Mbind
+    | "membarrier" -> LinuxSyscall.Membarrier
+    | "memfd_create" -> LinuxSyscall.MemfdCreate
     | "memory_ordering" -> LinuxSyscall.MemoryOrdering
     | "metag_get_tls" -> LinuxSyscall.MetagGetTLS
     | "metag_set_fpu_flags" -> LinuxSyscall.MetagSetFpuFlags
     | "metag_set_tls" -> LinuxSyscall.MetagSetTLS
     | "metag_setglobalbit" -> LinuxSyscall.MetagSetglobalbit
-    | "membarrier" -> LinuxSyscall.Membarrier
-    | "memfd_create" -> LinuxSyscall.MemfdCreate
     | "migrate_pages" -> LinuxSyscall.MigratePages
     | "mincore" -> LinuxSyscall.Mincore
     | "mkdir" -> LinuxSyscall.Mkdir
@@ -11890,6 +12668,7 @@ module LinuxSyscall =
     | "mmap2" -> LinuxSyscall.Mmap2
     | "modify_ldt" -> LinuxSyscall.ModifyLdt
     | "mount" -> LinuxSyscall.Mount
+    | "mount_setattr" -> LinuxSyscall.MountSetattr
     | "move_mount" -> LinuxSyscall.MoveMount
     | "move_pages" -> LinuxSyscall.MovePages
     | "mprotect" -> LinuxSyscall.Mprotect
@@ -11913,7 +12692,6 @@ module LinuxSyscall =
     | "name_to_handle_at" -> LinuxSyscall.NameToHandleAt
     | "nanosleep" -> LinuxSyscall.Nanosleep
     | "newfstatat" -> LinuxSyscall.Newfstatat
-    | "_newselect" -> LinuxSyscall.NewSelect
     | "nfsservctl" -> LinuxSyscall.Nfsservctl
     | "nice" -> LinuxSyscall.Nice
     | "old_adjtimex" -> LinuxSyscall.OldAdjtimex
@@ -11930,17 +12708,20 @@ module LinuxSyscall =
     | "openat" -> LinuxSyscall.Openat
     | "openat2" -> LinuxSyscall.Openat2
     | "or1k_atomic" -> LinuxSyscall.Or1kAtomic
+    | "osf_getsysinfo" -> LinuxSyscall.OsfGetSysinfo
+    | "osf_setsysinfo" -> LinuxSyscall.OsfSetSysinfo
+    | "osf_sigprocmask" -> LinuxSyscall.OsfSigprocmask
     | "pause" -> LinuxSyscall.Pause
     | "pciconfig_iobase" -> LinuxSyscall.PciconfigIobase
     | "pciconfig_read" -> LinuxSyscall.PciconfigRead
     | "pciconfig_write" -> LinuxSyscall.PciconfigWrite
     | "perf_event_open" -> LinuxSyscall.PerfEventOpen
-    | "personality" -> LinuxSyscall.Personality
     | "perfctr" -> LinuxSyscall.Perfctr
     | "perfmonctl" -> LinuxSyscall.Perfmonctl
+    | "personality" -> LinuxSyscall.Personality
     | "pidfd_getfd" -> LinuxSyscall.PidfdGetfd
-    | "pidfd_send_signal" -> LinuxSyscall.PidfdSendSignal
     | "pidfd_open" -> LinuxSyscall.PidfdOpen
+    | "pidfd_send_signal" -> LinuxSyscall.PidfdSendSignal
     | "pipe" -> LinuxSyscall.Pipe
     | "pipe2" -> LinuxSyscall.Pipe2
     | "pivot_root" -> LinuxSyscall.PivotRoot
@@ -11956,6 +12737,8 @@ module LinuxSyscall =
     | "preadv" -> LinuxSyscall.Preadv
     | "preadv2" -> LinuxSyscall.Preadv2
     | "prlimit64" -> LinuxSyscall.Prlimit64
+    | "process_madvise" -> LinuxSyscall.ProcessMadvise
+    | "process_mrelease" -> LinuxSyscall.ProcessMrelease
     | "process_vm_readv" -> LinuxSyscall.ProcessVmReadv
     | "process_vm_writev" -> LinuxSyscall.ProcessVmWritev
     | "pselect6" -> LinuxSyscall.Pselect6
@@ -11976,9 +12759,9 @@ module LinuxSyscall =
     | "reboot" -> LinuxSyscall.Reboot
     | "recv" -> LinuxSyscall.Recv
     | "recvfrom" -> LinuxSyscall.Recvfrom
-    | "recvmsg" -> LinuxSyscall.Recvmsg
     | "recvmmsg" -> LinuxSyscall.Recvmmsg
     | "recvmmsg64" -> LinuxSyscall.Recvmmsg64
+    | "recvmsg" -> LinuxSyscall.Recvmsg
     | "remap_file_pages" -> LinuxSyscall.RemapFilePages
     | "removexattr" -> LinuxSyscall.Removexattr
     | "rename" -> LinuxSyscall.Rename
@@ -11999,11 +12782,11 @@ module LinuxSyscall =
     | "rt_sigtimedwait64" -> LinuxSyscall.RtSigtimedwait64
     | "rt_tgsigqueueinfo" -> LinuxSyscall.RtTgsigqueueinfo
     | "rtas" -> LinuxSyscall.Rtas
-    | "s390_runtime_instr" -> LinuxSyscall.S390RuntimeInstr
+    | "s390_guarded_storage" -> LinuxSyscall.S390GuardedStorage
     | "s390_pci_mmio_read" -> LinuxSyscall.S390PciMmioRead
     | "s390_pci_mmio_write" -> LinuxSyscall.S390PciMmioWrite
+    | "s390_runtime_instr" -> LinuxSyscall.S390RuntimeInstr
     | "s390_sthyi" -> LinuxSyscall.S390Sthyi
-    | "s390_guarded_storage" -> LinuxSyscall.S390GuardedStorage
     | "sched_get_affinity" -> LinuxSyscall.SchedGetAffinity
     | "sched_get_priority_max" -> LinuxSyscall.SchedGetPriorityMax
     | "sched_get_priority_min" -> LinuxSyscall.SchedGetPriorityMin
@@ -12102,9 +12885,9 @@ module LinuxSyscall =
     | "stime" -> LinuxSyscall.Stime
     | "subpage_prot" -> LinuxSyscall.SubpageProt
     | "swapcontext" -> LinuxSyscall.Swapcontext
-    | "switch_endian" -> LinuxSyscall.SwitchEndian
     | "swapoff" -> LinuxSyscall.Swapoff
     | "swapon" -> LinuxSyscall.Swapon
+    | "switch_endian" -> LinuxSyscall.SwitchEndian
     | "symlink" -> LinuxSyscall.Symlink
     | "symlinkat" -> LinuxSyscall.Symlinkat
     | "sync" -> LinuxSyscall.Sync
@@ -12113,7 +12896,6 @@ module LinuxSyscall =
     | "syncfs" -> LinuxSyscall.Syncfs
     | "sys_debug_setcontext" -> LinuxSyscall.SysDebugSetcontext
     | "syscall" -> LinuxSyscall.Syscall
-    | "_sysctl" -> LinuxSyscall.Sysctl
     | "sysfs" -> LinuxSyscall.Sysfs
     | "sysinfo" -> LinuxSyscall.Sysinfo
     | "syslog" -> LinuxSyscall.Syslog
@@ -12147,10 +12929,10 @@ module LinuxSyscall =
     | "unlinkat" -> LinuxSyscall.Unlinkat
     | "unshare" -> LinuxSyscall.Unshare
     | "uselib" -> LinuxSyscall.Uselib
-    | "ustat" -> LinuxSyscall.Ustat
     | "userfaultfd" -> LinuxSyscall.Userfaultfd
     | "usr26" -> LinuxSyscall.Usr26
     | "usr32" -> LinuxSyscall.Usr32
+    | "ustat" -> LinuxSyscall.Ustat
     | "utime" -> LinuxSyscall.Utime
     | "utimensat" -> LinuxSyscall.Utimensat
     | "utimensat64" -> LinuxSyscall.Utimensat64
@@ -12158,8 +12940,8 @@ module LinuxSyscall =
     | "utrap_install" -> LinuxSyscall.UtrapInstall
     | "vfork" -> LinuxSyscall.Vfork
     | "vhangup" -> LinuxSyscall.Vhangup
-    | "vm86old" -> LinuxSyscall.Vm86old
     | "vm86" -> LinuxSyscall.Vm86
+    | "vm86old" -> LinuxSyscall.Vm86old
     | "vmsplice" -> LinuxSyscall.Vmsplice
     | "vserver" -> LinuxSyscall.Vserver
     | "wait4" -> LinuxSyscall.Wait4

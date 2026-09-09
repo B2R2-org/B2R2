@@ -59,6 +59,7 @@ jobs:
       fail-fast: false
       matrix:
         arch:
+        - Alpha
         - Intel
         - ARM32
         - ARM64

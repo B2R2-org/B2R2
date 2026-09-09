@@ -191,6 +191,9 @@ module internal Header =
          family it was built for, so this is a choice rather than anything the
          file claims. *)
       ISA M68KModel.M68040
+    | MachineType.EM_ALPHA
+    | MachineType.EM_OLD_ALPHA ->
+      ISA Architecture.Alpha
     | MachineType.EM_AVR ->
       getAVRISA span reader cls
     | _ ->

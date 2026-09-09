@@ -154,6 +154,28 @@ type CallingConventionTests() =
   (* The System V m68k psABI passes every argument on the stack, so there is no
      register argument to resolve and the return value alone comes back in one.
      A6 is the frame pointer, which makes it callee-saved. *)
+  (* Alpha numbers one sequence of argument slots and reads each from whichever
+     file the argument's type names, so the third argument is a2 when it is a
+     word and $f18 when it is a number -- and a leading number does not move a
+     following word down to a1, which is what Positional means and what tells
+     this ABI from the RISC ones counting the two kinds apart. *)
+  [<TestMethod>]
+  member _.``Alpha numbers its argument slots across both files``() =
+    let cc = CallingConvention.create OS.Linux (ISA Architecture.Alpha)
+    Assert.AreEqual<ArgClassification>(Positional, cc.ArgClassification)
+    let a2 = Alpha.Register.toRegID Alpha.Register.R18
+    Assert.AreEqual<ArgLocation>(ArgLocation.Reg a2, cc.GetIntArgLocation 2)
+    let f18 = Alpha.Register.toRegID Alpha.Register.F18
+    Assert.AreEqual<ArgLocation>(ArgLocation.Reg f18, cc.GetFloatArgLocation 2)
+    let v0 = Alpha.Register.toRegID Alpha.Register.R0
+    Assert.AreEqual<ArgLocation>(ArgLocation.Reg v0, cc.IntReturnLocation)
+    let ra = Alpha.Register.toRegID Alpha.Register.R26
+    Assert.AreEqual<ReturnAddressLocation>(InRegister ra,
+                                           cc.ReturnAddressLocation)
+    let s0 = Alpha.Register.toRegID Alpha.Register.R9
+    Assert.AreEqual<bool>(true, cc.CalleeSavedRegisters.Contains s0)
+    Assert.AreEqual<bool>(true, cc.CallerSavedRegisters.Contains v0)
+
   [<TestMethod>]
   member _.``m68k passes every argument on the stack``() =
     let cc = CallingConvention.create OS.Linux (ISA Architecture.M68K)

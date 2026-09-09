@@ -22,48 +22,29 @@
   SOFTWARE.
 *)
 
-namespace B2R2
+namespace B2R2.FrontEnd.Alpha
 
-/// <summary>
-/// Represents CPU architecture types that are supported by B2R2.
-/// </summary>
-type Architecture =
-  /// Intel x86 or x86-64.
-  | Intel = 0
-  /// ARMv7.
-  | ARMv7 = 1
-  /// ARMv8 (aarch32 and aarch64).
-  | ARMv8 = 2
-  /// MIPS.
-  | MIPS = 3
-  /// PowerPC.
-  | PPC = 4
-  /// RISC-V.
-  | RISCV = 5
-  /// SPARC.
-  | SPARC = 6
-  /// IBM System/390.
-  | S390 = 7
-  /// SuperH (SH-4).
-  | SH4 = 8
-  /// PA-RISC.
-  | PARISC = 9
-  /// Motorola 68000 series.
-  | M68K = 10
-  /// DEC Alpha.
-  | Alpha = 11
-  /// Atmel AVR 8-bit microcontroller.
-  | AVR = 20
-  /// TMS320C64x, TMS320C67x, etc.
-  | TMS320C6000 = 21
-  /// EVM.
-  | EVM = 30
-  /// Python bytecode.
-  | Python = 31
-  /// WASM.
-  | WASM = 32
-  /// Common Intermediate Language (CIL), aka MSIL.
-  | CIL = 33
-  /// Used internally to signal an unrecognized ISA combination. Passing this
-  /// value to any ISA constructor raises InvalidISAException.
-  | UnknownISA = 42
+open System
+open B2R2
+open B2R2.FrontEnd.BinLifter
+
+/// Represents a parser for Alpha instructions.
+type AlphaParser(reader) =
+  let lifter =
+    { new ILiftable with
+        member _.Lift(ins, builder) = Lifter.translate ins builder
+        member _.Disasm(ins, builder) = Disasm.disasm ins builder; builder }
+
+  interface IInstructionParsable with
+    member _.MaxInstructionSize = 4
+
+    member _.InstructionAlignment = 4
+
+    member _.Parse(span: ByteSpan, addr) =
+      try ParsingMain.parse lifter span reader addr :> IInstruction
+      with e when not (Terminator.isCritical e) -> raise ParsingFailureException
+
+    member this.Parse(bs: byte[], addr) =
+      (this :> IInstructionParsable).Parse(ReadOnlySpan bs, addr)
+
+// vim: set tw=80 sts=2 sw=2:

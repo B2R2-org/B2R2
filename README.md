@@ -156,7 +156,16 @@ request, please make sure to read our [contribution guideline](CONTRIBUTING.md).
     <td align="center">:full_moon:</td>
     <td align="center">:full_moon:</td>
     <td align="center">:full_moon:</td>
-    <td align="center">:new_moon:</td>
+    <td align="center">:first_quarter_moon:</td>
+    <td align="center">:full_moon:</td>
+  </tr>
+  <tr>
+    <td><b>Alpha</b></td>
+    <td align="center">:full_moon:</td>
+    <td align="center">:full_moon:</td>
+    <td align="center">:full_moon:</td>
+    <td align="center">:full_moon:</td>
+    <td align="center">:first_quarter_moon:</td>
     <td align="center">:full_moon:</td>
   </tr>
   <tr>
