@@ -236,6 +236,23 @@ let beq ins bld =
     updatePCCond bld offset cond InterJmpKind.Base
   }
 
+/// BEQL and BNEL. See updatePCCondLikely for why the delay slot is skipped
+/// rather than predicated: the slot is a separate instruction and the lifter
+/// cannot reach into it, so the not-taken path steps over it instead.
+let beql ins bld =
+  liftTransfer bld ins {
+    let rs, rt, offset = transThreeOprs ins bld
+    let cond = rs == rt
+    updatePCCondLikely bld offset cond InterJmpKind.Base
+  }
+
+let bnel ins bld =
+  liftTransfer bld ins {
+    let rs, rt, offset = transThreeOprs ins bld
+    let cond = rs != rt
+    updatePCCondLikely bld offset cond InterJmpKind.Base
+  }
+
 let blez ins bld =
   liftTransfer bld ins {
     let rs, offset = transTwoOprs ins bld
