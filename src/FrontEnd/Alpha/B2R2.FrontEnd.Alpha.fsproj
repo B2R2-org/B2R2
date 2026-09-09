@@ -12,6 +12,9 @@
     <Compile Include="Operands.fs" />
     <Compile Include="Instruction.fs" />
     <Compile Include="Disasm.fs" />
+    <Compile Include="LiftHelper.fs" />
+    <Compile Include="GeneralLifter.fs" />
+    <Compile Include="FloatLifter.fs" />
     <Compile Include="Lifter.fs" />
     <Compile Include="ParsingMain.fs" />
     <Compile Include="Parser.fs" />

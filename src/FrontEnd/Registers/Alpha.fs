@@ -167,6 +167,16 @@ type Register =
   | PC = 0x40
   /// Floating-point control register.
   | FPCR = 0x41
+  /// The process unique value, which is what the PALcode routines reading and
+  /// writing it hand a program in place of a thread register of its own. Linux
+  /// keeps the thread pointer here.
+  | UNIQ = 0x42
+  /// Pseudo register: the address a load-locked reserved, for a value-based
+  /// exclusive-monitor model. See ExMonVal.
+  | ExMonAddr = 0x43
+  /// Pseudo register: the memory value at ExMonAddr when the load-locked ran,
+  /// so a later store-conditional can tell whether anything wrote over it.
+  | ExMonVal = 0x44
 
 /// Provides functions to handle Alpha registers.
 module Register =
@@ -245,6 +255,9 @@ module Register =
     | "f31" -> Register.F31
     | "pc" -> Register.PC
     | "fpcr" -> Register.FPCR
+    | "uniq" -> Register.UNIQ
+    | "exmonaddr" -> Register.ExMonAddr
+    | "exmonval" -> Register.ExMonVal
     | _ -> Terminator.impossible ()
 
   /// Returns the register ID of an Alpha register.
@@ -322,6 +335,9 @@ module Register =
     | Register.F31 -> "f31"
     | Register.PC -> "pc"
     | Register.FPCR -> "fpcr"
+    | Register.UNIQ -> "uniq"
+    | Register.ExMonAddr -> "exmonaddr"
+    | Register.ExMonVal -> "exmonval"
     | _ -> Terminator.impossible ()
 
 // vim: set tw=80 sts=2 sw=2:

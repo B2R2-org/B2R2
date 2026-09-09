@@ -103,6 +103,11 @@ type RegisterFactory(isa: ISA) =
   let f31 = AST.var 64<rt> (Register.toRegID Register.F31) "f31"
   let pc = AST.pcvar 64<rt> "pc"
   let fpcr = AST.var 64<rt> (Register.toRegID Register.FPCR) "fpcr"
+  let uniq = AST.var 64<rt> (Register.toRegID Register.UNIQ) "uniq"
+  let exMonAddr =
+    AST.var 64<rt> (Register.toRegID Register.ExMonAddr) "exmonaddr"
+  let exMonVal =
+    AST.var 64<rt> (Register.toRegID Register.ExMonVal) "exmonval"
 
   interface IRegisterFactory with
     member _.ISA = isa
@@ -181,6 +186,9 @@ type RegisterFactory(isa: ISA) =
       | Register.F31 -> f31
       | Register.PC -> pc
       | Register.FPCR -> fpcr
+      | Register.UNIQ -> uniq
+      | Register.ExMonAddr -> exMonAddr
+      | Register.ExMonVal -> exMonVal
       | _ -> raise InvalidRegisterException
 
     member _.GetRegVar(name: string) =
@@ -251,6 +259,9 @@ type RegisterFactory(isa: ISA) =
       | "f31" -> f31
       | "pc" -> pc
       | "fpcr" -> fpcr
+      | "uniq" -> uniq
+      | "exmonaddr" -> exMonAddr
+      | "exmonval" -> exMonVal
       | _ -> raise InvalidRegisterException
 
     member _.GetPseudoRegVar(_id, _idx) = Terminator.impossible ()
@@ -321,7 +332,10 @@ type RegisterFactory(isa: ISA) =
          f30
          f31
          pc
-         fpcr |]
+         fpcr
+         uniq
+         exMonAddr
+         exMonVal |]
 
     member _.GetGeneralRegVars() =
       [| r0

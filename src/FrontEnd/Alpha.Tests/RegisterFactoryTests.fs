@@ -70,11 +70,13 @@ type RegisterFactoryTests() =
     Assert.AreEqual<string>("f30", Register.toString Register.F30)
 
   (* The general registers are what a caller reading the state of a machine
-     wants, and the two the architecture keeps for itself are not among them. *)
+     wants, and neither the two the architecture keeps for itself nor the three
+     the lifter keeps -- the process unique value and the pair modeling a
+     reservation -- are among them. *)
   [<TestMethod>]
   member _.``[Alpha] the general registers are the numbered ones test``() =
     Assert.AreEqual<int>(32, factory.GetGeneralRegVars().Length)
-    Assert.AreEqual<int>(66, factory.GetAllRegVars().Length)
+    Assert.AreEqual<int>(69, factory.GetAllRegVars().Length)
 
   (* Every register the factory hands out has to name itself back, or a caller
      that reads a register out of the IR cannot say which one it got. *)
