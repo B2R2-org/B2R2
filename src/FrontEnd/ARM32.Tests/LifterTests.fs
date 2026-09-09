@@ -100,6 +100,23 @@ type LifterTests() =
           !.SP := t32 1 |]
     |> testThumb
 
+  (* MSR names which fields it writes, so it is a read-modify-write and not an
+     assignment: everything outside the named field has to survive it. Only the
+     flag field is modelled, which in user mode is the whole of what a program
+     owns of CPSR. *)
+  [<TestMethod>]
+  member _.``[ARMv7] MSR writes the flag field and leaves the rest``() =
+    let mask = num 0xf0000000u .| num 0x8000000u
+    "e128f000"
+    ++ [| !.CPSR := (!.CPSR .& AST.not mask) .| (!.R0 .& mask) |]
+    |> testARM
+
+  [<TestMethod>]
+  member _.``[ARMv7] MRS reads CPSR``() =
+    "e10f0000"
+    ++ [| !.R0 := !.CPSR |]
+    |> testARM
+
   [<TestMethod>]
   member _.``[ARMv7] a load takes the data byte order``() =
     (* The ISA this class lifts against is big-endian, which for ARM means
