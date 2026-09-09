@@ -65,17 +65,43 @@ type RegisterFactory(isa: ISA) =
   let mmusr = AST.var 32<rt> (Register.toRegID Register.MMUSR) "mmusr"
   let urp = AST.var 32<rt> (Register.toRegID Register.URP) "urp"
   let srp = AST.var 32<rt> (Register.toRegID Register.SRP) "srp"
-  let fp0 = AST.var 80<rt> (Register.toRegID Register.FP0) "fp0"
-  let fp1 = AST.var 80<rt> (Register.toRegID Register.FP1) "fp1"
-  let fp2 = AST.var 80<rt> (Register.toRegID Register.FP2) "fp2"
-  let fp3 = AST.var 80<rt> (Register.toRegID Register.FP3) "fp3"
-  let fp4 = AST.var 80<rt> (Register.toRegID Register.FP4) "fp4"
-  let fp5 = AST.var 80<rt> (Register.toRegID Register.FP5) "fp5"
-  let fp6 = AST.var 80<rt> (Register.toRegID Register.FP6) "fp6"
-  let fp7 = AST.var 80<rt> (Register.toRegID Register.FP7) "fp7"
+  let tp = AST.var 32<rt> (Register.toRegID Register.TP) "tp"
+  let fp0a = AST.var 64<rt> (Register.toRegID Register.FP0A) "fp0a"
+  let fp0b = AST.var 16<rt> (Register.toRegID Register.FP0B) "fp0b"
+  let fp1a = AST.var 64<rt> (Register.toRegID Register.FP1A) "fp1a"
+  let fp1b = AST.var 16<rt> (Register.toRegID Register.FP1B) "fp1b"
+  let fp2a = AST.var 64<rt> (Register.toRegID Register.FP2A) "fp2a"
+  let fp2b = AST.var 16<rt> (Register.toRegID Register.FP2B) "fp2b"
+  let fp3a = AST.var 64<rt> (Register.toRegID Register.FP3A) "fp3a"
+  let fp3b = AST.var 16<rt> (Register.toRegID Register.FP3B) "fp3b"
+  let fp4a = AST.var 64<rt> (Register.toRegID Register.FP4A) "fp4a"
+  let fp4b = AST.var 16<rt> (Register.toRegID Register.FP4B) "fp4b"
+  let fp5a = AST.var 64<rt> (Register.toRegID Register.FP5A) "fp5a"
+  let fp5b = AST.var 16<rt> (Register.toRegID Register.FP5B) "fp5b"
+  let fp6a = AST.var 64<rt> (Register.toRegID Register.FP6A) "fp6a"
+  let fp6b = AST.var 16<rt> (Register.toRegID Register.FP6B) "fp6b"
+  let fp7a = AST.var 64<rt> (Register.toRegID Register.FP7A) "fp7a"
+  let fp7b = AST.var 16<rt> (Register.toRegID Register.FP7B) "fp7b"
+  (* A floating-point data register is eighty bits, which is wider than any
+     register file holds, so each is kept as the two that together are
+     exactly that and read back as the pair concatenated. Only the halves
+     are ever written. *)
+  let fp0 = AST.concat fp0b fp0a
+  let fp1 = AST.concat fp1b fp1a
+  let fp2 = AST.concat fp2b fp2a
+  let fp3 = AST.concat fp3b fp3a
+  let fp4 = AST.concat fp4b fp4a
+  let fp5 = AST.concat fp5b fp5a
+  let fp6 = AST.concat fp6b fp6a
+  let fp7 = AST.concat fp7b fp7a
   let fpcr = AST.var 32<rt> (Register.toRegID Register.FPCR) "fpcr"
   let fpsr = AST.var 32<rt> (Register.toRegID Register.FPSR) "fpsr"
   let fpiar = AST.var 32<rt> (Register.toRegID Register.FPIAR) "fpiar"
+  let xf = AST.var 1<rt> (Register.toRegID Register.XF) "xf"
+  let nf = AST.var 1<rt> (Register.toRegID Register.NF) "nf"
+  let zf = AST.var 1<rt> (Register.toRegID Register.ZF) "zf"
+  let vf = AST.var 1<rt> (Register.toRegID Register.VF) "vf"
+  let cf = AST.var 1<rt> (Register.toRegID Register.CF) "cf"
 
   interface IRegisterFactory with
     member _.ISA = isa
@@ -137,9 +163,31 @@ type RegisterFactory(isa: ISA) =
       | R.FP5 -> fp5
       | R.FP6 -> fp6
       | R.FP7 -> fp7
+      | R.FP0A -> fp0a
+      | R.FP1A -> fp1a
+      | R.FP2A -> fp2a
+      | R.FP3A -> fp3a
+      | R.FP4A -> fp4a
+      | R.FP5A -> fp5a
+      | R.FP6A -> fp6a
+      | R.FP7A -> fp7a
+      | R.FP0B -> fp0b
+      | R.FP1B -> fp1b
+      | R.FP2B -> fp2b
+      | R.FP3B -> fp3b
+      | R.FP4B -> fp4b
+      | R.FP5B -> fp5b
+      | R.FP6B -> fp6b
+      | R.FP7B -> fp7b
+      | R.TP -> tp
       | R.FPCR -> fpcr
       | R.FPSR -> fpsr
       | R.FPIAR -> fpiar
+      | R.XF -> xf
+      | R.NF -> nf
+      | R.ZF -> zf
+      | R.VF -> vf
+      | R.CF -> cf
       | _ -> raise InvalidRegisterException
 
     member _.GetRegVar(name: string) =
@@ -187,9 +235,31 @@ type RegisterFactory(isa: ISA) =
       | "fp5" -> fp5
       | "fp6" -> fp6
       | "fp7" -> fp7
+      | "fp0a" -> fp0a
+      | "fp1a" -> fp1a
+      | "fp2a" -> fp2a
+      | "fp3a" -> fp3a
+      | "fp4a" -> fp4a
+      | "fp5a" -> fp5a
+      | "fp6a" -> fp6a
+      | "fp7a" -> fp7a
+      | "fp0b" -> fp0b
+      | "fp1b" -> fp1b
+      | "fp2b" -> fp2b
+      | "fp3b" -> fp3b
+      | "fp4b" -> fp4b
+      | "fp5b" -> fp5b
+      | "fp6b" -> fp6b
+      | "fp7b" -> fp7b
+      | "tp" -> tp
       | "fpcr" -> fpcr
       | "fpsr" -> fpsr
       | "fpiar" -> fpiar
+      | "xf" -> xf
+      | "nf" -> nf
+      | "zf" -> zf
+      | "vf" -> vf
+      | "cf" -> cf
       | _ -> raise InvalidRegisterException
 
     member _.GetPseudoRegVar(_id, _idx) = Terminator.impossible ()
@@ -230,17 +300,31 @@ type RegisterFactory(isa: ISA) =
          mmusr
          urp
          srp
-         fp0
-         fp1
-         fp2
-         fp3
-         fp4
-         fp5
-         fp6
-         fp7
+         fp0a
+         fp1a
+         fp2a
+         fp3a
+         fp4a
+         fp5a
+         fp6a
+         fp7a
+         fp0b
+         fp1b
+         fp2b
+         fp3b
+         fp4b
+         fp5b
+         fp6b
+         fp7b
+         tp
          fpcr
          fpsr
-         fpiar |]
+         fpiar
+         xf
+         nf
+         zf
+         vf
+         cf |]
 
     member _.GetGeneralRegVars() =
       [| d0

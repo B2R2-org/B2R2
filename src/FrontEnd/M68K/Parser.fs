@@ -34,7 +34,7 @@ type M68KParser(isa: ISA, reader) =
 
   let lifter =
     { new ILiftable with
-        member _.Lift(_, _) = Terminator.futureFeature ()
+        member _.Lift(ins, builder) = Lifter.translate ins builder
         member _.Disasm(ins, builder) = Disasm.disasm ins builder; builder }
 
   interface IInstructionParsable with

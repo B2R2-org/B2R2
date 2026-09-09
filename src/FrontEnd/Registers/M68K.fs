@@ -129,6 +129,71 @@ type Register =
   | FPSR = 44
   /// Floating-point instruction address register.
   | FPIAR = 45
+  /// Extend flag, which is bit 4 of the condition code register.
+  | XF = 46
+  /// Negative flag, which is bit 3 of the condition code register.
+  | NF = 47
+  /// Zero flag, which is bit 2 of the condition code register.
+  | ZF = 48
+  /// Overflow flag, which is bit 1 of the condition code register.
+  | VF = 49
+  /// Carry flag, which is bit 0 of the condition code register.
+  | CF = 50
+  /// Low sixty-four bits of floating-point data register FP0, which hold
+  /// its mantissa.
+  | FP0A = 51
+  /// Low sixty-four bits of floating-point data register FP1, which hold
+  /// its mantissa.
+  | FP1A = 52
+  /// Low sixty-four bits of floating-point data register FP2, which hold
+  /// its mantissa.
+  | FP2A = 53
+  /// Low sixty-four bits of floating-point data register FP3, which hold
+  /// its mantissa.
+  | FP3A = 54
+  /// Low sixty-four bits of floating-point data register FP4, which hold
+  /// its mantissa.
+  | FP4A = 55
+  /// Low sixty-four bits of floating-point data register FP5, which hold
+  /// its mantissa.
+  | FP5A = 56
+  /// Low sixty-four bits of floating-point data register FP6, which hold
+  /// its mantissa.
+  | FP6A = 57
+  /// Low sixty-four bits of floating-point data register FP7, which hold
+  /// its mantissa.
+  | FP7A = 58
+  /// High word of floating-point data register FP0, which holds its sign
+  /// and its exponent.
+  | FP0B = 59
+  /// High word of floating-point data register FP1, which holds its sign
+  /// and its exponent.
+  | FP1B = 60
+  /// High word of floating-point data register FP2, which holds its sign
+  /// and its exponent.
+  | FP2B = 61
+  /// High word of floating-point data register FP3, which holds its sign
+  /// and its exponent.
+  | FP3B = 62
+  /// High word of floating-point data register FP4, which holds its sign
+  /// and its exponent.
+  | FP4B = 63
+  /// High word of floating-point data register FP5, which holds its sign
+  /// and its exponent.
+  | FP5B = 64
+  /// High word of floating-point data register FP6, which holds its sign
+  /// and its exponent.
+  | FP6B = 65
+  /// High word of floating-point data register FP7, which holds its sign
+  /// and its exponent.
+  | FP7B = 66
+  /// <summary>
+  /// Thread pointer. The m68k has no architectural register for one: Linux
+  /// keeps a thread's pointer in the kernel and hands it back through the
+  /// get_thread_area system call, which is what a program reads it with. It
+  /// is a register here because that is where per-thread state lives.
+  /// </summary>
+  | TP = 67
 
 /// Provides functions to handle m68k registers.
 module Register =
@@ -188,6 +253,28 @@ module Register =
     | "fpcr" -> Register.FPCR
     | "fpsr" -> Register.FPSR
     | "fpiar" -> Register.FPIAR
+    | "xf" -> Register.XF
+    | "nf" -> Register.NF
+    | "zf" -> Register.ZF
+    | "vf" -> Register.VF
+    | "cf" -> Register.CF
+    | "fp0a" -> Register.FP0A
+    | "fp1a" -> Register.FP1A
+    | "fp2a" -> Register.FP2A
+    | "fp3a" -> Register.FP3A
+    | "fp4a" -> Register.FP4A
+    | "fp5a" -> Register.FP5A
+    | "fp6a" -> Register.FP6A
+    | "fp7a" -> Register.FP7A
+    | "fp0b" -> Register.FP0B
+    | "fp1b" -> Register.FP1B
+    | "fp2b" -> Register.FP2B
+    | "fp3b" -> Register.FP3B
+    | "fp4b" -> Register.FP4B
+    | "fp5b" -> Register.FP5B
+    | "fp6b" -> Register.FP6B
+    | "fp7b" -> Register.FP7B
+    | "tp" -> Register.TP
     | _ -> Terminator.impossible ()
 
   /// Returns the register ID of an m68k register.
@@ -245,4 +332,26 @@ module Register =
     | Register.FPCR -> "fpcr"
     | Register.FPSR -> "fpsr"
     | Register.FPIAR -> "fpiar"
+    | Register.XF -> "xf"
+    | Register.NF -> "nf"
+    | Register.ZF -> "zf"
+    | Register.VF -> "vf"
+    | Register.CF -> "cf"
+    | Register.FP0A -> "fp0a"
+    | Register.FP1A -> "fp1a"
+    | Register.FP2A -> "fp2a"
+    | Register.FP3A -> "fp3a"
+    | Register.FP4A -> "fp4a"
+    | Register.FP5A -> "fp5a"
+    | Register.FP6A -> "fp6a"
+    | Register.FP7A -> "fp7a"
+    | Register.FP0B -> "fp0b"
+    | Register.FP1B -> "fp1b"
+    | Register.FP2B -> "fp2b"
+    | Register.FP3B -> "fp3b"
+    | Register.FP4B -> "fp4b"
+    | Register.FP5B -> "fp5b"
+    | Register.FP6B -> "fp6b"
+    | Register.FP7B -> "fp7b"
+    | Register.TP -> "tp"
     | _ -> Terminator.impossible ()

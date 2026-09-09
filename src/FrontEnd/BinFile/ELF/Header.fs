@@ -188,9 +188,9 @@ module internal Header =
       ISA(Architecture.PARISC, cls)
     | MachineType.EM_68K ->
       (* The ELF header of an m68k image says nothing about which member of the
-         family it was built for, so this is the baseline of the Linux/m68k port
-         rather than anything the file claims. *)
-      ISA M68KModel.M68020
+         family it was built for, so this is a choice rather than anything the
+         file claims. *)
+      ISA M68KModel.M68040
     | MachineType.EM_AVR ->
       getAVRISA span reader cls
     | _ ->

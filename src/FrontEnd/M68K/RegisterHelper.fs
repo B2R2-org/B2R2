@@ -45,9 +45,14 @@ module internal RegisterHelper =
     | R.D0 | R.D1 | R.D2 | R.D3 | R.D4 | R.D5 | R.D6 | R.D7
     | R.A0 | R.A1 | R.A2 | R.A3 | R.A4 | R.A5 | R.A6 | R.A7
     | R.PC | R.USP | R.ISP | R.MSP | R.VBR | R.SFC | R.DFC
-    | R.CACR | R.CAAR | R.TC | R.ITT0 | R.ITT1 | R.DTT0 | R.DTT1
+    | R.CACR | R.CAAR | R.TC | R.ITT0 | R.ITT1 | R.DTT0 | R.DTT1 | R.TP
     | R.MMUSR | R.URP | R.SRP | R.FPCR | R.FPSR | R.FPIAR -> 32<rt>
     | R.CCR -> 8<rt>
+    | R.XF | R.NF | R.ZF | R.VF | R.CF -> 1<rt>
+    | R.FP0A | R.FP1A | R.FP2A | R.FP3A
+    | R.FP4A | R.FP5A | R.FP6A | R.FP7A -> 64<rt>
+    | R.FP0B | R.FP1B | R.FP2B | R.FP3B
+    | R.FP4B | R.FP5B | R.FP6B | R.FP7B -> 16<rt>
     | R.SR -> 16<rt>
     | R.FP0 | R.FP1 | R.FP2 | R.FP3
     | R.FP4 | R.FP5 | R.FP6 | R.FP7 -> 80<rt>
@@ -92,4 +97,23 @@ module internal RegisterHelper =
     | 5u -> R.A5
     | 6u -> R.A6
     | 7u -> R.A7
+    | _ -> Terminator.impossible ()
+
+  /// <summary>
+  /// Returns the pair of registers that a floating-point data register is
+  /// really kept in: the low sixty-four bits that hold its mantissa and the
+  /// word above them that holds its sign and its exponent. No register file
+  /// holds a value eighty bits wide, so the eighty of one of these live in
+  /// two registers that together are exactly that.
+  /// </summary>
+  let toFloatParts reg =
+    match reg with
+    | R.FP0 -> struct (R.FP0A, R.FP0B)
+    | R.FP1 -> struct (R.FP1A, R.FP1B)
+    | R.FP2 -> struct (R.FP2A, R.FP2B)
+    | R.FP3 -> struct (R.FP3A, R.FP3B)
+    | R.FP4 -> struct (R.FP4A, R.FP4B)
+    | R.FP5 -> struct (R.FP5A, R.FP5B)
+    | R.FP6 -> struct (R.FP6A, R.FP6B)
+    | R.FP7 -> struct (R.FP7A, R.FP7B)
     | _ -> Terminator.impossible ()
