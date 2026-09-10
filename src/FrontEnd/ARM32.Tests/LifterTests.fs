@@ -36,6 +36,8 @@ open type Register
 type LifterTests() =
   let num (v: uint32) = BitVector(v, 32<rt>) |> AST.num
 
+  let t16 id = AST.tmpvar 16<rt> id
+
   let t32 id = AST.tmpvar 32<rt> id
 
   let unwrapStmts stmts = Array.sub stmts 1 (Array.length stmts - 2)
@@ -99,6 +101,27 @@ type LifterTests() =
     ++ [| t32 1 := !.SP .+ num 0x198u .+ num 0u
           !.SP := t32 1 |]
     |> testThumb
+
+  [<TestMethod>]
+  member _.``[ARMv7] QSAX saturates each lane to a signed halfword``() =
+    let sat t =
+      AST.xtlo 16<rt>
+        (AST.ite (t ?> num 0x7fffu)
+                 (num 0x7fffu)
+                 (AST.ite (t ?< num 0xffff8000u) (num 0xffff8000u) t))
+    "e6210f52"
+    ++ [| t32 1 :=
+            AST.sext 32<rt> (AST.xtlo 16<rt> !.R1)
+              .+ AST.sext 32<rt> (AST.xthi 16<rt> !.R2)
+          t32 2 :=
+            AST.sext 32<rt> (AST.xthi 16<rt> !.R1)
+              .- AST.sext 32<rt> (AST.xtlo 16<rt> !.R2)
+          t32 5 := t32 1
+          t16 3 := sat (t32 5)
+          t32 6 := t32 2
+          t16 4 := sat (t32 6)
+          !.R0 := AST.concat (t16 4) (t16 3) |]
+    |> testARM
 
   (* MSR names which fields it writes, so it is a read-modify-write and not an
      assignment: everything outside the named field has to survive it. Only the
