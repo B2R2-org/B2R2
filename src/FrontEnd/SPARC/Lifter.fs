@@ -319,7 +319,7 @@ let translate (ins: Instruction) bld =
   | Opcode.SWAPA ->
     swapa ins bld
   | Opcode.TADDcc ->
-    addcc ins bld
+    taddcc ins bld
   | Opcode.TADDccTV ->
     addcc ins bld
   | Opcode.TA ->
@@ -329,7 +329,7 @@ let translate (ins: Instruction) bld =
   | Opcode.TPOS | Opcode.TNEG | Opcode.TVC | Opcode.TVS ->
     nop ins bld
   | Opcode.TSUBcc ->
-    subcc ins bld
+    tsubcc ins bld
   | Opcode.TSUBccTV ->
     subcc ins bld
   | Opcode.UDIVX ->
