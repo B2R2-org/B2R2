@@ -438,23 +438,34 @@ let push ins bld =
   }
 
 /// shared/functions/vector/SignedSatQ, on page Armv8 Pseudocode-7927
-let sSatQ bld i n =
-  let n1 = AST.num1 n
-  let cond = n1 << (numI32 (RegType.toBitWidth n) n .- n1)
-  let struct (t1, t2) = tmpVars2 bld n
+///
+/// `oprSz` is the width the incoming value is held at and `n` the width to
+/// saturate to, and oprSz has to be the WIDER of the two. The definition is
+/// "if the value falls outside the n-bit signed range, clamp it to the nearer
+/// end", and a value already narrowed to n bits cannot fall outside it -- it
+/// has wrapped instead, and the information the saturation exists to catch is
+/// gone before it is asked. So every caller computes at a wider width and
+/// passes that width in.
+///
+/// Both comparisons are signed. An unsigned one reads every negative value as
+/// larger than the positive limit and clamps it to the top of the range, which
+/// turned a QSAX lane of -3704 into 32767.
+let sSatQ bld i oprSz n =
+  let shift = RegType.toBitWidth n - 1
+  let maxV = numI64 ((1L <<< shift) - 1L) oprSz
+  let minV = numI64 (-(1L <<< shift)) oprSz
+  let t = tmpVar bld oprSz
   append bld {
-    t1 := i
-    t2 := cond
+    t := i
   }
-  let cond1 = t1 .> (t2 .- n1)
-  let cond2 = t1 .< AST.not t2
-  let r = (AST.ite cond1 (t2 .- n1) (AST.ite cond2 (AST.not t2) t1))
-  let r = AST.xtlo n r
-  let sat = AST.ite cond1 AST.b1 (AST.ite cond2 AST.b1 (AST.num0 1<rt>))
+  let tooHigh = t ?> maxV
+  let tooLow = t ?< minV
+  let r = AST.xtlo n (AST.ite tooHigh maxV (AST.ite tooLow minV t))
+  let sat = AST.ite tooHigh AST.b1 (AST.ite tooLow AST.b1 (AST.num0 1<rt>))
   struct (r, sat)
 
-let sSat bld i n =
-  let struct (r, _) = sSatQ bld i n
+let sSat bld i oprSz n =
+  let struct (r, _) = sSatQ bld i oprSz n
   r
 
 let qdadd (ins: Instruction) bld =
@@ -463,10 +474,15 @@ let qdadd (ins: Instruction) bld =
     let lblIgnore = checkCondition ins bld isUnconditional
     let struct (dst, src1, src2) = transThreeOprs ins bld
     let struct (sat1, sat2) = tmpVars2 bld 1<rt>
+    (* Both saturations are to 32 bits, so both operations are done at 64:
+       2 * Rm overflows a 32-bit register for half of all inputs, and that
+       overflow is exactly what the first SignedSat is there to catch. *)
+    let wide e = AST.sext 64<rt> e
     let struct (dou, sat) =
-      sSatQ bld (numI32 2 32<rt> .* src2) (RegType.fromBitWidth 32)
+      sSatQ bld (numI32 2 64<rt> .* wide src2) 64<rt> 32<rt>
     sat1 := sat
-    let struct (r, sat) = sSatQ bld (src1 .+ dou) (RegType.fromBitWidth 32)
+    let struct (r, sat) =
+      sSatQ bld (wide src1 .+ wide dou) 64<rt> 32<rt>
     dst := r
     sat2 := sat
     let cpsr = regVar bld R.CPSR
@@ -480,10 +496,15 @@ let qdsub (ins: Instruction) bld =
     let lblIgnore = checkCondition ins bld isUnconditional
     let struct (dst, src1, src2) = transThreeOprs ins bld
     let struct (sat1, sat2) = tmpVars2 bld 1<rt>
+    (* Both saturations are to 32 bits, so both operations are done at 64:
+       2 * Rm overflows a 32-bit register for half of all inputs, and that
+       overflow is exactly what the first SignedSat is there to catch. *)
+    let wide e = AST.sext 64<rt> e
     let struct (dou, sat) =
-      sSatQ bld (numI32 2 32<rt> .* src2) (RegType.fromBitWidth 32)
+      sSatQ bld (numI32 2 64<rt> .* wide src2) 64<rt> 32<rt>
     sat1 := sat
-    let struct (r, sat) = sSatQ bld (src1 .- dou) (RegType.fromBitWidth 32)
+    let struct (r, sat) =
+      sSatQ bld (wide src1 .- wide dou) 64<rt> 32<rt>
     dst := r
     sat2 := sat
     let cpsr = regVar bld R.CPSR
@@ -496,14 +517,18 @@ let qsax (ins: Instruction) bld =
     let isUnconditional = ParseUtils.isUnconditional ins.Condition
     let lblIgnore = checkCondition ins bld isUnconditional
     let struct (dst, src1, src2) = transThreeOprs ins bld
-    let struct (sum, diff) = tmpVars2 bld 16<rt>
-    let xtlo src = AST.xtlo 16<rt> src
-    let xthi src = AST.xthi 16<rt> src
+    let struct (sum, diff) = tmpVars2 bld 32<rt>
+    let struct (satSum, satDiff) = tmpVars2 bld 16<rt>
+    (* The lanes are sign-extended into 32 bits before the arithmetic: a lane
+       computed at its final 16 bits has already wrapped, and there is nothing
+       left for SignedSat to clamp. *)
+    let xtlo src = AST.sext 32<rt> (AST.xtlo 16<rt> src)
+    let xthi src = AST.sext 32<rt> (AST.xthi 16<rt> src)
     sum := xtlo src1 .+ xthi src2
     diff := xthi src1 .- xtlo src2
-    sum := sSat bld sum (RegType.fromBitWidth 16)
-    diff := sSat bld diff (RegType.fromBitWidth 16)
-    dst := AST.concat diff sum
+    satSum := sSat bld sum 32<rt> 16<rt>
+    satDiff := sSat bld diff 32<rt> 16<rt>
+    dst := AST.concat satDiff satSum
     putEndLabel bld lblIgnore
   }
 
@@ -512,14 +537,15 @@ let qsub16 (ins: Instruction) bld =
     let isUnconditional = ParseUtils.isUnconditional ins.Condition
     let lblIgnore = checkCondition ins bld isUnconditional
     let struct (dst, src1, src2) = transThreeOprs ins bld
-    let struct (diff1, diff2) = tmpVars2 bld 16<rt>
-    let xtlo src = AST.xtlo 16<rt> src
-    let xthi src = AST.xthi 16<rt> src
+    let struct (diff1, diff2) = tmpVars2 bld 32<rt>
+    let struct (sat1, sat2) = tmpVars2 bld 16<rt>
+    let xtlo src = AST.sext 32<rt> (AST.xtlo 16<rt> src)
+    let xthi src = AST.sext 32<rt> (AST.xthi 16<rt> src)
     diff1 := xtlo src1 .- xtlo src2
     diff2 := xthi src1 .- xthi src2
-    diff1 := sSat bld diff1 (RegType.fromBitWidth 16)
-    diff2 := sSat bld diff2 (RegType.fromBitWidth 16)
-    dst := AST.concat diff2 diff1
+    sat1 := sSat bld diff1 32<rt> 16<rt>
+    sat2 := sSat bld diff2 32<rt> 16<rt>
+    dst := AST.concat sat2 sat1
     putEndLabel bld lblIgnore
   }
 
