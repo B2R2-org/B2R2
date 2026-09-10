@@ -833,29 +833,29 @@ let translate (ins: Instruction) bld =
   | Op.TW ->
     trapGeneric ins bld true
   | Op.FCTID ->
-    fcti ins false bld 64<rt> false
+    fcti ins false bld 64<rt> true false
   | Op.FCTIDdot ->
-    fcti ins true bld 64<rt> false
+    fcti ins true bld 64<rt> true false
   | Op.FCTIDZ ->
-    fcti ins false bld 64<rt> true
+    fcti ins false bld 64<rt> true true
   | Op.FCTIDZdot ->
-    fcti ins true bld 64<rt> true
+    fcti ins true bld 64<rt> true true
   | Op.FCTIDU ->
-    fcti ins false bld 64<rt> false
+    fcti ins false bld 64<rt> false false
   | Op.FCTIDUdot ->
-    fcti ins true bld 64<rt> false
+    fcti ins true bld 64<rt> false false
   | Op.FCTIDUZ ->
-    fcti ins false bld 64<rt> true
+    fcti ins false bld 64<rt> false true
   | Op.FCTIDUZdot ->
-    fcti ins true bld 64<rt> true
+    fcti ins true bld 64<rt> false true
   | Op.FCTIWU ->
-    fcti ins false bld 32<rt> false
+    fcti ins false bld 32<rt> false false
   | Op.FCTIWUdot ->
-    fcti ins true bld 32<rt> false
+    fcti ins true bld 32<rt> false false
   | Op.FCTIWUZ ->
-    fcti ins false bld 32<rt> true
+    fcti ins false bld 32<rt> false true
   | Op.FCTIWUZdot ->
-    fcti ins true bld 32<rt> true
+    fcti ins true bld 32<rt> false true
   | Op.FCFID ->
     fcfid ins false bld true false
   | Op.FCFIDdot ->
@@ -958,28 +958,27 @@ let translate (ins: Instruction) bld =
   | Op.MFFSL ->
     mffs ins false bld
   | Op.XSADDDP ->
-    vsxScalarBinary ins bld AST.fadd
+    vsxScalarBinary ins bld AST.fadd true
   | Op.XSSUBDP ->
-    vsxScalarBinary ins bld AST.fsub
+    vsxScalarBinary ins bld AST.fsub true
   | Op.XSDIVDP ->
-    vsxScalarBinary ins bld AST.fdiv
+    vsxScalarBinary ins bld AST.fdiv true
   | Op.XSCPSGNDP ->
-    vsxScalarBinary ins bld copySign
+    vsxScalarBinary ins bld copySign false
   | Op.XSCMPUDP ->
     xscmpudp ins bld
   | Op.XSABSDP ->
     vsxScalarUnary ins bld (fun b ->
-      b .& numU64 0x7fffffffffffffffUL 64<rt>)
+      b .& numU64 0x7fffffffffffffffUL 64<rt>) false
   | Op.XSRSP ->
     (* Rounding a double to single precision and keeping it in double format. *)
     vsxScalarUnary ins bld (fun b ->
       AST.cast CastKind.FloatCast 64<rt> (AST.cast CastKind.FloatCast 32<rt> b))
+      true
   | Op.XSCVDPSPN ->
-    vsxScalarUnary ins bld (fun b ->
-      AST.concat (AST.cast CastKind.FloatCast 32<rt> b) (AST.num0 32<rt>))
+    xscvdpspn ins bld
   | Op.XSCVSPDPN ->
-    vsxScalarUnary ins bld (fun b ->
-      AST.cast CastKind.FloatCast 64<rt> (AST.xthi 32<rt> b))
+    xscvspdpn ins bld
   | Op.VSLDOI ->
     vecShiftDouble ins bld 1
   | Op.XXSLDWI ->

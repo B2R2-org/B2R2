@@ -472,10 +472,10 @@ let fcmp ins bld isOrdered =
     let lblNan = label bld "NaN"
     let lblRegular = label bld "Regular"
     let lblEnd = label bld "End"
+    nanFlag := (IEEE754Double.isNaN fra) .| (IEEE754Double.isNaN frb)
     fl := cond1
     fg := cond2
-    fe := AST.ite cond1 AST.b0 (AST.not cond2)
-    nanFlag := (IEEE754Double.isNaN fra) .| (IEEE754Double.isNaN frb)
+    fe := AST.not (cond1 .| cond2 .| nanFlag)
     fu := nanFlag
     AST.cjmp nanFlag (AST.jmpDest lblNan) (AST.jmpDest lblRegular)
     AST.lmark lblNan
@@ -490,9 +490,9 @@ let fcmp ins bld isOrdered =
     crf2 := fe
     crf3 := fu
     AST.lmark lblEnd
-    vxsnan := cond3
+    vxsnan := vxsnan .| cond3
     if isOrdered then
-      vxvc := AST.ite cond3 (AST.ite ve AST.b0 AST.b1) cond4
+      vxvc := vxvc .| AST.ite cond3 (AST.ite ve AST.b0 AST.b1) cond4
     else
       ()
   }
@@ -568,26 +568,37 @@ let frsqrte ins updateCond bld =
     if updateCond then setCR1Reg bld else ()
   }
 
+/// Clamps a word conversion: NaN and anything below the most negative word
+/// give 0x80000000, anything above the largest word gives 0x7fffffff.
+let private saturateWord bld frd frb =
+  append bld {
+    let intMaxInFloat = numU64 0x41dfffffffc00000uL 64<rt>
+    let intMinInFloat = numU64 0xc1e0000000000000uL 64<rt>
+    let intMax = numU64 0x7fffffffUL 64<rt>
+    let intMin = numU64 0x80000000UL 64<rt>
+    frd := AST.ite (IEEE754Double.isNaN frb) intMin frd
+    frd := AST.ite (AST.fle frb intMinInFloat) intMin frd
+    frd := AST.ite (AST.fge frb intMaxInFloat) intMax frd
+  }
+
 let fctiw ins updateCond bld =
   lift bld ins {
-    let tmp = tmpVar bld 64<rt>
     let struct (frd, frb) = transTwoOprs ins bld
-    roundingToCastInt bld frd frb
+    let src = tmpVar bld 64<rt>
+    src := frb
+    roundingToCastInt bld frd src
+    saturateWord bld frd src
     setFPRF bld frd
     if updateCond then setCR1Reg bld else ()
   }
 
 let fctiwz ins updateCond bld =
   lift bld ins {
-    let intMaxInFloat = numU64 0x41dfffffffc00000uL 64<rt>
-    let intMinInFloat = numU64 0xc1e0000000000000uL 64<rt>
-    let intMax = numU64 0x7fffffffUL 64<rt>
-    let intMin = numU64 0x80000000UL 64<rt>
     let struct (frd, frb) = transTwoOprs ins bld
-    frd := AST.cast CastKind.FtoITrunc 64<rt> frb
-    frd := AST.ite (IEEE754Double.isNaN frb) intMin frd
-    frd := AST.ite (AST.fle frb intMinInFloat) intMin frd
-    frd := AST.ite (AST.fge frb intMaxInFloat) intMax frd
+    let src = tmpVar bld 64<rt>
+    src := frb
+    frd := AST.cast CastKind.FtoITrunc 64<rt> src
+    saturateWord bld frd src
     setFPRF bld frd
     if updateCond then setCR1Reg bld else ()
   }
@@ -660,43 +671,30 @@ let fneg ins updateCond bld =
     if updateCond then setCR1Reg bld else ()
   }
 
-let fnmadd ins updateCond isDouble bld =
+/// The negated multiply-adds: the sign of the result is flipped unless it is a
+/// NaN, which passes through as it is.
+let private fNegatedMulAdd ins updateCond isDouble fnOp bld =
   lift bld ins {
     let struct (frd, fra, frc, frb) = transFourOprs ins bld
+    let res = tmpVar bld 64<rt>
     if isDouble then
-      let res = tmpVar bld 64<rt>
-      res := (AST.fadd (AST.fmul fra frc) frb)
-      floatingNeg bld frd res 64<rt>
+      res := fnOp (AST.fmul fra frc) frb
     else
-      let res = tmpVar bld 32<rt>
-      let nres = tmpVar bld 32<rt>
       let fraS = AST.cast CastKind.FloatCast 32<rt> fra
       let frcS = AST.cast CastKind.FloatCast 32<rt> frc
       let frbS = AST.cast CastKind.FloatCast 32<rt> frb
-      res := (AST.fadd (AST.fmul fraS frcS) frbS)
-      floatingNeg bld nres res 32<rt>
-      frd := AST.cast CastKind.FloatCast 64<rt> nres
+      res := AST.cast CastKind.FloatCast 64<rt> (fnOp (AST.fmul fraS frcS) frbS)
+    let signBit = numU64 0x8000000000000000UL 64<rt>
+    frd := AST.ite (IEEE754Double.isNaN res) res (res <+> signBit)
+    setFPRF bld frd
     if updateCond then setCR1Reg bld else ()
   }
 
+let fnmadd ins updateCond isDouble bld =
+  fNegatedMulAdd ins updateCond isDouble AST.fadd bld
+
 let fnmsub ins updateCond isDouble bld =
-  lift bld ins {
-    let struct (frd, fra, frc, frb) = transFourOprs ins bld
-    if isDouble then
-      let res = tmpVar bld 64<rt>
-      res := (AST.fsub (AST.fmul fra frc) frb)
-      floatingNeg bld frd res 64<rt>
-    else
-      let res = tmpVar bld 32<rt>
-      let nres = tmpVar bld 32<rt>
-      let fraS = AST.cast CastKind.FloatCast 32<rt> fra
-      let frcS = AST.cast CastKind.FloatCast 32<rt> frc
-      let frbS = AST.cast CastKind.FloatCast 32<rt> frb
-      res := (AST.fsub (AST.fmul fraS frcS) frbS)
-      floatingNeg bld nres res 32<rt>
-      frd := AST.cast CastKind.FloatCast 64<rt> nres
-    if updateCond then setCR1Reg bld else ()
-  }
+  fNegatedMulAdd ins updateCond isDouble AST.fsub bld
 
 let fsel ins updateCond bld =
   lift bld ins {
@@ -1517,30 +1515,36 @@ let oris ins bld =
     dst := src .| uimm
   }
 
-(* The rotate-word forms all work on the low word of rS and, on a 64-bit part,
-   leave the result's upper word zero -- so the whole thing is a word operation
-   whose result is zero-extended back into a register. *)
+(* The rotate-word forms rotate the low word of rS. On a 64-bit part the
+   rotated word is doubled up into both halves before MASK(mb+32, me+32) is
+   applied, so a wrapping mask (mb > me) lets rotated bits into the high word;
+   on a 32-bit part it is a plain word operation. *)
+let private rotatedWord (bld: ILowUIRBuilder) rs n =
+  let rol = tmpVar bld 32<rt>
+  append bld { rol := rotateLeft (AST.xtlo 32<rt> rs) n }
+  if bld.RegType = 64<rt> then AST.concat rol rol else rol
+
+let private wordMask (bld: ILowUIRBuilder) mb me =
+  if bld.RegType = 64<rt> then getWordMaskIn64 mb me else getExtMask mb me
+
 let rlwinm ins updateCond (bld: ILowUIRBuilder) =
   lift bld ins {
     let struct (ra, rs, sh, mb, me) = transFiveOprs ins bld
-    let rol = tmpVar bld 32<rt>
-    rol := rotateLeft (AST.xtlo 32<rt> rs) (AST.xtlo 32<rt> sh)
-    ra := AST.zext bld.RegType (rol .& (getExtMask mb me))
+    let rol = rotatedWord bld rs (AST.xtlo 32<rt> sh)
+    ra := rol .& wordMask bld mb me
     if updateCond then setCR0Reg bld ra else ()
   }
 
-/// rlwimi merges a rotated word into rA under a mask that covers only the low
-/// word, so unlike the other rotate-word forms it leaves rA's upper word alone
-/// rather than clearing it -- which is what makes it the instruction a compiler
-/// reaches for when it inserts a bit field.
-let rlwimi ins updateCond bld =
+/// rlwimi merges the rotated word into rA under the mask, which is what makes
+/// it the instruction a compiler reaches for when it inserts a bit field.
+let rlwimi ins updateCond (bld: ILowUIRBuilder) =
   lift bld ins {
     let struct (ra, rs, sh, mb, me) = transFiveOprs ins bld
-    let m = getExtMask mb me
-    let rol = rotateLeft (AST.xtlo 32<rt> rs) (AST.xtlo 32<rt> sh)
-    let merged = tmpVar bld 32<rt>
-    merged := (rol .& m) .| (AST.xtlo 32<rt> ra .& AST.not m)
-    AST.xtlo 32<rt> ra := merged
+    let m = wordMask bld mb me
+    let rol = rotatedWord bld rs (AST.xtlo 32<rt> sh)
+    let merged = tmpVar bld bld.RegType
+    merged := (rol .& m) .| (ra .& AST.not m)
+    ra := merged
     if updateCond then setCR0Reg bld ra else ()
   }
 
@@ -1548,9 +1552,8 @@ let rlwnm ins updateCond (bld: ILowUIRBuilder) =
   lift bld ins {
     let struct (ra, rs, rb, mb, me) = transFiveOprs ins bld
     let n = AST.xtlo 32<rt> rb .& numI32 0x1f 32<rt>
-    let rol = tmpVar bld 32<rt>
-    rol := rotateLeft (AST.xtlo 32<rt> rs) n
-    ra := AST.zext bld.RegType (rol .& (getExtMask mb me))
+    let rol = rotatedWord bld rs n
+    ra := rol .& wordMask bld mb me
     if updateCond then setCR0Reg bld ra else ()
   }
 
@@ -1806,6 +1809,26 @@ let stfiwx ins bld =
     loadNative bld 32<rt> tmpEA := AST.xtlo 32<rt> frs
   }
 
+/// The word stfs stores. The architecture splices bits rather than rounding:
+/// a normal double keeps its sign, the two low exponent bits and the top 30
+/// fraction bits; one that only fits a single-precision denormal is
+/// denormalized with truncation; anything smaller becomes a signed zero.
+let singleBits bld frs =
+  let word = tmpVar bld 32<rt>
+  append bld {
+    let exp = (frs >> numI32 52 64<rt>) .& numI32 0x7ff 64<rt>
+    let spliced =
+      ((frs >> numI32 32 64<rt>) .& numU64 0xc0000000UL 64<rt>)
+      .| ((frs >> numI32 29 64<rt>) .& numU64 0x3fffffffUL 64<rt>)
+    let sign = (frs >> numI32 32 64<rt>) .& numU64 0x80000000UL 64<rt>
+    let frac =
+      (frs .& numU64 0xfffffffffffffUL 64<rt>) .| numU64 (1UL <<< 52) 64<rt>
+    let denorm = frac >> (numI32 926 64<rt> .- exp)
+    let small = AST.ite (exp .>= numI32 874 64<rt>) (sign .| denorm) sign
+    word := AST.xtlo 32<rt> (AST.ite (exp .> numI32 896 64<rt>) spliced small)
+  }
+  word
+
 let stfs ins bld =
   lift bld ins {
     let struct (o1, o2) = getTwoOprs ins
@@ -1813,7 +1836,7 @@ let stfs ins bld =
     let frs = transOpr bld o1
     let tmpEA = tmpVar bld bld.RegType
     tmpEA := ea
-    loadNative bld 32<rt> tmpEA := AST.cast CastKind.FloatCast 32<rt> frs
+    loadNative bld 32<rt> tmpEA := singleBits bld frs
   }
 
 let stfsx ins bld =
@@ -1823,7 +1846,7 @@ let stfsx ins bld =
     let frs = transOpr bld o1
     let tmpEA = tmpVar bld bld.RegType
     tmpEA := ea
-    loadNative bld 32<rt> tmpEA := AST.cast CastKind.FloatCast 32<rt> frs
+    loadNative bld 32<rt> tmpEA := singleBits bld frs
   }
 
 let stfsu ins bld =
@@ -1833,7 +1856,7 @@ let stfsu ins bld =
     let frs = transOpr bld o1
     let tmpEA = tmpVar bld bld.RegType
     tmpEA := ea
-    loadNative bld 32<rt> tmpEA := AST.cast CastKind.FloatCast 32<rt> frs
+    loadNative bld 32<rt> tmpEA := singleBits bld frs
     ra := tmpEA
   }
 
@@ -1844,7 +1867,7 @@ let stfsux ins bld =
     let struct (ea, rA) = transEAWithIndexRegForUpdate o2 o3 bld
     let tmpEA = tmpVar bld bld.RegType
     tmpEA := ea
-    loadNative bld 32<rt> tmpEA := AST.cast CastKind.FloatCast 32<rt> frs
+    loadNative bld 32<rt> tmpEA := singleBits bld frs
     rA := tmpEA
   }
 
@@ -2348,18 +2371,58 @@ let mtvsrw ins bld signed =
     frs := if signed then AST.sext 64<rt> w else AST.zext 64<rt> w
   }
 
+/// Clamps a conversion to `width` bits: a signed one gives the most negative
+/// integer for NaN and anything below range and the largest for anything
+/// above; an unsigned one gives zero for NaN and negatives and all ones above.
+let private saturateInt bld frd src width signed =
+  let bits = int width
+  let dbl (v: float) = numU64 (System.BitConverter.DoubleToUInt64Bits v) 64<rt>
+  let all = if bits = 64 then System.UInt64.MaxValue else (1UL <<< bits) - 1UL
+  let ones = numU64 all 64<rt>
+  append bld {
+    if signed then
+      let top = numU64 ((1UL <<< (bits - 1)) - 1UL) 64<rt>
+      let bottom = numU64 (1UL <<< (bits - 1)) 64<rt>
+      frd := AST.ite (AST.fge src (dbl (2.0 ** float (bits - 1)))) top frd
+      frd := AST.ite (AST.fle src (dbl (-(2.0 ** float (bits - 1))))) bottom frd
+      frd := AST.ite (IEEE754Double.isNaN src) bottom frd
+    else
+      frd := AST.ite (AST.fge src (dbl (2.0 ** float bits))) ones frd
+      frd := AST.ite (AST.fle src (dbl -1.0)) (AST.num0 64<rt>) frd
+      frd := AST.ite (IEEE754Double.isNaN src) (AST.num0 64<rt>) frd
+  }
+
+/// An unsigned doubleword conversion has to reach past the signed range: values
+/// of 2^63 and up are converted with 2^63 taken off and put back afterwards.
+let private toUInt64 bld dst src truncate =
+  let big = tmpVar bld 1<rt>
+  let adjusted = tmpVar bld 64<rt>
+  let half = numU64 0x43e0000000000000UL 64<rt>
+  append bld {
+    big := AST.fge src half
+    adjusted := AST.ite big (AST.fsub src half) src
+    if truncate then dst := AST.cast CastKind.FtoITrunc 64<rt> adjusted
+    else roundingToCastInt bld dst adjusted
+    dst := AST.ite big (dst .+ numU64 0x8000000000000000UL 64<rt>) dst
+  }
+
 /// fctid/fctidz/fctidu/fctiduz and fctiwu/fctiwuz: a conversion from a double
 /// to an integer of `width` bits, left in the target's low bits. A "z" form
 /// always truncates; the others follow FPSCR[RN].
-let fcti ins updateCond bld width truncate =
+let fcti ins updateCond bld width signed truncate =
   lift bld ins {
     let struct (frd, frb) = transTwoOprs ins bld
-    if truncate then
-      frd := AST.zext 64<rt> (AST.cast CastKind.FtoITrunc width frb)
+    let src = tmpVar bld 64<rt>
+    let converted = tmpVar bld 64<rt>
+    src := frb
+    if not signed && width = 64<rt> then
+      toUInt64 bld converted src truncate
+    elif truncate then
+      converted := AST.cast CastKind.FtoITrunc 64<rt> src
     else
-      let rounded = tmpVar bld 64<rt>
-      roundingToCastInt bld rounded frb
-      frd := AST.zext 64<rt> (AST.xtlo width rounded)
+      roundingToCastInt bld converted src
+    frd := AST.zext 64<rt> (AST.xtlo width converted)
+    saturateInt bld frd src width signed
     if updateCond then setCR1Reg bld else ()
   }
 
