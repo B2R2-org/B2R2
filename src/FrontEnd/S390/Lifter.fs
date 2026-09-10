@@ -204,23 +204,23 @@ let private liftArith ins bld opcode =
   | Opcode.SLBGR ->
     subBorrow ins bld GRSize
   | Opcode.LCR ->
-    unaryArith ins bld WSize WSize AST.neg
+    unaryArith ins bld WSize WSize AST.neg true
   | Opcode.LCGR ->
-    unaryArith ins bld GRSize GRSize AST.neg
+    unaryArith ins bld GRSize GRSize AST.neg true
   | Opcode.LCGFR ->
-    unaryArith ins bld GRSize WSize AST.neg
+    unaryArith ins bld GRSize WSize AST.neg false
   | Opcode.LPR ->
-    unaryArith ins bld WSize WSize absValue
+    unaryArith ins bld WSize WSize absValue true
   | Opcode.LPGR ->
-    unaryArith ins bld GRSize GRSize absValue
+    unaryArith ins bld GRSize GRSize absValue true
   | Opcode.LPGFR ->
-    unaryArith ins bld GRSize WSize absValue
+    unaryArith ins bld GRSize WSize absValue false
   | Opcode.LNR ->
-    unaryArith ins bld WSize WSize negAbsValue
+    unaryArith ins bld WSize WSize negAbsValue false
   | Opcode.LNGR ->
-    unaryArith ins bld GRSize GRSize negAbsValue
+    unaryArith ins bld GRSize GRSize negAbsValue false
   | Opcode.LNGFR ->
-    unaryArith ins bld GRSize WSize negAbsValue
+    unaryArith ins bld GRSize WSize negAbsValue false
   | Opcode.MSR | Opcode.MS | Opcode.MSY | Opcode.MSFI | Opcode.MHI ->
     mul ins bld WSize WSize same
   | Opcode.MSGR | Opcode.MSG | Opcode.MSGFI | Opcode.MGHI ->
@@ -295,7 +295,7 @@ let private liftShift ins bld opcode =
   | Opcode.SRL ->
     shift2 ins bld (>>) false
   | Opcode.SLA ->
-    shift2 ins bld (<<) true
+    shiftLeftArith2 ins bld
   | Opcode.SRA ->
     shift2 ins bld (?>>) true
   | Opcode.SLLK ->
@@ -303,7 +303,7 @@ let private liftShift ins bld opcode =
   | Opcode.SRLK ->
     shift3 ins bld WSize (>>) false
   | Opcode.SLAK ->
-    shift3 ins bld WSize (<<) true
+    shiftLeftArith3 ins bld WSize
   | Opcode.SRAK ->
     shift3 ins bld WSize (?>>) true
   | Opcode.SLLG ->
@@ -311,7 +311,7 @@ let private liftShift ins bld opcode =
   | Opcode.SRLG ->
     shift3 ins bld GRSize (>>) false
   | Opcode.SLAG ->
-    shift3 ins bld GRSize (<<) true
+    shiftLeftArith3 ins bld GRSize
   | Opcode.SRAG ->
     shift3 ins bld GRSize (?>>) true
   | Opcode.RLL ->
@@ -555,14 +555,22 @@ let private liftFloat ins bld opcode =
     FloatLifter.fromInt ins bld 32<rt> GRSize false
   | Opcode.CDLGBR ->
     FloatLifter.fromInt ins bld 64<rt> GRSize false
-  | Opcode.CFEBR | Opcode.CFEBRA | Opcode.CLFEBR ->
-    FloatLifter.toInt ins bld 32<rt> WSize
-  | Opcode.CFDBR | Opcode.CFDBRA | Opcode.CLFDBR ->
-    FloatLifter.toInt ins bld 64<rt> WSize
-  | Opcode.CGEBR | Opcode.CGEBRA | Opcode.CLGEBR ->
-    FloatLifter.toInt ins bld 32<rt> GRSize
-  | Opcode.CGDBR | Opcode.CGDBRA | Opcode.CLGDBR ->
-    FloatLifter.toInt ins bld 64<rt> GRSize
+  | Opcode.CFEBR | Opcode.CFEBRA ->
+    FloatLifter.toInt ins bld 32<rt> WSize true
+  | Opcode.CLFEBR ->
+    FloatLifter.toInt ins bld 32<rt> WSize false
+  | Opcode.CFDBR | Opcode.CFDBRA ->
+    FloatLifter.toInt ins bld 64<rt> WSize true
+  | Opcode.CLFDBR ->
+    FloatLifter.toInt ins bld 64<rt> WSize false
+  | Opcode.CGEBR | Opcode.CGEBRA ->
+    FloatLifter.toInt ins bld 32<rt> GRSize true
+  | Opcode.CLGEBR ->
+    FloatLifter.toInt ins bld 32<rt> GRSize false
+  | Opcode.CGDBR | Opcode.CGDBRA ->
+    FloatLifter.toInt ins bld 64<rt> GRSize true
+  | Opcode.CLGDBR ->
+    FloatLifter.toInt ins bld 64<rt> GRSize false
   | Opcode.FIDBR | Opcode.FIDBRA ->
     FloatLifter.roundToInt ins bld 64<rt>
   | Opcode.FIEBR | Opcode.FIEBRA ->
@@ -592,11 +600,11 @@ let private liftFloat ins bld opcode =
   | Opcode.DIEBR ->
     FloatLifter.divideToInteger ins bld 32<rt>
   | Opcode.SRNM ->
-    FloatLifter.setRoundingMode ins bld 2
+    FloatLifter.setRoundingMode ins bld 2 0
   | Opcode.SRNMB ->
-    FloatLifter.setRoundingMode ins bld 3
+    FloatLifter.setRoundingMode ins bld 3 0
   | Opcode.SRNMT ->
-    FloatLifter.setRoundingMode ins bld 3
+    FloatLifter.setRoundingMode ins bld 3 4
   | Opcode.LFAS ->
     FloatLifter.loadFpc ins bld
   | Opcode.SFASR ->
@@ -806,22 +814,26 @@ let private liftOther ins bld opcode =
     mvst ins bld
   | Opcode.CLST ->
     clst ins bld
-  | Opcode.LAA | Opcode.LAAL ->
-    loadAndOp ins bld WSize (.+)
-  | Opcode.LAAG | Opcode.LAALG ->
-    loadAndOp ins bld GRSize (.+)
+  | Opcode.LAA ->
+    loadAndOp ins bld WSize (.+) ccAdd
+  | Opcode.LAAL ->
+    loadAndOp ins bld WSize (.+) ccAddL
+  | Opcode.LAAG ->
+    loadAndOp ins bld GRSize (.+) ccAdd
+  | Opcode.LAALG ->
+    loadAndOp ins bld GRSize (.+) ccAddL
   | Opcode.LAN ->
-    loadAndOp ins bld WSize (.&)
+    loadAndOp ins bld WSize (.&) ccLogic
   | Opcode.LANG ->
-    loadAndOp ins bld GRSize (.&)
+    loadAndOp ins bld GRSize (.&) ccLogic
   | Opcode.LAO ->
-    loadAndOp ins bld WSize (.|)
+    loadAndOp ins bld WSize (.|) ccLogic
   | Opcode.LAOG ->
-    loadAndOp ins bld GRSize (.|)
+    loadAndOp ins bld GRSize (.|) ccLogic
   | Opcode.LAX ->
-    loadAndOp ins bld WSize (<+>)
+    loadAndOp ins bld WSize (<+>) ccLogic
   | Opcode.LAXG ->
-    loadAndOp ins bld GRSize (<+>)
+    loadAndOp ins bld GRSize (<+>) ccLogic
   | Opcode.ECAG ->
     ecag ins bld
   | Opcode.TBEGIN | Opcode.TBEGINC ->

@@ -296,7 +296,8 @@ let rotateInsert ins bld toHigh =
     let t = tmpVar bld WSize
     lift bld ins {
       let rotated = rotl (int (oprImm o5) &&& 63) (oprRegVar bld o2)
-      let selected = low rotated .& numW mask
+      let word = if toHigh then AST.extract rotated WSize 32 else low rotated
+      let selected = word .& numW mask
       if zero then append bld { t := selected }
       else append bld { t := (field .& numW ~~~mask) .| selected }
       field := t
