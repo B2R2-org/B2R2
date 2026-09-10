@@ -8,4 +8,4 @@ analysis, and binary-level inspection.
 
 ### B2R2.FrontEnd.BPF Package?
 
-`B2R2.FrontEnd.BPF` includes eBPF parsers.
+`B2R2.FrontEnd.BPF` includes eBPF parsers and lifters.
