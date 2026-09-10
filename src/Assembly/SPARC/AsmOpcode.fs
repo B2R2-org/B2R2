@@ -520,6 +520,7 @@ let private stateOf = function
   | Register.TICK -> Some 4u
   | Register.PC -> Some 5u
   | Register.FPRS -> Some 6u
+  | Register.GSR -> Some 19u
   | _ -> None
 
 /// The instruction reading one of the registers the machine keeps for itself.
@@ -592,8 +593,10 @@ let private wordForm word ins =
 /// for, so what is read back here goes into the lower of the two.
 let private membar ins =
   match ins.Operands with
-  | [ Im mask ] -> format3 OpArith 0x28u 0u 0u ((1u <<< 13) ||| membarMask mask)
-  | _ -> wrongOperands ins
+  | [ Im mask ] ->
+    format3 OpArith 0x28u 0u 15u ((1u <<< 13) ||| membarMask mask)
+  | _ ->
+    wrongOperands ins
 
 /// The instruction resetting the machine, which carries a number where it
 /// carries anything at all.
