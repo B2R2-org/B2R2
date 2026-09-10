@@ -1535,9 +1535,9 @@ let smulhalf ins bld s1top s2top =
     let struct (t1, t2) = tmpVars2 bld 32<rt>
     let isUnconditional = ParseUtils.isUnconditional ins.Condition
     let lblIgnore = checkCondition ins bld isUnconditional
-    if s1top then append bld { t1 := AST.xthi 16<rt> rn |> AST.zext 32<rt> }
+    if s1top then append bld { t1 := AST.xthi 16<rt> rn |> AST.sext 32<rt> }
     else append bld { t1 := AST.xtlo 16<rt> rn |> AST.sext 32<rt> }
-    if s2top then append bld { t2 := AST.xthi 16<rt> rm |> AST.zext 32<rt> }
+    if s2top then append bld { t2 := AST.xthi 16<rt> rm |> AST.sext 32<rt> }
     else append bld { t2 := AST.xtlo 16<rt> rm |> AST.sext 32<rt> }
     rd := t1 .* t2
     putEndLabel bld lblIgnore
@@ -1639,9 +1639,9 @@ let smulacchalf ins bld s1top s2top =
     let struct (t1, t2) = tmpVars2 bld 32<rt>
     let isUnconditional = ParseUtils.isUnconditional ins.Condition
     let lblIgnore = checkCondition ins bld isUnconditional
-    if s1top then append bld { t1 := AST.xthi 16<rt> rn |> AST.zext 32<rt> }
+    if s1top then append bld { t1 := AST.xthi 16<rt> rn |> AST.sext 32<rt> }
     else append bld { t1 := AST.xtlo 16<rt> rn |> AST.sext 32<rt> }
-    if s2top then append bld { t2 := AST.xthi 16<rt> rm |> AST.zext 32<rt> }
+    if s2top then append bld { t2 := AST.xthi 16<rt> rm |> AST.sext 32<rt> }
     else append bld { t2 := AST.xtlo 16<rt> rm |> AST.sext 32<rt> }
     rd := (t1 .* t2) .+ AST.sext 32<rt> ra
     putEndLabel bld lblIgnore

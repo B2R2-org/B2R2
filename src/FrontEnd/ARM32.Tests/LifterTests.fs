@@ -123,6 +123,14 @@ type LifterTests() =
           !.R0 := AST.concat (t16 4) (t16 3) |]
     |> testARM
 
+  [<TestMethod>]
+  member _.``[ARMv7] SMULBT sign-extends both halfword operands``() =
+    "e16002c1"
+    ++ [| t32 1 := AST.sext 32<rt> (AST.xtlo 16<rt> !.R1)
+          t32 2 := AST.sext 32<rt> (AST.xthi 16<rt> !.R2)
+          !.R0 := t32 1 .* t32 2 |]
+    |> testARM
+
   (* MSR names which fields it writes, so it is a read-modify-write and not an
      assignment: everything outside the named field has to survive it. Only the
      flag field is modelled, which in user mode is the whole of what a program
