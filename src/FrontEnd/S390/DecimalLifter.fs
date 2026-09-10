@@ -98,6 +98,16 @@ let private packedDigits (bytes: Expr[]) =
 
 let private packedSign bytes = byteFromRight bytes 0 |> loNibble
 
+/// The addresses of two storage operands, each held in a temporary.
+let private twoAddrs bld o1 o2 =
+  let a1 = tmpVar bld GRSize
+  let a2 = tmpVar bld GRSize
+  append bld {
+    a1 := transMem bld o1
+    a2 := transMem bld o2
+  }
+  struct (a1, a2)
+
 /// The signed value of the packed field of the given length at the given
 /// address, carried in a temporary of the decimal width.
 let private loadPacked bld addr len =
@@ -146,16 +156,6 @@ let private setCCDecimal bld v ovf =
     let sign = AST.ite (v ?< zero) (numCC 1) (numCC 2)
     ccVar bld := AST.ite ovf (numCC 3) (AST.ite (v == zero) (numCC 0) sign)
   }
-
-/// The addresses of two storage operands, each held in a temporary.
-let private twoAddrs bld o1 o2 =
-  let a1 = tmpVar bld GRSize
-  let a2 = tmpVar bld GRSize
-  append bld {
-    a1 := transMem bld o1
-    a2 := transMem bld o2
-  }
-  struct (a1, a2)
 
 /// ADD DECIMAL and SUBTRACT DECIMAL, whose first operand takes its sum with or
 /// difference from the second.
