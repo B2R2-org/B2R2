@@ -66,6 +66,25 @@ module private LEB128Helper =
     else
       currentValue
 
+  let encodeUnsigned value =
+    let rec loop acc value =
+      let b = byte (value &&& 0x7fUL)
+      let value = value >>> 7
+      if value = 0UL then List.toArray (List.rev (b :: acc))
+      else loop ((b ||| 0x80uy) :: acc) value
+    loop [] value
+
+  let encodeSigned value =
+    let rec loop acc value =
+      let b = byte (value &&& 0x7fL)
+      let value = value >>> 7
+      let isSignSet = b &&& 0x40uy <> 0uy
+      if (value = 0L && not isSignSet) || (value = -1L && isSignSet) then
+        List.toArray (List.rev (b :: acc))
+      else
+        loop ((b ||| 0x80uy) :: acc) value
+    loop [] value
+
 let [<Literal>] private Max32 = 5
 let [<Literal>] private Max64 = 10
 
@@ -112,3 +131,25 @@ let decodeSInt32 (span: ReadOnlySpan<byte>) =
 /// Returns a tuple of (the decoded value, the number of bytes consumed).
 [<CompiledName "DecodeSInt32Bytes">]
 let decodeSInt32Bytes (bytes: byte[]) = decodeSInt32 (ReadOnlySpan<byte> bytes)
+
+/// Encodes an unsigned integer into LEB128, in as few bytes as the value
+/// needs.
+[<CompiledName "EncodeUInt64">]
+let encodeUInt64 (value: uint64) = encodeUnsigned value
+
+/// Encodes an unsigned integer into LEB128, in as few bytes as the value
+/// needs.
+[<CompiledName "EncodeUInt32">]
+let encodeUInt32 (value: uint32) = encodeUnsigned (uint64 value)
+
+/// Encodes a signed integer into LEB128, in as few bytes as the value needs.
+/// The sign travels in bit 6 of the last byte, so a positive value whose top
+/// bit lands there takes one byte more than the same value unsigned would.
+[<CompiledName "EncodeSInt64">]
+let encodeSInt64 (value: int64) = encodeSigned value
+
+/// Encodes a signed integer into LEB128, in as few bytes as the value needs.
+/// The sign travels in bit 6 of the last byte, so a positive value whose top
+/// bit lands there takes one byte more than the same value unsigned would.
+[<CompiledName "EncodeSInt32">]
+let encodeSInt32 (value: int32) = encodeSigned (int64 value)
