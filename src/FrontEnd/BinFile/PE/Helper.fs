@@ -165,18 +165,18 @@ let peMachineToISA = function
   | Machine.Arm64 -> ISA(Architecture.ARMv8, WordSize.Bit64)
   | _ -> raise InvalidISAException
 
+/// Returns the ISA a PE image's instructions are in. A managed image that is
+/// pure IL is CIL and nothing else; one that is not holds native code and is
+/// entered through it, so the ISA that describes it is that code's, and what
+/// IL it also holds is a fact about the file rather than about its
+/// instruction set. ILOnly is one flag among several a COR header carries, so
+/// it has to be read as a flag.
 let peHeadersToISA (peHeaders: PEHeaders) =
   let corHeader = peHeaders.CorHeader
-  if isNull corHeader then
+  if isNull corHeader || not (corHeader.Flags.HasFlag CorFlags.ILOnly) then
     peHeaders.CoffHeader.Machine |> peMachineToISA
   else
-    if corHeader.Flags = CorFlags.ILOnly then
-      ISA CILKind.CILOnly
-    else
-      match peHeaders.CoffHeader.Machine with
-      | Machine.I386 -> ISA CILKind.CILx86
-      | Machine.Amd64 | Machine.IA64 -> ISA CILKind.CILx64
-      | _ -> raise InvalidISAException
+    ISA Architecture.CIL
 
 /// Return Architecture from the PE header. If the given binary is invalid,
 /// return an Error.

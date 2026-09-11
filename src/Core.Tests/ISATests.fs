@@ -126,6 +126,22 @@ type ISATests() =
       Assert.AreEqual<WordSize>(WordSize.Bit64, isa.WordSize)
       Assert.AreEqual<string>("alpha", isa.ToString())
 
+  /// CIL names an instruction set and nothing else. Whether a managed PE also
+  /// holds native code is a fact about the file, not about the instructions
+  /// CIL decodes, so every way of asking for a CIL ISA reaches the same one.
+  [<TestMethod>]
+  member _.``A CIL ISA has one name``() =
+    let isas =
+      [ ISA "cil"
+        ISA Architecture.CIL
+        ISA(Architecture.CIL, Endian.Little)
+        ISA(Architecture.CIL, WordSize.Bit64) ]
+    for isa in isas do
+      Assert.AreEqual<Architecture>(Architecture.CIL, isa.Arch)
+      Assert.AreEqual<Endian>(Endian.Little, isa.Endian)
+      Assert.AreEqual<WordSize>(WordSize.Bit64, isa.WordSize)
+      Assert.AreEqual<string>("cil", isa.ToString())
+
   /// The flags an ISA carries mean whatever the architecture they belong to
   /// says they mean, so an architecture that has nothing to say there is read
   /// as saying the one thing a zero says.
