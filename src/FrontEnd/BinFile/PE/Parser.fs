@@ -45,13 +45,19 @@ let parsePDB reader (pdbBytes: byte[]) =
   if PDB.isValidHeader span reader then () else raise InvalidFileFormatException
   PDB.parse span reader
 
+/// Returns the symbols a PDB found beside the image holds, or none when there
+/// is no reading it. Such a PDB is not one a caller asked for, so nothing
+/// about it is a reason to fail to load the image it sits next to: not that it
+/// is a portable PDB, which is what every .NET assembly built today ships and
+/// is not the format read here, nor that it cannot be read at all.
+let tryParsePDB reader pdbPath =
+  try IO.File.ReadAllBytes pdbPath |> parsePDB reader
+  with e when not (Terminator.isCritical e) -> []
+
 let getPDBSymbols reader (execpath: string) = function
   | [||] ->
     let pdbPath = IO.Path.ChangeExtension(execpath, "pdb")
-    if IO.File.Exists pdbPath then
-      IO.File.ReadAllBytes pdbPath |> parsePDB reader
-    else
-      []
+    if IO.File.Exists pdbPath then tryParsePDB reader pdbPath else []
   | rawpdb ->
     parsePDB reader rawpdb
 

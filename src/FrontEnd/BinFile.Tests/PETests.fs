@@ -209,6 +209,18 @@ type PETests() =
     Assert.AreEqual(Architecture.Intel, isa.Arch)
     Assert.AreEqual(WordSize.Bit32, isa.WordSize)
 
+  /// A PDB sitting beside an image that this parser cannot read is not a
+  /// reason to fail to load the image, since nothing asked for that file in
+  /// the first place. Every .NET assembly built today ships a portable PDB,
+  /// which is not the format this parser reads, and this test assembly is one
+  /// such assembly with one such PDB next to it.
+  [<TestMethod>]
+  member _.``[PE] unreadable PDB beside the image test``() =
+    let path = Reflection.Assembly.GetExecutingAssembly().Location
+    let file = PEBinFile(path, managedBytes, None, [||]) :> IBinFile
+    Assert.AreEqual(PEBinary, file.Format)
+    Assert.AreEqual(Architecture.CIL, file.ISA.Arch)
+
   [<TestMethod>]
   member _.``[PE] x86 entry point test``() =
     Assert.AreEqual(Some 0x4012F0UL, (x86File :> IBinFile).EntryPoint)
