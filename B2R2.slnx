@@ -64,6 +64,7 @@
   <Project Path="src/FrontEnd/SPARC/B2R2.FrontEnd.SPARC.fsproj" />
   <Project Path="src/FrontEnd/TMS320C6000.Tests/B2R2.FrontEnd.TMS320C6000.Tests.fsproj" />
   <Project Path="src/FrontEnd/TMS320C6000/B2R2.FrontEnd.TMS320C6000.fsproj" />
+  <Project Path="src/FrontEnd/WASM.Tests/B2R2.FrontEnd.WASM.Tests.fsproj" />
   <Project Path="src/FrontEnd/WASM/B2R2.FrontEnd.WASM.fsproj" />
   <Project Path="src/MiddleEnd/API.Tests/B2R2.MiddleEnd.API.Tests.fsproj" />
   <Project Path="src/MiddleEnd/API/B2R2.MiddleEnd.API.fsproj" />
