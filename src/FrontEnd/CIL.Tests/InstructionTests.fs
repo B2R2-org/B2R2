@@ -183,17 +183,15 @@ type InstructionTests() =
     Assert.AreEqual(None, immediate (parse "2b05"))
     Assert.AreEqual(None, immediate (parse "00"))
 
-  (* Nothing is lifted yet, and the failure says so by the one exception a
-     caller is told to expect. *)
+  (* Every opcode lifts to something: an instruction the runtime carries out
+     is an external call named after it, so nothing decodable is refused. *)
   [<TestMethod>]
-  member _.``[CIL] lifting says what is not implemented test``() =
+  member _.``[CIL] every opcode lifts test``() =
     let isa = ISA Architecture.CIL
     let regFactory = RegisterFactory isa
-    let builder = ILowUIRBuilder.Default(isa, regFactory, LowUIRStream())
-    let ins = parse "58"
-    let e =
-      Assert.ThrowsExactly<NotImplementedIRException>(fun () ->
-        ins.Translate builder |> ignore)
-    Assert.AreEqual<string>("add", e.Data0)
+    for hex in [ "58"; "2a"; "2801000006"; "fe1204"; "220000c03f"; "2b05" ] do
+      let builder = ILowUIRBuilder.Default(isa, regFactory, LowUIRStream())
+      let stmts = (parse hex).Translate builder
+      Assert.IsTrue(stmts.Length >= 2, $"{hex} lifted to nothing")
 
 // vim: set tw=80 sts=2 sw=2:
