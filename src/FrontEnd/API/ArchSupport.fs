@@ -110,6 +110,8 @@ module ArchSupport =
       Python.PythonRawParser(isa, reader) :> IInstructionParsable
     | WASM ->
       WASM.WASMParser reader :> IInstructionParsable
+    | CIL ->
+      CIL.CILParser reader :> IInstructionParsable
     | _ ->
       Terminator.futureFeature ()
 

@@ -7,7 +7,11 @@
   <ItemGroup>
     <Compile Include="Register.fs" />
     <Compile Include="RegisterFactory.fs" />
+    <Compile Include="Opcode.fs" />
+    <Compile Include="Operands.fs" />
     <Compile Include="Instruction.fs" />
+    <Compile Include="Disasm.fs" />
+    <Compile Include="ParsingMain.fs" />
     <Compile Include="Parser.fs" />
   </ItemGroup>
 

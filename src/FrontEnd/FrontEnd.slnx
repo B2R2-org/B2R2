@@ -16,6 +16,7 @@
   <Project Path="BinFile/B2R2.FrontEnd.BinFile.fsproj" />
   <Project Path="BinLifter.Tests/B2R2.FrontEnd.BinLifter.Tests.fsproj" />
   <Project Path="BinLifter/B2R2.FrontEnd.BinLifter.fsproj" />
+  <Project Path="CIL.Tests/B2R2.FrontEnd.CIL.Tests.fsproj" />
   <Project Path="CIL/B2R2.FrontEnd.CIL.fsproj" />
   <Project Path="EVM.Tests/B2R2.FrontEnd.EVM.Tests.fsproj" />
   <Project Path="EVM/B2R2.FrontEnd.EVM.fsproj" />

@@ -1,0 +1,19 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <Description>B2R2 CIL assembly library.</Description>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <Compile Include="Spec.fs" />
+    <Compile Include="Tables.fs" />
+    <Compile Include="Encoder.fs" />
+    <Compile Include="Assembler.fs" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\..\FrontEnd\CIL\B2R2.FrontEnd.CIL.fsproj" />
+    <ProjectReference Include="..\BinLowerer\B2R2.Assembly.BinLowerer.fsproj" />
+  </ItemGroup>
+
+</Project>

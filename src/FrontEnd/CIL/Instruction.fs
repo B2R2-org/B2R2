@@ -28,33 +28,156 @@ open B2R2
 open B2R2.FrontEnd.BinLifter
 
 /// Represents a CIL instruction.
-type Instruction internal(addr, numBytes) =
+type Instruction internal(addr, numBytes, op, opr, lifter: ILiftable) =
+
+  /// Address of this instruction.
+  member _.Address with get(): Addr = addr
+
+  /// Length of this instruction in bytes.
+  member _.Length with get(): uint32 = numBytes
+
+  /// Opcode.
+  member _.Opcode with get(): Opcode = op
+
+  /// Operands.
+  member _.Operands with get(): Operands = opr
+
   interface IInstruction with
+
     member _.Address with get() = addr
+
     member _.Length with get() = numBytes
-    member _.IsBranch = Terminator.futureFeature ()
+
+    member this.IsBranch =
+      let ins = this :> IInstruction
+      ins.IsDirectBranch || ins.IsCondBranch || ins.IsCall || ins.IsRET
+
     member _.IsModeChanging = false
-    member _.IsDirectBranch = Terminator.futureFeature ()
-    member _.IsIndirectBranch = Terminator.futureFeature ()
-    member _.IsCondBranch = Terminator.futureFeature ()
-    member _.IsCJmpOnTrue = Terminator.futureFeature ()
-    member _.IsCall = Terminator.futureFeature ()
-    member _.IsRET = Terminator.futureFeature ()
-    member _.IsPush = Terminator.futureFeature ()
-    member _.IsPop = Terminator.futureFeature ()
-    member _.IsInterrupt = Terminator.futureFeature ()
-    member _.IsExit = Terminator.futureFeature ()
-    member _.IsNop = Terminator.futureFeature ()
+
+    (* Every branch this machine has says where it goes by a distance written
+       in the instruction itself, and a call names a method by a token rather
+       than by where it is, so a branch is direct and a call is neither. *)
+    member _.IsDirectBranch =
+      match opr with
+      | OneOperand(OprTarget _) | OneOperand(OprTargets _) -> true
+      | _ -> false
+
+    (* calli goes where a function pointer on the evaluation stack says, which
+       is the one place a target is decided at run time. *)
+    member _.IsIndirectBranch = op = Calli
+
+    member _.IsCondBranch =
+      match op with
+      | Brfalse_S | Brtrue_S | Beq_S | Bge_S | Bgt_S | Ble_S | Blt_S
+      | Bne_Un_S | Bge_Un_S | Bgt_Un_S | Ble_Un_S | Blt_Un_S
+      | Brfalse | Brtrue | Beq | Bge | Bgt | Ble | Blt
+      | Bne_Un | Bge_Un | Bgt_Un | Ble_Un | Blt_Un | Switch -> true
+      | _ -> false
+
+    (* brfalse goes where the value is not, and bne.un where the two are not
+       the same; every other conditional branch goes where its name holds. *)
+    member this.IsCJmpOnTrue =
+      match op with
+      | Brfalse_S | Brfalse | Bne_Un_S | Bne_Un -> false
+      | _ -> (this :> IInstruction).IsCondBranch
+
+    member _.IsCall =
+      match op with
+      | Call | Callvirt | Calli | Newobj | Jmp -> true
+      | _ -> false
+
+    (* endfinally and endfilter leave a handler the way ret leaves a method:
+       for somewhere the instruction itself does not say. *)
+    member _.IsRET =
+      match op with
+      | Ret | Endfinally | Endfilter -> true
+      | _ -> false
+
+    (* Nearly every instruction here pushes onto or pops from the evaluation
+       stack, which is not the stack these ask about: nothing addresses it, so
+       nothing is a push or a pop in the sense a stack pointer would notice. *)
+    member _.IsPush = false
+
+    member _.IsPop = false
+
+    (* break hands control to a debugger, which is the one trap there is. *)
+    member _.IsInterrupt = op = Break
+
+    member _.IsExit =
+      match op with
+      | Throw | Rethrow -> true
+      | _ -> false
+
+    member _.IsNop = op = Nop
+
     member _.IsInlinedAssembly = false
-    member _.IsTerminator _ = Terminator.futureFeature ()
-    member _.DirectBranchTarget _ = Terminator.futureFeature ()
-    member _.IndirectTrampolineAddr _ = Terminator.futureFeature ()
-    member _.MemoryDereferences _ = Terminator.futureFeature ()
-    member _.Immediate _ = Terminator.futureFeature ()
-    member _.GetNextInstrAddrs() = Terminator.futureFeature ()
-    member _.InterruptNum _ = Terminator.futureFeature ()
-    member _.Translate _ = Terminator.futureFeature ()
-    member _.TranslateToList _ = Terminator.futureFeature ()
-    member _.Disasm _ = Terminator.futureFeature ()
-    member _.Disasm() = Terminator.futureFeature ()
-    member _.Decompose _ = Terminator.futureFeature ()
+
+    member this.IsTerminator _ =
+      let ins = this :> IInstruction
+      ins.IsBranch || ins.IsInterrupt || ins.IsExit
+
+    member _.DirectBranchTarget(target: byref<Addr>) =
+      match opr with
+      | OneOperand(OprTarget t) ->
+        target <- t
+        true
+      | _ ->
+        false
+
+    member _.IndirectTrampolineAddr(_: byref<Addr>) = false
+
+    member _.MemoryDereferences(_: byref<Addr[]>) = false
+
+    member _.Immediate(v: byref<int64>) =
+      match opr with
+      | OneOperand(OprI4 i) ->
+        v <- int64 i
+        true
+      | OneOperand(OprI8 i) ->
+        v <- i
+        true
+      | OneOperand(OprVar i) ->
+        v <- int64 i
+        true
+      | OneOperand(OprByte b) ->
+        v <- int64 b
+        true
+      | _ ->
+        false
+
+    (* A jmp hands the arguments on to another method and never comes back, so
+       like a return or a throw it has no instruction after it. *)
+    member this.GetNextInstrAddrs() =
+      let ins = this :> IInstruction
+      let next = addr + uint64 numBytes
+      match opr with
+      | OneOperand(OprTargets targets) ->
+        next :: targets |> List.distinct |> List.toArray
+      | OneOperand(OprTarget target) when ins.IsCondBranch ->
+        [ next; target ] |> List.distinct |> List.toArray
+      | OneOperand(OprTarget target) ->
+        [| target |]
+      | _ when ins.IsRET || ins.IsExit || op = Jmp ->
+        [||]
+      | _ ->
+        [| next |]
+
+    member _.InterruptNum(_: byref<int64>) = false
+
+    member this.Translate builder = lifter.Lift(this, builder).Stream.ToStmts()
+
+    member this.TranslateToList builder = lifter.Lift(this, builder).Stream
+
+    member this.Disasm builder = lifter.Disasm(this, builder).ToString()
+
+    member this.Disasm() =
+      let builder = StringDisasmBuilder(false, null, WordSize.Bit64)
+      lifter.Disasm(this, builder).ToString()
+
+    member this.Decompose builder = lifter.Disasm(this, builder).ToAsmWords()
+
+and internal ILiftable =
+  abstract Lift: Instruction * ILowUIRBuilder -> ILowUIRBuilder
+  abstract Disasm: Instruction * IDisasmBuilder -> IDisasmBuilder
+
+// vim: set tw=80 sts=2 sw=2:

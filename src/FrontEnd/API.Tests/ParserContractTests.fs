@@ -53,7 +53,8 @@ type ParserContractTests() =
        Architecture.AVR
        Architecture.BPF
        Architecture.TMS320C6000
-       Architecture.EVM |]
+       Architecture.EVM
+       Architecture.CIL |]
 
   static let parserFor (arch: Architecture) =
     let isa = ISA arch

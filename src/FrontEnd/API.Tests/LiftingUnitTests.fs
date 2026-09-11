@@ -84,7 +84,8 @@ type LiftingUnitTests() =
        Architecture.AVR, 2
        Architecture.BPF, 8
        Architecture.TMS320C6000, 4
-       Architecture.EVM, 1 |]
+       Architecture.EVM, 1
+       Architecture.CIL, 1 |]
 
   /// Inputs no parser can decode, each reaching a different architecture's
   /// dispatch. Found by fuzzing; the file each one throws from is noted so a

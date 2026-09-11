@@ -74,6 +74,7 @@ jobs:
         - AVR
         - EVM
         - WASM
+        - CIL
 
     steps:
     - name: Setup .NET

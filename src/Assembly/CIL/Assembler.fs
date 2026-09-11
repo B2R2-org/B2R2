@@ -22,32 +22,29 @@
   SOFTWARE.
 *)
 
-namespace B2R2.FrontEnd.CIL
+namespace B2R2.Assembly.CIL
 
-open System
 open B2R2
-open B2R2.FrontEnd.BinLifter
+open B2R2.Assembly.BinLowerer
 
-/// Represents a parser for CIL instructions.
-type CILParser(reader: IBinReader) =
-  let lifter =
-    { new ILiftable with
-        member _.Lift(ins, _) =
-          raise <| NotImplementedIRException(Disasm.opcodeToString ins.Opcode)
-        member _.Disasm(ins, builder) = Disasm.disasm ins builder; builder }
+/// <summary>
+/// Represents an assembler for CIL. The syntax it reads is the one B2R2's CIL
+/// disassembler writes, so a line of disassembly can be handed straight back
+/// to it: a mnemonic, and the one operand the instruction takes beside it,
+/// with a branch written by the address it reaches.
+///
+/// That last is why the assembler has to be told where it is assembling. A
+/// branch is encoded as a distance from the instruction after it, so what a
+/// line encodes to depends on where the lines above it landed, and the lines
+/// are placed one behind another from the address the assembler was built
+/// with.
+/// </summary>
+type Assembler(isa: ISA, baseAddr: Addr) =
 
-  interface IInstructionParsable with
-    (* The widest instruction with a fixed length is ldc.i8. A switch is as
-       long as its table, which has no bound of its own. *)
-    member _.MaxInstructionSize = 9
-
-    member _.InstructionAlignment = 1
-
-    member this.Parse(bs: byte[], addr) =
-      (this :> IInstructionParsable).Parse(ReadOnlySpan bs, addr)
-
-    member _.Parse(span: ByteSpan, addr) =
-      try ParsingMain.parse lifter span reader addr :> IInstruction
-      with e when not (Terminator.isCritical e) -> raise ParsingFailureException
+  interface ILowerable with
+    override _.Lower assembly =
+      match Encoder.encodeAll baseAddr assembly with
+      | Ok instrs -> instrs |> List.map (fun bytes -> isa, bytes) |> Result.Ok
+      | Error e -> Result.Error e
 
 // vim: set tw=80 sts=2 sw=2:

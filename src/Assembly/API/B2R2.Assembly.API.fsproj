@@ -29,6 +29,7 @@
     <ProjectReference Include="..\SPARC\B2R2.Assembly.SPARC.fsproj" />
     <ProjectReference Include="..\SH4\B2R2.Assembly.SH4.fsproj" />
     <ProjectReference Include="..\WASM\B2R2.Assembly.WASM.fsproj" />
+    <ProjectReference Include="..\CIL\B2R2.Assembly.CIL.fsproj" />
   </ItemGroup>
 
 </Project>

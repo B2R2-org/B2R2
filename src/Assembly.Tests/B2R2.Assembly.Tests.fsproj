@@ -55,6 +55,8 @@
     <Compile Include="EVMRoundTripTests.fs" />
     <Compile Include="WASMSweep.fs" />
     <Compile Include="WASMRoundTripTests.fs" />
+    <Compile Include="CILSweep.fs" />
+    <Compile Include="CILRoundTripTests.fs" />
   </ItemGroup>
 
   <ItemGroup>
@@ -82,6 +84,7 @@
     <ProjectReference Include="..\Assembly\BPF\B2R2.Assembly.BPF.fsproj" />
     <ProjectReference Include="..\Assembly\EVM\B2R2.Assembly.EVM.fsproj" />
     <ProjectReference Include="..\Assembly\WASM\B2R2.Assembly.WASM.fsproj" />
+    <ProjectReference Include="..\Assembly\CIL\B2R2.Assembly.CIL.fsproj" />
     <ProjectReference Include="..\Assembly\API\B2R2.Assembly.API.fsproj" />
     <ProjectReference Include="..\FrontEnd\Alpha\B2R2.FrontEnd.Alpha.fsproj" />
     <ProjectReference Include="..\FrontEnd\Intel\B2R2.FrontEnd.Intel.fsproj" />
@@ -103,6 +106,7 @@
     <ProjectReference Include="..\FrontEnd\BPF\B2R2.FrontEnd.BPF.fsproj" />
     <ProjectReference Include="..\FrontEnd\EVM\B2R2.FrontEnd.EVM.fsproj" />
     <ProjectReference Include="..\FrontEnd\WASM\B2R2.FrontEnd.WASM.fsproj" />
+    <ProjectReference Include="..\FrontEnd\CIL\B2R2.FrontEnd.CIL.fsproj" />
     <ProjectReference
       Include="..\FrontEnd\BinLifter\B2R2.FrontEnd.BinLifter.fsproj" />
   </ItemGroup>
