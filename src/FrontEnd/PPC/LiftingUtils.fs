@@ -91,6 +91,16 @@ let getExtMask64 mb me =
       if mb > me then ~~~v else v
   numU64 mask 64<rt>
 
+/// The mask a rotate-word form applies on a 64-bit part: MASK(mb+32, me+32),
+/// which reaches into the high word when mb > me.
+let getWordMaskIn64 mb me =
+  match mb, me with
+  | Num(b, _), Num(m, _) ->
+    getExtMask64 (numI32 (int (b.ToUInt64()) + 32) 32<rt>)
+                 (numI32 (int (m.ToUInt64()) + 32) 32<rt>)
+  | _ ->
+    raise InvalidExprException
+
 let rotateLeft rs sh = (rs << sh) .| (rs >> ((numI32 32 32<rt>) .- sh))
 
 /// ROTL64: rotates a doubleword left by sh, which must be in 0..63.

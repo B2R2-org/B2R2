@@ -1523,6 +1523,11 @@ let private parseVXOne op bin =
   let v = getVecRegister (Bits.extract bin 25u 21u) |> OprReg
   struct (op, OneOperand v)
 
+/// A VX-form with a single vB (mtvscr keeps its source in the vB field).
+let private parseVXOneB op bin =
+  let v = getVecRegister (Bits.extract bin 15u 11u) |> OprReg
+  struct (op, OneOperand v)
+
 /// A VA-form "vD, vA, vB, vC".
 let private parseVA op bin =
   let vd = getVecRegister (Bits.extract bin 25u 21u) |> OprReg
@@ -1666,7 +1671,7 @@ let private parse04 bin =
       | 1412u -> parseVX Op.VNAND bin
       | 1476u -> parseVX Op.VSLD bin
       | 1540u -> parseVXOne Op.MFVSCR bin
-      | 1604u -> parseVXOne Op.MTVSCR bin
+      | 1604u -> parseVXOneB Op.MTVSCR bin
       | 1668u -> parseVX Op.VEQV bin
       | 1676u -> parseVX Op.VMRGOW bin
       | 1732u -> parseVX Op.VSRD bin
@@ -1714,7 +1719,7 @@ let private parseXXSPLTW bin =
 /// xxspltib, which carries the byte to splat as an eight-bit immediate.
 let private parseXXSPLTIB bin =
   let xt = (Bits.pick bin 0u <<< 5) ||| Bits.extract bin 25u 21u
-  let imm = Bits.extract bin 20u 13u |> uint64 |> OprImm
+  let imm = Bits.extract bin 18u 11u |> uint64 |> OprImm
   struct (Op.XXSPLTIB, TwoOperands(getVsxRegister xt |> OprReg, imm))
 
 /// An XX3-form scalar compare, which reports in a condition-register field

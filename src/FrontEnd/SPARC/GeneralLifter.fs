@@ -777,20 +777,20 @@ let roundByFSR bld res64 rounded regSize =
     let cond2 = (fsr31 == AST.b1) .& (fsr30 == AST.b0)
     AST.cjmp cond0 (AST.jmpDest lblL0) (AST.jmpDest lblL1)
     AST.lmark lblL0
-    rounded := AST.cast CastKind.FtoFRound regSize res64
+    rounded := res64
     AST.jmp (AST.jmpDest lblEnd)
     AST.lmark lblL1
     AST.cjmp cond1 (AST.jmpDest lblL2) (AST.jmpDest lblL3)
     AST.lmark lblL2
-    rounded := AST.cast CastKind.FtoFTrunc regSize res64
+    rounded := res64
     AST.jmp (AST.jmpDest lblEnd)
     AST.lmark lblL3
     AST.cjmp cond2 (AST.jmpDest lblL4) (AST.jmpDest lblL5)
     AST.lmark lblL4
-    rounded := AST.cast CastKind.FtoFCeil regSize res64
+    rounded := res64
     AST.jmp (AST.jmpDest lblEnd)
     AST.lmark lblL5
-    rounded := AST.cast CastKind.FtoFFloor regSize res64
+    rounded := res64
     AST.lmark lblEnd
   }
 
@@ -818,13 +818,16 @@ let fccPosition bld cc =
 /// are kept apart.
 /// The condition codes a 32-bit divide leaves behind: the reserved nibble and
 /// C cleared, N and Z read off the quotient's low word.
-let setDivCC bld ccr quotient =
+/// The condition codes of a 32-bit divide, from the value written to rd: icc
+/// N and Z come from its low word, xcc N and Z from the whole doubleword, and
+/// both C bits and xcc V are zero (icc V is set by the caller).
+let setDivCC bld ccr result =
   append bld {
-    AST.extract ccr 4<rt> 4 := AST.num0 4<rt>
-    AST.extract ccr 1<rt> 3 :=
-      AST.ite (AST.extract quotient 1<rt> 31 == AST.b1) AST.b1 AST.b0
-    AST.extract ccr 1<rt> 2 :=
-      AST.ite (AST.extract quotient 32<rt> 0 == AST.num0 32<rt>) AST.b1 AST.b0
+    AST.extract ccr 1<rt> 7 := AST.extract result 1<rt> 63
+    AST.extract ccr 1<rt> 6 := result == AST.num0 64<rt>
+    AST.extract ccr 2<rt> 4 := AST.num0 2<rt>
+    AST.extract ccr 1<rt> 3 := AST.extract result 1<rt> 31
+    AST.extract ccr 1<rt> 2 := AST.extract result 32<rt> 0 == AST.num0 32<rt>
     AST.extract ccr 1<rt> 0 := AST.b0
   }
 
@@ -836,7 +839,7 @@ let signedDivResult quotient =
   let saturated =
     AST.ite fits (AST.sext 64<rt> lo)
       (AST.ite (AST.extract quotient 1<rt> 63 == AST.b1)
-               (numU64 0x80000000UL 64<rt>)
+               (numU64 0xffffffff80000000UL 64<rt>)
                (numU64 0x7fffffffUL 64<rt>))
   struct (fits, saturated)
 
@@ -863,10 +866,10 @@ let fccFlags bld pos =
   let fsr = regVar bld Register.FSR
   let fsr0 = AST.extract fsr 1<rt> pos
   let fsr1 = AST.extract fsr 1<rt> (pos + 1)
-  let e = (fsr1 == AST.b0 .& fsr0 == AST.b0)
-  let l = (fsr1 == AST.b0 .& fsr0 == AST.b1)
-  let g = (fsr1 == AST.b1 .& fsr0 == AST.b0)
-  let u = (fsr1 == AST.b1 .& fsr0 == AST.b1)
+  let e = (fsr1 == AST.b0) .& (fsr0 == AST.b0)
+  let l = (fsr1 == AST.b0) .& (fsr0 == AST.b1)
+  let g = (fsr1 == AST.b1) .& (fsr0 == AST.b0)
+  let u = (fsr1 == AST.b1) .& (fsr0 == AST.b1)
   struct (e, l, g, u)
 
 let compareFloatsInto bld pos op op1 =
@@ -949,6 +952,28 @@ let addcc ins bld =
     if (dst = regVar bld Register.G0) then append bld { dst := AST.num0 64<rt> }
     else append bld { dst := res }
   }
+
+/// taddcc/tsubcc: as addcc/subcc, except that a nonzero tag (the low two
+/// bits) in either operand also raises icc V.
+let private taggedcc ins bld fnOp ccOf =
+  lift bld ins {
+    let struct (src, src1, dst) = transThreeOprs ins bld
+    let res = tmpVar bld 64<rt>
+    let ccr = regVar bld Register.CCR
+    let byte = tmpVar bld 8<rt>
+    let tagged r = AST.extract r 2<rt> 0 != AST.num0 2<rt>
+    res := fnOp src src1
+    byte := ccOf res src src1
+    AST.extract byte 1<rt> 1 :=
+      AST.extract byte 1<rt> 1 .| tagged src .| tagged src1
+    AST.extract ccr 8<rt> 0 := byte
+    if (dst = regVar bld Register.G0) then append bld { dst := AST.num0 64<rt> }
+    else append bld { dst := res }
+  }
+
+let taddcc ins bld = taggedcc ins bld (.+) getConditionCodeAdd
+
+let tsubcc ins bld = taggedcc ins bld (.-) getConditionCodeSub
 
 let addC ins bld =
   lift bld ins {
@@ -1399,20 +1424,20 @@ let fadds ins bld =
     res := (AST.fadd src src1)
     AST.cjmp cond0 (AST.jmpDest lblL0) (AST.jmpDest lblL1)
     AST.lmark lblL0
-    dst := AST.cast CastKind.FtoFRound regSize (res)
+    dst := res
     AST.jmp (AST.jmpDest lblEnd)
     AST.lmark lblL1
     AST.cjmp cond1 (AST.jmpDest lblL2) (AST.jmpDest lblL3)
     AST.lmark lblL2
-    dst := AST.cast CastKind.FtoFTrunc regSize (res)
+    dst := res
     AST.jmp (AST.jmpDest lblEnd)
     AST.lmark lblL3
     AST.cjmp cond2 (AST.jmpDest lblL4) (AST.jmpDest lblL5)
     AST.lmark lblL4
-    dst := AST.cast CastKind.FtoFCeil regSize (res)
+    dst := res
     AST.jmp (AST.jmpDest lblEnd)
     AST.lmark lblL5
-    dst := AST.cast CastKind.FtoFFloor regSize (res)
+    dst := res
     AST.lmark lblEnd
   }
 
@@ -1442,20 +1467,20 @@ let faddd ins bld =
     res := (AST.fadd op op1)
     AST.cjmp cond0 (AST.jmpDest lblL0) (AST.jmpDest lblL1)
     AST.lmark lblL0
-    rounded := AST.cast CastKind.FtoFRound regSize (res)
+    rounded := res
     AST.jmp (AST.jmpDest lblEnd)
     AST.lmark lblL1
     AST.cjmp cond1 (AST.jmpDest lblL2) (AST.jmpDest lblL3)
     AST.lmark lblL2
-    rounded := AST.cast CastKind.FtoFTrunc regSize (res)
+    rounded := res
     AST.jmp (AST.jmpDest lblEnd)
     AST.lmark lblL3
     AST.cjmp cond2 (AST.jmpDest lblL4) (AST.jmpDest lblL5)
     AST.lmark lblL4
-    rounded := AST.cast CastKind.FtoFCeil regSize (res)
+    rounded := res
     AST.jmp (AST.jmpDest lblEnd)
     AST.lmark lblL5
-    rounded := AST.cast CastKind.FtoFFloor regSize (res)
+    rounded := res
     AST.lmark lblEnd
     setDFloatOp bld dst rounded
   }
@@ -1601,20 +1626,20 @@ let fdivs ins bld =
     res := (AST.fdiv src src1)
     AST.cjmp cond0 (AST.jmpDest lblL0) (AST.jmpDest lblL1)
     AST.lmark lblL0
-    dst := AST.cast CastKind.FtoFRound regSize (res)
+    dst := res
     AST.jmp (AST.jmpDest lblEnd)
     AST.lmark lblL1
     AST.cjmp cond1 (AST.jmpDest lblL2) (AST.jmpDest lblL3)
     AST.lmark lblL2
-    dst := AST.cast CastKind.FtoFTrunc regSize (res)
+    dst := res
     AST.jmp (AST.jmpDest lblEnd)
     AST.lmark lblL3
     AST.cjmp cond2 (AST.jmpDest lblL4) (AST.jmpDest lblL5)
     AST.lmark lblL4
-    dst := AST.cast CastKind.FtoFCeil regSize (res)
+    dst := res
     AST.jmp (AST.jmpDest lblEnd)
     AST.lmark lblL5
-    dst := AST.cast CastKind.FtoFFloor regSize (res)
+    dst := res
     AST.lmark lblEnd
   }
 
@@ -1644,20 +1669,20 @@ let fdivd ins bld =
     res := (AST.fdiv op op1)
     AST.cjmp cond0 (AST.jmpDest lblL0) (AST.jmpDest lblL1)
     AST.lmark lblL0
-    rounded := AST.cast CastKind.FtoFRound regSize (res)
+    rounded := res
     AST.jmp (AST.jmpDest lblEnd)
     AST.lmark lblL1
     AST.cjmp cond1 (AST.jmpDest lblL2) (AST.jmpDest lblL3)
     AST.lmark lblL2
-    rounded := AST.cast CastKind.FtoFTrunc regSize (res)
+    rounded := res
     AST.jmp (AST.jmpDest lblEnd)
     AST.lmark lblL3
     AST.cjmp cond2 (AST.jmpDest lblL4) (AST.jmpDest lblL5)
     AST.lmark lblL4
-    rounded := AST.cast CastKind.FtoFCeil regSize (res)
+    rounded := res
     AST.jmp (AST.jmpDest lblEnd)
     AST.lmark lblL5
-    rounded := AST.cast CastKind.FtoFFloor regSize (res)
+    rounded := res
     AST.lmark lblEnd
     setDFloatOp bld dst rounded
   }
@@ -1795,10 +1820,10 @@ let fmovfscc ins bld =
     else raise InvalidRegisterException
   let fsr0 = AST.extract fsr 1<rt> pos
   let fsr1 = AST.extract fsr 1<rt> (pos + 1)
-  let e = (fsr1 == AST.b0 .& fsr0 == AST.b0)
-  let l = (fsr1 == AST.b0 .& fsr0 == AST.b1)
-  let g = (fsr1 == AST.b1 .& fsr0 == AST.b0)
-  let u = (fsr1 == AST.b1 .& fsr0 == AST.b1)
+  let e = (fsr1 == AST.b0) .& (fsr0 == AST.b0)
+  let l = (fsr1 == AST.b0) .& (fsr0 == AST.b1)
+  let g = (fsr1 == AST.b1) .& (fsr0 == AST.b0)
+  let u = (fsr1 == AST.b1) .& (fsr0 == AST.b1)
   let cond =
     match ins.Opcode with
     | Opcode.FMOVFsA -> AST.b1
@@ -1989,20 +2014,20 @@ let fmuls ins bld =
     res := (AST.fmul src src1)
     AST.cjmp cond0 (AST.jmpDest lblL0) (AST.jmpDest lblL1)
     AST.lmark lblL0
-    dst := AST.cast CastKind.FtoFRound regSize (res)
+    dst := res
     AST.jmp (AST.jmpDest lblEnd)
     AST.lmark lblL1
     AST.cjmp cond1 (AST.jmpDest lblL2) (AST.jmpDest lblL3)
     AST.lmark lblL2
-    dst := AST.cast CastKind.FtoFTrunc regSize (res)
+    dst := res
     AST.jmp (AST.jmpDest lblEnd)
     AST.lmark lblL3
     AST.cjmp cond2 (AST.jmpDest lblL4) (AST.jmpDest lblL5)
     AST.lmark lblL4
-    dst := AST.cast CastKind.FtoFCeil regSize (res)
+    dst := res
     AST.jmp (AST.jmpDest lblEnd)
     AST.lmark lblL5
-    dst := AST.cast CastKind.FtoFFloor regSize (res)
+    dst := res
     AST.lmark lblEnd
   }
 
@@ -2032,20 +2057,20 @@ let fmuld ins bld =
     res := (AST.fmul op op1)
     AST.cjmp cond0 (AST.jmpDest lblL0) (AST.jmpDest lblL1)
     AST.lmark lblL0
-    rounded := AST.cast CastKind.FtoFRound regSize (res)
+    rounded := res
     AST.jmp (AST.jmpDest lblEnd)
     AST.lmark lblL1
     AST.cjmp cond1 (AST.jmpDest lblL2) (AST.jmpDest lblL3)
     AST.lmark lblL2
-    rounded := AST.cast CastKind.FtoFTrunc regSize (res)
+    rounded := res
     AST.jmp (AST.jmpDest lblEnd)
     AST.lmark lblL3
     AST.cjmp cond2 (AST.jmpDest lblL4) (AST.jmpDest lblL5)
     AST.lmark lblL4
-    rounded := AST.cast CastKind.FtoFCeil regSize (res)
+    rounded := res
     AST.jmp (AST.jmpDest lblEnd)
     AST.lmark lblL5
-    rounded := AST.cast CastKind.FtoFFloor regSize (res)
+    rounded := res
     AST.lmark lblEnd
     setDFloatOp bld dst rounded
   }
@@ -2078,20 +2103,20 @@ let fsmuld ins bld =
     res := (AST.fmul op1 op2)
     AST.cjmp cond0 (AST.jmpDest lblL0) (AST.jmpDest lblL1)
     AST.lmark lblL0
-    rounded := AST.cast CastKind.FtoFRound regSize (res)
+    rounded := res
     AST.jmp (AST.jmpDest lblEnd)
     AST.lmark lblL1
     AST.cjmp cond1 (AST.jmpDest lblL2) (AST.jmpDest lblL3)
     AST.lmark lblL2
-    rounded := AST.cast CastKind.FtoFTrunc regSize (res)
+    rounded := res
     AST.jmp (AST.jmpDest lblEnd)
     AST.lmark lblL3
     AST.cjmp cond2 (AST.jmpDest lblL4) (AST.jmpDest lblL5)
     AST.lmark lblL4
-    rounded := AST.cast CastKind.FtoFCeil regSize (res)
+    rounded := res
     AST.jmp (AST.jmpDest lblEnd)
     AST.lmark lblL5
-    rounded := AST.cast CastKind.FtoFFloor regSize (res)
+    rounded := res
     AST.lmark lblEnd
     setDFloatOp bld dst rounded
   }
@@ -2136,20 +2161,20 @@ let fsqrts ins bld =
     res := (AST.fsqrt src)
     AST.cjmp cond0 (AST.jmpDest lblL0) (AST.jmpDest lblL1)
     AST.lmark lblL0
-    dst := AST.cast CastKind.FtoFRound regSize (res)
+    dst := res
     AST.jmp (AST.jmpDest lblEnd)
     AST.lmark lblL1
     AST.cjmp cond1 (AST.jmpDest lblL2) (AST.jmpDest lblL3)
     AST.lmark lblL2
-    dst := AST.cast CastKind.FtoFTrunc regSize (res)
+    dst := res
     AST.jmp (AST.jmpDest lblEnd)
     AST.lmark lblL3
     AST.cjmp cond2 (AST.jmpDest lblL4) (AST.jmpDest lblL5)
     AST.lmark lblL4
-    dst := AST.cast CastKind.FtoFCeil regSize (res)
+    dst := res
     AST.jmp (AST.jmpDest lblEnd)
     AST.lmark lblL5
-    dst := AST.cast CastKind.FtoFFloor regSize (res)
+    dst := res
     AST.lmark lblEnd
   }
 
@@ -2177,20 +2202,20 @@ let fsqrtd ins bld =
     res := (AST.fsqrt op)
     AST.cjmp cond0 (AST.jmpDest lblL0) (AST.jmpDest lblL1)
     AST.lmark lblL0
-    rounded := AST.cast CastKind.FtoFRound regSize (res)
+    rounded := res
     AST.jmp (AST.jmpDest lblEnd)
     AST.lmark lblL1
     AST.cjmp cond1 (AST.jmpDest lblL2) (AST.jmpDest lblL3)
     AST.lmark lblL2
-    rounded := AST.cast CastKind.FtoFTrunc regSize (res)
+    rounded := res
     AST.jmp (AST.jmpDest lblEnd)
     AST.lmark lblL3
     AST.cjmp cond2 (AST.jmpDest lblL4) (AST.jmpDest lblL5)
     AST.lmark lblL4
-    rounded := AST.cast CastKind.FtoFCeil regSize (res)
+    rounded := res
     AST.jmp (AST.jmpDest lblEnd)
     AST.lmark lblL5
-    rounded := AST.cast CastKind.FtoFFloor regSize (res)
+    rounded := res
     AST.lmark lblEnd
     setDFloatOp bld dst rounded
   }
@@ -2216,12 +2241,29 @@ let fsqrtq ins bld =
     setQFloatOp bld dst res1 res2
   }
 
+/// Clamps a float-to-integer conversion as the hardware does: a value beyond
+/// the range gives the largest or the smallest integer, a NaN the largest.
+let private saturateInt bld dst (src: Expr) width =
+  let bits = int width
+  let dbl (v: float) = numU64 (System.BitConverter.DoubleToUInt64Bits v) 64<rt>
+  let top = numU64 ((1UL <<< (bits - 1)) - 1UL) width
+  let bottom = numU64 (1UL <<< (bits - 1)) width
+  let src64 =
+    if Expr.typeOf src = 64<rt> then src
+    else AST.cast CastKind.FloatCast 64<rt> src
+  append bld {
+    dst := AST.ite (AST.fge src64 (dbl (2.0 ** float (bits - 1)))) top dst
+    dst := AST.ite (AST.flt src64 (dbl (-(2.0 ** float (bits - 1))))) bottom dst
+    dst := AST.ite (IEEE754Double.isNaN src64) top dst
+  }
+
 let fstox ins bld =
   lift bld ins {
     let struct (src, dst) = transTwoOprs ins bld
     let oprSize = 64<rt>
     let cst = tmpVar bld oprSize
     cst := AST.cast CastKind.FtoITrunc oprSize src
+    saturateInt bld cst src oprSize
     setDFloatOp bld dst cst
   }
 
@@ -2233,6 +2275,7 @@ let fdtox ins bld =
     let cst = tmpVar bld oprSize
     getDFloatOp bld src op
     cst := AST.cast CastKind.FtoITrunc oprSize op
+    saturateInt bld cst op oprSize
     setDFloatOp bld dst cst
   }
 
@@ -2248,6 +2291,7 @@ let fqtox ins bld =
     getQFloatOp bld src op1 op2
     cast128to64 bld op1 op2 op64
     cst := AST.cast CastKind.FtoITrunc oprSize op64
+    saturateInt bld cst op64 oprSize
     setDFloatOp bld dst cst
   }
 
@@ -2256,7 +2300,9 @@ let fstoi ins bld =
     let struct (src, dst) = transTwoOprs ins bld
     let oprSize = 32<rt>
     let cst = tmpVar bld oprSize
-    dst := AST.cast CastKind.FtoITrunc oprSize src
+    cst := AST.cast CastKind.FtoITrunc oprSize src
+    saturateInt bld cst src oprSize
+    dst := cst
   }
 
 let fdtoi ins bld =
@@ -2267,7 +2313,9 @@ let fdtoi ins bld =
     let op = tmpVar bld oprSize
     let cst = tmpVar bld regSize
     getDFloatOp bld src op
-    dst := AST.cast CastKind.FtoITrunc regSize op
+    cst := AST.cast CastKind.FtoITrunc regSize op
+    saturateInt bld cst op regSize
+    dst := cst
   }
 
 let fqtoi ins bld =
@@ -2281,7 +2329,9 @@ let fqtoi ins bld =
     let cst = tmpVar bld oprSize
     getQFloatOp bld src op1 op2
     cast128to64 bld op1 op2 op64
-    dst := AST.cast CastKind.FtoITrunc oprSize op64
+    cst := AST.cast CastKind.FtoITrunc oprSize op64
+    saturateInt bld cst op64 oprSize
+    dst := cst
   }
 
 let fstod ins bld =
@@ -2307,20 +2357,20 @@ let fstod ins bld =
     res := AST.cast CastKind.FloatCast oprSize src
     AST.cjmp cond0 (AST.jmpDest lblL0) (AST.jmpDest lblL1)
     AST.lmark lblL0
-    rounded := AST.cast CastKind.FtoFRound regSize res
+    rounded := res
     AST.jmp (AST.jmpDest lblEnd)
     AST.lmark lblL1
     AST.cjmp cond1 (AST.jmpDest lblL2) (AST.jmpDest lblL3)
     AST.lmark lblL2
-    rounded := AST.cast CastKind.FtoFTrunc regSize (res)
+    rounded := res
     AST.jmp (AST.jmpDest lblEnd)
     AST.lmark lblL3
     AST.cjmp cond2 (AST.jmpDest lblL4) (AST.jmpDest lblL5)
     AST.lmark lblL4
-    rounded := AST.cast CastKind.FtoFCeil regSize (res)
+    rounded := res
     AST.jmp (AST.jmpDest lblEnd)
     AST.lmark lblL5
-    rounded := AST.cast CastKind.FtoFFloor regSize (res)
+    rounded := res
     AST.lmark lblEnd
     setDFloatOp bld dst rounded
   }
@@ -2350,20 +2400,20 @@ let fstoq ins bld =
     res64 := AST.cast CastKind.FloatCast oprSize src
     AST.cjmp cond0 (AST.jmpDest lblL0) (AST.jmpDest lblL1)
     AST.lmark lblL0
-    rounded := AST.cast CastKind.FtoFRound regSize (res64)
+    rounded := res64
     AST.jmp (AST.jmpDest lblEnd)
     AST.lmark lblL1
     AST.cjmp cond1 (AST.jmpDest lblL2) (AST.jmpDest lblL3)
     AST.lmark lblL2
-    rounded := AST.cast CastKind.FtoFTrunc regSize (res64)
+    rounded := res64
     AST.jmp (AST.jmpDest lblEnd)
     AST.lmark lblL3
     AST.cjmp cond2 (AST.jmpDest lblL4) (AST.jmpDest lblL5)
     AST.lmark lblL4
-    rounded := AST.cast CastKind.FtoFCeil regSize (res64)
+    rounded := res64
     AST.jmp (AST.jmpDest lblEnd)
     AST.lmark lblL5
-    rounded := AST.cast CastKind.FtoFFloor regSize (res64)
+    rounded := res64
     AST.lmark lblEnd
     cast64To128 bld rounded res1 res2
     setQFloatOp bld dst res1 res2
@@ -2392,20 +2442,20 @@ let fdtos ins bld =
     res := AST.cast CastKind.FloatCast regSize op
     AST.cjmp cond0 (AST.jmpDest lblL0) (AST.jmpDest lblL1)
     AST.lmark lblL0
-    dst := AST.cast CastKind.FtoFRound regSize res
+    dst := res
     AST.jmp (AST.jmpDest lblEnd)
     AST.lmark lblL1
     AST.cjmp cond1 (AST.jmpDest lblL2) (AST.jmpDest lblL3)
     AST.lmark lblL2
-    dst := AST.cast CastKind.FtoFTrunc regSize res
+    dst := res
     AST.jmp (AST.jmpDest lblEnd)
     AST.lmark lblL3
     AST.cjmp cond2 (AST.jmpDest lblL4) (AST.jmpDest lblL5)
     AST.lmark lblL4
-    dst := AST.cast CastKind.FtoFCeil regSize res
+    dst := res
     AST.jmp (AST.jmpDest lblEnd)
     AST.lmark lblL5
-    dst := AST.cast CastKind.FtoFFloor regSize res
+    dst := res
     AST.lmark lblEnd
   }
 
@@ -2447,20 +2497,20 @@ let fqtos ins bld =
     res := AST.cast CastKind.FloatCast regSize op64
     AST.cjmp cond0 (AST.jmpDest lblL0) (AST.jmpDest lblL1)
     AST.lmark lblL0
-    dst := AST.cast CastKind.FtoFRound regSize res
+    dst := res
     AST.jmp (AST.jmpDest lblEnd)
     AST.lmark lblL1
     AST.cjmp cond1 (AST.jmpDest lblL2) (AST.jmpDest lblL3)
     AST.lmark lblL2
-    dst := AST.cast CastKind.FtoFTrunc regSize res
+    dst := res
     AST.jmp (AST.jmpDest lblEnd)
     AST.lmark lblL3
     AST.cjmp cond2 (AST.jmpDest lblL4) (AST.jmpDest lblL5)
     AST.lmark lblL4
-    dst := AST.cast CastKind.FtoFCeil regSize res
+    dst := res
     AST.jmp (AST.jmpDest lblEnd)
     AST.lmark lblL5
-    dst := AST.cast CastKind.FtoFFloor regSize res
+    dst := res
     AST.lmark lblEnd
   }
 
@@ -2497,20 +2547,20 @@ let fsubs ins bld =
     res := (AST.fsub src src1)
     AST.cjmp cond0 (AST.jmpDest lblL0) (AST.jmpDest lblL1)
     AST.lmark lblL0
-    dst := AST.cast CastKind.FtoFRound regSize (res)
+    dst := res
     AST.jmp (AST.jmpDest lblEnd)
     AST.lmark lblL1
     AST.cjmp cond1 (AST.jmpDest lblL2) (AST.jmpDest lblL3)
     AST.lmark lblL2
-    dst := AST.cast CastKind.FtoFTrunc regSize (res)
+    dst := res
     AST.jmp (AST.jmpDest lblEnd)
     AST.lmark lblL3
     AST.cjmp cond2 (AST.jmpDest lblL4) (AST.jmpDest lblL5)
     AST.lmark lblL4
-    dst := AST.cast CastKind.FtoFCeil regSize (res)
+    dst := res
     AST.jmp (AST.jmpDest lblEnd)
     AST.lmark lblL5
-    dst := AST.cast CastKind.FtoFFloor regSize (res)
+    dst := res
     AST.lmark lblEnd
   }
 
@@ -2540,20 +2590,20 @@ let fsubd ins bld =
     res := (AST.fsub op op1)
     AST.cjmp cond0 (AST.jmpDest lblL0) (AST.jmpDest lblL1)
     AST.lmark lblL0
-    rounded := AST.cast CastKind.FtoFRound regSize (res)
+    rounded := res
     AST.jmp (AST.jmpDest lblEnd)
     AST.lmark lblL1
     AST.cjmp cond1 (AST.jmpDest lblL2) (AST.jmpDest lblL3)
     AST.lmark lblL2
-    rounded := AST.cast CastKind.FtoFTrunc regSize (res)
+    rounded := res
     AST.jmp (AST.jmpDest lblEnd)
     AST.lmark lblL3
     AST.cjmp cond2 (AST.jmpDest lblL4) (AST.jmpDest lblL5)
     AST.lmark lblL4
-    rounded := AST.cast CastKind.FtoFCeil regSize (res)
+    rounded := res
     AST.jmp (AST.jmpDest lblEnd)
     AST.lmark lblL5
-    rounded := AST.cast CastKind.FtoFFloor regSize (res)
+    rounded := res
     AST.lmark lblEnd
     setDFloatOp bld dst rounded
   }
@@ -2586,20 +2636,20 @@ let fxtos ins bld =
     res := (AST.cast CastKind.SIntToFloat oprSize op)
     AST.cjmp cond0 (AST.jmpDest lblL0) (AST.jmpDest lblL1)
     AST.lmark lblL0
-    dst := (AST.cast (CastKind.FtoFRound) oprSize res)
+    dst := res
     AST.jmp (AST.jmpDest lblEnd)
     AST.lmark lblL1
     AST.cjmp cond1 (AST.jmpDest lblL2) (AST.jmpDest lblL3)
     AST.lmark lblL2
-    dst := (AST.cast (CastKind.FtoFTrunc) oprSize (res))
+    dst := res
     AST.jmp (AST.jmpDest lblEnd)
     AST.lmark lblL3
     AST.cjmp cond2 (AST.jmpDest lblL4) (AST.jmpDest lblL5)
     AST.lmark lblL4
-    dst := (AST.cast (CastKind.FtoFCeil) oprSize (res))
+    dst := res
     AST.jmp (AST.jmpDest lblEnd)
     AST.lmark lblL5
-    dst := (AST.cast (CastKind.FtoFFloor) oprSize (res))
+    dst := res
     AST.lmark lblEnd
   }
 
@@ -2625,20 +2675,20 @@ let fitos ins bld =
     res := AST.cast CastKind.SIntToFloat oprSize src
     AST.cjmp cond0 (AST.jmpDest lblL0) (AST.jmpDest lblL1)
     AST.lmark lblL0
-    dst := AST.cast CastKind.FtoFRound regSize (res)
+    dst := res
     AST.jmp (AST.jmpDest lblEnd)
     AST.lmark lblL1
     AST.cjmp cond1 (AST.jmpDest lblL2) (AST.jmpDest lblL3)
     AST.lmark lblL2
-    dst := AST.cast CastKind.FtoFTrunc regSize (res)
+    dst := res
     AST.jmp (AST.jmpDest lblEnd)
     AST.lmark lblL3
     AST.cjmp cond2 (AST.jmpDest lblL4) (AST.jmpDest lblL5)
     AST.lmark lblL4
-    dst := AST.cast CastKind.FtoFCeil regSize (res)
+    dst := res
     AST.jmp (AST.jmpDest lblEnd)
     AST.lmark lblL5
-    dst := AST.cast CastKind.FtoFFloor regSize (res)
+    dst := res
     AST.lmark lblEnd
   }
 
@@ -2879,8 +2929,11 @@ let ldstub ins bld =
   lift bld ins {
     let struct (addr, dst) = transAddrThreeOprs ins bld
     let oprSize = 64<rt>
-    dst := (AST.zext oprSize (AST.loadBE 8<rt> addr))
-    (AST.loadBE 8<rt> addr) := (numI32 0xff 8<rt>)
+    let ea = tmpVar bld oprSize
+    (* the address is fixed before rd changes: rd may be the base register *)
+    ea := addr
+    dst := (AST.zext oprSize (AST.loadBE 8<rt> ea))
+    (AST.loadBE 8<rt> ea) := (numI32 0xff 8<rt>)
   }
 
 let ldstuba ins bld =
@@ -3082,6 +3135,8 @@ let mulscc ins bld =
       (AST.extract y 31<rt> 1)
     hbyte := getConditionCodeMulscc res src32 src2
     AST.extract ccr 4<rt> 0 := hbyte
+    AST.extract ccr 4<rt> 4 :=
+      AST.ite (res == AST.num0 64<rt>) (numI32 4 4<rt>) (AST.num0 4<rt>)
   }
 
 let mulx ins bld =
@@ -3093,6 +3148,14 @@ let mulx ins bld =
 
 let nop (ins: Instruction) bld =
   lift bld ins {
+  }
+
+/// An implementation-dependent instruction: IMPDEP1 is where a CPU keeps its
+/// own extensions, such as the VIS operations this lifter does not model, and
+/// IMPDEP2 is reserved. Neither has a meaning the architecture defines.
+let unsupported (ins: Instruction) bld =
+  lift bld ins {
+    AST.sideEffect UnsupportedInstruction
   }
 
 let ``or`` ins bld =
@@ -3366,7 +3429,7 @@ let sdiv ins bld =
     let saturated =
       AST.ite ((AST.sext 64<rt> lo) == quotient) (AST.sext 64<rt> lo)
         (AST.ite (AST.extract quotient 1<rt> 63 == AST.b1)
-                 (numU64 0x80000000UL 64<rt>)
+                 (numU64 0xffffffff80000000UL 64<rt>)
                  (numU64 0x7fffffffUL 64<rt>))
     divisor := AST.extract src1 32<rt> 0
     dividend := AST.concat (AST.extract y 32<rt> 0)
@@ -3427,7 +3490,7 @@ let sdivcc ins bld =
       quotient := dividend ?/ (AST.sext 64<rt> divisor)
       dst := saturated
       AST.extract ccr 1<rt> 1 := AST.ite fits (AST.b0) (AST.b1)
-    setDivCC bld ccr quotient
+    setDivCC bld ccr saturated
   }
 
 let sdivx ins bld =
@@ -3825,7 +3888,7 @@ let udivcc ins bld =
       quotient := dividend ./ (AST.zext 64<rt> divisor)
       dst := saturated
       AST.extract ccr 1<rt> 1 := AST.ite fits (AST.b0) (AST.b1)
-    setDivCC bld ccr quotient
+    setDivCC bld ccr saturated
   }
 
 let udivx ins bld =
@@ -3888,7 +3951,11 @@ let umulcc ins bld =
 let wr ins bld =
   lift bld ins {
     let struct (src, src1, reg) = transThreeOprs ins bld
-    reg := src <+> src1
+    let value = src <+> src1
+    if reg = regVar bld Register.CCR || reg = regVar bld Register.ASI then
+      reg := AST.zext 64<rt> (AST.extract value 8<rt> 0)
+    else
+      reg := value
   }
 
 let xor ins bld =

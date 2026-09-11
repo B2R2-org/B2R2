@@ -140,12 +140,17 @@ let private mapOne bld w d x f =
 /// Applies an operation to every triple of matching elements.
 let private mapTriple bld w d x y z f =
   append bld {
-    let n = lanes w
-    let ts = Array.init n (fun _ -> tmpVar bld w)
-    for i in 0 .. n - 1 do
-      ts[i] := f (lane x w i) (lane y w i) (lane z w i)
-    for i in 0 .. n - 1 do
-      lane d w i := ts[i]
+    if bitsOf w = 128 then
+      let t = tmpVar bld 128<rt>
+      t := f (whole x) (whole y) (whole z)
+      setWhole bld d t
+    else
+      let n = lanes w
+      let ts = Array.init n (fun _ -> tmpVar bld w)
+      for i in 0 .. n - 1 do
+        ts[i] := f (lane x w i) (lane y w i) (lane z w i)
+      for i in 0 .. n - 1 do
+        lane d w i := ts[i]
   }
 
 /// An element all of whose bits are one, which is what a comparison that holds
@@ -323,7 +328,7 @@ let elementImm ins bld w =
     let o = oprArray ins
     let v = vec bld o[0]
     let i = int (oprMask o[2]) % lanes w
-    lane v w i := numI64 (numOf o[1]) w
+    lane v w i := numI64 (int64 (int16 (numOf o[1]))) w
   }
 
 /// VECTOR LOAD LOGICAL ELEMENT AND ZERO: one unit of storage goes to the lane
@@ -336,7 +341,7 @@ let loadLogicalZero ins bld =
     let w = if m = 6us then 32<rt> else esize m
     let idx =
       if m = 6us then
-        1
+        0
       elif bitsOf w = 64 then
         0
       else
@@ -462,7 +467,7 @@ let replicateImm ins bld =
     let d = vec bld o[0]
     let w = esize (oprMask o[2])
     for i in 0 .. lanes w - 1 do
-      lane d w i := numI64 (numOf o[1]) w
+      lane d w i := numI64 (int64 (int16 (numOf o[1]))) w
   }
 
 /// VECTOR LOAD RIGHTMOST WITH LENGTH and its store, which put the bytes at the
@@ -524,6 +529,24 @@ let loadReversed ins bld byElement =
       for i in 0 .. n - 1 do
         let at = addr .+ numG (int64 (i * bytes))
         lane d w i := reverse w (loadMem w at)
+  }
+
+/// VECTOR LOAD ELEMENTS REVERSED and VECTOR STORE ELEMENTS REVERSED: the
+/// elements change places, the leftmost with the rightmost, each keeping the
+/// order of its own bytes.
+let elementsReversed ins bld isLoad =
+  lift bld (ins: Instruction) {
+    let o = oprArray ins
+    let v = vec bld o[0]
+    let w = esize (oprMask o[2])
+    let addr = tmpVar bld GRSize
+    addr := transMem bld o[1]
+    let n = lanes w
+    let bytes = bitsOf w / 8
+    for i in 0 .. n - 1 do
+      let at = addr .+ numG (int64 ((n - 1 - i) * bytes))
+      if isLoad then lane v w i := loadMem w at
+      else storeMem at (lane v w i)
   }
 
 let storeReversed ins bld byElement =
@@ -622,11 +645,13 @@ let addCarryCompute ins bld =
     let w = esize (oprMask o[4])
     mapTriple bld w (vec bld o[0]) (vec bld o[1]) (vec bld o[2]) (vec bld o[3])
       (fun a b c ->
+        (* the carries are 1-bit selections widened afterwards: a quadword
+           element must not ask an emulator for a 128-bit select *)
         let cin = c .& AST.num1 w
         let s = a .+ b
-        let carry1 = AST.ite (s .< a) (AST.num1 w) (AST.num0 w)
+        let carry1 = AST.zext w (AST.ite (s .< a) AST.b1 AST.b0)
         let s2 = s .+ cin
-        let carry2 = AST.ite (s2 .< s) (AST.num1 w) (AST.num0 w)
+        let carry2 = AST.zext w (AST.ite (s2 .< s) AST.b1 AST.b0)
         carry1 .| carry2)
   }
 
@@ -650,7 +675,7 @@ let subBorrowCompute ins bld =
     mapTriple bld w (vec bld o[0]) (vec bld o[1]) (vec bld o[2]) (vec bld o[3])
       (fun a b c ->
         let bin = AST.num1 w .- (c .& AST.num1 w)
-        AST.ite (a .>= (b .+ bin)) (AST.num1 w) (AST.num0 w))
+        AST.zext w (AST.ite (a .>= (b .+ bin)) AST.b1 AST.b0))
   }
 
 /// The averaging adds, which round the halved sum away from zero.
@@ -670,6 +695,13 @@ let private mulHigh signed (w: RegType) a b =
   let wide = w * 2
   let ext = if signed then AST.sext else AST.zext
   AST.xthi w (ext wide a .* ext wide b)
+
+/// The high half of a product with a widened addend, which is what the
+/// multiply-and-add-high forms keep.
+let private mulAddHigh signed (w: RegType) a b c =
+  let wide = w * 2
+  let ext = if signed then AST.sext else AST.zext
+  AST.xthi w (ext wide a .* ext wide b .+ ext wide c)
 
 /// The multiplies that widen: the even or the odd lanes of the sources make
 /// products twice as wide, so half as many of them.
@@ -828,7 +860,7 @@ let bitPermute ins bld =
       acc := (acc << AST.num1 16<rt>) .| bit
     d.Hi := AST.num0 GRSize
     d.Lo := AST.num0 GRSize
-    lane d 16<rt> 7 := acc
+    lane d 16<rt> 3 := acc
   }
 
 /// The bit-counting operations, each written as the fixed sequence of masked
@@ -858,7 +890,7 @@ let private popcount (w: RegType) e =
 let private countZeros leading (w: RegType) e =
   let bits = bitsOf w
   let mutable acc = numI32 bits w
-  for i in 0 .. bits - 1 do
+  for i in bits - 1 .. -1 .. 0 do
     let pos = if leading then bits - 1 - i else i
     let bit = (e >> numI32 pos w) .& AST.num1 w
     acc <- AST.ite (bit == AST.num1 w) (numI32 i w) acc
@@ -1045,34 +1077,80 @@ let private setIndex bld w d found idx =
 /// equal" form, the first that differs -- decides. A zero lane counts as the
 /// end of a string when the mask says so, which is what makes these the whole
 /// of a vector strlen or strchr.
+/// The search VFEE, VFENE and VFAE share. Given what makes a lane of the
+/// second operand match, the result is the byte index of the first matching
+/// lane -- or of the first zero lane when the mask asks for a zero search,
+/// whichever comes first -- and 16 when there is neither. The condition code,
+/// when asked for, is 3 for neither, 1 for a match with no zero anywhere, 2
+/// for a match ahead of the first zero, and 0 for a zero ahead of (or in the
+/// same lane as) any match.
+let private searchLanes bld w (o: Operand[]) (m5: Mask) matchAt =
+  let zeroSearch = m5 &&& 2us <> 0us
+  let maskResult = m5 &&& 4us <> 0us
+  let d = vec bld o[0]
+  let x = vec bld o[1]
+  let n = lanes w
+  let bytes = bitsOf w / 8
+  let none = numG 16L
+  let idxM = tmpVar bld GRSize
+  let idxZ = tmpVar bld GRSize
+  let ts = Array.init n (fun _ -> tmpVar bld w)
+  append bld {
+    idxM := none
+    idxZ := none
+    for i in n - 1 .. -1 .. 0 do
+      idxM := AST.ite (matchAt i) (numG (int64 (i * bytes))) idxM
+      if zeroSearch then
+        let zero = lane x w i == AST.num0 w
+        idxZ := AST.ite zero (numG (int64 (i * bytes))) idxZ
+      else
+        ()
+    if maskResult then
+      for i in 0 .. n - 1 do
+        ts[i] := AST.ite (matchAt i) (allOnes w) (AST.num0 w)
+      for i in 0 .. n - 1 do
+        lane d w i := ts[i]
+    else
+      let first = AST.ite (idxZ .< idxM) idxZ idxM
+      setIndex bld w d (first != none) first
+    if wantsCC m5 then
+      let ahead = AST.ite (idxM .< idxZ) (numCC 2) (numCC 0)
+      let noZero = AST.ite (idxZ == none) (numCC 1) ahead
+      ccVar bld := AST.ite ((idxM == none) .& (idxZ == none)) (numCC 3) noZero
+    else
+      ()
+  }
+
+/// VECTOR FIND ELEMENT EQUAL and NOT EQUAL: lane against lane.
 let findElement ins bld wantEqual =
   lift bld (ins: Instruction) {
     let o = oprArray ins
     let w = esize (oprMask o[3])
     let m5 = if Array.length o > 4 then oprMask o[4] else 0us
-    let zeroSearch = m5 &&& 2us <> 0us
-    let cc = wantsCC m5
-    let d = vec bld o[0]
+    let x = vec bld o[1]
+    let y = vec bld o[2]
+    let matchAt i =
+      if wantEqual then lane x w i == lane y w i
+      else lane x w i != lane y w i
+    searchLanes bld w o m5 matchAt
+  }
+
+/// VECTOR FIND ANY ELEMENT EQUAL: a lane of the second operand matches when
+/// it equals any lane of the third (or none of them, with the invert bit).
+/// The result-type bit asks for a mask of matching lanes instead of an index.
+let findAnyElement ins bld =
+  lift bld (ins: Instruction) {
+    let o = oprArray ins
+    let w = esize (oprMask o[3])
+    let m5 = if Array.length o > 4 then oprMask o[4] else 0us
+    let invert = m5 &&& 8us <> 0us
     let x = vec bld o[1]
     let y = vec bld o[2]
     let n = lanes w
-    let bytes = bitsOf w / 8
-    let idx = tmpVar bld GRSize
-    let hit = tmpVar bld 1<rt>
-    idx := numG 16L
-    hit := AST.b0
-    for i in n - 1 .. -1 .. 0 do
-      let a = lane x w i
-      let b = lane y w i
-      let same = if wantEqual then a == b else a != b
-      let cond = if zeroSearch then same .| (a == AST.num0 w) else same
-      idx := AST.ite cond (numG (int64 (i * bytes))) idx
-      hit := AST.ite cond AST.b1 hit
-    setIndex bld w d (hit == AST.b1) idx
-    if cc then
-      append bld { ccVar bld := AST.ite (hit == AST.b1) (numCC 1) (numCC 3) }
-    else
-      ()
+    let anyEqual i =
+      [ for j in 0 .. n - 1 -> lane x w i == lane y w j ] |> List.reduce (.|)
+    let matchAt i = if invert then AST.not (anyEqual i) else anyEqual i
+    searchLanes bld w o m5 matchAt
   }
 
 /// VECTOR ISOLATE STRING, which keeps every lane up to the first zero one and
@@ -1108,62 +1186,114 @@ let stringRangeCompare ins bld =
     let o = oprArray ins
     let w = esize (oprMask o[4])
     let m6 = if Array.length o > 5 then oprMask o[5] else 0us
-    let d = vec bld o[0]
+    let invert = m6 &&& 8us <> 0us
     let x = vec bld o[1]
     let y = vec bld o[2]
     let z = vec bld o[3]
     let n = lanes w
-    let bytes = bitsOf w / 8
-    let idx = tmpVar bld GRSize
-    let hit = tmpVar bld 1<rt>
-    idx := numG 16L
-    hit := AST.b0
-    for i in n - 1 .. -1 .. 0 do
-      (* Each pair of lanes of the second and third operands gives a range and
-         the controls that say which ends of it count; a lane of the first
-         operand in range is a match. *)
+    let top = bitsOf w - 1
+    (* the three leftmost bits of a control lane ask for equal, lower, higher *)
+    let control c k = AST.extract c 1<rt> (top - k) == AST.b1
+    let holds a j =
+      let b = lane y w j
+      let c = lane z w j
+      (control c 0 .& (a == b)) .| (control c 1 .& (a .< b))
+      .| (control c 2 .& (a .> b))
+    let inRange i =
       let a = lane x w i
-      let lo = lane y w i
-      let ctl = lane z w i
-      let ge = (ctl .& numI64 0x80L w) == AST.num0 w
-      let cond = AST.ite ge (a .>= lo) (a .<= lo)
-      idx := AST.ite cond (numG (int64 (i * bytes))) idx
-      hit := AST.ite cond AST.b1 hit
-    setIndex bld w d (hit == AST.b1) idx
-    if wantsCC m6 then
-      ccVar bld := AST.ite (hit == AST.b1) (numCC 1) (numCC 3)
+      [ for j in 0 .. 2 .. n - 2 -> holds a j .& holds a (j + 1) ]
+      |> List.reduce (.|)
+    let matchAt i = if invert then AST.not (inRange i) else inRange i
+    searchLanes bld w o m6 matchAt
+  }
+
+/// VECTOR STRING SEARCH: the substring in the third operand, as long as byte 7
+/// of the fourth says (in bytes), is looked for in the second. The result is
+/// the byte index of the leftmost place it starts, 16 when it does not, and
+/// the code tells a full match (2) from one cut off by the end of the vector
+/// (3), from none (0), and, with the zero search, from one that begins after
+/// the string's terminating zero (1) -- the search then also stops the
+/// substring at its own first zero.
+/// The substring length of a string search, in lanes: byte 7 of the fourth
+/// operand in bytes, and with the zero search no more than the vector holds
+/// and cut at the substring's own first zero lane.
+let private substringLength bld w y z zeroSearch len =
+  let n = lanes w
+  let es = int64 (System.Numerics.BitOperations.Log2(uint32 (bitsOf w / 8)))
+  append bld {
+    len := zextTo GRSize (lane z 8<rt> 7) >> numG es
+    if zeroSearch then
+      len := AST.ite (len .> numG (int64 n)) (numG (int64 n)) len
+      for i in n - 1 .. -1 .. 0 do
+        let ends = (lane y w i == AST.num0 w) .& (numG (int64 i) .< len)
+        len := AST.ite ends (numG (int64 i)) len
     else
       ()
   }
 
+/// The lane of the first zero of a vector, or the lane count when the zero
+/// search is off or finds none.
+let private firstZeroLane bld w x zeroSearch str0 =
+  let n = lanes w
+  append bld {
+    str0 := numG (int64 n)
+    if zeroSearch then
+      for i in n - 1 .. -1 .. 0 do
+        str0 := AST.ite (lane x w i == AST.num0 w) (numG (int64 i)) str0
+    else
+      ()
+  }
+
+/// The leftmost lane where the substring starts to match, and whether the
+/// match is complete before the vector ends.
+let private substringAt bld w x y len idx full =
+  let n = lanes w
+  append bld {
+    idx := numG (int64 n)
+    full := AST.b0
+    for k in n - 1 .. -1 .. 0 do
+      let mutable cond = AST.b1
+      for j in k .. n - 1 do
+        let inRange = numG (int64 (j - k)) .< len
+        let same = lane x w j == lane y w (j - k)
+        cond <- cond .& (AST.ite inRange same AST.b1)
+      idx := AST.ite cond (numG (int64 k)) idx
+      full := AST.ite cond (numG (int64 k) .+ len .<= numG (int64 n)) full
+  }
+
+/// VECTOR STRING SEARCH: the substring in the third operand, as long as byte 7
+/// of the fourth says (in bytes), is looked for in the second. The result is
+/// the byte index of the leftmost place it starts, 16 when it does not, and
+/// the code tells a full match (2) from one cut off by the end of the vector
+/// (3), from none (0), and, with the zero search, from one that begins after
+/// the string's terminating zero (1).
 let stringSearch ins bld =
   lift bld (ins: Instruction) {
     let o = oprArray ins
     let w = esize (oprMask o[4])
+    let m6 = if Array.length o > 5 then oprMask o[5] else 0us
+    let zeroSearch = m6 &&& 2us <> 0us
     let d = vec bld o[0]
     let x = vec bld o[1]
     let y = vec bld o[2]
-    let z = vec bld o[3]
-    let n = lanes w
-    let bytes = bitsOf w / 8
+    let count = numG (int64 (lanes w))
     let len = tmpVar bld GRSize
+    let str0 = tmpVar bld GRSize
     let idx = tmpVar bld GRSize
-    let hit = tmpVar bld 1<rt>
-    len := zextTo GRSize (lane z 8<rt> 7)
-    idx := numG 16L
-    hit := AST.b0
-    for start in n - 1 .. -1 .. 0 do
-      (* A match at this lane means every lane of the substring, as far as its
-         length reaches within the vector, agrees. *)
-      let mutable cond = AST.b1
-      for k in 0 .. n - 1 - start do
-        let inRange = numG (int64 k) .< len
-        let same = lane x w (start + k) == lane y w k
-        cond <- cond .& (AST.ite inRange same AST.b1)
-      idx := AST.ite cond (numG (int64 (start * bytes))) idx
-      hit := AST.ite cond AST.b1 hit
-    setIndex bld w d (hit == AST.b1) idx
-    ccVar bld := AST.ite (hit == AST.b1) (numCC 2) (numCC 3)
+    let full = tmpVar bld 1<rt>
+    substringLength bld w y (vec bld o[3]) zeroSearch len
+    firstZeroLane bld w x zeroSearch str0
+    substringAt bld w x y len idx full
+    let none = idx == count
+    let ignored = idx .> str0
+    let ccNone = AST.ite (str0 == count) (numCC 0) (numCC 1)
+    let ccHit = AST.ite ignored (numCC 1) (AST.ite full (numCC 2) (numCC 3))
+    let empty = len == AST.num0 GRSize
+    let found = AST.ite ignored count idx
+    let bytes = numG (int64 (bitsOf w / 8))
+    d.Hi := AST.ite empty (AST.num0 GRSize) (found .* bytes)
+    d.Lo := AST.num0 GRSize
+    ccVar bld := AST.ite empty (numCC 2) (AST.ite none ccNone ccHit)
   }
 
 /// VECTOR PACK, which halves the width of every lane by dropping its left half,
@@ -1184,6 +1314,51 @@ let pack ins bld =
       ts[n / 2 + i] := AST.xtlo narrow (lane y w i)
     for i in 0 .. n - 1 do
       lane d narrow i := ts[i]
+  }
+
+/// VECTOR PACK SATURATE and VECTOR PACK LOGICAL SATURATE: a lane that does
+/// not fit the narrower width becomes its nearest bound, and the condition
+/// code, when asked for, tells whether no lane, some, or every lane had to.
+let packSaturate ins bld signed =
+  lift bld (ins: Instruction) {
+    let o = oprArray ins
+    let w = esize (oprMask o[3])
+    let m5 = if Array.length o > 4 then oprMask o[4] else 0us
+    let narrow = w / 2
+    let nb = bitsOf narrow
+    let d = vec bld o[0]
+    let x = vec bld o[1]
+    let y = vec bld o[2]
+    let n = lanes narrow
+    let ts = Array.init n (fun _ -> tmpVar bld narrow)
+    let sat = Array.init n (fun _ -> tmpVar bld 1<rt>)
+    let clamp v =
+      if signed then
+        let top = numI64 ((1L <<< (nb - 1)) - 1L) w
+        let bottom = numI64 (-(1L <<< (nb - 1))) w
+        let over = v ?> top
+        let under = v ?< bottom
+        let low = AST.ite under (AST.xtlo narrow bottom) (AST.xtlo narrow v)
+        struct (AST.ite over (AST.xtlo narrow top) low, over .| under)
+      else
+        let top = numU64 ((1UL <<< nb) - 1UL) w
+        let over = v .> top
+        struct (AST.ite over (AST.xtlo narrow top) (AST.xtlo narrow v), over)
+    for i in 0 .. n / 2 - 1 do
+      let struct (r, sx) = clamp (lane x w i)
+      ts[i] := r
+      sat[i] := sx
+      let struct (r, sy) = clamp (lane y w i)
+      ts[n / 2 + i] := r
+      sat[n / 2 + i] := sy
+    for i in 0 .. n - 1 do
+      lane d narrow i := ts[i]
+    if wantsCC m5 then
+      let any = sat |> Array.reduce (.|)
+      let all = sat |> Array.reduce (.&)
+      ccVar bld := AST.ite all (numCC 3) (AST.ite any (numCC 1) (numCC 0))
+    else
+      ()
   }
 
 /// VECTOR UNPACK, which doubles the width of the lanes at one end of the
@@ -1285,10 +1460,11 @@ let select ins bld =
 let signExtendDoubleword ins bld =
   lift bld (ins: Instruction) {
     let o = oprArray ins
+    let w = esize (oprMask o[2])
     let d = vec bld o[0]
     let x = vec bld o[1]
-    d.Hi := AST.sext GRSize (AST.xtlo 8<rt> x.Hi)
-    d.Lo := AST.sext GRSize (AST.xtlo 8<rt> x.Lo)
+    d.Hi := AST.sext GRSize (AST.xtlo w x.Hi)
+    d.Lo := AST.sext GRSize (AST.xtlo w x.Lo)
   }
 
 /// An instruction of the facility this lifter does not model: the vector
@@ -1372,11 +1548,11 @@ let translate (ins: Instruction) bld =
   | Opcode.VLBR ->
     loadReversed ins bld true
   | Opcode.VLER ->
-    loadReversed ins bld true
+    elementsReversed ins bld true
   | Opcode.VSTBR ->
     storeReversed ins bld true
   | Opcode.VSTER ->
-    storeReversed ins bld true
+    elementsReversed ins bld false
   | Opcode.VLBRREP ->
     loadReversedReplicate ins bld
   | Opcode.VLLEBRZ ->
@@ -1400,15 +1576,15 @@ let translate (ins: Instruction) bld =
   | Opcode.VX ->
     binaryAt ins bld 128<rt> (<+>)
   | Opcode.VNC ->
-    binaryAt ins bld 128<rt> (fun a b -> a .& AST.not b)
+    binaryAt ins bld 64<rt> (fun a b -> a .& AST.not b)
   | Opcode.VOC ->
-    binaryAt ins bld 128<rt> (fun a b -> a .| AST.not b)
+    binaryAt ins bld 64<rt> (fun a b -> a .| AST.not b)
   | Opcode.VNO ->
-    binaryAt ins bld 128<rt> (fun a b -> AST.not (a .| b))
+    binaryAt ins bld 64<rt> (fun a b -> AST.not (a .| b))
   | Opcode.VNN ->
-    binaryAt ins bld 128<rt> (fun a b -> AST.not (a .& b))
+    binaryAt ins bld 64<rt> (fun a b -> AST.not (a .& b))
   | Opcode.VNX ->
-    binaryAt ins bld 128<rt> (fun a b -> AST.not (a <+> b))
+    binaryAt ins bld 64<rt> (fun a b -> AST.not (a <+> b))
   | Opcode.VSEL ->
     select ins bld
   | Opcode.VA ->
@@ -1483,9 +1659,9 @@ let translate (ins: Instruction) bld =
   | Opcode.VMAL ->
     mulAdd ins bld (fun _ a b c -> (a .* b) .+ c)
   | Opcode.VMAH ->
-    mulAdd ins bld (fun w a b c -> mulHigh true w a b .+ c)
+    mulAdd ins bld (fun w a b c -> mulAddHigh true w a b c)
   | Opcode.VMALH ->
-    mulAdd ins bld (fun w a b c -> mulHigh false w a b .+ c)
+    mulAdd ins bld (fun w a b c -> mulAddHigh false w a b c)
   | Opcode.VSUM ->
     sumAcross ins bld 32<rt>
   | Opcode.VSUMG ->
@@ -1574,8 +1750,10 @@ let translate (ins: Instruction) bld =
     elementCompare ins bld false
   | Opcode.VTM ->
     testUnderMask ins bld
-  | Opcode.VFEE | Opcode.VFAE ->
+  | Opcode.VFEE ->
     findElement ins bld true
+  | Opcode.VFAE ->
+    findAnyElement ins bld
   | Opcode.VFENE ->
     findElement ins bld false
   | Opcode.VISTR ->
@@ -1584,8 +1762,12 @@ let translate (ins: Instruction) bld =
     stringRangeCompare ins bld
   | Opcode.VSTRS ->
     stringSearch ins bld
-  | Opcode.VPK | Opcode.VPKS | Opcode.VPKLS ->
+  | Opcode.VPK ->
     pack ins bld
+  | Opcode.VPKS ->
+    packSaturate ins bld true
+  | Opcode.VPKLS ->
+    packSaturate ins bld false
   | Opcode.VMRH ->
     merge ins bld true
   | Opcode.VMRL ->

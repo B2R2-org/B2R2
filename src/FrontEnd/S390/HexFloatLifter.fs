@@ -217,8 +217,16 @@ let convertFormat ins bld fromW toW =
     let struct (o1, o2) = getTwoOprs ins
     let d = oprRegVar bld o1
     let v = tmpVar bld 64<rt>
-    v := toDouble bld fromW (part fromW (oprRegVar bld o2))
-    part toW d := ofDouble bld toW v
+    let src =
+      match o2 with
+      | OpReg r -> part fromW (reg bld r)
+      | _ -> loadMem fromW (transMem bld o2)
+    if fromW = ShortHFP && toW = LongHFP then
+      (* lengthening is exact: the short value followed by a zero fraction *)
+      d := AST.concat src (AST.num0 32<rt>)
+    else
+      v := toDouble bld fromW src
+      part toW d := ofDouble bld toW v
   }
 
 /// LOAD FP INTEGER, which rounds to a whole number without leaving the format.
@@ -260,9 +268,16 @@ let fromInt ins bld w intW =
 
 /// A conversion from a hexadecimal value to a fixed-point one, which also
 /// reports how the value stood against zero.
+/// The first two operands of a conversion, which may carry a rounding-mode
+/// mask as a third.
+let private convOprs (ins: Instruction) =
+  match ins.Operands with
+  | TwoOperands(o1, o2) | ThreeOperands(o1, o2, _) -> struct (o1, o2)
+  | _ -> raise InvalidOperandException
+
 let toInt ins bld w intW =
   lift bld (ins: Instruction) {
-    let struct (o1, o2) = getTwoOprs ins
+    let struct (o1, o2) = convOprs ins
     let d = oprRegVar bld o1
     let v = tmpVar bld 64<rt>
     let t = tmpVar bld intW
@@ -277,7 +292,7 @@ let toInt ins bld w intW =
 /// just the two conversions this module is built on, back to back.
 let toBinary ins bld fromW toW =
   lift bld (ins: Instruction) {
-    let struct (o1, o2) = getTwoOprs ins
+    let struct (o1, o2) = convOprs ins
     let d = oprRegVar bld o1
     let v = tmpVar bld 64<rt>
     v := toDouble bld fromW (part fromW (oprRegVar bld o2))
@@ -289,7 +304,7 @@ let toBinary ins bld fromW toW =
 
 let fromBinary ins bld fromW toW =
   lift bld (ins: Instruction) {
-    let struct (o1, o2) = getTwoOprs ins
+    let struct (o1, o2) = convOprs ins
     let d = oprRegVar bld o1
     let v = tmpVar bld 64<rt>
     let src = oprRegVar bld o2

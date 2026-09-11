@@ -472,10 +472,10 @@ let fcmp ins bld isOrdered =
     let lblNan = label bld "NaN"
     let lblRegular = label bld "Regular"
     let lblEnd = label bld "End"
+    nanFlag := (IEEE754Double.isNaN fra) .| (IEEE754Double.isNaN frb)
     fl := cond1
     fg := cond2
-    fe := AST.ite cond1 AST.b0 (AST.not cond2)
-    nanFlag := (IEEE754Double.isNaN fra) .| (IEEE754Double.isNaN frb)
+    fe := AST.not (cond1 .| cond2 .| nanFlag)
     fu := nanFlag
     AST.cjmp nanFlag (AST.jmpDest lblNan) (AST.jmpDest lblRegular)
     AST.lmark lblNan
@@ -490,9 +490,9 @@ let fcmp ins bld isOrdered =
     crf2 := fe
     crf3 := fu
     AST.lmark lblEnd
-    vxsnan := cond3
+    vxsnan := vxsnan .| cond3
     if isOrdered then
-      vxvc := AST.ite cond3 (AST.ite ve AST.b0 AST.b1) cond4
+      vxvc := vxvc .| AST.ite cond3 (AST.ite ve AST.b0 AST.b1) cond4
     else
       ()
   }
@@ -542,26 +542,63 @@ let fsqrt ins updateCond isDouble bld =
     if updateCond then setCR1Reg bld else ()
   }
 
+/// The double-precision 1.0 the reciprocal estimates divide.
+let private fpOne = numU64 0x3ff0000000000000UL 64<rt>
+
+/// fres, the single-precision reciprocal estimate. The architecture lets the
+/// estimate stray from 1/frB by a part in 256, which no analysis can usefully
+/// model, so the reciprocal itself, rounded to single precision, stands in.
+let fres ins updateCond bld =
+  lift bld ins {
+    let struct (frd, frb) = transTwoOprs ins bld
+    let tmp = tmpVar bld 32<rt>
+    tmp := AST.cast CastKind.FloatCast 32<rt> (AST.fdiv fpOne frb)
+    frd := AST.cast CastKind.FloatCast 64<rt> tmp
+    setFPRF bld frd
+    if updateCond then setCR1Reg bld else ()
+  }
+
+/// frsqrte, the reciprocal square root estimate, taken exactly for the same
+/// reason as fres.
+let frsqrte ins updateCond bld =
+  lift bld ins {
+    let struct (frd, frb) = transTwoOprs ins bld
+    frd := AST.fdiv fpOne (AST.fsqrt frb)
+    setFPRF bld frd
+    if updateCond then setCR1Reg bld else ()
+  }
+
+/// Clamps a word conversion: NaN and anything below the most negative word
+/// give 0x80000000, anything above the largest word gives 0x7fffffff.
+let private saturateWord bld frd frb =
+  append bld {
+    let intMaxInFloat = numU64 0x41dfffffffc00000uL 64<rt>
+    let intMinInFloat = numU64 0xc1e0000000000000uL 64<rt>
+    let intMax = numU64 0x7fffffffUL 64<rt>
+    let intMin = numU64 0x80000000UL 64<rt>
+    frd := AST.ite (IEEE754Double.isNaN frb) intMin frd
+    frd := AST.ite (AST.fle frb intMinInFloat) intMin frd
+    frd := AST.ite (AST.fge frb intMaxInFloat) intMax frd
+  }
+
 let fctiw ins updateCond bld =
   lift bld ins {
-    let tmp = tmpVar bld 64<rt>
     let struct (frd, frb) = transTwoOprs ins bld
-    roundingToCastInt bld frd frb
+    let src = tmpVar bld 64<rt>
+    src := frb
+    roundingToCastInt bld frd src
+    saturateWord bld frd src
     setFPRF bld frd
     if updateCond then setCR1Reg bld else ()
   }
 
 let fctiwz ins updateCond bld =
   lift bld ins {
-    let intMaxInFloat = numU64 0x41dfffffffc00000uL 64<rt>
-    let intMinInFloat = numU64 0xc1e0000000000000uL 64<rt>
-    let intMax = numU64 0x7fffffffUL 64<rt>
-    let intMin = numU64 0x80000000UL 64<rt>
     let struct (frd, frb) = transTwoOprs ins bld
-    frd := AST.cast CastKind.FtoITrunc 64<rt> frb
-    frd := AST.ite (IEEE754Double.isNaN frb) intMin frd
-    frd := AST.ite (AST.fle frb intMinInFloat) intMin frd
-    frd := AST.ite (AST.fge frb intMaxInFloat) intMax frd
+    let src = tmpVar bld 64<rt>
+    src := frb
+    frd := AST.cast CastKind.FtoITrunc 64<rt> src
+    saturateWord bld frd src
     setFPRF bld frd
     if updateCond then setCR1Reg bld else ()
   }
@@ -634,43 +671,30 @@ let fneg ins updateCond bld =
     if updateCond then setCR1Reg bld else ()
   }
 
-let fnmadd ins updateCond isDouble bld =
+/// The negated multiply-adds: the sign of the result is flipped unless it is a
+/// NaN, which passes through as it is.
+let private fNegatedMulAdd ins updateCond isDouble fnOp bld =
   lift bld ins {
     let struct (frd, fra, frc, frb) = transFourOprs ins bld
+    let res = tmpVar bld 64<rt>
     if isDouble then
-      let res = tmpVar bld 64<rt>
-      res := (AST.fadd (AST.fmul fra frc) frb)
-      floatingNeg bld frd res 64<rt>
+      res := fnOp (AST.fmul fra frc) frb
     else
-      let res = tmpVar bld 32<rt>
-      let nres = tmpVar bld 32<rt>
       let fraS = AST.cast CastKind.FloatCast 32<rt> fra
       let frcS = AST.cast CastKind.FloatCast 32<rt> frc
       let frbS = AST.cast CastKind.FloatCast 32<rt> frb
-      res := (AST.fadd (AST.fmul fraS frcS) frbS)
-      floatingNeg bld nres res 32<rt>
-      frd := AST.cast CastKind.FloatCast 64<rt> nres
+      res := AST.cast CastKind.FloatCast 64<rt> (fnOp (AST.fmul fraS frcS) frbS)
+    let signBit = numU64 0x8000000000000000UL 64<rt>
+    frd := AST.ite (IEEE754Double.isNaN res) res (res <+> signBit)
+    setFPRF bld frd
     if updateCond then setCR1Reg bld else ()
   }
 
+let fnmadd ins updateCond isDouble bld =
+  fNegatedMulAdd ins updateCond isDouble AST.fadd bld
+
 let fnmsub ins updateCond isDouble bld =
-  lift bld ins {
-    let struct (frd, fra, frc, frb) = transFourOprs ins bld
-    if isDouble then
-      let res = tmpVar bld 64<rt>
-      res := (AST.fsub (AST.fmul fra frc) frb)
-      floatingNeg bld frd res 64<rt>
-    else
-      let res = tmpVar bld 32<rt>
-      let nres = tmpVar bld 32<rt>
-      let fraS = AST.cast CastKind.FloatCast 32<rt> fra
-      let frcS = AST.cast CastKind.FloatCast 32<rt> frc
-      let frbS = AST.cast CastKind.FloatCast 32<rt> frb
-      res := (AST.fsub (AST.fmul fraS frcS) frbS)
-      floatingNeg bld nres res 32<rt>
-      frd := AST.cast CastKind.FloatCast 64<rt> nres
-    if updateCond then setCR1Reg bld else ()
-  }
+  fNegatedMulAdd ins updateCond isDouble AST.fsub bld
 
 let fsel ins updateCond bld =
   lift bld ins {
@@ -1013,6 +1037,85 @@ let lwzux ins bld = loadIndexed ins bld 32<rt> AST.zext true
 
 let lwzx ins bld = loadIndexed ins bld 32<rt> AST.zext false
 
+/// eciwx, the external control word read, which fetches a word from the device
+/// the EAR names at (rA|0)+rB. With no device to model, the storage at that
+/// address stands in for it.
+let eciwx ins bld = loadIndexed ins bld 32<rt> AST.zext false
+
+/// The register n places after r, wrapping from r31 around to r0, which is how
+/// the string operations run through the register file.
+let private gprAfter (r: Register) n =
+  getRegister (uint32 ((int r + n) % 32))
+
+/// The word a string load of a known count leaves in one register: its first n
+/// bytes come from ea on, most significant first, and the rest are zero. The
+/// concatenation takes its bytes least significant first, so byte i of the
+/// word is built from position 3 - i.
+let private stringWordN (bld: ILowUIRBuilder) ea n =
+  if n = 4 then
+    loadNative bld 32<rt> ea
+  else
+    Array.init 4 (fun k ->
+      let i = 3 - k
+      if i < n then loadNative bld 8<rt> (ea .+ numI32 i bld.RegType)
+      else AST.num0 8<rt>)
+    |> AST.revConcat
+
+/// The same word when the count is known only at run time: a byte the count
+/// does not reach is zero.
+let private stringWord (bld: ILowUIRBuilder) ea cnt =
+  Array.init 4 (fun k ->
+    let i = 3 - k
+    let inRange = cnt .> numI32 i bld.RegType
+    let byte = loadNative bld 8<rt> (ea .+ numI32 i bld.RegType)
+    AST.ite inRange byte (AST.num0 8<rt>))
+  |> AST.revConcat
+
+/// The base of a string operation: rA, or zero when the field names r0.
+let private stringBase (bld: ILowUIRBuilder) ra =
+  if ra = Register.R0 then AST.num0 bld.RegType else regVar bld ra
+
+/// lswi, which loads NB bytes (32 when NB is zero) from (rA|0) into the low
+/// words of the registers from rD on, wrapping from r31 to r0, and zeroes what
+/// is left of the last word.
+let lswi (ins: Instruction) (bld: ILowUIRBuilder) =
+  lift bld ins {
+    let struct (rd, ra, nb) =
+      match ins.Operands with
+      | ThreeOperands(OprReg rd, OprReg ra, OprImm nb) ->
+        struct (rd, ra, int nb)
+      | _ ->
+        raise InvalidOperandException
+    let n = if nb = 0 then 32 else nb
+    let rt = bld.RegType
+    let ea = tmpVar bld rt
+    ea := stringBase bld ra
+    for i in 0 .. (n + 3) / 4 - 1 do
+      let word = stringWordN bld (ea .+ numI32 (4 * i) rt) (min 4 (n - 4 * i))
+      regVar bld (gprAfter rd i) := AST.zext rt word
+  }
+
+/// lswx, whose byte count is XER[57:63] and so is known only at run time: each
+/// register in turn is loaded once the count reaches it, and a count of zero
+/// loads nothing.
+let lswx (ins: Instruction) (bld: ILowUIRBuilder) =
+  lift bld ins {
+    let struct (rd, ra, rb) =
+      match ins.Operands with
+      | ThreeOperands(OprReg rd, ra, rb) -> struct (rd, ra, rb)
+      | _ -> raise InvalidOperandException
+    let rt = bld.RegType
+    let ea = tmpVar bld rt
+    let cnt = tmpVar bld rt
+    ea := transEAWithIndexReg ra rb bld
+    cnt := AST.zext rt (AST.xtlo 7<rt> (regVar bld Register.XER))
+    for i in 0 .. 31 do
+      let off = numI32 (4 * i) rt
+      let word = stringWord bld (ea .+ off) (cnt .- off)
+      let reg = regVar bld (gprAfter rd i)
+      _when bld "Lswx" (cnt .> off) (block { reg := AST.zext rt word })
+  }
+
 let lwa ins bld = loadOffset ins bld 32<rt> AST.sext false
 
 let lwax ins bld = loadIndexed ins bld 32<rt> AST.sext false
@@ -1035,6 +1138,56 @@ let mcrf ins bld =
     crd1 := crs1
     crd2 := crs2
     crd3 := crs3
+  }
+
+/// Whether an FPSCR bit, numbered from the least significant, is one of the
+/// exception bits: FX and OX through VXVC (bits 0 and 3 to 12 as the
+/// architecture counts them) and VXSOFT, VXSQRT, and VXCVI (bits 21 to 23).
+/// FEX and VX are summaries the hardware recomputes, and the rest are status
+/// and control.
+let private isFPSCRExceptionBit pos =
+  match pos with
+  | 31 | 28 | 27 | 26 | 25 | 24 | 23 | 22 | 21 | 20 | 19 | 10 | 9 | 8 -> true
+  | _ -> false
+
+/// Recomputes the two summary bits of the FPSCR after its other bits have
+/// changed: VX, whether any invalid-operation exception bit is set, and FEX,
+/// whether any exception bit is set together with its enable.
+let private setFPSCRSummary bld =
+  let fpscr = regVar bld Register.FPSCR
+  let bit pos = AST.extract fpscr 1<rt> pos
+  let anyOf ps = List.reduce (.|) (List.map bit ps)
+  let enabled (e, en) = bit e .& bit en
+  append bld {
+    let vx = tmpVar bld 1<rt>
+    vx := anyOf [ 24; 23; 22; 21; 20; 19; 10; 9; 8 ]
+    AST.extract fpscr 1<rt> 29 := vx
+    let others = List.map enabled [ 28, 6; 27, 5; 26, 4; 25, 3 ]
+    AST.extract fpscr 1<rt> 30 := List.reduce (.|) ((vx .& bit 7) :: others)
+  }
+
+/// mcrfs, which copies a four-bit field of the FPSCR into a CR field and then
+/// clears the exception bits it copied, which may clear the VX summary too.
+/// The parser names the FPSCR field as if it were a CR field, so its number is
+/// read off that register.
+let mcrfs (ins: Instruction) bld =
+  lift bld ins {
+    let struct (crd, fld) =
+      match ins.Operands with
+      | TwoOperands(OprReg d, OprReg s) ->
+        struct (transCRxToExpr bld d, int s - int Register.CR0)
+      | _ ->
+        raise InvalidOperandException
+    let crd0, crd1, crd2, crd3 = crd
+    let fpscr = regVar bld Register.FPSCR
+    let hi = 31 - 4 * fld
+    crd0 := AST.extract fpscr 1<rt> hi
+    crd1 := AST.extract fpscr 1<rt> (hi - 1)
+    crd2 := AST.extract fpscr 1<rt> (hi - 2)
+    crd3 := AST.extract fpscr 1<rt> (hi - 3)
+    for pos in List.filter isFPSCRExceptionBit [ hi - 3 .. hi ] do
+      AST.extract fpscr 1<rt> pos := AST.b0
+    setFPSCRSummary bld
   }
 
 let mcrxr ins bld =
@@ -1063,11 +1216,12 @@ let mfctr ins bld =
     dst := ctr
   }
 
-let mffs ins bld =
+let mffs ins updateCond bld =
   lift bld ins {
     let dst = transOneOpr ins bld
     let fpscr = regVar bld Register.FPSCR
     dst := AST.zext 64<rt> fpscr
+    if updateCond then setCR1Reg bld else ()
   }
 
 let mflr ins bld =
@@ -1205,7 +1359,7 @@ let mtfsb1 ins updateCond bld =
     (* Affected: FX *)
   }
 
-let mtfsf ins bld =
+let mtfsf ins updateCond bld =
   lift bld ins {
     let struct (fm, frB) = getTwoOprs ins
     let frB = transOpr bld frB
@@ -1213,7 +1367,12 @@ let mtfsf ins bld =
     let fpscr = regVar bld Register.FPSCR
     let mask = tmpVar bld 32<rt>
     mask := crmMask bld fm
-    fpscr := (AST.xtlo 32<rt> frB .& mask) .| (fpscr .& AST.not mask)
+    (* bit 20 of the FPSCR is reserved and reads as zero *)
+    let reserved = numU32 0xfffff7ffu 32<rt>
+    let merged = (AST.xtlo 32<rt> frB .& mask) .| (fpscr .& AST.not mask)
+    fpscr := merged .& reserved
+    setFPSCRSummary bld
+    if updateCond then setCR1Reg bld else ()
   }
 
 let mtxer ins bld =
@@ -1356,30 +1515,36 @@ let oris ins bld =
     dst := src .| uimm
   }
 
-(* The rotate-word forms all work on the low word of rS and, on a 64-bit part,
-   leave the result's upper word zero -- so the whole thing is a word operation
-   whose result is zero-extended back into a register. *)
+(* The rotate-word forms rotate the low word of rS. On a 64-bit part the
+   rotated word is doubled up into both halves before MASK(mb+32, me+32) is
+   applied, so a wrapping mask (mb > me) lets rotated bits into the high word;
+   on a 32-bit part it is a plain word operation. *)
+let private rotatedWord (bld: ILowUIRBuilder) rs n =
+  let rol = tmpVar bld 32<rt>
+  append bld { rol := rotateLeft (AST.xtlo 32<rt> rs) n }
+  if bld.RegType = 64<rt> then AST.concat rol rol else rol
+
+let private wordMask (bld: ILowUIRBuilder) mb me =
+  if bld.RegType = 64<rt> then getWordMaskIn64 mb me else getExtMask mb me
+
 let rlwinm ins updateCond (bld: ILowUIRBuilder) =
   lift bld ins {
     let struct (ra, rs, sh, mb, me) = transFiveOprs ins bld
-    let rol = tmpVar bld 32<rt>
-    rol := rotateLeft (AST.xtlo 32<rt> rs) (AST.xtlo 32<rt> sh)
-    ra := AST.zext bld.RegType (rol .& (getExtMask mb me))
+    let rol = rotatedWord bld rs (AST.xtlo 32<rt> sh)
+    ra := rol .& wordMask bld mb me
     if updateCond then setCR0Reg bld ra else ()
   }
 
-/// rlwimi merges a rotated word into rA under a mask that covers only the low
-/// word, so unlike the other rotate-word forms it leaves rA's upper word alone
-/// rather than clearing it -- which is what makes it the instruction a compiler
-/// reaches for when it inserts a bit field.
-let rlwimi ins updateCond bld =
+/// rlwimi merges the rotated word into rA under the mask, which is what makes
+/// it the instruction a compiler reaches for when it inserts a bit field.
+let rlwimi ins updateCond (bld: ILowUIRBuilder) =
   lift bld ins {
     let struct (ra, rs, sh, mb, me) = transFiveOprs ins bld
-    let m = getExtMask mb me
-    let rol = rotateLeft (AST.xtlo 32<rt> rs) (AST.xtlo 32<rt> sh)
-    let merged = tmpVar bld 32<rt>
-    merged := (rol .& m) .| (AST.xtlo 32<rt> ra .& AST.not m)
-    AST.xtlo 32<rt> ra := merged
+    let m = wordMask bld mb me
+    let rol = rotatedWord bld rs (AST.xtlo 32<rt> sh)
+    let merged = tmpVar bld bld.RegType
+    merged := (rol .& m) .| (ra .& AST.not m)
+    ra := merged
     if updateCond then setCR0Reg bld ra else ()
   }
 
@@ -1387,9 +1552,8 @@ let rlwnm ins updateCond (bld: ILowUIRBuilder) =
   lift bld ins {
     let struct (ra, rs, rb, mb, me) = transFiveOprs ins bld
     let n = AST.xtlo 32<rt> rb .& numI32 0x1f 32<rt>
-    let rol = tmpVar bld 32<rt>
-    rol := rotateLeft (AST.xtlo 32<rt> rs) n
-    ra := AST.zext bld.RegType (rol .& (getExtMask mb me))
+    let rol = rotatedWord bld rs n
+    ra := rol .& wordMask bld mb me
     if updateCond then setCR0Reg bld ra else ()
   }
 
@@ -1645,6 +1809,26 @@ let stfiwx ins bld =
     loadNative bld 32<rt> tmpEA := AST.xtlo 32<rt> frs
   }
 
+/// The word stfs stores. The architecture splices bits rather than rounding:
+/// a normal double keeps its sign, the two low exponent bits and the top 30
+/// fraction bits; one that only fits a single-precision denormal is
+/// denormalized with truncation; anything smaller becomes a signed zero.
+let singleBits bld frs =
+  let word = tmpVar bld 32<rt>
+  append bld {
+    let exp = (frs >> numI32 52 64<rt>) .& numI32 0x7ff 64<rt>
+    let spliced =
+      ((frs >> numI32 32 64<rt>) .& numU64 0xc0000000UL 64<rt>)
+      .| ((frs >> numI32 29 64<rt>) .& numU64 0x3fffffffUL 64<rt>)
+    let sign = (frs >> numI32 32 64<rt>) .& numU64 0x80000000UL 64<rt>
+    let frac =
+      (frs .& numU64 0xfffffffffffffUL 64<rt>) .| numU64 (1UL <<< 52) 64<rt>
+    let denorm = frac >> (numI32 926 64<rt> .- exp)
+    let small = AST.ite (exp .>= numI32 874 64<rt>) (sign .| denorm) sign
+    word := AST.xtlo 32<rt> (AST.ite (exp .> numI32 896 64<rt>) spliced small)
+  }
+  word
+
 let stfs ins bld =
   lift bld ins {
     let struct (o1, o2) = getTwoOprs ins
@@ -1652,7 +1836,7 @@ let stfs ins bld =
     let frs = transOpr bld o1
     let tmpEA = tmpVar bld bld.RegType
     tmpEA := ea
-    loadNative bld 32<rt> tmpEA := AST.cast CastKind.FloatCast 32<rt> frs
+    loadNative bld 32<rt> tmpEA := singleBits bld frs
   }
 
 let stfsx ins bld =
@@ -1662,7 +1846,7 @@ let stfsx ins bld =
     let frs = transOpr bld o1
     let tmpEA = tmpVar bld bld.RegType
     tmpEA := ea
-    loadNative bld 32<rt> tmpEA := AST.cast CastKind.FloatCast 32<rt> frs
+    loadNative bld 32<rt> tmpEA := singleBits bld frs
   }
 
 let stfsu ins bld =
@@ -1672,7 +1856,7 @@ let stfsu ins bld =
     let frs = transOpr bld o1
     let tmpEA = tmpVar bld bld.RegType
     tmpEA := ea
-    loadNative bld 32<rt> tmpEA := AST.cast CastKind.FloatCast 32<rt> frs
+    loadNative bld 32<rt> tmpEA := singleBits bld frs
     ra := tmpEA
   }
 
@@ -1683,7 +1867,7 @@ let stfsux ins bld =
     let struct (ea, rA) = transEAWithIndexRegForUpdate o2 o3 bld
     let tmpEA = tmpVar bld bld.RegType
     tmpEA := ea
-    loadNative bld 32<rt> tmpEA := AST.cast CastKind.FloatCast 32<rt> frs
+    loadNative bld 32<rt> tmpEA := singleBits bld frs
     rA := tmpEA
   }
 
@@ -1778,6 +1962,52 @@ let stw ins bld = storeOffset ins bld 32<rt> false
 let stwu ins bld = storeOffset ins bld 32<rt> true
 
 let stwx ins bld = storeIndexed ins bld 32<rt> false
+
+/// ecowx, the external control word write, the counterpart of eciwx.
+let ecowx ins bld = storeIndexed ins bld 32<rt> false
+
+/// Byte i of the string a store spells out of the low words of the registers
+/// from rS on: the most significant byte of each word comes first.
+let private stringByte bld rs i =
+  let reg = regVar bld (gprAfter rs (i / 4))
+  AST.extract reg 8<rt> (24 - 8 * (i % 4))
+
+/// stswi, which stores NB bytes (32 when NB is zero) to (rA|0) out of the low
+/// words of the registers from rS on, wrapping from r31 to r0.
+let stswi (ins: Instruction) (bld: ILowUIRBuilder) =
+  lift bld ins {
+    let struct (rs, ra, nb) =
+      match ins.Operands with
+      | ThreeOperands(OprReg rs, OprReg ra, OprImm nb) ->
+        struct (rs, ra, int nb)
+      | _ ->
+        raise InvalidOperandException
+    let n = if nb = 0 then 32 else nb
+    let rt = bld.RegType
+    let ea = tmpVar bld rt
+    ea := stringBase bld ra
+    for i in 0 .. n - 1 do
+      loadNative bld 8<rt> (ea .+ numI32 i rt) := stringByte bld rs i
+  }
+
+/// stswx, whose byte count is XER[57:63]: each byte is stored once the count
+/// reaches it, up to the 127 bytes the field can name.
+let stswx (ins: Instruction) (bld: ILowUIRBuilder) =
+  lift bld ins {
+    let struct (rs, ra, rb) =
+      match ins.Operands with
+      | ThreeOperands(OprReg rs, ra, rb) -> struct (rs, ra, rb)
+      | _ -> raise InvalidOperandException
+    let rt = bld.RegType
+    let ea = tmpVar bld rt
+    let cnt = tmpVar bld rt
+    ea := transEAWithIndexReg ra rb bld
+    cnt := AST.zext rt (AST.xtlo 7<rt> (regVar bld Register.XER))
+    for i in 0 .. 126 do
+      let off = numI32 i rt
+      let dst = loadNative bld 8<rt> (ea .+ off)
+      _when bld "Stswx" (cnt .> off) (block { dst := stringByte bld rs i })
+  }
 
 let stwux ins bld = storeIndexed ins bld 32<rt> true
 
@@ -2141,18 +2371,58 @@ let mtvsrw ins bld signed =
     frs := if signed then AST.sext 64<rt> w else AST.zext 64<rt> w
   }
 
+/// Clamps a conversion to `width` bits: a signed one gives the most negative
+/// integer for NaN and anything below range and the largest for anything
+/// above; an unsigned one gives zero for NaN and negatives and all ones above.
+let private saturateInt bld frd src width signed =
+  let bits = int width
+  let dbl (v: float) = numU64 (System.BitConverter.DoubleToUInt64Bits v) 64<rt>
+  let all = if bits = 64 then System.UInt64.MaxValue else (1UL <<< bits) - 1UL
+  let ones = numU64 all 64<rt>
+  append bld {
+    if signed then
+      let top = numU64 ((1UL <<< (bits - 1)) - 1UL) 64<rt>
+      let bottom = numU64 (1UL <<< (bits - 1)) 64<rt>
+      frd := AST.ite (AST.fge src (dbl (2.0 ** float (bits - 1)))) top frd
+      frd := AST.ite (AST.fle src (dbl (-(2.0 ** float (bits - 1))))) bottom frd
+      frd := AST.ite (IEEE754Double.isNaN src) bottom frd
+    else
+      frd := AST.ite (AST.fge src (dbl (2.0 ** float bits))) ones frd
+      frd := AST.ite (AST.fle src (dbl -1.0)) (AST.num0 64<rt>) frd
+      frd := AST.ite (IEEE754Double.isNaN src) (AST.num0 64<rt>) frd
+  }
+
+/// An unsigned doubleword conversion has to reach past the signed range: values
+/// of 2^63 and up are converted with 2^63 taken off and put back afterwards.
+let private toUInt64 bld dst src truncate =
+  let big = tmpVar bld 1<rt>
+  let adjusted = tmpVar bld 64<rt>
+  let half = numU64 0x43e0000000000000UL 64<rt>
+  append bld {
+    big := AST.fge src half
+    adjusted := AST.ite big (AST.fsub src half) src
+    if truncate then dst := AST.cast CastKind.FtoITrunc 64<rt> adjusted
+    else roundingToCastInt bld dst adjusted
+    dst := AST.ite big (dst .+ numU64 0x8000000000000000UL 64<rt>) dst
+  }
+
 /// fctid/fctidz/fctidu/fctiduz and fctiwu/fctiwuz: a conversion from a double
 /// to an integer of `width` bits, left in the target's low bits. A "z" form
 /// always truncates; the others follow FPSCR[RN].
-let fcti ins updateCond bld width truncate =
+let fcti ins updateCond bld width signed truncate =
   lift bld ins {
     let struct (frd, frb) = transTwoOprs ins bld
-    if truncate then
-      frd := AST.zext 64<rt> (AST.cast CastKind.FtoITrunc width frb)
+    let src = tmpVar bld 64<rt>
+    let converted = tmpVar bld 64<rt>
+    src := frb
+    if not signed && width = 64<rt> then
+      toUInt64 bld converted src truncate
+    elif truncate then
+      converted := AST.cast CastKind.FtoITrunc 64<rt> src
     else
-      let rounded = tmpVar bld 64<rt>
-      roundingToCastInt bld rounded frb
-      frd := AST.zext 64<rt> (AST.xtlo width rounded)
+      roundingToCastInt bld converted src
+    frd := AST.zext 64<rt> (AST.xtlo width converted)
+    saturateInt bld frd src width signed
     if updateCond then setCR1Reg bld else ()
   }
 

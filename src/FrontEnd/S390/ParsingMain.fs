@@ -1840,7 +1840,7 @@ let parseInstLenThree (bin: uint64) =
         | 0xE7AFus -> Op.VMAO, getVR8QVR12QVR16QVR32QMask20 bin, Fmt.VRR
         | 0xE7B4us -> Op.VGFM, getVR8QVR12QVR16QMask32 bin, Fmt.VRR
         | 0xE7B8us -> Op.VMSL, getVR8QVR12QVR16QVR32QMask20Mask24 bin, Fmt.VRR
-        | 0xE7B9us -> Op.VACCC, getVR8QVR12QVR16QVR32Q bin, Fmt.VRR
+        | 0xE7B9us -> Op.VACCC, getVR8QVR12QVR16QVR32QMask20 bin, Fmt.VRR
         | 0xE7BBus -> Op.VAC, getVR8QVR12QVR16QVR32QMask20 bin, Fmt.VRR
         | 0xE7BCus -> Op.VGFMA, getVR8QVR12QVR16QVR32QMask20 bin, Fmt.VRR
         | 0xE7BDus -> Op.VSBCBI, getVR8QVR12QVR16QVR32QMask20 bin, Fmt.VRR

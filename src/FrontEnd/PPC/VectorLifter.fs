@@ -411,8 +411,25 @@ let vecMerge ins bld esize high =
         let pos = if b < 8 then (8 - bytes - b) * 8 else (16 - bytes - b) * 8
         let value =
           Array.init bytes (fun k -> vecByte srcH srcL (src + k))
+          |> Array.rev
           |> AST.revConcat
         AST.extract dst esize pos := value
+    dh := th
+    dl := tl
+  }
+
+/// vmrgew/vmrgow, which take the even (or the odd) words of vA and vB in turn:
+/// words 0 and 2 of each for the even form, words 1 and 3 for the odd.
+let vecMergeWord ins bld even =
+  lift bld ins {
+    let struct (o1, o2, o3) = getThreeOprs ins
+    let struct (dh, dl) = vecHalves bld o1
+    let struct (ah, al) = vecHalves bld o2
+    let struct (bh, bl) = vecHalves bld o3
+    let pick = if even then AST.xthi 32<rt> else AST.xtlo 32<rt>
+    let struct (th, tl) = tmpVars2 bld 64<rt>
+    th := AST.concat (pick ah) (pick bh)
+    tl := AST.concat (pick al) (pick bl)
     dh := th
     dl := tl
   }
@@ -433,6 +450,7 @@ let vecPack ins bld (esize: RegType) =
         Array.init (bytes / 2) (fun k ->
           if src + k < 16 then vecByte ah al (src + k)
           else vecByte bh bl (src + k - 16))
+        |> Array.rev
         |> AST.revConcat
       let b = i * (bytes / 2)
       let dst = if b < 8 then th else tl
@@ -455,7 +473,9 @@ let vecUnpack ins bld (esize: RegType) high =
     for i in 0 .. (8 / bytes) - 1 do
       let src = (if high then 0 else 8) + i * bytes
       let value =
-        Array.init bytes (fun k -> vecByte bh bl (src + k)) |> AST.revConcat
+        Array.init bytes (fun k -> vecByte bh bl (src + k))
+        |> Array.rev
+        |> AST.revConcat
       let b = i * bytes * 2
       let dst = if b < 8 then th else tl
       let pos = if b < 8 then (8 - bytes * 2 - b) * 8
@@ -482,15 +502,23 @@ let vecShiftWhole ins (bld: ILowUIRBuilder) left byOctet =
       n := AST.zext 64<rt> (AST.xtlo 8<rt> bl .& numI32 7 8<rt>)
     (* A 128-bit shift over two halves: each half keeps what stays in it and
        takes what the other half shifts across. A count of zero would shift a
-       whole half's width, which is undefined, so that case is selected out. *)
+       whole half's width, which is undefined, so that case is selected out; a
+       count of 64 or more (vslo/vsro by eight octets or more) moves the other
+       half over entirely. *)
     let zero = n == AST.num0 64<rt>
+    let wide = n .>= numI32 64 64<rt>
     let across = numI32 64 64<rt> .- n
+    let beyond = n .- numI32 64 64<rt>
     if left then
-      th := AST.ite zero ah ((ah << n) .| (al >> across))
-      tl := al << n
+      th := AST.ite wide
+                    (al << beyond)
+                    (AST.ite zero ah ((ah << n) .| (al >> across)))
+      tl := AST.ite wide (AST.num0 64<rt>) (al << n)
     else
-      th := ah >> n
-      tl := AST.ite zero al ((al >> n) .| (ah << across))
+      th := AST.ite wide (AST.num0 64<rt>) (ah >> n)
+      tl := AST.ite wide
+                    (ah >> beyond)
+                    (AST.ite zero al ((al >> n) .| (ah << across)))
     dh := th
     dl := tl
   }
@@ -532,8 +560,8 @@ let vecBitPermute ins bld =
         let one = AST.zext 64<rt> (AST.extract src 1<rt> pos)
         bit <- AST.ite (index == numI32 k 8<rt>) one bit
       res := res .| (bit << numI32 (15 - i) 64<rt>)
-    dh := AST.num0 64<rt>
-    dl := res
+    dh := res
+    dl := AST.num0 64<rt>
   }
 
 /// mfvscr/mtvscr, which move the vector status register to or from the low
@@ -601,26 +629,63 @@ let elementShift (esize: RegType) kind a b =
     (a << n) .| (a >> (width .- n)) (* a rotate, whose zero count is a no-op *)
 (* The VSX scalar forms work on a double in a vector-scalar register's high
    doubleword, which is the same storage the floating-point forms use for
-   VSR0-31; the low doubleword the architecture leaves undefined stays put. *)
+   VSR0-31; the low doubleword of the target is set to zero, as ISA 3.0
+   specifies. *)
 
 /// An "xT, xA, xB" whose operands are the doubles in the sources' high halves.
-let vsxScalarBinary ins bld fnOp =
+/// The arithmetic forms set FPRF; the sign-copying one does not.
+let vsxScalarBinary ins bld fnOp setsFPRF =
   lift bld ins {
     let struct (o1, o2, o3) = getThreeOprs ins
-    let struct (dh, _) = vecHalves bld o1
+    let struct (dh, dl) = vecHalves bld o1
     let struct (ah, _) = vecHalves bld o2
     let struct (bh, _) = vecHalves bld o3
     dh := fnOp ah bh
-    setFPRF bld dh
+    dl := AST.num0 64<rt>
+    if setsFPRF then setFPRF bld dh else ()
   }
 
 /// An "xT, xB" over the double in the source's high half.
-let vsxScalarUnary ins bld fnOp =
+let vsxScalarUnary ins bld fnOp setsFPRF =
   lift bld ins {
     let struct (o1, o2) = getTwoOprs ins
-    let struct (dh, _) = vecHalves bld o1
+    let struct (dh, dl) = vecHalves bld o1
     let struct (bh, _) = vecHalves bld o2
     dh := fnOp bh
+    dl := AST.num0 64<rt>
+    if setsFPRF then setFPRF bld dh else ()
+  }
+
+/// xscvdpspn, the non-signalling double-to-single conversion: the same bit
+/// splice stfs performs, placed in words 0 and 1 of the target.
+let xscvdpspn ins bld =
+  lift bld ins {
+    let struct (o1, o2) = getTwoOprs ins
+    let struct (dh, dl) = vecHalves bld o1
+    let struct (bh, _) = vecHalves bld o2
+    let word = singleBits bld bh
+    dh := AST.concat word word
+    dl := AST.num0 64<rt>
+  }
+
+/// xscvspdpn, the non-signalling single-to-double conversion of word 0: every
+/// finite single converts exactly, and an infinity too, so the floating-point
+/// cast serves; a NaN keeps its payload and its signalling bit by splicing.
+let xscvspdpn ins bld =
+  lift bld ins {
+    let struct (o1, o2) = getTwoOprs ins
+    let struct (dh, dl) = vecHalves bld o1
+    let struct (bh, _) = vecHalves bld o2
+    let word = tmpVar bld 32<rt>
+    word := AST.xthi 32<rt> bh
+    let isNaN = (word .& numU32 0x7f800000u 32<rt> == numU32 0x7f800000u 32<rt>)
+                .& (word .& numU32 0x007fffffu 32<rt> != AST.num0 32<rt>)
+    let w64 = AST.zext 64<rt> word
+    let nan = ((w64 .& numU64 0x80000000UL 64<rt>) << numI32 32 64<rt>)
+              .| numU64 0x7ff0000000000000UL 64<rt>
+              .| ((w64 .& numU64 0x007fffffUL 64<rt>) << numI32 29 64<rt>)
+    dh := AST.ite isNaN nan (AST.cast CastKind.FloatCast 64<rt> word)
+    dl := AST.num0 64<rt>
   }
 
 /// xscmpudp, which compares two doubles and reports less-than, greater-than,
@@ -634,12 +699,20 @@ let xscmpudp ins bld =
       | _ -> raise InvalidOperandException
     let struct (ah, _) = vecHalves bld o2
     let struct (bh, _) = vecHalves bld o3
+    let fpscr = regVar bld Register.FPSCR
     let unordered = tmpVar bld 1<rt>
     unordered := IEEE754Double.isNaN ah .| IEEE754Double.isNaN bh
     crf0 := AST.ite unordered AST.b0 (AST.flt ah bh)
     crf1 := AST.ite unordered AST.b0 (AST.fgt ah bh)
     crf2 := AST.ite unordered AST.b0 (AST.eq ah bh)
     crf3 := unordered
+    AST.extract fpscr 1<rt> 15 := crf0
+    AST.extract fpscr 1<rt> 14 := crf1
+    AST.extract fpscr 1<rt> 13 := crf2
+    AST.extract fpscr 1<rt> 12 := crf3
+    AST.extract fpscr 1<rt> 24 :=
+      AST.extract fpscr 1<rt> 24
+      .| IEEE754Double.isSNaN ah .| IEEE754Double.isSNaN bh
   }
 
 /// xxspltw, which copies one word of xB into all four words of xT.
@@ -680,14 +753,16 @@ let xxspltib ins bld =
     dl := tl
   }
 
-/// mtvsrdd, which fills both halves of xT from two general registers.
+/// mtvsrdd, which fills both halves of xT from two general registers; an rA
+/// of 0 stands for the value zero, as in an address.
 let mtvsrdd ins (bld: ILowUIRBuilder) =
   lift bld ins {
     let struct (o1, o2, o3) = getThreeOprs ins
     let struct (dh, dl) = vecHalves bld o1
-    let ra = transOpr bld o2
     let rb = transOpr bld o3
-    dh := AST.zext 64<rt> ra
+    match o2 with
+    | OprReg Register.R0 -> dh := AST.num0 64<rt>
+    | _ -> dh := AST.zext 64<rt> (transOpr bld o2)
     dl := AST.zext 64<rt> rb
   }
 
