@@ -36,6 +36,8 @@ open type Register
 type LifterTests() =
   let num (v: uint32) = BitVector(v, 32<rt>) |> AST.num
 
+  let num64 (v: uint64) = BitVector(v, 64<rt>) |> AST.num
+
   let unwrapStmts stmts = Array.sub stmts 1 (Array.length stmts - 2)
 
   let isa = ISA(Architecture.ARMv8, Endian.Big)
@@ -75,4 +77,10 @@ type LifterTests() =
     ++ [| !.X27 := AST.zext 64<rt>
            (AST.xtlo 32<rt> !.X28 .+ (AST.xtlo 32<rt> !.X14 ?>> num 0x17u)
              .+ num 0x0u) |]
+    |> test
+
+  [<TestMethod>]
+  member _.``[AArch64] ADD (extended register, UXTX) lift test``() =
+    "8b336280"
+    ++ [| !.X0 := !.X20 .+ (!.X19 << num64 0x0UL) .+ num64 0x0UL |]
     |> test

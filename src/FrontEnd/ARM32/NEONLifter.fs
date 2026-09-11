@@ -60,12 +60,12 @@ let vldr ins bld =
     let lblIgnore = checkCondition ins bld isUnconditional
     if isSReg then
       let data = tmpVar bld 32<rt>
-      data := AST.loadLE 32<rt> addr
+      data := loadNative bld 32<rt> addr
       rd := data
     else
       let struct (d1, d2) = tmpVars2 bld 32<rt>
-      d1 := AST.loadLE 32<rt> addr
-      d2 := AST.loadLE 32<rt> (addr .+ (numI32 4 32<rt>))
+      d1 := loadNative bld 32<rt> addr
+      d2 := loadNative bld 32<rt> (addr .+ (numI32 4 32<rt>))
       rd := if bld.Endianness = Endian.Big then AST.concat d1 d2
             else AST.concat d2 d1
     putEndLabel bld lblIgnore
@@ -86,10 +86,10 @@ let vstr (ins: Instruction) bld =
     let isUnconditional = ParseUtils.isUnconditional ins.Condition
     let lblIgnore = checkCondition ins bld isUnconditional
     if isSReg then
-      AST.loadLE 32<rt> addr := rd
+      loadNative bld 32<rt> addr := rd
     else
-      let mem1 = AST.loadLE 32<rt> addr
-      let mem2 = AST.loadLE 32<rt> (addr .+ (numI32 4 32<rt>))
+      let mem1 = loadNative bld 32<rt> addr
+      let mem2 = loadNative bld 32<rt> (addr .+ (numI32 4 32<rt>))
       let isbig = bld.Endianness = Endian.Big
       mem1 := if isbig then AST.xthi 32<rt> rd else AST.xtlo 32<rt> rd
       mem2 := if isbig then AST.xtlo 32<rt> rd else AST.xthi 32<rt> rd
@@ -188,7 +188,7 @@ let vpopLoop bld d imm isSReg addr =
       let reg = d + r |> byte |> OperandHelper.getVFPSRegister
       let nextAddr = (addr .+ (numI32 4 32<rt>))
       append bld {
-        regVar bld reg := AST.loadLE 32<rt> addr
+        regVar bld reg := loadNative bld 32<rt> addr
       }
       singleRegLoop (r + 1) nextAddr
     else
@@ -196,8 +196,8 @@ let vpopLoop bld d imm isSReg addr =
   let rec nonSingleRegLoop r addr =
     if r < imm / 2 then
       let reg = d + r |> byte |> OperandHelper.getVFPDRegister
-      let word1 = AST.loadLE 32<rt> addr
-      let word2 = AST.loadLE 32<rt> (addr .+ (numI32 4 32<rt>))
+      let word1 = loadNative bld 32<rt> addr
+      let word2 = loadNative bld 32<rt> (addr .+ (numI32 4 32<rt>))
       let nextAddr = addr .+ (numI32 8 32<rt>)
       let isbig = bld.Endianness = Endian.Big
       append bld {
@@ -230,7 +230,7 @@ let vpushLoop bld d imm isSReg addr =
       let reg = d + r |> byte |> OperandHelper.getVFPSRegister
       let nextAddr = (addr .+ (numI32 4 32<rt>))
       append bld {
-        AST.loadLE 32<rt> addr := regVar bld reg
+        loadNative bld 32<rt> addr := regVar bld reg
       }
       singleRegLoop (r + 1) nextAddr
     else
@@ -238,8 +238,8 @@ let vpushLoop bld d imm isSReg addr =
   let rec nonSingleRegLoop r addr =
     if r < imm / 2 then
       let reg = d + r |> byte |> OperandHelper.getVFPDRegister
-      let mem1 = AST.loadLE 32<rt> addr
-      let mem2 = AST.loadLE 32<rt> (addr .+ (numI32 4 32<rt>))
+      let mem1 = loadNative bld 32<rt> addr
+      let mem2 = loadNative bld 32<rt> (addr .+ (numI32 4 32<rt>))
       let nextAddr = addr .+ (numI32 8 32<rt>)
       let isbig = bld.Endianness = Endian.Big
       let data1 = AST.xthi 32<rt> (regVar bld reg)
@@ -967,8 +967,8 @@ let vstm (ins: Instruction) bld =
     addr := if add then rn else rn .- imm32
     rn := updateRn rn
     for r in 0 .. (regs - 1) do
-      let mem1 = AST.loadLE 32<rt> addr
-      let mem2 = AST.loadLE 32<rt> (addr .+ (numI32 4 32<rt>))
+      let mem1 = loadNative bld 32<rt> addr
+      let mem2 = loadNative bld 32<rt> (addr .+ (numI32 4 32<rt>))
       let data1 = AST.xtlo 32<rt> regList[r]
       let data2 = AST.xthi 32<rt> regList[r]
       let isbig = bld.Endianness = Endian.Big
@@ -999,8 +999,8 @@ let vldm (ins: Instruction) bld =
     addr := if add then rn else rn .- imm32
     rn := updateRn rn
     for r in 0 .. (regs - 1) do
-      let word1 = AST.loadLE 32<rt> addr
-      let word2 = AST.loadLE 32<rt> (addr .+ (numI32 4 32<rt>))
+      let word1 = loadNative bld 32<rt> addr
+      let word2 = loadNative bld 32<rt> (addr .+ (numI32 4 32<rt>))
       let isbig = bld.Endianness = Endian.Big
       regList[r] :=
              if isbig then AST.concat word1 word2 else AST.concat word2 word1
@@ -1854,11 +1854,11 @@ let vst1Multi (ins: Instruction) bld =
     for r in 0 .. (regs - 1) do
       for e in 0 .. (p.Elements - 1) do
         if p.EBytes <> 8 then
-          let mem = AST.loadLE p.RtESize addr
+          let mem = loadNative bld p.RtESize addr
           mem := elem rdList[r] e p.ESize
         else
-          let mem1 = AST.loadLE 32<rt> addr
-          let mem2 = AST.loadLE 32<rt> (incAddr addr 4)
+          let mem1 = loadNative bld 32<rt> addr
+          let mem2 = loadNative bld 32<rt> (incAddr addr 4)
           let reg = elem rdList[r] e p.ESize
           assignByEndian bld mem1 reg
           assignByEndian bld mem2 reg
@@ -1875,7 +1875,7 @@ let vst1Single (ins: Instruction) bld index =
     let addr = tmpVar bld 32<rt>
     addr := rn
     rn := updateRn ins rn rm p.EBytes p.RegIndex
-    let mem = AST.loadLE p.RtESize addr
+    let mem = loadNative bld p.RtESize addr
     mem := elem rd[0] (int32 index) p.ESize
     putEndLabel bld lblIgnore
   }
@@ -1901,7 +1901,7 @@ let vld1SingleOne (ins: Instruction) bld index =
     let addr = tmpVar bld 32<rt>
     addr := rn
     rn := updateRn ins rn rm p.EBytes p.RegIndex
-    let mem = AST.loadLE p.RtESize addr
+    let mem = loadNative bld p.RtESize addr
     elem rd[0] (int32 index) p.ESize := mem
     putEndLabel bld lblIgnore
   }
@@ -1915,7 +1915,7 @@ let vld1SingleAll (ins: Instruction) bld =
     let addr = tmpVar bld 32<rt>
     addr := rn
     rn := updateRn ins rn rm p.EBytes p.RegIndex
-    let mem = AST.loadLE p.RtESize addr
+    let mem = loadNative bld p.RtESize addr
     let repElem = Array.replicate p.Elements mem |> AST.revConcat
     for r in 0 .. (List.length rdList - 1) do
       append bld { rdList[r] := repElem } done
@@ -1936,12 +1936,12 @@ let vld1Multi (ins: Instruction) bld =
       for e in 0 .. (p.Elements - 1) do
         if p.EBytes <> 8 then
           let data = tmpVar bld p.RtESize
-          data := AST.loadLE p.RtESize addr
+          data := loadNative bld p.RtESize addr
           elem rdList[r] e p.ESize := data
         else
           let struct (data1, data2) = tmpVars2 bld 32<rt>
-          let mem1 = AST.loadLE 32<rt> addr
-          let mem2 = AST.loadLE 32<rt> (addr .+ (numI32 4 32<rt>))
+          let mem1 = loadNative bld 32<rt> addr
+          let mem2 = loadNative bld 32<rt> (addr .+ (numI32 4 32<rt>))
           let isbig = bld.Endianness = Endian.Big
           data1 := if isbig then mem2 else mem1
           data2 := if isbig then mem1 else mem1
@@ -1979,8 +1979,8 @@ let vst2Multi (ins: Instruction) bld =
       let rd1 = rdList[r * 2]
       let rd2 = rdList[r * 2 + 1]
       for e in 0 .. (p.Elements - 1) do
-        let mem1 = AST.loadLE p.RtESize addr
-        let mem2 = AST.loadLE p.RtESize (addr .+ (numI32 p.EBytes 32<rt>))
+        let mem1 = loadNative bld p.RtESize addr
+        let mem2 = loadNative bld p.RtESize (addr .+ (numI32 p.EBytes 32<rt>))
         mem1 := elem rd1 e p.ESize
         mem2 := elem rd2 e p.ESize
         addr := addr .+ (numI32 (2 * p.EBytes) 32<rt>)
@@ -1996,8 +1996,8 @@ let vst2Single (ins: Instruction) bld index =
     let addr = tmpVar bld 32<rt>
     addr := rn
     rn := updateRn ins rn rm (16 * p.EBytes) p.RegIndex
-    let mem1 = AST.loadLE p.RtESize addr
-    let mem2 = AST.loadLE p.RtESize (addr .+ (numI32 p.EBytes 32<rt>))
+    let mem1 = loadNative bld p.RtESize addr
+    let mem2 = loadNative bld p.RtESize (addr .+ (numI32 p.EBytes 32<rt>))
     mem1 := elem rdList[0] index p.ESize
     mem2 := elem rdList[1] index p.ESize
     putEndLabel bld lblIgnore
@@ -2025,9 +2025,9 @@ let vst3Multi (ins: Instruction) bld =
     addr := rn
     rn := updateRn ins rn rm 24 p.RegIndex
     for e in 0 .. (p.Elements - 1) do
-      let mem1 = AST.loadLE p.RtESize addr
-      let mem2 = AST.loadLE p.RtESize (incAddr addr p.EBytes)
-      let mem3 = AST.loadLE p.RtESize (incAddr addr (2 * p.EBytes))
+      let mem1 = loadNative bld p.RtESize addr
+      let mem2 = loadNative bld p.RtESize (incAddr addr p.EBytes)
+      let mem3 = loadNative bld p.RtESize (incAddr addr (2 * p.EBytes))
       mem1 := elem rdList[0] e p.ESize
       mem2 := elem rdList[1] e p.ESize
       mem3 := elem rdList[2] e p.ESize
@@ -2044,9 +2044,9 @@ let vst3Single (ins: Instruction) bld index =
     let addr = tmpVar bld 32<rt>
     addr := rn
     rn := updateRn ins rn rm (3 * p.EBytes) p.RegIndex
-    let mem1 = AST.loadLE p.RtESize addr
-    let mem2 = AST.loadLE p.RtESize (incAddr addr p.EBytes)
-    let mem3 = AST.loadLE p.RtESize (incAddr addr (2 * p.EBytes))
+    let mem1 = loadNative bld p.RtESize addr
+    let mem2 = loadNative bld p.RtESize (incAddr addr p.EBytes)
+    let mem3 = loadNative bld p.RtESize (incAddr addr (2 * p.EBytes))
     mem1 := elem rdList[0] index p.ESize
     mem2 := elem rdList[1] index p.ESize
     mem3 := elem rdList[2] index p.ESize
@@ -2075,10 +2075,10 @@ let vst4Multi (ins: Instruction) bld =
     addr := rn
     rn := updateRn ins rn rm 32 p.RegIndex
     for e in 0 .. (p.Elements - 1) do
-      let mem1 = AST.loadLE p.RtESize addr
-      let mem2 = AST.loadLE p.RtESize (incAddr addr p.EBytes)
-      let mem3 = AST.loadLE p.RtESize (incAddr addr (2 * p.EBytes))
-      let mem4 = AST.loadLE p.RtESize (incAddr addr (3 * p.EBytes))
+      let mem1 = loadNative bld p.RtESize addr
+      let mem2 = loadNative bld p.RtESize (incAddr addr p.EBytes)
+      let mem3 = loadNative bld p.RtESize (incAddr addr (2 * p.EBytes))
+      let mem4 = loadNative bld p.RtESize (incAddr addr (3 * p.EBytes))
       mem1 := elem rdList[0] e p.ESize
       mem2 := elem rdList[1] e p.ESize
       mem3 := elem rdList[2] e p.ESize
@@ -2096,10 +2096,10 @@ let vst4Single (ins: Instruction) bld index =
     let addr = tmpVar bld 32<rt>
     addr := rn
     rn := updateRn ins rn rm (4 * p.EBytes) p.RegIndex
-    let mem1 = AST.loadLE p.RtESize addr
-    let mem2 = AST.loadLE p.RtESize (incAddr addr p.EBytes)
-    let mem3 = AST.loadLE p.RtESize (incAddr addr (2 * p.EBytes))
-    let mem4 = AST.loadLE p.RtESize (incAddr addr (3 * p.EBytes))
+    let mem1 = loadNative bld p.RtESize addr
+    let mem2 = loadNative bld p.RtESize (incAddr addr p.EBytes)
+    let mem3 = loadNative bld p.RtESize (incAddr addr (2 * p.EBytes))
+    let mem4 = loadNative bld p.RtESize (incAddr addr (3 * p.EBytes))
     mem1 := elem rdList[0] index p.ESize
     mem2 := elem rdList[1] index p.ESize
     mem3 := elem rdList[2] index p.ESize
@@ -2128,8 +2128,8 @@ let vld2SingleOne (ins: Instruction) bld index =
     let addr = tmpVar bld 32<rt>
     addr := rn
     rn := updateRn ins rn rm (2 * p.EBytes) p.RegIndex
-    let mem1 = AST.loadLE p.RtESize addr
-    let mem2 = AST.loadLE p.RtESize (incAddr addr p.EBytes)
+    let mem1 = loadNative bld p.RtESize addr
+    let mem2 = loadNative bld p.RtESize (incAddr addr p.EBytes)
     elem rdList[0] (int32 index) p.ESize := mem1
     elem rdList[1] (int32 index) p.ESize := mem2
     putEndLabel bld lblIgnore
@@ -2144,8 +2144,8 @@ let vld2SingleAll (ins: Instruction) bld =
     let addr = tmpVar bld 32<rt>
     addr := rn
     rn := updateRn ins rn rm (2 * p.EBytes) p.RegIndex
-    let mem1 = AST.loadLE p.RtESize addr
-    let mem2 = AST.loadLE p.RtESize (incAddr addr p.EBytes)
+    let mem1 = loadNative bld p.RtESize addr
+    let mem2 = loadNative bld p.RtESize (incAddr addr p.EBytes)
     let repElem1 = Array.replicate p.Elements mem1 |> AST.revConcat
     let repElem2 = Array.replicate p.Elements mem2 |> AST.revConcat
     rdList[0] := repElem1
@@ -2167,8 +2167,8 @@ let vld2Multi (ins: Instruction) bld =
       let rd1 = rdList[r * 2]
       let rd2 = rdList[r * 2 + 1]
       for e in 0 .. (p.Elements - 1) do
-        let mem1 = AST.loadLE p.RtESize addr
-        let mem2 = AST.loadLE p.RtESize (incAddr addr p.EBytes)
+        let mem1 = loadNative bld p.RtESize addr
+        let mem2 = loadNative bld p.RtESize (incAddr addr p.EBytes)
         elem rd1 e p.ESize := mem1
         elem rd2 e p.ESize := mem2
         addr := incAddr addr (2 * p.EBytes)
@@ -2196,9 +2196,9 @@ let vld3SingleOne (ins: Instruction) bld index =
     let addr = tmpVar bld 32<rt>
     addr := rn
     rn := updateRn ins rn rm (3 * p.EBytes) p.RegIndex
-    let mem1 = AST.loadLE p.RtESize addr
-    let mem2 = AST.loadLE p.RtESize (incAddr addr p.EBytes)
-    let mem3 = AST.loadLE p.RtESize (incAddr addr (2 * p.EBytes))
+    let mem1 = loadNative bld p.RtESize addr
+    let mem2 = loadNative bld p.RtESize (incAddr addr p.EBytes)
+    let mem3 = loadNative bld p.RtESize (incAddr addr (2 * p.EBytes))
     elem rdList[0] (int32 index) p.ESize := mem1
     elem rdList[1] (int32 index) p.ESize := mem2
     elem rdList[2] (int32 index) p.ESize := mem3
@@ -2214,9 +2214,9 @@ let vld3SingleAll (ins: Instruction) bld =
     let addr = tmpVar bld 32<rt>
     addr := rn
     rn := updateRn ins rn rm (3 * p.EBytes) p.RegIndex
-    let mem1 = AST.loadLE p.RtESize addr
-    let mem2 = AST.loadLE p.RtESize (incAddr addr p.EBytes)
-    let mem3 = AST.loadLE p.RtESize (incAddr addr (2 * p.EBytes))
+    let mem1 = loadNative bld p.RtESize addr
+    let mem2 = loadNative bld p.RtESize (incAddr addr p.EBytes)
+    let mem3 = loadNative bld p.RtESize (incAddr addr (2 * p.EBytes))
     let repElem1 = Array.replicate p.Elements mem1 |> AST.revConcat
     let repElem2 = Array.replicate p.Elements mem2 |> AST.revConcat
     let repElem3 = Array.replicate p.Elements mem3 |> AST.revConcat
@@ -2236,9 +2236,9 @@ let vld3Multi (ins: Instruction) bld =
     addr := rn
     rn := updateRn ins rn rm 24 p.RegIndex
     for e in 0 .. (p.Elements - 1) do
-      let mem1 = AST.loadLE p.RtESize addr
-      let mem2 = AST.loadLE p.RtESize (incAddr addr p.EBytes)
-      let mem3 = AST.loadLE p.RtESize (incAddr addr (2 * p.EBytes))
+      let mem1 = loadNative bld p.RtESize addr
+      let mem2 = loadNative bld p.RtESize (incAddr addr p.EBytes)
+      let mem3 = loadNative bld p.RtESize (incAddr addr (2 * p.EBytes))
       elem rdList[0] e p.ESize := mem1
       elem rdList[1] e p.ESize := mem2
       elem rdList[2] e p.ESize := mem3
@@ -2266,10 +2266,10 @@ let vld4SingleOne (ins: Instruction) bld index =
     let addr = tmpVar bld 32<rt>
     addr := rn
     rn := updateRn ins rn rm (4 * p.EBytes) p.RegIndex
-    let mem1 = AST.loadLE p.RtESize addr
-    let mem2 = AST.loadLE p.RtESize (incAddr addr p.EBytes)
-    let mem3 = AST.loadLE p.RtESize (incAddr addr (2 * p.EBytes))
-    let mem4 = AST.loadLE p.RtESize (incAddr addr (3 * p.EBytes))
+    let mem1 = loadNative bld p.RtESize addr
+    let mem2 = loadNative bld p.RtESize (incAddr addr p.EBytes)
+    let mem3 = loadNative bld p.RtESize (incAddr addr (2 * p.EBytes))
+    let mem4 = loadNative bld p.RtESize (incAddr addr (3 * p.EBytes))
     elem rdList[0] (int32 index) p.ESize := mem1
     elem rdList[1] (int32 index) p.ESize := mem2
     elem rdList[2] (int32 index) p.ESize := mem3
@@ -2286,10 +2286,10 @@ let vld4SingleAll (ins: Instruction) bld =
     let addr = tmpVar bld 32<rt>
     addr := rn
     rn := updateRn ins rn rm (4 * p.EBytes) p.RegIndex
-    let mem1 = AST.loadLE p.RtESize addr
-    let mem2 = AST.loadLE p.RtESize (incAddr addr p.EBytes)
-    let mem3 = AST.loadLE p.RtESize (incAddr addr (2 * p.EBytes))
-    let mem4 = AST.loadLE p.RtESize (incAddr addr (3 * p.EBytes))
+    let mem1 = loadNative bld p.RtESize addr
+    let mem2 = loadNative bld p.RtESize (incAddr addr p.EBytes)
+    let mem3 = loadNative bld p.RtESize (incAddr addr (2 * p.EBytes))
+    let mem4 = loadNative bld p.RtESize (incAddr addr (3 * p.EBytes))
     let repElem1 = Array.replicate p.Elements mem1 |> AST.revConcat
     let repElem2 = Array.replicate p.Elements mem2 |> AST.revConcat
     let repElem3 = Array.replicate p.Elements mem3 |> AST.revConcat
@@ -2311,10 +2311,10 @@ let vld4Multi (ins: Instruction) bld =
     addr := rn
     rn := updateRn ins rn rm 24 p.RegIndex
     for e in 0 .. (p.Elements - 1) do
-      let mem1 = AST.loadLE p.RtESize addr
-      let mem2 = AST.loadLE p.RtESize (incAddr addr p.EBytes)
-      let mem3 = AST.loadLE p.RtESize (incAddr addr (2 * p.EBytes))
-      let mem4 = AST.loadLE p.RtESize (incAddr addr (3 * p.EBytes))
+      let mem1 = loadNative bld p.RtESize addr
+      let mem2 = loadNative bld p.RtESize (incAddr addr p.EBytes)
+      let mem3 = loadNative bld p.RtESize (incAddr addr (2 * p.EBytes))
+      let mem4 = loadNative bld p.RtESize (incAddr addr (3 * p.EBytes))
       elem rdList[0] e p.ESize := mem1
       elem rdList[1] e p.ESize := mem2
       elem rdList[2] e p.ESize := mem3

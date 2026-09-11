@@ -236,6 +236,23 @@ let beq ins bld =
     updatePCCond bld offset cond InterJmpKind.Base
   }
 
+/// BEQL and BNEL. See updatePCCondLikely for why the delay slot is skipped
+/// rather than predicated: the slot is a separate instruction and the lifter
+/// cannot reach into it, so the not-taken path steps over it instead.
+let beql ins bld =
+  liftTransfer bld ins {
+    let rs, rt, offset = transThreeOprs ins bld
+    let cond = rs == rt
+    updatePCCondLikely bld offset cond InterJmpKind.Base
+  }
+
+let bnel ins bld =
+  liftTransfer bld ins {
+    let rs, rt, offset = transThreeOprs ins bld
+    let cond = rs != rt
+    updatePCCondLikely bld offset cond InterJmpKind.Base
+  }
+
 let blez ins bld =
   liftTransfer bld ins {
     let rs, offset = transTwoOprs ins bld
@@ -602,19 +619,27 @@ let dclz ins bld =
     rd := n63 .- t
   }
 
+/// Selects a defined value in place of a division MIPS never performs. A zero
+/// divisor raises no arithmetic exception under any circumstances and leaves
+/// both HI and LO UNPREDICTABLE (MD00087 Vol. II, DIV and DDIV), so the IR has
+/// to select for either register rather than reach a division that would trap
+/// on evaluation.
+let private divGuard (bld: ILowUIRBuilder) cond expr =
+  AST.ite cond (AST.num0 bld.RegType) expr
+
 let ddiv ins bld =
   lift bld ins {
     let rs, rt = transTwoOprs ins bld
-    let struct (q, r) = tmpVars2 bld 64<rt>
     let hi = regVar bld R.HI
     let lo = regVar bld R.LO
-    rt := AST.ite (rt == numI64 0L bld.RegType)
-                  (AST.undef bld.RegType "UNPREDICTABLE")
-                  rt
-    q := AST.sdiv rs rt
-    r := AST.smod rs rt
-    lo := q
-    hi := r
+    let num0 = AST.num0 bld.RegType
+    let intMin = AST.num (BitVector.SignedMin bld.RegType)
+    (* The quotient of -2^63 by -1 is not representable; truncated it is -2^63
+       again, and DDIV raises no exception for that pair either. *)
+    let isOverflow = (rs == intMin) .& (rt == numI64 -1L bld.RegType)
+    let guard = divGuard bld (rt == num0)
+    lo := guard (AST.ite isOverflow intMin (AST.sdiv rs rt))
+    hi := guard (AST.ite isOverflow num0 (AST.smod rs rt))
   }
 
 let dmfc1 ins bld =
@@ -636,13 +661,11 @@ let dmtc1 ins bld =
 let ddivu ins bld =
   lift bld ins {
     let rs, rt = transTwoOprs ins bld
-    let struct (q, r) = tmpVars2 bld 64<rt>
     let hi = regVar bld R.HI
     let lo = regVar bld R.LO
-    q := AST.div rs rt
-    r := AST.(mod) rs rt
-    lo := q
-    hi := r
+    let guard = divGuard bld (rt == AST.num0 bld.RegType)
+    lo := guard (AST.div rs rt)
+    hi := guard (AST.(mod) rs rt)
   }
 
 let checkDEXTPosSize pos size =
@@ -779,17 +802,17 @@ let div (ins: Instruction) bld =
       let rs, rt = transTwoOprs ins bld
       let hi = regVar bld R.HI
       let lo = regVar bld R.LO
-      rt := AST.ite (rt == numI64 0L bld.RegType)
-                    (AST.undef bld.RegType "UNPREDICTABLE")
-                    rt
+      let guard = divGuard bld (rt == AST.num0 bld.RegType)
       if is32Bit bld then
         lo :=
-          (AST.sext 64<rt> rs ?/ AST.sext 64<rt> rt) |> AST.xtlo 32<rt>
+          (AST.sext 64<rt> rs ?/ AST.sext 64<rt> rt)
+          |> AST.xtlo 32<rt> |> guard
         hi :=
-          (AST.sext 64<rt> rs ?% AST.sext 64<rt> rt) |> AST.xtlo 32<rt>
+          (AST.sext 64<rt> rs ?% AST.sext 64<rt> rt)
+          |> AST.xtlo 32<rt> |> guard
       else
-        lo := signExtLo64 (signExtLo64 rs ?/ signExtLo64 rt)
-        hi := signExtLo64 (signExtLo64 rs ?% signExtLo64 rt)
+        lo := guard (signExtLo64 (signExtLo64 rs ?/ signExtLo64 rt))
+        hi := guard (signExtLo64 (signExtLo64 rs ?% signExtLo64 rt))
     | Some Fmt.D ->
       let fd, fs, ft = getThreeOprs ins
       let fdB, fdA = transOprToFPPair bld fd
@@ -814,22 +837,20 @@ let divu ins bld =
     let rs, rt = transTwoOprs ins bld
     let hi = regVar bld R.HI
     let lo = regVar bld R.LO
-    rt := AST.ite (rt == numI64 0L bld.RegType)
-                  (AST.undef bld.RegType "UNPREDICTABLE")
-                  rt
+    let guard = divGuard bld (rt == AST.num0 bld.RegType)
     if is32Bit bld then
       let struct (extendRs, extendRt) = tmpVars2 bld 64<rt>
       extendRs := AST.zext 64<rt> rs
       extendRt := AST.zext 64<rt> rt
-      lo := (extendRs ./ extendRt) |> AST.xtlo 32<rt>
-      hi := (extendRs .% extendRt) |> AST.xtlo 32<rt>
+      lo := (extendRs ./ extendRt) |> AST.xtlo 32<rt> |> guard
+      hi := (extendRs .% extendRt) |> AST.xtlo 32<rt> |> guard
     else
       let struct (maskRs, maskRt) = tmpVars2 bld 64<rt>
       let mask = numI64 0xFFFFFFFFL 64<rt>
       maskRs := rs .& mask
       maskRt := rt .& mask
-      lo := signExtLo64 (maskRs ./ maskRt)
-      hi := signExtLo64 (maskRs .% maskRt)
+      lo := signExtLo64 (maskRs ./ maskRt) |> guard
+      hi := signExtLo64 (maskRs .% maskRt) |> guard
   }
 
 let dmul ins bld isSign =

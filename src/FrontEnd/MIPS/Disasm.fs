@@ -278,6 +278,10 @@ let oprToString ins opr delim (builder: IDisasmBuilder) =
   | OpAddr(Relative offset) ->
     builder.Accumulate(AsmWordKind.String, delim)
     relToString ins.Address offset builder
+  | OpAddr(Region index) ->
+    builder.Accumulate(AsmWordKind.String, delim)
+    let target = JumpTarget.regionTarget ins.Address ins.WordSize index
+    builder.Accumulate(AsmWordKind.Value, HexString.ofUInt64 target)
   // Never gets matched. Only used in intermediate stage mips assembly parser.
   | GoToLabel _ ->
     raise InvalidOperandException

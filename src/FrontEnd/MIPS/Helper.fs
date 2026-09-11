@@ -174,8 +174,12 @@ let rel16 b =
   let off = num16 b |> uint64 <<< 2 |> Bits.signExtend 18 64 |> int64
   off + 4L |> Relative |> OpAddr
 
+/// The instruction index of a J or JAL, shifted into place. It is not the
+/// target: the architecture forms that by concatenating the upper bits of the
+/// program counter with this field, so the address has to be known before it
+/// can be resolved. See regionTarget.
 let region b =
-  num26 b <<< 2 |> uint64 |> OpImm (* FIXME: PC-region on page 268 *)
+  num26 b <<< 2 |> uint64 |> Region |> OpAddr
 
 let stype b =
   Bits.extract b 10u 6u |> uint64 |> OpImm (* FIXME: SType Field on page 533 *)

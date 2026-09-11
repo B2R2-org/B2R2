@@ -163,12 +163,18 @@ let transShiftAmount bld oprSize = function
 /// Extend()
 /// ========
 let extend reg oprSz regSize isUnsigned =
-  let uMask = numI64 ((1L <<< regSize) - 1L) oprSz
-  if isUnsigned then
-    reg .& uMask
+  (* Extending to the operand's own width is the identity, and it has to be
+     taken before the mask is built rather than after: 1L <<< 64 shifts by a
+     count the CLR reduces modulo 64, so it yields 1L and the mask below comes
+     out as zero. The signed branch used to carry that guard on its own, which
+     left every unsigned full-width extension -- UXTX, and the UXTX form of a
+     register memory offset -- masking its operand away to nothing. *)
+  if regSize >= RegType.toBitWidth oprSz then
+    reg
   else
-    if regSize = 64 then
-      reg
+    let uMask = numI64 ((1L <<< regSize) - 1L) oprSz
+    if isUnsigned then
+      reg .& uMask
     else
       let mBit = AST.extract reg 1<rt> (regSize - 1)
       let sMask = ~~~((1L <<< regSize) - 1L)
