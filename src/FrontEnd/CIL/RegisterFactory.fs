@@ -21,17 +21,25 @@
   OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
   SOFTWARE.
 *)
-
 namespace B2R2.FrontEnd.CIL
 
+open System.Runtime.CompilerServices
 open B2R2
 open B2R2.FrontEnd.BinLifter
 open B2R2.BinIR.LowUIR
 
-/// Represents a factory for accessing various CIL register variables.
+[<assembly: InternalsVisibleTo("B2R2.FrontEnd.CIL.Tests")>]
+do ()
+
+/// Represents a factory for accessing the CIL register variables. The machine
+/// has no registers a program can name: the four here are the addresses that
+/// locate the evaluation stack, the local variables and the arguments, and the
+/// program counter, all of them a quadword wide.
 type RegisterFactory(isa: ISA) =
-  let pc = AST.var 256<rt> (Register.toRegID Register.PC) "PC"
-  let sp = AST.var 256<rt> (Register.toRegID Register.SP) "SP"
+  let pc = AST.pcvar 64<rt> "PC"
+  let sp = AST.var 64<rt> (Register.toRegID Register.SP) "SP"
+  let fp = AST.var 64<rt> (Register.toRegID Register.FP) "FP"
+  let ap = AST.var 64<rt> (Register.toRegID Register.AP) "AP"
 
   interface IRegisterFactory with
     member _.ISA = isa
@@ -40,21 +48,29 @@ type RegisterFactory(isa: ISA) =
 
     member _.StackPointer = Register.SP |> Register.toRegID |> Some
 
-    member _.FramePointer = Terminator.futureFeature ()
+    member _.FramePointer = Register.FP |> Register.toRegID |> Some
 
     member _.GetRegVar id =
       match Register.ofRegID id with
-      | R.PC -> pc
-      | R.SP -> sp
+      | Register.PC -> pc
+      | Register.SP -> sp
+      | Register.FP -> fp
+      | Register.AP -> ap
       | _ -> raise InvalidRegisterException
 
-    member _.GetRegVar(_: string): Expr = Terminator.futureFeature ()
+    member _.GetRegVar(name: string) =
+      match name.ToLowerInvariant() with
+      | "pc" -> pc
+      | "sp" -> sp
+      | "fp" -> fp
+      | "ap" -> ap
+      | _ -> raise InvalidRegisterException
 
     member _.GetPseudoRegVar(_id, _idx) = Terminator.impossible ()
 
-    member _.GetAllRegVars() = Terminator.futureFeature ()
+    member _.GetAllRegVars() = [| pc; sp; fp; ap |]
 
-    member _.GetGeneralRegVars() = Terminator.futureFeature ()
+    member _.GetGeneralRegVars() = [| sp; fp; ap |]
 
     member _.GetRegisterID expr =
       match expr with
@@ -64,11 +80,14 @@ type RegisterFactory(isa: ISA) =
 
     member _.GetRegisterID name = Register.ofString name |> Register.toRegID
 
-    member _.GetRegisterIDAliases _ = Terminator.futureFeature ()
+    member _.GetRegisterIDAliases rid = [| rid |]
 
     member _.GetRegisterName rid = Register.ofRegID rid |> Register.toString
 
-    member _.GetAllRegisterNames() = [||]
+    member this.GetAllRegisterNames() =
+      let regFactory = this :> IRegisterFactory
+      regFactory.GetAllRegVars()
+      |> Array.map (regFactory.GetRegisterID >> regFactory.GetRegisterName)
 
     member _.GetRegType rid = Register.ofRegID rid |> Register.toRegType
 
@@ -76,4 +95,6 @@ type RegisterFactory(isa: ISA) =
 
     member _.IsStackPointer regid = Register.toRegID Register.SP = regid
 
-    member _.IsFramePointer _ = false
+    member _.IsFramePointer regid = Register.toRegID Register.FP = regid
+
+// vim: set tw=80 sts=2 sw=2:

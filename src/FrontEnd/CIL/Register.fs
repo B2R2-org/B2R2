@@ -37,8 +37,14 @@ open B2R2
 type Register =
   /// Program counter.
   | PC = 0x0
-  /// Stack pointer.
+  /// Stack pointer: the address of the slot on top of the evaluation stack.
   | SP = 0x1
+  /// Frame pointer: the address of the slot the first local variable of the
+  /// method being run is kept in. The others are kept below it.
+  | FP = 0x2
+  /// Argument pointer: the address of the slot the first argument of the
+  /// method being run is kept in. The others are kept below it.
+  | AP = 0x3
 
 /// Provides several useful functions for handling CIL registers.
 [<RequireQualifiedAccess>]
@@ -53,16 +59,22 @@ module Register =
     match str.ToLowerInvariant() with
     | "pc" -> Register.PC
     | "sp" -> Register.SP
+    | "fp" -> Register.FP
+    | "ap" -> Register.AP
     | _ -> Terminator.impossible ()
 
   let toString = function
     | Register.PC -> "PC"
     | Register.SP -> "SP"
+    | Register.FP -> "FP"
+    | Register.AP -> "AP"
     | _ -> Terminator.impossible ()
 
   let toRegType = function
     | Register.PC -> 64<rt>
     | Register.SP -> 64<rt>
+    | Register.FP -> 64<rt>
+    | Register.AP -> 64<rt>
     | _ -> Terminator.impossible ()
 
 /// Shortcut for Register type.
