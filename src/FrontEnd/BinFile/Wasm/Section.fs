@@ -52,6 +52,13 @@ let peekByteVector (bs: byte[]) reader offset =
   let pb (bs: byte[]) (_: IBinReader) (o: int) = bs[o], o + 1
   peekVector bs reader offset pb
 
+/// Reads one index out of a vector of them, in the shape a vector's element
+/// reader takes: the second half of the pair is where the next element
+/// starts, not how many bytes this one spans.
+let peekIdx (bs: byte[]) (reader: IBinReader) offset =
+  let idx, len = reader.ReadUInt32LEB128(bs, offset)
+  idx, offset + len
+
 let peekName bs reader offset =
   let vec = peekByteVector bs reader offset
   vec.Elements
@@ -215,8 +222,7 @@ let parseImportSec bs reader offset =
   parseSection bs reader offset peekImportSecContents
 
 let peekFunctionSecContents bs reader offset =
-  let pti (bs: byte[]) (r: IBinReader) o = r.ReadUInt32LEB128(bs, o)
-  peekVector bs reader offset pti
+  peekVector bs reader offset peekIdx
 
 let parseFunctionSec bs reader offset =
   parseSection bs reader offset peekFunctionSecContents
@@ -284,15 +290,43 @@ let peekStartFunc (bs: byte[]) (reader: IBinReader) offset =
 
 let parseStartSec bs reader offset = parseSection bs reader offset peekStartFunc
 
+let private peekElemExpr (bs: byte[]) reader offset =
+  peekConstExpr (ReadOnlySpan bs) reader offset
+
+/// Reads the entries of an element segment, which bit 2 of the mode spells
+/// out as expressions rather than as function indices.
+let private peekElemInit bs reader mode offset =
+  if mode &&& 4u = 0u then
+    let funcs = peekVector bs reader offset peekIdx
+    ElemFuncs funcs, offset + int funcs.Size
+  else
+    let exprs = peekVector bs reader offset peekElemExpr
+    ElemExprs exprs, offset + int exprs.Size
+
+/// Reads the table an element segment fills and the offset it fills from,
+/// which only an active segment has. Bit 0 of the mode marks the segment
+/// passive or declarative, and bit 1 gives an active one an explicit table
+/// and the others a single byte naming the type of their entries.
+let private peekElemTarget (bs: byte[]) (reader: IBinReader) mode offset =
+  match mode &&& 3u with
+  | 0u ->
+    let expr, no = peekConstExpr (ReadOnlySpan bs) reader offset
+    0u, Some expr, no
+  | 2u ->
+    let tableIdx, len = reader.ReadUInt32LEB128(bs, offset)
+    let expr, no = peekConstExpr (ReadOnlySpan bs) reader (offset + len)
+    tableIdx, Some expr, no + 1
+  | _ ->
+    0u, None, offset + 1
+
 let peekElemSeg (bs: byte[]) (reader: IBinReader) offset =
-  let pti (bs: byte[]) (r: IBinReader) (o: int) = r.ReadUInt32LEB128(bs, o)
-  let tableIdx, len = reader.ReadUInt32LEB128(bs, offset)
-  let expr, no = peekConstExpr (ReadOnlySpan bs) reader (offset + len)
-  let initFuncs = peekVector bs reader no pti
-  let offset' = no + int initFuncs.Size
-  { TableIndex = tableIdx
+  let mode, len = reader.ReadUInt32LEB128(bs, offset)
+  let tableIdx, expr, no = peekElemTarget bs reader mode (offset + len)
+  let init, offset' = peekElemInit bs reader mode no
+  { Mode = mode
+    TableIndex = tableIdx
     OffsetExpr = expr
-    InitFuncs = initFuncs }, offset'
+    Init = init }, offset'
 
 let peekElementSecContents bs reader offset =
   peekVector bs reader offset peekElemSeg
@@ -321,6 +355,7 @@ let peekCodeEntry (bs: byte[]) (reader: IBinReader) offset =
   { Offset = offset
     LenFieldSize = len
     CodeSize = codeSize
+    LocalsSize = rawLen + List.sumBy (fun l -> l.LocalDeclLen) locals
     Locals = locals }, offset + len + int codeSize
 
 let peekCodeSecContents bs reader offset =
@@ -329,11 +364,27 @@ let peekCodeSecContents bs reader offset =
 let parseCodeSec bs reader offset =
   parseSection bs reader offset peekCodeSecContents
 
+/// Reads the memory a data segment fills and the offset it fills from. Mode
+/// 1 is a passive segment, which has neither; mode 2 names its memory where
+/// mode 0 takes the first one.
+let private peekDataTarget (bs: byte[]) (reader: IBinReader) mode offset =
+  match mode with
+  | 0u ->
+    let expr, no = peekConstExpr (ReadOnlySpan bs) reader offset
+    0u, Some expr, no
+  | 2u ->
+    let memIdx, len = reader.ReadUInt32LEB128(bs, offset)
+    let expr, no = peekConstExpr (ReadOnlySpan bs) reader (offset + len)
+    memIdx, Some expr, no
+  | _ ->
+    0u, None, offset
+
 let peekDataSeg (bs: byte[]) (reader: IBinReader) offset =
-  let memIdx, len = reader.ReadUInt32LEB128(bs, offset)
-  let expr, no = peekConstExpr (ReadOnlySpan bs) reader (offset + len)
+  let mode, len = reader.ReadUInt32LEB128(bs, offset)
+  let memIdx, expr, no = peekDataTarget bs reader mode (offset + len)
   let byteVec = peekByteVector bs reader no
-  { MemoryIndex = memIdx
+  { Mode = mode
+    MemoryIndex = memIdx
     OffsetExpr = expr
     InitBytes = byteVec }, no + int byteVec.Size
 

@@ -143,6 +143,11 @@ let private dumpPythonCodeObjects (hdl: BinHandle) (codeprn: IBinDumper) =
                                       int (addr + len) - 1)
     dumpOneSection codeprn $"code object {name}" ptr
 
+let private dumpWasmFunctions (hdl: BinHandle) (codeprn: IBinDumper) =
+  let file = hdl.File :?> WasmBinFile
+  for name, ptr in file.FunctionBodies do
+    dumpOneSection codeprn name ptr
+
 let private dumpSection hdl
                         (opts: BinDisasmOpts)
                         codeprn
@@ -151,6 +156,8 @@ let private dumpSection hdl
   if sec.Size > 0UL then
     let ptr = BinFileOps.getSectionPointer (hdl: BinHandle).File sec.Name
     match sec.Kind with
+    | CodeSection when hdl.File.Format = FileFormat.WasmBinary ->
+      dumpWasmFunctions hdl codeprn
     | DynamicLinkageSection ->
       dumpOneSection tableprn sec.Name ptr
     | _ when sec.Permission.HasFlag Permission.Executable ->
@@ -167,7 +174,8 @@ let private hasDumpableSections (hdl: BinHandle) =
   match hdl.File.Format with
   | FileFormat.ELFBinary
   | FileFormat.PEBinary
-  | FileFormat.MachBinary -> true
+  | FileFormat.MachBinary
+  | FileFormat.WasmBinary -> true
   | _ -> false
 
 let private dumpOneSectionOfName (hdl: BinHandle) opts codeprn tableprn name =
