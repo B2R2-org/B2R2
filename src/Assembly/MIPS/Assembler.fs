@@ -54,7 +54,7 @@ type Assembler(isa: ISA, baseAddr: Addr) =
 
   /// The table-driven encoders, built here so that they are collected with the
   /// assembler instead of living for as long as the process does.
-  let encoders = lazy (buildEncoderTable ())
+  let encoders = lazy (buildEncoderTable isa.MIPSRelease)
 
   let addLabeldef lbl =
     updateUserState (fun us ->

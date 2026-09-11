@@ -226,7 +226,34 @@ let posSize6 b =
   let lsbminus32 = Bits.extract b 10u 6u
   lsbminus32 + 32u |> uint64 |> OpImm, msbd + 1u |> uint64 |> OpImm
 
+/// A Release 6 compact branch takes its offset relative to the
+/// instruction that FOLLOWS it -- `PC+4 + sign_extend(offset << 2)` --
+/// which is the same base a delayed branch uses, so the `+ 4L` here means
+/// what it means in rel16. What differs between the two is the delay slot,
+/// and that belongs to the lifter, not to the operand.
+let rel21 b =
+  let off =
+    Bits.extract b 20u 0u |> uint64 <<< 2 |> Bits.signExtend 23 64 |> int64
+  off + 4L |> Relative |> OpAddr
+
+let rel26 b =
+  let off = num26 b |> uint64 <<< 2 |> Bits.signExtend 28 64 |> int64
+  off + 4L |> Relative |> OpAddr
+
 let getRel16 b = OneOperand(rel16 b)
+
+let getRel26 b = OneOperand(rel26 b)
+
+let getRsRel21 b = TwoOperands(rs b, rel21 b)
+
+let getRtRel16 b = TwoOperands(rt b, rel16 b)
+
+let getRtRtRel16 b = ThreeOperands(rt b, rt b, rel16 b)
+
+/// JIC and JIALC jump to GPR[rt] plus a signed 16-bit offset, so the
+/// offset is an immediate rather than an address: nothing about it is
+/// relative to the program counter.
+let getRtOff16 b = TwoOperands(rt b, imm16SignExt b)
 
 let getRs b = OneOperand(rs b)
 
@@ -254,6 +281,35 @@ let getRsRel16 b = TwoOperands(rs b, rel16 b)
 
 let getRsImm16s b = TwoOperands(rs b, imm16SignExt b)
 
+/// DAUI takes its immediate unshifted -- the << 16 belongs to the
+/// operation, and DAHI and DATI shift the same field by 32 and 48.
+let getRtRsImm16u b =
+  ThreeOperands(rt b, rs b, num16 b |> uint64 |> OpImm)
+
+let getRsImm16u b = TwoOperands(rs b, num16 b |> uint64 |> OpImm)
+
+/// The PC-relative family's offsets are relative to the address of
+/// the instruction ITSELF, not to the one after it -- there is no
+/// delay slot in Release 6 for the `+ 4` of rel16 to account for.
+let private relPC width shift b =
+  let off =
+    Bits.extract b (width - 1u) 0u |> uint64 <<< shift
+    |> Bits.signExtend (int width + shift) 64 |> int64
+  off |> Relative |> OpAddr
+
+/// BC1EQZ and BC1NEZ test bit 0 of an FPR, so their first operand is a
+/// float register where every older MIPS branch takes a general one.
+/// The paired load-linked forms name two registers and a base with
+/// no offset: the pair is at the base and nowhere else.
+let getRtRdBase b accLength =
+  ThreeOperands(rt b, rd b, OpMem(getRegFrom2521 b, Imm 0L, accLength))
+
+let getFtRel16 b = TwoOperands(ft b, rel16 b)
+
+let getRsOff19 b = TwoOperands(rs b, relPC 19u 2 b)
+
+let getRsOff18 b = TwoOperands(rs b, relPC 18u 3 b)
+
 let getRtImm16 b = TwoOperands(rt b, imm16 b)
 
 let getRtRsImm16s b = ThreeOperands(rt b, rs b, imm16SignExt b)
@@ -277,6 +333,12 @@ let getFsMemBaseIdx b accLen = TwoOperands(fs b, memBaseIdx b accLen)
 let getHintMemBaseIdx b accLen = TwoOperands(hint b, memBaseIdx b accLen)
 
 let getRdRtSa b = ThreeOperands(rd b, rt b, sa b)
+
+/// LSA and DLSA take a two-bit scale in bits 7..6. The operation shifts by
+/// sa2 + 1, and the +1 belongs to the lifter, so what is handed over here is
+/// the field as encoded.
+let getRdRsRtSa2 b =
+  FourOperands(rd b, rs b, rt b, Bits.extract b 7u 6u |> uint64 |> OpImm)
 
 let getRdRsCc b = ThreeOperands(rd b, rs b, cc20 b)
 

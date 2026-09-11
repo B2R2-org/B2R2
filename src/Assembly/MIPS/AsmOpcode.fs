@@ -312,6 +312,181 @@ let arithmeticEncoders () =
     Opcode.XORI, logicImm 0b001110u
     Opcode.LUI, loadUpper ]
 
+/// Encodes <rs>, <rt>, <place>: a compact branch comparing two registers.
+/// The offset is the ordinary sixteen bits; what makes it compact is the
+/// absence of a delay slot, which the encoding does not carry.
+let private compactPair op ins =
+  match ins.Operands with
+  | ThreeOperands(Rg rs, Rg rt, Place distance) ->
+    immWord op (gpr rs) (gpr rt) (branchOffset distance)
+  | _ ->
+    wrongOperands ins
+
+/// Encodes <rt>, <place>: a compact branch comparing one register against
+/// zero. Which one it is lies in what the rs field holds -- zero, or the same
+/// register as rt -- so the rule that picks it apart at decode is inverted.
+let private compactZero op sameReg ins =
+  match ins.Operands with
+  | TwoOperands(Rg rt, Place distance) ->
+    let rs = if sameReg then gpr rt else 0u
+    immWord op rs (gpr rt) (branchOffset distance)
+  | _ ->
+    wrongOperands ins
+
+/// Encodes <rs>, <place>: the compact branches whose offset is twenty-one
+/// bits, taking the register field a jump would use for its base.
+let private compact21 op ins =
+  match ins.Operands with
+  | TwoOperands(Rg rs, Place distance) ->
+    (op <<< 26) ||| (gpr rs <<< 21) ||| branchOffsetOf 21 distance
+  | _ ->
+    wrongOperands ins
+
+/// Encodes <place>: the unconditional compact branches, whose offset is
+/// twenty-six bits and reaches furthest of any branch.
+let private compact26 op ins =
+  match ins.Operands with
+  | OneOperand(Place distance) ->
+    (op <<< 26) ||| branchOffsetOf 26 distance
+  | _ ->
+    wrongOperands ins
+
+/// Encodes <rt>, <offset>: the indexed jumps, whose offset is a number added
+/// to a register rather than a distance from here.
+let private jumpIndexed op ins =
+  match ins.Operands with
+  | TwoOperands(Rg rt, Im value) ->
+    immWord op 0u (gpr rt) (immediate16 value)
+  | _ ->
+    wrongOperands ins
+
+/// Encodes <rd>, <rs>, <rt> with a selector in bits 10..6: the multiplies and
+/// divides that keep one half of the result in a general register, because
+/// Release 6 has no HI and LO to put the other half in.
+let private sop func sel ins =
+  match ins.Operands with
+  | ThreeOperands(Rg rd, Rg rs, Rg rt) ->
+    word 0b000000u (gpr rs) (gpr rt) (gpr rd) sel func
+  | _ ->
+    wrongOperands ins
+
+/// Encodes <rd>, <rs>, <rt>, <sa2>: the scaled address adds.
+let private scaledAdd func ins =
+  match ins.Operands with
+  | FourOperands(Rg rd, Rg rs, Rg rt, Im sa) ->
+    word 0b000000u (gpr rs) (gpr rt) (gpr rd) (unsigned 2 sa) func
+  | _ ->
+    wrongOperands ins
+
+/// Encodes <rd>, <rs>, <rt>: the integer selects, which write zero where the
+/// condition fails rather than leaving the destination alone.
+let private selectReg func ins =
+  match ins.Operands with
+  | ThreeOperands(Rg rd, Rg rs, Rg rt) ->
+    word 0b000000u (gpr rs) (gpr rt) (gpr rd) 0u func
+  | _ ->
+    wrongOperands ins
+
+/// Encodes <rs>, <offset>: the PC-relative family, whose selector is a
+/// variable-length field starting at bit 20, so the wider selectors are
+/// written where the narrower ones leave room.
+let private pcRel sel width ins =
+  match ins.Operands with
+  | TwoOperands(Rg rs, Place distance) ->
+    let shift = if width = 18 then 3 else 2
+    (0b111011u <<< 26) ||| (gpr rs <<< 21) ||| (sel <<< width)
+    ||| pcRelOffset width shift distance
+  | TwoOperands(Rg rs, Im value) ->
+    (0b111011u <<< 26) ||| (gpr rs <<< 21) ||| (sel <<< width)
+    ||| (unsigned width value)
+  | _ ->
+    wrongOperands ins
+
+/// Encodes <rt>, <rs>, <imm> and <rs>, <imm>: the upper-immediate adds that
+/// build a wide constant a half at a time.
+let private upperImm op ins =
+  match ins.Operands with
+  | ThreeOperands(Rg rt, Rg rs, Im value) ->
+    immWord op (gpr rs) (gpr rt) (unsigned 16 value)
+  | TwoOperands(Rg rs, Im value) ->
+    immWord 0b000001u (gpr rs) op (unsigned 16 value)
+  | _ ->
+    wrongOperands ins
+
+/// Encodes <rt>, <rd>, (<base>): the paired linked load and conditional
+/// store, which reach two adjacent words under one watch and so name two
+/// registers and no distance. Bit 6 is what tells a paired form from the
+/// single one that shares its function field.
+let private linkedPair func ins =
+  match ins.Operands with
+  | ThreeOperands(Rg rt, Rg rd, Mem(baseReg, 0L)) ->
+    word 0b011111u (gpr baseReg) (gpr rt) (gpr rd) 0b00001u func
+  | _ ->
+    wrongOperands ins
+
+/// The Release 6 rows. Release 6 is a different encoding space rather than an
+/// extension of the earlier ones, and where a name is shared -- DIV, MOD and
+/// the multiplies -- the release is what tells the two apart, because nothing
+/// in the source text does.
+let internal release6Encoders () =
+  [ Opcode.BEQC, compactPair 0b001000u
+    Opcode.BNEC, compactPair 0b011000u
+    Opcode.BOVC, compactPair 0b001000u
+    Opcode.BNVC, compactPair 0b011000u
+    Opcode.BGEC, compactPair 0b010110u
+    Opcode.BLTC, compactPair 0b010111u
+    Opcode.BGEUC, compactPair 0b000110u
+    Opcode.BLTUC, compactPair 0b000111u
+    Opcode.BLEZC, compactZero 0b010110u false
+    Opcode.BGEZC, compactZero 0b010110u true
+    Opcode.BGTZC, compactZero 0b010111u false
+    Opcode.BLTZC, compactZero 0b010111u true
+    Opcode.BLEZALC, compactZero 0b000110u false
+    Opcode.BGEZALC, compactZero 0b000110u true
+    Opcode.BGTZALC, compactZero 0b000111u false
+    Opcode.BLTZALC, compactZero 0b000111u true
+    Opcode.BEQZALC, compactZero 0b001000u false
+    Opcode.BNEZALC, compactZero 0b011000u false
+    Opcode.BEQZC, compact21 0b110110u
+    Opcode.BNEZC, compact21 0b111110u
+    Opcode.BC, compact26 0b110010u
+    Opcode.BALC, compact26 0b111010u
+    Opcode.JIC, jumpIndexed 0b110110u
+    Opcode.JIALC, jumpIndexed 0b111110u
+    Opcode.MUL, sop 0b011000u 0b00010u
+    Opcode.MUH, sop 0b011000u 0b00011u
+    Opcode.MULU, sop 0b011001u 0b00010u
+    Opcode.MUHU, sop 0b011001u 0b00011u
+    Opcode.DIV, sop 0b011010u 0b00010u
+    Opcode.MOD, sop 0b011010u 0b00011u
+    Opcode.DIVU, sop 0b011011u 0b00010u
+    Opcode.MODU, sop 0b011011u 0b00011u
+    Opcode.DMUL, sop 0b011100u 0b00010u
+    Opcode.DMUH, sop 0b011100u 0b00011u
+    Opcode.DMULU, sop 0b011101u 0b00010u
+    Opcode.DMUHU, sop 0b011101u 0b00011u
+    Opcode.DDIV, sop 0b011110u 0b00010u
+    Opcode.DMOD, sop 0b011110u 0b00011u
+    Opcode.DDIVU, sop 0b011111u 0b00010u
+    Opcode.DMODU, sop 0b011111u 0b00011u
+    Opcode.LSA, scaledAdd 0b000101u
+    Opcode.DLSA, scaledAdd 0b010101u
+    Opcode.SELEQZ, selectReg 0b110101u
+    Opcode.SELNEZ, selectReg 0b110111u
+    Opcode.ADDIUPC, pcRel 0b00u 19
+    Opcode.LWPC, pcRel 0b01u 19
+    Opcode.LWUPC, pcRel 0b10u 19
+    Opcode.LDPC, pcRel 0b110u 18
+    Opcode.AUIPC, pcRel 0b11110u 16
+    Opcode.ALUIPC, pcRel 0b11111u 16
+    Opcode.DAUI, upperImm 0b011101u
+    Opcode.DAHI, upperImm 0b00110u
+    Opcode.DATI, upperImm 0b11110u
+    Opcode.LLWP, linkedPair 0b110110u
+    Opcode.LLDP, linkedPair 0b110111u
+    Opcode.SCWP, linkedPair 0b100110u
+    Opcode.SCDP, linkedPair 0b100111u ]
+
 (* The branches and the jumps. A branch holds how far the place it names is
    from the instruction after it; a jump holds one word of the region it sits
    in, which is as far as it reaches. *)

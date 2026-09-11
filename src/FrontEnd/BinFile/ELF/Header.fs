@@ -169,23 +169,35 @@ module internal Header =
   let private getELFFlags span (reader: IBinReader) cls =
     reader.ReadUInt32(span = span, offset = selectByWordSize cls 36 48)
 
-  /// Returns the MIPS ISA the processor-specific flags name. EF_MIPS_ARCH sits
-  /// in the top nibble, and it rather than the ELF class is what tells a
-  /// 64-bit architecture from a 32-bit one, n32 being 64-bit in a 32-bit file.
-  let private getMIPSISA span reader cls =
+  /// The architecture level in a MIPS image's processor-specific flags,
+  /// which binutils calls EF_MIPS_ARCH. It settles two things, and this used
+  /// to read only the first: how wide a register is -- the level and not the
+  /// ELF class says that, n32 being 64-bit in a 32-bit file -- and which
+  /// RELEASE the code belongs to. Release 6 reassigned primary opcodes -- the
+  /// one ADDI had is POP10 there -- so a decoder that is not told cannot be
+  /// right for both. The release was being discarded here, which is why
+  /// Release 6 images could not be decoded at all.
+  let private getMIPSISA span (reader: IBinReader) cls =
+    let mips ws release =
+      ISA(Architecture.MIPS, reader.Endianness, ws, int release)
     match getELFFlags span reader cls &&& 0xf0000000u with
-    | 0x00000000u
-    | 0x10000000u
-    | 0x20000000u
-    | 0x30000000u
-    | 0x40000000u
-    | 0x50000000u
-    | 0x70000000u
-    | 0x90000000u -> ISA(Architecture.MIPS, reader.Endianness, WordSize.Bit32)
-    | 0x60000000u
-    | 0x80000000u
-    | 0xa0000000u -> ISA(Architecture.MIPS, reader.Endianness, WordSize.Bit64)
-    | _ -> raise InvalidISAException
+    | 0x00000000u   (* none  *)
+    | 0x10000000u   (* MIPS2 *)
+    | 0x20000000u   (* MIPS3 *)
+    | 0x30000000u   (* MIPS4 *)
+    | 0x40000000u   (* MIPS5 *)
+    | 0x50000000u   (* 32    *)
+    | 0x70000000u   (* 32R2  *) ->
+      mips WordSize.Bit32 MIPSRelease.PreR6
+    | 0x90000000u   (* 32R6  *) ->
+      mips WordSize.Bit32 MIPSRelease.R6
+    | 0x60000000u   (* 64    *)
+    | 0x80000000u   (* 64R2  *) ->
+      mips WordSize.Bit64 MIPSRelease.PreR6
+    | 0xa0000000u   (* 64R6  *) ->
+      mips WordSize.Bit64 MIPSRelease.R6
+    | _ ->
+      raise InvalidISAException
 
   /// The part of an AVR image's processor-specific flags naming its core,
   /// which binutils calls EF_AVR_MACH.
