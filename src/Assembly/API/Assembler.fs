@@ -57,6 +57,7 @@ type Assembler(isa: ISA, startAddress) =
     | BPF -> BPF.Assembler(isa, startAddress) :> ILowerable
     | EVM -> EVM.Assembler(isa, startAddress) :> ILowerable
     | Python -> Python.Assembler(isa, startAddress) :> ILowerable
+    | WASM -> WASM.Assembler(isa, startAddress) :> ILowerable
     | _ -> raise InvalidISAException
 
   /// The start address of the binary instructions.

@@ -20,6 +20,7 @@
   <Project Path="src/Assembly/S390/B2R2.Assembly.S390.fsproj" />
   <Project Path="src/Assembly/SH4/B2R2.Assembly.SH4.fsproj" />
   <Project Path="src/Assembly/SPARC/B2R2.Assembly.SPARC.fsproj" />
+  <Project Path="src/Assembly/WASM/B2R2.Assembly.WASM.fsproj" />
   <Project Path="src/BinIR.Tests/B2R2.BinIR.Tests.fsproj" />
   <Project Path="src/BinIR/B2R2.BinIR.fsproj" />
   <Project Path="src/Core.Tests/B2R2.Core.Tests.fsproj" />

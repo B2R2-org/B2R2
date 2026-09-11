@@ -73,6 +73,7 @@ jobs:
         - SH4
         - AVR
         - EVM
+        - WASM
 
     steps:
     - name: Setup .NET
