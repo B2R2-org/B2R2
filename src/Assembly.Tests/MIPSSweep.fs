@@ -167,13 +167,28 @@ module internal MIPSSweep =
 
   /// Probes the whole space this sweep covers, keeping one instruction per
   /// distinct operand shape.
-  let probes () =
-    let isa = ISA(Architecture.MIPS, Endian.Little, WordSize.Bit32)
+  ///
+  /// The release is a parameter because Release 6 is a DIFFERENT encoding
+  /// space, not an extension of the earlier ones: it reassigned the primary
+  /// opcodes ADDI and DADDI had, replaced the multiply and divide families,
+  /// and removed the branch-likelies. A sweep at one release therefore says
+  /// nothing about the other, and running only the earlier one left every
+  /// Release 6 instruction outside the rule this file exists to hold.
+  let probesFor (release: MIPSRelease) =
+    let isa =
+      ISA(Architecture.MIPS, Endian.Little, WordSize.Bit32, int release)
     let parser = MIPSParser(isa, BinReader.Init Endian.Little)
     let walk key words =
       List.choose (decode parser) words
       |> List.distinctBy (fun probe -> keyOf key probe.Text)
     walk shapeOfOperand fieldWords @ walk kindOfOperand familyWords
     |> List.distinctBy (fun probe -> keyOf shapeOfOperand probe.Text)
+
+  /// The pre-Release-6 encoding space, which is what MIPS meant for
+  /// releases 1 to 5.
+  let probes () = probesFor MIPSRelease.PreR6
+
+  /// The Release 6 encoding space.
+  let probesR6 () = probesFor MIPSRelease.R6
 
 // vim: set tw=80 sts=2 sw=2:

@@ -99,7 +99,7 @@ let private parseMFLO binary =
   | _ -> raise ParsingFailureException
 
 /// Table A.3 MIPS64 SEPCIAL Opcode Encoding of Function Field
-let private parseSPECIAL bin =
+let private parseSPECIAL release bin =
   let b25to21 = Bits.extract bin 25u 21u
   let b20to6 = Bits.extract bin 20u 6u
   let b15to6 = Bits.extract bin 15u 6u
@@ -126,7 +126,12 @@ let private parseSPECIAL bin =
     if b10to6 = 0u then Op.SLLV, None, None, getRdRtRs bin
     else raise ParsingFailureException
   | 0b000101u ->
-    raise ParsingFailureException (* LSA *) // TODO
+    (* LSA rd, rs, rt, sa2 -- bits 10..8 are zero and 7..6 hold sa2, which
+       the operation uses as sa2+1. Release 6 only. *)
+    if release = MIPSRelease.R6 && Bits.extract bin 10u 8u = 0u then
+      Op.LSA, None, None, getRdRsRtSa2 bin
+    else
+      raise ParsingFailureException
   | 0b000110u ->
     if b10to6 = 0u then Op.SRLV, None, None, getRdRtRs bin
     elif b10to6 = 1u then Op.ROTRV, None, None, getRdRtRs bin
@@ -164,6 +169,25 @@ let private parseSPECIAL bin =
   | 0b010100u ->
     if b10to6 = 0u then Op.DSLLV, None, None, getRdRtRs bin
     else raise ParsingFailureException
+  | 0b110101u ->
+    (* SELEQZ rd, rs, rt -- rd gets rs when rt is zero and zero
+       otherwise. Release 6 put it where nothing stood before, so the
+       encoding is free on earlier releases rather than reassigned. *)
+    if release = MIPSRelease.R6 && b10to6 = 0u then
+      Op.SELEQZ, None, None, getRdRsRt bin
+    else
+      raise ParsingFailureException
+  | 0b110111u ->
+    if release = MIPSRelease.R6 && b10to6 = 0u then
+      Op.SELNEZ, None, None, getRdRsRt bin
+    else
+      raise ParsingFailureException
+  | 0b010101u ->
+    (* DLSA, the doubleword LSA. Release 6 only. *)
+    if release = MIPSRelease.R6 && Bits.extract bin 10u 8u = 0u then
+      Op.DLSA, None, None, getRdRsRtSa2 bin
+    else
+      raise ParsingFailureException
   | 0b010110u ->
     if b10to6 = 0u then Op.DSRLV, None, None, getRdRtRs bin
     elif b10to6 = 1u then Op.DROTRV, None, None, getRdRtRs bin
@@ -172,28 +196,107 @@ let private parseSPECIAL bin =
     if b10to6 = 0u then Op.DSRAV, None, None, getRdRtRs bin
     else raise ParsingFailureException
   | 0b011000u ->
-    if b15to6 = 0u then Op.MULT, None, None, getRsRt bin
-    else raise ParsingFailureException
+    if release = MIPSRelease.R6 then
+      match b10to6 with
+      | 0b00010u ->
+        Op.MUL, None, None, getRdRsRt bin
+      | 0b00011u ->
+        Op.MUH, None, None, getRdRsRt bin
+      | _ ->
+        raise ParsingFailureException
+    elif b15to6 = 0u then
+      Op.MULT, None, None, getRsRt bin
+    else
+      raise ParsingFailureException
   | 0b011001u ->
-    if b15to6 = 0u then Op.MULTU, None, None, getRsRt bin
-    else raise ParsingFailureException
+    if release = MIPSRelease.R6 then
+      match b10to6 with
+      | 0b00010u ->
+        Op.MULU, None, None, getRdRsRt bin
+      | 0b00011u ->
+        Op.MUHU, None, None, getRdRsRt bin
+      | _ ->
+        raise ParsingFailureException
+    elif b15to6 = 0u then
+      Op.MULTU, None, None, getRsRt bin
+    else
+      raise ParsingFailureException
   | 0b011010u ->
-    if b15to6 = 0u then Op.DIV, None, None, getRsRt bin
-    else raise ParsingFailureException
+    if release = MIPSRelease.R6 then
+      match b10to6 with
+      | 0b00010u ->
+        Op.DIV, None, None, getRdRsRt bin
+      | 0b00011u ->
+        Op.MOD, None, None, getRdRsRt bin
+      | _ ->
+        raise ParsingFailureException
+    elif b15to6 = 0u then
+      Op.DIV, None, None, getRsRt bin
+    else
+      raise ParsingFailureException
   | 0b011011u ->
-    parseDIVU bin
+    if release = MIPSRelease.R6 then
+      match b10to6 with
+      | 0b00010u ->
+        Op.DIVU, None, None, getRdRsRt bin
+      | 0b00011u ->
+        Op.MODU, None, None, getRdRsRt bin
+      | _ ->
+        raise ParsingFailureException
+    else
+      parseDIVU bin
   | 0b011100u ->
-    if b15to6 = 0u then Op.DMULT, None, None, getRsRt bin
-    else raise ParsingFailureException
+    if release = MIPSRelease.R6 then
+      match b10to6 with
+      | 0b00010u ->
+        Op.DMUL, None, None, getRdRsRt bin
+      | 0b00011u ->
+        Op.DMUH, None, None, getRdRsRt bin
+      | _ ->
+        raise ParsingFailureException
+    elif b15to6 = 0u then
+      Op.DMULT, None, None, getRsRt bin
+    else
+      raise ParsingFailureException
   | 0b011101u ->
-    if b15to6 = 0u then Op.DMULTU, None, None, getRsRt bin
-    else raise ParsingFailureException
+    if release = MIPSRelease.R6 then
+      match b10to6 with
+      | 0b00010u ->
+        Op.DMULU, None, None, getRdRsRt bin
+      | 0b00011u ->
+        Op.DMUHU, None, None, getRdRsRt bin
+      | _ ->
+        raise ParsingFailureException
+    elif b15to6 = 0u then
+      Op.DMULTU, None, None, getRsRt bin
+    else
+      raise ParsingFailureException
   | 0b011110u ->
-    if b15to6 = 0u then Op.DDIV, None, None, getRsRt bin
-    else raise ParsingFailureException
+    if release = MIPSRelease.R6 then
+      match b10to6 with
+      | 0b00010u ->
+        Op.DDIV, None, None, getRdRsRt bin
+      | 0b00011u ->
+        Op.DMOD, None, None, getRdRsRt bin
+      | _ ->
+        raise ParsingFailureException
+    elif b15to6 = 0u then
+      Op.DDIV, None, None, getRsRt bin
+    else
+      raise ParsingFailureException
   | 0b011111u ->
-    if b15to6 = 0u then Op.DDIVU, None, None, getRsRt bin
-    else raise ParsingFailureException
+    if release = MIPSRelease.R6 then
+      match b10to6 with
+      | 0b00010u ->
+        Op.DDIVU, None, None, getRdRsRt bin
+      | 0b00011u ->
+        Op.DMODU, None, None, getRdRsRt bin
+      | _ ->
+        raise ParsingFailureException
+    elif b15to6 = 0u then
+      Op.DDIVU, None, None, getRsRt bin
+    else
+      raise ParsingFailureException
   | 0b100000u ->
     if b10to6 = 0u then Op.ADD, None, None, getRdRsRt bin
     else raise ParsingFailureException
@@ -261,10 +364,23 @@ let private parseBAL binary =
   | _ -> Op.BGEZAL, None, None, getRsRel16 binary
 
 /// Table A.4 MIPS64 REGIMM Encoding of rt Field
-let private parseREGIMM binary =
+let private parseREGIMM release binary =
+  let r6 = release = MIPSRelease.R6
   match Bits.extract binary 20u 16u with
+  (* Release 6 put DAHI and DATI in two of REGIMM's free rt slots. They
+     add an immediate to the upper halves of a register, which is how a
+     64-bit constant is built without a load. *)
+  | 0b00110u when r6 -> Op.DAHI, None, None, getRsImm16u binary
+  | 0b11110u when r6 -> Op.DATI, None, None, getRsImm16u binary
   | 0b00000u -> Op.BLTZ, None, None, getRsRel16 binary
   | 0b00001u -> Op.BGEZ, None, None, getRsRel16 binary
+  (* The branch-likely forms. Release 6 removed the whole family, so
+     these are pre-Release-6 only -- the same reason BLEZL and BGTZL
+     share their opcodes with Release 6's compact-branch pools. *)
+  | 0b00010u when not r6 -> Op.BLTZL, None, None, getRsRel16 binary
+  | 0b00011u when not r6 -> Op.BGEZL, None, None, getRsRel16 binary
+  | 0b10010u when not r6 -> Op.BLTZALL, None, None, getRsRel16 binary
+  | 0b10011u when not r6 -> Op.BGEZALL, None, None, getRsRel16 binary
   | 0b01100u -> Op.TEQI, None, None, getRsImm16s binary
   | 0b10000u -> Op.BLTZAL, None, None, getRsRel16 binary
   | 0b10001u -> parseBAL binary
@@ -337,7 +453,7 @@ let private parseDBSHFL binary =
 
 /// Table A.6 MIPS64 SEPCIAL3 Encoding of Function Field for Release of the
 /// Architecture
-let private parseSPECIAL3 binary =
+let private parseSPECIAL3 release binary =
   let b6 = Bits.pick binary 6u
   match Bits.extract binary 5u 0u with
   | 0b000000u ->
@@ -361,20 +477,38 @@ let private parseSPECIAL3 binary =
   | 0b100100u (* DBSHFL *) ->
     parseDBSHFL binary
   | 0b100110u ->
-    if b6 = 0u then Op.SC, None, None, getRtMemBaseOff9 binary 32<rt>
-    else raise ParsingFailureException
+    if b6 = 0u then
+      Op.SC, None, None, getRtMemBaseOff9 binary 32<rt>
+    elif release = MIPSRelease.R6 then
+      Op.SCWP, None, None, getRtRdBase binary 32<rt>
+    else
+      raise ParsingFailureException
   | 0b100111u ->
-    if b6 = 0u then Op.SCD, None, None, getRtMemBaseOff9 binary 64<rt>
-    else raise ParsingFailureException
+    if b6 = 0u then
+      Op.SCD, None, None, getRtMemBaseOff9 binary 64<rt>
+    elif release = MIPSRelease.R6 then
+      Op.SCDP, None, None, getRtRdBase binary 64<rt>
+    else
+      raise ParsingFailureException
   | 0b110101u ->
     if b6 = 0u then Op.PREF, None, None, getHintMemBaseOff9 binary 32<rt>
     else raise ParsingFailureException
   | 0b110110u ->
-    if b6 = 0u then Op.LL, None, None, getRtMemBaseOff9 binary 32<rt>
-    else raise ParsingFailureException
+    (* Bit 6 selects the PAIRED form, which Release 6 added so that two
+       adjacent words can be read under one watch. *)
+    if b6 = 0u then
+      Op.LL, None, None, getRtMemBaseOff9 binary 32<rt>
+    elif release = MIPSRelease.R6 then
+      Op.LLWP, None, None, getRtRdBase binary 32<rt>
+    else
+      raise ParsingFailureException
   | 0b110111u ->
-    if b6 = 0u then Op.LL, None, None, getRtMemBaseOff9 binary 64<rt>
-    else raise ParsingFailureException
+    if b6 = 0u then
+      Op.LLD, None, None, getRtMemBaseOff9 binary 64<rt>
+    elif release = MIPSRelease.R6 then
+      Op.LLDP, None, None, getRtRdBase binary 64<rt>
+    else
+      raise ParsingFailureException
   | 0b111011u ->
     if Bits.extract binary 10u 9u = 0u then
       Op.RDHWR, None, None, getRtRdSel binary
@@ -411,11 +545,141 @@ let private parsePOP07 binary =
   | 0u -> Op.BGTZ, None, None, getRsRel16 binary
   | _ -> raise ParsingFailureException
 
+/// PCREL, the major opcode Release 6 gave to the PC-relative family. Which
+/// instruction a word means is settled by a variable-length field starting at
+/// bit 20, so the wider selectors have to be tested after the narrower ones
+/// fail rather than alongside them:
+///
+///     rs 00   <off19>   ADDIUPC      rs 110   <off18>   LDPC
+///     rs 01   <off19>   LWPC         rs 11110 <imm16>   AUIPC
+///     rs 10   <off19>   LWUPC        rs 11111 <imm16>   ALUIPC
+let private parsePCREL release bin =
+  if release <> MIPSRelease.R6 then
+    raise ParsingFailureException
+  else
+    match Bits.extract bin 20u 19u with
+    | 0b00u ->
+      Op.ADDIUPC, None, None, getRsOff19 bin
+    | 0b01u ->
+      Op.LWPC, None, None, getRsOff19 bin
+    | 0b10u ->
+      Op.LWUPC, None, None, getRsOff19 bin
+    | _ ->
+      match Bits.extract bin 20u 16u with
+      | 0b11110u ->
+        Op.AUIPC, None, None, getRsImm16u bin
+      | 0b11111u ->
+        Op.ALUIPC, None, None, getRsImm16u bin
+      | _ when Bits.extract bin 20u 18u = 0b110u ->
+        Op.LDPC, None, None, getRsOff18 bin
+      | _ ->
+        raise ParsingFailureException
+
+/// Release 6 put a pool of compact branches on each of the opcodes that used
+/// to hold BLEZ, BGTZ, BLEZL, BGTZL, ADDI and DADDI. Which instruction a word
+/// means is settled by rs and rt, and the rules below are the manual's own
+/// ("Compact Compare-and-Branch Instructions", MD00087 Revision 6.06).
+///
+/// The pools are only reachable on Release 6. On every earlier release the
+/// same opcodes mean what they always did, which is why the caller tests the
+/// release before coming here rather than after.
+let private parsePOP06R6 bin =
+  let rs = Bits.extract bin 25u 21u
+  let rt = Bits.extract bin 20u 16u
+  if rt = 0u then Op.BLEZ, None, None, getRsRel16 bin
+  elif rs = 0u then Op.BLEZALC, None, None, getRtRel16 bin
+  elif rs = rt then Op.BGEZALC, None, None, getRtRel16 bin
+  else Op.BGEUC, None, None, getRsRtRel16 bin
+
+let private parsePOP07R6 bin =
+  let rs = Bits.extract bin 25u 21u
+  let rt = Bits.extract bin 20u 16u
+  if rt = 0u then Op.BGTZ, None, None, getRsRel16 bin
+  elif rs = 0u then Op.BGTZALC, None, None, getRtRel16 bin
+  elif rs = rt then Op.BLTZALC, None, None, getRtRel16 bin
+  else Op.BLTUC, None, None, getRsRtRel16 bin
+
+let private parsePOP26R6 bin =
+  let rs = Bits.extract bin 25u 21u
+  let rt = Bits.extract bin 20u 16u
+  if rt = 0u then raise ParsingFailureException
+  elif rs = 0u then Op.BLEZC, None, None, getRtRel16 bin
+  elif rs = rt then Op.BGEZC, None, None, getRtRel16 bin
+  else Op.BGEC, None, None, getRsRtRel16 bin
+
+let private parsePOP27R6 bin =
+  let rs = Bits.extract bin 25u 21u
+  let rt = Bits.extract bin 20u 16u
+  if rt = 0u then raise ParsingFailureException
+  elif rs = 0u then Op.BGTZC, None, None, getRtRel16 bin
+  elif rs = rt then Op.BLTZC, None, None, getRtRel16 bin
+  else Op.BLTC, None, None, getRsRtRel16 bin
+
+/// BOVC and BNVC take rs >= rt, which is what separates them from the
+/// equality branches sharing their opcode.
+let private parsePOP10R6 bin =
+  let rs = Bits.extract bin 25u 21u
+  let rt = Bits.extract bin 20u 16u
+  if rs >= rt then Op.BOVC, None, None, getRsRtRel16 bin
+  elif rs = 0u then Op.BEQZALC, None, None, getRtRel16 bin
+  else Op.BEQC, None, None, getRsRtRel16 bin
+
+let private parsePOP30R6 bin =
+  let rs = Bits.extract bin 25u 21u
+  let rt = Bits.extract bin 20u 16u
+  if rs >= rt then Op.BNVC, None, None, getRsRtRel16 bin
+  elif rs = 0u then Op.BNEZALC, None, None, getRtRel16 bin
+  else Op.BNEC, None, None, getRsRtRel16 bin
+
+/// POP66 and POP76 hold an indexed jump when rs is zero and a compact
+/// compare-with-zero branch otherwise. The branch's offset is 21 bits, not
+/// 16 -- it uses the register field the jump needs for its base.
+let private parsePOP66R6 bin =
+  if Bits.extract bin 25u 21u = 0u then Op.JIC, None, None, getRtOff16 bin
+  else Op.BEQZC, None, None, getRsRel21 bin
+
+let private parsePOP76R6 bin =
+  if Bits.extract bin 25u 21u = 0u then Op.JIALC, None, None, getRtOff16 bin
+  else Op.BNEZC, None, None, getRsRel21 bin
+
+/// CMP.cond.fmt's condition is the low five bits of the function field.
+/// Conditions 0 to 7 mean what the same numbers mean for C.cond.fmt, so
+/// they share the Condition type. From 8 up they do NOT: Release 6 puts
+/// the signalling forms of 0 to 7 there, where the older encoding has
+/// SF, NGLE, SEQ, NGL, LT, NGE, LE and NGT. Those need their own names
+/// before they can be decoded, so they are refused rather than silently
+/// given the older meaning.
+let private parseCMPR6 fmt binary =
+  let cond = Bits.extract binary 4u 0u
+  if cond > 7u then raise ParsingFailureException
+  else Op.CMP, Some(getCondition cond), Some fmt, getFdFsFt binary
 /// Table A.18 MIPS64 COP1 Encoding of Function Field When rs=S, Revision 6.06
-let private parseCOP1WhenRsS binary =
+let private parseCOP1WhenRsS release binary =
   let b20to16 = Bits.extract binary 20u 16u
   let b17to16 = Bits.extract binary 17u 16u (* 0:tf *)
   match Bits.extract binary 5u 0u with
+  | 0b010000u when release = MIPSRelease.R6 ->
+    Op.SEL, None, Some Fmt.S, getFdFsFt binary
+  | 0b010100u when release = MIPSRelease.R6 ->
+    Op.SELEQZ, None, Some Fmt.S, getFdFsFt binary
+  | 0b010111u when release = MIPSRelease.R6 ->
+    Op.SELNEZ, None, Some Fmt.S, getFdFsFt binary
+  | 0b011000u when release = MIPSRelease.R6 ->
+    Op.MADDF, None, Some Fmt.S, getFdFsFt binary
+  | 0b011001u when release = MIPSRelease.R6 ->
+    Op.MSUBF, None, Some Fmt.S, getFdFsFt binary
+  | 0b011010u when release = MIPSRelease.R6 ->
+    Op.RINT, None, Some Fmt.S, getFdFs binary
+  | 0b011011u when release = MIPSRelease.R6 ->
+    Op.CLASS, None, Some Fmt.S, getFdFs binary
+  | 0b011100u when release = MIPSRelease.R6 ->
+    Op.MIN, None, Some Fmt.S, getFdFsFt binary
+  | 0b011101u when release = MIPSRelease.R6 ->
+    Op.MINA, None, Some Fmt.S, getFdFsFt binary
+  | 0b011110u when release = MIPSRelease.R6 ->
+    Op.MAX, None, Some Fmt.S, getFdFsFt binary
+  | 0b011111u when release = MIPSRelease.R6 ->
+    Op.MAXA, None, Some Fmt.S, getFdFsFt binary
   | 0b000000u ->
     Op.ADD, None, Some Fmt.S, getFdFsFt binary
   | 0b000001u ->
@@ -464,10 +728,32 @@ let private parseCOP1WhenRsS binary =
     raise ParsingFailureException
 
 /// Table A.19 MIPS64 COP1 Encoding of Function Field When rs=D, Revision 6.06
-let private parseCOP1WhenRsD binary =
+let private parseCOP1WhenRsD release binary =
   let b20to16 = Bits.extract binary 20u 16u
   let b17to16 = Bits.extract binary 17u 16u (* 0:tf *)
   match Bits.extract binary 5u 0u with
+  | 0b010000u when release = MIPSRelease.R6 ->
+    Op.SEL, None, Some Fmt.D, getFdFsFt binary
+  | 0b010100u when release = MIPSRelease.R6 ->
+    Op.SELEQZ, None, Some Fmt.D, getFdFsFt binary
+  | 0b010111u when release = MIPSRelease.R6 ->
+    Op.SELNEZ, None, Some Fmt.D, getFdFsFt binary
+  | 0b011000u when release = MIPSRelease.R6 ->
+    Op.MADDF, None, Some Fmt.D, getFdFsFt binary
+  | 0b011001u when release = MIPSRelease.R6 ->
+    Op.MSUBF, None, Some Fmt.D, getFdFsFt binary
+  | 0b011010u when release = MIPSRelease.R6 ->
+    Op.RINT, None, Some Fmt.D, getFdFs binary
+  | 0b011011u when release = MIPSRelease.R6 ->
+    Op.CLASS, None, Some Fmt.D, getFdFs binary
+  | 0b011100u when release = MIPSRelease.R6 ->
+    Op.MIN, None, Some Fmt.D, getFdFsFt binary
+  | 0b011101u when release = MIPSRelease.R6 ->
+    Op.MINA, None, Some Fmt.D, getFdFsFt binary
+  | 0b011110u when release = MIPSRelease.R6 ->
+    Op.MAX, None, Some Fmt.D, getFdFsFt binary
+  | 0b011111u when release = MIPSRelease.R6 ->
+    Op.MAXA, None, Some Fmt.D, getFdFsFt binary
   | 0b000000u ->
     Op.ADD, None, Some Fmt.D, getFdFsFt binary
   | 0b000001u ->
@@ -543,7 +829,7 @@ let private parseCOP1WhenRsL binary =
   | _ ->
     raise ParsingFailureException
 
-let private parseCOP1 arch binary =
+let private parseCOP1 arch release binary =
   let b10to0 = Bits.extract binary 10u 0u
   let b17to16 = Bits.extract binary 17u 16u (* nd:tf *)
   match Bits.extract binary 25u 21u with
@@ -571,14 +857,27 @@ let private parseCOP1 arch binary =
   | 0b00111u ->
     if b10to0 = 0u then Op.MTHC1, None, None, getRtFs binary
     else raise ParsingFailureException
+  (* Release 6 replaced the condition-code machinery: a comparison writes
+     a whole-register mask into an FPR and these branches test that
+     register, so the condition travels in a register rather than in
+     FCSR. The conditions themselves are in the low five bits of the
+     function field. *)
+  | 0b01001u when release = MIPSRelease.R6 ->
+    Op.BC1EQZ, None, None, getFtRel16 binary
+  | 0b01101u when release = MIPSRelease.R6 ->
+    Op.BC1NEZ, None, None, getFtRel16 binary
+  | 0b10100u when release = MIPSRelease.R6 ->
+    parseCMPR6 Fmt.S binary
+  | 0b10101u when release = MIPSRelease.R6 ->
+    parseCMPR6 Fmt.D binary
   | 0b01000u ->
     if b17to16 = 0b00u then Op.BC1F, None, None, getCcOff binary
     elif b17to16 = 0b01u then Op.BC1T, None, None, getCcOff binary
     else raise ParsingFailureException
   | 0b10000u ->
-    parseCOP1WhenRsS binary
+    parseCOP1WhenRsS release binary
   | 0b10001u ->
-    parseCOP1WhenRsD binary
+    parseCOP1WhenRsD release binary
   | 0b10100u ->
     parseCOP1WhenRsW binary
   | 0b10101u ->
@@ -631,12 +930,12 @@ let private parseCOP1X binary =
 
 /// The MIPS64 Instrecutin Set Reference Manual, MD00087, Revision 6.06
 /// Table A.2 MIPS64 Encoding of the Opcode Field
-let private parseOpcodeField arch binary wordSize =
+let private parseOpcodeField arch binary wordSize release =
   match Bits.extract binary 31u 26u with
   | 0b000000u ->
-    parseSPECIAL binary
+    parseSPECIAL release binary
   | 0b000001u ->
-    parseREGIMM binary
+    parseREGIMM release binary
   | 0b000010u ->
     Op.J, None, None, getTarget binary
   | 0b000011u ->
@@ -646,11 +945,16 @@ let private parseOpcodeField arch binary wordSize =
   | 0b000101u ->
     Op.BNE, None, None, getRsRtRel16 binary
   | 0b000110u ->
-    parsePOP06 binary
+    if release = MIPSRelease.R6 then parsePOP06R6 binary
+    else parsePOP06 binary
   | 0b000111u ->
-    parsePOP07 binary
+    if release = MIPSRelease.R6 then parsePOP07R6 binary
+    else parsePOP07 binary
   | 0b001000u ->
-    raise ParsingFailureException (* ADDI/POP10 *)
+    (* ADDI before Release 6; Release 6 reassigned this primary opcode to
+       POP10 (BOVC/BEQZALC/BEQC). *)
+    if release = MIPSRelease.R6 then parsePOP10R6 binary
+    else raise ParsingFailureException (* ADDI *)
   | 0b001001u ->
     Op.ADDIU, None, None, getRtRsImm16s binary
   | 0b001010u ->
@@ -668,7 +972,7 @@ let private parseOpcodeField arch binary wordSize =
   | 0b010000u ->
     raise ParsingFailureException (* COP0 *)
   | 0b010001u ->
-    parseCOP1 arch binary
+    parseCOP1 arch release binary
   | 0b010010u ->
     raise ParsingFailureException (* COP2 *)
   | 0b010011u ->
@@ -678,11 +982,23 @@ let private parseOpcodeField arch binary wordSize =
   | 0b010101u ->
     Op.BNEL, None, None, getRsRtRel16 binary
   | 0b010110u ->
-    raise ParsingFailureException (* BLEZL/POP26 *)
+    if release = MIPSRelease.R6 then
+      parsePOP26R6 binary
+    elif Bits.extract binary 20u 16u = 0u then
+      Op.BLEZL, None, None, getRsRel16 binary
+    else
+      raise ParsingFailureException
   | 0b010111u ->
-    raise ParsingFailureException (* BGTZL/POP27 *)
+    if release = MIPSRelease.R6 then
+      parsePOP27R6 binary
+    elif Bits.extract binary 20u 16u = 0u then
+      Op.BGTZL, None, None, getRsRel16 binary
+    else
+      raise ParsingFailureException
   | 0b011000u ->
-    raise ParsingFailureException (* DADDI/POP30 *)
+    (* DADDI before Release 6; Release 6 reassigned it to POP30. *)
+    if release = MIPSRelease.R6 then parsePOP30R6 binary
+    else raise ParsingFailureException (* DADDI *)
   | 0b011001u ->
     Op.DADDIU, None, None, getRtRsImm16s binary
   | 0b011010u ->
@@ -692,11 +1008,14 @@ let private parseOpcodeField arch binary wordSize =
   | 0b011100u ->
     parseSPECIAL2 binary
   | 0b011101u ->
-    raise ParsingFailureException (* JALX/DAUI *)
+    if release = MIPSRelease.R6 then
+      Op.DAUI, None, None, getRtRsImm16u binary
+    else
+      raise ParsingFailureException (* JALX *)
   | 0b011110u ->
     raise ParsingFailureException (* MSA *)
   | 0b011111u ->
-    parseSPECIAL3 binary
+    parseSPECIAL3 release binary
   | 0b100000u ->
     Op.LB, None, None, getRtMemBaseOff binary 8<rt>
   | 0b100001u ->
@@ -734,7 +1053,8 @@ let private parseOpcodeField arch binary wordSize =
   | 0b110001u ->
     Op.LWC1, None, None, getFtMemBaseOff binary 32<rt>
   | 0b110010u ->
-    raise ParsingFailureException (* LWC2 *)
+    if release = MIPSRelease.R6 then Op.BC, None, None, getRel26 binary
+    else raise ParsingFailureException (* LWC2 *)
   | 0b110011u (* pre-Release 6 *) ->
     Op.PREF, None, None, getHintMemBaseOff binary 32<rt>
   | 0b110100u (* MIPS64 pre-Release 6 *) ->
@@ -742,7 +1062,8 @@ let private parseOpcodeField arch binary wordSize =
   | 0b110101u ->
     Op.LDC1, None, None, getFtMemBaseOff binary (WordSize.toRegType wordSize)
   | 0b110110u ->
-    raise ParsingFailureException (* LDC2/BEQZC/JIC/POP66 *)
+    if release = MIPSRelease.R6 then parsePOP66R6 binary
+    else raise ParsingFailureException (* LDC2 *)
   | 0b110111u ->
     Op.LD, None, None, getRtMemBaseOff binary 64<rt>
   | 0b111000u (* pre-Release 6 *) ->
@@ -750,15 +1071,19 @@ let private parseOpcodeField arch binary wordSize =
   | 0b111001u ->
     Op.SWC1, None, None, getFtMemBaseOff binary 32<rt>
   | 0b111010u ->
-    raise ParsingFailureException (* SWC2/BALC *)
+    if release = MIPSRelease.R6 then
+      Op.BALC, None, None, getRel26 binary
+    else
+      raise ParsingFailureException (* SWC2 *)
   | 0b111011u ->
-    raise ParsingFailureException (* PCREL *)
+    parsePCREL release binary
   | 0b111100u (* pre-Release 6 *) ->
     Op.SCD, None, None, getRtMemBaseOff binary 64<rt>
   | 0b111101u ->
     Op.SDC1, None, None, getFtMemBaseOff binary (WordSize.toRegType wordSize)
   | 0b111110u ->
-    raise ParsingFailureException (* SDC2/BNEZC/JIALC/POP76 *)
+    if release = MIPSRelease.R6 then parsePOP76R6 binary
+    else raise ParsingFailureException (* SDC2 *)
   | 0b111111u ->
     Op.SD, None, None, getRtMemBaseOff binary 64<rt>
   | _ ->
@@ -772,8 +1097,9 @@ let private getOperationSize opcode wordSz =
   | Op.SD -> 64<rt>
   | _ -> WordSize.toRegType wordSz
 
-let parse lifter span (reader: IBinReader) arch wordSize addr =
+let parse lifter span (reader: IBinReader) arch wordSize release addr =
   let bin = reader.ReadUInt32(span = span, offset = 0)
-  let opcode, cond, fmt, operands = parseOpcodeField arch bin wordSize
+  let opcode, cond, fmt, operands =
+    parseOpcodeField arch bin wordSize release
   let oprSize = getOperationSize opcode wordSize
   Instruction(addr, 4u, cond, fmt, opcode, operands, oprSize, wordSize, lifter)

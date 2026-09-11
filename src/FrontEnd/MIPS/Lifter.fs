@@ -105,7 +105,14 @@ let translate (ins: Instruction) (bld: LowUIRBuilder) =
   | Op.DCLZ ->
     dclz ins bld
   | Op.DDIV ->
-    ddiv ins bld
+    (* Three operands AND no format is the Release 6 integer form,
+       which writes rd; two operands is the older one, which writes HI
+       and LO. The format has to be part of the test: DIV.S and DIV.D
+       are this same opcode with three operands too, and keying on the
+       count alone sent every float division to the integer lifter. *)
+    match ins.Fmt, ins.Operands with
+    | None, ThreeOperands _ -> divR6 ins bld false true true
+    | _ -> ddiv ins bld
   | Op.DMFC1 ->
     dmfc1 ins bld
   | Op.DMTC1 ->
@@ -123,11 +130,32 @@ let translate (ins: Instruction) (bld: LowUIRBuilder) =
   | Op.DINSU ->
     dinsx ins checkDINSUPosSize bld
   | Op.DIV ->
-    div ins bld
+    (* Three operands AND no format is the Release 6 integer form,
+       which writes rd; two operands is the older one, which writes HI
+       and LO. The format has to be part of the test: DIV.S and DIV.D
+       are this same opcode with three operands too, and keying on the
+       count alone sent every float division to the integer lifter. *)
+    match ins.Fmt, ins.Operands with
+    | None, ThreeOperands _ -> divR6 ins bld false true false
+    | _ -> div ins bld
   | Op.DIVU ->
-    divu ins bld
+    (* Three operands AND no format is the Release 6 integer form,
+       which writes rd; two operands is the older one, which writes HI
+       and LO. The format has to be part of the test: DIV.S and DIV.D
+       are this same opcode with three operands too, and keying on the
+       count alone sent every float division to the integer lifter. *)
+    match ins.Fmt, ins.Operands with
+    | None, ThreeOperands _ -> divR6 ins bld false false false
+    | _ -> divu ins bld
   | Op.DDIVU ->
-    ddivu ins bld
+    (* Three operands AND no format is the Release 6 integer form,
+       which writes rd; two operands is the older one, which writes HI
+       and LO. The format has to be part of the test: DIV.S and DIV.D
+       are this same opcode with three operands too, and keying on the
+       count alone sent every float division to the integer lifter. *)
+    match ins.Fmt, ins.Operands with
+    | None, ThreeOperands _ -> divR6 ins bld false false true
+    | _ -> ddivu ins bld
   | Op.DMULT ->
     dmul ins bld true
   | Op.DMULTU ->
@@ -180,6 +208,14 @@ let translate (ins: Instruction) (bld: LowUIRBuilder) =
     loadSigned ins bld
   | Op.LBU | Op.LHU | Op.LWU ->
     loadUnsigned ins bld
+  | Op.LLWP ->
+    loadLinkedPair ins bld 32<rt>
+  | Op.LLDP ->
+    loadLinkedPair ins bld 64<rt>
+  | Op.SCWP ->
+    storeConditionalPair ins bld 32<rt>
+  | Op.SCDP ->
+    storeConditionalPair ins bld 64<rt>
   | Op.LL | Op.LLD ->
     loadLinked ins bld
   | Op.SDC1 | Op.SDXC1 ->
@@ -256,6 +292,138 @@ let translate (ins: Instruction) (bld: LowUIRBuilder) =
     nop ins bld
   | Op.PREF | Op.PREFE | Op.PREFX ->
     nop ins bld
+  (* Release 6. The compact branches share one lifter and differ only in the
+     comparison, which is what they differ by in the manual too. *)
+  | Op.BC ->
+    bcCompact ins bld
+  | Op.BALC ->
+    balc ins bld
+  | Op.BEQC ->
+    compactBranchRR ins bld (==)
+  | Op.BNEC ->
+    compactBranchRR ins bld (!=)
+  | Op.BLTC ->
+    compactBranchRR ins bld (?<)
+  | Op.BGEC ->
+    compactBranchRR ins bld (?>=)
+  | Op.BLTUC ->
+    compactBranchRR ins bld (.<)
+  | Op.BGEUC ->
+    compactBranchRR ins bld (.>=)
+  | Op.BEQZC ->
+    compactBranchZ ins bld (==)
+  | Op.BNEZC ->
+    compactBranchZ ins bld (!=)
+  | Op.BLEZC ->
+    compactBranchZ ins bld (?<=)
+  | Op.BGEZC ->
+    compactBranchZ ins bld (?>=)
+  | Op.BGTZC ->
+    compactBranchZ ins bld (?>)
+  | Op.BLTZC ->
+    compactBranchZ ins bld (?<)
+  | Op.BEQZALC ->
+    compactBranchLinkZ ins bld (==)
+  | Op.BNEZALC ->
+    compactBranchLinkZ ins bld (!=)
+  | Op.BLEZALC ->
+    compactBranchLinkZ ins bld (?<=)
+  | Op.BGEZALC ->
+    compactBranchLinkZ ins bld (?>=)
+  | Op.BGTZALC ->
+    compactBranchLinkZ ins bld (?>)
+  | Op.BLTZALC ->
+    compactBranchLinkZ ins bld (?<)
+  | Op.BOVC ->
+    branchOverflowCompact ins bld true
+  | Op.BNVC ->
+    branchOverflowCompact ins bld false
+  | Op.JIC ->
+    jicCompact ins bld false
+  | Op.JIALC ->
+    jicCompact ins bld true
+  (* The multiply and divide family keeps one half of the result in a general
+     register, because Release 6 has no HI and LO to put the other half in.
+     MUL is dispatched by operand count below, since the opcode is shared with
+     the three-operand MUL that Release 2 put in SPECIAL2. *)
+  | Op.MUH ->
+    mulR6 ins bld true true false
+  | Op.MULU ->
+    mulR6 ins bld false false false
+  | Op.MUHU ->
+    mulR6 ins bld true false false
+  | Op.DMUL ->
+    mulR6 ins bld false true true
+  | Op.DMUH ->
+    mulR6 ins bld true true true
+  | Op.DMULU ->
+    mulR6 ins bld false false true
+  | Op.DMUHU ->
+    mulR6 ins bld true false true
+  | Op.MOD ->
+    divR6 ins bld true true false
+  | Op.MODU ->
+    divR6 ins bld true false false
+  | Op.DMOD ->
+    divR6 ins bld true true true
+  | Op.DMODU ->
+    divR6 ins bld true false true
+  | Op.DAUI ->
+    addUpperImm ins bld 16 false
+  | Op.DAHI ->
+    addUpperImm ins bld 32 true
+  | Op.DATI ->
+    addUpperImm ins bld 48 true
+  | Op.BITSWAP ->
+    bitswap ins bld false
+  | Op.DBITSWAP ->
+    bitswap ins bld true
+  | Op.ALIGN ->
+    align ins bld false
+  | Op.DALIGN ->
+    align ins bld true
+  | Op.SEL ->
+    fpSelect ins bld 0
+  | Op.SELEQZ when ins.Fmt <> None ->
+    fpSelect ins bld 1
+  | Op.SELNEZ when ins.Fmt <> None ->
+    fpSelect ins bld 2
+  | Op.MIN ->
+    fpMinMax ins bld false false
+  | Op.MAX ->
+    fpMinMax ins bld true false
+  | Op.MINA ->
+    fpMinMax ins bld false true
+  | Op.MAXA ->
+    fpMinMax ins bld true true
+  | Op.CLASS ->
+    fpClass ins bld
+  | Op.CMP ->
+    fpCmpR6 ins bld
+  | Op.BC1EQZ ->
+    bc1z ins bld false
+  | Op.BC1NEZ ->
+    bc1z ins bld true
+  | Op.ADDIUPC ->
+    addiupc ins bld
+  | Op.AUIPC ->
+    auipc ins bld false
+  | Op.ALUIPC ->
+    auipc ins bld true
+  | Op.LWPC ->
+    loadPC ins bld 32<rt> true
+  | Op.LWUPC ->
+    loadPC ins bld 32<rt> false
+  | Op.LDPC ->
+    loadPC ins bld 64<rt> true
+  | Op.SELEQZ ->
+    selectZ ins bld true
+  | Op.SELNEZ ->
+    selectZ ins bld false
+  | Op.LSA ->
+    lsa ins bld false
+  | Op.DLSA ->
+    lsa ins bld true
   | Op.RDHWR ->
     readHWR ins bld
   | Op.ROTR ->

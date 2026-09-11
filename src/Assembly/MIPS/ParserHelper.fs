@@ -207,7 +207,24 @@ let decomposeMnemonic (mnemonic: string) =
 let takesPlace = function
   | Opcode.B | Opcode.BAL | Opcode.BEQ | Opcode.BEQL | Opcode.BNE
   | Opcode.BNEL | Opcode.BGEZ | Opcode.BGEZAL | Opcode.BGTZ | Opcode.BLEZ
-  | Opcode.BLTZ | Opcode.BLTZAL | Opcode.BC1F | Opcode.BC1T -> true
+  | Opcode.BLTZ | Opcode.BLTZAL | Opcode.BC1F | Opcode.BC1T
+  (* The branch-likely forms name a place the same way the ordinary ones do;
+     nullifying the delay slot changes what runs, not how far it reaches. *)
+  | Opcode.BGEZL | Opcode.BGTZL | Opcode.BLEZL | Opcode.BLTZL
+  | Opcode.BGEZALL | Opcode.BLTZALL | Opcode.BC1FL | Opcode.BC1TL
+  (* The Release 6 compact branches. Having no delay slot changes what
+     runs after them, not how they name where to go. The PC-relative loads
+     name a place too -- what they fetch is at a distance from here -- while
+     JIC and JIALC do not: their offset is added to a register. *)
+  | Opcode.BC | Opcode.BALC | Opcode.BEQC | Opcode.BNEC
+  | Opcode.BLTC | Opcode.BGEC | Opcode.BLTUC | Opcode.BGEUC
+  | Opcode.BOVC | Opcode.BNVC
+  | Opcode.BEQZC | Opcode.BNEZC | Opcode.BLEZC | Opcode.BGEZC
+  | Opcode.BGTZC | Opcode.BLTZC
+  | Opcode.BEQZALC | Opcode.BNEZALC | Opcode.BLEZALC | Opcode.BGEZALC
+  | Opcode.BGTZALC | Opcode.BLTZALC
+  | Opcode.BC1EQZ | Opcode.BC1NEZ
+  | Opcode.ADDIUPC | Opcode.LWPC | Opcode.LWUPC | Opcode.LDPC -> true
   | _ -> false
 
 /// Whether the instruction names a word of the region it sits in, which is how

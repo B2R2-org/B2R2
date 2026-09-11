@@ -203,6 +203,61 @@ let private multiplyAdd func ins =
   | _ ->
     wrongOperands ins
 
+/// Encodes <fd>, <fs>, <ft>: the Release 6 operations on three registers.
+let private r6Float func ins =
+  match ins.Operands with
+  | ThreeOperands(Rg fd, Rg fs, Rg ft) ->
+    word 0b010001u (floatFormat ins) (fpr ft) (fpr fs) (fpr fd) func
+  | _ ->
+    wrongOperands ins
+
+/// Encodes <fd>, <fs>: the two Release 6 operations on one register.
+let private r6FloatUnary func ins =
+  match ins.Operands with
+  | TwoOperands(Rg fd, Rg fs) ->
+    word 0b010001u (floatFormat ins) 0u (fpr fs) (fpr fd) func
+  | _ ->
+    wrongOperands ins
+
+/// Encodes CMP.cond.fmt, whose condition is the low bits of the function
+/// field and whose format sits in the rs field rather than where every other
+/// float instruction keeps it.
+let private r6Compare ins =
+  match ins.Operands, ins.Condition with
+  | ThreeOperands(Rg fd, Rg fs, Rg ft), Some cond ->
+    let rs =
+      if ins.Fmt = Some FPRFormat.S then 0b10100u else 0b10101u
+    word 0b010001u rs (fpr ft) (fpr fs) (fpr fd) (uint32 (int cond))
+  | _ ->
+    wrongOperands ins
+
+/// Encodes <ft>, <place>: the branches that test bit 0 of a float register,
+/// which is where Release 6 leaves the answer a comparison used to put in a
+/// condition code.
+let private branchOnFPReg rs ins =
+  match ins.Operands with
+  | TwoOperands(Rg ft, Place distance) ->
+    immWord 0b010001u rs (fpr ft) (branchOffset distance)
+  | _ ->
+    wrongOperands ins
+
+/// The Release 6 rows of the unit.
+let internal release6FloatEncoders () =
+  [ Opcode.SEL, r6Float 0b010000u
+    Opcode.SELEQZ, r6Float 0b010100u
+    Opcode.SELNEZ, r6Float 0b010111u
+    Opcode.MADDF, r6Float 0b011000u
+    Opcode.MSUBF, r6Float 0b011001u
+    Opcode.RINT, r6FloatUnary 0b011010u
+    Opcode.CLASS, r6FloatUnary 0b011011u
+    Opcode.MIN, r6Float 0b011100u
+    Opcode.MINA, r6Float 0b011101u
+    Opcode.MAX, r6Float 0b011110u
+    Opcode.MAXA, r6Float 0b011111u
+    Opcode.CMP, r6Compare
+    Opcode.BC1EQZ, branchOnFPReg 0b01001u
+    Opcode.BC1NEZ, branchOnFPReg 0b01101u ]
+
 let floatEncoders () =
   [ Opcode.ADD, arith3 0b000000u
     Opcode.SUB, arith3 0b000001u
