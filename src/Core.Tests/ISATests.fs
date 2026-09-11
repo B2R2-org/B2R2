@@ -126,6 +126,34 @@ type ISATests() =
       Assert.AreEqual<WordSize>(WordSize.Bit64, isa.WordSize)
       Assert.AreEqual<string>("alpha", isa.ToString())
 
+  /// <summary>
+  /// eBPF is sixty-four bits and comes in both byte orders, both of which are
+  /// built for and named.
+  ///
+  /// The order is the one thing about an eBPF image that is not settled in
+  /// advance: a program is stored in the order the machine running it stores a
+  /// word, and which nibble of a byte names which register follows that order
+  /// too, so the two are not the same encoding read twice.
+  /// </summary>
+  [<TestMethod>]
+  member _.``An eBPF ISA is 64-bit in either byte order``() =
+    let little =
+      [ ISA "bpf"
+        ISA "ebpf"
+        ISA "bpfel"
+        ISA Architecture.BPF
+        ISA(Architecture.BPF, Endian.Little)
+        ISA(Architecture.BPF, WordSize.Bit64) ]
+    for isa in little do
+      Assert.AreEqual<Architecture>(Architecture.BPF, isa.Arch)
+      Assert.AreEqual<Endian>(Endian.Little, isa.Endian)
+      Assert.AreEqual<WordSize>(WordSize.Bit64, isa.WordSize)
+      Assert.AreEqual<string>("bpfel", isa.ToString())
+    for isa in [ ISA "bpfeb"; ISA(Architecture.BPF, Endian.Big) ] do
+      Assert.AreEqual<Endian>(Endian.Big, isa.Endian)
+      Assert.AreEqual<WordSize>(WordSize.Bit64, isa.WordSize)
+      Assert.AreEqual<string>("bpfeb", isa.ToString())
+
   /// CIL names an instruction set and nothing else. Whether a managed PE also
   /// holds native code is a fact about the file, not about the instructions
   /// CIL decodes, so every way of asking for a CIL ISA reaches the same one.

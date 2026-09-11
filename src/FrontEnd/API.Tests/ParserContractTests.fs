@@ -51,6 +51,7 @@ type ParserContractTests() =
        Architecture.M68K
        Architecture.Alpha
        Architecture.AVR
+       Architecture.BPF
        Architecture.TMS320C6000
        Architecture.EVM |]
 

@@ -82,6 +82,7 @@ type LiftingUnitTests() =
        Architecture.M68K, 2
        Architecture.Alpha, 4
        Architecture.AVR, 2
+       Architecture.BPF, 8
        Architecture.TMS320C6000, 4
        Architecture.EVM, 1 |]
 

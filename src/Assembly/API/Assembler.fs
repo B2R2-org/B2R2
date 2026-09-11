@@ -54,6 +54,7 @@ type Assembler(isa: ISA, startAddress) =
     | S390 -> S390.Assembler(isa, startAddress) :> ILowerable
     | SH4 -> SH4.Assembler(isa, startAddress) :> ILowerable
     | AVR -> AVR.Assembler(isa, startAddress) :> ILowerable
+    | BPF -> BPF.Assembler(isa, startAddress) :> ILowerable
     | EVM -> EVM.Assembler(isa, startAddress) :> ILowerable
     | Python -> Python.Assembler(isa, startAddress) :> ILowerable
     | _ -> raise InvalidISAException

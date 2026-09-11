@@ -196,6 +196,11 @@ module internal Header =
       ISA Architecture.Alpha
     | MachineType.EM_AVR ->
       getAVRISA span reader cls
+    (* A program is stored in the order the machine running it stores a word,
+       and the header says which that was; nothing else about the ISA is left
+       to say, every eBPF register being a quadword whatever the host is. *)
+    | MachineType.EM_BPF ->
+      ISA(Architecture.BPF, reader.Endianness, WordSize.Bit64)
     | _ ->
       raise InvalidISAException
 

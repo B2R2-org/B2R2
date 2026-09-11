@@ -151,6 +151,15 @@ request, please make sure to read our [contribution guideline](CONTRIBUTING.md).
     <td align="center">:full_moon:</td>
   </tr>
   <tr>
+    <td><b>eBPF</b></td>
+    <td align="center">:full_moon:</td>
+    <td align="center">:full_moon:</td>
+    <td align="center">:full_moon:</td>
+    <td align="center">:full_moon:</td>
+    <td align="center">:first_quarter_moon:</td>
+    <td align="center">:full_moon:</td>
+  </tr>
+  <tr>
     <td><b>M68K</b></td>
     <td align="center">:full_moon:</td>
     <td align="center">:full_moon:</td>

@@ -1,0 +1,26 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <Description>B2R2 eBPF frontend.</Description>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <Compile Include="RegisterFactory.fs" />
+    <Compile Include="Opcode.fs" />
+    <Compile Include="Operands.fs" />
+    <Compile Include="Instruction.fs" />
+    <Compile Include="Disasm.fs" />
+    <Compile Include="LiftHelper.fs" />
+    <Compile Include="GeneralLifter.fs" />
+    <Compile Include="Lifter.fs" />
+    <Compile Include="ParsingMain.fs" />
+    <Compile Include="Parser.fs" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\..\Core\B2R2.Core.fsproj" />
+    <ProjectReference Include="..\..\BinIR\B2R2.BinIR.fsproj" />
+    <ProjectReference Include="..\BinLifter\B2R2.FrontEnd.BinLifter.fsproj" />
+    <ProjectReference Include="..\Registers\B2R2.FrontEnd.Registers.fsproj" />
+  </ItemGroup>
+</Project>
