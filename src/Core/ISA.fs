@@ -35,8 +35,8 @@ exception InvalidISAException
 /// cref='F:B2R2.Architecture.UnknownISA'/> is given.</param>
 /// <param name="endian">Endianness.</param>
 /// <param name="wordSize">Word size in bits.</param>
-/// <param name="flags">Architecture-specific flags (e.g., CIL kind, Python
-/// version). Use 0 if not applicable.</param>
+/// <param name="flags">Architecture-specific flags (e.g., Python version,
+/// m68k model). Use 0 if not applicable.</param>
 type ISA(arch, endian, wordSize, flags) =
   do
     if arch = Architecture.UnknownISA then raise InvalidISAException else ()
@@ -199,11 +199,6 @@ type ISA(arch, endian, wordSize, flags) =
     | _ ->
       ISA(Architecture.UnknownISA, Endian.Little, wordSize)
 
-  /// Constructs an ISA object for the given CIL kind.
-  new(cilKind: CILKind) =
-    let flag = int cilKind
-    ISA(Architecture.CIL, Endian.Little, WordSize.Bit64, flag)
-
   /// Constructs an ISA object for the given Python version.
   new(pythonVer: PythonVersion) =
     let flag = int pythonVer
@@ -322,11 +317,7 @@ type ISA(arch, endian, wordSize, flags) =
     | "evm" ->
       ISA Architecture.EVM
     | "cil" ->
-      ISA CILKind.CILOnly
-    | "cil-x86" ->
-      ISA CILKind.CILx86
-    | "cil-x64" ->
-      ISA CILKind.CILx64
+      ISA Architecture.CIL
     (* The bare name takes the default version, the way "m68k" takes a default
        model, so that an input whose version is not the point does not have to
        name one. *)
@@ -589,22 +580,9 @@ type ISA(arch, endian, wordSize, flags) =
     | Architecture.BPF, Endian.Big, _ ->
       "bpfeb"
     | Architecture.CIL, _, _ ->
-      match LanguagePrimitives.EnumOfValue flags with
-      | CILKind.CILOnly -> "cil"
-      | CILKind.CILx86 -> "cil-x86"
-      | CILKind.CILx64 -> "cil-x64"
-      | _ -> raise InvalidISAException
+      "cil"
     | _ ->
       raise InvalidISAException
-
-/// Represents the kind of CIL code: only CIL, CIL for x86, or CIL for x64.
-and CILKind =
-  /// Only CIL code.
-  | CILOnly = 0
-  /// CIL code for x86.
-  | CILx86 = 1
-  /// CIL code for x86-64.
-  | CILx64 = 2
 
 /// Represents which of the two instruction sets a 32-bit ARM ISA means. A
 /// 32-bit ARM processor runs both, and nothing but the mode it is in says

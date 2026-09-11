@@ -24,6 +24,8 @@
 
 module internal B2R2.FrontEnd.WASM.Disasm
 
+open System
+open System.Globalization
 open B2R2
 open B2R2.FrontEnd.BinLifter
 
@@ -481,6 +483,26 @@ let opcodeToString = function
   | I32X4TruncSatF64X2UZero -> "i32x4.trunc_sat_f64x2_u_zero"
   | F64X2ConvertLowI32X4S -> "f64x2.convert_low_i32x4_s"
   | F64X2ConvertLowI32X4U -> "f64x2.convert_low_i32x4_u"
+  | I8X16RelaxedSwizzle -> "i8x16.relaxed_swizzle"
+  | I32X4RelaxedTruncF32X4S -> "i32x4.relaxed_trunc_f32x4_s"
+  | I32X4RelaxedTruncF32X4U -> "i32x4.relaxed_trunc_f32x4_u"
+  | I32X4RelaxedTruncF64X2SZero -> "i32x4.relaxed_trunc_f64x2_s_zero"
+  | I32X4RelaxedTruncF64X2UZero -> "i32x4.relaxed_trunc_f64x2_u_zero"
+  | F32X4RelaxedMadd -> "f32x4.relaxed_madd"
+  | F32X4RelaxedNmadd -> "f32x4.relaxed_nmadd"
+  | F64X2RelaxedMadd -> "f64x2.relaxed_madd"
+  | F64X2RelaxedNmadd -> "f64x2.relaxed_nmadd"
+  | I8X16RelaxedLaneselect -> "i8x16.relaxed_laneselect"
+  | I16X8RelaxedLaneselect -> "i16x8.relaxed_laneselect"
+  | I32X4RelaxedLaneselect -> "i32x4.relaxed_laneselect"
+  | I64X2RelaxedLaneselect -> "i64x2.relaxed_laneselect"
+  | F32X4RelaxedMin -> "f32x4.relaxed_min"
+  | F32X4RelaxedMax -> "f32x4.relaxed_max"
+  | F64X2RelaxedMin -> "f64x2.relaxed_min"
+  | F64X2RelaxedMax -> "f64x2.relaxed_max"
+  | I16X8RelaxedQ15mulrS -> "i16x8.relaxed_q15mulr_s"
+  | I16X8DotI8X16I7X16S -> "i16x8.dot_i8x16_i7x16_s"
+  | I32X4DotI8X16I7X16AddS -> "i32x4.dot_i8x16_i7x16_add_s"
   | MemoryAtomicNotify -> "memory.atomic.notify"
   | MemoryAtomicWait32 -> "memory.atomic.wait32"
   | MemoryAtomicWait64 -> "memory.atomic.wait64"
@@ -553,11 +575,58 @@ let inline buildOpcode (ins: Instruction) (builder: IDisasmBuilder) =
   let opcode = opcodeToString ins.Opcode
   builder.Accumulate(AsmWordKind.Mnemonic, opcode)
 
+/// Names the type a blocktype immediate encodes. The spec writes the field
+/// as a signed integer so that the value types, which are negative, can share
+/// it with a type index, which is not.
+let typeToString = function
+  | -0x01 -> "i32"
+  | -0x02 -> "i64"
+  | -0x03 -> "f32"
+  | -0x04 -> "f64"
+  | -0x05 -> "v128"
+  | -0x10 -> "funcref"
+  | -0x11 -> "externref"
+  | -0x40 -> ""
+  | t when t >= 0 -> "type[" + string t + "]"
+  | t -> string t
+
+/// Accumulates a blocktype, which an empty one contributes nothing to: the
+/// block that carries it disassembles as a bare mnemonic.
+let accumulateType t delim (builder: IDisasmBuilder) =
+  match typeToString t with
+  | "" ->
+    ()
+  | s ->
+    builder.Accumulate(AsmWordKind.String, delim)
+    builder.Accumulate(AsmWordKind.Value, s)
+
+/// Renders a 32-bit float immediate, which the encoding carries as raw bits,
+/// in the shortest decimal that reads back as the same value.
+let f32ToString (bv: BitVector) =
+  let value = BitConverter.UInt32BitsToSingle(bv.ToUInt32())
+  value.ToString CultureInfo.InvariantCulture
+
+/// Renders a 64-bit float immediate the way f32ToString renders a 32-bit one.
+let f64ToString (bv: BitVector) =
+  let value = BitConverter.UInt64BitsToDouble(bv.ToUInt64())
+  value.ToString CultureInfo.InvariantCulture
+
+/// Renders one 32-bit lane of a v128 immediate at its full width, so that the
+/// four of them read as the 128-bit value they spell out.
+let v128WordToString (bv: BitVector) =
+  "0x" + bv.ToUInt32().ToString "x8"
+
+/// Names the reference type ref.null takes, which the spec spells without the
+/// "ref" suffix the same byte carries as a value type.
+let refTypeToString = function
+  | -0x10 -> "func"
+  | -0x11 -> "extern"
+  | t -> string t
+
 let oprToString opr delim (builder: IDisasmBuilder) =
   match opr with
   | Type t ->
-    builder.Accumulate(AsmWordKind.String, delim)
-    builder.Accumulate(AsmWordKind.Value, t |> string)
+    accumulateType t delim builder
   | Index idx ->
     builder.Accumulate(AsmWordKind.String, delim)
     builder.Accumulate(AsmWordKind.Value, idx |> string)
@@ -569,20 +638,19 @@ let oprToString opr delim (builder: IDisasmBuilder) =
     builder.Accumulate(AsmWordKind.Value, i64 |> string)
   | F32 f32 ->
     builder.Accumulate(AsmWordKind.String, delim)
-    builder.Accumulate(AsmWordKind.Value, f32 |> string)
+    builder.Accumulate(AsmWordKind.Value, f32ToString f32)
   | F64 f64 ->
     builder.Accumulate(AsmWordKind.String, delim)
-    builder.Accumulate(AsmWordKind.Value, f64 |> string)
+    builder.Accumulate(AsmWordKind.Value, f64ToString f64)
   | V128(i32One, i32Two, i32Three, i32Four) ->
     builder.Accumulate(AsmWordKind.String, delim)
-    builder.Accumulate(AsmWordKind.String, "i32x4:")
-    builder.Accumulate(AsmWordKind.Value, i32One.ToValueString())
+    builder.Accumulate(AsmWordKind.Value, v128WordToString i32One)
     builder.Accumulate(AsmWordKind.String, delim)
-    builder.Accumulate(AsmWordKind.Value, i32Two.ToValueString())
+    builder.Accumulate(AsmWordKind.Value, v128WordToString i32Two)
     builder.Accumulate(AsmWordKind.String, delim)
-    builder.Accumulate(AsmWordKind.Value, i32Three.ToValueString())
+    builder.Accumulate(AsmWordKind.Value, v128WordToString i32Three)
     builder.Accumulate(AsmWordKind.String, delim)
-    builder.Accumulate(AsmWordKind.Value, i32Four.ToValueString())
+    builder.Accumulate(AsmWordKind.Value, v128WordToString i32Four)
   | Alignment align ->
     builder.Accumulate(AsmWordKind.String, delim)
     builder.Accumulate(AsmWordKind.Value, align |> string)
@@ -597,7 +665,7 @@ let oprToString opr delim (builder: IDisasmBuilder) =
     builder.Accumulate(AsmWordKind.Value, model |> string)
   | RefType reftype ->
     builder.Accumulate(AsmWordKind.String, delim)
-    builder.Accumulate(AsmWordKind.Value, reftype |> string)
+    builder.Accumulate(AsmWordKind.Value, refTypeToString reftype)
 
 let buildOperands (ins: Instruction) (builder: IDisasmBuilder) =
   match ins.Operands with

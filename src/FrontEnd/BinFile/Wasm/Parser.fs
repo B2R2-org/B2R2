@@ -45,6 +45,8 @@ let sectionIdToName (secId: SectionId) (off: int) =
   | SectionId.Element -> "element"
   | SectionId.Code -> "code"
   | SectionId.Data -> "data"
+  | SectionId.DataCount -> "datacount"
+  | SectionId.Tag -> "tag"
   | _ -> ""
 
 let private summerizeSections (bs: byte[]) (reader: IBinReader) offset =
@@ -64,10 +66,28 @@ let private summerizeSections (bs: byte[]) (reader: IBinReader) offset =
       loop (summary :: acc) no'
   loop [] offset
 
-let private idLtId id1 id2 =
-  let id1' = LanguagePrimitives.EnumToValue id1
-  let id2' = LanguagePrimitives.EnumToValue id2
-  id1' < id2'
+/// Ranks a section by where the spec orders it, which stopped matching the
+/// order of the ids themselves once the ids ran past data: a tag section
+/// sorts between memory and global, and a data count between element and
+/// code. Custom sections carry no rank; they are allowed anywhere.
+let private secOrderRank id =
+  match id with
+  | SectionId.Type -> 1
+  | SectionId.Import -> 2
+  | SectionId.Function -> 3
+  | SectionId.Table -> 4
+  | SectionId.Memory -> 5
+  | SectionId.Tag -> 6
+  | SectionId.Global -> 7
+  | SectionId.Export -> 8
+  | SectionId.Start -> 9
+  | SectionId.Element -> 10
+  | SectionId.DataCount -> 11
+  | SectionId.Code -> 12
+  | SectionId.Data -> 13
+  | _ -> 0
+
+let private idLtId id1 id2 = secOrderRank id1 < secOrderRank id2
 
 let private peekSecSummPair (secsSumm: SectionSummary list) =
   let sec1 = List.head secsSumm
@@ -243,7 +263,7 @@ let private parseWasmModule (bs: byte[]) (reader: IBinReader) offset =
           let wm, sm = updateDataSection bs reader wasmModule secsSummary
           parsingLoop wm info' sm
         | _ ->
-          wasmModule
+          parsingLoop wasmModule info' (List.tail secsSummary)
     let wasmModule =
       { FormatVersion = version
         CustomSections = []

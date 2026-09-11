@@ -24,6 +24,8 @@
 
 namespace B2R2.FrontEnd.BinFile.Tests
 
+open System
+open System.IO
 open System.Reflection.PortableExecutable
 open B2R2
 open B2R2.FrontEnd.BinFile
@@ -56,6 +58,26 @@ type PETests() =
     let dllName = fileName + ".dll"
     let bytes = ZIPReader.readBytes PEBinary (fileName + ".zip") dllName
     PEBinFile(dllName, bytes, None, [||])
+
+  /// This test assembly is itself a managed PE -- pure IL, marked AnyCPU --
+  /// which is the shape nearly every .NET assembly has. Reading it back costs
+  /// no fixture and cannot drift from what a loader has to handle.
+  static let managedBytes =
+    Reflection.Assembly.GetExecutingAssembly().Location |> File.ReadAllBytes
+
+  /// Rewrites the COR header's flags field, which sits 16 bytes into that
+  /// header, so that one assembly can stand for every combination of them.
+  static let withCorFlags (flags: CorFlags) =
+    let bytes = Array.copy managedBytes
+    use stream = new MemoryStream(bytes)
+    use reader = new PEReader(stream, PEStreamOptions.Default)
+    let offset = reader.PEHeaders.CorHeaderStartOffset + 16
+    BitConverter.GetBytes(int flags).CopyTo(bytes, offset)
+    bytes
+
+  /// Reads back the ISA of this assembly rewritten to carry the given flags.
+  static let managedISA flags =
+    (PEBinFile("", withCorFlags flags, None, [||]) :> IBinFile).ISA
 
   /// A minimal x64 console executable (no PDB), used as the canonical fixture
   /// for metadata, section, and address-space tests.
@@ -161,6 +183,43 @@ type PETests() =
     Assert.AreEqual(Architecture.Intel, isa.Arch)
     Assert.AreEqual(WordSize.Bit32, isa.WordSize)
     Assert.AreEqual(Endian.Little, isa.Endian)
+
+  [<TestMethod>]
+  member _.``[PE] pure IL assembly ISA test``() =
+    let isa = managedISA CorFlags.ILOnly
+    Assert.AreEqual(Architecture.CIL, isa.Arch)
+    Assert.AreEqual<string>("cil", isa.ToString())
+
+  /// Strong-name signing says nothing about whether an assembly holds native
+  /// code, and most assemblies shipped through NuGet carry the flag. Reading
+  /// the COR flags as a whole value rather than testing the one bit made every
+  /// one of them look like a mixed-mode binary.
+  [<TestMethod>]
+  member _.``[PE] signed pure IL assembly ISA test``() =
+    let isa = managedISA (CorFlags.ILOnly ||| CorFlags.StrongNameSigned)
+    Assert.AreEqual(Architecture.CIL, isa.Arch)
+    Assert.AreEqual<string>("cil", isa.ToString())
+
+  /// A mixed-mode assembly holds native code and is entered through it, so the
+  /// ISA that describes it is the one that code is in. Whatever IL it also
+  /// holds is a fact about the file rather than about its instruction set.
+  [<TestMethod>]
+  member _.``[PE] mixed-mode assembly ISA test``() =
+    let isa = managedISA CorFlags.StrongNameSigned
+    Assert.AreEqual(Architecture.Intel, isa.Arch)
+    Assert.AreEqual(WordSize.Bit32, isa.WordSize)
+
+  /// A PDB sitting beside an image that this parser cannot read is not a
+  /// reason to fail to load the image, since nothing asked for that file in
+  /// the first place. Every .NET assembly built today ships a portable PDB,
+  /// which is not the format this parser reads, and this test assembly is one
+  /// such assembly with one such PDB next to it.
+  [<TestMethod>]
+  member _.``[PE] unreadable PDB beside the image test``() =
+    let path = Reflection.Assembly.GetExecutingAssembly().Location
+    let file = PEBinFile(path, managedBytes, None, [||]) :> IBinFile
+    Assert.AreEqual(PEBinary, file.Format)
+    Assert.AreEqual(Architecture.CIL, file.ISA.Arch)
 
   [<TestMethod>]
   member _.``[PE] x86 entry point test``() =

@@ -104,6 +104,27 @@ type WasmBinFile(path, bytes: byte[], baseAddrOpt) =
 
   let symbolMap = lazy getFunctionNameMap wm
 
+  let toFunctionBody importedCount index (code: Code) =
+    let body = code.Offset + code.LenFieldSize
+    let first = body + code.LocalsSize
+    let last = body + int code.CodeSize - 1
+    let name =
+      match Map.tryFind (uint64 body) symbolMap.Value with
+      | Some name -> name
+      | None -> $"func[{importedCount + index}]"
+    let ptr =
+      BinFilePointer.CreateFileBacked(uint64 first, uint64 last, first, last)
+    name, ptr
+
+  let functionBodies =
+    lazy
+      let importedCount = Array.length importEntries.Value
+      match wm.CodeSection with
+      | Some { Contents = Some conts } ->
+        conts.Elements |> Array.mapi (toFunctionBody importedCount)
+      | _ ->
+        [||]
+
   let nameResolver =
     Some { new INameResolvable with
       member _.TryResolveName addr =
@@ -184,6 +205,11 @@ type WasmBinFile(path, bytes: byte[], baseAddrOpt) =
   new(path, bytes) = WasmBinFile(path, bytes, None)
 
   member internal _.WASM with get() = wm
+
+  /// Returns each locally defined function as its name paired with a pointer
+  /// to its instructions. A body entry opens with a vector of local
+  /// declarations, which are not code, so the pointer starts past it.
+  member _.FunctionBodies with get() = functionBodies.Value
 
   member internal _.Sections with get() = wm.SectionsInfo.SecArray
 

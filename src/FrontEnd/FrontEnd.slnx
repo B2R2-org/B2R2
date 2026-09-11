@@ -44,5 +44,6 @@
   <Project Path="SPARC/B2R2.FrontEnd.SPARC.fsproj" />
   <Project Path="TMS320C6000.Tests/B2R2.FrontEnd.TMS320C6000.Tests.fsproj" />
   <Project Path="TMS320C6000/B2R2.FrontEnd.TMS320C6000.fsproj" />
+  <Project Path="WASM.Tests/B2R2.FrontEnd.WASM.Tests.fsproj" />
   <Project Path="WASM/B2R2.FrontEnd.WASM.fsproj" />
 </Solution>

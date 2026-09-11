@@ -55,6 +55,8 @@ type internal ConstExprValueType =
   | I64 = 0x42uy
   | F32 = 0x43uy
   | F64 = 0x44uy
+  | RefNull = 0xd0uy
+  | RefFunc = 0xd2uy
 
 type internal ConstExpr =
   | I32 of uint32
@@ -63,6 +65,10 @@ type internal ConstExpr =
   | F64 of double
   /// A reference to an immutable global through the global.get instruction.
   | GlobalGet of uint32
+  /// A null reference of the reference type the byte names.
+  | RefNull of byte
+  /// A reference to the function the index names.
+  | RefFunc of uint32
 
 type internal FuncTypeStart =
   | FunctionType = 0x60uy
@@ -119,6 +125,8 @@ type internal SectionId =
   | Element = 9uy
   | Code = 10uy
   | Data = 11uy
+  | DataCount = 12uy
+  | Tag = 13uy
 
 type internal ExpressionEnd =
   | ExprEnd = 0x0Buy
@@ -255,10 +263,22 @@ type internal ExportSection = Section<Vector<Export>>
 
 type internal StartSection = Section<FuncIdx>
 
+/// Represents how an element segment spells its entries out: as function
+/// indices, or as the expressions reference types allows in their place.
+type internal ElemInit =
+  | ElemFuncs of Vector<FuncIdx>
+  | ElemExprs of Vector<ConstExpr>
+
 type internal Elem =
-  { TableIndex: TableIdx
-    OffsetExpr: ConstExpr
-    InitFuncs: Vector<FuncIdx> }
+  { /// Segment mode, 0 to 7. Bit 0 separates an active segment from a passive
+    /// or declarative one, bit 1 adds an explicit table index, and bit 2
+    /// switches the entries from function indices to expressions. Only mode 0
+    /// predates bulk memory and reference types.
+    Mode: uint32
+    TableIndex: TableIdx
+    /// The offset only an active segment carries.
+    OffsetExpr: ConstExpr option
+    Init: ElemInit }
 
 type internal ElementSection = Section<Vector<Elem>>
 
@@ -271,13 +291,21 @@ type internal Code =
   { Offset: int
     LenFieldSize: int
     CodeSize: uint32
+    /// Byte size of the vector of local declarations that opens the body,
+    /// counting the vector's own length field. Instructions start past it.
+    LocalsSize: int
     Locals: LocalDecl list }
 
 type internal CodeSection = Section<Vector<Code>>
 
 type internal Data =
-  { MemoryIndex: MemIdx
-    OffsetExpr: ConstExpr
+  { /// Segment mode: 0 is active in the first memory, 1 is passive, and 2 is
+    /// active in the memory its own index names. Bulk memory added the last
+    /// two.
+    Mode: uint32
+    MemoryIndex: MemIdx
+    /// The offset only an active segment carries.
+    OffsetExpr: ConstExpr option
     InitBytes: Vector<byte> }
 
 type internal DataSection = Section<Vector<Data>>

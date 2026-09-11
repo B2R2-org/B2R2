@@ -487,6 +487,27 @@ type Opcode =
   | I32X4TruncSatF64X2UZero
   | F64X2ConvertLowI32X4S
   | F64X2ConvertLowI32X4U
+  /// Relaxed SIMD opcodes (--enable-relaxed-simd)
+  | I8X16RelaxedSwizzle
+  | I32X4RelaxedTruncF32X4S
+  | I32X4RelaxedTruncF32X4U
+  | I32X4RelaxedTruncF64X2SZero
+  | I32X4RelaxedTruncF64X2UZero
+  | F32X4RelaxedMadd
+  | F32X4RelaxedNmadd
+  | F64X2RelaxedMadd
+  | F64X2RelaxedNmadd
+  | I8X16RelaxedLaneselect
+  | I16X8RelaxedLaneselect
+  | I32X4RelaxedLaneselect
+  | I64X2RelaxedLaneselect
+  | F32X4RelaxedMin
+  | F32X4RelaxedMax
+  | F64X2RelaxedMin
+  | F64X2RelaxedMax
+  | I16X8RelaxedQ15mulrS
+  | I16X8DotI8X16I7X16S
+  | I32X4DotI8X16I7X16AddS
   /// Thread opcodes (--enable-threads)
   | MemoryAtomicNotify
   | MemoryAtomicWait32

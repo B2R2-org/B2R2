@@ -22,29 +22,27 @@
   SOFTWARE.
 *)
 
-namespace B2R2.FrontEnd.WASM
+namespace B2R2.FrontEnd.WASM.Tests
 
+open System
 open B2R2
+open B2R2.FrontEnd.BinLifter
+open B2R2.FrontEnd.WASM
+open Microsoft.VisualStudio.TestTools.UnitTesting
 
-/// Represents a set of operands in an WASM instruction.
-type Operands =
-  | NoOperand
-  | OneOperand of Operand
-  | TwoOperands of Operand * Operand
-  | ThreeOperands of Operand * Operand * Operand
-  | Operands of Operand list
+/// Pins that a byte the spec assigns to nothing is reported as a parsing
+/// failure rather than decoded into some neighbouring opcode. WASM leaves
+/// holes in every one of its four opcode spaces, and a decoder that fills one
+/// in reads the bytes after it as operands of an instruction that is not
+/// there, which walks the rest of the function body off its boundaries.
+[<TestClass>]
+type UndecodableTests() =
+  static let parser =
+    WASMParser(BinReader.Init Endian.Little) :> IInstructionParsable
 
-/// Represents an operand used in an WASM instruction.
-and Operand =
-  | I32 of int32
-  | I64 of int64
-  | F32 of BitVector
-  | F64 of BitVector
-  | V128 of BitVector * BitVector * BitVector * BitVector
-  | Type of int
-  | RefType of int
-  | Index of uint32
-  | Alignment of uint32
-  | Address of uint32
-  | LaneIndex of uint8
-  | ConsistencyModel of uint8
+  [<TestMethod>]
+  member _.``[WASM] Unassigned Opcode Does Not Parse Test``() =
+    for hex in [| "0a"; "27"; "c5"; "fc12"; "fe04" |] do
+      let bytes = ByteArray.ofHexString hex
+      Assert.ThrowsExactly<ParsingFailureException>(fun () ->
+        parser.Parse(ReadOnlySpan bytes, 0UL) |> ignore) |> ignore

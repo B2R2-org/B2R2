@@ -108,6 +108,8 @@ module ArchSupport =
       BPF.BPFParser reader :> IInstructionParsable
     | Python ->
       Python.PythonRawParser(isa, reader) :> IInstructionParsable
+    | WASM ->
+      WASM.WASMParser reader :> IInstructionParsable
     | _ ->
       Terminator.futureFeature ()
 
