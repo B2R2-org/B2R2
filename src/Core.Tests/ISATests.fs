@@ -54,6 +54,16 @@ type ISATests() =
       "m68040", M68KModel.M68040
       "m68060", M68KModel.M68060 ]
 
+  /// Every Release 6 MIPS ISA and the name it goes by. Which release a
+  /// MIPS ISA means is part of what it is, because Release 6 reassigned
+  /// primary opcodes that the earlier releases had given to other
+  /// instructions.
+  static let mipsR6 =
+    [ "mips32r6le", Endian.Little, WordSize.Bit32
+      "mips32r6", Endian.Big, WordSize.Bit32
+      "mips64r6le", Endian.Little, WordSize.Bit64
+      "mips64r6be", Endian.Big, WordSize.Bit64 ]
+
   [<TestMethod>]
   member _.``An ARM32 name says which instruction set it means``() =
     for name, arch, endian, mode in arm32 do
@@ -110,6 +120,38 @@ type ISATests() =
     for isa in isas do
       Assert.AreEqual<M68KModel>(M68KModel.M68020, isa.M68KModel)
       Assert.AreEqual<string>("m68020", isa.ToString())
+
+  [<TestMethod>]
+  member _.``A MIPS name says which release it means``() =
+    for name, endian, wordSize in mipsR6 do
+      let isa = ISA name
+      Assert.AreEqual<Architecture>(Architecture.MIPS, isa.Arch, name)
+      Assert.AreEqual<Endian>(endian, isa.Endian, name)
+      Assert.AreEqual<WordSize>(wordSize, isa.WordSize, name)
+      Assert.AreEqual<MIPSRelease>(MIPSRelease.R6, isa.MIPSRelease, name)
+
+  [<TestMethod>]
+  member _.``A Release 6 ISA prints as the name it is read from``() =
+    for name, _, _ in mipsR6 do
+      Assert.AreEqual<string>(name, (ISA name).ToString(), name)
+
+  [<TestMethod>]
+  member _.``The names of one Release 6 ISA all mean it``() =
+    let aliases =
+      [ "mips32r6le", [ "mipsr6el"; "mips32r6el" ]
+        "mips32r6", [ "mips32r6be" ]
+        "mips64r6le", [ "mips64r6"; "mips64r6el" ] ]
+    for name, others in aliases do
+      for other in others do
+        Assert.AreEqual<string>(name, (ISA other).ToString(), other)
+
+  /// A MIPS name that does not say a release means the releases that
+  /// share one encoding space, which is every release up to 5.
+  [<TestMethod>]
+  member _.``A MIPS name without a release is not Release 6``() =
+    for name in [ "mipsel"; "mips32"; "mips64"; "mips64be" ] do
+      let release = (ISA name).MIPSRelease
+      Assert.AreEqual<MIPSRelease>(MIPSRelease.PreR6, release, name)
 
   /// The flags an ISA carries mean whatever the architecture they belong to
   /// says they mean, so an architecture that has nothing to say there is read

@@ -73,6 +73,22 @@ type MIPSRoundTripTests() =
 
   static let assembler32 = Assembler(isa32, 0UL) :> ILowerable
 
+  /// The Release 6 pair. A sweep at one release has to be encoded and
+  /// decoded at that release: the same text means different words on either
+  /// side of the boundary.
+  static let isaR6 =
+    ISA(
+      Architecture.MIPS,
+      Endian.Little,
+      WordSize.Bit32,
+      int MIPSRelease.R6
+    )
+
+  static let assemblerR6 = Assembler(isaR6, 0UL) :> ILowerable
+
+  static let parserR6 =
+    MIPSParser(isaR6, BinReader.Init Endian.Little) :> IInstructionParsable
+
   static let assembler64 = Assembler(isa64, 0UL) :> ILowerable
 
   static let disasm (parser: IInstructionParsable) (bytes: byte[]) =
@@ -94,6 +110,7 @@ type MIPSRoundTripTests() =
       if actual = source then MIPSPreserved else MIPSAltered actual
 
   /// Describes a source that does not encode to a word meaning the same.
+
   static let brokenSource assembler parser source =
     match roundTrip assembler parser source with
     | MIPSPreserved -> None
@@ -104,6 +121,9 @@ type MIPSRoundTripTests() =
   /// file, so it runs once for the class rather than once for each test that
   /// reads it.
   static let sweepProbes = lazy (MIPSSweep.probes ())
+
+  /// The same sweep over the Release 6 encoding space.
+  static let sweepProbesR6 = lazy (MIPSSweep.probesR6 ())
 
   /// What the decoder of the other word size makes of a probe, which differs
   /// from what the sweep recorded only in how the registers are named.
@@ -188,6 +208,38 @@ type MIPSRoundTripTests() =
       "lw $2, -8($4)", "lw v0, -8(a0)"
       "c.eq.s $f4, $f2", "c.eq.s f4, f2"
       "sync", "sync 0x0" ]
+
+  /// <summary>
+  /// The same rule over Release 6, which is a separate encoding space and
+  /// so a separate obligation: an instruction the Release 6 decoder reads
+  /// is one the assembler has to be able to write.
+  /// </summary>
+  [<TestMethod>]
+  [<TestCategory("Sweep")>]
+  member _.``Every Release 6 instruction the decoder decodes encodes``() =
+    let probes = sweepProbesR6.Force()
+    (* One line per MNEMONIC rather than per probe. The sweep produces
+       thousands of probes and a message naming each one is long enough
+       for the runner to truncate it, which hides everything after the
+       first entry -- a list of dozens read as a single failure. *)
+    let broken =
+      probes
+      |> List.choose (fun probe ->
+        brokenSource assemblerR6 parserR6 probe.Text
+        |> Option.map (fun _ -> probe.Text.Split(' ')[0]))
+      |> List.distinct
+      |> List.sort
+    (* The assertion message is truncated by the runner once it grows past
+       a few hundred characters, which is how a list of dozens came to read
+       as a single failure. Console output is not truncated. *)
+    printfn "R6-UNENCODABLE(%d): %s" (List.length broken)
+      (String.concat " " broken)
+    Assert.AreEqual<string>(
+      "",
+      String.concat "\n" broken,
+      $"These Release 6 instructions decode but do not encode "
+      + $"(of {List.length probes} probes swept)."
+    )
 
   [<TestMethod>]
   [<TestCategory("Sweep")>]

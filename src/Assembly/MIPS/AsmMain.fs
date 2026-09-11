@@ -61,12 +61,33 @@ let private addEncoders claims table rows =
 /// Builds the lookup from an opcode to the encoder for it. Each assembler
 /// builds its own and lets it go when it goes, rather than the rows living for
 /// as long as the process does.
-let buildEncoderTable () =
+/// <param name="release">
+/// Which release the source is written for. Release 6 is a different
+/// encoding space, not an extension: MUL, DIV and the rest of that family
+/// are written the same way there and encoded differently, so the release
+/// is what tells the two apart -- nothing in the source text does.
+/// </param>
+let buildEncoderTable (release: MIPSRelease) =
   let general =
     [ arithmeticEncoders (); branchEncoders (); loadStoreEncoders () ]
     |> List.concat
     |> Map.ofList
-  addEncoders (fun ins -> Option.isSome ins.Fmt) general (floatEncoders ())
+  let general =
+    if release = MIPSRelease.R6 then
+      addEncoders (fun _ -> true) general (release6Encoders ())
+    else
+      general
+  let withFloat =
+    addEncoders (fun ins -> Option.isSome ins.Fmt) general
+      (floatEncoders ())
+  if release = MIPSRelease.R6 then
+    (* SELEQZ and SELNEZ name both an integer instruction and a float one,
+       and only the format written into the mnemonic tells them apart, so
+       the float rows claim exactly the formatted ones. *)
+    addEncoders (fun ins -> Option.isSome ins.Fmt) withFloat
+      (release6FloatEncoders ())
+  else
+    withFloat
 
 /// Resolves a label to the address of the instruction it marks. A label that
 /// was never defined is a mistake in the source, not a lookup that failed.

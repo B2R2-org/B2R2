@@ -439,6 +439,18 @@ let advancePC (bld: LowUIRBuilder) insLen =
     append bld { AST.interjmp nPC bld.DelayedBranch }
     bld.DelayedBranch <- InterJmpKind.NotAJmp
 
+/// The Release 6 compact branches. A compact branch has no delay slot:
+/// it takes effect at the branch itself, so the not-taken path is the
+/// very next instruction rather than the one after a slot, and there is
+/// nothing left armed for advancePC to consume. That is the whole of the
+/// difference from updatePCCond below, which is why the two share a
+/// shape and not a body.
+let updatePCCondCompact (bld: LowUIRBuilder) offset cond =
+  let pc = regVar bld R.PC
+  append bld {
+    AST.intercjmp cond offset (pc .+ numI32 4 bld.RegType)
+  }
+
 let updatePCCond (bld: LowUIRBuilder) offset cond kind =
   append bld {
     let lblTrueCase = label bld "TrueCase"

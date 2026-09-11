@@ -686,5 +686,33 @@ type Opcode =
   | InvalOP = 327
   /// Add Dword.
   | DADD = 328
+  /// Doubleword Multiply Low (Release 6).
+  | DMUL = 331
+  /// Doubleword Multiply High (Release 6).
+  | DMUH = 332
+  /// Doubleword Multiply Low Unsigned (Release 6).
+  | DMULU = 333
+  /// Doubleword Multiply High Unsigned (Release 6).
+  | DMUHU = 334
+  /// Doubleword Modulo (Release 6).
+  | DMOD = 335
+  /// Doubleword Modulo Unsigned (Release 6).
+  | DMODU = 336
+  /// Doubleword Load Scaled Address (Release 6).
+  | DLSA = 337
+  /// Doubleword Add Upper Immediate (Release 6).
+  | DAUI = 338
+  /// Doubleword Add Higher Immediate (Release 6).
+  | DAHI = 339
+  /// Doubleword Add Top Immediate (Release 6).
+  | DATI = 340
+  /// Load Word Unsigned PC-relative (Release 6).
+  | LWUPC = 341
+  /// Load Doubleword PC-relative (Release 6).
+  | LDPC = 342
+  /// Load Linked Doubleword Paired (Release 6).
+  | LLDP = 343
+  /// Store Conditional Doubleword Paired (Release 6).
+  | SCDP = 344
 
 type internal Op = Opcode

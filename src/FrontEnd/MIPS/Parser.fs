@@ -32,6 +32,7 @@ open B2R2.FrontEnd.BinLifter
 type MIPSParser(isa: ISA, reader) =
   let wordSize = isa.WordSize
   let arch = isa.Arch
+  let release = isa.MIPSRelease
 
   let lifter =
     { new ILiftable with
@@ -48,6 +49,7 @@ type MIPSParser(isa: ISA, reader) =
 
     member _.Parse(span: ByteSpan, addr) =
       try
-        ParsingMain.parse lifter span reader arch wordSize addr :> IInstruction
+        ParsingMain.parse lifter span reader arch wordSize release addr
+        :> IInstruction
       with e when not (Terminator.isCritical e) ->
         raise ParsingFailureException

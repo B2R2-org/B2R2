@@ -258,6 +258,14 @@ type ISA(arch, endian, wordSize, flags) =
       ISA(Architecture.MIPS, Endian.Little, WordSize.Bit64)
     | "mips64be" ->
       ISA(Architecture.MIPS, Endian.Big, WordSize.Bit64)
+    | "mipsr6el" | "mips32r6el" | "mips32r6le" ->
+      ISA(Architecture.MIPS, Endian.Little, WordSize.Bit32, int MIPSRelease.R6)
+    | "mips32r6" | "mips32r6be" ->
+      ISA(Architecture.MIPS, Endian.Big, WordSize.Bit32, int MIPSRelease.R6)
+    | "mips64r6el" | "mips64r6" | "mips64r6le" ->
+      ISA(Architecture.MIPS, Endian.Little, WordSize.Bit64, int MIPSRelease.R6)
+    | "mips64r6be" ->
+      ISA(Architecture.MIPS, Endian.Big, WordSize.Bit64, int MIPSRelease.R6)
     | "ppc32le" ->
       ISA(Architecture.PPC, Endian.Little, WordSize.Bit32)
     | "ppc32" | "ppc32be" ->
@@ -370,6 +378,16 @@ type ISA(arch, endian, wordSize, flags) =
   member _.ARM32Mode with get(): ARM32Mode =
     LanguagePrimitives.EnumOfValue flags
 
+  /// Which release of the MIPS architecture a MIPS ISA means, which is one
+  /// of Release 1 to 5 unless the flags say otherwise. Release 6 is not a
+  /// superset: it reassigned primary opcodes that earlier releases had given
+  /// to ADDI and DADDI, and replaced the multiply and divide families with
+  /// instructions that write a general register instead of HI and LO. So a
+  /// word of MIPS code cannot be decoded without knowing which release it
+  /// belongs to, and an ELF image says so in its processor-specific flags.
+  member _.MIPSRelease with get(): MIPSRelease =
+    LanguagePrimitives.EnumOfValue flags
+
   /// The member of the 68000 family an m68k ISA means, which is the 68020
   /// unless the flags say otherwise. The family shares one encoding space and a
   /// later model reads encodings an earlier one rejects, so nothing but this
@@ -470,6 +488,7 @@ type ISA(arch, endian, wordSize, flags) =
 
   override this.ToString() =
     let thumb = this.ARM32Mode = ARM32Mode.Thumb
+    let r6 = this.MIPSRelease = MIPSRelease.R6
     match arch, endian, wordSize with
     | Architecture.Intel, _, WordSize.Bit32 ->
       "x86"
@@ -488,13 +507,13 @@ type ISA(arch, endian, wordSize, flags) =
     | Architecture.ARMv8, Endian.Big, WordSize.Bit64 ->
       "aarch64be"
     | Architecture.MIPS, Endian.Little, WordSize.Bit32 ->
-      "mips32le"
+      if r6 then "mips32r6le" else "mips32le"
     | Architecture.MIPS, Endian.Big, WordSize.Bit32 ->
-      "mips32"
+      if r6 then "mips32r6" else "mips32"
     | Architecture.MIPS, Endian.Little, WordSize.Bit64 ->
-      "mips64le"
+      if r6 then "mips64r6le" else "mips64le"
     | Architecture.MIPS, Endian.Big, WordSize.Bit64 ->
-      "mips64"
+      if r6 then "mips64r6be" else "mips64"
     | Architecture.PPC, Endian.Little, WordSize.Bit32 ->
       "ppc32le"
     | Architecture.PPC, Endian.Big, WordSize.Bit32 ->
@@ -581,6 +600,15 @@ and ARM32Mode =
   | ARM = 0
   /// The T32 instruction set, whose instructions are one or two halfwords.
   | Thumb = 1
+
+/// Represents which release of the MIPS architecture a MIPS ISA means.
+/// Release 6 is a different encoding space, not an extension of the earlier
+/// ones, so nothing but this says what a word of MIPS code belongs to.
+and MIPSRelease =
+  /// Release 1 through 5, which share one encoding space.
+  | PreR6 = 0
+  /// Release 6.
+  | R6 = 1
 
 /// Represents which member of the 68000 family an m68k ISA means. The family
 /// shares one encoding space, and a later model reads encodings an earlier one
