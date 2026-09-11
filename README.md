@@ -61,13 +61,16 @@ request, please make sure to read our [contribution guideline](CONTRIBUTING.md).
 
 <table>
   <tr>
-    <th width="178px">CPU</th>
+    <th width="178px">ISA</th>
     <th width="96px" class="text-center">Docs</th>
     <th width="96px" class="text-center">Ins Parsing</th>
     <th width="96px" class="text-center">Disasm</th>
     <th width="96px" class="text-center">Lifting</th>
     <th width="96px" class="text-center">CFG Recovery</th>
     <th width="96px" class="text-center">Assembly</th>
+  </tr>
+  <tr>
+    <th colspan="7" align="left">:desktop_computer: GENERAL-PURPOSE CPUs</th>
   </tr>
   <tr>
     <td><b>x86</b></td>
@@ -116,42 +119,6 @@ request, please make sure to read our [contribution guideline](CONTRIBUTING.md).
   </tr>
   <tr>
     <td><b>MIPS64</b></td>
-    <td align="center">:full_moon:</td>
-    <td align="center">:full_moon:</td>
-    <td align="center">:full_moon:</td>
-    <td align="center">:full_moon:</td>
-    <td align="center">:first_quarter_moon:</td>
-    <td align="center">:full_moon:</td>
-  </tr>
-  <tr>
-    <td><b>EVM</b></td>
-    <td align="center">:full_moon:</td>
-    <td align="center">:full_moon:</td>
-    <td align="center">:full_moon:</td>
-    <td align="center">:full_moon:</td>
-    <td align="center">:full_moon:</td>
-    <td align="center">:full_moon:</td>
-  </tr>
-  <tr>
-    <td><b>TMS320C6000</b></td>
-    <td align="center">:full_moon:</td>
-    <td align="center">:full_moon:</td>
-    <td align="center">:full_moon:</td>
-    <td align="center">:new_moon:</td>
-    <td align="center">:new_moon:</td>
-    <td align="center">:new_moon:</td>
-  </tr>
-  <tr>
-    <td><b>AVR</b></td>
-    <td align="center">:full_moon:</td>
-    <td align="center">:full_moon:</td>
-    <td align="center">:full_moon:</td>
-    <td align="center">:full_moon:</td>
-    <td align="center">:first_quarter_moon:</td>
-    <td align="center">:full_moon:</td>
-  </tr>
-  <tr>
-    <td><b>eBPF</b></td>
     <td align="center">:full_moon:</td>
     <td align="center">:full_moon:</td>
     <td align="center">:full_moon:</td>
@@ -250,7 +217,58 @@ request, please make sure to read our [contribution guideline](CONTRIBUTING.md).
     <td align="center">:full_moon:</td>
   </tr>
   <tr>
+    <th colspan="7" align="left">:gear: EMBEDDED / DSP</th>
+  </tr>
+  <tr>
+    <td><b>TMS320C6000</b></td>
+    <td align="center">:full_moon:</td>
+    <td align="center">:full_moon:</td>
+    <td align="center">:full_moon:</td>
+    <td align="center">:new_moon:</td>
+    <td align="center">:new_moon:</td>
+    <td align="center">:new_moon:</td>
+  </tr>
+  <tr>
+    <td><b>AVR</b></td>
+    <td align="center">:full_moon:</td>
+    <td align="center">:full_moon:</td>
+    <td align="center">:full_moon:</td>
+    <td align="center">:full_moon:</td>
+    <td align="center">:first_quarter_moon:</td>
+    <td align="center">:full_moon:</td>
+  </tr>
+  <tr>
+    <th colspan="7" align="left">:package: VIRTUAL ISAs / BYTECODE</th>
+  </tr>
+  <tr>
+    <td><b>EVM</b></td>
+    <td align="center">:full_moon:</td>
+    <td align="center">:full_moon:</td>
+    <td align="center">:full_moon:</td>
+    <td align="center">:full_moon:</td>
+    <td align="center">:full_moon:</td>
+    <td align="center">:full_moon:</td>
+  </tr>
+  <tr>
+    <td><b>eBPF</b></td>
+    <td align="center">:full_moon:</td>
+    <td align="center">:full_moon:</td>
+    <td align="center">:full_moon:</td>
+    <td align="center">:full_moon:</td>
+    <td align="center">:first_quarter_moon:</td>
+    <td align="center">:full_moon:</td>
+  </tr>
+  <tr>
     <td><b>WASM</b></td>
+    <td align="center">:full_moon:</td>
+    <td align="center">:full_moon:</td>
+    <td align="center">:full_moon:</td>
+    <td align="center">:full_moon:</td>
+    <td align="center">:first_quarter_moon:</td>
+    <td align="center">:full_moon:</td>
+  </tr>
+  <tr>
+    <td><b>Python</b></td>
     <td align="center">:full_moon:</td>
     <td align="center">:full_moon:</td>
     <td align="center">:full_moon:</td>
