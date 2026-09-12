@@ -28,11 +28,11 @@
 /// and the stores, the jumps and the branches, the atomic instructions, and
 /// what a program says to the machine it runs on.
 /// </summary>
-module internal B2R2.Assembly.RISCV64.AsmOpcode
+module internal B2R2.Assembly.RISCV.AsmOpcode
 
-open B2R2.FrontEnd.RISCV64
-open B2R2.Assembly.RISCV64.ParserHelper
-open B2R2.Assembly.RISCV64.AsmField
+open B2R2.FrontEnd.RISCV
+open B2R2.Assembly.RISCV.ParserHelper
+open B2R2.Assembly.RISCV.AsmField
 
 /// An instruction computing from two registers into a third.
 let private regForm opcode funct3 funct7 ins =

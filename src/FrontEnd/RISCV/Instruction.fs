@@ -22,12 +22,12 @@
   SOFTWARE.
 *)
 
-namespace B2R2.FrontEnd.RISCV64
+namespace B2R2.FrontEnd.RISCV
 
 open B2R2
 open B2R2.FrontEnd.BinLifter
 
-/// Represents an instruction for RISCV64 architectures.
+/// Represents an instruction for RISCV architectures.
 type Instruction
   internal(addr, numBytes, op, opr, oprSize, lifter: ILiftable) =
 

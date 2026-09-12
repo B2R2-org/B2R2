@@ -22,14 +22,14 @@
   SOFTWARE.
 *)
 
-module internal B2R2.Assembly.RISCV64.AsmMain
+module internal B2R2.Assembly.RISCV.AsmMain
 
 open B2R2
-open B2R2.FrontEnd.RISCV64
+open B2R2.FrontEnd.RISCV
 open B2R2.Assembly.BinLowerer
-open B2R2.Assembly.RISCV64.ParserHelper
-open B2R2.Assembly.RISCV64.AsmOpcode
-open B2R2.Assembly.RISCV64.AsmFloat
+open B2R2.Assembly.RISCV.ParserHelper
+open B2R2.Assembly.RISCV.AsmOpcode
+open B2R2.Assembly.RISCV.AsmFloat
 
 type UserState =
   { /// Label string to the index of the instruction it marks. The index starts

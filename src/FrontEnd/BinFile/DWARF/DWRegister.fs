@@ -148,7 +148,7 @@ let private toMIPSRegister (n: byte) =
   MIPS.Register.toRegID (EnumOfValue(int n))
 
 let private toRISCVRegister (n: byte) =
-  RISCV64.Register.toRegID (EnumOfValue(int n))
+  RISCV.Register.toRegID (EnumOfValue(int n))
 
 let private toPPC32Register (n: byte) =
   PPC.Register.toRegID (EnumOfValue(int n))

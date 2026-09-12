@@ -22,14 +22,14 @@
   SOFTWARE.
 *)
 
-namespace B2R2.FrontEnd.RISCV64
+namespace B2R2.FrontEnd.RISCV
 
 open B2R2
 open B2R2.FrontEnd.BinLifter
 open B2R2.FrontEnd.BinLifter.LiftingUtils
 open B2R2.BinIR.LowUIR
 
-/// Represents a factory for accessing various RISCV64 register variables.
+/// Represents a factory for accessing various RISCV register variables.
 type RegisterFactory(isa: ISA) =
   let rt = WordSize.toRegType isa.WordSize
   let fflags = AST.var 32<rt> (Register.toRegID Register.FFLAGS) "FFLAGS"

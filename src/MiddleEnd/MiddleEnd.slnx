@@ -14,7 +14,7 @@
   <Project Path="../FrontEnd/PARISC/B2R2.FrontEnd.PARISC.fsproj" />
   <Project Path="../FrontEnd/PPC32/B2R2.FrontEnd.PPC32.fsproj" />
   <Project Path="../FrontEnd/Registers/B2R2.FrontEnd.Registers.fsproj" />
-  <Project Path="../FrontEnd/RISCV64/B2R2.FrontEnd.RISCV64.fsproj" />
+  <Project Path="../FrontEnd/RISCV/B2R2.FrontEnd.RISCV.fsproj" />
   <Project Path="../FrontEnd/SH4/B2R2.FrontEnd.SH4.fsproj" />
   <Project Path="../FrontEnd/SPARC/B2R2.FrontEnd.SPARC.fsproj" />
   <Project Path="../FrontEnd/TMS320C6000/B2R2.FrontEnd.TMS320C6000.fsproj" />

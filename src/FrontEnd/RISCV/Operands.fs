@@ -22,11 +22,11 @@
   SOFTWARE.
 *)
 
-namespace B2R2.FrontEnd.RISCV64
+namespace B2R2.FrontEnd.RISCV
 
 open B2R2
 
-/// Represents a set of operands in a RISCV64 instruction.
+/// Represents a set of operands in a RISCV instruction.
 type Operands =
   | NoOperand
   | OneOperand of Operand
@@ -35,7 +35,7 @@ type Operands =
   | FourOperands of Operand * Operand * Operand * Operand
   | FiveOperands of Operand * Operand * Operand * Operand * Operand
 
-/// Represents an operand used in a RISCV64 instruction.
+/// Represents an operand used in a RISCV instruction.
 and Operand =
   | OpReg of Register
   | OpImm of Imm
@@ -47,7 +47,7 @@ and Operand =
   | OpRoundMode of RoundMode
   | OpCSR of uint16 (* Control and Status Register (CSR) *)
 
-/// Represents an immediate value in RISCV64 instructions.
+/// Represents an immediate value in RISCV instructions.
 and Imm = uint64
 
 /// Represents a base register used in memory addressing.
@@ -56,15 +56,15 @@ and Base = Register
 /// Represents an offset used in memory addressing.
 and Offset = Imm of int64
 
-/// Represents the memory access width in RISCV64 instructions.
+/// Represents the memory access width in RISCV instructions.
 and AccessLength = RegType
 
-/// Represents a jump target in RISCV64 instructions.
+/// Represents a jump target in RISCV instructions.
 and JumpTarget =
   | Relative of int64
   | RelativeBase of Base * Imm
 
-/// Represents a memory fence mask in RISCV64 instructions.
+/// Represents a memory fence mask in RISCV instructions.
 and FenceMask = uint8
 
 /// Represents the acquire flag in atomic memory operations.
@@ -73,7 +73,7 @@ and Acquire = bool
 /// Represents the release flag in atomic memory operations.
 and Release = bool
 
-/// Represents a rounding mode used in RISCV64 floating-point instructions.
+/// Represents a rounding mode used in RISCV floating-point instructions.
 and RoundMode =
   // Round to Nearest, ties to Even
   | RNE = 0

@@ -27,7 +27,7 @@ namespace B2R2.Assembly.Tests
 open System
 open B2R2
 open B2R2.FrontEnd.BinLifter
-open B2R2.FrontEnd.RISCV64
+open B2R2.FrontEnd.RISCV
 
 /// Represents one instruction the decoder produced from a probe, paired with
 /// the word it came from and the canonical text that gets handed back to the
@@ -174,7 +174,7 @@ module internal RISCV64Sweep =
   let probes () =
     let isa = ISA(Architecture.RISCV, Endian.Little, WordSize.Bit64)
     let parser =
-      RISCV64Parser(isa, BinReader.Init Endian.Little) :> IInstructionParsable
+      RISCVParser(isa, BinReader.Init Endian.Little) :> IInstructionParsable
     let byForm = List.choose (decode parser) formWords
     let forms =
       byForm

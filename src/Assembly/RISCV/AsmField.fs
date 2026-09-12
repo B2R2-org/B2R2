@@ -23,17 +23,17 @@
 *)
 
 /// <summary>
-/// Turns the pieces of an instruction into the bit fields a RISCV64 encoding is
+/// Turns the pieces of an instruction into the bit fields a RISCV encoding is
 /// built from. Every function here rejects what does not fit rather than
 /// truncating it, because a field that silently drops a bit encodes an
 /// instruction the source did not ask for.
 /// </summary>
-module internal B2R2.Assembly.RISCV64.AsmField
+module internal B2R2.Assembly.RISCV.AsmField
 
 open B2R2
-open B2R2.FrontEnd.RISCV64
+open B2R2.FrontEnd.RISCV
 open B2R2.Assembly.BinLowerer
-open B2R2.Assembly.RISCV64.ParserHelper
+open B2R2.Assembly.RISCV.ParserHelper
 
 /// Reports a source this assembler cannot encode.
 let fail msg = raise <| EncodingFailureException msg
@@ -150,7 +150,7 @@ let orderingOf = function
   | _ ->
     fail "this does not say how an atomic instruction is ordered"
 
-(* The seven bits every RISCV64 word ends in, which are the coarsest thing
+(* The seven bits every RISCV word ends in, which are the coarsest thing
    saying what an instruction is. Every one of them stands for a whole family,
    and which member of that family a word is comes from the three bits above the
    registers and, where those do not say enough, from the seven at the very

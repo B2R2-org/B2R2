@@ -22,10 +22,10 @@
   SOFTWARE.
 *)
 
-namespace B2R2.FrontEnd.RISCV64
+namespace B2R2.FrontEnd.RISCV
 
 /// <summary>
-/// Represents a RISCV64 opcode.
+/// Represents a RISCV opcode.
 /// </summary>
 type Opcode =
   | LUI = 0

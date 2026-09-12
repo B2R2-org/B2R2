@@ -36,7 +36,7 @@
   <Project Path="PPC/B2R2.FrontEnd.PPC.fsproj" />
   <Project Path="Python/B2R2.FrontEnd.Python.fsproj" />
   <Project Path="Registers/B2R2.FrontEnd.Registers.fsproj" />
-  <Project Path="RISCV64/B2R2.FrontEnd.RISCV64.fsproj" />
+  <Project Path="RISCV/B2R2.FrontEnd.RISCV.fsproj" />
   <Project Path="S390.Tests/B2R2.FrontEnd.S390.Tests.fsproj" />
   <Project Path="S390/B2R2.FrontEnd.S390.fsproj" />
   <Project Path="SH4.Tests/B2R2.FrontEnd.SH4.Tests.fsproj" />

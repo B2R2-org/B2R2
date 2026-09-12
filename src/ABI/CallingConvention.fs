@@ -102,7 +102,7 @@ module CallingConvention =
 
   let inline private ppc r = PPC.Register.toRegID r
 
-  let inline private riscv r = RISCV64.Register.toRegID r
+  let inline private riscv r = RISCV.Register.toRegID r
 
   let inline private sparc r = SPARC.Register.toRegID r
 
@@ -394,58 +394,58 @@ module CallingConvention =
 
   let private linuxRISCV64 () = (* RISC-V LP64D ABI *)
     { IntArgs =
-        [| ArgLocation.Reg(riscv RISCV64.Register.X10)
-           ArgLocation.Reg(riscv RISCV64.Register.X11)
-           ArgLocation.Reg(riscv RISCV64.Register.X12)
-           ArgLocation.Reg(riscv RISCV64.Register.X13)
-           ArgLocation.Reg(riscv RISCV64.Register.X14)
-           ArgLocation.Reg(riscv RISCV64.Register.X15)
-           ArgLocation.Reg(riscv RISCV64.Register.X16)
-           ArgLocation.Reg(riscv RISCV64.Register.X17) |]
+        [| ArgLocation.Reg(riscv RISCV.Register.X10)
+           ArgLocation.Reg(riscv RISCV.Register.X11)
+           ArgLocation.Reg(riscv RISCV.Register.X12)
+           ArgLocation.Reg(riscv RISCV.Register.X13)
+           ArgLocation.Reg(riscv RISCV.Register.X14)
+           ArgLocation.Reg(riscv RISCV.Register.X15)
+           ArgLocation.Reg(riscv RISCV.Register.X16)
+           ArgLocation.Reg(riscv RISCV.Register.X17) |]
       FloatArgs =
-        [| ArgLocation.Reg(riscv RISCV64.Register.F10)
-           ArgLocation.Reg(riscv RISCV64.Register.F11)
-           ArgLocation.Reg(riscv RISCV64.Register.F12)
-           ArgLocation.Reg(riscv RISCV64.Register.F13)
-           ArgLocation.Reg(riscv RISCV64.Register.F14)
-           ArgLocation.Reg(riscv RISCV64.Register.F15)
-           ArgLocation.Reg(riscv RISCV64.Register.F16)
-           ArgLocation.Reg(riscv RISCV64.Register.F17) |]
-      IntReturnLocation = ArgLocation.Reg(riscv RISCV64.Register.X10)
-      FloatReturnLocation = ArgLocation.Reg(riscv RISCV64.Register.F10)
+        [| ArgLocation.Reg(riscv RISCV.Register.F10)
+           ArgLocation.Reg(riscv RISCV.Register.F11)
+           ArgLocation.Reg(riscv RISCV.Register.F12)
+           ArgLocation.Reg(riscv RISCV.Register.F13)
+           ArgLocation.Reg(riscv RISCV.Register.F14)
+           ArgLocation.Reg(riscv RISCV.Register.F15)
+           ArgLocation.Reg(riscv RISCV.Register.F16)
+           ArgLocation.Reg(riscv RISCV.Register.F17) |]
+      IntReturnLocation = ArgLocation.Reg(riscv RISCV.Register.X10)
+      FloatReturnLocation = ArgLocation.Reg(riscv RISCV.Register.F10)
       ArgClassification = Independent
       CalleeSavedRegisters =
-        set [ riscv RISCV64.Register.X2
-              riscv RISCV64.Register.X8
-              riscv RISCV64.Register.X9
-              riscv RISCV64.Register.X18
-              riscv RISCV64.Register.X19
-              riscv RISCV64.Register.X20
-              riscv RISCV64.Register.X21
-              riscv RISCV64.Register.X22
-              riscv RISCV64.Register.X23
-              riscv RISCV64.Register.X24
-              riscv RISCV64.Register.X25
-              riscv RISCV64.Register.X26
-              riscv RISCV64.Register.X27 ]
+        set [ riscv RISCV.Register.X2
+              riscv RISCV.Register.X8
+              riscv RISCV.Register.X9
+              riscv RISCV.Register.X18
+              riscv RISCV.Register.X19
+              riscv RISCV.Register.X20
+              riscv RISCV.Register.X21
+              riscv RISCV.Register.X22
+              riscv RISCV.Register.X23
+              riscv RISCV.Register.X24
+              riscv RISCV.Register.X25
+              riscv RISCV.Register.X26
+              riscv RISCV.Register.X27 ]
       CallerSavedRegisters =
-        set [ riscv RISCV64.Register.X1
-              riscv RISCV64.Register.X5
-              riscv RISCV64.Register.X6
-              riscv RISCV64.Register.X7
-              riscv RISCV64.Register.X10
-              riscv RISCV64.Register.X11
-              riscv RISCV64.Register.X12
-              riscv RISCV64.Register.X13
-              riscv RISCV64.Register.X14
-              riscv RISCV64.Register.X15
-              riscv RISCV64.Register.X16
-              riscv RISCV64.Register.X17
-              riscv RISCV64.Register.X28
-              riscv RISCV64.Register.X29
-              riscv RISCV64.Register.X30
-              riscv RISCV64.Register.X31 ]
-      ReturnAddressLocation = InRegister(riscv RISCV64.Register.X1) }
+        set [ riscv RISCV.Register.X1
+              riscv RISCV.Register.X5
+              riscv RISCV.Register.X6
+              riscv RISCV.Register.X7
+              riscv RISCV.Register.X10
+              riscv RISCV.Register.X11
+              riscv RISCV.Register.X12
+              riscv RISCV.Register.X13
+              riscv RISCV.Register.X14
+              riscv RISCV.Register.X15
+              riscv RISCV.Register.X16
+              riscv RISCV.Register.X17
+              riscv RISCV.Register.X28
+              riscv RISCV.Register.X29
+              riscv RISCV.Register.X30
+              riscv RISCV.Register.X31 ]
+      ReturnAddressLocation = InRegister(riscv RISCV.Register.X1) }
 
   let private linuxSPARC () = (* SPARC: caller's outs become callee's ins *)
     { IntArgs =

@@ -22,7 +22,7 @@
   SOFTWARE.
 *)
 
-module internal B2R2.FrontEnd.RISCV64.LiftingUtils
+module internal B2R2.FrontEnd.RISCV.LiftingUtils
 
 open B2R2
 open B2R2.BinIR

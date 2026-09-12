@@ -194,7 +194,7 @@ let rec private parseSections p toolBox map = function
     map
 
 /// This uses relocation information to parse PLT entries. This can be a general
-/// parser, but it is rather slow compared to platform-specific parsers. RISCV64
+/// parser, but it is rather slow compared to platform-specific parsers. RISCV
 /// relies on this.
 type GeneralParser(shdrs, relocInfo, symbs, pltHdrSize, relKind) =
   let relocs =

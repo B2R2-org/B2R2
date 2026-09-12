@@ -28,9 +28,9 @@ open System
 open Microsoft.VisualStudio.TestTools.UnitTesting
 open B2R2
 open B2R2.FrontEnd.BinLifter
-open B2R2.FrontEnd.RISCV64
+open B2R2.FrontEnd.RISCV
 open B2R2.Assembly.BinLowerer
-open B2R2.Assembly.RISCV64
+open B2R2.Assembly.RISCV
 
 /// Represents what happened when a reference encoding was round-tripped.
 type internal RISCV64Outcome =
@@ -65,7 +65,7 @@ type RISCV64RoundTripTests() =
   /// One parser, reused across the whole sweep. The sweep asks for millions of
   /// decodings, so building one each time would dominate the run.
   static let parser =
-    RISCV64Parser(isa, BinReader.Init Endian.Little) :> IInstructionParsable
+    RISCVParser(isa, BinReader.Init Endian.Little) :> IInstructionParsable
 
   static let assembler = Assembler(isa, 0UL) :> ILowerable
 

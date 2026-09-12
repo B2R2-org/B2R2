@@ -22,14 +22,13 @@
   SOFTWARE.
 *)
 
-namespace B2R2.FrontEnd.RISCV64
+namespace B2R2.FrontEnd.RISCV
 
 open B2R2
 
 /// <namespacedoc>
 ///   <summary>
-///   Contains types and functions for working with the RISC-V 64-bit
-///   instructions.
+///   Contains types and functions for working with the RISC-V instructions.
 ///   </summary>
 /// </namespacedoc>
 /// <summary>

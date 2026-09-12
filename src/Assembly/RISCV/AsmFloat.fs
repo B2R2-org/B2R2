@@ -32,11 +32,11 @@
 /// it is written at all, and is left out where the instruction takes it from
 /// the rounding-mode register instead.
 /// </summary>
-module internal B2R2.Assembly.RISCV64.AsmFloat
+module internal B2R2.Assembly.RISCV.AsmFloat
 
-open B2R2.FrontEnd.RISCV64
-open B2R2.Assembly.RISCV64.ParserHelper
-open B2R2.Assembly.RISCV64.AsmField
+open B2R2.FrontEnd.RISCV
+open B2R2.Assembly.RISCV.ParserHelper
+open B2R2.Assembly.RISCV.AsmField
 
 /// A load into a floating-point register, which names where it reads the way a
 /// load into a general register does.

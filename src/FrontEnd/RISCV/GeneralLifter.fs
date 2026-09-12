@@ -22,7 +22,7 @@
   SOFTWARE.
 *)
 
-module internal B2R2.FrontEnd.RISCV64.GeneralLifter
+module internal B2R2.FrontEnd.RISCV.GeneralLifter
 
 open B2R2
 open B2R2.BinIR
@@ -30,7 +30,7 @@ open B2R2.BinIR.LowUIR
 open B2R2.BinIR.LowUIR.AST.InfixOp
 open B2R2.FrontEnd.BinLifter
 open B2R2.FrontEnd.BinLifter.LiftingUtils
-open B2R2.FrontEnd.RISCV64.LiftingUtils
+open B2R2.FrontEnd.RISCV.LiftingUtils
 
 let add ins bld =
   lift bld ins {

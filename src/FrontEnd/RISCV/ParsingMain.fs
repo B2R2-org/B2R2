@@ -22,12 +22,12 @@
   SOFTWARE.
 *)
 
-module internal B2R2.FrontEnd.RISCV64.ParsingMain
+module internal B2R2.FrontEnd.RISCV.ParsingMain
 
 open B2R2
 open B2R2.FrontEnd.BinLifter
 open B2R2.FrontEnd.BinLifter.ParsingUtils
-open B2R2.FrontEnd.RISCV64.Helper
+open B2R2.FrontEnd.RISCV.Helper
 
 let isTwoBytes b = b &&& 3us <> 3us
 

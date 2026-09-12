@@ -22,7 +22,7 @@
   SOFTWARE.
 *)
 
-module internal B2R2.FrontEnd.RISCV64.Disasm
+module internal B2R2.FrontEnd.RISCV.Disasm
 
 open B2R2
 open B2R2.FrontEnd.BinLifter

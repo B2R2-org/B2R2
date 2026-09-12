@@ -17,7 +17,7 @@
   <Project Path="src/Assembly/PARISC/B2R2.Assembly.PARISC.fsproj" />
   <Project Path="src/Assembly/PPC/B2R2.Assembly.PPC.fsproj" />
   <Project Path="src/Assembly/Python/B2R2.Assembly.Python.fsproj" />
-  <Project Path="src/Assembly/RISCV64/B2R2.Assembly.RISCV64.fsproj" />
+  <Project Path="src/Assembly/RISCV/B2R2.Assembly.RISCV.fsproj" />
   <Project Path="src/Assembly/S390/B2R2.Assembly.S390.fsproj" />
   <Project Path="src/Assembly/SH4/B2R2.Assembly.SH4.fsproj" />
   <Project Path="src/Assembly/SPARC/B2R2.Assembly.SPARC.fsproj" />
@@ -61,7 +61,7 @@
   <Project Path="src/FrontEnd/Python.Tests/B2R2.FrontEnd.Python.Tests.fsproj" />
   <Project Path="src/FrontEnd/Python/B2R2.FrontEnd.Python.fsproj" />
   <Project Path="src/FrontEnd/Registers/B2R2.FrontEnd.Registers.fsproj" />
-  <Project Path="src/FrontEnd/RISCV64/B2R2.FrontEnd.RISCV64.fsproj" />
+  <Project Path="src/FrontEnd/RISCV/B2R2.FrontEnd.RISCV.fsproj" />
   <Project Path="src/FrontEnd/S390.Tests/B2R2.FrontEnd.S390.Tests.fsproj" />
   <Project Path="src/FrontEnd/S390/B2R2.FrontEnd.S390.fsproj" />
   <Project Path="src/FrontEnd/SH4.Tests/B2R2.FrontEnd.SH4.Tests.fsproj" />

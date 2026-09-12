@@ -22,11 +22,11 @@
   SOFTWARE.
 *)
 
-module internal B2R2.Assembly.RISCV64.ParserHelper
+module internal B2R2.Assembly.RISCV.ParserHelper
 
 open System
 open B2R2
-open B2R2.FrontEnd.RISCV64
+open B2R2.FrontEnd.RISCV
 
 /// The opcode enumeration under the short name the disassembler's own tables
 /// go by, which the tables here are long enough to want too.
@@ -107,7 +107,7 @@ let registers =
 /// <summary>
 /// The name the disassembler writes an opcode under.
 ///
-/// A RISCV64 mnemonic is written in parts separated by dots, and the
+/// A RISCV mnemonic is written in parts separated by dots, and the
 /// enumeration spells each dot out because a name cannot hold one; what is left
 /// is the enumeration's own name, lowercased.
 /// </summary>

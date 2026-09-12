@@ -1,7 +1,7 @@
 <Project Sdk="Microsoft.NET.Sdk">
 
   <PropertyGroup>
-    <Description>B2R2 RISCV64 assembly library.</Description>
+    <Description>B2R2 RISCV assembly library.</Description>
   </PropertyGroup>
 
   <ItemGroup>
@@ -19,7 +19,7 @@
 
   <ItemGroup>
     <ProjectReference
-      Include="..\..\FrontEnd\RISCV64\B2R2.FrontEnd.RISCV64.fsproj" />
+      Include="..\..\FrontEnd\RISCV\B2R2.FrontEnd.RISCV.fsproj" />
     <ProjectReference Include="..\BinLowerer\B2R2.Assembly.BinLowerer.fsproj" />
   </ItemGroup>
 

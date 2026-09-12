@@ -22,24 +22,24 @@
   SOFTWARE.
 *)
 
-namespace B2R2.Assembly.RISCV64
+namespace B2R2.Assembly.RISCV
 
 open System
 open FParsec
 open B2R2
-open B2R2.FrontEnd.RISCV64
+open B2R2.FrontEnd.RISCV
 open B2R2.Assembly.BinLowerer
-open B2R2.Assembly.RISCV64.ParserHelper
-open B2R2.Assembly.RISCV64.AsmMain
+open B2R2.Assembly.RISCV.ParserHelper
+open B2R2.Assembly.RISCV.AsmMain
 
 /// <namespacedoc>
 ///   <summary>
-///   Contains RISCV64-specific assembly components and types.
+///   Contains RISCV-specific assembly components and types.
 ///   </summary>
 /// </namespacedoc>
 /// <summary>
-/// Represents an assembler for RISCV64 binaries. The syntax it reads is the one
-/// B2R2's RISCV64 disassembler writes, so a line of disassembly can be handed
+/// Represents an assembler for RISCV binaries. The syntax it reads is the one
+/// B2R2's RISCV disassembler writes, so a line of disassembly can be handed
 /// straight back to it.
 ///
 /// What it encodes is the whole of the instruction set the disassembler reads:
@@ -147,7 +147,7 @@ type Assembler(isa: ISA, baseAddr: Addr) =
       | AsmReg reg -> preturn reg
       | _ -> fail "this is not a register"
 
-  /// {<offset>}(<base>), the only way a RISCV64 instruction names memory: what
+  /// {<offset>}(<base>), the only way a RISCV instruction names memory: what
   /// lies at a distance from what a register holds. The jump to a register
   /// names where it goes the same way.
   let pMemory =

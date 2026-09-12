@@ -75,7 +75,7 @@ module SyscallConvention =
 
   let inline private ppc r = PPC.Register.toRegID r
 
-  let inline private riscv r = RISCV64.Register.toRegID r
+  let inline private riscv r = RISCV.Register.toRegID r
 
   let inline private sparc r = SPARC.Register.toRegID r
 
@@ -175,16 +175,16 @@ module SyscallConvention =
            reg (ppc PPC.Register.R8) |] }
 
   let private linuxRISCV64 () =
-    { NumberRegister = riscv RISCV64.Register.X17
-      ReturnRegister = riscv RISCV64.Register.X10
+    { NumberRegister = riscv RISCV.Register.X17
+      ReturnRegister = riscv RISCV.Register.X10
       Error = NegatedErrno
       Args =
-        [| reg (riscv RISCV64.Register.X10)
-           reg (riscv RISCV64.Register.X11)
-           reg (riscv RISCV64.Register.X12)
-           reg (riscv RISCV64.Register.X13)
-           reg (riscv RISCV64.Register.X14)
-           reg (riscv RISCV64.Register.X15) |] }
+        [| reg (riscv RISCV.Register.X10)
+           reg (riscv RISCV.Register.X11)
+           reg (riscv RISCV.Register.X12)
+           reg (riscv RISCV.Register.X13)
+           reg (riscv RISCV.Register.X14)
+           reg (riscv RISCV.Register.X15) |] }
 
   let private linuxSPARC () = (* error reported via the carry bit of CCR *)
     { NumberRegister = sparc SPARC.Register.G1
