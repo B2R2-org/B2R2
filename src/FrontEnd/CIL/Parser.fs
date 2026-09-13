@@ -32,8 +32,7 @@ open B2R2.FrontEnd.BinLifter
 type CILParser(reader: IBinReader) =
   let lifter =
     { new ILiftable with
-        member _.Lift(ins, _) =
-          raise <| NotImplementedIRException(Disasm.opcodeToString ins.Opcode)
+        member _.Lift(ins, builder) = Lifter.translate ins builder
         member _.Disasm(ins, builder) = Disasm.disasm ins builder; builder }
 
   interface IInstructionParsable with
