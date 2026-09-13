@@ -28,6 +28,11 @@ open B2R2
 open B2R2.FrontEnd.BinLifter
 open B2R2.FrontEnd.BinLifter.ParsingUtils
 
+/// Returns what it is handed, which only RV64 has an encoding for: a word
+/// reaching this on RV32 says something that XLEN does not define.
+let inline rv64Only wordSize value =
+  if wordSize = 64 then value else raise ParsingFailureException
+
 let getRm = function
   | 0u -> RoundMode.RNE
   | 1u -> RoundMode.RTZ
@@ -209,7 +214,14 @@ let csr b = Bits.extract b 31u 20u |> uint16 |> OpCSR
 
 let uimm b = Bits.extract b 19u 15u |> uint64 |> OpImm
 
-let shamt b = Bits.extract b 25u 20u |> uint64 |> OpShiftAmount
+/// The amount a shift by an immediate shifts by, which holds as many bits as
+/// the XLEN has places to shift across: the sixth of them is part of the field
+/// naming the shift on RV32, and so has to be clear there.
+let shamt b wordSize =
+  if wordSize = 64 || Bits.pick b 25u = 0u then
+    Bits.extract b 25u 20u |> uint64 |> OpShiftAmount
+  else
+    raise ParsingFailureException
 
 let crd b = getRegFrom117 b |> OpReg
 
@@ -262,7 +274,7 @@ let getFRs2Rs1Addr b acc wordSize =
   let imm = getSImm b wordSize |> int64 |> Imm |> Some
   TwoOperands(frs2 b, OpMem(getRegFrom1915 b, imm, acc))
 
-let getRdRs1Shamt b = ThreeOperands(rd b, rs1 b, shamt b)
+let getRdRs1Shamt b wordSize = ThreeOperands(rd b, rs1 b, shamt b wordSize)
 
 let getRdRs1Rs2 b = ThreeOperands(rd b, rs1 b, rs2 b)
 

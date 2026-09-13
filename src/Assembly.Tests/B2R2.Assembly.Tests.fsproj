@@ -39,8 +39,8 @@
     <Compile Include="PPCRoundTripTests.fs" />
     <Compile Include="PythonSweep.fs" />
     <Compile Include="PythonRoundTripTests.fs" />
-    <Compile Include="RISCV64Sweep.fs" />
-    <Compile Include="RISCV64RoundTripTests.fs" />
+    <Compile Include="RISCVSweep.fs" />
+    <Compile Include="RISCVRoundTripTests.fs" />
     <Compile Include="S390Sweep.fs" />
     <Compile Include="S390RoundTripTests.fs" />
     <Compile Include="SPARCSweep.fs" />

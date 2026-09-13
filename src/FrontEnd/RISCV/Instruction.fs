@@ -29,7 +29,7 @@ open B2R2.FrontEnd.BinLifter
 
 /// Represents an instruction for RISCV architectures.
 type Instruction
-  internal(addr, numBytes, op, opr, oprSize, lifter: ILiftable) =
+  internal(addr, numBytes, op, opr, oprSize, wordSize, lifter: ILiftable) =
 
   /// Address of this instruction.
   member _.Address with get(): Addr = addr
@@ -45,6 +45,9 @@ type Instruction
 
   /// Operation Size.
   member _.OperationSize with get(): RegType = oprSize
+
+  /// Word size of the architecture this instruction was read for.
+  member _.WordSize with get(): WordSize = wordSize
 
   interface IInstruction with
 
@@ -107,7 +110,7 @@ type Instruction
     member this.Disasm builder = lifter.Disasm(this, builder).ToString()
 
     member this.Disasm() =
-      let builder = StringDisasmBuilder(false, null, WordSize.Bit64)
+      let builder = StringDisasmBuilder(false, null, wordSize)
       lifter.Disasm(this, builder).ToString()
 
     member this.Decompose builder = lifter.Disasm(this, builder).ToAsmWords()

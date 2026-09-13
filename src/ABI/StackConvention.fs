@@ -62,7 +62,7 @@ module StackConvention =
     | _, AArch64 -> make 16 0 0
     | _, MIPS -> make 8 0 0
     | _, PPC -> make 16 0 0
-    | _, RISCV64 -> make 16 0 0
+    | _, RISCV -> make 16 0 0
     | _, SPARC -> make 16 0 0
     | _, S390 -> make 8 0 0
     | _, M68K -> make 4 0 0

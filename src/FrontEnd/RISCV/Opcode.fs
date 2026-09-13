@@ -194,7 +194,7 @@ type Opcode =
   | FCVTdotDdotLU = 154
   | FMVdotDdotX = 155
   | FENCEdotTSO = 156
-  (* RV64C Standard Extension *)
+  (* RVC Standard Extension, at both of the widths it is on *)
   | CdotADDI4SPN = 157
   | CdotFLD = 158
   | CdotLW = 159
@@ -232,6 +232,13 @@ type Opcode =
   | CdotFSDSP = 191
   | CdotSWSP = 192
   | CdotSDSP = 193
-  | InvalOP = 194
+  (* RV32C Standard Extension, whose encodings RV64C gives to the
+     instructions reaching a doubleword instead *)
+  | CdotJAL = 194
+  | CdotFLW = 195
+  | CdotFSW = 196
+  | CdotFLWSP = 197
+  | CdotFSWSP = 198
+  | InvalOP = 199
 
 type internal Op = Opcode

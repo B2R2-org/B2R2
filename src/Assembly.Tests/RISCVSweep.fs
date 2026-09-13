@@ -32,17 +32,17 @@ open B2R2.FrontEnd.RISCV
 /// Represents one instruction the decoder produced from a probe, paired with
 /// the word it came from and the canonical text that gets handed back to the
 /// assembler.
-type internal RISCV64Probe =
+type internal RISCVProbe =
   { /// Word the probe was decoded from.
     Word: uint32
     /// Canonical disassembly, which doubles as assembler input.
     Text: string }
 
 /// <summary>
-/// Enumerates the RISCV64 encoding space by handing every combination of the
-/// fields that name an instruction to B2R2's own decoder, so that the set of
-/// instructions the assembler has to encode is derived from the decoder rather
-/// than listed by hand.
+/// Enumerates the RISCV encoding space of one word size by handing every
+/// combination of the fields that name an instruction to B2R2's own decoder, so
+/// that the set of instructions the assembler has to encode is derived from the
+/// decoder rather than listed by hand.
 ///
 /// The rule this encodes is that anything the decoder decodes, the assembler
 /// encodes. A word of full width says which instruction it is in the seven bits
@@ -54,7 +54,7 @@ type internal RISCV64Probe =
 /// where a mistake in an encoder hides. A word of half width is only sixteen
 /// bits wide altogether, so every one of them is simply tried.
 /// </summary>
-module internal RISCV64Sweep =
+module internal RISCVSweep =
 
   /// One word of full width, given the seven bits it ends in, the three above
   /// its registers, the seven at its top, and what each of its three register
@@ -101,13 +101,14 @@ module internal RISCV64Sweep =
   /// Whether a written number is one below zero.
   ///
   /// The disassembler prints a number the encoding reads as signed as the whole
-  /// sixty-four bit register it lands in, so one below zero is written out to
-  /// its full width whichever base it is written in; a sign is the other way a
-  /// source says the same. Which of the two a number is decides how an encoder
-  /// has to read it, so the two are worth probing separately.
+  /// register it lands in, so one below zero is written out to the full width
+  /// of that register; a sign is the other way a source says the same. Which of
+  /// the two a number is decides how an encoder has to read it, so the two are
+  /// worth probing separately.
   /// </summary>
-  let private isNegative (text: string) =
-    text.StartsWith "-" || text.Length > 10
+  let private isNegative wordSize (text: string) =
+    let digits = WordSize.toByteWidth wordSize * 2
+    text.StartsWith "-" || (text.Length = digits + 2 && text[2] >= '8')
 
   /// The names the disassembler writes the floating-point registers under.
   let private floatRegisters =
@@ -121,8 +122,11 @@ module internal RISCV64Sweep =
   /// What an operand names, keeping which register it was: a number keeps only
   /// whether it is below zero, because its value beyond that is not what an
   /// encoder gets wrong.
-  let private shapeOfPart (part: string) =
-    if isNumber part then (if isNegative part then "imm-" else "imm+") else part
+  let private shapeOfPart wordSize (part: string) =
+    if isNumber part then
+      if isNegative wordSize part then "imm-" else "imm+"
+    else
+      part
 
   /// What an operand names and nothing else, which is the coarser of the two
   /// keys: one form is worth reaching once however many registers it is written
@@ -171,8 +175,8 @@ module internal RISCV64Sweep =
 
   /// Probes the whole space this sweep covers, keeping one instruction per
   /// distinct operand shape.
-  let probes () =
-    let isa = ISA(Architecture.RISCV, Endian.Little, WordSize.Bit64)
+  let probes wordSize =
+    let isa = ISA(Architecture.RISCV, Endian.Little, wordSize)
     let parser =
       RISCVParser(isa, BinReader.Init Endian.Little) :> IInstructionParsable
     let byForm = List.choose (decode parser) formWords
@@ -184,6 +188,6 @@ module internal RISCV64Sweep =
     byForm
     @ List.choose (decode parser) (registerWords forms)
     @ List.choose (decode parser) compressedWords
-    |> List.distinctBy (fun probe -> keyOf shapeOfPart probe.Text)
+    |> List.distinctBy (fun probe -> keyOf (shapeOfPart wordSize) probe.Text)
 
 // vim: set tw=80 sts=2 sw=2:

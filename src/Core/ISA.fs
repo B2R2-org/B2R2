@@ -276,7 +276,9 @@ type ISA(arch, endian, wordSize, flags) =
       ISA(Architecture.PPC, Endian.Little, WordSize.Bit64)
     | "ppc64" | "ppc64be" ->
       ISA(Architecture.PPC, Endian.Big, WordSize.Bit64)
-    | "riscv64" ->
+    | "riscv32" ->
+      ISA(Architecture.RISCV, Endian.Little, WordSize.Bit32)
+    | "riscv64" | "riscv" ->
       ISA(Architecture.RISCV, Endian.Little, WordSize.Bit64)
     | "sparc" | "sparc64" ->
       ISA(Architecture.SPARC, Endian.Big)
@@ -443,6 +445,13 @@ type ISA(arch, endian, wordSize, flags) =
   member _.IsPPC32 with get() =
     arch = Architecture.PPC && wordSize = WordSize.Bit32
 
+  /// Returns true if this ISA is RISC-V (any word size).
+  member _.IsRISCV with get() = arch = Architecture.RISCV
+
+  /// Returns true if this ISA is RISC-V 32-bit.
+  member _.IsRISCV32 with get() =
+    arch = Architecture.RISCV && wordSize = WordSize.Bit32
+
   /// Returns true if this ISA is RISC-V 64-bit.
   member _.IsRISCV64 with get() =
     arch = Architecture.RISCV && wordSize = WordSize.Bit64
@@ -521,6 +530,8 @@ type ISA(arch, endian, wordSize, flags) =
       "ppc64le"
     | Architecture.PPC, Endian.Big, WordSize.Bit64 ->
       "ppc64"
+    | Architecture.RISCV, Endian.Little, WordSize.Bit32 ->
+      "riscv32"
     | Architecture.RISCV, Endian.Little, WordSize.Bit64 ->
       "riscv64"
     | Architecture.SPARC, Endian.Big, WordSize.Bit64 ->
@@ -738,6 +749,18 @@ module ISA =
   let (|PPC64|_|) (isa: ISA) =
     match isa.Arch, isa.WordSize with
     | Architecture.PPC, WordSize.Bit64 -> ValueSome()
+    | _ -> ValueNone
+
+  [<return: Struct>]
+  let (|RISCV|_|) (isa: ISA) =
+    match isa.Arch with
+    | Architecture.RISCV -> ValueSome()
+    | _ -> ValueNone
+
+  [<return: Struct>]
+  let (|RISCV32|_|) (isa: ISA) =
+    match isa.Arch, isa.WordSize with
+    | Architecture.RISCV, WordSize.Bit32 -> ValueSome()
     | _ -> ValueNone
 
   [<return: Struct>]

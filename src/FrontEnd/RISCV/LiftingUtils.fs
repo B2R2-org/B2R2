@@ -427,7 +427,7 @@ let transOpr (ins: Instruction) bld = function
       AST.num0 bld.RegType
     else
       let target = regVar bld b .+ numI64 (int64 imm) bld.RegType
-      let mask = numI64 0xFFFFFFFF_FFFFFFFEL 64<rt>
+      let mask = numI64 0xFFFFFFFF_FFFFFFFEL bld.RegType
       target .& mask
   | OpMem(b, None, sz) ->
     AST.loadLE sz (regVar bld b)
@@ -628,14 +628,25 @@ let getAddrFromMem x =
 
 let getAddrFromMemAndSize x =
   match x with
-  | Load(_, rt, addr, _) -> addr, numI32 (RegType.toByteWidth rt) 64<rt>
-  | _ -> raise InvalidExprException
+  | Load(_, rt, addr, _) ->
+    addr, numI32 (RegType.toByteWidth rt) (Expr.typeOf addr)
+  | _ ->
+    raise InvalidExprException
 
+/// Whether an address is one the given access may be made at. The address is
+/// as wide as the XLEN, so what it is compared against is taken from it rather
+/// than written out.
 let isAligned rt expr =
+  let addrSize = Expr.typeOf expr
   match rt with
-  | 32<rt> -> ((expr .& (numU32 0x3u 64<rt>)) == AST.num0 64<rt>)
-  | 64<rt> -> ((expr .& (numU32 0x7u 64<rt>)) == AST.num0 64<rt>)
+  | 32<rt> -> ((expr .& (numU32 0x3u addrSize)) == AST.num0 addrSize)
+  | 64<rt> -> ((expr .& (numU32 0x7u addrSize)) == AST.num0 addrSize)
   | _ -> raise InvalidRegTypeException
+
+/// How far a shift by a register shifts by, which is what the register holds
+/// in as many of its lowest bits as it takes to name a place within one.
+let shiftMask (bld: ILowUIRBuilder) =
+  numU64 (uint64 (RegType.toBitWidth bld.RegType) - 1UL) bld.RegType
 
 let getAccessLength = function
   | OpMem(_, _, sz) -> sz

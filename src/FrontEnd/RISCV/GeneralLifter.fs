@@ -82,7 +82,7 @@ let slt ins bld =
   lift bld ins {
     let rd, rs1, rs2 = transThreeOprs ins bld
     let cond = rs1 ?< rs2
-    let rtVal = AST.ite cond (AST.num1 64<rt>) (AST.num0 64<rt>)
+    let rtVal = AST.ite cond (AST.num1 bld.RegType) (AST.num0 bld.RegType)
     rd := rtVal
   }
 
@@ -90,14 +90,14 @@ let sltu ins bld =
   lift bld ins {
     let rd, rs1, rs2 = transThreeOprs ins bld
     let cond = rs1 .< rs2
-    let rtVal = AST.ite cond (AST.num1 64<rt>) (AST.num0 64<rt>)
+    let rtVal = AST.ite cond (AST.num1 bld.RegType) (AST.num0 bld.RegType)
     rd := rtVal
   }
 
 let sll ins bld =
   lift bld ins {
     let rd, rs1, rs2 = transThreeOprs ins bld
-    let shiftAmm = rs2 .& numU64 0x3fUL 64<rt>
+    let shiftAmm = rs2 .& shiftMask bld
     rd := rs1 << shiftAmm
   }
 
@@ -113,7 +113,7 @@ let sllw ins bld =
 let srl ins bld =
   lift bld ins {
     let rd, rs1, rs2 = transThreeOprs ins bld
-    let shiftAmm = rs2 .& numU64 0x3fUL 64<rt>
+    let shiftAmm = rs2 .& shiftMask bld
     rd := rs1 >> shiftAmm
   }
 
@@ -129,7 +129,7 @@ let srlw ins bld =
 let sra ins bld =
   lift bld ins {
     let rd, rs1, rs2 = transThreeOprs ins bld
-    let shiftAmm = rs2 .& numU64 0x3fUL 64<rt>
+    let shiftAmm = rs2 .& shiftMask bld
     rd := rs1 ?>> shiftAmm
   }
 
@@ -188,7 +188,7 @@ let slti ins bld =
   lift bld ins {
     let rd, rs1, imm = transThreeOprs ins bld
     let cond = rs1 ?< imm
-    let rtVal = AST.ite cond (AST.num1 64<rt>) (AST.num0 64<rt>)
+    let rtVal = AST.ite cond (AST.num1 bld.RegType) (AST.num0 bld.RegType)
     rd := rtVal
   }
 
@@ -196,7 +196,7 @@ let sltiu ins bld =
   lift bld ins {
     let rd, rs1, imm = transThreeOprs ins bld
     let cond = rs1 .< imm
-    let rtVal = AST.ite cond (AST.num1 64<rt>) (AST.num0 64<rt>)
+    let rtVal = AST.ite cond (AST.num1 bld.RegType) (AST.num0 bld.RegType)
     rd := rtVal
   }
 
@@ -216,7 +216,7 @@ let jalr ins bld =
   lift bld ins {
     let rd, jumpTarget = transTwoOprs ins bld
     let r = bvOfBaseAddr bld ins.Address .+ bvOfInstrLen bld ins
-    let target = tmpVar bld 64<rt>
+    let target = tmpVar bld bld.RegType
     let actualTarget = if target = AST.num0 bld.RegType then rd else target
     target := jumpTarget
     rd := r
@@ -287,7 +287,7 @@ let store ins bld =
   lift bld ins {
     let rd, mem = transTwoOprs ins bld
     let accessLength = getAccessLength (snd (getTwoOprs ins))
-    if accessLength = 64<rt> then append bld { mem := rd }
+    if accessLength = bld.RegType then append bld { mem := rd }
     else append bld { mem := AST.xtlo accessLength rd }
   }
 
@@ -349,15 +349,17 @@ let mul ins bld =
 let mulhSignOrUnsign ins bld (isSign, isUnsign) =
   lift bld ins {
     let rd, rs1, rs2 = transThreeOprs ins bld
-    (* The high 64 bits of the 64x64->128 product, from the 128-bit intermediate
-       the evaluator holds: MULH signs both operands, MULHU neither, MULHSU only
-       rs1 -- so the extend picks sext/zext per operand's signedness. *)
+    (* The high half of the product, from the intermediate twice a register
+       wide that the evaluator holds: MULH signs both operands, MULHU neither,
+       MULHSU only rs1 -- so the extend picks sext/zext per operand's
+       signedness. *)
+    let wide = bld.RegType * 2
     let prod =
       match isSign, isUnsign with
-      | true, true -> AST.sext 128<rt> rs1 .* AST.sext 128<rt> rs2
-      | true, false -> AST.sext 128<rt> rs1 .* AST.zext 128<rt> rs2
-      | _ -> AST.zext 128<rt> rs1 .* AST.zext 128<rt> rs2
-    rd := AST.xthi 64<rt> prod
+      | true, true -> AST.sext wide rs1 .* AST.sext wide rs2
+      | true, false -> AST.sext wide rs1 .* AST.zext wide rs2
+      | _ -> AST.zext wide rs1 .* AST.zext wide rs2
+    rd := AST.xthi bld.RegType prod
   }
 
 let mulw ins bld =
@@ -371,9 +373,10 @@ let mulw ins bld =
 let div ins bld =
   lift bld ins {
     let rd, rs1, rs2 = transThreeOprs ins bld
-    let condZero = rs2 == AST.num0 64<rt>
+    let condZero = rs2 == AST.num0 bld.RegType
+    let least = numI64 0x8000000000000000L bld.RegType
     let condOverflow =
-      ((rs2 == numI32 -1 64<rt>) .& (rs1 == numI64 0x8000000000000000L 64<rt>))
+      (rs2 == numI32 -1 bld.RegType) .& (rs1 == least)
     let lblL0 = label bld "L0"
     let lblL1 = label bld "L1"
     let lblL2 = label bld "L2"
@@ -381,7 +384,7 @@ let div ins bld =
     let lblEnd = label bld "End"
     AST.cjmp condZero (AST.jmpDest lblL0) (AST.jmpDest lblL1)
     AST.lmark lblL0
-    rd := numU64 0xFFFFFFFFFFFFFFFFuL 64<rt>
+    rd := numU64 0xFFFFFFFFFFFFFFFFuL bld.RegType
     AST.jmp (AST.jmpDest lblEnd)
     AST.lmark lblL1
     AST.cjmp condOverflow (AST.jmpDest lblL2) (AST.jmpDest lblL3)
@@ -441,13 +444,13 @@ let divuw ins bld =
 let divu ins bld =
   lift bld ins {
     let rd, rs1, rs2 = transThreeOprs ins bld
-    let condZero = rs2 == AST.num0 64<rt>
+    let condZero = rs2 == AST.num0 bld.RegType
     let lblL0 = label bld "L0"
     let lblL1 = label bld "L1"
     let lblEnd = label bld "End"
     AST.cjmp condZero (AST.jmpDest lblL0) (AST.jmpDest lblL1)
     AST.lmark lblL0
-    rd := numU64 0xFFFFFFFFFFFFFFFFuL 64<rt>
+    rd := numU64 0xFFFFFFFFFFFFFFFFuL bld.RegType
     AST.jmp (AST.jmpDest lblEnd)
     AST.lmark lblL1
     rd := rs1 ./ rs2
@@ -457,7 +460,7 @@ let divu ins bld =
 let remu ins bld =
   lift bld ins {
     let rd, rs1, rs2 = transThreeOprs ins bld
-    let condZero = rs2 == AST.num0 64<rt>
+    let condZero = rs2 == AST.num0 bld.RegType
     let lblL0 = label bld "L0"
     let lblL1 = label bld "L1"
     let lblEnd = label bld "End"
@@ -473,9 +476,10 @@ let remu ins bld =
 let rem ins bld =
   lift bld ins {
     let rd, rs1, rs2 = transThreeOprs ins bld
-    let condZero = rs2 == AST.num0 64<rt>
+    let condZero = rs2 == AST.num0 bld.RegType
+    let least = numI64 0x8000000000000000L bld.RegType
     let condOverflow =
-      ((rs2 == numI32 -1 64<rt>) .& (rs1 == numI64 0x8000000000000000L 64<rt>))
+      (rs2 == numI32 -1 bld.RegType) .& (rs1 == least)
     let lblL0 = label bld "L0"
     let lblL1 = label bld "L1"
     let lblL2 = label bld "L2"
@@ -488,7 +492,7 @@ let rem ins bld =
     AST.lmark lblL1
     AST.cjmp condOverflow (AST.jmpDest lblL2) (AST.jmpDest lblL3)
     AST.lmark lblL2
-    rd := AST.num0 64<rt>
+    rd := AST.num0 bld.RegType
     AST.jmp (AST.jmpDest lblEnd)
     AST.lmark lblL3
     rd := rs1 ?% rs2
@@ -593,7 +597,7 @@ let fltdots ins bld =
     rd := rtVal
     AST.jmp (AST.jmpDest lblEnd)
     AST.lmark lblL1
-    rd := numU64 0uL 64<rt>
+    rd := numU64 0uL bld.RegType
     fflags := fflags .| numU32 16u 32<rt>
     AST.lmark lblEnd
   }
@@ -608,14 +612,14 @@ let fledots ins bld =
     let lblL1 = label bld "L1"
     let lblEnd = label bld "End"
     let cond = AST.fle rs1 rs2
-    let rtVal = AST.ite cond (AST.num1 64<rt>) (AST.num0 64<rt>)
+    let rtVal = AST.ite cond (AST.num1 bld.RegType) (AST.num0 bld.RegType)
     let fflags = regVar bld R.FFLAGS
     AST.cjmp checkNan (AST.jmpDest lblL1) (AST.jmpDest lblL0)
     AST.lmark lblL0
     rd := rtVal
     AST.jmp (AST.jmpDest lblEnd)
     AST.lmark lblL1
-    rd := numU64 0uL 64<rt>
+    rd := numU64 0uL bld.RegType
     fflags := fflags .| numU32 16u 32<rt>
     AST.lmark lblEnd
   }
@@ -631,7 +635,7 @@ let feqdots ins bld =
     let lblL1 = label bld "L1"
     let lblEnd = label bld "End"
     let cond = rs1 == rs2
-    let rtVal = AST.ite cond (AST.num1 64<rt>) (AST.num0 64<rt>)
+    let rtVal = AST.ite cond (AST.num1 bld.RegType) (AST.num0 bld.RegType)
     let fflags = regVar bld R.FFLAGS
     let flagFscr = AST.ite (isSNan) (numU32 16u 32<rt>) (AST.num0 32<rt>)
     AST.cjmp checkNan (AST.jmpDest lblL1) (AST.jmpDest lblL0)
@@ -639,7 +643,7 @@ let feqdots ins bld =
     rd := rtVal
     AST.jmp (AST.jmpDest lblEnd)
     AST.lmark lblL1
-    rd := numU64 0uL 64<rt>
+    rd := numU64 0uL bld.RegType
     fflags := fflags .| flagFscr
     AST.lmark lblEnd
   }
@@ -659,21 +663,25 @@ let fclassdots ins bld =
     let condSubnormal = isSubnormal 32<rt> rs1
     let condSNan = isSNan 32<rt> rs1
     let condQNan = isQNan 32<rt> rs1
-    rd := AST.num0 64<rt>
+    rd := AST.num0 bld.RegType
     AST.cjmp sign (AST.jmpDest lblNeg) (AST.jmpDest lblPos)
     AST.lmark lblPos
-    rd := AST.ite condInf (numU32 (1u <<< 7) 64<rt>) rd
-    rd := AST.ite condZero (numU32 (1u <<< 4) 64<rt>) rd
-    rd := AST.ite condSubnormal (numU32 (1u <<< 5) 64<rt>) rd
-    rd := AST.ite condQNan (numU32 (1u <<< 9) 64<rt>) rd
-    rd := AST.ite condSNan (numU32 (1u <<< 8) 64<rt>) rd
-    rd := AST.ite (rd == AST.num0 64<rt>) (numU32 (1u <<< 6) 64<rt>) rd
+    rd := AST.ite condInf (numU32 (1u <<< 7) bld.RegType) rd
+    rd := AST.ite condZero (numU32 (1u <<< 4) bld.RegType) rd
+    rd := AST.ite condSubnormal (numU32 (1u <<< 5) bld.RegType) rd
+    rd := AST.ite condQNan (numU32 (1u <<< 9) bld.RegType) rd
+    rd := AST.ite condSNan (numU32 (1u <<< 8) bld.RegType) rd
+    rd := AST.ite (rd == AST.num0 bld.RegType)
+                  (numU32 (1u <<< 6) bld.RegType)
+                  rd
     AST.jmp (AST.jmpDest lblEnd)
     AST.lmark lblNeg
-    rd := AST.ite condInf (numU32 (1u <<< 0) 64<rt>) rd
-    rd := AST.ite condZero (numU32 (1u <<< 3) 64<rt>) rd
-    rd := AST.ite condSubnormal (numU32 (1u <<< 2) 64<rt>) rd
-    rd := AST.ite (rd == AST.num0 64<rt>) (numU32 (1u <<< 1) 64<rt>) rd
+    rd := AST.ite condInf (numU32 (1u <<< 0) bld.RegType) rd
+    rd := AST.ite condZero (numU32 (1u <<< 3) bld.RegType) rd
+    rd := AST.ite condSubnormal (numU32 (1u <<< 2) bld.RegType) rd
+    rd := AST.ite (rd == AST.num0 bld.RegType)
+                  (numU32 (1u <<< 1) bld.RegType)
+                  rd
     AST.lmark lblEnd
   }
 
@@ -691,21 +699,25 @@ let fclassdotd ins bld =
     let condSubnormal = isSubnormal 64<rt> rs1
     let condSNan = isSNan 64<rt> rs1
     let condQNan = isQNan 64<rt> rs1
-    rd := AST.num0 64<rt>
+    rd := AST.num0 bld.RegType
     AST.cjmp sign (AST.jmpDest lblNeg) (AST.jmpDest lblPos)
     AST.lmark lblPos
-    rd := AST.ite condInf (numU32 (1u <<< 7) 64<rt>) rd
-    rd := AST.ite condZero (numU32 (1u <<< 4) 64<rt>) rd
-    rd := AST.ite condSubnormal (numU32 (1u <<< 5) 64<rt>) rd
-    rd := AST.ite condQNan (numU32 (1u <<< 9) 64<rt>) rd
-    rd := AST.ite condSNan (numU32 (1u <<< 8) 64<rt>) rd
-    rd := AST.ite (rd == AST.num0 64<rt>) (numU32 (1u <<< 6) 64<rt>) rd
+    rd := AST.ite condInf (numU32 (1u <<< 7) bld.RegType) rd
+    rd := AST.ite condZero (numU32 (1u <<< 4) bld.RegType) rd
+    rd := AST.ite condSubnormal (numU32 (1u <<< 5) bld.RegType) rd
+    rd := AST.ite condQNan (numU32 (1u <<< 9) bld.RegType) rd
+    rd := AST.ite condSNan (numU32 (1u <<< 8) bld.RegType) rd
+    rd := AST.ite (rd == AST.num0 bld.RegType)
+                  (numU32 (1u <<< 6) bld.RegType)
+                  rd
     AST.jmp (AST.jmpDest lblEnd)
     AST.lmark lblNeg
-    rd := AST.ite condInf (numU32 (1u <<< 0) 64<rt>) rd
-    rd := AST.ite condZero (numU32 (1u <<< 3) 64<rt>) rd
-    rd := AST.ite condSubnormal (numU32 (1u <<< 2) 64<rt>) rd
-    rd := AST.ite (rd == AST.num0 64<rt>) (numU32 (1u <<< 1) 64<rt>) rd
+    rd := AST.ite condInf (numU32 (1u <<< 0) bld.RegType) rd
+    rd := AST.ite condZero (numU32 (1u <<< 3) bld.RegType) rd
+    rd := AST.ite condSubnormal (numU32 (1u <<< 2) bld.RegType) rd
+    rd := AST.ite (rd == AST.num0 bld.RegType)
+                  (numU32 (1u <<< 1) bld.RegType)
+                  rd
     AST.lmark lblEnd
   }
 
@@ -756,14 +768,14 @@ let fltdotd ins bld =
     let lblL1 = label bld "L1"
     let lblEnd = label bld "End"
     let cond = AST.flt rs1 rs2
-    let rtVal = AST.ite cond (AST.num1 64<rt>) (AST.num0 64<rt>)
+    let rtVal = AST.ite cond (AST.num1 bld.RegType) (AST.num0 bld.RegType)
     let fflags = regVar bld R.FFLAGS
     AST.cjmp checkNan (AST.jmpDest lblL1) (AST.jmpDest lblL0)
     AST.lmark lblL0
     rd := rtVal
     AST.jmp (AST.jmpDest lblEnd)
     AST.lmark lblL1
-    rd := numU64 0uL 64<rt>
+    rd := numU64 0uL bld.RegType
     fflags := fflags .| numU32 16u 32<rt>
     AST.lmark lblEnd
   }
@@ -776,14 +788,14 @@ let fledotd ins bld =
     let lblL1 = label bld "L1"
     let lblEnd = label bld "End"
     let cond = AST.fle rs1 rs2
-    let rtVal = AST.ite cond (AST.num1 64<rt>) (AST.num0 64<rt>)
+    let rtVal = AST.ite cond (AST.num1 bld.RegType) (AST.num0 bld.RegType)
     let fflags = regVar bld R.FFLAGS
     AST.cjmp checkNan (AST.jmpDest lblL1) (AST.jmpDest lblL0)
     AST.lmark lblL0
     rd := rtVal
     AST.jmp (AST.jmpDest lblEnd)
     AST.lmark lblL1
-    rd := numU64 0uL 64<rt>
+    rd := numU64 0uL bld.RegType
     fflags := fflags .| numU32 16u 32<rt>
     AST.lmark lblEnd
   }
@@ -797,7 +809,7 @@ let feqdotd ins bld =
     let lblL1 = label bld "L1"
     let lblEnd = label bld "End"
     let cond = rs1 == rs2
-    let rtVal = AST.ite cond (AST.num1 64<rt>) (AST.num0 64<rt>)
+    let rtVal = AST.ite cond (AST.num1 bld.RegType) (AST.num0 bld.RegType)
     let fflags = regVar bld R.FFLAGS
     let flagFscr = AST.ite isSNan (numU32 16u 32<rt>) (AST.num0 32<rt>)
     AST.cjmp checkNan (AST.jmpDest lblL1) (AST.jmpDest lblL0)
@@ -805,7 +817,7 @@ let feqdotd ins bld =
     rd := rtVal
     AST.jmp (AST.jmpDest lblEnd)
     AST.lmark lblL1
-    rd := numU64 0uL 64<rt>
+    rd := numU64 0uL bld.RegType
     fflags := fflags .| flagFscr
     AST.lmark lblEnd
   }
@@ -1119,7 +1131,7 @@ let amow ins bld op =
     AST.sideEffect AtomicBegin
     tmp := mem
     mem := op tmp rs2
-    rd := AST.sext 64<rt> tmp
+    rd := AST.sext bld.RegType tmp
     AST.sideEffect AtomicEnd
     AST.jmp (AST.jmpDest lblEnd)
     AST.lmark lblL1
@@ -1131,7 +1143,7 @@ let fmvdotxdotw ins bld =
   lift bld ins {
     let rd, rs1 = transTwoOprs ins bld
     let rs1 = getFloat32FromReg rs1
-    rd := AST.sext 64<rt> rs1
+    rd := AST.sext bld.RegType rs1
   }
 
 let fmvdotwdotx ins bld =
@@ -1163,8 +1175,8 @@ let csrrw ins bld =
       assignFCSR csr src bld
     | _ ->
       let rd = transOpr ins bld rd
-      let tmpVar = tmpVar bld 64<rt>
-      tmpVar := AST.zext 64<rt> csr
+      let tmpVar = tmpVar bld bld.RegType
+      tmpVar := AST.zext bld.RegType csr
       assignFCSR csr src bld
       rd := tmpVar
     AST.sideEffect AtomicEnd
@@ -1187,12 +1199,12 @@ let csrrs ins bld =
       match src with
       | OpReg Register.X0 ->
         let csr = transOpr ins bld csr
-        rd := AST.zext 64<rt> csr
+        rd := AST.zext bld.RegType csr
       | _ ->
         let oprs = transOpr ins bld csr, transOpr ins bld src
         let csr, src = maskForFCSR csr oprs
-        let tmpVar = tmpVar bld 64<rt>
-        tmpVar := AST.zext 64<rt> csr
+        let tmpVar = tmpVar bld bld.RegType
+        tmpVar := AST.zext bld.RegType csr
         assignFCSR csr (csr .| src) bld
         rd := tmpVar
     AST.sideEffect AtomicEnd
@@ -1206,12 +1218,12 @@ let csrrc ins bld =
     match src with
     | OpReg Register.X0 ->
       let csr = transOpr ins bld csr
-      rd := AST.zext 64<rt> csr
+      rd := AST.zext bld.RegType csr
     | _ ->
       let oprs = transOpr ins bld csr, transOpr ins bld src
       let csr, src = maskForFCSR csr oprs
-      let tmpVar = tmpVar bld 64<rt>
-      tmpVar := AST.zext 64<rt> csr
+      let tmpVar = tmpVar bld bld.RegType
+      tmpVar := AST.zext bld.RegType csr
       assignFCSR csr (csr .& AST.neg src) bld
       rd := tmpVar
     AST.sideEffect AtomicEnd
@@ -1312,8 +1324,8 @@ let fcvtdotwdotd ins bld =
   let rd, rs1 = transOpr ins bld rd, transOpr ins bld rs1
   let intMaxInFloat = numU64 0x41dfffffffc00000uL 64<rt>
   let intMinInFloat = numU64 0xc1e0000000000000uL 64<rt>
-  let intMax = AST.sext 64<rt> (numU32 0x7fffffffu 32<rt>)
-  let intMin = AST.sext 64<rt> (numU32 0x80000000u 32<rt>)
+  let intMax = AST.sext bld.RegType (numU32 0x7fffffffu 32<rt>)
+  let intMin = AST.sext bld.RegType (numU32 0x80000000u 32<rt>)
   let condInf = isInf 64<rt> rs1
   let condNaN = isNan 64<rt> rs1
   let sign = AST.xthi 1<rt> rs1
@@ -1326,7 +1338,7 @@ let fcvtdotwdotd ins bld =
     lift bld ins {
       (* rounded value *)
       rtVal := AST.cast rounding 64<rt> rs1
-      rd := AST.sext 64<rt> (AST.cast roundingInt 32<rt> rtVal)
+      rd := AST.sext bld.RegType (AST.cast roundingInt 32<rt> rtVal)
       clampConversion bld rd rtVal conds bounds
     }
   else
@@ -1334,7 +1346,7 @@ let fcvtdotwdotd ins bld =
       (* rounded value *)
       let rtVal = dynamicRoundingFl bld 64<rt> rs1
       let rdVal = dynamicRoundingInt bld 32<rt> rtVal
-      rd := AST.sext 64<rt> rdVal
+      rd := AST.sext bld.RegType rdVal
       clampConversion bld rd rtVal conds bounds
     }
 
@@ -1343,8 +1355,8 @@ let fcvtdotwudotd ins bld =
   let rd, rs1 = transOpr ins bld rd, transOpr ins bld rs1
   let uintMaxInFloat = numU64 0x41efffffffe00000uL 64<rt>
   let uintMinInFloat = numU64 0uL 64<rt>
-  let uintMax = numU64 0xffffffffffffffffuL 64<rt>
-  let uintMin = numU64 0uL 64<rt>
+  let uintMax = numU64 0xffffffffffffffffuL bld.RegType
+  let uintMin = numU64 0uL bld.RegType
   let condInf = isInf 64<rt> rs1
   let condNaN = isNan 64<rt> rs1
   let sign = AST.xthi 1<rt> rs1
@@ -1357,7 +1369,7 @@ let fcvtdotwudotd ins bld =
     lift bld ins {
       (* rounded value *)
       rtVal := AST.cast rounding 64<rt> rs1
-      rd := AST.sext 64<rt> (AST.cast roundingInt 32<rt> rtVal)
+      rd := AST.sext bld.RegType (AST.cast roundingInt 32<rt> rtVal)
       clampConversion bld rd rtVal conds bounds
     }
   else
@@ -1365,7 +1377,7 @@ let fcvtdotwudotd ins bld =
       (* rounded value *)
       let rtVal = dynamicRoundingFl bld 64<rt> rs1
       let rdVal = dynamicRoundingInt bld 32<rt> rtVal
-      rd := AST.sext 64<rt> rdVal
+      rd := AST.sext bld.RegType rdVal
       clampConversion bld rd rtVal conds bounds
     }
 
@@ -1375,8 +1387,8 @@ let fcvtdotwdots ins bld =
   let rs1 = getFloat32FromReg rs1
   let intMaxInFloat = numU32 0x4f000000u 32<rt>
   let intMinInFloat = numU32 0xcf000000u 32<rt>
-  let intMax = numU32 0x7fffffffu 64<rt>
-  let intMin = numU64 0xffffffff80000000uL 64<rt>
+  let intMax = numU32 0x7fffffffu bld.RegType
+  let intMin = numU64 0xffffffff80000000uL bld.RegType
   let condInf = isInf 32<rt> rs1
   let condNaN = isNan 32<rt> rs1
   let sign = AST.xthi 1<rt> rs1
@@ -1389,7 +1401,7 @@ let fcvtdotwdots ins bld =
     lift bld ins {
       (* rounded value *)
       rtVal := AST.cast rounding 32<rt> rs1
-      rd := AST.sext 64<rt> (AST.cast roundingInt 32<rt> rtVal)
+      rd := AST.sext bld.RegType (AST.cast roundingInt 32<rt> rtVal)
       clampConversion bld rd rtVal conds bounds
     }
   else
@@ -1397,7 +1409,7 @@ let fcvtdotwdots ins bld =
       (* rounded value *)
       let rtVal = dynamicRoundingFl bld 32<rt> rs1
       let rdVal = dynamicRoundingInt bld 32<rt> rtVal
-      rd := AST.sext 64<rt> rdVal
+      rd := AST.sext bld.RegType rdVal
       clampConversion bld rd rtVal conds bounds
     }
 
@@ -1407,8 +1419,8 @@ let fcvtdotwudots ins bld =
   let rs1 = getFloat32FromReg rs1
   let uintMaxInFloat = numU32 0x4f800000u 32<rt>
   let uintMinInFloat = numU32 0x0u 32<rt>
-  let uintMax = numU64 0xffffffffffffffffUL 64<rt>
-  let uintMin = numU32 0x0u 64<rt>
+  let uintMax = numU64 0xffffffffffffffffUL bld.RegType
+  let uintMin = numU32 0x0u bld.RegType
   let condInf = isInf 32<rt> rs1
   let condNaN = isNan 32<rt> rs1
   let sign = AST.xthi 1<rt> rs1
@@ -1421,7 +1433,7 @@ let fcvtdotwudots ins bld =
     lift bld ins {
       (* rounded value *)
       rtVal := AST.cast rounding 32<rt> rs1
-      rd := AST.sext 64<rt> (AST.cast roundingInt 32<rt> rtVal)
+      rd := AST.sext bld.RegType (AST.cast roundingInt 32<rt> rtVal)
       clampConversion bld rd rtVal conds bounds
     }
   else
@@ -1429,7 +1441,7 @@ let fcvtdotwudots ins bld =
       (* rounded value *)
       let rtVal = dynamicRoundingFl bld 32<rt> rs1
       let rdVal = dynamicRoundingInt bld 32<rt> rtVal
-      rd := AST.sext 64<rt> rdVal
+      rd := AST.sext bld.RegType rdVal
       clampConversion bld rd rtVal conds bounds
     }
 
@@ -1610,8 +1622,8 @@ let lr ins bld =
     AST.sideEffect AtomicBegin
     v := mem
     regVar bld R.ExMonAddr := addr
-    regVar bld R.ExMonVal := AST.zext 64<rt> v
-    rd := AST.sext 64<rt> v
+    regVar bld R.ExMonVal := AST.zext bld.RegType v
+    rd := AST.sext bld.RegType v
     AST.sideEffect AtomicEnd
   }
 
@@ -1631,6 +1643,6 @@ let sc ins bld oprSz =
     matched := (addr == regVar bld R.ExMonAddr)
                .& (cur == AST.xtlo oprSz (regVar bld R.ExMonVal))
     mem := AST.ite matched (AST.xtlo oprSz rs2) cur
-    rd := AST.ite matched (AST.num0 64<rt>) (AST.num1 64<rt>)
+    rd := AST.ite matched (AST.num0 bld.RegType) (AST.num1 bld.RegType)
     AST.sideEffect AtomicEnd
   }

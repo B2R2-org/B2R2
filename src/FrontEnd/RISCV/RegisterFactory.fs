@@ -104,8 +104,8 @@ type RegisterFactory(isa: ISA) =
   let pc = AST.pcvar rt "PC"
   (* Pseudo registers for the value-based exclusive monitor (LR/SC). *)
   let exMonAddr =
-    AST.var 64<rt> (Register.toRegID Register.ExMonAddr) "ExMonAddr"
-  let exMonVal = AST.var 64<rt> (Register.toRegID Register.ExMonVal) "ExMonVal"
+    AST.var rt (Register.toRegID Register.ExMonAddr) "ExMonAddr"
+  let exMonVal = AST.var rt (Register.toRegID Register.ExMonVal) "ExMonVal"
   let fcsr =
     AST.``or`` (AST.``and`` fflags (numI32 0b11111 32<rt>))
                (AST.shl (AST.``and`` frm (numI32 0b111 32<rt>))

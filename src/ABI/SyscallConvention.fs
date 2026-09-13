@@ -174,7 +174,9 @@ module SyscallConvention =
            reg (ppc PPC.Register.R7)
            reg (ppc PPC.Register.R8) |] }
 
-  let private linuxRISCV64 () =
+  (* RV32 and RV64 name the same registers here, the Linux port of each
+     following the same convention. *)
+  let private linuxRISCV () =
     { NumberRegister = riscv RISCV.Register.X17
       ReturnRegister = riscv RISCV.Register.X10
       Error = NegatedErrno
@@ -335,7 +337,7 @@ module SyscallConvention =
     | OS.Linux, MIPS32 -> linuxMIPS32 ()
     | OS.Linux, MIPS64 -> linuxMIPS64 ()
     | OS.Linux, PPC -> linuxPPC ()
-    | OS.Linux, RISCV64 -> linuxRISCV64 ()
+    | OS.Linux, RISCV -> linuxRISCV ()
     | OS.Linux, SPARC -> linuxSPARC ()
     | OS.Linux, S390 -> linuxS390 ()
     | OS.Linux, M68K -> linuxM68K ()

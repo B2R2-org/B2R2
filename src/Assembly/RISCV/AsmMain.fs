@@ -41,9 +41,9 @@ type UserState =
 /// Builds the lookup from an opcode to the encoder for it. Each assembler
 /// builds its own and lets it go when it goes, rather than the rows living for
 /// as long as the process does.
-let buildEncoderTable () =
+let buildEncoderTable wordSize =
   [ arithmeticEncoders ()
-    immediateEncoders ()
+    immediateEncoders wordSize
     loadStoreEncoders ()
     branchEncoders ()
     atomicEncoders ()
