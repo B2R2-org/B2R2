@@ -87,6 +87,37 @@ type MIPS32ParserTests() =
 
   let ( ++ ) byteString pair = ByteArray.ofHexString byteString, pair
 
+  /// MD00087 gives each instruction's availability to the right of its
+  /// Format line, and for the whole doubleword family the field reads
+  /// MIPS64. MIPS32 has no such instruction, so a word holding one of
+  /// those encodings is a Reserved Instruction there and the parser has
+  /// to refuse it. The same bytes ARE an instruction at the 64-bit word
+  /// size, which is what makes this a property of the ISA rather than of
+  /// the encoding.
+  [<TestMethod>]
+  member _.``[MIPS32] A MIPS64 instruction is not one at this width``() =
+    let words =
+      [ "012a402c", DADD
+        "012a402d", DADDU
+        "012a402e", DSUB
+        "012a402f", DSUBU
+        "000a4038", DSLL
+        "7c0a4024", DBITSWAP
+        "dd290000", LD
+        "fd290000", SD
+        "9d290000", LWU ]
+    let parserAt wordSize =
+      let isa = ISA(Architecture.MIPS, Endian.Big, wordSize)
+      MIPSParser(isa, BinReader.Init Endian.Big) :> IInstructionParsable
+    let parser32 = parserAt WordSize.Bit32
+    let parser64 = parserAt WordSize.Bit64
+    for hex, opcode in words do
+      let bytes = ByteArray.ofHexString hex
+      let ins = parser64.Parse(System.ReadOnlySpan bytes, 0UL)
+      Assert.AreEqual<Opcode>(opcode, (ins :?> Instruction).Opcode, hex)
+      Assert.ThrowsExactly<ParsingFailureException>(fun () ->
+        parser32.Parse(System.ReadOnlySpan bytes, 0UL) |> ignore) |> ignore
+
   [<TestMethod>]
   member _.``[MIPS32] Arithmetic Operations Parse Test (1)``() =
     "279c85bc"
