@@ -198,21 +198,21 @@ let translate (ins: Instruction) bld =
   | Op.FSW ->
     fsw ins bld
   | Op.FADDdotS ->
-    fpArithmeticSingle ins bld AST.fadd
+    fpArithmeticSingle ins bld FpExc.Add AST.fadd
   | Op.FADDdotD ->
-    fpArithmeticDouble ins bld AST.fadd
+    fpArithmeticDouble ins bld FpExc.Add AST.fadd
   | Op.FSUBdotS ->
-    fpArithmeticSingle ins bld AST.fsub
+    fpArithmeticSingle ins bld FpExc.Sub AST.fsub
   | Op.FSUBdotD ->
-    fpArithmeticDouble ins bld AST.fsub
+    fpArithmeticDouble ins bld FpExc.Sub AST.fsub
   | Op.FDIVdotS ->
-    fpArithmeticSingle ins bld AST.fdiv
+    fpArithmeticSingle ins bld FpExc.Div AST.fdiv
   | Op.FDIVdotD ->
-    fpArithmeticDouble ins bld AST.fdiv
+    fpArithmeticDouble ins bld FpExc.Div AST.fdiv
   | Op.FMULdotS ->
-    fpArithmeticSingle ins bld AST.fmul
+    fpArithmeticSingle ins bld FpExc.Mul AST.fmul
   | Op.FMULdotD ->
-    fpArithmeticDouble ins bld AST.fmul
+    fpArithmeticDouble ins bld FpExc.Mul AST.fmul
   | Op.FMINdotS ->
     fmindots ins bld
   | Op.FMINdotD ->
