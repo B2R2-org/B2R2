@@ -1771,14 +1771,21 @@ let loadLinked ins bld =
     rt := AST.sext bld.RegType v
   }
 
-let sldc1 ins bld stORld =
+let sldc1 ins bld stORld unaligned =
   lift bld ins {
     let ft, mem = getTwoOprs ins
     let ftB, ftA = transOprToFPPair bld ft
     let baseOffset = transOprToBaseOffset bld mem
     let bOff = tmpVar bld bld.RegType
     let memory = tmpVar bld 64<rt>
-    bOff := baseOffset
+    (* LUXC1 and SUXC1 clear the low three bits of the address instead of
+       taking an Address Error on them, which is the whole of what separates
+       them from LDC1 and SDC1. It is what lets an array of pairs be read at
+       an offset that is not a multiple of eight, which is the case ALNV.PS
+       exists to finish. *)
+    let address =
+      if unaligned then baseOffset .& numI64 -8L bld.RegType else baseOffset
+    bOff := address
     let loadMem =
       loadNative bld 64<rt> bOff
     memory := loadMem
@@ -1786,6 +1793,80 @@ let sldc1 ins bld stORld =
       loadMem := if is32Bit bld then AST.concat ftB ftA else ftA
     else
       writeFPResult ftB ftA memory bld
+  }
+
+/// Which half of a pair a name asks for. The pair is two fields of one
+/// register rather than two values in memory, so the upper half is at the
+/// high end of it whichever way round the bytes go.
+let private pairHalf upper value =
+  if upper then AST.xthi 32<rt> value else AST.xtlo 32<rt> value
+
+/// CVT.PS.S builds a pair out of two singles: the first source becomes the
+/// upper half and the second the lower, in the order the manual names them.
+let cvtpss ins bld =
+  lift bld ins {
+    let fd, fs, ft = getThreeOprs ins
+    let fdB, fdA = transOprToFPPair bld fd
+    let fs, ft = transTwoSingleFP bld (fs, ft)
+    writeFPResult fdB fdA (AST.concat fs ft) bld
+  }
+
+/// CVT.S.PU and CVT.S.PL take one half of a pair back out. What comes out is
+/// already a single -- the format packs two of them rather than encoding
+/// either differently -- so this moves thirty-two bits and converts nothing,
+/// which is why no rounding and no NaN handling belong here.
+let cvtsFromPair ins bld upper =
+  lift bld ins {
+    let fd, fs = getTwoOprs ins
+    let fd = transOprToSingleFP bld fd
+    let fs = transOprToFPPairConcat bld fs
+    fd := pairHalf upper fs
+  }
+
+/// The four re-pairings. Each name says which half of the first source
+/// becomes the UPPER half of the result and which half of the second becomes
+/// the lower, in that order: PLL takes the lower of each, PUL the upper of
+/// the first and the lower of the second.
+let pairHalves ins bld upperOfFs upperOfFt =
+  lift bld ins {
+    let fd, fs, ft = getThreeOprs ins
+    let fdB, fdA = transOprToFPPair bld fd
+    let fs, ft = transFPConcatTwoOprs bld (fs, ft)
+    let result =
+      AST.concat (pairHalf upperOfFs fs) (pairHalf upperOfFt ft)
+    writeFPResult fdB fdA result bld
+  }
+
+/// ALNV.PS splices two pairs by the low three bits of a general-purpose
+/// register, which is how an array of pairs is read at an offset that is not
+/// a multiple of eight.
+///
+/// The manual gives the instruction two defined alignments: zero copies the
+/// first source unchanged and four splices the two, with every other value
+/// UNPREDICTABLE. Those others leave the destination alone, which is the one
+/// answer that invents nothing -- a byte count that is not a multiple of four
+/// asks for a shift no paired-single register can hold, and writing anything
+/// at all would be a value this instruction was never told to produce.
+///
+/// Which half comes from which source depends on the byte order here, unlike
+/// everywhere else in this format, because the two registers came out of
+/// consecutive memory and it is the memory order being undone.
+let alnvps ins bld =
+  lift bld ins {
+    let fd, fs, ft, rs = getFourOprs ins
+    let fdB, fdA = transOprToFPPair bld fd
+    let fs, ft = transFPConcatTwoOprs bld (fs, ft)
+    let rs = transOpr ins bld rs
+    let spliced =
+      if bld.Endianness = Endian.Big then
+        AST.concat (pairHalf false fs) (pairHalf true ft)
+      else
+        AST.concat (pairHalf false ft) (pairHalf true fs)
+    let offset = rs .& numI32 0b111 bld.RegType
+    let kept = if is32Bit bld then AST.concat fdB fdA else fdA
+    let defined = AST.ite (offset == numI32 0b100 bld.RegType) spliced kept
+    let result = AST.ite (offset == AST.num0 bld.RegType) fs defined
+    writeFPResult fdB fdA result bld
   }
 
 let slwc1 ins bld stORld =

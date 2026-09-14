@@ -867,6 +867,12 @@ let private parseCOP1WhenRsS release binary =
   | 0b100101u ->
     if b20to16 = 0u then Op.CVTL, None, Some Fmt.S, getFdFs binary
     else raise ParsingFailureException
+  (* CVT.PS.S reads two singles and writes a pair, so it is the one member of
+     the paired-single family whose operands are in the S format and whose
+     encoding is therefore in this table rather than in A.21. Release 6
+     removed the format. *)
+  | 0b100110u when release <> MIPSRelease.R6 ->
+    Op.CVTPSS, None, None, getFdFsFt binary
   | b when b &&& 0b110000u = 0b110000u ->
     let cc = Bits.extract binary 10u 8u
     let oprFn = if cc = 0u then getFsFt else getCcFsFt
@@ -1001,6 +1007,39 @@ let private parseCOP1WhenRsL binary =
   | _ ->
     raise ParsingFailureException
 
+/// <summary>
+/// Table A.21 MIPS64 COP1 Encoding of Function Field When rs=PS, Revision
+/// 6.06.
+///
+/// What is decoded here is the part of the format that MOVES halves about:
+/// taking one out as a single, and the four ways two pairs can be re-paired.
+/// The arithmetic the table also carries -- ADD.PS and its neighbours --
+/// applies one operation to both halves at once, and this file's
+/// floating-point lifters each name a single number; decoding those without
+/// lifting them that way would hand the evaluator a pair to compute on as
+/// though it were one double, which is a wrong answer rather than a missing
+/// one.
+/// </summary>
+let private parseCOP1WhenRsPS binary =
+  let b20to16 = Bits.extract binary 20u 16u
+  match Bits.extract binary 5u 0u with
+  | 0b100000u ->
+    if b20to16 = 0u then Op.CVTSPU, None, None, getFdFs binary
+    else raise ParsingFailureException
+  | 0b101000u ->
+    if b20to16 = 0u then Op.CVTSPL, None, None, getFdFs binary
+    else raise ParsingFailureException
+  | 0b101100u ->
+    Op.PLLPS, None, None, getFdFsFt binary
+  | 0b101101u ->
+    Op.PLUPS, None, None, getFdFsFt binary
+  | 0b101110u ->
+    Op.PULPS, None, None, getFdFsFt binary
+  | 0b101111u ->
+    Op.PUUPS, None, None, getFdFsFt binary
+  | _ ->
+    raise ParsingFailureException
+
 let private parseCOP1 arch release binary =
   let b10to0 = Bits.extract binary 10u 0u
   let b17to16 = Bits.extract binary 17u 16u (* nd:tf *)
@@ -1058,6 +1097,8 @@ let private parseCOP1 arch release binary =
     parseCOP1WhenRsW binary
   | 0b10101u ->
     parseCOP1WhenRsL binary
+  | 0b10110u when release <> MIPSRelease.R6 ->
+    parseCOP1WhenRsPS binary
   | _ ->
     raise ParsingFailureException
 
@@ -1074,15 +1115,26 @@ let private parseCOP1X binary =
     let b15to11 = Bits.extract binary 15u 11u
     if b15to11 = 0u then Op.LDXC1, None, None, getFdMemBaseIdx binary 64<rt>
     else raise ParsingFailureException
+  (* LUXC1 and SUXC1 name a doubleword and IGNORE the low three bits of the
+     address rather than faulting on them, which is what makes them usable
+     for the unaligned array of pairs that ALNV.PS exists to read. *)
+  | 0b000101u ->
+    if b15to11 = 0u then Op.LUXC1, None, None, getFdMemBaseIdx binary 64<rt>
+    else raise ParsingFailureException
   | 0b001000u ->
     if b10to6 = 0u then Op.SWXC1, None, None, getFsMemBaseIdx binary 32<rt>
     else raise ParsingFailureException
   | 0b001001u ->
     if b10to6 = 0u then Op.SDXC1, None, None, getFsMemBaseIdx binary 64<rt>
     else raise ParsingFailureException
+  | 0b001101u ->
+    if b10to6 = 0u then Op.SUXC1, None, None, getFsMemBaseIdx binary 64<rt>
+    else raise ParsingFailureException
   | 0b001111u ->
     if b10to6 = 0u then Op.PREFX, None, None, getHintMemBaseIdx binary 32<rt>
     else raise ParsingFailureException
+  | 0b011110u ->
+    Op.ALNVPS, None, None, getFdFsFtRs binary
   | 0b100000u ->
     Op.MADD, None, Some Fmt.S, getFdFrFsFt binary
   | 0b100001u ->
@@ -1399,7 +1451,12 @@ let private isMIPS64Only = function
   | Op.DSLLV | Op.DSRA | Op.DSRA32 | Op.DSRAV | Op.DSRL | Op.DSRL32
   | Op.DSRLV | Op.DSUB | Op.DSUBU | Op.LD | Op.LDL | Op.LDPC | Op.LDR
   | Op.LLD | Op.LLDP | Op.LWU | Op.LWUPC | Op.SCD | Op.SCDP | Op.SD
-  | Op.SDL | Op.SDR -> true
+  | Op.SDL | Op.SDR
+  (* The paired-single format and the two unaligned moves that serve it are
+     MIPS64 as well: a pair is sixty-four bits of one register, which a
+     32-bit FPU does not have. *)
+  | Op.ALNVPS | Op.CVTPSS | Op.CVTSPL | Op.CVTSPU | Op.LUXC1 | Op.PLLPS
+  | Op.PLUPS | Op.PULPS | Op.PUUPS | Op.SUXC1 -> true
   | _ -> false
 
 let parse lifter span (reader: IBinReader) arch wordSize release addr =
