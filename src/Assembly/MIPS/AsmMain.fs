@@ -69,12 +69,16 @@ let private addEncoders claims table rows =
 /// </param>
 let buildEncoderTable (release: MIPSRelease) =
   let general =
-    [ arithmeticEncoders (); branchEncoders (); loadStoreEncoders () ]
+    [ arithmeticEncoders ()
+      branchEncoders ()
+      loadStoreEncoders ()
+      privilegedEncoders () ]
     |> List.concat
     |> Map.ofList
   let general =
     if release = MIPSRelease.R6 then
-      addEncoders (fun _ -> true) general (release6Encoders ())
+      addEncoders (fun _ -> true) general
+        (release6Encoders () @ privilegedR6Encoders ())
     else
       general
   let withFloat =

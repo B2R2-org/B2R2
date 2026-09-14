@@ -77,6 +77,61 @@ type MIPS64ParserTests() =
 
   let ( ++ ) byteString pair = ByteArray.ofHexString byteString, pair
 
+  /// <summary>
+  /// The privileged encodings, which the parser refused wholesale until the
+  /// COP0 major opcode was decoded.
+  ///
+  /// What this pins is the field splits a round-trip cannot see. ERET and
+  /// ERETNC share a function field and differ in bit 6 alone; DI and EI share
+  /// theirs and differ in bit 5; the two of those and DVP and EVP are one
+  /// encoding told apart by the rd field as well. An encoder and a decoder
+  /// that made the same mistake about any of them would still round-trip.
+  /// </summary>
+  [<TestMethod>]
+  member _.``[MIPS64] The privileged encodings parse``() =
+    let words =
+      [ "40086000", MFC0
+        "40286000", DMFC0
+        "40486000", MFHC0
+        "40886000", MTC0
+        "40a86000", DMTC0
+        "40c86000", MTHC0
+        "41494000", RDPGPR
+        "41c94000", WRPGPR
+        "41686000", DI
+        "41686020", EI
+        "42000018", ERET
+        "42000058", ERETNC
+        "4200001f", DERET
+        "42000020", WAIT
+        "42000001", TLBR
+        "42000002", TLBWI
+        "42000003", TLBINV
+        "42000004", TLBINVF
+        "42000006", TLBWR
+        "42000008", TLBP
+        "bcb00004", CACHE
+        "7ca8022c", LBE
+        "7ca8021f", SWE ]
+    let isa = ISA(Architecture.MIPS, Endian.Big, WordSize.Bit64)
+    let parser = MIPSParser(isa, BinReader.Init Endian.Big)
+    let parser = parser :> IInstructionParsable
+    for hex, opcode in words do
+      let bytes = ByteArray.ofHexString hex
+      let ins = parser.Parse(System.ReadOnlySpan bytes, 0UL) :?> Instruction
+      Assert.AreEqual<Opcode>(opcode, ins.Opcode, hex)
+
+  /// <summary>
+  /// The nine-bit offset a SPECIAL3 load or store holds is SIGNED, and
+  /// widening it from the wrong place reads every negative offset as a large
+  /// positive one. 0x1fc is -4 in nine bits and 508 in nine unsigned ones.
+  /// </summary>
+  [<TestMethod>]
+  member _.``[MIPS64] A nine-bit SPECIAL3 offset is signed``() =
+    "7ca8fe2c"
+    ++ LBE ** [ O.Reg R8; O.Mem(R5, -4L, 8<rt>) ]
+    ||> test64R2
+
   [<TestMethod>]
   member _.``[MIPS64] Arithmetic operations Parse Test (1)``() =
     "02bd782d"

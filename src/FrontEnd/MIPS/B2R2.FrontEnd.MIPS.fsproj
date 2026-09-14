@@ -5,6 +5,7 @@
   </PropertyGroup>
 
   <ItemGroup>
+    <Compile Include="CP0.fs" />
     <Compile Include="RegisterHelper.fs" />
     <Compile Include="RegisterFactory.fs" />
     <Compile Include="LowUIRBuilder.fs" />

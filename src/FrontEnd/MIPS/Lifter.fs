@@ -230,19 +230,21 @@ let translate (ins: Instruction) (bld: LowUIRBuilder) =
     jalr ins bld
   | Op.JR | Op.JRHB ->
     jr ins bld
-  | Op.LD | Op.LB | Op.LH | Op.LW ->
+  | Op.LD | Op.LB | Op.LH | Op.LW
+  | Op.LBE | Op.LHE | Op.LWE ->
     loadSigned ins bld
-  | Op.LBU | Op.LHU | Op.LWU ->
+  | Op.LBU | Op.LHU | Op.LWU
+  | Op.LBUE | Op.LHUE ->
     loadUnsigned ins bld
-  | Op.LLWP ->
+  | Op.LLWP | Op.LLWPE ->
     loadLinkedPair ins bld 32<rt>
   | Op.LLDP ->
     loadLinkedPair ins bld 64<rt>
-  | Op.SCWP ->
+  | Op.SCWP | Op.SCWPE ->
     storeConditionalPair ins bld 32<rt>
   | Op.SCDP ->
     storeConditionalPair ins bld 64<rt>
-  | Op.LL | Op.LLD ->
+  | Op.LL | Op.LLD | Op.LLE ->
     loadLinked ins bld
   | Op.SDC1 | Op.SDXC1 ->
     sldc1 ins bld true
@@ -258,9 +260,9 @@ let translate (ins: Instruction) (bld: LowUIRBuilder) =
     loadLeftRight ins bld (<<) (>>) (.&) 64<rt>
   | Op.LDR ->
     loadLeftRight ins bld (>>) (<<) (<+>) 64<rt>
-  | Op.LWL ->
+  | Op.LWL | Op.LWLE ->
     loadLeftRight ins bld (<<) (>>) (.&) 32<rt>
-  | Op.LWR ->
+  | Op.LWR | Op.LWRE ->
     loadLeftRight ins bld (>>) (<<) (<+>) 32<rt>
   | Op.MADD ->
     mAddSub ins bld true
@@ -320,6 +322,57 @@ let translate (ins: Instruction) (bld: LowUIRBuilder) =
     nop ins bld
   | Op.PREF | Op.PREFE | Op.PREFX ->
     nop ins bld
+  (* The system control coprocessor, and the instructions that reach the
+     caches and the other processors. Everything here needs a privilege level
+     to be legal in, which is the one thing this front end has no way to
+     check -- a real implementation takes Coprocessor Unusable on all of them
+     unless Status.CU0 is set or the core is in kernel mode. *)
+  | Op.MFC0 ->
+    moveFromCP0 ins bld false false
+  | Op.DMFC0 ->
+    moveFromCP0 ins bld true false
+  | Op.MFHC0 ->
+    moveFromCP0 ins bld false true
+  | Op.MTC0 ->
+    moveToCP0 ins bld false false
+  | Op.DMTC0 ->
+    moveToCP0 ins bld true false
+  | Op.MTHC0 ->
+    moveToCP0 ins bld false true
+  | Op.RDPGPR | Op.WRPGPR ->
+    movePrevGPR ins bld
+  | Op.DI ->
+    interruptEnable ins bld false
+  | Op.EI ->
+    interruptEnable ins bld true
+  | Op.DVP ->
+    virtualProcessorEnable ins bld false
+  | Op.EVP ->
+    virtualProcessorEnable ins bld true
+  | Op.ERET ->
+    exceptionReturn ins bld true
+  | Op.ERETNC ->
+    exceptionReturn ins bld false
+  | Op.DERET ->
+    debugReturn ins bld
+  (* A cache maintenance operation on a machine with no cache has nothing to
+     do, and doing nothing is what the architecture asks of it. The two global
+     invalidates reach the caches and TLBs of the OTHER processors of a
+     multiprocessor, which is the same answer on a machine with one. *)
+  | Op.CACHE | Op.CACHEE | Op.GINVI | Op.GINVT ->
+    nop ins bld
+  (* WAIT stops fetching until an interrupt arrives. Nothing here raises one,
+     so waiting would be waiting forever; carrying on is what an
+     implementation that treats the wait condition as already satisfied does,
+     which the manual allows. *)
+  | Op.WAIT ->
+    sideEffects ins bld Delay
+  (* The TLB instructions read and write an array of translations, and there
+     is no such array: addresses here are translated without one, so a TLB
+     these wrote would be state that no load or store ever consults. Lifting
+     them to something that looked like work would be worse than saying so. *)
+  | Op.TLBP | Op.TLBR | Op.TLBWI | Op.TLBWR | Op.TLBINV | Op.TLBINVF ->
+    unsupported ins bld
   (* Release 6. The compact branches share one lifter and differ only in the
      comparison, which is what they differ by in the manual too. *)
   | Op.BC ->
@@ -478,9 +531,9 @@ let translate (ins: Instruction) (bld: LowUIRBuilder) =
     sltiAndU ins bld (.<)
   | Op.SSNOP ->
     nop ins bld
-  | Op.SB ->
+  | Op.SB | Op.SBE ->
     store ins 8<rt> bld
-  | Op.SC ->
+  | Op.SC | Op.SCE ->
     storeConditional ins 32<rt> bld
   | Op.SCD ->
     storeConditional ins 64<rt> bld
@@ -490,7 +543,7 @@ let translate (ins: Instruction) (bld: LowUIRBuilder) =
     seb ins bld
   | Op.SEH ->
     seh ins bld
-  | Op.SH ->
+  | Op.SH | Op.SHE ->
     store ins 16<rt> bld
   | Op.SQRT ->
     sqrt ins bld
@@ -506,15 +559,15 @@ let translate (ins: Instruction) (bld: LowUIRBuilder) =
     sub ins bld
   | Op.SUBU ->
     subu ins bld
-  | Op.SW ->
+  | Op.SW | Op.SWE ->
     store ins 32<rt> bld
   | Op.SDL ->
     storeLeftRight ins bld (<<) (>>) (.&) 64<rt>
   | Op.SDR ->
     storeLeftRight ins bld (>>) (<<) (<+>) 64<rt>
-  | Op.SWL ->
+  | Op.SWL | Op.SWLE ->
     storeLeftRight ins bld (<<) (>>) (.&) 32<rt>
-  | Op.SWR ->
+  | Op.SWR | Op.SWRE ->
     storeLeftRight ins bld (>>) (<<) (<+>) 32<rt>
   | Op.SYNC | Op.SYNCI ->
     nop ins bld

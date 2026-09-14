@@ -236,6 +236,10 @@ type Opcode =
   | DCLZ = 102
   /// Count Leading Ones in Doubleword.
   | DCLO = 345
+  /// Doubleword Move from Coprocessor 0.
+  | DMFC0 = 346
+  /// Doubleword Move to Coprocessor 0.
+  | DMTC0 = 347
   /// Doubleword Divide.
   | DDIV = 103
   /// Doubleword Divide Unsigned.
