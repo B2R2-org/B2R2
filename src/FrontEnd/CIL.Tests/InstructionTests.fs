@@ -192,6 +192,7 @@ type InstructionTests() =
     for hex in [ "58"; "2a"; "2801000006"; "fe1204"; "220000c03f"; "2b05" ] do
       let builder = ILowUIRBuilder.Default(isa, regFactory, LowUIRStream())
       let stmts = (parse hex).Translate builder
-      Assert.IsTrue(stmts.Length >= 2, $"{hex} lifted to nothing")
+      if stmts.Length < 2 then Assert.Fail($"{hex} lifted to nothing")
+      else ()
 
 // vim: set tw=80 sts=2 sw=2:
