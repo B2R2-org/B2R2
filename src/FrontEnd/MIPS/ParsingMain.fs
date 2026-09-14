@@ -536,6 +536,66 @@ let private parseSPECIAL3 release binary =
     Op.DINSU, None, None, getRtRsPosSize4 binary
   | 0b000111u ->
     Op.DINS, None, None, getRtRsPosSize binary
+  (* The EVA loads and stores, which name the OTHER address space: a kernel
+     running with Enhanced Virtual Addressing reaches a user mapping through
+     these rather than through the ordinary forms. What they do to the value
+     is what their non-EVA twins do; the offset is nine bits rather than
+     sixteen, which is the only difference a decoder sees. *)
+  | 0b011001u ->
+    Op.LWLE, None, None, getRtMemBaseOff9 binary 32<rt>
+  | 0b011010u ->
+    Op.LWRE, None, None, getRtMemBaseOff9 binary 32<rt>
+  | 0b011011u ->
+    Op.CACHEE, None, None, getHintMemBaseOff9 binary 32<rt>
+  | 0b011100u ->
+    Op.SBE, None, None, getRtMemBaseOff9 binary 8<rt>
+  | 0b011101u ->
+    Op.SHE, None, None, getRtMemBaseOff9 binary 16<rt>
+  | 0b011110u ->
+    if b6 = 0u then
+      Op.SCE, None, None, getRtMemBaseOff9 binary 32<rt>
+    elif release = MIPSRelease.R6 then
+      Op.SCWPE, None, None, getRtRdBase binary 32<rt>
+    else
+      raise ParsingFailureException
+  | 0b011111u ->
+    Op.SWE, None, None, getRtMemBaseOff9 binary 32<rt>
+  | 0b100001u ->
+    Op.SWLE, None, None, getRtMemBaseOff9 binary 32<rt>
+  | 0b100010u ->
+    Op.SWRE, None, None, getRtMemBaseOff9 binary 32<rt>
+  | 0b100011u ->
+    Op.PREFE, None, None, getHintMemBaseOff9 binary 32<rt>
+  | 0b100101u when release = MIPSRelease.R6 ->
+    Op.CACHE, None, None, getHintMemBaseOff9 binary 32<rt>
+  | 0b101000u ->
+    Op.LBUE, None, None, getRtMemBaseOff9 binary 8<rt>
+  | 0b101001u ->
+    Op.LHUE, None, None, getRtMemBaseOff9 binary 16<rt>
+  | 0b101100u ->
+    Op.LBE, None, None, getRtMemBaseOff9 binary 8<rt>
+  | 0b101101u ->
+    Op.LHE, None, None, getRtMemBaseOff9 binary 16<rt>
+  | 0b101110u ->
+    if b6 = 0u then
+      Op.LLE, None, None, getRtMemBaseOff9 binary 32<rt>
+    elif release = MIPSRelease.R6 then
+      Op.LLWPE, None, None, getRtRdBase binary 32<rt>
+    else
+      raise ParsingFailureException
+  | 0b101111u ->
+    Op.LWE, None, None, getRtMemBaseOff9 binary 32<rt>
+  (* The Release 6 global invalidates, which reach the caches and TLBs of the
+     OTHER processors in a multiprocessor. Bits 7..6 say which of the two it
+     is; GINVT names what kind of translation to drop as well. *)
+  | 0b111101u when release = MIPSRelease.R6 ->
+    if Bits.extract binary 7u 6u = 0b00u && Bits.extract binary 20u 8u = 0u then
+      Op.GINVI, None, None, getRs binary
+    elif Bits.extract binary 7u 6u = 0b10u
+         && Bits.extract binary 20u 10u = 0u then
+      Op.GINVT, None, None, getRsType binary
+    else
+      raise ParsingFailureException
   | 0b100000u (* BSHFL *) ->
     parseBSHFL binary
   | 0b100100u (* DBSHFL *) ->
@@ -1050,6 +1110,108 @@ let private parseCOP1X binary =
   | _ ->
     raise ParsingFailureException
 
+/// <summary>
+/// Table A.14 MIPS64 COP0 Encoding of rs Field, Revision 6.06, when rs names
+/// the MFMC0 function: the two interrupt-control instructions and, in
+/// Release 6, the two virtual-processor ones.
+///
+/// Which of the four a word is takes the rd field and the low three bits as
+/// well as the rs field, because MFMC0 is one encoding covering all of them:
+/// rd = 12 with 000 below is DI and EI, rd = 0 with 100 below is DVP and EVP,
+/// and bit 5 chooses within each pair.
+/// </summary>
+let private parseMFMC0 release binary =
+  let sc = Bits.pick binary 5u
+  match Bits.extract binary 15u 11u, Bits.extract binary 2u 0u with
+  | 0b01100u, 0b000u ->
+    if sc = 0u then
+      Op.DI, None, None, getRt binary
+    else
+      Op.EI, None, None, getRt binary
+  | 0b00000u, 0b100u when release = MIPSRelease.R6 ->
+    if sc = 0u then
+      Op.EVP, None, None, getRt binary
+    else
+      Op.DVP, None, None, getRt binary
+  | _ ->
+    raise ParsingFailureException
+
+/// <summary>
+/// Table A.15 MIPS64 COP0 Encoding of Function Field When rs=CO, Revision
+/// 6.06: the TLB instructions, the three exception returns and WAIT.
+///
+/// ERET and ERETNC share a function field and differ in bit 6 alone, which is
+/// the whole of what "no clear" means -- ERETNC leaves the LLbit an LL had
+/// set where ERET clears it.
+/// </summary>
+let private parseCOP0WhenCO binary =
+  match Bits.extract binary 5u 0u with
+  | 0b000001u ->
+    Op.TLBR, None, None, NoOperand
+  | 0b000010u ->
+    Op.TLBWI, None, None, NoOperand
+  | 0b000011u ->
+    Op.TLBINV, None, None, NoOperand
+  | 0b000100u ->
+    Op.TLBINVF, None, None, NoOperand
+  | 0b000110u ->
+    Op.TLBWR, None, None, NoOperand
+  | 0b001000u ->
+    Op.TLBP, None, None, NoOperand
+  | 0b011000u ->
+    if Bits.pick binary 6u = 0u then
+      Op.ERET, None, None, NoOperand
+    else
+      Op.ERETNC, None, None, NoOperand
+  | 0b011111u ->
+    Op.DERET, None, None, NoOperand
+  | 0b100000u ->
+    Op.WAIT, None, None, NoOperand
+  | _ ->
+    raise ParsingFailureException
+
+/// <summary>
+/// Table A.14 MIPS64 COP0 Encoding of rs Field, Revision 6.06.
+///
+/// The six register moves differ only in how wide a move they make and which
+/// half of the register they name, and each names its CP0 register by a
+/// (rd, sel) PAIR -- sel being the low three bits of the word, not the three
+/// that RDHWR puts its own sel in.
+///
+/// Checked against binutils: MFC0 of register 12 into GPR 8 assembles to
+/// 0x40086000, which objdump renders as a read of c0_status.
+/// </summary>
+let private parseCOP0 release binary =
+  if Bits.pick binary 25u = 1u then
+    parseCOP0WhenCO binary
+  else
+    let oprs = getRtRdSel0 binary
+    (* Bits 10..3 are zero in every one of the moves. RDPGPR and WRPGPR read
+       the same fields as a register pair instead, so they are not held to
+       it. *)
+    let reserved = Bits.extract binary 10u 3u
+    match Bits.extract binary 25u 21u with
+    | 0b00000u when reserved = 0u ->
+      Op.MFC0, None, None, oprs
+    | 0b00001u when reserved = 0u ->
+      Op.DMFC0, None, None, oprs
+    | 0b00010u when reserved = 0u ->
+      Op.MFHC0, None, None, oprs
+    | 0b00100u when reserved = 0u ->
+      Op.MTC0, None, None, oprs
+    | 0b00101u when reserved = 0u ->
+      Op.DMTC0, None, None, oprs
+    | 0b00110u when reserved = 0u ->
+      Op.MTHC0, None, None, oprs
+    | 0b01010u ->
+      Op.RDPGPR, None, None, getRdRt binary
+    | 0b01011u ->
+      parseMFMC0 release binary
+    | 0b01110u ->
+      Op.WRPGPR, None, None, getRdRt binary
+    | _ ->
+      raise ParsingFailureException
+
 /// The MIPS64 Instrecutin Set Reference Manual, MD00087, Revision 6.06
 /// Table A.2 MIPS64 Encoding of the Opcode Field
 let private parseOpcodeField arch binary wordSize release =
@@ -1092,7 +1254,7 @@ let private parseOpcodeField arch binary wordSize release =
   | 0b001111u ->
     parseLUIAUI binary
   | 0b010000u ->
-    raise ParsingFailureException (* COP0 *)
+    parseCOP0 release binary
   | 0b010001u ->
     parseCOP1 arch release binary
   | 0b010010u ->
@@ -1169,7 +1331,10 @@ let private parseOpcodeField arch binary wordSize release =
   | 0b101110u ->
     Op.SWR, None, None, getRtMemBaseOff binary 32<rt>
   | 0b101111u ->
-    raise ParsingFailureException (* CACHE *)
+    (* Release 6 moved CACHE into SPECIAL3, where its offset is nine bits
+       rather than sixteen, and left this opcode unused. *)
+    if release = MIPSRelease.R6 then raise ParsingFailureException
+    else Op.CACHE, None, None, getHintMemBaseOff binary 32<rt>
   | 0b110000u (* pre-Release 6 *) ->
     Op.LL, None, None, getRtMemBaseOff binary 32<rt>
   | 0b110001u ->

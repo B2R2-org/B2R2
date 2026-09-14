@@ -116,7 +116,11 @@ let getCondition = function
   | 0xFu -> Condition.NGT
   | _ -> raise ParsingFailureException
 
-let num9 b = Bits.extract b 15u 7u
+/// The nine-bit offset a SPECIAL3 load or store holds, which the manual reads
+/// as SIGNED. It is widened to sixteen here rather than left to memBaseOff,
+/// which widens what it is given from sixteen and would therefore read every
+/// negative offset as a large positive one.
+let num9 b = Bits.extract b 15u 7u |> uint64 |> Bits.signExtend 9 16 |> uint32
 
 let num16 b = Bits.extract b 15u 0u
 
@@ -169,6 +173,15 @@ let hint b = Bits.extract b 20u 16u |> uint64 |> OpImm
 
 (* FIXME: sel on page 432 *)
 let sel b = Bits.extract b 8u 6u |> uint64 |> OpImm
+
+/// The CP0 select field, which is at the BOTTOM of the word rather than where
+/// RDHWR's is. A CP0 register is named by a (rd, sel) pair, so decoding the
+/// wrong three bits here produces a plausible instruction naming the wrong
+/// register.
+let sel0 b = Bits.extract b 2u 0u |> uint64 |> OpImm
+
+/// GINVT's type field, which says what kind of translation to invalidate.
+let ginvType b = Bits.extract b 9u 8u |> uint64 |> OpImm
 
 let rel16 b =
   let off = num16 b |> uint64 <<< 2 |> Bits.signExtend 18 64 |> int64
@@ -282,6 +295,24 @@ let getRsRt b = TwoOperands(rs b, rt b)
 let getRdRt b = TwoOperands(rd b, rt b)
 
 let getRtRdSel b = ThreeOperands(rt b, rd b, sel b)
+
+/// <summary>
+/// Encodes the CP0 moves: rt, and the (rd, sel) pair naming a CP0 register.
+///
+/// The pair is written as two numbers rather than as a register name, because
+/// what it names is not a general register and the two fields are separate in
+/// the encoding.
+/// </summary>
+let getRtRdSel0 b =
+  let rd = Bits.extract b 15u 11u |> uint64 |> OpImm
+  ThreeOperands(rt b, rd, sel0 b)
+
+/// DI, EI, DVP and EVP hand back what the register they change held, so the
+/// one operand is a destination rather than a source.
+let getRt b = OneOperand(rt b)
+
+/// GINVT names what to invalidate as well as where.
+let getRsType b = TwoOperands(rs b, ginvType b)
 
 let getRsRtRel16 b = ThreeOperands(rs b, rt b, rel16 b) (* rs, rt, offset *)
 

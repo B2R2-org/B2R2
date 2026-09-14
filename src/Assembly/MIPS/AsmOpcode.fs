@@ -491,7 +491,168 @@ let internal release6Encoders () =
     Opcode.LLWP, linkedPair 0b110110u
     Opcode.LLDP, linkedPair 0b110111u
     Opcode.SCWP, linkedPair 0b100110u
-    Opcode.SCDP, linkedPair 0b100111u ]
+    Opcode.SCDP, linkedPair 0b100111u
+    Opcode.LLWPE, linkedPair 0b101110u
+    Opcode.SCWPE, linkedPair 0b011110u ]
+
+(* The privileged instructions. The system control coprocessor has a major
+   opcode of its own; the loads and stores that name the other address space,
+   and the two global invalidates, sit in SPECIAL3 alongside the bit-field
+   instructions. *)
+/// The COP0 major opcode, which every instruction below the EVA ones is in.
+let [<Literal>] private COP0 = 0b010000u
+
+/// The rs field a COP0 word has where it is one of the instructions the
+/// manual groups under CO: the TLB family, the exception returns and WAIT.
+/// Only bit 25 of it means anything, and it means "this is one of those".
+let [<Literal>] private CO = 0b10000u
+
+/// <summary>
+/// Encodes &lt;rt&gt;, &lt;rd&gt;, &lt;sel&gt;: the moves between a general
+/// register and a CP0 one.
+///
+/// The CP0 register is written as the (rd, sel) PAIR that names it rather
+/// than as a register, because what it names is not a general register; sel
+/// is at the very bottom of the word, where the other instructions of this
+/// opcode keep a function field.
+/// </summary>
+let private moveCP0 rs ins =
+  match ins.Operands with
+  | ThreeOperands(Rg rt, Im rd, Im sel) ->
+    word COP0 rs (gpr rt) (unsigned 5 rd) 0u (unsigned 3 sel)
+  | _ ->
+    wrongOperands ins
+
+/// Encodes <rd>, <rt>: the moves between the current general registers and
+/// the previous shadow set.
+let private movePrevGPR rs ins =
+  match ins.Operands with
+  | TwoOperands(Rg rd, Rg rt) ->
+    word COP0 rs (gpr rt) (gpr rd) 0u 0u
+  | _ ->
+    wrongOperands ins
+
+/// <summary>
+/// Encodes &lt;rt&gt;: the four instructions that turn something off or on
+/// and hand back what it held.
+///
+/// One encoding covers all four. Which register it changes is written in the
+/// field that holds rd elsewhere, together with the low three bits; bit 5
+/// says whether to set or to clear.
+/// </summary>
+let private enableBit rd low sc ins =
+  match ins.Operands with
+  | OneOperand(Rg rt) ->
+    word COP0 0b01011u (gpr rt) rd 0u ((sc <<< 5) ||| low)
+  | _ ->
+    wrongOperands ins
+
+/// Encodes the instructions of the CO row, which take no operand: the TLB
+/// family, the three exception returns and WAIT. ERETNC is ERET with bit 6
+/// set, which is what `sa` holds here.
+let private coRow sa func ins =
+  match ins.Operands with
+  | NoOperand ->
+    word COP0 CO 0u 0u sa func
+  | _ ->
+    wrongOperands ins
+
+/// <summary>
+/// Encodes &lt;rt&gt;, &lt;offset&gt;(&lt;base&gt;): the EVA loads and
+/// stores, which reach the other address space.
+///
+/// Their offset is nine bits where an ordinary load's is sixteen, and it sits
+/// above the function field rather than filling the lower half of the word.
+/// </summary>
+let private special3Mem func ins =
+  match ins.Operands with
+  | TwoOperands(Rg rt, Mem(baseReg, offset)) ->
+    (0b011111u <<< 26) ||| (gpr baseReg <<< 21) ||| (gpr rt <<< 16)
+    ||| (signed 9 offset <<< 7) ||| func
+  | _ ->
+    wrongOperands ins
+
+/// The same, for the ones that say what to do with a place where the others
+/// name a register.
+let private special3Hint func ins =
+  match ins.Operands with
+  | TwoOperands(Im hint, Mem(baseReg, offset)) ->
+    (0b011111u <<< 26) ||| (gpr baseReg <<< 21) ||| (unsigned 5 hint <<< 16)
+    ||| (signed 9 offset <<< 7) ||| func
+  | _ ->
+    wrongOperands ins
+
+/// Encodes <hint>, <offset>(<base>): the pre-Release 6 cache operation, whose
+/// offset is a whole sixteen bits because it has a major opcode to itself.
+let private cacheOff16 ins =
+  match ins.Operands with
+  | TwoOperands(Im hint, Mem(baseReg, offset)) ->
+    immWord 0b101111u (gpr baseReg) (unsigned 5 hint) (signed 16 offset)
+  | _ ->
+    wrongOperands ins
+
+/// Encodes <rs> and <rs>, <type>: the two global invalidates, which are told
+/// apart by the two bits above the function field.
+let private globalInvalidate kind ins =
+  match ins.Operands with
+  | OneOperand(Rg rs) ->
+    word 0b011111u (gpr rs) 0u 0u 0u ((kind <<< 6) ||| 0b111101u)
+  | TwoOperands(Rg rs, Im ty) ->
+    (0b011111u <<< 26) ||| (gpr rs <<< 21) ||| (unsigned 2 ty <<< 8)
+    ||| (kind <<< 6) ||| 0b111101u
+  | _ ->
+    wrongOperands ins
+
+/// The rows for everything the system control coprocessor holds, plus the
+/// loads and stores that name the other address space.
+let internal privilegedEncoders () =
+  [ Opcode.MFC0, moveCP0 0b00000u
+    Opcode.DMFC0, moveCP0 0b00001u
+    Opcode.MFHC0, moveCP0 0b00010u
+    Opcode.MTC0, moveCP0 0b00100u
+    Opcode.DMTC0, moveCP0 0b00101u
+    Opcode.MTHC0, moveCP0 0b00110u
+    Opcode.RDPGPR, movePrevGPR 0b01010u
+    Opcode.WRPGPR, movePrevGPR 0b01110u
+    Opcode.DI, enableBit 0b01100u 0b000u 0u
+    Opcode.EI, enableBit 0b01100u 0b000u 1u
+    Opcode.EVP, enableBit 0b00000u 0b100u 0u
+    Opcode.DVP, enableBit 0b00000u 0b100u 1u
+    Opcode.TLBR, coRow 0u 0b000001u
+    Opcode.TLBWI, coRow 0u 0b000010u
+    Opcode.TLBINV, coRow 0u 0b000011u
+    Opcode.TLBINVF, coRow 0u 0b000100u
+    Opcode.TLBWR, coRow 0u 0b000110u
+    Opcode.TLBP, coRow 0u 0b001000u
+    Opcode.ERET, coRow 0u 0b011000u
+    Opcode.ERETNC, coRow 0b00001u 0b011000u
+    Opcode.DERET, coRow 0u 0b011111u
+    Opcode.WAIT, coRow 0u 0b100000u
+    Opcode.CACHE, cacheOff16
+    Opcode.LWLE, special3Mem 0b011001u
+    Opcode.LWRE, special3Mem 0b011010u
+    Opcode.CACHEE, special3Hint 0b011011u
+    Opcode.SBE, special3Mem 0b011100u
+    Opcode.SHE, special3Mem 0b011101u
+    Opcode.SCE, special3Mem 0b011110u
+    Opcode.SWE, special3Mem 0b011111u
+    Opcode.SWLE, special3Mem 0b100001u
+    Opcode.SWRE, special3Mem 0b100010u
+    Opcode.PREFE, special3Hint 0b100011u
+    Opcode.LBUE, special3Mem 0b101000u
+    Opcode.LHUE, special3Mem 0b101001u
+    Opcode.LBE, special3Mem 0b101100u
+    Opcode.LHE, special3Mem 0b101101u
+    Opcode.LLE, special3Mem 0b101110u
+    Opcode.LWE, special3Mem 0b101111u ]
+
+/// The rows Release 6 changes: it moved the cache operation into SPECIAL3,
+/// where the offset is nine bits, and added the global invalidates and the
+/// paired forms of the EVA load-linked pair.
+let internal privilegedR6Encoders () =
+  [ Opcode.CACHE, special3Hint 0b100101u
+    Opcode.GINVI, globalInvalidate 0b00u
+    Opcode.GINVT, globalInvalidate 0b10u ]
 
 (* The branches and the jumps. A branch holds how far the place it names is
    from the instruction after it; a jump holds one word of the region it sits

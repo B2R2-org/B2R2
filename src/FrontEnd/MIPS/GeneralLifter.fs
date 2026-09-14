@@ -2187,6 +2187,167 @@ let nmadd ins bld = negatedMultiplyAdd true ins bld
 /// NMSUB.fmt: the negation of the product less the operand.
 let nmsub ins bld = negatedMultiplyAdd false ins bld
 
+/// The CP0 register a decoded (rd, sel) pair names, where it is one this
+/// front end models. A CP0 register is named by the PAIR rather than by a
+/// number, which is why these instructions carry two written values and not
+/// one.
+let private cp0Of rdOpr selOpr =
+  match rdOpr, selOpr with
+  | OpImm rd, OpImm sel -> CP0.tryOfRdSel (int rd) (int sel)
+  | _ -> raise InvalidOperandException
+
+/// One half of a CP0 register, widened the way a 32-bit move widens it, which
+/// is by sign extension. On a 32-bit register file there is no upper half to
+/// name, so MFHC0 reads zero there.
+let private cp0Half (bld: LowUIRBuilder) upper e =
+  if bld.RegType = 32<rt> then
+    if upper then AST.num0 32<rt> else e
+  elif upper then
+    AST.sext 64<rt> (AST.xthi 32<rt> e)
+  else
+    AST.sext 64<rt> (AST.xtlo 32<rt> e)
+
+/// <summary>
+/// MFC0, DMFC0 and MFHC0: a CP0 register, or one half of one, into a general
+/// register.
+///
+/// A register this front end does not model reads as zero. That is Release
+/// 6's rule -- "Reading a reserved register or a register that is not
+/// implemented for the current core configuration returns 0" -- and it is
+/// applied on every release, because the earlier ones call the same case
+/// UNDEFINED and an undefined answer tells a caller nothing.
+/// </summary>
+let moveFromCP0 ins bld wide upper =
+  lift bld ins {
+    let rtOpr, rdOpr, selOpr = getThreeOprs ins
+    let rt = transOpr ins bld rtOpr
+    match cp0Of rdOpr selOpr with
+    | ValueSome reg ->
+      let src = regVar bld reg
+      rt := if wide then src else cp0Half bld upper src
+    | ValueNone ->
+      rt := AST.num0 bld.RegType
+  }
+
+/// <summary>
+/// MTC0, DMTC0 and MTHC0: a general register into a CP0 register, or into one
+/// half of one.
+///
+/// The write goes through the register's write mask rather than straight in,
+/// because hardware keeps the read-only and reserved fields at their old
+/// value -- BadVAddr and PRId are written by nothing at all -- and a
+/// write-then-read has to see the same masking. A register this front end
+/// does not model is not written: Release 6 says "Writes to a register that
+/// is reserved or not defined for the current core configuration are
+/// ignored".
+/// </summary>
+let moveToCP0 ins bld wide upper =
+  lift bld ins {
+    let rtOpr, rdOpr, selOpr = getThreeOprs ins
+    let rt = transOpr ins bld rtOpr
+    match cp0Of rdOpr selOpr with
+    | ValueSome reg ->
+      let dst = regVar bld reg
+      let mask = numU64 (CP0.writeMask reg) bld.RegType
+      let value =
+        if wide then rt
+        elif not upper then cp0Half bld false rt
+        elif bld.RegType = 32<rt> then dst
+        else AST.concat (AST.xtlo 32<rt> rt) (AST.xtlo 32<rt> dst)
+      dst := (dst .& AST.not mask) .| (value .& mask)
+    | ValueNone ->
+      ()
+  }
+
+/// <summary>
+/// RDPGPR and WRPGPR move between the current general registers and the
+/// PREVIOUS shadow set.
+///
+/// With one shadow set -- which is what a core without the feature has, and
+/// what SRSCtl reads out of reset -- the previous set IS the current one, so
+/// both are a move between two general registers. A second register file
+/// would be state no other instruction in the architecture can reach.
+/// </summary>
+let movePrevGPR ins bld =
+  lift bld ins {
+    let rd, rt = transTwoOprs ins bld
+    rd := rt
+  }
+
+/// <summary>
+/// DI and EI hand back what Status held and then clear or set its interrupt
+/// enable, which is bit 0.
+///
+/// The old value is latched before the change, because entering a critical
+/// section is written as DI into the register the caller will later restore
+/// from -- so the two must not be the same read.
+/// </summary>
+let interruptEnable ins bld enable =
+  lift bld ins {
+    let rt = transOneOpr ins bld
+    let status = regVar bld CP0Register.Status
+    let bit = AST.num1 bld.RegType
+    let old = tmpVar bld bld.RegType
+    old := status
+    rt := old
+    status := if enable then old .| bit else old .& AST.not bit
+  }
+
+/// <summary>
+/// DVP and EVP do to VPControl's DIS bit what DI and EI do to Status, and
+/// hand back what it held in the same way.
+///
+/// Disabling a virtual processor stops the OTHER processors of a core, so
+/// what the bit means on a machine with one of them is nothing; what the
+/// instruction reads back still has to be what it wrote.
+/// </summary>
+let virtualProcessorEnable ins bld enable =
+  lift bld ins {
+    let rt = transOneOpr ins bld
+    let control = regVar bld CP0Register.VPControl
+    let bit = AST.num1 bld.RegType
+    let old = tmpVar bld bld.RegType
+    old := control
+    rt := old
+    control := if enable then old .& AST.not bit else old .| bit
+  }
+
+/// <summary>
+/// ERET and ERETNC return from an exception, to ErrorEPC where Status.ERL
+/// says the last one was an error and to EPC otherwise, clearing whichever of
+/// the two bits said so. Neither has a delay slot.
+///
+/// ERETNC differs in exactly one thing: it leaves the LLbit that an LL had
+/// set, where ERET clears it, which is what its name says. The bit is the
+/// exclusive monitor here, and clearing it means leaving an address behind
+/// that no store-conditional can match -- an all-ones one is not a word
+/// address, so no aligned access reaches it.
+/// </summary>
+let exceptionReturn ins bld clearLL =
+  lift bld ins {
+    let status = regVar bld CP0Register.Status
+    let erl = numI32 0b100 bld.RegType
+    let exl = numI32 0b010 bld.RegType
+    let isError = (status .& erl) != AST.num0 bld.RegType
+    let target = tmpVar bld bld.RegType
+    target := AST.ite isError (regVar bld CP0Register.ErrorEPC)
+                              (regVar bld CP0Register.EPC)
+    status := AST.ite isError (status .& AST.not erl) (status .& AST.not exl)
+    let monitor = regVar bld R.ExMonAddr
+    monitor := if clearLL then numI64 -1L bld.RegType else monitor
+    AST.interjmp target InterJmpKind.Base
+  }
+
+/// DERET returns from a debug exception to the address DEPC holds, and has no
+/// delay slot either. The debug-mode bit it also clears is not modelled:
+/// nothing here can enter debug mode, so there is no state for it to leave.
+let debugReturn ins bld =
+  lift bld ins {
+    let target = tmpVar bld bld.RegType
+    target := regVar bld CP0Register.DEPC
+    AST.interjmp target InterJmpKind.Base
+  }
+
 let nop (ins: Instruction) bld =
   lift bld ins {
   }
