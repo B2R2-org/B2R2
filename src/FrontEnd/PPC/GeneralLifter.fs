@@ -2370,8 +2370,10 @@ let private toUInt64 bld dst src truncate =
 
 /// Clamps a conversion to `width` bits: a signed one gives the most negative
 /// integer for NaN and anything below range and the largest for anything
-/// above; an unsigned one gives zero for NaN and negatives and all ones above.
-let private saturateInt bld frd src width signed =
+/// above; an unsigned one gives zero for NaN and for a value whose rounded
+/// integer is negative (a source in (-1, 0) rounds to -1 under
+/// round-toward-minus-infinity) and all ones above the range.
+let private saturateInt bld frd src rounded width signed =
   let bits = int width
   let dbl (v: float) = numU64 (System.BitConverter.DoubleToUInt64Bits v) 64<rt>
   let all = if bits = 64 then System.UInt64.MaxValue else (1UL <<< bits) - 1UL
@@ -2384,8 +2386,9 @@ let private saturateInt bld frd src width signed =
       frd := AST.ite (AST.fle src (dbl (-(2.0 ** float (bits - 1))))) bottom frd
       frd := AST.ite (IEEE754Double.isNaN src) bottom frd
     else
+      let negative = AST.flt src (dbl 0.0) .& (rounded ?< AST.num0 64<rt>)
       frd := AST.ite (AST.fge src (dbl (2.0 ** float bits))) ones frd
-      frd := AST.ite (AST.fle src (dbl -1.0)) (AST.num0 64<rt>) frd
+      frd := AST.ite negative (AST.num0 64<rt>) frd
       frd := AST.ite (IEEE754Double.isNaN src) (AST.num0 64<rt>) frd
   }
 
@@ -2405,7 +2408,7 @@ let fcti ins updateCond bld width signed truncate =
     else
       roundingToCastInt bld converted src
     frd := AST.zext 64<rt> (AST.xtlo width converted)
-    saturateInt bld frd src width signed
+    saturateInt bld frd src converted width signed
     if updateCond then setCR1Reg bld else ()
   }
 
