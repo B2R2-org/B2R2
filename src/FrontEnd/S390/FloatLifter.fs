@@ -309,10 +309,9 @@ let convertFormat ins bld fromRt toRt =
     fpPart toRt d := v
   }
 
-/// MULTIPLY AND ADD, and MULTIPLY AND SUBTRACT, whose second and third
-/// operands make the product: the add form adds the first operand to it and the
-/// subtract form takes the first operand from it, which is the order a compiler
-/// relies on when it turns a fused multiply-subtract into one instruction.
+/// MULTIPLY AND ADD/SUBTRACT: the product is exact and the sum is rounded
+/// once, so it goes out as the FMA call rather than a multiply then an add.
+/// Bit 1 of the flag negates the addend, which is the first operand here.
 let mulAdd ins bld rt subtract =
   lift bld (ins: Instruction) {
     let struct (o1, o2, o3) = getThreeOprs ins
@@ -321,11 +320,9 @@ let mulAdd ins bld rt subtract =
     let b = tmpVar bld rt
     a := fpSrc bld rt o2
     b := fpPart rt (oprRegVar bld o3)
-    let prod = AST.fmul a b
-    let r =
-      if subtract then AST.fsub prod (fpPart rt d)
-      else AST.fadd (fpPart rt d) prod
-    fpPart rt d := r
+    let name = if rt = 64<rt> then "FMA64" else "FMA32"
+    let flags = numU64 (if subtract then 2UL else 0UL) 8<rt>
+    fpPart rt d := AST.app name [ a; b; fpPart rt d; flags ] rt
   }
 
 /// MULTIPLY, short to long: two short values make a long product, so nothing of
