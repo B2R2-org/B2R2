@@ -416,4 +416,10 @@ let getCcFsFt b = ThreeOperands(cc10 b, fs b, ft b)
 
 let getFdFsFt b = ThreeOperands(fd b, fs b, ft b)
 
+/// ALNV.PS names a general-purpose register last: the alignment it applies is
+/// the low three bits of that register rather than an encoded constant, which
+/// is what lets one instruction serve every offset an unaligned array of
+/// pairs can have.
+let getFdFsFtRs b = FourOperands(fd b, fs b, ft b, rs b)
+
 let getFdFrFsFt b = FourOperands(fd b, fr b, fs b, ft b)

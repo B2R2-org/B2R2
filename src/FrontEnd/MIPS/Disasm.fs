@@ -65,6 +65,7 @@ let opCodeToString = function
   | Op.ADDIU -> "addiu"
   | Op.ADDU -> "addu"
   | Op.ALIGN -> "align"
+  | Op.ALNVPS -> "alnv.ps"
   | Op.AND -> "and"
   | Op.ANDI -> "andi"
   | Op.AUI -> "aui"
@@ -105,6 +106,9 @@ let opCodeToString = function
   | Op.CVTS -> "cvt.s"
   | Op.CVTL -> "cvt.l"
   | Op.CVTW -> "cvt.w"
+  | Op.CVTPSS -> "cvt.ps.s"
+  | Op.CVTSPL -> "cvt.s.pl"
+  | Op.CVTSPU -> "cvt.s.pu"
   | Op.DADD -> "dadd"
   | Op.DADDI -> "daddi"
   | Op.DADDIU -> "daddiu"
@@ -227,6 +231,7 @@ let opCodeToString = function
   | Op.LL -> "ll"
   | Op.LLD -> "lld"
   | Op.LUI -> "lui"
+  | Op.LUXC1 -> "luxc1"
   | Op.LW -> "lw"
   | Op.LWC1 -> "lwc1"
   | Op.LWL -> "lwl"
@@ -261,8 +266,12 @@ let opCodeToString = function
   | Op.OR -> "or"
   | Op.ORI -> "ori"
   | Op.PAUSE -> "pause"
+  | Op.PLLPS -> "pll.ps"
+  | Op.PLUPS -> "plu.ps"
   | Op.PREF -> "pref"
   | Op.PREFX -> "prefx"
+  | Op.PULPS -> "pul.ps"
+  | Op.PUUPS -> "puu.ps"
   | Op.RDHWR -> "rdhwr"
   | Op.RECIP -> "recip"
   | Op.ROTR -> "rotr"
@@ -293,6 +302,7 @@ let opCodeToString = function
   | Op.SSNOP -> "ssnop"
   | Op.SUB -> "sub"
   | Op.SUBU -> "subu"
+  | Op.SUXC1 -> "suxc1"
   | Op.SW -> "sw"
   | Op.SWC1 -> "swc1"
   | Op.SWL -> "swl"
@@ -313,20 +323,6 @@ let opCodeToString = function
   | Op.WSBH -> "wsbh"
   | Op.XOR -> "xor"
   | Op.XORI -> "xori"
-  (* The conditional traps beside TEQ and TEQI, and the two whose whole
-     effect is to raise an exception of their own. *)
-  | Op.TGE -> "tge"
-  | Op.TGEU -> "tgeu"
-  | Op.TGEI -> "tgei"
-  | Op.TGEIU -> "tgeiu"
-  | Op.TLT -> "tlt"
-  | Op.TLTU -> "tltu"
-  | Op.TLTI -> "tlti"
-  | Op.TLTIU -> "tltiu"
-  | Op.TNE -> "tne"
-  | Op.TNEI -> "tnei"
-  | Op.SDBBP -> "sdbbp"
-  | Op.SIGRIE -> "sigrie"
   (* The privileged instructions. They are grouped rather than spelled into
      the list above because they are one family: everything the COP0 major
      opcode holds, the EVA loads and stores that name the other address
@@ -374,6 +370,20 @@ let opCodeToString = function
   | Op.SCE -> "sce"
   | Op.SCWPE -> "scwpe"
   | Op.PREFE -> "prefe"
+  (* The conditional traps beside TEQ and TEQI, and the two whose whole
+     effect is to raise an exception of their own. *)
+  | Op.TGE -> "tge"
+  | Op.TGEU -> "tgeu"
+  | Op.TGEI -> "tgei"
+  | Op.TGEIU -> "tgeiu"
+  | Op.TLT -> "tlt"
+  | Op.TLTU -> "tltu"
+  | Op.TLTI -> "tlti"
+  | Op.TLTIU -> "tltiu"
+  | Op.TNE -> "tne"
+  | Op.TNEI -> "tnei"
+  | Op.SDBBP -> "sdbbp"
+  | Op.SIGRIE -> "sigrie"
   | _ -> raise InvalidOpcodeException
 
 let inline appendCond (ins: Instruction) opcode =

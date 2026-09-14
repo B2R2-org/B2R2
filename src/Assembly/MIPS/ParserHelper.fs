@@ -136,7 +136,18 @@ let private irregularNames =
     Opcode.TRUNCL, "trunc.l"
     Opcode.TRUNCW, "trunc.w"
     Opcode.JALRHB, "jalr.hb"
-    Opcode.JRHB, "jr.hb" ]
+    Opcode.JRHB, "jr.hb"
+    (* The paired-single names carry the format in the name rather than in a
+       suffix, because neither half of a pair is written in any other format
+       and PL and PU are halves rather than formats of their own. *)
+    Opcode.CVTPSS, "cvt.ps.s"
+    Opcode.CVTSPL, "cvt.s.pl"
+    Opcode.CVTSPU, "cvt.s.pu"
+    Opcode.PLLPS, "pll.ps"
+    Opcode.PLUPS, "plu.ps"
+    Opcode.PULPS, "pul.ps"
+    Opcode.PUUPS, "puu.ps"
+    Opcode.ALNVPS, "alnv.ps" ]
   |> Map.ofList
 
 /// Every mnemonic, paired with the opcode it names. Each opcode has exactly
@@ -248,7 +259,8 @@ let accessLength opcode wordSize =
   | Opcode.LB | Opcode.LBU | Opcode.SB -> 8<rt>
   | Opcode.LH | Opcode.LHU | Opcode.SH -> 16<rt>
   | Opcode.LD | Opcode.LDL | Opcode.LDR | Opcode.LLD | Opcode.SCD
-  | Opcode.SD | Opcode.SDL | Opcode.SDR | Opcode.LDXC1 | Opcode.SDXC1 -> 64<rt>
+  | Opcode.SD | Opcode.SDL | Opcode.SDR | Opcode.LDXC1 | Opcode.SDXC1
+  | Opcode.LUXC1 | Opcode.SUXC1 -> 64<rt>
   | Opcode.LDC1 | Opcode.SDC1 -> WordSize.toRegType wordSize
   | _ -> 32<rt>
 

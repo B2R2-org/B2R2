@@ -203,6 +203,46 @@ let private multiplyAdd func ins =
   | _ ->
     wrongOperands ins
 
+/// The field that names the paired-single format, which every instruction
+/// below writes into rather than reading off the mnemonic: the format is part
+/// of each name here, so none of them carries a suffix to read it from.
+let [<Literal>] private PairedFormat = 0b10110u
+
+/// Encodes <fd>, <fs>, <ft>: building a pair out of two singles, which is
+/// read in the S format because its SOURCES are singles.
+let private buildPaired ins =
+  match ins.Operands with
+  | ThreeOperands(Rg fd, Rg fs, Rg ft) ->
+    word 0b010001u 0b10000u (fpr ft) (fpr fs) (fpr fd) 0b100110u
+  | _ ->
+    wrongOperands ins
+
+/// Encodes <fd>, <fs>: taking one half of a pair back out as a single.
+let private extractPaired func ins =
+  match ins.Operands with
+  | TwoOperands(Rg fd, Rg fs) ->
+    word 0b010001u PairedFormat 0u (fpr fs) (fpr fd) func
+  | _ ->
+    wrongOperands ins
+
+/// Encodes <fd>, <fs>, <ft>: the four ways two pairs can be re-paired.
+let private shufflePaired func ins =
+  match ins.Operands with
+  | ThreeOperands(Rg fd, Rg fs, Rg ft) ->
+    word 0b010001u PairedFormat (fpr ft) (fpr fs) (fpr fd) func
+  | _ ->
+    wrongOperands ins
+
+/// Encodes <fd>, <fs>, <ft>, <rs>: the splice of two pairs by a byte count
+/// that a general register holds, which is the one instruction of this format
+/// to name such a register.
+let private alignPaired ins =
+  match ins.Operands with
+  | FourOperands(Rg fd, Rg fs, Rg ft, Rg rs) ->
+    word 0b010011u (gpr rs) (fpr ft) (fpr fs) (fpr fd) 0b011110u
+  | _ ->
+    wrongOperands ins
+
 /// Encodes <fd>, <fs>, <ft>: the Release 6 operations on three registers.
 let private r6Float func ins =
   match ins.Operands with
@@ -303,8 +343,18 @@ let floatEncoders () =
     Opcode.BC1TL, branchOnFP 3u
     Opcode.LWXC1, loadIndexed 0b000000u
     Opcode.LDXC1, loadIndexed 0b000001u
+    Opcode.LUXC1, loadIndexed 0b000101u
     Opcode.SWXC1, storeIndexed 0b001000u
     Opcode.SDXC1, storeIndexed 0b001001u
+    Opcode.SUXC1, storeIndexed 0b001101u
+    Opcode.CVTPSS, buildPaired
+    Opcode.CVTSPU, extractPaired 0b100000u
+    Opcode.CVTSPL, extractPaired 0b101000u
+    Opcode.PLLPS, shufflePaired 0b101100u
+    Opcode.PLUPS, shufflePaired 0b101101u
+    Opcode.PULPS, shufflePaired 0b101110u
+    Opcode.PUUPS, shufflePaired 0b101111u
+    Opcode.ALNVPS, alignPaired
     Opcode.PREFX, prefetchIndexed
     Opcode.MADD, multiplyAdd 0b100000u
     Opcode.MSUB, multiplyAdd 0b101000u

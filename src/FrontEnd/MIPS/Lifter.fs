@@ -116,6 +116,22 @@ let translate (ins: Instruction) (bld: LowUIRBuilder) =
     cvts ins bld
   | Op.CVTW ->
     cvtw ins bld
+  | Op.CVTPSS ->
+    cvtpss ins bld
+  | Op.CVTSPU ->
+    cvtsFromPair ins bld true
+  | Op.CVTSPL ->
+    cvtsFromPair ins bld false
+  | Op.PLLPS ->
+    pairHalves ins bld false false
+  | Op.PLUPS ->
+    pairHalves ins bld false true
+  | Op.PULPS ->
+    pairHalves ins bld true false
+  | Op.PUUPS ->
+    pairHalves ins bld true true
+  | Op.ALNVPS ->
+    alnvps ins bld
   | Op.DADD ->
     dadd ins bld
   | Op.DADDU ->
@@ -247,9 +263,13 @@ let translate (ins: Instruction) (bld: LowUIRBuilder) =
   | Op.LL | Op.LLD | Op.LLE ->
     loadLinked ins bld
   | Op.SDC1 | Op.SDXC1 ->
-    sldc1 ins bld true
+    sldc1 ins bld true false
   | Op.LDC1 | Op.LDXC1 ->
-    sldc1 ins bld false
+    sldc1 ins bld false false
+  | Op.SUXC1 ->
+    sldc1 ins bld true true
+  | Op.LUXC1 ->
+    sldc1 ins bld false true
   | Op.SWC1 | Op.SWXC1 ->
     slwc1 ins bld true
   | Op.LWC1 | Op.LWXC1 ->
@@ -623,6 +643,6 @@ let translate (ins: Instruction) (bld: LowUIRBuilder) =
     unsupported ins bld
   | o ->
 #if DEBUG
-         eprintfn "%A" o
+    eprintfn "%A" o
 #endif
-         raise <| NotImplementedIRException(Disasm.opCodeToString o)
+    raise <| NotImplementedIRException(Disasm.opCodeToString o)
