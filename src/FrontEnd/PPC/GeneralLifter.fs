@@ -603,21 +603,35 @@ let fctiwz ins updateCond bld =
     if updateCond then setCR1Reg bld else ()
   }
 
-let fmadd ins updateCond isDouble bld =
+/// The multiply-adds: the product is exact and the sum is rounded once, so
+/// the four go out as the FMA call, bit 1 of its flag negating the addend for
+/// the subtracting forms. The negated forms flip the sign of the rounded
+/// result, as the ISA says, so an exact cancellation gives -0 rather than the
+/// +0 that negating the operands would; a NaN passes through as it is.
+let private fusedMulAdd ins updateCond isDouble subtract negate bld =
   lift bld ins {
     let struct (frd, fra, frc, frb) = transFourOprs ins bld
-    let tmp = tmpVar bld 32<rt>
+    let f = numU64 (if subtract then 2UL else 0UL) 8<rt>
+    let res = tmpVar bld 64<rt>
     if isDouble then
-      frd := AST.fadd (AST.fmul fra frc) frb
+      res := AST.app "FMA64" [ fra; frc; frb; f ] 64<rt>
     else
       let fraS = AST.cast CastKind.FloatCast 32<rt> fra
-      let frbS = AST.cast CastKind.FloatCast 32<rt> frb
       let frcS = AST.cast CastKind.FloatCast 32<rt> frc
-      tmp := AST.fadd (AST.fmul fraS frcS) frbS
-      frd := AST.cast CastKind.FloatCast 64<rt> tmp
+      let frbS = AST.cast CastKind.FloatCast 32<rt> frb
+      let resS = AST.app "FMA32" [ fraS; frcS; frbS; f ] 32<rt>
+      res := AST.cast CastKind.FloatCast 64<rt> resS
+    if negate then
+      let signBit = numU64 0x8000000000000000UL 64<rt>
+      frd := AST.ite (IEEE754Double.isNaN res) res (res <+> signBit)
+    else
+      frd := res
     setFPRF bld frd
     if updateCond then setCR1Reg bld else ()
   }
+
+let fmadd ins updateCond isDouble bld =
+  fusedMulAdd ins updateCond isDouble false false bld
 
 let fmr ins updateCond bld =
   lift bld ins {
@@ -627,20 +641,7 @@ let fmr ins updateCond bld =
   }
 
 let fmsub ins updateCond isDouble bld =
-  lift bld ins {
-    let struct (frd, fra, frc, frb) = transFourOprs ins bld
-    let tmp = tmpVar bld 32<rt>
-    if isDouble then
-      frd := AST.fsub (AST.fmul fra frc) frb
-    else
-      let fraS = AST.cast CastKind.FloatCast 32<rt> fra
-      let frbS = AST.cast CastKind.FloatCast 32<rt> frb
-      let frcS = AST.cast CastKind.FloatCast 32<rt> frc
-      tmp := AST.fsub (AST.fmul fraS frcS) frbS
-      frd := AST.cast CastKind.FloatCast 64<rt> tmp
-    setFPRF bld frd
-    if updateCond then setCR1Reg bld else ()
-  }
+  fusedMulAdd ins updateCond isDouble true false bld
 
 let fmul ins updateCond isDouble bld =
   lift bld ins {
@@ -671,30 +672,11 @@ let fneg ins updateCond bld =
     if updateCond then setCR1Reg bld else ()
   }
 
-/// The negated multiply-adds: the sign of the result is flipped unless it is a
-/// NaN, which passes through as it is.
-let private fNegatedMulAdd ins updateCond isDouble fnOp bld =
-  lift bld ins {
-    let struct (frd, fra, frc, frb) = transFourOprs ins bld
-    let res = tmpVar bld 64<rt>
-    if isDouble then
-      res := fnOp (AST.fmul fra frc) frb
-    else
-      let fraS = AST.cast CastKind.FloatCast 32<rt> fra
-      let frcS = AST.cast CastKind.FloatCast 32<rt> frc
-      let frbS = AST.cast CastKind.FloatCast 32<rt> frb
-      res := AST.cast CastKind.FloatCast 64<rt> (fnOp (AST.fmul fraS frcS) frbS)
-    let signBit = numU64 0x8000000000000000UL 64<rt>
-    frd := AST.ite (IEEE754Double.isNaN res) res (res <+> signBit)
-    setFPRF bld frd
-    if updateCond then setCR1Reg bld else ()
-  }
-
 let fnmadd ins updateCond isDouble bld =
-  fNegatedMulAdd ins updateCond isDouble AST.fadd bld
+  fusedMulAdd ins updateCond isDouble false true bld
 
 let fnmsub ins updateCond isDouble bld =
-  fNegatedMulAdd ins updateCond isDouble AST.fsub bld
+  fusedMulAdd ins updateCond isDouble true true bld
 
 let fsel ins updateCond bld =
   lift bld ins {
