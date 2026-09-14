@@ -1219,9 +1219,31 @@ let private getOperationSize opcode wordSz =
   | Op.SD -> 64<rt>
   | _ -> WordSize.toRegType wordSz
 
+/// Whether an opcode is one only a 64-bit CPU has. MD00087 says so on
+/// each instruction's own page, to the right of its Format line: the
+/// field reads MIPS64 where the 32-bit architecture has no such
+/// instruction at all. A word holding one of these encodings is a
+/// Reserved Instruction on MIPS32, so it is not an instruction there.
+let private isMIPS64Only = function
+  | Op.DADD | Op.DADDI | Op.DADDIU | Op.DADDU | Op.DAHI | Op.DALIGN
+  | Op.DATI | Op.DAUI | Op.DBITSWAP | Op.DCLZ | Op.DDIV | Op.DDIVU
+  | Op.DEXT | Op.DEXTM | Op.DEXTU | Op.DINS | Op.DINSM | Op.DINSU
+  | Op.DLSA | Op.DMFC1 | Op.DMOD | Op.DMODU | Op.DMTC1 | Op.DMUH
+  | Op.DMUHU | Op.DMUL | Op.DMULT | Op.DMULTU | Op.DMULU | Op.DROTR
+  | Op.DROTR32 | Op.DROTRV | Op.DSBH | Op.DSHD | Op.DSLL | Op.DSLL32
+  | Op.DSLLV | Op.DSRA | Op.DSRA32 | Op.DSRAV | Op.DSRL | Op.DSRL32
+  | Op.DSRLV | Op.DSUB | Op.DSUBU | Op.LD | Op.LDL | Op.LDPC | Op.LDR
+  | Op.LLD | Op.LLDP | Op.LWU | Op.LWUPC | Op.SCD | Op.SCDP | Op.SD
+  | Op.SDL | Op.SDR -> true
+  | _ -> false
+
 let parse lifter span (reader: IBinReader) arch wordSize release addr =
   let bin = reader.ReadUInt32(span = span, offset = 0)
   let opcode, cond, fmt, operands =
     parseOpcodeField arch bin wordSize release
+  if wordSize = WordSize.Bit32 && isMIPS64Only opcode then
+    raise ParsingFailureException
+  else
+    ()
   let oprSize = getOperationSize opcode wordSize
   Instruction(addr, 4u, cond, fmt, opcode, operands, oprSize, wordSize, lifter)

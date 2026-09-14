@@ -80,7 +80,7 @@ type MIPSRoundTripTests() =
     ISA(
       Architecture.MIPS,
       Endian.Little,
-      WordSize.Bit32,
+      WordSize.Bit64,
       int MIPSRelease.R6
     )
 
@@ -232,8 +232,9 @@ type MIPSRoundTripTests() =
     (* The assertion message is truncated by the runner once it grows past
        a few hundred characters, which is how a list of dozens came to read
        as a single failure. Console output is not truncated. *)
-    printfn "R6-UNENCODABLE(%d): %s" (List.length broken)
-      (String.concat " " broken)
+    let names = String.concat " " broken
+    let swept, bad = List.length probes, List.length broken
+    printfn "R6-SWEPT(%d) UNENCODABLE(%d): %s" swept bad names
     Assert.AreEqual<string>(
       "",
       String.concat "\n" broken,
@@ -247,7 +248,8 @@ type MIPSRoundTripTests() =
     let broken =
       sweepProbes.Force()
       |> List.choose (fun probe ->
-        brokenSource assembler32 parser32 probe.Text)
+        textAt parser32 probe.Word
+        |> Option.bind (brokenSource assembler32 parser32))
       |> List.distinct
       |> List.sort
     Assert.AreEqual<string>(

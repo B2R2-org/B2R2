@@ -176,7 +176,11 @@ module internal MIPSSweep =
   /// Release 6 instruction outside the rule this file exists to hold.
   let probesFor (release: MIPSRelease) =
     let isa =
-      ISA(Architecture.MIPS, Endian.Little, WordSize.Bit32, int release)
+      (* Swept at the wider word size, which decodes the 32-bit
+         instruction set as well as its own. Sweeping at Bit32 would
+         leave every instruction the manual marks MIPS64 out of the
+         probe set, and so out of the assembler's obligations. *)
+      ISA(Architecture.MIPS, Endian.Little, WordSize.Bit64, int release)
     let parser = MIPSParser(isa, BinReader.Init Endian.Little)
     let walk key words =
       List.choose (decode parser) words
