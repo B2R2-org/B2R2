@@ -47,6 +47,16 @@ type LifterTests() =
   let ( ++ ) (byteStr: string) (givenStmts: Stmt[]) =
     ByteArray.ofHexString byteStr, givenStmts
 
+  /// The statements one encoding lifts to, for a test that asserts on the
+  /// SHAPE of the IR rather than on every statement of it.
+  let lifted (isa: ISA) (hex: string) =
+    let reader = BinReader.Init isa.Endian
+    let regFactory = RegisterFactory isa
+    let builder = LowUIRBuilder(isa, regFactory, LowUIRStream())
+    let parser = MIPSParser(isa, reader) :> IInstructionParsable
+    let ins = parser.Parse(ByteArray.ofHexString hex, 0UL)
+    ins.Translate builder
+
   let test (isa: ISA) (bytes: byte[], givenStmts) =
     let reader = BinReader.Init isa.Endian
     let regFactory = RegisterFactory isa
@@ -97,6 +107,78 @@ type LifterTests() =
      immediately for PC+8, stepping over the slot at PC+4. That interjmp on the
      false arm is the whole of the difference from BEQ, which writes NPC on
      both arms and lets the slot carry the transfer either way. *)
+  (* The equal term of a comparison is a floating-point equality, not a
+     comparison of magnitudes. Comparing the operands with their signs shifted
+     away made every value equal to its own negation, and the signed-zero case
+     that presumably motivated it falls out of IEEE equality anyway. Asserting
+     on the term itself is what catches this: the printed IR looks the same
+     either way, and only the operator differs. *)
+  [<TestMethod>]
+  member _.``[MIPS32] the equal term of a comparison is a float equality``() =
+    let isa = ISA(Architecture.MIPS, Endian.Big, WordSize.Bit32)
+    let regFactory = RegisterFactory isa :> IRegisterFactory
+    let ( !. ) name = Register.toRegID name |> regFactory.GetRegVar
+    let text =
+      lifted isa "46043032" |> Array.map string |> String.concat "
+"
+    (* `=.` is the printed form of a floating-point equality and `<.` of a
+       floating-point less-than. Both terms of the comparison must be of that
+       kind. The old code wrote the equal term as an integer `=` over operands
+       shifted left and back to clear the sign, so the tell is a `<< 0x1` next
+       to a `>> 0x1` -- the FCSR write further down shifts by 0x17 and must not
+       be confused for it. *)
+    Assert.AreEqual<bool>(
+      true,
+      text.Contains "=.",
+      "the equal term is not a floating-point equality: " + text
+    )
+    Assert.AreEqual<bool>(
+      false,
+      text.Contains "<< 0x1:I32) >> 0x1",
+      "the sign bit is still being shifted away: " + text
+    )
+
+  (* SUB and DSUB are SUBU and DSUBU plus a trap. SUB's integer encoding was
+     not decoded at all -- the parser only produced Op.SUB for sub.s and
+     sub.d -- and DSUB had no opcode, so neither reached a lifter. Asserting
+     on the shape rather than the statements keeps the test about the trap. *)
+  [<TestMethod>]
+  member _.``[MIPS] SUB traps on signed overflow``() =
+    let isa = ISA(Architecture.MIPS, Endian.Big, WordSize.Bit32)
+    let text = lifted isa "012a4022" |> Array.map string |> String.concat "|"
+    Assert.AreEqual<bool>(
+      true,
+      text.Contains "IntegerOverflow",
+      "SUB does not signal Integer Overflow: " + text
+    )
+
+  [<TestMethod>]
+  member _.``[MIPS64] DSUB traps on signed overflow``() =
+    let isa = ISA(Architecture.MIPS, Endian.Big, WordSize.Bit64)
+    let text = lifted isa "012a402e" |> Array.map string |> String.concat "|"
+    Assert.AreEqual<bool>(
+      true,
+      text.Contains "IntegerOverflow",
+      "DSUB does not signal Integer Overflow: " + text
+    )
+
+  (* On a 32-bit target a double is an even-odd register pair, and the
+     compiler routinely makes the destination pair the source pair. The result
+     therefore has to be latched before either half is written: writing the low
+     half first changes what the result expression means, and the high half is
+     then computed from a register that no longer holds the operand. *)
+  [<TestMethod>]
+  member _.``[MIPS32] a double result is latched before it is written``() =
+    let isa = ISA(Architecture.MIPS, Endian.Big, WordSize.Bit32)
+    let regFactory = RegisterFactory isa :> IRegisterFactory
+    let ( !. ) name = Register.toRegID name |> regFactory.GetRegVar
+    let t = AST.tmpvar 64<rt> 1
+    "46200005"
+    ++ [| t := AST.concat !.F1 !.F0 .& numU64 0x7FFFFFFFFFFFFFFFUL 64<rt>
+          !.F0 := AST.xtlo 32<rt> t
+          !.F1 := AST.xthi 32<rt> t |]
+    |> test isa
+
   [<TestMethod>]
   member _.``[MIPS64] BEQL skips its delay slot when not taken``() =
     let isa = ISA(Architecture.MIPS, Endian.Big, WordSize.Bit64)

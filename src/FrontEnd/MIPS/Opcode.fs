@@ -234,6 +234,8 @@ type Opcode =
   | DBITSWAP = 101
   /// Count Leading Zeros in Doubleword.
   | DCLZ = 102
+  /// Count Leading Ones in Doubleword.
+  | DCLO = 345
   /// Doubleword Divide.
   | DDIV = 103
   /// Doubleword Divide Unsigned.
@@ -686,6 +688,10 @@ type Opcode =
   | InvalOP = 327
   /// Add Dword.
   | DADD = 328
+  /// Doubleword Subtract.
+  | DSUB = 329
+  /// Doubleword Add Immediate.
+  | DADDI = 330
   /// Doubleword Multiply Low (Release 6).
   | DMUL = 331
   /// Doubleword Multiply High (Release 6).
