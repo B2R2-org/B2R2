@@ -71,9 +71,19 @@ let private parseR2CLZ binary =
   | 0u -> Op.CLZ, None, None, getRdRs binary
   | _ -> raise ParsingFailureException
 
+let private parseR2CLO binary =
+  match Bits.extract binary 10u 6u with
+  | 0u -> Op.CLO, None, None, getRdRs binary
+  | _ -> raise ParsingFailureException
+
 let private parseR6CLZ binary =
   match Bits.extract binary 20u 16u with
   | 0u -> Op.CLZ, None, None, getRdRs binary
+  | _ -> raise ParsingFailureException
+
+let private parseR6CLO binary =
+  match Bits.extract binary 20u 16u with
+  | 0u -> Op.CLO, None, None, getRdRs binary
   | _ -> raise ParsingFailureException
 
 let private parseMFHI binary =
@@ -87,9 +97,19 @@ let private parseR2DCLZ binary =
   | 0u -> Op.DCLZ, None, None, getRdRs binary
   | _ -> raise ParsingFailureException
 
+let private parseR2DCLO binary =
+  match Bits.extract binary 10u 6u with
+  | 0u -> Op.DCLO, None, None, getRdRs binary
+  | _ -> raise ParsingFailureException
+
 let private parseR6DCLZ binary =
   match Bits.extract binary 20u 16u with
   | 0u -> Op.DCLZ, None, None, getRdRs binary
+  | _ -> raise ParsingFailureException
+
+let private parseR6DCLO binary =
+  match Bits.extract binary 20u 16u with
+  | 0u -> Op.DCLO, None, None, getRdRs binary
   | _ -> raise ParsingFailureException
 
 let private parseMFLO binary =
@@ -160,11 +180,13 @@ let private parseSPECIAL release bin =
     parseMFHI bin
   | 0b010001u ->
     if b20to6 = 0u then Op.MTHI, None, None, getRs bin
+    elif Bits.extract bin 10u 6u = 1u then parseR6CLO bin
     else raise ParsingFailureException
   | 0b010010u ->
     parseMFLO bin
   | 0b010011u ->
     if b20to6 = 0u then Op.MTLO, None, None, getRs bin
+    elif Bits.extract bin 10u 6u = 1u then parseR6DCLO bin
     else raise ParsingFailureException
   | 0b010100u ->
     if b10to6 = 0u then Op.DSLLV, None, None, getRdRtRs bin
@@ -306,6 +328,9 @@ let private parseSPECIAL release bin =
   | 0b100001u ->
     if b10to6 = 0u then Op.ADDU, None, None, getRdRsRt bin
     else raise ParsingFailureException
+  | 0b100010u ->
+    if b10to6 = 0u then Op.SUB, None, None, getRdRsRt bin
+    else raise ParsingFailureException
   | 0b100011u ->
     if b10to6 = 0u then Op.SUBU, None, None, getRdRsRt bin
     else raise ParsingFailureException
@@ -330,11 +355,28 @@ let private parseSPECIAL release bin =
   | 0b101101u ->
     if b10to6 = 0u then Op.DADDU, None, None, getRdRsRt bin
     else raise ParsingFailureException
+  | 0b101110u ->
+    if b10to6 = 0u then Op.DSUB, None, None, getRdRsRt bin
+    else raise ParsingFailureException
   | 0b101111u ->
     if b10to6 = 0u then Op.DSUBU, None, None, getRdRsRt bin
     else raise ParsingFailureException
+  (* The conditional traps. Table A.3 gives the six of them one row,
+     110000 through 110110, with 110101 unassigned; only TEQ was decoded.
+     The ten bits above the registers are a code the hardware ignores and
+     software reads out of the word, so nothing here is held to zero. *)
+  | 0b110000u ->
+    Op.TGE, None, None, getRsRt bin
+  | 0b110001u ->
+    Op.TGEU, None, None, getRsRt bin
+  | 0b110010u ->
+    Op.TLT, None, None, getRsRt bin
+  | 0b110011u ->
+    Op.TLTU, None, None, getRsRt bin
   | 0b110100u ->
     Op.TEQ, None, None, getRsRt bin
+  | 0b110110u ->
+    Op.TNE, None, None, getRsRt bin
   | 0b111000u ->
     if b25to21 = 0u then Op.DSLL, None, None, getRdRtSa bin
     else raise ParsingFailureException
@@ -381,7 +423,20 @@ let private parseREGIMM release binary =
   | 0b00011u when not r6 -> Op.BGEZL, None, None, getRsRel16 binary
   | 0b10010u when not r6 -> Op.BLTZALL, None, None, getRsRel16 binary
   | 0b10011u when not r6 -> Op.BGEZALL, None, None, getRsRel16 binary
-  | 0b01100u -> Op.TEQI, None, None, getRsImm16s binary
+  (* The traps that take a written number. Release 6 removed all six, which
+     is why they are guarded where the register forms above are not: a
+     Release 6 word in one of these slots is not one of these
+     instructions. *)
+  | 0b01000u when not r6 -> Op.TGEI, None, None, getRsImm16s binary
+  | 0b01001u when not r6 -> Op.TGEIU, None, None, getRsImm16s binary
+  | 0b01010u when not r6 -> Op.TLTI, None, None, getRsImm16s binary
+  | 0b01011u when not r6 -> Op.TLTIU, None, None, getRsImm16s binary
+  | 0b01100u when not r6 -> Op.TEQI, None, None, getRsImm16s binary
+  | 0b01110u when not r6 -> Op.TNEI, None, None, getRsImm16s binary
+  (* SIGRIE is what Release 6 put in the pool the traps left: an instruction
+     whose whole effect is to raise a Reserved Instruction exception, with a
+     sixteen-bit code for the handler to read. *)
+  | 0b10111u when r6 -> Op.SIGRIE, None, None, getImm16 binary
   | 0b10000u -> Op.BLTZAL, None, None, getRsRel16 binary
   | 0b10001u -> parseBAL binary
   | _ -> raise ParsingFailureException
@@ -408,8 +463,17 @@ let private parseSPECIAL2 bin =
     else raise ParsingFailureException
   | 0b100000u ->
     parseR2CLZ bin
+  | 0b100001u ->
+    parseR2CLO bin
+  (* SDBBP enters the EJTAG debug exception handler. The twenty bits above
+     the function field are a code for that handler and are not held to
+     zero. *)
+  | 0b111111u ->
+    Op.SDBBP, None, None, getCode20 bin
   | 0b100100u ->
     parseR2DCLZ bin
+  | 0b100101u ->
+    parseR2DCLO bin
   | _ ->
     raise ParsingFailureException
 
@@ -698,6 +762,24 @@ let private parseCOP1WhenRsS release binary =
   | 0b000111u ->
     if b20to16 = 0u then Op.NEG, None, Some Fmt.S, getFdFs binary
     else raise ParsingFailureException
+  | 0b001000u ->
+    if b20to16 = 0u then Op.ROUNDL, None, Some Fmt.S, getFdFs binary
+    else raise ParsingFailureException
+  | 0b001010u ->
+    if b20to16 = 0u then Op.CEILL, None, Some Fmt.S, getFdFs binary
+    else raise ParsingFailureException
+  | 0b001011u ->
+    if b20to16 = 0u then Op.FLOORL, None, Some Fmt.S, getFdFs binary
+    else raise ParsingFailureException
+  | 0b001100u ->
+    if b20to16 = 0u then Op.ROUNDW, None, Some Fmt.S, getFdFs binary
+    else raise ParsingFailureException
+  | 0b001110u ->
+    if b20to16 = 0u then Op.CEILW, None, Some Fmt.S, getFdFs binary
+    else raise ParsingFailureException
+  | 0b001111u ->
+    if b20to16 = 0u then Op.FLOORW, None, Some Fmt.S, getFdFs binary
+    else raise ParsingFailureException
   | 0b001001u ->
     if b20to16 = 0u then Op.TRUNCL, None, Some Fmt.S, getFdFs binary
     else raise ParsingFailureException
@@ -718,6 +800,12 @@ let private parseCOP1WhenRsS release binary =
     Op.RSQRT, None, Some Fmt.S, getFdFs binary
   | 0b100001u ->
     if b20to16 = 0u then Op.CVTD, None, Some Fmt.S, getFdFs binary
+    else raise ParsingFailureException
+  | 0b100100u ->
+    if b20to16 = 0u then Op.CVTW, None, Some Fmt.S, getFdFs binary
+    else raise ParsingFailureException
+  | 0b100101u ->
+    if b20to16 = 0u then Op.CVTL, None, Some Fmt.S, getFdFs binary
     else raise ParsingFailureException
   | b when b &&& 0b110000u = 0b110000u ->
     let cc = Bits.extract binary 10u 8u
@@ -772,6 +860,24 @@ let private parseCOP1WhenRsD release binary =
   | 0b000111u ->
     if b20to16 = 0u then Op.NEG, None, Some Fmt.D, getFdFs binary
     else raise ParsingFailureException
+  | 0b001000u ->
+    if b20to16 = 0u then Op.ROUNDL, None, Some Fmt.D, getFdFs binary
+    else raise ParsingFailureException
+  | 0b001010u ->
+    if b20to16 = 0u then Op.CEILL, None, Some Fmt.D, getFdFs binary
+    else raise ParsingFailureException
+  | 0b001011u ->
+    if b20to16 = 0u then Op.FLOORL, None, Some Fmt.D, getFdFs binary
+    else raise ParsingFailureException
+  | 0b001100u ->
+    if b20to16 = 0u then Op.ROUNDW, None, Some Fmt.D, getFdFs binary
+    else raise ParsingFailureException
+  | 0b001110u ->
+    if b20to16 = 0u then Op.CEILW, None, Some Fmt.D, getFdFs binary
+    else raise ParsingFailureException
+  | 0b001111u ->
+    if b20to16 = 0u then Op.FLOORW, None, Some Fmt.D, getFdFs binary
+    else raise ParsingFailureException
   | 0b001001u ->
     if b20to16 = 0u then Op.TRUNCL, None, Some Fmt.D, getFdFs binary
     else raise ParsingFailureException
@@ -792,6 +898,12 @@ let private parseCOP1WhenRsD release binary =
     Op.RSQRT, None, Some Fmt.D, getFdFs binary
   | 0b100000u ->
     if b20to16 = 0u then Op.CVTS, None, Some Fmt.D, getFdFs binary
+    else raise ParsingFailureException
+  | 0b100100u ->
+    if b20to16 = 0u then Op.CVTW, None, Some Fmt.D, getFdFs binary
+    else raise ParsingFailureException
+  | 0b100101u ->
+    if b20to16 = 0u then Op.CVTL, None, Some Fmt.D, getFdFs binary
     else raise ParsingFailureException
   | b when b &&& 0b110000u = 0b110000u ->
     let cc = Bits.extract binary 10u 8u
@@ -871,9 +983,13 @@ let private parseCOP1 arch release binary =
   | 0b10101u when release = MIPSRelease.R6 ->
     parseCMPR6 Fmt.D binary
   | 0b01000u ->
+    (* bit 17 is nd, the nullify bit, and bit 16 is tf. The two likely
+       forms are the same branch with nd set, and nullifying the delay
+       slot on the not-taken path is the whole of what nd means. *)
     if b17to16 = 0b00u then Op.BC1F, None, None, getCcOff binary
     elif b17to16 = 0b01u then Op.BC1T, None, None, getCcOff binary
-    else raise ParsingFailureException
+    elif b17to16 = 0b10u then Op.BC1FL, None, None, getCcOff binary
+    else Op.BC1TL, None, None, getCcOff binary
   | 0b10000u ->
     parseCOP1WhenRsS release binary
   | 0b10001u ->
@@ -925,6 +1041,12 @@ let private parseCOP1X binary =
     Op.NMADD, None, Some Fmt.D, getFdFrFsFt binary
   | 0b110110u ->
     Op.NMADD, None, Some Fmt.PS, getFdFrFsFt binary
+  | 0b111000u ->
+    Op.NMSUB, None, Some Fmt.S, getFdFrFsFt binary
+  | 0b111001u ->
+    Op.NMSUB, None, Some Fmt.D, getFdFrFsFt binary
+  | 0b111110u ->
+    Op.NMSUB, None, Some Fmt.PS, getFdFrFsFt binary
   | _ ->
     raise ParsingFailureException
 
@@ -954,7 +1076,7 @@ let private parseOpcodeField arch binary wordSize release =
     (* ADDI before Release 6; Release 6 reassigned this primary opcode to
        POP10 (BOVC/BEQZALC/BEQC). *)
     if release = MIPSRelease.R6 then parsePOP10R6 binary
-    else raise ParsingFailureException (* ADDI *)
+    else Op.ADDI, None, None, getRtRsImm16s binary
   | 0b001001u ->
     Op.ADDIU, None, None, getRtRsImm16s binary
   | 0b001010u ->
@@ -998,7 +1120,7 @@ let private parseOpcodeField arch binary wordSize release =
   | 0b011000u ->
     (* DADDI before Release 6; Release 6 reassigned it to POP30. *)
     if release = MIPSRelease.R6 then parsePOP30R6 binary
-    else raise ParsingFailureException (* DADDI *)
+    else Op.DADDI, None, None, getRtRsImm16s binary
   | 0b011001u ->
     Op.DADDIU, None, None, getRtRsImm16s binary
   | 0b011010u ->

@@ -100,7 +100,14 @@ let transOprToFPPair bld = function
     if is32Bit bld then
       regVar bld (RegisterHelper.getFPPairReg reg), regVar bld reg
     else
-      AST.b0, regVar bld reg
+      (* On a 64-bit FPU the high half is a FIELD of the one register, not a
+         register of its own. AST.b0 stood in for it, which broke both
+         directions: MFHC1 read the high half as the constant zero, and MTHC1
+         assigned to it -- an assignment to a constant, which AST.assign
+         rejects outright. An Extract is both readable and assignable, and
+         AST.assign rewrites `Extract(Var, 32, 32) := v` into the
+         read-modify-write that MTHC1's own `newdata || olddata` asks for. *)
+      AST.xthi 32<rt> (regVar bld reg), regVar bld reg
   | _ ->
     raise InvalidOperandException
 
@@ -290,6 +297,21 @@ let checkOverflowOnDadd e1 e2 r =
   let e2High = AST.extract e2 1<rt> 63
   let rHigh = AST.extract r 1<rt> 63
   (e1High == e2High) .& (e1High <+> rHigh)
+
+/// Subtract overflows when the operands' signs DIFFER and the result takes
+/// the subtrahend's. The add test asks the opposite of its first question,
+/// which is the whole difference between the two.
+let checkOverflowOnSub e1 e2 r =
+  let e1High = AST.extract e1 1<rt> 31
+  let e2High = AST.extract e2 1<rt> 31
+  let rHigh = AST.extract r 1<rt> 31
+  (e1High <+> e2High) .& (e1High <+> rHigh)
+
+let checkOverflowOnDsub e1 e2 r =
+  let e1High = AST.extract e1 1<rt> 63
+  let e2High = AST.extract e2 1<rt> 63
+  let rHigh = AST.extract r 1<rt> 63
+  (e1High <+> e2High) .& (e1High <+> rHigh)
 
 let getExponentFull src oprSz =
   if oprSz = 32<rt> then

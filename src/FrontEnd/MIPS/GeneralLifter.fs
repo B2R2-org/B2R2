@@ -139,6 +139,26 @@ let add (ins: Instruction) bld =
       writeFPResult fdB fdA result bld
   }
 
+/// ADDI is ADDIU plus a trap: a signed overflow raises Integer Overflow
+/// and leaves the destination alone. Its non-trapping counterpart was
+/// modelled and it was not, which is the whole of the difference.
+let addi ins bld =
+  lift bld ins {
+    let lblL0 = label bld "L0"
+    let lblL1 = label bld "L1"
+    let lblEnd = label bld "End"
+    let rt, rs, imm = transThreeOprs ins bld
+    let result = if is32Bit bld then rs .+ imm else signExtLo64 (rs .+ imm)
+    let cond = checkOverflowOnAdd rs imm result
+    AST.cjmp cond (AST.jmpDest lblL0) (AST.jmpDest lblL1)
+    AST.lmark lblL0
+    AST.sideEffect (Exception IntegerOverflow)
+    AST.jmp (AST.jmpDest lblEnd)
+    AST.lmark lblL1
+    rt := result
+    AST.lmark lblEnd
+  }
+
 let addiu ins bld =
   lift bld ins {
     let rt, rs, imm = transThreeOprs ins bld
@@ -244,6 +264,46 @@ let beql ins bld =
     let rs, rt, offset = transThreeOprs ins bld
     let cond = rs == rt
     updatePCCondLikely bld offset cond InterJmpKind.Base
+  }
+
+/// BC1FL and BC1TL: the floating-point branches with the nullify bit set.
+/// The condition is a bit of FCSR rather than a register, which is the
+/// only way they differ from the branch-likelies above.
+let bc1condl (ins: Instruction) bld tf =
+  liftTransfer bld ins {
+    (* The condition code is optional in the assembly -- an omitted one
+       means cc 0 -- so the operand shape is read the same way bc1f and
+       bc1t read it. *)
+    let cc, offset =
+      match ins.Operands with
+      | OneOperand off ->
+        0, transOpr ins bld off
+      | _ ->
+        let cc, off = getTwoOprs ins
+        transOprToImmToInt cc, transOpr ins bld off
+    let bit = fpConditionCode cc bld
+    let cond = if tf then bit else AST.not bit
+    updatePCCondLikely bld offset cond InterJmpKind.Base
+  }
+
+/// The compare-with-zero branch-likelies. They nullify the delay slot on
+/// the not-taken path exactly as BEQL and BNEL do, so they share the
+/// helper; only the condition differs.
+let bcondzl ins bld cmp =
+  liftTransfer bld ins {
+    let rs, offset = transTwoOprs ins bld
+    let cond = cmp rs (AST.num0 bld.RegType)
+    updatePCCondLikely bld offset cond InterJmpKind.Base
+  }
+
+/// The and-link branch-likelies. The link is written unconditionally, as
+/// it is for BLTZAL and BGEZAL.
+let bcondzall ins bld cmp =
+  liftTransfer bld ins {
+    let rs, offset = transTwoOprs ins bld
+    let cond = cmp rs (AST.num0 bld.RegType)
+    regVar bld R.R31 := regVar bld R.PC .+ numI32 8 bld.RegType
+    updatePCCondLikely bld offset cond InterJmpKind.IsCall
   }
 
 let bnel ins bld =
@@ -368,6 +428,25 @@ let private conditionBitsOf condition num0 num1 =
   | Some Condition.ULE | Some Condition.NGT -> num1, num1, num1
   | _ -> raise InvalidOperandException
 
+/// A NaN is a full exponent with a non-zero mantissa, and either operand
+/// being one makes the comparison unordered. When both operands are the same
+/// register it is only worth testing once, and the two temporaries hold that
+/// one test's halves.
+let private condNaNOf bld oprSz (mantissa, exponent) sameReg tFs tFt =
+  if sameReg then
+    append bld {
+      mantissa := getMantissa tFt oprSz
+      exponent := getExponentFull tFt oprSz
+    }
+    AST.xtlo 1<rt> (exponent .& (mantissa != AST.num0 oprSz))
+  else
+    let src1Mantissa = getMantissa tFs oprSz
+    let src2Mantissa = getMantissa tFt oprSz
+    let src1Exponent = getExponentFull tFs oprSz
+    let src2Exponent = getExponentFull tFt oprSz
+    AST.xtlo 1<rt> (src1Exponent .& (src1Mantissa != AST.num0 oprSz)) .|
+    AST.xtlo 1<rt> (src2Exponent .& (src2Mantissa != AST.num0 oprSz))
+
 let cCond ins bld =
   lift bld ins {
     let oprSz, cc, fs, ft, sameReg = getCCondOpr ins bld
@@ -389,20 +468,7 @@ let cCond ins bld =
        `d >= LONG_MAX` tests against `-LONG_MAX` -- while getting +0 and -0
        right by accident. AST.feq gets both. *)
     let isEqual = if sameReg then AST.b1 else AST.feq tFs tFt
-    condNaN :=
-      if sameReg then
-        append bld {
-          mantissa := getMantissa tFt oprSz
-          exponent := getExponentFull tFt oprSz
-        }
-        AST.xtlo 1<rt> (exponent .& (mantissa != AST.num0 oprSz))
-      else
-        let src1Mantissa = getMantissa tFs oprSz
-        let src2Mantissa = getMantissa tFt oprSz
-        let src1Exponent = getExponentFull tFs oprSz
-        let src2Exponent = getExponentFull tFt oprSz
-        AST.xtlo 1<rt> (src1Exponent .& (src1Mantissa != AST.num0 oprSz)) .|
-        AST.xtlo 1<rt> (src2Exponent .& (src2Mantissa != AST.num0 oprSz))
+    condNaN := condNaNOf bld oprSz (mantissa, exponent) sameReg tFs tFt
     less := AST.ite condNaN num0 (AST.ite (AST.flt tFs tFt) num1 num0)
     equal :=
       AST.ite condNaN num0 (AST.ite isEqual num1 num0)
@@ -411,21 +477,79 @@ let cCond ins bld =
     setFPConditionCode bld cc condition
   }
 
+/// FCCR, FEXR and FENR are windows onto FCSR rather than registers of their
+/// own: each exposes a subset of the same state, and CTC1 and CFC1 name which
+/// window they mean. Ignoring the name and reading or writing the whole of
+/// FCSR is wrong twice over -- a write through a window changes fields the
+/// window does not contain, and a read through one returns fields it does not
+/// expose.
+///
+/// The layouts, from MD00087 Vol. III. Only FCCR repacks: the condition codes
+/// are contiguous there and split in FCSR, where FCC0 sits at 23 and FCC7..1
+/// at 31..25. FEXR keeps Cause and Flags where FCSR has them. FENR keeps the
+/// Enables and RM where FCSR has them and moves FS from 24 down to 2.
+let private fccrOfFcsr fcsr =
+  ((fcsr >> numI32 25 32<rt>) .& numU32 0x7Fu 32<rt> << AST.num1 32<rt>)
+  .| ((fcsr >> numI32 23 32<rt>) .& AST.num1 32<rt>)
+
+let private fcsrWithFccr fcsr v =
+  let cleared = fcsr .& numU32 0x017FFFFFu 32<rt>
+  cleared
+  .| ((v .& numU32 0xFEu 32<rt>) >> AST.num1 32<rt> << numI32 25 32<rt>)
+  .| ((v .& AST.num1 32<rt>) << numI32 23 32<rt>)
+
+let private fexrMask = 0x0003F07Cu          // Cause 17..12, Flags 6..2
+let private fenrFcsrMask = 0x01000F83u      // Enables 11..7, FS 24, RM 1..0
+
+let private fenrOfFcsr fcsr =
+  (fcsr .& numU32 0xF83u 32<rt>)
+  .| (((fcsr >> numI32 24 32<rt>) .& AST.num1 32<rt>) << numI32 2 32<rt>)
+
+let private fcsrWithFenr fcsr v =
+  (fcsr .& AST.not (numU32 fenrFcsrMask 32<rt>))
+  .| (v .& numU32 0xF83u 32<rt>)
+  .| (((v >> numI32 2 32<rt>) .& AST.num1 32<rt>) << numI32 24 32<rt>)
+
 let ctc1 ins bld =
   lift bld ins {
-    let rt, _ = transTwoOprs ins bld
+    let rt, fsOpr = getTwoOprs ins
+    let rt = transOpr ins bld rt
     let fcsr = regVar bld R.FCSR
-    fcsr := AST.xtlo 32<rt> rt
+    let v = AST.xtlo 32<rt> rt
+    match fsOpr with
+    | OpReg R.F25 ->
+      fcsr := fcsrWithFccr fcsr v
+    | OpReg R.F26 ->
+      fcsr := (fcsr .& AST.not (numU32 fexrMask 32<rt>))
+              .| (v .& numU32 fexrMask 32<rt>)
+    | OpReg R.F28 ->
+      fcsr := fcsrWithFenr fcsr v
+    | OpReg R.F0 ->
+      ()                                    // FIR is read-only
+    | _ ->
+      (* fs = 31, the whole register. MD00087 CTC1: writing bits 22..18 when
+         the implementation-defined field is absent is UNPREDICTABLE, not
+         masked -- so there is nothing here to clamp. A difference against
+         another implementation on those bits says nothing about either. *)
+      fcsr := v
   }
 
 let cfc1 ins bld =
   lift bld ins {
-    let rt, _ = transTwoOprs ins bld
+    let rt, fsOpr = getTwoOprs ins
+    let rt = transOpr ins bld rt
     let fcsr = regVar bld R.FCSR
-    rt := AST.sext bld.RegType fcsr
+    let v =
+      match fsOpr with
+      | OpReg R.F25 -> fccrOfFcsr fcsr
+      | OpReg R.F26 -> fcsr .& numU32 fexrMask 32<rt>
+      | OpReg R.F28 -> fenrOfFcsr fcsr
+      | OpReg R.F0 -> AST.num0 32<rt>       // FIR: no implementation named
+      | _ -> fcsr
+    rt := AST.sext bld.RegType v
   }
 
-let clz ins bld =
+let private countLeading ones ins bld =
   lift bld ins {
     let lblLoop = label bld "Loop"
     let lblContinue = label bld "Continue"
@@ -436,6 +560,12 @@ let clz ins bld =
        must look at the low 32 bits only -- zero-extend them so upper bits (e.g.
        a sign-extended negative word) do not skew the scan. *)
     let rs = if is32Bit bld then rs else AST.zext wordSz (AST.xtlo 32<rt> rs)
+    (* Leading ones are the complement's leading zeros. The complement is
+       taken of the 32-bit word alone, for the same reason the scan is. *)
+    let rs =
+      if not ones then rs
+      elif is32Bit bld then AST.not rs
+      else AST.zext wordSz (AST.not (AST.xtlo 32<rt> rs))
     let t = tmpVar bld wordSz
     let n31 = numI32 31 wordSz
     t := n31
@@ -449,6 +579,12 @@ let clz ins bld =
     AST.lmark lblEnd
     rd := n31 .- t
   }
+
+/// CLZ: how many zeros the word begins with.
+let clz ins bld = countLeading false ins bld
+
+/// CLO: how many ones it begins with, which is CLZ of the complement.
+let clo ins bld = countLeading true ins bld
 
 let cvtd ins bld =
   lift bld ins {
@@ -469,11 +605,53 @@ let cvtd ins bld =
     writeFPResult fdB fdA result bld
   }
 
+/// The word a floating-point value converts to. MD00087 names one default
+/// result for an operand that cannot be represented -- the largest positive
+/// value, on a core with FCSR_NAN2008=0, whatever the operand's sign -- and
+/// the range has to be decided BEFORE the result is narrowed. A value already
+/// narrowed to the destination width is never outside that width's range, so
+/// a comparison made after the narrowing is constant false and the default is
+/// never chosen.
+let private wordOfFP bld convert src inf nan =
+  let wide = tmpVar bld 64<rt>
+  append bld {
+    wide := convert bld 64<rt> src
+  }
+  let outOfRange =
+    AST.sgt wide (numI64 0x7fffffffL 64<rt>)
+    .| AST.slt wide (numI64 -0x80000000L 64<rt>)
+  let narrowed = AST.xtlo 32<rt> wide
+  AST.ite (outOfRange .| inf .| nan) (numI32 0x7fffffff 32<rt>) narrowed
+
+/// The doubleword one converts to. There is no wider integer to convert into,
+/// so the range is decided on the operand itself: a magnitude of 2^63 or more
+/// cannot be represented, and -2^63 exactly can, which is why the lower bound
+/// is the strict comparison and the upper one is not.
+let private longOfFP bld convert srcSz src inf nan =
+  let eval = tmpVar bld 64<rt>
+  let upper, lower =
+    if srcSz = 32<rt> then
+      numU32 0x5f000000u 32<rt>, numU32 0xdf000000u 32<rt>
+    else
+      numU64 0x43e0000000000000UL 64<rt>, numU64 0xc3e0000000000000UL 64<rt>
+  append bld {
+    eval := convert bld 64<rt> src
+  }
+  let outOfRange = AST.fge src upper .| AST.flt src lower
+  AST.ite (outOfRange .| inf .| nan) (numI64 0x7fffffffffffffffL 64<rt>) eval
+
+/// Rounds the way the instruction's own name says, which is what every
+/// conversion but CVT does.
+let private roundingOf mode =
+  fun _ oprSz src -> AST.floatToSInt mode oprSz src
+
+/// Rounds the way FCSR says, which is what CVT does -- and which a conversion
+/// no RoundCtrl encloses does on its own.
+let private roundingOfFCSR = fun _ oprSz src -> roundToInt src oprSz
+
 let cvtw ins bld =
   lift bld ins {
     let fd, fs = getTwoOprs ins
-    let intMax = numI32 0x7fffffff 32<rt>
-    let intMin = numI32 0x80000000 32<rt>
     let exponent = tmpVar bld 1<rt>
     let struct (dst, src, inf, nan) =
       match ins.Fmt with
@@ -502,9 +680,7 @@ let cvtw ins bld =
         let inf = isInfinity 64<rt> exponent mantissa
         let nan = isNaN 64<rt> exponent mantissa
         dst, src, inf, nan
-    dst := roundToInt src 32<rt>
-    let outOfRange = AST.sgt dst intMax .| AST.slt dst intMin
-    dst := AST.ite (outOfRange .| inf .| nan) intMax dst
+    dst := wordOfFP bld roundingOfFCSR src inf nan
   }
 
 let cvtl ins bld =
@@ -513,8 +689,7 @@ let cvtl ins bld =
     let fdB, fdA = transOprToFPPair bld fd
     let eval = tmpVar bld 64<rt>
     let exponent = tmpVar bld 1<rt>
-    let intMax = numI64 0x7fffffffffffffffL 64<rt>
-    let intMin = numI64 0x8000000000000000L 64<rt>
+    let srcSz = if ins.Fmt = Some Fmt.S then 32<rt> else 64<rt>
     let struct (src, inf, nan) =
       match ins.Fmt with
       | Some Fmt.S ->
@@ -541,9 +716,7 @@ let cvtl ins bld =
         let inf = isInfinity 64<rt> exponent mantissa
         let nan = isNaN 64<rt> exponent mantissa
         src, inf, nan
-    eval := roundToInt src 64<rt>
-    let outOfRange = AST.sgt eval intMax .| AST.slt eval intMin
-    eval := AST.ite (outOfRange .| inf .| nan) intMax eval
+    eval := longOfFP bld roundingOfFCSR srcSz src inf nan
     writeFPResult fdB fdA eval bld
   }
 
@@ -583,12 +756,44 @@ let dadd ins bld =
     AST.lmark lblEnd
   }
 
+let dsub ins bld =
+  lift bld ins {
+    let lblL0 = label bld "L0"
+    let lblL1 = label bld "L1"
+    let lblEnd = label bld "End"
+    let rd, rs, rt = transThreeOprs ins bld
+    let cond = checkOverflowOnDsub rs rt (rs .- rt)
+    AST.cjmp cond (AST.jmpDest lblL0) (AST.jmpDest lblL1)
+    AST.lmark lblL0
+    AST.sideEffect (Exception IntegerOverflow)
+    AST.jmp (AST.jmpDest lblEnd)
+    AST.lmark lblL1
+    rd := rs .- rt
+    AST.lmark lblEnd
+  }
+
 let daddu ins bld =
   lift bld ins {
     let rd, rs, rt = transThreeOprs ins bld
     let result = tmpVar bld 64<rt>
     result := rs .+ rt
     rd := result
+  }
+
+let daddi ins bld =
+  lift bld ins {
+    let lblL0 = label bld "L0"
+    let lblL1 = label bld "L1"
+    let lblEnd = label bld "End"
+    let rt, rs, imm = transThreeOprs ins bld
+    let cond = checkOverflowOnDadd rs imm (rs .+ imm)
+    AST.cjmp cond (AST.jmpDest lblL0) (AST.jmpDest lblL1)
+    AST.lmark lblL0
+    AST.sideEffect (Exception IntegerOverflow)
+    AST.jmp (AST.jmpDest lblEnd)
+    AST.lmark lblL1
+    rt := rs .+ imm
+    AST.lmark lblEnd
   }
 
 let daddiu ins bld =
@@ -599,13 +804,14 @@ let daddiu ins bld =
     rt := result
   }
 
-let dclz ins bld =
+let private countLeadingD ones ins bld =
   lift bld ins {
     let lblLoop = label bld "Loop"
     let lblContinue = label bld "Continue"
     let lblEnd = label bld "End"
     let wordSz = bld.RegType
     let rd, rs = transTwoOprs ins bld
+    let rs = if ones then AST.not rs else rs
     let t = tmpVar bld wordSz
     let n63 = numI32 63 wordSz
     t := n63
@@ -629,6 +835,12 @@ let dclz ins bld =
 /// on evaluation.
 let private divGuard (bld: ILowUIRBuilder) cond expr =
   AST.ite cond (AST.num0 bld.RegType) expr
+
+/// DCLZ: how many zeros the doubleword begins with.
+let dclz ins bld = countLeadingD false ins bld
+
+/// DCLO: how many ones it begins with, which is DCLZ of the complement.
+let dclo ins bld = countLeadingD true ins bld
 
 let ddiv ins bld =
   lift bld ins {
@@ -761,9 +973,14 @@ let dins ins bld =
 
 let checkDINSMPosSize pos size =
   let posSize = pos + size
+  (* MD00087 DINSM: 0 <= pos < 32, 2 <= size <= 64, 32 < pos+size <= 64. The
+     size bound is INCLUSIVE, and this read it as strict -- so pos=31,size=2,
+     which the other two relations allow, was rejected outright. DEXTM's
+     sibling guard is `32 < size`, which is correct for DEXTM, and the strict
+     form was carried across to where an inclusive one was needed. *)
   if 0 <= pos
     && pos < 32
-    && 2 < size
+    && 2 <= size
     && size <= 64
     && 32 < posSize
     && posSize <= 64 then ()
@@ -955,7 +1172,13 @@ let insert ins bld =
     let rs', rt' =
       if pos = 0 then rs .& mask, rt .& (AST.not mask)
       else (rs .& mask) << posExpr, rt .& (AST.not (mask << posExpr))
-    rt := rt' .| rs'
+    let merged = rt' .| rs'
+    (* MD00087 INS: GPR[rt] <- sign_extend(GPR[rt]31..msb+1 || ... ). The
+       merge happens in 32 bits and the WORD is then sign-extended, so an
+       insert that reaches bit 31 changes the sign of the whole register.
+       Merging straight into the 64-bit rt keeps its old upper half, which
+       is right for DINS and wrong here. *)
+    rt := if is32Bit bld then merged else signExtLo64 merged
   }
 
 let getJALROprs (ins: Instruction) bld =
@@ -1332,6 +1555,13 @@ let fpMinMax ins bld wantMax absolute =
     let signalling = AST.ite bSNaN (b .| mantMSB) quiet
     AST.ite aSNaN (a .| mantMSB) signalling)
 
+/// RINT.fmt rounds to an integral value in the operand's own format, in the
+/// direction FCSR names -- which is what a conversion no RoundCtrl encloses
+/// rounds by. So the field is not read here and the four directions are not
+/// spelled out: the cast that keeps the value a float is the whole of it.
+let rint ins bld =
+  fpR6Unary ins bld (fun sz v -> AST.cast CastKind.RoundToIntegral sz v)
+
 /// CLASS.fmt -- a ten-bit mask naming the IEEE class of its operand.
 ///
 /// MD00087: "Bits 0 and 1 indicate NaN values: signaling NaN (bit 0) and quiet
@@ -1579,7 +1809,14 @@ let ext ins bld =
     checkINSorExtPosSize pos size
     if lsb + msbd > 31 then raise InvalidOperandException else ()
     let rs = if pos = 0 then rs else rs >> numI32 pos bld.RegType
-    rt := rs .& numI64 (getMask size) bld.RegType
+    let field = rs .& numI64 (getMask size) bld.RegType
+    (* MD00087 EXT: temp <- sign_extend(0^(32-(msbd+1)) || GPR[rs]...),
+       so the 32-bit assembled value is SIGN-extended into the register.
+       Below size 32 the zero fill puts a 0 at bit 31 and the extension is
+       a no-op; at size 32 the field's own bit 31 is the sign of the word
+       and has to propagate. DEXT produces a 64-bit result and needs no
+       such step -- which is the difference this arm lost by copying it. *)
+    rt := if is32Bit bld then field else signExtLo64 field
   }
 
 let lui ins bld =
@@ -1618,12 +1855,16 @@ let mAddSub (ins: Instruction) bld opFn =
       let fd, fr, fs, ft = getFourOprs ins
       let fdB, fdA = transOprToFPPair bld fd
       let fr, fs, ft = transFPConcatThreeOprs bld (fr, fs, ft)
-      let result = op (AST.fmul fs ft) fr
+      let result = tmpVar bld 64<rt>
+      result := op (AST.fmul fs ft) fr
+      normalizeNaN 64<rt> result bld
       writeFPResult fdB fdA result bld
     | _ ->
       let op = if opFn then AST.fadd else AST.fsub
       let fd, fr, fs, ft = getFourOprs ins |> transFourSingleFP bld
-      let result = op (AST.fmul fs ft) fr
+      let result = tmpVar bld 32<rt>
+      result := op (AST.fmul fs ft) fr
+      normalizeNaN 32<rt> result bld
       fd := result
   }
 
@@ -1644,8 +1885,16 @@ let mAdduSubu ins bld opFn =
       let rs = AST.zext 64<rt> (AST.xtlo 32<rt> rs)
       let rt = AST.zext 64<rt> (AST.xtlo 32<rt> rt)
       result := op hilo (rs .* rt)
-      hi := AST.xthi 32<rt> result |> AST.zext 64<rt>
-      lo := AST.xtlo 32<rt> result |> AST.zext 64<rt>
+      (* The write-back is SIGN-extended, exactly as MADD's and MSUB's is.
+         MD00087, MADDU: "the most significant 32 bits of the result are
+         sign-extended and written into HI and the least significant 32 bits
+         are sign-extended and written into LO". The `u' governs the
+         multiplicands -- which is why rs and rt above are zero-extended --
+         and not the halves of the product. MULTU two functions away already
+         gets this right; this arm was written separately and zero-extended
+         both halves. *)
+      hi := signExtHi64 result
+      lo := signExtLo64 result
   }
 
 let mfhi ins bld =
@@ -1898,7 +2147,7 @@ let neg ins bld =
       fd := fs <+> mask
   }
 
-let nmadd ins bld =
+let private negatedMultiplyAdd add ins bld =
   lift bld ins {
     let fd, src1, src2, src3 = getFourOprs ins
     match ins.Fmt with
@@ -1906,22 +2155,37 @@ let nmadd ins bld =
       let dst, fr, fs, ft = transFourSingleFP bld (fd, src1, src2, src3)
       let struct (tSrc1, tSrc2, tSrc3, result) = tmpVars4 bld 32<rt>
       reDupSrc3 src1 src2 src3 fr fs ft tSrc1 tSrc2 tSrc3 bld
-      result := numU64 0x80000000UL 32<rt> <+>
-        (AST.fadd tSrc1 <| AST.fmul tSrc2 tSrc3)
+      let product = AST.fmul tSrc2 tSrc3
+      let sum =
+        if add then AST.fadd tSrc1 product else AST.fsub product tSrc1
+      (* The negation is of the RESULT, so it applies to the default NaN an
+         invalid operation produces as much as to a number: normalise first,
+         then flip the sign, or the canonicalisation undoes the negation. *)
+      result := sum
       normalizeNaN 32<rt> result bld
+      result := numU64 0x80000000UL 32<rt> <+> result
       dst := result
     | Some Fmt.D ->
       let fdB, fdA = transOprToFPPair bld fd
       let fr, fs, ft = transFPConcatThreeOprs bld (src1, src2, src3)
       let struct (tSrc1, tSrc2, tSrc3, result) = tmpVars4 bld 64<rt>
       reDupSrc3 src1 src2 src3 fr fs ft tSrc1 tSrc2 tSrc3 bld
-      result := numU64 0x8000000000000000UL 64<rt> <+>
-        (AST.fadd tSrc1 <| AST.fmul tSrc2 tSrc3)
+      let product = AST.fmul tSrc2 tSrc3
+      let sum =
+        if add then AST.fadd tSrc1 product else AST.fsub product tSrc1
+      result := sum
       normalizeNaN 64<rt> result bld
+      result := numU64 0x8000000000000000UL 64<rt> <+> result
       writeFPResult fdB fdA result bld
     | _ ->
       raise InvalidOperandException
   }
+
+/// NMADD.fmt: the negation of the operand plus the product.
+let nmadd ins bld = negatedMultiplyAdd true ins bld
+
+/// NMSUB.fmt: the negation of the product less the operand.
+let nmsub ins bld = negatedMultiplyAdd false ins bld
 
 let nop (ins: Instruction) bld =
   lift bld ins {
@@ -1993,7 +2257,8 @@ let sqrt ins bld =
       let fs = transOprToFPPairConcat bld fs
       let cond = fs == numU64 0x8000000000000000UL 64<rt>
       let result = tmpVar bld 64<rt>
-      result := AST.ite cond (numU64 0x8000000000000000UL 64<rt>) (AST.fsqrt fs)
+      result :=
+        AST.ite cond (numU64 0x8000000000000000UL 64<rt>) (AST.fsqrt fs)
       normalizeNaN 64<rt> result bld
       writeFPResult fdB fdA result bld
   }
@@ -2029,7 +2294,18 @@ let storeLeftRight ins bld memShf regShf amtOp oprSz =
     let baseMask = tmpVar bld bld.RegType
     let mask = numI32 (((int oprSz) >>> 3) - 1) bld.RegType
     let mask32 = numI32 (((int oprSz) >>> 3) - 1) oprSz
-    let vaddr0To2 = (baseOff .& mask) <+> (transBigEndianCPU bld bld.RegType)
+    (* BigEndianCPU is keyed on the ACCESS width, not the register width.
+       MD00087, LWL on MIPS64: `byte <- 0 || (vAddr1..0 xor BigEndianCPU^2)`
+       -- two bits, with a literal zero above them; LDL is the one that uses
+       BigEndianCPU^3. Asking the helper for bld.RegType gave 0b111 on a
+       64-bit CPU, so the word forms XORed with 7. LWL and SWL survived by
+       accident, since masking with 3 after XORing with 7 is the same as
+       XORing with 3; LWR and SWR add the offset instead and produced shift
+       amounts of 40 to 64 on a 32-bit value. `mask` below is already
+       (accessBytes - 1) at register width, which is the constant wanted. *)
+    let bigEndianCPU =
+      if bld.Endianness = Endian.Big then mask else AST.num0 bld.RegType
+    let vaddr0To2 = (baseOff .& mask) <+> bigEndianCPU
     let baseAddress =
       loadNative bld oprSz baseMask
     baseOff := baseOffset
@@ -2120,10 +2396,24 @@ let sub ins bld =
     let dst, src1, src2 = getThreeOprs ins
     match ins.Fmt with
     | None ->
-      let dst = transOpr ins bld dst
-      let src1 = transOpr ins bld src1
-      let src2 = transOpr ins bld src2
-      dst := src1 .- src2
+      (* SUB is SUBU plus a trap: a signed overflow raises Integer Overflow
+         and leaves the destination alone, rather than writing the truncated
+         result. This arm used to be a plain subtract, which is SUBU. *)
+      let lblL0 = label bld "L0"
+      let lblL1 = label bld "L1"
+      let lblEnd = label bld "End"
+      let rd = transOpr ins bld dst
+      let rs = transOpr ins bld src1
+      let rt = transOpr ins bld src2
+      let result = if is32Bit bld then rs .- rt else signExtLo64 (rs .- rt)
+      let cond = checkOverflowOnSub rs rt result
+      AST.cjmp cond (AST.jmpDest lblL0) (AST.jmpDest lblL1)
+      AST.lmark lblL0
+      AST.sideEffect (Exception IntegerOverflow)
+      AST.jmp (AST.jmpDest lblEnd)
+      AST.lmark lblL1
+      rd := result
+      AST.lmark lblEnd
     | Some Fmt.S ->
       let dst, fs, ft = transThreeSingleFP bld (dst, src1, src2)
       let struct (tSrc1, tSrc2, result) = tmpVars3 bld 32<rt>
@@ -2150,35 +2440,36 @@ let subu ins bld =
     rd := result
   }
 
-let teq ins bld =
+/// <summary>
+/// The conditional traps: each compares two values and takes a Trap exception
+/// where the comparison holds, which is how a bounds check is written without
+/// a branch around it.
+///
+/// The comparison is the only thing that separates the twelve of them, and
+/// the six that take a written number differ from the six that take a second
+/// register in nothing else, so all twelve share this.
+///
+/// The exception is a trap and not an undefined instruction. MD00087 gives it
+/// a code of its own -- Tr, 13 -- which is what identifies it to a handler,
+/// and that is the number carried here. The ten-bit field the encoding also
+/// holds is for software to read out of the instruction word; the hardware
+/// does nothing with it.
+/// </summary>
+let trapIf ins bld cmp =
   lift bld ins {
-    let lblL0 = label bld "L0"
+    let lblTrap = label bld "Trap"
     let lblEnd = label bld "End"
-    let rs, rt = transTwoOprs ins bld
-    AST.cjmp (rs == rt) (AST.jmpDest lblL0) (AST.jmpDest lblEnd)
-    AST.lmark lblL0
-    AST.sideEffect UndefinedInstruction (* FIXME: Trap *)
+    let lhs, rhs = transTwoOprs ins bld
+    AST.cjmp (cmp lhs rhs) (AST.jmpDest lblTrap) (AST.jmpDest lblEnd)
+    AST.lmark lblTrap
+    AST.sideEffect (Interrupt 13)
     AST.lmark lblEnd
   }
 
-let teqi ins bld =
-  lift bld ins {
-    let lblL0 = label bld "L0"
-    let lblEnd = label bld "End"
-    let rs, imm = transTwoOprs ins bld
-    AST.cjmp (rs == imm) (AST.jmpDest lblL0) (AST.jmpDest lblEnd)
-    AST.lmark lblL0
-    AST.sideEffect UndefinedInstruction
-    AST.lmark lblEnd
-  }
-
-let truncw ins bld =
+let private convertToWord mode ins bld =
   lift bld ins {
     let fd, fs = getTwoOprs ins
-    let intMax = numI32 0x7fffffff 32<rt>
-    let intMin = numI32 0x80000000 32<rt>
     let exponent = tmpVar bld 1<rt>
-    let dstTmp = tmpVar bld 32<rt>
     let struct (dst, src, inf, nan) =
       match ins.Fmt with
       | Some Fmt.S ->
@@ -2208,20 +2499,28 @@ let truncw ins bld =
         let inf = isInfinity 64<rt> exponent mantissa
         let nan = isNaN 64<rt> exponent mantissa
         dst, tSrc, inf, nan
-    dst := AST.floatToSInt RoundingMode.TowardZero 32<rt> src
-    dstTmp := dst
-    let outOfRange = AST.sgt dstTmp intMax .| AST.slt dstTmp intMin
-    dst := AST.ite (outOfRange .| inf .| nan) intMax dstTmp
+    dst := wordOfFP bld (roundingOf mode) src inf nan
   }
 
-let truncl ins bld =
+/// TRUNC.W.fmt: the word nearest the operand towards zero.
+let truncw ins bld = convertToWord RoundingMode.TowardZero ins bld
+
+/// ROUND.W.fmt: the nearest word, ties to even.
+let roundw ins bld = convertToWord RoundingMode.ToNearestEven ins bld
+
+/// CEIL.W.fmt: the word nearest the operand towards plus infinity.
+let ceilw ins bld = convertToWord RoundingMode.TowardPositive ins bld
+
+/// FLOOR.W.fmt: the word nearest the operand towards minus infinity.
+let floorw ins bld = convertToWord RoundingMode.TowardNegative ins bld
+
+let private convertToLong mode ins bld =
   lift bld ins {
     let fd, fs = getTwoOprs ins
     let fdB, fdA = transOprToFPPair bld fd
     let eval = tmpVar bld 64<rt>
     let exponent = tmpVar bld 1<rt>
-    let intMax = numI64 0x7fffffffffffffffL 64<rt>
-    let intMin = numI64 0x8000000000000000L 64<rt>
+    let srcSz = if ins.Fmt = Some Fmt.S then 32<rt> else 64<rt>
     let struct (src, inf, nan) =
       match ins.Fmt with
       | Some Fmt.S ->
@@ -2248,11 +2547,21 @@ let truncl ins bld =
         let inf = isInfinity 64<rt> exponent mantissa
         let nan = isNaN 64<rt> exponent mantissa
         src, inf, nan
-    eval := AST.floatToSInt RoundingMode.TowardZero 64<rt> src
-    let outOfRange = AST.sgt eval intMax .| AST.slt eval intMin
-    eval := AST.ite (outOfRange .| inf .| nan) intMax eval
+    eval := longOfFP bld (roundingOf mode) srcSz src inf nan
     writeFPResult fdB fdA eval bld
   }
+
+/// TRUNC.L.fmt: the doubleword nearest the operand towards zero.
+let truncl ins bld = convertToLong RoundingMode.TowardZero ins bld
+
+/// ROUND.L.fmt: the nearest doubleword, ties to even.
+let roundl ins bld = convertToLong RoundingMode.ToNearestEven ins bld
+
+/// CEIL.L.fmt: the doubleword nearest the operand towards plus infinity.
+let ceill ins bld = convertToLong RoundingMode.TowardPositive ins bld
+
+/// FLOOR.L.fmt: the doubleword nearest the operand towards minus infinity.
+let floorl ins bld = convertToLong RoundingMode.TowardNegative ins bld
 
 let logXor ins bld =
   lift bld ins {
@@ -2311,7 +2620,18 @@ let loadLeftRight ins bld memShf regShf amtOp oprSz =
     let baseMask = tmpVar bld bld.RegType
     let mask = numI32 (((int oprSz) >>> 3) - 1) bld.RegType
     let mask32 = numI32 (((int oprSz) >>> 3) - 1) oprSz
-    let vaddr0To2 = (baseOff .& mask) <+> (transBigEndianCPU bld bld.RegType)
+    (* BigEndianCPU is keyed on the ACCESS width, not the register width.
+       MD00087, LWL on MIPS64: `byte <- 0 || (vAddr1..0 xor BigEndianCPU^2)`
+       -- two bits, with a literal zero above them; LDL is the one that uses
+       BigEndianCPU^3. Asking the helper for bld.RegType gave 0b111 on a
+       64-bit CPU, so the word forms XORed with 7. LWL and SWL survived by
+       accident, since masking with 3 after XORing with 7 is the same as
+       XORing with 3; LWR and SWR add the offset instead and produced shift
+       amounts of 40 to 64 on a 32-bit value. `mask` below is already
+       (accessBytes - 1) at register width, which is the constant wanted. *)
+    let bigEndianCPU =
+      if bld.Endianness = Endian.Big then mask else AST.num0 bld.RegType
+    let vaddr0To2 = (baseOff .& mask) <+> bigEndianCPU
     let baseAddress =
       loadNative bld oprSz baseMask
     baseOff := baseOffset

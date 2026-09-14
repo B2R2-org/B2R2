@@ -257,6 +257,14 @@ let getRtOff16 b = TwoOperands(rt b, imm16SignExt b)
 
 let getRs b = OneOperand(rs b)
 
+/// SIGRIE names a sixteen-bit code and nothing else.
+let getImm16 b = OneOperand(imm16 b)
+
+/// SDBBP names a twenty-bit one, which is every bit above its function
+/// field.
+let getCode20 b =
+  OneOperand(Bits.extract b 25u 6u |> uint64 |> OpImm)
+
 let getRd b = OneOperand(rd b)
 
 let getTarget b = OneOperand(region b)

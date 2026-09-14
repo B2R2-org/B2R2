@@ -267,8 +267,16 @@ let floatEncoders () =
     Opcode.ABS, arith2 0b000101u
     Opcode.MOV, arith2 0b000110u
     Opcode.NEG, arith2 0b000111u
+    Opcode.ROUNDL, arith2 0b001000u
     Opcode.TRUNCL, arith2 0b001001u
+    Opcode.CEILL, arith2 0b001010u
+    Opcode.FLOORL, arith2 0b001011u
+    Opcode.ROUNDW, arith2 0b001100u
     Opcode.TRUNCW, arith2 0b001101u
+    Opcode.CEILW, arith2 0b001110u
+    Opcode.FLOORW, arith2 0b001111u
+    Opcode.CVTW, arith2 0b100100u
+    Opcode.CVTL, arith2 0b100101u
     Opcode.RECIP, arith2 0b010101u
     Opcode.RSQRT, arith2 0b010110u
     Opcode.CVTS, convert 0b10000u 0b100000u
@@ -286,8 +294,13 @@ let floatEncoders () =
     Opcode.DMTC1, moveBetween 0b00101u
     Opcode.CTC1, moveBetween 0b00110u
     Opcode.MTHC1, moveBetween 0b00111u
+    (* The two bits below the condition code are nd and tf: nd nullifies
+       the delay slot on the not-taken path, which is the whole of what
+       the likely forms add. *)
     Opcode.BC1F, branchOnFP 0u
     Opcode.BC1T, branchOnFP 1u
+    Opcode.BC1FL, branchOnFP 2u
+    Opcode.BC1TL, branchOnFP 3u
     Opcode.LWXC1, loadIndexed 0b000000u
     Opcode.LDXC1, loadIndexed 0b000001u
     Opcode.SWXC1, storeIndexed 0b001000u
@@ -295,4 +308,5 @@ let floatEncoders () =
     Opcode.PREFX, prefetchIndexed
     Opcode.MADD, multiplyAdd 0b100000u
     Opcode.MSUB, multiplyAdd 0b101000u
-    Opcode.NMADD, multiplyAdd 0b110000u ]
+    Opcode.NMADD, multiplyAdd 0b110000u
+    Opcode.NMSUB, multiplyAdd 0b111000u ]

@@ -40,6 +40,8 @@ let translate (ins: Instruction) (bld: LowUIRBuilder) =
     abs ins bld
   | Op.ADD ->
     add ins bld
+  | Op.ADDI ->
+    addi ins bld
   | Op.ADDIU ->
     addiu ins bld
   | Op.ADDU ->
@@ -60,6 +62,22 @@ let translate (ins: Instruction) (bld: LowUIRBuilder) =
     bc1t ins bld
   | Op.BEQ ->
     beq ins bld
+  | Op.BC1FL ->
+    bc1condl ins bld false
+  | Op.BC1TL ->
+    bc1condl ins bld true
+  | Op.BGEZL ->
+    bcondzl ins bld (?>=)
+  | Op.BLTZL ->
+    bcondzl ins bld (?<)
+  | Op.BLEZL ->
+    bcondzl ins bld (?<=)
+  | Op.BGTZL ->
+    bcondzl ins bld (?>)
+  | Op.BGEZALL ->
+    bcondzall ins bld (?>=)
+  | Op.BLTZALL ->
+    bcondzall ins bld (?<)
   | Op.BEQL ->
     beql ins bld
   | Op.BGEZ ->
@@ -86,6 +104,8 @@ let translate (ins: Instruction) (bld: LowUIRBuilder) =
     cfc1 ins bld
   | Op.CTC1 ->
     ctc1 ins bld
+  | Op.CLO ->
+    clo ins bld
   | Op.CLZ ->
     clz ins bld
   | Op.CVTD ->
@@ -100,8 +120,12 @@ let translate (ins: Instruction) (bld: LowUIRBuilder) =
     dadd ins bld
   | Op.DADDU ->
     daddu ins bld
+  | Op.DADDI ->
+    daddi ins bld
   | Op.DADDIU ->
     daddiu ins bld
+  | Op.DCLO ->
+    dclo ins bld
   | Op.DCLZ ->
     dclz ins bld
   | Op.DDIV ->
@@ -188,6 +212,8 @@ let translate (ins: Instruction) (bld: LowUIRBuilder) =
     dShiftLeftRight32 ins bld (>>)
   | Op.DSRLV ->
     dShiftLeftRightVar ins bld (>>)
+  | Op.DSUB ->
+    dsub ins bld
   | Op.DSUBU ->
     dsubu ins bld
   | Op.EHB ->
@@ -280,6 +306,8 @@ let translate (ins: Instruction) (bld: LowUIRBuilder) =
     neg ins bld
   | Op.NMADD ->
     nmadd ins bld
+  | Op.NMSUB ->
+    nmsub ins bld
   | Op.NOP ->
     nop ins bld
   | Op.NOR ->
@@ -398,6 +426,8 @@ let translate (ins: Instruction) (bld: LowUIRBuilder) =
     fpMinMax ins bld true true
   | Op.CLASS ->
     fpClass ins bld
+  | Op.RINT ->
+    rint ins bld
   | Op.CMP ->
     fpCmpR6 ins bld
   | Op.BC1EQZ ->
@@ -490,10 +520,42 @@ let translate (ins: Instruction) (bld: LowUIRBuilder) =
     nop ins bld
   | Op.SYSCALL ->
     syscall ins bld
-  | Op.TEQ ->
-    teq ins bld
-  | Op.TEQI ->
-    teqi ins bld
+  (* The conditional traps, which differ only in the comparison. The
+     immediate forms sign-extend what they compare against, including the two
+     that then compare it as unsigned -- which is the architecture's rule and
+     not an oversight here. *)
+  | Op.TEQ | Op.TEQI ->
+    trapIf ins bld (==)
+  | Op.TNE | Op.TNEI ->
+    trapIf ins bld (!=)
+  | Op.TGE | Op.TGEI ->
+    trapIf ins bld AST.sge
+  | Op.TGEU | Op.TGEIU ->
+    trapIf ins bld AST.ge
+  | Op.TLT | Op.TLTI ->
+    trapIf ins bld AST.slt
+  | Op.TLTU | Op.TLTIU ->
+    trapIf ins bld AST.lt
+  (* SIGRIE's whole effect IS a Reserved Instruction exception, so the
+     undefined-instruction side effect is what it means rather than a
+     placeholder. SDBBP enters the debug exception handler, which is the
+     breakpoint of this architecture. *)
+  | Op.SIGRIE ->
+    sideEffects ins bld UndefinedInstruction
+  | Op.SDBBP ->
+    sideEffects ins bld Breakpoint
+  | Op.ROUNDW ->
+    roundw ins bld
+  | Op.ROUNDL ->
+    roundl ins bld
+  | Op.CEILW ->
+    ceilw ins bld
+  | Op.CEILL ->
+    ceill ins bld
+  | Op.FLOORW ->
+    floorw ins bld
+  | Op.FLOORL ->
+    floorl ins bld
   | Op.TRUNCW ->
     truncw ins bld
   | Op.TRUNCL ->

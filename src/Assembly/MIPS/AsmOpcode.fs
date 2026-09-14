@@ -250,6 +250,7 @@ let arithmeticEncoders () =
     Opcode.DSRAV, shiftReg 0u 0b010111u
     Opcode.ADD, threeReg 0b100000u
     Opcode.ADDU, threeReg 0b100001u
+    Opcode.SUB, threeReg 0b100010u
     Opcode.SUBU, threeReg 0b100011u
     Opcode.AND, threeReg 0b100100u
     Opcode.OR, threeReg 0b100101u
@@ -259,6 +260,7 @@ let arithmeticEncoders () =
     Opcode.SLTU, threeReg 0b101011u
     Opcode.DADD, threeReg 0b101100u
     Opcode.DADDU, threeReg 0b101101u
+    Opcode.DSUB, threeReg 0b101110u
     Opcode.DSUBU, threeReg 0b101111u
     Opcode.MOVZ, threeReg 0b001010u
     Opcode.MOVN, threeReg 0b001011u
@@ -283,6 +285,8 @@ let arithmeticEncoders () =
     Opcode.MSUBU, multiplyAccumulate 0b000101u
     Opcode.MUL, multiplyToReg
     Opcode.CLZ, countLeadingZeros 0b100000u
+    Opcode.CLO, countLeadingZeros 0b100001u
+    Opcode.DCLO, countLeadingZeros 0b100101u
     Opcode.DCLZ, countLeadingZeros 0b100100u
     Opcode.EXT, bitfield 0b000000u 0u (extractEnd 0u)
     Opcode.DEXTM, bitfield 0b000001u 0u (extractEnd 32u)
@@ -302,9 +306,11 @@ let arithmeticEncoders () =
     Opcode.ALIGN, align 0b100000u 2
     Opcode.DALIGN, align 0b100100u 3
     Opcode.RDHWR, readHardware
+    Opcode.ADDI, arithImm 0b001000u
     Opcode.ADDIU, arithImm 0b001001u
     Opcode.SLTI, arithImm 0b001010u
     Opcode.SLTIU, arithImm 0b001011u
+    Opcode.DADDI, arithImm 0b011000u
     Opcode.DADDIU, arithImm 0b011001u
     Opcode.AUI, arithImm 0b001111u
     Opcode.ANDI, logicImm 0b001100u
@@ -530,6 +536,23 @@ let private jumpAndLink hint ins =
 
 /// Encodes <rs>, <imm>: the trap that compares a register against a written
 /// number.
+/// Encodes <code>: SDBBP, whose operand fills every bit above its function
+/// field for a debug handler to read out of the word.
+let private debugBreak ins =
+  match ins.Operands with
+  | OneOperand(Im code) ->
+    (0b011100u <<< 26) ||| (unsigned 20 code <<< 6) ||| 0b111111u
+  | _ ->
+    wrongOperands ins
+
+/// Encodes <code>: SIGRIE, whose operand is the lower half of the word.
+let private reservedSignal ins =
+  match ins.Operands with
+  | OneOperand(Im code) ->
+    immWord 0b000001u 0u 0b10111u (unsigned 16 code)
+  | _ ->
+    wrongOperands ins
+
 let private trapImm rt ins =
   match ins.Operands with
   | TwoOperands(Rg rs, Im value) ->
@@ -543,6 +566,12 @@ let branchEncoders () =
     Opcode.BEQ, branchOnPair 0b000100u
     Opcode.BNE, branchOnPair 0b000101u
     Opcode.BEQL, branchOnPair 0b010100u
+    Opcode.BLEZL, branchOnZero 0b010110u 0b00000u
+    Opcode.BGTZL, branchOnZero 0b010111u 0b00000u
+    Opcode.BLTZL, branchOnZero 0b000001u 0b00010u
+    Opcode.BGEZL, branchOnZero 0b000001u 0b00011u
+    Opcode.BLTZALL, branchOnZero 0b000001u 0b10010u
+    Opcode.BGEZALL, branchOnZero 0b000001u 0b10011u
     Opcode.BNEL, branchOnPair 0b010101u
     Opcode.BLTZ, branchOnZero 0b000001u 0b00000u
     Opcode.BGEZ, branchOnZero 0b000001u 0b00001u
@@ -558,8 +587,22 @@ let branchEncoders () =
     Opcode.JALRHB, jumpAndLink 0b10000u
     Opcode.SYSCALL, noOperand 0b00000u 0b001100u
     Opcode.BREAK, noOperand 0b00000u 0b001101u
+    Opcode.TGE, twoReg 0b110000u
+    Opcode.TGEU, twoReg 0b110001u
+    Opcode.TLT, twoReg 0b110010u
+    Opcode.TLTU, twoReg 0b110011u
     Opcode.TEQ, twoReg 0b110100u
-    Opcode.TEQI, trapImm 0b01100u ]
+    Opcode.TNE, twoReg 0b110110u
+    Opcode.TGEI, trapImm 0b01000u
+    Opcode.TGEIU, trapImm 0b01001u
+    Opcode.TLTI, trapImm 0b01010u
+    Opcode.TLTIU, trapImm 0b01011u
+    Opcode.TEQI, trapImm 0b01100u
+    Opcode.TNEI, trapImm 0b01110u
+    (* SDBBP's code fills every bit above its function field; SIGRIE's is the
+       lower half of the word, the way a written number usually is. *)
+    Opcode.SDBBP, debugBreak
+    Opcode.SIGRIE, reservedSignal ]
 
 (* The loads and the stores. Every one of them reads memory at a distance from
    a register, and what says how wide the access is is the instruction rather
