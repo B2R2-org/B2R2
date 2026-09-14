@@ -177,7 +177,7 @@ module internal Header =
     | MachineType.EM_PPC64 ->
       ISA(Architecture.PPC, reader.Endianness, WordSize.Bit64)
     | MachineType.EM_RISCV ->
-      ISA(Architecture.RISCV, reader.Endianness, WordSize.Bit64)
+      ISA(Architecture.RISCV, reader.Endianness, cls)
     | MachineType.EM_SPARCV9 ->
       ISA(Architecture.SPARC, reader.Endianness, WordSize.Bit64)
     | MachineType.EM_S390 ->

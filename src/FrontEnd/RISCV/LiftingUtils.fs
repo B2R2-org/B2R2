@@ -427,7 +427,7 @@ let transOpr (ins: Instruction) bld = function
       AST.num0 bld.RegType
     else
       let target = regVar bld b .+ numI64 (int64 imm) bld.RegType
-      let mask = numI64 0xFFFFFFFF_FFFFFFFEL 64<rt>
+      let mask = numI64 0xFFFFFFFF_FFFFFFFEL bld.RegType
       target .& mask
   | OpMem(b, None, sz) ->
     AST.loadLE sz (regVar bld b)
@@ -628,14 +628,25 @@ let getAddrFromMem x =
 
 let getAddrFromMemAndSize x =
   match x with
-  | Load(_, rt, addr, _) -> addr, numI32 (RegType.toByteWidth rt) 64<rt>
-  | _ -> raise InvalidExprException
+  | Load(_, rt, addr, _) ->
+    addr, numI32 (RegType.toByteWidth rt) (Expr.typeOf addr)
+  | _ ->
+    raise InvalidExprException
 
+/// Whether an address is one the given access may be made at. The address is
+/// as wide as the XLEN, so what it is compared against is taken from it rather
+/// than written out.
 let isAligned rt expr =
+  let addrSize = Expr.typeOf expr
   match rt with
-  | 32<rt> -> ((expr .& (numU32 0x3u 64<rt>)) == AST.num0 64<rt>)
-  | 64<rt> -> ((expr .& (numU32 0x7u 64<rt>)) == AST.num0 64<rt>)
+  | 32<rt> -> ((expr .& (numU32 0x3u addrSize)) == AST.num0 addrSize)
+  | 64<rt> -> ((expr .& (numU32 0x7u addrSize)) == AST.num0 addrSize)
   | _ -> raise InvalidRegTypeException
+
+/// How far a shift by a register shifts by, which is what the register holds
+/// in as many of its lowest bits as it takes to name a place within one.
+let shiftMask (bld: ILowUIRBuilder) =
+  numU64 (uint64 (RegType.toBitWidth bld.RegType) - 1UL) bld.RegType
 
 let getAccessLength = function
   | OpMem(_, _, sz) -> sz
@@ -742,3 +753,234 @@ let isSubnormal rt e =
     (e .& fullMantissa != AST.num0 64<rt>)
   | _ ->
     raise InvalidRegTypeException
+
+/// <summary>
+/// Sets frm to the direction the instruction's own rm field names, and hands
+/// back what it displaced so the caller can put it back.
+///
+/// The IR has no per-operation rounding: an FADD is an FADD, and what it rounds
+/// by is whatever the target's rounding-control register says when the
+/// evaluator reaches it. A statically named direction is therefore had by
+/// setting frm for the length of the operation and putting it back, which is
+/// what the x86 front end does with MXCSR for AVX-512's static rounding. The
+/// value has to land in a temporary while frm is set, an expression not being
+/// evaluated where it is built.
+///
+/// A dynamic rm -- the encoding 111, which is what a compiler emits for very
+/// nearly every floating-point instruction in a real program -- names no
+/// direction of its own and leaves frm alone.
+///
+/// Routing the static case through frm rather than through a cast kind chosen
+/// at lift time is what lets one path serve both, so there is no second
+/// implementation to keep in step -- and it is the only way to reach a
+/// direction that has no cast kind of its own, round-to-nearest-ties-away
+/// among them.
+/// </summary>
+let enterRoundingMode bld rm =
+  match rm with
+  | OpRoundMode RoundMode.DYN ->
+    None
+  | OpRoundMode mode ->
+    let saved = tmpVar bld 32<rt>
+    let frm = regVar bld Register.FRM
+    append bld {
+      saved := frm
+      frm := numI32 (int mode) 32<rt>
+    }
+    Some saved
+  | _ ->
+    raise InvalidOperandException
+
+/// Puts back what <c>enterRoundingMode</c> displaced.
+let leaveRoundingMode bld saved =
+  match saved with
+  | Some v -> append bld { regVar bld Register.FRM := v }
+  | None -> ()
+
+/// The same for one expression: evaluate it with frm holding the direction the
+/// instruction named, into a temporary, and put frm back. The temporary is
+/// needed because an expression is not evaluated where it is built.
+let underRoundingMode bld width rm value =
+  match enterRoundingMode bld rm with
+  | None ->
+    value
+  | saved ->
+    let result = tmpVar bld width
+    append bld { result := value }
+    leaveRoundingMode bld saved
+    result
+
+/// <summary>
+/// The value a floating-point operation delivers, with any NaN it produced
+/// replaced by the canonical quiet one.
+///
+/// RISC-V does not propagate payloads out of an arithmetic operation: "if the
+/// result is NaN, it is the canonical NaN" (unprivileged ISA, "NaN
+/// Generation and Propagation"), whatever the payloads of the operands were.
+/// So an implementation built on a host's own arithmetic, which propagates,
+/// has to canonicalise on the way out.
+/// </summary>
+let fpCanonical oprSz e = AST.ite (isNan oprSz e) (fpDefaultNan oprSz) e
+
+/// <summary>
+/// IEEE equality, which is not equality of bit patterns.
+///
+/// The two zeros have different patterns and compare equal, so a comparison
+/// written as an integer one is wrong for exactly that pair -- and for nothing
+/// else, every other value having a single encoding. The NaN cases are the
+/// caller's, this being the ordering rather than the signalling half of a
+/// comparison.
+/// </summary>
+let fpEqual oprSz a b = (a == b) .| (isZero oprSz a .& isZero oprSz b)
+
+/// <summary>
+/// FMIN or FMAX, which are not <c>a &lt; b ? a : b</c> in three separate ways.
+///
+/// The manual gives all three (unprivileged ISA, the single-precision
+/// computational instructions): "for the purposes of these instructions only,
+/// the value -0.0 is considered to be less than the value +0.0. If both inputs
+/// are NaNs, the result is the canonical NaN. If only one operand is a NaN,
+/// the result is the non-NaN operand."
+///
+/// A plain comparison gets each of those wrong. It calls the two zeros equal,
+/// so FMIN(-0, +0) comes back +0; it is false when either operand is a NaN, so
+/// FMIN(NaN, x) comes back x -- right by accident -- while FMIN(x, NaN) comes
+/// back NaN, which is not; and with two NaNs it returns one of them rather
+/// than the canonical one.
+/// </summary>
+let fpMinMax oprSz isMin a b =
+  let signOf x = AST.extract x 1<rt> (RegType.toBitWidth oprSz - 1)
+  (* Where both are zero the sign decides, and taking it from the first operand
+     answers every combination: two of a kind pick either, and a mixed pair
+     picks the negative one for a minimum. *)
+  let aIsLess = AST.ite (isZero oprSz a .& isZero oprSz b)
+                        (signOf a)
+                        (AST.flt a b)
+  let picked = if isMin then AST.ite aIsLess a b else AST.ite aIsLess b a
+  AST.ite (isNan oprSz a .& isNan oprSz b)
+          (fpDefaultNan oprSz)
+          (AST.ite (isNan oprSz a) b (AST.ite (isNan oprSz b) a picked))
+
+/// The operation a floating-point exception query names. These numbers are the
+/// contract with the evaluator's FloatBits, which answers the call.
+module FpExc =
+  let [<Literal>] Add = 0UL
+  let [<Literal>] Sub = 1UL
+  let [<Literal>] Mul = 2UL
+  let [<Literal>] Div = 3UL
+  let [<Literal>] Sqrt = 4UL
+  let [<Literal>] MinMax = 5UL
+  let [<Literal>] ToSInt = 6UL
+  let [<Literal>] ToUInt = 7UL
+  let [<Literal>] Fma = 8UL
+
+/// <summary>
+/// The accrued exception bits an operation raises, as a named call.
+///
+/// fcsr's five flags -- inexact, underflow, overflow, divide-by-zero,
+/// invalid -- are half of what a floating-point instruction defines, and four
+/// of the five cannot be seen from the IR at all: whether a result was inexact
+/// is whether anything was lost in rounding it, which only the thing that did
+/// the rounding knows. So the question goes to the evaluator, which has the
+/// exact residual of every operation it performs and can answer from it.
+///
+/// The operation is worked out a second time on the other side rather than
+/// reported by the one that produced the value. That costs a multiply or a
+/// divide and buys a plain contract: the flags are a function of the operands,
+/// the operation and the direction in force, with no state threaded between
+/// two places.
+///
+/// For a conversion the second operand is the destination's width in bits.
+/// </summary>
+let fpExceptions sz op a b =
+  let args = [ numU64 op 8<rt>; a; b ]
+  AST.app (if sz = 32<rt> then "FEXC32" else "FEXC64") args 32<rt>
+
+/// The same for a fused multiply-add, which has a third operand and a pair of
+/// sign flags rather than two plain ones. The negations ride along as flags
+/// for the same reason they do in <c>fpFused</c>: flipping a NaN operand's
+/// sign first would change what the operation is asked about.
+let fpFmaExceptions sz negProduct negAddend x y z =
+  let prodBit = if negProduct then 1UL else 0UL
+  let addBit = if negAddend then 2UL else 0UL
+  let args =
+    [ numU64 FpExc.Fma 8<rt>
+      x
+      y
+      z
+      numU64 (prodBit ||| addBit) 8<rt> ]
+  AST.app (if sz = 32<rt> then "FEXC32" else "FEXC64") args 32<rt>
+
+let accrueFmaFlags bld sz negProduct negAddend x y z =
+  let fflags = regVar bld Register.FFLAGS
+  append bld {
+    fflags := fflags .| fpFmaExceptions sz negProduct negAddend x y z
+  }
+
+/// Records what an operation raised, the way fcsr accrues it: the flags only
+/// ever go on, and nothing but an explicit write to the register takes them
+/// off again.
+let accrueFlags bld sz op a b =
+  let fflags = regVar bld Register.FFLAGS
+  append bld { fflags := fflags .| fpExceptions sz op a b }
+
+/// <summary>
+/// The fused multiply-add, as the one operation it is.
+///
+/// The rounding is the instruction. Spelling FMADD out as a multiply and an
+/// add rounds twice, and the two answers part company for a few per cent of
+/// operands -- so this goes out as a named call the evaluator answers with its
+/// host's own fused multiply-add, the same one the x86 front end reaches for.
+/// Flag bit 0 negates the product and bit 1 the addend, which is how the
+/// family's four members differ; the negations ride along as flags rather than
+/// being applied to the operands here, a sign flip on a NaN operand changing
+/// which NaN comes back out.
+///
+/// The result still has to go through fpCanonical: the named call propagates
+/// payloads the way x86 does, where RISC-V answers every invalid operation
+/// with its one canonical NaN.
+///
+/// What this does not carry is a rounding direction. The call rounds to
+/// nearest, so an FMADD whose rm field names a direction of its own is rounded
+/// as though it had said dynamic. Every compiler emits the dynamic encoding,
+/// and the arithmetic instructions that are not fused do honour a static
+/// direction -- see underRoundingMode; this is the one family where a named
+/// direction is dropped.
+/// </summary>
+let fpFused sz negProduct negAddend x y z =
+  let prodBit = if negProduct then 1UL else 0UL
+  let addBit = if negAddend then 2UL else 0UL
+  let args = [ x; y; z; numU64 (prodBit ||| addBit) 8<rt> ]
+  AST.app (if sz = 32<rt> then "FMA32" else "FMA64") args sz
+
+/// The ten-bit mask FCLASS writes, for a value of <c>oprSz</c> bits placed in
+/// a destination of <c>rt</c> bits.
+///
+/// The ten kinds are mutually exclusive and exactly one bit is ever set, so
+/// this is one chain of choices rather than a series of assignments into the
+/// destination.
+///
+/// The order matters in one place. The NaN tests come first and OUTSIDE the
+/// split on the sign, because a NaN's sign bit is not part of what FCLASS
+/// reports: bits 8 and 9 name a signalling and a quiet NaN and neither has a
+/// negative twin. A classifier that splits on the sign first and then looks
+/// for a NaN only on the positive side calls every negative NaN a negative
+/// normal number, which is a bug no ordinary operand reveals -- half of the
+/// NaNs a generator draws are positive and classify correctly.
+/// </summary>
+let fclassValue oprSz rt e =
+  let bit n = numU32 (1u <<< n) rt
+  let sign = AST.extract e 1<rt> (RegType.toBitWidth oprSz - 1)
+  (* Every kind but the two NaNs comes in a negative and a positive form, and
+     the sign picks between them. *)
+  let bySign neg pos = AST.ite sign (bit neg) (bit pos)
+  (* The chain is built inside out: `normal` is what is left once every test
+     has declined, and each line below puts one more test in front of it. So
+     the order it RUNS in is the reverse of the order it is written in, and the
+     two NaN tests come first -- which is the point of the function. *)
+  let normal = bySign 1 6
+  let subnormal = AST.ite (isSubnormal oprSz e) (bySign 2 5) normal
+  let zero = AST.ite (isZero oprSz e) (bySign 3 4) subnormal
+  let infinite = AST.ite (isInf oprSz e) (bySign 0 7) zero
+  let quiet = AST.ite (isQNan oprSz e) (bit 9) infinite
+  AST.ite (isSNan oprSz e) (bit 8) quiet

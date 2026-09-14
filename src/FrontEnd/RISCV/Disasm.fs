@@ -232,6 +232,11 @@ let opCodeToString = function
   | Op.CdotFSDSP -> "fsd"
   | Op.CdotSWSP -> "sw"
   | Op.CdotSDSP -> "sd"
+  | Op.CdotJAL -> "jal"
+  | Op.CdotFLW -> "flw"
+  | Op.CdotFSW -> "fsw"
+  | Op.CdotFLWSP -> "flw"
+  | Op.CdotFSWSP -> "fsw"
   | _ -> Terminator.impossible ()
 
 let roundModeToString = function
@@ -255,8 +260,19 @@ let inline buildOpcode (ins: Instruction) (builder: IDisasmBuilder) =
   let str = opCodeToString ins.Opcode
   builder.Accumulate(AsmWordKind.Mnemonic, str)
 
-let inline relToString pc offset (builder: IDisasmBuilder) =
-  let targetAddr = pc + uint64 offset
+/// <summary>
+/// Writes the place an instruction names, which the encoding holds as how far
+/// away that place lies.
+///
+/// The address is worked out in as many bits as the architecture addresses
+/// with, so on RV32 a place reached from below the start of memory comes out
+/// where such a place is, rather than past the end of a wider memory.
+/// </summary>
+let inline relToString (ins: Instruction) offset (builder: IDisasmBuilder) =
+  let targetAddr = ins.Address + uint64 offset
+  let targetAddr =
+    if ins.WordSize = WordSize.Bit32 then targetAddr &&& 0xFFFFFFFFUL
+    else targetAddr
   builder.Accumulate(AsmWordKind.Value, HexString.ofUInt64 targetAddr)
 
 let oprToString (ins: Instruction) opr delim (builder: IDisasmBuilder) =
@@ -281,7 +297,7 @@ let oprToString (ins: Instruction) opr delim (builder: IDisasmBuilder) =
     builder.Accumulate(AsmWordKind.String, ")")
   | OpAddr(Relative offset) ->
     builder.Accumulate(AsmWordKind.String, delim)
-    relToString ins.Address offset builder
+    relToString ins offset builder
   | OpAddr(RelativeBase(b, off)) ->
     builder.Accumulate(AsmWordKind.String, delim)
     builder.Accumulate(AsmWordKind.Value, off.ToString("D"))

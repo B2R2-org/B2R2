@@ -54,7 +54,11 @@ type Assembler(isa: ISA, baseAddr: Addr) =
 
   /// The table-driven encoders, built here so that they are collected with the
   /// assembler instead of living for as long as the process does.
-  let encoders = lazy (buildEncoderTable ())
+  let encoders = lazy (buildEncoderTable isa.WordSize)
+
+  /// The mnemonics this width has, which are fewer than the whole of them
+  /// wherever the instruction named is one RV64 alone reaches.
+  let opcodes = opcodesFor isa.WordSize
 
   let addLabeldef lbl =
     updateUserState (fun us ->
@@ -105,6 +109,11 @@ type Assembler(isa: ISA, baseAddr: Addr) =
   /// register it lands in rather than with a sign, so one below zero arrives
   /// here too large to read as a signed number. What is read is therefore the
   /// bits, and what they stand for is left to the operand they land in.
+  ///
+  /// How wide that register is decides which bits stand for a number below
+  /// zero, so what is read on a narrower one is widened here: every field
+  /// below then reads what it is handed the one way, whichever width the
+  /// source is for.
   /// </summary>
   let valueOf (text: string) =
     let negative = text.StartsWith "-"
@@ -118,7 +127,9 @@ type Assembler(isa: ISA, baseAddr: Addr) =
         Convert.ToUInt64(text[2..], 8)
       else
         UInt64.Parse text
-    if negative then uint64 -(int64 value) else value
+    let value = if negative then uint64 -(int64 value) else value
+    if isa.WordSize = WordSize.Bit32 then uint64 (int64 (int32 (uint32 value)))
+    else value
 
   let pNumber =
     numberLiteral numberFormat "number" |>> fun n -> valueOf n.String

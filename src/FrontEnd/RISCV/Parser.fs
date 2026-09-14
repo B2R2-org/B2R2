@@ -30,7 +30,7 @@ open B2R2.FrontEnd.BinLifter
 
 /// Represents a parser for RISCV instructions.
 type RISCVParser(isa: ISA, reader) =
-  let wordSize = int isa.WordSize
+  let wordSize = isa.WordSize
 
   let lifter =
     { new ILiftable with

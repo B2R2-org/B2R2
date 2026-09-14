@@ -67,7 +67,7 @@ jobs:
         - MIPS
         - PARISC
         - PPC
-        - RISCV64
+        - RISCV
         - SPARC
         - S390
         - SH4

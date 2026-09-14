@@ -3525,7 +3525,7 @@ module LinuxSyscall =
     | LinuxSyscall.Faccessat2 -> 439
     | _ -> raise UnhandledSyscallException
 
-  let private getRISCV64Number = function
+  let private getRISCVNumber = function
     | LinuxSyscall.RiscvHwprobe -> 258
     | LinuxSyscall.IoSetup -> 0
     | LinuxSyscall.IoDestroy -> 1
@@ -6243,7 +6243,7 @@ module LinuxSyscall =
     | MIPS64 -> getMIPSN64Number syscall
     | PPC32 -> getPPC32Number syscall
     | PPC64 -> getPPC64Number syscall
-    | RISCV64 -> getRISCV64Number syscall
+    | RISCV -> getRISCVNumber syscall
     | SPARC -> getSPARCNumber syscall
     | SH4 -> getSH4Number syscall
     | PARISC -> getPARISCNumber syscall
@@ -9230,7 +9230,7 @@ module LinuxSyscall =
     | 439 -> LinuxSyscall.Faccessat2
     | _ -> raise UnhandledSyscallException
 
-  let private getRISCV64Syscall = function
+  let private getRISCVSyscall = function
     (* RISC-V arch-specific call in the asm-generic 244-259 reserved range. *)
     | 258 -> LinuxSyscall.RiscvHwprobe
     | 0 -> LinuxSyscall.IoSetup
@@ -11927,7 +11927,7 @@ module LinuxSyscall =
     | MIPS64 -> getMIPSN64Syscall num
     | PPC32 -> getPPC32Syscall num
     | PPC64 -> getPPC64Syscall num
-    | RISCV64 -> getRISCV64Syscall num
+    | RISCV -> getRISCVSyscall num
     | SPARC -> getSPARCSyscall num
     | SH4 -> getSH4Syscall num
     | PARISC -> getPARISCSyscall num

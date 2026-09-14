@@ -32,6 +32,16 @@ open B2R2.BinIR.LowUIR
 /// Represents a factory for accessing various RISCV register variables.
 type RegisterFactory(isa: ISA) =
   let rt = WordSize.toRegType isa.WordSize
+
+  (* FLEN, which is not XLEN. A float register is sixty-four bits wide whenever
+     D is supported, on rv32 as much as on rv64 -- which is why RV32D has no
+     FMV.X.D to move one into an integer register, and why a single held in one
+     has to be NaN-boxed into the upper half it does not fill. Taking the width
+     from the word size instead leaves rv32 with thirty-two bit float
+     registers, FLD with nowhere to land, and no upper half for a box.
+     RegisterHelper.toRegType has always said 64 here; this is the line that
+     disagreed. *)
+  let flen = 64<rt>
   let fflags = AST.var 32<rt> (Register.toRegID Register.FFLAGS) "FFLAGS"
   let frm = AST.var 32<rt> (Register.toRegID Register.FRM) "FRM"
 
@@ -68,44 +78,44 @@ type RegisterFactory(isa: ISA) =
   let x30 = AST.var rt (Register.toRegID Register.X30) "X30"
   let x31 = AST.var rt (Register.toRegID Register.X31) "X31"
 
-  let f0 = AST.var rt (Register.toRegID Register.F0) "F0"
-  let f1 = AST.var rt (Register.toRegID Register.F1) "F1"
-  let f2 = AST.var rt (Register.toRegID Register.F2) "F2"
-  let f3 = AST.var rt (Register.toRegID Register.F3) "F3"
-  let f4 = AST.var rt (Register.toRegID Register.F4) "F4"
-  let f5 = AST.var rt (Register.toRegID Register.F5) "F5"
-  let f6 = AST.var rt (Register.toRegID Register.F6) "F6"
-  let f7 = AST.var rt (Register.toRegID Register.F7) "F7"
-  let f8 = AST.var rt (Register.toRegID Register.F8) "F8"
-  let f9 = AST.var rt (Register.toRegID Register.F9) "F9"
-  let f10 = AST.var rt (Register.toRegID Register.F10) "F10"
-  let f11 = AST.var rt (Register.toRegID Register.F11) "F11"
-  let f12 = AST.var rt (Register.toRegID Register.F12) "F12"
-  let f13 = AST.var rt (Register.toRegID Register.F13) "F13"
-  let f14 = AST.var rt (Register.toRegID Register.F14) "F14"
-  let f15 = AST.var rt (Register.toRegID Register.F15) "F15"
-  let f16 = AST.var rt (Register.toRegID Register.F16) "F16"
-  let f17 = AST.var rt (Register.toRegID Register.F17) "F17"
-  let f18 = AST.var rt (Register.toRegID Register.F18) "F18"
-  let f19 = AST.var rt (Register.toRegID Register.F19) "F19"
-  let f20 = AST.var rt (Register.toRegID Register.F20) "F20"
-  let f21 = AST.var rt (Register.toRegID Register.F21) "F21"
-  let f22 = AST.var rt (Register.toRegID Register.F22) "F22"
-  let f23 = AST.var rt (Register.toRegID Register.F23) "F23"
-  let f24 = AST.var rt (Register.toRegID Register.F24) "F24"
-  let f25 = AST.var rt (Register.toRegID Register.F25) "F25"
-  let f26 = AST.var rt (Register.toRegID Register.F26) "F26"
-  let f27 = AST.var rt (Register.toRegID Register.F27) "F27"
-  let f28 = AST.var rt (Register.toRegID Register.F28) "F28"
-  let f29 = AST.var rt (Register.toRegID Register.F29) "F29"
-  let f30 = AST.var rt (Register.toRegID Register.F30) "F30"
-  let f31 = AST.var rt (Register.toRegID Register.F31) "F31"
+  let f0 = AST.var flen (Register.toRegID Register.F0) "F0"
+  let f1 = AST.var flen (Register.toRegID Register.F1) "F1"
+  let f2 = AST.var flen (Register.toRegID Register.F2) "F2"
+  let f3 = AST.var flen (Register.toRegID Register.F3) "F3"
+  let f4 = AST.var flen (Register.toRegID Register.F4) "F4"
+  let f5 = AST.var flen (Register.toRegID Register.F5) "F5"
+  let f6 = AST.var flen (Register.toRegID Register.F6) "F6"
+  let f7 = AST.var flen (Register.toRegID Register.F7) "F7"
+  let f8 = AST.var flen (Register.toRegID Register.F8) "F8"
+  let f9 = AST.var flen (Register.toRegID Register.F9) "F9"
+  let f10 = AST.var flen (Register.toRegID Register.F10) "F10"
+  let f11 = AST.var flen (Register.toRegID Register.F11) "F11"
+  let f12 = AST.var flen (Register.toRegID Register.F12) "F12"
+  let f13 = AST.var flen (Register.toRegID Register.F13) "F13"
+  let f14 = AST.var flen (Register.toRegID Register.F14) "F14"
+  let f15 = AST.var flen (Register.toRegID Register.F15) "F15"
+  let f16 = AST.var flen (Register.toRegID Register.F16) "F16"
+  let f17 = AST.var flen (Register.toRegID Register.F17) "F17"
+  let f18 = AST.var flen (Register.toRegID Register.F18) "F18"
+  let f19 = AST.var flen (Register.toRegID Register.F19) "F19"
+  let f20 = AST.var flen (Register.toRegID Register.F20) "F20"
+  let f21 = AST.var flen (Register.toRegID Register.F21) "F21"
+  let f22 = AST.var flen (Register.toRegID Register.F22) "F22"
+  let f23 = AST.var flen (Register.toRegID Register.F23) "F23"
+  let f24 = AST.var flen (Register.toRegID Register.F24) "F24"
+  let f25 = AST.var flen (Register.toRegID Register.F25) "F25"
+  let f26 = AST.var flen (Register.toRegID Register.F26) "F26"
+  let f27 = AST.var flen (Register.toRegID Register.F27) "F27"
+  let f28 = AST.var flen (Register.toRegID Register.F28) "F28"
+  let f29 = AST.var flen (Register.toRegID Register.F29) "F29"
+  let f30 = AST.var flen (Register.toRegID Register.F30) "F30"
+  let f31 = AST.var flen (Register.toRegID Register.F31) "F31"
 
   let pc = AST.pcvar rt "PC"
   (* Pseudo registers for the value-based exclusive monitor (LR/SC). *)
   let exMonAddr =
-    AST.var 64<rt> (Register.toRegID Register.ExMonAddr) "ExMonAddr"
-  let exMonVal = AST.var 64<rt> (Register.toRegID Register.ExMonVal) "ExMonVal"
+    AST.var rt (Register.toRegID Register.ExMonAddr) "ExMonAddr"
+  let exMonVal = AST.var rt (Register.toRegID Register.ExMonVal) "ExMonVal"
   let fcsr =
     AST.``or`` (AST.``and`` fflags (numI32 0b11111 32<rt>))
                (AST.shl (AST.``and`` frm (numI32 0b111 32<rt>))

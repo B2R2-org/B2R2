@@ -115,21 +115,70 @@ let private nameOf (opcode: Opcode) =
   (string opcode).Replace("dot", ".").ToLowerInvariant()
 
 /// <summary>
-/// Every mnemonic, paired with the opcode it names.
-///
-/// The compressed instructions are left out, because the disassembler writes
-/// each of them under the name of the instruction of full width that does the
-/// same thing, and that is the one this assembler encodes. The one exception is
-/// the compressed instruction that does nothing at all, which has no such
-/// counterpart: what the disassembler writes for it is a name the full-width
-/// instruction set does not have.
+/// The instructions only RV64 has: the ones reaching a whole doubleword, the
+/// ones keeping only a word of the doubleword they computed, and the ones
+/// converting between a floating-point number and a doubleword.
 /// </summary>
-let opcodes =
+let private rv64Only =
+  set [ Op.LWU
+        Op.LD
+        Op.SD
+        Op.ADDIW
+        Op.SLLIW
+        Op.SRLIW
+        Op.SRAIW
+        Op.ADDW
+        Op.SUBW
+        Op.SLLW
+        Op.SRLW
+        Op.SRAW
+        Op.MULW
+        Op.DIVW
+        Op.DIVUW
+        Op.REMW
+        Op.REMUW
+        Op.LRdotD
+        Op.SCdotD
+        Op.AMOSWAPdotD
+        Op.AMOADDdotD
+        Op.AMOXORdotD
+        Op.AMOANDdotD
+        Op.AMOORdotD
+        Op.AMOMINdotD
+        Op.AMOMAXdotD
+        Op.AMOMINUdotD
+        Op.AMOMAXUdotD
+        Op.FCVTdotLdotS
+        Op.FCVTdotLUdotS
+        Op.FCVTdotSdotL
+        Op.FCVTdotSdotLU
+        Op.FCVTdotLdotD
+        Op.FCVTdotLUdotD
+        Op.FCVTdotDdotL
+        Op.FCVTdotDdotLU
+        Op.FMVdotXdotD
+        Op.FMVdotDdotX ]
+
+/// Whether an instruction of full width is one the given XLEN has a name for.
+/// The compressed instructions are left out here, because the disassembler
+/// writes each of them under the name of the instruction of full width that
+/// does the same thing, and that is the one this assembler encodes.
+let private isNamedOn wordSize (opcode: Opcode) =
+  if opcode = Opcode.InvalOP || (string opcode).StartsWith "Cdot" then false
+  elif wordSize = WordSize.Bit64 then true
+  else not (Set.contains opcode rv64Only)
+
+/// <summary>
+/// Every mnemonic the given XLEN has, paired with the opcode it names.
+///
+/// The one compressed instruction named here is the one that does nothing at
+/// all, which has no full-width counterpart: what the disassembler writes for
+/// it is a name the full-width instruction set does not have.
+/// </summary>
+let opcodesFor wordSize =
   Enum.GetValues typeof<Opcode>
   |> Seq.cast<Opcode>
-  |> Seq.filter (fun opcode ->
-    let name = string opcode
-    opcode <> Opcode.InvalOP && not (name.StartsWith "Cdot"))
+  |> Seq.filter (isNamedOn wordSize)
   |> Seq.map (fun opcode -> nameOf opcode, opcode)
   |> Seq.append [ "nop", Opcode.CdotNOP ]
   |> Seq.distinctBy fst

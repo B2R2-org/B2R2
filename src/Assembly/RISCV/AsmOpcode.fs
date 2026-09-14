@@ -30,6 +30,7 @@
 /// </summary>
 module internal B2R2.Assembly.RISCV.AsmOpcode
 
+open B2R2
 open B2R2.FrontEnd.RISCV
 open B2R2.Assembly.RISCV.ParserHelper
 open B2R2.Assembly.RISCV.AsmField
@@ -105,19 +106,28 @@ let private upperForm opcode ins =
   | [ Rg d; Im value ] -> uType opcode (gpr d) (immediate20 value)
   | _ -> wrongOperands ins
 
+/// <summary>
 /// The instructions that take a written number rather than a second register.
-let immediateEncoders () =
+///
+/// A shift of a whole register shifts across as many places as that register
+/// has, so how wide the amount is - and with it how much of the field above it
+/// is left to say which shift it is - follows from the XLEN. The shifts keeping
+/// only a word are on RV64 alone, and shift across a word either way.
+/// </summary>
+let immediateEncoders wordSize =
+  let width = if wordSize = WordSize.Bit64 then 6 else 5
+  let arithmetic = if wordSize = WordSize.Bit64 then 0x10u else 0x20u
   [ Op.ADDI, immForm OpImm 0u
     Op.SLTI, immForm OpImm 2u
     Op.SLTIU, immForm OpImm 3u
     Op.XORI, immForm OpImm 4u
     Op.ORI, immForm OpImm 6u
     Op.ANDI, immForm OpImm 7u
-    Op.SLLI, shiftForm OpImm 1u 0u 6
-    Op.SRLI, shiftForm OpImm 5u 0u 6
-    Op.SRAI, shiftForm OpImm 5u 0x10u 6
+    Op.SLLI, shiftForm OpImm 1u 0u width
+    Op.SRLI, shiftForm OpImm 5u 0u width
+    Op.SRAI, shiftForm OpImm 5u arithmetic width
     Op.ADDIW, immForm OpImm32 0u
-    Op.SLLIW, shiftForm OpImm32 1u 0u 6
+    Op.SLLIW, shiftForm OpImm32 1u 0u 5
     Op.SRLIW, shiftForm OpImm32 5u 0u 5
     Op.SRAIW, shiftForm OpImm32 5u 0x20u 5
     Op.LUI, upperForm OpLui

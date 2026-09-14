@@ -82,7 +82,7 @@ let slt ins bld =
   lift bld ins {
     let rd, rs1, rs2 = transThreeOprs ins bld
     let cond = rs1 ?< rs2
-    let rtVal = AST.ite cond (AST.num1 64<rt>) (AST.num0 64<rt>)
+    let rtVal = AST.ite cond (AST.num1 bld.RegType) (AST.num0 bld.RegType)
     rd := rtVal
   }
 
@@ -90,14 +90,14 @@ let sltu ins bld =
   lift bld ins {
     let rd, rs1, rs2 = transThreeOprs ins bld
     let cond = rs1 .< rs2
-    let rtVal = AST.ite cond (AST.num1 64<rt>) (AST.num0 64<rt>)
+    let rtVal = AST.ite cond (AST.num1 bld.RegType) (AST.num0 bld.RegType)
     rd := rtVal
   }
 
 let sll ins bld =
   lift bld ins {
     let rd, rs1, rs2 = transThreeOprs ins bld
-    let shiftAmm = rs2 .& numU64 0x3fUL 64<rt>
+    let shiftAmm = rs2 .& shiftMask bld
     rd := rs1 << shiftAmm
   }
 
@@ -113,7 +113,7 @@ let sllw ins bld =
 let srl ins bld =
   lift bld ins {
     let rd, rs1, rs2 = transThreeOprs ins bld
-    let shiftAmm = rs2 .& numU64 0x3fUL 64<rt>
+    let shiftAmm = rs2 .& shiftMask bld
     rd := rs1 >> shiftAmm
   }
 
@@ -129,7 +129,7 @@ let srlw ins bld =
 let sra ins bld =
   lift bld ins {
     let rd, rs1, rs2 = transThreeOprs ins bld
-    let shiftAmm = rs2 .& numU64 0x3fUL 64<rt>
+    let shiftAmm = rs2 .& shiftMask bld
     rd := rs1 ?>> shiftAmm
   }
 
@@ -188,7 +188,7 @@ let slti ins bld =
   lift bld ins {
     let rd, rs1, imm = transThreeOprs ins bld
     let cond = rs1 ?< imm
-    let rtVal = AST.ite cond (AST.num1 64<rt>) (AST.num0 64<rt>)
+    let rtVal = AST.ite cond (AST.num1 bld.RegType) (AST.num0 bld.RegType)
     rd := rtVal
   }
 
@@ -196,7 +196,7 @@ let sltiu ins bld =
   lift bld ins {
     let rd, rs1, imm = transThreeOprs ins bld
     let cond = rs1 .< imm
-    let rtVal = AST.ite cond (AST.num1 64<rt>) (AST.num0 64<rt>)
+    let rtVal = AST.ite cond (AST.num1 bld.RegType) (AST.num0 bld.RegType)
     rd := rtVal
   }
 
@@ -216,7 +216,7 @@ let jalr ins bld =
   lift bld ins {
     let rd, jumpTarget = transTwoOprs ins bld
     let r = bvOfBaseAddr bld ins.Address .+ bvOfInstrLen bld ins
-    let target = tmpVar bld 64<rt>
+    let target = tmpVar bld bld.RegType
     let actualTarget = if target = AST.num0 bld.RegType then rd else target
     target := jumpTarget
     rd := r
@@ -287,7 +287,7 @@ let store ins bld =
   lift bld ins {
     let rd, mem = transTwoOprs ins bld
     let accessLength = getAccessLength (snd (getTwoOprs ins))
-    if accessLength = 64<rt> then append bld { mem := rd }
+    if accessLength = bld.RegType then append bld { mem := rd }
     else append bld { mem := AST.xtlo accessLength rd }
   }
 
@@ -349,15 +349,17 @@ let mul ins bld =
 let mulhSignOrUnsign ins bld (isSign, isUnsign) =
   lift bld ins {
     let rd, rs1, rs2 = transThreeOprs ins bld
-    (* The high 64 bits of the 64x64->128 product, from the 128-bit intermediate
-       the evaluator holds: MULH signs both operands, MULHU neither, MULHSU only
-       rs1 -- so the extend picks sext/zext per operand's signedness. *)
+    (* The high half of the product, from the intermediate twice a register
+       wide that the evaluator holds: MULH signs both operands, MULHU neither,
+       MULHSU only rs1 -- so the extend picks sext/zext per operand's
+       signedness. *)
+    let wide = bld.RegType * 2
     let prod =
       match isSign, isUnsign with
-      | true, true -> AST.sext 128<rt> rs1 .* AST.sext 128<rt> rs2
-      | true, false -> AST.sext 128<rt> rs1 .* AST.zext 128<rt> rs2
-      | _ -> AST.zext 128<rt> rs1 .* AST.zext 128<rt> rs2
-    rd := AST.xthi 64<rt> prod
+      | true, true -> AST.sext wide rs1 .* AST.sext wide rs2
+      | true, false -> AST.sext wide rs1 .* AST.zext wide rs2
+      | _ -> AST.zext wide rs1 .* AST.zext wide rs2
+    rd := AST.xthi bld.RegType prod
   }
 
 let mulw ins bld =
@@ -371,9 +373,10 @@ let mulw ins bld =
 let div ins bld =
   lift bld ins {
     let rd, rs1, rs2 = transThreeOprs ins bld
-    let condZero = rs2 == AST.num0 64<rt>
+    let condZero = rs2 == AST.num0 bld.RegType
+    let least = numI64 0x8000000000000000L bld.RegType
     let condOverflow =
-      ((rs2 == numI32 -1 64<rt>) .& (rs1 == numI64 0x8000000000000000L 64<rt>))
+      (rs2 == numI32 -1 bld.RegType) .& (rs1 == least)
     let lblL0 = label bld "L0"
     let lblL1 = label bld "L1"
     let lblL2 = label bld "L2"
@@ -381,7 +384,7 @@ let div ins bld =
     let lblEnd = label bld "End"
     AST.cjmp condZero (AST.jmpDest lblL0) (AST.jmpDest lblL1)
     AST.lmark lblL0
-    rd := numU64 0xFFFFFFFFFFFFFFFFuL 64<rt>
+    rd := numU64 0xFFFFFFFFFFFFFFFFuL bld.RegType
     AST.jmp (AST.jmpDest lblEnd)
     AST.lmark lblL1
     AST.cjmp condOverflow (AST.jmpDest lblL2) (AST.jmpDest lblL3)
@@ -441,13 +444,13 @@ let divuw ins bld =
 let divu ins bld =
   lift bld ins {
     let rd, rs1, rs2 = transThreeOprs ins bld
-    let condZero = rs2 == AST.num0 64<rt>
+    let condZero = rs2 == AST.num0 bld.RegType
     let lblL0 = label bld "L0"
     let lblL1 = label bld "L1"
     let lblEnd = label bld "End"
     AST.cjmp condZero (AST.jmpDest lblL0) (AST.jmpDest lblL1)
     AST.lmark lblL0
-    rd := numU64 0xFFFFFFFFFFFFFFFFuL 64<rt>
+    rd := numU64 0xFFFFFFFFFFFFFFFFuL bld.RegType
     AST.jmp (AST.jmpDest lblEnd)
     AST.lmark lblL1
     rd := rs1 ./ rs2
@@ -457,7 +460,7 @@ let divu ins bld =
 let remu ins bld =
   lift bld ins {
     let rd, rs1, rs2 = transThreeOprs ins bld
-    let condZero = rs2 == AST.num0 64<rt>
+    let condZero = rs2 == AST.num0 bld.RegType
     let lblL0 = label bld "L0"
     let lblL1 = label bld "L1"
     let lblEnd = label bld "End"
@@ -473,9 +476,10 @@ let remu ins bld =
 let rem ins bld =
   lift bld ins {
     let rd, rs1, rs2 = transThreeOprs ins bld
-    let condZero = rs2 == AST.num0 64<rt>
+    let condZero = rs2 == AST.num0 bld.RegType
+    let least = numI64 0x8000000000000000L bld.RegType
     let condOverflow =
-      ((rs2 == numI32 -1 64<rt>) .& (rs1 == numI64 0x8000000000000000L 64<rt>))
+      (rs2 == numI32 -1 bld.RegType) .& (rs1 == least)
     let lblL0 = label bld "L0"
     let lblL1 = label bld "L1"
     let lblL2 = label bld "L2"
@@ -488,7 +492,7 @@ let rem ins bld =
     AST.lmark lblL1
     AST.cjmp condOverflow (AST.jmpDest lblL2) (AST.jmpDest lblL3)
     AST.lmark lblL2
-    rd := AST.num0 64<rt>
+    rd := AST.num0 bld.RegType
     AST.jmp (AST.jmpDest lblEnd)
     AST.lmark lblL3
     rd := rs1 ?% rs2
@@ -540,6 +544,11 @@ let remuw ins bld =
     AST.lmark lblEnd
   }
 
+/// FLD loads the whole of a float register and nothing more: the value is a
+/// doubleword and so is the register, on rv32 as much as on rv64, so there is
+/// no extension either way. Widening it to the XLEN -- which is what this did
+/// -- asks on rv32 for a sign extension of a sixty-four bit value to thirty-two
+/// bits, which is not an extension at all.
 let fld ins bld =
   lift bld ins {
     let rd, mem = transTwoOprs ins bld
@@ -550,11 +559,11 @@ let fld ins bld =
     AST.cjmp condAlign (AST.jmpDest lblL0) (AST.jmpDest lblL1)
     AST.lmark lblL0
     AST.sideEffect AtomicBegin
-    rd := AST.sext bld.RegType mem
+    rd := mem
     AST.sideEffect AtomicEnd
     AST.jmp (AST.jmpDest lblEnd)
     AST.lmark lblL1
-    rd := AST.sext bld.RegType mem
+    rd := mem
     AST.lmark lblEnd
   }
 
@@ -593,7 +602,7 @@ let fltdots ins bld =
     rd := rtVal
     AST.jmp (AST.jmpDest lblEnd)
     AST.lmark lblL1
-    rd := numU64 0uL 64<rt>
+    rd := numU64 0uL bld.RegType
     fflags := fflags .| numU32 16u 32<rt>
     AST.lmark lblEnd
   }
@@ -608,14 +617,14 @@ let fledots ins bld =
     let lblL1 = label bld "L1"
     let lblEnd = label bld "End"
     let cond = AST.fle rs1 rs2
-    let rtVal = AST.ite cond (AST.num1 64<rt>) (AST.num0 64<rt>)
+    let rtVal = AST.ite cond (AST.num1 bld.RegType) (AST.num0 bld.RegType)
     let fflags = regVar bld R.FFLAGS
     AST.cjmp checkNan (AST.jmpDest lblL1) (AST.jmpDest lblL0)
     AST.lmark lblL0
     rd := rtVal
     AST.jmp (AST.jmpDest lblEnd)
     AST.lmark lblL1
-    rd := numU64 0uL 64<rt>
+    rd := numU64 0uL bld.RegType
     fflags := fflags .| numU32 16u 32<rt>
     AST.lmark lblEnd
   }
@@ -630,16 +639,16 @@ let feqdots ins bld =
     let lblL0 = label bld "L0"
     let lblL1 = label bld "L1"
     let lblEnd = label bld "End"
-    let cond = rs1 == rs2
-    let rtVal = AST.ite cond (AST.num1 64<rt>) (AST.num0 64<rt>)
+    let cond = fpEqual 32<rt> rs1 rs2
+    let rtVal = AST.ite cond (AST.num1 bld.RegType) (AST.num0 bld.RegType)
     let fflags = regVar bld R.FFLAGS
-    let flagFscr = AST.ite (isSNan) (numU32 16u 32<rt>) (AST.num0 32<rt>)
+    let flagFscr = AST.ite isSNan (numU32 16u 32<rt>) (AST.num0 32<rt>)
     AST.cjmp checkNan (AST.jmpDest lblL1) (AST.jmpDest lblL0)
     AST.lmark lblL0
     rd := rtVal
     AST.jmp (AST.jmpDest lblEnd)
     AST.lmark lblL1
-    rd := numU64 0uL 64<rt>
+    rd := numU64 0uL bld.RegType
     fflags := fflags .| flagFscr
     AST.lmark lblEnd
   }
@@ -648,65 +657,13 @@ let fclassdots ins bld =
   lift bld ins {
     let rd, rs1 = transTwoOprs ins bld
     let rs1 = getFloat32FromReg rs1
-    let plusZero = numU32 0u 32<rt>
-    let negZero = numU32 0x80000000u 32<rt>
-    let sign = AST.extract rs1 1<rt> 31
-    let lblPos = label bld "Pos"
-    let lblNeg = label bld "Neg"
-    let lblEnd = label bld "End"
-    let condZero = (rs1 == plusZero) .| (rs1 == negZero)
-    let condInf = isInf 32<rt> rs1
-    let condSubnormal = isSubnormal 32<rt> rs1
-    let condSNan = isSNan 32<rt> rs1
-    let condQNan = isQNan 32<rt> rs1
-    rd := AST.num0 64<rt>
-    AST.cjmp sign (AST.jmpDest lblNeg) (AST.jmpDest lblPos)
-    AST.lmark lblPos
-    rd := AST.ite condInf (numU32 (1u <<< 7) 64<rt>) rd
-    rd := AST.ite condZero (numU32 (1u <<< 4) 64<rt>) rd
-    rd := AST.ite condSubnormal (numU32 (1u <<< 5) 64<rt>) rd
-    rd := AST.ite condQNan (numU32 (1u <<< 9) 64<rt>) rd
-    rd := AST.ite condSNan (numU32 (1u <<< 8) 64<rt>) rd
-    rd := AST.ite (rd == AST.num0 64<rt>) (numU32 (1u <<< 6) 64<rt>) rd
-    AST.jmp (AST.jmpDest lblEnd)
-    AST.lmark lblNeg
-    rd := AST.ite condInf (numU32 (1u <<< 0) 64<rt>) rd
-    rd := AST.ite condZero (numU32 (1u <<< 3) 64<rt>) rd
-    rd := AST.ite condSubnormal (numU32 (1u <<< 2) 64<rt>) rd
-    rd := AST.ite (rd == AST.num0 64<rt>) (numU32 (1u <<< 1) 64<rt>) rd
-    AST.lmark lblEnd
+    rd := fclassValue 32<rt> bld.RegType rs1
   }
 
 let fclassdotd ins bld =
   lift bld ins {
     let rd, rs1 = transTwoOprs ins bld
-    let plusZero = numU64 0uL 64<rt>
-    let negZero = numU64 0x8000000000000000uL 64<rt>
-    let sign = AST.extract rs1 1<rt> 63
-    let lblPos = label bld "Pos"
-    let lblNeg = label bld "Neg"
-    let lblEnd = label bld "End"
-    let condZero = (rs1 == plusZero) .| (rs1 == negZero)
-    let condInf = isInf 64<rt> rs1
-    let condSubnormal = isSubnormal 64<rt> rs1
-    let condSNan = isSNan 64<rt> rs1
-    let condQNan = isQNan 64<rt> rs1
-    rd := AST.num0 64<rt>
-    AST.cjmp sign (AST.jmpDest lblNeg) (AST.jmpDest lblPos)
-    AST.lmark lblPos
-    rd := AST.ite condInf (numU32 (1u <<< 7) 64<rt>) rd
-    rd := AST.ite condZero (numU32 (1u <<< 4) 64<rt>) rd
-    rd := AST.ite condSubnormal (numU32 (1u <<< 5) 64<rt>) rd
-    rd := AST.ite condQNan (numU32 (1u <<< 9) 64<rt>) rd
-    rd := AST.ite condSNan (numU32 (1u <<< 8) 64<rt>) rd
-    rd := AST.ite (rd == AST.num0 64<rt>) (numU32 (1u <<< 6) 64<rt>) rd
-    AST.jmp (AST.jmpDest lblEnd)
-    AST.lmark lblNeg
-    rd := AST.ite condInf (numU32 (1u <<< 0) 64<rt>) rd
-    rd := AST.ite condZero (numU32 (1u <<< 3) 64<rt>) rd
-    rd := AST.ite condSubnormal (numU32 (1u <<< 2) 64<rt>) rd
-    rd := AST.ite (rd == AST.num0 64<rt>) (numU32 (1u <<< 1) 64<rt>) rd
-    AST.lmark lblEnd
+    rd := fclassValue 64<rt> bld.RegType rs1
   }
 
 let flw ins bld =
@@ -756,14 +713,14 @@ let fltdotd ins bld =
     let lblL1 = label bld "L1"
     let lblEnd = label bld "End"
     let cond = AST.flt rs1 rs2
-    let rtVal = AST.ite cond (AST.num1 64<rt>) (AST.num0 64<rt>)
+    let rtVal = AST.ite cond (AST.num1 bld.RegType) (AST.num0 bld.RegType)
     let fflags = regVar bld R.FFLAGS
     AST.cjmp checkNan (AST.jmpDest lblL1) (AST.jmpDest lblL0)
     AST.lmark lblL0
     rd := rtVal
     AST.jmp (AST.jmpDest lblEnd)
     AST.lmark lblL1
-    rd := numU64 0uL 64<rt>
+    rd := numU64 0uL bld.RegType
     fflags := fflags .| numU32 16u 32<rt>
     AST.lmark lblEnd
   }
@@ -776,14 +733,14 @@ let fledotd ins bld =
     let lblL1 = label bld "L1"
     let lblEnd = label bld "End"
     let cond = AST.fle rs1 rs2
-    let rtVal = AST.ite cond (AST.num1 64<rt>) (AST.num0 64<rt>)
+    let rtVal = AST.ite cond (AST.num1 bld.RegType) (AST.num0 bld.RegType)
     let fflags = regVar bld R.FFLAGS
     AST.cjmp checkNan (AST.jmpDest lblL1) (AST.jmpDest lblL0)
     AST.lmark lblL0
     rd := rtVal
     AST.jmp (AST.jmpDest lblEnd)
     AST.lmark lblL1
-    rd := numU64 0uL 64<rt>
+    rd := numU64 0uL bld.RegType
     fflags := fflags .| numU32 16u 32<rt>
     AST.lmark lblEnd
   }
@@ -796,8 +753,8 @@ let feqdotd ins bld =
     let lblL0 = label bld "L0"
     let lblL1 = label bld "L1"
     let lblEnd = label bld "End"
-    let cond = rs1 == rs2
-    let rtVal = AST.ite cond (AST.num1 64<rt>) (AST.num0 64<rt>)
+    let cond = fpEqual 64<rt> rs1 rs2
+    let rtVal = AST.ite cond (AST.num1 bld.RegType) (AST.num0 bld.RegType)
     let fflags = regVar bld R.FFLAGS
     let flagFscr = AST.ite isSNan (numU32 16u 32<rt>) (AST.num0 32<rt>)
     AST.cjmp checkNan (AST.jmpDest lblL1) (AST.jmpDest lblL0)
@@ -805,52 +762,76 @@ let feqdotd ins bld =
     rd := rtVal
     AST.jmp (AST.jmpDest lblEnd)
     AST.lmark lblL1
-    rd := numU64 0uL 64<rt>
+    rd := numU64 0uL bld.RegType
     fflags := fflags .| flagFscr
     AST.lmark lblEnd
   }
 
-let fpArithmeticSingle ins bld operator =
+/// <summary>
+/// The arithmetic that reads two floating registers and writes a third -- and
+/// the one ordering the lifter has to keep straight.
+///
+/// The flags an operation raises are a function of its OPERANDS, and rd may be
+/// one of them: FDIV.S fa5, fa4, fa5 is an ordinary encoding and a compiler
+/// emits it freely. So the exceptions have to be recorded before the
+/// destination is written, and under the rounding direction the instruction
+/// named rather than the ambient one -- which puts the whole of the work
+/// between entering that direction and leaving it, with only the store to rd
+/// left outside.
+/// </summary>
+let fpArithmeticSingle ins bld excOp operator =
   lift bld ins {
-    let rd, rs1, rs2, _ = getFourOprs ins
+    let rd, rs1, rs2, rm = getFourOprs ins
     let rd = transOpr ins bld rd
     let rs1 = transOpr ins bld rs1
     let rs2 = transOpr ins bld rs2
     let rs1 = getFloat32FromReg rs1
     let rs2 = getFloat32FromReg rs2
-    let rtVal =
-      let operation = operator rs1 rs2
-      AST.ite (isNan 32<rt> operation) (fpDefaultNan 32<rt>) operation
-    rd := getNanBoxed rtVal
+    let saved = enterRoundingMode bld rm
+    let value = tmpVar bld 32<rt>
+    value := operator rs1 rs2
+    accrueFlags bld 32<rt> excOp rs1 rs2
+    leaveRoundingMode bld saved
+    rd := getNanBoxed (fpCanonical 32<rt> value)
   }
 
-let fpArithmeticDouble ins bld operator =
+let fpArithmeticDouble ins bld excOp operator =
   lift bld ins {
-    let rd, rs1, rs2, _ = getFourOprs ins
+    let rd, rs1, rs2, rm = getFourOprs ins
     let rd = transOpr ins bld rd
     let rs1 = transOpr ins bld rs1
     let rs2 = transOpr ins bld rs2
-    let rtVal =
-      let operation = operator rs1 rs2
-      AST.ite (isNan 64<rt> operation) (fpDefaultNan 64<rt>) operation
-    rd := rtVal
+    let saved = enterRoundingMode bld rm
+    let value = tmpVar bld 64<rt>
+    value := operator rs1 rs2
+    accrueFlags bld 64<rt> excOp rs1 rs2
+    leaveRoundingMode bld saved
+    rd := fpCanonical 64<rt> value
   }
 
 let fsqrtdots ins bld =
   lift bld ins {
-    let rd, rs1, _ = getThreeOprs ins
+    let rd, rs1, rm = getThreeOprs ins
     let rd, rs1 = transOpr ins bld rd, transOpr ins bld rs1
-    let rs1 = AST.xtlo 32<rt> rs1
-    let rtVal = AST.fsqrt rs1
-    rd := getNanBoxed rtVal
+    let rs1 = getFloat32FromReg rs1
+    let saved = enterRoundingMode bld rm
+    let root = tmpVar bld 32<rt>
+    root := AST.fsqrt rs1
+    accrueFlags bld 32<rt> FpExc.Sqrt rs1 rs1
+    leaveRoundingMode bld saved
+    rd := getNanBoxed (fpCanonical 32<rt> root)
   }
 
 let fsqrtdotd ins bld =
   lift bld ins {
-    let rd, rs1, _ = getThreeOprs ins
+    let rd, rs1, rm = getThreeOprs ins
     let rd, rs1 = transOpr ins bld rd, transOpr ins bld rs1
-    let rtVal = AST.fsqrt rs1
-    rd := rtVal
+    let saved = enterRoundingMode bld rm
+    let root = tmpVar bld 64<rt>
+    root := AST.fsqrt rs1
+    accrueFlags bld 64<rt> FpExc.Sqrt rs1 rs1
+    leaveRoundingMode bld saved
+    rd := fpCanonical 64<rt> root
   }
 
 let fmindots ins bld =
@@ -859,8 +840,8 @@ let fmindots ins bld =
     let rs1 = getFloat32FromReg rs1
     let rs2 = getFloat32FromReg rs2
     let rtVal = tmpVar bld 32<rt>
-    let cond = AST.flt rs1 rs2
-    rtVal := AST.ite cond rs1 rs2
+    rtVal := fpMinMax 32<rt> true rs1 rs2
+    accrueFlags bld 32<rt> FpExc.MinMax rs1 rs2
     rd := getNanBoxed rtVal
   }
 
@@ -868,8 +849,8 @@ let fmindotd ins bld =
   lift bld ins {
     let rd, rs1, rs2 = transThreeOprs ins bld
     let rtVal = tmpVar bld 64<rt>
-    let cond = AST.flt rs1 rs2
-    rtVal := AST.ite cond rs1 rs2
+    rtVal := fpMinMax 64<rt> true rs1 rs2
+    accrueFlags bld 64<rt> FpExc.MinMax rs1 rs2
     rd := rtVal
   }
 
@@ -879,8 +860,8 @@ let fmaxdots ins bld =
     let rs1 = getFloat32FromReg rs1
     let rs2 = getFloat32FromReg rs2
     let rtVal = tmpVar bld 32<rt>
-    let cond = AST.flt rs1 rs2
-    rtVal := AST.ite cond rs2 rs1
+    rtVal := fpMinMax 32<rt> false rs1 rs2
+    accrueFlags bld 32<rt> FpExc.MinMax rs1 rs2
     rd := getNanBoxed rtVal
   }
 
@@ -888,14 +869,14 @@ let fmaxdotd ins bld =
   lift bld ins {
     let rd, rs1, rs2 = transThreeOprs ins bld
     let rtVal = tmpVar bld 64<rt>
-    let cond = AST.flt rs1 rs2
-    rtVal := AST.ite cond rs2 rs1
+    rtVal := fpMinMax 64<rt> false rs1 rs2
+    accrueFlags bld 64<rt> FpExc.MinMax rs1 rs2
     rd := rtVal
   }
 
 let fmadddots ins bld =
   lift bld ins {
-    let rd, rs1, rs2, rs3, _ = getFiveOprs ins
+    let rd, rs1, rs2, rs3, rm = getFiveOprs ins
     let rd = transOpr ins bld rd
     let rs1 = transOpr ins bld rs1
     let rs2 = transOpr ins bld rs2
@@ -903,24 +884,32 @@ let fmadddots ins bld =
     let rs1 = getFloat32FromReg rs1
     let rs2 = getFloat32FromReg rs2
     let rs3 = getFloat32FromReg rs3
-    let rtVal = AST.fadd (AST.fmul rs1 rs2) rs3
-    rd := getNanBoxed rtVal
+    let saved = enterRoundingMode bld rm
+    let fused = tmpVar bld 32<rt>
+    fused := fpFused 32<rt> false false rs1 rs2 rs3
+    accrueFmaFlags bld 32<rt> false false rs1 rs2 rs3
+    leaveRoundingMode bld saved
+    rd := getNanBoxed (fpCanonical 32<rt> fused)
   }
 
 let fmadddotd ins bld =
   lift bld ins {
-    let rd, rs1, rs2, rs3, _ = getFiveOprs ins
+    let rd, rs1, rs2, rs3, rm = getFiveOprs ins
     let rd = transOpr ins bld rd
     let rs1 = transOpr ins bld rs1
     let rs2 = transOpr ins bld rs2
     let rs3 = transOpr ins bld rs3
-    let rtVal = AST.fadd (AST.fmul rs1 rs2) rs3
-    rd := rtVal
+    let saved = enterRoundingMode bld rm
+    let fused = tmpVar bld 64<rt>
+    fused := fpFused 64<rt> false false rs1 rs2 rs3
+    accrueFmaFlags bld 64<rt> false false rs1 rs2 rs3
+    leaveRoundingMode bld saved
+    rd := fpCanonical 64<rt> fused
   }
 
 let fmsubdots ins bld =
   lift bld ins {
-    let rd, rs1, rs2, rs3, _ = getFiveOprs ins
+    let rd, rs1, rs2, rs3, rm = getFiveOprs ins
     let rd = transOpr ins bld rd
     let rs1 = transOpr ins bld rs1
     let rs2 = transOpr ins bld rs2
@@ -928,24 +917,32 @@ let fmsubdots ins bld =
     let rs1 = getFloat32FromReg rs1
     let rs2 = getFloat32FromReg rs2
     let rs3 = getFloat32FromReg rs3
-    let rtVal = AST.fsub (AST.fmul rs1 rs2) rs3
-    rd := getNanBoxed rtVal
+    let saved = enterRoundingMode bld rm
+    let fused = tmpVar bld 32<rt>
+    fused := fpFused 32<rt> false true rs1 rs2 rs3
+    accrueFmaFlags bld 32<rt> false true rs1 rs2 rs3
+    leaveRoundingMode bld saved
+    rd := getNanBoxed (fpCanonical 32<rt> fused)
   }
 
 let fmsubdotd ins bld =
   lift bld ins {
-    let rd, rs1, rs2, rs3, _ = getFiveOprs ins
+    let rd, rs1, rs2, rs3, rm = getFiveOprs ins
     let rd = transOpr ins bld rd
     let rs1 = transOpr ins bld rs1
     let rs2 = transOpr ins bld rs2
     let rs3 = transOpr ins bld rs3
-    let rtVal = AST.fsub (AST.fmul rs1 rs2) rs3
-    rd := rtVal
+    let saved = enterRoundingMode bld rm
+    let fused = tmpVar bld 64<rt>
+    fused := fpFused 64<rt> false true rs1 rs2 rs3
+    accrueFmaFlags bld 64<rt> false true rs1 rs2 rs3
+    leaveRoundingMode bld saved
+    rd := fpCanonical 64<rt> fused
   }
 
 let fnmsubdots ins bld =
   lift bld ins {
-    let rd, rs1, rs2, rs3, _ = getFiveOprs ins
+    let rd, rs1, rs2, rs3, rm = getFiveOprs ins
     let rd = transOpr ins bld rd
     let rs1 = transOpr ins bld rs1
     let rs2 = transOpr ins bld rs2
@@ -953,68 +950,60 @@ let fnmsubdots ins bld =
     let rs1 = getFloat32FromReg rs1
     let rs2 = getFloat32FromReg rs2
     let rs3 = getFloat32FromReg rs3
-    let rtVal = AST.fadd (fpNeg 32<rt> <| AST.fmul rs1 rs2) rs3
-    rd := getNanBoxed rtVal
+    let saved = enterRoundingMode bld rm
+    let fused = tmpVar bld 32<rt>
+    fused := fpFused 32<rt> true false rs1 rs2 rs3
+    accrueFmaFlags bld 32<rt> true false rs1 rs2 rs3
+    leaveRoundingMode bld saved
+    rd := getNanBoxed (fpCanonical 32<rt> fused)
   }
 
 let fnmsubdotd ins bld =
   lift bld ins {
-    let rd, rs1, rs2, rs3, _ = getFiveOprs ins
+    let rd, rs1, rs2, rs3, rm = getFiveOprs ins
     let rd = transOpr ins bld rd
     let rs1 = transOpr ins bld rs1
     let rs2 = transOpr ins bld rs2
     let rs3 = transOpr ins bld rs3
-    rd := AST.fadd (fpNeg 64<rt> <| AST.fmul rs1 rs2) rs3
+    let saved = enterRoundingMode bld rm
+    let fused = tmpVar bld 64<rt>
+    fused := fpFused 64<rt> true false rs1 rs2 rs3
+    accrueFmaFlags bld 64<rt> true false rs1 rs2 rs3
+    leaveRoundingMode bld saved
+    rd := fpCanonical 64<rt> fused
   }
 
 let fnmadddots ins bld =
   lift bld ins {
-    let rd, rs1, rs2, rs3, _ = getFiveOprs ins
+    let rd, rs1, rs2, rs3, rm = getFiveOprs ins
     let rd = transOpr ins bld rd
     let rs1 = transOpr ins bld rs1
     let rs2 = transOpr ins bld rs2
     let rs3 = transOpr ins bld rs3
-    let lblValid = label bld "Valid"
-    let lblInvalid = label bld "Invalid operation"
-    let lblEnd = label bld "End"
     let rs1 = getFloat32FromReg rs1
     let rs2 = getFloat32FromReg rs2
     let rs3 = getFloat32FromReg rs3
-    let condOfNV1 = isInf 32<rt> rs1 .| isZero 32<rt> rs2
-    let condOfNV2 = isZero 32<rt> rs1 .| isInf 32<rt> rs2
-    let setNV = (condOfNV1 .| condOfNV2) .& isQNan 32<rt> rs3
-    let fflags = regVar bld R.FFLAGS
-    let rtVal = AST.fsub (fpNeg 32<rt> <| AST.fmul rs1 rs2) rs3
-    rd := getNanBoxed rtVal
-    AST.cjmp setNV (AST.jmpDest lblInvalid) (AST.jmpDest lblValid)
-    AST.lmark lblValid
-    AST.jmp (AST.jmpDest lblEnd)
-    AST.lmark lblInvalid
-    fflags := fflags .| numU32 16u 32<rt>
-    AST.lmark lblEnd
+    let saved = enterRoundingMode bld rm
+    let fused = tmpVar bld 32<rt>
+    fused := fpFused 32<rt> true true rs1 rs2 rs3
+    accrueFmaFlags bld 32<rt> true true rs1 rs2 rs3
+    leaveRoundingMode bld saved
+    rd := getNanBoxed (fpCanonical 32<rt> fused)
   }
 
 let fnmadddotd ins bld =
   lift bld ins {
-    let rd, rs1, rs2, rs3, _ = getFiveOprs ins
+    let rd, rs1, rs2, rs3, rm = getFiveOprs ins
     let rd = transOpr ins bld rd
     let rs1 = transOpr ins bld rs1
     let rs2 = transOpr ins bld rs2
     let rs3 = transOpr ins bld rs3
-    let lblValid = label bld "Valid"
-    let lblInvalid = label bld "Invalid operation"
-    let lblEnd = label bld "End"
-    let condOfNV1 = isInf 64<rt> rs1 .| isZero 64<rt> rs2
-    let condOfNV2 = isZero 64<rt> rs1 .| isInf 64<rt> rs2
-    let setNV = (condOfNV1 .| condOfNV2) .& isQNan 64<rt> rs3
-    let fflags = regVar bld R.FFLAGS
-    rd := AST.fsub (fpNeg 64<rt> <| AST.fmul rs1 rs2) rs3
-    AST.cjmp setNV (AST.jmpDest lblInvalid) (AST.jmpDest lblValid)
-    AST.lmark lblValid
-    AST.jmp (AST.jmpDest lblEnd)
-    AST.lmark lblInvalid
-    fflags := fflags .| numU32 16u 32<rt>
-    AST.lmark lblEnd
+    let saved = enterRoundingMode bld rm
+    let fused = tmpVar bld 64<rt>
+    fused := fpFused 64<rt> true true rs1 rs2 rs3
+    accrueFmaFlags bld 64<rt> true true rs1 rs2 rs3
+    leaveRoundingMode bld saved
+    rd := fpCanonical 64<rt> fused
   }
 
 let fsgnjdots ins bld =
@@ -1119,7 +1108,7 @@ let amow ins bld op =
     AST.sideEffect AtomicBegin
     tmp := mem
     mem := op tmp rs2
-    rd := AST.sext 64<rt> tmp
+    rd := AST.sext bld.RegType tmp
     AST.sideEffect AtomicEnd
     AST.jmp (AST.jmpDest lblEnd)
     AST.lmark lblL1
@@ -1127,11 +1116,17 @@ let amow ins bld op =
     AST.lmark lblEnd
   }
 
+/// FMV.X.W moves bits and does not interpret them: "the bits are not modified
+/// in the transfer, and in particular, the payloads of non-canonical NaNs are
+/// preserved" (unprivileged ISA, the single-precision move instructions). So
+/// unlike every arithmetic instruction reading a single it must NOT check the
+/// NaN box -- the low word goes out as it stands even where the upper half
+/// says the register holds something that is not a single at all. On rv64 that
+/// word is sign-extended into the destination; on rv32 it fills it.
 let fmvdotxdotw ins bld =
   lift bld ins {
     let rd, rs1 = transTwoOprs ins bld
-    let rs1 = getFloat32FromReg rs1
-    rd := AST.sext 64<rt> rs1
+    rd := AST.sext bld.RegType (AST.xtlo 32<rt> rs1)
   }
 
 let fmvdotwdotx ins bld =
@@ -1163,8 +1158,8 @@ let csrrw ins bld =
       assignFCSR csr src bld
     | _ ->
       let rd = transOpr ins bld rd
-      let tmpVar = tmpVar bld 64<rt>
-      tmpVar := AST.zext 64<rt> csr
+      let tmpVar = tmpVar bld bld.RegType
+      tmpVar := AST.zext bld.RegType csr
       assignFCSR csr src bld
       rd := tmpVar
     AST.sideEffect AtomicEnd
@@ -1187,12 +1182,12 @@ let csrrs ins bld =
       match src with
       | OpReg Register.X0 ->
         let csr = transOpr ins bld csr
-        rd := AST.zext 64<rt> csr
+        rd := AST.zext bld.RegType csr
       | _ ->
         let oprs = transOpr ins bld csr, transOpr ins bld src
         let csr, src = maskForFCSR csr oprs
-        let tmpVar = tmpVar bld 64<rt>
-        tmpVar := AST.zext 64<rt> csr
+        let tmpVar = tmpVar bld bld.RegType
+        tmpVar := AST.zext bld.RegType csr
         assignFCSR csr (csr .| src) bld
         rd := tmpVar
     AST.sideEffect AtomicEnd
@@ -1206,12 +1201,12 @@ let csrrc ins bld =
     match src with
     | OpReg Register.X0 ->
       let csr = transOpr ins bld csr
-      rd := AST.zext 64<rt> csr
+      rd := AST.zext bld.RegType csr
     | _ ->
       let oprs = transOpr ins bld csr, transOpr ins bld src
       let csr, src = maskForFCSR csr oprs
-      let tmpVar = tmpVar bld 64<rt>
-      tmpVar := AST.zext 64<rt> csr
+      let tmpVar = tmpVar bld bld.RegType
+      tmpVar := AST.zext bld.RegType csr
       assignFCSR csr (csr .& AST.neg src) bld
       rd := tmpVar
     AST.sideEffect AtomicEnd
@@ -1257,24 +1252,16 @@ let fcvtdotldotd ins bld =
   let sign = AST.xthi 1<rt> rs1
   let conds = condNaN, condInf, sign
   let bounds = llMinInFloat, llMaxInFloat, llMin, llMax
-  if rm <> OpRoundMode(RoundMode.DYN) then
-    let rounding = roundingToCastFloat rm
-    let roundingInt = roundingToCastInt rm
-    let rtVal = tmpVar bld 64<rt>
-    lift bld ins {
-      (* rounded value *)
-      rtVal := AST.cast rounding 64<rt> rs1
-      rd := AST.cast roundingInt 64<rt> rtVal
-      clampConversion bld rd rtVal conds bounds
-    }
-  else
-    lift bld ins {
-      (* rounded value *)
-      let rtVal = dynamicRoundingFl bld 64<rt> rs1
-      let rdVal = dynamicRoundingInt bld 64<rt> rtVal
-      rd := rdVal
-      clampConversion bld rd rtVal conds bounds
-    }
+  lift bld ins {
+    let saved = enterRoundingMode bld rm
+    accrueFlags bld 64<rt> FpExc.ToSInt rs1 (numI32 64 32<rt>)
+    (* rounded value *)
+    let rtVal = dynamicRoundingFl bld 64<rt> rs1
+    let rdVal = dynamicRoundingInt bld 64<rt> rtVal
+    rd := rdVal
+    clampConversion bld rd rtVal conds bounds
+    leaveRoundingMode bld saved
+  }
 
 let fcvtdotludotd ins bld =
   let rd, rs1, rm = getThreeOprs ins
@@ -1288,86 +1275,68 @@ let fcvtdotludotd ins bld =
   let sign = AST.xthi 1<rt> rs1
   let conds = condNaN, condInf, sign
   let bounds = ullMinInFloat, ullMaxInFloat, ullMin, ullMax
-  if rm <> OpRoundMode(RoundMode.DYN) then
-    let rounding = roundingToCastFloat rm
-    let roundingInt = roundingToCastInt rm
-    let rtVal = tmpVar bld 64<rt>
-    lift bld ins {
-      (* rounded value *)
-      rtVal := AST.cast rounding 64<rt> rs1
-      rd := AST.cast roundingInt 64<rt> rtVal
-      clampConversion bld rd rtVal conds bounds
-    }
-  else
-    lift bld ins {
-      (* rounded value *)
-      let rtVal = dynamicRoundingFl bld 64<rt> rs1
-      let rdVal = dynamicRoundingInt bld 64<rt> rtVal
-      rd := rdVal
-      clampConversion bld rd rtVal conds bounds
-    }
+  lift bld ins {
+    let saved = enterRoundingMode bld rm
+    accrueFlags bld 64<rt> FpExc.ToUInt rs1 (numI32 64 32<rt>)
+    (* rounded value *)
+    let rtVal = dynamicRoundingFl bld 64<rt> rs1
+    let rdVal = dynamicRoundingInt bld 64<rt> rtVal
+    rd := rdVal
+    clampConversion bld rd rtVal conds bounds
+    leaveRoundingMode bld saved
+  }
 
 let fcvtdotwdotd ins bld =
   let rd, rs1, rm = getThreeOprs ins
   let rd, rs1 = transOpr ins bld rd, transOpr ins bld rs1
   let intMaxInFloat = numU64 0x41dfffffffc00000uL 64<rt>
   let intMinInFloat = numU64 0xc1e0000000000000uL 64<rt>
-  let intMax = AST.sext 64<rt> (numU32 0x7fffffffu 32<rt>)
-  let intMin = AST.sext 64<rt> (numU32 0x80000000u 32<rt>)
+  let intMax = AST.sext bld.RegType (numU32 0x7fffffffu 32<rt>)
+  let intMin = AST.sext bld.RegType (numU32 0x80000000u 32<rt>)
   let condInf = isInf 64<rt> rs1
   let condNaN = isNan 64<rt> rs1
   let sign = AST.xthi 1<rt> rs1
   let conds = condNaN, condInf, sign
   let bounds = intMinInFloat, intMaxInFloat, intMin, intMax
-  if rm <> OpRoundMode(RoundMode.DYN) then
-    let rounding = roundingToCastFloat rm
-    let roundingInt = roundingToCastInt rm
-    let rtVal = tmpVar bld 64<rt>
-    lift bld ins {
-      (* rounded value *)
-      rtVal := AST.cast rounding 64<rt> rs1
-      rd := AST.sext 64<rt> (AST.cast roundingInt 32<rt> rtVal)
-      clampConversion bld rd rtVal conds bounds
-    }
-  else
-    lift bld ins {
-      (* rounded value *)
-      let rtVal = dynamicRoundingFl bld 64<rt> rs1
-      let rdVal = dynamicRoundingInt bld 32<rt> rtVal
-      rd := AST.sext 64<rt> rdVal
-      clampConversion bld rd rtVal conds bounds
-    }
+  lift bld ins {
+    let saved = enterRoundingMode bld rm
+    accrueFlags bld 64<rt> FpExc.ToSInt rs1 (numI32 32 32<rt>)
+    (* rounded value *)
+    let rtVal = dynamicRoundingFl bld 64<rt> rs1
+    let rdVal = dynamicRoundingInt bld 32<rt> rtVal
+    rd := AST.sext bld.RegType rdVal
+    clampConversion bld rd rtVal conds bounds
+    leaveRoundingMode bld saved
+  }
 
 let fcvtdotwudotd ins bld =
   let rd, rs1, rm = getThreeOprs ins
   let rd, rs1 = transOpr ins bld rd, transOpr ins bld rs1
   let uintMaxInFloat = numU64 0x41efffffffe00000uL 64<rt>
   let uintMinInFloat = numU64 0uL 64<rt>
-  let uintMax = numU64 0xffffffffffffffffuL 64<rt>
-  let uintMin = numU64 0uL 64<rt>
+  let uintMax = numU64 0xffffffffffffffffuL bld.RegType
+  let uintMin = numU64 0uL bld.RegType
   let condInf = isInf 64<rt> rs1
   let condNaN = isNan 64<rt> rs1
   let sign = AST.xthi 1<rt> rs1
   let conds = condNaN, condInf, sign
   let bounds = uintMinInFloat, uintMaxInFloat, uintMin, uintMax
-  if rm <> OpRoundMode(RoundMode.DYN) then
-    let rounding = roundingToCastFloat rm
-    let roundingInt = roundingToCastInt rm
-    let rtVal = tmpVar bld 64<rt>
-    lift bld ins {
-      (* rounded value *)
-      rtVal := AST.cast rounding 64<rt> rs1
-      rd := AST.sext 64<rt> (AST.cast roundingInt 32<rt> rtVal)
-      clampConversion bld rd rtVal conds bounds
-    }
-  else
-    lift bld ins {
-      (* rounded value *)
-      let rtVal = dynamicRoundingFl bld 64<rt> rs1
-      let rdVal = dynamicRoundingInt bld 32<rt> rtVal
-      rd := AST.sext 64<rt> rdVal
-      clampConversion bld rd rtVal conds bounds
-    }
+  lift bld ins {
+    let saved = enterRoundingMode bld rm
+    accrueFlags bld 64<rt> FpExc.ToUInt rs1 (numI32 32 32<rt>)
+    (* rounded value *)
+    let rtVal = dynamicRoundingFl bld 64<rt> rs1
+    (* The conversion is to an UNSIGNED word, and the IR's float-to-
+       integer casts are signed: a value in [2^31, 2^32) would come
+       back as the integer indefinite rather than as itself. Going
+       through a doubleword, which holds the whole unsigned range with
+       room to spare, and keeping its low word is the same conversion
+       with nothing to saturate. *)
+    let rdVal = dynamicRoundingInt bld 64<rt> rtVal
+    rd := AST.sext bld.RegType (AST.xtlo 32<rt> rdVal)
+    clampConversion bld rd rtVal conds bounds
+    leaveRoundingMode bld saved
+  }
 
 let fcvtdotwdots ins bld =
   let rd, rs1, rm = getThreeOprs ins
@@ -1375,31 +1344,23 @@ let fcvtdotwdots ins bld =
   let rs1 = getFloat32FromReg rs1
   let intMaxInFloat = numU32 0x4f000000u 32<rt>
   let intMinInFloat = numU32 0xcf000000u 32<rt>
-  let intMax = numU32 0x7fffffffu 64<rt>
-  let intMin = numU64 0xffffffff80000000uL 64<rt>
+  let intMax = numU32 0x7fffffffu bld.RegType
+  let intMin = numU64 0xffffffff80000000uL bld.RegType
   let condInf = isInf 32<rt> rs1
   let condNaN = isNan 32<rt> rs1
   let sign = AST.xthi 1<rt> rs1
   let conds = condNaN, condInf, sign
   let bounds = intMinInFloat, intMaxInFloat, intMin, intMax
-  if rm <> OpRoundMode(RoundMode.DYN) then
-    let rounding = roundingToCastFloat rm
-    let roundingInt = roundingToCastInt rm
-    let rtVal = tmpVar bld 32<rt>
-    lift bld ins {
-      (* rounded value *)
-      rtVal := AST.cast rounding 32<rt> rs1
-      rd := AST.sext 64<rt> (AST.cast roundingInt 32<rt> rtVal)
-      clampConversion bld rd rtVal conds bounds
-    }
-  else
-    lift bld ins {
-      (* rounded value *)
-      let rtVal = dynamicRoundingFl bld 32<rt> rs1
-      let rdVal = dynamicRoundingInt bld 32<rt> rtVal
-      rd := AST.sext 64<rt> rdVal
-      clampConversion bld rd rtVal conds bounds
-    }
+  lift bld ins {
+    let saved = enterRoundingMode bld rm
+    accrueFlags bld 32<rt> FpExc.ToSInt rs1 (numI32 32 32<rt>)
+    (* rounded value *)
+    let rtVal = dynamicRoundingFl bld 32<rt> rs1
+    let rdVal = dynamicRoundingInt bld 32<rt> rtVal
+    rd := AST.sext bld.RegType rdVal
+    clampConversion bld rd rtVal conds bounds
+    leaveRoundingMode bld saved
+  }
 
 let fcvtdotwudots ins bld =
   let rd, rs1, rm = getThreeOprs ins
@@ -1407,31 +1368,29 @@ let fcvtdotwudots ins bld =
   let rs1 = getFloat32FromReg rs1
   let uintMaxInFloat = numU32 0x4f800000u 32<rt>
   let uintMinInFloat = numU32 0x0u 32<rt>
-  let uintMax = numU64 0xffffffffffffffffUL 64<rt>
-  let uintMin = numU32 0x0u 64<rt>
+  let uintMax = numU64 0xffffffffffffffffUL bld.RegType
+  let uintMin = numU32 0x0u bld.RegType
   let condInf = isInf 32<rt> rs1
   let condNaN = isNan 32<rt> rs1
   let sign = AST.xthi 1<rt> rs1
   let conds = condNaN, condInf, sign
   let bounds = uintMinInFloat, uintMaxInFloat, uintMin, uintMax
-  if rm <> OpRoundMode(RoundMode.DYN) then
-    let rounding = roundingToCastFloat rm
-    let roundingInt = roundingToCastInt rm
-    let rtVal = tmpVar bld 32<rt>
-    lift bld ins {
-      (* rounded value *)
-      rtVal := AST.cast rounding 32<rt> rs1
-      rd := AST.sext 64<rt> (AST.cast roundingInt 32<rt> rtVal)
-      clampConversion bld rd rtVal conds bounds
-    }
-  else
-    lift bld ins {
-      (* rounded value *)
-      let rtVal = dynamicRoundingFl bld 32<rt> rs1
-      let rdVal = dynamicRoundingInt bld 32<rt> rtVal
-      rd := AST.sext 64<rt> rdVal
-      clampConversion bld rd rtVal conds bounds
-    }
+  lift bld ins {
+    let saved = enterRoundingMode bld rm
+    accrueFlags bld 32<rt> FpExc.ToUInt rs1 (numI32 32 32<rt>)
+    (* rounded value *)
+    let rtVal = dynamicRoundingFl bld 32<rt> rs1
+    (* The conversion is to an UNSIGNED word, and the IR's float-to-
+       integer casts are signed: a value in [2^31, 2^32) would come
+       back as the integer indefinite rather than as itself. Going
+       through a doubleword, which holds the whole unsigned range with
+       room to spare, and keeping its low word is the same conversion
+       with nothing to saturate. *)
+    let rdVal = dynamicRoundingInt bld 64<rt> rtVal
+    rd := AST.sext bld.RegType (AST.xtlo 32<rt> rdVal)
+    clampConversion bld rd rtVal conds bounds
+    leaveRoundingMode bld saved
+  }
 
 let fcvtdotldots ins bld =
   let rd, rs1, rm = getThreeOprs ins
@@ -1444,29 +1403,19 @@ let fcvtdotldots ins bld =
   let sign = AST.xthi 1<rt> rs1
   let conds = condNaN, condInf, sign
   let bounds = llMinInFloat, llMaxInFloat
-  if rm <> OpRoundMode(RoundMode.DYN) then
-    let rounding = roundingToCastFloat rm
-    let roundingInt = roundingToCastInt rm
-    let t0 = tmpVar bld 32<rt>
+  lift bld ins {
+    let saved = enterRoundingMode bld rm
+    accrueFlags bld 32<rt> FpExc.ToSInt rs1 (numI32 64 32<rt>)
+    (* rounded value *)
+    let t0 = dynamicRoundingFl bld 32<rt> rs1
     let rtVal = tmpVar bld 64<rt>
-    lift bld ins {
-      (* rounded value *)
-      t0 := AST.cast rounding 32<rt> rs1
-      rtVal := AST.cast CastKind.FloatCast 64<rt> t0
-      clampRounded bld rtVal conds bounds
-      rd := AST.cast roundingInt 64<rt> rtVal
-    }
-  else
-    lift bld ins {
-      (* rounded value *)
-      let t0 = dynamicRoundingFl bld 32<rt> rs1
-      let rtVal = tmpVar bld 64<rt>
-      (* check for out-of-range *)
-      rtVal := AST.cast CastKind.FloatCast 64<rt> t0
-      clampRounded bld rtVal conds bounds
-      let rdVal = dynamicRoundingInt bld 64<rt> rtVal
-      rd := rdVal
-    }
+    (* check for out-of-range *)
+    rtVal := AST.cast CastKind.FloatCast 64<rt> t0
+    clampRounded bld rtVal conds bounds
+    let rdVal = dynamicRoundingInt bld 64<rt> rtVal
+    rd := rdVal
+    leaveRoundingMode bld saved
+  }
 
 let fcvtdotludots ins bld =
   let rd, rs1, rm = getThreeOprs ins
@@ -1481,37 +1430,30 @@ let fcvtdotludots ins bld =
   let sign = AST.xthi 1<rt> rs1
   let conds = condNaN, condInf, sign
   let bounds = llMinInFloat, llMaxInFloat, llMin, llMax
-  if rm <> OpRoundMode(RoundMode.DYN) then
-    let rounding = roundingToCastFloat rm
-    let roundingInt = roundingToCastInt rm
-    let t0 = tmpVar bld 32<rt>
+  lift bld ins {
+    let saved = enterRoundingMode bld rm
+    accrueFlags bld 32<rt> FpExc.ToUInt rs1 (numI32 64 32<rt>)
+    (* rounded value *)
+    let t0 = dynamicRoundingFl bld 32<rt> rs1
     let rtVal = tmpVar bld 64<rt>
-    lift bld ins {
-      (* rounded value *)
-      t0 := AST.cast rounding 32<rt> rs1
-      rtVal := AST.cast CastKind.FloatCast 64<rt> t0
-      rd := AST.cast roundingInt 64<rt> rtVal
-      clampConversion bld rd rtVal conds bounds
-    }
-  else
-    lift bld ins {
-      (* rounded value *)
-      let t0 = dynamicRoundingFl bld 32<rt> rs1
-      let rtVal = tmpVar bld 64<rt>
-      (* check for out-of-range *)
-      rtVal := AST.cast CastKind.FloatCast 64<rt> t0
-      rd := AST.cast CastKind.FloatCast 64<rt> rtVal
-      clampConversion bld rd rtVal conds bounds
-    }
+    (* check for out-of-range *)
+    rtVal := AST.cast CastKind.FloatCast 64<rt> t0
+    (* A float-to-integer conversion, not a second widening: what stood here
+       cast the already-widened double to a double again and stored that in an
+       integer register. FCVT.LU.S is rv64-only, so nothing on rv32 reaches
+       it. *)
+    rd := dynamicRoundingInt bld 64<rt> rtVal
+    clampConversion bld rd rtVal conds bounds
+    leaveRoundingMode bld saved
+  }
 
 let fcvtdotsdotw ins bld =
   lift bld ins {
     let rd, rs1, rm = getThreeOprs ins
     let rd, rs1 = transOpr ins bld rd, transOpr ins bld rs1
     let rs1 = AST.xtlo 32<rt> rs1
-    let rtVal = tmpVar bld 32<rt>
-    rtVal := AST.cast CastKind.SIntToFloat 32<rt> rs1
-    writeRoundedSingle rd rtVal rm bld
+    let value = AST.cast CastKind.SIntToFloat 32<rt> rs1
+    rd := getNanBoxed (underRoundingMode bld 32<rt> rm value)
   }
 
 let fcvtdotsdotwu ins bld =
@@ -1519,27 +1461,24 @@ let fcvtdotsdotwu ins bld =
     let rd, rs1, rm = getThreeOprs ins
     let rd, rs1 = transOpr ins bld rd, transOpr ins bld rs1
     let rs1 = AST.xtlo 32<rt> rs1
-    let rtVal = tmpVar bld 32<rt>
-    rtVal := AST.cast CastKind.UIntToFloat 32<rt> rs1
-    writeRoundedSingle rd rtVal rm bld
+    let value = AST.cast CastKind.UIntToFloat 32<rt> rs1
+    rd := getNanBoxed (underRoundingMode bld 32<rt> rm value)
   }
 
 let fcvtdotsdotl ins bld =
   lift bld ins {
     let rd, rs1, rm = getThreeOprs ins
     let rd, rs1 = transOpr ins bld rd, transOpr ins bld rs1
-    let rtVal = tmpVar bld 32<rt>
-    rtVal := AST.cast CastKind.SIntToFloat 32<rt> rs1
-    writeRoundedSingle rd rtVal rm bld
+    let value = AST.cast CastKind.SIntToFloat 32<rt> rs1
+    rd := getNanBoxed (underRoundingMode bld 32<rt> rm value)
   }
 
 let fcvtdotsdotlu ins bld =
   lift bld ins {
     let rd, rs1, rm = getThreeOprs ins
     let rd, rs1 = transOpr ins bld rd, transOpr ins bld rs1
-    let rtVal = tmpVar bld 32<rt>
-    rtVal := AST.cast CastKind.UIntToFloat 32<rt> rs1
-    writeRoundedSingle rd rtVal rm bld
+    let value = AST.cast CastKind.UIntToFloat 32<rt> rs1
+    rd := getNanBoxed (underRoundingMode bld 32<rt> rm value)
   }
 
 let fcvtdotddotw ins bld =
@@ -1558,41 +1497,43 @@ let fcvtdotddotl ins bld =
   lift bld ins {
     let rd, rs1, rm = getThreeOprs ins
     let rd, rs1 = transOpr ins bld rd, transOpr ins bld rs1
-    let rtVal = AST.cast CastKind.SIntToFloat 64<rt> rs1
-    writeRoundedDouble rd rtVal rm bld
+    let value = AST.cast CastKind.SIntToFloat 64<rt> rs1
+    rd := underRoundingMode bld 64<rt> rm value
   }
 
 let fcvtdotddotlu ins bld =
   lift bld ins {
     let rd, rs1, rm = getThreeOprs ins
     let rd, rs1 = transOpr ins bld rd, transOpr ins bld rs1
-    let rtVal = AST.cast CastKind.UIntToFloat 64<rt> rs1
-    writeRoundedDouble rd rtVal rm bld
+    let value = AST.cast CastKind.UIntToFloat 64<rt> rs1
+    rd := underRoundingMode bld 64<rt> rm value
   }
 
+/// FCVT.S.D narrows, and a narrowing is the one conversion between the two
+/// floating formats where a rounding direction is felt: every single is a
+/// double exactly, so the widening FCVT.D.S has nothing to round. The
+/// direction belongs to the narrowing itself rather than to a pass over the
+/// result afterwards, which is why this sets frm around the cast instead of
+/// rounding what came out of it.
 let fcvtdotsdotd ins bld =
   lift bld ins {
     let rd, rs1, rm = getThreeOprs ins
     let rd, rs1 = transOpr ins bld rd, transOpr ins bld rs1
-    let rtVal = tmpVar bld 64<rt>
-    let rs1 =
-      AST.cast CastKind.FloatCast 32<rt> rs1
-      |> fun single ->
-           AST.ite (isNan 32<rt> single) (fpDefaultNan 32<rt>) single
-    rtVal := getNanBoxed rs1
-    if rm <> OpRoundMode(RoundMode.DYN) then
-      let rounding = roundingToCastFloat rm
-      rd := AST.cast rounding 64<rt> rtVal
-    else
-      rd := dynamicRoundingFl bld 64<rt> rtVal
+    let value = AST.cast CastKind.FloatCast 32<rt> rs1
+    let single = underRoundingMode bld 32<rt> rm value
+    rd := getNanBoxed (fpCanonical 32<rt> single)
   }
 
+/// FCVT.D.S widens, which is exact for every single there is, so no rounding
+/// direction can reach it. What it still owes is the canonical NaN: the host's
+/// own widening carries a NaN's payload across, and RISC-V answers every
+/// invalid operation with one pattern.
 let fcvtdotddots ins bld =
   lift bld ins {
     let rd, rs1, _ = getThreeOprs ins
     let rd, rs1 = transOpr ins bld rd, transOpr ins bld rs1
     let rs1 = getFloat32FromReg rs1
-    rd := AST.cast CastKind.FloatCast 64<rt> rs1
+    rd := fpCanonical 64<rt> (AST.cast CastKind.FloatCast 64<rt> rs1)
   }
 
 /// Load-reserved (LR.W/LR.D): records an exclusive reservation -- the reserved
@@ -1610,16 +1551,31 @@ let lr ins bld =
     AST.sideEffect AtomicBegin
     v := mem
     regVar bld R.ExMonAddr := addr
-    regVar bld R.ExMonVal := AST.zext 64<rt> v
-    rd := AST.sext 64<rt> v
+    regVar bld R.ExMonVal := AST.zext bld.RegType v
+    rd := AST.sext bld.RegType v
     AST.sideEffect AtomicEnd
   }
 
+/// <summary>
 /// Store-conditional (SC.W/SC.D): stores and reports success (rd = 0) only if
 /// the reservation still holds -- the address matches and memory still holds
 /// the reserved value; otherwise memory is left unchanged and it reports
 /// failure (rd = 1). The conditional store is a store of ite(matched, data,
 /// old), so no branch is emitted.
+///
+/// Whether it stored or not, the reservation is gone afterwards: "regardless
+/// of success or failure, executing an SC.W instruction invalidates any
+/// reservation held by this hart" (unprivileged ISA, load-reserved and
+/// store-conditional). Leaving it in place makes a second SC.W succeed
+/// whenever the value the first one wrote happens to equal the value that was
+/// reserved -- which is not a rare coincidence but the ordinary outcome of a
+/// preceding AMOMAX, and an SC with no reservation behind it must always fail.
+///
+/// What marks it invalid is an address the comparison can never match. A
+/// reservation is only ever made by an LR, which requires its address to be
+/// naturally aligned, so an address with every bit set is one no live
+/// reservation can hold.
+/// </summary>
 let sc ins bld oprSz =
   lift bld ins {
     let rd, rs2, mem, _ = transFourOprs ins bld
@@ -1631,6 +1587,7 @@ let sc ins bld oprSz =
     matched := (addr == regVar bld R.ExMonAddr)
                .& (cur == AST.xtlo oprSz (regVar bld R.ExMonVal))
     mem := AST.ite matched (AST.xtlo oprSz rs2) cur
-    rd := AST.ite matched (AST.num0 64<rt>) (AST.num1 64<rt>)
+    rd := AST.ite matched (AST.num0 bld.RegType) (AST.num1 bld.RegType)
+    regVar bld R.ExMonAddr := AST.not (AST.num0 bld.RegType)
     AST.sideEffect AtomicEnd
   }

@@ -392,7 +392,9 @@ module CallingConvention =
               ppc PPC.Register.R12 ]
       ReturnAddressLocation = InRegister(ppc PPC.Register.LR) }
 
-  let private linuxRISCV64 () = (* RISC-V LP64D ABI *)
+  (* RISC-V LP64D and ILP32D, which differ in how wide what a register
+     holds is rather than in which register holds it. *)
+  let private linuxRISCV () =
     { IntArgs =
         [| ArgLocation.Reg(riscv RISCV.Register.X10)
            ArgLocation.Reg(riscv RISCV.Register.X11)
@@ -776,7 +778,7 @@ module CallingConvention =
     | _, MIPS -> linuxMIPS ()
     | _, PPC32 -> linuxPPC32 ()
     | _, PPC64 -> linuxPPC64 ()
-    | _, RISCV64 -> linuxRISCV64 ()
+    | _, RISCV -> linuxRISCV ()
     | _, SPARC -> linuxSPARC ()
     | _, S390 -> linuxS390 ()
     | _, M68K -> linuxM68K ()
