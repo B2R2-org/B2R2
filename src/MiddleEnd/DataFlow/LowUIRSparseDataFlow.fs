@@ -580,8 +580,10 @@ module internal AnalysisCore = begin
     let phiInfos = (state: State<_>).MutablePhiInfos
     if not <| phiInfos.ContainsKey v then phiInfos[v] <- PhiInfo () else ()
     let phiInfo = phiInfos[v]
-    if not <| phiInfo.ContainsKey varKind then phiInfo[varKind] <- Dictionary ()
-    else ()
+    if phiInfo.ContainsKey varKind then false
+    else
+      phiInfo[varKind] <- Dictionary ()
+      true
 
   let isInnerScopeVarKind (v: IVertex<LowUIRBasicBlock>) = function
     | Temporary _ when v.VData.Internals.PPoint.Address = 0UL -> true
@@ -609,15 +611,70 @@ module internal AnalysisCore = begin
       memo[v] <- varKinds
       varKinds
 
+  /// Returns the variable kinds defined by the phi nodes of the given vertex.
+  /// A phi node is a definition on its own, so it can require another phi node
+  /// down the dominance frontier.
+  let getPhiVarKinds (state: State<_>) v =
+    match state.PhiInfos.TryGetValue v with
+    | true, phiInfo -> phiInfo.Keys :> seq<_>
+    | false, _ -> Seq.empty
+
+  /// Places the phi nodes that the definitions of `affectingVertex` require at
+  /// the insertion point `v`. Returns true if a new phi node has been placed.
+  let placePhisFrom state buf memo v affectingVertex =
+    let mutable changed = false
+    for varKind in getDefinedVarKinds memo state affectingVertex do
+      if isInnerScopeVarKind v varKind then ()
+      elif placePhi state v varKind then changed <- true
+      else ()
+    (buf: ResizeArray<_>).Clear()
+    buf.AddRange(getPhiVarKinds state affectingVertex)
+    for varKind in buf do
+      if isInnerScopeVarKind v varKind then ()
+      elif placePhi state v varKind then changed <- true
+      else ()
+    changed
+
+  /// Maps each vertex to the insertion points whose inverse dominance frontier
+  /// it belongs to, so that a newly placed phi node only wakes up the insertion
+  /// points that can possibly need another one.
+  let buildInverseDFIndex g dom candidates =
+    let invDFs = Dictionary()
+    let dependents = Dictionary()
+    for v in candidates do
+      let invDF = computeInverseDF g dom v
+      invDFs[v] <- invDF
+      for affectingVertex in invDF do
+        match dependents.TryGetValue affectingVertex with
+        | true, lst -> (lst: ResizeArray<_>).Add v
+        | false, _ -> dependents[affectingVertex] <- ResizeArray [ v ]
+    invDFs, dependents
+
   /// Places the phi nodes. We do not calculate all dominance frontier sets,
-  /// but only those that are selectively used to insert phi nodes.
+  /// but only those that are selectively used to insert phi nodes. Since a phi
+  /// node is itself a definition, we repeat the placement until it converges,
+  /// revisiting an insertion point only when one of the vertices it depends on
+  /// has gained a phi node.
   let placePhis g state (dom: IForwardDominance<_>) =
     let memo = Dictionary()
-    for v in collectPhiInsertionCandidates g state do
-      for affectingVertex in computeInverseDF g dom v do
-        for varKind in getDefinedVarKinds memo state affectingVertex do
-          if not (isInnerScopeVarKind v varKind) then placePhi state v varKind
-          else ()
+    let buf = ResizeArray()
+    let candidates = collectPhiInsertionCandidates g state
+    let invDFs, dependents = buildInverseDFIndex g dom candidates
+    let worklist = Queue candidates
+    let queued = HashSet candidates
+    while worklist.Count > 0 do
+      let v = worklist.Dequeue()
+      queued.Remove v |> ignore
+      let mutable changed = false
+      for affectingVertex in invDFs[v] do
+        if placePhisFrom state buf memo v affectingVertex then changed <- true
+        else ()
+      match dependents.TryGetValue v with
+      | true, lst when changed ->
+        for dependent in lst do
+          if queued.Add dependent then worklist.Enqueue dependent else ()
+      | _ ->
+        ()
 
   let updateIncomingDefsWithPhis state (v: IVertex<LowUIRBasicBlock>) ins =
     match (state: State<_>).PhiInfos.TryGetValue v with
