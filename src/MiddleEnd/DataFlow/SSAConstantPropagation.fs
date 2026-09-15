@@ -68,6 +68,8 @@ type SSAConstantPropagation(hdl: BinHandle) =
     | Extract(e, rt, pos) ->
       let c = evalExpr state e
       ConstantDomain.extract c rt pos
+    | RoundCtrl(_, _, body) ->
+      evalExpr state body
     | FuncName _ | ExprList _ | Undefined _ ->
       ConstantDomain.NotAConst
     | _ ->

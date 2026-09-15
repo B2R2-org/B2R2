@@ -109,6 +109,8 @@ module State =
               (getEvalExpr state fExpr) |> Value
     | Cast(kind, ty, expr, _) ->
       AST.cast kind ty <| getEvalExpr state expr |> Value
+    | RoundCtrl(mode, body, _) ->
+      AST.roundCtrl (getEvalExpr state mode) (getEvalExpr state body) |> Value
     | _ ->
       Value e // Num, Name, PCVar
 

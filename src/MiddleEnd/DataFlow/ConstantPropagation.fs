@@ -80,6 +80,8 @@ type ConstantPropagation(hdl, vs) =
     | Extract(e, rt, pos, _) ->
       let c = evaluateExpr state pp e
       ConstantDomain.extract c rt pos
+    | RoundCtrl(_, body, _) ->
+      evaluateExpr state pp body
     | FuncName _ | ExprList _ | Undefined _ ->
       ConstantDomain.NotAConst
     | _ ->
