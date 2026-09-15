@@ -91,6 +91,12 @@ let private vxOne xo ins =
   | [ Rg v ] -> word 4u (vr v) 0u 0u xo
   | _ -> wrongOperands ins
 
+/// A VX-form whose only register is vB (mtvscr).
+let private vxOneB xo ins =
+  match ins.Operands with
+  | [ Rg v ] -> word 4u 0u 0u (vr v) xo
+  | _ -> wrongOperands ins
+
 /// A VA-form "vD, vA, vB, vC".
 let private va xo ins =
   match ins.Operands with
@@ -157,15 +163,15 @@ let private xx2Splat ins =
   | [ Rg t; Rg b; Im u ] -> vsxWord (164u <<< 2) (vsr t) (unsigned 2 u) (vsr b)
   | _ -> wrongOperands ins
 
-/// xxspltib, whose byte to fill a register with straddles the two fields the
-/// other forms keep registers in.
+/// xxspltib, whose byte to fill a register with sits in bits 13-20, straddling
+/// the two fields the other forms keep registers in.
 let private xx2SplatByte ins =
   match ins.Operands with
   | [ Rg t; Im v ] ->
     let imm = unsigned 8 v
     let n = vsr t
     let tail = (180u <<< 2) ||| (n >>> 5)
-    word 60u (n &&& 0x1Fu) (imm >>> 3) ((imm &&& 0x7u) <<< 2) tail
+    word 60u (n &&& 0x1Fu) (imm >>> 5) (imm &&& 0x1Fu) tail
   | _ ->
     wrongOperands ins
 
@@ -290,7 +296,7 @@ let private shuffleEncoders () =
     Op.VSPLTISH, vxSplatImm 844u
     Op.VSPLTISW, vxSplatImm 908u
     Op.MFVSCR, vxOne 1540u
-    Op.MTVSCR, vxOne 1604u
+    Op.MTVSCR, vxOneB 1604u
     Op.VSEL, va 42u
     Op.VPERM, va 43u
     Op.VSLDOI, vaShift ]

@@ -204,23 +204,23 @@ let private liftArith ins bld opcode =
   | Opcode.SLBGR ->
     subBorrow ins bld GRSize
   | Opcode.LCR ->
-    unaryArith ins bld WSize WSize AST.neg
+    unaryArith ins bld WSize WSize AST.neg true
   | Opcode.LCGR ->
-    unaryArith ins bld GRSize GRSize AST.neg
+    unaryArith ins bld GRSize GRSize AST.neg true
   | Opcode.LCGFR ->
-    unaryArith ins bld GRSize WSize AST.neg
+    unaryArith ins bld GRSize WSize AST.neg false
   | Opcode.LPR ->
-    unaryArith ins bld WSize WSize absValue
+    unaryArith ins bld WSize WSize absValue true
   | Opcode.LPGR ->
-    unaryArith ins bld GRSize GRSize absValue
+    unaryArith ins bld GRSize GRSize absValue true
   | Opcode.LPGFR ->
-    unaryArith ins bld GRSize WSize absValue
+    unaryArith ins bld GRSize WSize absValue false
   | Opcode.LNR ->
-    unaryArith ins bld WSize WSize negAbsValue
+    unaryArith ins bld WSize WSize negAbsValue false
   | Opcode.LNGR ->
-    unaryArith ins bld GRSize GRSize negAbsValue
+    unaryArith ins bld GRSize GRSize negAbsValue false
   | Opcode.LNGFR ->
-    unaryArith ins bld GRSize WSize negAbsValue
+    unaryArith ins bld GRSize WSize negAbsValue false
   | Opcode.MSR | Opcode.MS | Opcode.MSY | Opcode.MSFI | Opcode.MHI ->
     mul ins bld WSize WSize same
   | Opcode.MSGR | Opcode.MSG | Opcode.MSGFI | Opcode.MGHI ->
@@ -295,7 +295,7 @@ let private liftShift ins bld opcode =
   | Opcode.SRL ->
     shift2 ins bld (>>) false
   | Opcode.SLA ->
-    shift2 ins bld (<<) true
+    shiftLeftArith2 ins bld
   | Opcode.SRA ->
     shift2 ins bld (?>>) true
   | Opcode.SLLK ->
@@ -303,7 +303,7 @@ let private liftShift ins bld opcode =
   | Opcode.SRLK ->
     shift3 ins bld WSize (>>) false
   | Opcode.SLAK ->
-    shift3 ins bld WSize (<<) true
+    shiftLeftArith3 ins bld WSize
   | Opcode.SRAK ->
     shift3 ins bld WSize (?>>) true
   | Opcode.SLLG ->
@@ -311,7 +311,7 @@ let private liftShift ins bld opcode =
   | Opcode.SRLG ->
     shift3 ins bld GRSize (>>) false
   | Opcode.SLAG ->
-    shift3 ins bld GRSize (<<) true
+    shiftLeftArith3 ins bld GRSize
   | Opcode.SRAG ->
     shift3 ins bld GRSize (?>>) true
   | Opcode.RLL ->
@@ -555,14 +555,22 @@ let private liftFloat ins bld opcode =
     FloatLifter.fromInt ins bld 32<rt> GRSize false
   | Opcode.CDLGBR ->
     FloatLifter.fromInt ins bld 64<rt> GRSize false
-  | Opcode.CFEBR | Opcode.CFEBRA | Opcode.CLFEBR ->
-    FloatLifter.toInt ins bld 32<rt> WSize
-  | Opcode.CFDBR | Opcode.CFDBRA | Opcode.CLFDBR ->
-    FloatLifter.toInt ins bld 64<rt> WSize
-  | Opcode.CGEBR | Opcode.CGEBRA | Opcode.CLGEBR ->
-    FloatLifter.toInt ins bld 32<rt> GRSize
-  | Opcode.CGDBR | Opcode.CGDBRA | Opcode.CLGDBR ->
-    FloatLifter.toInt ins bld 64<rt> GRSize
+  | Opcode.CFEBR | Opcode.CFEBRA ->
+    FloatLifter.toInt ins bld 32<rt> WSize true
+  | Opcode.CLFEBR ->
+    FloatLifter.toInt ins bld 32<rt> WSize false
+  | Opcode.CFDBR | Opcode.CFDBRA ->
+    FloatLifter.toInt ins bld 64<rt> WSize true
+  | Opcode.CLFDBR ->
+    FloatLifter.toInt ins bld 64<rt> WSize false
+  | Opcode.CGEBR | Opcode.CGEBRA ->
+    FloatLifter.toInt ins bld 32<rt> GRSize true
+  | Opcode.CLGEBR ->
+    FloatLifter.toInt ins bld 32<rt> GRSize false
+  | Opcode.CGDBR | Opcode.CGDBRA ->
+    FloatLifter.toInt ins bld 64<rt> GRSize true
+  | Opcode.CLGDBR ->
+    FloatLifter.toInt ins bld 64<rt> GRSize false
   | Opcode.FIDBR | Opcode.FIDBRA ->
     FloatLifter.roundToInt ins bld 64<rt>
   | Opcode.FIEBR | Opcode.FIEBRA ->
@@ -592,11 +600,11 @@ let private liftFloat ins bld opcode =
   | Opcode.DIEBR ->
     FloatLifter.divideToInteger ins bld 32<rt>
   | Opcode.SRNM ->
-    FloatLifter.setRoundingMode ins bld 2
+    FloatLifter.setRoundingMode ins bld 2 0
   | Opcode.SRNMB ->
-    FloatLifter.setRoundingMode ins bld 3
+    FloatLifter.setRoundingMode ins bld 3 0
   | Opcode.SRNMT ->
-    FloatLifter.setRoundingMode ins bld 3
+    FloatLifter.setRoundingMode ins bld 3 4
   | Opcode.LFAS ->
     FloatLifter.loadFpc ins bld
   | Opcode.SFASR ->
@@ -806,22 +814,26 @@ let private liftOther ins bld opcode =
     mvst ins bld
   | Opcode.CLST ->
     clst ins bld
-  | Opcode.LAA | Opcode.LAAL ->
-    loadAndOp ins bld WSize (.+)
-  | Opcode.LAAG | Opcode.LAALG ->
-    loadAndOp ins bld GRSize (.+)
+  | Opcode.LAA ->
+    loadAndOp ins bld WSize (.+) ccAdd
+  | Opcode.LAAL ->
+    loadAndOp ins bld WSize (.+) ccAddL
+  | Opcode.LAAG ->
+    loadAndOp ins bld GRSize (.+) ccAdd
+  | Opcode.LAALG ->
+    loadAndOp ins bld GRSize (.+) ccAddL
   | Opcode.LAN ->
-    loadAndOp ins bld WSize (.&)
+    loadAndOp ins bld WSize (.&) ccLogic
   | Opcode.LANG ->
-    loadAndOp ins bld GRSize (.&)
+    loadAndOp ins bld GRSize (.&) ccLogic
   | Opcode.LAO ->
-    loadAndOp ins bld WSize (.|)
+    loadAndOp ins bld WSize (.|) ccLogic
   | Opcode.LAOG ->
-    loadAndOp ins bld GRSize (.|)
+    loadAndOp ins bld GRSize (.|) ccLogic
   | Opcode.LAX ->
-    loadAndOp ins bld WSize (<+>)
+    loadAndOp ins bld WSize (<+>) ccLogic
   | Opcode.LAXG ->
-    loadAndOp ins bld GRSize (<+>)
+    loadAndOp ins bld GRSize (<+>) ccLogic
   | Opcode.ECAG ->
     ecag ins bld
   | Opcode.TBEGIN | Opcode.TBEGINC ->
@@ -1137,17 +1149,51 @@ let private groupOf opcode =
   | Opcode.SAM24 | Opcode.SAM31 | Opcode.SAM64 | Opcode.TABORT -> 10
   | Opcode.BSM | Opcode.CSST | Opcode.WFC | Opcode.WFK | Opcode.LGG
   | Opcode.LLGFSG | Opcode.STRAG -> 15
+  | Opcode.CVB | Opcode.CVBY | Opcode.CVBG | Opcode.CVD | Opcode.CVDY
+  | Opcode.CVDG | Opcode.PACK | Opcode.PKA | Opcode.PKU | Opcode.UNPK
+  | Opcode.UNPKA | Opcode.UNPKU | Opcode.AP | Opcode.SP | Opcode.ZAP
+  | Opcode.CP | Opcode.MP | Opcode.DP | Opcode.SRP | Opcode.TP | Opcode.ED
+  | Opcode.EDMK -> 16
+  | Opcode.CU12 | Opcode.CUTFU | Opcode.CU14 | Opcode.CU21 | Opcode.CUUTF
+  | Opcode.CU24 | Opcode.CU41 | Opcode.CU42 -> 17
+  (* The engines -- message security, compression, sort, and the neural
+     assist -- along with PERFORM FLOATING-POINT OPERATION, which converts
+     between every floating-point format, and EXTRACT CPU TIME, which reads
+     a clock the emulator does not keep. *)
+  | Opcode.KM | Opcode.KMC | Opcode.KMA | Opcode.KMF | Opcode.KMCTR
+  | Opcode.KMO | Opcode.KIMD | Opcode.KLMD | Opcode.KMAC | Opcode.PCC
+  | Opcode.PRNO | Opcode.KDSA | Opcode.CMPSC | Opcode.SORTL | Opcode.DFLTCC
+  | Opcode.NNPA | Opcode.PFPO | Opcode.ECTG -> 15
+  (* Decimal floating point, whose densely-packed-decimal encoding and
+     arithmetic no type the IR has can carry. *)
+  | Opcode.ADTR | Opcode.AXTR | Opcode.ADTRA | Opcode.AXTRA | Opcode.CDTR
+  | Opcode.CXTR | Opcode.KDTR | Opcode.KXTR | Opcode.CEDTR | Opcode.CEXTR
+  | Opcode.CDGTR | Opcode.CXGTR | Opcode.CDGTRA | Opcode.CXGTRA | Opcode.CDFTR
+  | Opcode.CXFTR | Opcode.CDLGTR | Opcode.CXLGTR | Opcode.CDLFTR
+  | Opcode.CXLFTR | Opcode.CDPT | Opcode.CXPT | Opcode.CDSTR | Opcode.CXSTR
+  | Opcode.CDUTR | Opcode.CXUTR | Opcode.CDZT | Opcode.CXZT | Opcode.CGDTR
+  | Opcode.CGXTR | Opcode.CGDTRA | Opcode.CGXTRA | Opcode.CFDTR | Opcode.CFXTR
+  | Opcode.CLGDTR | Opcode.CLGXTR | Opcode.CLFDTR | Opcode.CLFXTR | Opcode.CPDT
+  | Opcode.CPXT | Opcode.CSDTR | Opcode.CSXTR | Opcode.CUDTR | Opcode.CUXTR
+  | Opcode.CZDT | Opcode.CZXT | Opcode.DDTR | Opcode.DXTR | Opcode.DDTRA
+  | Opcode.DXTRA | Opcode.EEDTR | Opcode.EEXTR | Opcode.ESDTR | Opcode.ESXTR
+  | Opcode.IEDTR | Opcode.IEXTR | Opcode.LTDTR | Opcode.LTXTR | Opcode.FIDTR
+  | Opcode.FIXTR | Opcode.LDETR | Opcode.LXDTR | Opcode.LEDTR | Opcode.LDXTR
+  | Opcode.MDTR | Opcode.MXTR | Opcode.MDTRA | Opcode.MXTRA | Opcode.QADTR
+  | Opcode.QAXTR | Opcode.RRDTR | Opcode.RRXTR | Opcode.SLDT | Opcode.SLXT
+  | Opcode.SRDT | Opcode.SRXT | Opcode.SDTR | Opcode.SXTR | Opcode.SDTRA
+  | Opcode.SXTRA | Opcode.TDCET | Opcode.TDCDT | Opcode.TDCXT | Opcode.TDGET
+  | Opcode.TDGDT | Opcode.TDGXT -> 15
   | _ -> -1
 
-/// Translates one instruction into LowUIR. What is left over -- and so raises
-/// the not-implemented exception, which ends the block being decoded and, if
-/// execution really reaches it, gives the guest the illegal-instruction signal
-/// -- is three families this lifter does not model at all: decimal floating
-/// point, whose densely-packed-decimal encoding and arithmetic no type the IR
-/// has can carry; the packed-decimal arithmetic of the System/360 commercial
-/// instruction set; and the message-security, compression, sort, and neural
-/// assists, which are engines rather than arithmetic. No compiler targeting
-/// Linux emits any of them.
+/// Translates one instruction into LowUIR. Every opcode the parser produces
+/// has a group, so the fall-through, which raises the not-implemented
+/// exception, only guards the tables above. Two families are lifted as no more
+/// than an unsupported side effect: decimal floating point, whose
+/// densely-packed-decimal encoding and arithmetic no type the IR has can carry,
+/// and the message-security, compression, sort, and neural assists, which are
+/// engines rather than arithmetic. No compiler targeting Linux emits any of
+/// them.
 let translate (ins: Instruction) bld =
   let opcode = ins.Opcode
   match groupOf opcode with
@@ -1167,4 +1213,6 @@ let translate (ins: Instruction) bld =
   | 13 -> HexFloatLifter.translate ins bld
   | 14 -> liftExtFloat ins bld opcode
   | 15 -> unsupported ins bld
+  | 16 -> DecimalLifter.translate ins bld
+  | 17 -> UnicodeLifter.translate ins bld
   | _ -> raise (NotImplementedIRException(Disasm.opCodeToString opcode))

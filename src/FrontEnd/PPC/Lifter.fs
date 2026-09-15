@@ -208,6 +208,10 @@ let translate (ins: Instruction) bld =
     extsh ins true bld
   | Op.EIEIO ->
     nop ins bld
+  | Op.ECIWX ->
+    eciwx ins bld
+  | Op.ECOWX ->
+    ecowx ins bld
   | Op.EQV ->
     eqvx ins false bld
   | Op.EQVdot ->
@@ -244,6 +248,14 @@ let translate (ins: Instruction) bld =
     fdiv ins true true bld
   | Op.FDIVSdot ->
     fdiv ins true false bld
+  | Op.FRES ->
+    fres ins false bld
+  | Op.FRESdot ->
+    fres ins true bld
+  | Op.FRSQRTE ->
+    frsqrte ins false bld
+  | Op.FRSQRTEdot ->
+    frsqrte ins true bld
   | Op.FRSP ->
     frsp ins false bld
   | Op.FRSPdot ->
@@ -380,10 +392,23 @@ let translate (ins: Instruction) bld =
     lwzux ins bld
   | Op.LWZX ->
     lwzx ins bld
+  | Op.LSWI ->
+    lswi ins bld
+  | Op.LSWX ->
+    lswx ins bld
   | Op.MCRF ->
     mcrf ins bld
+  | Op.MCRFS ->
+    mcrfs ins bld
   | Op.MCRXR ->
     mcrxr ins bld
+  (* The supervisor's instructions: the MSR and the segment registers, the
+     return from interrupt, and the TLB maintenance. None has an effect a
+     user-level program can see, and the registers they touch are not in the
+     register file. *)
+  | Op.MFMSR | Op.MFSR | Op.MFSRIN | Op.MTSR | Op.MTSRIN | Op.RFI | Op.TLBIA
+  | Op.TLBIE | Op.TLBSYNC ->
+    sideEffects ins bld UnsupportedInstruction
   | Op.MFCR ->
     mfcr ins bld
   | Op.MFSPR ->
@@ -395,7 +420,9 @@ let translate (ins: Instruction) bld =
   | Op.MFCTR ->
     mfctr ins bld
   | Op.MFFS ->
-    mffs ins bld
+    mffs ins false bld
+  | Op.MFFSdot ->
+    mffs ins true bld
   | Op.MFLR ->
     mflr ins bld
   | Op.MFXER ->
@@ -421,13 +448,17 @@ let translate (ins: Instruction) bld =
   | Op.MTFSB1dot ->
     mtfsb1 ins true bld
   | Op.MTFSF ->
-    mtfsf ins bld
+    mtfsf ins false bld
+  | Op.MTFSFdot ->
+    mtfsf ins true bld
   | Op.MTLR ->
     mtlr ins bld
   | Op.MTXER ->
     mtxer ins bld
   | Op.MULHW ->
     mulhw ins false bld
+  | Op.MULHWdot ->
+    mulhw ins true bld
   | Op.MULHWU ->
     mulhwu ins false bld
   | Op.MULHWUdot ->
@@ -556,6 +587,10 @@ let translate (ins: Instruction) bld =
     stwux ins bld
   | Op.STWX ->
     stwx ins bld
+  | Op.STSWI ->
+    stswi ins bld
+  | Op.STSWX ->
+    stswx ins bld
   | Op.SUBF ->
     subf ins false false bld
   | Op.SUBFdot ->
@@ -798,29 +833,29 @@ let translate (ins: Instruction) bld =
   | Op.TW ->
     trapGeneric ins bld true
   | Op.FCTID ->
-    fcti ins false bld 64<rt> false
+    fcti ins false bld 64<rt> true false
   | Op.FCTIDdot ->
-    fcti ins true bld 64<rt> false
+    fcti ins true bld 64<rt> true false
   | Op.FCTIDZ ->
-    fcti ins false bld 64<rt> true
+    fcti ins false bld 64<rt> true true
   | Op.FCTIDZdot ->
-    fcti ins true bld 64<rt> true
+    fcti ins true bld 64<rt> true true
   | Op.FCTIDU ->
-    fcti ins false bld 64<rt> false
+    fcti ins false bld 64<rt> false false
   | Op.FCTIDUdot ->
-    fcti ins true bld 64<rt> false
+    fcti ins true bld 64<rt> false false
   | Op.FCTIDUZ ->
-    fcti ins false bld 64<rt> true
+    fcti ins false bld 64<rt> false true
   | Op.FCTIDUZdot ->
-    fcti ins true bld 64<rt> true
+    fcti ins true bld 64<rt> false true
   | Op.FCTIWU ->
-    fcti ins false bld 32<rt> false
+    fcti ins false bld 32<rt> false false
   | Op.FCTIWUdot ->
-    fcti ins true bld 32<rt> false
+    fcti ins true bld 32<rt> false false
   | Op.FCTIWUZ ->
-    fcti ins false bld 32<rt> true
+    fcti ins false bld 32<rt> false true
   | Op.FCTIWUZdot ->
-    fcti ins true bld 32<rt> true
+    fcti ins true bld 32<rt> false true
   | Op.FCFID ->
     fcfid ins false bld true false
   | Op.FCFIDdot ->
@@ -921,30 +956,29 @@ let translate (ins: Instruction) bld =
   | Op.FCPSGN ->
     fcpsgn ins bld
   | Op.MFFSL ->
-    mffs ins bld
+    mffs ins false bld
   | Op.XSADDDP ->
-    vsxScalarBinary ins bld AST.fadd
+    vsxScalarBinary ins bld AST.fadd true
   | Op.XSSUBDP ->
-    vsxScalarBinary ins bld AST.fsub
+    vsxScalarBinary ins bld AST.fsub true
   | Op.XSDIVDP ->
-    vsxScalarBinary ins bld AST.fdiv
+    vsxScalarBinary ins bld AST.fdiv true
   | Op.XSCPSGNDP ->
-    vsxScalarBinary ins bld copySign
+    vsxScalarBinary ins bld copySign false
   | Op.XSCMPUDP ->
     xscmpudp ins bld
   | Op.XSABSDP ->
     vsxScalarUnary ins bld (fun b ->
-      b .& numU64 0x7fffffffffffffffUL 64<rt>)
+      b .& numU64 0x7fffffffffffffffUL 64<rt>) false
   | Op.XSRSP ->
     (* Rounding a double to single precision and keeping it in double format. *)
     vsxScalarUnary ins bld (fun b ->
       AST.cast CastKind.FloatCast 64<rt> (AST.cast CastKind.FloatCast 32<rt> b))
+      true
   | Op.XSCVDPSPN ->
-    vsxScalarUnary ins bld (fun b ->
-      AST.concat (AST.cast CastKind.FloatCast 32<rt> b) (AST.num0 32<rt>))
+    xscvdpspn ins bld
   | Op.XSCVSPDPN ->
-    vsxScalarUnary ins bld (fun b ->
-      AST.cast CastKind.FloatCast 64<rt> (AST.xthi 32<rt> b))
+    xscvspdpn ins bld
   | Op.VSLDOI ->
     vecShiftDouble ins bld 1
   | Op.XXSLDWI ->
@@ -973,6 +1007,10 @@ let translate (ins: Instruction) bld =
     vecMerge ins bld 16<rt> false
   | Op.VMRGLW ->
     vecMerge ins bld 32<rt> false
+  | Op.VMRGEW ->
+    vecMergeWord ins bld true
+  | Op.VMRGOW ->
+    vecMergeWord ins bld false
   | Op.VPKUHUM ->
     vecPack ins bld 16<rt>
   | Op.VPKUWUM ->

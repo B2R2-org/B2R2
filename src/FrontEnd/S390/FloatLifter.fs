@@ -212,18 +212,63 @@ let fromInt ins bld rt intW signed =
     fpPart rt d := AST.cast kind rt v
   }
 
-/// A conversion from a floating-point value to a fixed-point one, which also
-/// reports how the value stood against zero.
-let toInt ins bld rt intW =
+/// A double (the value widened if it was short) and its rounded integer, for
+/// the range tests of a conversion. A 64-bit unsigned target needs the range
+/// above 2^63, which the signed cast cannot reach, so the top half is taken
+/// off before rounding and put back after.
+let private roundedInt bld m f t unsignedWide =
+  let half = numU64 0x43e0000000000000UL 64<rt>
+  append bld {
+    if unsignedWide then
+      let big = AST.fge f half
+      t := AST.cast (intRounding m) 64<rt> (AST.ite big (AST.fsub f half) f)
+      t := AST.ite big (t .+ numU64 0x8000000000000000UL 64<rt>) t
+    else
+      t := AST.cast (intRounding m) 64<rt> f
+  }
+
+/// CONVERT TO FIXED and CONVERT TO LOGICAL: the value is rounded as the mask
+/// says and clamped to the target -- a source beyond the range, or a NaN,
+/// gives the nearest bound (the maximum negative number for a NaN, zero for a
+/// negative logical) with condition code 3; otherwise the code is the sign of
+/// the result.
+let toInt ins bld rt intW signed =
   lift bld (ins: Instruction) {
     let struct (o1, o2, m) = convOprs ins
     let d = oprRegVar bld o1
     let v = tmpVar bld rt
-    let t = tmpVar bld intW
+    let f = tmpVar bld 64<rt>
+    let t = tmpVar bld 64<rt>
+    let r = tmpVar bld intW
+    let bits = RegType.toBitWidth intW
+    let dbl (x: float) =
+      numU64 (System.BitConverter.DoubleToUInt64Bits x) 64<rt>
     v := fpPart rt (oprRegVar bld o2)
-    t := AST.cast (intRounding m) intW v
-    setCCFloat bld v (AST.num0 rt)
-    if intW = GRSize then append bld { d := t } else append bld { low d := t }
+    f := (if rt = 64<rt> then v else AST.cast CastKind.FloatCast 64<rt> v)
+    roundedInt bld m f t (not signed && bits = 64)
+    let nan = IEEE754Double.isNaN f
+    (* the code reports the source: 0 zero, 1 below zero, 2 above, 3 special *)
+    setCCFloat bld f (AST.num0 64<rt>)
+    if signed then
+      let maximum = numU64 ((1UL <<< (bits - 1)) - 1UL) intW
+      let minimum = numU64 (1UL <<< (bits - 1)) intW
+      let high =
+        AST.fge f (dbl (2.0 ** float (bits - 1)))
+        .| (if bits = 64 then AST.b0 else t ?> AST.sext 64<rt> maximum)
+      let low =
+        AST.flt f (dbl (-(2.0 ** float (bits - 1))))
+        .| (if bits = 64 then AST.b0 else t ?< AST.sext 64<rt> minimum)
+      r := AST.ite high maximum (AST.ite (nan .| low) minimum (AST.xtlo intW t))
+      ccVar bld := AST.ite (nan .| high .| low) (numCC 3) (ccVar bld)
+    else
+      let maximum = AST.not (AST.num0 intW)
+      let high = AST.fge f (dbl (2.0 ** float bits))
+      let negative = AST.flt f (AST.num0 64<rt>) .& (t ?< AST.num0 64<rt>)
+      let low = AST.fle f (dbl -1.0) .| negative
+      let zero = AST.num0 intW
+      r := AST.ite high maximum (AST.ite (nan .| low) zero (AST.xtlo intW t))
+      ccVar bld := AST.ite (nan .| high .| low) (numCC 3) (ccVar bld)
+    if intW = GRSize then append bld { d := r } else append bld { low d := r }
   }
 
 /// The rounding a conversion to an integral floating-point value applies,
@@ -260,14 +305,13 @@ let convertFormat ins bld fromRt toRt =
   lift bld (ins: Instruction) {
     let struct (o1, o2, _) = convOprs ins
     let d = oprRegVar bld o1
-    let v = AST.cast CastKind.FloatCast toRt (fpPart fromRt (oprRegVar bld o2))
+    let v = AST.cast CastKind.FloatCast toRt (fpSrc bld fromRt o2)
     fpPart toRt d := v
   }
 
-/// MULTIPLY AND ADD, and MULTIPLY AND SUBTRACT, whose second and third
-/// operands make the product: the add form adds the first operand to it and the
-/// subtract form takes the first operand from it, which is the order a compiler
-/// relies on when it turns a fused multiply-subtract into one instruction.
+/// MULTIPLY AND ADD/SUBTRACT: the product is exact and the sum is rounded
+/// once, so it goes out as the FMA call rather than a multiply then an add.
+/// Bit 1 of the flag negates the addend, which is the first operand here.
 let mulAdd ins bld rt subtract =
   lift bld (ins: Instruction) {
     let struct (o1, o2, o3) = getThreeOprs ins
@@ -276,11 +320,9 @@ let mulAdd ins bld rt subtract =
     let b = tmpVar bld rt
     a := fpSrc bld rt o2
     b := fpPart rt (oprRegVar bld o3)
-    let prod = AST.fmul a b
-    let r =
-      if subtract then AST.fsub prod (fpPart rt d)
-      else AST.fadd (fpPart rt d) prod
-    fpPart rt d := r
+    let name = if rt = 64<rt> then "FMA64" else "FMA32"
+    let flags = numU64 (if subtract then 2UL else 0UL) 8<rt>
+    fpPart rt d := AST.app name [ a; b; fpPart rt d; flags ] rt
   }
 
 /// MULTIPLY, short to long: two short values make a long product, so nothing of
@@ -317,13 +359,14 @@ let divideToInteger ins bld rt =
 
 /// SET BFP ROUNDING MODE, which writes the mode the second operand's address
 /// names into the floating-point control register's rightmost bits.
-let setRoundingMode ins bld width =
+let setRoundingMode ins bld width shift =
   lift bld (ins: Instruction) {
     let o = getOneOpr ins
     let fpc = reg bld Register.FPC
-    let mask = numI32 ((1 <<< width) - 1) WSize
+    let field = numI32 ((1 <<< width) - 1) WSize
+    let mask = numI32 (((1 <<< width) - 1) <<< shift) WSize
     fpc := (fpc .& AST.not mask)
-           .| (narrowTo WSize (transMem bld o) .& mask)
+           .| ((narrowTo WSize (transMem bld o) .& field) << numI32 shift WSize)
   }
 
 /// The extended binary format is 128 bits wide and lives in a pair of
@@ -492,10 +535,18 @@ let private extJoinFrac hi lo fbits =
     (top << numI64 (int64 fbits - 48L) 64<rt>)
     .| (lo >> numI64 (112L - int64 fbits) 64<rt>)
 
+/// The two registers of a conversion, ahead of any rounding masks.
+let private headOprs (ins: Instruction) =
+  match ins.Operands with
+  | TwoOperands(a, b) | ThreeOperands(a, b, _) | FourOperands(a, b, _, _) ->
+    struct (a, b)
+  | _ ->
+    raise InvalidOperandException
+
 /// A widening to the extended format, which loses nothing: a longer fraction
 /// holds a shorter one exactly, so this is a matter of moving the fields.
 let extFromNarrow ins bld fromRt =
-  let struct (o1, o2) = getTwoOprs ins
+  let struct (o1, o2) = headOprs ins
   if not (startsPair (oprReg o1)) then
     specException ins bld
   else
@@ -531,7 +582,7 @@ let extFromNarrow ins bld fromRt =
 /// fraction is cut rather than rounded, so a result can differ from the
 /// hardware's in its last place.
 let extToNarrow ins bld toRt =
-  let struct (o1, o2) = getTwoOprs ins
+  let struct (o1, o2) = headOprs ins
   if not (startsPair (oprReg o2)) then
     specException ins bld
   else

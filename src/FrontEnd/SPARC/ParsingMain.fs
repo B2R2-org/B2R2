@@ -1481,10 +1481,11 @@ let parse101000 b32 =
     match pickBit b32 13u with
     | 0b0u -> struct (Opcode.STBAR, NoOperand)
     | _ -> struct (Opcode.MEMBAR, parseOneOpr b32 getMembarMask)
+  | 19u ->
+    struct (Opcode.RDASR, parseOneRegOneOpr b32 (setPriReg GSR) getRegRd)
   | 16u
   | 17u
   | 18u
-  | 19u
   | 20u
   | 21u
   | 22u
@@ -1537,10 +1538,12 @@ let parse110000 b32 =
       struct (Opcode.WRFPRS, parseTwoOprOneReg)
     | 15u ->
       struct (Opcode.SIR, NoOperand)
+    | 19u ->
+      let opr = parseTwoOprOneReg b32 getRegRs1 getRegRs2 (setPriReg GSR)
+      struct (Opcode.WRASR, opr)
     | 16u
     | 17u
     | 18u
-    | 19u
     | 20u
     | 21u
     | 22u
@@ -1585,10 +1588,12 @@ let parse110000 b32 =
       struct (Opcode.WRFPRS, opr)
     | 15u ->
       struct (Opcode.SIR, parseOneOpr b32 getSimm13)
+    | 19u ->
+      let opr = parseTwoOprOneReg b32 getRegRs1 getSimm13 (setPriReg GSR)
+      struct (Opcode.WRASR, opr)
     | 16u
     | 17u
     | 18u
-    | 19u
     | 20u
     | 21u
     | 22u
@@ -3312,14 +3317,9 @@ let parse10 b32 =
     | 0b0u ->
       parse101000 b32
     | _ ->
-      match pickBit b32 25u with
-      | 0u ->
-        match pickBit b32 13u with
-        | 0b0u -> struct (Opcode.STBAR, NoOperand)
-        | 0b1u -> struct (Opcode.MEMBAR, parseOneOpr b32 getMembarMask)
-        | _ -> raise ParsingFailureException
-      | _ ->
-        raise ParsingFailureException
+      match pickBit b32 25u, extract b32 18u 14u with
+      | 0u, 15u -> struct (Opcode.MEMBAR, parseOneOpr b32 getMembarMask)
+      | _ -> raise ParsingFailureException
   | 0b110000u ->
     parse110000 b32
   | 0b110001u ->

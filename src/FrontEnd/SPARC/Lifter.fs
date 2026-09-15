@@ -319,7 +319,7 @@ let translate (ins: Instruction) bld =
   | Opcode.SWAPA ->
     swapa ins bld
   | Opcode.TADDcc ->
-    addcc ins bld
+    taddcc ins bld
   | Opcode.TADDccTV ->
     addcc ins bld
   | Opcode.TA ->
@@ -329,7 +329,7 @@ let translate (ins: Instruction) bld =
   | Opcode.TPOS | Opcode.TNEG | Opcode.TVC | Opcode.TVS ->
     nop ins bld
   | Opcode.TSUBcc ->
-    subcc ins bld
+    tsubcc ins bld
   | Opcode.TSUBccTV ->
     subcc ins bld
   | Opcode.UDIVX ->
@@ -371,6 +371,8 @@ let translate (ins: Instruction) bld =
     nop ins bld
   | Opcode.FLUSHW ->
     flushw ins bld
+  | Opcode.IMPDEP1 | Opcode.IMPDEP2 ->
+    unsupported ins bld
   (* No parser produces this opcode: an undecodable encoding is reported as a
      parsing failure, so an instruction never carries it this far. *)
   | Opcode.InvalidOp ->

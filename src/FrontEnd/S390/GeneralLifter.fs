@@ -412,14 +412,23 @@ let absValue e = AST.ite (e ?< AST.num0 (Expr.typeOf e)) (AST.neg e) e
 let negAbsValue e = AST.ite (e ?> AST.num0 (Expr.typeOf e)) (AST.neg e) e
 
 /// The one-input arithmetic loads: complement, positive, and negative, each of
-/// which reports the sign of what it produced.
-let unaryArith ins bld rt accW f =
+/// which reports the sign of what it produced -- or 3 when the source was the
+/// most negative number, whose complement and magnitude do not exist. The
+/// negative form and the forms that widen a word cannot overflow.
+let unaryArith ins bld rt accW f overflows =
   lift bld (ins: Instruction) {
     let struct (o1, o2) = getTwoOprs ins
     let d = oprRegVar bld o1
+    let s = tmpVar bld rt
     let t = tmpVar bld rt
-    t := f (sextTo rt (srcOf bld accW o2))
+    s := sextTo rt (srcOf bld accW o2)
+    t := f s
     setCCSign bld t
+    if overflows then
+      let minimum = numU64 (1UL <<< (RegType.toBitWidth rt - 1)) rt
+      ccVar bld := AST.ite (s == minimum) (numCC 3) (ccVar bld)
+    else
+      ()
     dst rt d := t
   }
 
@@ -433,33 +442,24 @@ let mul ins bld rt accW ext =
     dst rt d := srcReg rt d .* b
   }
 
-/// The three-operand multiply, which leaves its inputs alone.
-let mul3 ins bld rt =
+/// The three-operand multiply, which leaves its inputs alone and reports the
+/// sign of the product, or 3 when the product does not fit.
+let mul3 ins bld (rt: RegType) =
   lift bld (ins: Instruction) {
     let struct (o1, o2, o3) = getThreeOprs ins
     let d = oprRegVar bld o1
-    let a = srcOf bld rt o2
-    let b = srcOf bld rt o3
-    dst rt d := a .* b
-  }
-
-/// The register a pair's even member pairs with, which holds the high half of
-/// a double-width product and the remainder of a division. Only an even
-/// register names a pair; an odd one is a specification exception on real
-/// hardware, and here it names itself so that lifting such an encoding -- which
-/// only ever turns up in bytes that are not really code -- yields an
-/// instruction the emulator rejects rather than a lifter that gives up.
-let private pairOf r =
-  if int (r: Register) % 2 = 0 then RegisterHelper.getRpairReg r else r
-
-/// Whether a register-pair operand names a pair at all.
-let private isPair (r: Register) = int r % 2 = 0
-
-/// An encoding that names a register pair with an odd register, which is not
-/// a pair; real hardware raises a specification exception for it.
-let private specException ins bld =
-  lift bld (ins: Instruction) {
-    AST.sideEffect UndefinedInstruction
+    let wide = rt * 2
+    let a = tmpVar bld rt
+    let b = tmpVar bld rt
+    let p = tmpVar bld wide
+    let t = tmpVar bld rt
+    a := srcOf bld rt o2
+    b := srcOf bld rt o3
+    p := AST.sext wide a .* AST.sext wide b
+    t := AST.xtlo rt p
+    setCCSign bld t
+    ccVar bld := AST.ite (AST.sext wide t == p) (ccVar bld) (numCC 3)
+    dst rt d := t
   }
 
 /// MULTIPLY LOGICAL, whose double-width product fills a register pair: the
@@ -592,6 +592,49 @@ let shift2 ins bld f setsCC =
     t := f (low d) (shiftCount bld o2 WSize)
     if setsCC then setCCSign bld t else ()
     low d := t
+  }
+
+/// A left shift that keeps the sign bit where it is and reports 3 when a bit
+/// unlike the sign is shifted out of the magnitude (or into its top): the
+/// magnitude bits from the new top down through the ones shifted out must all
+/// equal the sign, so the value shifted right arithmetically by the number of
+/// magnitude bits that survive must be all zeros or all ones. A count beyond
+/// the magnitude shifts out the zeros it fed in, which a negative value cannot
+/// bear.
+let private shiftLeftArith bld rt v n t =
+  append bld {
+    let width = RegType.toBitWidth rt
+    let signBit = numU64 (1UL <<< (width - 1)) rt
+    let top = numI32 (width - 1) rt
+    let k = AST.ite (n .> top) top n
+    let check = v ?>> (top .- k)
+    let allSame = (check == AST.num0 rt) .| (check == AST.not (AST.num0 rt))
+    let fillOut = (n .> top) .& (v ?< AST.num0 rt)
+    t := ((v << n) .& AST.not signBit) .| (v .& signBit)
+    setCCSign bld t
+    ccVar bld := AST.ite (allSame .& AST.not fillOut) (ccVar bld) (numCC 3)
+  }
+
+/// SHIFT LEFT SINGLE, the two-operand arithmetic shift of a register's low
+/// word in place.
+let shiftLeftArith2 ins bld =
+  lift bld (ins: Instruction) {
+    let struct (o1, o2) = getTwoOprs ins
+    let d = oprRegVar bld o1
+    let t = tmpVar bld WSize
+    shiftLeftArith bld WSize (low d) (shiftCount bld o2 WSize) t
+    low d := t
+  }
+
+/// The three-operand arithmetic left shifts.
+let shiftLeftArith3 ins bld rt =
+  lift bld (ins: Instruction) {
+    let struct (o1, o2, o3) = getThreeOprs ins
+    let d = oprRegVar bld o1
+    let t = tmpVar bld rt
+    let v = srcReg rt (oprRegVar bld o3)
+    shiftLeftArith bld rt v (shiftCount bld o2 rt) t
+    dst rt d := t
   }
 
 /// The three-operand shifts, which take their input from a third register.
@@ -1180,20 +1223,22 @@ let compareAndSwap ins bld rt =
 /// LOAD AND ADD and its bitwise relatives: the value found in storage goes to
 /// the first operand and the combination of it with the third is stored back,
 /// indivisibly.
-let loadAndOp ins bld rt f =
+let loadAndOp ins bld rt f cc =
   lift bld (ins: Instruction) {
     let struct (o1, o2, o3) = getThreeOprs ins
     let d = oprRegVar bld o1
     let addr = tmpVar bld GRSize
     let found = tmpVar bld rt
+    let s = tmpVar bld rt
     let t = tmpVar bld rt
     AST.sideEffect AtomicBegin
     addr := transMem bld o2
     found := loadMem rt addr
-    t := f found (srcReg rt (oprRegVar bld o3))
+    s := srcReg rt (oprRegVar bld o3)
+    t := f found s
     storeMem addr t
     AST.sideEffect AtomicEnd
-    setCCSign bld t
+    cc bld t found s
     dst rt d := found
   }
 
@@ -1965,10 +2010,14 @@ let shiftDouble ins bld f setsCC =
     let hi = reg bld r1
     let lo = reg bld (pairOf r1)
     let t = tmpVar bld GRSize
+    let v = tmpVar bld GRSize
     lift bld (ins: Instruction) {
-      let value = AST.concat (low hi) (low lo)
-      t := f value (transMem bld o2 .& numG 63L)
-      if setsCC then setCCSign bld t else ()
+      v := AST.concat (low hi) (low lo)
+      if setsCC && ins.Opcode = Opcode.SLDA then
+        shiftLeftArith bld GRSize v (transMem bld o2 .& numG 63L) t
+      else
+        t := f v (transMem bld o2 .& numG 63L)
+        if setsCC then setCCSign bld t else ()
       low hi := AST.xthi WSize t
       low lo := AST.xtlo WSize t
     }
