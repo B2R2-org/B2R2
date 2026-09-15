@@ -17,6 +17,11 @@
     <FsDocsLogoSource>https://b2r2.org/images/b2r2-240x240.png</FsDocsLogoSource>
     <FsDocsReleaseNotesLink>https://github.com/B2R2-org/B2R2/blob/main/CHANGELOG.md</FsDocsReleaseNotesLink>
 
+    <!-- Pin the implicit FSharp.Core reference instead of taking whatever the
+         installed SDK happens to ship, so every environment resolves the same
+         version. Must stay at or above what our own packages require. -->
+    <FSharpCoreImplicitPackageVersion>10.0.103</FSharpCoreImplicitPackageVersion>
+
     <WarnOn>$(WarnOn);3389</WarnOn>
     <TreatWarningsAsErrors>true</TreatWarningsAsErrors>
 
