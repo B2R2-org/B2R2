@@ -1209,6 +1209,28 @@ let jal ins (bld: LowUIRBuilder) =
     nPC := dest
   }
 
+/// <summary>
+/// JALX, which calls into the OTHER encoding of the instruction set.
+///
+/// That is the whole of what sets it apart from JAL, and the jump carries
+/// it: the processor holds the encoding it is reading in a bit that is not
+/// in any register a program can name, so which encoding the words at the
+/// target belong to cannot be read off the target. Which way this one
+/// crosses is settled by the side it starts on, there being only two.
+/// </summary>
+let jalx (ins: Instruction) (bld: LowUIRBuilder) =
+  liftTransfer bld ins {
+    let pc = regVar bld R.PC
+    let nPC = regVar bld R.NPC
+    let dest = getOneOpr ins |> transOpr ins bld
+    let toward =
+      if ins.IsMicroMIPS then InterJmpKind.SwitchToMIPS
+      else InterJmpKind.SwitchToMicroMIPS
+    bld.DelayedBranch <- InterJmpKind.IsCall ||| toward
+    regVar bld R.R31 := pc .+ numI32 8 bld.RegType
+    nPC := dest
+  }
+
 let jalr ins (bld: LowUIRBuilder) =
   liftTransfer bld ins {
     let pc = regVar bld R.PC
@@ -1225,6 +1247,185 @@ let jr ins (bld: LowUIRBuilder) =
     let rs = transOneOpr ins bld
     bld.DelayedBranch <- InterJmpKind.Base
     nPC := rs
+  }
+
+/// <summary>
+/// JRC, which is JR without the delay slot.
+///
+/// A compact jump is not a faster JR but a different instruction: the word
+/// after it is not executed before the jump takes effect, so a delay slot
+/// written for JR would run where JRC would not run it.
+/// </summary>
+let jumpRegCompact ins bld =
+  lift bld ins {
+    let rs = transOneOpr ins bld
+    AST.interjmp rs InterJmpKind.Base
+  }
+
+/// <summary>
+/// JALRS, whose delay slot holds one halfword rather than one word.
+///
+/// That is the whole of what sets it apart from JALR, and the link is where
+/// it shows: the call returns to the instruction after the slot, which is
+/// two bytes past the end of this one rather than four.
+/// </summary>
+/// <summary>
+/// JALS, which is JAL with a delay slot of one halfword.
+///
+/// The link is where the difference shows: the call returns to the
+/// instruction after the slot, two bytes past the end of this one.
+/// </summary>
+let jalShortSlot ins (bld: LowUIRBuilder) =
+  liftTransfer bld ins {
+    let pc = regVar bld R.PC
+    let nPC = regVar bld R.NPC
+    let dest = getOneOpr ins |> transOpr ins bld
+    bld.DelayedBranch <- InterJmpKind.IsCall
+    regVar bld R.R31 := pc .+ numI32 (int ins.Length + 2) bld.RegType
+    nPC := dest
+  }
+
+/// BLTZALS and BGEZALS, which are BLTZAL and BGEZAL with a delay slot of one
+/// halfword.
+let branchLinkShortSlot ins (bld: LowUIRBuilder) cmp =
+  liftTransfer bld ins {
+    let rs, offset = transTwoOprs ins bld
+    let nAddr = tmpVar bld bld.RegType
+    let cond = cmp rs (AST.num0 bld.RegType)
+    nAddr := regVar bld R.PC .+ numI32 (int ins.Length + 2) bld.RegType
+    regVar bld R.R31 := nAddr
+    updateRAPCCond bld nAddr offset cond InterJmpKind.IsCall
+  }
+
+let jalrShortSlot ins (bld: LowUIRBuilder) =
+  liftTransfer bld ins {
+    let pc = regVar bld R.PC
+    let nPC = regVar bld R.NPC
+    let struct (lr, rs) = getJALROprs ins bld
+    bld.DelayedBranch <- InterJmpKind.IsCall
+    lr := pc .+ numI32 (int ins.Length + 2) bld.RegType
+    nPC := rs
+  }
+
+/// <summary>
+/// JALRC, which is JALR without the delay slot.
+///
+/// The target is read into a temporary before the link is written, because
+/// nothing stops the call from jumping through the register it links into.
+/// </summary>
+let jalrCompact ins bld =
+  lift bld ins {
+    let struct (lr, rs) = getJALROprs ins bld
+    let target = tmpVar bld bld.RegType
+    target := rs
+    lr := regVar bld R.PC .+ numI32 (int ins.Length) bld.RegType
+    AST.interjmp target InterJmpKind.IsCall
+  }
+
+/// <summary>
+/// JRADDIUSP, which returns and gives the frame back in one instruction.
+///
+/// Neither register is named: the jump is to the return address and the
+/// adjustment is to the stack pointer, and an epilogue never wants any
+/// others. The adjustment is unsigned because a return only ever unwinds.
+/// </summary>
+let jumpRegAdjust ins (bld: LowUIRBuilder) =
+  liftTransfer bld ins {
+    let nPC = regVar bld R.NPC
+    let sp = regVar bld R.R29
+    let imm = transOneOpr ins bld
+    bld.DelayedBranch <- InterJmpKind.Base
+    sp := sp .+ imm
+    nPC := regVar bld R.R31
+  }
+
+/// JRCADDIUSP, which is JRADDIUSP without the delay slot.
+let jumpRegAdjustCompact ins bld =
+  lift bld ins {
+    let sp = regVar bld R.R29
+    let imm = transOneOpr ins bld
+    sp := sp .+ imm
+    AST.interjmp (regVar bld R.R31) InterJmpKind.Base
+  }
+
+/// <summary>
+/// MOVEP, which is two register moves in one instruction.
+///
+/// It is there because a call sets up two argument registers more often than
+/// one. The two destinations are not any two registers but one of eight
+/// pairs, which is what lets the encoding name them in three bits.
+/// </summary>
+let movePair ins bld =
+  lift bld ins {
+    let rdOpr, reOpr, rsOpr, rtOpr = getFourOprs ins
+    let rd = transOpr ins bld rdOpr
+    let re = transOpr ins bld reOpr
+    rd := transOpr ins bld rsOpr
+    re := transOpr ins bld rtOpr
+  }
+
+/// <summary>
+/// LWM and SWM, which move a set of registers to or from consecutive words.
+///
+/// The set is the one a prologue saves and an epilogue restores, and the
+/// words are ascending from the named address in the order the set lists.
+/// Each register takes a word however wide it is, so a 64-bit machine writes
+/// the low half and reads a sign-extended one back.
+/// </summary>
+let loadStoreMultiple ins bld isLoad width =
+  lift bld ins {
+    let regsOpr, memOpr = getTwoOprs ins
+    let regs =
+      match regsOpr with
+      | OpRegList regs -> List.toArray regs
+      | _ -> raise InvalidOperandException
+    let addr = transOprToBaseOffset bld memOpr
+    let step = RegType.toByteWidth width
+    for i = 0 to regs.Length - 1 do
+      let reg = regVar bld regs[i]
+      let at = addr .+ numI32 (i * step) bld.RegType
+      if isLoad then reg := AST.sext bld.RegType (loadNative bld width at)
+      else storeNative bld at (AST.xtlo width reg)
+  }
+
+/// <summary>
+/// LWP, SWP, LDP and SDP, which move two registers rather than a list.
+///
+/// The second register is the one after the first and the encoding does not
+/// name it, so it is written out here to keep the lifter from having to know
+/// how a register number is put together.
+/// </summary>
+let loadStorePair ins bld isLoad width =
+  lift bld ins {
+    let firstOpr, secondOpr, memOpr = getThreeOprs ins
+    let first = transOpr ins bld firstOpr
+    let second = transOpr ins bld secondOpr
+    let addr = transOprToBaseOffset bld memOpr
+    let step = numI32 (RegType.toByteWidth width) bld.RegType
+    if isLoad then
+      first := AST.sext bld.RegType (loadNative bld width addr)
+      second := AST.sext bld.RegType (loadNative bld width (addr .+ step))
+    else
+      storeNative bld addr (AST.xtlo width first)
+      storeNative bld (addr .+ step) (AST.xtlo width second)
+  }
+
+/// <summary>
+/// LWXS, whose index is a word count rather than a byte count.
+///
+/// That is the whole of what sets it apart from LWX, and reading it as a
+/// byte count would load from a quarter of the way along the array.
+/// </summary>
+let loadWordScaled ins bld =
+  lift bld ins {
+    let rdOpr, memOpr = getTwoOprs ins
+    let rd = transOpr ins bld rdOpr
+    match memOpr with
+    | OpMem(b, Reg idx, _) ->
+      let addr = regVar bld b .+ (regVar bld idx << numI32 2 bld.RegType)
+      rd := AST.sext bld.RegType (loadNative bld 32<rt> addr)
+    | _ ->
+      raise InvalidOperandException
   }
 
 let loadSigned ins bld =

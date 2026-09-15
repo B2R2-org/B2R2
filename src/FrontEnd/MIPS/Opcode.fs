@@ -724,5 +724,45 @@ type Opcode =
   | LLDP = 343
   /// Store Conditional Doubleword Paired (Release 6).
   | SCDP = 344
+  /// Jump Register Compact (microMIPS).
+  | JRC = 353
+  /// Jump and Link Register, Short Delay Slot (microMIPS).
+  | JALRS = 354
+  /// Jump and Link Register Compact (microMIPS Release 6).
+  | JALRC = 355
+  /// Jump Register, Adjust Stack Pointer (microMIPS).
+  | JRADDIUSP = 356
+  /// Jump Register Compact, Adjust Stack Pointer (microMIPS Release 6).
+  | JRCADDIUSP = 357
+  /// Load Word Multiple (microMIPS).
+  | LWM = 358
+  /// Store Word Multiple (microMIPS).
+  | SWM = 359
+  /// Move a Pair of Registers (microMIPS).
+  | MOVEP = 360
+  /// Jump and Link, Short Delay Slot (microMIPS).
+  | JALS = 361
+  /// Jump and Link Register with Hazard Barrier, Short Delay Slot
+  /// (microMIPS).
+  | JALRSHB = 362
+  /// Branch on Less Than Zero and Link, Short Delay Slot (microMIPS).
+  | BLTZALS = 363
+  /// Branch on Greater Than or Equal to Zero and Link, Short Delay Slot
+  /// (microMIPS).
+  | BGEZALS = 364
+  /// Load Word Pair (microMIPS).
+  | LWP = 365
+  /// Store Word Pair (microMIPS).
+  | SWP = 366
+  /// Load Doubleword Pair (microMIPS).
+  | LDP = 367
+  /// Store Doubleword Pair (microMIPS).
+  | SDP = 368
+  /// Load Doubleword Multiple (microMIPS).
+  | LDM = 369
+  /// Store Doubleword Multiple (microMIPS).
+  | SDM = 370
+  /// Load Word Indexed, Scaled (microMIPS).
+  | LWXS = 371
 
 type internal Op = Opcode

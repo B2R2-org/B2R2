@@ -384,6 +384,26 @@ let opCodeToString = function
   | Op.TNEI -> "tnei"
   | Op.SDBBP -> "sdbbp"
   | Op.SIGRIE -> "sigrie"
+  | Op.JRC -> "jrc"
+  | Op.JALRS -> "jalrs"
+  | Op.JALRC -> "jalrc"
+  | Op.JRADDIUSP -> "jraddiusp"
+  | Op.JRCADDIUSP -> "jrcaddiusp"
+  | Op.LWM -> "lwm"
+  | Op.SWM -> "swm"
+  | Op.MOVEP -> "movep"
+  | Op.JALS -> "jals"
+  | Op.JALRSHB -> "jalrs.hb"
+  | Op.BLTZALS -> "bltzals"
+  | Op.BGEZALS -> "bgezals"
+  | Op.LWP -> "lwp"
+  | Op.SWP -> "swp"
+  | Op.LDP -> "ldp"
+  | Op.SDP -> "sdp"
+  | Op.LDM -> "ldm"
+  | Op.SDM -> "sdm"
+  | Op.LWXS -> "lwxs"
+  | Op.JALX -> "jalx"
   | _ -> raise InvalidOpcodeException
 
 let inline appendCond (ins: Instruction) opcode =
@@ -437,6 +457,12 @@ let oprToString ins opr delim (builder: IDisasmBuilder) =
     builder.Accumulate(AsmWordKind.String, delim)
     let target = JumpTarget.regionTarget ins.Address ins.WordSize index
     builder.Accumulate(AsmWordKind.Value, HexString.ofUInt64 target)
+  | OpRegList regs ->
+    builder.Accumulate(AsmWordKind.String, delim)
+    regs |> List.iteri (fun i r ->
+      if i > 0 then builder.Accumulate(AsmWordKind.String, ", ") else ()
+      builder.Accumulate(AsmWordKind.Variable, regToString ins r)
+    )
   // Never gets matched. Only used in intermediate stage mips assembly parser.
   | GoToLabel _ ->
     raise InvalidOperandException

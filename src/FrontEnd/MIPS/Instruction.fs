@@ -37,6 +37,7 @@ type Instruction
            opr,
            oprSize,
            wordSize,
+           isMicroMIPS,
            lifter: ILiftable) =
 
   let hasConcJmpTarget () =
@@ -70,6 +71,16 @@ type Instruction
 
   /// Word Size.
   member _.WordSize with get() = wordSize
+
+  /// <summary>
+  /// Which of the two encodings this instruction was read from.
+  ///
+  /// The two stand for the same instruction set, so this says nothing about
+  /// what the instruction does -- except for JALX, whose whole effect is to
+  /// cross from one to the other, and which therefore has to know which side
+  /// it is starting on.
+  /// </summary>
+  member _.IsMicroMIPS with get(): bool = isMicroMIPS
 
   interface IInstruction with
 

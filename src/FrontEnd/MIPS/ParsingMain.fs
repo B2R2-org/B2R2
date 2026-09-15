@@ -1344,10 +1344,12 @@ let private parseOpcodeField arch binary wordSize release =
   | 0b011100u ->
     parseSPECIAL2 binary
   | 0b011101u ->
+    (* Release 6 has no other encoding to cross into, so it took JALX away
+       and gave the primary opcode to DAUI. *)
     if release = MIPSRelease.R6 then
       Op.DAUI, None, None, getRtRsImm16u binary
     else
-      raise ParsingFailureException (* JALX *)
+      Op.JALX, None, None, getTarget binary
   | 0b011110u ->
     raise ParsingFailureException (* MSA *)
   | 0b011111u ->
@@ -1428,7 +1430,9 @@ let private parseOpcodeField arch binary wordSize release =
   | _ ->
     raise ParsingFailureException
 
-let private getOperationSize opcode wordSz =
+/// How wide the value an instruction moves is, which the stores settle for
+/// themselves and everything else takes from the word size.
+let getOperationSize opcode wordSz =
   match opcode with
   | Op.SB -> 8<rt>
   | Op.SH -> 16<rt>
@@ -1436,12 +1440,18 @@ let private getOperationSize opcode wordSz =
   | Op.SD -> 64<rt>
   | _ -> WordSize.toRegType wordSz
 
+/// <summary>
 /// Whether an opcode is one only a 64-bit CPU has. MD00087 says so on
 /// each instruction's own page, to the right of its Format line: the
 /// field reads MIPS64 where the 32-bit architecture has no such
 /// instruction at all. A word holding one of these encodings is a
 /// Reserved Instruction on MIPS32, so it is not an instruction there.
-let private isMIPS64Only = function
+///
+/// Which encoding the word was read from makes no difference: microMIPS32
+/// has no 64-bit instructions either, and its own opcode map leaves the
+/// major opcodes theirs would need empty.
+/// </summary>
+let isMIPS64Only = function
   | Op.DADD | Op.DADDI | Op.DADDIU | Op.DADDU | Op.DAHI | Op.DALIGN
   | Op.DATI | Op.DAUI | Op.DBITSWAP | Op.DCLZ | Op.DDIV | Op.DDIVU
   | Op.DEXT | Op.DEXTM | Op.DEXTU | Op.DINS | Op.DINSM | Op.DINSU
@@ -1461,11 +1471,10 @@ let private isMIPS64Only = function
 
 let parse lifter span (reader: IBinReader) arch wordSize release addr =
   let bin = reader.ReadUInt32(span = span, offset = 0)
-  let opcode, cond, fmt, operands =
-    parseOpcodeField arch bin wordSize release
+  let opcode, cond, fmt, oprs = parseOpcodeField arch bin wordSize release
   if wordSize = WordSize.Bit32 && isMIPS64Only opcode then
     raise ParsingFailureException
   else
     ()
-  let oprSize = getOperationSize opcode wordSize
-  Instruction(addr, 4u, cond, fmt, opcode, operands, oprSize, wordSize, lifter)
+  let sz = getOperationSize opcode wordSize
+  Instruction(addr, 4u, cond, fmt, opcode, oprs, sz, wordSize, false, lifter)

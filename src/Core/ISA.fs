@@ -400,7 +400,20 @@ type ISA(arch, endian, wordSize, flags) =
   /// word of MIPS code cannot be decoded without knowing which release it
   /// belongs to, and an ELF image says so in its processor-specific flags.
   member _.MIPSRelease with get(): MIPSRelease =
-    LanguagePrimitives.EnumOfValue flags
+    LanguagePrimitives.EnumOfValue(flags &&& 1)
+
+  /// <summary>
+  /// Which of the two MIPS encodings a MIPS ISA begins in.
+  ///
+  /// microMIPS is not an extension but the same instruction set written
+  /// another way: its own opcode map, and instructions one halfword or two
+  /// where the older encoding always takes a word. Which one a processor
+  /// reads is a bit of its own that code flips as it runs, so this says where
+  /// decoding starts and no more. An ELF image says so in the part of its
+  /// processor-specific flags that names the extensions it uses.
+  /// </summary>
+  member _.MIPSISAMode with get(): MIPSISAMode =
+    LanguagePrimitives.EnumOfValue(flags &&& 2)
 
   /// The member of the 68000 family an m68k ISA means, which is the 68020
   /// unless the flags say otherwise. The family shares one encoding space and a
@@ -631,6 +644,17 @@ and MIPSRelease =
   | PreR6 = 0
   /// Release 6.
   | R6 = 1
+
+/// Represents which of the two encodings of the MIPS instruction set a MIPS
+/// ISA means. Both stand for the same instructions and a processor reads
+/// whichever its ISA Mode bit names, so nothing but that bit says what a
+/// halfword of MIPS code belongs to. The two sit beside the release in the
+/// same flags word, which is why this counts from the second bit.
+and MIPSISAMode =
+  /// The MIPS32 and MIPS64 encoding, whose instructions are one word each.
+  | MIPS = 0
+  /// The microMIPS encoding, whose instructions are one halfword or two.
+  | MicroMIPS = 2
 
 /// Represents which member of the 68000 family an m68k ISA means. The family
 /// shares one encoding space, and a later model reads encodings an earlier one

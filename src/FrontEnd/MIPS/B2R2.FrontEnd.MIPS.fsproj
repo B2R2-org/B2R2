@@ -20,6 +20,7 @@
     <Compile Include="GeneralLifter.fs" />
     <Compile Include="Lifter.fs" />
     <Compile Include="ParsingMain.fs" />
+    <Compile Include="MicroMIPSParser.fs" />
     <Compile Include="Parser.fs" />
   </ItemGroup>
 

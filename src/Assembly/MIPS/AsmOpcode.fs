@@ -742,6 +742,7 @@ let branchEncoders () =
     Opcode.BGTZ, branchOnZero 0b000111u 0b00000u
     Opcode.J, jump 0b000010u
     Opcode.JAL, jump 0b000011u
+    Opcode.JALX, jump 0b011101u
     Opcode.JR, oneReg 0b00000u 0b001000u
     Opcode.JRHB, oneReg 0b10000u 0b001000u
     Opcode.JALR, jumpAndLink 0b00000u

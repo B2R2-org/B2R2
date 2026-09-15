@@ -135,10 +135,20 @@ module internal Header =
   /// had is POP10 there -- so a decoder that is not told cannot be right for
   /// both. The release was being discarded here, which is why Release 6
   /// images could not be decoded at all.
+  /// The bit those flags carry when the image holds microMIPS code, which
+  /// binutils calls EF_MIPS_ARCH_ASE_MICROMIPS. It sits apart from the
+  /// architecture level because it is not one: microMIPS is another encoding
+  /// of the same instruction set, and every level has both.
+  let [<Literal>] private MIPSMicroMIPS = 0x02000000u
+
   let private getMIPSISA span (reader: IBinReader) cls =
+    let flags = getELFFlags span reader cls
+    let mode =
+      if flags &&& MIPSMicroMIPS = 0u then MIPSISAMode.MIPS
+      else MIPSISAMode.MicroMIPS
     let mips ws release =
-      ISA(Architecture.MIPS, reader.Endianness, ws, int release)
-    match getELFFlags span reader cls &&& 0xf0000000u with
+      ISA(Architecture.MIPS, reader.Endianness, ws, int release ||| int mode)
+    match flags &&& 0xf0000000u with
     | 0x00000000u   (* none  *)
     | 0x10000000u   (* MIPS2 *)
     | 0x20000000u   (* MIPS3 *)
