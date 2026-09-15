@@ -541,6 +541,10 @@ let translate (ins: Instruction) (bld: LowUIRBuilder) =
     fpClass ins bld
   | Op.RINT ->
     rint ins bld
+  | Op.MADDF ->
+    maddf ins bld
+  | Op.MSUBF ->
+    msubf ins bld
   | Op.CMP ->
     fpCmpR6 ins bld
   | Op.BC1EQZ ->
