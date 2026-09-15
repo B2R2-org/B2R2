@@ -244,12 +244,12 @@ let private roundingOf qualifier =
 let cvttq (ins: Instruction) bld =
   lift bld ins {
     let struct (o1, o2) = getTwoOprs ins
-    let kind =
+    let mode =
       match roundingOf ins.Qualifier with
-      | Chopped -> CastKind.FtoITrunc
-      | MinusInfinity -> CastKind.FtoIFloor
-      | Nearest -> CastKind.FtoIRound
-    regWrite bld (getReg o2) (AST.cast kind 64<rt> (transOpr bld o1))
+      | Chopped -> RoundingMode.TowardZero
+      | MinusInfinity -> RoundingMode.TowardNegative
+      | Nearest -> RoundingMode.ToNearestEven
+    regWrite bld (getReg o2) (AST.floatToSInt mode 64<rt> (transOpr bld o1))
   }
 
 /// The integer conversions the other way, which read a whole quadword and
@@ -648,12 +648,13 @@ let cvtgf ins bld =
 let cvtgq (ins: Instruction) bld =
   lift bld ins {
     let struct (o1, o2) = getTwoOprs ins
-    let kind =
+    let mode =
       match roundingOf ins.Qualifier with
-      | Chopped -> CastKind.FtoITrunc
-      | MinusInfinity -> CastKind.FtoIFloor
-      | Nearest -> CastKind.FtoIRound
-    regWrite bld (getReg o2) (AST.cast kind 64<rt> (ofG (transOpr bld o1)))
+      | Chopped -> RoundingMode.TowardZero
+      | MinusInfinity -> RoundingMode.TowardNegative
+      | Nearest -> RoundingMode.ToNearestEven
+    let v = AST.floatToSInt mode 64<rt> (ofG (transOpr bld o1))
+    regWrite bld (getReg o2) v
   }
 
 /// cvtqf/cvtqg: a whole quadword turned into a VAX number of either width.

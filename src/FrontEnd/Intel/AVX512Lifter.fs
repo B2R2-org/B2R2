@@ -1663,27 +1663,29 @@ let vmovw (ins: Instruction) bld =
   }
 
 (* --- the conversions EVEX added ------------------------------------------ *)
-/// The rounding a conversion uses. A register form with EVEX.b set names one
-/// in L'L, which overrides MXCSR for that instruction alone; without it the
-/// conversion rounds the way MXCSR says, which is taken to be to nearest --
-/// the same assumption every other conversion in this front end makes.
-let private fToIKind (ins: Instruction) isTrunc =
+/// The conversion to an integer a form performs. A register form with EVEX.b
+/// set names a rounding direction in L'L, which overrides MXCSR for that
+/// instruction alone; without it the conversion takes whatever direction
+/// MXCSR holds, which is what a conversion with none of its own is left to do.
+/// A truncating form names one either way.
+let private fToIConv (ins: Instruction) isTrunc =
   match ins.VEXInfo with
   | Some { EVEXPrx = Some p } when p.RCDecor = StaticRounding && not isTrunc ->
     match p.RC with
-    | RN -> CastKind.FtoIRound
-    | RD -> CastKind.FtoIFloor
-    | RU -> CastKind.FtoICeil
-    | RZ -> CastKind.FtoITrunc
+    | RN -> AST.floatToSInt RoundingMode.ToNearestEven
+    | RD -> AST.floatToSInt RoundingMode.TowardNegative
+    | RU -> AST.floatToSInt RoundingMode.TowardPositive
+    | RZ -> AST.floatToSInt RoundingMode.TowardZero
   | _ ->
-    if isTrunc then CastKind.FtoITrunc else CastKind.FtoIRound
+    if isTrunc then AST.floatToSInt RoundingMode.TowardZero
+    else AST.cast CastKind.FloatToSInt
 
 /// A float converted to a 32-bit unsigned integer. The IR has no unsigned form
 /// of the cast, so the conversion is made at 64 bits and checked: a value the
 /// destination cannot hold -- a NaN included, which casts to the most negative
 /// integer -- becomes the all-ones the architecture writes for it.
-let private toUnsigned32 kind e =
-  let wide = AST.cast kind 64<rt> e
+let private toUnsigned32 toInt e =
+  let wide = toInt 64<rt> e
   let hi = numU64 0xFFFFFFFFUL 64<rt>
   let bad = (wide ?< AST.num0 64<rt>) .| (wide ?> hi)
   AST.ite bad (numI64 -1L 32<rt>) (AST.xtlo 32<rt> wide)
@@ -1697,10 +1699,10 @@ let private twoTo63 width =
 /// A float converted to a 64-bit unsigned integer, which the signed cast
 /// cannot reach on its own: a value at or above two to the sixty-third has
 /// that much taken off it first and put back afterwards.
-let private toUnsigned64 kind width e =
+let private toUnsigned64 toInt width e =
   let half = twoTo63 width
   let big = AST.fge e half
-  let converted = AST.cast kind 64<rt> (AST.ite big (AST.fsub e half) e)
+  let converted = toInt 64<rt> (AST.ite big (AST.fsub e half) e)
   let folded = converted .+ numU64 0x8000000000000000UL 64<rt>
   let ok = AST.ite big folded converted
   AST.ite (converted ?< AST.num0 64<rt>) (numI64 -1L 64<rt>) ok
@@ -1721,13 +1723,13 @@ let private cvtLanes ins bld srcSz dstSz conv =
   }
 
 let private cvtToSigned ins bld srcSz dstSz isTrunc =
-  cvtLanes ins bld srcSz dstSz (AST.cast (fToIKind ins isTrunc) dstSz)
+  cvtLanes ins bld srcSz dstSz (fToIConv ins isTrunc dstSz)
 
 let private cvtToUnsigned32 ins bld srcSz isTrunc =
-  cvtLanes ins bld srcSz 32<rt> (toUnsigned32 (fToIKind ins isTrunc))
+  cvtLanes ins bld srcSz 32<rt> (toUnsigned32 (fToIConv ins isTrunc))
 
 let private cvtToUnsigned64 ins bld srcSz isTrunc =
-  cvtLanes ins bld srcSz 64<rt> (toUnsigned64 (fToIKind ins isTrunc) srcSz)
+  cvtLanes ins bld srcSz 64<rt> (toUnsigned64 (fToIConv ins isTrunc) srcSz)
 
 let vcvtpd2qq ins bld = cvtToSigned ins bld 64<rt> 64<rt> false
 
@@ -1797,11 +1799,11 @@ let private cvt2usi (ins: Instruction) bld width isTrunc =
   lift bld ins {
     let struct (dst, src) = getTwoOprs ins
     let value = scalarSrc ins bld width src
-    let kind = fToIKind ins isTrunc
+    let toInt = fToIConv ins isTrunc
     let dstSz = AVXLifter.operandWidth bld dst
     let result =
-      if dstSz = 64<rt> then toUnsigned64 kind width value
-      else toUnsigned32 kind value
+      if dstSz = 64<rt> then toUnsigned64 toInt width value
+      else toUnsigned32 toInt value
     sized dstSz (transOpr ins bld false dst) := result
   }
 
@@ -2003,16 +2005,16 @@ let vgetmantsd ins bld = scalarImmOp ins bld 64<rt> getMant
 let vgetmantss ins bld = scalarImmOp ins bld 32<rt> getMant
 
 /// The rounding an immediate names for VRNDSCALE and VREDUCE. Bit 2 asks for
-/// MXCSR's instead, which is read as round-to-nearest here as everywhere.
-let private rndKind imm =
+/// MXCSR's instead, which is a rounding with no direction of its own.
+let private rndConv imm =
   if imm &&& 4L <> 0L then
-    CastKind.FtoFRound
+    AST.cast CastKind.RoundToIntegral
   else
     match imm &&& 3L with
-    | 0L -> CastKind.FtoFRound
-    | 1L -> CastKind.FtoFFloor
-    | 2L -> CastKind.FtoFCeil
-    | _ -> CastKind.FtoFTrunc
+    | 0L -> AST.roundToIntegral RoundingMode.ToNearestEven
+    | 1L -> AST.roundToIntegral RoundingMode.TowardNegative
+    | 2L -> AST.roundToIntegral RoundingMode.TowardPositive
+    | _ -> AST.roundToIntegral RoundingMode.TowardZero
 
 /// Whether a float is a NaN, decided on its bit pattern.
 let private isNaN width src =
@@ -2026,7 +2028,7 @@ let private isNaN width src =
 let private rndScale _ width imm src =
   let m = int ((imm >>> 4) &&& 0xFL)
   let scaled = AST.fmul src (powerOfTwo width m)
-  let rounded = AST.cast (rndKind imm) width scaled
+  let rounded = rndConv imm width scaled
   let back = AST.fmul rounded (powerOfTwo width (-m))
   let threshold = numI32 (biasOf width + fracBits width - m) width
   let big = expField width src .>= threshold
@@ -2041,23 +2043,10 @@ let vrndscalesd ins bld = scalarImmOp ins bld 64<rt> rndScale
 let vrndscaless ins bld = scalarImmOp ins bld 32<rt> rndScale
 
 /// Evaluates one floating-point expression under a rounding direction the
-/// instruction names rather than the one MXCSR holds. The IR has no per-
-/// operation rounding, so the control register is set for the length of the
-/// operation and put back; the value has to land in a temporary while it is
-/// set, because an expression is not evaluated where it is built. The
-/// immediate's two low bits are already MXCSR.RC's own encoding.
-let private underRounding bld mode width value =
-  let saved = tmpVar bld 32<rt>
-  let result = tmpVar bld width
-  let mxcsr = regVar bld R.MXCSR
-  let rc = numI32 (mode <<< 13) 32<rt>
-  append bld {
-    direct saved := mxcsr
-    direct mxcsr := (saved .& numI32 ~~~0x6000 32<rt>) .| rc
-    direct result := value
-    direct mxcsr := saved
-  }
-  result
+/// instruction names rather than the one MXCSR holds. The immediate's two low
+/// bits are already MXCSR.RC's own encoding, which is the IR's.
+let private underRounding mode value =
+  AST.roundCtrl (AST.roundingMode (enum<RoundingMode> mode)) value
 
 /// VREDUCE keeps what VRNDSCALE rounded away: the part of the value below the
 /// fraction bit the immediate names. The subtraction is where the rounding
@@ -2070,7 +2059,7 @@ let private reduce bld width imm src =
   let rounded = rndScale bld width imm src
   let diff =
     if imm &&& 4L <> 0L then AST.fsub src rounded
-    else underRounding bld (int (imm &&& 3L)) width (AST.fsub src rounded)
+    else underRounding (int (imm &&& 3L)) (AST.fsub src rounded)
   let quiet = src .| quietBit width
   (* An infinity has nothing below any fraction bit, so what it leaves is a
      zero -- a positive one whichever way the infinity pointed, and not the
@@ -2214,8 +2203,8 @@ let private scaleExp width limit src2 =
   let bigExp = if width = 64<rt> then 12 else 9
   let bigBiased = numI64 (int64 (biasOf width + bigExp)) width
   let huge = expField width src2 .>= bigBiased
-  let floored = AST.cast CastKind.FtoFFloor width src2
-  let raw = AST.cast CastKind.FtoITrunc 64<rt> floored
+  let floored = AST.roundToIntegral RoundingMode.TowardNegative width src2
+  let raw = AST.floatToSInt RoundingMode.TowardZero 64<rt> floored
   let capped = AST.ite (raw ?> limit) limit raw
   let bounded = AST.ite (raw ?< AST.neg limit) (AST.neg limit) capped
   let saturated = AST.ite (AST.xthi 1<rt> src2) (AST.neg limit) limit
@@ -2738,13 +2727,13 @@ let vmovsh (ins: Instruction) bld =
 /// directly: it is made at 32 bits, which every half fits, and checked against
 /// the destination's range -- a value outside it becomes the integer
 /// indefinite the architecture writes there.
-let private toSigned16 kind e =
-  let wide = AST.cast kind 32<rt> e
+let private toSigned16 toInt e =
+  let wide = toInt 32<rt> e
   let bad = (wide ?< numI32 -32768 32<rt>) .| (wide ?> numI32 32767 32<rt>)
   AST.ite bad (numI32 0x8000 16<rt>) (AST.xtlo 16<rt> wide)
 
-let private toUnsigned16 kind e =
-  let wide = AST.cast kind 32<rt> e
+let private toUnsigned16 toInt e =
+  let wide = toInt 32<rt> e
   let bad = (wide ?< AST.num0 32<rt>) .| (wide ?> numI32 65535 32<rt>)
   AST.ite bad (numI64 0xFFFFL 16<rt>) (AST.xtlo 16<rt> wide)
 
@@ -2778,8 +2767,8 @@ let vcvtps2ph (ins: Instruction) bld =
   }
 
 let private ph2int ins bld dstSz isTrunc =
-  let kind = fToIKind ins isTrunc
-  let conv h = AST.cast kind dstSz (halfToSingle h)
+  let toInt = fToIConv ins isTrunc
+  let conv h = toInt dstSz (halfToSingle h)
   cvtLanes ins bld 16<rt> dstSz conv
 
 let vcvtph2dq ins bld = ph2int ins bld 32<rt> false
@@ -2791,16 +2780,16 @@ let vcvtph2qq ins bld = ph2int ins bld 64<rt> false
 let vcvttph2qq ins bld = ph2int ins bld 64<rt> true
 
 let private ph2uint32 ins bld isTrunc =
-  let kind = fToIKind ins isTrunc
-  cvtLanes ins bld 16<rt> 32<rt> (fun h -> toUnsigned32 kind (halfToSingle h))
+  let toInt = fToIConv ins isTrunc
+  cvtLanes ins bld 16<rt> 32<rt> (fun h -> toUnsigned32 toInt (halfToSingle h))
 
 let vcvtph2udq ins bld = ph2uint32 ins bld false
 
 let vcvttph2udq ins bld = ph2uint32 ins bld true
 
 let private ph2uint64 ins bld isTrunc =
-  let kind = fToIKind ins isTrunc
-  let conv h = toUnsigned64 kind 32<rt> (halfToSingle h)
+  let toInt = fToIConv ins isTrunc
+  let conv h = toUnsigned64 toInt 32<rt> (halfToSingle h)
   cvtLanes ins bld 16<rt> 64<rt> conv
 
 let vcvtph2uqq ins bld = ph2uint64 ins bld false
@@ -2808,9 +2797,9 @@ let vcvtph2uqq ins bld = ph2uint64 ins bld false
 let vcvttph2uqq ins bld = ph2uint64 ins bld true
 
 let private ph2word ins bld isTrunc isSigned =
-  let kind = fToIKind ins isTrunc
+  let toInt = fToIConv ins isTrunc
   let narrow = if isSigned then toSigned16 else toUnsigned16
-  cvtLanes ins bld 16<rt> 16<rt> (fun h -> narrow kind (halfToSingle h))
+  cvtLanes ins bld 16<rt> 16<rt> (fun h -> narrow toInt (halfToSingle h))
 
 let vcvtph2w ins bld = ph2word ins bld false true
 
@@ -2875,12 +2864,12 @@ let private cvtShToInt (ins: Instruction) bld isTrunc isSigned =
   lift bld ins {
     let struct (dst, src) = getTwoOprs ins
     let value = halfToSingle (scalarSrc ins bld 16<rt> src)
-    let kind = fToIKind ins isTrunc
+    let toInt = fToIConv ins isTrunc
     let dstSz = AVXLifter.operandWidth bld dst
     let result =
-      if isSigned then AST.cast kind dstSz value
-      elif dstSz = 64<rt> then toUnsigned64 kind 32<rt> value
-      else toUnsigned32 kind value
+      if isSigned then toInt dstSz value
+      elif dstSz = 64<rt> then toUnsigned64 toInt 32<rt> value
+      else toUnsigned32 toInt value
     sized dstSz (transOpr ins bld false dst) := result
   }
 

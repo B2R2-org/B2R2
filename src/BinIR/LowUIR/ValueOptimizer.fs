@@ -27,23 +27,21 @@ namespace B2R2.BinIR.LowUIR
 open B2R2
 open B2R2.BinIR
 
+/// <summary>
 /// Concrete value optimization.
+/// </summary>
+/// <remarks>
+/// Only the operations whose result is the same whatever the rounding
+/// direction appear here. BitVector's floating-point arithmetic rounds to
+/// nearest and takes no direction, so folding through it would answer a
+/// question the expression has not asked; the callers screen those operations
+/// out with isRoundingDependent, and reaching one here is a defect.
+/// </remarks>
 [<RequireQualifiedAccess>]
 module internal ValueOptimizer =
   let inline unop n = function
     | UnOpType.NEG -> BitVector.Neg n
     | UnOpType.NOT -> BitVector.Not n
-    | UnOpType.FSQRT -> BitVector.FSqrt n
-    | UnOpType.FCOS -> BitVector.FCos n
-    | UnOpType.FSIN -> BitVector.FSin n
-    | UnOpType.FTAN -> BitVector.FTan n
-    | UnOpType.FATAN -> BitVector.FAtan n
-    | UnOpType.FASIN -> BitVector.FAsin n
-    | UnOpType.FACOS -> BitVector.FAcos n
-    | UnOpType.FSINH -> BitVector.FSinh n
-    | UnOpType.FCOSH -> BitVector.FCosh n
-    | UnOpType.FTANH -> BitVector.FTanh n
-    | UnOpType.FATANH -> BitVector.FAtanh n
     | _ -> Terminator.impossible ()
 
   let inline binop n1 n2 = function
@@ -61,12 +59,6 @@ module internal ValueOptimizer =
     | BinOpType.OR -> BitVector.Or(n1, n2)
     | BinOpType.XOR -> BitVector.Xor(n1, n2)
     | BinOpType.CONCAT -> BitVector.Concat(n1, n2)
-    | BinOpType.FADD -> BitVector.FAdd(n1, n2)
-    | BinOpType.FSUB -> BitVector.FSub(n1, n2)
-    | BinOpType.FMUL -> BitVector.FMul(n1, n2)
-    | BinOpType.FDIV -> BitVector.FDiv(n1, n2)
-    | BinOpType.FPOW -> BitVector.FPow(n1, n2)
-    | BinOpType.FLOG -> BitVector.FLog(n1, n2)
     | _ -> Terminator.impossible ()
 
   let inline relop n1 n2 = function
@@ -90,13 +82,6 @@ module internal ValueOptimizer =
   let inline cast t n = function
     | CastKind.SignExt -> BitVector.SExt(n, t)
     | CastKind.ZeroExt -> BitVector.ZExt(n, t)
-    | CastKind.FloatCast -> BitVector.FCast(n, t)
-    | CastKind.SIntToFloat -> BitVector.Itof(n, t, true)
-    | CastKind.UIntToFloat -> BitVector.Itof(n, t, false)
-    | CastKind.FtoICeil -> BitVector.FtoiCeil(n, t)
-    | CastKind.FtoIFloor -> BitVector.FtoiFloor(n, t)
-    | CastKind.FtoIRound -> BitVector.FtoiRound(n, t)
-    | CastKind.FtoITrunc -> BitVector.FtoiTrunc(n, t)
     | _ -> Terminator.impossible ()
 
   let inline extract e t pos = BitVector.Extract(e, t, pos)

@@ -787,11 +787,10 @@ let fpArithmeticSingle ins bld excOp operator =
     let rs2 = transOpr ins bld rs2
     let rs1 = getFloat32FromReg rs1
     let rs2 = getFloat32FromReg rs2
-    let saved = enterRoundingMode bld rm
+    let mode = staticRounding rm
     let value = tmpVar bld 32<rt>
-    value := operator rs1 rs2
-    accrueFlags bld 32<rt> excOp rs1 rs2
-    leaveRoundingMode bld saved
+    value := underRounding mode (operator rs1 rs2)
+    accrueFlags bld mode 32<rt> excOp rs1 rs2
     rd := getNanBoxed (fpCanonical 32<rt> value)
   }
 
@@ -801,11 +800,10 @@ let fpArithmeticDouble ins bld excOp operator =
     let rd = transOpr ins bld rd
     let rs1 = transOpr ins bld rs1
     let rs2 = transOpr ins bld rs2
-    let saved = enterRoundingMode bld rm
+    let mode = staticRounding rm
     let value = tmpVar bld 64<rt>
-    value := operator rs1 rs2
-    accrueFlags bld 64<rt> excOp rs1 rs2
-    leaveRoundingMode bld saved
+    value := underRounding mode (operator rs1 rs2)
+    accrueFlags bld mode 64<rt> excOp rs1 rs2
     rd := fpCanonical 64<rt> value
   }
 
@@ -814,11 +812,10 @@ let fsqrtdots ins bld =
     let rd, rs1, rm = getThreeOprs ins
     let rd, rs1 = transOpr ins bld rd, transOpr ins bld rs1
     let rs1 = getFloat32FromReg rs1
-    let saved = enterRoundingMode bld rm
+    let mode = staticRounding rm
     let root = tmpVar bld 32<rt>
-    root := AST.fsqrt rs1
-    accrueFlags bld 32<rt> FpExc.Sqrt rs1 rs1
-    leaveRoundingMode bld saved
+    root := underRounding mode (AST.fsqrt rs1)
+    accrueFlags bld mode 32<rt> FpExc.Sqrt rs1 rs1
     rd := getNanBoxed (fpCanonical 32<rt> root)
   }
 
@@ -826,11 +823,10 @@ let fsqrtdotd ins bld =
   lift bld ins {
     let rd, rs1, rm = getThreeOprs ins
     let rd, rs1 = transOpr ins bld rd, transOpr ins bld rs1
-    let saved = enterRoundingMode bld rm
+    let mode = staticRounding rm
     let root = tmpVar bld 64<rt>
-    root := AST.fsqrt rs1
-    accrueFlags bld 64<rt> FpExc.Sqrt rs1 rs1
-    leaveRoundingMode bld saved
+    root := underRounding mode (AST.fsqrt rs1)
+    accrueFlags bld mode 64<rt> FpExc.Sqrt rs1 rs1
     rd := fpCanonical 64<rt> root
   }
 
@@ -841,7 +837,7 @@ let fmindots ins bld =
     let rs2 = getFloat32FromReg rs2
     let rtVal = tmpVar bld 32<rt>
     rtVal := fpMinMax 32<rt> true rs1 rs2
-    accrueFlags bld 32<rt> FpExc.MinMax rs1 rs2
+    accrueFlags bld None 32<rt> FpExc.MinMax rs1 rs2
     rd := getNanBoxed rtVal
   }
 
@@ -850,7 +846,7 @@ let fmindotd ins bld =
     let rd, rs1, rs2 = transThreeOprs ins bld
     let rtVal = tmpVar bld 64<rt>
     rtVal := fpMinMax 64<rt> true rs1 rs2
-    accrueFlags bld 64<rt> FpExc.MinMax rs1 rs2
+    accrueFlags bld None 64<rt> FpExc.MinMax rs1 rs2
     rd := rtVal
   }
 
@@ -861,7 +857,7 @@ let fmaxdots ins bld =
     let rs2 = getFloat32FromReg rs2
     let rtVal = tmpVar bld 32<rt>
     rtVal := fpMinMax 32<rt> false rs1 rs2
-    accrueFlags bld 32<rt> FpExc.MinMax rs1 rs2
+    accrueFlags bld None 32<rt> FpExc.MinMax rs1 rs2
     rd := getNanBoxed rtVal
   }
 
@@ -870,7 +866,7 @@ let fmaxdotd ins bld =
     let rd, rs1, rs2 = transThreeOprs ins bld
     let rtVal = tmpVar bld 64<rt>
     rtVal := fpMinMax 64<rt> false rs1 rs2
-    accrueFlags bld 64<rt> FpExc.MinMax rs1 rs2
+    accrueFlags bld None 64<rt> FpExc.MinMax rs1 rs2
     rd := rtVal
   }
 
@@ -884,11 +880,10 @@ let fmadddots ins bld =
     let rs1 = getFloat32FromReg rs1
     let rs2 = getFloat32FromReg rs2
     let rs3 = getFloat32FromReg rs3
-    let saved = enterRoundingMode bld rm
+    let mode = staticRounding rm
     let fused = tmpVar bld 32<rt>
-    fused := fpFused 32<rt> false false rs1 rs2 rs3
-    accrueFmaFlags bld 32<rt> false false rs1 rs2 rs3
-    leaveRoundingMode bld saved
+    fused := underRounding mode (fpFused 32<rt> false false rs1 rs2 rs3)
+    accrueFmaFlags bld mode 32<rt> false false rs1 rs2 rs3
     rd := getNanBoxed (fpCanonical 32<rt> fused)
   }
 
@@ -899,11 +894,10 @@ let fmadddotd ins bld =
     let rs1 = transOpr ins bld rs1
     let rs2 = transOpr ins bld rs2
     let rs3 = transOpr ins bld rs3
-    let saved = enterRoundingMode bld rm
+    let mode = staticRounding rm
     let fused = tmpVar bld 64<rt>
-    fused := fpFused 64<rt> false false rs1 rs2 rs3
-    accrueFmaFlags bld 64<rt> false false rs1 rs2 rs3
-    leaveRoundingMode bld saved
+    fused := underRounding mode (fpFused 64<rt> false false rs1 rs2 rs3)
+    accrueFmaFlags bld mode 64<rt> false false rs1 rs2 rs3
     rd := fpCanonical 64<rt> fused
   }
 
@@ -917,11 +911,10 @@ let fmsubdots ins bld =
     let rs1 = getFloat32FromReg rs1
     let rs2 = getFloat32FromReg rs2
     let rs3 = getFloat32FromReg rs3
-    let saved = enterRoundingMode bld rm
+    let mode = staticRounding rm
     let fused = tmpVar bld 32<rt>
-    fused := fpFused 32<rt> false true rs1 rs2 rs3
-    accrueFmaFlags bld 32<rt> false true rs1 rs2 rs3
-    leaveRoundingMode bld saved
+    fused := underRounding mode (fpFused 32<rt> false true rs1 rs2 rs3)
+    accrueFmaFlags bld mode 32<rt> false true rs1 rs2 rs3
     rd := getNanBoxed (fpCanonical 32<rt> fused)
   }
 
@@ -932,11 +925,10 @@ let fmsubdotd ins bld =
     let rs1 = transOpr ins bld rs1
     let rs2 = transOpr ins bld rs2
     let rs3 = transOpr ins bld rs3
-    let saved = enterRoundingMode bld rm
+    let mode = staticRounding rm
     let fused = tmpVar bld 64<rt>
-    fused := fpFused 64<rt> false true rs1 rs2 rs3
-    accrueFmaFlags bld 64<rt> false true rs1 rs2 rs3
-    leaveRoundingMode bld saved
+    fused := underRounding mode (fpFused 64<rt> false true rs1 rs2 rs3)
+    accrueFmaFlags bld mode 64<rt> false true rs1 rs2 rs3
     rd := fpCanonical 64<rt> fused
   }
 
@@ -950,11 +942,10 @@ let fnmsubdots ins bld =
     let rs1 = getFloat32FromReg rs1
     let rs2 = getFloat32FromReg rs2
     let rs3 = getFloat32FromReg rs3
-    let saved = enterRoundingMode bld rm
+    let mode = staticRounding rm
     let fused = tmpVar bld 32<rt>
-    fused := fpFused 32<rt> true false rs1 rs2 rs3
-    accrueFmaFlags bld 32<rt> true false rs1 rs2 rs3
-    leaveRoundingMode bld saved
+    fused := underRounding mode (fpFused 32<rt> true false rs1 rs2 rs3)
+    accrueFmaFlags bld mode 32<rt> true false rs1 rs2 rs3
     rd := getNanBoxed (fpCanonical 32<rt> fused)
   }
 
@@ -965,11 +956,10 @@ let fnmsubdotd ins bld =
     let rs1 = transOpr ins bld rs1
     let rs2 = transOpr ins bld rs2
     let rs3 = transOpr ins bld rs3
-    let saved = enterRoundingMode bld rm
+    let mode = staticRounding rm
     let fused = tmpVar bld 64<rt>
-    fused := fpFused 64<rt> true false rs1 rs2 rs3
-    accrueFmaFlags bld 64<rt> true false rs1 rs2 rs3
-    leaveRoundingMode bld saved
+    fused := underRounding mode (fpFused 64<rt> true false rs1 rs2 rs3)
+    accrueFmaFlags bld mode 64<rt> true false rs1 rs2 rs3
     rd := fpCanonical 64<rt> fused
   }
 
@@ -983,11 +973,10 @@ let fnmadddots ins bld =
     let rs1 = getFloat32FromReg rs1
     let rs2 = getFloat32FromReg rs2
     let rs3 = getFloat32FromReg rs3
-    let saved = enterRoundingMode bld rm
+    let mode = staticRounding rm
     let fused = tmpVar bld 32<rt>
-    fused := fpFused 32<rt> true true rs1 rs2 rs3
-    accrueFmaFlags bld 32<rt> true true rs1 rs2 rs3
-    leaveRoundingMode bld saved
+    fused := underRounding mode (fpFused 32<rt> true true rs1 rs2 rs3)
+    accrueFmaFlags bld mode 32<rt> true true rs1 rs2 rs3
     rd := getNanBoxed (fpCanonical 32<rt> fused)
   }
 
@@ -998,11 +987,10 @@ let fnmadddotd ins bld =
     let rs1 = transOpr ins bld rs1
     let rs2 = transOpr ins bld rs2
     let rs3 = transOpr ins bld rs3
-    let saved = enterRoundingMode bld rm
+    let mode = staticRounding rm
     let fused = tmpVar bld 64<rt>
-    fused := fpFused 64<rt> true true rs1 rs2 rs3
-    accrueFmaFlags bld 64<rt> true true rs1 rs2 rs3
-    leaveRoundingMode bld saved
+    fused := underRounding mode (fpFused 64<rt> true true rs1 rs2 rs3)
+    accrueFmaFlags bld mode 64<rt> true true rs1 rs2 rs3
     rd := fpCanonical 64<rt> fused
   }
 
@@ -1253,14 +1241,14 @@ let fcvtdotldotd ins bld =
   let conds = condNaN, condInf, sign
   let bounds = llMinInFloat, llMaxInFloat, llMin, llMax
   lift bld ins {
-    let saved = enterRoundingMode bld rm
-    accrueFlags bld 64<rt> FpExc.ToSInt rs1 (numI32 64 32<rt>)
+    let mode = staticRounding rm
+    accrueFlags bld mode 64<rt> FpExc.ToSInt rs1 (numI32 64 32<rt>)
     (* rounded value *)
-    let rtVal = dynamicRoundingFl bld 64<rt> rs1
-    let rdVal = dynamicRoundingInt bld 64<rt> rtVal
+    let rtVal = tmpVar bld 64<rt>
+    rtVal := underRounding mode (AST.cast CastKind.RoundToIntegral 64<rt> rs1)
+    let rdVal = underRounding mode (AST.cast CastKind.FloatToSInt 64<rt> rtVal)
     rd := rdVal
     clampConversion bld rd rtVal conds bounds
-    leaveRoundingMode bld saved
   }
 
 let fcvtdotludotd ins bld =
@@ -1276,14 +1264,14 @@ let fcvtdotludotd ins bld =
   let conds = condNaN, condInf, sign
   let bounds = ullMinInFloat, ullMaxInFloat, ullMin, ullMax
   lift bld ins {
-    let saved = enterRoundingMode bld rm
-    accrueFlags bld 64<rt> FpExc.ToUInt rs1 (numI32 64 32<rt>)
+    let mode = staticRounding rm
+    accrueFlags bld mode 64<rt> FpExc.ToUInt rs1 (numI32 64 32<rt>)
     (* rounded value *)
-    let rtVal = dynamicRoundingFl bld 64<rt> rs1
-    let rdVal = dynamicRoundingInt bld 64<rt> rtVal
+    let rtVal = tmpVar bld 64<rt>
+    rtVal := underRounding mode (AST.cast CastKind.RoundToIntegral 64<rt> rs1)
+    let rdVal = underRounding mode (AST.cast CastKind.FloatToSInt 64<rt> rtVal)
     rd := rdVal
     clampConversion bld rd rtVal conds bounds
-    leaveRoundingMode bld saved
   }
 
 let fcvtdotwdotd ins bld =
@@ -1299,14 +1287,14 @@ let fcvtdotwdotd ins bld =
   let conds = condNaN, condInf, sign
   let bounds = intMinInFloat, intMaxInFloat, intMin, intMax
   lift bld ins {
-    let saved = enterRoundingMode bld rm
-    accrueFlags bld 64<rt> FpExc.ToSInt rs1 (numI32 32 32<rt>)
+    let mode = staticRounding rm
+    accrueFlags bld mode 64<rt> FpExc.ToSInt rs1 (numI32 32 32<rt>)
     (* rounded value *)
-    let rtVal = dynamicRoundingFl bld 64<rt> rs1
-    let rdVal = dynamicRoundingInt bld 32<rt> rtVal
+    let rtVal = tmpVar bld 64<rt>
+    rtVal := underRounding mode (AST.cast CastKind.RoundToIntegral 64<rt> rs1)
+    let rdVal = underRounding mode (AST.cast CastKind.FloatToSInt 32<rt> rtVal)
     rd := AST.sext bld.RegType rdVal
     clampConversion bld rd rtVal conds bounds
-    leaveRoundingMode bld saved
   }
 
 let fcvtdotwudotd ins bld =
@@ -1322,20 +1310,20 @@ let fcvtdotwudotd ins bld =
   let conds = condNaN, condInf, sign
   let bounds = uintMinInFloat, uintMaxInFloat, uintMin, uintMax
   lift bld ins {
-    let saved = enterRoundingMode bld rm
-    accrueFlags bld 64<rt> FpExc.ToUInt rs1 (numI32 32 32<rt>)
+    let mode = staticRounding rm
+    accrueFlags bld mode 64<rt> FpExc.ToUInt rs1 (numI32 32 32<rt>)
     (* rounded value *)
-    let rtVal = dynamicRoundingFl bld 64<rt> rs1
+    let rtVal = tmpVar bld 64<rt>
+    rtVal := underRounding mode (AST.cast CastKind.RoundToIntegral 64<rt> rs1)
     (* The conversion is to an UNSIGNED word, and the IR's float-to-
        integer casts are signed: a value in [2^31, 2^32) would come
        back as the integer indefinite rather than as itself. Going
        through a doubleword, which holds the whole unsigned range with
        room to spare, and keeping its low word is the same conversion
        with nothing to saturate. *)
-    let rdVal = dynamicRoundingInt bld 64<rt> rtVal
+    let rdVal = underRounding mode (AST.cast CastKind.FloatToSInt 64<rt> rtVal)
     rd := AST.sext bld.RegType (AST.xtlo 32<rt> rdVal)
     clampConversion bld rd rtVal conds bounds
-    leaveRoundingMode bld saved
   }
 
 let fcvtdotwdots ins bld =
@@ -1352,14 +1340,14 @@ let fcvtdotwdots ins bld =
   let conds = condNaN, condInf, sign
   let bounds = intMinInFloat, intMaxInFloat, intMin, intMax
   lift bld ins {
-    let saved = enterRoundingMode bld rm
-    accrueFlags bld 32<rt> FpExc.ToSInt rs1 (numI32 32 32<rt>)
+    let mode = staticRounding rm
+    accrueFlags bld mode 32<rt> FpExc.ToSInt rs1 (numI32 32 32<rt>)
     (* rounded value *)
-    let rtVal = dynamicRoundingFl bld 32<rt> rs1
-    let rdVal = dynamicRoundingInt bld 32<rt> rtVal
+    let rtVal = tmpVar bld 32<rt>
+    rtVal := underRounding mode (AST.cast CastKind.RoundToIntegral 32<rt> rs1)
+    let rdVal = underRounding mode (AST.cast CastKind.FloatToSInt 32<rt> rtVal)
     rd := AST.sext bld.RegType rdVal
     clampConversion bld rd rtVal conds bounds
-    leaveRoundingMode bld saved
   }
 
 let fcvtdotwudots ins bld =
@@ -1376,20 +1364,20 @@ let fcvtdotwudots ins bld =
   let conds = condNaN, condInf, sign
   let bounds = uintMinInFloat, uintMaxInFloat, uintMin, uintMax
   lift bld ins {
-    let saved = enterRoundingMode bld rm
-    accrueFlags bld 32<rt> FpExc.ToUInt rs1 (numI32 32 32<rt>)
+    let mode = staticRounding rm
+    accrueFlags bld mode 32<rt> FpExc.ToUInt rs1 (numI32 32 32<rt>)
     (* rounded value *)
-    let rtVal = dynamicRoundingFl bld 32<rt> rs1
+    let rtVal = tmpVar bld 32<rt>
+    rtVal := underRounding mode (AST.cast CastKind.RoundToIntegral 32<rt> rs1)
     (* The conversion is to an UNSIGNED word, and the IR's float-to-
        integer casts are signed: a value in [2^31, 2^32) would come
        back as the integer indefinite rather than as itself. Going
        through a doubleword, which holds the whole unsigned range with
        room to spare, and keeping its low word is the same conversion
        with nothing to saturate. *)
-    let rdVal = dynamicRoundingInt bld 64<rt> rtVal
+    let rdVal = underRounding mode (AST.cast CastKind.FloatToSInt 64<rt> rtVal)
     rd := AST.sext bld.RegType (AST.xtlo 32<rt> rdVal)
     clampConversion bld rd rtVal conds bounds
-    leaveRoundingMode bld saved
   }
 
 let fcvtdotldots ins bld =
@@ -1404,17 +1392,16 @@ let fcvtdotldots ins bld =
   let conds = condNaN, condInf, sign
   let bounds = llMinInFloat, llMaxInFloat
   lift bld ins {
-    let saved = enterRoundingMode bld rm
-    accrueFlags bld 32<rt> FpExc.ToSInt rs1 (numI32 64 32<rt>)
+    let mode = staticRounding rm
+    accrueFlags bld mode 32<rt> FpExc.ToSInt rs1 (numI32 64 32<rt>)
     (* rounded value *)
-    let t0 = dynamicRoundingFl bld 32<rt> rs1
+    let t0 = underRounding mode (AST.cast CastKind.RoundToIntegral 32<rt> rs1)
     let rtVal = tmpVar bld 64<rt>
     (* check for out-of-range *)
     rtVal := AST.cast CastKind.FloatCast 64<rt> t0
     clampRounded bld rtVal conds bounds
-    let rdVal = dynamicRoundingInt bld 64<rt> rtVal
+    let rdVal = underRounding mode (AST.cast CastKind.FloatToSInt 64<rt> rtVal)
     rd := rdVal
-    leaveRoundingMode bld saved
   }
 
 let fcvtdotludots ins bld =
@@ -1431,10 +1418,10 @@ let fcvtdotludots ins bld =
   let conds = condNaN, condInf, sign
   let bounds = llMinInFloat, llMaxInFloat, llMin, llMax
   lift bld ins {
-    let saved = enterRoundingMode bld rm
-    accrueFlags bld 32<rt> FpExc.ToUInt rs1 (numI32 64 32<rt>)
+    let mode = staticRounding rm
+    accrueFlags bld mode 32<rt> FpExc.ToUInt rs1 (numI32 64 32<rt>)
     (* rounded value *)
-    let t0 = dynamicRoundingFl bld 32<rt> rs1
+    let t0 = underRounding mode (AST.cast CastKind.RoundToIntegral 32<rt> rs1)
     let rtVal = tmpVar bld 64<rt>
     (* check for out-of-range *)
     rtVal := AST.cast CastKind.FloatCast 64<rt> t0
@@ -1442,9 +1429,8 @@ let fcvtdotludots ins bld =
        cast the already-widened double to a double again and stored that in an
        integer register. FCVT.LU.S is rv64-only, so nothing on rv32 reaches
        it. *)
-    rd := dynamicRoundingInt bld 64<rt> rtVal
+    rd := underRounding mode (AST.cast CastKind.FloatToSInt 64<rt> rtVal)
     clampConversion bld rd rtVal conds bounds
-    leaveRoundingMode bld saved
   }
 
 let fcvtdotsdotw ins bld =
@@ -1453,7 +1439,7 @@ let fcvtdotsdotw ins bld =
     let rd, rs1 = transOpr ins bld rd, transOpr ins bld rs1
     let rs1 = AST.xtlo 32<rt> rs1
     let value = AST.cast CastKind.SIntToFloat 32<rt> rs1
-    rd := getNanBoxed (underRoundingMode bld 32<rt> rm value)
+    rd := getNanBoxed (underRounding (staticRounding rm) value)
   }
 
 let fcvtdotsdotwu ins bld =
@@ -1462,7 +1448,7 @@ let fcvtdotsdotwu ins bld =
     let rd, rs1 = transOpr ins bld rd, transOpr ins bld rs1
     let rs1 = AST.xtlo 32<rt> rs1
     let value = AST.cast CastKind.UIntToFloat 32<rt> rs1
-    rd := getNanBoxed (underRoundingMode bld 32<rt> rm value)
+    rd := getNanBoxed (underRounding (staticRounding rm) value)
   }
 
 let fcvtdotsdotl ins bld =
@@ -1470,7 +1456,7 @@ let fcvtdotsdotl ins bld =
     let rd, rs1, rm = getThreeOprs ins
     let rd, rs1 = transOpr ins bld rd, transOpr ins bld rs1
     let value = AST.cast CastKind.SIntToFloat 32<rt> rs1
-    rd := getNanBoxed (underRoundingMode bld 32<rt> rm value)
+    rd := getNanBoxed (underRounding (staticRounding rm) value)
   }
 
 let fcvtdotsdotlu ins bld =
@@ -1478,7 +1464,7 @@ let fcvtdotsdotlu ins bld =
     let rd, rs1, rm = getThreeOprs ins
     let rd, rs1 = transOpr ins bld rd, transOpr ins bld rs1
     let value = AST.cast CastKind.UIntToFloat 32<rt> rs1
-    rd := getNanBoxed (underRoundingMode bld 32<rt> rm value)
+    rd := getNanBoxed (underRounding (staticRounding rm) value)
   }
 
 let fcvtdotddotw ins bld =
@@ -1498,7 +1484,7 @@ let fcvtdotddotl ins bld =
     let rd, rs1, rm = getThreeOprs ins
     let rd, rs1 = transOpr ins bld rd, transOpr ins bld rs1
     let value = AST.cast CastKind.SIntToFloat 64<rt> rs1
-    rd := underRoundingMode bld 64<rt> rm value
+    rd := underRounding (staticRounding rm) value
   }
 
 let fcvtdotddotlu ins bld =
@@ -1506,21 +1492,21 @@ let fcvtdotddotlu ins bld =
     let rd, rs1, rm = getThreeOprs ins
     let rd, rs1 = transOpr ins bld rd, transOpr ins bld rs1
     let value = AST.cast CastKind.UIntToFloat 64<rt> rs1
-    rd := underRoundingMode bld 64<rt> rm value
+    rd := underRounding (staticRounding rm) value
   }
 
 /// FCVT.S.D narrows, and a narrowing is the one conversion between the two
 /// floating formats where a rounding direction is felt: every single is a
 /// double exactly, so the widening FCVT.D.S has nothing to round. The
 /// direction belongs to the narrowing itself rather than to a pass over the
-/// result afterwards, which is why this sets frm around the cast instead of
-/// rounding what came out of it.
+/// result afterwards, which is why the cast is what goes under the direction
+/// rather than what came out of it.
 let fcvtdotsdotd ins bld =
   lift bld ins {
     let rd, rs1, rm = getThreeOprs ins
     let rd, rs1 = transOpr ins bld rd, transOpr ins bld rs1
     let value = AST.cast CastKind.FloatCast 32<rt> rs1
-    let single = underRoundingMode bld 32<rt> rm value
+    let single = underRounding (staticRounding rm) value
     rd := getNanBoxed (fpCanonical 32<rt> single)
   }
 

@@ -71,6 +71,9 @@ let rec translateExpr (e: LowUIR.Expr) =
     Ite(translateExpr e1, ty, translateExpr e2, translateExpr e3)
   | LowUIR.Cast(op, ty, e, _) ->
     Cast(op, ty, translateExpr e)
+  | LowUIR.RoundCtrl(mode, body, _) ->
+    let ty = LowUIR.Expr.typeOf body
+    RoundCtrl(translateExpr mode, ty, translateExpr body)
   | LowUIR.Extract(e, ty, pos, _) ->
     Extract(translateExpr e, ty, pos)
   | LowUIR.Undefined(ty, s, _) ->

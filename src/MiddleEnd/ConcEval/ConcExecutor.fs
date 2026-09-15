@@ -138,6 +138,7 @@ type ConcExecutor(hdl: BinHandle) =
     | Load(_, _, addr, _) -> hasUndefExpr addr
     | Ite(c, t, f, _) -> hasUndefExpr c || hasUndefExpr t || hasUndefExpr f
     | Cast(_, _, e, _) -> hasUndefExpr e
+    | RoundCtrl(m, b, _) -> hasUndefExpr m || hasUndefExpr b
     | Extract(e, _, _, _) -> hasUndefExpr e
     | Num _
     | Var _

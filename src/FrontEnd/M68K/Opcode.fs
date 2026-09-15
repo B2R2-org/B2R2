@@ -275,9 +275,9 @@ type Opcode =
   | FCOS = 120
   /// Floating-Point Hyperbolic Cosine
   | FCOSH = 121
-  /// Floating-Point Absolute Value, Rounded to Double Precision
+  /// Floating-Point Absolute Value, RoundCtrl to Double Precision
   | FDABS = 122
-  /// Floating-Point Add, Rounded to Double Precision
+  /// Floating-Point Add, RoundCtrl to Double Precision
   | FDADD = 123
   /// Floating-Point Test, Decrement, Branch (EQ)
   | FDBEQ = 124
@@ -343,19 +343,19 @@ type Opcode =
   | FDBULT = 154
   /// Floating-Point Test, Decrement, Branch (UN)
   | FDBUN = 155
-  /// Floating-Point Divide, Rounded to Double Precision
+  /// Floating-Point Divide, RoundCtrl to Double Precision
   | FDDIV = 156
   /// Floating-Point Divide
   | FDIV = 157
-  /// Move Floating-Point Data, Rounded to Double Precision
+  /// Move Floating-Point Data, RoundCtrl to Double Precision
   | FDMOVE = 158
-  /// Floating-Point Multiply, Rounded to Double Precision
+  /// Floating-Point Multiply, RoundCtrl to Double Precision
   | FDMUL = 159
-  /// Floating-Point Negate, Rounded to Double Precision
+  /// Floating-Point Negate, RoundCtrl to Double Precision
   | FDNEG = 160
-  /// Floating-Point Square Root, Rounded to Double Precision
+  /// Floating-Point Square Root, RoundCtrl to Double Precision
   | FDSQRT = 161
-  /// Floating-Point Subtract, Rounded to Double Precision
+  /// Floating-Point Subtract, RoundCtrl to Double Precision
   | FDSUB = 162
   /// Floating-Point e to the x Power
   | FETOX = 163
@@ -395,15 +395,15 @@ type Opcode =
   | FREM = 180
   /// Restore Internal Floating-Point State
   | FRESTORE = 181
-  /// Floating-Point Absolute Value, Rounded to Single Precision
+  /// Floating-Point Absolute Value, RoundCtrl to Single Precision
   | FSABS = 182
-  /// Floating-Point Add, Rounded to Single Precision
+  /// Floating-Point Add, RoundCtrl to Single Precision
   | FSADD = 183
   /// Save Internal Floating-Point State
   | FSAVE = 184
   /// Floating-Point Scale Exponent
   | FSCALE = 185
-  /// Floating-Point Divide, Rounded to Single Precision
+  /// Floating-Point Divide, RoundCtrl to Single Precision
   | FSDIV = 186
   /// Floating-Point Set According to Condition (EQ)
   | FSEQ = 187
@@ -431,13 +431,13 @@ type Opcode =
   | FSLE = 198
   /// Floating-Point Set According to Condition (LT)
   | FSLT = 199
-  /// Move Floating-Point Data, Rounded to Single Precision
+  /// Move Floating-Point Data, RoundCtrl to Single Precision
   | FSMOVE = 200
-  /// Floating-Point Multiply, Rounded to Single Precision
+  /// Floating-Point Multiply, RoundCtrl to Single Precision
   | FSMUL = 201
   /// Floating-Point Set According to Condition (NE)
   | FSNE = 202
-  /// Floating-Point Negate, Rounded to Single Precision
+  /// Floating-Point Negate, RoundCtrl to Single Precision
   | FSNEG = 203
   /// Floating-Point Set According to Condition (NGE)
   | FSNGE = 204
@@ -471,11 +471,11 @@ type Opcode =
   | FSSF = 218
   /// Floating-Point Set According to Condition (SNE)
   | FSSNE = 219
-  /// Floating-Point Square Root, Rounded to Single Precision
+  /// Floating-Point Square Root, RoundCtrl to Single Precision
   | FSSQRT = 220
   /// Floating-Point Set According to Condition (ST)
   | FSST = 221
-  /// Floating-Point Subtract, Rounded to Single Precision
+  /// Floating-Point Subtract, RoundCtrl to Single Precision
   | FSSUB = 222
   /// Floating-Point Set According to Condition (T)
   | FST = 223

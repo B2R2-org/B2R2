@@ -79,6 +79,16 @@ module UnOpType =
     | _ -> raise IllegalASTTypeException
 
   /// <summary>
+  /// Whether the result of the operation depends on the rounding direction in
+  /// force, which makes it unfoldable wherever that direction is unknown.
+  /// </summary>
+  [<CompiledName "IsRoundingDependent">]
+  let isRoundingDependent = function
+    | UnOpType.NEG
+    | UnOpType.NOT -> false
+    | _ -> true
+
+  /// <summary>
   /// Retrieves the unary operator type from a string.
   /// </summary>
   [<CompiledName "OfString">]

@@ -68,6 +68,10 @@ and expandExprAux visited depth (state: State<_, _>) e =
   | SSA.Cast(castKind, rt, e) ->
     let e' = expandExprAux visited depth state e
     SSA.Cast(castKind, rt, e')
+  | SSA.RoundCtrl(mode, rt, body) ->
+    let mode' = expandExprAux visited depth state mode
+    let body' = expandExprAux visited depth state body
+    SSA.RoundCtrl(mode', rt, body')
   | SSA.Load(memVar, rt, e) ->
     let e' = expandExprAux visited depth state e
     SSA.Load(memVar, rt, e')

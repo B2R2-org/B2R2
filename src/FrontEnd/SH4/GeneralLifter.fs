@@ -928,13 +928,16 @@ let ftrc (ins: Instruction) bld =
     let dst = regOf bld o2
     byMode bld PrBit
       (fun () ->
-        append bld { dst := AST.cast CastKind.FtoITrunc 32<rt> (regVar bld m) })
+        let src = regVar bld m
+        let v = AST.floatToSInt RoundingMode.TowardZero 32<rt> src
+        append bld { dst := v })
       (fun () ->
         if isOddFpNum m then
           unsupportedBank bld
         else
           let d = doubleOf bld m
-          append bld { dst := AST.cast CastKind.FtoITrunc 32<rt> d })
+          let v = AST.floatToSInt RoundingMode.TowardZero 32<rt> d
+          append bld { dst := v })
   }
 
 let ftrv ins _bld = notLifted ins

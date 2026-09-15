@@ -196,10 +196,10 @@ let private convOprs (ins: Instruction) =
 /// program that never sets it has -- rounds to nearest.
 let private intRounding (m: Mask) =
   match m &&& 0xfus with
-  | 5us -> CastKind.FtoITrunc
-  | 6us -> CastKind.FtoICeil
-  | 7us -> CastKind.FtoIFloor
-  | _ -> CastKind.FtoIRound
+  | 5us -> RoundingMode.TowardZero
+  | 6us -> RoundingMode.TowardPositive
+  | 7us -> RoundingMode.TowardNegative
+  | _ -> RoundingMode.ToNearestEven
 
 /// A conversion from a fixed-point value to a floating-point one.
 let fromInt ins bld rt intW signed =
@@ -221,10 +221,11 @@ let private roundedInt bld m f t unsignedWide =
   append bld {
     if unsignedWide then
       let big = AST.fge f half
-      t := AST.cast (intRounding m) 64<rt> (AST.ite big (AST.fsub f half) f)
+      let shifted = AST.ite big (AST.fsub f half) f
+      t := AST.floatToSInt (intRounding m) 64<rt> shifted
       t := AST.ite big (t .+ numU64 0x8000000000000000UL 64<rt>) t
     else
-      t := AST.cast (intRounding m) 64<rt> f
+      t := AST.floatToSInt (intRounding m) 64<rt> f
   }
 
 /// CONVERT TO FIXED and CONVERT TO LOGICAL: the value is rounded as the mask
@@ -275,10 +276,10 @@ let toInt ins bld rt intW signed =
 /// which follows the same mask as a conversion to a fixed-point one.
 let private floatRounding (m: Mask) =
   match m &&& 0xfus with
-  | 5us -> CastKind.FtoFTrunc
-  | 6us -> CastKind.FtoFCeil
-  | 7us -> CastKind.FtoFFloor
-  | _ -> CastKind.FtoFRound
+  | 5us -> RoundingMode.TowardZero
+  | 6us -> RoundingMode.TowardPositive
+  | 7us -> RoundingMode.TowardNegative
+  | _ -> RoundingMode.ToNearestEven
 
 /// LOAD FP INTEGER: the value rounded to a whole number, still in floating
 /// point, which is how a program floors or truncates without leaving the
@@ -287,7 +288,8 @@ let roundToInt ins bld rt =
   lift bld (ins: Instruction) {
     let struct (o1, o2, m) = convOprs ins
     let d = oprRegVar bld o1
-    let v = AST.cast (floatRounding m) rt (fpPart rt (oprRegVar bld o2))
+    let src = fpPart rt (oprRegVar bld o2)
+    let v = AST.roundToIntegral (floatRounding m) rt src
     fpPart rt d := v
   }
 
@@ -351,7 +353,7 @@ let divideToInteger ins bld rt =
     let whole = tmpVar bld rt
     a := fpPart rt d
     b := fpPart rt (oprRegVar bld o[1])
-    whole := AST.cast CastKind.FtoFTrunc rt (AST.fdiv a b)
+    whole := AST.roundToIntegral RoundingMode.TowardZero rt (AST.fdiv a b)
     fpPart rt d := AST.fsub a (AST.fmul whole b)
     fpPart rt q := whole
     setCC bld 0
@@ -810,7 +812,7 @@ let extRoundToInt ins bld =
     let struct (shi, slo) = extPair bld (oprReg o2)
     let r = tmpVar bld 64<rt>
     lift bld (ins: Instruction) {
-      r := AST.cast (floatRounding m) 64<rt> (extAsDouble shi slo)
+      r := AST.roundToIntegral (floatRounding m) 64<rt> (extAsDouble shi slo)
       extPutDouble bld dhi dlo r
     }
 

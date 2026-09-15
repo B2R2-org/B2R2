@@ -92,3 +92,11 @@ type ParserTests() =
     let result = p.Parse "!!UndefinedInstruction" |> get |> Array.head
     let answer = AST.sideEffect SideEffect.UndefinedInstruction
     Assert.AreEqual<Stmt>(answer, result)
+
+  [<TestMethod>]
+  member _.``[LowUIRParser] Test RoundCtrl Expression``() =
+    let result = p.Parse "R := rnd(0x3:I8, R)" |> get |> Array.head
+    let mode = AST.num (BitVector(3, 8<rt>))
+    let r = AST.var 64<rt> regID "R"
+    let answer = AST.put r (AST.roundCtrl mode r)
+    Assert.AreEqual<Stmt>(answer, result)

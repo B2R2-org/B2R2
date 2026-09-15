@@ -37,21 +37,14 @@ type private VarMaps =
   { VarMap: Dictionary<RegisterID, Expr>
     TempVarMap: Dictionary<int, Expr> }
 
+(* Only the operations whose result is the same whatever the rounding direction
+   is in force are concretized here; the callers screen the rest out with
+   isRoundingDependent, BitVector's floating-point arithmetic having no
+   direction to be given. *)
 let private concretizeUnOp unopType bv =
   match unopType with
   | UnOpType.NEG -> BitVector.Neg bv
   | UnOpType.NOT -> BitVector.Not bv
-  | UnOpType.FSQRT -> BitVector.FSqrt bv
-  | UnOpType.FCOS -> BitVector.FCos bv
-  | UnOpType.FSIN -> BitVector.FSin bv
-  | UnOpType.FTAN -> BitVector.FTan bv
-  | UnOpType.FATAN -> BitVector.FAtan bv
-  | UnOpType.FASIN -> BitVector.FAsin bv
-  | UnOpType.FACOS -> BitVector.FAcos bv
-  | UnOpType.FSINH -> BitVector.FSinh bv
-  | UnOpType.FCOSH -> BitVector.FCosh bv
-  | UnOpType.FTANH -> BitVector.FTanh bv
-  | UnOpType.FATANH -> BitVector.FAtanh bv
   | _ -> Terminator.impossible ()
 
 let private concretizeBinOp binopType bv1 bv2 =
@@ -70,12 +63,6 @@ let private concretizeBinOp binopType bv1 bv2 =
   | BinOpType.OR -> BitVector.Or(bv1, bv2)
   | BinOpType.XOR -> BitVector.Xor(bv1, bv2)
   | BinOpType.CONCAT -> BitVector.Concat(bv1, bv2)
-  | BinOpType.FADD -> BitVector.FAdd(bv1, bv2)
-  | BinOpType.FSUB -> BitVector.FSub(bv1, bv2)
-  | BinOpType.FMUL -> BitVector.FMul(bv1, bv2)
-  | BinOpType.FDIV -> BitVector.FDiv(bv1, bv2)
-  | BinOpType.FPOW -> BitVector.FPow(bv1, bv2)
-  | BinOpType.FLOG -> BitVector.FLog(bv1, bv2)
   | _ -> Terminator.impossible ()
 
 let private concretizeRelOp relopType bv1 bv2 =
@@ -100,13 +87,6 @@ let private concretizeCast castType rt bv =
   match castType with
   | CastKind.SignExt -> BitVector.SExt(bv, rt)
   | CastKind.ZeroExt -> BitVector.ZExt(bv, rt)
-  | CastKind.SIntToFloat -> BitVector.Itof(bv, rt, true)
-  | CastKind.UIntToFloat -> BitVector.Itof(bv, rt, false)
-  | CastKind.FtoIRound -> BitVector.FtoiRound(bv, rt)
-  | CastKind.FtoICeil -> BitVector.FtoiCeil(bv, rt)
-  | CastKind.FtoIFloor -> BitVector.FtoiFloor(bv, rt)
-  | CastKind.FtoITrunc -> BitVector.FtoiTrunc(bv, rt)
-  | CastKind.FloatCast -> BitVector.FCast(bv, rt)
   | _ -> Terminator.impossible ()
 
 let rec private replace maps expr =
@@ -123,8 +103,10 @@ let rec private replace maps expr =
     let struct (changed, e) = replace maps e
     if changed then
       match e with
-      | Num(bv, _) -> struct (true, AST.num <| concretizeUnOp t bv)
-      | _ -> struct (true, AST.unop t e)
+      | Num(bv, _) when not (UnOpType.isRoundingDependent t) ->
+        struct (true, AST.num <| concretizeUnOp t bv)
+      | _ ->
+        struct (true, AST.unop t e)
     else
       struct (false, expr)
   | BinOp(BinOpType.ADD, _, e, Num(bv, _), _)
@@ -139,7 +121,7 @@ let rec private replace maps expr =
     let struct (changed1, e1) = replace maps e1
     let struct (changed2, e2) = replace maps e2
     match e1, e2 with
-    | Num(bv1, _), Num(bv2, _) ->
+    | Num(bv1, _), Num(bv2, _) when not (BinOpType.isRoundingDependent t) ->
       struct (true, AST.num <| concretizeBinOp t bv1 bv2)
     | _ ->
       if changed1 || changed2 then struct (true, AST.binop t e1 e2)
@@ -169,12 +151,21 @@ let rec private replace maps expr =
         struct (true, AST.ite cond e1 e2)
     else
       struct (false, expr)
+  | RoundCtrl(mode, body, _) ->
+    let struct (modeChanged, mode) = replace maps mode
+    let struct (bodyChanged, body) = replace maps body
+    if modeChanged || bodyChanged then
+      struct (true, AST.roundCtrl mode body)
+    else
+      struct (false, expr)
   | Cast(kind, rt, e, _) ->
     let struct (changed, e) = replace maps e
     if changed then
       match e with
-      | Num(bv, _) -> struct (true, AST.num <| concretizeCast kind rt bv)
-      | _ -> struct (true, AST.cast kind rt e)
+      | Num(bv, _) when not (CastKind.isRoundingDependent kind) ->
+        struct (true, AST.num <| concretizeCast kind rt bv)
+      | _ ->
+        struct (true, AST.cast kind rt e)
     else
       struct (false, expr)
   | Extract(e, rt, pos, _) ->

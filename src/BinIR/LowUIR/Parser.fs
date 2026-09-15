@@ -86,15 +86,9 @@ type Parser(isa: ISA,
       "zext"
       "sfloat"
       "ufloat"
-      "round"
-      "ceil"
-      "floor"
-      "trunc"
+      "fsint"
       "fext"
-      "roundf"
-      "ceilf"
-      "floorf"
-      "truncf" ]
+      "rint" ]
     |> List.map (pstring >> attempt)
     |> choice
     |>> CastKind.ofString
@@ -130,6 +124,12 @@ type Parser(isa: ISA,
     .>> pchar '(' .>> ws .>>. pExpr .>> ws .>> pchar ')'
     |>> (fun ((kind, typ), expr) -> AST.cast kind typ expr)
 
+  let pRoundCtrl =
+    pstring "rnd" >>. ws
+    >>. pchar '(' >>. ws >>. pExpr .>> ws .>> pchar ',' .>> ws
+    .>>. pExpr .>> ws .>> pchar ')'
+    |>> (fun (mode, body) -> AST.roundCtrl mode body)
+
   let toExtractExpr ((expr, n), pos) =
     AST.extract expr (RegType.fromBitWidth (n + 1 - pos)) pos
 
@@ -152,6 +152,10 @@ type Parser(isa: ISA,
 
   let pPrimaryValue =
     [ attempt pExtractNoParen .>> ws
+      (* Ahead of pVar: a register name is matched as a prefix, so one that
+         begins with an "r" would take the "r" of an "rnd" and leave the rest
+         unparsed. *)
+      attempt pRoundCtrl .>> ws
       pVar .>> ws
       pTempVar .>> ws
       pUnOp .>> ws

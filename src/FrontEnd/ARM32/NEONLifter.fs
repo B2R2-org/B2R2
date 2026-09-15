@@ -687,20 +687,27 @@ let vaddl (ins: Instruction) bld =
     putEndLabel bld lblIgnore
   }
 
-let vcvtCastKind = function
+/// The conversion VCVT names, as the function that performs it and the width
+/// it leaves its result in.
+let vcvtCastKind =
+  let fext = AST.cast CastKind.FloatCast
+  let ofSInt = AST.cast CastKind.SIntToFloat
+  let ofUInt = AST.cast CastKind.UIntToFloat
+  let toInt = AST.floatToSInt RoundingMode.TowardZero
+  function
   (* float <-> float *)
-  | Some(TwoDT(SIMDTypF32, SIMDTypF64)) -> struct (CastKind.FloatCast, 32<rt>)
-  | Some(TwoDT(SIMDTypF64, SIMDTypF32)) -> struct (CastKind.FloatCast, 64<rt>)
+  | Some(TwoDT(SIMDTypF32, SIMDTypF64)) -> struct (fext, 32<rt>)
+  | Some(TwoDT(SIMDTypF64, SIMDTypF32)) -> struct (fext, 64<rt>)
   (* int -> float *)
-  | Some(TwoDT(SIMDTypF32, SIMDTypS32)) -> struct (CastKind.SIntToFloat, 32<rt>)
-  | Some(TwoDT(SIMDTypF64, SIMDTypS32)) -> struct (CastKind.SIntToFloat, 64<rt>)
-  | Some(TwoDT(SIMDTypF32, SIMDTypU32)) -> struct (CastKind.UIntToFloat, 32<rt>)
-  | Some(TwoDT(SIMDTypF64, SIMDTypU32)) -> struct (CastKind.UIntToFloat, 64<rt>)
+  | Some(TwoDT(SIMDTypF32, SIMDTypS32)) -> struct (ofSInt, 32<rt>)
+  | Some(TwoDT(SIMDTypF64, SIMDTypS32)) -> struct (ofSInt, 64<rt>)
+  | Some(TwoDT(SIMDTypF32, SIMDTypU32)) -> struct (ofUInt, 32<rt>)
+  | Some(TwoDT(SIMDTypF64, SIMDTypU32)) -> struct (ofUInt, 64<rt>)
   (* float -> int (round toward zero) *)
   | Some(TwoDT(SIMDTypS32, SIMDTypF32))
-  | Some(TwoDT(SIMDTypU32, SIMDTypF32)) -> struct (CastKind.FtoITrunc, 32<rt>)
+  | Some(TwoDT(SIMDTypU32, SIMDTypF32)) -> struct (toInt, 32<rt>)
   | Some(TwoDT(SIMDTypS32, SIMDTypF64))
-  | Some(TwoDT(SIMDTypU32, SIMDTypF64)) -> struct (CastKind.FtoITrunc, 32<rt>)
+  | Some(TwoDT(SIMDTypU32, SIMDTypF64)) -> struct (toInt, 32<rt>)
   | _ -> raise InvalidOperandException
 
 let parseOprOfVCVT (ins: Instruction) bld =
@@ -757,12 +764,14 @@ let parseOprOfVCVT (ins: Instruction) bld =
         (* LowUIR has no unsigned float-to-int cast; widen to a signed 64-bit
            integer (values in [0, 2^32) are exact) and keep the low 32 bits. *)
         append bld {
-          dst := AST.xtlo 32<rt> (AST.cast CastKind.FtoITrunc 64<rt> src)
+          dst :=
+            AST.xtlo 32<rt>
+              (AST.floatToSInt RoundingMode.TowardZero 64<rt> src)
         }
       | _ ->
-        let struct (kind, size) = vcvtCastKind ins.SIMDTyp
+        let struct (conv, size) = vcvtCastKind ins.SIMDTyp
         append bld {
-          dst := AST.cast kind size src
+          dst := conv size src
         }
   | _ ->
     raise InvalidOperandException

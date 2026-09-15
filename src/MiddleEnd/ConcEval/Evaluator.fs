@@ -63,6 +63,15 @@ let rec evalExpr (st: ConcState) e =
     if cond = tr then evalExpr st e1 else evalExpr st e2
   | Cast(kind, t, e, _) ->
     evalCast st t e kind
+  (* A float-to-integer conversion in a direction named outright is the one
+     rounding this evaluator can follow: BitVector has a conversion for each of
+     the four, where its arithmetic is the host's and takes no direction. Every
+     other body is evaluated as though the mode said round-to-nearest, which is
+     what this evaluator did before the mode could be expressed at all. *)
+  | RoundCtrl(Num(m, _), Cast(CastKind.FloatToSInt, t, e, _), _) ->
+    evalFtoI (enum<RoundingMode> (int (m.ToUInt64()))) t (evalExpr st e)
+  | RoundCtrl(_, body, _) ->
+    evalExpr st body
   | Extract(e, t, p, _) ->
     BitVector.Extract(evalExpr st e, t, p)
   | Undefined _ ->
@@ -87,11 +96,19 @@ and private evalCast st t e = function
   | CastKind.FloatCast -> BitVector.FCast(evalExpr st e, t)
   | CastKind.SIntToFloat -> BitVector.Itof(evalExpr st e, t, true)
   | CastKind.UIntToFloat -> BitVector.Itof(evalExpr st e, t, false)
-  | CastKind.FtoICeil -> BitVector.FtoiCeil(evalExpr st e, t)
-  | CastKind.FtoIFloor -> BitVector.FtoiFloor(evalExpr st e, t)
-  | CastKind.FtoIRound -> BitVector.FtoiRound(evalExpr st e, t)
-  | CastKind.FtoITrunc -> BitVector.FtoiTrunc(evalExpr st e, t)
+  (* No direction is in force here, this evaluator having no notion of one, so
+     the conversion rounds to nearest as everything else does. A direction the
+     expression names outright is honoured by evalFtoI instead. *)
+  | CastKind.FloatToSInt -> BitVector.FtoiRound(evalExpr st e, t)
   | _ -> raise IllegalASTTypeException
+
+/// Converts a float to an integer in a direction the expression named.
+and private evalFtoI mode t v =
+  match mode with
+  | RoundingMode.TowardPositive -> BitVector.FtoiCeil(v, t)
+  | RoundingMode.TowardNegative -> BitVector.FtoiFloor(v, t)
+  | RoundingMode.TowardZero -> BitVector.FtoiTrunc(v, t)
+  | _ -> BitVector.FtoiRound(v, t)
 
 and private evalUnOp st e typ =
   let v = evalExpr st e

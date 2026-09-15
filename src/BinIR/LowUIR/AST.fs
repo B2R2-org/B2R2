@@ -143,7 +143,9 @@ let inline label name id addr = Label(name, id, addr)
 [<CompiledName("UnOp")>]
 let unop op e =
   match e with
-  | Num(n, _) ->
+  (* A rounding-dependent operation is left standing: what it comes to is not
+     settled until a direction is, and the folding here has none. *)
+  | Num(n, _) when not (UnOpType.isRoundingDependent op) ->
     ValueOptimizer.unop n op |> num
 #if ! HASHCONS
   | _ ->
@@ -168,7 +170,7 @@ let jmpDest symb =
 
 let private binopWithType op t e1 e2 =
   match e1, e2 with
-  | Num(n1, _), Num(n2, _) ->
+  | Num(n1, _), Num(n2, _) when not (BinOpType.isRoundingDependent op) ->
     ValueOptimizer.binop n1 n2 op |> num
 #if ! HASHCONS
   | _ ->
@@ -299,7 +301,7 @@ let ite cond e1 e2 =
 [<CompiledName("Cast")>]
 let cast kind rt e =
   match e with
-  | Num(n, _) ->
+  | Num(n, _) when not (CastKind.isRoundingDependent kind) ->
     ValueOptimizer.cast rt n kind |> num
   | _ ->
     if TypeCheck.canCast kind rt e then
@@ -312,6 +314,67 @@ let cast kind rt e =
 #endif
     else
       e (* Remove unnecessary casting . *)
+
+/// <summary>
+/// Construct the mode expression naming a rounding direction outright, for a
+/// <c>RoundCtrl</c> whose direction is known when the instruction is lifted.
+/// </summary>
+[<CompiledName("RoundingMode")>]
+let roundingMode (mode: RoundingMode) =
+  num (BitVector(int mode, RoundingMode.modeType))
+
+/// <summary>
+/// Construct a rounding control (RoundCtrl), which evaluates the body with the
+/// given rounding direction in force. The mode is an 8-bit expression in the
+/// <see cref='T:B2R2.BinIR.RoundingMode'/> encoding. It names a direction
+/// rather than rounding anything itself: what rounds is the body.
+/// </summary>
+[<CompiledName("RoundCtrl")>]
+let roundCtrl mode body =
+#if DEBUG
+  TypeCheck.roundingMode mode
+#endif
+  match body with
+  (* A constant carries its own value; there is nothing left to round. *)
+  | Num _ ->
+    body
+  (* The inner direction covers the whole body, so the outer one reaches
+     nothing. *)
+  | RoundCtrl _ ->
+    body
+  | _ ->
+#if ! HASHCONS
+    RoundCtrl(mode, body, null)
+#else
+    let hc = HashConsingInfo()
+    let e = RoundCtrl(mode, body, hc)
+    internExpr e hc (Expr.HashRoundCtrl(mode, body))
+#endif
+
+/// <summary>
+/// Construct a float-to-signed-integer conversion in a direction the
+/// instruction names outright.
+/// </summary>
+/// <remarks>
+/// A conversion that takes whatever direction the target's control register
+/// holds is a bare <c>Cast(FloatToSInt, ...)</c> with nothing around it, this
+/// being the difference the two spellings are there to draw.
+/// </remarks>
+[<CompiledName("FloatToSInt")>]
+let floatToSInt mode rt e =
+  roundCtrl (roundingMode mode) (cast CastKind.FloatToSInt rt e)
+
+/// <summary>
+/// Construct a round-to-integral-value in a direction the instruction names
+/// outright, the result staying in the floating format it came in.
+/// </summary>
+/// <remarks>
+/// As with <c>floatToSInt</c>, one that follows the target's control register
+/// is a bare <c>Cast(RoundToIntegral, ...)</c>.
+/// </remarks>
+[<CompiledName("RoundToIntegral")>]
+let roundToIntegral mode rt e =
+  roundCtrl (roundingMode mode) (cast CastKind.RoundToIntegral rt e)
 
 /// <summary>
 /// Extract bits of the given size (<see cref='T:B2R2.RegType'/>) at the given
@@ -963,6 +1026,9 @@ let rec updateAllVarsUses (rset: RegisterSet) (tset: HashSet<int>) e =
     updateAllVarsUses rset tset e2
   | Cast(_, _, e, _) ->
     updateAllVarsUses rset tset e
+  | RoundCtrl(mode, body, _) ->
+    updateAllVarsUses rset tset mode
+    updateAllVarsUses rset tset body
   | Extract(e, _, _, _) ->
     updateAllVarsUses rset tset e
 
@@ -991,6 +1057,9 @@ let rec updateRegsUses (rset: RegisterSet) e =
     updateRegsUses rset e2
   | Cast(_, _, e, _) ->
     updateRegsUses rset e
+  | RoundCtrl(mode, body, _) ->
+    updateRegsUses rset mode
+    updateRegsUses rset body
   | Extract(e, _, _, _) ->
     updateRegsUses rset e
 
@@ -1019,6 +1088,9 @@ let rec updateTempsUses (tset: HashSet<int>) e =
     updateTempsUses tset e2
   | Cast(_, _, e, _) ->
     updateTempsUses tset e
+  | RoundCtrl(mode, body, _) ->
+    updateTempsUses tset mode
+    updateTempsUses tset body
   | Extract(e, _, _, _) ->
     updateTempsUses tset e
 

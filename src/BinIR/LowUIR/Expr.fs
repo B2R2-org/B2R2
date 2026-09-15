@@ -96,6 +96,32 @@ type Expr =
   /// second argument is a result type.
   | Cast of CastKind * RegType * Expr * HashConsingInfo
 
+  /// <summary>
+  /// The body evaluated with the given rounding direction in force.
+  /// </summary>
+  /// <remarks>
+  /// This names a direction; it does not itself round. What rounds is the
+  /// body, and most of what the IR does to a float rounds: the arithmetic
+  /// (FADD, FSUB, FMUL, FDIV, FSQRT), every conversion that can lose
+  /// something (FloatToSInt, RoundToIntegral, a FloatCast that narrows, an
+  /// SIntToFloat or UIntToFloat whose integer is wider than the significand),
+  /// and a named call answered by an operation that takes a direction. An
+  /// FADD under one is still an add, which is what separates this from
+  /// <c>CastKind.RoundToIntegral</c>, the operation that takes a float to a
+  /// whole number.
+  ///
+  /// It comes to nothing only where the body has nothing to round: integer
+  /// arithmetic, or a FloatCast that widens, which is exact for every value
+  /// there is.
+  ///
+  /// The mode is an 8-bit expression in the
+  /// <see cref='T:B2R2.BinIR.RoundingMode'/> encoding, an expression rather
+  /// than a constant so that a direction known only at run time can name the
+  /// register it comes from. A nested RoundCtrl wins over the one enclosing
+  /// it.
+  /// </remarks>
+  | RoundCtrl of mode: Expr * body: Expr * HashConsingInfo
+
   /// Extraction expression. The first argument is target expression, and the
   /// second argument is the number of bits for extraction, and the third is
   /// the start position.
@@ -126,6 +152,7 @@ with
     | Load(_, _, _, hc)
     | Ite(_, _, _, hc)
     | Cast(_, _, _, hc)
+    | RoundCtrl(_, _, hc)
     | Extract(_, _, _, hc)
     | Undefined(_, _, hc) -> hc.ID
 
@@ -147,6 +174,7 @@ with
     | Load(_, _, _, hc)
     | Ite(_, _, _, hc)
     | Cast(_, _, _, hc)
+    | RoundCtrl(_, _, hc)
     | Extract(_, _, _, hc)
     | Undefined(_, _, hc) -> hc.Hash
 
@@ -184,6 +212,9 @@ with
   static member inline HashCast(kind, rt: RegType, e: Expr) =
     19 * (19 * (19 * int kind + int rt) + e.Hash) + 11
 
+  static member inline HashRoundCtrl(mode: Expr, body: Expr) =
+    19 * (19 * mode.Hash + body.Hash) + 14
+
   static member inline HashExtract(e: Expr, rt: RegType, pos) =
     19 * (19 * (19 * e.Hash + int rt) + pos) + 12
 
@@ -217,6 +248,7 @@ with
     | Load(endian, rt, e, _) -> Expr.HashLoad(endian, rt, e)
     | Ite(cond, t, f, _) -> Expr.HashIte(cond, t, f)
     | Cast(k, rt, e, _) -> Expr.HashCast(k, rt, e)
+    | RoundCtrl(mode, body, _) -> Expr.HashRoundCtrl(mode, body)
     | Extract(e, rt, pos, _) -> Expr.HashExtract(e, rt, pos)
     | Undefined(rt, s, _) -> Expr.HashUndef(rt, s)
 
@@ -250,6 +282,8 @@ with
         c1 === c2 && t1 === t2 && f1 === f2
       | Cast(k1, t1, e1, _), Cast(k2, t2, e2, _) ->
         k1 = k2 && t1 = t2 && e1 === e2
+      | RoundCtrl(m1, b1, _), RoundCtrl(m2, b2, _) ->
+        m1 === m2 && b1 === b2
       | Extract(e1, t1, p1, _), Extract(e2, t2, p2, _) ->
         e1 === e2 && t1 = t2 && p1 = p2
       | Undefined(t1, s1, _), Undefined(t2, s2, _) ->
@@ -335,6 +369,12 @@ with
       sb.Append "(" |> ignore
       Expr.AppendToString(e, sb)
       sb.Append ")" |> ignore
+    | RoundCtrl(mode, body, _) ->
+      sb.Append "rnd(" |> ignore
+      Expr.AppendToString(mode, sb)
+      sb.Append ", " |> ignore
+      Expr.AppendToString(body, sb)
+      sb.Append ")" |> ignore
     | Extract(e, typ, p, _) ->
       sb.Append "(" |> ignore
       Expr.AppendToString(e, sb)
@@ -373,6 +413,7 @@ module Expr =
     | Load(_, t, _, _) -> t
     | Ite(_, e1, _, _) -> typeOf e1
     | Cast(_, t, _, _) -> t
+    | RoundCtrl(_, body, _) -> typeOf body
     | Extract(_, t, _, _) -> t
     | Undefined(t, _, _) -> t
     | FuncName _ | JmpDest _ | ExprList _ -> raise InvalidExprException

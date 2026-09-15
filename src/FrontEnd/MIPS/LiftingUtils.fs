@@ -209,12 +209,12 @@ let roundToInt bld src oprSz =
   let fcsr = regVar bld R.FCSR
   let rm = fcsr .& (numI32 0b11 32<rt>)
   AST.ite (rm == numI32 0 32<rt>)
-    (AST.cast CastKind.FtoIRound oprSz src) // 0 RN
+    (AST.floatToSInt RoundingMode.ToNearestEven oprSz src) // 0 RN
     (AST.ite (rm == numI32 1 32<rt>)
-      (AST.cast CastKind.FtoITrunc oprSz src) // 1 RZ
+      (AST.floatToSInt RoundingMode.TowardZero oprSz src) // 1 RZ
       (AST.ite (rm == numI32 2 32<rt>)
-        (AST.cast CastKind.FtoICeil oprSz src) // 2 RP
-        (AST.cast CastKind.FtoIFloor oprSz src))) // 3 RM
+        (AST.floatToSInt RoundingMode.TowardPositive oprSz src) // 2 RP
+        (AST.floatToSInt RoundingMode.TowardNegative oprSz src))) // 3 RM
 
 let private isSNaN32 signalBit nanCheck =
   nanCheck .& (signalBit == AST.num0 32<rt>)

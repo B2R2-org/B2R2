@@ -296,13 +296,13 @@ let roundingToCastInt bld frd frb =
     AST.cjmp rnA (AST.jmpDest lblRN1) (AST.jmpDest lblRN0)
     AST.lmark lblRN0
     frd := AST.ite rnB
-                   (AST.cast CastKind.FtoITrunc 64<rt> frb)
-                   (AST.cast CastKind.FtoIRound 64<rt> frb)
+                   (AST.floatToSInt RoundingMode.TowardZero 64<rt> frb)
+                   (AST.floatToSInt RoundingMode.ToNearestEven 64<rt> frb)
     AST.jmp (AST.jmpDest lblEnd)
     AST.lmark lblRN1
     frd := AST.ite rnB
-                   (AST.cast CastKind.FtoIFloor 64<rt> frb)
-                   (AST.cast CastKind.FtoICeil 64<rt> frb)
+                   (AST.floatToSInt RoundingMode.TowardNegative 64<rt> frb)
+                   (AST.floatToSInt RoundingMode.TowardPositive 64<rt> frb)
     AST.lmark lblEnd
   }
 

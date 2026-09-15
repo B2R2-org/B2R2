@@ -236,7 +236,7 @@ let roundToInt ins bld w =
     let d = oprRegVar bld o1
     let v = tmpVar bld 64<rt>
     v := toDouble bld w (part w (oprRegVar bld o2))
-    let r = AST.cast CastKind.FtoFTrunc 64<rt> v
+    let r = AST.roundToIntegral RoundingMode.TowardZero 64<rt> v
     part w d := ofDouble bld w r
   }
 
@@ -282,7 +282,7 @@ let toInt ins bld w intW =
     let v = tmpVar bld 64<rt>
     let t = tmpVar bld intW
     v := toDouble bld w (part w (oprRegVar bld o2))
-    t := AST.cast CastKind.FtoITrunc intW v
+    t := AST.floatToSInt RoundingMode.TowardZero intW v
     let hi = AST.ite (AST.flt v (AST.num0 64<rt>)) (numCC 1) (numCC 2)
     ccVar bld := AST.ite (AST.feq v (AST.num0 64<rt>)) (numCC 0) hi
     if intW = GRSize then append bld { d := t } else append bld { low d := t }

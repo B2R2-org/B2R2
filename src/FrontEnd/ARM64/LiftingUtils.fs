@@ -1005,7 +1005,7 @@ let fpRoundingMode src oprSz bld =
     direct rm0 := AST.xtlo 1<rt> rm (* rm[0] *)
     direct rm1 := rm >> (AST.num1 32<rt>) |> AST.xtlo 1<rt> (* rm[1] *)
   }
-  let cast kind = AST.cast kind oprSz src
+  let round mode = AST.roundToIntegral mode oprSz src
   let lblRNRP = label bld "RNorRP"
   let lblRMRZ = label bld "RMorRZ"
   let lblEnd = label bld "End"
@@ -1013,10 +1013,15 @@ let fpRoundingMode src oprSz bld =
     AST.cjmp rm1 (AST.jmpDest lblRMRZ) (AST.jmpDest lblRNRP)
     AST.lmark lblRMRZ
     direct res :=
-      AST.ite rm0 (cast CastKind.FtoFTrunc) (cast CastKind.FtoFFloor)
+      AST.ite rm0
+              (round RoundingMode.TowardZero)
+              (round RoundingMode.TowardNegative)
     AST.jmp (AST.jmpDest lblEnd)
     AST.lmark lblRNRP
-    direct res := AST.ite rm0 (cast CastKind.FtoFCeil) (cast CastKind.FtoFRound)
+    direct res :=
+      AST.ite rm0
+              (round RoundingMode.TowardPositive)
+              (round RoundingMode.ToNearestEven)
     AST.lmark lblEnd
   }
   res
@@ -1027,13 +1032,13 @@ let fpRoundingToInt src oprSz bld =
   let fpcr = regVar bld R.FPCR |> AST.xtlo 32<rt>
   let rm = AST.shr (AST.shl fpcr (numI32 8 32<rt>)) (numI32 0x1E 32<rt>)
   AST.ite (rm == numI32 0 32<rt>)
-    (AST.cast CastKind.FtoIRound oprSz src) // 0 RN
+    (AST.floatToSInt RoundingMode.ToNearestEven oprSz src) // 0 RN
     (AST.ite (rm == numI32 1 32<rt>)
-      (AST.cast CastKind.FtoICeil oprSz src) // 1 RP
+      (AST.floatToSInt RoundingMode.TowardPositive oprSz src) // 1 RP
       (AST.ite (rm == numI32 2 32<rt>)
-        (AST.cast CastKind.FtoIFloor oprSz src) // 2 RMP
+        (AST.floatToSInt RoundingMode.TowardNegative oprSz src) // 2 RMP
         (AST.ite (rm == numI32 3 32<rt>)
-          (AST.cast CastKind.FtoITrunc oprSz src) // 3 RZ
+          (AST.floatToSInt RoundingMode.TowardZero oprSz src) // 3 RZ
           src)))
 
 /// shared/functions/float/fpdefaultnan/FPDefaultNan
@@ -1410,7 +1415,7 @@ let fpToFixed dstSz src fbits unsigned round bld =
     elif fbSz > srcSz then AST.xtlo srcSz fbits
     else AST.zext srcSz fbits
   let sign = AST.xthi 1<rt> src
-  let trunc = AST.cast CastKind.FtoFTrunc srcSz src
+  let trunc = AST.roundToIntegral RoundingMode.TowardZero srcSz src
   let convertBit =
     if dstSz > srcSz then AST.xtlo srcSz fbits
     elif dstSz = srcSz then fbits
@@ -1423,24 +1428,24 @@ let fpToFixed dstSz src fbits unsigned round bld =
       fpFixed (dstSz, srcSz) unsigned bigint cast)
   match round with
   | FPRounding_TIEEVEN ->
-    fpcheck (AST.cast CastKind.FtoIRound srcSz)
+    fpcheck (AST.floatToSInt RoundingMode.ToNearestEven srcSz)
   | FPRounding_TIEAWAY ->
     let t = tmpVar bld srcSz
     let comp1, comp2 = halvesOf srcSz
     append bld {
       direct t := AST.fsub src trunc
     }
-    let ceil = fpcheck (AST.cast CastKind.FtoICeil srcSz)
-    let floor = fpcheck (AST.cast CastKind.FtoIFloor srcSz)
+    let ceil = fpcheck (AST.floatToSInt RoundingMode.TowardPositive srcSz)
+    let floor = fpcheck (AST.floatToSInt RoundingMode.TowardNegative srcSz)
     let pRes = AST.ite (AST.fge t comp1) ceil floor
     let nRes = AST.ite (AST.fle t comp2) floor ceil
     AST.ite sign nRes pRes
   | FPRounding_Zero ->
-    fpcheck (AST.cast CastKind.FtoITrunc srcSz)
+    fpcheck (AST.floatToSInt RoundingMode.TowardZero srcSz)
   | FPRounding_POSINF ->
-    fpcheck (AST.cast CastKind.FtoICeil srcSz)
+    fpcheck (AST.floatToSInt RoundingMode.TowardPositive srcSz)
   | FPRounding_NEGINF ->
-    fpcheck (AST.cast CastKind.FtoIFloor srcSz)
+    fpcheck (AST.floatToSInt RoundingMode.TowardNegative srcSz)
 
 /// shared/functions/common/BitCount
 // BitCount()

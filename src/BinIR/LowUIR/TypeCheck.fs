@@ -40,6 +40,15 @@ let internal bool e =
     ()
 #endif
 
+#if DEBUG
+let internal roundingMode e =
+  let t = Expr.typeOf e
+  if t <> RoundingMode.modeType then
+    raise <| TypeCheckException(Expr.toString e + "must be a rounding mode.")
+  else
+    ()
+#endif
+
 let inline internal checkEquivalence t1 t2 =
   if t1 = t2 then () else raise <| TypeCheckException "Inconsistent types."
 
@@ -100,6 +109,8 @@ let rec expr e =
   | Cast(CastKind.SignExt, t, e, _)
   | Cast(CastKind.ZeroExt, t, e, _) ->
     expr e && t >= Expr.typeOf e
+  | RoundCtrl(mode, body, _) ->
+    expr mode && expr body && Expr.typeOf mode = RoundingMode.modeType
   | Extract(e, t, p, _) ->
     expr e && ((t + LanguagePrimitives.Int32WithMeasure p) <= Expr.typeOf e)
   | _ ->

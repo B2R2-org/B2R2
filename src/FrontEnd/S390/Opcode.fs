@@ -1560,11 +1560,11 @@ type Opcode =
   | LPDR = 764
   /// Load Positive (extended HFP)
   | LPXR = 765
-  /// Load Rounded (short HFP <- long)
+  /// Load RoundCtrl (short HFP <- long)
   | LEDR = 766
-  /// Load Rounded (long HFP <- extended)
+  /// Load RoundCtrl (long HFP <- extended)
   | LDXR = 767
-  /// Load Rounded (short HFP <- extended)
+  /// Load RoundCtrl (short HFP <- extended)
   | LEXR = 768
   /// Multiply (short HFP)
   | MEER = 769
@@ -1816,17 +1816,17 @@ type Opcode =
   | LPDBR = 892
   /// Load Positive (extended BFP)
   | LPXBR = 893
-  /// Load Rounded (short BFP <- long)
+  /// Load RoundCtrl (short BFP <- long)
   | LEDBR = 894
-  /// Load Rounded (long BFP <- extended)
+  /// Load RoundCtrl (long BFP <- extended)
   | LDXBR = 895
-  /// Load Rounded (short BFP <- extended)
+  /// Load RoundCtrl (short BFP <- extended)
   | LEXBR = 896
-  /// Load Rounded (short BFP <- long)
+  /// Load RoundCtrl (short BFP <- long)
   | LEDBRA = 897
-  /// Load Rounded (long BFP <- extended)
+  /// Load RoundCtrl (long BFP <- extended)
   | LDXBRA = 898
-  /// Load Rounded (short BFP <- extended)
+  /// Load RoundCtrl (short BFP <- extended)
   | LEXBRA = 899
   /// Multiply (short BFP)
   | MEEBR = 900
@@ -2012,9 +2012,9 @@ type Opcode =
   | LDETR = 990
   /// Load Lengthened (extended DFP <- long)
   | LXDTR = 991
-  /// Load Rounded (short DFP <- long)
+  /// Load RoundCtrl (short DFP <- long)
   | LEDTR = 992
-  /// Load Rounded (long DFP <- extended)
+  /// Load RoundCtrl (long DFP <- extended)
   | LDXTR = 993
   /// Multiply (long DFP)
   | MDTR = 994
@@ -2330,7 +2330,7 @@ type Opcode =
   | VFI = 1149
   /// Vector FP Load Lengthened
   | VFLL = 1150
-  /// Vector FP Load Rounded
+  /// Vector FP Load RoundCtrl
   | VFLR = 1151
   /// Vector FP Maximum
   | VFMAX = 1152
