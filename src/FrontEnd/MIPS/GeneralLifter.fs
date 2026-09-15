@@ -1802,6 +1802,55 @@ let fpClass ins bld =
     .| bit 6 (pos .& isInf) .| bit 7 (pos .& isNorm)
     .| bit 8 (pos .& isSub) .| bit 9 (pos .& isZero))
 
+/// <summary>
+/// MADDF.fmt and MSUBF.fmt, which add the product to the destination or take
+/// it away with a SINGLE rounding.
+///
+/// That is the whole of what separates them from the MADD.fmt of the earlier
+/// releases, which rounds the product and then the sum. Release 6 dropped
+/// that one and put these in its place, so writing these as a multiply and an
+/// add would lift the instruction the release removed.
+///
+/// Subtracting the product is asked for as a flag rather than done here by
+/// flipping the multiplicand's sign: a NaN's sign is not the arithmetic's to
+/// change, so a sign flip would have needed a guard, and the guard would have
+/// been wrong for a NaN whose sign the operation is supposed to keep.
+/// </summary>
+let private fusedMultiplyAdd add ins bld =
+  fpR6Binary ins bld true (fun sz d a b ->
+    let mantBits = if sz = 32<rt> then 23 else 52
+    let expMask = numU64 ((((1UL <<< (int sz - mantBits - 1)) - 1UL))
+                          <<< mantBits) sz
+    let mantMask = numU64 ((1UL <<< mantBits) - 1UL) sz
+    let isNaN v =
+      ((v .& expMask) == expMask) .& ((v .& mantMask) != AST.num0 sz)
+    let result = fma sz (not add) false a b d
+    (* Which NaN comes out is the architecture's to say, not the host's. A
+       SIGNALLING operand wins over a quiet one wherever it sits -- that is
+       what the reference does when one operand is a quiet NaN and a later one
+       is signalling -- and it comes out quieted. Failing that a quiet operand
+       propagates as it is, and a NaN no operand carried is one this operation
+       manufactured, which Release 6 gives the IEEE-2008 default: the quiet bit
+       set, the rest of the mantissa clear, and positive whatever the operands
+       were. *)
+    let quietBit = numU64 (1UL <<< (mantBits - 1)) sz
+    let defaultNaN = quietBit .| expMask
+    let isSNaN v = isNaN v .& ((v .& quietBit) == AST.num0 sz)
+    let isQNaN v = isNaN v .& ((v .& quietBit) != AST.num0 sz)
+    let manufactured = AST.ite (isNaN result) defaultNaN result
+    let quietD = AST.ite (isQNaN d) d manufactured
+    let quietB = AST.ite (isQNaN b) b quietD
+    let quietA = AST.ite (isQNaN a) a quietB
+    let signalD = AST.ite (isSNaN d) (d .| quietBit) quietA
+    let signalB = AST.ite (isSNaN b) (b .| quietBit) signalD
+    AST.ite (isSNaN a) (a .| quietBit) signalB)
+
+/// MADDF.fmt: the destination plus the product.
+let maddf ins bld = fusedMultiplyAdd true ins bld
+
+/// MSUBF.fmt: the destination less the product.
+let msubf ins bld = fusedMultiplyAdd false ins bld
+
 /// CMP.cond.fmt -- the comparison Release 6 replaced C.cond.fmt with. The
 /// answer goes into an FPR as all-ones or all-zeros rather than into a
 /// condition-code bit, which is why BC1EQZ and BC1NEZ test a register.
