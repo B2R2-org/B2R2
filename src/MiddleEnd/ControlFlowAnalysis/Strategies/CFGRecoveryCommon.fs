@@ -412,12 +412,20 @@ module internal CFGRecoveryCommon =
     | Error _ ->
       ()
 
+  /// Connects a vertex that ends in the middle of an instruction to the vertex
+  /// holding the next statement of the very same instruction. The destination
+  /// is derived from the source vertex itself; peeking at the work queue would
+  /// pick up an unrelated program point that happens to be scheduled next.
   let makeIntraFallThroughEdge ctx cfgRec (ppQueue: Queue<_>) srcVertex =
-    match ppQueue.TryPeek() with
-    | true, nextPPoint ->
-      let dstVertex = getVertex ctx cfgRec nextPPoint
+    let bbl = (srcVertex: IVertex<LowUIRBasicBlock>).VData.Internals
+    let lastIns = Array.last bbl.LiftedInstructions
+    let nextPos = bbl.PPoint.Position + lastIns.Stmts.Length
+    let nextPPoint = ProgramPoint(lastIns.Original.Address, nextPos)
+    match tryGetVertex ctx cfgRec nextPPoint with
+    | Ok dstVertex ->
       connectEdge ctx cfgRec srcVertex dstVertex FallThroughEdge
-    | false, _ ->
+      ppQueue.Enqueue nextPPoint
+    | Error _ ->
       ()
 
   let isFuncEntryPoint ctx addr =
