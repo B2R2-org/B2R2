@@ -33,23 +33,40 @@ type MIPSParser(isa: ISA, reader) =
   let wordSize = isa.WordSize
   let arch = isa.Arch
   let release = isa.MIPSRelease
+  let mutable isMicroMIPS = isa.MIPSISAMode = MIPSISAMode.MicroMIPS
 
   let lifter =
     { new ILiftable with
         member _.Lift(ins, builder) = Lifter.translate ins builder
         member _.Disasm(ins, builder) = Disasm.disasm ins builder; builder }
 
+  /// <summary>
+  /// Which of the two encodings this parser reads, which is what the ISA said
+  /// until something moves it.
+  ///
+  /// It is settable because the encoding is not a property of the code but of
+  /// the processor reading it: JALX crosses from one to the other, and so
+  /// does a JR or JALR whose target address carries a one in the bit an
+  /// instruction address cannot use. Whatever follows a branch like that is
+  /// decoded the other way, and nothing in the word itself says so.
+  /// </summary>
+  member _.IsMicroMIPS with get() = isMicroMIPS and set v = isMicroMIPS <- v
+
   interface IInstructionParsable with
     member _.MaxInstructionSize = 4
 
-    member _.InstructionAlignment = 4
+    member _.InstructionAlignment = if isMicroMIPS then 2 else 4
 
     member this.Parse(bs: byte[], addr) =
       (this :> IInstructionParsable).Parse(ReadOnlySpan bs, addr)
 
     member _.Parse(span: ByteSpan, addr) =
       try
-        ParsingMain.parse lifter span reader arch wordSize release addr
-        :> IInstruction
+        if isMicroMIPS then
+          MicroMIPSParser.parse lifter span reader wordSize release addr
+          :> IInstruction
+        else
+          ParsingMain.parse lifter span reader arch wordSize release addr
+          :> IInstruction
       with e when not (Terminator.isCritical e) ->
         raise ParsingFailureException

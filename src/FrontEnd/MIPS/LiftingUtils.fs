@@ -53,6 +53,7 @@ let transOpr (ins: Instruction) bld = function
     numI64 (int64 ins.Address + o) bld.RegType
   | OpAddr(Region idx) ->
     numU64 (JumpTarget.regionTarget ins.Address ins.WordSize idx) bld.RegType
+  | OpRegList _
   | GoToLabel _ ->
     raise InvalidOperandException
 

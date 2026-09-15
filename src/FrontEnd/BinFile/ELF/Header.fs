@@ -169,6 +169,12 @@ module internal Header =
   let private getELFFlags span (reader: IBinReader) cls =
     reader.ReadUInt32(span = span, offset = selectByWordSize cls 36 48)
 
+  /// The bit a MIPS image's processor-specific flags carry when it holds
+  /// microMIPS code, which binutils calls EF_MIPS_ARCH_ASE_MICROMIPS. It sits
+  /// apart from the architecture level because it is not one: microMIPS is
+  /// another encoding of the same instruction set, and every level has both.
+  let [<Literal>] private MIPSMicroMIPS = 0x02000000u
+
   /// The architecture level in a MIPS image's processor-specific flags,
   /// which binutils calls EF_MIPS_ARCH. It settles two things, and this used
   /// to read only the first: how wide a register is -- the level and not the
@@ -178,9 +184,13 @@ module internal Header =
   /// right for both. The release was being discarded here, which is why
   /// Release 6 images could not be decoded at all.
   let private getMIPSISA span (reader: IBinReader) cls =
+    let flags = getELFFlags span reader cls
+    let mode =
+      if flags &&& MIPSMicroMIPS = 0u then MIPSISAMode.MIPS
+      else MIPSISAMode.MicroMIPS
     let mips ws release =
-      ISA(Architecture.MIPS, reader.Endianness, ws, int release)
-    match getELFFlags span reader cls &&& 0xf0000000u with
+      ISA(Architecture.MIPS, reader.Endianness, ws, int release ||| int mode)
+    match flags &&& 0xf0000000u with
     | 0x00000000u   (* none  *)
     | 0x10000000u   (* MIPS2 *)
     | 0x20000000u   (* MIPS3 *)

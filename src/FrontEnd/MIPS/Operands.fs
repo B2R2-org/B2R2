@@ -41,6 +41,9 @@ and Operand =
   | OpMem of Base * Offset * AccessLength
   | OpAddr of JumpTarget
   | OpShiftAmount of Imm
+  /// The registers one instruction moves, which the load and store multiples
+  /// name as a set rather than one at a time.
+  | OpRegList of Register list
   | GoToLabel of Label
 
 /// Represents a immediate in MIPS instruction.

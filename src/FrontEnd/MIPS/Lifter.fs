@@ -242,10 +242,50 @@ let translate (ins: Instruction) (bld: LowUIRBuilder) =
     j ins bld
   | Op.JAL ->
     jal ins bld
+  | Op.JALX ->
+    jalx ins bld
   | Op.JALR | Op.JALRHB ->
     jalr ins bld
   | Op.JR | Op.JRHB ->
     jr ins bld
+  | Op.JRC ->
+    jumpRegCompact ins bld
+  | Op.JALRS ->
+    jalrShortSlot ins bld
+  | Op.JALRC ->
+    jalrCompact ins bld
+  | Op.JRADDIUSP ->
+    jumpRegAdjust ins bld
+  | Op.JRCADDIUSP ->
+    jumpRegAdjustCompact ins bld
+  | Op.MOVEP ->
+    movePair ins bld
+  | Op.LWM ->
+    loadStoreMultiple ins bld true 32<rt>
+  | Op.SWM ->
+    loadStoreMultiple ins bld false 32<rt>
+  | Op.LDM ->
+    loadStoreMultiple ins bld true 64<rt>
+  | Op.SDM ->
+    loadStoreMultiple ins bld false 64<rt>
+  | Op.LWP ->
+    loadStorePair ins bld true 32<rt>
+  | Op.SWP ->
+    loadStorePair ins bld false 32<rt>
+  | Op.LDP ->
+    loadStorePair ins bld true 64<rt>
+  | Op.SDP ->
+    loadStorePair ins bld false 64<rt>
+  | Op.LWXS ->
+    loadWordScaled ins bld
+  | Op.JALS ->
+    jalShortSlot ins bld
+  | Op.JALRSHB ->
+    jalrShortSlot ins bld
+  | Op.BLTZALS ->
+    branchLinkShortSlot ins bld AST.slt
+  | Op.BGEZALS ->
+    branchLinkShortSlot ins bld AST.sge
   | Op.LD | Op.LB | Op.LH | Op.LW
   | Op.LBE | Op.LHE | Op.LWE ->
     loadSigned ins bld
