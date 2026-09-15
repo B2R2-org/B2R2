@@ -628,6 +628,34 @@ let vfpMulAcc (ins: Instruction) bld combine =
     putEndLabel bld lblIgnore
   }
 
+/// <summary>
+/// The VFP scalar FUSED multiply-accumulate family: VFMA, VFMS, VFNMA and
+/// VFNMS.
+///
+/// These sit beside VMLA and VMLS, which are the unfused pair and keep the
+/// function above. The ARM manual gives this four as FPMulAdd, one operation
+/// that rounds once, and gives VMLA and VMLS as a multiply and an add that
+/// round twice. An instruction set that carries both is telling them apart,
+/// so writing this four the way that four are written lifts the wrong
+/// instruction.
+/// </summary>
+let vfpFusedMulAcc (ins: Instruction) bld negProduct negAddend =
+  lift bld ins {
+    let struct (dst, src1, src2) = transThreeOprs ins bld
+    let isUnconditional = ParseUtils.isUnconditional ins.Condition
+    let lblIgnore = checkCondition ins bld isUnconditional
+    let fused sz x y z = fma sz negProduct negAddend x y z
+    match (getParsingInfo ins).ESize with
+    | 16 ->
+      let half e = AST.xtlo 16<rt> e
+      dst := AST.zext 32<rt> (fused 16<rt> (half src1) (half src2) (half dst))
+    | 32 ->
+      dst := fused 32<rt> src1 src2 dst
+    | _ ->
+      dst := fused 64<rt> src1 src2 dst
+    putEndLabel bld lblIgnore
+  }
+
 let vaddsub (ins: Instruction) bld opFn =
   lift bld ins {
     let isUnconditional = ParseUtils.isUnconditional ins.Condition

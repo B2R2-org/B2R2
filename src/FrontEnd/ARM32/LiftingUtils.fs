@@ -732,3 +732,32 @@ let writeModeBits bld value isExcptReturn =
   append bld {
     regVar bld R.CPSR := disablePSRBits bld R.CPSR PSR.M .| mValue
   }
+/// <summary>
+/// A fused multiply-add: <c>x * y + z</c> with a SINGLE rounding.
+///
+/// It is one operation and not a multiply followed by an add. The product is
+/// kept exact and rounded once with the sum, where a multiply and an add
+/// round twice, and the two answers differ whenever the product is not
+/// exactly representable -- by a unit in the last place usually, and by far
+/// more where the addition cancels. This architecture carries both a fused
+/// and an unfused multiply-add, so it is telling the two apart, and writing
+/// the fused one as the unfused pair lifts the wrong instruction.
+///
+/// It goes out as a named call because that is what the IR already offers for
+/// an operation of three arguments. The negations ride along as a flag rather
+/// than being applied to the operands: a negation flips a sign bit, and
+/// flipping a NaN operand's sign before the operation would change which NaN
+/// the answer carries. Bit 0 of the flag negates the product and bit 1 the
+/// addend.
+/// </summary>
+let fma sz negProduct negAddend x y z =
+  let prodBit = if negProduct then 1UL else 0UL
+  let addBit = if negAddend then 2UL else 0UL
+  let args = [ x; y; z; numU64 (prodBit ||| addBit) 8<rt> ]
+  let name =
+    match sz with
+    | 16<rt> -> "FMA16"
+    | 32<rt> -> "FMA32"
+    | 64<rt> -> "FMA64"
+    | _ -> raise InvalidRegTypeException
+  AST.app name args sz
