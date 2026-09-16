@@ -118,6 +118,36 @@ type MIPS32ParserTests() =
       Assert.ThrowsExactly<ParsingFailureException>(fun () ->
         parser32.Parse(System.ReadOnlySpan bytes, 0UL) |> ignore) |> ignore
 
+  /// The same field, read for the paired-single format and for the two
+  /// unaligned moves that serve it, reads "MIPS64, MIPS32 Release 2". So
+  /// these are instructions at this width and the parser has to read them,
+  /// which it did not: they had been listed with the doubleword family on
+  /// the grounds that a pair is sixty-four bits wide. That is a statement
+  /// about FR, which says whether the RESULT is predictable, and not about
+  /// whether the encoding names an instruction. LDXC1 beside them moves a
+  /// doubleword as well and was always read here.
+  [<TestMethod>]
+  member _.``[MIPS32] The paired-single family is one at this width``() =
+    let words =
+      [ "4d2a0005", LUXC1
+        "4d2a100d", SUXC1
+        "4d24101e", ALNVPS
+        "46041026", CVTPSS
+        "46c01028", CVTSPL
+        "46c01020", CVTSPU
+        "46c4102c", PLLPS
+        "46c4102d", PLUPS
+        "46c4102e", PULPS
+        "46c4102f", PUUPS
+        "4d2a0001", LDXC1 ]
+    let isa = ISA(Architecture.MIPS, Endian.Big, WordSize.Bit32)
+    let parser = MIPSParser(isa, BinReader.Init Endian.Big)
+                 :> IInstructionParsable
+    for hex, opcode in words do
+      let bytes = ByteArray.ofHexString hex
+      let ins = parser.Parse(System.ReadOnlySpan bytes, 0UL)
+      Assert.AreEqual<Opcode>(opcode, (ins :?> Instruction).Opcode, hex)
+
   [<TestMethod>]
   member _.``[MIPS32] Arithmetic Operations Parse Test (1)``() =
     "279c85bc"

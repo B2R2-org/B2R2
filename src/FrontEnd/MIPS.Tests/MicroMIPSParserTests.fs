@@ -456,14 +456,17 @@ type MicroMIPSParserTests() =
         "86543b33", ROUNDL, Some Fmt.S
         "86543b73", ROUNDL, Some Fmt.D
         "c454bc48", C, Some Fmt.PS
-        "06558020", PLLPS, Some Fmt.PS
-        "0655c020", PLUPS, Some Fmt.PS
-        "06550021", PULPS, Some Fmt.PS
-        "06554021", PUUPS, Some Fmt.PS
-        "06558021", CVTPSS, Some Fmt.S
-        "86543b29", CVTSPU, Some Fmt.PS
-        "86543b21", CVTSPL, Some Fmt.PS
-        "06559922", ALNVPS, Some Fmt.PS
+        (* These eight carry the format in the NAME rather than in a
+           suffix, so the format they decode to is none: a disassembler
+           that answered PS here would write pll.ps.ps. *)
+        "06558020", PLLPS, None
+        "0655c020", PLUPS, None
+        "06550021", PULPS, None
+        "06554021", PUUPS, None
+        "06558021", CVTPSS, None
+        "86543b29", CVTSPU, None
+        "86543b21", CVTSPL, None
+        "06559922", ALNVPS, None
         "4b554821", LUXC1, None
         "4b558821", SUXC1, None
         "48558921", MADD, Some Fmt.D
@@ -706,12 +709,12 @@ type MicroMIPSParserTests() =
   /// Every halfword either decodes or is refused, and nothing it decodes to
   /// fails to disassemble or to lift.
   ///
-  /// This is what stands in for the round-trip sweep the other encodings
-  /// get. There is no microMIPS assembler to sweep against, so what is
-  /// checked instead is that the decoder is total: a word it cannot read has
-  /// to say so with the one exception a caller is promised, not with an
-  /// index that ran off the end of a table, and a word it can read has to
-  /// produce an instruction the rest of the front end will accept.
+  /// What this checks is that the decoder is TOTAL, which the round-trip
+  /// sweep beside it does not: a word the decoder cannot read has to say so
+  /// with the one exception a caller is promised, not with an index that ran
+  /// off the end of a table, and a word it can read has to produce an
+  /// instruction the rest of the front end will accept. The sweep starts
+  /// from what the decoder decoded and so never sees the words it refused.
   /// </summary>
   [<TestMethod>]
   member _.``[microMIPS] The 16-bit space decodes or is refused``() =

@@ -1158,9 +1158,9 @@ let private pool32Fxf w =
     | 0x104u ->
       two Op.CVTL Fmt.D
     | 0x084u ->
-      two Op.CVTSPL Fmt.PS
+      Op.CVTSPL, None, None, TwoOperands(fFt w, fFs w)
     | 0x0A4u ->
-      two Op.CVTSPU Fmt.PS
+      Op.CVTSPU, None, None, TwoOperands(fFt w, fFs w)
     | 0x0ACu ->
       two Op.TRUNCW Fmt.S
     | 0x1ACu ->
@@ -1235,15 +1235,15 @@ let private fmt2 shift w =
 let private pool32FGrid release w =
   match bits w 5u 3u, bits w 8u 6u with
   | 0b000u, 0b010u when release <> MIPSRelease.R6 ->
-    Op.PLLPS, None, Some Fmt.PS, ThreeOperands(fFd w, fFs w, fFt w)
+    Op.PLLPS, None, None, ThreeOperands(fFd w, fFs w, fFt w)
   | 0b000u, 0b011u when release <> MIPSRelease.R6 ->
-    Op.PLUPS, None, Some Fmt.PS, ThreeOperands(fFd w, fFs w, fFt w)
+    Op.PLUPS, None, None, ThreeOperands(fFd w, fFs w, fFt w)
   | 0b000u, 0b100u when release <> MIPSRelease.R6 ->
-    Op.PULPS, None, Some Fmt.PS, ThreeOperands(fFd w, fFs w, fFt w)
+    Op.PULPS, None, None, ThreeOperands(fFd w, fFs w, fFt w)
   | 0b000u, 0b101u when release <> MIPSRelease.R6 ->
-    Op.PUUPS, None, Some Fmt.PS, ThreeOperands(fFd w, fFs w, fFt w)
+    Op.PUUPS, None, None, ThreeOperands(fFd w, fFs w, fFt w)
   | 0b000u, 0b110u ->
-    Op.CVTPSS, None, Some Fmt.S, ThreeOperands(fFd w, fFs w, fFt w)
+    Op.CVTPSS, None, None, ThreeOperands(fFd w, fFs w, fFt w)
   | 0b001u, 0b001u when release <> MIPSRelease.R6 ->
     Op.LWXC1, None, None, TwoOperands(fFd w, memIdx w 32<rt>)
   | 0b001u, 0b010u when release <> MIPSRelease.R6 ->
@@ -1326,7 +1326,14 @@ let private pool32F release w =
       | 0b010u ->
         sub, None, Some Fmt.PS, oprs
       | 0b011u when bits w 2u 0u = 0b001u ->
-        Op.ALNVPS, None, Some Fmt.PS, FourOperands(fFd w, fFs w, fFt w, fRt w)
+        (* The byte count has a field of its own -- the one the fused
+           families beside it keep their fourth register in. Reading it out
+           of bits 25..21 printed the same five bits twice, once as ft and
+           once as a general register. binutils encodes
+           <c>alnv.ps $f0, $f2, $f4, $9</c> as 0x54820259 and the same with
+           $10 as 0x54820299, which is bits 10..6 and nothing else. *)
+        let rs = reg5 (bits w 10u 6u) |> oprReg
+        Op.ALNVPS, None, None, FourOperands(fFd w, fFs w, fFt w, rs)
       | 0b100u ->
         sub2, None, Some Fmt.S, oprs
       | 0b101u ->

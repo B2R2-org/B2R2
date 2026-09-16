@@ -395,6 +395,73 @@ type LifterTests() =
     Assert.AreEqual<bool>(true, written)
 
   /// <summary>
+  /// The five arithmetic operations record in FCSR what they raised.
+  ///
+  /// An IEEE operation answers with a number AND with what that number cost,
+  /// and MIPS keeps the record in the same register as the rounding mode and
+  /// the condition codes. A lifter that writes only the number leaves a
+  /// program that asks what it lost with the answer it started from -- which
+  /// is the one part of a floating-point result nothing could disagree about.
+  /// Both formats are here: the two are separate arms of each lifter.
+  /// </summary>
+  [<TestMethod>]
+  member _.``[MIPS64] The arithmetic records what it raised``() =
+    let isa = ISA(Architecture.MIPS, Endian.Big, WordSize.Bit64)
+    let fcsr = Register.toRegID Register.FCSR
+    let encodings =
+      [ "46041000"   (* ADD.S *)
+        "46241000"   (* ADD.D *)
+        "46041001"   (* SUB.S *)
+        "46241001"   (* SUB.D *)
+        "46041002"   (* MUL.S *)
+        "46241002"   (* MUL.D *)
+        "46041003"   (* DIV.S *)
+        "46241003"   (* DIV.D *)
+        "46001004"   (* SQRT.S *)
+        "46201004" ] (* SQRT.D *)
+    for hex in encodings do
+      let written =
+        lifted isa hex
+        |> Array.exists (function
+          | Put(Var(_, rid, _), _) -> rid = fcsr
+          | _ -> false)
+      if written then () else Assert.Fail hex
+
+  /// <summary>
+  /// An instruction that moves a value rather than computing one leaves FCSR
+  /// alone.
+  ///
+  /// MOV.fmt, ABS.fmt and NEG.fmt copy a number and touch at most its sign,
+  /// and a load writes a register from memory. None of them rounds, so none
+  /// has anything to record -- and since Cause is written WHOLE by every
+  /// instruction that does, a lifter that recorded on every floating-point
+  /// instruction would clear the record of the one that did.
+  ///
+  /// ABS and NEG are here on measurement rather than on the manual's word:
+  /// where ABS2008 is clear they are defined as signalling on a signalling
+  /// NaN, and a processor reporting it clear was asked and records nothing.
+  /// </summary>
+  [<TestMethod>]
+  member _.``[MIPS64] Moving a value records nothing``() =
+    let isa = ISA(Architecture.MIPS, Endian.Big, WordSize.Bit64)
+    let fcsr = Register.toRegID Register.FCSR
+    let encodings =
+      [ "46001006"   (* MOV.S *)
+        "46201006"   (* MOV.D *)
+        "46001005"   (* ABS.S *)
+        "46201005"   (* ABS.D *)
+        "46001007"   (* NEG.S *)
+        "46201007"   (* NEG.D *)
+        "c4410000" ] (* LWC1 *)
+    for hex in encodings do
+      let written =
+        lifted isa hex
+        |> Array.exists (function
+          | Put(Var(_, rid, _), _) -> rid = fcsr
+          | _ -> false)
+      if written then Assert.Fail hex else ()
+
+  /// <summary>
   /// DMFC0 widens a thirty-two bit coprocessor 0 register by its sign.
   ///
   /// A MIPS64 processor keeps the registers that carry an address or a page
@@ -417,3 +484,36 @@ type LifterTests() =
     (* Config is thirty-two bits wide; EntryHi is not. *)
     if widensBySign "40228000" then () else Assert.Fail "40228000"
     if widensBySign "40225000" then Assert.Fail "40225000" else ()
+
+  /// <summary>
+  /// Every name this front end decodes has a lifter arm.
+  ///
+  /// Decoding and lifting are two tables, and a change to one that forgets
+  /// the other leaves an instruction that disassembles and then throws --
+  /// which is what happened to the floating-point select the moment it was
+  /// given the name the manual uses, because the arm still matched the
+  /// integer one. The encodings below are one per family this branch added.
+  /// </summary>
+  [<TestMethod>]
+  member _.``[MIPS64] What decodes also lifts``() =
+    let r2 = ISA(Architecture.MIPS, Endian.Big, WordSize.Bit64)
+    let r6 =
+      ISA(Architecture.MIPS, Endian.Big, WordSize.Bit64, int MIPSRelease.R6)
+    let cases =
+      [ r2, "42000002"   (* TLBWI *)
+        r2, "42000006"   (* TLBWR *)
+        r2, "42000003"   (* TLBINV *)
+        r2, "42000004"   (* TLBINVF *)
+        r2, "46c41000"   (* ADD.PS *)
+        r2, "46041000"   (* ADD.S *)
+        r2, "04100000"   (* NAL *)
+        r2, "4620100d"   (* TRUNC.W.D *)
+        r6, "7ca4000f"   (* CRC32B *)
+        r6, "46041018"   (* MADDF.S *)
+        r6, "46041017"   (* SELNEQZ.S *)
+        r6, "46841002"   (* CMP.EQ.S *)
+        r6, "42000018"   (* ERET *)
+        r6, "4600101a" ] (* RINT.S *)
+    for isa, hex in cases do
+      let stmts = lifted isa hex
+      if Array.isEmpty stmts then Assert.Fail hex else ()
