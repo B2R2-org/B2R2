@@ -245,3 +245,36 @@ type MIPS64ParserTests() =
     "b4cb8715"
       ++ SDR ** [ O.Reg R11; O.Mem(R6, -0x78ebL, 64<rt>) ]
       ||> test64R2
+
+  /// <summary>
+  /// The CRC family, whose encoding nothing in this tree could check against
+  /// a running processor: no CPU model QEMU offers has the ASE. What it is
+  /// checked against instead is binutils, which encodes
+  /// <c>crc32b $10, $9, $10</c> as 0x7D2A000F and walks the two fields from
+  /// there -- the element size at 7..6 and the polynomial at 10..8.
+  ///
+  /// The third operand is the first one again: the running value is an input
+  /// as well as the destination, which is how the manual writes them.
+  /// </summary>
+  [<TestMethod>]
+  member _.``[MIPS64] The CRC family parses``() =
+    let words =
+      [ "7d2a000f", CRC32B
+        "7d2a004f", CRC32H
+        "7d2a008f", CRC32W
+        "7d2a00cf", CRC32D
+        "7d2a010f", CRC32CB
+        "7d2a014f", CRC32CH
+        "7d2a018f", CRC32CW
+        "7d2a01cf", CRC32CD ]
+    let isa =
+      ISA(Architecture.MIPS, Endian.Big, WordSize.Bit64, int MIPSRelease.R6)
+    let parser = MIPSParser(isa, BinReader.Init Endian.Big)
+                 :> IInstructionParsable
+    let expected = ThreeOperands(OpReg R10, OpReg R9, OpReg R10)
+    for hex, opcode in words do
+      let bytes = ByteArray.ofHexString hex
+      let ins = parser.Parse(System.ReadOnlySpan bytes, 0UL) :?> Instruction
+      Assert.AreEqual<Opcode>(opcode, ins.Opcode, hex)
+      Assert.AreEqual<Operands>(expected, ins.Operands, hex)
+

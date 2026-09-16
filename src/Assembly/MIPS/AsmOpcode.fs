@@ -434,8 +434,35 @@ let private linkedPair func ins =
 /// extension of the earlier ones, and where a name is shared -- DIV, MOD and
 /// the multiplies -- the release is what tells the two apart, because nothing
 /// in the source text does.
+/// <summary>
+/// Encodes <rt>, <rs>, <rt>: one step of a CRC.
+///
+/// The running value is named twice because it is an input as well as the
+/// destination, so a source naming two different registers there is asking
+/// for an instruction that does not exist rather than for one this cannot
+/// encode.
+/// </summary>
+let private crc kind size ins =
+  match ins.Operands with
+  | ThreeOperands(Rg rt, Rg rs, Rg again) ->
+    if gpr again <> gpr rt then
+      fail "a CRC leaves its answer in the register it reads it from"
+    else
+      ()
+    word 0b011111u (gpr rs) (gpr rt) 0u ((kind <<< 2) ||| size) 0b001111u
+  | _ ->
+    wrongOperands ins
+
 let internal release6Encoders () =
-  [ Opcode.BEQC, compactPair 0b001000u
+  [ Opcode.CRC32B, crc 0b000u 0b00u
+    Opcode.CRC32H, crc 0b000u 0b01u
+    Opcode.CRC32W, crc 0b000u 0b10u
+    Opcode.CRC32D, crc 0b000u 0b11u
+    Opcode.CRC32CB, crc 0b001u 0b00u
+    Opcode.CRC32CH, crc 0b001u 0b01u
+    Opcode.CRC32CW, crc 0b001u 0b10u
+    Opcode.CRC32CD, crc 0b001u 0b11u
+    Opcode.BEQC, compactPair 0b001000u
     Opcode.BNEC, compactPair 0b011000u
     Opcode.BOVC, compactPair 0b001000u
     Opcode.BNVC, compactPair 0b011000u

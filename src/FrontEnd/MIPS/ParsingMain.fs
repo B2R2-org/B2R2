@@ -536,6 +536,25 @@ let private parseSPECIAL3 release binary =
     Op.DINSU, None, None, getRtRsPosSize4 binary
   | 0b000111u ->
     Op.DINS, None, None, getRtRsPosSize binary
+  (* The CRC family. Three bits above the size say which polynomial -- 000
+     the one IEEE 802 uses and 001 Castagnoli -- and two below them say how
+     wide the message element is. The doubleword forms are MIPS64 only, which
+     isMIPS64Only carries; the rest are Release 6 whatever the width. *)
+  | 0b001111u when release = MIPSRelease.R6 ->
+    if Bits.extract binary 15u 11u <> 0u then raise ParsingFailureException
+    else ()
+    let opcode =
+      match Bits.extract binary 10u 8u, Bits.extract binary 7u 6u with
+      | 0b000u, 0b00u -> Op.CRC32B
+      | 0b000u, 0b01u -> Op.CRC32H
+      | 0b000u, 0b10u -> Op.CRC32W
+      | 0b000u, 0b11u -> Op.CRC32D
+      | 0b001u, 0b00u -> Op.CRC32CB
+      | 0b001u, 0b01u -> Op.CRC32CH
+      | 0b001u, 0b10u -> Op.CRC32CW
+      | 0b001u, 0b11u -> Op.CRC32CD
+      | _ -> raise ParsingFailureException
+    opcode, None, None, getRtRsRt binary
   (* The EVA loads and stores, which name the OTHER address space: a kernel
      running with Enhanced Virtual Addressing reaches a user mapping through
      these rather than through the ordinary forms. What they do to the value
@@ -1462,11 +1481,9 @@ let isMIPS64Only = function
   | Op.DSRLV | Op.DSUB | Op.DSUBU | Op.LD | Op.LDL | Op.LDPC | Op.LDR
   | Op.LLD | Op.LLDP | Op.LWU | Op.LWUPC | Op.SCD | Op.SCDP | Op.SD
   | Op.SDL | Op.SDR
-  (* The paired-single format and the two unaligned moves that serve it are
-     MIPS64 as well: a pair is sixty-four bits of one register, which a
-     32-bit FPU does not have. *)
-  | Op.ALNVPS | Op.CVTPSS | Op.CVTSPL | Op.CVTSPU | Op.LUXC1 | Op.PLLPS
-  | Op.PLUPS | Op.PULPS | Op.PUUPS | Op.SUXC1 -> true
+  (* The two CRC forms over a doubleword. The byte, halfword and word forms
+     are MIPS32 as well, and only the element they read is wider here. *)
+  | Op.CRC32D | Op.CRC32CD -> true
   | _ -> false
 
 let parse lifter span (reader: IBinReader) arch wordSize release addr =

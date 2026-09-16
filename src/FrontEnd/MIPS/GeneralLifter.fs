@@ -586,6 +586,37 @@ let clz ins bld = countLeading false ins bld
 /// CLO: how many ones it begins with, which is CLZ of the complement.
 let clo ins bld = countLeading true ins bld
 
+/// <summary>
+/// The CRC family, which folds one message element into a running
+/// thirty-two bit value.
+///
+/// The polynomial is written reversed and the value is shifted DOWN, because
+/// the least significant bit of a message element is the most significant
+/// coefficient of the polynomial that element stands for. One step per bit:
+/// the bit that falls off the value is exclusive-ored with the next bit of
+/// the message, and where that comes out set the polynomial is
+/// exclusive-ored back in.
+///
+/// The running value is thirty-two bits wide whatever the element is, and it
+/// arrives in the register it leaves in -- which is why the manual writes
+/// these with three operands of which the first and the last are the same
+/// one.
+/// </summary>
+let crc32 ins bld poly width =
+  lift bld ins {
+    let rt, rs, _ = getThreeOprs ins
+    let dst = transOpr ins bld rt
+    let msg = transOpr ins bld rs
+    let sz = bld.RegType
+    let crc = tmpVar bld 32<rt>
+    crc := AST.xtlo 32<rt> dst
+    for i in 0 .. width - 1 do
+      let feedback = AST.xtlo 1<rt> crc <+> AST.xtlo 1<rt> (msg >> numI32 i sz)
+      crc := (crc >> AST.num1 32<rt>)
+             <+> AST.ite feedback (numU32 poly 32<rt>) (AST.num0 32<rt>)
+    dst := if is32Bit bld then crc else AST.sext 64<rt> crc
+  }
+
 let cvtd ins bld =
   lift bld ins {
     let fd, fs = getTwoOprs ins

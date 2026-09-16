@@ -355,6 +355,10 @@ let getRtRsImm16s b = ThreeOperands(rt b, rs b, imm16SignExt b)
 
 let getRtRsImm16 b = ThreeOperands(rt b, rs b, imm16 b)
 
+/// <rt>, <rs>, <rt>: the running value of a CRC is an input as well as the
+/// destination, so the register holding it is named twice.
+let getRtRsRt b = ThreeOperands(rt b, rs b, rt b)
+
 let getRtMemBaseOff b accLen = TwoOperands(rt b, memBaseOff b num16 accLen)
 
 let getRtMemBaseOff9 b accLen = TwoOperands(rt b, memBaseOff b num9 accLen)
