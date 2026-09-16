@@ -227,6 +227,8 @@ let translate (ins: Instruction) bld =
     unsupported ins bld
   | Opcode.FMIN ->
     fmaxmin ins bld AST.flt
+  | Opcode.FMLA ->
+    fmla ins bld
   | Opcode.FMLS ->
     fmls ins bld
   | Opcode.FMOV ->
@@ -237,6 +239,8 @@ let translate (ins: Instruction) bld =
     fmul ins bld
   | Opcode.FNEG ->
     fneg ins bld
+  | Opcode.FNMADD ->
+    fnmadd ins bld
   | Opcode.FNMSUB ->
     fnmsub ins bld
   | Opcode.FNMUL ->

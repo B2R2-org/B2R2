@@ -824,12 +824,15 @@ let fdiv (ins: Instruction) bld =
       raise InvalidOperandException
   }
 
+/// FMADD is Ra + Rn * Rm with one rounding, so the arithmetic is FPMulAdd and
+/// not an FPMul handed to an FPAdd. Its three relatives differ from it only in
+/// which operand arrives negated, which is how the pseudocode writes them too.
 let fmadd (ins: Instruction) bld =
   lift bld ins {
     let struct (dst, _, _, _) = getFourOprs ins
     let struct (eSize, _, _) = getElemDataSzAndElems dst
     let _, src1, src2, src3 = transFourOprs ins bld
-    let result = (fpAdd bld eSize src3 (fpMul bld eSize src1 src2))
+    let result = fpMulAdd bld eSize src3 src1 src2
     dstAssignScalar ins bld dst result eSize
   }
 
@@ -859,7 +862,13 @@ let fmaxmin (ins: Instruction) bld fop =
       dstAssignForSIMD dstA dstB result dataSize elements bld
   }
 
-let fmls (ins: Instruction) bld =
+/// FMLA and FMLS accumulate a fused product into the destination, element by
+/// element: Vd + Vn * Vm and Vd - Vn * Vm, each element rounded once rather
+/// than twice. The subtraction is said the way the pseudocode says it, by
+/// negating the first multiplicand, so that a NaN there comes back with its
+/// sign flipped.
+let private fmlaOrFmls (ins: Instruction) bld negate =
+  let mul eSize e1 e2 = if negate then fpneg e1 eSize, e2 else e1, e2
   lift bld ins {
     match ins.Operands with
     | ThreeOperands(OprSIMD(ScalarReg _) as o1, o2, o3) ->
@@ -867,8 +876,8 @@ let fmls (ins: Instruction) bld =
       let dst = transOpr ins bld o1
       let src1 = transOpr ins bld o2
       let src2 = transOpr ins bld o3
-      let element1 = fpneg src1 eSize
-      let result = fpAdd bld eSize dst (fpMul bld eSize element1 src2)
+      let e1, e2 = mul eSize src1 src2
+      let result = fpMulAdd bld eSize dst e1 e2
       dstAssignScalar ins bld o1 result eSize
     | ThreeOperands(o1, o2, (OprSIMD(VecRegWithIdx _) as o3)) ->
       let struct (eSize, dataSize, elements) = getElemDataSzAndElems o1
@@ -878,8 +887,8 @@ let fmls (ins: Instruction) bld =
       let src3 = transSIMDOprToExpr bld eSize dataSize elements o1
       let result = Array.init elements (fun _ -> tmpVar bld eSize)
       Array.iteri2 (fun i e1 e3 ->
-        let e1 = fpneg e1 eSize
-        let res = fpAdd bld eSize e3 (fpMul bld eSize e1 src2)
+        let e1, e2 = mul eSize e1 src2
+        let res = fpMulAdd bld eSize e3 e1 e2
         append bld { direct (result[i]) := res }) src1 src3
       dstAssignForSIMD dstA dstB result dataSize elements bld
     | _ ->
@@ -891,11 +900,15 @@ let fmls (ins: Instruction) bld =
       let src3 = transSIMDOprToExpr bld eSize dataSize elements o1
       let result = Array.init elements (fun _ -> tmpVar bld eSize)
       Array.map3 (fun e1 e2 e3 ->
-        let e1 = fpneg e1 eSize
-        fpAdd bld eSize e3 (fpMul bld eSize e1 e2)) src1 src2 src3
+        let e1, e2 = mul eSize e1 e2
+        fpMulAdd bld eSize e3 e1 e2) src1 src2 src3
       |> Array.iter2 (fun r e -> append bld { direct r := e }) result
       dstAssignForSIMD dstA dstB result dataSize elements bld
   }
+
+let fmla ins bld = fmlaOrFmls ins bld false
+
+let fmls ins bld = fmlaOrFmls ins bld true
 
 let fmov (ins: Instruction) bld =
   lift bld ins {
@@ -930,12 +943,24 @@ let fmov (ins: Instruction) bld =
       sized ins.OprSize dst := src
   }
 
+/// FMSUB is Ra - Rn * Rm: the multiplicand arrives negated.
 let fmsub (ins: Instruction) bld =
   lift bld ins {
     let struct (dst, _, _, _) = getFourOprs ins
     let struct (eSize, _, _) = getElemDataSzAndElems dst
     let _, src1, src2, src3 = transFourOprs ins bld
-    let result = (fpSub bld eSize src3 (fpMul bld eSize src1 src2))
+    let result = fpMulAdd bld eSize src3 (fpneg src1 eSize) src2
+    dstAssignScalar ins bld dst result eSize
+  }
+
+/// FNMADD is -Ra - Rn * Rm: both the addend and a multiplicand negated.
+let fnmadd (ins: Instruction) bld =
+  lift bld ins {
+    let struct (dst, _, _, _) = getFourOprs ins
+    let struct (eSize, _, _) = getElemDataSzAndElems dst
+    let _, src1, src2, src3 = transFourOprs ins bld
+    let addend = fpneg src3 eSize
+    let result = fpMulAdd bld eSize addend (fpneg src1 eSize) src2
     dstAssignScalar ins bld dst result eSize
   }
 
@@ -985,14 +1010,13 @@ let fneg (ins: Instruction) bld =
       raise InvalidOperandException
   }
 
+/// FNMSUB is -Ra + Rn * Rm: the addend negated and the product left alone.
 let fnmsub (ins: Instruction) bld =
   lift bld ins {
     let struct (dst, _, _, src) = getFourOprs ins
     let _, src1, src2, src3 = transFourOprs ins bld
     let struct (eSize, _, _) = getElemDataSzAndElems src
-    let t = tmpVar bld eSize
-    direct t := fpneg src3 eSize
-    let result = fpAdd bld eSize t (fpMul bld eSize src1 src2)
+    let result = fpMulAdd bld eSize (fpneg src3 eSize) src1 src2
     dstAssignScalar ins bld dst result ins.OprSize
   }
 

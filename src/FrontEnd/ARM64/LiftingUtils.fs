@@ -1137,6 +1137,36 @@ let fpProcessNaNs bld dataSize e1 e2 =
   }
   struct (isNaN, resNaN)
 
+/// shared/functions/float/fpprocessnans3/FPProcessNaNs3
+/// FPProcessNaNs3()
+///
+/// The NaN a three-operand operation answers with. The order is the
+/// pseudocode's: a signalling NaN ahead of a quiet one, and within each the
+/// operands in the order they are written, which for a fused multiply-add puts
+/// the addend first. Every candidate is quieted up front and the choice made
+/// with a select rather than with branches -- the quieting is two statements
+/// per operand and reaching it through six labels would be the longer way to
+/// say the same thing.
+let fpProcessNaNs3 bld dataSize e1 e2 e3 =
+  let anyNaN = tmpVar bld 1<rt>
+  let resNaN = tmpVar bld dataSize
+  let n1 = fpProcessNan bld dataSize e1
+  let n2 = fpProcessNan bld dataSize e2
+  let n3 = fpProcessNan bld dataSize e3
+  let candidates =
+    [ isSNaN dataSize e1, n1
+      isSNaN dataSize e2, n2
+      isSNaN dataSize e3, n3
+      isQNaN dataSize e1, n1
+      isQNaN dataSize e2, n2
+      isQNaN dataSize e3, n3 ]
+  let pick = List.foldBack (fun (c, v) acc -> AST.ite c v acc) candidates
+  append bld {
+    direct anyNaN := isNaN dataSize e1 .| isNaN dataSize e2 .| isNaN dataSize e3
+    direct resNaN := pick (AST.num0 dataSize)
+  }
+  struct (anyNaN, resNaN)
+
 /// The seven labels every floating-point arithmetic primitive branches
 /// through, in the order they are reached.
 let private fpArithLabels bld =
@@ -1281,6 +1311,73 @@ let fpMul bld dataSize src1 src2 =
 
 /// shared/functions/float/fpdiv/FPDiv
 /// FPDiv()
+/// The three facts about an operand that FPMulAdd's case analysis turns on,
+/// each in a temporary of its own so that the conditions below can be written
+/// once and read three times.
+let private fpClassify bld dSz src =
+  let struct (sign, isZ, isI) = tmpVars3 bld 1<rt>
+  append bld {
+    direct sign := AST.xthi 1<rt> src
+    direct isZ := isZero dSz src
+    direct isI := isInfinity dSz src
+  }
+  struct (sign, isZ, isI)
+
+/// shared/functions/float/fpmuladd/FPMulAdd
+/// FPMulAdd()
+///
+/// Fused is the whole of what this is: the product is formed exactly, at twice
+/// the significand, and only the sum is rounded. That cannot be said as an
+/// FPMul inside an FPAdd -- the multiply's own rounding is precisely what the
+/// instruction exists to leave out, and putting it back costs an ulp on the
+/// operands where the discarded bits would have decided the sum. So the
+/// arithmetic here is the evaluator's own single-rounding multiply-add,
+/// reached through an APP node, which rounds once in whatever direction FPCR
+/// names; everything around it is the pseudocode's case analysis, which the
+/// composition of two operations would have got right on its own.
+///
+/// The four multiply-add instructions negate their operands before arriving,
+/// exactly as the pseudocode does, so no sign flag is passed along: the fourth
+/// argument of the primitive, which the Intel FMA forms use to say which of
+/// the product and the addend to negate, is always zero here.
+let fpMulAdd bld dSz addend src1 src2 =
+  let struct (signA, isZeroA, isInfA) = fpClassify bld dSz addend
+  let struct (sign1, isZero1, isInf1) = fpClassify bld dSz src1
+  let struct (sign2, isZero2, isInf2) = fpClassify bld dSz src2
+  let res = tmpVar bld dSz
+  let signP = sign1 <+> sign2
+  let isInfP = isInf1 .| isInf2
+  let isZeroP = isZero1 .| isZero2
+  (* Zero times infinity: the product is what is invalid, whatever the addend
+     turns out to be. *)
+  let badProduct = (isInf1 .& isZero2) .| (isZero1 .& isInf2)
+  let fma =
+    let name = if dSz = 32<rt> then "FMA32" else "FMA64"
+    AST.app name [ src1; src2; addend; AST.num0 8<rt> ] dSz
+  let struct (isNaN, resNaN) = fpProcessNaNs3 bld dSz addend src1 src2
+  (* A quiet NaN addend does not win over an invalid product: zero times
+     infinity makes the answer the default NaN however the addend read. A
+     signalling one still comes back as itself, quieted. *)
+  let nan = AST.ite (isQNaN dSz addend .& badProduct) (fpDefaultNan dSz) resNaN
+  (* The answers, in the order the pseudocode decides them. Unlike the
+     primitives above, this one is a chain of selects rather than a ladder of
+     labels: every arm here is a value and none of them is a statement, so
+     there is nothing to branch around. *)
+  let invalid = badProduct .| (isInfA .& isInfP .& (signA <+> signP))
+  let plusInf = (isInfA .& AST.not signA) .| (isInfP .& AST.not signP)
+  let minusInf = (isInfA .& signA) .| (isInfP .& signP)
+  let zero = isZeroA .& isZeroP .& (signA == signP)
+  let answers =
+    [ isNaN, nan
+      invalid, fpDefaultNan dSz
+      plusInf, fpInfinity AST.b0 dSz
+      minusInf, fpInfinity AST.b1 dSz
+      zero, fpZero addend dSz ]
+  append bld {
+    direct res := List.foldBack (fun (c, v) acc -> AST.ite c v acc) answers fma
+  }
+  res
+
 let fpDiv bld dataSize src1 src2 =
   let struct (isZero1, isInf1, isZero2, isInf2) = tmpVars4 bld 1<rt>
   let struct (sign1, sign2) = tmpVars2 bld 1<rt>
