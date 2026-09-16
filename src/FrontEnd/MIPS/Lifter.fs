@@ -427,12 +427,23 @@ let translate (ins: Instruction) (bld: LowUIRBuilder) =
      which the manual allows. *)
   | Op.WAIT ->
     sideEffects ins bld Delay
-  (* The TLB instructions read and write an array of translations, and there
-     is no such array: addresses here are translated without one, so a TLB
-     these wrote would be state that no load or store ever consults. Lifting
-     them to something that looked like work would be worse than saying so. *)
-  | Op.TLBP | Op.TLBR | Op.TLBWI | Op.TLBWR | Op.TLBINV | Op.TLBINVF ->
-    unsupported ins bld
+  (* The three that only move values between the registers that describe an
+     entry and the array of entries itself. Nothing translates an address
+     through what they write -- addresses here are translated without a TLB --
+     so what they model is the array and not the translation, which is exactly
+     what a case can compare against a processor. *)
+  | Op.TLBWI ->
+    tlbWriteIndexed ins bld
+  | Op.TLBR ->
+    tlbRead ins bld
+  | Op.TLBP ->
+    tlbProbe ins bld
+  | Op.TLBWR ->
+    tlbWriteRandom ins bld
+  | Op.TLBINV ->
+    tlbInvalidate ins bld true
+  | Op.TLBINVF ->
+    tlbInvalidate ins bld false
   (* Release 6. The compact branches share one lifter and differ only in the
      comparison, which is what they differ by in the manual too. *)
   | Op.BC ->
