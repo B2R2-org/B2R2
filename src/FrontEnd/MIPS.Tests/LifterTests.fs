@@ -484,3 +484,36 @@ type LifterTests() =
     (* Config is thirty-two bits wide; EntryHi is not. *)
     if widensBySign "40228000" then () else Assert.Fail "40228000"
     if widensBySign "40225000" then Assert.Fail "40225000" else ()
+
+  /// <summary>
+  /// Every name this front end decodes has a lifter arm.
+  ///
+  /// Decoding and lifting are two tables, and a change to one that forgets
+  /// the other leaves an instruction that disassembles and then throws --
+  /// which is what happened to the floating-point select the moment it was
+  /// given the name the manual uses, because the arm still matched the
+  /// integer one. The encodings below are one per family this branch added.
+  /// </summary>
+  [<TestMethod>]
+  member _.``[MIPS64] What decodes also lifts``() =
+    let r2 = ISA(Architecture.MIPS, Endian.Big, WordSize.Bit64)
+    let r6 =
+      ISA(Architecture.MIPS, Endian.Big, WordSize.Bit64, int MIPSRelease.R6)
+    let cases =
+      [ r2, "42000002"   (* TLBWI *)
+        r2, "42000006"   (* TLBWR *)
+        r2, "42000003"   (* TLBINV *)
+        r2, "42000004"   (* TLBINVF *)
+        r2, "46c41000"   (* ADD.PS *)
+        r2, "46041000"   (* ADD.S *)
+        r2, "04100000"   (* NAL *)
+        r2, "4620100d"   (* TRUNC.W.D *)
+        r6, "7ca4000f"   (* CRC32B *)
+        r6, "46041018"   (* MADDF.S *)
+        r6, "46041017"   (* SELNEQZ.S *)
+        r6, "46841002"   (* CMP.EQ.S *)
+        r6, "42000018"   (* ERET *)
+        r6, "4600101a" ] (* RINT.S *)
+    for isa, hex in cases do
+      let stmts = lifted isa hex
+      if Array.isEmpty stmts then Assert.Fail hex else ()

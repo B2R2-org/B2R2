@@ -405,6 +405,23 @@ let private parseBAL binary =
   | 0u -> Op.BAL, None, None, getRel16 binary
   | _ -> Op.BGEZAL, None, None, getRsRel16 binary
 
+/// <summary>
+/// BLTZAL with rs = 0 is NAL, and has a name of its own because it is not a
+/// branch at all.
+///
+/// The condition is "less than zero" and the register is the one that always
+/// holds zero, so the branch is never taken; what is left is the LINK, which
+/// writes the address after the delay slot into r31. That is how a program
+/// reads its own PC where the architecture gives it no other way, and it is
+/// what the manual lists NAL as. BAL is the same idea at the other condition,
+/// where the branch is always taken, and this front end already named that
+/// one.
+/// </summary>
+let private parseNAL binary =
+  match Bits.extract binary 25u 21u with
+  | 0u -> Op.NAL, None, None, getRel16 binary
+  | _ -> Op.BLTZAL, None, None, getRsRel16 binary
+
 /// Table A.4 MIPS64 REGIMM Encoding of rt Field
 let private parseREGIMM release binary =
   let r6 = release = MIPSRelease.R6
@@ -437,7 +454,7 @@ let private parseREGIMM release binary =
      whose whole effect is to raise a Reserved Instruction exception, with a
      sixteen-bit code for the handler to read. *)
   | 0b10111u when r6 -> Op.SIGRIE, None, None, getImm16 binary
-  | 0b10000u -> Op.BLTZAL, None, None, getRsRel16 binary
+  | 0b10000u -> parseNAL binary
   | 0b10001u -> parseBAL binary
   | _ -> raise ParsingFailureException
 
@@ -806,7 +823,7 @@ let private parseCOP1WhenRsS release binary =
   | 0b010100u when release = MIPSRelease.R6 ->
     Op.SELEQZ, None, Some Fmt.S, getFdFsFt binary
   | 0b010111u when release = MIPSRelease.R6 ->
-    Op.SELNEZ, None, Some Fmt.S, getFdFsFt binary
+    Op.SELNEQZ, None, Some Fmt.S, getFdFsFt binary
   | 0b011000u when release = MIPSRelease.R6 ->
     Op.MADDF, None, Some Fmt.S, getFdFsFt binary
   | 0b011001u when release = MIPSRelease.R6 ->
@@ -910,7 +927,7 @@ let private parseCOP1WhenRsD release binary =
   | 0b010100u when release = MIPSRelease.R6 ->
     Op.SELEQZ, None, Some Fmt.D, getFdFsFt binary
   | 0b010111u when release = MIPSRelease.R6 ->
-    Op.SELNEZ, None, Some Fmt.D, getFdFsFt binary
+    Op.SELNEQZ, None, Some Fmt.D, getFdFsFt binary
   | 0b011000u when release = MIPSRelease.R6 ->
     Op.MADDF, None, Some Fmt.D, getFdFsFt binary
   | 0b011001u when release = MIPSRelease.R6 ->

@@ -285,7 +285,7 @@ let private branchOnFPReg rs ins =
 let internal release6FloatEncoders () =
   [ Opcode.SEL, r6Float 0b010000u
     Opcode.SELEQZ, r6Float 0b010100u
-    Opcode.SELNEZ, r6Float 0b010111u
+    Opcode.SELNEQZ, r6Float 0b010111u
     Opcode.MADDF, r6Float 0b011000u
     Opcode.MSUBF, r6Float 0b011001u
     Opcode.RINT, r6FloatUnary 0b011010u
