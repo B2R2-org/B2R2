@@ -102,6 +102,22 @@ let translate (ins: Instruction) (bld: LowUIRBuilder) =
     cCond ins bld
   | Op.CFC1 ->
     cfc1 ins bld
+  | Op.CRC32B ->
+    crc32 ins bld 0xEDB88320u 8
+  | Op.CRC32H ->
+    crc32 ins bld 0xEDB88320u 16
+  | Op.CRC32W ->
+    crc32 ins bld 0xEDB88320u 32
+  | Op.CRC32D ->
+    crc32 ins bld 0xEDB88320u 64
+  | Op.CRC32CB ->
+    crc32 ins bld 0x82F63B78u 8
+  | Op.CRC32CH ->
+    crc32 ins bld 0x82F63B78u 16
+  | Op.CRC32CW ->
+    crc32 ins bld 0x82F63B78u 32
+  | Op.CRC32CD ->
+    crc32 ins bld 0x82F63B78u 64
   | Op.CTC1 ->
     ctc1 ins bld
   | Op.CLO ->

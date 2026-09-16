@@ -764,5 +764,9 @@ type Opcode =
   | SDM = 370
   /// Load Word Indexed, Scaled (microMIPS).
   | LWXS = 371
+  /// Generate CRC with reversed polynomial 0xEDB88320, over a doubleword.
+  | CRC32D = 372
+  /// Generate CRC with reversed polynomial 0x82F63B78, over a doubleword.
+  | CRC32CD = 373
 
 type internal Op = Opcode

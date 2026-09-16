@@ -404,6 +404,14 @@ let opCodeToString = function
   | Op.SDM -> "sdm"
   | Op.LWXS -> "lwxs"
   | Op.JALX -> "jalx"
+  | Op.CRC32B -> "crc32b"
+  | Op.CRC32H -> "crc32h"
+  | Op.CRC32W -> "crc32w"
+  | Op.CRC32D -> "crc32d"
+  | Op.CRC32CB -> "crc32cb"
+  | Op.CRC32CH -> "crc32ch"
+  | Op.CRC32CW -> "crc32cw"
+  | Op.CRC32CD -> "crc32cd"
   | _ -> raise InvalidOpcodeException
 
 let inline appendCond (ins: Instruction) opcode =
