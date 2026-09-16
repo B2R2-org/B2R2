@@ -2527,16 +2527,45 @@ let private cp0Of rdOpr selOpr =
   | OpImm rd, OpImm sel -> CP0.tryOfRdSel (int rd) (int sel)
   | _ -> raise InvalidOperandException
 
-/// One half of a CP0 register, widened the way a 32-bit move widens it, which
-/// is by sign extension. On a 32-bit register file there is no upper half to
-/// name, so MFHC0 reads zero there.
+/// <summary>
+/// How wide a coprocessor 0 register is, which is NOT how wide the machine
+/// is.
+///
+/// It is the architecture's width and not the word size's: a processor with
+/// the extended physical addressing holds more page frame number in EntryLo
+/// than a thirty-two bit move reaches, which is the whole reason MFHC0 and
+/// MTHC0 exist. Holding the register at the machine width leaves that half
+/// nowhere to live, and the two moves then read and write nothing.
+/// </summary>
+let [<Literal>] private CP0Size = 64<rt>
+
+/// One half of a CP0 register as a general register sees it: the machine's
+/// width, sign-extended into it where the machine is the wider of the two.
 let private cp0Half (bld: LowUIRBuilder) upper e =
-  if bld.RegType = 32<rt> then
-    if upper then AST.num0 32<rt> else e
-  elif upper then
-    AST.sext 64<rt> (AST.xthi 32<rt> e)
-  else
-    AST.sext 64<rt> (AST.xtlo 32<rt> e)
+  let half = if upper then AST.xthi 32<rt> e else AST.xtlo 32<rt> e
+  if bld.RegType = 32<rt> then half else AST.sext 64<rt> half
+
+/// <summary>
+/// Which bits a write to this register changes.
+///
+/// A constant for all but one of them. EntryLo is the exception, and on a
+/// processor with the extended physical addressing it is not a constant at
+/// all: PageGrain carries the bit that switches the feature on, and until it
+/// is set the top of the register is not there to be written and the two
+/// inhibit bits at the top of the low half are not either.
+/// </summary>
+let private cp0WriteMask (bld: ILowUIRBuilder) reg =
+  let wordSize = bld.ISA.WordSize
+  let fixedMask = numU64 (CP0.writeMask wordSize reg) CP0Size
+  match reg with
+  | CP0Register.EntryLo0 | CP0Register.EntryLo1
+        when wordSize = WordSize.Bit32 ->
+    let grain = regVar bld CP0Register.PageGrain
+    let extended =
+      (grain .& numU64 CP0.ExtendedPhysical CP0Size) != AST.num0 CP0Size
+    AST.ite extended (numU64 CP0.ExtendedEntryLo CP0Size) fixedMask
+  | _ ->
+    fixedMask
 
 /// <summary>
 /// MFC0, DMFC0 and MFHC0: a CP0 register, or one half of one, into a general
@@ -2555,7 +2584,14 @@ let moveFromCP0 ins bld wide upper =
     match cp0Of rdOpr selOpr with
     | ValueSome reg ->
       let src = regVar bld reg
-      rt := if wide then src else cp0Half bld upper src
+      let read =
+        if not wide then cp0Half bld upper src
+        elif CP0.isWord reg then AST.sext CP0Size (AST.xtlo 32<rt> src)
+        else src
+      (* DMFC0 is a Reserved Instruction where the machine is thirty-two bits
+         wide, so nothing reaches here; what it would carry if it did is the
+         low half, which is what MFC0 carries. *)
+      rt := if wide && is32Bit bld then AST.xtlo 32<rt> read else read
     | ValueNone ->
       rt := AST.num0 bld.RegType
   }
@@ -2579,12 +2615,27 @@ let moveToCP0 ins bld wide upper =
     match cp0Of rdOpr selOpr with
     | ValueSome reg ->
       let dst = regVar bld reg
-      let mask = numU64 (CP0.writeMask reg) bld.RegType
-      let value =
-        if wide then rt
-        elif not upper then cp0Half bld false rt
-        elif bld.RegType = 32<rt> then dst
-        else AST.concat (AST.xtlo 32<rt> rt) (AST.xtlo 32<rt> dst)
+      let low = numU64 0xFFFFFFFFUL CP0Size
+      let all = numU64 0xFFFFFFFFFFFFFFFFUL CP0Size
+      let src = if is32Bit bld then AST.zext CP0Size rt else rt
+      (* The narrow move carries thirty-two bits and writes the whole
+         register with them, widened the way the machine widens a word: by
+         its sign where the machine is wider than the move, and by zero where
+         it is not and the register is. Both were measured -- the first is
+         what a 5KEf leaves in EPC, the second what a P5600 leaves above
+         EntryLo. So a write of a page frame number clears the four bits the
+         extended physical addressing put above it, and a kernel that means
+         to keep them writes MTHC0 after MTC0 and not before. *)
+      let narrow =
+        if is32Bit bld then src else AST.sext CP0Size (AST.xtlo 32<rt> src)
+      let high = (src .& low) << numI32 32 CP0Size
+      (* MTHC0 is the one that reaches a half and only a half, on top of the
+         register's own mask. *)
+      let struct (value, reach) =
+        if wide then struct (src, all)
+        elif upper then struct (high, AST.not low)
+        else struct (narrow, all)
+      let mask = cp0WriteMask bld reg .& reach
       dst := (dst .& AST.not mask) .| (value .& mask)
     | ValueNone ->
       ()
@@ -2617,10 +2668,10 @@ let interruptEnable ins bld enable =
   lift bld ins {
     let rt = transOneOpr ins bld
     let status = regVar bld CP0Register.Status
-    let bit = AST.num1 bld.RegType
-    let old = tmpVar bld bld.RegType
+    let bit = AST.num1 CP0Size
+    let old = tmpVar bld CP0Size
     old := status
-    rt := old
+    rt := if is32Bit bld then AST.xtlo 32<rt> old else old
     status := if enable then old .| bit else old .& AST.not bit
   }
 
@@ -2636,11 +2687,212 @@ let virtualProcessorEnable ins bld enable =
   lift bld ins {
     let rt = transOneOpr ins bld
     let control = regVar bld CP0Register.VPControl
-    let bit = AST.num1 bld.RegType
-    let old = tmpVar bld bld.RegType
+    let bit = AST.num1 CP0Size
+    let old = tmpVar bld CP0Size
     old := control
-    rt := old
+    rt := if is32Bit bld then AST.xtlo 32<rt> old else old
     control := if enable then old .& AST.not bit else old .| bit
+  }
+
+/// The four registers a TLB entry is written from and read into.
+let private tlbRegisters bld =
+  let hi = regVar bld CP0Register.EntryHi
+  let lo0 = regVar bld CP0Register.EntryLo0
+  let lo1 = regVar bld CP0Register.EntryLo1
+  hi, lo0, lo1, regVar bld CP0Register.PageMask
+
+/// One field of one entry, as a variable.
+let private tlbSlot bld index field = regVar bld (CP0.tlbReg index field)
+
+/// <summary>
+/// Which entry Index names.
+///
+/// Only the field at the bottom of the register, and not the register: bit 31
+/// is the P bit a failed probe sets, and it stays set until something clears
+/// it. Reading the whole register would make every instruction after one
+/// failed probe name no entry at all.
+/// </summary>
+let private tlbIndex (bld: ILowUIRBuilder) =
+  let count = CP0.entryCount bld.ISA.WordSize
+  regVar bld CP0Register.Index .& numI32 (count - 1) CP0Size
+
+/// How many entries this processor's TLB has, which Config1 publishes and a
+/// TLB instruction indexes by.
+let private tlbCount (bld: ILowUIRBuilder) = CP0.entryCount bld.ISA.WordSize
+
+/// <summary>
+/// TLBWI writes the entry Index names from the four registers that describe
+/// one.
+///
+/// What it stores is not what the registers hold. An entry keeps the virtual
+/// page number with the bits its own size covers cleared, and it keeps ONE
+/// global bit for the pair -- the two halves are global together or not at
+/// all -- so a read of the entry afterwards answers something else than was
+/// written, and has to.
+///
+/// There is no branch here. Every entry is assigned on every write, taking
+/// its own old value wherever Index does not name it, which is the same
+/// state as writing only the one and is straight-line code rather than
+/// thirty-two jumps.
+/// </summary>
+let private tlbStore (bld: ILowUIRBuilder) index =
+  let sz = CP0Size
+  let hi, lo0, lo1, mask = tlbRegisters bld
+  let pageBits = mask .| numU64 0x1FFFUL sz
+  let storedHi = (hi .& AST.not pageBits) .| (hi .& numU64 0xFFUL sz)
+  let shared = lo0 .& lo1 .& AST.num1 sz
+  let storedLo0 = (lo0 .& AST.not (AST.num1 sz)) .| shared
+  let storedLo1 = (lo1 .& AST.not (AST.num1 sz)) .| shared
+  append bld {
+    for i in 0 .. tlbCount bld - 1 do
+      let chosen = index == numI32 i sz
+      let keep field source =
+        tlbSlot bld i field := AST.ite chosen source (tlbSlot bld i field)
+      keep CP0.TLBField.Hi storedHi
+      keep CP0.TLBField.Lo0 storedLo0
+      keep CP0.TLBField.Lo1 storedLo1
+      keep CP0.TLBField.Mask mask
+  }
+
+let tlbWriteIndexed ins bld =
+  lift bld ins {
+    tlbStore bld (tlbIndex bld)
+  }
+
+/// <summary>
+/// TLBWR writes the entry RANDOM names, which is the same write TLBWI makes
+/// at an index the program did not choose.
+///
+/// That is the whole of the difference, and it is what a refill handler
+/// wants: it has an entry to install and no reason to care which slot takes
+/// it. The architecture keeps Random between Wired -- below which a kernel's
+/// own permanent entries live and a random replacement must not reach -- and
+/// the last entry, and decrements it as the processor runs.
+///
+/// The RATE is the one thing a lifter cannot have, having no clock. What it
+/// can have is the range and the direction, so the register is stepped here,
+/// by the instruction that reads it, wrapping back to the top when it reaches
+/// Wired. Software is forbidden from depending on any particular sequence, so
+/// this one is as conforming as a clock's; what it buys over leaving the
+/// register alone is that consecutive writes land in different entries, which
+/// is the property the instruction exists for.
+/// </summary>
+let tlbWriteRandom ins bld =
+  lift bld ins {
+    let sz = CP0Size
+    let last = numI32 (tlbCount bld - 1) sz
+    let random = regVar bld CP0Register.Random
+    let wired = regVar bld CP0Register.Wired .& last
+    let index = tmpVar bld sz
+    (* Kept inside the range rather than trusted to be in it: Wired is a
+       register a program writes, and one written above where Random already
+       stands would otherwise name an entry the replacement must not touch. *)
+    index := AST.ite (random .< wired) last (random .& last)
+    tlbStore bld index
+    random := AST.ite (index == wired) last (index .- AST.num1 sz)
+  }
+
+/// The bit an invalidated entry carries. EntryHi names it EHINV, and a
+/// processor that has the invalidate instructions exposes it there; here it
+/// lives in the entry alone, which is the only place the instructions below
+/// need it.
+let private tlbInvalidBit sz = numU64 0x400UL sz
+
+/// <summary>
+/// TLBINV and TLBINVF mark entries invalid without writing one.
+///
+/// A kernel that has just torn down an address space has to stop its
+/// translations being found, and doing that one entry at a time is thirty-two
+/// writes it has no values for. TLBINVF invalidates every entry; TLBINV
+/// invalidates the ones whose address space id matches EntryHi's, leaving the
+/// global ones -- which belong to every address space and are the kernel's
+/// own -- alone.
+///
+/// What they change is the entry, not the registers that describe one, and a
+/// probe afterwards must not find what they marked. An entry written by TLBWI
+/// or TLBWR comes back valid, because the bit is below the page size and the
+/// address space id that a write keeps.
+/// </summary>
+let tlbInvalidate ins bld byASID =
+  lift bld ins {
+    let sz = CP0Size
+    let target = regVar bld CP0Register.EntryHi
+    let asid = numU64 0xFFUL sz
+    for i in 0 .. tlbCount bld - 1 do
+      let entry = tlbSlot bld i CP0.TLBField.Hi
+      if byASID then
+        let global0 = tlbSlot bld i CP0.TLBField.Lo0 .& AST.num1 sz
+        let global1 = tlbSlot bld i CP0.TLBField.Lo1 .& AST.num1 sz
+        let sameASID = ((entry <+> target) .& asid) == AST.num0 sz
+        let hit = sameASID .& ((global0 .& global1) != AST.num1 sz)
+        entry := AST.ite hit (entry .| tlbInvalidBit sz) entry
+      else
+        entry := entry .| tlbInvalidBit sz
+  }
+
+/// <summary>
+/// TLBR reads the entry Index names into those same four registers.
+///
+/// What is read is what TLBWI wrote, so the pair round-trips: a case can
+/// write an entry and read it back without any address ever being
+/// translated, which is what makes these two comparable against a processor
+/// while the translation they exist for is not modelled.
+/// </summary>
+let tlbRead ins bld =
+  lift bld ins {
+    let sz = CP0Size
+    let index = tlbIndex bld
+    let hi, lo0, lo1, mask = tlbRegisters bld
+    let pick field =
+      List.fold (fun acc i ->
+        AST.ite (index == numI32 i sz) (tlbSlot bld i field) acc)
+        (tlbSlot bld 0 field) [ 1 .. tlbCount bld - 1 ]
+    hi := pick CP0.TLBField.Hi
+    lo0 := pick CP0.TLBField.Lo0
+    lo1 := pick CP0.TLBField.Lo1
+    mask := pick CP0.TLBField.Mask
+  }
+
+/// <summary>
+/// TLBP searches for the entry EntryHi names and writes where it found it
+/// into Index, or sets Index's top bit where it found none.
+///
+/// An entry matches on the virtual page number above the size its own
+/// PageMask gives it, and on the address space id -- unless both halves of
+/// the entry are global, which is what the G bit of each EntryLo says and is
+/// how a kernel maps a page into every address space at once.
+///
+/// Where more than one entry matches, a processor is allowed to do anything
+/// at all; this answers the lowest, and a case that made two entries match
+/// would be measuring the choice rather than the instruction.
+/// </summary>
+let tlbProbe ins bld =
+  lift bld ins {
+    let sz = CP0Size
+    let index = regVar bld CP0Register.Index
+    let target = regVar bld CP0Register.EntryHi
+    let asid = numU64 0xFFUL sz
+    let matches i =
+      let entry = tlbSlot bld i CP0.TLBField.Hi
+      let mask = tlbSlot bld i CP0.TLBField.Mask
+      let global0 = tlbSlot bld i CP0.TLBField.Lo0 .& AST.num1 sz
+      let global1 = tlbSlot bld i CP0.TLBField.Lo1 .& AST.num1 sz
+      let pageBits = mask .| numU64 0x1FFFUL sz
+      let differs = entry <+> target
+      let sameVPN = (differs .& AST.not pageBits) == AST.num0 sz
+      let sameASID = (differs .& asid) == AST.num0 sz
+      let bothGlobal = (global0 .& global1) == AST.num1 sz
+      let valid = (entry .& tlbInvalidBit sz) == AST.num0 sz
+      valid .& sameVPN .& (bothGlobal .| sameASID)
+    (* The P bit alone. What the other thirty-one hold after a probe that
+       found nothing is UNPREDICTABLE; they are left at zero here, and nothing
+       may be compared against them. Index is a thirty-two bit register, so a
+       sixty-four bit read of it carries the sign of that very bit -- but that
+       is the READ's to do, not the store's. *)
+    let noMatch = numU64 0x80000000UL sz
+    index :=
+      List.fold (fun acc i -> AST.ite (matches i) (numI32 i sz) acc)
+        noMatch (List.rev [ 0 .. tlbCount bld - 1 ])
   }
 
 /// <summary>
@@ -2657,12 +2909,14 @@ let virtualProcessorEnable ins bld enable =
 let exceptionReturn ins bld clearLL =
   lift bld ins {
     let status = regVar bld CP0Register.Status
-    let erl = numI32 0b100 bld.RegType
-    let exl = numI32 0b010 bld.RegType
-    let isError = (status .& erl) != AST.num0 bld.RegType
+    let erl = numI32 0b100 CP0Size
+    let exl = numI32 0b010 CP0Size
+    let isError = (status .& erl) != AST.num0 CP0Size
+    let resume = tmpVar bld CP0Size
     let target = tmpVar bld bld.RegType
-    target := AST.ite isError (regVar bld CP0Register.ErrorEPC)
+    resume := AST.ite isError (regVar bld CP0Register.ErrorEPC)
                               (regVar bld CP0Register.EPC)
+    target := if is32Bit bld then AST.xtlo 32<rt> resume else resume
     status := AST.ite isError (status .& AST.not erl) (status .& AST.not exl)
     let monitor = regVar bld R.ExMonAddr
     monitor := if clearLL then numI64 -1L bld.RegType else monitor
@@ -2674,8 +2928,9 @@ let exceptionReturn ins bld clearLL =
 /// nothing here can enter debug mode, so there is no state for it to leave.
 let debugReturn ins bld =
   lift bld ins {
+    let depc = regVar bld CP0Register.DEPC
     let target = tmpVar bld bld.RegType
-    target := regVar bld CP0Register.DEPC
+    target := if is32Bit bld then AST.xtlo 32<rt> depc else depc
     AST.interjmp target InterJmpKind.Base
   }
 

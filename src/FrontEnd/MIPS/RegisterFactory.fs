@@ -118,7 +118,11 @@ type RegisterFactory(isa: ISA) =
     CP0.modelled
     |> Array.map (fun reg ->
       let id = RegisterID.create (int reg)
-      KeyValuePair(int reg, AST.var rt id (CP0.toString reg)))
+      (* Sixty-four bits whatever the machine is: a coprocessor 0 register is
+         as wide as the ARCHITECTURE makes it, and the extended physical
+         addressing makes EntryLo wider than a thirty-two bit machine. That is
+         what MFHC0 and MTHC0 exist to reach. *)
+      KeyValuePair(int reg, AST.var 64<rt> id (CP0.toString reg)))
     |> Dictionary
 
   /// The CP0 variable a RegisterID names, where it names one.

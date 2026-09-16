@@ -344,32 +344,143 @@ type LifterTests() =
     |> test isa
 
   /// <summary>
-  /// The TLB instructions decode and lift, and what they lift to is the side
-  /// effect that says an instruction is valid but outside what this lifter
-  /// models.
+  /// The whole TLB family is lifted, and none of it is a side effect.
   ///
-  /// They read and write an array of translations, which LowUIR has no way to
-  /// hold: it offers named scalar registers and one memory, and a TLB is
-  /// neither. Saying so is worth more than lifting them to something that
-  /// looks like work, and this records which tier each instruction is in --
-  /// moving one out of it should fail here.
+  /// The array is thirty-two entries of four values, held as registers
+  /// because registers are the only state LowUIR has -- so what these lift to
+  /// is assignments. Nothing translates an address through what they write,
+  /// which is why they can be modelled without an MMU being modelled: TLBWI
+  /// and TLBWR store an entry, TLBR reads one back, TLBP searches for one,
+  /// and TLBINV and TLBINVF mark entries so a search will not find them.
   /// </summary>
   [<TestMethod>]
-  member _.``[MIPS64] The TLB instructions lift to a side effect``() =
+  member _.``[MIPS64] The whole TLB family is lifted``() =
     let isa = ISA(Architecture.MIPS, Endian.Big, WordSize.Bit64)
-    let tlb =
-      [ "42000001"
-        "42000002"
-        "42000003"
-        "42000004"
-        "42000006"
-        "42000008" ]
-    for hex in tlb do
+    let encodings =
+      [ "42000001"   (* TLBR *)
+        "42000002"   (* TLBWI *)
+        "42000003"   (* TLBINV *)
+        "42000004"   (* TLBINVF *)
+        "42000006"   (* TLBWR *)
+        "42000008" ] (* TLBP *)
+    for hex in encodings do
       let stmts = lifted isa hex
       let effects =
         stmts
         |> Array.choose (function
           | SideEffect(e) -> Some e
           | _ -> None)
-      let only = Array.exactlyOne effects
-      Assert.AreEqual<SideEffect>(UnsupportedInstruction, only, hex)
+      Assert.AreEqual<int>(0, effects.Length, hex)
+      let puts = stmts |> Array.filter (function Put _ -> true | _ -> false)
+      if puts.Length = 0 then Assert.Fail hex else ()
+
+  /// <summary>
+  /// TLBWR steps the register that chose the entry it wrote.
+  ///
+  /// It is the difference between TLBWR and TLBWI: one writes where the
+  /// program said and the other writes where Random says, and a Random that
+  /// never moved would make every TLBWR write the same entry -- which is the
+  /// one thing a refill handler must not do. The rate a processor steps it at
+  /// is a clock's and is not here; that it steps at all is.
+  /// </summary>
+  [<TestMethod>]
+  member _.``[MIPS64] TLBWR steps Random``() =
+    let isa = ISA(Architecture.MIPS, Endian.Big, WordSize.Bit64)
+    let random = RegisterID.create (int CP0Register.Random)
+    let written =
+      lifted isa "42000006"
+      |> Array.exists (function
+        | Put(Var(_, rid, _), _) -> rid = random
+        | _ -> false)
+    Assert.AreEqual<bool>(true, written)
+
+  /// <summary>
+  /// The five arithmetic operations record in FCSR what they raised.
+  ///
+  /// An IEEE operation answers with a number AND with what that number cost,
+  /// and MIPS keeps the record in the same register as the rounding mode and
+  /// the condition codes. A lifter that writes only the number leaves a
+  /// program that asks what it lost with the answer it started from -- which
+  /// is the one part of a floating-point result nothing could disagree about.
+  /// Both formats are here: the two are separate arms of each lifter.
+  /// </summary>
+  [<TestMethod>]
+  member _.``[MIPS64] The arithmetic records what it raised``() =
+    let isa = ISA(Architecture.MIPS, Endian.Big, WordSize.Bit64)
+    let fcsr = Register.toRegID Register.FCSR
+    let encodings =
+      [ "46041000"   (* ADD.S *)
+        "46241000"   (* ADD.D *)
+        "46041001"   (* SUB.S *)
+        "46241001"   (* SUB.D *)
+        "46041002"   (* MUL.S *)
+        "46241002"   (* MUL.D *)
+        "46041003"   (* DIV.S *)
+        "46241003"   (* DIV.D *)
+        "46001004"   (* SQRT.S *)
+        "46201004" ] (* SQRT.D *)
+    for hex in encodings do
+      let written =
+        lifted isa hex
+        |> Array.exists (function
+          | Put(Var(_, rid, _), _) -> rid = fcsr
+          | _ -> false)
+      if written then () else Assert.Fail hex
+
+  /// <summary>
+  /// An instruction that moves a value rather than computing one leaves FCSR
+  /// alone.
+  ///
+  /// MOV.fmt, ABS.fmt and NEG.fmt copy a number and touch at most its sign,
+  /// and a load writes a register from memory. None of them rounds, so none
+  /// has anything to record -- and since Cause is written WHOLE by every
+  /// instruction that does, a lifter that recorded on every floating-point
+  /// instruction would clear the record of the one that did.
+  ///
+  /// ABS and NEG are here on measurement rather than on the manual's word:
+  /// where ABS2008 is clear they are defined as signalling on a signalling
+  /// NaN, and a processor reporting it clear was asked and records nothing.
+  /// </summary>
+  [<TestMethod>]
+  member _.``[MIPS64] Moving a value records nothing``() =
+    let isa = ISA(Architecture.MIPS, Endian.Big, WordSize.Bit64)
+    let fcsr = Register.toRegID Register.FCSR
+    let encodings =
+      [ "46001006"   (* MOV.S *)
+        "46201006"   (* MOV.D *)
+        "46001005"   (* ABS.S *)
+        "46201005"   (* ABS.D *)
+        "46001007"   (* NEG.S *)
+        "46201007"   (* NEG.D *)
+        "c4410000" ] (* LWC1 *)
+    for hex in encodings do
+      let written =
+        lifted isa hex
+        |> Array.exists (function
+          | Put(Var(_, rid, _), _) -> rid = fcsr
+          | _ -> false)
+      if written then Assert.Fail hex else ()
+
+  /// <summary>
+  /// DMFC0 widens a thirty-two bit coprocessor 0 register by its sign.
+  ///
+  /// A MIPS64 processor keeps the registers that carry an address or a page
+  /// number at the full width and the rest at thirty-two, and a thirty-two
+  /// bit value moved into a sixty-four bit register is SIGN extended -- the
+  /// way every thirty-two bit value on this architecture travels. It shows
+  /// on the first register whose top bit is set: Config reads 0x80004482 on
+  /// the processor this front end's values were measured on, so a zero
+  /// extension answers 0x0000000080004482 where the processor answers
+  /// 0xFFFFFFFF80004482.
+  /// </summary>
+  [<TestMethod>]
+  member _.``[MIPS64] DMFC0 widens a word register by its sign``() =
+    let isa = ISA(Architecture.MIPS, Endian.Big, WordSize.Bit64)
+    let widensBySign hex =
+      lifted isa hex
+      |> Array.exists (function
+        | Put(_, Cast(CastKind.SignExt, 64<rt>, _)) -> true
+        | _ -> false)
+    (* Config is thirty-two bits wide; EntryHi is not. *)
+    if widensBySign "40228000" then () else Assert.Fail "40228000"
+    if widensBySign "40225000" then Assert.Fail "40225000" else ()
