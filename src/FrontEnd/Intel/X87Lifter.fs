@@ -998,7 +998,7 @@ let private prepareTwoOprsForComparison (ins: Instruction) bld =
     castFrom80Bit tmp1 64<rt> st1b st1a bld
   | _ ->
     raise InvalidOperandException
-  if ins.Opcode = Opcode.FUCOM then struct (tmp1, tmp0) else struct (tmp0, tmp1)
+  struct (tmp0, tmp1)
 
 let fcom (ins: Instruction) bld nPop unordered =
   lift bld ins {
@@ -1009,7 +1009,7 @@ let fcom (ins: Instruction) bld nPop unordered =
     let isNan = isNan true tmp0 .| isNan true tmp1
     direct c0 := isNan .| AST.flt tmp0 tmp1
     direct c2 := isNan .| AST.b0
-    direct c3 := isNan .| (tmp0 == tmp1)
+    direct c3 := isNan .| AST.feq tmp0 tmp1
     direct (regVar bld R.FSWC1) := AST.b0
     if nPop > 0 then popFPUStack bld else ()
     if nPop = 2 then popFPUStack bld else ()
@@ -1025,7 +1025,7 @@ let ficom (ins: Instruction) bld doPop =
     let isNan = isNan true tmp0 .| isNan true tmp1
     direct (regVar bld R.FSWC0) := isNan .| AST.flt tmp0 tmp1
     direct (regVar bld R.FSWC2) := isNan .| AST.b0
-    direct (regVar bld R.FSWC3) := isNan .| (tmp0 == tmp1)
+    direct (regVar bld R.FSWC3) := isNan .| AST.feq tmp0 tmp1
     direct (regVar bld R.FSWC1) := AST.b0
     if doPop then popFPUStack bld else ()
   }
@@ -1039,7 +1039,12 @@ let fcomi (ins: Instruction) bld doPop =
     let isNan = isNan true tmp0 .| isNan true tmp1
     direct cf := isNan .| AST.flt tmp0 tmp1
     direct pf := isNan .| AST.b0
-    direct zf := isNan .| (tmp0 == tmp1)
+    direct zf := isNan .| AST.feq tmp0 tmp1
+    (* Unlike the FCOM family, which reports in the status word and leaves
+       EFLAGS alone, FCOMI clears the three flags it does not use. *)
+    direct (regVar bld R.OF) := AST.b0
+    direct (regVar bld R.SF) := AST.b0
+    direct (regVar bld R.AF) := AST.b0
     direct (regVar bld R.FSWC1) := AST.b0
     if doPop then popFPUStack bld else ()
 #if EMULATION
@@ -1056,9 +1061,13 @@ let ftst (ins: Instruction) bld =
     let c3 = regVar bld R.FSWC3
     let tmp = tmpVar bld 64<rt>
     castFrom80Bit tmp 64<rt> st0b st0a bld
-    direct c0 := AST.flt tmp num0V
-    direct c2 := AST.b0
-    direct c3 := tmp == num0V
+    (* A NaN is unordered against zero as against anything else, which is all
+       three condition codes set, not the "greater than" that falls out of a
+       comparison that answers false twice. *)
+    let unordered = isNan true tmp
+    direct c0 := unordered .| AST.flt tmp num0V
+    direct c2 := unordered .| AST.b0
+    direct c3 := unordered .| AST.feq tmp num0V
     direct (regVar bld R.FSWC1) := AST.b0
   }
 
@@ -1190,14 +1199,42 @@ let fptan (ins: Instruction) bld =
     updateC1OnLoad bld
   }
 
+/// FPATAN is atan2(ST(1), ST(0)), not atan of their quotient: the quotient
+/// alone loses which quadrant the point is in, and turns the two corners where
+/// both operands are zero or both are infinite into a NaN. The angle of the
+/// quotient is therefore corrected by the signs of the two operands.
 let fpatan (ins: Instruction) bld =
   lift bld ins {
     let struct (st0b, st0a) = getFPUPseudoRegVars bld R.ST0
     let struct (st1b, st1a) = getFPUPseudoRegVars bld R.ST1
     let struct (tmp0, tmp1, res) = tmpVars3 bld 64<rt>
+    let quot = tmpVar bld 64<rt>
+    let signMask = numI64 0x8000000000000000L 64<rt>
+    let absMask = numI64 0x7FFFFFFFFFFFFFFFL 64<rt>
+    let inf = numI64 0x7FF0000000000000L 64<rt>
+    let pi = numI64 0x400921FB54442D18L 64<rt> (* pi *)
+    let piOver4 = numI64 0x3FE921FB54442D18L 64<rt> (* pi / 4 *)
+    let zero = AST.num0 64<rt>
     castFrom80Bit tmp0 64<rt> st0b st0a bld
     castFrom80Bit tmp1 64<rt> st1b st1a bld
-    direct res := AST.fatan (AST.fdiv tmp1 tmp0)
+    (* The two corners stand in for the quotient the division cannot form, so
+       they carry the sign that quotient would have had: the two operands'
+       signs combined. The correction below carries ST(1)'s own sign instead,
+       which is the side of the x axis the angle comes back on. *)
+    let signY = tmp1 .& signMask
+    let signQuot = (tmp0 <+> tmp1) .& signMask
+    let absX = tmp0 .& absMask
+    let absY = tmp1 .& absMask
+    let bothZero = (absX == zero) .& (absY == zero)
+    let bothInf = (absX == inf) .& (absY == inf)
+    let angle = AST.fatan (AST.fdiv tmp1 tmp0)
+    direct quot :=
+      AST.ite bothZero (zero .| signQuot)
+                       (AST.ite bothInf (piOver4 .| signQuot) angle)
+    (* A negative ST(0) -- including -0.0, hence the sign bit rather than a
+       comparison -- moves the angle into the second or the third quadrant. *)
+    direct res :=
+      AST.ite (AST.xthi 1<rt> tmp0) (AST.fadd quot (pi .| signY)) quot
     castTo80Bit bld st1b st1a res
     popFPUStack bld
     updateC1OnStore bld

@@ -579,7 +579,7 @@ let comiss (ins: Instruction) bld =
     let zf = regVar bld R.ZF
     let pf = regVar bld R.PF
     let cf = regVar bld R.CF
-    direct zf := AST.ite (opr1 == opr2) AST.b1 AST.b0
+    direct zf := AST.ite (AST.feq opr1 opr2) AST.b1 AST.b0
     direct pf := AST.b0
     direct cf := AST.ite (AST.flt opr1 opr2) AST.b1 AST.b0
     _when bld "IsNan" (isNan false opr1 .| isNan false opr2)
@@ -603,7 +603,7 @@ let comisd (ins: Instruction) bld =
     let zf = regVar bld R.ZF
     let pf = regVar bld R.PF
     let cf = regVar bld R.CF
-    direct zf := AST.ite (opr1 == opr2) AST.b1 AST.b0
+    direct zf := AST.ite (AST.feq opr1 opr2) AST.b1 AST.b0
     direct pf := AST.b0
     direct cf := AST.ite (AST.flt opr1 opr2) AST.b1 AST.b0
     _when bld "IsNan" (isNan true opr1 .| isNan true opr2)
@@ -627,7 +627,7 @@ let ucomiss (ins: Instruction) bld =
     let zf = regVar bld R.ZF
     let pf = regVar bld R.PF
     let cf = regVar bld R.CF
-    direct zf := AST.ite (opr1 == opr2) AST.b1 AST.b0
+    direct zf := AST.ite (AST.feq opr1 opr2) AST.b1 AST.b0
     direct pf := AST.b0
     direct cf := AST.ite (AST.flt opr1 opr2) AST.b1 AST.b0
     _when bld "IsNan" (isNan false opr1 .| isNan false opr2)
@@ -651,7 +651,7 @@ let ucomisd (ins: Instruction) bld =
     let zf = regVar bld R.ZF
     let pf = regVar bld R.PF
     let cf = regVar bld R.CF
-    direct zf := AST.ite (opr1 == opr2) AST.b1 AST.b0
+    direct zf := AST.ite (AST.feq opr1 opr2) AST.b1 AST.b0
     direct pf := AST.b0
     direct cf := AST.ite (AST.flt opr1 opr2) AST.b1 AST.b0
     _when bld "IsNan" (isNan true opr1 .| isNan true opr2)
