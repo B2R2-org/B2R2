@@ -97,6 +97,8 @@ let translate (ins: Instruction) bld =
     FloatLifter.fsqrt ins bld
   | Opcode.FSTD | Opcode.FSTW ->
     FloatLifter.fpStore ins bld
+  | Opcode.FSUB ->
+    FloatLifter.fsub ins bld
   | Opcode.FTEST ->
     FloatLifter.ftest ins bld
   | Opcode.LDB | Opcode.LDD | Opcode.LDDA | Opcode.LDH | Opcode.LDW
