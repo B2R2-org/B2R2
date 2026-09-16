@@ -127,7 +127,7 @@ let add (ins: Instruction) bld =
       let struct (tSrc1, tSrc2, result) = tmpVars3 bld 32<rt>
       reDupSrc src1 src2 fs ft tSrc1 tSrc2 bld
       result := AST.fadd tSrc1 tSrc2
-      normalizeValue 32<rt> result bld
+      normalizeNaN 32<rt> result bld
       fd := result
     | _ ->
       let fdB, fdA = transOprToFPPair bld dst
@@ -135,7 +135,7 @@ let add (ins: Instruction) bld =
       let struct (tSrc1, tSrc2, result) = tmpVars3 bld 64<rt>
       reDupSrc src1 src2 fs ft tSrc1 tSrc2 bld
       result := AST.fadd tSrc1 tSrc2
-      normalizeValue 64<rt> result bld
+      normalizeNaN 64<rt> result bld
       writeFPResult fdB fdA result bld
   }
 
@@ -366,9 +366,12 @@ let cCond ins bld =
     else
       tFs := fs
       tFt := ft
-    let zeroSameCondWithEqual =
-      if sameReg then AST.b1
-      else ((tFs << num1) >> num1) == ((tFt << num1) >> num1)
+    (* Equality is a floating-point question, not a comparison of the two bit
+       patterns with the sign masked off: that answers "equal" for every value
+       against its own negation -- which is what a range check like
+       `d >= LONG_MAX` tests against `-LONG_MAX` -- while getting +0 and -0
+       right by accident. AST.feq gets both. *)
+    let isEqual = if sameReg then AST.b1 else AST.feq tFs tFt
     condNaN :=
       if sameReg then
         append bld {
@@ -385,7 +388,7 @@ let cCond ins bld =
         AST.xtlo 1<rt> (src2Exponent .& (src2Mantissa != AST.num0 oprSz))
     less := AST.ite condNaN num0 (AST.ite (AST.flt tFs tFt) num1 num0)
     equal :=
-      AST.ite condNaN num0 (AST.ite zeroSameCondWithEqual num1 num0)
+      AST.ite condNaN num0 (AST.ite isEqual num1 num0)
     unordered := AST.ite condNaN num1 num0
     condition := (bit2 .& less) .| (bit1 .& equal) .| (bit0 .& unordered)
     setFPConditionCode bld cc condition
@@ -445,7 +448,7 @@ let cvtd ins bld =
     | _ ->
       let fs = transOprToFPPairConcat bld fs
       result := AST.cast CastKind.SIntToFloat 64<rt> fs
-    normalizeValue 64<rt> result bld
+    normalizeNaN 64<rt> result bld
     writeFPResult fdB fdA result bld
   }
 
@@ -543,7 +546,7 @@ let cvts ins bld =
     | _ ->
       let fs = transOprToFPConvert ins bld fs
       result := AST.cast CastKind.SIntToFloat 32<rt> fs
-    normalizeValue 32<rt> result bld
+    normalizeNaN 32<rt> result bld
     dst := result
   }
 
@@ -797,7 +800,7 @@ let div (ins: Instruction) bld =
       let struct (tSrc1, tSrc2, result) = tmpVars3 bld 64<rt>
       reDupSrc fs ft src1 src2 tSrc1 tSrc2 bld
       result := AST.fdiv tSrc1 tSrc2
-      divNormal 64<rt> tSrc1 tSrc2 result bld
+      normalizeNaN 64<rt> result bld
       writeFPResult fdB fdA result bld
     | _ ->
       let fd, fs, ft = getThreeOprs ins
@@ -805,7 +808,7 @@ let div (ins: Instruction) bld =
       let struct (tSrc1, tSrc2, result) = tmpVars3 bld 32<rt>
       reDupSrc fs ft src1 src2 tSrc1 tSrc2 bld
       result := AST.fdiv tSrc1 tSrc2
-      divNormal 32<rt> tSrc1 tSrc2 result bld
+      normalizeNaN 32<rt> result bld
       dst := result
   }
 
@@ -1282,7 +1285,7 @@ let mul ins bld =
       let struct (tSrc1, tSrc2, result) = tmpVars3 bld 32<rt>
       reDupSrc src1 src2 fs ft tSrc1 tSrc2 bld
       result := AST.fmul tSrc1 tSrc2
-      normalizeValue 32<rt> result bld
+      normalizeNaN 32<rt> result bld
       dst := result
     | Some Fmt.D ->
       let dstB, dstA = transOprToFPPair bld dst
@@ -1290,7 +1293,7 @@ let mul ins bld =
       let struct (tSrc1, tSrc2, result) = tmpVars3 bld 64<rt>
       reDupSrc src1 src2 fs ft tSrc1 tSrc2 bld
       result := AST.fmul tSrc1 tSrc2
-      normalizeValue 64<rt> result bld
+      normalizeNaN 64<rt> result bld
       writeFPResult dstB dstA result bld
     | _ ->
       raise InvalidOperandException
@@ -1387,7 +1390,7 @@ let nmadd ins bld =
       reDupSrc3 src1 src2 src3 fr fs ft tSrc1 tSrc2 tSrc3 bld
       result := numU64 0x80000000UL 32<rt> <+>
         (AST.fadd tSrc1 <| AST.fmul tSrc2 tSrc3)
-      normalizeValue 32<rt> result bld
+      normalizeNaN 32<rt> result bld
       dst := result
     | Some Fmt.D ->
       let fdB, fdA = transOprToFPPair bld fd
@@ -1396,7 +1399,7 @@ let nmadd ins bld =
       reDupSrc3 src1 src2 src3 fr fs ft tSrc1 tSrc2 tSrc3 bld
       result := numU64 0x8000000000000000UL 64<rt> <+>
         (AST.fadd tSrc1 <| AST.fmul tSrc2 tSrc3)
-      normalizeValue 64<rt> result bld
+      normalizeNaN 64<rt> result bld
       writeFPResult fdB fdA result bld
     | _ ->
       raise InvalidOperandException
@@ -1463,13 +1466,17 @@ let sqrt ins bld =
     | Some Fmt.S ->
       let fd, fs = transTwoSingleFP bld (fd, fs)
       let cond = fs == numU32 0x80000000u 32<rt>
-      fd := AST.ite cond (numU32 0x80000000u 32<rt>) (AST.fsqrt fs)
+      let result = tmpVar bld 32<rt>
+      result := AST.ite cond (numU32 0x80000000u 32<rt>) (AST.fsqrt fs)
+      normalizeNaN 32<rt> result bld
+      fd := result
     | _ ->
       let fdB, fdA = transOprToFPPair bld fd
       let fs = transOprToFPPairConcat bld fs
       let cond = fs == numU64 0x8000000000000000UL 64<rt>
-      let result =
-        AST.ite cond (numU64 0x8000000000000000UL 64<rt>) (AST.fsqrt fs)
+      let result = tmpVar bld 64<rt>
+      result := AST.ite cond (numU64 0x8000000000000000UL 64<rt>) (AST.fsqrt fs)
+      normalizeNaN 64<rt> result bld
       writeFPResult fdB fdA result bld
   }
 
@@ -1604,7 +1611,7 @@ let sub ins bld =
       let struct (tSrc1, tSrc2, result) = tmpVars3 bld 32<rt>
       reDupSrc src1 src2 fs ft tSrc1 tSrc2 bld
       result := AST.fsub tSrc1 tSrc2
-      subNormal 32<rt> tSrc1 tSrc2 result bld
+      normalizeNaN 32<rt> result bld
       dst := result
     | Some Fmt.D ->
       let dstB, dstA = transOprToFPPair bld dst
@@ -1612,7 +1619,7 @@ let sub ins bld =
       let struct (tSrc1, tSrc2, result) = tmpVars3 bld 64<rt>
       reDupSrc src1 src2 fs ft tSrc1 tSrc2 bld
       result := AST.fsub tSrc1 tSrc2
-      subNormal 64<rt> tSrc1 tSrc2 result bld
+      normalizeNaN 64<rt> result bld
       writeFPResult dstB dstA result bld
     | _ ->
       raise InvalidOperandException

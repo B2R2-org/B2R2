@@ -111,16 +111,24 @@ let transOprToFPPairConcat bld = function
   | _ ->
     raise InvalidOperandException
 
+/// Commit a double-precision result to its destination.
+///
+/// On o32 that destination is a PAIR of 32-bit registers, and the value goes
+/// through a temporary first because the pair is very often the source as well
+/// -- `sqrt.d $f12, $f12` is what a compiler emits for x = sqrt(x). Assigning
+/// the low half straight from the result would change what the expression for
+/// the high half then reads, and the answer would come back with its low
+/// thirty-two bits right and its top ones computed from a value nobody wrote.
 let writeFPResult dstB dstA result bld =
-  append bld {
-    if is32Bit bld then
-      let srcB = AST.xthi 32<rt> result
-      let srcA = AST.xtlo 32<rt> result
-      dstA := srcA
-      dstB := srcB
-    else
-      dstA := result
-  }
+  if is32Bit bld then
+    let value = tmpVar bld 64<rt>
+    append bld {
+      value := result
+      dstA := AST.xtlo 32<rt> value
+      dstB := AST.xthi 32<rt> value
+    }
+  else
+    append bld { dstA := result }
 
 let private fpneg bld oprSz reg =
   append bld {
@@ -295,135 +303,25 @@ let private getSignalBit src oprSz =
   if oprSz = 32<rt> then src .& numU32 (1u <<< 22) 32<rt>
   else src .& numU64 (1UL <<< 51) 64<rt>
 
-let subNormal oprSz src1 src2 result bld =
+/// The NaN a floating-point result normalizes to.
+///
+/// MIPS in its legacy NaN encoding -- the one this port uses -- answers with a
+/// single value wherever an operation is invalid or has met a NaN: 0x7fbfffff
+/// at single precision and 0x7ff7ffffffffffff at double. It is that value
+/// whatever the operands were, and it is positive, so this is a replacement
+/// rather than a propagation: both the payload and the sign of whatever NaN
+/// the host arithmetic produced are discarded.
+let normalizeNaN oprSz result bld =
   append bld {
-    let struct (qNaNBox, sNaNBox, sqNaNBox, exponent) = tmpVars4 bld 1<rt>
-    let struct (sign, isNaNCheck) = tmpVars2 bld 1<rt>
-    let struct (mantissa, signalBit) = tmpVars2 bld oprSz
+    let struct (exponent, isNaNCheck) = tmpVars2 bld 1<rt>
+    let mantissa = tmpVar bld oprSz
+    let defaultNaN =
+      if oprSz = 32<rt> then numU32 0x7fbfffffu 32<rt>
+      else numU64 0x7ff7ffffffffffffUL 64<rt>
     mantissa := getMantissa result oprSz
     exponent := getExponentFull result oprSz
-    signalBit := getSignalBit result oprSz
     isNaNCheck := isNaN oprSz exponent mantissa
-    qNaNBox := isQNaN oprSz signalBit isNaNCheck
-    sNaNBox := isSNaN oprSz signalBit isNaNCheck
-    let mantissa1 = getMantissa src1 oprSz
-    let mantissa2 = getMantissa src2 oprSz
-    let infChk =
-      AST.not (isInfinity oprSz (getExponentFull src1 oprSz) mantissa1
-      .| isInfinity oprSz (getExponentFull src2 oprSz) mantissa2)
-    sign := AST.xthi 1<rt> result .& infChk
-    sqNaNBox := qNaNBox .| sNaNBox
-    result :=
-      AST.ite sqNaNBox (
-        let struct (sNaNVal, negSNaNVal, qNaNVal, negQNaNVal) =
-          match oprSz with
-          | 32<rt> ->
-            let sVal = numU32 0x7fffffffu 32<rt>
-            let negSVal = numU32 0xffffffffu 32<rt>
-            let qVal = numU32 0x7fbfffffu 32<rt>
-            let negQVal = numU32 0xffbfffffu 32<rt>
-            struct (sVal, negSVal, qVal, negQVal)
-          | _ ->
-            let sVal = numU64 0x7fffffffffffffffUL 64<rt>
-            let negSVal = numU64 0xffffffffffffffffUL 64<rt>
-            let qVal = numU64 0x7ff7ffffffffffffUL 64<rt>
-            let negQVal = numU64 0xfff7ffffffffffffUL 64<rt>
-            struct (sVal, negSVal, qVal, negQVal)
-        let qNaNWithSign = AST.ite sign negQNaNVal qNaNVal
-        let sNaNWithSign = AST.ite sign negSNaNVal sNaNVal
-        AST.ite qNaNBox qNaNWithSign (AST.ite sNaNBox sNaNWithSign result))
-        result
-  }
-
-let divNormal oprSz src1 src2 result bld =
-  append bld {
-    let struct (exponent, isNaNCheck, sign) = tmpVars3 bld 1<rt>
-    let struct (mantissa, signalBit) = tmpVars2 bld oprSz
-    sign := AST.xthi 1<rt> result
-    mantissa := getMantissa result oprSz
-    signalBit := getSignalBit result oprSz
-    exponent := getExponentFull result oprSz
-    isNaNCheck := isNaN oprSz exponent mantissa
-    let src1Zero = src1 == AST.num0 oprSz
-    let src2Zero = src2 == AST.num0 oprSz
-    let qNan = isQNaN oprSz signalBit isNaNCheck
-    let sNan = isSNaN oprSz signalBit isNaNCheck
-    let struct (sNaNVal, negSNaNVal, qNaNVal, negQNaNVal) =
-      match oprSz with
-      | 32<rt> ->
-        let sVal = numU32 0x7fffffffu 32<rt>
-        let negSVal = numU32 0xffffffffu 32<rt>
-        let qVal = numU32 0x7fbfffffu 32<rt>
-        let negQVal = numU32 0xffbfffffu 32<rt>
-        struct (sVal, negSVal, qVal, negQVal)
-      | _ ->
-        let sVal = numU64 0x7fffffffffffffffUL 64<rt>
-        let negSVal = numU64 0xffffffffffffffffUL 64<rt>
-        let qVal = numU64 0x7ff7ffffffffffffUL 64<rt>
-        let negQVal = numU64 0xfff7ffffffffffffUL 64<rt>
-        struct (sVal, negSVal, qVal, negQVal)
-    let qNaNWithSign = AST.ite sign negQNaNVal qNaNVal
-    let sNaNWithSign = AST.ite sign negSNaNVal sNaNVal
-    result := AST.ite (src1Zero .& src2Zero)
-                qNaNVal
-                (AST.ite qNan
-                  qNaNWithSign
-                  (AST.ite sNan sNaNWithSign result))
-  }
-
-/// The signalling and the quiet NaN a width normalizes to, each followed by
-/// its negative.
-let private nanValuesOf oprSz =
-  match oprSz with
-  | 32<rt> ->
-    let sVal = numU32 0x7fffffffu 32<rt>
-    let negSVal = numU32 0xffffffffu 32<rt>
-    let qVal = numU32 0x7fbfffffu 32<rt>
-    let negQVal = numU32 0xffbfffffu 32<rt>
-    struct (sVal, negSVal, qVal, negQVal)
-  | _ ->
-    let sVal = numU64 0x7fffffffffffffffUL 64<rt>
-    let negSVal = numU64 0xffffffffffffffffUL 64<rt>
-    let qVal = numU64 0x7ff7ffffffffffffUL 64<rt>
-    let negQVal = numU64 0xfff7ffffffffffffUL 64<rt>
-    struct (sVal, negSVal, qVal, negQVal)
-
-/// Positive and negative infinity in the same width.
-let private infinitiesOf oprSz =
-  match oprSz with
-  | 32<rt> ->
-    struct (numU32 0x7f800000u 32<rt>, numU32 0xff800000u 32<rt>)
-  | _ ->
-    let p = numU64 0x7ff0000000000000UL 64<rt>
-    let m = numU64 0xfff0000000000000UL 64<rt>
-    struct (p, m)
-
-let normalizeValue oprSz result bld =
-  append bld {
-    let struct (qNaNBox, sNaNBox, infBox, exponent) = tmpVars4 bld 1<rt>
-    let struct (isNaNCheck, sign) = tmpVars2 bld 1<rt>
-    exponent := getExponentFull result oprSz
-    let struct (mantissa, signalBit) = tmpVars2 bld oprSz
-    mantissa := getMantissa result oprSz
-    isNaNCheck := isNaN oprSz exponent mantissa
-    signalBit := getSignalBit result oprSz
-    qNaNBox := isQNaN oprSz signalBit isNaNCheck
-    sNaNBox := isSNaN oprSz signalBit isNaNCheck
-    infBox := isInfinity oprSz exponent mantissa
-    sign := AST.xthi 1<rt> result
-    let condBox = qNaNBox .| sNaNBox .| infBox
-    result :=
-      AST.ite condBox (
-        let struct (sNaNVal, negSNaNVal, qNaNVal, negQNaNVal) =
-          nanValuesOf oprSz
-        let struct (pInf, mInf) = infinitiesOf oprSz
-        let qNanWithSign = AST.ite sign negQNaNVal qNaNVal
-        let sNanWithSign = AST.ite sign negSNaNVal sNaNVal
-        let infWithSign = AST.ite sign mInf pInf
-        AST.ite qNaNBox
-          qNanWithSign
-          (AST.ite sNaNBox sNanWithSign (AST.ite infBox infWithSign result)))
-            result
+    result := AST.ite isNaNCheck defaultNaN result
   }
 
 let advancePC (bld: LowUIRBuilder) insLen =
