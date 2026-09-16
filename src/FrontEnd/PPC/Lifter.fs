@@ -350,6 +350,10 @@ let translate (ins: Instruction) bld =
     lfdux ins bld
   | Op.LFDX ->
     lfdx ins bld
+  | Op.LFIWAX ->
+    lfiwax ins bld
+  | Op.LFIWZX ->
+    lfiwzx ins bld
   | Op.LFS ->
     lfs ins bld
   | Op.LFSU ->
@@ -873,9 +877,9 @@ let translate (ins: Instruction) bld =
   | Op.FCFIDUSdot ->
     fcfid ins true bld false true
   | Op.FRIN ->
-    frnd ins false bld RoundingMode.ToNearestEven
+    frnd ins false bld RoundingMode.ToNearestAway
   | Op.FRINdot ->
-    frnd ins true bld RoundingMode.ToNearestEven
+    frnd ins true bld RoundingMode.ToNearestAway
   | Op.FRIZ ->
     frnd ins false bld RoundingMode.TowardZero
   | Op.FRIZdot ->
@@ -957,14 +961,108 @@ let translate (ins: Instruction) bld =
     fcpsgn ins bld
   | Op.MFFSL ->
     mffs ins false bld
+  | Op.MFFSCRN ->
+    mffscrnReg ins bld
+  | Op.MFFSCRNI ->
+    mffscrnImm ins bld
   | Op.XSADDDP ->
     vsxScalarBinary ins bld AST.fadd true
+  | Op.XSMULDP ->
+    vsxScalarBinary ins bld AST.fmul true
+  | Op.XSADDSP ->
+    vsxScalarBinarySingle ins bld AST.fadd
+  | Op.XSSUBSP ->
+    vsxScalarBinarySingle ins bld AST.fsub
+  | Op.XSMULSP ->
+    vsxScalarBinarySingle ins bld AST.fmul
+  | Op.XSDIVSP ->
+    vsxScalarBinarySingle ins bld AST.fdiv
+  | Op.XSSQRTDP ->
+    vsxScalarUnary ins bld AST.fsqrt true
+  | Op.XSSQRTSP ->
+    let single b = AST.cast CastKind.FloatCast 32<rt> (AST.fsqrt b)
+    let widen b = AST.cast CastKind.FloatCast 64<rt> (single b)
+    vsxScalarUnary ins bld widen true
   | Op.XSSUBDP ->
     vsxScalarBinary ins bld AST.fsub true
   | Op.XSDIVDP ->
     vsxScalarBinary ins bld AST.fdiv true
   | Op.XSCPSGNDP ->
     vsxScalarBinary ins bld copySign false
+  | Op.XSMADDADP ->
+    xsmaddadp ins bld
+  | Op.XSMADDMDP ->
+    xsmaddmdp ins bld
+  | Op.XSMSUBADP ->
+    xsmsubadp ins bld
+  | Op.XSMSUBMDP ->
+    xsmsubmdp ins bld
+  | Op.XSNMADDADP ->
+    xsnmaddadp ins bld
+  | Op.XSNMADDMDP ->
+    xsnmaddmdp ins bld
+  | Op.XSNMSUBADP ->
+    xsnmsubadp ins bld
+  | Op.XSNMSUBMDP ->
+    xsnmsubmdp ins bld
+  | Op.XSMADDASP ->
+    xsmaddasp ins bld
+  | Op.XSMADDMSP ->
+    xsmaddmsp ins bld
+  | Op.XSMSUBASP ->
+    xsmsubasp ins bld
+  | Op.XSMSUBMSP ->
+    xsmsubmsp ins bld
+  | Op.XSNMADDASP ->
+    xsnmaddasp ins bld
+  | Op.XSNMADDMSP ->
+    xsnmaddmsp ins bld
+  | Op.XSNMSUBASP ->
+    xsnmsubasp ins bld
+  | Op.XSNMSUBMSP ->
+    xsnmsubmsp ins bld
+  | Op.XSCVDPSXWS ->
+    xscvdpsxws ins bld
+  | Op.XSCVDPUXWS ->
+    xscvdpuxws ins bld
+  | Op.XSCVDPSXDS ->
+    xscvdpsxds ins bld
+  | Op.XSCVDPUXDS ->
+    xscvdpuxds ins bld
+  | Op.XSCVSXDDP ->
+    xscvsxddp ins bld
+  | Op.XSCVUXDDP ->
+    xscvuxddp ins bld
+  | Op.XSCVSXDSP ->
+    xscvsxdsp ins bld
+  | Op.XSCVUXDSP ->
+    xscvuxdsp ins bld
+  | Op.XSMAXDP ->
+    vsxScalarBinary ins bld (fun a b -> AST.ite (AST.fgt a b) a b) true
+  | Op.XSMINDP ->
+    vsxScalarBinary ins bld (fun a b -> AST.ite (AST.flt a b) a b) true
+  | Op.XSNEGDP ->
+    vsxScalarUnary ins bld (fun b ->
+      b <+> numU64 0x8000000000000000UL 64<rt>) false
+  | Op.XSNABSDP ->
+    vsxScalarUnary ins bld (fun b ->
+      b .| numU64 0x8000000000000000UL 64<rt>) false
+  | Op.XSRDPI ->
+    let round = AST.roundToIntegral RoundingMode.ToNearestAway 64<rt>
+    vsxScalarUnary ins bld round true
+  | Op.XSRDPIZ ->
+    let round = AST.roundToIntegral RoundingMode.TowardZero 64<rt>
+    vsxScalarUnary ins bld round true
+  | Op.XSRDPIP ->
+    let round = AST.roundToIntegral RoundingMode.TowardPositive 64<rt>
+    vsxScalarUnary ins bld round true
+  | Op.XSRDPIM ->
+    let round = AST.roundToIntegral RoundingMode.TowardNegative 64<rt>
+    vsxScalarUnary ins bld round true
+  | Op.XSCVDPSP ->
+    xscvdpsp ins bld
+  | Op.XSCVSPDP ->
+    xscvspdp ins bld
   | Op.XSCMPUDP ->
     xscmpudp ins bld
   | Op.XSABSDP ->
@@ -1023,6 +1121,10 @@ let translate (ins: Instruction) bld =
     vecUnpack ins bld 8<rt> false
   | Op.VUPKLSH ->
     vecUnpack ins bld 16<rt> false
+  | Op.VUPKHSW ->
+    vecUnpack ins bld 32<rt> true
+  | Op.VUPKLSW ->
+    vecUnpack ins bld 32<rt> false
   | Op.VSL ->
     vecShiftWhole ins bld true false
   | Op.VSR ->

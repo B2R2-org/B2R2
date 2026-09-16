@@ -645,6 +645,21 @@ let vsxScalarBinary ins bld fnOp setsFPRF =
     if setsFPRF then setFPRF bld dh else ()
   }
 
+/// The single-precision scalar forms, which compute the same operation and
+/// round the answer to single precision, leaving it in the double format a
+/// vector-scalar register holds.
+let vsxScalarBinarySingle ins bld fnOp =
+  lift bld ins {
+    let struct (o1, o2, o3) = getThreeOprs ins
+    let struct (dh, dl) = vecHalves bld o1
+    let struct (ah, _) = vecHalves bld o2
+    let struct (bh, _) = vecHalves bld o3
+    let single = AST.cast CastKind.FloatCast 32<rt> (fnOp ah bh)
+    dh := AST.cast CastKind.FloatCast 64<rt> single
+    dl := AST.num0 64<rt>
+    setFPRF bld dh
+  }
+
 /// An "xT, xB" over the double in the source's high half.
 let vsxScalarUnary ins bld fnOp setsFPRF =
   lift bld ins {
@@ -654,6 +669,214 @@ let vsxScalarUnary ins bld fnOp setsFPRF =
     dh := fnOp bh
     dl := AST.num0 64<rt>
     if setsFPRF then setFPRF bld dh else ()
+  }
+
+/// The VSX scalar multiply-adds, which are fused: the product is formed
+/// exactly and only the sum is rounded, so they go out as the FMA call rather
+/// than as a multiply inside an add.
+///
+/// The two shapes differ in which register the addend comes from. The "a"
+/// forms multiply xA by xB and add xT; the "m" forms multiply xA by xT and add
+/// xB. Either way the target is read before it is written, which is why the
+/// old value is taken into a temporary first.
+///
+/// Bit 1 of the FMA flag negates the addend, which is the subtracting forms;
+/// the negating forms flip the sign of the rounded result, a NaN excepted, as
+/// the floating-point-register forms in GeneralLifter do.
+let private vsxScalarMulAdd ins bld isDouble targetIsFactor subtract negate =
+  lift bld ins {
+    let struct (o1, o2, o3) = getThreeOprs ins
+    let struct (dh, dl) = vecHalves bld o1
+    let struct (ah, _) = vecHalves bld o2
+    let struct (bh, _) = vecHalves bld o3
+    let old = tmpVar bld 64<rt>
+    let res = tmpVar bld 64<rt>
+    let f = numU64 (if subtract then 2UL else 0UL) 8<rt>
+    old := dh
+    let x, y, z = if targetIsFactor then ah, old, bh else ah, bh, old
+    if isDouble then
+      res := AST.app "FMA64" [ x; y; z; f ] 64<rt>
+    else
+      let xS = AST.cast CastKind.FloatCast 32<rt> x
+      let yS = AST.cast CastKind.FloatCast 32<rt> y
+      let zS = AST.cast CastKind.FloatCast 32<rt> z
+      let resS = AST.app "FMA32" [ xS; yS; zS; f ] 32<rt>
+      res := AST.cast CastKind.FloatCast 64<rt> resS
+    (* Which NaN comes back follows a order of its own -- xA first, then
+       whichever register the addend came from, then the remaining
+       multiplicand -- so the choice is made here rather than left to the
+       primitive, which would take them in the order the product is written
+       in. A signalling one is quieted on the way out; where no operand was a
+       NaN and the answer still is, the operation was invalid and answers with
+       the default quiet NaN, which is positive. *)
+    let quieted v = v .| numU64 0x0008000000000000UL 64<rt>
+    let addend, other = if targetIsFactor then bh, old else old, bh
+    let fromAddend =
+      AST.ite (IEEE754Double.isNaN addend) (quieted addend) (quieted other)
+    let chosen = AST.ite (IEEE754Double.isNaN ah) (quieted ah) fromAddend
+    res :=
+      AST.ite (noNaNOperand ah bh old)
+        (AST.ite (IEEE754Double.isNaN res) defaultQNaN res)
+        chosen
+    if negate then
+      let signBit = numU64 0x8000000000000000UL 64<rt>
+      dh := AST.ite (IEEE754Double.isNaN res) res (res <+> signBit)
+    else
+      dh := res
+    dl := AST.num0 64<rt>
+    setFPRF bld dh
+  }
+
+let xsmaddadp ins bld = vsxScalarMulAdd ins bld true false false false
+
+let xsmaddmdp ins bld = vsxScalarMulAdd ins bld true true false false
+
+let xsmsubadp ins bld = vsxScalarMulAdd ins bld true false true false
+
+let xsmsubmdp ins bld = vsxScalarMulAdd ins bld true true true false
+
+let xsnmaddadp ins bld = vsxScalarMulAdd ins bld true false false true
+
+let xsnmaddmdp ins bld = vsxScalarMulAdd ins bld true true false true
+
+let xsnmsubadp ins bld = vsxScalarMulAdd ins bld true false true true
+
+let xsnmsubmdp ins bld = vsxScalarMulAdd ins bld true true true true
+
+let xsmaddasp ins bld = vsxScalarMulAdd ins bld false false false false
+
+let xsmaddmsp ins bld = vsxScalarMulAdd ins bld false true false false
+
+let xsmsubasp ins bld = vsxScalarMulAdd ins bld false false true false
+
+let xsmsubmsp ins bld = vsxScalarMulAdd ins bld false true true false
+
+let xsnmaddasp ins bld = vsxScalarMulAdd ins bld false false false true
+
+let xsnmaddmsp ins bld = vsxScalarMulAdd ins bld false true false true
+
+let xsnmsubasp ins bld = vsxScalarMulAdd ins bld false false true true
+
+let xsnmsubmsp ins bld = vsxScalarMulAdd ins bld false true true true
+
+/// Where a conversion stops at each end and what it answers there: one row of
+/// the ISA's convert-to-integer table, as the doubles the comparisons need and
+/// the integers they select. A NaN answers with the low end of the range,
+/// which is the smallest signed value or zero, so it needs no row of its own.
+let private conversionLimits isWord isSigned =
+  match isWord, isSigned with
+  | true, true ->
+    let lo = numU64 0xc1e0000000000000UL 64<rt>
+    let hi = numU64 0x41dfffffffc00000UL 64<rt>
+    let loValue = numU64 0xffffffff80000000UL 64<rt>
+    let hiValue = numU64 0x000000007fffffffUL 64<rt>
+    struct (lo, hi, loValue, hiValue)
+  | true, false ->
+    let hi = numU64 0x41efffffffe00000UL 64<rt>
+    let hiValue = numU64 0x00000000ffffffffUL 64<rt>
+    struct (AST.num0 64<rt>, hi, AST.num0 64<rt>, hiValue)
+  | false, true ->
+    let lo = numU64 0xc3e0000000000000UL 64<rt>
+    let hi = numU64 0x43e0000000000000UL 64<rt>
+    let loValue = numU64 0x8000000000000000UL 64<rt>
+    let hiValue = numU64 0x7fffffffffffffffUL 64<rt>
+    struct (lo, hi, loValue, hiValue)
+  | false, false ->
+    let hi = numU64 0x43f0000000000000UL 64<rt>
+    let hiValue = numU64 0xffffffffffffffffUL 64<rt>
+    struct (AST.num0 64<rt>, hi, AST.num0 64<rt>, hiValue)
+
+/// The conversion itself, before the limits are applied: truncation toward
+/// zero whatever the rounding mode says, which is why it names its direction.
+/// An unsigned target above 2^63 is folded down and biased back, a signed
+/// conversion being all the IR has to reach for.
+let private vsxTruncate isSigned src =
+  let toInt e = AST.floatToSInt RoundingMode.TowardZero 64<rt> e
+  let twoPow63 = numU64 0x43e0000000000000UL 64<rt>
+  let bias = numU64 0x8000000000000000UL 64<rt>
+  let folded = toInt (AST.fsub src twoPow63) .+ bias
+  if isSigned then toInt src
+  else AST.ite (AST.fge src twoPow63) folded (toInt src)
+
+/// A double converted to an integer, saturating at the ends of the target's
+/// range, a NaN going to the smallest signed value or to zero as the ISA's
+/// convert-to-integer tables say.
+let private vsxToInt ins bld isWord isSigned =
+  lift bld ins {
+    let struct (o1, o2) = getTwoOprs ins
+    let struct (dh, dl) = vecHalves bld o1
+    let struct (bh, _) = vecHalves bld o2
+    let struct (src, res) = tmpVars2 bld 64<rt>
+    let struct (loLimit, hiLimit, loValue, hiValue) =
+      conversionLimits isWord isSigned
+    src := bh
+    res := vsxTruncate isSigned src
+    res := AST.ite (AST.fle src loLimit) loValue res
+    res := AST.ite (AST.fge src hiLimit) hiValue res
+    res := AST.ite (IEEE754Double.isNaN src) loValue res
+    (* A word result goes in element 1 of the doubleword, which is its low
+       half; the rest of the register the ISA leaves undefined. *)
+    dh := if isWord then AST.zext 64<rt> (AST.xtlo 32<rt> res) else res
+    dl := AST.num0 64<rt>
+  }
+
+let xscvdpsxws ins bld = vsxToInt ins bld true true
+
+let xscvdpuxws ins bld = vsxToInt ins bld true false
+
+let xscvdpsxds ins bld = vsxToInt ins bld false true
+
+let xscvdpuxds ins bld = vsxToInt ins bld false false
+
+/// An integer in doubleword element 0 converted to a floating-point value,
+/// rounded to double or -- for the "sp" forms -- to single and left in the
+/// double format a scalar register holds.
+let private vsxFromInt ins bld isSigned toSingle =
+  lift bld ins {
+    let struct (o1, o2) = getTwoOprs ins
+    let struct (dh, dl) = vecHalves bld o1
+    let struct (bh, _) = vecHalves bld o2
+    let kind = if isSigned then CastKind.SIntToFloat else CastKind.UIntToFloat
+    let value = AST.cast kind 64<rt> bh
+    let narrowed = AST.cast CastKind.FloatCast 32<rt> value
+    if toSingle then dh := AST.cast CastKind.FloatCast 64<rt> narrowed
+    else dh := value
+    dl := AST.num0 64<rt>
+    setFPRF bld dh
+  }
+
+let xscvsxddp ins bld = vsxFromInt ins bld true false
+
+let xscvuxddp ins bld = vsxFromInt ins bld false false
+
+let xscvsxdsp ins bld = vsxFromInt ins bld true true
+
+let xscvuxdsp ins bld = vsxFromInt ins bld false true
+
+/// xscvdpsp, the double-to-single conversion that rounds: the result is a
+/// single in word element 0, which is the high half of the target's first
+/// doubleword.
+let xscvdpsp ins bld =
+  lift bld ins {
+    let struct (o1, o2) = getTwoOprs ins
+    let struct (dh, dl) = vecHalves bld o1
+    let struct (bh, _) = vecHalves bld o2
+    let single = AST.cast CastKind.FloatCast 32<rt> bh
+    dh := AST.concat single (AST.num0 32<rt>)
+    dl := AST.num0 64<rt>
+    setFPRF bld (AST.cast CastKind.FloatCast 64<rt> single)
+  }
+
+/// xscvspdp, the other way: the single in word element 0 widened into the
+/// double the register holds.
+let xscvspdp ins bld =
+  lift bld ins {
+    let struct (o1, o2) = getTwoOprs ins
+    let struct (dh, dl) = vecHalves bld o1
+    let struct (bh, _) = vecHalves bld o2
+    dh := AST.cast CastKind.FloatCast 64<rt> (AST.xthi 32<rt> bh)
+    dl := AST.num0 64<rt>
+    setFPRF bld dh
   }
 
 /// xscvdpspn, the non-signalling double-to-single conversion: the same bit

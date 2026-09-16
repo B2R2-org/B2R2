@@ -1127,15 +1127,16 @@ let parseEIEIO bin =
   | 0b10u when Bits.extract bin 25u 11u = 0u -> struct (Op.EIEIO, NoOperand)
   | _ (* 11, 0x *) -> raise ParsingFailureException
 
-let parseLHAX bin =
+let parseLHAXandLFIWAX bin =
+  let ra = getRegister (Bits.extract bin 20u 16u) |> OprReg
+  let rb = getRegister (Bits.extract bin 15u 11u) |> OprReg
   match Bits.pick bin 10u with
   | 0b0u ->
     let rd = getRegister (Bits.extract bin 25u 21u) |> OprReg
-    let ra = getRegister (Bits.extract bin 20u 16u) |> OprReg
-    let rb = getRegister (Bits.extract bin 15u 11u) |> OprReg
     struct (Op.LHAX, ThreeOperands(rd, ra, rb))
   | _ (* 1 *) ->
-    raise ParsingFailureException
+    let frd = getFPRegister (Bits.extract bin 25u 21u) |> OprReg
+    struct (Op.LFIWAX, ThreeOperands(frd, ra, rb))
 
 let parseTLBIA bin =
   match Bits.concat (Bits.pick bin 10u) (Bits.pick bin 0u) 1 with
@@ -1161,15 +1162,16 @@ let parseMFTB bin =
   | _ (* 1 *) ->
     raise ParsingFailureException
 
-let parseLHAUX bin =
+let parseLHAUXandLFIWZX bin =
+  let ra = getRegister (Bits.extract bin 20u 16u) |> OprReg
+  let rb = getRegister (Bits.extract bin 15u 11u) |> OprReg
   match Bits.pick bin 10u with
   | 0b0u ->
     let rd = getRegister (Bits.extract bin 25u 21u) |> OprReg
-    let ra = getRegister (Bits.extract bin 20u 16u) |> OprReg
-    let rb = getRegister (Bits.extract bin 15u 11u) |> OprReg
     struct (Op.LHAUX, ThreeOperands(rd, ra, rb))
   | _ (* 1 *) ->
-    raise ParsingFailureException
+    let frd = getFPRegister (Bits.extract bin 25u 21u) |> OprReg
+    struct (Op.LFIWZX, ThreeOperands(frd, ra, rb))
 
 let parseSTHBRX bin =
   match Bits.pick bin 10u with
@@ -1682,6 +1684,8 @@ let private parse04 bin =
       | 1922u -> parseVX2 Op.VCLZW bin
       | 1923u -> parseVX2 Op.VPOPCNTW bin
       | 1932u -> parseVX Op.VMRGEW bin
+      | 1614u -> parseVX2 Op.VUPKHSW bin
+      | 1742u -> parseVX2 Op.VUPKLSW bin
       | 1986u -> parseVX2 Op.VCLZD bin
       | 1987u -> parseVX2 Op.VPOPCNTD bin
       | _ -> raise ParsingFailureException
@@ -1739,8 +1743,22 @@ let private parseXX3Compare op bin =
 /// nine, so the wider ones are matched first.
 let private parse3C bin =
   match Bits.extract bin 10u 3u with
+  | 0u ->
+    parseXX3 Op.XSADDSP bin
+  | 8u ->
+    parseXX3 Op.XSSUBSP bin
+  | 16u ->
+    parseXX3 Op.XSMULSP bin
+  | 24u ->
+    parseXX3 Op.XSDIVSP bin
   | 32u ->
     parseXX3 Op.XSADDDP bin
+  | 48u ->
+    parseXX3 Op.XSMULDP bin
+  | 160u ->
+    parseXX3 Op.XSMAXDP bin
+  | 168u ->
+    parseXX3 Op.XSMINDP bin
   | 35u ->
     parseXX3Compare Op.XSCMPUDP bin
   | 40u ->
@@ -1765,6 +1783,38 @@ let private parse3C bin =
     parseXX3 Op.XXLNAND bin
   | 186u ->
     parseXX3 Op.XXLEQV bin
+  | 1u ->
+    parseXX3 Op.XSMADDASP bin
+  | 9u ->
+    parseXX3 Op.XSMADDMSP bin
+  | 17u ->
+    parseXX3 Op.XSMSUBASP bin
+  | 25u ->
+    parseXX3 Op.XSMSUBMSP bin
+  | 33u ->
+    parseXX3 Op.XSMADDADP bin
+  | 41u ->
+    parseXX3 Op.XSMADDMDP bin
+  | 49u ->
+    parseXX3 Op.XSMSUBADP bin
+  | 57u ->
+    parseXX3 Op.XSMSUBMDP bin
+  | 129u ->
+    parseXX3 Op.XSNMADDASP bin
+  | 137u ->
+    parseXX3 Op.XSNMADDMSP bin
+  | 145u ->
+    parseXX3 Op.XSNMSUBASP bin
+  | 153u ->
+    parseXX3 Op.XSNMSUBMSP bin
+  | 161u ->
+    parseXX3 Op.XSNMADDADP bin
+  | 169u ->
+    parseXX3 Op.XSNMADDMDP bin
+  | 177u ->
+    parseXX3 Op.XSNMSUBADP bin
+  | 185u ->
+    parseXX3 Op.XSNMSUBMDP bin
   | xo when xo &&& 0x9Fu = 0x0Au ->
     parseXXPERMDIx Op.XXPERMDI bin
   | xo when xo &&& 0x9Fu = 0x02u ->
@@ -1773,10 +1823,28 @@ let private parse3C bin =
     match Bits.extract bin 10u 2u with
     | 164u -> parseXXSPLTW bin
     | 180u -> parseXXSPLTIB bin
+    | 72u -> parseXX2 Op.XSCVDPUXWS bin
+    | 88u -> parseXX2 Op.XSCVDPSXWS bin
+    | 11u -> parseXX2 Op.XSSQRTSP bin
+    | 73u -> parseXX2 Op.XSRDPI bin
+    | 89u -> parseXX2 Op.XSRDPIZ bin
+    | 105u -> parseXX2 Op.XSRDPIP bin
+    | 121u -> parseXX2 Op.XSRDPIM bin
+    | 75u -> parseXX2 Op.XSSQRTDP bin
+    | 265u -> parseXX2 Op.XSCVDPSP bin
     | 267u -> parseXX2 Op.XSCVDPSPN bin
+    | 296u -> parseXX2 Op.XSCVUXDSP bin
+    | 312u -> parseXX2 Op.XSCVSXDSP bin
+    | 328u -> parseXX2 Op.XSCVDPUXDS bin
+    | 344u -> parseXX2 Op.XSCVDPSXDS bin
+    | 360u -> parseXX2 Op.XSCVUXDDP bin
+    | 376u -> parseXX2 Op.XSCVSXDDP bin
     | 281u -> parseXX2 Op.XSRSP bin
+    | 329u -> parseXX2 Op.XSCVSPDP bin
     | 331u -> parseXX2 Op.XSCVSPDPN bin
     | 345u -> parseXX2 Op.XSABSDP bin
+    | 361u -> parseXX2 Op.XSNABSDP bin
+    | 377u -> parseXX2 Op.XSNEGDP bin
     | _ -> raise ParsingFailureException
 
 /// The VMX and VSX memory accesses that live in primary opcode 31.
@@ -1938,12 +2006,12 @@ let private parse1FWord bin =
   | 0x153u when Bits.pick bin 0u = 0u -> parseMFSPR bin
   | 0x156u when Bits.pick bin 0u = 0u -> parseEIEIO bin
   (* FIXME: LHAX RegA = 0 *)
-  | 0x157u when Bits.pick bin 0u = 0u -> parseLHAX bin
+  | 0x157u when Bits.pick bin 0u = 0u -> parseLHAXandLFIWAX bin
   | 0x172u -> parseTLBIA bin
   (* FIXME: TBRRegister *)
   | 0x173u when Bits.pick bin 0u = 0u -> parseMFTB bin
   (* FIXME: LHAUX RegA = 0 *)
-  | 0x177u when Bits.pick bin 0u = 0u -> parseLHAUX bin
+  | 0x177u when Bits.pick bin 0u = 0u -> parseLHAUXandLFIWZX bin
   (* FIXME: STHBRX RegA = 0 *)
   | 0x196u when Bits.pick bin 0u = 0u -> parseSTHBRX bin
   (* FIXME: STHX RegA = 0 *)
@@ -2567,6 +2635,14 @@ let parseMFFSx bin =
      reading the whole register covers what it asks for. *)
   | 0b0u when Bits.extract bin 20u 16u = 24u && Bits.extract bin 15u 11u = 0u ->
     struct (Op.MFFSL, OneOperand frd)
+  (* mffscrn and mffscrni read the FPSCR and then put a new rounding mode in
+     force, one from a register and the other from a two-bit immediate. *)
+  | 0b0u when Bits.extract bin 20u 16u = 22u ->
+    let frb = getFPRegister (Bits.extract bin 15u 11u) |> OprReg
+    struct (Op.MFFSCRN, TwoOperands(frd, frb))
+  | 0b0u when Bits.extract bin 20u 16u = 23u ->
+    let rm = Bits.extract bin 12u 11u |> uint64 |> OprImm
+    struct (Op.MFFSCRNI, TwoOperands(frd, rm))
   | _ ->
     raise ParsingFailureException
 

@@ -608,6 +608,17 @@ let fctiwz ins updateCond bld =
 /// the subtracting forms. The negated forms flip the sign of the rounded
 /// result, as the ISA says, so an exact cancellation gives -0 rather than the
 /// +0 that negating the operands would; a NaN passes through as it is.
+/// The quiet NaN an invalid operation answers with. It is positive here, where
+/// the FMA primitive -- written for a machine whose indefinite is negative --
+/// hands back the other one, so a result that turned into a NaN on its own has
+/// to be rewritten. A NaN that arrived in an operand is not: that one
+/// propagates, quieted, which the primitive already does.
+let internal defaultQNaN = numU64 0x7ff8000000000000UL 64<rt>
+
+let internal noNaNOperand a b c =
+  AST.not (IEEE754Double.isNaN a .| IEEE754Double.isNaN b
+           .| IEEE754Double.isNaN c)
+
 let private fusedMulAdd ins updateCond isDouble subtract negate bld =
   lift bld ins {
     let struct (frd, fra, frc, frb) = transFourOprs ins bld
@@ -621,6 +632,8 @@ let private fusedMulAdd ins updateCond isDouble subtract negate bld =
       let frbS = AST.cast CastKind.FloatCast 32<rt> frb
       let resS = AST.app "FMA32" [ fraS; frcS; frbS; f ] 32<rt>
       res := AST.cast CastKind.FloatCast 64<rt> resS
+    let invalid = noNaNOperand fra frc frb .& IEEE754Double.isNaN res
+    res := AST.ite invalid defaultQNaN res
     if negate then
       let signBit = numU64 0x8000000000000000UL 64<rt>
       frd := AST.ite (IEEE754Double.isNaN res) res (res <+> signBit)
@@ -769,6 +782,24 @@ let lfdx ins bld =
     tmpEA := ea
     dst := loadNative bld 64<rt> tmpEA
   }
+
+/// LFIWAX and LFIWZX move a word of memory into a floating register as the
+/// integer it is -- no conversion, the destination holding a bit pattern the
+/// convert instructions read afterwards. The two differ only in how the word
+/// reaches sixty-four bits: signed for LFIWAX, zero-filled for LFIWZX.
+let private lfiwx ins bld ext =
+  lift bld ins {
+    let struct (o1, o2, o3) = getThreeOprs ins
+    let frd = transOpr bld o1
+    let ea = transEAWithIndexReg o2 o3 bld
+    let tmpEA = tmpVar bld bld.RegType
+    tmpEA := ea
+    frd := ext 64<rt> (loadNative bld 32<rt> tmpEA)
+  }
+
+let lfiwax ins bld = lfiwx ins bld AST.sext
+
+let lfiwzx ins bld = lfiwx ins bld AST.zext
 
 let lfs ins bld =
   lift bld ins {
@@ -1205,6 +1236,33 @@ let mffs ins updateCond bld =
     dst := AST.zext 64<rt> fpscr
     if updateCond then setCR1Reg bld else ()
   }
+
+/// mffscrn and mffscrni: the FPSCR read out as mffs does, and then a new
+/// rounding mode put in force -- the low two bits of a floating register for
+/// the first, a two-bit immediate for the second. The read happens first, so
+/// what the destination receives is the mode that was in force on entry.
+let private mffscrn ins bld newMode =
+  lift bld ins {
+    let struct (o1, o2) = getTwoOprs ins
+    let dst = transOpr bld o1
+    let src = transOpr bld o2
+    let fpscr = regVar bld Register.FPSCR
+    let struct (old, mode) = tmpVars2 bld 32<rt>
+    (* The mode is taken before the destination is written: the two are very
+       often the same register -- a compiler that wants only the side effect
+       writes mffscrn f0, f0 -- and reading the source afterwards would read
+       back the status word just stored into it. *)
+    old := fpscr
+    mode := newMode src
+    dst := AST.zext 64<rt> old
+    fpscr := (old .& numU32 0xfffffffcu 32<rt>) .| mode
+  }
+
+let mffscrnReg ins bld =
+  mffscrn ins bld (fun src -> AST.xtlo 32<rt> src .& numU32 3u 32<rt>)
+
+let mffscrnImm ins bld =
+  mffscrn ins bld (fun src -> AST.xtlo 32<rt> src .& numU32 3u 32<rt>)
 
 let mflr ins bld =
   lift bld ins {
@@ -2430,8 +2488,9 @@ let fcfid ins updateCond bld signed single =
     if updateCond then setCR1Reg bld else ()
   }
 
-/// frin/friz/frip/frim, which round a double to an integral value in place,
-/// respectively to nearest, toward zero, up, and down.
+/// frin/friz/frip/frim, which round a double to an integral value in place:
+/// to nearest with a tie going AWAY from zero -- not the even one IEEE
+/// rounds to -- and then toward zero, up, and down.
 let frnd ins updateCond bld mode =
   lift bld ins {
     let struct (frd, frb) = transTwoOprs ins bld
