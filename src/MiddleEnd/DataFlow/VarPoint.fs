@@ -99,5 +99,8 @@ module VarKind =
       iterUses onVarRead tryStackOffset e1
       iterUses onVarRead tryStackOffset e2
       iterUses onVarRead tryStackOffset e3
+    | LowUIR.RoundCtrl(mode, body, _) ->
+      iterUses onVarRead tryStackOffset mode
+      iterUses onVarRead tryStackOffset body
     | _ ->
       ()

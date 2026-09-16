@@ -227,6 +227,10 @@ type State<'L, 'ExeCtx
       let sexpr = computeSSAExpr pp exeCtx e
       let rt = Expr.typeOf e
       SSA.Cast(op, rt, sexpr)
+    | RoundCtrl(mode, body, _) as e ->
+      let smode = computeSSAExpr pp exeCtx mode
+      let sbody = computeSSAExpr pp exeCtx body
+      SSA.RoundCtrl(smode, Expr.typeOf e, sbody)
     | Ite(e1, e2, e3, _) ->
       let sexpr1 = computeSSAExpr pp exeCtx e1
       let sexpr2 = computeSSAExpr pp exeCtx e2

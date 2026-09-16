@@ -375,22 +375,18 @@ let fist (ins: Instruction) bld doPop =
     let oprExpr = transOneOpr ins bld
     let oprSize = Expr.typeOf oprExpr
     let struct (st0b, st0a) = getFPUPseudoRegVars bld R.ST0
-    let tmp0 = tmpVar bld oprSize
-    let rcField = tmpVar bld 8<rt> (* Rounding Control *)
-    let num2 = numI32 2 8<rt>
-    let cst00 = AST.cast CastKind.FtoIRound oprSize tmp0
-    let cst01 = AST.cast CastKind.FtoIFloor oprSize tmp0
-    let cst10 = AST.cast CastKind.FtoICeil oprSize tmp0
-    let cst11 = AST.cast CastKind.FtoITrunc oprSize tmp0
-    castFrom80Bit tmp0 oprSize st0b st0a bld
-    direct rcField := (AST.zext 8<rt> (AST.extract (regVar bld R.FCW) 1<rt> 10))
-    direct rcField := (rcField << AST.num1 8<rt>)
-    direct rcField :=
-      (rcField .| (AST.zext 8<rt> (AST.extract (regVar bld R.FCW) 1<rt> 11)))
-    direct tmp0 := AST.ite (rcField == AST.num0 8<rt>) cst00 cst11
-    direct tmp0 := AST.ite (rcField == AST.num1 8<rt>) cst01 tmp0
-    direct tmp0 := AST.ite (rcField == num2) cst10 tmp0
-    direct oprExpr := tmp0
+    (* The stack value is brought down to a double and converted from there,
+       whatever width the destination is. Bringing it down to the destination's
+       own width first -- a half for a word destination -- is a second rounding
+       the instruction does not perform, and leaves a format the conversion
+       cannot read. FISTTP does the same. *)
+    let tmp0 = tmpVar bld 64<rt>
+    (* FCW bits 11:10 are the rounding control, in the encoding the IR's own
+       rounding mode uses. *)
+    let rc = AST.zext 8<rt> (AST.extract (regVar bld R.FCW) 2<rt> 10)
+    castFrom80Bit tmp0 64<rt> st0b st0a bld
+    let body = AST.cast CastKind.FloatToSInt oprSize tmp0
+    direct oprExpr := AST.roundCtrl rc body
     if doPop then popFPUStack bld else ()
     updateC1OnStore bld
   }
@@ -402,7 +398,7 @@ let fisttp (ins: Instruction) bld =
     let tmp1 = tmpVar bld 64<rt>
     let struct (st0b, st0a) = getFPUPseudoRegVars bld R.ST0
     castFrom80Bit tmp1 64<rt> st0b st0a bld
-    direct oprExpr := AST.cast CastKind.FtoITrunc oprSize tmp1
+    direct oprExpr := AST.floatToSInt RoundingMode.TowardZero oprSize tmp1
     popFPUStack bld
     direct (regVar bld R.FSWC1) := AST.b0
 #if !EMULATION
@@ -515,7 +511,7 @@ let fbstp (ins: Instruction) bld =
     let tmp = tmpVar bld 64<rt>
     let intgr = tmpVar bld 64<rt>
     castFrom80Bit tmp 64<rt> st0b st0a bld
-    direct intgr := AST.cast CastKind.FtoIRound 64<rt> tmp
+    direct intgr := AST.floatToSInt RoundingMode.ToNearestEven 64<rt> tmp
     storeBCD addrExpr addrSize intgr bld
     popFPUStack bld
     updateC1OnStore bld
@@ -812,7 +808,7 @@ let private fpremWholeQuotient bld caster sts srcs tmps =
     let tmp0, tmp1 = srcs
     let divres, intres, tmpres, _ = tmps
     direct divres := AST.fdiv tmp0 tmp1
-    direct intres := AST.cast caster 64<rt> divres
+    direct intres := AST.floatToSInt caster 64<rt> divres
     direct tmpres := AST.fsub tmp0 (AST.fmul tmp1 (castToF64 intres))
     castTo80Bit bld st0b st0a tmpres
     direct (regVar bld R.FSWC2) := AST.b0
@@ -836,7 +832,7 @@ let private fpremScaledQuotient bld sts srcs expDiff tmps =
     direct tmpres := AST.fsub (castToF64 expDiff) (castToF64 (numI32 63 64<rt>))
     direct divider := AST.fpow n2 tmpres
     direct divres := AST.fdiv (AST.fdiv tmp0 tmp1) divider
-    direct intres := AST.cast CastKind.FtoITrunc 64<rt> divres
+    direct intres := AST.floatToSInt RoundingMode.TowardZero 64<rt> divres
     direct tmpres :=
       AST.fsub tmp0 (AST.fmul tmp1 (AST.fmul (castToF64 intres) divider))
   }
@@ -846,7 +842,8 @@ let fprem (ins: Instruction) bld round =
   lift bld ins {
     let struct (st0b, st0a) = getFPUPseudoRegVars bld R.ST0
     let struct (st1b, st1a) = getFPUPseudoRegVars bld R.ST1
-    let caster = if round then CastKind.FtoIRound else CastKind.FtoITrunc
+    let caster =
+      if round then RoundingMode.ToNearestEven else RoundingMode.TowardZero
     let lblUnordered = label bld "Unordered"
     let lblOrdered = label bld "Ordered"
     let lblLT64 = label bld "ExpDiffInRange"
@@ -915,24 +912,19 @@ let frndint (ins: Instruction) bld =
     let lblOrdered = label bld "Ordered"
     let lblExit = label bld "Exit"
     let tmp0 = tmpVar bld 64<rt>
-    let rcField = tmpVar bld 8<rt> (* Rounding Control *)
-    let cst00 = AST.cast CastKind.FtoIRound 64<rt> tmp0
-    let cst01 = AST.cast CastKind.FtoIFloor 64<rt> tmp0
-    let cst10 = AST.cast CastKind.FtoICeil 64<rt> tmp0
-    let cst11 = AST.cast CastKind.FtoITrunc 64<rt> tmp0
+    (* FCW bits 11:10 are the rounding control, in the encoding the IR's own
+       rounding mode uses. *)
+    let rc = AST.zext 8<rt> (AST.extract (regVar bld R.FCW) 2<rt> 10)
     castFrom80Bit tmp0 64<rt> st0b st0a bld
     AST.cjmp
       (isUnordered true tmp0) (AST.jmpDest lblExit) (AST.jmpDest lblOrdered)
     AST.lmark lblOrdered
-    direct rcField := (AST.zext 8<rt> (AST.extract (regVar bld R.FCW) 1<rt> 11))
-    direct rcField := (rcField << AST.num1 8<rt>)
-    direct rcField :=
-      (rcField .| (AST.zext 8<rt> (AST.extract (regVar bld R.FCW) 1<rt> 10)))
-    direct tmp0 := AST.ite (rcField == AST.num0 8<rt>) cst00 tmp0
-    direct tmp0 := AST.ite (rcField == AST.num1 8<rt>) cst01 tmp0
-    direct tmp0 := AST.ite (rcField == numI32 2 8<rt>) cst10 tmp0
-    direct tmp0 := AST.ite (rcField == numI32 3 8<rt>) cst11 tmp0
-    castTo80Bit bld st0b st0a (castToF64 tmp0)
+    (* The result stays a number: rounding through an integer answers a value
+       no integer can hold -- which FRNDINT rounds like any other -- with the
+       integer indefinite instead. *)
+    direct tmp0 :=
+      AST.roundCtrl rc (AST.cast CastKind.RoundToIntegral 64<rt> tmp0)
+    castTo80Bit bld st0b st0a tmp0
     AST.lmark lblExit
     updateC1OnStore bld
   }
@@ -945,7 +937,7 @@ let fscale (ins: Instruction) bld =
     let f2 = numI32 2 64<rt> |> castToF64
     castFrom80Bit tmp0 64<rt> st0b st0a bld
     castFrom80Bit tmp1 64<rt> st1b st1a bld
-    direct tmp2 := AST.cast CastKind.FtoITrunc 64<rt> tmp1
+    direct tmp2 := AST.floatToSInt RoundingMode.TowardZero 64<rt> tmp1
     let exp = AST.ite (tmp2 ?>= numI64 0L 64<rt>) tmp2 (AST.neg tmp2)
     direct tmp3 := AST.fpow f2 (castToF64 exp)
     let v =

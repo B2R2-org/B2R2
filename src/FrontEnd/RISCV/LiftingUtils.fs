@@ -459,116 +459,6 @@ let assignFCSR dst src bld =
       dst := src
   }
 
-let roundingToCastFloat x =
-  match x with
-  | OpRoundMode(rm) ->
-    match rm with
-    | RoundMode.RNE
-    | RoundMode.RMM -> CastKind.FtoFRound
-    | RoundMode.RTZ -> CastKind.FtoFTrunc
-    | RoundMode.RDN -> CastKind.FtoFFloor
-    | RoundMode.RUP -> CastKind.FtoFCeil
-    | _ -> raise InvalidOperandException
-  | _ ->
-    raise InvalidOperandException
-
-let roundingToCastInt x =
-  match x with
-  | OpRoundMode(rm) ->
-    match rm with
-    | RoundMode.RNE
-    | RoundMode.RMM -> CastKind.FtoIRound
-    | RoundMode.RTZ -> CastKind.FtoITrunc
-    | RoundMode.RDN -> CastKind.FtoIFloor
-    | RoundMode.RUP -> CastKind.FtoICeil
-    | _ -> raise InvalidOperandException
-  | _ ->
-    raise InvalidOperandException
-
-let dynamicRoundingFl bld rt res =
-  let tmpVar = tmpVar bld rt
-  let frm = (regVar bld Register.FRM) .& (numI32 7 32<rt>)
-  let condRNERMM = (frm == numI32 0 32<rt>) .| (frm == numI32 4 32<rt>)
-  let condRTZ = frm == numI32 1 32<rt>
-  let condRDN = frm == numI32 2 32<rt>
-  let condRUP = frm == numI32 3 32<rt>
-  let lblD0 = label bld "DF0"
-  let lblD1 = label bld "DF1"
-  let lblD2 = label bld "DF2"
-  let lblD3 = label bld "DF3"
-  let lblD4 = label bld "DF4"
-  let lblD5 = label bld "DF6"
-  let lblD6 = label bld "DF7"
-  let lblDException = label bld "DFException"
-  let lblDEnd = label bld "DFEnd"
-  append bld {
-    AST.cjmp condRNERMM (AST.jmpDest lblD0) (AST.jmpDest lblD1)
-    AST.lmark lblD0
-    tmpVar := AST.cast CastKind.FtoFRound rt res
-    AST.jmp (AST.jmpDest lblDEnd)
-    AST.lmark lblD1
-    AST.cjmp condRTZ (AST.jmpDest lblD2) (AST.jmpDest lblD3)
-    AST.lmark lblD2
-    tmpVar := AST.cast CastKind.FtoFTrunc rt res
-    AST.jmp (AST.jmpDest lblDEnd)
-    AST.lmark lblD3
-    AST.cjmp condRDN (AST.jmpDest lblD4) (AST.jmpDest lblD5)
-    AST.lmark lblD4
-    tmpVar := AST.cast CastKind.FtoFFloor rt res
-    AST.jmp (AST.jmpDest lblDEnd)
-    AST.lmark lblD5
-    AST.cjmp condRUP (AST.jmpDest lblD6) (AST.jmpDest lblDException)
-    AST.lmark lblD6
-    tmpVar := AST.cast CastKind.FtoFCeil rt res
-    AST.jmp (AST.jmpDest lblDEnd)
-    AST.lmark lblDException
-    AST.sideEffect UndefinedInstruction
-    AST.lmark lblDEnd
-  }
-  tmpVar
-
-let dynamicRoundingInt bld rt res =
-  let tmpVar = tmpVar bld rt
-  let frm = (regVar bld Register.FRM) .& (numI32 7 32<rt>)
-  let condRNERMM = (frm == numI32 0 32<rt>) .| (frm == numI32 4 32<rt>)
-  let condRTZ = frm == numI32 1 32<rt>
-  let condRDN = frm == numI32 2 32<rt>
-  let condRUP = frm == numI32 3 32<rt>
-  let lblD0 = label bld "DI0"
-  let lblD1 = label bld "DI1"
-  let lblD2 = label bld "DI2"
-  let lblD3 = label bld "DI3"
-  let lblD4 = label bld "DI4"
-  let lblD5 = label bld "DI6"
-  let lblD6 = label bld "DI7"
-  let lblDException = label bld "DIException"
-  let lblDEnd = label bld "DIEnd"
-  append bld {
-    AST.cjmp condRNERMM (AST.jmpDest lblD0) (AST.jmpDest lblD1)
-    AST.lmark lblD0
-    tmpVar := AST.cast (CastKind.FtoIRound) rt res
-    AST.jmp (AST.jmpDest lblDEnd)
-    AST.lmark lblD1
-    AST.cjmp condRTZ (AST.jmpDest lblD2) (AST.jmpDest lblD3)
-    AST.lmark lblD2
-    tmpVar := AST.cast (CastKind.FtoITrunc) rt res
-    AST.jmp (AST.jmpDest lblDEnd)
-    AST.lmark lblD3
-    AST.cjmp condRDN (AST.jmpDest lblD4) (AST.jmpDest lblD5)
-    AST.lmark lblD4
-    tmpVar := AST.cast (CastKind.FtoIFloor) rt res
-    AST.jmp (AST.jmpDest lblDEnd)
-    AST.lmark lblD5
-    AST.cjmp condRUP (AST.jmpDest lblD6) (AST.jmpDest lblDException)
-    AST.lmark lblD6
-    tmpVar := AST.cast (CastKind.FtoICeil) rt res
-    AST.jmp (AST.jmpDest lblDEnd)
-    AST.lmark lblDException
-    AST.sideEffect UndefinedInstruction
-    AST.lmark lblDEnd
-  }
-  tmpVar
-
 let transOneOpr (ins: Instruction) bld =
   match ins.Operands with
   | OneOperand o -> transOpr ins bld o
@@ -601,25 +491,6 @@ let transFourOprs (ins: Instruction) bld =
     raise InvalidOperandException
 
 let getNanBoxed e = (numU64 0xFFFFFFFF_00000000uL 64<rt>) .| (AST.zext 64<rt> e)
-
-let writeRoundedSingle dst src rm bld =
-  append bld {
-    let rtVal = getNanBoxed src
-    if rm <> OpRoundMode(RoundMode.DYN) then
-      let rounding = roundingToCastFloat rm
-      dst := AST.cast rounding 64<rt> rtVal
-    else
-      dst := dynamicRoundingFl bld 64<rt> rtVal
-  }
-
-let writeRoundedDouble dst src rm bld =
-  append bld {
-    if rm <> OpRoundMode(RoundMode.DYN) then
-      let rounding = roundingToCastFloat rm
-      dst := AST.cast rounding 64<rt> src
-    else
-      dst := dynamicRoundingFl bld 64<rt> src
-  }
 
 let getAddrFromMem x =
   match x with
@@ -755,60 +626,37 @@ let isSubnormal rt e =
     raise InvalidRegTypeException
 
 /// <summary>
-/// Sets frm to the direction the instruction's own rm field names, and hands
-/// back what it displaced so the caller can put it back.
+/// The direction the instruction's own rm field names, as the mode expression
+/// a <c>RoundCtrl</c> takes, or None where the field says dynamic.
 ///
-/// The IR has no per-operation rounding: an FADD is an FADD, and what it rounds
-/// by is whatever the target's rounding-control register says when the
-/// evaluator reaches it. A statically named direction is therefore had by
-/// setting frm for the length of the operation and putting it back, which is
-/// what the x86 front end does with MXCSR for AVX-512's static rounding. The
-/// value has to land in a temporary while frm is set, an expression not being
-/// evaluated where it is built.
-///
-/// A dynamic rm -- the encoding 111, which is what a compiler emits for very
-/// nearly every floating-point instruction in a real program -- names no
-/// direction of its own and leaves frm alone.
-///
-/// Routing the static case through frm rather than through a cast kind chosen
-/// at lift time is what lets one path serve both, so there is no second
-/// implementation to keep in step -- and it is the only way to reach a
-/// direction that has no cast kind of its own, round-to-nearest-ties-away
-/// among them.
+/// Dynamic -- the encoding 111, which is what a compiler emits for very nearly
+/// every floating-point instruction in a real program -- names no direction of
+/// its own: what is in force outside every RoundCtrl is frm, which is exactly
+/// what dynamic asks for, so there is nothing to wrap.
 /// </summary>
-let enterRoundingMode bld rm =
+let staticRounding rm =
   match rm with
   | OpRoundMode RoundMode.DYN ->
     None
-  | OpRoundMode mode ->
-    let saved = tmpVar bld 32<rt>
-    let frm = regVar bld Register.FRM
-    append bld {
-      saved := frm
-      frm := numI32 (int mode) 32<rt>
-    }
-    Some saved
+  | OpRoundMode RoundMode.RNE ->
+    Some(AST.roundingMode RoundingMode.ToNearestEven)
+  | OpRoundMode RoundMode.RTZ ->
+    Some(AST.roundingMode RoundingMode.TowardZero)
+  | OpRoundMode RoundMode.RDN ->
+    Some(AST.roundingMode RoundingMode.TowardNegative)
+  | OpRoundMode RoundMode.RUP ->
+    Some(AST.roundingMode RoundingMode.TowardPositive)
+  | OpRoundMode RoundMode.RMM ->
+    Some(AST.roundingMode RoundingMode.ToNearestAway)
   | _ ->
     raise InvalidOperandException
 
-/// Puts back what <c>enterRoundingMode</c> displaced.
-let leaveRoundingMode bld saved =
-  match saved with
-  | Some v -> append bld { regVar bld Register.FRM := v }
-  | None -> ()
-
-/// The same for one expression: evaluate it with frm holding the direction the
-/// instruction named, into a temporary, and put frm back. The temporary is
-/// needed because an expression is not evaluated where it is built.
-let underRoundingMode bld width rm value =
-  match enterRoundingMode bld rm with
-  | None ->
-    value
-  | saved ->
-    let result = tmpVar bld width
-    append bld { result := value }
-    leaveRoundingMode bld saved
-    result
+/// One expression evaluated in the direction the instruction named, where it
+/// named one. An operation with no direction of its own is left alone.
+let underRounding mode value =
+  match mode with
+  | Some m -> AST.roundCtrl m value
+  | None -> value
 
 /// <summary>
 /// The value a floating-point operation delivers, with any NaN it produced
@@ -911,18 +759,17 @@ let fpFmaExceptions sz negProduct negAddend x y z =
       numU64 (prodBit ||| addBit) 8<rt> ]
   AST.app (if sz = 32<rt> then "FEXC32" else "FEXC64") args 32<rt>
 
-let accrueFmaFlags bld sz negProduct negAddend x y z =
+let accrueFmaFlags bld mode sz negProduct negAddend x y z =
   let fflags = regVar bld Register.FFLAGS
-  append bld {
-    fflags := fflags .| fpFmaExceptions sz negProduct negAddend x y z
-  }
+  let exc = fpFmaExceptions sz negProduct negAddend x y z
+  append bld { fflags := fflags .| underRounding mode exc }
 
 /// Records what an operation raised, the way fcsr accrues it: the flags only
 /// ever go on, and nothing but an explicit write to the register takes them
 /// off again.
-let accrueFlags bld sz op a b =
+let accrueFlags bld mode sz op a b =
   let fflags = regVar bld Register.FFLAGS
-  append bld { fflags := fflags .| fpExceptions sz op a b }
+  append bld { fflags := fflags .| underRounding mode (fpExceptions sz op a b) }
 
 /// <summary>
 /// The fused multiply-add, as the one operation it is.
@@ -940,12 +787,8 @@ let accrueFlags bld sz op a b =
 /// payloads the way x86 does, where RISC-V answers every invalid operation
 /// with its one canonical NaN.
 ///
-/// What this does not carry is a rounding direction. The call rounds to
-/// nearest, so an FMADD whose rm field names a direction of its own is rounded
-/// as though it had said dynamic. Every compiler emits the dynamic encoding,
-/// and the arithmetic instructions that are not fused do honour a static
-/// direction -- see underRoundingMode; this is the one family where a named
-/// direction is dropped.
+/// The direction is the caller's to put on, with underRounding: the call has
+/// no operand for one, and takes what is in force where it is evaluated.
 /// </summary>
 let fpFused sz negProduct negAddend x y z =
   let prodBit = if negProduct then 1UL else 0UL

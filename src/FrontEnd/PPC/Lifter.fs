@@ -873,21 +873,21 @@ let translate (ins: Instruction) bld =
   | Op.FCFIDUSdot ->
     fcfid ins true bld false true
   | Op.FRIN ->
-    frnd ins false bld CastKind.FtoFRound
+    frnd ins false bld RoundingMode.ToNearestEven
   | Op.FRINdot ->
-    frnd ins true bld CastKind.FtoFRound
+    frnd ins true bld RoundingMode.ToNearestEven
   | Op.FRIZ ->
-    frnd ins false bld CastKind.FtoFTrunc
+    frnd ins false bld RoundingMode.TowardZero
   | Op.FRIZdot ->
-    frnd ins true bld CastKind.FtoFTrunc
+    frnd ins true bld RoundingMode.TowardZero
   | Op.FRIP ->
-    frnd ins false bld CastKind.FtoFCeil
+    frnd ins false bld RoundingMode.TowardPositive
   | Op.FRIPdot ->
-    frnd ins true bld CastKind.FtoFCeil
+    frnd ins true bld RoundingMode.TowardPositive
   | Op.FRIM ->
-    frnd ins false bld CastKind.FtoFFloor
+    frnd ins false bld RoundingMode.TowardNegative
   | Op.FRIMdot ->
-    frnd ins true bld CastKind.FtoFFloor
+    frnd ins true bld RoundingMode.TowardNegative
   (* Vector forms. *)
   | Op.LVX | Op.LVXL ->
     lvx ins bld

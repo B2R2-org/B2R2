@@ -99,6 +99,8 @@ module DataFlowChain =
       extractUseFromExpr c (extractUseFromExpr e1 (extractUseFromExpr e2 acc))
     | Cast(_, _, e, _) ->
       extractUseFromExpr e acc
+    | RoundCtrl(mode, body, _) ->
+      extractUseFromExpr mode (extractUseFromExpr body acc)
     | Extract(e, _, _, _) ->
       extractUseFromExpr e acc
     | _ ->

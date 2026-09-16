@@ -97,6 +97,9 @@ module private SSAPromoterFactory =
     | Cast(ck, rt, e) ->
       replaceLoad state e
       |> Option.map (fun e -> Cast(ck, rt, e))
+    | RoundCtrl(mode, rt, body) ->
+      replaceLoad state body
+      |> Option.map (fun body -> RoundCtrl(mode, rt, body))
     | Extract(e, rt, sPos) ->
       replaceLoad state e
       |> Option.map (fun e -> Extract(e, rt, sPos))

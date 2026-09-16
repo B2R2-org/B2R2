@@ -597,7 +597,7 @@ let fctiwz ins updateCond bld =
     let struct (frd, frb) = transTwoOprs ins bld
     let src = tmpVar bld 64<rt>
     src := frb
-    frd := AST.cast CastKind.FtoITrunc 64<rt> src
+    frd := AST.floatToSInt RoundingMode.TowardZero 64<rt> src
     saturateWord bld frd src
     setFPRF bld frd
     if updateCond then setCR1Reg bld else ()
@@ -2363,8 +2363,10 @@ let private toUInt64 bld dst src truncate =
   append bld {
     big := AST.fge src half
     adjusted := AST.ite big (AST.fsub src half) src
-    if truncate then dst := AST.cast CastKind.FtoITrunc 64<rt> adjusted
-    else roundingToCastInt bld dst adjusted
+    if truncate then
+      dst := AST.floatToSInt RoundingMode.TowardZero 64<rt> adjusted
+    else
+      roundingToCastInt bld dst adjusted
     dst := AST.ite big (dst .+ numU64 0x8000000000000000UL 64<rt>) dst
   }
 
@@ -2404,7 +2406,7 @@ let fcti ins updateCond bld width signed truncate =
     if not signed && width = 64<rt> then
       toUInt64 bld converted src truncate
     elif truncate then
-      converted := AST.cast CastKind.FtoITrunc 64<rt> src
+      converted := AST.floatToSInt RoundingMode.TowardZero 64<rt> src
     else
       roundingToCastInt bld converted src
     frd := AST.zext 64<rt> (AST.xtlo width converted)
@@ -2430,10 +2432,10 @@ let fcfid ins updateCond bld signed single =
 
 /// frin/friz/frip/frim, which round a double to an integral value in place,
 /// respectively to nearest, toward zero, up, and down.
-let frnd ins updateCond bld kind =
+let frnd ins updateCond bld mode =
   lift bld ins {
     let struct (frd, frb) = transTwoOprs ins bld
-    frd := AST.cast kind 64<rt> frb
+    frd := AST.roundToIntegral mode 64<rt> frb
     setFPRF bld frd
     if updateCond then setCR1Reg bld else ()
   }

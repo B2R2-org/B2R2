@@ -1844,25 +1844,25 @@ let vpmaskmovq ins bld = maskedMove ins bld 64<rt>
 /// integer conversion uses is the one the legacy forms use, which is to
 /// nearest rather than what MXCSR says -- a gap this shares with them rather
 /// than one it adds.
-let private cvtSameWidth (ins: Instruction) bld packSz castKind =
+let private cvtSameWidth (ins: Instruction) bld packSz conv =
   lift bld ins {
     let oprSize = getOperationSize ins
     let packNum = 64<rt> / packSz
     let struct (dst, src) = getTwoOprs ins
     let a = transOprToArr ins bld true packSz packNum oprSize src
-    let result = a |> Array.map (AST.cast castKind packSz)
+    let result = a |> Array.map (conv packSz)
     assignEVEXPacked ins bld packSz oprSize dst result
     fillZeroFromVLToMaxVL bld dst oprSize 512
   }
 
 let vcvtdq2ps ins bld =
-  cvtSameWidth ins bld 32<rt> CastKind.SIntToFloat
+  cvtSameWidth ins bld 32<rt> (AST.cast CastKind.SIntToFloat)
 
 let vcvtps2dq ins bld =
-  cvtSameWidth ins bld 32<rt> CastKind.FtoIRound
+  cvtSameWidth ins bld 32<rt> (AST.cast CastKind.FloatToSInt)
 
 let vcvttps2dq ins bld =
-  cvtSameWidth ins bld 32<rt> CastKind.FtoITrunc
+  cvtSameWidth ins bld 32<rt> (AST.floatToSInt RoundingMode.TowardZero)
 
 /// The conversions that change a lane's width. The instruction's operation
 /// size is the destination's width; the source is twice that where the lanes
@@ -1874,7 +1874,7 @@ let operandWidth (bld: ILowUIRBuilder) opr =
   | OprMem(_, _, _, sz) -> sz
   | _ -> raise InvalidOperandException
 
-let private cvtNarrowing (ins: Instruction) bld castKind =
+let private cvtNarrowing (ins: Instruction) bld conv =
   lift bld ins {
     let struct (dst, src) = getTwoOprs ins
     (* The source is as wide as its own operand -- half a 256-bit register's
@@ -1887,32 +1887,35 @@ let private cvtNarrowing (ins: Instruction) bld castKind =
     let lanes = RegType.toBitWidth dstSize / 32
     let result =
       Array.init lanes (fun i ->
-        if i < a.Length then AST.cast castKind 32<rt> a[i]
+        if i < a.Length then conv 32<rt> a[i]
         else AST.num0 32<rt>)
     assignEVEXPacked ins bld 32<rt> dstSize dst result
     fillZeroFromVLToMaxVL bld dst dstSize 512
   }
 
-let private cvtWidening (ins: Instruction) bld castKind =
+let private cvtWidening (ins: Instruction) bld conv =
   lift bld ins {
     let dstSize = getOperationSize ins
     let srcSize = RegType.fromBitWidth (RegType.toBitWidth dstSize / 2)
     let struct (dst, src) = getTwoOprs ins
     let a = transOprToArr ins bld true 32<rt> 2 srcSize src
-    let result = a |> Array.map (AST.cast castKind 64<rt>)
+    let result = a |> Array.map (conv 64<rt>)
     assignEVEXPacked ins bld 64<rt> dstSize dst result
     fillZeroFromVLToMaxVL bld dst dstSize 512
   }
 
-let vcvtpd2ps ins bld = cvtNarrowing ins bld CastKind.FloatCast
+let vcvtpd2ps ins bld = cvtNarrowing ins bld (AST.cast CastKind.FloatCast)
 
-let vcvtpd2dq ins bld = cvtNarrowing ins bld CastKind.FtoIRound
+let vcvtpd2dq ins bld =
+  cvtNarrowing ins bld (AST.cast CastKind.FloatToSInt)
 
-let vcvttpd2dq ins bld = cvtNarrowing ins bld CastKind.FtoITrunc
+let vcvttpd2dq ins bld =
+  cvtNarrowing ins bld (AST.floatToSInt RoundingMode.TowardZero)
 
-let vcvtdq2pd ins bld = cvtWidening ins bld CastKind.SIntToFloat
+let vcvtdq2pd ins bld =
+  cvtWidening ins bld (AST.cast CastKind.SIntToFloat)
 
-let vcvtps2pd ins bld = cvtWidening ins bld CastKind.FloatCast
+let vcvtps2pd ins bld = cvtWidening ins bld (AST.cast CastKind.FloatCast)
 
 /// The base and the displacement of a VSIB memory operand, each of them zero
 /// where the encoding leaves it out.

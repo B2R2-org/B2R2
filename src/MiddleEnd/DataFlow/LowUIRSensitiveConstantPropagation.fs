@@ -105,6 +105,10 @@ type LowUIRSensitiveConstantPropagation<'ExeCtx when 'ExeCtx: comparison>
     | Extract(e, rt, pos, _) ->
       let c = evaluateExpr state spp e
       ConstantDomain.extract c rt pos
+    (* A direction reaches nothing this domain folds -- it has no
+       floating-point arithmetic at all -- so only the body is read. *)
+    | RoundCtrl(_, body, _) ->
+      evaluateExpr state spp body
     | FuncName _ | ExprList _ | Undefined _ ->
       ConstantDomain.NotAConst
     | _ ->

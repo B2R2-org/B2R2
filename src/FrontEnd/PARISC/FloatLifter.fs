@@ -163,7 +163,7 @@ let private unary (ins: Instruction) bld f =
 let fsqrt ins bld = unary ins bld (fun _ v -> AST.fsqrt v)
 
 let frnd ins bld =
-  unary ins bld (fun w v -> AST.cast CastKind.FtoFRound w v)
+  unary ins bld (fun w v -> AST.roundToIntegral RoundingMode.ToNearestEven w v)
 
 /// The binary arithmetic. The operands come in the order they are written,
 /// which for the two that are not commutative is the order that decides the
@@ -314,8 +314,10 @@ let fcnv (ins: Instruction) bld =
           if isUnsigned sf then CastKind.UIntToFloat else CastKind.SIntToFloat
         AST.cast kind dw v
       | false, true ->
-        let kind = if truncates then CastKind.FtoITrunc else CastKind.FtoIRound
-        AST.cast kind dw v
+        let mode =
+          if truncates then RoundingMode.TowardZero
+          else RoundingMode.ToNearestEven
+        AST.floatToSInt mode dw v
       | true, true ->
         raise (NotImplementedIRException(Disasm.opCodeToString ins.Opcode))
     writeFp bld dw dst res

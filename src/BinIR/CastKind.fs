@@ -36,39 +36,25 @@ type CastKind =
   | SIntToFloat = 2
   /// Unsigned integer to float conversion
   | UIntToFloat = 3
-  /// Float to Nearest Integer rounded conversion. Ties to even. When the given
-  /// float is too large to be represented as an integer, the result is MIN_INT,
-  /// i.e., 0x80000000 for 32-bit integers and 0x8000000000000000 for 64-bit
-  /// integers.
-  | FtoIRound = 4
-  /// Float to Integer rounded up conversion (toward +inf). When the given float
-  /// is too large to be represented as an integer, the result is MIN_INT, i.e.,
-  /// 0x80000000 for 32-bit integers and 0x8000000000000000 for 64-bit integers.
-  | FtoICeil = 5
-  /// Float to Integer rounded down conversion (toward -inf). When the given
-  /// float is too large to be represented as an integer, the result is MIN_INT,
-  /// i.e., 0x80000000 for 32-bit integers and 0x8000000000000000 for 64-bit
-  /// integers.
-  | FtoIFloor = 6
-  /// Float to Integer truncated conversion (closest to but no greater in
-  /// absolute value than the infinitely precise result). When the given float
-  /// is too large to be represented as an integer, the result is MIN_INT, i.e.,
-  /// 0x80000000 for 32-bit integers and 0x8000000000000000 for 64-bit integers.
-  | FtoITrunc = 7
+  /// <summary>
+  /// Float to signed integer conversion, in whatever direction is in force:
+  /// the one a <c>RoundCtrl</c> expression names, or, outside every
+  /// RoundCtrl, the one the target's own control register holds. There is no
+  /// unsigned form; a front end that needs one builds it on this. When the
+  /// given float is too large to be represented as an integer, the result is
+  /// MIN_INT, i.e., 0x80000000 for 32-bit integers and 0x8000000000000000 for
+  /// 64-bit ones.
+  /// </summary>
+  | FloatToSInt = 4
   /// Float-to-float conversion between different precisions.
-  | FloatCast = 8
-  /// Float-to-float conversion while rounding to the nearest integer. Ties to
-  /// even.
-  | FtoFRound = 9
-  /// Float-to-float conversion while rounding toward +inf. E.g., 23.2 -> 24.0,
-  /// and -23.7 -> -23.
-  | FtoFCeil = 10
-  /// Float-to-float conversion while rounding toward -inf. E.g., 23.7 -> 23.0,
-  /// and -23.2 -> -24.
-  | FtoFFloor = 11
-  /// Float-to-float conversion while rounding toward zero. E.g. 23.7 -> 23.0,
-  /// and -23.7 -> -23.
-  | FtoFTrunc = 12
+  | FloatCast = 5
+  /// <summary>
+  /// Float to an integral value of the same format, in whatever direction is
+  /// in force: the one a <c>RoundCtrl</c> expression names, or, outside every
+  /// RoundCtrl, the one the target's own control register holds. This is C's
+  /// <c>rint</c>; <c>FloatCast</c> is the one that changes the format.
+  /// </summary>
+  | RoundToIntegral = 6
 
 /// <summary>
 /// Provides functions to access <see cref='T:B2R2.BinIR.CastKind'/>.
@@ -84,16 +70,26 @@ module CastKind =
     | CastKind.ZeroExt -> "zext"
     | CastKind.SIntToFloat -> "sfloat"
     | CastKind.UIntToFloat -> "ufloat"
-    | CastKind.FtoIRound -> "round"
-    | CastKind.FtoICeil -> "ceil"
-    | CastKind.FtoIFloor -> "floor"
-    | CastKind.FtoITrunc -> "trunc"
+    | CastKind.FloatToSInt -> "fsint"
     | CastKind.FloatCast -> "fext"
-    | CastKind.FtoFRound -> "roundf"
-    | CastKind.FtoFCeil -> "ceilf"
-    | CastKind.FtoFFloor -> "floorf"
-    | CastKind.FtoFTrunc -> "truncf"
+    | CastKind.RoundToIntegral -> "rint"
     | _ -> raise IllegalASTTypeException
+
+  /// <summary>
+  /// Whether the result of the conversion depends on the rounding direction in
+  /// force, which makes it unfoldable wherever that direction is unknown.
+  /// </summary>
+  /// <remarks>
+  /// A float-to-float conversion that only widens is exact and could be folded
+  /// whatever the direction, but the kind alone does not say which way it
+  /// goes, and the fold is an optimisation rather than something anything
+  /// depends on.
+  /// </remarks>
+  [<CompiledName "IsRoundingDependent">]
+  let isRoundingDependent = function
+    | CastKind.SignExt
+    | CastKind.ZeroExt -> false
+    | _ -> true
 
   /// <summary>
   /// Retrieves the cast kind from the string representation.
@@ -104,13 +100,7 @@ module CastKind =
     | "zext" -> CastKind.ZeroExt
     | "sfloat" -> CastKind.SIntToFloat
     | "ufloat" -> CastKind.UIntToFloat
-    | "round" -> CastKind.FtoIRound
-    | "ceil" -> CastKind.FtoICeil
-    | "floor" -> CastKind.FtoIFloor
-    | "trunc" -> CastKind.FtoITrunc
+    | "fsint" -> CastKind.FloatToSInt
     | "fext" -> CastKind.FloatCast
-    | "roundf" -> CastKind.FtoFRound
-    | "ceilf" -> CastKind.FtoFCeil
-    | "floorf" -> CastKind.FtoFFloor
-    | "truncf" -> CastKind.FtoFTrunc
+    | "rint" -> CastKind.RoundToIntegral
     | _ -> raise IllegalASTTypeException

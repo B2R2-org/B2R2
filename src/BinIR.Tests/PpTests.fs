@@ -113,3 +113,17 @@ type PpTests() =
   member _.``PP assignment statement test``() =
     let e = AST.assign tmpvarNum0 tmpvarNum1
     assertEqualOfStrAndStmt "T_0:I32 := T_1:I32" e
+
+  [<TestMethod>]
+  member _.``PP construct rounded test``() =
+    let mode = AST.num (BitVector(int RoundingMode.TowardZero, 8<rt>))
+    let body = AST.cast CastKind.RoundToIntegral 32<rt> tmpvarNum0
+    let e = AST.roundCtrl mode body
+    assertEqualOfStrAndExpr "rnd(0x3:I8, rint:I32(T_0:I32))" e
+
+  [<TestMethod>]
+  member _.``PP rounded takes a dynamic mode``() =
+    let mode = AST.xtlo 8<rt> tmpvarNum1
+    let body = AST.cast CastKind.RoundToIntegral 32<rt> tmpvarNum0
+    let e = AST.roundCtrl mode body
+    assertEqualOfStrAndExpr "rnd((T_1:I32[7:0]), rint:I32(T_0:I32))" e

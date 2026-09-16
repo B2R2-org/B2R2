@@ -2224,9 +2224,9 @@ type Opcode =
   | SQRSHLR = 1096
   /// Multi-vector signed saturating rounding shift right narrow by immediate.
   | SQRSHR = 1097
-  /// Signed saturating Rounded Shift Right Narrow (immediate).
+  /// Signed saturating RoundCtrl Shift Right Narrow (immediate).
   | SQRSHRN = 1098
-  /// Signed saturating Rounded Shift Right Narrow (immediate).
+  /// Signed saturating RoundCtrl Shift Right Narrow (immediate).
   | SQRSHRN2 = 1099
   /// Signed saturating rounding shift right narrow by immediate (bottom).
   | SQRSHRNB = 1100
@@ -2234,9 +2234,9 @@ type Opcode =
   | SQRSHRNT = 1101
   /// Multi-vector signed saturating rounding shf right unsigned narrow by imm.
   | SQRSHRU = 1102
-  /// Signed saturating Rounded Shift Right Unsigned Narrow (immediate).
+  /// Signed saturating RoundCtrl Shift Right Unsigned Narrow (immediate).
   | SQRSHRUN = 1103
-  /// Signed saturating Rounded Shift Right Unsigned Narrow (immediate).
+  /// Signed saturating RoundCtrl Shift Right Unsigned Narrow (immediate).
   | SQRSHRUN2 = 1104
   /// Signed saturating rounding shift right unsigned narrow by imm (bottom).
   | SQRSHRUNB = 1105
@@ -2848,9 +2848,9 @@ type Opcode =
   | UQRSHLR = 1408
   /// Multi-vector unsigned saturating rounding shift right narrow by immediate.
   | UQRSHR = 1409
-  /// Unsigned saturating Rounded Shift Right Narrow (immediate).
+  /// Unsigned saturating RoundCtrl Shift Right Narrow (immediate).
   | UQRSHRN = 1410
-  /// Unsigned saturating Rounded Shift Right Narrow (immediate).
+  /// Unsigned saturating RoundCtrl Shift Right Narrow (immediate).
   | UQRSHRN2 = 1411
   /// Unsigned saturating rounding shift right narrow by immediate (bottom).
   | UQRSHRNB = 1412

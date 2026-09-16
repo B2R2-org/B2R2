@@ -906,9 +906,9 @@ type Opcode =
   | VQRDMULH = 437
   /// Vector Saturating Rounding Shift Left.
   | VQRSHL = 438
-  /// Vector Saturating Shift Right, Rounded Unsigned Narrow.
+  /// Vector Saturating Shift Right, RoundCtrl Unsigned Narrow.
   | VQRSHRN = 439
-  /// Vector Saturating Shift Right, Rounded Unsigned Narrow.
+  /// Vector Saturating Shift Right, RoundCtrl Unsigned Narrow.
   | VQRSHRUN = 440
   /// Vector Saturating Shift Left.
   | VQSHL = 441

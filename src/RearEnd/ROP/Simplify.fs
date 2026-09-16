@@ -73,6 +73,7 @@ let rec simplify expr =
   | Load(endian, ty, e1, _) -> AST.load endian ty <| simplify e1
   | Ite(e1, e2, e3, _) -> AST.ite (simplify e1) (simplify e2) (simplify e3)
   | Cast(kind, ty, e1, _) -> simplifyCast kind ty e1
+  | RoundCtrl(m, e1, _) -> AST.roundCtrl (simplify m) (simplify e1)
   | _ -> expr (* Var, TempVar, Num, Name, PCVar *)
 
 and simplifyBinOp op ty e1 e2 =

@@ -103,6 +103,20 @@ module BinOpType =
     | _ -> raise IllegalASTTypeException
 
   /// <summary>
+  /// Whether the result of the operation depends on the rounding direction in
+  /// force, which makes it unfoldable wherever that direction is unknown.
+  /// </summary>
+  [<CompiledName "IsRoundingDependent">]
+  let isRoundingDependent = function
+    | BinOpType.FADD
+    | BinOpType.FSUB
+    | BinOpType.FMUL
+    | BinOpType.FDIV
+    | BinOpType.FPOW
+    | BinOpType.FLOG -> true
+    | _ -> false
+
+  /// <summary>
   /// Retrieves the binary operator from a string.
   /// </summary>
   [<CompiledName "OfString">]

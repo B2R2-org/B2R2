@@ -283,7 +283,7 @@ let private writeFloatOpr bld ins size opr v =
     let dst = transOpr bld ins size opr
     let rt = regTypeOf size
     append bld {
-      writeLoc bld size dst (AST.cast CastKind.FtoIRound rt v)
+      writeLoc bld size dst (AST.floatToSInt RoundingMode.ToNearestEven rt v)
     }
   | _, Sz.Single ->
     let dst = transOpr bld ins Sz.Single opr
@@ -402,12 +402,12 @@ let fsqrt ins bld = monadic ins bld AST.fsqrt
 
 /// Lifts an FINT, which rounds to a whole number.
 let fint ins bld =
-  monadic ins bld (AST.cast CastKind.FtoFRound 64<rt>)
+  monadic ins bld (AST.roundToIntegral RoundingMode.ToNearestEven 64<rt>)
 
 /// Lifts an FINTRZ, which rounds to a whole number toward zero whatever the
 /// rounding mode says.
 let fintrz ins bld =
-  monadic ins bld (AST.cast CastKind.FtoFTrunc 64<rt>)
+  monadic ins bld (AST.roundToIntegral RoundingMode.TowardZero 64<rt>)
 
 /// Lifts an FGETEXP, which gives the exponent of its source as a whole number,
 /// counted from the bias rather than as the format stores it. A zero has no
@@ -424,7 +424,7 @@ let fgetexp ins bld =
 /// names, the source being a whole number rather than a real one.
 let fscale ins bld =
   dyadic ins bld (fun d s ->
-    let k = AST.cast CastKind.FtoITrunc 64<rt> s
+    let k = AST.floatToSInt RoundingMode.TowardZero 64<rt> s
     let e = (k .+ num64 1023UL) << numI32 52 64<rt>
     AST.fmul d e)
 
@@ -435,14 +435,14 @@ let private numFloat (v: float) = num64 (BitConverter.DoubleToUInt64Bits v)
 /// rounded toward zero.
 let fmod ins bld =
   dyadic ins bld (fun d s ->
-    let q = AST.cast CastKind.FtoFTrunc 64<rt> (AST.fdiv d s)
+    let q = AST.roundToIntegral RoundingMode.TowardZero 64<rt> (AST.fdiv d s)
     AST.fsub d (AST.fmul s q))
 
 /// Lifts an FREM, which is the remainder of a division whose quotient is
 /// rounded to the nearest whole number.
 let frem ins bld =
   dyadic ins bld (fun d s ->
-    let q = AST.cast CastKind.FtoFRound 64<rt> (AST.fdiv d s)
+    let q = AST.roundToIntegral RoundingMode.ToNearestEven 64<rt> (AST.fdiv d s)
     AST.fsub d (AST.fmul s q))
 
 /// The magnitude of a value, which is its sign bit cleared.

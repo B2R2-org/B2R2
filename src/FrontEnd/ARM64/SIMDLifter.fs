@@ -56,7 +56,7 @@ let private fpneg reg eSize =
     | _ -> raise InvalidOperandSizeException
   reg <+> mask
 
-let private fpType bld cast eSize element =
+let private fpType bld mode eSize element =
   let res = tmpVar bld eSize
   let struct (checkNan, checkInf) = tmpVars2 bld 1<rt>
   let lblNan = label bld "NaN"
@@ -76,7 +76,7 @@ let private fpType bld cast eSize element =
     AST.jmp (AST.jmpDest lblEnd)
     AST.lmark lblCon
   }
-  let castElem = AST.cast cast eSize element
+  let castElem = AST.roundToIntegral mode eSize element
   append bld {
     direct res := AST.ite (isZero eSize element) (fpZero element eSize) castElem
     AST.lmark lblEnd
@@ -1011,26 +1011,26 @@ let getIntRoundMode src oprSz bld =
   let fpcr = regVar bld R.FPCR |> AST.xtlo 32<rt>
   let rm = AST.shr (AST.shl fpcr (numI32 8 32<rt>)) (numI32 0x1E 32<rt>)
   AST.ite (rm == numI32 0 32<rt>)
-    (AST.cast CastKind.FtoIRound oprSz src) (* 0, RN *)
+    (AST.floatToSInt RoundingMode.ToNearestEven oprSz src) (* 0, RN *)
     (AST.ite (rm == numI32 1 32<rt>)
-      (AST.cast CastKind.FtoICeil oprSz src) (* 1, RZ *)
+      (AST.floatToSInt RoundingMode.TowardPositive oprSz src) (* 1, RZ *)
       (AST.ite (rm == numI32 2 32<rt>)
-        (AST.cast CastKind.FtoIFloor oprSz src) (* 2, RP *)
-        (AST.cast CastKind.FtoITrunc oprSz src))) (* 3, RM *)
+        (AST.floatToSInt RoundingMode.TowardNegative oprSz src) (* 2, RP *)
+        (AST.floatToSInt RoundingMode.TowardZero oprSz src))) (* 3, RM *)
 
-let private fpRoundToInt (ins: Instruction) bld cast =
+let private fpRoundToInt (ins: Instruction) bld mode =
   lift bld ins {
     match ins.Operands with
     | TwoOperands(OprSIMD(ScalarReg _) as dst, src) ->
       let struct (eSize, _, _) = getElemDataSzAndElems dst
       let src = transOpr ins bld src
-      let result = fpType bld cast eSize src
+      let result = fpType bld mode eSize src
       dstAssignScalar ins bld dst result eSize
     | TwoOperands(OprSIMD(VecReg _ ) as dst, src) ->
       let struct (eSize, dataSize, elements) = getElemDataSzAndElems dst
       let struct (dstB, dstA) = transOpr128 ins bld dst
       let src = transSIMDOprToExpr bld eSize dataSize elements src
-      let result = Array.map (fpType bld cast eSize) src
+      let result = Array.map (fpType bld mode eSize) src
       dstAssignForSIMD dstA dstB result dataSize elements bld
     | _ ->
       raise InvalidOperandException
@@ -1055,7 +1055,7 @@ let private fpCurrentRoundToInt (ins: Instruction) bld =
 
 let private tieawayCast bld eSize src =
   let sign = AST.xthi 1<rt> src
-  let trunc = AST.cast CastKind.FtoFTrunc eSize src
+  let trunc = AST.roundToIntegral RoundingMode.TowardZero eSize src
   let struct (t, res) = tmpVars2 bld eSize
   append bld {
     direct t := AST.fsub src trunc
@@ -1070,8 +1070,8 @@ let private tieawayCast bld eSize src =
     | 32<rt> -> numI32 0xBF000000 eSize (* -0.5 *)
     | 64<rt> -> numI64 0xBFE0000000000000L eSize (* -0.5 *)
     | _ -> raise InvalidOperandSizeException
-  let ceil = fpType bld CastKind.FtoFCeil eSize src
-  let floor = fpType bld CastKind.FtoFFloor eSize src
+  let ceil = fpType bld RoundingMode.TowardPositive eSize src
+  let floor = fpType bld RoundingMode.TowardNegative eSize src
   let pRes = AST.ite (AST.fge t comp1) ceil floor
   let nRes = AST.ite (AST.fle t comp2) floor ceil
   append bld {
@@ -1100,18 +1100,18 @@ let frinta (ins: Instruction) bld =
 let frinti ins bld = fpCurrentRoundToInt ins bld
 
 let frintm ins bld =
-  fpRoundToInt ins bld CastKind.FtoFFloor
+  fpRoundToInt ins bld RoundingMode.TowardNegative
 
 let frintn ins bld =
-  fpRoundToInt ins bld CastKind.FtoFRound
+  fpRoundToInt ins bld RoundingMode.ToNearestEven
 
 let frintp ins bld =
-  fpRoundToInt ins bld CastKind.FtoFCeil
+  fpRoundToInt ins bld RoundingMode.TowardPositive
 
 let frintx ins bld = fpCurrentRoundToInt ins bld
 
 let frintz ins bld =
-  fpRoundToInt ins bld CastKind.FtoFTrunc
+  fpRoundToInt ins bld RoundingMode.TowardZero
 
 let fsqrt ins bld =
   lift bld ins {

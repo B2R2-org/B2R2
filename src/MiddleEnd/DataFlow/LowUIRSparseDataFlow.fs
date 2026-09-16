@@ -201,6 +201,11 @@ type State<'Lattice when 'Lattice: equality>
     | Cast(castKind, rt, e, _) ->
       let e = translateToSSAExpr pp e
       SSA.Cast(castKind, rt, e)
+    | RoundCtrl(mode, body, _) ->
+      let rt = Expr.typeOf body
+      let mode = translateToSSAExpr pp mode
+      let body = translateToSSAExpr pp body
+      SSA.RoundCtrl(mode, rt, body)
     | FuncName(s, _) ->
       SSA.FuncName s
     | Undefined(rt, s, _) ->

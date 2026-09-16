@@ -882,13 +882,13 @@ let singleToHalfWith mode f =
     | 3 -> none
     | _ -> numI32 0x0FFF 32<rt> .+ odd
   let toInt =
+    let up = AST.floatToSInt RoundingMode.TowardPositive 32<rt> scaled
+    let down = AST.floatToSInt RoundingMode.TowardNegative 32<rt> scaled
     match mode with
-    | 1 -> AST.ite isNeg (AST.cast CastKind.FtoICeil 32<rt> scaled)
-                         (AST.cast CastKind.FtoIFloor 32<rt> scaled)
-    | 2 -> AST.ite isNeg (AST.cast CastKind.FtoIFloor 32<rt> scaled)
-                         (AST.cast CastKind.FtoICeil 32<rt> scaled)
-    | 3 -> AST.cast CastKind.FtoITrunc 32<rt> scaled
-    | _ -> AST.cast CastKind.FtoIRound 32<rt> scaled
+    | 1 -> AST.ite isNeg up down
+    | 2 -> AST.ite isNeg down up
+    | 3 -> AST.floatToSInt RoundingMode.TowardZero 32<rt> scaled
+    | _ -> AST.floatToSInt RoundingMode.ToNearestEven 32<rt> scaled
   let infinity = numI32 0x7C00 32<rt>
   let biggest = numI32 0x7BFF 32<rt>
   let tooBig =

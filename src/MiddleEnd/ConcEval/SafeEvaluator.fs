@@ -63,6 +63,7 @@ let rec evalExpr (st: ConcState) e =
   | Load(endian, t, addr, _) -> evalLoad st endian t addr
   | Ite(cond, e1, e2, _) -> evalIte st cond e1 e2
   | Cast(kind, t, e, _) -> evalCast st t e kind
+  | RoundCtrl(mode, body, _) -> evalRoundCtrl st mode body
   | Extract(e, t, p, _) -> evalExpr st e |> map2 BitVector.Extract t p
   | Undefined _ -> Ok Undef
   | _ -> Error ErrorCase.InvalidExprEvaluation
@@ -100,11 +101,34 @@ and private evalCast st t e = function
   | CastKind.FloatCast -> evalExpr st e |> map1 BitVector.FCast t
   | CastKind.SIntToFloat -> evalExpr st e |> map2 BitVector.Itof t true
   | CastKind.UIntToFloat -> evalExpr st e |> map2 BitVector.Itof t false
-  | CastKind.FtoICeil -> evalExpr st e |> map1 BitVector.FtoiCeil t
-  | CastKind.FtoIFloor -> evalExpr st e |> map1 BitVector.FtoiFloor t
-  | CastKind.FtoIRound -> evalExpr st e |> map1 BitVector.FtoiRound t
-  | CastKind.FtoITrunc -> evalExpr st e |> map1 BitVector.FtoiTrunc t
+  (* No direction is in force here, this evaluator having no notion of one, so
+     the conversion rounds to nearest as everything else does. A direction the
+     expression names outright is honoured by evalFtoI instead. *)
+  | CastKind.FloatToSInt -> evalExpr st e |> map1 BitVector.FtoiRound t
   | _ -> Error ErrorCase.InvalidExprEvaluation
+
+/// <summary>
+/// Evaluates a body in a direction it names. A float-to-integer conversion is
+/// the one rounding this evaluator can follow -- BitVector has a conversion
+/// for each of the four directions, where its arithmetic is the host's and
+/// takes none -- so every other body is evaluated as though the mode said
+/// round-to-nearest, which is what this evaluator did before a direction could
+/// be expressed at all.
+/// </summary>
+and private evalRoundCtrl st mode body =
+  match mode, body with
+  | Num(m, _), Cast(CastKind.FloatToSInt, t, e, _) ->
+    evalFtoI st (enum<RoundingMode> (int (m.ToUInt64()))) t e
+  | _ ->
+    evalExpr st body
+
+/// Converts a float to an integer in a direction the expression named.
+and private evalFtoI st mode t e =
+  match mode with
+  | RoundingMode.TowardPositive -> evalExpr st e |> map1 BitVector.FtoiCeil t
+  | RoundingMode.TowardNegative -> evalExpr st e |> map1 BitVector.FtoiFloor t
+  | RoundingMode.TowardZero -> evalExpr st e |> map1 BitVector.FtoiTrunc t
+  | _ -> evalExpr st e |> map1 BitVector.FtoiRound t
 
 and private evalUnOp st e = function
   | UnOpType.NEG -> evalUnOpConc st e BitVector.Neg

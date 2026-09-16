@@ -70,6 +70,12 @@ type Expr =
   /// second argument is a result type.
   | Cast of CastKind * RegType * Expr
 
+  /// The body evaluated with the given rounding direction in force. The first
+  /// argument is the mode, an 8-bit expression in the
+  /// <see cref='T:B2R2.BinIR.RoundingMode'/> encoding, the second is the
+  /// result type, and the third is the body.
+  | RoundCtrl of Expr * RegType * Expr
+
   /// Extraction expression. The first argument is target expression, and the
   /// second argument is the number of bits for extraction, and the third is
   /// the start position.
@@ -147,6 +153,12 @@ with
       sb.Append "(" |> ignore
       Expr.AppendToString(e, sb)
       sb.Append ")" |> ignore
+    | RoundCtrl(mode, _, body) ->
+      sb.Append "rnd(" |> ignore
+      Expr.AppendToString(mode, sb)
+      sb.Append ", " |> ignore
+      Expr.AppendToString(body, sb)
+      sb.Append ")" |> ignore
     | Extract(e, typ, p) ->
       sb.Append "(" |> ignore
       Expr.AppendToString(e, sb)
@@ -189,6 +201,7 @@ module Expr =
     | RelOp(_, rt, _, _) -> rt
     | Ite(_, rt, _, _) -> rt
     | Cast(_, rt, _) -> rt
+    | RoundCtrl(_, rt, _) -> rt
     | Extract(_, rt, _) -> rt
     | Undefined(rt, _) -> rt
     | _ -> raise InvalidExprException

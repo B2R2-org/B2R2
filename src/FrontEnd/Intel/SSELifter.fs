@@ -825,11 +825,16 @@ let cvtps2pi (ins: Instruction) bld rounded =
     let dst = transOpr ins bld false dst
     let src = transOpr64 ins bld false src
     let struct (tmp1, tmp2) = tmpVars2 bld 32<rt>
-    let castKind = if rounded then CastKind.FtoIRound else CastKind.FtoITrunc
+    (* The non-truncating form rounds the way MXCSR.RC says, which is what a
+       conversion with no direction of its own takes; the truncating twin
+       names one and ignores the register. *)
+    let toInt =
+      if rounded then AST.cast CastKind.FloatToSInt
+      else AST.floatToSInt RoundingMode.TowardZero
     direct tmp1 := AST.xtlo 32<rt> src
     direct tmp2 := AST.xthi 32<rt> src
-    direct (AST.xtlo 32<rt> dst) := AST.cast castKind 32<rt> tmp1
-    direct (AST.xthi 32<rt> dst) := AST.cast castKind 32<rt> tmp2
+    direct (AST.xtlo 32<rt> dst) := toInt 32<rt> tmp1
+    direct (AST.xthi 32<rt> dst) := toInt 32<rt> tmp2
     fillOnesToMMXHigh16 bld ins
   }
 
@@ -860,9 +865,14 @@ let cvtpd2pi (ins: Instruction) bld rounded =
     let struct (dst, src) = getTwoOprs ins
     let dst = transOpr ins bld false dst
     let struct (src2, src1) = transOpr128 ins bld false src
-    let castKind = if rounded then CastKind.FtoIRound else CastKind.FtoITrunc
-    direct (AST.xtlo 32<rt> dst) := AST.cast castKind 32<rt> src1
-    direct (AST.xthi 32<rt> dst) := AST.cast castKind 32<rt> src2
+    (* The non-truncating form rounds the way MXCSR.RC says, which is what a
+       conversion with no direction of its own takes; the truncating twin
+       names one and ignores the register. *)
+    let toInt =
+      if rounded then AST.cast CastKind.FloatToSInt
+      else AST.floatToSInt RoundingMode.TowardZero
+    direct (AST.xtlo 32<rt> dst) := toInt 32<rt> src1
+    direct (AST.xthi 32<rt> dst) := toInt 32<rt> src2
     fillOnesToMMXHigh16 bld ins
   }
 
@@ -871,9 +881,14 @@ let cvtpd2dq (ins: Instruction) bld rounded =
     let struct (dst, src) = getTwoOprs ins
     let struct (dst2, dst1) = transOpr128 ins bld false dst
     let struct (src2, src1) = transOpr128 ins bld false src
-    let castKind = if rounded then CastKind.FtoIRound else CastKind.FtoITrunc
-    direct (AST.xtlo 32<rt> dst1) := AST.cast castKind 32<rt> src1
-    direct (AST.xthi 32<rt> dst1) := AST.cast castKind 32<rt> src2
+    (* The non-truncating form rounds the way MXCSR.RC says, which is what a
+       conversion with no direction of its own takes; the truncating twin
+       names one and ignores the register. *)
+    let toInt =
+      if rounded then AST.cast CastKind.FloatToSInt
+      else AST.floatToSInt RoundingMode.TowardZero
+    direct (AST.xtlo 32<rt> dst1) := toInt 32<rt> src1
+    direct (AST.xthi 32<rt> dst1) := toInt 32<rt> src2
     direct dst2 := AST.num0 64<rt>
   }
 
@@ -899,15 +914,20 @@ let cvtps2dq (ins: Instruction) bld rounded =
     let struct (dst2, dst1) = transOpr128 ins bld false dst
     let struct (src2, src1) = transOpr128 ins bld false src
     let struct (tmp1, tmp2, tmp3, tmp4) = tmpVars4 bld 32<rt>
-    let castKind = if rounded then CastKind.FtoIRound else CastKind.FtoITrunc
+    (* The non-truncating form rounds the way MXCSR.RC says, which is what a
+       conversion with no direction of its own takes; the truncating twin
+       names one and ignores the register. *)
+    let toInt =
+      if rounded then AST.cast CastKind.FloatToSInt
+      else AST.floatToSInt RoundingMode.TowardZero
     direct tmp1 := AST.xtlo 32<rt> src1
     direct tmp2 := AST.xthi 32<rt> src1
     direct tmp3 := AST.xtlo 32<rt> src2
     direct tmp4 := AST.xthi 32<rt> src2
-    direct (AST.xtlo 32<rt> dst1) := AST.cast castKind 32<rt> tmp1
-    direct (AST.xthi 32<rt> dst1) := AST.cast castKind 32<rt> tmp2
-    direct (AST.xtlo 32<rt> dst2) := AST.cast castKind 32<rt> tmp3
-    direct (AST.xthi 32<rt> dst2) := AST.cast castKind 32<rt> tmp4
+    direct (AST.xtlo 32<rt> dst1) := toInt 32<rt> tmp1
+    direct (AST.xthi 32<rt> dst1) := toInt 32<rt> tmp2
+    direct (AST.xtlo 32<rt> dst2) := toInt 32<rt> tmp3
+    direct (AST.xthi 32<rt> dst2) := toInt 32<rt> tmp4
   }
 
 let cvtss2si (ins: Instruction) bld rounded =
@@ -917,11 +937,16 @@ let cvtss2si (ins: Instruction) bld rounded =
     let dst = transOpr ins bld false dst
     let src = transOpr32 ins bld false src
     let tmp = tmpVar bld 32<rt>
-    let castKind = if rounded then CastKind.FtoIRound else CastKind.FtoITrunc
+    (* The non-truncating form rounds the way MXCSR.RC says, which is what a
+       conversion with no direction of its own takes; the truncating twin
+       names one and ignores the register. *)
+    let toInt =
+      if rounded then AST.cast CastKind.FloatToSInt
+      else AST.floatToSInt RoundingMode.TowardZero
     if is64bit bld && oprSize = 64<rt> then
-      direct dst := AST.cast castKind 64<rt> src
+      direct dst := toInt 64<rt> src
     else
-      direct tmp := AST.cast castKind 32<rt> src
+      direct tmp := toInt 32<rt> src
       sized 32<rt> dst := tmp
   }
 
@@ -947,12 +972,17 @@ let cvtsd2si (ins: Instruction) bld rounded =
     let struct (dst, src) = getTwoOprs ins
     let dst = transOpr ins bld false dst
     let src = transOpr64 ins bld false src
-    let castKind = if rounded then CastKind.FtoIRound else CastKind.FtoITrunc
+    (* The non-truncating form rounds the way MXCSR.RC says, which is what a
+       conversion with no direction of its own takes; the truncating twin
+       names one and ignores the register. *)
+    let toInt =
+      if rounded then AST.cast CastKind.FloatToSInt
+      else AST.floatToSInt RoundingMode.TowardZero
     let tmp = tmpVar bld 32<rt>
     if is64bit bld && oprSize = 64<rt> then
-      direct dst := AST.cast castKind 64<rt> src
+      direct dst := toInt 64<rt> src
     else
-      direct tmp := AST.cast castKind 32<rt> src
+      direct tmp := toInt 32<rt> src
       sized 32<rt> dst := tmp
   }
 
@@ -2215,14 +2245,11 @@ let roundsd (ins: Instruction) bld =
     let src = transOpr64 ins bld false src
     let imm = transOpr ins bld false imm
     let rc = (AST.extract (regVar bld R.MXCSR) 8<rt> 13) .& (numI32 0b11 8<rt>)
-    let tmp = tmpVar bld 8<rt>
-    let cster castKind = AST.cast castKind 64<rt> src
     let imm2 = (AST.xtlo 8<rt> imm) .& (numI32 0b11 8<rt>)
-    direct tmp := AST.ite (AST.extract imm 1<rt> 2) rc imm2
-    direct dst := AST.ite (tmp == AST.num0 8<rt>) (cster CastKind.FtoFRound) dst
-    direct dst := AST.ite (tmp == AST.num1 8<rt>) (cster CastKind.FtoFFloor) dst
-    direct dst := AST.ite (tmp == numI32 2 8<rt>) (cster CastKind.FtoFCeil) dst
-    direct dst := AST.ite (tmp == numI32 3 8<rt>) (cster CastKind.FtoFTrunc) dst
+    let mode = tmpVar bld 8<rt>
+    direct mode := AST.ite (AST.extract imm 1<rt> 2) rc imm2
+    let body = AST.cast CastKind.RoundToIntegral 64<rt> src
+    direct dst := AST.roundCtrl mode body
   }
 
 /// The rounding mode an imm8 selects: bit 2 hands the choice to MXCSR.RC, and
@@ -2238,14 +2265,9 @@ let private roundingMode bld imm =
   mode
 
 /// One value rounded the way the mode says: to nearest, down, up, or toward
-/// zero.
+/// zero. The mode is MXCSR.RC's own encoding, which is the IR's.
 let private roundedTo sz mode src =
-  let cast kind = AST.cast kind sz src
-  let picks m = mode == numI32 m 8<rt>
-  let orTrunc = cast CastKind.FtoFTrunc
-  let orCeil = AST.ite (picks 2) (cast CastKind.FtoFCeil) orTrunc
-  let orFloor = AST.ite (picks 1) (cast CastKind.FtoFFloor) orCeil
-  AST.ite (picks 0) (cast CastKind.FtoFRound) orFloor
+  AST.roundCtrl mode (AST.cast CastKind.RoundToIntegral sz src)
 
 let private roundPacked (ins: Instruction) bld packSz isVex =
   lift bld ins {

@@ -267,13 +267,13 @@ let private saturate x lo loValue hi hiValue conv =
 
 /// A double truncated toward zero to a 64-bit integer, whose value is known to
 /// fit.
-let private trunc64 x = AST.cast CastKind.FtoITrunc 64<rt> x
+let private trunc64 x = AST.floatToSInt RoundingMode.TowardZero 64<rt> x
 
 /// A double converted to an int32, saturating, in canonical form.
 let toI32 x =
   let lo = numF64 -2147483648.0
   let hi = numF64 2147483648.0
-  let conv = AST.sext 64<rt> (AST.cast CastKind.FtoITrunc 32<rt> x)
+  let conv = AST.sext 64<rt> (AST.floatToSInt RoundingMode.TowardZero 32<rt> x)
   saturate x lo (numI64 -2147483648L 64<rt>) hi (num64 0x7fffffff) conv
 
 /// A double converted to a uint32, saturating, in canonical form.

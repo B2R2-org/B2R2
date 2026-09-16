@@ -2260,7 +2260,7 @@ let fstox ins bld =
     let struct (src, dst) = transTwoOprs ins bld
     let oprSize = 64<rt>
     let cst = tmpVar bld oprSize
-    cst := AST.cast CastKind.FtoITrunc oprSize src
+    cst := AST.floatToSInt RoundingMode.TowardZero oprSize src
     saturateInt bld cst src oprSize
     setDFloatOp bld dst cst
   }
@@ -2272,7 +2272,7 @@ let fdtox ins bld =
     let op = tmpVar bld oprSize
     let cst = tmpVar bld oprSize
     getDFloatOp bld src op
-    cst := AST.cast CastKind.FtoITrunc oprSize op
+    cst := AST.floatToSInt RoundingMode.TowardZero oprSize op
     saturateInt bld cst op oprSize
     setDFloatOp bld dst cst
   }
@@ -2288,7 +2288,7 @@ let fqtox ins bld =
     let cst = tmpVar bld oprSize
     getQFloatOp bld src op1 op2
     cast128to64 bld op1 op2 op64
-    cst := AST.cast CastKind.FtoITrunc oprSize op64
+    cst := AST.floatToSInt RoundingMode.TowardZero oprSize op64
     saturateInt bld cst op64 oprSize
     setDFloatOp bld dst cst
   }
@@ -2298,7 +2298,7 @@ let fstoi ins bld =
     let struct (src, dst) = transTwoOprs ins bld
     let oprSize = 32<rt>
     let cst = tmpVar bld oprSize
-    cst := AST.cast CastKind.FtoITrunc oprSize src
+    cst := AST.floatToSInt RoundingMode.TowardZero oprSize src
     saturateInt bld cst src oprSize
     dst := cst
   }
@@ -2311,7 +2311,7 @@ let fdtoi ins bld =
     let op = tmpVar bld oprSize
     let cst = tmpVar bld regSize
     getDFloatOp bld src op
-    cst := AST.cast CastKind.FtoITrunc regSize op
+    cst := AST.floatToSInt RoundingMode.TowardZero regSize op
     saturateInt bld cst op regSize
     dst := cst
   }
@@ -2327,7 +2327,7 @@ let fqtoi ins bld =
     let cst = tmpVar bld oprSize
     getQFloatOp bld src op1 op2
     cast128to64 bld op1 op2 op64
-    cst := AST.cast CastKind.FtoITrunc oprSize op64
+    cst := AST.floatToSInt RoundingMode.TowardZero oprSize op64
     saturateInt bld cst op64 oprSize
     dst := cst
   }

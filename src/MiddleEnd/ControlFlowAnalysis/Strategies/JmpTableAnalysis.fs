@@ -106,6 +106,8 @@ type JmpTableAnalysis<'FnCtx, 'GlCtx
       Ite(simplify c, rt, simplify e1, simplify e2)
     | Cast(k, rt, e) ->
       Cast(k, rt, simplify e)
+    | RoundCtrl(mode, rt, body) ->
+      RoundCtrl(simplify mode, rt, simplify body)
     | Extract(Cast(CastKind.ZeroExt, _, e), rt, 0) when Expr.typeOf e = rt ->
       e
     | Extract(Cast(CastKind.SignExt, _, e), rt, 0) when Expr.typeOf e = rt ->
@@ -144,6 +146,9 @@ type JmpTableAnalysis<'FnCtx, 'GlCtx
       Ite(e1, rt, e2, e3)
     | Cast(op, rt, e) ->
       Cast(op, rt, constantFold findConst findDef e)
+    | RoundCtrl(mode, rt, body) ->
+      let mode = constantFold findConst findDef mode
+      RoundCtrl(mode, rt, constantFold findConst findDef body)
     | Extract(e, rt, pos) ->
       Extract(constantFold findConst findDef e, rt, pos)
     | e ->
@@ -187,6 +192,10 @@ type JmpTableAnalysis<'FnCtx, 'GlCtx
     | Cast(op, rt, e) ->
       let e = symbExpand expandPhi findConst findDef doNext e
       Cast(op, rt, e)
+    | RoundCtrl(mode, rt, body) ->
+      let mode = symbExpand expandPhi findConst findDef doNext mode
+      let body = symbExpand expandPhi findConst findDef doNext body
+      RoundCtrl(mode, rt, body)
     | Extract(e, rt, pos) ->
       let e = symbExpand expandPhi findConst findDef doNext e
       Extract(e, rt, pos)

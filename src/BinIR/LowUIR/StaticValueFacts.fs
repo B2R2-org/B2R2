@@ -176,6 +176,9 @@ module StaticValueFacts =
       collectReadsFromExpr ctx reads writes e2
     | Cast(_, _, e, _) ->
       collectReadsFromExpr ctx reads writes e
+    | RoundCtrl(mode, body, _) ->
+      let reads, writes = collectReadsFromExpr ctx reads writes mode
+      collectReadsFromExpr ctx reads writes body
     | Extract(e, _, _, _) ->
       collectReadsFromExpr ctx reads writes e
 

@@ -126,7 +126,8 @@ module Helper =
     | Extract(e, _, _) ->
       variablesOfExpr e
     | BinOp(_, _, lhs, rhs)
-    | RelOp(_, _, lhs, rhs) ->
+    | RelOp(_, _, lhs, rhs)
+    | RoundCtrl(lhs, _, rhs) ->
       variablesOfExpr lhs @ variablesOfExpr rhs
     | Ite(cond, _, lhs, rhs) ->
       variablesOfExpr cond @ variablesOfExpr lhs @ variablesOfExpr rhs

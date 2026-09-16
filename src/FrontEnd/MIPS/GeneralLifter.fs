@@ -1683,7 +1683,7 @@ let truncw ins bld =
         let inf = isInfinity 64<rt> exponent mantissa
         let nan = isNaN 64<rt> exponent mantissa
         dst, tSrc, inf, nan
-    dst := AST.cast CastKind.FtoITrunc 32<rt> src
+    dst := AST.floatToSInt RoundingMode.TowardZero 32<rt> src
     dstTmp := dst
     let outOfRange = AST.sgt dstTmp intMax .| AST.slt dstTmp intMin
     dst := AST.ite (outOfRange .| inf .| nan) intMax dstTmp
@@ -1723,7 +1723,7 @@ let truncl ins bld =
         let inf = isInfinity 64<rt> exponent mantissa
         let nan = isNaN 64<rt> exponent mantissa
         src, inf, nan
-    eval := AST.cast CastKind.FtoITrunc 64<rt> src
+    eval := AST.floatToSInt RoundingMode.TowardZero 64<rt> src
     let outOfRange = AST.sgt eval intMax .| AST.slt eval intMin
     eval := AST.ite (outOfRange .| inf .| nan) intMax eval
     writeFPResult fdB fdA eval bld

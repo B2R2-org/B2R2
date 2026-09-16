@@ -68,6 +68,9 @@ module internal SSAForm =
       updateGlobals globals varKill cond
       updateGlobals globals varKill lhs
       updateGlobals globals varKill rhs
+    | RoundCtrl(mode, _, body) ->
+      updateGlobals globals varKill mode
+      updateGlobals globals varKill body
     | Extract(e, _, _) ->
       updateGlobals globals varKill e
 
@@ -153,6 +156,9 @@ module internal SSAForm =
       renameExpr stack expr3
     | Cast(_, _, expr) ->
       renameExpr stack expr
+    | RoundCtrl(mode, _, body) ->
+      renameExpr stack mode
+      renameExpr stack body
     | Extract(expr, _, _) ->
       renameExpr stack expr
 
