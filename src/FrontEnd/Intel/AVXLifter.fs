@@ -2669,7 +2669,7 @@ let private fmaPackedPH (ins: Instruction) bld order negProduct addend =
       let x = halfToSingle d[i]
       let y = halfToSingle a[i]
       let z = halfToSingle b[i]
-      singleToHalf (fmaLane 32<rt> order negProduct addend i x y z)
+      singleToHalf bld (fmaLane 32<rt> order negProduct addend i x y z)
     assignEVEXPacked ins bld 16<rt> oprSize dst (Array.init d.Length lane)
     fillZeroFromVLToMaxVL bld dst oprSize 512
   }
@@ -2686,7 +2686,8 @@ let private fmaScalarSH (ins: Instruction) bld order negProduct addend =
     let z = halfToSingle s3
     let value = fmaLane 32<rt> order negProduct addend 0 x y z
     let tmp = tmpVar bld 16<rt>
-    direct tmp := maskedScalar ins bld 16<rt> low (singleToHalf value)
+    let half = singleToHalf bld value
+    direct tmp := maskedScalar ins bld 16<rt> low half
     direct low := tmp
     fillZeroFromVLToMaxVL bld dst 128<rt> 512
   }

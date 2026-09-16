@@ -285,26 +285,14 @@ let floatingNeg bld dst src rt =
     dst := tmp
   }
 
-let roundingToCastInt bld frd frb =
-  append bld {
-    let fpscr = regVar bld Register.FPSCR
-    let rnA = AST.extract fpscr 1<rt> 1
-    let rnB = AST.extract fpscr 1<rt> 0
-    let lblRN0 = label bld "RN0x"
-    let lblRN1 = label bld "RN1x"
-    let lblEnd = label bld "End"
-    AST.cjmp rnA (AST.jmpDest lblRN1) (AST.jmpDest lblRN0)
-    AST.lmark lblRN0
-    frd := AST.ite rnB
-                   (AST.floatToSInt RoundingMode.TowardZero 64<rt> frb)
-                   (AST.floatToSInt RoundingMode.ToNearestEven 64<rt> frb)
-    AST.jmp (AST.jmpDest lblEnd)
-    AST.lmark lblRN1
-    frd := AST.ite rnB
-                   (AST.floatToSInt RoundingMode.TowardNegative 64<rt> frb)
-                   (AST.floatToSInt RoundingMode.TowardPositive 64<rt> frb)
-    AST.lmark lblEnd
-  }
+/// <summary>
+/// A double converted to the integer it stands for, rounded in whichever
+/// direction FPSCR[RN] names. That is what a bare conversion is: an expression
+/// no <c>RoundCtrl</c> encloses rounds by the target's own control register, so
+/// the four directions the field can name need neither be spelled out nor
+/// branched between.
+/// </summary>
+let roundingToCastInt frb = AST.cast CastKind.FloatToSInt 64<rt> frb
 
 let setCR0Reg (bld: ILowUIRBuilder) result =
   append bld {

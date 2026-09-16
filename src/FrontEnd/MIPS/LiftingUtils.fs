@@ -205,16 +205,14 @@ let transFPConcatThreeOprs bld (o1, o2, o3) =
   let o3 = transOprToFPPairConcat bld o3
   o1, o2, o3
 
-let roundToInt bld src oprSz =
-  let fcsr = regVar bld R.FCSR
-  let rm = fcsr .& (numI32 0b11 32<rt>)
-  AST.ite (rm == numI32 0 32<rt>)
-    (AST.floatToSInt RoundingMode.ToNearestEven oprSz src) // 0 RN
-    (AST.ite (rm == numI32 1 32<rt>)
-      (AST.floatToSInt RoundingMode.TowardZero oprSz src) // 1 RZ
-      (AST.ite (rm == numI32 2 32<rt>)
-        (AST.floatToSInt RoundingMode.TowardPositive oprSz src) // 2 RP
-        (AST.floatToSInt RoundingMode.TowardNegative oprSz src))) // 3 RM
+/// <summary>
+/// The source converted to an integer in whichever direction FCSR.RM names,
+/// which is what a bare conversion is: an expression no <c>RoundCtrl</c>
+/// encloses rounds by the target's own control register. The four directions
+/// the field can name therefore need not be spelled out, nor the conversion
+/// built four times over.
+/// </summary>
+let roundToInt src oprSz = AST.cast CastKind.FloatToSInt oprSz src
 
 let private isSNaN32 signalBit nanCheck =
   nanCheck .& (signalBit == AST.num0 32<rt>)

@@ -993,53 +993,24 @@ let isZero oprSize expr =
   | 64<rt> -> IEEE754Double.isZero expr
   | _ -> Terminator.impossible ()
 
+/// <summary>
 /// shared/functions/float/fproundingmode/FPRoundingMode
-/// FPRoundingMode()
-let fpRoundingMode src oprSz bld =
-  let fpcr = regVar bld R.FPCR |> AST.xtlo 32<rt>
-  let rm = tmpVar bld 32<rt>
-  let struct (rm1, rm0) = tmpVars2 bld 1<rt>
-  let res = tmpVar bld oprSz
-  append bld {
-    direct rm := (fpcr >> (numI32 22 32<rt>)) .& (numI32 0b11 32<rt>)
-    direct rm0 := AST.xtlo 1<rt> rm (* rm[0] *)
-    direct rm1 := rm >> (AST.num1 32<rt>) |> AST.xtlo 1<rt> (* rm[1] *)
-  }
-  let round mode = AST.roundToIntegral mode oprSz src
-  let lblRNRP = label bld "RNorRP"
-  let lblRMRZ = label bld "RMorRZ"
-  let lblEnd = label bld "End"
-  append bld {
-    AST.cjmp rm1 (AST.jmpDest lblRMRZ) (AST.jmpDest lblRNRP)
-    AST.lmark lblRMRZ
-    direct res :=
-      AST.ite rm0
-              (round RoundingMode.TowardZero)
-              (round RoundingMode.TowardNegative)
-    AST.jmp (AST.jmpDest lblEnd)
-    AST.lmark lblRNRP
-    direct res :=
-      AST.ite rm0
-              (round RoundingMode.TowardPositive)
-              (round RoundingMode.ToNearestEven)
-    AST.lmark lblEnd
-  }
-  res
+///
+/// The source rounded to a whole number in whichever direction FPCR.RMode
+/// names, which is what a bare <c>RoundToIntegral</c> is: an expression no
+/// <c>RoundCtrl</c> encloses rounds by the target's own control register, so
+/// the four directions the field can name need not be spelled out and the body
+/// need not be built four times over.
+/// </summary>
+let fpRoundingMode src oprSz = AST.cast CastKind.RoundToIntegral oprSz src
 
+/// <summary>
 /// shared/functions/float/fproundingmode/FPRoundingMode
-/// FtoI
-let fpRoundingToInt src oprSz bld =
-  let fpcr = regVar bld R.FPCR |> AST.xtlo 32<rt>
-  let rm = AST.shr (AST.shl fpcr (numI32 8 32<rt>)) (numI32 0x1E 32<rt>)
-  AST.ite (rm == numI32 0 32<rt>)
-    (AST.floatToSInt RoundingMode.ToNearestEven oprSz src) // 0 RN
-    (AST.ite (rm == numI32 1 32<rt>)
-      (AST.floatToSInt RoundingMode.TowardPositive oprSz src) // 1 RP
-      (AST.ite (rm == numI32 2 32<rt>)
-        (AST.floatToSInt RoundingMode.TowardNegative oprSz src) // 2 RMP
-        (AST.ite (rm == numI32 3 32<rt>)
-          (AST.floatToSInt RoundingMode.TowardZero oprSz src) // 3 RZ
-          src)))
+///
+/// FtoI, in the direction FPCR.RMode names -- a bare conversion, for the same
+/// reason as above.
+/// </summary>
+let fpRoundingToInt src oprSz = AST.cast CastKind.FloatToSInt oprSz src
 
 /// shared/functions/float/fpdefaultnan/FPDefaultNan
 /// FPDefaultNan()

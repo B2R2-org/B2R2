@@ -162,8 +162,11 @@ let private unary (ins: Instruction) bld f =
 
 let fsqrt ins bld = unary ins bld (fun _ v -> AST.fsqrt v)
 
+/// FRND rounds to a whole number in whichever direction the floating-point
+/// status register names, which is what a bare rounding is: an expression no
+/// <c>RoundCtrl</c> encloses rounds by the target's own control register.
 let frnd ins bld =
-  unary ins bld (fun w v -> AST.roundToIntegral RoundingMode.ToNearestEven w v)
+  unary ins bld (fun w v -> AST.cast CastKind.RoundToIntegral w v)
 
 /// The binary arithmetic. The operands come in the order they are written,
 /// which for the two that are not commutative is the order that decides the
@@ -291,8 +294,9 @@ let private convFormats (ins: Instruction) =
   | _ -> raise (NotImplementedIRException(Disasm.opCodeToString ins.Opcode))
 
 /// Converts between the floating-point formats and the integer ones. A
-/// conversion to an integer rounds to nearest unless the "t" completer asks for
-/// truncation, which is what a cast in C needs.
+/// conversion to an integer rounds as the floating-point status register says
+/// unless the "t" completer asks for truncation, which is what a cast in C
+/// needs.
 let fcnv (ins: Instruction) bld =
   lift bld ins {
     let struct (src, dst) = twoRegs ins
@@ -314,10 +318,8 @@ let fcnv (ins: Instruction) bld =
           if isUnsigned sf then CastKind.UIntToFloat else CastKind.SIntToFloat
         AST.cast kind dw v
       | false, true ->
-        let mode =
-          if truncates then RoundingMode.TowardZero
-          else RoundingMode.ToNearestEven
-        AST.floatToSInt mode dw v
+        if truncates then AST.floatToSInt RoundingMode.TowardZero dw v
+        else AST.cast CastKind.FloatToSInt dw v
       | true, true ->
         raise (NotImplementedIRException(Disasm.opCodeToString ins.Opcode))
     writeFp bld dw dst res

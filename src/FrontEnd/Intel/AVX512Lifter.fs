@@ -2506,7 +2506,7 @@ let private phBinOp ins bld opFn =
     let struct (dst, src1, src2) = getThreeOprs ins
     let a = transOprToArr ins bld true 16<rt> 4 oprSz src1
     let b = transOprToArr ins bld true 16<rt> 4 oprSz src2
-    let lane i = singleToHalf (opFn (halfToSingle a[i]) (halfToSingle b[i]))
+    let lane i = singleToHalf bld (opFn (halfToSingle a[i]) (halfToSingle b[i]))
     assignEVEXPacked ins bld 16<rt> oprSz dst (Array.init a.Length lane)
     fillZeroFromVLToMaxVL bld dst oprSz 512
   }
@@ -2516,7 +2516,7 @@ let private phUnOp ins bld opFn =
     let oprSz = getOperationSize ins
     let struct (dst, src) = getTwoOprs ins
     let a = transOprToArr ins bld true 16<rt> 4 oprSz src
-    let lane i = singleToHalf (opFn (halfToSingle a[i]))
+    let lane i = singleToHalf bld (opFn (halfToSingle a[i]))
     assignEVEXPacked ins bld 16<rt> oprSz dst (Array.init a.Length lane)
     fillZeroFromVLToMaxVL bld dst oprSz 512
   }
@@ -2528,14 +2528,14 @@ let private shBinOp ins bld opFn =
     let struct (dst, src1, src2) = getThreeOprs ins
     let a = halfToSingle (scalarSrc ins bld 16<rt> src1)
     let b = halfToSingle (scalarSrc ins bld 16<rt> src2)
-    assignScalar ins bld 16<rt> dst src1 (singleToHalf (opFn a b))
+    assignScalar ins bld 16<rt> dst src1 (singleToHalf bld (opFn a b))
   }
 
 let private shUnOp ins bld opFn =
   lift bld ins {
     let struct (dst, src1, src2) = getThreeOprs ins
     let value = opFn (halfToSingle (scalarSrc ins bld 16<rt> src2))
-    assignScalar ins bld 16<rt> dst src1 (singleToHalf value)
+    assignScalar ins bld 16<rt> dst src1 (singleToHalf bld value)
   }
 
 let vaddph ins bld = phBinOp ins bld AST.fadd
@@ -2596,7 +2596,7 @@ let private phImmOp ins bld opFn =
     let struct (dst, src, imm) = getThreeOprs ins
     let a = transOprToArr ins bld true 16<rt> 4 oprSz src
     let imm = getImmValue imm
-    let lane i = singleToHalf (opFn imm (halfToSingle a[i]))
+    let lane i = singleToHalf bld (opFn imm (halfToSingle a[i]))
     assignEVEXPacked ins bld 16<rt> oprSz dst (Array.init a.Length lane)
     fillZeroFromVLToMaxVL bld dst oprSz 512
   }
@@ -2606,7 +2606,7 @@ let private shImmOp ins bld opFn =
     let struct (dst, src1, src2, imm) = getFourOprs ins
     let a = halfToSingle (scalarSrc ins bld 16<rt> src2)
     let value = opFn (getImmValue imm) a
-    assignScalar ins bld 16<rt> dst src1 (singleToHalf value)
+    assignScalar ins bld 16<rt> dst src1 (singleToHalf bld value)
   }
 
 let vrndscaleph ins bld = phImmOp ins bld (rndScale bld 32<rt>)
@@ -2746,23 +2746,25 @@ let private half2Double h =
 
 let vcvtph2pd ins bld = cvtLanes ins bld 16<rt> 64<rt> half2Double
 
-let private double2Half d =
-  singleToHalf (AST.cast CastKind.FloatCast 32<rt> d)
+let private double2Half bld d =
+  singleToHalf bld (AST.cast CastKind.FloatCast 32<rt> d)
 
-let vcvtpd2ph ins bld = cvtLanes ins bld 64<rt> 16<rt> double2Half
+let vcvtpd2ph ins bld = cvtLanes ins bld 64<rt> 16<rt> (double2Half bld)
 
-let vcvtps2phx ins bld = cvtLanes ins bld 32<rt> 16<rt> singleToHalf
+let vcvtps2phx ins bld = cvtLanes ins bld 32<rt> 16<rt> (singleToHalf bld)
 
 /// VCVTPS2PH names its own rounding in the immediate, where every other
-/// narrowing to a half rounds to nearest. Bit 2 asks for MXCSR's, which is
-/// read as round-to-nearest here as everywhere.
+/// narrowing to a half takes MXCSR's. Bit 2 asks for MXCSR's here too, and the
+/// two bits below it are already the IR's own encoding of the four directions.
 let vcvtps2ph (ins: Instruction) bld =
   lift bld ins {
     let vl = vectorLength ins
     let struct (dst, src, imm) = getThreeOprs ins
     let s = transOprToArr ins bld true 32<rt> 2 vl src
     let imm = getImmValue imm
-    let mode = if imm &&& 4L <> 0L then 0 else int (imm &&& 3L)
+    let mode =
+      if imm &&& 4L <> 0L then mxcsrRounding bld
+      else AST.roundingMode (enum<RoundingMode> (int (imm &&& 3L)))
     assignEVEXPart ins bld 16<rt> dst (Array.map (singleToHalfWith mode) s)
   }
 
@@ -2811,7 +2813,7 @@ let vcvttph2uw ins bld = ph2word ins bld true false
 
 let private int2ph ins bld srcSz isSigned =
   let kind = if isSigned then CastKind.SIntToFloat else CastKind.UIntToFloat
-  let conv i = singleToHalf (AST.cast kind 32<rt> i)
+  let conv i = singleToHalf bld (AST.cast kind 32<rt> i)
   cvtLanes ins bld srcSz 16<rt> conv
 
 let vcvtw2ph ins bld = int2ph ins bld 16<rt> true
@@ -2839,9 +2841,9 @@ let vcvtsh2ss ins bld = cvtToScalar ins bld 32<rt> 16<rt> halfToSingle
 
 let vcvtsh2sd ins bld = cvtToScalar ins bld 64<rt> 16<rt> half2Double
 
-let vcvtss2sh ins bld = cvtToScalar ins bld 16<rt> 32<rt> singleToHalf
+let vcvtss2sh ins bld = cvtToScalar ins bld 16<rt> 32<rt> (singleToHalf bld)
 
-let vcvtsd2sh ins bld = cvtToScalar ins bld 16<rt> 64<rt> double2Half
+let vcvtsd2sh ins bld = cvtToScalar ins bld 16<rt> 64<rt> (double2Half bld)
 
 /// VCVTSI2SH and VCVTUSI2SH read a general-purpose register or memory operand
 /// rather than an element of a vector, so the source is taken whole.
@@ -2850,7 +2852,7 @@ let private cvtIntToSh (ins: Instruction) bld isSigned =
     let kind = if isSigned then CastKind.SIntToFloat else CastKind.UIntToFloat
     let struct (dst, src1, src2) = getThreeOprs ins
     let value = transOpr ins bld false src2
-    let half = singleToHalf (AST.cast kind 32<rt> value)
+    let half = singleToHalf bld (AST.cast kind 32<rt> value)
     assignScalar ins bld 16<rt> dst src1 half
   }
 
@@ -2940,8 +2942,8 @@ let private complexPacked (ins: Instruction) bld conj accumulate =
       let br = halfToSingle b[2 * j]
       let bi = halfToSingle b[2 * j + 1]
       let struct (re, im) = complexPair conj ar ai br bi
-      [| singleToHalf (accumulated (2 * j) re)
-         singleToHalf (accumulated (2 * j + 1) im) |]
+      [| singleToHalf bld (accumulated (2 * j) re)
+         singleToHalf bld (accumulated (2 * j + 1) im) |]
     let result = Array.init (a.Length / 2) pairAt |> Array.concat
     assignEVEXPacked ins bld 16<rt> oprSz dst result
     fillZeroFromVLToMaxVL bld dst oprSz 512
@@ -2980,8 +2982,10 @@ let private complexScalar (ins: Instruction) bld conj accumulate =
       if accumulate then AST.fadd (halfToSingle old) v else v
     let low = realOf d32
     let high = imagOf d32
-    let re = complexWritten ins bld 0 low (singleToHalf (accumulated low re))
-    let im = complexWritten ins bld 1 high (singleToHalf (accumulated high im))
+    let reHalf = singleToHalf bld (accumulated low re)
+    let imHalf = singleToHalf bld (accumulated high im)
+    let re = complexWritten ins bld 0 low reHalf
+    let im = complexWritten ins bld 1 high imHalf
     direct dstA := AST.concat (AST.xthi 32<rt> src1A) (AST.concat im re)
     direct dstB := src1B
     fillZeroFromVLToMaxVL bld dst 128<rt> 512

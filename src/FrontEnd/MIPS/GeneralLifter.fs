@@ -482,7 +482,7 @@ let cvtw ins bld =
         let inf = isInfinity 64<rt> exponent mantissa
         let nan = isNaN 64<rt> exponent mantissa
         dst, src, inf, nan
-    dst := roundToInt bld src 32<rt>
+    dst := roundToInt src 32<rt>
     let outOfRange = AST.sgt dst intMax .| AST.slt dst intMin
     dst := AST.ite (outOfRange .| inf .| nan) intMax dst
   }
@@ -521,7 +521,7 @@ let cvtl ins bld =
         let inf = isInfinity 64<rt> exponent mantissa
         let nan = isNaN 64<rt> exponent mantissa
         src, inf, nan
-    eval := roundToInt bld src 64<rt>
+    eval := roundToInt src 64<rt>
     let outOfRange = AST.sgt eval intMax .| AST.slt eval intMin
     eval := AST.ite (outOfRange .| inf .| nan) intMax eval
     writeFPResult fdB fdA eval bld

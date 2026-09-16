@@ -280,10 +280,13 @@ let private writeFloatOpr bld ins size opr v =
     let struct (hi, lo) = doubleToExtended bld v
     storeExtended bld addr hi lo
   | _, (Sz.Byte | Sz.Word | Sz.Long) ->
+    (* The conversion is left bare, which is to say rounded in whichever
+       direction FPCR.RND names: that is what the instruction does, and what an
+       expression no RoundCtrl encloses means. *)
     let dst = transOpr bld ins size opr
     let rt = regTypeOf size
     append bld {
-      writeLoc bld size dst (AST.floatToSInt RoundingMode.ToNearestEven rt v)
+      writeLoc bld size dst (AST.cast CastKind.FloatToSInt rt v)
     }
   | _, Sz.Single ->
     let dst = transOpr bld ins Sz.Single opr
@@ -400,9 +403,11 @@ let fabs ins bld =
 /// Lifts an FSQRT.
 let fsqrt ins bld = monadic ins bld AST.fsqrt
 
-/// Lifts an FINT, which rounds to a whole number.
+/// Lifts an FINT, which rounds to a whole number in whichever direction
+/// FPCR.RND names -- a bare rounding, as against FINTRZ below, which names one
+/// of its own.
 let fint ins bld =
-  monadic ins bld (AST.roundToIntegral RoundingMode.ToNearestEven 64<rt>)
+  monadic ins bld (AST.cast CastKind.RoundToIntegral 64<rt>)
 
 /// Lifts an FINTRZ, which rounds to a whole number toward zero whatever the
 /// rounding mode says.

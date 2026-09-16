@@ -35,6 +35,14 @@
 /// Nothing a Linux compiler emits uses these instructions, so the alternative
 /// would be to refuse them outright; a result correct to a double's precision
 /// is the more useful answer, and this is where to look when it is not enough.
+///
+/// The rounding is the same story. Hexadecimal arithmetic truncates and takes
+/// no direction from the floating-point control register, whose rounding mode
+/// belongs to the binary instructions; what is written here is binary
+/// arithmetic, so a program that has set that mode rounds these operations by
+/// it too. The two agree wherever the mode is the one every program starts in,
+/// and where they do not the difference is in the same low bits the paragraph
+/// above already gives away.
 module internal B2R2.FrontEnd.S390.HexFloatLifter
 
 open B2R2

@@ -191,15 +191,34 @@ let private convOprs (ins: Instruction) =
   | FourOperands(o1, o2, m, _) -> struct (o1, o2, oprMask m)
   | _ -> raise InvalidOperandException
 
-/// The rounding a conversion to an integer applies. A mode of zero defers to
-/// the floating-point control, whose initial state -- and the only one a
-/// program that never sets it has -- rounds to nearest.
-let private intRounding (m: Mask) =
+/// <summary>
+/// The rounding a conversion applies, as the mode expression a
+/// <c>RoundCtrl</c> takes, or None where the modifier is zero.
+///
+/// Zero is the ordinary case and says to round as the floating-point control
+/// register does, which is what an expression no RoundCtrl encloses already
+/// does: there is nothing to wrap. The rest are the modifiers the architecture
+/// defines -- 1 to the nearest with ties away from zero, 4 to the nearest with
+/// ties to even, 5 toward zero, 6 toward positive infinity, 7 toward negative
+/// infinity. Modifier 3, round to prepare for shorter precision, names a
+/// rounding the IR cannot say, and falls to the control register with the
+/// values the architecture leaves invalid.
+/// </summary>
+let private maskRounding (m: Mask) =
   match m &&& 0xfus with
-  | 5us -> RoundingMode.TowardZero
-  | 6us -> RoundingMode.TowardPositive
-  | 7us -> RoundingMode.TowardNegative
-  | _ -> RoundingMode.ToNearestEven
+  | 1us -> Some(AST.roundingMode RoundingMode.ToNearestAway)
+  | 4us -> Some(AST.roundingMode RoundingMode.ToNearestEven)
+  | 5us -> Some(AST.roundingMode RoundingMode.TowardZero)
+  | 6us -> Some(AST.roundingMode RoundingMode.TowardPositive)
+  | 7us -> Some(AST.roundingMode RoundingMode.TowardNegative)
+  | _ -> None
+
+/// One expression evaluated in the direction the modifier named, where it
+/// named one. A conversion that defers to the control register is left alone.
+let private underRounding mode value =
+  match mode with
+  | Some m -> AST.roundCtrl m value
+  | None -> value
 
 /// A conversion from a fixed-point value to a floating-point one.
 let fromInt ins bld rt intW signed =
@@ -222,10 +241,12 @@ let private roundedInt bld m f t unsignedWide =
     if unsignedWide then
       let big = AST.fge f half
       let shifted = AST.ite big (AST.fsub f half) f
-      t := AST.floatToSInt (intRounding m) 64<rt> shifted
+      let v = AST.cast CastKind.FloatToSInt 64<rt> shifted
+      t := underRounding (maskRounding m) v
       t := AST.ite big (t .+ numU64 0x8000000000000000UL 64<rt>) t
     else
-      t := AST.floatToSInt (intRounding m) 64<rt> f
+      let v = AST.cast CastKind.FloatToSInt 64<rt> f
+      t := underRounding (maskRounding m) v
   }
 
 /// CONVERT TO FIXED and CONVERT TO LOGICAL: the value is rounded as the mask
@@ -272,15 +293,6 @@ let toInt ins bld rt intW signed =
     if intW = GRSize then append bld { d := r } else append bld { low d := r }
   }
 
-/// The rounding a conversion to an integral floating-point value applies,
-/// which follows the same mask as a conversion to a fixed-point one.
-let private floatRounding (m: Mask) =
-  match m &&& 0xfus with
-  | 5us -> RoundingMode.TowardZero
-  | 6us -> RoundingMode.TowardPositive
-  | 7us -> RoundingMode.TowardNegative
-  | _ -> RoundingMode.ToNearestEven
-
 /// LOAD FP INTEGER: the value rounded to a whole number, still in floating
 /// point, which is how a program floors or truncates without leaving the
 /// format.
@@ -289,8 +301,8 @@ let roundToInt ins bld rt =
     let struct (o1, o2, m) = convOprs ins
     let d = oprRegVar bld o1
     let src = fpPart rt (oprRegVar bld o2)
-    let v = AST.roundToIntegral (floatRounding m) rt src
-    fpPart rt d := v
+    let v = AST.cast CastKind.RoundToIntegral rt src
+    fpPart rt d := underRounding (maskRounding m) v
   }
 
 /// The sign-manipulating loads that leave the condition code alone, which is
@@ -812,7 +824,8 @@ let extRoundToInt ins bld =
     let struct (shi, slo) = extPair bld (oprReg o2)
     let r = tmpVar bld 64<rt>
     lift bld (ins: Instruction) {
-      r := AST.roundToIntegral (floatRounding m) 64<rt> (extAsDouble shi slo)
+      let v = AST.cast CastKind.RoundToIntegral 64<rt> (extAsDouble shi slo)
+      r := underRounding (maskRounding m) v
       extPutDouble bld dhi dlo r
     }
 

@@ -1007,17 +1007,6 @@ let fnmul (ins: Instruction) bld =
     dstAssignScalar ins bld dst result ins.OprSize
   }
 
-let getIntRoundMode src oprSz bld =
-  let fpcr = regVar bld R.FPCR |> AST.xtlo 32<rt>
-  let rm = AST.shr (AST.shl fpcr (numI32 8 32<rt>)) (numI32 0x1E 32<rt>)
-  AST.ite (rm == numI32 0 32<rt>)
-    (AST.floatToSInt RoundingMode.ToNearestEven oprSz src) (* 0, RN *)
-    (AST.ite (rm == numI32 1 32<rt>)
-      (AST.floatToSInt RoundingMode.TowardPositive oprSz src) (* 1, RZ *)
-      (AST.ite (rm == numI32 2 32<rt>)
-        (AST.floatToSInt RoundingMode.TowardNegative oprSz src) (* 2, RP *)
-        (AST.floatToSInt RoundingMode.TowardZero oprSz src))) (* 3, RM *)
-
 let private fpRoundToInt (ins: Instruction) bld mode =
   lift bld ins {
     match ins.Operands with
@@ -1041,13 +1030,13 @@ let private fpCurrentRoundToInt (ins: Instruction) bld =
     match ins.Operands with
     | TwoOperands(OprSIMD(ScalarReg _) as dst, src) ->
       let src = transOpr ins bld src
-      let result = fpRoundingMode src ins.OprSize bld
+      let result = fpRoundingMode src ins.OprSize
       dstAssignScalar ins bld dst result ins.OprSize
     | TwoOperands(OprSIMD(VecReg _ ) as dst, src) ->
       let struct (eSize, dataSize, elements) = getElemDataSzAndElems dst
       let struct (dstB, dstA) = transOpr128 ins bld dst
       let src = transSIMDOprToExpr bld eSize dataSize elements src
-      let result = Array.map (fun s -> fpRoundingMode s eSize bld) src
+      let result = Array.map (fun s -> fpRoundingMode s eSize) src
       dstAssignForSIMD dstA dstB result dataSize elements bld
     | _ ->
       raise InvalidOperandException

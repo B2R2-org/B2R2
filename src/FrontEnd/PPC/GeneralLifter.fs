@@ -586,7 +586,7 @@ let fctiw ins updateCond bld =
     let struct (frd, frb) = transTwoOprs ins bld
     let src = tmpVar bld 64<rt>
     src := frb
-    roundingToCastInt bld frd src
+    frd := roundingToCastInt src
     saturateWord bld frd src
     setFPRF bld frd
     if updateCond then setCR1Reg bld else ()
@@ -2366,7 +2366,7 @@ let private toUInt64 bld dst src truncate =
     if truncate then
       dst := AST.floatToSInt RoundingMode.TowardZero 64<rt> adjusted
     else
-      roundingToCastInt bld dst adjusted
+      dst := roundingToCastInt adjusted
     dst := AST.ite big (dst .+ numU64 0x8000000000000000UL 64<rt>) dst
   }
 
@@ -2408,7 +2408,7 @@ let fcti ins updateCond bld width signed truncate =
     elif truncate then
       converted := AST.floatToSInt RoundingMode.TowardZero 64<rt> src
     else
-      roundingToCastInt bld converted src
+      converted := roundingToCastInt src
     frd := AST.zext 64<rt> (AST.xtlo width converted)
     saturateInt bld frd src converted width signed
     if updateCond then setCR1Reg bld else ()

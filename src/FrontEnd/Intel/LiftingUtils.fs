@@ -848,66 +848,113 @@ let halfToSingle h =
   let sub =
     AST.fmul (AST.cast CastKind.SIntToFloat 32<rt> frac)
              (numI32 0x33800000 32<rt>)
-  let special = numI32 0x7F800000 32<rt> .| shifted
+  (* A signalling half widens to a QUIET float: the conversion quiets the NaN
+     it passes on and keeps its payload, so the exponent and the fraction are
+     not the whole of it. An infinity has no fraction and nothing to quiet. *)
+  let quiet =
+    AST.ite (frac == AST.num0 32<rt>)
+            (AST.num0 32<rt>)
+            (numI32 0x400000 32<rt>)
+  let special = numI32 0x7F800000 32<rt> .| shifted .| quiet
   let normal = ((expo .+ numI32 112 32<rt>) << numI32 23 32<rt>) .| shifted
   let finite = AST.ite (expo == AST.num0 32<rt>) sub normal
   sign .| AST.ite (expo == numI32 31 32<rt>) special finite
 
+/// <summary>
+/// The direction MXCSR.RC names, as the mode expression a <c>RoundCtrl</c>
+/// takes: the field's two bits are the IR's own encoding, so the read is a
+/// shift and a mask and nothing more.
+///
+/// A rounding the IR performs needs none of this -- an expression no RoundCtrl
+/// encloses is already rounded by whatever MXCSR holds. It is a rounding done
+/// in integer arithmetic, as the narrowing to a half below is, that has to ask
+/// outright.
+/// </summary>
+let mxcsrRounding bld =
+  let rc = (regVar bld R.MXCSR >> numI32 13 32<rt>) .& numI32 3 32<rt>
+  AST.xtlo RoundingMode.modeType rc
+
+/// Whether the direction in force is round-to-nearest and, where it is not,
+/// whether it points away from zero for a value of this sign: the two things
+/// every step of the narrowing below turns on.
+let private halfDirection mode isNeg =
+  let named m = AST.roundingMode m
+  let toNearest = mode == named RoundingMode.ToNearestEven
+  (* A directed rounding points away from zero for a negative value under
+     round toward negative infinity and for a positive one under round toward
+     positive infinity; the other two pairs point at it, as round toward zero
+     does for either sign. *)
+  let outward =
+    AST.ite isNeg
+            (mode == named RoundingMode.TowardNegative)
+            (mode == named RoundingMode.TowardPositive)
+  struct (toNearest, outward)
+
+/// What is added to a single's fraction before its low thirteen bits are
+/// dropped: half a step and the low bit of what survives for round to nearest
+/// with ties to even, one short of a whole step for a direction pointing away
+/// from zero, and nothing for one pointing at it.
+let private halfBias frac toNearest outward =
+  let odd = (frac >> numI32 13 32<rt>) .& AST.num1 32<rt>
+  AST.ite toNearest
+          (numI32 0x0FFF 32<rt> .+ odd)
+          (AST.ite outward (numI32 0x1FFF 32<rt>) (AST.num0 32<rt>))
+
+/// A value below the smallest normal half, which is not had by dropping bits:
+/// it is scaled up to where a half's subnormals step by one and rounded there
+/// as an integer. What is converted is the magnitude, so a direction pointing
+/// away from zero is one pointing up whichever sign the value had.
+let private halfSubnormal f toNearest outward =
+  let magnitude = f .& numI32 0x7FFFFFFF 32<rt>
+  let scaled = AST.fmul magnitude (numI32 0x4B800000 32<rt>)
+  let mode =
+    AST.ite toNearest
+            (AST.roundingMode RoundingMode.ToNearestEven)
+            (AST.ite outward
+                     (AST.roundingMode RoundingMode.TowardPositive)
+                     (AST.roundingMode RoundingMode.TowardNegative))
+  AST.roundCtrl mode (AST.cast CastKind.FloatToSInt 32<rt> scaled)
+
+/// <summary>
 /// A single-precision value narrowed to a half. This is where every
 /// half-precision operation ends: the arithmetic is done at single precision,
 /// which is wide enough that rounding its answer to a half gives what
 /// computing in half precision would have -- a single has more than twice a
 /// half's significand, and two roundings are then as good as one.
 ///
-/// `mode` is the rounding: 0 to nearest with ties to even, 1 toward negative
-/// infinity, 2 toward positive infinity, 3 toward zero. Only VCVTPS2PH names
-/// one; everything else rounds to nearest. What the mode decides is what is
-/// added before the low thirteen bits are dropped, which way a value below the
-/// smallest normal half is rounded to an integer, and whether one too large
-/// becomes an infinity or the largest finite half.
+/// <c>mode</c> is the direction, as an eight-bit expression in the
+/// <see cref='T:B2R2.BinIR.RoundingMode'/> encoding, which is MXCSR.RC's own:
+/// 0 to nearest with ties to even, 1 toward negative infinity, 2 toward
+/// positive infinity, 3 toward zero. It is an expression rather than a
+/// constant because the narrowing is built out of integer arithmetic rather
+/// than out of an IR rounding, and so cannot be left to the control register
+/// the way the single-precision arithmetic ahead of it is: what MXCSR holds is
+/// not known while lifting, so the direction is read from it and the three
+/// places the direction is felt are decided at run time. Those three are what
+/// is added before the low thirteen bits are dropped, which way a value below
+/// the smallest normal half is rounded to an integer, and whether one too
+/// large becomes an infinity or the largest finite half.
+/// </summary>
 let singleToHalfWith mode f =
   let expo = (f >> numI32 23 32<rt>) .& numI32 0xFF 32<rt>
   let frac = f .& numI32 0x7FFFFF 32<rt>
   let sign = (f >> numI32 16 32<rt>) .& numI32 0x8000 32<rt>
-  let isNeg = AST.xthi 1<rt> f
-  let magnitude = f .& numI32 0x7FFFFFFF 32<rt>
-  let scaled = AST.fmul magnitude (numI32 0x4B800000 32<rt>)
-  let away = numI32 0x1FFF 32<rt>
-  let none = AST.num0 32<rt>
-  let odd = (frac >> numI32 13 32<rt>) .& AST.num1 32<rt>
-  let bias =
-    match mode with
-    | 1 -> AST.ite isNeg away none
-    | 2 -> AST.ite isNeg none away
-    | 3 -> none
-    | _ -> numI32 0x0FFF 32<rt> .+ odd
-  let toInt =
-    let up = AST.floatToSInt RoundingMode.TowardPositive 32<rt> scaled
-    let down = AST.floatToSInt RoundingMode.TowardNegative 32<rt> scaled
-    match mode with
-    | 1 -> AST.ite isNeg up down
-    | 2 -> AST.ite isNeg down up
-    | 3 -> AST.floatToSInt RoundingMode.TowardZero 32<rt> scaled
-    | _ -> AST.floatToSInt RoundingMode.ToNearestEven 32<rt> scaled
+  let struct (toNearest, outward) = halfDirection mode (AST.xthi 1<rt> f)
   let infinity = numI32 0x7C00 32<rt>
-  let biggest = numI32 0x7BFF 32<rt>
-  let tooBig =
-    match mode with
-    | 1 -> AST.ite isNeg infinity biggest
-    | 2 -> AST.ite isNeg biggest infinity
-    | 3 -> biggest
-    | _ -> infinity
-  let rounded = (frac .+ bias) >> numI32 13 32<rt>
+  let tooBig = AST.ite (toNearest .| outward) infinity (numI32 0x7BFF 32<rt>)
+  let rounded = (frac .+ halfBias frac toNearest outward) >> numI32 13 32<rt>
   let normal = ((expo .- numI32 112 32<rt>) << numI32 10 32<rt>) .+ rounded
   let nan = numI32 0x7E00 32<rt> .| (frac >> numI32 13 32<rt>)
   let special = AST.ite (frac == AST.num0 32<rt>) infinity nan
+  let toInt = halfSubnormal f toNearest outward
   let small = AST.ite (expo .<= numI32 112 32<rt>) toInt normal
   let finite = AST.ite (expo .>= numI32 143 32<rt>) tooBig small
   AST.xtlo 16<rt> (sign .| AST.ite (expo == numI32 255 32<rt>) special finite)
 
 /// The narrowing every half-precision operation but VCVTPS2PH performs, which
-/// rounds to nearest with ties to even.
-let singleToHalf f = singleToHalfWith 0 f
+/// rounds in whichever direction MXCSR names, as the arithmetic ahead of it
+/// does.
+let singleToHalf bld f = singleToHalfWith (mxcsrRounding bld) f
 
 let sideEffects (ins: Instruction) bld name =
   lift bld ins {

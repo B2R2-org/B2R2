@@ -125,6 +125,66 @@ let private toSingle e = AST.cast CastKind.FloatCast 32<rt> e
 let private toDouble e = AST.cast CastKind.FloatCast 64<rt> e
 
 /// <summary>
+/// How an instruction rounds, which its qualifier names by its last letter:
+/// chopped toward zero, toward minus infinity, the direction FPCR holds, or --
+/// where the qualifier names none -- to the nearest.
+///
+/// Nothing else in the qualifier bears on what is computed -- the rest says
+/// what to trap on, and a trap is not something this models -- so this is the
+/// whole of what the qualifier is read for.
+/// </summary>
+type private Rounding =
+  /// Toward zero.
+  | Chopped
+  /// Toward minus infinity.
+  | MinusInfinity
+  /// Whichever direction FPCR names, which is what a compiler emits for code
+  /// that has called fesetround.
+  | Dynamic
+  /// To the nearest, ties to even, which is how the machine rounds when the
+  /// qualifier names no mode at all.
+  | Nearest
+
+/// Returns how the given qualifier rounds.
+let private roundingOf qualifier =
+  match qualifier with
+  | Qualifier.C | Qualifier.UC | Qualifier.SUC | Qualifier.SUIC
+  | Qualifier.SC | Qualifier.VC | Qualifier.SVC | Qualifier.SVIC ->
+    Chopped
+  | Qualifier.M | Qualifier.UM | Qualifier.SUM | Qualifier.SUIM
+  | Qualifier.VM | Qualifier.SVM | Qualifier.SVIM ->
+    MinusInfinity
+  | Qualifier.D | Qualifier.UD | Qualifier.SUD | Qualifier.SUID
+  | Qualifier.VD | Qualifier.SVD | Qualifier.SVID ->
+    Dynamic
+  | _ ->
+    Nearest
+
+/// <summary>
+/// The direction an instruction's qualifier names, as the mode expression a
+/// <c>RoundCtrl</c> takes, or None where the qualifier says dynamic.
+///
+/// Dynamic names no direction of its own: what is in force outside every
+/// RoundCtrl is FPCR, which is exactly what the qualifier asks for, so there
+/// is nothing to wrap. Every other qualifier names one outright -- the default
+/// among them, which is why an instruction with no qualifier at all is wrapped
+/// rather than left to FPCR.
+/// </summary>
+let private staticRounding (ins: Instruction) =
+  match roundingOf ins.Qualifier with
+  | Chopped -> Some(AST.roundingMode RoundingMode.TowardZero)
+  | MinusInfinity -> Some(AST.roundingMode RoundingMode.TowardNegative)
+  | Dynamic -> None
+  | Nearest -> Some(AST.roundingMode RoundingMode.ToNearestEven)
+
+/// One expression evaluated in the direction the qualifier named, where it
+/// named one. An instruction whose qualifier says dynamic is left alone.
+let private underRounding mode value =
+  match mode with
+  | Some m -> AST.roundCtrl m value
+  | None -> value
+
+/// <summary>
 /// The arithmetic of two registers, done at the width the instruction names.
 ///
 /// A single-precision instruction is the interesting half: its operands come
@@ -140,7 +200,7 @@ let private arith ins bld isSingle op =
     let v =
       if isSingle then toDouble (op (toSingle a) (toSingle b))
       else op a b
-    regWrite bld (getReg o3) v
+    regWrite bld (getReg o3) (underRounding (staticRounding ins) v)
   }
 
 let adds ins bld = arith ins bld true AST.fadd
@@ -167,7 +227,7 @@ let private sqrt ins bld isSingle =
     let r =
       if isSingle then toDouble (AST.fsqrt (toSingle v))
       else AST.fsqrt v
-    regWrite bld (getReg o2) r
+    regWrite bld (getReg o2) (underRounding (staticRounding ins) r)
   }
 
 let sqrts ins bld = sqrt ins bld true
@@ -204,52 +264,18 @@ let cmptun ins bld =
   compare ins bld unordered
 
 /// <summary>
-/// How an instruction rounds, which its qualifier names by its last letter:
-/// chopped toward zero, toward minus infinity, or the mode the floating-point
-/// control register holds.
-///
-/// Nothing else in the qualifier bears on what is computed -- the rest says
-/// what to trap on, and a trap is not something this models -- so this is the
-/// whole of what the qualifier is read for.
-/// </summary>
-type private Rounding =
-  /// Toward zero.
-  | Chopped
-  /// Toward minus infinity.
-  | MinusInfinity
-  /// To the nearest, ties to even, which is how the machine rounds when the
-  /// qualifier names no mode at all.
-  | Nearest
-
-/// Returns how the given qualifier rounds.
-let private roundingOf qualifier =
-  match qualifier with
-  | Qualifier.C | Qualifier.UC | Qualifier.SUC | Qualifier.SUIC
-  | Qualifier.SC | Qualifier.VC | Qualifier.SVC | Qualifier.SVIC ->
-    Chopped
-  | Qualifier.M | Qualifier.UM | Qualifier.SUM | Qualifier.SUIM
-  | Qualifier.VM | Qualifier.SVM | Qualifier.SVIM ->
-    MinusInfinity
-  | _ ->
-    Nearest
-
-/// <summary>
 /// cvttq: a floating-point number turned into the two's-complement one it
 /// stands for, rounded the way the qualifier says.
 ///
-/// A dynamic qualifier names the mode the control register holds, which this
-/// reads as the nearest: what the register holds is not known while lifting,
-/// and every mode a compiler emits it for is named outright instead.
+/// A dynamic qualifier names whatever direction FPCR holds, and the conversion
+/// is then left bare: what rounds an expression no <c>RoundCtrl</c> encloses is
+/// the target's own control register, which is what dynamic asks for.
 /// </summary>
 let cvttq (ins: Instruction) bld =
   lift bld ins {
     let struct (o1, o2) = getTwoOprs ins
-    let mode =
-      match roundingOf ins.Qualifier with
-      | Chopped -> RoundingMode.TowardZero
-      | MinusInfinity -> RoundingMode.TowardNegative
-      | Nearest -> RoundingMode.ToNearestEven
-    regWrite bld (getReg o2) (AST.floatToSInt mode 64<rt> (transOpr bld o1))
+    let v = AST.cast CastKind.FloatToSInt 64<rt> (transOpr bld o1)
+    regWrite bld (getReg o2) (underRounding (staticRounding ins) v)
   }
 
 /// The integer conversions the other way, which read a whole quadword and
@@ -258,7 +284,8 @@ let private intToFloat ins bld isSingle =
   lift bld ins {
     let struct (o1, o2) = getTwoOprs ins
     let v = AST.cast CastKind.SIntToFloat 64<rt> (transOpr bld o1)
-    regWrite bld (getReg o2) (if isSingle then toDouble (toSingle v) else v)
+    let v = if isSingle then toDouble (toSingle v) else v
+    regWrite bld (getReg o2) (underRounding (staticRounding ins) v)
   }
 
 let cvtqs ins bld = intToFloat ins bld true
@@ -270,7 +297,8 @@ let cvtqt ins bld = intToFloat ins bld false
 let cvtts ins bld =
   lift bld ins {
     let struct (o1, o2) = getTwoOprs ins
-    regWrite bld (getReg o2) (toDouble (toSingle (transOpr bld o1)))
+    let v = toDouble (toSingle (transOpr bld o1))
+    regWrite bld (getReg o2) (underRounding (staticRounding ins) v)
   }
 
 /// <summary>
@@ -581,7 +609,7 @@ let private vaxArith ins bld isF op =
     let b = ofG (transOpr bld o2)
     let r = op a b
     let r = if isF then toDouble (toSingle r) else r
-    regWrite bld (getReg o3) (toG r)
+    regWrite bld (getReg o3) (underRounding (staticRounding ins) (toG r))
   }
 
 let addf ins bld = vaxArith ins bld true AST.fadd
@@ -606,7 +634,7 @@ let private vaxSqrt ins bld isF =
     let struct (o1, o2) = getTwoOprs ins
     let r = AST.fsqrt (ofG (transOpr bld o1))
     let r = if isF then toDouble (toSingle r) else r
-    regWrite bld (getReg o2) (toG r)
+    regWrite bld (getReg o2) (underRounding (staticRounding ins) (toG r))
   }
 
 let sqrtf ins bld = vaxSqrt ins bld true
@@ -639,8 +667,8 @@ let cmpgle ins bld = vaxCompare ins bld AST.fle
 let cvtgf ins bld =
   lift bld ins {
     let struct (o1, o2) = getTwoOprs ins
-    let v = ofG (transOpr bld o1)
-    regWrite bld (getReg o2) (toG (toDouble (toSingle v)))
+    let v = toG (toDouble (toSingle (ofG (transOpr bld o1))))
+    regWrite bld (getReg o2) (underRounding (staticRounding ins) v)
   }
 
 /// cvtgq: a G_floating number turned into the two's-complement one it stands
@@ -648,13 +676,9 @@ let cvtgf ins bld =
 let cvtgq (ins: Instruction) bld =
   lift bld ins {
     let struct (o1, o2) = getTwoOprs ins
-    let mode =
-      match roundingOf ins.Qualifier with
-      | Chopped -> RoundingMode.TowardZero
-      | MinusInfinity -> RoundingMode.TowardNegative
-      | Nearest -> RoundingMode.ToNearestEven
-    let v = AST.floatToSInt mode 64<rt> (ofG (transOpr bld o1))
-    regWrite bld (getReg o2) v
+    let src = ofG (transOpr bld o1)
+    let v = AST.cast CastKind.FloatToSInt 64<rt> src
+    regWrite bld (getReg o2) (underRounding (staticRounding ins) v)
   }
 
 /// cvtqf/cvtqg: a whole quadword turned into a VAX number of either width.
@@ -663,7 +687,7 @@ let private intToVax ins bld isF =
     let struct (o1, o2) = getTwoOprs ins
     let v = AST.cast CastKind.SIntToFloat 64<rt> (transOpr bld o1)
     let v = if isF then toDouble (toSingle v) else v
-    regWrite bld (getReg o2) (toG v)
+    regWrite bld (getReg o2) (underRounding (staticRounding ins) (toG v))
   }
 
 let cvtqf ins bld = intToVax ins bld true
