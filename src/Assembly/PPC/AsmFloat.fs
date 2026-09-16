@@ -107,6 +107,21 @@ let private fpReadStatusLight ins =
   | [ Rg d ] -> xForm 63u (fpr d) 24u 0u 583u 0u
   | _ -> wrongOperands ins
 
+/// mffscrn, which reads that register and then puts the rounding mode a
+/// floating-point register names in force. What tells it from mffs is again
+/// the field above the register, which no register of its own fills.
+let private fpReadStatusSetRound ins =
+  match ins.Operands with
+  | [ Rg d; Rg b ] -> xForm 63u (fpr d) 22u (fpr b) 583u 0u
+  | _ -> wrongOperands ins
+
+/// mffscrni, which names the rounding mode it puts in force outright, in the
+/// two lowest bits of the field a register would have been named in.
+let private fpReadStatusSetRoundImm ins =
+  match ins.Operands with
+  | [ Rg d; Im m ] -> xForm 63u (fpr d) 23u (unsigned 2 m) 583u 0u
+  | _ -> wrongOperands ins
+
 /// mtfsf, whose mask says which fields of that register it writes and lies
 /// across the two fields the other forms keep registers in.
 let private fpWriteStatus rc ins =
@@ -196,6 +211,8 @@ let private memoryAndStatusEncoders () =
     Op.STFSUX, fpIndexed 695u
     Op.STFDX, fpIndexed 727u
     Op.STFDUX, fpIndexed 759u
+    Op.LFIWAX, fpIndexed 855u
+    Op.LFIWZX, fpIndexed 887u
     Op.STFIWX, fpIndexed 983u
     Op.FCMPU, fpCompare 0u
     Op.FCMPO, fpCompare 32u
@@ -205,6 +222,8 @@ let private memoryAndStatusEncoders () =
     Op.MFFS, fpReadStatus 0u
     Op.MFFSdot, fpReadStatus 1u
     Op.MFFSL, fpReadStatusLight
+    Op.MFFSCRN, fpReadStatusSetRound
+    Op.MFFSCRNI, fpReadStatusSetRoundImm
     Op.MTFSF, fpWriteStatus 0u
     Op.MTFSFdot, fpWriteStatus 1u
     Op.FCPSGN, fpArith 63u 8u 0u ]

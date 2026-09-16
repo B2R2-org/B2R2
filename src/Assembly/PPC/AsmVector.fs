@@ -280,6 +280,8 @@ let private shuffleEncoders () =
     Op.VUPKHSH, vx2 590u
     Op.VUPKLSB, vx2 654u
     Op.VUPKLSH, vx2 718u
+    Op.VUPKHSW, vx2 1614u
+    Op.VUPKLSW, vx2 1742u
     Op.VGBBD, vx2 1292u
     Op.VCLZB, vx2 1794u
     Op.VCLZH, vx2 1858u
@@ -318,16 +320,11 @@ let private vectorCompareEncoders () =
       recording vc 902u Op.VCMPGTSW Op.VCMPGTSWdot
       recording vc 967u Op.VCMPGTSD Op.VCMPGTSDdot ]
 
-/// The instructions on the vector-scalar registers: the logic on a whole
-/// register, the ones that shuffle its halves and its words, and the arithmetic
-/// on the one double-precision number it holds.
-let private scalarVectorEncoders () =
-  [ Op.XSADDDP, xx3 32u
-    Op.XSSUBDP, xx3 40u
-    Op.XSDIVDP, xx3 56u
-    Op.XSCPSGNDP, xx3 176u
-    Op.XSCMPUDP, xx3Compare 35u
-    Op.XXLAND, xx3 130u
+/// The logic on the whole of a vector-scalar register, and the instructions
+/// that take their answer from the halves, the words or the bytes of one
+/// rather than from the number it holds.
+let private wideLogicEncoders () =
+  [ Op.XXLAND, xx3 130u
     Op.XXLANDC, xx3 138u
     Op.XXLOR, xx3 146u
     Op.XXLXOR, xx3 154u
@@ -338,11 +335,82 @@ let private scalarVectorEncoders () =
     Op.XXPERMDI, xx3Pick 10u
     Op.XXSLDWI, xx3Pick 2u
     Op.XXSPLTW, xx2Splat
-    Op.XXSPLTIB, xx2SplatByte
+    Op.XXSPLTIB, xx2SplatByte ]
+
+/// <summary>
+/// The arithmetic on the one floating-point number a vector-scalar register
+/// holds.
+///
+/// Most of it is written twice, once for what it does to a single-precision
+/// number and once for a double-precision one, and the two differ only in
+/// their extended opcode; the ones that touch only a number's sign are written
+/// once, because how wide the number is does not change where its sign sits.
+/// </summary>
+let private scalarArithmeticEncoders () =
+  [ Op.XSADDSP, xx3 0u
+    Op.XSSUBSP, xx3 8u
+    Op.XSMULSP, xx3 16u
+    Op.XSDIVSP, xx3 24u
+    Op.XSADDDP, xx3 32u
+    Op.XSSUBDP, xx3 40u
+    Op.XSMULDP, xx3 48u
+    Op.XSDIVDP, xx3 56u
+    Op.XSMAXDP, xx3 160u
+    Op.XSMINDP, xx3 168u
+    Op.XSCPSGNDP, xx3 176u
+    Op.XSCMPUDP, xx3Compare 35u
+    Op.XSSQRTSP, xx2 11u
+    Op.XSSQRTDP, xx2 75u
+    Op.XSABSDP, xx2 345u
+    Op.XSNABSDP, xx2 361u
+    Op.XSNEGDP, xx2 377u ]
+
+/// <summary>
+/// The sixteen instructions that multiply and then add as one instruction.
+///
+/// Three things tell them apart: how wide the number is, which of the two
+/// answers is negated, and which register the product is taken from -- the one
+/// the answer goes to, which is what a name holding an "a" says, or the one
+/// holding what is added, which is what an "m" says.
+/// </summary>
+let private scalarMultiplyAddEncoders () =
+  [ Op.XSMADDASP, xx3 1u
+    Op.XSMADDMSP, xx3 9u
+    Op.XSMSUBASP, xx3 17u
+    Op.XSMSUBMSP, xx3 25u
+    Op.XSMADDADP, xx3 33u
+    Op.XSMADDMDP, xx3 41u
+    Op.XSMSUBADP, xx3 49u
+    Op.XSMSUBMDP, xx3 57u
+    Op.XSNMADDASP, xx3 129u
+    Op.XSNMADDMSP, xx3 137u
+    Op.XSNMSUBASP, xx3 145u
+    Op.XSNMSUBMSP, xx3 153u
+    Op.XSNMADDADP, xx3 161u
+    Op.XSNMADDMDP, xx3 169u
+    Op.XSNMSUBADP, xx3 177u
+    Op.XSNMSUBMDP, xx3 185u ]
+
+/// The roundings of the number a vector-scalar register holds, and the
+/// conversions between how wide it is written and what it counts.
+let private scalarConvertEncoders () =
+  [ Op.XSCVDPUXWS, xx2 72u
+    Op.XSRDPI, xx2 73u
+    Op.XSCVDPSXWS, xx2 88u
+    Op.XSRDPIZ, xx2 89u
+    Op.XSRDPIP, xx2 105u
+    Op.XSRDPIM, xx2 121u
+    Op.XSCVDPSP, xx2 265u
     Op.XSCVDPSPN, xx2 267u
     Op.XSRSP, xx2 281u
+    Op.XSCVUXDSP, xx2 296u
+    Op.XSCVSXDSP, xx2 312u
+    Op.XSCVDPUXDS, xx2 328u
+    Op.XSCVSPDP, xx2 329u
     Op.XSCVSPDPN, xx2 331u
-    Op.XSABSDP, xx2 345u ]
+    Op.XSCVDPSXDS, xx2 344u
+    Op.XSCVUXDDP, xx2 360u
+    Op.XSCVSXDDP, xx2 376u ]
 
 /// Every instruction on the wide registers.
 let vectorEncoders () =
@@ -351,4 +419,7 @@ let vectorEncoders () =
       elementwiseEncoders ()
       shuffleEncoders ()
       vectorCompareEncoders ()
-      scalarVectorEncoders () ]
+      wideLogicEncoders ()
+      scalarArithmeticEncoders ()
+      scalarMultiplyAddEncoders ()
+      scalarConvertEncoders () ]
