@@ -54,6 +54,8 @@ let translate (ins: Instruction) (bld: LowUIRBuilder) =
     aui ins bld
   | Op.B ->
     b ins bld
+  | Op.NAL ->
+    nal ins bld
   | Op.BAL ->
     bal ins bld
   | Op.BC1F ->
@@ -554,7 +556,9 @@ let translate (ins: Instruction) (bld: LowUIRBuilder) =
     fpSelect ins bld 0
   | Op.SELEQZ when ins.Fmt <> None ->
     fpSelect ins bld 1
-  | Op.SELNEZ when ins.Fmt <> None ->
+  (* The floating-point one has a name of its own in the manual, and it is
+     not the integer one's: SELNEQZ.fmt, where the integer is SELNEZ. *)
+  | Op.SELNEQZ ->
     fpSelect ins bld 2
   | Op.MIN ->
     fpMinMax ins bld false false

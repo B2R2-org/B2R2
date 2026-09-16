@@ -223,13 +223,17 @@ let decomposeMnemonic (mnemonic: string) =
 /// so a source writes them as a value and they are not places here.
 /// </summary>
 let takesPlace = function
-  | Opcode.B | Opcode.BAL | Opcode.BEQ | Opcode.BEQL | Opcode.BNE
+  | Opcode.B | Opcode.BAL | Opcode.NAL | Opcode.BEQ | Opcode.BEQL | Opcode.BNE
   | Opcode.BNEL | Opcode.BGEZ | Opcode.BGEZAL | Opcode.BGTZ | Opcode.BLEZ
   | Opcode.BLTZ | Opcode.BLTZAL | Opcode.BC1F | Opcode.BC1T
   (* The branch-likely forms name a place the same way the ordinary ones do;
      nullifying the delay slot changes what runs, not how far it reaches. *)
   | Opcode.BGEZL | Opcode.BGTZL | Opcode.BLEZL | Opcode.BLTZL
   | Opcode.BGEZALL | Opcode.BLTZALL | Opcode.BC1FL | Opcode.BC1TL
+  (* The two the second encoding adds, which branch and leave a return
+     address behind for a short delay slot. They name a place the way the
+     ones above them do; how long the slot is changes what runs in it. *)
+  | Opcode.BGEZALS | Opcode.BLTZALS
   (* The Release 6 compact branches. Having no delay slot changes what
      runs after them, not how they name where to go. The PC-relative loads
      name a place too -- what they fetch is at a distance from here -- while

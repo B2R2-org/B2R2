@@ -211,6 +211,25 @@ let bal ins (bld: LowUIRBuilder) =
     nPC := offset
   }
 
+/// <summary>
+/// NAL links and does not branch, which is BLTZAL's condition read on the
+/// register that is always zero.
+///
+/// A program uses it to find out where it is: the architecture gives it no
+/// other way to read the PC, and the return address a link leaves behind is
+/// the address after the delay slot. The slot still runs, and what follows it
+/// is what would have followed anyway -- so the only thing this writes is
+/// r31.
+/// </summary>
+let nal ins (bld: LowUIRBuilder) =
+  liftTransfer bld ins {
+    let pc = regVar bld R.PC
+    let nPC = regVar bld R.NPC
+    bld.DelayedBranch <- InterJmpKind.Base
+    regVar bld R.R31 := pc .+ numI32 8 bld.RegType
+    nPC := pc .+ numI32 8 bld.RegType
+  }
+
 let private fpConditionCode cc bld =
   let fcsr = regVar bld R.FCSR
   if cc = 0 then

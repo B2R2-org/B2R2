@@ -751,6 +751,11 @@ let private trapImm rt ins =
 let branchEncoders () =
   [ Opcode.B, branchAlways 0b000100u 0u 0u
     Opcode.BAL, branchAlways 0b000001u 0u 0b10001u
+    (* NAL is the same shape as BAL at the other condition: REGIMM, rs = 0,
+       and the rt field naming BLTZAL. It takes an offset and no register,
+       because the register the condition would read is the one that is
+       always zero. *)
+    Opcode.NAL, branchAlways 0b000001u 0u 0b10000u
     Opcode.BEQ, branchOnPair 0b000100u
     Opcode.BNE, branchOnPair 0b000101u
     Opcode.BEQL, branchOnPair 0b010100u
